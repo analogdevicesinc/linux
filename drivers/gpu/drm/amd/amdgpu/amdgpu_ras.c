@@ -596,8 +596,14 @@ static ssize_t amdgpu_ras_debugfs_ctrl_write(struct file *f,
 		ret = amdgpu_ras_feature_enable(adev, &data.head, 1);
 		break;
 	case 2:
-		/* umc ce/ue error injection for a bad page is not allowed */
-		if (data.head.block == AMDGPU_RAS_BLOCK__UMC)
+		/*
+		 * UMC ce/ue error injection for a bad page is not allowed. For
+		 * uniras (SMU v13+) devices the injection address is validated by
+		 * the ras_mgr inject handler, so only run the legacy bad page
+		 * check for the legacy RAS path.
+		 */
+		if (data.head.block == AMDGPU_RAS_BLOCK__UMC &&
+		    !amdgpu_uniras_enabled(adev))
 			ret = amdgpu_ras_check_bad_page(adev, data.inject.address);
 		if (ret == -EINVAL) {
 			dev_warn(adev->dev, "RAS WARN: input address 0x%llx is invalid.",
@@ -1430,7 +1436,7 @@ static int amdgpu_uniras_clear_badpages_info(struct amdgpu_device *adev)
 				&req, sizeof(req), NULL, 0);
 	if (ret) {
 		dev_err(adev->dev, "Failed to clear bad pages info, ret: %d\n", ret);
-		return ret;
+		return -EINVAL;
 	}
 
 	return 0;
@@ -1530,7 +1536,7 @@ static int amdgpu_uniras_error_inject(struct amdgpu_device *adev,
 	inject_req.method = info->value;
 
 	return amdgpu_ras_mgr_handle_ras_cmd(adev, RAS_CMD__INJECT_ERROR,
-			&inject_req, sizeof(inject_req), &rsp, sizeof(rsp));
+	       &inject_req, sizeof(inject_req), &rsp, sizeof(rsp)) ? -EINVAL : 0;
 }
 
 /* wrapper of psp_ras_trigger_error */
@@ -3777,8 +3783,11 @@ int amdgpu_ras_block_late_init(struct amdgpu_device *adev,
 	}
 
 	if (amdgpu_uniras_enabled(adev) || (ras_obj->hw_ops &&
-	    (ras_obj->hw_ops->query_ras_error_count ||
-	     ras_obj->hw_ops->query_ras_error_status))) {
+	   (ras_obj->hw_ops->query_ras_error_count ||
+	    ras_obj->hw_ops->query_ras_error_status)) ||
+	    amdgpu_ip_version(adev, MP0_HWIP, 0) == IP_VERSION(13, 0, 14) ||
+	    amdgpu_ip_version(adev, MP0_HWIP, 0) == IP_VERSION(13, 0, 12) ||
+	    amdgpu_ip_version(adev, MP0_HWIP, 0) == IP_VERSION(13, 0, 6)) {
 		r = amdgpu_ras_sysfs_create(adev, ras_block);
 		if (r)
 			goto interrupt;
@@ -4981,7 +4990,13 @@ void amdgpu_ras_post_reset(struct amdgpu_device *adev,
 	}
 }
 
-void amdgpu_ras_resume_after_reset(struct amdgpu_device *adev)
+int amdgpu_ras_resume_after_reset(struct amdgpu_device *adev)
 {
-	amdgpu_ras_mgr_resume_after_reset(adev);
+	int r;
+
+	r = amdgpu_ras_mgr_resume_after_reset(adev);
+	if (r)
+		return r;
+
+	return amdgpu_cper_deferred_init(adev);
 }

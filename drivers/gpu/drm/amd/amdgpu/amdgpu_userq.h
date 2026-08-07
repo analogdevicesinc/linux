@@ -100,6 +100,9 @@ struct amdgpu_usermode_queue {
 		} va;
 		u64 va_array[6];
 	} userq_vas;
+
+	uint32_t	proc_ctx_array_index;
+	uint32_t	gang_ctx_array_index;
 };
 
 struct amdgpu_userq_funcs {

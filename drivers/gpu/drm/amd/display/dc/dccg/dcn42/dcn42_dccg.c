@@ -313,7 +313,7 @@ static void dccg42_init(struct dccg *dccg)
 static const struct dccg_funcs dccg42_funcs = {
 	.enable_hdmicharclk = dccg401_enable_hdmicharclk,
 	.disable_hdmicharclk = dccg42_disable_hdmicharclk,
-	.set_hdmistreamclk = dccg401_set_hdmistreamclk,
+	.set_hdmistreamclk = dccg35_set_hdmistreamclk,
 	.set_hdmistreamclk_root_clock_gating = dccg35_set_hdmistreamclk_root_clock_gating,
 	.update_dpp_dto = dccg35_update_dpp_dto,
 	.dpp_root_clock_control = dccg35_dpp_root_clock_control,

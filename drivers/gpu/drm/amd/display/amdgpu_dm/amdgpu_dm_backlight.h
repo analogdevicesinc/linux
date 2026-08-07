@@ -28,6 +28,10 @@ struct amdgpu_display_manager;
 struct amdgpu_dm_connector;
 struct backlight_device;
 struct backlight_properties;
+struct dc_link;
+struct dc_stream_state;
+struct device;
+struct device_attribute;
 struct drm_connector;
 struct attribute_group;
 
@@ -49,6 +53,17 @@ bool amdgpu_dm_should_create_sysfs(struct amdgpu_dm_connector *aconnector);
 extern const struct attribute_group amdgpu_group;
 
 #if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
+struct dc_stream_state *dm_find_stream_with_link(struct amdgpu_display_manager *dm,
+						 struct dc_link *link);
+int amdgpu_dm_backlight_update_status(struct backlight_device *bd);
+u32 amdgpu_dm_backlight_get_level(struct amdgpu_display_manager *dm, int bl_idx);
+int amdgpu_dm_backlight_get_brightness(struct backlight_device *bd);
+ssize_t panel_power_savings_show(struct device *device,
+				 struct device_attribute *attr,
+				 char *buf);
+ssize_t panel_power_savings_store(struct device *device,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count);
 int get_brightness_range(const struct amdgpu_dm_backlight_caps *caps,
 			 unsigned int *min, unsigned int *max);
 void convert_custom_brightness(const struct amdgpu_dm_backlight_caps *caps,

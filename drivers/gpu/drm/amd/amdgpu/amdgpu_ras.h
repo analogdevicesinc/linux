@@ -980,5 +980,5 @@ void amdgpu_ras_pre_reset(struct amdgpu_device *adev,
 					  struct list_head *device_list);
 void amdgpu_ras_post_reset(struct amdgpu_device *adev,
 					  struct list_head *device_list);
-void amdgpu_ras_resume_after_reset(struct amdgpu_device *adev);
+int amdgpu_ras_resume_after_reset(struct amdgpu_device *adev);
 #endif

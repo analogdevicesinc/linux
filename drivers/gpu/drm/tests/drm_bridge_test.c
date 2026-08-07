@@ -74,26 +74,6 @@ static void drm_test_bridge_priv_destroy(struct drm_bridge *bridge)
 	priv->destroyed = true;
 }
 
-static void drm_test_bridge_enable(struct drm_bridge *bridge)
-{
-	struct drm_bridge_priv *priv = bridge_to_priv(bridge);
-
-	priv->enable_count++;
-}
-
-static void drm_test_bridge_disable(struct drm_bridge *bridge)
-{
-	struct drm_bridge_priv *priv = bridge_to_priv(bridge);
-
-	priv->disable_count++;
-}
-
-static const struct drm_bridge_funcs drm_test_bridge_legacy_funcs = {
-	.destroy		= drm_test_bridge_priv_destroy,
-	.enable			= drm_test_bridge_enable,
-	.disable		= drm_test_bridge_disable,
-};
-
 static void drm_test_bridge_atomic_enable(struct drm_bridge *bridge,
 					  struct drm_atomic_commit *state)
 {
@@ -695,35 +675,8 @@ retry_state:
 	drm_modeset_acquire_fini(&ctx);
 }
 
-/*
- * Test that drm_bridge_get_current_state() returns NULL for a
- * non-atomic bridge.
- */
-static void drm_test_drm_bridge_get_current_state_legacy(struct kunit *test)
-{
-	struct drm_bridge_init_priv *priv;
-	struct drm_bridge *bridge;
-
-	priv = drm_test_bridge_init(test, &drm_test_bridge_legacy_funcs);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, priv);
-
-	/*
-	 * NOTE: Strictly speaking, we should take the bridge->base.lock
-	 * before calling that function. However, bridge->base is only
-	 * initialized if the bridge is atomic, while we explicitly
-	 * initialize one that isn't there.
-	 *
-	 * In order to avoid unnecessary warnings, let's skip the
-	 * locking. The function would return NULL in all cases anyway,
-	 * so we don't really have any concurrency to worry about.
-	 */
-	bridge = &priv->test_bridge->bridge;
-	KUNIT_EXPECT_NULL(test, drm_bridge_get_current_state(bridge));
-}
-
 static struct kunit_case drm_bridge_get_current_state_tests[] = {
 	KUNIT_CASE(drm_test_drm_bridge_get_current_state_atomic),
-	KUNIT_CASE(drm_test_drm_bridge_get_current_state_legacy),
 	{ }
 };
 
@@ -829,62 +782,6 @@ retry_reset:
 }
 
 /*
- * Test that a non-atomic bridge is properly power-cycled when calling
- * drm_bridge_helper_reset_crtc().
- */
-static void drm_test_drm_bridge_helper_reset_crtc_legacy(struct kunit *test)
-{
-	struct drm_modeset_acquire_ctx ctx;
-	struct drm_bridge_init_priv *priv;
-	struct drm_display_mode *mode;
-	struct drm_bridge_priv *bridge_priv;
-	int ret;
-
-	priv = drm_test_bridge_init(test, &drm_test_bridge_legacy_funcs);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, priv);
-
-	mode = drm_kunit_display_mode_from_cea_vic(test, &priv->drm, 16);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, mode);
-
-	drm_modeset_acquire_init(&ctx, 0);
-
-retry_commit:
-	ret = drm_kunit_helper_enable_crtc_connector(test,
-						     &priv->drm, priv->crtc,
-						     priv->connector,
-						     mode,
-						     &ctx);
-	if (ret == -EDEADLK) {
-		drm_modeset_backoff(&ctx);
-		goto retry_commit;
-	}
-	KUNIT_ASSERT_EQ(test, ret, 0);
-
-	drm_modeset_drop_locks(&ctx);
-	drm_modeset_acquire_fini(&ctx);
-
-	bridge_priv = priv->test_bridge;
-	KUNIT_ASSERT_EQ(test, bridge_priv->enable_count, 1);
-	KUNIT_ASSERT_EQ(test, bridge_priv->disable_count, 0);
-
-	drm_modeset_acquire_init(&ctx, 0);
-
-retry_reset:
-	ret = drm_bridge_helper_reset_crtc(&bridge_priv->bridge, &ctx);
-	if (ret == -EDEADLK) {
-		drm_modeset_backoff(&ctx);
-		goto retry_reset;
-	}
-	KUNIT_ASSERT_EQ(test, ret, 0);
-
-	drm_modeset_drop_locks(&ctx);
-	drm_modeset_acquire_fini(&ctx);
-
-	KUNIT_EXPECT_EQ(test, bridge_priv->enable_count, 2);
-	KUNIT_EXPECT_EQ(test, bridge_priv->disable_count, 1);
-}
-
-/*
  * Test that a bridge using the drm_atomic_helper_bridge_get_hdmi_output_bus_fmts()
  * function for &drm_bridge_funcs.atomic_get_output_bus_fmts behaves as expected
  * for an HDMI connector bridge. Does so by creating an HDMI bridge connector
@@ -970,7 +867,6 @@ retry_commit:
 static struct kunit_case drm_bridge_helper_reset_crtc_tests[] = {
 	KUNIT_CASE(drm_test_drm_bridge_helper_reset_crtc_atomic),
 	KUNIT_CASE(drm_test_drm_bridge_helper_reset_crtc_atomic_disabled),
-	KUNIT_CASE(drm_test_drm_bridge_helper_reset_crtc_legacy),
 	KUNIT_CASE(drm_test_drm_bridge_helper_hdmi_output_bus_fmts),
 	{ }
 };
@@ -1071,7 +967,7 @@ static void drm_test_bridge_chain_verify_fmt(struct kunit *test,
 	struct drm_bridge_state *bstate;
 	unsigned int i = 0;
 
-	drm_for_each_bridge_in_chain_scoped(&priv->encoder, bridge) {
+	drm_for_each_bridge_in_chain(&priv->encoder, bridge) {
 		KUNIT_ASSERT_LT(test, i, num_expected);
 
 		bstate = drm_bridge_get_current_state(bridge);

@@ -1908,6 +1908,8 @@ static void dc_dmub_srv_ib_based_fams2_update_config(struct dc *dc,
 	config->global.features.bits.enable = enable && context->bw_ctx.bw.dcn.fams2_global_config.features.bits.enable;
 	config->global.features.bits.enable_ppt_check = dc->debug.fams2_config.bits.enable_ppt_check;
 
+	dmub_srv_flush_buffer_mem(dc->ctx->dmub_srv->dmub, &dc->ctx->dmub_srv->dmub->ib_mem_gart);
+
 	dm_execute_dmub_cmd_list(dc->ctx, 1, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
 }
 
@@ -2073,7 +2075,7 @@ bool dc_dmub_srv_ips_query_residency_info(const struct dc_context *ctx, uint8_t 
 	union dmub_rb_cmd cmd;
 	uint32_t bytes = sizeof(struct dmub_ips_residency_info);
 
-	dmub_flush_buffer_mem(&ctx->dmub_srv->dmub->scratch_mem_fb);
+	dmub_srv_flush_buffer_mem(ctx->dmub_srv->dmub, &ctx->dmub_srv->dmub->scratch_mem_fb);
 	memset(&cmd, 0, sizeof(cmd));
 
 	cmd.ips_query_residency_info.header.type = DMUB_CMD__IPS;

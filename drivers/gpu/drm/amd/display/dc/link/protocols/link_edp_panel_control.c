@@ -161,9 +161,7 @@ bool edp_set_backlight_level_nits(struct dc_link *link,
 	if (link->is_dds && !link->dpcd_caps.panel_luminance_control)
 		return true;
 
-	// use internal backlight control if dmub capabilities are not present
-	if (link->backlight_control_type == BACKLIGHT_CONTROL_VESA_AUX &&
-		!link->dc->caps.dmub_caps.aux_backlight_support) {
+	if (link->backlight_control_type == BACKLIGHT_CONTROL_VESA_AUX) {
 		uint8_t backlight_enable = 0;
 		struct target_luminance_value *target_luminance = NULL;
 
@@ -273,10 +271,11 @@ bool edp_backlight_enable_aux(struct dc_link *link, bool enable)
 
 	if (link->is_dds)
 		return true;
-	if (core_link_write_dpcd(link, DP_SOURCE_BACKLIGHT_ENABLE,
-		&backlight_enable, 1) != DC_OK)
-		return false;
-
+	if (!link->dpcd_caps.panel_luminance_control) {
+		if (core_link_write_dpcd(link, DP_SOURCE_BACKLIGHT_ENABLE,
+			&backlight_enable, 1) != DC_OK)
+			return false;
+	}
 	return true;
 }
 

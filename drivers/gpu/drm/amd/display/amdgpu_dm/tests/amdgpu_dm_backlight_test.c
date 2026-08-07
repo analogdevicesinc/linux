@@ -8,19 +8,33 @@
 #include <kunit/test.h>
 #include <linux/backlight.h>
 
+#include <drm/drm_atomic_helper.h>
+#include <drm/drm_connector.h>
+#include <drm/drm_mode_config.h>
+#include <drm/drm_property.h>
+
 #include "dc.h"
+#include "dc_dmub_srv.h"
 #include "amdgpu.h"
+#include "amdgpu_display.h"
 #include "amdgpu_mode.h"
 #include "amdgpu_dm.h"
 #include "amdgpu_dm_backlight.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
 #include "amd_shared.h"
+#include "link_service.h"
 #include "dc/inc/hw/panel_cntl.h"
 
 struct dm_backlight_connector_fixture {
 	struct amdgpu_device *adev;
 	struct amdgpu_dm_connector *aconnector;
 	struct dc_link *link;
+};
+
+static const struct drm_connector_funcs dm_backlight_test_connector_funcs = {
+	.reset = drm_atomic_helper_connector_reset,
+	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
 static void setup_test_connector(struct kunit *test,
@@ -38,6 +52,631 @@ static void setup_test_connector(struct kunit *test,
 	fixture->aconnector->dc_link = fixture->link;
 	fixture->aconnector->base.dev = &fixture->adev->ddev;
 	fixture->link->connector_signal = signal;
+}
+
+static void setup_test_dm_ddev(struct kunit *test, struct amdgpu_display_manager *dm)
+{
+	dm->ddev = dm_kunit_alloc_drm_with_connector_list(test);
+}
+
+/* Tests for dm_find_stream_with_link() */
+
+/**
+ * dm_test_find_stream_with_link_returns_match - Test matching stream lookup
+ * @test: The KUnit test context
+ */
+static void dm_test_find_stream_with_link_returns_match(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *other_link = dm_kunit_alloc_link(test);
+	struct dc_link *target_link = dm_kunit_alloc_link(test);
+	struct dc_stream_state *stream;
+
+	dm_kunit_add_stream_to_state(test, dm->dc->current_state, 0, other_link);
+	dm_kunit_add_stream_to_state(test, dm->dc->current_state, 1, target_link);
+	stream = dm_find_stream_with_link(dm, target_link);
+
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+	KUNIT_EXPECT_PTR_EQ(test, stream->link, target_link);
+}
+
+/**
+ * dm_test_find_stream_with_link_missing - Test missing stream lookup
+ * @test: The KUnit test context
+ */
+static void dm_test_find_stream_with_link_missing(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *stream_link = dm_kunit_alloc_link(test);
+	struct dc_link *missing_link = dm_kunit_alloc_link(test);
+
+	dm_kunit_add_stream_to_state(test, dm->dc->current_state, 0, stream_link);
+
+	KUNIT_EXPECT_NULL(test, dm_find_stream_with_link(dm, missing_link));
+}
+
+/* Tests for amdgpu_dm_backlight_set_level() */
+
+/**
+ * dm_test_backlight_set_level_connector_off - Test connector-off cache path
+ * @test: The KUnit test context
+ *
+ * If the matching connector has no encoder, set_level() must cache the
+ * requested brightness and return before touching DC or backlight hardware.
+ */
+static void dm_test_backlight_set_level_connector_off(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct amdgpu_dm_connector *aconnector;
+
+	setup_test_dm_ddev(test, dm);
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconnector);
+	INIT_LIST_HEAD(&aconnector->base.head);
+	aconnector->bl_idx = 1;
+	aconnector->base.encoder = NULL;
+	list_add_tail(&aconnector->base.head, &dm->ddev->mode_config.connector_list);
+
+	amdgpu_dm_backlight_set_level(dm, 1, 1234);
+
+	KUNIT_EXPECT_EQ(test, dm->brightness[1], 1234U);
+	KUNIT_EXPECT_EQ(test, dm->actual_brightness[1], 0U);
+}
+
+/**
+ * dm_test_backlight_set_level_no_stream - Test no-stream early return
+ * @test: The KUnit test context
+ *
+ * With no stream for the backlight link, set_level() records the requested
+ * brightness and exits before calling the power-module programming path.
+ */
+static void dm_test_backlight_set_level_no_stream(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+
+	setup_test_dm_ddev(test, dm);
+	dm->backlight_caps[1].caps_valid = true;
+	dm->backlight_caps[1].min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
+	dm->backlight_caps[1].max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+	dm->backlight_link[1] = link;
+
+	amdgpu_dm_backlight_set_level(dm, 1, 2000);
+
+	KUNIT_EXPECT_EQ(test, dm->brightness[1], 2000U);
+	KUNIT_EXPECT_EQ(test, dm->actual_brightness[1], 0U);
+}
+
+/**
+ * dm_test_backlight_set_level_aux_programs_power_module - Test AUX programming path
+ * @test: The KUnit test context
+ *
+ * With a matching stream present, set_level() walks into the DC programming
+ * path. A NULL power_module makes mod_power_set_backlight_nits() a safe
+ * early-false, and ips_support disabled leaves idle optimizations untouched.
+ * A non-matching connector exercises the connector-list skip, and a non-zero
+ * brightness_mask exercises the quirk-OR path.
+ */
+static void dm_test_backlight_set_level_aux_programs_power_module(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+	struct amdgpu_dm_connector *other;
+
+	setup_test_dm_ddev(test, dm);
+	mutex_init(&dm->dc_lock);
+	dm->power_module = NULL;
+
+	/* Non-matching connector exercises the bl_idx skip (continue). */
+	other = kunit_kzalloc(test, sizeof(*other), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, other);
+	INIT_LIST_HEAD(&other->base.head);
+	other->bl_idx = 0;
+	list_add_tail(&other->base.head, &dm->ddev->mode_config.connector_list);
+
+	dm->backlight_caps[1].caps_valid = true;
+	dm->backlight_caps[1].aux_support = true;
+	dm->backlight_caps[1].brightness_mask = 0x3;
+	dm->backlight_caps[1].aux_min_input_signal = 1;
+	dm->backlight_caps[1].aux_max_input_signal = 512;
+	dm->backlight_caps[1].min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
+	dm->backlight_caps[1].max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+	dm->backlight_link[1] = link;
+	dm_kunit_add_stream_to_state(test, dm->dc->current_state, 0, link);
+
+	amdgpu_dm_backlight_set_level(dm, 1, 2000);
+
+	/* power_module is NULL so programming fails; actual stays unchanged. */
+	KUNIT_EXPECT_EQ(test, dm->brightness[1], 2000U);
+	KUNIT_EXPECT_EQ(test, dm->actual_brightness[1], 0U);
+}
+
+/**
+ * dm_test_backlight_set_level_pwm_programs_power_module - Test PWM programming path
+ * @test: The KUnit test context
+ *
+ * With aux_support cleared, set_level() takes the millipercent branch:
+ * get_brightness_range() + mod_power_set_backlight_percent(). A NULL
+ * power_module keeps the call a safe early-false.
+ */
+static void dm_test_backlight_set_level_pwm_programs_power_module(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+
+	setup_test_dm_ddev(test, dm);
+	mutex_init(&dm->dc_lock);
+	dm->power_module = NULL;
+
+	dm->backlight_caps[1].caps_valid = true;
+	dm->backlight_caps[1].aux_support = false;
+	dm->backlight_caps[1].min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
+	dm->backlight_caps[1].max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+	dm->backlight_link[1] = link;
+	dm_kunit_add_stream_to_state(test, dm->dc->current_state, 0, link);
+
+	amdgpu_dm_backlight_set_level(dm, 1, 2000);
+
+	KUNIT_EXPECT_EQ(test, dm->brightness[1], 2000U);
+	KUNIT_EXPECT_EQ(test, dm->actual_brightness[1], 0U);
+}
+
+/**
+ * dm_test_backlight_set_level_reallows_idle - Test idle-optimization toggle path
+ * @test: The KUnit test context
+ *
+ * When ips_support is set and dmub idle is allowed, set_level() disables idle
+ * optimizations around the programming call and re-enables them afterwards.
+ * disable_idle_power_optimizations keeps dc_allow_idle_optimizations() a safe
+ * early return, and ctx->logger is wired because DC_LOG_* dereferences it.
+ */
+static void dm_test_backlight_set_level_reallows_idle(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+	struct dc_dmub_srv *dmub_srv;
+	struct dal_logger *logger;
+	struct dc_context *ctx;
+
+	setup_test_dm_ddev(test, dm);
+	mutex_init(&dm->dc_lock);
+	dm->power_module = NULL;
+
+	/* dm_kunit_alloc_dm() leaves dc->ctx NULL; the idle path dereferences it. */
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx);
+	dm->dc->ctx = ctx;
+
+	logger = kunit_kzalloc(test, sizeof(*logger), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, logger);
+	logger->dev = &adev->ddev;
+	dm->dc->ctx->logger = logger;
+
+	dmub_srv = kunit_kzalloc(test, sizeof(*dmub_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dmub_srv);
+	dmub_srv->idle_allowed = true;
+	dm->dc->ctx->dmub_srv = dmub_srv;
+	dm->dc->caps.ips_support = true;
+	/* Keep dc_allow_idle_optimizations() a safe early return. */
+	dm->dc->debug.disable_idle_power_optimizations = true;
+
+	dm->backlight_caps[1].caps_valid = true;
+	dm->backlight_caps[1].aux_support = true;
+	dm->backlight_caps[1].aux_min_input_signal = 1;
+	dm->backlight_caps[1].aux_max_input_signal = 512;
+	dm->backlight_caps[1].min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
+	dm->backlight_caps[1].max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+	dm->backlight_link[1] = link;
+	dm_kunit_add_stream_to_state(test, dm->dc->current_state, 0, link);
+
+	amdgpu_dm_backlight_set_level(dm, 1, 2000);
+
+	KUNIT_EXPECT_EQ(test, dm->brightness[1], 2000U);
+}
+
+/**
+ * dm_test_backlight_update_status_no_stream - Test update_status wrapper
+ * @test: The KUnit test context
+ */
+static void dm_test_backlight_update_status_no_stream(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct backlight_device *bd;
+
+	setup_test_dm_ddev(test, dm);
+	bd = kunit_kzalloc(test, sizeof(*bd), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, bd);
+	dev_set_drvdata(&bd->dev, dm);
+	bd->props.brightness = 3456;
+	dm->num_of_edps = 2;
+	dm->backlight_dev[1] = bd;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_backlight_update_status(bd), 0);
+	KUNIT_EXPECT_EQ(test, dm->brightness[1], 3456U);
+}
+
+static void setup_test_link_service(struct kunit *test, struct dc_link *link)
+{
+	struct link_service *link_srv;
+	struct dc_context *ctx;
+	struct dc *dc;
+
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link_srv);
+
+	dc->ctx = ctx;
+	dc->link_srv = link_srv;
+	ctx->dc = dc;
+	link->dc = dc;
+	link->ctx = ctx;
+}
+
+static int dm_test_get_backlight_level_mid(const struct dc_link *link)
+{
+	return (0x101 * AMDGPU_DM_DEFAULT_MIN_BACKLIGHT) + 1000;
+}
+
+static int dm_test_get_backlight_level_error(const struct dc_link *link)
+{
+	return DC_ERROR_UNEXPECTED;
+}
+
+static void dm_test_unregister_backlight_device(void *data)
+{
+	backlight_device_unregister(data);
+}
+
+static bool dm_test_get_backlight_level_nits(struct dc_link *link,
+					     uint32_t *avg,
+					     uint32_t *peak)
+{
+	*avg = 250000;
+	*peak = 300000;
+
+	return true;
+}
+
+static bool dm_test_get_backlight_level_nits_fail(struct dc_link *link,
+						  uint32_t *avg,
+						  uint32_t *peak)
+{
+	return false;
+}
+
+/* Tests for amdgpu_dm_backlight_get_level()/get_brightness() */
+
+/**
+ * dm_test_backlight_get_level_pwm_success - Test PWM brightness readback
+ * @test: The KUnit test context
+ */
+static void dm_test_backlight_get_level_pwm_success(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+	u32 hw_level = dm_test_get_backlight_level_mid(link);
+
+	setup_test_link_service(test, link);
+	link->dc->link_srv->edp_get_backlight_level = dm_test_get_backlight_level_mid;
+	dm->backlight_link[0] = link;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_backlight_get_level(dm, 0),
+			 convert_brightness_to_user(&dm->backlight_caps[0], hw_level));
+}
+
+/**
+ * dm_test_backlight_get_level_pwm_error - Test PWM readback fallback
+ * @test: The KUnit test context
+ */
+static void dm_test_backlight_get_level_pwm_error(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+
+	setup_test_link_service(test, link);
+	link->dc->link_srv->edp_get_backlight_level = dm_test_get_backlight_level_error;
+	dm->brightness[0] = 4321;
+	dm->backlight_link[0] = link;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_backlight_get_level(dm, 0), 4321U);
+}
+
+/**
+ * dm_test_backlight_get_level_aux_success - Test AUX brightness readback
+ * @test: The KUnit test context
+ */
+static void dm_test_backlight_get_level_aux_success(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+	struct amdgpu_dm_backlight_caps *caps = &dm->backlight_caps[0];
+
+	setup_test_link_service(test, link);
+	link->dc->link_srv->edp_get_backlight_level_nits = dm_test_get_backlight_level_nits;
+	dm->backlight_link[0] = link;
+	caps->caps_valid = true;
+	caps->aux_support = true;
+	caps->aux_min_input_signal = 1;
+	caps->aux_max_input_signal = 512;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_backlight_get_level(dm, 0),
+			 convert_brightness_to_user(caps, 250000));
+}
+
+/**
+ * dm_test_backlight_get_level_aux_error - Test AUX readback fallback
+ * @test: The KUnit test context
+ */
+static void dm_test_backlight_get_level_aux_error(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+	struct amdgpu_dm_backlight_caps *caps = &dm->backlight_caps[0];
+
+	setup_test_link_service(test, link);
+	link->dc->link_srv->edp_get_backlight_level_nits = dm_test_get_backlight_level_nits_fail;
+	dm->brightness[0] = 6789;
+	dm->backlight_link[0] = link;
+	caps->caps_valid = true;
+	caps->aux_support = true;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_backlight_get_level(dm, 0), 6789U);
+}
+
+/**
+ * dm_test_backlight_get_brightness_uses_device_index - Test get_brightness wrapper
+ * @test: The KUnit test context
+ */
+static void dm_test_backlight_get_brightness_uses_device_index(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+	struct backlight_device *bd;
+
+	setup_test_link_service(test, link);
+	link->dc->link_srv->edp_get_backlight_level = dm_test_get_backlight_level_error;
+	bd = kunit_kzalloc(test, sizeof(*bd), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, bd);
+	dev_set_drvdata(&bd->dev, dm);
+	dm->num_of_edps = 2;
+	dm->backlight_dev[1] = bd;
+	dm->brightness[1] = 2468;
+	dm->backlight_link[1] = link;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_backlight_get_brightness(bd), 2468);
+}
+
+/* Tests for amdgpu_dm_register_backlight_device() */
+
+/**
+ * dm_test_register_backlight_device_negative_index - Test invalid index no-op
+ * @test: The KUnit test context
+ */
+static void dm_test_register_backlight_device_negative_index(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_kunit_alloc_connector(test, adev, NULL);
+	aconnector->bl_idx = -1;
+
+	amdgpu_dm_register_backlight_device(aconnector);
+	KUNIT_EXPECT_NULL(test, adev->dm.backlight_dev[0]);
+}
+
+/**
+ * dm_test_register_backlight_device_success - Test native backlight registration
+ * @test: The KUnit test context
+ *
+ * A native backlight device must be registered with the calculated
+ * properties, and its initial readback must retain the initial brightness.
+ */
+static void dm_test_register_backlight_device_success(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_dm_backlight_caps *caps;
+	struct dc_link *link = dm_kunit_alloc_link(test);
+	struct drm_minor *primary;
+	unsigned int max;
+
+	setup_test_link_service(test, link);
+	link->dc->link_srv->edp_get_backlight_level = dm_test_get_backlight_level_error;
+	primary = kunit_kzalloc(test, sizeof(*primary), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, primary);
+	adev->ddev.primary = primary;
+	adev->dm.backlight_link[0] = link;
+
+	aconnector = dm_kunit_alloc_connector(test, adev, link);
+	aconnector->bl_idx = 0;
+	aconnector->base.kdev = adev->ddev.dev;
+	caps = &adev->dm.backlight_caps[0];
+	caps->min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
+	caps->max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+	caps->ac_level = 50;
+	caps->dc_level = 25;
+	max = 0x101 * AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+
+	amdgpu_dm_register_backlight_device(aconnector);
+
+	KUNIT_ASSERT_NOT_NULL(test, adev->dm.backlight_dev[0]);
+	KUNIT_EXPECT_EQ(test, adev->dm.backlight_dev[0]->props.max_brightness, max);
+	KUNIT_EXPECT_EQ(test, adev->dm.backlight_dev[0]->props.brightness,
+			DIV_ROUND_CLOSEST(max * caps->ac_level, 100));
+	KUNIT_EXPECT_EQ(test, adev->dm.brightness[0],
+			adev->dm.backlight_dev[0]->props.brightness);
+	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test,
+			dm_test_unregister_backlight_device,
+			adev->dm.backlight_dev[0]), 0);
+}
+
+static struct drm_connector *setup_panel_power_savings_connector(struct kunit *test,
+							 struct device **device_out,
+							 struct dm_connector_state **state_out)
+{
+	struct dm_connector_state *state;
+	struct drm_connector *connector;
+	struct amdgpu_device *adev;
+	struct device *device;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+	ret = drmm_mode_config_init(&adev->ddev);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+	device = kunit_kzalloc(test, sizeof(*device), GFP_KERNEL);
+	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, device);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
+
+	connector->dev = &adev->ddev;
+	connector->state = &state->base;
+	dev_set_drvdata(device, connector);
+	*device_out = device;
+	*state_out = state;
+
+	return connector;
+}
+
+static void dm_test_free_sysfs_buf(void *data)
+{
+	free_page((unsigned long)data);
+}
+
+static char *dm_test_alloc_sysfs_buf(struct kunit *test)
+{
+	char *buf;
+
+	buf = (char *)get_zeroed_page(GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, buf);
+	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_free_sysfs_buf, buf), 0);
+
+	return buf;
+}
+
+/* Tests for panel_power_savings_show()/panel_power_savings_store() */
+
+/**
+ * dm_test_panel_power_savings_show_maps_disable_to_zero - Test show output
+ * @test: The KUnit test context
+ */
+static void dm_test_panel_power_savings_show_maps_disable_to_zero(struct kunit *test)
+{
+	struct dm_connector_state *state;
+	struct device *device;
+	char *buf;
+
+	setup_panel_power_savings_connector(test, &device, &state);
+	buf = dm_test_alloc_sysfs_buf(test);
+	state->abm_level = ABM_LEVEL_IMMEDIATE_DISABLE;
+
+	KUNIT_EXPECT_EQ(test, panel_power_savings_show(device, NULL, buf), 2);
+	KUNIT_EXPECT_STREQ(test, buf, "0\n");
+}
+
+/**
+ * dm_test_panel_power_savings_show_reports_level - Test show output for active level
+ * @test: The KUnit test context
+ *
+ * When abm_level is not the immediate-disable sentinel, show() reports the
+ * raw level value.
+ */
+static void dm_test_panel_power_savings_show_reports_level(struct kunit *test)
+{
+	struct dm_connector_state *state;
+	struct device *device;
+	char *buf;
+
+	setup_panel_power_savings_connector(test, &device, &state);
+	buf = dm_test_alloc_sysfs_buf(test);
+	state->abm_level = 3;
+
+	KUNIT_EXPECT_EQ(test, panel_power_savings_show(device, NULL, buf), 2);
+	KUNIT_EXPECT_STREQ(test, buf, "3\n");
+}
+
+/**
+ * dm_test_panel_power_savings_store_sets_disable - Test zero maps to disable
+ * @test: The KUnit test context
+ */
+static void dm_test_panel_power_savings_store_sets_disable(struct kunit *test)
+{
+	struct dm_connector_state *state;
+	struct device *device;
+	size_t count = strlen("0");
+
+	setup_panel_power_savings_connector(test, &device, &state);
+
+	KUNIT_EXPECT_EQ(test, panel_power_savings_store(device, NULL, "0", count),
+			 (ssize_t)count);
+	KUNIT_EXPECT_EQ(test, state->abm_level, ABM_LEVEL_IMMEDIATE_DISABLE);
+}
+
+/**
+ * dm_test_panel_power_savings_store_forbidden - Test forbidden update
+ * @test: The KUnit test context
+ */
+static void dm_test_panel_power_savings_store_forbidden(struct kunit *test)
+{
+	struct dm_connector_state *state;
+	struct device *device;
+
+	setup_panel_power_savings_connector(test, &device, &state);
+	state->abm_sysfs_forbidden = true;
+
+	KUNIT_EXPECT_EQ(test, panel_power_savings_store(device, NULL, "1", 1), -EBUSY);
+}
+
+/**
+ * dm_test_panel_power_savings_store_rejects_invalid_text - Test parse failure
+ * @test: The KUnit test context
+ */
+static void dm_test_panel_power_savings_store_rejects_invalid_text(struct kunit *test)
+{
+	struct drm_connector *connector;
+	struct drm_device *drm;
+	struct device *device;
+
+	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+	drm = kunit_kzalloc(test, sizeof(*drm), GFP_KERNEL);
+	device = kunit_kzalloc(test, sizeof(*device), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, drm);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, device);
+
+	connector->dev = drm;
+	dev_set_drvdata(device, connector);
+
+	KUNIT_EXPECT_LT(test, panel_power_savings_store(device, NULL, "bad", 3), 0);
+}
+
+/**
+ * dm_test_panel_power_savings_store_rejects_out_of_range - Test range failure
+ * @test: The KUnit test context
+ */
+static void dm_test_panel_power_savings_store_rejects_out_of_range(struct kunit *test)
+{
+	struct drm_connector *connector;
+	struct drm_device *drm;
+	struct device *device;
+
+	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+	drm = kunit_kzalloc(test, sizeof(*drm), GFP_KERNEL);
+	device = kunit_kzalloc(test, sizeof(*device), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, drm);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, device);
+
+	connector->dev = drm;
+	dev_set_drvdata(device, connector);
+
+	KUNIT_EXPECT_EQ(test, panel_power_savings_store(device, NULL, "5", 1), -EINVAL);
 }
 
 /* Tests for amdgpu_dm_backlight_get_device_index() */
@@ -799,8 +1438,8 @@ static void dm_test_backlight_fill_props_ac_linear(struct kunit *test)
 	amdgpu_dm_backlight_fill_props(&caps, true, false, &props);
 
 	KUNIT_EXPECT_EQ(test, props.brightness,
-			 DIV_ROUND_CLOSEST((max - min) * caps.ac_level, 100));
-	KUNIT_EXPECT_EQ(test, props.max_brightness, max - min);
+			 DIV_ROUND_CLOSEST(max * caps.ac_level, 100));
+	KUNIT_EXPECT_EQ(test, props.max_brightness, max);
 	KUNIT_EXPECT_EQ(test, props.scale, BACKLIGHT_SCALE_LINEAR);
 	KUNIT_EXPECT_EQ(test, props.type, BACKLIGHT_RAW);
 }
@@ -825,8 +1464,8 @@ static void dm_test_backlight_fill_props_dc_nonlinear(struct kunit *test)
 	amdgpu_dm_backlight_fill_props(&caps, false, true, &props);
 
 	KUNIT_EXPECT_EQ(test, props.brightness,
-			 DIV_ROUND_CLOSEST((max - min) * caps.dc_level, 100));
-	KUNIT_EXPECT_EQ(test, props.max_brightness, max - min);
+			 DIV_ROUND_CLOSEST(max * caps.dc_level, 100));
+	KUNIT_EXPECT_EQ(test, props.max_brightness, max);
 	KUNIT_EXPECT_EQ(test, props.scale, BACKLIGHT_SCALE_NON_LINEAR);
 	KUNIT_EXPECT_EQ(test, props.type, BACKLIGHT_RAW);
 }
@@ -1026,6 +1665,7 @@ static void dm_test_should_create_sysfs_no_backlight_index(struct kunit *test)
 	amdgpu_dm_set_abm_level_param(-1);
 	setup_test_connector(test, &fixture, -1, SIGNAL_TYPE_EDP);
 	fixture.aconnector->base.connector_type = DRM_MODE_CONNECTOR_eDP;
+	fixture.link->panel_type = PANEL_TYPE_LCD;
 
 	KUNIT_EXPECT_TRUE(test, amdgpu_dm_should_create_sysfs(fixture.aconnector));
 
@@ -1033,10 +1673,13 @@ static void dm_test_should_create_sysfs_no_backlight_index(struct kunit *test)
 }
 
 /**
- * dm_test_should_create_sysfs_aux_backlight - Test AUX backlight disables sysfs
+ * dm_test_should_create_sysfs_oled_no_cacp - Test OLED without CACP disables sysfs
  * @test: The KUnit test context
+ *
+ * A non-LCD panel that does not support CACP must not expose the sysfs
+ * backlight interface.
  */
-static void dm_test_should_create_sysfs_aux_backlight(struct kunit *test)
+static void dm_test_should_create_sysfs_oled_no_cacp(struct kunit *test)
 {
 	struct dm_backlight_connector_fixture fixture = {};
 	int saved_abm_level = amdgpu_dm_get_abm_level_param();
@@ -1044,7 +1687,8 @@ static void dm_test_should_create_sysfs_aux_backlight(struct kunit *test)
 	amdgpu_dm_set_abm_level_param(-1);
 	setup_test_connector(test, &fixture, 0, SIGNAL_TYPE_EDP);
 	fixture.aconnector->base.connector_type = DRM_MODE_CONNECTOR_eDP;
-	fixture.adev->dm.backlight_caps[0].aux_support = true;
+	fixture.link->panel_type = PANEL_TYPE_OLED;
+	fixture.link->panel_config.cacp.cacp_supported = false;
 
 	KUNIT_EXPECT_FALSE(test, amdgpu_dm_should_create_sysfs(fixture.aconnector));
 
@@ -1052,10 +1696,13 @@ static void dm_test_should_create_sysfs_aux_backlight(struct kunit *test)
 }
 
 /**
- * dm_test_should_create_sysfs_pwm_backlight - Test PWM backlight enables sysfs
+ * dm_test_should_create_sysfs_oled_cacp - Test OLED with CACP enables sysfs
  * @test: The KUnit test context
+ *
+ * An OLED panel that supports CACP must expose the sysfs backlight
+ * interface so the ABM/CACP level can be controlled.
  */
-static void dm_test_should_create_sysfs_pwm_backlight(struct kunit *test)
+static void dm_test_should_create_sysfs_oled_cacp(struct kunit *test)
 {
 	struct dm_backlight_connector_fixture fixture = {};
 	int saved_abm_level = amdgpu_dm_get_abm_level_param();
@@ -1063,7 +1710,27 @@ static void dm_test_should_create_sysfs_pwm_backlight(struct kunit *test)
 	amdgpu_dm_set_abm_level_param(-1);
 	setup_test_connector(test, &fixture, 0, SIGNAL_TYPE_EDP);
 	fixture.aconnector->base.connector_type = DRM_MODE_CONNECTOR_eDP;
-	fixture.adev->dm.backlight_caps[0].aux_support = false;
+	fixture.link->panel_type = PANEL_TYPE_OLED;
+	fixture.link->panel_config.cacp.cacp_supported = true;
+
+	KUNIT_EXPECT_TRUE(test, amdgpu_dm_should_create_sysfs(fixture.aconnector));
+
+	amdgpu_dm_set_abm_level_param(saved_abm_level);
+}
+
+/**
+ * dm_test_should_create_sysfs_lcd_panel - Test LCD eDP panel enables sysfs
+ * @test: The KUnit test context
+ */
+static void dm_test_should_create_sysfs_lcd_panel(struct kunit *test)
+{
+	struct dm_backlight_connector_fixture fixture = {};
+	int saved_abm_level = amdgpu_dm_get_abm_level_param();
+
+	amdgpu_dm_set_abm_level_param(-1);
+	setup_test_connector(test, &fixture, 0, SIGNAL_TYPE_EDP);
+	fixture.aconnector->base.connector_type = DRM_MODE_CONNECTOR_eDP;
+	fixture.link->panel_type = PANEL_TYPE_LCD;
 
 	KUNIT_EXPECT_TRUE(test, amdgpu_dm_should_create_sysfs(fixture.aconnector));
 
@@ -1147,11 +1814,13 @@ static void dm_test_setup_backlight_device_oled_success(struct kunit *test)
 	struct dm_backlight_connector_fixture fixture = {};
 	struct amdgpu_display_manager *dm;
 	int saved_backlight = amdgpu_dm_get_backlight_param();
+	int saved_abm_level = amdgpu_dm_get_abm_level_param();
 
 	amdgpu_dm_set_backlight_param(-1);
+	/* Skip ABM property attach (requires full DRM object setup) */
+	amdgpu_dm_set_abm_level_param(0);
 	setup_test_connector(test, &fixture, -1, SIGNAL_TYPE_EDP);
 	fixture.link->type = dc_connection_single;
-	/* OLED panel avoids the ABM property attach path */
 	fixture.link->dpcd_sink_ext_caps.bits.oled = 1;
 	dm = &fixture.adev->dm;
 	dm->adev = fixture.adev;
@@ -1166,9 +1835,91 @@ static void dm_test_setup_backlight_device_oled_success(struct kunit *test)
 	KUNIT_EXPECT_TRUE(test, dm->backlight_caps[0].aux_support);
 
 	amdgpu_dm_set_backlight_param(saved_backlight);
+	amdgpu_dm_set_abm_level_param(saved_abm_level);
+}
+
+/**
+ * dm_test_setup_backlight_device_attaches_abm_property - Test ABM property path
+ * @test: The KUnit test context
+ */
+static void dm_test_setup_backlight_device_attaches_abm_property(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_display_manager *dm;
+	struct amdgpu_device *adev;
+	struct drm_property *prop;
+	struct dc_link *link;
+	int saved_abm_level = amdgpu_dm_get_abm_level_param();
+	int saved_backlight = amdgpu_dm_get_backlight_param();
+	int old_count;
+	int ret;
+
+	amdgpu_dm_set_abm_level_param(-1);
+	amdgpu_dm_set_backlight_param(-1);
+	adev = dm_kunit_alloc_adev(test);
+	ret = drmm_mode_config_init(&adev->ddev);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	prop = drm_property_create_range(&adev->ddev, 0, "abm level", 0, 4);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, prop);
+	adev->mode_info.abm_level_property = prop;
+
+	aconnector = dm_kunit_alloc_connector(test, adev, NULL);
+	ret = drmm_connector_init(&adev->ddev, &aconnector->base,
+				   &dm_backlight_test_connector_funcs,
+				   DRM_MODE_CONNECTOR_eDP, NULL);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	link = dm_kunit_alloc_link(test);
+	link->connector_signal = SIGNAL_TYPE_EDP;
+	link->type = dc_connection_single;
+	aconnector->dc_link = link;
+	aconnector->bl_idx = -1;
+	dm = &adev->dm;
+	dm->adev = adev;
+	dm->ddev = &adev->ddev;
+	old_count = aconnector->base.base.properties->count;
+
+	amdgpu_dm_setup_backlight_device(dm, aconnector);
+
+	KUNIT_EXPECT_EQ(test, dm->num_of_edps, 1);
+	KUNIT_EXPECT_EQ(test, aconnector->bl_idx, 0);
+	KUNIT_EXPECT_EQ(test, aconnector->base.base.properties->count, old_count + 1);
+	KUNIT_EXPECT_PTR_EQ(test, aconnector->base.base.properties->properties[old_count], prop);
+	KUNIT_EXPECT_EQ(test, aconnector->base.base.properties->values[old_count],
+			 (uint64_t)ABM_SYSFS_CONTROL);
+
+	amdgpu_dm_set_backlight_param(saved_backlight);
+	amdgpu_dm_set_abm_level_param(saved_abm_level);
 }
 
 static struct kunit_case dm_backlight_test_cases[] = {
+	/* dm_find_stream_with_link */
+	KUNIT_CASE(dm_test_find_stream_with_link_returns_match),
+	KUNIT_CASE(dm_test_find_stream_with_link_missing),
+	/* amdgpu_dm_backlight_set_level / update_status */
+	KUNIT_CASE(dm_test_backlight_set_level_connector_off),
+	KUNIT_CASE(dm_test_backlight_set_level_no_stream),
+	KUNIT_CASE(dm_test_backlight_set_level_aux_programs_power_module),
+	KUNIT_CASE(dm_test_backlight_set_level_pwm_programs_power_module),
+	KUNIT_CASE(dm_test_backlight_set_level_reallows_idle),
+	KUNIT_CASE(dm_test_backlight_update_status_no_stream),
+	/* amdgpu_dm_backlight_get_level / get_brightness */
+	KUNIT_CASE(dm_test_backlight_get_level_pwm_success),
+	KUNIT_CASE(dm_test_backlight_get_level_pwm_error),
+	KUNIT_CASE(dm_test_backlight_get_level_aux_success),
+	KUNIT_CASE(dm_test_backlight_get_level_aux_error),
+	KUNIT_CASE(dm_test_backlight_get_brightness_uses_device_index),
+	/* amdgpu_dm_register_backlight_device */
+	KUNIT_CASE(dm_test_register_backlight_device_negative_index),
+	KUNIT_CASE(dm_test_register_backlight_device_success),
+	/* panel_power_savings_show / store */
+	KUNIT_CASE(dm_test_panel_power_savings_show_maps_disable_to_zero),
+	KUNIT_CASE(dm_test_panel_power_savings_show_reports_level),
+	KUNIT_CASE(dm_test_panel_power_savings_store_sets_disable),
+	KUNIT_CASE(dm_test_panel_power_savings_store_forbidden),
+	KUNIT_CASE(dm_test_panel_power_savings_store_rejects_invalid_text),
+	KUNIT_CASE(dm_test_panel_power_savings_store_rejects_out_of_range),
 	/* amdgpu_dm_backlight_get_device_index */
 	KUNIT_CASE(dm_test_backlight_device_index_matches_second),
 	KUNIT_CASE(dm_test_backlight_device_index_missing_fallback),
@@ -1220,13 +1971,15 @@ static struct kunit_case dm_backlight_test_cases[] = {
 	KUNIT_CASE(dm_test_should_create_sysfs_abm_forced),
 	KUNIT_CASE(dm_test_should_create_sysfs_non_edp),
 	KUNIT_CASE(dm_test_should_create_sysfs_no_backlight_index),
-	KUNIT_CASE(dm_test_should_create_sysfs_aux_backlight),
-	KUNIT_CASE(dm_test_should_create_sysfs_pwm_backlight),
+	KUNIT_CASE(dm_test_should_create_sysfs_oled_no_cacp),
+	KUNIT_CASE(dm_test_should_create_sysfs_oled_cacp),
+	KUNIT_CASE(dm_test_should_create_sysfs_lcd_panel),
 	/* amdgpu_dm_setup_backlight_device */
 	KUNIT_CASE(dm_test_setup_backlight_device_non_edp),
 	KUNIT_CASE(dm_test_setup_backlight_device_connection_none),
 	KUNIT_CASE(dm_test_setup_backlight_device_max_edps),
 	KUNIT_CASE(dm_test_setup_backlight_device_oled_success),
+	KUNIT_CASE(dm_test_setup_backlight_device_attaches_abm_property),
 	{}
 };
 

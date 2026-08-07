@@ -86,7 +86,7 @@ static void mes_v11_0_ring_set_wptr(struct amdgpu_ring *ring)
 			     ring->wptr);
 		WDOORBELL64(ring->doorbell_index, ring->wptr);
 	} else {
-		BUG();
+		dev_warn_once(adev->dev, "%s requires doorbell!\n", __func__);
 	}
 }
 
@@ -97,12 +97,15 @@ static u64 mes_v11_0_ring_get_rptr(struct amdgpu_ring *ring)
 
 static u64 mes_v11_0_ring_get_wptr(struct amdgpu_ring *ring)
 {
+	struct amdgpu_device *adev = ring->adev;
 	u64 wptr;
 
-	if (ring->use_doorbell)
+	if (ring->use_doorbell) {
 		wptr = atomic64_read((atomic64_t *)ring->wptr_cpu_addr);
-	else
-		BUG();
+	} else {
+		dev_warn_once(adev->dev, "%s requires doorbell!\n", __func__);
+		wptr = 0;
+	}
 	return wptr;
 }
 
@@ -294,8 +297,8 @@ static int convert_to_mes_queue_type(int queue_type)
 	else if (queue_type == AMDGPU_RING_TYPE_SDMA)
 		return MES_QUEUE_TYPE_SDMA;
 	else
-		BUG();
-	return -1;
+		WARN(1, "Invalid queue type %d\n", queue_type);
+	return MES_QUEUE_TYPE_GFX;
 }
 
 static int convert_to_mes_priority_level(int priority_level)
@@ -335,8 +338,10 @@ static int mes_v11_0_add_hw_queue(struct amdgpu_mes *mes,
 	mes_add_queue_pkt.process_va_end = input->process_va_end;
 	mes_add_queue_pkt.process_quantum = input->process_quantum;
 	mes_add_queue_pkt.process_context_addr = input->process_context_addr;
+	mes_add_queue_pkt.process_context_array_index = input->process_context_array_index;
 	mes_add_queue_pkt.gang_quantum = input->gang_quantum;
 	mes_add_queue_pkt.gang_context_addr = input->gang_context_addr;
+	mes_add_queue_pkt.gang_context_array_index = input->gang_context_array_index;
 	mes_add_queue_pkt.inprocess_gang_priority =
 		convert_to_mes_priority_level(input->inprocess_gang_priority);
 	mes_add_queue_pkt.gang_global_priority_level =
@@ -387,6 +392,7 @@ static int mes_v11_0_remove_hw_queue(struct amdgpu_mes *mes,
 
 	mes_remove_queue_pkt.doorbell_offset = input->doorbell_offset;
 	mes_remove_queue_pkt.gang_context_addr = input->gang_context_addr;
+	mes_remove_queue_pkt.gang_context_array_index = input->gang_context_array_index;
 	mes_remove_queue_pkt.queue_type =
 		convert_to_mes_queue_type(input->queue_type);
 
@@ -769,6 +775,11 @@ static int mes_v11_0_unmap_legacy_queue(struct amdgpu_mes *mes,
 			convert_to_mes_queue_type(input->queue_type);
 	}
 
+	if (input->action == RESET_QUEUES &&
+	   (mes->sched_version & AMDGPU_MES_VERSION_MASK) >= 0x60)
+		mes_remove_queue_pkt.remove_queue_after_reset = 1;
+
+
 	return mes_v11_0_submit_pkt_and_poll_completion(mes,
 			&mes_remove_queue_pkt, sizeof(mes_remove_queue_pkt),
 			offsetof(union MESAPI__REMOVE_QUEUE, api_status));
@@ -829,6 +840,58 @@ static int mes_v11_0_query_sched_status(struct amdgpu_mes *mes)
 	return mes_v11_0_submit_pkt_and_poll_completion(mes,
 			&mes_status_pkt, sizeof(mes_status_pkt),
 			offsetof(union MESAPI__QUERY_MES_STATUS, api_status));
+}
+
+/*
+ * QUERY_SCHEDULER_STATUS: get proc/gang context array sizes
+ */
+static int mes_v11_0_query_ctx_array_sizes(struct amdgpu_mes *mes)
+{
+	struct amdgpu_device *adev = mes->adev;
+	union MESAPI__QUERY_MES_STATUS mes_query_pkt;
+	int r;
+
+	if (!mes->ctx_array_size_cpu_ptr)
+		return -EINVAL;
+
+	/* Clear the output buffer */
+	mes->ctx_array_size_cpu_ptr[0] = 0;  /* proc_ctx_array_size */
+	mes->ctx_array_size_cpu_ptr[1] = 0;  /* gang_ctx_array_size */
+
+	memset(&mes_query_pkt, 0, sizeof(mes_query_pkt));
+
+	mes_query_pkt.header.type = MES_API_TYPE_SCHEDULER;
+	mes_query_pkt.header.opcode = MES_SCH_API_QUERY_SCHEDULER_STATUS;
+	mes_query_pkt.header.dwsize = API_FRAME_SIZE_IN_DWORDS;
+
+	mes_query_pkt.subopcode = MES_API_QUERY_MES__GET_CTX_ARRAY_SIZE;
+
+	/*
+	 * MES FW will write the array sizes to these GPU addresses:
+	 *   proc_ctx_array_size_addr -> uint32_t N (e.g., 50)
+	 *   gang_ctx_array_size_addr -> uint32_t M (e.g., 300)
+	 */
+	mes_query_pkt.ctx_array_size.proc_ctx_array_size_addr =
+		mes->ctx_array_size_gpu_addr;
+	mes_query_pkt.ctx_array_size.gang_ctx_array_size_addr =
+		mes->ctx_array_size_gpu_addr + sizeof(uint32_t);
+
+	mes_query_pkt.api_status.api_completion_fence_addr =
+		mes->ring[0].fence_drv.gpu_addr;
+	mes_query_pkt.api_status.api_completion_fence_value =
+		++mes->ring[0].fence_drv.sync_seq;
+
+	r = mes_v11_0_submit_pkt_and_poll_completion(mes,
+			&mes_query_pkt, sizeof(mes_query_pkt),
+			offsetof(union MESAPI__QUERY_MES_STATUS, api_status));
+	if (r) {
+		dev_err(adev->dev,
+			"MES QUERY_SCHEDULER_STATUS (GET_CTX_ARRAY_SIZE) failed, r=%d\n", r);
+		return r;
+	}
+
+	/* MES has written the sizes - now set up bitmaps */
+	return amdgpu_mes_rs64mem_setup_bitmaps(mes);
 }
 
 static int mes_v11_0_misc_op(struct amdgpu_mes *mes,
@@ -1539,12 +1602,14 @@ static int mes_v11_0_queue_init(struct amdgpu_device *adev,
 	struct amdgpu_ring *ring;
 	int r;
 
-	if (pipe == AMDGPU_MES_KIQ_PIPE)
+	if (pipe == AMDGPU_MES_KIQ_PIPE) {
 		ring = &adev->gfx.kiq[0].ring;
-	else if (pipe == AMDGPU_MES_SCHED_PIPE)
+	} else if (pipe == AMDGPU_MES_SCHED_PIPE) {
 		ring = &adev->mes.ring[0];
-	else
-		BUG();
+	} else {
+		WARN(1, "Invalid MES pipe %d\n", pipe);
+		return -EINVAL;
+	}
 
 	if ((pipe == AMDGPU_MES_SCHED_PIPE) &&
 	    (amdgpu_in_reset(adev) || adev->in_suspend)) {
@@ -1627,7 +1692,7 @@ static int mes_v11_0_mqd_sw_init(struct amdgpu_device *adev,
 	else if (pipe == AMDGPU_MES_SCHED_PIPE)
 		ring = &adev->mes.ring[0];
 	else
-		BUG();
+		return -EINVAL;
 
 	if (ring->mqd_obj)
 		return 0;
@@ -1904,9 +1969,32 @@ static int mes_v11_0_hw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		goto failure;
 
+	/* Allocate GPU buffer for array size query results */
+	r = amdgpu_mes_rs64mem_init(&adev->mes);
+	if (r)
+		dev_warn(adev->dev,
+			 "RS64 local memory init failed (%d),"
+			 "falling back to system memory path\n", r);
+
 	r = mes_v11_0_set_hw_resources(&adev->mes);
+
 	if (r)
 		goto failure;
+
+	/*
+	 * QUERY_SCHEDULER_STATUS to get array sizes (N, M).
+	 * MES writes the sizes to the GPU buffer, then we allocate bitmaps.
+	 */
+	if (adev->mes.use_rs64mem) {
+		r = mes_v11_0_query_ctx_array_sizes(&adev->mes);
+		if (r) {
+			dev_warn(adev->dev,
+				 "Failed to query ctx array sizes (%d),"
+				 "disabling RS64 local memory\n", r);
+			/* Continue without optimization - not fatal */
+		}
+	}
+
 
 	if ((adev->mes.sched_version & AMDGPU_MES_VERSION_MASK) >= 0x52) {
 		r = mes_v11_0_set_hw_resources_1(&adev->mes);
@@ -1945,6 +2033,10 @@ failure:
 
 static int mes_v11_0_hw_fini(struct amdgpu_ip_block *ip_block)
 {
+	struct amdgpu_device *adev = ip_block->adev;
+
+	if (adev->mes.use_rs64mem)
+		amdgpu_mes_rs64mem_fini(&adev->mes);
 	return 0;
 }
 

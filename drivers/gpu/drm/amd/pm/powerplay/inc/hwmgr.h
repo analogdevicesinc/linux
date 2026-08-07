@@ -35,6 +35,11 @@ struct pp_hwmgr;
 struct phm_fan_speed_info;
 struct pp_atomctrl_voltage_table;
 
+/* Decode legacy unsigned Q24.8 watts to internal milliwatts. */
+#define PP_PWR_Q24_8_TO_MW(power) \
+	DIV_ROUND_CLOSEST_ULL((u64)(power) * MILLIWATT_PER_WATT, \
+			      BIT(8))
+
 #define VOLTAGE_SCALE 4
 #define VOLTAGE_VID_OFFSET_SCALE1   625
 #define VOLTAGE_VID_OFFSET_SCALE2   100
@@ -833,14 +838,17 @@ static inline uint32_t pp_entries_max(const struct pp_hwmgr *hwmgr,
 				      const void *sub_table,
 				      size_t hdr_size, size_t rec_size)
 {
-	struct amdgpu_device *adev = (struct amdgpu_device *)hwmgr->adev;
-	const char *bios_end = (const char *)adev->bios + adev->bios_size;
-	const char *pp_end   = (const char *)hwmgr->soft_pp_table
-			       + hwmgr->soft_pp_table_size;
+	const char *pp_start = hwmgr->soft_pp_table;
+	const char *pp_end   = pp_start + hwmgr->soft_pp_table_size;
 	const char *entries  = (const char *)sub_table + hdr_size;
 
-	if (pp_end > bios_end)
-		return 0;
+	if (!hwmgr->hardcode_pp_table) {
+		struct amdgpu_device *adev = hwmgr->adev;
+		const char *bios_end = (const char *)adev->bios + adev->bios_size;
+
+		if (pp_end > bios_end)
+			return 0;
+	}
 	if (!rec_size || entries >= pp_end)
 		return 0;
 	return (uint32_t)((pp_end - entries) / rec_size);

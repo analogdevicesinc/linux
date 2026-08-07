@@ -857,6 +857,25 @@ static void validate_encoder_possible_crtcs(struct drm_encoder *encoder)
 	     encoder->possible_crtcs, crtc_mask);
 }
 
+static void validate_blend_mode_for_alpha_formats(struct drm_plane *plane)
+{
+	const struct drm_format_info *fmt;
+	u32 i;
+
+	/* blend mode property supported, no need to check anything */
+	if (plane->blend_mode_property)
+		return;
+
+	for (i = 0; i < plane->format_count; i++) {
+		fmt = drm_format_info(plane->format_types[i]);
+		if (fmt->has_alpha) {
+			WARN(1, "[PLANE:%d:%s] pixel format with alpha exposed but blend mode not setup",
+			     plane->base.id, plane->name);
+			break;
+		}
+	}
+}
+
 void drm_mode_config_validate(struct drm_device *dev)
 {
 	struct drm_encoder *encoder;
@@ -915,6 +934,8 @@ void drm_mode_config_validate(struct drm_device *dev)
 	drm_for_each_plane(plane, dev) {
 		if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 			num_primary++;
+
+		validate_blend_mode_for_alpha_formats(plane);
 	}
 
 	WARN(num_primary != dev->mode_config.num_crtc,

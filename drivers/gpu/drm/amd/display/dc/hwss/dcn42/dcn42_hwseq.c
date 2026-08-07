@@ -281,6 +281,8 @@ void dcn42_init_hw(struct dc *dc)
 		dc->caps.dmub_caps.psr = dc->ctx->dmub_srv->dmub->feature_caps.psr;
 		dc->caps.dmub_caps.mclk_sw = dc->ctx->dmub_srv->dmub->feature_caps.fw_assisted_mclk_switch_ver > 0;
 		dc->caps.dmub_caps.fams_ver = dc->ctx->dmub_srv->dmub->feature_caps.fw_assisted_mclk_switch_ver;
+		dc->caps.dmub_caps.aux_backlight_support =
+			dc->ctx->dmub_srv->dmub->feature_caps.abm_aux_backlight_support;
 
 		/* sw and fw FAMS versions must match for support */
 		dc->debug.fams2_config.bits.enable &=
@@ -468,7 +470,6 @@ static bool dc_is_rmcm_3dlut_supported(struct hubp *hubp, struct mpc *mpc)
 	return false;
 }
 
-#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 static bool is_rmcm_3dlut_fl_supported(struct dc *dc)
 {
 	/* size was previously hard-coded to TRANSFORMED in local_mcm,
@@ -478,7 +479,6 @@ static bool is_rmcm_3dlut_fl_supported(struct dc *dc)
 		return false;
 	return dc->caps.color.mpc.rmcm_3d_lut_caps.lut_dim_caps.dim_17 != 0u;
 }
-#endif
 
 static void dcn42_set_mcm_location_post_blend(struct dc *dc, struct pipe_ctx *pipe_ctx, bool bPostBlend)
 {
@@ -722,9 +722,8 @@ void dcn42_populate_mcm_luts(struct dc *dc,
 		false);
 
 	//RMCM - 3dLUT+Shaper
-#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 	if (cm->flags.bits.rmcm_enable &&
-		is_rmcm_3dlut_fl_supported(dc)) {
+		is_rmcm_3dlut_fl_supported(dc))
 		dcn42_program_rmcm_luts(
 			hubp,
 			pipe_ctx,
@@ -732,8 +731,6 @@ void dcn42_populate_mcm_luts(struct dc *dc,
 			mpc,
 			lut_bank_a,
 			mpcc_id);
-	}
-#endif /* CONFIG_DRM_AMD_DC_DCN4_2 */
 
 	/* 1D LUT */
 	{
@@ -949,7 +946,11 @@ bool dcn42_set_mcm_luts(struct pipe_ctx *pipe_ctx,
 }
 void dcn42_hardware_release(struct dc *dc)
 {
+	if (dc->clk_mgr && dc->clk_mgr->funcs && dc->clk_mgr->funcs->notify_cstate_disable)
+		dc->clk_mgr->funcs->notify_cstate_disable(dc->clk_mgr, true);
+
 	dcn35_hardware_release(dc);
+
 	dc_dmub_srv_release_hw(dc);
 
 }
@@ -1085,6 +1086,12 @@ void dcn42_prepare_bandwidth(
 	}
 
 	dcn401_prepare_bandwidth(dc, context);
+
+	/* valid C-state watermarks have now been committed to HW, so it
+	 * is safe to vote "allow" to PMFW.
+	 */
+	if (dc->clk_mgr && dc->clk_mgr->funcs && dc->clk_mgr->funcs->notify_cstate_disable)
+		dc->clk_mgr->funcs->notify_cstate_disable(dc->clk_mgr, false);
 }
 
 void dcn42_optimize_bandwidth(struct dc *dc, struct dc_state *context)

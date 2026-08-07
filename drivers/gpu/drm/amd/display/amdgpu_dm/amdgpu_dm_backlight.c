@@ -47,7 +47,7 @@
 
 #include "amdgpu_dm_trace.h"
 #include "amd_shared.h"
-#include "amdgpu_dm_kunit_helpers.h"
+#include "dm_helpers.h"
 
 void amdgpu_dm_update_backlight_caps(struct amdgpu_display_manager *dm,
 				     int bl_idx)
@@ -219,7 +219,8 @@ u32 convert_brightness_to_user(const struct amdgpu_dm_backlight_caps *caps,
 }
 EXPORT_IF_KUNIT(convert_brightness_to_user);
 
-static struct dc_stream_state *dm_find_stream_with_link(
+STATIC_IFN_KUNIT
+struct dc_stream_state *dm_find_stream_with_link(
 	struct amdgpu_display_manager *dm,
 	struct dc_link *link)
 {
@@ -235,6 +236,7 @@ static struct dc_stream_state *dm_find_stream_with_link(
 
 	return NULL;
 }
+EXPORT_IF_KUNIT(dm_find_stream_with_link);
 
 STATIC_IFN_KUNIT
 int amdgpu_dm_backlight_get_device_index(struct amdgpu_display_manager *dm,
@@ -346,8 +348,10 @@ void amdgpu_dm_backlight_set_level(struct amdgpu_display_manager *dm,
 	if (rc)
 		dm->actual_brightness[bl_idx] = user_brightness;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_backlight_set_level);
 
-static int amdgpu_dm_backlight_update_status(struct backlight_device *bd)
+STATIC_IFN_KUNIT
+int amdgpu_dm_backlight_update_status(struct backlight_device *bd)
 {
 	struct amdgpu_display_manager *dm = bl_get_data(bd);
 	int i = amdgpu_dm_backlight_get_device_index(dm, bd);
@@ -356,9 +360,10 @@ static int amdgpu_dm_backlight_update_status(struct backlight_device *bd)
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_backlight_update_status);
 
-static u32 amdgpu_dm_backlight_get_level(struct amdgpu_display_manager *dm,
-					 int bl_idx)
+STATIC_IFN_KUNIT
+u32 amdgpu_dm_backlight_get_level(struct amdgpu_display_manager *dm, int bl_idx)
 {
 	int ret;
 	struct amdgpu_dm_backlight_caps caps;
@@ -382,14 +387,17 @@ static u32 amdgpu_dm_backlight_get_level(struct amdgpu_display_manager *dm,
 
 	return convert_brightness_to_user(&caps, ret);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_backlight_get_level);
 
-static int amdgpu_dm_backlight_get_brightness(struct backlight_device *bd)
+STATIC_IFN_KUNIT
+int amdgpu_dm_backlight_get_brightness(struct backlight_device *bd)
 {
 	struct amdgpu_display_manager *dm = bl_get_data(bd);
 	int i = amdgpu_dm_backlight_get_device_index(dm, bd);
 
 	return amdgpu_dm_backlight_get_level(dm, i);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_backlight_get_brightness);
 
 static const struct backlight_ops amdgpu_dm_backlight_ops = {
 	.options = BL_CORE_SUSPENDRESUME,
@@ -407,12 +415,12 @@ void amdgpu_dm_backlight_fill_props(const struct amdgpu_dm_backlight_caps *caps,
 
 	if (get_brightness_range(caps, &min, &max)) {
 		if (is_system_supplied)
-			props->brightness = DIV_ROUND_CLOSEST((max - min) * caps->ac_level,
+			props->brightness = DIV_ROUND_CLOSEST(max * caps->ac_level,
 							       100);
 		else
-			props->brightness = DIV_ROUND_CLOSEST((max - min) * caps->dc_level,
+			props->brightness = DIV_ROUND_CLOSEST(max * caps->dc_level,
 							       100);
-		props->max_brightness = max - min;
+		props->max_brightness = max;
 	} else {
 		props->brightness = MAX_BACKLIGHT_LEVEL;
 		props->max_brightness = MAX_BACKLIGHT_LEVEL;
@@ -486,6 +494,7 @@ amdgpu_dm_register_backlight_device(struct amdgpu_dm_connector *aconnector)
 		drm_dbg_driver(drm, "DM: Registered Backlight device: %s\n", bl_name);
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_register_backlight_device);
 
 void amdgpu_dm_update_connector_ext_caps(struct amdgpu_dm_connector *aconnector)
 {
@@ -508,6 +517,8 @@ void amdgpu_dm_update_connector_ext_caps(struct amdgpu_dm_connector *aconnector)
 	caps->ext_caps = &aconnector->dc_link->dpcd_sink_ext_caps;
 	caps->aux_support = false;
 
+	panel_backlight_quirk = drm_get_panel_backlight_quirk(aconnector->drm_edid);
+
 	if (caps->ext_caps->bits.oled == 1
 	    /*
 	     * ||
@@ -520,6 +531,9 @@ void amdgpu_dm_update_connector_ext_caps(struct amdgpu_dm_connector *aconnector)
 		caps->aux_support = false;
 	else if (amdgpu_backlight == 1)
 		caps->aux_support = true;
+	else if (!IS_ERR_OR_NULL(panel_backlight_quirk) &&
+		 panel_backlight_quirk->force_pwm)
+		caps->aux_support = false;
 	if (caps->aux_support)
 		aconnector->dc_link->backlight_control_type = BACKLIGHT_CONTROL_AMD_AUX;
 
@@ -535,8 +549,6 @@ void amdgpu_dm_update_connector_ext_caps(struct amdgpu_dm_connector *aconnector)
 	else
 		caps->aux_min_input_signal = 1;
 
-	panel_backlight_quirk =
-		drm_get_panel_backlight_quirk(aconnector->drm_edid);
 	if (!IS_ERR_OR_NULL(panel_backlight_quirk)) {
 		if (panel_backlight_quirk->min_brightness) {
 			caps->min_input_signal =
@@ -559,7 +571,6 @@ EXPORT_IF_KUNIT(amdgpu_dm_update_connector_ext_caps);
 void amdgpu_dm_setup_backlight_device(struct amdgpu_display_manager *dm,
 			    struct amdgpu_dm_connector *aconnector)
 {
-	struct amdgpu_dm_backlight_caps *caps;
 	struct dc_link *link = aconnector->dc_link;
 	int bl_idx = dm->num_of_edps;
 
@@ -579,10 +590,12 @@ void amdgpu_dm_setup_backlight_device(struct amdgpu_display_manager *dm,
 	dm->num_of_edps++;
 
 	amdgpu_dm_update_connector_ext_caps(aconnector);
-	caps = &dm->backlight_caps[aconnector->bl_idx];
 
-	/* Only offer ABM property when non-OLED and user didn't turn off by module parameter */
-	if (caps->ext_caps && !caps->ext_caps->bits.oled && amdgpu_dm_abm_level < 0)
+	/* Offer ABM property when user didn't turn off by module parameter.
+	 * OLED panels are included to support CACP (Content Adaptive
+	 * Contrast and Power) feature via set_abm_level.
+	 */
+	if (amdgpu_dm_abm_level < 0)
 		drm_object_attach_property(&aconnector->base.base,
 					   dm->adev->mode_info.abm_level_property,
 					   ABM_SYSFS_CONTROL);
@@ -601,9 +614,10 @@ EXPORT_IF_KUNIT(amdgpu_dm_setup_backlight_device);
  * carefully.
  */
 
-static ssize_t panel_power_savings_show(struct device *device,
-					struct device_attribute *attr,
-					char *buf)
+STATIC_IFN_KUNIT
+ssize_t panel_power_savings_show(struct device *device,
+				 struct device_attribute *attr,
+				 char *buf)
 {
 	struct drm_connector *connector = dev_get_drvdata(device);
 	struct drm_device *dev = connector->dev;
@@ -617,10 +631,12 @@ static ssize_t panel_power_savings_show(struct device *device,
 
 	return sysfs_emit(buf, "%u\n", val);
 }
+EXPORT_IF_KUNIT(panel_power_savings_show);
 
-static ssize_t panel_power_savings_store(struct device *device,
-					 struct device_attribute *attr,
-					 const char *buf, size_t count)
+STATIC_IFN_KUNIT
+ssize_t panel_power_savings_store(struct device *device,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
 {
 	struct drm_connector *connector = dev_get_drvdata(device);
 	struct drm_device *dev = connector->dev;
@@ -650,6 +666,7 @@ static ssize_t panel_power_savings_store(struct device *device,
 
 	return count;
 }
+EXPORT_IF_KUNIT(panel_power_savings_store);
 
 static DEVICE_ATTR_RW(panel_power_savings);
 
@@ -666,22 +683,16 @@ const struct attribute_group amdgpu_group = {
 bool
 amdgpu_dm_should_create_sysfs(struct amdgpu_dm_connector *amdgpu_dm_connector)
 {
+	struct dc_link *link = amdgpu_dm_connector->dc_link;
+
 	if (amdgpu_dm_abm_level >= 0)
 		return false;
 
 	if (amdgpu_dm_connector->base.connector_type != DRM_MODE_CONNECTOR_eDP)
 		return false;
 
-	/* check for OLED panels */
-	if (amdgpu_dm_connector->bl_idx >= 0) {
-		struct drm_device *drm = amdgpu_dm_connector->base.dev;
-		struct amdgpu_display_manager *dm = &drm_to_adev(drm)->dm;
-		struct amdgpu_dm_backlight_caps *caps;
-
-		caps = &dm->backlight_caps[amdgpu_dm_connector->bl_idx];
-		if (caps->aux_support)
-			return false;
-	}
+	if (link->panel_type != PANEL_TYPE_LCD && !link->panel_config.cacp.cacp_supported)
+		return false;
 
 	return true;
 }

@@ -716,8 +716,9 @@ void mod_power_update_backlight_on_mode_change(
 {
     struct set_backlight_level_params backlight_level_params = { 0 };
 
-		if (link->dpcd_sink_ext_caps.bits.hdr_aux_backlight_control == 1 ||
-			link->dpcd_sink_ext_caps.bits.sdr_aux_backlight_control == 1)
+		if ((link->dpcd_sink_ext_caps.bits.hdr_aux_backlight_control == 1 ||
+			link->dpcd_sink_ext_caps.bits.sdr_aux_backlight_control == 1) &&
+			link->backlight_control_type == BACKLIGHT_CONTROL_AMD_AUX)
 			dc_link_set_backlight_level_nits(link, core_power->bl_state[panel_inst].isHDR,
 				core_power->bl_state[panel_inst].backlight_millinit, 0);
 
@@ -745,6 +746,11 @@ static bool set_backlight_millinits_aux(struct core_power *core_power,
 		return true;
 
 	link = dc_stream_get_link(stream);
+
+	// only use internal backlight control if dmub capabilities are not present
+	if (link->backlight_control_type == BACKLIGHT_CONTROL_VESA_AUX &&
+		link->dc->caps.dmub_caps.aux_backlight_support)
+		return true;
 
 	return dc_link_set_backlight_level_nits(link, core_power->bl_state[inst].isHDR,
 			backlight_millinits, transition_time_millisec);
@@ -1453,6 +1459,76 @@ bool mod_power_is_abm_active(struct mod_power *mod_power,
 	return is_active;
 }
 
+bool mod_power_is_abm_supported(struct mod_power *mod_power,
+		unsigned int inst)
+{
+	struct core_power *core_power = NULL;
+	struct dc *dc = NULL;
+
+	if (mod_power == NULL)
+		return false;
+
+	core_power = MOD_POWER_TO_CORE(mod_power);
+	dc = core_power->dc;
+
+	// It's only implemented on dmcub.
+	if (dc->ctx->dmub_srv) {
+		if (!dmub_is_abm_supported(dc->res_pool, inst))
+			return false;
+	} else
+		return false;
+
+	return true;
+}
+
+bool mod_power_abm_set_event(struct mod_power *mod_power,
+		unsigned int full_screen, unsigned int trans_info,
+		unsigned int hdr_mode, unsigned int scaling_enable,
+		unsigned int scaling_strength_map, unsigned int inst)
+{
+	struct core_power *core_power = NULL;
+	struct dc *dc = NULL;
+
+	if (mod_power == NULL)
+		return false;
+
+	core_power = MOD_POWER_TO_CORE(mod_power);
+	dc = core_power->dc;
+
+	// It's only implemented on dmcub.
+	if (dc->ctx->dmub_srv) {
+		if (!dmub_set_abm_event(dc->res_pool, full_screen, trans_info,
+				hdr_mode, scaling_enable, scaling_strength_map, inst))
+			return false;
+	} else
+		return false;
+
+	return true;
+}
+
+bool mod_power_abm_set_strength(struct mod_power *mod_power,
+		unsigned int strength,
+		unsigned int inst)
+{
+	struct core_power *core_power = NULL;
+	struct dc *dc = NULL;
+
+	if (mod_power == NULL)
+		return false;
+
+	core_power = MOD_POWER_TO_CORE(mod_power);
+	dc = core_power->dc;
+
+	// It's only implemented on dmcub.
+	if (dc->ctx->dmub_srv) {
+		if (!dmub_set_abm_strength(dc->res_pool, strength, inst))
+			return false;
+	} else
+		return false;
+
+	return true;
+}
+
 static void fill_backlight_transform_table(struct dmcu_iram_parameters params,
 		struct iram_table_v_2 *table)
 {
@@ -1986,6 +2062,62 @@ bool dmub_init_abm_config(struct resource_pool *res_pool,
 	} else
 		result = res_pool->abm->funcs->init_abm_config(
 			res_pool->abm, (char *)(&config), sizeof(struct abm_config_table), 0);
+
+	return result;
+}
+
+bool dmub_is_abm_supported(struct resource_pool *res_pool, unsigned int inst)
+{
+
+	if (res_pool->abm == NULL && res_pool->multiple_abms[inst] == NULL)
+		return false;
+
+	return true;
+}
+
+bool dmub_set_abm_event(struct resource_pool *res_pool,
+		unsigned int full_screen, unsigned int trans_info,
+		unsigned int hdr_mode, unsigned int scaling_enable, unsigned int scaling_strength_map,
+		unsigned int inst)
+{
+	bool result = false;
+
+	if (res_pool->abm == NULL && res_pool->multiple_abms[inst] == NULL)
+		return false;
+
+	if (res_pool->multiple_abms[inst]) {
+		if (res_pool->multiple_abms[inst]->funcs->set_abm_event)
+			result = res_pool->multiple_abms[inst]->funcs->set_abm_event(
+				res_pool->multiple_abms[inst], full_screen, trans_info,
+					hdr_mode, scaling_enable, scaling_strength_map, inst);
+	} else {
+		if (res_pool->abm->funcs->set_abm_event)
+			result = res_pool->abm->funcs->set_abm_event(
+					res_pool->abm, full_screen, trans_info,
+					hdr_mode, scaling_enable, scaling_strength_map, inst);
+	}
+
+	return result;
+}
+
+bool dmub_set_abm_strength(struct resource_pool *res_pool,
+	unsigned int strength,
+	unsigned int inst)
+{
+	bool result = false;
+
+	if (res_pool->abm == NULL && res_pool->multiple_abms[inst] == NULL)
+		return false;
+
+	if (res_pool->multiple_abms[inst]) {
+		if (res_pool->multiple_abms[inst]->funcs->set_abm_level)
+			result = res_pool->multiple_abms[inst]->funcs->set_abm_level(
+				res_pool->multiple_abms[inst], strength);
+	} else {
+		if (res_pool->abm->funcs->set_abm_level)
+			result = res_pool->abm->funcs->set_abm_level(
+					res_pool->abm, strength);
+	}
 
 	return result;
 }

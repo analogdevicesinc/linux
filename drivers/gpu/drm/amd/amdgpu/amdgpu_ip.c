@@ -489,7 +489,13 @@ int amdgpu_device_ip_soft_reset(struct amdgpu_ring *guilty_ring,
 	ip_type = amdgpu_ip_from_ring(guilty_ring->funcs->type);
 	ip_block = amdgpu_device_ip_get_ip_block(adev, ip_type);
 
-	if (!ip_block || !ip_block->version->funcs->soft_reset) {
+	if (unlikely(!ip_block)) {
+		dev_warn(adev->dev, "IP block not found for ring %s\n",
+			 guilty_ring->name);
+		return -EOPNOTSUPP;
+	}
+
+	if (!ip_block->version->funcs->soft_reset) {
 		dev_warn(adev->dev, "IP block soft reset not supported on %s\n",
 			 ip_block->version->funcs->name);
 		return -EOPNOTSUPP;

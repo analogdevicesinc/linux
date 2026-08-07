@@ -211,10 +211,6 @@ int kfd_debugfs_add_process(struct kfd_process *p)
 		entry->proc_dentry = debugfs_create_dir(name,
 							primary_entry->proc_dentry);
 	}
-	if (IS_ERR_OR_NULL(entry->proc_dentry)) {
-		ret = entry->proc_dentry ? PTR_ERR(entry->proc_dentry) : -ENOMEM;
-		goto err_free_entry;
-	}
 
 	list_add(&entry->list, &procs);
 	kfd_debugfs_create_pasid_files(p, entry->proc_dentry);

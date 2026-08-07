@@ -12,6 +12,7 @@
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_kunit_helpers.h>
+#include <drm/drm_managed.h>
 #include <drm/drm_mode.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_writeback.h>
@@ -266,7 +267,7 @@ static void dm_test_wb_get_modes_returns_modes(struct kunit *test)
 						   DRIVER_MODESET | DRIVER_ATOMIC);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, drm);
 
-	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+	connector = drmm_kzalloc(drm, sizeof(*connector), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	drmm_connector_init(drm, connector, &dm_wb_test_connector_funcs,
@@ -301,7 +302,7 @@ static void dm_test_wb_get_modes_bounded_by_max(struct kunit *test)
 						   DRIVER_MODESET | DRIVER_ATOMIC);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, drm);
 
-	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+	connector = drmm_kzalloc(drm, sizeof(*connector), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	drmm_connector_init(drm, connector, &dm_wb_test_connector_funcs,
@@ -364,6 +365,47 @@ static void dm_test_wb_connector_init_success(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, wbcon->base.encoder.possible_crtcs, 0x1);
 }
 
+/* Tests for amdgpu_dm_wb_prepare_job / amdgpu_dm_wb_cleanup_job */
+
+/**
+ * dm_test_wb_prepare_job_no_fb - Verify prepare_job early return without a framebuffer
+ * @test: KUnit test context
+ *
+ * When job->fb is NULL there is nothing to pin, so amdgpu_dm_wb_prepare_job()
+ * must return 0 without touching any buffer object.
+ */
+static void dm_test_wb_prepare_job_no_fb(struct kunit *test)
+{
+	struct drm_writeback_job *job;
+	int ret;
+
+	job = kunit_kzalloc(test, sizeof(*job), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, job);
+
+	job->fb = NULL;
+	ret = amdgpu_dm_wb_prepare_job(NULL, job);
+	KUNIT_EXPECT_EQ(test, ret, 0);
+}
+
+/**
+ * dm_test_wb_cleanup_job_no_fb - Verify cleanup_job early return without a framebuffer
+ * @test: KUnit test context
+ *
+ * When job->fb is NULL there is nothing to unpin, so amdgpu_dm_wb_cleanup_job()
+ * must return immediately.
+ */
+static void dm_test_wb_cleanup_job_no_fb(struct kunit *test)
+{
+	struct drm_writeback_job *job;
+
+	job = kunit_kzalloc(test, sizeof(*job), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, job);
+
+	job->fb = NULL;
+	/* Should return without dereferencing any buffer object. */
+	amdgpu_dm_wb_cleanup_job(NULL, job);
+}
+
 static struct kunit_case dm_wb_test_cases[] = {
 	/* amdgpu_dm_wb_encoder_atomic_check */
 	KUNIT_CASE(dm_test_wb_atomic_check_no_job),
@@ -378,6 +420,9 @@ static struct kunit_case dm_wb_test_cases[] = {
 	KUNIT_CASE(dm_test_wb_get_modes_bounded_by_max),
 	/* amdgpu_dm_wb_connector_init */
 	KUNIT_CASE(dm_test_wb_connector_init_success),
+	/* amdgpu_dm_wb_prepare_job / amdgpu_dm_wb_cleanup_job */
+	KUNIT_CASE(dm_test_wb_prepare_job_no_fb),
+	KUNIT_CASE(dm_test_wb_cleanup_job_no_fb),
 	{}
 };
 

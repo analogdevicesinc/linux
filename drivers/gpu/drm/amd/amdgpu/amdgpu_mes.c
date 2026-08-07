@@ -921,6 +921,221 @@ int amdgpu_mes_update_enforce_isolation(struct amdgpu_device *adev)
 	return r;
 }
 
+/**
+ * amdgpu_mes_rs64mem_init - initialize RS64 local memory context arrays
+ *
+ * @mes: MES instance
+ *
+ * Returns 0 on success, negative errno on failure.
+ */
+int amdgpu_mes_rs64mem_init(struct amdgpu_mes *mes)
+{
+	struct amdgpu_device *adev = container_of(mes, struct amdgpu_device, mes);
+	int r;
+
+	if (!mes->use_rs64mem)
+		return 0;
+
+	r = amdgpu_bo_create_kernel(adev, PAGE_SIZE, PAGE_SIZE,
+				    AMDGPU_GEM_DOMAIN_GTT,
+				    &mes->ctx_array_size_bo,
+				    &mes->ctx_array_size_gpu_addr,
+				    (void **)&mes->ctx_array_size_cpu_ptr);
+	if (r) {
+		dev_err(adev->dev,
+			"Failed to allocate ctx array size BO, r=%d\n", r);
+		return r;
+	}
+
+	memset(mes->ctx_array_size_cpu_ptr, 0, PAGE_SIZE);
+
+	return 0;
+}
+
+ /**
+  * amdgpu_mes_rs64mem_fini - tear down RS64 local memory management
+  *
+  * @mes: MES instance
+  */
+void amdgpu_mes_rs64mem_fini(struct amdgpu_mes *mes)
+{
+	if (mes->ctx_array_size_bo) {
+		amdgpu_bo_free_kernel(&mes->ctx_array_size_bo,
+				      &mes->ctx_array_size_gpu_addr,
+				      (void **)&mes->ctx_array_size_cpu_ptr);
+	}
+	bitmap_free(mes->proc_ctx_bitmap);
+	bitmap_free(mes->gang_ctx_bitmap);
+	mes->use_rs64mem = false;
+}
+
+/**
+ * amdgpu_mes_rs64mem_setup_bitmaps - allocate bitmaps after querying MES
+ *
+ * Called after QUERY_SCHEDULER_STATUS returns and MES has written
+ * the array sizes to the GPU buffer. Reads the sizes and allocates
+ * the tracking bitmaps.
+ *
+ * @mes: MES instance
+ *
+ * Returns 0 on success, negative errno on failure.
+ */
+int amdgpu_mes_rs64mem_setup_bitmaps(struct amdgpu_mes *mes)
+{
+	struct amdgpu_device *adev = container_of(mes, struct amdgpu_device, mes);
+
+	if (!mes->use_rs64mem || !mes->ctx_array_size_cpu_ptr)
+		return 0;
+
+	/*
+	 * MES FW wrote the sizes to the GPU buffer:
+	 *   ctx_array_size_cpu_ptr[0] = proc_ctx_array_size (N)
+	 *   ctx_array_size_cpu_ptr[1] = gang_ctx_array_size (M)
+	 */
+	mes->proc_ctx_array_size = mes->ctx_array_size_cpu_ptr[0];
+	mes->gang_ctx_array_size = mes->ctx_array_size_cpu_ptr[1];
+
+	/* Sanity check - MES FW typically returns N=50, M=300 */
+	if (mes->proc_ctx_array_size == 0 || mes->gang_ctx_array_size == 0) {
+		dev_warn(adev->dev,
+			 "MES returned zero ctx array sizes (proc=%u, gang=%u), "
+			 "disabling RS64 local memory optimization\n",
+			 mes->proc_ctx_array_size, mes->gang_ctx_array_size);
+		mes->use_rs64mem = false;
+		return 0;
+	}
+
+	/* Cap to safety limits */
+	if (mes->proc_ctx_array_size > AMDGPU_MES_PROC_CTX_ARRAY_MAX)
+		mes->proc_ctx_array_size = AMDGPU_MES_PROC_CTX_ARRAY_MAX;
+	if (mes->gang_ctx_array_size > AMDGPU_MES_GANG_CTX_ARRAY_MAX)
+		mes->gang_ctx_array_size = AMDGPU_MES_GANG_CTX_ARRAY_MAX;
+
+	dev_info(adev->dev,
+		 "MES RS64 local memory: proc_ctx_array_size:%u, "
+		 "gang_ctx_array_size:%u\n",
+		 mes->proc_ctx_array_size, mes->gang_ctx_array_size);
+
+	/* Allocate bitmaps */
+	mes->proc_ctx_bitmap = bitmap_zalloc(mes->proc_ctx_array_size,
+					     GFP_KERNEL);
+	if (!mes->proc_ctx_bitmap) {
+		mes->use_rs64mem = false;
+		return -ENOMEM;
+	}
+
+	mes->gang_ctx_bitmap = bitmap_zalloc(mes->gang_ctx_array_size,
+					     GFP_KERNEL);
+	if (!mes->gang_ctx_bitmap) {
+		bitmap_free(mes->proc_ctx_bitmap);
+		mes->proc_ctx_bitmap = NULL;
+		mes->use_rs64mem = false;
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+/**
+ * amdgpu_mes_alloc_proc_ctx_index - allocate a process context slot
+ *
+ * @mes: MES instance
+ * @queue: Usermode queue receiving the allocated process context index
+ *
+ * Returns 0 on success, -ENOSPC if all slots are used, or
+ * -EOPNOTSUPP if RS64 local memory is unavailable.
+ */
+int amdgpu_mes_alloc_proc_ctx_index(struct amdgpu_mes *mes,
+				    struct amdgpu_usermode_queue *queue)
+{
+	unsigned long bit;
+
+	if (!mes->use_rs64mem || !mes->proc_ctx_bitmap)
+		return -EOPNOTSUPP;
+
+	amdgpu_mes_lock(mes);
+	bit = find_first_zero_bit(mes->proc_ctx_bitmap,
+				  mes->proc_ctx_array_size);
+	if (bit >= mes->proc_ctx_array_size) {
+		amdgpu_mes_unlock(mes);
+		return -ENOSPC;
+	}
+	set_bit(bit, mes->proc_ctx_bitmap);
+	queue->proc_ctx_array_index = (uint32_t)bit;
+	amdgpu_mes_unlock(mes);
+
+	return 0;
+}
+
+ /**
+  * amdgpu_mes_free_proc_ctx_index - free a process context slot
+  *
+  * @mes: MES instance
+  * @queue: Usermode queue whose process context index is released
+  */
+void amdgpu_mes_free_proc_ctx_index(struct amdgpu_mes *mes,
+				    struct amdgpu_usermode_queue *queue)
+{
+	if (!mes->use_rs64mem || !mes->proc_ctx_bitmap)
+		return;
+	if (queue->proc_ctx_array_index >= mes->proc_ctx_array_size)
+		return;
+
+	amdgpu_mes_lock(mes);
+	clear_bit(queue->proc_ctx_array_index, mes->proc_ctx_bitmap);
+	amdgpu_mes_unlock(mes);
+}
+
+ /**
+  * amdgpu_mes_alloc_gang_ctx_index - allocate a gang context slot
+  *
+  * @mes: MES instance
+  * @queue: Usermode queue receiving the allocated gang context index
+  *
+  * Returns 0 on success, -ENOSPC if all slots are used, or
+  * -EOPNOTSUPP if RS64 local memory is unavailable.
+  */
+int amdgpu_mes_alloc_gang_ctx_index(struct amdgpu_mes *mes,
+				    struct amdgpu_usermode_queue *queue)
+{
+	unsigned long bit;
+
+	if (!mes->use_rs64mem || !mes->gang_ctx_bitmap)
+		return -EOPNOTSUPP;
+
+	amdgpu_mes_lock(mes);
+	bit = find_first_zero_bit(mes->gang_ctx_bitmap,
+				  mes->gang_ctx_array_size);
+	if (bit >= mes->gang_ctx_array_size) {
+		amdgpu_mes_unlock(mes);
+		return -ENOSPC;
+	}
+	set_bit(bit, mes->gang_ctx_bitmap);
+	queue->gang_ctx_array_index = bit;
+	amdgpu_mes_unlock(mes);
+
+	return 0;
+}
+
+ /**
+  * amdgpu_mes_free_gang_ctx_index - free a gang context slot
+  *
+  * @mes: MES instance
+  * @queue: Usermode queue whose gang context index is released
+  */
+void amdgpu_mes_free_gang_ctx_index(struct amdgpu_mes *mes,
+				    struct amdgpu_usermode_queue *queue)
+{
+	if (!mes->use_rs64mem || !mes->gang_ctx_bitmap)
+		return;
+	if (queue->gang_ctx_array_index >= mes->gang_ctx_array_size)
+		return;
+
+	amdgpu_mes_lock(mes);
+	clear_bit(queue->gang_ctx_array_index, mes->gang_ctx_bitmap);
+	amdgpu_mes_unlock(mes);
+}
+
 #if defined(CONFIG_DEBUG_FS)
 
 static int amdgpu_debugfs_mes_event_log_show(struct seq_file *m, void *unused)

@@ -498,9 +498,28 @@ int amdgpu_cper_init(struct amdgpu_device *adev)
 	return 0;
 }
 
+int amdgpu_cper_deferred_init(struct amdgpu_device *adev)
+{
+	int r;
+
+	if (adev->cper.enabled)
+		return 0;
+
+	r = amdgpu_cper_init(adev);
+	if (r || !adev->cper.enabled)
+		return r;
+
+#if defined(CONFIG_DEBUG_FS)
+	if (adev_to_drm(adev)->primary->debugfs_root)
+		amdgpu_debugfs_ring_init(adev, &adev->cper.ring_buf);
+#endif
+
+	return 0;
+}
+
 int amdgpu_cper_fini(struct amdgpu_device *adev)
 {
-	if (amdgpu_sriov_vf(adev))
+	if (amdgpu_sriov_vf(adev) && !amdgpu_sriov_ras_cper_en(adev))
 		return 0;
 
 	adev->cper.enabled = false;

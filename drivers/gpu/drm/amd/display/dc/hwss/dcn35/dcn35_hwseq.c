@@ -487,7 +487,7 @@ void dcn35_update_odm(struct dc *dc, struct dc_state *context, struct pipe_ctx *
 
 void dcn35_dpp_root_clock_control(struct dce_hwseq *hws, unsigned int dpp_inst, bool clock_on)
 {
-	if (!hws->ctx->dc->debug.root_clock_optimization.bits.dpp)
+	if (!hws->ctx->dc->debug.root_clock_optimization.bits.dpp && !clock_on)
 		return;
 
 	if (hws->ctx->dc->res_pool->dccg->funcs->dpp_root_clock_control) {
@@ -498,7 +498,7 @@ void dcn35_dpp_root_clock_control(struct dce_hwseq *hws, unsigned int dpp_inst, 
 
 void dcn35_dpstream_root_clock_control(struct dce_hwseq *hws, unsigned int dp_hpo_inst, bool clock_on)
 {
-	if (!hws->ctx->dc->debug.root_clock_optimization.bits.dpstream)
+	if (!hws->ctx->dc->debug.root_clock_optimization.bits.dpstream && !clock_on)
 		return;
 
 	if (hws->ctx->dc->res_pool->dccg->funcs->set_dpstreamclk_root_clock_gating) {
@@ -509,7 +509,7 @@ void dcn35_dpstream_root_clock_control(struct dce_hwseq *hws, unsigned int dp_hp
 
 void dcn35_hdmistream_root_clock_control(struct dce_hwseq *hws, bool clock_on)
 {
-	if (!hws->ctx->dc->debug.root_clock_optimization.bits.hdmistream)
+	if (!hws->ctx->dc->debug.root_clock_optimization.bits.hdmistream && !clock_on)
 		return;
 
 	if (hws->ctx->dc->res_pool->dccg->funcs->set_hdmistreamclk_root_clock_gating) {
@@ -520,7 +520,7 @@ void dcn35_hdmistream_root_clock_control(struct dce_hwseq *hws, bool clock_on)
 
 void dcn35_physymclk_root_clock_control(struct dce_hwseq *hws, unsigned int phy_inst, bool clock_on)
 {
-	if (!hws->ctx->dc->debug.root_clock_optimization.bits.physymclk)
+	if (!hws->ctx->dc->debug.root_clock_optimization.bits.physymclk && !clock_on)
 		return;
 
 	if (hws->ctx->dc->res_pool->dccg->funcs->set_physymclk_root_clock_gating) {

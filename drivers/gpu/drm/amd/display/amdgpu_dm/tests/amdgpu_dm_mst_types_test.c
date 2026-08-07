@@ -8,7 +8,11 @@
 #include <kunit/test.h>
 
 #include <drm/drm_drv.h>
+#include <drm/drm_fixed.h>
 #include <drm/drm_kunit_helpers.h>
+#include <drm/drm_atomic_helper.h>
+#include <drm/drm_connector.h>
+#include <drm/drm_mode_config.h>
 #include <drm/display/drm_dp.h>
 #include <drm/display/drm_dp_helper.h>
 #include <drm/display/drm_dp_mst_helper.h>
@@ -31,7 +35,9 @@ static u8 dm_mst_test_dpcd[0x10];
 static u8 dm_mst_test_desc_dpcd[0x10];
 static struct aux_payload dm_mst_test_last_payload;
 static int dm_mst_test_aux_transfer_raw_result;
+static u8 dm_mst_test_aux_transfer_raw_reply;
 static enum aux_return_code_type dm_mst_test_aux_transfer_raw_operation_result;
+static ssize_t dm_mst_test_aux_transfer_override;
 
 static int dm_mst_test_aux_transfer_raw(struct ddc_service *ddc,
 						struct aux_payload *payload,
@@ -41,6 +47,7 @@ static int dm_mst_test_aux_transfer_raw(struct ddc_service *ddc,
 
 	dm_mst_test_last_payload = *payload;
 	*operation_result = dm_mst_test_aux_transfer_raw_operation_result;
+	payload->reply[0] = dm_mst_test_aux_transfer_raw_reply;
 
 	if (dm_mst_test_aux_transfer_raw_result)
 		return dm_mst_test_aux_transfer_raw_result;
@@ -64,6 +71,7 @@ static void dm_mst_test_setup_dm_aux(struct amdgpu_dm_dp_aux *dm_aux,
 {
 	memset(&dm_mst_test_last_payload, 0, sizeof(dm_mst_test_last_payload));
 	dm_mst_test_aux_transfer_raw_result = 0;
+	dm_mst_test_aux_transfer_raw_reply = 0;
 	dm_mst_test_aux_transfer_raw_operation_result = AUX_RET_SUCCESS;
 	link_srv->aux_transfer_raw = dm_mst_test_aux_transfer_raw;
 	dc->link_srv = link_srv;
@@ -87,6 +95,11 @@ static ssize_t dm_mst_test_aux_transfer(struct drm_dp_aux *aux,
 					struct drm_dp_aux_msg *msg)
 {
 	size_t i;
+	ssize_t ret;
+
+	ret = dm_mst_test_aux_transfer_override;
+	if (ret)
+		return ret;
 
 	switch (msg->request & ~DP_AUX_I2C_MOT) {
 	case DP_AUX_NATIVE_READ:
@@ -101,6 +114,53 @@ static ssize_t dm_mst_test_aux_transfer(struct drm_dp_aux *aux,
 	default:
 		return -EINVAL;
 	}
+}
+
+static struct amdgpu_dm_connector *dm_mst_test_alloc_sideband_connector(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct link_service *link_srv;
+	struct dc_link *link;
+	struct dc *dc;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	KUNIT_ASSERT_NOT_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+
+	mutex_init(&aconnector->handle_mst_msg_ready);
+	link_srv->get_status = dm_mst_test_get_status;
+	dc->link_srv = link_srv;
+	link->dc = dc;
+	link->dpcd_caps.dpcd_rev.raw = DPCD_REV_14;
+	link->link_status.dpcd_caps = &link->dpcd_caps;
+	aconnector->dc_link = link;
+	aconnector->dm_dp_aux.aux.name = "dm_mst_test_sideband_aux";
+	aconnector->dm_dp_aux.aux.transfer = dm_mst_test_aux_transfer;
+	drm_dp_aux_init(&aconnector->dm_dp_aux.aux);
+	drm_dp_dpcd_set_probe(&aconnector->dm_dp_aux.aux, false);
+
+	memset(dm_mst_test_dpcd, 0, sizeof(dm_mst_test_dpcd));
+	dm_mst_test_aux_transfer_override = 0;
+
+	return aconnector;
+}
+
+static uint32_t dm_mst_test_dp_link_bandwidth_kbps(
+	const struct dc_link *link,
+	const struct dc_link_settings *link_settings)
+{
+	return 4320000;
+}
+
+static const struct dc_link_settings *dm_mst_test_dp_get_verified_link_cap(
+	const struct dc_link *link)
+{
+	return &link->verified_link_cap;
 }
 
 static ssize_t dm_mst_test_desc_aux_transfer(struct drm_dp_aux *aux,
@@ -254,6 +314,35 @@ static void dm_mst_test_pbn_divider_null_link(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dm_mst_get_pbn_divider(NULL), 0U);
 }
 
+/**
+ * dm_mst_test_pbn_divider_uses_link_bandwidth - Test pbn_divider with link cap
+ * @test: KUnit test context
+ *
+ * Verify that dm_mst_get_pbn_divider() uses the DC link service to derive the
+ * fixed-point PBN divider when a link is present.
+ */
+static void dm_mst_test_pbn_divider_uses_link_bandwidth(struct kunit *test)
+{
+	struct link_service *link_srv;
+	struct dc_link *link;
+	struct dc *dc;
+
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	KUNIT_ASSERT_NOT_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+
+	link_srv->dp_get_verified_link_cap = dm_mst_test_dp_get_verified_link_cap;
+	link_srv->dp_link_bandwidth_kbps = dm_mst_test_dp_link_bandwidth_kbps;
+	dc->link_srv = link_srv;
+	link->dc = dc;
+
+	KUNIT_EXPECT_EQ(test, dm_mst_get_pbn_divider(link),
+			 (uint32_t)(dfixed_const(1000) / 100));
+}
+
 /* Tests for amdgpu_dm_mst_reset_mst_connector_setting */
 
 /**
@@ -331,6 +420,7 @@ static void dm_mst_test_retrieve_downstream_present(struct kunit *test)
 	memset(dm_mst_test_dpcd, 0, sizeof(dm_mst_test_dpcd));
 	/* PORT_PRESENT = 1, PORT_TYPE = 2 (0b101) */
 	dm_mst_test_dpcd[DP_DOWNSTREAMPORT_PRESENT] = 0x05;
+	dm_mst_test_aux_transfer_override = 0;
 
 	aux->name = "dm_mst_test_aux";
 	aux->transfer = dm_mst_test_aux_transfer;
@@ -343,6 +433,35 @@ static void dm_mst_test_retrieve_downstream_present(struct kunit *test)
 			(int)aconnector->mst_downstream_port_present.fields.PORT_PRESENT, 1);
 	KUNIT_EXPECT_EQ(test,
 			(int)aconnector->mst_downstream_port_present.fields.PORT_TYPE, 2);
+}
+
+/**
+ * dm_mst_test_retrieve_downstream_aux_error - Test downstream read failure
+ * @test: KUnit test context
+ *
+ * Verify that retrieve_downstream_port_device() returns false when the AUX
+ * DPCD read fails.
+ */
+static void dm_mst_test_retrieve_downstream_aux_error(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_dp_aux *aux;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	aux = kunit_kzalloc(test, sizeof(*aux), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, aux);
+
+	dm_mst_test_aux_transfer_override = -EIO;
+	aux->name = "dm_mst_test_aux";
+	aux->transfer = dm_mst_test_aux_transfer;
+	drm_dp_aux_init(aux);
+	drm_dp_dpcd_set_probe(aux, false);
+	aconnector->dsc_aux = aux;
+
+	KUNIT_EXPECT_FALSE(test, retrieve_downstream_port_device(aconnector));
+
+	dm_mst_test_aux_transfer_override = 0;
 }
 
 /* Tests for retrieve_branch_specific_data */
@@ -711,6 +830,55 @@ static void dm_mst_test_aux_transfer_hpd_discon_quirk(struct kunit *test)
 }
 
 /**
+ * dm_mst_test_aux_transfer_non_ack_reply - non-ACK AUX reply is logged.
+ * @test: KUnit test context.
+ *
+ * A successful read with a nonzero reply byte should still return the backend
+ * byte count while exercising the non-ACK reply handling path.
+ */
+static void dm_mst_test_aux_transfer_non_ack_reply(struct kunit *test)
+{
+	struct amdgpu_dm_dp_aux *dm_aux;
+	struct amdgpu_device *adev;
+	struct ddc_service *ddc;
+	struct dc_link *link;
+	struct dc *dc;
+	struct link_service *link_srv;
+	struct dc_context *ctx;
+	u8 buffer[2] = { 0 };
+	struct drm_dp_aux_msg msg = {
+		.address = 4,
+		.request = DP_AUX_NATIVE_READ,
+		.buffer = buffer,
+		.size = sizeof(buffer),
+	};
+	ssize_t ret;
+
+	dm_aux = kunit_kzalloc(test, sizeof(*dm_aux), GFP_KERNEL);
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	ddc = kunit_kzalloc(test, sizeof(*ddc), GFP_KERNEL);
+	link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dm_aux);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, ddc);
+	KUNIT_ASSERT_NOT_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	dm_mst_test_setup_dm_aux(dm_aux, ddc, link, dc, link_srv, ctx, adev);
+	dm_mst_test_aux_transfer_raw_reply = DP_AUX_NATIVE_REPLY_NACK;
+
+	ret = dm_dp_aux_transfer(&dm_aux->aux, &msg);
+
+	KUNIT_EXPECT_EQ(test, ret, (ssize_t)sizeof(buffer));
+	KUNIT_EXPECT_EQ(test, dm_mst_test_last_payload.address, 4U);
+}
+
+/**
  * dm_mst_test_fill_payload_flags_native_write - native write request decode.
  * @test: KUnit test context.
  *
@@ -843,36 +1011,192 @@ static void dm_mst_test_select_esi_dpcd_esi(struct kunit *test)
 static void dm_mst_test_sideband_msg_ready_no_ready_bits(struct kunit *test)
 {
 	struct amdgpu_dm_connector *aconnector;
-	struct link_service *link_srv;
-	struct dc_link *link;
-	struct dc *dc;
 
-	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
-	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
-	link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
-	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, aconnector);
-	KUNIT_ASSERT_NOT_NULL(test, link_srv);
-	KUNIT_ASSERT_NOT_NULL(test, link);
-	KUNIT_ASSERT_NOT_NULL(test, dc);
-
-	mutex_init(&aconnector->handle_mst_msg_ready);
-	link_srv->get_status = dm_mst_test_get_status;
-	dc->link_srv = link_srv;
-	link->dc = dc;
-	link->dpcd_caps.dpcd_rev.raw = DPCD_REV_14;
-	link->link_status.dpcd_caps = &link->dpcd_caps;
-	aconnector->dc_link = link;
-	aconnector->dm_dp_aux.aux.name = "dm_mst_test_sideband_aux";
-	aconnector->dm_dp_aux.aux.transfer = dm_mst_test_aux_transfer;
-	drm_dp_aux_init(&aconnector->dm_dp_aux.aux);
-	drm_dp_dpcd_set_probe(&aconnector->dm_dp_aux.aux, false);
-	memset(dm_mst_test_dpcd, 0, sizeof(dm_mst_test_dpcd));
+	aconnector = dm_mst_test_alloc_sideband_connector(test);
 
 	dm_handle_mst_sideband_msg_ready_event(&aconnector->mst_mgr,
 					       DOWN_REP_MSG_RDY_EVENT);
 
 	KUNIT_EXPECT_EQ(test, dm_mst_test_dpcd[1], (u8)0);
+}
+
+/**
+ * dm_mst_test_sideband_msg_ready_read_error - Test ESI read failure path
+ * @test: KUnit test context
+ *
+ * Verify that dm_handle_mst_sideband_msg_ready_event() returns cleanly when
+ * the DPCD read fails before a ready bit can be handled.
+ */
+static void dm_mst_test_sideband_msg_ready_read_error(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_mst_test_alloc_sideband_connector(test);
+	dm_mst_test_aux_transfer_override = -EIO;
+
+	dm_handle_mst_sideband_msg_ready_event(&aconnector->mst_mgr,
+					       DOWN_REP_MSG_RDY_EVENT);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_dpcd[1], (u8)0);
+	dm_mst_test_aux_transfer_override = 0;
+}
+
+/**
+ * dm_mst_test_sideband_msg_ready_without_mst_state - Test ready bit no-op path
+ * @test: KUnit test context
+ *
+ * Verify that a DOWN_REP ready bit is filtered and then ignored when the MST
+ * topology manager is not enabled.
+ */
+static void dm_mst_test_sideband_msg_ready_without_mst_state(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_mst_test_alloc_sideband_connector(test);
+	dm_mst_test_dpcd[(DP_SINK_COUNT_ESI + 1) & 0xf] = DP_DOWN_REP_MSG_RDY;
+
+	dm_handle_mst_sideband_msg_ready_event(&aconnector->mst_mgr,
+					       DOWN_REP_MSG_RDY_EVENT);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_dpcd[(DP_SINK_COUNT_ESI + 1) & 0xf],
+			 DP_DOWN_REP_MSG_RDY);
+}
+
+/**
+ * dm_mst_test_down_rep_msg_ready_wrapper - Test DOWN_REP wrapper
+ * @test: KUnit test context
+ *
+ * Verify that dm_handle_mst_down_rep_msg_ready() forwards to the generic MST
+ * sideband handler with the DOWN_REP event selection.
+ */
+static void dm_mst_test_down_rep_msg_ready_wrapper(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_mst_test_alloc_sideband_connector(test);
+
+	dm_handle_mst_down_rep_msg_ready(&aconnector->mst_mgr);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_dpcd[1], (u8)0);
+}
+
+/**
+ * dm_mst_test_initialize_dp_connector_edp - Test eDP initialization path
+ * @test: KUnit test context
+ *
+ * Verify that amdgpu_dm_initialize_dp_connector() initializes the DP AUX state
+ * and exits before MST topology setup for eDP connectors.
+ */
+static void dm_mst_test_initialize_dp_connector_edp(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_device *adev;
+	struct ddc_service *ddc;
+	struct dc_link *link;
+
+	adev = dm_kunit_alloc_adev(test);
+	link = dm_kunit_alloc_link(test);
+	ddc = kunit_kzalloc(test, sizeof(*ddc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ddc);
+
+	adev->dm.adev = adev;
+	adev->dm.ddev = &adev->ddev;
+	link->ddc = ddc;
+	aconnector = dm_kunit_alloc_connector(test, adev, link);
+	aconnector->base.connector_type = DRM_MODE_CONNECTOR_eDP;
+
+	amdgpu_dm_initialize_dp_connector(&adev->dm, aconnector, 5);
+
+	KUNIT_EXPECT_TRUE(test, aconnector->dm_dp_aux.aux.transfer == dm_dp_aux_transfer);
+	KUNIT_EXPECT_PTR_EQ(test, aconnector->dm_dp_aux.aux.drm_dev, &adev->ddev);
+	KUNIT_EXPECT_PTR_EQ(test, aconnector->dm_dp_aux.ddc_service, ddc);
+	KUNIT_EXPECT_PTR_EQ(test, aconnector->mst_mgr.dev, NULL);
+	KUNIT_EXPECT_NOT_NULL(test, aconnector->dm_dp_aux.aux.name);
+	if (aconnector->dm_dp_aux.aux.name)
+		KUNIT_EXPECT_NOT_NULL(test, strstr(aconnector->dm_dp_aux.aux.name, "5"));
+
+	drm_dp_cec_unregister_connector(&aconnector->dm_dp_aux.aux);
+	kfree(aconnector->dm_dp_aux.aux.name);
+}
+
+static bool dm_mst_test_dp_get_max_link_enc_cap(const struct dc_link *link,
+						struct dc_link_settings *cap)
+{
+	return true;
+}
+
+static void dm_mst_test_connector_destroy(struct drm_connector *connector)
+{
+}
+
+static const struct drm_connector_funcs dm_mst_test_connector_funcs = {
+	.reset = drm_atomic_helper_connector_reset,
+	.destroy = dm_mst_test_connector_destroy,
+	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+};
+
+/**
+ * dm_mst_test_initialize_dp_connector_mst - Test MST root initialization path
+ * @test: KUnit test context
+ *
+ * Verify that amdgpu_dm_initialize_dp_connector() initializes the MST topology
+ * manager for a non-eDP DisplayPort connector. This exercises the path past the
+ * eDP early return, including dc_link_dp_get_max_link_enc_cap() and
+ * drm_dp_mst_topology_mgr_init(). A fully initialized DRM mode config and
+ * connector are required because the topology manager registers a private
+ * atomic object and the subconnector property is attached to the connector.
+ */
+static void dm_mst_test_initialize_dp_connector_mst(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_device *adev;
+	struct link_service *link_srv;
+	struct ddc_service *ddc;
+	struct dc_link *link;
+	struct dc *dc;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+
+	ret = drmm_mode_config_init(&adev->ddev);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	ddc = kunit_kzalloc(test, sizeof(*ddc), GFP_KERNEL);
+	link = dm_kunit_alloc_link(test);
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ddc);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+
+	link_srv->dp_get_max_link_enc_cap = dm_mst_test_dp_get_max_link_enc_cap;
+	dc->link_srv = link_srv;
+	link->dc = dc;
+	link->ddc = ddc;
+
+	adev->dm.adev = adev;
+	adev->dm.ddev = &adev->ddev;
+
+	aconnector = dm_kunit_alloc_connector(test, adev, link);
+
+	ret = drm_connector_init(&adev->ddev, &aconnector->base,
+				 &dm_mst_test_connector_funcs,
+				 DRM_MODE_CONNECTOR_DisplayPort);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	amdgpu_dm_initialize_dp_connector(&adev->dm, aconnector, 7);
+
+	KUNIT_EXPECT_TRUE(test, aconnector->dm_dp_aux.aux.transfer == dm_dp_aux_transfer);
+	KUNIT_EXPECT_PTR_EQ(test, aconnector->mst_mgr.dev, &adev->ddev);
+	KUNIT_EXPECT_PTR_EQ(test, aconnector->mst_mgr.aux, &aconnector->dm_dp_aux.aux);
+	KUNIT_EXPECT_EQ(test, aconnector->mst_mgr.max_payloads, 4);
+	KUNIT_EXPECT_TRUE(test, aconnector->mst_mgr.cbs != NULL);
+
+	drm_dp_mst_topology_mgr_destroy(&aconnector->mst_mgr);
+	drm_dp_cec_unregister_connector(&aconnector->dm_dp_aux.aux);
+	kfree(aconnector->dm_dp_aux.aux.name);
+	drm_connector_cleanup(&aconnector->base);
 }
 
 /**
@@ -1015,6 +1339,7 @@ static void dm_mst_test_detect_unregistered(struct kunit *test)
 			(int)connector_status_disconnected);
 }
 
+#if !defined(CONFIG_DRM_AMD_DC_FP)
 /**
  * dm_mst_test_fp_guarded_public_stubs - Test FP-off public fallbacks
  * @test: KUnit test context
@@ -1027,6 +1352,7 @@ static void dm_mst_test_fp_guarded_public_stubs(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(NULL, NULL),
 			(enum dc_status)DC_OK);
 }
+#endif
 
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
@@ -1038,11 +1364,13 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_zero_sink_count),
 	/* dm_mst_get_pbn_divider tests */
 	KUNIT_CASE(dm_mst_test_pbn_divider_null_link),
+	KUNIT_CASE(dm_mst_test_pbn_divider_uses_link_bandwidth),
 	/* amdgpu_dm_mst_reset_mst_connector_setting tests */
 	KUNIT_CASE(dm_mst_test_reset_connector_setting),
 	/* retrieve_downstream_port_device tests */
 	KUNIT_CASE(dm_mst_test_retrieve_downstream_no_aux),
 	KUNIT_CASE(dm_mst_test_retrieve_downstream_present),
+	KUNIT_CASE(dm_mst_test_retrieve_downstream_aux_error),
 	/* retrieve_branch_specific_data tests */
 	KUNIT_CASE(dm_mst_test_retrieve_branch_no_parent),
 	KUNIT_CASE(dm_mst_test_retrieve_branch_reads_oui),
@@ -1056,6 +1384,7 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_aux_transfer_partial_write),
 	KUNIT_CASE(dm_mst_test_aux_transfer_error_result),
 	KUNIT_CASE(dm_mst_test_aux_transfer_hpd_discon_quirk),
+	KUNIT_CASE(dm_mst_test_aux_transfer_non_ack_reply),
 	/* dm_dp_aux_fill_payload_flags tests */
 	KUNIT_CASE(dm_mst_test_fill_payload_flags_native_write),
 	KUNIT_CASE(dm_mst_test_fill_payload_flags_native_read),
@@ -1068,6 +1397,12 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_select_esi_dpcd_esi),
 	/* dm_handle_mst_sideband_msg_ready_event tests */
 	KUNIT_CASE(dm_mst_test_sideband_msg_ready_no_ready_bits),
+	KUNIT_CASE(dm_mst_test_sideband_msg_ready_read_error),
+	KUNIT_CASE(dm_mst_test_sideband_msg_ready_without_mst_state),
+	KUNIT_CASE(dm_mst_test_down_rep_msg_ready_wrapper),
+	/* amdgpu_dm_initialize_dp_connector tests */
+	KUNIT_CASE(dm_mst_test_initialize_dp_connector_edp),
+	KUNIT_CASE(dm_mst_test_initialize_dp_connector_mst),
 	/* dm_mst_atomic_best_encoder tests */
 	KUNIT_CASE(dm_mst_test_atomic_best_encoder),
 	/* dm_dp_create_fake_mst_encoders tests */
@@ -1077,7 +1412,9 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	/* dm_dp_mst_detect tests */
 	KUNIT_CASE(dm_mst_test_detect_unregistered),
 	/* CONFIG_DRM_AMD_DC_FP disabled public paths */
+#if !defined(CONFIG_DRM_AMD_DC_FP)
 	KUNIT_CASE(dm_mst_test_fp_guarded_public_stubs),
+#endif
 	{}
 };
 

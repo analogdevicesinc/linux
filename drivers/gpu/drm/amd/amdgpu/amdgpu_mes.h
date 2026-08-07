@@ -54,7 +54,8 @@ enum amdgpu_mes_priority_level {
 
 #define AMDGPU_MES_PROC_CTX_SIZE 0x1000 /* one page area */
 #define AMDGPU_MES_GANG_CTX_SIZE 0x1000 /* one page area */
-
+#define AMDGPU_MES_PROC_CTX_ARRAY_MAX  128
+#define AMDGPU_MES_GANG_CTX_ARRAY_MAX  512
 struct amdgpu_mes_funcs;
 
 enum amdgpu_mes_pipe {
@@ -171,6 +172,17 @@ struct amdgpu_mes {
 
 	bool			compute_pipe_reset_enabled;
 	bool			gfx_pipe_reset_enabled;
+
+	bool				use_rs64mem;
+	struct amdgpu_bo		*ctx_array_size_bo;
+	uint64_t			ctx_array_size_gpu_addr;
+	uint32_t			*ctx_array_size_cpu_ptr;
+
+	uint32_t			proc_ctx_array_size;
+	unsigned long			*proc_ctx_bitmap;
+	uint32_t			gang_ctx_array_size;
+	uint32_t			gang_ctx_array_index;
+	unsigned long			*gang_ctx_bitmap;
 };
 
 struct amdgpu_mes_hung_queue_hqd_info {
@@ -268,6 +280,8 @@ struct mes_add_queue_input {
 	uint32_t	exclusively_scheduled;
 	uint32_t	sh_mem_config_data;
 	uint32_t	vm_cntx_cntl;
+	uint32_t	process_context_array_index;
+	uint32_t	gang_context_array_index;
 };
 
 struct mes_remove_queue_input {
@@ -276,6 +290,7 @@ struct mes_remove_queue_input {
 	uint64_t	gang_context_addr;
 	uint32_t	queue_type;
 	bool		remove_queue_after_reset;
+	uint32_t	gang_context_array_index;
 };
 
 struct mes_map_legacy_queue_input {
@@ -617,4 +632,15 @@ bool amdgpu_mes_queue_reset_by_mes_supported(struct amdgpu_device *adev);
 
 int amdgpu_mes_update_enforce_isolation(struct amdgpu_device *adev);
 
+int amdgpu_mes_rs64mem_init(struct amdgpu_mes *mes);
+void amdgpu_mes_rs64mem_fini(struct amdgpu_mes *mes);
+int amdgpu_mes_rs64mem_setup_bitmaps(struct amdgpu_mes *mes);
+int amdgpu_mes_alloc_proc_ctx_index(struct amdgpu_mes *mes,
+				    struct amdgpu_usermode_queue *queue);
+void amdgpu_mes_free_proc_ctx_index(struct amdgpu_mes *mes,
+				    struct amdgpu_usermode_queue *queue);
+int amdgpu_mes_alloc_gang_ctx_index(struct amdgpu_mes *mes,
+				    struct amdgpu_usermode_queue *queue);
+void amdgpu_mes_free_gang_ctx_index(struct amdgpu_mes *mes,
+				    struct amdgpu_usermode_queue *queue);
 #endif /* __AMDGPU_MES_H__ */
