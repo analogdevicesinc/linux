@@ -29,6 +29,7 @@ clk-test-y			:= clk_test.o \
 				   kunit_clk_assigned_sscs_zero.dtbo.o \
 				   kunit_clk_assigned_sscs_zero_consumer.dtbo.o \
 				   kunit_clk_hw_get_dev_of_node.dtbo.o \
+				   kunit_clk_parse_clkspec.dtbo.o \
 				   kunit_clk_parent_data_test.dtbo.o
 obj-$(CONFIG_COMMON_CLK)	+= clk-divider.o
 obj-$(CONFIG_CLK_DIVIDER_KUNIT_TEST) += clk-divider_test.o
