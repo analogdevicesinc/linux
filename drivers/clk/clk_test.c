@@ -3847,10 +3847,25 @@ static void of_clk_get_parent_name_gets_parent_name(struct kunit *test)
 			   of_clk_get_parent_name(ctx->cons_np, 0));
 }
 
+static void of_clk_get_hw_maps_thru_nexus(struct kunit *test)
+{
+	struct clk_parse_clkspec_ctx *ctx = test->priv;
+	struct clk_hw *expected;
+	struct device_node *np;
+
+	np = clk_of_find_node_by_name_kunit(test, NULL, "kunit-clock-nexus-child");
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, np);
+	expected = of_clk_get_hw(ctx->cons_np, 1, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, expected);
+
+	KUNIT_EXPECT_PTR_EQ(test, expected, of_clk_get_hw(np, 0, NULL));
+}
+
 static struct kunit_case clk_parse_clkspec_test_cases[] = {
 	KUNIT_CASE(clk_parse_clkspec_with_correct_index_and_name),
 	KUNIT_CASE(clk_parse_clkspec_with_incorrect_index_and_name),
 	KUNIT_CASE(of_clk_get_parent_name_gets_parent_name),
+	KUNIT_CASE(of_clk_get_hw_maps_thru_nexus),
 	{}
 };
 

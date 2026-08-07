@@ -18,4 +18,14 @@
 		clocks = <&kunit_clock_provider1 0>, <&kunit_clock_provider2 0>;
 		clock-names = "first_clock", "second_clock";
 	};
+
+	kunit_clock_nexus: kunit-clock-nexus {
+		clocks = <&kunit_clock_provider2 0>;
+		clock-map = <&kunit_clock_provider2 0>;
+		#clock-cells = <0>;
+
+		kunit-clock-nexus-child {
+			clocks = <&kunit_clock_nexus>;
+		};
+	};
 };
