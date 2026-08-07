@@ -26,8 +26,6 @@
 	status = "disabled";
 
 	flash@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
 		compatible = "mxicy,mx66lm1g45", "jedec,spi-nor";
 		reg = <0>;
 		spi-max-frequency = <83333334>;
