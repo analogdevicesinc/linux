@@ -19,7 +19,6 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/platform_data/ads7828.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
@@ -102,12 +101,11 @@ static const struct regmap_config ads2830_regmap_config = {
 static int ads7828_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
-	struct ads7828_platform_data *pdata = dev_get_platdata(dev);
 	struct ads7828_data *data;
 	struct device *hwmon_dev;
 	unsigned int vref_mv = ADS7828_INT_VREF_MV;
 	int vref_uv;
-	bool diff_input = false;
+	bool diff_input;
 	bool ext_vref = false;
 	unsigned int regval;
 	enum ads7828_chips chip;
@@ -116,25 +114,18 @@ static int ads7828_probe(struct i2c_client *client)
 	if (!data)
 		return -ENOMEM;
 
-	if (pdata) {
-		diff_input = pdata->diff_input;
-		ext_vref = pdata->ext_vref;
-		if (ext_vref && pdata->vref_mv)
-			vref_mv = pdata->vref_mv;
-	} else if (dev->of_node) {
-		diff_input = of_property_read_bool(dev->of_node,
-						   "ti,differential-input");
-		vref_uv = devm_regulator_get_enable_read_voltage(dev, "vref");
-		if (vref_uv < 0) {
-			if (vref_uv != -ENODEV)
-				return vref_uv;
-		} else {
-			vref_mv = DIV_ROUND_CLOSEST(vref_uv, 1000);
-			if (vref_mv < ADS7828_EXT_VREF_MV_MIN ||
-			    vref_mv > ADS7828_EXT_VREF_MV_MAX)
-				return -EINVAL;
-			ext_vref = true;
-		}
+	diff_input = of_property_read_bool(dev->of_node,
+					   "ti,differential-input");
+	vref_uv = devm_regulator_get_enable_read_voltage(dev, "vref");
+	if (vref_uv < 0) {
+		if (vref_uv != -ENODEV)
+			return vref_uv;
+	} else {
+		vref_mv = DIV_ROUND_CLOSEST(vref_uv, 1000);
+		if (vref_mv < ADS7828_EXT_VREF_MV_MIN ||
+		    vref_mv > ADS7828_EXT_VREF_MV_MAX)
+			return -EINVAL;
+		ext_vref = true;
 	}
 
 	chip = (uintptr_t)i2c_get_match_data(client);
@@ -199,7 +190,7 @@ MODULE_DEVICE_TABLE(of, ads7828_of_match);
 static struct i2c_driver ads7828_driver = {
 	.driver = {
 		.name = "ads7828",
-		.of_match_table = of_match_ptr(ads7828_of_match),
+		.of_match_table = ads7828_of_match,
 	},
 
 	.id_table = ads7828_device_ids,
