@@ -96,8 +96,6 @@
 
 &spi2 {
 	flash@1 {
-		#address-cells = <1>;
-		#size-cells = <1>;
 		compatible = "issi,is25lp01g", "jedec,spi-nor";
 		reg = <1>;
 		spi-tx-bus-width = <4>;

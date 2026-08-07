@@ -633,16 +633,12 @@
 
 		pinctrl0: pinctrl@31004600 {
 			compatible = "adi,adsp-pinctrl";
-			#address-cells = <1>;
-			#size-cells = <1>;
 			reg = <0x31004600 0x400>;
 			adi,port-sizes = <16 16 16 16 16 16 16 16 7>;
 		};
 
 		sru_ctrl_dai0: sru-ctrl-dai0@310c9000 {
 			compatible = "adi,adsp-sru-ctrl";
-			#address-cells = <1>;
-			#size-cells = <1>;
 			reg = <0x310c9000 0x224>;
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
@@ -650,8 +646,6 @@
 
 		sru_ctrl_dai1: sru-ctrl-dai1@310ca000 {
 			compatible = "adi,adsp-sru-ctrl";
-			#address-cells = <1>;
-			#size-cells = <1>;
 			reg = <0x310ca000 0x224>;
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
@@ -673,8 +667,6 @@
 			compatible = "adi,gp_counter";
 			reg = <0x3100b000 0xff>;
 			interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
-			#address-cells = <1>;
-			#size-cells = <0>;
 			status = "disabled";
 		};
 
