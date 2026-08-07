@@ -44,14 +44,14 @@
 			no-map;
 		};
 
-		vdev1vrings: vdev0vring0@200A4000 {
-			reg = <0x200A4000 0x4000>;
+		vdev1vrings: vdev1vring0@200a4000 {
+			reg = <0x200a4000 0x4000>;
 			no-map;
 		};
 
-		vdev1buffer: vdev0buffer@200A8000 {
+		vdev1buffer: vdev1buffer@200a8000 {
 			compatible = "shared-dma-pool";
-			reg = <0x200A8000 0x20000>;
+			reg = <0x200a8000 0x20000>;
 			no-map;
 		};
 	};
@@ -170,22 +170,22 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qspi_0@0 {
+			partition@0 {
 				label = "u-boot spl";
 				reg = <0x00000000 0x40000>;
 			};
 
-			qspi_1@40000 {
+			partition@40000 {
 				label = "u-boot proper";
 				reg = <0x00040000 0xC0000>;
 			};
 
-			qspi_2@210000 {
+			partition@210000 {
 				label = "kernel";
 				reg = <0x00210000 0x1000000>;
 			};
 
-			qspi_3@2000000 {
+			partition@1210000 {
 				label = "rootfs";
 				reg = <0x1210000 0xEDF0000>;
 			};

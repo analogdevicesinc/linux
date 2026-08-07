@@ -101,22 +101,22 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qspi_0@0 {
+			partition@0 {
 				label = "u-boot-spl";
 				reg = <0x00000000 0x40000>;
 			};
 
-			qspi_1@40000 {
+			partition@40000 {
 				label = "u-boot";
 				reg = <0x00040000 0xc0000>;
 			};
 
-			qspi_2@100000 {
+			partition@100000 {
 				label = "kernel";
 				reg = <0x00100000 0xf00000>;
 			};
 
-			qspi_3@1000000 {
+			partition@1000000 {
 				label = "rootfs";
 				reg = <0x01000000 0x3000000>;
 			};
