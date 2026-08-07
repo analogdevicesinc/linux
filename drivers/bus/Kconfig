@@ -5,6 +5,19 @@
 
 menu "Bus devices"
 
+config ADI_SC59X_SMPU
+	tristate "ADI SC59x System Memory Protection Unit"
+	depends on OF
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	default ARCH_SC59X_64
+	help
+	  This enables support for the SMPU (System Memory Protection Unit)
+	  on Analog Devices SC59x processors (SC595/SC596/SC598). The SMPU
+	  is a memory firewall that restricts memory-region accesses by
+	  transaction ID. The protection policy is programmed by secure
+	  firmware; this driver maps the hardware and reports the violations
+	  the SMPU raises.
+
 config ARM_CCI
 	bool
 

@@ -2307,6 +2307,7 @@ F:	arch/arm/configs/sc5*_defconfig
 F:	arch/arm/mach-sc5xx/
 F:	arch/arm64/boot/dts/adi/*
 F:	arch/arm64/configs/sc5*_defconfig
+F:	drivers/bus/adi-sc59x-smpu.c
 F:	drivers/clk/adi/*
 F:	drivers/clocksource/timer-adi-adsp-sc5xx.c
 F:	drivers/dma/adi-dma.c
