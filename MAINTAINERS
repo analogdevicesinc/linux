@@ -2295,6 +2295,7 @@ M:	Caleb Ethridge <caleb.ethridge@analog.com>
 M:	Vasileios Bimpikas <vasileios.bimpikas@analog.com>
 L:	linux@analog.com
 S:	Maintained
+F:	Documentation/devicetree/bindings/bus/adi,sc59x-smpu.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,reset-controller.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,rpmsg-SC598.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,system-event-controller.yaml
