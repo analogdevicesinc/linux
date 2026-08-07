@@ -251,13 +251,13 @@ static void adi_virtio_reset(struct virtio_device *vdev)
 }
 
 static struct virtio_config_ops adi_rpmsg_config_ops = {
-	.get_features	= adi_rpmsg_get_features,
+	.get_features = adi_rpmsg_get_features,
 	.finalize_features = adi_rpmsg_finalize_features,
-	.find_vqs	= adi_rpmsg_virtio_find_vqs,
-	.del_vqs	= adi_rproc_virtio_del_vqs,
-	.reset		= adi_virtio_reset,
-	.set_status	= adi_virtio_set_status,
-	.get_status	= adi_virtio_get_status,
+	.find_vqs = adi_rpmsg_virtio_find_vqs,
+	.del_vqs = adi_rproc_virtio_del_vqs,
+	.reset = adi_virtio_reset,
+	.set_status = adi_virtio_set_status,
+	.get_status = adi_virtio_get_status,
 };
 
 static int adi_rpmsg_parse_resource_table(struct adi_rpmsg_channel *rpchan)
@@ -583,10 +583,10 @@ MODULE_DEVICE_TABLE(of, adi_rpmsg_dt_ids);
 
 static struct platform_driver adi_rpmsg_driver = {
 	.driver = {
-		   .owner = THIS_MODULE,
-		   .name = "adi-rpmsg",
-		   .of_match_table = adi_rpmsg_dt_ids,
-		   },
+		.owner = THIS_MODULE,
+		.name = "adi-rpmsg",
+		.of_match_table = adi_rpmsg_dt_ids,
+	},
 	.probe = adi_rpmsg_probe,
 	.remove = adi_rpmsg_remove,
 };
