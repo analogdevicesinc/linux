@@ -50,7 +50,7 @@
 		cpu0: cpu@0 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
-			reg = <0x0 0x0>;
+			reg = <0x0>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0xdeadbeef>;
 			clocks = <&clk ADSP_SC846_CLK_ARM0>;
@@ -87,17 +87,17 @@
 		#size-cells = <1>;
 		ranges;
 
-		rsc_tbl0: rsc_tbl0@20000000 {
+		rsc_tbl0: rsc-table@20000000 {
 			reg = <0x20000000 0x400>; /*1KiB*/
 			no-map;
 		};
 
-		rsc_tbl1: rsc_tbl0@20000400 {
+		rsc_tbl1: rsc-table@20000400 {
 			reg = <0x20000400 0x400>; /*1KiB*/
 			no-map;
 		};
 
-		sharc_internal_icc@20005000 {
+		sharc-internal-icc@20005000 {
 			reg = <0x20005000 0x20000>; /*128KiB*/
 			no-map;
 		};
@@ -134,14 +134,14 @@
 					  IRQ_TYPE_LEVEL_LOW)>; /* Hypervisor */
 	};
 
-	sys_clkin0: oscillator@1 {
+	sys_clkin0: clock-sys-clkin0 {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <25000000>;
 		clock-output-names = "sys_clkin0";
 	};
 
-	sys_clkin1: oscillator@2 {
+	sys_clkin1: clock-sys-clkin1 {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <25000000>;
@@ -456,7 +456,7 @@
 			status = "disabled";
 		};
 
-		i2s4: i2s@4 {
+		i2s4: i2s@31002400 {
 			compatible = "adi,sc5xx-i2s-dai";
 			status = "disabled";
 			reg = <0x31002400 0x80>, <0x31002480 0x80>;
@@ -469,7 +469,7 @@
 			clock-names = "sclk";
 		};
 
-		i2s0: i2s0@0 {
+		i2s0: i2s@31002000 {
 			compatible = "adi,sc5xx-i2s-dai";
 			status = "disabled";
 			reg = <0x31002000 0x80>, <0x31002080 0x80>;
@@ -614,20 +614,20 @@
 			adi,port-sizes = <16 16 16 16 16 16 16 16 7>;
 		};
 
-		sru_ctrl_dai0: sru-ctrl-dai0@310C9000 {
+		sru_ctrl_dai0: sru-ctrl-dai0@310c9000 {
 			compatible = "adi,adsp-sru-ctrl";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			reg = <0x310C9000 0x224>;
+			reg = <0x310c9000 0x224>;
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
 		};
 
-		sru_ctrl_dai1: sru-ctrl-dai1@310CA000 {
+		sru_ctrl_dai1: sru-ctrl-dai1@310ca000 {
 			compatible = "adi,adsp-sru-ctrl";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			reg = <0x310CA000 0x224>;
+			reg = <0x310ca000 0x224>;
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
 		};
@@ -643,9 +643,9 @@
 			status = "disabled";
 		};
 
-		gp_counter: cnt@3100B000 {
+		gp_counter: cnt@3100b000 {
 			compatible = "adi,gp_counter";
-			reg = <0x3100B000 0xFF>;
+			reg = <0x3100b000 0xff>;
 			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -800,9 +800,9 @@
 			adi,pint = <&pint7 1>;
 		};
 
-		pkte1: pkte@310CD000 {
+		pkte1: pkte@310cd000 {
 			compatible = "adi,pkte";
-			reg = <0x310CD000 0x400>;
+			reg = <0x310cd000 0x400>;
 			interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
@@ -1076,9 +1076,9 @@
 			};
 		};
 
-		trng: rng@310D0000 {
+		trng: rng@310d0000 {
 			compatible = "adi,sc5xx-trng";
-			reg = <0x310D0000 0x74>, <0x310D8000 0x14>;
+			reg = <0x310d0000 0x74>, <0x310d8000 0x14>;
 			interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "pkic0_irq";
 			startup-cycles = <0xff>;

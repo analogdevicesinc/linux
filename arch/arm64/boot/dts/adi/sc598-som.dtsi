@@ -43,14 +43,14 @@
 			no-map;
 		};
 
-		vdev1vrings: vdev0vring0@200A4000 {
-			reg = <0x200A4000 0x4000>;
+		vdev1vrings: vdev1vring0@200a4000 {
+			reg = <0x200a4000 0x4000>;
 			no-map;
 		};
 
-		vdev1buffer: vdev0buffer@200A8000 {
+		vdev1buffer: vdev1buffer@200a8000 {
 			compatible = "shared-dma-pool";
-			reg = <0x200A8000 0x20000>;
+			reg = <0x200a8000 0x20000>;
 			no-map;
 		};
 	};

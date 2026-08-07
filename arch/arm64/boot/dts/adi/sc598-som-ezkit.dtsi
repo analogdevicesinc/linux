@@ -50,17 +50,17 @@
 				reg = <0x0 0x40000>;
 			};
 
-			ospi_1: partition@1 {
+			ospi_1: partition@40000 {
 				label = "u-boot";
 				reg = <0x40000 0xc0000>;
 			};
 
-			ospi_2: partition@2 {
+			ospi_2: partition@100000 {
 				label = "kernel";
 				reg = <0x100000 0xf00000>;
 			};
 
-			ospi_3: partition@3 {
+			ospi_3: partition@1000000 {
 				label = "rootfs";
 				reg = <0x1000000 0x1000000>;
 			};
