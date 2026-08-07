@@ -827,10 +827,13 @@
 		sport0_dma_cluster: dma@31022000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31022000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
 			#dma-cells = <1>;
 
 			sport0a: channel@0 {
+				reg = <0>;
 				adi,id = <0>;
 				adi,src-offset = <0>;
 				adi,skip-interrupts = <0>;
@@ -840,6 +843,7 @@
 			};
 
 			sport0b: channel@1 {
+				reg = <1>;
 				adi,id = <1>;
 				adi,src-offset = <0x80>;
 				adi,skip-interrupts = <0>;
@@ -852,10 +856,13 @@
 		sport4_dma_cluster: dma@31023000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31023000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
 			#dma-cells = <1>;
 
-			sport4a: channel@10 {
+			sport4a: channel@a {
+				reg = <10>;
 				adi,id = <10>;
 				adi,src-offset = <0>;
 				adi,skip-interrupts = <0>;
@@ -864,7 +871,8 @@
 				interrupt-names = "complete", "error";
 			};
 
-			sport4b: channel@11 {
+			sport4b: channel@b {
+				reg = <11>;
 				adi,id = <11>;
 				adi,src-offset = <0x80>;
 				adi,skip-interrupts = <0>;
@@ -877,10 +885,13 @@
 		spi_cluster: dma@3102d000 {
 			compatible = "adi,dma-controller";
 			reg = <0x3102d000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
 			#dma-cells = <1>;
 
-			spi0_tx: channel@22 {
+			spi0_tx: channel@16 {
+				reg = <22>;
 				adi,id = <22>;
 				interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>;
@@ -888,7 +899,8 @@
 				adi,src-offset = <0>;
 			};
 
-			spi0_rx: channel@23 {
+			spi0_rx: channel@17 {
+				reg = <23>;
 				adi,id = <23>;
 				interrupts = <GIC_SPI 231 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH>;
@@ -896,7 +908,8 @@
 				adi,src-offset = <0x80>;
 			};
 
-			spi1_tx: channel@24 {
+			spi1_tx: channel@18 {
+				reg = <24>;
 				adi,id = <24>;
 				interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH>;
@@ -904,7 +917,8 @@
 				adi,src-offset = <0x100>;
 			};
 
-			spi1_rx: channel@25 {
+			spi1_rx: channel@19 {
+				reg = <25>;
 				adi,id = <25>;
 				interrupts = <GIC_SPI 235 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH>;
@@ -912,7 +926,8 @@
 				adi,src-offset = <0x180>;
 			};
 
-			spi2_tx: channel@26 {
+			spi2_tx: channel@1a {
+				reg = <26>;
 				adi,id = <26>;
 				interrupts = <GIC_SPI 238 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>;
@@ -920,7 +935,8 @@
 				adi,src-offset = <0x200>;
 			};
 
-			spi2_rx: channel@27 {
+			spi2_rx: channel@1b {
+				reg = <27>;
 				adi,id = <27>;
 				interrupts = <GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>;
@@ -928,7 +944,8 @@
 				adi,src-offset = <0x280>;
 			};
 
-			spi5_tx: channel@59 {
+			spi5_tx: channel@3b {
+				reg = <59>;
 				adi,id = <59>;
 				interrupts = <GIC_SPI 242 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 252 IRQ_TYPE_LEVEL_HIGH>;
@@ -936,7 +953,8 @@
 				adi,src-offset = <0x500>;
 			};
 
-			spi5_rx: channel@60 {
+			spi5_rx: channel@3c {
+				reg = <60>;
 				adi,id = <60>;
 				interrupts = <GIC_SPI 243 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>;
@@ -949,10 +967,13 @@
 		crc_cluster: dma@310a7000 {
 			compatible = "adi,dma-controller";
 			reg = <0x310a7000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
 			#dma-cells = <1>;
 
 			crc0_dma: channel@8 { /* MDMA0_SRC */
+				reg = <8>;
 				adi,id = <8>;
 				interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
@@ -960,7 +981,8 @@
 				adi,src-offset = <0x0>;
 			};
 
-			crc1_dma: channel@18 { /* MDMA1_SRC */
+			crc1_dma: channel@12 { /* MDMA1_SRC */
+				reg = <18>;
 				adi,id = <18>;
 				interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
@@ -968,7 +990,8 @@
 				adi,src-offset = <0x100>;
 			};
 
-			crc2_dma: channel@45 { /* MDMA4_SRC */
+			crc2_dma: channel@2d { /* MDMA4_SRC */
+				reg = <45>;
 				adi,id = <45>;
 				interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
@@ -976,7 +999,8 @@
 				adi,src-offset = <0x200>;
 			};
 
-			crc3_dma: channel@47 { /* MDMA5_SRC */
+			crc3_dma: channel@2f { /* MDMA5_SRC */
+				reg = <47>;
 				adi,id = <47>;
 				interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
@@ -988,10 +1012,13 @@
 		dma_cluster2: dma@31026000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31026000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
 			#dma-cells = <1>;
 
-			uart0_tx: channel@20 {
+			uart0_tx: channel@14 {
+				reg = <20>;
 				adi,id = <20>;
 				interrupts = <GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH>;
@@ -999,7 +1026,8 @@
 				adi,src-offset = <0x80>;
 			};
 
-			uart0_rx: channel@21 {
+			uart0_rx: channel@15 {
+				reg = <21>;
 				adi,id = <21>;
 				interrupts = <GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH>;
@@ -1007,7 +1035,8 @@
 				adi,src-offset = <0>;
 			};
 
-			uart1_tx: channel@34 {
+			uart1_tx: channel@22 {
+				reg = <34>;
 				adi,id = <34>;
 				interrupts = <GIC_SPI 370 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH>;
@@ -1015,7 +1044,8 @@
 				adi,src-offset = <0x180>;
 			};
 
-			uart1_rx: channel@35 {
+			uart1_rx: channel@23 {
+				reg = <35>;
 				adi,id = <35>;
 				interrupts = <GIC_SPI 371 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 379 IRQ_TYPE_LEVEL_HIGH>;
@@ -1023,7 +1053,8 @@
 				adi,src-offset = <0x100>;
 			};
 
-			uart2_tx: channel@37 {
+			uart2_tx: channel@25 {
+				reg = <37>;
 				adi,id = <37>;
 				interrupts = <GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH>;
@@ -1031,7 +1062,8 @@
 				adi,src-offset = <0x280>;
 			};
 
-			uart2_rx: channel@38 {
+			uart2_rx: channel@26 {
+				reg = <38>;
 				adi,id = <38>;
 				interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 381 IRQ_TYPE_LEVEL_HIGH>;
@@ -1043,9 +1075,12 @@
 		mdma: dma@3109a000 {
 			compatible = "adi,mdma-controller";
 			reg = <0x3109a000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
 
-			sdma2: channel@40 {
+			sdma2: channel@28 {
+				reg = <40>;
 				adi,id = <40>;
 				// The destination interrupts are used for primary complete detection
 				interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>,
