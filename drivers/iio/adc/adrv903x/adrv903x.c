@@ -42,6 +42,9 @@
 
 enum adrv903x_iio_dev_attr {
 	ADRV903X_INIT_CAL,
+	ADRV903X_CAL_MASK_RX,
+	ADRV903X_CAL_MASK_TX,
+	ADRV903X_CAL_MASK_ORX,
 	ADRV903X_JESD204_FSM_ERROR,
 	ADRV903X_JESD204_FSM_PAUSED,
 	ADRV903X_JESD204_FSM_STATE,
@@ -220,12 +223,15 @@ static ssize_t adrv903x_phy_store(struct device *dev,
 			static const u32 INIT_CALS_TIMEOUT_MS =
 				60000; /*60 seconds timeout*/
 
-			phy->cal_mask.orxChannelMask =
-				phy->adrv903xPostMcsInitInst.initCals.orxChannelMask;
-			phy->cal_mask.rxChannelMask =
-				phy->adrv903xPostMcsInitInst.initCals.rxChannelMask;
-			phy->cal_mask.txChannelMask =
-				phy->adrv903xPostMcsInitInst.initCals.txChannelMask;
+			if (!phy->cal_mask.orxChannelMask)
+				phy->cal_mask.orxChannelMask =
+					phy->adrv903xPostMcsInitInst.initCals.orxChannelMask;
+			if (!phy->cal_mask.rxChannelMask)
+				phy->cal_mask.rxChannelMask =
+					phy->adrv903xPostMcsInitInst.initCals.rxChannelMask;
+			if (!phy->cal_mask.txChannelMask)
+				phy->cal_mask.txChannelMask =
+					phy->adrv903xPostMcsInitInst.initCals.txChannelMask;
 
 			/* Run Init Cals */
 			ret = adi_adrv903x_InitCalsRun(phy->palauDevice,
@@ -240,6 +246,36 @@ static ssize_t adrv903x_phy_store(struct device *dev,
 			if (ret)
 				ret = adrv903x_dev_err(phy);
 		}
+		break;
+	case ADRV903X_CAL_MASK_RX:
+		ret = kstrtou64(buf, 0, &val);
+		if (ret)
+			break;
+
+		if (val <= 0xFF)
+			phy->cal_mask.rxChannelMask = val;
+		else
+			ret = -EINVAL;
+		break;
+	case ADRV903X_CAL_MASK_TX:
+		ret = kstrtou64(buf, 0, &val);
+		if (ret)
+			break;
+
+		if (val <= 0xFF)
+			phy->cal_mask.txChannelMask = val;
+		else
+			ret = -EINVAL;
+		break;
+	case ADRV903X_CAL_MASK_ORX:
+		ret = kstrtou64(buf, 0, &val);
+		if (ret)
+			break;
+
+		if (val <= 0x03)
+			phy->cal_mask.orxChannelMask = val;
+		else
+			ret = -EINVAL;
 		break;
 	case ADRV903X_JESD204_FSM_RESUME:
 		if (!phy->jdev) {
@@ -299,6 +335,18 @@ static ssize_t adrv903x_phy_show(struct device *dev,
 		if (val)
 			ret = sprintf(buf, "%d\n",
 				      !!(phy->cal_mask.calMask & val));
+		break;
+	case ADRV903X_CAL_MASK_RX:
+		ret = sprintf(buf, "0x%x\n",
+			      phy->cal_mask.rxChannelMask);
+		break;
+	case ADRV903X_CAL_MASK_TX:
+		ret = sprintf(buf, "0x%x\n",
+			      phy->cal_mask.txChannelMask);
+		break;
+	case ADRV903X_CAL_MASK_ORX:
+		ret = sprintf(buf, "0x%x\n",
+			      phy->cal_mask.orxChannelMask);
 		break;
 	case ADRV903X_JESD204_FSM_ERROR:
 		if (!phy->jdev) {
@@ -442,6 +490,15 @@ static IIO_DEVICE_ATTR(calibrate_tx_lol_en, 0644,
 		       ADRV903X_INIT_CAL |
 			       (ADI_ADRV903X_IC_TXLOL << 8));
 
+static IIO_DEVICE_ATTR(calibrate_mask_rx, 0644, adrv903x_phy_show,
+		       adrv903x_phy_store, ADRV903X_CAL_MASK_RX);
+
+static IIO_DEVICE_ATTR(calibrate_mask_tx, 0644, adrv903x_phy_show,
+		       adrv903x_phy_store, ADRV903X_CAL_MASK_TX);
+
+static IIO_DEVICE_ATTR(calibrate_mask_orx, 0644, adrv903x_phy_show,
+		       adrv903x_phy_store, ADRV903X_CAL_MASK_ORX);
+
 static IIO_DEVICE_ATTR(jesd204_fsm_error, 0444,
 		       adrv903x_phy_show,
 		       NULL,
@@ -481,6 +538,9 @@ static struct attribute *adrv903x_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_hrm_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_mask_rx.dev_attr.attr,
+	&iio_dev_attr_calibrate_mask_tx.dev_attr.attr,
+	&iio_dev_attr_calibrate_mask_orx.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
