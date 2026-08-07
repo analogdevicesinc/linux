@@ -1274,17 +1274,7 @@ bool intel_dp_can_join(struct intel_dp *intel_dp,
 	if (num_joined_pipes > 1 && !intel_dp_has_joiner(intel_dp))
 		return false;
 
-	switch (num_joined_pipes) {
-	case 1:
-		return true;
-	case 2:
-		return HAS_BIGJOINER(display) ||
-		       HAS_UNCOMPRESSED_JOINER(display);
-	case 4:
-		return HAS_ULTRAJOINER(display);
-	default:
-		return false;
-	}
+	return intel_joiner_valid_primary_pipe_mask(display, num_joined_pipes);
 }
 
 bool intel_dp_dotclk_valid(struct intel_display *display,
