@@ -631,6 +631,18 @@ config REGULATOR_MAX77503
 	  Say M here if you want to include support for the regulator as a
 	  module.
 
+config REGULATOR_MAX77533
+	tristate "Analog Devices MAX77533 Regulator"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  This driver controls a Analog Devices MAX77533 14V input, 1.5A
+	  high-efficiency buck converter via I2C bus. The device features
+	  ultra-low 9µA quiescent current and supports both SKIP and FPWM
+	  operating modes.
+	  Say M here if you want to include support for the regulator as a
+	  module.
+
 config REGULATOR_MAX77541
 	tristate "Analog Devices MAX77541/77540 Regulator"
 	depends on MFD_MAX77541
