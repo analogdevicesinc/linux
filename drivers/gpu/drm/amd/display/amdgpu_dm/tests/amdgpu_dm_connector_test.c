@@ -5746,6 +5746,101 @@ static void dm_test_i2c_xfer_no_ddc_pin(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_i2c_xfer(&i2c->base, NULL, 0), -EIO);
 }
 
+/* Fake i2c adapter chain used by the amdgpu_dm_i2c_xfer() tests. */
+struct dm_test_i2c_ctx {
+	struct amdgpu_i2c_adapter *i2c;
+	struct ddc_service *ddc;
+	struct dc_context *dc_ctx;
+	struct dc *dc;
+	struct dc_link *link;
+};
+
+/*
+ * Build an i2c adapter whose ddc_service has a ddc_pin (so the transfer is not
+ * rejected up front) and whose dc back-pointer resolves to a link at index 0.
+ * The link ddc has no ddc_pin, so the non-OEM dc_submit_i2c() path bails out
+ * and reports failure without touching real hardware.
+ */
+static struct dm_test_i2c_ctx *dm_test_i2c_setup(struct kunit *test)
+{
+	struct dm_test_i2c_ctx *ctx;
+	struct ddc_service *link_ddc;
+	struct ddc *pin;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+	ctx->i2c = kunit_kzalloc(test, sizeof(*ctx->i2c), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->i2c);
+	ctx->ddc = kunit_kzalloc(test, sizeof(*ctx->ddc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->ddc);
+	ctx->dc_ctx = kunit_kzalloc(test, sizeof(*ctx->dc_ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->dc_ctx);
+	ctx->dc = kunit_kzalloc(test, sizeof(*ctx->dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->dc);
+	ctx->link = kunit_kzalloc(test, sizeof(*ctx->link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link);
+	pin = kunit_kzalloc(test, sizeof(*pin), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, pin);
+	link_ddc = kunit_kzalloc(test, sizeof(*link_ddc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, link_ddc);
+
+	ctx->ddc->ddc_pin = pin;
+	ctx->ddc->ctx = ctx->dc_ctx;
+	ctx->ddc->link = ctx->link;
+	ctx->dc_ctx->dc = ctx->dc;
+	ctx->link->link_index = 0;
+	ctx->link->ddc = link_ddc;
+	ctx->dc->links[0] = ctx->link;
+	ctx->i2c->ddc_service = ctx->ddc;
+	i2c_set_adapdata(&ctx->i2c->base, ctx->i2c);
+
+	return ctx;
+}
+
+/**
+ * dm_test_i2c_xfer_hw_submit_fails - Test the non-OEM path reports a failed submit
+ * @test: The KUnit test context
+ *
+ * With a ddc_pin present the transfer builds the payload list and dispatches
+ * through dc_submit_i2c(); the target link has no ddc_pin, so the submit fails
+ * and the transfer returns -EIO instead of the message count.
+ */
+static void dm_test_i2c_xfer_hw_submit_fails(struct kunit *test)
+{
+	struct dm_test_i2c_ctx *ctx = dm_test_i2c_setup(test);
+	u8 buf[2];
+	struct i2c_msg msgs[] = {
+		{ .addr = 0x50, .flags = I2C_M_RD, .len = sizeof(buf), .buf = buf },
+	};
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_i2c_xfer(&ctx->i2c->base, msgs, 1), -EIO);
+}
+
+/**
+ * dm_test_i2c_xfer_oem_no_device - Test the OEM path with no OEM device fails
+ * @test: The KUnit test context
+ *
+ * When the adapter is flagged as OEM the transfer routes through
+ * dc_submit_i2c_oem(); with no oem_device on the resource pool the submit
+ * fails and the transfer returns -EIO.
+ */
+static void dm_test_i2c_xfer_oem_no_device(struct kunit *test)
+{
+	struct dm_test_i2c_ctx *ctx = dm_test_i2c_setup(test);
+	struct resource_pool *pool;
+	u8 buf[2] = { 0x12, 0x34 };
+	struct i2c_msg msgs[] = {
+		{ .addr = 0x50, .flags = 0, .len = sizeof(buf), .buf = buf },
+	};
+
+	pool = kunit_kzalloc(test, sizeof(*pool), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, pool);
+	ctx->dc->res_pool = pool;
+	ctx->i2c->oem = true;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_i2c_xfer(&ctx->i2c->base, msgs, 1), -EIO);
+}
+
 /**
  * dm_test_get_amd_vsdb_unsupported - Test a zero VSDB version reports no support
  * @test: The KUnit test context
@@ -8497,6 +8592,8 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_i2c_func_returns_flags),
 	/* amdgpu_dm_i2c_xfer */
 	KUNIT_CASE(dm_test_i2c_xfer_no_ddc_pin),
+	KUNIT_CASE(dm_test_i2c_xfer_hw_submit_fails),
+	KUNIT_CASE(dm_test_i2c_xfer_oem_no_device),
 	/* get_amd_vsdb */
 	KUNIT_CASE(dm_test_get_amd_vsdb_unsupported),
 	KUNIT_CASE(dm_test_get_amd_vsdb_supported),
