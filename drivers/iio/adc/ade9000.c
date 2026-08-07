@@ -444,7 +444,7 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 			      BIT(IIO_CHAN_INFO_CALIBSCALE),		\
 	.event_spec = ade9000_current_events,				\
 	.num_event_specs = ARRAY_SIZE(ade9000_current_events),		\
-	.scan_index = num,						\
+	.scan_index = num * 2,						\
 	.indexed = 1,							\
 	.scan_type = {							\
 		.sign = 's',						\
@@ -464,7 +464,7 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 			      BIT(IIO_CHAN_INFO_FREQUENCY),		\
 	.event_spec = ade9000_voltage_events,				\
 	.num_event_specs = ARRAY_SIZE(ade9000_voltage_events),		\
-	.scan_index = num + 1,	/* interleave with current channels */	\
+	.scan_index = num * 2 + 1, /* interleave with current channels */	\
 	.indexed = 1,							\
 	.scan_type = {							\
 		.sign = 's',						\
