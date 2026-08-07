@@ -702,8 +702,18 @@ static const char *gfxhub_v12_1_client_ids[] = {
 	"PA"
 };
 
-/*TODO: l2 protection fault status is increased to 64bits.
- * some critical fields like FED are moved to STATUS_HI32 */
+static void
+gfxhub_v12_1_print_l2_protection_fault_status_hi(struct amdgpu_device *adev,
+						 uint32_t status)
+{
+	dev_err(adev->dev,
+		"GCVM_L2_PROTECTION_FAULT_STATUS_HI32:0x%08X\n",
+		status);
+	dev_err(adev->dev, "\t FED: 0x%lx\n",
+		REG_GET_FIELD(status,
+			      GCVM_L2_PROTECTION_FAULT_STATUS_HI32, FED));
+}
+
 static void gfxhub_v12_1_print_l2_protection_fault_status(struct amdgpu_device *adev,
 							  uint32_t status)
 {
@@ -736,6 +746,8 @@ static void gfxhub_v12_1_print_l2_protection_fault_status(struct amdgpu_device *
 
 static const struct amdgpu_vmhub_funcs gfxhub_v12_1_vmhub_funcs = {
 	.print_l2_protection_fault_status = gfxhub_v12_1_print_l2_protection_fault_status,
+	.print_l2_protection_fault_status_hi =
+		gfxhub_v12_1_print_l2_protection_fault_status_hi,
 	.get_invalidate_req = gfxhub_v12_1_get_invalidate_req,
 };
 
@@ -765,10 +777,12 @@ static void gfxhub_v12_1_xcc_init(struct amdgpu_device *adev, uint32_t xcc_mask)
 		hub->vm_context0_cntl =
 			SOC15_REG_OFFSET(GC, GET_INST(GC, i),
 				regGCVM_CONTEXT0_CNTL);
-		/* TODO: add a new member to accomandate additional fault status/cntl reg */
 		hub->vm_l2_pro_fault_status =
 			SOC15_REG_OFFSET(GC, GET_INST(GC, i),
 				regGCVM_L2_PROTECTION_FAULT_STATUS_LO32);
+		hub->vm_l2_pro_fault_status_hi =
+			SOC15_REG_OFFSET(GC, GET_INST(GC, i),
+					 regGCVM_L2_PROTECTION_FAULT_STATUS_HI32);
 		hub->vm_l2_pro_fault_cntl =
 			SOC15_REG_OFFSET(GC, GET_INST(GC, i),
 				regGCVM_L2_PROTECTION_FAULT_CNTL_LO32);

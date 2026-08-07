@@ -128,7 +128,7 @@ static int gmc_v12_1_process_interrupt(struct amdgpu_device *adev,
 	uint32_t cam_index = 0;
 	const char *hub_name;
 	int ret, xcc_id = 0;
-	uint32_t status = 0;
+	uint32_t status = 0, status_hi = 0;
 	const char *die_name;
 	char die_name_buf[32];
 	u64 addr;
@@ -243,11 +243,14 @@ static int gmc_v12_1_process_interrupt(struct amdgpu_device *adev,
 		RREG32(hub->vm_l2_pro_fault_status);
 
 	status = RREG32(hub->vm_l2_pro_fault_status);
+	if (hub->vmhub_funcs &&
+	    hub->vmhub_funcs->print_l2_protection_fault_status_hi)
+		status_hi = RREG32(hub->vm_l2_pro_fault_status_hi);
 
 	/* Only print L2 fault status if the status register could be read and
 	 * contains useful information
 	 */
-	if (!status)
+	if (!status && !status_hi)
 		return 0;
 
 	WREG32_P(hub->vm_l2_pro_fault_cntl, 1, ~1);
@@ -260,6 +263,9 @@ static int gmc_v12_1_process_interrupt(struct amdgpu_device *adev,
 	}
 
 	hub->vmhub_funcs->print_l2_protection_fault_status(adev, status);
+	if (hub->vmhub_funcs->print_l2_protection_fault_status_hi)
+		hub->vmhub_funcs->print_l2_protection_fault_status_hi(adev,
+								     status_hi);
 
 	return 0;
 }
