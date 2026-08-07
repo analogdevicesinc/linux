@@ -147,6 +147,7 @@ static struct dm_cursor_mode_fixture dm_test_alloc_cursor_mode_fixture(struct ku
 	fixture.state->planes[1].old_state = fixture.old_primary_state;
 	fixture.state->planes[1].new_state = fixture.primary_state;
 	fixture.dm_crtc_state->base.crtc = fixture.crtc;
+	fixture.dm_crtc_state->base.enable = true;
 	fixture.dm_crtc_state->base.plane_mask = drm_plane_mask(fixture.cursor) |
 						 drm_plane_mask(fixture.primary);
 	fixture.dm_crtc_state->base.zpos_changed = true;
@@ -556,6 +557,7 @@ static void dm_test_crtc_get_cursor_mode_no_change(struct kunit *test)
 	dm_crtc_state = kunit_kzalloc(test, sizeof(*dm_crtc_state), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, dm_crtc_state);
 	state->dev = &adev->ddev;
+	dm_crtc_state->base.enable = true;
 	dm_crtc_state->cursor_mode = DM_CURSOR_OVERLAY_MODE;
 
 	ret = amdgpu_dm_crtc_get_cursor_mode(adev, state, dm_crtc_state, &cursor_mode);
