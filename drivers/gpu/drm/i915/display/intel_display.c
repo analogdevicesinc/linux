@@ -193,6 +193,53 @@ is_trans_port_sync_mode(const struct intel_crtc_state *crtc_state)
 		is_trans_port_sync_slave(crtc_state);
 }
 
+/*
+ * Return a bitmask of all the start indices of consecutive bitfields of size
+ * width in mask.
+ */
+static unsigned long find_consecutive_bits(unsigned long mask, int width)
+{
+	unsigned long bit, out_mask = 0;
+
+	if (!width)
+		return 0;
+
+	for_each_set_bit(bit, &mask, BITS_PER_TYPE(mask)) {
+		/* For each set bit, see if the following bits are set also */
+		unsigned long bitfield = GENMASK(bit + width - 1, bit);
+
+		if ((mask & bitfield) == bitfield)
+			out_mask |= BIT(bit);
+	}
+
+	return out_mask;
+}
+
+/*
+ * Return a bitmask of all valid joiner primary pipes for joining
+ * num_joined_pipes pipes. For completeness, return all valid pipes for
+ * num_joined_pipes == 1.
+ *
+ * Return 0 if the platform doesn't support joining for the requested number of
+ * pipes, or there are not enough consecutive pipes available.
+ */
+u8 intel_joiner_valid_primary_pipe_mask(struct intel_display *display, int num_joined_pipes)
+{
+	if (num_joined_pipes == 1) {
+		return DISPLAY_RUNTIME_INFO(display)->pipe_mask;
+	} else if (num_joined_pipes == 2) {
+		if (!HAS_UNCOMPRESSED_JOINER(display) && !HAS_BIGJOINER(display))
+			return 0;
+	} else if (num_joined_pipes == 4) {
+		if (!HAS_ULTRAJOINER(display))
+			return 0;
+	} else {
+		return 0;
+	}
+
+	return find_consecutive_bits(DISPLAY_RUNTIME_INFO(display)->pipe_mask, num_joined_pipes);
+}
+
 static enum pipe joiner_primary_pipe(const struct intel_crtc_state *crtc_state)
 {
 	return ffs(crtc_state->joiner_pipes) - 1;
@@ -8113,9 +8160,9 @@ static int max_dotclock(struct intel_display *display)
 {
 	int max_dotclock = display->cdclk.max_dotclk_freq;
 
-	if (HAS_ULTRAJOINER(display))
+	if (intel_joiner_valid_primary_pipe_mask(display, 4))
 		max_dotclock *= 4;
-	else if (HAS_UNCOMPRESSED_JOINER(display) || HAS_BIGJOINER(display))
+	else if (intel_joiner_valid_primary_pipe_mask(display, 2))
 		max_dotclock *= 2;
 
 	return max_dotclock;
