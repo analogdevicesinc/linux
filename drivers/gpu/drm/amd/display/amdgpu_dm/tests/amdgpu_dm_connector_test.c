@@ -5841,6 +5841,94 @@ static void dm_test_i2c_xfer_oem_no_device(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_i2c_xfer(&ctx->i2c->base, msgs, 1), -EIO);
 }
 
+/* Fake ddc_service chain for amdgpu_dm_create_i2c() tests. */
+struct dm_test_create_i2c_ctx {
+	struct ddc_service *ddc;
+	struct amdgpu_device *adev;
+	struct pci_dev *pdev;
+	struct dc_link *link;
+};
+
+/*
+ * Build a ddc_service whose dc_context driver_context is an amdgpu_device with
+ * a pci_dev (for the parent device), plus a link used by the hardware-bus name.
+ */
+static struct dm_test_create_i2c_ctx *dm_test_create_i2c_setup(struct kunit *test)
+{
+	struct dm_test_create_i2c_ctx *ctx;
+	struct dc_context *dc_ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+	ctx->ddc = kunit_kzalloc(test, sizeof(*ctx->ddc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->ddc);
+	ctx->adev = kunit_kzalloc(test, sizeof(*ctx->adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->adev);
+	ctx->pdev = kunit_kzalloc(test, sizeof(*ctx->pdev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->pdev);
+	ctx->link = kunit_kzalloc(test, sizeof(*ctx->link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link);
+	dc_ctx = kunit_kzalloc(test, sizeof(*dc_ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc_ctx);
+
+	ctx->adev->pdev = ctx->pdev;
+	dc_ctx->driver_context = ctx->adev;
+	ctx->ddc->ctx = dc_ctx;
+	ctx->ddc->link = ctx->link;
+
+	return ctx;
+}
+
+/**
+ * dm_test_create_i2c_oem - Test the OEM adapter name and wiring
+ * @test: The KUnit test context
+ *
+ * The OEM adapter is named for the OEM bus and is wired to the dm i2c
+ * algorithm, the backing ddc_service, and the pci parent device.
+ */
+static void dm_test_create_i2c_oem(struct kunit *test)
+{
+	struct dm_test_create_i2c_ctx *ctx = dm_test_create_i2c_setup(test);
+	struct amdgpu_i2c_adapter *i2c;
+
+	i2c = amdgpu_dm_create_i2c(ctx->ddc, true);
+	KUNIT_ASSERT_NOT_NULL(test, i2c);
+
+	KUNIT_EXPECT_TRUE(test, i2c->oem);
+	KUNIT_EXPECT_PTR_EQ(test, i2c->ddc_service, ctx->ddc);
+	KUNIT_EXPECT_PTR_EQ(test, i2c_get_adapdata(&i2c->base), i2c);
+	KUNIT_EXPECT_PTR_EQ(test, i2c->base.dev.parent, &ctx->adev->pdev->dev);
+	KUNIT_EXPECT_TRUE(test, i2c->base.algo->master_xfer == amdgpu_dm_i2c_xfer);
+	KUNIT_EXPECT_TRUE(test, i2c->base.algo->functionality == amdgpu_dm_i2c_func);
+	KUNIT_EXPECT_STREQ(test, i2c->base.name, "AMDGPU DM i2c OEM bus");
+
+	kfree(i2c);
+}
+
+/**
+ * dm_test_create_i2c_hw_bus - Test the hardware bus adapter name carries the index
+ * @test: The KUnit test context
+ *
+ * The non-OEM adapter is named for the hardware bus and embeds the link index,
+ * and the OEM flag is left clear.
+ */
+static void dm_test_create_i2c_hw_bus(struct kunit *test)
+{
+	struct dm_test_create_i2c_ctx *ctx = dm_test_create_i2c_setup(test);
+	struct amdgpu_i2c_adapter *i2c;
+
+	ctx->link->link_index = 7;
+
+	i2c = amdgpu_dm_create_i2c(ctx->ddc, false);
+	KUNIT_ASSERT_NOT_NULL(test, i2c);
+
+	KUNIT_EXPECT_FALSE(test, i2c->oem);
+	KUNIT_EXPECT_PTR_EQ(test, i2c->ddc_service, ctx->ddc);
+	KUNIT_EXPECT_STREQ(test, i2c->base.name, "AMDGPU DM i2c hw bus 7");
+
+	kfree(i2c);
+}
+
 /**
  * dm_test_get_amd_vsdb_unsupported - Test a zero VSDB version reports no support
  * @test: The KUnit test context
@@ -8594,6 +8682,9 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_i2c_xfer_no_ddc_pin),
 	KUNIT_CASE(dm_test_i2c_xfer_hw_submit_fails),
 	KUNIT_CASE(dm_test_i2c_xfer_oem_no_device),
+	/* amdgpu_dm_create_i2c */
+	KUNIT_CASE(dm_test_create_i2c_oem),
+	KUNIT_CASE(dm_test_create_i2c_hw_bus),
 	/* get_amd_vsdb */
 	KUNIT_CASE(dm_test_get_amd_vsdb_unsupported),
 	KUNIT_CASE(dm_test_get_amd_vsdb_supported),

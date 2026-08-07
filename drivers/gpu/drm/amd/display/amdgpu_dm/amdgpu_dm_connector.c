@@ -3400,6 +3400,7 @@ amdgpu_dm_create_i2c(struct ddc_service *ddc_service, bool oem)
 
 	return i2c;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_create_i2c);
 
 int amdgpu_dm_initialize_hdmi_connector(struct amdgpu_dm_connector *aconnector)
 {
