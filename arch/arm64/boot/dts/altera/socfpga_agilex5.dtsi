@@ -446,6 +446,14 @@
 			status = "disabled";
 		};
 
+		pinctrl0: pinctrl@10d13000 {
+			compatible = "pinctrl-single";
+			#pinctrl-cells = <1>;
+			reg = <0x10d13000 0x120>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0x0000000f>;
+		};
+
 		sysmgr: sysmgr@10d12000 {
 			compatible = "altr,sys-mgr-s10","altr,sys-mgr";
 			reg = <0x10d12000 0x500>;
