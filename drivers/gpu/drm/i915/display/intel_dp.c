@@ -2871,6 +2871,7 @@ intel_dp_compute_link_config(struct intel_encoder *encoder,
 			     struct drm_connector_state *conn_state,
 			     bool respect_downstream_limits)
 {
+	struct intel_display *display = to_intel_display(encoder);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	struct intel_connector *connector =
 		to_intel_connector(conn_state->connector);
@@ -2885,6 +2886,10 @@ intel_dp_compute_link_config(struct intel_encoder *encoder,
 		return -EINVAL;
 
 	for_each_joiner_candidate(connector, adjusted_mode, num_joined_pipes) {
+		/* If the pipe can't be a joiner primary, skip early. */
+		if (!(intel_joiner_valid_primary_pipe_mask(display, num_joined_pipes) & BIT(crtc->pipe)))
+			continue;
+
 		/*
 		 * NOTE:
 		 * The crtc_state->joiner_pipes should have been set at the end
