@@ -6861,9 +6861,9 @@ static void proxy_migrate_task(struct rq *rq, struct rq_flags *rf,
 	__must_hold(__rq_lockp(rq))
 {
 	struct rq *target_rq = cpu_rq(target_cpu);
+	LIST_HEAD(migrate_list);
 
 	lockdep_assert_rq_held(rq);
-	WARN_ON(p == rq->curr);
 	/*
 	 * Since we are migrating a blocked donor, it could be rq->donor,
 	 * and we want to make sure there aren't any references from this
@@ -6876,13 +6876,20 @@ static void proxy_migrate_task(struct rq *rq, struct rq_flags *rf,
 	 * before we release the lock.
 	 */
 	proxy_resched_idle(rq);
-
-	deactivate_task(rq, p, DEQUEUE_NOCLOCK);
-	proxy_set_task_cpu(p, target_cpu);
-
+	for (; p; p = p->blocked_donor) {
+		WARN_ON(p == rq->curr);
+		deactivate_task(rq, p, DEQUEUE_NOCLOCK);
+		proxy_set_task_cpu(p, target_cpu);
+		/*
+		 * We can re-use se.group_node to migrate the thing,
+		 * because @p is deactivated (won't be balanced) and
+		 * we hold the rq_lock.
+		 */
+		list_add(&p->se.group_node, &migrate_list);
+	}
 	proxy_release_rq_lock(rq, rf);
 
-	attach_one_task(target_rq, p);
+	__attach_tasks(target_rq, &migrate_list);
 
 	proxy_reacquire_rq_lock(rq, rf);
 }
