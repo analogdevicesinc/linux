@@ -456,12 +456,12 @@ static int record_root_in_trans(struct btrfs_trans_handle *trans,
 		 *
 		 * When this is zero, they can trust root->last_trans and fly
 		 * through btrfs_record_root_in_trans without having to take the
-		 * lock.  smp_wmb() makes sure that all the writes above are
-		 * done before we pop in the zero below
+		 * lock. smp_wmb() makes sure readers that see the last_trans
+		 * update also see IN_TRANS_SETUP set, and clear_bit_unlock()
+		 * publishes the relocation setup before we clear the bit.
 		 */
 		ret = btrfs_init_reloc_root(trans, root);
-		smp_mb__before_atomic();
-		clear_bit(BTRFS_ROOT_IN_TRANS_SETUP, &root->state);
+		clear_bit_unlock(BTRFS_ROOT_IN_TRANS_SETUP, &root->state);
 	}
 	return ret;
 }
@@ -499,10 +499,12 @@ int btrfs_record_root_in_trans(struct btrfs_trans_handle *trans,
 	 * see record_root_in_trans for comments about IN_TRANS_SETUP usage
 	 * and barriers
 	 */
-	smp_rmb();
-	if (btrfs_get_root_last_trans(root) == trans->transid &&
-	    !test_bit(BTRFS_ROOT_IN_TRANS_SETUP, &root->state))
-		return 0;
+	if (btrfs_get_root_last_trans(root) == trans->transid) {
+		/* Order the last_trans load before testing IN_TRANS_SETUP. */
+		smp_rmb();
+		if (!test_bit_acquire(BTRFS_ROOT_IN_TRANS_SETUP, &root->state))
+			return 0;
+	}
 
 	mutex_lock(&fs_info->reloc_mutex);
 	ret = record_root_in_trans(trans, root, false);
@@ -697,8 +699,6 @@ again:
 		ret = -ENOMEM;
 		goto alloc_fail;
 	}
-
-	xa_init(&h->writeback_inhibited_ebs);
 
 	/*
 	 * If we are JOIN_NOLOCK we're already committing a transaction and
@@ -1519,12 +1519,8 @@ static noinline int commit_fs_roots(struct btrfs_trans_handle *trans)
 			ASSERT(atomic_read(&root->log_writers) == 0,
 			       "atomic_read(&root->log_writers)=%d",
 			       atomic_read(&root->log_writers));
-			ASSERT(atomic_read(&root->log_commit[0]) == 0,
-			       "atomic_read(&root->log_commit[0])=%d",
-			       atomic_read(&root->log_commit[0]));
-			ASSERT(atomic_read(&root->log_commit[1]) == 0,
-			       "atomic_read(&root->log_commit[1])=%d",
-			       atomic_read(&root->log_commit[1]));
+			ASSERT(!root->log_commit[0]);
+			ASSERT(!root->log_commit[1]);
 
 			radix_tree_tag_clear(&fs_info->fs_roots_radix,
 					(unsigned long)btrfs_root_id(root),
@@ -1642,7 +1638,7 @@ static int qgroup_account_snapshot(struct btrfs_trans_handle *trans,
 	ret = btrfs_write_and_wait_transaction(trans);
 	if (unlikely(ret)) {
 		btrfs_err(fs_info,
-"error while writing out transaction during qgroup snapshot accounting: %d", ret);
+"error while writing out transaction during qgroup snapshot accounting: %pe", ERR_PTR(ret));
 		return ret;
 	}
 
@@ -2588,7 +2584,7 @@ int btrfs_commit_transaction(struct btrfs_trans_handle *trans)
 
 	ret = btrfs_write_and_wait_transaction(trans);
 	if (unlikely(ret)) {
-		btrfs_err(fs_info, "error while writing out transaction: %d", ret);
+		btrfs_err(fs_info, "error while writing out transaction: %pe", ERR_PTR(ret));
 		mutex_unlock(&fs_info->tree_log_mutex);
 		goto scrub_continue;
 	}
@@ -2749,8 +2745,8 @@ void __cold __btrfs_abort_transaction(struct btrfs_trans_handle *trans,
 	WRITE_ONCE(trans->transaction->aborted, error);
 	trace_btrfs_transaction_abort(trans);
 	if (first_hit) {
-		btrfs_err(fs_info, "Transaction %llu aborted (error %d)",
-			  trans->transid, error);
+		btrfs_err(fs_info, "Transaction %llu aborted (%pe)",
+			  trans->transid, ERR_PTR(error));
 		if (error == -ENOSPC)
 			btrfs_dump_space_info_for_trans_abort(fs_info);
 	}
