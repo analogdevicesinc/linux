@@ -1705,18 +1705,6 @@ static int ade9000_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = ade9000_request_irq(dev, "irq0", ade9000_irq0_thread, indio_dev);
-	if (ret)
-		return ret;
-
-	ret = ade9000_request_irq(dev, "irq1", ade9000_irq1_thread, indio_dev);
-	if (ret)
-		return ret;
-
-	ret = ade9000_request_irq(dev, "dready", ade9000_dready_thread, indio_dev);
-	if (ret)
-		return ret;
-
 	/* External CMOS clock input (optional - crystal can be used instead) */
 	st->clkin = devm_clk_get_optional_enabled(dev, NULL);
 	if (IS_ERR(st->clkin))
@@ -1735,6 +1723,19 @@ static int ade9000_probe(struct spi_device *spi)
 	if (ret)
 		return dev_err_probe(&spi->dev, ret,
 				     "Failed to get and enable vdd regulator\n");
+
+	/* Request IRQs only after powering the chip; the handlers do SPI access. */
+	ret = ade9000_request_irq(dev, "irq0", ade9000_irq0_thread, indio_dev);
+	if (ret)
+		return ret;
+
+	ret = ade9000_request_irq(dev, "irq1", ade9000_irq1_thread, indio_dev);
+	if (ret)
+		return ret;
+
+	ret = ade9000_request_irq(dev, "dready", ade9000_dready_thread, indio_dev);
+	if (ret)
+		return ret;
 
 	indio_dev->channels = ade9000_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ade9000_channels);
