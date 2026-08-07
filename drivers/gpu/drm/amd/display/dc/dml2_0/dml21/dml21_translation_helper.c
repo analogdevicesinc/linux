@@ -31,6 +31,7 @@ static void dml21_populate_pmo_options(struct dml2_pmo_options *pmo_options,
 			disable_fams2;
 	pmo_options->disable_drr_var = ((in_dc->debug.dml21_disable_pstate_method_mask >> 4) & 1) ||
 			disable_fams2;
+	pmo_options->disable_alternate_memory_training = ((in_dc->debug.dml21_disable_pstate_method_mask >> 5) & 1);
 	pmo_options->disable_fams2 = disable_fams2;
 
 	pmo_options->disable_drr_var_when_var_active = in_dc->debug.disable_fams_gaming == INGAME_FAMS_DISABLE ||
