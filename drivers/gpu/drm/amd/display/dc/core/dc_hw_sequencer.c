@@ -1546,7 +1546,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 					params->dpp = current_mpc_pipe->plane_res.dpp;
 					params->mpc = dc->res_pool->mpc;
 					params->xfm = current_mpc_pipe->plane_res.xfm;
-					params->mpcc_id = current_mpc_pipe->plane_res.hubp->inst;
+					params->mpcc_id = current_mpc_pipe->plane_res.mpcc_inst;
 					params->plane = current_mpc_pipe->plane_state;
 					params->stream = current_mpc_pipe->stream;
 					params->is_top_pipe = current_mpc_pipe->top_pipe == NULL;
@@ -1591,7 +1591,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 				otf_params->dpp = current_mpc_pipe->plane_res.dpp;
 				otf_params->xfm = current_mpc_pipe->plane_res.xfm;
 				otf_params->mpc = dc->res_pool->mpc;
-				otf_params->mpcc_id = current_mpc_pipe->plane_res.hubp->inst;
+				otf_params->mpcc_id = current_mpc_pipe->plane_res.mpcc_inst;
 				otf_params->is_top_pipe = resource_is_pipe_type(current_mpc_pipe, OPP_HEAD);
 				otf_params->stream = current_mpc_pipe->stream;
 				block_sequence[*num_steps].func = DPP_SET_OUTPUT_TRANSFER_FUNC;
@@ -2315,7 +2315,7 @@ void hwss_add_dpp_program_gamut_remap(struct block_sequence_state *seq_state,
 		params->xfm = pipe_ctx->plane_res.xfm;
 		params->dpp = pipe_ctx->plane_res.dpp;
 		params->mpc = pipe_ctx->stream->ctx->dc->res_pool->mpc;
-		params->mpcc_id = pipe_ctx->plane_res.hubp->inst;
+		params->mpcc_id = pipe_ctx->plane_res.mpcc_inst;
 		params->plane = pipe_ctx->plane_state;
 		params->stream = pipe_ctx->stream;
 		params->is_top_pipe = pipe_ctx->top_pipe == NULL;
@@ -2361,7 +2361,7 @@ void hwss_add_dpp_set_output_transfer_func(struct block_sequence_state *seq_stat
 			.xfm = pipe_ctx->plane_res.xfm,
 			.dpp = pipe_ctx->plane_res.dpp,
 			.mpc = dc->res_pool->mpc,
-			.mpcc_id = pipe_ctx->plane_res.hubp->inst,
+			.mpcc_id = pipe_ctx->plane_res.mpcc_inst,
 			.is_top_pipe = resource_is_pipe_type(pipe_ctx, OPP_HEAD),
 			.stream = pipe_ctx->stream,
 		};
@@ -2378,8 +2378,7 @@ void hwss_set_output_transfer_func(struct dc *dc, struct pipe_ctx *pipe_ctx)
 				.xfm = pipe_ctx->plane_res.xfm,
 				.dpp = pipe_ctx->plane_res.dpp,
 				.mpc = dc->res_pool->mpc,
-				.mpcc_id = pipe_ctx->plane_res.hubp ?
-						pipe_ctx->plane_res.hubp->inst : 0,
+				.mpcc_id = pipe_ctx->plane_res.mpcc_inst,
 				.is_top_pipe = resource_is_pipe_type(pipe_ctx, OPP_HEAD),
 				.stream = pipe_ctx->stream,
 			}
@@ -4326,7 +4325,7 @@ void hwss_program_gamut_remap(struct pipe_ctx *pipe_ctx)
 			.xfm = pipe_ctx->plane_res.xfm,
 			.dpp = pipe_ctx->plane_res.dpp,
 			.mpc = dc->res_pool->mpc,
-			.mpcc_id = pipe_ctx->plane_res.hubp->inst,
+			.mpcc_id = pipe_ctx->plane_res.mpcc_inst,
 			.stream = pipe_ctx->stream,
 			.plane = pipe_ctx->plane_state,
 			.is_top_pipe = pipe_ctx->top_pipe == NULL,
