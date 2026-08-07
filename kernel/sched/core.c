@@ -6512,6 +6512,9 @@ static bool try_steal_cookie(int this, int that)
 		if (p == src->core_pick || p == src->curr || p == src->donor)
 			goto next;
 
+		if (task_is_blocked(p))
+			goto next;
+
 		if (!is_cpu_allowed(p, this))
 			goto next;
 
