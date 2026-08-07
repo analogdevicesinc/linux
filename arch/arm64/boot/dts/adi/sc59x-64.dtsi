@@ -250,6 +250,18 @@
 			status = "okay";
 		};
 
+		smpu: smpu@31083000 {
+			compatible = "adi,sc59x-smpu";
+			/* SMPU6 (0x31087000) and SMPU12 (0x31012000) unused */
+			reg = <0x31083000 0x1000>,   /* SMPU2 - L2-Core Port 0 (CL2_0) */
+			      <0x31084000 0x1000>,   /* SMPU3 - L2 DMA Port 0 (DL2_0) */
+			      <0x31085000 0x1000>,   /* SMPU4 - L2-Core Port 1 (CL2_1) */
+			      <0x31086000 0x1000>,   /* SMPU5 - L2 DMA Port 1 (DL2_1) */
+			      <0x310A0000 0x1000>,   /* SMPU9 - DDR Memory Controller */
+			      <0x310A1000 0x1000>;   /* SMPU11 - SPI2/OSPI Flash */
+			interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		tru: tru@3108a000 {
 			compatible = "adi,trigger-routing-unit";
 			reg = <0x3108a000 0x1000>;
