@@ -241,6 +241,12 @@
 		#size-cells = <1>;
 		ranges;
 
+		/*
+		 * Deliberately at the same address as the pinctrl node: both
+		 * describe the PADS0 block. The pinctrl driver programs the
+		 * pads registers directly, while the emac glue and sru-ctrl
+		 * reach them through this syscon regmap (adi,pads-syscon).
+		 */
 		pads_syscon: syscon@31004600 {
 			compatible = "adi,sc5xx-pads-syscon", "syscon";
 			reg = <0x31004600 0x200>;
