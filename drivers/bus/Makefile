@@ -5,6 +5,7 @@
 
 # Interconnect bus drivers for ARM platforms
 obj-$(CONFIG_ADI_SC59X_SMPU)	+= adi-sc59x-smpu.o
+obj-$(CONFIG_ADI_SC59X_SPU)	+= adi-sc59x-spu.o
 obj-$(CONFIG_ARM_CCI)		+= arm-cci.o
 obj-$(CONFIG_ARM_INTEGRATOR_LM)	+= arm-integrator-lm.o
 obj-$(CONFIG_HISILICON_LPC)	+= hisi_lpc.o

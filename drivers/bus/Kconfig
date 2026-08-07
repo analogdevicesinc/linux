@@ -18,6 +18,19 @@ config ADI_SC59X_SMPU
 	  firmware; this driver maps the hardware and reports the violations
 	  the SMPU raises.
 
+config ADI_SC59X_SPU
+	tristate "ADI SC59x System Protection Unit"
+	depends on OF
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	default ARCH_SC59X_64
+	help
+	  This enables support for the SPU (System Protection Unit) on
+	  Analog Devices SC59x processors (SC595/SC596/SC598). The SPU is a
+	  peripheral firewall that write-protects peripheral MMR space from
+	  selected bus masters. The protection policy is programmed by secure
+	  firmware; this driver maps the hardware and reports the violations
+	  the SPU raises.
+
 config ARM_CCI
 	bool
 
