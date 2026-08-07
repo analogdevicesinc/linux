@@ -2956,25 +2956,6 @@ struct dmub_rb_cmd_idle_opt_dcn_notify_idle {
 };
 
 /**
- * Data passed from driver to FW in a DMUB_CMD__DC_BLS_DCHVM_INIT command.
- */
-struct dmub_cmd_dc_bls_dchvm_init_data {
-	/**
-	 * The value to program to rIOMMU PCTRL register. x86 cannot access this SMN
-	 * register, so the write is performed by DMCUB on the driver's behalf.
-	 */
-	uint32_t riommu_pctrl_val; /* r */
-};
-
-/**
- * Definition of a DMUB_CMD__DC_BLS_DCHVM_INIT command.
- */
-struct dmub_rb_cmd_dc_bls_dchvm_init {
-	struct dmub_cmd_header header;
-	struct dmub_cmd_dc_bls_dchvm_init_data data;
-};
-
-/**
  * enum dmub_idle_opt_dc_power_state - DC power states.
  */
 enum dmub_idle_opt_dc_power_state {
@@ -7223,6 +7204,25 @@ struct dmub_cmd_ips_residency_cntl_data {
 struct dmub_rb_cmd_ips_residency_cntl {
 	struct dmub_cmd_header header;
 	struct dmub_cmd_ips_residency_cntl_data cntl_data;
+};
+
+/**
+ * Data passed from driver to FW in a DMUB_CMD__DC_BLS_DCHVM_INIT command.
+ */
+struct dmub_cmd_dc_bls_dchvm_init_data {
+	/**
+	 * The value to program to rIOMMU PCTRL register. x86 cannot access this SMN
+	 * register, so the write is performed by DMCUB on the driver's behalf.
+	 */
+	uint32_t riommu_pctrl_val;
+};
+
+/**
+ * Definition of a DMUB_CMD__DC_BLS_DCHVM_INIT command.
+ */
+struct dmub_rb_cmd_dc_bls_dchvm_init {
+	struct dmub_cmd_header header;
+	struct dmub_cmd_dc_bls_dchvm_init_data data;
 };
 
 /**
