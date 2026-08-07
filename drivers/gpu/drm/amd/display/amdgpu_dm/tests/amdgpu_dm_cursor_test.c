@@ -499,6 +499,27 @@ static void dm_test_plane_color_pipeline_ignores_other_plane(struct kunit *test)
 /* Tests for amdgpu_dm_crtc_get_cursor_mode() */
 
 /**
+ * dm_test_crtc_get_cursor_mode_disabled_crtc - Test a disabled CRTC uses native cursor
+ * @test: The KUnit test context
+ *
+ * A disabled CRTC must report native mode regardless of what the planes look
+ * like, so that a commit disabling the CRTC is not rejected. The plane setup
+ * here would otherwise select overlay mode.
+ */
+static void dm_test_crtc_get_cursor_mode_disabled_crtc(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = dm_test_alloc_cursor_mode_fixture(test);
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_OVERLAY_MODE;
+
+	fixture.dm_crtc_state->base.enable = false;
+	fixture.old_primary_state->crtc_w = 1280;
+	fixture.primary_state->crtc_w = 1280;
+
+	KUNIT_EXPECT_EQ(test, dm_test_get_cursor_mode(&fixture, &cursor_mode), 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_NATIVE_MODE);
+}
+
+/**
  * dm_test_crtc_get_cursor_mode_new_hardware - Test new hardware always uses native mode
  * @test: The KUnit test context
  */
@@ -923,6 +944,7 @@ static struct kunit_case amdgpu_dm_cursor_tests[] = {
 	KUNIT_CASE(dm_test_plane_color_pipeline_active),
 	KUNIT_CASE(dm_test_plane_color_pipeline_ignores_other_plane),
 	/* amdgpu_dm_crtc_get_cursor_mode */
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_disabled_crtc),
 	KUNIT_CASE(dm_test_crtc_get_cursor_mode_new_hardware),
 	KUNIT_CASE(dm_test_crtc_get_cursor_mode_no_change),
 	KUNIT_CASE(dm_test_crtc_get_cursor_mode_disabled_cursor),
