@@ -176,12 +176,12 @@
 		};
 	};
 
-	adau1979: adau1979@11 {
+	adau1979: audio-codec@11 {
 		compatible = "adi,adau1979";
 		reg = <0x11>;
 	};
 
-	adau1962: adau1962@4 {
+	adau1962: audio-codec@4 {
 		compatible = "adi,adau1962";
 		reg = <0x4>;
 		reset-gpios = <&crr_gpio_expander 5 GPIO_ACTIVE_LOW>;
@@ -231,7 +231,7 @@
 		};
 	};
 
-	mdio0 {
+	mdio {
 		compatible = "snps,dwmac-mdio";
 		#address-cells = <1>;
 		#size-cells = <0>;

@@ -98,7 +98,7 @@
 		clock-output-names = "sys_clkin1";
 	};
 
-	clk: clocks@3108d000 {
+	clk: clock-controller@3108d000 {
 		compatible = "adi,sc598-clocks";
 		reg = <0x3108d000 0x1000>,
 			<0x3108e000 0x1000>,
@@ -264,7 +264,7 @@
 			status = "okay";
 		};
 
-		tru: tru@3108a000 {
+		tru: mailbox@3108a000 {
 			compatible = "adi,trigger-routing-unit";
 			reg = <0x3108a000 0x1000>;
 			#mbox-cells = <1>;
@@ -273,7 +273,7 @@
 			status = "okay";
 		};
 
-		thermal: thermal@31016800 {
+		thermal: thermal-sensor@31016800 {
 			compatible = "adi,sc59x-thermal";
 			reg = <0x31016800 0x100>;
 			#thermal-sensor-cells = <0>;
@@ -285,7 +285,7 @@
 			status = "disabled";
 		};
 
-		hadc: hadc@31016000 {
+		hadc: adc@31016000 {
 			compatible = "adi,hadc";
 			reg = <0x31016000 0x100>;
 			interrupt-parent = <&gic>;
@@ -302,7 +302,7 @@
 			status = "disabled";
 		};
 
-		uart0: uart@31003000 {
+		uart0: serial@31003000 {
 			compatible = "adi,uart4";
 			reg = <0x31003000 0x40>;
 			dmas = <&dma_cluster2 20>, <&dma_cluster2 21>;
@@ -318,7 +318,7 @@
 			status = "disabled";
 		};
 
-		uart1: uart@31003400 {
+		uart1: serial@31003400 {
 			compatible = "adi,uart4";
 			reg = <0x31003400 0x40>;
 			dmas = <&dma_cluster2 34>, <&dma_cluster2 35>;
@@ -334,7 +334,7 @@
 			status = "disabled";
 		};
 
-		uart2: uart@31003800 {
+		uart2: serial@31003800 {
 			compatible = "adi,uart4";
 			reg = <0x31003800 0x40>;
 			dmas = <&dma_cluster2 37>, <&dma_cluster2 38>;
@@ -350,7 +350,7 @@
 			status = "disabled";
 		};
 
-		uart3: uart@31003c00 {
+		uart3: serial@31003c00 {
 			compatible = "adi,uart4";
 			reg = <0x31003c00 0x40>;
 			dmas = <&dma_cluster2 53>, <&dma_cluster2 54>;
@@ -386,7 +386,7 @@
 			status = "disabled";
 		};
 
-		i2c0: twi@31001400 {
+		i2c0: i2c@31001400 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
@@ -398,7 +398,7 @@
 			status = "disabled";
 		};
 
-		i2c1: twi@31001500 {
+		i2c1: i2c@31001500 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
@@ -410,7 +410,7 @@
 			status = "disabled";
 		};
 
-		i2c2: twi@31001600 {
+		i2c2: i2c@31001600 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
@@ -422,7 +422,7 @@
 			status = "disabled";
 		};
 
-		i2c3: twi@31001000 {
+		i2c3: i2c@31001000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
@@ -434,7 +434,7 @@
 			status = "disabled";
 		};
 
-		i2c4: twi@31001100 {
+		i2c4: i2c@31001100 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
@@ -446,7 +446,7 @@
 			status = "disabled";
 		};
 
-		i2c5: twi@31001200 {
+		i2c5: i2c@31001200 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,twi";
@@ -569,7 +569,7 @@
 			snps,pbl = <8>;
 			snps,force_sf_dma_mode;
 			snps,perfect-filter-entries = <32>;
-			snps,tso = <1>;
+			snps,tso;
 			clocks = <&clk ADSP_SC598_CLK_GIGE>;
 			clock-names = "stmmaceth";
 			adi,pads-syscon = <&pads_syscon>;
@@ -663,7 +663,7 @@
 			status = "disabled";
 		};
 
-		gp_counter: cnt@3100b000 {
+		gp_counter: counter@3100b000 {
 			compatible = "adi,gp_counter";
 			reg = <0x3100b000 0xff>;
 			interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
@@ -718,7 +718,7 @@
 			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		gpa: gport@31004000 {
+		gpa: gpio@31004000 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -728,7 +728,7 @@
 			status = "okay";
 		};
 
-		gpb: gport@31004080 {
+		gpb: gpio@31004080 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -738,7 +738,7 @@
 			status = "okay";
 		};
 
-		gpc: gport@31004100 {
+		gpc: gpio@31004100 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -748,7 +748,7 @@
 			status = "okay";
 		};
 
-		gpd: gport@31004180 {
+		gpd: gpio@31004180 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -757,7 +757,7 @@
 			adi,pint = <&pint2 0>;
 		};
 
-		gpe: gport@31004200 {
+		gpe: gpio@31004200 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -766,7 +766,7 @@
 			adi,pint = <&pint4 1>;
 		};
 
-		gpf: gport@31004280 {
+		gpf: gpio@31004280 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -775,7 +775,7 @@
 			adi,pint = <&pint4 0>;
 		};
 
-		gpg: gport@31004300 {
+		gpg: gpio@31004300 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -784,7 +784,7 @@
 			adi,pint = <&pint6 1>;
 		};
 
-		gph: gport@31004380 {
+		gph: gpio@31004380 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -793,7 +793,7 @@
 			adi,pint = <&pint6 0>;
 		};
 
-		gpi: gport@31004400 {
+		gpi: gpio@31004400 {
 			compatible = "adi,adsp-port-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -812,7 +812,7 @@
 			status = "disabled";
 		};
 
-		pkte1: pkte@310cd000 {
+		pkte1: crypto@310cd000 {
 			compatible = "adi,pkte";
 			reg = <0x310cd000 0x400>;
 			interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;

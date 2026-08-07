@@ -8,7 +8,7 @@
 #include "sc598-som.dtsi"
 
 / {
-	mmc_muxctl: mmc-mux-controller {
+	mmc_muxctl: mux-controller {
 		compatible = "gpio-mux";
 		#mux-state-cells = <1>;
 		mux-gpios = <&som_gpio_expander 8 GPIO_ACTIVE_LOW>,
@@ -30,7 +30,7 @@
 };
 
 &i2c2 {
-	som_gpio_expander: adp5587@34 {
+	som_gpio_expander: gpio@34 {
 		compatible = "adi,adp5587";
 		reg = <0x34>;
 		gpio-controller;
