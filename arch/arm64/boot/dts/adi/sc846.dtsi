@@ -76,7 +76,7 @@
 		reg = <0x20040000 0x40000>;
 	};
 
-	sram1_mmap: sram-mmap@0 {
+	sram1_mmap: sram-mmap {
 		compatible = "adi,sram-mmap";
 		memory-region = <&sram1_res>;
 		status = "okay";
@@ -230,6 +230,11 @@
 		};
 	};
 
+	gptimer_counter: gptimer-counter {
+		compatible = "adi,gptimer-counter";
+		status = "okay";
+	};
+
 	scb: scb {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -256,10 +261,6 @@
 			status = "disabled";
 		};
 
-		gptimer_counter: gptimer-counters@0 {
-			compatible = "adi,gptimer-counter";
-			status = "okay";
-		};
 
 		rcu: rcu@3108c000 {
 			compatible = "syscon", "adi,reset-controller";
