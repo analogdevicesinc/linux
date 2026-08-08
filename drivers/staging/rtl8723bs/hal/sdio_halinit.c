@@ -544,18 +544,12 @@ static void _RfPowerSave(struct adapter *padapter)
 static bool HalDetectPwrDownMode(struct adapter *Adapter)
 {
 	u8 tmpvalue;
-	struct hal_com_data *pHalData = GET_HAL_DATA(Adapter);
 	struct pwrctrl_priv *pwrctrlpriv = adapter_to_pwrctl(Adapter);
 
 	rtw_efuse_shadow_read(Adapter, 1, 0x7B/*EEPROM_RF_OPT3_92C*/, (u32 *)&tmpvalue);
 
 	/*  2010/08/25 MH INF priority > PDN Efuse value. */
-	if (tmpvalue & BIT(4) && pwrctrlpriv->reg_pdnmode)
-		pHalData->pwrdown = true;
-	else
-		pHalData->pwrdown = false;
-
-	return pHalData->pwrdown;
+	return (tmpvalue & BIT(4)) && pwrctrlpriv->reg_pdnmode;
 }	/*  HalDetectPwrDownMode */
 
 u32 rtl8723bs_hal_init(struct adapter *padapter)
