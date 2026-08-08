@@ -47,6 +47,28 @@ soc/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts32-for-v7.3
 	mediatek/dt64
 		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts64-for-v7.3
+	hisilicon/dts
+		https://github.com/hisilicon/linux-hisi tags/hisi-arm64-dt-for-7.3
+	imx/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-dt64-7.3
+	qcom/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.3
+	amlogic/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-arm64-dt-for-v7.3
+	rockchip/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.3-rockchip-dts64-1
+	spacemit/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/spacemit/linux tags/spacemit-dt-for-7.3-1
+	omap/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/dt-signed
+	sunxi/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-7.3
+	nuvoton/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm-7.3-devicetree-0
+	nuvoton/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-7.3-devicetree-0
+	aspeed/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-arm-7.3-devicetree-0
 
 soc/drivers
 	ixp4xx/soc-drivers
