@@ -28,7 +28,9 @@
 
 /* 4 slots (each sizeof(hazptr_slot_item)) fit in a single 64-byte cache line. */
 #define NR_HAZPTR_PERCPU_SLOTS	4
-#define HAZPTR_WILDCARD		((void *) 0x1UL)
+
+/* The current hazard pointer wildcard. */
+extern void *hazptr_wildcard;
 
 /*
  * Hazard pointer slot.
@@ -243,7 +245,7 @@ void *hazptr_acquire(struct hazptr_ctx *ctx, void * const *addr_p)
 #endif
 	if (unlikely(slot->addr))
 		return __hazptr_acquire(ctx, addr_p);
-	WRITE_ONCE(slot->addr, HAZPTR_WILDCARD);	/* Store B */
+	WRITE_ONCE(slot->addr, READ_ONCE(hazptr_wildcard));	/* Store B */
 
 	/* Memory ordering: Store B before Load A. */
 	smp_mb();

@@ -13,6 +13,17 @@
 #include <linux/list.h>
 #include <linux/export.h>
 
+/*
+ * The current hazard pointer wildcard. Flips between 1UL and 2UL to guarantee
+ * hazptr_synchronize forward progress even with a steady stream of readers.
+ * This wildcard value is used by acquire to temporarily tag the per-CPU slots.
+ * This also affects the overflow list selection: the current list used by
+ * readers is array[(unsigned long) hazptr_wildcard - 1].
+ */
+static DEFINE_MUTEX(hazptr_wildcard_lock);	/* Protect the wildcard flip. */
+void *hazptr_wildcard = (void *) 1UL;
+EXPORT_SYMBOL_GPL(hazptr_wildcard);
+
 struct hazptr_overflow_list {
 	raw_spinlock_t lock;		/* Lock protecting overflow list and list generation. */
 	struct hlist_head head;		/* Overflow list head. */
@@ -28,8 +39,6 @@ struct hazptr_overflow_list {
  * limited to the number of list elements.
  */
 struct hazptr_overflow_list_flip {
-	struct mutex lock;		/* Mutex protecting add_idx from concurrent updates. */
-	unsigned int add_idx;		/* Index of current flip-list to add to. */
 	struct hazptr_overflow_list array[2];
 };
 
@@ -37,6 +46,20 @@ static DEFINE_PER_CPU(struct hazptr_overflow_list_flip, percpu_overflow_list_fli
 
 DEFINE_PER_CPU(struct hazptr_percpu_slots, hazptr_percpu_slots);
 EXPORT_PER_CPU_SYMBOL_GPL(hazptr_percpu_slots);
+
+static
+void *flip_wildcard(void *wildcard)
+{
+	return ((unsigned long) wildcard == 1UL) ? (void *) 2UL : (void *) 1UL;
+}
+
+static
+bool is_wildcard(void *addr)
+{
+	if ((unsigned long) addr == 1UL || (unsigned long) addr == 2UL)
+		return true;
+	return false;
+}
 
 static
 struct hazptr_slot *hazptr_get_free_percpu_slot(struct hazptr_ctx *ctx)
@@ -72,7 +95,7 @@ void *__hazptr_acquire(struct hazptr_ctx *ctx, void * const *addr_p)
 	 */
 	if (unlikely(!slot))
 		slot = hazptr_chain_backup_slot(ctx);
-	WRITE_ONCE(slot->addr, HAZPTR_WILDCARD);	/* Store B */
+	WRITE_ONCE(slot->addr, READ_ONCE(hazptr_wildcard));	/* Store B */
 
 	/* Memory ordering: Store B before Load A. */
 	smp_mb();
@@ -118,7 +141,9 @@ retry:
 		for (;;) {
 			void *load_addr = smp_load_acquire(&backup_slot->slot.addr);	/* Load B */
 
-			if (load_addr != addr && load_addr != HAZPTR_WILDCARD)
+			/* We don't expect wildcards in overflow list. */
+			WARN_ON_ONCE(is_wildcard(load_addr));
+			if (load_addr != addr)
 				break;
 			raw_spin_unlock_irqrestore(&overflow_list->lock, flags);
 			cpu_relax();
@@ -139,7 +164,7 @@ retry:
 }
 
 static
-void hazptr_synchronize_cpu_slots(int cpu, void *addr)
+void hazptr_synchronize_cpu_slots(int cpu, void *addr, void *scan_wildcard)
 {
 	struct hazptr_percpu_slots *percpu_slots = per_cpu_ptr(&hazptr_percpu_slots, cpu);
 	unsigned int idx;
@@ -148,7 +173,39 @@ void hazptr_synchronize_cpu_slots(int cpu, void *addr)
 		struct hazptr_slot_item *item = &percpu_slots->items[idx];
 
 		/* Busy-wait if node is found. */
-		smp_cond_load_acquire(&item->slot.addr, VAL != addr && VAL != HAZPTR_WILDCARD); /* Load B */
+		smp_cond_load_acquire(&item->slot.addr, VAL != addr && VAL != scan_wildcard); /* Load B */
+	}
+}
+
+static
+void hazptr_scan_period(void *addr, void *scan_wildcard)
+{
+	unsigned int scan_idx = (unsigned long) scan_wildcard - 1;
+	int cpu;
+
+	/* Scan all CPUs slots. */
+	for_each_possible_cpu(cpu) {
+		struct hazptr_overflow_list_flip *overflow_list_flip = per_cpu_ptr(&percpu_overflow_list_flip, cpu);
+
+		/*
+		 * Scan CPU slots.
+		 * Forward progress against recurring wildcards is guaranteed
+		 * by scanning for one wildcard while new elements use the
+		 * other wildcard value (1UL vs 2UL).
+		 * Forward progress against recurring single hazard pointer
+		 * values is guaranteed by the fact that a hazard pointer
+		 * is not reclaimed nor reused until the scan for that hazard
+		 * pointer completes, which prevents a steady flow of readers
+		 * to acquire that same hazard pointer value.
+		 */
+		hazptr_synchronize_cpu_slots(cpu, addr, scan_wildcard);
+
+		/*
+		 * Scan backup slots in percpu overflow lists.
+		 * Forward progress is guaranteed by scanning one list
+		 * while new elements are added into the other list.
+		 */
+		hazptr_synchronize_overflow_list(&overflow_list_flip->array[scan_idx], addr);
 	}
 }
 
@@ -161,7 +218,7 @@ void hazptr_synchronize_cpu_slots(int cpu, void *addr)
  */
 void hazptr_synchronize(void *addr)
 {
-	int cpu;
+	void *scan_wildcard;
 
 	/*
 	 * Busy-wait should only be done from preemptible context.
@@ -177,33 +234,19 @@ void hazptr_synchronize(void *addr)
 		return;
 	/* Memory ordering: Store A before Load B. */
 	smp_mb();
-	/* Scan all CPUs slots. */
-	for_each_possible_cpu(cpu) {
-		struct hazptr_overflow_list_flip *overflow_list_flip = per_cpu_ptr(&percpu_overflow_list_flip, cpu);
-		unsigned int scan_idx;
 
-		/* Scan CPU slots. */
-		hazptr_synchronize_cpu_slots(cpu, addr);
-
-		/*
-		 * Scan backup slots in percpu overflow lists.
-		 * Forward progress is guaranteed by scanning one list
-		 * while new elements are added into the other list.
-		 */
-		guard(mutex)(&overflow_list_flip->lock);
-		scan_idx = overflow_list_flip->add_idx ^ 1;
-		hazptr_synchronize_overflow_list(&overflow_list_flip->array[scan_idx], addr);
-		/* Flip current list. */
-		WRITE_ONCE(overflow_list_flip->add_idx, scan_idx);
-		hazptr_synchronize_overflow_list(&overflow_list_flip->array[scan_idx ^ 1], addr);
-	}
+	guard(mutex)(&hazptr_wildcard_lock);
+	scan_wildcard = flip_wildcard(hazptr_wildcard);
+	hazptr_scan_period(addr, scan_wildcard);
+	WRITE_ONCE(hazptr_wildcard, scan_wildcard);	/* Flip the current wildcard. */
+	hazptr_scan_period(addr, flip_wildcard(scan_wildcard));
 }
 EXPORT_SYMBOL_GPL(hazptr_synchronize);
 
 struct hazptr_slot *hazptr_chain_backup_slot(struct hazptr_ctx *ctx)
 {
 	struct hazptr_overflow_list_flip *overflow_list_flip = this_cpu_ptr(&percpu_overflow_list_flip);
-	unsigned int list_idx = READ_ONCE(overflow_list_flip->add_idx);
+	unsigned int list_idx = (unsigned long) READ_ONCE(hazptr_wildcard) - 1;
 	struct hazptr_overflow_list *overflow_list = &overflow_list_flip->array[list_idx];
 	struct hazptr_slot *slot = &ctx->backup_slot.slot;
 
@@ -233,7 +276,6 @@ void __init hazptr_init(void)
 	for_each_possible_cpu(cpu) {
 		struct hazptr_overflow_list_flip *overflow_list_flip = per_cpu_ptr(&percpu_overflow_list_flip, cpu);
 
-		mutex_init(&overflow_list_flip->lock);
 		for (int i = 0; i < 2; i++) {
 			raw_spin_lock_init(&overflow_list_flip->array[i].lock);
 			INIT_HLIST_HEAD(&overflow_list_flip->array[i].head);
