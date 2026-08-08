@@ -18,6 +18,7 @@
  * TODO: orientation events
  */
 
+#include <linux/array_size.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
@@ -110,8 +111,7 @@ struct mma8452_data {
 	u8 data_cfg;
 	const struct mma_chip_info *chip_info;
 	int sleep_val;
-	struct regulator *vdd_reg;
-	struct regulator *vddio_reg;
+	struct regulator_bulk_data regs[2];
 
 	/* Ensure correct alignment of time stamp when present */
 	struct {
@@ -1569,25 +1569,15 @@ static int mma8452_probe(struct i2c_client *client)
 	if (ret)
 		return ret;
 
-	data->vdd_reg = devm_regulator_get(&client->dev, "vdd");
-	if (IS_ERR(data->vdd_reg))
-		return dev_err_probe(&client->dev, PTR_ERR(data->vdd_reg),
-				     "failed to get VDD regulator!\n");
-
-	data->vddio_reg = devm_regulator_get(&client->dev, "vddio");
-	if (IS_ERR(data->vddio_reg))
-		return dev_err_probe(&client->dev, PTR_ERR(data->vddio_reg),
-				     "failed to get VDDIO regulator!\n");
-
-	ret = regulator_enable(data->vdd_reg);
+	data->regs[0].supply = "vdd";
+	data->regs[1].supply = "vddio";
+	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(data->regs), data->regs);
 	if (ret)
-		return dev_err_probe(dev, ret, "failed to enable VDD regulator!\n");
+		return dev_err_probe(dev, ret, "failed to get regulators\n");
 
-	ret = regulator_enable(data->vddio_reg);
-	if (ret) {
-		dev_err_probe(dev, ret, "failed to enable VDDIO regulator!\n");
-		goto disable_regulator_vdd;
-	}
+	ret = regulator_bulk_enable(ARRAY_SIZE(data->regs), data->regs);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to enable regulators\n");
 
 	ret = i2c_smbus_read_byte_data(client, MMA8452_WHO_AM_I);
 	if (ret < 0)
@@ -1722,10 +1712,7 @@ trigger_cleanup:
 	mma8452_trigger_cleanup(indio_dev);
 
 disable_regulators:
-	regulator_disable(data->vddio_reg);
-
-disable_regulator_vdd:
-	regulator_disable(data->vdd_reg);
+	regulator_bulk_disable(ARRAY_SIZE(data->regs), data->regs);
 
 	return ret;
 }
@@ -1747,8 +1734,7 @@ static void mma8452_remove(struct i2c_client *client)
 	mma8452_trigger_cleanup(indio_dev);
 	mma8452_standby(iio_priv(indio_dev));
 
-	regulator_disable(data->vddio_reg);
-	regulator_disable(data->vdd_reg);
+	regulator_bulk_disable(ARRAY_SIZE(data->regs), data->regs);
 }
 
 #ifdef CONFIG_PM
@@ -1766,15 +1752,9 @@ static int mma8452_runtime_suspend(struct device *dev)
 		return -EAGAIN;
 	}
 
-	ret = regulator_disable(data->vddio_reg);
+	ret = regulator_bulk_disable(ARRAY_SIZE(data->regs), data->regs);
 	if (ret) {
-		dev_err(dev, "failed to disable VDDIO regulator\n");
-		return ret;
-	}
-
-	ret = regulator_disable(data->vdd_reg);
-	if (ret) {
-		dev_err(dev, "failed to disable VDD regulator\n");
+		dev_err(dev, "failed to disable regulators\n");
 		return ret;
 	}
 
@@ -1787,16 +1767,9 @@ static int mma8452_runtime_resume(struct device *dev)
 	struct mma8452_data *data = iio_priv(indio_dev);
 	int ret, sleep_val;
 
-	ret = regulator_enable(data->vdd_reg);
+	ret = regulator_bulk_enable(ARRAY_SIZE(data->regs), data->regs);
 	if (ret) {
-		dev_err(dev, "failed to enable VDD regulator\n");
-		return ret;
-	}
-
-	ret = regulator_enable(data->vddio_reg);
-	if (ret) {
-		dev_err(dev, "failed to enable VDDIO regulator\n");
-		regulator_disable(data->vdd_reg);
+		dev_err(dev, "failed to enable regulators\n");
 		return ret;
 	}
 
@@ -1814,8 +1787,7 @@ static int mma8452_runtime_resume(struct device *dev)
 	return 0;
 
 runtime_resume_failed:
-	regulator_disable(data->vddio_reg);
-	regulator_disable(data->vdd_reg);
+	regulator_bulk_disable(ARRAY_SIZE(data->regs), data->regs);
 
 	return ret;
 }
