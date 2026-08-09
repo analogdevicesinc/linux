@@ -1650,3 +1650,19 @@
 		};
 	};
 };
+
+&nsp0_alert0 {
+	temperature = <105000>;
+};
+
+&nsp1_alert0 {
+	temperature = <105000>;
+};
+
+&nsp2_alert0 {
+	temperature = <105000>;
+};
+
+&nsp3_alert0 {
+	temperature = <105000>;
+};
