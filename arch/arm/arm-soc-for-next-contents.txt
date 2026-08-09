@@ -69,6 +69,10 @@ soc/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-7.3-devicetree-0
 	aspeed/dt32
 		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-arm-7.3-devicetree-0
+	tegra/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-dt-bindings
+	tegra/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-arm64-dt
 
 soc/drivers
 	ixp4xx/soc-drivers
