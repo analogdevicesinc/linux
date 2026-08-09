@@ -18,6 +18,19 @@ config ADI_ADSP_SMPU
 	  firmware; this driver maps the hardware and reports the violations
 	  the SMPU raises.
 
+config ADI_ADSP_SPU
+	tristate "ADI ADSP System Protection Unit"
+	depends on OF
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	default ARCH_SC59X_64
+	help
+	  This enables support for the SPU (System Protection Unit) on
+	  Analog Devices ADSP/SHARC-FX processors (SC59x, SC846, SC594). The
+	  SPU is a peripheral firewall that write-protects peripheral MMR
+	  space from selected bus masters. The protection policy is
+	  programmed by secure firmware; this driver maps the hardware and
+	  reports the violations the SPU raises.
+
 config ARM_CCI
 	bool
 
