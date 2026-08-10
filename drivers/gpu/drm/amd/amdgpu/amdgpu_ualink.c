@@ -3032,10 +3032,10 @@ fini:
 static int amdgpu_ualink_map_npa_to_dmabuf(struct amdgpu_device *adev,
 				struct amdgpu_ualink_imp_xa_node *imp_xa_node)
 {
-	u64 alloc_flags = AMDGPU_GEM_CREATE_NO_CPU_ACCESS, npa_addr, size;
 	struct ttm_operation_ctx ctx = { false, false };
-	u32 initial_domain = AMDGPU_GEM_DOMAIN_CPU;
+	u32 initial_domain = AMDGPU_GEM_DOMAIN_NPA;
 	struct drm_gem_object *gobj = NULL;
+	u64 alloc_flags, npa_addr, size;
 	struct dma_buf *dmabuf;
 	struct amdgpu_bo *bo;
 	u32 handle;
@@ -3047,21 +3047,19 @@ static int amdgpu_ualink_map_npa_to_dmabuf(struct amdgpu_device *adev,
 	dev_dbg(adev->dev, "Create NPA BO addr 0x%llx size in pages 0x%llx\n",
 		npa_addr, size);
 
-	/* TODO: Check if this needs to be on a xcp_id basis */
+	/*
+	 * Create the BO directly in the NPA domain.
+	 */
+	alloc_flags = AMDGPU_GEM_CREATE_NO_CPU_ACCESS;
 	r = amdgpu_gem_object_create(adev, size * AMDGPU_GPU_PAGE_SIZE, 1,
 				     initial_domain, alloc_flags,
 				     ttm_bo_type_device, NULL, &gobj, 0);
 	if (r) {
-		dev_err(adev->dev,
-			"Failed to create NPA BO in CPU domain. ret %d\n", r);
+		dev_err(adev->dev, "Failed to create NPA BO. ret %d\n", r);
 		return r;
 	}
 
 	bo = gem_to_amdgpu_bo(gobj);
-	amdgpu_bo_placement_from_domain(bo, AMDGPU_GEM_DOMAIN_NPA);
-
-	bo->placements[0].fpfn = npa_addr;
-	bo->placements[0].lpfn = npa_addr + size;
 
 	r = amdgpu_bo_reserve(bo, false);
 	if (unlikely(r != 0)) {
@@ -3069,11 +3067,20 @@ static int amdgpu_ualink_map_npa_to_dmabuf(struct amdgpu_device *adev,
 		goto err_reserve_failed;
 	}
 
-	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+	/*
+	 * Drop the arbitrarily-placed NPA node and re-create it at the exact
+	 * remote window, mirroring amdgpu_bo_create_kernel_at().
+	 */
+	ttm_resource_free(&bo->tbo, &bo->tbo.resource);
+
+	bo->placements[0].fpfn = npa_addr;
+	bo->placements[0].lpfn = npa_addr + size;
+
+	r = ttm_bo_mem_space(&bo->tbo, &bo->placement, &bo->tbo.resource, &ctx);
 	amdgpu_bo_unreserve(bo);
 	if (r) {
 		dev_err(adev->dev,
-			"Failed to validate BO in NPA domain, r: %d\n", r);
+			"Failed to place NPA BO at 0x%llx, r: %d\n", npa_addr, r);
 		goto err_validate_failed;
 	}
 
