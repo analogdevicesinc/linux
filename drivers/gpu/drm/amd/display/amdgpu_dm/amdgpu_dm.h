@@ -1187,6 +1187,16 @@ bool is_content_protection_different(struct drm_crtc_state *new_crtc_state,
 				     struct drm_connector_state *old_conn_state,
 				     const struct drm_connector *connector,
 				     struct hdcp_workqueue *hdcp_w);
+
+struct amdgpu_dm_services_kunit_ops {
+	int (*bo_create_kernel)(struct amdgpu_device *adev, unsigned long size,
+				int align, u32 domain, struct amdgpu_bo **bo_ptr,
+				u64 *gpu_addr, void **cpu_addr);
+	void (*bo_free_kernel)(struct amdgpu_bo **bo, u64 *gpu_addr,
+			       void **cpu_addr);
+};
+
+void amdgpu_dm_services_kunit_set_ops(const struct amdgpu_dm_services_kunit_ops *ops);
 #endif
 
 #endif /* __AMDGPU_DM_H__ */
