@@ -525,7 +525,7 @@ static int bd79124_enable_event(struct bd79124_data *data,
 		return ret;
 
 	if (dir == IIO_EV_DIR_RISING) {
-		limit = &data->alarm_f_limit[channel];
+		limit = &data->alarm_r_limit[channel];
 		reg = BD79124_GET_HIGH_LIMIT_REG(channel);
 	} else {
 		limit = &data->alarm_f_limit[channel];
