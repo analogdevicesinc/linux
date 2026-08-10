@@ -3945,7 +3945,8 @@ int i3c_dev_request_ibi_locked(struct i3c_dev_desc *dev,
 	if (!ibi)
 		return -ENOMEM;
 
-	ibi->wq = alloc_ordered_workqueue(dev_name(i3cdev_to_dev(dev->dev)), WQ_MEM_RECLAIM);
+	ibi->wq = alloc_ordered_workqueue(dev_name(i3cdev_to_dev(dev->dev)),
+					  WQ_MEM_RECLAIM | WQ_HIGHPRI);
 	if (!ibi->wq) {
 		kfree(ibi);
 		return -ENOMEM;
