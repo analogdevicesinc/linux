@@ -382,6 +382,9 @@ static int bd79124_start_measurement(struct bd79124_data *data, int chan)
 
 	/* See if already started */
 	ret = regmap_read(data->map, BD79124_REG_AUTO_CHANNELS, &val);
+	if (ret)
+		return ret;
+
 	if (val & BIT(chan))
 		return 0;
 
@@ -421,11 +424,16 @@ static int bd79124_stop_measurement(struct bd79124_data *data, int chan)
 
 	/* See if already stopped */
 	ret = regmap_read(data->map, BD79124_REG_AUTO_CHANNELS, &enabled_chans);
+	if (ret)
+		return ret;
+
 	if (!(enabled_chans & BIT(chan)))
 		return 0;
 
 	ret = regmap_clear_bits(data->map, BD79124_REG_SEQ_CFG,
 				BD79124_MSK_SEQ_START);
+	if (ret)
+		return ret;
 
 	/* Clear the channel from the measured channels */
 	enabled_chans &= ~BIT(chan);
