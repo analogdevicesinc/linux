@@ -5930,6 +5930,176 @@ static void dm_test_create_i2c_hw_bus(struct kunit *test)
 }
 
 /**
+ * dm_test_restore_state_writeback - Test writeback connectors are skipped
+ * @test: The KUnit test context
+ *
+ * A writeback connector short-circuits before dc_sink is ever read, so leaving
+ * it NULL must not crash and no connector state is created.
+ */
+static void dm_test_restore_state_writeback(struct kunit *test)
+{
+	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_test_add_connector(test, drm,
+					   DRM_MODE_CONNECTOR_WRITEBACK);
+
+	dm_restore_drm_connector_state(drm, &aconnector->base);
+
+	KUNIT_EXPECT_NULL(test, aconnector->base.state);
+}
+
+/**
+ * dm_test_restore_state_no_dc_sink - Test a connector without a dc_sink is a no-op
+ * @test: The KUnit test context
+ *
+ * With no dc_sink there is nothing to restore, so the function returns before
+ * touching the connector state or encoder.
+ */
+static void dm_test_restore_state_no_dc_sink(struct kunit *test)
+{
+	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_test_add_connector(test, drm,
+					   DRM_MODE_CONNECTOR_HDMIA);
+	/* dc_sink left NULL by kzalloc. */
+
+	dm_restore_drm_connector_state(drm, &aconnector->base);
+
+	KUNIT_EXPECT_NULL(test, aconnector->base.state);
+}
+
+/**
+ * dm_test_restore_state_no_connector_state - Test a NULL connector state bails out
+ * @test: The KUnit test context
+ *
+ * A dc_sink is present but the connector has no atomic state, so the function
+ * returns before dereferencing the encoder.
+ */
+static void dm_test_restore_state_no_connector_state(struct kunit *test)
+{
+	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_test_add_connector(test, drm,
+					   DRM_MODE_CONNECTOR_HDMIA);
+	aconnector->dc_sink = kunit_kzalloc(test, 1, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector->dc_sink);
+	/* connector->state left NULL: the guard must catch it. */
+
+	dm_restore_drm_connector_state(drm, &aconnector->base);
+
+	KUNIT_EXPECT_NULL(test, aconnector->base.encoder);
+}
+
+/**
+ * dm_test_restore_state_no_encoder - Test a NULL encoder bails out
+ * @test: The KUnit test context
+ *
+ * A dc_sink and connector state are present but the connector is not routed to
+ * any encoder, so the function returns before reading the encoder's crtc.
+ */
+static void dm_test_restore_state_no_encoder(struct kunit *test)
+{
+	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_test_add_connector(test, drm,
+					   DRM_MODE_CONNECTOR_HDMIA);
+	aconnector->dc_sink = kunit_kzalloc(test, 1, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector->dc_sink);
+	aconnector->base.funcs->reset(&aconnector->base);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector->base.state);
+	/* connector->encoder left NULL. */
+
+	dm_restore_drm_connector_state(drm, &aconnector->base);
+
+	KUNIT_EXPECT_NULL(test, aconnector->base.encoder);
+}
+
+/**
+ * dm_test_restore_state_no_stream - Test a crtc without a stream bails out
+ * @test: The KUnit test context
+ *
+ * The connector is routed to an encoder and crtc, but the crtc state carries no
+ * dc stream, so the function returns before comparing sinks.
+ */
+static void dm_test_restore_state_no_stream(struct kunit *test)
+{
+	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct amdgpu_dm_connector *aconnector;
+	struct dm_crtc_state *acrtc_state;
+	struct drm_encoder *enc;
+	struct drm_crtc *crtc;
+
+	aconnector = dm_test_add_connector(test, drm,
+					   DRM_MODE_CONNECTOR_HDMIA);
+	aconnector->dc_sink = kunit_kzalloc(test, 1, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector->dc_sink);
+	aconnector->base.funcs->reset(&aconnector->base);
+
+	enc = kunit_kzalloc(test, sizeof(*enc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, enc);
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+	acrtc_state = kunit_kzalloc(test, sizeof(*acrtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc_state);
+
+	crtc->state = &acrtc_state->base;
+	enc->crtc = crtc;
+	aconnector->base.encoder = enc;
+	/* acrtc_state->stream left NULL. */
+
+	dm_restore_drm_connector_state(drm, &aconnector->base);
+
+	KUNIT_EXPECT_NULL(test, acrtc_state->stream);
+}
+
+/**
+ * dm_test_restore_state_same_sink - Test an unchanged sink skips the commit
+ * @test: The KUnit test context
+ *
+ * When the streamed sink already matches the connector's dc_sink there is
+ * nothing to restore, so the forced atomic commit is not issued.
+ */
+static void dm_test_restore_state_same_sink(struct kunit *test)
+{
+	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct amdgpu_dm_connector *aconnector;
+	struct dm_crtc_state *acrtc_state;
+	struct dc_stream_state *stream;
+	struct drm_encoder *enc;
+	struct drm_crtc *crtc;
+
+	aconnector = dm_test_add_connector(test, drm,
+					   DRM_MODE_CONNECTOR_HDMIA);
+	aconnector->dc_sink = kunit_kzalloc(test, 1, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector->dc_sink);
+	aconnector->base.funcs->reset(&aconnector->base);
+
+	enc = kunit_kzalloc(test, sizeof(*enc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, enc);
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+	acrtc_state = kunit_kzalloc(test, sizeof(*acrtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc_state);
+	stream = dm_kunit_alloc_stream(test, NULL);
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+
+	/* Same sink as the connector: the final branch is not taken. */
+	stream->sink = aconnector->dc_sink;
+	acrtc_state->stream = stream;
+	crtc->state = &acrtc_state->base;
+	enc->crtc = crtc;
+	aconnector->base.encoder = enc;
+
+	dm_restore_drm_connector_state(drm, &aconnector->base);
+
+	KUNIT_EXPECT_PTR_EQ(test, stream->sink, aconnector->dc_sink);
+}
+
+/**
  * dm_test_get_amd_vsdb_unsupported - Test a zero VSDB version reports no support
  * @test: The KUnit test context
  */
@@ -8685,6 +8855,13 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* amdgpu_dm_create_i2c */
 	KUNIT_CASE(dm_test_create_i2c_oem),
 	KUNIT_CASE(dm_test_create_i2c_hw_bus),
+	/* dm_restore_drm_connector_state */
+	KUNIT_CASE(dm_test_restore_state_writeback),
+	KUNIT_CASE(dm_test_restore_state_no_dc_sink),
+	KUNIT_CASE(dm_test_restore_state_no_connector_state),
+	KUNIT_CASE(dm_test_restore_state_no_encoder),
+	KUNIT_CASE(dm_test_restore_state_no_stream),
+	KUNIT_CASE(dm_test_restore_state_same_sink),
 	/* get_amd_vsdb */
 	KUNIT_CASE(dm_test_get_amd_vsdb_unsupported),
 	KUNIT_CASE(dm_test_get_amd_vsdb_supported),

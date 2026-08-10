@@ -3598,6 +3598,7 @@ void dm_restore_drm_connector_state(struct drm_device *dev,
 	if (acrtc_state->stream->sink != aconnector->dc_sink)
 		dm_force_atomic_commit(&aconnector->base);
 }
+EXPORT_IF_KUNIT(dm_restore_drm_connector_state);
 
 static bool dm_edid_parser_send_cea(struct amdgpu_display_manager *dm,
 		unsigned int offset,
