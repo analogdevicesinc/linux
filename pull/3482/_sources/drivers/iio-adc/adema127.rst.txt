@@ -493,8 +493,9 @@ Direct-read (``IIO_CHAN_INFO_*``) attributes
    Per-channel offset compensation, stored in the DSP RAM
    ``OFFSET`` field. Applied when the ``gain_offset_xt`` stage is
    enabled. Range: ``-2^23 .. 2^23 - 1`` (24-bit two's complement,
-   ADC-code units). The offset is subtracted from the sample before
-   scaling.
+   ADC-code units). The offset is subtracted from the sample after
+   gain compensation has been applied (per the datasheet's Figure 60,
+   gain before offset).
 
 **in_voltageN_calibscale** *(fractional, read/write)*
    Per-channel gain compensation, stored in the DSP RAM ``GAIN`` field.

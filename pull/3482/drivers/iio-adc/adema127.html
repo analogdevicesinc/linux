@@ -857,8 +857,9 @@ the analog PGA, before any DSP transformation).</p>
 <dt><strong>in_voltageN_calibbias</strong> <em>(s24, read/write)</em></dt><dd><p>Per-channel offset compensation, stored in the DSP RAM
 <code class="docutils literal notranslate"><span class="pre">OFFSET</span></code> field. Applied when the <code class="docutils literal notranslate"><span class="pre">gain_offset_xt</span></code> stage is
 enabled. Range: <code class="docutils literal notranslate"><span class="pre">-2^23</span> <span class="pre">..</span> <span class="pre">2^23</span> <span class="pre">-</span> <span class="pre">1</span></code> (24-bit two’s complement,
-ADC-code units). The offset is subtracted from the sample before
-scaling.</p>
+ADC-code units). The offset is subtracted from the sample after
+gain compensation has been applied (per the datasheet’s Figure 60,
+gain before offset).</p>
 </dd>
 <dt><strong>in_voltageN_calibscale</strong> <em>(fractional, read/write)</em></dt><dd><p>Per-channel gain compensation, stored in the DSP RAM <code class="docutils literal notranslate"><span class="pre">GAIN</span></code> field.
 Signed 2.22 fixed-point (nominal 1.0 = 0x400000). Read as the tuple
