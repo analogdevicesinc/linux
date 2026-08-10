@@ -186,6 +186,37 @@ null_info:
 }
 
 /**
+ * xe_drm_ras_event() - Report drm-ras error event to userspace
+ * @xe: xe device structure
+ * @component: error component (see &enum drm_xe_ras_error_component)
+ * @severity: error severity (see &enum drm_xe_ras_error_severity)
+ * @value: value of error counter
+ *
+ * Report an error-event to userspace.
+ */
+void xe_drm_ras_event(struct xe_device *xe, u32 component, u32 severity, u32 value)
+{
+	struct xe_drm_ras *ras = &xe->ras;
+	struct xe_drm_ras_counter *info = ras->info[severity];
+	struct drm_ras_node *node;
+	int ret;
+
+	/* Event is supported only if drm-ras is enabled */
+	if (!xe->info.has_drm_ras)
+		return;
+
+	node = &ras->node[severity];
+
+	if (!info || !info[component].name)
+		return;
+
+	ret = drm_ras_nl_error_event(node, component, info[component].name, value);
+	if (ret)
+		drm_err_ratelimited(&xe->drm, "drm-ras error-event failed: %d for %s %s\n", ret,
+				    info[component].name, error_severity[severity]);
+}
+
+/**
  * xe_drm_ras_init() - Initialize DRM RAS
  * @xe: xe device instance
  *

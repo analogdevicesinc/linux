@@ -90,6 +90,8 @@ static const char * const gpu_health_states[] = {
 };
 static_assert(ARRAY_SIZE(gpu_health_states) == XE_RAS_HEALTH_MAX);
 
+static int get_counter(struct xe_device *xe, struct xe_ras_error_class *counter, u32 *value);
+
 static u8 drm_to_xe_ras_severity(u8 severity)
 {
 	switch (severity) {
@@ -99,6 +101,18 @@ static u8 drm_to_xe_ras_severity(u8 severity)
 		return XE_RAS_SEV_UNCORRECTABLE;
 	default:
 		return XE_RAS_SEV_NOT_SUPPORTED;
+	}
+}
+
+static u8 xe_to_drm_ras_severity(u8 severity)
+{
+	switch (severity) {
+	case XE_RAS_SEV_CORRECTABLE:
+		return DRM_XE_RAS_ERR_SEV_CORRECTABLE;
+	case XE_RAS_SEV_UNCORRECTABLE:
+		return DRM_XE_RAS_ERR_SEV_UNCORRECTABLE;
+	default:
+		return DRM_XE_RAS_ERR_SEV_MAX;
 	}
 }
 
@@ -117,6 +131,24 @@ static u8 drm_to_xe_ras_component(u8 component)
 		return XE_RAS_COMP_FABRIC;
 	default:
 		return XE_RAS_COMP_NOT_SUPPORTED;
+	}
+}
+
+static u8 xe_to_drm_ras_component(u8 component)
+{
+	switch (component) {
+	case XE_RAS_COMP_DEVICE_MEMORY:
+		return DRM_XE_RAS_ERR_COMP_DEVICE_MEMORY;
+	case XE_RAS_COMP_CORE_COMPUTE:
+		return DRM_XE_RAS_ERR_COMP_CORE_COMPUTE;
+	case XE_RAS_COMP_PCIE:
+		return DRM_XE_RAS_ERR_COMP_PCIE;
+	case XE_RAS_COMP_FABRIC:
+		return DRM_XE_RAS_ERR_COMP_FABRIC;
+	case XE_RAS_COMP_SOC_INTERNAL:
+		return DRM_XE_RAS_ERR_COMP_SOC_INTERNAL;
+	default:
+		return DRM_XE_RAS_ERR_COMP_MAX;
 	}
 }
 
@@ -236,6 +268,26 @@ static void ras_usp_aer_init(struct xe_device *xe)
 	dev_dbg(&usp->dev, "Uncorrectable Internal Errors downgraded and unmasked\n");
 }
 
+static void ras_send_error_event(struct xe_device *xe, u8 severity, u8 component)
+{
+	struct xe_ras_error_class counter = {0};
+	u8 drm_severity, drm_component;
+	u32 value;
+	int ret;
+
+	counter.common.severity = severity;
+	counter.common.component = component;
+
+	ret = get_counter(xe, &counter, &value);
+	if (ret)
+		return;
+
+	drm_severity = xe_to_drm_ras_severity(severity);
+	drm_component = xe_to_drm_ras_component(component);
+
+	xe_drm_ras_event(xe, drm_component, drm_severity, value);
+}
+
 static u8 handle_core_compute_errors(struct xe_ras_error_array *arr)
 {
 	struct xe_ras_compute_error *error_info = (void *)arr->details;
@@ -330,8 +382,10 @@ void xe_ras_counter_threshold_crossed(struct xe_device *xe,
 	struct xe_ras_threshold_crossed *pending = (void *)&response->data;
 	struct xe_ras_error_class *errors = pending->counters;
 	u32 id, ncounters = pending->ncounters;
+	u8 sent = 0;
 
 	BUILD_BUG_ON(sizeof(response->data) < sizeof(*pending));
+	BUILD_BUG_ON(BITS_PER_TYPE(sent) < XE_RAS_COMP_MAX);
 	xe_device_assert_mem_access(xe);
 
 	if (!ncounters || ncounters > XE_RAS_NUM_COUNTERS)
@@ -350,6 +404,13 @@ void xe_ras_counter_threshold_crossed(struct xe_device *xe,
 
 		xe_warn(xe, "[RAS]: %s %s detected\n",
 			comp_to_str(component), sev_to_str(severity));
+
+		/* Send event once per component */
+		if (sent & BIT(component))
+			continue;
+		sent |= BIT(component);
+
+		ras_send_error_event(xe, severity, component);
 	}
 }
 
@@ -406,12 +467,14 @@ enum xe_ras_recovery_action xe_ras_process_errors(struct xe_device *xe)
 	enum xe_ras_recovery_action final_action;
 	u32 remaining = XE_SYSCTRL_FLOOD_LIMIT;
 	struct xe_ras_get_soc_error response;
+	u8 sent = 0;
 	size_t rlen;
 	int ret;
 
 	if (!xe->info.has_sysctrl)
 		return XE_RAS_RECOVERY_ACTION_RESET;
 
+	BUILD_BUG_ON(BITS_PER_TYPE(sent) < XE_RAS_COMP_MAX);
 	/* Default action */
 	final_action = XE_RAS_RECOVERY_ACTION_RECOVERED;
 
@@ -451,6 +514,12 @@ enum xe_ras_recovery_action xe_ras_process_errors(struct xe_device *xe)
 
 			xe_info(xe, "[RAS]: %s %s detected\n", comp_to_str(component),
 				sev_to_str(severity));
+
+			/* Send event once per component */
+			if (!(sent & BIT(component))) {
+				sent |= BIT(component);
+				ras_send_error_event(xe, severity, component);
+			}
 
 			switch (component) {
 			case XE_RAS_COMP_CORE_COMPUTE:
