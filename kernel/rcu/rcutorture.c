@@ -48,6 +48,7 @@
 #include <linux/tick.h>
 #include <linux/rcupdate_trace.h>
 #include <linux/nmi.h>
+#include <linux/perf_event.h>
 
 #include "rcu.h"
 
@@ -115,6 +116,7 @@ torture_param(int, leakpointer, 0, "Leak pointer dereferences from readers");
 torture_param(int, n_barrier_cbs, 0, "# of callbacks/kthreads for barrier testing");
 torture_param(int, n_up_down, 32, "# of concurrent up/down hrtimer-based RCU readers");
 torture_param(int, nfakewriters, 4, "Number of RCU fake writer threads");
+torture_param(bool, nmi_calls, true, "Exercise ->call() from NMI on nmi_capable flavors");
 torture_param(int, nreaders, -1, "Number of RCU reader threads");
 torture_param(bool, nwriters, 1, "Number of RCU writer threads (0 or 1)");
 torture_param(int, object_debug, 0, "Enable debug-object double call_rcu() testing");
@@ -216,6 +218,8 @@ static long n_rcu_torture_boost_failure;
 static long n_rcu_torture_boosts;
 static atomic_long_t n_rcu_torture_timers;
 static atomic_long_t n_rcu_torture_irqs;
+static atomic_long_t n_rcu_torture_nmi_call;
+static atomic_long_t n_rcu_torture_nmi_cb;
 static long n_barrier_attempts;
 static long n_barrier_successes; /* did rcu_barrier test succeed? */
 static unsigned long n_read_exits;
@@ -433,6 +437,7 @@ struct rcu_torture_ops {
 	bool (*is_task_rcu_boosted)(void);
 	long cbflood_max;
 	int irq_capable;
+	int nmi_capable;
 	int can_boost;
 	int extendables;
 	int slow_gps;
@@ -650,6 +655,7 @@ static struct rcu_torture_ops rcu_ops = {
 	.debug_objects		= 1,
 	.start_poll_irqsoff	= 1,
 	.rdrs_handle_load	= !IS_ENABLED(CONFIG_PREEMPT_RCU) || IS_ENABLED(CONFIG_RCU_BOOST),
+	.nmi_capable		= 1,
 	.name			= "rcu"
 };
 
@@ -944,6 +950,7 @@ static struct rcu_torture_ops srcu_ops = {
 	.debug_objects	= 1,
 	.have_up_down	= IS_ENABLED(CONFIG_TINY_SRCU)
 				? 0 : SRCU_READ_FLAVOR_NORMAL | SRCU_READ_FLAVOR_FAST_UPDOWN,
+	.nmi_capable	= 1,
 	.name		= "srcu"
 };
 
@@ -1007,6 +1014,7 @@ static struct rcu_torture_ops srcud_ops = {
 	.debug_objects	= 1,
 	.have_up_down	= IS_ENABLED(CONFIG_TINY_SRCU)
 				? 0 : SRCU_READ_FLAVOR_NORMAL | SRCU_READ_FLAVOR_FAST_UPDOWN,
+	.nmi_capable	= 1,
 	.name		= "srcud"
 };
 
@@ -1271,6 +1279,7 @@ static struct rcu_torture_ops tasks_tracing_ops = {
 	.cbflood_max	= 50000,
 	.irq_capable	= 1,
 	.slow_gps	= 1,
+	.nmi_capable	= 1,
 	.name		= "tasks-tracing"
 };
 
@@ -2664,6 +2673,124 @@ static bool rcu_torture_one_read(struct torture_random_state *trsp, long myid)
 static DEFINE_TORTURE_RANDOM_PERCPU(rcu_torture_timer_rand);
 
 /*
+ * Exercise ->call() from NMI context for flavors that set ->nmi_capable.  A
+ * per-CPU hardware perf counter overflows into an NMI, and its handler submits
+ * a preallocated callback via ->call().  One callback per CPU is in flight at a
+ * time (guarded by an atomic) to avoid allocating in NMI.
+ */
+#ifdef CONFIG_PERF_EVENTS
+static struct perf_event_attr rcu_torture_nmi_attr = {
+	.type		= PERF_TYPE_HARDWARE,
+	.config		= PERF_COUNT_HW_CPU_CYCLES,
+	.size		= sizeof(struct perf_event_attr),
+	.pinned		= 1,
+	.disabled	= 1,
+	/*
+	 * A fixed period rather than .freq: a frequency-based event bumps
+	 * nr_freq_events, which sets TICK_DEP_BIT_PERF_EVENTS and would pin the
+	 * tick for the whole run on NO_HZ_FULL kernels.
+	 */
+	.sample_period	= 20 * 1000 * 1000,
+};
+
+/* One in-flight callback per CPU; ->inuse is released by the callback. */
+struct rcu_torture_nmi_cb {
+	struct rcu_head rh;
+	atomic_t inuse;
+};
+
+static struct perf_event **rcu_torture_nmi_events;
+static int rcu_torture_nmi_hp_state;
+static DEFINE_PER_CPU(struct rcu_torture_nmi_cb, rcu_torture_nmi_cb);
+
+static void rcu_torture_nmi_invoked(struct rcu_head *rhp)
+{
+	struct rcu_torture_nmi_cb *rtncp = container_of(rhp, struct rcu_torture_nmi_cb, rh);
+
+	atomic_long_inc(&n_rcu_torture_nmi_cb);
+	atomic_set(&rtncp->inuse, 0);
+}
+
+static void rcu_torture_nmi_overflow(struct perf_event *event,
+				     struct perf_sample_data *data,
+				     struct pt_regs *regs)
+{
+	struct rcu_torture_nmi_cb *rtncp = this_cpu_ptr(&rcu_torture_nmi_cb);
+
+	if (!in_nmi())
+		return;
+	if (cur_ops->call && !atomic_xchg(&rtncp->inuse, 1)) {
+		atomic_long_inc(&n_rcu_torture_nmi_call);
+		cur_ops->call(&rtncp->rh, rcu_torture_nmi_invoked);
+	}
+}
+
+static int rcu_torture_nmi_online(unsigned int cpu)
+{
+	struct perf_event *event;
+
+	event = perf_event_create_kernel_counter(&rcu_torture_nmi_attr, cpu, NULL,
+						 rcu_torture_nmi_overflow, NULL);
+	if (IS_ERR(event))
+		return 0;
+	rcu_torture_nmi_events[cpu] = event;
+	perf_event_enable(event);
+	return 0;
+}
+
+static int rcu_torture_nmi_offline(unsigned int cpu)
+{
+	struct perf_event *event = rcu_torture_nmi_events[cpu];
+
+	if (event) {
+		rcu_torture_nmi_events[cpu] = NULL;
+		perf_event_disable(event);
+		perf_event_release_kernel(event);
+	}
+	return 0;
+}
+
+/* Drive the counters from hotplug callbacks so coverage survives onoff. */
+static void rcu_torture_nmi_init(void)
+{
+	int ret;
+
+	if (!nmi_calls || !cur_ops->nmi_capable || !cur_ops->call)
+		return;
+	rcu_torture_nmi_events = kcalloc(nr_cpu_ids, sizeof(*rcu_torture_nmi_events),
+					 GFP_KERNEL);
+	if (!rcu_torture_nmi_events)
+		return;
+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "rcutorture/nmi:online",
+				rcu_torture_nmi_online, rcu_torture_nmi_offline);
+	if (ret < 0) {
+		kfree(rcu_torture_nmi_events);
+		rcu_torture_nmi_events = NULL;
+		return;
+	}
+	rcu_torture_nmi_hp_state = ret;
+}
+
+static void rcu_torture_nmi_cleanup(void)
+{
+	if (!rcu_torture_nmi_events)
+		return;
+	if (rcu_torture_nmi_hp_state > 0) {
+		cpuhp_remove_state(rcu_torture_nmi_hp_state);
+		rcu_torture_nmi_hp_state = 0;
+	}
+	kfree(rcu_torture_nmi_events);
+	rcu_torture_nmi_events = NULL;
+	if (!atomic_long_read(&n_rcu_torture_nmi_call))
+		pr_alert("%s: nmi_calls set but no ->call() ever issued from NMI, so NMI ->call() went untested (no PMU, or NMIs unavailable here).\n",
+			 __func__);
+}
+#else /* #ifdef CONFIG_PERF_EVENTS */
+static void rcu_torture_nmi_init(void) { }
+static void rcu_torture_nmi_cleanup(void) { }
+#endif /* #else #ifdef CONFIG_PERF_EVENTS */
+
+/*
  * RCU torture reader from timer handler.  Dereferences rcu_torture_current,
  * incrementing the corresponding element of the pipeline array.  The
  * counter in the element should never be greater than 1, otherwise, the
@@ -3051,6 +3178,9 @@ rcu_torture_stats_print(void)
 		data_race(n_barrier_attempts),
 		data_race(n_rcu_torture_barrier_error));
 	pr_cont("read-exits: %ld ", data_race(n_read_exits)); // Statistic.
+	pr_cont("nmi-calls: %ld nmi-cbs: %ld ",
+		atomic_long_read(&n_rcu_torture_nmi_call),
+		atomic_long_read(&n_rcu_torture_nmi_cb));
 	pr_cont("nocb-toggles: %ld:%ld ",
 		atomic_long_read(&n_nocb_offload), atomic_long_read(&n_nocb_deoffload));
 	pr_cont("gpwraps: %ld\n", n_gpwraps);
@@ -3199,7 +3329,7 @@ rcu_torture_print_module_parms(struct rcu_torture_ops *cur_ops, const char *tag)
 		 "read_exit_delay=%d read_exit_burst=%d "
 		 "reader_flavor=%x "
 		 "nocbs_nthreads=%d nocbs_toggle=%d "
-		 "test_nmis=%d "
+		 "test_nmis=%d nmi_calls=%d "
 		 "preempt_duration=%d preempt_interval=%d n_up_down=%d\n",
 		 torture_type, tag, nrealreaders, nwriters, nrealfakewriters,
 		 stat_interval, verbose, test_no_idle_hz, shuffle_interval,
@@ -3213,7 +3343,7 @@ rcu_torture_print_module_parms(struct rcu_torture_ops *cur_ops, const char *tag)
 		 read_exit_delay, read_exit_burst,
 		 reader_flavor,
 		 nocbs_nthreads, nocbs_toggle,
-		 test_nmis,
+		 test_nmis, nmi_calls,
 		 preempt_duration, preempt_interval, n_up_down);
 }
 
@@ -4287,6 +4417,7 @@ rcu_torture_cleanup(void)
 	int i;
 
 	if (torture_cleanup_begin()) {
+		rcu_torture_nmi_cleanup();
 		if (cur_ops->cb_barrier != NULL) {
 			pr_info("%s: Invoking %pS().\n", __func__, cur_ops->cb_barrier);
 			cur_ops->cb_barrier();
@@ -4329,6 +4460,7 @@ rcu_torture_cleanup(void)
 		kfree(reader_tasks);
 		reader_tasks = NULL;
 	}
+	rcu_torture_nmi_cleanup();
 	kfree(rcu_torture_reader_mbchk);
 	rcu_torture_reader_mbchk = NULL;
 
@@ -4358,6 +4490,19 @@ rcu_torture_cleanup(void)
 		pr_info("%s: Invoking %pS().\n", __func__, cur_ops->cb_barrier);
 		cur_ops->cb_barrier();
 	}
+
+	/*
+	 * cb_barrier() above drained every deferred callback, so the count
+	 * issued from NMI must equal the count invoked.
+	 */
+	if (atomic_long_read(&n_rcu_torture_nmi_call) !=
+	    atomic_long_read(&n_rcu_torture_nmi_cb)) {
+		pr_alert("%s: NMI ->call() lost a callback: issued %ld invoked %ld\n",
+			 __func__, atomic_long_read(&n_rcu_torture_nmi_call),
+			 atomic_long_read(&n_rcu_torture_nmi_cb));
+		atomic_inc(&n_rcu_torture_error);
+	}
+
 	if (cur_ops->cleanup != NULL)
 		cur_ops->cleanup();
 
@@ -4790,6 +4935,7 @@ rcu_torture_init(void)
 		firsterr = -ENOMEM;
 		goto unwind;
 	}
+	rcu_torture_nmi_init();
 	for (i = 0; i < nrealreaders; i++) {
 		rcu_torture_reader_mbchk[i].rtc_chkrdr = -1;
 		firsterr = torture_create_kthread(rcu_torture_reader, (void *)i,
