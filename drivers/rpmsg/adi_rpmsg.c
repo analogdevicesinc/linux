@@ -267,14 +267,11 @@ static int adi_rpmsg_parse_resource_table(struct adi_rpmsg_channel *rpchan)
 	struct fw_rsc_hdr *hdr;
 	int i, offset;
 
-	if (strcmp(adi_rsc_table->adi_table_hdr.tag, ADI_RESOURCE_TABLE_TAG)) {
-		dev_err(dev, "Corrupted resource table\n");
-		return -ENODEV;
-	}
-	if (adi_rsc_table->adi_table_hdr.version != ADI_RESOURCE_TABLE_VERSION) {
-		dev_err(dev, "Invalid resource table version\n");
-		return -ENODEV;
-	}
+	if (strcmp(adi_rsc_table->adi_table_hdr.tag, ADI_RESOURCE_TABLE_TAG))
+		return dev_err_probe(dev, -ENODEV, "Corrupted resource table\n");
+
+	if (adi_rsc_table->adi_table_hdr.version != ADI_RESOURCE_TABLE_VERSION)
+		return dev_err_probe(dev, -ENODEV, "Invalid resource table version\n");
 
 	/* Look for a VDEV entry */
 	for (i = 0; i < adi_rsc_table->rsc_table.num; i++) {
@@ -321,8 +318,6 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 	void *va;
 	int ret, size, num;
 
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
-
 	rpchan = devm_kzalloc(dev, sizeof(struct adi_rpmsg_channel), GFP_KERNEL);
 	if (!rpchan)
 		return -ENOMEM;
@@ -331,15 +326,11 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 	if (IS_ERR(adi_tru))
 		return PTR_ERR(adi_tru);
 
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
-
 	adi_rcu = get_adi_rcu_from_node(dev);
 	if (IS_ERR(adi_rcu)) {
 		ret = PTR_ERR(adi_rcu);
 		goto free_adi_tru;
 	}
-
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	platform_set_drvdata(pdev, rpchan);
 	rpchan->pdev = pdev;
@@ -349,81 +340,59 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 	rpchan->rcu = adi_rcu;
 	rpchan->rpmsg_state = ADI_RP_RPMSG_WAITING;
 
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
-
 	ret = of_property_read_u32(dev_node, "core-id", &rpchan->core_id);
 	if (ret) {
-		dev_err(dev, "Unable to get core-id property\n");
+		dev_err_probe(dev, ret, "Unable to get core-id property\n");
 		goto free_adi_rcu;
 	}
-
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	rpchan->icc_irq = platform_get_irq(pdev, 0);
 	if (rpchan->icc_irq <= 0) {
-		dev_err(dev, "No ICC IRQ specified\n");
-		ret = -ENOENT;
+		ret = rpchan->icc_irq;
 		goto free_adi_rcu;
 	}
-
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	//res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 
 	rpchan->icc_irq_flags = IRQF_PERCPU | IRQF_SHARED | IRQF_ONESHOT;
 
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
-
 	ret = devm_request_threaded_irq(rpchan->dev, rpchan->icc_irq, NULL,
 		adi_rpmsg_virtio_irq_threaded_handler, rpchan->icc_irq_flags,
 		"ICC virtio IRQ", rpchan);
 	if (ret) {
-		dev_err(rpchan->dev, "Fail to request ICC IRQ\n");
-		ret = -ENOENT;
+		ret = dev_err_probe(rpchan->dev, -ENOENT, "Fail to request ICC IRQ\n");
 		goto free_adi_rcu;
 	}
-
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	if (of_property_read_bool(dev_node, "adi,check-idle")) {
 		ret = adi_rcu_is_core_idle(rpchan->rcu, rpchan->core_id);
 		if (ret < 0) {
-			dev_err(dev, "Invalid core-id\n");
+			dev_err_probe(dev, ret, "Invalid core-id\n");
 			goto free_adi_rcu;
 		} else if (ret > 0) {
-			dev_err(dev, "Error: Core%d idle\n", rpchan->core_id);
-			ret = -ENODEV;
+			ret = dev_err_probe(dev, -ENODEV, "Error: Core%d idle\n", rpchan->core_id);
 			goto free_adi_rcu;
 		}
 	}
 
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
-
 	/* Get ADI resource table address */
 	node = of_parse_phandle(dev_node, "adi,rsc-table", 0);
 	if (!node) {
-		dev_err(&pdev->dev, "Can't find adi,rsc-table\n");
-		ret = -EINVAL;
+		ret = dev_err_probe(&pdev->dev, -EINVAL, "Can't find adi,rsc-table\n");
 		goto free_adi_rcu;
 	}
 	rmem = of_reserved_mem_lookup(node);
 	of_node_put(node);
 	if (!rmem) {
-		dev_err(&pdev->dev, "Translating adi,rsc-table failed\n");
-		ret = -ENOMEM;
+		ret = dev_err_probe(&pdev->dev, -ENOENT, "Translating adi,rsc-table failed\n");
 		goto free_adi_rcu;
 	}
-
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	rpchan->adi_rsc_table = devm_ioremap_wc(dev, rmem->base, rmem->size);
 	if (IS_ERR(rpchan->adi_rsc_table)) {
-		dev_err(dev, "Can't map adi,rsc-table\n");
-		ret = PTR_ERR(rpchan->adi_rsc_table);
+		ret = dev_err_probe(dev, PTR_ERR(rpchan->adi_rsc_table), "Can't map adi,rsc-table\n");
 		goto free_adi_rcu;
 	}
-
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	ret = adi_rpmsg_parse_resource_table(rpchan);
 	if (ret)
@@ -436,14 +405,12 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		rmem = of_reserved_mem_lookup(node);
 		of_node_put(node);
 		if (!rmem) {
-			dev_err(dev, "Failed to acquire vdev-vring\n");
-			ret = -EINVAL;
+			ret = dev_err_probe(dev, -EINVAL, "Failed to acquire vdev-vring\n");
 			goto free_adi_rcu;
 		}
 
 		if (rmem->size < 0x4000) {
-			dev_err(dev, "Insufficient space in vdev-vring, min space req is 16kB\n");
-			ret = -EINVAL;
+			ret = dev_err_probe(dev, -EINVAL, "Insufficient space in vdev-vring, min space req is 16kB\n");
 			goto free_adi_rcu;
 		}
 
@@ -463,12 +430,9 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 
 		va = devm_ioremap_wc(dev, rmem->base, rmem->size);
 		if (!(va)) {
-			dev_err(dev, "Unable to map vdev-vring\n");
-			ret = -ENOMEM;
+			ret = dev_err_probe(dev, -ENOMEM, "Unable to map vdev-vring\n");
 			goto free_adi_rcu;
 		}
-
-		dev_info(dev, "vrings in vdev-vring reserved-memory.\n");
 
 		rpchan->vring[0].num = num;
 		rpchan->vring[1].num = num;
@@ -503,8 +467,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		va = dma_alloc_coherent(dev, rpchan->vring[0].size + rpchan->vring[1].size,
 					&dma, GFP_KERNEL);
 		if (!(va)) {
-			dev_err(dev, "Unable to map vdev-vring\n");
-			ret = -ENOMEM;
+			ret = dev_err_probe(dev, -ENOMEM, "Unable to map vdev-vring\n");
 			goto free_adi_rcu;
 		}
 
@@ -513,8 +476,6 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 		rpchan->vring[0].va = va;
 		rpchan->vring[1].va = rpchan->vring[0].va + rpchan->vring[0].size;
 	}
-
-	printk(KERN_ERR"adi rpmsg probe %d \n", __LINE__);
 
 	/* Update resource table */
 	rpchan->rsc_vring[0]->da = rpchan->vring[0].da;
@@ -544,7 +505,7 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 
 	ret = register_virtio_device(&rpchan->vdev);
 	if (ret) {
-		dev_err(dev, "failed to register vdev\n");
+		dev_err_probe(dev, ret, "failed to register vdev\n");
 		goto free_adi_rcu;
 	}
 
