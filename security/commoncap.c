@@ -10,13 +10,10 @@
 #include <linux/file.h>
 #include <linux/mm.h>
 #include <linux/mman.h>
-#include <linux/pagemap.h>
-#include <linux/swap.h>
 #include <linux/skbuff.h>
 #include <linux/netlink.h>
 #include <linux/ptrace.h>
 #include <linux/xattr.h>
-#include <linux/hugetlb.h>
 #include <linux/mount.h>
 #include <linux/sched.h>
 #include <linux/prctl.h>
