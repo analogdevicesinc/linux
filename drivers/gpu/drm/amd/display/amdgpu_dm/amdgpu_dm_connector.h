@@ -158,6 +158,16 @@ int get_amd_vsdb(struct amdgpu_dm_connector *aconnector,
 int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
 			const struct edid *edid,
 			struct amdgpu_hdmi_vsdb_info *vsdb_info);
+bool dm_edid_parser_send_cea(struct amdgpu_display_manager *dm,
+			     unsigned int offset, unsigned int total_length,
+			     u8 *data, unsigned int length,
+			     struct amdgpu_hdmi_vsdb_info *vsdb);
+bool parse_edid_cea_dmcu(struct amdgpu_display_manager *dm, u8 *edid_ext,
+			 int len, struct amdgpu_hdmi_vsdb_info *vsdb_info);
+bool parse_edid_cea_dmub(struct amdgpu_display_manager *dm, u8 *edid_ext,
+			 int len, struct amdgpu_hdmi_vsdb_info *vsdb_info);
+bool parse_edid_cea(struct amdgpu_dm_connector *aconnector, u8 *edid_ext,
+		    int len, struct amdgpu_hdmi_vsdb_info *vsdb_info);
 void amdgpu_dm_connector_funcs_force(struct drm_connector *connector);
 enum dc_status dm_validate_stream_and_context(struct dc *dc,
 					      struct dc_stream_state *stream);

@@ -3600,7 +3600,7 @@ void dm_restore_drm_connector_state(struct drm_device *dev,
 }
 EXPORT_IF_KUNIT(dm_restore_drm_connector_state);
 
-static bool dm_edid_parser_send_cea(struct amdgpu_display_manager *dm,
+STATIC_IFN_KUNIT bool dm_edid_parser_send_cea(struct amdgpu_display_manager *dm,
 		unsigned int offset,
 		unsigned int total_length,
 		u8 *data,
@@ -3657,8 +3657,9 @@ static bool dm_edid_parser_send_cea(struct amdgpu_display_manager *dm,
 
 	return true;
 }
+EXPORT_IF_KUNIT(dm_edid_parser_send_cea);
 
-static bool parse_edid_cea_dmcu(struct amdgpu_display_manager *dm,
+STATIC_IFN_KUNIT bool parse_edid_cea_dmcu(struct amdgpu_display_manager *dm,
 		u8 *edid_ext, int len,
 		struct amdgpu_hdmi_vsdb_info *vsdb_info)
 {
@@ -3700,8 +3701,9 @@ static bool parse_edid_cea_dmcu(struct amdgpu_display_manager *dm,
 
 	return false;
 }
+EXPORT_IF_KUNIT(parse_edid_cea_dmcu);
 
-static bool parse_edid_cea_dmub(struct amdgpu_display_manager *dm,
+STATIC_IFN_KUNIT bool parse_edid_cea_dmub(struct amdgpu_display_manager *dm,
 		u8 *edid_ext, int len,
 		struct amdgpu_hdmi_vsdb_info *vsdb_info)
 {
@@ -3716,8 +3718,9 @@ static bool parse_edid_cea_dmub(struct amdgpu_display_manager *dm,
 
 	return vsdb_info->freesync_supported;
 }
+EXPORT_IF_KUNIT(parse_edid_cea_dmub);
 
-static bool parse_edid_cea(struct amdgpu_dm_connector *aconnector,
+STATIC_IFN_KUNIT bool parse_edid_cea(struct amdgpu_dm_connector *aconnector,
 		u8 *edid_ext, int len,
 		struct amdgpu_hdmi_vsdb_info *vsdb_info)
 {
@@ -3732,6 +3735,7 @@ static bool parse_edid_cea(struct amdgpu_dm_connector *aconnector,
 	mutex_unlock(&adev->dm.dc_lock);
 	return ret;
 }
+EXPORT_IF_KUNIT(parse_edid_cea);
 
 STATIC_IFN_KUNIT void parse_edid_displayid_vrr(struct drm_connector *connector,
 				     const struct edid *edid)
