@@ -631,10 +631,10 @@ void dcn6_calculate_flip_schedule(
 				DML_LOG_VERBOSE("DML::%s: Tvm_trips_flip_rounded + 2*Tr0_trips_flip_rounded = %f\n", __func__, (Tvm_trips_flip_rounded + 2 * Tr0_trips_flip_rounded));
 			}
 			l->lb_flip_bw = math_max3(l->lb_flip_bw,
-				l->hvm_scaled_vm_bytes / (31 * LineTime) - Tno_bw_flip,
+				l->hvm_scaled_vm_bytes / ((31 * LineTime) - Tno_bw_flip),
 				l->dpte_row_bytes * HostVMInefficiencyFactor / (15 * LineTime));
 
-			DML_LOG_VERBOSE("DML::%s: lb_flip_bw for vm reg limit = %f\n", __func__, l->hvm_scaled_vm_bytes / (31 * LineTime) - Tno_bw_flip);
+			DML_LOG_VERBOSE("DML::%s: lb_flip_bw for vm reg limit = %f\n", __func__, l->hvm_scaled_vm_bytes / ((31 * LineTime) - Tno_bw_flip));
 		}
 
 		*final_flip_bw = l->lb_flip_bw;
