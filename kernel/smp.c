@@ -227,9 +227,27 @@ bool csd_lock_is_stuck(void)
 struct csd_wait_state {
 	u64 ts_start;		/* When the wait began. */
 	u64 ts_report;		/* When the last complaint was printed. */
+	u64 ts_resend;		/* When the last IPI was re-sent, 0 if never. */
 	int bug_id;
 	unsigned long nmessages;
 };
+
+/*
+ * Report a CSD lock that came back, @ts_unstuck being when the release was
+ * noticed.  Only mention the re-send delta if an IPI was actually re-sent.
+ */
+static void csd_lock_print_unstuck(struct csd_wait_state *state, int cpu, u64 ts_unstuck)
+{
+	if (state->ts_resend)
+		pr_alert("csd: CSD lock (#%d) got unstuck on CPU#%02d, CPU#%02d released the lock after %lld ns, %lld ns after the last IPI re-send.\n",
+			 state->bug_id, raw_smp_processor_id(), cpu,
+			 (s64)(ts_unstuck - state->ts_start),
+			 (s64)(ts_unstuck - state->ts_resend));
+	else
+		pr_alert("csd: CSD lock (#%d) got unstuck on CPU#%02d, CPU#%02d released the lock after %lld ns.\n",
+			 state->bug_id, raw_smp_processor_id(), cpu,
+			 (s64)(ts_unstuck - state->ts_start));
+}
 
 /*
  * Complain if too much time spent waiting.  Note that only
@@ -249,9 +267,9 @@ static bool csd_lock_wait_toolong(call_single_data_t *csd, struct csd_wait_state
 	if (!(flags & CSD_FLAG_LOCK)) {
 		if (!unlikely(state->bug_id))
 			return true;
+		ts_now = ktime_get_mono_fast_ns();
 		cpu = csd_lock_wait_getcpu(csd);
-		pr_alert("csd: CSD lock (#%d) got unstuck on CPU#%02d, CPU#%02d released the lock.\n",
-			 state->bug_id, raw_smp_processor_id(), cpu);
+		csd_lock_print_unstuck(state, cpu, ts_now);
 		atomic_dec(&n_csd_lock_stuck);
 		return true;
 	}
@@ -309,6 +327,7 @@ static bool csd_lock_wait_toolong(call_single_data_t *csd, struct csd_wait_state
 		if (!cpu_cur_csd) {
 			pr_alert("csd: Re-sending CSD lock (#%d) IPI from CPU#%02d to CPU#%02d\n", state->bug_id, raw_smp_processor_id(), cpu);
 			arch_send_call_function_single_ipi(cpu);
+			state->ts_resend = ktime_get_mono_fast_ns();
 		}
 	}
 	if (firsttime)
