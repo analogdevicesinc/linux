@@ -113,18 +113,8 @@ soc/defconfig
 soc/late
 
 arm/fixes
-	broadcom/fixes
-		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.2/devicetree-arm64-fixes
-	imx/maintainers
-		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-maintainers-7.3
-	qcom/dt-fixes
-		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-fixes-for-7.2
-	broadcom/fixes-2
-		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.2/devicetree-fixes-v2
-	aspeed/fixes
-		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.2-driver-fixes-0
-	nuvoton/fixes
-		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-7.2-arm-fixes-0
-	nuvoton/maintainers
-		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.3-maintainers-0
+	optee-fix
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/optee-fix-for-v7.2
+	apple/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-fixes-7.2
 
