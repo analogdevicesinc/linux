@@ -201,7 +201,7 @@ static int bd79124gpo_set_multiple(struct gpio_chip *gc, unsigned long *mask,
 	if (ret)
 		return ret;
 
-	if (all_gpos ^ *mask) {
+	if (*mask & ~all_gpos) {
 		dev_dbg(data->dev, "Invalid mux config. Can't set value.\n");
 
 		return -EINVAL;
