@@ -22,6 +22,7 @@ static ssize_t adrv904x_debugfs_read(struct file *file, char __user *userbuf,
 	char buf[700];
 	u64 val = 0;
 	ssize_t len = 0;
+	int ret;
 
 	if (entry->out_value) {
 		switch (entry->size) {
@@ -44,7 +45,31 @@ static ssize_t adrv904x_debugfs_read(struct file *file, char __user *userbuf,
 			return -EINVAL;
 		}
 	} else if (entry->cmd) {
-		val = entry->val;
+		switch (entry->cmd) {
+		case DBGFS_TX_TO_ORX_MAPPING: {
+			struct adrv904x_rf_phy *phy = entry->phy;
+			adi_adrv904x_TxChannels_e tx_orx0 = ADI_ADRV904X_TXOFF;
+			adi_adrv904x_TxChannels_e tx_orx1 = ADI_ADRV904X_TXOFF;
+
+			guard(mutex)(&phy->lock);
+
+			ret = adrv904x_api_call(phy, adi_adrv904x_TxToOrxMappingGet,
+						ADI_ADRV904X_ORX0, &tx_orx0);
+			if (ret)
+				return ret;
+
+			ret = adrv904x_api_call(phy, adi_adrv904x_TxToOrxMappingGet,
+						ADI_ADRV904X_ORX1, &tx_orx1);
+			if (ret)
+				return ret;
+
+			val = (ffs(tx_orx1) ? (ffs(tx_orx1) - 1) << 4 : 0) |
+			      (ffs(tx_orx0) ? (ffs(tx_orx0) - 1) : 0);
+			break;
+		}
+		default:
+			val = entry->val;
+		}
 	} else {
 		return -EFAULT;
 	}
@@ -100,6 +125,16 @@ static ssize_t adrv904x_debugfs_write(struct file *file,
 			return ret;
 
 		entry->val = val;
+		return count;
+	case DBGFS_TX_TO_ORX_MAPPING:
+		if (val < 0 || val > 0xff)
+			return -EINVAL;
+
+		ret = adrv904x_api_call(phy, adi_adrv904x_TxToOrxMappingSet,
+					(u8)val);
+		if (ret)
+			return ret;
+
 		return count;
 	case DBGFS_BIST_TONE:
 		/* Parse additional values: enable freq_khz [atten] */
@@ -194,6 +229,8 @@ void adrv904x_register_debugfs(struct iio_dev *indio_dev)
 	adrv904x_add_debugfs_entry(phy, "bist_framer_loopback",
 				   DBGFS_BIST_FRAMER_LOOPBACK);
 	adrv904x_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+	adrv904x_add_debugfs_entry(phy, "tx_to_orx_mapping",
+				   DBGFS_TX_TO_ORX_MAPPING);
 
 	for (i = 0; i < phy->adrv904x_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,

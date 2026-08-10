@@ -36,6 +36,7 @@ enum debugfs_cmd {
 	DBGFS_BIST_FRAMER_0_PRBS,
 	DBGFS_BIST_FRAMER_LOOPBACK,
 	DBGFS_BIST_TONE,
+	DBGFS_TX_TO_ORX_MAPPING,
 };
 
 enum adrv904x_rx_ext_info {

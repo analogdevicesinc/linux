@@ -699,12 +699,6 @@ static ssize_t adrv904x_phy_tx_write(struct iio_dev *indio_dev,
 		break;
 	case TX_LOL:
 		calMask = ADI_ADRV904X_TC_TX_LOL_MASK;
-		if (enable) {
-			ret = adrv904x_api_call(phy, adi_adrv904x_TxToOrxMappingSet,
-					       ADI_ADRV904X_TX_ORX_MAPPING_MODE_8BIT);
-			if (ret)
-				return ret;
-		}
 		break;
 	case TX_LB_ADC:
 		calMask = ADI_ADRV904X_TC_TX_LB_ADC_MASK;
