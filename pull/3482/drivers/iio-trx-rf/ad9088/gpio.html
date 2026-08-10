@@ -586,7 +586,7 @@ profile selected by GPIOs, the feature can be tested as described below:</p>
 </section>
 <section id="gpio-chip">
 <h2>GPIO chip<a class="headerlink" href="#gpio-chip" title="Link to this heading"></a></h2>
-<p>The GPIOs can be exported into a <a class="icon link reference external" href="https://docs.kernel.org/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
+<p>The GPIOs can be exported into a <a class="icon link reference external" href="https://docs.kernel.org/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v7.2.0-rc7)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
 using the <code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code> devicetree property:</p>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">     </span><span class="n">adi</span><span class="p">,</span><span class="n">gpio-exports</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">8 &lt;15 16 17 18&gt;</span><span class="p">;</span>

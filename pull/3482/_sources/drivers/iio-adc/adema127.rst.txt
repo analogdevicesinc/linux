@@ -504,9 +504,10 @@ Direct-read (``IIO_CHAN_INFO_*``) attributes
    ``gain_offset_xt_en`` = 1.
 
 **in_voltageN_phase** *(int, read/write)*
-   13-bit signed fractional-sample phase offset (``PHASE_OFFSET``
+   13-bit unsigned fractional-sample phase offset (``PHASE_OFFSET``
    registers ``0x048 + 2N`` / ``0x049 + 2N``). One LSB = 1/8192 of a
-   sample period; range ``-4096..4095``.
+   sample period; range ``0..8191`` (up to one sample period of
+   delay).
 
 **in_voltage_sampling_frequency** *(int, read/write, shared)*
    Output data rate in Hz. Writing selects the closest matching entry
@@ -521,8 +522,9 @@ Extended per-channel calibration attributes
 **in_voltageN_xt_gain** *(s24, read/write)*
    Crosstalk-compensation gain, DSP RAM ``XT_GAIN``. Same signed 2.22
    fixed-point format as ``calibscale``. When ``gain_offset_xt`` is
-   enabled the value output for this channel is decremented by
-   ``xt_gain × sample_of_aggressor``. Set together with
+   enabled, ``xt_gain × sample_of_aggressor`` (a signed product) is
+   added to this channel's output — use a negative ``xt_gain`` to
+   subtract the aggressor's contribution. Set together with
    ``xt_aggressor``.
 
 **in_voltageN_xt_aggressor** *(int 0..6, read/write)*
@@ -539,7 +541,9 @@ Extended per-channel calibration attributes
 
 **in_voltageN_dc_block_alpha** *(int 0..15, read/write)*
    4-bit programmable α for the per-channel DC-block filter (register
-   ``DATAPATH_ALPHA_CHx`` at ``0x03D + N``). Larger α = lower corner
+   ``DATAPATH_ALPHA_CHx_x+1`` at ``0x03D + N/2``, two channels per
+   register: even channel in bits [3:0], odd in [7:4]). Larger α =
+   lower corner
    frequency = better DC rejection but longer settling.
 
 Filter enables
@@ -679,8 +683,10 @@ The ADEMA has two lock bits guarding configuration:
 
 The driver wraps every configuration write path (``sampling_frequency``,
 ``input_gain``, ``input_invert``, ``dc_block_alpha``, all filter
-enables) with an unlock/lock bracket and a mandatory 50 µs settle after
-the re-lock, matching Table 5 of the datasheet.
+enables) with an unlock/lock bracket and a mandatory settle of
+approximately 40 µs after the re-lock, per the datasheet's
+Configuration Procedure section (the driver waits a conservative
+1 ms).
 
 CRC handling
 ~~~~~~~~~~~~

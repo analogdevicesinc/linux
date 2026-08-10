@@ -866,9 +866,10 @@ Signed 2.22 fixed-point (nominal 1.0 = 0x400000). Read as the tuple
 Applied together with <code class="docutils literal notranslate"><span class="pre">calibbias</span></code> when
 <code class="docutils literal notranslate"><span class="pre">gain_offset_xt_en</span></code> = 1.</p>
 </dd>
-<dt><strong>in_voltageN_phase</strong> <em>(int, read/write)</em></dt><dd><p>13-bit signed fractional-sample phase offset (<code class="docutils literal notranslate"><span class="pre">PHASE_OFFSET</span></code>
+<dt><strong>in_voltageN_phase</strong> <em>(int, read/write)</em></dt><dd><p>13-bit unsigned fractional-sample phase offset (<code class="docutils literal notranslate"><span class="pre">PHASE_OFFSET</span></code>
 registers <code class="docutils literal notranslate"><span class="pre">0x048</span> <span class="pre">+</span> <span class="pre">2N</span></code> / <code class="docutils literal notranslate"><span class="pre">0x049</span> <span class="pre">+</span> <span class="pre">2N</span></code>). One LSB = 1/8192 of a
-sample period; range <code class="docutils literal notranslate"><span class="pre">-4096..4095</span></code>.</p>
+sample period; range <code class="docutils literal notranslate"><span class="pre">0..8191</span></code> (up to one sample period of
+delay).</p>
 </dd>
 <dt><strong>in_voltage_sampling_frequency</strong> <em>(int, read/write, shared)</em></dt><dd><p>Output data rate in Hz. Writing selects the closest matching entry
 in <code class="docutils literal notranslate"><span class="pre">DATARATE</span></code> Table 16 for the current <code class="docutils literal notranslate"><span class="pre">XTALIN</span></code> frequency; the
@@ -883,8 +884,9 @@ Available values are listed in
 <dl class="simple">
 <dt><strong>in_voltageN_xt_gain</strong> <em>(s24, read/write)</em></dt><dd><p>Crosstalk-compensation gain, DSP RAM <code class="docutils literal notranslate"><span class="pre">XT_GAIN</span></code>. Same signed 2.22
 fixed-point format as <code class="docutils literal notranslate"><span class="pre">calibscale</span></code>. When <code class="docutils literal notranslate"><span class="pre">gain_offset_xt</span></code> is
-enabled the value output for this channel is decremented by
-<code class="docutils literal notranslate"><span class="pre">xt_gain</span> <span class="pre">×</span> <span class="pre">sample_of_aggressor</span></code>. Set together with
+enabled, <code class="docutils literal notranslate"><span class="pre">xt_gain</span> <span class="pre">×</span> <span class="pre">sample_of_aggressor</span></code> (a signed product) is
+added to this channel’s output — use a negative <code class="docutils literal notranslate"><span class="pre">xt_gain</span></code> to
+subtract the aggressor’s contribution. Set together with
 <code class="docutils literal notranslate"><span class="pre">xt_aggressor</span></code>.</p>
 </dd>
 <dt><strong>in_voltageN_xt_aggressor</strong> <em>(int 0..6, read/write)</em></dt><dd><p>Selects which other channel provides the “aggressor” waveform for
@@ -898,7 +900,9 @@ effective gain by 2^shift <em>before</em> saturation; use with care as it
 can push samples into the overrange region.</p>
 </dd>
 <dt><strong>in_voltageN_dc_block_alpha</strong> <em>(int 0..15, read/write)</em></dt><dd><p>4-bit programmable α for the per-channel DC-block filter (register
-<code class="docutils literal notranslate"><span class="pre">DATAPATH_ALPHA_CHx</span></code> at <code class="docutils literal notranslate"><span class="pre">0x03D</span> <span class="pre">+</span> <span class="pre">N</span></code>). Larger α = lower corner
+<code class="docutils literal notranslate"><span class="pre">DATAPATH_ALPHA_CHx_x+1</span></code> at <code class="docutils literal notranslate"><span class="pre">0x03D</span> <span class="pre">+</span> <span class="pre">N/2</span></code>, two channels per
+register: even channel in bits [3:0], odd in [7:4]). Larger α =
+lower corner
 frequency = better DC rejection but longer settling.</p>
 </dd>
 </dl>
@@ -1027,8 +1031,10 @@ registers. Writing <code class="docutils literal notranslate"><span class="pre">
 </ul>
 <p>The driver wraps every configuration write path (<code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code>,
 <code class="docutils literal notranslate"><span class="pre">input_gain</span></code>, <code class="docutils literal notranslate"><span class="pre">input_invert</span></code>, <code class="docutils literal notranslate"><span class="pre">dc_block_alpha</span></code>, all filter
-enables) with an unlock/lock bracket and a mandatory 50 µs settle after
-the re-lock, matching Table 5 of the datasheet.</p>
+enables) with an unlock/lock bracket and a mandatory settle of
+approximately 40 µs after the re-lock, per the datasheet’s
+Configuration Procedure section (the driver waits a conservative
+1 ms).</p>
 </section>
 <section id="crc-handling">
 <h3>CRC handling<a class="headerlink" href="#crc-handling" title="Link to this heading"></a></h3>
