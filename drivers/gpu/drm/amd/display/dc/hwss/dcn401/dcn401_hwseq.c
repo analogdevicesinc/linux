@@ -1847,7 +1847,10 @@ void dcn401_unblank_stream(struct pipe_ctx *pipe_ctx,
 	}
 
 	if (dc_is_hdmi_frl_signal(pipe_ctx->stream->signal)) {
-		if (link->link_status.link_active && link->frl_link_settings.frl_link_rate != 0)
+		bool unblank_required =
+			link->link_status.link_active && link->frl_link_settings.frl_link_rate != 0;
+
+		if (unblank_required)
 			pipe_ctx->stream_res.hpo_frl_stream_enc->funcs->hdmi_frl_unblank(
 					pipe_ctx->stream_res.hpo_frl_stream_enc,
 					pipe_ctx->stream_res.tg->inst);

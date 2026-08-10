@@ -966,6 +966,12 @@ enum dc_status dcn30_setup_hdmi_frl_link(
 		frl_phy_clock_source_id,
 		link->frl_link_settings.frl_link_rate);
 	link->phy_state.symclk_state = SYMCLK_ON_TX_ON;
+
+	/* Enable HPO link encoder */
+	link->hpo_frl_link_enc->funcs->setup_link_encoder(
+			link->hpo_frl_link_enc,
+			link->frl_link_settings.frl_num_lanes);
+
 	return status;
 }
 

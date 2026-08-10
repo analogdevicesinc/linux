@@ -3002,6 +3002,11 @@ static inline int find_acquired_dio_link_enc_for_link(
 
 static inline int find_fixed_dio_link_enc(const struct dc_link *link)
 {
+	/* virtual links own their link encoder directly and are never
+	 * registered into pool->link_encoders[]. */
+	if (link->connector_signal == SIGNAL_TYPE_VIRTUAL)
+		return -1;
+
 	/* the 8b10b dp phy can only use fixed link encoder */
 	return link->eng_id;
 }
@@ -3147,6 +3152,8 @@ static bool add_dio_link_enc_to_ctx(const struct dc *dc,
 
 	if (enc_index >= 0)
 		pipe_ctx->link_res.dio_link_enc = pool->link_encoders[enc_index];
+	else
+		pipe_ctx->link_res.dio_link_enc = stream->link->link_enc;
 
 	return pipe_ctx->link_res.dio_link_enc != NULL;
 }
