@@ -153,6 +153,7 @@ const struct cmn2asic_msg_mapping smu_v13_0_12_message_map[SMU_MSG_MAX_COUNT] = 
 	MSG_MAP(GetStaticMetricsTable,               PPSMC_MSG_GetStaticMetricsTable,           1),
 	MSG_MAP(GetSystemMetricsTable,               PPSMC_MSG_GetSystemMetricsTable,           1),
 	MSG_MAP(GetRASTableVersion,                  PPSMC_MSG_GetRasTableVersion,              0),
+	MSG_MAP(GetRmaStatus,                        PPSMC_MSG_GetRmaStatus,                    0),
 	MSG_MAP(GetBadPageCount,                     PPSMC_MSG_GetBadPageCount,                 0),
 	MSG_MAP(GetBadPageMcaAddr,                   PPSMC_MSG_GetBadPageMcaAddress,            0),
 	MSG_MAP(SetTimestamp,                        PPSMC_MSG_SetTimestamp,                    0),

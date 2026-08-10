@@ -27,6 +27,7 @@
 
 static const enum smu_message_type ras_smu_msg_maps[RAS_MP1_MSG_MAX] = {
 	[RAS_MP1_MSG_GetRasTableVersion] = SMU_MSG_GetRASTableVersion,
+	[RAS_MP1_MSG_GetRmaStatus] = SMU_MSG_GetRmaStatus,
 	[RAS_MP1_MSG_GetBadPageCount] = SMU_MSG_GetBadPageCount,
 	[RAS_MP1_MSG_GetBadPageMcaAddr] = SMU_MSG_GetBadPageMcaAddr,
 	[RAS_MP1_MSG_SetTimestamp] = SMU_MSG_SetTimestamp,
