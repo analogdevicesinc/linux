@@ -18,6 +18,8 @@ soc/arm
 		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-soc-7.3
 	tegra/arm
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-arm-core
+	omap/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/soc-signed
 
 soc/dt
 	patch
@@ -99,6 +101,18 @@ soc/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.3-drivers-0
 	qcom/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.3
+	ti/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-driver-soc-for-v7.3
+	qcomtee/driver
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/qcomtee-for-v7.3
+	qcom/drivers-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.3-2
+	apple/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-drivers-7.3
+	fsl/soc-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/chleroy/linux tags/soc_fsl-7.3-1
+	zynx/firmware
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-soc-for-7.3
 
 soc/defconfig
 	riscv/defconfig
@@ -109,6 +123,8 @@ soc/defconfig
 		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/defconfig-signed
 	allwinner/defconfig
 		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-config-for-7.3
+	k3/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-config-for-v7.3
 
 soc/late
 
@@ -117,4 +133,6 @@ arm/fixes
 		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/optee-fix-for-v7.2
 	apple/fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-fixes-7.2
+	tegra/fix
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.2-arm64-dt-fixes-v2
 
