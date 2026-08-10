@@ -1206,8 +1206,18 @@ static int crypto4xx_probe(struct platform_device *ofdev)
 	struct device *dev = &ofdev->dev;
 	struct crypto4xx_core_device *core_dev;
 	struct device_node *np;
+	void __iomem *ce_base;
+	int irq;
 	u32 pvr;
 	bool is_revb = true;
+
+	irq = platform_get_irq(ofdev, 0);
+	if (irq < 0)
+		return irq;
+
+	ce_base = devm_platform_ioremap_resource(ofdev, 0);
+	if (IS_ERR(ce_base))
+		return PTR_ERR(ce_base);
 
 	np = of_find_compatible_node(NULL, NULL, "amcc,ppc460ex-crypto");
 	if (np) {
@@ -1251,9 +1261,7 @@ static int crypto4xx_probe(struct platform_device *ofdev)
 	if (!core_dev->dev)
 		return -ENOMEM;
 
-	core_dev->dev->ce_base = devm_platform_ioremap_resource(ofdev, 0);
-	if (IS_ERR(core_dev->dev->ce_base))
-		return PTR_ERR(core_dev->dev->ce_base);
+	core_dev->dev->ce_base = ce_base;
 
 	/*
 	 * Older version of 460EX/GT have a hardware bug.
@@ -1291,11 +1299,7 @@ static int crypto4xx_probe(struct platform_device *ofdev)
 		     (unsigned long) dev);
 
 	/* Register for Crypto isr, Crypto Engine IRQ */
-	core_dev->irq = platform_get_irq(ofdev, 0);
-	if (core_dev->irq < 0) {
-		rc = core_dev->irq;
-		goto err_tasklet;
-	}
+	core_dev->irq = irq;
 	rc = request_irq(core_dev->irq,
 			 is_revb ? crypto4xx_ce_interrupt_handler_revb :
 				   crypto4xx_ce_interrupt_handler,
