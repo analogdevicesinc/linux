@@ -920,13 +920,13 @@ static int bd79124_chan_init(struct bd79124_data *data, int channel)
 {
 	int ret;
 
-	ret = regmap_write(data->map, BD79124_GET_HIGH_LIMIT_REG(channel),
-			   BD79124_HIGH_LIMIT_MAX);
+	ret = bd79124_write_int_to_reg(data, BD79124_GET_HIGH_LIMIT_REG(channel),
+				       BD79124_HIGH_LIMIT_MAX);
 	if (ret)
 		return ret;
 
-	return regmap_write(data->map, BD79124_GET_LOW_LIMIT_REG(channel),
-			    BD79124_LOW_LIMIT_MIN);
+	return bd79124_write_int_to_reg(data, BD79124_GET_LOW_LIMIT_REG(channel),
+					BD79124_LOW_LIMIT_MIN);
 }
 
 static int bd79124_get_gpio_pins(const struct iio_chan_spec *cs, int num_channels)
