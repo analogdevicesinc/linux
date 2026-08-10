@@ -211,11 +211,14 @@ static int ad4080_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 			     unsigned int writeval, unsigned int *readval)
 {
 	struct ad4080_state *st = iio_priv(indio_dev);
+	unsigned int ch = (reg >> 8) & (AD4080_MAX_CHANNELS - 1);
+
+	reg &= 0xff;
 
 	if (readval)
-		return regmap_read(st->regmap[0], reg, readval);
+		return regmap_read(st->regmap[ch], reg, readval);
 
-	return regmap_write(st->regmap[0], reg, writeval);
+	return regmap_write(st->regmap[ch], reg, writeval);
 }
 
 static int ad4080_get_scale(struct ad4080_state *st, int *val, int *val2)
