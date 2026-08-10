@@ -20,6 +20,8 @@ soc/arm
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-arm-core
 	omap/soc
 		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/soc-signed
+	samsung/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-soc-7.3
 
 soc/dt
 	patch
