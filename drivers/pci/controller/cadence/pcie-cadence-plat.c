@@ -122,7 +122,7 @@ static int cdns_plat_pcie_probe(struct platform_device *pdev)
 	pm_runtime_disable(dev);
 	cdns_pcie_disable_phy(cdns_plat_pcie->pcie);
 
-	return 0;
+	return ret;
 }
 
 static void cdns_plat_pcie_shutdown(struct platform_device *pdev)
