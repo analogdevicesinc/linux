@@ -23,10 +23,11 @@ static int
 pvr_riscv_wrapper_init(struct pvr_device *pvr_dev)
 {
 	const u64 common_opts =
-		((u64)(ROGUE_FW_HEAP_RISCV_SIZE >> FWCORE_ADDR_REMAP_CONFIGx_SIZE_ALIGNSHIFT)
+		((u64)(ROGUE_FW_HEAP_RISCV_SIZE
+		       >> ROGUE_CR_FWCORE_ADDR_REMAP_CONFIGx_SIZE_ALIGNSHIFT)
 		 << ROGUE_CR_FWCORE_ADDR_REMAP_CONFIGx_SIZE_SHIFT) |
 		((u64)MMU_CONTEXT_MAPPING_FWPRIV
-		 << FWCORE_ADDR_REMAP_CONFIGx_MMU_CONTEXT_SHIFT);
+		 << ROGUE_CR_FWCORE_ADDR_REMAP_CONFIGx_CBASE_SHIFT);
 
 	u64 code_addr = pvr_fw_obj_get_gpu_addr(pvr_dev->fw_dev.mem.code_obj);
 	u64 data_addr = pvr_fw_obj_get_gpu_addr(pvr_dev->fw_dev.mem.data_obj);
