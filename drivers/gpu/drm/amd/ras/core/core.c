@@ -431,37 +431,56 @@ int ras_core_hw_init(struct ras_core_context *ras_core)
 		ret = ras_fw_eeprom_hw_init(ras_core);
 	else
 		ret = ras_eeprom_hw_init(ras_core);
-	if (ret)
-		goto init_err6;
 
-	ret = ras_core_eeprom_recovery(ras_core);
+	/*
+	 * NOTE:
+	 * For ras_fw_eeprom_hw_init, if it fails without control->ras_tbl_mutex
+	 * initialized, the ras_fw_eeprom_append won't be executed since ras_core
+	 * or sys_func or sys_func->mp1_send_eeprom_msg is null.
+	 *
+	 * For eeprom_hw_init, if it fails without control->ras_tbl_mutex
+	 * initialized, control->ras_max_record_count will be 0 and
+	 * ras_eeprom_append will return -EINVAL since
+	 * (num + control->ras_num_recs) > control->ras_max_record_count),
+	 * and control->ras_tbl_mutex won't be used anymore before
+	 * ras_eeprom_hw_fini
+	 * Thus skip ras_eeprom_hw_fini in failed path is harmless.
+	 */
 	if (ret) {
-		RAS_DEV_ERR(ras_core->dev,
-			"Failed to recovery ras core, ret:%d\n", ret);
-		goto init_err6;
-	}
+		RAS_DEV_WARN(ras_core->dev,
+			"RAS EEPROM init failed (%d), bad page persistence disabled\n",
+			ret);
+	} else {
+		ret = ras_core_eeprom_recovery(ras_core);
+		if (ret) {
+			RAS_DEV_ERR(ras_core->dev,
+				"Failed to recovery ras core, ret:%d\n", ret);
+		} else {
+			if (ras_fw_eeprom_supported(ras_core))
+				ret = ras_fw_eeprom_check_storage_status(ras_core);
+			else
+				ret = ras_eeprom_check_storage_status(ras_core);
 
-	if (ras_fw_eeprom_supported(ras_core))
-		ret = ras_fw_eeprom_check_storage_status(ras_core);
-	else
-		ret = ras_eeprom_check_storage_status(ras_core);
-	if (ret)
-		goto init_err6;
+			if (ret)
+				RAS_DEV_WARN(ras_core->dev,
+					"Failed to check eeprom storage status, ret:%d\n", ret);
+		}
+	}
 
 	ret = ras_process_init(ras_core);
 	if (ret)
-		goto init_err7;
+		goto init_err6;
 
 	ras_core->is_initialized = true;
 
 	return 0;
 
-init_err7:
+init_err6:
 	if (ras_fw_eeprom_supported(ras_core))
 		ras_fw_eeprom_hw_fini(ras_core);
 	else
 		ras_eeprom_hw_fini(ras_core);
-init_err6:
+
 	ras_gfx_hw_fini(ras_core);
 init_err5:
 	ras_umc_hw_fini(ras_core);
