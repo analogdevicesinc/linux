@@ -843,7 +843,9 @@ nfsd4_access(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 	struct nfsd4_access *access = &u->access;
 	u32 access_full;
 
-	access_full = NFS3_ACCESS_FULL;
+	access_full = NFS4_ACCESS_READ | NFS4_ACCESS_LOOKUP |
+		      NFS4_ACCESS_MODIFY | NFS4_ACCESS_EXTEND |
+		      NFS4_ACCESS_DELETE | NFS4_ACCESS_EXECUTE;
 	if (cstate->minorversion >= 2)
 		access_full |= NFS4_ACCESS_XALIST | NFS4_ACCESS_XAREAD |
 			       NFS4_ACCESS_XAWRITE;
