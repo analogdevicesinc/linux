@@ -72,7 +72,7 @@ enum hrtimer_mode {
  */
 struct hrtimer_sleeper {
 	struct hrtimer timer;
-	struct task_struct *task;
+	struct task_struct *__private task;
 };
 
 static inline void hrtimer_set_expires(struct hrtimer *timer, ktime_t time)
@@ -322,11 +322,11 @@ extern int schedule_hrtimeout_range_clock(ktime_t *expires,
 extern int schedule_hrtimeout(ktime_t *expires, const enum hrtimer_mode mode);
 static inline struct task_struct *hrtimer_sleeper_task_get(struct hrtimer_sleeper *sl)
 {
-	return READ_ONCE(sl->task);
+	return READ_ONCE(ACCESS_PRIVATE(sl, task));
 }
 static inline void hrtimer_sleeper_task_set(struct hrtimer_sleeper *sl, struct task_struct *t)
 {
-	WRITE_ONCE(sl->task, t);
+	WRITE_ONCE(ACCESS_PRIVATE(sl, task), t);
 }
 
 /* Soft interrupt function to run the hrtimer queues: */
