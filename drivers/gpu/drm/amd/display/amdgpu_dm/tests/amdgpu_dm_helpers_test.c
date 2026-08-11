@@ -3892,6 +3892,20 @@ static void dm_test_dp_handle_test_pattern_no_pipe(struct kunit *test)
 							       test_params));
 }
 
+/* Tests for dm_helpers_submit_i2c_over_aux() */
+
+/**
+ * dm_test_submit_i2c_over_aux_unimplemented - Test the unimplemented stub returns false
+ * @test: The KUnit test context
+ */
+static void dm_test_submit_i2c_over_aux_unimplemented(struct kunit *test)
+{
+	u8 buffer[1] = { 0 };
+
+	KUNIT_EXPECT_FALSE(test, dm_helpers_submit_i2c_over_aux(NULL, 0x50, 0, buffer,
+								sizeof(buffer), true));
+}
+
 static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	/* edid_extract_panel_id */
 	KUNIT_CASE(dm_test_edid_extract_panel_id_basic),
@@ -4080,6 +4094,8 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_dp_write_dsc_enable_pcon_disable),
 	/* dm_helpers_dp_handle_test_pattern_request */
 	KUNIT_CASE(dm_test_dp_handle_test_pattern_no_pipe),
+	/* dm_helpers_submit_i2c_over_aux */
+	KUNIT_CASE(dm_test_submit_i2c_over_aux_unimplemented),
 	{}
 };
 

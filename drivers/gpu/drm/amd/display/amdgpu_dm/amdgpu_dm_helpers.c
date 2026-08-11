@@ -1927,3 +1927,4 @@ bool dm_helpers_submit_i2c_over_aux(struct ddc_service *ddc, uint32_t address, u
 	//TODO: Implement this
 	return false;
 }
+EXPORT_IF_KUNIT(dm_helpers_submit_i2c_over_aux);
