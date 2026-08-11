@@ -1134,18 +1134,20 @@ static int ext2_fill_super(struct super_block *sb, struct fs_context *fc)
 
 	/* per filesystem reservation list head & lock */
 	spin_lock_init(&sbi->s_rsv_window_lock);
-	sbi->s_rsv_window_root = RB_ROOT;
-	/*
-	 * Add a single, static dummy reservation to the start of the
-	 * reservation window list --- it gives us a placeholder for
-	 * append-at-start-of-list which makes the allocation logic
-	 * _much_ simpler.
-	 */
-	sbi->s_rsv_window_head.rsv_start = EXT2_RESERVE_WINDOW_NOT_ALLOCATED;
-	sbi->s_rsv_window_head.rsv_end = EXT2_RESERVE_WINDOW_NOT_ALLOCATED;
-	sbi->s_rsv_window_head.rsv_alloc_hit = 0;
-	sbi->s_rsv_window_head.rsv_goal_size = 0;
-	ext2_rsv_window_add(sb, &sbi->s_rsv_window_head);
+	scoped_guard(spinlock, &EXT2_SB(sb)->s_rsv_window_lock) {
+		sbi->s_rsv_window_root = RB_ROOT;
+		/*
+		 * Add a single, static dummy reservation to the start of the
+		 * reservation window list --- it gives us a placeholder for
+		 * append-at-start-of-list which makes the allocation logic
+		 * _much_ simpler.
+		 */
+		sbi->s_rsv_window_head.rsv_start = EXT2_RESERVE_WINDOW_NOT_ALLOCATED;
+		sbi->s_rsv_window_head.rsv_end = EXT2_RESERVE_WINDOW_NOT_ALLOCATED;
+		sbi->s_rsv_window_head.rsv_alloc_hit = 0;
+		sbi->s_rsv_window_head.rsv_goal_size = 0;
+		ext2_rsv_window_add(sb, &sbi->s_rsv_window_head);
+	}
 
 	err = percpu_counter_init(&sbi->s_freeblocks_counter,
 				ext2_count_free_blocks(sb), GFP_KERNEL);

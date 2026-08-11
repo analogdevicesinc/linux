@@ -102,7 +102,7 @@ struct ext2_sb_info {
 	struct blockgroup_lock *s_blockgroup_lock;
 	/* root of the per fs reservation window tree */
 	spinlock_t s_rsv_window_lock;
-	struct rb_root s_rsv_window_root;
+	struct rb_root s_rsv_window_root __guarded_by(&s_rsv_window_lock);
 	struct ext2_reserve_window_node s_rsv_window_head;
 	/*
 	 * s_lock protects against concurrent modifications of s_mount_state,
@@ -712,7 +712,8 @@ extern void ext2_discard_reservation (struct inode *);
 extern int ext2_should_retry_alloc(struct super_block *sb, int *retries);
 extern void ext2_init_block_alloc_info(struct inode *inode)
 	__must_hold(&EXT2_I(inode)->truncate_mutex);
-extern void ext2_rsv_window_add(struct super_block *sb, struct ext2_reserve_window_node *rsv);
+extern void ext2_rsv_window_add(struct super_block *sb, struct ext2_reserve_window_node *rsv)
+	__must_hold(&EXT2_SB(sb)->s_rsv_window_lock);
 
 /* dir.c */
 int ext2_add_link(struct dentry *, struct inode *);
