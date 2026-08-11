@@ -347,34 +347,59 @@ static void ath12k_ahb_stop(struct ath12k_base *ab)
 	ath12k_ce_cleanup_pipes(ab);
 }
 
+static int ath12k_ahb_get_fw_load_region(struct ath12k_base *ab)
+{
+	struct ath12k_ahb *ab_ahb = ath12k_ab_to_ahb(ab);
+	struct ath12k_ahb_rproc_info *rproc_info = ab_ahb->rproc_info;
+	struct device *dev = ab->dev;
+	struct resource res;
+	int ret;
+
+	if (rproc_info->mem_region)
+		return 0;
+
+	ret = of_reserved_mem_region_to_resource_byname(dev->of_node, "q6-region", &res);
+	if (ret)
+		return ret;
+
+	rproc_info->mem_phys = res.start;
+	rproc_info->mem_size = resource_size(&res);
+	rproc_info->mem_region = memremap(rproc_info->mem_phys, rproc_info->mem_size,
+					  MEMREMAP_WC);
+	if (!rproc_info->mem_region) {
+		ath12k_err(ab, "unable to map memory region: %pa+%zx\n",
+			   &res.start, rproc_info->mem_size);
+		rproc_info->mem_phys = 0;
+		rproc_info->mem_size = 0;
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+static void ath12k_ahb_put_fw_load_region(struct ath12k_ahb_rproc_info *rproc_info)
+{
+	memunmap(rproc_info->mem_region);
+	rproc_info->mem_region = NULL;
+	rproc_info->mem_phys = 0;
+	rproc_info->mem_size = 0;
+}
+
 static int ath12k_ahb_power_up(struct ath12k_base *ab)
 {
 	struct ath12k_ahb *ab_ahb = ath12k_ab_to_ahb(ab);
+	struct ath12k_ahb_rproc_info *rproc_info = ab_ahb->rproc_info;
 	char fw_name[ATH12K_USERPD_FW_NAME_LEN];
 	char fw2_name[ATH12K_USERPD_FW_NAME_LEN];
 	struct device *dev = ab->dev;
 	const struct firmware *fw, *fw2;
 	unsigned long time_left;
-	phys_addr_t mem_phys;
-	struct resource res;
-	void *mem_region;
-	size_t mem_size;
 	u32 pasid;
 	int ret;
 
-	ret = of_reserved_mem_region_to_resource_byname(dev->of_node, "q6-region",
-							&res);
+	ret = ath12k_ahb_get_fw_load_region(ab);
 	if (ret)
 		return ret;
-
-	mem_phys = res.start;
-	mem_size = resource_size(&res);
-	mem_region = devm_memremap(dev, mem_phys, mem_size, MEMREMAP_WC);
-	if (IS_ERR(mem_region)) {
-		ath12k_err(ab, "unable to map memory region: %pa+%zx\n",
-			   &res.start, mem_size);
-		return PTR_ERR(mem_region);
-	}
 
 	snprintf(fw_name, sizeof(fw_name), "%s/%s/%s%d%s", ATH12K_FW_DIR,
 		 ab->hw_params->fw.dir, ATH12K_AHB_FW_PREFIX, ab_ahb->userpd_id,
@@ -400,11 +425,13 @@ static int ath12k_ahb_power_up(struct ath12k_base *ab)
 
 	/* Load FW image to a reserved memory location */
 	if (ab_ahb->scm_auth_enabled)
-		ret = qcom_mdt_load(dev, fw, fw_name, pasid, mem_region,
-				    mem_phys, mem_size, &mem_phys);
+		ret = qcom_mdt_load(dev, fw, fw_name, pasid, rproc_info->mem_region,
+				    rproc_info->mem_phys, rproc_info->mem_size,
+				    NULL);
 	else
-		ret = qcom_mdt_load_no_init(dev, fw, fw_name, mem_region,
-					    mem_phys, mem_size, &mem_phys);
+		ret = qcom_mdt_load_no_init(dev, fw, fw_name, rproc_info->mem_region,
+					    rproc_info->mem_phys, rproc_info->mem_size,
+					    NULL);
 	if (ret) {
 		ath12k_err(ab, "Failed to load MDT segments: %d\n", ret);
 		goto err_fw;
@@ -428,8 +455,9 @@ static int ath12k_ahb_power_up(struct ath12k_base *ab)
 		goto err_fw2;
 	}
 
-	ret = qcom_mdt_load_no_init(dev, fw2, fw2_name, mem_region, mem_phys,
-				    mem_size, &mem_phys);
+	ret = qcom_mdt_load_no_init(dev, fw2, fw2_name, rproc_info->mem_region,
+				    rproc_info->mem_phys, rproc_info->mem_size,
+				    NULL);
 	if (ret) {
 		ath12k_err(ab, "Failed to load MDT segments: %d\n", ret);
 		goto err_fw2;
@@ -877,6 +905,7 @@ static struct ath12k_ahb_rproc_info *ath12k_ahb_rproc_info_alloc(struct ath12k_b
 	rproc_info->rootpd_booted_by_driver = false;
 	rproc_info->userpd[ab_ahb->userpd_id - 1] = ab_ahb;
 	rproc_info->num_userpd = 1;
+	rproc_info->shared_fw_loaded = false;
 	init_completion(&rproc_info->rootpd_ready);
 	ab_ahb->rproc_info = rproc_info;
 
@@ -961,6 +990,76 @@ static int ath12k_ahb_boot_root_pd(struct ath12k_base *ab)
 	return 0;
 }
 
+static int ath12k_ahb_load_auth_shared_fw(struct ath12k_base *ab,
+					  struct ath12k_ahb_rproc_info *rproc_info,
+					  const char *fw_name, u32 pasid)
+{
+	int ret;
+
+	const struct firmware *fw __free(firmware) = NULL;
+	ret = request_firmware(&fw, fw_name, ab->dev);
+	if (ret) {
+		ath12k_err(ab, "failed to request shared firmware %s: %d\n",
+			   fw_name, ret);
+		return ret;
+	}
+
+	if (!fw->size) {
+		ath12k_err(ab, "Invalid firmware size\n");
+		return -EINVAL;
+	}
+
+	ath12k_dbg(ab, ATH12K_DBG_AHB, "loading firmware %s, size %zd\n", fw_name,
+		   fw->size);
+
+	ret = qcom_mdt_load(ab->dev, fw, fw_name, pasid, rproc_info->mem_region,
+			    rproc_info->mem_phys, rproc_info->mem_size, NULL);
+	if (ret) {
+		ath12k_err(ab, "failed to load RO firmware %s: %d\n", fw_name, ret);
+		return ret;
+	}
+
+	ret = qcom_pas_auth_and_reset(pasid);
+	if (ret)
+		ath12k_err(ab, "failed to authenticate and boot shared firmware: %d\n",
+			   ret);
+	return ret;
+}
+
+static int ath12k_ahb_load_shared_firmware(struct ath12k_base *ab)
+{
+	struct ath12k_ahb *ab_ahb = ath12k_ab_to_ahb(ab);
+	struct ath12k_ahb_rproc_info *rproc_info = ab_ahb->rproc_info;
+	char fw_name[ATH12K_USERPD_FW_NAME_LEN];
+	u32 pasid;
+	int ret;
+
+	lockdep_assert_held(&ath12k_rproc_info_lock);
+
+	if (!ab_ahb->supports_multipd)
+		return 0;
+
+	ret = ath12k_ahb_get_fw_load_region(ab);
+	if (ret)
+		return ret;
+
+	snprintf(fw_name, sizeof(fw_name), "%s/%s/%s%d%s", ATH12K_FW_DIR,
+		 ab->hw_params->fw.dir, ATH12K_AHB_FW_PREFIX, ATH12K_AHB_RO_ID,
+		 ATH12K_AHB_FW_SUFFIX);
+
+	pasid = u32_encode_bits(ATH12K_AHB_RO_ID, ATH12K_USERPD_ID_MASK) |
+		ATH12K_AHB_UPD_SWID;
+
+	ret = ath12k_ahb_load_auth_shared_fw(ab, rproc_info, fw_name, pasid);
+	if (ret) {
+		ath12k_ahb_put_fw_load_region(rproc_info);
+		return ret;
+	}
+
+	rproc_info->shared_fw_loaded = true;
+	return 0;
+}
+
 static int ath12k_ahb_configure_rproc(struct ath12k_base *ab)
 {
 	int ret;
@@ -989,6 +1088,15 @@ static int ath12k_ahb_configure_rproc(struct ath12k_base *ab)
 		g_rproc_info->rootpd_booted_by_driver = true;
 	}
 
+	if (!g_rproc_info->shared_fw_loaded) {
+		ret = ath12k_ahb_load_shared_firmware(ab);
+		if (ret) {
+			if (g_rproc_info->rootpd_booted_by_driver)
+				rproc_shutdown(g_rproc_info->tgt_rproc);
+			goto err_unreg_notifier;
+		}
+	}
+
 	mutex_unlock(&ath12k_rproc_info_lock);
 	return 0;
 
@@ -1012,6 +1120,8 @@ static void ath12k_ahb_deconfigure_rproc(struct ath12k_base *ab)
 {
 	struct ath12k_ahb *ab_ahb = ath12k_ab_to_ahb(ab);
 	struct ath12k_ahb_rproc_info *rproc_info = ab_ahb->rproc_info;
+	u32 pasid;
+	int ret;
 
 	lockdep_assert_held(&ath12k_rproc_info_lock);
 
@@ -1022,6 +1132,20 @@ static void ath12k_ahb_deconfigure_rproc(struct ath12k_base *ab)
 
 	if (!g_rproc_info->num_userpd) {
 		ath12k_ahb_unregister_rproc_notifier();
+
+		if (g_rproc_info->shared_fw_loaded) {
+			pasid = u32_encode_bits(ATH12K_AHB_RO_ID, ATH12K_USERPD_ID_MASK) |
+				ATH12K_AHB_UPD_SWID;
+			ret = qcom_pas_shutdown(pasid);
+			if (ret)
+				ath12k_err(ab, "pas shutdown failed for shared firmware: %d\n",
+					   ret);
+
+			g_rproc_info->shared_fw_loaded = false;
+		}
+
+		if (g_rproc_info->mem_region)
+			ath12k_ahb_put_fw_load_region(g_rproc_info);
 
 		if (g_rproc_info->rootpd_booted_by_driver &&
 		    g_rproc_info->tgt_rproc->state == RPROC_RUNNING)
