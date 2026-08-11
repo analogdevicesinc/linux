@@ -1351,6 +1351,15 @@ static const struct dwcmshc_pltfm_data sdhci_dwcmshc_sg2042_pdata = {
 	.init = sg2042_init,
 };
 
+static const struct dwcmshc_pltfm_data sdhci_dwcmshc_sc598_pdata = {
+	.pdata = {
+		.ops = &sdhci_dwcmshc_ops,
+		.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN,
+		.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+	},
+	.init = dwcmshc_adsp_init,
+};
+
 static const struct dwcmshc_pltfm_data sdhci_dwcmshc_sc846_pdata = {
 	.pdata = {
 		.ops = &sdhci_dwcmshc_sc846_ops,
@@ -1460,6 +1469,10 @@ static const struct of_device_id sdhci_dwcmshc_dt_ids[] = {
 	{
 		.compatible = "sophgo,sg2042-dwcmshc",
 		.data = &sdhci_dwcmshc_sg2042_pdata,
+	},
+	{
+		.compatible = "adi,adsp-sc598-dwcmshc",
+		.data = &sdhci_dwcmshc_sc598_pdata,
 	},
 	{
 		.compatible = "adi,adsp-sc846-dwcmshc",
