@@ -412,6 +412,7 @@ static enum v4l2_fwnode_orientation ipu_bridge_parse_orientation(struct acpi_dev
 
 int ipu_bridge_parse_ssdb(struct acpi_device *adev, struct ipu_sensor *sensor)
 {
+	acpi_handle handle = acpi_device_handle(ACPI_PTR(adev));
 	struct ipu_sensor_ssdb ssdb = {};
 	int ret;
 
@@ -435,8 +436,15 @@ int ipu_bridge_parse_ssdb(struct acpi_device *adev, struct ipu_sensor *sensor)
 	sensor->rotation = ipu_bridge_parse_rotation(adev, &ssdb);
 	sensor->orientation = ipu_bridge_parse_orientation(adev);
 
-	if (ssdb.vcmtype)
+	acpi_handle_debug(handle,
+			  "CSI-2 port %u, lanes %u, mclkspeed %u, rotation %u (SSDB %u), orientation %u\n",
+			  sensor->link, sensor->lanes, sensor->mclkspeed,
+			  sensor->rotation, ssdb.degree, sensor->orientation);
+
+	if (ssdb.vcmtype) {
 		sensor->vcm_type = ipu_vcm_types[ssdb.vcmtype - 1];
+		acpi_handle_debug(handle, "VCM %s\n", sensor->vcm_type);
+	}
 
 	return 0;
 }
@@ -832,8 +840,8 @@ static int ipu_bridge_connect_sensor(const struct ipu_sensor_config *cfg,
 		if (ret)
 			goto err_free_swnodes;
 
-		dev_info(bridge->dev, "Found supported sensor %s\n",
-			 acpi_dev_name(adev));
+		dev_info(bridge->dev, "Found supported sensor %s (%pfw)\n",
+			 acpi_dev_name(adev), primary);
 
 		bridge->n_sensors++;
 	}
