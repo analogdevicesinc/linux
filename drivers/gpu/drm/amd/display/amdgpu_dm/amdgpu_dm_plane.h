@@ -136,5 +136,6 @@ bool amdgpu_dm_plane_gfx6_format_mod_supported(const struct amdgpu_device *adev,
 					       const u64 modifier);
 int amdgpu_dm_plane_helper_prepare_fb(struct drm_plane *plane, struct drm_plane_state *new_state);
 void amdgpu_dm_plane_helper_cleanup_fb(struct drm_plane *plane, struct drm_plane_state *old_state);
+void amdgpu_dm_plane_atomic_async_update(struct drm_plane *plane, struct drm_atomic_commit *state);
 #endif
 #endif

@@ -1738,9 +1738,10 @@ void amdgpu_dm_plane_handle_cursor_update(struct drm_plane *plane,
 		mutex_unlock(&adev->dm.dc_lock);
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_handle_cursor_update);
 
-static void amdgpu_dm_plane_atomic_async_update(struct drm_plane *plane,
-						struct drm_atomic_commit *state)
+STATIC_IFN_KUNIT void amdgpu_dm_plane_atomic_async_update(struct drm_plane *plane,
+							  struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state,
 									   plane);
@@ -1762,6 +1763,7 @@ static void amdgpu_dm_plane_atomic_async_update(struct drm_plane *plane,
 
 	amdgpu_dm_plane_handle_cursor_update(plane, old_state);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_atomic_async_update);
 
 STATIC_IFN_KUNIT void amdgpu_dm_plane_panic_flush(struct drm_plane *plane)
 {

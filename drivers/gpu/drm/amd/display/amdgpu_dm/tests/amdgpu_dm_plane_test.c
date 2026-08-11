@@ -3595,6 +3595,92 @@ static void dm_test_helper_cleanup_fb_no_fb(struct kunit *test)
 	amdgpu_dm_plane_helper_cleanup_fb(plane, &state);
 }
 
+/**
+ * dm_test_handle_cursor_update_no_fb() - Verify cursor update without framebuffers.
+ * @test: KUnit test context.
+ *
+ * Verify if the cursor update returns early, without touching the CRTC, when
+ * neither the new nor the old plane state has a framebuffer bound.
+ */
+static void dm_test_handle_cursor_update_no_fb(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_plane_state old_state = {0};
+	struct drm_plane_state state = {0};
+	struct drm_plane *plane;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+
+	plane->dev = &adev->ddev;
+	plane->state = &state;
+
+	amdgpu_dm_plane_handle_cursor_update(plane, &old_state);
+}
+
+/**
+ * dm_test_atomic_async_update_copies_state() - Verify async cursor state copy.
+ * @test: KUnit test context.
+ *
+ * Verify if the async update swaps the framebuffer and copies the source and
+ * CRTC rectangles from the new state into the current plane state.
+ */
+static void dm_test_atomic_async_update_copies_state(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_atomic_commit *state;
+	struct __drm_planes_state *planes;
+	struct drm_plane_state *cur_state;
+	struct drm_plane_state *new_state;
+	struct drm_plane_state *old_state;
+	struct amdgpu_framebuffer *afb;
+	struct drm_plane *plane;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+	planes = kunit_kzalloc(test, sizeof(*planes), GFP_KERNEL);
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	cur_state = kunit_kzalloc(test, sizeof(*cur_state), GFP_KERNEL);
+	new_state = kunit_kzalloc(test, sizeof(*new_state), GFP_KERNEL);
+	old_state = kunit_kzalloc(test, sizeof(*old_state), GFP_KERNEL);
+	afb = kunit_kzalloc(test, sizeof(*afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, planes);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	KUNIT_ASSERT_NOT_NULL(test, cur_state);
+	KUNIT_ASSERT_NOT_NULL(test, new_state);
+	KUNIT_ASSERT_NOT_NULL(test, old_state);
+	KUNIT_ASSERT_NOT_NULL(test, afb);
+
+	plane->dev = &adev->ddev;
+	plane->index = 0;
+	plane->state = cur_state;
+	cur_state->fb = &afb->base;
+	new_state->src_x = 1 << 16;
+	new_state->src_y = 2 << 16;
+	new_state->src_w = 64 << 16;
+	new_state->src_h = 64 << 16;
+	new_state->crtc_x = 10;
+	new_state->crtc_y = 20;
+	new_state->crtc_w = 64;
+	new_state->crtc_h = 64;
+	state->planes = planes;
+	state->planes[0].new_state = new_state;
+	state->planes[0].old_state = old_state;
+
+	amdgpu_dm_plane_atomic_async_update(plane, state);
+
+	KUNIT_EXPECT_PTR_EQ(test, cur_state->fb, NULL);
+	KUNIT_EXPECT_PTR_EQ(test, new_state->fb, &afb->base);
+	KUNIT_EXPECT_EQ(test, cur_state->src_x, 1U << 16);
+	KUNIT_EXPECT_EQ(test, cur_state->src_h, 64U << 16);
+	KUNIT_EXPECT_EQ(test, cur_state->crtc_x, 10);
+	KUNIT_EXPECT_EQ(test, cur_state->crtc_h, 64U);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3664,6 +3750,10 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_helper_prepare_fb_no_fb),
 	/* amdgpu_dm_plane_helper_cleanup_fb() */
 	KUNIT_CASE(dm_test_helper_cleanup_fb_no_fb),
+	/* amdgpu_dm_plane_handle_cursor_update() */
+	KUNIT_CASE(dm_test_handle_cursor_update_no_fb),
+	/* amdgpu_dm_plane_atomic_async_update() */
+	KUNIT_CASE(dm_test_atomic_async_update_copies_state),
 	/* amdgpu_dm_plane_atomic_async_check() */
 	KUNIT_CASE(dm_test_atomic_async_check_rejects),
 	KUNIT_CASE(dm_test_atomic_async_check_overlay_cursor),
