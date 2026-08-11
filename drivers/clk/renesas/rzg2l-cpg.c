@@ -433,7 +433,7 @@ rzg3s_cpg_div_clk_register(const struct cpg_core_clk *core, struct rzg2l_cpg_pri
 		return ERR_PTR(-ENOMEM);
 
 	init.name = core->name;
-	init.flags = core->flag;
+	init.flags = core->core_flags;
 	init.ops = &rzg3s_div_clk_ops;
 	init.parent_names = &parent_name;
 	init.num_parents = 1;
@@ -491,7 +491,7 @@ rzg2l_cpg_div_clk_register(const struct cpg_core_clk *core,
 						       base + GET_REG_OFFSET(core->conf),
 						       GET_SHIFT(core->conf),
 						       GET_WIDTH(core->conf),
-						       core->flag,
+						       core->core_flags,
 						       core->dtable,
 						       &priv->rmw_lock);
 	else
@@ -500,7 +500,7 @@ rzg2l_cpg_div_clk_register(const struct cpg_core_clk *core,
 						 base + GET_REG_OFFSET(core->conf),
 						 GET_SHIFT(core->conf),
 						 GET_WIDTH(core->conf),
-						 core->flag, &priv->rmw_lock);
+						 core->core_flags, &priv->rmw_lock);
 
 	if (IS_ERR(clk_hw))
 		return ERR_CAST(clk_hw);
@@ -516,7 +516,7 @@ rzg2l_cpg_mux_clk_register(const struct cpg_core_clk *core,
 
 	clk_hw = devm_clk_hw_register_mux(priv->dev, core->name,
 					  core->parent_names, core->num_parents,
-					  core->flag,
+					  core->core_flags,
 					  priv->base + GET_REG_OFFSET(core->conf),
 					  GET_SHIFT(core->conf),
 					  GET_WIDTH(core->conf),
@@ -595,7 +595,7 @@ rzg2l_cpg_sd_mux_clk_register(const struct cpg_core_clk *core,
 
 	init.name = core->name;
 	init.ops = &rzg2l_cpg_sd_clk_mux_ops;
-	init.flags = core->flag;
+	init.flags = core->core_flags;
 	init.num_parents = core->num_parents;
 	init.parent_names = core->parent_names;
 

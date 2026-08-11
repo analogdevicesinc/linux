@@ -110,7 +110,7 @@ struct cpg_core_clk {
 	};
 	const char * const *parent_names;
 	notifier_fn_t notifier;
-	u32 flag;
+	u32 core_flags;
 	u32 mux_flags;
 	int num_parents;
 };
@@ -168,24 +168,24 @@ enum clk_types {
 #define DEF_DIV(_name, _id, _parent, _conf, _dtable) \
 	DEF_TYPE(_name, _id, CLK_TYPE_DIV, .conf = _conf, \
 		 .parent = _parent, .dtable = _dtable, \
-		 .flag = CLK_DIVIDER_HIWORD_MASK)
+		 .core_flags = CLK_DIVIDER_HIWORD_MASK)
 #define DEF_DIV_RO(_name, _id, _parent, _conf, _dtable) \
 	DEF_TYPE(_name, _id, CLK_TYPE_DIV, .conf = _conf, \
 		 .parent = _parent, .dtable = _dtable, \
-		 .flag = CLK_DIVIDER_READ_ONLY)
+		 .core_flags = CLK_DIVIDER_READ_ONLY)
 #define DEF_G3S_DIV(_name, _id, _parent, _conf, _sconf, _dtable, _invalid_rate, \
 		    _max_rate, _clk_flags, _notif) \
 	DEF_TYPE(_name, _id, CLK_TYPE_G3S_DIV, .conf = _conf, .sconf = _sconf, \
 		 .parent = _parent, .dtable = _dtable, \
 		 .invalid_rate = _invalid_rate, \
-		 .max_rate = _max_rate, .flag = (_clk_flags), \
+		 .max_rate = _max_rate, .core_flags = (_clk_flags), \
 		 .notifier = _notif)
-#define DEF_MUX_FLAGS(_name, _id, _conf, _parent_names, _flag) \
+#define DEF_MUX_FLAGS(_name, _id, _conf, _parent_names, _flags) \
 	DEF_TYPE(_name, _id, CLK_TYPE_MUX, .conf = _conf, \
 		 .parent_names = _parent_names, \
 		 .num_parents = ARRAY_SIZE(_parent_names), \
 		 .mux_flags = CLK_MUX_HIWORD_MASK, \
-		 .flag = _flag)
+		 .core_flags = _flags)
 #define DEF_MUX(_name, _id, _conf, _parent_names) \
 	DEF_MUX_FLAGS(_name, _id, _conf, _parent_names, 0)
 #define DEF_MUX_RO(_name, _id, _conf, _parent_names) \
@@ -197,18 +197,18 @@ enum clk_types {
 	DEF_TYPE(_name, _id, CLK_TYPE_SD_MUX, .conf = _conf, .sconf = _sconf, \
 		 .parent_names = _parent_names, \
 		 .num_parents = ARRAY_SIZE(_parent_names), \
-		 .mtable = _mtable, .flag = _clk_flags, .notifier = _notifier)
+		 .mtable = _mtable, .core_flags = _clk_flags, .notifier = _notifier)
 #define DEF_PLL5_FOUTPOSTDIV(_name, _id, _parent) \
 	DEF_TYPE(_name, _id, CLK_TYPE_SIPLL5, .parent = _parent)
 #define DEF_PLL5_4_MUX(_name, _id, _conf, _parent_names) \
 	DEF_TYPE(_name, _id, CLK_TYPE_PLL5_4_MUX, .conf = _conf, \
 		 .parent_names = _parent_names, \
 		 .num_parents = ARRAY_SIZE(_parent_names))
-#define DEF_DSI_DIV(_name, _id, _parent, _flag) \
-	DEF_TYPE(_name, _id, CLK_TYPE_DSI_DIV, .parent = _parent, .flag = _flag)
+#define DEF_DSI_DIV(_name, _id, _parent, _flags) \
+	DEF_TYPE(_name, _id, CLK_TYPE_DSI_DIV, .parent = _parent, .core_flags = _flags)
 #define DEF_G3L_DSI_DIV(_name, _id, _parent, _conf) \
 	DEF_TYPE(_name, _id, CLK_TYPE_G3L_DSI_DIV, .parent = _parent, .conf = _conf, \
-		 .flag = CLK_SET_RATE_PARENT)
+		 .core_flags = CLK_SET_RATE_PARENT)
 #define DEF_G3L_PLLDSI(_name, _id, _parent, _conf) \
 	DEF_TYPE(_name, _id, CLK_TYPE_G3L_PLLDSI, .parent = _parent, .conf = _conf)
 
