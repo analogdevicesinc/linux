@@ -2661,6 +2661,38 @@ static void dm_test_mst_enable_stream_features_writes_downspread(struct kunit *t
 	KUNIT_EXPECT_EQ(test, fixture->dpcd_write_value, (u8)BIT(7));
 }
 
+/**
+ * dm_test_mst_enable_stream_features_read_fail - Test early return on DPCD read failure
+ * @test: The KUnit test context
+ */
+static void dm_test_mst_enable_stream_features_read_fail(struct kunit *test)
+{
+	struct dm_test_synaptics_aux *fixture;
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_stream_state *stream;
+	struct amdgpu_device *adev;
+	struct dc_link *link;
+
+	adev = dm_kunit_alloc_adev(test);
+	fixture = dm_test_alloc_synaptics_aux_with_dev(test, &adev->ddev);
+	aconnector = dm_kunit_alloc_connector(test, adev, NULL);
+	link = dm_kunit_alloc_link(test);
+	stream = kunit_kzalloc(test, sizeof(*stream), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+
+	fixture->fail_address = DP_DOWNSPREAD_CTRL;
+	dm_test_current_aux_recorder = fixture;
+	aconnector->dm_dp_aux.aux.drm_dev = &adev->ddev;
+	aconnector->dm_dp_aux.aux.transfer = dm_test_current_aux_transfer;
+	drm_dp_aux_init(&aconnector->dm_dp_aux.aux);
+	link->priv = aconnector;
+	stream->link = link;
+
+	dm_helpers_mst_enable_stream_features(stream);
+
+	KUNIT_EXPECT_EQ(test, fixture->downspread_writes, 0U);
+}
+
 /* Tests for dm_helpers_enable_periodic_detection() */
 
 struct dm_test_idle_work {
@@ -4013,6 +4045,7 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	/* dm_helpers_mst_enable_stream_features */
 	KUNIT_CASE(dm_test_mst_enable_stream_features_aux_disabled),
 	KUNIT_CASE(dm_test_mst_enable_stream_features_writes_downspread),
+	KUNIT_CASE(dm_test_mst_enable_stream_features_read_fail),
 	/* dm_helpers_enable_periodic_detection */
 	KUNIT_CASE(dm_test_enable_periodic_detection_no_workqueue),
 	KUNIT_CASE(dm_test_enable_periodic_detection_updates_enable),
