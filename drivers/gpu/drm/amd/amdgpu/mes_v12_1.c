@@ -378,7 +378,6 @@ static int mes_v12_1_reset_hw_queue(struct amdgpu_mes *mes,
 				    struct mes_reset_queue_input *input)
 {
 	union MESAPI__RESET mes_reset_queue_pkt;
-	int pipe;
 
 	memset(&mes_reset_queue_pkt, 0, sizeof(mes_reset_queue_pkt));
 
@@ -388,17 +387,12 @@ static int mes_v12_1_reset_hw_queue(struct amdgpu_mes *mes,
 
 	mes_reset_queue_pkt.doorbell_offset = input->doorbell_offset;
 	/* mes_reset_queue_pkt.gang_context_addr = input->gang_context_addr; */
-	/*mes_reset_queue_pkt.reset_queue_only = 1;*/
-
-	if (mes->adev->enable_uni_mes)
-		pipe = AMDGPU_MES_KIQ_PIPE;
-	else
-		pipe = AMDGPU_MES_SCHED_PIPE;
+	mes_reset_queue_pkt.reset_queue_only = 1;
 
 	return mes_v12_1_submit_pkt_and_poll_completion(mes,
-			input->xcc_id, pipe,
+			input->xcc_id, AMDGPU_MES_SCHED_PIPE,
 			&mes_reset_queue_pkt, sizeof(mes_reset_queue_pkt),
-			offsetof(union MESAPI__REMOVE_QUEUE, api_status));
+			offsetof(union MESAPI__RESET, api_status));
 }
 
 static int mes_v12_1_map_legacy_queue(struct amdgpu_mes *mes,
@@ -743,6 +737,8 @@ static int mes_v12_1_set_hw_resources(struct amdgpu_mes *mes,
 	mes_set_hw_res_pkt.use_different_vmid_compute = 1;
 	mes_set_hw_res_pkt.enable_reg_active_poll = 1;
 	mes_set_hw_res_pkt.enable_level_process_quantum_check = 1;
+	/* proceeds pipe reset if queue reset fails */
+	mes_set_hw_res_pkt.enable_compute_pipe_reset = 1;
 
 	/*
 	 * Keep oversubscribe timer for sdma . When we have unmapped doorbell
