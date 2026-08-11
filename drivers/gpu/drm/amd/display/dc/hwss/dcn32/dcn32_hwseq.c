@@ -1867,9 +1867,9 @@ void dcn32_interdependent_update_lock(struct dc *dc,
 			continue;
 
 		if (lock)
-			dc->hwss.pipe_control_lock(dc, pipe, true);
+			hwss_pipe_control_lock(dc, pipe, true);
 		else
-			dc->hwss.pipe_control_lock(dc, pipe, false);
+			hwss_pipe_control_lock(dc, pipe, false);
 	}
 }
 

@@ -66,10 +66,17 @@ struct subvp_pipe_control_lock_fast_params {
 	bool subvp_immediate_flip;
 };
 
-struct pipe_control_lock_params {
+struct tg_lock_params {
 	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct timing_generator *tg;
 	bool lock;
+	bool use_dmub_inbox1;
+	bool triplebuffer_flips;
+};
+
+struct tg_3dlut_wa_unlock_params {
+	struct timing_generator *tg;
+	struct hubp *hubp;
 };
 
 struct set_flip_control_gsl_params {
@@ -342,6 +349,17 @@ struct tg_set_gsl_source_select_params {
 	uint32_t gsl_ready_signal;
 };
 
+struct pipe_control_lock_params {
+	bool lock;
+	struct hubp *hubps_to_wait_for_flip[MAX_PIPES];
+	bool gsl_lock;
+	struct tg_set_gsl_params gsl;
+	struct tg_set_gsl_source_select_params gsl_source_select;
+	struct tg_lock_params tg_lock;
+	bool tg_3dlut_wa_unlock;
+	struct tg_3dlut_wa_unlock_params tg_3dlut_wa_unlock_params;
+};
+
 struct setup_vupdate_interrupt_params {
 	struct dc *dc;
 	struct pipe_ctx *pipe_ctx;
@@ -487,7 +505,6 @@ struct tg_enable_crtc_params {
 
 struct hubp_wait_flip_pending_params {
 	struct hubp *hubp;
-	unsigned int timeout_us;
 	unsigned int polling_interval_us;
 };
 
@@ -1026,7 +1043,8 @@ struct link_set_dpms_on_params {
 union block_sequence_params {
 	struct update_plane_addr_params update_plane_addr_params;
 	struct subvp_pipe_control_lock_fast_params subvp_pipe_control_lock_fast_params;
-	struct pipe_control_lock_params pipe_control_lock_params;
+	struct tg_lock_params tg_lock_params;
+	struct tg_3dlut_wa_unlock_params tg_3dlut_wa_unlock_params;
 	struct set_flip_control_gsl_params set_flip_control_gsl_params;
 	struct program_triplebuffer_params program_triplebuffer_params;
 	struct set_input_transfer_func_params set_input_transfer_func_params;
@@ -1200,7 +1218,8 @@ union block_sequence_params {
 
 enum block_sequence_func {
 	DMUB_SUBVP_PIPE_CONTROL_LOCK_FAST = 0,
-	OPTC_PIPE_CONTROL_LOCK,
+	TG_LOCK,
+	TG_3DLUT_WA_UNLOCK,
 	HUBP_SET_FLIP_CONTROL_GSL,
 	HUBP_PROGRAM_TRIPLEBUFFER,
 	HUBP_UPDATE_PLANE_ADDR,
@@ -1432,8 +1451,10 @@ struct hw_sequencer_funcs {
 	void (*clear_surface_dcc_and_tiling)(struct pipe_ctx *pipe_ctx, struct dc_plane_state *plane_state, bool clear_tiling);
 
 	/* Pipe Lock Related */
-	void (*pipe_control_lock)(struct dc *dc,
-			struct pipe_ctx *pipe, bool lock);
+	bool (*build_pipe_control_lock_sequence)(struct dc *dc,
+			struct pipe_ctx *pipe, bool lock,
+			struct pipe_control_lock_params *params);
+	void (*tg_lock)(struct tg_lock_params *params);
 	void (*interdependent_update_lock)(struct dc *dc,
 			struct dc_state *context, bool lock);
 	void (*set_flip_control_gsl)(struct pipe_ctx *pipe_ctx,
@@ -1959,7 +1980,8 @@ void hwss_tg_set_gsl(union block_sequence_params *params);
 
 void hwss_tg_set_gsl_source_select(union block_sequence_params *params);
 
-void hwss_hubp_wait_flip_pending(union block_sequence_params *params);
+void hwss_hubp_wait_flip_pending(struct hubp *hubp,
+		unsigned int polling_interval_us);
 
 void hwss_tg_wait_double_buffer_pending(union block_sequence_params *params);
 
@@ -2130,6 +2152,9 @@ void hwss_set_input_transfer_func(struct dc *dc, struct pipe_ctx *pipe_ctx);
 void hwss_add_optc_pipe_control_lock(struct block_sequence_state *seq_state,
 		struct dc *dc, struct pipe_ctx *pipe_ctx, bool lock);
 
+void hwss_pipe_control_lock(struct dc *dc,
+		struct pipe_ctx *pipe_ctx, bool lock);
+
 void hwss_add_hubp_set_flip_control_gsl(struct block_sequence_state *seq_state,
 		struct hubp *hubp, bool flip_immediate);
 
@@ -2243,7 +2268,7 @@ void hwss_add_tg_enable_crtc(struct block_sequence_state *seq_state,
 		struct timing_generator *tg);
 
 void hwss_add_hubp_wait_flip_pending(struct block_sequence_state *seq_state,
-		struct hubp *hubp, unsigned int timeout_us, unsigned int polling_interval_us);
+		struct hubp *hubp, unsigned int polling_interval_us);
 
 void hwss_add_tg_wait_double_buffer_pending(struct block_sequence_state *seq_state,
 		struct timing_generator *tg, unsigned int timeout_us, unsigned int polling_interval_us);

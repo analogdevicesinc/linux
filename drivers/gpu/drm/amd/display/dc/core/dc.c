@@ -1221,7 +1221,7 @@ static void apply_ctx_interdependent_lock(struct dc *dc,
 			if (stream == pipe_ctx->stream) {
 				if (resource_is_pipe_type(pipe_ctx, OPP_HEAD) &&
 					(pipe_ctx->plane_state || old_pipe_ctx->plane_state))
-					dc->hwss.pipe_control_lock(dc, pipe_ctx, lock);
+					hwss_pipe_control_lock(dc, pipe_ctx, lock);
 			}
 		}
 	}
@@ -4991,7 +4991,7 @@ static void commit_planes_for_stream(struct dc *dc,
 		 *  plane addr update event triggers to be synchronized.
 		 *  top_pipe_to_program is expected to never be NULL
 		 */
-		dc->hwss.pipe_control_lock(dc, top_pipe_to_program, true);
+		hwss_pipe_control_lock(dc, top_pipe_to_program, true);
 	}
 
 	dc_dmub_update_dirty_rect(dc, surface_count, stream, srf_updates, context);
@@ -5013,7 +5013,7 @@ static void commit_planes_for_stream(struct dc *dc,
 		if (should_lock_all_pipes && dc->hwss.interdependent_update_lock) {
 			dc->hwss.interdependent_update_lock(dc, context, false);
 		} else {
-			dc->hwss.pipe_control_lock(dc, top_pipe_to_program, false);
+			hwss_pipe_control_lock(dc, top_pipe_to_program, false);
 		}
 		dc->hwss.post_unlock_program_front_end(dc, context);
 
@@ -5200,7 +5200,7 @@ static void commit_planes_for_stream(struct dc *dc,
 	if (should_lock_all_pipes && dc->hwss.interdependent_update_lock) {
 		dc->hwss.interdependent_update_lock(dc, context, false);
 	} else {
-		dc->hwss.pipe_control_lock(dc, top_pipe_to_program, false);
+		hwss_pipe_control_lock(dc, top_pipe_to_program, false);
 	}
 
 	if ((update_type != UPDATE_TYPE_FAST) && stream->update_flags.bits.dsc_changed)

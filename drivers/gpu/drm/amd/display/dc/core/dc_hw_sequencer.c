@@ -1051,7 +1051,7 @@ void hwss_build_post_unlock_full_sequence(struct dc *dc,
 
 			unsigned int polling_interval_us;
 				polling_interval_us = 1;
-			hwss_add_hubp_wait_flip_pending(&seq_state, pipe->plane_res.hubp, 100000, polling_interval_us);
+			hwss_add_hubp_wait_flip_pending(&seq_state, pipe->plane_res.hubp, polling_interval_us);
 		}
 	}
 
@@ -1212,13 +1212,9 @@ void hwss_build_fast_sequence(struct dc *dc,
 		block_sequence[*num_steps].func = DMUB_HW_CONTROL_LOCK_FAST;
 		(*num_steps)++;
 	}
-	if (dc->hwss.pipe_control_lock) {
-		block_sequence[*num_steps].params.pipe_control_lock_params.dc = dc;
-		block_sequence[*num_steps].params.pipe_control_lock_params.lock = true;
-		block_sequence[*num_steps].params.pipe_control_lock_params.pipe_ctx = pipe_ctx;
-		block_sequence[*num_steps].func = OPTC_PIPE_CONTROL_LOCK;
-		(*num_steps)++;
-	}
+	hwss_add_optc_pipe_control_lock(
+			&(struct block_sequence_state){ block_sequence, num_steps },
+			dc, pipe_ctx, true);
 
 	for (i = 0; i < dmub_cmd_count; i++) {
 		block_sequence[*num_steps].params.send_dmcub_cmd_params.ctx = dc->ctx;
@@ -1646,13 +1642,9 @@ void hwss_build_fast_sequence(struct dc *dc,
 		current_pipe = current_pipe->next_odm_pipe;
 	}
 
-	if (dc->hwss.pipe_control_lock) {
-		block_sequence[*num_steps].params.pipe_control_lock_params.dc = dc;
-		block_sequence[*num_steps].params.pipe_control_lock_params.lock = false;
-		block_sequence[*num_steps].params.pipe_control_lock_params.pipe_ctx = pipe_ctx;
-		block_sequence[*num_steps].func = OPTC_PIPE_CONTROL_LOCK;
-		(*num_steps)++;
-	}
+	hwss_add_optc_pipe_control_lock(
+			&(struct block_sequence_state){ block_sequence, num_steps },
+			dc, pipe_ctx, false);
 	if (dc->hwss.subvp_pipe_control_lock_fast) {
 		block_sequence[*num_steps].params.subvp_pipe_control_lock_fast_params.dc = dc;
 		block_sequence[*num_steps].params.subvp_pipe_control_lock_fast_params.lock = false;
@@ -1710,10 +1702,14 @@ void hwss_execute_sequence(struct dc *dc,
 		case DMUB_SUBVP_PIPE_CONTROL_LOCK_FAST:
 			dc->hwss.subvp_pipe_control_lock_fast(params);
 			break;
-		case OPTC_PIPE_CONTROL_LOCK:
-			dc->hwss.pipe_control_lock(params->pipe_control_lock_params.dc,
-					params->pipe_control_lock_params.pipe_ctx,
-					params->pipe_control_lock_params.lock);
+		case TG_LOCK:
+			dc->hwss.tg_lock(&params->tg_lock_params);
+			break;
+		case TG_3DLUT_WA_UNLOCK:
+			if (dc->hwseq->funcs.perform_3dlut_wa_unlock)
+				dc->hwseq->funcs.perform_3dlut_wa_unlock(
+						params->tg_3dlut_wa_unlock_params.tg,
+						params->tg_3dlut_wa_unlock_params.hubp);
 			break;
 		case HUBP_SET_FLIP_CONTROL_GSL:
 			params->set_flip_control_gsl_params.hubp->funcs->hubp_set_flip_control_surface_gsl(
@@ -1925,7 +1921,8 @@ void hwss_execute_sequence(struct dc *dc,
 			hwss_tg_set_gsl_source_select(params);
 			break;
 		case HUBP_WAIT_FLIP_PENDING:
-			hwss_hubp_wait_flip_pending(params);
+			hwss_hubp_wait_flip_pending(params->hubp_wait_flip_pending_params.hubp,
+				params->hubp_wait_flip_pending_params.polling_interval_us);
 			break;
 		case TG_WAIT_DOUBLE_BUFFER_PENDING:
 			hwss_tg_wait_double_buffer_pending(params);
@@ -2234,21 +2231,83 @@ void hwss_execute_sequence(struct dc *dc,
 	}
 }
 
-/*
- * Helper function to add OPTC pipe control lock to block sequence
- */
 void hwss_add_optc_pipe_control_lock(struct block_sequence_state *seq_state,
 		struct dc *dc,
 		struct pipe_ctx *pipe_ctx,
 		bool lock)
 {
-	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.pipe_control_lock_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.pipe_control_lock_params.pipe_ctx = pipe_ctx;
-		seq_state->steps[*seq_state->num_steps].params.pipe_control_lock_params.lock = lock;
-		seq_state->steps[*seq_state->num_steps].func = OPTC_PIPE_CONTROL_LOCK;
-		(*seq_state->num_steps)++;
+	struct pipe_control_lock_params params = { 0 };
+	unsigned int hubp_idx;
+	unsigned int polling_interval_us = 1;
+
+	if (!dc->hwss.build_pipe_control_lock_sequence ||
+			!dc->hwss.build_pipe_control_lock_sequence(dc, pipe_ctx, lock, &params))
+		return;
+
+	for (hubp_idx = 0; hubp_idx < MAX_PIPES; hubp_idx++)
+		if (params.hubps_to_wait_for_flip[hubp_idx])
+			hwss_add_hubp_wait_flip_pending(seq_state, params.hubps_to_wait_for_flip[hubp_idx],
+				polling_interval_us);
+
+	if (params.gsl_lock) {
+		hwss_add_tg_set_gsl(seq_state, params.gsl.tg, params.gsl.gsl);
+		hwss_add_tg_set_gsl_source_select(seq_state, params.gsl_source_select.tg,
+			params.gsl_source_select.group_idx, params.gsl_source_select.gsl_ready_signal);
 	}
+
+	if (params.tg_3dlut_wa_unlock) {
+		if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+			seq_state->steps[*seq_state->num_steps].params.tg_3dlut_wa_unlock_params =
+					params.tg_3dlut_wa_unlock_params;
+			seq_state->steps[*seq_state->num_steps].func = TG_3DLUT_WA_UNLOCK;
+			(*seq_state->num_steps)++;
+		}
+	} else {
+		if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+			seq_state->steps[*seq_state->num_steps].params.tg_lock_params = params.tg_lock;
+			seq_state->steps[*seq_state->num_steps].func = TG_LOCK;
+			(*seq_state->num_steps)++;
+		}
+	}
+}
+
+void hwss_pipe_control_lock(struct dc *dc,
+		struct pipe_ctx *pipe_ctx,
+		bool lock)
+{
+	struct pipe_control_lock_params params = { 0 };
+	unsigned int hubp_idx;
+	unsigned int polling_interval_us = 1;
+
+	if (!dc->hwss.build_pipe_control_lock_sequence ||
+			!dc->hwss.build_pipe_control_lock_sequence(dc, pipe_ctx, lock, &params))
+		return;
+
+	for (hubp_idx = 0; hubp_idx < MAX_PIPES; hubp_idx++)
+		if (params.hubps_to_wait_for_flip[hubp_idx])
+			hwss_hubp_wait_flip_pending(
+					params.hubps_to_wait_for_flip[hubp_idx],
+					polling_interval_us);
+
+	if (params.gsl_lock) {
+		if (params.gsl.tg->funcs->set_gsl)
+			params.gsl.tg->funcs->set_gsl(params.gsl.tg, &params.gsl.gsl);
+		if (params.gsl_source_select.tg->funcs->set_gsl_source_select)
+			params.gsl_source_select.tg->funcs->set_gsl_source_select(
+					params.gsl_source_select.tg,
+					params.gsl_source_select.group_idx,
+					params.gsl_source_select.gsl_ready_signal);
+	}
+
+	if (params.tg_3dlut_wa_unlock) {
+		dc->hwseq->funcs.perform_3dlut_wa_unlock(
+				params.tg_3dlut_wa_unlock_params.tg,
+				params.tg_3dlut_wa_unlock_params.hubp);
+		return;
+	}
+
+	if (dc->hwss.tg_lock)
+		dc->hwss.tg_lock(&params.tg_lock);
 }
 
 /*
@@ -2853,12 +2912,10 @@ void hwss_add_tg_enable_crtc(struct block_sequence_state *seq_state,
  */
 void hwss_add_hubp_wait_flip_pending(struct block_sequence_state *seq_state,
 		struct hubp *hubp,
-		unsigned int timeout_us,
 		unsigned int polling_interval_us)
 {
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
 		seq_state->steps[*seq_state->num_steps].params.hubp_wait_flip_pending_params.hubp = hubp;
-		seq_state->steps[*seq_state->num_steps].params.hubp_wait_flip_pending_params.timeout_us = timeout_us;
 		seq_state->steps[*seq_state->num_steps].params.hubp_wait_flip_pending_params.polling_interval_us = polling_interval_us;
 		seq_state->steps[*seq_state->num_steps].func = HUBP_WAIT_FLIP_PENDING;
 		(*seq_state->num_steps)++;
@@ -3611,11 +3668,9 @@ void hwss_tg_set_gsl_source_select(union block_sequence_params *params)
 		tg->funcs->set_gsl_source_select(tg, group_idx, gsl_ready_signal);
 }
 
-void hwss_hubp_wait_flip_pending(union block_sequence_params *params)
+void hwss_hubp_wait_flip_pending(struct hubp *hubp, unsigned int polling_interval_us)
 {
-	struct hubp *hubp = params->hubp_wait_flip_pending_params.hubp;
-	unsigned int timeout_us = params->hubp_wait_flip_pending_params.timeout_us;
-	unsigned int polling_interval_us = params->hubp_wait_flip_pending_params.polling_interval_us;
+	const unsigned int timeout_us = 100000U;
 	unsigned int j = 0;
 
 	for (j = 0; j < timeout_us / polling_interval_us

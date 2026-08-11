@@ -109,7 +109,8 @@ void dcn401_program_pipe_sequence(
 	struct pipe_ctx *pipe_ctx,
 	struct dc_state *context,
 	struct block_sequence_state *seq_state);
-void dcn401_perform_3dlut_wa_unlock(struct pipe_ctx *pipe_ctx);
+void dcn401_perform_3dlut_wa_unlock(struct timing_generator *tg,
+		struct hubp *primary_hubp);
 void dcn401_program_front_end_for_ctx(struct dc *dc, struct dc_state *context);
 void dcn401_post_unlock_program_front_end(struct dc *dc, struct dc_state *context);
 bool dcn401_update_bandwidth(struct dc *dc, struct dc_state *context);

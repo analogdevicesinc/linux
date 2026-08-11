@@ -423,8 +423,9 @@ void dce60_hw_sequencer_construct(struct dc *dc)
 
 	dc->hwseq->funcs.enable_display_power_gating = dce100_enable_display_power_gating;
 	dc->hwss.apply_ctx_for_surface = dce60_apply_ctx_for_surface;
-	dc->hwss.cursor_lock = dce60_pipe_control_lock;
-	dc->hwss.pipe_control_lock = dce60_pipe_control_lock;
+	dc->hwss.cursor_lock = hwss_pipe_control_lock;
+	dc->hwss.build_pipe_control_lock_sequence = dce_build_pipe_control_lock_sequence;
+	dc->hwss.tg_lock = dce60_tg_lock;
 	dc->hwss.prepare_bandwidth = dce100_prepare_bandwidth;
 	dc->hwss.optimize_bandwidth = dce100_optimize_bandwidth;
 	dc->hwss.clear_surface_dcc_and_tiling = dce100_reset_surface_dcc_and_tiling;

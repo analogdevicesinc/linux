@@ -32,6 +32,7 @@
 #include "dcn10/dcn10_cm_common.h"
 #include "dcn10/dcn10_hubbub.h"
 #include "dcn20/dcn20_optc.h"
+#include "dcn20/dcn20_hwseq.h"
 #include "dcn30/dcn30_cm_common.h"
 #include "dcn32/dcn32_hwseq.h"
 #include "dcn401_hwseq.h"
@@ -1935,7 +1936,7 @@ void dcn401_interdependent_update_lock(struct dc *dc,
 					!tg->funcs->is_tg_enabled(tg) ||
 					dc_state_get_pipe_subvp_type(context, pipe) == SUBVP_PHANTOM)
 				continue;
-			dc->hwss.pipe_control_lock(dc, pipe, true);
+			hwss_pipe_control_lock(dc, pipe, true);
 		}
 	} else {
 		/* Need to free DET being used first and have pipe update, then unlock the remaining pipes*/
@@ -1951,7 +1952,7 @@ void dcn401_interdependent_update_lock(struct dc *dc,
 
 			if (dc->scratch.pipes_to_unlock_first[i]) {
 				struct pipe_ctx *old_pipe = &dc->current_state->res_ctx.pipe_ctx[i];
-				dc->hwss.pipe_control_lock(dc, pipe, false);
+				hwss_pipe_control_lock(dc, pipe, false);
 				/* Assumes pipe of the same index in current_state is also an OTG_MASTER pipe*/
 				dcn401_wait_for_det_buffer_update_under_otg_master(dc, dc->current_state, old_pipe);
 			}
@@ -1970,12 +1971,13 @@ void dcn401_interdependent_update_lock(struct dc *dc,
 				continue;
 			}
 
-			dc->hwss.pipe_control_lock(dc, pipe, false);
+			hwss_pipe_control_lock(dc, pipe, false);
 		}
 	}
 }
 
-void dcn401_perform_3dlut_wa_unlock(struct pipe_ctx *pipe_ctx)
+void dcn401_perform_3dlut_wa_unlock(struct timing_generator *tg,
+		struct hubp *primary_hubp)
 {
 	/* If 3DLUT FL is enabled and 3DLUT is in use, follow the workaround sequence for pipe unlock to make sure that
 	 * HUBP will properly fetch 3DLUT contents after unlock.
@@ -1983,45 +1985,24 @@ void dcn401_perform_3dlut_wa_unlock(struct pipe_ctx *pipe_ctx)
 	 * This is meant to work around a known HW issue where VREADY will cancel the pending 3DLUT_ENABLE signal regardless
 	 * of whether OTG lock is currently being held or not.
 	 */
-	if (!pipe_ctx)
+	if (!tg)
 		return;
 
-	const struct pipe_ctx *otg_master_pipe_ctx = resource_get_otg_master(pipe_ctx);
-	struct timing_generator *tg = otg_master_pipe_ctx ?
-			otg_master_pipe_ctx->stream_res.tg : NULL;
-	const struct pipe_ctx *primary_dpp_pipe_ctx = resource_is_pipe_type(pipe_ctx, DPP_PIPE) ?
-			resource_get_primary_dpp_pipe(pipe_ctx) : pipe_ctx;
-	struct hubp *primary_hubp = primary_dpp_pipe_ctx ?
-			primary_dpp_pipe_ctx->plane_res.hubp : NULL;
+	if (tg->funcs->set_vupdate_keepout)
+		tg->funcs->set_vupdate_keepout(tg, true);
 
-	if (!otg_master_pipe_ctx || !tg) {
-		return;
-	}
+	if (primary_hubp && primary_hubp->funcs->hubp_enable_3dlut_fl)
+		primary_hubp->funcs->hubp_enable_3dlut_fl(primary_hubp, true);
 
-	if (primary_dpp_pipe_ctx &&
-			primary_dpp_pipe_ctx->plane_state &&
-			primary_dpp_pipe_ctx->plane_state->cm.flags.bits.lut3d_enable &&
-			primary_dpp_pipe_ctx->plane_state->cm.flags.bits.lut3d_dma_enable) {
-		if (tg->funcs->set_vupdate_keepout)
-			tg->funcs->set_vupdate_keepout(tg, true);
+	tg->funcs->unlock(tg);
+	if (tg->funcs->wait_update_lock_status)
+		tg->funcs->wait_update_lock_status(tg, false);
 
-		if (primary_hubp && primary_hubp->funcs->hubp_enable_3dlut_fl) {
-			primary_hubp->funcs->hubp_enable_3dlut_fl(primary_hubp, true);
-		}
+	if (primary_hubp && primary_hubp->funcs->hubp_enable_3dlut_fl)
+		primary_hubp->funcs->hubp_enable_3dlut_fl(primary_hubp, true);
 
-		tg->funcs->unlock(tg);
-		if (tg->funcs->wait_update_lock_status)
-			tg->funcs->wait_update_lock_status(tg, false);
-
-		if (primary_hubp && primary_hubp->funcs->hubp_enable_3dlut_fl) {
-			primary_hubp->funcs->hubp_enable_3dlut_fl(primary_hubp, true);
-		}
-
-		if (tg->funcs->set_vupdate_keepout)
-			tg->funcs->set_vupdate_keepout(tg, false);
-	} else {
-		tg->funcs->unlock(tg);
-	}
+	if (tg->funcs->set_vupdate_keepout)
+		tg->funcs->set_vupdate_keepout(tg, false);
 }
 
 void dcn401_program_outstanding_updates(struct dc *dc,
@@ -3462,89 +3443,24 @@ void dcn401_update_writeback_sequence(
 	hwss_add_mcif_wb_config_buf(seq_state, mcif_wb, &wb_info->mcif_buf_params, wb_info->dwb_params.dest_height);
 }
 
-static int find_free_gsl_group(const struct dc *dc)
-{
-	if (dc->res_pool->gsl_groups.gsl_0 == 0)
-		return 1;
-	if (dc->res_pool->gsl_groups.gsl_1 == 0)
-		return 2;
-	if (dc->res_pool->gsl_groups.gsl_2 == 0)
-		return 3;
-
-	return 0;
-}
-
 void dcn401_setup_gsl_group_as_lock_sequence(
 		const struct dc *dc,
 		struct pipe_ctx *pipe_ctx,
 		bool enable,
 		struct block_sequence_state *seq_state)
 {
-	struct gsl_params gsl;
-	int group_idx;
+	struct tg_set_gsl_params gsl_params = { 0 };
+	struct tg_set_gsl_source_select_params gsl_source_select_params = { 0 };
 
-	memset(&gsl, 0, sizeof(struct gsl_params));
+	dcn20_build_gsl_group_as_lock(dc, pipe_ctx, enable,
+			&gsl_params, &gsl_source_select_params);
+	if (!gsl_source_select_params.group_idx)
+		return;
 
-	if (enable) {
-		/* return if group already assigned since GSL was set up
-		 * for vsync flip, we would unassign so it can't be "left over"
-		 */
-		if (pipe_ctx->stream_res.gsl_group > 0)
-			return;
-
-		group_idx = find_free_gsl_group(dc);
-		ASSERT(group_idx != 0);
-		pipe_ctx->stream_res.gsl_group = (uint8_t)group_idx;
-
-		/* set gsl group reg field and mark resource used */
-		switch (group_idx) {
-		case 1:
-			gsl.gsl0_en = 1;
-			dc->res_pool->gsl_groups.gsl_0 = 1;
-			break;
-		case 2:
-			gsl.gsl1_en = 1;
-			dc->res_pool->gsl_groups.gsl_1 = 1;
-			break;
-		case 3:
-			gsl.gsl2_en = 1;
-			dc->res_pool->gsl_groups.gsl_2 = 1;
-			break;
-		default:
-			BREAK_TO_DEBUGGER();
-			return; // invalid case
-		}
-		gsl.gsl_master_en = 1;
-	} else {
-		group_idx = pipe_ctx->stream_res.gsl_group;
-		if (group_idx == 0)
-			return; // if not in use, just return
-
-		pipe_ctx->stream_res.gsl_group = 0;
-
-		/* unset gsl group reg field and mark resource free */
-		switch (group_idx) {
-		case 1:
-			gsl.gsl0_en = 0;
-			dc->res_pool->gsl_groups.gsl_0 = 0;
-			break;
-		case 2:
-			gsl.gsl1_en = 0;
-			dc->res_pool->gsl_groups.gsl_1 = 0;
-			break;
-		case 3:
-			gsl.gsl2_en = 0;
-			dc->res_pool->gsl_groups.gsl_2 = 0;
-			break;
-		default:
-			BREAK_TO_DEBUGGER();
-			return;
-		}
-		gsl.gsl_master_en = 0;
-	}
-
-	hwss_add_tg_set_gsl(seq_state, pipe_ctx->stream_res.tg, gsl);
-	hwss_add_tg_set_gsl_source_select(seq_state, pipe_ctx->stream_res.tg, group_idx, enable ? 4 : 0);
+	hwss_add_tg_set_gsl(seq_state, gsl_params.tg, gsl_params.gsl);
+	hwss_add_tg_set_gsl_source_select(seq_state, gsl_source_select_params.tg,
+			gsl_source_select_params.group_idx,
+			gsl_source_select_params.gsl_ready_signal);
 }
 
 void dcn401_disable_plane_sequence(

@@ -246,9 +246,9 @@ void dcn10_lock_all_pipes(struct dc *dc,
 			continue;
 
 		if (lock)
-			dc->hwss.pipe_control_lock(dc, pipe_ctx, true);
+			hwss_pipe_control_lock(dc, pipe_ctx, true);
 		else
-			dc->hwss.pipe_control_lock(dc, pipe_ctx, false);
+			hwss_pipe_control_lock(dc, pipe_ctx, false);
 	}
 }
 
@@ -2202,29 +2202,20 @@ bool dcn10_set_output_transfer_func(struct set_output_transfer_func_params *para
 	return true;
 }
 
-void dcn10_pipe_control_lock(
-	struct dc *dc,
-	struct pipe_ctx *pipe,
-	bool lock)
+void dcn10_tg_lock(struct tg_lock_params *params)
 {
-	struct dce_hwseq *hws = dc->hwseq;
+	struct dce_hwseq *hws = params->dc->hwseq;
 
-	/* use TG master update lock to lock everything on the TG
-	 * therefore only top pipe need to lock
-	 */
-	if (!pipe || pipe->top_pipe)
-		return;
+	if (params->dc->debug.sanity_checks)
+		hws->funcs.verify_allow_pstate_change_high(params->dc);
 
-	if (dc->debug.sanity_checks)
-		hws->funcs.verify_allow_pstate_change_high(dc);
-
-	if (lock)
-		pipe->stream_res.tg->funcs->lock(pipe->stream_res.tg);
+	if (params->lock)
+		params->tg->funcs->lock(params->tg);
 	else
-		pipe->stream_res.tg->funcs->unlock(pipe->stream_res.tg);
+		params->tg->funcs->unlock(params->tg);
 
-	if (dc->debug.sanity_checks)
-		hws->funcs.verify_allow_pstate_change_high(dc);
+	if (params->dc->debug.sanity_checks)
+		hws->funcs.verify_allow_pstate_change_high(params->dc);
 }
 
 /**

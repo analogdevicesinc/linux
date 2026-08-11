@@ -217,15 +217,18 @@ static int find_free_gsl_group(const struct dc *dc)
  * gsl_0 <=> pipe_ctx->stream_res.gsl_group == 1
  * Using a magic value like -1 would require tracking all inits/resets
  */
-void dcn20_setup_gsl_group_as_lock(
+void dcn20_build_gsl_group_as_lock(
 		const struct dc *dc,
 		struct pipe_ctx *pipe_ctx,
-		bool enable)
+		bool enable,
+		struct tg_set_gsl_params *gsl_params,
+		struct tg_set_gsl_source_select_params *gsl_source_select_params)
 {
-	struct gsl_params gsl;
 	int group_idx;
 
-	memset(&gsl, 0, sizeof(struct gsl_params));
+	memset(&gsl_params->gsl, 0, sizeof(gsl_params->gsl));
+	gsl_params->tg = pipe_ctx->stream_res.tg;
+	gsl_source_select_params->tg = pipe_ctx->stream_res.tg;
 
 	if (enable) {
 		/* return if group already assigned since GSL was set up
@@ -241,22 +244,22 @@ void dcn20_setup_gsl_group_as_lock(
 		/* set gsl group reg field and mark resource used */
 		switch (group_idx) {
 		case 1:
-			gsl.gsl0_en = 1;
+			gsl_params->gsl.gsl0_en = 1;
 			dc->res_pool->gsl_groups.gsl_0 = 1;
 			break;
 		case 2:
-			gsl.gsl1_en = 1;
+			gsl_params->gsl.gsl1_en = 1;
 			dc->res_pool->gsl_groups.gsl_1 = 1;
 			break;
 		case 3:
-			gsl.gsl2_en = 1;
+			gsl_params->gsl.gsl2_en = 1;
 			dc->res_pool->gsl_groups.gsl_2 = 1;
 			break;
 		default:
 			BREAK_TO_DEBUGGER();
 			return; // invalid case
 		}
-		gsl.gsl_master_en = 1;
+		gsl_params->gsl.gsl_master_en = 1;
 	} else {
 		group_idx = pipe_ctx->stream_res.gsl_group;
 		if (group_idx == 0)
@@ -267,32 +270,46 @@ void dcn20_setup_gsl_group_as_lock(
 		/* unset gsl group reg field and mark resource free */
 		switch (group_idx) {
 		case 1:
-			gsl.gsl0_en = 0;
 			dc->res_pool->gsl_groups.gsl_0 = 0;
 			break;
 		case 2:
-			gsl.gsl1_en = 0;
 			dc->res_pool->gsl_groups.gsl_1 = 0;
 			break;
 		case 3:
-			gsl.gsl2_en = 0;
 			dc->res_pool->gsl_groups.gsl_2 = 0;
 			break;
 		default:
 			BREAK_TO_DEBUGGER();
 			return;
 		}
-		gsl.gsl_master_en = 0;
 	}
+
+	gsl_source_select_params->group_idx = group_idx;
+	gsl_source_select_params->gsl_ready_signal = enable ? 4 : 0;
+}
+
+void dcn20_setup_gsl_group_as_lock(
+		const struct dc *dc,
+		struct pipe_ctx *pipe_ctx,
+		bool enable)
+{
+	struct tg_set_gsl_params gsl_params = { 0 };
+	struct tg_set_gsl_source_select_params gsl_source_select_params = { 0 };
+
+	dcn20_build_gsl_group_as_lock(dc, pipe_ctx, enable,
+			&gsl_params, &gsl_source_select_params);
+	if (!gsl_source_select_params.group_idx)
+		return;
 
 	/* at this point we want to program whether it's to enable or disable */
 	if (pipe_ctx->stream_res.tg->funcs->set_gsl != NULL) {
 		pipe_ctx->stream_res.tg->funcs->set_gsl(
 			pipe_ctx->stream_res.tg,
-			&gsl);
+			&gsl_params.gsl);
 		if (pipe_ctx->stream_res.tg->funcs->set_gsl_source_select != NULL)
 			pipe_ctx->stream_res.tg->funcs->set_gsl_source_select(
-				pipe_ctx->stream_res.tg, group_idx, enable ? 4 : 0);
+				pipe_ctx->stream_res.tg, gsl_source_select_params.group_idx,
+				gsl_source_select_params.gsl_ready_signal);
 	} else
 		BREAK_TO_DEBUGGER();
 }
@@ -1386,19 +1403,30 @@ void dcn20_enable_plane(struct dc *dc, struct pipe_ctx *pipe_ctx,
 //	}
 }
 
-void dcn20_pipe_control_lock(
-	struct dc *dc,
-	struct pipe_ctx *pipe,
-	bool lock)
+bool dcn20_build_pipe_control_lock_sequence(
+		struct dc *dc,
+		struct pipe_ctx *pipe,
+		bool lock,
+		struct pipe_control_lock_params *params)
 {
 	struct pipe_ctx *temp_pipe;
 	bool flip_immediate = false;
+	unsigned int hubp_count = 0;
 
 	/* use TG master update lock to lock everything on the TG
 	 * therefore only top pipe need to lock
 	 */
 	if (!pipe || pipe->top_pipe)
-		return;
+		return false;
+
+	params->lock = lock;
+	params->tg_lock.dc = dc;
+	params->tg_lock.lock = lock;
+	params->tg_lock.tg = pipe->stream_res.tg;
+	params->tg_lock.use_dmub_inbox1 = pipe->stream &&
+			should_use_dmub_inbox1_lock(dc, pipe->stream->link);
+	params->tg_lock.triplebuffer_flips = pipe->plane_state &&
+			pipe->plane_state->triplebuffer_flips;
 
 	if (pipe->plane_state != NULL)
 		flip_immediate = pipe->plane_state->flip_immediate;
@@ -1413,22 +1441,10 @@ void dcn20_pipe_control_lock(
 	}
 
 	if (flip_immediate && lock) {
-		const unsigned int TIMEOUT_FOR_FLIP_PENDING_US = 100000U;
-		unsigned int polling_interval_us = 1;
-		unsigned int i;
-
 		temp_pipe = pipe;
 		while (temp_pipe) {
-			if (temp_pipe->plane_state && temp_pipe->plane_state->flip_immediate) {
-				for (i = 0; i < TIMEOUT_FOR_FLIP_PENDING_US / polling_interval_us; ++i) {
-					if (!temp_pipe->plane_res.hubp->funcs->hubp_is_flip_pending(temp_pipe->plane_res.hubp))
-						break;
-					udelay(polling_interval_us);
-				}
-
-				/* no reason it should take this long for immediate flips */
-				ASSERT(i != TIMEOUT_FOR_FLIP_PENDING_US);
-			}
+			if (temp_pipe->plane_state && temp_pipe->plane_state->flip_immediate)
+				params->hubps_to_wait_for_flip[hubp_count++] = temp_pipe->plane_res.hubp;
 			temp_pipe = temp_pipe->bottom_pipe;
 		}
 	}
@@ -1438,8 +1454,11 @@ void dcn20_pipe_control_lock(
 	 */
 	if (lock && (pipe->bottom_pipe != NULL || !flip_immediate))
 		if ((flip_immediate && pipe->stream_res.gsl_group == 0) ||
-		    (!flip_immediate && pipe->stream_res.gsl_group > 0))
-			dcn20_setup_gsl_group_as_lock(dc, pipe, flip_immediate);
+		    (!flip_immediate && pipe->stream_res.gsl_group > 0)) {
+			params->gsl_lock = true;
+			dcn20_build_gsl_group_as_lock(dc, pipe, flip_immediate,
+					&params->gsl, &params->gsl_source_select);
+		}
 
 	if (pipe->plane_state != NULL)
 		flip_immediate = pipe->plane_state->flip_immediate;
@@ -1452,37 +1471,53 @@ void dcn20_pipe_control_lock(
 	}
 
 	if (!lock && pipe->stream_res.gsl_group > 0 && pipe->plane_state &&
-		!flip_immediate)
-	    dcn20_setup_gsl_group_as_lock(dc, pipe, false);
+			!flip_immediate) {
+		params->gsl_lock = true;
+		dcn20_build_gsl_group_as_lock(dc, pipe, false,
+				&params->gsl, &params->gsl_source_select);
+	}
 
-	if (pipe->stream && should_use_dmub_inbox1_lock(dc, pipe->stream->link)) {
+	if (!lock && !params->tg_lock.use_dmub_inbox1 &&
+			!params->tg_lock.triplebuffer_flips &&
+			dc->hwseq->funcs.perform_3dlut_wa_unlock) {
+		const struct pipe_ctx *otg_master_pipe = resource_get_otg_master(pipe);
+		const struct pipe_ctx *primary_dpp_pipe = resource_is_pipe_type(pipe, DPP_PIPE) ?
+				resource_get_primary_dpp_pipe(pipe) : pipe;
+
+		if (otg_master_pipe && otg_master_pipe->stream_res.tg &&
+			 primary_dpp_pipe && primary_dpp_pipe->plane_state &&
+				primary_dpp_pipe->plane_state->cm.flags.bits.lut3d_enable &&
+				primary_dpp_pipe->plane_state->cm.flags.bits.lut3d_dma_enable) {
+			params->tg_3dlut_wa_unlock = true;
+			params->tg_3dlut_wa_unlock_params.tg = otg_master_pipe->stream_res.tg;
+			params->tg_3dlut_wa_unlock_params.hubp = primary_dpp_pipe->plane_res.hubp;
+		}
+	}
+
+	return true;
+}
+
+void dcn20_tg_lock(struct tg_lock_params *params)
+{
+	if (params->use_dmub_inbox1) {
 		union dmub_hw_lock_flags hw_locks = { 0 };
 		struct dmub_hw_lock_inst_flags inst_flags = { 0 };
 
 		hw_locks.bits.lock_pipe = 1;
-		inst_flags.otg_inst = (uint8_t)pipe->stream_res.tg->inst;
-
-		if (pipe->plane_state != NULL)
-			hw_locks.bits.triple_buffer_lock = pipe->plane_state->triplebuffer_flips;
-
-		dmub_hw_lock_mgr_cmd(dc->ctx->dmub_srv,
-					lock,
-					&hw_locks,
-					&inst_flags);
-	} else if (pipe->plane_state != NULL && pipe->plane_state->triplebuffer_flips) {
-		if (lock)
-			pipe->stream_res.tg->funcs->triplebuffer_lock(pipe->stream_res.tg);
+		inst_flags.otg_inst = (uint8_t)params->tg->inst;
+		hw_locks.bits.triple_buffer_lock = params->triplebuffer_flips;
+		dmub_hw_lock_mgr_cmd(params->dc->ctx->dmub_srv, params->lock,
+				&hw_locks, &inst_flags);
+	} else if (params->triplebuffer_flips) {
+		if (params->lock)
+			params->tg->funcs->triplebuffer_lock(params->tg);
 		else
-			pipe->stream_res.tg->funcs->triplebuffer_unlock(pipe->stream_res.tg);
+			params->tg->funcs->triplebuffer_unlock(params->tg);
 	} else {
-		if (lock)
-			pipe->stream_res.tg->funcs->lock(pipe->stream_res.tg);
-		else {
-			if (dc->hwseq->funcs.perform_3dlut_wa_unlock)
-				dc->hwseq->funcs.perform_3dlut_wa_unlock(pipe);
-			else
-				pipe->stream_res.tg->funcs->unlock(pipe->stream_res.tg);
-		}
+		if (params->lock)
+			params->tg->funcs->lock(params->tg);
+		else
+			params->tg->funcs->unlock(params->tg);
 	}
 }
 

@@ -217,7 +217,8 @@ struct hwseq_private_funcs {
 	void (*reset_back_end_for_pipe)(struct dc *dc,
 			struct pipe_ctx *pipe_ctx,
 			struct dc_state *context);
-	void (*perform_3dlut_wa_unlock)(struct pipe_ctx *pipe_ctx);
+	void (*perform_3dlut_wa_unlock)(struct timing_generator *tg,
+			struct hubp *primary_hubp);
 	void (*wait_for_pipe_update_if_needed)(struct dc *dc, struct pipe_ctx *pipe_ctx, bool is_surface_update_only);
 	void (*set_wait_for_update_needed_for_pipe)(struct dc *dc, struct pipe_ctx *pipe_ctx);
 	void (*dc_ip_request_cntl)(struct dc *dc, bool enable);

@@ -57,10 +57,7 @@ void dcn10_wait_for_pipe_update_if_needed(
 void dcn10_set_wait_for_update_needed_for_pipe(
 	struct dc *dc,
 	struct pipe_ctx *pipe_ctx);
-void dcn10_pipe_control_lock(
-	struct dc *dc,
-	struct pipe_ctx *pipe,
-	bool lock);
+void dcn10_tg_lock(struct tg_lock_params *params);
 void dcn10_cursor_lock(struct dc *dc, struct pipe_ctx *pipe, bool lock);
 void dcn10_blank_pixel_data(
 		struct dc *dc,
