@@ -14,6 +14,7 @@
 
 #include "dc.h"
 #include "core_types.h"
+#include "clk_mgr.h"
 #include "link_service.h"
 #include "amdgpu.h"
 #include "amdgpu_mode.h"
@@ -4283,6 +4284,255 @@ static void dm_test_read_local_edid_test_request(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, aux->response_written, expected_response.raw);
 }
 
+/*
+ * Fake link service and clock manager for the test-pattern request path, which
+ * would otherwise reach the DSC config update, the clock update and the PHY
+ * test pattern programming.
+ */
+struct dm_test_pattern_state {
+	unsigned int dsc_config_calls;
+	unsigned int set_pattern_calls;
+	unsigned int update_clocks_calls;
+	enum dp_test_pattern last_pattern;
+	enum dp_test_pattern_color_space last_color_space;
+};
+
+static struct dm_test_pattern_state dm_test_pattern;
+
+static bool dm_test_link_update_dsc_config(struct pipe_ctx *pipe_ctx)
+{
+	dm_test_pattern.dsc_config_calls++;
+	return true;
+}
+
+static bool dm_test_link_dp_set_test_pattern(struct dc_link *link,
+					     enum dp_test_pattern test_pattern,
+					     enum dp_test_pattern_color_space color_space,
+					     const struct link_training_settings *settings,
+					     const unsigned char *custom_pattern,
+					     unsigned int custom_pattern_size)
+{
+	dm_test_pattern.set_pattern_calls++;
+	dm_test_pattern.last_pattern = test_pattern;
+	dm_test_pattern.last_color_space = color_space;
+	return true;
+}
+
+static void dm_test_update_clocks(struct clk_mgr *clk_mgr,
+				  struct dc_state *context, bool safe_to_lower)
+{
+	dm_test_pattern.update_clocks_calls++;
+}
+
+static struct clk_mgr_funcs dm_test_clk_mgr_funcs = {
+	.update_clocks = dm_test_update_clocks,
+};
+
+struct dm_test_pattern_fixture {
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_context *ctx;
+	struct dc_link *link;
+	struct dc_stream_state *stream;
+};
+
+static struct dm_test_pattern_fixture dm_test_setup_pattern(struct kunit *test)
+{
+	struct dm_test_pattern_fixture fixture = {0};
+	struct clk_bw_params *bw_params;
+	struct amdgpu_device *adev;
+	struct link_service *link_srv;
+	struct clk_mgr *clk_mgr;
+	struct dc_state *state;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	fixture.ctx = kunit_kzalloc(test, sizeof(*fixture.ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.ctx);
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	clk_mgr = kunit_kzalloc(test, sizeof(*clk_mgr), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, clk_mgr);
+	bw_params = kunit_kzalloc(test, sizeof(*bw_params), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, bw_params);
+	fixture.link = dm_kunit_alloc_link(test);
+	fixture.aconnector = dm_kunit_alloc_connector(test, adev, fixture.link);
+	fixture.stream = dm_kunit_alloc_stream(test, fixture.link);
+
+	link_srv->update_dsc_config = dm_test_link_update_dsc_config;
+	link_srv->dp_set_test_pattern = dm_test_link_dp_set_test_pattern;
+	clk_mgr->funcs = &dm_test_clk_mgr_funcs;
+	clk_mgr->bw_params = bw_params;
+
+	dc->link_srv = link_srv;
+	dc->clk_mgr = clk_mgr;
+	dc->current_state = state;
+	fixture.ctx->dc = dc;
+	fixture.link->dc = dc;
+	fixture.link->priv = fixture.aconnector;
+
+	/* the first pipe drives the link under test */
+	state->res_ctx.pipe_ctx[0].stream = fixture.stream;
+
+	dm_test_pattern = (struct dm_test_pattern_state) {0};
+
+	return fixture;
+}
+
+/**
+ * dm_test_dp_handle_test_pattern_patterns - Test the requested pattern mapping
+ * @test: The KUnit test context
+ */
+static void dm_test_dp_handle_test_pattern_patterns(struct kunit *test)
+{
+	static const struct {
+		u8 pattern;
+		u8 dyn_range;
+		enum dp_test_pattern expected;
+	} cases[] = {
+		{ LINK_TEST_PATTERN_COLOR_RAMP, 0, DP_TEST_PATTERN_COLOR_RAMP },
+		{ LINK_TEST_PATTERN_VERTICAL_BARS, 0, DP_TEST_PATTERN_VERTICAL_BARS },
+		{ LINK_TEST_PATTERN_COLOR_SQUARES, TEST_DYN_RANGE_VESA, DP_TEST_PATTERN_COLOR_SQUARES },
+		{ LINK_TEST_PATTERN_COLOR_SQUARES, TEST_DYN_RANGE_CEA,  DP_TEST_PATTERN_COLOR_SQUARES_CEA },
+		/* PATTERN is 2 bits wide, so NONE is the only unhandled value */
+		{ LINK_TEST_PATTERN_NONE, 0, DP_TEST_PATTERN_VIDEO_MODE },
+	};
+	struct dm_test_pattern_fixture fixture = dm_test_setup_pattern(test);
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		union link_test_pattern test_pattern = {0};
+		union test_misc test_params = {0};
+		bool ret;
+
+		dm_test_pattern = (struct dm_test_pattern_state) {0};
+		test_pattern.bits.PATTERN = cases[i].pattern;
+		test_params.bits.DYN_RANGE = cases[i].dyn_range;
+
+		ret = dm_helpers_dp_handle_test_pattern_request(fixture.ctx, fixture.link,
+								test_pattern, test_params);
+
+		KUNIT_EXPECT_FALSE(test, ret);
+		KUNIT_EXPECT_EQ_MSG(test, (int)dm_test_pattern.last_pattern,
+				    (int)cases[i].expected, "pattern %u", cases[i].pattern);
+		KUNIT_EXPECT_EQ(test, dm_test_pattern.set_pattern_calls, 1U);
+		KUNIT_EXPECT_EQ(test, dm_test_pattern.update_clocks_calls, 1U);
+	}
+}
+
+/**
+ * dm_test_dp_handle_test_pattern_color_spaces - Test the colour space mapping
+ * @test: The KUnit test context
+ */
+static void dm_test_dp_handle_test_pattern_color_spaces(struct kunit *test)
+{
+	static const struct {
+		u8 clr_format;
+		u8 ycbcr_coefs;
+		enum dp_test_pattern_color_space expected;
+	} cases[] = {
+		{ 0, 0, DP_TEST_PATTERN_COLOR_SPACE_RGB },
+		{ 1, 0, DP_TEST_PATTERN_COLOR_SPACE_YCBCR601 },
+		{ 2, 1, DP_TEST_PATTERN_COLOR_SPACE_YCBCR709 },
+	};
+	struct dm_test_pattern_fixture fixture = dm_test_setup_pattern(test);
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		union link_test_pattern test_pattern = {0};
+		union test_misc test_params = {0};
+
+		dm_test_pattern = (struct dm_test_pattern_state) {0};
+		test_params.bits.CLR_FORMAT = cases[i].clr_format;
+		test_params.bits.YCBCR_COEFS = cases[i].ycbcr_coefs;
+
+		dm_helpers_dp_handle_test_pattern_request(fixture.ctx, fixture.link,
+							  test_pattern, test_params);
+
+		KUNIT_EXPECT_EQ_MSG(test, (int)dm_test_pattern.last_color_space,
+				    (int)cases[i].expected, "format %u", cases[i].clr_format);
+	}
+}
+
+/**
+ * dm_test_dp_handle_test_pattern_timing_change - Test the timing update branch
+ * @test: The KUnit test context
+ *
+ * A requested colour depth or pixel encoding that differs from the current
+ * stream timing reprograms the timing and updates the DSC config.
+ */
+static void dm_test_dp_handle_test_pattern_timing_change(struct kunit *test)
+{
+	static const struct {
+		u8 bpc;
+		u8 clr_format;
+		enum dc_color_depth depth;
+		enum dc_pixel_encoding encoding;
+	} cases[] = {
+		{ 2, 1, COLOR_DEPTH_101010, PIXEL_ENCODING_YCBCR422 },
+		{ 3, 2, COLOR_DEPTH_121212, PIXEL_ENCODING_YCBCR444 },
+	};
+	struct dm_test_pattern_fixture fixture = dm_test_setup_pattern(test);
+	struct dc_crtc_timing requested = {0};
+	unsigned int i;
+
+	fixture.aconnector->timing_requested = &requested;
+
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		union link_test_pattern test_pattern = {0};
+		union test_misc test_params = {0};
+
+		dm_test_pattern = (struct dm_test_pattern_state) {0};
+		fixture.stream->timing.display_color_depth = COLOR_DEPTH_888;
+		fixture.stream->timing.pixel_encoding = PIXEL_ENCODING_RGB;
+		test_params.bits.BPC = cases[i].bpc;
+		test_params.bits.CLR_FORMAT = cases[i].clr_format;
+
+		dm_helpers_dp_handle_test_pattern_request(fixture.ctx, fixture.link,
+							  test_pattern, test_params);
+
+		KUNIT_EXPECT_EQ_MSG(test, (int)fixture.stream->timing.display_color_depth,
+				    (int)cases[i].depth, "bpc %u", cases[i].bpc);
+		KUNIT_EXPECT_EQ_MSG(test, (int)fixture.stream->timing.pixel_encoding,
+				    (int)cases[i].encoding, "format %u", cases[i].clr_format);
+		KUNIT_EXPECT_EQ(test, dm_test_pattern.dsc_config_calls, 1U);
+		KUNIT_EXPECT_TRUE(test, fixture.aconnector->timing_changed);
+		KUNIT_EXPECT_EQ(test, (int)requested.display_color_depth,
+				(int)cases[i].depth);
+	}
+}
+
+/**
+ * dm_test_dp_handle_test_pattern_no_timing_storage - Test the missing storage path
+ * @test: The KUnit test context
+ *
+ * Without a timing_requested buffer the helper still reprograms the timing but
+ * reports that it could not store it.
+ */
+static void dm_test_dp_handle_test_pattern_no_timing_storage(struct kunit *test)
+{
+	struct dm_test_pattern_fixture fixture = dm_test_setup_pattern(test);
+	union link_test_pattern test_pattern = {0};
+	union test_misc test_params = {0};
+
+	fixture.aconnector->timing_requested = NULL;
+	fixture.stream->timing.display_color_depth = COLOR_DEPTH_888;
+
+	/* 6 bpc differs from the current 8 bpc timing */
+	test_params.bits.BPC = 0;
+
+	dm_helpers_dp_handle_test_pattern_request(fixture.ctx, fixture.link,
+						  test_pattern, test_params);
+
+	KUNIT_EXPECT_EQ(test, (int)fixture.stream->timing.display_color_depth,
+			(int)COLOR_DEPTH_666);
+	KUNIT_EXPECT_TRUE(test, fixture.aconnector->timing_changed);
+}
+
 /**
  * dm_test_read_local_edid_i2c_no_response - Test the I2C DDC path with no sink
  * @test: The KUnit test context
@@ -4502,6 +4752,10 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_dp_write_dsc_enable_pcon_disable),
 	/* dm_helpers_dp_handle_test_pattern_request */
 	KUNIT_CASE(dm_test_dp_handle_test_pattern_no_pipe),
+	KUNIT_CASE(dm_test_dp_handle_test_pattern_patterns),
+	KUNIT_CASE(dm_test_dp_handle_test_pattern_color_spaces),
+	KUNIT_CASE(dm_test_dp_handle_test_pattern_timing_change),
+	KUNIT_CASE(dm_test_dp_handle_test_pattern_no_timing_storage),
 	/* dm_helpers_submit_i2c_over_aux */
 	KUNIT_CASE(dm_test_submit_i2c_over_aux_unimplemented),
 	/* dm_helpers_allocate_gpu_mem / dm_helpers_free_gpu_mem */
