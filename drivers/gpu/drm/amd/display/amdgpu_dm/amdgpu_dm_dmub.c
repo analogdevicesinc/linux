@@ -65,6 +65,28 @@ MODULE_FIRMWARE(FIRMWARE_DCN_42_DMUB);
 MODULE_FIRMWARE(FIRMWARE_DCN_42B_DMUB);
 MODULE_FIRMWARE(FIRMWARE_DCN_60_DMUB);
 
+#if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
+static const struct amdgpu_dm_dmub_kunit_ops amdgpu_dm_dmub_default_ops = {
+	.ucode_request = amdgpu_ucode_request,
+};
+
+static const struct amdgpu_dm_dmub_kunit_ops *amdgpu_dm_dmub_ops =
+	&amdgpu_dm_dmub_default_ops;
+
+void amdgpu_dm_dmub_kunit_set_ops(const struct amdgpu_dm_dmub_kunit_ops *ops)
+{
+	amdgpu_dm_dmub_ops = ops ? ops : &amdgpu_dm_dmub_default_ops;
+}
+EXPORT_IF_KUNIT(amdgpu_dm_dmub_kunit_set_ops);
+
+#define dmub_ucode_request	amdgpu_dm_dmub_ops->ucode_request
+
+#else
+
+#define dmub_ucode_request	amdgpu_ucode_request
+
+#endif
+
 /**
  * dm_dmub_aux_setconfig_callback - Callback for AUX or SET_CONFIG command.
  * @adev: amdgpu_device pointer
@@ -768,8 +790,8 @@ int dm_init_microcode(struct amdgpu_device *adev)
 		/* ASIC doesn't support DMUB. */
 		return 0;
 	}
-	r = amdgpu_ucode_request(adev, &adev->dm.dmub_fw, AMDGPU_UCODE_REQUIRED,
-				 "%s", fw_name_dmub);
+	r = dmub_ucode_request(adev, &adev->dm.dmub_fw, AMDGPU_UCODE_REQUIRED,
+			       "%s", fw_name_dmub);
 	return r;
 }
 EXPORT_IF_KUNIT(dm_init_microcode);

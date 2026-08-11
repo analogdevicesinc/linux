@@ -14,6 +14,7 @@
 #include "dc/inc/hw/abm.h"
 #include "amdgpu_mode.h"
 #include "amdgpu_dm.h"
+#include "dal_asic_id.h"
 #include "dm_services.h"
 #include "dmub/dmub_srv.h"
 #include "amdgpu_dm_dmub.h"
@@ -1445,6 +1446,32 @@ static const struct amdgpu_dm_services_kunit_ops dm_test_services_ops = {
 	.bo_free_kernel = dm_test_bo_free_kernel,
 };
 
+/* Fake firmware loader, records the firmware name the ASIC switch selected. */
+
+static char dm_test_ucode_name[64];
+static unsigned int dm_test_ucode_calls;
+static int dm_test_ucode_ret;
+
+static __printf(4, 5) int dm_test_ucode_request(struct amdgpu_device *adev,
+						const struct firmware **fw,
+						enum amdgpu_ucode_required required,
+						const char *fmt, ...)
+{
+	va_list args;
+
+	dm_test_ucode_calls++;
+
+	va_start(args, fmt);
+	vsnprintf(dm_test_ucode_name, sizeof(dm_test_ucode_name), fmt, args);
+	va_end(args);
+
+	return dm_test_ucode_ret;
+}
+
+static const struct amdgpu_dm_dmub_kunit_ops dm_test_dmub_ops = {
+	.ucode_request = dm_test_ucode_request,
+};
+
 static int dm_test_dmub_hw_access_init(struct kunit *test)
 {
 	void *cpu_ptr;
@@ -1454,8 +1481,12 @@ static int dm_test_dmub_hw_access_init(struct kunit *test)
 
 	dm_test_bo = (struct dm_test_bo_ctx) { .cpu_ptr = cpu_ptr };
 	dm_test_cgs = (struct dm_test_cgs_ctx) { .dev.ops = &dm_test_cgs_ops };
+	dm_test_ucode_name[0] = '\0';
+	dm_test_ucode_calls = 0;
+	dm_test_ucode_ret = 0;
 
 	amdgpu_dm_services_kunit_set_ops(&dm_test_services_ops);
+	amdgpu_dm_dmub_kunit_set_ops(&dm_test_dmub_ops);
 
 	return 0;
 }
@@ -1463,6 +1494,7 @@ static int dm_test_dmub_hw_access_init(struct kunit *test)
 static void dm_test_dmub_hw_access_exit(struct kunit *test)
 {
 	amdgpu_dm_services_kunit_set_ops(NULL);
+	amdgpu_dm_dmub_kunit_set_ops(NULL);
 }
 
 static struct amdgpu_device *dm_test_alloc_adev_with_cgs(struct kunit *test)
@@ -1608,6 +1640,86 @@ static void dm_test_dmub_get_vbios_bounding_box_copy_timeout(struct kunit *test)
 	KUNIT_EXPECT_TRUE(test, list_empty(&adev->dm.da_list));
 }
 
+/* Tests for dm_init_microcode() */
+
+struct dm_test_ucode_case {
+	u32 dce_version;
+	u32 gc_version;
+	u32 external_rev_id;
+	const char *fw_name;
+};
+
+static const struct dm_test_ucode_case dm_test_ucode_cases[] = {
+	{ IP_VERSION(2, 1, 0), 0, 0, FIRMWARE_RENOIR_DMUB },
+	{ IP_VERSION(2, 1, 0), 0, GREEN_SARDINE_A0, FIRMWARE_GREEN_SARDINE_DMUB },
+	{ IP_VERSION(3, 0, 0), IP_VERSION(10, 3, 0), 0, FIRMWARE_SIENNA_CICHLID_DMUB },
+	{ IP_VERSION(3, 0, 0), IP_VERSION(10, 3, 2), 0, FIRMWARE_NAVY_FLOUNDER_DMUB },
+	{ IP_VERSION(3, 0, 1), 0, 0, FIRMWARE_VANGOGH_DMUB },
+	{ IP_VERSION(3, 0, 2), 0, 0, FIRMWARE_DIMGREY_CAVEFISH_DMUB },
+	{ IP_VERSION(3, 0, 3), 0, 0, FIRMWARE_BEIGE_GOBY_DMUB },
+	{ IP_VERSION(3, 1, 2), 0, 0, FIRMWARE_YELLOW_CARP_DMUB },
+	{ IP_VERSION(3, 1, 3), 0, 0, FIRMWARE_YELLOW_CARP_DMUB },
+	{ IP_VERSION(3, 1, 4), 0, 0, FIRMWARE_DCN_314_DMUB },
+	{ IP_VERSION(3, 1, 5), 0, 0, FIRMWARE_DCN_315_DMUB },
+	{ IP_VERSION(3, 1, 6), 0, 0, FIRMWARE_DCN316_DMUB },
+	{ IP_VERSION(3, 2, 0), 0, 0, FIRMWARE_DCN_V3_2_0_DMCUB },
+	{ IP_VERSION(3, 2, 1), 0, 0, FIRMWARE_DCN_V3_2_1_DMCUB },
+	{ IP_VERSION(3, 5, 0), 0, 0, FIRMWARE_DCN_35_DMUB },
+	{ IP_VERSION(3, 5, 1), 0, 0, FIRMWARE_DCN_351_DMUB },
+	{ IP_VERSION(3, 6, 0), 0, 0, FIRMWARE_DCN_36_DMUB },
+	{ IP_VERSION(4, 0, 1), 0, 0, FIRMWARE_DCN_401_DMUB },
+	{ IP_VERSION(4, 2, 0), 0, 0, FIRMWARE_DCN_42_DMUB },
+	{ IP_VERSION(4, 2, 1), 0, 0, FIRMWARE_DCN_42B_DMUB },
+	{ IP_VERSION(6, 0, 0), 0, 0, FIRMWARE_DCN_60_DMUB },
+};
+
+/**
+ * dm_test_init_microcode_fw_names - Test the ASIC to firmware name mapping
+ * @test: The KUnit test context
+ */
+static void dm_test_init_microcode_fw_names(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	unsigned int i;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+
+	for (i = 0; i < ARRAY_SIZE(dm_test_ucode_cases); i++) {
+		const struct dm_test_ucode_case *c = &dm_test_ucode_cases[i];
+
+		adev->ip_versions[DCE_HWIP][0] = c->dce_version;
+		adev->ip_versions[GC_HWIP][0] = c->gc_version;
+		adev->external_rev_id = c->external_rev_id;
+		dm_test_ucode_name[0] = '\0';
+
+		KUNIT_EXPECT_EQ_MSG(test, dm_init_microcode(adev), 0,
+				    "IP version 0x%08x", c->dce_version);
+		KUNIT_EXPECT_STREQ_MSG(test, dm_test_ucode_name, c->fw_name,
+				       "IP version 0x%08x", c->dce_version);
+	}
+
+	KUNIT_EXPECT_EQ(test, dm_test_ucode_calls,
+			(unsigned int)ARRAY_SIZE(dm_test_ucode_cases));
+}
+
+/**
+ * dm_test_init_microcode_request_fails - Test a firmware request failure
+ * @test: The KUnit test context
+ */
+static void dm_test_init_microcode_request_fails(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 5, 0);
+	dm_test_ucode_ret = -ENOENT;
+
+	KUNIT_EXPECT_EQ(test, dm_init_microcode(adev), -ENOENT);
+}
+
 static struct kunit_case amdgpu_dm_dmub_tests[] = {
 	/* dm_register_dmub_notify_callback() */
 	KUNIT_CASE(dm_test_register_dmub_notify_callback_null_callback),
@@ -1681,6 +1793,9 @@ static struct kunit_case amdgpu_dm_dmub_hw_access_tests[] = {
 	KUNIT_CASE(dm_test_dmub_get_vbios_bounding_box_alloc_fails),
 	KUNIT_CASE(dm_test_dmub_get_vbios_bounding_box_addr_timeout),
 	KUNIT_CASE(dm_test_dmub_get_vbios_bounding_box_copy_timeout),
+	/* dm_init_microcode() */
+	KUNIT_CASE(dm_test_init_microcode_fw_names),
+	KUNIT_CASE(dm_test_init_microcode_request_fails),
 	{}
 };
 

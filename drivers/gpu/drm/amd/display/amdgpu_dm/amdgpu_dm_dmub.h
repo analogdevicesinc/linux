@@ -75,6 +75,15 @@ void abort_fused_io(struct dc_context *ctx,
 		    const struct dmub_cmd_fused_request *request);
 uint32_t amdgpu_dm_dmub_reg_read(void *ctx, uint32_t address);
 void amdgpu_dm_dmub_reg_write(void *ctx, uint32_t address, uint32_t value);
+
+/* Signatures are verbatim copies so an upstream change breaks the default ops. */
+struct amdgpu_dm_dmub_kunit_ops {
+	__printf(4, 5)
+	int (*ucode_request)(struct amdgpu_device *adev, const struct firmware **fw,
+			     enum amdgpu_ucode_required required, const char *fmt, ...);
+};
+
+void amdgpu_dm_dmub_kunit_set_ops(const struct amdgpu_dm_dmub_kunit_ops *ops);
 #endif
 
 #endif /* AMDGPU_DM_AMDGPU_DM_DMUB_H_ */
