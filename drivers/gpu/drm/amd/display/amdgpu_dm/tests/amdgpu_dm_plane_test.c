@@ -3135,6 +3135,56 @@ static void dm_test_plane_destroy_state_releases_resources(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, kref_read(&dc_plane_state->refcount), 1U);
 }
 
+/**
+ * dm_test_add_modifier_dedup_skips_duplicate() - Verify duplicates are not appended.
+ * @test: KUnit test context.
+ *
+ * Verify if a modifier already present in the list is not appended a second
+ * time.
+ */
+static void dm_test_add_modifier_dedup_skips_duplicate(struct kunit *test)
+{
+	u64 size = 2;
+	u64 cap = 4;
+	u64 *mods = kmalloc_array(cap, sizeof(*mods), GFP_KERNEL);
+
+	KUNIT_ASSERT_NOT_NULL(test, mods);
+	mods[0] = 0xAAULL;
+	mods[1] = 0xBBULL;
+
+	amdgpu_dm_plane_add_modifier_dedup(&mods, &size, &cap, 0xAAULL);
+	KUNIT_EXPECT_EQ(test, size, 2ULL);
+
+	amdgpu_dm_plane_add_modifier_dedup(&mods, &size, &cap, 0xBBULL);
+	KUNIT_EXPECT_EQ(test, size, 2ULL);
+
+	amdgpu_dm_plane_add_modifier_dedup(&mods, &size, &cap, 0xCCULL);
+	KUNIT_ASSERT_EQ(test, size, 3ULL);
+	KUNIT_EXPECT_EQ(test, mods[2], 0xCCULL);
+
+	kfree(mods);
+}
+
+/**
+ * dm_test_add_modifier_dedup_noop_when_mods_null() - Verify NULL list is a no-op.
+ * @test: KUnit test context.
+ *
+ * Verify if the de-duplicating append does nothing when the modifier list is
+ * NULL after an earlier allocation failure.
+ */
+static void dm_test_add_modifier_dedup_noop_when_mods_null(struct kunit *test)
+{
+	u64 size = 3;
+	u64 cap = 7;
+	u64 *mods = NULL;
+
+	amdgpu_dm_plane_add_modifier_dedup(&mods, &size, &cap, 0x55ULL);
+
+	KUNIT_EXPECT_PTR_EQ(test, mods, NULL);
+	KUNIT_EXPECT_EQ(test, size, 3ULL);
+	KUNIT_EXPECT_EQ(test, cap, 7ULL);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3221,6 +3271,9 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_add_modifier_appends_value),
 	KUNIT_CASE(dm_test_add_modifier_grows_capacity),
 	KUNIT_CASE(dm_test_add_modifier_noop_when_mods_null),
+	/* amdgpu_dm_plane_add_modifier_dedup() */
+	KUNIT_CASE(dm_test_add_modifier_dedup_skips_duplicate),
+	KUNIT_CASE(dm_test_add_modifier_dedup_noop_when_mods_null),
 	/* amdgpu_dm_plane_fill_gfx9_tiling_info_from_device() */
 	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device_pre_10_3),
 	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device_10_3_plus),
