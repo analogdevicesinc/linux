@@ -468,20 +468,22 @@ enum dmub_ips_disable_type dm_get_default_ips_mode(
 }
 EXPORT_IF_KUNIT(dm_get_default_ips_mode);
 
-static uint32_t amdgpu_dm_dmub_reg_read(void *ctx, uint32_t address)
+STATIC_IFN_KUNIT uint32_t amdgpu_dm_dmub_reg_read(void *ctx, uint32_t address)
 {
 	struct amdgpu_device *adev = ctx;
 
 	return dm_read_reg(adev->dm.dc->ctx, address);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_dmub_reg_read);
 
-static void amdgpu_dm_dmub_reg_write(void *ctx, uint32_t address,
-				     uint32_t value)
+STATIC_IFN_KUNIT void amdgpu_dm_dmub_reg_write(void *ctx, uint32_t address,
+					       uint32_t value)
 {
 	struct amdgpu_device *adev = ctx;
 
 	return dm_write_reg(adev->dm.dc->ctx, address, value);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_dmub_reg_write);
 
 int dm_dmub_sw_init(struct amdgpu_device *adev)
 {

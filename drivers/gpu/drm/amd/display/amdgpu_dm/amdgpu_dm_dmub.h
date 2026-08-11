@@ -73,6 +73,8 @@ struct dmub_cmd_fused_request;
 void *dm_dmub_get_vbios_bounding_box(struct amdgpu_device *adev);
 void abort_fused_io(struct dc_context *ctx,
 		    const struct dmub_cmd_fused_request *request);
+uint32_t amdgpu_dm_dmub_reg_read(void *ctx, uint32_t address);
+void amdgpu_dm_dmub_reg_write(void *ctx, uint32_t address, uint32_t value);
 #endif
 
 #endif /* AMDGPU_DM_AMDGPU_DM_DMUB_H_ */

@@ -1347,6 +1347,86 @@ static void dm_test_abort_fused_io_no_dmub_srv(struct kunit *test)
 	abort_fused_io(ctx, req);
 }
 
+/*
+ * Fake CGS device: the DMUB register callbacks reach the hardware through
+ * cgs_read_register()/cgs_write_register(), which dispatch via the ops table
+ * at the start of struct cgs_device.
+ */
+
+#define DM_TEST_GPINT_STATUS_MASK	0xF0000000U
+
+struct dm_test_cgs_ctx {
+	struct cgs_device dev;
+	u32 last_write;
+	unsigned int write_calls;
+	unsigned int read_calls;
+	unsigned int last_write_offset;
+	unsigned int last_read_offset;
+};
+
+static struct dm_test_cgs_ctx dm_test_cgs;
+
+static uint32_t dm_test_cgs_read_register(struct cgs_device *cgs_device,
+					  unsigned int offset)
+{
+	dm_test_cgs.read_calls++;
+	dm_test_cgs.last_read_offset = offset;
+
+	/* The firmware acks a GPINT by clearing the status nibble. */
+	return dm_test_cgs.last_write & ~DM_TEST_GPINT_STATUS_MASK;
+}
+
+static void dm_test_cgs_write_register(struct cgs_device *cgs_device,
+				       unsigned int offset, uint32_t value)
+{
+	dm_test_cgs.write_calls++;
+	dm_test_cgs.last_write_offset = offset;
+	dm_test_cgs.last_write = value;
+}
+
+static const struct cgs_ops dm_test_cgs_ops = {
+	.read_register = dm_test_cgs_read_register,
+	.write_register = dm_test_cgs_write_register,
+};
+
+static int dm_test_dmub_hw_access_init(struct kunit *test)
+{
+	dm_test_cgs = (struct dm_test_cgs_ctx) { .dev.ops = &dm_test_cgs_ops };
+
+	return 0;
+}
+
+/* Tests for amdgpu_dm_dmub_reg_read() and amdgpu_dm_dmub_reg_write() */
+
+/**
+ * dm_test_dmub_reg_write_then_read - Test the DMUB register access callbacks
+ * @test: The KUnit test context
+ *
+ * The callbacks the DMUB service is created with must forward to the DC
+ * context of the device passed as their opaque user context.
+ */
+static void dm_test_dmub_reg_write_then_read(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_adev_with_dc(test);
+	struct dc_perf_trace *perf_trace;
+
+	perf_trace = kunit_kzalloc(test, sizeof(*perf_trace), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, perf_trace);
+
+	adev->dm.dc->ctx->cgs_device = &dm_test_cgs.dev;
+	adev->dm.dc->ctx->perf_trace = perf_trace;
+
+	amdgpu_dm_dmub_reg_write(adev, 0x1234, 0x0BADF00D);
+
+	KUNIT_EXPECT_EQ(test, dm_test_cgs.write_calls, 1U);
+	KUNIT_EXPECT_EQ(test, dm_test_cgs.last_write_offset, 0x1234U);
+	KUNIT_EXPECT_EQ(test, dm_test_cgs.last_write, 0x0BADF00DU);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dmub_reg_read(adev, 0x1234), 0x0BADF00DU);
+	KUNIT_EXPECT_EQ(test, dm_test_cgs.read_calls, 1U);
+	KUNIT_EXPECT_EQ(test, dm_test_cgs.last_read_offset, 0x1234U);
+}
+
 static struct kunit_case amdgpu_dm_dmub_tests[] = {
 	/* dm_register_dmub_notify_callback() */
 	KUNIT_CASE(dm_test_register_dmub_notify_callback_null_callback),
@@ -1412,7 +1492,20 @@ static struct kunit_suite amdgpu_dm_dmub_test_suite = {
 	.test_cases = amdgpu_dm_dmub_tests,
 };
 
-kunit_test_suite(amdgpu_dm_dmub_test_suite);
+static struct kunit_case amdgpu_dm_dmub_hw_access_tests[] = {
+	/* amdgpu_dm_dmub_reg_read() and amdgpu_dm_dmub_reg_write() */
+	KUNIT_CASE(dm_test_dmub_reg_write_then_read),
+	{}
+};
+
+static struct kunit_suite amdgpu_dm_dmub_hw_access_test_suite = {
+	.name = "amdgpu_dm_dmub_hw_access",
+	.init = dm_test_dmub_hw_access_init,
+	.test_cases = amdgpu_dm_dmub_hw_access_tests,
+};
+
+kunit_test_suites(&amdgpu_dm_dmub_test_suite,
+		  &amdgpu_dm_dmub_hw_access_test_suite);
 
 MODULE_AUTHOR("AMD");
 MODULE_DESCRIPTION("KUnit tests for amdgpu_dm_dmub");
