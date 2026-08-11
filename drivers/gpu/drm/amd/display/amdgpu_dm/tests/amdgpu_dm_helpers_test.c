@@ -223,6 +223,38 @@ static void dm_test_apply_edid_quirks_unknown_noop(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, link->wa_flags.skip_phy_ssc_reduction);
 }
 
+/**
+ * dm_test_apply_edid_quirks_disable_second_tile - Test Apple Studio Display tile quirk
+ * @test: The KUnit test context
+ */
+static void dm_test_apply_edid_quirks_disable_second_tile(struct kunit *test)
+{
+	struct dc_edid_caps edid_caps = {0};
+	struct dc_link *link = dm_test_quirk_link(test);
+	struct edid *edid = dm_test_edid_with_panel_id(test,
+			drm_edid_encode_panel_id('A', 'P', 'P', 0xAE3A));
+
+	apply_edid_quirks(link, edid, &edid_caps);
+
+	KUNIT_EXPECT_TRUE(test, edid_caps.panel_patch.disable_second_tile);
+}
+
+/**
+ * dm_test_apply_edid_quirks_force_freesync_min_60 - Test Lenovo G34w-30 FreeSync min quirk
+ * @test: The KUnit test context
+ */
+static void dm_test_apply_edid_quirks_force_freesync_min_60(struct kunit *test)
+{
+	struct dc_edid_caps edid_caps = {0};
+	struct dc_link *link = dm_test_quirk_link(test);
+	struct edid *edid = dm_test_edid_with_panel_id(test,
+			drm_edid_encode_panel_id('L', 'E', 'N', 0x66F1));
+
+	apply_edid_quirks(link, edid, &edid_caps);
+
+	KUNIT_EXPECT_EQ(test, edid_caps.panel_patch.force_freesync_min_hz, 60U);
+}
+
 /* Tests for dm_helpers_parse_edid_caps() */
 
 /*
@@ -591,6 +623,25 @@ static void dm_test_read_acpi_edid_force_off(struct kunit *test)
 	aconnector = dm_kunit_alloc_connector(test, adev, NULL);
 	aconnector->base.connector_type = DRM_MODE_CONNECTOR_eDP;
 	aconnector->base.force = DRM_FORCE_OFF;
+
+	KUNIT_EXPECT_NULL(test, dm_helpers_read_acpi_edid(aconnector));
+}
+
+/**
+ * dm_test_read_acpi_edid_panel_connector - Test the ACPI EDID read is attempted
+ * @test: The KUnit test context
+ *
+ * An eDP connector that is not forced off reaches drm_edid_read_custom(), whose
+ * probe callback finds no ACPI companion, so no EDID is returned.
+ */
+static void dm_test_read_acpi_edid_panel_connector(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_device *adev;
+
+	adev = dm_kunit_alloc_adev(test);
+	aconnector = dm_kunit_alloc_connector(test, adev, NULL);
+	aconnector->base.connector_type = DRM_MODE_CONNECTOR_eDP;
 
 	KUNIT_EXPECT_NULL(test, dm_helpers_read_acpi_edid(aconnector));
 }
@@ -3742,6 +3793,8 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_apply_edid_quirks_skip_phy_ssc),
 	KUNIT_CASE(dm_test_apply_edid_quirks_force_freesync_min),
 	KUNIT_CASE(dm_test_apply_edid_quirks_unknown_noop),
+	KUNIT_CASE(dm_test_apply_edid_quirks_disable_second_tile),
+	KUNIT_CASE(dm_test_apply_edid_quirks_force_freesync_min_60),
 	/* dm_helpers_parse_edid_caps */
 	KUNIT_CASE(dm_test_parse_edid_caps_null_edid),
 	KUNIT_CASE(dm_test_parse_edid_caps_null_caps),
@@ -3756,6 +3809,7 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_read_acpi_edid_debug_mask_disabled),
 	KUNIT_CASE(dm_test_read_acpi_edid_non_panel_connector),
 	KUNIT_CASE(dm_test_read_acpi_edid_force_off),
+	KUNIT_CASE(dm_test_read_acpi_edid_panel_connector),
 	KUNIT_CASE(dm_test_read_vbios_edid_non_embedded),
 	KUNIT_CASE(dm_test_read_vbios_edid_missing_callback),
 	KUNIT_CASE(dm_test_read_vbios_edid_callback_error),
