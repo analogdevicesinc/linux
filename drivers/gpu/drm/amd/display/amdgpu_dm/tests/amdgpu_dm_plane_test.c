@@ -1191,29 +1191,39 @@ static void dm_test_fill_blending_global_alpha_dcn42(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, global_alpha_value, 0x800);
 }
 
+/* Modifier lists are terminated by DRM_FORMAT_MOD_INVALID, which is not counted. */
+static int dm_test_mods_count(const u64 *mods)
+{
+	int i = 0;
+
+	while (mods[i] != DRM_FORMAT_MOD_INVALID)
+		i++;
+
+	return i;
+}
+
 static void dm_test_expect_mods_terminated(struct kunit *test, struct amdgpu_device *adev)
 {
 	u64 *mods = NULL;
 	int ret;
-	int i;
+	int count;
 
 	ret = amdgpu_dm_plane_get_plane_modifiers(adev, DRM_PLANE_TYPE_PRIMARY, &mods);
 	KUNIT_ASSERT_EQ(test, ret, 0);
 	KUNIT_ASSERT_NOT_NULL(test, mods);
 
-	for (i = 0; mods[i] != DRM_FORMAT_MOD_INVALID; i++)
-		;
-
-	KUNIT_EXPECT_GT(test, i, 0);
-	KUNIT_EXPECT_EQ(test, mods[i - 1], DRM_FORMAT_MOD_LINEAR);
+	count = dm_test_mods_count(mods);
+	KUNIT_EXPECT_GT(test, count, 0);
+	KUNIT_EXPECT_EQ(test, mods[count - 1], DRM_FORMAT_MOD_LINEAR);
 	kfree(mods);
 }
 
 static bool dm_test_mods_contain(const u64 *mods, u64 expected)
 {
+	int count = dm_test_mods_count(mods);
 	int i;
 
-	for (i = 0; mods[i] != DRM_FORMAT_MOD_INVALID; i++) {
+	for (i = 0; i < count; i++) {
 		if (mods[i] == expected)
 			return true;
 	}
@@ -3492,6 +3502,63 @@ static void dm_test_gfx6_format_mod_supported(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, amdgpu_dm_plane_gfx6_format_mod_supported(adev, 32, modifier));
 }
 
+/**
+ * dm_test_get_plane_modifiers_gfx6() - Verify GFX6-8 modifier list generation.
+ * @test: KUnit test context.
+ *
+ * Verify if a GFX6-8 family device exposes one macro tiled modifier per
+ * distinct bits per pixel plus a micro tiled one, and that the duplicate 32 bpp
+ * modifier is de-duplicated.
+ */
+static void dm_test_get_plane_modifiers_gfx6(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_gfx7_device(test);
+	u64 *mods = dm_test_get_primary_mods(test, adev);
+	u64 mod_1d = AMD_FMT_MOD |
+		     AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX6) |
+		     AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX6_1D_TILED_THIN1) |
+		     AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_DISPLAY);
+
+	/* 16 bpp, 64 bpp, micro tiled and linear; the 32 bpp duplicate is dropped. */
+	KUNIT_EXPECT_EQ(test, dm_test_mods_count(mods), 4);
+	KUNIT_EXPECT_EQ(test, mods[0],
+			dm_test_gfx6_mod(AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1, 2, 2, 1, 2, 3, 2));
+	KUNIT_EXPECT_EQ(test, mods[1],
+			dm_test_gfx6_mod(AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1, 2, 3, 2, 2, 2, 0));
+	KUNIT_EXPECT_EQ(test, mods[2], mod_1d);
+	KUNIT_EXPECT_EQ(test, mods[3], DRM_FORMAT_MOD_LINEAR);
+
+	kfree(mods);
+}
+
+/**
+ * dm_test_format_mod_supported_gfx6() - Verify dispatch to the GFX6-8 check.
+ * @test: KUnit test context.
+ *
+ * Verify if a listed GFX6 tile version modifier is validated through the
+ * GFX6-8 specific helper.
+ */
+static void dm_test_format_mod_supported_gfx6(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_gfx7_device(test);
+	struct drm_plane *plane;
+	u64 listed_mod = amdgpu_dm_plane_calc_gfx6_mod(adev, 32, DC_ARRAY_2D_TILED_THIN1);
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+
+	plane->dev = &adev->ddev;
+	plane->modifiers = &listed_mod;
+	plane->modifier_count = 1;
+
+	KUNIT_EXPECT_TRUE(test,
+			  amdgpu_dm_plane_format_mod_supported(plane, DRM_FORMAT_XRGB8888,
+							       listed_mod));
+	KUNIT_EXPECT_FALSE(test,
+			   amdgpu_dm_plane_format_mod_supported(plane, DRM_FORMAT_XRGB16161616,
+								listed_mod));
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3511,6 +3578,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_get_plane_formats_overlay_universal_cap),
 	/* amdgpu_dm_plane_get_plane_modifiers() */
 	KUNIT_CASE(dm_test_get_plane_modifiers),
+	KUNIT_CASE(dm_test_get_plane_modifiers_gfx6),
 	KUNIT_CASE(dm_test_get_plane_modifiers_gfx9),
 	KUNIT_CASE(dm_test_get_plane_modifiers_rv),
 	KUNIT_CASE(dm_test_get_plane_modifiers_rv_constant_encode),
@@ -3535,6 +3603,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_format_mod_supported() */
 	KUNIT_CASE(dm_test_format_mod_supported),
 	KUNIT_CASE(dm_test_format_mod_supported_d_swizzle_reject),
+	KUNIT_CASE(dm_test_format_mod_supported_gfx6),
 	/* amdgpu_dm_plane_fill_gfx12_attrs_from_modifiers() */
 	KUNIT_CASE(dm_test_fill_gfx12_plane_attributes_from_modifiers),
 	KUNIT_CASE(dm_test_fill_gfx12_plane_attributes_block0),
