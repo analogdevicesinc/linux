@@ -1,0 +1,52 @@
+name: Hardware Test
+
+on:
+  workflow_call:
+    inputs:
+      test-set:
+        description: 'hw-test test set name, e.g. adsp/u-boot'
+        required: true
+        type: string
+      needs:
+        description: 'JSON array of hw-test needs, e.g. ["sc598", "ezkit"]'
+        required: false
+        type: string
+        default: ''
+      labgrid-target:
+        description: 'Optional explicit labgrid place, e.g. MUN-01-SC598_EZKIT-02'
+        required: false
+        type: string
+        default: ''
+      hw-test-ref:
+        description: 'analogdevicesinc/hw-test ref to check out'
+        required: false
+        type: string
+        default: 'main'
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+jobs:
+  hardware-test:
+    runs-on: ${{ vars.RUNNER_HW_TEST != '' && fromJSON(vars.RUNNER_HW_TEST) || 'ubuntu-latest' }}
+    env:
+      LG_COORDINATOR: ${{ secrets.LG_COORDINATOR }}
+
+    steps:
+      - name: Checkout hw-test
+        uses: actions/checkout@v6
+        with:
+          repository: analogdevicesinc/hw-test
+          ref: ${{ inputs.hw-test-ref }}
+
+      - name: Run hardware test (${{ inputs.test-set }})
+        uses: ./run-test
+        with:
+          set: >
+            {
+              "name": "${{ inputs.test-set }}"
+            ${{ inputs.needs != '' && format(', "needs": {0}', inputs.needs) || '' }}
+            ${{ inputs.labgrid-target != '' && format(', "labgrid_target": "{0}"', inputs.labgrid-target) || '' }}
+            }
