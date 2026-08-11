@@ -634,6 +634,7 @@ static int ext2_parse_param(struct fs_context *fc, struct fs_parameter *param)
 static int ext2_setup_super (struct super_block * sb,
 			      struct ext2_super_block * es,
 			      int read_only)
+	__must_hold(&EXT2_SB(sb)->s_lock)
 {
 	int res = 0;
 	struct ext2_sb_info *sbi = EXT2_SB(sb);
@@ -895,7 +896,7 @@ static int ext2_fill_super(struct super_block *sb, struct fs_context *fc)
 	sb->s_fs_info = sbi;
 	sbi->s_sb_block = sb_block;
 
-	spin_lock_init(&sbi->s_lock);
+	guard(spinlock_init)(&EXT2_SB(sb)->s_lock);
 	ret = -EINVAL;
 
 	/*

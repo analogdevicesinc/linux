@@ -86,7 +86,7 @@ struct ext2_sb_info {
 	unsigned long s_sb_block;
 	kuid_t s_resuid;
 	kgid_t s_resgid;
-	unsigned short s_mount_state;
+	unsigned short s_mount_state __guarded_by(&s_lock);
 	unsigned short s_pad;
 	int s_addr_per_block_bits;
 	int s_desc_per_block_bits;
