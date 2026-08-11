@@ -48,7 +48,7 @@ static int open_vgem(void)
 
 		snprintf(name, 80, "%s%u", drmstr, i);
 
-		fd = open(name, O_RDWR);
+		fd = open(name, O_RDONLY);
 		if (fd < 0)
 			continue;
 
@@ -96,7 +96,7 @@ static int dmabuf_heap_open(char *name)
 	if (ret < 0)
 		ksft_exit_fail_msg("snprintf failed! %d\n", ret);
 
-	fd = open(buf, O_RDWR);
+	fd = open(buf, O_RDONLY);
 	if (fd < 0)
 		ksft_exit_fail_msg("open %s failed: %s\n", buf, strerror(errno));
 
