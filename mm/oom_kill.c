@@ -230,7 +230,7 @@ long oom_badness(struct task_struct *p, unsigned long totalpages)
 	task_unlock(p);
 
 	/* Normalize to oom_score_adj units */
-	adj *= totalpages / 1000;
+	adj *= totalpages / OOM_SCORE_ADJ_MAX;
 	points += adj;
 
 	return points;
