@@ -67,6 +67,12 @@
 #define CPG_PLL_MON_LOCK		BIT(4)
 #define CPG_PLL_MON_RESETB		BIT(0)
 
+#define DIV_DSI_A_SET    GENMASK(2, 0)
+#define DIV_DSI_B_SET    GENMASK(7, 4)
+
+#define RZG3L_SDIV_DIV_DSI_A_WEN	BIT(16)
+#define RZG3L_SDIV_DIV_DSI_B_WEN	BIT(20)
+
 #define CLK_ON_R(reg)		(reg)
 #define CLK_MON_R(reg)		(0x180 + (reg))
 #define CLK_RST_R(reg)		(reg)
@@ -833,6 +839,123 @@ rzg2l_cpg_dsi_div_clk_register(const struct cpg_core_clk *core,
 	return clk_hw->clk;
 }
 
+struct g3l_dsi_div_hw_data {
+	struct clk_hw hw;
+	struct rzg2l_cpg_priv *priv;
+	unsigned long rate;
+	u32 off;
+	u8 div_a;
+	u8 div_b;
+};
+
+#define to_g3l_dsi_div_hw_data(_hw)	container_of(_hw, struct g3l_dsi_div_hw_data, hw)
+
+static unsigned long rzg3l_cpg_dsi_div_recalc_rate(struct clk_hw *hw,
+						   unsigned long parent_rate)
+{
+	struct g3l_dsi_div_hw_data *dsi_div = to_g3l_dsi_div_hw_data(hw);
+	struct rzg2l_cpg_priv *priv = dsi_div->priv;
+	int div_a, div_b, val;
+
+	val = readl(priv->base + dsi_div->off);
+	div_a = FIELD_GET(DIV_DSI_A_SET, val);
+	div_b = FIELD_GET(DIV_DSI_B_SET, val);
+
+	return DIV_ROUND_CLOSEST_ULL((u64)parent_rate, (div_b + 1) << div_a);
+}
+
+static int rzg3l_cpg_dsi_div_determine_rate(struct clk_hw *hw,
+					    struct clk_rate_request *req)
+{
+	struct g3l_dsi_div_hw_data *dsi_div = to_g3l_dsi_div_hw_data(hw);
+	struct rzg2l_cpg_priv *priv = dsi_div->priv;
+	unsigned int divider = dsi_div_ab_desired;
+	unsigned int div_b_max = dsi_div_target ? 15 : 0;
+	bool divider_found = false;
+
+	for (unsigned int i = 0; i <= 5 && !divider_found; i++) {
+		unsigned int div_a = 5 - i;
+
+		for (unsigned int div_b = 0; div_b <= div_b_max; div_b++) {
+			divider = (div_b + 1) << div_a;
+			if (divider == dsi_div_ab_desired) {
+				dsi_div->div_a = div_a;
+				dsi_div->div_b = div_b;
+				divider_found = true;
+				break;
+			}
+		}
+	}
+
+	if (!divider_found) {
+		dev_err(priv->dev, "failed dsi div for: %u\n", divider);
+		return -EINVAL;
+	}
+
+	req->best_parent_rate = req->rate * divider;
+
+	return 0;
+}
+
+static int rzg3l_cpg_dsi_div_set_rate(struct clk_hw *hw, unsigned long rate,
+				      unsigned long parent_rate)
+{
+	struct g3l_dsi_div_hw_data *dsi_div = to_g3l_dsi_div_hw_data(hw);
+	struct rzg2l_cpg_priv *priv = dsi_div->priv;
+
+	writel(RZG3L_SDIV_DIV_DSI_A_WEN | RZG3L_SDIV_DIV_DSI_B_WEN |
+	       FIELD_PREP(DIV_DSI_A_SET, dsi_div->div_a) |
+	       FIELD_PREP(DIV_DSI_B_SET, dsi_div->div_b),
+	       priv->base + dsi_div->off);
+
+	return 0;
+}
+
+static const struct clk_ops rzg3l_cpg_dsi_div_ops = {
+	.recalc_rate = rzg3l_cpg_dsi_div_recalc_rate,
+	.determine_rate = rzg3l_cpg_dsi_div_determine_rate,
+	.set_rate = rzg3l_cpg_dsi_div_set_rate,
+};
+
+static struct clk * __init
+rzg3l_cpg_dsi_div_clk_register(const struct cpg_core_clk *core,
+			       struct rzg2l_cpg_priv *priv)
+{
+	struct g3l_dsi_div_hw_data *clk_hw_data;
+	const struct clk *parent;
+	const char *parent_name;
+	struct clk_init_data init;
+	struct clk_hw *clk_hw;
+	int ret;
+
+	parent = priv->clks[core->parent];
+	if (IS_ERR(parent))
+		return ERR_CAST(parent);
+
+	clk_hw_data = devm_kzalloc(priv->dev, sizeof(*clk_hw_data), GFP_KERNEL);
+	if (!clk_hw_data)
+		return ERR_PTR(-ENOMEM);
+
+	clk_hw_data->priv = priv;
+	clk_hw_data->off = core->conf;
+
+	parent_name = __clk_get_name(parent);
+	init.name = core->name;
+	init.ops = &rzg3l_cpg_dsi_div_ops;
+	init.flags = CLK_SET_RATE_PARENT;
+	init.parent_names = &parent_name;
+	init.num_parents = 1;
+
+	clk_hw = &clk_hw_data->hw;
+	clk_hw->init = &init;
+
+	ret = devm_clk_hw_register(priv->dev, clk_hw);
+	if (ret)
+		return ERR_PTR(ret);
+
+	return clk_hw->clk;
+}
+
 struct pll5_mux_hw_data {
 	struct clk_hw hw;
 	u32 conf;
@@ -1339,6 +1462,9 @@ rzg2l_cpg_register_core_clk(const struct cpg_core_clk *core,
 		break;
 	case CLK_TYPE_DSI_DIV:
 		clk = rzg2l_cpg_dsi_div_clk_register(core, priv);
+		break;
+	case CLK_TYPE_G3L_DSI_DIV:
+		clk = rzg3l_cpg_dsi_div_clk_register(core, priv);
 		break;
 	default:
 		goto fail;

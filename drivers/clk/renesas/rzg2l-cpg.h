@@ -142,6 +142,8 @@ enum clk_types {
 	/* Clock for DSI divider */
 	CLK_TYPE_DSI_DIV,
 
+	/* Clock for G3L DSI divider */
+	CLK_TYPE_G3L_DSI_DIV,
 };
 
 #define DEF_TYPE(_name, _id, _type...) \
@@ -201,6 +203,9 @@ enum clk_types {
 		 .num_parents = ARRAY_SIZE(_parent_names))
 #define DEF_DSI_DIV(_name, _id, _parent, _flag) \
 	DEF_TYPE(_name, _id, CLK_TYPE_DSI_DIV, .parent = _parent, .flag = _flag)
+#define DEF_G3L_DSI_DIV(_name, _id, _parent, _conf) \
+	DEF_TYPE(_name, _id, CLK_TYPE_G3L_DSI_DIV, .parent = _parent, .conf = _conf, \
+		 .flag = CLK_SET_RATE_PARENT)
 
 /**
  * struct rzg2l_mod_clk - Module Clocks definitions
