@@ -10,11 +10,14 @@
 #include <drm/drm_blend.h>
 #include "link_enc_cfg.h"
 #include "amdgpu_dm_plane.h"
+#include "amdgpu_dm_kunit_test_helpers.h"
 #include "amdgpu_rlc.h"
 #include "gc/gc_11_0_0_offset.h"
 #include "gc/gc_11_0_0_sh_mask.h"
 #include <drm/amdgpu_drm.h>
+#include <drm/drm_mode_config.h>
 #include <drm/drm_plane.h>
+#include <drm/drm_property.h>
 
 struct dm_test_dcc_cap_ctx {
 	bool callback_ret;
@@ -3001,6 +3004,78 @@ static void dm_test_plane_duplicate_state_copies_fields(struct kunit *test)
 	kfree(dup_state);
 }
 
+/*
+ * Attach a blob to every color property of @state. Each blob starts with a
+ * single reference that the tested function is expected to drop or share.
+ */
+static void dm_test_attach_color_blobs(struct kunit *test, struct drm_device *dev,
+				       struct dm_plane_state *state)
+{
+	struct drm_property_blob **blobs[] = {
+		&state->degamma_lut, &state->ctm, &state->lut3d,
+		&state->shaper_lut, &state->blend_lut,
+	};
+	u32 blob_data = 0;
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(blobs); i++) {
+		*blobs[i] = drm_property_create_blob(dev, sizeof(blob_data), &blob_data);
+		KUNIT_ASSERT_NOT_ERR_OR_NULL(test, *blobs[i]);
+	}
+}
+
+/**
+ * dm_test_plane_duplicate_state_copies_resources() - Verify blob and DC state sharing.
+ * @test: KUnit test context.
+ *
+ * Verify amdgpu_dm_plane_drm_plane_duplicate_state() shares the DC plane state
+ * and every color blob with the duplicate, taking an extra reference on each.
+ */
+static void dm_test_plane_duplicate_state_copies_resources(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dm_plane_state *old_state;
+	struct drm_plane_state *dup_base;
+	struct dm_plane_state *dup_state;
+	struct dc_plane_state *dc_plane_state;
+	struct drm_plane *plane;
+
+	KUNIT_ASSERT_EQ(test, drmm_mode_config_init(&adev->ddev), 0);
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	old_state = kunit_kzalloc(test, sizeof(*old_state), GFP_KERNEL);
+	dc_plane_state = kunit_kzalloc(test, sizeof(*dc_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	KUNIT_ASSERT_NOT_NULL(test, old_state);
+	KUNIT_ASSERT_NOT_NULL(test, dc_plane_state);
+
+	kref_init(&dc_plane_state->refcount);
+	old_state->dc_state = dc_plane_state;
+	dm_test_attach_color_blobs(test, &adev->ddev, old_state);
+	plane->state = &old_state->base;
+
+	dup_base = amdgpu_dm_plane_drm_plane_duplicate_state(plane);
+	KUNIT_ASSERT_NOT_NULL(test, dup_base);
+
+	dup_state = to_dm_plane_state(dup_base);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->dc_state, dc_plane_state);
+	KUNIT_EXPECT_EQ(test, kref_read(&dc_plane_state->refcount), 2U);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->degamma_lut, old_state->degamma_lut);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->ctm, old_state->ctm);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->shaper_lut, old_state->shaper_lut);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->lut3d, old_state->lut3d);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->blend_lut, old_state->blend_lut);
+
+	/* Drops the duplicate's references; the originals are released below. */
+	amdgpu_dm_plane_drm_plane_destroy_state(plane, dup_base);
+
+	drm_property_blob_put(old_state->degamma_lut);
+	drm_property_blob_put(old_state->ctm);
+	drm_property_blob_put(old_state->lut3d);
+	drm_property_blob_put(old_state->shaper_lut);
+	drm_property_blob_put(old_state->blend_lut);
+}
+
 /**
  * dm_test_plane_destroy_state_minimal() - Verify destroy of a minimal state.
  * @test: KUnit test context.
@@ -3022,6 +3097,42 @@ static void dm_test_plane_destroy_state_minimal(struct kunit *test)
 	KUNIT_ASSERT_NOT_NULL(test, dm_plane_state);
 
 	amdgpu_dm_plane_drm_plane_destroy_state(plane, &dm_plane_state->base);
+}
+
+/**
+ * dm_test_plane_destroy_state_releases_resources() - Verify blob and DC state release.
+ * @test: KUnit test context.
+ *
+ * Verify amdgpu_dm_plane_drm_plane_destroy_state() drops a reference on every
+ * attached color blob and on the DC plane state.
+ */
+static void dm_test_plane_destroy_state_releases_resources(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dm_plane_state *dm_plane_state;
+	struct dc_plane_state *dc_plane_state;
+	struct drm_plane *plane;
+
+	KUNIT_ASSERT_EQ(test, drmm_mode_config_init(&adev->ddev), 0);
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	dc_plane_state = kunit_kzalloc(test, sizeof(*dc_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	KUNIT_ASSERT_NOT_NULL(test, dc_plane_state);
+
+	/* destroy_state frees the state itself, so use a plain allocation. */
+	dm_plane_state = kzalloc(sizeof(*dm_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dm_plane_state);
+
+	/* Hold an extra reference so the release does not free KUnit memory. */
+	kref_init(&dc_plane_state->refcount);
+	kref_get(&dc_plane_state->refcount);
+	dm_plane_state->dc_state = dc_plane_state;
+	dm_test_attach_color_blobs(test, &adev->ddev, dm_plane_state);
+
+	amdgpu_dm_plane_drm_plane_destroy_state(plane, &dm_plane_state->base);
+
+	KUNIT_EXPECT_EQ(test, kref_read(&dc_plane_state->refcount), 1U);
 }
 
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
@@ -3102,8 +3213,10 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_plane_reset_initializes_state),
 	/* amdgpu_dm_plane_drm_plane_duplicate_state() */
 	KUNIT_CASE(dm_test_plane_duplicate_state_copies_fields),
+	KUNIT_CASE(dm_test_plane_duplicate_state_copies_resources),
 	/* amdgpu_dm_plane_drm_plane_destroy_state() */
 	KUNIT_CASE(dm_test_plane_destroy_state_minimal),
+	KUNIT_CASE(dm_test_plane_destroy_state_releases_resources),
 	/* amdgpu_dm_plane_add_modifier() */
 	KUNIT_CASE(dm_test_add_modifier_appends_value),
 	KUNIT_CASE(dm_test_add_modifier_grows_capacity),
