@@ -6654,7 +6654,7 @@ static void CalculateFlipSchedule(
 			l->lb_flip_bw = math_max3(
 				l->hvm_scaled_vm_row_bytes / l->vm_and_row_time_budget,
 				l->hvm_scaled_vm_bytes / math_min2(l->vm_time_budget, 31.75 * LineTime - Tno_bw_flip),
-				l->dpte_row_bytes * HostVMInefficiencyFactor / math_min2(l->row_time_budget, 15.75 * LineTime));
+				(l->dpte_row_bytes * HostVMInefficiencyFactor + meta_row_bytes) / math_min2(l->row_time_budget / 2, 15.75 * LineTime)); //use bandwidth for a single row
 #ifdef __DML_VBA_DEBUG__
 			DML_LOG_VERBOSE("DML::%s: max_flip_time = %f\n", __func__, l->max_flip_time);
 			DML_LOG_VERBOSE("DML::%s: total vm bytes (hvm ineff scaled) = %f\n", __func__, l->hvm_scaled_vm_bytes);
@@ -6681,7 +6681,7 @@ static void CalculateFlipSchedule(
 					Tno_bw_flip + vm_bytes * HostVMInefficiencyFactor / l->lb_flip_bw,
 					LineTime / 4.0);
 			l->Tr0_flip = math_max3(Tr0_trips_flip,
-					l->dpte_row_bytes * HostVMInefficiencyFactor / l->lb_flip_bw,
+					(l->dpte_row_bytes * HostVMInefficiencyFactor + meta_row_bytes) / l->lb_flip_bw,
 					LineTime / 4.0);
 
 			*dst_y_per_vm_flip = math_ceil2(4.0 * l->Tvm_flip / LineTime, 1.0) / 4.0;
