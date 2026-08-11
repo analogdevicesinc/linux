@@ -62,7 +62,7 @@
 		interrupts = <0 104 4>;
 		reg = <0x0 0x88160000 0x0 0x1000>;
 		xlnx,kind-of-intr = <0xffe0385>;
-		xlnx,num-intr-inputs = <17>;
+		xlnx,num-intr-inputs = <32>;
 	};
 
 	adf4382_spi: spi@88000000 {
