@@ -3185,6 +3185,98 @@ static void dm_test_add_modifier_dedup_noop_when_mods_null(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, cap, 7ULL);
 }
 
+static int dm_test_gfx6_tiling(struct dc_tiling_info *tiling_info, u64 modifier)
+{
+	return amdgpu_dm_plane_fill_gfx6_tiling_info_from_modifier(tiling_info, modifier);
+}
+
+/**
+ * dm_test_fill_gfx6_tiling_info_linear() - Verify linear modifier decoding.
+ * @test: KUnit test context.
+ *
+ * Verify if a linear modifier maps to the generic linear array mode.
+ */
+static void dm_test_fill_gfx6_tiling_info_linear(struct kunit *test)
+{
+	struct dc_tiling_info tiling_info = {0};
+
+	KUNIT_EXPECT_EQ(test, dm_test_gfx6_tiling(&tiling_info, DRM_FORMAT_MOD_LINEAR), 0);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfx8.array_mode, (int)DC_ARRAY_LINEAR_GENERAL);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfxversion, (int)DcGfxVersion8);
+}
+
+/**
+ * dm_test_fill_gfx6_tiling_info_rejects() - Verify unsupported modifiers fail.
+ * @test: KUnit test context.
+ *
+ * Verify if non-AMD modifiers and AMD modifiers from a newer tile version are
+ * rejected.
+ */
+static void dm_test_fill_gfx6_tiling_info_rejects(struct kunit *test)
+{
+	struct dc_tiling_info tiling_info = {0};
+	u64 not_amd_mod = DRM_FORMAT_MOD_VENDOR_AMD;
+	u64 gfx9_mod = AMD_FMT_MOD | AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX9);
+
+	KUNIT_EXPECT_EQ(test, dm_test_gfx6_tiling(&tiling_info, not_amd_mod), -EINVAL);
+	KUNIT_EXPECT_EQ(test, dm_test_gfx6_tiling(&tiling_info, gfx9_mod), -EINVAL);
+}
+
+/**
+ * dm_test_fill_gfx6_tiling_info_1d() - Verify micro tiled modifier decoding.
+ * @test: KUnit test context.
+ *
+ * Verify if a 1D tiled modifier stops before decoding the macro tiling fields.
+ */
+static void dm_test_fill_gfx6_tiling_info_1d(struct kunit *test)
+{
+	struct dc_tiling_info tiling_info = {0};
+	u64 modifier = AMD_FMT_MOD |
+		       AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX6) |
+		       AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX6_1D_TILED_THIN1) |
+		       AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_DISPLAY) |
+		       AMD_FMT_MOD_SET(NUM_BANKS, 3);
+
+	KUNIT_EXPECT_EQ(test, dm_test_gfx6_tiling(&tiling_info, modifier), 0);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfx8.array_mode,
+			(int)AMD_FMT_MOD_TILE_GFX6_1D_TILED_THIN1);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfxversion, (int)DcGfxVersion8);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.num_banks, 0U);
+}
+
+/**
+ * dm_test_fill_gfx6_tiling_info_2d() - Verify macro tiled modifier decoding.
+ * @test: KUnit test context.
+ *
+ * Verify if a 2D tiled modifier decodes the full set of macro tiling fields.
+ */
+static void dm_test_fill_gfx6_tiling_info_2d(struct kunit *test)
+{
+	struct dc_tiling_info tiling_info = {0};
+	u64 modifier = AMD_FMT_MOD |
+		       AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX6) |
+		       AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1) |
+		       AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_DISPLAY) |
+		       AMD_FMT_MOD_SET(PIPE_CONFIG, 5) |
+		       AMD_FMT_MOD_SET(TILE_SPLIT, 4) |
+		       AMD_FMT_MOD_SET(BANK_WIDTH, 1) |
+		       AMD_FMT_MOD_SET(BANK_HEIGHT, 2) |
+		       AMD_FMT_MOD_SET(MACRO_TILE_ASPECT, 3) |
+		       AMD_FMT_MOD_SET(NUM_BANKS, 2);
+
+	KUNIT_EXPECT_EQ(test, dm_test_gfx6_tiling(&tiling_info, modifier), 0);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfx8.array_mode,
+			(int)AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfx8.tile_mode,
+			(int)AMD_FMT_MOD_MICROTILE_DISPLAY);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.pipe_config, 5U);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.tile_split, 4U);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.bank_width, 1U);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.bank_height, 2U);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.tile_aspect, 3U);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.num_banks, 2U);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3274,6 +3366,11 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_add_modifier_dedup() */
 	KUNIT_CASE(dm_test_add_modifier_dedup_skips_duplicate),
 	KUNIT_CASE(dm_test_add_modifier_dedup_noop_when_mods_null),
+	/* amdgpu_dm_plane_fill_gfx6_tiling_info_from_modifier() */
+	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_linear),
+	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_rejects),
+	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_1d),
+	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_2d),
 	/* amdgpu_dm_plane_fill_gfx9_tiling_info_from_device() */
 	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device_pre_10_3),
 	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device_10_3_plus),
