@@ -1322,6 +1322,24 @@ config VIDEO_ISL7998X
 	  Support for Intersil ISL7998x analog to MIPI-CSI2 or
 	  BT.656 decoder.
 
+config VIDEO_IT6625
+	tristate "IT6625 HDMI to MIPI CSI bridge"
+	depends on VIDEO_DEV && I2C
+	depends on OF
+	select CEC_CORE
+	select MEDIA_CONTROLLER
+	select REGMAP_I2C
+	select V4L2_FWNODE
+	select VIDEO_V4L2_SUBDEV_API
+	help
+	  V4L2 subdevice driver for the ITE IT6625/IT6626 HDMI to MIPI
+	  CSI-2 bridge chips. IT6625 accepts an HDMI 2.0 input and
+	  IT6626 an HDMI 2.1 input, converting it to a MIPI CSI-2
+	  output. The driver also exposes an HDMI CEC adapter.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called it6625.
+
 config VIDEO_LT6911UXE
 	tristate "Lontium LT6911UXE decoder"
 	depends on ACPI && VIDEO_DEV && I2C

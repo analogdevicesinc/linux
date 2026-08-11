@@ -13965,6 +13965,14 @@ T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
 F:	Documentation/devicetree/bindings/display/bridge/ite,it66121.yaml
 F:	drivers/gpu/drm/bridge/ite-it66121.c
 
+ITE IT6625 HDMI to MIPI MEDIA DRIVER
+M:	Hermes Wu <Hermes.Wu@ite.com.tw>
+S:	Maintained
+T:	git git://linuxtv.org/media.git
+F:	Documentation/devicetree/bindings/media/i2c/ite,it6625.yaml
+F:	drivers/media/i2c/it6625.c
+F:	include/uapi/linux/it6625.h
+
 IVTV VIDEO4LINUX DRIVER
 M:	Andy Walls <awalls@md.metrocast.net>
 L:	linux-media@vger.kernel.org
