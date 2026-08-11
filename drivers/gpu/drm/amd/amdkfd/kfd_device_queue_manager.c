@@ -2071,6 +2071,43 @@ static int unhalt_cpsch(struct device_queue_manager *dqm)
 	return ret;
 }
 
+/* Program CP_IQ_WAIT_TIME2 via the MES WRITE_REG op (MES has no HIQ). */
+static int init_dequeue_wait_counts_mes(struct device_queue_manager *dqm)
+{
+	struct kfd_node *dev = dqm->dev;
+	struct amdgpu_device *adev = dev->adev;
+	uint32_t sch_wave = 0, que_sleep = 1;
+	int inst, ret;
+
+	if (!dev->kfd2kgd->build_dequeue_wait_counts_packet_info)
+		return 0;
+
+	if (KFD_GC_VERSION(dev) != IP_VERSION(12, 1, 0))
+		return 0;
+
+	/* CP_IQ_WAIT_TIME2 is per-XCC; the offset must encode the target
+	 * XCC so MES routes the write to that XCC's local register.
+	 */
+	for_each_inst(inst, dev->xcc_mask) {
+		uint32_t reg_offset = 0, reg_data = 0;
+
+		dev->kfd2kgd->build_dequeue_wait_counts_packet_info(
+				adev, dqm->wait_times, sch_wave, que_sleep,
+				&reg_offset, &reg_data, inst);
+
+		ret = amdgpu_mes_wreg(adev, reg_offset, reg_data, inst);
+		if (ret) {
+			dev_err(adev->dev,
+				"Failed to set optimized dequeue wait via MES on xcc %d\n",
+				inst);
+			return ret;
+		}
+	}
+
+	update_dqm_wait_times(dqm);
+	return 0;
+}
+
 static int start_cpsch(struct device_queue_manager *dqm)
 {
 	struct device *dev = dqm->dev->adev->dev;
@@ -2112,6 +2149,9 @@ static int start_cpsch(struct device_queue_manager *dqm)
 				KFD_DEQUEUE_WAIT_INIT, 0 /* unused */))
 			dev_err(dev, "Setting optimized dequeue wait failed. Using default values\n");
 		execute_queues_cpsch(dqm, KFD_UNMAP_QUEUES_FILTER_DYNAMIC_QUEUES, 0, USE_DEFAULT_GRACE_PERIOD);
+	} else {
+		if (init_dequeue_wait_counts_mes(dqm))
+			dev_err(dev, "Setting optimized dequeue wait failed. Using default values\n");
 	}
 
 	/* setup per-queue reset detection buffer  */
