@@ -112,6 +112,7 @@ struct cpg_core_clk {
 	notifier_fn_t notifier;
 	u32 core_flags;
 	u32 mux_flags;
+	u32 div_flags;
 	int num_parents;
 };
 
@@ -165,14 +166,18 @@ enum clk_types {
 	DEF_TYPE(_name, _id, CLK_TYPE_IN)
 #define DEF_FIXED(_name, _id, _parent, _mult, _div) \
 	DEF_BASE(_name, _id, CLK_TYPE_FF, _parent, .div = _div, .mult = _mult)
-#define DEF_DIV(_name, _id, _parent, _conf, _dtable) \
+#define DEF_DIV_FLAGS(_name, _id, _parent, _conf, _dtable, _flags, _div_flags) \
 	DEF_TYPE(_name, _id, CLK_TYPE_DIV, .conf = _conf, \
 		 .parent = _parent, .dtable = _dtable, \
-		 .core_flags = CLK_DIVIDER_HIWORD_MASK)
+		 .core_flags = _flags, \
+		 .div_flags = CLK_DIVIDER_HIWORD_MASK | (_div_flags))
+#define DEF_DIV(_name, _id, _parent, _conf, _dtable) \
+	DEF_DIV_FLAGS(_name, _id, _parent, _conf, _dtable, 0, 0)
 #define DEF_DIV_RO(_name, _id, _parent, _conf, _dtable) \
 	DEF_TYPE(_name, _id, CLK_TYPE_DIV, .conf = _conf, \
 		 .parent = _parent, .dtable = _dtable, \
-		 .core_flags = CLK_DIVIDER_READ_ONLY)
+		 .core_flags = 0, \
+		 .div_flags = CLK_DIVIDER_READ_ONLY)
 #define DEF_G3S_DIV(_name, _id, _parent, _conf, _sconf, _dtable, _invalid_rate, \
 		    _max_rate, _clk_flags, _notif) \
 	DEF_TYPE(_name, _id, CLK_TYPE_G3S_DIV, .conf = _conf, .sconf = _sconf, \
