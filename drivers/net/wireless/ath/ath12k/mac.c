@@ -14294,6 +14294,7 @@ static int ath12k_mac_setup_channels_rates(struct ath12k *ar,
 					   sizeof(ath12k_6ghz_channels), GFP_KERNEL);
 			if (!channels) {
 				kfree(ar->mac.sbands[NL80211_BAND_2GHZ].channels);
+				ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
 				return -ENOMEM;
 			}
 
@@ -14344,7 +14345,9 @@ static int ath12k_mac_setup_channels_rates(struct ath12k *ar,
 					   GFP_KERNEL);
 			if (!channels) {
 				kfree(ar->mac.sbands[NL80211_BAND_2GHZ].channels);
+				ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
 				kfree(ar->mac.sbands[NL80211_BAND_6GHZ].channels);
+				ar->mac.sbands[NL80211_BAND_6GHZ].channels = NULL;
 				return -ENOMEM;
 			}
 
@@ -14384,7 +14387,7 @@ static int ath12k_mac_setup_channels_rates(struct ath12k *ar,
 					kfree(ar->mac.sbands[NL80211_BAND_2GHZ].channels);
 					ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
 					kfree(ar->mac.sbands[NL80211_BAND_6GHZ].channels);
-					ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
+					ar->mac.sbands[NL80211_BAND_6GHZ].channels = NULL;
 					kfree(channels);
 					band->channels = NULL;
 					return ret;
