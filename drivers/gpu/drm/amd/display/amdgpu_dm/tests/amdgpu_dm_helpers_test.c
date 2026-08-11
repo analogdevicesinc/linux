@@ -19,6 +19,7 @@
 #include "dc_bios_types.h"
 #include "dm_helpers.h"
 #include "ddc_service_types.h"
+#include "dmub/dmub_srv.h"
 #include "dmub_cmd.h"
 #include "amdgpu_dm_helpers.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
@@ -3997,6 +3998,51 @@ static void dm_test_gpu_mem_alloc_and_free(struct kunit *test)
 	amdgpu_dm_services_kunit_set_ops(NULL);
 }
 
+/* Tests for dm_helpers_dmub_set_config_sync() */
+
+/**
+ * dm_test_dmub_set_config_sync_unknown_error - Test SET_CONFIG without a DMUB service
+ * @test: The KUnit test context
+ *
+ * The helper only unwraps the link index before forwarding. With no DC DMUB
+ * service the command cannot reach the firmware and is reported as completed
+ * with SET_CONFIG_UNKNOWN_ERROR.
+ */
+static void dm_test_dmub_set_config_sync_unknown_error(struct kunit *test)
+{
+	struct set_config_cmd_payload payload = {0};
+	enum set_config_status result = SET_CONFIG_PENDING;
+	struct dmub_notification *notify;
+	struct amdgpu_device *adev;
+	struct dc_context *dc_ctx;
+	struct dc_context *ctx;
+	struct dc_link *link;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+	dc_ctx = kunit_kzalloc(test, sizeof(*dc_ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc_ctx);
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	notify = kunit_kzalloc(test, sizeof(*notify), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, notify);
+	link = dm_kunit_alloc_link(test);
+
+	dc->ctx = dc_ctx;
+	dc->links[0] = link;
+	ctx->dc = dc;
+	ctx->driver_context = adev;
+	adev->dm.dmub_notify = notify;
+	mutex_init(&adev->dm.dpia_aux_lock);
+	init_completion(&adev->dm.dmub_aux_transfer_done);
+
+	KUNIT_EXPECT_EQ(test, dm_helpers_dmub_set_config_sync(ctx, link, &payload, &result), 0);
+	KUNIT_EXPECT_EQ(test, (int)result, (int)SET_CONFIG_UNKNOWN_ERROR);
+}
+
 static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	/* edid_extract_panel_id */
 	KUNIT_CASE(dm_test_edid_extract_panel_id_basic),
@@ -4189,6 +4235,8 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_submit_i2c_over_aux_unimplemented),
 	/* dm_helpers_allocate_gpu_mem / dm_helpers_free_gpu_mem */
 	KUNIT_CASE(dm_test_gpu_mem_alloc_and_free),
+	/* dm_helpers_dmub_set_config_sync */
+	KUNIT_CASE(dm_test_dmub_set_config_sync_unknown_error),
 	{}
 };
 

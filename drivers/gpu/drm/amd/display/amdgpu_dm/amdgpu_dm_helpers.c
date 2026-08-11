@@ -1374,6 +1374,7 @@ int dm_helpers_dmub_set_config_sync(struct dc_context *ctx,
 	return amdgpu_dm_process_dmub_set_config_sync(ctx, link->link_index, payload,
 			operation_result);
 }
+EXPORT_IF_KUNIT(dm_helpers_dmub_set_config_sync);
 
 void dm_set_dcn_clocks(struct dc_context *ctx, struct dc_clocks *clks)
 {
