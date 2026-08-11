@@ -574,6 +574,10 @@ static const struct rzg2l_mod_clk r9a08g046_mod_clks[] = {
 					MSTOP(BUS_MCPU3, BIT(11))),
 	DEF_MOD("rsci3_tclk",		R9A08G046_RSCI3_TCLK, R9A08G046_CLK_P16, 0x618, 11,
 					MSTOP(BUS_MCPU3, BIT(12))),
+	DEF_MOD("lvds_pllclk",		R9A08G046_LVDS_PLLCLK, R9A08G046_CLK_M2, 0x61c, 0,
+					MSTOP(BUS_PERI_VIDEO, BIT(11))),
+	DEF_MOD("lvds_clk_dot0",	R9A08G046_LVDS_CLK_DOT0, R9A08G046_CLK_M3, 0x61c, 1,
+					MSTOP(BUS_PERI_VIDEO, BIT(11))),
 };
 
 static const struct rzg2l_reset r9a08g046_resets[] = {
@@ -637,6 +641,7 @@ static const struct rzg2l_reset r9a08g046_resets[] = {
 	DEF_RST(R9A08G046_RSCI1_TRESETN, 0x918, 9),
 	DEF_RST(R9A08G046_RSCI2_TRESETN, 0x918, 10),
 	DEF_RST(R9A08G046_RSCI3_TRESETN, 0x918, 11),
+	DEF_RST(R9A08G046_LVDS_RESET_N, 0x91c, 0),
 };
 
 static const unsigned int r9a08g046_crit_mod_clks[] __initconst = {
