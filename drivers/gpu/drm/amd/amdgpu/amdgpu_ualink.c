@@ -768,6 +768,37 @@ UALINK_ENUM_SHOW(info, addr_mode, vpod.addr_mode);
 UALINK_ENUM_SHOW(info, accel_state, accel_state);
 UALINK_IDARRAY_SHOW(info, local_accels, local_accels, n_local_accels);
 
+static struct amdgpu_device *ualink_xcp_kobj_to_adev(struct kobject *kobj)
+{
+	struct amdgpu_xcp *xcp = container_of(kobj, struct amdgpu_xcp,
+					      ualink.kobj);
+
+	return xcp->xcp_mgr->adev;
+}
+
+#define UALINK_XCP_INFO_SHOW(name)					\
+static ssize_t ualink_xcp_info_##name##_show(struct kobject *kobj,	\
+		struct kobj_attribute *attr, char *buf)			\
+{									\
+	struct amdgpu_device *adev = ualink_xcp_kobj_to_adev(kobj);	\
+									\
+	return ualink_info_##name##_show(&adev->ualink.info->kobj,	\
+					 attr, buf);			\
+}
+
+UALINK_XCP_INFO_SHOW(link_type)
+UALINK_XCP_INFO_SHOW(accel_id)
+UALINK_XCP_INFO_SHOW(bandwidth)
+UALINK_XCP_INFO_SHOW(latency)
+UALINK_XCP_INFO_SHOW(ppod_id)
+UALINK_XCP_INFO_SHOW(ppod_size)
+UALINK_XCP_INFO_SHOW(vpod_id)
+UALINK_XCP_INFO_SHOW(vpod_size)
+UALINK_XCP_INFO_SHOW(vpod_active_accels)
+UALINK_XCP_INFO_SHOW(addr_mode)
+UALINK_XCP_INFO_SHOW(accel_state)
+UALINK_XCP_INFO_SHOW(local_accels)
+
 #define UALINK_INFO_ATTR(name) __ATTR(name, 0444, ualink_info_##name##_show, NULL)
 static struct kobj_attribute ualink_info_link_type = UALINK_INFO_ATTR(link_type);
 static struct kobj_attribute ualink_info_accel_id  = UALINK_INFO_ATTR(accel_id);
@@ -796,6 +827,58 @@ static const struct attribute *ualink_info_attrs[] = {
 	&ualink_info_accel_state.attr,
 	&ualink_info_local_accels.attr,
 	NULL
+};
+
+#define UALINK_XCP_INFO_ATTR(name) \
+	__ATTR(name, 0444, ualink_xcp_info_##name##_show, NULL)
+static struct kobj_attribute ualink_xcp_info_link_type = UALINK_XCP_INFO_ATTR(link_type);
+static struct kobj_attribute ualink_xcp_info_accel_id  = UALINK_XCP_INFO_ATTR(accel_id);
+static struct kobj_attribute ualink_xcp_info_bandwidth = UALINK_XCP_INFO_ATTR(bandwidth);
+static struct kobj_attribute ualink_xcp_info_latency   = UALINK_XCP_INFO_ATTR(latency);
+static struct kobj_attribute ualink_xcp_info_ppod_id   = UALINK_XCP_INFO_ATTR(ppod_id);
+static struct kobj_attribute ualink_xcp_info_ppod_size = UALINK_XCP_INFO_ATTR(ppod_size);
+static struct kobj_attribute ualink_xcp_info_vpod_id   = UALINK_XCP_INFO_ATTR(vpod_id);
+static struct kobj_attribute ualink_xcp_info_vpod_size = UALINK_XCP_INFO_ATTR(vpod_size);
+static struct kobj_attribute ualink_xcp_info_vpod_active_accels = UALINK_XCP_INFO_ATTR(vpod_active_accels);
+static struct kobj_attribute ualink_xcp_info_addr_mode = UALINK_XCP_INFO_ATTR(addr_mode);
+static struct kobj_attribute ualink_xcp_info_accel_state = UALINK_XCP_INFO_ATTR(accel_state);
+static struct kobj_attribute ualink_xcp_info_local_accels = UALINK_XCP_INFO_ATTR(local_accels);
+
+static struct attribute *ualink_xcp_info_attrs[] = {
+	&ualink_xcp_info_link_type.attr,
+	&ualink_xcp_info_accel_id.attr,
+	&ualink_xcp_info_bandwidth.attr,
+	&ualink_xcp_info_latency.attr,
+	&ualink_xcp_info_ppod_id.attr,
+	&ualink_xcp_info_ppod_size.attr,
+	&ualink_xcp_info_vpod_id.attr,
+	&ualink_xcp_info_vpod_size.attr,
+	&ualink_xcp_info_vpod_active_accels.attr,
+	&ualink_xcp_info_addr_mode.attr,
+	&ualink_xcp_info_accel_state.attr,
+	&ualink_xcp_info_local_accels.attr,
+	NULL
+};
+
+static umode_t ualink_xcp_info_is_visible(struct kobject *kobj,
+					  struct attribute *attr, int n)
+{
+	struct amdgpu_xcp *xcp = container_of(kobj, struct amdgpu_xcp,
+					      ualink.kobj);
+
+	if (!xcp->valid)
+		return 0;
+
+	return attr->mode;
+}
+
+static const struct attribute_group ualink_xcp_info_group = {
+	.attrs = ualink_xcp_info_attrs,
+	.is_visible = ualink_xcp_info_is_visible,
+};
+
+static const struct kobj_type ualink_xcp_info_ktype = {
+	.sysfs_ops = &kobj_sysfs_ops
 };
 
 static void ualink_info_release(struct kobject *kobj)
@@ -1495,6 +1578,9 @@ static int ualink_kobj_add(struct kobject *kobj, struct kobject *parent,
 	return r;
 }
 
+static void amdgpu_ualink_xcp_sysfs_init(struct amdgpu_device *adev);
+static void amdgpu_ualink_xcp_sysfs_fini(struct amdgpu_device *adev);
+
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
 {
 	struct amdgpu_ualink_info *info = adev->ualink.info;
@@ -1541,7 +1627,9 @@ int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
 		goto err_config;
 #endif
 
+	amdgpu_ualink_xcp_sysfs_init(adev);
 	adev->ualink.sysfs_init = true;
+
 	return 0;
 
 err_config:
@@ -1560,11 +1648,88 @@ void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev)
 	if (!adev->ualink.sysfs_init)
 		return;
 
+	amdgpu_ualink_xcp_sysfs_fini(adev);
 	kobject_del(&adev->ualink.stations->kobj);
 	kobject_del(&adev->ualink.config->kobj);
 	kobject_del(&adev->ualink.setup->kobj);
 	kobject_del(&adev->ualink.info->kobj);
 	adev->ualink.sysfs_init = false;
+}
+
+static int amdgpu_ualink_xcp_sysfs_add(struct amdgpu_xcp *xcp)
+{
+	struct amdgpu_device *adev = xcp->xcp_mgr->adev;
+	int r;
+
+	r = kobject_init_and_add(&xcp->ualink.kobj, &ualink_xcp_info_ktype,
+				 &xcp->ddev->dev->kobj, "ualink");
+	if (r)
+		goto err;
+
+	r = sysfs_create_group(&xcp->ualink.kobj, &ualink_xcp_info_group);
+	if (r)
+		goto err;
+
+	/* pin info so it outlives this node regardless of teardown order */
+	kobject_get(&adev->ualink.info->kobj);
+	xcp->ualink.sysfs = true;
+	return 0;
+err:
+	kobject_put(&xcp->ualink.kobj);
+	return r;
+}
+
+void amdgpu_ualink_xcp_sysfs_update(struct amdgpu_xcp *xcp)
+{
+	if (!xcp->ualink.sysfs)
+		return;
+
+	sysfs_update_group(&xcp->ualink.kobj, &ualink_xcp_info_group);
+}
+
+static void amdgpu_ualink_xcp_sysfs_remove(struct amdgpu_xcp *xcp)
+{
+	struct amdgpu_device *adev = xcp->xcp_mgr->adev;
+
+	if (!xcp->ualink.sysfs)
+		return;
+
+	/* group is only populated for valid partitions */
+	if (xcp->valid)
+		sysfs_remove_group(&xcp->ualink.kobj, &ualink_xcp_info_group);
+	kobject_put(&adev->ualink.info->kobj);
+	kobject_put(&xcp->ualink.kobj);
+	xcp->ualink.sysfs = false;
+}
+
+static void amdgpu_ualink_xcp_sysfs_init(struct amdgpu_device *adev)
+{
+	struct amdgpu_xcp *xcp;
+	int i;
+
+	if (!adev->xcp_mgr)
+		return;
+
+	for (i = 0; i < MAX_XCP; i++) {
+		xcp = &adev->xcp_mgr->xcp[i];
+		if (!xcp->ddev || amdgpu_xcp_is_primary(xcp))
+			continue;
+		amdgpu_ualink_xcp_sysfs_add(xcp);
+	}
+}
+
+static void amdgpu_ualink_xcp_sysfs_fini(struct amdgpu_device *adev)
+{
+	struct amdgpu_xcp *xcp;
+	int i;
+
+	if (!adev->xcp_mgr)
+		return;
+
+	for (i = 0; i < MAX_XCP; i++) {
+		xcp = &adev->xcp_mgr->xcp[i];
+		amdgpu_ualink_xcp_sysfs_remove(xcp);
+	}
 }
 
 static int amdgpu_ualink_npa_alloc_va(struct amdgpu_device *adev,

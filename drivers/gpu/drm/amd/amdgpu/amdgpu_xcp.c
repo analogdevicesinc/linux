@@ -1061,6 +1061,11 @@ static const struct kobj_type xcp_sysfs_ktype = {
 	.sysfs_ops = &kobj_sysfs_ops,
 };
 
+bool amdgpu_xcp_is_primary(struct amdgpu_xcp *xcp)
+{
+	return xcp->ddev == adev_to_drm(xcp->xcp_mgr->adev);
+}
+
 static void amdgpu_xcp_sysfs_entries_fini(struct amdgpu_xcp_mgr *xcp_mgr, int n)
 {
 	struct amdgpu_xcp *xcp;
@@ -1110,6 +1115,7 @@ static void amdgpu_xcp_sysfs_entries_update(struct amdgpu_xcp_mgr *xcp_mgr)
 		if (!xcp->ddev)
 			continue;
 		sysfs_update_group(&xcp->kobj, &amdgpu_xcp_attrs_group);
+		amdgpu_ualink_xcp_sysfs_update(xcp);
 	}
 
 	return;

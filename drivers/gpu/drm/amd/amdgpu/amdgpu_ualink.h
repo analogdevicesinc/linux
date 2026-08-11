@@ -31,6 +31,8 @@
 
 struct amdgpu_device;
 
+struct amdgpu_xcp;
+
 #define AMDGPU_UALINK_ACCEL_MAX 256
 #define AMDGPU_UALINK_LOCAL_ACCELS_MAX 8
 #define AMDGPU_UALINK_STATIONS_MAX 64
@@ -402,6 +404,7 @@ int amdgpu_ualink_resume_handler(struct amdgpu_device *adev);
 
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);
 void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev);
+void amdgpu_ualink_xcp_sysfs_update(struct amdgpu_xcp *xcp);
 int amdgpu_ualink_manager_start(struct amdgpu_device *adev);
 void amdgpu_ualink_manager_stop(struct amdgpu_device *adev);
 int amdgpu_ualink_export_handle(struct drm_device *dev, struct drm_file *filp,
