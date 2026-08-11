@@ -6,8 +6,10 @@
  */
 
 #include <kunit/test.h>
+#include <drm/drm_atomic_helper.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_kunit_helpers.h>
+#include <drm/drm_managed.h>
 #include <drm/display/drm_dp_mst_helper.h>
 
 #include "dc.h"
@@ -19,6 +21,7 @@
 #include "amdgpu_dm_mst_types.h"
 #include "dc_bios_types.h"
 #include "dm_helpers.h"
+#include "dpcd_defs.h"
 #include "ddc_service_types.h"
 #include "dmub/dmub_srv.h"
 #include "dmub_cmd.h"
@@ -4087,6 +4090,230 @@ static void dm_test_is_dp_sink_present_queries_link_service(struct kunit *test)
 	KUNIT_EXPECT_TRUE(test, dm_helpers_is_dp_sink_present(link));
 }
 
+/* Tests for dm_helpers_read_local_edid() */
+
+/*
+ * dm_helpers_read_local_edid() feeds the EDID it reads into
+ * drm_edid_connector_update(), which needs a fully initialised connector so the
+ * EDID property blob is published. dm_kunit_alloc_connector() only fills in the
+ * device pointer, so build a real one here.
+ */
+static const struct drm_connector_funcs dm_test_connector_funcs = {
+	.reset = drm_atomic_helper_connector_reset,
+};
+
+static struct amdgpu_dm_connector *dm_test_alloc_real_connector(struct kunit *test,
+								struct amdgpu_device *adev)
+{
+	struct amdgpu_dm_connector *aconnector;
+
+	KUNIT_ASSERT_EQ(test, drmm_mode_config_init(&adev->ddev), 0);
+
+	aconnector = drmm_kzalloc(&adev->ddev, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+
+	KUNIT_ASSERT_EQ(test,
+			drmm_connector_init(&adev->ddev, &aconnector->base,
+					    &dm_test_connector_funcs,
+					    DRM_MODE_CONNECTOR_DisplayPort, NULL),
+			0);
+
+	return aconnector;
+}
+
+/*
+ * Fake AUX channel that serves an EDID over I2C-over-AUX and answers the
+ * native DPCD reads the compliance test-request path makes.
+ */
+struct dm_test_edid_aux {
+	u8 edid[EDID_LENGTH];
+	u8 offset;
+	u8 test_request;
+	u8 checksum_written;
+	u8 response_written;
+};
+
+static struct dm_test_edid_aux *dm_test_current_edid_aux;
+
+static ssize_t dm_test_edid_aux_transfer(struct drm_dp_aux *aux,
+					 struct drm_dp_aux_msg *msg)
+{
+	struct dm_test_edid_aux *fixture = dm_test_current_edid_aux;
+	u8 *buffer = msg->buffer;
+	size_t len;
+
+	switch (msg->request & ~DP_AUX_I2C_MOT) {
+	case DP_AUX_I2C_WRITE:
+		if (msg->size >= 1)
+			fixture->offset = buffer[0];
+		msg->reply = DP_AUX_I2C_REPLY_ACK;
+		return msg->size;
+	case DP_AUX_I2C_READ:
+		len = min_t(size_t, msg->size, EDID_LENGTH - fixture->offset);
+		memcpy(buffer, fixture->edid + fixture->offset, len);
+		fixture->offset += len;
+		msg->reply = DP_AUX_I2C_REPLY_ACK;
+		return len;
+	case DP_AUX_NATIVE_READ:
+		memset(buffer, 0, msg->size);
+		if (msg->address == DP_TEST_REQUEST && msg->size)
+			buffer[0] = fixture->test_request;
+		msg->reply = DP_AUX_NATIVE_REPLY_ACK;
+		return msg->size;
+	case DP_AUX_NATIVE_WRITE:
+		if (msg->size) {
+			if (msg->address == DP_TEST_EDID_CHECKSUM)
+				fixture->checksum_written = buffer[0];
+			else if (msg->address == DP_TEST_RESPONSE)
+				fixture->response_written = buffer[0];
+		}
+		msg->reply = DP_AUX_NATIVE_REPLY_ACK;
+		return msg->size;
+	}
+
+	msg->reply = DP_AUX_NATIVE_REPLY_ACK;
+	return msg->size;
+}
+
+/* Fake I2C DDC adapter and prepare_ddc hook for the non-AUX EDID read path. */
+
+static int dm_test_ddc_no_sink_xfer(struct i2c_adapter *adapter,
+				    struct i2c_msg *msgs, int num)
+{
+	return -ENXIO;
+}
+
+static const struct i2c_algorithm dm_test_ddc_algorithm = {
+	.master_xfer = dm_test_ddc_no_sink_xfer,
+};
+
+static unsigned int dm_test_prepare_ddc_calls;
+
+static void dm_test_prepare_ddc(struct dc_link *link)
+{
+	dm_test_prepare_ddc_calls++;
+}
+
+struct dm_test_local_edid {
+	struct dm_test_edid_aux *aux;
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_context *ctx;
+	struct dc_link *link;
+	struct dc_sink *sink;
+	struct dc *dc;
+};
+
+static struct dm_test_local_edid dm_test_setup_local_edid(struct kunit *test)
+{
+	struct dm_test_local_edid fixture = {0};
+	struct amdgpu_device *adev;
+	struct dc_edid *dc_edid;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+
+	fixture.aconnector = dm_test_alloc_real_connector(test, adev);
+	fixture.aux = kunit_kzalloc(test, sizeof(*fixture.aux), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.aux);
+	fixture.ctx = kunit_kzalloc(test, sizeof(*fixture.ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.ctx);
+	fixture.sink = kunit_kzalloc(test, sizeof(*fixture.sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.sink);
+	fixture.dc = kunit_kzalloc(test, sizeof(*fixture.dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.dc);
+	fixture.link = dm_kunit_alloc_link(test);
+	dc_edid = kunit_kzalloc(test, sizeof(*dc_edid), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc_edid);
+
+	dm_test_fill_base_edid(dc_edid, true);
+	memcpy(fixture.aux->edid, dc_edid->raw_edid, EDID_LENGTH);
+	dm_test_current_edid_aux = fixture.aux;
+
+	fixture.aconnector->dm_dp_aux.aux.drm_dev = &adev->ddev;
+	fixture.aconnector->dm_dp_aux.aux.transfer = dm_test_edid_aux_transfer;
+	drm_dp_aux_init(&fixture.aconnector->dm_dp_aux.aux);
+
+	fixture.link->priv = fixture.aconnector;
+	fixture.link->dc = fixture.dc;
+	fixture.link->aux_mode = true;
+
+	return fixture;
+}
+
+/**
+ * dm_test_read_local_edid_aux_mode - Test reading EDID over the AUX DDC channel
+ * @test: The KUnit test context
+ *
+ * A DP link reads the EDID through the connector's AUX channel, copies it into
+ * the sink and parses the caps.
+ */
+static void dm_test_read_local_edid_aux_mode(struct kunit *test)
+{
+	struct dm_test_local_edid fixture = dm_test_setup_local_edid(test);
+
+	KUNIT_EXPECT_EQ(test,
+			dm_helpers_read_local_edid(fixture.ctx, fixture.link, fixture.sink),
+			EDID_OK);
+	KUNIT_EXPECT_EQ(test, fixture.sink->dc_edid.length, (uint32_t)EDID_LENGTH);
+	KUNIT_EXPECT_EQ(test, fixture.sink->edid_caps.manufacturer_id, 0xAC10);
+	KUNIT_EXPECT_EQ(test, fixture.sink->edid_caps.product_id, 0x1234);
+}
+
+/**
+ * dm_test_read_local_edid_test_request - Test the compliance EDID-read request
+ * @test: The KUnit test context
+ *
+ * When the sink raises the EDID_READ test request, the helper writes back the
+ * EDID checksum and the test response.
+ */
+static void dm_test_read_local_edid_test_request(struct kunit *test)
+{
+	struct dm_test_local_edid fixture = dm_test_setup_local_edid(test);
+	struct dm_test_edid_aux *aux = fixture.aux;
+	union test_response expected_response = {0};
+
+	aux->test_request = DP_TEST_LINK_EDID_READ;
+	expected_response.bits.EDID_CHECKSUM_WRITE = 1;
+
+	KUNIT_EXPECT_EQ(test,
+			dm_helpers_read_local_edid(fixture.ctx, fixture.link, fixture.sink),
+			EDID_OK);
+	KUNIT_EXPECT_EQ(test, aux->checksum_written,
+			aux->edid[EDID_LENGTH - 1]);
+	KUNIT_EXPECT_EQ(test, aux->response_written, expected_response.raw);
+}
+
+/**
+ * dm_test_read_local_edid_i2c_no_response - Test the I2C DDC path with no sink
+ * @test: The KUnit test context
+ *
+ * A non-AUX link reads the EDID over the connector's I2C adapter. With no sink
+ * responding, every retry fails and the helper reports EDID_NO_RESPONSE.
+ */
+static void dm_test_read_local_edid_i2c_no_response(struct kunit *test)
+{
+	struct dm_test_local_edid fixture = dm_test_setup_local_edid(test);
+	struct i2c_adapter *ddc;
+
+	ddc = kunit_kzalloc(test, sizeof(*ddc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ddc);
+	ddc->algo = &dm_test_ddc_algorithm;
+	ddc->lock_ops = &dm_test_i2c_lock_ops;
+	rt_mutex_init(&ddc->bus_lock);
+	rt_mutex_init(&ddc->mux_lock);
+
+	fixture.link->aux_mode = false;
+	fixture.link->ddc_hw_inst = 1;
+	fixture.aconnector->i2c = (struct amdgpu_i2c_adapter *)ddc;
+	fixture.dc->hwss.prepare_ddc = dm_test_prepare_ddc;
+	dm_test_prepare_ddc_calls = 0;
+
+	KUNIT_EXPECT_EQ(test,
+			dm_helpers_read_local_edid(fixture.ctx, fixture.link, fixture.sink),
+			EDID_NO_RESPONSE);
+	KUNIT_EXPECT_EQ(test, dm_test_prepare_ddc_calls, 1U);
+}
+
 static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	/* edid_extract_panel_id */
 	KUNIT_CASE(dm_test_edid_extract_panel_id_basic),
@@ -4283,6 +4510,10 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_dmub_set_config_sync_unknown_error),
 	/* dm_helpers_is_dp_sink_present */
 	KUNIT_CASE(dm_test_is_dp_sink_present_queries_link_service),
+	/* dm_helpers_read_local_edid */
+	KUNIT_CASE(dm_test_read_local_edid_aux_mode),
+	KUNIT_CASE(dm_test_read_local_edid_test_request),
+	KUNIT_CASE(dm_test_read_local_edid_i2c_no_response),
 	{}
 };
 

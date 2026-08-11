@@ -1350,6 +1350,8 @@ enum dc_edid_status dm_helpers_read_local_edid(
 
 	return edid_status;
 }
+EXPORT_IF_KUNIT(dm_helpers_read_local_edid);
+
 int dm_helper_dmub_aux_transfer_sync(
 		struct dc_context *ctx,
 		const struct dc_link *link,
