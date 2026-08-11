@@ -1456,6 +1456,8 @@ static int __init dynamic_debug_init(void)
 			iter_mod_start = iter;
 		}
 	}
+
+	mod_ct++;
 	di.num_descs = mod_sites;
 	di.descs = iter_mod_start;
 	ret = ddebug_add_module(&di, modname);
