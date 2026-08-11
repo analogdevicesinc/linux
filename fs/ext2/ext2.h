@@ -93,7 +93,7 @@ struct ext2_sb_info {
 	int s_inode_size;
 	int s_first_ino;
 	spinlock_t s_next_gen_lock;
-	u32 s_next_generation;
+	u32 s_next_generation __guarded_by(&s_next_gen_lock);
 	unsigned long s_dir_count;
 	u8 *s_debts;
 	struct percpu_counter s_freeblocks_counter;
