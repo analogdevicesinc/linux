@@ -13222,6 +13222,15 @@ S:	Supported
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/iommu/linux.git
 F:	drivers/iommu/intel/
 
+INTEL IPU BRIDGE
+M:	Sakari Ailus <sakari.ailus@linux.intel.com>
+M:	Dan Scally <dan.scally@ideasonboard.com>
+R:	Hans de Goede <hansg@kernel.org>
+L:	linux-media@vger.kernel.org
+S:	Maintained
+F:	drivers/media/pci/intel/ipu-bridge.c
+F:	include/media/ipu-bridge.h
+
 INTEL IPU3 CSI-2 CIO2 DRIVER
 M:	Yong Zhi <yong.zhi@intel.com>
 M:	Sakari Ailus <sakari.ailus@linux.intel.com>
