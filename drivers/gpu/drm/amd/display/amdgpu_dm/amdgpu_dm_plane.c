@@ -597,9 +597,9 @@ EXPORT_IF_KUNIT(amdgpu_dm_plane_get_gfx7_macro_tile_idx);
  * Select suitable micro and macro tile modes for the given bits per pixel,
  * and calculate the corresponding DRM format modifier.
  */
-static u64 amdgpu_dm_plane_calc_gfx6_mod(const struct amdgpu_device *adev,
-					 const u32 bpp,
-					 const enum array_mode_values arr)
+STATIC_IFN_KUNIT u64 amdgpu_dm_plane_calc_gfx6_mod(const struct amdgpu_device *adev,
+						   const u32 bpp,
+						   const enum array_mode_values arr)
 {
 	u32 array_mode, micro_tile_mode, tile_split_bytes;
 	u32 gb_macrotile_mode, macrotile_idx;
@@ -649,6 +649,7 @@ static u64 amdgpu_dm_plane_calc_gfx6_mod(const struct amdgpu_device *adev,
 		AMD_FMT_MOD_SET(MACRO_TILE_ASPECT, (gb_macrotile_mode >> 4) & 0x3) |
 		AMD_FMT_MOD_SET(NUM_BANKS, (gb_macrotile_mode >> 6) & 0x3);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_calc_gfx6_mod);
 
 /**
  * amdgpu_dm_plane_gfx6_format_mod_supported() - Check if a modifier is supported on GFX6-8
@@ -660,9 +661,9 @@ static u64 amdgpu_dm_plane_calc_gfx6_mod(const struct amdgpu_device *adev,
  * On GFX6-8, not all DRM format modifier can be used with all image formats.
  * Check whether the specified modifier is supported with the given bits per pixel value.
  */
-static bool amdgpu_dm_plane_gfx6_format_mod_supported(const struct amdgpu_device *adev,
-						      const u32 bpp,
-						      const u64 modifier)
+STATIC_IFN_KUNIT bool amdgpu_dm_plane_gfx6_format_mod_supported(const struct amdgpu_device *adev,
+								const u32 bpp,
+								const u64 modifier)
 {
 	const u32 array_mode = AMD_FMT_MOD_GET(TILE, modifier);
 	const u32 micro_tile_mode = AMD_FMT_MOD_GET(MICROTILE, modifier);
@@ -701,6 +702,7 @@ static bool amdgpu_dm_plane_gfx6_format_mod_supported(const struct amdgpu_device
 	/* Verify that the modifier is the same that we'd expose for this bpp */
 	return amdgpu_dm_plane_calc_gfx6_mod(adev, bpp, array_mode) == modifier;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_gfx6_format_mod_supported);
 
 /**
  * amdgpu_dm_plane_add_gfx6_modifiers() - Expose modifiers for GFX6-8
