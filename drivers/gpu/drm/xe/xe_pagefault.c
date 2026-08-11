@@ -864,10 +864,9 @@ static int xe_pagefault_work_index(struct xe_device *xe)
 int xe_pagefault_handler(struct xe_device *xe, struct xe_pagefault *pf)
 {
 	struct xe_pagefault_queue *pf_queue = &xe->usm.pf_queue;
-	unsigned long flags;
 	bool full;
 
-	spin_lock_irqsave(&pf_queue->lock, flags);
+	guard(spinlock_irqsave)(&pf_queue->lock);
 	full = xe_pagefault_queue_full(pf_queue);
 	if (!full) {
 		struct xe_pagefault *lpf;
@@ -898,7 +897,6 @@ int xe_pagefault_handler(struct xe_device *xe, struct xe_pagefault *pf)
 		drm_warn(&xe->drm,
 			 "PageFault Queue full, shouldn't be possible\n");
 	}
-	spin_unlock_irqrestore(&pf_queue->lock, flags);
 
 	return full ? -ENOSPC : 0;
 }
