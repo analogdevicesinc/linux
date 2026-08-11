@@ -584,9 +584,21 @@ impl Thread {
     // mangled symbol names.
     #[export_name = "rust_binder_wait"]
     fn get_work(self: &Arc<Self>, wait: bool) -> Result<Option<DLArc<dyn DeliverToRead>>> {
+        let thread_has_deferred_work;
+
         // Try to get work from the thread's work queue, using only a local lock.
         {
             let mut inner = self.inner.lock();
+
+            // The process_work_list boolean is used to make us go to sleep even if there is work
+            // in the thread todo-list, but it doesn't apply to the process todo-list. Furthermore,
+            // work in the thread todo-list must still be delivered before the process list.
+            //
+            // Thus, in some scenarios we must return the thread work now even if we were requested
+            // to wait. Adjust `process_work_list` to `true` accordingly.
+            inner.process_work_list |= inner.looper_need_return;
+            inner.process_work_list |= !wait;
+
             if let Some(work) = inner.pop_work() {
                 return Ok(Some(work));
             }
@@ -594,18 +606,26 @@ impl Thread {
                 drop(inner);
                 return Ok(self.process.get_work());
             }
+
+            // Note that if the thread list is empty, then the call to `pop_work()` has changed
+            // `process_work_list` back to `false` even if we set it to `true` above.
+            thread_has_deferred_work = !inner.work_list.is_empty();
         }
 
         // If the caller doesn't want to wait, try to grab work from the process queue.
         //
         // We know nothing will have been queued directly to the thread queue because it is not in
-        // a transaction and it is not in the process' ready list.
+        // a transaction and it is not in the process' ready list. We also know the thread list has
+        // no deferred work due to the `inner.process_work_list |= !wait` call above.
         if !wait {
             return self.process.get_work().ok_or(EAGAIN).map(Some);
         }
 
         // Get work from the process queue. If none is available, atomically register as ready.
-        let reg = match self.process.get_work_or_register(self) {
+        let reg = match self
+            .process
+            .get_work_or_register(self, thread_has_deferred_work)
+        {
             GetWorkOrRegister::Work(work) => return Ok(Some(work)),
             GetWorkOrRegister::Register(reg) => reg,
         };
@@ -621,14 +641,18 @@ impl Thread {
             inner.looper_flags &= !(LooperFlag::Waiting | LooperFlag::WaitingProc);
 
             if signal_pending || inner.looper_need_return {
-                // We need to return now. We need to pull the thread off the list of ready threads
-                // (by dropping `reg`), then check the state again after it's off the list to
-                // ensure that something was not queued in the meantime. If something has been
-                // queued, we just return it (instead of the error).
+                // We need to return now.
+                //
+                // We need to pull the thread off the list of ready threads (by dropping `reg`),
+                // then check the state again after it's off the list to ensure that something was
+                // not queued in the meantime. If something has been queued (or if there is
+                // deferred work), we just return it (instead of the error).
                 drop(inner);
                 drop(reg);
 
-                let res = match self.inner.lock().pop_work() {
+                inner = self.inner.lock();
+                inner.process_work_list = true;
+                let res = match inner.pop_work() {
                     Some(work) => Ok(Some(work)),
                     None if signal_pending => Err(EINTR),
                     None => Ok(None),
@@ -684,6 +708,12 @@ impl Thread {
 
     pub(crate) fn push_return_work(&self, reply: u32) {
         self.inner.lock().push_return_work(reply);
+    }
+
+    pub(crate) fn pop_work_even_if_deferred(&self) -> Option<DLArc<dyn DeliverToRead>> {
+        let mut thread_inner = self.inner.lock();
+        thread_inner.process_work_list = true;
+        thread_inner.pop_work()
     }
 
     fn translate_object(
@@ -1410,8 +1440,16 @@ impl Thread {
             let process = orig.from.process.clone();
             let allow_fds = orig.flags.contains(TransactionFlag::AcceptFds);
             let reply = Transaction::new_reply(self, process, info, allow_fds)?;
-            // Not notifying: Reply to current thread.
-            let _ = self.inner.lock().push_work(completion);
+            {
+                let mut inner = self.inner.lock();
+                if info.flags.contains(TransactionFlag::DeferComplete) {
+                    // The flag is set. Perform a deferred push so that `read` can wait for the
+                    // next incoming transaction without a userspace roundtrip.
+                    inner.push_work_deferred(completion);
+                } else {
+                    let _ = inner.push_work(completion);
+                }
+            }
             orig.from.deliver_reply(Ok(reply), &orig, None);
             Ok(())
         })()

@@ -686,8 +686,16 @@ impl Process {
     pub(crate) fn get_work_or_register<'a>(
         &'a self,
         thread: &'a Arc<Thread>,
+        thread_has_deferred_work: bool,
     ) -> GetWorkOrRegister<'a> {
         let mut inner = self.inner.lock();
+
+        if thread_has_deferred_work && !inner.work.is_empty() {
+            if let Some(work) = thread.pop_work_even_if_deferred() {
+                return GetWorkOrRegister::Work(work);
+            }
+        }
+
         // Try to get work from the process queue.
         if let Some(work) = inner.work.pop_front() {
             return GetWorkOrRegister::Work(work);

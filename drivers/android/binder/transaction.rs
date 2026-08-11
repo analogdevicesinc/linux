@@ -39,6 +39,7 @@ kernel::impl_flags!(
         AcceptFds = TF_ACCEPT_FDS,
         ClearBuf = TF_CLEAR_BUF,
         UpdateTxn = TF_UPDATE_TXN,
+        DeferComplete = TF_DEFER_COMPLETE,
     }
 );
 
