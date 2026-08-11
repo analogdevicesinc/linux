@@ -127,6 +127,7 @@ void ext2_msg(struct super_block *sb, const char *prefix,
  * This must be called with sbi->s_lock held.
  */
 void ext2_update_dynamic_rev(struct super_block *sb)
+	__must_hold(&EXT2_SB(sb)->s_lock)
 {
 	struct ext2_super_block *es = EXT2_SB(sb)->s_es;
 
