@@ -125,5 +125,10 @@ void amdgpu_dm_plane_add_modifier_dedup(uint64_t **mods, uint64_t *size,
 					uint64_t *cap, uint64_t mod);
 int amdgpu_dm_plane_fill_gfx6_tiling_info_from_modifier(struct dc_tiling_info *tiling_info,
 							uint64_t modifier);
+u32 amdgpu_dm_plane_get_gfx6_tile_idx(const struct amdgpu_device *adev, const u32 bpp,
+				      const enum array_mode_values arr);
+u32 amdgpu_dm_plane_calc_gfx7_tile_split(const struct amdgpu_device *adev, const u32 bpp,
+					 const u32 gb_tile_mode);
+u32 amdgpu_dm_plane_get_gfx7_macro_tile_idx(const u32 bpp, const u32 tile_split_bytes);
 #endif
 #endif

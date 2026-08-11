@@ -504,9 +504,9 @@ static void amdgpu_dm_plane_add_gfx10_1_modifiers(const struct amdgpu_device *ad
  * present at specific indices.
  * See SiLib::HwlSetupTileInfo() and CiLib::HwlSetupTileInfo() in addrlib.
  */
-static u32 amdgpu_dm_plane_get_gfx6_tile_idx(const struct amdgpu_device *adev,
-					 const u32 bpp,
-					 const enum array_mode_values arr)
+STATIC_IFN_KUNIT u32 amdgpu_dm_plane_get_gfx6_tile_idx(const struct amdgpu_device *adev,
+						       const u32 bpp,
+						       const enum array_mode_values arr)
 {
 	/* Assume that the microtile mode is DISPLAY. */
 
@@ -527,6 +527,7 @@ static u32 amdgpu_dm_plane_get_gfx6_tile_idx(const struct amdgpu_device *adev,
 		return 12;
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_get_gfx6_tile_idx);
 
 /**
  * amdgpu_dm_plane_calc_gfx7_tile_split() - Calculate tile split on GFX7-8
@@ -542,9 +543,9 @@ static u32 amdgpu_dm_plane_get_gfx6_tile_idx(const struct amdgpu_device *adev,
  * can be calculated. The TILE_SPLIT field is only used for the depth micro tile mode.
  * See CiLib::HwlComputeMacroModeIndex() in addrlib.
  */
-static u32 amdgpu_dm_plane_calc_gfx7_tile_split(const struct amdgpu_device *adev,
-						const u32 bpp,
-						const u32 gb_tile_mode)
+STATIC_IFN_KUNIT u32 amdgpu_dm_plane_calc_gfx7_tile_split(const struct amdgpu_device *adev,
+							  const u32 bpp,
+							  const u32 gb_tile_mode)
 {
 	/* Assume 2D_TILED_THIN1 mode with non-DEPTH microtiles */
 	const u32 sample_split = (gb_tile_mode >> 25) & 0x3;
@@ -557,6 +558,7 @@ static u32 amdgpu_dm_plane_calc_gfx7_tile_split(const struct amdgpu_device *adev
 		     256,
 		     adev->gfx.config.mem_row_size_in_kb * 1024);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_calc_gfx7_tile_split);
 
 /**
  * amdgpu_dm_plane_get_gfx7_macro_tile_idx() - Get macro tile mode index on GFX7-8
@@ -570,7 +572,8 @@ static u32 amdgpu_dm_plane_calc_gfx7_tile_split(const struct amdgpu_device *adev
  * present at specific indices.
  * See CiLib::HwlComputeMacroModeIndex() in addrlib.
  */
-static u32 amdgpu_dm_plane_get_gfx7_macro_tile_idx(const u32 bpp, const u32 tile_split_bytes)
+STATIC_IFN_KUNIT u32 amdgpu_dm_plane_get_gfx7_macro_tile_idx(const u32 bpp,
+							     const u32 tile_split_bytes)
 {
 	const u32 thickness = 1;
 	const u32 tile_size_pixels = 8 * 8;
@@ -582,6 +585,7 @@ static u32 amdgpu_dm_plane_get_gfx7_macro_tile_idx(const u32 bpp, const u32 tile
 
 	return macro_tile_idx;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_get_gfx7_macro_tile_idx);
 
 /**
  * amdgpu_dm_plane_calc_gfx6_mod() - Calculate a DRM format modifier for GFX6-8

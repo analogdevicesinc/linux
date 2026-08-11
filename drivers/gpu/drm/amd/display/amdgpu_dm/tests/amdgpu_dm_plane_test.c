@@ -3277,6 +3277,81 @@ static void dm_test_fill_gfx6_tiling_info_2d(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.num_banks, 2U);
 }
 
+/**
+ * dm_test_get_gfx6_tile_idx() - Verify GFX6-8 tile mode index selection.
+ * @test: KUnit test context.
+ *
+ * Verify if the micro tiled mode maps to a fixed index, GFX7+ uses a single
+ * macro tiled index, and GFX6 selects the index from the bits per pixel.
+ */
+static void dm_test_get_gfx6_tile_idx(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+
+	adev->family = AMDGPU_FAMILY_VI;
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_gfx6_tile_idx(adev, 32, DC_ARRAY_1D_TILED_THIN1),
+			9U);
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_gfx6_tile_idx(adev, 32, DC_ARRAY_2D_TILED_THIN1),
+			10U);
+
+	adev->family = AMDGPU_FAMILY_SI;
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_gfx6_tile_idx(adev, 8, DC_ARRAY_2D_TILED_THIN1),
+			10U);
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_gfx6_tile_idx(adev, 16, DC_ARRAY_2D_TILED_THIN1),
+			11U);
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_gfx6_tile_idx(adev, 32, DC_ARRAY_2D_TILED_THIN1),
+			12U);
+}
+
+/**
+ * dm_test_calc_gfx7_tile_split() - Verify GFX7-8 tile split calculation.
+ * @test: KUnit test context.
+ *
+ * Verify if the tile split is derived from the sample split factor and clamped
+ * to the 256 byte minimum and the memory row size maximum.
+ */
+static void dm_test_calc_gfx7_tile_split(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+
+	adev->gfx.config.mem_row_size_in_kb = 4;
+
+	/* 8 bpp gives 64 bytes, clamped up to the 256 byte minimum. */
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_calc_gfx7_tile_split(adev, 8, 0u << 25), 256U);
+	/* 32 bpp with a sample split factor of 2. */
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_calc_gfx7_tile_split(adev, 32, 1u << 25), 512U);
+
+	/* 64 bpp with a sample split factor of 8, clamped to the memory row size. */
+	adev->gfx.config.mem_row_size_in_kb = 1;
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_calc_gfx7_tile_split(adev, 64, 3u << 25), 1024U);
+}
+
+/**
+ * dm_test_get_gfx7_macro_tile_idx() - Verify GFX7-8 macro tile index selection.
+ * @test: KUnit test context.
+ *
+ * Verify if the macro tile index is the log2 of the tile size in 64 byte units,
+ * clamped to the tile split.
+ */
+static void dm_test_get_gfx7_macro_tile_idx(struct kunit *test)
+{
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_get_gfx7_macro_tile_idx(8, 1024), 0U);
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_get_gfx7_macro_tile_idx(32, 1024), 2U);
+	/* 64 bpp needs 512 bytes but the tile split caps it at 256. */
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_get_gfx7_macro_tile_idx(64, 256), 2U);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3371,6 +3446,12 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_rejects),
 	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_1d),
 	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_2d),
+	/* amdgpu_dm_plane_get_gfx6_tile_idx() */
+	KUNIT_CASE(dm_test_get_gfx6_tile_idx),
+	/* amdgpu_dm_plane_calc_gfx7_tile_split() */
+	KUNIT_CASE(dm_test_calc_gfx7_tile_split),
+	/* amdgpu_dm_plane_get_gfx7_macro_tile_idx() */
+	KUNIT_CASE(dm_test_get_gfx7_macro_tile_idx),
 	/* amdgpu_dm_plane_fill_gfx9_tiling_info_from_device() */
 	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device_pre_10_3),
 	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device_10_3_plus),
