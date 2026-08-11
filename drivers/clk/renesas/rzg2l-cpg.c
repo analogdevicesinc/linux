@@ -864,6 +864,90 @@ rzg2l_cpg_dsi_div_clk_register(const struct cpg_core_clk *core,
 	return clk_hw->clk;
 }
 
+static int rzg3l_cpg_lvds_div_determine_rate(struct clk_hw *hw,
+					     struct clk_rate_request *req)
+{
+	return clk_fixed_factor_ops.determine_rate(hw, req);
+}
+
+static int rzg3l_cpg_lvds_div_set_rate(struct clk_hw *hw, unsigned long rate,
+				       unsigned long parent_rate)
+{
+	return clk_fixed_factor_ops.set_rate(hw, rate, parent_rate);
+}
+
+static unsigned long rzg3l_cpg_lvds_div_recalc_rate(struct clk_hw *hw,
+						    unsigned long parent_rate)
+{
+	return clk_fixed_factor_ops.recalc_rate(hw, parent_rate);
+}
+
+static unsigned long rzg3l_cpg_lvds_div_recalc_accuracy(struct clk_hw *hw,
+							unsigned long parent_accuracy)
+{
+	return clk_fixed_factor_ops.recalc_accuracy(hw, parent_accuracy);
+}
+
+static int rzg3l_cpg_lvds_div_get_duty_cycle(struct clk_hw *hw,
+					     struct clk_duty *duty)
+{
+	struct clk_fixed_factor *fix = to_clk_fixed_factor(hw);
+
+	/*
+	 * An odd divider cannot generate a 50% duty cycle: the output stays
+	 * high for (div + 1) / 2 input clock cycles out of div, e.g. a divider
+	 * of 7 gives a duty cycle of 4/7.
+	 */
+	duty->num = DIV_ROUND_UP(fix->div, 2);
+	duty->den = fix->div;
+
+	return 0;
+}
+
+static const struct clk_ops rzg3l_cpg_lvds_div_ops = {
+	.determine_rate	= rzg3l_cpg_lvds_div_determine_rate,
+	.set_rate	= rzg3l_cpg_lvds_div_set_rate,
+	.recalc_rate	= rzg3l_cpg_lvds_div_recalc_rate,
+	.recalc_accuracy = rzg3l_cpg_lvds_div_recalc_accuracy,
+	.get_duty_cycle	= rzg3l_cpg_lvds_div_get_duty_cycle,
+};
+
+static struct clk * __init
+rzg3l_cpg_lvds_div_clk_register(const struct cpg_core_clk *core,
+				struct rzg2l_cpg_priv *priv)
+{
+	struct clk_fixed_factor *ff;
+	struct clk_init_data init;
+	const struct clk *parent;
+	const char *parent_name;
+	int ret;
+
+	parent = priv->clks[core->parent];
+	if (IS_ERR(parent))
+		return ERR_CAST(parent);
+
+	ff = devm_kzalloc(priv->dev, sizeof(*ff), GFP_KERNEL);
+	if (!ff)
+		return ERR_PTR(-ENOMEM);
+
+	parent_name = __clk_get_name(parent);
+	init.name = core->name;
+	init.ops = &rzg3l_cpg_lvds_div_ops;
+	init.flags = CLK_SET_RATE_PARENT;
+	init.parent_names = &parent_name;
+	init.num_parents = 1;
+
+	ff->hw.init = &init;
+	ff->mult = 1;
+	ff->div = core->conf;
+
+	ret = devm_clk_hw_register(priv->dev, &ff->hw);
+	if (ret)
+		return ERR_PTR(ret);
+
+	return ff->hw.clk;
+}
+
 struct g3l_dsi_div_hw_data {
 	struct clk_hw hw;
 	struct rzg2l_cpg_priv *priv;
@@ -1693,6 +1777,9 @@ rzg2l_cpg_register_core_clk(const struct cpg_core_clk *core,
 		break;
 	case CLK_TYPE_G3L_DSI_DIV:
 		clk = rzg3l_cpg_dsi_div_clk_register(core, priv);
+		break;
+	case CLK_TYPE_G3L_LVDS_DIV:
+		clk = rzg3l_cpg_lvds_div_clk_register(core, priv);
 		break;
 	case CLK_TYPE_G3L_PLLDSI:
 		clk = rzg2l_cpg_pll_clk_register(core, priv, &rzg3l_cpg_plldsi_ops);

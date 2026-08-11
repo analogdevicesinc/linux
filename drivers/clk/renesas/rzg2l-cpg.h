@@ -148,6 +148,9 @@ enum clk_types {
 
 	/* Clock for G3L DSI divider */
 	CLK_TYPE_G3L_DSI_DIV,
+
+	/* Clock for G3L LVDS divider */
+	CLK_TYPE_G3L_LVDS_DIV,
 };
 
 #define DEF_TYPE(_name, _id, _type...) \
@@ -213,6 +216,9 @@ enum clk_types {
 	DEF_TYPE(_name, _id, CLK_TYPE_DSI_DIV, .parent = _parent, .core_flags = _flags)
 #define DEF_G3L_DSI_DIV(_name, _id, _parent, _conf) \
 	DEF_TYPE(_name, _id, CLK_TYPE_G3L_DSI_DIV, .parent = _parent, .conf = _conf, \
+		 .core_flags = CLK_SET_RATE_PARENT)
+#define DEF_G3L_LVDS_DIV(_name, _id, _parent, _conf) \
+	DEF_TYPE(_name, _id, CLK_TYPE_G3L_LVDS_DIV, .parent = _parent, .conf = _conf, \
 		 .core_flags = CLK_SET_RATE_PARENT)
 #define DEF_G3L_PLLDSI(_name, _id, _parent, _conf) \
 	DEF_TYPE(_name, _id, CLK_TYPE_G3L_PLLDSI, .parent = _parent, .conf = _conf)
