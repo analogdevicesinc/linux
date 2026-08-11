@@ -10,6 +10,7 @@
 #include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/i2c.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/property.h>
 #include <linux/regmap.h>

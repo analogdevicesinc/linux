@@ -6,6 +6,7 @@
  */
 #include <linux/init.h>
 #include <linux/mm.h>
+#include <linux/writeback.h>
 #include <linux/blkdev.h>
 #include <linux/blk-integrity.h>
 #include <linux/buffer_head.h>

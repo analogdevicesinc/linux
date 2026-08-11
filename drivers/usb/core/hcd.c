@@ -18,6 +18,7 @@
 #include <linux/completion.h>
 #include <linux/utsname.h>
 #include <linux/mm.h>
+#include <linux/highmem.h>
 #include <asm/io.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
