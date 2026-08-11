@@ -710,7 +710,8 @@ extern struct ext2_group_desc * ext2_get_group_desc(struct super_block * sb,
 						    struct buffer_head ** bh);
 extern void ext2_discard_reservation (struct inode *);
 extern int ext2_should_retry_alloc(struct super_block *sb, int *retries);
-extern void ext2_init_block_alloc_info(struct inode *);
+extern void ext2_init_block_alloc_info(struct inode *inode)
+	__must_hold(&EXT2_I(inode)->truncate_mutex);
 extern void ext2_rsv_window_add(struct super_block *sb, struct ext2_reserve_window_node *rsv);
 
 /* dir.c */

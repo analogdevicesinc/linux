@@ -414,6 +414,7 @@ static inline int rsv_is_empty(struct ext2_reserve_window *rsv)
  * Needs truncate_mutex protection prior to calling this function.
  */
 void ext2_init_block_alloc_info(struct inode *inode)
+	__must_hold(&EXT2_I(inode)->truncate_mutex)
 {
 	struct ext2_inode_info *ei = EXT2_I(inode);
 	struct ext2_block_alloc_info *block_i;
