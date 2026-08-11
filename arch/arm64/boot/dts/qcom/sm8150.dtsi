@@ -610,6 +610,7 @@
 	firmware {
 		scm: scm {
 			compatible = "qcom,scm-sm8150", "qcom,scm";
+			qcom,dload-mode = <&tcsr 0x13000>;
 			#reset-cells = <1>;
 		};
 	};
@@ -2179,6 +2180,11 @@
 		tcsr_regs_1: syscon@1f60000 {
 			compatible = "qcom,sm8150-tcsr", "syscon";
 			reg = <0x0 0x01f60000 0x0 0x20000>;
+		};
+
+		tcsr: syscon@1fc0000 {
+			compatible = "qcom,sm8150-tcsr", "syscon";
+			reg = <0x0 0x01fc0000 0x0 0x30000>;
 		};
 
 		remoteproc_slpi: remoteproc@2400000 {
