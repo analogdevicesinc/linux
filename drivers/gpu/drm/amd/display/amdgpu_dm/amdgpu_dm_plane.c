@@ -1223,8 +1223,8 @@ int amdgpu_dm_plane_fill_plane_buffer_attributes(struct amdgpu_device *adev,
 }
 EXPORT_IF_KUNIT(amdgpu_dm_plane_fill_plane_buffer_attributes);
 
-static int amdgpu_dm_plane_helper_prepare_fb(struct drm_plane *plane,
-					     struct drm_plane_state *new_state)
+STATIC_IFN_KUNIT int amdgpu_dm_plane_helper_prepare_fb(struct drm_plane *plane,
+						       struct drm_plane_state *new_state)
 {
 	struct amdgpu_framebuffer *afb;
 	struct drm_gem_object *obj;
@@ -1321,9 +1321,10 @@ error_unlock:
 	amdgpu_bo_unreserve(rbo);
 	return r;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_helper_prepare_fb);
 
-static void amdgpu_dm_plane_helper_cleanup_fb(struct drm_plane *plane,
-					      struct drm_plane_state *old_state)
+STATIC_IFN_KUNIT void amdgpu_dm_plane_helper_cleanup_fb(struct drm_plane *plane,
+							struct drm_plane_state *old_state)
 {
 	struct amdgpu_bo *rbo;
 	int r;
@@ -1342,6 +1343,7 @@ static void amdgpu_dm_plane_helper_cleanup_fb(struct drm_plane *plane,
 	amdgpu_bo_unreserve(rbo);
 	amdgpu_bo_unref(&rbo);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_helper_cleanup_fb);
 
 STATIC_IFN_KUNIT void amdgpu_dm_plane_get_min_max_dc_plane_scaling(struct drm_device *dev,
 								   struct drm_framebuffer *fb,

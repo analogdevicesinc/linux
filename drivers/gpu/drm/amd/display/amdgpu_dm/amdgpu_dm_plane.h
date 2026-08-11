@@ -134,5 +134,7 @@ u64 amdgpu_dm_plane_calc_gfx6_mod(const struct amdgpu_device *adev, const u32 bp
 				  const enum array_mode_values arr);
 bool amdgpu_dm_plane_gfx6_format_mod_supported(const struct amdgpu_device *adev, const u32 bpp,
 					       const u64 modifier);
+int amdgpu_dm_plane_helper_prepare_fb(struct drm_plane *plane, struct drm_plane_state *new_state);
+void amdgpu_dm_plane_helper_cleanup_fb(struct drm_plane *plane, struct drm_plane_state *old_state);
 #endif
 #endif

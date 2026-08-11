@@ -3559,6 +3559,42 @@ static void dm_test_format_mod_supported_gfx6(struct kunit *test)
 								listed_mod));
 }
 
+/**
+ * dm_test_helper_prepare_fb_no_fb() - Verify prepare_fb without a framebuffer.
+ * @test: KUnit test context.
+ *
+ * Verify if prepare_fb succeeds without touching any buffer object when the new
+ * plane state has no framebuffer bound.
+ */
+static void dm_test_helper_prepare_fb_no_fb(struct kunit *test)
+{
+	struct drm_plane_state state = {0};
+	struct drm_plane *plane;
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_helper_prepare_fb(plane, &state), 0);
+}
+
+/**
+ * dm_test_helper_cleanup_fb_no_fb() - Verify cleanup_fb without a framebuffer.
+ * @test: KUnit test context.
+ *
+ * Verify if cleanup_fb returns without unpinning anything when the old plane
+ * state has no framebuffer bound.
+ */
+static void dm_test_helper_cleanup_fb_no_fb(struct kunit *test)
+{
+	struct drm_plane_state state = {0};
+	struct drm_plane *plane;
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+
+	amdgpu_dm_plane_helper_cleanup_fb(plane, &state);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3624,6 +3660,10 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_helper_check_state_small_viewport_height),
 	KUNIT_CASE(dm_test_helper_check_state_bottom_clipped_height),
 	KUNIT_CASE(dm_test_helper_check_state_scaling_caps),
+	/* amdgpu_dm_plane_helper_prepare_fb() */
+	KUNIT_CASE(dm_test_helper_prepare_fb_no_fb),
+	/* amdgpu_dm_plane_helper_cleanup_fb() */
+	KUNIT_CASE(dm_test_helper_cleanup_fb_no_fb),
 	/* amdgpu_dm_plane_atomic_async_check() */
 	KUNIT_CASE(dm_test_atomic_async_check_rejects),
 	KUNIT_CASE(dm_test_atomic_async_check_overlay_cursor),
