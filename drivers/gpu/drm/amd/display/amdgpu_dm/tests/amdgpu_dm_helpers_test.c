@@ -3906,6 +3906,97 @@ static void dm_test_submit_i2c_over_aux_unimplemented(struct kunit *test)
 								sizeof(buffer), true));
 }
 
+/* Tests for dm_helpers_allocate_gpu_mem() and dm_helpers_free_gpu_mem() */
+
+/*
+ * Fake buffer object allocator: amdgpu_bo_create_kernel() and
+ * amdgpu_bo_free_kernel() need a live TTM device, so dm_allocate_gpu_mem() is
+ * routed through this fake.
+ */
+
+#define DM_TEST_FAKE_GPU_ADDR	0x1234ABCD0000ULL
+
+struct dm_test_bo_ctx {
+	void *cpu_ptr;
+	unsigned int create_calls;
+	unsigned int free_calls;
+	unsigned long create_size;
+	u32 create_domain;
+};
+
+static struct dm_test_bo_ctx dm_test_bo;
+
+static int dm_test_bo_create_kernel(struct amdgpu_device *adev, unsigned long size,
+				    int align, u32 domain, struct amdgpu_bo **bo_ptr,
+				    u64 *gpu_addr, void **cpu_addr)
+{
+	dm_test_bo.create_calls++;
+	dm_test_bo.create_size = size;
+	dm_test_bo.create_domain = domain;
+
+	*gpu_addr = DM_TEST_FAKE_GPU_ADDR;
+	*cpu_addr = dm_test_bo.cpu_ptr;
+
+	return 0;
+}
+
+static void dm_test_bo_free_kernel(struct amdgpu_bo **bo, u64 *gpu_addr, void **cpu_addr)
+{
+	dm_test_bo.free_calls++;
+
+	*bo = NULL;
+	*gpu_addr = 0;
+	*cpu_addr = NULL;
+}
+
+static const struct amdgpu_dm_services_kunit_ops dm_test_services_ops = {
+	.bo_create_kernel = dm_test_bo_create_kernel,
+	.bo_free_kernel = dm_test_bo_free_kernel,
+};
+
+/**
+ * dm_test_gpu_mem_alloc_and_free - Test the GPU memory helper wrappers
+ * @test: The KUnit test context
+ *
+ * Both helpers only unwrap the device from the DC context and forward to
+ * dm_allocate_gpu_mem()/dm_free_gpu_mem().
+ */
+static void dm_test_gpu_mem_alloc_and_free(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct dc_context *ctx;
+	long long addr = 0;
+	void *cpu_ptr;
+	void *mem;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+	cpu_ptr = kunit_kzalloc(test, PAGE_SIZE, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, cpu_ptr);
+
+	ctx->driver_context = adev;
+	INIT_LIST_HEAD(&adev->dm.da_list);
+	dm_test_bo = (struct dm_test_bo_ctx) { .cpu_ptr = cpu_ptr };
+	amdgpu_dm_services_kunit_set_ops(&dm_test_services_ops);
+
+	mem = dm_helpers_allocate_gpu_mem(ctx, DC_MEM_ALLOC_TYPE_GART, 4096, &addr);
+
+	KUNIT_EXPECT_PTR_EQ(test, mem, cpu_ptr);
+	KUNIT_EXPECT_EQ(test, addr, (long long)DM_TEST_FAKE_GPU_ADDR);
+	KUNIT_EXPECT_EQ(test, dm_test_bo.create_calls, 1U);
+	KUNIT_EXPECT_EQ(test, dm_test_bo.create_size, 4096UL);
+	KUNIT_EXPECT_EQ(test, dm_test_bo.create_domain, (u32)AMDGPU_GEM_DOMAIN_GTT);
+
+	dm_helpers_free_gpu_mem(ctx, DC_MEM_ALLOC_TYPE_GART, mem);
+
+	KUNIT_EXPECT_EQ(test, dm_test_bo.free_calls, 1U);
+	KUNIT_EXPECT_TRUE(test, list_empty(&adev->dm.da_list));
+
+	amdgpu_dm_services_kunit_set_ops(NULL);
+}
+
 static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	/* edid_extract_panel_id */
 	KUNIT_CASE(dm_test_edid_extract_panel_id_basic),
@@ -4096,6 +4187,8 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_dp_handle_test_pattern_no_pipe),
 	/* dm_helpers_submit_i2c_over_aux */
 	KUNIT_CASE(dm_test_submit_i2c_over_aux_unimplemented),
+	/* dm_helpers_allocate_gpu_mem / dm_helpers_free_gpu_mem */
+	KUNIT_CASE(dm_test_gpu_mem_alloc_and_free),
 	{}
 };
 
