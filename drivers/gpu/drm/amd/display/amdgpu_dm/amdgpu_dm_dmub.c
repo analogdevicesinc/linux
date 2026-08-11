@@ -67,6 +67,7 @@ MODULE_FIRMWARE(FIRMWARE_DCN_60_DMUB);
 
 #if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
 static const struct amdgpu_dm_dmub_kunit_ops amdgpu_dm_dmub_default_ops = {
+	.bo_create_kernel = amdgpu_bo_create_kernel,
 	.ucode_request = amdgpu_ucode_request,
 };
 
@@ -79,10 +80,12 @@ void amdgpu_dm_dmub_kunit_set_ops(const struct amdgpu_dm_dmub_kunit_ops *ops)
 }
 EXPORT_IF_KUNIT(amdgpu_dm_dmub_kunit_set_ops);
 
+#define dmub_bo_create_kernel	amdgpu_dm_dmub_ops->bo_create_kernel
 #define dmub_ucode_request	amdgpu_dm_dmub_ops->ucode_request
 
 #else
 
+#define dmub_bo_create_kernel	amdgpu_bo_create_kernel
 #define dmub_ucode_request	amdgpu_ucode_request
 
 #endif
@@ -683,11 +686,11 @@ int dm_dmub_sw_init(struct amdgpu_device *adev)
 	 * Allocate a framebuffer based on the total size of all the regions.
 	 * TODO: Move this into GART.
 	 */
-	r = amdgpu_bo_create_kernel(adev, region_info.fb_size, PAGE_SIZE,
-				    mem_domain,
-				    &adev->dm.dmub_bo,
-				    &adev->dm.dmub_bo_gpu_addr,
-				    &adev->dm.dmub_bo_cpu_addr);
+	r = dmub_bo_create_kernel(adev, region_info.fb_size, PAGE_SIZE,
+				  mem_domain,
+				  &adev->dm.dmub_bo,
+				  &adev->dm.dmub_bo_gpu_addr,
+				  &adev->dm.dmub_bo_cpu_addr);
 	if (r)
 		return r;
 

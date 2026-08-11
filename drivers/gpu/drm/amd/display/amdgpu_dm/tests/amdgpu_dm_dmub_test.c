@@ -19,7 +19,13 @@
 #include "dmub/dmub_srv.h"
 #include "amdgpu_dm_dmub.h"
 
-#define DM_TEST_FW_SIZE	512
+/*
+ * The PSP footer probing in dmub_srv_get_fw_meta_info_from_raw_fw() walks back
+ * from the end of the instruction constant region twice, so the fake firmware
+ * needs an instruction constant region larger than two footers.
+ */
+#define DM_TEST_FW_INST_CONST_BYTES	(PSP_HEADER_BYTES_256 + 1024)
+#define DM_TEST_FW_SIZE			(DM_TEST_FW_INST_CONST_BYTES + 1024)
 
 /* Tests for dm_register_dmub_notify_callback() */
 
@@ -112,7 +118,7 @@ static const struct firmware *dm_test_alloc_dmub_fw(struct kunit *test)
 	hdr = (struct dmcub_firmware_header_v1_0 *)data;
 	hdr->header.ucode_array_offset_bytes = cpu_to_le32(0);
 	hdr->header.ucode_version = cpu_to_le32(DMUB_FW_VERSION(9, 9, 9));
-	hdr->inst_const_bytes = cpu_to_le32(PSP_HEADER_BYTES_256);
+	hdr->inst_const_bytes = cpu_to_le32(DM_TEST_FW_INST_CONST_BYTES);
 	hdr->bss_data_bytes = cpu_to_le32(0);
 
 	fw->size = DM_TEST_FW_SIZE;
@@ -1398,8 +1404,8 @@ static const struct cgs_ops dm_test_cgs_ops = {
 
 /*
  * Fake buffer object allocator: amdgpu_bo_create_kernel() and
- * amdgpu_bo_free_kernel() need a live TTM device, so dm_allocate_gpu_mem() is
- * routed through this fake.
+ * amdgpu_bo_free_kernel() need a live TTM device, so both the DMUB framebuffer
+ * allocation and dm_allocate_gpu_mem() are routed through this fake.
  */
 
 #define DM_TEST_FAKE_GPU_ADDR	0x1234ABCD0000ULL
@@ -1469,6 +1475,7 @@ static __printf(4, 5) int dm_test_ucode_request(struct amdgpu_device *adev,
 }
 
 static const struct amdgpu_dm_dmub_kunit_ops dm_test_dmub_ops = {
+	.bo_create_kernel = dm_test_bo_create_kernel,
 	.ucode_request = dm_test_ucode_request,
 };
 
@@ -1720,6 +1727,170 @@ static void dm_test_init_microcode_request_fails(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dm_init_microcode(adev), -ENOENT);
 }
 
+/* Tests for dm_dmub_sw_init() */
+
+static struct amdgpu_device *dm_test_alloc_adev_for_sw_init(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_adev_with_cgs(test);
+
+	adev->dm.dmub_fw = dm_test_alloc_dmub_fw(test);
+	adev->bios = kunit_kzalloc(test, 4, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev->bios);
+	adev->bios_size = 4;
+
+	return adev;
+}
+
+static void dm_test_free_sw_init(struct amdgpu_device *adev)
+{
+	kfree(adev->dm.dmub_srv);
+	kfree(adev->dm.dmub_fb_info);
+	adev->dm.dmub_srv = NULL;
+	adev->dm.dmub_fb_info = NULL;
+}
+
+/**
+ * dm_test_dmub_sw_init_asic_mapping - Test the ASIC to DMUB service mapping
+ * @test: The KUnit test context
+ *
+ * Every supported ASIC must get past DMUB service creation and region
+ * calculation. The framebuffer allocation is forced to fail so the tests stop
+ * before the memory layout is rebased onto a fake buffer.
+ */
+static void dm_test_dmub_sw_init_asic_mapping(struct kunit *test)
+{
+	static const u32 ip_versions[] = {
+		IP_VERSION(2, 1, 0), IP_VERSION(3, 0, 0), IP_VERSION(3, 0, 1),
+		IP_VERSION(3, 0, 2), IP_VERSION(3, 0, 3), IP_VERSION(3, 1, 2),
+		IP_VERSION(3, 1, 3), IP_VERSION(3, 1, 4), IP_VERSION(3, 1, 5),
+		IP_VERSION(3, 1, 6), IP_VERSION(3, 2, 0), IP_VERSION(3, 2, 1),
+		IP_VERSION(3, 5, 0), IP_VERSION(3, 5, 1), IP_VERSION(3, 6, 0),
+		IP_VERSION(4, 0, 1), IP_VERSION(4, 2, 0), IP_VERSION(4, 2, 1),
+		IP_VERSION(6, 0, 0),
+	};
+	struct amdgpu_device *adev = dm_test_alloc_adev_for_sw_init(test);
+	unsigned int i;
+
+	dm_test_bo.create_ret = -ENOMEM;
+
+	for (i = 0; i < ARRAY_SIZE(ip_versions); i++) {
+		adev->ip_versions[DCE_HWIP][0] = ip_versions[i];
+
+		KUNIT_EXPECT_EQ_MSG(test, dm_dmub_sw_init(adev), -ENOMEM,
+				    "IP version 0x%08x", ip_versions[i]);
+
+		dm_test_free_sw_init(adev);
+	}
+
+	KUNIT_EXPECT_EQ(test, dm_test_bo.create_calls, (unsigned int)ARRAY_SIZE(ip_versions));
+}
+
+/**
+ * dm_test_dmub_sw_init_gtt_only_asic - Test the GTT-only memory domain
+ * @test: The KUnit test context
+ *
+ * DCN32 and DCN321 keep the DMUB framebuffer in GTT; every other ASIC also
+ * allows VRAM.
+ */
+static void dm_test_dmub_sw_init_gtt_only_asic(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_adev_for_sw_init(test);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 2, 0);
+	dm_test_bo.create_ret = -ENOMEM;
+
+	KUNIT_EXPECT_EQ(test, dm_dmub_sw_init(adev), -ENOMEM);
+	KUNIT_EXPECT_EQ(test, dm_test_bo.create_domain, (u32)AMDGPU_GEM_DOMAIN_GTT);
+
+	dm_test_free_sw_init(adev);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 5, 0);
+
+	KUNIT_EXPECT_EQ(test, dm_dmub_sw_init(adev), -ENOMEM);
+	KUNIT_EXPECT_EQ(test, dm_test_bo.create_domain,
+			(u32)(AMDGPU_GEM_DOMAIN_GTT | AMDGPU_GEM_DOMAIN_VRAM));
+
+	dm_test_free_sw_init(adev);
+}
+
+/**
+ * dm_test_dmub_sw_init_success - Test a complete software init
+ * @test: The KUnit test context
+ *
+ * With a fake framebuffer allocator and a fake CGS device, software init
+ * should publish the framebuffer info, the bounding box and the instruction
+ * constant size.
+ */
+static void dm_test_dmub_sw_init_success(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_adev_for_sw_init(test);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(6, 0, 0);
+
+	KUNIT_EXPECT_EQ(test, dm_dmub_sw_init(adev), 0);
+	KUNIT_EXPECT_NOT_NULL(test, adev->dm.dmub_srv);
+	KUNIT_EXPECT_NOT_NULL(test, adev->dm.dmub_fb_info);
+	KUNIT_EXPECT_NOT_NULL(test, adev->dm.bb_from_dmub);
+	KUNIT_EXPECT_EQ(test, adev->dm.dmcub_fw_version, DMUB_FW_VERSION(9, 9, 9));
+	/* Meta info lookup fails on the fake firmware and trims a PSP footer. */
+	KUNIT_EXPECT_EQ(test, adev->dm.fw_inst_size,
+			(u32)(DM_TEST_FW_INST_CONST_BYTES - PSP_HEADER_BYTES_256 -
+			      PSP_FOOTER_BYTES_256));
+
+	dm_free_gpu_mem(adev, DC_MEM_ALLOC_TYPE_GART, adev->dm.bb_from_dmub);
+	dm_test_free_sw_init(adev);
+}
+
+/**
+ * dm_test_dmub_sw_init_bss_data - Test software init with a BSS data region
+ * @test: The KUnit test context
+ *
+ * A non-zero BSS data size makes software init point the firmware meta info
+ * lookup at the legacy metadata region instead of the instruction constants.
+ */
+static void dm_test_dmub_sw_init_bss_data(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_adev_for_sw_init(test);
+	struct dmcub_firmware_header_v1_0 *hdr;
+
+	hdr = (struct dmcub_firmware_header_v1_0 *)adev->dm.dmub_fw->data;
+	hdr->bss_data_bytes = cpu_to_le32(512);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(6, 0, 0);
+
+	KUNIT_EXPECT_EQ(test, dm_dmub_sw_init(adev), 0);
+	KUNIT_EXPECT_NOT_NULL(test, adev->dm.dmub_fb_info);
+
+	dm_free_gpu_mem(adev, DC_MEM_ALLOC_TYPE_GART, adev->dm.bb_from_dmub);
+	dm_test_free_sw_init(adev);
+}
+
+/**
+ * dm_test_dmub_sw_init_psp_load - Test the PSP firmware load registration
+ * @test: The KUnit test context
+ *
+ * When the firmware is loaded by the PSP, software init must register the
+ * DMCUB microcode with the AMDGPU firmware loader.
+ */
+static void dm_test_dmub_sw_init_psp_load(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_adev_for_sw_init(test);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(6, 0, 0);
+	adev->firmware.load_type = AMDGPU_FW_LOAD_PSP;
+
+	KUNIT_EXPECT_EQ(test, dm_dmub_sw_init(adev), 0);
+	KUNIT_EXPECT_EQ(test, adev->firmware.ucode[AMDGPU_UCODE_ID_DMCUB].ucode_id,
+			AMDGPU_UCODE_ID_DMCUB);
+	KUNIT_EXPECT_PTR_EQ(test, adev->firmware.ucode[AMDGPU_UCODE_ID_DMCUB].fw,
+			    adev->dm.dmub_fw);
+	KUNIT_EXPECT_EQ(test, adev->firmware.fw_size,
+			(u32)ALIGN(DM_TEST_FW_INST_CONST_BYTES, PAGE_SIZE));
+
+	dm_free_gpu_mem(adev, DC_MEM_ALLOC_TYPE_GART, adev->dm.bb_from_dmub);
+	dm_test_free_sw_init(adev);
+}
+
 static struct kunit_case amdgpu_dm_dmub_tests[] = {
 	/* dm_register_dmub_notify_callback() */
 	KUNIT_CASE(dm_test_register_dmub_notify_callback_null_callback),
@@ -1796,6 +1967,12 @@ static struct kunit_case amdgpu_dm_dmub_hw_access_tests[] = {
 	/* dm_init_microcode() */
 	KUNIT_CASE(dm_test_init_microcode_fw_names),
 	KUNIT_CASE(dm_test_init_microcode_request_fails),
+	/* dm_dmub_sw_init() */
+	KUNIT_CASE(dm_test_dmub_sw_init_asic_mapping),
+	KUNIT_CASE(dm_test_dmub_sw_init_gtt_only_asic),
+	KUNIT_CASE(dm_test_dmub_sw_init_success),
+	KUNIT_CASE(dm_test_dmub_sw_init_bss_data),
+	KUNIT_CASE(dm_test_dmub_sw_init_psp_load),
 	{}
 };
 

@@ -78,6 +78,10 @@ void amdgpu_dm_dmub_reg_write(void *ctx, uint32_t address, uint32_t value);
 
 /* Signatures are verbatim copies so an upstream change breaks the default ops. */
 struct amdgpu_dm_dmub_kunit_ops {
+	int (*bo_create_kernel)(struct amdgpu_device *adev,
+				unsigned long size, int align,
+				u32 domain, struct amdgpu_bo **bo_ptr,
+				u64 *gpu_addr, void **cpu_addr);
 	__printf(4, 5)
 	int (*ucode_request)(struct amdgpu_device *adev, const struct firmware **fw,
 			     enum amdgpu_ucode_required required, const char *fmt, ...);
