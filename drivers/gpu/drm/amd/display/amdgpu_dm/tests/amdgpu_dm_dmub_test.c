@@ -1353,6 +1353,7 @@ static void dm_test_abort_fused_io_no_dmub_srv(struct kunit *test)
  * at the start of struct cgs_device.
  */
 
+#define DM_TEST_GPINT_REG		(0x34c0 + 0x01f8)
 #define DM_TEST_GPINT_STATUS_MASK	0xF0000000U
 
 struct dm_test_cgs_ctx {
@@ -1362,6 +1363,8 @@ struct dm_test_cgs_ctx {
 	unsigned int read_calls;
 	unsigned int last_write_offset;
 	unsigned int last_read_offset;
+	/* 1-based index of the write that must never be acked; 0 acks all */
+	unsigned int fail_on_write;
 };
 
 static struct dm_test_cgs_ctx dm_test_cgs;
@@ -1371,6 +1374,9 @@ static uint32_t dm_test_cgs_read_register(struct cgs_device *cgs_device,
 {
 	dm_test_cgs.read_calls++;
 	dm_test_cgs.last_read_offset = offset;
+
+	if (dm_test_cgs.fail_on_write == dm_test_cgs.write_calls)
+		return ~dm_test_cgs.last_write;
 
 	/* The firmware acks a GPINT by clearing the status nibble. */
 	return dm_test_cgs.last_write & ~DM_TEST_GPINT_STATUS_MASK;
@@ -1389,11 +1395,87 @@ static const struct cgs_ops dm_test_cgs_ops = {
 	.write_register = dm_test_cgs_write_register,
 };
 
-static int dm_test_dmub_hw_access_init(struct kunit *test)
+/*
+ * Fake buffer object allocator: amdgpu_bo_create_kernel() and
+ * amdgpu_bo_free_kernel() need a live TTM device, so dm_allocate_gpu_mem() is
+ * routed through this fake.
+ */
+
+#define DM_TEST_FAKE_GPU_ADDR	0x1234ABCD0000ULL
+
+struct dm_test_bo_ctx {
+	void *cpu_ptr;
+	int create_ret;
+	unsigned int create_calls;
+	unsigned int free_calls;
+	unsigned long create_size;
+	u32 create_domain;
+};
+
+static struct dm_test_bo_ctx dm_test_bo;
+
+static int dm_test_bo_create_kernel(struct amdgpu_device *adev, unsigned long size,
+				    int align, u32 domain, struct amdgpu_bo **bo_ptr,
+				    u64 *gpu_addr, void **cpu_addr)
 {
-	dm_test_cgs = (struct dm_test_cgs_ctx) { .dev.ops = &dm_test_cgs_ops };
+	dm_test_bo.create_calls++;
+	dm_test_bo.create_size = size;
+	dm_test_bo.create_domain = domain;
+
+	if (dm_test_bo.create_ret)
+		return dm_test_bo.create_ret;
+
+	*gpu_addr = DM_TEST_FAKE_GPU_ADDR;
+	*cpu_addr = dm_test_bo.cpu_ptr;
 
 	return 0;
+}
+
+static void dm_test_bo_free_kernel(struct amdgpu_bo **bo, u64 *gpu_addr, void **cpu_addr)
+{
+	dm_test_bo.free_calls++;
+
+	*bo = NULL;
+	*gpu_addr = 0;
+	*cpu_addr = NULL;
+}
+
+static const struct amdgpu_dm_services_kunit_ops dm_test_services_ops = {
+	.bo_create_kernel = dm_test_bo_create_kernel,
+	.bo_free_kernel = dm_test_bo_free_kernel,
+};
+
+static int dm_test_dmub_hw_access_init(struct kunit *test)
+{
+	void *cpu_ptr;
+
+	cpu_ptr = kunit_kzalloc(test, PAGE_SIZE, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, cpu_ptr);
+
+	dm_test_bo = (struct dm_test_bo_ctx) { .cpu_ptr = cpu_ptr };
+	dm_test_cgs = (struct dm_test_cgs_ctx) { .dev.ops = &dm_test_cgs_ops };
+
+	amdgpu_dm_services_kunit_set_ops(&dm_test_services_ops);
+
+	return 0;
+}
+
+static void dm_test_dmub_hw_access_exit(struct kunit *test)
+{
+	amdgpu_dm_services_kunit_set_ops(NULL);
+}
+
+static struct amdgpu_device *dm_test_alloc_adev_with_cgs(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+
+	adev->dm.cgs_device = &dm_test_cgs.dev;
+	INIT_LIST_HEAD(&adev->dm.da_list);
+
+	return adev;
 }
 
 /* Tests for amdgpu_dm_dmub_reg_read() and amdgpu_dm_dmub_reg_write() */
@@ -1425,6 +1507,105 @@ static void dm_test_dmub_reg_write_then_read(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_dmub_reg_read(adev, 0x1234), 0x0BADF00DU);
 	KUNIT_EXPECT_EQ(test, dm_test_cgs.read_calls, 1U);
 	KUNIT_EXPECT_EQ(test, dm_test_cgs.last_read_offset, 0x1234U);
+}
+
+/* Tests for dm_dmub_get_vbios_bounding_box() */
+
+/**
+ * dm_test_dmub_get_vbios_bounding_box_success - Test the full bounding box handshake
+ * @test: The KUnit test context
+ *
+ * Every ASIC with a bounding box allocates a non-zero GART buffer, then sends
+ * and gets an ack for the four address words and the copy request.
+ */
+static void dm_test_dmub_get_vbios_bounding_box_success(struct kunit *test)
+{
+	static const u32 ip_versions[] = {
+		IP_VERSION(4, 0, 1),
+		IP_VERSION(4, 2, 0),
+		IP_VERSION(4, 2, 1),
+		IP_VERSION(6, 0, 0),
+	};
+	struct amdgpu_device *adev = dm_test_alloc_adev_with_cgs(test);
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(ip_versions); i++) {
+		void *bb;
+
+		adev->ip_versions[DCE_HWIP][0] = ip_versions[i];
+
+		bb = dm_dmub_get_vbios_bounding_box(adev);
+
+		KUNIT_EXPECT_PTR_EQ_MSG(test, bb, dm_test_bo.cpu_ptr,
+					"IP version 0x%08x", ip_versions[i]);
+		KUNIT_EXPECT_GT_MSG(test, dm_test_bo.create_size, 0UL,
+				    "IP version 0x%08x", ip_versions[i]);
+		KUNIT_EXPECT_EQ(test, dm_test_bo.create_domain,
+				(u32)AMDGPU_GEM_DOMAIN_GTT);
+		KUNIT_EXPECT_EQ(test, dm_test_cgs.last_write_offset,
+				(unsigned int)DM_TEST_GPINT_REG);
+		/* Four address words plus the copy request per ASIC. */
+		KUNIT_EXPECT_EQ(test, dm_test_cgs.write_calls, 5 * (i + 1));
+
+		dm_free_gpu_mem(adev, DC_MEM_ALLOC_TYPE_GART, bb);
+	}
+}
+
+/**
+ * dm_test_dmub_get_vbios_bounding_box_alloc_fails - Test the allocation failure path
+ * @test: The KUnit test context
+ *
+ * When the GPU memory allocation fails, no GPINT command is sent.
+ */
+static void dm_test_dmub_get_vbios_bounding_box_alloc_fails(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_adev_with_cgs(test);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(6, 0, 0);
+	dm_test_bo.create_ret = -ENOMEM;
+
+	KUNIT_EXPECT_NULL(test, dm_dmub_get_vbios_bounding_box(adev));
+	KUNIT_EXPECT_EQ(test, dm_test_cgs.write_calls, 0U);
+}
+
+/**
+ * dm_test_dmub_get_vbios_bounding_box_addr_timeout - Test an unacked address word
+ * @test: The KUnit test context
+ *
+ * When the firmware never acks the first address word, the handshake stops
+ * there and the buffer is released.
+ */
+static void dm_test_dmub_get_vbios_bounding_box_addr_timeout(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_adev_with_cgs(test);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(6, 0, 0);
+	dm_test_cgs.fail_on_write = 1;
+
+	KUNIT_EXPECT_NULL(test, dm_dmub_get_vbios_bounding_box(adev));
+	KUNIT_EXPECT_EQ(test, dm_test_cgs.write_calls, 1U);
+	KUNIT_EXPECT_EQ(test, dm_test_bo.free_calls, 1U);
+	KUNIT_EXPECT_TRUE(test, list_empty(&adev->dm.da_list));
+}
+
+/**
+ * dm_test_dmub_get_vbios_bounding_box_copy_timeout - Test an unacked copy request
+ * @test: The KUnit test context
+ *
+ * When all four address words are acked but the copy request is not, the
+ * buffer is released and no bounding box is returned.
+ */
+static void dm_test_dmub_get_vbios_bounding_box_copy_timeout(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_adev_with_cgs(test);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(6, 0, 0);
+	dm_test_cgs.fail_on_write = 5;
+
+	KUNIT_EXPECT_NULL(test, dm_dmub_get_vbios_bounding_box(adev));
+	KUNIT_EXPECT_EQ(test, dm_test_cgs.write_calls, 5U);
+	KUNIT_EXPECT_EQ(test, dm_test_bo.free_calls, 1U);
+	KUNIT_EXPECT_TRUE(test, list_empty(&adev->dm.da_list));
 }
 
 static struct kunit_case amdgpu_dm_dmub_tests[] = {
@@ -1495,12 +1676,18 @@ static struct kunit_suite amdgpu_dm_dmub_test_suite = {
 static struct kunit_case amdgpu_dm_dmub_hw_access_tests[] = {
 	/* amdgpu_dm_dmub_reg_read() and amdgpu_dm_dmub_reg_write() */
 	KUNIT_CASE(dm_test_dmub_reg_write_then_read),
+	/* dm_dmub_get_vbios_bounding_box() */
+	KUNIT_CASE(dm_test_dmub_get_vbios_bounding_box_success),
+	KUNIT_CASE(dm_test_dmub_get_vbios_bounding_box_alloc_fails),
+	KUNIT_CASE(dm_test_dmub_get_vbios_bounding_box_addr_timeout),
+	KUNIT_CASE(dm_test_dmub_get_vbios_bounding_box_copy_timeout),
 	{}
 };
 
 static struct kunit_suite amdgpu_dm_dmub_hw_access_test_suite = {
 	.name = "amdgpu_dm_dmub_hw_access",
 	.init = dm_test_dmub_hw_access_init,
+	.exit = dm_test_dmub_hw_access_exit,
 	.test_cases = amdgpu_dm_dmub_hw_access_tests,
 };
 
