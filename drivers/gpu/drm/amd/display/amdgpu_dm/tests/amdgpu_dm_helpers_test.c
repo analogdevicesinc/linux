@@ -1396,6 +1396,8 @@ struct dm_test_synaptics_aux {
 	unsigned int downspread_reads;
 	unsigned int downspread_writes;
 	unsigned int dsc_enable_writes;
+	/* number of RC command reads that report the command still active */
+	unsigned int command_busy_reads;
 };
 
 static ssize_t dm_test_synaptics_aux_transfer(struct drm_dp_aux *aux,
@@ -1464,8 +1466,14 @@ static ssize_t dm_test_synaptics_aux_transfer(struct drm_dp_aux *aux,
 			fixture->downspread_reads++;
 			break;
 		case SYNAPTICS_RC_COMMAND:
-			if (msg->size)
-				buffer[0] = fixture->last_rc_command & 0x7f;
+			if (msg->size) {
+				if (fixture->command_busy_reads) {
+					fixture->command_busy_reads--;
+					buffer[0] = fixture->last_rc_command;
+				} else {
+					buffer[0] = fixture->last_rc_command & 0x7f;
+				}
+			}
 			fixture->rc_command_reads++;
 			break;
 		case SYNAPTICS_RC_RESULT:
@@ -1610,6 +1618,77 @@ static void dm_test_execute_synaptics_rc_command_write_fail(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, execute_synaptics_rc_command(&fixture->aux, true,
 							      0x01, sizeof(data), 0, &data));
 	KUNIT_EXPECT_EQ(test, fixture->rc_command_count, 0U);
+}
+
+/**
+ * dm_test_execute_synaptics_rc_command_data_fail - Test RC data write failure
+ * @test: The KUnit test context
+ */
+static void dm_test_execute_synaptics_rc_command_data_fail(struct kunit *test)
+{
+	struct dm_test_synaptics_aux *fixture;
+	u8 data = 0;
+
+	fixture = dm_test_alloc_synaptics_aux(test);
+	fixture->fail_address = SYNAPTICS_RC_DATA;
+
+	KUNIT_EXPECT_FALSE(test, execute_synaptics_rc_command(&fixture->aux, true,
+							      0x01, sizeof(data), 0, &data));
+	KUNIT_EXPECT_EQ(test, fixture->last_rc_offset, 0U);
+}
+
+/**
+ * dm_test_execute_synaptics_rc_command_offset_fail - Test RC offset write failure
+ * @test: The KUnit test context
+ */
+static void dm_test_execute_synaptics_rc_command_offset_fail(struct kunit *test)
+{
+	struct dm_test_synaptics_aux *fixture;
+	u8 data = 0;
+
+	fixture = dm_test_alloc_synaptics_aux(test);
+	fixture->fail_address = SYNAPTICS_RC_OFFSET;
+
+	KUNIT_EXPECT_FALSE(test, execute_synaptics_rc_command(&fixture->aux, false,
+							      0x31, sizeof(data), 0, &data));
+	KUNIT_EXPECT_EQ(test, fixture->last_rc_length, 0U);
+}
+
+/**
+ * dm_test_execute_synaptics_rc_command_command_fail - Test RC command write failure
+ * @test: The KUnit test context
+ */
+static void dm_test_execute_synaptics_rc_command_command_fail(struct kunit *test)
+{
+	struct dm_test_synaptics_aux *fixture;
+	u8 data = 0;
+
+	fixture = dm_test_alloc_synaptics_aux(test);
+	fixture->fail_address = SYNAPTICS_RC_COMMAND;
+
+	KUNIT_EXPECT_FALSE(test, execute_synaptics_rc_command(&fixture->aux, false,
+							      0x31, sizeof(data), 0, &data));
+	KUNIT_EXPECT_EQ(test, fixture->rc_result_reads, 0U);
+}
+
+/**
+ * dm_test_execute_synaptics_rc_command_busy_poll - Test the RC command poll loop
+ * @test: The KUnit test context
+ *
+ * The command stays marked active for the first reads, so the helper sleeps and
+ * polls again before reading the result.
+ */
+static void dm_test_execute_synaptics_rc_command_busy_poll(struct kunit *test)
+{
+	struct dm_test_synaptics_aux *fixture;
+	u8 data = 0;
+
+	fixture = dm_test_alloc_synaptics_aux(test);
+	fixture->command_busy_reads = 2;
+
+	KUNIT_EXPECT_TRUE(test, execute_synaptics_rc_command(&fixture->aux, false,
+							     0x31, sizeof(data), 0, &data));
+	KUNIT_EXPECT_EQ(test, fixture->rc_command_reads, 3U);
 }
 
 /**
@@ -3857,6 +3936,10 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_execute_synaptics_rc_command_write_success),
 	KUNIT_CASE(dm_test_execute_synaptics_rc_command_read_success),
 	KUNIT_CASE(dm_test_execute_synaptics_rc_command_write_fail),
+	KUNIT_CASE(dm_test_execute_synaptics_rc_command_data_fail),
+	KUNIT_CASE(dm_test_execute_synaptics_rc_command_offset_fail),
+	KUNIT_CASE(dm_test_execute_synaptics_rc_command_command_fail),
+	KUNIT_CASE(dm_test_execute_synaptics_rc_command_busy_poll),
 	KUNIT_CASE(dm_test_apply_synaptics_fifo_reset_wa_full),
 	KUNIT_CASE(dm_test_apply_synaptics_fifo_reset_wa_first_fail),
 	KUNIT_CASE(dm_test_write_dsc_enable_synaptics_enable_inactive),
