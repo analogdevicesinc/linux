@@ -12,6 +12,7 @@
 
 #include "dc.h"
 #include "core_types.h"
+#include "link_service.h"
 #include "amdgpu.h"
 #include "amdgpu_mode.h"
 #include "amdgpu_dm.h"
@@ -4043,6 +4044,49 @@ static void dm_test_dmub_set_config_sync_unknown_error(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)result, (int)SET_CONFIG_UNKNOWN_ERROR);
 }
 
+/* Tests for dm_helpers_is_dp_sink_present() */
+
+static bool dm_test_dp_sink_present_true(struct dc_link *link)
+{
+	return true;
+}
+
+/**
+ * dm_test_is_dp_sink_present_queries_link_service - Test sink presence query
+ * @test: The KUnit test context
+ *
+ * With a connector present the helper takes the AUX hardware mutex and
+ * forwards to the link service.
+ */
+static void dm_test_is_dp_sink_present_queries_link_service(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct link_service *link_srv;
+	struct amdgpu_device *adev;
+	struct dc_link *link;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	link = dm_kunit_alloc_link(test);
+	aconnector = dm_kunit_alloc_connector(test, adev, link);
+
+	aconnector->dm_dp_aux.aux.drm_dev = &adev->ddev;
+	aconnector->dm_dp_aux.aux.transfer = dm_test_dpcd_ack_transfer;
+	drm_dp_aux_init(&aconnector->dm_dp_aux.aux);
+
+	link_srv->dp_is_sink_present = dm_test_dp_sink_present_true;
+	dc->link_srv = link_srv;
+	link->dc = dc;
+	link->priv = aconnector;
+
+	KUNIT_EXPECT_TRUE(test, dm_helpers_is_dp_sink_present(link));
+}
+
 static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	/* edid_extract_panel_id */
 	KUNIT_CASE(dm_test_edid_extract_panel_id_basic),
@@ -4237,6 +4281,8 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_gpu_mem_alloc_and_free),
 	/* dm_helpers_dmub_set_config_sync */
 	KUNIT_CASE(dm_test_dmub_set_config_sync_unknown_error),
+	/* dm_helpers_is_dp_sink_present */
+	KUNIT_CASE(dm_test_is_dp_sink_present_queries_link_service),
 	{}
 };
 
