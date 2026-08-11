@@ -864,41 +864,32 @@ static int xe_pagefault_work_index(struct xe_device *xe)
 int xe_pagefault_handler(struct xe_device *xe, struct xe_pagefault *pf)
 {
 	struct xe_pagefault_queue *pf_queue = &xe->usm.pf_queue;
-	bool full;
+	struct xe_pagefault *lpf;
+	bool empty;
 
 	guard(spinlock_irqsave)(&pf_queue->lock);
-	full = xe_pagefault_queue_full(pf_queue);
-	if (!full) {
-		struct xe_pagefault *lpf;
-		bool empty = xe_pagefault_queue_empty(pf_queue);
 
-		lpf = xe_pagefault_queue_add(pf_queue, pf);
-		if (lpf) {
-			lpf->consumer.next = NULL;
+	empty = xe_pagefault_queue_empty(pf_queue);
+	lpf = xe_pagefault_queue_add(pf_queue, pf);
+	if (!lpf)
+		return -ENOSPC;
 
-			if (xe_pagefault_try_chain(pf_queue, lpf)) {
-				xe_gt_stats_incr(pf->gt,
-						 XE_GT_STATS_ID_CHAIN_IRQ_PAGEFAULT_COUNT,
-						 1);
-				if (empty) {
-					xe_gt_stats_incr(pf->gt,
-							 XE_GT_STATS_ID_CHAIN_DRAIN_IRQ_PAGEFAULT_COUNT,
-							 1);
-					xe_pagefault_queue_advance(pf_queue);
-				}
-			} else {
-				int work_index = xe_pagefault_work_index(xe);
-
-				queue_work(xe->usm.pagefault_wq,
-					   &xe->usm.pf_workers[work_index].work);
-			}
+	lpf->consumer.next = NULL;
+	if (xe_pagefault_try_chain(pf_queue, lpf)) {
+		xe_gt_stats_incr(pf->gt, XE_GT_STATS_ID_CHAIN_IRQ_PAGEFAULT_COUNT, 1);
+		if (empty) {
+			xe_gt_stats_incr(pf->gt,
+					 XE_GT_STATS_ID_CHAIN_DRAIN_IRQ_PAGEFAULT_COUNT, 1);
+			xe_pagefault_queue_advance(pf_queue);
 		}
 	} else {
-		drm_warn(&xe->drm,
-			 "PageFault Queue full, shouldn't be possible\n");
+		int work_index = xe_pagefault_work_index(xe);
+
+		queue_work(xe->usm.pagefault_wq,
+			   &xe->usm.pf_workers[work_index].work);
 	}
 
-	return full ? -ENOSPC : 0;
+	return 0;
 }
 
 /**
