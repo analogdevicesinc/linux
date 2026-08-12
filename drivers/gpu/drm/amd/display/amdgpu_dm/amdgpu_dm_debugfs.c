@@ -1287,6 +1287,24 @@ static int internal_display_show(struct seq_file *m, void *data)
 }
 
 /*
+ * Returns the maximum source viewport width (in pixels) this ASIC can
+ * downscale from. A value of 0 means there is no such limit.
+ * Example usage: cat /sys/kernel/debug/dri/0/eDP-1/max_downscale_src_width
+ */
+static int max_downscale_src_width_show(struct seq_file *m, void *unused)
+{
+	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(m->private);
+	struct dc_link *link = aconnector->dc_link;
+
+	if (!link)
+		return -ENODEV;
+
+	seq_printf(m, "%d\n", link->dc->debug.max_downscale_src_width);
+
+	return 0;
+}
+
+/*
  * Returns the number of segments used if ODM Combine mode is enabled.
  * Example usage: cat /sys/kernel/debug/dri/0/DP-1/odm_combine_segments
  */
@@ -3045,6 +3063,7 @@ DEFINE_SHOW_ATTRIBUTE(dmub_tracebuffer);
 DEFINE_SHOW_ATTRIBUTE(dp_lttpr_status);
 DEFINE_SHOW_ATTRIBUTE(hdcp_sink_capability);
 DEFINE_SHOW_ATTRIBUTE(internal_display);
+DEFINE_SHOW_ATTRIBUTE(max_downscale_src_width);
 DEFINE_SHOW_ATTRIBUTE(odm_combine_segments);
 DEFINE_SHOW_ATTRIBUTE(replay_capability);
 DEFINE_SHOW_ATTRIBUTE(psr_capability);
@@ -3753,6 +3772,7 @@ static const struct {
 		{"force_yuv_pixel_format", &force_yuv_pixel_format_fops},
 		{"trigger_hotplug", &trigger_hotplug_debugfs_fops},
 		{"internal_display", &internal_display_fops},
+		{"max_downscale_src_width", &max_downscale_src_width_fops},
 		{"odm_combine_segments", &odm_combine_segments_fops}
 };
 
