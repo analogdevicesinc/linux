@@ -168,7 +168,7 @@ STATIC_IFN_KUNIT ssize_t dm_dp_aux_transfer(struct drm_dp_aux *aux,
 }
 EXPORT_IF_KUNIT(dm_dp_aux_transfer);
 
-static void
+STATIC_IFN_KUNIT void
 dm_dp_mst_connector_destroy(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *aconnector =
@@ -186,6 +186,7 @@ dm_dp_mst_connector_destroy(struct drm_connector *connector)
 	drm_dp_mst_put_port_malloc(aconnector->mst_output_port);
 	kfree(aconnector);
 }
+EXPORT_IF_KUNIT(dm_dp_mst_connector_destroy);
 
 STATIC_IFN_KUNIT int
 amdgpu_dm_mst_connector_late_register(struct drm_connector *connector)

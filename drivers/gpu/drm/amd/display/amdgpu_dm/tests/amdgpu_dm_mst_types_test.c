@@ -1892,6 +1892,98 @@ static void dm_mst_test_connector_early_unregister_releases_sink(struct kunit *t
 	dm_mst_test_fini_child(&child);
 }
 
+/* Tests for dm_dp_mst_connector_destroy */
+
+/*
+ * dm_dp_mst_connector_destroy() frees both the connector and the MST port, so
+ * they are allocated outside the KUnit managed allocator. The parent branch
+ * device takes an extra malloc reference so it survives the port teardown.
+ */
+static struct amdgpu_dm_connector *
+dm_mst_test_alloc_destroyable_connector(struct kunit *test, struct dm_mst_test_child *child)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_dp_mst_branch *mstb;
+	struct drm_dp_mst_port *port;
+	int ret;
+
+	aconnector = kzalloc_obj(*aconnector);
+	port = kzalloc_obj(*port);
+	mstb = kunit_kzalloc(test, sizeof(*mstb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, port);
+	KUNIT_ASSERT_NOT_NULL(test, mstb);
+
+	mstb->mgr = &child->root->mst_mgr;
+	kref_init(&mstb->malloc_kref);
+	kref_get(&mstb->malloc_kref);
+
+	port->mgr = &child->root->mst_mgr;
+	port->parent = mstb;
+	kref_init(&port->malloc_kref);
+
+	aconnector->dc_link = child->link;
+	aconnector->mst_root = child->root;
+	aconnector->mst_output_port = port;
+
+	ret = drm_connector_init(&child->adev->ddev, &aconnector->base,
+				 &dm_mst_test_connector_funcs,
+				 DRM_MODE_CONNECTOR_DisplayPort);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	return aconnector;
+}
+
+/**
+ * dm_mst_test_connector_destroy_no_sink - Test destroy without a remote sink
+ * @test: KUnit test context
+ *
+ * dm_dp_mst_connector_destroy() must clean up the DRM connector and drop the MST
+ * port reference even when no remote sink was ever attached.
+ */
+static void dm_mst_test_connector_destroy_no_sink(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+	aconnector = dm_mst_test_alloc_destroyable_connector(test, &child);
+
+	dm_dp_mst_connector_destroy(&aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_remove_remote_sink_calls, 0U);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_connector_destroy_releases_sink - Test destroy releases the sink
+ * @test: KUnit test context
+ *
+ * dm_dp_mst_connector_destroy() must remove the remote sink from the DC link
+ * before tearing down the connector.
+ */
+static void dm_mst_test_connector_destroy_releases_sink(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+	aconnector = dm_mst_test_alloc_destroyable_connector(test, &child);
+
+	sink = dm_mst_test_alloc_sink(test);
+	aconnector->dc_sink = sink;
+	child.link->sink_count = 1;
+
+	dm_dp_mst_connector_destroy(&aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_remove_remote_sink_calls, 1U);
+	KUNIT_EXPECT_PTR_EQ(test, dm_mst_test_removed_sink, sink);
+
+	dm_mst_test_fini_child(&child);
+}
+
 /*
  * Sideband connector with a live topology manager and the DOWN_REP ready bit
  * armed, so dm_handle_mst_sideband_msg_ready_event() reaches its ack path.
@@ -2057,6 +2149,9 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	/* amdgpu_dm_mst_connector_early_unregister tests */
 	KUNIT_CASE(dm_mst_test_connector_early_unregister_no_sink),
 	KUNIT_CASE(dm_mst_test_connector_early_unregister_releases_sink),
+	/* dm_dp_mst_connector_destroy tests */
+	KUNIT_CASE(dm_mst_test_connector_destroy_no_sink),
+	KUNIT_CASE(dm_mst_test_connector_destroy_releases_sink),
 	/* CONFIG_DRM_AMD_DC_FP disabled public paths */
 #if !defined(CONFIG_DRM_AMD_DC_FP)
 	KUNIT_CASE(dm_mst_test_fp_guarded_public_stubs),

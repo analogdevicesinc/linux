@@ -121,6 +121,7 @@ int dm_dp_mst_detect(struct drm_connector *connector,
 int dm_dp_mst_get_modes(struct drm_connector *connector);
 int amdgpu_dm_mst_connector_late_register(struct drm_connector *connector);
 void amdgpu_dm_mst_connector_early_unregister(struct drm_connector *connector);
+void dm_dp_mst_connector_destroy(struct drm_connector *connector);
 #endif
 
 #endif
