@@ -352,9 +352,20 @@ nfsd_lookup(struct svc_rqst *rqstp, struct svc_fh *fhp, const char *name,
 	return err;
 }
 
-static void
-commit_reset_write_verifier(struct nfsd_net *nn, struct svc_rqst *rqstp,
-			    int err)
+/**
+ * nfsd_maybe_reset_write_verifier - Reset the write verifier after an I/O error
+ * @nn: nfsd namespace holding the write verifier
+ * @rqstp: RPC transaction context
+ * @err: errno reported by the failed operation
+ *
+ * A write verifier reset tells clients that unstable data the server has
+ * already acknowledged might have been lost. Client response is to resend
+ * in-flight dirty data.
+ *
+ * Context: Process context.
+ */
+void nfsd_maybe_reset_write_verifier(struct nfsd_net *nn,
+				     struct svc_rqst *rqstp, int err)
 {
 	switch (err) {
 	case -EAGAIN:
@@ -735,7 +746,7 @@ __be32 nfsd4_clone_file_range(struct svc_rqst *rqstp,
 					&nfsd4_get_cstate(rqstp)->current_fh,
 					dst_pos,
 					count, status);
-			commit_reset_write_verifier(nn, rqstp, status);
+			nfsd_maybe_reset_write_verifier(nn, rqstp, status);
 			ret = nfserrno(status);
 		}
 	}
@@ -1472,21 +1483,21 @@ nfsd_vfs_write(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		break;
 	}
 	if (host_err < 0) {
-		commit_reset_write_verifier(nn, rqstp, host_err);
+		nfsd_maybe_reset_write_verifier(nn, rqstp, host_err);
 		goto out_nfserr;
 	}
 	nfsd_stats_io_write_add(nn, exp, *cnt);
 	fsnotify_modify(file);
 	host_err = filemap_check_wb_err(file->f_mapping, since);
 	if (host_err < 0) {
-		commit_reset_write_verifier(nn, rqstp, host_err);
+		nfsd_maybe_reset_write_verifier(nn, rqstp, host_err);
 		goto out_nfserr;
 	}
 
 	if (iocb_flags && fhp->fh_use_wgather) {
 		host_err = wait_for_concurrent_writes(file);
 		if (host_err < 0)
-			commit_reset_write_verifier(nn, rqstp, host_err);
+			nfsd_maybe_reset_write_verifier(nn, rqstp, host_err);
 	}
 
 out_nfserr:
@@ -1662,14 +1673,14 @@ nfsd_commit(struct svc_rqst *rqstp, struct svc_fh *fhp, struct nfsd_file *nf,
 			err2 = filemap_check_wb_err(nf->nf_file->f_mapping,
 						    since);
 			if (err2 < 0)
-				commit_reset_write_verifier(nn, rqstp, err2);
+				nfsd_maybe_reset_write_verifier(nn, rqstp, err2);
 			err = nfserrno(err2);
 			break;
 		case -EINVAL:
 			err = nfserr_notsupp;
 			break;
 		default:
-			commit_reset_write_verifier(nn, rqstp, err2);
+			nfsd_maybe_reset_write_verifier(nn, rqstp, err2);
 			err = nfserrno(err2);
 		}
 	} else
