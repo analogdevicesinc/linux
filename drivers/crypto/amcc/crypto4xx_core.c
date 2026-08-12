@@ -1046,8 +1046,7 @@ static void crypto4xx_bh_tasklet_cb(unsigned long data)
 static inline irqreturn_t crypto4xx_interrupt_handler(int irq, void *data,
 						      u32 clr_val)
 {
-	struct device *dev = data;
-	struct crypto4xx_core_device *core_dev = dev_get_drvdata(dev);
+	struct crypto4xx_core_device *core_dev = data;
 
 	writel(clr_val, core_dev->dev->ce_base + CRYPTO4XX_INT_CLR);
 	tasklet_schedule(&core_dev->tasklet);
@@ -1303,7 +1302,7 @@ static int crypto4xx_probe(struct platform_device *ofdev)
 	rc = request_irq(core_dev->irq,
 			 is_revb ? crypto4xx_ce_interrupt_handler_revb :
 				   crypto4xx_ce_interrupt_handler,
-			 0, KBUILD_MODNAME, dev);
+			 0, KBUILD_MODNAME, core_dev);
 	if (rc)
 		goto err_tasklet;
 
@@ -1320,7 +1319,7 @@ static int crypto4xx_probe(struct platform_device *ofdev)
 	return 0;
 
 err_irq:
-	free_irq(core_dev->irq, dev);
+	free_irq(core_dev->irq, core_dev);
 err_tasklet:
 	tasklet_kill(&core_dev->tasklet);
 err_build_sdr:
@@ -1341,7 +1340,7 @@ static void crypto4xx_remove(struct platform_device *ofdev)
 	 * Free IRQ before killing the tasklet to prevent the interrupt
 	 * handler from rescheduling the tasklet after it has been killed.
 	 */
-	free_irq(core_dev->irq, dev);
+	free_irq(core_dev->irq, core_dev);
 	tasklet_kill(&core_dev->tasklet);
 	/* Un-register with Linux CryptoAPI */
 	crypto4xx_unregister_alg(core_dev->dev);
