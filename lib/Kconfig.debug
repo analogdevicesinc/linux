@@ -2797,6 +2797,21 @@ config SYSCTL_KUNIT_TEST
 
 	  If unsure, say N.
 
+config ERRSEQ_KUNIT_TEST
+	tristate "KUnit test for errseq" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	default KUNIT_ALL_TESTS
+	help
+	  This builds the errseq KUnit test suite.
+	  It tests the documented semantics of the errseq_t error-tracking
+	  infrastructure (lib/errseq.c), which underpins writeback error
+	  reporting.
+
+	  For more information on KUnit and unit tests in general please refer
+	  to the KUnit documentation in Documentation/dev-tools/kunit/.
+
+	  If unsure, say N.
+
 config KFIFO_KUNIT_TEST
 	tristate "KUnit Test for the generic kernel FIFO implementation" if !KUNIT_ALL_TESTS
 	depends on KUNIT
