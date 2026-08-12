@@ -6,7 +6,7 @@
 config NET_VENDOR_ADI
 	bool "Analog Devices devices"
 	default y
-	depends on SPI
+	depends on SPI || DMADEVICES
 	help
 	  If you have a network (Ethernet) card belonging to this class, say Y.
 
@@ -25,5 +25,21 @@ config ADIN1110
 	help
 	  Say yes here to build support for Analog Devices ADIN1110
 	  Low Power 10BASE-T1L Ethernet MAC-PHY.
+
+config ADI_AXIS_NET
+	tristate "Analog Devices AXI-Stream point-to-point Ethernet"
+	depends on DMADEVICES
+	depends on OF
+	help
+	  Say yes here to build support for a point-to-point Ethernet link
+	  carried over a pair of AXI-Stream DMA channels, as provided by the
+	  ADI AXI-DMAC IP in stream mode.
+
+	  This is used to connect two processors joined by FPGA fabric -- for
+	  example an x86 host and a Zynq PS across a PCIe endpoint. The same
+	  driver runs unmodified on both ends of the link.
+
+	  To compile this driver as a module, choose M here. The module will be
+	  called adi_axis_net.
 
 endif # NET_VENDOR_ADI
