@@ -1711,6 +1711,113 @@ static void dm_mst_test_get_modes_reads_remote_edid(struct kunit *test)
 	dm_mst_test_fini_child(&child);
 }
 
+/* Tests for dm_dp_mst_detect */
+
+/**
+ * dm_mst_test_detect_reads_port_dpcd_rev - Test DPCD revision probing
+ * @test: KUnit test context
+ *
+ * For a peer device with an unknown DPCD revision, dm_dp_mst_detect() must probe
+ * DP_DP13_DPCD_REV over the port AUX and cache the returned revision.
+ */
+static void dm_mst_test_detect_reads_port_dpcd_rev(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+	child.port->pdt = DP_PEER_DEVICE_SST_SINK;
+	/* Both DP_DP13_DPCD_REV and DP_DPCD_REV alias to offset 0 in the fake. */
+	dm_mst_test_dpcd[0] = 0x13;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_detect(&child.aconnector->base, NULL, false),
+			(int)connector_status_disconnected);
+
+	KUNIT_EXPECT_EQ(test, (int)child.port->dpcd_rev, 0x13);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_detect_unknown_dpcd_rev - Test unreadable DPCD revision
+ * @test: KUnit test context
+ *
+ * When both DPCD revision registers read back as zero, dm_dp_mst_detect() must
+ * leave the cached revision cleared instead of reporting a bogus value.
+ */
+static void dm_mst_test_detect_unknown_dpcd_rev(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+	child.port->pdt = DP_PEER_DEVICE_SST_SINK;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_detect(&child.aconnector->base, NULL, false),
+			(int)connector_status_disconnected);
+
+	KUNIT_EXPECT_EQ(test, (int)child.port->dpcd_rev, 0);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_detect_dpcd_read_error - Test unreachable port DPCD
+ * @test: KUnit test context
+ *
+ * When the remote DPCD read is NAKed, dm_dp_mst_detect() must leave the cached
+ * revision untouched instead of storing a garbage value.
+ */
+static void dm_mst_test_detect_dpcd_read_error(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+	child.port->pdt = DP_PEER_DEVICE_SST_SINK;
+	dm_mst_test_aux_transfer_override = -EIO;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_detect(&child.aconnector->base, NULL, false),
+			(int)connector_status_disconnected);
+
+	KUNIT_EXPECT_EQ(test, (int)child.port->dpcd_rev, 0);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_detect_disconnect_releases_sink - Test unplug sink release
+ * @test: KUnit test context
+ *
+ * A port with no peer device must have its cached DPCD revision cleared, and the
+ * resulting disconnected status must release the remote sink and reset the MST
+ * connector state.
+ */
+static void dm_mst_test_detect_disconnect_releases_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+	child.port->pdt = DP_PEER_DEVICE_NONE;
+	child.port->dpcd_rev = 0x14;
+
+	sink = dm_mst_test_alloc_sink(test);
+	child.aconnector->dc_sink = sink;
+	child.aconnector->dsc_aux = &child.port->aux;
+	child.aconnector->mst_local_bw = 1234;
+	child.link->sink_count = 1;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_detect(&child.aconnector->base, NULL, false),
+			(int)connector_status_disconnected);
+
+	KUNIT_EXPECT_EQ(test, (int)child.port->dpcd_rev, 0);
+	KUNIT_EXPECT_EQ(test, dm_mst_test_remove_remote_sink_calls, 1U);
+	KUNIT_EXPECT_PTR_EQ(test, dm_mst_test_removed_sink, sink);
+	KUNIT_EXPECT_NULL(test, child.aconnector->dc_sink);
+	KUNIT_EXPECT_NULL(test, child.aconnector->dsc_aux);
+	KUNIT_EXPECT_EQ(test, child.aconnector->mst_local_bw, 0U);
+
+	dm_mst_test_fini_child(&child);
+}
+
 /*
  * Sideband connector with a live topology manager and the DOWN_REP ready bit
  * armed, so dm_handle_mst_sideband_msg_ready_event() reaches its ack path.
@@ -1859,6 +1966,10 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_atomic_check_no_old_crtc),
 	/* dm_dp_mst_detect tests */
 	KUNIT_CASE(dm_mst_test_detect_unregistered),
+	KUNIT_CASE(dm_mst_test_detect_reads_port_dpcd_rev),
+	KUNIT_CASE(dm_mst_test_detect_unknown_dpcd_rev),
+	KUNIT_CASE(dm_mst_test_detect_dpcd_read_error),
+	KUNIT_CASE(dm_mst_test_detect_disconnect_releases_sink),
 	/* dm_dp_mst_get_modes tests */
 	KUNIT_CASE(dm_mst_test_get_modes_no_edid_adds_default_sink),
 	KUNIT_CASE(dm_mst_test_get_modes_no_edid_sink_alloc_fails),
