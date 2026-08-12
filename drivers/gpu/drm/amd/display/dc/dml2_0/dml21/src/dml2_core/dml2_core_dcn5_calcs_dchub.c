@@ -4225,9 +4225,9 @@ static double dcn5_calculate_writeback_latency_hiding_us(
 		unsigned int dwb_index)
 {
 	double byte_per_pixel_luma_in_buffer = 1.0;
-	double buffer_for_luma_bytes = (double)writeback_buffer_size_bytes * 1024.0;
+	double buffer_for_luma_bytes = (double)writeback_buffer_size_bytes;
 	double line_time_us = (double)display_cfg->stream_descriptors[stream_index].timing.h_total /
-			(double)display_cfg->stream_descriptors[stream_index].timing.pixel_clock_khz / 1000.0;
+			((double)display_cfg->stream_descriptors[stream_index].timing.pixel_clock_khz / 1000.0);
 
 	if (display_cfg->stream_descriptors[stream_index].writeback.writeback_stream[dwb_index].pixel_format == dml2_444_64) {
 		byte_per_pixel_luma_in_buffer = 8.0;

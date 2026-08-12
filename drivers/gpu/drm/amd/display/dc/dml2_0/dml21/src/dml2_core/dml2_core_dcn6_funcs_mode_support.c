@@ -1292,10 +1292,6 @@ static bool dcn6_ms_check_writeback_count_support(
 
 		totalNumberOfActiveWriteback +=
 				display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].writeback.active_writebacks_per_stream;
-
-		/* >1 writeback per stream is currently not supported */
-		if (display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].writeback.active_writebacks_per_stream > 1)
-			writeback_per_stream_supported = false;
 	}
 	outputs->support.EnoughWritebackUnits = writeback_per_stream_supported &&
 			totalNumberOfActiveWriteback <= ip->max_num_wb;

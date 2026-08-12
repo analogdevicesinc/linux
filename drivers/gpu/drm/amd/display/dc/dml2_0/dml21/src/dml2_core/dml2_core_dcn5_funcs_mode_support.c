@@ -992,11 +992,6 @@ static bool dcn5_ms_check_writeback_count_support(
 	for (stream_idx = 0; stream_idx < display_cfg->num_streams; stream_idx++) {
 		totalNumberOfActiveWriteback +=
 				display_cfg->stream_descriptors[stream_idx].writeback.active_writebacks_per_stream;
-
-		/* >1 writeback per stream is currently not supported */
-		if (display_cfg->stream_descriptors[stream_idx].writeback.active_writebacks_per_stream > 1) {
-			writeback_per_stream_supported = false;
-		}
 	}
 
 	return writeback_per_stream_supported &&
