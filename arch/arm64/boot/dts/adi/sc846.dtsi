@@ -152,8 +152,7 @@
 		compatible = "adi,sc846-clocks";
 		reg = <0x3108d000 0x1000>,
 			<0x3108e000 0x1000>,
-			<0x3108f000 0x1000>,
-			<0x310a9000 0x1000>;
+			<0x3108f000 0x1000>;
 		#clock-cells = <1>;
 		clocks = <&sys_clkin0>;
 		clock-names = "sys_clkin0";
