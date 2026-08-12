@@ -78,41 +78,17 @@ enum dml2_qos_param_type {
 // - If a non-zero DPM index has derate_percent = 0, fall back to index 0
 // Unpopulated derates should fallback to the global derate value.
 // Each element pairs a derate percentage with its threshold
-struct dml2_soc_derate_values_per_dpm_v2 {
+struct dml2_soc_derate_values_per_dpm {
 	unsigned int derate_percent;
 	unsigned int clk_upperbound_threshold_khz;
 };
 
-// Legacy structure - for backward compatibility as driver debug values can override the values. (will temporarily break driver overrides)
 // Per-DPM derate arrays for system_active_average (the only power state that varies by DPM)
 // Urgent derates are constant across DPMs and come from derate_table.system_active_urgent
-struct dml2_soc_derate_values_per_dpm {
-	unsigned int dram_derate_percent_pixel[DML_MAX_CLK_TABLE_SIZE];
-	unsigned int fclk_derate_percent[DML_MAX_CLK_TABLE_SIZE];
-	unsigned int dcfclk_derate_percent[DML_MAX_CLK_TABLE_SIZE];
-};
-
 struct dml2_soc_derates_per_dpm {
-	// Union allows both layouts to coexist without increasing struct size
-	// Anonymous structs allow direct member access without .v1 or .v2 prefix
-	union {
-		// Legacy layout - used by soc_and_ip_translator (unchanged access pattern)
-		// TODO: Remove after soc_and_ip_translator migration is complete
-		struct {
-			struct dml2_soc_derate_values_per_dpm system_active_derates_per_dpm;
-			unsigned int min_uclk_khz_threshold[DML_MAX_CLK_TABLE_SIZE];
-			unsigned int min_fclk_khz_threshold[DML_MAX_CLK_TABLE_SIZE];
-			unsigned int min_dcfclk_khz_threshold[DML_MAX_CLK_TABLE_SIZE];
-		};
-
-		// New layout - used by DML internally
-		// Arrays of derate/threshold pairs, one per DPM level
-		struct {
-			struct dml2_soc_derate_values_per_dpm_v2 dram_per_dpm_derate_pixel[DML_MAX_CLK_TABLE_SIZE];
-			struct dml2_soc_derate_values_per_dpm_v2 fclk_per_dpm_derate[DML_MAX_CLK_TABLE_SIZE];
-			struct dml2_soc_derate_values_per_dpm_v2 dcfclk_per_dpm_derate[DML_MAX_CLK_TABLE_SIZE];
-		};
-	};
+	struct dml2_soc_derate_values_per_dpm dram_per_dpm_derate_pixel[DML_MAX_CLK_TABLE_SIZE];
+	struct dml2_soc_derate_values_per_dpm fclk_per_dpm_derate[DML_MAX_CLK_TABLE_SIZE];
+	struct dml2_soc_derate_values_per_dpm dcfclk_per_dpm_derate[DML_MAX_CLK_TABLE_SIZE];
 };
 
 struct dml2_soc_qos_parameters {
