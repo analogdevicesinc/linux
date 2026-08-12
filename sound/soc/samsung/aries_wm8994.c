@@ -374,7 +374,7 @@ static int aries_late_probe(struct snd_soc_card *card)
 	irq = gpiod_to_irq(priv->gpio_headset_detect);
 	if (irq < 0) {
 		dev_err(card->dev, "Failed to map headset detect gpio to irq");
-		return -EINVAL;
+		return irq;
 	}
 
 	ret = devm_request_threaded_irq(card->dev, irq, NULL,
