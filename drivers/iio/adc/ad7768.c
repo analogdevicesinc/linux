@@ -6,6 +6,7 @@
  */
 
 #include <linux/array_size.h>
+#include <linux/auxiliary_bus.h>
 #include <linux/bitfield.h>
 #include <linux/bitmap.h>
 #include <linux/bitops.h>
@@ -117,6 +118,7 @@
 #define AD7768_MAX_MCLK_FREQ_HZ				(34 * HZ_PER_MHZ)
 #define AD7768_MAX_FREQ_PER_MODE			6
 #define AD7768_MAX_CHANNEL				8
+#define AD7768_NUM_GPIOS				5
 #define AD7768_NUM_CHANNEL_MODES			2
 #define AD7768_CALIB_REG_MSK				GENMASK(23, 0)
 #define AD7768_WIDEBAND_SETTLING_SAMPLES		68
@@ -186,6 +188,7 @@ struct ad7768_state {
 	struct mutex lock;
 	struct clk *mclk;
 	unsigned int datalines;
+	unsigned long gpio_valid_mask;
 	enum ad7768_clock_source clock_source;
 	unsigned int power_mode_idx;
 	const struct ad7768_chip_info *chip_info;
@@ -1234,6 +1237,34 @@ static const struct iio_info ad7768_info = {
 	.update_scan_mode = ad7768_update_scan_mode,
 };
 
+static int ad7768_gpio_adev_init(struct ad7768_state *st)
+{
+	struct device *dev = regmap_get_device(st->regmap);
+	struct spi_device *spi = to_spi_device(dev);
+	struct auxiliary_device *adev;
+	int id;
+
+	if (!device_property_read_bool(dev, "gpio-controller"))
+		return 0;
+
+	st->gpio_valid_mask = GENMASK(AD7768_NUM_GPIOS - 1, 0);
+	if (st->clock_source != AD7768_CLOCK_SOURCE_MCLK)
+		st->gpio_valid_mask &= ~BIT(4);
+
+	/*
+	 * Use the SPI bus number and chip select to derive a stable per-device
+	 * ID.
+	 */
+	id = (spi->controller->bus_num << 8) | spi_get_chipselect(spi, 0);
+	adev = __devm_auxiliary_device_create(dev, KBUILD_MODNAME, "gpio",
+					      &st->gpio_valid_mask, id);
+	if (!adev)
+		return dev_err_probe(dev, -ENODEV,
+				     "Failed to create GPIO auxiliary device\n");
+
+	return 0;
+}
+
 static int ad7768_configure_precharge_buffers(struct iio_dev *indio_dev,
 					      struct ad7768_precharge_config *precharge_cfg)
 {
@@ -1771,6 +1802,10 @@ static int ad7768_probe(struct spi_device *spi)
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Failed to register VCM regulator\n");
+
+	ret = ad7768_gpio_adev_init(st);
+	if (ret)
+		return ret;
 
 	return devm_iio_device_register(dev, indio_dev);
 }
