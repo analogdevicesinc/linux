@@ -2300,6 +2300,7 @@ F:	Documentation/devicetree/bindings/soc/adi/adi,rpmsg-SC598.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,system-event-controller.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,trigger-routing-unit.yaml
 F:	Documentation/devicetree/bindings/clock/adi,sc5xx-clocks.yaml
+F:	Documentation/devicetree/bindings/reset/adi,sc846-miscreg-reset.yaml
 F:	Documentation/devicetree/bindings/usb/adi,musb.yaml
 F:	arch/arm/boot/dts/adi/*
 F:	arch/arm/configs/sc5*_defconfig
@@ -2326,6 +2327,7 @@ F:	drivers/watchdog/adi_wdt.c
 F:	include/dt-bindings/clock/adi-sc5xx-clock.h
 F:	include/dt-bindings/pinctrl/adi-adsp-sru.h
 F:	include/dt-bindings/pinctrl/adi-adsp.h
+F:	include/dt-bindings/reset/adi,sc846-miscreg-reset.h
 F:	include/linux/soc/adi/
 F:	include/sound/sc5xx-dai.h
 F:	sound/soc/adi/sc5xx*
