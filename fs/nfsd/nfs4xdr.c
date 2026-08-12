@@ -4378,20 +4378,15 @@ out:
 static bool
 nfsd4_setup_notify_entry4(struct notify_entry4 *ne, struct xdr_stream *xdr,
 			  struct dentry *dentry, struct nfs4_delegation *dp,
-			  struct nfsd_file *nf, char *name, u32 namelen)
+			  struct nfsd_file *nf, char *name, u32 namelen,
+			  u32 *attrmask)
 {
 	struct path path = nf->nf_file->f_path;
 	struct nfsd4_fattr_args args = { };
 	const u32 *reqmask;
-	uint32_t *attrmask;
 	__be32 status;
 	bool parent;
 	int ret;
-
-	/* Reserve space for attrmask */
-	attrmask = xdr_reserve_space(xdr, 3 * sizeof(uint32_t));
-	if (!attrmask)
-		return false;
 
 	ne->ne_file.data = name;
 	ne->ne_file.len = namelen;
@@ -4476,6 +4471,7 @@ u8 *nfsd4_encode_notify_event(struct xdr_stream *xdr, struct nfsd_notify_event *
 			      struct nfs4_delegation *dp, struct nfsd_file *nf,
 			      u32 *notify_mask)
 {
+	u32 attrmask[3][3] = { };
 	u8 *p = NULL;
 
 	*notify_mask = 0;
@@ -4484,7 +4480,8 @@ u8 *nfsd4_encode_notify_event(struct xdr_stream *xdr, struct nfsd_notify_event *
 		struct notify_remove4 nr = { };
 
 		if (!nfsd4_setup_notify_entry4(&nr.nrm_old_entry, xdr, nne->ne_dentry, dp,
-					       nf, nne->ne_name, nne->ne_namelen))
+					       nf, nne->ne_name, nne->ne_namelen,
+					       attrmask[0]))
 			goto out_err;
 		p = (u8 *)xdr->p;
 		if (!xdrgen_encode_notify_remove4(xdr, &nr))
@@ -4495,14 +4492,16 @@ u8 *nfsd4_encode_notify_event(struct xdr_stream *xdr, struct nfsd_notify_event *
 		struct notify_remove4 old = { };
 
 		if (!nfsd4_setup_notify_entry4(&na.nad_new_entry, xdr, nne->ne_dentry, dp,
-					       nf, nne->ne_name, nne->ne_namelen))
+					       nf, nne->ne_name, nne->ne_namelen,
+					       attrmask[0]))
 			goto out_err;
 
 		/* If a file was overwritten, report it in nad_old_entry */
 		if (nne->ne_target) {
 			if (!nfsd4_setup_notify_entry4(&old.nrm_old_entry, xdr,
 						       NULL, dp, nf,
-						       nne->ne_name, nne->ne_namelen))
+						       nne->ne_name, nne->ne_namelen,
+						       attrmask[1]))
 				goto out_err;
 			na.nad_old_entry.count = 1;
 			na.nad_old_entry.element = &old;
@@ -4521,19 +4520,19 @@ u8 *nfsd4_encode_notify_event(struct xdr_stream *xdr, struct nfsd_notify_event *
 		/* Don't send any attributes in the old_entry since they're the same in new */
 		if (!nfsd4_setup_notify_entry4(&nr.nrn_old_entry.nrm_old_entry, xdr,
 					       NULL, dp, nf, nne->ne_name,
-					       nne->ne_namelen))
+					       nne->ne_namelen, attrmask[0]))
 			goto out_err;
 
 		if (!nfsd4_setup_notify_entry4(&nr.nrn_new_entry.nad_new_entry, xdr,
 					       nne->ne_dentry, dp, nf, newname,
-					       nne->ne_newnamelen))
+					       nne->ne_newnamelen, attrmask[1]))
 			goto out_err;
 
 		/* If a file was overwritten, report it in nad_old_entry */
 		if (nne->ne_target) {
 			if (!nfsd4_setup_notify_entry4(&old.nrm_old_entry, xdr,
 						       NULL, dp, nf, newname,
-						       nne->ne_newnamelen))
+						       nne->ne_newnamelen, attrmask[2]))
 				goto out_err;
 			nr.nrn_new_entry.nad_old_entry.count = 1;
 			nr.nrn_new_entry.nad_old_entry.element = &old;
@@ -4569,11 +4568,12 @@ u8 *nfsd4_encode_dir_attr_change(struct xdr_stream *xdr, struct nfs4_delegation 
 {
 	struct dentry *dentry = nf->nf_file->f_path.dentry;
 	struct notify_attr4 na = { };
+	u32 attrmask[3] = { };
 	u8 *p;
 
 	/* RFC 8881 s10.4.3: ne_file must be a zero-length string for dir attrs */
 	if (!nfsd4_setup_notify_entry4(&na.na_changed_entry, xdr,
-				       dentry, dp, nf, "", 0))
+				       dentry, dp, nf, "", 0, attrmask))
 		return ERR_PTR(-ENOBUFS);
 
 	/* No requested attributes to report; omit the event */
