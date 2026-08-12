@@ -118,6 +118,7 @@ int dm_dp_mst_atomic_check(struct drm_connector *connector,
 				   struct drm_atomic_commit *state);
 int dm_dp_mst_detect(struct drm_connector *connector,
 			     struct drm_modeset_acquire_ctx *ctx, bool force);
+int dm_dp_mst_get_modes(struct drm_connector *connector);
 #endif
 
 #endif

@@ -386,7 +386,7 @@ STATIC_IFN_KUNIT bool retrieve_branch_specific_data(struct amdgpu_dm_connector *
 }
 EXPORT_IF_KUNIT(retrieve_branch_specific_data);
 
-static int dm_dp_mst_get_modes(struct drm_connector *connector)
+STATIC_IFN_KUNIT int dm_dp_mst_get_modes(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
 	int ret = 0;
@@ -518,6 +518,7 @@ static int dm_dp_mst_get_modes(struct drm_connector *connector)
 
 	return ret;
 }
+EXPORT_IF_KUNIT(dm_dp_mst_get_modes);
 
 STATIC_IFN_KUNIT struct drm_encoder *
 dm_mst_atomic_best_encoder(struct drm_connector *connector,

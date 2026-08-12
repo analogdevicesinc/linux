@@ -8,11 +8,13 @@
 #include <kunit/test.h>
 
 #include <drm/drm_drv.h>
+#include <drm/drm_edid.h>
 #include <drm/drm_fixed.h>
 #include <drm/drm_kunit_helpers.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_connector.h>
 #include <drm/drm_mode_config.h>
+#include <drm/drm_modeset_lock.h>
 #include <drm/display/drm_dp.h>
 #include <drm/display/drm_dp_helper.h>
 #include <drm/display/drm_dp_mst_helper.h>
@@ -1344,6 +1346,216 @@ static void dm_mst_test_detect_unregistered(struct kunit *test)
 }
 
 /*
+ * Fake DC remote-sink backend. dc_link_add_remote_sink() and
+ * dc_link_remove_remote_sink() are thin wrappers over these link_service
+ * callbacks, so overriding them is enough to run the MST connector paths
+ * without a DC core.
+ */
+static struct dc_sink *dm_mst_test_next_remote_sink;
+static struct dc_sink *dm_mst_test_removed_sink;
+static unsigned int dm_mst_test_add_remote_sink_calls;
+static unsigned int dm_mst_test_remove_remote_sink_calls;
+
+/* Signature copied verbatim from struct link_service::add_remote_sink. */
+static struct dc_sink *dm_mst_test_add_remote_sink(
+		struct dc_link *link,
+		const uint8_t *edid,
+		unsigned int len,
+		struct dc_sink_init_data *init_data)
+{
+	struct dc_sink *sink = dm_mst_test_next_remote_sink;
+
+	dm_mst_test_add_remote_sink_calls++;
+
+	if (sink) {
+		sink->link = link;
+		sink->sink_signal = init_data->sink_signal;
+		link->sink_count++;
+	}
+
+	return sink;
+}
+
+/* Signature copied verbatim from struct link_service::remove_remote_sink. */
+static void dm_mst_test_remove_remote_sink(struct dc_link *link, struct dc_sink *sink)
+{
+	dm_mst_test_remove_remote_sink_calls++;
+	dm_mst_test_removed_sink = sink;
+
+	if (link->sink_count)
+		link->sink_count--;
+}
+
+/*
+ * dc_sink_release() frees the sink with kfree(), so these must not come from
+ * the KUnit managed allocator.
+ */
+static struct dc_sink *dm_mst_test_alloc_sink(struct kunit *test)
+{
+	struct dc_sink *sink = kzalloc_obj(*sink);
+
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+	kref_init(&sink->refcount);
+
+	return sink;
+}
+
+struct dm_mst_test_child {
+	struct amdgpu_device *adev;
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_dm_connector *root;
+	struct drm_dp_mst_port *port;
+	struct dc_link *link;
+};
+
+/*
+ * Build an MST downstream connector hanging off a root connector. The topology
+ * manager is left empty (no mst_primary) so the DRM MST helpers take their
+ * "port is gone" paths instead of requiring a real branch device.
+ */
+static void dm_mst_test_init_child(struct kunit *test, struct dm_mst_test_child *child)
+{
+	struct link_service *link_srv;
+	struct amdgpu_device *adev;
+	struct dc *dc;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+	ret = drmm_mode_config_init(&adev->ddev);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	child->port = kunit_kzalloc(test, sizeof(*child->port), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	KUNIT_ASSERT_NOT_NULL(test, child->port);
+
+	link_srv->add_remote_sink = dm_mst_test_add_remote_sink;
+	link_srv->remove_remote_sink = dm_mst_test_remove_remote_sink;
+	dc->link_srv = link_srv;
+
+	child->adev = adev;
+	child->link = dm_kunit_alloc_link(test);
+	child->link->dc = dc;
+
+	child->root = dm_kunit_alloc_connector(test, adev, child->link);
+	child->root->mst_mgr.dev = &adev->ddev;
+	mutex_init(&child->root->mst_mgr.lock);
+	drm_modeset_lock_init(&child->root->mst_mgr.base.lock);
+
+	child->port->mgr = &child->root->mst_mgr;
+	child->port->aux.name = "dm_mst_test_port_aux";
+	child->port->aux.transfer = dm_mst_test_aux_transfer;
+	drm_dp_aux_init(&child->port->aux);
+	drm_dp_dpcd_set_probe(&child->port->aux, false);
+
+	child->aconnector = dm_kunit_alloc_connector(test, adev, child->link);
+	child->aconnector->mst_root = child->root;
+	child->aconnector->mst_output_port = child->port;
+
+	ret = drm_connector_init(&adev->ddev, &child->aconnector->base,
+				 &dm_mst_test_connector_funcs,
+				 DRM_MODE_CONNECTOR_DisplayPort);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+	/* The MST (un)register helpers log through the connector's kernel device. */
+	child->aconnector->base.kdev = adev->ddev.dev;
+
+	memset(dm_mst_test_dpcd, 0, sizeof(dm_mst_test_dpcd));
+	dm_mst_test_aux_transfer_override = 0;
+	dm_mst_test_aux_write_override = 0;
+	dm_mst_test_next_remote_sink = NULL;
+	dm_mst_test_removed_sink = NULL;
+	dm_mst_test_add_remote_sink_calls = 0;
+	dm_mst_test_remove_remote_sink_calls = 0;
+}
+
+static void dm_mst_test_fini_child(struct dm_mst_test_child *child)
+{
+	drm_edid_free(child->aconnector->drm_edid);
+	drm_edid_free(child->port->cached_edid);
+	drm_connector_cleanup(&child->aconnector->base);
+	drm_modeset_lock_fini(&child->root->mst_mgr.base.lock);
+	mutex_destroy(&child->root->mst_mgr.lock);
+}
+
+/* Tests for dm_dp_mst_get_modes */
+
+/**
+ * dm_mst_test_get_modes_no_edid_adds_default_sink - Test default remote sink
+ * @test: KUnit test context
+ *
+ * When the remote EDID cannot be read, dm_dp_mst_get_modes() must clear the
+ * MST_REMOTE_EDID status and register a default remote sink for the connector.
+ */
+static void dm_mst_test_get_modes_no_edid_adds_default_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+	sink = dm_mst_test_alloc_sink(test);
+	dm_mst_test_next_remote_sink = sink;
+	child.aconnector->mst_status = MST_REMOTE_EDID;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_add_remote_sink_calls, 1U);
+	KUNIT_EXPECT_PTR_EQ(test, child.aconnector->dc_sink, sink);
+	KUNIT_EXPECT_PTR_EQ(test, sink->priv, (void *)child.aconnector);
+	KUNIT_EXPECT_EQ(test, child.aconnector->mst_status & MST_REMOTE_EDID, 0);
+
+	dc_sink_release(sink);
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_get_modes_no_edid_sink_alloc_fails - Test remote sink failure
+ * @test: KUnit test context
+ *
+ * If DC cannot add the default remote sink, dm_dp_mst_get_modes() must bail out
+ * with zero modes and leave the connector without a sink.
+ */
+static void dm_mst_test_get_modes_no_edid_sink_alloc_fails(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_add_remote_sink_calls, 1U);
+	KUNIT_EXPECT_NULL(test, child.aconnector->dc_sink);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_get_modes_no_edid_keeps_existing_sink - Test cached sink reuse
+ * @test: KUnit test context
+ *
+ * With no readable EDID but an existing remote sink, dm_dp_mst_get_modes() must
+ * keep that sink and must not ask DC for another one.
+ */
+static void dm_mst_test_get_modes_no_edid_keeps_existing_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+	sink = dm_mst_test_alloc_sink(test);
+	child.aconnector->dc_sink = sink;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_add_remote_sink_calls, 0U);
+	KUNIT_EXPECT_PTR_EQ(test, child.aconnector->dc_sink, sink);
+
+	dc_sink_release(sink);
+	dm_mst_test_fini_child(&child);
+}
+
+/*
  * Sideband connector with a live topology manager and the DOWN_REP ready bit
  * armed, so dm_handle_mst_sideband_msg_ready_event() reaches its ack path.
  */
@@ -1491,6 +1703,10 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_atomic_check_no_old_crtc),
 	/* dm_dp_mst_detect tests */
 	KUNIT_CASE(dm_mst_test_detect_unregistered),
+	/* dm_dp_mst_get_modes tests */
+	KUNIT_CASE(dm_mst_test_get_modes_no_edid_adds_default_sink),
+	KUNIT_CASE(dm_mst_test_get_modes_no_edid_sink_alloc_fails),
+	KUNIT_CASE(dm_mst_test_get_modes_no_edid_keeps_existing_sink),
 	/* CONFIG_DRM_AMD_DC_FP disabled public paths */
 #if !defined(CONFIG_DRM_AMD_DC_FP)
 	KUNIT_CASE(dm_mst_test_fp_guarded_public_stubs),
