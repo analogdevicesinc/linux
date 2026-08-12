@@ -2297,6 +2297,7 @@ L:	linux@analog.com
 S:	Maintained
 F:	Documentation/devicetree/bindings/soc/adi/adi,reset-controller.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,rpmsg-SC598.yaml
+F:	Documentation/devicetree/bindings/soc/adi/adi,sc846-miscreg.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,system-event-controller.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,trigger-routing-unit.yaml
 F:	Documentation/devicetree/bindings/clock/adi,sc5xx-clocks.yaml
