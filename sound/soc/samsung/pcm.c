@@ -534,19 +534,15 @@ static int s3c_pcm_dev_probe(struct platform_device *pdev)
 
 	ret = samsung_asoc_dma_platform_register(&pdev->dev, filter,
 						 NULL, NULL, NULL);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to get register DMA: %d\n", ret);
+	if (ret)
 		goto err_dis_pclk;
-	}
 
 	pm_runtime_enable(&pdev->dev);
 
 	ret = devm_snd_soc_register_component(&pdev->dev, &s3c_pcm_component,
 					 &s3c_pcm_dai[pdev->id], 1);
-	if (ret != 0) {
-		dev_err(&pdev->dev, "failed to get register DAI: %d\n", ret);
+	if (ret != 0)
 		goto err_dis_pm;
-	}
 
 	return 0;
 
