@@ -34,12 +34,9 @@
 #include <linux/sunrpc/xdr.h>
 #include <linux/fileattr.h>
 
-#include "xdr3.h"
-
 #ifdef CONFIG_NFSD_V4
 #include "acl.h"
 #include "idmap.h"
-#include "xdr4.h"
 #endif /* CONFIG_NFSD_V4 */
 
 #include "nfsd.h"
