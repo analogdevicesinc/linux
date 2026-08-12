@@ -1323,6 +1323,7 @@ static void nfs4_free_dir_deleg(struct nfs4_stid *stid)
 	for (i = 0; i < ncn->ncn_evt_cnt; ++i)
 		nfsd_notify_event_put(ncn->ncn_evt[i]);
 	kfree(ncn->ncn_nf);
+	kfree(ncn->ncn_masks);
 	for (i = 0; i < NOTIFY4_PAGE_ARRAY_SIZE; i++) {
 		if (!ncn->ncn_pages[i])
 			break;
@@ -1352,6 +1353,11 @@ alloc_init_dir_deleg(struct nfs4_client *clp, struct nfs4_file *fp)
 
 	ncn->ncn_nf = kzalloc_objs(*ncn->ncn_nf, NOTIFY4_EVENT_QUEUE_SIZE);
 	if (!ncn->ncn_nf) {
+		nfs4_put_stid(&dp->dl_stid);
+		return NULL;
+	}
+	ncn->ncn_masks = kcalloc(NOTIFY4_EVENT_QUEUE_SIZE, sizeof(*ncn->ncn_masks), GFP_KERNEL);
+	if (!ncn->ncn_masks) {
 		nfs4_put_stid(&dp->dl_stid);
 		return NULL;
 	}
@@ -3767,13 +3773,8 @@ nfsd4_cb_notify_prepare(struct nfsd4_callback *cb)
 		struct nfsd_notify_event *nne = events[i];
 
 		if (!error) {
-			u32 *maskp = (u32 *)xdr_reserve_space(&stream, sizeof(*maskp));
+			u32 *maskp = &ncn->ncn_masks[i];
 			u8 *p;
-
-			if (!maskp) {
-				error = true;
-				goto put_event;
-			}
 
 			p = nfsd4_encode_notify_event(&stream, nne, dp, nf, maskp);
 			if (!p) {
@@ -3792,13 +3793,10 @@ put_event:
 		nfsd_notify_event_put(nne);
 	}
 	if (!error && (dp->dl_notify_mask & BIT(NOTIFY4_CHANGE_DIR_ATTRS))) {
-		u32 *maskp = (u32 *)xdr_reserve_space(&stream, sizeof(*maskp));
+		u32 *maskp = &ncn->ncn_masks[count];
 		u8 *p;
 
-		if (maskp)
-			p = nfsd4_encode_dir_attr_change(&stream, dp, nf);
-		else
-			p = ERR_PTR(-ENOBUFS);
+		p = nfsd4_encode_dir_attr_change(&stream, dp, nf);
 
 		if (IS_ERR(p)) {
 			/*
