@@ -24,8 +24,12 @@
 /* MANA doesn't have any limit for MR size */
 #define MANA_IB_MAX_MR_SIZE	U64_MAX
 
-/* Send queue ID mask */
-#define MANA_SENDQ_MASK	BIT(31)
+/*
+ * Send queue ID mask. Queue IDs are 2-bit aligned (see MANA_QID_SUBTYPE_MASK),
+ * so bit 0 is always free to tag send queues in the lookup table. This keeps
+ * the whole top byte available to index per-port GSI QPs by (port << 24).
+ */
+#define MANA_SENDQ_MASK	BIT(0)
 /* Queue ID encodes type in the lower 2 bits */
 #define MANA_QID_SUBTYPE_MASK 0x3
 
@@ -264,6 +268,7 @@ enum mana_ib_adapter_features {
 	MANA_IB_FEATURE_DEV_COUNTERS_SUPPORT = BIT(5),
 	MANA_IB_FEATURE_MULTI_PORTS_SUPPORT = BIT(6),
 	MANA_IB_FEATURE_MSN_IN_WQE_SUPPORT = BIT(7),
+	MANA_IB_FEATURE_MULTI_PORT_GSI_SUPPORT = BIT(15),
 };
 
 struct mana_ib_query_adapter_caps_resp {
@@ -450,7 +455,13 @@ struct mana_rnic_create_udqp_req {
 	u32 max_recv_wr;
 	u32 max_send_sge;
 	u32 max_recv_sge;
+	u8 mac[ETH_ALEN];     /* V2: port MAC for multi-port GSI */
+	u16 flags;            /* V2: MANA_UD_QP_FLAG_* */
 }; /* HW Data */
+
+enum mana_ud_qp_flags {
+	MANA_UD_QP_FLAG_CREATE_IN_INIT = BIT(0),
+};
 
 struct mana_rnic_create_udqp_resp {
 	struct gdma_resp_hdr hdr;
