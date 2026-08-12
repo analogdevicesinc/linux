@@ -271,6 +271,7 @@ struct nfsd4_cb_notify {
 	struct nfsd_notify_event	*ncn_evt[NOTIFY4_EVENT_QUEUE_SIZE]; // list of events
 	struct page			*ncn_pages[NOTIFY4_PAGE_ARRAY_SIZE]; // for encoding
 	struct notify4			*ncn_nf;	// array of notify4's to be sent
+	u32				*ncn_masks;	// host-order notify_mask backing for ncn_nf[]
 	bool				ncn_encode_err;	// did encoding fail?
 	struct nfsd4_callback		ncn_cb;		// notify4 callback
 };
