@@ -1818,6 +1818,80 @@ static void dm_mst_test_detect_disconnect_releases_sink(struct kunit *test)
 	dm_mst_test_fini_child(&child);
 }
 
+/* Tests for amdgpu_dm_mst_connector_late_register */
+
+/**
+ * dm_mst_test_connector_late_register - Test MST connector late registration
+ * @test: KUnit test context
+ *
+ * amdgpu_dm_mst_connector_late_register() must register the port's remote AUX
+ * bus and report success.
+ */
+static void dm_mst_test_connector_late_register(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_mst_connector_late_register(&child.aconnector->base), 0);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/* Tests for amdgpu_dm_mst_connector_early_unregister */
+
+/**
+ * dm_mst_test_connector_early_unregister_no_sink - Test unregister without sink
+ * @test: KUnit test context
+ *
+ * With no remote sink attached, amdgpu_dm_mst_connector_early_unregister() must
+ * only reset the MST status.
+ */
+static void dm_mst_test_connector_early_unregister_no_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+	child.aconnector->mst_status = MST_REMOTE_EDID;
+
+	amdgpu_dm_mst_connector_early_unregister(&child.aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_remove_remote_sink_calls, 0U);
+	KUNIT_EXPECT_EQ(test, (int)child.aconnector->mst_status, (int)MST_STATUS_DEFAULT);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_connector_early_unregister_releases_sink - Test sink release
+ * @test: KUnit test context
+ *
+ * When the port leaves the topology, amdgpu_dm_mst_connector_early_unregister()
+ * must remove the remote sink from the link and reset the MST connector state.
+ */
+static void dm_mst_test_connector_early_unregister_releases_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+
+	sink = dm_mst_test_alloc_sink(test);
+	child.aconnector->dc_sink = sink;
+	child.aconnector->vc_full_pbn = 42;
+	child.link->sink_count = 1;
+
+	amdgpu_dm_mst_connector_early_unregister(&child.aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_remove_remote_sink_calls, 1U);
+	KUNIT_EXPECT_PTR_EQ(test, dm_mst_test_removed_sink, sink);
+	KUNIT_EXPECT_NULL(test, child.aconnector->dc_sink);
+	KUNIT_EXPECT_EQ(test, child.aconnector->vc_full_pbn, 0U);
+	KUNIT_EXPECT_EQ(test, (int)child.aconnector->mst_status, (int)MST_STATUS_DEFAULT);
+
+	dm_mst_test_fini_child(&child);
+}
+
 /*
  * Sideband connector with a live topology manager and the DOWN_REP ready bit
  * armed, so dm_handle_mst_sideband_msg_ready_event() reaches its ack path.
@@ -1978,6 +2052,11 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_get_modes_cached_edid_sink_alloc_fails),
 	KUNIT_CASE(dm_mst_test_get_modes_restores_hdcp_properties),
 	KUNIT_CASE(dm_mst_test_get_modes_reads_remote_edid),
+	/* amdgpu_dm_mst_connector_late_register tests */
+	KUNIT_CASE(dm_mst_test_connector_late_register),
+	/* amdgpu_dm_mst_connector_early_unregister tests */
+	KUNIT_CASE(dm_mst_test_connector_early_unregister_no_sink),
+	KUNIT_CASE(dm_mst_test_connector_early_unregister_releases_sink),
 	/* CONFIG_DRM_AMD_DC_FP disabled public paths */
 #if !defined(CONFIG_DRM_AMD_DC_FP)
 	KUNIT_CASE(dm_mst_test_fp_guarded_public_stubs),
