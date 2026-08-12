@@ -86,7 +86,12 @@ static inline bool nfsd_attrs_valid(struct nfsd_attrs *attrs)
 		attrs->na_pacl || attrs->na_dpacl);
 }
 
+struct nfsd_net;
+
 __be32		nfserrno (int errno);
+void		nfsd_maybe_reset_write_verifier(struct nfsd_net *nn,
+						struct svc_rqst *rqstp,
+						int err);
 __be32		nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp,
 			       struct svc_export **expp);
 __be32		nfsd_lookup(struct svc_rqst *, struct svc_fh *,
