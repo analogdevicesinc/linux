@@ -106,6 +106,8 @@ soc/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-7.3
 	apple/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-dt-7.3
+	microchip/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-dt64-7.3
 
 soc/drivers
 	ixp4xx/soc-drivers
