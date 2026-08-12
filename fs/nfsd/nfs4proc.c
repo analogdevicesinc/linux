@@ -1524,16 +1524,37 @@ nfsd4_clone(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 {
 	struct nfsd4_clone *clone = &u->clone;
 	struct nfsd_file *src, *dst;
+	bool sync_failed = false;
+	errseq_t since;
 	__be32 status;
+	int host_err;
 
 	status = nfsd4_verify_copy(rqstp, cstate, &clone->cl_src_stateid, &src,
 				   &clone->cl_dst_stateid, &dst);
 	if (status)
 		goto out;
 
-	status = nfsd4_clone_file_range(rqstp, src, clone->cl_src_pos,
-			dst, clone->cl_dst_pos, clone->cl_count,
-			EX_ISSYNC(cstate->current_fh.fh_export));
+	host_err = nfsd_clone_file_range(src->nf_file, clone->cl_src_pos,
+					 dst->nf_file, clone->cl_dst_pos,
+					 clone->cl_count, &since);
+	if (!host_err && EX_ISSYNC(cstate->current_fh.fh_export)) {
+		host_err = nfsd_clone_sync_range(src->nf_file, dst->nf_file,
+						 clone->cl_dst_pos,
+						 clone->cl_count, since);
+		sync_failed = host_err < 0;
+	}
+	if (host_err < 0) {
+		trace_nfsd_clone_file_range_err(rqstp, &cstate->save_fh,
+				clone->cl_src_pos, &cstate->current_fh,
+				clone->cl_dst_pos, clone->cl_count, host_err);
+		if (sync_failed) {
+			struct nfsd_net *nn = net_generic(dst->nf_net,
+							  nfsd_net_id);
+
+			nfsd_maybe_reset_write_verifier(nn, rqstp, host_err);
+		}
+	}
+	status = nfserrno(host_err);
 
 	if (!status && (READ_ONCE(dst->nf_file->f_mode) & FMODE_NOCMTIME) != 0)
 		nfsd_update_cmtime_attr(dst->nf_file, 0);
