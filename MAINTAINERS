@@ -2318,6 +2318,7 @@ F:	drivers/irqchip/irq-adi-adsp.c
 F:	drivers/misc/adi/
 F:	drivers/net/ethernet/stmicro/stmmac/dwmac-adi.c
 F:	drivers/pinctrl/adi/
+F:	drivers/reset/reset-adsp-sc846-miscreg.c
 F:	drivers/rpmsg/adi_rpmsg.c
 F:	drivers/soc/adi/
 F:	drivers/spi/spi-adi.c
