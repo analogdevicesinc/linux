@@ -1,0 +1,1589 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device tree overlay for the ADRV9009-ZU11EG Rev.B SoM on the
+ * ADRV2CRR-FMC Rev.B carrier, accessed from a PCIe host through the XDMA
+ * (AXI-Bridge mode) endpoint. Includes JESD204 FSM (state machine) bindings.
+ *
+ * Combines the SoM and carrier device trees under linux/arch/arm64/boot/dts/
+ * xilinx/:
+ *   - zynqmp-adrv9009-zu11eg-reva.dtsi               (base SoM)
+ *   - zynqmp-adrv9009-zu11eg-reva-adrv2crr-fmc-reva.dts  (base carrier)
+ *   - zynqmp-adrv9009-zu11eg-revb.dtsi               (Rev.B SoM overrides)
+ *   - zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb.dts  (Rev.B carrier)
+ *   - zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-jesd204-fsm.dts
+ *                                                     (JESD204 FSM bindings)
+ *
+ * Deliberately omitted (PS-only or not reachable from a PCIe host):
+ * dwc3_0/usb0, gem0/gem3, zynqmp_dpsub/dpdma, psgtr, i2c0/i2c1 (with all
+ * of its i2c-mux children including adau1761, ad9545, PTN5150, EEPROMs),
+ * pinctrl0 nodes, axi_i2s_adi (PS-hosted audio), ref_clk_0, audio_clock,
+ * dpcon, talise_sound, phy_reset gpio-hog.
+ *
+ * Copyright (C) 2019-2026 Analog Devices Inc.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/iio/adc/adi,adrv9009.h>
+#include <dt-bindings/jesd204/adxcvr.h>
+
+#ifndef HMC7044_PLL2_OUTPUT_FREQUENCY
+#define HMC7044_PLL2_OUTPUT_FREQUENCY	2949120000
+#endif
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target-path = "";
+
+		__overlay__ {
+			#address-cells = <3>;
+			#size-cells = <2>;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+
+			pcie_axi_clk: pcie-clk-250000000 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <250000000>;
+				clock-output-names = "pcie_axi_clk";
+			};
+
+			/*
+			 * Consumer nodes (no reg / no BAR mapping). Kept above
+			 * pci-ep-bus@0 because they only reference axi_gpio1
+			 * phandles -- putting them under simple-bus triggers a
+			 * dtc simple_bus_reg warning.
+			 *
+			 * Carrier peripherals driven from PL GPIO bus bits
+			 * 0..11 (pb_gpio_0..3, dip_gpio_0..3, led_gpio_0..3):
+			 * on axi_gpio1 channel 1, lines 0..11. Source:
+			 * carrier DTS lines 60-140.
+			 *
+			 * Only led1..led3 are software-controllable. led_gpio_0
+			 * (bus bit 8) is hardwired in system_top_pcie.v to the
+			 * XDMA user_link_up output as a PCIe link-status LED.
+			 */
+			leds {
+				compatible = "gpio-leds";
+				led1 {
+					label = "led1:green";
+					gpios = <&axi_gpio1 9 GPIO_ACTIVE_HIGH>;
+				};
+				led2 {
+					label = "led2:green";
+					gpios = <&axi_gpio1 10 GPIO_ACTIVE_HIGH>;
+				};
+				led3 {
+					label = "led3:green";
+					gpios = <&axi_gpio1 11 GPIO_ACTIVE_HIGH>;
+				};
+			};
+
+			/*
+			 * Carrier push buttons (pb_gpio_0..3, bus bits 0..3) and
+			 * DIP switches (dip_gpio_0..3, bus bits 4..7) are physical
+			 * operator UI on the SoM. In this project the SoM's PS
+			 * Linux still runs alongside PCIe, so gpio_keys stays in
+			 * the PS-side device tree and is deliberately omitted from
+			 * this PCIe overlay. axi_gpio1 lines 0..7 still expose the
+			 * same pins to the PCIe host if a diagnostic needs them.
+			 */
+
+			axis_net: ethernet-axis {
+				compatible = "adi,axis-net";
+				dmas = <&axi_net_tx_dma 0>,
+				       <&axi_net_rx_dma 0>;
+				dma-names = "tx", "rx";
+				local-mac-address = [02 0a 35 00 00 01];
+			};
+
+			pci-ep-bus@0 {
+				compatible = "simple-bus";
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				/*
+				 * BAR0 (32 MB) maps to AXI 0x84000000 on the FPGA side.
+				 * Two 64 kB blocks at the bottom are spoken for and
+				 * neither may hold a node:
+				 *
+				 * 0x84000000-0x8400ffff belongs to the endpoint itself.
+				 * Its MSI-X table and PBA are mapped here (BAR0+0x8000
+				 * and +0x8fe0), and the hard block answers those
+				 * accesses without passing them to the FPGA, so nothing
+				 * placed behind them is reachable.
+				 *
+				 * 0x84010000-0x8401ffff is the interrupt controller,
+				 * deliberately absent from this bus: pci-of-overlay
+				 * reaches it directly at offset 0x10000 of BAR0 (see the
+				 * interrupt comment on the parent node). The core
+				 * decodes 16 address bits, so it claims the full block.
+				 */
+				ranges = <0x84000000 0x00 0x00 0x00 0x2000000>;
+
+				axi_gpio1: gpio@84020000 {
+					compatible = "xlnx,xps-gpio-1.00.a";
+					reg = <0x84020000 0x1000>;
+					clocks = <&pcie_axi_clk>;
+					interrupts = <1>;
+					#gpio-cells = <2>;
+					gpio-controller;
+					xlnx,gpio-width = <32>;
+					xlnx,is-dual = <1>;
+					xlnx,gpio2-width = <32>;
+				};
+
+				axi_gpio2: gpio@84030000 {
+					compatible = "xlnx,xps-gpio-1.00.a";
+					reg = <0x84030000 0x1000>;
+					clocks = <&pcie_axi_clk>;
+					interrupts = <2>;
+					#gpio-cells = <2>;
+					gpio-controller;
+					xlnx,gpio-width = <31>;
+					xlnx,is-dual = <0>;
+
+					/*
+					 * hmc7044_ext reset (bit 91 -> line 27) and
+					 * vcxo_select (bit 92 -> line 28). On this carrier
+					 * everything is routed through EMIO/PL fabric, so the
+					 * expansion pins gpio_3_exp_n / gpio_4_exp_n *are*
+					 * the hmc7044_ext RESET_HMC7044 / VCXO_SELECT nets.
+					 * Bits 91/92 in gpio_i[94:0] land on axi_gpio2 lines
+					 * 27/28 (see the GPIO remap table at the end of this
+					 * file). The base carrier DTS hogs these via
+					 * &gpio 169/170; the PCIe SoM boot DTS
+					 * (..-fsm-pcie.dts) disables those PS-side hogs so
+					 * only the PL side drives these nets.
+					 */
+					hmc7044_ext_reset_hog {
+						gpio-hog;
+						gpios = <27 GPIO_ACTIVE_HIGH>;
+						output-high;
+						line-name = "hmc7044_ext-reset";
+					};
+
+					hmc7044_ext_vcxo_select_hog {
+						gpio-hog;
+						gpios = <28 GPIO_ACTIVE_HIGH>;
+						output-high;
+						line-name = "hmc7044_ext-vcxo_select";
+					};
+				};
+
+				/* ---------------------------------------------------
+				 * PL SPI controller (replaces the PS EMIO SPI0).
+				 * Hosts hmc7044 + the two adrv9009 phy nodes.
+				 * --------------------------------------------------- */
+				axi_spi: spi@84040000 {
+					compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+					reg = <0x84040000 0x1000>;
+					clocks = <&pcie_axi_clk>, <&pcie_axi_clk>;
+					clock-names = "s_axi_aclk", "ext_spi_clk";
+					interrupts = <0>;
+					interrupt-names = "ip2intc_irpt";
+
+					bits-per-word = <8>;
+					fifo-size = <16>;
+					num-cs = <6>;
+					xlnx,num-ss-bits = <6>;
+					xlnx,spi-mode = <0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					hmc7044: hmc7044@2 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						#clock-cells = <1>;
+						compatible = "adi,hmc7044";
+						reg = <2>;
+						spi-max-frequency = <10000000>;
+
+						/* Carrier hmc7044 output 2 feeds this SoM hmc7044
+						 * as CLKIN1 (see the carrier DTS &hmc7044 override
+						 * in zynqmp-adrv9009-zu11eg-reva-adrv2crr-fmc-reva.dts). */
+						clocks = <&hmc7044_car 2>;
+						clock-names = "clkin1";
+
+						adi,pll1-clkin-frequencies = <30720000 30720000 0 0>;
+						adi,pll1-ref-prio-ctrl = <0xE5>;
+						adi,clkin0-buffer-mode = <0x09>;
+						adi,clkin1-buffer-mode = <0x0b>;
+						adi,sync-pin-mode = <1>;
+						adi,pll1-loop-bandwidth-hz = <200>;
+						adi,pfd1-maximum-limit-frequency-hz = <30720000>;
+						adi,pll1-charge-pump-current-ua = <1920>;
+						adi,vcxo-frequency = <122880000>;
+						adi,pll2-output-frequency = <HMC7044_PLL2_OUTPUT_FREQUENCY>;
+						adi,sysref-timer-divider = <3840>;
+						/* JESD204 FSM: burst 16 sysref pulses (revb-fsm.dts). */
+						adi,pulse-generator-mode = <HMC7044_PULSE_GEN_16_PULSE>;
+						adi,oscin-buffer-mode = <0x15>;
+						adi,gpi-controls = <0x00 0x00 0x00 0x11>;
+						adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+						adi,high-performance-mode-clock-dist-enable;
+						adi,hmc-two-level-tree-sync-en;
+
+						/* JESD204 FSM: this HMC7044 receives sysref from
+						 * the carrier HMC7044 and forwards it to all three
+						 * link IPs (RX, ORX, TX deframer). */
+						jesd204-device;
+						#jesd204-cells = <2>;
+						jesd204-inputs = <&hmc7044_car 0 FRAMER_LINK_RX>,
+								 <&hmc7044_car 0 FRAMER_LINK_ORX>,
+								 <&hmc7044_car 0 DEFRAMER_LINK_TX>;
+
+						clock-output-names =
+							"hmc7044_out0_DEV_REFCLK_A", "hmc7044_out1_DEV_SYSREF_A",
+							"hmc7044_out2_DEV_REFCLK_B", "hmc7044_out3_DEV_SYSREF_B",
+							"hmc7044_out4_JESD_REFCLK_TX_OBS_AB", "hmc7044_out5_JESD_REFCLK_RX_AB",
+							"hmc7044_out6_CORE_CLK_TX_OBS_AB", "hmc7044_out7_CORE_CLK_RX_AB",
+							"hmc7044_out8_FPGA_SYSREF_TX_OBS_AB", "hmc7044_out9_FPGA_SYSREF_RX_AB",
+							"hmc7044_out10", "hmc7044_out11",
+							"hmc7044_out12", "hmc7044_out13";
+
+						hmc7044_c0: channel@0 {
+							reg = <0>;
+							adi,extended-name = "DEV_REFCLK_A";
+							adi,divider = <12>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+							adi,coarse-digital-delay = <15>;
+						};
+						/*
+						 * Rev-B SoM: c1/c3/c8/c9 switch to LVPECL with
+						 * force-mute; c6/c7 switch to CML. See
+						 * zynqmp-adrv9009-zu11eg-revb.dtsi.
+						 */
+						hmc7044_c1: channel@1 {
+							reg = <1>;
+							adi,extended-name = "DEV_SYSREF_A";
+							adi,divider = <3840>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+							adi,force-mute-enable;
+							adi,startup-mode-dynamic-enable;
+							adi,high-performance-mode-disable;
+							adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+						};
+						hmc7044_c2: channel@2 {
+							reg = <2>;
+							adi,extended-name = "DEV_REFCLK_B";
+							adi,divider = <12>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+							adi,coarse-digital-delay = <15>;
+						};
+						hmc7044_c3: channel@3 {
+							reg = <3>;
+							adi,extended-name = "DEV_SYSREF_B";
+							adi,divider = <3840>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+							adi,force-mute-enable;
+							adi,startup-mode-dynamic-enable;
+							adi,high-performance-mode-disable;
+							adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+						};
+						hmc7044_c4: channel@4 {
+							reg = <4>;
+							adi,extended-name = "JESD_REFCLK_TX_OBS_AB";
+							adi,divider = <12>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+						};
+						hmc7044_c5: channel@5 {
+							reg = <5>;
+							adi,extended-name = "JESD_REFCLK_RX_AB";
+							adi,divider = <12>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+						};
+						hmc7044_c6: channel@6 {
+							reg = <6>;
+							adi,extended-name = "CORE_CLK_TX_OBS_AB";
+							adi,divider = <24>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_CML>;
+						};
+						hmc7044_c7: channel@7 {
+							reg = <7>;
+							adi,extended-name = "CORE_CLK_RX_AB";
+							adi,divider = <12>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_CML>;
+						};
+						hmc7044_c8: channel@8 {
+							reg = <8>;
+							adi,extended-name = "FPGA_SYSREF_TX_OBS_AB";
+							adi,divider = <3840>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+							adi,force-mute-enable;
+							adi,startup-mode-dynamic-enable;
+							adi,high-performance-mode-disable;
+						};
+						hmc7044_c9: channel@9 {
+							reg = <9>;
+							adi,extended-name = "FPGA_SYSREF_RX_AB";
+							adi,divider = <3840>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+							adi,force-mute-enable;
+							adi,startup-mode-dynamic-enable;
+							adi,high-performance-mode-disable;
+						};
+					};
+
+					/*
+					 * Carrier-board HMC7044 (reg=3 on the SPI bus). Provides
+					 * the input reference clock for the SoM hmc7044 above
+					 * (its output 2 -> SoM hmc7044 clkin1).
+					 * Source: carrier DTS lines 458-559.
+					 */
+					hmc7044_car: hmc7044-car@3 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						#clock-cells = <1>;
+						compatible = "adi,hmc7044";
+						reg = <3>;
+						spi-max-frequency = <10000000>;
+
+						/* Rev-B carrier PLL1 clkin setup (revb-adrv2crr-fmc-revb.dts). */
+						adi,pll1-clkin-frequencies = <122880000 30720000 0 38400000>;
+						adi,pll1-ref-prio-ctrl = <0xb1>;
+						adi,pll1-ref-autorevert-enable;
+
+						adi,pll1-loop-bandwidth-hz = <200>;
+						adi,pfd1-maximum-limit-frequency-hz = <30720000>;
+						adi,pll1-charge-pump-current-ua = <1920>;
+
+						adi,vcxo-frequency = <122880000>;
+
+						adi,pll2-output-frequency = <HMC7044_PLL2_OUTPUT_FREQUENCY>;
+
+						adi,sysref-timer-divider = <3840>;
+						/* JESD204 FSM: burst 16 sysref pulses, sync-pin passive. */
+						adi,pulse-generator-mode = <HMC7044_PULSE_GEN_16_PULSE>;
+
+						adi,oscin-buffer-mode = <0x15>;
+						adi,clkin0-buffer-mode  = <0x07>;
+						adi,clkin1-buffer-mode = <0x07>;
+						adi,clkin3-buffer-mode = <0x11>;
+						adi,sync-pin-mode = <0>;
+
+						adi,hmc-two-level-tree-sync-en;
+
+						adi,gpi-controls = <0x00 0x00 0x00 0x11>;
+						adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+
+						/* JESD204 FSM: this hmc7044 is the sysref provider. */
+						jesd204-device;
+						#jesd204-cells = <2>;
+						jesd204-sysref-provider;
+
+						clock-output-names =
+							"hmc7044_c_out0_REFCLK_OUT0", "hmc7044_c_out1",
+							"hmc7044_c_out2_REFCLK_OUT2", "hmc7044_c_out3",
+							"hmc7044_c_out4", "hmc7044_c_out5_SYNC_OUT1",
+							"hmc7044_c_out6_SYNC_OUT2", "hmc7044_c_out7",
+							"hmc7044_c_out8_REFCLK_OUT3", "hmc7044_c_out9_REFCLK_OUT4",
+							"hmc7044_c_out10_REFCLK_QSFP", "hmc7044_c_out11_REFCLK_SFP",
+							"hmc7044_c_out12", "hmc7044_c_out13";
+
+						hmc7044_car_c0: channel@0 {
+							reg = <0>;
+							adi,extended-name = "REFCLK_OUT0";
+							adi,divider = <96>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+						};
+
+						hmc7044_car_c2: channel@2 {
+							reg = <2>;
+							adi,extended-name = "REFCLK_OUT2";
+							adi,divider = <96>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+						};
+
+						hmc7044_car_c5: channel@5 {
+							reg = <5>;
+							adi,extended-name = "SYNC_OUT1";
+							adi,divider = <3840>;
+							adi,driver-mode = <3>;
+							adi,startup-mode-dynamic-enable;
+							adi,high-performance-mode-disable;
+							adi,driver-impedance-mode = <3>;
+						};
+
+						hmc7044_car_c6: channel@6 {
+							reg = <6>;
+							adi,extended-name = "SYNC_OUT2";
+							adi,divider = <3840>;
+							adi,driver-mode = <3>;
+							adi,startup-mode-dynamic-enable;
+							adi,high-performance-mode-disable;
+							adi,driver-impedance-mode = <3>;
+						};
+
+						hmc7044_car_c8: channel@8 {
+							reg = <8>;
+							adi,extended-name = "REFCLK_OUT3";
+							adi,divider = <96>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+						};
+
+						hmc7044_car_c9: channel@9 {
+							reg = <9>;
+							adi,extended-name = "REFCLK_OUT4";
+							adi,divider = <96>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+						};
+
+						hmc7044_car_c10: channel@10 {
+							reg = <10>;
+							adi,extended-name = "REFCLK_QSFP";
+							adi,divider = <96>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+						};
+
+						hmc7044_car_c11: channel@11 {
+							reg = <11>;
+							adi,extended-name = "REFCLK_SFP";
+							adi,divider = <24>;
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+						};
+					};
+
+					/*
+					 * External HMC7044 on the carrier expansion connector,
+					 * reached via spi_csn[4] -> gpio_0_exp_n (see
+					 * system_top_pcie.v). Reset (axi_gpio2 line 27) and
+					 * vcxo_select (axi_gpio2 line 28) are both PL-owned
+					 * via the hogs above; the base carrier DTS's PS-side
+					 * hmc7044_ext_reset / hmc7044_ext_vcxo_select hogs
+					 * (&gpio 169/170) are disabled in the SoM boot DTS
+					 * (..-fsm-pcie.dts) to avoid contention.
+					 */
+					hmc7044_ext: hmc7044-ext@4 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						#clock-cells = <1>;
+						compatible = "adi,hmc7044";
+						reg = <4>;
+						spi-max-frequency = <1000000>;
+
+						adi,pll1-clkin-frequencies = <0 30720000 30720000 38400000>;
+
+						adi,pll1-loop-bandwidth-hz = <200>;
+						adi,pfd1-maximum-limit-frequency-hz = <3840000>;
+
+						adi,pll1-ref-prio-ctrl = <0x39>; /* CLKIN1 -> CLKIN2 -> CLKIN3 -> CLKIN0 */
+						adi,pll1-ref-autorevert-enable;
+
+						adi,vcxo-frequency = <122880000>;
+
+						adi,pll2-output-frequency = <HMC7044_PLL2_OUTPUT_FREQUENCY>;
+
+						adi,sysref-timer-divider = <3840>;
+						adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
+
+						adi,oscin-buffer-mode = <0x15>;
+						adi,clkin1-buffer-mode = <0x07>;
+						adi,clkin2-buffer-mode = <0x07>;
+						adi,clkin3-buffer-mode = <0x07>;
+						adi,sync-pin-mode = <1>;
+
+						adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+						adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+
+						clock-output-names =
+							"hmc7044_e_out0", "hmc7044_e_out1",
+							"hmc7044_e_out2", "hmc7044_e_out3",
+							"hmc7044_e_out4_SYNC_OUT1", "hmc7044_e_out5_REFCLK_OUT0",
+							"hmc7044_e_out6_SYNC_OUT2", "hmc7044_e_out7",
+							"hmc7044_e_out8", "hmc7044_e_out9",
+							"hmc7044_e_out10", "hmc7044_e_out11",
+							"hmc7044_e_out12_REFCLK_OUT2", "hmc7044_e_out13";
+
+						hmc7044_ext_c4: channel@4 {
+							reg = <4>;
+							adi,extended-name = "SYNC_OUT1";
+							adi,divider = <3840>;	/* 768000 */
+							adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
+							adi,startup-mode-dynamic-enable;
+							adi,high-performance-mode-disable;
+							adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_50_OHM>;
+						};
+
+						hmc7044_ext_c5: channel@5 {
+							reg = <5>;
+							adi,extended-name = "REFCLK_OUT0";
+							adi,divider = <96>;	/* 3072000 */
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+						};
+
+						hmc7044_ext_c6: channel@6 {
+							reg = <6>;
+							adi,extended-name = "SYNC_OUT2";
+							adi,divider = <3840>;	/* 768000 */
+							adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
+							adi,startup-mode-dynamic-enable;
+							adi,high-performance-mode-disable;
+							adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_50_OHM>;
+						};
+
+						hmc7044_ext_c12: channel@12 {
+							reg = <12>;
+							adi,extended-name = "REFCLK_OUT2";
+							adi,divider = <96>;	/* 3072000 */
+							adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+						};
+					};
+
+					/*
+					 * ADRV9009 phy nodes. All non-GPIO property blocks
+					 * (adi,jesd204-*, adi,rx-*, adi,orx-*, adi,tx-*,
+					 * adi,dig-*, adi,rxagc-*, adi,aux-dac-*, adi,arm-gpio-*,
+					 * adi,fhm-*, adi,rx*-gain-ctrl-*, adi,tx*-atten-*,
+					 * adi,tx-pa-protection-*) are IDENTICAL to the SoM-side
+					 * DTS at zynqmp-adrv9009-zu11eg-reva.dtsi lines 205-540
+					 * (trx0) and 569-904 (trx1). Copy those blocks verbatim.
+					 * Only the *-gpios references change (see the GPIO
+					 * remap table at the end of this file); no node in
+					 * this overlay carries an interrupt-parent.
+					 */
+					trx0_adrv9009: adrv9009-phy@0 {
+						compatible = "adrv9009-x2";
+						reg = <0>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						spi-max-frequency = <25000000>;
+
+						clocks = <&axi_adrv9009_rx_jesd>, <&axi_adrv9009_tx_jesd>,
+							 <&axi_adrv9009_rx_os_jesd>, <&hmc7044 0>,
+							 <&hmc7044 5>, <&hmc7044 1>, <&hmc7044 8>,
+							 <&hmc7044 4>;
+						clock-names = "jesd_rx_clk", "jesd_tx_clk", "jesd_rx_os_clk",
+							      "dev_clk", "fmc_clk", "sysref_dev_clk",
+							      "sysref_fmc_clk", "fmc2_clk";
+						clock-output-names = "rx_sampl_clk", "rx_os_sampl_clk", "tx_sampl_clk";
+						#clock-cells = <1>;
+
+						/* JESD204 FSM: top device; owns the three links and
+						 * pulls its per-link topology from trx1. Interrupts
+						 * are managed by the FSM state machine (the reference
+						 * DTS deletes interrupts here). */
+						jesd204-device;
+						#jesd204-cells = <2>;
+						jesd204-top-device = <0>;
+						jesd204-link-ids = <DEFRAMER_LINK_TX FRAMER_LINK_RX FRAMER_LINK_ORX>;
+						jesd204-inputs =
+							<&trx1_adrv9009 0 FRAMER_LINK_RX>,
+							<&trx1_adrv9009 0 FRAMER_LINK_ORX>,
+							<&trx1_adrv9009 0 DEFRAMER_LINK_TX>;
+
+						reset-gpios       = <&axi_gpio1 52 GPIO_ACTIVE_HIGH>;
+						test-gpios        = <&axi_gpio1 53 GPIO_ACTIVE_HIGH>;
+						rx1-enable-gpios  = <&axi_gpio1 54 GPIO_ACTIVE_HIGH>;
+						rx2-enable-gpios  = <&axi_gpio1 55 GPIO_ACTIVE_HIGH>;
+						tx1-enable-gpios  = <&axi_gpio1 56 GPIO_ACTIVE_HIGH>;
+						tx2-enable-gpios  = <&axi_gpio1 57 GPIO_ACTIVE_HIGH>;
+						sysref-req-gpio   = <&axi_gpio2 25 GPIO_ACTIVE_HIGH>;
+
+						/* JESD204 */
+
+						/* JESD204 RX */
+						adi,jesd204-framer-a-bank-id = <1>;
+						adi,jesd204-framer-a-device-id = <0>;
+						adi,jesd204-framer-a-lane0-id = <0>;
+						adi,jesd204-framer-a-m = <4>;
+						adi,jesd204-framer-a-k = <32>;
+						adi,jesd204-framer-a-f = <4>;
+						adi,jesd204-framer-a-np = <16>;
+						adi,jesd204-framer-a-scramble = <1>;
+						adi,jesd204-framer-a-external-sysref = <1>;
+						adi,jesd204-framer-a-serializer-lanes-enabled = <0x03>;
+						adi,jesd204-framer-a-serializer-lane-crossbar = <0xE4>;
+						adi,jesd204-framer-a-lmfc-offset = <15>;
+						adi,jesd204-framer-a-new-sysref-on-relink = <0>;
+						adi,jesd204-framer-a-syncb-in-select = <0>;
+						adi,jesd204-framer-a-over-sample = <0>;
+						adi,jesd204-framer-a-syncb-in-lvds-mode = <1>;
+						adi,jesd204-framer-a-syncb-in-lvds-pn-invert = <0>;
+						adi,jesd204-framer-a-enable-manual-lane-xbar = <0>;
+
+						/* JESD204 OBS */
+						adi,jesd204-framer-b-bank-id = <0>;
+						adi,jesd204-framer-b-device-id = <0>;
+						adi,jesd204-framer-b-lane0-id = <0>;
+						adi,jesd204-framer-b-m = <2>;
+						adi,jesd204-framer-b-k = <32>;
+						adi,jesd204-framer-b-f = <4>;
+						adi,jesd204-framer-b-np = <16>;
+						adi,jesd204-framer-b-scramble = <1>;
+						adi,jesd204-framer-b-external-sysref = <1>;
+						adi,jesd204-framer-b-serializer-lanes-enabled = <0x0C>;
+						adi,jesd204-framer-b-serializer-lane-crossbar = <0xE4>;
+						adi,jesd204-framer-b-lmfc-offset = <15>;
+						adi,jesd204-framer-b-new-sysref-on-relink = <0>;
+						adi,jesd204-framer-b-syncb-in-select = <1>;
+						adi,jesd204-framer-b-over-sample = <0>;
+						adi,jesd204-framer-b-syncb-in-lvds-mode = <1>;
+						adi,jesd204-framer-b-syncb-in-lvds-pn-invert = <0>;
+						adi,jesd204-framer-b-enable-manual-lane-xbar = <0>;
+
+						/* JESD204 TX */
+						adi,jesd204-deframer-a-bank-id = <0>;
+						adi,jesd204-deframer-a-device-id = <0>;
+						adi,jesd204-deframer-a-lane0-id = <0>;
+						adi,jesd204-deframer-a-m = <4>;
+						adi,jesd204-deframer-a-k = <32>;
+						adi,jesd204-deframer-a-scramble = <1>;
+						adi,jesd204-deframer-a-external-sysref = <1>;
+						adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x0F>;
+						adi,jesd204-deframer-a-deserializer-lane-crossbar = <0xE4>;
+						adi,jesd204-deframer-a-lmfc-offset = <1>;
+						adi,jesd204-deframer-a-new-sysref-on-relink = <0>;
+						adi,jesd204-deframer-a-syncb-out-select = <0>;
+						adi,jesd204-deframer-a-np = <16>;
+						adi,jesd204-deframer-a-syncb-out-lvds-mode = <1>;
+						adi,jesd204-deframer-a-syncb-out-lvds-pn-invert = <0>;
+						adi,jesd204-deframer-a-syncb-out-cmos-slew-rate = <0>;
+						adi,jesd204-deframer-a-syncb-out-cmos-drive-level = <0>;
+						adi,jesd204-deframer-a-enable-manual-lane-xbar = <0>;
+
+						adi,jesd204-ser-amplitude = <15>;
+						adi,jesd204-ser-pre-emphasis = <1>;
+						adi,jesd204-ser-invert-lane-polarity = <0>;
+						adi,jesd204-des-invert-lane-polarity = <0>;
+						adi,jesd204-des-eq-setting = <1>;
+						adi,jesd204-sysref-lvds-mode = <1>;
+						adi,jesd204-sysref-lvds-pn-invert = <0>;
+
+						/* RX */
+
+						adi,rx-profile-rx-fir-gain_db = <(-6)>;
+						adi,rx-profile-rx-fir-num-fir-coefs = <48>;
+						adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-2) (23) (46) (-17) (-104) (10) (208) (23) (-370) (-97) (607) (240) (-942) (-489) (1407) (910) (-2065) (-1637) (3058) (2995) (-4912) (-6526) (9941) (30489) (30489) (9941) (-6526) (-4912) (2995) (3058) (-1637) (-2065) (910) (1407) (-489) (-942) (240) (607) (-97) (-370) (23) (208) (10) (-104) (-17) (46) (23) (-2)>;
+
+						adi,rx-profile-rx-fir-decimation = <2>;
+						adi,rx-profile-rx-dec5-decimation = <4>;
+						adi,rx-profile-rhb1-decimation = <1>;
+						adi,rx-profile-rx-output-rate_khz = <245760>;
+						adi,rx-profile-rf-bandwidth_hz = <200000000>;
+						adi,rx-profile-rx-bbf3d-bcorner_khz = <200000>;
+						adi,rx-profile-rx-adc-profile = /bits/ 16 <182 142 173 90 1280 982 1335 96 1369 48 1012 18 48 48 37 208 0 0 0 0 52 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+						adi,rx-profile-rx-ddc-mode = <0>;
+
+						adi,rx-nco-shifter-band-a-input-band-width_khz = <0>;
+						adi,rx-nco-shifter-band-a-input-center-freq_khz = <0>;
+						adi,rx-nco-shifter-band-a-nco1-freq_khz = <0>;
+						adi,rx-nco-shifter-band-a-nco2-freq_khz = <0>;
+						adi,rx-nco-shifter-band-binput-band-width_khz = <0>;
+						adi,rx-nco-shifter-band-binput-center-freq_khz = <0>;
+						adi,rx-nco-shifter-band-bnco1-freq_khz = <0>;
+						adi,rx-nco-shifter-band-bnco2-freq_khz = <0>;
+
+						adi,rx-gain-control-gain-mode = <0>;
+						adi,rx-gain-control-rx1-gain-index = <255>;
+						adi,rx-gain-control-rx2-gain-index = <255>;
+						adi,rx-gain-control-rx1-max-gain-index = <255>;
+						adi,rx-gain-control-rx1-min-gain-index = <195>;
+						adi,rx-gain-control-rx2-max-gain-index = <255>;
+						adi,rx-gain-control-rx2-min-gain-index = <195>;
+
+						adi,rx-settings-framer-sel = <0>;
+						adi,rx-settings-rx-channels = <3>;
+
+						/* ORX */
+
+						adi,orx-profile-rx-fir-gain_db = <6>;
+						adi,orx-profile-rx-fir-num-fir-coefs = <24>;
+						adi,orx-profile-rx-fir-coefs = /bits/ 16  <(-10) (7) (-10) (-12) (6) (-12) (16) (-16) (1) (63) (-431) (17235) (-431) (63) (1) (-16) (16) (-12) (6) (-12) (-10) (7) (-10) (0)>;
+						adi,orx-profile-rx-fir-decimation = <1>;
+						adi,orx-profile-rx-dec5-decimation = <4>;
+						adi,orx-profile-rhb1-decimation = <2>;
+						adi,orx-profile-orx-output-rate_khz = <245760>;
+						adi,orx-profile-rf-bandwidth_hz = <200000000>;
+						adi,orx-profile-rx-bbf3d-bcorner_khz = <225000>;
+						adi,orx-profile-orx-low-pass-adc-profile = /bits/ 16  <185 141 172 90 1280 942 1332 90 1368 46 1016 19 48 48 37 208 0 0 0 0 52 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+						adi,orx-profile-orx-band-pass-adc-profile = /bits/ 16  <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+						adi,orx-profile-orx-ddc-mode = <0>;
+						adi,orx-profile-orx-merge-filter = /bits/ 16  <0 0 0 0 0 0 0 0 0 0 0 0>;
+
+						adi,orx-gain-control-gain-mode = <0>;
+						adi,orx-gain-control-orx1-gain-index = <255>;
+						adi,orx-gain-control-orx2-gain-index = <255>;
+						adi,orx-gain-control-orx1-max-gain-index = <255>;
+						adi,orx-gain-control-orx1-min-gain-index = <195>;
+						adi,orx-gain-control-orx2-max-gain-index = <255>;
+						adi,orx-gain-control-orx2-min-gain-index = <195>;
+
+						adi,obs-settings-framer-sel = <1>;
+						adi,obs-settings-obs-rx-channels-enable = <3>;
+						adi,obs-settings-obs-rx-lo-source = <0>;
+
+						/* TX */
+
+						adi,tx-profile-tx-fir-gain_db = <6>;
+						adi,tx-profile-tx-fir-num-fir-coefs = <40>;
+						adi,tx-profile-tx-fir-coefs = /bits/ 16  <(-14) (5) (-9) (6) (-4) (19) (-29) (27) (-30) (46) (-63) (77) (-103) (150) (-218) (337) (-599) (1266) (-2718) (19537) (-2718) (1266) (-599) (337) (-218) (150) (-103) (77) (-63) (46) (-30) (27) (-29) (19) (-4) (6) (-9) (5) (-14) (0)>;
+
+						adi,tx-profile-dac-div = <1>;
+
+						adi,tx-profile-tx-fir-interpolation = <1>;
+						adi,tx-profile-thb1-interpolation = <2>;
+						adi,tx-profile-thb2-interpolation = <2>;
+						adi,tx-profile-thb3-interpolation = <2>;
+						adi,tx-profile-tx-int5-interpolation = <1>;
+						adi,tx-profile-tx-input-rate_khz = <245760>;
+						adi,tx-profile-primary-sig-bandwidth_hz = <100000000>;
+						adi,tx-profile-rf-bandwidth_hz = <225000000>;
+						adi,tx-profile-tx-dac3d-bcorner_khz = <225000>;
+						adi,tx-profile-tx-bbf3d-bcorner_khz = <113000>;
+						adi,tx-profile-loop-back-adc-profile = /bits/ 16 <206 132 168 90 1280 641 1307 53 1359 28 1039 30 48 48 37 210 0 0 0 0 53 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+
+						adi,tx-settings-deframer-sel = <0>;
+						adi,tx-settings-tx-channels = <3>;
+						adi,tx-settings-tx-atten-step-size = <0>;
+						adi,tx-settings-tx1-atten_md-b = <10000>;
+						adi,tx-settings-tx2-atten_md-b = <10000>;
+						adi,tx-settings-dis-tx-data-if-pll-unlock = <0>;
+
+						/* Clocks */
+
+						adi,dig-clocks-device-clock_khz = <245760>;
+						adi,dig-clocks-clk-pll-vco-freq_khz = <9830400>;
+						adi,dig-clocks-clk-pll-hs-div = <1>;
+						adi,dig-clocks-rf-pll-use-external-lo = <0>;
+						adi,dig-clocks-rf-pll-phase-sync-mode = <3>;
+
+						/* AGC */
+
+						adi,rxagc-peak-agc-under-range-low-interval_ns = <205>;
+						adi,rxagc-peak-agc-under-range-mid-interval = <2>;
+						adi,rxagc-peak-agc-under-range-high-interval = <4>;
+						adi,rxagc-peak-apd-high-thresh = <39>;
+						adi,rxagc-peak-apd-low-gain-mode-high-thresh = <36>;
+						adi,rxagc-peak-apd-low-thresh = <23>;
+						adi,rxagc-peak-apd-low-gain-mode-low-thresh = <19>;
+						adi,rxagc-peak-apd-upper-thresh-peak-exceeded-cnt = <6>;
+						adi,rxagc-peak-apd-lower-thresh-peak-exceeded-cnt = <3>;
+						adi,rxagc-peak-apd-gain-step-attack = <4>;
+						adi,rxagc-peak-apd-gain-step-recovery = <2>;
+						adi,rxagc-peak-enable-hb2-overload = <1>;
+						adi,rxagc-peak-hb2-overload-duration-cnt = <1>;
+						adi,rxagc-peak-hb2-overload-thresh-cnt = <4>;
+						adi,rxagc-peak-hb2-high-thresh = <181>;
+						adi,rxagc-peak-hb2-under-range-low-thresh = <45>;
+						adi,rxagc-peak-hb2-under-range-mid-thresh = <90>;
+						adi,rxagc-peak-hb2-under-range-high-thresh = <128>;
+						adi,rxagc-peak-hb2-upper-thresh-peak-exceeded-cnt = <6>;
+						adi,rxagc-peak-hb2-lower-thresh-peak-exceeded-cnt = <3>;
+						adi,rxagc-peak-hb2-gain-step-high-recovery = <2>;
+						adi,rxagc-peak-hb2-gain-step-low-recovery = <4>;
+						adi,rxagc-peak-hb2-gain-step-mid-recovery = <8>;
+						adi,rxagc-peak-hb2-gain-step-attack = <4>;
+						adi,rxagc-peak-hb2-overload-power-mode = <1>;
+						adi,rxagc-peak-hb2-ovrg-sel = <0>;
+						adi,rxagc-peak-hb2-thresh-config = <3>;
+
+						adi,rxagc-power-power-enable-measurement = <1>;
+						adi,rxagc-power-power-use-rfir-out = <1>;
+						adi,rxagc-power-power-use-bbdc2 = <0>;
+						adi,rxagc-power-under-range-high-power-thresh = <9>;
+						adi,rxagc-power-under-range-low-power-thresh = <2>;
+						adi,rxagc-power-under-range-high-power-gain-step-recovery = <4>;
+						adi,rxagc-power-under-range-low-power-gain-step-recovery = <4>;
+						adi,rxagc-power-power-measurement-duration = <5>;
+						adi,rxagc-power-rx1-tdd-power-meas-duration = <5>;
+						adi,rxagc-power-rx1-tdd-power-meas-delay = <1>;
+						adi,rxagc-power-rx2-tdd-power-meas-duration = <5>;
+						adi,rxagc-power-rx2-tdd-power-meas-delay = <1>;
+						adi,rxagc-power-upper0-power-thresh = <2>;
+						adi,rxagc-power-upper1-power-thresh = <0>;
+						adi,rxagc-power-power-log-shift = <0>;
+
+						adi,rxagc-agc-peak-wait-time = <4>;
+						adi,rxagc-agc-rx1-max-gain-index = <255>;
+						adi,rxagc-agc-rx1-min-gain-index = <195>;
+						adi,rxagc-agc-rx2-max-gain-index = <255>;
+						adi,rxagc-agc-rx2-min-gain-index = <195>;
+						adi,rxagc-agc-gain-update-counter_us = <250>;
+						adi,rxagc-agc-rx1-attack-delay = <10>;
+						adi,rxagc-agc-rx2-attack-delay = <10>;
+						adi,rxagc-agc-slow-loop-settling-delay = <16>;
+						adi,rxagc-agc-low-thresh-prevent-gain = <0>;
+						adi,rxagc-agc-change-gain-if-thresh-high = <1>;
+						adi,rxagc-agc-peak-thresh-gain-control-mode = <1>;
+						adi,rxagc-agc-reset-on-rxon = <0>;
+						adi,rxagc-agc-enable-sync-pulse-for-gain-counter = <0>;
+						adi,rxagc-agc-enable-ip3-optimization-thresh = <0>;
+						adi,rxagc-ip3-over-range-thresh = <31>;
+						adi,rxagc-ip3-over-range-thresh-index = <246>;
+						adi,rxagc-ip3-peak-exceeded-cnt = <4>;
+						adi,rxagc-agc-enable-fast-recovery-loop = <0>;
+
+
+						/* Misc */
+
+						adi,aux-dac-enables = <0x00>; /* Mask */
+
+						adi,aux-dac-vref0 = <3>;
+						adi,aux-dac-resolution0 = <0>;
+						adi,aux-dac-values0 = <0>;
+						adi,aux-dac-vref1 = <3>;
+						adi,aux-dac-resolution1 = <0>;
+						adi,aux-dac-values1 = <0>;
+						adi,aux-dac-vref2 = <3>;
+						adi,aux-dac-resolution2 = <0>;
+						adi,aux-dac-values2 = <0>;
+						adi,aux-dac-vref3 = <3>;
+						adi,aux-dac-resolution3 = <0>;
+						adi,aux-dac-values3 = <0>;
+						adi,aux-dac-vref4 = <3>;
+						adi,aux-dac-resolution4 = <0>;
+						adi,aux-dac-values4 = <0>;
+						adi,aux-dac-vref5 = <3>;
+						adi,aux-dac-resolution5 = <0>;
+						adi,aux-dac-values5 = <0>;
+						adi,aux-dac-vref6 = <3>;
+						adi,aux-dac-resolution6 = <0>;
+						adi,aux-dac-values6 = <0>;
+						adi,aux-dac-vref7 = <3>;
+						adi,aux-dac-resolution7 = <0>;
+						adi,aux-dac-values7 = <0>;
+						adi,aux-dac-vref8 = <3>;
+						adi,aux-dac-resolution8 = <0>;
+						adi,aux-dac-values8 = <0>;
+						adi,aux-dac-vref9 = <3>;
+						adi,aux-dac-resolution9 = <0>;
+						adi,aux-dac-values9 = <0>;
+						adi,aux-dac-vref10 = <3>;
+						adi,aux-dac-resolution10 = <0>;
+						adi,aux-dac-values10 = <0>;
+						adi,aux-dac-vref11 = <3>;
+						adi,aux-dac-resolution11 = <0>;
+						adi,aux-dac-values11 = <0>;
+
+						adi,arm-gpio-config-orx1-tx-sel0-pin-gpio-pin-sel = <0>;
+						adi,arm-gpio-config-orx1-tx-sel0-pin-polarity = <0>;
+						adi,arm-gpio-config-orx1-tx-sel0-pin-enable = <0>;
+
+						adi,arm-gpio-config-orx1-tx-sel1-pin-gpio-pin-sel = <0>;
+						adi,arm-gpio-config-orx1-tx-sel1-pin-polarity = <0>;
+						adi,arm-gpio-config-orx1-tx-sel1-pin-enable = <0>;
+						adi,arm-gpio-config-orx2-tx-sel0-pin-gpio-pin-sel = <0>;
+						adi,arm-gpio-config-orx2-tx-sel0-pin-polarity = <0>;
+						adi,arm-gpio-config-orx2-tx-sel0-pin-enable = <0>;
+
+						adi,arm-gpio-config-orx2-tx-sel1-pin-gpio-pin-sel = <0>;
+						adi,arm-gpio-config-orx2-tx-sel1-pin-polarity = <0>;
+						adi,arm-gpio-config-orx2-tx-sel1-pin-enable = <0>;
+						adi,arm-gpio-config-en-tx-tracking-cals-gpio-pin-sel = <0>;
+						adi,arm-gpio-config-en-tx-tracking-cals-polarity = <0>;
+						adi,arm-gpio-config-en-tx-tracking-cals-enable = <0>;
+
+						adi,orx-lo-cfg-disable-aux-pll-relocking = <0>;
+						adi,orx-lo-cfg-gpio-select = <19>;
+
+						adi,fhm-config-fhm-gpio-pin = <0>;
+						adi,fhm-config-fhm-min-freq_mhz = <2400>;
+						adi,fhm-config-fhm-max-freq_mhz = <2500>;
+
+						adi,fhm-mode-fhm-enable = <0>;
+						adi,fhm-mode-enable-mcs-sync = <0>;
+						adi,fhm-mode-fhm-trigger-mode = <0>;
+						adi,fhm-mode-fhm-exit-mode = <1>;
+						adi,fhm-mode-fhm-init-frequency_hz = <2450000000>;
+
+						adi,rx1-gain-ctrl-pin-inc-step = <1>;
+						adi,rx1-gain-ctrl-pin-dec-step = <1>;
+						adi,rx1-gain-ctrl-pin-rx-gain-inc-pin = <0>;
+						adi,rx1-gain-ctrl-pin-rx-gain-dec-pin = <1>;
+						adi,rx1-gain-ctrl-pin-enable = <0>;
+
+						adi,rx2-gain-ctrl-pin-inc-step = <1>;
+						adi,rx2-gain-ctrl-pin-dec-step = <1>;
+						adi,rx2-gain-ctrl-pin-rx-gain-inc-pin = <3>;
+						adi,rx2-gain-ctrl-pin-rx-gain-dec-pin = <4>;
+						adi,rx2-gain-ctrl-pin-enable = <0>;
+
+						adi,tx1-atten-ctrl-pin-step-size = <0>;
+						adi,tx1-atten-ctrl-pin-tx-atten-inc-pin = <4>;
+						adi,tx1-atten-ctrl-pin-tx-atten-dec-pin = <5>;
+						adi,tx1-atten-ctrl-pin-enable = <0>;
+
+						adi,tx2-atten-ctrl-pin-step-size = <0>;
+						adi,tx2-atten-ctrl-pin-tx-atten-inc-pin = <6>;
+						adi,tx2-atten-ctrl-pin-tx-atten-dec-pin = <7>;
+						adi,tx2-atten-ctrl-pin-enable = <0>;
+
+						adi,tx-pa-protection-avg-duration = <3>;
+						adi,tx-pa-protection-tx-atten-step = <2>;
+						adi,tx-pa-protection-tx1-power-threshold = <4096>;
+						adi,tx-pa-protection-tx2-power-threshold = <4096>;
+						adi,tx-pa-protection-peak-count = <4>;
+						adi,tx-pa-protection-tx1-peak-threshold = <140>;
+						adi,tx-pa-protection-tx2-peak-threshold = <140>;
+					};
+
+					trx1_adrv9009: adrv9009-phy-b@1 {
+						compatible = "adrv9009";
+						reg = <1>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						spi-max-frequency = <25000000>;
+
+						clocks = <&axi_adrv9009_rx_jesd>, <&axi_adrv9009_tx_jesd>,
+							 <&axi_adrv9009_rx_os_jesd>, <&hmc7044 2>,
+							 <&hmc7044 5>, <&hmc7044 3>, <&hmc7044 9>,
+							 <&hmc7044 4>;
+						clock-names = "jesd_rx_clk", "jesd_tx_clk", "jesd_rx_os_clk",
+							      "dev_clk", "fmc_clk", "sysref_dev_clk",
+							      "sysref_fmc_clk", "fmc2_clk";
+						clock-output-names = "rx_sampl_clk", "rx_os_sampl_clk", "tx_sampl_clk";
+						#clock-cells = <1>;
+
+						/* JESD204 FSM: pulls its three per-link parents
+						 * from the JESD link IPs / TPL core. */
+						jesd204-device;
+						#jesd204-cells = <2>;
+						jesd204-inputs =
+							<&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>,
+							<&axi_adrv9009_rx_os_jesd 0 FRAMER_LINK_ORX>,
+							<&axi_adrv9009_core_tx 0 DEFRAMER_LINK_TX>;
+
+						reset-gpios       = <&axi_gpio2 14 GPIO_ACTIVE_HIGH>;
+						test-gpios        = <&axi_gpio2 15 GPIO_ACTIVE_HIGH>;
+						rx1-enable-gpios  = <&axi_gpio2 16 GPIO_ACTIVE_HIGH>;
+						rx2-enable-gpios  = <&axi_gpio2 17 GPIO_ACTIVE_HIGH>;
+						tx1-enable-gpios  = <&axi_gpio2 18 GPIO_ACTIVE_HIGH>;
+						tx2-enable-gpios  = <&axi_gpio2 19 GPIO_ACTIVE_HIGH>;
+
+						/* JESD204 */
+
+						/* JESD204 RX */
+						adi,jesd204-framer-a-bank-id = <1>;
+						adi,jesd204-framer-a-device-id = <0>;
+						adi,jesd204-framer-a-lane0-id = <0>;
+						adi,jesd204-framer-a-m = <4>;
+						adi,jesd204-framer-a-k = <32>;
+						adi,jesd204-framer-a-f = <4>;
+						adi,jesd204-framer-a-np = <16>;
+						adi,jesd204-framer-a-scramble = <1>;
+						adi,jesd204-framer-a-external-sysref = <1>;
+						adi,jesd204-framer-a-serializer-lanes-enabled = <0x03>;
+						adi,jesd204-framer-a-serializer-lane-crossbar = <0xE4>;
+						adi,jesd204-framer-a-lmfc-offset = <15>;
+						adi,jesd204-framer-a-new-sysref-on-relink = <0>;
+						adi,jesd204-framer-a-syncb-in-select = <0>;
+						adi,jesd204-framer-a-over-sample = <0>;
+						adi,jesd204-framer-a-syncb-in-lvds-mode = <1>;
+						adi,jesd204-framer-a-syncb-in-lvds-pn-invert = <0>;
+						adi,jesd204-framer-a-enable-manual-lane-xbar = <0>;
+
+						/* JESD204 OBS */
+						adi,jesd204-framer-b-bank-id = <0>;
+						adi,jesd204-framer-b-device-id = <0>;
+						adi,jesd204-framer-b-lane0-id = <0>;
+						adi,jesd204-framer-b-m = <2>;
+						adi,jesd204-framer-b-k = <32>;
+						adi,jesd204-framer-b-f = <4>;
+						adi,jesd204-framer-b-np = <16>;
+						adi,jesd204-framer-b-scramble = <1>;
+						adi,jesd204-framer-b-external-sysref = <1>;
+						adi,jesd204-framer-b-serializer-lanes-enabled = <0x0C>;
+						adi,jesd204-framer-b-serializer-lane-crossbar = <0xE4>;
+						adi,jesd204-framer-b-lmfc-offset = <15>;
+						adi,jesd204-framer-b-new-sysref-on-relink = <0>;
+						adi,jesd204-framer-b-syncb-in-select = <1>;
+						adi,jesd204-framer-b-over-sample = <0>;
+						adi,jesd204-framer-b-syncb-in-lvds-mode = <1>;
+						adi,jesd204-framer-b-syncb-in-lvds-pn-invert = <0>;
+						adi,jesd204-framer-b-enable-manual-lane-xbar = <0>;
+
+						/* JESD204 TX */
+						adi,jesd204-deframer-a-bank-id = <0>;
+						adi,jesd204-deframer-a-device-id = <0>;
+						adi,jesd204-deframer-a-lane0-id = <0>;
+						adi,jesd204-deframer-a-m = <4>;
+						adi,jesd204-deframer-a-k = <32>;
+						adi,jesd204-deframer-a-scramble = <1>;
+						adi,jesd204-deframer-a-external-sysref = <1>;
+						adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x0F>;
+						adi,jesd204-deframer-a-deserializer-lane-crossbar = <0xE4>;
+						adi,jesd204-deframer-a-lmfc-offset = <1>;
+						adi,jesd204-deframer-a-new-sysref-on-relink = <0>;
+						adi,jesd204-deframer-a-syncb-out-select = <0>;
+						adi,jesd204-deframer-a-np = <16>;
+						adi,jesd204-deframer-a-syncb-out-lvds-mode = <1>;
+						adi,jesd204-deframer-a-syncb-out-lvds-pn-invert = <0>;
+						adi,jesd204-deframer-a-syncb-out-cmos-slew-rate = <0>;
+						adi,jesd204-deframer-a-syncb-out-cmos-drive-level = <0>;
+						adi,jesd204-deframer-a-enable-manual-lane-xbar = <0>;
+
+						adi,jesd204-ser-amplitude = <15>;
+						adi,jesd204-ser-pre-emphasis = <1>;
+						adi,jesd204-ser-invert-lane-polarity = <0>;
+						adi,jesd204-des-invert-lane-polarity = <0>;
+						adi,jesd204-des-eq-setting = <1>;
+						adi,jesd204-sysref-lvds-mode = <1>;
+						adi,jesd204-sysref-lvds-pn-invert = <0>;
+
+						/* RX */
+
+						adi,rx-profile-rx-fir-gain_db = <(-6)>;
+						adi,rx-profile-rx-fir-num-fir-coefs = <48>;
+						adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-2) (23) (46) (-17) (-104) (10) (208) (23) (-370) (-97) (607) (240) (-942) (-489) (1407) (910) (-2065) (-1637) (3058) (2995) (-4912) (-6526) (9941) (30489) (30489) (9941) (-6526) (-4912) (2995) (3058) (-1637) (-2065) (910) (1407) (-489) (-942) (240) (607) (-97) (-370) (23) (208) (10) (-104) (-17) (46) (23) (-2)>;
+
+						adi,rx-profile-rx-fir-decimation = <2>;
+						adi,rx-profile-rx-dec5-decimation = <4>;
+						adi,rx-profile-rhb1-decimation = <1>;
+						adi,rx-profile-rx-output-rate_khz = <245760>;
+						adi,rx-profile-rf-bandwidth_hz = <200000000>;
+						adi,rx-profile-rx-bbf3d-bcorner_khz = <200000>;
+						adi,rx-profile-rx-adc-profile = /bits/ 16 <182 142 173 90 1280 982 1335 96 1369 48 1012 18 48 48 37 208 0 0 0 0 52 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+						adi,rx-profile-rx-ddc-mode = <0>;
+
+						adi,rx-nco-shifter-band-a-input-band-width_khz = <0>;
+						adi,rx-nco-shifter-band-a-input-center-freq_khz = <0>;
+						adi,rx-nco-shifter-band-a-nco1-freq_khz = <0>;
+						adi,rx-nco-shifter-band-a-nco2-freq_khz = <0>;
+						adi,rx-nco-shifter-band-binput-band-width_khz = <0>;
+						adi,rx-nco-shifter-band-binput-center-freq_khz = <0>;
+						adi,rx-nco-shifter-band-bnco1-freq_khz = <0>;
+						adi,rx-nco-shifter-band-bnco2-freq_khz = <0>;
+
+						adi,rx-gain-control-gain-mode = <0>;
+						adi,rx-gain-control-rx1-gain-index = <255>;
+						adi,rx-gain-control-rx2-gain-index = <255>;
+						adi,rx-gain-control-rx1-max-gain-index = <255>;
+						adi,rx-gain-control-rx1-min-gain-index = <195>;
+						adi,rx-gain-control-rx2-max-gain-index = <255>;
+						adi,rx-gain-control-rx2-min-gain-index = <195>;
+
+						adi,rx-settings-framer-sel = <0>;
+						adi,rx-settings-rx-channels = <3>;
+
+						/* ORX */
+
+						adi,orx-profile-rx-fir-gain_db = <6>;
+						adi,orx-profile-rx-fir-num-fir-coefs = <24>;
+						adi,orx-profile-rx-fir-coefs = /bits/ 16  <(-10) (7) (-10) (-12) (6) (-12) (16) (-16) (1) (63) (-431) (17235) (-431) (63) (1) (-16) (16) (-12) (6) (-12) (-10) (7) (-10) (0)>;
+						adi,orx-profile-rx-fir-decimation = <1>;
+						adi,orx-profile-rx-dec5-decimation = <4>;
+						adi,orx-profile-rhb1-decimation = <2>;
+						adi,orx-profile-orx-output-rate_khz = <245760>;
+						adi,orx-profile-rf-bandwidth_hz = <200000000>;
+						adi,orx-profile-rx-bbf3d-bcorner_khz = <225000>;
+						adi,orx-profile-orx-low-pass-adc-profile = /bits/ 16  <185 141 172 90 1280 942 1332 90 1368 46 1016 19 48 48 37 208 0 0 0 0 52 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+						adi,orx-profile-orx-band-pass-adc-profile = /bits/ 16  <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+						adi,orx-profile-orx-ddc-mode = <0>;
+						adi,orx-profile-orx-merge-filter = /bits/ 16  <0 0 0 0 0 0 0 0 0 0 0 0>;
+
+						adi,orx-gain-control-gain-mode = <0>;
+						adi,orx-gain-control-orx1-gain-index = <255>;
+						adi,orx-gain-control-orx2-gain-index = <255>;
+						adi,orx-gain-control-orx1-max-gain-index = <255>;
+						adi,orx-gain-control-orx1-min-gain-index = <195>;
+						adi,orx-gain-control-orx2-max-gain-index = <255>;
+						adi,orx-gain-control-orx2-min-gain-index = <195>;
+
+						adi,obs-settings-framer-sel = <1>;
+						adi,obs-settings-obs-rx-channels-enable = <3>;
+						adi,obs-settings-obs-rx-lo-source = <0>;
+
+						/* TX */
+
+						adi,tx-profile-tx-fir-gain_db = <6>;
+						adi,tx-profile-tx-fir-num-fir-coefs = <40>;
+						adi,tx-profile-tx-fir-coefs = /bits/ 16  <(-14) (5) (-9) (6) (-4) (19) (-29) (27) (-30) (46) (-63) (77) (-103) (150) (-218) (337) (-599) (1266) (-2718) (19537) (-2718) (1266) (-599) (337) (-218) (150) (-103) (77) (-63) (46) (-30) (27) (-29) (19) (-4) (6) (-9) (5) (-14) (0)>;
+
+						adi,tx-profile-dac-div = <1>;
+
+						adi,tx-profile-tx-fir-interpolation = <1>;
+						adi,tx-profile-thb1-interpolation = <2>;
+						adi,tx-profile-thb2-interpolation = <2>;
+						adi,tx-profile-thb3-interpolation = <2>;
+						adi,tx-profile-tx-int5-interpolation = <1>;
+						adi,tx-profile-tx-input-rate_khz = <245760>;
+						adi,tx-profile-primary-sig-bandwidth_hz = <100000000>;
+						adi,tx-profile-rf-bandwidth_hz = <225000000>;
+						adi,tx-profile-tx-dac3d-bcorner_khz = <225000>;
+						adi,tx-profile-tx-bbf3d-bcorner_khz = <113000>;
+						adi,tx-profile-loop-back-adc-profile = /bits/ 16 <206 132 168 90 1280 641 1307 53 1359 28 1039 30 48 48 37 210 0 0 0 0 53 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+
+						adi,tx-settings-deframer-sel = <0>;
+						adi,tx-settings-tx-channels = <3>;
+						adi,tx-settings-tx-atten-step-size = <0>;
+						adi,tx-settings-tx1-atten_md-b = <10000>;
+						adi,tx-settings-tx2-atten_md-b = <10000>;
+						adi,tx-settings-dis-tx-data-if-pll-unlock = <0>;
+
+						/* Clocks */
+
+						adi,dig-clocks-device-clock_khz = <245760>;
+						adi,dig-clocks-clk-pll-vco-freq_khz = <9830400>;
+						adi,dig-clocks-clk-pll-hs-div = <1>;
+						adi,dig-clocks-rf-pll-use-external-lo = <0>;
+						adi,dig-clocks-rf-pll-phase-sync-mode = <3>;
+
+						/* AGC */
+
+						adi,rxagc-peak-agc-under-range-low-interval_ns = <205>;
+						adi,rxagc-peak-agc-under-range-mid-interval = <2>;
+						adi,rxagc-peak-agc-under-range-high-interval = <4>;
+						adi,rxagc-peak-apd-high-thresh = <39>;
+						adi,rxagc-peak-apd-low-gain-mode-high-thresh = <36>;
+						adi,rxagc-peak-apd-low-thresh = <23>;
+						adi,rxagc-peak-apd-low-gain-mode-low-thresh = <19>;
+						adi,rxagc-peak-apd-upper-thresh-peak-exceeded-cnt = <6>;
+						adi,rxagc-peak-apd-lower-thresh-peak-exceeded-cnt = <3>;
+						adi,rxagc-peak-apd-gain-step-attack = <4>;
+						adi,rxagc-peak-apd-gain-step-recovery = <2>;
+						adi,rxagc-peak-enable-hb2-overload = <1>;
+						adi,rxagc-peak-hb2-overload-duration-cnt = <1>;
+						adi,rxagc-peak-hb2-overload-thresh-cnt = <4>;
+						adi,rxagc-peak-hb2-high-thresh = <181>;
+						adi,rxagc-peak-hb2-under-range-low-thresh = <45>;
+						adi,rxagc-peak-hb2-under-range-mid-thresh = <90>;
+						adi,rxagc-peak-hb2-under-range-high-thresh = <128>;
+						adi,rxagc-peak-hb2-upper-thresh-peak-exceeded-cnt = <6>;
+						adi,rxagc-peak-hb2-lower-thresh-peak-exceeded-cnt = <3>;
+						adi,rxagc-peak-hb2-gain-step-high-recovery = <2>;
+						adi,rxagc-peak-hb2-gain-step-low-recovery = <4>;
+						adi,rxagc-peak-hb2-gain-step-mid-recovery = <8>;
+						adi,rxagc-peak-hb2-gain-step-attack = <4>;
+						adi,rxagc-peak-hb2-overload-power-mode = <1>;
+						adi,rxagc-peak-hb2-ovrg-sel = <0>;
+						adi,rxagc-peak-hb2-thresh-config = <3>;
+
+						adi,rxagc-power-power-enable-measurement = <1>;
+						adi,rxagc-power-power-use-rfir-out = <1>;
+						adi,rxagc-power-power-use-bbdc2 = <0>;
+						adi,rxagc-power-under-range-high-power-thresh = <9>;
+						adi,rxagc-power-under-range-low-power-thresh = <2>;
+						adi,rxagc-power-under-range-high-power-gain-step-recovery = <4>;
+						adi,rxagc-power-under-range-low-power-gain-step-recovery = <4>;
+						adi,rxagc-power-power-measurement-duration = <5>;
+						adi,rxagc-power-rx1-tdd-power-meas-duration = <5>;
+						adi,rxagc-power-rx1-tdd-power-meas-delay = <1>;
+						adi,rxagc-power-rx2-tdd-power-meas-duration = <5>;
+						adi,rxagc-power-rx2-tdd-power-meas-delay = <1>;
+						adi,rxagc-power-upper0-power-thresh = <2>;
+						adi,rxagc-power-upper1-power-thresh = <0>;
+						adi,rxagc-power-power-log-shift = <0>;
+
+						adi,rxagc-agc-peak-wait-time = <4>;
+						adi,rxagc-agc-rx1-max-gain-index = <255>;
+						adi,rxagc-agc-rx1-min-gain-index = <195>;
+						adi,rxagc-agc-rx2-max-gain-index = <255>;
+						adi,rxagc-agc-rx2-min-gain-index = <195>;
+						adi,rxagc-agc-gain-update-counter_us = <250>;
+						adi,rxagc-agc-rx1-attack-delay = <10>;
+						adi,rxagc-agc-rx2-attack-delay = <10>;
+						adi,rxagc-agc-slow-loop-settling-delay = <16>;
+						adi,rxagc-agc-low-thresh-prevent-gain = <0>;
+						adi,rxagc-agc-change-gain-if-thresh-high = <1>;
+						adi,rxagc-agc-peak-thresh-gain-control-mode = <1>;
+						adi,rxagc-agc-reset-on-rxon = <0>;
+						adi,rxagc-agc-enable-sync-pulse-for-gain-counter = <0>;
+						adi,rxagc-agc-enable-ip3-optimization-thresh = <0>;
+						adi,rxagc-ip3-over-range-thresh = <31>;
+						adi,rxagc-ip3-over-range-thresh-index = <246>;
+						adi,rxagc-ip3-peak-exceeded-cnt = <4>;
+						adi,rxagc-agc-enable-fast-recovery-loop = <0>;
+
+
+						/* Misc */
+
+						adi,aux-dac-enables = <0x00>; /* Mask */
+
+						adi,aux-dac-vref0 = <3>;
+						adi,aux-dac-resolution0 = <0>;
+						adi,aux-dac-values0 = <0>;
+						adi,aux-dac-vref1 = <3>;
+						adi,aux-dac-resolution1 = <0>;
+						adi,aux-dac-values1 = <0>;
+						adi,aux-dac-vref2 = <3>;
+						adi,aux-dac-resolution2 = <0>;
+						adi,aux-dac-values2 = <0>;
+						adi,aux-dac-vref3 = <3>;
+						adi,aux-dac-resolution3 = <0>;
+						adi,aux-dac-values3 = <0>;
+						adi,aux-dac-vref4 = <3>;
+						adi,aux-dac-resolution4 = <0>;
+						adi,aux-dac-values4 = <0>;
+						adi,aux-dac-vref5 = <3>;
+						adi,aux-dac-resolution5 = <0>;
+						adi,aux-dac-values5 = <0>;
+						adi,aux-dac-vref6 = <3>;
+						adi,aux-dac-resolution6 = <0>;
+						adi,aux-dac-values6 = <0>;
+						adi,aux-dac-vref7 = <3>;
+						adi,aux-dac-resolution7 = <0>;
+						adi,aux-dac-values7 = <0>;
+						adi,aux-dac-vref8 = <3>;
+						adi,aux-dac-resolution8 = <0>;
+						adi,aux-dac-values8 = <0>;
+						adi,aux-dac-vref9 = <3>;
+						adi,aux-dac-resolution9 = <0>;
+						adi,aux-dac-values9 = <0>;
+						adi,aux-dac-vref10 = <3>;
+						adi,aux-dac-resolution10 = <0>;
+						adi,aux-dac-values10 = <0>;
+						adi,aux-dac-vref11 = <3>;
+						adi,aux-dac-resolution11 = <0>;
+						adi,aux-dac-values11 = <0>;
+
+						adi,arm-gpio-config-orx1-tx-sel0-pin-gpio-pin-sel = <0>;
+						adi,arm-gpio-config-orx1-tx-sel0-pin-polarity = <0>;
+						adi,arm-gpio-config-orx1-tx-sel0-pin-enable = <0>;
+
+						adi,arm-gpio-config-orx1-tx-sel1-pin-gpio-pin-sel = <0>;
+						adi,arm-gpio-config-orx1-tx-sel1-pin-polarity = <0>;
+						adi,arm-gpio-config-orx1-tx-sel1-pin-enable = <0>;
+						adi,arm-gpio-config-orx2-tx-sel0-pin-gpio-pin-sel = <0>;
+						adi,arm-gpio-config-orx2-tx-sel0-pin-polarity = <0>;
+						adi,arm-gpio-config-orx2-tx-sel0-pin-enable = <0>;
+
+						adi,arm-gpio-config-orx2-tx-sel1-pin-gpio-pin-sel = <0>;
+						adi,arm-gpio-config-orx2-tx-sel1-pin-polarity = <0>;
+						adi,arm-gpio-config-orx2-tx-sel1-pin-enable = <0>;
+						adi,arm-gpio-config-en-tx-tracking-cals-gpio-pin-sel = <0>;
+						adi,arm-gpio-config-en-tx-tracking-cals-polarity = <0>;
+						adi,arm-gpio-config-en-tx-tracking-cals-enable = <0>;
+
+						adi,orx-lo-cfg-disable-aux-pll-relocking = <0>;
+						adi,orx-lo-cfg-gpio-select = <19>;
+
+						adi,fhm-config-fhm-gpio-pin = <0>;
+						adi,fhm-config-fhm-min-freq_mhz = <2400>;
+						adi,fhm-config-fhm-max-freq_mhz = <2500>;
+
+						adi,fhm-mode-fhm-enable = <0>;
+						adi,fhm-mode-enable-mcs-sync = <0>;
+						adi,fhm-mode-fhm-trigger-mode = <0>;
+						adi,fhm-mode-fhm-exit-mode = <1>;
+						adi,fhm-mode-fhm-init-frequency_hz = <2450000000>;
+
+						adi,rx1-gain-ctrl-pin-inc-step = <1>;
+						adi,rx1-gain-ctrl-pin-dec-step = <1>;
+						adi,rx1-gain-ctrl-pin-rx-gain-inc-pin = <0>;
+						adi,rx1-gain-ctrl-pin-rx-gain-dec-pin = <1>;
+						adi,rx1-gain-ctrl-pin-enable = <0>;
+
+						adi,rx2-gain-ctrl-pin-inc-step = <1>;
+						adi,rx2-gain-ctrl-pin-dec-step = <1>;
+						adi,rx2-gain-ctrl-pin-rx-gain-inc-pin = <3>;
+						adi,rx2-gain-ctrl-pin-rx-gain-dec-pin = <4>;
+						adi,rx2-gain-ctrl-pin-enable = <0>;
+
+						adi,tx1-atten-ctrl-pin-step-size = <0>;
+						adi,tx1-atten-ctrl-pin-tx-atten-inc-pin = <4>;
+						adi,tx1-atten-ctrl-pin-tx-atten-dec-pin = <5>;
+						adi,tx1-atten-ctrl-pin-enable = <0>;
+
+						adi,tx2-atten-ctrl-pin-step-size = <0>;
+						adi,tx2-atten-ctrl-pin-tx-atten-inc-pin = <6>;
+						adi,tx2-atten-ctrl-pin-tx-atten-dec-pin = <7>;
+						adi,tx2-atten-ctrl-pin-enable = <0>;
+
+						adi,tx-pa-protection-avg-duration = <3>;
+						adi,tx-pa-protection-tx-atten-step = <2>;
+						adi,tx-pa-protection-tx1-power-threshold = <4096>;
+						adi,tx-pa-protection-tx2-power-threshold = <4096>;
+						adi,tx-pa-protection-peak-count = <4>;
+						adi,tx-pa-protection-tx1-peak-threshold = <140>;
+						adi,tx-pa-protection-tx2-peak-threshold = <140>;
+					};
+				};
+
+				/* ---------------------------------------------------
+				 * TPL cores. Addresses unchanged from the SoM DTS.
+				 * --------------------------------------------------- */
+				axi_adrv9009_core_rx: axi-adrv9009-rx@84a00000 {
+					compatible = "adi,axi-adrv9009-rx-1.0";
+					reg = <0x84A00000 0x2000>;
+					dmas = <&axi_adrv9009_som_rx_dma 0>;
+					dma-names = "rx";
+					spibus-connected = <&trx0_adrv9009>;
+					adi,axi-pl-fifo-enable;
+				};
+
+				axi_adrv9009_core_tx: axi-adrv9009-tx@84a04000 {
+					compatible = "adi,axi-adrv9009-x2-tx-1.0";
+					reg = <0x84A04000 0x2000>;
+					dmas = <&axi_adrv9009_som_tx_dma 0>;
+					dma-names = "tx";
+					clocks = <&trx0_adrv9009 2>;
+					clock-names = "sampl_clk";
+					spibus-connected = <&trx0_adrv9009>;
+					adi,axi-pl-fifo-enable;
+					/*
+					 * dac_fifo_bypass was gpio_o[90] in the CPU-hosted
+					 * design; bit 90 lives in axi_gpio2 (line 26).
+					 */
+					plddrbypass-gpios = <&axi_gpio2 26 GPIO_ACTIVE_HIGH>;
+
+					/* JESD204 FSM link parent for trx1's DEFRAMER_LINK_TX. */
+					jesd204-device;
+					#jesd204-cells = <2>;
+					jesd204-inputs = <&axi_adrv9009_tx_jesd 0 DEFRAMER_LINK_TX>;
+				};
+
+				axi_adrv9009_core_rx_obs: axi-adrv9009-rx-obs@84a08000 {
+					compatible = "adi,axi-adrv9009-obs-1.0";
+					reg = <0x84A08000 0x1000>;
+					dmas = <&axi_adrv9009_som_obs_dma 0>;
+					dma-names = "rx";
+					clocks = <&trx0_adrv9009 1>;
+					clock-names = "sampl_clk";
+				};
+
+				/* ---------------------------------------------------
+				 * JESD204 transceiver + link IPs. Addresses unchanged.
+				 * --------------------------------------------------- */
+
+				axi_adrv9009_adxcvr_tx: axi-adxcvr-tx@84a20000 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "adi,axi-adxcvr-1.0";
+					reg = <0x84A20000 0x1000>;
+					/* JESD FSM: drop the div40 clock; the FSM state machine
+					 * only needs "conv" -- see revb-fsm.dts &axi_adrv9009_adxcvr_tx. */
+					clocks = <&hmc7044 4>;
+					clock-names = "conv";
+					#clock-cells = <1>;
+					clock-output-names = "tx_gt_clk", "tx_out_clk";
+					adi,sys-clk-select = <XCVR_QPLL>;
+					adi,out-clk-select = <XCVR_REFCLK>;
+
+					jesd204-device;
+					#jesd204-cells = <2>;
+					jesd204-inputs = <&hmc7044 0 DEFRAMER_LINK_TX>;
+				};
+
+				axi_adrv9009_tx_jesd: axi-jesd204-tx@84a30000 {
+					compatible = "adi,axi-jesd204-tx-1.0";
+					reg = <0x84A30000 0x1000>;
+					clocks = <&pcie_axi_clk>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_tx 0>;
+					clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+					interrupts = <7>;
+					#clock-cells = <0>;
+					clock-output-names = "jesd_tx_lane_clk";
+					adi,octets-per-frame = <2>;
+					adi,frames-per-multiframe = <32>;
+					adi,converter-resolution = <14>;
+					adi,bits-per-sample = <16>;
+					adi,converters-per-device = <4>;
+					adi,control-bits-per-sample = <2>;
+
+					jesd204-device;
+					#jesd204-cells = <2>;
+					jesd204-inputs = <&axi_adrv9009_adxcvr_tx 0 DEFRAMER_LINK_TX>;
+				};
+
+				axi_adrv9009_adxcvr_rx: axi-adxcvr-rx@84a40000 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "adi,axi-adxcvr-1.0";
+					reg = <0x84A40000 0x1000>;
+					clocks = <&hmc7044 5>;
+					clock-names = "conv";
+					#clock-cells = <1>;
+					clock-output-names = "rx_gt_clk", "rx_out_clk";
+					adi,sys-clk-select = <XCVR_CPLL>;
+					adi,out-clk-select = <XCVR_REFCLK>;
+					adi,use-lpm-enable;
+
+					jesd204-device;
+					#jesd204-cells = <2>;
+					jesd204-inputs = <&hmc7044 0 FRAMER_LINK_RX>;
+				};
+
+				axi_adrv9009_rx_jesd: axi-jesd204-rx@84a50000 {
+					compatible = "adi,axi-jesd204-rx-1.0";
+					reg = <0x84A50000 0x1000>;
+					clocks = <&pcie_axi_clk>, <&hmc7044 7>, <&axi_adrv9009_adxcvr_rx 0>;
+					clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+					interrupts = <8>;
+					#clock-cells = <0>;
+					clock-output-names = "jesd_rx_lane_clk";
+					adi,octets-per-frame = <4>;
+					adi,frames-per-multiframe = <32>;
+
+					jesd204-device;
+					#jesd204-cells = <2>;
+					jesd204-inputs = <&axi_adrv9009_adxcvr_rx 0 FRAMER_LINK_RX>;
+				};
+
+				axi_adrv9009_adxcvr_rx_os: axi-adxcvr-rx-os@84a60000 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "adi,axi-adxcvr-1.0";
+					reg = <0x84A60000 0x1000>;
+					clocks = <&hmc7044 4>;
+					clock-names = "conv";
+					#clock-cells = <1>;
+					clock-output-names = "rx_os_gt_clk", "rx_os_out_clk";
+					adi,sys-clk-select = <XCVR_CPLL>;
+					adi,out-clk-select = <XCVR_REFCLK>;
+					adi,use-lpm-enable;
+
+					jesd204-device;
+					#jesd204-cells = <2>;
+					jesd204-inputs = <&hmc7044 0 FRAMER_LINK_ORX>;
+				};
+
+				axi_adrv9009_rx_os_jesd: axi-jesd204-rx-os@84a70000 {
+					compatible = "adi,axi-jesd204-rx-1.0";
+					reg = <0x84A70000 0x1000>;
+					clocks = <&pcie_axi_clk>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_rx_os 0>;
+					clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+					interrupts = <6>;
+					#clock-cells = <0>;
+					clock-output-names = "jesd_rx_os_lane_clk";
+					adi,octets-per-frame = <4>;
+					adi,frames-per-multiframe = <32>;
+
+					jesd204-device;
+					#jesd204-cells = <2>;
+					jesd204-inputs = <&axi_adrv9009_adxcvr_rx_os 0 FRAMER_LINK_ORX>;
+				};
+
+				/* ---------------------------------------------------
+				 * axi_dmac controllers. SG enabled, 64-bit addressing,
+				 * all six ASYNC_CLK_* flags asserted. Data paths reach
+				 * host RAM via S_AXI_B; register map is here in BAR0.
+				 * The three DMAs moved from 0x9C4x_0000 into the BAR
+				 * window so a single 32 MB BAR covers everything.
+				 * --------------------------------------------------- */
+
+				axi_adrv9009_som_tx_dma: dma-controller@84c00000 {
+					compatible = "adi,axi-dmac-1.00.a";
+					reg = <0x84C00000 0x1000>;
+					clocks = <&pcie_axi_clk>;
+					#dma-cells = <1>;
+					#clock-cells = <0>;
+					dma-coherent;
+					interrupts = <4>;
+				};
+
+				axi_adrv9009_som_rx_dma: dma-controller@84c10000 {
+					compatible = "adi,axi-dmac-1.00.a";
+					reg = <0x84C10000 0x1000>;
+					clocks = <&pcie_axi_clk>;
+					#dma-cells = <1>;
+					#clock-cells = <0>;
+					dma-coherent;
+					interrupts = <5>;
+				};
+
+				axi_adrv9009_som_obs_dma: dma-controller@84c20000 {
+					compatible = "adi,axi-dmac-1.00.a";
+					reg = <0x84C20000 0x1000>;
+					clocks = <&pcie_axi_clk>;
+					#dma-cells = <1>;
+					#clock-cells = <0>;
+					dma-coherent;
+					interrupts = <3>;
+				};
+
+				/* ---------------------------------------------------
+				 * HOST end of the host<->PS network link.
+				 * --------------------------------------------------- */
+
+				axi_net_tx_dma: dma-controller@84c30000 {
+					compatible = "adi,axi-dmac-1.00.a";
+					reg = <0x84C30000 0x1000>;
+					clocks = <&pcie_axi_clk>;
+					#dma-cells = <1>;
+					#clock-cells = <0>;
+					dma-coherent;
+					interrupts = <9>;
+				};
+
+				axi_net_rx_dma: dma-controller@84c40000 {
+					compatible = "adi,axi-dmac-1.00.a";
+					reg = <0x84C40000 0x1000>;
+					clocks = <&pcie_axi_clk>;
+					#dma-cells = <1>;
+					#clock-cells = <0>;
+					dma-coherent;
+					interrupts = <10>;
+				};
+
+				/* ---------------------------------------------------
+				 * System ID ROM. Address unchanged from the SoM DTS.
+				 * --------------------------------------------------- */
+				axi_sysid_0: axi-sysid-0@85000000 {
+					compatible = "adi,axi-sysid-1.00.a";
+					reg = <0x85000000 0x1000>;
+				};
+			};
+		};
+	};
+};
+
+/*
+ * ==============================================================================
+ * GPIO remap notes
+ * ==============================================================================
+ *
+ * In the SoM-side DTS the ADRV9009 phy nodes reference the PS GPIO controller
+ * with EMIO-relative indices >= 78 (Linux gpio-zynqmp numbering: MIO 0..77 +
+ * EMIO 78..173). The FPGA-side gpio_i/o/t buses are 95-bit and land on
+ * axi_gpio1 (bus bits 0..63) + axi_gpio2 (bus bits 64..94).
+ *
+ * Conversion: bus_bit = dts_index - 78, then:
+ *   bus_bit  0..31 -> axi_gpio1 line bus_bit          (channel 1)
+ *   bus_bit 32..63 -> axi_gpio1 line bus_bit          (channel 2; the
+ *                                                     xilinx-gpio driver
+ *                                                     flattens both channels
+ *                                                     into a single line space)
+ *   bus_bit 64..94 -> axi_gpio2 line (bus_bit - 64)
+ *
+ * Reference table:
+ *
+ *   Old ref                    bus bit    New reference
+ *   Carrier (adrv2crr-fmc-reva.dts):
+ *   &gpio  78 (bt0)                0     <&axi_gpio1 0 0>
+ *   &gpio  79 (bt1)                1     <&axi_gpio1 1 0>
+ *   &gpio  80 (bt2)                2     <&axi_gpio1 2 0>
+ *   &gpio  81 (bt3)                3     <&axi_gpio1 3 0>
+ *   &gpio  82 (sw0)                4     <&axi_gpio1 4 0>
+ *   &gpio  83 (sw1)                5     <&axi_gpio1 5 0>
+ *   &gpio  84 (sw2)                6     <&axi_gpio1 6 0>
+ *   &gpio  85 (sw3)                7     <&axi_gpio1 7 0>
+ *   &gpio  86 (led0)               8     hardwired to user_link_up in
+ *                                         system_top_pcie.v line 305; used as
+ *                                         a PCIe-link-status LED and NOT
+ *                                         software-controllable.
+ *   &gpio  87 (led1)               9     <&axi_gpio1 9 0>
+ *   &gpio  88 (led2)              10     <&axi_gpio1 10 0>
+ *   &gpio  89 (led3)              11     <&axi_gpio1 11 0>
+ *   (hmc7044_ext_rst, ext_vcxo)   --     hmc7044_ext (reg=4) is not wired in
+ *                                         system_top_pcie.v; the corresponding
+ *                                         gpio-hogs from the carrier DTS are
+ *                                         intentionally omitted.
+ *
+ *   SoM (zynqmp-adrv9009-zu11eg-reva.dtsi lines 1394-1411):
+ *   &gpio 130 (reset0)            52     <&axi_gpio1 52 0>
+ *   &gpio 131 (test0)             53     <&axi_gpio1 53 0>
+ *   &gpio 132 (rx1_en0)           54     <&axi_gpio1 54 0>
+ *   &gpio 133 (rx2_en0)           55     <&axi_gpio1 55 0>
+ *   &gpio 134 (tx1_en0)           56     <&axi_gpio1 56 0>
+ *   &gpio 135 (tx2_en0)           57     <&axi_gpio1 57 0>
+ *   &gpio 156 (reset1)            78     <&axi_gpio2 14 0>
+ *   &gpio 157 (test1)             79     <&axi_gpio2 15 0>
+ *   &gpio 158 (rx1_en1)           80     <&axi_gpio2 16 0>
+ *   &gpio 159 (rx2_en1)           81     <&axi_gpio2 17 0>
+ *   &gpio 160 (tx1_en1)           82     <&axi_gpio2 18 0>
+ *   &gpio 161 (tx2_en1)           83     <&axi_gpio2 19 0>
+ *   &gpio 167 (sysref)            89     <&axi_gpio2 25 0>
+ *   &gpio 168 (fifo bp)           90     <&axi_gpio2 26 0>   (in axi_adrv9009_core_tx)
+ *
+ * Verify each mapping against the actual gpio_i/gpio_o/gpio_t wiring in
+ * projects/adrv9009zu11eg/adrv2crr_fmc/system_top_pcie.v before deploying;
+ * the SoM/carrier plumbing may steer specific EMIO lines to different bus
+ * positions than the naive dts_index - 78 formula suggests.
+ */

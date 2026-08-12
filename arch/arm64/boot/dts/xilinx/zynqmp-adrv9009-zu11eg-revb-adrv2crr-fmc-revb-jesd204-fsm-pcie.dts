@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADRV9009-ZU11EG Rev.B on ADRV2CRR-FMC Rev.B, PCIe variant.
+ *
+ * SoM-side (PS Linux) device tree for the FPGA bitstream built by
+ * `make PCIE=1` in projects/adrv9009zu11eg/adrv2crr_fmc/. All RF/
+ * JESD/DMA/sysid/SPI/GPIO peripherals moved from the PS
+ * axi_hpm0_lpd_interconnect onto the PCIe XDMA bridge; they are owned
+ * by the x86 host over PCIe and consumed via
+ * zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-jesd204-fsm-pcie.dtso.
+ *
+ * This DTS disables the PS-side view of every migrated peripheral so
+ * PS Linux boots cleanly without trying to probe hardware it no longer
+ * reaches. Non-migrated peripherals (axi_fan_control, I2S audio, all
+ * PS controllers) remain enabled and behave as in the base FSM variant.
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmc PCIE=1>
+ * board_revision: <B>
+ */
+
+#include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-jesd204-fsm.dts"
+
+/* -------------------------------------------------------------------
+ * SPI slaves on PS SPI0. Disable per-slave so the SPI controller itself
+ * stays alive for the two carrier HMC7044s -- oh wait, those are the
+ * ones being disabled. spi0 still hosts nothing driver-relevant on this
+ * variant; leave the controller enabled but its four children off.
+ * ------------------------------------------------------------------- */
+
+&trx0_adrv9009  { status = "disabled"; };
+&trx1_adrv9009  { status = "disabled"; };
+&hmc7044        { status = "disabled"; };
+&hmc7044_car    { status = "disabled"; };
+&hmc7044_ext    { status = "disabled"; };
+
+/* -------------------------------------------------------------------
+ * hmc7044_ext reset (PS MIO 169) and vcxo_select (PS MIO 170) are
+ * hogged by the base carrier DTS to be driven from PS. In this PCIe
+ * variant those chassis lines are owned by the PL side via
+ * axi_gpio2 lines 27/28 (see the DTBO gpio-hogs). Disable the PS-side
+ * hogs so both sides don't drive the same net.
+ * ------------------------------------------------------------------- */
+&{/axi/gpio@ff0a0000/hmc7044_ext_reset}        { status = "disabled"; };
+&{/axi/gpio@ff0a0000/hmc7044_ext_vcxo_select}  { status = "disabled"; };
+
+/* -------------------------------------------------------------------
+ * Migrated PL peripherals under &fpga_axi. Every one of these now
+ * lives on pcie_ctrl_sc behind pcie_xdma/M_AXI_B; the PS AXI master
+ * (M_AXI_HPM0_LPD) can no longer reach them.
+ * ------------------------------------------------------------------- */
+
+/* JESD204 transceivers (adxcvr) */
+&axi_adrv9009_adxcvr_rx    { status = "disabled"; };
+&axi_adrv9009_adxcvr_rx_os { status = "disabled"; };
+&axi_adrv9009_adxcvr_tx    { status = "disabled"; };
+
+/* JESD204 link IPs */
+&axi_adrv9009_rx_jesd    { status = "disabled"; };
+&axi_adrv9009_rx_os_jesd { status = "disabled"; };
+&axi_adrv9009_tx_jesd    { status = "disabled"; };
+
+/* TPL cores */
+&axi_adrv9009_core_rx     { status = "disabled"; };
+&axi_adrv9009_core_rx_obs { status = "disabled"; };
+&axi_adrv9009_core_tx     { status = "disabled"; };
+
+/* DMA controllers */
+&rx_dma     { status = "disabled"; };
+&rx_obs_dma { status = "disabled"; };
+&tx_dma     { status = "disabled"; };
+
+/* System-ID ROM */
+&axi_sysid_0 { status = "disabled"; };
+
+/* -------------------------------------------------------------------
+ * PS end of the host<->PS network link.
+ * ------------------------------------------------------------------- */
+
+&fpga_axi {
+	axi_net_tx_dma: dma-controller@9c460000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x0 0x9c460000 0x1000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		dma-coherent;
+		interrupts = <0 104 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&zynqmp_clk 71>;
+	};
+
+	axi_net_rx_dma: dma-controller@9c470000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x0 0x9c470000 0x1000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		dma-coherent;
+		interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&zynqmp_clk 71>;
+	};
+};
+
+/ {
+	axis_net: ethernet-axis {
+		compatible = "adi,axis-net";
+		dmas = <&axi_net_tx_dma 0>, <&axi_net_rx_dma 0>;
+		dma-names = "tx", "rx";
+		local-mac-address = [02 0a 35 00 00 02];
+	};
+};
