@@ -25,6 +25,7 @@
 #include "amdgpu.h"
 #include "amdgpu_mode.h"
 #include "amdgpu_dm.h"
+#include "amdgpu_dm_hdcp.h"
 #include "amdgpu_dm_mst_types.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
 #include "inc/link_service.h"
@@ -1555,6 +1556,161 @@ static void dm_mst_test_get_modes_no_edid_keeps_existing_sink(struct kunit *test
 	dm_mst_test_fini_child(&child);
 }
 
+/* Minimal EDID base block: valid header, no extensions, correct checksum. */
+static const u8 dm_mst_test_edid[EDID_LENGTH] = {
+	0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00,
+	[EDID_LENGTH - 1] = 0x06,
+};
+
+/**
+ * dm_mst_test_get_modes_cached_edid_replaces_virtual_sink - Test EDID sink path
+ * @test: KUnit test context
+ *
+ * With a cached EDID and a placeholder virtual sink, dm_dp_mst_get_modes() must
+ * release the virtual sink, add a real remote sink built from the EDID, and
+ * update the connector's mode list.
+ */
+static void dm_mst_test_get_modes_cached_edid_replaces_virtual_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+	struct dc_sink *virtual_sink;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+
+	child.aconnector->drm_edid = drm_edid_alloc(dm_mst_test_edid, sizeof(dm_mst_test_edid));
+	KUNIT_ASSERT_NOT_NULL(test, child.aconnector->drm_edid);
+
+	virtual_sink = dm_mst_test_alloc_sink(test);
+	virtual_sink->sink_signal = SIGNAL_TYPE_VIRTUAL;
+	child.aconnector->dc_sink = virtual_sink;
+
+	sink = dm_mst_test_alloc_sink(test);
+	dm_mst_test_next_remote_sink = sink;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_add_remote_sink_calls, 1U);
+	KUNIT_EXPECT_PTR_EQ(test, child.aconnector->dc_sink, sink);
+	KUNIT_EXPECT_EQ(test, sink->sink_signal, SIGNAL_TYPE_DISPLAY_PORT_MST);
+	KUNIT_EXPECT_PTR_EQ(test, sink->priv, (void *)child.aconnector);
+
+	dc_sink_release(sink);
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_get_modes_cached_edid_sink_alloc_fails - Test EDID sink failure
+ * @test: KUnit test context
+ *
+ * If DC cannot add the remote sink built from the cached EDID,
+ * dm_dp_mst_get_modes() must bail out with zero modes.
+ */
+static void dm_mst_test_get_modes_cached_edid_sink_alloc_fails(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+
+	child.aconnector->drm_edid = drm_edid_alloc(dm_mst_test_edid, sizeof(dm_mst_test_edid));
+	KUNIT_ASSERT_NOT_NULL(test, child.aconnector->drm_edid);
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_add_remote_sink_calls, 1U);
+	KUNIT_EXPECT_NULL(test, child.aconnector->dc_sink);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_get_modes_restores_hdcp_properties - Test HDCP property restore
+ * @test: KUnit test context
+ *
+ * A connector re-plugged at the same display index must have its content
+ * protection state restored from the HDCP workqueue when the remote sink is
+ * re-created.
+ */
+static void dm_mst_test_get_modes_restores_hdcp_properties(struct kunit *test)
+{
+	struct dm_connector_state *conn_state;
+	struct dm_mst_test_child child;
+	struct hdcp_workqueue *hdcp;
+	struct dc_sink *sink;
+	unsigned int index;
+
+	dm_mst_test_init_child(test, &child);
+
+	child.aconnector->drm_edid = drm_edid_alloc(dm_mst_test_edid, sizeof(dm_mst_test_edid));
+	KUNIT_ASSERT_NOT_NULL(test, child.aconnector->drm_edid);
+
+	/* drm_connector_cleanup() hands the state back to the DRM helper's kfree(). */
+	conn_state = kzalloc_obj(*conn_state);
+	hdcp = kunit_kzalloc(test, sizeof(*hdcp), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, conn_state);
+	KUNIT_ASSERT_NOT_NULL(test, hdcp);
+
+	index = child.aconnector->base.index;
+	hdcp->hdcp_content_type[index] = DRM_MODE_HDCP_CONTENT_TYPE1;
+	hdcp->content_protection[index] = DRM_MODE_CONTENT_PROTECTION_ENABLED;
+	child.adev->dm.hdcp_workqueue = hdcp;
+	child.aconnector->base.state = &conn_state->base;
+
+	sink = dm_mst_test_alloc_sink(test);
+	dm_mst_test_next_remote_sink = sink;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_PTR_EQ(test, child.aconnector->dc_sink, sink);
+	KUNIT_EXPECT_EQ(test, child.aconnector->base.state->hdcp_content_type,
+			(unsigned int)DRM_MODE_HDCP_CONTENT_TYPE1);
+	KUNIT_EXPECT_EQ(test, child.aconnector->base.state->content_protection,
+			(unsigned int)DRM_MODE_CONTENT_PROTECTION_ENABLED);
+
+	dc_sink_release(sink);
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_get_modes_reads_remote_edid - Test remote EDID caching
+ * @test: KUnit test context
+ *
+ * When the MST port is still in the topology, dm_dp_mst_get_modes() must read
+ * its EDID, cache it on the connector and flag MST_REMOTE_EDID.
+ */
+static void dm_mst_test_get_modes_reads_remote_edid(struct kunit *test)
+{
+	struct drm_dp_mst_branch *mstb;
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+
+	/* Minimal topology so drm_dp_mst_edid_read() can validate the port. */
+	mstb = kunit_kzalloc(test, sizeof(*mstb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, mstb);
+	mstb->mgr = &child.root->mst_mgr;
+	INIT_LIST_HEAD(&mstb->ports);
+	list_add(&child.port->next, &mstb->ports);
+	kref_init(&child.port->topology_kref);
+	child.root->mst_mgr.mst_primary = mstb;
+
+	child.port->cached_edid = drm_edid_alloc(dm_mst_test_edid, sizeof(dm_mst_test_edid));
+	KUNIT_ASSERT_NOT_NULL(test, child.port->cached_edid);
+
+	sink = dm_mst_test_alloc_sink(test);
+	dm_mst_test_next_remote_sink = sink;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_NOT_NULL(test, child.aconnector->drm_edid);
+	KUNIT_EXPECT_EQ(test, child.aconnector->mst_status & MST_REMOTE_EDID, (int)MST_REMOTE_EDID);
+	KUNIT_EXPECT_PTR_EQ(test, child.aconnector->dc_sink, sink);
+
+	dc_sink_release(sink);
+	dm_mst_test_fini_child(&child);
+}
+
 /*
  * Sideband connector with a live topology manager and the DOWN_REP ready bit
  * armed, so dm_handle_mst_sideband_msg_ready_event() reaches its ack path.
@@ -1707,6 +1863,10 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_get_modes_no_edid_adds_default_sink),
 	KUNIT_CASE(dm_mst_test_get_modes_no_edid_sink_alloc_fails),
 	KUNIT_CASE(dm_mst_test_get_modes_no_edid_keeps_existing_sink),
+	KUNIT_CASE(dm_mst_test_get_modes_cached_edid_replaces_virtual_sink),
+	KUNIT_CASE(dm_mst_test_get_modes_cached_edid_sink_alloc_fails),
+	KUNIT_CASE(dm_mst_test_get_modes_restores_hdcp_properties),
+	KUNIT_CASE(dm_mst_test_get_modes_reads_remote_edid),
 	/* CONFIG_DRM_AMD_DC_FP disabled public paths */
 #if !defined(CONFIG_DRM_AMD_DC_FP)
 	KUNIT_CASE(dm_mst_test_fp_guarded_public_stubs),
