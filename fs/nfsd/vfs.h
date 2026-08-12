@@ -105,10 +105,11 @@ int nfsd_mountpoint(struct dentry *, struct svc_export *);
 #ifdef CONFIG_NFSD_V4
 __be32		nfsd4_vfs_fallocate(struct svc_rqst *, struct svc_fh *,
 				    struct file *, loff_t, loff_t, int);
-__be32		nfsd4_clone_file_range(struct svc_rqst *rqstp,
-				       struct nfsd_file *nf_src, u64 src_pos,
-				       struct nfsd_file *nf_dst, u64 dst_pos,
-				       u64 count, bool sync);
+int		nfsd_clone_file_range(struct file *src, u64 src_pos,
+				      struct file *dst, u64 dst_pos,
+				      u64 count, errseq_t *since);
+int		nfsd_clone_sync_range(struct file *src, struct file *dst,
+				      u64 dst_pos, u64 count, errseq_t since);
 #endif /* CONFIG_NFSD_V4 */
 __be32		nfsd_create_locked(struct svc_rqst *, struct svc_fh *,
 				struct nfsd_attrs *attrs, int type, dev_t rdev,
