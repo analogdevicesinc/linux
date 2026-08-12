@@ -38,6 +38,7 @@ static int dm_mst_test_aux_transfer_raw_result;
 static u8 dm_mst_test_aux_transfer_raw_reply;
 static enum aux_return_code_type dm_mst_test_aux_transfer_raw_operation_result;
 static ssize_t dm_mst_test_aux_transfer_override;
+static ssize_t dm_mst_test_aux_write_override;
 
 static int dm_mst_test_aux_transfer_raw(struct ddc_service *ddc,
 						struct aux_payload *payload,
@@ -109,6 +110,8 @@ static ssize_t dm_mst_test_aux_transfer(struct drm_dp_aux *aux,
 		msg->reply = DP_AUX_NATIVE_REPLY_ACK;
 		return msg->size;
 	case DP_AUX_NATIVE_WRITE:
+		if (dm_mst_test_aux_write_override)
+			return dm_mst_test_aux_write_override;
 		msg->reply = DP_AUX_NATIVE_REPLY_ACK;
 		return msg->size;
 	default:
@@ -146,6 +149,7 @@ static struct amdgpu_dm_connector *dm_mst_test_alloc_sideband_connector(struct k
 
 	memset(dm_mst_test_dpcd, 0, sizeof(dm_mst_test_dpcd));
 	dm_mst_test_aux_transfer_override = 0;
+	dm_mst_test_aux_write_override = 0;
 
 	return aconnector;
 }
@@ -1339,6 +1343,80 @@ static void dm_mst_test_detect_unregistered(struct kunit *test)
 			(int)connector_status_disconnected);
 }
 
+/*
+ * Sideband connector with a live topology manager and the DOWN_REP ready bit
+ * armed, so dm_handle_mst_sideband_msg_ready_event() reaches its ack path.
+ */
+static struct amdgpu_dm_connector *
+dm_mst_test_alloc_armed_sideband_connector(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_device *adev;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+	ret = drmm_mode_config_init(&adev->ddev);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	aconnector = dm_mst_test_alloc_sideband_connector(test);
+
+	ret = drm_dp_mst_topology_mgr_init(&aconnector->mst_mgr, &adev->ddev,
+					   &aconnector->dm_dp_aux.aux, 16, 4, 0);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+	aconnector->mst_mgr.mst_state = true;
+	dm_mst_test_dpcd[(DP_SINK_COUNT_ESI + 1) & 0xf] = DP_DOWN_REP_MSG_RDY;
+
+	return aconnector;
+}
+
+static void dm_mst_test_free_armed_sideband_connector(struct amdgpu_dm_connector *aconnector)
+{
+	aconnector->mst_mgr.mst_state = false;
+	drm_dp_mst_topology_mgr_destroy(&aconnector->mst_mgr);
+}
+
+/**
+ * dm_mst_test_sideband_msg_ready_acks_down_rep - Test DOWN_REP ack handling
+ * @test: KUnit test context
+ *
+ * With an active topology manager and the DOWN_REP ready bit set, the sideband
+ * handler must acknowledge the event at DPCD and keep polling until the
+ * iteration limit is reached, since the fake sideband message never completes.
+ */
+static void dm_mst_test_sideband_msg_ready_acks_down_rep(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_mst_test_alloc_armed_sideband_connector(test);
+
+	dm_handle_mst_sideband_msg_ready_event(&aconnector->mst_mgr, DOWN_REP_MSG_RDY_EVENT);
+
+	KUNIT_EXPECT_EQ(test, aconnector->mst_mgr.sink_count, 0);
+
+	dm_mst_test_free_armed_sideband_connector(aconnector);
+}
+
+/**
+ * dm_mst_test_sideband_msg_ready_ack_write_fails - Test failed DPCD ack
+ * @test: KUnit test context
+ *
+ * When the DPCD acknowledge write keeps failing, the sideband handler must give
+ * up after the third retry instead of looping forever.
+ */
+static void dm_mst_test_sideband_msg_ready_ack_write_fails(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_mst_test_alloc_armed_sideband_connector(test);
+	dm_mst_test_aux_write_override = -EIO;
+
+	dm_handle_mst_sideband_msg_ready_event(&aconnector->mst_mgr, DOWN_REP_MSG_RDY_EVENT);
+
+	KUNIT_EXPECT_EQ(test, aconnector->mst_mgr.sink_count, 0);
+
+	dm_mst_test_free_armed_sideband_connector(aconnector);
+}
+
 #if !defined(CONFIG_DRM_AMD_DC_FP)
 /**
  * dm_mst_test_fp_guarded_public_stubs - Test FP-off public fallbacks
@@ -1399,6 +1477,8 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_sideband_msg_ready_no_ready_bits),
 	KUNIT_CASE(dm_mst_test_sideband_msg_ready_read_error),
 	KUNIT_CASE(dm_mst_test_sideband_msg_ready_without_mst_state),
+	KUNIT_CASE(dm_mst_test_sideband_msg_ready_acks_down_rep),
+	KUNIT_CASE(dm_mst_test_sideband_msg_ready_ack_write_fails),
 	KUNIT_CASE(dm_mst_test_down_rep_msg_ready_wrapper),
 	/* amdgpu_dm_initialize_dp_connector tests */
 	KUNIT_CASE(dm_mst_test_initialize_dp_connector_edp),
