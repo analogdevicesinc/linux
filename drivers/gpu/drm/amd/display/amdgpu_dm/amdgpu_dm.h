@@ -86,6 +86,7 @@ struct dc;
 struct amdgpu_bo;
 struct dmub_srv;
 struct dc_plane_state;
+struct dc_stream_update;
 struct dmub_notification;
 struct dmub_cmd_fused_request;
 
@@ -1171,6 +1172,10 @@ struct dm_atomic_state *dm_atomic_get_new_state(struct drm_atomic_commit *state)
 struct drm_private_state *dm_atomic_duplicate_state(struct drm_private_obj *obj);
 void dm_atomic_destroy_state(struct drm_private_obj *obj,
 			     struct drm_private_state *state);
+void amdgpu_dm_commit_cursors(struct drm_atomic_commit *state);
+void amdgpu_dm_update_cursor(struct drm_plane *plane,
+			     struct drm_plane_state *old_plane_state,
+			     struct dc_stream_update *update);
 int add_affected_mst_dsc_crtcs(struct drm_atomic_commit *state,
 			       struct drm_crtc *crtc);
 int dm_plane_layer_index_cmp(const void *a, const void *b);

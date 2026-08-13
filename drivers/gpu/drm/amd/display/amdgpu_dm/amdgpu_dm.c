@@ -3587,7 +3587,7 @@ static void remove_stream(struct amdgpu_device *adev,
 	acrtc->enabled = false;
 }
 
-static void amdgpu_dm_commit_cursors(struct drm_atomic_commit *state)
+STATIC_IFN_KUNIT void amdgpu_dm_commit_cursors(struct drm_atomic_commit *state)
 {
 	struct drm_plane *plane;
 	struct drm_plane_state *old_plane_state;
@@ -3601,6 +3601,7 @@ static void amdgpu_dm_commit_cursors(struct drm_atomic_commit *state)
 		if (plane->type == DRM_PLANE_TYPE_CURSOR)
 			amdgpu_dm_plane_handle_cursor_update(plane, old_plane_state);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_commit_cursors);
 
 static inline uint32_t get_mem_type(struct drm_framebuffer *fb)
 {
@@ -3609,9 +3610,9 @@ static inline uint32_t get_mem_type(struct drm_framebuffer *fb)
 	return abo->tbo.resource ? abo->tbo.resource->mem_type : 0;
 }
 
-static void amdgpu_dm_update_cursor(struct drm_plane *plane,
-				    struct drm_plane_state *old_plane_state,
-				    struct dc_stream_update *update)
+STATIC_IFN_KUNIT void amdgpu_dm_update_cursor(struct drm_plane *plane,
+					      struct drm_plane_state *old_plane_state,
+					      struct dc_stream_update *update)
 {
 	struct amdgpu_device *adev = drm_to_adev(plane->dev);
 	struct amdgpu_framebuffer *afb = to_amdgpu_framebuffer(plane->state->fb);
@@ -3680,6 +3681,7 @@ static void amdgpu_dm_update_cursor(struct drm_plane *plane,
 		update->cursor_position = &crtc_state->stream->cursor_position;
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_update_cursor);
 
 static void amdgpu_dm_enable_self_refresh(struct amdgpu_display_manager *dm,
 					  struct amdgpu_crtc *acrtc_attach,

@@ -1418,6 +1418,140 @@ static void dm_test_add_affected_mst_dsc_crtcs_disabled(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, add_affected_mst_dsc_crtcs(state, crtc), 0);
 }
 
+/* Tests for amdgpu_dm_commit_cursors() */
+
+/**
+ * dm_test_commit_cursors_no_planes - Test an empty plane set is a no-op
+ * @test: The KUnit test context
+ */
+static void dm_test_commit_cursors_no_planes(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	amdgpu_dm_commit_cursors(dm_test_alloc_commit(test, adev));
+}
+
+/*
+ * Build a commit holding a single plane of @type with empty old and new plane
+ * states.
+ */
+static struct drm_atomic_commit *
+dm_test_commit_with_plane(struct kunit *test, struct amdgpu_device *adev,
+			  enum drm_plane_type type)
+{
+	struct drm_atomic_commit *state = dm_test_alloc_commit(test, adev);
+	struct drm_plane_state *old_state, *new_state;
+	struct drm_plane *plane;
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	old_state = kunit_kzalloc(test, sizeof(*old_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_state);
+	new_state = kunit_kzalloc(test, sizeof(*new_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_state);
+	state->planes = kunit_kzalloc(test, sizeof(*state->planes), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state->planes);
+
+	plane->type = type;
+	plane->dev = &adev->ddev;
+	plane->state = new_state;
+	adev->ddev.mode_config.num_total_plane = 1;
+	state->planes[0].ptr = plane;
+	state->planes[0].old_state = old_state;
+
+	return state;
+}
+
+/**
+ * dm_test_commit_cursors_skips_non_cursor - Test non-cursor planes are skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_commit_cursors_skips_non_cursor(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	amdgpu_dm_commit_cursors(dm_test_commit_with_plane(test, adev,
+							   DRM_PLANE_TYPE_PRIMARY));
+}
+
+/**
+ * dm_test_commit_cursors_updates_cursor - Test cursor planes reach the cursor update
+ * @test: The KUnit test context
+ */
+static void dm_test_commit_cursors_updates_cursor(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	amdgpu_dm_commit_cursors(dm_test_commit_with_plane(test, adev,
+							   DRM_PLANE_TYPE_CURSOR));
+}
+
+/**
+ * dm_test_update_cursor_no_framebuffer - Test missing framebuffers leave the update untouched
+ * @test: The KUnit test context
+ */
+static void dm_test_update_cursor_no_framebuffer(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_atomic_commit *state;
+	struct dc_stream_update *update;
+	struct drm_plane *plane;
+
+	state = dm_test_commit_with_plane(test, adev, DRM_PLANE_TYPE_CURSOR);
+	plane = state->planes[0].ptr;
+	update = kunit_kzalloc(test, sizeof(*update), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, update);
+
+	update->cursor_attributes = (void *)1;
+	update->cursor_position = (void *)1;
+
+	amdgpu_dm_update_cursor(plane, state->planes[0].old_state, update);
+
+	KUNIT_EXPECT_PTR_EQ(test, update->cursor_attributes, (void *)1);
+	KUNIT_EXPECT_PTR_EQ(test, update->cursor_position, (void *)1);
+}
+
+/**
+ * dm_test_update_cursor_disables_stream - Test removing the framebuffer disables the cursor
+ * @test: The KUnit test context
+ */
+static void dm_test_update_cursor_disables_stream(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_atomic_commit *state;
+	struct dc_stream_update *update;
+	struct drm_plane_state *old_plane_state;
+	struct dm_crtc_state *crtc_state;
+	struct amdgpu_framebuffer *afb;
+	struct amdgpu_crtc *acrtc;
+	struct drm_plane *plane;
+
+	state = dm_test_commit_with_plane(test, adev, DRM_PLANE_TYPE_CURSOR);
+	plane = state->planes[0].ptr;
+	old_plane_state = state->planes[0].old_state;
+	crtc_state = kunit_kzalloc(test, sizeof(*crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc_state);
+	afb = kunit_kzalloc(test, sizeof(*afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, afb);
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	update = kunit_kzalloc(test, sizeof(*update), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, update);
+
+	old_plane_state->fb = &afb->base;
+	old_plane_state->crtc = &acrtc->base;
+	acrtc->base.state = &crtc_state->base;
+	crtc_state->stream = dm_kunit_alloc_stream(test, NULL);
+	crtc_state->stream->cursor_position.enable = true;
+
+	amdgpu_dm_update_cursor(plane, old_plane_state, update);
+
+	KUNIT_EXPECT_FALSE(test, crtc_state->stream->cursor_position.enable);
+	KUNIT_EXPECT_PTR_EQ(test, update->cursor_position,
+			    &crtc_state->stream->cursor_position);
+	KUNIT_EXPECT_NULL(test, update->cursor_attributes);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -1497,6 +1631,12 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_add_affected_mst_dsc_crtcs_not_mst),
 	KUNIT_CASE(dm_test_add_affected_mst_dsc_crtcs_other_crtc),
 	KUNIT_CASE(dm_test_add_affected_mst_dsc_crtcs_disabled),
+	/* amdgpu_dm_commit_cursors */
+	KUNIT_CASE(dm_test_commit_cursors_no_planes),
+	KUNIT_CASE(dm_test_commit_cursors_skips_non_cursor),
+	KUNIT_CASE(dm_test_commit_cursors_updates_cursor),
+	KUNIT_CASE(dm_test_update_cursor_no_framebuffer),
+	KUNIT_CASE(dm_test_update_cursor_disables_stream),
 	{}
 };
 
