@@ -3419,8 +3419,8 @@ static void manage_dm_interrupts(struct amdgpu_device *adev,
 	}
 }
 
-static void dm_update_pflip_irq_state(struct amdgpu_device *adev,
-				      struct amdgpu_crtc *acrtc)
+STATIC_IFN_KUNIT void dm_update_pflip_irq_state(struct amdgpu_device *adev,
+						struct amdgpu_crtc *acrtc)
 {
 	int irq_type =
 		amdgpu_display_crtc_idx_to_irq_type(adev, acrtc->crtc_id);
@@ -3435,6 +3435,7 @@ static void dm_update_pflip_irq_state(struct amdgpu_device *adev,
 	 */
 	amdgpu_irq_update(adev, &adev->pageflip_irq, irq_type);
 }
+EXPORT_IF_KUNIT(dm_update_pflip_irq_state);
 
 STATIC_IFN_KUNIT bool
 is_scaling_state_different(const struct dm_connector_state *dm_state,

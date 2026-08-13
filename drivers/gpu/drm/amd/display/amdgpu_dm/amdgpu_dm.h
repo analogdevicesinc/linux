@@ -1172,6 +1172,8 @@ struct dm_atomic_state *dm_atomic_get_new_state(struct drm_atomic_commit *state)
 struct drm_private_state *dm_atomic_duplicate_state(struct drm_private_obj *obj);
 void dm_atomic_destroy_state(struct drm_private_obj *obj,
 			     struct drm_private_state *state);
+void dm_update_pflip_irq_state(struct amdgpu_device *adev,
+			       struct amdgpu_crtc *acrtc);
 void amdgpu_dm_commit_cursors(struct drm_atomic_commit *state);
 void amdgpu_dm_update_cursor(struct drm_plane *plane,
 			     struct drm_plane_state *old_plane_state,

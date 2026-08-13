@@ -1729,6 +1729,81 @@ static void dm_test_arm_vblank_event_cursor(struct kunit *test)
 			(int)AMDGPU_FLIP_NONE);
 }
 
+/**
+ * dm_test_update_pflip_irq_state_dcn - Test DCN skips the GRPH_PFLIP reapply
+ * @test: The KUnit test context
+ */
+static void dm_test_update_pflip_irq_state_dcn(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_crtc *acrtc;
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+
+	adev->mode_info.num_crtc = 1;
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 2, 0);
+
+	dm_update_pflip_irq_state(adev, acrtc);
+}
+
+/*
+ * Spy for the pageflip IRQ source: amdgpu_irq_update() always dispatches
+ * through src->funcs->set(), which needs a registered IH ring on real
+ * hardware. Recording the requested state instead keeps the DCE reapply path
+ * reachable and observable.
+ */
+struct dm_test_irq_spy {
+	unsigned int set_count;
+	unsigned int last_type;
+	enum amdgpu_interrupt_state last_state;
+};
+
+static struct dm_test_irq_spy dm_test_irq_spy_data;
+
+static int dm_test_irq_set(struct amdgpu_device *adev,
+			   struct amdgpu_irq_src *src, unsigned int type,
+			   enum amdgpu_interrupt_state state)
+{
+	dm_test_irq_spy_data.set_count++;
+	dm_test_irq_spy_data.last_type = type;
+	dm_test_irq_spy_data.last_state = state;
+
+	return 0;
+}
+
+static const struct amdgpu_irq_src_funcs dm_test_irq_funcs = {
+	.set = dm_test_irq_set,
+};
+
+/**
+ * dm_test_update_pflip_irq_state_dce - Test DCE reapplies the GRPH_PFLIP state
+ * @test: The KUnit test context
+ */
+static void dm_test_update_pflip_irq_state_dce(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_crtc *acrtc;
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+
+	memset(&dm_test_irq_spy_data, 0, sizeof(dm_test_irq_spy_data));
+	adev->mode_info.num_crtc = 2;
+	adev->ip_versions[DCE_HWIP][0] = 0;
+	adev->pageflip_irq.funcs = &dm_test_irq_funcs;
+	acrtc->crtc_id = 1;
+	spin_lock_init(&adev->irq.lock);
+
+	dm_update_pflip_irq_state(adev, acrtc);
+
+	KUNIT_EXPECT_EQ(test, dm_test_irq_spy_data.set_count, 1U);
+	KUNIT_EXPECT_EQ(test, dm_test_irq_spy_data.last_type,
+			(unsigned int)AMDGPU_CRTC_IRQ_VBLANK2);
+	KUNIT_EXPECT_EQ(test, (int)dm_test_irq_spy_data.last_state,
+			(int)AMDGPU_IRQ_STATE_DISABLE);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -1822,6 +1897,9 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_arm_vblank_pre_programming_no_event),
 	KUNIT_CASE(dm_test_arm_vblank_pre_programming_no_planes),
 	KUNIT_CASE(dm_test_arm_vblank_pre_programming_update),
+	/* dm_update_pflip_irq_state */
+	KUNIT_CASE(dm_test_update_pflip_irq_state_dcn),
+	KUNIT_CASE(dm_test_update_pflip_irq_state_dce),
 	{}
 };
 
