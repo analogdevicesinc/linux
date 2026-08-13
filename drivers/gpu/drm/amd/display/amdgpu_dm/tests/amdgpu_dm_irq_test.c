@@ -9,6 +9,7 @@
 #include <drm/drm_kunit_helpers.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_probe_helper.h>
+#include <drm/drm_vblank.h>
 
 #include "dc.h"
 #include "inc/core_types.h"
@@ -3319,6 +3320,45 @@ static void dm_test_pflip_high_irq_not_submitted(struct kunit *test)
 }
 
 /**
+ * dm_test_pflip_high_irq_completes_flip - Test pflip high IRQ completes a flip
+ * @test: The KUnit test context
+ *
+ * With a submitted flip and an armed event on a non-VRR CRTC, the handler must
+ * send the pageflip completion event, drop the vblank reference taken when the
+ * flip was queued and return the CRTC to AMDGPU_FLIP_NONE.
+ */
+static void dm_test_pflip_high_irq_completes_flip(struct kunit *test)
+{
+	struct drm_pending_vblank_event *event;
+	struct common_irq_params params = { 0 };
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
+
+	acrtc = dm_test_add_crtc(test, adev);
+	acrtc->pflip_status = AMDGPU_FLIP_SUBMITTED;
+
+	/* drm_crtc_send_vblank_event() consumes (kfree()s) the event. */
+	event = kzalloc_obj(*event, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, event);
+	acrtc->event = event;
+
+	/* Balance the handler's drm_crtc_vblank_put(). */
+	adev->ddev.vblank[0].enabled = true;
+	KUNIT_ASSERT_EQ(test, drm_crtc_vblank_get(&acrtc->base), 0);
+
+	params.adev = adev;
+	params.irq_src = (enum dc_irq_source)IRQ_TYPE_PFLIP;
+
+	dm_pflip_high_irq(&params);
+
+	KUNIT_EXPECT_NULL(test, acrtc->event);
+	KUNIT_EXPECT_EQ(test, acrtc->pflip_status, AMDGPU_FLIP_NONE);
+}
+
+/**
  * dm_test_vupdate_high_irq_no_crtc - Test vupdate high IRQ with no CRTC
  * @test: The KUnit test context
  */
@@ -3332,6 +3372,81 @@ static void dm_test_vupdate_high_irq_no_crtc(struct kunit *test)
 	params.irq_src = (enum dc_irq_source)IRQ_TYPE_VUPDATE;
 
 	dm_vupdate_high_irq(&params);
+}
+
+/**
+ * dm_test_vupdate_high_irq_dcn_completes_flip - Test DCN vupdate flip delivery
+ * @test: The KUnit test context
+ *
+ * A non-zero DCE IP version routes vupdate to the shared CRTC handler. With a
+ * submitted flip, an armed event and no DC (so no flip is reported pending),
+ * the handler must deliver the event and clear the flip state. A non-zero last
+ * vblank timestamp also exercises the refresh-rate tracepoint.
+ */
+static void dm_test_vupdate_high_irq_dcn_completes_flip(struct kunit *test)
+{
+	struct drm_pending_vblank_event *event;
+	struct common_irq_params params = { 0 };
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 0, 0);
+	/* AI+ family so the handler does not return before the flip block. */
+	adev->family = AMDGPU_FAMILY_AI;
+
+	acrtc = dm_test_add_crtc(test, adev);
+	acrtc->pflip_status = AMDGPU_FLIP_SUBMITTED;
+
+	event = kzalloc_obj(*event, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, event);
+	acrtc->event = event;
+
+	adev->ddev.vblank[0].time = ktime_get();
+	adev->ddev.vblank[0].enabled = true;
+	KUNIT_ASSERT_EQ(test, drm_crtc_vblank_get(&acrtc->base), 0);
+
+	params.adev = adev;
+	params.irq_src = (enum dc_irq_source)IRQ_TYPE_VUPDATE;
+
+	dm_vupdate_high_irq(&params);
+
+	KUNIT_EXPECT_NULL(test, acrtc->event);
+	KUNIT_EXPECT_EQ(test, acrtc->pflip_status, AMDGPU_FLIP_NONE);
+}
+
+/**
+ * dm_test_vupdate_high_irq_dcn_no_active_planes - Test DCN flip with no planes
+ * @test: The KUnit test context
+ *
+ * With no active planes the DCN HUBP may be clock-gated and the flip-pending
+ * status is undefined, so a submitted flip with no armed event must simply be
+ * retired rather than waiting on the OTG.
+ */
+static void dm_test_vupdate_high_irq_dcn_no_active_planes(struct kunit *test)
+{
+	struct common_irq_params params = { 0 };
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 0, 0);
+	adev->family = AMDGPU_FAMILY_AI;
+
+	acrtc = dm_test_add_crtc(test, adev);
+	acrtc->pflip_status = AMDGPU_FLIP_SUBMITTED;
+	acrtc->dm_irq_params.active_planes = 0;
+
+	params.adev = adev;
+	params.irq_src = (enum dc_irq_source)IRQ_TYPE_VUPDATE;
+
+	dm_vupdate_high_irq(&params);
+
+	KUNIT_EXPECT_EQ(test, acrtc->pflip_status, AMDGPU_FLIP_NONE);
 }
 
 /**
@@ -4032,7 +4147,10 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	/* pflip/vupdate/crtc high IRQ callbacks */
 	KUNIT_CASE(dm_test_pflip_high_irq_no_crtc),
 	KUNIT_CASE(dm_test_pflip_high_irq_not_submitted),
+	KUNIT_CASE(dm_test_pflip_high_irq_completes_flip),
 	KUNIT_CASE(dm_test_vupdate_high_irq_no_crtc),
+	KUNIT_CASE(dm_test_vupdate_high_irq_dcn_completes_flip),
+	KUNIT_CASE(dm_test_vupdate_high_irq_dcn_no_active_planes),
 	KUNIT_CASE(dm_test_crtc_high_irq_no_crtc),
 	KUNIT_CASE(dm_test_crtc_high_irq_vrr_pre_ai),
 	KUNIT_CASE(dm_test_crtc_high_irq_vrr_ai_no_stream),
