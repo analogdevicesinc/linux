@@ -4509,6 +4509,61 @@ static void dm_test_dcn10_register_irq_handlers_one_crtc(struct kunit *test)
 }
 
 /**
+ * dm_test_dcn10_register_irq_handlers_vupdate_add_id_fails - Test add-id failure
+ * @test: The KUnit test context
+ *
+ * A VUPDATE source with no funcs table must be rejected by amdgpu_irq_add_id().
+ */
+static void dm_test_dcn10_register_irq_handlers_vupdate_add_id_fails(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_dcn10);
+	adev->vupdate_irq.funcs = NULL;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dcn10_register_irq_handlers(adev), -EINVAL);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
+/**
+ * dm_test_dcn10_register_irq_handlers_bad_vupdate_source - Test VUPDATE guard
+ * @test: The KUnit test context
+ *
+ * A source ID that DC does not map to a VUPDATE IRQ source must be rejected
+ * rather than used to index the vupdate parameter array.
+ */
+static void dm_test_dcn10_register_irq_handlers_bad_vupdate_source(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_unmapped);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dcn10_register_irq_handlers(adev), -EINVAL);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
+/**
+ * dm_test_dcn10_register_irq_handlers_hpd_add_id_fails - Test HPD add-id failure
+ * @test: The KUnit test context
+ *
+ * The VUPDATE loop succeeds, then the HPD source with no funcs table is
+ * rejected by amdgpu_irq_add_id().
+ */
+static void dm_test_dcn10_register_irq_handlers_hpd_add_id_fails(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_dcn10);
+	adev->hpd_irq.funcs = NULL;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dcn10_register_irq_handlers(adev), -EINVAL);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
+/**
  * dm_test_register_outbox_irq_handlers_without_dmub - Test outbox registration without DMUB
  * @test: The KUnit test context
  */
@@ -4530,6 +4585,25 @@ static void dm_test_register_outbox_irq_handlers_without_dmub(struct kunit *test
 		adev->irq.client[SOC15_IH_CLIENTID_DCE].sources[
 			DCN_1_0__SRCID__DMCUB_OUTBOX_LOW_PRIORITY_READY_INT],
 		&adev->dmub_outbox_irq);
+}
+
+/**
+ * dm_test_register_outbox_irq_handlers_add_id_fails - Test outbox add-id failure
+ * @test: The KUnit test context
+ *
+ * Registering the outbox interrupt before amdgpu_dm_set_irq_funcs() has run
+ * leaves the source without a funcs table, so amdgpu_irq_add_id() rejects it.
+ */
+static void dm_test_register_outbox_irq_handlers_add_id_fails(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	adev->dm.dc = dc;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_register_outbox_irq_handlers(adev), -EINVAL);
 }
 
 /**
@@ -4871,7 +4945,11 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_dce110_register_irq_handlers_hpd_add_id_fails),
 	KUNIT_CASE(dm_test_dcn10_register_irq_handlers_zero_crtc),
 	KUNIT_CASE(dm_test_dcn10_register_irq_handlers_one_crtc),
+	KUNIT_CASE(dm_test_dcn10_register_irq_handlers_vupdate_add_id_fails),
+	KUNIT_CASE(dm_test_dcn10_register_irq_handlers_bad_vupdate_source),
+	KUNIT_CASE(dm_test_dcn10_register_irq_handlers_hpd_add_id_fails),
 	KUNIT_CASE(dm_test_register_outbox_irq_handlers_without_dmub),
+	KUNIT_CASE(dm_test_register_outbox_irq_handlers_add_id_fails),
 	KUNIT_CASE(dm_test_register_outbox_irq_handlers_with_dmub),
 	/* amdgpu_dm_irq_handler */
 	KUNIT_CASE(dm_test_irq_handler_dispatches_work),
