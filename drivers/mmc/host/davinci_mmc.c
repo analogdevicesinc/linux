@@ -1249,6 +1249,10 @@ static int davinci_mmcsd_probe(struct platform_device *pdev)
 	host->use_dma = use_dma;
 	host->mmc_irq = irq;
 	host->sdio_irq = platform_get_irq_optional(pdev, 1);
+	if (host->sdio_irq < 0 && host->sdio_irq != -ENXIO) {
+		ret = host->sdio_irq;
+		goto parse_fail;
+	}
 
 	if (host->use_dma) {
 		ret = davinci_acquire_dma_channels(host);
