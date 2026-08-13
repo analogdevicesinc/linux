@@ -24,7 +24,6 @@
 #include <linux/regmap.h>
 #include <linux/remoteproc.h>
 #include <linux/scmi_imx_protocol.h>
-#include <linux/workqueue.h>
 
 #include "imx_rproc.h"
 #include "remoteproc_internal.h"
@@ -115,8 +114,6 @@ struct imx_rproc {
 	struct mbox_client		cl;
 	struct mbox_chan		*tx_ch;
 	struct mbox_chan		*rx_ch;
-	struct work_struct		rproc_work;
-	struct workqueue_struct		*workqueue;
 	void __iomem			*rsc_table;
 	struct imx_sc_ipc		*ipc_handle;
 	struct notifier_block		rproc_nb;
@@ -860,21 +857,11 @@ static int imx_rproc_notified_idr_cb(int id, void *ptr, void *data)
 	return 0;
 }
 
-static void imx_rproc_vq_work(struct work_struct *work)
-{
-	struct imx_rproc *priv = container_of(work, struct imx_rproc,
-					      rproc_work);
-	struct rproc *rproc = priv->rproc;
-
-	idr_for_each(&rproc->notifyids, imx_rproc_notified_idr_cb, rproc);
-}
-
 static void imx_rproc_rx_callback(struct mbox_client *cl, void *msg)
 {
 	struct rproc *rproc = dev_get_drvdata(cl->dev);
-	struct imx_rproc *priv = rproc->priv;
 
-	queue_work(priv->workqueue, &priv->rproc_work);
+	idr_for_each(&rproc->notifyids, imx_rproc_notified_idr_cb, rproc);
 }
 
 static int imx_rproc_xtr_mbox_init(struct rproc *rproc, bool tx_block)
@@ -1239,13 +1226,6 @@ static int imx_rproc_sys_off_handler(struct sys_off_data *data)
 	return NOTIFY_DONE;
 }
 
-static void imx_rproc_destroy_workqueue(void *data)
-{
-	struct workqueue_struct *workqueue = data;
-
-	destroy_workqueue(workqueue);
-}
-
 static int imx_rproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1273,17 +1253,6 @@ static int imx_rproc_probe(struct platform_device *pdev)
 		priv->ops = dcfg->ops;
 
 	dev_set_drvdata(dev, rproc);
-	priv->workqueue = create_workqueue(dev_name(dev));
-	if (!priv->workqueue) {
-		dev_err(dev, "cannot create workqueue\n");
-		return -ENOMEM;
-	}
-
-	ret = devm_add_action_or_reset(dev, imx_rproc_destroy_workqueue, priv->workqueue);
-	if (ret)
-		return dev_err_probe(dev, ret, "Failed to add devm destroy workqueue action\n");
-
-	INIT_WORK(&priv->rproc_work, imx_rproc_vq_work);
 
 	ret = imx_rproc_xtr_mbox_init(rproc, true);
 	if (ret)
