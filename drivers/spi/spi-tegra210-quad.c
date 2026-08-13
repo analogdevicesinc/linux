@@ -214,6 +214,18 @@ struct tegra_qspi {
 	unsigned int				dma_buf_size;
 	unsigned int				max_buf_size;
 	bool					is_curr_dma_xfer;
+	/*
+	 * Cached "this PIO chunk completes the whole transfer" decision,
+	 * computed by tegra_qspi_start_cpu_based_transfer() before it
+	 * unmasks the IRQ. Used by the hard IRQ small-PIO fastpath in
+	 * place of dereferencing curr_xfer->len, so the ISR cannot touch
+	 * the spi_transfer object even on a late IRQ that races with the
+	 * synchronous teardown path. Multi-chunk PIO transfers always go
+	 * through the workqueue (this flag is only set on the final
+	 * chunk), so the fastpath cannot recurse into
+	 * tegra_qspi_start_cpu_based_transfer() from hard IRQ context.
+	 */
+	bool					is_last_pio_chunk;
 
 	struct completion			rx_dma_complete;
 	struct completion			tx_dma_complete;
@@ -734,7 +746,13 @@ static int tegra_qspi_start_dma_based_transfer(struct tegra_qspi *tqspi, struct 
 
 	tegra_qspi_writel(tqspi, tqspi->command1_reg, QSPI_COMMAND1);
 
-	tqspi->is_curr_dma_xfer = true;
+	/*
+	 * WRITE_ONCE() pairs with READ_ONCE() in tegra_qspi_isr() and
+	 * tegra_qspi_work_handler(); the flag is read lock-free across
+	 * the hard-IRQ / process-context boundary so the annotation
+	 * prevents compiler tearing and silences KCSAN.
+	 */
+	WRITE_ONCE(tqspi->is_curr_dma_xfer, true);
 	tqspi->dma_control_reg = val;
 	val |= QSPI_DMA_EN;
 	tegra_qspi_writel(tqspi, val, QSPI_DMA_CTL);
@@ -756,6 +774,20 @@ static int tegra_qspi_start_cpu_based_transfer(struct tegra_qspi *qspi, struct s
 	tegra_qspi_writel(qspi, val, QSPI_DMA_BLK);
 
 	/*
+	 * Snapshot whether this PIO chunk completes the whole transfer
+	 * before unmasking the IRQ, so the hard IRQ small-PIO fastpath
+	 * can decide whether to drain inline without dereferencing the
+	 * spi_transfer object. cur_pos / curr_dma_words / bytes_per_word
+	 * are stable here: they are written by
+	 * tegra_qspi_calculate_curr_xfer_param() earlier in this code
+	 * path. The IRQ cannot fire until the QSPI_COMMAND1 write below
+	 * kicks the transfer off, so this store happens-before any ISR
+	 * that observes the unmask.
+	 */
+	WRITE_ONCE(qspi->is_last_pio_chunk,
+		   qspi->cur_pos + qspi->curr_dma_words * qspi->bytes_per_word >= t->len);
+
+	/*
 	 * Reset the cached transfer status before unmasking the IRQ for
 	 * this chunk so the cache represents only the IRQ for THIS chunk;
 	 * a stale RDY from the previous chunk would otherwise mislead
@@ -767,7 +799,7 @@ static int tegra_qspi_start_cpu_based_transfer(struct tegra_qspi *qspi, struct s
 	smp_store_release(&qspi->trans_status, 0);
 	tegra_qspi_unmask_irq(qspi);
 
-	qspi->is_curr_dma_xfer = false;
+	WRITE_ONCE(qspi->is_curr_dma_xfer, false);
 	val = qspi->command1_reg;
 	val |= QSPI_PIO;
 	tegra_qspi_writel(qspi, val, QSPI_COMMAND1);
@@ -1835,7 +1867,7 @@ static void tegra_qspi_work_handler(struct work_struct *work)
 	 * DMA handler also needs to sleep in wait_for_completion_*(), which
 	 * cannot be done while holding spinlock.
 	 */
-	if (!tqspi->is_curr_dma_xfer)
+	if (!READ_ONCE(tqspi->is_curr_dma_xfer))
 		handle_cpu_based_xfer(tqspi);
 	else
 		handle_dma_based_xfer(tqspi);
@@ -1863,6 +1895,7 @@ static irqreturn_t tegra_qspi_isr(int irq, void *context_data)
 {
 	struct tegra_qspi *tqspi = context_data;
 	u32 status_reg, trans_status;
+	u32 tx_status = 0, rx_status = 0;
 
 	if (!READ_ONCE(tqspi->curr_xfer)) {
 		tegra_qspi_mask_clear_irq(tqspi);
@@ -1873,13 +1906,15 @@ static irqreturn_t tegra_qspi_isr(int irq, void *context_data)
 	status_reg = tegra_qspi_readl(tqspi, QSPI_FIFO_STATUS);
 	trans_status = tegra_qspi_readl(tqspi, QSPI_TRANS_STATUS);
 
-	if (tqspi->cur_direction & DATA_DIR_TX)
-		WRITE_ONCE(tqspi->tx_status,
-			   status_reg & (QSPI_TX_FIFO_UNF | QSPI_TX_FIFO_OVF));
+	if (tqspi->cur_direction & DATA_DIR_TX) {
+		tx_status = status_reg & (QSPI_TX_FIFO_UNF | QSPI_TX_FIFO_OVF);
+		WRITE_ONCE(tqspi->tx_status, tx_status);
+	}
 
-	if (tqspi->cur_direction & DATA_DIR_RX)
-		WRITE_ONCE(tqspi->rx_status,
-			   status_reg & (QSPI_RX_FIFO_OVF | QSPI_RX_FIFO_UNF));
+	if (tqspi->cur_direction & DATA_DIR_RX) {
+		rx_status = status_reg & (QSPI_RX_FIFO_OVF | QSPI_RX_FIFO_UNF);
+		WRITE_ONCE(tqspi->rx_status, rx_status);
+	}
 
 	WRITE_ONCE(tqspi->status_reg, status_reg);
 	/*
@@ -1911,6 +1946,41 @@ static irqreturn_t tegra_qspi_isr(int irq, void *context_data)
 	if (READ_ONCE(tqspi->recovery_in_progress)) {
 		spin_unlock(&tqspi->lock);
 		return IRQ_HANDLED;
+	}
+
+	/*
+	 * Small-PIO fastpath: drain the FIFO inline only when this chunk
+	 * completes the entire outstanding transfer and no error bit was
+	 * latched, to avoid workqueue scheduling latency for TPM-style
+	 * short reads.
+	 *
+	 * The "last chunk" decision is computed and cached as a scalar by
+	 * tegra_qspi_start_cpu_based_transfer() before it unmasks the IRQ,
+	 * so the hard-IRQ fastpath never dereferences the spi_transfer
+	 * pointer here. That keeps the ISR safe against any teardown race
+	 * where the synchronous path could clear curr_xfer concurrently.
+	 *
+	 * The fastpath dispatch decision is made while still holding
+	 * tqspi->lock, so the recovery_in_progress guard above covers it
+	 * atomically with queue_work() below: an ISR that reaches the
+	 * fastpath cannot race a tegra_qspi_handle_timeout() that
+	 * subsequently observes recovery_in_progress == true, because
+	 * that path calls synchronize_irq() before proceeding. We drop
+	 * the lock before calling handle_cpu_based_xfer() so it can take
+	 * tqspi->lock internally without deadlocking.
+	 *
+	 * Multi-chunk PIO continuation stays on the workqueue so that
+	 * tegra_qspi_start_cpu_based_transfer() can re-arm the IRQ from
+	 * process context. DMA transfers also stay on the workqueue
+	 * because their completion path sleeps on the DMA engine.
+	 * tegra_qspi_handle_error() -> device_reset() can sleep, so the
+	 * fastpath only runs when both status words are clean.
+	 */
+	if (!READ_ONCE(tqspi->is_curr_dma_xfer) &&
+	    READ_ONCE(tqspi->is_last_pio_chunk) &&
+	    !tx_status && !rx_status) {
+		spin_unlock(&tqspi->lock);
+		return handle_cpu_based_xfer(tqspi);
 	}
 
 	queue_work(tqspi->wq, &tqspi->irq_work);
