@@ -637,6 +637,26 @@ static int proc_vec_conv(enum proc_vec_type type, union proc_vec_conv conv,
 	return -EINVAL;
 }
 
+static int commit_conv_vec(const enum proc_vec_type data_type, void *dst,
+			    const void *src, size_t nr)
+{
+	size_t i;
+
+	switch (data_type) {
+	case PROC_VEC_INT:
+		for (i = 0; i < nr; i++)
+			WRITE_ONCE(((int *)dst)[i], ((const int *)src)[i]);
+		return 0;
+
+	case PROC_VEC_ULONG:
+		for (i = 0; i < nr; i++)
+			WRITE_ONCE(((ulong *)dst)[i], ((const ulong *)src)[i]);
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
 /**
  * apply_conv_on_vec - Apply converter function on data vector
  *
@@ -663,22 +683,31 @@ static int apply_conv_on_vec(const union proc_vec_conv conv,
 			     const size_t buf_nbyte, void *buf,
 			     size_t *buf_left_final)
 {
-	int vec_left, first = 1, err = 0;
-	size_t buf_left;
-	char *data, *p;
+	int vec_left, err = 0;
+	size_t buf_left, nr_conv = 0;
+	char *data, *data_stage = NULL, *p;
 	bool is_unsigned = data_type == PROC_VEC_UINT || data_type == PROC_VEC_ULONG;
 
-	data = table->data;
-	vec_left = table->maxlen / data_size;
 	buf_left = buf_nbyte;
 
+	data = table->data;
 	if (SYSCTL_USER_TO_KERN(conv_dir)) {
 		if (buf_left > PAGE_SIZE - 1)
 			buf_left = PAGE_SIZE - 1;
 		p = buf;
+
+		if (table->maxlen > data_size) {
+			data_stage = kmemdup(table->data, table->maxlen, GFP_KERNEL);
+			if (!data_stage) {
+				err = -ENOMEM;
+				goto out;
+			}
+			data = data_stage;
+		}
 	}
 
-	for (; buf_left && vec_left--; data += data_size, first = 0) {
+	vec_left = table->maxlen / data_size;
+	for (; buf_left && vec_left--; data += data_size, nr_conv++) {
 		unsigned long lval;
 		bool neg = false;
 
@@ -703,20 +732,30 @@ static int apply_conv_on_vec(const union proc_vec_conv conv,
 				err = -EINVAL;
 				break;
 			}
-			if (!first)
+			if (nr_conv)
 				proc_put_char(&buf, &buf_left, '\t');
 			proc_put_long(&buf, &buf_left, lval, neg);
 		}
 	}
 
-	if (SYSCTL_KERN_TO_USER(conv_dir) && !first && buf_left && !err)
-		proc_put_char(&buf, &buf_left, '\n');
-	if (SYSCTL_USER_TO_KERN(conv_dir) && !err && buf_left)
-		proc_skip_spaces(&p, &buf_left);
-	if (SYSCTL_USER_TO_KERN(conv_dir) && first)
-		return err ? : -EINVAL;
+	if (SYSCTL_USER_TO_KERN(conv_dir)) {
+		if (!err && buf_left)
+			proc_skip_spaces(&p, &buf_left);
+		if (!nr_conv) {
+			err = err ? : -EINVAL;
+			goto out;
+		}
+		if (!err && data_stage)
+			err = commit_conv_vec(data_type, table->data, data_stage, nr_conv);
+	} else {
+		if (nr_conv && buf_left && !err)
+			proc_put_char(&buf, &buf_left, '\n');
+	}
+
 	*buf_left_final = buf_left;
 
+out:
+	kfree(data_stage);
 	return err;
 }
 
