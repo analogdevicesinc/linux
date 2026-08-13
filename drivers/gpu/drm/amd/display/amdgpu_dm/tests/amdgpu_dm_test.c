@@ -2942,6 +2942,104 @@ static void dm_test_update_hdcp_unchanged(struct kunit *test)
 						  DRM_MODE_CONNECTOR_DisplayPort));
 }
 
+/*
+ * Run do_aquire_global_lock() with a fresh acquire context, releasing the locks
+ * it leaves held on @state->acquire_ctx.
+ */
+static int dm_test_run_global_lock(struct kunit *test,
+				   struct amdgpu_device *adev)
+{
+	struct drm_atomic_commit *state = dm_test_alloc_commit(test, adev);
+	struct drm_modeset_acquire_ctx acquire_ctx;
+	int ret;
+
+	drm_modeset_acquire_init(&acquire_ctx, 0);
+	state->acquire_ctx = &acquire_ctx;
+
+	ret = do_aquire_global_lock(&adev->ddev, state);
+
+	drm_modeset_drop_locks(&acquire_ctx);
+	drm_modeset_acquire_fini(&acquire_ctx);
+
+	return ret;
+}
+
+/**
+ * dm_test_aquire_global_lock_no_crtc - Test the global lock is taken without CRTCs
+ * @test: The KUnit test context
+ */
+static void dm_test_aquire_global_lock_no_crtc(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	KUNIT_EXPECT_EQ(test, dm_test_run_global_lock(test, adev), 0);
+}
+
+/*
+ * A CRTC registered on @adev, needed to walk the per-CRTC commit loop.
+ */
+static struct drm_crtc *dm_test_alloc_crtc(struct kunit *test,
+					   struct amdgpu_device *adev)
+{
+	struct drm_plane *primary;
+	struct drm_crtc *crtc;
+
+	primary = drm_kunit_helper_create_primary_plane(test, &adev->ddev, NULL,
+							NULL, NULL, 0, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, primary);
+	crtc = drm_kunit_helper_create_crtc(test, &adev->ddev, primary, NULL,
+					    NULL, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+
+	return crtc;
+}
+
+/**
+ * dm_test_aquire_global_lock_no_commit - Test a CRTC without a pending commit
+ * @test: The KUnit test context
+ */
+static void dm_test_aquire_global_lock_no_commit(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	dm_test_alloc_crtc(test, adev);
+
+	KUNIT_EXPECT_EQ(test, dm_test_run_global_lock(test, adev), 0);
+}
+
+/**
+ * dm_test_aquire_global_lock_waits_commit - Test a completed commit is waited on
+ * @test: The KUnit test context
+ */
+static void dm_test_aquire_global_lock_waits_commit(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_crtc_commit *commit;
+	struct drm_crtc *crtc;
+	int ret;
+
+	crtc = dm_test_alloc_crtc(test, adev);
+	commit = kunit_kzalloc(test, sizeof(*commit), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, commit);
+
+	/*
+	 * The extra reference taken by the loop is dropped again, so the commit
+	 * never reaches zero and stays KUnit-managed.
+	 */
+	kref_init(&commit->ref);
+	init_completion(&commit->hw_done);
+	init_completion(&commit->flip_done);
+	complete_all(&commit->hw_done);
+	complete_all(&commit->flip_done);
+	list_add_tail(&commit->commit_entry, &crtc->commit_list);
+
+	ret = dm_test_run_global_lock(test, adev);
+
+	list_del(&commit->commit_entry);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -3088,6 +3186,9 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_update_hdcp_no_workqueue),
 	KUNIT_CASE(dm_test_update_hdcp_writeback_skipped),
 	KUNIT_CASE(dm_test_update_hdcp_unchanged),
+	KUNIT_CASE(dm_test_aquire_global_lock_no_crtc),
+	KUNIT_CASE(dm_test_aquire_global_lock_no_commit),
+	KUNIT_CASE(dm_test_aquire_global_lock_waits_commit),
 	{}
 };
 
