@@ -220,6 +220,18 @@ static uint32_t dm_test_dmub_get_outbox0_wptr(struct dmub_srv *dmub)
 	return 0;
 }
 
+/* One more than DMUB_TRACE_MAX_READ, so the drain loop reaches its cap. */
+#define DM_TEST_OUTBOX0_TRACE_ENTRIES	65
+#define DM_TEST_OUTBOX0_TRACE_BYTES \
+	(DM_TEST_OUTBOX0_TRACE_ENTRIES * sizeof(struct dmcub_trace_buf_entry))
+/* Keep the ring larger than the write pointer so rptr does not wrap. */
+#define DM_TEST_OUTBOX0_RB_SIZE		(2 * DM_TEST_OUTBOX0_TRACE_BYTES)
+
+static uint32_t dm_test_dmub_get_outbox0_wptr_full(struct dmub_srv *dmub)
+{
+	return DM_TEST_OUTBOX0_TRACE_BYTES;
+}
+
 static uint32_t dm_test_dmub_get_outbox1_wptr(struct dmub_srv *dmub)
 {
 	return 0;
@@ -1937,6 +1949,39 @@ static void dm_test_irq_schedule_work_requeue_fallback(struct kunit *test)
 	 */
 	flush_workqueue(adev->dm.irq_wq);
 	KUNIT_EXPECT_EQ(test, count, 2);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
+/**
+ * dm_test_irq_schedule_work_no_workqueue - Test schedule work after wq teardown
+ * @test: The KUnit test context
+ *
+ * An interrupt that races DM teardown can reach the scheduler after the IRQ
+ * workqueue is gone, so a registered handler must simply not be queued.
+ */
+static void dm_test_irq_schedule_work_no_workqueue(struct kunit *test)
+{
+	struct dc_interrupt_params int_params = { 0 };
+	struct amdgpu_device *adev;
+	int count = 0;
+	void *handler;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_irq_init(adev), 0);
+
+	int_params.int_context = INTERRUPT_LOW_IRQ_CONTEXT;
+	int_params.irq_source = DC_IRQ_SOURCE_HPD1;
+	handler = amdgpu_dm_irq_register_interrupt(adev, &int_params,
+						   dm_test_irq_handler_count, &count);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, handler);
+
+	destroy_workqueue(adev->dm.irq_wq);
+	adev->dm.irq_wq = NULL;
+
+	amdgpu_dm_irq_schedule_work(adev, DC_IRQ_SOURCE_HPD1);
+	KUNIT_EXPECT_EQ(test, count, 0);
 
 	amdgpu_dm_irq_fini(adev);
 }
@@ -3938,6 +3983,28 @@ static void dm_test_handle_hpd_work_out_of_range(struct kunit *test)
 	dm_handle_hpd_work(&hpd_work->handle_hpd_work);
 }
 
+/**
+ * dm_test_handle_hpd_work_null_notify - Test HPD work with no notification
+ * @test: The KUnit test context
+ *
+ * A work item carrying no notification must be rejected before dispatch.
+ */
+static void dm_test_handle_hpd_work_null_notify(struct kunit *test)
+{
+	struct dmub_hpd_work *hpd_work;
+	struct amdgpu_device *adev;
+
+	adev = dm_kunit_alloc_adev(test);
+	hpd_work = kzalloc_obj(*hpd_work, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, hpd_work);
+	hpd_work->adev = adev;
+	INIT_WORK(&hpd_work->handle_hpd_work, dm_handle_hpd_work);
+
+	/* The handler bails out before its own kfree(), so free it here. */
+	dm_handle_hpd_work(&hpd_work->handle_hpd_work);
+	kfree(hpd_work);
+}
+
 /* Tests for dm_dmub_outbox1_low_irq() */
 
 /**
@@ -3967,6 +4034,46 @@ static void dm_test_dmub_outbox1_low_irq_empty(struct kunit *test)
 	params.irq_src = DC_IRQ_SOURCE_DMCUB_OUTBOX;
 
 	dm_dmub_outbox1_low_irq(&params);
+}
+
+/**
+ * dm_test_dmub_outbox1_low_irq_drains_trace - Test the trace drain loop
+ * @test: The KUnit test context
+ *
+ * A trace ring holding more entries than the handler reads in one pass must be
+ * drained up to the DMUB_TRACE_MAX_READ cap, leaving the read pointer parked
+ * after the last entry the handler consumed.
+ */
+static void dm_test_dmub_outbox1_low_irq_drains_trace(struct kunit *test)
+{
+	struct common_irq_params params = { 0 };
+	struct dc_dmub_srv *dc_dmub_srv;
+	struct amdgpu_device *adev;
+	struct dmub_srv *dmub;
+	struct dc *dc;
+	void *rb;
+
+	adev = dm_kunit_alloc_adev(test);
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	dc_dmub_srv = kunit_kzalloc(test, sizeof(*dc_dmub_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc_dmub_srv);
+	dmub = kunit_kzalloc(test, sizeof(*dmub), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dmub);
+	rb = kunit_kzalloc(test, DM_TEST_OUTBOX0_RB_SIZE, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, rb);
+
+	dmub->outbox0_rb.base_address = rb;
+	dmub->outbox0_rb.capacity = DM_TEST_OUTBOX0_RB_SIZE;
+	dmub->hw_funcs.get_outbox0_wptr = dm_test_dmub_get_outbox0_wptr_full;
+	dc_dmub_srv->dmub = dmub;
+	dc->ctx->dmub_srv = dc_dmub_srv;
+	adev->dm.dc = dc;
+	params.adev = adev;
+	params.irq_src = DC_IRQ_SOURCE_DMCUB_OUTBOX;
+
+	dm_dmub_outbox1_low_irq(&params);
+
+	KUNIT_EXPECT_EQ(test, dmub->outbox0_rb.rptr, DM_TEST_OUTBOX0_TRACE_BYTES);
 }
 
 /*
@@ -4487,6 +4594,7 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_irq_schedule_work_empty),
 	KUNIT_CASE(dm_test_irq_schedule_work_queues_handler),
 	KUNIT_CASE(dm_test_irq_schedule_work_requeue_fallback),
+	KUNIT_CASE(dm_test_irq_schedule_work_no_workqueue),
 	/* amdgpu_dm_set_hpd_irq_state */
 	KUNIT_CASE(dm_test_set_hpd_irq_state_null_dc),
 	/* amdgpu_dm_set_dmub_outbox_irq_state */
@@ -4555,8 +4663,10 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_crtc_high_irq_schedules_vmin_vmax),
 	/* dm_handle_hpd_work */
 	KUNIT_CASE(dm_test_handle_hpd_work_out_of_range),
+	KUNIT_CASE(dm_test_handle_hpd_work_null_notify),
 	/* dm_dmub_outbox1_low_irq */
 	KUNIT_CASE(dm_test_dmub_outbox1_low_irq_empty),
+	KUNIT_CASE(dm_test_dmub_outbox1_low_irq_drains_trace),
 	KUNIT_CASE(dm_test_dmub_outbox1_low_irq_no_handler),
 	KUNIT_CASE(dm_test_dmub_outbox1_low_irq_direct_callback),
 	KUNIT_CASE(dm_test_dmub_outbox1_low_irq_offload),
