@@ -8,13 +8,23 @@
 #include <kunit/test.h>
 #include <linux/pci.h>
 #include <drm/drm_atomic.h>
+#include <drm/drm_blend.h>
 #include <drm/drm_connector.h>
 #include <drm/drm_crtc.h>
+#include <drm/drm_framebuffer.h>
+#include <drm/drm_kunit_helpers.h>
 #include <drm/drm_modes.h>
+#include <drm/drm_modeset_lock.h>
+#include <drm/drm_plane.h>
+#include <drm/drm_property.h>
+#include <drm/drm_vblank.h>
 #include <drm/drm_writeback.h>
 
 #include "dc.h"
+#include "dm_services_types.h"
+#include "dmub/dmub_srv.h"
 #include "inc/core_types.h"
+#include "logger_types.h"
 #include "amd_shared.h"
 #include "amdgpu.h"
 #include "amdgpu_mode.h"
@@ -1141,6 +1151,87 @@ static void dm_test_apply_delay_nonzero_wait(struct kunit *test)
 	amdgpu_dm_apply_delay_after_dpcd_poweroff(adev, sink);
 }
 
+/*
+ * Attach a DC stream to CRTC 0 of @adev so the scanout helpers walk the DC
+ * resource context instead of bailing out early.
+ */
+static void dm_test_crtc_with_stream(struct kunit *test,
+				     struct amdgpu_device *adev, struct dc *dc)
+{
+	struct dc_stream_state *stream;
+	struct amdgpu_crtc *acrtc;
+	struct dal_logger *logger;
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+
+	logger = kunit_kzalloc(test, sizeof(*logger), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, logger);
+	logger->dev = &adev->ddev;
+	dc->ctx->logger = logger;
+
+	dc->current_state = dm_kunit_alloc_dc_state(test);
+	KUNIT_ASSERT_NOT_NULL(test, dc->current_state);
+
+	stream = dm_kunit_alloc_stream(test, NULL);
+	stream->ctx = dc->ctx;
+
+	adev->dm.dc = dc;
+	adev->mode_info.num_crtc = 1;
+	adev->mode_info.crtcs[0] = acrtc;
+	acrtc->dm_irq_params.stream = stream;
+}
+
+/**
+ * dm_test_vblank_get_counter_unmapped_stream - Test a stream without a pipe returns zero
+ * @test: The KUnit test context
+ */
+static void dm_test_vblank_get_counter_unmapped_stream(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc *dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	dm_test_crtc_with_stream(test, adev, dc);
+
+	KUNIT_EXPECT_EQ(test, dm_vblank_get_counter(adev, 0), 0U);
+}
+
+/**
+ * dm_test_crtc_get_scanoutpos_unmapped_stream - Test scanout position for an unmapped stream
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_scanoutpos_unmapped_stream(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc *dc = dm_kunit_alloc_dc_with_ctx(test);
+	u32 vbl = 0xdeadbeef;
+	u32 position = 0xdeadbeef;
+
+	dm_test_crtc_with_stream(test, adev, dc);
+
+	KUNIT_EXPECT_EQ(test, dm_crtc_get_scanoutpos(adev, 0, &vbl, &position), 0);
+	KUNIT_EXPECT_EQ(test, vbl, 0U);
+	KUNIT_EXPECT_EQ(test, position, 0U);
+}
+
+/**
+ * dm_test_crtc_get_scanoutpos_exits_idle - Test idle optimizations are disabled first
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_scanoutpos_exits_idle(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc *dc = dm_kunit_alloc_dc_with_ctx(test);
+	u32 vbl = 0;
+	u32 position = 0;
+
+	dm_test_crtc_with_stream(test, adev, dc);
+	dc->caps.ips_support = true;
+	dc->idle_optimizations_allowed = true;
+
+	KUNIT_EXPECT_EQ(test, dm_crtc_get_scanoutpos(adev, 0, &vbl, &position), 0);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -1207,6 +1298,10 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_apply_delay_null_sink),
 	KUNIT_CASE(dm_test_apply_delay_zero_wait),
 	KUNIT_CASE(dm_test_apply_delay_nonzero_wait),
+	/* dm_vblank_get_counter / dm_crtc_get_scanoutpos with a stream */
+	KUNIT_CASE(dm_test_vblank_get_counter_unmapped_stream),
+	KUNIT_CASE(dm_test_crtc_get_scanoutpos_unmapped_stream),
+	KUNIT_CASE(dm_test_crtc_get_scanoutpos_exits_idle),
 	{}
 };
 
