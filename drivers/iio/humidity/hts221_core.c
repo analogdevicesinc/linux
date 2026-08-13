@@ -245,6 +245,7 @@ int hts221_set_enable(struct hts221_hw *hw, bool enable)
 
 static int hts221_parse_temp_caldata(struct hts221_hw *hw)
 {
+	struct device *dev = hw->dev;
 	int err, *slope, *b_gen, cal0, cal1;
 	s16 cal_x0, cal_x1, cal_y0, cal_y1;
 	__le16 val;
@@ -275,10 +276,20 @@ static int hts221_parse_temp_caldata(struct hts221_hw *hw)
 		return err;
 	cal_x1 = le16_to_cpu(val);
 
+	if (cal_x1 == cal_x0)
+		return dev_err_probe(dev, -EINVAL,
+				     "invalid temperature calibration points (x0 %d, x1 %d)\n",
+				     cal_x0, cal_x1);
+
 	slope = &hw->sensors[HTS221_SENSOR_T].slope;
 	b_gen = &hw->sensors[HTS221_SENSOR_T].b_gen;
 
 	*slope = ((cal_y1 - cal_y0) * 8000) / (cal_x1 - cal_x0);
+	if (!*slope)
+		return dev_err_probe(dev, -EINVAL,
+				     "invalid temperature calibration slope (y0 %d, y1 %d)\n",
+				     cal_y0, cal_y1);
+
 	*b_gen = (((s32)cal_x1 * cal_y0 - (s32)cal_x0 * cal_y1) * 1000) /
 		 (cal_x1 - cal_x0);
 	*b_gen *= 8;
@@ -288,6 +299,7 @@ static int hts221_parse_temp_caldata(struct hts221_hw *hw)
 
 static int hts221_parse_rh_caldata(struct hts221_hw *hw)
 {
+	struct device *dev = hw->dev;
 	int err, *slope, *b_gen, data;
 	s16 cal_x0, cal_x1, cal_y0, cal_y1;
 	__le16 val;
@@ -314,10 +326,20 @@ static int hts221_parse_rh_caldata(struct hts221_hw *hw)
 		return err;
 	cal_x1 = le16_to_cpu(val);
 
+	if (cal_x1 == cal_x0)
+		return dev_err_probe(dev, -EINVAL,
+				     "invalid rh calibration points (x0 %d, x1 %d)\n",
+				     cal_x0, cal_x1);
+
 	slope = &hw->sensors[HTS221_SENSOR_H].slope;
 	b_gen = &hw->sensors[HTS221_SENSOR_H].b_gen;
 
 	*slope = ((cal_y1 - cal_y0) * 8000) / (cal_x1 - cal_x0);
+	if (!*slope)
+		return dev_err_probe(dev, -EINVAL,
+				     "invalid rh calibration slope (y0 %d, y1 %d)\n",
+				     cal_y0, cal_y1);
+
 	*b_gen = (((s32)cal_x1 * cal_y0 - (s32)cal_x0 * cal_y1) * 1000) /
 		 (cal_x1 - cal_x0);
 	*b_gen *= 8;
