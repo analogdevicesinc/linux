@@ -6043,9 +6043,9 @@ STATIC_IFN_KUNIT int add_affected_mst_dsc_crtcs(struct drm_atomic_commit *state,
 }
 EXPORT_IF_KUNIT(add_affected_mst_dsc_crtcs);
 
-static bool amdgpu_dm_crtc_mem_type_changed(struct drm_device *dev,
-					    struct drm_atomic_commit *state,
-					    struct drm_crtc_state *crtc_state)
+STATIC_IFN_KUNIT bool amdgpu_dm_crtc_mem_type_changed(struct drm_device *dev,
+						      struct drm_atomic_commit *state,
+						      struct drm_crtc_state *crtc_state)
 {
 	struct drm_plane *plane;
 	struct drm_plane_state *new_plane_state, *old_plane_state;
@@ -6064,6 +6064,7 @@ static bool amdgpu_dm_crtc_mem_type_changed(struct drm_device *dev,
 
 	return false;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_crtc_mem_type_changed);
 
 /**
  * amdgpu_dm_atomic_check() - Atomic check implementation for AMDgpu DM.

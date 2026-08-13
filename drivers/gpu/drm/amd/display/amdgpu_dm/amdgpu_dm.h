@@ -1186,6 +1186,9 @@ void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
 					 bool pflip_update, bool cursor_update);
 int add_affected_mst_dsc_crtcs(struct drm_atomic_commit *state,
 			       struct drm_crtc *crtc);
+bool amdgpu_dm_crtc_mem_type_changed(struct drm_device *dev,
+				     struct drm_atomic_commit *state,
+				     struct drm_crtc_state *crtc_state);
 int dm_plane_layer_index_cmp(const void *a, const void *b);
 int fill_plane_color_attributes(const struct drm_plane_state *plane_state,
 				const enum surface_pixel_format format,

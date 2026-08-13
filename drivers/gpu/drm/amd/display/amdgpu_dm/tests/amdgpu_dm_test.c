@@ -1804,6 +1804,139 @@ static void dm_test_update_pflip_irq_state_dce(struct kunit *test)
 			(int)AMDGPU_IRQ_STATE_DISABLE);
 }
 
+/* Tests for amdgpu_dm_crtc_mem_type_changed() */
+
+struct dm_test_mem_type_ctx {
+	struct amdgpu_device *adev;
+	struct drm_atomic_commit *state;
+	struct drm_crtc_state *crtc_state;
+	struct drm_plane *plane;
+	struct drm_plane_state *old_plane_state;
+	struct drm_plane_state *new_plane_state;
+};
+
+/*
+ * Register a single plane on the CRTC's plane mask. get_mem_type() walks
+ * fb->obj[0] back to an amdgpu_bo, so the framebuffers are backed by fake
+ * buffer objects with a TTM resource instead of a live TTM device.
+ */
+static struct drm_framebuffer *dm_test_alloc_fb(struct kunit *test,
+						u32 mem_type)
+{
+	struct drm_framebuffer *fb;
+	struct ttm_resource *res;
+	struct amdgpu_bo *abo;
+
+	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fb);
+	abo = kunit_kzalloc(test, sizeof(*abo), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, abo);
+	res = kunit_kzalloc(test, sizeof(*res), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, res);
+
+	res->mem_type = mem_type;
+	abo->tbo.resource = res;
+	fb->obj[0] = &abo->tbo.base;
+
+	return fb;
+}
+
+static struct dm_test_mem_type_ctx *dm_test_mem_type_ctx_alloc(struct kunit *test)
+{
+	struct dm_test_mem_type_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->adev = dm_kunit_alloc_adev(test);
+	ctx->state = dm_test_alloc_commit(test, ctx->adev);
+	ctx->crtc_state = kunit_kzalloc(test, sizeof(*ctx->crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc_state);
+	ctx->plane = drm_kunit_helper_create_primary_plane(test, &ctx->adev->ddev,
+							   NULL, NULL, NULL, 0, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->plane);
+	ctx->old_plane_state = kunit_kzalloc(test, sizeof(*ctx->old_plane_state),
+					     GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->old_plane_state);
+	ctx->new_plane_state = kunit_kzalloc(test, sizeof(*ctx->new_plane_state),
+					     GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->new_plane_state);
+	ctx->state->planes = kunit_kcalloc(test, ctx->plane->index + 1,
+					   sizeof(*ctx->state->planes), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state->planes);
+
+	ctx->crtc_state->plane_mask = drm_plane_mask(ctx->plane);
+	ctx->state->planes[ctx->plane->index].ptr = ctx->plane;
+
+	return ctx;
+}
+
+/**
+ * dm_test_mem_type_changed_no_planes - Test an empty plane mask reports no change
+ * @test: The KUnit test context
+ */
+static void dm_test_mem_type_changed_no_planes(struct kunit *test)
+{
+	struct dm_test_mem_type_ctx *ctx = dm_test_mem_type_ctx_alloc(test);
+
+	ctx->crtc_state->plane_mask = 0;
+
+	KUNIT_EXPECT_FALSE(test, amdgpu_dm_crtc_mem_type_changed(&ctx->adev->ddev,
+								ctx->state,
+								ctx->crtc_state));
+}
+
+/**
+ * dm_test_mem_type_changed_missing_state - Test a plane without both states is skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_mem_type_changed_missing_state(struct kunit *test)
+{
+	struct dm_test_mem_type_ctx *ctx = dm_test_mem_type_ctx_alloc(test);
+
+	ctx->state->planes[ctx->plane->index].new_state = ctx->new_plane_state;
+
+	KUNIT_EXPECT_FALSE(test, amdgpu_dm_crtc_mem_type_changed(&ctx->adev->ddev,
+								ctx->state,
+								ctx->crtc_state));
+}
+
+/**
+ * dm_test_mem_type_changed_same_domain - Test identical memory domains report no change
+ * @test: The KUnit test context
+ */
+static void dm_test_mem_type_changed_same_domain(struct kunit *test)
+{
+	struct dm_test_mem_type_ctx *ctx = dm_test_mem_type_ctx_alloc(test);
+
+	ctx->old_plane_state->fb = dm_test_alloc_fb(test, TTM_PL_VRAM);
+	ctx->new_plane_state->fb = dm_test_alloc_fb(test, TTM_PL_VRAM);
+	ctx->state->planes[ctx->plane->index].old_state = ctx->old_plane_state;
+	ctx->state->planes[ctx->plane->index].new_state = ctx->new_plane_state;
+
+	KUNIT_EXPECT_FALSE(test, amdgpu_dm_crtc_mem_type_changed(&ctx->adev->ddev,
+								ctx->state,
+								ctx->crtc_state));
+}
+
+/**
+ * dm_test_mem_type_changed_different_domain - Test a domain migration is detected
+ * @test: The KUnit test context
+ */
+static void dm_test_mem_type_changed_different_domain(struct kunit *test)
+{
+	struct dm_test_mem_type_ctx *ctx = dm_test_mem_type_ctx_alloc(test);
+
+	ctx->old_plane_state->fb = dm_test_alloc_fb(test, TTM_PL_TT);
+	ctx->new_plane_state->fb = dm_test_alloc_fb(test, TTM_PL_VRAM);
+	ctx->state->planes[ctx->plane->index].old_state = ctx->old_plane_state;
+	ctx->state->planes[ctx->plane->index].new_state = ctx->new_plane_state;
+
+	KUNIT_EXPECT_TRUE(test, amdgpu_dm_crtc_mem_type_changed(&ctx->adev->ddev,
+							       ctx->state,
+							       ctx->crtc_state));
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -1900,6 +2033,11 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	/* dm_update_pflip_irq_state */
 	KUNIT_CASE(dm_test_update_pflip_irq_state_dcn),
 	KUNIT_CASE(dm_test_update_pflip_irq_state_dce),
+	/* amdgpu_dm_crtc_mem_type_changed */
+	KUNIT_CASE(dm_test_mem_type_changed_no_planes),
+	KUNIT_CASE(dm_test_mem_type_changed_missing_state),
+	KUNIT_CASE(dm_test_mem_type_changed_same_domain),
+	KUNIT_CASE(dm_test_mem_type_changed_different_domain),
 	{}
 };
 
