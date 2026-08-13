@@ -3094,6 +3094,86 @@ static void dm_test_acpi_phy_transition_interlock(struct kunit *test)
 	dm_acpi_process_phy_transition_interlock(NULL, params);
 }
 
+/**
+ * dm_test_early_fini_audio_disabled - Test early fini with audio never enabled
+ * @test: The KUnit test context
+ */
+static void dm_test_early_fini_audio_disabled(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_ip_block ip_block = { .adev = adev };
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_early_fini(&ip_block), 0);
+}
+
+/**
+ * dm_test_sw_fini_releases_state - Test sw fini drops the DMUB software state
+ * @test: The KUnit test context
+ */
+static void dm_test_sw_fini_releases_state(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_ip_block ip_block = { .adev = adev };
+
+	INIT_LIST_HEAD(&adev->dm.da_list);
+	adev->dm.dmub_fb_info = kzalloc_obj(*adev->dm.dmub_fb_info);
+	KUNIT_ASSERT_NOT_NULL(test, adev->dm.dmub_fb_info);
+
+	KUNIT_EXPECT_EQ(test, dm_sw_fini(&ip_block), 0);
+	KUNIT_EXPECT_NULL(test, adev->dm.dmub_fb_info);
+}
+
+/**
+ * dm_test_oem_i2c_hw_init_no_device - Test no OEM I2C device leaves the bus unset
+ * @test: The KUnit test context
+ */
+static void dm_test_oem_i2c_hw_init_no_device(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc *dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	dc->res_pool = kunit_kzalloc(test, sizeof(*dc->res_pool), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc->res_pool);
+	adev->dm.dc = dc;
+
+	KUNIT_EXPECT_EQ(test, dm_oem_i2c_hw_init(adev), 0);
+	KUNIT_EXPECT_NULL(test, adev->dm.oem_i2c);
+}
+
+/**
+ * dm_test_gpureset_commit_state_no_streams - Test an empty DC state programs nothing
+ * @test: The KUnit test context
+ */
+static void dm_test_gpureset_commit_state_no_streams(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_state *context = dm_kunit_alloc_dc_state(test);
+
+	KUNIT_ASSERT_NOT_NULL(test, context);
+	adev->dm.ddev = &adev->ddev;
+
+	dm_gpureset_commit_state(context, &adev->dm);
+}
+
+/**
+ * dm_test_emulated_link_detect_bad_signal - Test an unknown connector signal is rejected
+ * @test: The KUnit test context
+ */
+static void dm_test_emulated_link_detect_bad_signal(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_link *link = dm_kunit_alloc_link_with_ctx(test);
+
+	link->ctx->driver_context = adev;
+	link->type = dc_connection_single;
+	link->connector_signal = SIGNAL_TYPE_VIRTUAL;
+
+	amdgpu_dm_emulated_link_detect(link);
+
+	KUNIT_EXPECT_EQ(test, (int)link->type, (int)dc_connection_none);
+	KUNIT_EXPECT_NULL(test, link->local_sink);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -3248,6 +3328,12 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_trigger_timing_sync_streams),
 	/* dm_acpi_process_phy_transition_interlock */
 	KUNIT_CASE(dm_test_acpi_phy_transition_interlock),
+	/* IP block lifecycle helpers */
+	KUNIT_CASE(dm_test_early_fini_audio_disabled),
+	KUNIT_CASE(dm_test_sw_fini_releases_state),
+	KUNIT_CASE(dm_test_oem_i2c_hw_init_no_device),
+	KUNIT_CASE(dm_test_gpureset_commit_state_no_streams),
+	KUNIT_CASE(dm_test_emulated_link_detect_bad_signal),
 	{}
 };
 

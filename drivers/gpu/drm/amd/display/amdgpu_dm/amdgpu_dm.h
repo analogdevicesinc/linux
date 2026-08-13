@@ -1205,6 +1205,10 @@ void amdgpu_dm_dump_links_and_sinks(struct amdgpu_device *adev);
 void amdgpu_dm_update_hdcp(struct drm_atomic_commit *state);
 int do_aquire_global_lock(struct drm_device *dev,
 			  struct drm_atomic_commit *state);
+int amdgpu_dm_early_fini(struct amdgpu_ip_block *ip_block);
+int dm_sw_fini(struct amdgpu_ip_block *ip_block);
+int dm_oem_i2c_hw_init(struct amdgpu_device *adev);
+void dm_gpureset_commit_state(struct dc_state *dc_state, struct amdgpu_display_manager *dm);
 int dm_plane_layer_index_cmp(const void *a, const void *b);
 int fill_plane_color_attributes(const struct drm_plane_state *plane_state,
 				const enum surface_pixel_format format,
