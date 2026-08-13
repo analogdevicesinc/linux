@@ -123,10 +123,16 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 		dma_dir = DMA_MEM_TO_DEV;
 
 	if (block->sg_table) {
+		/*
+		 * Use the DMA-mapped view of the sg_table: after mapping
+		 * (e.g. through an IOMMU) the DMA entries (sgt->nents) can be
+		 * fewer than the CPU entries, and sg_dma_address()/sg_dma_len()
+		 * are only valid for the first sgt->nents entries. Counting
+		 * with sg_nents_for_len() (CPU lengths) walks past them and
+		 * hands garbage vecs to the DMA engine.
+		 */
 		sgl = block->sg_table->sgl;
-		nents = sg_nents_for_len(sgl, block->bytes_used);
-		if (nents < 0)
-			return nents;
+		nents = sg_nents_for_dma(sgl, block->sg_table->nents, max_size);
 
 		vecs = kmalloc_array(nents, sizeof(*vecs), GFP_ATOMIC);
 		if (!vecs)
@@ -134,13 +140,15 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 
 		len_total = block->bytes_used;
 
-		for (i = 0; i < nents; i++) {
+		for (i = 0; i < nents && len_total; i++) {
 			vecs[i].addr = sg_dma_address(sgl);
 			vecs[i].len = min(sg_dma_len(sgl), len_total);
 			len_total -= vecs[i].len;
 
 			sgl = sg_next(sgl);
 		}
+
+		nents = i;
 
 		desc = dmaengine_prep_peripheral_dma_vec(dmaengine_buffer->chan,
 							 vecs, nents, dma_dir,
