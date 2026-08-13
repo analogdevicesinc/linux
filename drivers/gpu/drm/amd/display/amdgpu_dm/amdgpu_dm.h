@@ -1168,6 +1168,7 @@ u32 dm_vblank_get_counter(struct amdgpu_device *adev, int crtc);
 int dm_crtc_get_scanoutpos(struct amdgpu_device *adev, int crtc,
 			   u32 *vbl, u32 *position);
 struct dm_atomic_state *dm_atomic_get_new_state(struct drm_atomic_commit *state);
+struct drm_private_state *dm_atomic_duplicate_state(struct drm_private_obj *obj);
 void dm_atomic_destroy_state(struct drm_private_obj *obj,
 			     struct drm_private_state *state);
 int dm_plane_layer_index_cmp(const void *a, const void *b);

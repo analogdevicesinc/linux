@@ -1232,6 +1232,56 @@ static void dm_test_crtc_get_scanoutpos_exits_idle(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dm_crtc_get_scanoutpos(adev, 0, &vbl, &position), 0);
 }
 
+static struct drm_atomic_commit *dm_test_alloc_commit(struct kunit *test,
+						     struct amdgpu_device *adev)
+{
+	struct drm_atomic_commit *state;
+
+	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state);
+	state->dev = &adev->ddev;
+
+	return state;
+}
+
+/**
+ * dm_test_atomic_get_state_already_acquired - Test an acquired DM state is returned as is
+ * @test: The KUnit test context
+ */
+static void dm_test_atomic_get_state_already_acquired(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_atomic_commit *state = dm_test_alloc_commit(test, adev);
+	struct dm_atomic_state *dm_state;
+	struct dm_atomic_state *acquired;
+
+	dm_state = kunit_kzalloc(test, sizeof(*dm_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
+	acquired = dm_state;
+
+	KUNIT_EXPECT_EQ(test, dm_atomic_get_state(state, &acquired), 0);
+	KUNIT_EXPECT_PTR_EQ(test, acquired, dm_state);
+}
+
+/**
+ * dm_test_atomic_duplicate_state_no_context - Test duplication fails without a DC context
+ * @test: The KUnit test context
+ */
+static void dm_test_atomic_duplicate_state_no_context(struct kunit *test)
+{
+	struct dm_atomic_state *old_state;
+	struct drm_private_obj *obj;
+
+	obj = kunit_kzalloc(test, sizeof(*obj), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, obj);
+	old_state = kunit_kzalloc(test, sizeof(*old_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_state);
+
+	obj->state = &old_state->base;
+
+	KUNIT_EXPECT_NULL(test, dm_atomic_duplicate_state(obj));
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -1302,6 +1352,9 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_vblank_get_counter_unmapped_stream),
 	KUNIT_CASE(dm_test_crtc_get_scanoutpos_unmapped_stream),
 	KUNIT_CASE(dm_test_crtc_get_scanoutpos_exits_idle),
+	/* dm_atomic_get_state / dm_atomic_duplicate_state */
+	KUNIT_CASE(dm_test_atomic_get_state_already_acquired),
+	KUNIT_CASE(dm_test_atomic_duplicate_state_no_context),
 	{}
 };
 
