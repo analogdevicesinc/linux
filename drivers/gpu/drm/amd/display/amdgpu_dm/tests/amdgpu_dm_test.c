@@ -2759,6 +2759,93 @@ static void dm_test_reset_plane_other_modifier(struct kunit *test)
 	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
 }
 
+/* Tests for amdgpu_dm_dump_links_and_sinks() */
+
+/**
+ * dm_test_dump_links_no_dc - Test a device without DC dumps nothing
+ * @test: The KUnit test context
+ */
+static void dm_test_dump_links_no_dc(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	amdgpu_dm_dump_links_and_sinks(adev);
+}
+
+/**
+ * dm_test_dump_links_no_links - Test a DC without links dumps nothing
+ * @test: The KUnit test context
+ */
+static void dm_test_dump_links_no_links(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	amdgpu_dm_dump_links_and_sinks(adev);
+}
+
+/*
+ * Attach a single DC link to @adev so amdgpu_dm_dump_links_and_sinks() walks it.
+ */
+static struct dc_link *dm_test_dc_with_link(struct kunit *test,
+					   struct amdgpu_device *adev)
+{
+	struct dc *dc = dm_kunit_alloc_dc_with_ctx(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+
+	dc->links[0] = link;
+	dc->link_count = 1;
+	adev->dm.dc = dc;
+
+	return link;
+}
+
+/**
+ * dm_test_dump_links_with_sinks - Test local and remote sinks are walked
+ * @test: The KUnit test context
+ */
+static void dm_test_dump_links_with_sinks(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_link *link = dm_test_dc_with_link(test, adev);
+	struct dc_sink *local_sink, *remote_sink;
+
+	local_sink = kunit_kzalloc(test, sizeof(*local_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, local_sink);
+	remote_sink = kunit_kzalloc(test, sizeof(*remote_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, remote_sink);
+
+	strscpy(local_sink->edid_caps.display_name, "local");
+	strscpy(remote_sink->edid_caps.display_name, "remote");
+	link->local_sink = local_sink;
+	link->sink_count = 1;
+	link->remote_sinks[0] = remote_sink;
+	adev->dm.dc->link_count = 2;
+
+	amdgpu_dm_dump_links_and_sinks(adev);
+}
+
+/**
+ * dm_test_dump_links_unnamed_sinks - Test links without a sink or EDID name
+ * @test: The KUnit test context
+ */
+static void dm_test_dump_links_unnamed_sinks(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_link *link = dm_test_dc_with_link(test, adev);
+	struct dc_sink *remote_sink;
+
+	remote_sink = kunit_kzalloc(test, sizeof(*remote_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, remote_sink);
+
+	link->sink_count = 2;
+	link->remote_sinks[0] = NULL;
+	link->remote_sinks[1] = remote_sink;
+
+	amdgpu_dm_dump_links_and_sinks(adev);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -2896,6 +2983,11 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_reset_plane_other_no_fb),
 	KUNIT_CASE(dm_test_reset_plane_other_format),
 	KUNIT_CASE(dm_test_reset_plane_other_modifier),
+	/* amdgpu_dm_dump_links_and_sinks */
+	KUNIT_CASE(dm_test_dump_links_no_dc),
+	KUNIT_CASE(dm_test_dump_links_no_links),
+	KUNIT_CASE(dm_test_dump_links_with_sinks),
+	KUNIT_CASE(dm_test_dump_links_unnamed_sinks),
 	{}
 };
 
