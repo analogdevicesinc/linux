@@ -5635,10 +5635,10 @@ fail:
 	return ret;
 }
 
-static bool should_reset_plane(struct drm_atomic_commit *state,
-			       struct drm_plane *plane,
-			       struct drm_plane_state *old_plane_state,
-			       struct drm_plane_state *new_plane_state)
+STATIC_IFN_KUNIT bool should_reset_plane(struct drm_atomic_commit *state,
+					 struct drm_plane *plane,
+					 struct drm_plane_state *old_plane_state,
+					 struct drm_plane_state *new_plane_state)
 {
 	struct drm_plane *other;
 	struct drm_plane_state *old_other_state, *new_other_state;
@@ -5794,6 +5794,7 @@ static bool should_reset_plane(struct drm_atomic_commit *state,
 
 	return false;
 }
+EXPORT_IF_KUNIT(should_reset_plane);
 
 static int dm_update_plane_state(struct dc *dc,
 				 struct drm_atomic_commit *state,

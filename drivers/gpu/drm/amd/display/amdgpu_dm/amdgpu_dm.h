@@ -1192,6 +1192,10 @@ void dm_arm_vblank_event(struct amdgpu_crtc *acrtc,
 void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
 					 struct dm_crtc_state *acrtc_state,
 					 bool pflip_update, bool cursor_update);
+bool should_reset_plane(struct drm_atomic_commit *state,
+			struct drm_plane *plane,
+			struct drm_plane_state *old_plane_state,
+			struct drm_plane_state *new_plane_state);
 int add_affected_mst_dsc_crtcs(struct drm_atomic_commit *state,
 			       struct drm_crtc *crtc);
 bool amdgpu_dm_crtc_mem_type_changed(struct drm_device *dev,

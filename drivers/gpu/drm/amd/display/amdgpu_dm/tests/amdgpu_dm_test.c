@@ -2274,6 +2274,491 @@ static void dm_test_dirty_rects_mpo_overflow_ffu(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 1920);
 }
 
+/* Tests for should_reset_plane() */
+
+struct dm_test_reset_plane_ctx {
+	struct amdgpu_device *adev;
+	struct drm_atomic_commit *state;
+	struct drm_crtc *crtc;
+	struct drm_plane *plane;
+	struct drm_plane_state *old_plane_state;
+	struct drm_plane_state *new_plane_state;
+	struct dm_crtc_state *old_crtc_state;
+	struct dm_crtc_state *new_crtc_state;
+	struct drm_plane *other;
+	struct dm_plane_state *other_old;
+	struct dm_plane_state *other_new;
+};
+
+/*
+ * Build a fast-update baseline: a DCN 3.2 device with one plane bound to an
+ * unchanged CRTC, so should_reset_plane() runs to the end and returns false.
+ */
+static struct dm_test_reset_plane_ctx *
+dm_test_reset_plane_ctx_alloc(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->adev = dm_kunit_alloc_adev(test);
+	ctx->adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 2, 0);
+	ctx->adev->reset_domain = kunit_kzalloc(test,
+						sizeof(*ctx->adev->reset_domain),
+						GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->adev->reset_domain);
+
+	ctx->state = dm_test_alloc_commit(test, ctx->adev);
+	ctx->crtc = kunit_kzalloc(test, sizeof(*ctx->crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc);
+	ctx->plane = kunit_kzalloc(test, sizeof(*ctx->plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->plane);
+	ctx->old_plane_state = kunit_kzalloc(test, sizeof(*ctx->old_plane_state),
+					     GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->old_plane_state);
+	ctx->new_plane_state = kunit_kzalloc(test, sizeof(*ctx->new_plane_state),
+					     GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->new_plane_state);
+	ctx->old_crtc_state = kunit_kzalloc(test, sizeof(*ctx->old_crtc_state),
+					    GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->old_crtc_state);
+	ctx->new_crtc_state = kunit_kzalloc(test, sizeof(*ctx->new_crtc_state),
+					    GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->new_crtc_state);
+	ctx->state->crtcs = kunit_kzalloc(test, sizeof(*ctx->state->crtcs),
+					  GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state->crtcs);
+
+	ctx->plane->dev = &ctx->adev->ddev;
+	ctx->plane->type = DRM_PLANE_TYPE_PRIMARY;
+	ctx->old_plane_state->crtc = ctx->crtc;
+	ctx->new_plane_state->crtc = ctx->crtc;
+	ctx->state->crtcs[0].ptr = ctx->crtc;
+	ctx->state->crtcs[0].old_state = &ctx->old_crtc_state->base;
+	ctx->state->crtcs[0].new_state = &ctx->new_crtc_state->base;
+
+	return ctx;
+}
+
+static bool dm_test_should_reset_plane(struct dm_test_reset_plane_ctx *ctx)
+{
+	return should_reset_plane(ctx->state, ctx->plane, ctx->old_plane_state,
+				  ctx->new_plane_state);
+}
+
+/**
+ * dm_test_reset_plane_pre_dcn32_modeset - Test pre-DCN3.2 modesets always reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_pre_dcn32_modeset(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	ctx->adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 1, 2);
+	ctx->state->allow_modeset = true;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/*
+ * Add a connector of @type to the commit so should_reset_plane() walks its
+ * writeback check.
+ */
+static struct drm_connector_state *
+dm_test_reset_plane_add_connector(struct kunit *test,
+				  struct dm_test_reset_plane_ctx *ctx, int type)
+{
+	struct drm_connector_state *conn_state;
+	struct drm_connector *connector;
+
+	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+	conn_state = kunit_kzalloc(test, sizeof(*conn_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, conn_state);
+	ctx->state->connectors = kunit_kzalloc(test,
+					       sizeof(*ctx->state->connectors),
+					       GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state->connectors);
+
+	connector->connector_type = type;
+	ctx->state->num_connector = 1;
+	ctx->state->connectors[0].ptr = connector;
+	ctx->state->connectors[0].new_state = conn_state;
+
+	return conn_state;
+}
+
+/**
+ * dm_test_reset_plane_writeback_job - Test a writeback commit resets planes
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_writeback_job(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+	struct drm_connector_state *conn_state;
+
+	conn_state = dm_test_reset_plane_add_connector(test, ctx,
+						       DRM_MODE_CONNECTOR_WRITEBACK);
+	conn_state->writeback_job = kunit_kzalloc(test,
+						  sizeof(*conn_state->writeback_job),
+						  GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, conn_state->writeback_job);
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_crtc_changed - Test moving a plane between CRTCs resets it
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_crtc_changed(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	ctx->old_plane_state->crtc = NULL;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_not_in_context - Test a plane outside the context is not reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_not_in_context(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	ctx->old_plane_state->crtc = NULL;
+	ctx->new_plane_state->crtc = NULL;
+
+	KUNIT_EXPECT_FALSE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_no_new_crtc_state - Test a missing new CRTC state resets the plane
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_no_new_crtc_state(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	ctx->state->crtcs[0].new_state = NULL;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_cursor_mode_changed - Test a cursor mode switch resets the plane
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_cursor_mode_changed(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	ctx->plane->type = DRM_PLANE_TYPE_CURSOR;
+	ctx->old_crtc_state->cursor_mode = DM_CURSOR_NATIVE_MODE;
+	ctx->new_crtc_state->cursor_mode = DM_CURSOR_OVERLAY_MODE;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_color_mgmt_changed - Test a degamma change resets the plane
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_color_mgmt_changed(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	ctx->new_crtc_state->base.color_mgmt_changed = true;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_zpos_changed - Test a z-order change resets the plane
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_zpos_changed(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	ctx->old_plane_state->normalized_zpos = 0;
+	ctx->new_plane_state->normalized_zpos = 1;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_modeset - Test a CRTC modeset resets the plane
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_modeset(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	ctx->new_crtc_state->base.mode_changed = true;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_fast_update - Test an unchanged plane stays on the fast path
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_fast_update(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	KUNIT_EXPECT_FALSE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_skips_non_writeback - Test non-writeback connectors are skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_skips_non_writeback(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_connector(test, ctx,
+					  DRM_MODE_CONNECTOR_DisplayPort);
+
+	KUNIT_EXPECT_FALSE(test, dm_test_should_reset_plane(ctx));
+}
+
+/*
+ * Add a second plane to the commit so should_reset_plane() walks its
+ * cross-plane loop. Both states start identical and bound to the same CRTC, so
+ * each test only has to perturb the one field it cares about.
+ */
+static void dm_test_reset_plane_add_other(struct kunit *test,
+					  struct dm_test_reset_plane_ctx *ctx)
+{
+	ctx->other = kunit_kzalloc(test, sizeof(*ctx->other), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->other);
+	ctx->other_old = kunit_kzalloc(test, sizeof(*ctx->other_old), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->other_old);
+	ctx->other_new = kunit_kzalloc(test, sizeof(*ctx->other_new), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->other_new);
+	ctx->state->planes = kunit_kzalloc(test, sizeof(*ctx->state->planes),
+					   GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state->planes);
+
+	ctx->other->type = DRM_PLANE_TYPE_PRIMARY;
+	ctx->other_old->base.crtc = ctx->crtc;
+	ctx->other_new->base.crtc = ctx->crtc;
+
+	ctx->adev->ddev.mode_config.num_total_plane = 1;
+	ctx->state->planes[0].ptr = ctx->other;
+	ctx->state->planes[0].old_state = &ctx->other_old->base;
+	ctx->state->planes[0].new_state = &ctx->other_new->base;
+}
+
+/**
+ * dm_test_reset_plane_other_cursor_skipped - Test other cursor planes are ignored
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_cursor_skipped(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	ctx->other->type = DRM_PLANE_TYPE_CURSOR;
+	ctx->other_new->base.rotation = DRM_MODE_ROTATE_90;
+
+	KUNIT_EXPECT_FALSE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_other_crtc_skipped - Test planes on other CRTCs are ignored
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_crtc_skipped(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	ctx->other_old->base.crtc = NULL;
+	ctx->other_new->base.crtc = NULL;
+	ctx->other_new->base.rotation = DRM_MODE_ROTATE_90;
+
+	KUNIT_EXPECT_FALSE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_other_crtc_moved - Test moving another plane forces a reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_crtc_moved(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	ctx->other_old->base.crtc = NULL;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_other_scaling - Test src/dst size changes force a reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_scaling(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	ctx->other_new->base.src_w = 1 << 16;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_other_rotation - Test rotation changes force a reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_rotation(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	ctx->other_new->base.rotation = DRM_MODE_ROTATE_180;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_other_blending - Test blend mode changes force a reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_blending(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	ctx->other_new->base.pixel_blend_mode = DRM_MODE_BLEND_COVERAGE;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_other_alpha - Test alpha changes force a reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_alpha(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	ctx->other_new->base.alpha = DRM_BLEND_ALPHA_OPAQUE;
+	ctx->other_old->base.alpha = DRM_BLEND_ALPHA_OPAQUE / 2;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_other_colorspace - Test colorspace changes force a reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_colorspace(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	ctx->other_new->base.color_encoding = DRM_COLOR_YCBCR_BT2020;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_other_hdr_mult - Test transfer function changes force a reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_hdr_mult(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	ctx->other_new->hdr_mult = 1;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_other_no_fb - Test planes without framebuffers are skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_no_fb(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	ctx->other_new->base.fb = kunit_kzalloc(test,
+						sizeof(*ctx->other_new->base.fb),
+						GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->other_new->base.fb);
+
+	KUNIT_EXPECT_FALSE(test, dm_test_should_reset_plane(ctx));
+}
+
+/*
+ * Give the second plane a matching pair of framebuffers. should_reset_plane()
+ * casts them to amdgpu_framebuffer, so both are allocated as such.
+ */
+static void dm_test_reset_plane_add_other_fbs(struct kunit *test,
+					      struct dm_test_reset_plane_ctx *ctx)
+{
+	struct amdgpu_framebuffer *old_afb, *new_afb;
+	struct drm_format_info *format;
+
+	format = kunit_kzalloc(test, sizeof(*format), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, format);
+	old_afb = kunit_kzalloc(test, sizeof(*old_afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_afb);
+	new_afb = kunit_kzalloc(test, sizeof(*new_afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_afb);
+
+	old_afb->base.format = format;
+	new_afb->base.format = format;
+	ctx->other_old->base.fb = &old_afb->base;
+	ctx->other_new->base.fb = &new_afb->base;
+}
+
+/**
+ * dm_test_reset_plane_other_format - Test pixel format changes force a reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_format(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+	struct drm_format_info *new_format;
+
+	dm_test_reset_plane_add_other(test, ctx);
+	dm_test_reset_plane_add_other_fbs(test, ctx);
+	new_format = kunit_kzalloc(test, sizeof(*new_format), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_format);
+	ctx->other_new->base.fb->format = new_format;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
+/**
+ * dm_test_reset_plane_other_modifier - Test tiling/DCC changes force a reset
+ * @test: The KUnit test context
+ */
+static void dm_test_reset_plane_other_modifier(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+
+	dm_test_reset_plane_add_other(test, ctx);
+	dm_test_reset_plane_add_other_fbs(test, ctx);
+	ctx->other_new->base.fb->modifier = 1;
+
+	KUNIT_EXPECT_TRUE(test, dm_test_should_reset_plane(ctx));
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -2387,6 +2872,30 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_dirty_rects_psr_su_ffu),
 	KUNIT_CASE(dm_test_dirty_rects_mpo_clips),
 	KUNIT_CASE(dm_test_dirty_rects_mpo_overflow_ffu),
+	/* should_reset_plane */
+	KUNIT_CASE(dm_test_reset_plane_pre_dcn32_modeset),
+	KUNIT_CASE(dm_test_reset_plane_writeback_job),
+	KUNIT_CASE(dm_test_reset_plane_crtc_changed),
+	KUNIT_CASE(dm_test_reset_plane_not_in_context),
+	KUNIT_CASE(dm_test_reset_plane_no_new_crtc_state),
+	KUNIT_CASE(dm_test_reset_plane_cursor_mode_changed),
+	KUNIT_CASE(dm_test_reset_plane_color_mgmt_changed),
+	KUNIT_CASE(dm_test_reset_plane_zpos_changed),
+	KUNIT_CASE(dm_test_reset_plane_modeset),
+	KUNIT_CASE(dm_test_reset_plane_fast_update),
+	KUNIT_CASE(dm_test_reset_plane_skips_non_writeback),
+	KUNIT_CASE(dm_test_reset_plane_other_cursor_skipped),
+	KUNIT_CASE(dm_test_reset_plane_other_crtc_skipped),
+	KUNIT_CASE(dm_test_reset_plane_other_crtc_moved),
+	KUNIT_CASE(dm_test_reset_plane_other_scaling),
+	KUNIT_CASE(dm_test_reset_plane_other_rotation),
+	KUNIT_CASE(dm_test_reset_plane_other_blending),
+	KUNIT_CASE(dm_test_reset_plane_other_alpha),
+	KUNIT_CASE(dm_test_reset_plane_other_colorspace),
+	KUNIT_CASE(dm_test_reset_plane_other_hdr_mult),
+	KUNIT_CASE(dm_test_reset_plane_other_no_fb),
+	KUNIT_CASE(dm_test_reset_plane_other_format),
+	KUNIT_CASE(dm_test_reset_plane_other_modifier),
 	{}
 };
 
