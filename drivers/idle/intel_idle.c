@@ -1792,9 +1792,7 @@ static bool __init intel_idle_cst_usable(void)
 {
 	int cstate, limit;
 
-	limit = min_t(int, min_t(int, CPUIDLE_STATE_MAX, max_cstate + 1),
-		      acpi_state_table.count);
-
+	limit = min3(CPUIDLE_STATE_MAX, max_cstate + 1, acpi_state_table.count);
 	for (cstate = 1; cstate < limit; cstate++) {
 		struct acpi_processor_cx *cx = &acpi_state_table.states[cstate];
 
@@ -1938,7 +1936,7 @@ static void __init intel_idle_init_cstates_acpi_lpi(struct cpuidle_driver *drv)
 
 static void __init intel_idle_init_cstates_acpi_cst(struct cpuidle_driver *drv)
 {
-	int cstate, limit = min_t(int, CPUIDLE_STATE_MAX, acpi_state_table.count);
+	int cstate, limit = min(CPUIDLE_STATE_MAX, acpi_state_table.count);
 
 	/*
 	 * If limit > 0, intel_idle_cst_usable() has returned 'true', so all of
@@ -2018,7 +2016,7 @@ static bool __init intel_idle_off_by_default_lpi(unsigned int flags, u32 mwait_h
 
 static bool __init intel_idle_off_by_default_cst(unsigned int flags, u32 mwait_hint)
 {
-	int cstate, limit = min_t(int, CPUIDLE_STATE_MAX, acpi_state_table.count);
+	int cstate, limit = min(CPUIDLE_STATE_MAX, acpi_state_table.count);
 
 	/*
 	 * If limit > 0, intel_idle_cst_usable() has returned 'true', so all of
