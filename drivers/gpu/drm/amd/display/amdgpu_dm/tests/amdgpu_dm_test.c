@@ -29,6 +29,7 @@
 #include "amdgpu.h"
 #include "amdgpu_mode.h"
 #include "amdgpu_dm.h"
+#include "amdgpu_dm_hdcp.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
 
 /* Tests for simple DM callbacks */
@@ -2846,6 +2847,101 @@ static void dm_test_dump_links_unnamed_sinks(struct kunit *test)
 	amdgpu_dm_dump_links_and_sinks(adev);
 }
 
+/**
+ * dm_test_update_hdcp_no_workqueue - Test HDCP update is skipped without a workqueue
+ * @test: The KUnit test context
+ */
+static void dm_test_update_hdcp_no_workqueue(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	amdgpu_dm_update_hdcp(dm_test_alloc_commit(test, adev));
+}
+
+/*
+ * A commit with one connector of @type bound to a CRTC that keeps its stream.
+ * The content protection state is unchanged, so amdgpu_dm_update_hdcp() walks
+ * the connector without reaching hdcp_update_display() or hdcp_reset_display(),
+ * which are the only users of the HDCP workqueue contents.
+ */
+static struct drm_atomic_commit *dm_test_hdcp_commit(struct kunit *test,
+						     struct amdgpu_device *adev,
+						     int type)
+{
+	struct drm_atomic_commit *state = dm_test_alloc_commit(test, adev);
+	struct dm_crtc_state *old_crtc_state, *new_crtc_state;
+	struct dm_connector_state *old_dm, *new_dm;
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_crtc *acrtc;
+	struct dc_sink *sink;
+
+	adev->dm.hdcp_workqueue = kunit_kzalloc(test,
+						sizeof(*adev->dm.hdcp_workqueue),
+						GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev->dm.hdcp_workqueue);
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	old_dm = kunit_kzalloc(test, sizeof(*old_dm), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_dm);
+	new_dm = kunit_kzalloc(test, sizeof(*new_dm), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_dm);
+	old_crtc_state = kunit_kzalloc(test, sizeof(*old_crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_crtc_state);
+	new_crtc_state = kunit_kzalloc(test, sizeof(*new_crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_crtc_state);
+	sink = kunit_kzalloc(test, sizeof(*sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+	state->connectors = kunit_kzalloc(test, sizeof(*state->connectors), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state->connectors);
+	state->crtcs = kunit_kzalloc(test, sizeof(*state->crtcs), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state->crtcs);
+
+	strscpy(sink->edid_caps.display_name, "panel");
+	sink->sink_signal = SIGNAL_TYPE_DISPLAY_PORT;
+	aconnector->dc_sink = sink;
+	aconnector->base.connector_type = type;
+	aconnector->base.dpms = DRM_MODE_DPMS_ON;
+	aconnector->base.state = &new_dm->base;
+	new_dm->base.crtc = &acrtc->base;
+	new_crtc_state->stream = dm_kunit_alloc_stream(test, NULL);
+
+	state->num_connector = 1;
+	state->connectors[0].ptr = &aconnector->base;
+	state->connectors[0].old_state = &old_dm->base;
+	state->connectors[0].new_state = &new_dm->base;
+	state->crtcs[0].ptr = &acrtc->base;
+	state->crtcs[0].old_state = &old_crtc_state->base;
+	state->crtcs[0].new_state = &new_crtc_state->base;
+
+	return state;
+}
+
+/**
+ * dm_test_update_hdcp_writeback_skipped - Test writeback connectors are skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_update_hdcp_writeback_skipped(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	amdgpu_dm_update_hdcp(dm_test_hdcp_commit(test, adev,
+						  DRM_MODE_CONNECTOR_WRITEBACK));
+}
+
+/**
+ * dm_test_update_hdcp_unchanged - Test an unchanged connector needs no HDCP update
+ * @test: The KUnit test context
+ */
+static void dm_test_update_hdcp_unchanged(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	amdgpu_dm_update_hdcp(dm_test_hdcp_commit(test, adev,
+						  DRM_MODE_CONNECTOR_DisplayPort));
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -2988,6 +3084,10 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_dump_links_no_links),
 	KUNIT_CASE(dm_test_dump_links_with_sinks),
 	KUNIT_CASE(dm_test_dump_links_unnamed_sinks),
+	/* commit-tail helpers */
+	KUNIT_CASE(dm_test_update_hdcp_no_workqueue),
+	KUNIT_CASE(dm_test_update_hdcp_writeback_skipped),
+	KUNIT_CASE(dm_test_update_hdcp_unchanged),
 	{}
 };
 

@@ -1202,6 +1202,7 @@ bool amdgpu_dm_crtc_mem_type_changed(struct drm_device *dev,
 				     struct drm_atomic_commit *state,
 				     struct drm_crtc_state *crtc_state);
 void amdgpu_dm_dump_links_and_sinks(struct amdgpu_device *adev);
+void amdgpu_dm_update_hdcp(struct drm_atomic_commit *state);
 int dm_plane_layer_index_cmp(const void *a, const void *b);
 int fill_plane_color_attributes(const struct drm_plane_state *plane_state,
 				const enum surface_pixel_format format,
