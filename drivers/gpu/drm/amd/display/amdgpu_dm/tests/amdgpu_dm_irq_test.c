@@ -58,12 +58,29 @@ static bool dm_test_detect_link_false(struct dc_link *link,
 	return false;
 }
 
+/* Spy on dc_link_detect() to prove the debounce early-return skipped it. */
+static int dm_test_detect_link_count;
+
+static bool dm_test_detect_link_false_count(struct dc_link *link,
+					    enum dc_detect_reason reason)
+{
+	dm_test_detect_link_count++;
+
+	return false;
+}
+
 static bool dm_test_detect_connection_single(struct dc_link *link,
 					     enum dc_connection_type *type)
 {
 	*type = dc_connection_single;
 
 	return true;
+}
+
+static bool dm_test_detect_connection_fail(struct dc_link *link,
+					   enum dc_connection_type *type)
+{
+	return false;
 }
 
 /* Recording stubs for the dm_handle_hpd_rx_offload_work() DP-IRQ branches. */
@@ -2607,6 +2624,9 @@ static void dm_test_handle_hpd_irq_helper_debounce_schedule(struct kunit *test)
  * When the debounce branch is taken and a stale hdmi_prev_sink is already
  * cached from a previous HPD, it must be released before caching the current
  * local_sink. This exercises the dc_sink_release() of the previous sink.
+ *
+ * An already-armed debounce work also makes mod_delayed_work() re-schedule
+ * rather than queue.
  */
 static void dm_test_handle_hpd_irq_helper_debounce_release_prev(struct kunit *test)
 {
@@ -2627,6 +2647,10 @@ static void dm_test_handle_hpd_irq_helper_debounce_release_prev(struct kunit *te
 	aconn->hdmi_prev_sink = dm_test_sink_create(link);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconn->hdmi_prev_sink);
 	KUNIT_ASSERT_PTR_NE(test, aconn->hdmi_prev_sink, link->local_sink);
+
+	KUNIT_ASSERT_TRUE(test,
+			  schedule_delayed_work(&aconn->hdmi_hpd_debounce_work,
+						10 * HZ));
 
 	handle_hpd_irq_helper(aconn, DETECT_REASON_HPD);
 
@@ -2660,6 +2684,59 @@ static void dm_test_handle_hpd_irq_helper_detect_false(struct kunit *test)
 	handle_hpd_irq_helper(aconn, DETECT_REASON_HPD);
 
 	KUNIT_EXPECT_FALSE(test, aconn->fake_enable);
+}
+
+/**
+ * dm_test_handle_hpd_irq_helper_detect_type_fails - Test detect failure logging
+ * @test: The KUnit test context
+ *
+ * When dc_link_detect_connection_type() itself fails the helper logs an error
+ * and carries on with the connection type left as none, so it still falls
+ * through to the immediate-detect branch.
+ */
+static void dm_test_handle_hpd_irq_helper_detect_type_fails(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+
+	aconn = dm_test_setup_hpd_irq_helper(test, &link_srv);
+	link_srv->detect_connection_type = dm_test_detect_connection_fail;
+	link_srv->detect_link = dm_test_detect_link_false;
+	aconn->fake_enable = true;
+
+	handle_hpd_irq_helper(aconn, DETECT_REASON_HPD);
+
+	KUNIT_EXPECT_FALSE(test, aconn->fake_enable);
+}
+
+/**
+ * dm_test_handle_hpd_irq_helper_debounce_pending - Test pending-debounce exit
+ * @test: The KUnit test context
+ *
+ * A debounce re-detect that is already scheduled owns the connector state, so
+ * an HPD that would otherwise detect immediately must return early and leave
+ * dc_link_detect() untouched.
+ */
+static void dm_test_handle_hpd_irq_helper_debounce_pending(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+
+	dm_test_detect_link_count = 0;
+
+	aconn = dm_test_setup_hpd_irq_helper(test, &link_srv);
+	link_srv->detect_link = dm_test_detect_link_false_count;
+
+	/* Arm the debounce work far enough out that it cannot run here. */
+	KUNIT_ASSERT_TRUE(test,
+			  schedule_delayed_work(&aconn->hdmi_hpd_debounce_work,
+						10 * HZ));
+
+	handle_hpd_irq_helper(aconn, DETECT_REASON_HPD);
+
+	KUNIT_EXPECT_EQ(test, dm_test_detect_link_count, 0);
+
+	cancel_delayed_work_sync(&aconn->hdmi_hpd_debounce_work);
 }
 
 /* Tests for handle_hpd_rx_irq()/schedule_hpd_rx_offload_work() */
@@ -4331,6 +4408,8 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_handle_hpd_irq_helper_debounce_schedule),
 	KUNIT_CASE(dm_test_handle_hpd_irq_helper_debounce_release_prev),
 	KUNIT_CASE(dm_test_handle_hpd_irq_helper_detect_false),
+	KUNIT_CASE(dm_test_handle_hpd_irq_helper_detect_type_fails),
+	KUNIT_CASE(dm_test_handle_hpd_irq_helper_debounce_pending),
 	/* handle_hpd_rx_irq/schedule_hpd_rx_offload_work */
 	KUNIT_CASE(dm_test_handle_hpd_rx_irq_disabled),
 	KUNIT_CASE(dm_test_handle_hpd_rx_irq_no_left_work),
