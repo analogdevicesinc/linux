@@ -28,6 +28,10 @@
 #include "oss/osssys_7_1_0_sh_mask.h"
 #include "ivsrcid/vmc/irqsrcs_vmc_1_0.h"
 
+static void gmc_v12_1_get_mtypes(struct amdgpu_device *adev,
+				 unsigned int *mtype_local,
+				 unsigned int *mtype_remote);
+
 static int gmc_v12_1_vm_fault_interrupt_state(struct amdgpu_device *adev,
 					      struct amdgpu_irq_src *src,
 					      unsigned int type,
@@ -603,10 +607,9 @@ static void gmc_v12_1_get_vm_pde(struct amdgpu_device *adev, int level,
 static void gmc_v12_1_get_npa_flags(struct amdgpu_device *adev,
 				    uint64_t *flags)
 {
-	bool is_aid_a1 = (adev->rev_id & 0x10);
-	unsigned int mtype_remote;
+	unsigned int mtype_local, mtype_remote;
 
-	mtype_remote = is_aid_a1 ? MTYPE_NC : MTYPE_UC;
+	gmc_v12_1_get_mtypes(adev, &mtype_local, &mtype_remote);
 
 	*flags = AMDGPU_PTE_MTYPE_GFX12(*flags, mtype_remote);
 	/* VSCT = 0011 to identify NPA. Additionally PTE.B = 1 */
