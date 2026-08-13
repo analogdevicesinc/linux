@@ -3040,6 +3040,60 @@ static void dm_test_aquire_global_lock_waits_commit(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, ret, 0);
 }
 
+/* Tests for amdgpu_dm_trigger_timing_sync() */
+
+/**
+ * dm_test_trigger_timing_sync_no_state - Test no DC state leaves the sync untouched
+ * @test: The KUnit test context
+ */
+static void dm_test_trigger_timing_sync_no_state(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+	mutex_init(&adev->dm.dc_lock);
+
+	amdgpu_dm_trigger_timing_sync(&adev->ddev);
+}
+
+/**
+ * dm_test_trigger_timing_sync_streams - Test the force flag reaches every stream
+ * @test: The KUnit test context
+ */
+static void dm_test_trigger_timing_sync_streams(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc *dc = dm_kunit_alloc_dc_with_ctx(test);
+	struct dc_stream_state *stream;
+	struct dc_state *context;
+
+	context = dm_kunit_alloc_dc_state(test);
+	KUNIT_ASSERT_NOT_NULL(test, context);
+	stream = dm_kunit_alloc_stream(test, NULL);
+
+	context->streams[0] = stream;
+	context->stream_count = 1;
+	dc->current_state = context;
+	adev->dm.dc = dc;
+	adev->dm.force_timing_sync = true;
+	mutex_init(&adev->dm.dc_lock);
+
+	amdgpu_dm_trigger_timing_sync(&adev->ddev);
+
+	KUNIT_EXPECT_TRUE(test, stream->triggered_crtc_reset.enabled);
+}
+
+/**
+ * dm_test_acpi_phy_transition_interlock - Test the PHY transition interlock stub
+ * @test: The KUnit test context
+ */
+static void dm_test_acpi_phy_transition_interlock(struct kunit *test)
+{
+	struct dm_process_phy_transition_init_params params = { 0 };
+
+	dm_acpi_process_phy_transition_interlock(NULL, params);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -3189,6 +3243,11 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_aquire_global_lock_no_crtc),
 	KUNIT_CASE(dm_test_aquire_global_lock_no_commit),
 	KUNIT_CASE(dm_test_aquire_global_lock_waits_commit),
+	/* amdgpu_dm_trigger_timing_sync */
+	KUNIT_CASE(dm_test_trigger_timing_sync_no_state),
+	KUNIT_CASE(dm_test_trigger_timing_sync_streams),
+	/* dm_acpi_process_phy_transition_interlock */
+	KUNIT_CASE(dm_test_acpi_phy_transition_interlock),
 	{}
 };
 

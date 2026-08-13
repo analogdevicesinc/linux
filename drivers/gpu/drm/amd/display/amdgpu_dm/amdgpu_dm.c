@@ -6627,6 +6627,7 @@ void amdgpu_dm_trigger_timing_sync(struct drm_device *dev)
 	}
 	mutex_unlock(&adev->dm.dc_lock);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_trigger_timing_sync);
 
 void dm_write_reg_func(const struct dc_context *ctx, uint32_t address,
 		       u32 value, const char *func_name)
@@ -6671,3 +6672,4 @@ void dm_acpi_process_phy_transition_interlock(
 {
 	// Not yet implemented
 }
+EXPORT_IF_KUNIT(dm_acpi_process_phy_transition_interlock);
