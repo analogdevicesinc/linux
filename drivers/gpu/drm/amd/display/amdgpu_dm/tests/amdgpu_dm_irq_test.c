@@ -3450,6 +3450,83 @@ static void dm_test_vupdate_high_irq_dcn_no_active_planes(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, acrtc->pflip_status, AMDGPU_FLIP_NONE);
 }
 
+/*
+ * Build a CRTC with an active VRR stream on a device whose vmin/vmax updates
+ * are offloaded to adev->dm.vmin_vmax_wq, seeded with the given timing adjust.
+ * Caller sets adev->family to select the DCE or DCN path, then invokes the
+ * handler and flushes the queue.
+ */
+static struct amdgpu_crtc *dm_test_setup_vmin_vmax_crtc(struct kunit *test,
+							unsigned int v_total_min,
+							unsigned int v_total_max)
+{
+	struct dc_stream_state *stream;
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct dc_link *link;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	mutex_init(&adev->dm.dc_lock);
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_irq_init(adev), 0);
+
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	dc->current_state = kunit_kzalloc(test, sizeof(*dc->current_state),
+					  GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc->current_state);
+	adev->dm.dc = dc;
+
+	link = dm_kunit_alloc_link(test);
+	stream = dm_kunit_alloc_stream(test, link);
+
+	acrtc = dm_test_add_crtc(test, adev);
+	/* VRR active so the !vrr_active vblank handler is skipped. */
+	acrtc->dm_irq_params.freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
+	acrtc->dm_irq_params.stream = stream;
+	acrtc->dm_irq_params.vrr_params.adjust.v_total_min = v_total_min;
+	acrtc->dm_irq_params.vrr_params.adjust.v_total_max = v_total_max;
+
+	return acrtc;
+}
+
+/**
+ * dm_test_vupdate_high_irq_dce_vrr_btr - Test DCE vupdate BTR handling
+ * @test: The KUnit test context
+ *
+ * On DCE (zero DCE IP version) with VRR active and a pre-DCE12 family, vupdate
+ * runs the below-the-range section: it handles the vblank and offloads the
+ * vmin/vmax update, which the worker then applies to the stream.
+ */
+static void dm_test_vupdate_high_irq_dce_vrr_btr(struct kunit *test)
+{
+	struct common_irq_params params = { 0 };
+	struct dc_stream_state *stream;
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+
+	acrtc = dm_test_setup_vmin_vmax_crtc(test, 2000, 2200);
+	adev = drm_to_adev(acrtc->base.dev);
+	stream = acrtc->dm_irq_params.stream;
+	/* Pre-AI family so the BTR block inside the DCE path runs. */
+	adev->family = AMDGPU_FAMILY_SI;
+
+	adev->ddev.vblank[0].time = ktime_get();
+
+	params.adev = adev;
+	params.irq_src = (enum dc_irq_source)IRQ_TYPE_VUPDATE;
+
+	dm_vupdate_high_irq(&params);
+
+	/* The offloaded worker applies the adjust and drops its stream ref. */
+	flush_workqueue(adev->dm.vmin_vmax_wq);
+	KUNIT_EXPECT_EQ(test, stream->adjust.v_total_min, 2000);
+	KUNIT_EXPECT_EQ(test, stream->adjust.v_total_max, 2200);
+	KUNIT_EXPECT_EQ(test, kref_read(&stream->refcount), 1);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
 /**
  * dm_test_crtc_high_irq_no_crtc - Test crtc high IRQ with no CRTC
  * @test: The KUnit test context
@@ -3617,6 +3694,41 @@ static void dm_test_crtc_high_irq_writeback_completes(struct kunit *test)
 
 	KUNIT_EXPECT_FALSE(test, acrtc->wb_pending);
 	KUNIT_EXPECT_FALSE(test, acrtc->wb_frame_done);
+}
+
+/**
+ * dm_test_crtc_high_irq_schedules_vmin_vmax - Test the freesync BTR update
+ * @test: The KUnit test context
+ *
+ * On an AI+ family with an active VRR stream, the handler must run the freesync
+ * v-update and offload the vmin/vmax programming, which the worker then applies
+ * to the stream.
+ */
+static void dm_test_crtc_high_irq_schedules_vmin_vmax(struct kunit *test)
+{
+	struct common_irq_params params = { 0 };
+	struct dc_stream_state *stream;
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+
+	acrtc = dm_test_setup_vmin_vmax_crtc(test, 1000, 1100);
+	adev = drm_to_adev(acrtc->base.dev);
+	stream = acrtc->dm_irq_params.stream;
+	adev->family = AMDGPU_FAMILY_AI;
+	acrtc->dm_irq_params.vrr_params.supported = true;
+
+	params.adev = adev;
+	params.irq_src = (enum dc_irq_source)IRQ_TYPE_VBLANK;
+
+	dm_crtc_high_irq(&params);
+
+	/* The offloaded worker applies the adjust and drops its stream ref. */
+	flush_workqueue(adev->dm.vmin_vmax_wq);
+	KUNIT_EXPECT_EQ(test, stream->adjust.v_total_min, 1000);
+	KUNIT_EXPECT_EQ(test, stream->adjust.v_total_max, 1100);
+	KUNIT_EXPECT_EQ(test, kref_read(&stream->refcount), 1);
+
+	amdgpu_dm_irq_fini(adev);
 }
 
 /* Tests for dm_handle_hpd_work() */
@@ -4246,11 +4358,13 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_vupdate_high_irq_no_crtc),
 	KUNIT_CASE(dm_test_vupdate_high_irq_dcn_completes_flip),
 	KUNIT_CASE(dm_test_vupdate_high_irq_dcn_no_active_planes),
+	KUNIT_CASE(dm_test_vupdate_high_irq_dce_vrr_btr),
 	KUNIT_CASE(dm_test_crtc_high_irq_no_crtc),
 	KUNIT_CASE(dm_test_crtc_high_irq_vrr_pre_ai),
 	KUNIT_CASE(dm_test_crtc_high_irq_vrr_ai_no_stream),
 	KUNIT_CASE(dm_test_crtc_high_irq_writeback_disables),
 	KUNIT_CASE(dm_test_crtc_high_irq_writeback_completes),
+	KUNIT_CASE(dm_test_crtc_high_irq_schedules_vmin_vmax),
 	/* dm_handle_hpd_work */
 	KUNIT_CASE(dm_test_handle_hpd_work_out_of_range),
 	/* dm_dmub_outbox1_low_irq */
