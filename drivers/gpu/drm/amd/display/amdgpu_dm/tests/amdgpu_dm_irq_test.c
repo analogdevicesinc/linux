@@ -340,6 +340,38 @@ static void dm_test_crtc_list_del(void *data)
 	list_del_init(&acrtc->base.head);
 }
 
+/*
+ * The DRM vblank core looks CRTCs up by index on mode_config.crtc_list and
+ * dereferences crtc->funcs, so a listed CRTC must carry a funcs table even
+ * when it implements no callbacks.
+ */
+static const struct drm_crtc_funcs dm_test_crtc_funcs = {
+};
+
+/*
+ * Add an OTG instance 0 CRTC to the device so amdgpu_dm_get_crtc_by_otg_inst()
+ * finds it. The CRTC is removed from the list again on test teardown.
+ */
+static struct amdgpu_crtc *dm_test_add_crtc(struct kunit *test,
+					    struct amdgpu_device *adev)
+{
+	struct amdgpu_crtc *acrtc;
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+
+	INIT_LIST_HEAD(&acrtc->base.head);
+	acrtc->base.dev = &adev->ddev;
+	acrtc->base.funcs = &dm_test_crtc_funcs;
+	acrtc->otg_inst = 0;
+
+	list_add_tail(&acrtc->base.head, &adev->ddev.mode_config.crtc_list);
+	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test,
+				dm_test_crtc_list_del, acrtc), 0);
+
+	return acrtc;
+}
+
 struct dm_test_hpd_rx_wq_ctx {
 	struct hpd_rx_irq_offload_work_queue *wq;
 	int count;
@@ -2481,16 +2513,14 @@ static void dm_test_handle_hpd_irq_disabled(struct kunit *test)
 	KUNIT_EXPECT_TRUE(test, aconn->fake_enable);
 }
 
-/**
- * dm_test_handle_hpd_irq_helper_debounce_schedule - Test HDMI debounce branch
- * @test: The KUnit test context
- *
- * An HDMI link reporting a disconnect (connection type none) with a non-zero
- * debounce delay and a cached local_sink must take the debounce branch: it
- * caches local_sink in hdmi_prev_sink and schedules the delayed debounce work
- * instead of detecting immediately.
+/*
+ * Build an aconnector wired for handle_hpd_irq_helper(): an HPD lock, an armed
+ * debounce work item, an atomic state and a dc/link pair reporting no
+ * connection. Caller sets the link_srv stubs and any HDMI/debounce fields the
+ * branch under test needs.
  */
-static void dm_test_handle_hpd_irq_helper_debounce_schedule(struct kunit *test)
+static struct amdgpu_dm_connector *dm_test_setup_hpd_irq_helper(struct kunit *test,
+								struct link_service **link_srv_out)
 {
 	struct amdgpu_dm_connector *aconn;
 	struct dm_connector_state *state;
@@ -2501,6 +2531,7 @@ static void dm_test_handle_hpd_irq_helper_debounce_schedule(struct kunit *test)
 	struct dc *dc;
 
 	adev = dm_kunit_alloc_adev(test);
+	mutex_init(&adev->dm.dc_lock);
 
 	aconn = dm_kunit_alloc_connector(test, adev, NULL);
 	mutex_init(&aconn->hpd_lock);
@@ -2527,6 +2558,29 @@ static void dm_test_handle_hpd_irq_helper_debounce_schedule(struct kunit *test)
 	link->dc = dc;
 	link->ctx = ctx;
 	aconn->dc_link = link;
+
+	*link_srv_out = link_srv;
+
+	return aconn;
+}
+
+/**
+ * dm_test_handle_hpd_irq_helper_debounce_schedule - Test HDMI debounce branch
+ * @test: The KUnit test context
+ *
+ * An HDMI link reporting a disconnect (connection type none) with a non-zero
+ * debounce delay and a cached local_sink must take the debounce branch: it
+ * caches local_sink in hdmi_prev_sink and schedules the delayed debounce work
+ * instead of detecting immediately.
+ */
+static void dm_test_handle_hpd_irq_helper_debounce_schedule(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+	struct dc_link *link;
+
+	aconn = dm_test_setup_hpd_irq_helper(test, &link_srv);
+	link = aconn->dc_link;
 
 	/* HDMI signal + debounce delay + cached sink -> debounce branch. */
 	aconn->hdmi_hpd_debounce_delay_ms = 100;
@@ -2555,40 +2609,11 @@ static void dm_test_handle_hpd_irq_helper_debounce_schedule(struct kunit *test)
 static void dm_test_handle_hpd_irq_helper_debounce_release_prev(struct kunit *test)
 {
 	struct amdgpu_dm_connector *aconn;
-	struct dm_connector_state *state;
 	struct link_service *link_srv;
-	struct amdgpu_device *adev;
-	struct dc_context *ctx;
 	struct dc_link *link;
-	struct dc *dc;
 
-	adev = dm_kunit_alloc_adev(test);
-
-	aconn = dm_kunit_alloc_connector(test, adev, NULL);
-	mutex_init(&aconn->hpd_lock);
-	INIT_DELAYED_WORK(&aconn->hdmi_hpd_debounce_work,
-			  amdgpu_dm_hdmi_hpd_debounce_work);
-
-	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
-	aconn->base.state = &state->base;
-
-	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
-	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx);
-	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link_srv);
-	link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
-
-	link_srv->detect_connection_type = dm_test_detect_connection_none;
-	dc->ctx = ctx;
-	dc->link_srv = link_srv;
-	ctx->dc = dc;
-	link->dc = dc;
-	link->ctx = ctx;
-	aconn->dc_link = link;
+	aconn = dm_test_setup_hpd_irq_helper(test, &link_srv);
+	link = aconn->dc_link;
 
 	/* HDMI signal + debounce delay + cached sink -> debounce branch. */
 	aconn->hdmi_hpd_debounce_delay_ms = 100;
@@ -2623,42 +2648,10 @@ static void dm_test_handle_hpd_irq_helper_debounce_release_prev(struct kunit *te
 static void dm_test_handle_hpd_irq_helper_detect_false(struct kunit *test)
 {
 	struct amdgpu_dm_connector *aconn;
-	struct dm_connector_state *state;
 	struct link_service *link_srv;
-	struct amdgpu_device *adev;
-	struct dc_context *ctx;
-	struct dc_link *link;
-	struct dc *dc;
 
-	adev = dm_kunit_alloc_adev(test);
-	mutex_init(&adev->dm.dc_lock);
-
-	aconn = dm_kunit_alloc_connector(test, adev, NULL);
-	mutex_init(&aconn->hpd_lock);
-	INIT_DELAYED_WORK(&aconn->hdmi_hpd_debounce_work,
-			  amdgpu_dm_hdmi_hpd_debounce_work);
-
-	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
-	aconn->base.state = &state->base;
-
-	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
-	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx);
-	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link_srv);
-	link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
-
-	link_srv->detect_connection_type = dm_test_detect_connection_none;
+	aconn = dm_test_setup_hpd_irq_helper(test, &link_srv);
 	link_srv->detect_link = dm_test_detect_link_false;
-	dc->ctx = ctx;
-	dc->link_srv = link_srv;
-	ctx->dc = dc;
-	link->dc = dc;
-	link->ctx = ctx;
-	aconn->dc_link = link;
 	aconn->fake_enable = true;
 
 	/* No debounce delay and no force -> immediate-detect else branch. */
@@ -3315,16 +3308,8 @@ static void dm_test_pflip_high_irq_not_submitted(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = dm_kunit_alloc_adev(test);
-	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
-
-	INIT_LIST_HEAD(&acrtc->base.head);
-	acrtc->base.dev = &adev->ddev;
-	acrtc->otg_inst = 0;
+	acrtc = dm_test_add_crtc(test, adev);
 	acrtc->pflip_status = AMDGPU_FLIP_NONE;
-	list_add_tail(&acrtc->base.head, &adev->ddev.mode_config.crtc_list);
-	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test,
-				dm_test_crtc_list_del, acrtc), 0);
 
 	params.adev = adev;
 	params.irq_src = (enum dc_irq_source)IRQ_TYPE_PFLIP;
@@ -3380,17 +3365,9 @@ static void dm_test_crtc_high_irq_vrr_pre_ai(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = dm_kunit_alloc_adev(test);
-	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
-
-	INIT_LIST_HEAD(&acrtc->base.head);
-	acrtc->base.dev = &adev->ddev;
-	acrtc->otg_inst = 0;
+	acrtc = dm_test_add_crtc(test, adev);
 	/* VRR active so the !vrr_active vblank handler is skipped. */
 	acrtc->dm_irq_params.freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
-	list_add_tail(&acrtc->base.head, &adev->ddev.mode_config.crtc_list);
-	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test,
-				dm_test_crtc_list_del, acrtc), 0);
 
 	/* Pre-AI family returns right after CRC handling. */
 	adev->family = AMDGPU_FAMILY_SI;
@@ -3417,18 +3394,10 @@ static void dm_test_crtc_high_irq_vrr_ai_no_stream(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = dm_kunit_alloc_adev(test);
-	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
-
-	INIT_LIST_HEAD(&acrtc->base.head);
-	acrtc->base.dev = &adev->ddev;
-	acrtc->otg_inst = 0;
+	acrtc = dm_test_add_crtc(test, adev);
 	acrtc->pflip_status = AMDGPU_FLIP_NONE;
 	/* VRR active so the !vrr_active vblank handler is skipped. */
 	acrtc->dm_irq_params.freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
-	list_add_tail(&acrtc->base.head, &adev->ddev.mode_config.crtc_list);
-	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test,
-				dm_test_crtc_list_del, acrtc), 0);
 
 	/* AI+ family runs the freesync section; no stream skips it. */
 	adev->family = AMDGPU_FAMILY_AI;
@@ -3625,6 +3594,33 @@ static void dm_test_dce110_register_irq_handlers_rejects_uninitialized_sources(s
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_dce110_register_irq_handlers(adev), -EINVAL);
 }
 
+/*
+ * Build an adev/dc pair with one CRTC, ready for either register_irq_handlers()
+ * entry point, using the given fake IRQ service to map source IDs. A service
+ * that only maps a subset lets a chosen register loop hit its invalid-source
+ * guard, and clearing an amdgpu_irq_src's funcs makes its add_id() fail.
+ */
+static struct amdgpu_device *dm_test_setup_irq_regs(struct kunit *test,
+						   const struct irq_service_funcs *funcs)
+{
+	struct amdgpu_device *adev;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_free_irq_sources,
+							 adev), 0);
+	dc = dm_test_alloc_dc_with_irq_service(test, funcs);
+	dc->ctx->dce_version = DCE_VERSION_11_0;
+	dc->caps.max_otg_num = 1;
+	adev->dm.dc = dc;
+	adev->mode_info.num_crtc = 1;
+	adev->mode_info.num_hpd = 1;
+	amdgpu_dm_set_irq_funcs(adev);
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_irq_init(adev), 0);
+
+	return adev;
+}
+
 /**
  * dm_test_dce110_register_irq_handlers_one_crtc - Test DCE110 with 1 CRTC
  * @test: The KUnit test context
@@ -3635,18 +3631,8 @@ static void dm_test_dce110_register_irq_handlers_rejects_uninitialized_sources(s
 static void dm_test_dce110_register_irq_handlers_one_crtc(struct kunit *test)
 {
 	struct amdgpu_device *adev;
-	struct dc *dc;
 
-	adev = dm_kunit_alloc_adev(test);
-	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_free_irq_sources,
-							 adev), 0);
-	dc = dm_test_alloc_dc_with_irq_service(test, &dm_test_irq_service_funcs_dce110);
-	dc->ctx->dce_version = DCE_VERSION_11_0;
-	adev->dm.dc = dc;
-	adev->mode_info.num_crtc = 1;
-	adev->mode_info.num_hpd = 1;
-	amdgpu_dm_set_irq_funcs(adev);
-	KUNIT_ASSERT_EQ(test, amdgpu_dm_irq_init(adev), 0);
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_dce110);
 
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_dce110_register_irq_handlers(adev), 0);
 
@@ -3702,18 +3688,8 @@ static void dm_test_dcn10_register_irq_handlers_zero_crtc(struct kunit *test)
 static void dm_test_dcn10_register_irq_handlers_one_crtc(struct kunit *test)
 {
 	struct amdgpu_device *adev;
-	struct dc *dc;
 
-	adev = dm_kunit_alloc_adev(test);
-	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_free_irq_sources,
-							 adev), 0);
-	dc = dm_test_alloc_dc_with_irq_service(test, &dm_test_irq_service_funcs_dcn10);
-	adev->dm.dc = dc;
-	adev->mode_info.num_crtc = 1;
-	adev->mode_info.num_hpd = 1;
-	dc->caps.max_otg_num = 1;
-	amdgpu_dm_set_irq_funcs(adev);
-	KUNIT_ASSERT_EQ(test, amdgpu_dm_irq_init(adev), 0);
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_dcn10);
 
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_dcn10_register_irq_handlers(adev), 0);
 
