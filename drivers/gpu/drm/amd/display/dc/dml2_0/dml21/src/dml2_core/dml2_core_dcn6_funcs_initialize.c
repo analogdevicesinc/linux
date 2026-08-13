@@ -24,6 +24,7 @@ struct dml2_core_ip_params core_dcn6_ip_caps_base = {
 	.writeback_interface_buffer_size_kbytes = 90,
 	//Number of pipes after DCN Pipe harvesting
 	.max_num_dpp = 4,
+	.max_num_opp = 4,
 	.max_num_otg = 4,
 	.max_num_wb = 1,
 	.zero_size_buffer_entries = 512,
@@ -111,6 +112,7 @@ static void patch_ip_caps_with_explicit_ip_params(struct dml2_ip_capabilities *i
 static void patch_ip_params_with_ip_caps(struct dml2_core_ip_params *ip_params, const struct dml2_ip_capabilities *ip_caps)
 {
 	ip_params->max_num_dpp = ip_caps->pipe_count;
+	ip_params->max_num_opp = ip_caps->otg_count;
 	ip_params->max_num_otg = ip_caps->otg_count;
 	ip_params->TDLUT_33cube_count = ip_caps->TDLUT_33cube_count;
 	ip_params->num_dsc = ip_caps->num_dsc;

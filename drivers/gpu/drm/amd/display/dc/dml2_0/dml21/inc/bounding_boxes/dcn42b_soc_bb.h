@@ -57,7 +57,6 @@ static const struct dml2_soc_qos_parameters dml_dcn42b_variant_a_soc_qos_params 
 	},
 	.qos_params = {
 		.dcn32x = {
-			.loaded_round_trip_latency_fclk_cycles = 106,
 			.urgent_latency_us = {
 				.base_latency_us = 4,
 				.base_latency_pixel_vm_us = 4,
@@ -65,8 +64,9 @@ static const struct dml2_soc_qos_parameters dml_dcn42b_variant_a_soc_qos_params 
 				.scaling_factor_fclk_us = 0,
 				.scaling_factor_mhz = 0,
 			},
-			.urgent_out_of_order_return_per_channel_pixel_and_vm_bytes = 4096,
+			.loaded_round_trip_latency_fclk_cycles = 106,
 			.urgent_out_of_order_return_per_channel_pixel_only_bytes = 4096,
+			.urgent_out_of_order_return_per_channel_pixel_and_vm_bytes = 4096,
 			.urgent_out_of_order_return_per_channel_vm_only_bytes = 4096,
 		},
 	},
@@ -167,7 +167,6 @@ static const struct dml2_soc_bb dml2_socbb_dcn42b = {
 		},
 		.qos_params = {
 			.dcn32x = {
-				.loaded_round_trip_latency_fclk_cycles = 106,
 				.urgent_latency_us = {
 					.base_latency_us = 4,
 					.base_latency_pixel_vm_us = 4,
@@ -175,8 +174,9 @@ static const struct dml2_soc_bb dml2_socbb_dcn42b = {
 					.scaling_factor_fclk_us = 0,
 					.scaling_factor_mhz = 0,
 				},
-				.urgent_out_of_order_return_per_channel_pixel_and_vm_bytes = 4096,
+				.loaded_round_trip_latency_fclk_cycles = 106,
 				.urgent_out_of_order_return_per_channel_pixel_only_bytes = 4096,
+				.urgent_out_of_order_return_per_channel_pixel_and_vm_bytes = 4096,
 				.urgent_out_of_order_return_per_channel_vm_only_bytes = 4096,
 			},
 		},
@@ -208,8 +208,8 @@ static const struct dml2_soc_bb dml2_socbb_dcn42b = {
 	.return_bus_width_bytes = 64,
 	.hostvm_min_page_size_kbytes = 4,
 	.gpuvm_min_page_size_kbytes = 4,
-	.gpuvm_max_page_table_levels = 1,
 	.hostvm_max_non_cached_page_table_levels = 2,
+	.gpuvm_max_page_table_levels = 1,
 	.phy_downspread_percent = 0.38,
 	.dcn_downspread_percent = 0.38,
 	.dispclk_dppclk_vco_speed_mhz = 3000,

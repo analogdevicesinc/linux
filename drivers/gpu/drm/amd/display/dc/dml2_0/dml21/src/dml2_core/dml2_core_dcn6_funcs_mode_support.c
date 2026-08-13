@@ -988,12 +988,16 @@ static void dcn6_ms_calculate_num_of_dpp_required(
 	for (k = 0; k < display_cfg->num_planes; k++) {
 		plane = &display_cfg->plane_descriptors[k];
 		outputs->NoOfDPP[k] = 1;
+		outputs->NoOfOPP[k] = 1;
 		if (inputs->ODMMode[k] == dml2_odm_mode_combine_4to1) {
 			outputs->NoOfDPP[k] = 4;
+			outputs->NoOfOPP[k] = 4;
 		} else if (inputs->ODMMode[k] == dml2_odm_mode_combine_3to1) {
 			outputs->NoOfDPP[k] = 3;
+			outputs->NoOfOPP[k] = 3;
 		} else if (inputs->ODMMode[k] == dml2_odm_mode_combine_2to1) {
 			outputs->NoOfDPP[k] = 2;
+			outputs->NoOfOPP[k] = 2;
 		} else if (plane->overrides.mpcc_combine_factor == 2) {
 			outputs->MPCCombine[k] = true;
 			outputs->NoOfDPP[k] = 2;
@@ -1027,12 +1031,28 @@ static bool dcn6_ms_check_total_available_pipes_support(
 	struct dml2_core_internal_mode_support *inputs = states;
 	struct dml2_core_internal_mode_support *outputs = states;
 	unsigned int totalNumOfActiveDPP = 0;
-	unsigned int k;
+	unsigned int k, m;
 
 	DML_LOG_FUNC_ENTER();
 	for (k = 0; k < display_cfg->num_planes; k++)
 		totalNumOfActiveDPP += inputs->NoOfDPP[k];
-	outputs->support.TotalAvailablePipesSupport = totalNumOfActiveDPP <= (unsigned int)ip->max_num_dpp;
+
+
+	// TotalNumberOfActiveOPP is the sum of the per stream max NoOfOPP of all planes driving that stream
+	outputs->TotalNumberOfActiveOPP = 0;
+	for (k = 0; k < display_cfg->num_streams; k++) {
+		unsigned int NoOfOppPerStream = 0;
+
+		for (m = 0; m < display_cfg->num_planes; m++) {
+			if (display_cfg->plane_descriptors[m].stream_index == k)
+				NoOfOppPerStream = NoOfOppPerStream < inputs->NoOfOPP[m] ? inputs->NoOfOPP[m] : NoOfOppPerStream;
+		}
+
+		outputs->TotalNumberOfActiveOPP += NoOfOppPerStream;
+	}
+
+	outputs->support.TotalAvailablePipesSupport = totalNumOfActiveDPP <= (unsigned int)ip->max_num_dpp
+			&& outputs->TotalNumberOfActiveOPP <= (unsigned int)ip->max_num_opp;
 
 	DML_LOG_DEBUG_BOOL(outputs->support.TotalAvailablePipesSupport);
 	DML_LOG_FUNC_EXIT();

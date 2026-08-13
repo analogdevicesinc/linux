@@ -4116,9 +4116,7 @@ static bool ValidateODMMode(enum dml2_odm_mode ODMMode,
 	bool UseDSC,
 	unsigned int NumberOfDSCSlices,
 	unsigned int TotalNumberOfActiveDPP,
-	unsigned int TotalNumberOfActiveOPP,
 	unsigned int MaxNumDPP,
-	unsigned int MaxNumOPP,
 	double DISPCLKRequired,
 	unsigned int NumberOfDPPRequired,
 	unsigned int MaxHActiveForDSC,
@@ -4134,7 +4132,7 @@ static bool ValidateODMMode(enum dml2_odm_mode ODMMode,
 
 	if (DISPCLKRequired > MaxDispclk)
 		return false;
-	if ((TotalNumberOfActiveDPP + NumberOfDPPRequired) > MaxNumDPP || (TotalNumberOfActiveOPP + NumberOfDPPRequired) > MaxNumOPP)
+	if ((TotalNumberOfActiveDPP + NumberOfDPPRequired) > MaxNumDPP)
 		return false;
 	if (are_odm_segments_symmetrical) {
 		if (HActive % (NumberOfDPPRequired * pixels_per_clock_cycle))
@@ -4180,9 +4178,7 @@ static noinline_for_stack void CalculateODMMode(
 	double MaxDispclk,
 	bool DSCEnable,
 	unsigned int TotalNumberOfActiveDPP,
-	unsigned int TotalNumberOfActiveOPP,
 	unsigned int MaxNumDPP,
-	unsigned int MaxNumOPP,
 	double PixelClock,
 	unsigned int NumberOfDSCSlices,
 
@@ -4252,9 +4248,7 @@ static noinline_for_stack void CalculateODMMode(
 			UseDSC,
 			NumberOfDSCSlices,
 			TotalNumberOfActiveDPP,
-			TotalNumberOfActiveOPP,
 			MaxNumDPP,
-			MaxNumOPP,
 			DISPCLKRequired,
 			NumberOfDPPRequired,
 			MaxHActiveForDSC,
@@ -8453,7 +8447,6 @@ static bool dml_core_mode_support(struct dml2_core_calcs_mode_support_ex *in_out
 	CalculateSwathAndDETConfiguration(&mode_lib->scratch, CalculateSwathAndDETConfiguration_params);
 
 	mode_lib->ms.TotalNumberOfActiveDPP = 0;
-	mode_lib->ms.TotalNumberOfActiveOPP = 0;
 	mode_lib->ms.support.TotalAvailablePipesSupport = true;
 
 	for (k = 0; k < mode_lib->ms.num_active_planes; ++k) {
@@ -8489,9 +8482,7 @@ static bool dml_core_mode_support(struct dml2_core_calcs_mode_support_ex *in_out
 			mode_lib->ms.max_dispclk_freq_mhz,
 			false, // DSCEnable
 			mode_lib->ms.TotalNumberOfActiveDPP,
-			mode_lib->ms.TotalNumberOfActiveOPP,
 			mode_lib->ip.max_num_dpp,
-			mode_lib->ip.max_num_opp,
 			((double)display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].timing.pixel_clock_khz / 1000),
 			mode_lib->ms.support.NumberOfDSCSlices[k],
 
@@ -8510,9 +8501,7 @@ static bool dml_core_mode_support(struct dml2_core_calcs_mode_support_ex *in_out
 			mode_lib->ms.max_dispclk_freq_mhz,
 			true, // DSCEnable
 			mode_lib->ms.TotalNumberOfActiveDPP,
-			mode_lib->ms.TotalNumberOfActiveOPP,
 			mode_lib->ip.max_num_dpp,
-			mode_lib->ip.max_num_opp,
 			((double)display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].timing.pixel_clock_khz / 1000),
 			mode_lib->ms.support.NumberOfDSCSlices[k],
 
@@ -8650,12 +8639,25 @@ static bool dml_core_mode_support(struct dml2_core_calcs_mode_support_ex *in_out
 #endif
 	}
 
+	// TotalNumberOfActiveDPP is the sum of all planes
 	mode_lib->ms.TotalNumberOfActiveDPP = 0;
-	mode_lib->ms.TotalNumberOfActiveOPP = 0;
 	for (k = 0; k < mode_lib->ms.num_active_planes; ++k) {
 		mode_lib->ms.TotalNumberOfActiveDPP += mode_lib->ms.NoOfDPP[k];
-		mode_lib->ms.TotalNumberOfActiveOPP += mode_lib->ms.NoOfOPP[k];
 	}
+
+	// TotalNumberOfActiveOPP is the sum of the per stream max of all planes
+	mode_lib->ms.TotalNumberOfActiveOPP = 0;
+	for (k = 0; k < display_cfg->num_streams; ++k) {
+		unsigned int NoOfOppPerStream = 0;
+		for (m = 0; m < display_cfg->num_planes; ++m) {
+			if (display_cfg->plane_descriptors[m].stream_index == k) {
+				NoOfOppPerStream = NoOfOppPerStream < mode_lib->ms.NoOfOPP[m] ? mode_lib->ms.NoOfOPP[m] : NoOfOppPerStream;
+			}
+		}
+
+		mode_lib->ms.TotalNumberOfActiveOPP += NoOfOppPerStream;
+	}
+
 	if (mode_lib->ms.TotalNumberOfActiveDPP > (unsigned int)mode_lib->ip.max_num_dpp)
 		mode_lib->ms.support.TotalAvailablePipesSupport = false;
 	if (mode_lib->ms.TotalNumberOfActiveOPP > (unsigned int)mode_lib->ip.max_num_opp)
