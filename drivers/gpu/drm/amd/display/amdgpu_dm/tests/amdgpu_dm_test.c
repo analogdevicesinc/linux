@@ -1937,6 +1937,343 @@ static void dm_test_mem_type_changed_different_domain(struct kunit *test)
 							       ctx->crtc_state));
 }
 
+/* Tests for fill_dc_dirty_rects() */
+
+struct dm_test_dirty_ctx {
+	struct amdgpu_device *adev;
+	struct drm_plane *plane;
+	struct drm_plane_state *old_plane_state;
+	struct drm_plane_state *new_plane_state;
+	struct dm_crtc_state *crtc_state;
+	struct dc_flip_addrs *flip_addrs;
+	bool dirty_regions_changed;
+};
+
+static struct dm_test_dirty_ctx *dm_test_dirty_ctx_alloc(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->adev = dm_kunit_alloc_adev(test);
+	ctx->plane = drm_kunit_helper_create_primary_plane(test, &ctx->adev->ddev,
+							   NULL, NULL, NULL, 0, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->plane);
+	drm_plane_enable_fb_damage_clips(ctx->plane);
+	ctx->old_plane_state = kunit_kzalloc(test, sizeof(*ctx->old_plane_state),
+					     GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->old_plane_state);
+	ctx->new_plane_state = kunit_kzalloc(test, sizeof(*ctx->new_plane_state),
+					     GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->new_plane_state);
+	ctx->crtc_state = kunit_kzalloc(test, sizeof(*ctx->crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc_state);
+	ctx->flip_addrs = kunit_kzalloc(test, sizeof(*ctx->flip_addrs), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->flip_addrs);
+
+	ctx->plane->type = DRM_PLANE_TYPE_PRIMARY;
+	ctx->new_plane_state->plane = ctx->plane;
+	ctx->new_plane_state->rotation = DRM_MODE_ROTATE_0;
+	ctx->old_plane_state->plane = ctx->plane;
+	ctx->crtc_state->base.mode.crtc_hdisplay = 1920;
+	ctx->crtc_state->base.mode.crtc_vdisplay = 1080;
+
+	return ctx;
+}
+
+static void dm_test_fill_dirty_rects(struct dm_test_dirty_ctx *ctx, bool is_psr_su)
+{
+	fill_dc_dirty_rects(ctx->plane, ctx->old_plane_state,
+			    ctx->new_plane_state, &ctx->crtc_state->base,
+			    ctx->flip_addrs, is_psr_su,
+			    &ctx->dirty_regions_changed);
+}
+
+/*
+ * Attach @count damage clips to the new plane state. The blob is only ever
+ * read through drm_plane_get_damage_clips(), so a bare blob is enough.
+ */
+static struct drm_mode_rect *dm_test_add_damage_clips(struct kunit *test,
+						      struct drm_plane_state *state,
+						      unsigned int count)
+{
+	struct drm_property_blob *blob;
+	struct drm_mode_rect *clips;
+
+	blob = kunit_kzalloc(test, sizeof(*blob), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, blob);
+	clips = kunit_kcalloc(test, count, sizeof(*clips), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, clips);
+
+	blob->length = count * sizeof(*clips);
+	blob->data = clips;
+	state->fb_damage_clips = blob;
+
+	return clips;
+}
+
+/**
+ * dm_test_dirty_rects_cursor_plane - Test cursor planes are left to their own path
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_cursor_plane(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+
+	ctx->plane->type = DRM_PLANE_TYPE_CURSOR;
+
+	dm_test_fill_dirty_rects(ctx, true);
+
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 0U);
+}
+
+/**
+ * dm_test_dirty_rects_rotation_ffu - Test a rotated plane falls back to full frame update
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_rotation_ffu(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+
+	ctx->new_plane_state->rotation = DRM_MODE_ROTATE_90;
+
+	dm_test_fill_dirty_rects(ctx, true);
+
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 1U);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].x, 0);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].y, 0);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 1920);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].height, 1080);
+}
+
+/**
+ * dm_test_dirty_rects_no_clips_ffu - Test a damage-unaware client gets a full frame update
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_no_clips_ffu(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+
+	dm_test_fill_dirty_rects(ctx, true);
+
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 1U);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 1920);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].height, 1080);
+}
+
+/**
+ * dm_test_dirty_rects_ignored_damage_clips - Test ignored damage clips force a full update
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_ignored_damage_clips(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+
+	dm_test_add_damage_clips(test, ctx->new_plane_state, 1);
+	ctx->new_plane_state->ignore_damage_clips = true;
+
+	dm_test_fill_dirty_rects(ctx, true);
+
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 1U);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 1920);
+}
+
+/**
+ * dm_test_dirty_rects_too_many_clips_ffu - Test exceeding DC_MAX_DIRTY_RECTS falls back
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_too_many_clips_ffu(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+
+	dm_test_add_damage_clips(test, ctx->new_plane_state,
+				 DC_MAX_DIRTY_RECTS + 1);
+
+	dm_test_fill_dirty_rects(ctx, false);
+
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 1U);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 1920);
+}
+
+/**
+ * dm_test_dirty_rects_damage_clips - Test damage clips are copied verbatim
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_damage_clips(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+	struct drm_mode_rect *clips;
+
+	clips = dm_test_add_damage_clips(test, ctx->new_plane_state, 2);
+	clips[0].x1 = 10;
+	clips[0].y1 = 20;
+	clips[0].x2 = 40;
+	clips[0].y2 = 60;
+	clips[1].x1 = 100;
+	clips[1].y1 = 200;
+	clips[1].x2 = 150;
+	clips[1].y2 = 260;
+
+	dm_test_fill_dirty_rects(ctx, false);
+
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 2U);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].x, 10);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].y, 20);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 30);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].height, 40);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[1].x, 100);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[1].width, 50);
+	KUNIT_EXPECT_FALSE(test, ctx->dirty_regions_changed);
+}
+
+/**
+ * dm_test_dirty_rects_mpo_bb_changed - Test MPO adds both plane bounding boxes
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_mpo_bb_changed(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+	struct drm_framebuffer *fb;
+
+	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fb);
+
+	ctx->crtc_state->mpo_requested = true;
+	ctx->old_plane_state->fb = fb;
+	ctx->new_plane_state->fb = fb;
+	ctx->old_plane_state->crtc_x = 0;
+	ctx->old_plane_state->crtc_y = 0;
+	ctx->old_plane_state->crtc_w = 640;
+	ctx->old_plane_state->crtc_h = 480;
+	ctx->new_plane_state->crtc_x = 100;
+	ctx->new_plane_state->crtc_y = 50;
+	ctx->new_plane_state->crtc_w = 800;
+	ctx->new_plane_state->crtc_h = 600;
+
+	dm_test_fill_dirty_rects(ctx, true);
+
+	KUNIT_EXPECT_TRUE(test, ctx->dirty_regions_changed);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 2U);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].x, 100);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 800);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[1].x, 0);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[1].width, 640);
+}
+
+/**
+ * dm_test_dirty_rects_mpo_fb_changed - Test MPO flips add the new plane bounding box
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_mpo_fb_changed(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+	struct drm_framebuffer *old_fb;
+	struct drm_framebuffer *new_fb;
+
+	old_fb = kunit_kzalloc(test, sizeof(*old_fb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_fb);
+	new_fb = kunit_kzalloc(test, sizeof(*new_fb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_fb);
+
+	old_fb->base.id = 1;
+	new_fb->base.id = 2;
+	ctx->crtc_state->mpo_requested = true;
+	ctx->old_plane_state->fb = old_fb;
+	ctx->new_plane_state->fb = new_fb;
+	ctx->new_plane_state->crtc_w = 800;
+	ctx->new_plane_state->crtc_h = 600;
+	ctx->old_plane_state->crtc_w = 800;
+	ctx->old_plane_state->crtc_h = 600;
+
+	dm_test_fill_dirty_rects(ctx, true);
+
+	KUNIT_EXPECT_FALSE(test, ctx->dirty_regions_changed);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 1U);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 800);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].height, 600);
+}
+
+/**
+ * dm_test_dirty_rects_psr_su_ffu - Test PSR SU ignores clips in auto damage mode
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_psr_su_ffu(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+
+	dm_test_add_damage_clips(test, ctx->new_plane_state, 1);
+
+	dm_test_fill_dirty_rects(ctx, true);
+
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 1U);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 1920);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].height, 1080);
+}
+
+/**
+ * dm_test_dirty_rects_mpo_clips - Test MPO copies damage clips when the box is stable
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_mpo_clips(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+	struct drm_mode_rect *clips;
+	struct drm_framebuffer *fb;
+
+	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fb);
+
+	clips = dm_test_add_damage_clips(test, ctx->new_plane_state, 2);
+	clips[0].x1 = 5;
+	clips[0].y1 = 6;
+	clips[0].x2 = 25;
+	clips[0].y2 = 36;
+	clips[1].x1 = 50;
+	clips[1].y1 = 60;
+	clips[1].x2 = 90;
+	clips[1].y2 = 110;
+
+	ctx->crtc_state->mpo_requested = true;
+	ctx->old_plane_state->fb = fb;
+	ctx->new_plane_state->fb = fb;
+
+	dm_test_fill_dirty_rects(ctx, false);
+
+	KUNIT_EXPECT_FALSE(test, ctx->dirty_regions_changed);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 2U);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].x, 5);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 20);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[1].x, 50);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[1].height, 50);
+}
+
+/**
+ * dm_test_dirty_rects_mpo_overflow_ffu - Test MPO falls back when clips plus boxes overflow
+ * @test: The KUnit test context
+ */
+static void dm_test_dirty_rects_mpo_overflow_ffu(struct kunit *test)
+{
+	struct dm_test_dirty_ctx *ctx = dm_test_dirty_ctx_alloc(test);
+	struct drm_framebuffer *fb;
+
+	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fb);
+
+	dm_test_add_damage_clips(test, ctx->new_plane_state, 2);
+
+	ctx->crtc_state->mpo_requested = true;
+	ctx->old_plane_state->fb = fb;
+	ctx->new_plane_state->fb = fb;
+	ctx->new_plane_state->crtc_x = 100;
+
+	dm_test_fill_dirty_rects(ctx, false);
+
+	KUNIT_EXPECT_TRUE(test, ctx->dirty_regions_changed);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rect_count, 1U);
+	KUNIT_EXPECT_EQ(test, ctx->flip_addrs->dirty_rects[0].width, 1920);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -2038,6 +2375,18 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_mem_type_changed_missing_state),
 	KUNIT_CASE(dm_test_mem_type_changed_same_domain),
 	KUNIT_CASE(dm_test_mem_type_changed_different_domain),
+	/* fill_dc_dirty_rects */
+	KUNIT_CASE(dm_test_dirty_rects_cursor_plane),
+	KUNIT_CASE(dm_test_dirty_rects_rotation_ffu),
+	KUNIT_CASE(dm_test_dirty_rects_no_clips_ffu),
+	KUNIT_CASE(dm_test_dirty_rects_ignored_damage_clips),
+	KUNIT_CASE(dm_test_dirty_rects_too_many_clips_ffu),
+	KUNIT_CASE(dm_test_dirty_rects_damage_clips),
+	KUNIT_CASE(dm_test_dirty_rects_mpo_bb_changed),
+	KUNIT_CASE(dm_test_dirty_rects_mpo_fb_changed),
+	KUNIT_CASE(dm_test_dirty_rects_psr_su_ffu),
+	KUNIT_CASE(dm_test_dirty_rects_mpo_clips),
+	KUNIT_CASE(dm_test_dirty_rects_mpo_overflow_ffu),
 	{}
 };
 
