@@ -10,6 +10,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
+#include <drm/drm_writeback.h>
 
 #include "dc.h"
 #include "inc/core_types.h"
@@ -3524,6 +3525,100 @@ static void dm_test_crtc_high_irq_vrr_ai_no_stream(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, acrtc->pflip_status, AMDGPU_FLIP_NONE);
 }
 
+/**
+ * dm_test_crtc_high_irq_writeback_disables - Test first writeback vblank
+ * @test: The KUnit test context
+ *
+ * The first vblank after a writeback is armed must disable frame capture so the
+ * hardware cannot overwrite the buffer, and defer signalling completion to the
+ * next vblank by marking wb_frame_done.
+ */
+static void dm_test_crtc_high_irq_writeback_disables(struct kunit *test)
+{
+	struct drm_writeback_connector *wb_conn;
+	struct common_irq_params params = { 0 };
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
+
+	/* dc_stream_fc_disable_writeback() dereferences dc->res_pool. */
+	dc = dm_test_alloc_dc_with_irq_service(test,
+					       &dm_test_irq_service_funcs_dcn10);
+	adev->dm.dc = dc;
+	/* Pre-AI family returns right after CRC handling. */
+	adev->family = AMDGPU_FAMILY_SI;
+
+	acrtc = dm_test_add_crtc(test, adev);
+
+	wb_conn = kunit_kzalloc(test, sizeof(*wb_conn), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, wb_conn);
+	acrtc->wb_conn = wb_conn;
+	acrtc->wb_pending = true;
+
+	params.adev = adev;
+	params.irq_src = (enum dc_irq_source)IRQ_TYPE_VBLANK;
+
+	dm_crtc_high_irq(&params);
+
+	KUNIT_EXPECT_TRUE(test, acrtc->wb_frame_done);
+	KUNIT_EXPECT_TRUE(test, acrtc->wb_pending);
+}
+
+/**
+ * dm_test_crtc_high_irq_writeback_completes - Test second writeback vblank
+ * @test: The KUnit test context
+ *
+ * Once wb_frame_done is set the DMA has had a full frame period to flush, so
+ * the next vblank must signal the writeback out fence and clear the pending
+ * state.
+ */
+static void dm_test_crtc_high_irq_writeback_completes(struct kunit *test)
+{
+	struct drm_writeback_connector *wb_conn;
+	struct common_irq_params params = { 0 };
+	struct drm_writeback_job *job;
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
+	adev->family = AMDGPU_FAMILY_SI;
+
+	acrtc = dm_test_add_crtc(test, adev);
+
+	wb_conn = kunit_kzalloc(test, sizeof(*wb_conn), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, wb_conn);
+	spin_lock_init(&wb_conn->job_lock);
+	INIT_LIST_HEAD(&wb_conn->job_queue);
+
+	/*
+	 * The job carries no framebuffer or fence, so the deferred DRM cleanup
+	 * work only kfree()s it; it needs nothing from this test.
+	 */
+	job = kzalloc_obj(*job, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, job);
+	list_add_tail(&job->list_entry, &wb_conn->job_queue);
+
+	acrtc->wb_conn = wb_conn;
+	acrtc->wb_pending = true;
+	acrtc->wb_frame_done = true;
+
+	/* Balance the drm_crtc_vblank_put() done on completion. */
+	adev->ddev.vblank[0].enabled = true;
+	KUNIT_ASSERT_EQ(test, drm_crtc_vblank_get(&acrtc->base), 0);
+
+	params.adev = adev;
+	params.irq_src = (enum dc_irq_source)IRQ_TYPE_VBLANK;
+
+	dm_crtc_high_irq(&params);
+
+	KUNIT_EXPECT_FALSE(test, acrtc->wb_pending);
+	KUNIT_EXPECT_FALSE(test, acrtc->wb_frame_done);
+}
+
 /* Tests for dm_handle_hpd_work() */
 
 /**
@@ -4154,6 +4249,8 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_crtc_high_irq_no_crtc),
 	KUNIT_CASE(dm_test_crtc_high_irq_vrr_pre_ai),
 	KUNIT_CASE(dm_test_crtc_high_irq_vrr_ai_no_stream),
+	KUNIT_CASE(dm_test_crtc_high_irq_writeback_disables),
+	KUNIT_CASE(dm_test_crtc_high_irq_writeback_completes),
 	/* dm_handle_hpd_work */
 	KUNIT_CASE(dm_test_handle_hpd_work_out_of_range),
 	/* dm_dmub_outbox1_low_irq */
