@@ -578,33 +578,23 @@ int hts221_probe(struct device *dev, int irq, const char *name,
 
 	/* configure humidity sensor */
 	err = hts221_parse_rh_caldata(hw);
-	if (err < 0) {
-		dev_err(hw->dev, "failed to get rh calibration data\n");
-		return err;
-	}
+	if (err < 0)
+		return dev_err_probe(dev, err, "failed to get rh calibration data\n");
 
 	data = hts221_avg_list[HTS221_SENSOR_H].avg_avl[3];
 	err = hts221_update_avg(hw, HTS221_SENSOR_H, data);
-	if (err < 0) {
-		dev_err(hw->dev, "failed to set rh oversampling ratio\n");
-		return err;
-	}
+	if (err < 0)
+		return dev_err_probe(dev, err, "failed to set rh oversampling ratio\n");
 
 	/* configure temperature sensor */
 	err = hts221_parse_temp_caldata(hw);
-	if (err < 0) {
-		dev_err(hw->dev,
-			"failed to get temperature calibration data\n");
-		return err;
-	}
+	if (err < 0)
+		return dev_err_probe(dev, err, "failed to get temperature calibration data\n");
 
 	data = hts221_avg_list[HTS221_SENSOR_T].avg_avl[3];
 	err = hts221_update_avg(hw, HTS221_SENSOR_T, data);
-	if (err < 0) {
-		dev_err(hw->dev,
-			"failed to set temperature oversampling ratio\n");
-		return err;
-	}
+	if (err < 0)
+		return dev_err_probe(dev, err, "failed to set temperature oversampling ratio\n");
 
 	if (hw->irq > 0) {
 		err = hts221_allocate_buffers(iio_dev);
