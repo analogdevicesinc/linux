@@ -276,6 +276,55 @@ static const struct irq_service_funcs dm_test_irq_service_funcs_dce110 = {
 	.to_dal_irq_source = dm_test_to_dal_irq_source_dce110
 };
 
+/* Maps nothing, so the first (VBLANK) register loop sees an invalid source. */
+static enum dc_irq_source dm_test_to_dal_irq_source_unmapped(
+		struct irq_service *irq_service,
+		uint32_t src_id,
+		uint32_t ext_id)
+{
+	return DC_IRQ_SOURCE_INVALID;
+}
+
+static const struct irq_service_funcs dm_test_irq_service_funcs_unmapped = {
+	.to_dal_irq_source = dm_test_to_dal_irq_source_unmapped
+};
+
+/* Maps VBLANK only, so the VUPDATE register loop sees an invalid source. */
+static enum dc_irq_source dm_test_to_dal_irq_source_vblank_only(
+		struct irq_service *irq_service,
+		uint32_t src_id,
+		uint32_t ext_id)
+{
+	if (src_id == VISLANDS30_IV_SRCID_D1_VERTICAL_INTERRUPT0)
+		return DC_IRQ_SOURCE_VBLANK1;
+
+	return DC_IRQ_SOURCE_INVALID;
+}
+
+static const struct irq_service_funcs dm_test_irq_service_funcs_vblank_only = {
+	.to_dal_irq_source = dm_test_to_dal_irq_source_vblank_only
+};
+
+/* Maps everything but PFLIP, so the PFLIP register loop sees an invalid source. */
+static enum dc_irq_source dm_test_to_dal_irq_source_no_pflip(
+		struct irq_service *irq_service,
+		uint32_t src_id,
+		uint32_t ext_id)
+{
+	switch (src_id) {
+	case VISLANDS30_IV_SRCID_D1_VERTICAL_INTERRUPT0:
+		return DC_IRQ_SOURCE_VBLANK1;
+	case VISLANDS30_IV_SRCID_D1_V_UPDATE_INT:
+		return DC_IRQ_SOURCE_VUPDATE1;
+	default:
+		return DC_IRQ_SOURCE_INVALID;
+	}
+}
+
+static const struct irq_service_funcs dm_test_irq_service_funcs_no_pflip = {
+	.to_dal_irq_source = dm_test_to_dal_irq_source_no_pflip
+};
+
 static enum dc_irq_source dm_test_to_dal_irq_source_dcn10(
 		struct irq_service *irq_service,
 		uint32_t src_id,
@@ -4267,6 +4316,146 @@ static void dm_test_dce110_register_irq_handlers_one_crtc(struct kunit *test)
 }
 
 /**
+ * dm_test_dce110_register_irq_handlers_soc15_client - Test DCE110 on AI+ ASICs
+ * @test: The KUnit test context
+ *
+ * From Vega on, the DCE interrupts are routed through the SOC15 DCE client
+ * rather than the legacy one, so the IRQ sources must be registered there.
+ */
+static void dm_test_dce110_register_irq_handlers_soc15_client(struct kunit *test)
+{
+	struct amdgpu_irq_src **soc15_sources;
+	struct amdgpu_device *adev;
+
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_dce110);
+	adev->family = AMDGPU_FAMILY_AI;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dce110_register_irq_handlers(adev), 0);
+
+	KUNIT_EXPECT_NULL(test, adev->irq.client[AMDGPU_IRQ_CLIENTID_LEGACY].sources);
+	soc15_sources = adev->irq.client[SOC15_IH_CLIENTID_DCE].sources;
+	KUNIT_ASSERT_NOT_NULL(test, soc15_sources);
+	KUNIT_EXPECT_PTR_EQ(test,
+			    soc15_sources[VISLANDS30_IV_SRCID_D1_VERTICAL_INTERRUPT0],
+			    &adev->crtc_irq);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
+/**
+ * dm_test_dce110_register_irq_handlers_crtc_add_id_fails - Test add-id failure
+ * @test: The KUnit test context
+ *
+ * amdgpu_irq_add_id() rejects a source with no funcs table, so registering the
+ * VBLANK interrupt before amdgpu_dm_set_irq_funcs() has run must fail.
+ */
+static void dm_test_dce110_register_irq_handlers_crtc_add_id_fails(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	dc = dm_test_alloc_dc_with_irq_service(test, &dm_test_irq_service_funcs_dce110);
+	dc->ctx->dce_version = DCE_VERSION_11_0;
+	adev->dm.dc = dc;
+	adev->mode_info.num_crtc = 1;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dce110_register_irq_handlers(adev), -EINVAL);
+}
+
+/**
+ * dm_test_dce110_register_irq_handlers_bad_vblank_source - Test VBLANK guard
+ * @test: The KUnit test context
+ *
+ * A source ID that DC does not map to a VBLANK IRQ source must be rejected
+ * rather than used to index the vblank parameter array.
+ */
+static void dm_test_dce110_register_irq_handlers_bad_vblank_source(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_unmapped);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dce110_register_irq_handlers(adev), -EINVAL);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
+/**
+ * dm_test_dce110_register_irq_handlers_bad_vupdate_source - Test VUPDATE guard
+ * @test: The KUnit test context
+ *
+ * With VBLANK mapped but VUPDATE unmapped, registration must fail once the
+ * VUPDATE loop sees the invalid source.
+ */
+static void dm_test_dce110_register_irq_handlers_bad_vupdate_source(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_vblank_only);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dce110_register_irq_handlers(adev), -EINVAL);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
+/**
+ * dm_test_dce110_register_irq_handlers_bad_pflip_source - Test PFLIP guard
+ * @test: The KUnit test context
+ *
+ * With VBLANK and VUPDATE mapped but PFLIP unmapped, registration must fail
+ * once the pageflip loop sees the invalid source.
+ */
+static void dm_test_dce110_register_irq_handlers_bad_pflip_source(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_no_pflip);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dce110_register_irq_handlers(adev), -EINVAL);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
+/**
+ * dm_test_dce110_register_irq_handlers_vupdate_add_id_fails - Test add-id failure
+ * @test: The KUnit test context
+ *
+ * The VBLANK loop succeeds, then a VUPDATE source with no funcs table is
+ * rejected by amdgpu_irq_add_id().
+ */
+static void dm_test_dce110_register_irq_handlers_vupdate_add_id_fails(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_dce110);
+	adev->vupdate_irq.funcs = NULL;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dce110_register_irq_handlers(adev), -EINVAL);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
+/**
+ * dm_test_dce110_register_irq_handlers_hpd_add_id_fails - Test HPD add-id failure
+ * @test: The KUnit test context
+ *
+ * All three per-CRTC loops succeed, then the HPD source with no funcs table is
+ * rejected by amdgpu_irq_add_id().
+ */
+static void dm_test_dce110_register_irq_handlers_hpd_add_id_fails(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = dm_test_setup_irq_regs(test, &dm_test_irq_service_funcs_dce110);
+	adev->hpd_irq.funcs = NULL;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_dce110_register_irq_handlers(adev), -EINVAL);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
+/**
  * dm_test_dcn10_register_irq_handlers_zero_crtc - Test DCN10 zero-CRTC registration
  * @test: The KUnit test context
  */
@@ -4673,6 +4862,13 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	/* IRQ handler registration helpers */
 	KUNIT_CASE(dm_test_dce110_register_irq_handlers_rejects_uninitialized_sources),
 	KUNIT_CASE(dm_test_dce110_register_irq_handlers_one_crtc),
+	KUNIT_CASE(dm_test_dce110_register_irq_handlers_soc15_client),
+	KUNIT_CASE(dm_test_dce110_register_irq_handlers_crtc_add_id_fails),
+	KUNIT_CASE(dm_test_dce110_register_irq_handlers_bad_vblank_source),
+	KUNIT_CASE(dm_test_dce110_register_irq_handlers_bad_vupdate_source),
+	KUNIT_CASE(dm_test_dce110_register_irq_handlers_bad_pflip_source),
+	KUNIT_CASE(dm_test_dce110_register_irq_handlers_vupdate_add_id_fails),
+	KUNIT_CASE(dm_test_dce110_register_irq_handlers_hpd_add_id_fails),
 	KUNIT_CASE(dm_test_dcn10_register_irq_handlers_zero_crtc),
 	KUNIT_CASE(dm_test_dcn10_register_irq_handlers_one_crtc),
 	KUNIT_CASE(dm_test_register_outbox_irq_handlers_without_dmub),
