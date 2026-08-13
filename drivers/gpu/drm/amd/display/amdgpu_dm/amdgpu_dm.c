@@ -6006,7 +6006,8 @@ struct __drm_planes_state *amdgpu_dm_get_next_zpos(
 	return &state->planes[highest_i];
 }
 
-static int add_affected_mst_dsc_crtcs(struct drm_atomic_commit *state, struct drm_crtc *crtc)
+STATIC_IFN_KUNIT int add_affected_mst_dsc_crtcs(struct drm_atomic_commit *state,
+						struct drm_crtc *crtc)
 {
 	struct drm_connector *connector;
 	struct drm_connector_state *conn_state, *old_conn_state;
@@ -6035,6 +6036,7 @@ static int add_affected_mst_dsc_crtcs(struct drm_atomic_commit *state, struct dr
 
 	return drm_dp_mst_add_affected_dsc_crtcs(state, &aconnector->mst_root->mst_mgr);
 }
+EXPORT_IF_KUNIT(add_affected_mst_dsc_crtcs);
 
 static bool amdgpu_dm_crtc_mem_type_changed(struct drm_device *dev,
 					    struct drm_atomic_commit *state,

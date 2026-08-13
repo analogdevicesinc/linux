@@ -1282,6 +1282,142 @@ static void dm_test_atomic_duplicate_state_no_context(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, dm_atomic_duplicate_state(obj));
 }
 
+/* Tests for add_affected_mst_dsc_crtcs() */
+
+/**
+ * dm_test_add_affected_mst_dsc_crtcs_no_connector - Test an empty state adds nothing
+ * @test: The KUnit test context
+ */
+static void dm_test_add_affected_mst_dsc_crtcs_no_connector(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_atomic_commit *state = dm_test_alloc_commit(test, adev);
+	struct drm_crtc *crtc;
+
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+
+	KUNIT_EXPECT_EQ(test, add_affected_mst_dsc_crtcs(state, crtc), 0);
+}
+
+/*
+ * Build an atomic state holding a single connector bound to @crtc.
+ */
+static struct drm_atomic_commit *
+dm_test_state_with_connector(struct kunit *test, struct drm_connector *connector,
+			     struct drm_crtc *crtc)
+{
+	struct drm_connector_state *conn_state;
+	struct drm_atomic_commit *state;
+
+	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state);
+	conn_state = kunit_kzalloc(test, sizeof(*conn_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, conn_state);
+
+	state->connectors = kunit_kzalloc(test, sizeof(*state->connectors),
+					  GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state->connectors);
+
+	conn_state->crtc = crtc;
+	state->num_connector = 1;
+	state->connectors[0].ptr = connector;
+	state->connectors[0].old_state = conn_state;
+	state->connectors[0].new_state = conn_state;
+
+	return state;
+}
+
+/**
+ * dm_test_add_affected_mst_dsc_crtcs_writeback - Test writeback connectors are ignored
+ * @test: The KUnit test context
+ */
+static void dm_test_add_affected_mst_dsc_crtcs_writeback(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_atomic_commit *state;
+	struct drm_crtc *crtc;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+
+	aconnector->base.connector_type = DRM_MODE_CONNECTOR_WRITEBACK;
+	state = dm_test_state_with_connector(test, &aconnector->base, crtc);
+
+	KUNIT_EXPECT_EQ(test, add_affected_mst_dsc_crtcs(state, crtc), 0);
+}
+
+/**
+ * dm_test_add_affected_mst_dsc_crtcs_not_mst - Test a non-MST connector adds nothing
+ * @test: The KUnit test context
+ */
+static void dm_test_add_affected_mst_dsc_crtcs_not_mst(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_atomic_commit *state;
+	struct drm_crtc *crtc;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+
+	aconnector->base.connector_type = DRM_MODE_CONNECTOR_DisplayPort;
+	state = dm_test_state_with_connector(test, &aconnector->base, crtc);
+
+	KUNIT_EXPECT_EQ(test, add_affected_mst_dsc_crtcs(state, crtc), 0);
+}
+
+/**
+ * dm_test_add_affected_mst_dsc_crtcs_other_crtc - Test connectors on other CRTCs are skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_add_affected_mst_dsc_crtcs_other_crtc(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_atomic_commit *state;
+	struct drm_crtc *crtc, *other_crtc;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+	other_crtc = kunit_kzalloc(test, sizeof(*other_crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, other_crtc);
+
+	aconnector->base.connector_type = DRM_MODE_CONNECTOR_DisplayPort;
+	state = dm_test_state_with_connector(test, &aconnector->base, other_crtc);
+
+	KUNIT_EXPECT_EQ(test, add_affected_mst_dsc_crtcs(state, crtc), 0);
+}
+
+/**
+ * dm_test_add_affected_mst_dsc_crtcs_disabled - Test a disabled connector uses its old state
+ * @test: The KUnit test context
+ */
+static void dm_test_add_affected_mst_dsc_crtcs_disabled(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_connector_state *new_conn_state;
+	struct drm_atomic_commit *state;
+	struct drm_crtc *crtc;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+	new_conn_state = kunit_kzalloc(test, sizeof(*new_conn_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_conn_state);
+
+	aconnector->base.connector_type = DRM_MODE_CONNECTOR_DisplayPort;
+	state = dm_test_state_with_connector(test, &aconnector->base, crtc);
+	state->connectors[0].new_state = new_conn_state;
+
+	KUNIT_EXPECT_EQ(test, add_affected_mst_dsc_crtcs(state, crtc), 0);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -1355,6 +1491,12 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	/* dm_atomic_get_state / dm_atomic_duplicate_state */
 	KUNIT_CASE(dm_test_atomic_get_state_already_acquired),
 	KUNIT_CASE(dm_test_atomic_duplicate_state_no_context),
+	/* add_affected_mst_dsc_crtcs */
+	KUNIT_CASE(dm_test_add_affected_mst_dsc_crtcs_no_connector),
+	KUNIT_CASE(dm_test_add_affected_mst_dsc_crtcs_writeback),
+	KUNIT_CASE(dm_test_add_affected_mst_dsc_crtcs_not_mst),
+	KUNIT_CASE(dm_test_add_affected_mst_dsc_crtcs_other_crtc),
+	KUNIT_CASE(dm_test_add_affected_mst_dsc_crtcs_disabled),
 	{}
 };
 
