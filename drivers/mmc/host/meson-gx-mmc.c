@@ -1141,7 +1141,8 @@ static int meson_mmc_probe(struct platform_device *pdev)
 	struct meson_host *host;
 	struct mmc_host *mmc;
 	struct clk *core_clk;
-	int cd_irq, ret;
+	int cd_irq = -ENXIO;
+	int ret;
 
 	mmc = devm_mmc_alloc_host(&pdev->dev, sizeof(struct meson_host));
 	if (!mmc)
@@ -1185,7 +1186,11 @@ static int meson_mmc_probe(struct platform_device *pdev)
 	if (host->irq < 0)
 		return host->irq;
 
-	cd_irq = platform_get_irq_optional(pdev, 1);
+	ret = platform_get_irq_optional(pdev, 1);
+	if (ret < 0 && ret != -ENXIO)
+		return ret;
+	if (ret > 0)
+		cd_irq = ret;
 	mmc_gpio_set_cd_irq(mmc, cd_irq);
 
 	host->pinctrl = devm_pinctrl_get(&pdev->dev);
