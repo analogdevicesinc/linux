@@ -2858,6 +2858,19 @@ static void dm_test_update_hdcp_no_workqueue(struct kunit *test)
 	amdgpu_dm_update_hdcp(dm_test_alloc_commit(test, adev));
 }
 
+/**
+ * dm_test_atomic_setup_commit_empty - Test an empty commit needs no color setup
+ * @test: The KUnit test context
+ */
+static void dm_test_atomic_setup_commit_empty(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_atomic_setup_commit(dm_test_alloc_commit(test, adev)),
+			0);
+}
+
 /*
  * A commit with one connector of @type bound to a CRTC that keeps its stream.
  * The content protection state is unchanged, so amdgpu_dm_update_hdcp() walks
@@ -3336,6 +3349,56 @@ static void dm_test_mod_power_setup_streams_no_modeset(struct kunit *test)
 	amdgpu_dm_mod_power_setup_streams(ctx->state, &ctx->adev->dm);
 }
 
+/**
+ * dm_test_atomic_setup_commit_color_mgmt - Test color management is reprogrammed
+ * @test: The KUnit test context
+ */
+static void dm_test_atomic_setup_commit_color_mgmt(struct kunit *test)
+{
+	struct dm_test_modeset_ctx *ctx = dm_test_modeset_ctx_alloc(test);
+
+	ctx->new_crtc_state->base.active = true;
+	ctx->new_crtc_state->base.color_mgmt_changed = true;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_atomic_setup_commit(ctx->state), 0);
+}
+
+/**
+ * dm_test_atomic_setup_commit_modeset - Test a modeset alone reprograms color state
+ * @test: The KUnit test context
+ */
+static void dm_test_atomic_setup_commit_modeset(struct kunit *test)
+{
+	struct dm_test_modeset_ctx *ctx = dm_test_modeset_ctx_alloc(test);
+
+	ctx->new_crtc_state->base.active = true;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_atomic_setup_commit(ctx->state), 0);
+}
+
+/**
+ * dm_test_atomic_setup_commit_bad_lut - Test an invalid degamma LUT is rejected
+ * @test: The KUnit test context
+ */
+static void dm_test_atomic_setup_commit_bad_lut(struct kunit *test)
+{
+	struct dm_test_modeset_ctx *ctx = dm_test_modeset_ctx_alloc(test);
+	struct drm_property_blob *blob;
+	struct drm_color_lut *lut;
+
+	blob = kunit_kzalloc(test, sizeof(*blob), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, blob);
+	lut = kunit_kzalloc(test, sizeof(*lut), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, lut);
+
+	blob->length = sizeof(*lut);
+	blob->data = lut;
+	ctx->new_crtc_state->base.active = true;
+	ctx->new_crtc_state->base.degamma_lut = blob;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_atomic_setup_commit(ctx->state), -EINVAL);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -3482,6 +3545,10 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_update_hdcp_no_workqueue),
 	KUNIT_CASE(dm_test_update_hdcp_writeback_skipped),
 	KUNIT_CASE(dm_test_update_hdcp_unchanged),
+	KUNIT_CASE(dm_test_atomic_setup_commit_empty),
+	KUNIT_CASE(dm_test_atomic_setup_commit_color_mgmt),
+	KUNIT_CASE(dm_test_atomic_setup_commit_modeset),
+	KUNIT_CASE(dm_test_atomic_setup_commit_bad_lut),
 	KUNIT_CASE(dm_test_aquire_global_lock_no_crtc),
 	KUNIT_CASE(dm_test_aquire_global_lock_no_commit),
 	KUNIT_CASE(dm_test_aquire_global_lock_waits_commit),
