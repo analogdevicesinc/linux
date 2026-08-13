@@ -2614,6 +2614,9 @@ static int crypt_set_key(struct crypt_config *cc, char *key)
 	kfree_sensitive(cc->key_string);
 	cc->key_string = NULL;
 
+	if (cc->key_size && key_string_len != cc->key_size * 2)
+		goto out;
+
 	/* Decode key from its hex representation. */
 	if (cc->key_size && hex2bin(cc->key, key, cc->key_size) < 0)
 		goto out;
