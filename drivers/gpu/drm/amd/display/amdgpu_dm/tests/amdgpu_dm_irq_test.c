@@ -197,6 +197,18 @@ static bool dm_test_handle_hpd_rx_link_loss(struct dc_link *link,
 	return false;
 }
 
+static bool dm_test_handle_hpd_rx_result_true(struct dc_link *link,
+					      union hpd_irq_data *hpd_irq_data,
+					      bool *link_loss,
+					      bool defer_handling,
+					      bool *has_left_work)
+{
+	*link_loss = false;
+	*has_left_work = false;
+
+	return true;
+}
+
 static bool dm_test_allow_hpd_rx_irq_true(const struct dc_link *link)
 {
 	return true;
@@ -2165,6 +2177,35 @@ static void dm_test_hpd_init_fini_irq_ref(struct kunit *test)
 	amdgpu_dm_hpd_fini(adev);
 }
 
+/**
+ * dm_test_hpd_init_skips_connector_without_link - Test HPD init skips linkless
+ * @test: The KUnit test context
+ *
+ * A connector that does not carry a dc_link yet must be skipped by the init
+ * loop. Only init is exercised: fini has no such guard.
+ */
+static void dm_test_hpd_init_skips_connector_without_link(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct amdgpu_device *adev;
+
+	adev = dm_kunit_alloc_adev(test);
+	adev->mode_info.num_hpd = 0;
+
+	aconn = kunit_kzalloc(test, sizeof(*aconn), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconn);
+	KUNIT_ASSERT_EQ(test, drm_connector_init(&adev->ddev, &aconn->base,
+						 &dm_test_connector_funcs,
+						 DRM_MODE_CONNECTOR_DisplayPort), 0);
+	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_connector_cleanup,
+							&aconn->base), 0);
+
+	amdgpu_dm_hpd_init(adev);
+
+	/* Skipped before the analog check, so polling was never requested. */
+	KUNIT_EXPECT_FALSE(test, adev->ddev.mode_config.poll_enabled);
+}
+
 /* Tests for dm_handle_hpd_rx_offload_work() */
 
 /**
@@ -2953,6 +2994,34 @@ static void dm_test_handle_hpd_rx_irq_link_loss(struct kunit *test)
 				->dm.hpd_rx_offload_wq->is_handling_link_loss);
 }
 
+/**
+ * dm_test_handle_hpd_rx_irq_downstream_change - Test HPDRX post-detect block
+ * @test: The KUnit test context
+ *
+ * A handled HPD RX IRQ on a connector that is not an MST root means a
+ * downstream port status change, so the handler must re-detect the link.
+ * Detection is stubbed to fail, leaving the connector untouched, and a
+ * non-MST-branch link also exercises the trailing CEC IRQ dispatch.
+ */
+static void dm_test_handle_hpd_rx_irq_downstream_change(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+
+	aconn = dm_test_setup_hpd_rx_irq(test, &link_srv);
+	link_srv->dp_handle_hpd_rx_irq = dm_test_handle_hpd_rx_result_true;
+	link_srv->detect_connection_type = dm_test_detect_connection_single;
+	link_srv->detect_link = dm_test_detect_link_false;
+
+	aconn->mst_mgr.mst_state = false;
+	aconn->dc_link->type = dc_connection_single;
+	aconn->fake_enable = true;
+
+	handle_hpd_rx_irq(aconn);
+
+	KUNIT_EXPECT_TRUE(test, aconn->fake_enable);
+}
+
 /* Tests for dmub_hpd_callback()/dmub_hpd_sense_callback() */
 
 /**
@@ -3008,6 +3077,31 @@ static void dm_test_dmub_hpd_callback_empty_connectors(struct kunit *test)
 
 	dmub_hpd_callback(adev, &notify);
 	dmub_hpd_sense_callback(adev, &notify);
+}
+
+/**
+ * dm_test_dmub_hpd_callback_suspend_skip - Test DMUB HPD skipped in suspend
+ * @test: The KUnit test context
+ *
+ * Plain HPD notifications are deferred while the device is suspended; they get
+ * re-probed on resume, so the callback must return before the connector walk.
+ */
+static void dm_test_dmub_hpd_callback_suspend_skip(struct kunit *test)
+{
+	struct dmub_notification notify = { 0 };
+	struct amdgpu_device *adev;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
+	adev->dm.dc = dc;
+	adev->in_suspend = true;
+	dc->link_count = 1;
+	notify.type = DMUB_NOTIFICATION_HPD;
+
+	/* adev->dm.ddev is left NULL: reaching the connector walk would crash. */
+	dmub_hpd_callback(adev, &notify);
 }
 
 /**
@@ -3217,10 +3311,15 @@ static void dm_test_register_hpd_handlers_empty(struct kunit *test)
 /**
  * dm_test_register_hpd_handlers_valid - Test HPD/HPDRX registration succeeds
  * @test: The KUnit test context
+ *
+ * A writeback connector must be skipped by the per-connector loop, while a
+ * DisplayPort connector carrying valid HPD and HPD RX sources registers a
+ * low-context handler for each.
  */
 static void dm_test_register_hpd_handlers_valid(struct kunit *test)
 {
 	struct amdgpu_dm_connector *aconn;
+	struct drm_connector *wbconn;
 	struct amdgpu_device *adev;
 	struct dc_link *link;
 	struct dc *dc;
@@ -3230,6 +3329,13 @@ static void dm_test_register_hpd_handlers_valid(struct kunit *test)
 	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
 	adev->dm.dc = dc;
+
+	wbconn = kunit_kzalloc(test, sizeof(*wbconn), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, wbconn);
+	KUNIT_ASSERT_EQ(test, drm_connector_init(&adev->ddev, wbconn, &dm_test_connector_funcs,
+						 DRM_MODE_CONNECTOR_WRITEBACK), 0);
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_connector_cleanup, wbconn), 0);
 
 	aconn = kunit_kzalloc(test, sizeof(*aconn), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconn);
@@ -4395,6 +4501,7 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_hpd_init_fini_with_connectors),
 	KUNIT_CASE(dm_test_hpd_init_fini_analog_connector),
 	KUNIT_CASE(dm_test_hpd_init_fini_irq_ref),
+	KUNIT_CASE(dm_test_hpd_init_skips_connector_without_link),
 	/* dm_handle_hpd_rx_offload_work */
 	KUNIT_CASE(dm_test_hpd_rx_offload_work_no_connector),
 	KUNIT_CASE(dm_test_hpd_rx_offload_work_no_connection),
@@ -4416,11 +4523,13 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_handle_hpd_rx_irq_automated_test),
 	KUNIT_CASE(dm_test_handle_hpd_rx_irq_msg_rdy),
 	KUNIT_CASE(dm_test_handle_hpd_rx_irq_link_loss),
+	KUNIT_CASE(dm_test_handle_hpd_rx_irq_downstream_change),
 	KUNIT_CASE(dm_test_schedule_hpd_rx_offload_work),
 	/* dmub_hpd_callback/dmub_hpd_sense_callback */
 	KUNIT_CASE(dm_test_dmub_hpd_callback_null_inputs),
 	KUNIT_CASE(dm_test_dmub_hpd_callback_invalid_index),
 	KUNIT_CASE(dm_test_dmub_hpd_callback_empty_connectors),
+	KUNIT_CASE(dm_test_dmub_hpd_callback_suspend_skip),
 	KUNIT_CASE(dm_test_dmub_hpd_callback_unknown_type_match),
 	KUNIT_CASE(dm_test_dmub_hpd_callback_hpd_type),
 	KUNIT_CASE(dm_test_dmub_hpd_callback_hpd_irq_type),
