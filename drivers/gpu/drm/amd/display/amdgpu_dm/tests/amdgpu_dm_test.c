@@ -1552,6 +1552,183 @@ static void dm_test_update_cursor_disables_stream(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, update->cursor_attributes);
 }
 
+/* Tests for dm_arm_vblank_event() */
+
+struct dm_test_vblank_ctx {
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state *acrtc_state;
+	struct drm_pending_vblank_event *event;
+};
+
+/*
+ * A CRTC with one active plane and a pending vblank event. There is no
+ * initialised vblank, so drm_crtc_vblank_get() fails, which the function under
+ * test ignores.
+ */
+static struct dm_test_vblank_ctx *dm_test_vblank_ctx_alloc(struct kunit *test)
+{
+	struct dm_test_vblank_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->adev = dm_kunit_alloc_adev(test);
+	ctx->acrtc = kunit_kzalloc(test, sizeof(*ctx->acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->acrtc);
+	ctx->acrtc_state = kunit_kzalloc(test, sizeof(*ctx->acrtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->acrtc_state);
+	ctx->event = kunit_kzalloc(test, sizeof(*ctx->event), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->event);
+
+	ctx->acrtc->base.dev = &ctx->adev->ddev;
+	ctx->acrtc->base.state = &ctx->acrtc_state->base;
+	ctx->acrtc_state->base.event = ctx->event;
+	ctx->acrtc_state->active_planes = 1;
+
+	return ctx;
+}
+
+static void dm_test_arm_vblank(struct dm_test_vblank_ctx *ctx, bool pflip_update,
+			       bool cursor_update)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctx->adev->ddev.event_lock, flags);
+	dm_arm_vblank_event(ctx->acrtc, ctx->acrtc_state, pflip_update,
+			    cursor_update);
+	spin_unlock_irqrestore(&ctx->adev->ddev.event_lock, flags);
+}
+
+static void dm_test_arm_vblank_pre_programming(struct dm_test_vblank_ctx *ctx,
+					       bool pflip_update, bool cursor_update)
+{
+	struct dm_crtc_state *state = ctx->acrtc_state;
+	struct amdgpu_crtc *acrtc = ctx->acrtc;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctx->adev->ddev.event_lock, flags);
+	dm_arm_vblank_event_pre_programming(acrtc, state, pflip_update, cursor_update);
+	spin_unlock_irqrestore(&ctx->adev->ddev.event_lock, flags);
+}
+
+/**
+ * dm_test_arm_vblank_pre_programming_no_event - Test missing event takes no reference
+ * @test: The KUnit test context
+ */
+static void dm_test_arm_vblank_pre_programming_no_event(struct kunit *test)
+{
+	struct dm_test_vblank_ctx *ctx = dm_test_vblank_ctx_alloc(test);
+	struct drm_vblank_crtc *vblank;
+
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&ctx->adev->ddev, 1), 0);
+	vblank = drm_crtc_vblank_crtc(&ctx->acrtc->base);
+	ctx->acrtc_state->base.event = NULL;
+
+	dm_test_arm_vblank_pre_programming(ctx, true, false);
+
+	KUNIT_EXPECT_EQ(test, atomic_read(&vblank->refcount), 0);
+}
+
+/**
+ * dm_test_arm_vblank_pre_programming_no_planes - Test inactive CRTC takes no reference
+ * @test: The KUnit test context
+ */
+static void dm_test_arm_vblank_pre_programming_no_planes(struct kunit *test)
+{
+	struct dm_test_vblank_ctx *ctx = dm_test_vblank_ctx_alloc(test);
+	struct drm_vblank_crtc *vblank;
+
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&ctx->adev->ddev, 1), 0);
+	vblank = drm_crtc_vblank_crtc(&ctx->acrtc->base);
+	ctx->acrtc_state->active_planes = 0;
+
+	dm_test_arm_vblank_pre_programming(ctx, false, true);
+
+	KUNIT_EXPECT_EQ(test, atomic_read(&vblank->refcount), 0);
+}
+
+/**
+ * dm_test_arm_vblank_pre_programming_update - Test an update takes a vblank reference
+ * @test: The KUnit test context
+ */
+static void dm_test_arm_vblank_pre_programming_update(struct kunit *test)
+{
+	struct dm_test_vblank_ctx *ctx = dm_test_vblank_ctx_alloc(test);
+	struct drm_vblank_crtc *vblank;
+
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&ctx->adev->ddev, 1), 0);
+	vblank = drm_crtc_vblank_crtc(&ctx->acrtc->base);
+
+	dm_test_arm_vblank_pre_programming(ctx, true, false);
+
+	KUNIT_EXPECT_EQ(test, atomic_read(&vblank->refcount), 1);
+	drm_crtc_vblank_put(&ctx->acrtc->base);
+}
+
+/**
+ * dm_test_arm_vblank_event_no_event - Test a commit without an event is a no-op
+ * @test: The KUnit test context
+ */
+static void dm_test_arm_vblank_event_no_event(struct kunit *test)
+{
+	struct dm_test_vblank_ctx *ctx = dm_test_vblank_ctx_alloc(test);
+
+	ctx->acrtc_state->base.event = NULL;
+
+	dm_test_arm_vblank(ctx, true, false);
+
+	KUNIT_EXPECT_NULL(test, ctx->acrtc->event);
+}
+
+/**
+ * dm_test_arm_vblank_event_no_active_planes - Test an event is left armed without planes
+ * @test: The KUnit test context
+ */
+static void dm_test_arm_vblank_event_no_active_planes(struct kunit *test)
+{
+	struct dm_test_vblank_ctx *ctx = dm_test_vblank_ctx_alloc(test);
+
+	ctx->acrtc_state->active_planes = 0;
+
+	dm_test_arm_vblank(ctx, false, true);
+
+	KUNIT_EXPECT_NULL(test, ctx->acrtc->event);
+	KUNIT_EXPECT_PTR_EQ(test, ctx->acrtc_state->base.event, ctx->event);
+}
+
+/**
+ * dm_test_arm_vblank_event_pflip - Test a page flip arms the flip ISR
+ * @test: The KUnit test context
+ */
+static void dm_test_arm_vblank_event_pflip(struct kunit *test)
+{
+	struct dm_test_vblank_ctx *ctx = dm_test_vblank_ctx_alloc(test);
+
+	dm_test_arm_vblank(ctx, true, false);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->acrtc->event, ctx->event);
+	KUNIT_EXPECT_NULL(test, ctx->acrtc_state->base.event);
+	KUNIT_EXPECT_EQ(test, (int)ctx->acrtc->pflip_status,
+			(int)AMDGPU_FLIP_SUBMITTED);
+}
+
+/**
+ * dm_test_arm_vblank_event_cursor - Test a cursor update consumes the event
+ * @test: The KUnit test context
+ */
+static void dm_test_arm_vblank_event_cursor(struct kunit *test)
+{
+	struct dm_test_vblank_ctx *ctx = dm_test_vblank_ctx_alloc(test);
+
+	dm_test_arm_vblank(ctx, false, true);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->acrtc->event, ctx->event);
+	KUNIT_EXPECT_NULL(test, ctx->acrtc_state->base.event);
+	KUNIT_EXPECT_EQ(test, (int)ctx->acrtc->pflip_status,
+			(int)AMDGPU_FLIP_NONE);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -1637,6 +1814,14 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_commit_cursors_updates_cursor),
 	KUNIT_CASE(dm_test_update_cursor_no_framebuffer),
 	KUNIT_CASE(dm_test_update_cursor_disables_stream),
+	/* dm_arm_vblank_event */
+	KUNIT_CASE(dm_test_arm_vblank_event_no_event),
+	KUNIT_CASE(dm_test_arm_vblank_event_no_active_planes),
+	KUNIT_CASE(dm_test_arm_vblank_event_pflip),
+	KUNIT_CASE(dm_test_arm_vblank_event_cursor),
+	KUNIT_CASE(dm_test_arm_vblank_pre_programming_no_event),
+	KUNIT_CASE(dm_test_arm_vblank_pre_programming_no_planes),
+	KUNIT_CASE(dm_test_arm_vblank_pre_programming_update),
 	{}
 };
 

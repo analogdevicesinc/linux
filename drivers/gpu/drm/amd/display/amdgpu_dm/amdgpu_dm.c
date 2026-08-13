@@ -3723,10 +3723,10 @@ static void amdgpu_dm_enable_self_refresh(struct amdgpu_display_manager *dm,
 	}
 }
 
-static void dm_arm_vblank_event(struct amdgpu_crtc *acrtc,
-				struct dm_crtc_state *acrtc_state,
-				bool pflip_update,
-				bool cursor_update)
+STATIC_IFN_KUNIT void dm_arm_vblank_event(struct amdgpu_crtc *acrtc,
+					  struct dm_crtc_state *acrtc_state,
+					  bool pflip_update,
+					  bool cursor_update)
 {
 	assert_spin_locked(&acrtc->base.dev->event_lock);
 
@@ -3749,6 +3749,7 @@ static void dm_arm_vblank_event(struct amdgpu_crtc *acrtc,
 		acrtc->base.state->event = NULL;
 	}
 }
+EXPORT_IF_KUNIT(dm_arm_vblank_event);
 
 /**
  * dm_arm_vblank_event_pre_programming - Prepare for programming
@@ -3761,10 +3762,10 @@ static void dm_arm_vblank_event(struct amdgpu_crtc *acrtc,
  * be programmed. Do this before programming so the HW is not in any
  * idle-optimized state (such as PSR).
  */
-static void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
-						struct dm_crtc_state *acrtc_state,
-						bool pflip_update,
-						bool cursor_update)
+STATIC_IFN_KUNIT void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
+							  struct dm_crtc_state *acrtc_state,
+							  bool pflip_update,
+							  bool cursor_update)
 {
 	assert_spin_locked(&acrtc->base.dev->event_lock);
 
@@ -3774,6 +3775,7 @@ static void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
 	if (pflip_update || cursor_update)
 		drm_crtc_vblank_get(&acrtc->base);
 }
+EXPORT_IF_KUNIT(dm_arm_vblank_event_pre_programming);
 
 static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 				    struct drm_device *dev,

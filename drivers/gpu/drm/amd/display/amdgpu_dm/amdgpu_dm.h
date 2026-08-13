@@ -1176,6 +1176,12 @@ void amdgpu_dm_commit_cursors(struct drm_atomic_commit *state);
 void amdgpu_dm_update_cursor(struct drm_plane *plane,
 			     struct drm_plane_state *old_plane_state,
 			     struct dc_stream_update *update);
+void dm_arm_vblank_event(struct amdgpu_crtc *acrtc,
+			 struct dm_crtc_state *acrtc_state,
+			 bool pflip_update, bool cursor_update);
+void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
+					 struct dm_crtc_state *acrtc_state,
+					 bool pflip_update, bool cursor_update);
 int add_affected_mst_dsc_crtcs(struct drm_atomic_commit *state,
 			       struct drm_crtc *crtc);
 int dm_plane_layer_index_cmp(const void *a, const void *b);
