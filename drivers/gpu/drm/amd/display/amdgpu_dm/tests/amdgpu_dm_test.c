@@ -3040,6 +3040,30 @@ static void dm_test_aquire_global_lock_waits_commit(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, ret, 0);
 }
 
+/**
+ * dm_test_mod_power_update_streams_empty - Test an empty commit updates no streams
+ * @test: The KUnit test context
+ */
+static void dm_test_mod_power_update_streams_empty(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	amdgpu_dm_mod_power_update_streams(dm_test_alloc_commit(test, adev),
+					   &adev->dm);
+}
+
+/**
+ * dm_test_mod_power_setup_streams_empty - Test an empty commit sets up no streams
+ * @test: The KUnit test context
+ */
+static void dm_test_mod_power_setup_streams_empty(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	amdgpu_dm_mod_power_setup_streams(dm_test_alloc_commit(test, adev),
+					  &adev->dm);
+}
+
 /* Tests for amdgpu_dm_trigger_timing_sync() */
 
 /**
@@ -3172,6 +3196,144 @@ static void dm_test_emulated_link_detect_bad_signal(struct kunit *test)
 
 	KUNIT_EXPECT_EQ(test, (int)link->type, (int)dc_connection_none);
 	KUNIT_EXPECT_NULL(test, link->local_sink);
+}
+
+/* Tests for the mod_power modeset helpers */
+
+struct dm_test_modeset_ctx {
+	struct amdgpu_device *adev;
+	struct drm_atomic_commit *state;
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state *old_crtc_state;
+	struct dm_crtc_state *new_crtc_state;
+};
+
+/*
+ * A modeset commit on one CRTC with an old and a new stream. dm->power_module
+ * stays NULL, which every mod_power entry point treats as a no-op, so the DM
+ * side of the modeset can be walked without a live power module.
+ */
+static struct dm_test_modeset_ctx *dm_test_modeset_ctx_alloc(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct dm_test_modeset_ctx *ctx;
+	struct dc_link *link;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->adev = dm_kunit_alloc_adev(test);
+	ctx->state = dm_test_alloc_commit(test, ctx->adev);
+	ctx->acrtc = kunit_kzalloc(test, sizeof(*ctx->acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->acrtc);
+	ctx->old_crtc_state = kunit_kzalloc(test, sizeof(*ctx->old_crtc_state),
+					    GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->old_crtc_state);
+	ctx->new_crtc_state = kunit_kzalloc(test, sizeof(*ctx->new_crtc_state),
+					    GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->new_crtc_state);
+	ctx->state->crtcs = kunit_kzalloc(test, sizeof(*ctx->state->crtcs),
+					  GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state->crtcs);
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+
+	link = dm_kunit_alloc_link(test);
+	ctx->old_crtc_state->stream = dm_kunit_alloc_stream(test, link);
+	ctx->new_crtc_state->stream = dm_kunit_alloc_stream(test, link);
+	ctx->new_crtc_state->stream->dm_stream_context = aconnector;
+
+	ctx->adev->ddev.mode_config.num_crtc = 1;
+	ctx->adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+	mutex_init(&ctx->adev->dm.dc_lock);
+	ctx->new_crtc_state->base.mode_changed = true;
+	ctx->new_crtc_state->base.state = ctx->state;
+	ctx->state->crtcs[0].ptr = &ctx->acrtc->base;
+	ctx->state->crtcs[0].old_state = &ctx->old_crtc_state->base;
+	ctx->state->crtcs[0].new_state = &ctx->new_crtc_state->base;
+
+	return ctx;
+}
+
+/**
+ * dm_test_mod_power_update_streams_no_modeset - Test fast updates are skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_mod_power_update_streams_no_modeset(struct kunit *test)
+{
+	struct dm_test_modeset_ctx *ctx = dm_test_modeset_ctx_alloc(test);
+
+	ctx->new_crtc_state->base.mode_changed = false;
+	ctx->new_crtc_state->base.active = true;
+
+	amdgpu_dm_mod_power_update_streams(ctx->state, &ctx->adev->dm);
+}
+
+/**
+ * dm_test_mod_power_update_streams_enable - Test enabling a CRTC adds the stream
+ * @test: The KUnit test context
+ */
+static void dm_test_mod_power_update_streams_enable(struct kunit *test)
+{
+	struct dm_test_modeset_ctx *ctx = dm_test_modeset_ctx_alloc(test);
+
+	ctx->new_crtc_state->base.active = true;
+
+	amdgpu_dm_mod_power_update_streams(ctx->state, &ctx->adev->dm);
+}
+
+/**
+ * dm_test_mod_power_update_streams_replace - Test a re-modeset replaces the stream
+ * @test: The KUnit test context
+ */
+static void dm_test_mod_power_update_streams_replace(struct kunit *test)
+{
+	struct dm_test_modeset_ctx *ctx = dm_test_modeset_ctx_alloc(test);
+
+	ctx->old_crtc_state->base.active = true;
+	ctx->new_crtc_state->base.active = true;
+
+	amdgpu_dm_mod_power_update_streams(ctx->state, &ctx->adev->dm);
+}
+
+/**
+ * dm_test_mod_power_update_streams_disable - Test disabling a CRTC removes the stream
+ * @test: The KUnit test context
+ */
+static void dm_test_mod_power_update_streams_disable(struct kunit *test)
+{
+	struct dm_test_modeset_ctx *ctx = dm_test_modeset_ctx_alloc(test);
+
+	ctx->old_crtc_state->base.active = true;
+
+	amdgpu_dm_mod_power_update_streams(ctx->state, &ctx->adev->dm);
+}
+
+/**
+ * dm_test_mod_power_setup_streams_modeset - Test a modeset sets up the new stream
+ * @test: The KUnit test context
+ */
+static void dm_test_mod_power_setup_streams_modeset(struct kunit *test)
+{
+	struct dm_test_modeset_ctx *ctx = dm_test_modeset_ctx_alloc(test);
+
+	ctx->new_crtc_state->base.active = true;
+
+	amdgpu_dm_mod_power_setup_streams(ctx->state, &ctx->adev->dm);
+}
+
+/**
+ * dm_test_mod_power_setup_streams_no_modeset - Test fast updates set up no streams
+ * @test: The KUnit test context
+ */
+static void dm_test_mod_power_setup_streams_no_modeset(struct kunit *test)
+{
+	struct dm_test_modeset_ctx *ctx = dm_test_modeset_ctx_alloc(test);
+
+	ctx->new_crtc_state->base.mode_changed = false;
+	ctx->new_crtc_state->base.active = true;
+
+	amdgpu_dm_mod_power_setup_streams(ctx->state, &ctx->adev->dm);
 }
 
 static struct kunit_case amdgpu_dm_tests[] = {
@@ -3323,6 +3485,14 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_aquire_global_lock_no_crtc),
 	KUNIT_CASE(dm_test_aquire_global_lock_no_commit),
 	KUNIT_CASE(dm_test_aquire_global_lock_waits_commit),
+	KUNIT_CASE(dm_test_mod_power_update_streams_empty),
+	KUNIT_CASE(dm_test_mod_power_update_streams_no_modeset),
+	KUNIT_CASE(dm_test_mod_power_update_streams_enable),
+	KUNIT_CASE(dm_test_mod_power_update_streams_replace),
+	KUNIT_CASE(dm_test_mod_power_update_streams_disable),
+	KUNIT_CASE(dm_test_mod_power_setup_streams_empty),
+	KUNIT_CASE(dm_test_mod_power_setup_streams_modeset),
+	KUNIT_CASE(dm_test_mod_power_setup_streams_no_modeset),
 	/* amdgpu_dm_trigger_timing_sync */
 	KUNIT_CASE(dm_test_trigger_timing_sync_no_state),
 	KUNIT_CASE(dm_test_trigger_timing_sync_streams),

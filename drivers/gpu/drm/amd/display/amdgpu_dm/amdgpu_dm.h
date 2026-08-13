@@ -1205,6 +1205,10 @@ void amdgpu_dm_dump_links_and_sinks(struct amdgpu_device *adev);
 void amdgpu_dm_update_hdcp(struct drm_atomic_commit *state);
 int do_aquire_global_lock(struct drm_device *dev,
 			  struct drm_atomic_commit *state);
+void amdgpu_dm_mod_power_update_streams(struct drm_atomic_commit *state,
+					struct amdgpu_display_manager *dm);
+void amdgpu_dm_mod_power_setup_streams(struct drm_atomic_commit *state,
+				       struct amdgpu_display_manager *dm);
 int amdgpu_dm_early_fini(struct amdgpu_ip_block *ip_block);
 int dm_sw_fini(struct amdgpu_ip_block *ip_block);
 int dm_oem_i2c_hw_init(struct amdgpu_device *adev);
