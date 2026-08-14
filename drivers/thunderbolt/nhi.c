@@ -138,10 +138,19 @@ static void ring_interrupt_active(struct tb_ring *ring, bool active)
 		"%s interrupt at register %#x bit %d (%#x -> %#x)\n",
 		active ? "enabling" : "disabling", reg, interrupt_bit, old, new);
 
-	if (new == old)
-		dev_WARN(ring->nhi->dev, "interrupt for %s %d is already %s\n",
-			 RING_TYPE(ring), ring->hop,
-			 str_enabled_disabled(active));
+	if (new == old) {
+		/*
+		 * Rings that are polled mask the interrupt using while
+		 * the completions are being advanced (see
+		 * __ring_interrupt()) so for those it can already be
+		 * disabled by the time the ring is stopped.
+		 */
+		if (active || !ring->start_poll)
+			dev_WARN(ring->nhi->dev,
+				 "interrupt for %s %d is already %s\n",
+				 RING_TYPE(ring), ring->hop,
+				 str_enabled_disabled(active));
+	}
 
 	if (active)
 		iowrite32(new, ring->nhi->iobase + reg);
