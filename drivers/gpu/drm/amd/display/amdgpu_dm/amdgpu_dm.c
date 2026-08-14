@@ -2958,7 +2958,7 @@ fill_plane_color_attributes(const struct drm_plane_state *plane_state,
 }
 EXPORT_IF_KUNIT(fill_plane_color_attributes);
 
-static int
+STATIC_IFN_KUNIT int
 fill_dc_plane_info_and_addr(struct amdgpu_device *adev,
 			    const struct drm_plane_state *plane_state,
 			    struct dc_plane_info *plane_info,
@@ -3072,6 +3072,7 @@ fill_dc_plane_info_and_addr(struct amdgpu_device *adev,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(fill_dc_plane_info_and_addr);
 
 static int fill_dc_plane_attributes(struct amdgpu_device *adev,
 				    struct dc_plane_state *dc_plane_state,

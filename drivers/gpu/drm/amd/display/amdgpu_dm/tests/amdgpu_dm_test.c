@@ -12,6 +12,7 @@
 #include <drm/drm_connector.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_framebuffer.h>
+#include <drm/drm_fourcc.h>
 #include <drm/drm_kunit_helpers.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_modeset_lock.h>
@@ -3563,6 +3564,244 @@ static void dm_test_init_power_module_alloc_failure(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, adev->dm.power_module);
 }
 
+/* Tests for fill_dc_plane_info_and_addr() */
+
+struct dm_test_plane_info_ctx {
+	struct amdgpu_device *adev;
+	struct amdgpu_framebuffer *afb;
+	struct drm_plane *plane;
+	struct dm_plane_state *dm_plane_state;
+	struct drm_plane_state *plane_state;
+	struct dc_plane_info plane_info;
+	struct dc_plane_address address;
+};
+
+/*
+ * A linear GFX9 framebuffer of @drm_format bound to an unrotated plane, which
+ * is the simplest input that lets the buffer attribute helper succeed. @adev is
+ * passed in because a test may only allocate one mock DRM device.
+ */
+static struct dm_test_plane_info_ctx *
+dm_test_plane_info_ctx_alloc(struct kunit *test, struct amdgpu_device *adev,
+			     u32 drm_format)
+{
+	struct dm_test_plane_info_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->adev = adev;
+	ctx->afb = kunit_kzalloc(test, sizeof(*ctx->afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->afb);
+	ctx->plane = kunit_kzalloc(test, sizeof(*ctx->plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->plane);
+	ctx->dm_plane_state = kunit_kzalloc(test, sizeof(*ctx->dm_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->dm_plane_state);
+	ctx->plane_state = &ctx->dm_plane_state->base;
+
+	ctx->adev->family = AMDGPU_FAMILY_NV;
+	ctx->adev->ip_versions[GC_HWIP][0] = IP_VERSION(10, 3, 0);
+
+	ctx->afb->address = 0x80000000ULL;
+	ctx->afb->base.width = 1920;
+	ctx->afb->base.height = 1080;
+	ctx->afb->base.offsets[1] = 0x200000;
+	ctx->afb->base.pitches[0] = 1920 * 4;
+	ctx->afb->base.pitches[1] = 1920 * 4;
+	ctx->afb->base.modifier = DRM_FORMAT_MOD_LINEAR;
+	ctx->afb->base.format = drm_format_info(drm_format);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->afb->base.format);
+
+	ctx->plane->dev = &ctx->adev->ddev;
+	ctx->plane_state->plane = ctx->plane;
+	ctx->plane_state->fb = &ctx->afb->base;
+	ctx->plane_state->rotation = DRM_MODE_ROTATE_0;
+	ctx->plane_state->alpha = DRM_BLEND_ALPHA_OPAQUE;
+	ctx->plane_state->src_w = 1920 << 16;
+	ctx->plane_state->src_h = 1080 << 16;
+	ctx->plane_state->crtc_w = 1920;
+	ctx->plane_state->crtc_h = 1080;
+
+	return ctx;
+}
+
+static int dm_test_fill_plane_info(struct dm_test_plane_info_ctx *ctx)
+{
+	return fill_dc_plane_info_and_addr(ctx->adev, ctx->plane_state,
+					   &ctx->plane_info, &ctx->address, false);
+}
+
+static const struct {
+	u32 drm_format;
+	enum surface_pixel_format dc_format;
+} dm_test_plane_graphics_formats[] = {
+	{ DRM_FORMAT_C8, SURFACE_PIXEL_FORMAT_GRPH_PALETA_256_COLORS },
+	{ DRM_FORMAT_RGB565, SURFACE_PIXEL_FORMAT_GRPH_RGB565 },
+	{ DRM_FORMAT_XRGB8888, SURFACE_PIXEL_FORMAT_GRPH_ARGB8888 },
+	{ DRM_FORMAT_ARGB8888, SURFACE_PIXEL_FORMAT_GRPH_ARGB8888 },
+	{ DRM_FORMAT_XRGB2101010, SURFACE_PIXEL_FORMAT_GRPH_ARGB2101010 },
+	{ DRM_FORMAT_ARGB2101010, SURFACE_PIXEL_FORMAT_GRPH_ARGB2101010 },
+	{ DRM_FORMAT_XBGR2101010, SURFACE_PIXEL_FORMAT_GRPH_ABGR2101010 },
+	{ DRM_FORMAT_ABGR2101010, SURFACE_PIXEL_FORMAT_GRPH_ABGR2101010 },
+	{ DRM_FORMAT_XBGR8888, SURFACE_PIXEL_FORMAT_GRPH_ABGR8888 },
+	{ DRM_FORMAT_ABGR8888, SURFACE_PIXEL_FORMAT_GRPH_ABGR8888 },
+	{ DRM_FORMAT_XRGB16161616F, SURFACE_PIXEL_FORMAT_GRPH_ARGB16161616F },
+	{ DRM_FORMAT_ARGB16161616F, SURFACE_PIXEL_FORMAT_GRPH_ARGB16161616F },
+	{ DRM_FORMAT_XBGR16161616F, SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616F },
+	{ DRM_FORMAT_ABGR16161616F, SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616F },
+	{ DRM_FORMAT_XRGB16161616, SURFACE_PIXEL_FORMAT_GRPH_ARGB16161616 },
+	{ DRM_FORMAT_ARGB16161616, SURFACE_PIXEL_FORMAT_GRPH_ARGB16161616 },
+	{ DRM_FORMAT_XBGR16161616, SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616 },
+	{ DRM_FORMAT_ABGR16161616, SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616 },
+};
+
+/**
+ * dm_test_plane_info_graphics_formats - Test every graphics format mapping
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_info_graphics_formats(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(dm_test_plane_graphics_formats); i++) {
+		u32 fmt = dm_test_plane_graphics_formats[i].drm_format;
+		struct dm_test_plane_info_ctx *ctx;
+
+		ctx = dm_test_plane_info_ctx_alloc(test, adev, fmt);
+
+		KUNIT_EXPECT_EQ_MSG(test, dm_test_fill_plane_info(ctx), 0,
+				    "format %p4cc", &fmt);
+		KUNIT_EXPECT_EQ_MSG(test, (int)ctx->plane_info.format,
+				    (int)dm_test_plane_graphics_formats[i].dc_format,
+				    "format %p4cc", &fmt);
+		/* Graphics formats ignore the DRM colour properties. */
+		KUNIT_EXPECT_EQ(test, (int)ctx->plane_info.color_space,
+				(int)COLOR_SPACE_SRGB);
+	}
+}
+
+static const struct {
+	u32 drm_format;
+	enum surface_pixel_format dc_format;
+} dm_test_plane_video_formats[] = {
+	{ DRM_FORMAT_NV21, SURFACE_PIXEL_FORMAT_VIDEO_420_YCbCr },
+	{ DRM_FORMAT_NV12, SURFACE_PIXEL_FORMAT_VIDEO_420_YCrCb },
+	{ DRM_FORMAT_P010, SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCrCb },
+};
+
+/**
+ * dm_test_plane_info_video_formats - Test every video format mapping
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_info_video_formats(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(dm_test_plane_video_formats); i++) {
+		u32 fmt = dm_test_plane_video_formats[i].drm_format;
+		struct dm_test_plane_info_ctx *ctx;
+
+		ctx = dm_test_plane_info_ctx_alloc(test, adev, fmt);
+		ctx->plane_state->color_encoding = DRM_COLOR_YCBCR_BT709;
+		ctx->plane_state->color_range = DRM_COLOR_YCBCR_LIMITED_RANGE;
+
+		KUNIT_EXPECT_EQ_MSG(test, dm_test_fill_plane_info(ctx), 0,
+				    "format %p4cc", &fmt);
+		KUNIT_EXPECT_EQ_MSG(test, (int)ctx->plane_info.format,
+				    (int)dm_test_plane_video_formats[i].dc_format,
+				    "format %p4cc", &fmt);
+		KUNIT_EXPECT_EQ(test, (int)ctx->plane_info.color_space,
+				(int)COLOR_SPACE_YCBCR709_LIMITED);
+	}
+}
+
+/**
+ * dm_test_plane_info_unsupported_format - Test an unsupported format is rejected
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_info_unsupported_format(struct kunit *test)
+{
+	struct dm_test_plane_info_ctx *ctx;
+
+	ctx = dm_test_plane_info_ctx_alloc(test, dm_kunit_alloc_adev(test),
+					   DRM_FORMAT_YUYV);
+
+	KUNIT_EXPECT_EQ(test, dm_test_fill_plane_info(ctx), -EINVAL);
+}
+
+/**
+ * dm_test_plane_info_bad_color_encoding - Test an invalid colour encoding is rejected
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_info_bad_color_encoding(struct kunit *test)
+{
+	struct dm_test_plane_info_ctx *ctx;
+
+	ctx = dm_test_plane_info_ctx_alloc(test, dm_kunit_alloc_adev(test),
+					   DRM_FORMAT_NV12);
+	ctx->plane_state->color_encoding = DRM_COLOR_ENCODING_MAX;
+
+	KUNIT_EXPECT_EQ(test, dm_test_fill_plane_info(ctx), -EINVAL);
+}
+
+/**
+ * dm_test_plane_info_rotations - Test every DRM rotation maps to a DC angle
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_info_rotations(struct kunit *test)
+{
+	static const struct {
+		unsigned int drm_rotation;
+		enum dc_rotation_angle dc_rotation;
+	} cases[] = {
+		{ DRM_MODE_ROTATE_0, ROTATION_ANGLE_0 },
+		{ DRM_MODE_ROTATE_90, ROTATION_ANGLE_90 },
+		{ DRM_MODE_ROTATE_180, ROTATION_ANGLE_180 },
+		{ DRM_MODE_ROTATE_270, ROTATION_ANGLE_270 },
+		/* No rotation bit set falls back to the unrotated angle. */
+		{ 0, ROTATION_ANGLE_0 },
+	};
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		struct dm_test_plane_info_ctx *ctx;
+
+		ctx = dm_test_plane_info_ctx_alloc(test, adev, DRM_FORMAT_ARGB8888);
+		ctx->plane_state->rotation = cases[i].drm_rotation;
+
+		KUNIT_EXPECT_EQ(test, dm_test_fill_plane_info(ctx), 0);
+		KUNIT_EXPECT_EQ(test, (int)ctx->plane_info.rotation,
+				(int)cases[i].dc_rotation);
+	}
+}
+
+/**
+ * dm_test_plane_info_layer_and_blending - Test z-order and blending are forwarded
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_info_layer_and_blending(struct kunit *test)
+{
+	struct dm_test_plane_info_ctx *ctx;
+
+	ctx = dm_test_plane_info_ctx_alloc(test, dm_kunit_alloc_adev(test),
+					   DRM_FORMAT_ARGB8888);
+	ctx->plane_state->normalized_zpos = 3;
+	ctx->plane_state->pixel_blend_mode = DRM_MODE_BLEND_PREMULTI;
+	ctx->plane_state->alpha = DRM_BLEND_ALPHA_OPAQUE / 2;
+
+	KUNIT_EXPECT_EQ(test, dm_test_fill_plane_info(ctx), 0);
+	KUNIT_EXPECT_TRUE(test, ctx->plane_info.visible);
+	KUNIT_EXPECT_EQ(test, ctx->plane_info.layer_index, 3);
+	KUNIT_EXPECT_EQ(test, (int)ctx->plane_info.stereo_format,
+			(int)PLANE_STEREO_FORMAT_NONE);
+	KUNIT_EXPECT_TRUE(test, ctx->plane_info.per_pixel_alpha);
+	KUNIT_EXPECT_TRUE(test, ctx->plane_info.global_alpha);
+	KUNIT_EXPECT_EQ(test, ctx->plane_info.global_alpha_value, 0x7f);
+}
+
 /* Tests for dm_early_init() */
 
 #define DM_TEST_ATOM_BIOS_SIZE	512
@@ -4254,6 +4493,13 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	/* amdgpu_dm_init_power_module */
 	KUNIT_CASE(dm_test_init_power_module_no_edp),
 	KUNIT_CASE(dm_test_init_power_module_alloc_failure),
+	/* fill_dc_plane_info_and_addr */
+	KUNIT_CASE(dm_test_plane_info_graphics_formats),
+	KUNIT_CASE(dm_test_plane_info_video_formats),
+	KUNIT_CASE(dm_test_plane_info_unsupported_format),
+	KUNIT_CASE(dm_test_plane_info_bad_color_encoding),
+	KUNIT_CASE(dm_test_plane_info_rotations),
+	KUNIT_CASE(dm_test_plane_info_layer_and_blending),
 	/* dm_early_init */
 	KUNIT_CASE(dm_test_early_init_no_object_header),
 	KUNIT_CASE(dm_test_early_init_legacy_asics),
