@@ -837,7 +837,8 @@ static void zynqmp_dma_synchronize(struct dma_chan *dchan)
  * @len: Transfer length
  * @flags: transfer ack flags
  *
- * Return: Async transaction descriptor on success and NULL on failure
+ * Return: Async transaction descriptor on success and NULL on failure or
+ *	   zero length transfer
  */
 static struct dma_async_tx_descriptor *zynqmp_dma_prep_memcpy(
 				struct dma_chan *dchan, dma_addr_t dma_dst,
@@ -851,6 +852,9 @@ static struct dma_async_tx_descriptor *zynqmp_dma_prep_memcpy(
 	unsigned long irqflags;
 
 	chan = to_chan(dchan);
+
+	if (!len)
+		return NULL;
 
 	desc_cnt = DIV_ROUND_UP(len, ZYNQMP_DMA_MAX_TRANS_LEN);
 
