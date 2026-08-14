@@ -30,6 +30,7 @@
 #include "amd_shared.h"
 #include "amdgpu.h"
 #include "amdgpu_mode.h"
+#include "atom.h"
 #include "amdgpu_dm.h"
 #include "amdgpu_dm_audio.h"
 #include "amdgpu_dm_hdcp.h"
@@ -3562,6 +3563,168 @@ static void dm_test_init_power_module_alloc_failure(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, adev->dm.power_module);
 }
 
+/* Tests for dm_early_init() */
+
+#define DM_TEST_ATOM_BIOS_SIZE	512
+
+/*
+ * A fake ATOM BIOS image. Every byte is non-zero, so the master data table
+ * reports a present entry for whichever index the object header lives at,
+ * which is all amdgpu_atom_parse_data_header() checks here.
+ */
+static struct atom_context *dm_test_alloc_atom_context(struct kunit *test,
+						       bool object_header)
+{
+	struct atom_context *ctx;
+	void *bios;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+	bios = kunit_kzalloc(test, DM_TEST_ATOM_BIOS_SIZE, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, bios);
+
+	if (object_header)
+		memset(bios, 0x01, DM_TEST_ATOM_BIOS_SIZE);
+
+	ctx->bios = bios;
+	ctx->bios_size = DM_TEST_ATOM_BIOS_SIZE;
+	ctx->data_table = 0;
+
+	return ctx;
+}
+
+static struct amdgpu_device *dm_test_early_init_adev(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	adev->mode_info.atom_context = dm_test_alloc_atom_context(test, true);
+
+	return adev;
+}
+
+static int dm_test_run_early_init(struct amdgpu_device *adev)
+{
+	struct amdgpu_ip_block ip_block = { .adev = adev };
+
+	return dm_early_init(&ip_block);
+}
+
+/**
+ * dm_test_early_init_no_object_header - Test a BIOS without an object header
+ * @test: The KUnit test context
+ */
+static void dm_test_early_init_no_object_header(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	adev->mode_info.atom_context = dm_test_alloc_atom_context(test, false);
+
+	KUNIT_EXPECT_EQ(test, dm_test_run_early_init(adev), -ENOENT);
+	KUNIT_EXPECT_TRUE(test, adev->harvest_ip_mask & AMD_HARVEST_IP_DMU_MASK);
+	KUNIT_EXPECT_FALSE(test, adev->dc_enabled);
+}
+
+/**
+ * dm_test_early_init_legacy_asics - Test the display counts of legacy ASICs
+ * @test: The KUnit test context
+ */
+static void dm_test_early_init_legacy_asics(struct kunit *test)
+{
+	static const struct {
+		enum amd_asic_type asic_type;
+		u32 num_crtc;
+		u32 num_hpd;
+		u32 num_dig;
+	} cases[] = {
+		{ CHIP_BONAIRE, 6, 6, 6 },
+		{ CHIP_HAWAII, 6, 6, 6 },
+		{ CHIP_KAVERI, 4, 6, 7 },
+		{ CHIP_KABINI, 2, 6, 6 },
+		{ CHIP_MULLINS, 2, 6, 6 },
+		{ CHIP_FIJI, 6, 6, 7 },
+		{ CHIP_TONGA, 6, 6, 7 },
+		{ CHIP_CARRIZO, 3, 6, 9 },
+		{ CHIP_STONEY, 2, 6, 9 },
+		{ CHIP_POLARIS11, 5, 5, 5 },
+		{ CHIP_POLARIS12, 5, 5, 5 },
+		{ CHIP_POLARIS10, 6, 6, 6 },
+		{ CHIP_VEGAM, 6, 6, 6 },
+		{ CHIP_VEGA10, 6, 6, 6 },
+		{ CHIP_VEGA12, 6, 6, 6 },
+		{ CHIP_VEGA20, 6, 6, 6 },
+	};
+	struct amdgpu_device *adev = dm_test_early_init_adev(test);
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		adev->asic_type = cases[i].asic_type;
+
+		KUNIT_EXPECT_EQ_MSG(test, dm_test_run_early_init(adev), 0,
+				    "asic_type %d", cases[i].asic_type);
+		KUNIT_EXPECT_EQ_MSG(test, adev->mode_info.num_crtc, cases[i].num_crtc,
+				    "asic_type %d", cases[i].asic_type);
+		KUNIT_EXPECT_EQ_MSG(test, adev->mode_info.num_hpd, cases[i].num_hpd,
+				    "asic_type %d", cases[i].asic_type);
+		KUNIT_EXPECT_EQ_MSG(test, adev->mode_info.num_dig, cases[i].num_dig,
+				    "asic_type %d", cases[i].asic_type);
+	}
+
+	KUNIT_EXPECT_NOT_NULL(test, adev->mode_info.funcs);
+	KUNIT_EXPECT_TRUE(test, adev->dc_enabled);
+}
+
+/**
+ * dm_test_early_init_dcn_versions - Test the display counts of DCN IP versions
+ * @test: The KUnit test context
+ *
+ * Only IP versions without DMUB firmware are used, so dm_init_microcode() does
+ * not reach a firmware request.
+ */
+static void dm_test_early_init_dcn_versions(struct kunit *test)
+{
+	static const struct {
+		u32 ip_version;
+		u32 num_crtc;
+	} cases[] = {
+		{ IP_VERSION(2, 0, 2), 6 },
+		{ IP_VERSION(2, 0, 0), 5 },
+		{ IP_VERSION(2, 0, 3), 2 },
+		{ IP_VERSION(1, 0, 0), 4 },
+		{ IP_VERSION(1, 0, 1), 4 },
+	};
+	struct amdgpu_device *adev = dm_test_early_init_adev(test);
+	unsigned int i;
+
+	adev->asic_type = CHIP_IP_DISCOVERY;
+
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		adev->ip_versions[DCE_HWIP][0] = cases[i].ip_version;
+
+		KUNIT_EXPECT_EQ_MSG(test, dm_test_run_early_init(adev), 0,
+				    "ip_version 0x%x", cases[i].ip_version);
+		KUNIT_EXPECT_EQ_MSG(test, adev->mode_info.num_crtc, cases[i].num_crtc,
+				    "ip_version 0x%x", cases[i].ip_version);
+		/* Every DCN entry keeps hpd and dig in step with the CRTC count. */
+		KUNIT_EXPECT_EQ(test, adev->mode_info.num_hpd, cases[i].num_crtc);
+		KUNIT_EXPECT_EQ(test, adev->mode_info.num_dig, cases[i].num_crtc);
+	}
+}
+
+/**
+ * dm_test_early_init_unsupported_version - Test an unknown IP version is rejected
+ * @test: The KUnit test context
+ */
+static void dm_test_early_init_unsupported_version(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_early_init_adev(test);
+
+	adev->asic_type = CHIP_IP_DISCOVERY;
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(9, 9, 9);
+
+	KUNIT_EXPECT_EQ(test, dm_test_run_early_init(adev), -EINVAL);
+	KUNIT_EXPECT_FALSE(test, adev->dc_enabled);
+}
+
 /* Tests for load_dmcu_fw() */
 
 /**
@@ -4091,6 +4254,11 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	/* amdgpu_dm_init_power_module */
 	KUNIT_CASE(dm_test_init_power_module_no_edp),
 	KUNIT_CASE(dm_test_init_power_module_alloc_failure),
+	/* dm_early_init */
+	KUNIT_CASE(dm_test_early_init_no_object_header),
+	KUNIT_CASE(dm_test_early_init_legacy_asics),
+	KUNIT_CASE(dm_test_early_init_dcn_versions),
+	KUNIT_CASE(dm_test_early_init_unsupported_version),
 	/* load_dmcu_fw */
 	KUNIT_CASE(dm_test_load_dmcu_fw_no_dmcu),
 	KUNIT_CASE(dm_test_load_dmcu_fw_dcn),

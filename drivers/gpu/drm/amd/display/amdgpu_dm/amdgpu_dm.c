@@ -307,7 +307,7 @@ STATIC_IFN_KUNIT int dm_set_powergating_state(struct amdgpu_ip_block *ip_block,
 EXPORT_IF_KUNIT(dm_set_powergating_state);
 
 /* Prototypes of private functions */
-static int dm_early_init(struct amdgpu_ip_block *ip_block);
+STATIC_IFN_KUNIT int dm_early_init(struct amdgpu_ip_block *ip_block);
 
 #if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
 static const struct amdgpu_dm_kunit_ops amdgpu_dm_default_ops = {
@@ -2751,7 +2751,7 @@ DEVICE_ATTR_WO(s3_debug);
 
 #endif
 
-static int dm_early_init(struct amdgpu_ip_block *ip_block)
+STATIC_IFN_KUNIT int dm_early_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
 	struct amdgpu_mode_info *mode_info = &adev->mode_info;
@@ -2901,6 +2901,7 @@ static int dm_early_init(struct amdgpu_ip_block *ip_block)
 
 	return dm_init_microcode(adev);
 }
+EXPORT_IF_KUNIT(dm_early_init);
 
 STATIC_IFN_KUNIT bool modereset_required(struct drm_crtc_state *crtc_state)
 {
