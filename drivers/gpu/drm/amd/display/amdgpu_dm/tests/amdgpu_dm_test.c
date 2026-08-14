@@ -21,6 +21,7 @@
 #include <drm/drm_writeback.h>
 
 #include "dc.h"
+#include "dal_asic_id.h"
 #include "dm_services_types.h"
 #include "dmub/dmub_srv.h"
 #include "inc/core_types.h"
@@ -3559,6 +3560,100 @@ static void dm_test_init_power_module_alloc_failure(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, adev->dm.power_module);
 }
 
+/* Tests for load_dmcu_fw() */
+
+/**
+ * dm_test_load_dmcu_fw_no_dmcu - Test ASICs and IP versions without a DMCU
+ * @test: The KUnit test context
+ */
+static void dm_test_load_dmcu_fw_no_dmcu(struct kunit *test)
+{
+	static const enum amd_asic_type cases[] = {
+		CHIP_BONAIRE, CHIP_HAWAII, CHIP_KAVERI, CHIP_KABINI, CHIP_MULLINS,
+		CHIP_TONGA, CHIP_FIJI, CHIP_CARRIZO, CHIP_STONEY, CHIP_POLARIS11,
+		CHIP_POLARIS10, CHIP_POLARIS12, CHIP_VEGAM, CHIP_VEGA10,
+		CHIP_VEGA12, CHIP_VEGA20,
+	};
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		adev->asic_type = cases[i];
+
+		KUNIT_EXPECT_EQ_MSG(test, load_dmcu_fw(adev), 0, "asic_type %d",
+				    cases[i]);
+		KUNIT_EXPECT_NULL(test, adev->dm.fw_dmcu);
+	}
+}
+
+/**
+ * dm_test_load_dmcu_fw_dcn - Test DCN IP versions report no DMCU firmware
+ * @test: The KUnit test context
+ */
+static void dm_test_load_dmcu_fw_dcn(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	adev->asic_type = CHIP_IP_DISCOVERY;
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 5, 0);
+
+	KUNIT_EXPECT_EQ(test, load_dmcu_fw(adev), 0);
+	KUNIT_EXPECT_NULL(test, adev->dm.fw_dmcu);
+}
+
+/**
+ * dm_test_load_dmcu_fw_unsupported - Test an unknown IP version is rejected
+ * @test: The KUnit test context
+ */
+static void dm_test_load_dmcu_fw_unsupported(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	adev->asic_type = CHIP_IP_DISCOVERY;
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(9, 9, 9);
+
+	KUNIT_EXPECT_EQ(test, load_dmcu_fw(adev), -EINVAL);
+}
+
+/**
+ * dm_test_load_dmcu_fw_raven - Test the Raven revision selects a DMCU
+ * @test: The KUnit test context
+ */
+static void dm_test_load_dmcu_fw_raven(struct kunit *test)
+{
+	static const u32 cases[] = { PICASSO_A0, RAVEN2_A0, 0 };
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	unsigned int i;
+
+	adev->asic_type = CHIP_RAVEN;
+	adev->firmware.load_type = AMDGPU_FW_LOAD_DIRECT;
+
+	/* Picasso and Raven2 name a DMCU; a bare Raven has none. */
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		adev->external_rev_id = cases[i];
+
+		KUNIT_EXPECT_EQ_MSG(test, load_dmcu_fw(adev), 0, "rev 0x%x",
+				    cases[i]);
+	}
+}
+
+/**
+ * dm_test_load_dmcu_fw_missing_firmware - Test a missing DMCU image is not fatal
+ * @test: The KUnit test context
+ */
+static void dm_test_load_dmcu_fw_missing_firmware(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	adev->dev = adev->ddev.dev;
+	adev->asic_type = CHIP_NAVI12;
+	adev->firmware.load_type = AMDGPU_FW_LOAD_PSP;
+
+	/* No firmware is installed in the test environment. */
+	KUNIT_EXPECT_EQ(test, load_dmcu_fw(adev), 0);
+	KUNIT_EXPECT_NULL(test, adev->dm.fw_dmcu);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -3739,6 +3834,12 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	/* amdgpu_dm_init_power_module */
 	KUNIT_CASE(dm_test_init_power_module_no_edp),
 	KUNIT_CASE(dm_test_init_power_module_alloc_failure),
+	/* load_dmcu_fw */
+	KUNIT_CASE(dm_test_load_dmcu_fw_no_dmcu),
+	KUNIT_CASE(dm_test_load_dmcu_fw_dcn),
+	KUNIT_CASE(dm_test_load_dmcu_fw_unsupported),
+	KUNIT_CASE(dm_test_load_dmcu_fw_raven),
+	KUNIT_CASE(dm_test_load_dmcu_fw_missing_firmware),
 	{}
 };
 

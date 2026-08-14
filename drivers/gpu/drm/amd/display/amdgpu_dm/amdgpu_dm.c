@@ -967,7 +967,7 @@ static void amdgpu_dm_fini(struct amdgpu_device *adev)
 	mutex_destroy(&adev->dm.dpia_aux_lock);
 }
 
-static int load_dmcu_fw(struct amdgpu_device *adev)
+STATIC_IFN_KUNIT int load_dmcu_fw(struct amdgpu_device *adev)
 {
 	const char *fw_name_dmcu = NULL;
 	int r;
@@ -1077,6 +1077,7 @@ static int load_dmcu_fw(struct amdgpu_device *adev)
 
 	return 0;
 }
+EXPORT_IF_KUNIT(load_dmcu_fw);
 
 static int dm_sw_init(struct amdgpu_ip_block *ip_block)
 {

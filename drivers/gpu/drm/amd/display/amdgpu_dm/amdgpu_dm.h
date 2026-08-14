@@ -1253,6 +1253,7 @@ struct dc_phy_addr_space_config;
 void mmhub_read_system_context(struct amdgpu_device *adev,
 			       struct dc_phy_addr_space_config *pa_config);
 int amdgpu_dm_init_power_module(struct amdgpu_display_manager *dm);
+int load_dmcu_fw(struct amdgpu_device *adev);
 #endif
 
 #endif /* __AMDGPU_DM_H__ */
