@@ -360,33 +360,64 @@ enum add_mode {
 	ADD_TO_TAIL,
 };
 
+#define STAT_ITEMS							\
+	/* Allocation from percpu sheaves */				\
+	ITEM_EXP(ALLOC_FASTPATH, alloc_fastpath)			\
+	/* Allocation from partial or new slab */			\
+	ITEM_EXP(ALLOC_SLOWPATH, alloc_slowpath)			\
+	/* Free to rcu_free sheaf */					\
+	ITEM_EXP(FREE_RCU_SHEAF, free_rcu_sheaf)			\
+	/* Failed to free to a rcu_free sheaf */			\
+	ITEM_EXP(FREE_RCU_SHEAF_FAIL, free_rcu_sheaf_fail)		\
+	/* Free to percpu sheaves */					\
+	ITEM_EXP(FREE_FASTPATH, free_fastpath)				\
+	/* Free to a slab */						\
+	ITEM_EXP(FREE_SLOWPATH, free_slowpath)				\
+	/* Freeing moves slab to partial list */			\
+	ITEM_EXP(FREE_ADD_PARTIAL, free_add_partial)			\
+	/* Freeing removes last object */				\
+	ITEM_EXP(FREE_REMOVE_PARTIAL, free_remove_partial)		\
+	/* New slab acquired from page allocator */			\
+	ITEM_EXP(ALLOC_SLAB, alloc_slab)				\
+	/* Requested node different from cpu sheaf */			\
+	ITEM_EXP(ALLOC_NODE_MISMATCH, alloc_node_mismatch)		\
+	/* Slab freed to the page allocator */				\
+	ITEM_EXP(FREE_SLAB, free_slab)					\
+	/* Number of times fallback was necessary */			\
+	ITEM_EXP(ORDER_FALLBACK, order_fallback)			\
+	/* Failures of slab freelist update */				\
+	ITEM_EXP(CMPXCHG_DOUBLE_FAIL, cmpxchg_double_fail)		\
+	/* Objects flushed from a sheaf */				\
+	ITEM_EXP(SHEAF_FLUSH, sheaf_flush)				\
+	/* Objects refilled to a sheaf */				\
+	ITEM_EXP(SHEAF_REFILL, sheaf_refill)				\
+	/* Allocation of an empty sheaf including oversized ones */	\
+	ITEM_EXP(SHEAF_ALLOC, sheaf_alloc)				\
+	/* Freeing of an empty sheaf including oversized ones */	\
+	ITEM_EXP(SHEAF_FREE, sheaf_free)				\
+	/* Got full sheaf from barn */					\
+	ITEM_EXP(BARN_GET, barn_get)					\
+	/* Failed to get full sheaf from barn */			\
+	ITEM_EXP(BARN_GET_FAIL, barn_get_fail)				\
+	/* Put full sheaf to barn */					\
+	ITEM_EXP(BARN_PUT, barn_put)					\
+	/* Failed to put full sheaf to barn */				\
+	ITEM_EXP(BARN_PUT_FAIL, barn_put_fail)				\
+	/* Sheaf prefill grabbed the spare sheaf */			\
+	ITEM_EXP(SHEAF_PREFILL_FAST, sheaf_prefill_fast)		\
+	/* Sheaf prefill found no spare sheaf */			\
+	ITEM_EXP(SHEAF_PREFILL_SLOW, sheaf_prefill_slow)		\
+	/* Allocation of oversize sheaf for prefill */			\
+	ITEM_EXP(SHEAF_PREFILL_OVERSIZE, sheaf_prefill_oversize)	\
+	/* Sheaf return reattached spare sheaf */			\
+	ITEM_EXP(SHEAF_RETURN_FAST, sheaf_return_fast)			\
+	/* Sheaf return could not reattach spare */			\
+	ITEM_EXP(SHEAF_RETURN_SLOW, sheaf_return_slow)
+
 enum stat_item {
-	ALLOC_FASTPATH,		/* Allocation from percpu sheaves */
-	ALLOC_SLOWPATH,		/* Allocation from partial or new slab */
-	FREE_RCU_SHEAF,		/* Free to rcu_free sheaf */
-	FREE_RCU_SHEAF_FAIL,	/* Failed to free to a rcu_free sheaf */
-	FREE_FASTPATH,		/* Free to percpu sheaves */
-	FREE_SLOWPATH,		/* Free to a slab */
-	FREE_ADD_PARTIAL,	/* Freeing moves slab to partial list */
-	FREE_REMOVE_PARTIAL,	/* Freeing removes last object */
-	ALLOC_SLAB,		/* New slab acquired from page allocator */
-	ALLOC_NODE_MISMATCH,	/* Requested node different from cpu sheaf */
-	FREE_SLAB,		/* Slab freed to the page allocator */
-	ORDER_FALLBACK,		/* Number of times fallback was necessary */
-	CMPXCHG_DOUBLE_FAIL,	/* Failures of slab freelist update */
-	SHEAF_FLUSH,		/* Objects flushed from a sheaf */
-	SHEAF_REFILL,		/* Objects refilled to a sheaf */
-	SHEAF_ALLOC,		/* Allocation of an empty sheaf including oversized ones */
-	SHEAF_FREE,		/* Freeing of an empty sheaf including oversized ones */
-	BARN_GET,		/* Got full sheaf from barn */
-	BARN_GET_FAIL,		/* Failed to get full sheaf from barn */
-	BARN_PUT,		/* Put full sheaf to barn */
-	BARN_PUT_FAIL,		/* Failed to put full sheaf to barn */
-	SHEAF_PREFILL_FAST,	/* Sheaf prefill grabbed the spare sheaf */
-	SHEAF_PREFILL_SLOW,	/* Sheaf prefill found no spare sheaf */
-	SHEAF_PREFILL_OVERSIZE,	/* Allocation of oversize sheaf for prefill */
-	SHEAF_RETURN_FAST,	/* Sheaf return reattached spare sheaf */
-	SHEAF_RETURN_SLOW,	/* Sheaf return could not reattach spare */
+#define ITEM_EXP(name, unused) name,
+	STAT_ITEMS
+#undef ITEM_EXP
 	NR_SLUB_STAT_ITEMS
 };
 
@@ -9512,34 +9543,12 @@ static ssize_t text##_store(struct kmem_cache *s,		\
 	clear_stat(s, si);					\
 	return length;						\
 }								\
-SLAB_ATTR(text);						\
+SLAB_ATTR(text);
 
-STAT_ATTR(ALLOC_FASTPATH, alloc_fastpath);
-STAT_ATTR(ALLOC_SLOWPATH, alloc_slowpath);
-STAT_ATTR(FREE_RCU_SHEAF, free_rcu_sheaf);
-STAT_ATTR(FREE_RCU_SHEAF_FAIL, free_rcu_sheaf_fail);
-STAT_ATTR(FREE_FASTPATH, free_fastpath);
-STAT_ATTR(FREE_SLOWPATH, free_slowpath);
-STAT_ATTR(FREE_ADD_PARTIAL, free_add_partial);
-STAT_ATTR(FREE_REMOVE_PARTIAL, free_remove_partial);
-STAT_ATTR(ALLOC_SLAB, alloc_slab);
-STAT_ATTR(ALLOC_NODE_MISMATCH, alloc_node_mismatch);
-STAT_ATTR(FREE_SLAB, free_slab);
-STAT_ATTR(ORDER_FALLBACK, order_fallback);
-STAT_ATTR(CMPXCHG_DOUBLE_FAIL, cmpxchg_double_fail);
-STAT_ATTR(SHEAF_FLUSH, sheaf_flush);
-STAT_ATTR(SHEAF_REFILL, sheaf_refill);
-STAT_ATTR(SHEAF_ALLOC, sheaf_alloc);
-STAT_ATTR(SHEAF_FREE, sheaf_free);
-STAT_ATTR(BARN_GET, barn_get);
-STAT_ATTR(BARN_GET_FAIL, barn_get_fail);
-STAT_ATTR(BARN_PUT, barn_put);
-STAT_ATTR(BARN_PUT_FAIL, barn_put_fail);
-STAT_ATTR(SHEAF_PREFILL_FAST, sheaf_prefill_fast);
-STAT_ATTR(SHEAF_PREFILL_SLOW, sheaf_prefill_slow);
-STAT_ATTR(SHEAF_PREFILL_OVERSIZE, sheaf_prefill_oversize);
-STAT_ATTR(SHEAF_RETURN_FAST, sheaf_return_fast);
-STAT_ATTR(SHEAF_RETURN_SLOW, sheaf_return_slow);
+#define ITEM_EXP(name, text) STAT_ATTR(name, text)
+STAT_ITEMS
+#undef ITEM_EXP
+
 #endif	/* CONFIG_SLUB_STATS */
 
 #ifdef CONFIG_KFENCE
@@ -9602,32 +9611,9 @@ static const struct attribute *const slab_attrs[] = {
 	&remote_node_defrag_ratio_attr.attr,
 #endif
 #ifdef CONFIG_SLUB_STATS
-	&alloc_fastpath_attr.attr,
-	&alloc_slowpath_attr.attr,
-	&free_rcu_sheaf_attr.attr,
-	&free_rcu_sheaf_fail_attr.attr,
-	&free_fastpath_attr.attr,
-	&free_slowpath_attr.attr,
-	&free_add_partial_attr.attr,
-	&free_remove_partial_attr.attr,
-	&alloc_slab_attr.attr,
-	&alloc_node_mismatch_attr.attr,
-	&free_slab_attr.attr,
-	&order_fallback_attr.attr,
-	&cmpxchg_double_fail_attr.attr,
-	&sheaf_flush_attr.attr,
-	&sheaf_refill_attr.attr,
-	&sheaf_alloc_attr.attr,
-	&sheaf_free_attr.attr,
-	&barn_get_attr.attr,
-	&barn_get_fail_attr.attr,
-	&barn_put_attr.attr,
-	&barn_put_fail_attr.attr,
-	&sheaf_prefill_fast_attr.attr,
-	&sheaf_prefill_slow_attr.attr,
-	&sheaf_prefill_oversize_attr.attr,
-	&sheaf_return_fast_attr.attr,
-	&sheaf_return_slow_attr.attr,
+#define ITEM_EXP(unused, text) &text##_attr.attr,
+	STAT_ITEMS
+#undef ITEM_EXP
 #endif
 #ifdef CONFIG_FAILSLAB
 	&failslab_attr.attr,
