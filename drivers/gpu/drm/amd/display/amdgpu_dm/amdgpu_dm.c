@@ -253,6 +253,16 @@ STATIC_IFN_KUNIT int dm_plane_layer_index_cmp(const void *a, const void *b)
 }
 EXPORT_IF_KUNIT(dm_plane_layer_index_cmp);
 
+#if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
+static const struct amdgpu_dm_kunit_ops *amdgpu_dm_ops;
+
+#define dm_post_update_surfaces_to_stream	amdgpu_dm_ops->post_update_surfaces_to_stream
+#define dm_update_planes_and_stream		amdgpu_dm_ops->update_planes_and_stream
+#else
+#define dm_post_update_surfaces_to_stream	dc_post_update_surfaces_to_stream
+#define dm_update_planes_and_stream		dc_update_planes_and_stream
+#endif
+
 /**
  * update_planes_and_stream_adapter() - Send planes to be updated in DC
  *
@@ -270,12 +280,13 @@ EXPORT_IF_KUNIT(dm_plane_layer_index_cmp);
  * @array_of_surface_update: dc surface update pointer
  *
  */
-static inline bool update_planes_and_stream_adapter(struct dc *dc,
-						    int update_type,
-						    int planes_count,
-						    struct dc_stream_state *stream,
-						    struct dc_stream_update *stream_update,
-						    struct dc_surface_update *array_of_surface_update)
+STATIC_IFN_KUNIT INLINE_IFN_KUNIT
+bool update_planes_and_stream_adapter(struct dc *dc,
+				      int update_type,
+				      int planes_count,
+				      struct dc_stream_state *stream,
+				      struct dc_stream_update *stream_update,
+				      struct dc_surface_update *array_of_surface_update)
 {
 	sort(array_of_surface_update, planes_count,
 	     sizeof(*array_of_surface_update), dm_plane_layer_index_cmp, NULL);
@@ -283,14 +294,15 @@ static inline bool update_planes_and_stream_adapter(struct dc *dc,
 	/*
 	 * Previous frame finished and HW is ready for optimization.
 	 */
-	dc_post_update_surfaces_to_stream(dc);
+	dm_post_update_surfaces_to_stream(dc);
 
-	return dc_update_planes_and_stream(dc,
+	return dm_update_planes_and_stream(dc,
 					   array_of_surface_update,
 					   planes_count,
 					   stream,
 					   stream_update);
 }
+EXPORT_IF_KUNIT(update_planes_and_stream_adapter);
 
 STATIC_IFN_KUNIT int dm_set_clockgating_state(struct amdgpu_ip_block *ip_block,
 					      enum amd_clockgating_state state)
@@ -312,6 +324,9 @@ STATIC_IFN_KUNIT int dm_early_init(struct amdgpu_ip_block *ip_block);
 #if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
 static const struct amdgpu_dm_kunit_ops amdgpu_dm_default_ops = {
 	.gmc_pd_addr = amdgpu_gmc_pd_addr,
+	.post_update_surfaces_to_stream = dc_post_update_surfaces_to_stream,
+	.update_planes_and_stream = dc_update_planes_and_stream,
+	.atomic_helper_suspend = drm_atomic_helper_suspend,
 };
 
 static const struct amdgpu_dm_kunit_ops *amdgpu_dm_ops = &amdgpu_dm_default_ops;
@@ -322,9 +337,11 @@ void amdgpu_dm_kunit_set_ops(const struct amdgpu_dm_kunit_ops *ops)
 }
 EXPORT_IF_KUNIT(amdgpu_dm_kunit_set_ops);
 
-#define dm_gmc_pd_addr		amdgpu_dm_ops->gmc_pd_addr
+#define dm_gmc_pd_addr			amdgpu_dm_ops->gmc_pd_addr
+#define dm_atomic_helper_suspend	amdgpu_dm_ops->atomic_helper_suspend
 #else
-#define dm_gmc_pd_addr		amdgpu_gmc_pd_addr
+#define dm_gmc_pd_addr			amdgpu_gmc_pd_addr
+#define dm_atomic_helper_suspend	drm_atomic_helper_suspend
 #endif
 
 /* Allocate memory for FBC compressed data  */

@@ -327,6 +327,119 @@ static void dm_test_plane_layer_index_cmp_ascending(struct kunit *test)
 	KUNIT_EXPECT_LT(test, dm_plane_layer_index_cmp(&sa, &sb), 0);
 }
 
+struct dm_test_plane_update_ops_ctx {
+	struct dc *dc;
+	struct dc_surface_update *surface_updates;
+	struct dc_stream_state *stream;
+	struct dc_stream_update *stream_update;
+	int surface_count;
+	unsigned int call_seq;
+	unsigned int post_update_seq;
+	unsigned int update_seq;
+	bool update_ret;
+};
+
+static struct dm_test_plane_update_ops_ctx dm_test_plane_update_ctx;
+
+static void dm_test_post_update_surfaces_to_stream(struct dc *dc)
+{
+	dm_test_plane_update_ctx.dc = dc;
+	dm_test_plane_update_ctx.post_update_seq = ++dm_test_plane_update_ctx.call_seq;
+}
+
+static bool dm_test_update_planes_and_stream(struct dc *dc,
+					     struct dc_surface_update *surface_updates,
+					     int surface_count,
+					     struct dc_stream_state *dc_stream,
+					     struct dc_stream_update *stream_update)
+{
+	dm_test_plane_update_ctx.dc = dc;
+	dm_test_plane_update_ctx.surface_updates = surface_updates;
+	dm_test_plane_update_ctx.surface_count = surface_count;
+	dm_test_plane_update_ctx.stream = dc_stream;
+	dm_test_plane_update_ctx.stream_update = stream_update;
+	dm_test_plane_update_ctx.update_seq = ++dm_test_plane_update_ctx.call_seq;
+
+	return dm_test_plane_update_ctx.update_ret;
+}
+
+static const struct amdgpu_dm_kunit_ops dm_test_plane_update_ops = {
+	.post_update_surfaces_to_stream = dm_test_post_update_surfaces_to_stream,
+	.update_planes_and_stream = dm_test_update_planes_and_stream,
+};
+
+static void dm_test_restore_dm_ops(void *ctx)
+{
+	amdgpu_dm_kunit_set_ops(NULL);
+}
+
+static void dm_test_install_dm_ops(struct kunit *test,
+				   const struct amdgpu_dm_kunit_ops *ops)
+{
+	amdgpu_dm_kunit_set_ops(ops);
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_restore_dm_ops, NULL), 0);
+}
+
+/**
+ * dm_test_update_planes_adapter_sorts_and_forwards - Test sorting and call order
+ * @test: The KUnit test context
+ */
+static void dm_test_update_planes_adapter_sorts_and_forwards(struct kunit *test)
+{
+	struct dc_surface_update *updates;
+	struct dc_plane_state *planes;
+	struct dc_stream_update *stream_update;
+	struct dc_stream_state *stream;
+	struct dc *dc;
+
+	updates = kunit_kcalloc(test, 3, sizeof(*updates), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, updates);
+	planes = kunit_kcalloc(test, 3, sizeof(*planes), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, planes);
+	stream_update = kunit_kzalloc(test, sizeof(*stream_update), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, stream_update);
+	stream = dm_kunit_alloc_stream(test, NULL);
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	planes[0].layer_index = 1;
+	planes[1].layer_index = 5;
+	planes[2].layer_index = 3;
+	updates[0].surface = &planes[0];
+	updates[1].surface = &planes[1];
+	updates[2].surface = &planes[2];
+	dm_test_plane_update_ctx = (struct dm_test_plane_update_ops_ctx) {
+		.update_ret = true,
+	};
+	dm_test_install_dm_ops(test, &dm_test_plane_update_ops);
+
+	KUNIT_EXPECT_TRUE(test, update_planes_and_stream_adapter(dc, UPDATE_TYPE_FAST, 3,
+								 stream, stream_update, updates));
+	KUNIT_EXPECT_EQ(test, updates[0].surface->layer_index, 5);
+	KUNIT_EXPECT_EQ(test, updates[1].surface->layer_index, 3);
+	KUNIT_EXPECT_EQ(test, updates[2].surface->layer_index, 1);
+	KUNIT_EXPECT_PTR_EQ(test, dm_test_plane_update_ctx.dc, dc);
+	KUNIT_EXPECT_PTR_EQ(test, dm_test_plane_update_ctx.surface_updates, &updates[0]);
+	KUNIT_EXPECT_EQ(test, dm_test_plane_update_ctx.surface_count, 3);
+	KUNIT_EXPECT_PTR_EQ(test, dm_test_plane_update_ctx.stream, stream);
+	KUNIT_EXPECT_PTR_EQ(test, dm_test_plane_update_ctx.stream_update, stream_update);
+	KUNIT_EXPECT_LT(test, dm_test_plane_update_ctx.post_update_seq,
+			dm_test_plane_update_ctx.update_seq);
+}
+
+/**
+ * dm_test_update_planes_adapter_propagates_failure - Test DC failure is returned
+ * @test: The KUnit test context
+ */
+static void dm_test_update_planes_adapter_propagates_failure(struct kunit *test)
+{
+	dm_test_plane_update_ctx = (struct dm_test_plane_update_ops_ctx) { 0 };
+	dm_test_install_dm_ops(test, &dm_test_plane_update_ops);
+
+	KUNIT_EXPECT_FALSE(test, update_planes_and_stream_adapter(NULL, UPDATE_TYPE_FAST, 0,
+								  NULL, NULL, NULL));
+}
+
 /* Tests for fill_plane_color_attributes() */
 
 /**
@@ -3422,11 +3535,6 @@ static const struct amdgpu_dm_kunit_ops dm_test_dm_ops = {
 	.gmc_pd_addr = dm_test_gmc_pd_addr,
 };
 
-static void dm_test_restore_dm_ops(void *ctx)
-{
-	amdgpu_dm_kunit_set_ops(NULL);
-}
-
 /*
  * A device whose AGP aperture is disabled (bot above top), so the frame buffer
  * alone decides the logical address range.
@@ -3435,8 +3543,7 @@ static struct amdgpu_device *dm_test_mmhub_adev(struct kunit *test)
 {
 	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
 
-	amdgpu_dm_kunit_set_ops(&dm_test_dm_ops);
-	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_restore_dm_ops, NULL), 0);
+	dm_test_install_dm_ops(test, &dm_test_dm_ops);
 
 	adev->gmc.agp_start = 0x2000000;
 	adev->gmc.agp_end = 0x1000000;
@@ -4868,6 +4975,8 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_plane_layer_index_cmp_equal),
 	KUNIT_CASE(dm_test_plane_layer_index_cmp_descending),
 	KUNIT_CASE(dm_test_plane_layer_index_cmp_ascending),
+	KUNIT_CASE(dm_test_update_planes_adapter_sorts_and_forwards),
+	KUNIT_CASE(dm_test_update_planes_adapter_propagates_failure),
 	/* fill_plane_color_attributes */
 	KUNIT_CASE(dm_test_fill_color_attr_rgb_format),
 	KUNIT_CASE(dm_test_fill_color_attr_bt601_full),

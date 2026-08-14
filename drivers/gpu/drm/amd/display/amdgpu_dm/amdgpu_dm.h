@@ -86,7 +86,9 @@ struct dc;
 struct amdgpu_bo;
 struct dmub_srv;
 struct dc_plane_state;
+struct dc_stream_state;
 struct dc_stream_update;
+struct dc_surface_update;
 struct dmub_notification;
 struct dmub_cmd_fused_request;
 
@@ -1215,6 +1217,12 @@ int dm_sw_fini(struct amdgpu_ip_block *ip_block);
 int dm_oem_i2c_hw_init(struct amdgpu_device *adev);
 void dm_gpureset_commit_state(struct dc_state *dc_state, struct amdgpu_display_manager *dm);
 int dm_plane_layer_index_cmp(const void *a, const void *b);
+bool update_planes_and_stream_adapter(struct dc *dc,
+				      int update_type,
+				      int planes_count,
+				      struct dc_stream_state *stream,
+				      struct dc_stream_update *stream_update,
+				      struct dc_surface_update *array_of_surface_update);
 int fill_plane_color_attributes(const struct drm_plane_state *plane_state,
 				const enum surface_pixel_format format,
 				enum dc_color_space *color_space);
@@ -1244,6 +1252,13 @@ void amdgpu_dm_services_kunit_set_ops(const struct amdgpu_dm_services_kunit_ops 
 
 struct amdgpu_dm_kunit_ops {
 	uint64_t (*gmc_pd_addr)(struct amdgpu_bo *bo);
+	void (*post_update_surfaces_to_stream)(struct dc *dc);
+	bool (*update_planes_and_stream)(struct dc *dc,
+					 struct dc_surface_update *surface_updates,
+					 int surface_count,
+					 struct dc_stream_state *dc_stream,
+					 struct dc_stream_update *stream_update);
+	struct drm_atomic_commit *(*atomic_helper_suspend)(struct drm_device *dev);
 };
 
 void amdgpu_dm_kunit_set_ops(const struct amdgpu_dm_kunit_ops *ops);
