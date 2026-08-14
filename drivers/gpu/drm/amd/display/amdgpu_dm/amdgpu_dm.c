@@ -1425,8 +1425,8 @@ static int dm_hw_fini(struct amdgpu_ip_block *ip_block)
 }
 
 
-static void dm_gpureset_toggle_interrupts(struct amdgpu_device *adev,
-				 struct dc_state *state, bool enable)
+STATIC_IFN_KUNIT void dm_gpureset_toggle_interrupts(struct amdgpu_device *adev,
+						    struct dc_state *state, bool enable)
 {
 	enum dc_irq_source irq_source;
 	struct amdgpu_crtc *acrtc;
@@ -1477,10 +1477,11 @@ static void dm_gpureset_toggle_interrupts(struct amdgpu_device *adev,
 	}
 
 }
+EXPORT_IF_KUNIT(dm_gpureset_toggle_interrupts);
 
-DEFINE_FREE(state_release, struct dc_state *, if (_T) dc_state_release(_T))
+DEFINE_FREE(state_release, struct dc_state *, dc_state_release(_T))
 
-static enum dc_status amdgpu_dm_commit_zero_streams(struct dc *dc)
+STATIC_IFN_KUNIT enum dc_status amdgpu_dm_commit_zero_streams(struct dc *dc)
 {
 	struct dc_state *context __free(state_release) = NULL;
 	int i;
@@ -1518,6 +1519,7 @@ static enum dc_status amdgpu_dm_commit_zero_streams(struct dc *dc)
 
 	return dc_commit_streams(dc, &params);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_commit_zero_streams);
 
 static int dm_cache_state(struct amdgpu_device *adev)
 {
@@ -1532,7 +1534,7 @@ static int dm_cache_state(struct amdgpu_device *adev)
 	return adev->dm.cached_state ? 0 : r;
 }
 
-static void dm_destroy_cached_state(struct amdgpu_device *adev)
+STATIC_IFN_KUNIT void dm_destroy_cached_state(struct amdgpu_device *adev)
 {
 	struct amdgpu_display_manager *dm = &adev->dm;
 	struct drm_device *ddev = adev_to_drm(adev);
@@ -1582,6 +1584,7 @@ static void dm_destroy_cached_state(struct amdgpu_device *adev)
 
 	dm->cached_state = NULL;
 }
+EXPORT_IF_KUNIT(dm_destroy_cached_state);
 
 static int dm_suspend(struct amdgpu_ip_block *ip_block)
 {

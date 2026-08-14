@@ -4217,6 +4217,35 @@ static void dm_test_early_init_unsupported_version(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, adev->dc_enabled);
 }
 
+/* Tests for the remaining suspend and resume helpers */
+
+/**
+ * dm_test_commit_zero_streams_empty - Test committing an already empty DC state
+ * @test: The KUnit test context
+ */
+static void dm_test_commit_zero_streams_empty(struct kunit *test)
+{
+	struct dc *dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	dc->current_state = dm_kunit_alloc_dc_state(test);
+	KUNIT_ASSERT_NOT_NULL(test, dc->current_state);
+
+	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_commit_zero_streams(dc), (int)DC_OK);
+}
+
+/**
+ * dm_test_destroy_cached_state_none - Test no cached state is a no-op
+ * @test: The KUnit test context
+ */
+static void dm_test_destroy_cached_state_none(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	dm_destroy_cached_state(adev);
+
+	KUNIT_EXPECT_NULL(test, adev->dm.cached_state);
+}
+
 /* Tests for dm_update_mst_vcpi_slots_for_dsc() */
 
 /**
@@ -4790,6 +4819,35 @@ static void dm_test_initialize_plane_overlay(struct kunit *test)
 					       DRM_PLANE_TYPE_OVERLAY, plane_cap), 0);
 }
 
+/* Tests for dm_gpureset_toggle_interrupts() */
+
+/**
+ * dm_test_gpureset_toggle_interrupts_dcn - Test DCN only toggles the vupdate IRQ
+ * @test: The KUnit test context
+ */
+static void dm_test_gpureset_toggle_interrupts_dcn(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_state *state = dm_kunit_alloc_dc_state(test);
+	struct amdgpu_crtc *acrtc;
+
+	KUNIT_ASSERT_NOT_NULL(test, state);
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 2, 0);
+	adev->mode_info.num_crtc = 1;
+	adev->mode_info.crtcs[0] = acrtc;
+	acrtc->base.dev = &adev->ddev;
+	acrtc->otg_inst = 0;
+	state->stream_count = 1;
+	state->stream_status[0].primary_otg_inst = 0;
+	state->stream_status[0].plane_count = 1;
+
+	/* GRPH_PFLIP is unused on DCN, so only the vupdate IRQ is touched. */
+	dm_gpureset_toggle_interrupts(adev, state, true);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -4994,6 +5052,9 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_early_init_legacy_asics),
 	KUNIT_CASE(dm_test_early_init_dcn_versions),
 	KUNIT_CASE(dm_test_early_init_unsupported_version),
+	/* suspend and resume helpers */
+	KUNIT_CASE(dm_test_commit_zero_streams_empty),
+	KUNIT_CASE(dm_test_destroy_cached_state_none),
 	/* dm_update_mst_vcpi_slots_for_dsc */
 	KUNIT_CASE(dm_test_mst_vcpi_slots_no_connector),
 	KUNIT_CASE(dm_test_mst_vcpi_slots_skips_writeback),
@@ -5023,6 +5084,8 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	/* initialize_plane */
 	KUNIT_CASE(dm_test_initialize_plane_primary),
 	KUNIT_CASE(dm_test_initialize_plane_overlay),
+	/* dm_gpureset_toggle_interrupts */
+	KUNIT_CASE(dm_test_gpureset_toggle_interrupts_dcn),
 	{}
 };
 
