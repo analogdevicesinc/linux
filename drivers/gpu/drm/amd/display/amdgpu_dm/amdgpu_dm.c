@@ -3722,10 +3722,10 @@ STATIC_IFN_KUNIT void amdgpu_dm_update_cursor(struct drm_plane *plane,
 }
 EXPORT_IF_KUNIT(amdgpu_dm_update_cursor);
 
-static void amdgpu_dm_enable_self_refresh(struct amdgpu_display_manager *dm,
-					  struct amdgpu_crtc *acrtc_attach,
-					  const struct dm_crtc_state *acrtc_state,
-					  const u64 current_ts)
+STATIC_IFN_KUNIT void amdgpu_dm_enable_self_refresh(struct amdgpu_display_manager *dm,
+						    struct amdgpu_crtc *acrtc_attach,
+						    const struct dm_crtc_state *acrtc_state,
+						    const u64 current_ts)
 {
 	struct psr_settings *psr = &acrtc_state->stream->link->psr_settings;
 	struct replay_settings *pr = &acrtc_state->stream->link->replay_settings;
@@ -3761,6 +3761,7 @@ static void amdgpu_dm_enable_self_refresh(struct amdgpu_display_manager *dm,
 		acrtc_attach->dm_irq_params.allow_sr_entry = false;
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_enable_self_refresh);
 
 STATIC_IFN_KUNIT void dm_arm_vblank_event(struct amdgpu_crtc *acrtc,
 					  struct dm_crtc_state *acrtc_state,

@@ -1266,6 +1266,9 @@ int dm_update_mst_vcpi_slots_for_dsc(struct drm_atomic_commit *state, struct dc_
 				     struct dsc_mst_fairness_vars *vars);
 void manage_dm_interrupts(struct amdgpu_device *adev, struct amdgpu_crtc *acrtc,
 			  struct dm_crtc_state *acrtc_state);
+void amdgpu_dm_enable_self_refresh(struct amdgpu_display_manager *dm,
+				   struct amdgpu_crtc *acrtc_attach,
+				   const struct dm_crtc_state *acrtc_state, const u64 current_ts);
 int load_dmcu_fw(struct amdgpu_device *adev);
 int dm_sw_init(struct amdgpu_ip_block *ip_block);
 int dm_late_init(struct amdgpu_ip_block *ip_block);

@@ -3803,6 +3803,147 @@ static void dm_test_plane_info_layer_and_blending(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, ctx->plane_info.global_alpha_value, 0x7f);
 }
 
+/* Tests for amdgpu_dm_enable_self_refresh() */
+
+struct dm_test_sr_ctx {
+	struct amdgpu_display_manager *dm;
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state *acrtc_state;
+	struct amdgpu_dm_connector *aconn;
+	struct dc_link *link;
+};
+
+/*
+ * A fast-update CRTC whose stream has a self-refresh capable link. The power
+ * module stays NULL, which every mod_power entry point treats as a no-op.
+ */
+static struct dm_test_sr_ctx *dm_test_sr_ctx_alloc(struct kunit *test)
+{
+	struct dm_test_sr_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->dm = dm_kunit_alloc_dm(test);
+	ctx->acrtc = kunit_kzalloc(test, sizeof(*ctx->acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->acrtc);
+	ctx->acrtc_state = kunit_kzalloc(test, sizeof(*ctx->acrtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->acrtc_state);
+	ctx->aconn = kunit_kzalloc(test, sizeof(*ctx->aconn), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconn);
+
+	ctx->link = dm_kunit_alloc_link(test);
+	ctx->acrtc_state->stream = dm_kunit_alloc_stream(test, ctx->link);
+	ctx->acrtc_state->stream->dm_stream_context = ctx->aconn;
+	ctx->acrtc_state->update_type = UPDATE_TYPE_FAST;
+
+	return ctx;
+}
+
+static void dm_test_enable_sr(struct dm_test_sr_ctx *ctx, u64 current_ts)
+{
+	amdgpu_dm_enable_self_refresh(ctx->dm, ctx->acrtc, ctx->acrtc_state,
+				      current_ts);
+}
+
+/**
+ * dm_test_self_refresh_full_update - Test a full update blocks self refresh
+ * @test: The KUnit test context
+ */
+static void dm_test_self_refresh_full_update(struct kunit *test)
+{
+	struct dm_test_sr_ctx *ctx = dm_test_sr_ctx_alloc(test);
+
+	ctx->acrtc_state->update_type = UPDATE_TYPE_FULL;
+	ctx->link->psr_settings.psr_feature_enabled = true;
+	ctx->acrtc->dm_irq_params.allow_sr_entry = true;
+
+	dm_test_enable_sr(ctx, 0);
+
+	KUNIT_EXPECT_FALSE(test, ctx->acrtc->dm_irq_params.allow_sr_entry);
+}
+
+/**
+ * dm_test_self_refresh_unsupported_link - Test a link without PSR or Replay
+ * @test: The KUnit test context
+ */
+static void dm_test_self_refresh_unsupported_link(struct kunit *test)
+{
+	struct dm_test_sr_ctx *ctx = dm_test_sr_ctx_alloc(test);
+
+	ctx->acrtc->dm_irq_params.allow_sr_entry = true;
+
+	dm_test_enable_sr(ctx, 0);
+
+	KUNIT_EXPECT_FALSE(test, ctx->acrtc->dm_irq_params.allow_sr_entry);
+}
+
+/**
+ * dm_test_self_refresh_decrements_skip_count - Test the skip count gates entry
+ * @test: The KUnit test context
+ */
+static void dm_test_self_refresh_decrements_skip_count(struct kunit *test)
+{
+	struct dm_test_sr_ctx *ctx = dm_test_sr_ctx_alloc(test);
+
+	ctx->link->psr_settings.psr_feature_enabled = true;
+	ctx->aconn->sr_skip_count = 2;
+
+	dm_test_enable_sr(ctx, 0);
+
+	KUNIT_EXPECT_EQ(test, ctx->aconn->sr_skip_count, 1);
+	KUNIT_EXPECT_FALSE(test, ctx->acrtc->dm_irq_params.allow_sr_entry);
+}
+
+/**
+ * dm_test_self_refresh_allows_entry - Test a drained skip count allows entry
+ * @test: The KUnit test context
+ */
+static void dm_test_self_refresh_allows_entry(struct kunit *test)
+{
+	struct dm_test_sr_ctx *ctx = dm_test_sr_ctx_alloc(test);
+
+	ctx->link->psr_settings.psr_feature_enabled = true;
+	ctx->aconn->sr_skip_count = 1;
+
+	/* Well past the 500ms settle window, so the events are cleared. */
+	dm_test_enable_sr(ctx, 2ULL * NSEC_PER_SEC);
+
+	KUNIT_EXPECT_EQ(test, ctx->aconn->sr_skip_count, 0);
+	KUNIT_EXPECT_TRUE(test, ctx->acrtc->dm_irq_params.allow_sr_entry);
+}
+
+/**
+ * dm_test_self_refresh_within_settle_window - Test a recent damage change holds off
+ * @test: The KUnit test context
+ */
+static void dm_test_self_refresh_within_settle_window(struct kunit *test)
+{
+	struct dm_test_sr_ctx *ctx = dm_test_sr_ctx_alloc(test);
+
+	ctx->link->psr_settings.psr_feature_enabled = true;
+	ctx->link->psr_settings.psr_dirty_rects_change_timestamp_ns = 1;
+
+	dm_test_enable_sr(ctx, 2);
+
+	KUNIT_EXPECT_TRUE(test, ctx->acrtc->dm_irq_params.allow_sr_entry);
+}
+
+/**
+ * dm_test_self_refresh_replay_link - Test a Replay capable link takes the same path
+ * @test: The KUnit test context
+ */
+static void dm_test_self_refresh_replay_link(struct kunit *test)
+{
+	struct dm_test_sr_ctx *ctx = dm_test_sr_ctx_alloc(test);
+
+	ctx->link->replay_settings.replay_feature_enabled = true;
+
+	dm_test_enable_sr(ctx, 2ULL * NSEC_PER_SEC);
+
+	KUNIT_EXPECT_TRUE(test, ctx->acrtc->dm_irq_params.allow_sr_entry);
+}
+
 /* Tests for manage_dm_interrupts() */
 
 struct dm_test_irq_mgmt_ctx {
@@ -4836,6 +4977,13 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_plane_info_bad_color_encoding),
 	KUNIT_CASE(dm_test_plane_info_rotations),
 	KUNIT_CASE(dm_test_plane_info_layer_and_blending),
+	/* amdgpu_dm_enable_self_refresh */
+	KUNIT_CASE(dm_test_self_refresh_full_update),
+	KUNIT_CASE(dm_test_self_refresh_unsupported_link),
+	KUNIT_CASE(dm_test_self_refresh_decrements_skip_count),
+	KUNIT_CASE(dm_test_self_refresh_allows_entry),
+	KUNIT_CASE(dm_test_self_refresh_within_settle_window),
+	KUNIT_CASE(dm_test_self_refresh_replay_link),
 	/* manage_dm_interrupts */
 	KUNIT_CASE(dm_test_manage_interrupts_offdelay),
 	KUNIT_CASE(dm_test_manage_interrupts_offdelay_fallback),
