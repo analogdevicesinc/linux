@@ -1249,6 +1249,7 @@ struct amdgpu_dm_kunit_ops {
 void amdgpu_dm_kunit_set_ops(const struct amdgpu_dm_kunit_ops *ops);
 
 struct dc_phy_addr_space_config;
+struct dc_plane_cap;
 
 void mmhub_read_system_context(struct amdgpu_device *adev,
 			       struct dc_phy_addr_space_config *pa_config);
@@ -1256,6 +1257,10 @@ int amdgpu_dm_init_power_module(struct amdgpu_display_manager *dm);
 int load_dmcu_fw(struct amdgpu_device *adev);
 int dm_sw_init(struct amdgpu_ip_block *ip_block);
 int dm_late_init(struct amdgpu_ip_block *ip_block);
+int amdgpu_dm_mode_config_init(struct amdgpu_device *adev);
+int initialize_plane(struct amdgpu_display_manager *dm, struct amdgpu_mode_info *mode_info,
+		     int plane_id, enum drm_plane_type plane_type,
+		     const struct dc_plane_cap *plane_cap);
 #endif
 
 #endif /* __AMDGPU_DM_H__ */

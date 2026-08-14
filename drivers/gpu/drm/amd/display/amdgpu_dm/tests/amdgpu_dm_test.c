@@ -31,6 +31,7 @@
 #include "amdgpu.h"
 #include "amdgpu_mode.h"
 #include "amdgpu_dm.h"
+#include "amdgpu_dm_audio.h"
 #include "amdgpu_dm_hdcp.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
 
@@ -3785,6 +3786,131 @@ static void dm_test_late_init_boot_crc_disabled(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, adev->dm.boot_time_crc_info.bo_ptr);
 }
 
+/* Tests for amdgpu_dm_mode_config_init() */
+
+static void dm_test_fini_atomic_obj(void *ctx)
+{
+	drm_atomic_private_obj_fini(ctx);
+}
+
+static void dm_test_restore_audio_param(void *ctx)
+{
+	amdgpu_dm_audio_set_param((long)ctx);
+}
+
+/*
+ * A device ready for mode config init: DM creates its private object state
+ * from the current DC state, and audio is disabled so no audio component is
+ * left registered on the mock device.
+ */
+static struct amdgpu_device *dm_test_mode_config_adev(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	long saved_audio = amdgpu_dm_audio_get_param();
+
+	adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+	adev->dm.dc->current_state = dm_kunit_alloc_dc_state(test);
+	KUNIT_ASSERT_NOT_NULL(test, adev->dm.dc->current_state);
+
+	amdgpu_dm_audio_set_param(0);
+	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_restore_audio_param,
+							(void *)saved_audio), 0);
+
+	return adev;
+}
+
+/**
+ * dm_test_mode_config_init - Test the mode config and DM private object are set up
+ * @test: The KUnit test context
+ */
+static void dm_test_mode_config_init(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_mode_config_adev(test);
+	struct dm_atomic_state *dm_state;
+
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_mode_config_init(adev), 0);
+	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_fini_atomic_obj,
+							&adev->dm.atomic_obj), 0);
+
+	KUNIT_EXPECT_TRUE(test, adev->mode_info.mode_config_initialized);
+	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.max_width, 16384);
+	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.max_height, 16384);
+	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.preferred_depth, 24);
+	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.prefer_shadow, 1);
+	KUNIT_EXPECT_TRUE(test, adev->ddev.mode_config.async_page_flip);
+
+	/* drm_atomic_private_obj_init() creates the state through DM. */
+	dm_state = to_dm_atomic_state(adev->dm.atomic_obj.state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
+	KUNIT_EXPECT_NOT_NULL(test, dm_state->context);
+}
+
+/**
+ * dm_test_mode_config_init_hawaii - Test Hawaii disables the preferred shadow
+ * @test: The KUnit test context
+ */
+static void dm_test_mode_config_init_hawaii(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_mode_config_adev(test);
+
+	adev->asic_type = CHIP_HAWAII;
+
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_mode_config_init(adev), 0);
+	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_fini_atomic_obj,
+							&adev->dm.atomic_obj), 0);
+
+	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.prefer_shadow, 0);
+}
+
+/* Tests for initialize_plane() */
+
+/**
+ * dm_test_initialize_plane_primary - Test a primary plane is stored in mode info
+ * @test: The KUnit test context
+ */
+static void dm_test_initialize_plane_primary(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_mode_info *mode_info = &adev->mode_info;
+
+	adev->family = AMDGPU_FAMILY_NV;
+	adev->dm.adev = adev;
+	adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+	adev->dm.dc->caps.max_streams = 1;
+
+	KUNIT_ASSERT_EQ(test, initialize_plane(&adev->dm, mode_info, 0,
+					       DRM_PLANE_TYPE_PRIMARY, NULL), 0);
+
+	KUNIT_ASSERT_NOT_NULL(test, mode_info->planes[0]);
+	KUNIT_EXPECT_EQ(test, (int)mode_info->planes[0]->type,
+			(int)DRM_PLANE_TYPE_PRIMARY);
+	KUNIT_EXPECT_EQ(test, mode_info->planes[0]->possible_crtcs, 1U);
+}
+
+/**
+ * dm_test_initialize_plane_overlay - Test an overlay plane can target any CRTC
+ * @test: The KUnit test context
+ */
+static void dm_test_initialize_plane_overlay(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_plane_cap *plane_cap;
+
+	plane_cap = kunit_kzalloc(test, sizeof(*plane_cap), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane_cap);
+
+	adev->family = AMDGPU_FAMILY_NV;
+	adev->dm.adev = adev;
+	adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+	adev->dm.dc->caps.max_streams = 1;
+	plane_cap->per_pixel_alpha = true;
+	plane_cap->pixel_format_support.nv12 = true;
+
+	/* Plane id at or above max_streams is never a primary, so any CRTC works. */
+	KUNIT_ASSERT_EQ(test, initialize_plane(&adev->dm, NULL, 1,
+					       DRM_PLANE_TYPE_OVERLAY, plane_cap), 0);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -3978,6 +4104,12 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_late_init_no_dmcu),
 	KUNIT_CASE(dm_test_late_init_boot_crc_no_dmub),
 	KUNIT_CASE(dm_test_late_init_boot_crc_disabled),
+	/* amdgpu_dm_mode_config_init */
+	KUNIT_CASE(dm_test_mode_config_init),
+	KUNIT_CASE(dm_test_mode_config_init_hawaii),
+	/* initialize_plane */
+	KUNIT_CASE(dm_test_initialize_plane_primary),
+	KUNIT_CASE(dm_test_initialize_plane_overlay),
 	{}
 };
 
