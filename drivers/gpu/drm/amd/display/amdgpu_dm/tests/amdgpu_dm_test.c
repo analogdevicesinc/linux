@@ -35,6 +35,7 @@
 #include "amdgpu_dm.h"
 #include "amdgpu_dm_audio.h"
 #include "amdgpu_dm_hdcp.h"
+#include "amdgpu_dm_mst_types.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
 
 /* Tests for simple DM callbacks */
@@ -3964,6 +3965,109 @@ static void dm_test_early_init_unsupported_version(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, adev->dc_enabled);
 }
 
+/* Tests for dm_update_mst_vcpi_slots_for_dsc() */
+
+/**
+ * dm_test_mst_vcpi_slots_no_connector - Test an empty commit allocates no slots
+ * @test: The KUnit test context
+ */
+static void dm_test_mst_vcpi_slots_no_connector(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {0};
+	struct dc_state *dc_state = dm_kunit_alloc_dc_state(test);
+
+	KUNIT_ASSERT_NOT_NULL(test, dc_state);
+
+	KUNIT_EXPECT_EQ(test,
+			dm_update_mst_vcpi_slots_for_dsc(dm_test_alloc_commit(test, adev),
+							 dc_state, vars),
+			0);
+}
+
+/**
+ * dm_test_mst_vcpi_slots_skips_writeback - Test writeback connectors are skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_mst_vcpi_slots_skips_writeback(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {0};
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_state *dc_state;
+	struct drm_atomic_commit *state;
+	struct drm_crtc *crtc;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+	dc_state = dm_kunit_alloc_dc_state(test);
+	KUNIT_ASSERT_NOT_NULL(test, dc_state);
+
+	aconnector->base.connector_type = DRM_MODE_CONNECTOR_WRITEBACK;
+	state = dm_test_state_with_connector(test, &aconnector->base, crtc);
+
+	KUNIT_EXPECT_EQ(test,
+			dm_update_mst_vcpi_slots_for_dsc(state, dc_state, vars), 0);
+}
+
+/**
+ * dm_test_mst_vcpi_slots_skips_non_mst - Test a connector without an MST port
+ * @test: The KUnit test context
+ */
+static void dm_test_mst_vcpi_slots_skips_non_mst(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {0};
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_state *dc_state;
+	struct drm_atomic_commit *state;
+	struct drm_crtc *crtc;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+	dc_state = dm_kunit_alloc_dc_state(test);
+	KUNIT_ASSERT_NOT_NULL(test, dc_state);
+
+	aconnector->base.connector_type = DRM_MODE_CONNECTOR_DisplayPort;
+	state = dm_test_state_with_connector(test, &aconnector->base, crtc);
+
+	KUNIT_EXPECT_EQ(test,
+			dm_update_mst_vcpi_slots_for_dsc(state, dc_state, vars), 0);
+}
+
+/**
+ * dm_test_mst_vcpi_slots_no_matching_stream - Test a connector with no DC stream
+ * @test: The KUnit test context
+ */
+static void dm_test_mst_vcpi_slots_no_matching_stream(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {0};
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_dp_mst_port *port;
+	struct dc_state *dc_state;
+	struct drm_atomic_commit *state;
+	struct drm_crtc *crtc;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	port = kunit_kzalloc(test, sizeof(*port), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, port);
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+	dc_state = dm_kunit_alloc_dc_state(test);
+	KUNIT_ASSERT_NOT_NULL(test, dc_state);
+
+	aconnector->base.connector_type = DRM_MODE_CONNECTOR_DisplayPort;
+	aconnector->mst_output_port = port;
+	state = dm_test_state_with_connector(test, &aconnector->base, crtc);
+
+	/* No DC stream references the connector, so the slot update is skipped. */
+	KUNIT_EXPECT_EQ(test,
+			dm_update_mst_vcpi_slots_for_dsc(state, dc_state, vars), 0);
+}
+
 /* Tests for fill_dc_plane_attributes() */
 
 struct dm_test_plane_attr_ctx {
@@ -4626,6 +4730,11 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_early_init_legacy_asics),
 	KUNIT_CASE(dm_test_early_init_dcn_versions),
 	KUNIT_CASE(dm_test_early_init_unsupported_version),
+	/* dm_update_mst_vcpi_slots_for_dsc */
+	KUNIT_CASE(dm_test_mst_vcpi_slots_no_connector),
+	KUNIT_CASE(dm_test_mst_vcpi_slots_skips_writeback),
+	KUNIT_CASE(dm_test_mst_vcpi_slots_skips_non_mst),
+	KUNIT_CASE(dm_test_mst_vcpi_slots_no_matching_stream),
 	/* fill_dc_plane_attributes */
 	KUNIT_CASE(dm_test_plane_attributes_success),
 	KUNIT_CASE(dm_test_plane_attributes_bad_scaling),

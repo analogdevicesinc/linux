@@ -1252,6 +1252,7 @@ struct dc_phy_addr_space_config;
 struct dc_plane_address;
 struct dc_plane_cap;
 struct dc_plane_info;
+struct dsc_mst_fairness_vars;
 
 void mmhub_read_system_context(struct amdgpu_device *adev,
 			       struct dc_phy_addr_space_config *pa_config);
@@ -1261,6 +1262,8 @@ int fill_dc_plane_info_and_addr(struct amdgpu_device *adev,
 				const struct drm_plane_state *plane_state,
 				struct dc_plane_info *plane_info,
 				struct dc_plane_address *address, bool tmz_surface);
+int dm_update_mst_vcpi_slots_for_dsc(struct drm_atomic_commit *state, struct dc_state *dc_state,
+				     struct dsc_mst_fairness_vars *vars);
 int load_dmcu_fw(struct amdgpu_device *adev);
 int dm_sw_init(struct amdgpu_ip_block *ip_block);
 int dm_late_init(struct amdgpu_ip_block *ip_block);
