@@ -457,6 +457,8 @@ struct nfs_page *nfs_page_create_from_page(struct nfs_open_context *ctx,
 			      offset_in_page(offset), count);
 	if (!IS_ERR(ret)) {
 		nfs_page_assign_page(ret, page, pinned);
+		if (pinned)
+			ret->wb_nr_pinned = 1;
 		nfs_page_group_init(ret, NULL);
 	}
 	nfs_put_lock_context(l_ctx);
@@ -489,6 +491,9 @@ struct nfs_page *nfs_page_create_from_folio(struct nfs_open_context *ctx,
 	ret = nfs_page_create(l_ctx, offset, folio->index, offset, count);
 	if (!IS_ERR(ret)) {
 		nfs_page_assign_folio(ret, folio, pinned);
+		if (pinned)
+			ret->wb_nr_pinned = nfs_page_array_len(offset_in_page(offset),
+							      count);
 		nfs_page_group_init(ret, NULL);
 	}
 	nfs_put_lock_context(l_ctx);
@@ -567,8 +572,8 @@ static void nfs_clear_request(struct nfs_page *req)
 
 	if (folio != NULL) {
 		if (test_and_clear_bit(PG_PINNED, &req->wb_flags)) {
-			if (req == req->wb_head)
-				unpin_user_folio(folio, 1);
+			if (req->wb_nr_pinned > 0)
+				unpin_user_folio(folio, req->wb_nr_pinned);
 		} else {
 			folio_put(folio);
 		}
@@ -576,8 +581,8 @@ static void nfs_clear_request(struct nfs_page *req)
 		clear_bit(PG_FOLIO, &req->wb_flags);
 	} else if (page != NULL) {
 		if (test_and_clear_bit(PG_PINNED, &req->wb_flags)) {
-			if (req == req->wb_head)
-				unpin_user_page(page);
+			if (req->wb_nr_pinned > 0)
+				unpin_user_pages(&page, req->wb_nr_pinned);
 		} else {
 			put_page(page);
 		}
