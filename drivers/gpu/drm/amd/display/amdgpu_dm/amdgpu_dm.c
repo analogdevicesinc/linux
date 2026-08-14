@@ -1540,11 +1540,11 @@ STATIC_IFN_KUNIT enum dc_status amdgpu_dm_commit_zero_streams(struct dc *dc)
 }
 EXPORT_IF_KUNIT(amdgpu_dm_commit_zero_streams);
 
-static int dm_cache_state(struct amdgpu_device *adev)
+STATIC_IFN_KUNIT int dm_cache_state(struct amdgpu_device *adev)
 {
 	int r;
 
-	adev->dm.cached_state = drm_atomic_helper_suspend(adev_to_drm(adev));
+	adev->dm.cached_state = dm_atomic_helper_suspend(adev_to_drm(adev));
 	if (IS_ERR(adev->dm.cached_state)) {
 		r = PTR_ERR(adev->dm.cached_state);
 		adev->dm.cached_state = NULL;
@@ -1552,6 +1552,7 @@ static int dm_cache_state(struct amdgpu_device *adev)
 
 	return adev->dm.cached_state ? 0 : r;
 }
+EXPORT_IF_KUNIT(dm_cache_state);
 
 STATIC_IFN_KUNIT void dm_destroy_cached_state(struct amdgpu_device *adev)
 {

@@ -4372,6 +4372,44 @@ static void dm_test_commit_zero_streams_empty(struct kunit *test)
 }
 
 /**
+ * dm_test_cache_state_empty_device - Test caching an empty DRM atomic state
+ * @test: The KUnit test context
+ */
+static void dm_test_cache_state_empty_device(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	KUNIT_ASSERT_EQ(test, dm_cache_state(adev), 0);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev->dm.cached_state);
+
+	dm_destroy_cached_state(adev);
+	KUNIT_EXPECT_NULL(test, adev->dm.cached_state);
+}
+
+static struct drm_atomic_commit *dm_test_atomic_helper_suspend_error(struct drm_device *dev)
+{
+	return ERR_PTR(-EIO);
+}
+
+static const struct amdgpu_dm_kunit_ops dm_test_cache_state_ops = {
+	.atomic_helper_suspend = dm_test_atomic_helper_suspend_error,
+};
+
+/**
+ * dm_test_cache_state_error - Test atomic suspend errors are returned and cleared
+ * @test: The KUnit test context
+ */
+static void dm_test_cache_state_error(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	dm_test_install_dm_ops(test, &dm_test_cache_state_ops);
+
+	KUNIT_EXPECT_EQ(test, dm_cache_state(adev), -EIO);
+	KUNIT_EXPECT_NULL(test, adev->dm.cached_state);
+}
+
+/**
  * dm_test_destroy_cached_state_none - Test no cached state is a no-op
  * @test: The KUnit test context
  */
@@ -5196,6 +5234,8 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_early_init_unsupported_version),
 	/* suspend and resume helpers */
 	KUNIT_CASE(dm_test_commit_zero_streams_empty),
+	KUNIT_CASE(dm_test_cache_state_empty_device),
+	KUNIT_CASE(dm_test_cache_state_error),
 	KUNIT_CASE(dm_test_destroy_cached_state_none),
 	/* dm_update_mst_vcpi_slots_for_dsc */
 	KUNIT_CASE(dm_test_mst_vcpi_slots_no_connector),
