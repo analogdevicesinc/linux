@@ -2990,6 +2990,21 @@ static void dm_test_atomic_setup_commit_empty(struct kunit *test)
 			0);
 }
 
+/**
+ * dm_test_atomic_check_empty - Test an empty atomic commit needs no DC validation
+ * @test: The KUnit test context
+ */
+static void dm_test_atomic_check_empty(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_atomic_commit *state = dm_test_alloc_commit(test, adev);
+
+	adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_atomic_check(&adev->ddev, state), 0);
+	KUNIT_EXPECT_EQ(test, state->num_private_objs, 0U);
+}
+
 /*
  * A commit with one connector of @type bound to a CRTC that keeps its stream.
  * The content protection state is unchanged, so amdgpu_dm_update_hdcp() walks
@@ -3170,6 +3185,64 @@ static void dm_test_aquire_global_lock_waits_commit(struct kunit *test)
 	list_del(&commit->commit_entry);
 
 	KUNIT_EXPECT_EQ(test, ret, 0);
+}
+
+/**
+ * dm_test_update_crtc_state_unchanged - Test unchanged state needs no validation
+ * @test: The KUnit test context
+ */
+static void dm_test_update_crtc_state_unchanged(struct kunit *test)
+{
+	struct dm_test_reset_plane_ctx *ctx = dm_test_reset_plane_ctx_alloc(test);
+	bool lock_and_validation_needed = false;
+
+	ctx->adev->dm.adev = ctx->adev;
+	KUNIT_EXPECT_EQ(test,
+			dm_update_crtc_state(&ctx->adev->dm, ctx->state, ctx->crtc,
+					     &ctx->old_crtc_state->base,
+					     &ctx->new_crtc_state->base, true,
+					     &lock_and_validation_needed),
+			0);
+	KUNIT_EXPECT_FALSE(test, lock_and_validation_needed);
+	KUNIT_EXPECT_NULL(test, ctx->new_crtc_state->stream);
+}
+
+/**
+ * dm_test_update_plane_state_detached - Test a detached plane needs no DC update
+ * @test: The KUnit test context
+ */
+static void dm_test_update_plane_state_detached(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dm_plane_state *old_plane_state;
+	struct dm_plane_state *new_plane_state;
+	struct drm_plane *plane;
+	bool lock_and_validation_needed = false;
+	bool is_top_most_overlay = true;
+
+	old_plane_state = kunit_kzalloc(test, sizeof(*old_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_plane_state);
+	new_plane_state = kunit_kzalloc(test, sizeof(*new_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_plane_state);
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	adev->reset_domain = kunit_kzalloc(test, sizeof(*adev->reset_domain), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev->reset_domain);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 2, 0);
+	plane->dev = &adev->ddev;
+	plane->type = DRM_PLANE_TYPE_PRIMARY;
+
+	KUNIT_EXPECT_EQ(test,
+			dm_update_plane_state(NULL, dm_test_alloc_commit(test, adev), plane,
+					      &old_plane_state->base,
+					      &new_plane_state->base, false,
+					      &lock_and_validation_needed,
+					      &is_top_most_overlay),
+			0);
+	KUNIT_EXPECT_FALSE(test, lock_and_validation_needed);
+	KUNIT_EXPECT_TRUE(test, is_top_most_overlay);
+	KUNIT_EXPECT_NULL(test, new_plane_state->dc_state);
 }
 
 /**
@@ -5251,9 +5324,12 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_atomic_setup_commit_color_mgmt),
 	KUNIT_CASE(dm_test_atomic_setup_commit_modeset),
 	KUNIT_CASE(dm_test_atomic_setup_commit_bad_lut),
+	KUNIT_CASE(dm_test_atomic_check_empty),
 	KUNIT_CASE(dm_test_aquire_global_lock_no_crtc),
 	KUNIT_CASE(dm_test_aquire_global_lock_no_commit),
 	KUNIT_CASE(dm_test_aquire_global_lock_waits_commit),
+	KUNIT_CASE(dm_test_update_crtc_state_unchanged),
+	KUNIT_CASE(dm_test_update_plane_state_detached),
 	KUNIT_CASE(dm_test_mod_power_update_streams_empty),
 	KUNIT_CASE(dm_test_mod_power_update_streams_no_modeset),
 	KUNIT_CASE(dm_test_mod_power_update_streams_enable),

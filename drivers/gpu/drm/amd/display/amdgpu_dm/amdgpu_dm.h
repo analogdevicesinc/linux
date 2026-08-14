@@ -1208,6 +1208,23 @@ void amdgpu_dm_update_hdcp(struct drm_atomic_commit *state);
 int amdgpu_dm_atomic_setup_commit(struct drm_atomic_commit *state);
 int do_aquire_global_lock(struct drm_device *dev,
 			  struct drm_atomic_commit *state);
+int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+			 struct drm_atomic_commit *state,
+			 struct drm_crtc *crtc,
+			 struct drm_crtc_state *old_crtc_state,
+			 struct drm_crtc_state *new_crtc_state,
+			 bool enable,
+			 bool *lock_and_validation_needed);
+int dm_update_plane_state(struct dc *dc,
+			  struct drm_atomic_commit *state,
+			  struct drm_plane *plane,
+			  struct drm_plane_state *old_plane_state,
+			  struct drm_plane_state *new_plane_state,
+			  bool enable,
+			  bool *lock_and_validation_needed,
+			  bool *is_top_most_overlay);
+int amdgpu_dm_atomic_check(struct drm_device *dev,
+			   struct drm_atomic_commit *state);
 void amdgpu_dm_mod_power_update_streams(struct drm_atomic_commit *state,
 					struct amdgpu_display_manager *dm);
 void amdgpu_dm_mod_power_setup_streams(struct drm_atomic_commit *state,

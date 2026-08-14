@@ -145,8 +145,10 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_setup_commit(struct drm_atomic_commit *sta
 static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_commit *state);
 STATIC_IFN_KUNIT void dm_enable_per_frame_crtc_master_sync(struct dc_state *context);
 
+#if !IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
 static int amdgpu_dm_atomic_check(struct drm_device *dev,
 				  struct drm_atomic_commit *state);
+#endif
 
 static inline void amdgpu_dm_exit_ips_for_hw_access(struct dc *dc)
 {
@@ -5428,13 +5430,13 @@ STATIC_IFN_KUNIT int do_aquire_global_lock(struct drm_device *dev,
 }
 EXPORT_IF_KUNIT(do_aquire_global_lock);
 
-static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
-			 struct drm_atomic_commit *state,
-			 struct drm_crtc *crtc,
-			 struct drm_crtc_state *old_crtc_state,
-			 struct drm_crtc_state *new_crtc_state,
-			 bool enable,
-			 bool *lock_and_validation_needed)
+STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+					  struct drm_atomic_commit *state,
+					  struct drm_crtc *crtc,
+					  struct drm_crtc_state *old_crtc_state,
+					  struct drm_crtc_state *new_crtc_state,
+					  bool enable,
+					  bool *lock_and_validation_needed)
 {
 	struct dm_atomic_state *dm_state = NULL;
 	struct dm_crtc_state *dm_old_crtc_state, *dm_new_crtc_state;
@@ -5703,6 +5705,7 @@ fail:
 		dc_stream_release(new_stream);
 	return ret;
 }
+EXPORT_IF_KUNIT(dm_update_crtc_state);
 
 STATIC_IFN_KUNIT bool should_reset_plane(struct drm_atomic_commit *state,
 					 struct drm_plane *plane,
@@ -5865,14 +5868,15 @@ STATIC_IFN_KUNIT bool should_reset_plane(struct drm_atomic_commit *state,
 }
 EXPORT_IF_KUNIT(should_reset_plane);
 
-static int dm_update_plane_state(struct dc *dc,
-				 struct drm_atomic_commit *state,
-				 struct drm_plane *plane,
-				 struct drm_plane_state *old_plane_state,
-				 struct drm_plane_state *new_plane_state,
-				 bool enable,
-				 bool *lock_and_validation_needed,
-				 bool *is_top_most_overlay)
+STATIC_IFN_KUNIT int
+dm_update_plane_state(struct dc *dc,
+		      struct drm_atomic_commit *state,
+		      struct drm_plane *plane,
+		      struct drm_plane_state *old_plane_state,
+		      struct drm_plane_state *new_plane_state,
+		      bool enable,
+		      bool *lock_and_validation_needed,
+		      bool *is_top_most_overlay)
 {
 
 	struct dm_atomic_state *dm_state = NULL;
@@ -6036,6 +6040,7 @@ out:
 
 	return ret;
 }
+EXPORT_IF_KUNIT(dm_update_plane_state);
 
 /*
  * The normalized_zpos value cannot be used by this iterator directly. It's only
@@ -6162,8 +6167,8 @@ EXPORT_IF_KUNIT(amdgpu_dm_crtc_mem_type_changed);
  *
  * Return: -Error code if validation failed.
  */
-static int amdgpu_dm_atomic_check(struct drm_device *dev,
-				  struct drm_atomic_commit *state)
+STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
+					    struct drm_atomic_commit *state)
 {
 	struct amdgpu_device *adev = drm_to_adev(dev);
 	struct dm_atomic_state *dm_state = NULL;
@@ -6674,6 +6679,7 @@ fail:
 
 	return ret;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_atomic_check);
 
 void amdgpu_dm_trigger_timing_sync(struct drm_device *dev)
 {
