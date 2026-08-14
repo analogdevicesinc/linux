@@ -3,6 +3,9 @@
  * Copyright © 2026 Intel Corporation
  */
 
+#include "abi/xe_log_abi.h"
+
+#include "xe_device.h"
 #include "xe_log.h"
 #include "xe_printk.h"
 
@@ -11,6 +14,85 @@ static void log_emit_cper(struct pci_dev *pdev, int cper_sev, enum xe_sigid sigi
 			  struct va_format *vaf)
 {
 	/* TODO */
+}
+
+static const char *log_unknown_component_prefix(u32 component)
+{
+	u32 class = FIELD_GET(XE_LOG_COMPONENT_CLASS_MASK, component);
+	u32 type = FIELD_GET(XE_LOG_COMPONENT_TYPE_MASK, component);
+
+	WARN(IS_ENABLED(CONFIG_DRM_XE_DEBUG), "LOG: unrecognized component %u.%u\n", class, type);
+	switch (class) {
+#define MAKE_XE_LOG_COMPONENT_CLASS_PREFIX(_CLASS) \
+	case XE_LOG_COMPONENT_CLASS_##_CLASS: return #_CLASS "? ";
+	MAKE_XE_LOG_COMPONENT_CLASS_PREFIX(SYSTEM)
+	MAKE_XE_LOG_COMPONENT_CLASS_PREFIX(DRIVER)
+	MAKE_XE_LOG_COMPONENT_CLASS_PREFIX(FEATURE)
+	MAKE_XE_LOG_COMPONENT_CLASS_PREFIX(FIRMWARE)
+	MAKE_XE_LOG_COMPONENT_CLASS_PREFIX(HARDWARE)
+#undef MAKE_XE_LOG_COMPONENT_CLASS_PREFIX
+	}
+	return "COMP? ";
+}
+
+static const char *log_component_prefix(u32 component)
+{
+	switch (component) {
+#define MAKE_XE_LOG_COMPONENT_CASE_PREFIX(_CLASS, _ID, _TAG, _SIG, _NAME) \
+	case XE_LOG_COMPONENT_##_TAG: return #_TAG ": ";
+	DEFINE_XE_LOG_COMPONENTS(MAKE_XE_LOG_COMPONENT_CASE_PREFIX)
+#undef MAKE_XE_LOG_COMPONENT_CASE_PREFIX
+	}
+
+	return component ? log_unknown_component_prefix(component) : "";
+}
+
+static struct xe_gt *get_gt_safe(struct pci_dev *pdev, u8 id)
+{
+	struct xe_device *xe = pdev_to_xe_device(pdev);
+
+	return xe ? xe_device_get_gt(xe, id) : NULL;
+}
+
+static struct xe_tile *get_tile_safe(struct pci_dev *pdev, u8 id)
+{
+	struct xe_device *xe = pdev_to_xe_device(pdev);
+
+	return xe && id < xe->info.tile_count ? &xe->tiles[id] : NULL;
+}
+
+static const char *log_location_prefix(struct pci_dev *pdev, u32 location, char *buf, size_t size)
+{
+	u32 type = FIELD_GET(XE_LOG_LOCATION_TYPE_MASK, location);
+	u32 id = FIELD_GET(XE_LOG_LOCATION_ID_MASK, location);
+
+	if (!location || type == XE_LOG_LOCATION_TYPE_DEVICE) {
+		if (id)
+			goto unrecognized;
+		strscpy(buf, "", size);
+	} else if (type == XE_LOG_LOCATION_TYPE_TILE) {
+		struct xe_tile *tile = get_tile_safe(pdev, id);
+
+		if (!tile)
+			goto unrecognized;
+		snprintf(buf, size, "Tile%u: ", id);
+	} else if (type == XE_LOG_LOCATION_TYPE_GT) {
+		struct xe_gt *gt = get_gt_safe(pdev, id);
+
+		if (!gt)
+			goto unrecognized;
+		snprintf(buf, size, "Tile%u: GT%u: ", gt->tile->id, id);
+	} else {
+		goto unrecognized;
+	}
+
+	return buf;
+
+unrecognized:
+	pci_WARN(pdev, IS_ENABLED(CONFIG_DRM_XE_DEBUG),
+		 "LOG: unrecognized location %u.%u\n", type, id);
+	snprintf(buf, size, "LOC%u.%u? ", type, id);
+	return buf;
 }
 
 static bool is_hw_sigid(enum xe_sigid sigid)
@@ -74,20 +156,24 @@ static void log_emit_dmesg(struct pci_dev *pdev, int cper_sev, enum xe_sigid sig
 			   u32 component, u32 location, const void *data, size_t len,
 			   struct va_format *vaf)
 {
+	char buf[32];
+	const char *loc_prefix = log_location_prefix(pdev, location, buf, sizeof(buf));
+	const char *comp_prefix = log_component_prefix(component);
 	const char *hwe_prefix = log_hwe_prefix(cper_sev, sigid);
 	const char *sev_prefix = log_sev_prefix(cper_sev);
 
-	/* TODO: add component/location details */
-
 	if (IS_ERR(data))
-		log_dmesg_printf(pdev, cper_sev, "SIGID=%u %s(%pe) %s%pV",
-				 sigid, sev_prefix, data, hwe_prefix, vaf);
+		log_dmesg_printf(pdev, cper_sev, "SIGID=%u %s(%pe) %s%s%s%pV",
+				 sigid, sev_prefix, data, hwe_prefix,
+				 loc_prefix, comp_prefix, vaf);
 	else if (data && len)
-		log_dmesg_printf(pdev, cper_sev, "SIGID=%u %s(%*phN) %s%pV",
-				 sigid, sev_prefix, (int)len, data, hwe_prefix, vaf);
+		log_dmesg_printf(pdev, cper_sev, "SIGID=%u %s(%*phN) %s%s%s%pV",
+				 sigid, sev_prefix, (int)len, data, hwe_prefix,
+				 loc_prefix, comp_prefix, vaf);
 	else
-		log_dmesg_printf(pdev, cper_sev, "SIGID=%u %s%s%pV",
-				 sigid, sev_prefix, hwe_prefix, vaf);
+		log_dmesg_printf(pdev, cper_sev, "SIGID=%u %s%s%s%s%pV",
+				 sigid, sev_prefix, hwe_prefix,
+				 loc_prefix, comp_prefix, vaf);
 }
 
 /**
