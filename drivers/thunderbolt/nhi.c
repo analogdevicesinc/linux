@@ -52,15 +52,28 @@ static int ring_interrupt_index(const struct tb_ring *ring)
 static void nhi_mask_interrupt(struct tb_nhi *nhi, u32 mask, int reg_index)
 {
 	int offset = reg_index * 4;
+	u32 val;
 
-	if (nhi->quirks & QUIRK_AUTO_CLEAR_INT) {
-		u32 val;
+	/* Use shadow copy instead of reading the register */
+	val = nhi->interrupt_mask[reg_index] & ~mask;
+	nhi->interrupt_mask[reg_index] = val;
 
-		val = ioread32(nhi->iobase + REG_RING_INTERRUPT_BASE + offset);
-		iowrite32(val & ~mask, nhi->iobase + REG_RING_INTERRUPT_BASE + offset);
-	} else {
+	if (nhi->quirks & QUIRK_AUTO_CLEAR_INT)
+		iowrite32(val, nhi->iobase + REG_RING_INTERRUPT_BASE + offset);
+	else
 		iowrite32(mask, nhi->iobase + REG_RING_INTERRUPT_MASK_CLEAR_BASE + offset);
-	}
+}
+
+static void nhi_unmask_interrupt(struct tb_nhi *nhi, u32 mask, int reg_index)
+{
+	int offset = reg_index * 4;
+	u32 val;
+
+	/* Use shadow copy instead of reading the register */
+	val = nhi->interrupt_mask[reg_index] | mask;
+	nhi->interrupt_mask[reg_index] = val;
+
+	iowrite32(val, nhi->iobase + REG_RING_INTERRUPT_BASE + offset);
 }
 
 static void nhi_clear_interrupt(struct tb_nhi *nhi, int reg_index)
@@ -128,7 +141,7 @@ static void ring_interrupt_active(struct tb_ring *ring, bool active)
 			  ring->vector * 4);
 	}
 
-	old = ioread32(ring->nhi->iobase + reg);
+	old = ring->nhi->interrupt_mask[reg_index];
 	if (active)
 		new = old | mask;
 	else
@@ -140,10 +153,10 @@ static void ring_interrupt_active(struct tb_ring *ring, bool active)
 
 	if (new == old) {
 		/*
-		 * Rings that are polled mask the interrupt using while
-		 * the completions are being advanced (see
-		 * __ring_interrupt()) so for those it can already be
-		 * disabled by the time the ring is stopped.
+		 * Rings that are polled mask the interrupt while the
+		 * completions are being advanced (see __ring_interrupt())
+		 * so for those it can already be disabled by the time
+		 * the ring is stopped.
 		 */
 		if (active || !ring->start_poll)
 			dev_WARN(ring->nhi->dev,
@@ -153,7 +166,7 @@ static void ring_interrupt_active(struct tb_ring *ring, bool active)
 	}
 
 	if (active)
-		iowrite32(new, ring->nhi->iobase + reg);
+		nhi_unmask_interrupt(ring->nhi, mask, reg_index);
 	else
 		nhi_mask_interrupt(ring->nhi, mask, reg_index);
 }
@@ -436,17 +449,14 @@ EXPORT_SYMBOL_GPL(tb_ring_poll);
 
 static void __ring_interrupt_mask(struct tb_ring *ring, bool mask)
 {
-	int idx = ring_interrupt_index(ring);
-	int reg = REG_RING_INTERRUPT_BASE + idx / 32 * 4;
-	int bit = idx % 32;
-	u32 val;
+	int interrupt_index = ring_interrupt_index(ring);
+	int reg_index = interrupt_index / 32;
+	int interrupt_bit = interrupt_index % 32;
 
-	val = ioread32(ring->nhi->iobase + reg);
 	if (mask)
-		val &= ~BIT(bit);
+		nhi_mask_interrupt(ring->nhi, BIT(interrupt_bit), reg_index);
 	else
-		val |= BIT(bit);
-	iowrite32(val, ring->nhi->iobase + reg);
+		nhi_unmask_interrupt(ring->nhi, BIT(interrupt_bit), reg_index);
 }
 
 /* Both @nhi->lock and @ring->lock should be held */
@@ -1310,7 +1320,10 @@ int nhi_probe(struct tb_nhi *nhi)
 				     sizeof(*nhi->tx_rings), GFP_KERNEL);
 	nhi->rx_rings = devm_kcalloc(dev, nhi->hop_count,
 				     sizeof(*nhi->rx_rings), GFP_KERNEL);
-	if (!nhi->tx_rings || !nhi->rx_rings)
+	nhi->interrupt_mask = devm_kcalloc(dev, RING_INTERRUPT_REG_COUNT(nhi),
+					   sizeof(*nhi->interrupt_mask),
+					   GFP_KERNEL);
+	if (!nhi->tx_rings || !nhi->rx_rings || !nhi->interrupt_mask)
 		return -ENOMEM;
 
 	nhi_reset(nhi);

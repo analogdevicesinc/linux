@@ -506,6 +506,7 @@ void tb_service_properties_changed(struct tb_service *svc);
  * @iobase: MMIO space of the NHI
  * @tx_rings: All Tx rings available on this host controller
  * @rx_rings: All Rx rings available on this host controller
+ * @interrupt_mask: Shadow copy of the ring interrupt mask register
  * @going_away: The host controller device is about to disappear so when
  *		this flag is set, avoid touching the hardware anymore.
  * @iommu_dma_protection: An IOMMU will isolate external-facing ports.
@@ -527,6 +528,7 @@ struct tb_nhi {
 	void __iomem *iobase;
 	struct tb_ring **tx_rings;
 	struct tb_ring **rx_rings;
+	u32 *interrupt_mask;
 	bool going_away;
 	bool iommu_dma_protection;
 	struct work_struct interrupt_work;
