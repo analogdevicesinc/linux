@@ -1229,7 +1229,9 @@ static void apply_ctx_interdependent_lock(struct dc *dc,
 
 static void dc_update_visual_confirm_color(struct dc *dc, struct dc_state *context, struct pipe_ctx *pipe_ctx)
 {
-	if (dc->debug.visual_confirm & VISUAL_CONFIRM_EXPLICIT) {
+	/* EXPLICIT and DM passthrough both apply the per-plane color set on the plane state */
+	if ((dc->debug.visual_confirm & VISUAL_CONFIRM_EXPLICIT) ||
+		dc->debug.visual_confirm == VISUAL_CONFIRM_DM_PASSTHROUGH) {
 		memcpy(&pipe_ctx->visual_confirm_color, &pipe_ctx->plane_state->visual_confirm_color,
 		sizeof(pipe_ctx->visual_confirm_color));
 		return;
@@ -3352,6 +3354,10 @@ static void copy_surface_update_to_plane(
 			surface->time.index = 0;
 
 		surface->triplebuffer_flips = srf_update->flip_addr->triplebuffer_flips;
+
+		/* DM passthrough mode: stash the per-flip color on the plane for dc_update_visual_confirm_color */
+		if (surface->ctx->dc->debug.visual_confirm == VISUAL_CONFIRM_DM_PASSTHROUGH)
+			surface->visual_confirm_color = srf_update->flip_addr->visual_confirm_color;
 	}
 
 	if (srf_update->scaling_info) {
