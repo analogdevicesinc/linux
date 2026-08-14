@@ -2319,8 +2319,8 @@ int hid_connect(struct hid_device *hdev, unsigned int connect_mask)
 	if (hid_hiddev(hdev))
 		connect_mask |= HID_CONNECT_HIDDEV_FORCE;
 
-	if ((connect_mask & HID_CONNECT_HIDINPUT) && !hidinput_connect(hdev,
-				connect_mask & HID_CONNECT_HIDINPUT_FORCE))
+	if ((connect_mask & HID_CONNECT_HIDINPUT) &&
+	    !hidinput_connect(hdev, connect_mask))
 		hdev->claimed |= HID_CLAIMED_INPUT;
 
 	if ((connect_mask & HID_CONNECT_HIDDEV) && hdev->hiddev_connect &&
@@ -2341,10 +2341,6 @@ int hid_connect(struct hid_device *hdev, unsigned int connect_mask)
 	}
 
 	hid_process_ordering(hdev);
-
-	if ((hdev->claimed & HID_CLAIMED_INPUT) &&
-			(connect_mask & HID_CONNECT_FF) && hdev->ff_init)
-		hdev->ff_init(hdev);
 
 	len = 0;
 	if (hdev->claimed & HID_CLAIMED_INPUT)
