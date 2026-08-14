@@ -692,8 +692,6 @@ static bool serial8250_match_port(const struct uart_port *port1,
 		return hub6_match_port(port1, port2);
 	else if (uart_iotype_mmio(port1->iotype))
 		return port1->mapbase == port2->mapbase;
-	else if (port1->iotype == UPIO_BUS)
-		return true;
 	else
 		return false;
 }
