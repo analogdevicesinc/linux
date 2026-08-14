@@ -10406,13 +10406,6 @@ S:	Maintained
 F:	fs/backing-file.c
 F:	include/linux/backing-file.h
 
-FINTEK F75375S HARDWARE MONITOR AND FAN CONTROLLER DRIVER
-M:	Riku Voipio <riku.voipio@iki.fi>
-L:	linux-hwmon@vger.kernel.org
-S:	Maintained
-F:	drivers/hwmon/f75375s.c
-F:	include/linux/f75375s.h
-
 FINTEK F81604 USB to 2xCANBUS DEVICE DRIVER
 M:	Ji-Ze Hong (Peter Hong) <peter_hong@fintek.com.tw>
 L:	linux-can@vger.kernel.org
