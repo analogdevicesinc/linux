@@ -1183,7 +1183,7 @@ static void amdgpu_dm_boot_time_crc_init(struct amdgpu_device *adev)
 	}
 }
 
-static int dm_late_init(struct amdgpu_ip_block *ip_block)
+STATIC_IFN_KUNIT int dm_late_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
 
@@ -1233,6 +1233,7 @@ static int dm_late_init(struct amdgpu_ip_block *ip_block)
 
 	return amdgpu_dm_detect_mst_link_for_all_connectors(adev_to_drm(adev));
 }
+EXPORT_IF_KUNIT(dm_late_init);
 
 static void resume_mst_branch_status(struct drm_dp_mst_topology_mgr *mgr)
 {

@@ -1255,6 +1255,7 @@ void mmhub_read_system_context(struct amdgpu_device *adev,
 int amdgpu_dm_init_power_module(struct amdgpu_display_manager *dm);
 int load_dmcu_fw(struct amdgpu_device *adev);
 int dm_sw_init(struct amdgpu_ip_block *ip_block);
+int dm_late_init(struct amdgpu_ip_block *ip_block);
 #endif
 
 #endif /* __AMDGPU_DM_H__ */

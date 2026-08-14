@@ -21,6 +21,7 @@
 #include <drm/drm_writeback.h>
 
 #include "dc.h"
+#include "dc/dc_dmub_srv.h"
 #include "dal_asic_id.h"
 #include "dm_services_types.h"
 #include "dmub/dmub_srv.h"
@@ -3702,6 +3703,88 @@ static void dm_test_sw_fini_releases_bounding_box(struct kunit *test)
 	KUNIT_EXPECT_TRUE(test, list_empty(&adev->dm.da_list));
 }
 
+/* Tests for dm_late_init() */
+
+/*
+ * A DC without a DMCU and with an empty link list, so the ABM configuration is
+ * skipped and only the MST detection sweep runs.
+ */
+static struct amdgpu_device *dm_test_late_init_adev(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc *dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	dc->res_pool = kunit_kzalloc(test, sizeof(*dc->res_pool), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc->res_pool);
+	adev->dm.dc = dc;
+
+	return adev;
+}
+
+static int dm_test_run_late_init(struct amdgpu_device *adev)
+{
+	struct amdgpu_ip_block ip_block = { .adev = adev };
+
+	return dm_late_init(&ip_block);
+}
+
+/**
+ * dm_test_late_init_no_dmcu - Test a DC without a DMCU or DMUB
+ * @test: The KUnit test context
+ */
+static void dm_test_late_init_no_dmcu(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_late_init_adev(test);
+
+	KUNIT_EXPECT_EQ(test, dm_test_run_late_init(adev), 0);
+}
+
+/**
+ * dm_test_late_init_boot_crc_no_dmub - Test boot time CRC needs a DMUB service
+ * @test: The KUnit test context
+ */
+static void dm_test_late_init_boot_crc_no_dmub(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_late_init_adev(test);
+
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 6, 0);
+
+	KUNIT_EXPECT_EQ(test, dm_test_run_late_init(adev), 0);
+	KUNIT_EXPECT_NULL(test, adev->dm.boot_time_crc_info.bo_ptr);
+}
+
+static union dmub_fw_boot_options dm_test_fw_boot_options;
+
+static union dmub_fw_boot_options dm_test_get_fw_boot_option(struct dmub_srv *dmub)
+{
+	return dm_test_fw_boot_options;
+}
+
+/**
+ * dm_test_late_init_boot_crc_disabled - Test a disabled boot time CRC allocates nothing
+ * @test: The KUnit test context
+ */
+static void dm_test_late_init_boot_crc_disabled(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_late_init_adev(test);
+	struct dc_dmub_srv *dmub_srv;
+	struct dmub_srv *dmub;
+
+	dmub_srv = kunit_kzalloc(test, sizeof(*dmub_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dmub_srv);
+	dmub = kunit_kzalloc(test, sizeof(*dmub), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dmub);
+
+	dm_test_fw_boot_options.bits.bootcrc_en_at_S0i3 = 0;
+	dmub->hw_funcs.get_fw_boot_option = dm_test_get_fw_boot_option;
+	dmub_srv->dmub = dmub;
+	adev->dm.dc->ctx->dmub_srv = dmub_srv;
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 6, 0);
+
+	KUNIT_EXPECT_EQ(test, dm_test_run_late_init(adev), 0);
+	KUNIT_EXPECT_NULL(test, adev->dm.boot_time_crc_info.bo_ptr);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -3891,6 +3974,10 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	/* dm_sw_init / dm_sw_fini */
 	KUNIT_CASE(dm_test_sw_init_no_dmub),
 	KUNIT_CASE(dm_test_sw_fini_releases_bounding_box),
+	/* dm_late_init */
+	KUNIT_CASE(dm_test_late_init_no_dmcu),
+	KUNIT_CASE(dm_test_late_init_boot_crc_no_dmub),
+	KUNIT_CASE(dm_test_late_init_boot_crc_disabled),
 	{}
 };
 
