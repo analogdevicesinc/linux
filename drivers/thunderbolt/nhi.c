@@ -226,12 +226,37 @@ static bool ring_empty(struct tb_ring *ring)
 	return ring->head == ring->tail;
 }
 
+static void __ring_notify(struct tb_ring *ring)
+{
+	lockdep_assert_held(&ring->lock);
+
+	if (ring->notify_pending) {
+		/*
+		 * The doorbell carries the absolute index of the head
+		 * so a single write covers all the descriptors posted
+		 * since the previous one.
+		 */
+		if (ring->is_tx)
+			ring_iowrite_prod(ring, ring->head);
+		else
+			ring_iowrite_cons(ring, ring->head);
+	}
+	ring->notify_pending = false;
+}
+
 /*
  * ring_write_descriptors() - post frames from ring->queue to the controller
+ * @ring: Ring to post the frames to
+ * @notify: Notify the controller about the posted descriptors
+ *
+ * Unless @notify is %true the controller is not notified about the posted
+ * descriptors and the caller is expected to call tb_ring_notify() once it
+ * is done queuing frames. This allows batching of frames before
+ * updating the producer/consumer indices.
  *
  * ring->lock is held.
  */
-static void ring_write_descriptors(struct tb_ring *ring)
+static void ring_write_descriptors(struct tb_ring *ring, bool notify)
 {
 	struct ring_frame *frame, *n;
 	struct ring_desc *descriptor;
@@ -255,11 +280,11 @@ static void ring_write_descriptors(struct tb_ring *ring)
 			descriptor->sof = frame->sof;
 		}
 		ring->head = (ring->head + 1) % ring->size;
-		if (ring->is_tx)
-			ring_iowrite_prod(ring, ring->head);
-		else
-			ring_iowrite_cons(ring, ring->head);
+		ring->notify_pending = true;
 	}
+
+	if (notify)
+		__ring_notify(ring);
 }
 
 /*
@@ -304,7 +329,7 @@ static void ring_work(struct work_struct *work)
 		}
 		ring->tail = (ring->tail + 1) % ring->size;
 	}
-	ring_write_descriptors(ring);
+	ring_write_descriptors(ring, true);
 
 invoke_callback:
 	/* allow callbacks to schedule new work */
@@ -323,7 +348,7 @@ invoke_callback:
 	wake_up(&ring->wait);
 }
 
-int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame)
+int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame, bool more)
 {
 	unsigned long flags;
 	int ret = 0;
@@ -331,7 +356,7 @@ int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame)
 	spin_lock_irqsave(&ring->lock, flags);
 	if (ring->running) {
 		list_add_tail(&frame->list, &ring->queue);
-		ring_write_descriptors(ring);
+		ring_write_descriptors(ring, !more);
 	} else {
 		ret = -ESHUTDOWN;
 	}
@@ -339,6 +364,22 @@ int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(__tb_ring_enqueue);
+
+/**
+ * tb_ring_notify() - Notify the controller about the queued frames
+ * @ring: Ring to notify
+ *
+ * Notifies the controller about frames that were enqueued using
+ * tb_ring_tx_more() or tb_ring_rx_more(). Does nothing if there are no
+ * such frames pending.
+ */
+void tb_ring_notify(struct tb_ring *ring)
+{
+	guard(spinlock_irqsave)(&ring->lock);
+	if (ring->running)
+		__ring_notify(ring);
+}
+EXPORT_SYMBOL_GPL(tb_ring_notify);
 
 /**
  * tb_ring_poll() - Poll one completed frame from the ring
@@ -784,6 +825,7 @@ void tb_ring_stop(struct tb_ring *ring)
 	ring_iowrite32desc(ring, 0, 12);
 	ring->head = 0;
 	ring->tail = 0;
+	ring->notify_pending = false;
 	ring->running = false;
 
 err:
