@@ -113,8 +113,7 @@
 #define ZYNQMP_DMA_INT_DONE	(ZYNQMP_DMA_DONE | ZYNQMP_DMA_DST_DSCR_DONE)
 #define ZYNQMP_DMA_INT_EN_DEFAULT_MASK	(ZYNQMP_DMA_INT_DONE | \
 					ZYNQMP_DMA_INT_ERR | \
-					ZYNQMP_DMA_INT_OVRFL | \
-					ZYNQMP_DMA_DST_DSCR_DONE)
+					ZYNQMP_DMA_INT_OVRFL)
 
 /* Max number of descriptors per channel */
 #define ZYNQMP_DMA_NUM_DESCS	32
@@ -128,8 +127,6 @@
 
 /* Reset values for data attributes */
 #define ZYNQMP_DMA_AXCACHE_VAL		0xF
-
-#define ZYNQMP_DMA_SRC_ISSUE_RST_VAL	0x1F
 
 #define ZYNQMP_DMA_IDS_DEFAULT_MASK	0xFFF
 
