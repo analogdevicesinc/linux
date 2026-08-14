@@ -328,8 +328,10 @@ xe_pagefault_queue_add(struct xe_pagefault_queue *pf_queue,
 
 	do {
 		/* Not possible, warn on and drop page fault */
-		if (WARN_ON(xe_pagefault_queue_full(pf_queue)))
+		if (WARN_ON_ONCE(xe_pagefault_queue_full(pf_queue))) {
+			xe_log_err(xe, PAGEFAULT, -ENOSPC, "Queue full!\n");
 			return NULL;
+		}
 
 		lpf = (pf_queue->data + pf_queue->head);
 		pf_queue->head = (pf_queue->head + xe_pagefault_entry_size()) %
