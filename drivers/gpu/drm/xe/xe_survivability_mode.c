@@ -18,6 +18,7 @@
 #include "xe_mmio.h"
 #include "xe_nvm.h"
 #include "xe_pcode_api.h"
+#include "xe_printk.h"
 #include "xe_vsec.h"
 
 /**
@@ -309,24 +310,26 @@ static int create_survivability_sysfs(struct pci_dev *pdev)
 	int ret;
 
 	ret = device_create_file(dev, &dev_attr_survivability_mode);
-	if (ret) {
-		dev_warn(dev, "Failed to create survivability sysfs files\n");
-		return ret;
-	}
+	if (ret)
+		goto failed;
 
 	ret = devm_add_action_or_reset(xe->drm.dev,
 				       xe_survivability_mode_fini, xe);
 	if (ret)
-		return ret;
+		goto failed;
 
 	/* Survivability info is not required if enabled via configfs */
 	if (!xe_configfs_get_survivability_mode(pdev)) {
 		ret = devm_device_add_group(dev, &survivability_info_group);
 		if (ret)
-			return ret;
+			goto failed;
 	}
 
 	return 0;
+
+failed:
+	xe_err(xe, "Failed to create survivability sysfs files: %pe\n", ERR_PTR(ret));
+	return ret;
 }
 
 static int enable_boot_survivability_mode(struct pci_dev *pdev)
@@ -432,9 +435,7 @@ void xe_survivability_mode_runtime_enable(struct xe_device *xe)
 	}
 
 	populate_survivability_info(xe);
-
-	if (create_survivability_sysfs(pdev))
-		dev_err(&pdev->dev, "Failed to create survivability sysfs\n");
+	create_survivability_sysfs(pdev);
 
 	survivability->type = XE_SURVIVABILITY_TYPE_RUNTIME;
 	dev_err(&pdev->dev, "Runtime Survivability mode enabled\n");
