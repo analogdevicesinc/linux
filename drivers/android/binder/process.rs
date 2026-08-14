@@ -1216,11 +1216,10 @@ impl Process {
 
         {
             let inner = self.inner.lock();
-            for (node_ptr, node) in &inner.nodes {
-                if *node_ptr > ptr {
-                    node.populate_debug_info(&mut out, &inner);
-                    break;
-                }
+            // cursor_lower_bound retrieves the "key" passed or the next existing larger key
+            if let Some(cursor) = inner.nodes.cursor_lower_bound(&(ptr + 1)) {
+                let (_, node) = cursor.current();
+                node.populate_debug_info(&mut out, &inner);
             }
         }
 
