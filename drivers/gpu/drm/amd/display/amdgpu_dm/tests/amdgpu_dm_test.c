@@ -3654,6 +3654,54 @@ static void dm_test_load_dmcu_fw_missing_firmware(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, adev->dm.fw_dmcu);
 }
 
+/* Tests for dm_sw_init() and dm_sw_fini() */
+
+/**
+ * dm_test_sw_init_no_dmub - Test software init on an ASIC without a DMUB
+ * @test: The KUnit test context
+ */
+static void dm_test_sw_init_no_dmub(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_ip_block ip_block = { .adev = adev };
+
+	adev->asic_type = CHIP_BONAIRE;
+
+	KUNIT_EXPECT_EQ(test, dm_sw_init(&ip_block), 0);
+	KUNIT_ASSERT_NOT_NULL(test, adev->dm.cgs_device);
+	KUNIT_EXPECT_TRUE(test, list_empty(&adev->dm.da_list));
+
+	/* amdgpu_cgs_destroy_device() is not exported and is a plain kfree(). */
+	kfree(adev->dm.cgs_device);
+}
+
+/**
+ * dm_test_sw_fini_releases_bounding_box - Test the DMUB bounding box is released
+ * @test: The KUnit test context
+ */
+static void dm_test_sw_fini_releases_bounding_box(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_ip_block ip_block = { .adev = adev };
+	struct dal_allocation *da;
+	void *bb;
+
+	bb = kunit_kzalloc(test, sizeof(*da), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, bb);
+	/* Freed by dm_sw_fini(), so it must not be KUnit-managed. */
+	da = kzalloc_obj(*da);
+	KUNIT_ASSERT_NOT_NULL(test, da);
+
+	INIT_LIST_HEAD(&adev->dm.da_list);
+	da->cpu_ptr = bb;
+	list_add(&da->list, &adev->dm.da_list);
+	adev->dm.bb_from_dmub = bb;
+
+	KUNIT_EXPECT_EQ(test, dm_sw_fini(&ip_block), 0);
+	KUNIT_EXPECT_NULL(test, adev->dm.bb_from_dmub);
+	KUNIT_EXPECT_TRUE(test, list_empty(&adev->dm.da_list));
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -3840,6 +3888,9 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_load_dmcu_fw_unsupported),
 	KUNIT_CASE(dm_test_load_dmcu_fw_raven),
 	KUNIT_CASE(dm_test_load_dmcu_fw_missing_firmware),
+	/* dm_sw_init / dm_sw_fini */
+	KUNIT_CASE(dm_test_sw_init_no_dmub),
+	KUNIT_CASE(dm_test_sw_fini_releases_bounding_box),
 	{}
 };
 

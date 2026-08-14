@@ -1079,7 +1079,7 @@ STATIC_IFN_KUNIT int load_dmcu_fw(struct amdgpu_device *adev)
 }
 EXPORT_IF_KUNIT(load_dmcu_fw);
 
-static int dm_sw_init(struct amdgpu_ip_block *ip_block)
+STATIC_IFN_KUNIT int dm_sw_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
 	int r;
@@ -1100,6 +1100,7 @@ static int dm_sw_init(struct amdgpu_ip_block *ip_block)
 
 	return load_dmcu_fw(adev);
 }
+EXPORT_IF_KUNIT(dm_sw_init);
 
 STATIC_IFN_KUNIT int dm_sw_fini(struct amdgpu_ip_block *ip_block)
 {
