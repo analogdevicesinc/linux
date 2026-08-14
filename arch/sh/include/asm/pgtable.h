@@ -9,12 +9,12 @@
 #ifndef __ASM_SH_PGTABLE_H
 #define __ASM_SH_PGTABLE_H
 
+#include <asm/page.h>
 #ifdef CONFIG_X2TLB
 #include <asm/pgtable-3level.h>
 #else
 #include <asm/pgtable-2level.h>
 #endif
-#include <asm/page.h>
 #include <asm/mmu.h>
 
 #ifndef __ASSEMBLER__
