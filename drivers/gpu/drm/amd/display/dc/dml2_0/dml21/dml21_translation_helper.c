@@ -101,10 +101,22 @@ static unsigned int calc_vblank_nom_lines(const struct dc_stream_state *stream, 
 	unsigned int vblank_nom = (unsigned int)div64_u64((uint64_t)default_vblank_nom_us * 1000ULL, // vblank_nom_ns
 			div64_u64((uint64_t)stream->timing.h_total * 10000000ULL, (uint64_t)stream->timing.pix_clk_100hz)); // line_time_ns
 
-	if (vblank_avail < vblank_nom ||
-			stream->adaptive_sync_infopacket.valid ||
-			(stream->link && stream->link->replay_settings.config.replay_supported))
-		vblank_nom = vblank_avail;
+	/*
+	 * HW requirement for SDP to be in FP ahead of vsync (line 0).
+	 * TODO: Move this out of the translation layer into DC core as per-ASIC policy.
+	 */
+	if (stream->adaptive_sync_infopacket.valid ||
+			(stream->link && stream->link->replay_settings.config.replay_supported)) {
+		const unsigned int v_active = stream->timing.v_border_top + stream->timing.v_addressable +
+					      stream->timing.v_border_bottom;
+		const unsigned int blank_lines = stream->timing.v_total - v_active;
+		const unsigned int bp_lines = blank_lines - stream->timing.v_front_porch;
+		const unsigned int min_vblank_nom = bp_lines + 2;
+
+		vblank_nom = max(vblank_nom, min_vblank_nom);
+	}
+
+	vblank_nom = min(vblank_nom, vblank_avail);
 
 	return vblank_nom;
 }
