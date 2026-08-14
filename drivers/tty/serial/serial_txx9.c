@@ -965,7 +965,12 @@ static int serial_txx9_register_port(struct uart_port *port)
 	mutex_lock(&serial_txx9_mutex);
 	for (i = 0; i < UART_NR; i++) {
 		uart = &serial_txx9_ports[i];
-		if (uart_match_port(uart, port)) {
+		/*
+		 * serial_txx9_register_port() is only called from
+		 * pciserial_txx9_init_one(). So .iotype is UPIO_PORT and
+		 * comparing .iobase serves to distinguish ports.
+		 */
+		if (uart->iobase == port->iobase) {
 			uart_remove_one_port(&serial_txx9_reg, uart);
 			break;
 		}
