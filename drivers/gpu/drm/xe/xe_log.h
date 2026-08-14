@@ -103,4 +103,16 @@ void xe_log_emit(struct pci_dev *pdev, int cper_sev, enum xe_sigid sigid,
 	xe_log_from((any), (cper_sev), (int)XE_LOG_COMPONENT_##TAG##_SIGID, \
 		    XE_LOG_COMPONENT_##TAG, (data), (len), fmt, ##args)
 
+#define xe_log_comp_fatal(any, TAG, data, len, fmt, args...) \
+	xe_log_comp((any), CPER_SEV_FATAL, TAG, (data), (len), fmt, ##args)
+
+#define xe_log_comp_recoverable(any, TAG, data, len, fmt, args...) \
+	xe_log_comp((any), CPER_SEV_RECOVERABLE, TAG, (data), (len), fmt, ##args)
+
+#define xe_log_comp_corrected(any, TAG, data, len, fmt, args...) \
+	xe_log_comp((any), CPER_SEV_CORRECTED, TAG, (data), (len), fmt, ##args)
+
+#define xe_log_comp_info(any, TAG, data, len, fmt, args...) \
+	xe_log_comp((any), CPER_SEV_INFORMATIONAL, TAG, (data), (len), fmt, ##args)
+
 #endif
