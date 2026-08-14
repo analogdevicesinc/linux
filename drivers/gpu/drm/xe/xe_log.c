@@ -3,6 +3,9 @@
  * Copyright © 2026 Intel Corporation
  */
 
+#include <kunit/static_stub.h>
+#include <kunit/visibility.h>
+
 #include "abi/xe_log_abi.h"
 
 #include "xe_device.h"
@@ -13,6 +16,8 @@ static void log_emit_cper(struct pci_dev *pdev, int cper_sev, enum xe_sigid sigi
 			  u32 component, u32 location, const void *data, size_t len,
 			  struct va_format *vaf)
 {
+	KUNIT_STATIC_STUB_REDIRECT(log_emit_cper, pdev, cper_sev, sigid,
+				   component, location, data, len, vaf);
 	/* TODO */
 }
 
@@ -132,6 +137,8 @@ static const char *log_sev_prefix(int cper_sev)
 
 static void log_dmesg_vprintk(struct pci_dev *pdev, int cper_sev, struct va_format *vaf)
 {
+	KUNIT_STATIC_STUB_REDIRECT(log_dmesg_vprintk, pdev, cper_sev, vaf);
+
 	if (cper_sev == CPER_SEV_INFORMATIONAL)
 		pci_info(pdev, __LOG_DRM_PRINTK_FMT("%pV", vaf));
 	else
@@ -222,3 +229,7 @@ void __xe_log_emit(struct pci_dev *pdev, int cper_sev, enum xe_sigid sigid,
 
 	va_end(args);
 }
+
+#if IS_BUILTIN(CONFIG_DRM_XE_KUNIT_TEST)
+#include "tests/xe_log_kunit.c"
+#endif
