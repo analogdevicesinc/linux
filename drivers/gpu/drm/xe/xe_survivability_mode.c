@@ -338,14 +338,13 @@ failed:
 
 static int enable_boot_survivability_mode(struct pci_dev *pdev)
 {
-	struct device *dev = &pdev->dev;
 	struct xe_device *xe = pdev_to_xe_device(pdev);
 	struct xe_survivability *survivability = &xe->survivability;
-	int ret = 0;
+	int ret;
 
 	ret = create_survivability_sysfs(pdev);
 	if (ret)
-		return ret;
+		goto failed;
 
 	/* Make sure xe_heci_gsc_init() and xe_i2c_probe() are aware of survivability */
 	survivability->mode = true;
@@ -357,19 +356,22 @@ static int enable_boot_survivability_mode(struct pci_dev *pdev)
 	if (survivability->fdo_mode) {
 		ret = xe_nvm_init(xe);
 		if (ret)
-			goto err;
+			goto failed;
 	}
 
 	ret = xe_i2c_probe(xe);
 	if (ret)
-		goto err;
+		goto failed;
 
-	dev_err(dev, "In Survivability Mode\n");
+	if (check_boot_failure(xe))
+		xe_log_err_fatal(pdev, SURVIVABILITY, 0, "Boot Mode enabled!\n");
+	else
+		xe_log_info(pdev, SURVIVABILITY, "Boot Mode enabled!\n");
 
 	return 0;
 
-err:
-	dev_err(dev, "Failed to enable Survivability Mode\n");
+failed:
+	xe_log_err_fatal(pdev, SURVIVABILITY, ret, "Failed to enable Boot Mode!\n");
 	survivability->mode = false;
 	return ret;
 }
