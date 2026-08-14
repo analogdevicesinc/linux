@@ -3297,6 +3297,37 @@ static void dm_test_oem_i2c_hw_init_no_device(struct kunit *test)
 }
 
 /**
+ * dm_test_resume_mst_no_primary - Test a missing primary branch releases the topology lock
+ * @test: The KUnit test context
+ */
+static void dm_test_resume_mst_no_primary(struct kunit *test)
+{
+	struct drm_dp_mst_topology_mgr *mgr;
+
+	mgr = kunit_kzalloc(test, sizeof(*mgr), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, mgr);
+	mutex_init(&mgr->lock);
+
+	resume_mst_branch_status(mgr);
+
+	KUNIT_ASSERT_TRUE(test, mutex_trylock(&mgr->lock));
+	mutex_unlock(&mgr->lock);
+}
+
+/**
+ * dm_test_s3_handle_mst_empty - Test empty connector lists need no MST action
+ * @test: The KUnit test context
+ */
+static void dm_test_s3_handle_mst_empty(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	s3_handle_mst(&adev->ddev, true);
+
+	KUNIT_EXPECT_TRUE(test, list_empty(&adev->ddev.mode_config.connector_list));
+}
+
+/**
  * dm_test_gpureset_commit_state_no_streams - Test an empty DC state programs nothing
  * @test: The KUnit test context
  */
@@ -5127,6 +5158,8 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_early_fini_audio_disabled),
 	KUNIT_CASE(dm_test_sw_fini_releases_state),
 	KUNIT_CASE(dm_test_oem_i2c_hw_init_no_device),
+	KUNIT_CASE(dm_test_resume_mst_no_primary),
+	KUNIT_CASE(dm_test_s3_handle_mst_empty),
 	KUNIT_CASE(dm_test_gpureset_commit_state_no_streams),
 	KUNIT_CASE(dm_test_emulated_link_detect_bad_signal),
 	/* mmhub_read_system_context */

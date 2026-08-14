@@ -1215,6 +1215,8 @@ void amdgpu_dm_mod_power_setup_streams(struct drm_atomic_commit *state,
 int amdgpu_dm_early_fini(struct amdgpu_ip_block *ip_block);
 int dm_sw_fini(struct amdgpu_ip_block *ip_block);
 int dm_oem_i2c_hw_init(struct amdgpu_device *adev);
+void resume_mst_branch_status(struct drm_dp_mst_topology_mgr *mgr);
+void s3_handle_mst(struct drm_device *dev, bool suspend);
 void dm_gpureset_commit_state(struct dc_state *dc_state, struct amdgpu_display_manager *dm);
 int dm_plane_layer_index_cmp(const void *a, const void *b);
 bool update_planes_and_stream_adapter(struct dc *dc,

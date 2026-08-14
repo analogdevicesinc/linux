@@ -1252,7 +1252,7 @@ STATIC_IFN_KUNIT int dm_late_init(struct amdgpu_ip_block *ip_block)
 }
 EXPORT_IF_KUNIT(dm_late_init);
 
-static void resume_mst_branch_status(struct drm_dp_mst_topology_mgr *mgr)
+STATIC_IFN_KUNIT void resume_mst_branch_status(struct drm_dp_mst_topology_mgr *mgr)
 {
 	u8 buf[UUID_SIZE];
 	guid_t guid;
@@ -1302,8 +1302,9 @@ static void resume_mst_branch_status(struct drm_dp_mst_topology_mgr *mgr)
 out_fail:
 	mutex_unlock(&mgr->lock);
 }
+EXPORT_IF_KUNIT(resume_mst_branch_status);
 
-static void s3_handle_mst(struct drm_device *dev, bool suspend)
+STATIC_IFN_KUNIT void s3_handle_mst(struct drm_device *dev, bool suspend)
 {
 	struct amdgpu_dm_connector *aconnector;
 	struct drm_connector *connector;
@@ -1344,6 +1345,7 @@ static void s3_handle_mst(struct drm_device *dev, bool suspend)
 	}
 	drm_connector_list_iter_end(&iter);
 }
+EXPORT_IF_KUNIT(s3_handle_mst);
 
 STATIC_IFN_KUNIT int dm_oem_i2c_hw_init(struct amdgpu_device *adev)
 {
