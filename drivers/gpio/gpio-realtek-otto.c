@@ -423,6 +423,8 @@ static int realtek_gpio_probe(struct platform_device *pdev)
 	ctrl->chip.gc.owner = THIS_MODULE;
 
 	irq = platform_get_irq_optional(pdev, 0);
+	if (irq < 0 && irq != -ENXIO)
+		return irq;
 	if (!(dev_flags & GPIO_INTERRUPTS_DISABLED) && irq > 0) {
 		girq = &ctrl->chip.gc.irq;
 		gpio_irq_chip_set_chip(girq, &realtek_gpio_irq_chip);
