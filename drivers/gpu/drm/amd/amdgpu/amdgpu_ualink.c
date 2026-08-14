@@ -3852,9 +3852,15 @@ int amdgpu_ualink_import_handle(struct drm_device *dev,
 			      imp_xa_node, GFP_KERNEL);
 		if (r) {
 			kfree(imp_xa_node);
-			dev_err(adev->dev,
-				"IMPORT: XA insert failed for handle:%llx:%llx err:%d\n",
-				handle.handle_hi, handle.handle_lo, r);
+			/* -EBUSY means another thread raced us and inserted a
+			 * node for the same handle. Ask user-space to retry.
+			 */
+			if (r == -EBUSY)
+				r = -EAGAIN;
+			else
+				dev_err(adev->dev,
+					"IMPORT: XA insert failed for handle:%llx:%llx err:%d\n",
+					handle.handle_hi, handle.handle_lo, r);
 			goto out;
 		}
 
