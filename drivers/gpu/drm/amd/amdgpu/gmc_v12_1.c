@@ -597,10 +597,6 @@ static void gmc_v12_1_get_vm_pde(struct amdgpu_device *adev, int level,
 		/* Set the block fragment size */
 		if (!(*flags & AMDGPU_PDE_PTE_GFX12))
 			*flags |= AMDGPU_PDE_BFS_GFX12(0x9);
-
-	} else if (level == AMDGPU_VM_PDB0) {
-		if (*flags & AMDGPU_PDE_PTE_GFX12)
-			*flags &= ~AMDGPU_PDE_PTE_GFX12;
 	}
 }
 

@@ -518,8 +518,16 @@ static void mmhub_v4_2_0_mid_setup_vmid_config(struct amdgpu_device *adev,
 					       uint32_t inst_mask)
 {
 	struct amdgpu_vmhub *hub;
+	u32 num_level, block_size;
 	uint32_t tmp;
 	int i, j;
+
+	num_level = adev->vm_manager.num_level;
+	block_size = adev->vm_manager.block_size;
+	if (adev->gmc.translate_further)
+		num_level -= 1;
+	else
+		block_size -= 9;
 
 	for_each_inst(j, inst_mask) {
 		hub = &adev->vmhub[AMDGPU_MMHUB0(j)];
@@ -528,7 +536,7 @@ static void mmhub_v4_2_0_mid_setup_vmid_config(struct amdgpu_device *adev,
 						 i * hub->ctx_distance);
 			tmp = REG_SET_FIELD(tmp, MMVM_CONTEXT1_CNTL, ENABLE_CONTEXT, 1);
 			tmp = REG_SET_FIELD(tmp, MMVM_CONTEXT1_CNTL, PAGE_TABLE_DEPTH,
-					    adev->vm_manager.num_level);
+					    num_level);
 			tmp = REG_SET_FIELD(tmp, MMVM_CONTEXT1_CNTL,
 					    RANGE_PROTECTION_FAULT_ENABLE_DEFAULT, 1);
 			tmp = REG_SET_FIELD(tmp, MMVM_CONTEXT1_CNTL,
@@ -545,8 +553,7 @@ static void mmhub_v4_2_0_mid_setup_vmid_config(struct amdgpu_device *adev,
 			tmp = REG_SET_FIELD(tmp, MMVM_CONTEXT1_CNTL,
 					    EXECUTE_PROTECTION_FAULT_ENABLE_DEFAULT, 1);
 			tmp = REG_SET_FIELD(tmp, MMVM_CONTEXT1_CNTL,
-					    PAGE_TABLE_BLOCK_SIZE,
-					    adev->vm_manager.block_size - 9);
+					    PAGE_TABLE_BLOCK_SIZE, block_size);
 			/* Send no-retry XNACK on fault to suppress VM fault storm. */
 			tmp = REG_SET_FIELD(tmp, MMVM_CONTEXT1_CNTL,
 					    RETRY_PERMISSION_OR_INVALID_PAGE_FAULT,
