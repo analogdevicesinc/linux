@@ -14,6 +14,7 @@
 #include "xe_device.h"
 #include "xe_heci_gsc.h"
 #include "xe_i2c.h"
+#include "xe_log.h"
 #include "xe_mmio.h"
 #include "xe_nvm.h"
 #include "xe_pcode_api.h"
@@ -172,18 +173,32 @@ static void populate_survivability_info(struct xe_device *xe)
 	}
 }
 
-static void log_survivability_info(struct pci_dev *pdev)
+static const char *boot_status_str(u8 boot_status)
 {
-	struct xe_device *xe = pdev_to_xe_device(pdev);
+	switch (boot_status) {
+	case CRITICAL_FAILURE:
+		return "Critical Failure";
+	case NON_CRITICAL_FAILURE:
+		return "Non Critical Failure";
+	default:
+		return "Other";
+	}
+}
+
+static void log_survivability_info(struct xe_device *xe)
+{
 	struct xe_survivability *survivability = &xe->survivability;
 	u32 *info = survivability->info;
 	int id;
 
-	dev_info(&pdev->dev, "Survivability Boot Status : Critical Failure (%d)\n",
-		 survivability->boot_status);
+	xe_log_info(xe, SURVIVABILITY, "Boot Status: %#x (%s)\n",
+		    survivability->boot_status,
+		    boot_status_str(survivability->boot_status));
+
 	for (id = 0; id < MAX_SCRATCH_REG; id++) {
-		if (info[id])
-			dev_info(&pdev->dev, "%s: 0x%x\n", reg_map[id], info[id]);
+		if (!info[id])
+			continue;
+		xe_log_info(xe, SURVIVABILITY, "%s: %#x\n", reg_map[id], info[id]);
 	}
 }
 
@@ -452,7 +467,7 @@ int xe_survivability_mode_boot_enable(struct xe_device *xe)
 	 * v2 supports survivability mode for critical errors
 	 */
 	if (survivability->version < 2  && survivability->boot_status == CRITICAL_FAILURE) {
-		log_survivability_info(pdev);
+		log_survivability_info(xe);
 		return -ENXIO;
 	}
 
