@@ -218,8 +218,7 @@ int xe_pcode_request(struct xe_tile *tile, u32 mbox, u32 request,
 	 * requests, and for any quirks of the PCODE firmware that delays
 	 * the request completion.
 	 */
-	drm_err(&tile_to_xe(tile)->drm,
-		"PCODE timeout, retrying with preemption disabled\n");
+	xe_log_err(tile, PCODE, ret, "timeout, retrying with preemption disabled\n");
 	preempt_disable();
 	ret = pcode_try_request(tile, mbox, request, reply_mask, reply, &status,
 				true, 50 * 1000, true);
