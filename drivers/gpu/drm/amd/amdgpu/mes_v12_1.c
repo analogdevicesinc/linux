@@ -1731,6 +1731,34 @@ static void mes_v12_1_kiq_dequeue_sched(struct amdgpu_device *adev,
 	adev->mes.ring[MES_PIPE_INST(xcc_id, 0)].sched.ready = false;
 }
 
+static void mes_v12_1_kiq_dequeue(struct amdgpu_device *adev, int xcc_id)
+{
+	int i;
+
+	mutex_lock(&adev->srbm_mutex);
+	soc_v1_0_grbm_select(adev, 3, AMDGPU_MES_KIQ_PIPE, 0, 0,
+			     GET_INST(GC, xcc_id));
+
+	/* disable the queue if it's active */
+	if (RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_ACTIVE) & 1) {
+		WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_DEQUEUE_REQUEST, 1);
+		for (i = 0; i < adev->usec_timeout; i++) {
+			if (!(RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_ACTIVE) & 1))
+				break;
+			udelay(1);
+		}
+		WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_DEQUEUE_REQUEST, 0);
+	}
+
+	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_DOORBELL_CONTROL, 0);
+	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_WPTR_LO, 0);
+	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_WPTR_HI, 0);
+	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_RPTR, 0);
+
+	soc_v1_0_grbm_select(adev, 0, 0, 0, 0, GET_INST(GC, xcc_id));
+	mutex_unlock(&adev->srbm_mutex);
+}
+
 static void mes_v12_1_kiq_setting(struct amdgpu_ring *ring, int xcc_id)
 {
 	uint32_t tmp;
@@ -1830,6 +1858,10 @@ static int mes_v12_1_kiq_hw_fini(struct amdgpu_device *adev, uint32_t xcc_id)
 
 		adev->mes.ring[inst].sched.ready = false;
 	}
+
+	/* dequeue KIQ HQD on unbind to clear stale rptr/wptr on rebind */
+	if (!amdgpu_in_reset(adev) && !adev->in_suspend)
+		mes_v12_1_kiq_dequeue(adev, xcc_id);
 
 	mes_v12_1_enable(adev, false, xcc_id);
 
