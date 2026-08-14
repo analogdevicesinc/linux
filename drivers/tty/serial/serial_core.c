@@ -33,7 +33,6 @@
 #include <linux/uaccess.h>
 
 #include "serial_base.h"
-#include "8250/8250.h" /* For hub6_match_port() */
 
 /*
  * This is used to lock changes in serial line configuration.
@@ -3236,32 +3235,6 @@ static void serial_core_remove_one_port(struct uart_driver *drv,
 	wait_event(state->remove_wait, !atomic_read(&state->refcount));
 	state->uart_port = NULL;
 }
-
-/**
- * uart_match_port - are the two ports equivalent?
- * @port1: first port
- * @port2: second port
- *
- * This utility function can be used to determine whether two uart_port
- * structures describe the same port.
- */
-bool uart_match_port(const struct uart_port *port1,
-		const struct uart_port *port2)
-{
-	if (port1->iotype != port2->iotype)
-		return false;
-	else if (port1->iotype == UPIO_PORT)
-		return port1->iobase == port2->iobase;
-	else if (port1->iotype == UPIO_HUB6)
-		return hub6_match_port(port1, port2);
-	else if (uart_iotype_mmio(port1->iotype))
-		return port1->mapbase == port2->mapbase;
-	else if (port1->iotype == UPIO_BUS)
-		return true;
-	else
-		return false;
-}
-EXPORT_SYMBOL(uart_match_port);
 
 static struct serial_ctrl_device *
 serial_core_get_ctrl_dev(struct serial_port_device *port_dev)

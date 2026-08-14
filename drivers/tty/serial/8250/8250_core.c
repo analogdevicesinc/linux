@@ -673,6 +673,31 @@ EXPORT_SYMBOL(serial8250_resume_port);
  */
 static DEFINE_MUTEX(serial_mutex);
 
+/**
+ * serial8250_match_port - are the two ports equivalent?
+ * @port1: first port
+ * @port2: second port
+ *
+ * This utility function can be used to determine whether two uart_port
+ * structures describe the same port.
+ */
+static bool serial8250_match_port(const struct uart_port *port1,
+				  const struct uart_port *port2)
+{
+	if (port1->iotype != port2->iotype)
+		return false;
+	else if (port1->iotype == UPIO_PORT)
+		return port1->iobase == port2->iobase;
+	else if (port1->iotype == UPIO_HUB6)
+		return hub6_match_port(port1, port2);
+	else if (uart_iotype_mmio(port1->iotype))
+		return port1->mapbase == port2->mapbase;
+	else if (port1->iotype == UPIO_BUS)
+		return true;
+	else
+		return false;
+}
+
 static struct uart_8250_port *serial8250_find_match_or_unused(const struct uart_port *port)
 {
 	int i;
@@ -681,7 +706,7 @@ static struct uart_8250_port *serial8250_find_match_or_unused(const struct uart_
 	 * First, find a port entry which matches.
 	 */
 	for (i = 0; i < nr_uarts; i++)
-		if (uart_match_port(&serial8250_ports[i].port, port))
+		if (serial8250_match_port(&serial8250_ports[i].port, port))
 			return &serial8250_ports[i];
 
 	/* try line number first if still available */
