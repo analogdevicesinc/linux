@@ -3074,10 +3074,10 @@ fill_dc_plane_info_and_addr(struct amdgpu_device *adev,
 }
 EXPORT_IF_KUNIT(fill_dc_plane_info_and_addr);
 
-static int fill_dc_plane_attributes(struct amdgpu_device *adev,
-				    struct dc_plane_state *dc_plane_state,
-				    struct drm_plane_state *plane_state,
-				    struct drm_crtc_state *crtc_state)
+STATIC_IFN_KUNIT int fill_dc_plane_attributes(struct amdgpu_device *adev,
+					      struct dc_plane_state *dc_plane_state,
+					      struct drm_plane_state *plane_state,
+					      struct drm_crtc_state *crtc_state)
 {
 	struct dm_crtc_state *dm_crtc_state = to_dm_crtc_state(crtc_state);
 	struct amdgpu_framebuffer *afb = (struct amdgpu_framebuffer *)plane_state->fb;
@@ -3130,6 +3130,7 @@ static int fill_dc_plane_attributes(struct amdgpu_device *adev,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(fill_dc_plane_attributes);
 
 static inline void fill_dc_dirty_rect(struct drm_plane *plane,
 				      struct rect *dirty_rect, int32_t x,

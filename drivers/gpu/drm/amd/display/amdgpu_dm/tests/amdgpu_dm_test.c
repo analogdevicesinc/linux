@@ -3964,6 +3964,127 @@ static void dm_test_early_init_unsupported_version(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, adev->dc_enabled);
 }
 
+/* Tests for fill_dc_plane_attributes() */
+
+struct dm_test_plane_attr_ctx {
+	struct amdgpu_device *adev;
+	struct dm_crtc_state *crtc_state;
+	struct dm_test_plane_info_ctx *plane;
+	struct dc_plane_state *dc_plane;
+};
+
+/*
+ * A DC plane, plus a CRTC state complete enough for the colour management
+ * update at the end of fill_dc_plane_attributes(). A scaling factor of 1 in the
+ * plane caps means "no scaling", which is what the 1:1 geometry of the plane
+ * info context needs.
+ */
+static struct dm_test_plane_attr_ctx *
+dm_test_plane_attr_ctx_alloc(struct kunit *test, u32 drm_format)
+{
+	struct dm_test_plane_attr_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+	ctx->crtc_state = kunit_kzalloc(test, sizeof(*ctx->crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc_state);
+	ctx->dc_plane = kunit_kzalloc(test, sizeof(*ctx->dc_plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->dc_plane);
+
+	ctx->adev = dm_kunit_alloc_adev(test);
+	ctx->adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+	ctx->adev->dm.dc->caps.planes[0].max_upscale_factor.argb8888 = 1;
+	ctx->adev->dm.dc->caps.planes[0].max_downscale_factor.argb8888 = 1;
+
+	ctx->crtc_state->stream = dm_kunit_alloc_stream(test, NULL);
+	/* Colour management resolves the device through the commit backpointer. */
+	ctx->crtc_state->base.state = dm_test_alloc_commit(test, ctx->adev);
+	ctx->plane = dm_test_plane_info_ctx_alloc(test, ctx->adev, drm_format);
+
+	return ctx;
+}
+
+static int dm_test_fill_plane_attr(struct dm_test_plane_attr_ctx *ctx)
+{
+	return fill_dc_plane_attributes(ctx->adev, ctx->dc_plane,
+					ctx->plane->plane_state, &ctx->crtc_state->base);
+}
+
+/**
+ * dm_test_plane_attributes_success - Test plane info is copied into the DC plane
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_attributes_success(struct kunit *test)
+{
+	struct dm_test_plane_attr_ctx *ctx;
+
+	ctx = dm_test_plane_attr_ctx_alloc(test, DRM_FORMAT_ARGB8888);
+	ctx->plane->plane_state->normalized_zpos = 2;
+
+	KUNIT_EXPECT_EQ(test, dm_test_fill_plane_attr(ctx), 0);
+	KUNIT_EXPECT_EQ(test, (int)ctx->dc_plane->format,
+			(int)SURFACE_PIXEL_FORMAT_GRPH_ARGB8888);
+	KUNIT_EXPECT_EQ(test, (int)ctx->dc_plane->color_space, (int)COLOR_SPACE_SRGB);
+	KUNIT_EXPECT_EQ(test, (int)ctx->dc_plane->rotation, (int)ROTATION_ANGLE_0);
+	KUNIT_EXPECT_EQ(test, ctx->dc_plane->src_rect.width, 1920U);
+	KUNIT_EXPECT_EQ(test, ctx->dc_plane->dst_rect.width, 1920U);
+	KUNIT_EXPECT_EQ(test, ctx->dc_plane->layer_index, 2);
+	KUNIT_EXPECT_TRUE(test, ctx->dc_plane->visible);
+	KUNIT_EXPECT_TRUE(test, ctx->dc_plane->flip_int_enabled);
+}
+
+/**
+ * dm_test_plane_attributes_bad_scaling - Test an empty source rectangle is rejected
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_attributes_bad_scaling(struct kunit *test)
+{
+	struct dm_test_plane_attr_ctx *ctx;
+
+	ctx = dm_test_plane_attr_ctx_alloc(test, DRM_FORMAT_ARGB8888);
+	ctx->plane->plane_state->src_w = 0;
+
+	KUNIT_EXPECT_EQ(test, dm_test_fill_plane_attr(ctx), -EINVAL);
+}
+
+/**
+ * dm_test_plane_attributes_bad_format - Test an unsupported format is rejected
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_attributes_bad_format(struct kunit *test)
+{
+	struct dm_test_plane_attr_ctx *ctx;
+
+	ctx = dm_test_plane_attr_ctx_alloc(test, DRM_FORMAT_YUYV);
+
+	KUNIT_EXPECT_EQ(test, dm_test_fill_plane_attr(ctx), -EINVAL);
+}
+
+/**
+ * dm_test_plane_attributes_bad_color_mgmt - Test a bad 3D LUT is rejected
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_attributes_bad_color_mgmt(struct kunit *test)
+{
+	struct dm_test_plane_attr_ctx *ctx;
+	struct drm_property_blob *blob;
+	struct drm_color_lut *lut;
+
+	ctx = dm_test_plane_attr_ctx_alloc(test, DRM_FORMAT_ARGB8888);
+	blob = kunit_kzalloc(test, sizeof(*blob), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, blob);
+	lut = kunit_kcalloc(test, 16, sizeof(*lut), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, lut);
+
+	/* A 3D LUT that is not a perfect cube fails validation. */
+	blob->data = lut;
+	blob->length = 16 * sizeof(*lut);
+	ctx->adev->dm.dc->caps.color.dpp.hw_3d_lut = true;
+	ctx->plane->dm_plane_state->lut3d = blob;
+
+	KUNIT_EXPECT_EQ(test, dm_test_fill_plane_attr(ctx), -EINVAL);
+}
+
 /* Tests for load_dmcu_fw() */
 
 /**
@@ -4505,6 +4626,11 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_early_init_legacy_asics),
 	KUNIT_CASE(dm_test_early_init_dcn_versions),
 	KUNIT_CASE(dm_test_early_init_unsupported_version),
+	/* fill_dc_plane_attributes */
+	KUNIT_CASE(dm_test_plane_attributes_success),
+	KUNIT_CASE(dm_test_plane_attributes_bad_scaling),
+	KUNIT_CASE(dm_test_plane_attributes_bad_format),
+	KUNIT_CASE(dm_test_plane_attributes_bad_color_mgmt),
 	/* load_dmcu_fw */
 	KUNIT_CASE(dm_test_load_dmcu_fw_no_dmcu),
 	KUNIT_CASE(dm_test_load_dmcu_fw_dcn),

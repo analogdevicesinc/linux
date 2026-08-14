@@ -1268,6 +1268,9 @@ int amdgpu_dm_mode_config_init(struct amdgpu_device *adev);
 int initialize_plane(struct amdgpu_display_manager *dm, struct amdgpu_mode_info *mode_info,
 		     int plane_id, enum drm_plane_type plane_type,
 		     const struct dc_plane_cap *plane_cap);
+int fill_dc_plane_attributes(struct amdgpu_device *adev, struct dc_plane_state *dc_plane_state,
+			     struct drm_plane_state *plane_state,
+			     struct drm_crtc_state *crtc_state);
 #endif
 
 #endif /* __AMDGPU_DM_H__ */
