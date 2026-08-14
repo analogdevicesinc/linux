@@ -14,6 +14,7 @@
 #include "xe_gt_types.h"
 #include "xe_gt_stats.h"
 #include "xe_hw_engine.h"
+#include "xe_log.h"
 #include "xe_pagefault.h"
 #include "xe_pagefault_types.h"
 #include "xe_svm.h"
@@ -625,8 +626,7 @@ static void xe_pagefault_queue_work(struct work_struct *w)
 				xe_pagefault_save_to_vm(gt_to_xe(gt), pf);
 				xe_pagefault_cache_start_invalidate(cache_start);
 				xe_pagefault_print(pf);
-				xe_gt_info(pf->gt, "Fault response: Unsuccessful %pe\n",
-					   ERR_PTR(err));
+				xe_log_err_info(pf->gt, PAGEFAULT, err, "Unsuccessful response\n");
 			} else {
 				xe_gt_stats_incr(pf->gt, XE_GT_STATS_ID_INVALID_PREFETCH_PAGEFAULT_COUNT, 1);
 				xe_gt_dbg(pf->gt, "Prefetch Fault response: Unsuccessful %pe\n",
