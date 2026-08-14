@@ -297,7 +297,7 @@ int xe_pcode_ready(struct xe_device *xe, bool locked)
 {
 	u32 status, request = DGFX_GET_INIT_STATUS;
 	struct xe_tile *tile = xe_device_get_root_tile(xe);
-	int timeout_us = 180000000; /* 3 min */
+	long timeout_us = 3 * 60 * USEC_PER_SEC; /* 3 min */
 	int ret;
 
 	if (xe->info.skip_pcode)
@@ -318,8 +318,8 @@ int xe_pcode_ready(struct xe_device *xe, bool locked)
 		mutex_unlock(&tile->pcode.lock);
 
 	if (ret)
-		drm_err(&xe->drm,
-			"PCODE initialization timedout after: 3 min\n");
+		xe_log_err(tile, PCODE, ret, "initialization timedout after %ld seconds\n",
+			   timeout_us / USEC_PER_SEC);
 
 	return ret;
 }
