@@ -629,6 +629,23 @@ void nfs_release_request(struct nfs_page *req)
 EXPORT_SYMBOL_GPL(nfs_release_request);
 
 /*
+ * nfs_release_request_list - Release a list of NFS read/write requests
+ * @head: list of requests to release
+ *
+ * Removes each request from the list and drops it's refcount.
+ */
+void nfs_release_request_list(struct list_head *head)
+{
+	while (!list_empty(head)) {
+		struct nfs_page *req = nfs_list_entry(head->next);
+
+		nfs_list_remove_request(req);
+		nfs_release_request(req);
+	}
+}
+EXPORT_SYMBOL_GPL(nfs_release_request_list);
+
+/*
  * nfs_generic_pg_test - determine if requests can be coalesced
  * @desc: pointer to descriptor
  * @prev: previous request in desc, or NULL
