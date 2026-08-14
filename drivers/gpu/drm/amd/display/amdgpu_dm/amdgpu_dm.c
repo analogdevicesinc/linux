@@ -407,7 +407,7 @@ STATIC_IFN_KUNIT void mmhub_read_system_context(struct amdgpu_device *adev,
 }
 EXPORT_IF_KUNIT(mmhub_read_system_context);
 
-static int amdgpu_dm_init_power_module(struct amdgpu_display_manager *dm)
+STATIC_IFN_KUNIT int amdgpu_dm_init_power_module(struct amdgpu_display_manager *dm)
 {
 	struct mod_power_init_params init_data[MAX_NUM_EDP];
 
@@ -470,6 +470,7 @@ static int amdgpu_dm_init_power_module(struct amdgpu_display_manager *dm)
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_init_power_module);
 
 static int amdgpu_dm_init(struct amdgpu_device *adev)
 {

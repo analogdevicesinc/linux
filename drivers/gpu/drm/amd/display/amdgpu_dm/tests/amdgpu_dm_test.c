@@ -3522,6 +3522,43 @@ static void dm_test_mmhub_agp_enabled_renoir(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.end_addr, 0x80000000ULL);
 }
 
+/* Tests for amdgpu_dm_init_power_module() */
+
+/**
+ * dm_test_init_power_module_no_edp - Test no eDP skips the power module
+ * @test: The KUnit test context
+ */
+static void dm_test_init_power_module_no_edp(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	adev->dm.ddev = &adev->ddev;
+	adev->dm.num_of_edps = 0;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_init_power_module(&adev->dm), 0);
+	KUNIT_EXPECT_NULL(test, adev->dm.power_module);
+}
+
+/**
+ * dm_test_init_power_module_alloc_failure - Test a failed power module create
+ * @test: The KUnit test context
+ *
+ * mod_power_create() rejects a NULL DC, which walks the full parameter setup
+ * loop and then reports the allocation failure.
+ */
+static void dm_test_init_power_module_alloc_failure(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	adev->dm.ddev = &adev->ddev;
+	adev->dm.num_of_edps = 1;
+	adev->dm.backlight_caps[0].min_input_signal = 0x10;
+	adev->dm.backlight_caps[0].max_input_signal = 0xff;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_init_power_module(&adev->dm), -ENOMEM);
+	KUNIT_EXPECT_NULL(test, adev->dm.power_module);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -3699,6 +3736,9 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_mmhub_agp_disabled_raven2),
 	KUNIT_CASE(dm_test_mmhub_agp_enabled),
 	KUNIT_CASE(dm_test_mmhub_agp_enabled_renoir),
+	/* amdgpu_dm_init_power_module */
+	KUNIT_CASE(dm_test_init_power_module_no_edp),
+	KUNIT_CASE(dm_test_init_power_module_alloc_failure),
 	{}
 };
 
