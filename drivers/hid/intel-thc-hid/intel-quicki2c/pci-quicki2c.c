@@ -790,6 +790,7 @@ static void quicki2c_remove(struct pci_dev *pdev)
 
 	quicki2c_dma_deinit(qcdev);
 
+	pm_runtime_dont_use_autosuspend(qcdev->dev);
 	pm_runtime_get_noresume(qcdev->dev);
 
 	pci_clear_master(pdev);

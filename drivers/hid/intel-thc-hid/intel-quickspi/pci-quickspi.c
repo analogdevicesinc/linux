@@ -724,6 +724,7 @@ static void quickspi_remove(struct pci_dev *pdev)
 
 	quickspi_dma_deinit(qsdev);
 
+	pm_runtime_dont_use_autosuspend(qsdev->dev);
 	pm_runtime_get_noresume(qsdev->dev);
 
 	pci_clear_master(pdev);
