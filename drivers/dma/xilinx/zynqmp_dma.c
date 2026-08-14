@@ -208,7 +208,7 @@ struct zynqmp_dma_desc_sw {
  * @irq: Linux IRQ number, or -1 when not registered
  * @is_dmacoherent: Tells whether dma operations are coherent or not
  * @tasklet: Cleanup work after irq
- * @idle : Channel status;
+ * @idle: Channel status
  * @desc_size: Size of the low level descriptor
  * @err: Channel has errors
  * @bus_width: Bus width
@@ -435,7 +435,7 @@ zynqmp_dma_get_descriptor(struct zynqmp_dma_chan *chan)
 }
 
 /**
- * zynqmp_dma_free_descriptor - Issue pending transactions
+ * zynqmp_dma_free_descriptor - Return a descriptor to the free pool
  * @chan: ZynqMP DMA channel pointer
  * @sdesc: Transaction descriptor pointer
  */
@@ -616,7 +616,6 @@ static void zynqmp_dma_start_transfer(struct zynqmp_dma_chan *chan)
 	zynqmp_dma_update_desc_to_ctrlr(chan, desc);
 	zynqmp_dma_start(chan);
 }
-
 
 /**
  * zynqmp_dma_chan_desc_cleanup - Cleanup the completed descriptors
@@ -908,7 +907,7 @@ static void zynqmp_dma_chan_remove(struct zynqmp_dma_chan *chan)
  * @zdev: Driver specific device structure
  * @pdev: Pointer to the platform_device structure
  *
- * Return: '0' on success and failure value on error
+ * Return: 0 on success and negative error code on failure
  */
 static int zynqmp_dma_chan_probe(struct zynqmp_dma_device *zdev,
 			   struct platform_device *pdev)
@@ -1042,11 +1041,11 @@ static int __maybe_unused zynqmp_dma_runtime_suspend(struct device *dev)
 }
 
 /**
- * zynqmp_dma_runtime_resume - Runtime suspend method for the driver
+ * zynqmp_dma_runtime_resume - Runtime resume method for the driver
  * @dev:	Address of the device structure
  *
- * Put the driver into low power mode.
- * Return: 0 always
+ * Enable device clocks.
+ * Return: 0 on success and failure value on error
  */
 static int __maybe_unused zynqmp_dma_runtime_resume(struct device *dev)
 {
