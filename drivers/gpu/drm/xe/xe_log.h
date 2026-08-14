@@ -16,9 +16,20 @@
 struct pci_dev;
 
 __printf(8, 9)
-void xe_log_emit(struct pci_dev *pdev, int cper_sev, enum xe_sigid sigid,
-		 u32 component, u32 location, const void *data, size_t len,
-		 const char *fmt, ...);
+void __xe_log_emit(struct pci_dev *pdev, int cper_sev, enum xe_sigid sigid,
+		   u32 component, u32 location, const void *data, size_t len,
+		   const char *fmt, ...);
+
+#define __xe_log_const_sev_to_level(sev) \
+	(__builtin_constant_p(sev) ? (sev) == CPER_SEV_INFORMATIONAL ? KERN_INFO : KERN_ERR : NULL)
+
+#define __xe_log_emit_printk_index(level, fmt) \
+	dev_printk_index_emit(level, "%s SIGID=%u %s" fmt);
+
+#define xe_log_emit(pdev, sev, sig, comp, loc, data, len, fmt, args...) do {		\
+	__xe_log_emit_printk_index(__xe_log_const_sev_to_level(sev), fmt);		\
+	__xe_log_emit((pdev), (sev), (sig), (comp), (loc), (data), (len), fmt, ##args); \
+} while (0)
 
 #define xe_log_emit_fatal(pdev, sig, comp, loc, data, len, fmt, args...) \
 	xe_log_emit((pdev), CPER_SEV_FATAL, (sig), (comp), (loc), \

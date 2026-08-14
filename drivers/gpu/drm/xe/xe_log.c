@@ -177,7 +177,7 @@ static void log_emit_dmesg(struct pci_dev *pdev, int cper_sev, enum xe_sigid sig
 }
 
 /**
- * xe_log_emit() - Emit a structured SIGID log entry
+ * __xe_log_emit() - Emit a structured SIGID log entry
  * @pdev: the &pci_dev device
  * @cper_sev: CPER severity (CPER_SEV_FATAL, CPER_SEV_RECOVERABLE, ...)
  * @sigid: signature identifier, see &enum xe_sigid
@@ -206,9 +206,9 @@ static void log_emit_dmesg(struct pci_dev *pdev, int cper_sev, enum xe_sigid sig
  *   <3> xe 0000:03:00.0: [drm] *ERROR* SIGID=106 (-ETIMEDOUT) Engine 'rcs0' hung
  *   <6> xe 0000:03:00.0: [drm] SIGID=103 In survivability mode
  */
-void xe_log_emit(struct pci_dev *pdev, int cper_sev, enum xe_sigid sigid,
-		 u32 component, u32 location, const void *data, size_t len,
-		 const char *fmt, ...)
+void __xe_log_emit(struct pci_dev *pdev, int cper_sev, enum xe_sigid sigid,
+		   u32 component, u32 location, const void *data, size_t len,
+		   const char *fmt, ...)
 {
 	struct va_format vaf;
 	va_list args;
