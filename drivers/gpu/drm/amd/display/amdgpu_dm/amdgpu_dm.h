@@ -1278,6 +1278,13 @@ void dm_gpureset_toggle_interrupts(struct amdgpu_device *adev, struct dc_state *
 enum dc_status amdgpu_dm_commit_zero_streams(struct dc *dc);
 int dm_cache_state(struct amdgpu_device *adev);
 void dm_destroy_cached_state(struct amdgpu_device *adev);
+void dm_clear_writeback(struct amdgpu_display_manager *dm,
+			struct amdgpu_crtc *acrtc,
+			struct dm_crtc_state *crtc_state);
+void dm_set_writeback(struct amdgpu_display_manager *dm,
+		      struct dm_crtc_state *crtc_state,
+		      struct drm_connector *connector,
+		      struct drm_connector_state *new_con_state);
 int dm_early_init(struct amdgpu_ip_block *ip_block);
 int fill_dc_plane_info_and_addr(struct amdgpu_device *adev,
 				const struct drm_plane_state *plane_state,

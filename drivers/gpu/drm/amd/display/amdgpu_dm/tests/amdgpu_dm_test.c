@@ -4422,6 +4422,81 @@ static void dm_test_destroy_cached_state_none(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, adev->dm.cached_state);
 }
 
+static bool dm_test_update_bandwidth(struct dc *dc, struct dc_state *context)
+{
+	return true;
+}
+
+/**
+ * dm_test_clear_writeback_removes_stream - Test teardown removes the stream writeback
+ * @test: The KUnit test context
+ */
+static void dm_test_clear_writeback_removes_stream(struct kunit *test)
+{
+	struct amdgpu_display_manager *dm;
+	struct dm_crtc_state *crtc_state;
+	struct amdgpu_crtc *acrtc;
+	struct dc_stream_state *stream;
+
+	dm = dm_kunit_alloc_dm(test);
+	crtc_state = kunit_kzalloc(test, sizeof(*crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc_state);
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	stream = dm_kunit_alloc_stream(test, NULL);
+	dm->dc->hwss.update_bandwidth = dm_test_update_bandwidth;
+	crtc_state->stream = stream;
+	stream->num_wb_info = 1;
+	stream->writeback_info[0].dwb_pipe_inst = 0;
+
+	dm_clear_writeback(dm, acrtc, crtc_state);
+
+	KUNIT_EXPECT_EQ(test, stream->num_wb_info, 0U);
+}
+
+/**
+ * dm_test_set_writeback_no_pipe - Test a stream without a DC pipe is not armed
+ * @test: The KUnit test context
+ */
+static void dm_test_set_writeback_no_pipe(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_writeback_connector *wb_conn;
+	struct drm_connector_state *conn_state;
+	struct drm_writeback_job *job;
+	struct amdgpu_framebuffer *afb;
+	struct dm_crtc_state *crtc_state;
+	struct amdgpu_crtc *acrtc;
+	struct dc *dc;
+
+	wb_conn = kunit_kzalloc(test, sizeof(*wb_conn), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, wb_conn);
+	conn_state = kunit_kzalloc(test, sizeof(*conn_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, conn_state);
+	job = kunit_kzalloc(test, sizeof(*job), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, job);
+	afb = kunit_kzalloc(test, sizeof(*afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, afb);
+	crtc_state = kunit_kzalloc(test, sizeof(*crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc_state);
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	dc->current_state = dm_kunit_alloc_dc_state(test);
+
+	adev->dm.adev = adev;
+	adev->dm.dc = dc;
+	wb_conn->encoder.crtc = &acrtc->base;
+	job->fb = &afb->base;
+	conn_state->writeback_job = job;
+	crtc_state->stream = dm_kunit_alloc_stream(test, NULL);
+
+	dm_set_writeback(&adev->dm, crtc_state, &wb_conn->base, conn_state);
+
+	KUNIT_EXPECT_NULL(test, acrtc->wb_conn);
+	KUNIT_EXPECT_FALSE(test, acrtc->wb_pending);
+}
+
 /* Tests for dm_update_mst_vcpi_slots_for_dsc() */
 
 /**
@@ -5237,6 +5312,8 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_cache_state_empty_device),
 	KUNIT_CASE(dm_test_cache_state_error),
 	KUNIT_CASE(dm_test_destroy_cached_state_none),
+	KUNIT_CASE(dm_test_clear_writeback_removes_stream),
+	KUNIT_CASE(dm_test_set_writeback_no_pipe),
 	/* dm_update_mst_vcpi_slots_for_dsc */
 	KUNIT_CASE(dm_test_mst_vcpi_slots_no_connector),
 	KUNIT_CASE(dm_test_mst_vcpi_slots_skips_writeback),

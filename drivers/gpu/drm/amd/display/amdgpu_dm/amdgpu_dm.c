@@ -4375,9 +4375,9 @@ bool amdgpu_dm_crtc_complete_writeback(struct amdgpu_crtc *acrtc)
 }
 EXPORT_IF_KUNIT(amdgpu_dm_crtc_complete_writeback);
 
-static void dm_clear_writeback(struct amdgpu_display_manager *dm,
-			      struct amdgpu_crtc *acrtc,
-			      struct dm_crtc_state *crtc_state)
+STATIC_IFN_KUNIT void dm_clear_writeback(struct amdgpu_display_manager *dm,
+					 struct amdgpu_crtc *acrtc,
+					 struct dm_crtc_state *crtc_state)
 {
 	dc_stream_remove_writeback(dm->dc, crtc_state->stream, 0);
 
@@ -4389,6 +4389,7 @@ static void dm_clear_writeback(struct amdgpu_display_manager *dm,
 	 */
 	amdgpu_dm_crtc_complete_writeback(acrtc);
 }
+EXPORT_IF_KUNIT(dm_clear_writeback);
 
 /**
  * amdgpu_dm_mod_power_update_streams - update mod_power stream state on modeset
@@ -4722,10 +4723,11 @@ static void amdgpu_dm_commit_streams(struct drm_atomic_commit *state,
 	}
 }
 
-static void dm_set_writeback(struct amdgpu_display_manager *dm,
-			      struct dm_crtc_state *crtc_state,
-			      struct drm_connector *connector,
-			      struct drm_connector_state *new_con_state)
+STATIC_IFN_KUNIT void
+dm_set_writeback(struct amdgpu_display_manager *dm,
+		 struct dm_crtc_state *crtc_state,
+		 struct drm_connector *connector,
+		 struct drm_connector_state *new_con_state)
 {
 	struct drm_writeback_connector *wb_conn = drm_connector_to_writeback(connector);
 	struct amdgpu_device *adev = dm->adev;
@@ -4842,6 +4844,7 @@ static void dm_set_writeback(struct amdgpu_display_manager *dm,
 cleanup:
 	kfree(wb_info);
 }
+EXPORT_IF_KUNIT(dm_set_writeback);
 
 STATIC_IFN_KUNIT void amdgpu_dm_update_hdcp(struct drm_atomic_commit *state)
 {
