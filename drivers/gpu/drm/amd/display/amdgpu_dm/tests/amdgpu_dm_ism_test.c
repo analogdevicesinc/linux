@@ -1374,6 +1374,87 @@ static void dm_test_ism_commit_disallows_idle_on_timer_aborted(struct kunit *tes
 	amdgpu_dm_ism_fini(&acrtc->ism);
 }
 
+/**
+ * dm_test_ism_exit_from_optimized_idle_disallows_idle - leaving OPTIMIZED_IDLE
+ * @test: KUnit test context
+ *
+ * EXIT_IDLE_REQUESTED from OPTIMIZED_IDLE runs the previous-state arm of
+ * dm_ism_dispatch_power_state(): the pending SSO worker is cancelled, the idle
+ * period is recorded and the commit runs with vblank_enabled = true, which
+ * disallows idle again.
+ */
+static void dm_test_ism_exit_from_optimized_idle_disallows_idle(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc = alloc_test_acrtc(test, &adev);
+	struct amdgpu_dm_ism_config config = {
+		.filter_num_frames = 0,
+		.sso_num_frames = 2,
+	};
+
+	setup_commit_test(test, acrtc, &config);
+
+	scoped_guard(mutex, &adev->dm.dc_lock) {
+		amdgpu_dm_ism_commit_event(&acrtc->ism,
+					   DM_ISM_EVENT_ENTER_IDLE_REQUESTED);
+		KUNIT_EXPECT_EQ(test, (int)acrtc->ism.current_state,
+				(int)DM_ISM_STATE_OPTIMIZED_IDLE);
+
+		amdgpu_dm_ism_commit_event(&acrtc->ism,
+					   DM_ISM_EVENT_EXIT_IDLE_REQUESTED);
+		KUNIT_EXPECT_EQ(test, (int)acrtc->ism.current_state,
+				(int)DM_ISM_STATE_FULL_POWER_RUNNING);
+
+		/* Allow on entry, disallow on exit. */
+		KUNIT_EXPECT_EQ(test, dm_ism_test_idle.calls, 2);
+		KUNIT_EXPECT_FALSE(test, dm_ism_test_idle.last_allow);
+		KUNIT_EXPECT_FALSE(test, adev->dm.dc->idle_optimizations_allowed);
+		/* The idle period was recorded on the way out. */
+		KUNIT_EXPECT_EQ(test, acrtc->ism.next_record_idx, 1);
+	}
+
+	amdgpu_dm_ism_fini(&acrtc->ism);
+}
+
+/**
+ * dm_test_ism_exit_from_sso_disallows_idle - leaving OPTIMIZED_IDLE_SSO
+ * @test: KUnit test context
+ *
+ * EXIT_IDLE_REQUESTED from OPTIMIZED_IDLE_SSO runs the SSO previous-state arm:
+ * the idle period is recorded and the commit disallows idle. Unlike the
+ * OPTIMIZED_IDLE arm there is no pending SSO worker left to cancel.
+ */
+static void dm_test_ism_exit_from_sso_disallows_idle(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc = alloc_test_acrtc(test, &adev);
+	struct amdgpu_dm_ism_config config = {
+		.filter_num_frames = 0,
+		.sso_num_frames = 0,
+	};
+
+	setup_commit_test(test, acrtc, &config);
+
+	scoped_guard(mutex, &adev->dm.dc_lock) {
+		amdgpu_dm_ism_commit_event(&acrtc->ism,
+					   DM_ISM_EVENT_ENTER_IDLE_REQUESTED);
+		KUNIT_EXPECT_EQ(test, (int)acrtc->ism.current_state,
+				(int)DM_ISM_STATE_OPTIMIZED_IDLE_SSO);
+
+		amdgpu_dm_ism_commit_event(&acrtc->ism,
+					   DM_ISM_EVENT_EXIT_IDLE_REQUESTED);
+		KUNIT_EXPECT_EQ(test, (int)acrtc->ism.current_state,
+				(int)DM_ISM_STATE_FULL_POWER_RUNNING);
+
+		KUNIT_EXPECT_EQ(test, dm_ism_test_idle.calls, 2);
+		KUNIT_EXPECT_FALSE(test, dm_ism_test_idle.last_allow);
+		KUNIT_EXPECT_FALSE(test, adev->dm.dc->idle_optimizations_allowed);
+		KUNIT_EXPECT_EQ(test, acrtc->ism.next_record_idx, 1);
+	}
+
+	amdgpu_dm_ism_fini(&acrtc->ism);
+}
+
 static struct kunit_case dm_ism_test_cases[] = {
 	/* dm_ism_next_state — FULL_POWER_RUNNING */
 	KUNIT_CASE(dm_test_ism_next_state_running_enter_idle),
@@ -1451,6 +1532,9 @@ static struct kunit_case dm_ism_test_cases[] = {
 	KUNIT_CASE(dm_test_ism_commit_allows_idle_on_optimized_idle),
 	KUNIT_CASE(dm_test_ism_commit_enables_sso_on_optimized_idle_sso),
 	KUNIT_CASE(dm_test_ism_commit_disallows_idle_on_timer_aborted),
+	/* dm_ism_dispatch_power_state previous-state arms */
+	KUNIT_CASE(dm_test_ism_exit_from_optimized_idle_disallows_idle),
+	KUNIT_CASE(dm_test_ism_exit_from_sso_disallows_idle),
 	{}
 };
 
