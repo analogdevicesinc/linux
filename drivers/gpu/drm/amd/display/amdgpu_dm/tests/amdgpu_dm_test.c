@@ -3803,6 +3803,117 @@ static void dm_test_plane_info_layer_and_blending(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, ctx->plane_info.global_alpha_value, 0x7f);
 }
 
+/* Tests for manage_dm_interrupts() */
+
+struct dm_test_irq_mgmt_ctx {
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state *acrtc_state;
+};
+
+/*
+ * A CRTC with a single initialised vblank and a 1080p60 stream timing, which
+ * is what the vblank off-delay estimate is derived from.
+ */
+static struct dm_test_irq_mgmt_ctx *dm_test_irq_mgmt_ctx_alloc(struct kunit *test)
+{
+	struct dm_test_irq_mgmt_ctx *ctx;
+	struct dc_crtc_timing *timing;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&ctx->adev->ddev, 1), 0);
+
+	ctx->acrtc = kunit_kzalloc(test, sizeof(*ctx->acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->acrtc);
+	ctx->acrtc_state = kunit_kzalloc(test, sizeof(*ctx->acrtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->acrtc_state);
+
+	ctx->adev->mode_info.num_crtc = 1;
+	ctx->acrtc->base.dev = &ctx->adev->ddev;
+	ctx->acrtc->crtc_id = 0;
+
+	ctx->acrtc_state->stream = dm_kunit_alloc_stream(test, NULL);
+	timing = &ctx->acrtc_state->stream->timing;
+	timing->h_total = 2200;
+	timing->v_total = 1125;
+	timing->pix_clk_100hz = 1485000;
+
+	return ctx;
+}
+
+/**
+ * dm_test_manage_interrupts_offdelay - Test the off delay is derived from timing
+ * @test: The KUnit test context
+ *
+ * DCN3.0 also takes the extra vupdate reference. The IRQ subsystem is not
+ * installed, so amdgpu_irq_get() only reports the missing source.
+ */
+static void dm_test_manage_interrupts_offdelay(struct kunit *test)
+{
+	struct dm_test_irq_mgmt_ctx *ctx = dm_test_irq_mgmt_ctx_alloc(test);
+
+	/* Pre-DCN3.5 keeps the two frame off delay. */
+	ctx->adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 0, 0);
+
+	manage_dm_interrupts(ctx->adev, ctx->acrtc, ctx->acrtc_state);
+
+	KUNIT_EXPECT_EQ(test, ctx->adev->ddev.vblank[0].config.offdelay_ms, 34);
+	KUNIT_EXPECT_FALSE(test, ctx->adev->ddev.vblank[0].config.disable_immediate);
+}
+
+/**
+ * dm_test_manage_interrupts_offdelay_fallback - Test a zero delay falls back to 30ms
+ * @test: The KUnit test context
+ */
+static void dm_test_manage_interrupts_offdelay_fallback(struct kunit *test)
+{
+	struct dm_test_irq_mgmt_ctx *ctx = dm_test_irq_mgmt_ctx_alloc(test);
+
+	ctx->adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 1, 2);
+	/* A zero line count makes the computed delay round down to zero. */
+	ctx->acrtc_state->stream->timing.v_total = 0;
+
+	manage_dm_interrupts(ctx->adev, ctx->acrtc, ctx->acrtc_state);
+
+	KUNIT_EXPECT_EQ(test, ctx->adev->ddev.vblank[0].config.offdelay_ms, 30);
+}
+
+/**
+ * dm_test_manage_interrupts_apu_instant_off - Test DCN3.5 APUs use instant off
+ * @test: The KUnit test context
+ */
+static void dm_test_manage_interrupts_apu_instant_off(struct kunit *test)
+{
+	struct dm_test_irq_mgmt_ctx *ctx = dm_test_irq_mgmt_ctx_alloc(test);
+
+	ctx->adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 5, 0);
+	ctx->adev->flags |= AMD_IS_APU;
+
+	manage_dm_interrupts(ctx->adev, ctx->acrtc, ctx->acrtc_state);
+
+	KUNIT_EXPECT_EQ(test, ctx->adev->ddev.vblank[0].config.offdelay_ms, 1);
+	KUNIT_EXPECT_TRUE(test, ctx->adev->ddev.vblank[0].config.disable_immediate);
+}
+
+/**
+ * dm_test_manage_interrupts_disable - Test a NULL CRTC state turns vblank off
+ * @test: The KUnit test context
+ */
+static void dm_test_manage_interrupts_disable(struct kunit *test)
+{
+	struct dm_test_irq_mgmt_ctx *ctx = dm_test_irq_mgmt_ctx_alloc(test);
+
+	ctx->adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 0, 0);
+	manage_dm_interrupts(ctx->adev, ctx->acrtc, ctx->acrtc_state);
+
+	manage_dm_interrupts(ctx->adev, ctx->acrtc, NULL);
+
+	KUNIT_EXPECT_FALSE(test, ctx->adev->ddev.vblank[0].enabled);
+}
+
 /* Tests for dm_early_init() */
 
 #define DM_TEST_ATOM_BIOS_SIZE	512
@@ -4725,6 +4836,11 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_plane_info_bad_color_encoding),
 	KUNIT_CASE(dm_test_plane_info_rotations),
 	KUNIT_CASE(dm_test_plane_info_layer_and_blending),
+	/* manage_dm_interrupts */
+	KUNIT_CASE(dm_test_manage_interrupts_offdelay),
+	KUNIT_CASE(dm_test_manage_interrupts_offdelay_fallback),
+	KUNIT_CASE(dm_test_manage_interrupts_apu_instant_off),
+	KUNIT_CASE(dm_test_manage_interrupts_disable),
 	/* dm_early_init */
 	KUNIT_CASE(dm_test_early_init_no_object_header),
 	KUNIT_CASE(dm_test_early_init_legacy_asics),

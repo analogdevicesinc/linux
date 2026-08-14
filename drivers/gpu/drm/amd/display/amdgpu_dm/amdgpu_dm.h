@@ -1264,6 +1264,8 @@ int fill_dc_plane_info_and_addr(struct amdgpu_device *adev,
 				struct dc_plane_address *address, bool tmz_surface);
 int dm_update_mst_vcpi_slots_for_dsc(struct drm_atomic_commit *state, struct dc_state *dc_state,
 				     struct dsc_mst_fairness_vars *vars);
+void manage_dm_interrupts(struct amdgpu_device *adev, struct amdgpu_crtc *acrtc,
+			  struct dm_crtc_state *acrtc_state);
 int load_dmcu_fw(struct amdgpu_device *adev);
 int dm_sw_init(struct amdgpu_ip_block *ip_block);
 int dm_late_init(struct amdgpu_ip_block *ip_block);

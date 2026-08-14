@@ -3374,9 +3374,9 @@ STATIC_IFN_KUNIT int dm_update_mst_vcpi_slots_for_dsc(struct drm_atomic_commit *
 }
 EXPORT_IF_KUNIT(dm_update_mst_vcpi_slots_for_dsc);
 
-static void manage_dm_interrupts(struct amdgpu_device *adev,
-				 struct amdgpu_crtc *acrtc,
-				 struct dm_crtc_state *acrtc_state)
+STATIC_IFN_KUNIT void manage_dm_interrupts(struct amdgpu_device *adev,
+					   struct amdgpu_crtc *acrtc,
+					   struct dm_crtc_state *acrtc_state)
 {	/*
 	 * We cannot be sure that the frontend index maps to the same
 	 * backend index - some even map to more than one.
@@ -3455,6 +3455,7 @@ static void manage_dm_interrupts(struct amdgpu_device *adev,
 		drm_crtc_vblank_off(&acrtc->base);
 	}
 }
+EXPORT_IF_KUNIT(manage_dm_interrupts);
 
 STATIC_IFN_KUNIT void dm_update_pflip_irq_state(struct amdgpu_device *adev,
 						struct amdgpu_crtc *acrtc)
