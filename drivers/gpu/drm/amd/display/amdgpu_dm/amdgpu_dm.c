@@ -309,8 +309,27 @@ EXPORT_IF_KUNIT(dm_set_powergating_state);
 /* Prototypes of private functions */
 static int dm_early_init(struct amdgpu_ip_block *ip_block);
 
+#if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
+static const struct amdgpu_dm_kunit_ops amdgpu_dm_default_ops = {
+	.gmc_pd_addr = amdgpu_gmc_pd_addr,
+};
+
+static const struct amdgpu_dm_kunit_ops *amdgpu_dm_ops = &amdgpu_dm_default_ops;
+
+void amdgpu_dm_kunit_set_ops(const struct amdgpu_dm_kunit_ops *ops)
+{
+	amdgpu_dm_ops = ops ? ops : &amdgpu_dm_default_ops;
+}
+EXPORT_IF_KUNIT(amdgpu_dm_kunit_set_ops);
+
+#define dm_gmc_pd_addr		amdgpu_dm_ops->gmc_pd_addr
+#else
+#define dm_gmc_pd_addr		amdgpu_gmc_pd_addr
+#endif
+
 /* Allocate memory for FBC compressed data  */
-static void mmhub_read_system_context(struct amdgpu_device *adev, struct dc_phy_addr_space_config *pa_config)
+STATIC_IFN_KUNIT void mmhub_read_system_context(struct amdgpu_device *adev,
+						struct dc_phy_addr_space_config *pa_config)
 {
 	u64 pt_base;
 	u32 logical_addr_low;
@@ -355,7 +374,7 @@ static void mmhub_read_system_context(struct amdgpu_device *adev, struct dc_phy_
 			logical_addr_high = max(adev->gmc.fb_end, adev->gmc.agp_end) >> 18;
 	}
 
-	pt_base = amdgpu_gmc_pd_addr(adev->gart.bo);
+	pt_base = dm_gmc_pd_addr(adev->gart.bo);
 
 	page_table_start.high_part = upper_32_bits(adev->gmc.gart_start >>
 						   AMDGPU_GPU_PAGE_SHIFT);
@@ -386,6 +405,7 @@ static void mmhub_read_system_context(struct amdgpu_device *adev, struct dc_phy_
 	pa_config->is_hvm_enabled = adev->mode_info.gpu_vm_support;
 
 }
+EXPORT_IF_KUNIT(mmhub_read_system_context);
 
 static int amdgpu_dm_init_power_module(struct amdgpu_display_manager *dm)
 {

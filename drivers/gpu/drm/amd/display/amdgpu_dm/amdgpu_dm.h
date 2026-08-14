@@ -1241,6 +1241,17 @@ struct amdgpu_dm_services_kunit_ops {
 };
 
 void amdgpu_dm_services_kunit_set_ops(const struct amdgpu_dm_services_kunit_ops *ops);
+
+struct amdgpu_dm_kunit_ops {
+	uint64_t (*gmc_pd_addr)(struct amdgpu_bo *bo);
+};
+
+void amdgpu_dm_kunit_set_ops(const struct amdgpu_dm_kunit_ops *ops);
+
+struct dc_phy_addr_space_config;
+
+void mmhub_read_system_context(struct amdgpu_device *adev,
+			       struct dc_phy_addr_space_config *pa_config);
 #endif
 
 #endif /* __AMDGPU_DM_H__ */

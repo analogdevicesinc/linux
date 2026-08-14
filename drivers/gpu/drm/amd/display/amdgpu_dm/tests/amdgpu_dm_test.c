@@ -3399,6 +3399,129 @@ static void dm_test_atomic_setup_commit_bad_lut(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_atomic_setup_commit(ctx->state), -EINVAL);
 }
 
+/* Tests for mmhub_read_system_context() */
+
+#define DM_TEST_PD_ADDR		0x1234000ULL
+
+/*
+ * Stub for the page directory address read: amdgpu_gmc_pd_addr() walks a live
+ * TTM buffer object back to its device, so return a fixed address instead.
+ */
+static uint64_t dm_test_gmc_pd_addr(struct amdgpu_bo *bo)
+{
+	return DM_TEST_PD_ADDR;
+}
+
+static const struct amdgpu_dm_kunit_ops dm_test_dm_ops = {
+	.gmc_pd_addr = dm_test_gmc_pd_addr,
+};
+
+static void dm_test_restore_dm_ops(void *ctx)
+{
+	amdgpu_dm_kunit_set_ops(NULL);
+}
+
+/*
+ * A device whose AGP aperture is disabled (bot above top), so the frame buffer
+ * alone decides the logical address range.
+ */
+static struct amdgpu_device *dm_test_mmhub_adev(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+
+	amdgpu_dm_kunit_set_ops(&dm_test_dm_ops);
+	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_restore_dm_ops, NULL), 0);
+
+	adev->gmc.agp_start = 0x2000000;
+	adev->gmc.agp_end = 0x1000000;
+	adev->gmc.fb_start = 0x40000000;
+	adev->gmc.fb_end = 0x7fffffff;
+	adev->gmc.gart_start = 0x100000000ULL;
+	adev->gmc.gart_end = 0x1ffffffffULL;
+	adev->vm_manager.vram_base_offset = 0x800000;
+
+	return adev;
+}
+
+/**
+ * dm_test_mmhub_agp_disabled - Test a disabled AGP aperture uses the frame buffer
+ * @test: The KUnit test context
+ */
+static void dm_test_mmhub_agp_disabled(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_mmhub_adev(test);
+	struct dc_phy_addr_space_config pa_config;
+
+	mmhub_read_system_context(adev, &pa_config);
+
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.start_addr, 0x40000000ULL);
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.end_addr, 0x7ffc0000ULL);
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.agp_base, 0ULL);
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.agp_bot, 0x2000000ULL);
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.agp_top, 0x1000000ULL);
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.fb_base, 0x40000000ULL);
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.fb_offset, 0x800000ULL);
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.fb_top, 0x7fffffffULL);
+	KUNIT_EXPECT_EQ(test, pa_config.gart_config.page_table_start_addr, 0x100000000ULL);
+	KUNIT_EXPECT_EQ(test, pa_config.gart_config.page_table_end_addr, 0x1fffff000ULL);
+	KUNIT_EXPECT_EQ(test, pa_config.gart_config.page_table_base_addr, DM_TEST_PD_ADDR);
+	KUNIT_EXPECT_FALSE(test, pa_config.is_hvm_enabled);
+}
+
+/**
+ * dm_test_mmhub_agp_disabled_raven2 - Test the Raven2 aperture workaround
+ * @test: The KUnit test context
+ */
+static void dm_test_mmhub_agp_disabled_raven2(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_mmhub_adev(test);
+	struct dc_phy_addr_space_config pa_config;
+
+	adev->apu_flags = AMD_APU_IS_RAVEN2;
+
+	mmhub_read_system_context(adev, &pa_config);
+
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.end_addr, 0x80000000ULL);
+}
+
+/**
+ * dm_test_mmhub_agp_enabled - Test an enabled AGP aperture widens the range
+ * @test: The KUnit test context
+ */
+static void dm_test_mmhub_agp_enabled(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_mmhub_adev(test);
+	struct dc_phy_addr_space_config pa_config;
+
+	adev->gmc.agp_start = 0x1000000;
+	adev->gmc.agp_end = 0x2000000;
+	adev->mode_info.gpu_vm_support = true;
+
+	mmhub_read_system_context(adev, &pa_config);
+
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.start_addr, 0x1000000ULL);
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.end_addr, 0x7ffc0000ULL);
+	KUNIT_EXPECT_TRUE(test, pa_config.is_hvm_enabled);
+}
+
+/**
+ * dm_test_mmhub_agp_enabled_renoir - Test the Renoir aperture workaround
+ * @test: The KUnit test context
+ */
+static void dm_test_mmhub_agp_enabled_renoir(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_mmhub_adev(test);
+	struct dc_phy_addr_space_config pa_config;
+
+	adev->gmc.agp_start = 0x1000000;
+	adev->gmc.agp_end = 0x2000000;
+	adev->apu_flags = AMD_APU_IS_RENOIR;
+
+	mmhub_read_system_context(adev, &pa_config);
+
+	KUNIT_EXPECT_EQ(test, pa_config.system_aperture.end_addr, 0x80000000ULL);
+}
+
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
@@ -3571,6 +3694,11 @@ static struct kunit_case amdgpu_dm_tests[] = {
 	KUNIT_CASE(dm_test_oem_i2c_hw_init_no_device),
 	KUNIT_CASE(dm_test_gpureset_commit_state_no_streams),
 	KUNIT_CASE(dm_test_emulated_link_detect_bad_signal),
+	/* mmhub_read_system_context */
+	KUNIT_CASE(dm_test_mmhub_agp_disabled),
+	KUNIT_CASE(dm_test_mmhub_agp_disabled_raven2),
+	KUNIT_CASE(dm_test_mmhub_agp_enabled),
+	KUNIT_CASE(dm_test_mmhub_agp_enabled_renoir),
 	{}
 };
 
