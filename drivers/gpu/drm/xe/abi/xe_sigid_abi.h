@@ -137,12 +137,18 @@
  * @XE_SIGID_GT_TDR: Engine hang / timeout detection and recovery (reset).
  * @XE_SIGID_MEM_FAULT: VM bind, page fault or GTT fault.
  * @XE_SIGID_IO_BUS: Runtime PCIe / IOMMU / MMIO access fault.
+ * @XE_SIGID_HW: Generic hardware failure.
+ * @XE_SIGID_PCIE: PCIe interface errors.
+ * @XE_SIGID_DEVICE_MEMORY: Device memory errors.
+ * @XE_SIGID_CORE_COMPUTE: Compute/shader core errors.
+ * @XE_SIGID_FABRIC: Fabric errors.
+ * @XE_SIGID_SOC_INTERNAL: SoC-internal errors.
  *
  * Each SIGID represents the report sites the driver detects and reports.
  * Values are numbered sequentially, are only ever appended, and are never
  * renumbered or reused.
  *
- * Firmware- and hardware-originated signatures are not listed yet here.
+ * Firmware- and hardware-originated signatures are numbered separately.
  */
 enum xe_sigid {
 	XE_SIGID_SW			= INTEL_SIGID_GPU_XE_SOFTWARE_START,
@@ -154,6 +160,13 @@ enum xe_sigid {
 	XE_SIGID_GT_TDR			= INTEL_SIGID_GPU_XE_SOFTWARE_START + 6,
 	XE_SIGID_MEM_FAULT		= INTEL_SIGID_GPU_XE_SOFTWARE_START + 7,
 	XE_SIGID_IO_BUS			= INTEL_SIGID_GPU_XE_SOFTWARE_START + 8,
+
+	XE_SIGID_HW			= INTEL_SIGID_GPU_XE_HARDWARE_START,
+	XE_SIGID_PCIE			= INTEL_SIGID_GPU_XE_HARDWARE_START + 1,
+	XE_SIGID_DEVICE_MEMORY		= INTEL_SIGID_GPU_XE_HARDWARE_START + 2,
+	XE_SIGID_CORE_COMPUTE		= INTEL_SIGID_GPU_XE_HARDWARE_START + 3,
+	XE_SIGID_FABRIC			= INTEL_SIGID_GPU_XE_HARDWARE_START + 4,
+	XE_SIGID_SOC_INTERNAL		= INTEL_SIGID_GPU_XE_HARDWARE_START + 5,
 };
 
 #endif
