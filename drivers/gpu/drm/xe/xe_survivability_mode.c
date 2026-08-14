@@ -305,8 +305,10 @@ static const struct attribute_group survivability_info_group = {
 
 static int create_survivability_sysfs(struct pci_dev *pdev)
 {
-	struct device *dev = &pdev->dev;
+	/* Survivability info is required if not enabled via configfs */
+	bool needs_info = !xe_configfs_get_survivability_mode(pdev);
 	struct xe_device *xe = pdev_to_xe_device(pdev);
+	struct device *dev = &pdev->dev;
 	int ret;
 
 	ret = device_create_file(dev, &dev_attr_survivability_mode);
@@ -318,8 +320,7 @@ static int create_survivability_sysfs(struct pci_dev *pdev)
 	if (ret)
 		goto failed;
 
-	/* Survivability info is not required if enabled via configfs */
-	if (!xe_configfs_get_survivability_mode(pdev)) {
+	if (needs_info) {
 		ret = devm_device_add_group(dev, &survivability_info_group);
 		if (ret)
 			goto failed;
@@ -329,6 +330,9 @@ static int create_survivability_sysfs(struct pci_dev *pdev)
 
 failed:
 	xe_err(xe, "Failed to create survivability sysfs files: %pe\n", ERR_PTR(ret));
+	/* no sysfs, dump Survivability info to dmesg instead */
+	if (needs_info)
+		log_survivability_info(xe);
 	return ret;
 }
 
