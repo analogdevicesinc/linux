@@ -291,10 +291,8 @@ int proc_thermal_add(struct device *dev, struct proc_thermal_device *proc_priv)
 	}
 
 	proc_priv->int340x_zone = int340x_thermal_zone_add(adev, get_temp);
-	if (IS_ERR(proc_priv->int340x_zone)) {
+	if (IS_ERR(proc_priv->int340x_zone))
 		return PTR_ERR(proc_priv->int340x_zone);
-	} else
-		ret = 0;
 
 	ret = acpi_install_notify_handler(adev->handle, ACPI_DEVICE_NOTIFY,
 					  proc_thermal_notify,
