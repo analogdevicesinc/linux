@@ -564,7 +564,13 @@ static bool tas2783_volatile_register(struct device *dev, u32 reg)
 
 static const struct regmap_config tas_regmap = {
 	.reg_bits = 32,
-	.val_bits = 8,
+	/*
+	 * tas2783_sdca_mbq_size() declares registers of one, two and four
+	 * bytes. val_bits has to cover the widest of those: the SoundWire MBQ
+	 * bus rejects any register whose declared size exceeds val_bits, which
+	 * would make every multi-byte register unreachable in both directions.
+	 */
+	.val_bits = 32,
 	.readable_reg = tas2783_readable_register,
 	.writeable_reg = tas2783_writeable_register,
 	.volatile_reg = tas2783_volatile_register,
@@ -667,9 +673,9 @@ static s32 tas2783_validate_calibdata(struct tas2783_prv *tas_dev,
 
 static void tas2783_set_calib_params_to_device(struct tas2783_prv *tas_dev, u32 *cali_data)
 {
-	u32 dev_count, offset, i, device_num;
+	u32 dev_count, offset, i, j, device_num;
 	u32 reg_value;
-	u8 buf[4];
+	s32 ret;
 
 	dev_count = cali_data[1];
 	offset = 3;
@@ -683,12 +689,25 @@ static void tas2783_set_calib_params_to_device(struct tas2783_prv *tas_dev, u32 
 
 		for (i = 0; i < ARRAY_SIZE(tas2783_cali_reg); i++) {
 			reg_value = cali_data[offset + i];
-			buf[0] = reg_value >> 24;
-			buf[1] = reg_value >> 16;
-			buf[2] = reg_value >> 8;
-			buf[3] = reg_value & 0xff;
-			regmap_bulk_write(tas_dev->regmap, tas2783_cali_reg[i],
-					  buf, sizeof(u32));
+
+			/*
+			 * A calibration value occupies four consecutive
+			 * single-byte registers, most significant byte first.
+			 * Write them one by one: these registers are declared
+			 * as one byte wide by tas2783_sdca_mbq_size(), so a
+			 * multi-byte regmap access would not match the layout.
+			 */
+			for (j = 0; j < sizeof(u32); j++) {
+				ret = regmap_write(tas_dev->regmap,
+						   tas2783_cali_reg[i] + j,
+						   (reg_value >> (24 - 8 * j)) & 0xff);
+				if (ret) {
+					dev_err(tas_dev->dev,
+						"calib write to 0x%x failed, err=%d\n",
+						tas2783_cali_reg[i] + j, ret);
+					break;
+				}
+			}
 		}
 		break;
 	}
