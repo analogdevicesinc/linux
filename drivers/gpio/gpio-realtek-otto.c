@@ -405,6 +405,16 @@ static int realtek_gpio_probe(struct platform_device *pdev)
 		ctrl->line_imr_pos = realtek_gpio_line_imr_pos_swapped;
 	}
 
+	if (device_property_read_bool(dev, "little-endian")) {
+		gen_gc_flags = 0;
+		ctrl->bank_read = realtek_gpio_bank_read;
+		ctrl->bank_write = realtek_gpio_bank_write;
+	} else if (device_is_big_endian(dev)) {
+		gen_gc_flags = GPIO_GENERIC_BIG_ENDIAN_BYTE_ORDER;
+		ctrl->bank_read = realtek_gpio_bank_read_swapped;
+		ctrl->bank_write = realtek_gpio_bank_write_swapped;
+	}
+
 	config = (struct gpio_generic_chip_config) {
 		.dev = dev,
 		.sz = 4,
