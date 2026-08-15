@@ -676,8 +676,8 @@ static int intel_vsec_pci_init(struct pci_dev *pdev)
 {
 	struct vsec_priv *priv = pci_get_drvdata(pdev);
 	const struct intel_vsec_platform_info *info = priv->info;
-	int run_once = 0;
 	bool found_any = false;
+	bool run_once = false;
 	int num_caps;
 
 	num_caps = hweight_long(info->caps);
@@ -689,7 +689,7 @@ static int intel_vsec_pci_init(struct pci_dev *pdev)
 
 		if (!run_once) {
 			intel_vsec_skip_missing_dependencies(pdev);
-			run_once = 1;
+			run_once = true;
 		}
 	}
 
