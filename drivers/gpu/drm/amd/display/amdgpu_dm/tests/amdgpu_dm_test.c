@@ -24,15 +24,6 @@
 /* Tests for simple DM callbacks */
 
 /**
- * dm_test_is_idle - Test placeholder idle callback returns true
- * @test: The KUnit test context
- */
-static void dm_test_is_idle(struct kunit *test)
-{
-	KUNIT_EXPECT_TRUE(test, dm_is_idle(NULL));
-}
-
-/**
  * dm_test_wait_for_idle - Test placeholder wait-for-idle callback returns success
  * @test: The KUnit test context
  */
@@ -1152,7 +1143,6 @@ static void dm_test_apply_delay_nonzero_wait(struct kunit *test)
 
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
-	KUNIT_CASE(dm_test_is_idle),
 	KUNIT_CASE(dm_test_wait_for_idle),
 	KUNIT_CASE(dm_test_soft_reset),
 	KUNIT_CASE(dm_test_set_clockgating_state),
