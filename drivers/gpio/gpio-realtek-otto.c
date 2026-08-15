@@ -176,10 +176,10 @@ static void realtek_gpio_update_line_imr(struct realtek_gpio_ctrl *ctrl, unsigne
 	u32 reg_val;
 
 	reg += 4 * (line_shift / 32);
-	reg_val = ioread32(reg);
+	reg_val = __raw_readl(reg);
 	reg_val &= ~(REALTEK_GPIO_IMR_LINE_MASK << shift);
 	reg_val |= (irq_type & irq_mask & REALTEK_GPIO_IMR_LINE_MASK) << shift;
-	iowrite32(reg_val, reg);
+	__raw_writel(reg_val, reg);
 }
 
 static void realtek_gpio_irq_ack(struct irq_data *data)
