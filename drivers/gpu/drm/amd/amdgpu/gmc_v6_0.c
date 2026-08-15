@@ -1132,7 +1132,6 @@ static const struct amd_ip_funcs gmc_v6_0_ip_funcs = {
 	.hw_fini = gmc_v6_0_hw_fini,
 	.suspend = gmc_v6_0_suspend,
 	.resume = gmc_v6_0_resume,
-	.is_idle = gmc_v6_0_is_idle,
 	.wait_for_idle = gmc_v6_0_wait_for_idle,
 	.soft_reset = gmc_v6_0_soft_reset,
 	.set_clockgating_state = gmc_v6_0_set_clockgating_state,

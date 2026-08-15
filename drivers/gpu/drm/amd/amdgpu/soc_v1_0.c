@@ -355,11 +355,6 @@ static int soc_v1_0_common_resume(struct amdgpu_ip_block *ip_block)
 	return soc_v1_0_common_hw_init(ip_block);
 }
 
-static bool soc_v1_0_common_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	return true;
-}
-
 static int soc_v1_0_common_set_clockgating_state(struct amdgpu_ip_block *ip_block,
 						 enum amd_clockgating_state state)
 {
@@ -387,7 +382,6 @@ static const struct amd_ip_funcs soc_v1_0_common_ip_funcs = {
 	.hw_fini = soc_v1_0_common_hw_fini,
 	.suspend = soc_v1_0_common_suspend,
 	.resume = soc_v1_0_common_resume,
-	.is_idle = soc_v1_0_common_is_idle,
 	.set_clockgating_state = soc_v1_0_common_set_clockgating_state,
 	.set_powergating_state = soc_v1_0_common_set_powergating_state,
 	.get_clockgating_state = soc_v1_0_common_get_clockgating_state,

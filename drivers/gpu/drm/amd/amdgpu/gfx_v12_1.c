@@ -4186,7 +4186,6 @@ static const struct amd_ip_funcs gfx_v12_1_ip_funcs = {
 	.hw_fini = gfx_v12_1_hw_fini,
 	.suspend = gfx_v12_1_suspend,
 	.resume = gfx_v12_1_resume,
-	.is_idle = gfx_v12_1_is_idle,
 	.wait_for_idle = gfx_v12_1_wait_for_idle,
 	.set_clockgating_state = gfx_v12_1_set_clockgating_state,
 	.set_powergating_state = gfx_v12_1_set_powergating_state,

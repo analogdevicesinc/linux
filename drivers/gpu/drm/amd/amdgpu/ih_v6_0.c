@@ -655,12 +655,6 @@ static int ih_v6_0_resume(struct amdgpu_ip_block *ip_block)
 	return ih_v6_0_hw_init(ip_block);
 }
 
-static bool ih_v6_0_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	/* todo */
-	return true;
-}
-
 static int ih_v6_0_wait_for_idle(struct amdgpu_ip_block *ip_block)
 {
 	/* todo */
@@ -788,7 +782,6 @@ static const struct amd_ip_funcs ih_v6_0_ip_funcs = {
 	.hw_fini = ih_v6_0_hw_fini,
 	.suspend = ih_v6_0_suspend,
 	.resume = ih_v6_0_resume,
-	.is_idle = ih_v6_0_is_idle,
 	.wait_for_idle = ih_v6_0_wait_for_idle,
 	.soft_reset = ih_v6_0_soft_reset,
 	.set_clockgating_state = ih_v6_0_set_clockgating_state,

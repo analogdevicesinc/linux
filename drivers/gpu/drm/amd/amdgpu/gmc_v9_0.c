@@ -2300,12 +2300,6 @@ static int gmc_v9_0_resume(struct amdgpu_ip_block *ip_block)
 	return 0;
 }
 
-static bool gmc_v9_0_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	/* MC is always ready in GMC v9.*/
-	return true;
-}
-
 static int gmc_v9_0_wait_for_idle(struct amdgpu_ip_block *ip_block)
 {
 	/* There is no need to wait for MC idle in GMC v9.*/
@@ -2355,7 +2349,6 @@ const struct amd_ip_funcs gmc_v9_0_ip_funcs = {
 	.hw_fini = gmc_v9_0_hw_fini,
 	.suspend = gmc_v9_0_suspend,
 	.resume = gmc_v9_0_resume,
-	.is_idle = gmc_v9_0_is_idle,
 	.wait_for_idle = gmc_v9_0_wait_for_idle,
 	.soft_reset = gmc_v9_0_soft_reset,
 	.set_clockgating_state = gmc_v9_0_set_clockgating_state,

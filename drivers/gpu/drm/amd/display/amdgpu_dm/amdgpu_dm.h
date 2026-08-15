@@ -1157,7 +1157,6 @@ struct __drm_planes_state *amdgpu_dm_get_next_zpos(struct drm_atomic_commit *sta
 
 #if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
 struct amdgpu_ip_block;
-bool dm_is_idle(struct amdgpu_ip_block *ip_block);
 int dm_wait_for_idle(struct amdgpu_ip_block *ip_block);
 int dm_soft_reset(struct amdgpu_ip_block *ip_block);
 int dm_set_clockgating_state(struct amdgpu_ip_block *ip_block,

@@ -1225,7 +1225,6 @@ static const struct amd_ip_funcs cik_sdma_ip_funcs = {
 	.hw_fini = cik_sdma_hw_fini,
 	.suspend = cik_sdma_suspend,
 	.resume = cik_sdma_resume,
-	.is_idle = cik_sdma_is_idle,
 	.wait_for_idle = cik_sdma_wait_for_idle,
 	.soft_reset = cik_sdma_soft_reset,
 	.set_clockgating_state = cik_sdma_set_clockgating_state,

@@ -6762,7 +6762,6 @@ static const struct amd_ip_funcs gfx_v8_0_ip_funcs = {
 	.hw_fini = gfx_v8_0_hw_fini,
 	.suspend = gfx_v8_0_suspend,
 	.resume = gfx_v8_0_resume,
-	.is_idle = gfx_v8_0_is_idle,
 	.wait_for_idle = gfx_v8_0_wait_for_idle,
 	.soft_reset = gfx_v8_0_soft_reset,
 	.set_clockgating_state = gfx_v8_0_set_clockgating_state,

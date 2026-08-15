@@ -224,13 +224,6 @@ STATIC_IFN_KUNIT int dm_crtc_get_scanoutpos(struct amdgpu_device *adev, int crtc
 }
 EXPORT_IF_KUNIT(dm_crtc_get_scanoutpos);
 
-STATIC_IFN_KUNIT bool dm_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	/* XXX todo */
-	return true;
-}
-EXPORT_IF_KUNIT(dm_is_idle);
-
 STATIC_IFN_KUNIT int dm_wait_for_idle(struct amdgpu_ip_block *ip_block)
 {
 	/* XXX todo */
@@ -2085,7 +2078,6 @@ static const struct amd_ip_funcs amdgpu_dm_funcs = {
 	.hw_fini = dm_hw_fini,
 	.suspend = dm_suspend,
 	.resume = dm_resume,
-	.is_idle = dm_is_idle,
 	.wait_for_idle = dm_wait_for_idle,
 	.soft_reset = dm_soft_reset,
 	.set_clockgating_state = dm_set_clockgating_state,

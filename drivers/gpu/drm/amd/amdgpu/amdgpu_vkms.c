@@ -508,11 +508,6 @@ static int amdgpu_vkms_resume(struct amdgpu_ip_block *ip_block)
 	return drm_mode_config_helper_resume(adev_to_drm(ip_block->adev));
 }
 
-static bool amdgpu_vkms_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	return true;
-}
-
 static int amdgpu_vkms_set_clockgating_state(struct amdgpu_ip_block *ip_block,
 					  enum amd_clockgating_state state)
 {
@@ -533,7 +528,6 @@ static const struct amd_ip_funcs amdgpu_vkms_ip_funcs = {
 	.hw_fini = amdgpu_vkms_hw_fini,
 	.suspend = amdgpu_vkms_suspend,
 	.resume = amdgpu_vkms_resume,
-	.is_idle = amdgpu_vkms_is_idle,
 	.set_clockgating_state = amdgpu_vkms_set_clockgating_state,
 	.set_powergating_state = amdgpu_vkms_set_powergating_state,
 };
