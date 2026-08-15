@@ -94,7 +94,7 @@ static int duration_set(const char *arg, const struct kernel_param *kp)
 	}
 
 	mutex_lock(&powerclamp_lock);
-	duration = clamp(new_duration, 6ul, 25ul) * 1000;
+	duration = new_duration * 1000;
 	mutex_unlock(&powerclamp_lock);
 exit:
 
