@@ -1282,6 +1282,7 @@ static inline bool bio_iov_bvec_aligned(const struct bio *bio,
  * bio_iov_iter_get_pages - add user or kernel pages to a bio
  * @bio: bio to add pages to
  * @iter: iov iterator describing the region to be added
+ * @maxlen: maximum size to consume from @iter
  * @mem_align_mask: the mask the source address and length must be aligned to,
  *	0 for no requirement
  * @len_align_mask: the mask to align the total size to, 0 for any length
@@ -1302,7 +1303,8 @@ static inline bool bio_iov_bvec_aligned(const struct bio *bio,
  * is returned only if 0 pages could be pinned.
  */
 int bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter,
-			   unsigned mem_align_mask, unsigned len_align_mask)
+			   unsigned maxlen, unsigned mem_align_mask,
+			   unsigned len_align_mask)
 {
 	iov_iter_extraction_t flags = 0;
 
@@ -1314,6 +1316,8 @@ int bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter,
 		    !bio_iov_bvec_aligned(bio, mem_align_mask))
 			return -EINVAL;
 
+		/* Truncate to the maximum size that the caller can handle */
+		bio->bi_iter.bi_size = min(bio->bi_iter.bi_size, maxlen);
 		iov_iter_advance(iter, bio->bi_iter.bi_size);
 		return 0;
 	}
@@ -1327,7 +1331,7 @@ int bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter,
 		ssize_t ret;
 
 		ret = iov_iter_extract_bvecs(iter, bio->bi_io_vec,
-				BIO_MAX_SIZE - bio->bi_iter.bi_size,
+				maxlen - bio->bi_iter.bi_size,
 				&bio->bi_vcnt, bio->bi_max_vecs,
 				mem_align_mask, flags);
 		if (ret <= 0) {
