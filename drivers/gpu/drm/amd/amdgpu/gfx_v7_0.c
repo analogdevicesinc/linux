@@ -4511,16 +4511,6 @@ static int gfx_v7_0_resume(struct amdgpu_ip_block *ip_block)
 	return gfx_v7_0_hw_init(ip_block);
 }
 
-static bool gfx_v7_0_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	struct amdgpu_device *adev = ip_block->adev;
-
-	if (RREG32(mmGRBM_STATUS) & GRBM_STATUS__GUI_ACTIVE_MASK)
-		return false;
-	else
-		return true;
-}
-
 static int gfx_v7_0_wait_for_idle(struct amdgpu_ip_block *ip_block)
 {
 	unsigned i;
@@ -4951,7 +4941,6 @@ static const struct amd_ip_funcs gfx_v7_0_ip_funcs = {
 	.hw_fini = gfx_v7_0_hw_fini,
 	.suspend = gfx_v7_0_suspend,
 	.resume = gfx_v7_0_resume,
-	.is_idle = gfx_v7_0_is_idle,
 	.wait_for_idle = gfx_v7_0_wait_for_idle,
 	.soft_reset = gfx_v7_0_soft_reset,
 	.set_clockgating_state = gfx_v7_0_set_clockgating_state,

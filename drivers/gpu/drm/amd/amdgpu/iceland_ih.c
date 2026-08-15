@@ -345,17 +345,6 @@ static int iceland_ih_resume(struct amdgpu_ip_block *ip_block)
 	return iceland_ih_hw_init(ip_block);
 }
 
-static bool iceland_ih_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	struct amdgpu_device *adev = ip_block->adev;
-	u32 tmp = RREG32(mmSRBM_STATUS);
-
-	if (REG_GET_FIELD(tmp, SRBM_STATUS, IH_BUSY))
-		return false;
-
-	return true;
-}
-
 static int iceland_ih_wait_for_idle(struct amdgpu_ip_block *ip_block)
 {
 	unsigned i;
@@ -423,7 +412,6 @@ static const struct amd_ip_funcs iceland_ih_ip_funcs = {
 	.hw_fini = iceland_ih_hw_fini,
 	.suspend = iceland_ih_suspend,
 	.resume = iceland_ih_resume,
-	.is_idle = iceland_ih_is_idle,
 	.wait_for_idle = iceland_ih_wait_for_idle,
 	.soft_reset = iceland_ih_soft_reset,
 	.set_clockgating_state = iceland_ih_set_clockgating_state,

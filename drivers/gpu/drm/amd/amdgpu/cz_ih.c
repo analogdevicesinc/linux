@@ -351,17 +351,6 @@ static int cz_ih_resume(struct amdgpu_ip_block *ip_block)
 	return cz_ih_hw_init(ip_block);
 }
 
-static bool cz_ih_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	struct amdgpu_device *adev = ip_block->adev;
-	u32 tmp = RREG32(mmSRBM_STATUS);
-
-	if (REG_GET_FIELD(tmp, SRBM_STATUS, IH_BUSY))
-		return false;
-
-	return true;
-}
-
 static int cz_ih_wait_for_idle(struct amdgpu_ip_block *ip_block)
 {
 	unsigned i;
@@ -431,7 +420,6 @@ static const struct amd_ip_funcs cz_ih_ip_funcs = {
 	.hw_fini = cz_ih_hw_fini,
 	.suspend = cz_ih_suspend,
 	.resume = cz_ih_resume,
-	.is_idle = cz_ih_is_idle,
 	.wait_for_idle = cz_ih_wait_for_idle,
 	.soft_reset = cz_ih_soft_reset,
 	.set_clockgating_state = cz_ih_set_clockgating_state,

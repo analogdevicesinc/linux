@@ -2027,21 +2027,6 @@ static int sdma_v4_0_resume(struct amdgpu_ip_block *ip_block)
 	return sdma_v4_0_hw_init(ip_block);
 }
 
-static bool sdma_v4_0_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	struct amdgpu_device *adev = ip_block->adev;
-	u32 i;
-
-	for (i = 0; i < adev->sdma.num_instances; i++) {
-		u32 tmp = RREG32_SDMA(i, mmSDMA0_STATUS_REG);
-
-		if (!(tmp & SDMA0_STATUS_REG__IDLE_MASK))
-			return false;
-	}
-
-	return true;
-}
-
 static int sdma_v4_0_wait_for_idle(struct amdgpu_ip_block *ip_block)
 {
 	unsigned i, j;
@@ -2412,7 +2397,6 @@ const struct amd_ip_funcs sdma_v4_0_ip_funcs = {
 	.hw_fini = sdma_v4_0_hw_fini,
 	.suspend = sdma_v4_0_suspend,
 	.resume = sdma_v4_0_resume,
-	.is_idle = sdma_v4_0_is_idle,
 	.wait_for_idle = sdma_v4_0_wait_for_idle,
 	.soft_reset = sdma_v4_0_soft_reset,
 	.set_clockgating_state = sdma_v4_0_set_clockgating_state,
