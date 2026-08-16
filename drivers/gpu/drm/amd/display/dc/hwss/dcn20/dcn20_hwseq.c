@@ -3208,10 +3208,6 @@ void dcn20_fpga_init_hw(struct dc *dc)
 	if (hws->funcs.enable_power_gating_plane)
 		hws->funcs.enable_power_gating_plane(hws, true);
 
-	// Specific to FPGA dccg and registers
-	REG_WRITE(RBBMIF_TIMEOUT_DIS, 0xFFFFFFFF);
-	REG_WRITE(RBBMIF_TIMEOUT_DIS_2, 0xFFFFFFFF);
-
 	dcn10_hubbub_global_timer_enable(dc->res_pool->hubbub, true, 2);
 
 	if (hws->funcs.dccg_init)
