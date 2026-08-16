@@ -215,6 +215,9 @@ static void sc598_clock_probe(struct device_node *np)
 	clks[ADSP_SC598_CLK_CGU0_CCLK0] = cgu_gate("cclk0_0", "cgu0_cdiv",
 						   cgu0 + CGU_CCBF_DIS, 0,
 						   &cdu_lock);
+	clks[ADSP_SC598_CLK_CGU0_CCLK1] =
+	   cgu_gate("cclk1_0", "cgu0_cdiv", cgu0 + CGU_CCBF_DIS, 1,
+		    &cdu_lock);
 	clks[ADSP_SC598_CLK_CGU0_OCLK] =
 	    cgu_gate("oclk_0", "cgu0_odiv", cgu0 + CGU_SCBF_DIS, 3,
 		     &cdu_lock);
