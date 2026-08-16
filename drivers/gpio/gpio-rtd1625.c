@@ -615,8 +615,7 @@ static const struct rtd1625_gpio_info rtd1625_iso_gpio_info = {
 
 static const struct rtd1625_gpio_info rtd1625_isom_gpio_info = {
 	.num_gpios        = 4,
-	.irq_type_support = IRQ_TYPE_EDGE_BOTH | IRQ_TYPE_LEVEL_LOW |
-			    IRQ_TYPE_LEVEL_HIGH,
+	.irq_type_support = IRQ_TYPE_DEFAULT,
 	.base_offset      = 0x20,
 	.gpa_offset       = 0x00,
 	.gpda_offset      = 0x04,
