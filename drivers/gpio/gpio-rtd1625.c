@@ -221,6 +221,7 @@ static void rtd1625_gpio_irq_handle(struct irq_desc *desc)
 {
 	unsigned int (*get_reg_offset)(struct rtd1625_gpio *gpio, unsigned int offset);
 	struct rtd1625_gpio *data = irq_desc_get_handler_data(desc);
+	struct device *dev = regmap_get_device(data->regmap);
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 	unsigned int irq = irq_desc_get_irq(desc);
 	struct irq_domain *domain = data->domain;
@@ -244,7 +245,8 @@ static void rtd1625_gpio_irq_handle(struct irq_desc *desc)
 		reg_offset = get_reg_offset(data, i);
 		ret = regmap_read(data->regmap, reg_offset, &val);
 		if (ret) {
-			pr_err_ratelimited("Failed to read IRQ status for GPIO %u: %d\n", i, ret);
+			dev_err_ratelimited(dev, "Failed to read IRQ status for GPIO %u: %d\n",
+					    i, ret);
 			continue;
 		}
 
@@ -261,8 +263,9 @@ static void rtd1625_gpio_irq_handle(struct irq_desc *desc)
 		if (irq != data->irqs[RTD1625_IRQ_LEVEL]) {
 			ret = regmap_write(data->regmap, reg_offset, status);
 			if (ret)
-				pr_err_ratelimited("Failed to clear edge IRQ for GPIO %u: %d\n",
-						   i, ret);
+				dev_err_ratelimited(dev,
+						    "Failed to clear edge IRQ for GPIO %u: %d\n",
+						    i, ret);
 		}
 
 		for_each_set_bit(j, &status, 32) {
