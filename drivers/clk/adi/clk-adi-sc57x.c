@@ -139,9 +139,9 @@ static void __init sc57x_clock_probe(struct device_node *np)
 		cgu1 + CGU_SCBF_DIS, 0, &cdu_lock);
 
 	// Extra half rate clocks generated in the CDU
-	clks[ADSP_SC57X_CLK_OCLK0_HALF] = clk_register_fixed_factor(NULL, "oclk_0_half",
+	clks[ADSP_SC57X_CLK_CGU0_OCLK_HALF] = clk_register_fixed_factor(NULL, "oclk_0_half",
 		"oclk_0", CLK_SET_RATE_PARENT, 1, 2);
-	clks[ADSP_SC57X_CLK_CCLK1_1_HALF] = clk_register_fixed_factor(NULL, "cclk1_1_half",
+	clks[ADSP_SC57X_CLK_CGU1_CCLK1_HALF] = clk_register_fixed_factor(NULL, "cclk1_1_half",
 		"cclk1_1", CLK_SET_RATE_PARENT, 1, 2);
 
 	// CDU output muxes
