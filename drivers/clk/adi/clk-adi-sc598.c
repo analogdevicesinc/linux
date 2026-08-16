@@ -245,10 +245,10 @@ static void sc598_clock_probe(struct device_node *np)
 		     &cdu_lock);
 
 	// Extra half rate clocks generated in the CDU
-	clks[ADSP_SC598_CLK_DCLK0_HALF] =
+	clks[ADSP_SC598_CLK_CGU0_DCLK_HALF] =
 	    clk_register_fixed_factor(NULL, "dclk_0_half", "dclk_0",
 				      CLK_SET_RATE_PARENT, 1, 2);
-	clks[ADSP_SC598_CLK_DCLK1_HALF] =
+	clks[ADSP_SC598_CLK_CGU1_DCLK_HALF] =
 	    clk_register_fixed_factor(NULL, "dclk_1_half", "dclk_1",
 				      CLK_SET_RATE_PARENT, 1, 2);
 	clks[ADSP_SC598_CLK_CGU1_SCLK1_HALF] =
