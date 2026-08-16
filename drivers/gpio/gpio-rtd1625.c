@@ -110,7 +110,8 @@ static int rtd1625_reg_mask_xlate(struct gpio_regmap *gpio, enum gpio_regmap_ope
 	struct rtd1625_gpio *data = gpio_regmap_get_drvdata(gpio);
 	/* Each GPIO has its own dedicated 32-bit register */
 	*reg = base + offset * 4;
-	int val, ret;
+	unsigned int val;
+	int ret;
 
 	switch (op) {
 	case GPIO_REGMAP_SET_OP:
