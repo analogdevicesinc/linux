@@ -335,6 +335,52 @@ static int __init sc5xx_gptimer_init(struct device_node *np,
 		gptimer_enable(timer);
 	}
 
+	/*
+	 * External-clock trigger generator mode ("adi,mode = "extclk-gen""):
+	 * count edges on the TMR pin (TIN_SEL=0) with PER=1 so every input
+	 * edge fires the timer's TRG_GEN line into the TRU (e.g. an ADC
+	 * data-ready feeding a SPI-offload DMA chain). Optional
+	 * "adi,extclk-active-low" selects falling-edge counting (PULSE_HI=0).
+	 * The timer is a pure trigger source here — no clocksource,
+	 * clockevent or counter registration — so return early.
+	 */
+	if (of_property_read_bool(np, "adi,mode-extclk-gen")) {
+		/*
+		 * IRQMODE must be Period Expired in EXTCLK mode: per HRM
+		 * TMR[n]_CFG.IRQMODE, a mismatched IRQMODE/TMODE combination
+		 * generates no interrupt — and it also silently disables the
+		 * TRG_GEN output, so the TRU would never see a pulse.
+		 */
+		u16 cfg = TIMER_OUT_DIS | TIMER_MODE_EXT_CLK | TIMER_IRQ_PER;
+		u16 trg_msk;
+
+		if (!of_property_read_bool(np, "adi,extclk-active-low"))
+			cfg |= TIMER_PULSE_HI;
+
+		gptimer_disable(timer);
+		set_gptimer_config(timer, cfg);
+		set_gptimer_period(timer, 1);
+		/*
+		 * WID/DLY are unused in EXTCLK mode -- HRM §26 says
+		 * "must not be written". Leave whatever reset-timer left.
+		 */
+		gptimer_enable(timer);
+
+		/*
+		 * Unmask this timer's TRG output: TIMER_TRG_MSK resets to
+		 * 0xFFFF (all masked), and a masked TMR[n]_GEN line never
+		 * reaches the TRU regardless of counted edges.
+		 */
+		trg_msk = readw(gptimer_controller.base + GPTIMER_TRG_MSK);
+		trg_msk &= ~(1u << timer->id);
+		writew(trg_msk, gptimer_controller.base + GPTIMER_TRG_MSK);
+
+		pr_info("adi-gptimer: timer %d in EXTCLK-gen mode (PER=1, %s edge, TRG unmasked)\n",
+			timer->id,
+			(cfg & TIMER_PULSE_HI) ? "rising" : "falling");
+		return 0;
+	}
+
 	if (of_property_read_bool(np, "adi,is-clocksource")) {
 		struct clocksource_gptimer *cs;
 

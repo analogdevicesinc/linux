@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/spi/adi,spi3.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADI ADSP-SC5xx / SC84x SPI3 controller
+
+maintainers:
+  - Michael Hennerich <michael.hennerich@analog.com>
+
+description: |
+  Enhanced SPI (SPI3) controller found on the ADI ADSP-SC5xx / SC84x
+  processor family. Supports PIO and DMA transfers, GPIO chip selects,
+  and an optional SPI Offload streaming mode in which hardware-triggered
+  transactions run autonomously through dedicated DMA channels
+  (trigger routed via the on-chip TRU, e.g. from a data-ready pin).
+
+allOf:
+  - $ref: spi-controller.yaml#
+
+properties:
+  compatible:
+    const: adi,spi3
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    const: spi
+
+  dmas:
+    minItems: 1
+    maxItems: 4
+
+  dma-names:
+    description: |
+      Regular "tx"/"rx" channels serve slaves that opt into DMA via
+      adi,enable-dma; when absent, non-offload transfers fall back to
+      PIO. "offload-tx"/"offload-rx" declare the dedicated SPI Offload
+      stream channels handed to the offload consumer; listing
+      "offload-rx" (and optionally "offload-tx") advertises the
+      corresponding SPI_OFFLOAD_CAP_*_STREAM_DMA capabilities. On
+      parts with a single physical DMA channel per direction, a port
+      is either regular or offload-only.
+    minItems: 1
+    maxItems: 4
+    items:
+      enum: [ tx, rx, offload-tx, offload-rx ]
+
+  trigger-sources:
+    description: |
+      Phandle to a SPI offload trigger provider (e.g. the TRU-backed
+      data-ready trigger, see
+      trigger-source/adi,sc59x-spi-offload-trigger.yaml). Presence of
+      this property enables the SPI Offload provider on this port.
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+  - clock-names
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    /* Offload-only port streaming an ADEMA127 via hardware triggers */
+    spi@3102e000 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        compatible = "adi,spi3";
+        reg = <0x3102e000 0xff>;
+        interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
+        clocks = <&clk 25>;
+        clock-names = "spi";
+        dmas = <&spi_cluster 22>, <&spi_cluster 23>;
+        dma-names = "offload-tx", "offload-rx";
+        trigger-sources = <&adema_dready_trigger>;
+    };
+...

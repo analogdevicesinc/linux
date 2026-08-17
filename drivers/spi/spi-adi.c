@@ -24,7 +24,9 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/offload/provider.h>
 #include <linux/types.h>
 
 /* SPI_CONTROL */
@@ -271,10 +273,68 @@ struct adi_spi_controller {
 
 	struct clk *sclk;
 	unsigned long sclk_rate;
+
+	/* Optional SPI Offload framework provider state. NULL when the port
+	 * has no "trigger-sources" DT property.
+	 */
+	struct spi_offload *offload;
+	u32 offload_caps;
 };
+
+/*
+ * Per-offload-instance private data.
+ *
+ * The ADI SPI3 peripheral does not embed a command FIFO like the axi-spi-engine
+ * does; the "offload message" is a single SPI transfer whose length tells us
+ * how many words must be clocked per hardware-triggered transaction. We stash
+ * that word count — and the SPI_CTL mode/size bits derived from the consumer
+ * device's spi->mode and the transfer's bits_per_word — here at
+ * spi_optimize_message() time so that trigger_enable() can program the word
+ * counters and SPI_CTL before the trigger source is armed.
+ */
+struct adi_spi_offload_priv {
+	struct adi_spi_controller *drv;
+	unsigned int xfer_words;
+	u32 ctl_xfer;
+	u32 speed_hz;
+	unsigned long assigned;		/* SPI_ENGINE_OFFLOAD_FLAG_ASSIGNED-like */
+	/*
+	 * The SPI3 peripheral's ATSEL=1 mode drives whichever CS lines are
+	 * enabled in SPI_SLVSEL. We stash the offload consumer's chip_select
+	 * at get_offload() time and use it in trigger_enable() to program
+	 * SLVSEL so that ATSEL toggles the right SPISSELn line for this
+	 * particular consumer. Restored to the port-wide default (0xFE00 —
+	 * all seven SS lines idle high, none enabled) in trigger_disable().
+	 */
+	u8 chip_select;
+};
+
+#define ADI_SPI_SLVSEL_DEFAULT		0x0000FE00
+/*
+ * SPI_SLVSEL layout (see the SSE1..SSE7 defines at the top of this file):
+ *   bit 0     : reserved
+ *   bits 1..7 : SSE1..SSE7 (SPISSELn output enables)
+ *   bit 8     : reserved
+ *   bits 9..15: SSEL1..SSEL7 polarity/idle value (default 1 = idle-high)
+ *
+ * So the enable bit for SPISSELn is BIT(n), not BIT(n+1). cs comes from
+ * spi_get_chipselect() with the DT reg = 1..7 convention (SPISSEL1..7),
+ * matching adi_spi_get_offload()'s range check.
+ */
+#define ADI_SPI_SLVSEL_SSE(cs)		BIT(cs)
+
+#define ADI_SPI_OFFLOAD_ASSIGNED	0
 
 struct adi_spi_device {
 	bool dma;
+	/*
+	 * Slave uses hardware CS via the peripheral's SSELn pin (as opposed
+	 * to cs-gpios). Set for offload-capable slaves that declare no
+	 * cs-gpios; drives SPI_SLVSEL manually in prepare/unprepare_message
+	 * so a single pinctrl state serves both the non-offload transfer
+	 * path (regmap short-frames) and the offload path.
+	 */
+	bool hw_cs;
 	u32 control;
 };
 
@@ -556,6 +616,10 @@ static bool adi_spi_can_dma(struct spi_controller *controller, struct spi_device
 {
 	struct adi_spi_device *chip = spi_get_ctldata(spi);
 
+	/* No DMA channels claimed (offload-only port) → force PIO. */
+	if (!controller->dma_tx || !controller->dma_rx)
+		return false;
+
 	if (chip->dma)
 		return true;
 	return false;
@@ -624,22 +688,63 @@ static int adi_spi_prepare_message(struct spi_controller *controller, struct spi
 	cr &= ~SPI_CTL_SOSI;
 	iowrite32(cr, &drv->regs->control);
 
-	dma_config.direction = DMA_MEM_TO_DEV;
-	dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
-	dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
-	dma_config.src_maxburst = words;
-	dma_config.dst_maxburst = words;
-	ret = dmaengine_slave_config(controller->dma_tx, &dma_config);
-	if (ret) {
-		dev_err(drv->dev, "tx dma slave config failed: %d\n", ret);
-		return ret;
+	/*
+	 * Software-driven CS via SPI_SLVSEL (see adi_spi_setup() for why):
+	 * program the peripheral to drive this slave's SSELn low for the
+	 * duration of the message. adi_spi_unprepare_message() releases it.
+	 *
+	 * Format: SSE bit (bit N) = enable SSELn output; SSEL polarity bit
+	 * (bit N+8) = idle value. Assert = SSE=1, POL=0. Deassert = SSE=1,
+	 * POL=1 (or clear SSE which tri-states the pin).
+	 *
+	 * The offload path (adi_spi_offload_trigger_enable) programs SLVSEL
+	 * itself with ASSEL/TWCEN semantics; unprepare_message rewrites
+	 * SLVSEL to the port-wide default so the two paths coexist.
+	 */
+	if (chip->hw_cs) {
+		u8 cs = spi_get_chipselect(msg->spi, 0);
+		u32 ssel;
+
+		/*
+		 * Start from the port-wide idle-high default, then keep
+		 * this slave's SSE enabled AND clear its polarity bit so
+		 * SSELn drives low.
+		 */
+		ssel = ADI_SPI_SLVSEL_DEFAULT | ADI_SPI_SLVSEL_SSE(cs);
+		ssel &= ~(ADI_SPI_SLVSEL_SSE(cs) << 8);
+		iowrite32(ssel, &drv->regs->ssel);
 	}
 
-	dma_config.direction = DMA_DEV_TO_MEM;
-	ret = dmaengine_slave_config(controller->dma_rx, &dma_config);
-	if (ret) {
-		dev_err(drv->dev, "rx dma slave config failed: %d\n", ret);
-		return ret;
+	/*
+	 * dma_tx/dma_rx may be NULL when the DT declares an offload-only port
+	 * (no "tx"/"rx" dma-names) -- non-offload transfers on that port fall
+	 * back to PIO via adi_spi_can_dma() returning false, so we don't need
+	 * to program the (absent) channels here.
+	 */
+	if (controller->dma_tx) {
+		dma_config.direction = DMA_MEM_TO_DEV;
+		dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+		dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+		dma_config.src_maxburst = words;
+		dma_config.dst_maxburst = words;
+		ret = dmaengine_slave_config(controller->dma_tx, &dma_config);
+		if (ret) {
+			dev_err(drv->dev, "tx dma slave config failed: %d\n", ret);
+			return ret;
+		}
+	}
+
+	if (controller->dma_rx) {
+		dma_config.direction = DMA_DEV_TO_MEM;
+		dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+		dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+		dma_config.src_maxburst = words;
+		dma_config.dst_maxburst = words;
+		ret = dmaengine_slave_config(controller->dma_rx, &dma_config);
+		if (ret) {
+			dev_err(drv->dev, "rx dma slave config failed: %d\n", ret);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -648,8 +753,11 @@ static int adi_spi_prepare_message(struct spi_controller *controller, struct spi
 static int adi_spi_unprepare_message(struct spi_controller *controller, struct spi_message *msg)
 {
 	struct adi_spi_controller *drv = spi_controller_get_devdata(controller);
+	struct adi_spi_device *chip = spi_get_ctldata(msg->spi);
 
 	adi_spi_disable(drv);
+	if (chip->hw_cs)
+		iowrite32(ADI_SPI_SLVSEL_DEFAULT, &drv->regs->ssel);
 	return 0;
 }
 
@@ -699,7 +807,45 @@ static int adi_spi_setup(struct spi_device *spi)
 	if (spi->mode & SPI_LSB_FIRST)
 		chip->control |= SPI_CTL_LSBF;
 	chip->control |= SPI_CTL_MSTR;
-	chip->control &= ~SPI_CTL_ASSEL;
+	/*
+	 * Two chip-select modes: cs-gpios (default, gpiolib toggles the
+	 * pin) or, for offload-capable slaves without cs-gpios, hardware
+	 * CS through SPI_SLVSEL/ASSEL. Mixing software CS on the spi_sync
+	 * path with hardware CS on the offload path would need per-transfer
+	 * pinmux swaps, so such slaves use hardware CS for both.
+	 * A slave with neither cs-gpios nor offload never sees CS toggle:
+	 * warn so the misconfiguration shows up in dmesg.
+	 */
+	if (!spi_get_csgpiod(spi, 0) && spi->controller->get_offload) {
+		u8 cs = spi_get_chipselect(spi, 0);
+
+		if (cs < 1 || cs > 7) {
+			dev_err(&spi->dev,
+				"hardware CS requires reg=1..7 (SPISSEL1..SPISSEL7), got reg=%u\n",
+				cs);
+			kfree(chip);
+			spi_set_ctldata(spi, NULL);
+			return -EINVAL;
+		}
+		/*
+		 * spi_sync traffic drives CS in software through SPI_SLVSEL:
+		 * prepare_message() asserts the slave's SSELn, then
+		 * unprepare_message() releases it, giving one CS pulse per
+		 * message through the peripheral's own SSELn pin (ASSEL=0 so
+		 * the hardware doesn't toggle CS per word). The offload path
+		 * instead uses ASSEL + word counters and manages CS itself.
+		 */
+		chip->control &= ~SPI_CTL_ASSEL;
+		chip->hw_cs = true;
+	} else {
+		chip->control &= ~SPI_CTL_ASSEL;
+		chip->hw_cs = false;
+		if (!spi_get_csgpiod(spi, 0))
+			dev_warn_once(&spi->dev,
+				      "%s reg=%u has no cs-gpios and controller has no offload; adi-spi3 non-offload path is GPIO-CS only -- hardware SEL will not assert\n",
+				      dev_name(&spi->dev),
+				      spi_get_chipselect(spi, 0));
+	}
 
 	return 0;
 }
@@ -730,6 +876,303 @@ static irqreturn_t spi_irq_err(int irq, void *dev_id)
 	adi_spi_dma_terminate(drv_data);
 
 	return IRQ_HANDLED;
+}
+
+/*
+ * SPI Offload framework provider: hardware-triggered transfers with the
+ * TX/RX word counters (TWCR/RWCR) gating each transaction so the
+ * peripheral auto-deasserts CS, and dedicated "offload-tx"/"offload-rx"
+ * DMA channels handed to the consumer.
+ *
+ * DT contract on the controller node:
+ *   "trigger-sources" — phandle to the trigger provider
+ *   "dma-names"       — must contain "offload-rx" (and optionally
+ *                       "offload-tx") in addition to "tx"/"rx"
+ */
+
+static struct spi_offload *adi_spi_get_offload(struct spi_device *spi,
+					       const struct spi_offload_config *config)
+{
+	struct spi_controller *ctrl = spi->controller;
+	struct adi_spi_controller *drv = spi_controller_get_devdata(ctrl);
+	struct adi_spi_offload_priv *priv;
+	u8 cs = spi_get_chipselect(spi, 0);
+
+	if (!drv->offload)
+		return ERR_PTR(-ENODEV);
+
+	if (config->capability_flags & ~drv->offload_caps)
+		return ERR_PTR(-EINVAL);
+
+	/*
+	 * ATSEL=1 wants exclusive control of SPISSELn — if the framework
+	 * has a cs-gpios entry for this slot the software CS path would
+	 * fight the peripheral for the pin every transaction. Refuse
+	 * offload rather than let both drive the line.
+	 */
+	if (spi_get_csgpiod(spi, 0)) {
+		dev_err(drv->dev,
+			"offload requires hardware CS: drop cs-gpios for cs=%u\n",
+			cs);
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (cs < 1 || cs > 7) {
+		dev_err(drv->dev,
+			"offload cs=%u out of range (SPISSEL1..7)\n", cs);
+		return ERR_PTR(-EINVAL);
+	}
+
+	priv = drv->offload->priv;
+	priv->chip_select = cs;
+	if (test_and_set_bit_lock(ADI_SPI_OFFLOAD_ASSIGNED, &priv->assigned))
+		return ERR_PTR(-EBUSY);
+
+	return drv->offload;
+}
+
+static void adi_spi_put_offload(struct spi_offload *offload)
+{
+	struct adi_spi_offload_priv *priv = offload->priv;
+
+	clear_bit_unlock(ADI_SPI_OFFLOAD_ASSIGNED, &priv->assigned);
+}
+
+static int adi_spi_optimize_message(struct spi_message *msg)
+{
+	struct spi_controller *ctrl = msg->spi->controller;
+	struct adi_spi_controller *drv = spi_controller_get_devdata(ctrl);
+	struct adi_spi_offload_priv *priv;
+	struct spi_transfer *xfer;
+
+	if (!msg->offload || msg->offload != drv->offload)
+		return 0;
+
+	if (!list_is_singular(&msg->transfers)) {
+		dev_err(drv->dev, "offload requires a single-transfer message\n");
+		return -EOPNOTSUPP;
+	}
+
+	xfer = list_first_entry(&msg->transfers, struct spi_transfer, transfer_list);
+	if (!xfer->len || xfer->len > SPI_RWC_VALUE) {
+		dev_err(drv->dev, "invalid offload xfer length %u\n", xfer->len);
+		return -EINVAL;
+	}
+
+	priv = drv->offload->priv;
+
+	/*
+	 * Derive the SPI_CTL mode/size bits from the consumer device and the
+	 * transfer instead of hard-coding them — the spi core has already
+	 * validated spi->mode against the controller's mode_bits and filled
+	 * in bits_per_word.
+	 */
+	priv->ctl_xfer = 0;
+	if (msg->spi->mode & SPI_CPOL)
+		priv->ctl_xfer |= SPI_CTL_CPOL;
+	if (msg->spi->mode & SPI_CPHA)
+		priv->ctl_xfer |= SPI_CTL_CPHA;
+	if (msg->spi->mode & SPI_LSB_FIRST)
+		priv->ctl_xfer |= SPI_CTL_LSBF;
+
+	switch (xfer->bits_per_word) {
+	case 8:
+		priv->ctl_xfer |= SPI_CTL_SIZE08;
+		break;
+	case 16:
+		priv->ctl_xfer |= SPI_CTL_SIZE16;
+		break;
+	case 32:
+		priv->ctl_xfer |= SPI_CTL_SIZE32;
+		break;
+	default:
+		dev_err(drv->dev, "offload: unsupported bits_per_word %u\n",
+			xfer->bits_per_word);
+		return -EINVAL;
+	}
+
+	if (xfer->len % (xfer->bits_per_word / 8)) {
+		dev_err(drv->dev,
+			"offload xfer length %u not a multiple of the %u-bit word size\n",
+			xfer->len, xfer->bits_per_word);
+		return -EINVAL;
+	}
+
+	/* The SPI3 TWC/RWC counters count words, not bytes. */
+	priv->xfer_words = xfer->len / (xfer->bits_per_word / 8);
+
+	/*
+	 * The spi core has clamped xfer->speed_hz to the device's
+	 * spi-max-frequency; program it in trigger_enable() rather than
+	 * inheriting whatever bit rate the last regmap transfer used.
+	 */
+	priv->speed_hz = xfer->speed_hz;
+
+	return 0;
+}
+
+static int adi_spi_offload_trigger_enable(struct spi_offload *offload)
+{
+	struct adi_spi_offload_priv *priv = offload->priv;
+	struct adi_spi_controller *drv = priv->drv;
+	u32 ctl, ssel;
+
+	if (!priv->xfer_words) {
+		dev_err(drv->dev,
+			"trigger_enable called without a prepared offload message\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * Program SPI_SLVSEL first — ATSEL only drives lines whose SSEn bit
+	 * is set. Keep every other CS line in its idle-high default so the
+	 * ADEMA sees a clean CS while, e.g., an unrelated flash device on
+	 * SSEL2 stays deasserted. The consumer's chip_select was stashed
+	 * at get_offload() time.
+	 */
+	ssel = ADI_SPI_SLVSEL_DEFAULT | ADI_SPI_SLVSEL_SSE(priv->chip_select);
+	iowrite32(ssel, &drv->regs->ssel);
+
+	/*
+	 * Flush the FIFOs before reprogramming: the port has been running
+	 * regmap short-frame transfers, and per the HRM the receive FIFO is
+	 * only reset "when the SPI is disabled after being enabled" — an
+	 * actual EN 1->0 edge. If the port is already disabled, produce the
+	 * edge explicitly (enable with no channels armed, then disable);
+	 * without it, stale RFIFO bytes lead the offload RX stream and every
+	 * DMA'd long-frame lands byte-shifted in its ring slot.
+	 */
+	iowrite32(0, &drv->regs->tx_control);
+	iowrite32(0, &drv->regs->rx_control);
+	if (!(ioread32(&drv->regs->control) & SPI_CTL_EN))
+		iowrite32(SPI_CTL_MSTR | SPI_CTL_EN, &drv->regs->control);
+	iowrite32(0, &drv->regs->control);
+
+	/*
+	 * Word counters, programmed while TXCTL/RXCTL are still zero (the
+	 * HRM only allows TWC/RWC changes with the counters disabled).
+	 * TWC/RWC hold the live count for the first transaction; TWCR/RWCR
+	 * are only reload values latched when the count hits zero. Writing
+	 * just the reloads leaves TWC=0, and with TWCEN=1 a zero TWC never
+	 * requests a TX DMA read — the offload channels sit "Running"
+	 * forever with no data movement.
+	 */
+	iowrite32(priv->xfer_words, &drv->regs->twc);
+	iowrite32(priv->xfer_words, &drv->regs->twcr);
+	iowrite32(priv->xfer_words, &drv->regs->rwc);
+	iowrite32(priv->xfer_words, &drv->regs->rwcr);
+
+	iowrite32(hz_to_spi_clock(drv->sclk_rate, priv->speed_hz),
+		  &drv->regs->clock);
+
+	/*
+	 * Duplex lock-step initiation (TTI=RTI=1): the bus idles until the
+	 * first trigger-gated TX work unit lands. TTI-only initiation is
+	 * not an option — it waits for the TFIFO to drain before each
+	 * transfer, which stretches one frame past the DREADY period and
+	 * collapses the streaming rate (observed ~35 of 250 SPS).
+	 */
+	iowrite32(SPI_RXCTL_REN | SPI_RXCTL_RTI | SPI_RXCTL_RWCEN | SPI_RXCTL_RDR_NE,
+		  &drv->regs->rx_control);
+	iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI | SPI_TXCTL_TWCEN | SPI_TXCTL_TDR_NF,
+		  &drv->regs->tx_control);
+
+	/*
+	 * Master mode with hardware auto-CS: ASSEL=1 asserts/deasserts CS
+	 * per triggered transaction of TWC words. Mode/word-size bits were
+	 * captured in adi_spi_optimize_message(). Per HRM, SPI_CTL.EN must
+	 * be written after both SPI_RXCTL and SPI_TXCTL.
+	 */
+	ctl = SPI_CTL_MSTR | SPI_CTL_ASSEL | SPI_CTL_EN | priv->ctl_xfer;
+	iowrite32(ctl, &drv->regs->control);
+
+	return 0;
+}
+
+static void adi_spi_offload_trigger_disable(struct spi_offload *offload)
+{
+	struct adi_spi_offload_priv *priv = offload->priv;
+	struct adi_spi_controller *drv = priv->drv;
+
+	iowrite32(0, &drv->regs->tx_control);
+	iowrite32(0, &drv->regs->rx_control);
+	iowrite32(0, &drv->regs->twc);
+	iowrite32(0, &drv->regs->twcr);
+	iowrite32(0, &drv->regs->rwc);
+	iowrite32(0, &drv->regs->rwcr);
+	adi_spi_disable(drv);
+
+	/* Return SLVSEL to the port-wide idle-high default. */
+	iowrite32(ADI_SPI_SLVSEL_DEFAULT, &drv->regs->ssel);
+}
+
+static struct dma_chan *
+adi_spi_offload_rx_stream_request_dma_chan(struct spi_offload *offload)
+{
+	struct adi_spi_offload_priv *priv = offload->priv;
+
+	return dma_request_chan(priv->drv->dev, "offload-rx");
+}
+
+static struct dma_chan *
+adi_spi_offload_tx_stream_request_dma_chan(struct spi_offload *offload)
+{
+	struct adi_spi_offload_priv *priv = offload->priv;
+
+	return dma_request_chan(priv->drv->dev, "offload-tx");
+}
+
+static const struct spi_offload_ops adi_spi_offload_ops = {
+	.trigger_enable			= adi_spi_offload_trigger_enable,
+	.trigger_disable		= adi_spi_offload_trigger_disable,
+	.rx_stream_request_dma_chan	= adi_spi_offload_rx_stream_request_dma_chan,
+	.tx_stream_request_dma_chan	= adi_spi_offload_tx_stream_request_dma_chan,
+};
+
+static int adi_spi_setup_offload(struct platform_device *pdev,
+				 struct adi_spi_controller *drv)
+{
+	struct device *dev = &pdev->dev;
+	struct spi_offload *offload;
+	struct adi_spi_offload_priv *priv;
+
+	if (!device_property_present(dev, "trigger-sources"))
+		return 0;
+
+	offload = devm_spi_offload_alloc(dev, sizeof(*priv));
+	if (IS_ERR(offload))
+		return dev_err_probe(dev, PTR_ERR(offload),
+				     "failed to allocate SPI offload\n");
+
+	priv = offload->priv;
+	priv->drv = drv;
+
+	offload->ops = &adi_spi_offload_ops;
+	drv->offload = offload;
+	drv->offload_caps = SPI_OFFLOAD_CAP_TRIGGER;
+
+	/*
+	 * TX and RX offload streams are advertised only when the DT lists
+	 * dedicated "offload-tx"/"offload-rx" DMA channels — the regular "tx"
+	 * and "rx" channels are still owned by the normal PIO/DMA transfer
+	 * path.
+	 */
+	if (device_property_match_string(dev, "dma-names", "offload-rx") >= 0) {
+		drv->offload_caps |= SPI_OFFLOAD_CAP_RX_STREAM_DMA;
+		offload->xfer_flags |= SPI_OFFLOAD_XFER_RX_STREAM;
+	}
+	if (device_property_match_string(dev, "dma-names", "offload-tx") >= 0) {
+		drv->offload_caps |= SPI_OFFLOAD_CAP_TX_STREAM_DMA;
+		offload->xfer_flags |= SPI_OFFLOAD_XFER_TX_STREAM;
+	}
+
+	drv->controller->get_offload = adi_spi_get_offload;
+	drv->controller->put_offload = adi_spi_put_offload;
+	drv->controller->optimize_message = adi_spi_optimize_message;
+
+	dev_info(dev, "SPI offload provider enabled (caps=0x%x)\n",
+		 drv->offload_caps);
+	return 0;
 }
 
 static const struct of_device_id adi_spi_of_match[] = {
@@ -809,17 +1252,35 @@ static int adi_spi_probe(struct platform_device *pdev)
 	iowrite32(0x0, &drv_data->regs->delay);
 	iowrite32(SPI_IMSK_SET_ROM, &drv_data->regs->emaskst);
 
+	/*
+	 * The regular "tx"/"rx" DMA channels drive adi_spi_dma_xfer for
+	 * slaves that opt into DMA via `adi,enable-dma`. When the DT lists
+	 * only "offload-tx"/"offload-rx" (single physical DMA channel per
+	 * SPI port owned by the offload consumer), skip them and fall back
+	 * to PIO for regmap-style short-frames on the non-offload path.
+	 * adi_spi_can_dma() gates the DMA path on chip->dma so PIO fallback
+	 * is automatic; ENODEV here just means the DT decided this port is
+	 * offload-only.
+	 */
 	controller->dma_tx = dma_request_chan(dev, "tx");
 	if (IS_ERR(controller->dma_tx)) {
-		dev_err(dev, "Could not get TX DMA channel\n");
-		return PTR_ERR(controller->dma_tx);
+		ret = PTR_ERR(controller->dma_tx);
+		if (ret != -ENODEV) {
+			dev_err(dev, "Could not get TX DMA channel: %d\n", ret);
+			return ret;
+		}
+		dev_info(dev, "no \"tx\" DMA channel -- PIO-only for non-offload transfers\n");
+		controller->dma_tx = NULL;
 	}
 
 	controller->dma_rx = dma_request_chan(dev, "rx");
 	if (IS_ERR(controller->dma_rx)) {
-		dev_err(dev, "Could not get RX DMA channel\n");
 		ret = PTR_ERR(controller->dma_rx);
-		goto err_free_tx_dma;
+		if (ret != -ENODEV) {
+			dev_err(dev, "Could not get RX DMA channel: %d\n", ret);
+			goto err_free_tx_dma;
+		}
+		controller->dma_rx = NULL;
 	}
 
 	ret = clk_prepare_enable(drv_data->sclk);
@@ -835,6 +1296,10 @@ static int adi_spi_probe(struct platform_device *pdev)
 		goto err_free_rx_dma;
 	}
 
+	ret = adi_spi_setup_offload(pdev, drv_data);
+	if (ret)
+		goto err_free_rx_dma;
+
 	ret = devm_spi_register_controller(dev, controller);
 	if (ret) {
 		dev_err(dev, "can not  register spi controller\n");
@@ -846,10 +1311,12 @@ static int adi_spi_probe(struct platform_device *pdev)
 	return ret;
 
 err_free_rx_dma:
-	dma_release_channel(controller->dma_rx);
+	if (controller->dma_rx)
+		dma_release_channel(controller->dma_rx);
 
 err_free_tx_dma:
-	dma_release_channel(controller->dma_tx);
+	if (controller->dma_tx)
+		dma_release_channel(controller->dma_tx);
 
 	return ret;
 }
@@ -861,8 +1328,10 @@ static void adi_spi_remove(struct platform_device *pdev)
 
 	adi_spi_disable(drv_data);
 	clk_disable_unprepare(drv_data->sclk);
-	dma_release_channel(controller->dma_tx);
-	dma_release_channel(controller->dma_rx);
+	if (controller->dma_tx)
+		dma_release_channel(controller->dma_tx);
+	if (controller->dma_rx)
+		dma_release_channel(controller->dma_rx);
 }
 
 static int __maybe_unused adi_spi_suspend(struct device *dev)
