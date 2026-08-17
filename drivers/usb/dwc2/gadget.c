@@ -1780,6 +1780,7 @@ static int dwc2_hsotg_process_req_feature(struct dwc2_hsotg *hsotg,
 	struct dwc2_hsotg_ep *ep;
 	int ret;
 	bool halted;
+	u32 otgctl;
 	u32 recip;
 	u32 wValue;
 	u32 wIndex;
@@ -1808,6 +1809,36 @@ static int dwc2_hsotg_process_req_feature(struct dwc2_hsotg *hsotg,
 				return -EINVAL;
 
 			hsotg->test_mode = wIndex >> 8;
+			break;
+		case USB_DEVICE_B_HNP_ENABLE:
+			if (!hsotg->params.otg_caps.hnp_support)
+				return -ENOENT;
+			if (!set)
+				return -EINVAL;
+
+			otgctl = dwc2_readl(hsotg, GOTGCTL);
+			otgctl |= GOTGCTL_DEVHNPEN;
+			dwc2_writel(hsotg, otgctl, GOTGCTL);
+			hsotg->gadget.b_hnp_enable = 1;
+			dev_dbg(hsotg->dev, "HNP enabled\n");
+			break;
+		case USB_DEVICE_A_HNP_SUPPORT:
+			if (!hsotg->params.otg_caps.hnp_support)
+				return -ENOENT;
+			if (!set)
+				return -EINVAL;
+
+			hsotg->gadget.a_hnp_support = 1;
+			dev_dbg(hsotg->dev, "a_hnp_support set\n");
+			break;
+		case USB_DEVICE_A_ALT_HNP_SUPPORT:
+			if (!hsotg->params.otg_caps.hnp_support)
+				return -ENOENT;
+			if (!set)
+				return -EINVAL;
+
+			hsotg->gadget.a_alt_hnp_support = 1;
+			dev_dbg(hsotg->dev, "a_alt_hnp_support set\n");
 			break;
 		default:
 			return -ENOENT;
@@ -3322,6 +3353,13 @@ void dwc2_hsotg_disconnect(struct dwc2_hsotg *hsotg)
 	hsotg->connected = 0;
 	hsotg->test_mode = 0;
 
+	if (hsotg->params.otg_caps.hnp_support) {
+		hsotg->gadget.b_hnp_enable = 0;
+		hsotg->gadget.a_hnp_support = 0;
+		hsotg->gadget.a_alt_hnp_support = 0;
+		dwc2_clear_bit(hsotg, GOTGCTL, GOTGCTL_DEVHNPEN);
+	}
+
 	/* all endpoints should be shutdown */
 	for (ep = 0; ep < hsotg->num_of_eps; ep++) {
 		if (hsotg->eps_in[ep])
@@ -3416,9 +3454,18 @@ void dwc2_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg,
 	usbcfg &= ~GUSBCFG_TOUTCAL_MASK;
 	usbcfg |= GUSBCFG_TOUTCAL(7);
 
-	/* remove the HNP/SRP and set the PHY */
+	/*
+	 * Configure HNP/SRP capability from params (same idea as
+	 * dwc2_gusbcfg_init() for host). Unconditionally clearing these
+	 * bits leaves an HNP-capable OTG gadget unable to negotiate.
+	 */
 	usbcfg &= ~(GUSBCFG_SRPCAP | GUSBCFG_HNPCAP);
-        dwc2_writel(hsotg, usbcfg, GUSBCFG);
+	if (hsotg->params.otg_caps.hnp_support &&
+	    hsotg->params.otg_caps.srp_support)
+		usbcfg |= GUSBCFG_HNPCAP;
+	if (hsotg->params.otg_caps.srp_support)
+		usbcfg |= GUSBCFG_SRPCAP;
+	dwc2_writel(hsotg, usbcfg, GUSBCFG);
 
 	dwc2_phy_init(hsotg, true);
 
