@@ -89,13 +89,9 @@ int mt2701_init_clock(struct mtk_base_afe *afe)
 	}
 
 	/* Some platforms may support BT path */
-	afe_priv->mrgif_ck = devm_clk_get(afe->dev, "audio_mrgif_pd");
-	if (IS_ERR(afe_priv->mrgif_ck)) {
-		if (PTR_ERR(afe_priv->mrgif_ck) == -EPROBE_DEFER)
-			return -EPROBE_DEFER;
-
-		afe_priv->mrgif_ck = NULL;
-	}
+	afe_priv->mrgif_ck = devm_clk_get_optional(afe->dev, "audio_mrgif_pd");
+	if (IS_ERR(afe_priv->mrgif_ck))
+		return PTR_ERR(afe_priv->mrgif_ck);
 
 	/*
 	 * Optional HDMI audio clocks. Platforms that do not wire up the
