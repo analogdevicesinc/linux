@@ -1735,14 +1735,14 @@ exit:
 	return pxframe;
 }
 
-s32 rtw_free_xmitframe(struct xmit_priv *pxmitpriv, struct xmit_frame *pxmitframe)
+void rtw_free_xmitframe(struct xmit_priv *pxmitpriv, struct xmit_frame *pxmitframe)
 {
 	struct __queue *queue = NULL;
 	struct adapter *padapter = pxmitpriv->adapter;
 	struct sk_buff *pndis_pkt = NULL;
 
 	if (!pxmitframe)
-		return _SUCCESS;
+		return;
 
 	if (pxmitframe->pkt) {
 		pndis_pkt = pxmitframe->pkt;
@@ -1751,7 +1751,11 @@ s32 rtw_free_xmitframe(struct xmit_priv *pxmitpriv, struct xmit_frame *pxmitfram
 
 	if (pxmitframe->alloc_addr) {
 		kfree(pxmitframe->alloc_addr);
-		goto check_pkt_complete;
+
+		if (pndis_pkt)
+			rtw_os_pkt_complete(padapter, pndis_pkt);
+
+		return;
 	}
 
 	if (pxmitframe->ext_tag == 0)
@@ -1770,12 +1774,8 @@ s32 rtw_free_xmitframe(struct xmit_priv *pxmitpriv, struct xmit_frame *pxmitfram
 
 	spin_unlock_bh(&queue->lock);
 
-check_pkt_complete:
-
 	if (pndis_pkt)
 		rtw_os_pkt_complete(padapter, pndis_pkt);
-
-	return _SUCCESS;
 }
 
 void rtw_free_xmitframe_queue(struct xmit_priv *pxmitpriv, struct __queue *pframequeue)
