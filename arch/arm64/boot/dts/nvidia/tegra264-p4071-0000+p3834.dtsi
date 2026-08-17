@@ -14,6 +14,10 @@
 	};
 
 	bus@0 {
+		rtc@c2c0000 {
+			status = "okay";
+		};
+
 		pwm@c6a0000 {
 			status = "okay";
 		};
