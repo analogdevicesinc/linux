@@ -177,17 +177,17 @@
 
 			partition@40000 {
 				label = "u-boot proper";
-				reg = <0x00040000 0xC0000>;
+				reg = <0x00040000 0xc0000>;
 			};
 
-			partition@210000 {
+			partition@100000 {
 				label = "kernel";
-				reg = <0x00210000 0x1000000>;
+				reg = <0x00100000 0x2000000>;
 			};
 
-			partition@1210000 {
+			partition@2100000 {
 				label = "rootfs";
-				reg = <0x1210000 0xEDF0000>;
+				reg = <0x2100000 0xdf00000>;
 			};
 		};
 	};
