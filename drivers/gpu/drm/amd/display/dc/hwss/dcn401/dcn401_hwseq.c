@@ -1264,10 +1264,6 @@ void dcn401_build_cursor_position(struct pipe_ctx *pipe_ctx,
 	param.cur_rect_x = rec_x_offset + param.recout.x;
 	param.cur_rect_y = rec_y_offset + param.recout.y;
 
-	/* Clamp hotspot to the CURSOR_HOT_SPOT_X register field width */
-	if (pos_cpy.x_hotspot > 0xFF)
-		pos_cpy.x_hotspot = 0xFF;
-
 	*pos_out = pos_cpy;
 	*param_out = param;
 }

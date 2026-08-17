@@ -818,6 +818,8 @@ void hubp401_cursor_set_position(
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
 	int dst_x_offset = param->dst_x_offset;
 	uint32_t cur_en = pos->enable ? 1 : 0;
+	/* CURSOR_HOT_SPOT_X is 8 bits wide; clamp only the register write */
+	uint32_t x_hotspot_clamped = pos->x_hotspot > 0xFF ? 0xFF : pos->x_hotspot;
 	hubp->curs_pos = *pos;
 
 	/*
@@ -842,7 +844,7 @@ void hubp401_cursor_set_position(
 			CURSOR_Y_POSITION, pos->y);
 
 		REG_SET_2(CURSOR_HOT_SPOT, 0,
-			CURSOR_HOT_SPOT_X, pos->x_hotspot,
+			CURSOR_HOT_SPOT_X, x_hotspot_clamped,
 			CURSOR_HOT_SPOT_Y, pos->y_hotspot);
 
 		REG_SET(CURSOR_DST_OFFSET, 0,
