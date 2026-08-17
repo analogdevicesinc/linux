@@ -60,6 +60,7 @@ override BPF_CFLAGS += -O2 -g
 override BPF_CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
 # Required for suppressing harmless vmlinux.h-related warnings.
 override BPF_CFLAGS += -Wno-missing-declarations
+override BPF_CFLAGS += -fno-strict-aliasing
 override BPF_CFLAGS += $(INCLUDES)
 
 CFLAGS = -O2 -no-pie
