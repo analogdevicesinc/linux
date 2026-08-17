@@ -48,6 +48,18 @@ allOf:
       properties:
         interrupts: false
 
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - liteon,ltr301
+              - liteon,ltr303
+              - liteon,ltr329
+    then:
+      properties:
+        proximity-near-level: false
+
 examples:
   - |
     #include <dt-bindings/interrupt-controller/irq.h>
