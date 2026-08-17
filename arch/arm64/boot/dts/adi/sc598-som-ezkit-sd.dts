@@ -7,8 +7,23 @@
 
 #include "sc598-som-ezkit.dtsi"
 
+&som_gpio_expander {
+	som-emmc {
+		gpio-hog;
+		gpios = <8 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "som-emmc-en";
+	};
+
+	crr-sdcard {
+		gpio-hog;
+		gpios = <9 GPIO_ACTIVE_LOW>;
+		output-high;
+		line-name = "crr-sdcard-en";
+	};
+};
+
 &mmc0 {
-	pinctrl-0 = <&mmc0_8bgrp>, <&mmc_carrier_grp>;
 	max-frequency = <44000000>;
 	no-1-8-v;
 	bus-width = <4>;
