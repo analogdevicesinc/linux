@@ -173,6 +173,21 @@
 	};
 };
 
+&xspi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&xspi1_default>;
+	status = "okay";
+
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <125000000>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		m25p,fast-read;
+		label = "xspi1-nor";
+	};
+};
 
 &emac0 {
 	phy-handle = <&adin1300>;

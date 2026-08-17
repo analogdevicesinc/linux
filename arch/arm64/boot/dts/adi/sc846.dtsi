@@ -571,6 +571,19 @@
 			status = "disabled";
 		};
 
+		xspi1: spi@3114c000 {
+			compatible = "adi,sc846-xspi-nor";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x3114c000 0x1040>,
+			      <0x50000000 0x2000>,
+			      <0x3114e000 0x100>;
+			reg-names = "io", "sdma", "aux";
+			interrupts = <GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH>;
+			resets = <&misc_rst ADI_SC846_RESET_XSPI1>;
+			status = "disabled";
+		};
+
 		emac0: ethernet@31040000 {
 			compatible = "adi,dwmac", "snps,dwmac-4.20a", "snps,dwmac-5.20a";
 			reg = <0x31040000 0x2000>;
