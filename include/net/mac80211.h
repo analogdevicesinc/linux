@@ -7630,11 +7630,12 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
  *
  * @skb: packet injected by userspace
  * @dev: the &struct device of this 802.11 device
+ * @trim_fcs: trim the FCS trailer when present; validate it otherwise
  *
  * Return: %true if the radiotap header was parsed, %false otherwise
  */
 bool ieee80211_parse_tx_radiotap(struct sk_buff *skb,
-				 struct net_device *dev);
+				 struct net_device *dev, bool trim_fcs);
 
 /**
  * struct ieee80211_noa_data - holds temporary data for tracking P2P NoA state

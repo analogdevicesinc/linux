@@ -2138,7 +2138,7 @@ static bool ieee80211_validate_radiotap_len(struct sk_buff *skb)
 }
 
 bool ieee80211_parse_tx_radiotap(struct sk_buff *skb,
-				 struct net_device *dev)
+				 struct net_device *dev, bool trim_fcs)
 {
 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
 	struct ieee80211_radiotap_iterator iterator;
@@ -2195,7 +2195,8 @@ bool ieee80211_parse_tx_radiotap(struct sk_buff *skb,
 				if (skb->len < (iterator._max_length + FCS_LEN))
 					return false;
 
-				skb_trim(skb, skb->len - FCS_LEN);
+				if (trim_fcs)
+					skb_trim(skb, skb->len - FCS_LEN);
 			}
 			if (*iterator.this_arg & IEEE80211_RADIOTAP_F_WEP)
 				info->flags &= ~IEEE80211_TX_INTFL_DONT_ENCRYPT;
@@ -2511,7 +2512,7 @@ netdev_tx_t ieee80211_monitor_start_xmit(struct sk_buff *skb,
 	 * selected chandef above to accurately set injection rates and
 	 * retransmissions.
 	 */
-	if (!ieee80211_parse_tx_radiotap(skb, dev))
+	if (!ieee80211_parse_tx_radiotap(skb, dev, true))
 		goto fail_rcu;
 
 	/* remove the injection radiotap header */
