@@ -3140,7 +3140,7 @@ static const u32 supported_colorformats =
 	BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422) |
 	BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
 
-static void hdmi_frl_status_polling_work(struct work_struct *work)
+void hdmi_frl_status_polling_work(struct work_struct *work)
 {
 	struct amdgpu_display_manager *dm =
 		container_of(to_delayed_work(work), struct amdgpu_display_manager,

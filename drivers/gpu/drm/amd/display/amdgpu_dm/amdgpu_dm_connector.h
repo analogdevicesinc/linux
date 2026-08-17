@@ -71,6 +71,8 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
 				     struct dc_link *link,
 				     int link_index);
 
+void hdmi_frl_status_polling_work(struct work_struct *work);
+
 enum drm_mode_status amdgpu_dm_connector_mode_valid(struct drm_connector *connector,
 						    const struct drm_display_mode *mode);
 
