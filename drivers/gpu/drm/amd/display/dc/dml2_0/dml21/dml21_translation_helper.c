@@ -95,6 +95,20 @@ static unsigned int calc_max_hardware_v_total(const struct dc_stream_state *stre
 	return max_hw_v_total;
 }
 
+static unsigned int calc_vblank_nom_lines(const struct dc_stream_state *stream, const unsigned int default_vblank_nom_us)
+{
+	unsigned int vblank_avail = stream->timing.v_total - stream->timing.v_addressable;
+	unsigned int vblank_nom = (unsigned int)div64_u64((uint64_t)default_vblank_nom_us * 1000ULL, // vblank_nom_ns
+			div64_u64((uint64_t)stream->timing.h_total * 10000000ULL, (uint64_t)stream->timing.pix_clk_100hz)); // line_time_ns
+
+	if (vblank_avail < vblank_nom ||
+			stream->adaptive_sync_infopacket.valid ||
+			(stream->link && stream->link->replay_settings.config.replay_supported))
+		vblank_nom = vblank_avail;
+
+	return vblank_nom;
+}
+
 static void populate_dml21_timing_config_from_stream_state(struct dml2_timing_cfg *timing,
 		struct dc_stream_state *stream,
 		struct pipe_ctx *otg_master_pipe,
@@ -200,7 +214,7 @@ static void populate_dml21_timing_config_from_stream_state(struct dml2_timing_cf
 		break;
 	}
 
-	timing->vblank_nom = timing->v_total - timing->v_active;
+	timing->vblank_nom = calc_vblank_nom_lines(stream, dml_ctx->v21.dml_init.ip_caps.vblank_nom_default_us);
 }
 
 static void populate_dml21_output_config_from_stream_state(struct dml2_link_output_cfg *output,
@@ -1143,4 +1157,3 @@ void dml21_init_min_clocks_for_dc_state(struct dml2_context *in_ctx, struct dc_s
 	min_clocks->stutter_efficiency.z8_stutter_period = 100000;
 	min_clocks->zstate_support = DCN_ZSTATE_SUPPORT_ALLOW;
 }
-
