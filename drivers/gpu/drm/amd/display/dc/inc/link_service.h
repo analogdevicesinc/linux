@@ -309,7 +309,7 @@ struct link_service {
 	bool (*edp_receiver_ready_T7)(struct dc_link *link);
 	bool (*edp_power_alpm_dpcd_enable)(struct dc_link *link, bool enable);
 	bool (*dp_setup_replay)(struct dc_link *link, const struct dc_stream_state *stream);
-	bool (*dp_pr_get_panel_inst)(const struct dc *dc, const struct dc_link *link, unsigned int *inst_out);
+	bool (*dp_pr_get_pr_panel_inst)(const struct dc *dc, const struct dc_link *link, unsigned int *inst_out);
 	bool (*dp_pr_enable)(struct dc_link *link, bool enable);
 	bool (*dp_pr_update_state)(struct dc_link *link, struct dmub_cmd_pr_update_state_data *update_state_data);
 	bool (*dp_pr_set_general_cmd)(struct dc_link *link, struct dmub_cmd_pr_general_cmd_data *general_cmd_data);
