@@ -84,7 +84,7 @@
 
 			partition@40000 {
 				label = "u-boot";
-				reg = <0x00040000 0xC0000>;
+				reg = <0x00040000 0xc0000>;
 			};
 
 			partition@100000 {
@@ -94,7 +94,7 @@
 
 			partition@2100000 {
 				label = "rootfs";
-				reg = <0x02100000 0x5ef0000>;
+				reg = <0x02100000 0x5f00000>;
 			};
 		};
 	};
