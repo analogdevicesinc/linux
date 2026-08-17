@@ -671,6 +671,8 @@ static const struct dc_debug_options debug_defaults_drv = {
 		}
 	},
 	.force_cositing = CHROMA_COSITING_NONE + 1,
+	.dml21_disable_pstate_method_mask = 0x20, // disable alt-ch unconditionally until dependencies are ready
+
 };
 
 static const struct dc_check_config config_defaults = {
