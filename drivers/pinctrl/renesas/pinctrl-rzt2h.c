@@ -1118,6 +1118,7 @@ static int rzt2h_gpio_register(struct rzt2h_pinctrl *pctrl)
 	chip->direction_output = rzt2h_gpio_direction_output;
 	chip->get = rzt2h_gpio_get;
 	chip->set = rzt2h_gpio_set;
+	chip->set_config = gpiochip_generic_config;
 	chip->label = dev_name(dev);
 
 	if (of_property_present(np, "interrupt-controller")) {
