@@ -9,14 +9,12 @@ title: LiteON LTR501 I2C Proximity and Light sensor
 maintainers:
   - Nikita Travkin <nikita@trvn.ru>
 
-allOf:
-  - $ref: ../common.yaml#
-
 properties:
   compatible:
     enum:
       - liteon,ltr301
       - liteon,ltr303
+      - liteon,ltr329
       - liteon,ltr501
       - liteon,ltr559
 
@@ -36,6 +34,19 @@ additionalProperties: false
 required:
   - compatible
   - reg
+
+allOf:
+  - $ref: ../common.yaml#
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - liteon,ltr329
+    then:
+      properties:
+        interrupts: false
 
 examples:
   - |
