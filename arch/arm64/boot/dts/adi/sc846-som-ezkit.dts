@@ -173,6 +173,20 @@
 	};
 };
 
+&xspi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&xspi1_default>;
+	status = "okay";
+
+	flash@0 {
+		compatible = "spi-nand";
+		reg = <0>;
+		spi-max-frequency = <100000000>;
+		label = "xspi1-nand";
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+	};
+};
 
 &emac0 {
 	phy-handle = <&adin1300>;
