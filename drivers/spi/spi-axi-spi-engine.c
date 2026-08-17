@@ -792,6 +792,18 @@ static void spi_engine_offload_unprepare(struct spi_offload *offload)
 {
 	struct spi_engine_offload *priv = offload->priv;
 	struct spi_engine *spi_engine = priv->spi_engine;
+	unsigned int reg;
+	int ret;
+
+	ret = readl_relaxed_poll_timeout(spi_engine->base +
+					 SPI_ENGINE_REG_OFFLOAD_STATUS(priv->offload_num),
+					 reg, reg == 0, 1000, 1000000);
+	if (ret) {
+		dev_err(spi_engine->offload->provider_dev,
+			"offload unprepare timed out. Resetting\n");
+		writel_relaxed(0x01, spi_engine->base + SPI_ENGINE_REG_RESET);
+		writel_relaxed(0x00, spi_engine->base + SPI_ENGINE_REG_RESET);
+	}
 
 	writel_relaxed(1, spi_engine->base +
 			  SPI_ENGINE_REG_OFFLOAD_RESET(priv->offload_num));
