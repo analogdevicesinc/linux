@@ -94,7 +94,6 @@ struct rzt2h_pinctrl {
 	void __iomem			*base0, *base1;
 	struct device			*dev;
 	struct gpio_chip		gpio_chip;
-	struct pinctrl_gpio_range	gpio_range;
 	DECLARE_BITMAP(used_irqs, RZT2H_INTERRUPTS_NUM);
 	raw_spinlock_t			lock; /* lock read/write registers */
 	struct mutex			mutex; /* serialize adding groups and functions */
@@ -1077,7 +1076,6 @@ static void rzt2h_gpio_init_irq_valid_mask(struct gpio_chip *gc,
 
 static int rzt2h_gpio_register(struct rzt2h_pinctrl *pctrl)
 {
-	struct pinctrl_gpio_range *range = &pctrl->gpio_range;
 	struct gpio_chip *chip = &pctrl->gpio_chip;
 	struct device_node *np = pctrl->dev->of_node;
 	struct irq_domain *parent_domain;
@@ -1131,13 +1129,6 @@ static int rzt2h_gpio_register(struct rzt2h_pinctrl *pctrl)
 		girq->child_irq_domain_ops.free = rzt2h_gpio_irq_domain_free;
 		girq->init_valid_mask = rzt2h_gpio_init_irq_valid_mask;
 	}
-
-	range->id = 0;
-	range->pin_base = 0;
-	range->base = 0;
-	range->npins = chip->ngpio;
-	range->name = chip->label;
-	range->gc = chip;
 
 	ret = devm_gpiochip_add_data(dev, chip, pctrl);
 	if (ret)
