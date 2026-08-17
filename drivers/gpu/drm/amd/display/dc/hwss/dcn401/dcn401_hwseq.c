@@ -1233,20 +1233,23 @@ void dcn401_build_cursor_position(struct pipe_ctx *pipe_ctx,
 		ASSERT(!pos_cpy.enable || pos_cpy.x_hotspot == 0);
 	}
 
-	dst_x_offset = x_pos_viewport - x_hot_viewport *
-			(1 + hubp->curs_attr.attribute_flags.bits.ENABLE_MAGNIFICATION);
-	dst_x_offset = (dst_x_offset >= 0) ? dst_x_offset : 0;
-	dst_x_offset *= param.ref_clk_khz;
-	dst_x_offset /= param.pixel_clk_khz;
+	/* pixel_clk_khz is 0 when no timing is programmed on the stream */
+	if (param.pixel_clk_khz) {
+		dst_x_offset = x_pos_viewport - x_hot_viewport *
+				(1 + hubp->curs_attr.attribute_flags.bits.ENABLE_MAGNIFICATION);
+		dst_x_offset = (dst_x_offset >= 0) ? dst_x_offset : 0;
+		dst_x_offset *= param.ref_clk_khz;
+		dst_x_offset /= param.pixel_clk_khz;
 
-	ASSERT(param.h_scale_ratio.value);
+		ASSERT(param.h_scale_ratio.value);
 
-	if (param.h_scale_ratio.value)
-		dst_x_offset = dc_fixpt_floor(dc_fixpt_div(
-			dc_fixpt_from_int(dst_x_offset),
-			param.h_scale_ratio));
+		if (param.h_scale_ratio.value)
+			dst_x_offset = dc_fixpt_floor(dc_fixpt_div(
+				dc_fixpt_from_int(dst_x_offset),
+				param.h_scale_ratio));
 
-	param.dst_x_offset = dst_x_offset;
+		param.dst_x_offset = dst_x_offset;
+	}
 
 	/* Cursor rectangle cache origin: derived from the final cursor position
 	 * minus hotspot, clamped to 0, offset by the recout origin. Precompute

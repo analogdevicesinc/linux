@@ -1396,6 +1396,9 @@ void hwss_build_fast_sequence(struct dc *dc,
 		struct pipe_ctx *cursor_pipe_to_program = NULL;
 
 		for (i = 0; i < MAX_PIPES; i++) {
+			struct dc_cursor_position pos;
+			struct dc_cursor_mi_param param;
+
 			current_pipe = &context->res_ctx.pipe_ctx[i];
 
 			if (current_pipe->stream != stream ||
@@ -1418,9 +1421,6 @@ void hwss_build_fast_sequence(struct dc *dc,
 					(*num_steps)++;
 				}
 			}
-
-			struct dc_cursor_position pos;
-			struct dc_cursor_mi_param param;
 
 			dc->hwseq->funcs.build_cursor_position(current_pipe, &pos, &param);
 
