@@ -380,7 +380,7 @@ enum objext_flags {
 static inline struct mem_cgroup *obj_cgroup_memcg(struct obj_cgroup *objcg)
 {
 	lockdep_assert_once(rcu_read_lock_held() || lockdep_is_held(&cgroup_mutex));
-	return READ_ONCE(objcg->memcg);
+	return objcg ? READ_ONCE(objcg->memcg) : NULL;
 }
 
 /*
@@ -433,7 +433,7 @@ static inline struct mem_cgroup *folio_memcg(struct folio *folio)
 {
 	struct obj_cgroup *objcg = folio_objcg(folio);
 
-	return objcg ? obj_cgroup_memcg(objcg) : NULL;
+	return obj_cgroup_memcg(objcg);
 }
 
 /*
@@ -476,7 +476,7 @@ static inline struct mem_cgroup *folio_memcg_check(struct folio *folio)
 
 	objcg = (void *)(memcg_data & ~OBJEXTS_FLAGS_MASK);
 
-	return objcg ? obj_cgroup_memcg(objcg) : NULL;
+	return obj_cgroup_memcg(objcg);
 }
 
 static inline struct mem_cgroup *page_memcg_check(struct page *page)
@@ -1049,6 +1049,11 @@ void mem_cgroup_flush_workqueue(void);
 
 extern int mem_cgroup_init(void);
 #else /* CONFIG_MEMCG */
+
+static inline struct mem_cgroup *obj_cgroup_memcg(struct obj_cgroup *objcg)
+{
+	return NULL;
+}
 
 #define MEM_CGROUP_ID_SHIFT	0
 
