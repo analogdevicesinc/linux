@@ -49,6 +49,7 @@ extern volatile u64 asan_violated;
 int arena_fls(__u64 word);
 
 void __arena *arena_malloc(size_t size);
+void __arena *arena_calloc(size_t ncount, size_t size);
 void arena_free(void __arena *ptr);
 
 /*
@@ -60,6 +61,23 @@ void arena_free(void __arena *ptr);
  * access the arena and help the verifier.
  */
 #define arena_subprog_init() do { asm volatile ("" :: "r"(&arena)); } while (0)
+
+/*
+ * BPF does not currently support the memset intrinsics. for large
+ * sequential copies, or assignments of large data structures,
+ * the frontend will generate an intrinsic that causes the BPF
+ * backend to exit due to a missing implementation. Provide
+ * implementations for the intrinsic.
+ */
+static inline int arena_memset(s8 __arena *dst, s8 val, size_t size)
+{
+	size_t i;
+
+	for (i = zero; i < size && can_loop; i++)
+		dst[i] = val;
+
+	return 0;
+}
 
 #else /* ! __BPF__ */
 
