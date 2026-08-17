@@ -468,7 +468,7 @@ endif # RISCV
 config RCAR_MFIS
 	tristate "Renesas R-Car MFIS driver"
 	depends on ARCH_RENESAS || COMPILE_TEST
-	depends on MAILBOX
+	depends on MAILBOX && HWSPINLOCK
 	help
 	  Select this option to enable support for the Renesas R-Car
 	  Multifunctional Interface (MFIS) device found on SoCs like R-Car.
