@@ -343,6 +343,15 @@ static int qcom_spi_ecc_init_ctx_pipelined(struct nand_device *nand)
 	ecc_cfg->cw_size = ecc_cfg->cw_data + ecc_cfg->bytes;
 	bad_block_byte = mtd->writesize - ecc_cfg->cw_size * (cwperpage - 1) + 1;
 
+	if ((ecc_cfg->cw_size * cwperpage) > (mtd->writesize + mtd->oobsize)) {
+		dev_err(snandc->dev,
+			"Current ECC settings require %d bytes, but the flash only has %d+%d bytes.\n",
+			(ecc_cfg->cw_size * cwperpage), mtd->writesize,
+			mtd->oobsize);
+		ret = -EINVAL;
+		goto err_free_ecc_cfg;
+	}
+
 	mtd_set_ooblayout(mtd, &qcom_spi_ooblayout);
 
 	/*
