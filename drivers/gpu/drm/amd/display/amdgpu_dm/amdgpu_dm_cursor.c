@@ -87,12 +87,8 @@ STATIC_IFN_KUNIT int dm_check_cursor_fb(struct amdgpu_crtc *new_acrtc,
 	 * check tiling flags when the FB doesn't have a modifier.
 	 */
 	if (!(fb->flags & DRM_MODE_FB_MODIFIERS)) {
-#if defined(CONFIG_DRM_AMD_DC_DCN6_0) || defined(CONFIG_DRM_AMD_DC_DCN5_0)
 		if (adev->family == AMDGPU_FAMILY_GC_12_0_0
 		    || adev->family == AMDGPU_FAMILY_GC_13_0_1) {
-#else
-		if (adev->family == AMDGPU_FAMILY_GC_12_0_0) {
-#endif
 			linear = AMDGPU_TILING_GET(afb->tiling_flags, GFX12_SWIZZLE_MODE) == 0;
 		} else if (adev->family >= AMDGPU_FAMILY_AI) {
 			linear = AMDGPU_TILING_GET(afb->tiling_flags, SWIZZLE_MODE) == 0;
@@ -289,6 +285,7 @@ int amdgpu_dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
 	int underlying_scale_w, underlying_scale_h;
 	int cursor_scale_w, cursor_scale_h;
 	int i;
+	bool skip_fmt_scale_restrictions = false;
 
 	/* Overlay cursor not supported on HW before DCN
 	 * DCN401/420 does not have the cursor-on-scaled-plane or cursor-on-yuv-plane restrictions
@@ -300,15 +297,17 @@ int amdgpu_dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
 	 */
 	if (amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 0, 1) ||
 	    amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 2, 0) ||
-#if defined(CONFIG_DRM_AMD_DC_DCN6_0)
 	    amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 2, 1) ||
 	    amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(6, 0, 0) ||
-#else
-	    amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 2, 1) ||
-#endif
 	    !dm_crtc_state->base.enable) {
-		*cursor_mode = DM_CURSOR_NATIVE_MODE;
-		return 0;
+		/*
+		 * Newer DCN has no cursor-on-scaled/yuv-plane restriction, so
+		 * skip those overlay triggers below. A plane that does not fill
+		 * the CRTC still needs overlay mode so the cursor renders over
+		 * the hole, so fall through to the coverage check instead of
+		 * unconditionally forcing native mode here.
+		 */
+		skip_fmt_scale_restrictions = true;
 	}
 
 	/* Init cursor_mode to be the same as current */
@@ -407,13 +406,15 @@ int amdgpu_dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
 			continue;
 
 		/* Underlying plane is YUV format - use overlay cursor */
-		if (amdgpu_dm_plane_is_video_format(plane_state->fb->format->format)) {
+		if (!skip_fmt_scale_restrictions &&
+		    amdgpu_dm_plane_is_video_format(plane_state->fb->format->format)) {
 			*cursor_mode = DM_CURSOR_OVERLAY_MODE;
 			return 0;
 		}
 
 		/* Underlying plane has an active color pipeline - cursor would be transformed */
-		if (dm_plane_color_pipeline_active(state, plane, false)) {
+		if (!skip_fmt_scale_restrictions &&
+		    dm_plane_color_pipeline_active(state, plane, false)) {
 			*cursor_mode = DM_CURSOR_OVERLAY_MODE;
 			return 0;
 		}
@@ -424,7 +425,8 @@ int amdgpu_dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
 				   &cursor_scale_w, &cursor_scale_h);
 
 		/* Underlying plane has different scale - use overlay cursor */
-		if (cursor_scale_w != underlying_scale_w &&
+		if (!skip_fmt_scale_restrictions &&
+		    cursor_scale_w != underlying_scale_w &&
 		    cursor_scale_h != underlying_scale_h) {
 			*cursor_mode = DM_CURSOR_OVERLAY_MODE;
 			return 0;
