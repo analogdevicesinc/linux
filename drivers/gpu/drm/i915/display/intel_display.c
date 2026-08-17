@@ -60,7 +60,6 @@
 #include "intel_bo.h"
 #include "intel_bw.h"
 #include "intel_cdclk.h"
-#include "intel_clock_gating.h"
 #include "intel_cmtg.h"
 #include "intel_color.h"
 #include "intel_crt.h"
