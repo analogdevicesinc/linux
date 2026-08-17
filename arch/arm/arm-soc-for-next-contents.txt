@@ -108,6 +108,10 @@ soc/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-dt-7.3
 	microchip/dt64
 		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-dt64-7.3
+	marvell/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt-7.3-1
+	marvell/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-7.3-1
 
 soc/drivers
 	ixp4xx/soc-drivers
