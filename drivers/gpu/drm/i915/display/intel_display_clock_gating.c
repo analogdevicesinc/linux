@@ -27,7 +27,7 @@ static void intel_display_gen9_init_clock_gating(struct intel_display *display)
 	intel_de_rmw(display, DISP_ARB_CTL, 0, DISP_FBC_MEMORY_WAKE);
 }
 
-void intel_display_skl_init_clock_gating(struct intel_display *display)
+static void intel_display_skl_init_clock_gating(struct intel_display *display)
 {
 	/*
 	 * WaCompressedResourceDisplayNewHashMode:skl,kbl
@@ -47,7 +47,7 @@ void intel_display_skl_init_clock_gating(struct intel_display *display)
 	intel_de_rmw(display, DISP_ARB_CTL, 0, DISP_FBC_WM_DIS);
 }
 
-void intel_display_kbl_init_clock_gating(struct intel_display *display)
+static void intel_display_kbl_init_clock_gating(struct intel_display *display)
 {
 	/*
 	 * WaCompressedResourceDisplayNewHashMode:skl,kbl
@@ -67,7 +67,7 @@ void intel_display_kbl_init_clock_gating(struct intel_display *display)
 	intel_de_rmw(display, DISP_ARB_CTL, 0, DISP_FBC_WM_DIS);
 }
 
-void intel_display_cfl_init_clock_gating(struct intel_display *display)
+static void intel_display_cfl_init_clock_gating(struct intel_display *display)
 {
 	/*
 	 * WaCompressedResourceDisplayNewHashMode:skl,kbl (and cfl, cml)
@@ -93,7 +93,7 @@ void intel_display_cfl_init_clock_gating(struct intel_display *display)
 	intel_de_rmw(display, DISP_ARB_CTL, 0, DISP_FBC_WM_DIS);
 }
 
-void intel_display_bxt_init_clock_gating(struct intel_display *display)
+static void intel_display_bxt_init_clock_gating(struct intel_display *display)
 {
 	intel_display_gen9_init_clock_gating(display);
 
@@ -120,7 +120,7 @@ void intel_display_bxt_init_clock_gating(struct intel_display *display)
 	intel_de_rmw(display, DISP_ARB_CTL, 0, DISP_FBC_WM_DIS);
 }
 
-void intel_display_glk_init_clock_gating(struct intel_display *display)
+static void intel_display_glk_init_clock_gating(struct intel_display *display)
 {
 	intel_display_gen9_init_clock_gating(display);
 
@@ -267,4 +267,18 @@ void intel_display_g4x_init_clock_gating(struct intel_display *display)
 void intel_display_i965gm_init_clock_gating(struct intel_display *display)
 {
 	intel_de_write(display, DSPCLK_GATE_D, 0);
+}
+
+void intel_display_init_clock_gating(struct intel_display *display)
+{
+	if (display->platform.skylake)
+		intel_display_skl_init_clock_gating(display);
+	else if (display->platform.kabylake)
+		intel_display_kbl_init_clock_gating(display);
+	else if (display->platform.coffeelake || display->platform.cometlake)
+		intel_display_cfl_init_clock_gating(display);
+	else if (display->platform.broxton)
+		intel_display_bxt_init_clock_gating(display);
+	else if (display->platform.geminilake)
+		intel_display_glk_init_clock_gating(display);
 }

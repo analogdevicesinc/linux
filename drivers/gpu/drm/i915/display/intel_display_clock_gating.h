@@ -8,11 +8,7 @@
 
 struct intel_display;
 
-void intel_display_skl_init_clock_gating(struct intel_display *display);
-void intel_display_kbl_init_clock_gating(struct intel_display *display);
-void intel_display_cfl_init_clock_gating(struct intel_display *display);
-void intel_display_bxt_init_clock_gating(struct intel_display *display);
-void intel_display_glk_init_clock_gating(struct intel_display *display);
+void intel_display_init_clock_gating(struct intel_display *display);
 void intel_display_bdw_clock_gating_disable_fbcq(struct intel_display *display);
 void intel_display_bdw_clock_gating_vblank_in_srd(struct intel_display *display);
 void intel_display_bdw_clock_gating_kvm_notif(struct intel_display *display);
