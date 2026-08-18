@@ -792,6 +792,48 @@ static void dm_test_backlight_caps_non_aux_sets_defaults(struct kunit *test)
 }
 #endif
 
+/* Tests for amdgpu_dm_validate_backlight_caps() */
+
+struct dm_validate_caps_param {
+	const char *name;
+	int min_input_signal;
+	int max_input_signal;
+	bool caps_valid;
+};
+
+static const struct dm_validate_caps_param dm_validate_caps_params[] = {
+	{ "sane", AMDGPU_DM_DEFAULT_MIN_BACKLIGHT, AMDGPU_DM_DEFAULT_MAX_BACKLIGHT, true },
+	{ "max_too_large", AMDGPU_DM_DEFAULT_MIN_BACKLIGHT,
+	  AMDGPU_DM_DEFAULT_MAX_BACKLIGHT + 1, false },
+	{ "negative_min", -1, AMDGPU_DM_DEFAULT_MAX_BACKLIGHT, false },
+	{ "narrow_spread", 100, 100 + AMDGPU_DM_MIN_SPREAD - 1, false },
+};
+
+KUNIT_ARRAY_PARAM_DESC(dm_validate_caps, dm_validate_caps_params, name);
+
+/**
+ * dm_test_validate_backlight_caps - Test the firmware caps sanity check
+ * @test: The KUnit test context
+ *
+ * Caps above the 8-bit range, with a negative min or with a spread narrower
+ * than AMDGPU_DM_MIN_SPREAD must be rejected.
+ */
+static void dm_test_validate_backlight_caps(struct kunit *test)
+{
+	const struct dm_validate_caps_param *param = test->param_value;
+	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
+	struct amdgpu_dm_backlight_caps *caps = &dm->backlight_caps[0];
+
+	dm->adev = dm_kunit_alloc_adev(test);
+	caps->caps_valid = true;
+	caps->min_input_signal = param->min_input_signal;
+	caps->max_input_signal = param->max_input_signal;
+
+	amdgpu_dm_validate_backlight_caps(dm, 0);
+
+	KUNIT_EXPECT_EQ(test, caps->caps_valid, param->caps_valid);
+}
+
 /* Tests for get_brightness_range() */
 
 /**
@@ -1928,6 +1970,8 @@ static struct kunit_case dm_backlight_test_cases[] = {
 	KUNIT_CASE(dm_test_backlight_caps_aux_support_noop),
 	KUNIT_CASE(dm_test_backlight_caps_non_aux_sets_defaults),
 #endif
+	/* amdgpu_dm_validate_backlight_caps */
+	KUNIT_CASE_PARAM(dm_test_validate_backlight_caps, dm_validate_caps_gen_params),
 	/* get_brightness_range */
 	KUNIT_CASE(dm_test_brightness_range_null_caps),
 	KUNIT_CASE(dm_test_brightness_range_pwm),
