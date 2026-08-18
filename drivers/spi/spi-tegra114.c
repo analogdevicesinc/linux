@@ -908,7 +908,8 @@ static int tegra_spi_start_transfer_one(struct spi_device *spi,
 	ret = tegra_spi_flush_fifos(tspi);
 	if (ret < 0)
 		return ret;
-	if (total_fifo_words > SPI_FIFO_DEPTH)
+	if (total_fifo_words > SPI_FIFO_DEPTH &&
+	    tspi->tx_dma_chan && tspi->rx_dma_chan)
 		ret = tegra_spi_start_dma_based_transfer(tspi, t);
 	else
 		ret = tegra_spi_start_cpu_based_transfer(tspi, t);
@@ -1376,15 +1377,21 @@ static int tegra_spi_probe(struct platform_device *pdev)
 	tspi->max_buf_size = SPI_FIFO_DEPTH << 2;
 	tspi->dma_buf_size = DEFAULT_SPI_DMA_BUF_LEN;
 
-	ret = tegra_spi_init_dma_param(tspi, true);
-	if (ret < 0)
-		return ret;
-	ret = tegra_spi_init_dma_param(tspi, false);
-	if (ret < 0)
-		goto exit_rx_dma_free;
-	tspi->max_buf_size = tspi->dma_buf_size;
-	init_completion(&tspi->tx_dma_complete);
-	init_completion(&tspi->rx_dma_complete);
+	if (of_property_present(pdev->dev.of_node, "dmas")) {
+		ret = tegra_spi_init_dma_param(tspi, true);
+		if (ret < 0)
+			return ret;
+		ret = tegra_spi_init_dma_param(tspi, false);
+		if (ret < 0)
+			goto exit_rx_dma_free;
+
+		tspi->max_buf_size = tspi->dma_buf_size;
+		init_completion(&tspi->tx_dma_complete);
+		init_completion(&tspi->rx_dma_complete);
+	} else {
+		dev_warn(&pdev->dev,
+			 "'dmas' is required by the binding, falling back to PIO\n");
+	}
 
 	init_completion(&tspi->xfer_completion);
 
