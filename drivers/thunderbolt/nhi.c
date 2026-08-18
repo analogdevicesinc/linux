@@ -1245,24 +1245,40 @@ void nhi_reset_interface(struct tb_nhi *nhi)
 
 static struct tb *nhi_select_cm(struct tb_nhi *nhi)
 {
+	bool linked = false;
 	struct tb *tb;
 
 	/*
 	 * USB4 case is simple. If we got control of any of the
 	 * capabilities, we use software CM.
 	 */
-	if (tb_acpi_is_native())
-		return tb_probe(nhi);
+	if (!tb_acpi_is_native()) {
+		/*
+		 * Either firmware based CM is running (we did not get
+		 * control from the firmware) or this is pre-USB4 PC so
+		 * try first firmware CM and then fallback to software CM.
+		 */
+		tb = icm_probe(nhi);
+		if (tb)
+			return tb;
+	}
 
-	/*
-	 * Either firmware based CM is running (we did not get control
-	 * from the firmware) or this is pre-USB4 PC so try first
-	 * firmware CM and then fallback to software CM.
-	 */
-	tb = icm_probe(nhi);
+	tb = tb_probe(nhi);
 	if (!tb)
-		tb = tb_probe(nhi);
+		return NULL;
 
+	if (nhi->ops->add_links)
+		linked = nhi->ops->add_links(nhi);
+	if (!linked)
+		linked = tb_acpi_add_links(nhi);
+	/*
+	 * Device links are needed to make sure we establish tunnels
+	 * before protocol stacks are resumed so complain here if we
+	 * found them missing.
+	 */
+	if (!linked)
+		dev_warn(nhi->dev,
+			 "device links to tunneled native ports are missing!\n");
 	return tb;
 }
 
