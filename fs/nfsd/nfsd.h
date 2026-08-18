@@ -14,7 +14,6 @@
 
 #include <linux/nfs.h>
 #include <linux/nfs2.h>
-#include <linux/nfs3.h>
 #include <linux/sunrpc/svc.h>
 #include <linux/sunrpc/svc_xprt.h>
 
