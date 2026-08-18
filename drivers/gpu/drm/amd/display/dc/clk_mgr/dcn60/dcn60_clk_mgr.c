@@ -1539,6 +1539,9 @@ static void dcn60_set_idle_power_optimizations(struct clk_mgr *clk_mgr_base, boo
 	if (!clk_mgr->smu_present)
 		return;
 
+	if (!ASICREV_IS_DCN6_VARIANT_LITE3(clk_mgr_base->ctx->asic_id.hw_internal_rev))
+		return;
+
 	dcn60_smu_set_display_idle_optimization(clk_mgr, enable);
 }
 
