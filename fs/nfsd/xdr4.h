@@ -37,6 +37,8 @@
 #ifndef _LINUX_NFSD_XDR4_H
 #define _LINUX_NFSD_XDR4_H
 
+#include <linux/nfs_fh.h>
+
 #include "state.h"
 #include "vfs.h"
 
