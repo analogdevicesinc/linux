@@ -231,9 +231,10 @@ config BROKEN_ON_SMP
 	default y
 
 config INIT_ENV_ARG_LIMIT
-	int
+	int "Maximum number of kernel command line arguments"
 	default 32 if !UML
 	default 128 if UML
+	range 32 4096
 	help
 	  Maximum of each of the number of arguments and environment
 	  variables passed to init from the kernel command line.
