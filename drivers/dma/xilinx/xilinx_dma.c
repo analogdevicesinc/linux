@@ -651,17 +651,51 @@ static inline void xilinx_aximcdma_buf(struct xilinx_dma_chan *chan,
  * @tx: async transaction descriptor
  * @payload_len: metadata payload length
  * @max_len: metadata max length
- * Return: The app field pointer.
+ *
+ * The metadata lives in the SOP descriptor for TX and the EOF descriptor for RX.
+ * Field order depends on dmatype and direction:
+ *
+ *   AXI DMA:         [0..] app
+ *   AXI MCDMA (TX):  [0] ctrl_sideband, [1] status, [2..] app
+ *   AXI MCDMA (RX):  [0] status, [1] sideband, [2..] app
+ *
+ * Return: Pointer to the first metadata word.
  */
 static void *xilinx_dma_get_metadata_ptr(struct dma_async_tx_descriptor *tx,
 					 size_t *payload_len, size_t *max_len)
 {
 	struct xilinx_dma_tx_descriptor *desc = to_dma_tx_descriptor(tx);
+	struct xilinx_dma_chan *chan = to_xilinx_chan(tx->chan);
+
+	if (chan->xdev->dma_config->dmatype == XDMA_TYPE_AXIMCDMA) {
+		struct xilinx_aximcdma_tx_segment *seg;
+
+		if (chan->direction == DMA_DEV_TO_MEM) {
+			seg = list_last_entry(&desc->segments,
+					      struct xilinx_aximcdma_tx_segment, node);
+			*max_len = *payload_len = sizeof(seg->hw.s2mm_status) +
+						  sizeof(seg->hw.s2mm_sideband_status) +
+						  sizeof(seg->hw.app);
+			return &seg->hw.s2mm_status;
+		}
+		seg = list_first_entry(&desc->segments,
+				       struct xilinx_aximcdma_tx_segment, node);
+		*max_len = *payload_len = sizeof(seg->hw.mm2s_ctrl_sideband) +
+					  sizeof(seg->hw.mm2s_status) +
+					  sizeof(seg->hw.app);
+		return &seg->hw.mm2s_ctrl_sideband;
+	}
+
 	struct xilinx_axidma_tx_segment *seg;
 
-	*max_len = *payload_len = sizeof(u32) * XILINX_DMA_NUM_APP_WORDS;
-	seg = list_first_entry(&desc->segments,
-			       struct xilinx_axidma_tx_segment, node);
+	if (chan->direction == DMA_DEV_TO_MEM)
+		seg = list_last_entry(&desc->segments,
+				      struct xilinx_axidma_tx_segment, node);
+	else
+		seg = list_first_entry(&desc->segments,
+				       struct xilinx_axidma_tx_segment, node);
+
+	*max_len = *payload_len = sizeof(seg->hw.app);
 	return seg->hw.app;
 }
 
@@ -2639,6 +2673,9 @@ xilinx_mcdma_prep_slave_sg(struct dma_chan *dchan, struct scatterlist *sgl,
 		segment->hw.control |= XILINX_MCDMA_BD_EOP;
 	}
 
+	if (chan->xdev->has_axistream_connected)
+		desc->async_tx.metadata_ops = &xilinx_dma_metadata_ops;
+
 	return &desc->async_tx;
 
 error:
@@ -3287,7 +3324,8 @@ static int xilinx_dma_probe(struct platform_device *pdev)
 
 	dma_set_max_seg_size(xdev->dev, xdev->max_buffer_len);
 
-	if (xdev->dma_config->dmatype == XDMA_TYPE_AXIDMA) {
+	if (xdev->dma_config->dmatype == XDMA_TYPE_AXIDMA ||
+	    xdev->dma_config->dmatype == XDMA_TYPE_AXIMCDMA) {
 		xdev->has_axistream_connected =
 			of_property_read_bool(node, "xlnx,axistream-connected");
 	}
