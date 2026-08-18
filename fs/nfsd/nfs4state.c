@@ -1161,6 +1161,7 @@ static struct nfs4_ol_stateid * nfs4_alloc_open_stateid(struct nfs4_client *clp)
  */
 static void nfs4_free_deleg(struct nfs4_stid *stid)
 {
+	struct nfsd_net *nn = net_generic(stid->sc_client->net, nfsd_net_id);
 	struct nfs4_delegation *dp = delegstateid(stid);
 
 	WARN_ON_ONCE(!list_empty(&stid->sc_cp_list));
@@ -1171,6 +1172,7 @@ static void nfs4_free_deleg(struct nfs4_stid *stid)
 	nfsd41_cb_destroy_referring_call_list(&dp->dl_recall);
 	kmem_cache_free(deleg_slab, stid);
 	atomic_long_dec(&num_delegations);
+	atomic_long_dec(&nn->nfsd_delegations);
 }
 
 /*
@@ -1255,6 +1257,7 @@ __alloc_init_deleg(struct nfs4_client *clp, struct nfs4_file *fp,
 		   struct nfs4_clnt_odstate *odstate, u32 dl_type,
 		   void (*sc_free)(struct nfs4_stid *))
 {
+	struct nfsd_net *nn = net_generic(clp->net, nfsd_net_id);
 	struct nfs4_delegation *dp;
 	struct nfs4_stid *stid;
 	long n;
@@ -1263,6 +1266,7 @@ __alloc_init_deleg(struct nfs4_client *clp, struct nfs4_file *fp,
 		return NULL;
 
 	n = atomic_long_inc_return(&num_delegations);
+	atomic_long_inc(&nn->nfsd_delegations);
 	if (n < 0 || n > max_delegations)
 		goto out_dec;
 
@@ -1295,6 +1299,7 @@ __alloc_init_deleg(struct nfs4_client *clp, struct nfs4_file *fp,
 	return dp;
 out_dec:
 	atomic_long_dec(&num_delegations);
+	atomic_long_dec(&nn->nfsd_delegations);
 	return NULL;
 }
 
@@ -5581,7 +5586,7 @@ nfsd4_state_shrinker_count(struct shrinker *shrink, struct shrink_control *sc)
 
 	count = atomic_read(&nn->nfsd_courtesy_clients);
 	if (!count)
-		count = atomic_long_read(&num_delegations);
+		count = atomic_long_read(&nn->nfsd_delegations);
 	if (count)
 		queue_work(laundry_wq, &nn->nfsd_shrinker_work);
 	return (unsigned long)count;
