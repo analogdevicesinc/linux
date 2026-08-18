@@ -5578,41 +5578,88 @@ out:
 	return -ENOMEM;
 }
 
+#define NFSD_RECALL_ANY_COOLDOWN_SECS	5
+
 static unsigned long
 nfsd4_courtesy_shrinker_count(struct shrinker *shrink,
 			      struct shrink_control *sc)
 {
 	struct nfsd_net *nn = shrink->private_data;
-	long count;
+	long backlog, count;
 
 	count = atomic_read(&nn->nfsd_courtesy_clients);
-	if (count)
-		queue_work(laundry_wq, &nn->nfsd_courtesy_work);
-	return (unsigned long)count;
+	if (!count)
+		return 0;
+
+	queue_work(laundry_wq, &nn->nfsd_courtesy_work);
+
+	/* Work already queued is not available to reclaim again. */
+	backlog = atomic_long_read(&nn->nfsd_shrink_backlog);
+	return count > backlog ? count - backlog : 0;
 }
 
 static unsigned long
 nfsd4_deleg_shrinker_count(struct shrinker *shrink, struct shrink_control *sc)
 {
 	struct nfsd_net *nn = shrink->private_data;
+	time64_t elapsed;
 	long count;
 
 	count = atomic_long_read(&nn->nfsd_delegations);
-	if (count)
-		queue_work(laundry_wq, &nn->nfsd_deleg_work);
-	return (unsigned long)count;
+	if (!count)
+		return 0;
+
+	/*
+	 * Delegations the last sweep reached stay unreclaimable until
+	 * deleg_reaper()'s cooldown expires. CB_RECALL_ANY leaves the
+	 * choice of delegations to the client, so there is no return
+	 * to wait on instead.
+	 */
+	elapsed = ktime_get_boottime_seconds() -
+			READ_ONCE(nn->nfsd_last_recall_any);
+	if (elapsed < NFSD_RECALL_ANY_COOLDOWN_SECS)
+		return 0;
+
+	queue_work(laundry_wq, &nn->nfsd_deleg_work);
+	return count;
 }
 
 static unsigned long
-nfsd4_state_shrinker_scan(struct shrinker *shrink, struct shrink_control *sc)
+nfsd4_courtesy_shrinker_scan(struct shrinker *shrink,
+			     struct shrink_control *sc)
 {
+	struct nfsd_net *nn = shrink->private_data;
+
+	atomic_long_add(sc->nr_to_scan, &nn->nfsd_shrink_backlog);
+	queue_work(laundry_wq, &nn->nfsd_courtesy_work);
+
+	/*
+	 * The reaper runs from laundry_wq. Report no progress rather
+	 * than claim memory that is not free yet.
+	 */
+	return SHRINK_STOP;
+}
+
+static unsigned long
+nfsd4_deleg_shrinker_scan(struct shrinker *shrink, struct shrink_control *sc)
+{
+	struct nfsd_net *nn = shrink->private_data;
+
+	queue_work(laundry_wq, &nn->nfsd_deleg_work);
+
+	/*
+	 * The reaper sends CB_RECALL_ANY, so nothing is free when
+	 * this returns.
+	 */
 	return SHRINK_STOP;
 }
 
 static struct shrinker *
 nfsd4_alloc_state_shrinker(struct nfsd_net *nn, const char *name,
 			   unsigned long (*count)(struct shrinker *,
-						  struct shrink_control *))
+						  struct shrink_control *),
+			   unsigned long (*scan)(struct shrinker *,
+						 struct shrink_control *))
 {
 	struct shrinker *shrink;
 
@@ -5621,7 +5668,7 @@ nfsd4_alloc_state_shrinker(struct nfsd_net *nn, const char *name,
 		return NULL;
 
 	shrink->count_objects = count;
-	shrink->scan_objects = nfsd4_state_shrinker_scan;
+	shrink->scan_objects = scan;
 	shrink->private_data = nn;
 
 	shrinker_register(shrink);
@@ -8006,7 +8053,8 @@ deleg_reaper(struct nfsd_net *nn)
 			continue;
 		if (atomic_read(&clp->cl_delegs_in_recall))
 			continue;
-		if (ktime_get_boottime_seconds() - clp->cl_ra_time < 5)
+		if (ktime_get_boottime_seconds() - clp->cl_ra_time <
+				NFSD_RECALL_ANY_COOLDOWN_SECS)
 			continue;
 		if (clp->cl_cb_state != NFSD4_CB_UP)
 			continue;
@@ -8038,6 +8086,12 @@ deleg_reaper(struct nfsd_net *nn)
 		nfsd4_run_cb(&clp->cl_ra->ra_cb);
 	}
 	spin_unlock(&nn->client_lock);
+
+	/*
+	 * Stamp the sweep even when no recall went out. A sweep that
+	 * found nothing eligible finds nothing on an immediate retry.
+	 */
+	WRITE_ONCE(nn->nfsd_last_recall_any, ktime_get_boottime_seconds());
 }
 
 static void
@@ -8045,8 +8099,16 @@ nfsd4_courtesy_shrinker_worker(struct work_struct *work)
 {
 	struct nfsd_net *nn = container_of(work, struct nfsd_net,
 				nfsd_courtesy_work);
+	long backlog;
 
+	/*
+	 * Retire only the requests sampled here, so that requests
+	 * arriving while the reaper runs are still discounted by
+	 * nfsd4_courtesy_shrinker_count().
+	 */
+	backlog = atomic_long_read(&nn->nfsd_shrink_backlog);
 	courtesy_client_reaper(nn);
+	atomic_long_sub(backlog, &nn->nfsd_shrink_backlog);
 }
 
 static void
@@ -10019,17 +10081,21 @@ static int nfs4_state_create_net(struct net *net)
 	disable_delayed_work(&nn->laundromat_work);
 	INIT_WORK(&nn->nfsd_courtesy_work, nfsd4_courtesy_shrinker_worker);
 	INIT_WORK(&nn->nfsd_deleg_work, nfsd4_deleg_shrinker_worker);
+	atomic_long_set(&nn->nfsd_shrink_backlog, 0);
+	nn->nfsd_last_recall_any = 0;
 	get_net(net);
 
 	nn->nfsd_courtesy_shrinker =
 		nfsd4_alloc_state_shrinker(nn, "nfsd-courtesy",
-					   nfsd4_courtesy_shrinker_count);
+					   nfsd4_courtesy_shrinker_count,
+					   nfsd4_courtesy_shrinker_scan);
 	if (!nn->nfsd_courtesy_shrinker)
 		goto err_shrinker;
 
 	nn->nfsd_deleg_shrinker =
 		nfsd4_alloc_state_shrinker(nn, "nfsd-delegation",
-					   nfsd4_deleg_shrinker_count);
+					   nfsd4_deleg_shrinker_count,
+					   nfsd4_deleg_shrinker_scan);
 	if (!nn->nfsd_deleg_shrinker)
 		goto err_deleg_shrinker;
 
