@@ -1700,7 +1700,7 @@ retry:
 		}
 
 		si = get_swap_device(entry);
-		if (unlikely(!si)) {
+		if (IS_ERR_OR_NULL(si)) {
 			ret = -EAGAIN;
 			goto out;
 		}
@@ -1757,7 +1757,7 @@ out:
 	if (dst_pte)
 		pte_unmap(dst_pte);
 	mmu_notifier_invalidate_range_end(&range);
-	if (si)
+	if (!IS_ERR_OR_NULL(si))
 		put_swap_device(si);
 
 	return ret;
