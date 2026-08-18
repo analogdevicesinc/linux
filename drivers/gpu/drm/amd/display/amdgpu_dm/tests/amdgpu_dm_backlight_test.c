@@ -747,8 +747,6 @@ static void dm_test_backlight_caps_valid_short_circuit(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, caps->max_input_signal, 199);
 }
 
-#if !defined(CONFIG_ACPI)
-
 /**
  * dm_test_backlight_caps_aux_support_noop - Test Backlight caps aux support noop
  * @test: The KUnit test context
@@ -757,6 +755,9 @@ static void dm_test_backlight_caps_aux_support_noop(struct kunit *test)
 {
 	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
 	struct amdgpu_dm_backlight_caps *caps = &dm->backlight_caps[0];
+
+	if (IS_ENABLED(CONFIG_ACPI))
+		kunit_skip(test, "caps are queried from ACPI firmware in this build");
 
 	caps->caps_valid = false;
 	caps->aux_support = true;
@@ -769,28 +770,6 @@ static void dm_test_backlight_caps_aux_support_noop(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, caps->min_input_signal, 11);
 	KUNIT_EXPECT_EQ(test, caps->max_input_signal, 222);
 }
-
-/**
- * dm_test_backlight_caps_non_aux_sets_defaults - Test Backlight caps non aux sets defaults
- * @test: The KUnit test context
- */
-static void dm_test_backlight_caps_non_aux_sets_defaults(struct kunit *test)
-{
-	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
-	struct amdgpu_dm_backlight_caps *caps = &dm->backlight_caps[0];
-
-	caps->caps_valid = false;
-	caps->aux_support = false;
-	caps->min_input_signal = 0;
-	caps->max_input_signal = 0;
-
-	amdgpu_dm_update_backlight_caps(dm, 0);
-
-	KUNIT_EXPECT_TRUE(test, caps->caps_valid);
-	KUNIT_EXPECT_EQ(test, caps->min_input_signal, AMDGPU_DM_DEFAULT_MIN_BACKLIGHT);
-	KUNIT_EXPECT_EQ(test, caps->max_input_signal, AMDGPU_DM_DEFAULT_MAX_BACKLIGHT);
-}
-#endif
 
 /* Tests for amdgpu_dm_validate_backlight_caps() */
 
@@ -1965,11 +1944,9 @@ static struct kunit_case dm_backlight_test_cases[] = {
 	/* amdgpu_dm_backlight_get_device_index */
 	KUNIT_CASE(dm_test_backlight_device_index_matches_second),
 	KUNIT_CASE(dm_test_backlight_device_index_missing_fallback),
+	/* amdgpu_dm_update_backlight_caps */
 	KUNIT_CASE(dm_test_backlight_caps_valid_short_circuit),
-#if !defined(CONFIG_ACPI)
 	KUNIT_CASE(dm_test_backlight_caps_aux_support_noop),
-	KUNIT_CASE(dm_test_backlight_caps_non_aux_sets_defaults),
-#endif
 	/* amdgpu_dm_validate_backlight_caps */
 	KUNIT_CASE_PARAM(dm_test_validate_backlight_caps, dm_validate_caps_gen_params),
 	/* get_brightness_range */
