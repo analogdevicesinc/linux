@@ -210,7 +210,6 @@ enum {
 #define LDO5L_EN_MASK			0xC0
 #define LDO5LOUT_MASK			0x0F
 
-#define LDO5H_EN_MASK			0xC0
 #define LDO5HOUT_MASK			0x0F
 
 /* PCA9450_REG_IRQ bits */
