@@ -9,6 +9,7 @@
  */
 
 #include <linux/exportfs.h>
+#include <linux/nfs3.h>
 
 #include <linux/sunrpc/svcauth_gss.h>
 #include <crypto/utils.h>
