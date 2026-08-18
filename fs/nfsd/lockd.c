@@ -9,6 +9,7 @@
 
 #include <linux/file.h>
 #include <linux/lockd/bind.h>
+#include <linux/nfs_fh.h>
 #include "nfsd.h"
 #include "nfserr.h"
 #include "vfs.h"
