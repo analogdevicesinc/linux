@@ -618,6 +618,9 @@ STATIC_IFN_KUNIT void amdgpu_dm_irq_schedule_work(struct amdgpu_device *adev,
 
 	DM_IRQ_TABLE_LOCK(adev, irq_table_flags);
 
+	if (!adev->dm.irq_wq)
+		goto out_unlock;
+
 	if (list_empty(handler_list))
 		goto out_unlock;
 
