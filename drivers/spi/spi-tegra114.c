@@ -1103,20 +1103,20 @@ static int tegra_spi_transfer_one_message(struct spi_controller *host,
 
 complete_xfer:
 		if (ret < 0 || skip) {
-			tegra_spi_transfer_end(spi);
 			spi_transfer_delay_exec(xfer);
+			tegra_spi_transfer_end(spi);
 			goto exit;
 		} else if (list_is_last(&xfer->transfer_list,
 					&msg->transfers)) {
 			if (xfer->cs_change)
 				tspi->cs_control = spi;
 			else {
-				tegra_spi_transfer_end(spi);
 				spi_transfer_delay_exec(xfer);
+				tegra_spi_transfer_end(spi);
 			}
 		} else if (xfer->cs_change) {
-			tegra_spi_transfer_end(spi);
 			spi_transfer_delay_exec(xfer);
+			tegra_spi_transfer_end(spi);
 		}
 
 	}
