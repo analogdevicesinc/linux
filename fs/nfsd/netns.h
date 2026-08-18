@@ -248,6 +248,9 @@ struct nfsd_net {
 	/* courtesy scan requests the reaper has not retired yet */
 	atomic_long_t		nfsd_shrink_backlog;
 
+	/* delegation scan requests the reaper has not retired yet */
+	atomic_long_t		nfsd_deleg_backlog;
+
 	/* when deleg_reaper() last swept the client list */
 	time64_t		nfsd_last_recall_any;
 
