@@ -28700,6 +28700,13 @@ S:	Maintained
 F:	drivers/nvdimm/nd_virtio.c
 F:	drivers/nvdimm/virtio_pmem.c
 
+VIRTIO RNG DRIVER
+M:	Laurent Vivier <lvivier@redhat.com>
+L:	virtualization@lists.linux.dev
+S:	Maintained
+F:	drivers/char/hw_random/virtio-rng.c
+F:	include/uapi/linux/virtio_rng.h
+
 VIRTIO RTC DRIVER
 M:	Peter Hilber <peter.hilber@oss.qualcomm.com>
 L:	virtualization@lists.linux.dev
