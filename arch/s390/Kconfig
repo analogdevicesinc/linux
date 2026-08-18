@@ -521,14 +521,6 @@ endchoice
 config 64BIT
 	def_bool y
 
-config COMMAND_LINE_SIZE
-	int "Maximum size of kernel command line"
-	default 4096
-	range 896 1048576
-	help
-	  This allows you to specify the maximum length of the kernel command
-	  line.
-
 config SMP
 	def_bool y
 

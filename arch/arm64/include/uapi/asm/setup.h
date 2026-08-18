@@ -22,6 +22,10 @@
 
 #include <linux/types.h>
 
+#ifdef __KERNEL__
+#define COMMAND_LINE_SIZE	CONFIG_COMMAND_LINE_SIZE
+#else
 #define COMMAND_LINE_SIZE	2048
+#endif
 
 #endif
