@@ -521,6 +521,40 @@ static int icl_nhi_resume(struct tb_nhi *nhi)
 	return 0;
 }
 
+static bool icl_nhi_add_links(struct tb_nhi *nhi)
+{
+	struct pci_dev *nhi_pdev = to_pci_dev(nhi->dev);
+	struct pci_bus *bus = nhi_pdev->bus;
+	struct pci_dev *pdev;
+	bool ret;
+
+	if (!x86_apple_machine)
+		return false;
+
+	/*
+	 * On integrated controllers the tunneled PCIe root ports are
+	 * directly under the host bridge.
+	 */
+	if (!pci_is_root_bus(bus))
+		return false;
+
+	ret = false;
+	for_each_pci_bridge(pdev, bus) {
+		switch (nhi_pdev->device) {
+		case PCI_DEVICE_ID_INTEL_ICL_NHI0:
+			if (pdev->device == 0x8a1d || pdev->device == 0x8a1f)
+				ret |= add_link(nhi, pdev);
+			break;
+		case PCI_DEVICE_ID_INTEL_ICL_NHI1:
+			if (pdev->device == 0x8a21 || pdev->device == 0x8a23)
+				ret |= add_link(nhi, pdev);
+			break;
+		}
+	}
+
+	return ret;
+}
+
 static void icl_nhi_shutdown(struct tb_nhi *nhi)
 {
 	nhi_pci_release_irq(nhi);
@@ -530,6 +564,7 @@ static void icl_nhi_shutdown(struct tb_nhi *nhi)
 
 static const struct tb_nhi_ops icl_nhi_ops = {
 	.init = icl_nhi_resume,
+	.add_links = icl_nhi_add_links,
 	.suspend_noirq = icl_nhi_suspend_noirq,
 	.resume_noirq = icl_nhi_resume,
 	.runtime_suspend = icl_nhi_suspend,
