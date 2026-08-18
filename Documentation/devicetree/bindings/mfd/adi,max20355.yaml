@@ -28,7 +28,17 @@ properties:
       - adi,max20357
 
   reg:
-    maxItems: 1
+    minItems: 1
+    maxItems: 3
+
+  reg-names:
+    minItems: 1
+    maxItems: 3
+    items:
+      enum:
+        - plc
+        - fuel-gauge
+        - ram
 
   interrupts:
     maxItems: 1
@@ -36,6 +46,7 @@ properties:
 required:
   - compatible
   - reg
+  - reg-names
 
 additionalProperties: false
 
@@ -49,7 +60,8 @@ examples:
 
         pmic@28 {
             compatible = "adi,max20355";
-            reg = <0x28>;
+            reg = <0x28>, <0x36>, <0x50>;
+            reg-names = "plc", "fuel-gauge", "ram";
             interrupt-parent = <&gpio>;
             interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
         };
@@ -63,7 +75,8 @@ examples:
 
         pmic@15 {
             compatible = "adi,max20357";
-            reg = <0x15>;
+            reg = <0x15>, <0x36>, <0x55>;
+            reg-names = "plc", "fuel-gauge", "ram";
             interrupt-parent = <&gpio>;
             interrupts = <22 IRQ_TYPE_LEVEL_LOW>;
         };

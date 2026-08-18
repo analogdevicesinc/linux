@@ -170,7 +170,7 @@ static int max2035x_probe(struct i2c_client *client)
 	const struct of_device_id *match;
 	struct regmap_config regmap_cfg;
 	struct device_node *np;
-	unsigned int rev, rev_reg, fg_sid, ram_sid;
+	unsigned int rev, rev_reg;
 	const struct mfd_cell *cells;
 	int ncells, ret;
 
@@ -208,15 +208,11 @@ static int max2035x_probe(struct i2c_client *client)
 		rev_reg = MAX20355_REG_REVISION_ID;
 		cells = max20355_cells;
 		ncells = ARRAY_SIZE(max20355_cells);
-		fg_sid = MAX20355_I2C_ADDR_FG;
-		ram_sid = MAX20355_I2C_ADDR_RAM;
 		break;
 	case MAX20357:
 		rev_reg = MAX20357_REG_REVISION_ID;
 		cells = max20357_cells;
 		ncells = ARRAY_SIZE(max20357_cells);
-		fg_sid = MAX20357_I2C_ADDR_FG;
-		ram_sid = MAX20357_I2C_ADDR_RAM;
 		break;
 	}
 
@@ -229,16 +225,19 @@ static int max2035x_probe(struct i2c_client *client)
 
 	i2c_set_clientdata(client, chip);
 
-	chip->fuelgauge = i2c_new_dummy_device(client->adapter, fg_sid);
-    if (IS_ERR(chip->fuelgauge))
+	chip->fuelgauge = i2c_new_ancillary_device(client, "fuel-gauge",
+						    MAX2035X_I2C_ADDR_FG);
+	if (IS_ERR(chip->fuelgauge))
 		return dev_err_probe(chip->dev, PTR_ERR(chip->fuelgauge), "%s : Failed to create the Fuelgauge device\n", __func__);
 
 	i2c_set_clientdata(chip->fuelgauge, chip);
 
-    chip->ram = i2c_new_dummy_device(client->adapter, ram_sid);
-    if (IS_ERR(chip->ram)) {
+	chip->ram = i2c_new_ancillary_device(client, "ram",
+					     chip->type == MAX20355 ?
+					     MAX20355_I2C_ADDR_RAM :
+					     MAX20357_I2C_ADDR_RAM);
+	if (IS_ERR(chip->ram))
 		return dev_err_probe(chip->dev, PTR_ERR(chip->ram), "%s : Failed to create the RAM device\n", __func__);
-    }
 
 	i2c_set_clientdata(chip->ram, chip);
 
