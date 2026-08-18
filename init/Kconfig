@@ -1614,6 +1614,22 @@ config CMDLINE_FROM_BOOTCONFIG
 
 	  If unsure, say N.
 
+config COMMAND_LINE_SIZE
+	int "Maximum size of kernel command line"
+	default 4096 if S390 || LOONGARCH || MIPS || UML
+	default 2048 if X86 || ARM64 || PPC || SPARC64 || RISCV
+	default 1024 if ARM || PARISC
+	default 256 if ALPHA || ARC || M68K || MICROBLAZE || SPARC32 || XTENSA
+	default 512
+	range 896 1048576 if S390
+	range 256 2048 if ARM || M68K || NIOS2 || PPC
+	range 256 3840 if SUPERH
+	range 256 256 if ALPHA
+	range 256 4096
+	help
+	  This allows you to specify the maximum length of the kernel command
+	  line.
+
 config CMDLINE_LOG_WRAP_IDEAL_LEN
 	int "Length to try to wrap the cmdline when logged at boot"
 	default 1021

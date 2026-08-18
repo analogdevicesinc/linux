@@ -12,6 +12,10 @@
 #ifndef _XTENSA_SETUP_H
 #define _XTENSA_SETUP_H
 
+#ifdef __KERNEL__
+#define COMMAND_LINE_SIZE	CONFIG_COMMAND_LINE_SIZE
+#else
 #define COMMAND_LINE_SIZE	256
+#endif
 
 #endif
