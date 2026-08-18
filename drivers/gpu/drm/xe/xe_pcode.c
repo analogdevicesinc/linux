@@ -148,7 +148,7 @@ int xe_pcode_read(struct xe_tile *tile, u32 mbox, u32 *val, u32 *val1)
 
 static int pcode_try_request(struct xe_tile *tile, u32 mbox,
 			     u32 request, u32 reply_mask, u32 reply,
-			     u32 *status, bool atomic, int timeout_us, bool locked)
+			     int *status, bool atomic, int timeout_us, bool locked)
 {
 	int slept, wait = 10;
 
@@ -196,8 +196,7 @@ static int pcode_try_request(struct xe_tile *tile, u32 mbox,
 int xe_pcode_request(struct xe_tile *tile, u32 mbox, u32 request,
 		     u32 reply_mask, u32 reply, int timeout_base_ms)
 {
-	u32 status;
-	int ret;
+	int status, ret;
 
 	xe_tile_assert(tile, timeout_base_ms <= 3);
 
@@ -295,10 +294,10 @@ unlock:
  */
 int xe_pcode_ready(struct xe_device *xe, bool locked)
 {
-	u32 status, request = DGFX_GET_INIT_STATUS;
 	struct xe_tile *tile = xe_device_get_root_tile(xe);
 	long timeout_us = 3 * 60 * USEC_PER_SEC; /* 3 min */
-	int ret;
+	u32 request = DGFX_GET_INIT_STATUS;
+	int status, ret;
 
 	if (xe->info.skip_pcode)
 		return 0;
