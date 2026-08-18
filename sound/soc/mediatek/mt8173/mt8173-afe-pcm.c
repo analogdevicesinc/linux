@@ -1038,11 +1038,9 @@ static int mt8173_afe_init_audio_clk(struct mtk_base_afe *afe)
 
 	for (i = 0; i < ARRAY_SIZE(aud_clks); i++) {
 		afe_priv->clocks[i] = devm_clk_get(afe->dev, aud_clks[i]);
-		if (IS_ERR(afe_priv->clocks[i])) {
-			dev_err(afe->dev, "%s devm_clk_get %s fail\n",
-				__func__, aud_clks[i]);
-			return PTR_ERR(afe_priv->clocks[i]);
-		}
+		if (IS_ERR(afe_priv->clocks[i]))
+			return dev_err_probe(afe->dev, PTR_ERR(afe_priv->clocks[i]),
+					     "failed to get clock %s\n", aud_clks[i]);
 	}
 	clk_set_rate(afe_priv->clocks[MT8173_CLK_BCK0], 22579200); /* 22M */
 	clk_set_rate(afe_priv->clocks[MT8173_CLK_BCK1], 24576000); /* 24M */
