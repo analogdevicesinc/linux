@@ -5579,16 +5579,27 @@ out:
 }
 
 static unsigned long
-nfsd4_state_shrinker_count(struct shrinker *shrink, struct shrink_control *sc)
+nfsd4_courtesy_shrinker_count(struct shrinker *shrink,
+			      struct shrink_control *sc)
 {
 	struct nfsd_net *nn = shrink->private_data;
 	long count;
 
 	count = atomic_read(&nn->nfsd_courtesy_clients);
-	if (!count)
-		count = atomic_long_read(&nn->nfsd_delegations);
 	if (count)
-		queue_work(laundry_wq, &nn->nfsd_shrinker_work);
+		queue_work(laundry_wq, &nn->nfsd_courtesy_work);
+	return (unsigned long)count;
+}
+
+static unsigned long
+nfsd4_deleg_shrinker_count(struct shrinker *shrink, struct shrink_control *sc)
+{
+	struct nfsd_net *nn = shrink->private_data;
+	long count;
+
+	count = atomic_long_read(&nn->nfsd_delegations);
+	if (count)
+		queue_work(laundry_wq, &nn->nfsd_deleg_work);
 	return (unsigned long)count;
 }
 
@@ -5596,6 +5607,25 @@ static unsigned long
 nfsd4_state_shrinker_scan(struct shrinker *shrink, struct shrink_control *sc)
 {
 	return SHRINK_STOP;
+}
+
+static struct shrinker *
+nfsd4_alloc_state_shrinker(struct nfsd_net *nn, const char *name,
+			   unsigned long (*count)(struct shrinker *,
+						  struct shrink_control *))
+{
+	struct shrinker *shrink;
+
+	shrink = shrinker_alloc(0, "%s:%s", name, nn->nfsd_name);
+	if (!shrink)
+		return NULL;
+
+	shrink->count_objects = count;
+	shrink->scan_objects = nfsd4_state_shrinker_scan;
+	shrink->private_data = nn;
+
+	shrinker_register(shrink);
+	return shrink;
 }
 
 void
@@ -8011,12 +8041,20 @@ deleg_reaper(struct nfsd_net *nn)
 }
 
 static void
-nfsd4_state_shrinker_worker(struct work_struct *work)
+nfsd4_courtesy_shrinker_worker(struct work_struct *work)
 {
 	struct nfsd_net *nn = container_of(work, struct nfsd_net,
-				nfsd_shrinker_work);
+				nfsd_courtesy_work);
 
 	courtesy_client_reaper(nn);
+}
+
+static void
+nfsd4_deleg_shrinker_worker(struct work_struct *work)
+{
+	struct nfsd_net *nn = container_of(work, struct nfsd_net,
+				nfsd_deleg_work);
+
 	deleg_reaper(nn);
 }
 
@@ -9979,21 +10017,26 @@ static int nfs4_state_create_net(struct net *net)
 	INIT_DELAYED_WORK(&nn->laundromat_work, laundromat_main);
 	/* Make sure this cannot run until client tracking is initialised */
 	disable_delayed_work(&nn->laundromat_work);
-	INIT_WORK(&nn->nfsd_shrinker_work, nfsd4_state_shrinker_worker);
+	INIT_WORK(&nn->nfsd_courtesy_work, nfsd4_courtesy_shrinker_worker);
+	INIT_WORK(&nn->nfsd_deleg_work, nfsd4_deleg_shrinker_worker);
 	get_net(net);
 
-	nn->nfsd_client_shrinker = shrinker_alloc(0, "nfsd-client");
-	if (!nn->nfsd_client_shrinker)
+	nn->nfsd_courtesy_shrinker =
+		nfsd4_alloc_state_shrinker(nn, "nfsd-courtesy",
+					   nfsd4_courtesy_shrinker_count);
+	if (!nn->nfsd_courtesy_shrinker)
 		goto err_shrinker;
 
-	nn->nfsd_client_shrinker->scan_objects = nfsd4_state_shrinker_scan;
-	nn->nfsd_client_shrinker->count_objects = nfsd4_state_shrinker_count;
-	nn->nfsd_client_shrinker->private_data = nn;
-
-	shrinker_register(nn->nfsd_client_shrinker);
+	nn->nfsd_deleg_shrinker =
+		nfsd4_alloc_state_shrinker(nn, "nfsd-delegation",
+					   nfsd4_deleg_shrinker_count);
+	if (!nn->nfsd_deleg_shrinker)
+		goto err_deleg_shrinker;
 
 	return 0;
 
+err_deleg_shrinker:
+	shrinker_free(nn->nfsd_courtesy_shrinker);
 err_shrinker:
 	put_net(net);
 	kfree(nn->sessionid_hashtbl);
@@ -10094,8 +10137,10 @@ nfs4_state_shutdown_net(struct net *net)
 	struct list_head *pos, *next, reaplist;
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 
-	shrinker_free(nn->nfsd_client_shrinker);
-	cancel_work_sync(&nn->nfsd_shrinker_work);
+	shrinker_free(nn->nfsd_courtesy_shrinker);
+	shrinker_free(nn->nfsd_deleg_shrinker);
+	cancel_work_sync(&nn->nfsd_courtesy_work);
+	cancel_work_sync(&nn->nfsd_deleg_work);
 	disable_delayed_work_sync(&nn->laundromat_work);
 	locks_end_grace(&nn->nfsd4_manager);
 

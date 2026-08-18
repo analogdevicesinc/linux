@@ -240,8 +240,10 @@ struct nfsd_net {
 	atomic_t		nfsd_courtesy_clients;
 	/* per-namespace; num_delegations in nfs4state.c is host-wide */
 	atomic_long_t		nfsd_delegations;
-	struct shrinker		*nfsd_client_shrinker;
-	struct work_struct	nfsd_shrinker_work;
+	struct shrinker		*nfsd_courtesy_shrinker;
+	struct shrinker		*nfsd_deleg_shrinker;
+	struct work_struct	nfsd_courtesy_work;
+	struct work_struct	nfsd_deleg_work;
 
 	/* last time an admin-revoke happened for NFSv4.0 */
 	time64_t		nfs40_last_revoke;
