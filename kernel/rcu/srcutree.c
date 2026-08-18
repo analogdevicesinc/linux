@@ -1941,13 +1941,16 @@ EXPORT_SYMBOL_GPL(srcu_batches_completed);
 /*
  * Core SRCU state machine.  Push state bits of ->srcu_gp_seq
  * to SRCU_STATE_SCAN2, and invoke srcu_gp_end() when scan has
- * completed in that state.
+ * completed in that state.  Set is_atomic to indicate that
+ * the caller is excluding other calls so that ->srcu_gp_mutex
+ * is not needed, and to indicate that blocking is forbidden.
  */
-static void srcu_advance_state(struct srcu_struct *ssp)
+static void srcu_advance_state(struct srcu_struct *ssp, bool is_atomic)
 {
 	int idx;
 
-	mutex_lock(&ssp->srcu_sup->srcu_gp_mutex);
+	if (!is_atomic)
+		mutex_lock(&ssp->srcu_sup->srcu_gp_mutex);
 
 	/*
 	 * Because readers might be delayed for an extended period after
@@ -1965,7 +1968,8 @@ static void srcu_advance_state(struct srcu_struct *ssp)
 		if (ULONG_CMP_GE(ssp->srcu_sup->srcu_gp_seq, ssp->srcu_sup->srcu_gp_seq_needed)) {
 			WARN_ON_ONCE(rcu_seq_state(ssp->srcu_sup->srcu_gp_seq));
 			raw_spin_unlock_irq_rcu_node(ssp->srcu_sup);
-			mutex_unlock(&ssp->srcu_sup->srcu_gp_mutex);
+			if (!is_atomic)
+				mutex_unlock(&ssp->srcu_sup->srcu_gp_mutex);
 			return;
 		}
 		idx = rcu_seq_state(READ_ONCE(ssp->srcu_sup->srcu_gp_seq));
@@ -1973,7 +1977,8 @@ static void srcu_advance_state(struct srcu_struct *ssp)
 			srcu_gp_start(ssp);
 		raw_spin_unlock_irq_rcu_node(ssp->srcu_sup);
 		if (idx != SRCU_STATE_IDLE) {
-			mutex_unlock(&ssp->srcu_sup->srcu_gp_mutex);
+			if (!is_atomic)
+				mutex_unlock(&ssp->srcu_sup->srcu_gp_mutex);
 			return; /* Someone else started the grace period. */
 		}
 	}
@@ -1981,7 +1986,8 @@ static void srcu_advance_state(struct srcu_struct *ssp)
 	if (rcu_seq_state(READ_ONCE(ssp->srcu_sup->srcu_gp_seq)) == SRCU_STATE_SCAN1) {
 		idx = !(ssp->srcu_ctrp - &ssp->sda->srcu_ctrs[0]);
 		if (!try_check_zero(ssp, idx, 1)) {
-			mutex_unlock(&ssp->srcu_sup->srcu_gp_mutex);
+			if (!is_atomic)
+				mutex_unlock(&ssp->srcu_sup->srcu_gp_mutex);
 			return; /* readers present, retry later. */
 		}
 		srcu_flip(ssp);
@@ -1999,7 +2005,8 @@ static void srcu_advance_state(struct srcu_struct *ssp)
 		 */
 		idx = !(ssp->srcu_ctrp - &ssp->sda->srcu_ctrs[0]);
 		if (!try_check_zero(ssp, idx, 2)) {
-			mutex_unlock(&ssp->srcu_sup->srcu_gp_mutex);
+			if (!is_atomic)
+				mutex_unlock(&ssp->srcu_sup->srcu_gp_mutex);
 			return; /* readers present, retry later. */
 		}
 		ssp->srcu_sup->srcu_n_exp_nodelay = 0;
@@ -2107,7 +2114,7 @@ static void process_srcu(struct work_struct *work)
 	sup = container_of(work, struct srcu_usage, work.work);
 	ssp = sup->srcu_ssp;
 
-	srcu_advance_state(ssp);
+	srcu_advance_state(ssp, false);
 	raw_spin_lock_irq_rcu_node(ssp->srcu_sup);
 	curdelay = srcu_get_delay(ssp);
 	raw_spin_unlock_irq_rcu_node(ssp->srcu_sup);
