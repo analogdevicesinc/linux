@@ -81,25 +81,46 @@ static u64 translate_hva_to_hpa(unsigned long hva)
 
 static void write_einj_entry(const char *einj_path, u64 val)
 {
-	char cmd[256] = {0};
-	FILE *cmdfile = NULL;
+	char buf[32];
+	int fd, len, ret;
 
-	sprintf(cmd, "echo %#lx > %s", val, einj_path);
-	cmdfile = popen(cmd, "r");
+	fd = open(einj_path, O_WRONLY);
+	if (fd < 0)
+		ksft_exit_fail_perror(einj_path);
 
-	if (pclose(cmdfile) == 0)
-		ksft_print_msg("echo %#lx > %s - done\n", val, einj_path);
-	else
-		ksft_exit_fail_perror("Failed to write EINJ entry");
+	len = snprintf(buf, sizeof(buf), "%#lx\n", val);
+	ret = write(fd, buf, len);
+	if (ret != len)
+		ksft_exit_fail_perror(einj_path);
+
+	close(fd);
+	ksft_print_msg("%#lx > %s - done\n", val, einj_path);
 }
 
 static void inject_uer(u64 hpa)
 {
-	if (access("/sys/firmware/acpi/tables/EINJ", R_OK) == -1)
-		ksft_test_result_skip("EINJ table no available in firmware");
+	int fd;
 
-	if (access(EINJ_ETYPE, R_OK | W_OK) == -1)
-		ksft_test_result_skip("EINJ module probably not loaded?");
+	/*
+	 * EINJ is exposed only through debugfs, and opening it tells us why it
+	 * is unusable far more reliably than access()-ing the ACPI EINJ table:
+	 * reading that table needs CAP_SYS_ADMIN, so access() gives a false
+	 * negative for unprivileged runs. Open the injection interface and let
+	 * errno say whether the test cannot run (skip) or genuinely failed.
+	 */
+	fd = open(EINJ_ETYPE, O_WRONLY);
+	if (fd < 0) {
+		switch (errno) {
+		case ENOENT:
+			ksft_exit_skip("need CONFIG_ACPI_APEI_EINJ and firmware EINJ support\n");
+		case EACCES:
+		case EPERM:
+			ksft_exit_skip("EINJ requires running as root\n");
+		default:
+			ksft_exit_fail_perror(EINJ_ETYPE);
+		}
+	}
+	close(fd);
 
 	write_einj_entry(EINJ_ETYPE, ERROR_TYPE_MEMORY_UER);
 	write_einj_entry(EINJ_FLAGS, MASK_MEMORY_UER);
