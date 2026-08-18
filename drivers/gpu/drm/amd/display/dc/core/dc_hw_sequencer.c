@@ -786,6 +786,29 @@ static void calc_vline_position(
 		ASSERT(0);
 }
 
+struct dpp_cursor_attributes calc_sdr_cursor_attributes(struct pipe_ctx *pipe_ctx)
+{
+	uint32_t sdr_white_level = pipe_ctx->stream->cursor_attributes.sdr_white_level;
+	struct fixed31_32 multiplier;
+	struct dpp_cursor_attributes opt_attr = { 0 };
+	uint32_t hw_scale = 0x3c00; // 1.0 default multiplier
+	struct custom_float_format fmt;
+
+	fmt.exponenta_bits = 5;
+	fmt.mantissa_bits = 10;
+	fmt.sign = true;
+
+	if (sdr_white_level > 80) {
+		multiplier = dc_fixpt_from_fraction(sdr_white_level, 80);
+		convert_to_custom_float_format(multiplier, &fmt, &hw_scale);
+	}
+
+	opt_attr.scale = hw_scale;
+	opt_attr.bias = 0;
+
+	return opt_attr;
+}
+
 // Function to check if any update flags are set
 static bool get_pipe_update_bits_status(struct pipe_ctx *pipe, struct dc_plane_state *plane, struct dc_stream_state *stream)
 {
@@ -1183,6 +1206,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 	struct pipe_ctx *current_mpc_pipe = NULL;
 	bool is_dmub_lock_required = false;
 	unsigned int i = 0;
+	struct block_sequence_state seq_state = { .steps = block_sequence, .num_steps = num_steps };
 
 	*num_steps = 0; // Initialize to 0
 
@@ -1341,11 +1365,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 				(*num_steps)++;
 			}
 
-			block_sequence[*num_steps].params.set_cursor_sdr_white_level_params.dc = dc;
-			block_sequence[*num_steps].params.set_cursor_sdr_white_level_params.pipe_ctx =
-				current_pipe;
-			block_sequence[*num_steps].func = SET_CURSOR_SDR_WHITE_LEVEL;
-			(*num_steps)++;
+			hwss_add_set_cursor_sdr_white_level(&seq_state, current_pipe);
 
 			if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe) {
 				block_sequence[*num_steps].params.update_cursor_offload_pipe_params.dc = dc;
@@ -4385,11 +4405,10 @@ void hwss_set_cursor_position(union block_sequence_params *params)
 
 void hwss_set_cursor_sdr_white_level(union block_sequence_params *params)
 {
-	struct dc *dc = params->set_cursor_sdr_white_level_params.dc;
-	struct pipe_ctx *pipe_ctx = params->set_cursor_sdr_white_level_params.pipe_ctx;
+	struct dpp *dpp = params->set_cursor_sdr_white_level_params.dpp;
 
-	if (dc && dc->hwss.set_cursor_sdr_white_level)
-		dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
+	if (dpp->funcs->set_optional_cursor_attributes)
+		dpp->funcs->set_optional_cursor_attributes(dpp, &params->set_cursor_sdr_white_level_params.attr);
 }
 
 void hwss_program_gamut_remap(struct pipe_ctx *pipe_ctx)
@@ -5771,15 +5790,19 @@ void hwss_add_set_cursor_position(struct block_sequence_state *seq_state,
 }
 
 void hwss_add_set_cursor_sdr_white_level(struct block_sequence_state *seq_state,
-		struct dc *dc,
 		struct pipe_ctx *pipe_ctx)
 {
-	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].func = SET_CURSOR_SDR_WHITE_LEVEL;
-		seq_state->steps[*seq_state->num_steps].params.set_cursor_sdr_white_level_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.set_cursor_sdr_white_level_params.pipe_ctx = pipe_ctx;
-		(*seq_state->num_steps)++;
-	}
+	struct dpp *dpp = pipe_ctx->plane_res.dpp;
+	struct dpp_cursor_attributes attr;
+
+	if (dpp && dpp->funcs->set_optional_cursor_attributes)
+		if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+			attr = calc_sdr_cursor_attributes(pipe_ctx);
+			seq_state->steps[*seq_state->num_steps].func = SET_CURSOR_SDR_WHITE_LEVEL;
+			seq_state->steps[*seq_state->num_steps].params.set_cursor_sdr_white_level_params.dpp = dpp;
+			seq_state->steps[*seq_state->num_steps].params.set_cursor_sdr_white_level_params.attr = attr;
+			(*seq_state->num_steps)++;
+		}
 }
 
 void hwss_add_program_output_csc(struct block_sequence_state *seq_state,

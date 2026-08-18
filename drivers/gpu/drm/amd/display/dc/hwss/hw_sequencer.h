@@ -872,8 +872,8 @@ struct set_cursor_position_params {
 };
 
 struct set_cursor_sdr_white_level_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct dpp *dpp;
+	struct dpp_cursor_attributes attr;
 };
 
 struct program_output_csc_params {
@@ -1802,6 +1802,8 @@ void set_drr_and_clear_adjust_pending(
 		struct dc_stream_state *stream,
 		struct drr_params *params);
 
+struct dpp_cursor_attributes calc_sdr_cursor_attributes(struct pipe_ctx *pipe_ctx);
+
 void hwss_execute_sequence(struct dc *dc,
 		struct block_sequence block_sequence[MAX_HWSS_BLOCK_SEQUENCE_SIZE],
 		int num_steps);
@@ -2610,7 +2612,6 @@ void hwss_add_set_cursor_position(struct block_sequence_state *seq_state,
 		struct pipe_ctx *pipe_ctx);
 
 void hwss_add_set_cursor_sdr_white_level(struct block_sequence_state *seq_state,
-		struct dc *dc,
 		struct pipe_ctx *pipe_ctx);
 
 void hwss_add_program_output_csc(struct block_sequence_state *seq_state,

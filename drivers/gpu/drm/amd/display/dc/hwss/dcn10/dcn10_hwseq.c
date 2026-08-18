@@ -3938,29 +3938,13 @@ void dcn10_set_cursor_attribute(struct pipe_ctx *pipe_ctx)
 
 void dcn10_set_cursor_sdr_white_level(struct pipe_ctx *pipe_ctx)
 {
-	uint32_t sdr_white_level = pipe_ctx->stream->cursor_attributes.sdr_white_level;
-	struct fixed31_32 multiplier;
-	struct dpp_cursor_attributes opt_attr = { 0 };
-	uint32_t hw_scale = 0x3c00; // 1.0 default multiplier
-	struct custom_float_format fmt;
+	struct dpp *dpp = pipe_ctx->plane_res.dpp;
+	struct dpp_cursor_attributes attr;
 
-	if (!pipe_ctx->plane_res.dpp->funcs->set_optional_cursor_attributes)
-		return;
-
-	fmt.exponenta_bits = 5;
-	fmt.mantissa_bits = 10;
-	fmt.sign = true;
-
-	if (sdr_white_level > 80) {
-		multiplier = dc_fixpt_from_fraction(sdr_white_level, 80);
-		convert_to_custom_float_format(multiplier, &fmt, &hw_scale);
+	if (dpp && dpp->funcs->set_optional_cursor_attributes) {
+		attr = calc_sdr_cursor_attributes(pipe_ctx);
+		dpp->funcs->set_optional_cursor_attributes(dpp, &attr);
 	}
-
-	opt_attr.scale = hw_scale;
-	opt_attr.bias = 0;
-
-	pipe_ctx->plane_res.dpp->funcs->set_optional_cursor_attributes(
-			pipe_ctx->plane_res.dpp, &opt_attr);
 }
 
 /*
