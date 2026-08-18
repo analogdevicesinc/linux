@@ -549,10 +549,13 @@
 &pcie0 {
 	pinctrl-0 = <&pinctrl_pcie0>;
 	pinctrl-names = "default";
-	reset-gpio = <&gpio5 13 GPIO_ACTIVE_LOW>;
 	supports-clkreq;
-	vpcie-supply = <&reg_m2_mkey_pwr>;
 	status = "okay";
+};
+
+&pcie0_port0 {
+	reset-gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;
+	vpcie3v3-supply = <&reg_m2_mkey_pwr>;
 };
 
 &sai1 {
