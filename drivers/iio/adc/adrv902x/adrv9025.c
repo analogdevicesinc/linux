@@ -3458,9 +3458,21 @@ static ssize_t adrv9025_dpd_coef_write(struct file *filp, struct kobject *kobj,
 
 	mutex_lock(&phy->lock);
 	ret = adrv9025_parse_dpd_coef(phy, buf, count);
+	if (ret < 0) {
+		mutex_unlock(&phy->lock);
+		return ret;
+	}
+
+	ret = adi_adrv9025_DpdModelConfigSet_v2(phy->madDevice,
+						phy->dpdModelConfig);
+	if (ret) {
+		ret = adrv9025_dev_err(phy);
+		mutex_unlock(&phy->lock);
+		return ret;
+	}
 	mutex_unlock(&phy->lock);
 
-	return ret ? ret : count;
+	return count;
 }
 
 static ssize_t adrv9025_dpd_coef_read(struct file *filp, struct kobject *kobj,
@@ -3485,8 +3497,24 @@ static ssize_t adrv9025_dpd_coef_read(struct file *filp, struct kobject *kobj,
 		return -ENOMEM;
 	}
 
-	for (idx = 0; idx < phy->dpdModelConfig->dpdNumFeatures; idx++) {
-		adi_adrv9025_DpdFeature_v2_t *f = &phy->dpdModelConfig->dpdFeatures[idx];
+	adi_adrv9025_DpdModelConfig_v2_t *arm __free(kfree) =
+		kzalloc(sizeof(*arm), GFP_KERNEL);
+	if (!arm) {
+		mutex_unlock(&phy->lock);
+		return -ENOMEM;
+	}
+
+	ret = adi_adrv9025_DpdModelConfigGet_v2(phy->madDevice,
+						phy->dpdTxChannel ? phy->dpdTxChannel : ADI_ADRV9025_TX1,
+						arm);
+	if (ret) {
+		ret = adrv9025_dev_err(phy);
+		mutex_unlock(&phy->lock);
+		return ret;
+	}
+
+	for (idx = 0; idx < arm->dpdNumFeatures; idx++) {
+		adi_adrv9025_DpdFeature_v2_t *f = &arm->dpdFeatures[idx];
 
 		ret = scnprintf(kbuf + len, PAGE_SIZE - len, "%u %u %u %u %d %d\n",
 				f->i, f->j, f->k, f->lut,
