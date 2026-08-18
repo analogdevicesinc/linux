@@ -997,10 +997,10 @@ static int mt8173_afe_runtime_resume(struct device *dev)
 		goto err_bck0;
 	ret = clk_prepare_enable(afe_priv->clocks[MT8173_CLK_I2S1_M]);
 	if (ret)
-		goto err_i2s1_m;
+		goto err_bck1;
 	ret = clk_prepare_enable(afe_priv->clocks[MT8173_CLK_I2S2_M]);
 	if (ret)
-		goto err_i2s2_m;
+		goto err_i2s1_m;
 
 	/* enable AFE clk */
 	regmap_update_bits(afe->regmap, AUDIO_TOP_CON0, AUD_TCON0_PDN_AFE, 0);
@@ -1018,8 +1018,8 @@ static int mt8173_afe_runtime_resume(struct device *dev)
 
 err_i2s1_m:
 	clk_disable_unprepare(afe_priv->clocks[MT8173_CLK_I2S1_M]);
-err_i2s2_m:
-	clk_disable_unprepare(afe_priv->clocks[MT8173_CLK_I2S2_M]);
+err_bck1:
+	clk_disable_unprepare(afe_priv->clocks[MT8173_CLK_BCK1]);
 err_bck0:
 	clk_disable_unprepare(afe_priv->clocks[MT8173_CLK_BCK0]);
 err_top_aud:
