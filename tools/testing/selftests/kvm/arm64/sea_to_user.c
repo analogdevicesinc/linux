@@ -215,12 +215,32 @@ static void run_vm(struct kvm_vm *vm, struct kvm_vcpu *vcpu)
 
 	ksft_print_msg("Dump kvm_run info about KVM_EXIT_%s\n",
 		       exit_reason_str(run->exit_reason));
+
+	/*
+	 * The guest's read of the injected location is expected to trap to KVM
+	 * as an SEA. If it does not, the injected error was never placed as
+	 * consumable poison: some firmware honours EINJ's notrigger request by
+	 * arming the poison only as part of the (now skipped) trigger step, so
+	 * nothing is left in memory for the guest to consume. The guest then
+	 * reads back the sentinel value and reports it via GUEST_FAIL, which
+	 * arm64 delivers as a ucall over MMIO (hence a KVM_EXIT_MMIO here).
+	 * Treat that as "this platform cannot host the test" and skip, matching
+	 * the requirement documented at the top of this file, rather than
+	 * failing on a hardware/firmware limitation the test cannot control.
+	 */
+	if (run->exit_reason != KVM_EXIT_ARM_SEA &&
+	    get_ucall(vcpu, &uc) == UCALL_ABORT) {
+		ksft_print_msg("Guest consumed no SEA: %s", uc.buffer);
+		ksft_exit_skip("EINJ notrigger placed no consumable poison on this platform\n");
+	}
+
+	TEST_ASSERT_KVM_EXIT_REASON(vcpu, KVM_EXIT_ARM_SEA);
+
+	/* arm_sea holds valid data only for a KVM_EXIT_ARM_SEA exit. */
 	ksft_print_msg("kvm_run.arm_sea: esr=%#llx, flags=%#llx\n",
 		       run->arm_sea.esr, run->arm_sea.flags);
 	ksft_print_msg("kvm_run.arm_sea: gva=%#llx, gpa=%#llx\n",
 		       run->arm_sea.gva, run->arm_sea.gpa);
-
-	TEST_ASSERT_KVM_EXIT_REASON(vcpu, KVM_EXIT_ARM_SEA);
 
 	esr = run->arm_sea.esr;
 	TEST_ASSERT_EQ(ESR_ELx_EC(esr), ESR_ELx_EC_DABT_LOW);
