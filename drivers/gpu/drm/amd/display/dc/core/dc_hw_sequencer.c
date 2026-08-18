@@ -1610,13 +1610,13 @@ void hwss_build_fast_sequence(struct dc *dc,
 				dc->hwss.update_visual_confirm_color) {
 				block_sequence[*num_steps].params.update_visual_confirm_params.dc = dc;
 				block_sequence[*num_steps].params.update_visual_confirm_params.pipe_ctx = current_mpc_pipe;
-				block_sequence[*num_steps].params.update_visual_confirm_params.mpcc_id = current_mpc_pipe->plane_res.hubp->inst;
+				block_sequence[*num_steps].params.update_visual_confirm_params.mpcc_id = current_mpc_pipe->plane_res.mpcc_inst;
 				block_sequence[*num_steps].func = MPC_UPDATE_VISUAL_CONFIRM;
 				(*num_steps)++;
 			}
 			if (current_mpc_pipe->stream->update_flags.bits.out_csc) {
 				block_sequence[*num_steps].params.power_on_mpc_mem_pwr_params.mpc = dc->res_pool->mpc;
-				block_sequence[*num_steps].params.power_on_mpc_mem_pwr_params.mpcc_id = current_mpc_pipe->plane_res.hubp->inst;
+				block_sequence[*num_steps].params.power_on_mpc_mem_pwr_params.mpcc_id = current_mpc_pipe->plane_res.mpcc_inst;
 				block_sequence[*num_steps].params.power_on_mpc_mem_pwr_params.power_on = true;
 				block_sequence[*num_steps].func = MPC_POWER_ON_MPC_MEM_PWR;
 				(*num_steps)++;
