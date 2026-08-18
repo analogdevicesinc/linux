@@ -1091,10 +1091,8 @@ static int mt8173_afe_pcm_dev_probe(struct platform_device *pdev)
 
 	/* initial audio related clock */
 	ret = mt8173_afe_init_audio_clk(afe);
-	if (ret) {
-		dev_err(dev, "mt8173_afe_init_audio_clk fail\n");
+	if (ret)
 		return ret;
-	}
 
 	/* memif % irq initialize*/
 	afe->memif_size = MT8173_AFE_MEMIF_NUM;
@@ -1154,10 +1152,8 @@ static int mt8173_afe_pcm_dev_probe(struct platform_device *pdev)
 
 	ret = devm_request_irq(dev, irq_id, mt8173_afe_irq_handler,
 			       0, "Afe_ISR_Handle", (void *)afe);
-	if (ret) {
-		dev_err(dev, "could not request_irq\n");
+	if (ret)
 		goto err_cleanup_components;
-	}
 
 	dev_info(dev, "MT8173 AFE driver initialized.\n");
 	return 0;
