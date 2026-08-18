@@ -770,7 +770,7 @@ static int tegra_spi_set_hw_cs_timing(struct spi_device *spi)
 static u32 tegra_spi_setup_transfer_one(struct spi_device *spi,
 					struct spi_transfer *t,
 					bool is_first_of_msg,
-					bool is_single_xfer)
+					bool use_hw_cs)
 {
 	struct tegra_spi_data *tspi = spi_controller_get_devdata(spi->controller);
 	struct tegra_spi_client_data *cdata = spi->controller_data;
@@ -829,7 +829,7 @@ static u32 tegra_spi_setup_transfer_one(struct spi_device *spi,
 		if (spi_get_csgpiod(spi, 0))
 			gpiod_set_value(spi_get_csgpiod(spi, 0), 1);
 
-		if (is_single_xfer && !(t->cs_change)) {
+		if (use_hw_cs) {
 			tspi->use_hw_based_cs = true;
 			command1 &= ~(SPI_CS_SW_HW | SPI_CS_SW_VAL);
 		} else {
@@ -1045,19 +1045,30 @@ static int tegra_spi_transfer_one_message(struct spi_controller *host,
 	struct spi_device *spi = msg->spi;
 	int ret;
 	bool skip = false;
-	int single_xfer;
+	bool use_hw_cs = false;
 
 	msg->status = 0;
 	msg->actual_length = 0;
 
-	single_xfer = list_is_singular(&msg->transfers);
+	/*
+	 * Use hardware CS only for a single-transfer message with
+	 * cs_change=0. The controller treats each programmed packet as
+	 * a separate transaction and would pulse CS between transfers of
+	 * a multi-transfer message.
+	 */
+	if (list_is_singular(&msg->transfers)) {
+		xfer = list_first_entry(&msg->transfers,
+					struct spi_transfer, transfer_list);
+		use_hw_cs = !xfer->cs_change;
+	}
+
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
 		u32 cmd1;
 
 		reinit_completion(&tspi->xfer_completion);
 
 		cmd1 = tegra_spi_setup_transfer_one(spi, xfer, is_first_msg,
-						    single_xfer);
+						    use_hw_cs);
 
 		if (!xfer->len) {
 			ret = 0;
