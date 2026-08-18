@@ -6723,11 +6723,20 @@ nfsd4_encode_operation(struct nfsd4_compoundres *resp, struct nfsd4_op *op)
 	unsigned int op_status_offset;
 	nfsd4_enc encoder;
 
-	if (xdr_stream_encode_u32(xdr, op->opnum) != XDR_UNIT)
+	/*
+	 * nfsd4_proc_compound() stops the COMPOUND early only
+	 * when op->status is set, so a header that cannot be
+	 * encoded has to report the failure here.
+	 */
+	if (xdr_stream_encode_u32(xdr, op->opnum) != XDR_UNIT) {
+		op->status = nfsd4_check_resp_size(resp, XDR_UNIT * 2);
 		goto release;
+	}
 	op_status_offset = xdr->buf->len;
-	if (!xdr_reserve_space(xdr, XDR_UNIT))
+	if (!xdr_reserve_space(xdr, XDR_UNIT)) {
+		op->status = nfsd4_check_resp_size(resp, XDR_UNIT);
 		goto release;
+	}
 
 	if (op->opnum == OP_ILLEGAL)
 		goto status;
