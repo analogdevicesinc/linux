@@ -242,6 +242,7 @@ enum pmbus_regs {
 /*
  * OPERATION
  */
+#define PB_OPERATION_CONTROL_V_SRC	GENMASK(5, 4)
 #define PB_OPERATION_CONTROL_ON		BIT(7)
 
 /*
@@ -386,7 +387,7 @@ enum pmbus_sensor_classes {
 };
 
 #define PMBUS_PAGES	32	/* Per PMBus specification */
-#define PMBUS_PHASES	10	/* Maximum number of phases per page */
+#define PMBUS_PHASES	16	/* Maximum number of phases per page */
 
 /* Functionality bit mask */
 #define PMBUS_HAVE_VIN		BIT(0)
@@ -458,6 +459,13 @@ struct pmbus_driver_info {
 	int (*read_byte_data)(struct i2c_client *client, int page, int reg);
 	int (*read_word_data)(struct i2c_client *client, int page, int phase,
 			      int reg);
+	/*
+	 * data_buf is at least I2C_SMBUS_BLOCK_MAX bytes long. The callback
+	 * must never return more than I2C_SMBUS_BLOCK_MAX bytes of data and
+	 * returns the number of bytes written into data_buf.
+	 */
+	int (*read_block_data)(struct i2c_client *client, int page, u8 reg,
+			       char *data_buf);
 	int (*write_byte_data)(struct i2c_client *client, int page, int reg,
 			      u8 byte);
 	int (*write_word_data)(struct i2c_client *client, int page, int reg,
