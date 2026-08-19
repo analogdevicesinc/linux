@@ -1205,22 +1205,42 @@ void vfs_coredump(const kernel_siginfo_t *siginfo)
  * do on a core-file: use only these functions to write out all the
  * necessary info.
  */
-static bool __dump_emit(struct coredump_params *cprm, const void *addr, int nr)
+/* One write, never more than a page. See __dump_emit(). */
+static bool dump_emit_chunk(struct coredump_params *cprm, const void *addr,
+			    int nr)
 {
 	struct file *file = cprm->file;
 	loff_t pos = file->f_pos;
 	ssize_t n;
 
-	if (cprm->written + nr > cprm->limit)
-		return false;
 	if (dump_interrupted())
 		return false;
+
 	n = __kernel_write(file, addr, nr, &pos);
 	if (n != nr)
 		return false;
+
 	file->f_pos = pos;
 	cprm->written += n;
 	cprm->pos += n;
+
+	return true;
+}
+
+static bool __dump_emit(struct coredump_params *cprm, const void *addr, int nr)
+{
+	if (cprm->written + nr > cprm->limit)
+		return false;
+
+	while (nr) {
+		int chunk = min_t(int, nr, PAGE_SIZE);
+
+		if (!dump_emit_chunk(cprm, addr, chunk))
+			return false;
+
+		addr += chunk;
+		nr -= chunk;
+	}
 
 	return true;
 }
@@ -1237,13 +1257,16 @@ static bool __dump_skip(struct coredump_params *cprm, size_t nr)
 		return true;
 	}
 
-	while (nr > PAGE_SIZE) {
-		if (!__dump_emit(cprm, zeroes, PAGE_SIZE))
+	while (nr) {
+		size_t chunk = min_t(size_t, nr, PAGE_SIZE);
+
+		if (!__dump_emit(cprm, zeroes, chunk))
 			return false;
-		nr -= PAGE_SIZE;
+
+		nr -= chunk;
 	}
 
-	return __dump_emit(cprm, zeroes, nr);
+	return true;
 }
 
 /* Flush the accumulated hole before writing data. */
