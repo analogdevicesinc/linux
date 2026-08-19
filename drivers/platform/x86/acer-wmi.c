@@ -400,11 +400,11 @@ struct quirk_entry {
 	u8 mailled;
 	s8 brightness;
 	u8 bluetooth;
-	u8 turbo;
+	bool turbo;
 	u8 cpu_fans;
 	u8 gpu_fans;
-	u8 predator_v4;
-	u8 pwm;
+	bool predator_v4;
+	bool pwm;
 };
 
 static struct quirk_entry *quirks;
@@ -456,34 +456,34 @@ static struct quirk_entry quirk_acer_travelmate_2490 = {
 };
 
 static struct quirk_entry quirk_acer_nitro_an515_58 = {
-	.predator_v4 = 1,
-	.pwm = 1,
+	.predator_v4 = true,
+	.pwm = true,
 };
 
 static struct quirk_entry quirk_acer_predator_ph315_53 = {
-	.turbo = 1,
+	.turbo = true,
 	.cpu_fans = 1,
 	.gpu_fans = 1,
 };
 
 static struct quirk_entry quirk_acer_predator_ph16_72 = {
-	.turbo = 1,
+	.turbo = true,
 	.cpu_fans = 1,
 	.gpu_fans = 1,
-	.predator_v4 = 1,
-	.pwm = 1,
+	.predator_v4 = true,
+	.pwm = true,
 };
 
 static struct quirk_entry quirk_acer_predator_pt14_51 = {
-	.turbo = 1,
+	.turbo = true,
 	.cpu_fans = 1,
 	.gpu_fans = 1,
-	.predator_v4 = 1,
-	.pwm = 1,
+	.predator_v4 = true,
+	.pwm = true,
 };
 
 static struct quirk_entry quirk_acer_predator_v4 = {
-	.predator_v4 = 1,
+	.predator_v4 = true,
 };
 
 /* This AMW0 laptop has no bluetooth */
