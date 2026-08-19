@@ -1626,16 +1626,37 @@ static int qcom_geni_console_setup(struct console *co, char *options)
 	if (unlikely(!uport->membase))
 		return -ENXIO;
 
+	ret = pm_runtime_resume_and_get(uport->dev);
+	if (ret < 0)
+		return ret;
+
 	if (!port->setup) {
 		ret = qcom_geni_serial_port_setup(uport);
-		if (ret)
+		if (ret) {
+			pm_runtime_put_sync(uport->dev);
 			return ret;
+		}
 	}
 
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
 
-	return uart_set_options(uport, co, baud, parity, bits, flow);
+	ret = uart_set_options(uport, co, baud, parity, bits, flow);
+	if (ret)
+		pm_runtime_put_sync(uport->dev);
+
+	return ret;
+}
+
+static int qcom_geni_console_exit(struct console *co)
+{
+	struct qcom_geni_serial_port *port;
+
+	port = get_port_from_line(co->index, true, NULL);
+	if (IS_ERR(port))
+		return PTR_ERR(port);
+
+	return pm_runtime_put_sync(port->uport.dev);
 }
 
 static void qcom_geni_serial_earlycon_write(struct console *con,
@@ -1752,6 +1773,7 @@ static struct console cons_ops = {
 	.device_unlock = qcom_geni_serial_console_device_unlock,
 	.device = uart_console_device,
 	.setup = qcom_geni_console_setup,
+	.exit = qcom_geni_console_exit,
 	.flags = CON_PRINTBUFFER | CON_NBCON,
 	.index = -1,
 	.data = &qcom_geni_console_driver,
