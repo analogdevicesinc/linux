@@ -31,6 +31,7 @@ all_archs=(
 	sh4
 	parisc32
 	alpha
+	hexagon
 )
 archs="${all_archs[@]}"
 
@@ -134,6 +135,7 @@ crosstool_abi() {
 
 need_gcc() {
 	case "$1" in
+	hexagon);;
 	*) echo "1";;
 	esac
 }
@@ -209,6 +211,10 @@ test_arch() {
 		return
 	fi
 	if [ "$arch" = "x32" ] && [ "$test_mode" = "user" ]; then
+		echo "Unsupported configuration"
+		return
+	fi
+	if [ "$arch" = "hexagon" ] && [ -z "$llvm" -o "$test_mode" = "system" ]; then
 		echo "Unsupported configuration"
 		return
 	fi

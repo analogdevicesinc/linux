@@ -21,6 +21,7 @@ architectures := \
 		alpha \
 		arm \
 		arm64 \
+		hexagon \
 		loongarch \
 		m68k \
 		mips \
