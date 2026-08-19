@@ -20,23 +20,8 @@
 #include <unistd.h>
 
 #include "../filesystems/wrappers.h"
-#include "../pidfd/pidfd.h"
 
-/* Forward declarations to avoid including harness header */
-struct __test_metadata;
-
-/* Match the fixture definition from coredump_test.h */
-struct _fixture_coredump_data {
-	char original_core_pattern[256];
-	pid_t pid_coredump_server;
-	int fd_tmpfs_detached;
-};
-
-#ifndef PAGE_SIZE
-#define PAGE_SIZE 4096
-#endif
-
-#define NUM_THREAD_SPAWN 128
+#include "coredump_test_helpers.h"
 
 void *do_nothing(void *arg)
 {
