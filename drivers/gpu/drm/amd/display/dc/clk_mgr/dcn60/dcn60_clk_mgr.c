@@ -13,6 +13,7 @@
 #include "soc_and_ip_translator.h"
 #include "bounding_boxes/utm_qos_model_types.h"
 #include "bounding_boxes/utm_qos_model_dchub_v3.h"
+#include "bounding_boxes/dcn6_soc_bb.h"
 #include "reg_helper.h"
 #include "core_types.h"
 #include "dm_helpers.h"
@@ -603,6 +604,13 @@ static void dcn60_override_bw_params(struct clk_mgr_internal *clk_mgr,
 		bw_params->dc_mode_limit.dtbclk_mhz = 0;
 
 	bw_params->dc_mode_softmax_memclk = bw_params->dc_mode_limit.memclk_mhz;
+
+	/* The qos model stores dchub_v3 as a const view of a mutable table, so
+	 * cast away const to apply the override.
+	 */
+	if (bw_params->utm_qos_model && bw_params->utm_qos_model->dchub_v3)
+		dcn6_test_override_lsdma_bandwidth_v3(
+				(struct utm_qos_model_dchub_v3 *)bw_params->utm_qos_model->dchub_v3);
 }
 
 /**
