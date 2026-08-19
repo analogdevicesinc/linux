@@ -151,9 +151,7 @@ TEST_F(coredump, socket_request_kernel)
 			goto out;
 		}
 
-		if (!check_coredump_req(&req, COREDUMP_ACK_SIZE_VER0,
-					COREDUMP_KERNEL | COREDUMP_USERSPACE |
-					COREDUMP_REJECT | COREDUMP_WAIT)) {
+		if (!check_coredump_req(&req)) {
 			fprintf(stderr, "socket_request_kernel: check_coredump_req failed\n");
 			goto out;
 		}
@@ -301,9 +299,7 @@ TEST_F(coredump, socket_request_userspace)
 			goto out;
 		}
 
-		if (!check_coredump_req(&req, COREDUMP_ACK_SIZE_VER0,
-					COREDUMP_KERNEL | COREDUMP_USERSPACE |
-					COREDUMP_REJECT | COREDUMP_WAIT)) {
+		if (!check_coredump_req(&req)) {
 			fprintf(stderr, "socket_request_userspace: check_coredump_req failed\n");
 			goto out;
 		}
@@ -441,9 +437,7 @@ TEST_F(coredump, socket_request_reject)
 			goto out;
 		}
 
-		if (!check_coredump_req(&req, COREDUMP_ACK_SIZE_VER0,
-					COREDUMP_KERNEL | COREDUMP_USERSPACE |
-					COREDUMP_REJECT | COREDUMP_WAIT)) {
+		if (!check_coredump_req(&req)) {
 			fprintf(stderr, "socket_request_reject: check_coredump_req failed\n");
 			goto out;
 		}
@@ -581,9 +575,7 @@ TEST_F(coredump, socket_request_invalid_flag_combination)
 			goto out;
 		}
 
-		if (!check_coredump_req(&req, COREDUMP_ACK_SIZE_VER0,
-					COREDUMP_KERNEL | COREDUMP_USERSPACE |
-					COREDUMP_REJECT | COREDUMP_WAIT)) {
+		if (!check_coredump_req(&req)) {
 			fprintf(stderr, "socket_request_invalid_flag_combination: check_coredump_req failed\n");
 			goto out;
 		}
@@ -702,9 +694,7 @@ TEST_F(coredump, socket_request_unknown_flag)
 			goto out;
 		}
 
-		if (!check_coredump_req(&req, COREDUMP_ACK_SIZE_VER0,
-					COREDUMP_KERNEL | COREDUMP_USERSPACE |
-					COREDUMP_REJECT | COREDUMP_WAIT)) {
+		if (!check_coredump_req(&req)) {
 			fprintf(stderr, "socket_request_unknown_flag: check_coredump_req failed\n");
 			goto out;
 		}
@@ -822,9 +812,7 @@ TEST_F(coredump, socket_request_invalid_size_small)
 			goto out;
 		}
 
-		if (!check_coredump_req(&req, COREDUMP_ACK_SIZE_VER0,
-					COREDUMP_KERNEL | COREDUMP_USERSPACE |
-					COREDUMP_REJECT | COREDUMP_WAIT)) {
+		if (!check_coredump_req(&req)) {
 			fprintf(stderr, "socket_request_invalid_size_small: check_coredump_req failed\n");
 			goto out;
 		}
@@ -944,9 +932,7 @@ TEST_F(coredump, socket_request_invalid_size_large)
 			goto out;
 		}
 
-		if (!check_coredump_req(&req, COREDUMP_ACK_SIZE_VER0,
-					COREDUMP_KERNEL | COREDUMP_USERSPACE |
-					COREDUMP_REJECT | COREDUMP_WAIT)) {
+		if (!check_coredump_req(&req)) {
 			fprintf(stderr, "socket_request_invalid_size_large: check_coredump_req failed\n");
 			goto out;
 		}
@@ -1355,9 +1341,7 @@ TEST_F_TIMEOUT(coredump, socket_multiple_crashing_coredumps, 500)
 				goto out;
 			}
 
-			if (!check_coredump_req(&req, COREDUMP_ACK_SIZE_VER0,
-						COREDUMP_KERNEL | COREDUMP_USERSPACE |
-						COREDUMP_REJECT | COREDUMP_WAIT)) {
+			if (!check_coredump_req(&req)) {
 				fprintf(stderr, "check_coredump_req failed for fd %d\n", fd_coredump);
 				goto out;
 			}
@@ -1509,9 +1493,7 @@ TEST_F_TIMEOUT(coredump, socket_multiple_crashing_coredumps_epoll_workers, 500)
 				fprintf(stderr, "socket_multiple_crashing_coredumps_epoll_workers: read_coredump_req failed\n");
 				goto out;
 			}
-			if (!check_coredump_req(&req, COREDUMP_ACK_SIZE_VER0,
-						COREDUMP_KERNEL | COREDUMP_USERSPACE |
-						COREDUMP_REJECT | COREDUMP_WAIT)) {
+			if (!check_coredump_req(&req)) {
 				fprintf(stderr, "socket_multiple_crashing_coredumps_epoll_workers: check_coredump_req failed\n");
 				goto out;
 			}

@@ -200,7 +200,7 @@ bool read_marker(int fd, enum coredump_mark mark)
 bool read_coredump_req(int fd, struct coredump_req *req)
 {
 	ssize_t ret;
-	size_t field_size, user_size, ack_size, kernel_size, remaining_size;
+	size_t field_size, user_size, known_size, kernel_size, remaining_size;
 
 	memset(req, 0, sizeof(*req));
 	field_size = sizeof(req->size);
@@ -214,9 +214,9 @@ bool read_coredump_req(int fd, struct coredump_req *req)
 	}
 	kernel_size = req->size;
 
-	if (kernel_size < COREDUMP_ACK_SIZE_VER0) {
+	if (kernel_size < COREDUMP_REQ_SIZE_VER0) {
 		fprintf(stderr, "read_coredump_req: kernel_size %zu < min %d\n",
-			kernel_size, COREDUMP_ACK_SIZE_VER0);
+			kernel_size, COREDUMP_REQ_SIZE_VER0);
 		return false;
 	}
 	if (kernel_size >= PAGE_SIZE) {
@@ -225,11 +225,11 @@ bool read_coredump_req(int fd, struct coredump_req *req)
 		return false;
 	}
 
-	/* Use the minimum of user and kernel size to read the full request. */
+	/* Consume as much of the request as we know about. */
 	user_size = sizeof(struct coredump_req);
-	ack_size = user_size < kernel_size ? user_size : kernel_size;
-	ret = recv(fd, req, ack_size, MSG_WAITALL);
-	if (ret != ack_size)
+	known_size = user_size < kernel_size ? user_size : kernel_size;
+	ret = recv(fd, req, known_size, MSG_WAITALL);
+	if (ret != known_size)
 		return false;
 
 	fprintf(stderr, "Read coredump request with size %u and mask 0x%llx\n",
@@ -287,15 +287,24 @@ bool send_coredump_ack(int fd, const struct coredump_req *req,
 	return true;
 }
 
-bool check_coredump_req(const struct coredump_req *req, size_t min_size,
-			__u64 required_mask)
+/* Every option the kernel is expected to advertise in coredump_req->mask. */
+#define TEST_REQ_MASK_ALL					\
+	(COREDUMP_KERNEL | COREDUMP_USERSPACE |			\
+	 COREDUMP_REJECT | COREDUMP_WAIT)
+
+bool check_coredump_req(const struct coredump_req *req)
 {
-	if (req->size < min_size)
+	if (req->size < COREDUMP_REQ_SIZE_VER0) {
+		fprintf(stderr, "%s: size %u below minimum %d\n",
+			__func__, req->size, COREDUMP_REQ_SIZE_VER0);
 		return false;
-	if ((req->mask & required_mask) != required_mask)
+	}
+	if (req->mask != TEST_REQ_MASK_ALL) {
+		fprintf(stderr, "%s: mask 0x%llx, expected 0x%llx\n",
+			__func__, (unsigned long long)req->mask,
+			(unsigned long long)TEST_REQ_MASK_ALL);
 		return false;
-	if (req->mask & ~required_mask)
-		return false;
+	}
 	return true;
 }
 
