@@ -68,6 +68,7 @@
 static bool dump_vma_snapshot(struct coredump_params *cprm);
 static void free_vma_snapshot(struct coredump_params *cprm);
 static void dump_end_record(struct coredump_params *cprm);
+static bool dump_flush_skip(struct coredump_params *cprm);
 
 #define CORE_FILE_NOTE_SIZE_DEFAULT (4*1024*1024)
 /* Define a reasonable max cap */
@@ -806,7 +807,7 @@ static bool coredump_sock_request(struct core_name *cn, struct coredump_params *
 		.size		= sizeof(struct coredump_req),
 		.mask		= COREDUMP_KERNEL | COREDUMP_USERSPACE |
 				  COREDUMP_REJECT | COREDUMP_WAIT |
-				  COREDUMP_RECORDS,
+				  COREDUMP_RECORDS | COREDUMP_SPARSE,
 		.size_ack	= sizeof(struct coredump_ack),
 	};
 	struct coredump_ack ack = {};
@@ -862,6 +863,12 @@ static bool coredump_sock_request(struct core_name *cn, struct coredump_params *
 
 	/* Records only describe a coredump the kernel writes. */
 	if ((ack.mask & COREDUMP_RECORDS) && !(ack.mask & COREDUMP_KERNEL)) {
+		coredump_sock_mark(cprm->file, COREDUMP_MARK_CONFLICTING);
+		return false;
+	}
+
+	/* Zero records only exist inside a record stream. */
+	if ((ack.mask & COREDUMP_SPARSE) && !(ack.mask & COREDUMP_RECORDS)) {
 		coredump_sock_mark(cprm->file, COREDUMP_MARK_CONFLICTING);
 		return false;
 	}
@@ -1071,15 +1078,21 @@ static bool coredump_write(struct coredump_params *cprm,
 	if (!binfmt->core_dump(cprm))
 		cprm->state |= COREDUMP_STATE_TRUNCATED;
 	/*
-	 * Ensures that file size is big enough to contain the current
-	 * file position. This prevents gdb from complaining about
-	 * a truncated file if the last "write" to the file was
-	 * dump_skip. A record stream relies on it too: the flush
-	 * emits the records that cover a trailing hole.
+	 * A trailing hole still has to land in the coredump. Seeking over
+	 * it doesn't grow the file, so the last byte of it is written
+	 * instead and gdb doesn't see a truncated file. Everything else
+	 * puts the hole on the wire as it flushes it.
 	 */
 	if (cprm->to_skip) {
-		cprm->to_skip--;
-		if (!dump_emit(cprm, "", 1))
+		bool flushed;
+
+		if (cprm->file->f_mode & FMODE_LSEEK) {
+			cprm->to_skip--;
+			flushed = dump_emit(cprm, "", 1);
+		} else {
+			flushed = dump_flush_skip(cprm);
+		}
+		if (!flushed)
 			cprm->state |= COREDUMP_STATE_TRUNCATED;
 	}
 	dump_end_record(cprm);
@@ -1231,6 +1244,11 @@ static bool dump_records(const struct coredump_params *cprm)
 	return cprm->mask & COREDUMP_RECORDS;
 }
 
+static bool dump_sparse(const struct coredump_params *cprm)
+{
+	return cprm->mask & COREDUMP_SPARSE;
+}
+
 /* Describe the next @len bytes of the coredump. Returns the header size. */
 static size_t dump_record_init(struct coredump_params *cprm,
 			       enum coredump_record_type type, u64 flags,
@@ -1346,6 +1364,13 @@ static bool __dump_skip(struct coredump_params *cprm, size_t nr)
 {
 	static char zeroes[PAGE_SIZE];
 	struct file *file = cprm->file;
+
+	if (dump_sparse(cprm)) {
+		/* Hand the server the length of the hole instead of the hole itself. */
+		if (dump_interrupted())
+			return false;
+		return dump_emit_record(cprm, COREDUMP_RECORD_ZERO, 0, nr);
+	}
 
 	if (file->f_mode & FMODE_LSEEK) {
 		if (dump_interrupted() || vfs_llseek(file, nr, SEEK_CUR) < 0)
