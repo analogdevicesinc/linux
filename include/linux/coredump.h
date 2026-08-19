@@ -9,6 +9,16 @@
 #include <asm/siginfo.h>
 
 #ifdef CONFIG_COREDUMP
+/**
+ * enum coredump_state - what happened while the coredump was written
+ * @COREDUMP_STATE_STARTED: the dumper committed to writing a coredump
+ * @COREDUMP_STATE_TRUNCATED: the dumper stopped before it had written all of it
+ */
+enum coredump_state {
+	COREDUMP_STATE_STARTED		= (1U << 0),
+	COREDUMP_STATE_TRUNCATED	= (1U << 1),
+};
+
 struct core_vma_metadata {
 	unsigned long start, end;
 	vm_flags_t flags;
@@ -28,6 +38,8 @@ struct coredump_params {
 	int cpu;
 	/* COREDUMP_* options negotiated with the coredump server. */
 	u64 mask;
+	/* COREDUMP_STATE_* raised while the coredump is written. */
+	enum coredump_state state;
 	loff_t written;
 	loff_t pos;
 	loff_t to_skip;

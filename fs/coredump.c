@@ -98,7 +98,6 @@ struct core_name {
 	char *corename __counted_by_ptr(size);
 	int used, size;
 	unsigned int core_pipe_limit;
-	bool core_dumped;
 	enum coredump_type_t core_type;
 };
 
@@ -250,7 +249,6 @@ static bool coredump_parse(struct core_name *cn, struct coredump_params *cprm,
 	cn->used = 0;
 	cn->corename = NULL;
 	cn->core_pipe_limit = 0;
-	cn->core_dumped = false;
 	if (*pat_ptr == '|')
 		cn->core_type = COREDUMP_PIPE;
 	else if (*pat_ptr == '@')
@@ -549,13 +547,13 @@ static int coredump_wait(int exit_code, struct core_state *core_state)
 	return core_waiters;
 }
 
-static void coredump_finish(bool core_dumped)
+static void coredump_finish(enum coredump_state state)
 {
 	struct core_thread *curr, *next;
 	struct task_struct *task;
 
 	spin_lock_irq(&current->sighand->siglock);
-	if (core_dumped && !__fatal_signal_pending(current))
+	if ((state & COREDUMP_STATE_STARTED) && !__fatal_signal_pending(current))
 		current->signal->group_exit_code |= 0x80;
 	next = current->signal->core_state->dumper.next;
 	current->signal->core_state = NULL;
@@ -1040,19 +1038,23 @@ static bool coredump_pipe(struct core_name *cn, struct coredump_params *cprm,
 	return true;
 }
 
-static bool coredump_write(struct core_name *cn,
-			  struct coredump_params *cprm,
-			  const struct linux_binfmt *binfmt)
+static bool coredump_write(struct coredump_params *cprm,
+			   const struct linux_binfmt *binfmt)
 {
 
-	if (dump_interrupted())
+	if (dump_interrupted()) {
+		cprm->state |= COREDUMP_STATE_TRUNCATED;
 		return true;
+	}
 
-	if (!dump_vma_snapshot(cprm))
+	if (!dump_vma_snapshot(cprm)) {
+		cprm->state |= COREDUMP_STATE_TRUNCATED;
 		return false;
+	}
 
 	file_start_write(cprm->file);
-	cn->core_dumped = binfmt->core_dump(cprm);
+	if (!binfmt->core_dump(cprm))
+		cprm->state |= COREDUMP_STATE_TRUNCATED;
 	/*
 	 * Ensures that file size is big enough to contain the current
 	 * file postion. This prevents gdb from complaining about
@@ -1061,7 +1063,8 @@ static bool coredump_write(struct core_name *cn,
 	 */
 	if (cprm->to_skip) {
 		cprm->to_skip--;
-		dump_emit(cprm, "", 1);
+		if (!dump_emit(cprm, "", 1))
+			cprm->state |= COREDUMP_STATE_TRUNCATED;
 	}
 	file_end_write(cprm->file);
 	free_vma_snapshot(cprm);
@@ -1077,7 +1080,7 @@ static void coredump_cleanup(struct core_name *cn, struct coredump_params *cprm)
 		atomic_dec(&core_pipe_count);
 	}
 	kfree(cn->corename);
-	coredump_finish(cn->core_dumped);
+	coredump_finish(cprm->state);
 }
 
 static inline bool coredump_skip(const struct coredump_params *cprm,
@@ -1126,14 +1129,14 @@ static void do_coredump(struct core_name *cn, struct coredump_params *cprm,
 	if (cprm->mask & COREDUMP_REJECT)
 		return;
 
-	if ((cprm->mask & COREDUMP_KERNEL) && !coredump_write(cn, cprm, binfmt))
+	if ((cprm->mask & COREDUMP_KERNEL) && !coredump_write(cprm, binfmt))
 		return;
 
 	coredump_sock_shutdown(cprm->file);
 
 	/* Let the parent know that a coredump was generated. */
 	if (cprm->mask & COREDUMP_USERSPACE)
-		cn->core_dumped = true;
+		cprm->state |= COREDUMP_STATE_STARTED;
 
 	/*
 	 * When core_pipe_limit is set we wait for the coredump server
