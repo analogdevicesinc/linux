@@ -43,13 +43,13 @@ extern unsigned int core_file_note_size_limit;
  * These are the only things you should do on a core-file: use only these
  * functions to write out all the necessary info.
  */
-extern void dump_skip_to(struct coredump_params *cprm, unsigned long to);
-extern void dump_skip(struct coredump_params *cprm, size_t nr);
-extern int dump_emit(struct coredump_params *cprm, const void *addr, int nr);
-extern int dump_align(struct coredump_params *cprm, int align);
-int dump_user_range(struct coredump_params *cprm, unsigned long start,
-		    unsigned long len);
-extern void vfs_coredump(const kernel_siginfo_t *siginfo);
+void dump_skip_to(struct coredump_params *cprm, unsigned long to);
+void dump_skip(struct coredump_params *cprm, size_t nr);
+bool dump_emit(struct coredump_params *cprm, const void *addr, int nr);
+bool dump_align(struct coredump_params *cprm, int align);
+bool dump_user_range(struct coredump_params *cprm, unsigned long start,
+		     unsigned long len);
+void vfs_coredump(const kernel_siginfo_t *siginfo);
 
 /*
  * Logging for the coredump code, ratelimited.
