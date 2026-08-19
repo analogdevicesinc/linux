@@ -2465,8 +2465,6 @@ static unsigned long __init free_low_memory_core_early(void)
 	return count;
 }
 
-static int reset_managed_pages_done __initdata;
-
 static void __init reset_node_managed_pages(pg_data_t *pgdat)
 {
 	struct zone *z;
@@ -2475,17 +2473,12 @@ static void __init reset_node_managed_pages(pg_data_t *pgdat)
 		atomic_long_set(&z->managed_pages, 0);
 }
 
-void __init reset_all_zones_managed_pages(void)
+static void __init reset_all_zones_managed_pages(void)
 {
 	struct pglist_data *pgdat;
 
-	if (reset_managed_pages_done)
-		return;
-
 	for_each_online_pgdat(pgdat)
 		reset_node_managed_pages(pgdat);
-
-	reset_managed_pages_done = 1;
 }
 
 /**
