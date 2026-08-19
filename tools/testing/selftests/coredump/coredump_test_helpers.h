@@ -26,6 +26,9 @@ ssize_t recv_coredump_records(int fd_coredump, int fd_core_file,
 			      off_t *coredump_size, bool *truncated,
 			      int fd_peer_pidfd);
 bool is_elf_core(int fd);
+ssize_t recv_coredump_compact(int fd_coredump, int fd_object, int fd_reference,
+			      off_t *coredump_size);
+int check_compact_coredump(int fd_object, int fd_reference);
 int create_detached_tmpfs(void);
 int create_and_listen_unix_socket(const char *path);
 bool set_core_pattern(const char *pattern);
