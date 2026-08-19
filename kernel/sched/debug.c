@@ -73,13 +73,13 @@ static int sched_feat_show(struct seq_file *m, void *v)
 
 #ifdef CONFIG_JUMP_LABEL
 
-#define jump_label_key__true  STATIC_KEY_INIT_TRUE
-#define jump_label_key__false STATIC_KEY_INIT_FALSE
+#define jump_label_key__true  { .key_true  = STATIC_KEY_TRUE_INIT  }
+#define jump_label_key__false { .key_false = STATIC_KEY_FALSE_INIT }
 
 #define SCHED_FEAT(name, enabled)	\
 	jump_label_key__##enabled ,
 
-struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
+union sched_feat_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #include "features.h"
 };
 
@@ -87,12 +87,12 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 
 static void sched_feat_disable(int i)
 {
-	static_key_disable_cpuslocked(&sched_feat_keys[i]);
+	static_branch_disable_cpuslocked(&sched_feat_keys[i].key_true);
 }
 
 static void sched_feat_enable(int i)
 {
-	static_key_enable_cpuslocked(&sched_feat_keys[i]);
+	static_branch_enable_cpuslocked(&sched_feat_keys[i].key_false);
 }
 #else /* !CONFIG_JUMP_LABEL: */
 static void sched_feat_disable(int i) { };
