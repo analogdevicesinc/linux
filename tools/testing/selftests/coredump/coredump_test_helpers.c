@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 
 #include <assert.h>
+#include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <link.h>
 #include <linux/coredump.h>
 #include <linux/fs.h>
 #include <pthread.h>
@@ -13,6 +15,7 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
@@ -22,6 +25,12 @@
 #include "../filesystems/wrappers.h"
 
 #include "coredump_test_helpers.h"
+
+#if __ELF_NATIVE_CLASS == 64
+#define COREDUMP_ELFCLASS ELFCLASS64
+#else
+#define COREDUMP_ELFCLASS ELFCLASS32
+#endif
 
 void *do_nothing(void *arg)
 {
@@ -42,6 +51,228 @@ void crashing_child(void)
 
 	/* crash on purpose */
 	i = *(volatile int *)NULL;
+}
+
+void crashing_child_sparse(size_t size)
+{
+	char *p;
+
+	/*
+	 * Touch the first page only. The whole mapping is dumped because
+	 * it has been written to, but all of it save that one page is a
+	 * hole.
+	 */
+	p = mmap(NULL, size, PROT_READ | PROT_WRITE,
+		 MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+	if (p != MAP_FAILED)
+		p[0] = 'x';
+
+	/* crash on purpose */
+	*(volatile int *)NULL = 0;
+}
+
+/* Read @len bytes off the socket, writing them at @offset if @fd_out >= 0. */
+static ssize_t recv_record_bytes(int fd_coredump, __u64 len, int fd_out,
+				 off_t offset)
+{
+	ssize_t received = 0;
+
+	while (len) {
+		char buffer[PAGE_SIZE];
+		size_t chunk = len < sizeof(buffer) ? len : sizeof(buffer);
+		ssize_t ret;
+
+		ret = recv(fd_coredump, buffer, chunk, MSG_WAITALL);
+		if (ret <= 0) {
+			fprintf(stderr, "%s: short read %zd: %m\n",
+				__func__, ret);
+			return -1;
+		}
+
+		if (fd_out >= 0 &&
+		    pwrite(fd_out, buffer, ret, offset + received) != ret) {
+			fprintf(stderr, "%s: pwrite failed: %m\n", __func__);
+			return -1;
+		}
+
+		received += ret;
+		len -= ret;
+	}
+
+	return received;
+}
+
+/*
+ * Reassemble a record stream. If @fd_peer_pidfd is valid the task behind
+ * it is killed once a data record has arrived, so the kernel has to cut
+ * the coredump short with the stream already under way.
+ */
+ssize_t recv_coredump_records(int fd_coredump, int fd_core_file,
+			      off_t *coredump_size, bool *truncated,
+			      int fd_peer_pidfd)
+{
+	ssize_t received = 0;
+	off_t size = 0;
+	bool is_truncated = false;
+	bool ended = false;
+	char trailing;
+
+	while (!ended) {
+		struct coredump_record_header record = {};
+		size_t known_size;
+		ssize_t ret;
+
+		/* Peek the header size the way read_coredump_req() does. */
+		ret = recv(fd_coredump, &record, sizeof(record.size),
+			   MSG_PEEK | MSG_WAITALL);
+		if (ret == 0) {
+			/* Nothing closed the stream, so the coredump was cut short. */
+			if (truncated) {
+				is_truncated = true;
+				break;
+			}
+			fprintf(stderr, "%s: stream ended without an end record\n",
+				__func__);
+			return -1;
+		}
+		if (ret != sizeof(record.size)) {
+			fprintf(stderr, "%s: short record peek %zd: %m\n",
+				__func__, ret);
+			return -1;
+		}
+
+		if (record.size < COREDUMP_RECORD_HEADER_SIZE_VER0) {
+			fprintf(stderr, "%s: header size %u below minimum %u\n",
+				__func__, record.size,
+				COREDUMP_RECORD_HEADER_SIZE_VER0);
+			return -1;
+		}
+
+		/* Consume as much of the header as we know about. */
+		known_size = record.size < sizeof(record) ? record.size : sizeof(record);
+		ret = recv(fd_coredump, &record, known_size, MSG_WAITALL);
+		if (ret != (ssize_t)known_size) {
+			fprintf(stderr, "%s: short record read %zd: %m\n",
+				__func__, ret);
+			return -1;
+		}
+		received += ret;
+
+		/*
+		 * A flag changes what the record means, so refuse one we
+		 * don't know rather than guess.
+		 */
+		if (record.flags) {
+			fprintf(stderr, "%s: unknown header flags 0x%llx\n",
+				__func__, (unsigned long long)record.flags);
+			return -1;
+		}
+
+		/* Discard any part of the header we have no use for. */
+		ret = recv_record_bytes(fd_coredump, record.size - known_size, -1, 0);
+		if (ret < 0)
+			return -1;
+		received += ret;
+
+		/* Records are sent in order and they don't leave gaps. */
+		if (record.offset != (__u64)size) {
+			fprintf(stderr, "%s: record at %llu, expected %llu\n",
+				__func__, (unsigned long long)record.offset,
+				(unsigned long long)size);
+			return -1;
+		}
+
+		switch (record.type) {
+		case COREDUMP_RECORD_ZERO:
+			/* A hole. It comes with no data and needs none. */
+			break;
+		case COREDUMP_RECORD_DATA:
+			ret = recv_record_bytes(fd_coredump, record.len,
+						fd_core_file, size);
+			if (ret < 0)
+				return -1;
+			received += ret;
+			if (fd_peer_pidfd >= 0) {
+				if (sys_pidfd_send_signal(fd_peer_pidfd, SIGKILL,
+							  NULL, 0)) {
+					fprintf(stderr, "%s: kill failed: %m\n",
+						__func__);
+					return -1;
+				}
+				fd_peer_pidfd = -1;
+			}
+			break;
+		case COREDUMP_RECORD_END:
+			/* The coredump ends here and nothing follows it. */
+			if (record.len) {
+				fprintf(stderr, "%s: end record covers %llu bytes\n",
+					__func__,
+					(unsigned long long)record.len);
+				return -1;
+			}
+			ended = true;
+			break;
+		default:
+			fprintf(stderr, "%s: unknown record type %u\n",
+				__func__, record.type);
+			return -1;
+		}
+
+		size += record.len;
+	}
+
+	/* The end record is the last thing on the wire. */
+	if (recv(fd_coredump, &trailing, sizeof(trailing), MSG_DONTWAIT) > 0) {
+		fprintf(stderr, "%s: data after the end record\n", __func__);
+		return -1;
+	}
+
+	if (truncated)
+		*truncated = is_truncated;
+
+	/*
+	 * Nothing is written for a hole, so grow the file to the size the
+	 * records describe in case the coredump ended in one.
+	 */
+	if (ftruncate(fd_core_file, size) < 0) {
+		fprintf(stderr, "%s: ftruncate to %llu failed: %m\n",
+			__func__, (unsigned long long)size);
+		return -1;
+	}
+
+	if (coredump_size)
+		*coredump_size = size;
+
+	fprintf(stderr, "Received %zd bytes for a %s coredump of %llu bytes\n",
+		received, is_truncated ? "truncated" : "complete",
+		(unsigned long long)size);
+	return received;
+}
+
+/* The ELF header of a native core file. */
+static bool is_core_ehdr(const ElfW(Ehdr) *ehdr)
+{
+	return !memcmp(ehdr->e_ident, ELFMAG, SELFMAG) &&
+	       ehdr->e_ident[EI_CLASS] == COREDUMP_ELFCLASS &&
+	       ehdr->e_type == ET_CORE;
+}
+
+/* Whatever the server ends up with has to be an ELF core file. */
+bool is_elf_core(int fd)
+{
+	ElfW(Ehdr) ehdr;
+
+	if (pread(fd, &ehdr, sizeof(ehdr), 0) != sizeof(ehdr)) {
+		fprintf(stderr, "%s: short read: %m\n", __func__);
+		return false;
+	}
+
+	if (!is_core_ehdr(&ehdr)) {
+		fprintf(stderr, "%s: not an ELF core file\n", __func__);
+		return false;
+	}
+
+	return true;
 }
 
 int create_detached_tmpfs(void)
@@ -86,6 +317,7 @@ int create_and_listen_unix_socket(const char *path)
 	return fd;
 
 out:
+	fprintf(stderr, "%s: %s: %m\n", __func__, path);
 	if (fd >= 0)
 		close(fd);
 	return -1;
@@ -264,8 +496,10 @@ bool send_coredump_ack(int fd, const struct coredump_req *req,
 	large_ack.ack.mask = mask;
 	large_ack.ack.size = size_ack;
 	ret = send(fd, &large_ack, size_ack, MSG_NOSIGNAL);
-	if (ret != size_ack)
+	if (ret != size_ack) {
+		fprintf(stderr, "%s: short send %zd: %m\n", __func__, ret);
 		return false;
+	}
 
 	fprintf(stderr, "Sent coredump ack with size %zu and mask 0x%llx\n",
 		size_ack, (unsigned long long)mask);
