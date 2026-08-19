@@ -71,9 +71,19 @@ void crashing_child_sparse(size_t size)
 	*(volatile int *)NULL = 0;
 }
 
-/* Read @len bytes off the socket, writing them at @offset if @fd_out >= 0. */
-static ssize_t recv_record_bytes(int fd_coredump, __u64 len, int fd_out,
-				 off_t offset)
+/* Sink a reassembled record stream is handed to, record by record. */
+struct coredump_record_sink {
+	/* @len bytes of coredump data that belong at @offset. */
+	int (*data)(void *ctx, const void *buf, size_t len, __u64 offset);
+	/* @len zero bytes that belong at @offset. */
+	int (*zero)(void *ctx, __u64 offset, __u64 len);
+	void *ctx;
+};
+
+/* Read @len bytes off the socket and hand them to @sink, if there is one. */
+static ssize_t recv_record_bytes(int fd_coredump, __u64 len,
+				 const struct coredump_record_sink *sink,
+				 __u64 offset)
 {
 	ssize_t received = 0;
 
@@ -89,11 +99,8 @@ static ssize_t recv_record_bytes(int fd_coredump, __u64 len, int fd_out,
 			return -1;
 		}
 
-		if (fd_out >= 0 &&
-		    pwrite(fd_out, buffer, ret, offset + received) != ret) {
-			fprintf(stderr, "%s: pwrite failed: %m\n", __func__);
+		if (sink && sink->data(sink->ctx, buffer, ret, offset + received))
 			return -1;
-		}
 
 		received += ret;
 		len -= ret;
@@ -102,14 +109,34 @@ static ssize_t recv_record_bytes(int fd_coredump, __u64 len, int fd_out,
 	return received;
 }
 
+/* Put the data where the records say it goes and leave the holes alone. */
+static int file_sink_data(void *ctx, const void *buf, size_t len, __u64 offset)
+{
+	int fd = *(int *)ctx;
+
+	if (pwrite(fd, buf, len, offset) != (ssize_t)len) {
+		fprintf(stderr, "%s: pwrite failed: %m\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int file_sink_zero(void *ctx, __u64 offset, __u64 len)
+{
+	/* Nothing has to be written for a hole. */
+	return 0;
+}
+
 /*
- * Reassemble a record stream. If @fd_peer_pidfd is valid the task behind
- * it is killed once a data record has arrived, so the kernel has to cut
- * the coredump short with the stream already under way.
+ * Read a coredump strea and funnel it into @sink. Allow to pass in a
+ * @fd_peer_pidfd to simulate coredump truncation by killing it after having
+ * received a coredump record.
  */
-ssize_t recv_coredump_records(int fd_coredump, int fd_core_file,
-			      off_t *coredump_size, bool *truncated,
-			      int fd_peer_pidfd)
+static ssize_t __recv_coredump_records(int fd_coredump,
+				       const struct coredump_record_sink *sink,
+				       off_t *coredump_size, bool *truncated,
+				       int fd_peer_pidfd)
 {
 	ssize_t received = 0;
 	off_t size = 0;
@@ -169,7 +196,8 @@ ssize_t recv_coredump_records(int fd_coredump, int fd_core_file,
 		}
 
 		/* Discard any part of the header we have no use for. */
-		ret = recv_record_bytes(fd_coredump, record.size - known_size, -1, 0);
+		ret = recv_record_bytes(fd_coredump, record.size - known_size,
+					NULL, 0);
 		if (ret < 0)
 			return -1;
 		received += ret;
@@ -185,10 +213,12 @@ ssize_t recv_coredump_records(int fd_coredump, int fd_core_file,
 		switch (record.type) {
 		case COREDUMP_RECORD_ZERO:
 			/* A hole. It comes with no data and needs none. */
+			if (sink->zero(sink->ctx, record.offset, record.len))
+				return -1;
 			break;
 		case COREDUMP_RECORD_DATA:
-			ret = recv_record_bytes(fd_coredump, record.len,
-						fd_core_file, size);
+			ret = recv_record_bytes(fd_coredump, record.len, sink,
+						record.offset);
 			if (ret < 0)
 				return -1;
 			received += ret;
@@ -230,6 +260,32 @@ ssize_t recv_coredump_records(int fd_coredump, int fd_core_file,
 	if (truncated)
 		*truncated = is_truncated;
 
+	*coredump_size = size;
+
+	fprintf(stderr, "Received %zd bytes for a %s coredump of %llu bytes\n",
+		received, is_truncated ? "truncated" : "complete",
+		(unsigned long long)size);
+	return received;
+}
+
+/* Reassemble a record stream into the coredump it describes. */
+ssize_t recv_coredump_records(int fd_coredump, int fd_core_file,
+			      off_t *coredump_size, bool *truncated,
+			      int fd_peer_pidfd)
+{
+	struct coredump_record_sink sink = {
+		.data	= file_sink_data,
+		.zero	= file_sink_zero,
+		.ctx	= &fd_core_file,
+	};
+	ssize_t received;
+	off_t size = 0;
+
+	received = __recv_coredump_records(fd_coredump, &sink, &size, truncated,
+					   fd_peer_pidfd);
+	if (received < 0)
+		return -1;
+
 	/*
 	 * Nothing is written for a hole, so grow the file to the size the
 	 * records describe in case the coredump ended in one.
@@ -243,9 +299,6 @@ ssize_t recv_coredump_records(int fd_coredump, int fd_core_file,
 	if (coredump_size)
 		*coredump_size = size;
 
-	fprintf(stderr, "Received %zd bytes for a %s coredump of %llu bytes\n",
-		received, is_truncated ? "truncated" : "complete",
-		(unsigned long long)size);
 	return received;
 }
 
