@@ -742,7 +742,7 @@ static int worker_pool_assign_id(struct worker_pool *pool)
 }
 
 static struct pool_workqueue __rcu **
-unbound_pwq_slot(struct workqueue_struct *wq, int cpu)
+pwq_slot(struct workqueue_struct *wq, int cpu)
 {
        if (cpu >= 0)
                return per_cpu_ptr(wq->cpu_pwq, cpu);
@@ -751,9 +751,9 @@ unbound_pwq_slot(struct workqueue_struct *wq, int cpu)
 }
 
 /* @cpu < 0 for dfl_pwq */
-static struct pool_workqueue *unbound_pwq(struct workqueue_struct *wq, int cpu)
+static struct pool_workqueue *installed_pwq(struct workqueue_struct *wq, int cpu)
 {
-	return rcu_dereference_check(*unbound_pwq_slot(wq, cpu),
+	return rcu_dereference_check(*pwq_slot(wq, cpu),
 				     lockdep_is_held(&wq_pool_mutex) ||
 				     lockdep_is_held(&wq->mutex));
 }
@@ -768,7 +768,7 @@ static struct pool_workqueue *unbound_pwq(struct workqueue_struct *wq, int cpu)
  */
 static struct cpumask *unbound_effective_cpumask(struct workqueue_struct *wq)
 {
-	return unbound_pwq(wq, -1)->pool->attrs->__pod_cpumask;
+	return installed_pwq(wq, -1)->pool->attrs->__pod_cpumask;
 }
 
 static unsigned int work_color_to_flags(int color)
@@ -5459,10 +5459,10 @@ static void wq_calc_pod_cpumask(struct workqueue_attrs *attrs, int cpu)
 }
 
 /* install @pwq into @wq and return the old pwq, @cpu < 0 for dfl_pwq */
-static struct pool_workqueue *install_unbound_pwq(struct workqueue_struct *wq,
-					int cpu, struct pool_workqueue *pwq)
+static struct pool_workqueue *install_pwq(struct workqueue_struct *wq,
+					  int cpu, struct pool_workqueue *pwq)
 {
-	struct pool_workqueue __rcu **slot = unbound_pwq_slot(wq, cpu);
+	struct pool_workqueue __rcu **slot = pwq_slot(wq, cpu);
 	struct pool_workqueue *old_pwq;
 
 	lockdep_assert_held(&wq_pool_mutex);
@@ -5586,10 +5586,10 @@ static void apply_wqattrs_commit(struct apply_wqattrs_ctx *ctx)
 
 	/* save the previous pwqs and install the new ones */
 	for_each_possible_cpu(cpu)
-		ctx->pwq_tbl[cpu] = install_unbound_pwq(ctx->wq, cpu,
-							ctx->pwq_tbl[cpu]);
+		ctx->pwq_tbl[cpu] = install_pwq(ctx->wq, cpu,
+						ctx->pwq_tbl[cpu]);
 	if (ctx->dfl_pwq)
-		ctx->dfl_pwq = install_unbound_pwq(ctx->wq, -1, ctx->dfl_pwq);
+		ctx->dfl_pwq = install_pwq(ctx->wq, -1, ctx->dfl_pwq);
 
 	/* update node_nr_active->max, which only unbound workqueues have */
 	if (ctx->wq->flags & WQ_UNBOUND)
@@ -5686,7 +5686,7 @@ static void unbound_wq_update_pwq(struct workqueue_struct *wq, int cpu)
 
 	/* nothing to do if the target cpumask matches the current pwq */
 	wq_calc_pod_cpumask(target_attrs, cpu);
-	if (wqattrs_equal(target_attrs, unbound_pwq(wq, cpu)->pool->attrs))
+	if (wqattrs_equal(target_attrs, installed_pwq(wq, cpu)->pool->attrs))
 		return;
 
 	/* create a new pwq */
@@ -5699,16 +5699,16 @@ static void unbound_wq_update_pwq(struct workqueue_struct *wq, int cpu)
 
 	/* Install the new pwq. */
 	mutex_lock(&wq->mutex);
-	old_pwq = install_unbound_pwq(wq, cpu, pwq);
+	old_pwq = install_pwq(wq, cpu, pwq);
 	goto out_unlock;
 
 use_dfl_pwq:
 	mutex_lock(&wq->mutex);
-	pwq = unbound_pwq(wq, -1);
+	pwq = installed_pwq(wq, -1);
 	raw_spin_lock_irq(&pwq->pool->lock);
 	get_pwq(pwq);
 	raw_spin_unlock_irq(&pwq->pool->lock);
-	old_pwq = install_unbound_pwq(wq, cpu, pwq);
+	old_pwq = install_pwq(wq, cpu, pwq);
 out_unlock:
 	mutex_unlock(&wq->mutex);
 	put_pwq_unlocked(old_pwq);
@@ -6182,12 +6182,12 @@ void destroy_workqueue(struct workqueue_struct *wq)
 	rcu_read_lock();
 
 	for_each_possible_cpu(cpu) {
-		put_pwq_unlocked(unbound_pwq(wq, cpu));
-		RCU_INIT_POINTER(*unbound_pwq_slot(wq, cpu), NULL);
+		put_pwq_unlocked(installed_pwq(wq, cpu));
+		RCU_INIT_POINTER(*pwq_slot(wq, cpu), NULL);
 	}
 
-	put_pwq_unlocked(unbound_pwq(wq, -1));
-	RCU_INIT_POINTER(*unbound_pwq_slot(wq, -1), NULL);
+	put_pwq_unlocked(installed_pwq(wq, -1));
+	RCU_INIT_POINTER(*pwq_slot(wq, -1), NULL);
 
 	rcu_read_unlock();
 }
