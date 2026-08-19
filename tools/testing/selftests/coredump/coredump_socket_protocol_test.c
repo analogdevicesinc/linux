@@ -1882,6 +1882,162 @@ TEST_F(coredump, socket_request_records_truncated)
 	ASSERT_GT(received, 0);
 }
 
+/*
+ * A coredump server that uploads to a blob store can't upload a sparse
+ * file. It doesn't have to: it streams the data records into the object
+ * as they arrive, leaves the holes out, and uploads the corrected
+ * program header table last. What it ends up with is an ordinary ELF
+ * core file that describes the same memory as the coredump the records
+ * came from, minus the holes.
+ */
+TEST_F(coredump, socket_request_sparse_blob_upload)
+{
+	int fd_core_file, pidfd, status;
+	pid_t pid, pid_coredump_server;
+	struct pidfd_info info = {};
+	off_t coredump_size = 0;
+	ssize_t received = 0;
+	int ipc_sockets[2];
+	int pipefds[2];
+	struct stat st;
+	char c;
+
+	ASSERT_EQ(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, ipc_sockets), 0);
+	ASSERT_EQ(pipe(pipefds), 0);
+	ASSERT_TRUE(set_core_pattern("@@/tmp/coredump.socket"));
+
+	pid_coredump_server = fork();
+	ASSERT_GE(pid_coredump_server, 0);
+	if (pid_coredump_server == 0) {
+		int fd_server = -1, fd_coredump = -1, fd_peer_pidfd = -1;
+		int fd_object = -1, fd_reference = -1;
+		int exit_code = EXIT_FAILURE;
+		struct coredump_req req = {};
+		off_t size = 0;
+		ssize_t ret;
+
+		close(ipc_sockets[0]);
+		close(pipefds[0]);
+
+		fd_server = create_and_listen_unix_socket("/tmp/coredump.socket");
+		if (fd_server < 0)
+			goto out;
+
+		if (write_nointr(ipc_sockets[1], "1", 1) < 0)
+			goto out;
+
+		close(ipc_sockets[1]);
+
+		fd_coredump = accept4(fd_server, NULL, NULL, SOCK_CLOEXEC);
+		if (fd_coredump < 0)
+			goto out;
+
+		fd_peer_pidfd = get_peer_pidfd(fd_coredump);
+		if (fd_peer_pidfd < 0)
+			goto out;
+
+		/* The object is a plain file. It never sees a hole. */
+		fd_object = open("/tmp/coredump.file",
+				 O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+		if (fd_object < 0)
+			goto out;
+
+		/*
+		 * The coredump with its holes still in it is bigger than
+		 * the mapping the child made, so keep it on the detached
+		 * tmpfs and sparse.
+		 */
+		fd_reference = open_coredump_tmpfile(self->fd_tmpfs_detached);
+		if (fd_reference < 0)
+			goto out;
+
+		if (!read_coredump_req(fd_coredump, &req))
+			goto out;
+
+		if (!check_coredump_req(&req))
+			goto out;
+
+		if (!send_coredump_ack(fd_coredump, &req,
+				       COREDUMP_KERNEL | COREDUMP_RECORDS |
+				       COREDUMP_SPARSE | COREDUMP_WAIT, 0))
+			goto out;
+
+		if (!read_marker(fd_coredump, COREDUMP_MARK_REQACK))
+			goto out;
+
+		ret = recv_coredump_compact(fd_coredump, fd_object,
+					    fd_reference, &size);
+		if (ret < 0)
+			goto out;
+
+		if (check_compact_coredump(fd_object, fd_reference))
+			goto out;
+
+		if (write_nointr(pipefds[1], &ret, sizeof(ret)) != sizeof(ret))
+			goto out;
+		if (write_nointr(pipefds[1], &size, sizeof(size)) != sizeof(size))
+			goto out;
+
+		exit_code = EXIT_SUCCESS;
+out:
+		close(pipefds[1]);
+		if (fd_reference >= 0)
+			close(fd_reference);
+		if (fd_object >= 0)
+			close(fd_object);
+		if (fd_peer_pidfd >= 0)
+			close(fd_peer_pidfd);
+		if (fd_coredump >= 0)
+			close(fd_coredump);
+		if (fd_server >= 0)
+			close(fd_server);
+		_exit(exit_code);
+	}
+	self->pid_coredump_server = pid_coredump_server;
+
+	EXPECT_EQ(close(ipc_sockets[1]), 0);
+	EXPECT_EQ(close(pipefds[1]), 0);
+	ASSERT_EQ(read_nointr(ipc_sockets[0], &c, 1), 1);
+	EXPECT_EQ(close(ipc_sockets[0]), 0);
+
+	pid = fork();
+	ASSERT_GE(pid, 0);
+	if (pid == 0)
+		crashing_child_sparse(SPARSE_MAPPING_SIZE);
+
+	pidfd = sys_pidfd_open(pid, 0);
+	ASSERT_GE(pidfd, 0);
+
+	waitpid(pid, &status, 0);
+	ASSERT_TRUE(WIFSIGNALED(status));
+	ASSERT_TRUE(WCOREDUMP(status));
+
+	ASSERT_EQ(read_nointr(pipefds[0], &received, sizeof(received)),
+		  sizeof(received));
+	ASSERT_EQ(read_nointr(pipefds[0], &coredump_size, sizeof(coredump_size)),
+		  sizeof(coredump_size));
+	EXPECT_EQ(close(pipefds[0]), 0);
+
+	ASSERT_TRUE(get_pidfd_info(pidfd, &info));
+	ASSERT_GT((info.mask & PIDFD_INFO_COREDUMP), 0);
+	ASSERT_GT((info.coredump_mask & PIDFD_COREDUMPED), 0);
+
+	wait_and_check_coredump_server(pid_coredump_server, _metadata, self);
+
+	/* The mapping is in the coredump, holes included. */
+	ASSERT_GT(coredump_size, (off_t)SPARSE_MAPPING_SIZE);
+
+	/* The object isn't sparse and doesn't carry them. */
+	ASSERT_EQ(stat("/tmp/coredump.file", &st), 0);
+	ASSERT_LT(st.st_size, coredump_size / 8);
+
+	/* And a debugger still sees an ordinary ELF core file. */
+	fd_core_file = open("/tmp/coredump.file", O_RDONLY | O_CLOEXEC);
+	ASSERT_GE(fd_core_file, 0);
+	ASSERT_TRUE(is_elf_core(fd_core_file));
+	EXPECT_EQ(close(fd_core_file), 0);
+}
+
 /* Ack @ack_mask, expect the kernel to refuse it as conflicting. */
 static void check_conflicting_ack(struct __test_metadata *const _metadata,
 				  FIXTURE_DATA(coredump) *self, __u64 ack_mask)

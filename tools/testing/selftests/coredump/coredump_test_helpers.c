@@ -330,6 +330,771 @@ bool is_elf_core(int fd)
 	return true;
 }
 
+/*
+ * A coredump server that uploads to a blob store can't upload a sparse
+ * file and can't seek in the object it is uploading. It streams the data
+ * records into the object as they arrive, remembers the holes it left
+ * out, and uploads the program header table that describes the result
+ * last. What comes out is an ordinary ELF core file without the holes.
+ */
+
+/* A run of the coredump the object doesn't carry. */
+struct compact_hole {
+	__u64 offset;
+	__u64 len;
+};
+
+/* A program header of the object and where its bytes sat in the coredump. */
+struct compact_piece {
+	ElfW(Phdr) phdr;
+	__u64 src;
+};
+
+struct compact_ctx {
+	int fd_body;			/* the object's payload, append only */
+	int fd_reference;		/* the coredump with its holes, for the test */
+	unsigned char *head;		/* everything ahead of the segment data */
+	size_t head_len;
+	size_t head_cap;
+	__u64 data_offset;		/* where the segment data starts, 0 while unknown */
+	struct compact_hole *holes;
+	size_t nr_holes;
+	size_t holes_cap;
+	__u64 body_len;
+};
+
+/* Write @len bytes out, short writes and all. */
+static int compact_write(int fd, const void *buf, size_t len)
+{
+	const unsigned char *pos = buf;
+
+	while (len) {
+		ssize_t ret = write(fd, pos, len);
+
+		if (ret <= 0) {
+			fprintf(stderr, "%s: write failed: %m\n", __func__);
+			return -1;
+		}
+
+		pos += ret;
+		len -= ret;
+	}
+
+	return 0;
+}
+
+/* Keep @len bytes of the head, or @len zeroes if @buf is NULL. */
+static int compact_head_append(struct compact_ctx *ctx, const void *buf,
+			       size_t len)
+{
+	if (ctx->head_len + len > ctx->head_cap) {
+		size_t cap = ctx->head_cap ? ctx->head_cap : PAGE_SIZE;
+		unsigned char *head;
+
+		while (cap < ctx->head_len + len)
+			cap *= 2;
+
+		head = realloc(ctx->head, cap);
+		if (!head) {
+			fprintf(stderr, "%s: out of memory\n", __func__);
+			return -1;
+		}
+		ctx->head = head;
+		ctx->head_cap = cap;
+	}
+
+	if (buf)
+		memcpy(ctx->head + ctx->head_len, buf, len);
+	else
+		memset(ctx->head + ctx->head_len, 0, len);
+	ctx->head_len += len;
+
+	return 0;
+}
+
+/* Remember a hole so the program header table can account for it later. */
+static int compact_keep_hole(struct compact_ctx *ctx, __u64 offset, __u64 len)
+{
+	if (ctx->nr_holes == ctx->holes_cap) {
+		size_t cap = ctx->holes_cap ? ctx->holes_cap * 2 : 64;
+		struct compact_hole *holes;
+
+		holes = realloc(ctx->holes, cap * sizeof(*holes));
+		if (!holes) {
+			fprintf(stderr, "%s: out of memory\n", __func__);
+			return -1;
+		}
+		ctx->holes = holes;
+		ctx->holes_cap = cap;
+	}
+
+	ctx->holes[ctx->nr_holes].offset = offset;
+	ctx->holes[ctx->nr_holes].len = len;
+	ctx->nr_holes++;
+
+	return 0;
+}
+
+/* The segment data starts where the first PT_LOAD points. */
+static int compact_probe(struct compact_ctx *ctx)
+{
+	const ElfW(Ehdr) *ehdr = (const ElfW(Ehdr) *)ctx->head;
+	const ElfW(Phdr) *phdr;
+	size_t i;
+
+	if (ctx->data_offset || ctx->head_len < sizeof(*ehdr))
+		return 0;
+
+	if (!is_core_ehdr(ehdr)) {
+		fprintf(stderr, "%s: not an ELF core file\n", __func__);
+		return -1;
+	}
+
+	if (ehdr->e_phoff != sizeof(*ehdr) ||
+	    ehdr->e_phentsize != sizeof(ElfW(Phdr)) ||
+	    ehdr->e_phnum == 0 || ehdr->e_phnum == PN_XNUM) {
+		fprintf(stderr, "%s: unhandled program header table\n", __func__);
+		return -1;
+	}
+
+	if (ctx->head_len < ehdr->e_phoff +
+			    (size_t)ehdr->e_phnum * ehdr->e_phentsize)
+		return 0;
+
+	phdr = (const ElfW(Phdr) *)(ctx->head + ehdr->e_phoff);
+	for (i = 0; i < ehdr->e_phnum; i++) {
+		if (phdr[i].p_type != PT_LOAD)
+			continue;
+		if (!ctx->data_offset || phdr[i].p_offset < ctx->data_offset)
+			ctx->data_offset = phdr[i].p_offset;
+	}
+
+	if (!ctx->data_offset) {
+		fprintf(stderr, "%s: coredump without a single segment\n",
+			__func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Take whatever of [@offset, @offset + @len) still belongs to the head.
+ * @buf is NULL for a hole. Returns how much was taken.
+ */
+static ssize_t compact_head_take(struct compact_ctx *ctx, const void *buf,
+				 __u64 offset, __u64 len)
+{
+	__u64 chunk;
+
+	if (!len || (ctx->data_offset && offset >= ctx->data_offset))
+		return 0;
+
+	chunk = len;
+	if (ctx->data_offset && offset + chunk > ctx->data_offset)
+		chunk = ctx->data_offset - offset;
+
+	if (offset != ctx->head_len) {
+		fprintf(stderr, "%s: head has a gap at %llu\n", __func__,
+			(unsigned long long)offset);
+		return -1;
+	}
+
+	if (compact_head_append(ctx, buf, chunk))
+		return -1;
+
+	return chunk;
+}
+
+static int compact_data(void *arg, const void *buf, size_t len, __u64 offset)
+{
+	struct compact_ctx *ctx = arg;
+	const unsigned char *pos = buf;
+	ssize_t head;
+
+	/* Only the test needs a coredump with the holes still in it. */
+	if (pwrite(ctx->fd_reference, pos, len, offset) != (ssize_t)len) {
+		fprintf(stderr, "%s: pwrite failed: %m\n", __func__);
+		return -1;
+	}
+
+	/* The head has to be rewritten at the end, so hold on to it. */
+	head = compact_head_take(ctx, pos, offset, len);
+	if (head < 0)
+		return -1;
+	if (head && compact_probe(ctx))
+		return -1;
+
+	pos += head;
+	len -= head;
+	if (!len)
+		return 0;
+
+	/* Everything else goes into the object as it arrives. */
+	if (compact_write(ctx->fd_body, pos, len))
+		return -1;
+	ctx->body_len += len;
+
+	return 0;
+}
+
+static int compact_zero(void *arg, __u64 offset, __u64 len)
+{
+	struct compact_ctx *ctx = arg;
+	ssize_t head;
+
+	/* A hole in the head is alignment padding. Write it out. */
+	head = compact_head_take(ctx, NULL, offset, len);
+	if (head < 0)
+		return -1;
+
+	offset += head;
+	len -= head;
+	if (!len)
+		return 0;
+
+	/* This is what the object doesn't have to carry. */
+	return compact_keep_hole(ctx, offset, len);
+}
+
+/* Where @offset ends up in the object once the holes ahead of it are gone. */
+static __u64 compact_offset(const struct compact_ctx *ctx, __u64 body_start,
+			    __u64 offset)
+{
+	__u64 elided = 0;
+	size_t i;
+
+	for (i = 0; i < ctx->nr_holes; i++) {
+		__u64 len = ctx->holes[i].len;
+
+		if (ctx->holes[i].offset >= offset)
+			break;
+		if (ctx->holes[i].offset + len > offset)
+			len = offset - ctx->holes[i].offset;
+		elided += len;
+	}
+
+	return body_start + (offset - ctx->data_offset) - elided;
+}
+
+/* A run of segment data that made it into the object. */
+static void compact_add_data(struct compact_piece *pieces, size_t *nr,
+			     const ElfW(Phdr) *phdr, __u64 start, __u64 end)
+{
+	struct compact_piece *piece = &pieces[(*nr)++];
+
+	piece->phdr = *phdr;
+	piece->phdr.p_vaddr = phdr->p_vaddr + (start - phdr->p_offset);
+	piece->phdr.p_paddr = 0;
+	piece->phdr.p_filesz = end - start;
+	piece->phdr.p_memsz = end - start;
+	piece->src = start;
+}
+
+/*
+ * A run of @len bytes the object doesn't carry. It grows the piece in
+ * front of it if this segment already has one, because everything a
+ * segment covers past p_filesz is zeroes anyway.
+ */
+static void compact_add_zero(struct compact_piece *pieces, size_t *nr,
+			     size_t first, const ElfW(Phdr) *phdr, __u64 vaddr,
+			     __u64 len)
+{
+	struct compact_piece *piece;
+
+	if (*nr > first) {
+		pieces[*nr - 1].phdr.p_memsz += len;
+		return;
+	}
+
+	piece = &pieces[(*nr)++];
+	piece->phdr = *phdr;
+	piece->phdr.p_vaddr = vaddr;
+	piece->phdr.p_paddr = 0;
+	piece->phdr.p_filesz = 0;
+	piece->phdr.p_memsz = len;
+	piece->src = 0;
+}
+
+/* Split the segments at the holes and write out what the object became. */
+static int compact_build(struct compact_ctx *ctx, int fd_object)
+{
+	__u64 note_offset = 0, note_len = 0, note_new;
+	__u64 align = 0, head_len, body_start, pos;
+	size_t nr_old, nr_new = 0, note_piece = 0, i;
+	struct compact_piece *pieces;
+	char buffer[PAGE_SIZE];
+	const ElfW(Phdr) *old;
+	ElfW(Ehdr) ehdr;
+	int ret = -1;
+
+	if (!ctx->data_offset) {
+		fprintf(stderr, "%s: coredump without segment data\n", __func__);
+		return -1;
+	}
+
+	memcpy(&ehdr, ctx->head, sizeof(ehdr));
+	if (ehdr.e_shoff) {
+		fprintf(stderr, "%s: section headers are not handled\n",
+			__func__);
+		return -1;
+	}
+
+	old = (const ElfW(Phdr) *)(ctx->head + ehdr.e_phoff);
+	nr_old = ehdr.e_phnum;
+
+	pieces = calloc(nr_old + 2 * ctx->nr_holes + 1, sizeof(*pieces));
+	if (!pieces) {
+		fprintf(stderr, "%s: out of memory\n", __func__);
+		return -1;
+	}
+
+	for (i = 0; i < nr_old; i++) {
+		ElfW(Phdr) phdr = old[i];
+		__u64 end = phdr.p_offset + phdr.p_filesz;
+		__u64 cur = phdr.p_offset;
+		size_t first = nr_new, h;
+
+		/* The notes move because the table in front of them grows. */
+		if (phdr.p_type == PT_NOTE) {
+			if (note_len) {
+				fprintf(stderr, "%s: more than one note segment\n",
+					__func__);
+				goto out;
+			}
+			note_offset = phdr.p_offset;
+			note_len = phdr.p_filesz;
+			note_piece = nr_new;
+			pieces[nr_new].phdr = phdr;
+			pieces[nr_new++].src = 0;
+			continue;
+		}
+
+		if (phdr.p_type != PT_LOAD) {
+			if (phdr.p_filesz && phdr.p_offset < ctx->data_offset) {
+				fprintf(stderr, "%s: segment %zu is in the head\n",
+					__func__, i);
+				goto out;
+			}
+			pieces[nr_new].phdr = phdr;
+			pieces[nr_new++].src = phdr.p_offset;
+			continue;
+		}
+
+		if (!align)
+			align = phdr.p_align;
+
+		for (h = 0; h < ctx->nr_holes && cur < end; h++) {
+			__u64 start = ctx->holes[h].offset;
+			__u64 stop = start + ctx->holes[h].len;
+
+			if (stop <= cur)
+				continue;
+			if (start >= end)
+				break;
+
+			/* A hole can span more than this one segment. */
+			if (start < cur)
+				start = cur;
+			if (stop > end)
+				stop = end;
+
+			if (start > cur) {
+				compact_add_data(pieces, &nr_new, &phdr, cur,
+						 start);
+				cur = start;
+			}
+			compact_add_zero(pieces, &nr_new, first, &phdr,
+					 phdr.p_vaddr + (cur - phdr.p_offset),
+					 stop - cur);
+			cur = stop;
+		}
+
+		if (cur < end)
+			compact_add_data(pieces, &nr_new, &phdr, cur, end);
+
+		/* Whatever the kernel didn't dump of this mapping. */
+		if (phdr.p_memsz > phdr.p_filesz)
+			compact_add_zero(pieces, &nr_new, first, &phdr,
+					 phdr.p_vaddr + phdr.p_filesz,
+					 phdr.p_memsz - phdr.p_filesz);
+	}
+
+	if (!note_len || note_offset + note_len > ctx->head_len) {
+		fprintf(stderr, "%s: notes aren't where they should be\n",
+			__func__);
+		goto out;
+	}
+
+	if (nr_new >= PN_XNUM) {
+		fprintf(stderr, "%s: %zu program headers don't fit\n", __func__,
+			nr_new);
+		goto out;
+	}
+
+	if (!align || (align & (align - 1)))
+		align = sysconf(_SC_PAGESIZE);
+
+	note_new = sizeof(ehdr) + (__u64)nr_new * sizeof(ElfW(Phdr));
+	head_len = note_new + note_len;
+	body_start = (head_len + align - 1) & ~(align - 1);
+
+	for (i = 0; i < nr_new; i++) {
+		struct compact_piece *piece = &pieces[i];
+
+		if (i == note_piece)
+			piece->phdr.p_offset = note_new;
+		else if (piece->phdr.p_filesz)
+			piece->phdr.p_offset = compact_offset(ctx, body_start,
+							      piece->src);
+		else
+			piece->phdr.p_offset = 0;
+	}
+
+	/* Only now is the head known. That's why it is uploaded last. */
+	ehdr.e_phnum = nr_new;
+	if (compact_write(fd_object, &ehdr, sizeof(ehdr)))
+		goto out;
+
+	for (i = 0; i < nr_new; i++)
+		if (compact_write(fd_object, &pieces[i].phdr,
+				  sizeof(pieces[i].phdr)))
+			goto out;
+
+	if (compact_write(fd_object, ctx->head + note_offset, note_len))
+		goto out;
+
+	/* Keep the segments aligned the way a debugger expects them. */
+	memset(buffer, 0, sizeof(buffer));
+	for (pos = head_len; pos < body_start; ) {
+		__u64 chunk = body_start - pos;
+
+		if (chunk > sizeof(buffer))
+			chunk = sizeof(buffer);
+		if (compact_write(fd_object, buffer, chunk))
+			goto out;
+		pos += chunk;
+	}
+
+	/* Putting the parts together is the blob store's job. Do it here. */
+	for (pos = 0; pos < ctx->body_len; ) {
+		ssize_t chunk = pread(ctx->fd_body, buffer, sizeof(buffer), pos);
+
+		if (chunk <= 0) {
+			fprintf(stderr, "%s: short read %zd: %m\n", __func__,
+				chunk);
+			goto out;
+		}
+		if (compact_write(fd_object, buffer, chunk))
+			goto out;
+		pos += chunk;
+	}
+
+	fprintf(stderr, "Object is %llu bytes in %zu program headers, %zu holes left out\n",
+		(unsigned long long)(body_start + ctx->body_len), nr_new,
+		ctx->nr_holes);
+	ret = 0;
+out:
+	free(pieces);
+	return ret;
+}
+
+/*
+ * Reassemble a record stream into an ELF core file that has no holes in
+ * it, the way a coredump server that uploads to a blob store has to. If
+ * @fd_reference is valid it gets the coredump the records describe,
+ * holes and all, so the test can compare the two.
+ */
+ssize_t recv_coredump_compact(int fd_coredump, int fd_object, int fd_reference,
+			      off_t *coredump_size)
+{
+	struct compact_ctx ctx = {
+		.fd_body	= -1,
+		.fd_reference	= fd_reference,
+	};
+	struct coredump_record_sink sink = {
+		.data	= compact_data,
+		.zero	= compact_zero,
+		.ctx	= &ctx,
+	};
+	ssize_t received;
+	off_t size = 0;
+	FILE *body;
+
+	body = tmpfile();
+	if (!body) {
+		fprintf(stderr, "%s: tmpfile failed: %m\n", __func__);
+		return -1;
+	}
+	ctx.fd_body = fileno(body);
+
+	/* An upload is appended to. Make sure nothing here can seek. */
+	if (fcntl(ctx.fd_body, F_SETFL, O_APPEND)) {
+		fprintf(stderr, "%s: F_SETFL failed: %m\n", __func__);
+		received = -1;
+		goto out;
+	}
+
+	received = __recv_coredump_records(fd_coredump, &sink, &size, NULL, -1);
+	if (received < 0)
+		goto out;
+
+	/*
+	 * Nothing is written for a hole, so grow the reference to the size
+	 * the records describe in case the coredump ended in one.
+	 */
+	if (ftruncate(fd_reference, size) < 0) {
+		fprintf(stderr, "%s: ftruncate to %llu failed: %m\n",
+			__func__, (unsigned long long)size);
+		received = -1;
+		goto out;
+	}
+
+	if (compact_build(&ctx, fd_object)) {
+		received = -1;
+		goto out;
+	}
+
+	if (coredump_size)
+		*coredump_size = size;
+out:
+	fclose(body);
+	free(ctx.head);
+	free(ctx.holes);
+	return received;
+}
+
+/* Read the ELF header and the program header table of @fd. */
+static ElfW(Phdr) *read_phdrs(int fd, size_t *nr)
+{
+	ElfW(Ehdr) ehdr;
+	ElfW(Phdr) *phdr;
+	size_t size;
+
+	if (pread(fd, &ehdr, sizeof(ehdr), 0) != sizeof(ehdr)) {
+		fprintf(stderr, "%s: no ELF header: %m\n", __func__);
+		return NULL;
+	}
+
+	if (!is_core_ehdr(&ehdr) || !ehdr.e_phnum ||
+	    ehdr.e_phentsize != sizeof(*phdr)) {
+		fprintf(stderr, "%s: not an ELF core file\n", __func__);
+		return NULL;
+	}
+
+	size = (size_t)ehdr.e_phnum * ehdr.e_phentsize;
+	phdr = malloc(size);
+	if (!phdr) {
+		fprintf(stderr, "%s: out of memory\n", __func__);
+		return NULL;
+	}
+
+	if (pread(fd, phdr, size, ehdr.e_phoff) != (ssize_t)size) {
+		fprintf(stderr, "%s: short program header table: %m\n", __func__);
+		free(phdr);
+		return NULL;
+	}
+
+	*nr = ehdr.e_phnum;
+	return phdr;
+}
+
+/* The segment @vaddr falls into. */
+static const ElfW(Phdr) *find_segment(const ElfW(Phdr) *phdr, size_t nr,
+				      __u64 vaddr)
+{
+	size_t i;
+
+	for (i = 0; i < nr; i++) {
+		if (phdr[i].p_type != PT_LOAD)
+			continue;
+		if (vaddr >= phdr[i].p_vaddr &&
+		    vaddr < phdr[i].p_vaddr + phdr[i].p_memsz)
+			return &phdr[i];
+	}
+
+	return NULL;
+}
+
+/* The next stretch of memory the segments cover, split ones merged back. */
+static bool next_range(const ElfW(Phdr) *phdr, size_t nr, size_t *i,
+		       __u64 *start, __u64 *end)
+{
+	while (*i < nr && phdr[*i].p_type != PT_LOAD)
+		(*i)++;
+
+	if (*i >= nr)
+		return false;
+
+	*start = phdr[*i].p_vaddr;
+	*end = phdr[*i].p_vaddr + phdr[*i].p_memsz;
+	(*i)++;
+
+	while (*i < nr) {
+		if (phdr[*i].p_type != PT_LOAD) {
+			(*i)++;
+			continue;
+		}
+		if (phdr[*i].p_vaddr != *end)
+			break;
+		*end = phdr[*i].p_vaddr + phdr[*i].p_memsz;
+		(*i)++;
+	}
+
+	return true;
+}
+
+/* Compare @len bytes at @offset against @len bytes at @offset_ref. */
+static int compare_range(int fd, __u64 offset, int fd_ref, __u64 offset_ref,
+			 __u64 len)
+{
+	char buffer[PAGE_SIZE], buffer_ref[PAGE_SIZE];
+
+	while (len) {
+		size_t chunk = len < sizeof(buffer) ? len : sizeof(buffer);
+
+		if (pread(fd, buffer, chunk, offset) != (ssize_t)chunk ||
+		    pread(fd_ref, buffer_ref, chunk, offset_ref) != (ssize_t)chunk) {
+			fprintf(stderr, "%s: short read at %llu: %m\n",
+				__func__, (unsigned long long)offset);
+			return -1;
+		}
+
+		if (memcmp(buffer, buffer_ref, chunk)) {
+			fprintf(stderr, "%s: %llu differs from %llu\n", __func__,
+				(unsigned long long)offset,
+				(unsigned long long)offset_ref);
+			return -1;
+		}
+
+		offset += chunk;
+		offset_ref += chunk;
+		len -= chunk;
+	}
+
+	return 0;
+}
+
+/* The @len bytes at @offset the object left out have to have been zeroes. */
+static int check_zero_range(int fd, __u64 offset, __u64 len)
+{
+	static const char zeroes[PAGE_SIZE];
+	char buffer[PAGE_SIZE];
+
+	while (len) {
+		size_t chunk = len < sizeof(buffer) ? len : sizeof(buffer);
+
+		if (pread(fd, buffer, chunk, offset) != (ssize_t)chunk) {
+			fprintf(stderr, "%s: short read at %llu: %m\n",
+				__func__, (unsigned long long)offset);
+			return -1;
+		}
+
+		if (memcmp(buffer, zeroes, chunk)) {
+			fprintf(stderr, "%s: %llu isn't a hole\n", __func__,
+				(unsigned long long)offset);
+			return -1;
+		}
+
+		offset += chunk;
+		len -= chunk;
+	}
+
+	return 0;
+}
+
+/*
+ * The object has to describe the same memory as the coredump it was built
+ * from, and it has to describe it correctly.
+ */
+int check_compact_coredump(int fd_object, int fd_reference)
+{
+	ElfW(Phdr) *object = NULL, *reference = NULL;
+	size_t nr_object, nr_reference, i;
+	size_t io = 0, ir = 0;
+	int ret = -1;
+
+	object = read_phdrs(fd_object, &nr_object);
+	reference = read_phdrs(fd_reference, &nr_reference);
+	if (!object || !reference)
+		goto out;
+
+	/* Nothing may have been dropped and nothing may have been added. */
+	for (;;) {
+		__u64 start = 0, end = 0, start_ref = 0, end_ref = 0;
+		bool has, has_ref;
+
+		has = next_range(object, nr_object, &io, &start, &end);
+		has_ref = next_range(reference, nr_reference, &ir, &start_ref,
+				     &end_ref);
+		if (!has && !has_ref)
+			break;
+
+		if (has != has_ref || start != start_ref || end != end_ref) {
+			fprintf(stderr, "%s: object covers 0x%llx-0x%llx, coredump 0x%llx-0x%llx\n",
+				__func__, (unsigned long long)start,
+				(unsigned long long)end,
+				(unsigned long long)start_ref,
+				(unsigned long long)end_ref);
+			goto out;
+		}
+	}
+
+	for (i = 0; i < nr_object; i++) {
+		const ElfW(Phdr) *segment;
+		__u64 offset, dumped;
+
+		if (object[i].p_type != PT_LOAD || !object[i].p_memsz)
+			continue;
+
+		segment = find_segment(reference, nr_reference,
+				       object[i].p_vaddr);
+		if (!segment) {
+			fprintf(stderr, "%s: 0x%llx isn't in the coredump\n",
+				__func__,
+				(unsigned long long)object[i].p_vaddr);
+			goto out;
+		}
+
+		offset = object[i].p_vaddr - segment->p_vaddr;
+		dumped = offset < segment->p_filesz ?
+				 segment->p_filesz - offset : 0;
+
+		/* What the object carries is what the coredump had. */
+		if (object[i].p_filesz > dumped) {
+			fprintf(stderr, "%s: object carries %llu bytes the coredump doesn't have\n",
+				__func__,
+				(unsigned long long)(object[i].p_filesz - dumped));
+			goto out;
+		}
+
+		if (compare_range(fd_object, object[i].p_offset, fd_reference,
+				  segment->p_offset + offset,
+				  object[i].p_filesz))
+			goto out;
+
+		/* And what it left out was a hole. */
+		if (object[i].p_memsz > object[i].p_filesz &&
+		    dumped > object[i].p_filesz) {
+			__u64 left_out = dumped - object[i].p_filesz;
+
+			if (left_out > object[i].p_memsz - object[i].p_filesz)
+				left_out = object[i].p_memsz - object[i].p_filesz;
+
+			if (check_zero_range(fd_reference,
+					     segment->p_offset + offset +
+					     object[i].p_filesz, left_out))
+				goto out;
+		}
+	}
+
+	ret = 0;
+out:
+	free(object);
+	free(reference);
+	return ret;
+}
+
 int create_detached_tmpfs(void)
 {
 	int fd_context, fd_tmpfs;
