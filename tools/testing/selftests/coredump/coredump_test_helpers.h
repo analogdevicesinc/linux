@@ -18,6 +18,9 @@
 /* Size of the mostly unpopulated mapping the sparse coredump test maps. */
 #define SPARSE_MAPPING_SIZE (256 * 1024 * 1024)
 
+/* A task mapping at least this much is worth a record stream. */
+#define SPARSE_STREAM_THRESHOLD (SPARSE_MAPPING_SIZE / 2)
+
 /* Shared helper function declarations */
 void *do_nothing(void *arg);
 void crashing_child(void);
@@ -25,9 +28,11 @@ void crashing_child_sparse(size_t size);
 ssize_t recv_coredump_records(int fd_coredump, int fd_core_file,
 			      off_t *coredump_size, bool *truncated,
 			      int fd_peer_pidfd);
-bool is_elf_core(int fd);
 ssize_t recv_coredump_compact(int fd_coredump, int fd_object, int fd_reference,
 			      off_t *coredump_size);
+ssize_t recv_coredump_bytes(int fd_coredump, int fd_core_file);
+ssize_t peer_vm_size(int fd_peer_pidfd);
+bool is_elf_core(int fd);
 int check_compact_coredump(int fd_object, int fd_reference);
 int create_detached_tmpfs(void);
 int create_and_listen_unix_socket(const char *path);

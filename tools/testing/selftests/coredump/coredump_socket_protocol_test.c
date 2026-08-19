@@ -2136,4 +2136,188 @@ TEST_F(coredump, socket_request_sparse_without_records)
 	check_conflicting_ack(_metadata, self, COREDUMP_KERNEL | COREDUMP_SPARSE);
 }
 
+/* What the server reports back about the coredump it decided to take. */
+struct stream_choice {
+	bool sparse;
+	ssize_t received;
+	off_t size;
+	ssize_t vm_size;
+};
+
+/*
+ * The kernel blocks in the coredump request until the ack arrives, so a
+ * coredump server gets to look at the task before it commits to a
+ * stream. Take the record stream only for a task whose mappings are
+ * worth it and the plain byte stream for everything else.
+ */
+static void check_stream_choice(struct __test_metadata *const _metadata,
+				FIXTURE_DATA(coredump) *self, bool big,
+				struct stream_choice *choice)
+{
+	int pidfd, status;
+	pid_t pid, pid_coredump_server;
+	struct pidfd_info info = {};
+	int ipc_sockets[2];
+	int pipefds[2];
+	char c;
+
+	ASSERT_EQ(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, ipc_sockets), 0);
+	ASSERT_EQ(pipe(pipefds), 0);
+	ASSERT_TRUE(set_core_pattern("@@/tmp/coredump.socket"));
+
+	pid_coredump_server = fork();
+	ASSERT_GE(pid_coredump_server, 0);
+	if (pid_coredump_server == 0) {
+		int fd_server = -1, fd_coredump = -1, fd_peer_pidfd = -1;
+		int fd_file = -1;
+		int exit_code = EXIT_FAILURE;
+		struct coredump_req req = {};
+		struct stream_choice got = {};
+		__u64 mask;
+
+		close(ipc_sockets[0]);
+		close(pipefds[0]);
+
+		fd_server = create_and_listen_unix_socket("/tmp/coredump.socket");
+		if (fd_server < 0)
+			goto out;
+
+		if (write_nointr(ipc_sockets[1], "1", 1) < 0)
+			goto out;
+
+		close(ipc_sockets[1]);
+
+		fd_coredump = accept4(fd_server, NULL, NULL, SOCK_CLOEXEC);
+		if (fd_coredump < 0)
+			goto out;
+
+		fd_peer_pidfd = get_peer_pidfd(fd_coredump);
+		if (fd_peer_pidfd < 0)
+			goto out;
+
+		/*
+		 * The reassembled coredump is bigger than the mapping the
+		 * child made, so keep it on the detached tmpfs and sparse.
+		 */
+		fd_file = open_coredump_tmpfile(self->fd_tmpfs_detached);
+		if (fd_file < 0)
+			goto out;
+
+		if (!read_coredump_req(fd_coredump, &req))
+			goto out;
+
+		if (!check_coredump_req(&req))
+			goto out;
+
+		/*
+		 * Nothing is on the wire yet and the kernel is waiting for
+		 * the ack, so there is all the time in the world to look at
+		 * the task and decide what to ask it for.
+		 */
+		got.vm_size = peer_vm_size(fd_peer_pidfd);
+		if (got.vm_size < 0)
+			goto out;
+		got.sparse = got.vm_size >= SPARSE_STREAM_THRESHOLD;
+
+		fprintf(stderr, "Peer maps %zd bytes, asking for %s\n",
+			got.vm_size,
+			got.sparse ? "a sparse record stream" : "a byte stream");
+
+		mask = COREDUMP_KERNEL | COREDUMP_WAIT;
+		if (got.sparse)
+			mask |= COREDUMP_RECORDS | COREDUMP_SPARSE;
+
+		if (!send_coredump_ack(fd_coredump, &req, mask, 0))
+			goto out;
+
+		if (!read_marker(fd_coredump, COREDUMP_MARK_REQACK))
+			goto out;
+
+		if (got.sparse) {
+			got.received = recv_coredump_records(fd_coredump, fd_file,
+							     &got.size, NULL, -1);
+		} else {
+			got.received = recv_coredump_bytes(fd_coredump, fd_file);
+			got.size = got.received;
+		}
+		if (got.received < 0)
+			goto out;
+
+		/* Either way a debugger has to see an ordinary core file. */
+		if (!is_elf_core(fd_file))
+			goto out;
+
+		if (write_nointr(pipefds[1], &got, sizeof(got)) != sizeof(got))
+			goto out;
+
+		exit_code = EXIT_SUCCESS;
+out:
+		close(pipefds[1]);
+		if (fd_file >= 0)
+			close(fd_file);
+		if (fd_peer_pidfd >= 0)
+			close(fd_peer_pidfd);
+		if (fd_coredump >= 0)
+			close(fd_coredump);
+		if (fd_server >= 0)
+			close(fd_server);
+		_exit(exit_code);
+	}
+	self->pid_coredump_server = pid_coredump_server;
+
+	EXPECT_EQ(close(ipc_sockets[1]), 0);
+	EXPECT_EQ(close(pipefds[1]), 0);
+	ASSERT_EQ(read_nointr(ipc_sockets[0], &c, 1), 1);
+	EXPECT_EQ(close(ipc_sockets[0]), 0);
+
+	pid = fork();
+	ASSERT_GE(pid, 0);
+	if (pid == 0)
+		crashing_child_sparse(big ? SPARSE_MAPPING_SIZE : PAGE_SIZE);
+
+	pidfd = sys_pidfd_open(pid, 0);
+	ASSERT_GE(pidfd, 0);
+
+	waitpid(pid, &status, 0);
+	ASSERT_TRUE(WIFSIGNALED(status));
+	ASSERT_TRUE(WCOREDUMP(status));
+
+	ASSERT_EQ(read_nointr(pipefds[0], choice, sizeof(*choice)),
+		  sizeof(*choice));
+	EXPECT_EQ(close(pipefds[0]), 0);
+
+	ASSERT_TRUE(get_pidfd_info(pidfd, &info));
+	ASSERT_GT((info.mask & PIDFD_INFO_COREDUMP), 0);
+	ASSERT_GT((info.coredump_mask & PIDFD_COREDUMPED), 0);
+
+	wait_and_check_coredump_server(pid_coredump_server, _metadata, self);
+}
+
+/* A task with little mapped isn't worth a record stream. */
+TEST_F(coredump, socket_request_stream_choice_small)
+{
+	struct stream_choice choice = {};
+
+	check_stream_choice(_metadata, self, false, &choice);
+
+	ASSERT_LT(choice.vm_size, (ssize_t)SPARSE_STREAM_THRESHOLD);
+	ASSERT_FALSE(choice.sparse);
+	ASSERT_GT(choice.received, 0);
+}
+
+/* A task sitting on a big mapping is. */
+TEST_F(coredump, socket_request_stream_choice_large)
+{
+	struct stream_choice choice = {};
+
+	check_stream_choice(_metadata, self, true, &choice);
+
+	ASSERT_GE(choice.vm_size, (ssize_t)SPARSE_STREAM_THRESHOLD);
+	ASSERT_TRUE(choice.sparse);
+	ASSERT_GT(choice.size, (off_t)SPARSE_MAPPING_SIZE);
+
+	/* The holes didn't have to go over the socket. */
+	ASSERT_LT(choice.received, choice.size / 8);
+}
+
 TEST_HARNESS_MAIN
