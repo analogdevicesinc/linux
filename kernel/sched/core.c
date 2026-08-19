@@ -5143,7 +5143,7 @@ static void do_balance_callbacks(struct rq *rq, struct balance_callback *head)
 	lockdep_assert_rq_held(rq);
 
 	while (head) {
-		func = (void (*)(struct rq *))head->func;
+		func = head->func;
 		next = head->next;
 		head->next = NULL;
 		head = next;
