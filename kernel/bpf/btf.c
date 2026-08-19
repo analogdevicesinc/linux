@@ -7584,7 +7584,7 @@ int btf_distill_func_proto(struct bpf_verifier_log *log,
 		return -EINVAL;
 	}
 	ret = __get_type_size(btf, func->type, &t);
-	if (ret < 0 || btf_type_is_struct(t)) {
+	if (ret < 0 || ret > 16) {
 		bpf_log(log,
 			"The function %s return type %s is unsupported.\n",
 			tname, btf_type_str(t));
@@ -7963,7 +7963,7 @@ static int btf_scan_type_tags(struct bpf_verifier_env *env,
 
 /* Check whether the type is a valid return type. */
 static int btf_validate_return_type(struct bpf_verifier_env *env, struct btf *btf,
-		const struct btf_type *t, int subprog)
+		const struct btf_type *t, int subprog, bool is_global)
 {
 	u32 tags = 0;
 	int err;
@@ -7985,6 +7985,19 @@ static int btf_validate_return_type(struct bpf_verifier_env *env, struct btf *bt
 	/* We always accept void or scalars. */
 	if (btf_type_is_void(t) || btf_type_is_int(t) || btf_is_any_enum(t))
 		return 0;
+
+	if (btf_type_is_struct(t) && t->size <= 16) {
+		/*
+		 * A global function's caller models the return as an opaque
+		 * scalar pair, so it may only return scalars by value. A local
+		 * function is verified inline, so a pointer field stays tracked
+		 * and needs no such restriction.
+		 */
+		bool local_func = subprog && !is_global;
+
+		if (local_func || btf_type_is_scalar_struct(env, btf, t, 0))
+			return 0;
+	}
 
 	return -EOPNOTSUPP;
 }
@@ -8073,12 +8086,12 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 		return -EINVAL;
 	}
 
-	err = btf_validate_return_type(env, btf, t, subprog);
+	err = btf_validate_return_type(env, btf, t, subprog, is_global);
 	if (err) {
 		if (is_global) {
 			bpf_log(log,
-				"Global function %s() return value not void or scalar. "
-				"Only those are supported.\n",
+				"Global function %s() has unsupported return type. "
+				"Only void, scalar, or a scalar-only struct/union up to 16 bytes is supported.\n",
 				tname);
 		}
 		return err;
