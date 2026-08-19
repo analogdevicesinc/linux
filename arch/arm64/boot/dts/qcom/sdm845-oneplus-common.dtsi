@@ -542,6 +542,7 @@
 		rmi4_f12: rmi4-f12@12 {
 			reg = <0x12>;
 			touchscreen-x-mm = <68>;
+			syna,clip-x-high = <1079>;
 			syna,sensor-type = <1>;
 			syna,rezero-wait-ms = <200>;
 		};
