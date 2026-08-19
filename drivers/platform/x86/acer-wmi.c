@@ -403,7 +403,8 @@ struct quirk_entry {
 	bool turbo;
 	u8 cpu_fans;
 	u8 gpu_fans;
-	bool predator_v4;
+	bool hwmon;
+	bool platform_profile;
 	bool pwm;
 };
 
@@ -421,9 +422,11 @@ static void __init set_quirks(void)
 		interface->capability |= ACER_CAP_TURBO_OC | ACER_CAP_TURBO_LED
 					 | ACER_CAP_TURBO_FAN;
 
-	if (quirks->predator_v4)
-		interface->capability |= ACER_CAP_PLATFORM_PROFILE |
-					 ACER_CAP_HWMON;
+	if (quirks->hwmon)
+		interface->capability |= ACER_CAP_HWMON;
+
+	if (quirks->platform_profile)
+		interface->capability |= ACER_CAP_PLATFORM_PROFILE;
 
 	if (quirks->pwm)
 		interface->capability |= ACER_CAP_PWM;
@@ -456,7 +459,8 @@ static struct quirk_entry quirk_acer_travelmate_2490 = {
 };
 
 static struct quirk_entry quirk_acer_nitro_an515_58 = {
-	.predator_v4 = true,
+	.hwmon = true,
+	.platform_profile = true,
 	.pwm = true,
 };
 
@@ -470,7 +474,8 @@ static struct quirk_entry quirk_acer_predator_ph16_72 = {
 	.turbo = true,
 	.cpu_fans = 1,
 	.gpu_fans = 1,
-	.predator_v4 = true,
+	.hwmon = true,
+	.platform_profile = true,
 	.pwm = true,
 };
 
@@ -478,12 +483,14 @@ static struct quirk_entry quirk_acer_predator_pt14_51 = {
 	.turbo = true,
 	.cpu_fans = 1,
 	.gpu_fans = 1,
-	.predator_v4 = true,
+	.hwmon = true,
+	.platform_profile = true,
 	.pwm = true,
 };
 
 static struct quirk_entry quirk_acer_predator_v4 = {
-	.predator_v4 = true,
+	.hwmon = true,
+	.platform_profile = true,
 };
 
 /* This AMW0 laptop has no bluetooth */
@@ -2194,7 +2201,7 @@ static const struct platform_profile_ops acer_predator_v4_platform_profile_ops =
 
 static int acer_platform_profile_setup(struct platform_device *device)
 {
-	if (quirks->predator_v4) {
+	if (quirks->platform_profile) {
 		platform_profile_device = devm_platform_profile_register(
 			&device->dev, "acer-wmi", NULL, &acer_predator_v4_platform_profile_ops);
 		if (IS_ERR(platform_profile_device))
@@ -2211,7 +2218,7 @@ static int acer_thermal_profile_change(void)
 	 * This mode key will either cycle through each mode or toggle the
 	 * most performant profile.
 	 */
-	if (quirks->predator_v4) {
+	if (quirks->platform_profile) {
 		u8 current_tp;
 		int err, tp;
 
