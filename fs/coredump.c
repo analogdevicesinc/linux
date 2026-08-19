@@ -1205,41 +1205,41 @@ void vfs_coredump(const kernel_siginfo_t *siginfo)
  * do on a core-file: use only these functions to write out all the
  * necessary info.
  */
-static int __dump_emit(struct coredump_params *cprm, const void *addr, int nr)
+static bool __dump_emit(struct coredump_params *cprm, const void *addr, int nr)
 {
 	struct file *file = cprm->file;
 	loff_t pos = file->f_pos;
 	ssize_t n;
 
 	if (cprm->written + nr > cprm->limit)
-		return 0;
+		return false;
 	if (dump_interrupted())
-		return 0;
+		return false;
 	n = __kernel_write(file, addr, nr, &pos);
 	if (n != nr)
-		return 0;
+		return false;
 	file->f_pos = pos;
 	cprm->written += n;
 	cprm->pos += n;
 
-	return 1;
+	return true;
 }
 
-static int __dump_skip(struct coredump_params *cprm, size_t nr)
+static bool __dump_skip(struct coredump_params *cprm, size_t nr)
 {
 	static char zeroes[PAGE_SIZE];
 	struct file *file = cprm->file;
 
 	if (file->f_mode & FMODE_LSEEK) {
 		if (dump_interrupted() || vfs_llseek(file, nr, SEEK_CUR) < 0)
-			return 0;
+			return false;
 		cprm->pos += nr;
-		return 1;
+		return true;
 	}
 
 	while (nr > PAGE_SIZE) {
 		if (!__dump_emit(cprm, zeroes, PAGE_SIZE))
-			return 0;
+			return false;
 		nr -= PAGE_SIZE;
 	}
 
@@ -1247,20 +1247,20 @@ static int __dump_skip(struct coredump_params *cprm, size_t nr)
 }
 
 /* Flush the accumulated hole before writing data. */
-static int dump_flush_skip(struct coredump_params *cprm)
+static bool dump_flush_skip(struct coredump_params *cprm)
 {
 	if (cprm->to_skip) {
 		if (!__dump_skip(cprm, cprm->to_skip))
-			return 0;
+			return false;
 		cprm->to_skip = 0;
 	}
-	return 1;
+	return true;
 }
 
-int dump_emit(struct coredump_params *cprm, const void *addr, int nr)
+bool dump_emit(struct coredump_params *cprm, const void *addr, int nr)
 {
 	if (!dump_flush_skip(cprm))
-		return 0;
+		return false;
 	return __dump_emit(cprm, addr, nr);
 }
 EXPORT_SYMBOL(dump_emit);
@@ -1280,7 +1280,7 @@ void dump_skip(struct coredump_params *cprm, size_t nr)
 EXPORT_SYMBOL(dump_skip);
 
 #ifdef CONFIG_ELF_CORE
-static int dump_emit_page(struct coredump_params *cprm, struct page *page)
+static bool dump_emit_page(struct coredump_params *cprm, struct page *page)
 {
 	struct bio_vec bvec;
 	struct iov_iter iter;
@@ -1289,25 +1289,25 @@ static int dump_emit_page(struct coredump_params *cprm, struct page *page)
 	ssize_t n;
 
 	if (!page)
-		return 0;
+		return false;
 
 	if (!dump_flush_skip(cprm))
-		return 0;
+		return false;
 	if (cprm->written + PAGE_SIZE > cprm->limit)
-		return 0;
+		return false;
 	if (dump_interrupted())
-		return 0;
+		return false;
 	pos = file->f_pos;
 	bvec_set_page(&bvec, page, PAGE_SIZE, 0);
 	iov_iter_bvec(&iter, ITER_SOURCE, &bvec, 1, PAGE_SIZE);
 	n = __kernel_write_iter(cprm->file, &iter, &pos);
 	if (n != PAGE_SIZE)
-		return 0;
+		return false;
 	file->f_pos = pos;
 	cprm->written += PAGE_SIZE;
 	cprm->pos += PAGE_SIZE;
 
-	return 1;
+	return true;
 }
 
 /*
@@ -1339,18 +1339,19 @@ static inline struct page *dump_page_copy(struct page *src, struct page *dst)
 }
 #endif
 
-int dump_user_range(struct coredump_params *cprm, unsigned long start,
-		    unsigned long len)
+bool dump_user_range(struct coredump_params *cprm, unsigned long start,
+		     unsigned long len)
 {
 	unsigned long addr;
 	struct page *dump_page;
-	int locked, ret;
+	int locked;
+	bool ret;
 
 	dump_page = dump_page_alloc();
 	if (!dump_page)
-		return 0;
+		return false;
 
-	ret = 0;
+	ret = false;
 	locked = 0;
 	for (addr = start; addr < start + len; addr += PAGE_SIZE) {
 		struct page *page;
@@ -1374,7 +1375,7 @@ int dump_user_range(struct coredump_params *cprm, unsigned long start,
 				mmap_read_unlock(current->mm);
 				locked = 0;
 			}
-			int stop = !dump_emit_page(cprm, dump_page_copy(page, dump_page));
+			bool stop = !dump_emit_page(cprm, dump_page_copy(page, dump_page));
 			put_page(page);
 			if (stop)
 				goto out;
@@ -1393,7 +1394,7 @@ int dump_user_range(struct coredump_params *cprm, unsigned long start,
 		}
 		cond_resched();
 	}
-	ret = 1;
+	ret = true;
 out:
 	if (locked)
 		mmap_read_unlock(current->mm);
@@ -1403,14 +1404,14 @@ out:
 }
 #endif
 
-int dump_align(struct coredump_params *cprm, int align)
+bool dump_align(struct coredump_params *cprm, int align)
 {
 	unsigned mod = (cprm->pos + cprm->to_skip) & (align - 1);
 	if (align & (align - 1))
-		return 0;
+		return false;
 	if (mod)
 		cprm->to_skip += align - mod;
-	return 1;
+	return true;
 }
 EXPORT_SYMBOL(dump_align);
 
