@@ -516,6 +516,9 @@ static struct workqueue_attrs *unbound_std_wq_attrs[NR_STD_WORKER_POOLS];
 /* I: attributes used when instantiating ordered pools on demand */
 static struct workqueue_attrs *ordered_wq_attrs[NR_STD_WORKER_POOLS];
 
+/* I: attributes of percpu workqueues, which are backed by the static pools */
+static struct workqueue_attrs *percpu_std_wq_attrs[NR_STD_WORKER_POOLS];
+
 /*
  * I: kthread_worker to release pwq's. pwq release needs to be bounced to a
  * process context while holding a pool lock. Bounce to a dedicated kthread
@@ -5541,7 +5544,7 @@ apply_wqattrs_prepare(struct workqueue_struct *wq,
 			ctx->pwq_tbl[cpu] = ctx->dfl_pwq;
 		} else {
 			wq_calc_pod_cpumask(new_attrs, cpu);
-			ctx->pwq_tbl[cpu] = alloc_unbound_pwq(wq, new_attrs);
+			ctx->pwq_tbl[cpu] = alloc_pwq(wq, new_attrs, cpu);
 			if (!ctx->pwq_tbl[cpu])
 				goto out_free;
 		}
@@ -5711,34 +5714,10 @@ out_unlock:
 	put_pwq_unlocked(old_pwq);
 }
 
-static int alloc_and_link_percpu_pwqs(struct workqueue_struct *wq)
-{
-	struct pool_workqueue *pwq;
-	int cpu;
-
-	for_each_possible_cpu(cpu) {
-		struct worker_pool *pool = get_percpu_pool(wq, cpu);
-
-		pwq = kmem_cache_alloc_node(pwq_cache, GFP_KERNEL, pool->node);
-		if (!pwq)
-			return -ENOMEM;
-
-		init_pwq(pwq, wq, pool);
-
-		mutex_lock(&wq->mutex);
-		link_pwq(pwq);
-		mutex_unlock(&wq->mutex);
-
-		rcu_assign_pointer(*per_cpu_ptr(wq->cpu_pwq, cpu), pwq);
-	}
-
-	return 0;
-}
-
 static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 {
 	bool highpri = wq->flags & WQ_HIGHPRI;
-	int cpu, ret;
+	int ret;
 
 	lockdep_assert_held(&wq_pool_mutex);
 
@@ -5747,7 +5726,7 @@ static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 		goto enomem;
 
 	if (!(wq->flags & WQ_UNBOUND)) {
-		ret = alloc_and_link_percpu_pwqs(wq);
+		ret = apply_workqueue_attrs_locked(wq, percpu_std_wq_attrs[highpri]);
 	} else if (wq->flags & __WQ_ORDERED) {
 		struct pool_workqueue *dfl_pwq;
 
@@ -5766,27 +5745,8 @@ static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 	return 0;
 
 enomem:
-	if (wq->cpu_pwq) {
-		for_each_possible_cpu(cpu) {
-			struct pool_workqueue __rcu **slot;
-			struct pool_workqueue *pwq;
-
-			slot = per_cpu_ptr(wq->cpu_pwq, cpu);
-			pwq = rcu_access_pointer(*slot);
-			if (pwq) {
-				/*
-				 * Unlink pwq from wq->pwqs since link_pwq()
-				 * may have already added it. wq->mutex is not
-				 * needed as the wq has not been published yet.
-				 */
-				if (!list_empty(&pwq->pwqs_node))
-					list_del_rcu(&pwq->pwqs_node);
-				kmem_cache_free(pwq_cache, pwq);
-			}
-		}
-		free_percpu(wq->cpu_pwq);
-		wq->cpu_pwq = NULL;
-	}
+	free_percpu(wq->cpu_pwq);
+	wq->cpu_pwq = NULL;
 	return -ENOMEM;
 }
 
@@ -6030,10 +5990,10 @@ err_unlock_free_node_nr_active:
 	 * flushing the pwq_release_worker ensures that the pwq_release_workfn()
 	 * completes before calling kfree(wq).
 	 */
-	if (wq->flags & WQ_UNBOUND) {
+	if (pwq_release_worker)
 		kthread_flush_worker(pwq_release_worker);
+	if (wq->flags & WQ_UNBOUND)
 		free_node_nr_active(wq->node_nr_active);
-	}
 err_free_wq:
 	free_workqueue_attrs(wq->attrs);
 	kfree(wq);
@@ -8202,7 +8162,7 @@ void __init workqueue_init_early(void)
 			init_cpu_worker_pool(pool, cpu, std_nice[i++]);
 	}
 
-	/* create default unbound and ordered wq attrs */
+	/* create default unbound, ordered and percpu wq attrs */
 	for (i = 0; i < NR_STD_WORKER_POOLS; i++) {
 		struct workqueue_attrs *attrs;
 
@@ -8218,6 +8178,10 @@ void __init workqueue_init_early(void)
 		attrs->nice = std_nice[i];
 		attrs->ordered = true;
 		ordered_wq_attrs[i] = attrs;
+
+		BUG_ON(!(attrs = alloc_workqueue_attrs()));
+		attrs->nice = std_nice[i];
+		percpu_std_wq_attrs[i] = attrs;
 	}
 
 	system_wq = alloc_workqueue("events", WQ_PERCPU | __WQ_DEPRECATED, 0);
