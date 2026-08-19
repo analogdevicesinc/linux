@@ -60,6 +60,22 @@ struct prog_test_ret_pair {	/* 16 bytes: R0:R2 */
 	__u64 hi;
 };
 
+struct prog_test_ret_ii {	/* 8 bytes: R0 only */
+	int a;
+	int b;
+};
+
+struct prog_test_ret_ptr {	/* 16 bytes: contains a pointer */
+	void *p;
+	__u64 tag;
+};
+
+struct prog_test_ret_big {	/* 24 bytes: too large for R0:R2 */
+	__u64 a;
+	__u64 b;
+	__u64 c;
+};
+
 struct prog_test_fail1 {
 	void *p;
 	int x;
@@ -140,6 +156,10 @@ int bpf_kfunc_call_test5(__u8 a, __u16 b, __u32 c) __ksym;
 __int128 bpf_kfunc_call_test_i128(__u64 a, __u64 b) __ksym;
 #endif
 struct prog_test_ret_pair bpf_kfunc_call_test_ret_pair(__u64 a, __u64 b) __ksym;
+struct prog_test_ret_pair bpf_kfunc_call_test_ret_fastcall(__u64 a, __u64 b) __ksym;
+struct prog_test_ret_ii bpf_kfunc_call_test_ret_ii(int a, int b) __ksym;
+struct prog_test_ret_ptr bpf_kfunc_call_test_ret_ptr(__u64 tag) __ksym;
+struct prog_test_ret_big bpf_kfunc_call_test_ret_big(void) __ksym;
 __u64 bpf_kfunc_call_stack_arg(__u64 a, __u64 b, __u64 c, __u64 d,
 			       __u64 e, __u64 f, __u64 g, __u64 h,
 			       __u64 i, __u64 j) __ksym;
