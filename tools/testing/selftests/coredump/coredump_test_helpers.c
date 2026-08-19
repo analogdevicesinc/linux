@@ -1095,6 +1095,33 @@ out:
 	return ret;
 }
 
+/* Read a plain coredump byte stream to end-of-file. */
+ssize_t recv_coredump_bytes(int fd_coredump, int fd_core_file)
+{
+	ssize_t received = 0;
+
+	for (;;) {
+		char buffer[PAGE_SIZE];
+		ssize_t ret = read_nointr(fd_coredump, buffer, sizeof(buffer));
+
+		if (ret < 0) {
+			fprintf(stderr, "%s: read failed: %m\n", __func__);
+			return -1;
+		}
+		if (ret == 0)
+			break;
+
+		if (write_nointr(fd_core_file, buffer, ret) != ret) {
+			fprintf(stderr, "%s: write failed: %m\n", __func__);
+			return -1;
+		}
+		received += ret;
+	}
+
+	fprintf(stderr, "Received %zd bytes of coredump\n", received);
+	return received;
+}
+
 int create_detached_tmpfs(void)
 {
 	int fd_context, fd_tmpfs;
@@ -1188,6 +1215,37 @@ bool get_pidfd_info(int fd_peer_pidfd, struct pidfd_info *info)
 	fprintf(stderr, "get_pidfd_info: mask=0x%llx, coredump_mask=0x%x, coredump_signal=%d, coredump_code=%d\n",
 		(unsigned long long)info->mask, info->coredump_mask, info->coredump_signal, info->coredump_code);
 	return true;
+}
+
+/*
+ * How much the peer has mapped. The task is parked in the coredump
+ * handshake, so its mm is still there to be looked at.
+ */
+ssize_t peer_vm_size(int fd_peer_pidfd)
+{
+	struct pidfd_info info = {};
+	unsigned long pages;
+	char path[64];
+	FILE *f;
+
+	if (!get_pidfd_info(fd_peer_pidfd, &info))
+		return -1;
+
+	snprintf(path, sizeof(path), "/proc/%d/statm", info.pid);
+	f = fopen(path, "r");
+	if (!f) {
+		fprintf(stderr, "%s: %s: %m\n", __func__, path);
+		return -1;
+	}
+
+	if (fscanf(f, "%lu", &pages) != 1) {
+		fprintf(stderr, "%s: %s: no size\n", __func__, path);
+		fclose(f);
+		return -1;
+	}
+	fclose(f);
+
+	return (ssize_t)pages * sysconf(_SC_PAGESIZE);
 }
 
 /* Protocol helper functions */
