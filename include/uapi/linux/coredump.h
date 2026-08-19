@@ -14,6 +14,8 @@
  * @COREDUMP_RECORDS: send the coredump as a sequence of records instead of
  *                    as a plain byte stream, see struct coredump_record_header;
  *                    requires COREDUMP_KERNEL
+ * @COREDUMP_SPARSE: describe the holes in the coredump as zero records
+ *                   instead of transferring them; requires COREDUMP_RECORDS
  */
 enum {
 	COREDUMP_KERNEL		= (1ULL << 0),
@@ -21,6 +23,7 @@ enum {
 	COREDUMP_REJECT		= (1ULL << 2),
 	COREDUMP_WAIT		= (1ULL << 3),
 	COREDUMP_RECORDS	= (1ULL << 4),
+	COREDUMP_SPARSE		= (1ULL << 5),
 };
 
 /**
@@ -111,11 +114,14 @@ enum coredump_mark {
  * @COREDUMP_RECORD_DATA: the header is followed by ->len bytes of data
  * @COREDUMP_RECORD_END: the coredump ends here, the header is not followed
  *                       by any data and no further record is sent
+ * @COREDUMP_RECORD_ZERO: the header stands for ->len zero bytes and is not
+ *                        followed by any data
  * @__COREDUMP_RECORD_TYPE_MAX: the maximum coredump record type value
  */
 enum coredump_record_type {
 	COREDUMP_RECORD_DATA		= 0U,
 	COREDUMP_RECORD_END		= 1U,
+	COREDUMP_RECORD_ZERO		= 2U,
 	__COREDUMP_RECORD_TYPE_MAX	= (1U << 31),
 };
 
@@ -130,9 +136,11 @@ enum coredump_record_type {
  * If the coredump server raises COREDUMP_RECORDS in coredump_ack->mask
  * the kernel doesn't send the coredump as a plain byte stream. It sends
  * a sequence of records instead. A COREDUMP_RECORD_DATA record is
- * followed by @len bytes of actual coredump data. Records arrive in
- * order and leave no gaps. So @offset is the sum of the @len of all
- * records before it.
+ * followed by @len bytes of actual coredump data. A
+ * COREDUMP_RECORD_ZERO record is followed by nothing and stands for
+ * @len zero bytes. A server that didn't raise COREDUMP_SPARSE never
+ * sees a zero record. Records arrive in order and leave no gaps. So
+ * @offset is the sum of the @len of all records before it.
  *
  * The last record is a COREDUMP_RECORD_END record. It is followed by
  * nothing. Its @len is zero. Its @offset is the size of the coredump.
@@ -153,7 +161,8 @@ enum coredump_record_type {
  * type is raised in coredump_req->mask as a feature of its own. A
  * server only ever sees the types it asked for.
  *
- * COREDUMP_RECORDS must be combined with COREDUMP_KERNEL.
+ * COREDUMP_RECORDS must be combined with COREDUMP_KERNEL, and
+ * COREDUMP_SPARSE with COREDUMP_RECORDS.
  */
 struct coredump_record_header {
 	__u32 size;
