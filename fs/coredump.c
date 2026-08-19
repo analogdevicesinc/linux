@@ -51,7 +51,6 @@
 #include <net/sock.h>
 #include <uapi/linux/pidfd.h>
 #include <uapi/linux/un.h>
-#include <uapi/linux/coredump.h>
 
 #include <linux/uaccess.h>
 #include <asm/mmu_context.h>
@@ -68,6 +67,7 @@
 
 static bool dump_vma_snapshot(struct coredump_params *cprm);
 static void free_vma_snapshot(struct coredump_params *cprm);
+static void dump_end_record(struct coredump_params *cprm);
 
 #define CORE_FILE_NOTE_SIZE_DEFAULT (4*1024*1024)
 /* Define a reasonable max cap */
@@ -661,6 +661,8 @@ static int umh_coredump_setup(struct subprocess_info *info, struct cred *new)
 	return 0;
 }
 
+static_assert(sizeof(struct coredump_record_header) == COREDUMP_RECORD_HEADER_SIZE_VER0);
+
 #ifdef CONFIG_UNIX
 /* af_unix halves the send buffer to size a single skb. */
 #define COREDUMP_SOCK_SNDBUF_MIN (3 * PAGE_SIZE)
@@ -803,7 +805,8 @@ static bool coredump_sock_request(struct core_name *cn, struct coredump_params *
 	struct coredump_req req = {
 		.size		= sizeof(struct coredump_req),
 		.mask		= COREDUMP_KERNEL | COREDUMP_USERSPACE |
-				  COREDUMP_REJECT | COREDUMP_WAIT,
+				  COREDUMP_REJECT | COREDUMP_WAIT |
+				  COREDUMP_RECORDS,
 		.size_ack	= sizeof(struct coredump_ack),
 	};
 	struct coredump_ack ack = {};
@@ -855,6 +858,19 @@ static bool coredump_sock_request(struct core_name *cn, struct coredump_params *
 	if (ack.spare) {
 		coredump_sock_mark(cprm->file, COREDUMP_MARK_UNSUPPORTED);
 		return false;
+	}
+
+	/* Records only describe a coredump the kernel writes. */
+	if ((ack.mask & COREDUMP_RECORDS) && !(ack.mask & COREDUMP_KERNEL)) {
+		coredump_sock_mark(cprm->file, COREDUMP_MARK_CONFLICTING);
+		return false;
+	}
+
+	/* Record header scratch; a bvec can't point at the stack. */
+	if (ack.mask & COREDUMP_RECORDS) {
+		cprm->record_hdr = kmalloc_obj(*cprm->record_hdr);
+		if (!cprm->record_hdr)
+			return false;
 	}
 
 	cprm->mask = ack.mask;
@@ -1041,7 +1057,6 @@ static bool coredump_pipe(struct core_name *cn, struct coredump_params *cprm,
 static bool coredump_write(struct coredump_params *cprm,
 			   const struct linux_binfmt *binfmt)
 {
-
 	if (dump_interrupted()) {
 		cprm->state |= COREDUMP_STATE_TRUNCATED;
 		return true;
@@ -1057,15 +1072,17 @@ static bool coredump_write(struct coredump_params *cprm,
 		cprm->state |= COREDUMP_STATE_TRUNCATED;
 	/*
 	 * Ensures that file size is big enough to contain the current
-	 * file postion. This prevents gdb from complaining about
+	 * file position. This prevents gdb from complaining about
 	 * a truncated file if the last "write" to the file was
-	 * dump_skip.
+	 * dump_skip. A record stream relies on it too: the flush
+	 * emits the records that cover a trailing hole.
 	 */
 	if (cprm->to_skip) {
 		cprm->to_skip--;
 		if (!dump_emit(cprm, "", 1))
 			cprm->state |= COREDUMP_STATE_TRUNCATED;
 	}
+	dump_end_record(cprm);
 	file_end_write(cprm->file);
 	free_vma_snapshot(cprm);
 	return true;
@@ -1080,6 +1097,7 @@ static void coredump_cleanup(struct core_name *cn, struct coredump_params *cprm)
 		atomic_dec(&core_pipe_count);
 	}
 	kfree(cn->corename);
+	kfree(cprm->record_hdr);
 	coredump_finish(cprm->state);
 }
 
@@ -1208,26 +1226,74 @@ void vfs_coredump(const kernel_siginfo_t *siginfo)
  * do on a core-file: use only these functions to write out all the
  * necessary info.
  */
-/* One write, never more than a page. See __dump_emit(). */
+static bool dump_records(const struct coredump_params *cprm)
+{
+	return cprm->mask & COREDUMP_RECORDS;
+}
+
+/* Describe the next @len bytes of the coredump. Returns the header size. */
+static size_t dump_record_init(struct coredump_params *cprm,
+			       enum coredump_record_type type, u64 flags,
+			       u64 len)
+{
+	if (!dump_records(cprm))
+		return 0;
+
+	*cprm->record_hdr = (struct coredump_record_header) {
+		.size	= sizeof(*cprm->record_hdr),
+		.type	= type,
+		.flags	= flags,
+		.offset	= cprm->pos,
+		.len	= len,
+	};
+
+	return sizeof(*cprm->record_hdr);
+}
+
+/* Write @iter whole or fail. @len is what it advances the coredump by. */
+static bool dump_write_iter(struct coredump_params *cprm, struct iov_iter *iter,
+			    size_t len)
+{
+	struct file *file = cprm->file;
+	size_t count = iov_iter_count(iter);
+	loff_t pos = file->f_pos;
+	ssize_t n;
+
+	n = __kernel_write_iter(file, iter, &pos);
+	if (n != (ssize_t)count)
+		return false;
+	file->f_pos = pos;
+	cprm->written += count;
+	cprm->pos += len;
+
+	return true;
+}
+
+/* One record, never more than a page. See __dump_emit(). */
 static bool dump_emit_chunk(struct coredump_params *cprm, const void *addr,
 			    int nr)
 {
-	struct file *file = cprm->file;
-	loff_t pos = file->f_pos;
-	ssize_t n;
+	struct kvec kvec[2];
+	struct iov_iter iter;
+	unsigned int nseg = 0;
+	size_t hdrlen;
 
 	if (dump_interrupted())
 		return false;
 
-	n = __kernel_write(file, addr, nr, &pos);
-	if (n != nr)
-		return false;
+	hdrlen = dump_record_init(cprm, COREDUMP_RECORD_DATA, 0, nr);
+	if (hdrlen) {
+		kvec[nseg].iov_base = cprm->record_hdr;
+		kvec[nseg].iov_len = hdrlen;
+		nseg++;
+	}
+	kvec[nseg].iov_base = (void *)addr;
+	kvec[nseg].iov_len = nr;
+	nseg++;
 
-	file->f_pos = pos;
-	cprm->written += n;
-	cprm->pos += n;
+	iov_iter_kvec(&iter, ITER_SOURCE, kvec, nseg, hdrlen + nr);
 
-	return true;
+	return dump_write_iter(cprm, &iter, nr);
 }
 
 static bool __dump_emit(struct coredump_params *cprm, const void *addr, int nr)
@@ -1246,6 +1312,34 @@ static bool __dump_emit(struct coredump_params *cprm, const void *addr, int nr)
 	}
 
 	return true;
+}
+
+/* Send a record that stands on its own: a header and nothing else. */
+static bool dump_emit_record(struct coredump_params *cprm,
+			     enum coredump_record_type type, u64 flags, u64 len)
+{
+	struct kvec kvec;
+	struct iov_iter iter;
+	size_t hdrlen;
+
+	hdrlen = dump_record_init(cprm, type, flags, len);
+	if (!hdrlen)
+		return false;
+
+	kvec.iov_base = cprm->record_hdr;
+	kvec.iov_len = hdrlen;
+	iov_iter_kvec(&iter, ITER_SOURCE, &kvec, 1, hdrlen);
+
+	return dump_write_iter(cprm, &iter, len);
+}
+
+/* Close the record stream. Only a whole coredump gets an end record. */
+static void dump_end_record(struct coredump_params *cprm)
+{
+	if (cprm->state & COREDUMP_STATE_TRUNCATED)
+		return;
+
+	dump_emit_record(cprm, COREDUMP_RECORD_END, 0, 0);
 }
 
 static bool __dump_skip(struct coredump_params *cprm, size_t nr)
@@ -1308,11 +1402,10 @@ EXPORT_SYMBOL(dump_skip);
 #ifdef CONFIG_ELF_CORE
 static bool dump_emit_page(struct coredump_params *cprm, struct page *page)
 {
-	struct bio_vec bvec;
+	struct bio_vec bvec[2];
 	struct iov_iter iter;
-	struct file *file = cprm->file;
-	loff_t pos;
-	ssize_t n;
+	unsigned int nseg = 0;
+	size_t hdrlen;
 
 	if (!page)
 		return false;
@@ -1323,17 +1416,16 @@ static bool dump_emit_page(struct coredump_params *cprm, struct page *page)
 		return false;
 	if (dump_interrupted())
 		return false;
-	pos = file->f_pos;
-	bvec_set_page(&bvec, page, PAGE_SIZE, 0);
-	iov_iter_bvec(&iter, ITER_SOURCE, &bvec, 1, PAGE_SIZE);
-	n = __kernel_write_iter(cprm->file, &iter, &pos);
-	if (n != PAGE_SIZE)
-		return false;
-	file->f_pos = pos;
-	cprm->written += PAGE_SIZE;
-	cprm->pos += PAGE_SIZE;
 
-	return true;
+	/* Hand the record header to the same write as the page it describes. */
+	hdrlen = dump_record_init(cprm, COREDUMP_RECORD_DATA, 0, PAGE_SIZE);
+	if (hdrlen)
+		bvec_set_virt(&bvec[nseg++], cprm->record_hdr, hdrlen);
+	bvec_set_page(&bvec[nseg++], page, PAGE_SIZE, 0);
+
+	iov_iter_bvec(&iter, ITER_SOURCE, bvec, nseg, hdrlen + PAGE_SIZE);
+
+	return dump_write_iter(cprm, &iter, PAGE_SIZE);
 }
 
 /*
