@@ -565,6 +565,7 @@ config VIRT_CPU_ACCOUNTING
 
 choice
 	prompt "Cputime accounting"
+	default VIRT_CPU_ACCOUNTING_GEN if NO_HZ_FULL
 	default TICK_CPU_ACCOUNTING
 
 # Kind of a stub config for the pure tick based cputime accounting
@@ -1860,7 +1861,7 @@ config HAVE_FUTEX_ROBUST_UNLOCK
 	bool
 
 config FUTEX_ROBUST_UNLOCK
-	def_bool FUTEX && HAVE_GENERIC_VDSO && GENERIC_IRQ_ENTRY && RSEQ && HAVE_FUTEX_ROBUST_UNLOCK
+	def_bool FUTEX && GENERIC_IRQ_ENTRY && RSEQ && HAVE_FUTEX_ROBUST_UNLOCK
 
 config EPOLL
 	bool "Enable eventpoll support" if EXPERT

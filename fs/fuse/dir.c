@@ -1084,7 +1084,7 @@ static int fuse_mknod(struct mnt_idmap *idmap, struct inode *dir,
 }
 
 static int fuse_create(struct mnt_idmap *idmap, struct inode *dir,
-		       struct dentry *entry, umode_t mode, bool excl)
+		       struct dentry *entry, umode_t mode)
 {
 	return fuse_mknod(idmap, dir, entry, mode, 0);
 }
@@ -1116,6 +1116,14 @@ static struct dentry *fuse_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 
 	if (!fm->fc->dont_mask)
 		mode &= ~current_umask();
+
+	/*
+	 * vfs_mkdir() now passes S_IFDIR in @mode, but @mode is forwarded
+	 * verbatim to the userspace server which has only ever been given the
+	 * permission bits. Strip the type bit until the protocol is known to
+	 * cope with it.
+	 */
+	mode &= ~S_IFDIR;
 
 	memset(&inarg, 0, sizeof(inarg));
 	inarg.mode = mode;
