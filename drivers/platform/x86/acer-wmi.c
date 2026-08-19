@@ -454,6 +454,10 @@ static struct quirk_entry quirk_acer_aspire_1520 = {
 	.brightness = -1,
 };
 
+static struct quirk_entry quirk_acer_aspire_a315_58g = {
+	.hwmon = true,
+};
+
 static struct quirk_entry quirk_acer_travelmate_2490 = {
 	.mailled = 1,
 };
@@ -641,6 +645,15 @@ static const struct dmi_system_id acer_quirks[] __initconst = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "Aspire 9110"),
 		},
 		.driver_data = &quirk_acer_travelmate_2490,
+	},
+	{
+		.callback = dmi_matched,
+		.ident = "Acer Aspire A315-58G",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Aspire A315-58G"),
+		},
+		.driver_data = &quirk_acer_aspire_a315_58g,
 	},
 	{
 		.callback = dmi_matched,
