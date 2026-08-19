@@ -132,6 +132,12 @@ crosstool_abi() {
 	esac
 }
 
+need_gcc() {
+	case "$1" in
+	*) echo "1";;
+	esac
+}
+
 download_crosstool() {
 	arch="$(crosstool_arch "$1")"
 	abi="$(crosstool_abi "$1")"
@@ -164,14 +170,18 @@ test_arch() {
 	arch=$1
 	ct_arch=$(crosstool_arch "$arch")
 	ct_abi=$(crosstool_abi "$1")
+	gcc="$(need_gcc "$1")"
+	cross_compile=
 
-	if [ ! -d "${download_location}gcc-${crosstool_version}-nolibc/${ct_arch}-${ct_abi}/bin/." ]; then
+	if [ -n "$gcc" ] && [ ! -d "${download_location}gcc-${crosstool_version}-nolibc/${ct_arch}-${ct_abi}/bin/." ]; then
 		echo "No toolchain found in ${download_location}gcc-${crosstool_version}-nolibc/${ct_arch}-${ct_abi}."
 		echo "Did you install the toolchains or set the correct arch ? Rerun with -h for help."
 		return 1
 	fi
 
-	cross_compile=$(realpath "${download_location}gcc-${crosstool_version}-nolibc/${ct_arch}-${ct_abi}/bin/${ct_arch}-${ct_abi}-")
+	if [ -n "$gcc" ]; then
+		cross_compile=$(realpath "${download_location}gcc-${crosstool_version}-nolibc/${ct_arch}-${ct_abi}/bin/${ct_arch}-${ct_abi}-")
+	fi
 	build_dir="${build_location}/${arch}"
 	if [ "$werror" -ne 0 ]; then
 		CFLAGS_EXTRA="$CFLAGS_EXTRA -Werror -Wl,--fatal-warnings"
