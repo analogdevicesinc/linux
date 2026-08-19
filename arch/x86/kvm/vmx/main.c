@@ -156,15 +156,6 @@ static fastpath_t vt_vcpu_run(struct kvm_vcpu *vcpu, u64 run_flags)
 	return vmx_vcpu_run(vcpu, run_flags);
 }
 
-static int vt_handle_exit(struct kvm_vcpu *vcpu,
-			  enum exit_fastpath_completion fastpath)
-{
-	if (is_td_vcpu(vcpu))
-		return tdx_handle_exit(vcpu, fastpath);
-
-	return vmx_handle_exit(vcpu, fastpath);
-}
-
 static bool vt_unhandleable_emulation_required(struct kvm_vcpu *vcpu)
 {
 	if (is_td_vcpu(vcpu)) {
@@ -889,6 +880,33 @@ int vt_handle_bus_lock_vmexit(struct kvm_vcpu *vcpu)
 	return 1;
 }
 
+static int vt_handle_exit(struct kvm_vcpu *vcpu,
+			  enum exit_fastpath_completion fastpath)
+{
+	int ret;
+
+#ifdef CONFIG_KVM_INTEL_TDX
+	if (is_td_vcpu(vcpu))
+		ret = tdx_handle_exit(vcpu, fastpath);
+	else
+#endif
+		ret = vmx_handle_exit(vcpu, fastpath);
+
+	/*
+	 * Exit to user space when bus lock detected to inform that there is
+	 * a bus lock in guest.
+	 */
+	if (vmx_get_exit_reason(vcpu).bus_lock_detected) {
+		if (ret > 0) {
+			vcpu->run->exit_reason = KVM_EXIT_X86_BUS_LOCK;
+			ret = 0;
+		}
+
+		vcpu->run->flags |= KVM_RUN_X86_BUS_LOCK;
+	}
+	return ret;
+}
+
 #define VMX_REQUIRED_APICV_INHIBITS				\
 	(BIT(APICV_INHIBIT_REASON_DISABLED) |			\
 	 BIT(APICV_INHIBIT_REASON_ABSENT) |			\
@@ -962,7 +980,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 
 	.vcpu_needs_initialization = vt_op_tdx_only(vcpu_needs_initialization),
 	.vcpu_run = vt_op(vcpu_run),
-	.handle_exit = vt_op(handle_exit),
+	.handle_exit = vt_handle_exit,
 	.skip_emulated_instruction = vmx_skip_emulated_instruction,
 	.update_emulated_instruction = vmx_update_emulated_instruction,
 	.unhandleable_emulation_required = vt_op(unhandleable_emulation_required),

@@ -6685,7 +6685,7 @@ void dump_vmcs(struct kvm_vcpu *vcpu)
  * The guest has exited.  See if we can fix it or if we need userspace
  * assistance.
  */
-static int __vmx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
+int vmx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	union vmx_exit_reason exit_reason = vmx_get_exit_reason(vcpu);
@@ -6842,25 +6842,6 @@ unexpected_vmexit:
 	dump_vmcs(vcpu);
 	kvm_prepare_unexpected_reason_exit(vcpu, exit_reason.full);
 	return 0;
-}
-
-int vmx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
-{
-	int ret = __vmx_handle_exit(vcpu, exit_fastpath);
-
-	/*
-	 * Exit to user space when bus lock detected to inform that there is
-	 * a bus lock in guest.
-	 */
-	if (vmx_get_exit_reason(vcpu).bus_lock_detected) {
-		if (ret > 0) {
-			vcpu->run->exit_reason = KVM_EXIT_X86_BUS_LOCK;
-			ret = 0;
-		}
-
-		vcpu->run->flags |= KVM_RUN_X86_BUS_LOCK;
-	}
-	return ret;
 }
 
 void vmx_update_cr8_intercept(struct kvm_vcpu *vcpu, int tpr, int irr)

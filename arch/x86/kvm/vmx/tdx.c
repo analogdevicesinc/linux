@@ -2050,7 +2050,7 @@ int tdx_complete_emulated_msr(struct kvm_vcpu *vcpu, int err)
 }
 
 
-static int __tdx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t fastpath)
+int tdx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t fastpath)
 {
 	struct vcpu_tdx *tdx = to_tdx(vcpu);
 	u64 vp_enter_ret = tdx->vp_enter_ret;
@@ -2160,22 +2160,6 @@ static int __tdx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t fastpath)
 unhandled_exit:
 	kvm_prepare_unexpected_reason_exit(vcpu, vp_enter_ret);
 	return 0;
-}
-
-int tdx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t fastpath)
-{
-	int ret = __tdx_handle_exit(vcpu, fastpath);
-
-	/* Exit to user space when bus lock was detected */
-	if (vmx_get_exit_reason(vcpu).bus_lock_detected) {
-		if (ret > 0) {
-			vcpu->run->exit_reason = KVM_EXIT_X86_BUS_LOCK;
-			ret = 0;
-		}
-
-		vcpu->run->flags |= KVM_RUN_X86_BUS_LOCK;
-	}
-	return ret;
 }
 
 void tdx_get_exit_info(struct kvm_vcpu *vcpu, u32 *reason,
