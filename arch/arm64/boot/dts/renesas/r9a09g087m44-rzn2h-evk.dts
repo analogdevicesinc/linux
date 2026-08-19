@@ -162,8 +162,8 @@
 			function-enumerator = <8>;
 		};
 
-#if LED8
 		led-8 {
+#if LED8
 			/*
 			 * USER_LED0
 			 * DSW15[8]: OFF, DSW15[9]: OFF, DSW15[10]: ON
@@ -172,11 +172,13 @@
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_DEBUG;
 			function-enumerator = <0>;
-		};
+#else
+			status = "disabled";
 #endif
+		};
 
-#if LED9
 		led-9 {
+#if LED9
 			/*
 			 * USER_LED1
 			 * DSW15[5]: OFF, DSW15[6]: ON
@@ -185,8 +187,10 @@
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_DEBUG;
 			function-enumerator = <1>;
-		};
+#else
+			status = "disabled";
 #endif
+		};
 
 		led-10 {
 			/*
