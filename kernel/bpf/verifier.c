@@ -17479,35 +17479,43 @@ enforce_retval:
 	return 0;
 }
 
-static int check_global_subprog_return_code(struct bpf_verifier_env *env)
+static int check_global_ret_scalar_reg(struct bpf_verifier_env *env, u32 regno)
 {
-	struct bpf_reg_state *reg = reg_state(env, BPF_REG_0);
-	struct bpf_func_state *cur_frame = cur_func(env);
+	struct bpf_reg_state *reg;
 	int err;
 
-	if (subprog_returns_void(env, cur_frame->subprogno))
-		return 0;
-
-	err = check_reg_arg(env, BPF_REG_0, SRC_OP);
+	err = check_reg_arg(env, regno, SRC_OP);
 	if (err)
 		return err;
 
 	/* Pointers to arena are safe to pass between subprograms. */
-	if (is_arena_reg(env, BPF_REG_0))
+	if (is_arena_reg(env, regno))
 		return 0;
 
-	if (is_pointer_value(env, BPF_REG_0)) {
-		verbose(env, "R%d leaks addr as return value\n", BPF_REG_0);
+	if (is_pointer_value(env, regno)) {
+		verbose(env, "R%d leaks addr as return value\n", regno);
 		return -EACCES;
 	}
 
+	reg = reg_state(env, regno);
 	if (reg->type != SCALAR_VALUE) {
-		verbose(env, "At subprogram exit the register R0 is not a scalar value (%s)\n",
-			reg_type_str(env, reg->type));
+		verbose(env, "At subprogram exit the register R%d is not a scalar value (%s)\n",
+			regno, reg_type_str(env, reg->type));
 		return -EINVAL;
 	}
 
 	return 0;
+}
+
+static int check_global_subprog_return_code(struct bpf_verifier_env *env)
+{
+	struct bpf_func_state *cur_frame = cur_func(env);
+	u32 subprog = cur_frame->subprogno;
+
+	if (subprog_returns_void(env, subprog))
+		return 0;
+
+	return check_global_ret_scalar_reg(env, BPF_REG_0);
 }
 
 /* Bitmask with 1s for all caller saved registers */
