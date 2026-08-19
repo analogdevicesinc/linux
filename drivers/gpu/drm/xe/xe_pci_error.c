@@ -84,6 +84,12 @@ static pci_ers_result_t xe_pci_error_mmio_enabled(struct pci_dev *pdev)
 	xe_info(xe, "PCI error: MMIO enabled\n");
 	action = xe_ras_process_errors(xe);
 
+	/* User wants to debug the error, prevent reset */
+	if (xe->wedged.mode == XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET) {
+		xe_device_declare_wedged(xe);
+		return PCI_ERS_RESULT_DISCONNECT;
+	}
+
 	return ras_action_to_pci_result(pdev, action);
 }
 
