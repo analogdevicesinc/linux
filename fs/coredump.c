@@ -665,6 +665,9 @@ static int umh_coredump_setup(struct subprocess_info *info, struct cred *new)
 }
 
 #ifdef CONFIG_UNIX
+/* af_unix halves the send buffer to size a single skb. */
+#define COREDUMP_SOCK_SNDBUF_MIN (3 * PAGE_SIZE)
+
 static bool coredump_sock_connect(struct core_name *cn, struct coredump_params *cprm)
 {
 	struct file *file __free(fput) = NULL;
@@ -689,6 +692,10 @@ static bool coredump_sock_connect(struct core_name *cn, struct coredump_params *
 	retval = sock_create_kern(&init_net, AF_UNIX, SOCK_STREAM, 0, &socket);
 	if (retval < 0)
 		return false;
+
+	/* Don't let a page-sized write split into several skbs. */
+	socket->sk->sk_sndbuf = max_t(int, socket->sk->sk_sndbuf,
+				      COREDUMP_SOCK_SNDBUF_MIN);
 
 	file = sock_alloc_file(socket, 0, NULL);
 	if (IS_ERR(file))
