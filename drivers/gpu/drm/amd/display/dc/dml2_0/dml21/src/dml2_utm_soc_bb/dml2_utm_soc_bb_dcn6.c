@@ -181,6 +181,8 @@ static bool dcn6_v3_sop_table_is_bandwidth_supported_at_index(
 			&dchub->sops[UTM_QOS_MODEL_V3_LOAD_LEVEL_IDLE][index];
 	const struct utm_qos_model_dchub_v3_sop_entry *active_entry =
 			&dchub->sops[UTM_QOS_MODEL_V3_LOAD_LEVEL_ACTIVE_ALTERNATE_PSTATE][highest_sop_index];
+	const struct utm_qos_model_dchub_v3_sop_entry *pstate_entry =
+			&dchub->sops[UTM_QOS_MODEL_V3_LOAD_LEVEL_ACTIVE_ALTERNATE_PSTATE][index];
 
 	if (bw->dcn5.non_urgent_bandwidth_kbps > idle_entry->nominal_bandwidth_KBps
 			|| bw->dcn5.urgent_bandwidth_kbps > idle_entry->urgent_bandwidth_KBps)
@@ -188,6 +190,10 @@ static bool dcn6_v3_sop_table_is_bandwidth_supported_at_index(
 
 	if (bw->dcn5.non_urgent_bandwidth_kbps > active_entry->nominal_bandwidth_KBps
 			|| bw->dcn5.urgent_bandwidth_kbps > active_entry->urgent_bandwidth_KBps)
+		return false;
+
+	/* check if the requested lsdma bandwidth fits within the current sop's alt-pstate lsdma budget */
+	if (bw->dcn5.lsdma_bandwidth_kbps > pstate_entry->lsdma_bandwidth_KBps)
 		return false;
 
 	return true;
@@ -321,6 +327,7 @@ static void dcn6_initialize_from_soc_bb(struct dml2_utm_soc_bb *utm_soc_bb,
 	utm_soc_bb->lower_bound_bandwidth_dchub = soc_bb->lower_bound_bandwidth_dchub;
 	utm_soc_bb->fraction_of_urgent_bandwidth_nominal_target = soc_bb->fraction_of_urgent_bandwidth_nominal_target;
 	utm_soc_bb->fraction_of_urgent_bandwidth_flip_target = soc_bb->fraction_of_urgent_bandwidth_flip_target;
+	utm_soc_bb->max_lsdma_bandwidth_kbps = soc_bb->max_lsdma_bandwidth_kbps;
 }
 
 static void dcn6_initialize_from_qos_model(struct dml2_utm_soc_bb *utm_soc_bb,

@@ -402,6 +402,7 @@ struct dml2_memory_path_bandwidth {
 		struct {
 			double urgent_bandwidth_kbps; // kbytes per sec
 			double non_urgent_bandwidth_kbps; // kbytes per sec
+			double lsdma_bandwidth_kbps; // kbytes per sec
 		} dcn5;
 	};
 };

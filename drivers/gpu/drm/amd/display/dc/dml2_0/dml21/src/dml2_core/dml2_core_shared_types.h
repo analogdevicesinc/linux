@@ -2309,16 +2309,17 @@ struct dml2_core_calcs_calculate_alternate_params {
 	unsigned int *NoOfDPP;
 	unsigned int max_num_dpp;
 	double dram_blackout_us;
-	double *VActiveLatencyHidingUs;
 	unsigned int *svp0_dst_lines;
 	unsigned int *svp1_dst_lines;
 	unsigned int *svp_req_limit;
 	double dcn_non_urgent_bandwidth_kbps;
+	double max_lsdma_bandwidth_kbps;
 	unsigned int alt_chan_fw_delay_us;
 	double *dst_y_per_vm_vblank;
 	double *dst_y_per_row_vblank;
 	unsigned int *DSTYAfterScaler;
 	enum dml2_odm_mode *ODMMode;
+	bool alt_chan_in_use;
 
 	/* output params */
 	unsigned int *svp0_max_bytes;

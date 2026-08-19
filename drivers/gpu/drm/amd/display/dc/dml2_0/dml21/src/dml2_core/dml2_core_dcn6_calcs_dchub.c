@@ -458,6 +458,37 @@ void dcn6_calculate_alternate_params(struct dml2_core_calcs_calculate_alternate_
 	unsigned int fw_delay;
 	struct swath_params swath_params;
 
+	/* the alternate channel outputs are only meaningful when the alternate channel is in use;
+	 * otherwise zero all outputs and return early */
+	if (!p->alt_chan_in_use) {
+		*p->svp0_max_bytes = 0;
+		*p->svp1_max_bytes = 0;
+		*p->lsdma_bw_req_for_alt_kbps = 0;
+
+		for (i = 0; i < p->display_cfg->num_planes; i++) {
+			p->svp0_max_bytes_per_dpp[i] = 0;
+			p->svp0_max_bytes_per_dpp_c[i] = 0;
+			p->svp1_max_bytes_per_dpp[i] = 0;
+			p->svp1_max_bytes_per_dpp_c[i] = 0;
+			p->total_swaths[i] = 0;
+			p->total_swaths_c[i] = 0;
+			p->prefetch_swaths[i] = 0;
+			p->prefetch_swaths_c[i] = 0;
+			p->prefetch_hdl_delta[i] = 0;
+			p->recout_hdl_delta[i] = 0;
+			p->prefetch_hdl_delta_c[i] = 0;
+			p->recout_hdl_delta_c[i] = 0;
+		}
+
+		for (i = 0; i < p->display_cfg->num_streams; i++) {
+			p->nom_req_limit_alt[i] = 0;
+			p->min_lead_dst_lines[i] = 0;
+			p->max_prefetch_in_lines[i] = 0;
+		}
+
+		return;
+	}
+
 	*p->svp0_max_bytes = 0;
 	*p->svp1_max_bytes = 0;
 	svp_max_bytes[0] = 0;
@@ -518,7 +549,7 @@ void dcn6_calculate_alternate_params(struct dml2_core_calcs_calculate_alternate_
 
 	*p->svp0_max_bytes = svp_max_bytes[0];
 	*p->svp1_max_bytes = svp_max_bytes[1];
-	*p->lsdma_bw_req_for_alt_kbps = p->dcn_non_urgent_bandwidth_kbps;
+	*p->lsdma_bw_req_for_alt_kbps = math_min2(p->dcn_non_urgent_bandwidth_kbps, p->max_lsdma_bandwidth_kbps);
 	copy_time_us = p->display_cfg->overrides.hw.force_alt_chan_copy_time.enable ? p->display_cfg->overrides.hw.force_alt_chan_copy_time.copy_time_us : calculate_alt_copy_time_us(p);
 	fw_delay =  p->display_cfg->overrides.hw.force_alt_chan_fw_delay.enable ? p->display_cfg->overrides.hw.force_alt_chan_fw_delay.fw_delay_us : p->alt_chan_fw_delay_us;
 	for (i = 0; i < p->display_cfg->num_streams; i++) {

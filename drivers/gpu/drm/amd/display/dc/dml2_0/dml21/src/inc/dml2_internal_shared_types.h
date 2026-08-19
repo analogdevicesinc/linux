@@ -117,6 +117,7 @@ struct dml2_utm_soc_bb {
 	double lower_bound_bandwidth_dchub;
 	double fraction_of_urgent_bandwidth_nominal_target;
 	double fraction_of_urgent_bandwidth_flip_target;
+	unsigned int max_lsdma_bandwidth_kbps;
 	unsigned int dchub_refclk_mhz;
 	unsigned int max_outstanding_reqs;
 	unsigned long return_bus_width_bytes;

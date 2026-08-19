@@ -2242,8 +2242,19 @@ static void dcn6_ms_calculate_alternate_params(const struct dml2_core_calculate_
 	const struct dml2_utm_soc_bb *soc_bb = ctx->soc_bb;
 	struct dml2_core_internal_mode_support *inputs = states;
 	struct dml2_core_internal_mode_support *outputs = states;
+	unsigned int i;
+	bool is_alternate_pstate_required = false;
 
 	DML_LOG_FUNC_ENTER();
+
+	for (i = 0; i < ctx->display_cfg->num_planes; i++) {
+		if (ctx->display_cfg->plane_descriptors[i].overrides.uclk_pstate_change_strategy ==
+				dml2_uclk_pstate_change_strategy_force_alternate) {
+			is_alternate_pstate_required = true;
+			break;
+		}
+	}
+
 	p->display_cfg = ctx->display_cfg;
 	p->dst_y_prefetch = inputs->dst_y_prefetch;
 	p->SwathHeightY = inputs->SwathHeightY;
@@ -2271,16 +2282,17 @@ static void dcn6_ms_calculate_alternate_params(const struct dml2_core_calculate_
 	p->NoOfDPP = inputs->NoOfDPP;
 	p->max_num_dpp = ctx->ip->max_num_dpp;
 	p->dram_blackout_us = soc_bb->power_management_parameters.dram_clk_change_blackout_us;
-	p->VActiveLatencyHidingUs = inputs->VActiveLatencyHidingUs;
 	p->svp0_dst_lines = inputs->svp0_dst_lines;
 	p->svp1_dst_lines = inputs->svp1_dst_lines;
 	p->svp_req_limit = inputs->svp_req_limit;
-	p->dcn_non_urgent_bandwidth_kbps = inputs->support.bandwidth_upper_bound.dcn5.non_urgent_bandwidth_kbps;
+	p->dcn_non_urgent_bandwidth_kbps = **inputs->support.non_urg_bandwidth_required_flip * 1000;
+	p->max_lsdma_bandwidth_kbps = soc_bb->max_lsdma_bandwidth_kbps;
 	p->alt_chan_fw_delay_us = ctx->ip->alt_chan_fw_delay_us;
 	p->dst_y_per_vm_vblank = inputs->LinesForVM;
 	p->dst_y_per_row_vblank = inputs->LinesForDPTERow;
 	p->DSTYAfterScaler = inputs->DSTYAfterScaler;
 	p->ODMMode = inputs->ODMMode;
+	p->alt_chan_in_use = is_alternate_pstate_required;
 
 	p->svp0_max_bytes = &outputs->svp0_max_bytes;
 	p->svp1_max_bytes = &outputs->svp1_max_bytes;
@@ -3217,8 +3229,11 @@ static void dcn6_ms_calculate_bandwidth_upper_bound(const struct dml2_core_calcu
 		math_max3(**inputs->support.urg_bandwidth_required_flip,
 			**inputs->support.non_urg_bandwidth_required / ctx->soc_bb->fraction_of_urgent_bandwidth_nominal_target,
 			**inputs->support.non_urg_bandwidth_required_flip / ctx->soc_bb->fraction_of_urgent_bandwidth_flip_target) * 1000;
+	outputs->support.bandwidth_upper_bound.dcn5.lsdma_bandwidth_kbps = inputs->lsdma_bw_req_for_alt_kbps;
+
 	DML_LOG_DEBUG_DOUBLE(outputs->support.bandwidth_upper_bound.dcn5.non_urgent_bandwidth_kbps);
 	DML_LOG_DEBUG_DOUBLE(outputs->support.bandwidth_upper_bound.dcn5.urgent_bandwidth_kbps);
+	DML_LOG_DEBUG_DOUBLE(outputs->support.bandwidth_upper_bound.dcn5.lsdma_bandwidth_kbps);
 	DML_LOG_FUNC_EXIT();
 }
 
@@ -3650,8 +3665,6 @@ static void dcn6_ms_check_alternate_channel_size_support(
 		const struct dml2_core_calculate_ms_context *ctx,
 		struct dml2_core_internal_mode_support *states)
 {
-	unsigned int i;
-	bool alt_chan_in_use = false;
 	const struct dml2_utm_soc_bb *soc_bb = ctx->soc_bb;
 	struct dml2_core_internal_mode_support *inputs = states;
 	struct dml2_core_internal_mode_support *outputs = states;
@@ -3661,16 +3674,8 @@ static void dcn6_ms_check_alternate_channel_size_support(
 	DML_LOG_FUNC_ENTER();
 	outputs->support.alternate_channel_size_support = true;
 
-	//Alternate Channel Size Support Check - only fail if alternate channels are used AND exceed carveout limit
-	for (i = 0; i < ctx->display_cfg->num_planes; i++) {
-		if (ctx->display_cfg->plane_descriptors[i].overrides.uclk_pstate_change_strategy == dml2_uclk_pstate_change_strategy_force_alternate) {
-			alt_chan_in_use = true;
-			break;
-		}
-	}
-
-	if (alt_chan_in_use && (inputs->svp0_max_bytes > alternate_carveout_size_bytes ||
-					inputs->svp1_max_bytes > alternate_carveout_size_bytes)) {
+	if (inputs->svp0_max_bytes > alternate_carveout_size_bytes ||
+			inputs->svp1_max_bytes > alternate_carveout_size_bytes) {
 		outputs->support.alternate_channel_size_support = false;
 	}
 
@@ -4081,6 +4086,8 @@ static enum dml2_status dcn6_ms_validate_prefetch(
 
 		dcn6_ms_calculate_peak_bandwidth_required(ctx, states);
 
+		dcn6_ms_calculate_alternate_params(ctx, states);
+
 		dcn6_ms_calculate_bandwidth_upper_bound(ctx, states);
 
 		dcn6_ms_check_qos_bandwidth_support(ctx, states);
@@ -4094,8 +4101,6 @@ static enum dml2_status dcn6_ms_validate_prefetch(
 		dcn6_ms_check_reordering_support(ctx, states);
 
 		dcn6_ms_calculate_vactive_det_fill_latency(ctx, states);
-
-		dcn6_ms_calculate_alternate_params(ctx, states);
 
 		dcn6_ms_check_alternate_channel_size_support(ctx, states);
 
