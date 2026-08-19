@@ -5385,27 +5385,46 @@ static struct worker_pool *get_percpu_pool(struct workqueue_struct *wq, int cpu)
 	return &per_cpu_ptr(pools, cpu)[highpri];
 }
 
-/* obtain a pool matching @attr and create a pwq associating the pool and @wq */
+/*
+ * Obtain the pool backing @wq on @cpu and create a pwq associating the two.
+ * A WQ_PERCPU workqueue is backed by the static per-cpu pool of @cpu,
+ * everything else by a pool matching @attrs. @cpu < 0 is always unbound.
+ */
 static struct pool_workqueue *alloc_pwq(struct workqueue_struct *wq,
-					const struct workqueue_attrs *attrs)
+					const struct workqueue_attrs *attrs,
+					int cpu)
 {
 	struct worker_pool *pool;
 	struct pool_workqueue *pwq;
 
 	lockdep_assert_held(&wq_pool_mutex);
 
-	pool = get_unbound_pool(attrs);
-	if (!pool)
-		return NULL;
+	WARN_ON_ONCE((wq->flags & WQ_PERCPU) && cpu < 0);
+
+	if (cpu >= 0 && (wq->flags & WQ_PERCPU)) {
+		pool = get_percpu_pool(wq, cpu);
+	} else {
+		pool = get_unbound_pool(attrs);
+		if (!pool)
+			return NULL;
+	}
 
 	pwq = kmem_cache_alloc_node(pwq_cache, GFP_KERNEL, pool->node);
 	if (!pwq) {
-		put_unbound_pool(pool);
+		if (!is_percpu_pool(pool))
+			put_unbound_pool(pool);
 		return NULL;
 	}
 
 	init_pwq(pwq, wq, pool);
 	return pwq;
+}
+
+/* create a pwq backed by an unbound pool matching @attrs */
+static struct pool_workqueue *alloc_unbound_pwq(struct workqueue_struct *wq,
+						const struct workqueue_attrs *attrs)
+{
+	return alloc_pwq(wq, attrs, -1);
 }
 
 /**
@@ -5509,7 +5528,7 @@ apply_wqattrs_prepare(struct workqueue_struct *wq,
 	copy_workqueue_attrs(new_attrs, attrs);
 	wqattrs_actualize_cpumask(new_attrs, unbound_cpumask);
 	cpumask_copy(new_attrs->__pod_cpumask, new_attrs->cpumask);
-	ctx->dfl_pwq = alloc_pwq(wq, new_attrs);
+	ctx->dfl_pwq = alloc_unbound_pwq(wq, new_attrs);
 	if (!ctx->dfl_pwq)
 		goto out_free;
 
@@ -5519,7 +5538,7 @@ apply_wqattrs_prepare(struct workqueue_struct *wq,
 			ctx->pwq_tbl[cpu] = ctx->dfl_pwq;
 		} else {
 			wq_calc_pod_cpumask(new_attrs, cpu);
-			ctx->pwq_tbl[cpu] = alloc_pwq(wq, new_attrs);
+			ctx->pwq_tbl[cpu] = alloc_unbound_pwq(wq, new_attrs);
 			if (!ctx->pwq_tbl[cpu])
 				goto out_free;
 		}
@@ -5664,7 +5683,7 @@ static void unbound_wq_update_pwq(struct workqueue_struct *wq, int cpu)
 		return;
 
 	/* create a new pwq */
-	pwq = alloc_pwq(wq, target_attrs);
+	pwq = alloc_unbound_pwq(wq, target_attrs);
 	if (!pwq) {
 		pr_warn("workqueue: allocation failed while updating CPU pod affinity of \"%s\"\n",
 			wq->name);
