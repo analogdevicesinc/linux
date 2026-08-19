@@ -15,7 +15,7 @@
 #include <osdep_service_linux.h>
 
 
-extern int RTW_STATUS_CODE(int error_code);
+int RTW_STATUS_CODE(int error_code);
 
 int _rtw_netif_rx(struct net_device *ndev, struct sk_buff *skb);
 
@@ -29,7 +29,7 @@ static inline void flush_signals_thread(void)
 
 #define _RND(sz, r) ((((sz)+((r)-1))/(r))*(r))
 
-extern void rtw_free_netdev(struct net_device *netdev);
+void rtw_free_netdev(struct net_device *netdev);
 
 /* Macros for handling unaligned memory accesses */
 

@@ -422,7 +422,7 @@ void init_mlme_default_rate_set(struct adapter *padapter);
 void init_mlme_ext_priv(struct adapter *padapter);
 void init_hw_mlme_ext(struct adapter *padapter);
 void free_mlme_ext_priv(struct mlme_ext_priv *pmlmeext);
-extern struct xmit_frame *alloc_mgtxmitframe(struct xmit_priv *pxmitpriv);
+struct xmit_frame *alloc_mgtxmitframe(struct xmit_priv *pxmitpriv);
 
 /* void fill_fwpriv(struct adapter *padapter, struct fw_priv *pfwpriv); */
 
@@ -516,8 +516,8 @@ s16 rtw_camid_search(struct adapter *adapter, u8 *addr, s16 kid);
 s16 rtw_camid_alloc(struct adapter *adapter, struct sta_info *sta, u8 kid);
 void rtw_camid_free(struct adapter *adapter, u8 cam_id);
 
-extern void rtw_alloc_macid(struct adapter *padapter, struct sta_info *psta);
-extern void rtw_release_macid(struct adapter *padapter, struct sta_info *psta);
+void rtw_alloc_macid(struct adapter *padapter, struct sta_info *psta);
+void rtw_release_macid(struct adapter *padapter, struct sta_info *psta);
 
 void report_join_res(struct adapter *padapter, int res);
 void report_survey_event(struct adapter *padapter, union recv_frame *precv_frame);
@@ -527,7 +527,7 @@ void report_add_sta_event(struct adapter *padapter, unsigned char *MacAddr, int 
 void report_wmm_edca_update(struct adapter *padapter);
 
 u8 chk_bmc_sleepq_cmd(struct adapter *padapter);
-extern u8 set_tx_beacon_cmd(struct adapter *padapter);
+u8 set_tx_beacon_cmd(struct adapter *padapter);
 unsigned int setup_beacon_frame(struct adapter *padapter, unsigned char *beacon_frame);
 void update_mgnt_tx_rate(struct adapter *padapter, u8 rate);
 void update_mgntframe_attrib(struct adapter *padapter, struct pkt_attrib *pattrib);
@@ -606,12 +606,12 @@ void sa_query_timer_hdl(struct timer_list *t);
 		_set_timer(&(mlmeext)->sa_query_timer, (ms)); \
 	} while (0)
 
-extern void process_addba_req(struct adapter *padapter, u8 *paddba_req, u8 *addr);
+void process_addba_req(struct adapter *padapter, u8 *paddba_req, u8 *addr);
 
-extern void update_TSF(struct mlme_ext_priv *pmlmeext, u8 *pframe, uint len);
-extern void correct_TSF(struct adapter *padapter, struct mlme_ext_priv *pmlmeext);
-extern void adaptive_early_32k(struct mlme_ext_priv *pmlmeext, u8 *pframe, uint len);
-extern bool traffic_status_watchdog(struct adapter *padapter, bool from_timer);
+void update_TSF(struct mlme_ext_priv *pmlmeext, u8 *pframe, uint len);
+void correct_TSF(struct adapter *padapter, struct mlme_ext_priv *pmlmeext);
+void adaptive_early_32k(struct mlme_ext_priv *pmlmeext, u8 *pframe, uint len);
+bool traffic_status_watchdog(struct adapter *padapter, bool from_timer);
 
 int rtw_chk_start_clnt_join(struct adapter *padapter, u8 *ch, u8 *bw, u8 *offset);
 
