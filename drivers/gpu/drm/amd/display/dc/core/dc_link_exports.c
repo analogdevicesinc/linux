@@ -368,8 +368,7 @@ enum dc_link_encoding_format dc_link_get_highest_encoding_format(const struct dc
 
 		if (frl_link_settings->frl_link_rate == HDMI_FRL_LINK_RATE_DISABLE)
 			return DC_LINK_ENCODING_HDMI_TMDS;
-		else if (frl_link_settings->frl_link_rate >= HDMI_FRL_LINK_RATE_3GBPS &&
-				frl_link_settings->frl_link_rate <= HDMI_FRL_LINK_RATE_12GBPS)
+		else if (frl_link_settings->frl_link_rate >= HDMI_FRL_LINK_RATE_3GBPS)
 			return DC_LINK_ENCODING_HDMI_FRL;
 	}
 

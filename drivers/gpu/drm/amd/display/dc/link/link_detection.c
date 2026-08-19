@@ -995,6 +995,8 @@ static bool should_verify_link_capability_destructively(struct dc_link *link,
 					}
 				}
 			}
+		} else if (link->dc->debug.skip_detection_link_training) {
+			destrictive = false;
 		}
 	}
 
