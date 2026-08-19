@@ -7677,6 +7677,12 @@ static int btf_check_func_type_match(struct bpf_verifier_log *log,
 			btf_type_str(t2), fn2);
 		return -EINVAL;
 	}
+	if (btf_type_has_size(t1) && (t1->size > 8 || t2->size > 8)) {
+		bpf_log(log,
+			"Return type of %s() has size %u and of %s() size %u, and a size above 8 bytes cannot be replaced\n",
+			fn1, t1->size, fn2, t2->size);
+		return -EINVAL;
+	}
 
 	for (i = 0; i < nargs1; i++) {
 		t1 = btf_type_skip_modifiers(btf1, args1[i].type, NULL);
