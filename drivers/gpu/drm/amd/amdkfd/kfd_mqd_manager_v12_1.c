@@ -455,6 +455,8 @@ static void update_mqd_sdma(struct mqd_manager *mm, void *mqd,
 
 	m->sdmax_queuen_dummy_reg = SDMA_RLC_DUMMY_DEFAULT;
 
+	m->sdmax_queuen_dummy_reg1 = 1;
+
 	/* Allow context switch so we don't cross-process starve with a massive
 	* command buffer of long-running SDMA commands
 	* sdmax_queuen_ib_cntl represent SDMA_QUEUE0_IB_CNTL register
