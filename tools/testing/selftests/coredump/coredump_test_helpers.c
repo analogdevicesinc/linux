@@ -58,14 +58,16 @@ void crashing_child_sparse(size_t size)
 	char *p;
 
 	/*
-	 * Touch the first page only. The whole mapping is dumped because
-	 * it has been written to, but all of it save that one page is a
-	 * hole.
+	 * Touch the first and the last page. This will cause the whole mapping
+	 * to be dumped because it has been written to. Everything between
+	 * those two pages is a hole though.
 	 */
 	p = mmap(NULL, size, PROT_READ | PROT_WRITE,
 		 MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-	if (p != MAP_FAILED)
+	if (p != MAP_FAILED) {
 		p[0] = 'x';
+		p[size - 1] = 'x';
+	}
 
 	/* crash on purpose */
 	*(volatile int *)NULL = 0;
