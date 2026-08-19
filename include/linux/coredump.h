@@ -6,6 +6,7 @@
 #include <linux/mm.h>
 #include <linux/fs.h>
 #include <linux/sched/coredump.h>
+#include <uapi/linux/coredump.h>
 #include <asm/siginfo.h>
 
 #ifdef CONFIG_COREDUMP
@@ -40,7 +41,11 @@ struct coredump_params {
 	u64 mask;
 	/* COREDUMP_STATE_* raised while the coredump is written. */
 	enum coredump_state state;
+	/* Record header scratch, NULL unless the coredump is a record stream. */
+	struct coredump_record_header *record_hdr;
+	/* Bytes handed to the file, record headers included. */
 	loff_t written;
+	/* Offset in the coredump, record headers excluded. */
 	loff_t pos;
 	loff_t to_skip;
 	int vma_count;
