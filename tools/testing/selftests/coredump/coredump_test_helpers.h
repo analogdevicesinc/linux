@@ -15,9 +15,17 @@
 
 #define NUM_THREAD_SPAWN 128
 
+/* Size of the mostly unpopulated mapping the sparse coredump test maps. */
+#define SPARSE_MAPPING_SIZE (256 * 1024 * 1024)
+
 /* Shared helper function declarations */
 void *do_nothing(void *arg);
 void crashing_child(void);
+void crashing_child_sparse(size_t size);
+ssize_t recv_coredump_records(int fd_coredump, int fd_core_file,
+			      off_t *coredump_size, bool *truncated,
+			      int fd_peer_pidfd);
+bool is_elf_core(int fd);
 int create_detached_tmpfs(void);
 int create_and_listen_unix_socket(const char *path);
 bool set_core_pattern(const char *pattern);
