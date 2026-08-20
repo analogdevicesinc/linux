@@ -812,7 +812,8 @@ static ssize_t gfs2_file_direct_read(struct kiocb *iocb, struct iov_iter *to,
 				     struct gfs2_holder *gh)
 {
 	struct file *file = iocb->ki_filp;
-	struct gfs2_inode *ip = GFS2_I(file->f_mapping->host);
+	struct inode *inode = file->f_mapping->host;
+	struct gfs2_inode *ip = GFS2_I(inode);
 	size_t prev_count = 0, window_size = 0;
 	size_t read = 0;
 	ssize_t ret;
@@ -906,7 +907,7 @@ retry:
 	if (ret)
 		goto out_uninit;
 	/* Silently fall back to buffered I/O when writing beyond EOF */
-	if (iocb->ki_pos + iov_iter_count(from) > i_size_read(&ip->i_inode))
+	if (iocb->ki_pos + iov_iter_count(from) > i_size_read(inode))
 		goto out_unlock;
 
 	from->nofault = true;
