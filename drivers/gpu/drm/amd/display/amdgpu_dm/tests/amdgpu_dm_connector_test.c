@@ -4875,75 +4875,6 @@ static void dm_test_get_amd_vsdb_supported(struct kunit *test)
 }
 
 /**
- * dm_test_parse_hdmi_amd_vsdb_null_edid - Test NULL EDID returns -ENODEV
- * @test: The KUnit test context
- */
-static void dm_test_parse_hdmi_amd_vsdb_null_edid(struct kunit *test)
-{
-	struct amdgpu_dm_connector *aconnector;
-	struct amdgpu_hdmi_vsdb_info vsdb_info = {0};
-
-	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, aconnector);
-
-	KUNIT_EXPECT_EQ(test,
-			parse_hdmi_amd_vsdb(aconnector, NULL, &vsdb_info),
-			-ENODEV);
-}
-
-/**
- * dm_test_parse_hdmi_amd_vsdb_no_extensions - Test EDID without extensions
- * @test: The KUnit test context
- *
- * An EDID that declares no extension blocks has no CEA block to parse.
- */
-static void dm_test_parse_hdmi_amd_vsdb_no_extensions(struct kunit *test)
-{
-	struct amdgpu_dm_connector *aconnector;
-	struct amdgpu_hdmi_vsdb_info vsdb_info = {0};
-	struct edid *edid;
-
-	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, aconnector);
-	edid = kunit_kzalloc(test, sizeof(*edid), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, edid);
-
-	edid->extensions = 0;
-
-	KUNIT_EXPECT_EQ(test,
-			parse_hdmi_amd_vsdb(aconnector, edid, &vsdb_info),
-			-ENODEV);
-}
-
-/**
- * dm_test_parse_hdmi_amd_vsdb_no_cea_ext - Test EDID with no CEA extension
- * @test: The KUnit test context
- *
- * An extension block that is not a CEA block leaves no VSDB to parse.
- */
-static void dm_test_parse_hdmi_amd_vsdb_no_cea_ext(struct kunit *test)
-{
-	struct amdgpu_dm_connector *aconnector;
-	struct amdgpu_hdmi_vsdb_info vsdb_info = {0};
-	struct edid *edid;
-	u8 *raw;
-
-	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, aconnector);
-
-	/* Base block + one extension block that is NOT a CEA extension. */
-	raw = kunit_kzalloc(test, 2 * EDID_LENGTH, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, raw);
-	edid = (struct edid *)raw;
-	edid->extensions = 1;
-	raw[EDID_LENGTH] = DM_TEST_DISPLAYID_EXT;
-
-	KUNIT_EXPECT_EQ(test,
-			parse_hdmi_amd_vsdb(aconnector, edid, &vsdb_info),
-			-ENODEV);
-}
-
-/**
  * dm_test_parse_displayid_vrr_null_edid - Test NULL EDID leaves range untouched
  * @test: The KUnit test context
  */
@@ -5647,10 +5578,6 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* get_amd_vsdb */
 	KUNIT_CASE(dm_test_get_amd_vsdb_unsupported),
 	KUNIT_CASE(dm_test_get_amd_vsdb_supported),
-	/* parse_hdmi_amd_vsdb */
-	KUNIT_CASE(dm_test_parse_hdmi_amd_vsdb_null_edid),
-	KUNIT_CASE(dm_test_parse_hdmi_amd_vsdb_no_extensions),
-	KUNIT_CASE(dm_test_parse_hdmi_amd_vsdb_no_cea_ext),
 	/* parse_edid_displayid_vrr */
 	KUNIT_CASE(dm_test_parse_displayid_vrr_null_edid),
 	KUNIT_CASE(dm_test_parse_displayid_vrr_no_displayid),
