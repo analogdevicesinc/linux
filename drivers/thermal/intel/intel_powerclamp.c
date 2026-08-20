@@ -143,12 +143,9 @@ copy_mask:
 }
 
 /* Return true if the cpumask and idle percent combination is invalid */
-static bool check_invalid(cpumask_var_t mask, u8 idle)
+static bool check_invalid(const struct cpumask *mask, u8 idle)
 {
-	if (cpumask_equal(cpu_present_mask, mask) && idle > MAX_ALL_CPU_IDLE)
-		return true;
-
-	return false;
+	return cpumask_equal(cpu_present_mask, mask) && idle > MAX_ALL_CPU_IDLE;
 }
 
 static int cpumask_set(const char *arg, const struct kernel_param *kp)
