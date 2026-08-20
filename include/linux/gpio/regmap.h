@@ -30,9 +30,6 @@ struct regmap;
  * @reg_dir_in_base:	(Optional) in setting register base address
  * @reg_dir_out_base:	(Optional) out setting register base address
  * @pm_dev:		(Optional) Device to use for runtime power management.
- * @read_output_reg_set:
- *			(Optional) Read output values from @reg_set_base
- *			instead of @reg_dat_base.
  * @reg_stride:		(Optional) May be set if the registers (of the
  *			same type, dat, set, etc) are not consecutive.
  * @ngpio_per_reg:	(Optional) Number of GPIOs per register
@@ -97,7 +94,6 @@ struct gpio_regmap_config {
 	unsigned int reg_dir_in_base;
 	unsigned int reg_dir_out_base;
 	struct device *pm_dev;
-	bool read_output_reg_set;
 	int reg_stride;
 	int ngpio_per_reg;
 	struct irq_domain *irq_domain;

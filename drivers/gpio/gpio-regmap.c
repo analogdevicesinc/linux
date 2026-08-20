@@ -33,7 +33,6 @@ struct gpio_regmap {
 	unsigned int reg_dir_in_base;
 	unsigned int reg_dir_out_base;
 	struct device *pm_dev;
-	bool read_output_reg_set;
 	unsigned long *fixed_direction_mask;
 	unsigned long *fixed_direction_output;
 
@@ -80,12 +79,11 @@ static int gpio_regmap_runtime_get(struct gpio_regmap *gpio)
 
 static void gpio_regmap_runtime_put(struct gpio_regmap *gpio)
 {
-	if (gpio->pm_dev)
-		pm_runtime_put_autosuspend(gpio->pm_dev);
-}
+	if (!gpio->pm_dev)
+		return;
 
-static int gpio_regmap_get_direction(struct gpio_chip *chip,
-				     unsigned int offset);
+	pm_runtime_put_autosuspend(gpio->pm_dev);
+}
 
 static int gpio_regmap_get(struct gpio_chip *chip, unsigned int offset)
 {
@@ -99,32 +97,26 @@ static int gpio_regmap_get(struct gpio_chip *chip, unsigned int offset)
 	else
 		base = gpio_regmap_addr(gpio->reg_set_base);
 
-	if (gpio->read_output_reg_set) {
-		ret = gpio_regmap_get_direction(chip, offset);
-		if (ret < 0)
-			return ret;
-
-		if (ret == GPIO_LINE_DIRECTION_OUT)
-			base = gpio_regmap_addr(gpio->reg_set_base);
-	}
-
 	ret = gpio_regmap_runtime_get(gpio);
 	if (ret)
 		return ret;
 
 	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
 	if (ret)
-		goto out_pm;
+		goto out_pm_put;
 
 	/* ensure we don't spoil any register cache with pin input values */
-	if (gpio->reg_dat_base == gpio->reg_set_base)
+	if (gpio->reg_dat_base == gpio->reg_set_base) {
 		ret = regmap_read_bypassed(gpio->regmap, reg, &val);
-	else
-		ret = regmap_read(gpio->regmap, reg, &val);
-	if (!ret)
-		ret = !!(val & mask);
+		if (ret)
+			goto out_pm_put;
 
-out_pm:
+		ret = !!(val & mask);
+	} else {
+		ret = regmap_test_bits(gpio->regmap, reg, mask);
+	}
+
+out_pm_put:
 	gpio_regmap_runtime_put(gpio);
 	return ret;
 }
@@ -143,7 +135,7 @@ static int gpio_regmap_set(struct gpio_chip *chip, unsigned int offset,
 
 	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
 	if (ret)
-		goto out_pm;
+		goto out_pm_put;
 
 	if (val)
 		mask_val = mask;
@@ -156,7 +148,7 @@ static int gpio_regmap_set(struct gpio_chip *chip, unsigned int offset,
 	else
 		ret = regmap_update_bits(gpio->regmap, reg, mask, mask_val);
 
-out_pm:
+out_pm_put:
 	gpio_regmap_runtime_put(gpio);
 	return ret;
 }
@@ -179,11 +171,11 @@ static int gpio_regmap_set_with_clear(struct gpio_chip *chip,
 
 	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
 	if (ret)
-		goto out_pm;
+		goto out_pm_put;
 
 	ret = regmap_write(gpio->regmap, reg, mask);
 
-out_pm:
+out_pm_put:
 	gpio_regmap_runtime_put(gpio);
 	return ret;
 }
@@ -206,7 +198,7 @@ static int gpio_regmap_get_direction(struct gpio_chip *chip,
 				     unsigned int offset)
 {
 	struct gpio_regmap *gpio = gpiochip_get_data(chip);
-	unsigned int base, val, reg, mask;
+	unsigned int base, reg, mask;
 	int invert, ret;
 
 	if (gpio_regmap_fixed_direction(gpio, offset)) {
@@ -237,18 +229,18 @@ static int gpio_regmap_get_direction(struct gpio_chip *chip,
 
 	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
 	if (ret)
-		goto out_pm;
+		goto out_pm_put;
 
-	ret = regmap_read(gpio->regmap, reg, &val);
-	if (ret)
-		goto out_pm;
+	ret = regmap_test_bits(gpio->regmap, reg, mask);
+	if (ret < 0)
+		goto out_pm_put;
 
-	if (!!(val & mask) ^ invert)
+	if (ret ^ invert)
 		ret = GPIO_LINE_DIRECTION_OUT;
 	else
 		ret = GPIO_LINE_DIRECTION_IN;
 
-out_pm:
+out_pm_put:
 	gpio_regmap_runtime_put(gpio);
 	return ret;
 }
@@ -299,7 +291,7 @@ static int gpio_regmap_set_direction(struct gpio_chip *chip,
 
 	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
 	if (ret)
-		goto out_pm;
+		goto out_pm_put;
 
 	if (invert)
 		val = output ? 0 : mask;
@@ -308,7 +300,7 @@ static int gpio_regmap_set_direction(struct gpio_chip *chip,
 
 	ret = regmap_update_bits(gpio->regmap, reg, mask, val);
 
-out_pm:
+out_pm_put:
 	gpio_regmap_runtime_put(gpio);
 	return ret;
 }
@@ -337,16 +329,16 @@ static int gpio_regmap_direction_output(struct gpio_chip *chip,
 	if (gpio_regmap_fixed_direction(gpio, offset)) {
 		ret = gpio_regmap_try_direction_fixed(gpio, offset, true);
 		if (ret)
-			goto out_pm;
+			goto out_pm_put;
 	}
 
 	ret = gpio_regmap_set(chip, offset, value);
 	if (ret)
-		goto out_pm;
+		goto out_pm_put;
 
 	ret = gpio_regmap_set_direction(chip, offset, true);
 
-out_pm:
+out_pm_put:
 	gpio_regmap_runtime_put(gpio);
 	return ret;
 }
@@ -382,10 +374,6 @@ struct gpio_regmap *gpio_regmap_register(const struct gpio_regmap_config *config
 	    (!config->reg_dat_base || !config->reg_set_base))
 		return ERR_PTR(-EINVAL);
 
-	if (config->read_output_reg_set &&
-	    (!config->reg_dat_base || !config->reg_set_base))
-		return ERR_PTR(-EINVAL);
-
 	/* we don't support having both registers simultaneously for now */
 	if (config->reg_dir_out_base && config->reg_dir_in_base)
 		return ERR_PTR(-EINVAL);
@@ -403,7 +391,6 @@ struct gpio_regmap *gpio_regmap_register(const struct gpio_regmap_config *config
 	gpio->reg_dir_in_base = config->reg_dir_in_base;
 	gpio->reg_dir_out_base = config->reg_dir_out_base;
 	gpio->pm_dev = config->pm_dev;
-	gpio->read_output_reg_set = config->read_output_reg_set;
 
 	chip = &gpio->gpio_chip;
 	chip->parent = config->parent;
@@ -411,7 +398,8 @@ struct gpio_regmap *gpio_regmap_register(const struct gpio_regmap_config *config
 	chip->base = -1;
 	chip->names = config->names;
 	chip->label = config->label ?: dev_name(config->parent);
-	chip->can_sleep = regmap_might_sleep(config->regmap);
+	chip->can_sleep = config->pm_dev ||
+			  regmap_might_sleep(config->regmap);
 	chip->init_valid_mask = config->init_valid_mask;
 
 	chip->request = gpiochip_generic_request;

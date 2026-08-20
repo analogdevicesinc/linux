@@ -170,22 +170,34 @@
 
 				channel@3 {
 					reg = <3>;
+					adi,prechargebuf-pos-enable;
+					adi,refbuf-pos-enable;
 				};
 
 				channel@4 {
 					reg = <4>;
+					adi,prechargebuf-pos-enable;
+					adi,refbuf-pos-enable;
 				};
 
 				channel@5 {
 					reg = <5>;
+					adi,prechargebuf-pos-enable;
+					adi,prechargebuf-neg-enable;
+					adi,refbuf-pos-enable;
+					adi,refbuf-neg-enable;
 				};
 
 				channel@6 {
 					reg = <6>;
+					adi,prechargebuf-neg-enable;
+					adi,refbuf-neg-enable;
 				};
 
 				channel@7 {
 					reg = <7>;
+					adi,prechargebuf-pos-enable;
+					adi,refbuf-pos-enable;
 				};
 			};
 		};
