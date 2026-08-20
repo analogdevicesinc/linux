@@ -151,7 +151,7 @@ struct inode *gfs2_inode_lookup(struct super_block *sb, unsigned int type,
 				       &gl);
 		if (unlikely(error))
 			goto fail;
-		ip->i_gl = gl;
+		rcu_assign_pointer(ip->i_gl, gl);
 
 		error = gfs2_glock_get(sdp, no_addr, &gfs2_iopen_glops, CREATE,
 				       &io_gl);
@@ -244,7 +244,7 @@ fail:
 		gfs2_glock_dq_uninit(&i_gh);
 	if (gl) {
 		gfs2_glock_put(gl);
-		ip->i_gl = NULL;
+		rcu_assign_pointer(ip->i_gl, NULL);
 	}
 	iget_failed(inode);
 	return ERR_PTR(error);
@@ -840,7 +840,7 @@ static int gfs2_create_inode(struct inode *dir, struct dentry *dentry,
 	error = gfs2_glock_get(sdp, ip->i_no_addr, &gfs2_inode_glops, CREATE, &gl);
 	if (error)
 		goto fail_dealloc_inode;
-	ip->i_gl = gl;
+	rcu_assign_pointer(ip->i_gl, gl);
 
 	error = gfs2_glock_get(sdp, ip->i_no_addr, &gfs2_iopen_glops, CREATE, &io_gl);
 	if (error)
@@ -940,7 +940,7 @@ fail_dealloc_inode:
 fail_free_inode:
 	if (gl) {
 		gfs2_glock_put(gl);
-		ip->i_gl = NULL;
+		rcu_assign_pointer(ip->i_gl, NULL);
 	}
 	gfs2_rs_deltree(&ip->i_res);
 	gfs2_qa_put(ip);
