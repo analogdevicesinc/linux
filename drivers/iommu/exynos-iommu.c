@@ -8,6 +8,7 @@
 #define DEBUG
 #endif
 
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
@@ -144,6 +145,9 @@ static u32 lv2ent_offset(sysmmu_iova_t iova)
 #define CAPA0_CAPA1_EXIST		BIT(11)
 #define CAPA1_VCR_ENABLED		BIT(14)
 #define CAPA1_NO_BLOCK_MODE		BIT(15)
+#define FAULT_INFO_AXID			GENMASK(15, 0)
+#define FAULT_INFO_AXLEN		GENMASK(19, 16)
+#define FAULT_INFO_WRITE		BIT(20)
 
 /* common registers */
 #define REG_MMU_CTRL		0x000
@@ -194,6 +198,7 @@ struct sysmmu_fault {
 	sysmmu_iova_t addr;	/* IOVA address that caused fault */
 	const char *name;	/* human readable fault name */
 	unsigned int type;	/* fault type for report_iommu_fault() */
+	u32 info;		/* raw transaction info (v7+ only) */
 };
 
 struct sysmmu_v1_fault_info {
@@ -360,7 +365,8 @@ static int exynos_sysmmu_v7_get_fault_info(struct sysmmu_drvdata *data,
 
 	fault->addr = readl(SYSMMU_REG(data, fault_va));
 	fault->name = sysmmu_v7_fault_names[itype % 4];
-	fault->type = (info & BIT(20)) ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ;
+	fault->type = (info & FAULT_INFO_WRITE) ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ;
+	fault->info = info;
 
 	return 0;
 }
@@ -558,6 +564,12 @@ static void show_fault_information(struct sysmmu_drvdata *data,
 		dev_name(data->master),
 		fault->type == IOMMU_FAULT_READ ? "READ" : "WRITE",
 		fault->name, fault->addr);
+	/* AxID identifies the issuing port inside the master */
+	if (data->variant->fault_info)
+		dev_err(data->sysmmu, "transaction info %#010x: AxID %#lx, AxLEN %lu\n",
+			fault->info,
+			FIELD_GET(FAULT_INFO_AXID, fault->info),
+			FIELD_GET(FAULT_INFO_AXLEN, fault->info));
 	dev_dbg(data->sysmmu, "Page table base: %pa\n", &data->pgtable);
 	ent = section_entry(phys_to_virt(data->pgtable), fault->addr);
 	dev_dbg(data->sysmmu, "\tLv1 entry: %#x\n", *ent);
