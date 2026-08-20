@@ -136,10 +136,10 @@ static void sc846_clock_probe(struct device_node *np)
 
 	/* CCLK2_0 and DCLK1_0 */
 	clks[ADSP_SC846_CLK_CGU0_CCLK2_0] =
-	    clk_register_fixed_factor(NULL, "cclk2_0", "cgu0_pllclk_half",
+	    clk_register_fixed_factor(NULL, "cclk2_0", "cgu0_vco",
 				      CLK_SET_RATE_PARENT, 1, 3);
 	clks[ADSP_SC846_CLK_CGU0_DCLK1_0] =
-	    clk_register_fixed_factor(NULL, "dclk1_0", "cgu0_pllclk_half",
+	    clk_register_fixed_factor(NULL, "dclk1_0", "cgu0_vco",
 				      CLK_SET_RATE_PARENT, 1, 5);
 
 	clks[ADSP_SC846_CLK_CGU1_CDIV] =
@@ -177,10 +177,10 @@ static void sc846_clock_probe(struct device_node *np)
 
 	/* CCLK2_1 and DCLK1_1 */
 	clks[ADSP_SC846_CLK_CGU1_CCLK2_1] =
-	    clk_register_fixed_factor(NULL, "cclk2_1", "cgu1_pllclk_half",
+	    clk_register_fixed_factor(NULL, "cclk2_1", "cgu1_vco",
 				      CLK_SET_RATE_PARENT, 1, 3);
 	clks[ADSP_SC846_CLK_CGU1_DCLK1_1] =
-	    clk_register_fixed_factor(NULL, "dclk1_1", "cgu1_pllclk_half",
+	    clk_register_fixed_factor(NULL, "dclk1_1", "cgu1_vco",
 				      CLK_SET_RATE_PARENT, 1, 5);
 
 	/* Gates to enable CGU outputs */
