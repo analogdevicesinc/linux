@@ -253,7 +253,7 @@ static void sc846_clock_probe(struct device_node *np)
 	clks[ADSP_SC846_CLK_ARM1] = cdu_gate("arm1", "arm1_sel", cdu + CDU_CFG2,
 					     CLK_IS_CRITICAL, &cdu_lock);
 	clks[ADSP_SC846_CLK_CDU_DDR] = cdu_gate("cdu_ddr", "ddr_sel",
-						cdu + CDU_CFG3, 0, &cdu_lock);
+						cdu + CDU_CFG3, CLK_IS_CRITICAL, &cdu_lock);
 	clks[ADSP_SC846_CLK_CAN] = cdu_gate("can", "can_sel", cdu + CDU_CFG4, 0,
 					    &cdu_lock);
 	clks[ADSP_SC846_CLK_SPDIF] = cdu_gate("spdif", "spdif_sel",
