@@ -163,6 +163,7 @@ struct dw_edma_core_ops {
 	void (*ll_link)(struct dw_edma_chan *chan, u32 idx, bool cb, u64 addr);
 	void (*ll_clear)(struct dw_edma_chan *chan, u32 idx);
 	int (*ll_cur_idx)(struct dw_edma_chan *chan);
+	void (*ll_irq_clear)(struct dw_edma_chan *chan);
 	void (*ch_doorbell)(struct dw_edma_chan *chan);
 	void (*ch_enable)(struct dw_edma_chan *chan);
 	void (*ch_config)(struct dw_edma_chan *chan);
@@ -282,6 +283,11 @@ dw_edma_core_ll_link(struct dw_edma_chan *chan, u32 idx, bool cb, u64 addr)
 static inline void dw_edma_core_ll_clear(struct dw_edma_chan *chan, u32 idx)
 {
 	chan->dw->core->ll_clear(chan, idx);
+}
+
+static inline void dw_edma_core_ll_irq_clear(struct dw_edma_chan *chan)
+{
+	chan->dw->core->ll_irq_clear(chan);
 }
 
 static inline void dw_edma_core_ch_doorbell(struct dw_edma_chan *chan)

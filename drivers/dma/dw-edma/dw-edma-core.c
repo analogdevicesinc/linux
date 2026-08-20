@@ -30,9 +30,9 @@ struct dw_edma_desc *vd2dw_edma_desc(struct virt_dma_desc *vd)
 	return container_of(vd, struct dw_edma_desc, vd);
 }
 
-enum dw_edma_irq_event {
-	DW_EDMA_IRQ_DONE	= BIT(0),
-	DW_EDMA_IRQ_ABORT	= BIT(1),
+enum dw_edma_deferred_event {
+	DW_EDMA_DEFERRED_DONE	= BIT(0),
+	DW_EDMA_DEFERRED_ABORT	= BIT(1),
 };
 
 static inline
@@ -71,6 +71,13 @@ dw_edma_alloc_desc(struct dw_edma_chan *chan, size_t nburst)
 static void vchan_free_desc(struct virt_dma_desc *vdesc)
 {
 	kfree(vd2dw_edma_desc(vdesc));
+}
+
+/* Must be called with vc.lock held. */
+static void
+dw_edma_set_request(struct dw_edma_chan *chan, enum dw_edma_request request)
+{
+	chan->request = request;
 }
 
 static void dw_hdma_set_callback_result(struct virt_dma_desc *vd,
@@ -243,7 +250,7 @@ static void dw_edma_finish_termination(struct dw_edma_chan *chan)
 	if (!chan->non_ll && dw_edma_ll_pending(chan))
 		dw_edma_core_reset_ll(chan);
 
-	chan->request = EDMA_REQ_NONE;
+	dw_edma_set_request(chan, EDMA_REQ_NONE);
 	chan->status = EDMA_ST_IDLE;
 }
 
@@ -360,7 +367,7 @@ static int dw_edma_device_pause(struct dma_chan *dchan)
 	else if (chan->request != EDMA_REQ_NONE)
 		err = -EPERM;
 	else
-		chan->request = EDMA_REQ_PAUSE;
+		dw_edma_set_request(chan, EDMA_REQ_PAUSE);
 
 	return err;
 }
@@ -410,10 +417,10 @@ static int dw_edma_device_terminate_all(struct dma_chan *dchan)
 	} else if (chan->request > EDMA_REQ_PAUSE) {
 		err = -EPERM;
 	} else {
-		chan->request = EDMA_REQ_STOP;
+		dw_edma_set_request(chan, EDMA_REQ_STOP);
 	}
 	if (chan->status == EDMA_ST_IDLE)
-		chan->request = EDMA_REQ_NONE;
+		dw_edma_set_request(chan, EDMA_REQ_NONE);
 
 	return err;
 }
@@ -724,7 +731,7 @@ static void dw_edma_done_interrupt(struct dw_edma_chan *chan)
 		}
 
 		if (chan->request == EDMA_REQ_PAUSE) {
-			chan->request = EDMA_REQ_NONE;
+			dw_edma_set_request(chan, EDMA_REQ_NONE);
 			chan->status = EDMA_ST_PAUSE;
 			break;
 		}
@@ -764,7 +771,7 @@ static void dw_edma_abort_interrupt(struct dw_edma_chan *chan)
 	}
 	if (!chan->non_ll)
 		dw_edma_core_reset_ll(chan);
-	chan->request = EDMA_REQ_NONE;
+	dw_edma_set_request(chan, EDMA_REQ_NONE);
 	chan->status = EDMA_ST_IDLE;
 	spin_unlock_irqrestore(&chan->vc.lock, flags);
 }
@@ -778,15 +785,15 @@ static void dw_edma_irq_work(struct work_struct *work)
 	do {
 		events = atomic_xchg(&chan->irq_pending, 0);
 
-		if (events & DW_EDMA_IRQ_DONE)
+		if (events & DW_EDMA_DEFERRED_DONE)
 			dw_edma_done_interrupt(chan);
-		if (events & DW_EDMA_IRQ_ABORT)
+		if (events & DW_EDMA_DEFERRED_ABORT)
 			dw_edma_abort_interrupt(chan);
 	} while (atomic_read(&chan->irq_pending));
 }
 
 static void dw_edma_queue_irq_work(struct dw_edma_chan *chan,
-				   enum dw_edma_irq_event event)
+				   enum dw_edma_deferred_event event)
 {
 	atomic_or(event, &chan->irq_pending);
 	queue_work(chan->dw->wq, &chan->irq_work);
@@ -794,12 +801,12 @@ static void dw_edma_queue_irq_work(struct dw_edma_chan *chan,
 
 static void dw_edma_done_interrupt_deferred(struct dw_edma_chan *chan)
 {
-	dw_edma_queue_irq_work(chan, DW_EDMA_IRQ_DONE);
+	dw_edma_queue_irq_work(chan, DW_EDMA_DEFERRED_DONE);
 }
 
 static void dw_edma_abort_interrupt_deferred(struct dw_edma_chan *chan)
 {
-	dw_edma_queue_irq_work(chan, DW_EDMA_IRQ_ABORT);
+	dw_edma_queue_irq_work(chan, DW_EDMA_DEFERRED_ABORT);
 }
 
 static void dw_edma_emul_irq_ack(struct irq_data *d)
