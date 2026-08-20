@@ -163,8 +163,8 @@ struct program_upsp_params {
 };
 
 struct update_visual_confirm_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct mpc *mpc;
+	struct tg_color *color;
 	int mpcc_id;
 };
 

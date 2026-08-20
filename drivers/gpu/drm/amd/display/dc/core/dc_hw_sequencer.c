@@ -1628,8 +1628,8 @@ void hwss_build_fast_sequence(struct dc *dc,
 			}
 			if (dc->debug.visual_confirm != VISUAL_CONFIRM_DISABLE &&
 				dc->hwss.update_visual_confirm_color) {
-				block_sequence[*num_steps].params.update_visual_confirm_params.dc = dc;
-				block_sequence[*num_steps].params.update_visual_confirm_params.pipe_ctx = current_mpc_pipe;
+				block_sequence[*num_steps].params.update_visual_confirm_params.mpc = dc->res_pool->mpc;
+				block_sequence[*num_steps].params.update_visual_confirm_params.color = &current_mpc_pipe->visual_confirm_color;
 				block_sequence[*num_steps].params.update_visual_confirm_params.mpcc_id = current_mpc_pipe->plane_res.mpcc_inst;
 				block_sequence[*num_steps].func = MPC_UPDATE_VISUAL_CONFIRM;
 				(*num_steps)++;
@@ -1787,9 +1787,11 @@ void hwss_execute_sequence(struct dc *dc,
 			hwss_program_upsp(params);
 			break;
 		case MPC_UPDATE_VISUAL_CONFIRM:
-			dc->hwss.update_visual_confirm_color(params->update_visual_confirm_params.dc,
-					params->update_visual_confirm_params.pipe_ctx,
-					params->update_visual_confirm_params.mpcc_id);
+			if (params->update_visual_confirm_params.mpc->funcs->set_bg_color)
+				params->update_visual_confirm_params.mpc->funcs->set_bg_color(
+						params->update_visual_confirm_params.mpc,
+						params->update_visual_confirm_params.color,
+						params->update_visual_confirm_params.mpcc_id);
 			break;
 		case MPC_POWER_ON_MPC_MEM_PWR:
 			hwss_power_on_mpc_mem_pwr(params);
@@ -2495,8 +2497,8 @@ void hwss_add_mpc_update_visual_confirm(struct block_sequence_state *seq_state,
 		int mpcc_id)
 {
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.update_visual_confirm_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.update_visual_confirm_params.pipe_ctx = pipe_ctx;
+		seq_state->steps[*seq_state->num_steps].params.update_visual_confirm_params.mpc = dc->res_pool->mpc;
+		seq_state->steps[*seq_state->num_steps].params.update_visual_confirm_params.color = &pipe_ctx->visual_confirm_color;
 		seq_state->steps[*seq_state->num_steps].params.update_visual_confirm_params.mpcc_id = mpcc_id;
 		seq_state->steps[*seq_state->num_steps].func = MPC_UPDATE_VISUAL_CONFIRM;
 		(*seq_state->num_steps)++;
