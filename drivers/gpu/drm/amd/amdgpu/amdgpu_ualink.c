@@ -4008,6 +4008,50 @@ out:
 	return r;
 }
 
+int amdgpu_gem_ualink_handle_ioctl(struct drm_device *dev, void *data,
+				   struct drm_file *filp)
+{
+	union drm_amdgpu_ualink_handle *args = data;
+	struct amdgpu_device *adev = drm_to_adev(dev);
+	struct amdgpu_ualink_handle handle = {};
+	u32 gem_handle;
+	int r, fd = -1;
+
+	if (adev->ualink.info->accel_state !=
+	    AMDGPU_UALINK_ACCEL_STATE_ACTIVE) {
+		dev_err(adev->dev,
+			"ualink device is not in active state in vpod\n");
+		return -EOPNOTSUPP;
+	}
+
+	/* The input and output members of the ioctl argument alias each other.
+	 * Latch every input field before invoking the handlers, and only write
+	 * the output fields afterwards.
+	 */
+	switch (args->in.op) {
+	case DRM_AMDGPU_UALINK_HANDLE_OP_EXPORT:
+		gem_handle = args->in.gem_handle;
+		r = amdgpu_ualink_export_handle(dev, filp, gem_handle, &handle);
+		if (!r) {
+			args->out.export_ualink_handle[0] = handle.handle_lo;
+			args->out.export_ualink_handle[1] = handle.handle_hi;
+		}
+		break;
+	case DRM_AMDGPU_UALINK_HANDLE_OP_IMPORT:
+		handle.handle_lo = args->in.import_ualink_handle[0];
+		handle.handle_hi = args->in.import_ualink_handle[1];
+		r = amdgpu_ualink_import_handle(dev, &handle, &fd);
+		if (!r)
+			args->out.import_dmabuf_handle = fd;
+		break;
+	default:
+		r = -EINVAL;
+		break;
+	}
+
+	return r;
+}
+
 int amdgpu_ualink_manager_start(struct amdgpu_device *adev)
 {
 	int i, r;
