@@ -480,20 +480,6 @@ static void dw_edma_v0_core_ch_enable(struct dw_edma_chan *chan)
 		  upper_32_bits(chan->ll_region.paddr));
 }
 
-static void dw_edma_v0_sync_ll_data(struct dw_edma_chan *chan)
-{
-	/*
-	 * In case of remote eDMA engine setup, the DW PCIe RP/EP internal
-	 * configuration registers and application memory are normally accessed
-	 * over different buses. Ensure LL-data reaches the memory before the
-	 * doorbell register is toggled by issuing the dummy-read from the remote
-	 * LL memory in a hope that the MRd TLP will return only after the
-	 * last MWr TLP is completed
-	 */
-	if (!(chan->dw->chip->flags & DW_EDMA_CHIP_LOCAL))
-		readl(chan->ll_region.vaddr.io);
-}
-
 static void dw_edma_v0_core_ch_config(struct dw_edma_chan *chan)
 {
 	struct dw_edma *dw = chan->dw;
@@ -623,8 +609,6 @@ static void dw_edma_v0_core_ll_clear(struct dw_edma_chan *chan, u32 idx)
 static void dw_edma_v0_core_ch_doorbell(struct dw_edma_chan *chan)
 {
 	struct dw_edma *dw = chan->dw;
-
-	dw_edma_v0_sync_ll_data(chan);
 
 	/* Doorbell */
 	SET_RW_32(dw, chan->dir, doorbell,
