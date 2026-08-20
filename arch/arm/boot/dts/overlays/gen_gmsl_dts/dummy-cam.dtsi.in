@@ -1,0 +1,73 @@
+{% set address = cam_cfg.address | d('0x1a') %}
+{% set clock_lanes = cam_cfg.clock_lanes | d([0]) | join(' ') %}
+{% set data_lanes = cam_cfg.data_lanes | d([1, 2, 3, 4]) | join(' ') %}
+{% set link_frequencies = cam_cfg.link_frequencies | d([360000000]) | join(' ') %}
+{% set rotation = cam_cfg.rotation | d(180) %}
+{% set orientation = cam_cfg.orientation | d(2) %}
+{% set width = cam_cfg.width | d(none) %}
+{% set height = cam_cfg.height | d(none) %}
+{% set csi2_data_type = cam_cfg.csi2_data_type | d(none) %}
+{% set virtual_channels = cam_cfg.virtual_channels | d(none) %}
+{% set reset_pin = cam_cfg.reset_pin | d(none) %}
+{% set clock_rate = cam_cfg.clock_rate | d(none) %}
+{% set cam_label = ser_label ~ "_cam_" ~ cam_idx %}
+{% set cam_out_label = cam_label ~ "_out" %}
+{% set cam_out_remote_label = ser_in_label_x(cam_phy_idx) %}
+
+&{{ser_i2c_label()}} {
+	{{cam_label}}: dummy-cam@{{address | hex_remove_0x}} {
+		compatible = "adi,dummy-cam";
+		reg = <{{address}}>;
+{% if reset_pin is not none %}
+
+		reset-gpios = <&{{ser_label}} {{reset_pin}} 1>;
+{% endif %}
+{% if clock_rate is not none %}
+
+		clocks = <&{{ser_label}}>;
+		clock-names = "xclk";
+
+		assigned-clocks = <&{{ser_label}}>;
+		assigned-clock-rates = <{{clock_rate}}>;
+{% endif %}
+
+		rotation = <{{rotation}}>;
+		orientation = <{{orientation}}>;
+{% if width is not none %}
+		adi,default-width = <{{width}}>;
+{% endif %}
+{% if height is not none %}
+		adi,default-height = <{{height}}>;
+{% endif %}
+{% if csi2_data_type is not none %}
+		adi,csi2-data-type = <{{csi2_data_type}}>;
+{% endif %}
+
+		port {
+			{{cam_out_label}}: endpoint {
+				clock-lanes = <{{clock_lanes}}>;
+				data-lanes = <{{data_lanes}}>;
+				link-frequencies = /bits/ 64 <{{link_frequencies}}>;
+{% if virtual_channels is not none %}
+				vc-ids = <{{virtual_channels | join(' ')}}>;
+{% endif %}
+				remote-endpoint = <&{{cam_out_remote_label}}>;
+			};
+		};
+	};
+};
+
+&{{ser_label}} {
+	ports {
+		port@{{cam_phy_idx}} {
+			reg = <{{cam_phy_idx}}>;
+
+			{{cam_out_remote_label}}: endpoint {
+				clock-lanes = <{{clock_lanes}}>;
+				data-lanes = <{{data_lanes}}>;
+				link-frequencies = /bits/ 64 <{{link_frequencies}}>;
+				remote-endpoint = <&{{cam_out_label}}>;
+			};
+		};
+	};
+};

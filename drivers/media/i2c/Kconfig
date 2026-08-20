@@ -122,6 +122,19 @@ config VIDEO_ARDUCAM_PIVARIETY
 	  To compile this driver as a module, choose M here: the
 	  module will be called arducam-pivariety.
 
+config VIDEO_DUMMY_CAM
+	tristate "Dummy sensor support"
+	depends on I2C && VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select V4L2_FWNODE
+	select VIDEO_V4L2_SUBDEV_API
+	help
+	  This is a Video4Linux2 dummy sensor driver. It does not
+	  perform any I2C bus writes.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called dummy-cam.
+
 config VIDEO_HI556
 	tristate "Hynix Hi-556 sensor support"
 	help
