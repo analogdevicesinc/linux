@@ -33,8 +33,8 @@ int gfs2_replay_read_block(struct gfs2_jdesc *jd, unsigned int blk,
 			   struct buffer_head **bh)
 {
 	struct inode *inode = jd->jd_inode;
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_inode *ip = GFS2_I(inode);
-	struct gfs2_glock *gl = ip->i_gl;
 	u64 dblock;
 	u32 extlen;
 	int error;
@@ -307,15 +307,13 @@ static int update_statfs_inode(struct gfs2_jdesc *jd,
 			       struct inode *inode)
 {
 	struct gfs2_sbd *sdp = GFS2_SB(jd->jd_inode);
-	struct gfs2_inode *ip;
 	struct buffer_head *bh;
 	struct gfs2_statfs_change_host sc;
 	int error = 0;
 
 	BUG_ON(!inode);
-	ip = GFS2_I(inode);
 
-	error = gfs2_meta_inode_buffer(ip, &bh);
+	error = gfs2_meta_inode_buffer(GFS2_I(inode), &bh);
 	if (error)
 		goto out;
 
@@ -346,7 +344,7 @@ static int update_statfs_inode(struct gfs2_jdesc *jd,
 
 	mark_buffer_dirty(bh);
 	brelse(bh);
-	gfs2_inode_metasync(ip->i_gl);
+	gfs2_inode_metasync(gfs2_inode_glock(inode));
 
 out:
 	return error;
@@ -399,7 +397,7 @@ out:
 void gfs2_recover_func(struct work_struct *work)
 {
 	struct gfs2_jdesc *jd = container_of(work, struct gfs2_jdesc, jd_work);
-	struct gfs2_inode *ip = GFS2_I(jd->jd_inode);
+	struct gfs2_glock *gl = gfs2_inode_glock(jd->jd_inode);
 	struct gfs2_sbd *sdp = GFS2_SB(jd->jd_inode);
 	struct gfs2_log_header_host head;
 	struct gfs2_holder j_gh, ji_gh;
@@ -441,7 +439,7 @@ void gfs2_recover_func(struct work_struct *work)
 			goto fail;
 		}
 
-		error = gfs2_glock_nq_init(ip->i_gl, LM_ST_SHARED,
+		error = gfs2_glock_nq_init(gl, LM_ST_SHARED,
 					   LM_FLAG_RECOVER | GL_NOCACHE,
 					   &ji_gh);
 		if (error)
