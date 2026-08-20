@@ -77,6 +77,19 @@
 #define BAD_PAGE_NUM_PER_EEPROM_RECORD_V13  16
 #define BAD_PAGE_NUM_PER_EEPROM_RECORD_V15  128
 
+static u64 ras_eeprom_reserved_vram_size(struct amdgpu_device *adev)
+{
+	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
+
+	/* Set by amdgpu_ras_init_reserved_vram_size(); 0 means that path
+	 * does not cover this ASIC.
+	 */
+	if (con && con->reserved_pages_in_bytes)
+		return con->reserved_pages_in_bytes;
+
+	return RAS_RESERVED_VRAM_SIZE_DEFAULT;
+}
+
 static int ras_eeprom_i2c_config(struct ras_core_context *ras_core,
 		struct ras_eeprom_param_config *cfg)
 {
@@ -168,7 +181,7 @@ static int ras_eeprom_i2c_config(struct ras_core_context *ras_core,
 		badpages = ESTIMATE_BAD_PAGE_THRESHOLD(adev->gmc.mc_vram_size);
 	} else if (badpage_threshold == WARN_NONSTOP_OVER_THRESHOLD) {
 		cfg->work_mode_over_thresh = RAS_WORK_MODE_OVER_THRESH_STRICT;
-		badpages = COUNT_BAD_PAGE_THRESHOLD(RAS_RESERVED_VRAM_SIZE_DEFAULT);
+		badpages = COUNT_BAD_PAGE_THRESHOLD(ras_eeprom_reserved_vram_size(adev));
 	} else if (!badpage_threshold) {
 		cfg->work_mode_over_thresh = RAS_WORK_MODE_OVER_THRESH_DEBUG;
 		badpages = 128;
