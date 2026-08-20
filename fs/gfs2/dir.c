@@ -759,10 +759,12 @@ static struct gfs2_dirent *gfs2_dirent_split_alloc(struct inode *inode,
 static int get_leaf(struct gfs2_inode *dip, u64 leaf_no,
 		    struct buffer_head **bhp)
 {
+	struct inode *inode = &dip->i_inode;
+	struct gfs2_sbd *sdp = GFS2_SB(inode);
 	int error;
 
 	error = gfs2_meta_read(dip->i_gl, leaf_no, DIO_WAIT, 0, bhp);
-	if (!error && gfs2_metatype_check(GFS2_SB(&dip->i_inode), *bhp, GFS2_METATYPE_LF)) {
+	if (!error && gfs2_metatype_check(sdp, *bhp, GFS2_METATYPE_LF)) {
 		/* pr_info("block num=%llu\n", leaf_no); */
 		error = -EIO;
 	}

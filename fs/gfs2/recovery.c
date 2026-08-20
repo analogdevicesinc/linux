@@ -32,14 +32,15 @@ struct workqueue_struct *gfs2_recovery_wq;
 int gfs2_replay_read_block(struct gfs2_jdesc *jd, unsigned int blk,
 			   struct buffer_head **bh)
 {
-	struct gfs2_inode *ip = GFS2_I(jd->jd_inode);
+	struct inode *inode = jd->jd_inode;
+	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_glock *gl = ip->i_gl;
 	u64 dblock;
 	u32 extlen;
 	int error;
 
 	extlen = 32;
-	error = gfs2_get_extent(&ip->i_inode, blk, &dblock, &extlen);
+	error = gfs2_get_extent(inode, blk, &dblock, &extlen);
 	if (error)
 		return error;
 	if (!dblock) {
