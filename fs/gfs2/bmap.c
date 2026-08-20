@@ -1699,7 +1699,7 @@ enum dealloc_states {
 };
 
 static inline void
-metapointer_range(struct metapath *mp, int height,
+metapointer_range(struct metapath *mp, unsigned int height,
 		  __u16 *start_list, unsigned int start_aligned,
 		  __u16 *end_list, unsigned int end_aligned,
 		  __be64 **start, __be64 **end)
@@ -1770,7 +1770,7 @@ static int punch_hole(struct gfs2_inode *ip, u64 offset, u64 length)
 	unsigned int strip_h = ip->i_height - 1;
 	u32 btotal = 0;
 	int ret, state;
-	int mp_h; /* metapath buffers are read in to this height */
+	unsigned int mp_h; /* metapath buffers are read in to this height */
 	u64 prev_bnr = 0;
 	__be64 *start, *end;
 
