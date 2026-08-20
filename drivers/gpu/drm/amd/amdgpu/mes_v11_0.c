@@ -1864,6 +1864,7 @@ static int mes_v11_0_sw_init(struct amdgpu_ip_block *ip_block)
 	struct amdgpu_device *adev = ip_block->adev;
 	int pipe, r, bo_size;
 
+	adev->mes.use_rs64mem = false;
 	adev->mes.funcs = &mes_v11_0_funcs;
 	adev->mes.kiq_hw_init = &mes_v11_0_kiq_hw_init;
 	adev->mes.kiq_hw_fini = &mes_v11_0_kiq_hw_fini;
@@ -1912,6 +1913,14 @@ static int mes_v11_0_sw_init(struct amdgpu_ip_block *ip_block)
 	if (r) {
 		dev_err(adev->dev, "(%d) failed to create mes resource_1 bo\n", r);
 		return r;
+	}
+
+	/* Allocate GPU buffer for array size query results */
+	r = amdgpu_mes_rs64mem_init(&adev->mes);
+	if (r) {
+		dev_warn(adev->dev,
+			 "RS64 memory init failed (%d), using system memory\n", r);
+		adev->mes.use_rs64mem = false;
 	}
 
 	return 0;
@@ -2091,8 +2100,6 @@ static int mes_v11_0_hw_init(struct amdgpu_ip_block *ip_block)
 	if (adev->mes.ring[0].sched.ready)
 		goto out;
 
-	adev->mes.use_rs64mem = false;
-
 	if (!adev->enable_mes_kiq) {
 		if (adev->firmware.load_type == AMDGPU_FW_LOAD_DIRECT) {
 			r = mes_v11_0_load_microcode(adev,
@@ -2110,14 +2117,6 @@ static int mes_v11_0_hw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		goto failure;
 
-	/* Allocate GPU buffer for array size query results */
-	r = amdgpu_mes_rs64mem_init(&adev->mes);
-	if (r) {
-		dev_warn(adev->dev,
-			 "RS64 local memory init failed (%d),"
-			 "falling back to system memory path\n", r);
-		adev->mes.use_rs64mem = false;
-	}
 	r = mes_v11_0_set_hw_resources(&adev->mes);
 
 	if (r)
