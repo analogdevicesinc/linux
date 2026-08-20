@@ -13,6 +13,10 @@
 
 	qcom,board-id = <0x1000b 1>, <0x1000b 2>;
 
+	chosen {
+		stdout-path = &blsp1_uart2;
+	};
+
 	battery: battery {
 		compatible = "simple-battery";
 		charge-full-design-microamp-hours = <3000000>;
@@ -23,6 +27,10 @@
 		charge-term-current-microamp = <60000>;
 		voltage-min-design-microvolt = <3400000>;
 	};
+};
+
+&blsp1_uart2 {
+	status = "okay";
 };
 
 &blsp2_i2c1 {
