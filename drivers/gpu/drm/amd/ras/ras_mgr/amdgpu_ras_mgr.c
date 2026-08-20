@@ -772,6 +772,33 @@ int amdgpu_ras_mgr_post_reset(struct amdgpu_device *adev)
 	return 0;
 }
 
+int amdgpu_ras_mgr_enable_feature(struct amdgpu_device *adev,
+		uint32_t ta_block_id, uint32_t ta_error_type, bool enable)
+{
+	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+	struct ras_ta_enable_features_input info = {
+		.block_id = (enum ras_ta_block)ta_block_id,
+		.error_type = (enum ras_ta_error_type)ta_error_type,
+	};
+	uint32_t gfx_ip_version;
+
+	if (!ras_mgr || !ras_mgr->ras_core)
+		return -EINVAL;
+
+	if (ras_core_get_ip_version(ras_mgr->ras_core,
+				    RAS_UNIT_ID_GFX, &gfx_ip_version))
+		return -EPERM;
+
+	/* Newer parts arm RAS features inside the TA, so the driver must not
+	 * toggle them. Older ones still need an explicit request after every
+	 * GPU reset, otherwise GFX stops reporting poison consumption.
+	 */
+	if (gfx_ip_version >= IP_VERSION(12, 1, 0))
+		return 0;
+
+	return ras_psp_enable_features(ras_mgr->ras_core, &info, enable);
+}
+
 int amdgpu_ras_mgr_lookup_bad_pages_in_a_row(struct amdgpu_device *adev,
 		uint64_t addr, uint64_t *nps_page_addr, uint32_t max_page_count)
 {

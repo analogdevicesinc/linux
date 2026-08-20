@@ -797,6 +797,25 @@ int ras_psp_reload_firmwares(struct ras_core_context *ras_core,
 	return load_ras_all_fw(ras_core);
 }
 
+int ras_psp_enable_features(struct ras_core_context *ras_core,
+	struct ras_ta_enable_features_input *info, bool enable)
+{
+	struct ras_ta_ctx *ta_ctx = &ras_core->ras_psp.ta_ctx;
+
+	if (!info)
+		return -EINVAL;
+
+	if (!ta_ctx->ras_ta_initialized) {
+		RAS_DEV_ERR(ras_core->dev, "RAS: ras firmware not initialized!");
+		return -ENOEXEC;
+	}
+
+	return send_ras_ta_runtime_cmd(ras_core,
+			enable ? RAS_TA_CMD_ID__ENABLE_FEATURES :
+				 RAS_TA_CMD_ID__DISABLE_FEATURES,
+			info, sizeof(*info), NULL, 0);
+}
+
 int ras_psp_trigger_error(struct ras_core_context *ras_core,
 	struct ras_ta_trigger_error_input *info, uint32_t instance_mask)
 {

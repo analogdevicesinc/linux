@@ -933,7 +933,14 @@ int amdgpu_ras_feature_enable(struct amdgpu_device *adev,
 			};
 		}
 
-		ret = psp_ras_enable_features(&adev->psp, info, enable);
+		if (amdgpu_uniras_enabled(adev))
+			ret = amdgpu_ras_mgr_enable_feature(adev,
+					amdgpu_ras_block_to_ta(head->block),
+					amdgpu_ras_error_to_ta(head->type),
+					enable);
+		else
+			ret = psp_ras_enable_features(&adev->psp, info, enable);
+
 		if (ret) {
 			dev_err(adev->dev, "ras %s %s failed poison:%d ret:%d\n",
 				enable ? "enable":"disable",

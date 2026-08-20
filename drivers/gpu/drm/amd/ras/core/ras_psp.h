@@ -196,6 +196,8 @@ int ras_psp_sideload_ras_ta(struct ras_core_context *ras_core,
 		struct ras_psp_ta_load *ta_load);
 int ras_psp_unsideload_ras_ta(struct ras_core_context *ras_core,
 		struct ras_psp_ta_unload *ras_ta_unload);
+int ras_psp_enable_features(struct ras_core_context *ras_core,
+	struct ras_ta_enable_features_input *info, bool enable);
 int ras_psp_trigger_error(struct ras_core_context *ras_core,
 	struct ras_ta_trigger_error_input *info, uint32_t instance_mask);
 int ras_psp_query_address(struct ras_core_context *ras_core,
