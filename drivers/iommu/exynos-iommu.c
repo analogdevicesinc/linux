@@ -143,6 +143,7 @@ static u32 lv2ent_offset(sysmmu_iova_t iova)
 #define CTRL_VM_FAULT_MODE_STALL	BIT(3)
 #define CAPA0_CAPA1_EXIST		BIT(11)
 #define CAPA1_VCR_ENABLED		BIT(14)
+#define CAPA1_NO_BLOCK_MODE		BIT(15)
 
 /* common registers */
 #define REG_MMU_CTRL		0x000
@@ -306,6 +307,7 @@ struct sysmmu_drvdata {
 
 	/* v7 fields */
 	bool has_vcr;			/* virtual machine control register */
+	bool no_block;			/* BLOCK mode not implemented */
 };
 
 #define SYSMMU_REG(data, reg) ((data)->sfrbase + (data)->variant->reg)
@@ -511,6 +513,7 @@ static void __sysmmu_get_vcr(struct sysmmu_drvdata *data)
 	u32 capa1 = readl(data->sfrbase + REG_V7_CAPA1);
 
 	data->has_vcr = capa1 & CAPA1_VCR_ENABLED;
+	data->no_block = capa1 & CAPA1_NO_BLOCK_MODE;
 }
 
 static void __sysmmu_get_version(struct sysmmu_drvdata *data)
