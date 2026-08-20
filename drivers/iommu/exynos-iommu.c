@@ -685,7 +685,14 @@ static void sysmmu_tlb_invalidate_flpdcache(struct sysmmu_drvdata *data,
 	spin_lock_irqsave(&data->lock, flags);
 	if (data->active && data->version >= MAKE_MMU_VER(3, 3)) {
 		clk_enable(data->clk_master);
-		if (sysmmu_block(data)) {
+		/*
+		 * No-block hardware accepts invalidation writes while the
+		 * MMU is running; it is also v7+, so flush-all covers the
+		 * FLPD cache.
+		 */
+		if (data->no_block) {
+			__sysmmu_tlb_invalidate(data);
+		} else if (sysmmu_block(data)) {
 			if (data->version >= MAKE_MMU_VER(5, 0))
 				__sysmmu_tlb_invalidate(data);
 			else
@@ -721,7 +728,9 @@ static void sysmmu_tlb_invalidate_entry(struct sysmmu_drvdata *data,
 		if (MMU_MAJ_VER(data->version) == 2)
 			num_inv = min_t(unsigned int, size / SPAGE_SIZE, 64);
 
-		if (sysmmu_block(data)) {
+		if (data->no_block) {
+			__sysmmu_tlb_invalidate_entry(data, iova, num_inv);
+		} else if (sysmmu_block(data)) {
 			__sysmmu_tlb_invalidate_entry(data, iova, num_inv);
 			sysmmu_unblock(data);
 		}
