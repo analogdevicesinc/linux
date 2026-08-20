@@ -879,5 +879,8 @@ static inline unsigned gfs2_max_stuffed_size(const struct gfs2_inode *ip)
 	return GFS2_SB(&ip->i_inode)->sd_sb.sb_bsize - sizeof(struct gfs2_dinode);
 }
 
+static inline struct gfs2_glock *gfs2_inode_glock(struct inode *inode)
+{
+       return GFS2_I(inode)->i_gl;
+}
 #endif /* __INCORE_DOT_H__ */
-

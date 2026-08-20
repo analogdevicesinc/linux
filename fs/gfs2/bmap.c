@@ -55,6 +55,7 @@ static int gfs2_unstuffer_folio(struct gfs2_inode *ip, struct buffer_head *dibh,
 			       u64 block, struct folio *folio)
 {
 	struct inode *inode = &ip->i_inode;
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 
 	if (!folio_test_uptodate(folio)) {
 		void *kaddr = kmap_local_folio(folio, 0);
@@ -78,7 +79,7 @@ static int gfs2_unstuffer_folio(struct gfs2_inode *ip, struct buffer_head *dibh,
 			map_bh(bh, inode->i_sb, block);
 
 		set_buffer_uptodate(bh);
-		gfs2_trans_add_data(ip->i_gl, bh);
+		gfs2_trans_add_data(gl, bh);
 	} else {
 		folio_mark_dirty(folio);
 		gfs2_ordered_add_inode(ip);
@@ -90,6 +91,7 @@ static int gfs2_unstuffer_folio(struct gfs2_inode *ip, struct buffer_head *dibh,
 static int __gfs2_unstuff_inode(struct gfs2_inode *ip, struct folio *folio)
 {
 	struct inode *inode = &ip->i_inode;
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct buffer_head *bh, *dibh;
 	struct gfs2_dinode *di;
 	u64 block = 0;
@@ -125,7 +127,7 @@ static int __gfs2_unstuff_inode(struct gfs2_inode *ip, struct folio *folio)
 
 	/*  Set up the pointer to the new block  */
 
-	gfs2_trans_add_meta(ip->i_gl, dibh);
+	gfs2_trans_add_meta(gl, dibh);
 	di = (struct gfs2_dinode *)dibh->b_data;
 	gfs2_buffer_clear_tail(dibh, sizeof(struct gfs2_dinode));
 
@@ -663,6 +665,7 @@ enum alloc_state {
 static int __gfs2_iomap_alloc(struct inode *inode, struct iomap *iomap,
 			      struct metapath *mp)
 {
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
 	struct buffer_head *dibh = metapath_dibh(mp);
@@ -679,7 +682,7 @@ static int __gfs2_iomap_alloc(struct inode *inode, struct iomap *iomap,
 	BUG_ON(dibh == NULL);
 	BUG_ON(dblks < 1);
 
-	gfs2_trans_add_meta(ip->i_gl, dibh);
+	gfs2_trans_add_meta(gl, dibh);
 
 	down_write(&ip->i_rw_mutex);
 
@@ -723,7 +726,7 @@ static int __gfs2_iomap_alloc(struct inode *inode, struct iomap *iomap,
 			}
 			for (; i - 1 < mp->mp_fheight - ip->i_height && n > 0;
 			     i++, n--)
-				gfs2_indirect_init(mp, ip->i_gl, i, 0, bn++);
+				gfs2_indirect_init(mp, gl, i, 0, bn++);
 			if (i - 1 == mp->mp_fheight - ip->i_height) {
 				i--;
 				gfs2_buffer_copy_tail(mp->mp_bh[i],
@@ -749,9 +752,9 @@ static int __gfs2_iomap_alloc(struct inode *inode, struct iomap *iomap,
 			fallthrough;	/* To branching from existing tree */
 		case ALLOC_GROW_DEPTH:
 			if (i > 1 && i < mp->mp_fheight)
-				gfs2_trans_add_meta(ip->i_gl, mp->mp_bh[i-1]);
+				gfs2_trans_add_meta(gl, mp->mp_bh[i-1]);
 			for (; i < mp->mp_fheight && n > 0; i++, n--)
-				gfs2_indirect_init(mp, ip->i_gl, i,
+				gfs2_indirect_init(mp, gl, i,
 						   mp->mp_list[i-1], bn++);
 			if (i == mp->mp_fheight)
 				state = ALLOC_DATA;
@@ -761,7 +764,7 @@ static int __gfs2_iomap_alloc(struct inode *inode, struct iomap *iomap,
 		case ALLOC_DATA:
 			BUG_ON(n > dblks);
 			BUG_ON(mp->mp_bh[end_of_metadata] == NULL);
-			gfs2_trans_add_meta(ip->i_gl, mp->mp_bh[end_of_metadata]);
+			gfs2_trans_add_meta(gl, mp->mp_bh[end_of_metadata]);
 			dblks = n;
 			ptr = metapointer(end_of_metadata, mp);
 			iomap->addr = bn << inode->i_blkbits;
@@ -990,12 +993,12 @@ static void gfs2_iomap_put_folio(struct inode *inode, loff_t pos,
 				 unsigned copied, struct folio *folio)
 {
 	struct gfs2_trans *tr = current->journal_info;
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
 
 	if (gfs2_is_jdata(ip) && !gfs2_is_stuffed(ip))
-		gfs2_trans_add_databufs(ip->i_gl, folio,
-					offset_in_folio(folio, pos),
+		gfs2_trans_add_databufs(gl, folio, offset_in_folio(folio, pos),
 					copied);
 
 	folio_unlock(folio);
@@ -1151,6 +1154,7 @@ out_unlock:
 static int gfs2_iomap_end(struct inode *inode, loff_t pos, loff_t length,
 			  ssize_t written, unsigned flags, struct iomap *iomap)
 {
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
 
@@ -1197,7 +1201,7 @@ static int gfs2_iomap_end(struct inode *inode, loff_t pos, loff_t length,
 
 	if (iomap->flags & IOMAP_F_SIZE_CHANGED)
 		mark_inode_dirty(inode);
-	set_bit(GLF_DIRTY, &ip->i_gl->gl_flags);
+	set_bit(GLF_DIRTY, &gl->gl_flags);
 	return 0;
 }
 
@@ -1388,6 +1392,7 @@ static int gfs2_journaled_truncate(struct inode *inode, u64 oldsize, u64 newsize
 
 static int trunc_start(struct inode *inode, u64 newsize)
 {
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
 	struct buffer_head *dibh = NULL;
@@ -1416,7 +1421,7 @@ static int trunc_start(struct inode *inode, u64 newsize)
 	if (error)
 		goto out;
 
-	gfs2_trans_add_meta(ip->i_gl, dibh);
+	gfs2_trans_add_meta(gl, dibh);
 
 	if (gfs2_is_stuffed(ip))
 		gfs2_buffer_clear_tail(dibh, sizeof(struct gfs2_dinode) + newsize);
@@ -1490,6 +1495,7 @@ static int sweep_bh_for_rgrps(struct gfs2_inode *ip, struct gfs2_holder *rd_gh,
 			      bool meta, u32 *btotal)
 {
 	struct inode *inode = &ip->i_inode;
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
 	struct gfs2_rgrpd *rgd;
 	struct gfs2_trans *tr;
@@ -1589,7 +1595,7 @@ more_rgrps:
 			goto out_unlock;
 		}
 
-		gfs2_trans_add_meta(ip->i_gl, bh);
+		gfs2_trans_add_meta(gl, bh);
 		buf_in_tr = true;
 		*p = 0;
 		if (bstart + blen == bn) {
@@ -1623,7 +1629,7 @@ out_unlock:
 			/* Every transaction boundary, we rewrite the dinode
 			   to keep its di_blocks current in case of failure. */
 			inode_set_mtime_to_ts(inode, inode_set_ctime_current(inode));
-			gfs2_trans_add_meta(ip->i_gl, dibh);
+			gfs2_trans_add_meta(gl, dibh);
 			gfs2_dinode_out(ip, dibh->b_data);
 			brelse(dibh);
 			up_write(&ip->i_rw_mutex);
@@ -1749,6 +1755,7 @@ static inline bool walk_done(struct gfs2_sbd *sdp,
 static int punch_hole(struct gfs2_inode *ip, u64 offset, u64 length)
 {
 	struct inode *inode = &ip->i_inode;
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
 	u64 maxsize = sdp->sd_heightsize[ip->i_height];
 	struct metapath mp = {};
@@ -1836,7 +1843,7 @@ static int punch_hole(struct gfs2_inode *ip, u64 offset, u64 length)
 	for (mp_h = 0; mp_h < mp.mp_aheight - 1; mp_h++) {
 		metapointer_range(&mp, mp_h, start_list, start_aligned,
 				  end_list, end_aligned, &start, &end);
-		gfs2_metapath_ra(ip->i_gl, start, end);
+		gfs2_metapath_ra(gl, start, end);
 	}
 
 	if (mp.mp_aheight == ip->i_height)
@@ -1956,7 +1963,7 @@ static int punch_hole(struct gfs2_inode *ip, u64 offset, u64 length)
 							  start_list, start_aligned,
 							  end_list, end_aligned,
 							  &start, &end);
-					gfs2_metapath_ra(ip->i_gl, start, end);
+					gfs2_metapath_ra(gl, start, end);
 				}
 			}
 
@@ -1990,7 +1997,7 @@ static int punch_hole(struct gfs2_inode *ip, u64 offset, u64 length)
 		gfs2_statfs_change(sdp, 0, +btotal, 0);
 		gfs2_quota_change(ip, -(s64)btotal, inode->i_uid, inode->i_gid);
 		inode_set_mtime_to_ts(inode, inode_set_ctime_current(inode));
-		gfs2_trans_add_meta(ip->i_gl, dibh);
+		gfs2_trans_add_meta(gl, dibh);
 		gfs2_dinode_out(ip, dibh->b_data);
 		up_write(&ip->i_rw_mutex);
 		gfs2_trans_end(sdp);
@@ -2013,6 +2020,7 @@ out_metapath:
 static int trunc_end(struct gfs2_inode *ip)
 {
 	struct inode *inode = &ip->i_inode;
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
 	struct buffer_head *dibh;
 	int error;
@@ -2036,7 +2044,7 @@ static int trunc_end(struct gfs2_inode *ip)
 	inode_set_mtime_to_ts(inode, inode_set_ctime_current(inode));
 	ip->i_diskflags &= ~GFS2_DIF_TRUNC_IN_PROG;
 
-	gfs2_trans_add_meta(ip->i_gl, dibh);
+	gfs2_trans_add_meta(gl, dibh);
 	gfs2_dinode_out(ip, dibh->b_data);
 	brelse(dibh);
 
@@ -2097,6 +2105,7 @@ static int do_shrink(struct inode *inode, u64 newsize)
 
 static int do_grow(struct inode *inode, u64 size)
 {
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
 	struct gfs2_alloc_parms ap = { .target = 1, };
@@ -2141,7 +2150,7 @@ static int do_grow(struct inode *inode, u64 size)
 
 	truncate_setsize(inode, size);
 	inode_set_mtime_to_ts(&ip->i_inode, inode_set_ctime_current(&ip->i_inode));
-	gfs2_trans_add_meta(ip->i_gl, dibh);
+	gfs2_trans_add_meta(gl, dibh);
 	gfs2_dinode_out(ip, dibh->b_data);
 	brelse(dibh);
 
@@ -2380,6 +2389,7 @@ int gfs2_write_alloc_required(struct gfs2_inode *ip, u64 offset,
 
 static int stuffed_zero_range(struct inode *inode, loff_t offset, loff_t length)
 {
+	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct buffer_head *dibh;
 	int error;
@@ -2392,7 +2402,7 @@ static int stuffed_zero_range(struct inode *inode, loff_t offset, loff_t length)
 	error = gfs2_meta_inode_buffer(ip, &dibh);
 	if (error)
 		return error;
-	gfs2_trans_add_meta(ip->i_gl, dibh);
+	gfs2_trans_add_meta(gl, dibh);
 	memset(dibh->b_data + sizeof(struct gfs2_dinode) + offset, 0,
 	       length);
 	brelse(dibh);

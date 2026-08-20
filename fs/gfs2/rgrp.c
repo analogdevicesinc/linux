@@ -1033,8 +1033,8 @@ static int gfs2_ri_update(struct gfs2_inode *ip)
 
 int gfs2_rindex_update(struct gfs2_sbd *sdp)
 {
+	struct gfs2_glock *gl = gfs2_inode_glock(sdp->sd_rindex);
 	struct gfs2_inode *ip = GFS2_I(sdp->sd_rindex);
-	struct gfs2_glock *gl = ip->i_gl;
 	struct gfs2_holder ri_gh;
 	int error = 0;
 	int unlock_required = 0;
@@ -2453,7 +2453,7 @@ int gfs2_alloc_blocks(struct gfs2_inode *ip, u64 *bn, unsigned int *nblocks,
 		if (error == 0) {
 			struct gfs2_dinode *di =
 				(struct gfs2_dinode *)dibh->b_data;
-			gfs2_trans_add_meta(ip->i_gl, dibh);
+			gfs2_trans_add_meta(gfs2_inode_glock(&ip->i_inode), dibh);
 			di->di_goal_meta = di->di_goal_data =
 				cpu_to_be64(ip->i_goal);
 			brelse(dibh);
