@@ -298,7 +298,7 @@ static inline void dw_edma_core_ll_irq_clear(struct dw_edma_chan *chan)
 	chan->dw->core->ll_irq_clear(chan);
 }
 
-static inline void dw_edma_core_ch_doorbell(struct dw_edma_chan *chan)
+static inline void dw_edma_core_do_ch_doorbell(struct dw_edma_chan *chan)
 {
 	chan->dw->core->ch_doorbell(chan);
 }
