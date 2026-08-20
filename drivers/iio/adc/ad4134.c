@@ -4,6 +4,7 @@
  * Author: Cosmin Tanislav <cosmin.tanislav@analog.com>
  */
 
+#include <linux/atomic.h>
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/completion.h>
@@ -36,7 +37,33 @@
 #include <linux/spi/offload/consumer.h>
 #include <linux/spi/offload/types.h>
 
-#define AD4134_TRIGGER_OFFSET_CYCLES		4
+/*
+ * Data interface timing with gated DCLK, slave mode (datasheet Table 3),
+ * expressed in fSYSCLK periods where applicable (tDIGCLK = 2/fSYSCLK):
+ *
+ *   t1  ODR high                    >= 3 x tDIGCLK = 6/fSYSCLK
+ *   t3  ODR fall -> first DCLK rise >= 8 ns
+ *   t4  last DCLK fall -> ODR rise  >= 2 x tDCLK
+ *
+ * The t1 figure of 6 is a floor, not a target: at fSYSCLK = 48 MHz it lands on
+ * 125.0 ns, which is the spec limit with zero margin. Program 7 (145.8 ns) so
+ * the falling edge keeps one full sysclk period of slack. Raising this costs
+ * ODR period budget, see ad4134_min_odr_period_ns().
+ */
+#define AD4134_ODR_HIGH_CYCLES			7
+#define AD4134_ODR_FALL_TO_DCLK_RISE_NS		8
+
+/*
+ * DEBUG INSTRUMENTATION - remove once the frame-slip investigation closes.
+ *
+ * Module-wide, so an access to the slave while the master is streaming is
+ * still tagged as happening during a capture. regmap calls writeable_reg /
+ * readable_reg on every single access (no cache, no register tables), so
+ * those two callbacks see all SPI register traffic to either chip, whatever
+ * the source: this driver, sysfs, debugfs or iio_reg.
+ */
+static atomic_t ad4134_capture_active = ATOMIC_INIT(0);
+
 #define AD4134_MIN_ODR_FREQ_HZ			10
 #define AD4134_MAX_ODR_FREQ_HZ			(1496 * HZ_PER_KHZ)
 
@@ -438,6 +465,49 @@ static const unsigned long ad4134_offload_scan_masks[] = {
 	0
 };
 
+/* DCLK cycles per data output lane in one frame (datasheet Table 34). */
+static unsigned int ad4134_frame_bits(struct ad4134_state *st)
+{
+	switch (st->output_frame) {
+	case 0:
+		return 16;
+	case 1:
+	case 2:
+		return 24;
+	case 3:
+		return 32;
+	default:
+		return 0;
+	}
+}
+
+/*
+ * Gated DCLK requires the whole frame plus turnaround to fit inside one ODR
+ * period (datasheet, DCLK ERROR):
+ *
+ *   ODR period > tDCLK x Frame Size + 6 x max(tDCLK, tDIGCLK)
+ *
+ * Violating it sets ERR_DCLK (INTERNAL_ERROR bit 3). Returns 0 if the bound
+ * cannot be computed.
+ */
+static u64 ad4134_min_odr_period_ns(struct ad4134_state *st)
+{
+	u64 tdclk_ps, tdigclk_ps;
+	unsigned int frame_bits;
+	u32 dclk_hz;
+
+	frame_bits = ad4134_frame_bits(st);
+	dclk_hz = st->spi_engine ? st->spi_engine->max_speed_hz : 0;
+	if (!frame_bits || !dclk_hz || !st->sys_clk_hz)
+		return 0;
+
+	tdclk_ps = div64_ul(PICO, dclk_hz);
+	tdigclk_ps = div64_ul(2 * (u64)PICO, st->sys_clk_hz);
+
+	return DIV_ROUND_UP_ULL(frame_bits * tdclk_ps +
+				6 * max(tdclk_ps, tdigclk_ps), 1000);
+}
+
 static int ad4134_setup_odr(struct ad4134_state *st, unsigned int freq_hz)
 {
 	struct pwm_waveform odr_wf = { };
@@ -470,14 +540,15 @@ static int ad4134_setup_odr(struct ad4134_state *st, unsigned int freq_hz)
 
 	odr_wf.period_length_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, odr_hz);
 	/*
-	 * For an arbitrary system clock (fSYSCLK), we have a minimum ODR high
-	 * time of 6/fSYSCLK derived from the device clock and data interface
-	 * timing (with Gated DCLK) specifications. Set the PWM duty cycle to
-	 * keep ODR up for at least that long. If the rounded PWM's value is
+	 * For an arbitrary system clock (fSYSCLK), the t1 minimum ODR high time
+	 * is 6/fSYSCLK. Program AD4134_ODR_HIGH_CYCLES/fSYSCLK so the falling
+	 * edge is not sitting exactly on the spec limit. Set the PWM duty cycle
+	 * to keep ODR up for at least that long. If the rounded PWM's value is
 	 * less than the minimum required, increase the target value by 10 and
 	 * attempt to round the waveform again, until the minimum is reached.
 	 */
-	odr_high_time_ns = div64_ul(6ULL * NANO, st->sys_clk_hz);
+	odr_high_time_ns = DIV_ROUND_UP_ULL(AD4134_ODR_HIGH_CYCLES * (u64)NANO,
+					    st->sys_clk_hz);
 	do {
 		odr_wf.duty_length_ns = target;
 		ret = pwm_round_waveform_might_sleep(st->odr_trigger, &odr_wf);
@@ -524,6 +595,8 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	struct pwm_waveform odr_wf = { };
 	u64 offload_offset_ns;
 	u64 odr_high_time_ns;
+	u64 min_offset_ns;
+	u64 min_gated_ns;
 	unsigned int odr_hz;
 	u64 target = 10;
 	int ret;
@@ -543,14 +616,15 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 
 	odr_wf.period_length_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, odr_hz);
 	/*
-	 * For an arbitrary system clock (fSYSCLK), we have a minimum ODR high
-	 * time of 6/fSYSCLK derived from the device clock and data interface
-	 * timing (with Gated DCLK) specifications. Set the PWM duty cycle to
-	 * keep ODR up for at least that long. If the rounded PWM's value is
+	 * For an arbitrary system clock (fSYSCLK), the t1 minimum ODR high time
+	 * is 6/fSYSCLK. Program AD4134_ODR_HIGH_CYCLES/fSYSCLK so the falling
+	 * edge is not sitting exactly on the spec limit. Set the PWM duty cycle
+	 * to keep ODR up for at least that long. If the rounded PWM's value is
 	 * less than the minimum required, increase the target value by 10 and
 	 * attempt to round the waveform again, until the minimum is reached.
 	 */
-	odr_high_time_ns = div64_ul(6ULL * NANO, st->sys_clk_hz);
+	odr_high_time_ns = DIV_ROUND_UP_ULL(AD4134_ODR_HIGH_CYCLES * (u64)NANO,
+					    st->sys_clk_hz);
 	do {
 		odr_wf.duty_length_ns = target;
 		ret = pwm_round_waveform_might_sleep(st->odr_trigger, &odr_wf);
@@ -592,12 +666,14 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	/*
 	 * For gated DCLK, the minimum required time between ODR rising edge
 	 * and DCLK rising edge is the sum of ODR high time and ODR falling
-	 * edge to DCLK rising edge time. Delay the offload trigger for at least
-	 * that amount of time so the ADC sample data will be available when the
-	 * SPI transfer begin.
+	 * edge to DCLK rising edge time (t3). Delay the offload trigger by at
+	 * least that much so DCLK does not start before ODR has fallen.
+	 *
+	 * Reference the ODR high time the PWM actually rounded to, not the
+	 * requested one.
 	 */
-	offload_offset_ns = div64_ul(AD4134_TRIGGER_OFFSET_CYCLES * (u64)NANO,
-				     st->sys_clk_hz);
+	min_offset_ns = odr_wf.duty_length_ns + AD4134_ODR_FALL_TO_DCLK_RISE_NS;
+	offload_offset_ns = min_offset_ns;
 	do {
 		config->periodic.offset_ns = offload_offset_ns;
 		ret = spi_offload_trigger_validate(st->offload_trigger, config);
@@ -605,9 +681,19 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 			return ret;
 
 		offload_offset_ns += 10;
-	} while (config->periodic.offset_ns <
-		 div64_ul(AD4134_TRIGGER_OFFSET_CYCLES * (u64)NANO,
-			  st->sys_clk_hz));
+	} while (config->periodic.offset_ns < min_offset_ns);
+
+	/*
+	 * round_waveform_fromhw() rounds up, so period_length_ns can overstate
+	 * the real hardware period by up to 1 ns. Equation 1 is a strict
+	 * inequality, so compare with <= to also flag a period sitting exactly
+	 * on the bound.
+	 */
+	min_gated_ns = ad4134_min_odr_period_ns(st);
+	if (min_gated_ns && odr_wf.period_length_ns <= min_gated_ns)
+		dev_warn(&st->spi->dev,
+			 "ODR period %llu ns is at or below the gated-DCLK minimum of %llu ns; expect ERR_DCLK and inter-device frame slip\n",
+			 odr_wf.period_length_ns, min_gated_ns);
 
 	dev_dbg(&st->spi->dev, "ad7134: trigger offset=%llu ns, trigger freq=%llu Hz, offload_period=%llu ns\n",
 		 config->periodic.offset_ns, config->periodic.frequency_hz, odr_wf.period_length_ns);
@@ -682,18 +768,8 @@ static void ad4134_prepare_offload_msg(struct iio_dev *indio_dev)
 	unsigned int num_devices;
 	unsigned int bpw;
 
-	switch (st->output_frame) {
-	case 0:
-		bpw = 16;
-		break;
-	case 1:
-	case 2:
-		bpw = 24;
-		break;
-	case 3:
-		bpw = 32;
-		break;
-	default:
+	bpw = ad4134_frame_bits(st);
+	if (!bpw) {
 		dev_err(&st->spi->dev, "invalid adi,adc-frame: %d\n", st->output_frame);
 		return;
 	}
@@ -725,6 +801,9 @@ static int ad4134_offload_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		goto out_unoptimize;
 
+	atomic_inc(&ad4134_capture_active);
+	dev_info(&st->spi->dev, "ad7134: ===== CAPTURE START =====\n");
+
 	return 0;
 
 out_unoptimize:
@@ -736,6 +815,9 @@ out_unoptimize:
 static int ad4134_offload_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad4134_state *st = iio_priv(indio_dev);
+
+	dev_info(&st->spi->dev, "ad7134: ===== CAPTURE STOP =====\n");
+	atomic_dec(&ad4134_capture_active);
 
 	spi_offload_trigger_disable(st->offload, st->offload_trigger);
 
@@ -1646,9 +1728,31 @@ static int ad4134_setup(struct ad4134_state *st)
 	return 0;
 }
 
+static bool ad4134_regmap_log(struct device *dev, unsigned int reg,
+			      const char *op)
+{
+	dev_info(dev, "ad7134: SPI %s reg 0x%02x%s\n", op, reg,
+		 atomic_read(&ad4134_capture_active) ?
+		 "   <<<<< DURING CAPTURE" : "");
+
+	return true;
+}
+
+static bool ad4134_regmap_writeable(struct device *dev, unsigned int reg)
+{
+	return ad4134_regmap_log(dev, reg, "WRITE");
+}
+
+static bool ad4134_regmap_readable(struct device *dev, unsigned int reg)
+{
+	return ad4134_regmap_log(dev, reg, "read ");
+}
+
 static const struct regmap_config ad4134_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
+	.writeable_reg = ad4134_regmap_writeable,
+	.readable_reg = ad4134_regmap_readable,
 };
 
 static inline int ad4134_spi_engine_compare_fwnode(struct device *dev, void *data)
