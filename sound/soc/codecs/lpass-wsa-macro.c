@@ -2638,10 +2638,10 @@ static const struct clk_ops swclk_gate_ops = {
 
 static int wsa_macro_register_mclk_output(struct wsa_macro *wsa)
 {
+	struct clk_init_data init = {};
 	struct device *dev = wsa->dev;
 	const char *parent_clk_name;
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	if (wsa->npl)

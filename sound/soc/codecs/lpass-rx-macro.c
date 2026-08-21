@@ -3732,8 +3732,8 @@ static int rx_macro_register_mclk_output(struct rx_macro *rx)
 	struct device *dev = rx->dev;
 	const char *parent_clk_name = NULL;
 	const char *clk_name = "lpass-rx-mclk";
+	struct clk_init_data init = {};
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	if (rx->npl)
