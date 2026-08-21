@@ -286,5 +286,9 @@ void dcmipp_bytecap_ent_release(struct dcmipp_ent_device *ved);
 struct dcmipp_ent_device *dcmipp_isp_ent_init(const char *entity_name,
 					      struct dcmipp_device *dcmipp);
 void dcmipp_isp_ent_release(struct dcmipp_ent_device *ved);
+struct dcmipp_ent_device *
+dcmipp_pixelproc_ent_init(const char *entity_name,
+			  struct dcmipp_device *dcmipp);
+void dcmipp_pixelproc_ent_release(struct dcmipp_ent_device *ved);
 
 #endif
