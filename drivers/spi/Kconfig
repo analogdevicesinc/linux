@@ -63,7 +63,6 @@ comment "SPI Master Controller Drivers"
 config SPI_AIROHA_SNFI
 	tristate "Airoha SPI NAND Flash Interface"
 	depends on ARCH_AIROHA || COMPILE_TEST
-	depends on SPI_MASTER
 	select REGMAP_MMIO
 	help
 	  This enables support for SPI-NAND mode on the Airoha NAND
@@ -333,7 +332,7 @@ config SPI_CADENCE_XSPI
 
 config SPI_CH341
 	tristate "CH341 USB2SPI adapter"
-	depends on SPI_MASTER && USB
+	depends on USB
 	help
 	  Enables the SPI controller on the CH341a USB to serial chip
 
@@ -722,7 +721,6 @@ config SPI_MESON_SPIFC
 
 config SPI_MICROCHIP_CORE_QSPI
 	tristate "Microchip FPGA QSPI controllers"
-	depends on SPI_MASTER
 	help
 	  This enables the QSPI driver for Microchip FPGA QSPI controllers.
 	  Say Y or M here if you want to use the QSPI controllers on
@@ -731,7 +729,6 @@ config SPI_MICROCHIP_CORE_QSPI
 
 config SPI_MICROCHIP_CORE_SPI
 	tristate "Microchip FPGA CoreSPI controller"
-	depends on SPI_MASTER
 	help
 	  This enables the SPI driver for Microchip FPGA CoreSPI controller.
 	  Say Y or M here if you want to use the "soft" controllers on
@@ -887,7 +884,6 @@ config SPI_PL022
 
 config SPI_POLARFIRE_SOC
 	tristate "Microchip FPGA SPI controllers"
-	depends on SPI_MASTER
 	depends on ARCH_MICROCHIP || COMPILE_TEST
 	help
 	  This enables the SPI driver for Microchip FPGA SPI controllers.
@@ -950,7 +946,7 @@ config SPI_ROCKCHIP_SFC
 
 config SPI_RB4XX
 	tristate "Mikrotik RB4XX SPI master"
-	depends on SPI_MASTER && (ATH79 || COMPILE_TEST)
+	depends on ATH79 || COMPILE_TEST
 	depends on OF
 	help
 	  SPI controller driver for the Mikrotik RB4xx series boards.
@@ -1191,7 +1187,6 @@ config SPI_SYNQUACER
 
 config SPI_MXIC
 	tristate "Macronix MX25F0A SPI controller"
-	depends on SPI_MASTER
 	imply MTD_NAND_ECC_MXIC
 	help
 	  This selects the Macronix MX25F0A SPI controller driver.
@@ -1270,7 +1265,7 @@ config SPI_UNIPHIER
 
 config SPI_VIRTIO
 	tristate "Virtio SPI Controller"
-	depends on SPI_MASTER && VIRTIO
+	depends on VIRTIO
 	help
 	  If you say yes to this option, support will be included for the virtio
 	  SPI controller driver. The hardware can be emulated by any device model
@@ -1339,7 +1334,7 @@ config SPI_ZYNQMP_GQSPI
 config SPI_AMD
 	tristate "AMD SPI controller"
 	depends on PCI
-	depends on SPI_MASTER || X86 || COMPILE_TEST
+	depends on X86 || COMPILE_TEST
 	depends on SPI_MEM
 	help
 	  Enables SPI controller driver for AMD SoC.
