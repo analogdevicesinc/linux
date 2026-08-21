@@ -580,7 +580,7 @@ rzg2l_cpg_sd_mux_clk_register(const struct cpg_core_clk *core,
 			      struct rzg2l_cpg_priv *priv)
 {
 	struct sd_mux_hw_data *sd_mux_hw_data;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk_hw *clk_hw;
 	int ret;
 
@@ -831,9 +831,9 @@ rzg2l_cpg_dsi_div_clk_register(const struct cpg_core_clk *core,
 			       struct rzg2l_cpg_priv *priv)
 {
 	struct dsi_div_hw_data *clk_hw_data;
+	struct clk_init_data init = {};
 	const struct clk *parent;
 	const char *parent_name;
-	struct clk_init_data init;
 	struct clk_hw *clk_hw;
 	int ret;
 
@@ -916,8 +916,8 @@ static struct clk * __init
 rzg3l_cpg_lvds_div_clk_register(const struct cpg_core_clk *core,
 				struct rzg2l_cpg_priv *priv)
 {
+	struct clk_init_data init = {};
 	struct clk_fixed_factor *ff;
-	struct clk_init_data init;
 	const struct clk *parent;
 	const char *parent_name;
 	int ret;
@@ -1031,9 +1031,9 @@ rzg3l_cpg_dsi_div_clk_register(const struct cpg_core_clk *core,
 			       struct rzg2l_cpg_priv *priv)
 {
 	struct g3l_dsi_div_hw_data *clk_hw_data;
+	struct clk_init_data init = {};
 	const struct clk *parent;
 	const char *parent_name;
-	struct clk_init_data init;
 	struct clk_hw *clk_hw;
 	int ret;
 
@@ -1128,7 +1128,7 @@ rzg2l_cpg_pll5_4_mux_clk_register(const struct cpg_core_clk *core,
 				  struct rzg2l_cpg_priv *priv)
 {
 	struct pll5_mux_hw_data *clk_hw_data;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk_hw *clk_hw;
 	int ret;
 
@@ -1255,8 +1255,8 @@ static struct clk * __init
 rzg2l_cpg_sipll5_register(const struct cpg_core_clk *core,
 			  struct rzg2l_cpg_priv *priv)
 {
+	struct clk_init_data init = {};
 	const struct clk *parent;
-	struct clk_init_data init;
 	const char *parent_name;
 	struct sipll5 *sipll5;
 	struct clk_hw *clk_hw;
@@ -1381,9 +1381,9 @@ rzg2l_cpg_pll_clk_register(const struct cpg_core_clk *core,
 			   struct rzg2l_cpg_priv *priv,
 			   const struct clk_ops *ops)
 {
+	struct clk_init_data init = {};
 	struct device *dev = priv->dev;
 	const struct clk *parent;
-	struct clk_init_data init;
 	const char *parent_name;
 	struct pll_clk *pll_clk;
 	int ret;
@@ -1525,8 +1525,8 @@ static struct clk * __init
 rzg3l_cpg_dsi_mux_clk_register(const struct cpg_core_clk *core,
 			       struct rzg2l_cpg_priv *priv)
 {
+	struct clk_init_data init = {};
 	struct clk_mux *mux_data;
-	struct clk_init_data init;
 	int ret;
 
 	mux_data = devm_kzalloc(priv->dev, sizeof(*mux_data), GFP_KERNEL);
@@ -2264,10 +2264,10 @@ rzg2l_cpg_register_mod_clk(const struct rzg2l_mod_clk *mod,
 			   const struct rzg2l_cpg_info *info,
 			   struct rzg2l_cpg_priv *priv)
 {
+	struct clk_init_data init = {};
 	struct mod_clock *clock = NULL;
 	struct device *dev = priv->dev;
 	unsigned int id = mod->id;
-	struct clk_init_data init;
 	struct clk *parent, *clk;
 	const char *parent_name;
 	unsigned int i;

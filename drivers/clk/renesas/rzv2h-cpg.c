@@ -338,7 +338,7 @@ rzv2h_cpg_plldsi_div_clk_register(const struct cpg_core_clk *core,
 {
 	struct rzv2h_plldsi_div_clk *clk_hw_data;
 	struct clk **clks = priv->clks;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	const struct clk *parent;
 	const char *parent_name;
 	struct clk_hw *clk_hw;
@@ -582,7 +582,7 @@ rzv2h_cpg_plldsi_smux_clk_register(const struct cpg_core_clk *core,
 				   struct rzv2h_cpg_priv *priv)
 {
 	struct rzv2h_plldsi_mux_clk *clk_hw_data;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk_hw *clk_hw;
 	struct smuxed smux;
 	int ret;
@@ -711,7 +711,7 @@ rzv2h_cpg_pll_clk_register(const struct cpg_core_clk *core,
 			   const struct clk_ops *ops)
 {
 	struct device *dev = priv->dev;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	const struct clk *parent;
 	const char *parent_name;
 	struct pll_clk *pll_clk;
@@ -1229,7 +1229,7 @@ rzv2h_cpg_register_mod_clk(const struct rzv2h_mod_clk *mod,
 {
 	struct mod_clock *clock = NULL;
 	struct device *dev = priv->dev;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk *parent, *clk;
 	const char *parent_name;
 	unsigned int id;
