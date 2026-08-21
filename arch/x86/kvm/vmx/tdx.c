@@ -257,6 +257,31 @@ static __always_inline void tdvmcall_set_return_val(struct kvm_vcpu *vcpu,
 	to_tdx(vcpu)->vp_enter_args.r11 = val;
 }
 
+static int tdx_hkid_alloc(struct kvm_tdx *kvm_tdx)
+{
+	int ret;
+
+	kvm_tdx->misc_cg = get_current_misc_cg();
+	ret = misc_cg_try_charge(MISC_CG_RES_TDX, kvm_tdx->misc_cg, 1);
+	if (ret)
+		goto put_misc_cg;
+
+	ret = tdx_guest_keyid_alloc();
+	if (ret < 0)
+		goto uncharge_misc_cg;
+
+	kvm_tdx->hkid = ret;
+	return 0;
+
+uncharge_misc_cg:
+	misc_cg_uncharge(MISC_CG_RES_TDX, kvm_tdx->misc_cg, 1);
+put_misc_cg:
+	put_misc_cg(kvm_tdx->misc_cg);
+	kvm_tdx->misc_cg = NULL;
+
+	return ret;
+}
+
 static inline void tdx_hkid_free(struct kvm_tdx *kvm_tdx)
 {
 	tdx_guest_keyid_free(kvm_tdx->hkid);
@@ -2511,14 +2536,9 @@ static int __tdx_td_init(struct kvm *kvm, struct td_params *td_params,
 	u64 err, rcx;
 
 	*seamcall_err = 0;
-	ret = tdx_guest_keyid_alloc();
-	if (ret < 0)
-		return ret;
-	kvm_tdx->hkid = ret;
-	kvm_tdx->misc_cg = get_current_misc_cg();
-	ret = misc_cg_try_charge(MISC_CG_RES_TDX, kvm_tdx->misc_cg, 1);
+	ret = tdx_hkid_alloc(kvm_tdx);
 	if (ret)
-		goto free_hkid;
+		return ret;
 
 	ret = -ENOMEM;
 
