@@ -1890,7 +1890,6 @@ static int ds1307_probe(struct i2c_client *client)
 	if (!ds1307)
 		return -ENOMEM;
 
-	dev_set_drvdata(&client->dev, ds1307);
 	ds1307->dev = &client->dev;
 	ds1307->name = client->name;
 
