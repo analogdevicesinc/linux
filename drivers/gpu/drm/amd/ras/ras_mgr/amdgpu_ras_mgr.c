@@ -158,8 +158,6 @@ static int amdgpu_ras_mgr_init_mp1_config(struct amdgpu_device *adev,
 	case IP_VERSION(13, 0, 6):
 	case IP_VERSION(13, 0, 14):
 	case IP_VERSION(13, 0, 12):
-		mp1_cfg->mp1_sys_fn = &amdgpu_ras_mp1_sys_func_v13_0;
-		break;
 	case IP_VERSION(15, 0, 8):
 		mp1_cfg->mp1_sys_fn = &amdgpu_ras_mp1_sys_func;
 		break;
