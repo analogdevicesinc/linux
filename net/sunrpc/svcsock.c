@@ -271,95 +271,77 @@ svc_tcp_sock_drain_record(struct socket *sock)
 	}
 }
 
-static int
-svc_tcp_sock_process_cmsg(struct socket *sock, struct msghdr *msg,
-			  struct cmsghdr *cmsg, int ret)
-{
-	u8 content_type = tls_get_record_type(sock->sk, cmsg);
-	u8 level, description;
-
-	switch (content_type) {
-	case 0:
-		break;
-	case TLS_RECORD_TYPE_DATA:
-		/* TLS sets EOR at the end of each application data
-		 * record, even though there might be more frames
-		 * waiting to be decrypted.
-		 */
-		msg->msg_flags &= ~MSG_EOR;
-		break;
-	case TLS_RECORD_TYPE_ALERT:
-		tls_alert_recv(sock->sk, msg, &level, &description);
-		/* RFC 8446 Section 6: every alert but a closure alert is
-		 * an error alert.
-		 */
-		switch (description) {
-		case TLS_ALERT_DESC_CLOSE_NOTIFY:
-		case TLS_ALERT_DESC_USER_CANCELED:
-			ret = -EAGAIN;
-			break;
-		default:
-			ret = -ENOTCONN;
-		}
-		break;
-	default:
-		/* discard this record type */
-		ret = -EAGAIN;
-	}
-	return ret;
-}
-
-static int
-svc_tcp_sock_recv_cmsg(struct socket *sock, unsigned int *msg_flags)
+static int svc_tcp_recv_cmsg(struct socket *sock, int flags,
+			     struct kvec *payload, u8 *type,
+			     unsigned int *msg_flags)
 {
 	union {
 		struct cmsghdr	cmsg;
 		u8		buf[CMSG_SPACE(sizeof(u8))];
-	} u;
-	u8 alert[2];
-	struct kvec alert_kvec = {
-		.iov_base = alert,
-		.iov_len = sizeof(alert),
-	};
+	} u = {};
 	struct msghdr msg = {
-		.msg_flags = *msg_flags,
-		.msg_control = &u,
-		.msg_controllen = sizeof(u),
+		.msg_control	= &u,
+		.msg_controllen	= sizeof(u),
 	};
 	int ret;
 
-	iov_iter_kvec(&msg.msg_iter, ITER_DEST, &alert_kvec, 1,
-		      alert_kvec.iov_len);
-	ret = sock_recvmsg(sock, &msg, MSG_DONTWAIT);
-	/* put_cmsg() shrinks msg_controllen, so a short one means
-	 * kTLS filled in u.cmsg.
-	 */
-	if (ret >= 0 && msg.msg_controllen < sizeof(u)) {
-		u8 content_type = tls_get_record_type(sock->sk, &u.cmsg);
-
-		/* Returning the count would credit the RPC stream with
-		 * octets that never reached the caller's buffer.
-		 */
-		if (content_type != TLS_RECORD_TYPE_ALERT) {
-			/* An application data record carries RPC payload.
-			 * Draining one breaks RPC fragment framing.
-			 */
-			if (content_type != TLS_RECORD_TYPE_DATA &&
-			    !(msg.msg_flags & MSG_EOR))
-				svc_tcp_sock_drain_record(sock);
-			return -EAGAIN;
-		}
-		/* An Alert record carries exactly one two-octet message
-		 * (RFC 8446 Section 5.1). alert_kvec caps the receive at two,
-		 * so a longer record produces the same count. MSG_EOR appears
-		 * only once kTLS has drained the whole record.
-		 */
-		if (ret != sizeof(alert) || !(msg.msg_flags & MSG_EOR))
-			return -EBADMSG;
-		iov_iter_revert(&msg.msg_iter, ret);
-		ret = svc_tcp_sock_process_cmsg(sock, &msg, &u.cmsg, -EAGAIN);
-	}
+	iov_iter_kvec(&msg.msg_iter, ITER_DEST, payload, 1, payload->iov_len);
+	ret = sock_recvmsg(sock, &msg, flags);
+	if (ret < 0)
+		return ret;
+	*msg_flags = msg.msg_flags;
+	*type = tls_get_record_type(sock->sk, &u.cmsg);
+	if (!*type && ret)
+		return -EBADMSG;
 	return ret;
+}
+
+static int
+svc_tcp_sock_recv_cmsg(struct socket *sock)
+{
+	u8 alert[2], type, level, description;
+	struct kvec recv_kvec = {
+		.iov_base	= alert,
+		.iov_len	= sizeof(alert),
+	};
+	unsigned int msg_flags;
+	struct msghdr msg = {};
+	int ret;
+
+	ret = svc_tcp_recv_cmsg(sock, MSG_DONTWAIT, &recv_kvec, &type,
+				&msg_flags);
+	if (ret < 0 || !type)
+		return ret;
+	if (type != TLS_RECORD_TYPE_ALERT) {
+		/* An application data record carries RPC payload.
+		 * Draining one breaks RPC fragment framing.
+		 */
+		if (type != TLS_RECORD_TYPE_DATA && !(msg_flags & MSG_EOR))
+			svc_tcp_sock_drain_record(sock);
+		return -EAGAIN;
+	}
+	/* An Alert record carries exactly one two-octet message (RFC
+	 * 8446 Section 5.1). recv_kvec caps the receive at two, so a
+	 * longer record produces the same count. MSG_EOR appears only
+	 * once kTLS has drained the whole record.
+	 */
+	if (ret != sizeof(alert) || !(msg_flags & MSG_EOR))
+		return -EBADMSG;
+
+	iov_iter_kvec(&msg.msg_iter, ITER_DEST, &recv_kvec, 1,
+		      recv_kvec.iov_len);
+	tls_alert_recv(sock->sk, &msg, &level, &description);
+
+	/* RFC 8446 Section 6: every alert but a closure alert is
+	 * an error alert.
+	 */
+	switch (description) {
+	case TLS_ALERT_DESC_CLOSE_NOTIFY:
+	case TLS_ALERT_DESC_USER_CANCELED:
+		return -EAGAIN;
+	default:
+		return -ENOTCONN;
+	}
 }
 
 static int
@@ -372,7 +354,7 @@ svc_tcp_sock_recvmsg(struct svc_sock *svsk, struct msghdr *msg)
 	if (msg->msg_flags & MSG_CTRUNC) {
 		msg->msg_flags &= ~(MSG_CTRUNC | MSG_EOR);
 		if (ret == 0 || ret == -EIO) {
-			ret = svc_tcp_sock_recv_cmsg(sock, &msg->msg_flags);
+			ret = svc_tcp_sock_recv_cmsg(sock);
 			/* A control record delivers nothing to the caller,
 			 * and kTLS announces no data_ready for records it
 			 * already holds. Mark the transport ready so that
