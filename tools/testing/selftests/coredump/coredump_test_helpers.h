@@ -64,6 +64,7 @@ bool get_pidfd_info(int fd_peer_pidfd, struct pidfd_info *info);
 /* Protocol helper function declarations */
 ssize_t recv_marker(int fd);
 bool read_marker(int fd, enum coredump_mark mark);
+bool read_hangup(int fd);
 bool read_coredump_req(int fd, struct coredump_req *req);
 bool read_coredump_req_sized(int fd, struct coredump_req *req, size_t user_size);
 bool send_coredump_ack(int fd, const struct coredump_req *req,

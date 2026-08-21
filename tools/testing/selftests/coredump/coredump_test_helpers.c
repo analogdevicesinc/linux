@@ -1467,6 +1467,29 @@ bool read_marker(int fd, enum coredump_mark mark)
 	return ret == mark;
 }
 
+/*
+ * The kernel hung up without sending anything more: end of stream, or a
+ * reset if it refused the ack on its peeked size and never read it.
+ */
+bool read_hangup(int fd)
+{
+	ssize_t ret;
+	char c;
+
+	ret = recv(fd, &c, sizeof(c), MSG_WAITALL);
+	if (ret == 0) {
+		fprintf(stderr, "Kernel closed the connection\n");
+		return true;
+	}
+	if (ret < 0 && errno == ECONNRESET) {
+		fprintf(stderr, "Kernel closed the connection with the ack unread\n");
+		return true;
+	}
+
+	fprintf(stderr, "%s: expected a hangup, got %zd: %m\n", __func__, ret);
+	return false;
+}
+
 /* Read the request as a server built with a @user_size byte struct does. */
 bool read_coredump_req_sized(int fd, struct coredump_req *req, size_t user_size)
 {
@@ -1593,9 +1616,14 @@ bool send_coredump_ack(int fd, const struct coredump_req *req,
 
 bool check_coredump_req(const struct coredump_req *req)
 {
-	if (req->size < COREDUMP_REQ_SIZE_VER1) {
-		fprintf(stderr, "%s: size %u below minimum %d\n",
+	if (req->size != COREDUMP_REQ_SIZE_VER1) {
+		fprintf(stderr, "%s: size %u, expected %d\n",
 			__func__, req->size, COREDUMP_REQ_SIZE_VER1);
+		return false;
+	}
+	if (req->size_ack != COREDUMP_ACK_SIZE_VER1) {
+		fprintf(stderr, "%s: size_ack %u, expected %d\n",
+			__func__, req->size_ack, COREDUMP_ACK_SIZE_VER1);
 		return false;
 	}
 	if (req->mask != TEST_REQ_MASK_ALL) {
