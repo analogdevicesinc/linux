@@ -1226,7 +1226,7 @@ static int kernfs_dop_revalidate(struct inode *dir, const struct qstr *name,
 
 	/* The kernfs node has been moved to a different namespace */
 	if (kn_parent && kernfs_ns_enabled(kn_parent) &&
-	    kernfs_ns_id(kernfs_info(dir->i_sb)->ns) != kernfs_ns_id(kn->ns))
+	    kernfs_info(dir->i_sb)->ns != READ_ONCE(kn->ns))
 		goto out_bad;
 
 	up_read(&root->kernfs_rwsem);
@@ -1873,7 +1873,7 @@ int kernfs_rename_ns(struct kernfs_node *kn, struct kernfs_node *new_parent,
 
 		rcu_assign_pointer(kn->__parent, new_parent);
 
-		kn->ns = new_ns;
+		WRITE_ONCE(kn->ns, new_ns);
 		if (new_name)
 			rcu_assign_pointer(kn->name, new_name);
 
@@ -1881,7 +1881,7 @@ int kernfs_rename_ns(struct kernfs_node *kn, struct kernfs_node *new_parent,
 		kernfs_put(old_parent);
 	} else {
 		/* name assignment is RCU protected, parent is the same */
-		kn->ns = new_ns;
+		WRITE_ONCE(kn->ns, new_ns);
 		if (new_name)
 			rcu_assign_pointer(kn->name, new_name);
 	}
