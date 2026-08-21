@@ -229,10 +229,16 @@ static int svc_one_sock_name(struct svc_sock *svsk, char *buf, int remaining)
 	return len;
 }
 
+/*
+ * The ->read_sock data path invokes neither security_socket_recvmsg()
+ * nor the sock:sock_recv_length tracepoint. Dispatch ->recvmsg
+ * directly so the whole receive path behaves one way.
+ */
 static int svc_tcp_recv_cmsg(struct socket *sock, int flags,
 			     struct kvec *payload, u8 *type,
 			     unsigned int *msg_flags)
 {
+	const struct proto_ops *ops = READ_ONCE(sock->ops);
 	union {
 		struct cmsghdr	cmsg;
 		u8		buf[CMSG_SPACE(sizeof(u8))];
@@ -244,7 +250,7 @@ static int svc_tcp_recv_cmsg(struct socket *sock, int flags,
 	int ret;
 
 	iov_iter_kvec(&msg.msg_iter, ITER_DEST, payload, 1, payload->iov_len);
-	ret = sock_recvmsg(sock, &msg, flags);
+	ret = ops->recvmsg(sock, &msg, msg_data_left(&msg), flags);
 	if (ret < 0)
 		return ret;
 	*msg_flags = msg.msg_flags;
