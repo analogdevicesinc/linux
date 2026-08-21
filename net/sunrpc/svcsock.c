@@ -238,39 +238,6 @@ static int svc_one_sock_name(struct svc_sock *svsk, char *buf, int remaining)
 	return len;
 }
 
-/*
- * kTLS delivers a record only up to the caller's buffer and keeps
- * the remainder on its receive list, where no further data_ready
- * announces it. Consume the whole record.
- */
-static void
-svc_tcp_sock_drain_record(struct socket *sock)
-{
-	union {
-		struct cmsghdr	cmsg;
-		u8		buf[CMSG_SPACE(sizeof(u8))];
-	} u;
-	u8 discard[64];
-	struct kvec discard_kvec = {
-		.iov_base = discard,
-		.iov_len = sizeof(discard),
-	};
-
-	for (;;) {
-		struct msghdr msg = {
-			.msg_control = &u,
-			.msg_controllen = sizeof(u),
-		};
-
-		iov_iter_kvec(&msg.msg_iter, ITER_DEST, &discard_kvec, 1,
-			      discard_kvec.iov_len);
-		if (sock_recvmsg(sock, &msg, MSG_DONTWAIT) <= 0)
-			break;
-		if (msg.msg_flags & MSG_EOR)
-			break;
-	}
-}
-
 static int svc_tcp_recv_cmsg(struct socket *sock, int flags,
 			     struct kvec *payload, u8 *type,
 			     unsigned int *msg_flags)
@@ -312,14 +279,14 @@ svc_tcp_sock_recv_cmsg(struct socket *sock)
 				&msg_flags);
 	if (ret < 0 || !type)
 		return ret;
-	if (type != TLS_RECORD_TYPE_ALERT) {
-		/* An application data record carries RPC payload.
-		 * Draining one breaks RPC fragment framing.
-		 */
-		if (type != TLS_RECORD_TYPE_DATA && !(msg_flags & MSG_EOR))
-			svc_tcp_sock_drain_record(sock);
+	/* A data record reaches here only when kTLS queued an empty one
+	 * ahead of the control record. Consuming it takes no payload,
+	 * and the retry picks up the control record.
+	 */
+	if (type == TLS_RECORD_TYPE_DATA)
 		return -EAGAIN;
-	}
+	if (type != TLS_RECORD_TYPE_ALERT)
+		return -EPROTO;
 	/* An Alert record carries exactly one two-octet message (RFC
 	 * 8446 Section 5.1). recv_kvec caps the receive at two, so a
 	 * longer record produces the same count. MSG_EOR appears only
