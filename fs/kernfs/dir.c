@@ -1171,23 +1171,19 @@ struct kernfs_node *kernfs_create_empty_dir(struct kernfs_node *parent,
 static int kernfs_dop_revalidate(struct inode *dir, const struct qstr *name,
 				 struct dentry *dentry, unsigned int flags)
 {
-	struct kernfs_node *kn, *parent;
+	struct kernfs_node *kn, *kn_parent;
+	struct kernfs_node *parent = dir->i_private;
 	struct kernfs_root *root;
+	const char *kn_name;
 
 	if (flags & LOOKUP_RCU)
 		return -ECHILD;
 
 	/* Negative hashed dentry? */
 	if (d_really_is_negative(dentry)) {
-		/* If the kernfs parent node has changed discard and
-		 * proceed to ->lookup.
-		 *
-		 * There's nothing special needed here when getting the
-		 * dentry parent, even if a concurrent rename is in
-		 * progress. That's because the dentry is negative so
-		 * it can only be the target of the rename and it will
-		 * be doing a d_move() not a replace. Consequently the
-		 * dentry d_parent won't change over the d_move().
+		/*
+		 * If the kernfs parent node has changed discard and proceed to
+		 * ->lookup.
 		 *
 		 * Also kernfs negative dentries transitioning from
 		 * negative to positive during revalidate won't happen
@@ -1195,14 +1191,11 @@ static int kernfs_dop_revalidate(struct inode *dir, const struct qstr *name,
 		 * changes and the lookup re-done so that a new positive
 		 * dentry can be properly created.
 		 */
-		root = kernfs_root_from_sb(dentry->d_sb);
+		root = kernfs_root(parent);
 		down_read(&root->kernfs_rwsem);
-		parent = kernfs_dentry_node(dentry->d_parent);
-		if (parent) {
-			if (kernfs_dir_changed(parent, dentry)) {
-				up_read(&root->kernfs_rwsem);
-				return 0;
-			}
+		if (kernfs_dir_changed(parent, dentry)) {
+			up_read(&root->kernfs_rwsem);
+			return 0;
 		}
 		up_read(&root->kernfs_rwsem);
 
@@ -1220,18 +1213,20 @@ static int kernfs_dop_revalidate(struct inode *dir, const struct qstr *name,
 	if (!kernfs_active(kn))
 		goto out_bad;
 
-	parent = kernfs_parent(kn);
+	kn_parent = kernfs_parent(kn);
 	/* The kernfs node has been moved? */
-	if (kernfs_dentry_node(dentry->d_parent) != parent)
+	if (parent != kn_parent)
 		goto out_bad;
 
 	/* The kernfs node has been renamed */
-	if (strcmp(dentry->d_name.name, kernfs_rcu_name(kn)) != 0)
+	kn_name = kernfs_rcu_name(kn);
+	if (name->len != strlen(kn_name) ||
+	    memcmp(name->name, kn_name, name->len))
 		goto out_bad;
 
 	/* The kernfs node has been moved to a different namespace */
-	if (parent && kernfs_ns_enabled(parent) &&
-	    kernfs_ns_id(kernfs_info(dentry->d_sb)->ns) != kernfs_ns_id(kn->ns))
+	if (kn_parent && kernfs_ns_enabled(kn_parent) &&
+	    kernfs_ns_id(kernfs_info(dir->i_sb)->ns) != kernfs_ns_id(kn->ns))
 		goto out_bad;
 
 	up_read(&root->kernfs_rwsem);
