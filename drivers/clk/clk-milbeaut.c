@@ -328,9 +328,9 @@ static struct clk_hw *m10v_clk_hw_register_mux(struct device *dev,
 			u8 shift, u32 mask, u8 clk_mux_flags, u32 *table,
 			spinlock_t *lock)
 {
+	struct clk_init_data init = {};
 	struct clk_mux *mux;
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	mux = kzalloc_obj(*mux);
@@ -459,9 +459,9 @@ static struct clk_hw *m10v_clk_hw_register_divider(struct device *dev,
 		u8 clk_divider_flags, const struct clk_div_table *table,
 		spinlock_t *lock, void __iomem *write_valid_reg)
 {
+	struct clk_init_data init = {};
 	struct m10v_clk_divider *div;
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	div = kzalloc_obj(*div);
