@@ -936,9 +936,9 @@ static struct clk_hw *clk_wzrd_register_divf(struct device *dev,
 					  u32 div_type,
 					  spinlock_t *lock)
 {
+	struct clk_init_data init = {};
 	struct clk_wzrd_divider *div;
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	div = devm_kzalloc(dev, sizeof(*div), GFP_KERNEL);
@@ -980,9 +980,9 @@ static struct clk_hw *clk_wzrd_ver_register_divider(struct device *dev,
 						 u32 div_type,
 						 spinlock_t *lock)
 {
+	struct clk_init_data init = {};
 	struct clk_wzrd_divider *div;
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	div = devm_kzalloc(dev, sizeof(*div), GFP_KERNEL);
@@ -1026,9 +1026,9 @@ static struct clk_hw *clk_wzrd_register_divider(struct device *dev,
 					     u32 div_type,
 					     spinlock_t *lock)
 {
+	struct clk_init_data init = {};
 	struct clk_wzrd_divider *div;
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	div = devm_kzalloc(dev, sizeof(*div), GFP_KERNEL);
