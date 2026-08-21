@@ -5047,16 +5047,23 @@ uint64_t amdgpu_uniras_get_ras_caps(struct amdgpu_device *adev)
 	struct ras_cmd_get_ras_cap_req req = {0};
 	struct ras_cmd_get_ras_cap_rsp rsp = {0};
 	union ras_feature feature = {0};
+	u32 socket_id = 0;
 
 	if (amdgpu_ras_mgr_handle_ras_cmd(adev, RAS_CMD__GET_RAS_CAP,
 			&req, sizeof(struct ras_cmd_get_ras_cap_req),
 			&rsp, sizeof(struct ras_cmd_get_ras_cap_rsp)))
 		return 0;
 
-	feature.block_mask = rsp.ras_block_mask;
-	feature.en = adev->ras_enabled;
 	if (adev->smuio.funcs && adev->smuio.funcs->get_socket_id)
-		feature.tag = adev->smuio.funcs->get_socket_id(adev);
+		socket_id = adev->smuio.funcs->get_socket_id(adev);
+
+	if (amdgpu_ip_version(adev, GC_HWIP, 0) < IP_VERSION(12, 1, 0))
+		return AMDGPU_RAS_GET_FEATURES(lower_32_bits(rsp.ras_block_mask)) |
+		       (socket_id << AMDGPU_RAS_FEATURES_SOCKETID_SHIFT);
+
+	feature.block_mask = rsp.ras_block_mask;
+	feature.en = !!adev->ras_enabled;
+	feature.tag = socket_id;
 
 	return feature.value;
 }
