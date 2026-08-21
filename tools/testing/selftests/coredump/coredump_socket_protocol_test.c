@@ -1932,4 +1932,353 @@ TEST_F(coredump, socket_request_stream_choice_large)
 	ASSERT_LT(choice.received, choice.size / 8);
 }
 
+/* What a memory types test asks of the kernel and what it expects back. */
+struct memory_choice {
+	/* Memory types the crashing child selects, or FILTER_TASK_INHERIT. */
+	__u64 task_filter;
+	/* The ack. */
+	__u64 mask;
+	__u64 memory_types;
+	size_t size_ack;
+	/* The shared mapping is in the coredump with all of its memory. */
+	bool shared_dumped;
+	/* No memory at all. Pull a page from /proc/<pid>/mem instead. */
+	bool skeleton;
+};
+
+/* A skeleton still carries the vdso and friends, nothing bigger. */
+#define SKELETON_DATA_PAGES 16
+
+/*
+ * The crashing child maps shared anonymous memory and tells the server
+ * where. The server acks with @choice and checks whether that mapping's
+ * segment in the coredump carries its memory.
+ */
+static void check_memory_dump(struct __test_metadata *const _metadata,
+			      FIXTURE_DATA(coredump) *self,
+			      const struct memory_choice *choice)
+{
+	int pidfd, status;
+	pid_t pid, pid_coredump_server;
+	struct pidfd_info info = {};
+	int ipc_sockets[2];
+	int addr_pipe[2];
+	char c;
+
+	ASSERT_EQ(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, ipc_sockets), 0);
+	ASSERT_EQ(pipe(addr_pipe), 0);
+	ASSERT_TRUE(set_core_pattern("@@/tmp/coredump.socket"));
+
+	pid_coredump_server = fork();
+	ASSERT_GE(pid_coredump_server, 0);
+	if (pid_coredump_server == 0) {
+		int fd_server = -1, fd_coredump = -1, fd_peer_pidfd = -1;
+		int fd_file = -1;
+		int exit_code = EXIT_FAILURE;
+		struct coredump_req req = {};
+		__u64 task_filter;
+		ElfW(Phdr) segment;
+		ssize_t received;
+		off_t size;
+		char *addr;
+
+		close(ipc_sockets[0]);
+		close(addr_pipe[1]);
+
+		fd_server = create_and_listen_unix_socket("/tmp/coredump.socket");
+		if (fd_server < 0)
+			goto out;
+
+		if (write_nointr(ipc_sockets[1], "1", 1) < 0)
+			goto out;
+
+		close(ipc_sockets[1]);
+
+		fd_coredump = accept4(fd_server, NULL, NULL, SOCK_CLOEXEC);
+		if (fd_coredump < 0)
+			goto out;
+
+		fd_peer_pidfd = get_peer_pidfd(fd_coredump);
+		if (fd_peer_pidfd < 0)
+			goto out;
+
+		fd_file = open_coredump_tmpfile(self->fd_tmpfs_detached);
+		if (fd_file < 0)
+			goto out;
+
+		if (!read_coredump_req(fd_coredump, &req))
+			goto out;
+
+		if (!check_coredump_req(&req))
+			goto out;
+
+		/* The request reports the memory types the task selected. */
+		if (!peer_coredump_filter(fd_peer_pidfd, &task_filter))
+			goto out;
+
+		if (req.memory_types != task_filter) {
+			fprintf(stderr, "Request reports 0x%llx, task selected 0x%llx\n",
+				(unsigned long long)req.memory_types,
+				(unsigned long long)task_filter);
+			goto out;
+		}
+
+		if (choice->task_filter != FILTER_TASK_INHERIT &&
+		    task_filter != choice->task_filter) {
+			fprintf(stderr, "Task selected 0x%llx, child asked for 0x%llx\n",
+				(unsigned long long)task_filter,
+				(unsigned long long)choice->task_filter);
+			goto out;
+		}
+
+		/* The child sent the address of its mapping before it crashed. */
+		if (read_nointr(addr_pipe[0], &addr, sizeof(addr)) != sizeof(addr))
+			goto out;
+
+		if (!send_coredump_ack_types(fd_coredump, &req, choice->mask,
+					      choice->memory_types,
+					      choice->size_ack))
+			goto out;
+
+		if (!read_marker(fd_coredump, COREDUMP_MARK_REQACK))
+			goto out;
+
+		if (choice->mask & COREDUMP_RECORDS)
+			received = recv_coredump_records(fd_coredump, fd_file,
+							 &size, NULL, -1);
+		else
+			received = recv_coredump_bytes(fd_coredump, fd_file);
+		if (received < 0)
+			goto out;
+
+		if (!is_elf_core(fd_file))
+			goto out;
+
+		/* A dump ending in holes or empty segments must still be whole. */
+		if (!check_coredump_extent(fd_file))
+			goto out;
+
+		if (!find_coredump_segment(fd_file, (__u64)(uintptr_t)addr, &segment))
+			goto out;
+
+		if (segment.p_memsz != MEMORY_MAPPING_SIZE) {
+			fprintf(stderr, "Segment spans %llu bytes, the mapping %u\n",
+				(unsigned long long)segment.p_memsz,
+				MEMORY_MAPPING_SIZE);
+			goto out;
+		}
+
+		if (segment.p_filesz != (choice->shared_dumped ? segment.p_memsz : 0)) {
+			fprintf(stderr, "Segment carries %llu bytes, expected %s of them\n",
+				(unsigned long long)segment.p_filesz,
+				choice->shared_dumped ? "all" : "none");
+			goto out;
+		}
+
+		if (choice->skeleton) {
+			__u64 data, notes, data_max;
+			char buf[PAGE_SIZE];
+
+			if (!sum_coredump_segments(fd_file, &data, &notes))
+				goto out;
+
+			data_max = SKELETON_DATA_PAGES * sysconf(_SC_PAGESIZE);
+			if (!notes || data > data_max) {
+				fprintf(stderr, "Skeleton has %llu note and %llu memory bytes\n",
+					(unsigned long long)notes,
+					(unsigned long long)data);
+				goto out;
+			}
+
+			/* The task is parked in COREDUMP_WAIT with its memory. */
+			if (peer_read_mem(fd_peer_pidfd, (__u64)(uintptr_t)addr,
+					  buf, sizeof(buf)) != sizeof(buf))
+				goto out;
+
+			if (buf[0] != 'x') {
+				fprintf(stderr, "Pulled memory lacks the child's mark\n");
+				goto out;
+			}
+
+			fprintf(stderr, "Skeleton of %zd bytes, pulled %zu bytes of memory\n",
+				received, sizeof(buf));
+		}
+
+		exit_code = EXIT_SUCCESS;
+out:
+		close(addr_pipe[0]);
+		if (fd_file >= 0)
+			close(fd_file);
+		if (fd_peer_pidfd >= 0)
+			close(fd_peer_pidfd);
+		if (fd_coredump >= 0)
+			close(fd_coredump);
+		if (fd_server >= 0)
+			close(fd_server);
+		_exit(exit_code);
+	}
+	self->pid_coredump_server = pid_coredump_server;
+
+	EXPECT_EQ(close(ipc_sockets[1]), 0);
+	EXPECT_EQ(close(addr_pipe[0]), 0);
+	ASSERT_EQ(read_nointr(ipc_sockets[0], &c, 1), 1);
+	EXPECT_EQ(close(ipc_sockets[0]), 0);
+
+	pid = fork();
+	ASSERT_GE(pid, 0);
+	if (pid == 0)
+		crashing_child_memory(choice->task_filter, addr_pipe[1]);
+	EXPECT_EQ(close(addr_pipe[1]), 0);
+
+	pidfd = sys_pidfd_open(pid, 0);
+	ASSERT_GE(pidfd, 0);
+
+	waitpid(pid, &status, 0);
+	ASSERT_TRUE(WIFSIGNALED(status));
+	ASSERT_TRUE(WCOREDUMP(status));
+
+	ASSERT_TRUE(get_pidfd_info(pidfd, &info));
+	ASSERT_GT((info.mask & PIDFD_INFO_COREDUMP), 0);
+	ASSERT_GT((info.coredump_mask & PIDFD_COREDUMPED), 0);
+
+	wait_and_check_coredump_server(pid_coredump_server, _metadata, self);
+}
+
+/* Without COREDUMP_MEMORY_TYPES the task's own selection decides. */
+TEST_F(coredump, socket_request_memory_types_task_includes)
+{
+	struct memory_choice choice = {
+		.task_filter = COREDUMP_MEMORY_ANON_PRIVATE |
+			       COREDUMP_MEMORY_ANON_SHARED,
+		.mask = COREDUMP_KERNEL,
+		.shared_dumped = true,
+	};
+
+	check_memory_dump(_metadata, self, &choice);
+}
+
+TEST_F(coredump, socket_request_memory_types_task_excludes)
+{
+	struct memory_choice choice = {
+		.task_filter = 0,
+		.mask = COREDUMP_KERNEL,
+		.shared_dumped = false,
+	};
+
+	check_memory_dump(_metadata, self, &choice);
+}
+
+/* The server drops a memory type the task would have dumped. */
+TEST_F(coredump, socket_request_memory_types_restricts)
+{
+	struct memory_choice choice = {
+		.task_filter = COREDUMP_MEMORY_ANON_PRIVATE |
+			       COREDUMP_MEMORY_ANON_SHARED,
+		.mask = COREDUMP_KERNEL | COREDUMP_MEMORY_TYPES,
+		.memory_types = COREDUMP_MEMORY_ANON_PRIVATE,
+		.shared_dumped = false,
+	};
+
+	check_memory_dump(_metadata, self, &choice);
+}
+
+/* The server adds a memory type the task had excluded. */
+TEST_F(coredump, socket_request_memory_types_widens)
+{
+	struct memory_choice choice = {
+		.task_filter = 0,
+		.mask = COREDUMP_KERNEL | COREDUMP_MEMORY_TYPES,
+		.memory_types = COREDUMP_MEMORY_ANON_PRIVATE |
+			  COREDUMP_MEMORY_ANON_SHARED,
+		.shared_dumped = true,
+	};
+
+	check_memory_dump(_metadata, self, &choice);
+}
+
+/* The memory types decide what goes into a record stream just the same. */
+TEST_F(coredump, socket_request_memory_types_records)
+{
+	struct memory_choice choice = {
+		.task_filter = FILTER_TASK_INHERIT,
+		.mask = COREDUMP_KERNEL | COREDUMP_RECORDS | COREDUMP_SPARSE |
+			COREDUMP_MEMORY_TYPES,
+		.memory_types = COREDUMP_MEMORY_ANON_PRIVATE,
+		.shared_dumped = false,
+	};
+
+	check_memory_dump(_metadata, self, &choice);
+}
+
+/*
+ * An empty selection leaves a skeleton: every program header and every note
+ * but no memory. A server that wants to pick the memory itself reads it
+ * from /proc/<pid>/mem while the task waits for it to finish.
+ */
+TEST_F(coredump, socket_request_memory_types_skeleton)
+{
+	struct memory_choice choice = {
+		.task_filter = FILTER_TASK_INHERIT,
+		.mask = COREDUMP_KERNEL | COREDUMP_WAIT | COREDUMP_MEMORY_TYPES,
+		.memory_types = 0,
+		.shared_dumped = false,
+		.skeleton = true,
+	};
+
+	check_memory_dump(_metadata, self, &choice);
+}
+
+/* A memory type the kernel didn't advertise in memory_types_mask. */
+TEST_F(coredump, socket_request_memory_types_unknown_bit)
+{
+	struct refused_ack refused = {
+		.ack = {
+			.size = sizeof(struct coredump_ack),
+			.mask = COREDUMP_KERNEL | COREDUMP_MEMORY_TYPES,
+			.memory_types = 1ULL << 63,
+		},
+		.bytes = sizeof(struct coredump_ack),
+		.mark = COREDUMP_MARK_UNSUPPORTED,
+	};
+
+	check_refused_ack(_metadata, self, &refused);
+}
+
+/* The memory types must be zero unless COREDUMP_MEMORY_TYPES is raised. */
+TEST_F(coredump, socket_request_memory_types_stale_field)
+{
+	struct refused_ack refused = {
+		.ack = {
+			.size = sizeof(struct coredump_ack),
+			.mask = COREDUMP_KERNEL,
+			.memory_types = COREDUMP_MEMORY_ANON_PRIVATE,
+		},
+		.bytes = sizeof(struct coredump_ack),
+		.mark = COREDUMP_MARK_UNSUPPORTED,
+	};
+
+	check_refused_ack(_metadata, self, &refused);
+}
+
+/* COREDUMP_MEMORY_TYPES needs an ack that has the memory types. */
+TEST_F(coredump, socket_request_memory_types_short_ack)
+{
+	struct refused_ack refused = {
+		.ack = {
+			.size = COREDUMP_ACK_SIZE_VER0,
+			.mask = COREDUMP_KERNEL | COREDUMP_MEMORY_TYPES,
+		},
+		.bytes = COREDUMP_ACK_SIZE_VER0,
+		.mark = COREDUMP_MARK_MINSIZE,
+	};
+
+	check_refused_ack(_metadata, self, &refused);
+}
+
+/* The memory types select what the kernel writes, nothing else. */
+TEST_F(coredump, socket_request_memory_types_without_kernel)
+{
+	check_conflicting_ack(_metadata, self, COREDUMP_USERSPACE | COREDUMP_MEMORY_TYPES);
+}
+
 TEST_HARNESS_MAIN
