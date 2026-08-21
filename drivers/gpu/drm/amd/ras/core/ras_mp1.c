@@ -202,13 +202,14 @@ int ras_mp1_sw_init(struct ras_core_context *ras_core)
 
 	mutex_init(&mp1->op_mutex);
 
+	/* Nothing else in the MP1 block depends on the debug mode control. */
 	ret = ras_mp1_set_debug_mode(ras_core, false);
-	if (ret) {
+	if (ret && ret != -EOPNOTSUPP) {
 		mutex_destroy(&mp1->op_mutex);
 		return ret;
 	}
 
-	return ret;
+	return 0;
 }
 
 int ras_mp1_sw_fini(struct ras_core_context *ras_core)
