@@ -32,8 +32,8 @@ struct coredump_params {
 	const kernel_siginfo_t *siginfo;
 	struct file *file;
 	unsigned long limit;
-	/* MMF_DUMP_FILTER_* bits, snapshot of mm->flags at dump start. */
-	unsigned long mm_flags;
+	/* COREDUMP_MEMORY_* types to dump, the task's or the server's. */
+	u64 memory_types;
 	/* Snapshot of dumpable at dump start. */
 	enum task_dumpable dumpable;
 	int cpu;
