@@ -1932,11 +1932,74 @@ TEST_F(coredump, socket_request_stream_choice_large)
 	ASSERT_LT(choice.received, choice.size / 8);
 }
 
+/* What a coredump server was built with. */
+struct server_build {
+	/* sizeof(struct coredump_req) and sizeof(struct coredump_ack) back then. */
+	size_t req_size;
+	size_t ack_size;
+	/* The features it raises if the kernel offers them. */
+	__u64 wants;
+	/* Its policy: what it drops from and adds to the task's selection. */
+	__u64 drop;
+	__u64 add;
+};
+
+/* A server from when the structs were first published: kernel-written dumps. */
+static const struct server_build server_build_ver0 = {
+	.req_size	= COREDUMP_REQ_SIZE_VER0,
+	.ack_size	= COREDUMP_ACK_SIZE_VER0,
+	.wants		= COREDUMP_KERNEL,
+};
+
+/* A server built against this header: no shared memory, always the ELF headers. */
+static const struct server_build server_build_ver1 = {
+	.req_size	= sizeof(struct coredump_req),
+	.ack_size	= sizeof(struct coredump_ack),
+	.wants		= COREDUMP_KERNEL | COREDUMP_RECORDS | COREDUMP_SPARSE |
+			  COREDUMP_MEMORY_TYPES,
+	.drop		= COREDUMP_MEMORY_ANON_SHARED | COREDUMP_MEMORY_FILE_SHARED,
+	.add		= COREDUMP_MEMORY_ELF_HEADERS,
+};
+
+/*
+ * Build the ack the way a server does: from what the kernel offers, what
+ * this build implements, and what fits in the ack the kernel accepts.
+ * Fields the build never read are zero and never consulted.
+ */
+static void negotiate(const struct coredump_req *req,
+		      const struct server_build *build,
+		      struct coredump_ack *ack)
+{
+	__u64 offered = req->mask & build->wants;
+
+	memset(ack, 0, sizeof(*ack));
+	ack->size = build->ack_size < req->size_ack ? build->ack_size : req->size_ack;
+	/* These builds only ever have the kernel write the coredump. */
+	ack->mask = COREDUMP_KERNEL;
+
+	/* Sparse needs records, records need the kernel to write. */
+	if (offered & COREDUMP_RECORDS) {
+		ack->mask |= COREDUMP_RECORDS;
+		if (offered & COREDUMP_SPARSE)
+			ack->mask |= COREDUMP_SPARSE;
+	}
+
+	/* The memory types need an ack that carries them. */
+	if ((offered & COREDUMP_MEMORY_TYPES) && ack->size >= COREDUMP_ACK_SIZE_VER1) {
+		ack->mask |= COREDUMP_MEMORY_TYPES;
+		/* Start from the task's selection; only advertised types pass. */
+		ack->memory_types = (req->memory_types & ~build->drop) | build->add;
+		ack->memory_types &= req->memory_types_mask;
+	}
+}
+
 /* What a memory types test asks of the kernel and what it expects back. */
 struct memory_choice {
 	/* Memory types the crashing child selects, or FILTER_TASK_INHERIT. */
 	__u64 task_filter;
-	/* The ack. */
+	/* Negotiate the ack as this server build, NULL to send it as given. */
+	const struct server_build *build;
+	/* The ack, or what the negotiation must arrive at. */
 	__u64 mask;
 	__u64 memory_types;
 	size_t size_ack;
@@ -1976,6 +2039,13 @@ static void check_memory_dump(struct __test_metadata *const _metadata,
 		int fd_file = -1;
 		int exit_code = EXIT_FAILURE;
 		struct coredump_req req = {};
+		struct coredump_ack ack = {
+			.size = choice->size_ack,
+			.mask = choice->mask,
+			.memory_types = choice->memory_types,
+		};
+		/* How much of the request this server reads. */
+		size_t req_size = choice->build ? choice->build->req_size : sizeof(req);
 		__u64 task_filter;
 		ElfW(Phdr) segment;
 		ssize_t received;
@@ -2006,21 +2076,24 @@ static void check_memory_dump(struct __test_metadata *const _metadata,
 		if (fd_file < 0)
 			goto out;
 
-		if (!read_coredump_req(fd_coredump, &req))
+		if (!read_coredump_req_sized(fd_coredump, &req, req_size))
 			goto out;
 
-		if (!check_coredump_req(&req))
-			goto out;
-
-		/* The request reports the memory types the task selected. */
 		if (!peer_coredump_filter(fd_peer_pidfd, &task_filter))
 			goto out;
 
-		if (req.memory_types != task_filter) {
-			fprintf(stderr, "Request reports 0x%llx, task selected 0x%llx\n",
-				(unsigned long long)req.memory_types,
-				(unsigned long long)task_filter);
-			goto out;
+		/* A build from before the memory types never read that far. */
+		if (req_size >= COREDUMP_REQ_SIZE_VER1) {
+			if (!check_coredump_req(&req))
+				goto out;
+
+			/* The request reports the memory types the task selected. */
+			if (req.memory_types != task_filter) {
+				fprintf(stderr, "Request reports 0x%llx, task selected 0x%llx\n",
+					(unsigned long long)req.memory_types,
+					(unsigned long long)task_filter);
+				goto out;
+			}
 		}
 
 		if (choice->task_filter != FILTER_TASK_INHERIT &&
@@ -2035,15 +2108,28 @@ static void check_memory_dump(struct __test_metadata *const _metadata,
 		if (read_nointr(addr_pipe[0], &addr, sizeof(addr)) != sizeof(addr))
 			goto out;
 
-		if (!send_coredump_ack_types(fd_coredump, &req, choice->mask,
-					      choice->memory_types,
-					      choice->size_ack))
+		/* A server build negotiates its ack and must arrive at the choice. */
+		if (choice->build) {
+			negotiate(&req, choice->build, &ack);
+
+			if (ack.size != choice->size_ack || ack.mask != choice->mask ||
+			    ack.memory_types != choice->memory_types) {
+				fprintf(stderr,
+					"Negotiated %u bytes, mask 0x%llx, types 0x%llx\n",
+					ack.size, (unsigned long long)ack.mask,
+					(unsigned long long)ack.memory_types);
+				goto out;
+			}
+		}
+
+		if (!send_coredump_ack_types(fd_coredump, &req, ack.mask,
+					      ack.memory_types, ack.size))
 			goto out;
 
 		if (!read_marker(fd_coredump, COREDUMP_MARK_REQACK))
 			goto out;
 
-		if (choice->mask & COREDUMP_RECORDS)
+		if (ack.mask & COREDUMP_RECORDS)
 			received = recv_coredump_records(fd_coredump, fd_file,
 							 &size, NULL, -1);
 		else
@@ -2279,6 +2365,48 @@ TEST_F(coredump, socket_request_memory_types_short_ack)
 TEST_F(coredump, socket_request_memory_types_without_kernel)
 {
 	check_conflicting_ack(_metadata, self, COREDUMP_USERSPACE | COREDUMP_MEMORY_TYPES);
+}
+
+/*
+ * A server built with the first structs reads the request it knows,
+ * discards the rest and acks with the ack it knows. It raises nothing
+ * it wasn't built for and the kernel dumps what the task selected.
+ */
+TEST_F(coredump, socket_request_negotiate_ver0)
+{
+	struct memory_choice choice = {
+		.task_filter = COREDUMP_MEMORY_ANON_PRIVATE |
+			       COREDUMP_MEMORY_ANON_SHARED,
+		.build = &server_build_ver0,
+		.mask = COREDUMP_KERNEL,
+		.memory_types = 0,
+		.size_ack = COREDUMP_ACK_SIZE_VER0,
+		.shared_dumped = true,
+	};
+
+	check_memory_dump(_metadata, self, &choice);
+}
+
+/*
+ * A server built against this header takes every feature the kernel
+ * offers, drops shared memory from what the task selected and adds the
+ * ELF headers.
+ */
+TEST_F(coredump, socket_request_negotiate_ver1)
+{
+	struct memory_choice choice = {
+		.task_filter = COREDUMP_MEMORY_ANON_PRIVATE |
+			       COREDUMP_MEMORY_ANON_SHARED,
+		.build = &server_build_ver1,
+		.mask = COREDUMP_KERNEL | COREDUMP_RECORDS | COREDUMP_SPARSE |
+			COREDUMP_MEMORY_TYPES,
+		.memory_types = COREDUMP_MEMORY_ANON_PRIVATE |
+				 COREDUMP_MEMORY_ELF_HEADERS,
+		.size_ack = COREDUMP_ACK_SIZE_VER1,
+		.shared_dumped = false,
+	};
+
+	check_memory_dump(_metadata, self, &choice);
 }
 
 TEST_HARNESS_MAIN

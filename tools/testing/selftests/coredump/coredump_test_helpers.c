@@ -1467,10 +1467,11 @@ bool read_marker(int fd, enum coredump_mark mark)
 	return ret == mark;
 }
 
-bool read_coredump_req(int fd, struct coredump_req *req)
+/* Read the request as a server built with a @user_size byte struct does. */
+bool read_coredump_req_sized(int fd, struct coredump_req *req, size_t user_size)
 {
 	ssize_t ret;
-	size_t field_size, user_size, known_size, kernel_size, remaining_size;
+	size_t field_size, known_size, kernel_size, remaining_size;
 
 	memset(req, 0, sizeof(*req));
 	field_size = sizeof(req->size);
@@ -1478,25 +1479,24 @@ bool read_coredump_req(int fd, struct coredump_req *req)
 	/* Peek the size of the coredump request. */
 	ret = recv(fd, req, field_size, MSG_PEEK | MSG_WAITALL);
 	if (ret != field_size) {
-		fprintf(stderr, "read_coredump_req: peek failed (got %zd, expected %zu): %m\n",
+		fprintf(stderr, "%s: peek failed (got %zd, expected %zu): %m\n", __func__,
 			ret, field_size);
 		return false;
 	}
 	kernel_size = req->size;
 
 	if (kernel_size < COREDUMP_REQ_SIZE_VER0) {
-		fprintf(stderr, "read_coredump_req: kernel_size %zu < min %d\n",
+		fprintf(stderr, "%s: kernel_size %zu < min %d\n", __func__,
 			kernel_size, COREDUMP_REQ_SIZE_VER0);
 		return false;
 	}
 	if (kernel_size >= PAGE_SIZE) {
-		fprintf(stderr, "read_coredump_req: kernel_size %zu >= PAGE_SIZE %d\n",
+		fprintf(stderr, "%s: kernel_size %zu >= PAGE_SIZE %d\n", __func__,
 			kernel_size, PAGE_SIZE);
 		return false;
 	}
 
 	/* Consume as much of the request as we know about. */
-	user_size = sizeof(struct coredump_req);
 	known_size = user_size < kernel_size ? user_size : kernel_size;
 	ret = recv(fd, req, known_size, MSG_WAITALL);
 	if (ret != known_size)
@@ -1527,6 +1527,11 @@ bool read_coredump_req(int fd, struct coredump_req *req)
 	}
 
 	return true;
+}
+
+bool read_coredump_req(int fd, struct coredump_req *req)
+{
+	return read_coredump_req_sized(fd, req, sizeof(*req));
 }
 
 /* Send @len bytes of @ack as they are, more than the struct if asked to. */
