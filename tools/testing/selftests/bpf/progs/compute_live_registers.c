@@ -431,6 +431,34 @@ __naked void subprog1(void)
 		::: __clobber_all);
 }
 
+static __used __naked unsigned __int128 aux2(void)
+{
+	asm volatile (
+		"r0 = 1;"
+		"r2 = 2;"
+		"exit;"
+		::: __clobber_all);
+}
+
+SEC("socket")
+/* A program observing the pair needs the JIT; see bpf_compute_subprog_ret_regs(). */
+__load_if_JITed()
+__log_level(2)
+__msg("0: .12345.... (85) call pc+2")
+__msg("1: ..2....... (bf) r0 = r2")
+__msg("2: 0......... (95) exit")
+__msg("3: .......... (b7) r0 = 1")
+__msg("4: 0......... (b7) r2 = 2")
+__msg("5: 0.2....... (95) exit")
+__naked void subprog_ret_reg_pair(void)
+{
+	asm volatile (
+		"call aux2;"
+		"r0 = r2;"
+		"exit;"
+		::: __clobber_all);
+}
+
 #if defined(__TARGET_ARCH_x86) || defined(__TARGET_ARCH_arm64)
 
 SEC("socket")

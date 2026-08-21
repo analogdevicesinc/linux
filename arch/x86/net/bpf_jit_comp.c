@@ -1689,16 +1689,11 @@ static int emit_spectre_bhb_barrier(u8 **pprog, u8 *ip,
  * arena NULL is offset 0. Return the number of emitted bytes.
  */
 static int emit_kfunc_arena_args(struct bpf_prog *bpf_prog,
-				 const struct bpf_insn *insn, u8 **pprog)
+				 const struct btf_func_model *fm, u8 **pprog)
 {
-	const struct btf_func_model *fm;
 	u8 *prog = *pprog;
 	u8 *start = prog;
 	int i;
-
-	fm = bpf_jit_find_kfunc_model(bpf_prog, insn);
-	if (!fm)
-		return -EINVAL;
 
 	for (i = 0; i < min_t(int, fm->nr_args, MAX_BPF_FUNC_REG_ARGS); i++) {
 		u8 flags = fm->arg_flags[i];
@@ -2644,6 +2639,8 @@ populate_extable:
 
 			/* call */
 		case BPF_JMP | BPF_CALL: {
+			const struct btf_func_model *fm = NULL;
+
 			func = (u8 *) __bpf_call_base + imm32;
 			if (src_reg == BPF_PSEUDO_CALL && tail_call_reachable) {
 				LOAD_TAIL_CALL_CNT_PTR(stack_depth);
@@ -2652,7 +2649,10 @@ populate_extable:
 			if (!imm32)
 				return -EINVAL;
 			if (src_reg == BPF_PSEUDO_KFUNC_CALL) {
-				err = emit_kfunc_arena_args(bpf_prog, insn, &prog);
+				fm = bpf_jit_find_kfunc_model(bpf_prog, insn);
+				if (!fm)
+					return -EINVAL;
+				err = emit_kfunc_arena_args(bpf_prog, fm, &prog);
 				if (err < 0)
 					return err;
 				ip += err;
@@ -2666,6 +2666,14 @@ populate_extable:
 				return -EINVAL;
 			if (priv_frame_ptr)
 				pop_r9(&prog);
+			/*
+			 * A kfunc returning more than 8 bytes hands the second
+			 * half back in RDX (the native ABI's second return reg),
+			 * but BPF expects it in R0:R2. BPF R0 is RAX (no move
+			 * needed), while BPF R2 is RSI, so copy RDX into RSI.
+			 */
+			if (fm && fm->ret_size > 8)
+				emit_mov_reg(&prog, true, BPF_REG_2, BPF_REG_3);
 			break;
 		}
 
@@ -4152,6 +4160,11 @@ out_priv_stack:
 }
 
 bool bpf_jit_supports_kfunc_call(void)
+{
+	return true;
+}
+
+bool bpf_jit_supports_kfunc_ret_reg_pair(void)
 {
 	return true;
 }

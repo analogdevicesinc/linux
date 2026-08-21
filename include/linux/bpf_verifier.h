@@ -819,6 +819,8 @@ struct bpf_subprog_info {
 	bool is_async_cb: 1;
 	bool is_exception_cb: 1;
 	bool args_cached: 1;
+	/* true if the return value is passed in the R0:R2 register pair */
+	bool ret_reg_pair: 1;
 	/* true if bpf_fastcall stack region is used by functions that can't be inlined */
 	bool keep_fastcall_stack: 1;
 	bool changes_pkt_data: 1;
@@ -1053,6 +1055,11 @@ static inline struct bpf_func_info_aux *subprog_aux(struct bpf_verifier_env *env
 static inline struct bpf_subprog_info *subprog_info(struct bpf_verifier_env *env, int subprog)
 {
 	return &env->subprog_info[subprog];
+}
+
+static inline bool bpf_ret_reg_pair(struct bpf_verifier_env *env, int subprog)
+{
+	return subprog_info(env, subprog)->ret_reg_pair;
 }
 
 struct bpf_call_summary {
@@ -1481,6 +1488,8 @@ int bpf_jmp_offset(struct bpf_insn *insn);
 struct bpf_iarray *bpf_insn_successors(struct bpf_verifier_env *env, u32 idx);
 void bpf_fmt_stack_mask(char *buf, ssize_t buf_sz, u64 stack_mask);
 bool bpf_subprog_is_global(const struct bpf_verifier_env *env, int subprog);
+bool btf_type_is_scalar_struct(struct bpf_verifier_env *env, const struct btf *btf,
+			       const struct btf_type *t, int rec);
 
 int bpf_find_subprog(struct bpf_verifier_env *env, int off);
 bool bpf_is_throw_kfunc(struct bpf_insn *insn);
