@@ -337,8 +337,10 @@ int amdgpu_ras_mgr_sw_init(struct amdgpu_device *adev, struct ras_module_param *
 	con->uniras_load_ras_fw = true;
 
 	ras_mgr = kzalloc_obj(*ras_mgr);
-	if (!ras_mgr)
-		return -EINVAL;
+	if (!ras_mgr) {
+		ret = -EINVAL;
+		goto err1;
+	}
 
 	con->ras_mgr = ras_mgr;
 	ras_mgr->adev = adev;
@@ -385,6 +387,8 @@ err2:
 err1:
 	kfree(ras_mgr);
 	con->ras_mgr = NULL;
+	con->uniras_enabled = false;
+	con->uniras_load_ras_fw = false;
 	return ret;
 }
 
