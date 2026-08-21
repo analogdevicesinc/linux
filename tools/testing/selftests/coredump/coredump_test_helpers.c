@@ -17,6 +17,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
@@ -68,6 +69,48 @@ void crashing_child_sparse(size_t size)
 		p[0] = 'x';
 		p[size - 1] = 'x';
 	}
+
+	/* crash on purpose */
+	*(volatile int *)NULL = 0;
+}
+
+/* Select @types through the caller's own /proc/self/coredump_filter. */
+static bool set_coredump_filter(__u64 types)
+{
+	char buf[32];
+	int fd, len;
+	bool ok;
+
+	fd = open("/proc/self/coredump_filter", O_WRONLY | O_CLOEXEC);
+	if (fd < 0)
+		return false;
+
+	len = snprintf(buf, sizeof(buf), "0x%llx", (unsigned long long)types);
+	ok = write_nointr(fd, buf, len) == len;
+	close(fd);
+	return ok;
+}
+
+/*
+ * Map shared anonymous memory, touch it, tell the server where it is and
+ * crash. A @task_filter other than FILTER_TASK_INHERIT is selected first.
+ */
+void crashing_child_memory(__u64 task_filter, int fd_addr)
+{
+	char *p;
+
+	if (task_filter != FILTER_TASK_INHERIT && !set_coredump_filter(task_filter))
+		_exit(EXIT_FAILURE);
+
+	p = mmap(NULL, MEMORY_MAPPING_SIZE, PROT_READ | PROT_WRITE,
+		 MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (p == MAP_FAILED)
+		_exit(EXIT_FAILURE);
+	p[0] = 'x';
+
+	if (write_nointr(fd_addr, &p, sizeof(p)) != sizeof(p))
+		_exit(EXIT_FAILURE);
+	close(fd_addr);
 
 	/* crash on purpose */
 	*(volatile int *)NULL = 0;
@@ -916,6 +959,82 @@ static const ElfW(Phdr) *find_segment(const ElfW(Phdr) *phdr, size_t nr,
 	return NULL;
 }
 
+/* The PT_LOAD segment @vaddr falls into. */
+bool find_coredump_segment(int fd, __u64 vaddr, ElfW(Phdr) *segment)
+{
+	const ElfW(Phdr) *found;
+	ElfW(Phdr) *phdr;
+	size_t nr;
+
+	phdr = read_phdrs(fd, &nr);
+	if (!phdr)
+		return false;
+
+	found = find_segment(phdr, nr, vaddr);
+	if (found)
+		*segment = *found;
+	else
+		fprintf(stderr, "%s: no segment for 0x%llx\n", __func__,
+			(unsigned long long)vaddr);
+
+	free(phdr);
+	return found;
+}
+
+/* How many bytes the PT_LOAD and the PT_NOTE segments of @fd carry. */
+bool sum_coredump_segments(int fd, __u64 *data, __u64 *notes)
+{
+	ElfW(Phdr) *phdr;
+	size_t nr, i;
+
+	phdr = read_phdrs(fd, &nr);
+	if (!phdr)
+		return false;
+
+	*data = 0;
+	*notes = 0;
+	for (i = 0; i < nr; i++) {
+		if (phdr[i].p_type == PT_LOAD)
+			*data += phdr[i].p_filesz;
+		else if (phdr[i].p_type == PT_NOTE)
+			*notes += phdr[i].p_filesz;
+	}
+
+	free(phdr);
+	return true;
+}
+
+/* The coredump in @fd is at least as long as every segment it declares. */
+bool check_coredump_extent(int fd)
+{
+	ElfW(Phdr) *phdr;
+	struct stat st;
+	size_t nr, i;
+	bool ok = true;
+
+	if (fstat(fd, &st)) {
+		fprintf(stderr, "%s: fstat: %m\n", __func__);
+		return false;
+	}
+
+	phdr = read_phdrs(fd, &nr);
+	if (!phdr)
+		return false;
+
+	for (i = 0; i < nr; i++) {
+		if (phdr[i].p_offset + phdr[i].p_filesz <= (__u64)st.st_size)
+			continue;
+		fprintf(stderr, "%s: segment %zu ends at %llu, the coredump at %llu\n",
+			__func__, i,
+			(unsigned long long)(phdr[i].p_offset + phdr[i].p_filesz),
+			(unsigned long long)st.st_size);
+		ok = false;
+	}
+
+	free(phdr);
+	return ok;
+}
+
 /* The next stretch of memory the segments cover, split ones merged back. */
 static bool next_range(const ElfW(Phdr) *phdr, size_t nr, size_t *i,
 		       __u64 *start, __u64 *end)
@@ -1250,6 +1369,62 @@ ssize_t peer_vm_size(int fd_peer_pidfd)
 
 /* Protocol helper functions */
 
+/* The peer's /proc/<pid>/coredump_filter, which is in memory types. */
+bool peer_coredump_filter(int fd_peer_pidfd, __u64 *memory_types)
+{
+	struct pidfd_info info = {};
+	unsigned long value;
+	char path[64];
+	FILE *f;
+	int ret;
+
+	if (!get_pidfd_info(fd_peer_pidfd, &info))
+		return false;
+
+	snprintf(path, sizeof(path), "/proc/%d/coredump_filter", info.pid);
+	f = fopen(path, "r");
+	if (!f) {
+		fprintf(stderr, "%s: %s: %m\n", __func__, path);
+		return false;
+	}
+
+	ret = fscanf(f, "%lx", &value);
+	fclose(f);
+	if (ret != 1) {
+		fprintf(stderr, "%s: %s: no value\n", __func__, path);
+		return false;
+	}
+
+	*memory_types = value;
+	return true;
+}
+
+/* Read @len bytes at @addr from the peer's /proc/<pid>/mem. */
+ssize_t peer_read_mem(int fd_peer_pidfd, __u64 addr, void *buf, size_t len)
+{
+	struct pidfd_info info = {};
+	char path[64];
+	ssize_t ret;
+	int fd;
+
+	if (!get_pidfd_info(fd_peer_pidfd, &info))
+		return -1;
+
+	snprintf(path, sizeof(path), "/proc/%d/mem", info.pid);
+	fd = open(path, O_RDONLY | O_CLOEXEC);
+	if (fd < 0) {
+		fprintf(stderr, "%s: %s: %m\n", __func__, path);
+		return -1;
+	}
+
+	ret = pread(fd, buf, len, addr);
+	if (ret < 0)
+		fprintf(stderr, "%s: %s at 0x%llx: %m\n", __func__, path,
+			(unsigned long long)addr);
+	close(fd);
+	return ret;
+}
+
 ssize_t recv_marker(int fd)
 {
 	enum coredump_mark mark = COREDUMP_MARK_REQACK;
@@ -1377,16 +1552,18 @@ bool send_coredump_ack_bytes(int fd, const struct coredump_ack *ack, size_t len)
 		return false;
 	}
 
-	fprintf(stderr, "Sent %zu bytes of coredump ack: size %u, mask 0x%llx\n",
-		len, ack->size, (unsigned long long)ack->mask);
+	fprintf(stderr, "Sent %zu bytes of coredump ack: size %u, mask 0x%llx, types 0x%llx\n",
+		len, ack->size, (unsigned long long)ack->mask,
+		(unsigned long long)ack->memory_types);
 	return true;
 }
 
-bool send_coredump_ack(int fd, const struct coredump_req *req,
-		       __u64 mask, size_t size_ack)
+bool send_coredump_ack_types(int fd, const struct coredump_req *req,
+			      __u64 mask, __u64 memory_types, size_t size_ack)
 {
 	struct coredump_ack ack = {
 		.mask = mask,
+		.memory_types = memory_types,
 	};
 
 	if (!size_ack)
@@ -1397,23 +1574,35 @@ bool send_coredump_ack(int fd, const struct coredump_req *req,
 	return send_coredump_ack_bytes(fd, &ack, size_ack);
 }
 
+bool send_coredump_ack(int fd, const struct coredump_req *req,
+		       __u64 mask, size_t size_ack)
+{
+	return send_coredump_ack_types(fd, req, mask, 0, size_ack);
+}
+
 /* Every option the kernel is expected to advertise in coredump_req->mask. */
 #define TEST_REQ_MASK_ALL					\
 	(COREDUMP_KERNEL | COREDUMP_USERSPACE |			\
 	 COREDUMP_REJECT | COREDUMP_WAIT |			\
-	 COREDUMP_RECORDS | COREDUMP_SPARSE)
+	 COREDUMP_RECORDS | COREDUMP_SPARSE | COREDUMP_MEMORY_TYPES)
 
 bool check_coredump_req(const struct coredump_req *req)
 {
-	if (req->size < COREDUMP_REQ_SIZE_VER0) {
+	if (req->size < COREDUMP_REQ_SIZE_VER1) {
 		fprintf(stderr, "%s: size %u below minimum %d\n",
-			__func__, req->size, COREDUMP_REQ_SIZE_VER0);
+			__func__, req->size, COREDUMP_REQ_SIZE_VER1);
 		return false;
 	}
 	if (req->mask != TEST_REQ_MASK_ALL) {
 		fprintf(stderr, "%s: mask 0x%llx, expected 0x%llx\n",
 			__func__, (unsigned long long)req->mask,
 			(unsigned long long)TEST_REQ_MASK_ALL);
+		return false;
+	}
+	if (req->memory_types_mask != TEST_MEMORY_ALL) {
+		fprintf(stderr, "%s: memory_types_mask 0x%llx, expected 0x%llx\n",
+			__func__, (unsigned long long)req->memory_types_mask,
+			(unsigned long long)TEST_MEMORY_ALL);
 		return false;
 	}
 	return true;
