@@ -1830,14 +1830,13 @@ static int cfg80211_rtw_set_pmksa(struct wiphy *wiphy,
 				  struct net_device *ndev,
 				  struct cfg80211_pmksa *pmksa)
 {
-	u8 index, blInserted = false;
+	bool inserted = false;
+	u8 index;
 	struct adapter *padapter = rtw_netdev_priv(ndev);
 	struct security_priv *psecuritypriv = &padapter->securitypriv;
 
 	if (is_zero_ether_addr((u8 *)pmksa->bssid))
 		return -EINVAL;
-
-	blInserted = false;
 
 	/* overwrite PMKID */
 	for (index = 0 ; index < NUM_PMKID_CACHE; index++) {
@@ -1845,12 +1844,12 @@ static int cfg80211_rtw_set_pmksa(struct wiphy *wiphy,
 			memcpy(psecuritypriv->PMKIDList[index].PMKID, (u8 *)pmksa->pmkid, WLAN_PMKID_LEN);
 			psecuritypriv->PMKIDList[index].bUsed = true;
 			psecuritypriv->PMKIDIndex = index + 1;
-			blInserted = true;
+			inserted = true;
 			break;
 		}
 	}
 
-	if (!blInserted) {
+	if (!inserted) {
 		memcpy(psecuritypriv->PMKIDList[psecuritypriv->PMKIDIndex].Bssid, (u8 *)pmksa->bssid, ETH_ALEN);
 		memcpy(psecuritypriv->PMKIDList[psecuritypriv->PMKIDIndex].PMKID, (u8 *)pmksa->pmkid, WLAN_PMKID_LEN);
 
@@ -1867,7 +1866,8 @@ static int cfg80211_rtw_del_pmksa(struct wiphy *wiphy,
 				  struct net_device *ndev,
 				  struct cfg80211_pmksa *pmksa)
 {
-	u8 index, bMatched = false;
+	bool matched = false;
+	u8 index;
 	struct adapter *padapter = rtw_netdev_priv(ndev);
 	struct security_priv *psecuritypriv = &padapter->securitypriv;
 
@@ -1880,12 +1880,12 @@ static int cfg80211_rtw_del_pmksa(struct wiphy *wiphy,
 			eth_zero_addr(psecuritypriv->PMKIDList[index].Bssid);
 			memset(psecuritypriv->PMKIDList[index].PMKID, 0x00, WLAN_PMKID_LEN);
 			psecuritypriv->PMKIDList[index].bUsed = false;
-			bMatched = true;
+			matched = true;
 			break;
 		}
 	}
 
-	if (!bMatched)
+	if (!matched)
 		return -EINVAL;
 
 	return 0;
