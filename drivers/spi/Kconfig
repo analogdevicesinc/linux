@@ -388,14 +388,14 @@ config SPI_DW_MMIO
 endif
 
 config SPI_DLN2
-       tristate "Diolan DLN-2 USB SPI adapter"
-       depends on MFD_DLN2
-       help
-	 If you say yes to this option, support will be included for Diolan
-	 DLN2, a USB to SPI interface.
+	tristate "Diolan DLN-2 USB SPI adapter"
+	depends on MFD_DLN2
+	help
+	  If you say yes to this option, support will be included for Diolan
+	  DLN2, a USB to SPI interface.
 
-	 This driver can also be built as a module.  If so, the module
-	 will be called spi-dln2.
+	  This driver can also be built as a module.  If so, the module
+	  will be called spi-dln2.
 
 config SPI_EP93XX
 	tristate "Cirrus Logic EP93xx SPI controller"
@@ -475,7 +475,7 @@ config SPI_NXP_FLEXSPI
 	  supports the high-level SPI memory interface.
 
 config SPI_NXP_XSPI
-        tristate "NXP xSPI controller"
+	tristate "NXP xSPI controller"
 	depends on ARCH_MXC || COMPILE_TEST
 	depends on HAS_IOMEM
 	help
