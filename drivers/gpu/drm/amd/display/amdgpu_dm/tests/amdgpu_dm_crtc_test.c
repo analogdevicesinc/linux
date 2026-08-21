@@ -1226,6 +1226,103 @@ static void dm_test_crtc_enable_vblank_ips_restore_replay(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_crtc_enable_vblank(&acrtc->base), 0);
 }
 
+/* Tests for amdgpu_dm_crtc_set_vline0_irq() */
+
+/*
+ * dm_test_crtc_setup_vline0 - Build an adev/CRTC for the vline0 IRQ helper.
+ * @test: The KUnit test context
+ * @adev_out: Receives the allocated device
+ * @ip_version: DCE IP version stamped on the device (0 selects the DCE path)
+ *
+ * Returns a bare CRTC attached to the device. The IRQ subsystem is left
+ * uninstalled for callers to arm.
+ */
+static struct drm_crtc *dm_test_crtc_setup_vline0(struct kunit *test,
+						  struct amdgpu_device **adev_out,
+						  uint32_t ip_version)
+{
+	struct amdgpu_device *adev;
+	struct drm_crtc *crtc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	crtc->dev = &adev->ddev;
+
+	adev->ip_versions[DCE_HWIP][0] = ip_version;
+
+	*adev_out = adev;
+	return crtc;
+}
+
+/**
+ * dm_test_crtc_set_vline0_irq_dce_noop - Test vline0 irq is skipped on DCE
+ * @test: The KUnit test context
+ *
+ * VLINE0 only exists on DCN+. With no DCE IP version stamped the helper must
+ * return 0 without touching the IRQ source, even though the IRQ subsystem is
+ * uninstalled (which would otherwise make amdgpu_irq_get() fail).
+ */
+static void dm_test_crtc_set_vline0_irq_dce_noop(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_crtc *crtc;
+
+	crtc = dm_test_crtc_setup_vline0(test, &adev, 0);
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_crtc_set_vline0_irq(crtc, AMDGPU_CRTC_IRQ_VBLANK1, true), 0);
+}
+
+/**
+ * dm_test_crtc_set_vline0_irq_error - Test vline0 irq failure is propagated
+ * @test: The KUnit test context
+ *
+ * On DCN with the IRQ subsystem uninstalled, amdgpu_irq_get() returns -ENOENT
+ * and the helper must propagate it.
+ */
+static void dm_test_crtc_set_vline0_irq_error(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_crtc *crtc;
+
+	crtc = dm_test_crtc_setup_vline0(test, &adev, IP_VERSION(3, 5, 0));
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_crtc_set_vline0_irq(crtc, AMDGPU_CRTC_IRQ_VBLANK1, true),
+			-ENOENT);
+}
+
+/**
+ * dm_test_crtc_set_vline0_irq_enable_disable - Test vline0 irq refcounting
+ * @test: The KUnit test context
+ *
+ * On DCN with an armed IRQ source, enabling takes a vline0 reference and
+ * disabling drops it again.
+ */
+static void dm_test_crtc_set_vline0_irq_enable_disable(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_crtc *crtc;
+	atomic_t *refcount;
+
+	crtc = dm_test_crtc_setup_vline0(test, &adev, IP_VERSION(3, 5, 0));
+
+	adev->irq.installed = true;
+	dm_test_crtc_arm_irq_src(test, &adev->vline0_irq, 1);
+	refcount = &adev->vline0_irq.enabled_types[AMDGPU_CRTC_IRQ_VBLANK1];
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_crtc_set_vline0_irq(crtc, AMDGPU_CRTC_IRQ_VBLANK1, true), 0);
+	KUNIT_EXPECT_EQ(test, atomic_read(refcount), 2);
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_crtc_set_vline0_irq(crtc, AMDGPU_CRTC_IRQ_VBLANK1, false), 0);
+	KUNIT_EXPECT_EQ(test, atomic_read(refcount), 1);
+}
+
 /* Tests for amdgpu_dm_crtc_update_crtc_active_planes() */
 
 /**
@@ -2526,6 +2623,10 @@ static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	KUNIT_CASE(dm_test_crtc_enable_vblank_queues_work),
 	KUNIT_CASE(dm_test_crtc_enable_vblank_ips_restore),
 	KUNIT_CASE(dm_test_crtc_enable_vblank_ips_restore_replay),
+	/* amdgpu_dm_crtc_set_vline0_irq */
+	KUNIT_CASE(dm_test_crtc_set_vline0_irq_dce_noop),
+	KUNIT_CASE(dm_test_crtc_set_vline0_irq_error),
+	KUNIT_CASE(dm_test_crtc_set_vline0_irq_enable_disable),
 	/* amdgpu_dm_crtc_update_crtc_active_planes */
 	KUNIT_CASE(dm_test_crtc_update_active_planes_no_stream),
 	/* amdgpu_dm_crtc_count_crtc_active_planes */

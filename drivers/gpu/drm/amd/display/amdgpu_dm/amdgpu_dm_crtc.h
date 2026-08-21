@@ -56,6 +56,7 @@ void amdgpu_dm_crtc_update_crtc_active_planes(struct drm_crtc *crtc,
 					      struct drm_crtc_state *new_crtc_state);
 void amdgpu_dm_crtc_vblank_control_worker(struct work_struct *work);
 void amdgpu_dm_idle_worker(struct work_struct *work);
+int amdgpu_dm_crtc_set_vline0_irq(struct drm_crtc *crtc, int irq_type, bool enable);
 int amdgpu_dm_crtc_helper_atomic_check(struct drm_crtc *crtc,
 				       struct drm_atomic_commit *state);
 #ifdef CONFIG_DEBUG_FS

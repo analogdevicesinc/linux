@@ -249,6 +249,30 @@ STATIC_IFN_KUNIT void amdgpu_dm_crtc_vblank_control_worker(struct work_struct *w
 }
 EXPORT_IF_KUNIT(amdgpu_dm_crtc_vblank_control_worker);
 
+#if defined(CONFIG_DRM_AMD_SECURE_DISPLAY) || IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
+STATIC_IFN_KUNIT int amdgpu_dm_crtc_set_vline0_irq(struct drm_crtc *crtc, int irq_type,
+						   bool enable)
+{
+	struct amdgpu_device *adev = drm_to_adev(crtc->dev);
+	int rc;
+
+	/* crtc vline0 interrupt, only available on DCN+ */
+	if (amdgpu_ip_version(adev, DCE_HWIP, 0) == 0)
+		return 0;
+
+	if (enable) {
+		rc = amdgpu_irq_get(adev, &adev->vline0_irq, irq_type);
+		drm_dbg_vbl(crtc->dev, "Get vline0_irq ret=%d\n", rc);
+	} else {
+		rc = amdgpu_irq_put(adev, &adev->vline0_irq, irq_type);
+		drm_dbg_vbl(crtc->dev, "Put vline0_irq ret=%d\n", rc);
+	}
+
+	return rc;
+}
+EXPORT_IF_KUNIT(amdgpu_dm_crtc_set_vline0_irq);
+#endif
+
 static inline int amdgpu_dm_crtc_set_vblank(struct drm_crtc *crtc, bool enable)
 {
 	struct amdgpu_crtc *acrtc = to_amdgpu_crtc(crtc);
@@ -358,19 +382,9 @@ static inline int amdgpu_dm_crtc_set_vblank(struct drm_crtc *crtc, bool enable)
 	}
 
 #if defined(CONFIG_DRM_AMD_SECURE_DISPLAY)
-	/* crtc vline0 interrupt, only available on DCN+ */
-	if (amdgpu_ip_version(adev, DCE_HWIP, 0) != 0) {
-		if (enable) {
-			rc = amdgpu_irq_get(adev, &adev->vline0_irq, irq_type);
-			drm_dbg_vbl(crtc->dev, "Get vline0_irq ret=%d\n", rc);
-		} else {
-			rc = amdgpu_irq_put(adev, &adev->vline0_irq, irq_type);
-			drm_dbg_vbl(crtc->dev, "Put vline0_irq ret=%d\n", rc);
-		}
-
-		if (rc)
-			return rc;
-	}
+	rc = amdgpu_dm_crtc_set_vline0_irq(crtc, irq_type, enable);
+	if (rc)
+		return rc;
 #endif
 
 	if (amdgpu_in_reset(adev))
