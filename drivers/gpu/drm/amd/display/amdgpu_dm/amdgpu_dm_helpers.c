@@ -131,6 +131,14 @@ STATIC_IFN_KUNIT void apply_edid_quirks(struct dc_link *link, struct edid *edid,
 		drm_dbg_driver(dev, "Disabling VSC on monitor with panel id %X\n", panel_id);
 		edid_caps->panel_patch.disable_colorimetry = true;
 		break;
+	case drm_edid_encode_panel_id('S', 'D', 'C', 0x4203):
+	case drm_edid_encode_panel_id('S', 'D', 'C', 0x4197):
+		if (dc_is_embedded_signal(link->connector_signal)) {
+			drm_dbg_driver(dev, "Force PHY power down/up level 2 on panel id %X\n",
+				       panel_id);
+			link->ctx->dc->debug.psr_phy_force_phy_power_down_up_level_2 = true;
+		}
+		break;
 	/* Workaround for monitors that get corrupted by the PHY SSC reduction */
 	case drm_edid_encode_panel_id('D', 'E', 'L', 0x4147):
 		drm_dbg_driver(dev, "Skip PHY SSC reduction on panel id %X\n", panel_id);
