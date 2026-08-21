@@ -94,6 +94,7 @@ struct dcmipp_device {
  * @handler:		irq handler dedicated to the subdev
  * @handler_ret:	value returned by the irq handler
  * @thread_fn:		threaded irq handler
+ * @cmsr2:		dcmipp status reg value captured upon an interrupt
  *
  * The DCMIPP provides a single IRQ line and a IRQ status registers for all
  * subdevs, hence once the main irq handler (registered at probe time) is
@@ -119,6 +120,13 @@ struct dcmipp_ent_device {
 	irq_handler_t handler;
 	irqreturn_t handler_ret;
 	irq_handler_t thread_fn;
+	u32 cmsr2;
+};
+
+enum dcmipp_state {
+	DCMIPP_STOPPED = 0,
+	DCMIPP_WAIT_FOR_BUFFER,
+	DCMIPP_RUNNING,
 };
 
 /**
