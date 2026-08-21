@@ -510,14 +510,15 @@ out:
 
 /* An ack the kernel must refuse and how. */
 struct refused_ack {
-	/* The ack and how many bytes of it the server sends. */
+	/* The ack, and how many bytes of it the server sends before it hangs up. */
 	struct coredump_ack ack;
 	size_t bytes;
-	/* The marker the kernel answers with. */
+	/* The marker the kernel answers with, or none if @no_marker. */
 	enum coredump_mark mark;
+	bool no_marker;
 };
 
-/* Send @refused, expect the kernel to refuse it with the marker. */
+/* Send @refused, expect the kernel to refuse it and hang up. */
 static void check_refused_ack(struct __test_metadata *const _metadata,
 			      FIXTURE_DATA(coredump) *self,
 			      const struct refused_ack *refused)
@@ -577,7 +578,16 @@ static void check_refused_ack(struct __test_metadata *const _metadata,
 					     refused->bytes))
 			goto out;
 
-		if (!read_marker(fd_coredump, refused->mark))
+		/* Nothing more to say. A server that died looks the same. */
+		if (shutdown(fd_coredump, SHUT_WR))
+			goto out;
+
+		if (!refused->no_marker &&
+		    !read_marker(fd_coredump, refused->mark))
+			goto out;
+
+		/* The kernel hangs up after a refusal, marker or not. */
+		if (!read_hangup(fd_coredump))
 			goto out;
 
 		exit_code = EXIT_SUCCESS;
@@ -2407,6 +2417,199 @@ TEST_F(coredump, socket_request_negotiate_ver1)
 	};
 
 	check_memory_dump(_metadata, self, &choice);
+}
+
+/* An ack that picks none of KERNEL, USERSPACE and REJECT. */
+TEST_F(coredump, socket_request_no_mode)
+{
+	struct refused_ack refused = {
+		.ack = {
+			.size = sizeof(struct coredump_ack),
+			.mask = COREDUMP_WAIT,
+		},
+		.bytes = sizeof(struct coredump_ack),
+		.mark = COREDUMP_MARK_CONFLICTING,
+	};
+
+	check_refused_ack(_metadata, self, &refused);
+}
+
+/* @spare must be zero, like every field that isn't in use. */
+TEST_F(coredump, socket_request_spare)
+{
+	struct refused_ack refused = {
+		.ack = {
+			.size = sizeof(struct coredump_ack),
+			.spare = 1,
+			.mask = COREDUMP_KERNEL,
+		},
+		.bytes = sizeof(struct coredump_ack),
+		.mark = COREDUMP_MARK_UNSUPPORTED,
+	};
+
+	check_refused_ack(_metadata, self, &refused);
+}
+
+/* An ack size is a byte count. One that ends inside a field is valid. */
+#define ACK_SIZE_BETWEEN (COREDUMP_ACK_SIZE_VER0 + sizeof(__u32))
+
+/* Any size from VER0 up to what the kernel accepts works without memory types. */
+TEST_F(coredump, socket_request_ack_size_between)
+{
+	struct memory_choice choice = {
+		.task_filter = COREDUMP_MEMORY_ANON_PRIVATE |
+			       COREDUMP_MEMORY_ANON_SHARED,
+		.mask = COREDUMP_KERNEL,
+		.size_ack = ACK_SIZE_BETWEEN,
+		.shared_dumped = true,
+	};
+
+	check_memory_dump(_metadata, self, &choice);
+}
+
+/* The memory types need the whole field, not the part that happens to fit. */
+TEST_F(coredump, socket_request_memory_types_ack_size_between)
+{
+	struct refused_ack refused = {
+		.ack = {
+			.size = ACK_SIZE_BETWEEN,
+			.mask = COREDUMP_KERNEL | COREDUMP_MEMORY_TYPES,
+		},
+		.bytes = ACK_SIZE_BETWEEN,
+		.mark = COREDUMP_MARK_MINSIZE,
+	};
+
+	check_refused_ack(_metadata, self, &refused);
+}
+
+/* A server that hangs up without acking gets no marker and no coredump. */
+TEST_F(coredump, socket_request_server_hangs_up)
+{
+	struct refused_ack refused = {
+		.bytes = 0,
+		.no_marker = true,
+	};
+
+	check_refused_ack(_metadata, self, &refused);
+}
+
+/* A server that hangs up in the middle of its ack looks the same. */
+TEST_F(coredump, socket_request_ack_truncated)
+{
+	struct refused_ack refused = {
+		.ack = {
+			.size = COREDUMP_ACK_SIZE_VER0,
+			.mask = COREDUMP_KERNEL,
+		},
+		.bytes = COREDUMP_ACK_SIZE_VER0 / 2,
+		.no_marker = true,
+	};
+
+	check_refused_ack(_metadata, self, &refused);
+}
+
+/*
+ * The kernels a server built against this header can't meet here:
+ * negotiate() against their requests, no coredump involved.
+ */
+
+/* The request of a kernel with the first structs and features. */
+static const struct coredump_req req_ver0 = {
+	.size			= COREDUMP_REQ_SIZE_VER0,
+	.size_ack		= COREDUMP_ACK_SIZE_VER0,
+	.mask			= COREDUMP_KERNEL | COREDUMP_USERSPACE |
+				  COREDUMP_REJECT | COREDUMP_WAIT,
+};
+
+/* The request of this kernel. */
+static const struct coredump_req req_ver1 = {
+	.size			= COREDUMP_REQ_SIZE_VER1,
+	.size_ack		= COREDUMP_ACK_SIZE_VER1,
+	.mask			= COREDUMP_KERNEL | COREDUMP_USERSPACE |
+				  COREDUMP_REJECT | COREDUMP_WAIT |
+				  COREDUMP_RECORDS | COREDUMP_SPARSE |
+				  COREDUMP_MEMORY_TYPES,
+	.memory_types		= COREDUMP_MEMORY_ANON_PRIVATE |
+				  COREDUMP_MEMORY_ANON_SHARED,
+	.memory_types_mask	= TEST_MEMORY_ALL,
+};
+
+/* A kernel with the first structs gets the first ack and nothing newer. */
+TEST(negotiate_ver0_kernel)
+{
+	struct coredump_ack ack;
+
+	negotiate(&req_ver0, &server_build_ver1, &ack);
+	ASSERT_EQ(ack.size, COREDUMP_ACK_SIZE_VER0);
+	ASSERT_EQ(ack.mask, COREDUMP_KERNEL);
+	ASSERT_EQ(ack.memory_types, 0);
+}
+
+/* A kernel with records and sparse but the first structs: both, no types. */
+TEST(negotiate_sparse_kernel)
+{
+	struct coredump_req req = req_ver0;
+	struct coredump_ack ack;
+
+	req.mask |= COREDUMP_RECORDS | COREDUMP_SPARSE;
+	negotiate(&req, &server_build_ver1, &ack);
+	ASSERT_EQ(ack.size, COREDUMP_ACK_SIZE_VER0);
+	ASSERT_EQ(ack.mask, COREDUMP_KERNEL | COREDUMP_RECORDS | COREDUMP_SPARSE);
+	ASSERT_EQ(ack.memory_types, 0);
+}
+
+/* Records without sparse: sparse isn't raised on its own. */
+TEST(negotiate_records_without_sparse)
+{
+	struct coredump_req req = req_ver0;
+	struct coredump_ack ack;
+
+	req.mask |= COREDUMP_RECORDS;
+	negotiate(&req, &server_build_ver1, &ack);
+	ASSERT_EQ(ack.mask, COREDUMP_KERNEL | COREDUMP_RECORDS);
+}
+
+/*
+ * A feature whose ack field lies past what the kernel accepts can't be
+ * raised. No kernel offers the memory types without the room for them, so a
+ * request that does stands in for a feature newer than this header.
+ */
+TEST(negotiate_types_need_room)
+{
+	struct coredump_req req = req_ver0;
+	struct coredump_ack ack;
+
+	req.mask |= COREDUMP_MEMORY_TYPES;
+	negotiate(&req, &server_build_ver1, &ack);
+	ASSERT_EQ(ack.size, COREDUMP_ACK_SIZE_VER0);
+	ASSERT_EQ(ack.mask, COREDUMP_KERNEL);
+	ASSERT_EQ(ack.memory_types, 0);
+}
+
+/* This kernel: the policy applied to the task's selection. */
+TEST(negotiate_ver1_kernel)
+{
+	struct coredump_ack ack;
+
+	negotiate(&req_ver1, &server_build_ver1, &ack);
+	ASSERT_EQ(ack.size, COREDUMP_ACK_SIZE_VER1);
+	ASSERT_EQ(ack.mask, COREDUMP_KERNEL | COREDUMP_RECORDS | COREDUMP_SPARSE |
+			    COREDUMP_MEMORY_TYPES);
+	ASSERT_EQ(ack.memory_types, COREDUMP_MEMORY_ANON_PRIVATE |
+				     COREDUMP_MEMORY_ELF_HEADERS);
+}
+
+/* A kernel that doesn't know a type the policy adds isn't asked for it. */
+TEST(negotiate_unknown_type)
+{
+	struct coredump_req req = req_ver1;
+	struct coredump_ack ack;
+
+	req.memory_types_mask &= ~(__u64)COREDUMP_MEMORY_ELF_HEADERS;
+	negotiate(&req, &server_build_ver1, &ack);
+	ASSERT_EQ(ack.mask, COREDUMP_KERNEL | COREDUMP_RECORDS | COREDUMP_SPARSE |
+			    COREDUMP_MEMORY_TYPES);
+	ASSERT_EQ(ack.memory_types, COREDUMP_MEMORY_ANON_PRIVATE);
 }
 
 TEST_HARNESS_MAIN
