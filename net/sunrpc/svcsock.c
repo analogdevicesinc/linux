@@ -334,25 +334,6 @@ svc_tcp_sock_recvmsg(struct svc_sock *svsk, struct msghdr *msg)
 	return ret;
 }
 
-#if ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE
-static void svc_flush_bvec(const struct bio_vec *bvec, size_t size, size_t seek)
-{
-	struct bvec_iter bi = {
-		.bi_size	= size + seek,
-	};
-	struct bio_vec bv;
-
-	bvec_iter_advance(bvec, &bi, seek & PAGE_MASK);
-	for_each_bvec(bv, bvec, bi, bi)
-		flush_dcache_page(bv.bv_page);
-}
-#else
-static inline void svc_flush_bvec(const struct bio_vec *bvec, size_t size,
-				  size_t seek)
-{
-}
-#endif
-
 /*
  * Read from @rqstp's transport socket. The incoming message fills whole
  * pages in @rqstp's rq_pages array until the last page of the message
@@ -380,8 +361,6 @@ static ssize_t svc_tcp_read_msg(struct svc_rqst *rqstp, size_t buflen,
 		buflen -= seek;
 	}
 	len = svc_tcp_sock_recvmsg(svsk, &msg);
-	if (len > 0)
-		svc_flush_bvec(bvec, len, seek);
 
 	/* If we read a full record, then assume there may be more
 	 * data to read (stream based sockets only!)
@@ -1156,6 +1135,19 @@ static void svc_tcp_fragment_received(struct svc_sock *svsk)
 	svsk->sk_marker = xdr_zero;
 }
 
+/*
+ * Nothing reads the message body before the record is complete, so
+ * a single flush after the last fragment is enough.
+ */
+static void svc_tcp_flush_pages(struct svc_sock *svsk,
+				struct svc_rqst *rqstp)
+{
+	unsigned int pg, pages = DIV_ROUND_UP(svsk->sk_datalen, PAGE_SIZE);
+
+	for (pg = 0; pg < pages; pg++)
+		flush_dcache_page(rqstp->rq_pages[pg]);
+}
+
 /**
  * svc_tcp_recvfrom - Receive data from a TCP socket
  * @rqstp: request structure into which to receive an RPC Call
@@ -1201,6 +1193,8 @@ static int svc_tcp_recvfrom(struct svc_rqst *rqstp)
 		goto err_incomplete;
 	if (svsk->sk_datalen < 8)
 		goto err_nuts;
+
+	svc_tcp_flush_pages(svsk, rqstp);
 
 	rqstp->rq_arg.len = svsk->sk_datalen;
 	rqstp->rq_arg.page_base = 0;
