@@ -17,49 +17,20 @@
 		stdout-path = &uart0;
 	};
 
-	memory@80000000 {
-		device_type = "memory";
-		reg = <0x80000000 0x20000000>;
-	};
-
-	memory@20040000 {
-		device_type = "memory";
-		reg = <0x20040000 0x40000>;
-	};
-
 	reserved-memory {
-		sram1_res: sram1-reserved@20040000 {
-			compatible = "adi,sram-access";
-			reg = <0x20040000 0x40000>;
-		};
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
 
-		vdev0vrings: vdev0vring0@20080000 {
-			reg = <0x20080000 0x4000>;
+		vdev0vrings: vdev0vring0@20400000 {
+			reg = <0x20400000 0x4000>;
 			no-map;
 		};
 
-		vdev0buffer: vdev0buffer@20084000 {
-			compatible = "shared-dma-pool";
-			reg = <0x20084000 0x20000>;
+		rsc_tbl0: rsc_tbl0@20404000 {
+			reg = <0x20404000 0x400>;
 			no-map;
 		};
-
-		vdev1vrings: vdev1vring0@200a4000 {
-			reg = <0x200a4000 0x4000>;
-			no-map;
-		};
-
-		vdev1buffer: vdev1buffer@200a8000 {
-			compatible = "shared-dma-pool";
-			reg = <0x200a8000 0x20000>;
-			no-map;
-		};
-	};
-
-	sram1_mmap: sram-mmap {
-		compatible = "adi,sram-mmap";
-		memory-region = <&sram1_res>;
-		status = "okay";
 	};
 };
 
