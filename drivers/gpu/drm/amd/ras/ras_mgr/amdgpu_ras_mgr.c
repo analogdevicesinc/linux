@@ -518,6 +518,13 @@ static int amdgpu_ras_mgr_resume(struct amdgpu_ip_block *ip_block)
 	if (!ras_mgr || !ras_mgr->ras_core)
 		return 0;
 
+	/* Nothing was loaded, so nothing to reload. The hw_init has to run
+	 * from amdgpu_ras_resume_after_reset() instead: it reads the EEPROM,
+	 * which takes the reset domain lock that reset on init still holds.
+	 */
+	if (!ras_mgr->ras_is_ready)
+		return 0;
+
 	ret = ras_psp_reload_firmwares(ras_mgr->ras_core, 0);
 	if (ret)
 		RAS_DEV_ERR(adev,
