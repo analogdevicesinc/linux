@@ -1354,8 +1354,8 @@ bool read_coredump_req(int fd, struct coredump_req *req)
 	return true;
 }
 
-bool send_coredump_ack(int fd, const struct coredump_req *req,
-		       __u64 mask, size_t size_ack)
+/* Send @len bytes of @ack as they are, more than the struct if asked to. */
+bool send_coredump_ack_bytes(int fd, const struct coredump_ack *ack, size_t len)
 {
 	ssize_t ret;
 	/*
@@ -1367,21 +1367,34 @@ bool send_coredump_ack(int fd, const struct coredump_req *req,
 		char buffer[PAGE_SIZE];
 	} large_ack = {};
 
-	if (!size_ack)
-		size_ack = sizeof(struct coredump_ack) < req->size_ack ?
-				   sizeof(struct coredump_ack) :
-				   req->size_ack;
-	large_ack.ack.mask = mask;
-	large_ack.ack.size = size_ack;
-	ret = send(fd, &large_ack, size_ack, MSG_NOSIGNAL);
-	if (ret != size_ack) {
+	if (len > sizeof(large_ack))
+		return false;
+
+	large_ack.ack = *ack;
+	ret = send(fd, &large_ack, len, MSG_NOSIGNAL);
+	if (ret != len) {
 		fprintf(stderr, "%s: short send %zd: %m\n", __func__, ret);
 		return false;
 	}
 
-	fprintf(stderr, "Sent coredump ack with size %zu and mask 0x%llx\n",
-		size_ack, (unsigned long long)mask);
+	fprintf(stderr, "Sent %zu bytes of coredump ack: size %u, mask 0x%llx\n",
+		len, ack->size, (unsigned long long)ack->mask);
 	return true;
+}
+
+bool send_coredump_ack(int fd, const struct coredump_req *req,
+		       __u64 mask, size_t size_ack)
+{
+	struct coredump_ack ack = {
+		.mask = mask,
+	};
+
+	if (!size_ack)
+		size_ack = sizeof(struct coredump_ack) < req->size_ack ?
+				   sizeof(struct coredump_ack) :
+				   req->size_ack;
+	ack.size = size_ack;
+	return send_coredump_ack_bytes(fd, &ack, size_ack);
 }
 
 /* Every option the kernel is expected to advertise in coredump_req->mask. */
