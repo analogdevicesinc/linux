@@ -1171,9 +1171,8 @@ struct kernfs_node *kernfs_create_empty_dir(struct kernfs_node *parent,
 static int kernfs_dop_revalidate(struct inode *dir, const struct qstr *name,
 				 struct dentry *dentry, unsigned int flags)
 {
-	struct kernfs_node *kn, *kn_parent;
 	struct kernfs_node *parent = dir->i_private;
-	struct kernfs_root *root;
+	struct kernfs_node *kn;
 	const char *kn_name;
 
 	if (flags & LOOKUP_RCU)
@@ -1191,49 +1190,41 @@ static int kernfs_dop_revalidate(struct inode *dir, const struct qstr *name,
 		 * changes and the lookup re-done so that a new positive
 		 * dentry can be properly created.
 		 */
-		root = kernfs_root(parent);
-		down_read(&root->kernfs_rwsem);
-		if (kernfs_dir_changed(parent, dentry)) {
-			up_read(&root->kernfs_rwsem);
-			return 0;
-		}
-		up_read(&root->kernfs_rwsem);
-
-		/* The kernfs parent node hasn't changed, leave the
-		 * dentry negative and return success.
-		 */
-		return 1;
+		return !kernfs_dir_changed(parent, dentry);
 	}
 
 	kn = kernfs_dentry_node(dentry);
-	root = kernfs_root(kn);
-	down_read(&root->kernfs_rwsem);
+
+	guard(rcu)();
 
 	/* The kernfs node has been deactivated */
-	if (!kernfs_active(kn))
-		goto out_bad;
+	if (!__kernfs_active(kn))
+		return 0;
 
-	kn_parent = kernfs_parent(kn);
 	/* The kernfs node has been moved? */
-	if (parent != kn_parent)
-		goto out_bad;
+	if (kernfs_parent(kn) != parent)
+		return 0;
 
 	/* The kernfs node has been renamed */
 	kn_name = kernfs_rcu_name(kn);
 	if (name->len != strlen(kn_name) ||
 	    memcmp(name->name, kn_name, name->len))
-		goto out_bad;
+		return 0;
 
-	/* The kernfs node has been moved to a different namespace */
-	if (kn_parent && kernfs_ns_enabled(kn_parent) &&
+	/*
+	 * The kernfs node has been moved to a different namespace.
+	 *
+	 * KERNFS_NS is set by kernfs_enable_ns() while @parent still has no
+	 * children, so it cannot change while a child of @parent is being
+	 * revalidated. The other bits in that word, KERNFS_ACTIVATED and
+	 * KERNFS_REMOVING, are updated under kernfs_rwsem and are not read
+	 * here, so racing with them is intentional and harmless.
+	 */
+	if (data_race(kernfs_ns_enabled(parent)) &&
 	    kernfs_info(dir->i_sb)->ns != READ_ONCE(kn->ns))
-		goto out_bad;
+		return 0;
 
-	up_read(&root->kernfs_rwsem);
 	return 1;
-out_bad:
-	up_read(&root->kernfs_rwsem);
-	return 0;
 }
 
 const struct dentry_operations kernfs_dops = {
