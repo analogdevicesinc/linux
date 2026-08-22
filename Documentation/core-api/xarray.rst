@@ -492,7 +492,7 @@ entry at every index to ``NULL`` and dissolve the tie.  A multi-index
 entry can be split into entries occupying smaller ranges by calling
 xas_split_alloc() without the xa_lock held, followed by taking the lock
 and calling xas_split() or calling xas_try_split() with xa_lock. The
-difference between xas_split_alloc()+xas_split() and xas_try_alloc() is
+difference between xas_split_alloc()+xas_split() and xas_try_split() is
 that xas_split_alloc() + xas_split() split the entry from the original
 order to the new order in one shot uniformly, whereas xas_try_split()
 iteratively splits the entry containing the index non-uniformly.
