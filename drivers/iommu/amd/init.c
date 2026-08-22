@@ -163,7 +163,6 @@ int amd_iommu_gpt_level = PAGE_MODE_4_LEVEL;
 int amd_iommu_guest_ir = AMD_IOMMU_GUEST_IR_VAPIC;
 static int amd_iommu_xt_mode = IRQ_REMAP_XAPIC_MODE;
 
-static bool amd_iommu_detected;
 static bool amd_iommu_disabled __initdata;
 static bool amd_iommu_force_enable __initdata;
 static bool amd_iommu_irtcachedis;
@@ -3228,9 +3227,6 @@ static int __init early_amd_iommu_init(void)
 	acpi_status status;
 	u8 efr_hats, max_vasize;
 
-	if (!amd_iommu_detected)
-		return -ENODEV;
-
 	status = acpi_get_table("IVRS", 0, &ivrs_base);
 	if (status == AE_NOT_FOUND)
 		return -ENODEV;
@@ -3309,7 +3305,7 @@ static int __init early_amd_iommu_init(void)
 	}
 
 	/* Disable any previously enabled IOMMUs */
-	if (!is_kdump_kernel() || amd_iommu_disabled)
+	if (!is_kdump_kernel())
 		disable_iommus();
 
 	if (amd_iommu_irq_remap)
@@ -3403,12 +3399,6 @@ static __init void iommu_snp_enable(void)
 #ifdef CONFIG_KVM_AMD_SEV
 	if (!cc_platform_has(CC_ATTR_HOST_SEV_SNP))
 		return;
-
-	/* SNP support required IOMMU to be ON */
-	if (no_iommu) {
-		pr_warn("SNP: IOMMU disabled, SNP cannot be supported.\n");
-		goto disable_snp;
-	}
 
 	amd_iommu_snp_mode0_sup = check_feature2(FEATURE_SNP_PAGE_MODE0_SUP);
 	/*
@@ -3722,7 +3712,6 @@ void __init amd_iommu_detect(void)
 	if (ret)
 		goto disable_snp;
 
-	amd_iommu_detected = true;
 	iommu_detected = 1;
 	x86_init.iommu.iommu_init = amd_iommu_init;
 	return;
