@@ -16,7 +16,7 @@
 	interrupt-parent = <&gic>;
 
 	/* External Audio clock - to be overridden by boards that provide it */
-	audio_clkin: audio_clkin {
+	audio_clkin: audio-clkin {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <0>;
@@ -192,7 +192,7 @@
 		clock-frequency = <0>;
 	};
 
-	pmu_a76 {
+	pmu-a76 {
 		compatible = "arm,cortex-a76-pmu";
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
 	};

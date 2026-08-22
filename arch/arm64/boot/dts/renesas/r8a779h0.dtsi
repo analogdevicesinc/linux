@@ -16,7 +16,7 @@
 	interrupt-parent = <&gic>;
 
 	/* External Audio clock - to be overridden by boards that provide it */
-	audio_clkin: audio_clkin {
+	audio_clkin: audio-clkin {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <0>;
