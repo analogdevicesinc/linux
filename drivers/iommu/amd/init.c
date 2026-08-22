@@ -3577,6 +3577,19 @@ static int __init iommu_go_to_state(enum iommu_init_state state)
 {
 	int ret = -EINVAL;
 
+	/*
+	 * Some essential housekeeping work is done by amd_iommu_detect().
+	 * Skipping calling it implies that the platform (e.g., Xen hypervisor)
+	 * has taken over the hardware. Progressing the state machine in this
+	 * case is worthless and fragile.
+	 *
+	 * There are several paths requesting later states, so disallow implicit
+	 * START_STATE => IVRS_DETECTED transition to prevent these paths from
+	 * accidentally progressing the state machine.
+	 */
+	if (init_state == IOMMU_START_STATE && state != IOMMU_IVRS_DETECTED)
+		goto out;
+
 	while (init_state != state) {
 		if (init_state == IOMMU_NOT_FOUND         ||
 		    init_state == IOMMU_INIT_ERROR        ||
@@ -3585,6 +3598,7 @@ static int __init iommu_go_to_state(enum iommu_init_state state)
 		ret = state_next();
 	}
 
+out:
 	/*
 	 * SNP platform initilazation requires IOMMUs to be fully configured.
 	 * If the SNP support on IOMMUs has NOT been checked, simply mark SNP
