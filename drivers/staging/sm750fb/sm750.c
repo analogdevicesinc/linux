@@ -384,7 +384,7 @@ static inline unsigned int chan_to_field(unsigned int chan,
 	return chan << bf->offset;
 }
 
-static int __maybe_unused lynxfb_suspend(struct device *dev)
+static int lynxfb_suspend(struct device *dev)
 {
 	struct fb_info *info;
 	struct sm750_dev *sm750_dev;
@@ -405,7 +405,7 @@ static int __maybe_unused lynxfb_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused lynxfb_resume(struct device *dev)
+static int lynxfb_resume(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct fb_info *info;
@@ -1094,14 +1094,14 @@ static const struct pci_device_id smi_pci_table[] = {
 
 MODULE_DEVICE_TABLE(pci, smi_pci_table);
 
-static SIMPLE_DEV_PM_OPS(lynxfb_pm_ops, lynxfb_suspend, lynxfb_resume);
+static DEFINE_SIMPLE_DEV_PM_OPS(lynxfb_pm_ops, lynxfb_suspend, lynxfb_resume);
 
 static struct pci_driver lynxfb_driver = {
 	.name =		"sm750fb",
 	.id_table =	smi_pci_table,
 	.probe =	lynxfb_pci_probe,
 	.remove =	lynxfb_pci_remove,
-	.driver.pm =	&lynxfb_pm_ops,
+	.driver.pm =	pm_sleep_ptr(&lynxfb_pm_ops),
 };
 
 static int __init lynxfb_init(void)
