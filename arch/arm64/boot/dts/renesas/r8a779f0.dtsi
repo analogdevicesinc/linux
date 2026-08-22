@@ -279,7 +279,7 @@
 		clock-frequency = <0>;
 	};
 
-	pmu_a55 {
+	pmu-a55 {
 		compatible = "arm,cortex-a55-pmu";
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
 	};
