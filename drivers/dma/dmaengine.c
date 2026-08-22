@@ -433,6 +433,12 @@ static void dma_device_release(struct kref *ref)
 		device->device_release(device);
 }
 
+static int __must_check dma_device_get(struct dma_device *device)
+{
+	lockdep_assert_held(&dma_list_mutex);
+	return kref_get_unless_zero(&device->ref);
+}
+
 static void dma_device_put(struct dma_device *device)
 {
 	lockdep_assert_held(&dma_list_mutex);
@@ -460,8 +466,7 @@ static int dma_chan_get(struct dma_chan *chan)
 	if (!try_module_get(owner))
 		return -ENODEV;
 
-	ret = kref_get_unless_zero(&chan->device->ref);
-	if (!ret) {
+	if (!dma_device_get(chan->device)) {
 		ret = -ENODEV;
 		goto module_put_out;
 	}
