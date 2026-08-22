@@ -37,7 +37,6 @@
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
-#include <linux/irq_work.h>
 #include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -244,7 +243,6 @@ struct gp2ap020a00f_data {
 	struct iio_trigger *trig;
 	struct regmap *regmap;
 	unsigned int thresh_val[4];
-	struct irq_work work;
 	wait_queue_head_t data_ready_queue;
 };
 
@@ -801,14 +799,6 @@ static void gp2ap020a00f_output_to_lux(struct gp2ap020a00f_data *data,
 		*output_val *= 16;
 }
 
-static void gp2ap020a00f_iio_trigger_work(struct irq_work *work)
-{
-	struct gp2ap020a00f_data *data =
-		container_of(work, struct gp2ap020a00f_data, work);
-
-	iio_trigger_poll(data->trig);
-}
-
 static irqreturn_t gp2ap020a00f_prox_sensing_handler(int irq, void *data)
 {
 	struct iio_dev *indio_dev = data;
@@ -931,8 +921,7 @@ static irqreturn_t gp2ap020a00f_thresh_event_handler(int irq, void *data)
 	if (test_bit(GP2AP020A00F_FLAG_ALS_CLEAR_TRIGGER, &priv->flags) ||
 	    test_bit(GP2AP020A00F_FLAG_ALS_IR_TRIGGER, &priv->flags) ||
 	    test_bit(GP2AP020A00F_FLAG_PROX_TRIGGER, &priv->flags))
-		/* This fires off the trigger. */
-		irq_work_queue(&priv->work);
+		iio_trigger_poll_nested(priv->trig);
 
 done:
 	return IRQ_HANDLED;
@@ -943,8 +932,11 @@ static irqreturn_t gp2ap020a00f_trigger_handler(int irq, void *data)
 	struct iio_poll_func *pf = data;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct gp2ap020a00f_data *priv = iio_priv(indio_dev);
+	s64 timestamp;
 	size_t d_size = 0;
 	int i, out_val, ret;
+
+	timestamp = iio_get_time_ns(indio_dev);
 
 	iio_for_each_active_channel(indio_dev, i) {
 		ret = regmap_bulk_read(priv->regmap, GP2AP020A00F_DATA_REG(i),
@@ -963,7 +955,7 @@ static irqreturn_t gp2ap020a00f_trigger_handler(int irq, void *data)
 		}
 	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, priv->buffer, pf->timestamp);
+	iio_push_to_buffers_with_timestamp(indio_dev, priv->buffer, timestamp);
 done:
 	iio_trigger_notify_done(indio_dev->trig);
 
@@ -1454,8 +1446,9 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	/* Allocate buffer */
-	err = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
-		&gp2ap020a00f_trigger_handler, &gp2ap020a00f_buffer_setup_ops);
+	err = iio_triggered_buffer_setup(indio_dev, NULL,
+					 &gp2ap020a00f_trigger_handler,
+					 &gp2ap020a00f_buffer_setup_ops);
 	if (err < 0)
 		goto error_regulator_disable;
 
@@ -1479,8 +1472,6 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 		goto error_uninit_buffer;
 	}
 
-	init_irq_work(&data->work, gp2ap020a00f_iio_trigger_work);
-
 	err = iio_trigger_register(data->trig);
 	if (err < 0) {
 		dev_err(dev, "Failed to register iio trigger.\n");
@@ -1497,7 +1488,6 @@ error_trigger_unregister:
 	iio_trigger_unregister(data->trig);
 error_free_irq:
 	free_irq(client->irq, indio_dev);
-	irq_work_sync(&data->work);
 error_uninit_buffer:
 	iio_triggered_buffer_cleanup(indio_dev);
 error_regulator_disable:
@@ -1520,7 +1510,6 @@ static void gp2ap020a00f_remove(struct i2c_client *client)
 	iio_device_unregister(indio_dev);
 	iio_trigger_unregister(data->trig);
 	free_irq(client->irq, indio_dev);
-	irq_work_sync(&data->work);
 	iio_triggered_buffer_cleanup(indio_dev);
 	regulator_disable(data->vled_reg);
 }
