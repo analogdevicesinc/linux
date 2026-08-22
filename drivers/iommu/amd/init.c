@@ -3476,6 +3476,8 @@ static void amd_iommu_apply_erratum_snp(void)
 #endif
 }
 
+static bool amd_iommu_sme_check(void);
+
 /****************************************************************************
  *
  * AMD IOMMU Initialization State Machine
@@ -3488,7 +3490,13 @@ static int __init state_next(void)
 
 	switch (init_state) {
 	case IOMMU_START_STATE:
-		if (!detect_ivrs()) {
+		if (no_iommu || amd_iommu_disabled) {
+			init_state	= IOMMU_CMDLINE_DISABLED;
+			ret		= -EINVAL;
+		} else if (!amd_iommu_sme_check()) {
+			init_state	= IOMMU_INIT_ERROR;
+			ret		= -EINVAL;
+		} else if (!detect_ivrs()) {
 			init_state	= IOMMU_NOT_FOUND;
 			ret		= -ENODEV;
 		} else {
@@ -3496,13 +3504,8 @@ static int __init state_next(void)
 		}
 		break;
 	case IOMMU_IVRS_DETECTED:
-		if (amd_iommu_disabled) {
-			init_state = IOMMU_CMDLINE_DISABLED;
-			ret = -EINVAL;
-		} else {
-			ret = early_amd_iommu_init();
-			init_state = ret ? IOMMU_INIT_ERROR : IOMMU_ACPI_FINISHED;
-		}
+		ret = early_amd_iommu_init();
+		init_state = ret ? IOMMU_INIT_ERROR : IOMMU_ACPI_FINISHED;
 		break;
 	case IOMMU_ACPI_FINISHED:
 		early_enable_iommus();
@@ -3700,12 +3703,6 @@ static bool amd_iommu_sme_check(void)
 void __init amd_iommu_detect(void)
 {
 	int ret;
-
-	if (no_iommu || (iommu_detected && !gart_iommu_aperture))
-		goto disable_snp;
-
-	if (!amd_iommu_sme_check())
-		goto disable_snp;
 
 	ret = iommu_go_to_state(IOMMU_IVRS_DETECTED);
 	if (ret)
