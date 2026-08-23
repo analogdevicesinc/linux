@@ -46,6 +46,10 @@ void test_stream_syscall(void)
 	ret = -errno;
 	ASSERT_EQ(ret, -EFAULT, "bad stream buf");
 
+	ASSERT_LT(bpf_prog_stream_read(prog_fd, BPF_STREAM_STDOUT, buf, UINT_MAX, NULL), 0, "error");
+	ret = -errno;
+	ASSERT_EQ(ret, -EINVAL, "large stream buf");
+
 	ret = bpf_prog_stream_read(prog_fd, BPF_STREAM_STDOUT, buf, 2, NULL);
 	ASSERT_EQ(ret, 2, "bytes");
 	ret = bpf_prog_stream_read(prog_fd, BPF_STREAM_STDOUT, buf, 2, NULL);
