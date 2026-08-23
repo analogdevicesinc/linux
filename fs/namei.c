@@ -4430,7 +4430,13 @@ static struct dentry *atomic_open(const struct path *path, struct dentry *dentry
 		}
 		dput(dentry);
 		dentry = ERR_PTR(error);
+	} else {
+		if (file->f_mode & FMODE_CREATED)
+			fsnotify_create(dir_inode, dentry);
+		if (file->f_mode & FMODE_OPENED)
+			fsnotify_open(file);
 	}
+
 
 	return dentry;
 }
@@ -4581,22 +4587,10 @@ retry:
 		goto out_dput;
 	}
 
-	error = try_break_deleg(dir_inode, LEASE_BREAK_DIR_CREATE, &delegated_inode);
-	if (error)
-		goto out_dput;
-
-	error = dir_inode->i_op->create(idmap, dir_inode, dentry, mode);
-	if (error)
-		goto out_dput;
+	error = vfs_create_no_perm(idmap, dentry, mode, &delegated_inode);
 
 	file->f_mode |= FMODE_CREATED;
 out:
-	if (!IS_ERR(dentry)) {
-		if (file->f_mode & FMODE_CREATED)
-			fsnotify_create(dir_inode, dentry);
-		if (file->f_mode & FMODE_OPENED)
-			fsnotify_open(file);
-	}
 	if ((open_flag & O_CREAT) || create_error)
 		inode_unlock(dir_inode);
 	else
