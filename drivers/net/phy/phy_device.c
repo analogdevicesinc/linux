@@ -3824,9 +3824,6 @@ static int phy_probe(struct device *dev)
 				 phydev->supported);
 	}
 
-	/* Set the state to READY by default */
-	phydev->state = PHY_READY;
-
 	/* Register the PHY LED triggers */
 	if (!phydev->is_on_sfp_module)
 		phy_led_triggers_register(phydev);
@@ -3839,6 +3836,9 @@ static int phy_probe(struct device *dev)
 		if (err)
 			goto out_unreg_led_triggers;
 	}
+
+	/* Set the state to READY by default */
+	phydev->state = PHY_READY;
 
 	return 0;
 
