@@ -287,19 +287,24 @@ int amdgpu_dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
 	int i;
 	bool skip_fmt_scale_restrictions = false;
 
-	/* Overlay cursor not supported on HW before DCN
-	 * DCN401/420 does not have the cursor-on-scaled-plane or cursor-on-yuv-plane restrictions
-	 * as previous DCN generations, so enable native mode on DCN401/420
-	 *
+	/*
 	 * Always set native cursor mode when the CRTC is disabled,
 	 * to make sure it doesn't cause atomic commits to fail when
 	 * they are trying to disable the CRTC.
 	 */
+	if (!crtc_state->enable) {
+		*cursor_mode = DM_CURSOR_NATIVE_MODE;
+		return 0;
+	}
+
+	/* Overlay cursor not supported on HW before DCN
+	 * DCN401/420 does not have the cursor-on-scaled-plane or cursor-on-yuv-plane restrictions
+	 * as previous DCN generations, so enable native mode on DCN401/420
+	 */
 	if (amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 0, 1) ||
 	    amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 2, 0) ||
 	    amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 2, 1) ||
-	    amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(6, 0, 0) ||
-	    !dm_crtc_state->base.enable) {
+	    amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(6, 0, 0)) {
 		/*
 		 * Newer DCN has no cursor-on-scaled/yuv-plane restriction, so
 		 * skip those overlay triggers below. A plane that does not fill
