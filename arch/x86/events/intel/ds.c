@@ -1733,8 +1733,10 @@ static u64 pebs_update_adaptive_cfg(struct perf_event *event)
 	if (gprs || (attr->precise_ip < 2) || tsx_weight)
 		pebs_data_cfg |= PEBS_DATACFG_GP;
 
-	if (event_has_extended_regs(event))
-		pebs_data_cfg |= PEBS_DATACFG_XMMS;
+	if (sample_type & (PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER)) {
+		if (event_needs_xmm(event))
+			pebs_data_cfg |= PEBS_DATACFG_XMMS;
+	}
 
 	if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
 		/*

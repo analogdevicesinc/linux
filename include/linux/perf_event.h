@@ -1485,6 +1485,7 @@ static inline void perf_clear_branch_entry_bitfields(struct perf_branch_entry *b
 	br->reserved	= 0;
 }
 
+extern u64 perf_update_xregs_size(struct perf_event *event, bool intr);
 extern void perf_output_sample(struct perf_output_handle *handle,
 			       struct perf_event_header *header,
 			       struct perf_sample_data *data,

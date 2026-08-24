@@ -8720,7 +8720,7 @@ static __always_inline u64 __cond_set(u64 flags, u64 s, u64 d)
 	return d * !!(flags & s);
 }
 
-static u64 perf_update_xregs_size(struct perf_event *event, bool intr)
+u64 perf_update_xregs_size(struct perf_event *event, bool intr)
 {
 	u16 pred_qwords = event->attr.sample_simd_pred_reg_qwords;
 	u16 vec_qwords = event->attr.sample_simd_vec_reg_qwords;
