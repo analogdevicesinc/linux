@@ -9,13 +9,7 @@
 	(defined(__TARGET_ARCH_riscv) && __riscv_xlen == 64) || \
 	defined(__TARGET_ARCH_arm) || defined(__TARGET_ARCH_s390) || \
 	defined(__TARGET_ARCH_loongarch)) && \
-	__clang_major__ >= 18
-
-struct {
-	__uint(type, BPF_MAP_TYPE_ARENA);
-	__uint(map_flags, BPF_F_MMAPABLE);
-	__uint(max_entries, 1);
-} arena SEC(".maps");
+	(__clang_major__ >= 18 || defined(__BPF_FEATURE_LDSX))
 
 SEC("socket")
 __description("LDSX, S8")
@@ -263,6 +257,14 @@ __naked void ldsx_ctx_8(void)
 	: __clobber_all);
 }
 
+#ifdef __BPF_FEATURE_ADDR_SPACE_CAST
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARENA);
+	__uint(map_flags, BPF_F_MMAPABLE);
+	__uint(max_entries, 1);
+} arena SEC(".maps");
+
 SEC("syscall")
 __description("Arena LDSX Disasm")
 __success
@@ -448,6 +450,8 @@ void kfunc_root(void)
 {
 	bpf_arena_alloc_pages(0, 0, 0, 0, 0);
 }
+
+#endif /* __BPF_FEATURE_ADDR_SPACE_CAST */
 
 #else
 

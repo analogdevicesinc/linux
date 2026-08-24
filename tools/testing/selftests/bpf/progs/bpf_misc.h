@@ -261,11 +261,11 @@
      (defined(__TARGET_ARCH_riscv) && __riscv_xlen == 64) ||		\
      defined(__TARGET_ARCH_arm) || defined(__TARGET_ARCH_s390) ||	\
      defined(__TARGET_ARCH_loongarch)) &&				\
-	__clang_major__ >= 18
+	(__clang_major__ >= 18 || defined(__BPF_FEATURE_GOTOL))
 #define CAN_USE_GOTOL
 #endif
 
-#if __clang_major__ >= 18
+#if __clang_major__ >= 18 || defined(__BPF_FEATURE_ST)
 #define CAN_USE_BPF_ST
 #endif
 

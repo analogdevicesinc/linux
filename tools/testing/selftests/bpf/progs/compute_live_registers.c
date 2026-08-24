@@ -299,7 +299,15 @@ __naked void gotol(void)
 		"r3 = 24;"
 		"if r1 > 0x7 goto +2;"
 		"r0 = r2;"
+#ifdef __clang__
 		"gotol +1;"
+#else
+		/*
+		 * gas mis-parses 'gotol +1' as 'goto l+1', same encoding
+		 * without the sign (binutils PR gas/34558).
+		 */
+		"gotol 1;"
+#endif
 		"r0 = r3;"
 		"exit;"
 		:
