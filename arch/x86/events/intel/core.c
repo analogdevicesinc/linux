@@ -6162,11 +6162,14 @@ static inline bool intel_pmu_broken_perf_cap(void)
 	return false;
 }
 
-static inline void __intel_update_pmu_caps(struct pmu *pmu)
+static inline void __intel_update_pmu_xregs_caps(struct pmu *pmu)
 {
 	struct pmu *dest_pmu = pmu ? pmu : x86_get_pmu(smp_processor_id());
+	u64 caps = hybrid(pmu, arch_pebs_cap).caps;
 
-	if (hybrid(pmu, arch_pebs_cap).caps & ARCH_PEBS_VECR_XMM)
+	if ((x86_pmu.arch_pebs && (caps & ARCH_PEBS_VECR_XMM)) ||
+	    (!x86_pmu.arch_pebs && x86_pmu.intel_cap.pebs_format >= 4 &&
+	     x86_pmu.intel_cap.pebs_baseline))
 		dest_pmu->capabilities |= PERF_PMU_CAP_EXTENDED_REGS;
 }
 
@@ -6238,12 +6241,10 @@ static void update_pmu_cap_from_perfmonext(struct pmu *pmu)
 		hybrid(pmu, arch_pebs_cap).counters = pebs_mask;
 		hybrid(pmu, arch_pebs_cap).pdists = pdists_mask;
 
-		if (WARN_ON((pebs_mask | pdists_mask) & ~cntrs_mask)) {
+		if (WARN_ON((pebs_mask | pdists_mask) & ~cntrs_mask))
 			x86_pmu.arch_pebs = 0;
-		} else {
-			__intel_update_pmu_caps(pmu);
+		else
 			__intel_update_large_pebs_flags(pmu);
-		}
 	} else {
 		WARN_ON(x86_pmu.arch_pebs == 1);
 		x86_pmu.arch_pebs = 0;
@@ -6267,6 +6268,7 @@ static void intel_update_pmu_caps(struct pmu *pmu)
 		    hybrid_pmu(pmu)->pmu_type == hybrid_big)
 			hybrid(pmu, intel_cap).perf_metrics = 1;
 	}
+	__intel_update_pmu_xregs_caps(pmu);
 }
 
 static void intel_pmu_check_hybrid_pmus(struct x86_hybrid_pmu *pmu)
@@ -6419,8 +6421,6 @@ static void intel_pmu_cpu_starting(int cpu)
 			x86_pmu.intel_ctrl &= ~GLOBAL_CTRL_EN_PERF_METRICS;
 		}
 	}
-
-	__intel_update_pmu_caps(cpuc->pmu);
 
 	if (!cpuc->shared_regs)
 		return;
