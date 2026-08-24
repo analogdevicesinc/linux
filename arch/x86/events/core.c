@@ -642,10 +642,11 @@ static int pebs_simd_regs_validate(struct perf_event *event)
 	if (event_needs_xmm(event) &&
 	    x86_pmu.arch_pebs && !(caps & ARCH_PEBS_VECR_XMM))
 		return -EINVAL;
-	/* PEBS does not support YMM/ZMM registers sampling yet. */
+	/* PEBS does not support YMM/ZMM/OPMASK registers sampling yet. */
 	if (event_needs_ymm(event) ||
 	    event_needs_low16_zmm(event) ||
-	    event_needs_high16_zmm(event))
+	    event_needs_high16_zmm(event) ||
+	    event_needs_opmask(event))
 		return -EINVAL;
 
 	return 0;
@@ -669,6 +670,9 @@ static int event_simd_regs_validate(struct perf_event *event)
 		return -EINVAL;
 	if (event_needs_high16_zmm(event) &&
 	    !(x86_pmu.ext_regs_mask & XFEATURE_MASK_Hi16_ZMM))
+		return -EINVAL;
+	if (event_needs_opmask(event) &&
+	    !(x86_pmu.ext_regs_mask & XFEATURE_MASK_OPMASK))
 		return -EINVAL;
 
 	return 0;
@@ -1836,6 +1840,7 @@ void x86_pmu_clear_perf_regs(struct pt_regs *regs)
 	perf_regs->ymmh_regs = NULL;
 	perf_regs->zmmh_regs = NULL;
 	perf_regs->h16zmm_regs = NULL;
+	perf_regs->opmask_regs = NULL;
 }
 
 static void update_perf_regs(struct x86_perf_regs *perf_regs,
@@ -1857,6 +1862,8 @@ static void update_perf_regs(struct x86_perf_regs *perf_regs,
 		perf_regs->zmmh = get_xsave_addr(xsave, XFEATURE_ZMM_Hi256);
 	if (mask & XFEATURE_MASK_Hi16_ZMM)
 		perf_regs->h16zmm = get_xsave_addr(xsave, XFEATURE_Hi16_ZMM);
+	if (mask & XFEATURE_MASK_OPMASK)
+		perf_regs->opmask = get_xsave_addr(xsave, XFEATURE_OPMASK);
 }
 
 /*
@@ -2031,6 +2038,8 @@ static u64 get_simd_sample_mask(struct perf_event *event, u64 sample_type)
 		mask |= XFEATURE_MASK_ZMM_Hi256;
 	if (__event_needs_high16_zmm(event, sample_type))
 		mask |= XFEATURE_MASK_Hi16_ZMM;
+	if (__event_needs_opmask(event, sample_type))
+		mask |= XFEATURE_MASK_OPMASK;
 
 	return mask;
 }
