@@ -26,6 +26,9 @@
 #include "core_status.h"
 #include "ras_mp1_v13_0.h"
 
+#define MSG_DATA_LOW32(idx)   (((idx) & 0xFFFFU) | BIT(16))
+#define MSG_DATA_HIGH32(idx)  (((idx) & 0xFFFFU) | BIT(17))
+
 static int __send_mp1_msg32(struct ras_core_context *ras_core,
 		enum ras_mp1_msg_id msg_id, u32 input, u32 *output)
 {
@@ -35,6 +38,89 @@ static int __send_mp1_msg32(struct ras_core_context *ras_core,
 
 	return ras_core->ras_mp1.sys_func->mp1_send_ras_msg(ras_core,
 				msg_id, &input, 1, output, output ? 1 : 0);
+}
+
+static int mp1_v13_0_get_table_version(struct ras_core_context *ras_core,
+				     u32 *table_ver)
+{
+	if (!table_ver)
+		return -EINVAL;
+
+	return __send_mp1_msg32(ras_core, RAS_MP1_MSG_GetRasTableVersion,
+			0, table_ver);
+}
+
+static bool mp1_v13_0_rma_detected(struct ras_core_context *ras_core)
+{
+	u32 rma = 0;
+
+	if (__send_mp1_msg32(ras_core, RAS_MP1_MSG_GetRmaStatus, 0, &rma))
+		return false;
+
+	return rma;
+}
+
+static int mp1_v13_0_set_timestamp(struct ras_core_context *ras_core,
+			u64 timestamp)
+{
+	if (!timestamp)
+		return -EINVAL;
+
+	return __send_mp1_msg32(ras_core, RAS_MP1_MSG_SetTimestamp, (u32)timestamp, NULL);
+}
+
+static int mp1_v13_0_reset_ras_table(struct ras_core_context *ras_core,
+				   u32 *result)
+{
+	if (!result)
+		return -EINVAL;
+
+	return __send_mp1_msg32(ras_core, RAS_MP1_MSG_EraseRasTable, 0, result);
+}
+
+static int mp1_v13_0_get_record_count(struct ras_core_context *ras_core,
+				u32 *count)
+{
+	if (!count)
+		return -EINVAL;
+
+	*count = 0;
+
+	return __send_mp1_msg32(ras_core, RAS_MP1_MSG_GetBadPageCount, 0, count);
+}
+
+static int mp1_v13_0_get_record(struct ras_core_context *ras_core,
+			u32 idx, struct eeprom_err_record *rec)
+{
+	int ret;
+
+	if (!rec || (idx > 0xFFFFU))
+		return -EINVAL;
+
+	ret = __send_mp1_msg32(ras_core, RAS_MP1_MSG_GetTimestamp,
+			idx, &rec->timestamp_low);
+	if (ret)
+		return ret;
+
+	ret = __send_mp1_msg32(ras_core, RAS_MP1_MSG_GetBadPageMcaAddr,
+			MSG_DATA_LOW32(idx), &rec->mca_addr_low);
+	if (ret)
+		return ret;
+
+	ret = __send_mp1_msg32(ras_core, RAS_MP1_MSG_GetBadPageMcaAddr,
+			MSG_DATA_HIGH32(idx), &rec->mca_addr_high);
+	if (ret)
+		return ret;
+
+	ret = __send_mp1_msg32(ras_core, RAS_MP1_MSG_GetBadPageIpId,
+			MSG_DATA_LOW32(idx), &rec->ipid_low);
+	if (ret)
+		return ret;
+
+	ret = __send_mp1_msg32(ras_core, RAS_MP1_MSG_GetBadPageIpId,
+			MSG_DATA_HIGH32(idx), &rec->ipid_high);
+
+	return ret;
 }
 
 static int __dump_mp1_bank_reg64(struct ras_core_context *ras_core,
@@ -144,4 +230,10 @@ const struct ras_mp1_ip_func mp1_ras_func_v13_0 = {
 	.get_valid_bank_count = mp1_v13_0_get_bank_count,
 	.dump_valid_bank = mp1_v13_0_dump_bank,
 	.set_debug_mode = mp1_v13_0_set_debug_mode,
+	.get_table_version = mp1_v13_0_get_table_version,
+	.rma_detected = mp1_v13_0_rma_detected,
+	.set_timestamp = mp1_v13_0_set_timestamp,
+	.reset_ras_table = mp1_v13_0_reset_ras_table,
+	.get_record_count = mp1_v13_0_get_record_count,
+	.get_record = mp1_v13_0_get_record,
 };
