@@ -33,8 +33,14 @@ static int amdgpu_ras_sys_detect_fatal_event(struct ras_core_context *ras_core, 
 	uint64_t seq_no;
 
 	ret = amdgpu_ras_global_ras_isr(adev);
-	if (ret)
-		return ret;
+	if (ret) {
+		/* Another device of the hive already asked for the reset, this
+		 * one still has to record that it saw the error.
+		 */
+		kgd2kfd_set_sram_ecc_flag(adev->kfd.dev);
+		amdgpu_ras_set_fed(adev, true);
+		return ret == -EBUSY ? 0 : ret;
+	}
 
 	seq_no = amdgpu_ras_mgr_gen_ras_event_seqno(adev, RAS_SEQNO_TYPE_UE);
 	RAS_DEV_INFO(adev,
