@@ -1291,7 +1291,6 @@ out_unlock:
 static int setup_fifos(struct qcom_geni_serial_port *port)
 {
 	struct uart_port *uport;
-	u32 old_rx_fifo_depth = port->rx_fifo_depth;
 
 	uport = &port->uport;
 	port->tx_fifo_depth = geni_se_get_tx_fifo_depth(&port->se);
@@ -1299,19 +1298,6 @@ static int setup_fifos(struct qcom_geni_serial_port *port)
 	port->rx_fifo_depth = geni_se_get_rx_fifo_depth(&port->se);
 	uport->fifosize =
 		(port->tx_fifo_depth * port->tx_fifo_width) / BITS_PER_BYTE;
-
-	if (port->rx_buf && (old_rx_fifo_depth != port->rx_fifo_depth) && port->rx_fifo_depth) {
-		/*
-		 * Use krealloc rather than krealloc_array because rx_buf is
-		 * accessed as 1 byte entries as well as 4 byte entries so it's
-		 * not necessarily an array.
-		 */
-		port->rx_buf = devm_krealloc(uport->dev, port->rx_buf,
-					     port->rx_fifo_depth * sizeof(u32),
-					     GFP_KERNEL);
-		if (!port->rx_buf)
-			return -ENOMEM;
-	}
 
 	return 0;
 }
