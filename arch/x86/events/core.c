@@ -642,11 +642,12 @@ static int pebs_simd_regs_validate(struct perf_event *event)
 	if (event_needs_xmm(event) &&
 	    x86_pmu.arch_pebs && !(caps & ARCH_PEBS_VECR_XMM))
 		return -EINVAL;
-	/* PEBS does not support YMM/ZMM/OPMASK registers sampling yet. */
+	/* PEBS does not support YMM/ZMM/OPMASK/eGPR registers sampling yet. */
 	if (event_needs_ymm(event) ||
 	    event_needs_low16_zmm(event) ||
 	    event_needs_high16_zmm(event) ||
-	    event_needs_opmask(event))
+	    event_needs_opmask(event) ||
+	    event_needs_egprs(event))
 		return -EINVAL;
 
 	return 0;
@@ -654,10 +655,21 @@ static int pebs_simd_regs_validate(struct perf_event *event)
 
 static int event_simd_regs_validate(struct perf_event *event)
 {
+	u64 reserved = ~GENMASK_ULL(PERF_REG_MISC_MAX - 1, 0);
+
 	if (!get_ext_regs_buf(raw_smp_processor_id()))
 		return -ENOMEM;
-	/* sample_simd_regs_enabled repurposes legacy XMM reg-mask slots. */
-	if (event_has_extended_regs(event))
+	/*
+	 * The XMM space in the perf_event_x86_regs is reclaimed
+	 * for eGPRs and other general registers.
+	 */
+	if (((event->attr.sample_type & PERF_SAMPLE_REGS_INTR) &&
+	     (event->attr.sample_regs_intr & reserved)) ||
+	    ((event->attr.sample_type & PERF_SAMPLE_REGS_USER) &&
+	     (event->attr.sample_regs_user & reserved)))
+		return -EINVAL;
+	if (event_needs_egprs(event) &&
+	    !(x86_pmu.ext_regs_mask & XFEATURE_MASK_APX))
 		return -EINVAL;
 	if (event_needs_xmm(event) &&
 	    !(x86_pmu.ext_regs_mask & XFEATURE_MASK_SSE))
@@ -1841,6 +1853,7 @@ void x86_pmu_clear_perf_regs(struct pt_regs *regs)
 	perf_regs->zmmh_regs = NULL;
 	perf_regs->h16zmm_regs = NULL;
 	perf_regs->opmask_regs = NULL;
+	perf_regs->egpr_regs = NULL;
 }
 
 static void update_perf_regs(struct x86_perf_regs *perf_regs,
@@ -1864,6 +1877,8 @@ static void update_perf_regs(struct x86_perf_regs *perf_regs,
 		perf_regs->h16zmm = get_xsave_addr(xsave, XFEATURE_Hi16_ZMM);
 	if (mask & XFEATURE_MASK_OPMASK)
 		perf_regs->opmask = get_xsave_addr(xsave, XFEATURE_OPMASK);
+	if (mask & XFEATURE_MASK_APX)
+		perf_regs->egpr = get_xsave_addr(xsave, XFEATURE_APX);
 }
 
 /*
@@ -2040,6 +2055,8 @@ static u64 get_simd_sample_mask(struct perf_event *event, u64 sample_type)
 		mask |= XFEATURE_MASK_Hi16_ZMM;
 	if (__event_needs_opmask(event, sample_type))
 		mask |= XFEATURE_MASK_OPMASK;
+	if (__event_needs_egprs(event, sample_type))
+		mask |= XFEATURE_MASK_APX;
 
 	return mask;
 }
