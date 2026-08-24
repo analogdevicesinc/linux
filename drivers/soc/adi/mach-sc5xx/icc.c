@@ -83,6 +83,29 @@ void put_adi_tru(struct adi_tru *tru)
 }
 EXPORT_SYMBOL(put_adi_tru);
 
+static int adi_tru_smc_trigger(struct adi_tru *tru, u32 master)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(ADI_TRU_SMC_TRIGGER, master, 0, 0, 0, 0, 0, 0, &res);
+	return (res.a0 == 0) ? 0 : -EINVAL;
+}
+
+static int adi_tru_trigger(struct adi_tru *tru, u32 master)
+{
+	if (master == 0 || master > tru->max_master_id) {
+		dev_err(tru->dev, "Invalid master ID to trigger %d\n",
+			master);
+		return -ERANGE;
+	}
+
+	if (tru->use_smc)
+		return adi_tru_smc_trigger(tru, master);
+
+	writel(master, tru->ioaddr + ADI_TRU_REG_MTR);
+	return 0;
+}
+
 int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev)
 {
 	struct device_node *np = dev->of_node;
@@ -99,30 +122,6 @@ int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev)
 }
 EXPORT_SYMBOL(adi_tru_trigger_device);
 
-static int adi_tru_smc_trigger(struct adi_tru *tru, u32 master)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(ADI_TRU_SMC_TRIGGER, master, 0, 0, 0, 0, 0, 0, &res);
-	return (res.a0 == 0) ? 0 : -EINVAL;
-}
-
-int adi_tru_trigger(struct adi_tru *tru, u32 master)
-{
-	if (master == 0 || master > tru->max_master_id) {
-		dev_err(tru->dev, "Invalid master ID to trigger %d\n",
-			master);
-		return -ERANGE;
-	}
-
-	if (tru->use_smc)
-		return adi_tru_smc_trigger(tru, master);
-
-	writel(master, tru->ioaddr + ADI_TRU_REG_MTR);
-	return 0;
-}
-EXPORT_SYMBOL(adi_tru_trigger);
-
 /**
  * Configure the given slave (i.e. TRU_SSR[n]) to be triggered by the given
  * master ID. The IDs found in the documentation, which appear to be 1-indexed
@@ -130,7 +129,7 @@ EXPORT_SYMBOL(adi_tru_trigger);
  * count to SSR[187]) should be used as-is. There's effectively an ID 0 master
  * that is unused and undocumented.
  */
-int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave)
+static int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave)
 {
 	if (slave > tru->max_slave_id) {
 		dev_err(tru->dev, "Invalid slave ID %d passed to %s",
@@ -171,8 +170,8 @@ int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave)
  * };
  * then parse the phandles and pass the node here, then put the node back.
  */
-int adi_tru_set_trigger(struct adi_tru *tru, struct device_node *master,
-			struct device_node *slave)
+static int adi_tru_set_trigger(struct adi_tru *tru, struct device_node *master,
+			       struct device_node *slave)
 {
 	u32 mid = 0;
 	u32 sid = 0;
