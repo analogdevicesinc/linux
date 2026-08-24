@@ -20,6 +20,7 @@
 		i2c1 = &i2c1;
 		mmc0 = &sdhi0;
 		mmc1 = &sdhi1;
+		rtc0 = &rtc0;
 		serial0 = &sci0;
 		spi0 = &xspi0;
 		spi1 = &xspi1;
@@ -512,6 +513,10 @@
 		input-schmitt-enable;
 		slew-rate = <1>;
 	};
+};
+
+&rtc0 {
+	status = "okay";
 };
 
 &sci0 {
