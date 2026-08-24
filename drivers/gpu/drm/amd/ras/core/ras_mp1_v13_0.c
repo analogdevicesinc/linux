@@ -29,6 +29,9 @@
 #define MSG_DATA_LOW32(idx)   (((idx) & 0xFFFFU) | BIT(16))
 #define MSG_DATA_HIGH32(idx)  (((idx) & 0xFFFFU) | BIT(17))
 
+#define MP1_V13_ClearMcaOnRead_UE_FLAG_MASK  0x1
+#define MP1_V13_ClearMcaOnRead_CE_POLL_MASK  0x2
+
 static int __send_mp1_msg32(struct ras_core_context *ras_core,
 		enum ras_mp1_msg_id msg_id, u32 input, u32 *output)
 {
@@ -216,13 +219,10 @@ static int mp1_v13_0_dump_bank(struct ras_core_context *ras_core,
 
 static int mp1_v13_0_set_debug_mode(struct ras_core_context *ras_core, bool enable)
 {
-	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
-	const struct ras_mp1_sys_func *sys_func = mp1->sys_func;
+	u32 param = enable ? 0 :
+		(MP1_V13_ClearMcaOnRead_UE_FLAG_MASK | MP1_V13_ClearMcaOnRead_CE_POLL_MASK);
 
-	if (!sys_func || !sys_func->mp1_set_debug_mode)
-		return -RAS_CORE_NOT_SUPPORTED;
-
-	return sys_func->mp1_set_debug_mode(ras_core, enable);
+	return __send_mp1_msg32(ras_core, RAS_MP1_MSG_ClearMcaOnRead, param, NULL);
 }
 
 
