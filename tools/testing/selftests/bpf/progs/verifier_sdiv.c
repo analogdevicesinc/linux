@@ -1271,6 +1271,7 @@ __naked void smod32_int_min_mod_neg2_imm(void)
 
 SEC("socket")
 __description("cpuv4 is not supported by compiler or jit, use a dummy test")
+__skip("cpuv4 is not supported by compiler or jit")
 __success
 int dummy_test(void)
 {

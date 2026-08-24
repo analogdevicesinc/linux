@@ -343,6 +343,7 @@ label_%=: 	                                        \
 
 SEC("socket")
 __description("cpuv4 is not supported by compiler or jit, use a dummy test")
+__skip("cpuv4 is not supported by compiler or jit")
 __success
 int dummy_test(void)
 {

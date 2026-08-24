@@ -167,6 +167,7 @@ int aggregate_ret_kfunc_struct_c_test(struct __sk_buff *skb)
 
 SEC("socket")
 __description("verifier_aggregate_ret: needs LLVM 23, dummy test")
+__skip("needs LLVM 23")
 __success
 int dummy_test(void)
 {
