@@ -3162,6 +3162,26 @@ static bool amd_iommu_is_attach_deferred(struct device *dev)
 	return dev_data->defer_attach;
 }
 
+static bool quirks_force_identity_mapping(struct pci_dev *pdev)
+{
+	int class = pdev->class >> 8;
+
+	/* AMD GPU vendor ID */
+	if (pdev->vendor != PCI_VENDOR_ID_ATI)
+		return false;
+
+	/* GPU class */
+	if (class != PCI_CLASS_DISPLAY_VGA &&
+	    class != PCI_CLASS_DISPLAY_OTHER)
+		return false;
+
+	if (pci_upstream_bridge(pdev)->vendor == PCI_VENDOR_ID_ATI)
+		return false;
+
+	/* It is the GPU in an APU, force identity domain */
+	return true;
+}
+
 static int amd_iommu_def_domain_type(struct device *dev)
 {
 	struct iommu_dev_data *dev_data;
@@ -3170,20 +3190,23 @@ static int amd_iommu_def_domain_type(struct device *dev)
 	if (!dev_data)
 		return 0;
 
+	if (!dev_is_pci(dev))
+		return 0;
+
 	/* Always use DMA domain for untrusted device */
-	if (dev_is_pci(dev) && to_pci_dev(dev)->untrusted)
+	if (to_pci_dev(dev)->untrusted)
 		return IOMMU_DOMAIN_DMA;
 
-	/*
-	 * Do not identity map IOMMUv2 capable devices when:
-	 *  - memory encryption is active, because some of those devices
-	 *    (AMD GPUs) don't have the encryption bit in their DMA-mask
-	 *    and require remapping.
-	 *  - SNP is enabled, because it prohibits DTE[Mode]=0.
-	 */
-	if (pdev_pasid_supported(dev_data) &&
-	    !cc_platform_has(CC_ATTR_MEM_ENCRYPT) &&
-	    !amd_iommu_snp_en) {
+	/* Apply device specific quirks */
+	if (quirks_force_identity_mapping(to_pci_dev(dev))) {
+		/*
+		 * When memory encryption is active, some of these devices
+		 * don't have the encryption bit in their DMA-mask and
+		 * require remapping.
+		 */
+		if (cc_platform_has(CC_ATTR_MEM_ENCRYPT))
+			return 0;
+
 		return IOMMU_DOMAIN_IDENTITY;
 	}
 
