@@ -646,12 +646,20 @@ static int pebs_simd_regs_validate(struct perf_event *event)
 	if (event_needs_ssp(event) &&
 	    !(x86_pmu.arch_pebs && (caps & ARCH_PEBS_GPR)))
 		return -EINVAL;
-	/* PEBS does not support YMM/ZMM/OPMASK/eGPR registers sampling yet. */
-	if (event_needs_ymm(event) ||
-	    event_needs_low16_zmm(event) ||
-	    event_needs_high16_zmm(event) ||
-	    event_needs_opmask(event) ||
-	    event_needs_egprs(event))
+	if (event_needs_ymm(event) &&
+	    !(x86_pmu.arch_pebs && (caps & ARCH_PEBS_VECR_YMMH)))
+		return -EINVAL;
+	if (event_needs_egprs(event) &&
+	    !(x86_pmu.arch_pebs && (caps & ARCH_PEBS_VECR_EGPRS)))
+		return -EINVAL;
+	if (event_needs_opmask(event) &&
+	    !(x86_pmu.arch_pebs && (caps & ARCH_PEBS_VECR_OPMASK)))
+		return -EINVAL;
+	if (event_needs_low16_zmm(event) &&
+	    !(x86_pmu.arch_pebs && (caps & ARCH_PEBS_VECR_ZMMH)))
+		return -EINVAL;
+	if (event_needs_high16_zmm(event) &&
+	    !(x86_pmu.arch_pebs && (caps & ARCH_PEBS_VECR_H16ZMM)))
 		return -EINVAL;
 
 	return 0;

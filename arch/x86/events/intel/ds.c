@@ -1740,6 +1740,16 @@ static u64 pebs_update_adaptive_cfg(struct perf_event *event)
 	if (sample_type & (PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER)) {
 		if (event_needs_xmm(event))
 			pebs_data_cfg |= PEBS_DATACFG_XMMS;
+		if (x86_pmu.arch_pebs && event_needs_ymm(event))
+			pebs_data_cfg |= PEBS_DATACFG_YMMHS;
+		if (x86_pmu.arch_pebs && event_needs_low16_zmm(event))
+			pebs_data_cfg |= PEBS_DATACFG_ZMMHS;
+		if (x86_pmu.arch_pebs && event_needs_high16_zmm(event))
+			pebs_data_cfg |= PEBS_DATACFG_H16ZMMS;
+		if (x86_pmu.arch_pebs && event_needs_opmask(event))
+			pebs_data_cfg |= PEBS_DATACFG_OPMASKS;
+		if (x86_pmu.arch_pebs && event_needs_egprs(event))
+			pebs_data_cfg |= PEBS_DATACFG_EGPRS;
 	}
 
 	if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
@@ -2694,14 +2704,63 @@ again:
 					   meminfo->tsx_tuning, ax);
 	}
 
-	if (header->xmm) {
+	if (header->xmm || header->ymmh || header->egpr ||
+	    header->opmask || header->zmmh || header->h16zmm) {
+		struct arch_pebs_xer_header *xer_header = next_record;
 		struct pebs_xmm *xmm;
+		struct ymmh_struct *ymmh;
+		struct avx_512_zmm_uppers_state *zmmh;
+		struct avx_512_hi16_state *h16zmm;
+		struct avx_512_opmask_state *opmask;
+		struct apx_state *egpr;
 
 		next_record += sizeof(struct arch_pebs_xer_header);
 
-		xmm = next_record;
-		perf_regs->xmm_regs = xmm->xmm;
-		next_record = xmm + 1;
+		if (header->xmm) {
+			xmm = next_record;
+			/*
+			 * Only output XMM regs to user space when arch-PEBS
+			 * really writes data into xstate area.
+			 */
+			if (xer_header->xstate & XFEATURE_MASK_SSE)
+				perf_regs->xmm_regs = xmm->xmm;
+			next_record = xmm + 1;
+		}
+
+		if (header->ymmh) {
+			ymmh = next_record;
+			if (xer_header->xstate & XFEATURE_MASK_YMM)
+				perf_regs->ymmh = ymmh;
+			next_record = ymmh + 1;
+		}
+
+		if (header->egpr) {
+			egpr = next_record;
+			if (xer_header->xstate & XFEATURE_MASK_APX)
+				perf_regs->egpr = egpr;
+			next_record = egpr + 1;
+		}
+
+		if (header->opmask) {
+			opmask = next_record;
+			if (xer_header->xstate & XFEATURE_MASK_OPMASK)
+				perf_regs->opmask = opmask;
+			next_record = opmask + 1;
+		}
+
+		if (header->zmmh) {
+			zmmh = next_record;
+			if (xer_header->xstate & XFEATURE_MASK_ZMM_Hi256)
+				perf_regs->zmmh = zmmh;
+			next_record = zmmh + 1;
+		}
+
+		if (header->h16zmm) {
+			h16zmm = next_record;
+			if (xer_header->xstate & XFEATURE_MASK_Hi16_ZMM)
+				perf_regs->h16zmm = h16zmm;
+			next_record = h16zmm + 1;
+		}
 	}
 
 	if (header->lbr) {
