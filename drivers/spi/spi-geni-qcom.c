@@ -363,8 +363,8 @@ static int geni_spi_set_clock_and_bw(struct geni_se *se,
 	return 0;
 }
 
-static int setup_fifo_params(struct spi_device *spi_slv,
-					struct spi_controller *spi)
+static void setup_spi_params(struct spi_device *spi_slv,
+			     struct spi_controller *spi)
 {
 	struct spi_geni_master *mas = spi_controller_get_devdata(spi);
 	struct geni_se *se = &mas->se;
@@ -390,8 +390,6 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 
 	trace_geni_spi_setup_params(mas->dev, chipselect, spi_slv->mode,
 				    mode_changed, cs_changed);
-
-	return 0;
 }
 
 static void
@@ -554,17 +552,14 @@ static int spi_geni_prepare_message(struct spi_controller *spi,
 				    struct spi_message *spi_msg)
 {
 	struct spi_geni_master *mas = spi_controller_get_devdata(spi);
-	int ret;
 
 	switch (mas->cur_xfer_mode) {
 	case GENI_SE_FIFO:
 	case GENI_SE_DMA:
 		if (spi_geni_is_abort_still_pending(mas))
 			return -EBUSY;
-		ret = setup_fifo_params(spi_msg->spi, spi);
-		if (ret)
-			dev_err(mas->dev, "Couldn't select mode %d\n", ret);
-		return ret;
+		setup_spi_params(spi_msg->spi, spi);
+		return 0;
 
 	case GENI_GPI_DMA:
 		/* nothing to do for GPI DMA */
@@ -700,7 +695,7 @@ static int spi_geni_init(struct spi_geni_master *mas)
 	case 0:
 		mas->cur_xfer_mode = GENI_SE_FIFO;
 		geni_se_select_mode(se, GENI_SE_FIFO);
-		/* setup_fifo_params assumes that these registers start with a zero value */
+		/* setup_spi_params assumes that these registers start with a zero value */
 		writel(0, se->base + SE_SPI_LOOPBACK);
 		writel(0, se->base + SE_SPI_DEMUX_SEL);
 		writel(0, se->base + SE_SPI_CPHA);
