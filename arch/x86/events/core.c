@@ -642,8 +642,10 @@ static int pebs_simd_regs_validate(struct perf_event *event)
 	if (event_needs_xmm(event) &&
 	    x86_pmu.arch_pebs && !(caps & ARCH_PEBS_VECR_XMM))
 		return -EINVAL;
-	/* PEBS does not support YMM registers sampling yet. */
-	if (event_needs_ymm(event))
+	/* PEBS does not support YMM/ZMM registers sampling yet. */
+	if (event_needs_ymm(event) ||
+	    event_needs_low16_zmm(event) ||
+	    event_needs_high16_zmm(event))
 		return -EINVAL;
 
 	return 0;
@@ -661,6 +663,12 @@ static int event_simd_regs_validate(struct perf_event *event)
 		return -EINVAL;
 	if (event_needs_ymm(event) &&
 	   !(x86_pmu.ext_regs_mask & XFEATURE_MASK_YMM))
+		return -EINVAL;
+	if (event_needs_low16_zmm(event) &&
+	    !(x86_pmu.ext_regs_mask & XFEATURE_MASK_ZMM_Hi256))
+		return -EINVAL;
+	if (event_needs_high16_zmm(event) &&
+	    !(x86_pmu.ext_regs_mask & XFEATURE_MASK_Hi16_ZMM))
 		return -EINVAL;
 
 	return 0;
@@ -1826,6 +1834,8 @@ void x86_pmu_clear_perf_regs(struct pt_regs *regs)
 	perf_regs->abi = PERF_SAMPLE_REGS_ABI_NONE;
 	perf_regs->xmm_regs = NULL;
 	perf_regs->ymmh_regs = NULL;
+	perf_regs->zmmh_regs = NULL;
+	perf_regs->h16zmm_regs = NULL;
 }
 
 static void update_perf_regs(struct x86_perf_regs *perf_regs,
@@ -1843,6 +1853,10 @@ static void update_perf_regs(struct x86_perf_regs *perf_regs,
 		perf_regs->xmm_space = xsave->i387.xmm_space;
 	if (mask & XFEATURE_MASK_YMM)
 		perf_regs->ymmh = get_xsave_addr(xsave, XFEATURE_YMM);
+	if (mask & XFEATURE_MASK_ZMM_Hi256)
+		perf_regs->zmmh = get_xsave_addr(xsave, XFEATURE_ZMM_Hi256);
+	if (mask & XFEATURE_MASK_Hi16_ZMM)
+		perf_regs->h16zmm = get_xsave_addr(xsave, XFEATURE_Hi16_ZMM);
 }
 
 /*
@@ -2013,6 +2027,10 @@ static u64 get_simd_sample_mask(struct perf_event *event, u64 sample_type)
 		mask |= XFEATURE_MASK_SSE;
 	if (__event_needs_ymm(event, sample_type))
 		mask |= XFEATURE_MASK_YMM;
+	if (__event_needs_low16_zmm(event, sample_type))
+		mask |= XFEATURE_MASK_ZMM_Hi256;
+	if (__event_needs_high16_zmm(event, sample_type))
+		mask |= XFEATURE_MASK_Hi16_ZMM;
 
 	return mask;
 }
