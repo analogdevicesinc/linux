@@ -3925,6 +3925,9 @@ static int handle_pmi_common(struct pt_regs *regs, u64 status)
 		if (has_branch_stack(event))
 			intel_pmu_lbr_save_brstack(&data, cpuc, event);
 
+		x86_pmu_clear_perf_regs(regs);
+		x86_pmu_update_perf_regs(event, &data, regs, false);
+
 		perf_event_overflow(event, &data, regs);
 	}
 
@@ -6165,12 +6168,23 @@ static inline bool intel_pmu_broken_perf_cap(void)
 static inline void __intel_update_pmu_xregs_caps(struct pmu *pmu)
 {
 	struct pmu *dest_pmu = pmu ? pmu : x86_get_pmu(smp_processor_id());
-	u64 caps = hybrid(pmu, arch_pebs_cap).caps;
 
-	if ((x86_pmu.arch_pebs && (caps & ARCH_PEBS_VECR_XMM)) ||
-	    (!x86_pmu.arch_pebs && x86_pmu.intel_cap.pebs_format >= 4 &&
-	     x86_pmu.intel_cap.pebs_baseline))
-		dest_pmu->capabilities |= PERF_PMU_CAP_EXTENDED_REGS;
+	/* Only support the extension when XSAVES is available. */
+	if (!boot_cpu_has(X86_FEATURE_XSAVES))
+		return;
+
+	if (!boot_cpu_has(X86_FEATURE_XMM) ||
+	    !cpu_has_xfeatures(XFEATURE_MASK_SSE, NULL))
+		return;
+
+	/*
+	 * On current hybrid platforms, P-cores and E-cores expose the same
+	 * XSAVE feature set. Therefore, using the global x86_pmu.ext_regs_mask
+	 * is sufficient to represent the hardware-supported XSAVE features.
+	 */
+	x86_pmu.ext_regs_mask |= XFEATURE_MASK_SSE;
+
+	dest_pmu->capabilities |= PERF_PMU_CAP_EXTENDED_REGS;
 }
 
 static inline void __intel_update_large_pebs_flags(struct pmu *pmu)

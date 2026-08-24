@@ -1029,6 +1029,12 @@ struct x86_pmu {
 	unsigned int flags;
 
 	/*
+	 * Extended regs, e.g., vector registers
+	 * Utilize the same format as the XFEATURE_MASK_*
+	 */
+	u64		ext_regs_mask;
+
+	/*
 	 * Intel host/guest support (KVM)
 	 */
 	struct perf_guest_switch_msr *(*guest_get_msrs)(int *nr, void *data);
@@ -1314,6 +1320,13 @@ static inline void x86_pmu_disable_event(struct perf_event *event)
 void x86_pmu_enable_event(struct perf_event *event);
 
 int x86_pmu_handle_irq(struct pt_regs *regs);
+
+void x86_pmu_clear_perf_regs(struct pt_regs *regs);
+
+void x86_pmu_update_perf_regs(struct perf_event *event,
+			      struct perf_sample_data *data,
+			      struct pt_regs *regs,
+			      bool from_pebs);
 
 void x86_pmu_show_pmu_cap(struct pmu *pmu);
 

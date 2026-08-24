@@ -2515,7 +2515,7 @@ static void setup_pebs_adaptive_sample_data(struct perf_event *event,
 		return;
 
 	perf_regs = container_of(regs, struct x86_perf_regs, regs);
-	perf_regs->xmm_regs = NULL;
+	x86_pmu_clear_perf_regs(regs);
 
 	format_group = basic->format_group;
 
@@ -2600,6 +2600,8 @@ static void setup_pebs_adaptive_sample_data(struct perf_event *event,
 		next_record += nr * sizeof(u64);
 	}
 
+	x86_pmu_update_perf_regs(event, data, regs, true);
+
 	WARN_ONCE(next_record != __pebs + basic->format_size,
 			"PEBS record size %u, expected %llu, config %llx\n",
 			basic->format_size,
@@ -2632,7 +2634,7 @@ static void setup_arch_pebs_sample_data(struct perf_event *event,
 		return;
 
 	perf_regs = container_of(regs, struct x86_perf_regs, regs);
-	perf_regs->xmm_regs = NULL;
+	x86_pmu_clear_perf_regs(regs);
 
 	__setup_perf_sample_data(event, iregs, data);
 
@@ -2734,6 +2736,8 @@ again:
 		at = at + header->size;
 		goto again;
 	}
+
+	x86_pmu_update_perf_regs(event, data, regs, true);
 }
 
 static inline void *
