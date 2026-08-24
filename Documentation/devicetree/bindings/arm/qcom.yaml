@@ -1187,6 +1187,7 @@ properties:
 
       - items:
           - enum:
+              - ayaneo,pocket-ds
               - qcom,qcs8550-rb5gen2
           - const: qcom,qcs8550
           - const: qcom,sm8550
