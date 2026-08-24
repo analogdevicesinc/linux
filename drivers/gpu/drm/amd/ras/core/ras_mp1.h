@@ -25,7 +25,15 @@
 #define __RAS_MP1_H__
 #include "ras.h"
 
+#define MAX_UE_BANKS_PER_QUERY  12
+#define MAX_CE_BANKS_PER_QUERY  12
+
 enum ras_mp1_msg_id {
+	RAS_MP1_MSG_QueryValidMcaCount,
+	RAS_MP1_MSG_McaBankDumpDW,
+	RAS_MP1_MSG_ClearMcaOnRead,
+	RAS_MP1_MSG_QueryValidMcaCeCount,
+	RAS_MP1_MSG_McaBankCeDumpDW,
 	RAS_MP1_MSG_GetRasTableVersion,
 	RAS_MP1_MSG_GetRmaStatus,
 	RAS_MP1_MSG_GetBadPageCount,

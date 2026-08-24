@@ -26,29 +26,51 @@
 #include "core_status.h"
 #include "ras_mp1_v13_0.h"
 
-#define RAS_MP1_MSG_QueryValidMcaCount                0x36
-#define RAS_MP1_MSG_McaBankDumpDW                     0x37
-#define RAS_MP1_MSG_ClearMcaOnRead                    0x39
-#define RAS_MP1_MSG_QueryValidMcaCeCount              0x3A
-#define RAS_MP1_MSG_McaBankCeDumpDW                   0x3B
+static int __send_mp1_msg32(struct ras_core_context *ras_core,
+		enum ras_mp1_msg_id msg_id, u32 input, u32 *output)
+{
+	if (!ras_core->ras_mp1.sys_func ||
+	    !ras_core->ras_mp1.sys_func->mp1_send_ras_msg)
+		return -EOPNOTSUPP;
 
-#define MAX_UE_BANKS_PER_QUERY  12
-#define MAX_CE_BANKS_PER_QUERY  12
+	return ras_core->ras_mp1.sys_func->mp1_send_ras_msg(ras_core,
+				msg_id, &input, 1, output, output ? 1 : 0);
+}
+
+static int __dump_mp1_bank_reg64(struct ras_core_context *ras_core,
+				     u32 msg, u32 idx, u32 reg_idx, u64 *val)
+{
+	u32 data[2] = {0, 0};
+	u32 param;
+	int ret;
+	u32 i, offset;
+
+	offset = reg_idx * 8;
+	for (i = 0; i < ARRAY_SIZE(data); i++) {
+		param = ((idx & 0xffff) << 16) | ((offset + (i << 2)) & 0xfffc);
+		ret = __send_mp1_msg32(ras_core, msg, param, &data[i]);
+		if (ret) {
+			RAS_DEV_ERR(ras_core->dev,
+				"ACA failed to read register[%u], offset:0x%x\n",
+				reg_idx, offset);
+			return ret;
+		}
+	}
+
+	*val = ((u64)data[1] << 32) | data[0];
+
+	return 0;
+}
 
 static int mp1_v13_0_get_bank_count(struct ras_core_context *ras_core,
 			    enum ras_err_type type, u32 *count)
 {
-	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
-	const struct ras_mp1_sys_func *sys_func = mp1->sys_func;
-	uint32_t bank_count = 0;
+	u32 bank_count = 0;
 	u32 msg;
 	int ret;
 
 	if (!count)
 		return -EINVAL;
-
-	if (!sys_func || !sys_func->mp1_get_valid_bank_count)
-		return -RAS_CORE_NOT_SUPPORTED;
 
 	switch (type) {
 	case RAS_ERR_TYPE__UE:
@@ -62,10 +84,11 @@ static int mp1_v13_0_get_bank_count(struct ras_core_context *ras_core,
 		return -EINVAL;
 	}
 
-	ret = sys_func->mp1_get_valid_bank_count(ras_core, msg, &bank_count);
+	ret = __send_mp1_msg32(ras_core, msg, 0, &bank_count);
 	if (!ret) {
 		if (((type == RAS_ERR_TYPE__UE) && (bank_count >= MAX_UE_BANKS_PER_QUERY)) ||
-			((type == RAS_ERR_TYPE__CE) && (bank_count >= MAX_CE_BANKS_PER_QUERY)))
+			((type == RAS_ERR_TYPE__CE || type == RAS_ERR_TYPE__DE) &&
+			 (bank_count >= MAX_CE_BANKS_PER_QUERY)))
 			return -EINVAL;
 
 		*count = bank_count;
@@ -77,13 +100,11 @@ static int mp1_v13_0_get_bank_count(struct ras_core_context *ras_core,
 static int mp1_v13_0_dump_bank(struct ras_core_context *ras_core,
 			enum ras_err_type type, u32 idx, u64 *regs, u32 regs_sz)
 {
-	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
-	const struct ras_mp1_sys_func *sys_func = mp1->sys_func;
 	int i, ret, reg_cnt;
 	u32 msg;
 
-	if (!sys_func || !sys_func->mp1_dump_valid_bank)
-		return -RAS_CORE_NOT_SUPPORTED;
+	if (!regs || !regs_sz || (idx > 0xffff))
+		return -EINVAL;
 
 	switch (type) {
 	case RAS_ERR_TYPE__UE:
@@ -99,7 +120,7 @@ static int mp1_v13_0_dump_bank(struct ras_core_context *ras_core,
 
 	reg_cnt = min_t(int, 16, regs_sz);
 	for (i = 0; i < reg_cnt; i++) {
-		ret = sys_func->mp1_dump_valid_bank(ras_core, msg, idx, i, &regs[i]);
+		ret = __dump_mp1_bank_reg64(ras_core, msg, idx, i, &regs[i]);
 		if (ret)
 			return ret;
 	}

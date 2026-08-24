@@ -26,6 +26,10 @@
 #include "ras.h"
 
 static const enum smu_message_type ras_smu_msg_maps[RAS_MP1_MSG_MAX] = {
+	[RAS_MP1_MSG_QueryValidMcaCount] = SMU_MSG_QueryValidMcaCount,
+	[RAS_MP1_MSG_McaBankDumpDW] = SMU_MSG_McaBankDumpDW,
+	[RAS_MP1_MSG_QueryValidMcaCeCount] = SMU_MSG_QueryValidMcaCeCount,
+	[RAS_MP1_MSG_McaBankCeDumpDW] = SMU_MSG_McaBankCeDumpDW,
 	[RAS_MP1_MSG_GetRasTableVersion] = SMU_MSG_GetRASTableVersion,
 	[RAS_MP1_MSG_GetRmaStatus] = SMU_MSG_GetRmaStatus,
 	[RAS_MP1_MSG_GetBadPageCount] = SMU_MSG_GetBadPageCount,
