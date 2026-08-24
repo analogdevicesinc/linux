@@ -306,6 +306,7 @@ struct perf_event_pmu_context;
 #define PERF_PMU_CAP_AUX_PAUSE		0x0200
 #define PERF_PMU_CAP_AUX_PREFER_LARGE	0x0400
 #define PERF_PMU_CAP_MEDIATED_VPMU	0x0800
+#define PERF_PMU_CAP_SIMD_REGS		0x1000
 
 /**
  * pmu::scope
@@ -1533,6 +1534,17 @@ perf_event__output_id_sample(struct perf_event *event,
 
 extern void
 perf_log_lost_samples(struct perf_event *event, u64 lost);
+
+static inline bool event_has_simd_regs(struct perf_event *event)
+{
+	struct perf_event_attr *attr = &event->attr;
+
+	if (!(event->attr.sample_type &
+	      (PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER)))
+		return false;
+
+	return attr->sample_simd_regs_enabled != 0;
+}
 
 static inline bool event_has_extended_regs(struct perf_event *event)
 {
