@@ -131,13 +131,16 @@ int inv_icm42600_buffer_set_fifo_en(struct inv_icm42600_state *st,
 		INV_ICM42600_FIFO_CONFIG1_GYRO_EN |
 		INV_ICM42600_FIFO_CONFIG1_ACCEL_EN;
 
-	val = 0;
-	if (fifo_en & INV_ICM42600_SENSOR_GYRO)
-		val |= INV_ICM42600_FIFO_CONFIG1_GYRO_EN;
-	if (fifo_en & INV_ICM42600_SENSOR_ACCEL)
-		val |= INV_ICM42600_FIFO_CONFIG1_ACCEL_EN;
-	if (fifo_en & INV_ICM42600_SENSOR_TEMP)
-		val |= INV_ICM42600_FIFO_CONFIG1_TEMP_EN;
+	/*
+	 * Always enable/disable all bits to ensure we can flawlessly add
+	 * accel/gyro data in the FIFO while it is running.
+	 */
+	if (fifo_en)
+		val = INV_ICM42600_FIFO_CONFIG1_TEMP_EN |
+		      INV_ICM42600_FIFO_CONFIG1_GYRO_EN |
+		      INV_ICM42600_FIFO_CONFIG1_ACCEL_EN;
+	else
+		val = 0;
 
 	ret = regmap_update_bits(st->map, INV_ICM42600_REG_FIFO_CONFIG1, mask, val);
 	if (ret)
@@ -147,19 +150,6 @@ int inv_icm42600_buffer_set_fifo_en(struct inv_icm42600_state *st,
 	inv_icm42600_buffer_update_fifo_period(st);
 
 	return 0;
-}
-
-static size_t inv_icm42600_get_packet_size(unsigned int fifo_en)
-{
-	size_t packet_size;
-
-	if ((fifo_en & INV_ICM42600_SENSOR_GYRO) &&
-	    (fifo_en & INV_ICM42600_SENSOR_ACCEL))
-		packet_size = INV_ICM42600_FIFO_2SENSORS_PACKET_SIZE;
-	else
-		packet_size = INV_ICM42600_FIFO_1SENSOR_PACKET_SIZE;
-
-	return packet_size;
 }
 
 static unsigned int inv_icm42600_wm_truncate(unsigned int watermark,
@@ -209,7 +199,7 @@ int inv_icm42600_buffer_update_watermark(struct inv_icm42600_state *st)
 	__le16 raw_wm;
 	int ret;
 
-	packet_size = inv_icm42600_get_packet_size(st->fifo.en);
+	packet_size = INV_ICM42600_FIFO_2SENSORS_PACKET_SIZE;
 
 	/* compute sensors latency, depending on sensor watermark and odr */
 	wm_gyro = inv_icm42600_wm_truncate(st->fifo.watermark.gyro, packet_size);
@@ -495,7 +485,7 @@ int inv_icm42600_buffer_fifo_read(struct inv_icm42600_state *st,
 	/* compute maximum FIFO read size (watermark for max = 0 interrupt case) */
 	if (max == 0)
 		max = st->fifo.watermark.value;
-	max_count = max * inv_icm42600_get_packet_size(st->fifo.en);
+	max_count = max * INV_ICM42600_FIFO_2SENSORS_PACKET_SIZE;
 
 	/* read FIFO count value */
 	raw_fifo_count = (__be16 *)st->buffer;
