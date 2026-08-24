@@ -54,6 +54,8 @@ static int amdgpu_ras_sys_poison_consumption_event(struct ras_core_context *ras_
 	if (!req)
 		return -EINVAL;
 
+	kgd2kfd_set_sram_ecc_flag(adev->kfd.dev);
+
 	if (req->pasid_fn) {
 		pasid_fn = (pasid_notify)req->pasid_fn;
 		pasid_fn(adev, req->pasid, req->data);

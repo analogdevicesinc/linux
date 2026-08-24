@@ -89,6 +89,7 @@ int amdgpu_ras_process_handle_umc_interrupt(struct amdgpu_device *adev, void *da
 
 int amdgpu_ras_process_handle_unexpected_interrupt(struct amdgpu_device *adev, void *data)
 {
+	kgd2kfd_set_sram_ecc_flag(adev->kfd.dev);
 	amdgpu_ras_set_fed(adev, true);
 	return amdgpu_ras_mgr_reset_gpu(adev, AMDGPU_RAS_GPU_RESET_MODE1_RESET);
 }
