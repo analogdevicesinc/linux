@@ -477,24 +477,21 @@ int inv_icm42600_buffer_fifo_read(struct inv_icm42600_state *st,
 	st->fifo.nb.accel = 0;
 	st->fifo.nb.total = 0;
 
-	/* compute maximum FIFO read size (watermark for max = 0 interrupt case) */
-	if (max == 0)
-		max = st->fifo.watermark.value;
-	max_count = max * INV_ICM42600_FIFO_2SENSORS_PACKET_SIZE;
-
-	/* read FIFO count value */
-	raw_fifo_count = (__be16 *)st->buffer;
-	ret = regmap_bulk_read(st->map, INV_ICM42600_REG_FIFO_COUNT,
-			       raw_fifo_count, sizeof(*raw_fifo_count));
-	if (ret)
-		return ret;
-	st->fifo.count = be16_to_cpup(raw_fifo_count);
-
-	/* check and clamp FIFO count value */
-	if (st->fifo.count == 0)
-		return 0;
-	if (st->fifo.count > max_count)
-		st->fifo.count = max_count;
+	/* read watermark samples for interrupt case (max = 0) or read FIFO count */
+	if (max == 0) {
+		st->fifo.count = st->fifo.watermark.value *
+				 INV_ICM42600_FIFO_2SENSORS_PACKET_SIZE;
+	} else {
+		raw_fifo_count = (__be16 *)st->buffer;
+		ret = regmap_bulk_read(st->map, INV_ICM42600_REG_FIFO_COUNT,
+					raw_fifo_count, sizeof(*raw_fifo_count));
+		if (ret)
+			return ret;
+		max_count = max * INV_ICM42600_FIFO_2SENSORS_PACKET_SIZE;
+		st->fifo.count = min(be16_to_cpup(raw_fifo_count), max_count);
+		if (st->fifo.count == 0)
+			return 0;
+	}
 
 	/* read all FIFO data in internal buffer */
 	ret = regmap_noinc_read(st->map, INV_ICM42600_REG_FIFO_DATA,
