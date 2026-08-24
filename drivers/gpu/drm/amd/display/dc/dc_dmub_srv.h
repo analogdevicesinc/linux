@@ -31,7 +31,10 @@
 
 struct dmub_srv;
 struct dc;
+struct dc_context;
 struct pipe_ctx;
+struct hubp;
+struct dpp;
 struct dc_crtc_timing_adjust;
 struct dc_crtc_timing;
 struct dc_state;
@@ -91,7 +94,9 @@ bool dc_dmub_srv_get_diagnostic_data(struct dc_dmub_srv *dc_dmub_srv);
 void dc_dmub_setup_subvp_dmub_command(struct dc *dc, struct dc_state *context, bool enable);
 void dc_dmub_srv_log_diagnostic_data(struct dc_dmub_srv *dc_dmub_srv);
 
-void dc_send_update_cursor_info_to_dmu(struct pipe_ctx *pCtx, uint8_t pipe_idx);
+bool dc_dmub_should_update_cursor_data(struct pipe_ctx *pipe_ctx);
+void dc_send_update_cursor_info_to_dmu(const struct dc_context *ctx, uint8_t pipe_idx,
+		struct hubp *hubp, struct dpp *dpp, uint8_t otg_inst, uint8_t panel_inst);
 bool dc_dmub_check_min_version(struct dmub_srv *srv);
 
 void dc_dmub_srv_enable_dpia_trace(const struct dc *dc);

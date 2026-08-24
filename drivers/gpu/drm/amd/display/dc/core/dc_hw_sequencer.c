@@ -1356,14 +1356,10 @@ void hwss_build_fast_sequence(struct dc *dc,
 			block_sequence[*num_steps].func = DPP_SET_CURSOR_ATTRIBUTES;
 			(*num_steps)++;
 
-			if (dc->ctx->dmub_srv) {
-				block_sequence[*num_steps].params.send_cursor_info_to_dmu_params.pipe_ctx =
-					current_pipe;
-				block_sequence[*num_steps].params.send_cursor_info_to_dmu_params.pipe_idx =
-					current_pipe->pipe_idx;
-				block_sequence[*num_steps].func = DC_SEND_CURSOR_INFO_TO_DMU;
-				(*num_steps)++;
-			}
+			if (dc->ctx->dmub_srv)
+				hwss_add_send_update_cursor_info_to_dmu(
+					&(struct block_sequence_state){ block_sequence, num_steps },
+					current_pipe);
 
 			hwss_add_set_cursor_sdr_white_level(&seq_state, current_pipe);
 
@@ -1448,14 +1444,10 @@ void hwss_build_fast_sequence(struct dc *dc,
 				(*num_steps)++;
 			}
 
-			if (dc->ctx->dmub_srv) {
-				block_sequence[*num_steps].params.send_cursor_info_to_dmu_params.pipe_ctx =
-					current_pipe;
-				block_sequence[*num_steps].params.send_cursor_info_to_dmu_params.pipe_idx =
-					current_pipe->pipe_idx;
-				block_sequence[*num_steps].func = DC_SEND_CURSOR_INFO_TO_DMU;
-				(*num_steps)++;
-			}
+			if (dc->ctx->dmub_srv)
+				hwss_add_send_update_cursor_info_to_dmu(
+					&(struct block_sequence_state){ block_sequence, num_steps },
+					current_pipe);
 		}
 
 		/* Unlock cursor position after all pipes have been programmed */
@@ -4363,10 +4355,13 @@ void hwss_update_cursor_offload_pipe(union block_sequence_params *params)
 
 void hwss_send_cursor_info_to_dmu(union block_sequence_params *params)
 {
-	struct pipe_ctx *pipe_ctx = params->send_cursor_info_to_dmu_params.pipe_ctx;
-	int pipe_idx = params->send_cursor_info_to_dmu_params.pipe_idx;
-
-	dc_send_update_cursor_info_to_dmu(pipe_ctx, (uint8_t)pipe_idx);
+	dc_send_update_cursor_info_to_dmu(
+		params->send_cursor_info_to_dmu_params.ctx,
+		params->send_cursor_info_to_dmu_params.pipe_idx,
+		params->send_cursor_info_to_dmu_params.hubp,
+		params->send_cursor_info_to_dmu_params.dpp,
+		params->send_cursor_info_to_dmu_params.otg_inst,
+		params->send_cursor_info_to_dmu_params.panel_inst);
 }
 
 void hwss_set_cursor_attribute(union block_sequence_params *params)
@@ -5914,13 +5909,27 @@ void hwss_add_cursor_lock(struct block_sequence_state *seq_state,
 }
 
 void hwss_add_send_update_cursor_info_to_dmu(struct block_sequence_state *seq_state,
-		struct pipe_ctx *pipe_ctx,
-		int index)
+		struct pipe_ctx *pipe_ctx)
 {
+	unsigned int panel_inst = 0;
+
+	if (!dc_dmub_should_update_cursor_data(pipe_ctx))
+		return;
+
+	dc_get_edp_link_panel_inst(pipe_ctx->stream->ctx->dc,
+			pipe_ctx->stream->link, &panel_inst);
+
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		struct send_cursor_info_to_dmu_params *p =
+			&seq_state->steps[*seq_state->num_steps].params.send_cursor_info_to_dmu_params;
+
 		seq_state->steps[*seq_state->num_steps].func = DC_SEND_CURSOR_INFO_TO_DMU;
-		seq_state->steps[*seq_state->num_steps].params.send_cursor_info_to_dmu_params.pipe_ctx = pipe_ctx;
-		seq_state->steps[*seq_state->num_steps].params.send_cursor_info_to_dmu_params.pipe_idx = index;
+		p->ctx = pipe_ctx->stream->ctx;
+		p->pipe_idx = pipe_ctx->pipe_idx;
+		p->hubp = pipe_ctx->plane_res.hubp;
+		p->dpp = pipe_ctx->plane_res.dpp;
+		p->otg_inst = (uint8_t)pipe_ctx->stream_res.tg->inst;
+		p->panel_inst = (uint8_t)panel_inst;
 		(*seq_state->num_steps)++;
 	}
 }

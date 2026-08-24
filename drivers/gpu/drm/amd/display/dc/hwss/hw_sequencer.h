@@ -847,8 +847,12 @@ struct setup_periodic_interrupt_params {
 };
 
 struct send_cursor_info_to_dmu_params {
-	struct pipe_ctx *pipe_ctx;
-	int pipe_idx;
+	const struct dc_context *ctx;
+	uint8_t pipe_idx;
+	struct hubp *hubp;
+	struct dpp *dpp;
+	uint8_t otg_inst;
+	uint8_t panel_inst;
 };
 
 struct set_cursor_attribute_params {
@@ -2663,8 +2667,7 @@ void hwss_add_cursor_lock(struct block_sequence_state *seq_state,
 		bool lock);
 
 void hwss_add_send_update_cursor_info_to_dmu(struct block_sequence_state *seq_state,
-		struct pipe_ctx *pipe_ctx,
-		int index);
+		struct pipe_ctx *pipe_ctx);
 
 void hwss_add_update_cursor_offload_pipe(struct block_sequence_state *seq_state,
 		struct dc *dc,

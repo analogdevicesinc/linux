@@ -1016,7 +1016,7 @@ void dc_dmub_srv_log_diagnostic_data(struct dc_dmub_srv *dc_dmub_srv)
 	DC_LOG_DEBUG("    is_pwait           : %d", dc_dmub_srv->dmub->debug.is_pwait);
 }
 
-static bool dc_dmub_should_update_cursor_data(struct pipe_ctx *pipe_ctx)
+bool dc_dmub_should_update_cursor_data(struct pipe_ctx *pipe_ctx)
 {
 	if (pipe_ctx->plane_state != NULL) {
 		if (pipe_ctx->plane_state->address.type == PLN_ADDR_TYPE_VIDEO_PROGRESSIVE ||
@@ -1036,20 +1036,16 @@ static bool dc_dmub_should_update_cursor_data(struct pipe_ctx *pipe_ctx)
 }
 
 static void dc_build_cursor_update_payload0(
-		struct pipe_ctx *pipe_ctx, uint8_t p_idx,
+		const struct dc_context *ctx, uint8_t p_idx,
+		struct hubp *hubp, uint8_t otg_inst, uint8_t panel_inst,
 		struct dmub_cmd_update_cursor_payload0 *payload)
 {
-	struct dc *dc = pipe_ctx->stream->ctx->dc;
-	struct hubp *hubp = pipe_ctx->plane_res.hubp;
-	unsigned int panel_inst = 0;
+	struct dc *dc = ctx->dc;
 
 	if (dc->config.frame_update_cmd_version2 == true) {
 		/* Don't need panel_inst for command version2 */
 		payload->cmd_version = DMUB_CMD_CURSOR_UPDATE_VERSION_2;
 	} else {
-		if (!dc_get_edp_link_panel_inst(hubp->ctx->dc,
-			pipe_ctx->stream->link, &panel_inst))
-			return;
 		payload->cmd_version = DMUB_CMD_CURSOR_UPDATE_VERSION_1;
 	}
 
@@ -1064,8 +1060,8 @@ static void dc_build_cursor_update_payload0(
 
 	payload->enable      = (uint8_t)hubp->pos.cur_ctl.bits.cur_enable;
 	payload->pipe_idx    = p_idx;
-	payload->panel_inst  = (uint8_t)panel_inst;
-	payload->otg_inst    = (uint8_t)pipe_ctx->stream_res.tg->inst;
+	payload->panel_inst  = panel_inst;
+	payload->otg_inst    = otg_inst;
 }
 
 static void dc_build_cursor_position_update_payload0(
@@ -1102,14 +1098,21 @@ static void dc_build_cursor_attribute_update_payload1(
 /**
  * dc_send_update_cursor_info_to_dmu - Populate the DMCUB Cursor update info command
  *
- * @pCtx: [in] pipe context
+ * @ctx: [in] dc context
  * @pipe_idx: [in] pipe index
+ * @hubp: [in] hubp resource providing cursor position/attribute caches
+ * @dpp: [in] dpp resource providing cursor position/attribute caches
+ * @otg_inst: [in] OTG instance driving the pipe
+ * @panel_inst: [in] eDP panel instance (command version 1 only)
  *
  * This function would store the cursor related information and pass it into
- * dmub
+ * dmub. The caller is responsible for gating with
+ * dc_dmub_should_update_cursor_data().
  */
 void dc_send_update_cursor_info_to_dmu(
-		struct pipe_ctx *pCtx, uint8_t pipe_idx)
+		const struct dc_context *ctx, uint8_t pipe_idx,
+		struct hubp *hubp, struct dpp *dpp,
+		uint8_t otg_inst, uint8_t panel_inst)
 {
 	union dmub_rb_cmd cmd[2];
 	union dmub_cmd_update_cursor_info_data *update_cursor_info_0 =
@@ -1117,8 +1120,6 @@ void dc_send_update_cursor_info_to_dmu(
 
 	memset(cmd, 0, sizeof(cmd));
 
-	if (!dc_dmub_should_update_cursor_data(pCtx))
-		return;
 	/*
 	 * Since we use multi_cmd_pending for dmub command, the 2nd command is
 	 * only assigned to store cursor attributes info.
@@ -1138,11 +1139,12 @@ void dc_send_update_cursor_info_to_dmu(
 		cmd[0].update_cursor_info.header.multi_cmd_pending = 1; //To combine multi dmu cmd, 1st cmd
 
 		/* Prepare Payload */
-		dc_build_cursor_update_payload0(pCtx, pipe_idx, &update_cursor_info_0->payload0);
+		dc_build_cursor_update_payload0(ctx, pipe_idx, hubp, otg_inst, panel_inst,
+				&update_cursor_info_0->payload0);
 
 		dc_build_cursor_position_update_payload0(&update_cursor_info_0->payload0, pipe_idx,
-				pCtx->plane_res.hubp, pCtx->plane_res.dpp);
-		}
+				hubp, dpp);
+	}
 	{
 		/* Build Payload#1 Header */
 		cmd[1].update_cursor_info.header.type = DMUB_CMD__UPDATE_CURSOR_INFO;
@@ -1151,10 +1153,10 @@ void dc_send_update_cursor_info_to_dmu(
 
 		dc_build_cursor_attribute_update_payload1(
 				&cmd[1].update_cursor_info.update_cursor_info_data.payload1.attribute_cfg,
-				pipe_idx, pCtx->plane_res.hubp, pCtx->plane_res.dpp);
+				pipe_idx, hubp, dpp);
 
 		/* Combine 2nd cmds update_curosr_info to DMU */
-		dc_wake_and_execute_dmub_cmd_list(pCtx->stream->ctx, 2, cmd, DM_DMUB_WAIT_TYPE_WAIT);
+		dc_wake_and_execute_dmub_cmd_list(ctx, 2, cmd, DM_DMUB_WAIT_TYPE_WAIT);
 	}
 }
 

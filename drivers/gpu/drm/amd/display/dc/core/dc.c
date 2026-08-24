@@ -3956,7 +3956,7 @@ static void program_cursor_attributes_sequence(
 
 		hwss_add_set_cursor_attribute(seq_state, dc, tmp_pipe);
 		if (dc->ctx->dmub_srv)
-			hwss_add_send_update_cursor_info_to_dmu(seq_state, tmp_pipe, k);
+			hwss_add_send_update_cursor_info_to_dmu(seq_state, tmp_pipe);
 		hwss_add_set_cursor_sdr_white_level(seq_state, tmp_pipe);
 		if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe)
 			hwss_add_update_cursor_offload_pipe(seq_state, dc, tmp_pipe);
@@ -4007,7 +4007,7 @@ static void program_cursor_position_sequence(
 			hwss_add_update_cursor_offload_pipe(seq_state, dc, tmp_pipe);
 
 		if (dc->ctx->dmub_srv)
-			hwss_add_send_update_cursor_info_to_dmu(seq_state, tmp_pipe, k);
+			hwss_add_send_update_cursor_info_to_dmu(seq_state, tmp_pipe);
 	}
 
 	if (pipe_to_program) {
