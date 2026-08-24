@@ -753,6 +753,7 @@ struct x86_perf_regs {
 		u64	*egpr_regs;
 		struct apx_state *egpr;
 	};
+	u64	*ssp;
 };
 
 extern unsigned long perf_arch_instruction_pointer(struct pt_regs *regs);

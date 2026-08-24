@@ -4696,7 +4696,8 @@ static unsigned long intel_pmu_large_pebs_flags(struct perf_event *event)
 {
 	unsigned long flags = x86_pmu.large_pebs_flags;
 	u64 gprs_mask = event->attr.sample_simd_regs_enabled ?
-			PEBS_GP_REGS | PERF_X86_EGPRS_MASK :
+			PEBS_GP_REGS | PERF_X86_EGPRS_MASK |
+			BIT_ULL(PERF_REG_X86_SSP) :
 			PEBS_GP_REGS | PERF_REG_EXTENDED_MASK;
 
 	if (event->attr.use_clockid)

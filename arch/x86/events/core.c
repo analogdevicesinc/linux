@@ -642,6 +642,10 @@ static int pebs_simd_regs_validate(struct perf_event *event)
 	if (event_needs_xmm(event) &&
 	    x86_pmu.arch_pebs && !(caps & ARCH_PEBS_VECR_XMM))
 		return -EINVAL;
+
+	if (event_needs_ssp(event) &&
+	    !(x86_pmu.arch_pebs && (caps & ARCH_PEBS_GPR)))
+		return -EINVAL;
 	/* PEBS does not support YMM/ZMM/OPMASK/eGPR registers sampling yet. */
 	if (event_needs_ymm(event) ||
 	    event_needs_low16_zmm(event) ||
@@ -670,6 +674,9 @@ static int event_simd_regs_validate(struct perf_event *event)
 		return -EINVAL;
 	if (event_needs_egprs(event) &&
 	    !(x86_pmu.ext_regs_mask & XFEATURE_MASK_APX))
+		return -EINVAL;
+	if (event_needs_ssp(event) &&
+	    !(x86_pmu.ext_regs_mask & XFEATURE_MASK_CET_USER))
 		return -EINVAL;
 	if (event_needs_xmm(event) &&
 	    !(x86_pmu.ext_regs_mask & XFEATURE_MASK_SSE))
@@ -1854,11 +1861,13 @@ void x86_pmu_clear_perf_regs(struct pt_regs *regs)
 	perf_regs->h16zmm_regs = NULL;
 	perf_regs->opmask_regs = NULL;
 	perf_regs->egpr_regs = NULL;
+	perf_regs->ssp = NULL;
 }
 
 static void update_perf_regs(struct x86_perf_regs *perf_regs,
 			     struct xregs_state *xsave, u64 bitmap)
 {
+	struct cet_user_state *cet;
 	u64 mask;
 
 	if (!xsave)
@@ -1879,6 +1888,10 @@ static void update_perf_regs(struct x86_perf_regs *perf_regs,
 		perf_regs->opmask = get_xsave_addr(xsave, XFEATURE_OPMASK);
 	if (mask & XFEATURE_MASK_APX)
 		perf_regs->egpr = get_xsave_addr(xsave, XFEATURE_APX);
+	if (mask & XFEATURE_MASK_CET_USER) {
+		cet = get_xsave_addr(xsave, XFEATURE_CET_USER);
+		perf_regs->ssp = cet ? &cet->user_ssp : NULL;
+	}
 }
 
 /*
@@ -2057,6 +2070,8 @@ static u64 get_simd_sample_mask(struct perf_event *event, u64 sample_type)
 		mask |= XFEATURE_MASK_OPMASK;
 	if (__event_needs_egprs(event, sample_type))
 		mask |= XFEATURE_MASK_APX;
+	if (__event_needs_ssp(event, sample_type))
+		mask |= XFEATURE_MASK_CET_USER;
 
 	return mask;
 }
