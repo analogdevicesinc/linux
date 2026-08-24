@@ -5,6 +5,7 @@
 
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/gcd.h>
 #include <linux/kernel.h>
 #include <linux/minmax.h>
 #include <linux/mutex.h>
@@ -175,15 +176,14 @@ static unsigned int inv_icm42600_wm_truncate(unsigned int watermark,
  *
  * FIFO watermark threshold is computed based on the required watermark values
  * set for gyro and accel sensors. Since watermark is all about acceptable data
- * latency, use the smallest setting between the 2. It means choosing the
- * smallest latency but this is not as simple as choosing the smallest watermark
- * value. Latency depends on watermark and ODR. It requires several steps:
- * 1) compute gyro and accel latencies and choose the smallest value.
- * 2) adapt the chosen latency so that it is a multiple of both gyro and accel
- *    ones. Otherwise it is possible that you don't meet a requirement. (for
- *    example with gyro @100Hz wm 4 and accel @100Hz with wm 6, choosing the
- *    value of 4 will not meet accel latency requirement because 6 is not a
- *    multiple of 4. You need to use the value 2.)
+ * latency, we should need to use the smallest latency value. But it is not as
+ * simple as choosing the smallest watermark value. Latency depends on watermark
+ * and ODR and IIO buffer watermark adds another requirement. The required steps:
+ * 1) compute gyro and accel periods and latencies
+ * 2) Use the smallest period and the GCD of the latencies. GCD is required
+ *    because of the IIO buffer watermark that will prevent send of data if not
+ *    crossed. Thus accel and gyro watermarks must be a multiple of the watermark
+ *    value. Computing the GCD gives us the biggest value that meets this criteria.
  * 3) Since all periods are multiple of each others, watermark is computed by
  *    dividing this computed latency by the smallest period, which corresponds
  *    to the FIFO frequency. Beware that this is only true because we are not
@@ -193,7 +193,7 @@ int inv_icm42600_buffer_update_watermark(struct inv_icm42600_state *st)
 {
 	size_t packet_size, wm_size;
 	unsigned int wm_gyro, wm_accel, watermark;
-	u32 period_gyro, period_accel;
+	u32 period_gyro, period_accel, period;
 	u32 latency_gyro, latency_accel, latency;
 	bool restore;
 	__le16 raw_wm;
@@ -221,22 +221,17 @@ int inv_icm42600_buffer_update_watermark(struct inv_icm42600_state *st)
 		watermark = wm_gyro;
 		st->fifo.watermark.eff_gyro = wm_gyro;
 	} else {
-		/* compute the smallest latency that is a multiple of both */
-		if (latency_gyro <= latency_accel)
-			latency = latency_gyro - (latency_accel % latency_gyro);
-		else
-			latency = latency_accel - (latency_gyro % latency_accel);
-		/* all this works because periods are multiple of each others */
-		watermark = latency / min(period_gyro, period_accel);
-		if (watermark < 1)
-			watermark = 1;
-		/* update effective watermark */
-		st->fifo.watermark.eff_gyro = latency / period_gyro;
-		if (st->fifo.watermark.eff_gyro < 1)
-			st->fifo.watermark.eff_gyro = 1;
-		st->fifo.watermark.eff_accel = latency / period_accel;
-		if (st->fifo.watermark.eff_accel < 1)
-			st->fifo.watermark.eff_accel = 1;
+		/*
+		 * In case of both accel and gyro enabled, we need to use the
+		 * shortest period and the gcd of the latencies. Gcd is required
+		 * because of the IIO buffer watermark that will prevent data
+		 * sending if we are not crossing the watermark level.
+		 */
+		period = min(period_gyro, period_accel);
+		latency = gcd(latency_gyro, latency_accel);
+		watermark = max(latency / period, 1);
+		st->fifo.watermark.eff_gyro = max(latency / period_gyro, 1);
+		st->fifo.watermark.eff_accel = max(latency / period_accel, 1);
 	}
 
 	/* compute watermark value in bytes */
