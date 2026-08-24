@@ -289,7 +289,7 @@ static const struct dcn31_vpg_mask vpg_mask = {
 #define apg_regs_init(id)\
 	APG_DCN31_REG_LIST_RI(id)
 
-static struct dcn31_apg_registers apg_regs[4];
+static struct dcn31_apg_registers apg_regs[5];
 
 static const struct dcn31_apg_shift apg_shift = {
 	DCN31_APG_MASK_SH_LIST(__SHIFT)
@@ -1393,7 +1393,8 @@ static struct apg *dcn60_apg_create(
 	apg_regs_init(0),
 	apg_regs_init(1),
 	apg_regs_init(2),
-	apg_regs_init(3);
+	apg_regs_init(3),
+	apg_regs_init(4);
 
 	apg31_construct(apg60, ctx, inst,
 			&apg_regs[inst],
