@@ -800,6 +800,7 @@ bool nfsd4_cache_this_op(struct nfsd4_op *);
  */
 struct svcxdr_tmpbuf {
 	struct svcxdr_tmpbuf *next;
+	void (*release)(void *buf);
 	char buf[];
 };
 

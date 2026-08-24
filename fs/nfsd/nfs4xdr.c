@@ -114,25 +114,25 @@ static int zero_clientid(clientid_t *clid)
 	return (clid->cl_boot == 0) && (clid->cl_id == 0);
 }
 
-/**
- * svcxdr_tmpalloc - allocate memory to be freed after compound processing
- * @argp: NFSv4 compound argument structure
- * @len: length of buffer to allocate
- *
- * Allocates a buffer of size @len to be freed when processing the compound
- * operation described in @argp finishes.
- */
 static void *
-svcxdr_tmpalloc(struct nfsd4_compoundargs *argp, size_t len)
+svcxdr_tmpalloc_release(struct nfsd4_compoundargs *argp, size_t len,
+			void (*release)(void *))
 {
 	struct svcxdr_tmpbuf *tb;
 
 	tb = kmalloc_flex(*tb, buf, len);
 	if (!tb)
 		return NULL;
+	tb->release = release;
 	tb->next = argp->to_free;
 	argp->to_free = tb;
 	return tb->buf;
+}
+
+static void *
+svcxdr_tmpalloc(struct nfsd4_compoundargs *argp, size_t len)
+{
+	return svcxdr_tmpalloc_release(argp, len, NULL);
 }
 
 /*
@@ -442,10 +442,16 @@ nfsd4_decode_posixace4(struct nfsd4_compoundargs *argp,
 	return status;
 }
 
+static void svcxdr_release_pacl(void *p)
+{
+	posix_acl_release(*(struct posix_acl **)p);
+}
+
 static noinline __be32
 nfsd4_decode_posixacl(struct nfsd4_compoundargs *argp, struct posix_acl **acl)
 {
 	struct posix_acl_entry *ace;
+	struct posix_acl **slot;
 	__be32 status;
 	u32 count;
 
@@ -484,6 +490,15 @@ nfsd4_decode_posixacl(struct nfsd4_compoundargs *argp, struct posix_acl **acl)
 	 */
 	if (count >= 3)
 		sort_pacl_range(*acl, 0, count - 1);
+
+	slot = svcxdr_tmpalloc_release(argp, sizeof(*slot),
+				       svcxdr_release_pacl);
+	if (!slot) {
+		posix_acl_release(*acl);
+		*acl = NULL;
+		return nfserr_jukebox;
+	}
+	*slot = *acl;
 
 	return nfs_ok;
 }
@@ -677,7 +692,6 @@ nfsd4_decode_fattr4(struct nfsd4_compoundargs *argp, u32 *bmval, u32 bmlen,
 
 		status = nfsd4_decode_posixacl(argp, &pacl);
 		if (status) {
-			posix_acl_release(*dpaclp);
 			*dpaclp = NULL;
 			return status;
 		}
@@ -687,12 +701,8 @@ nfsd4_decode_fattr4(struct nfsd4_compoundargs *argp, u32 *bmval, u32 bmlen,
 
 	/* request sanity: did attrlist4 contain the expected number of words? */
 	if (attrlist4_count != xdr_stream_pos(argp->xdr) - starting_pos) {
-#ifdef CONFIG_NFSD_V4_POSIX_ACLS
-		posix_acl_release(*dpaclp);
-		posix_acl_release(*paclp);
 		*dpaclp = NULL;
 		*paclp = NULL;
-#endif
 		return nfserr_bad_xdr;
 	}
 
@@ -6846,7 +6856,10 @@ void nfsd4_release_compoundargs(struct svc_rqst *rqstp)
 	}
 	while (args->to_free) {
 		struct svcxdr_tmpbuf *tb = args->to_free;
+
 		args->to_free = tb->next;
+		if (tb->release)
+			tb->release(tb->buf);
 		kfree(tb);
 	}
 }

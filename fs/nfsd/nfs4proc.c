@@ -391,11 +391,8 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		if (status)
 			return status;
 	} else {
-		/* The dpacl and pacl will get released by nfsd_attrs_free(). */
-		attrs.na_dpacl = open->op_dpacl;
-		attrs.na_pacl = open->op_pacl;
-		open->op_dpacl = NULL;
-		open->op_pacl = NULL;
+		attrs.na_dpacl = posix_acl_dup(open->op_dpacl);
+		attrs.na_pacl = posix_acl_dup(open->op_pacl);
 	}
 
 	v_mtime = 0;
@@ -795,13 +792,6 @@ static __be32 nfsd4_open_omfg(struct svc_rqst *rqstp, struct nfsd4_compound_stat
 	return nfsd4_open(rqstp, cstate, &op->u);
 }
 
-static void
-nfsd4_open_release(union nfsd4_op_u *u)
-{
-	posix_acl_release(u->open.op_dpacl);
-	posix_acl_release(u->open.op_pacl);
-}
-
 /*
  * filehandle-manipulating ops.
  */
@@ -922,15 +912,12 @@ nfsd4_create(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 	struct nfsd_attrs attrs = {
 		.na_iattr	= &create->cr_iattr,
 		.na_seclabel	= &create->cr_label,
-		.na_dpacl	= create->cr_dpacl,
-		.na_pacl	= create->cr_pacl,
+		.na_dpacl	= posix_acl_dup(create->cr_dpacl),
+		.na_pacl	= posix_acl_dup(create->cr_pacl),
 	};
 	struct svc_fh resfh;
 	__be32 status;
 	dev_t rdev;
-
-	create->cr_dpacl = NULL;
-	create->cr_pacl = NULL;
 
 	fh_init(&resfh, NFS4_FHSIZE);
 
@@ -1341,18 +1328,14 @@ nfsd4_setattr(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 	struct nfsd_attrs attrs = {
 		.na_iattr	= &setattr->sa_iattr,
 		.na_seclabel	= &setattr->sa_label,
-		.na_pacl	= setattr->sa_pacl,
-		.na_dpacl	= setattr->sa_dpacl,
+		.na_pacl	= posix_acl_dup(setattr->sa_pacl),
+		.na_dpacl	= posix_acl_dup(setattr->sa_dpacl),
 	};
 	bool save_no_wcc, deleg_attrs;
 	struct nfs4_stid *st = NULL;
 	struct inode *inode;
 	__be32 status = nfs_ok;
 	int err;
-
-	/* Transfer ownership to attrs for cleanup via nfsd_attrs_free() */
-	setattr->sa_pacl = NULL;
-	setattr->sa_dpacl = NULL;
 
 	deleg_attrs = setattr->sa_bmval[2] & (FATTR4_WORD2_TIME_DELEG_ACCESS |
 					      FATTR4_WORD2_TIME_DELEG_MODIFY);
@@ -3943,7 +3926,6 @@ static const struct nfsd4_operation nfsd4_ops[] = {
 	},
 	[OP_OPEN] = {
 		.op_func = nfsd4_open,
-		.op_release = nfsd4_open_release,
 		.op_flags = OP_HANDLES_WRONGSEC | OP_MODIFIES_SOMETHING,
 		.op_name = "OP_OPEN",
 		.op_rsize_bop = nfsd4_open_rsize,
