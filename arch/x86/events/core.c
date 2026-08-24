@@ -642,6 +642,9 @@ static int pebs_simd_regs_validate(struct perf_event *event)
 	if (event_needs_xmm(event) &&
 	    x86_pmu.arch_pebs && !(caps & ARCH_PEBS_VECR_XMM))
 		return -EINVAL;
+	/* PEBS does not support YMM registers sampling yet. */
+	if (event_needs_ymm(event))
+		return -EINVAL;
 
 	return 0;
 }
@@ -655,6 +658,9 @@ static int event_simd_regs_validate(struct perf_event *event)
 		return -EINVAL;
 	if (event_needs_xmm(event) &&
 	    !(x86_pmu.ext_regs_mask & XFEATURE_MASK_SSE))
+		return -EINVAL;
+	if (event_needs_ymm(event) &&
+	   !(x86_pmu.ext_regs_mask & XFEATURE_MASK_YMM))
 		return -EINVAL;
 
 	return 0;
@@ -1819,6 +1825,7 @@ void x86_pmu_clear_perf_regs(struct pt_regs *regs)
 
 	perf_regs->abi = PERF_SAMPLE_REGS_ABI_NONE;
 	perf_regs->xmm_regs = NULL;
+	perf_regs->ymmh_regs = NULL;
 }
 
 static void update_perf_regs(struct x86_perf_regs *perf_regs,
@@ -1834,6 +1841,8 @@ static void update_perf_regs(struct x86_perf_regs *perf_regs,
 
 	if (mask & XFEATURE_MASK_SSE)
 		perf_regs->xmm_space = xsave->i387.xmm_space;
+	if (mask & XFEATURE_MASK_YMM)
+		perf_regs->ymmh = get_xsave_addr(xsave, XFEATURE_YMM);
 }
 
 /*
@@ -1996,6 +2005,18 @@ static inline u64 x86_pmu_update_user_xregs(struct perf_sample_data *data,
 	return user_mask;
 }
 
+static u64 get_simd_sample_mask(struct perf_event *event, u64 sample_type)
+{
+	u64 mask = 0;
+
+	if (__event_needs_xmm(event, sample_type))
+		mask |= XFEATURE_MASK_SSE;
+	if (__event_needs_ymm(event, sample_type))
+		mask |= XFEATURE_MASK_YMM;
+
+	return mask;
+}
+
 static void x86_pmu_sample_xregs(struct perf_event *event,
 				 struct perf_sample_data *data,
 				 struct pt_regs *regs,
@@ -2011,17 +2032,13 @@ static void x86_pmu_sample_xregs(struct perf_event *event,
 		return;
 
 	if ((sample_type & PERF_SAMPLE_REGS_INTR) && data->regs_intr.regs) {
-		if (__event_needs_xmm(event, PERF_SAMPLE_REGS_INTR))
-			intr_mask |= XFEATURE_MASK_SSE;
-
+		intr_mask |= get_simd_sample_mask(event, PERF_SAMPLE_REGS_INTR);
 		intr_mask &= x86_pmu.ext_regs_mask;
 		intr_mask = from_pebs ? 0 : intr_mask;
 	}
 
 	if ((sample_type & PERF_SAMPLE_REGS_USER) && data->regs_user.regs) {
-		if (__event_needs_xmm(event, PERF_SAMPLE_REGS_USER))
-			user_mask |= XFEATURE_MASK_SSE;
-
+		user_mask |= get_simd_sample_mask(event, PERF_SAMPLE_REGS_USER);
 		user_mask &= x86_pmu.ext_regs_mask;
 		user_mask = x86_pmu_update_user_xregs(data, regs,
 						      user_mask, from_pebs);
