@@ -2212,18 +2212,36 @@ static void ucsi_init_work(struct work_struct *work)
 	int ret;
 
 	ret = ucsi_init(ucsi);
-	if (ret)
-		dev_err_probe(ucsi->dev, ret, "PPM init failed\n");
+	if (!ret) {
+		if (ucsi->work_count)
+			dev_info(ucsi->dev,
+				 "PPM init succeeded after %u attempts\n",
+				 ucsi->work_count + 1);
+		return;
+	}
 
-	if (ret == -EPROBE_DEFER) {
-		if (ucsi->work_count++ > UCSI_ROLE_SWITCH_WAIT_COUNT) {
-			dev_err(ucsi->dev, "PPM init failed, stop trying\n");
+	/*
+	 * On some platforms the PPM is not ready to answer commands
+	 * correctly for a short window during boot: standard commands are
+	 * rejected or GET_CAPABILITY reports zero connectors, seen as
+	 * -EINVAL or -ENODEV from ucsi_init(), and a retry moments later
+	 * succeeds (observed on Lenovo ThinkPad X1 Carbon Gen 14, where
+	 * this affects roughly half of all boots). Retry those like the
+	 * USB role switch wait instead of giving up on the first attempt.
+	 */
+	if (ret == -EPROBE_DEFER || ret == -ENODEV || ret == -EINVAL) {
+		if (ucsi->work_count++ < UCSI_ROLE_SWITCH_WAIT_COUNT) {
+			dev_dbg(ucsi->dev, "PPM init failed (%pe), retrying\n",
+				ERR_PTR(ret));
+			queue_delayed_work(system_dfl_long_wq, &ucsi->work,
+					   UCSI_ROLE_SWITCH_INTERVAL);
 			return;
 		}
-
-		queue_delayed_work(system_dfl_long_wq, &ucsi->work,
-				   UCSI_ROLE_SWITCH_INTERVAL);
+		dev_err(ucsi->dev, "PPM init failed, stop trying\n");
+		return;
 	}
+
+	dev_err_probe(ucsi->dev, ret, "PPM init failed\n");
 }
 
 /**
