@@ -30,7 +30,6 @@
 #include "amdgpu_virt_ras_cmd.h"
 #include "amdgpu_ras_process.h"
 #include "amdgpu_ras_eeprom_i2c.h"
-#include "amdgpu_ras_mp1_v13_0.h"
 #include "amdgpu_ras_mp1.h"
 #include "amdgpu_ras_nbio_v7_9.h"
 #include "amdgpu_ras_bert.h"
