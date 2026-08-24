@@ -1733,8 +1733,7 @@ static u64 pebs_update_adaptive_cfg(struct perf_event *event)
 	if (gprs || (attr->precise_ip < 2) || tsx_weight)
 		pebs_data_cfg |= PEBS_DATACFG_GP;
 
-	if ((sample_type & PERF_SAMPLE_REGS_INTR) &&
-	    (attr->sample_regs_intr & PERF_REG_EXTENDED_MASK))
+	if (event_has_extended_regs(event))
 		pebs_data_cfg |= PEBS_DATACFG_XMMS;
 
 	if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
@@ -2936,6 +2935,8 @@ __intel_pmu_pebs_events(struct perf_event *event,
 	struct pt_regs *regs = &perf_regs->regs;
 	void *at = get_next_pebs_record_by_bit(base, top, bit);
 	int cnt = count;
+
+	x86_pmu_clear_perf_regs(regs);
 
 	if (!iregs)
 		iregs = &dummy_iregs;

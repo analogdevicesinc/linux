@@ -702,12 +702,12 @@ int x86_pmu_hw_config(struct perf_event *event)
 			return -EINVAL;
 	}
 
-	if (event->attr.sample_type & PERF_SAMPLE_REGS_INTR) {
+	if (event->attr.sample_type & (PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER)) {
 		/*
 		 * Besides the general purpose registers, XMM registers may
 		 * be collected as well.
 		 */
-		if (event->attr.sample_regs_intr & PERF_REG_EXTENDED_MASK) {
+		if (event_has_extended_regs(event)) {
 			if (!(event->pmu->capabilities & PERF_PMU_CAP_EXTENDED_REGS))
 				return -EINVAL;
 
@@ -722,12 +722,6 @@ int x86_pmu_hw_config(struct perf_event *event)
 			if (!get_ext_regs_buf(raw_smp_processor_id()))
 				return -ENOMEM;
 		}
-	}
-
-	if (event->attr.sample_type & PERF_SAMPLE_REGS_USER) {
-		/* XMM registers sampling for REGS_USER is not supported yet. */
-		if (event->attr.sample_regs_user & PERF_REG_EXTENDED_MASK)
-			return -EINVAL;
 	}
 
 	return x86_setup_perfctr(event);
@@ -1832,14 +1826,129 @@ static void x86_pmu_update_regs_intr(struct perf_event *event,
 	data->sample_flags |= PERF_SAMPLE_REGS_INTR;
 }
 
+static DEFINE_PER_CPU(struct x86_perf_regs, x86_user_regs);
+
+static void x86_pmu_get_regs_user(struct perf_sample_data *data,
+				  struct pt_regs *regs)
+{
+	struct x86_perf_regs *x86_regs_user = this_cpu_ptr(&x86_user_regs);
+	struct perf_regs regs_user;
+
+	x86_pmu_clear_perf_regs(&x86_regs_user->regs);
+
+	perf_get_regs_user(&regs_user, regs);
+	data->regs_user.abi = regs_user.abi;
+	if (regs_user.regs) {
+		x86_regs_user->regs = *regs_user.regs;
+		data->regs_user.regs = &x86_regs_user->regs;
+	} else {
+		data->regs_user.regs = NULL;
+	}
+}
+
+/*
+ * The x86 specific variant of perf_sample_regs_user().
+ * Update data->regs_user fields for extended registers (e.g., SIMD).
+ */
+static void x86_pmu_update_regs_user(struct perf_event *event,
+				     struct perf_sample_data *data,
+				     struct pt_regs *regs)
+{
+	struct x86_perf_regs *x86_regs_user = this_cpu_ptr(&x86_user_regs);
+	struct perf_event_attr *attr = &event->attr;
+	struct x86_perf_regs *perf_regs;
+
+	/*
+	 * PERF_SAMPLE_REGS_INTR and PERF_SAMPLE_REGS_USER can both be
+	 * requested for one event. Keep user regs in a separate x86_perf_regs
+	 * instance, so intr-reg collection does not overwrite user-reg data.
+	 */
+	if (user_mode(regs)) {
+		x86_pmu_clear_perf_regs(&x86_regs_user->regs);
+		perf_regs = container_of(regs, struct x86_perf_regs, regs);
+		/* Copy all sampled regs data to x86_regs_user. */
+		*x86_regs_user = *perf_regs;
+		data->regs_user.regs = &x86_regs_user->regs;
+		data->regs_user.abi = perf_reg_abi(current);
+	} else if (is_user_task(current)) {
+		x86_pmu_get_regs_user(data, regs);
+	} else {
+		data->regs_user.abi = PERF_SAMPLE_REGS_ABI_NONE;
+		data->regs_user.regs = NULL;
+	}
+
+	data->dyn_size += sizeof(u64);
+	if (data->regs_user.regs)
+		data->dyn_size += hweight64(attr->sample_regs_user) * sizeof(u64);
+
+	/*
+	 * Set PERF_SAMPLE_REGS_USER to bypass perf_sample_regs_user() call
+	 * in perf_prepare_sample() function.
+	 */
+	data->sample_flags |= PERF_SAMPLE_REGS_USER;
+}
+
+/*
+ * This function retrieves cached user-space fpu registers (XMM/YMM/ZMM).
+ * If TIF_NEED_FPU_LOAD is set or PMI hits into guest, it indicates that
+ * the user-space FPU state is cached. Otherwise, the data should be read
+ * directly from the hardware registers.
+ */
+static inline u64 x86_pmu_update_user_xregs(struct perf_sample_data *data,
+					    struct pt_regs *regs,
+					    u64 mask, bool from_pebs)
+{
+	struct x86_perf_regs *perf_regs;
+	struct xregs_state *xsave;
+	struct fpu *fpu;
+	struct fpstate *fps;
+	u64 user_mask = mask;
+
+	if (!is_user_task(current))
+		return 0;
+
+	if (data->regs_user.abi == PERF_SAMPLE_REGS_ABI_NONE)
+		return 0;
+
+	/*
+	 * If PEBS hits kernel space, need to re-sample extended
+	 * registers for user space.
+	 */
+	if (user_mode(regs))
+		user_mask = from_pebs ? 0 : mask;
+
+	fpu = x86_task_fpu(current);
+	fps = READ_ONCE(fpu->__task_fpstate);
+	/*
+	 * If fpu->__task_fpstate is set, it points to the cached user
+	 * FPU state (e.g. with KVM guest-state swapping). Otherwise,
+	 * when TIF_NEED_FPU_LOAD is set, fpu->fpstate holds the cached
+	 * user state. If neither is true, the user state is live in hardware.
+	 */
+	if (user_mask && (test_thread_flag(TIF_NEED_FPU_LOAD) || fps)) {
+		perf_regs = container_of(data->regs_user.regs,
+					 struct x86_perf_regs, regs);
+		if (!fps)
+			fps = fpu->fpstate;
+		xsave = &fps->regs.xsave;
+
+		update_perf_regs(perf_regs, xsave, user_mask);
+		return 0;
+	}
+
+	return user_mask;
+}
+
 static void x86_pmu_sample_xregs(struct perf_event *event,
 				 struct perf_sample_data *data,
+				 struct pt_regs *regs,
 				 bool from_pebs)
 {
 	struct xregs_state *xsave = get_ext_regs_buf(smp_processor_id());
 	u64 sample_type = event->attr.sample_type;
 	struct x86_perf_regs *perf_regs;
 	u64 intr_mask = 0;
+	u64 user_mask = 0;
 
 	if (WARN_ON_ONCE(!xsave) || !in_nmi())
 		return;
@@ -1852,12 +1961,30 @@ static void x86_pmu_sample_xregs(struct perf_event *event,
 		intr_mask = from_pebs ? 0 : intr_mask;
 	}
 
+	if ((sample_type & PERF_SAMPLE_REGS_USER) && data->regs_user.regs) {
+		if (event->attr.sample_regs_user & PERF_REG_EXTENDED_MASK)
+			user_mask |= XFEATURE_MASK_SSE;
+
+		user_mask &= x86_pmu.ext_regs_mask;
+		user_mask = x86_pmu_update_user_xregs(data, regs,
+						      user_mask, from_pebs);
+	}
+
+	if (user_mask | intr_mask) {
+		xsave->header.xfeatures = 0;
+		xsaves_nmi(xsave, user_mask | intr_mask);
+	}
+
 	if (intr_mask) {
 		perf_regs = container_of(data->regs_intr.regs,
 					 struct x86_perf_regs, regs);
-		xsave->header.xfeatures = 0;
-		xsaves_nmi(xsave, intr_mask);
 		update_perf_regs(perf_regs, xsave, intr_mask);
+	}
+
+	if (user_mask) {
+		perf_regs = container_of(data->regs_user.regs,
+					 struct x86_perf_regs, regs);
+		update_perf_regs(perf_regs, xsave, user_mask);
 	}
 }
 
@@ -1868,16 +1995,17 @@ void x86_pmu_update_perf_regs(struct perf_event *event,
 {
 	u64 sample_type = event->attr.sample_type;
 
-	if (!((sample_type & PERF_SAMPLE_REGS_INTR) &&
-	      (event->attr.sample_regs_intr & PERF_REG_EXTENDED_MASK)))
+	if (!event_has_extended_regs(event))
 		return;
 
 	if (sample_type & PERF_SAMPLE_REGS_INTR) {
 		x86_pmu_update_regs_intr(event, data, regs,
 					 event->attr.exclude_kernel);
 	}
+	if (sample_type & PERF_SAMPLE_REGS_USER)
+		x86_pmu_update_regs_user(event, data, regs);
 
-	x86_pmu_sample_xregs(event, data, from_pebs);
+	x86_pmu_sample_xregs(event, data, regs, from_pebs);
 }
 
 int x86_pmu_handle_irq(struct pt_regs *regs)
