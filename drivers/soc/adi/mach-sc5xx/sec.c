@@ -128,40 +128,6 @@ void sec_set_ssi_coreid(struct adi_sec *sec, unsigned int sid,
 
 EXPORT_SYMBOL(sec_set_ssi_coreid);
 
-struct adi_sec *get_adi_sec_from_node(struct device *dev)
-{
-	struct platform_device *sec_pdev;
-	struct device_node *sec_node;
-	struct adi_sec *ret = NULL;
-
-	sec_node = of_parse_phandle(dev->of_node, "adi,sec", 0);
-	if (!sec_node) {
-		dev_err(dev, "Missing adi,sec phandle in device tree\n");
-		return ERR_PTR(-ENODEV);
-	}
-
-	sec_pdev = of_find_device_by_node(sec_node);
-	if (!sec_pdev) {
-		ret = ERR_PTR(-EPROBE_DEFER);
-		goto cleanup;
-	}
-
-	ret = dev_get_drvdata(&sec_pdev->dev);
-
-cleanup:
-	of_node_put(sec_node);
-	return ret;
-}
-
-EXPORT_SYMBOL(get_adi_sec_from_node);
-
-void put_adi_sec(struct adi_sec *sec)
-{
-	put_device(sec->dev);
-}
-
-EXPORT_SYMBOL(put_adi_sec);
-
 static int adi_sec_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;

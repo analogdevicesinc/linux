@@ -54,8 +54,6 @@ void sec_enable_ssi(struct adi_sec *sec, unsigned int sid, bool fault,
 		    bool source);
 void sec_set_ssi_coreid(struct adi_sec *sec, unsigned int sid,
 			unsigned int coreid);
-struct adi_sec *get_adi_sec_from_node(struct device *dev);
-void put_adi_sec(struct adi_sec *sec);
 void adi_sec_writel(u32 val, struct adi_sec *rcu, int offset);
 u32 adi_sec_readl(struct adi_sec *rcu, int offset);
 
