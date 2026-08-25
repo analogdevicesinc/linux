@@ -23,14 +23,6 @@ make install PREFIX=/usr/local install
 popd
 zypper remove -y --clean-deps llvm19-devel
 
-git clone https://repo.or.cz/smatch.git smatch --depth=1
-pushd smatch
-make -j$(nproc)
-
-ln -s $(realpath smatch) /usr/local/bin/smatch
-
-popd
-
 # user
 zypper install -y --no-recommends \
     bash-completion openssh openssh-server
