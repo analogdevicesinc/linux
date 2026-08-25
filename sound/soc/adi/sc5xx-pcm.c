@@ -488,13 +488,15 @@ static int sc5xx_dai_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	}
 
 	param.spctl &= ~(SPORT_CTL_ICLK | SPORT_CTL_IFS);
-	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBP_CFP:
+	switch (fmt & SND_SOC_DAIFMT_CLOCK_PROVIDER_MASK) {
+	case SND_SOC_DAIFMT_BC_FC:
 		break;
-	case SND_SOC_DAIFMT_CBC_CFC:
-	case SND_SOC_DAIFMT_CBP_CFC:
-	case SND_SOC_DAIFMT_CBC_CFP:
-		ret = -ENOTSUPP;
+	case SND_SOC_DAIFMT_BP_FP:
+	case SND_SOC_DAIFMT_BC_FP:
+	case SND_SOC_DAIFMT_BP_FC:
+		ret = -EINVAL;
+		dev_err(dev, "%s: clock provider modes are not implemented\n",
+			__func__);
 		break;
 	default:
 		dev_err(dev, "%s: Unknown DAI master type\n", __func__);
