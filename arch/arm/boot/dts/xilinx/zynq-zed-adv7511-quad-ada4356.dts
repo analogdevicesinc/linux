@@ -1,0 +1,186 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Quad ADA4356
+ *
+ * hdl_project: <quad_ada4356/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	clocks {
+		/* Y4, the on-board 125 MHz oscillator feeding the AD9517-4 CLK input */
+		ad9517_ref_clk: clock@0 {
+			compatible = "fixed-clock";
+
+			clock-frequency = <125000000>;
+			clock-output-names = "ad9517_refclk";
+			#clock-cells = <0>;
+		};
+	};
+};
+
+&fpga_axi {
+	rx_dma_0: dma-controller@44a40000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a40000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+	};
+
+	rx_dma_1: dma-controller@44a50000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a50000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+	};
+
+	rx_dma_2: dma-controller@44a60000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a60000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+	};
+
+	rx_dma_3: dma-controller@44a70000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a70000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+	};
+
+	axi_ada4356_0: axi-adc@44a00000 {
+		compatible = "adi,axi-adc-legacy-10.0.a";
+		reg = <0x44a00000 0x10000>;
+		dmas = <&rx_dma_0 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc_ada4356_0>;
+	};
+
+	axi_ada4356_1: axi-adc@44a10000 {
+		compatible = "adi,axi-adc-legacy-10.0.a";
+		reg = <0x44a10000 0x10000>;
+		dmas = <&rx_dma_1 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc_ada4356_1>;
+	};
+
+	axi_ada4356_2: axi-adc@44a20000 {
+		compatible = "adi,axi-adc-legacy-10.0.a";
+		reg = <0x44a20000 0x10000>;
+		dmas = <&rx_dma_2 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc_ada4356_2>;
+	};
+
+	axi_ada4356_3: axi-adc@44a30000 {
+		compatible = "adi,axi-adc-legacy-10.0.a";
+		reg = <0x44a30000 0x10000>;
+		dmas = <&rx_dma_3 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc_ada4356_3>;
+	};
+};
+
+/*
+ * EMIO GPIO 54 + 32..36 are the chip selects driven through the ad_iobuf in
+ * system_top.v: DUT A..D then the clock generator. The PS SPI hard chip
+ * selects are not routed to the FMC, so all five go through cs-gpios.
+ *
+ * The HDL and schematic call the fifth select CSB_AD9510/CSB_AD951X, but U13
+ * is an AD9517-4BCPZ.
+ */
+&spi0 {
+	status = "okay";
+	num-cs = <5>;
+
+	cs-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>,
+		   <&gpio0 87 GPIO_ACTIVE_LOW>,
+		   <&gpio0 88 GPIO_ACTIVE_LOW>,
+		   <&gpio0 89 GPIO_ACTIVE_LOW>,
+		   <&gpio0 90 GPIO_ACTIVE_LOW>;
+
+	adc_ada4356_0: adc@0 {
+		compatible = "adi,ada4356";
+		reg = <0>;
+		spi-max-frequency = <100000>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&clk_ad9517 4>;
+		clock-names = "adc_clk";
+
+		num_lanes = <2>;
+	};
+
+	adc_ada4356_1: adc@1 {
+		compatible = "adi,ada4356";
+		reg = <1>;
+		spi-max-frequency = <100000>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&clk_ad9517 5>;
+		clock-names = "adc_clk";
+
+		num_lanes = <2>;
+	};
+
+	adc_ada4356_2: adc@2 {
+		compatible = "adi,ada4356";
+		reg = <2>;
+		spi-max-frequency = <100000>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&clk_ad9517 6>;
+		clock-names = "adc_clk";
+
+		num_lanes = <2>;
+	};
+
+	adc_ada4356_3: adc@3 {
+		compatible = "adi,ada4356";
+		reg = <3>;
+		spi-max-frequency = <100000>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&clk_ad9517 7>;
+		clock-names = "adc_clk";
+
+		num_lanes = <2>;
+	};
+
+	/*
+	 * U13: Y4 125 MHz -> CLK input -> OUT4..OUT7 -> CLKP/N_A..D, one LVDS
+	 * sample clock per DUT.  The .stp bypasses the VCO divider so the
+	 * distribution runs straight off the 125 MHz input.
+	 */
+	clk_ad9517: ad9517@4 {
+		compatible = "adi,ad9517-4";
+		reg = <4>;
+
+		spi-max-frequency = <10000000>;
+		adi,spi-3wire-enable;
+
+		clocks = <&ad9517_ref_clk>, <&ad9517_ref_clk>;
+		clock-names = "refclk", "clkin";
+
+		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
+		#clock-cells = <1>;
+
+		firmware = "ada4356_intbypass_ad9517.stp";
+	};
+};
