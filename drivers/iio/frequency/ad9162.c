@@ -636,7 +636,7 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
 		if (!conv->temp_calib_code)
-			return -ENOTSUPP;
+			return -EOPNOTSUPP;
 
 		ret = ad9162_get_temperature_code(st, &code);
 		if (ret < 0)
