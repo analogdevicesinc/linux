@@ -234,10 +234,10 @@ static const struct soc_enum adau1962_enum[] = {
 
 static const struct snd_kcontrol_new adau1962_snd_controls[] = {
 	/* global DAC playback controls */
-	SOC_SINGLE_TLV("DAC Playback Volume", ADAU1962_REG_DACMSTR_VOL,
+	SOC_SINGLE_TLV("Playback Volume", ADAU1962_REG_DACMSTR_VOL,
 			0, 255, 1, adau1962_adc_gain),
-	SOC_SINGLE("DAC Playback Switch", ADAU1962_REG_DAC_CTRL0, 0, 1, 1),
-	SOC_SINGLE("DAC Deemphasis Switch", ADAU1962_REG_DAC_CTRL2, 0, 1, 0),
+	SOC_SINGLE("Playback Switch", ADAU1962_REG_DAC_CTRL0, 0, 1, 1),
+	SOC_SINGLE("Deemphasis Switch", ADAU1962_REG_DAC_CTRL2, 0, 1, 0),
 
 	/* DAC1-12 specific controls */
 	ADAU1962_VOLUME(1),
@@ -278,7 +278,7 @@ static const struct snd_kcontrol_new adau1962_snd_controls[] = {
 	ADAU1962_DAC_POWER(12),
 
 	/* other controls */
-	SOC_ENUM("DAC Oversampling Rate", adau1962_enum[0]),
+	SOC_ENUM("Oversampling Rate", adau1962_enum[0]),
 };
 
 #if __DEBUG
