@@ -357,6 +357,8 @@ dml_get_var_func(svp_prefetch_urg_bw_available_sdp, double, mode_lib->mp.urg_ban
 dml_get_var_func(svp_prefetch_urg_bw_available_dram, double, mode_lib->mp.urg_bandwidth_available[dml2_core_internal_soc_state_svp_prefetch][dml2_core_internal_bw_dram]);
 dml_get_var_func(svp_prefetch_urg_bw_available_dram_vm_only, double, mode_lib->mp.urg_bandwidth_available_vm_only[dml2_core_internal_soc_state_svp_prefetch]);
 
+dml_get_var_func(sys_active_non_urg_bw_available_sdp, double, mode_lib->mp.non_urg_bandwidth_available[dml2_core_internal_soc_state_sys_active][dml2_core_internal_bw_sdp]);
+
 dml_get_var_func(urgent_latency, double, mode_lib->mp.UrgentLatency);
 dml_get_var_func(max_urgent_latency_us, double, mode_lib->ms.support.max_urgent_latency_us);
 dml_get_var_func(max_non_urgent_latency_us, double, mode_lib->ms.support.max_non_urgent_latency_us);
@@ -13349,6 +13351,8 @@ void dml2_core_calcs_get_informative(const struct dml2_core_internal_display_mod
 	out->informative.qos.urg_bw_available.svp_prefetch.sdp_bw_mbps = dml_get_svp_prefetch_urg_bw_available_sdp(mode_lib);
 	out->informative.qos.urg_bw_available.svp_prefetch.dram_bw_mbps = dml_get_svp_prefetch_urg_bw_available_dram(mode_lib);
 	out->informative.qos.urg_bw_available.svp_prefetch.dram_vm_only_bw_mbps = dml_get_svp_prefetch_urg_bw_available_dram_vm_only(mode_lib);
+
+	out->informative.qos.non_urg_bw_available.sys_active.sdp_bw_mbps = dml_get_sys_active_non_urg_bw_available_sdp(mode_lib);
 
 	out->informative.qos.urg_bw_required.sys_active.sdp_bw_mbps = dml_get_sys_active_urg_bw_required_sdp(mode_lib);
 	out->informative.qos.urg_bw_required.sys_active.dram_bw_mbps = dml_get_sys_active_urg_bw_required_dram(mode_lib);

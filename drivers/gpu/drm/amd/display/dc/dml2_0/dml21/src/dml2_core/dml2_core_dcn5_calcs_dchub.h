@@ -103,6 +103,8 @@ void dcn5_calculate_urgent_burst_factor(
 		double VRatioC,
 		double BytePerPixelInDETY,
 		double BytePerPixelInDETC,
+		bool UnboundedRequestEnabled,
+		unsigned int CompressedBufferSizeInkByte,
 		unsigned int DETBufferSizeY,
 		unsigned int DETBufferSizeC,
 		// Output

@@ -32,6 +32,8 @@ static void dcn6_sop_table_get_sop_constraint_at_index(const struct dml2_sop_tab
 	constraint->dcn5.latency.dcn5.avg_req_latency_non_urg = dchub->latencies[index].avg_req_latency_non_urg_ps / 1000000.0;
 	constraint->dcn5.latency.dcn5.df_response_time_us = dchub->latencies[index].df_response_time_ps / 1000000.0;
 	constraint->dcn5.min_available_urgent_bandwidth_KBps = table->sop_min_available_urgent_bandwidths_KBps[index];
+	constraint->dcn5.min_available_non_urgent_bandwidth_KBps = table->sop_min_available_non_urgent_bandwidths_KBps[index];
+
 	constraint->dcn5.min_sop_index = index;
 }
 
@@ -134,6 +136,9 @@ static void dml2_utm_soc_bb_dcn6_build_sop_table(struct dml2_sop_table *table,
 		table->sop_min_available_urgent_bandwidths_KBps[i] = (uint32_t) math_floor(
 				total_available_bandwidth.urgent_bandwidth_KBps
 				* (utm_soc_bb->qos_model.dchub_v2->min_urgent_utm_budget_percent / 100.0));
+		table->sop_min_available_non_urgent_bandwidths_KBps[i] = (uint32_t)math_floor(
+			total_available_bandwidth.nominal_bandwidth_KBps
+			* (utm_soc_bb->qos_model.dchub_v2->min_nominal_utm_budget_percent / 100.0));
 	}
 
 	DML_ASSERT_MSG(table->model->sop_count > 0, "qos_model must contain at least 1 sop\n");

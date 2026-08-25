@@ -1070,6 +1070,7 @@ struct dml2_core_internal_mode_program {
 	double urg_bandwidth_available[dml2_core_internal_soc_state_max][dml2_core_internal_bw_max];
 	double urg_bandwidth_available_vm_only[dml2_core_internal_soc_state_max]; // the min of sdp bw and dram_vm_only bw, sdp has no different derate for vm/non-vm traffic etc.
 	double urg_bandwidth_available_pixel_and_vm[dml2_core_internal_soc_state_max]; // the min of sdp bw and dram_pixel_and_vm bw, sdp has no different derate for vm/non-vm etc.
+	double non_urg_bandwidth_available[dml2_core_internal_soc_state_max][dml2_core_internal_bw_max];
 
 	double dcc_dram_bw_nom_overhead_factor_p0[DML2_MAX_PLANES];
 	double dcc_dram_bw_nom_overhead_factor_p1[DML2_MAX_PLANES];

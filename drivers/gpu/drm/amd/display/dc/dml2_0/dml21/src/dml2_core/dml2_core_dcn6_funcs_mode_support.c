@@ -2140,6 +2140,8 @@ static void dcn6_ms_calculate_det_buffer_time_value_urgent_burst_factor_and_urge
 				plane->composition.scaler_info.plane1.v_ratio,
 				inputs->BytePerPixelInDETY[k],
 				inputs->BytePerPixelInDETC[k],
+				inputs->UnboundedRequestEnabled,
+				inputs->CompressedBufferSizeInkByte,
 				inputs->DETBufferSizeY[k],
 				inputs->DETBufferSizeC[k],
 
@@ -3030,6 +3032,8 @@ static void dcn6_ms_calculate_urgent_burst_factor_for_prefetch(
 				inputs->VRatioPreC[k],
 				inputs->BytePerPixelInDETY[k],
 				inputs->BytePerPixelInDETC[k],
+				inputs->UnboundedRequestEnabled,
+				inputs->CompressedBufferSizeInkByte,
 				inputs->DETBufferSizeY[k],
 				inputs->DETBufferSizeC[k],
 				/* Output */

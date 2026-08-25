@@ -87,6 +87,7 @@ struct dml2_sop_constraint {
 			struct dml2_memory_path_latency latency;
 			struct dml2_soc_operating_point clocks;
 			double min_available_urgent_bandwidth_KBps; // minimum guaranteed urgent bandwidth at active
+			double min_available_non_urgent_bandwidth_KBps; // minimum guaranteed nominal bandwidth at active
 		} dcn5;
 	};
 };
@@ -95,6 +96,7 @@ struct dml2_sop_table {
 	bool is_initialized;
 	const struct utm_qos_model *model;
 	uint32_t sop_min_available_urgent_bandwidths_KBps[MAX_UTM_SOP_COUNT];
+	uint32_t sop_min_available_non_urgent_bandwidths_KBps[MAX_UTM_SOP_COUNT];
 	uint32_t sop_optimal_dcfclks_khz[MAX_UTM_SOP_COUNT];
 	unsigned int (*get_highest_sop_index)(const struct dml2_sop_table *sop_table);
 	void (*get_sop_constraint_at_index)(const struct dml2_sop_table *sop_table, unsigned int index, struct dml2_sop_constraint *constraint);

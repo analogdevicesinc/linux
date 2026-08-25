@@ -380,6 +380,10 @@ struct dml2_mode_support_info {
 	bool temp_read_or_ppt_support;
 	bool qos_bandwidth_support;
 	bool dcfclk_support;
+	bool alternate_channel_size_support;
+	bool EnoughUrgentLatencyHidingSupport;
+	bool DSCSlicesODMModeSupported;
+	bool HActiveForDSCSupported;
 }; // dml2_mode_support_info
 
 struct dml2_memory_path_latency {
@@ -543,6 +547,14 @@ struct dml2_display_cfg_programming {
 			double fraction_of_urgent_bandwidth_mall;
 			double max_active_fclk_change_latency_supported;
 			unsigned int min_return_latency_in_dcfclk;
+
+			struct {
+				struct {
+					double sdp_bw_mbps;
+					double dram_bw_mbps;
+					double dram_vm_only_bw_mbps;
+				} sys_active;
+			} non_urg_bw_available;
 
 			struct {
 				struct {

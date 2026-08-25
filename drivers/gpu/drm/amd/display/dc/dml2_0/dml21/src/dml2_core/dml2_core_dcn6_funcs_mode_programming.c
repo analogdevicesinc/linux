@@ -1110,6 +1110,8 @@ static void dcn6_mp_initialize_from_solution(struct dml2_core_internal_mode_prog
 	outputs->min_available_urgent_bandwidth_MBps = solution->validation_result.mode_support.bandwidth_upper_bound.dcn5.urgent_bandwidth_kbps / 1000.0;
 	**outputs->urg_bandwidth_available = math_min2(solution->sop_constraint.dcn5.min_available_urgent_bandwidth_KBps / 1000.0,
 		outputs->Dcfclk * utm_soc_bb->urgent_sdp_derate_percent / 100.0 * utm_soc_bb->return_bus_width_bytes);
+	**outputs->non_urg_bandwidth_available = math_min2(solution->sop_constraint.dcn5.min_available_non_urgent_bandwidth_KBps / 1000.0,
+		outputs->Dcfclk * utm_soc_bb->nominal_sdp_derate_percent / 100.0 * utm_soc_bb->return_bus_width_bytes);
 
 	outputs->UrgentLatency = solution->sop_constraint.dcn5.latency.dcn5.urgent_ramp;
 	outputs->TripToMemory = math_max2(solution->sop_constraint.dcn5.latency.dcn5.urgent_ramp,

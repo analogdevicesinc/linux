@@ -1811,6 +1811,9 @@ void dcn5_calculate_urgent_burst_factor(
 		double VRatioC,
 		double BytePerPixelInDETY,
 		double BytePerPixelInDETC,
+		bool UnboundedRequestEnabled,
+		unsigned int CompressedBufferSizeInkByte,
+
 		unsigned int DETBufferSizeY,
 		unsigned int DETBufferSizeC,
 		// Output
@@ -1837,7 +1840,9 @@ void dcn5_calculate_urgent_burst_factor(
 	DML_LOG_VERBOSE("DML::%s: LineTime = %f\n", __func__, LineTime);
 	DML_ASSERT(VRatio > 0);
 
-	LinesInDETLuma = DETBufferSizeY / BytePerPixelInDETY / swath_width_luma_ub;
+	unsigned int EffectiveBufferY = DETBufferSizeY + (UnboundedRequestEnabled ? CompressedBufferSizeInkByte * 1024 : 0);
+
+	LinesInDETLuma = EffectiveBufferY / BytePerPixelInDETY / swath_width_luma_ub;
 
 	DETBufferSizeInTimeLuma = math_floor2(LinesInDETLuma, SwathHeightY) * LineTime / VRatio;
 	if (DETBufferSizeInTimeLuma - UrgentLatency <= 0) {
