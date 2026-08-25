@@ -1024,6 +1024,15 @@ static int mes_v11_0_set_hw_resources(struct amdgpu_mes *mes)
 	mes_set_hw_res_pkt.use_different_vmid_compute = 1;
 	mes_set_hw_res_pkt.enable_reg_active_poll = 1;
 	mes_set_hw_res_pkt.enable_level_process_quantum_check = 1;
+	/*
+	 * Bare metal: disabled here, KFD arms a software replacement only
+	 * while oversubscribed (see kfd_device_queue_manager.c). SR-IOV
+	 * guests keep the firmware timer instead of the KFD-side one, since
+	 * the notify round-trip is much slower under SR-IOV and would
+	 * otherwise stall remapping queues.
+	 */
+	if (amdgpu_sriov_vf(adev))
+		mes_set_hw_res_pkt.oversubscription_timer = 50;
 	if (adev->mes.use_rs64mem)
 		mes_set_hw_res_pkt.use_rs64mem_for_proc_gang_ctx = 1;
 

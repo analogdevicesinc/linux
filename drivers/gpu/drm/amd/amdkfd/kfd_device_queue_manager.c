@@ -282,8 +282,15 @@ static int add_queue_mes(struct device_queue_manager *dqm, struct queue *q,
 		return r;
 	}
 
-	/* GFX11: start notify timer only once when oversubscription begins */
-	if (KFD_GC_VERSION(dqm->dev) >= IP_VERSION(11, 0, 0) &&
+	/*
+	 * GFX11: start notify timer only once when oversubscription begins.
+	 * Skip under SR-IOV: MES round-trips are far slower there, and this
+	 * notify call shares mes->mutex_hidden with add/remove_hw_queue, so
+	 * a slow notify can stall remapping queues. SR-IOV guests keep MES's
+	 * own firmware oversubscription timer instead.
+	 */
+	if (!amdgpu_sriov_vf(adev) &&
+	    KFD_GC_VERSION(dqm->dev) >= IP_VERSION(11, 0, 0) &&
 	    KFD_GC_VERSION(dqm->dev) < IP_VERSION(12, 0, 0) &&
 	    dqm->active_cp_queue_count > get_cp_queues_num(dqm))
 		queue_delayed_work(system_wq, &dqm->notify_unmap_work,
