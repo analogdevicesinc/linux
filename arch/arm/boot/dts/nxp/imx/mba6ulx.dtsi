@@ -118,16 +118,6 @@
 		vin-supply = <&reg_mba6ul_3v3>;
 	};
 
-	reg_otg2vbus_5v0: regulator-otg2-vbus-5v0 {
-		compatible = "regulator-fixed";
-		gpio = <&expander_out1 0 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		regulator-name = "otg2-vbus-supply-5v0";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		vin-supply = <&reg_mpcie>;
-	};
-
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -369,10 +359,18 @@
 /* 7-port usb hub */
 /* id, pwr, oc pins not connected */
 &usbotg2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	disable-over-current;
-	vbus-supply = <&reg_otg2vbus_5v0>;
 	dr_mode = "host";
 	status = "okay";
+
+	hub_2_0: hub@1 {
+		compatible = "usb424,2517";
+		reg = <1>;
+		reset-gpios = <&expander_out1 0 GPIO_ACTIVE_LOW>;
+		vdd-supply = <&reg_mba6ul_3v3>;
+	};
 };
 
 &usdhc1 {
