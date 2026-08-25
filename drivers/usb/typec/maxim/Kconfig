@@ -1,0 +1,24 @@
+#
+# CCIC devices
+#
+
+comment "CCIC configs"
+
+config MAX77978
+	tristate "Analog Devices MAX77978 USBC/PD Support"
+	depends on I2C
+	help
+	  Say yes here to add support for Analog Devices MAX77978.
+	  This is a USB Type-C CC detection and PD protocol controller.
+	  This driver provides I2C communication, IRQ handling, and
+	  firmware update support for the device.
+
+config MAX77978_DEBUG
+	tristate "Analog Devices MAX77978 Debug Interface"
+	depends on MAX77978
+	help
+	  Say yes here to add support for Analog Devices MAX77978 Debug.
+	  This shows debug message for USB Type-C CC detection and
+	  PD protocol implementation. It also enables additional I2C
+	  bulk transfer logging for debugging communication issues.
+
