@@ -25,7 +25,6 @@
 #include <linux/init.h>
 #include <linux/backing-dev.h>
 #include <linux/task_io_accounting_ops.h>
-#include <linux/blkdev.h>
 #include <linux/mpage.h>
 #include <linux/rmap.h>
 #include <linux/percpu.h>
@@ -583,16 +582,6 @@ static inline void __wb_writeout_add(struct bdi_writeback *wb, long nr)
 		wb_domain_writeout_add(cgdom, wb_memcg_completions(wb),
 				       wb->bdi->max_prop_frac, nr);
 }
-
-void wb_writeout_inc(struct bdi_writeback *wb)
-{
-	unsigned long flags;
-
-	local_irq_save(flags);
-	__wb_writeout_add(wb, 1);
-	local_irq_restore(flags);
-}
-EXPORT_SYMBOL_GPL(wb_writeout_inc);
 
 /*
  * On idle system, we can be called long after we scheduled because we use

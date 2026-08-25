@@ -640,6 +640,10 @@ S: 25-29 St Giles
 S: Oxford
 S: United Kingdom
 
+N: Bingbu Cao
+E: bingbu.cao@amd.com
+D: Ipu6, ipu7 and camera sensor drivers
+
 N: Luiz Fernando N. Capitulino
 E: lcapitulino@mandriva.com.br
 E: lcapitulino@gmail.com
@@ -1320,6 +1324,11 @@ D: Initial GPL'd Frame Relay driver
 D: Dynamic PPP devices
 D: Sundry modularizations (PPP, IPX, ...) and fixes
 
+N: Steve French
+E: sfrench@samba.org
+E: smfrench@gmail.com
+D: Author and maintainer of the cifs filesystem for many years.
+
 N: Bob Frey
 E: bobf@advansys.com
 D: AdvanSys SCSI driver
@@ -1816,6 +1825,10 @@ D: md boot support
 S: Am Strand 5
 S: D-19063 Schwerin
 S: Germany
+
+N: Haowen Hu
+E: srcres258@furdevs.cn
+D: Traditional Chinese (zh_TW) documentation translation and maintenance
 
 N: Jan Hubicka
 E: hubicka@freesoft.cz
@@ -3096,6 +3109,10 @@ N: Jens Osterkamp
 E: jens@de.ibm.com
 D: Maintainer of Spidernet network driver for Cell
 
+N: Kent Overstreet
+E: kent.overstreet@linux.dev
+D: Co-authored and contributed to Memory Allocation Profiling
+
 N: Gadi Oxman
 E: gadio@netvision.net.il
 D: Original author and maintainer of IDE/ATAPI floppy/tape drivers
@@ -3333,6 +3350,9 @@ N: Richard Purdie
 E: rpurdie@rpsys.net
 D: Backlight subsystem maintainer
 S: United Kingdom
+
+N: Tian Shu Qiu
+D: Ipu6, ipu7 and camera sensor drivers
 
 N: Daniel Quinlan
 E: quinlan@pathname.com
