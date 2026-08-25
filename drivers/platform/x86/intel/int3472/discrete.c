@@ -328,6 +328,7 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 	u8 active_value, pin, type;
 	unsigned long gpio_flags;
 	union acpi_object *obj;
+	unsigned int obj_value;
 	struct gpio_desc *gpio;
 	const char *con_id;
 	int ret;
@@ -343,24 +344,27 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 				      &int3472_gpio_guid, 0x00,
 				      int3472->ngpios + 2,
 				      NULL, ACPI_TYPE_INTEGER);
-
 	if (!obj) {
 		dev_warn(int3472->dev, "No _DSM entry for GPIO pin %u\n",
 			 agpio->pin_table[0]);
 		return 1;
 	}
 
-	type = FIELD_GET(INT3472_GPIO_DSM_TYPE, obj->integer.value);
+	obj_value = obj->integer.value;
+
+	ACPI_FREE(obj);
+
+	type = FIELD_GET(INT3472_GPIO_DSM_TYPE, obj_value);
 
 	int3472_get_con_id_and_polarity(int3472, &type, &con_id, &gpio_flags, &enable_time_us);
 
-	pin = FIELD_GET(INT3472_GPIO_DSM_PIN, obj->integer.value);
+	pin = FIELD_GET(INT3472_GPIO_DSM_PIN, obj_value);
 	/* Pin field is not really used under Windows and wraps around at 8 bits */
 	if (pin != (agpio->pin_table[0] & 0xff))
 		dev_dbg(int3472->dev, FW_BUG "%s %s pin number mismatch _DSM %d resource %d\n",
 			con_id, agpio->resource_source.string_ptr, pin, agpio->pin_table[0]);
 
-	active_value = FIELD_GET(INT3472_GPIO_DSM_SENSOR_ON_VAL, obj->integer.value);
+	active_value = FIELD_GET(INT3472_GPIO_DSM_SENSOR_ON_VAL, obj_value);
 	if (!active_value)
 		gpio_flags ^= GPIO_ACTIVE_LOW;
 
@@ -368,16 +372,18 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 		agpio->resource_source.string_ptr, agpio->pin_table[0],
 		str_high_low(gpio_flags == GPIO_ACTIVE_HIGH));
 
+	int3472->ngpios++;
+
 	switch (type) {
 	case INT3472_GPIO_TYPE_RESET:
 	case INT3472_GPIO_TYPE_POWERDOWN:
 	case INT3472_GPIO_TYPE_HOTPLUG_DETECT:
 		ret = skl_int3472_map_gpio_to_sensor(int3472, agpio, con_id, gpio_flags);
 		if (ret)
-			dev_err_probe(int3472->dev, ret,
-				      "Failed to map GPIO pin to sensor\n");
+			return dev_err_probe(int3472->dev, ret,
+					     "Failed to map GPIO pin to sensor\n");
 
-		break;
+		return 1;
 	case INT3472_GPIO_TYPE_CLK_ENABLE:
 	case INT3472_GPIO_TYPE_PRIVACY_LED:
 	case INT3472_GPIO_TYPE_STROBE:
@@ -385,11 +391,9 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 	case INT3472_GPIO_TYPE_DOVDD:
 	case INT3472_GPIO_TYPE_HANDSHAKE:
 		gpio = skl_int3472_gpiod_get_from_temp_lookup(int3472, agpio, con_id, gpio_flags);
-		if (IS_ERR(gpio)) {
-			ret = PTR_ERR(gpio);
-			dev_err_probe(int3472->dev, ret, "Failed to get GPIO\n");
-			break;
-		}
+		if (IS_ERR(gpio))
+			return dev_err_probe(int3472->dev, PTR_ERR(gpio),
+					     "Failed to get GPIO\n");
 
 		switch (type) {
 		case INT3472_GPIO_TYPE_CLK_ENABLE:
@@ -427,23 +431,13 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 		if (ret)
 			gpiod_put(gpio);
 
-		break;
+		return ret < 0 ? ret : 1;
 	default:
 		dev_warn(int3472->dev,
 			 "GPIO type 0x%02x unknown; the sensor may not work\n",
 			 type);
-		ret = 1;
-		break;
+		return 1;
 	}
-
-	int3472->ngpios++;
-	ACPI_FREE(obj);
-
-	/*
-	 * Either return an error or tell acpi_dev_get_resources() to not make a
-	 * copy of the resource.
-	 */
-	return ret < 0 ? ret : 1;
 }
 
 int int3472_discrete_parse_crs(struct int3472_discrete_device *int3472)
