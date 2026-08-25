@@ -23,6 +23,7 @@
 #include <linux/types.h>
 #include <linux/unaligned.h>
 #include <linux/units.h>
+#include <linux/wordpart.h>
 
 /* Register Definition */
 #define AD4080_REG_INTERFACE_CONFIG_A				0x00
@@ -207,15 +208,41 @@ static const struct regmap_config ad4080_regmap_config = {
 	.max_register = 0x29,
 };
 
-static int ad4080_reg_access(struct iio_dev *indio_dev, unsigned int reg,
-			     unsigned int writeval, unsigned int *readval)
+/*
+ * Dual-channel parts expose each channel as a separate SPI device but a single
+ * IIO device. Pack both channels into the 64-bit debugfs register value: channel
+ * A in the lower 32 bits, channel B in the upper 32 bits. Single-channel parts
+ * only touch channel A and leave the upper half zero.
+ */
+static int ad4080_reg64_access(struct iio_dev *indio_dev, unsigned int reg,
+			       u64 writeval, u64 *readval)
 {
 	struct ad4080_state *st = iio_priv(indio_dev);
+	unsigned int val;
+	int ret;
 
-	if (readval)
-		return regmap_read(st->regmap[0], reg, readval);
+	if (readval) {
+		ret = regmap_read(st->regmap[0], reg, &val);
+		if (ret)
+			return ret;
+		*readval = val;
 
-	return regmap_write(st->regmap[0], reg, writeval);
+		if (st->info->num_channels == 1)
+			return 0;
+
+		ret = regmap_read(st->regmap[1], reg, &val);
+		if (ret)
+			return ret;
+		*readval |= (u64)val << 32;
+
+		return 0;
+	}
+
+	ret = regmap_write(st->regmap[0], reg, lower_32_bits(writeval));
+	if (ret || st->info->num_channels == 1)
+		return ret;
+
+	return regmap_write(st->regmap[1], reg, upper_32_bits(writeval));
 }
 
 static int ad4080_get_scale(struct ad4080_state *st, int *val, int *val2)
@@ -435,7 +462,7 @@ static int ad4880_update_scan_mode(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info ad4080_iio_info = {
-	.debugfs_reg_access = ad4080_reg_access,
+	.debugfs_reg64_access = ad4080_reg64_access,
 	.read_raw = ad4080_read_raw,
 	.write_raw = ad4080_write_raw,
 	.read_avail = ad4080_read_avail,
@@ -447,7 +474,7 @@ static const struct iio_info ad4080_iio_info = {
  * chan_enable/chan_disable operations.
  */
 static const struct iio_info ad4880_iio_info = {
-	.debugfs_reg_access = ad4080_reg_access,
+	.debugfs_reg64_access = ad4080_reg64_access,
 	.read_raw = ad4080_read_raw,
 	.write_raw = ad4080_write_raw,
 	.read_avail = ad4080_read_avail,
