@@ -206,15 +206,15 @@ test_arch() {
 			exit 1
 	esac
 	printf '%-15s' "$arch:"
-	if [ "$arch" = "m68k" -o "$arch" = "sh4" -o "$arch" = "openrisc" -o "$arch" = "parisc32" -o "$arch" = "alpha" ] && [ "$llvm" = "1" ]; then
+	if [ "$llvm" = "1" ] && [ "$arch" = "m68k" -o "$arch" = "sh4" -o "$arch" = "openrisc" -o "$arch" = "parisc32" -o "$arch" = "alpha" ]; then
 		echo "Unsupported configuration"
 		return
 	fi
-	if [ "$arch" = "x32" ] && [ "$test_mode" = "user" ]; then
+	if [ "$test_mode" = "user" ] && [ "$arch" = "x32" ]; then
 		echo "Unsupported configuration"
 		return
 	fi
-	if [ "$arch" = "hexagon" ] && [ -z "$llvm" -o "$test_mode" = "system" ]; then
+	if [ -z "$llvm" -o "$test_mode" = "system" ] && [ "$arch" = "hexagon" ]; then
 		echo "Unsupported configuration"
 		return
 	fi
