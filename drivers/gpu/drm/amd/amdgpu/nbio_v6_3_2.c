@@ -26,6 +26,57 @@
 #include "amdgpu.h"
 #include "nbio_v6_3_2.h"
 
+static const struct amdgpu_nbio_doorbell_layout
+nbio_v6_3_2_doorbell_layout = {
+	.ctrl = {
+		.enable = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_ENABLE),
+		.awid = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_AWID),
+		.fence_enable = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_FENCE_ENABLE),
+		.range_offset = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_RANGE_OFFSET),
+		.range_size = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_RANGE_SIZE),
+		.disable_64bit = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_64BIT_SUPPORT_DIS),
+		.deduct_range_offset = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_NEED_DEDUCT_RANGE_OFFSET),
+		.drop = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_DROP_EN),
+		.awaddr_31_28 = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_AWADDR_31_28_VALUE),
+	},
+	.ctrl1 = {
+		.target_port_type = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL1,
+			S2A_DOORBELL_PORT0_TARGET_PORT_TYPE),
+		.target_die_id = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL1,
+			S2A_DOORBELL_PORT0_TARGET_DIEID),
+		.target_port_id = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL1,
+			S2A_DOORBELL_PORT0_TARGET_PORT_ID),
+		.override_poison_data = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL1,
+			S2A_DOORBELL_PORT0_OVERRIDE_POISON_DATA),
+		.disable_4k_page_decode = REG_FIELD_MASK(
+			GDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL1,
+			S2A_DOORBELL_PORT0_4K_PAGE_DECODE_DISABLE),
+	},
+	.has_ctrl1 = true,
+};
+
 static u32 nbio_v6_3_2_get_pcie_index_offset(struct amdgpu_device *adev)
 {
 	return SOC15_REG_OFFSET(NBIO, 0, regBIF_BX0_PCIE_INDEX2);
@@ -71,8 +122,57 @@ static void nbio_v6_3_2_mc_access_enable(struct amdgpu_device *adev,
 		WREG32_SOC15(NBIO, 0, regBIF_BX0_BIF_FB_EN, 0);
 }
 
+static void nbio_v6_3_2_init_doorbell_entry_registers(
+	struct amdgpu_device *adev)
+{
+	struct amdgpu_nbio_doorbell_entries *entries;
+	u32 ctrl_base, ctrl1_base;
+	u32 i;
+
+	memset(adev->nbio.doorbell_entries, 0,
+	       sizeof(adev->nbio.doorbell_entries));
+	adev->nbio.doorbell_layout = &nbio_v6_3_2_doorbell_layout;
+
+	ctrl_base = SOC15_REG_OFFSET(
+		NBIO, 0, regGDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL);
+	ctrl1_base = SOC15_REG_OFFSET(
+		NBIO, 0, regGDC_S2A0_S2A_DOORBELL_ENTRY_0_CTRL1);
+
+	entries = &adev->nbio.doorbell_entries[
+		AMDGPU_NBIO_DOORBELL_CLIENT_CP];
+	entries->num_entries = 1;
+	entries->entry[0].port = 0;
+	entries->entry[0].ctrl_reg = ctrl_base;
+	entries->entry[0].ctrl1_reg = ctrl1_base;
+
+	entries = &adev->nbio.doorbell_entries[
+		AMDGPU_NBIO_DOORBELL_CLIENT_IH];
+	entries->num_entries = 1;
+	entries->entry[0].port = 1;
+	entries->entry[0].ctrl_reg = ctrl_base + 2;
+	entries->entry[0].ctrl1_reg = ctrl1_base + 2;
+
+	entries = &adev->nbio.doorbell_entries[
+		AMDGPU_NBIO_DOORBELL_CLIENT_VCN];
+	entries->num_entries = 4;
+	for (i = 0; i < entries->num_entries; i++) {
+		entries->entry[i].port = i + 2;
+		entries->entry[i].ctrl_reg = ctrl_base + (i + 2) * 2;
+		entries->entry[i].ctrl1_reg = ctrl1_base + (i + 2) * 2;
+	}
+
+	entries = &adev->nbio.doorbell_entries[
+		AMDGPU_NBIO_DOORBELL_CLIENT_SDMA];
+	entries->num_entries = 1;
+	entries->entry[0].port = 6;
+	entries->entry[0].ctrl_reg = ctrl_base + 6 * 2;
+	entries->entry[0].ctrl1_reg = ctrl1_base + 6 * 2;
+}
+
 static void nbio_v6_3_2_init_registers(struct amdgpu_device *adev)
 {
+	nbio_v6_3_2_init_doorbell_entry_registers(adev);
+
 	WREG32_SOC15(NBIO, 0, regXCD_DOORBELL_FENCE_1,
 		(0xff & ~(adev->gfx.xcc_mask)) <<
 		XCD_DOORBELL_FENCE_1__XCD_0_DOORBELL_DISABLE__SHIFT);
