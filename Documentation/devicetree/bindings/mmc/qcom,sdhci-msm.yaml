@@ -47,6 +47,7 @@ properties:
               - qcom,ipq9574-sdhci
               - qcom,ipq9650-sdhci
               - qcom,kaanapali-sdhci
+              - qcom,maili-sdhci
               - qcom,milos-sdhci
               - qcom,qcm2290-sdhci
               - qcom,qcs404-sdhci
