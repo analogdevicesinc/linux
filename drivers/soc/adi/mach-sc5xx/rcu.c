@@ -234,7 +234,7 @@ static int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq)
 		sec_raise_irq(rcu->sec, coreirq);
 	}
 	// Wait until the specific core enter into IDLE bit(8:10)
-	// DSP should set the IDLE bit to 1 manully in ISR
+	// DSP should set the IDLE bit to 1 manually in ISR
 	do {
 		if (adi_rcu_is_core_idle(rcu, coreid)) {
 			is_timeout = false;
