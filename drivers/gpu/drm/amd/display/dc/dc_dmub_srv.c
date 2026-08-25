@@ -41,8 +41,6 @@
 #define DC_LOGGER CTX->logger
 #define GPINT_RETRY_NUM 20
 
-#define MAX_WAIT_US 500000
-
 static void dc_dmub_srv_construct(struct dc_dmub_srv *dc_srv, struct dc *dc,
 				  struct dmub_srv *dmub)
 {
@@ -93,7 +91,7 @@ bool dc_dmub_srv_wait_for_pending(struct dc_dmub_srv *dc_dmub_srv)
 	dmub = dc_dmub_srv->dmub;
 
 	do {
-		status = dmub_srv_wait_for_pending(dmub, MAX_WAIT_US);
+		status = dmub_srv_wait_for_pending(dmub, DMUB_CMD_DEFAULT_MAX_WAIT_US);
 	} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
 
 	if (status != DMUB_STATUS_OK) {
@@ -123,7 +121,7 @@ void dc_dmub_srv_wait_for_inbox0_ack(struct dc_dmub_srv *dc_dmub_srv)
 	struct dc_context *dc_ctx = dc_dmub_srv->ctx;
 	enum dmub_status status = DMUB_STATUS_OK;
 
-	status = dmub_srv_wait_for_inbox0_ack(dmub, MAX_WAIT_US);
+	status = dmub_srv_wait_for_inbox0_ack(dmub, DMUB_CMD_DEFAULT_MAX_WAIT_US);
 	if (status != DMUB_STATUS_OK) {
 		DC_ERROR("Error waiting for INBOX0 HW Lock Ack\n");
 		dc_dmub_srv_handle_failure(dc_dmub_srv);
@@ -146,7 +144,8 @@ void dc_dmub_srv_send_inbox0_cmd(struct dc_dmub_srv *dc_dmub_srv,
 
 static bool dc_dmub_srv_reg_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_srv,
 		unsigned int count,
-		union dmub_rb_cmd *cmd_list)
+		const union dmub_rb_cmd *cmd_list,
+		unsigned int timeout_us)
 {
 	struct dc_context *dc_ctx;
 	struct dmub_srv *dmub;
@@ -162,7 +161,7 @@ static bool dc_dmub_srv_reg_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_s
 	for (i = 0 ; i < count; i++) {
 		/* confirm no messages pending */
 		do {
-			status = dmub_srv_wait_for_idle(dmub, MAX_WAIT_US);
+			status = dmub_srv_wait_for_idle(dmub, timeout_us);
 		} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
 
 		/* queue command */
@@ -188,7 +187,8 @@ static bool dc_dmub_srv_reg_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_s
 
 static bool dc_dmub_srv_fb_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_srv,
 		unsigned int count,
-		union dmub_rb_cmd *cmd_list)
+		const union dmub_rb_cmd *cmd_list,
+		unsigned int timeout_us)
 {
 	struct dc_context *dc_ctx;
 	struct dmub_srv *dmub;
@@ -217,7 +217,7 @@ static bool dc_dmub_srv_fb_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_sr
 				return false;
 
 			do {
-					status = dmub_srv_wait_for_inbox_free(dmub, MAX_WAIT_US, count - i);
+					status = dmub_srv_wait_for_inbox_free(dmub, timeout_us, count - i);
 			} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
 
 			/* Requeue the command. */
@@ -245,17 +245,18 @@ static bool dc_dmub_srv_fb_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_sr
 	return true;
 }
 
-bool dc_dmub_srv_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_srv,
+bool dc_dmub_srv_cmd_list_queue_execute_timeout(struct dc_dmub_srv *dc_dmub_srv,
 		unsigned int count,
-		union dmub_rb_cmd *cmd_list)
+		const union dmub_rb_cmd *cmd_list,
+		unsigned int timeout_us)
 {
 	bool res = false;
 
 	if (dc_dmub_srv && dc_dmub_srv->dmub) {
 		if (dc_dmub_srv->dmub->inbox_type == DMUB_CMD_INTERFACE_REG) {
-			res = dc_dmub_srv_reg_cmd_list_queue_execute(dc_dmub_srv, count, cmd_list);
+			res = dc_dmub_srv_reg_cmd_list_queue_execute(dc_dmub_srv, count, cmd_list, timeout_us);
 		} else {
-			res = dc_dmub_srv_fb_cmd_list_queue_execute(dc_dmub_srv, count, cmd_list);
+			res = dc_dmub_srv_fb_cmd_list_queue_execute(dc_dmub_srv, count, cmd_list, timeout_us);
 		}
 
 		if (res)
@@ -265,9 +266,17 @@ bool dc_dmub_srv_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_srv,
 	return res;
 }
 
+bool dc_dmub_srv_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_srv,
+		unsigned int count,
+		const union dmub_rb_cmd *cmd_list)
+{
+	return dc_dmub_srv_cmd_list_queue_execute_timeout(dc_dmub_srv, count, cmd_list, DMUB_CMD_DEFAULT_MAX_WAIT_US);
+}
+
 bool dc_dmub_srv_wait_for_idle(struct dc_dmub_srv *dc_dmub_srv,
 		enum dm_dmub_wait_type wait_type,
-		union dmub_rb_cmd *cmd_list)
+		union dmub_rb_cmd *cmd_list,
+		unsigned int timeout_us)
 {
 	struct dmub_srv *dmub;
 	enum dmub_status status;
@@ -280,7 +289,7 @@ bool dc_dmub_srv_wait_for_idle(struct dc_dmub_srv *dc_dmub_srv,
 	// Wait for DMUB to process command
 	if (wait_type != DM_DMUB_WAIT_TYPE_NO_WAIT) {
 		do {
-			status = dmub_srv_wait_for_idle(dmub, MAX_WAIT_US);
+			status = dmub_srv_wait_for_idle(dmub, timeout_us);
 		} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
 
 		if (status != DMUB_STATUS_OK) {
@@ -314,7 +323,7 @@ bool dc_dmub_srv_cmd_run_list(struct dc_dmub_srv *dc_dmub_srv, unsigned int coun
 	if (!dc_dmub_srv_cmd_list_queue_execute(dc_dmub_srv, count, cmd_list))
 		return false;
 
-	return dc_dmub_srv_wait_for_idle(dc_dmub_srv, wait_type, cmd_list);
+	return dc_dmub_srv_wait_for_idle(dc_dmub_srv, wait_type, cmd_list, DMUB_CMD_DEFAULT_MAX_WAIT_US);
 }
 
 bool dc_dmub_srv_optimized_init_done(struct dc_dmub_srv *dc_dmub_srv)
@@ -1370,7 +1379,7 @@ static void dc_dmub_srv_notify_idle(const struct dc *dc, bool allow_idle)
 			ips_fw->signals.bits.ips1_commit,
 			ips_fw->signals.bits.ips2_commit);
 
-		dc_dmub_srv_wait_for_idle(dc->ctx->dmub_srv, DM_DMUB_WAIT_TYPE_WAIT, NULL);
+		dc_dmub_srv_wait_for_idle(dc->ctx->dmub_srv, DM_DMUB_WAIT_TYPE_WAIT, NULL, DMUB_CMD_DEFAULT_MAX_WAIT_US);
 
 		memset(&new_signals, 0, sizeof(new_signals));
 
