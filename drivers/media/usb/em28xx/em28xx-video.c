@@ -431,6 +431,7 @@ static void em2828X_decoder_set_std(struct em28xx *dev, v4l2_std_id norm)
 		} else if (INPUT(dev->ctl_input)->vmux == EM2828X_TELEVISION) {
 			em28xx_write_reg(dev, 0x7A00, 0x32);
 			em28xx_write_reg(dev, 0x7A03, 0x09);
+			em28xx_write_reg(dev, 0x7A07, 0x2f);
 			em28xx_write_reg(dev, 0x7A30, 0x2a);
 			em28xx_write_reg(dev, 0x7A80, 0x03);
 			em28xx_write_reg(dev, 0x7A20, 0x35);
