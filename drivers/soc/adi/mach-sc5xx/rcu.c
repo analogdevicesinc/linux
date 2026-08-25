@@ -126,7 +126,7 @@ void adi_rcu_set_sec(struct adi_rcu *rcu, struct adi_sec *sec)
 }
 
 // API for other drivers to interact with RCU
-int adi_rcu_check_coreid_valid(struct adi_rcu *rcu, int coreid)
+static int adi_rcu_check_coreid_valid(struct adi_rcu *rcu, int coreid)
 {
 	if (coreid < rcu->sharc_min_coreid
 	    || coreid > rcu->sharc_max_coreid)
@@ -134,9 +134,7 @@ int adi_rcu_check_coreid_valid(struct adi_rcu *rcu, int coreid)
 	return 0;
 }
 
-EXPORT_SYMBOL(adi_rcu_check_coreid_valid);
-
-int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid)
+static int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid)
 {
 	u32 val;
 	int ret;
@@ -181,9 +179,7 @@ int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid)
 	return 0;
 }
 
-EXPORT_SYMBOL(adi_rcu_reset_core);
-
-int adi_rcu_start_core(struct adi_rcu *rcu, int coreid)
+static int adi_rcu_start_core(struct adi_rcu *rcu, int coreid)
 {
 	int ret;
 
@@ -200,8 +196,6 @@ int adi_rcu_start_core(struct adi_rcu *rcu, int coreid)
 	return 0;
 }
 
-EXPORT_SYMBOL(adi_rcu_start_core);
-
 int adi_rcu_is_core_idle(struct adi_rcu *rcu, int coreid)
 {
 	int ret = adi_rcu_check_coreid_valid(rcu, coreid);
@@ -214,7 +208,7 @@ int adi_rcu_is_core_idle(struct adi_rcu *rcu, int coreid)
 
 EXPORT_SYMBOL(adi_rcu_is_core_idle);
 
-int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq)
+static int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq)
 {
 	unsigned long timeout = jiffies + ADI_RCU_CORE_INIT_TIMEOUT;
 	bool is_timeout = true;
@@ -260,8 +254,6 @@ int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq)
 	adi_rcu_msg_clear(rcu, RCU0_MSG_C1ACTIVATE << (coreid - 1));
 	return 0;
 }
-
-EXPORT_SYMBOL(adi_rcu_stop_core);
 
 /*
  * Reset controller ops
