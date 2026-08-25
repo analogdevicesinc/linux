@@ -172,6 +172,7 @@ struct dml2_soc_bb {
 	double lower_bound_bandwidth_dchub;
 	double fraction_of_urgent_bandwidth_nominal_target;
 	double fraction_of_urgent_bandwidth_flip_target;
+	double hostvm_inefficiency_fraction;
 	unsigned int max_lsdma_bandwidth_kbps;
 	unsigned int dprefclk_mhz;
 	unsigned int xtalclk_mhz;

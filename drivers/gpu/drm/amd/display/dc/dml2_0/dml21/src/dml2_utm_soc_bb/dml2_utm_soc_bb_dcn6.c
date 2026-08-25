@@ -332,6 +332,7 @@ static void dcn6_initialize_from_soc_bb(struct dml2_utm_soc_bb *utm_soc_bb,
 	utm_soc_bb->lower_bound_bandwidth_dchub = soc_bb->lower_bound_bandwidth_dchub;
 	utm_soc_bb->fraction_of_urgent_bandwidth_nominal_target = soc_bb->fraction_of_urgent_bandwidth_nominal_target;
 	utm_soc_bb->fraction_of_urgent_bandwidth_flip_target = soc_bb->fraction_of_urgent_bandwidth_flip_target;
+	utm_soc_bb->hostvm_inefficiency_fraction = soc_bb->hostvm_inefficiency_fraction;
 	utm_soc_bb->max_lsdma_bandwidth_kbps = soc_bb->max_lsdma_bandwidth_kbps;
 }
 

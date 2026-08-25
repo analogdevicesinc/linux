@@ -383,7 +383,7 @@ struct dml2_mode_support_info {
 	bool alternate_channel_size_support;
 	bool EnoughUrgentLatencyHidingSupport;
 	bool DSCSlicesODMModeSupported;
-	bool HActiveForDSCSupported;
+	bool ODMSupport;
 }; // dml2_mode_support_info
 
 struct dml2_memory_path_latency {

@@ -539,7 +539,7 @@ static void dcn6_mp_calculate_dcfclk_deep_sleep_hysteresis(struct dml2_core_calc
 					- min_return_latency_in_DCFCLK_cycles);
 }
 
-static void dcn6_calculate_mode_programming(struct dml2_core_calculate_mp_context *ctx,
+void dcn6_calculate_mode_programming(struct dml2_core_calculate_mp_context *ctx,
 		struct dml2_core_internal_mode_program *states)
 {
 	dcn6_mp_calculate_fraction_of_urgent_bandwidth(ctx, states);
@@ -567,7 +567,7 @@ static void dcn6_calculate_mode_programming(struct dml2_core_calculate_mp_contex
 	DML_LOG_VERBOSE("DML::%s: --- END --- \n", __func__);
 }
 
-static void dcn6_get_global_sync_programming(const struct dml2_core_internal_display_mode_lib *mode_lib, union dml2_global_sync_programming *out, int pipe_index)
+void dcn6_get_global_sync_programming(const struct dml2_core_internal_display_mode_lib *mode_lib, union dml2_global_sync_programming *out, int pipe_index)
 {
 	out->dcn4x.vready_offset_pixels = mode_lib->mp.VReadyOffsetPix[mode_lib->mp.pipe_plane[pipe_index]];
 	out->dcn4x.vstartup_lines = mode_lib->mp.VStartup[mode_lib->mp.pipe_plane[pipe_index]];
@@ -576,7 +576,7 @@ static void dcn6_get_global_sync_programming(const struct dml2_core_internal_dis
 	out->dcn4x.pstate_keepout_start_lines = mode_lib->mp.pstate_keepout_dst_lines[mode_lib->mp.pipe_plane[pipe_index]];
 }
 
-static void dcn6_get_stream_programming(const struct dml2_core_internal_display_mode_lib *mode_lib, struct dml2_per_stream_programming *out, int pipe_index)
+void dcn6_get_stream_programming(const struct dml2_core_internal_display_mode_lib *mode_lib, struct dml2_per_stream_programming *out, int pipe_index)
 {
 	dcn6_get_global_sync_programming(mode_lib, &out->global_sync, pipe_index);
 }
@@ -961,7 +961,7 @@ static void dcn6_populate_qos_bound(struct dml2_display_cfg_programming *program
 	programming->qos_bound.lsdma_bandwidth_lb_kbps = solution->validation_result.mode_support.global.lsdma_bw_req_for_alt_kbps;
 }
 
-static void dcn6_populate_mode_programming(struct dml2_core_calculate_mp_context *ctx,
+void dcn6_populate_mode_programming(struct dml2_core_calculate_mp_context *ctx,
 		struct dml2_display_cfg_programming *programming,
 		struct dml2_core_internal_scratch *s,
 		const struct dml2_core_internal_display_mode_lib *mode_lib,
@@ -1066,7 +1066,7 @@ static void dcn6_populate_mode_programming(struct dml2_core_calculate_mp_context
  * To move mode support result to mode programming, the data needs to be saved in cfg_support_info in the end of
  * mode support, so we can access cfg_support_info and populate mode programming data in this function based on it.
  */
-static void dcn6_mp_initialize_from_solution(struct dml2_core_internal_mode_program *outputs,
+void dcn6_mp_initialize_from_solution(struct dml2_core_internal_mode_program *outputs,
 		const struct dml2_display_solution *solution,
 		const struct dml2_utm_soc_bb *utm_soc_bb)
 {
@@ -1133,7 +1133,7 @@ static void dcn6_mp_initialize_from_solution(struct dml2_core_internal_mode_prog
 			sizeof(solution->uclk_pstate_params.pstate_switch_modes));
 }
 
-static void dcn6_mp_build_calculate_mp_context(struct dml2_core_calculate_mp_context *ctx,
+void dcn6_mp_build_calculate_mp_context(struct dml2_core_calculate_mp_context *ctx,
 		struct dml2_core_instance *core,
 		const struct dml2_display_solution *solution)
 {
@@ -1148,7 +1148,7 @@ static void dcn6_mp_build_calculate_mp_context(struct dml2_core_calculate_mp_con
 	ctx->calcs = &core->calcs;
 }
 
-static void dcn6_mp_initialize_from_ms(struct dml2_core_internal_mode_program *outputs,
+void dcn6_mp_initialize_from_ms(struct dml2_core_internal_mode_program *outputs,
 		const struct dml2_core_internal_mode_support *ms)
 {
 	outputs->DCFCLKDeepSleep = ms->dcfclk_deepsleep;

@@ -13248,6 +13248,10 @@ void dml2_core_calcs_get_informative(const struct dml2_core_internal_display_mod
 	out->informative.mode_support_info.InvalidCombinationOfMALLUseForPState = mode_lib->ms.support.InvalidCombinationOfMALLUseForPState;
 	out->informative.mode_support_info.ExceededMALLSize = mode_lib->ms.support.ExceededMALLSize;
 	out->informative.mode_support_info.EnoughWritebackUnits = mode_lib->ms.support.EnoughWritebackUnits;
+	out->informative.mode_support_info.EnoughUrgentLatencyHidingSupport = mode_lib->ms.support.EnoughUrgentLatencyHidingSupport;
+	out->informative.mode_support_info.alternate_channel_size_support = mode_lib->ms.support.alternate_channel_size_support;
+	out->informative.mode_support_info.DSCSlicesODMModeSupported = mode_lib->ms.support.DSCSlicesODMModeSupported;
+	out->informative.mode_support_info.ODMSupport = mode_lib->ms.support.ODMSupport;
 	out->informative.mode_support_info.temp_read_or_ppt_support = mode_lib->ms.support.global_temp_read_or_ppt_supported;
 	out->informative.mode_support_info.g6_temp_read_support = mode_lib->ms.support.g6_temp_read_support;
 

@@ -1813,7 +1813,6 @@ void dcn5_calculate_urgent_burst_factor(
 		double BytePerPixelInDETC,
 		bool UnboundedRequestEnabled,
 		unsigned int CompressedBufferSizeInkByte,
-
 		unsigned int DETBufferSizeY,
 		unsigned int DETBufferSizeC,
 		// Output
@@ -2637,7 +2636,7 @@ double dcn5_calculate_t_wait(
 	return TWait;
 }
 
-static void dcn5_calculate_v_update_and_dynamic_metadata_parameters(
+void dcn5_calculate_v_update_and_dynamic_metadata_parameters(
 		unsigned int MaxInterDCNTileRepeaters,
 		double Dppclk,
 		double Dispclk,
