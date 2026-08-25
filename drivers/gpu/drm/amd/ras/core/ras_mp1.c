@@ -183,6 +183,19 @@ int ras_mp1_set_debug_mode(struct ras_core_context *ras_core, bool enable)
 	return mp1->ip_func->set_debug_mode(ras_core, enable);
 }
 
+int ras_mp1_check_feature_status(struct ras_core_context *ras_core,
+		enum ras_mp1_feature_id feature_id, u32 *status)
+{
+	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+
+	if (!mp1->sys_func ||
+	    !mp1->sys_func->check_ras_feature_status)
+		return -EOPNOTSUPP;
+
+	return mp1->sys_func->check_ras_feature_status(ras_core,
+				feature_id, status);
+}
+
 int ras_mp1_sw_init(struct ras_core_context *ras_core)
 {
 	struct ras_mp1 *mp1 = &ras_core->ras_mp1;

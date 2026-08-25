@@ -28,6 +28,11 @@
 #define MAX_UE_BANKS_PER_QUERY  12
 #define MAX_CE_BANKS_PER_QUERY  12
 
+enum ras_mp1_feature_id {
+	RAS_MP1_FEATURE_PMFW_EEPROM,
+	RAS_MP1_FEATURE_MAX
+};
+
 enum ras_mp1_msg_id {
 	RAS_MP1_MSG_QueryValidMcaCount,
 	RAS_MP1_MSG_McaBankDumpDW,
@@ -122,4 +127,6 @@ int ras_mp1_reset_ras_table(struct ras_core_context *ras_core,
 int ras_mp1_get_record_count(struct ras_core_context *ras_core, u32 *count);
 int ras_mp1_get_record(struct ras_core_context *ras_core,
 		u32 idx, struct eeprom_err_record *rec);
+int ras_mp1_check_feature_status(struct ras_core_context *ras_core,
+		enum ras_mp1_feature_id feature_id, u32 *status);
 #endif

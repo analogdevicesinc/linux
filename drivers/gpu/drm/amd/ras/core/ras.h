@@ -216,6 +216,8 @@ struct ras_mp1_sys_func {
 	int (*mp1_set_debug_mode)(struct ras_core_context *ras_core, bool enable);
 	int (*mp1_send_ras_msg)(struct ras_core_context *ras_core, u32 msg_id,
 		u32 *params, u32 num_params, u32 *read_args, u32 num_read_args);
+	int (*check_ras_feature_status)(struct ras_core_context *ras_core,
+		enum ras_mp1_feature_id feature_id, u32 *status);
 };
 
 struct ras_eeprom_param_config {
