@@ -1557,11 +1557,21 @@ void resource_build_test_pattern_params(struct resource_context *res_ctx,
 	}
 }
 
-enum upsp_mode resource_is_upsp_required(enum surface_pixel_format format)
+enum upsp_mode resource_is_upsp_required(enum surface_pixel_format format,
+		enum dc_scaling_linearity scaling_linearity)
 {
-	if (format >= SURFACE_PIXEL_FORMAT_VIDEO_BEGIN && format <= SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCrCb) //420 Formats
+	bool scaling_in_linear = (scaling_linearity == DC_SCALING_LINEARITY_LINEAR);
+	bool is_420_format = (format >= SURFACE_PIXEL_FORMAT_VIDEO_BEGIN &&
+			format <= SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCrCb);
+	bool is_422_format = (format > SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCrCb &&
+			format < SURFACE_PIXEL_FORMAT_SUBSAMPLE_END);
+
+	/* UPSP (chroma upsampling) is only needed when subsampled YUV is scaled in
+	 * linear space.
+	 */
+	if (scaling_in_linear && is_420_format)
 		return UPSP_HORIZONTAL_VERTICAL_UPSAMPLING;
-	if (format > SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCrCb && format < SURFACE_PIXEL_FORMAT_SUBSAMPLE_END) //422 Formats
+	if (scaling_in_linear && is_422_format)
 		return UPSP_HORIZONTAL_UPSAMPLING_ONLY;
 	return UPSP_BYPASS;
 }
@@ -1611,7 +1621,7 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 			pipe_ctx->plane_res.scl_data.lb_params.depth = LB_PIXEL_DEPTH_30BPP;
 
 		pipe_ctx->plane_res.scl_data.lb_params.alpha_en = plane_state->per_pixel_alpha;
-		pipe_ctx->plane_res.scl_data.upsp = resource_is_upsp_required(plane_state->format);
+		pipe_ctx->plane_res.scl_data.upsp = resource_is_upsp_required(plane_state->format, plane_state->scaling_linearity);
 
 		// Convert pipe_ctx to respective input params for SPL
 		translate_SPL_in_params_from_pipe_ctx(pipe_ctx, spl_in);
