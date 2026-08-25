@@ -215,6 +215,7 @@ static int zstd_decompress_one(struct acomp_req *req, struct zstd_ctx *ctx,
 
 static int zstd_decompress(struct acomp_req *req)
 {
+	bool stream_initialized = false;
 	struct crypto_acomp_stream *s;
 	unsigned int total_out = 0;
 	unsigned int scur, dcur;
@@ -231,12 +232,6 @@ static int zstd_decompress(struct acomp_req *req)
 	ret = acomp_walk_virt(&walk, req, true);
 	if (ret)
 		goto out;
-
-	ctx->dctx = zstd_init_dstream(ZSTD_MAX_SIZE, ctx->wksp, ctx->wksp_size);
-	if (!ctx->dctx) {
-		ret = -EINVAL;
-		goto out;
-	}
 
 	do {
 		scur = acomp_walk_next_src(&walk);
@@ -261,6 +256,19 @@ static int zstd_decompress(struct acomp_req *req)
 			if (!dcur) {
 				ret = -ENOSPC;
 				goto out;
+			}
+
+			if (!stream_initialized) {
+				ctx->dctx = zstd_init_dstream(ZSTD_MAX_SIZE, ctx->wksp,
+							      ctx->wksp_size);
+				if (!ctx->dctx) {
+					/* Release in the reverse of the map order. */
+					acomp_walk_done_dst(&walk, 0);
+					acomp_walk_done_src(&walk, 0);
+					ret = -EINVAL;
+					goto out;
+				}
+				stream_initialized = true;
 			}
 
 			outbuf.pos = 0;
