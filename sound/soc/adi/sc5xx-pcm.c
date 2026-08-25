@@ -621,12 +621,14 @@ static const struct snd_soc_dai_ops sc5xx_i2s_dai_ops = {
 static struct snd_soc_dai_driver sc5xx_i2s_dai = {
 	.name = "sc5xx",
 	.playback = {
+		.stream_name = "Playback",
 		.channels_min = 1,
 		.channels_max = 8,
 		.rates = SC5XX_DAI_RATES,
 		.formats = SC5XX_DAI_FORMATS,
 	},
 	.capture = {
+		.stream_name = "Capture",
 		.channels_min = 1,
 		.channels_max = 4,
 		.rates = SC5XX_DAI_RATES,
