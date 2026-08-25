@@ -1227,7 +1227,7 @@ static void parse_test_type(int argc, char **argv)
 		return;
 	}
 
-	buf = strdup(argv[0]);
+	buf = argv[0];
 	token = strsep(&buf, ":");
 
 	if (!strcmp(token, "all")) {
