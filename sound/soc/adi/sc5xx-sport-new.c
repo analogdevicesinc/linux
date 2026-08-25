@@ -102,6 +102,10 @@ static int adsp_sport_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	unsigned int ctl;
 	bool is_i2s = false;
 
+	/* TODO: NOTE: When changing operating modes, first clear the
+	   SPORT_CTL_A register before again writing the register with the new
+	   configuration settings.
+	*/
 	ctl = readl(sport->regs + SPORT_CTL(dai->id));
 
 	/* Operating mode */
@@ -159,6 +163,11 @@ static int adsp_sport_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 
 	/* Always require frame sync */
 	FIELD_MODIFY(SPORT_CTL_FSR, &ctl, 1);
+
+	/* Always detect received frame syncs by rising or falling edges */
+	FIELD_MODIFY(SPORT_CTL_FSED, &ctl, 1);
+	/* TODO: log SPORT_ERR_A.FSERRSTAT for early FS errors */
+	/* TODO: DT prop for CTL.DIFS to generate FS even during xruns? */
 
 	/* Clock consumer/provider roles */
 	switch (fmt & SND_SOC_DAIFMT_CLOCK_PROVIDER_MASK) {
@@ -232,7 +241,7 @@ static int adsp_sport_hw_params(struct snd_pcm_substream *substream,
 	mctl = readl(sport->regs + SPORT_MCTL(dai->id));
 
 	/* Serial word length (SLEN = bits - 1) */
-	word_len = h->slot_width ? h->slot_width : params_width(params);
+	word_len = h->tdm_slots ? h->slot_width : params_physical_width(params);
 	FIELD_MODIFY(SPORT_CTL_SLEN, &ctl, word_len - 1);
 
 	/* TX direction bit */
@@ -243,7 +252,7 @@ static int adsp_sport_hw_params(struct snd_pcm_substream *substream,
 	if (h->tdm_slots > 2) {
 		FIELD_MODIFY(SPORT_MCTL_MCE, &mctl, 1);
 		FIELD_MODIFY(SPORT_MCTL_WSIZE, &mctl, h->tdm_slots - 1);
-		FIELD_MODIFY(SPORT_MCTL_MCPDE, &mctl, 1);
+		FIELD_MODIFY(SPORT_MCTL_MCPDE, &mctl, 1); /* TODO ??? */
 		FIELD_MODIFY(SPORT_MCTL_MFD, &mctl, 1);
 	} else {
 		FIELD_MODIFY(SPORT_MCTL_MCE, &mctl, 0);
