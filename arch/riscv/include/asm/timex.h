@@ -22,13 +22,13 @@ static inline cycles_t get_cycles(void)
 #else /* !CONFIG_64BIT */
 static inline u32 get_cycles(void)
 {
-	return readl_relaxed(((u32 *)clint_time_val));
+	return readl_relaxed(((u32 __iomem *)clint_time_val));
 }
 #define get_cycles get_cycles
 
 static inline u32 get_cycles_hi(void)
 {
-	return readl_relaxed(((u32 *)clint_time_val) + 1);
+	return readl_relaxed(((u32 __iomem *)clint_time_val) + 1);
 }
 #define get_cycles_hi get_cycles_hi
 #endif /* CONFIG_64BIT */
@@ -80,12 +80,4 @@ static inline u64 get_cycles64(void)
 	return ((u64)hi << 32) | lo;
 }
 #endif /* CONFIG_64BIT */
-
-#define ARCH_HAS_READ_CURRENT_TIMER
-static inline int read_current_timer(unsigned long *timer_val)
-{
-	*timer_val = get_cycles();
-	return 0;
-}
-
 #endif /* _ASM_RISCV_TIMEX_H */

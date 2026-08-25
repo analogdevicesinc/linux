@@ -105,7 +105,7 @@ static struct dentry *ntfs_lookup(struct inode *dir, struct dentry *dentry,
  * ntfs_create - inode_operations::create
  */
 static int ntfs_create(struct mnt_idmap *idmap, struct inode *dir,
-		       struct dentry *dentry, umode_t mode, bool excl)
+		       struct dentry *dentry, umode_t mode)
 {
 	return ntfs_create_inode(idmap, dir, dentry, NULL, S_IFREG | mode, 0,
 				 NULL, 0, NULL);
@@ -213,7 +213,7 @@ static struct dentry *ntfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 				 struct dentry *dentry, umode_t mode)
 {
 	return ERR_PTR(ntfs_create_inode(idmap, dir, dentry, NULL,
-					 S_IFDIR | mode, 0, NULL, 0, NULL));
+					 mode, 0, NULL, 0, NULL));
 }
 
 /*

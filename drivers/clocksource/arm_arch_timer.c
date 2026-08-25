@@ -56,11 +56,7 @@ static struct clock_event_device __percpu *arch_timer_evt;
 static enum arch_timer_ppi_nr arch_timer_uses_ppi __ro_after_init = ARCH_TIMER_VIRT_PPI;
 static bool arch_timer_c3stop __ro_after_init;
 static bool arch_counter_suspend_stop __ro_after_init;
-#ifdef CONFIG_GENERIC_GETTIMEOFDAY
 static enum vdso_clock_mode vdso_default = VDSO_CLOCKMODE_ARCHTIMER;
-#else
-static enum vdso_clock_mode vdso_default = VDSO_CLOCKMODE_NONE;
-#endif /* CONFIG_GENERIC_GETTIMEOFDAY */
 
 static cpumask_t evtstrm_available = CPU_MASK_NONE;
 static bool evtstrm_enable __ro_after_init = IS_ENABLED(CONFIG_ARM_ARCH_TIMER_EVTSTREAM);
@@ -1090,6 +1086,27 @@ static int __init arch_timer_common_init(void)
 	return arch_timer_arch_init();
 }
 
+static bool __init has_broken_el2_vtimer(void)
+{
+	/*
+	 * SoCs described here have been found to be broken, though no
+	 * explanation has been volunteered by the vendor. Let the user know
+	 * we're papering over the vendor's lack of communication.
+	 */
+	static const char * const broken_el2_vtimer[] __initconst = {
+		"brcm,bcm2712",
+		NULL
+	};
+
+	if (of_machine_compatible_match(broken_el2_vtimer)) {
+		add_taint(TAINT_CPU_OUT_OF_SPEC, LOCKDEP_STILL_OK);
+		pr_warn_once(HW_ERR "Known broken EL2 virtual timer, ignoring it\n");
+		return true;
+	}
+
+	return false;
+}
+
 /**
  * arch_timer_select_ppi() - Select suitable PPI for the current system.
  *
@@ -1115,7 +1132,8 @@ static int __init arch_timer_common_init(void)
 static enum arch_timer_ppi_nr __init arch_timer_select_ppi(void)
 {
 	if (is_kernel_in_hyp_mode()) {
-		if (arch_timer_ppi[ARCH_TIMER_HYP_VIRT_PPI])
+		if (arch_timer_ppi[ARCH_TIMER_HYP_VIRT_PPI] &&
+		    !has_broken_el2_vtimer())
 			return ARCH_TIMER_HYP_VIRT_PPI;
 
 		pr_warn_once(FW_BUG "VHE-capable CPU without EL2 virtual timer interrupt\n");

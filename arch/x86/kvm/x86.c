@@ -1761,7 +1761,7 @@ static int set_efer(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	if ((efer ^ old_efer) & KVM_MMU_EFER_ROLE_BITS)
 		kvm_mmu_reset_context(vcpu);
 
-	if (!static_cpu_has(X86_FEATURE_XSAVES) &&
+	if (!cpu_feature_enabled(X86_FEATURE_XSAVES) &&
 	    (efer & EFER_SVME))
 		kvm_hv_xsaves_xsavec_maybe_warn(vcpu);
 
@@ -3178,7 +3178,7 @@ static void kvm_update_masterclock(struct kvm *kvm)
  */
 static unsigned long get_cpu_tsc_khz(void)
 {
-	if (static_cpu_has(X86_FEATURE_CONSTANT_TSC))
+	if (cpu_feature_enabled(X86_FEATURE_CONSTANT_TSC))
 		return tsc_khz;
 	else
 		return __this_cpu_read(cpu_tsc_khz);
@@ -3195,7 +3195,7 @@ static void __get_kvmclock(struct kvm *kvm, struct kvm_clock_data *data)
 
 	data->flags = 0;
 	if (ka->use_master_clock &&
-	    (static_cpu_has(X86_FEATURE_CONSTANT_TSC) || __this_cpu_read(cpu_tsc_khz))) {
+	    (cpu_feature_enabled(X86_FEATURE_CONSTANT_TSC) || __this_cpu_read(cpu_tsc_khz))) {
 #ifdef CONFIG_X86_64
 		struct timespec64 ts;
 
@@ -7633,9 +7633,9 @@ static void kvm_probe_feature_msr(u32 msr_index)
 
 static void kvm_probe_msr_to_save(u32 msr_index)
 {
-	u32 dummy[2];
+	u64 dummy;
 
-	if (rdmsr_safe(msr_index, &dummy[0], &dummy[1]))
+	if (rdmsrq_safe(msr_index, &dummy))
 		return;
 
 	/*
@@ -13429,9 +13429,15 @@ void kvm_arch_pre_destroy_vm(struct kvm *kvm)
 	 * iterating over vCPUs in a different task while vCPUs are being freed
 	 * is unsafe, i.e. will lead to use-after-free.  The PIT also needs to
 	 * be stopped before IRQ routing is freed.
+	 *
+	 * Do NOT free the in-kernel PIC or I/O APIC here (but as above, make
+	 * sure to flush any background work), as KVM expects interrupt routing
+	 * structures to be valid until vCPUs are destroyed.
 	 */
 #ifdef CONFIG_KVM_IOAPIC
 	kvm_free_pit(kvm);
+	if (kvm->arch.vioapic)
+		cancel_delayed_work_sync(&kvm->arch.vioapic->eoi_inject);
 #endif
 
 	kvm_mmu_pre_destroy_vm(kvm);

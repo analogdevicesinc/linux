@@ -17,10 +17,7 @@ use crate::{
         from_result,
         to_result, //
     },
-    io::{
-        mem::IoRequest,
-        Resource, //
-    },
+    io::Resource,
     irq::{
         self,
         IrqRequest, //
@@ -30,6 +27,9 @@ use crate::{
     types::Opaque,
     ThisModule, //
 };
+
+#[cfg(CONFIG_HAS_IOMEM)]
+use crate::io::mem::IoRequest;
 
 use core::{
     marker::PhantomData,
@@ -83,7 +83,7 @@ unsafe impl<T: Driver> driver::RegistrationOps for Adapter<T> {
 
         // SAFETY: `pdrv` is guaranteed to be a valid `DriverType`.
         to_result(unsafe {
-            bindings::__platform_driver_register(pdrv.get(), module.0, name.as_char_ptr())
+            bindings::__platform_driver_register(pdrv.get(), module.as_ptr(), name.as_char_ptr())
         })
     }
 
@@ -307,6 +307,7 @@ impl<Ctx: device::DeviceContext> Device<Ctx> {
     }
 }
 
+#[cfg(CONFIG_HAS_IOMEM)]
 impl Device<Bound> {
     /// Returns an `IoRequest` for the resource at `index`, if any.
     pub fn io_request_by_index(&self, index: u32) -> Option<IoRequest<'_>> {

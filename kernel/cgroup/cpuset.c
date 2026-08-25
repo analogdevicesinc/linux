@@ -2653,7 +2653,12 @@ void cpuset_update_tasks_nodemask(struct cpuset *cs)
 
 		migrate = is_memory_migrate(cs);
 
-		mpol_rebind_mm(mm, &cs->mems_allowed);
+		/*
+		 * For v1 we can have empty effective_mems, but we cannot
+		 * attach any tasks (see cpuset_can_attach_check()). For v2,
+		 * effective_mems is guaranteed to not be empty.
+		 */
+		mpol_rebind_mm(mm, &cs->effective_mems);
 		if (migrate)
 			cpuset_migrate_mm(mm, &cs->old_mems_allowed, &newmems);
 		else
@@ -4122,6 +4127,28 @@ bool cpuset_cpus_allowed_fallback(struct task_struct *tsk)
 	 * if required.
 	 */
 	return changed;
+}
+
+/*
+ * Returns the number of CPUs available for this cgroup.
+ *
+ * This only really works for cgroup-v2 where all the controllers are mounted
+ * in the same hierarchy. If not cgroup-v2 or no cpuset controller is
+ * configured it reverts to num_online_cpus().
+ */
+int cpuset_num_cpus(struct cgroup *cgrp)
+{
+	int nr = num_online_cpus();
+	struct cpuset *cs;
+
+	if (is_in_v2_mode()) {
+		guard(rcu)();
+		cs = css_cs(cgroup_e_css(cgrp, &cpuset_cgrp_subsys));
+		if (cs)
+			nr = cpumask_weight(cs->effective_cpus);
+	}
+
+	return nr;
 }
 
 void __init cpuset_init_current_mems_allowed(void)

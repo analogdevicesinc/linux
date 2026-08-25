@@ -6676,13 +6676,6 @@ static const struct bpf_raw_tp_null_args raw_tp_null_args[] = {
 	{ "cachefiles_mark_inactive", 0x1 },
 	{ "cachefiles_vfs_error", 0x1 },
 	{ "cachefiles_io_error", 0x1 },
-	{ "cachefiles_ondemand_open", 0x1 },
-	{ "cachefiles_ondemand_copen", 0x1 },
-	{ "cachefiles_ondemand_close", 0x1 },
-	{ "cachefiles_ondemand_read", 0x1 },
-	{ "cachefiles_ondemand_cread", 0x1 },
-	{ "cachefiles_ondemand_fd_write", 0x1 },
-	{ "cachefiles_ondemand_fd_release", 0x1 },
 	/* ext4, from ext4__mballoc event class */
 	{ "ext4_mballoc_discard", 0x10 },
 	{ "ext4_mballoc_free", 0x10 },
@@ -9112,6 +9105,35 @@ u32 *btf_kfunc_flags(const struct btf *btf, u32 kfunc_btf_id, const struct bpf_p
 
 	hook = bpf_prog_type_to_kfunc_hook(prog_type);
 	return btf_kfunc_id_set_contains(btf, hook, kfunc_btf_id);
+}
+
+/*
+ * Check a single KF_* @flag on a kfunc across all of its hook sets.
+ * Returns:
+ *   * 1 if @flag is set
+ *   * 0 if @flag is not set
+ *   * -EINVAL if @flag is set inconsistently across the sets
+ *   * -ENOENT if kfunc_btf_id is not a registered kfunc
+ */
+int btf_kfunc_check_flag(const struct btf *btf, u32 kfunc_btf_id, u32 flag)
+{
+	enum btf_kfunc_hook hook;
+	int res = -ENOENT;
+	bool is_set;
+	u32 *flags;
+
+	for (hook = 0; hook < BTF_KFUNC_HOOK_MAX; hook++) {
+		flags = btf_kfunc_id_set_contains(btf, hook, kfunc_btf_id);
+		if (!flags)
+			continue;
+		is_set = *flags & flag;
+		if (res < 0)
+			res = is_set;
+		else if (res != is_set)
+			return -EINVAL;
+	}
+
+	return res;
 }
 
 u32 *btf_kfunc_is_modify_return(const struct btf *btf, u32 kfunc_btf_id,

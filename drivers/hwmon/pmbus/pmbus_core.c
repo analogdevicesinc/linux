@@ -45,7 +45,7 @@ module_param(wp, int, 0444);
 struct pmbus_sensor {
 	struct pmbus_sensor *next;
 	char name[PMBUS_NAME_SIZE];	/* sysfs sensor name */
-	struct device_attribute attribute;
+	struct sensor_device_attribute attribute;
 	u8 page;		/* page number */
 	u8 phase;		/* phase number, 0xff for all phases */
 	u16 reg;		/* register */
@@ -68,7 +68,7 @@ struct pmbus_boolean {
 
 struct pmbus_label {
 	char name[PMBUS_NAME_SIZE];	/* sysfs label name */
-	struct device_attribute attribute;
+	struct sensor_device_attribute attribute;
 	char label[PMBUS_NAME_SIZE];	/* label */
 };
 #define to_pmbus_label(_attr) \
@@ -96,7 +96,8 @@ struct pmbus_data {
 
 	u32 flags;		/* from platform data */
 
-	u8 revision;	/* The PMBus revision the device is compliant with */
+	bool have_pmbus_revision;
+	u8 revision;		/* The PMBus revision the device is compliant with */
 
 	int exponent[PMBUS_PAGES];
 				/* linear mode: exponent for output voltages */
@@ -181,7 +182,12 @@ EXPORT_SYMBOL_NS_GPL(pmbus_set_update, "PMBUS");
 void pmbus_wait(struct i2c_client *client)
 {
 	struct pmbus_data *data = i2c_get_clientdata(client);
-	s64 delay = ktime_us_delta(data->next_access_backoff, ktime_get());
+	s64 delay;
+
+	if (!data)
+		return;
+
+	delay = ktime_us_delta(data->next_access_backoff, ktime_get());
 
 	if (delay > 0)
 		fsleep(delay);
@@ -192,8 +198,14 @@ EXPORT_SYMBOL_NS_GPL(pmbus_wait, "PMBUS");
 void pmbus_update_ts(struct i2c_client *client, int op)
 {
 	struct pmbus_data *data = i2c_get_clientdata(client);
-	const struct pmbus_driver_info *info = data->info;
-	int delay = info->access_delay;
+	const struct pmbus_driver_info *info;
+	int delay;
+
+	if (!data)
+		return;
+
+	info = data->info;
+	delay = info->access_delay;
 
 	if (op & PMBUS_OP_WRITE)
 		delay = max(delay, info->write_delay);
@@ -513,9 +525,84 @@ int pmbus_update_byte_data(struct i2c_client *client, int page, u8 reg,
 	if (tmp != rv)
 		rv = _pmbus_write_byte_data(client, page, reg, tmp);
 
-	return rv;
+	return rv < 0 ? rv : 0;
 }
 EXPORT_SYMBOL_NS_GPL(pmbus_update_byte_data, "PMBUS");
+
+/**
+ * pmbus_read_smbus_i2c_block_data() - Read SMBus/I2C block data
+ * @client:	Handle to slave device
+ * @reg:	Byte interpreted by slave
+ * @data_buf:	Byte array into which data will be read
+ * Return:	Negative errno or number of bytes read
+ *
+ * PMBus internal function to read a SMBus block from a PMBus chip.
+ *
+ * PMBus chips report various properties using SMBus block read operations.
+ * However, not all I2C controllers support this operation.
+ *
+ * Execute SMBus block read if supported. If not supported, but SMBus I2C block
+ * read is supported, use it instead. Note that at most 31 data bytes can be
+ * read from the device if i2c_smbus_read_i2c_block_data() is used to read the
+ * data. This is a SMBUs protocol limit which can not be avoided.
+ *
+ * Return -EOPNOTSUPP if neither I2C_FUNC_SMBUS_READ_BLOCK_DATA nor
+ * I2C_FUNC_SMBUS_READ_I2C_BLOCK is supported.
+ *
+ * Callers must hold pmbus_lock or execute calls from the probe function.
+ */
+int pmbus_read_smbus_i2c_block_data(struct i2c_client *client, u8 reg, char *data_buf)
+{
+	u8 buf[I2C_SMBUS_BLOCK_MAX];
+	int blen, len, ret;
+
+	if (i2c_check_functionality(client->adapter,
+				    I2C_FUNC_SMBUS_READ_BLOCK_DATA)) {
+		pmbus_wait(client);
+		ret = i2c_smbus_read_block_data(client, reg, data_buf);
+		pmbus_update_ts(client, 0);
+		return ret;
+	}
+
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_READ_I2C_BLOCK)) {
+		dev_err_once(&client->dev, "I2C adapter does not support I2C_FUNC_SMBUS_READ_I2C_BLOCK\n");
+		return -EOPNOTSUPP;
+	}
+
+	/*
+	 * If the returned data is valid SMBus block data, the first byte
+	 * must be the data length.
+	 *
+	 * i2c_smbus_read_i2c_block_data() may return an error if the chip
+	 * sends NACK before the number of requested bytes is received.
+	 * Handle this by reading the data length first, then reading the
+	 * entire message up to I2C_SMBUS_BLOCK_MAX bytes. This ensures
+	 * that requested number of bytes never exceeds the number of
+	 * bytes sent by the chip.
+	 */
+	pmbus_wait(client);
+	ret = i2c_smbus_read_i2c_block_data(client, reg, 1, buf);
+	pmbus_update_ts(client, 0);
+	if (ret < 0)
+		return ret;
+
+	len = buf[0];
+	if (len == 0)
+		return 0;
+	blen = len;
+	if (len >= I2C_SMBUS_BLOCK_MAX)
+		len = I2C_SMBUS_BLOCK_MAX - 1;
+	pmbus_wait(client);
+	ret = i2c_smbus_read_i2c_block_data(client, reg, len + 1, buf);
+	pmbus_update_ts(client, 0);
+	if (ret < 0)
+		return ret;
+	if (buf[0] != blen)
+		return -EIO;
+	memcpy(data_buf, buf + 1, len);
+	return len;
+}
+EXPORT_SYMBOL_NS_GPL(pmbus_read_smbus_i2c_block_data, "PMBUS");
 
 static int pmbus_read_block_data(struct i2c_client *client, int page, u8 reg,
 				 char *data_buf)
@@ -526,11 +613,7 @@ static int pmbus_read_block_data(struct i2c_client *client, int page, u8 reg,
 	if (rv < 0)
 		return rv;
 
-	pmbus_wait(client);
-	rv = i2c_smbus_read_block_data(client, reg, data_buf);
-	pmbus_update_ts(client, 0);
-
-	return rv;
+	return pmbus_read_smbus_i2c_block_data(client, reg, data_buf);
 }
 
 static struct pmbus_sensor *pmbus_find_sensor(struct pmbus_data *data, int page,
@@ -1241,7 +1324,8 @@ static ssize_t pmbus_show_sensor(struct device *dev,
 				 struct device_attribute *devattr, char *buf)
 {
 	struct i2c_client *client = to_i2c_client(dev->parent);
-	struct pmbus_sensor *sensor = to_pmbus_sensor(devattr);
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
+	struct pmbus_sensor *sensor = to_pmbus_sensor(attr);
 	struct pmbus_data *data = i2c_get_clientdata(client);
 	s64 val;
 
@@ -1261,7 +1345,8 @@ static ssize_t pmbus_set_sensor(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev->parent);
 	struct pmbus_data *data = i2c_get_clientdata(client);
-	struct pmbus_sensor *sensor = to_pmbus_sensor(devattr);
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
+	struct pmbus_sensor *sensor = to_pmbus_sensor(attr);
 	s64 val;
 	int ret;
 	u16 regval;
@@ -1283,7 +1368,8 @@ static ssize_t pmbus_set_sensor(struct device *dev,
 static ssize_t pmbus_show_label(struct device *dev,
 				struct device_attribute *da, char *buf)
 {
-	struct pmbus_label *label = to_pmbus_label(da);
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
+	struct pmbus_label *label = to_pmbus_label(attr);
 
 	return sysfs_emit(buf, "%s\n", label->label);
 }
@@ -1436,8 +1522,8 @@ static struct pmbus_sensor *pmbus_add_sensor(struct pmbus_data *data,
 					     bool update, bool readonly,
 					     bool writeonly, bool convert)
 {
+	struct sensor_device_attribute *a;
 	struct pmbus_sensor *sensor;
-	struct device_attribute *a;
 
 	sensor = devm_kzalloc(data->dev, sizeof(*sensor), GFP_KERNEL);
 	if (!sensor)
@@ -1461,12 +1547,11 @@ static struct pmbus_sensor *pmbus_add_sensor(struct pmbus_data *data,
 	sensor->update = update;
 	sensor->convert = convert;
 	sensor->data = -ENODATA;
-	pmbus_dev_attr_init(a, sensor->name,
-			    readonly ? 0444 : 0644,
-			    writeonly ? pmbus_show_zero : pmbus_show_sensor,
-			    pmbus_set_sensor);
+	pmbus_attr_init(a, sensor->name, readonly ? 0444 : 0644,
+			writeonly ? pmbus_show_zero : pmbus_show_sensor,
+			pmbus_set_sensor, -1);
 
-	if (pmbus_add_attribute(data, &a->attr))
+	if (pmbus_add_attribute(data, &a->dev_attr.attr))
 		return NULL;
 
 	sensor->next = data->sensors;
@@ -1483,8 +1568,8 @@ static int pmbus_add_label(struct pmbus_data *data,
 			   const char *name, int seq,
 			   const char *lstring, int index, int phase)
 {
+	struct sensor_device_attribute *a;
 	struct pmbus_label *label;
-	struct device_attribute *a;
 
 	label = devm_kzalloc(data->dev, sizeof(*label), GFP_KERNEL);
 	if (!label)
@@ -1508,8 +1593,8 @@ static int pmbus_add_label(struct pmbus_data *data,
 				 lstring, index, phase);
 	}
 
-	pmbus_dev_attr_init(a, label->name, 0444, pmbus_show_label, NULL);
-	return pmbus_add_attribute(data, &a->attr);
+	pmbus_attr_init(a, label->name, 0444, pmbus_show_label, NULL, -1);
+	return pmbus_add_attribute(data, &a->dev_attr.attr);
 }
 
 /*
@@ -2397,7 +2482,7 @@ struct pmbus_samples_attr {
 struct pmbus_samples_reg {
 	int page;
 	struct pmbus_samples_attr *attr;
-	struct device_attribute dev_attr;
+	struct sensor_device_attribute attribute;
 };
 
 static struct pmbus_samples_attr pmbus_samples_registers[] = {
@@ -2419,14 +2504,15 @@ static struct pmbus_samples_attr pmbus_samples_registers[] = {
 	}
 };
 
-#define to_samples_reg(x) container_of(x, struct pmbus_samples_reg, dev_attr)
+#define to_samples_reg(x) container_of(x, struct pmbus_samples_reg, attribute)
 
 static ssize_t pmbus_show_samples(struct device *dev,
 				  struct device_attribute *devattr, char *buf)
 {
 	int val;
 	struct i2c_client *client = to_i2c_client(dev->parent);
-	struct pmbus_samples_reg *reg = to_samples_reg(devattr);
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
+	struct pmbus_samples_reg *reg = to_samples_reg(attr);
 
 	scoped_guard(pmbus_lock, client) {
 		val = _pmbus_read_word_data(client, reg->page, 0xff, reg->attr->reg);
@@ -2444,7 +2530,8 @@ static ssize_t pmbus_set_samples(struct device *dev,
 	int ret;
 	long val;
 	struct i2c_client *client = to_i2c_client(dev->parent);
-	struct pmbus_samples_reg *reg = to_samples_reg(devattr);
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
+	struct pmbus_samples_reg *reg = to_samples_reg(attr);
 
 	if (kstrtol(buf, 0, &val) < 0)
 		return -EINVAL;
@@ -2459,6 +2546,7 @@ static ssize_t pmbus_set_samples(struct device *dev,
 static int pmbus_add_samples_attr(struct pmbus_data *data, int page,
 				  struct pmbus_samples_attr *attr)
 {
+	struct sensor_device_attribute *a;
 	struct pmbus_samples_reg *reg;
 
 	reg = devm_kzalloc(data->dev, sizeof(*reg), GFP_KERNEL);
@@ -2468,10 +2556,12 @@ static int pmbus_add_samples_attr(struct pmbus_data *data, int page,
 	reg->attr = attr;
 	reg->page = page;
 
-	pmbus_dev_attr_init(&reg->dev_attr, attr->name, 0644,
-			    pmbus_show_samples, pmbus_set_samples);
+	a = &reg->attribute;
 
-	return pmbus_add_attribute(data, &reg->dev_attr.attr);
+	pmbus_attr_init(a, attr->name, 0644,
+			pmbus_show_samples, pmbus_set_samples, -1);
+
+	return pmbus_add_attribute(data, &a->dev_attr.attr);
 }
 
 static int pmbus_add_samples_attributes(struct i2c_client *client,
@@ -2840,9 +2930,16 @@ static int pmbus_init_common(struct i2c_client *client, struct pmbus_data *data,
 	if (!(data->flags & PMBUS_NO_WRITE_PROTECT))
 		pmbus_init_wp(client, data);
 
-	ret = i2c_smbus_read_byte_data(client, PMBUS_REVISION);
-	if (ret >= 0)
-		data->revision = ret;
+	if (info->have_pmbus_revision) {
+		data->have_pmbus_revision = true;
+		data->revision = info->pmbus_revision;
+	} else {
+		ret = i2c_smbus_read_byte_data(client, PMBUS_REVISION);
+		if (ret >= 0) {
+			data->have_pmbus_revision = true;
+			data->revision = ret;
+		}
+	}
 
 	if (data->info->pages)
 		pmbus_clear_faults(client);
@@ -2979,14 +3076,21 @@ static void pmbus_notify(struct pmbus_data *data, int page, int reg, int flags)
 		struct device_attribute *da = to_dev_attr(data->group.attrs[i]);
 		struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
 		int index = attr->index;
-		u16 smask = pb_index_to_mask(index);
-		u8 spage = pb_index_to_page(index);
-		u16 sreg = pb_index_to_reg(index);
+		u16 smask, sreg;
+		u8 spage;
+
+		if (index == -1)
+			continue;
+
+		smask = pb_index_to_mask(index);
+		spage = pb_index_to_page(index);
+		sreg = pb_index_to_reg(index);
 
 		if (reg == sreg && page == spage && (smask & flags)) {
 			dev_dbg(data->dev, "sysfs notify: %s", da->attr.name);
-			sysfs_notify(&data->dev->kobj, NULL, da->attr.name);
-			kobject_uevent(&data->dev->kobj, KOBJ_CHANGE);
+			sysfs_notify(&data->hwmon_dev->kobj, NULL,
+				     da->attr.name);
+			kobject_uevent(&data->hwmon_dev->kobj, KOBJ_CHANGE);
 			flags &= ~smask;
 		}
 
@@ -3426,6 +3530,8 @@ static int pmbus_write_smbalert_mask(struct i2c_client *client, u8 page, u8 reg,
 {
 	int ret;
 
+	guard(pmbus_lock)(client);
+
 	ret = _pmbus_write_word_data(client, page, PMBUS_SMBALERT_MASK, reg | (val << 8));
 
 	/*
@@ -3437,10 +3543,9 @@ static int pmbus_write_smbalert_mask(struct i2c_client *client, u8 page, u8 reg,
 	return ret;
 }
 
-static irqreturn_t pmbus_fault_handler(int irq, void *pdata)
+void pmbus_check_and_notify_faults(struct i2c_client *client)
 {
-	struct pmbus_data *data = pdata;
-	struct i2c_client *client = to_i2c_client(data->dev);
+	struct pmbus_data *data = i2c_get_clientdata(client);
 	int i, status, event;
 
 	guard(pmbus_lock)(client);
@@ -3453,6 +3558,15 @@ static irqreturn_t pmbus_fault_handler(int irq, void *pdata)
 	}
 
 	pmbus_clear_faults(client);
+}
+EXPORT_SYMBOL_NS_GPL(pmbus_check_and_notify_faults, "PMBUS");
+
+static irqreturn_t pmbus_fault_handler(int irq, void *pdata)
+{
+	struct pmbus_data *data = pdata;
+	struct i2c_client *client = to_i2c_client(data->dev);
+
+	pmbus_check_and_notify_faults(client);
 
 	return IRQ_HANDLED;
 }
@@ -3496,10 +3610,8 @@ static int pmbus_irq_setup(struct i2c_client *client, struct pmbus_data *data)
 	/* Register notifiers */
 	err = devm_request_threaded_irq(dev, client->irq, NULL, pmbus_fault_handler,
 					IRQF_ONESHOT, "pmbus-irq", data);
-	if (err) {
-		dev_err(dev, "failed to request an irq %d\n", err);
+	if (err)
 		return err;
-	}
 
 	return 0;
 }
@@ -3523,6 +3635,17 @@ static int pmbus_debugfs_get(void *data, u64 *val)
 	return 0;
 }
 DEFINE_DEBUGFS_ATTRIBUTE(pmbus_debugfs_ops, pmbus_debugfs_get, NULL,
+			 "0x%02llx\n");
+
+static int pmbus_debugfs_get_revision(void *data, u64 *val)
+{
+	struct pmbus_data *pdata = data;
+
+	*val = pdata->revision;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(pmbus_debugfs_revision_ops, pmbus_debugfs_get_revision, NULL,
 			 "0x%02llx\n");
 
 static int pmbus_debugfs_get_status(void *data, u64 *val)
@@ -3661,6 +3784,8 @@ static void pmbus_init_debugfs(struct i2c_client *client,
 	if (!entries)
 		return;
 
+	guard(pmbus_lock)(client);
+
 	/*
 	 * Add device-specific entries.
 	 * Please note that the PMBUS standard allows all registers to be
@@ -3678,14 +3803,9 @@ static void pmbus_init_debugfs(struct i2c_client *client,
 				    &entries[idx++],
 				    &pmbus_debugfs_ops);
 	}
-	if (pmbus_check_byte_register(client, 0, PMBUS_REVISION)) {
-		entries[idx].client = client;
-		entries[idx].page = 0;
-		entries[idx].reg = PMBUS_REVISION;
-		debugfs_create_file("pmbus_revision", 0444, debugfs,
-				    &entries[idx++],
-				    &pmbus_debugfs_ops);
-	}
+	if (data->have_pmbus_revision)
+		debugfs_create_file("pmbus_revision", 0444, debugfs, data,
+				    &pmbus_debugfs_revision_ops);
 
 	for (i = 0; i < ARRAY_SIZE(pmbus_debugfs_block_data); i++) {
 		const struct pmbus_debugfs_data *d = &pmbus_debugfs_block_data[i];

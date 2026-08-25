@@ -310,7 +310,7 @@ static int __svm_skip_emulated_instruction(struct kvm_vcpu *vcpu,
 		goto done;
 
 	if (nrips && svm->vmcb->control.next_rip != 0) {
-		WARN_ON_ONCE(!static_cpu_has(X86_FEATURE_NRIPS));
+		WARN_ON_ONCE(!cpu_feature_enabled(X86_FEATURE_NRIPS));
 		svm->next_rip = svm->vmcb->control.next_rip;
 	}
 
@@ -380,7 +380,7 @@ static int svm_update_soft_interrupt_rip(struct kvm_vcpu *vcpu, u8 vector)
 	if (nrips)
 		kvm_rip_write(vcpu, old_rip);
 
-	if (static_cpu_has(X86_FEATURE_NRIPS))
+	if (cpu_feature_enabled(X86_FEATURE_NRIPS))
 		svm->vmcb->control.next_rip = rip;
 
 	return 0;
@@ -571,14 +571,19 @@ static int svm_enable_virtualization_cpu(void)
 		return r;
 
 	sd = per_cpu_ptr(&svm_data, me);
-	sd->asid_generation = 1;
+	/*
+	 * Bump the current asid_generation value to ensure any vCPU that
+	 * previously ran on this CPU sees a stale generation and is forced
+	 * to acquire a new ASID, preventing a latent ASID collision.
+	 */
+	sd->asid_generation++;
 	sd->max_asid = cpuid_ebx(SVM_CPUID_FUNC) - 1;
 	sd->next_asid = sd->max_asid + 1;
 	sd->min_asid = max_sev_asid + 1;
 
 	wrmsrq(MSR_VM_HSAVE_PA, sd->save_area_pa);
 
-	if (static_cpu_has(X86_FEATURE_TSCRATEMSR)) {
+	if (cpu_feature_enabled(X86_FEATURE_TSCRATEMSR)) {
 		/*
 		 * Set the default value, even if we don't use TSC scaling
 		 * to avoid having stale value in the msr
@@ -1962,7 +1967,7 @@ static int pf_interception(struct kvm_vcpu *vcpu)
 	u64 error_code = svm->vmcb->control.exit_info_1;
 
 	return kvm_handle_page_fault(vcpu, error_code, fault_address,
-			static_cpu_has(X86_FEATURE_DECODEASSISTS) ?
+			cpu_feature_enabled(X86_FEATURE_DECODEASSISTS) ?
 			svm->vmcb->control.insn_bytes : NULL,
 			svm->vmcb->control.insn_len);
 }
@@ -2022,7 +2027,7 @@ static int npf_interception(struct kvm_vcpu *vcpu)
 
 	trace_kvm_page_fault(vcpu, gpa, error_code);
 	rc = kvm_mmu_page_fault(vcpu, gpa, error_code,
-				static_cpu_has(X86_FEATURE_DECODEASSISTS) ?
+				cpu_feature_enabled(X86_FEATURE_DECODEASSISTS) ?
 				svm->vmcb->control.insn_bytes : NULL,
 				svm->vmcb->control.insn_len);
 
@@ -2528,7 +2533,7 @@ static int iret_interception(struct kvm_vcpu *vcpu)
 
 static int invlpg_interception(struct kvm_vcpu *vcpu)
 {
-	if (!static_cpu_has(X86_FEATURE_DECODEASSISTS))
+	if (!cpu_feature_enabled(X86_FEATURE_DECODEASSISTS))
 		return kvm_emulate_instruction(vcpu, 0);
 
 	kvm_mmu_invlpg(vcpu, to_svm(vcpu)->vmcb->control.exit_info_1);
@@ -2576,7 +2581,7 @@ static int cr_interception(struct kvm_vcpu *vcpu)
 	unsigned long val;
 	int err;
 
-	if (!static_cpu_has(X86_FEATURE_DECODEASSISTS))
+	if (!cpu_feature_enabled(X86_FEATURE_DECODEASSISTS))
 		return emulate_on_interception(vcpu);
 
 	if (unlikely((svm->vmcb->control.exit_info_1 & CR_VALID) == 0))
@@ -4185,7 +4190,7 @@ static void svm_flush_tlb_asid(struct kvm_vcpu *vcpu)
 	 * unconditionally does a TLB flush on both nested VM-Enter and nested
 	 * VM-Exit (via kvm_mmu_reset_context()).
 	 */
-	if (static_cpu_has(X86_FEATURE_FLUSHBYASID))
+	if (cpu_feature_enabled(X86_FEATURE_FLUSHBYASID))
 		svm->vmcb->control.tlb_ctl = TLB_CONTROL_FLUSH_ASID;
 	else
 		svm->current_vmcb->asid_generation--;
@@ -4222,18 +4227,31 @@ static void svm_flush_tlb_all(struct kvm_vcpu *vcpu)
 	svm_flush_tlb_asid(vcpu);
 }
 
-static void svm_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t gva)
-{
-	struct vcpu_svm *svm = to_svm(vcpu);
-
-	invlpga(gva, svm->vmcb->control.asid);
-}
-
 static void svm_flush_tlb_guest(struct kvm_vcpu *vcpu)
 {
 	kvm_register_mark_dirty(vcpu, VCPU_REG_ERAPS);
 
 	svm_flush_tlb_asid(vcpu);
+}
+
+static void svm_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t gva, bool *full)
+{
+	struct vcpu_svm *svm = to_svm(vcpu);
+
+	/*
+	 * INVLPGA has had errata on Genoa and Turin, and even on older
+	 * generations there were reports of Windows BSODs if INVLPGA
+	 * was used for Hyper-V tlbflush.  Use it only for shadow paging
+	 * where it seems to be okay.
+	 */
+	if (!npt_enabled) {
+		invlpga(gva, svm->vmcb->control.asid);
+		return;
+	}
+
+	svm_flush_tlb_guest(vcpu);
+	if (full)
+		*full = true;
 }
 
 static inline void sync_cr8_to_lapic(struct kvm_vcpu *vcpu)
@@ -4549,12 +4567,12 @@ static __no_kcsan fastpath_t svm_vcpu_run(struct kvm_vcpu *vcpu, u64 run_flags)
 	 * is no need to worry about the conditional branch over the wrmsr
 	 * being speculatively taken.
 	 */
-	if (!static_cpu_has(X86_FEATURE_V_SPEC_CTRL))
+	if (!cpu_feature_enabled(X86_FEATURE_V_SPEC_CTRL))
 		x86_spec_ctrl_set_guest(svm->virt_spec_ctrl);
 
 	svm_vcpu_enter_exit(vcpu, enter_flags);
 
-	if (!static_cpu_has(X86_FEATURE_V_SPEC_CTRL))
+	if (!cpu_feature_enabled(X86_FEATURE_V_SPEC_CTRL))
 		x86_spec_ctrl_restore_host(svm->virt_spec_ctrl);
 
 	/* SEV-ES guests must use the CR write traps to track CR registers. */
@@ -4931,7 +4949,7 @@ static int svm_check_intercept(struct kvm_vcpu *vcpu,
 	}
 
 	/* TODO: Advertise NRIPS to guest hypervisor unconditionally */
-	if (static_cpu_has(X86_FEATURE_NRIPS))
+	if (cpu_feature_enabled(X86_FEATURE_NRIPS))
 		vmcb->control.next_rip  = info->next_rip;
 	vmcb->control.exit_code = icpt_info.exit_code;
 	vmexit = nested_svm_exit_handled(svm);
