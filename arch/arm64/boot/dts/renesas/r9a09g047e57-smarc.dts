@@ -112,7 +112,7 @@
 	channel1 {
 		status = "okay";
 #if (!SW_LCD_EN) && (SW_GPIO9_CAN1_STB)
-		phys = <&can_transceiver1>;
+		phys = <&can_transceiver 1>;
 #endif
 	};
 #endif
@@ -121,22 +121,25 @@
 	channel4 {
 		status = "okay";
 #if (SW_GPIO8_CAN0_STB)
-		phys = <&can_transceiver0>;
+		phys = <&can_transceiver 0>;
 #endif
 	};
 #endif
 };
 
-#if (!SW_LCD_EN) && (SW_GPIO8_CAN0_STB)
-&can_transceiver0 {
-	standby-gpios = <&pinctrl RZG3E_GPIO(5, 4) GPIO_ACTIVE_HIGH>;
-	status = "okay";
-};
+#if (!SW_LCD_EN) && (SW_GPIO8_CAN0_STB || SW_GPIO9_CAN1_STB)
+&can_transceiver {
+	standby-gpios =
+#if (SW_GPIO8_CAN0_STB)
+			<&pinctrl RZG3E_GPIO(5, 4) GPIO_ACTIVE_HIGH>,
+#else
+			<0>,
 #endif
-
-#if (!SW_LCD_EN) && (SW_GPIO9_CAN1_STB)
-&can_transceiver1 {
-	standby-gpios = <&pinctrl RZG3E_GPIO(5, 5) GPIO_ACTIVE_HIGH>;
+#if (SW_GPIO9_CAN1_STB)
+			<&pinctrl RZG3E_GPIO(5, 5) GPIO_ACTIVE_HIGH>;
+#else
+			<0>;
+#endif
 	status = "okay";
 };
 #endif
