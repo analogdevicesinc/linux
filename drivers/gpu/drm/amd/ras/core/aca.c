@@ -128,6 +128,11 @@ static void aca_bank_log(struct ras_core_context *ras_core,
 			"{%llu}" RAS_HW_ERR "ACA[%02d/%02d].%s=0x%016llx\n",
 			bank->seq_no, idx + 1, total,
 			aca_regs[i].name, bank->regs[aca_regs[i].reg_idx]);
+
+	if (ACA_REG_STATUS_SCRUB(bank->regs[ACA_REG_IDX__STATUS]))
+		RAS_DEV_INFO(ras_core->dev,
+			"{%llu}" RAS_HW_ERR "hardware error logged by the scrubber\n",
+			bank->seq_no);
 }
 
 static void aca_log_bank_data(struct ras_core_context *ras_core,
