@@ -385,7 +385,10 @@ static void zynqmp_r5_rproc_kick(struct rproc *rproc, int vqid)
 	int ret;
 
 	ipi = r5_core->ipi;
-	if (!ipi)
+	if (!ipi || !ipi->tx_chan)
+		return;
+
+	if (mbox_chan_tx_slots_available(ipi->tx_chan) == 0)
 		return;
 
 	mb_msg = (struct zynqmp_ipi_message *)ipi->tx_mc_buf;
