@@ -562,6 +562,8 @@ int gfs2_qa_get(struct gfs2_inode *ip)
 
 	if (sdp->sd_args.ar_quota == GFS2_QUOTA_OFF)
 		return 0;
+	if (ip->i_diskflags & GFS2_DIF_SYSTEM)
+		return 0;
 
 	spin_lock(&inode->i_lock);
 	if (ip->i_qadata == NULL) {
@@ -605,7 +607,7 @@ int gfs2_quota_hold(struct gfs2_inode *ip, kuid_t uid, kgid_t gid)
 		return 0;
 
 	error = gfs2_qa_get(ip);
-	if (error)
+	if (error || !ip->i_qadata)
 		return error;
 
 	qd = ip->i_qadata->qa_qd;
