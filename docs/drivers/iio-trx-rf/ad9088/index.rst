@@ -54,24 +54,24 @@ API to connect the device to the Linux Kernel subsystems.
 
 Linux Driver
 
-* :git+linux:`ad9088.c <main:drivers/iio/adc/apollo/ad9088.c>` - Main driver
-* :git+linux:`ad9088.h <main:drivers/iio/adc/apollo/ad9088.h>` - Driver header
-* :git+linux:`ad9088_dt.c <main:drivers/iio/adc/apollo/ad9088_dt.c>` - Device tree parsing
-* :git+linux:`ad9088_bmem.c <main:drivers/iio/adc/apollo/ad9088_bmem.c>` - Buffer memory interface
-* :git+linux:`ad9088_cal.c <main:drivers/iio/adc/apollo/ad9088_cal.c>` - Calibration save/restore
-* :git+linux:`ad9088_debugfs.c <main:drivers/iio/adc/apollo/ad9088_debugfs.c>` - Debugfs interface
-* :git+linux:`ad9088_fft.c <main:drivers/iio/adc/apollo/ad9088_fft.c>` - FFT sniffer support
-* :git+linux:`ad9088_ffh.c <main:drivers/iio/adc/apollo/ad9088_ffh.c>` - Fast frequency hopping
-* :git+linux:`ad9088_jesd204_fsm.c <main:drivers/iio/adc/apollo/ad9088_jesd204_fsm.c>` - JESD204 FSM callbacks
-* :git+linux:`ad9088_mcs.c <main:drivers/iio/adc/apollo/ad9088_mcs.c>` - MCS calibration
-* :git+linux:`ad9088_cal_dump.c <main:drivers/iio/adc/apollo/tools/ad9088_cal_dump.c>` - Calibration dump tool
+* :git+linux:`ad9088.c <main:drivers/iio/trx-rf/ad9088/ad9088.c>` - Main driver
+* :git+linux:`ad9088.h <main:drivers/iio/trx-rf/ad9088/ad9088.h>` - Driver header
+* :git+linux:`ad9088_dt.c <main:drivers/iio/trx-rf/ad9088/ad9088_dt.c>` - Device tree parsing
+* :git+linux:`ad9088_bmem.c <main:drivers/iio/trx-rf/ad9088/ad9088_bmem.c>` - Buffer memory interface
+* :git+linux:`ad9088_cal.c <main:drivers/iio/trx-rf/ad9088/ad9088_cal.c>` - Calibration save/restore
+* :git+linux:`ad9088_debugfs.c <main:drivers/iio/trx-rf/ad9088/ad9088_debugfs.c>` - Debugfs interface
+* :git+linux:`ad9088_fft.c <main:drivers/iio/trx-rf/ad9088/ad9088_fft.c>` - FFT sniffer support
+* :git+linux:`ad9088_ffh.c <main:drivers/iio/trx-rf/ad9088/ad9088_ffh.c>` - Fast frequency hopping
+* :git+linux:`ad9088_jesd204_fsm.c <main:drivers/iio/trx-rf/ad9088/ad9088_jesd204_fsm.c>` - JESD204 FSM callbacks
+* :git+linux:`ad9088_mcs.c <main:drivers/iio/trx-rf/ad9088/ad9088_mcs.c>` - MCS calibration
+* :git+linux:`ad9088_cal_dump.c <main:tools/iio/ad9088_cal_dump.c>` - Calibration dump tool
 
 API:
 
-* :git+linux:`adi_inc <main:drivers/iio/adc/apollo/adi_inc>`
-* :git+linux:`adi_utils <main:drivers/iio/adc/apollo/adi_utils>`
-* :git+linux:`private <main:drivers/iio/adc/apollo/private>`
-* :git+linux:`public <main:drivers/iio/adc/apollo/public>`
+* :git+linux:`adi_inc <main:drivers/iio/trx-rf/ad9088/adi_inc>`
+* :git+linux:`adi_utils <main:drivers/iio/trx-rf/ad9088/adi_utils>`
+* :git+linux:`private <main:drivers/iio/trx-rf/ad9088/private>`
+* :git+linux:`public <main:drivers/iio/trx-rf/ad9088/public>`
 
 Interrelated Device Drivers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2791,8 +2791,8 @@ Source Code
 
 Calibration-related source files:
 
-* :git+linux:`ad9088_cal.c <main:drivers/iio/adc/apollo/ad9088_cal.c>` - Calibration save/restore implementation
-* :git+linux:`ad9088_cal.h <main:drivers/iio/adc/apollo/ad9088.h>` - Calibration data structures
-* :git+linux:`ad9088_cal_dump.c <main:drivers/iio/adc/apollo/tools/ad9088_cal_dump.c>` - Calibration dump tool
+* :git+linux:`ad9088_cal.c <main:drivers/iio/trx-rf/ad9088/ad9088_cal.c>` - Calibration save/restore implementation
+* :git+linux:`ad9088_cal.h <main:drivers/iio/trx-rf/ad9088/ad9088.h>` - Calibration data structures
+* :git+linux:`ad9088_cal_dump.c <main:tools/iio/ad9088_cal_dump.c>` - Calibration dump tool
 
 
