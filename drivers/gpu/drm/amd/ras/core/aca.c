@@ -25,7 +25,7 @@
 #include "aca.h"
 #include "ras_mce.h"
 #include "aca_v1_0.h"
-#include "ras_aca_v5_0.h"
+#include "aca_v5_0.h"
 #include "ras_mp1_v13_0.h"
 
 #define ACA_MARK_FATAL_FLAG    0x100

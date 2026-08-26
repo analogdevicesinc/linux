@@ -24,7 +24,7 @@
 #include "ras.h"
 #include "aca.h"
 #include "core_status.h"
-#include "ras_aca_v5_0.h"
+#include "aca_v5_0.h"
 
 #define ACA_HWIP_MAP(ip, hwid, acatypes) \
 	{ACA_ECC_HWIP__##ip, hwid, acatypes, ARRAY_SIZE(acatypes)}
