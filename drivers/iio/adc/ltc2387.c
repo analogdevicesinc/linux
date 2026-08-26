@@ -75,33 +75,41 @@ enum ltc2387_id {
 	ID_LTC2387_16_X4,
 	ID_LTC2387_18,
 	ID_LTC2387_18_X4,
+	ID_ADAQ23875,
+	ID_ADAQ23876,
+	ID_ADAQ23878,
 };
 
 struct ltc2387_info {
+	const char *name;
 	struct iio_chan_spec channels[4];
 	unsigned int test_pattern[2];
 	int num_channels;
 	int resolution;
 };
 
+#define LTC2387_TEST_PATTERN_16 {					\
+	[ONE_LANE]  = 0b1010000001111111,				\
+	[TWO_LANES] = 0b1100110000111111,				\
+}
+
+#define LTC2387_TEST_PATTERN_18 {					\
+	[ONE_LANE]  = 0b101000000111111100,				\
+	[TWO_LANES] = 0b110011000011111100,				\
+}
+
 static const struct ltc2387_info ltc2387_infos[] = {
 	[ID_LTC2387_16] = {
+		.name = "ltc2387-16",
 		.resolution = 16,
-		.test_pattern = {
-			[ONE_LANE] = 0b1010000001111111,
-			[TWO_LANES] = 0b1100110000111111
-		},
-		.channels = {
-			LTC2378_CHAN(16, 16),
-		},
+		.test_pattern = LTC2387_TEST_PATTERN_16,
+		.channels = { LTC2378_CHAN(16, 16) },
 		.num_channels = 1,
 	},
 	[ID_LTC2387_16_X4] = {
+		.name = "ltc2387-16-x4",
 		.resolution = 16,
-		.test_pattern = {
-			[ONE_LANE] = 0b1010000001111111,
-			[TWO_LANES] = 0b1100110000111111
-		},
+		.test_pattern = LTC2387_TEST_PATTERN_16,
 		.channels = {
 			LTC2378_MULTIPLE_CHAN(0, 64, 16, 0),
 			LTC2378_MULTIPLE_CHAN(1, 64, 16, 16),
@@ -111,22 +119,16 @@ static const struct ltc2387_info ltc2387_infos[] = {
 		.num_channels = 4,
 	},
 	[ID_LTC2387_18] = {
+		.name = "ltc2387-18",
 		.resolution = 18,
-		.test_pattern = {
-			[ONE_LANE] = 0b101000000111111100,
-			[TWO_LANES] = 0b110011000011111100
-		},
-		.channels = {
-			LTC2378_CHAN(18, 32),
-		},
+		.test_pattern = LTC2387_TEST_PATTERN_18,
+		.channels = { LTC2378_CHAN(18, 32) },
 		.num_channels = 1,
 	},
 	[ID_LTC2387_18_X4] = {
+		.name = "ltc2387-18-x4",
 		.resolution = 18,
-		.test_pattern = {
-			[ONE_LANE] = 0b101000000111111100,
-			[TWO_LANES] = 0b110011000011111100
-		},
+		.test_pattern = LTC2387_TEST_PATTERN_18,
 		.channels = {
 			LTC2378_MULTIPLE_CHAN(0, 128, 32, 0),
 			LTC2378_MULTIPLE_CHAN(1, 128, 32, 32),
@@ -135,22 +137,40 @@ static const struct ltc2387_info ltc2387_infos[] = {
 		},
 		.num_channels = 4,
 	},
+	[ID_ADAQ23875] = {
+		.name = "adaq23875",
+		.resolution = 16,
+		.test_pattern = LTC2387_TEST_PATTERN_16,
+		.channels = { LTC2378_CHAN(16, 16) },
+		.num_channels = 1,
+	},
+	[ID_ADAQ23876] = {
+		.name = "adaq23876",
+		.resolution = 16,
+		.test_pattern = LTC2387_TEST_PATTERN_16,
+		.channels = { LTC2378_CHAN(16, 16) },
+		.num_channels = 1,
+	},
+	[ID_ADAQ23878] = {
+		.name = "adaq23878",
+		.resolution = 18,
+		.test_pattern = LTC2387_TEST_PATTERN_18,
+		.channels = { LTC2378_CHAN(18, 32) },
+		.num_channels = 1,
+	},
 };
 
 struct ltc2387_dev {
 	const struct ltc2387_info *device_info;
 	enum ltc2387_lane_modes lane_mode;
-	struct gpio_desc *gpio_testpat;
 	unsigned long ref_clk_rate;
 	struct pwm_device *clk_en;
 	struct regulator *vref;
 	struct pwm_device *cnv;
-	struct pwm_waveform clk_gate_wf;
-	struct pwm_waveform cnv_wf;
 	struct clk *ref_clk;
 
 	unsigned int vref_mv;
-	int sampling_freq;
+	u32 sampling_freq;
 };
 
 static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
@@ -190,23 +210,27 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	if (rem)
 		cnv_wf.period_length_ns += 1;
 
-	ret = pwm_set_waveform_might_sleep(ltc->cnv, &cnv_wf, false);
-	if (ret < 0)
-		return ret;
-
 	/* Gate the active period of the clock (see page 10-13 for both LTC's) */
 	if (ltc->lane_mode == TWO_LANES)
 		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 4);
 	else
 		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 2);
 
-	clk_gate_wf.period_length_ns = cnv_wf.period_length_ns;
 	clk_gate_wf.duty_length_ns = ref_clk_period_ns * clk_en_time;
 	clk_gate_wf.duty_offset_ns = LTC2387_T_FIRSTCLK_NS;
+
+	if (cnv_wf.period_length_ns < clk_gate_wf.duty_length_ns)
+		cnv_wf.period_length_ns = clk_gate_wf.duty_length_ns + ref_clk_period_ns;
+
+	clk_gate_wf.period_length_ns = cnv_wf.period_length_ns;
 
 	if (clk_gate_wf.duty_offset_ns >= clk_gate_wf.period_length_ns)
 		div64_u64_rem(clk_gate_wf.duty_offset_ns, clk_gate_wf.period_length_ns,
 				&clk_gate_wf.duty_offset_ns);
+
+	ret = pwm_set_waveform_might_sleep(ltc->cnv, &cnv_wf, false);
+	if (ret < 0)
+		return ret;
 
 	ret = pwm_set_waveform_might_sleep(ltc->clk_en, &clk_gate_wf, false);
 	if (ret < 0)
@@ -222,12 +246,9 @@ static int ltc2387_setup(struct iio_dev *indio_dev)
 	struct ltc2387_dev *ltc = iio_priv(indio_dev);
 	struct device *dev = indio_dev->dev.parent;
 
-	if (device_property_present(dev, "adi,use-one-lane")) {
-		ltc->lane_mode = ONE_LANE;
-		return ltc2387_set_sampling_freq(ltc, 15 * MHz);
-	}
+	ltc->lane_mode = device_property_present(dev, "adi,use-one-lane")
+			 ? ONE_LANE : TWO_LANES;
 
-	ltc->lane_mode = TWO_LANES;
 	return ltc2387_set_sampling_freq(ltc, 15 * MHz);
 }
 
@@ -236,21 +257,14 @@ static int ltc2387_read_raw(struct iio_dev *indio_dev,
 			    int *val, int *val2, long info)
 {
 	struct ltc2387_dev *ltc = iio_priv(indio_dev);
-	unsigned int temp;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = ltc->sampling_freq;
-
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		temp = regulator_get_voltage(ltc->vref);
-		if (temp < 0)
-			return temp;
-
-		*val = (temp * 2) / 1000;
+		*val = ltc->vref_mv * 2;
 		*val2 = chan->scan_type.realbits;
-
 		return IIO_VAL_FRACTIONAL_LOG2;
 	default:
 		return -EINVAL;
@@ -272,7 +286,7 @@ static int ltc2387_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static void ltc2387_pwm_diasble(void *data)
+static void ltc2387_pwm_disable(void *data)
 {
 	pwm_disable(data);
 }
@@ -307,13 +321,13 @@ static const struct of_device_id ltc2387_of_match[] = {
 		.data = &ltc2387_infos[ID_LTC2387_18_X4]
 	}, {
 		.compatible = "adaq23875",
-		.data = &ltc2387_infos[ID_LTC2387_16]
+		.data = &ltc2387_infos[ID_ADAQ23875]
 	}, {
 		.compatible = "adaq23876",
-		.data = &ltc2387_infos[ID_LTC2387_16]
+		.data = &ltc2387_infos[ID_ADAQ23876]
 	}, {
 		.compatible = "adaq23878",
-		.data = &ltc2387_infos[ID_LTC2387_18]
+		.data = &ltc2387_infos[ID_ADAQ23878]
 	},
 	{}
 };
@@ -335,7 +349,7 @@ static int ltc2387_probe(struct platform_device *pdev)
 	if (!IS_ERR(ltc->vref)) {
 		ret = regulator_enable(ltc->vref);
 		if (ret) {
-			dev_err(&pdev->dev, "Can't to enable vref regulator\n");
+			dev_err(&pdev->dev, "Can't enable vref regulator\n");
 			return ret;
 		}
 		ret = regulator_get_voltage(ltc->vref);
@@ -373,7 +387,7 @@ static int ltc2387_probe(struct platform_device *pdev)
 	if (IS_ERR(ltc->clk_en))
 		return PTR_ERR(ltc->clk_en);
 
-	ret = devm_add_action_or_reset(&pdev->dev, ltc2387_pwm_diasble,
+	ret = devm_add_action_or_reset(&pdev->dev, ltc2387_pwm_disable,
 				       ltc->clk_en);
 	if (ret)
 		return ret;
@@ -382,7 +396,7 @@ static int ltc2387_probe(struct platform_device *pdev)
 	if (IS_ERR(ltc->cnv))
 		return PTR_ERR(ltc->cnv);
 
-	ret = devm_add_action_or_reset(&pdev->dev, ltc2387_pwm_diasble,
+	ret = devm_add_action_or_reset(&pdev->dev, ltc2387_pwm_disable,
 				       ltc->cnv);
 
 	if (ret)
@@ -391,10 +405,11 @@ static int ltc2387_probe(struct platform_device *pdev)
 	ltc->device_info = device_get_match_data(&pdev->dev);
 	if (!ltc->device_info)
 		return -EINVAL;
+
 	indio_dev->channels = ltc->device_info->channels;
 	indio_dev->num_channels = ltc->device_info->num_channels;
 	indio_dev->dev.parent = &pdev->dev;
-	indio_dev->name = pdev->dev.of_node->name;
+	indio_dev->name = ltc->device_info->name;
 	indio_dev->info = &ltc2387_info;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
 	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
