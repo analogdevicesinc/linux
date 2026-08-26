@@ -113,6 +113,11 @@
 #define AD7768_MAX_CHANNEL				8
 #define AD7768_NUM_CHANNEL_MODES			2
 
+enum ad7768_filter_type {
+	AD7768_FILTER_TYPE_WIDEBAND,
+	AD7768_FILTER_TYPE_SINC5,
+};
+
 enum ad7768_clock_source {
 	AD7768_CLOCK_SOURCE_MCLK,
 	AD7768_CLOCK_SOURCE_XTAL,
@@ -173,6 +178,7 @@ struct ad7768_state {
 	unsigned int n_freqs;
 	int freqs[AD7768_MAX_FREQS];
 	unsigned int ch_freq[AD7768_MAX_CHANNEL];
+	enum ad7768_filter_type ch_filter[AD7768_MAX_CHANNEL];
 	struct iio_backend *back;
 	unsigned int vref_uV[2];
 
@@ -527,12 +533,59 @@ static int ad7768_set_sampling_freq(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static int ad7768_set_filter_mode(struct iio_dev *indio_dev,
+				  const struct iio_chan_spec *chan,
+				  unsigned int mode)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+
+	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+	if (IIO_DEV_ACQUIRE_FAILED(claim))
+		return -EBUSY;
+
+	guard(mutex)(&st->lock);
+	st->ch_filter[chan->channel] = mode;
+
+	return 0;
+}
+
+static int ad7768_get_filter_mode(struct iio_dev *indio_dev,
+				  const struct iio_chan_spec *chan)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+
+	guard(mutex)(&st->lock);
+
+	return st->ch_filter[chan->channel];
+}
+
+static const char *const ad7768_filter_types[] = {
+	[AD7768_FILTER_TYPE_WIDEBAND] = "wideband",
+	[AD7768_FILTER_TYPE_SINC5] = "sinc5",
+};
+
+static const struct iio_enum ad7768_filter_types_enum = {
+	.items = ad7768_filter_types,
+	.num_items = ARRAY_SIZE(ad7768_filter_types),
+	.set = ad7768_set_filter_mode,
+	.get = ad7768_get_filter_mode,
+};
+
+static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
+	IIO_ENUM("filter_type", IIO_SEPARATE, &ad7768_filter_types_enum),
+	IIO_ENUM_AVAILABLE("filter_type", IIO_SEPARATE, &ad7768_filter_types_enum),
+	{ }
+};
+
 static int ad7768_find_matching_mode(const bool *mode_used,
 				     const unsigned int *mode_freq,
-				     unsigned int freq)
+				     const enum ad7768_filter_type *mode_filter,
+				     unsigned int freq,
+				     enum ad7768_filter_type filter)
 {
 	for (unsigned int mode = 0; mode < AD7768_NUM_CHANNEL_MODES; mode++) {
-		if (!mode_used[mode] || mode_freq[mode] == freq)
+		if (!mode_used[mode] ||
+		    (mode_freq[mode] == freq && mode_filter[mode] == filter))
 			return mode;
 	}
 
@@ -542,6 +595,7 @@ static int ad7768_find_matching_mode(const bool *mode_used,
 static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 				      const unsigned long *scan_mask)
 {
+	enum ad7768_filter_type mode_filter[AD7768_NUM_CHANNEL_MODES] = { };
 	unsigned int mode_freq[AD7768_NUM_CHANNEL_MODES] = { };
 	bool mode_used[AD7768_NUM_CHANNEL_MODES] = { };
 	struct ad7768_state *st = iio_priv(indio_dev);
@@ -576,13 +630,15 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 		int mode;
 
 		mode = ad7768_find_matching_mode(mode_used, mode_freq,
-						 st->ch_freq[c]);
+						 mode_filter, st->ch_freq[c],
+						 st->ch_filter[c]);
 		if (mode < 0)
 			return dev_err_probe(dev, -EINVAL,
 					     "Over %d channel modes required\n",
 					     AD7768_NUM_CHANNEL_MODES);
 
 		mode_freq[mode] = st->ch_freq[c];
+		mode_filter[mode] = st->ch_filter[c];
 		mode_used[mode] = true;
 
 		mask = ad7768_channel_mode_mask(st, c);
@@ -605,8 +661,9 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		ret = regmap_clear_bits(st->regmap, AD7768_REG_CH_MODE(mode),
-					AD7768_CH_MODE_FILTER_TYPE_MSK);
+		ret = regmap_assign_bits(st->regmap, AD7768_REG_CH_MODE(mode),
+					 AD7768_CH_MODE_FILTER_TYPE_MSK,
+					 mode_filter[mode]);
 		if (ret)
 			return ret;
 
@@ -857,8 +914,10 @@ static int ad7768_init_sampling_freqs(struct ad7768_state *st)
 	avail_freq = &st->avail_freq[st->power_mode_idx];
 	default_freq = avail_freq->freq_cfg[avail_freq->n_freqs - 1].freq_hz;
 	for (unsigned int channel = 0;
-	     channel < st->chip_info->num_channels; channel++)
+	     channel < st->chip_info->num_channels; channel++) {
 		st->ch_freq[channel] = default_freq;
+		st->ch_filter[channel] = AD7768_FILTER_TYPE_WIDEBAND;
+	}
 
 	return 0;
 }
@@ -952,6 +1011,7 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 				.realbits = 24,
 				.storagebits = 32,
 			},
+			.ext_info = ad7768_ext_info,
 		};
 		chan_idx++;
 	}
