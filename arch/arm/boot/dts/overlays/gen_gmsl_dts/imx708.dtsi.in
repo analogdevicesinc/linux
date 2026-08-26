@@ -18,8 +18,12 @@
 	{{reg_label}}: {{reg_label}} {
 		compatible = "regulator-fixed";
 		regulator-name = "{{reg_label}}";
+		{% if cam_cfg.enable_gpio | d(true) %}
 		enable-active-high;
 		gpio = <&{{ser_label}} {{reset_pin}} 0>;
+		{% else %}
+		regulator-always-on;
+		{% endif %}
 	};
 };
 
@@ -36,35 +40,43 @@
 		rotation = <180>;
 		orientation = <2>;
 
+		{% if cam_cfg.enable_vcm | d(true) %}
 		lens-focus = <&{{vcm_label}}>;
+		{% endif %}
 
 		port {
 			{{cam_out_label}}: endpoint {
 				clock-lanes = <0>;
 				data-lanes = <1 2>;
+				{% if not cam_cfg.clock_continuous | d(false) %}
 				clock-noncontinuous;
+				{% endif %}
 				link-frequencies = /bits/ 64 <450000000>;
 				remote-endpoint = <&{{cam_out_remote_label}}>;
 			};
 		};
 	};
 
+	{% if cam_cfg.enable_vcm | d(true) %}
 	{{vcm_label}}: dw9817@0c {
 		compatible = "dongwoon,dw9817-vcm";
 		reg = <0x0c>;
 		VDD-supply = <&{{reg_label}}>;
 	};
+	{% endif %}
 };
 
 &{{ser_label}} {
 	ports {
 		port@{{cam_idx}} {
-			reg = <0>;
+			reg = <{{cam_idx}}>;
 
 			{{cam_out_remote_label}}: endpoint {
 				clock-lanes = <0>;
 				data-lanes = <1 2>;
+				{% if not cam_cfg.clock_continuous | d(false) %}
 				clock-noncontinuous;
+				{% endif %}
 				link-frequencies = /bits/ 64 <450000000>;
 				remote-endpoint = <&{{cam_out_label}}>;
 			};
