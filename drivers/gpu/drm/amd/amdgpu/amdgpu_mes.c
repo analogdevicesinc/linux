@@ -1171,7 +1171,7 @@ error:
 }
 
 /* Interval for notifying MES of work on unmapped queues during oversubscription */
-#define AMDGPU_USERQ_UNMAP_NOTIFY_DELAY_MS 50
+#define AMDGPU_USERQ_UNMAP_NOTIFY_DELAY_US 50
 
 static unsigned int amdgpu_mes_userq_hw_queue_num(struct amdgpu_device *adev)
 {
@@ -1198,7 +1198,7 @@ static void amdgpu_mes_userq_notify_unmap_work_handler(struct work_struct *work)
 	if (atomic_read(&mes->userq_hw_queue_count) >
 	    amdgpu_mes_userq_hw_queue_num(adev))
 		queue_delayed_work(system_wq, &mes->userq_notify_unmap_work,
-				   msecs_to_jiffies(AMDGPU_USERQ_UNMAP_NOTIFY_DELAY_MS));
+				   usecs_to_jiffies(AMDGPU_USERQ_UNMAP_NOTIFY_DELAY_US));
 }
 
 /*
@@ -1215,7 +1215,7 @@ void amdgpu_mes_userq_queue_mapped(struct amdgpu_device *adev)
 	if (atomic_inc_return(&adev->mes.userq_hw_queue_count) >
 	    amdgpu_mes_userq_hw_queue_num(adev))
 		queue_delayed_work(system_wq, &adev->mes.userq_notify_unmap_work,
-				   msecs_to_jiffies(AMDGPU_USERQ_UNMAP_NOTIFY_DELAY_MS));
+				   usecs_to_jiffies(AMDGPU_USERQ_UNMAP_NOTIFY_DELAY_US));
 }
 
 /*

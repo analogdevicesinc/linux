@@ -48,7 +48,7 @@
 #define USE_DEFAULT_GRACE_PERIOD 0xffffffff
 
 /* Interval for notifying MES of work on unmapped queues during oversubscription */
-#define DQM_MES_UNMAP_NOTIFY_DELAY_MS 50
+#define DQM_MES_UNMAP_NOTIFY_DELAY_US 50
 
 static int set_pasid_vmid_mapping(struct device_queue_manager *dqm,
 				  u32 pasid, unsigned int vmid);
@@ -287,7 +287,7 @@ static int add_queue_mes(struct device_queue_manager *dqm, struct queue *q,
 	    KFD_GC_VERSION(dqm->dev) < IP_VERSION(12, 0, 0) &&
 	    dqm->active_cp_queue_count > get_cp_queues_num(dqm))
 		queue_delayed_work(system_wq, &dqm->notify_unmap_work,
-				   msecs_to_jiffies(DQM_MES_UNMAP_NOTIFY_DELAY_MS));
+				   usecs_to_jiffies(DQM_MES_UNMAP_NOTIFY_DELAY_US));
 
 	return r;
 }
@@ -3283,7 +3283,7 @@ static void mes_notify_unmap_work_handler(struct work_struct *work)
 	/* Re-arm if still oversubscribed */
 	if (READ_ONCE(dqm->active_cp_queue_count) > get_cp_queues_num(dqm))
 		queue_delayed_work(system_wq, &dqm->notify_unmap_work,
-				   msecs_to_jiffies(DQM_MES_UNMAP_NOTIFY_DELAY_MS));
+				   usecs_to_jiffies(DQM_MES_UNMAP_NOTIFY_DELAY_US));
 }
 
 struct device_queue_manager *device_queue_manager_init(struct kfd_node *dev)
