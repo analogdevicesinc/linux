@@ -872,6 +872,19 @@ static u32 bdw_cdclk_freq_sel(int cdclk)
 	}
 }
 
+static int bdw_cdclk_pcode_pre_notify(struct intel_display *display)
+{
+	return intel_parent_pcode_write(display, BDW_PCODE_DISPLAY_FREQ_CHANGE_REQ,
+					0x0);
+}
+
+static int bdw_cdclk_pcode_post_notify(struct intel_display *display,
+				       const struct intel_cdclk_config *cdclk_config)
+{
+	return intel_parent_pcode_write(display, HSW_PCODE_DE_WRITE_FREQ_REQ,
+					cdclk_config->voltage_level);
+}
+
 static void bdw_set_cdclk(struct intel_display *display,
 			  const struct intel_cdclk_config *cdclk_config,
 			  enum pipe pipe)
@@ -888,7 +901,7 @@ static void bdw_set_cdclk(struct intel_display *display,
 		     "trying to change cdclk frequency with cdclk not enabled\n"))
 		return;
 
-	ret = intel_parent_pcode_write(display, BDW_PCODE_DISPLAY_FREQ_CHANGE_REQ, 0x0);
+	ret = bdw_cdclk_pcode_pre_notify(display);
 	if (ret) {
 		drm_err(display->drm,
 			"Failed to inform PCODE about start of CDCLK change (%d)\n", ret);
@@ -918,8 +931,7 @@ static void bdw_set_cdclk(struct intel_display *display,
 	if (ret)
 		drm_err(display->drm, "Switching back to LCPLL failed\n");
 
-	ret = intel_parent_pcode_write(display, HSW_PCODE_DE_WRITE_FREQ_REQ,
-				       cdclk_config->voltage_level);
+	ret = bdw_cdclk_pcode_post_notify(display, cdclk_config);
 	if (ret)
 		drm_err(display->drm,
 			"Failed to inform PCODE about end of CDCLK change (%d)\n", ret);
