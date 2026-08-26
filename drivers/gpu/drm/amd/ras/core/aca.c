@@ -403,6 +403,13 @@ static int aca_banks_update(struct ras_core_context *ras_core,
 
 		memset(&bank_ecc, 0, sizeof(bank_ecc));
 		aca_blk = aca_get_bank_aca_block(ras_core, &bank);
+
+		/* Outside of UMC a poison bank is a consumption, not a new error. */
+		if (ecc_type == RAS_ERR_TYPE__UE &&
+		    ACA_REG_STATUS_POISON(bank.regs[ACA_REG_IDX__STATUS]) &&
+		    (!aca_blk || aca_blk->blk_info->ras_block_id != RAS_BLOCK_ID__UMC))
+			continue;
+
 		if (aca_blk)
 			ret = aca_parse_bank(ras_core, aca_blk, &bank, &bank_ecc);
 
