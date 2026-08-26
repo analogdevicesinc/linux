@@ -206,7 +206,7 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 	uint32_t offset = 0, real_data_len = 0;
 	u64 batch_id, start_batch_id;
 	uint8_t *buf_ptr = (uint8_t *)(uintptr_t)req->buf_ptr;
-	int ret = 0, i, count, valid_batch_count = 0;
+	int ret = 0, i, count, read_batch_count = 0;
 
 	if ((cmd->input_size != sizeof(struct ras_cmd_cper_record_req)) ||
 		(cmd->output_buf_size < sizeof(*rsp)))
@@ -225,8 +225,6 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 	ras_log_ring_get_batch_overview(ras_core, &overview);
 
 	start_batch_id = req->cper_start_id;
-	if (overview.logged_batch_count && start_batch_id == overview.last_batch_id)
-		start_batch_id = overview.last_batch_id - 1;
 
 	for (i = 0; i < req->cper_num; i++) {
 		batch_id = start_batch_id + i;
@@ -246,9 +244,13 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 			if (ret)
 				break;
 
-			valid_batch_count++;
 			offset += real_data_len;
 		}
+
+		/* The caller resumes at cper_start_id + real_cper_num, so an id
+		 * that held nothing still has to be counted here.
+		 */
+		read_batch_count++;
 	}
 
 	if ((ret && (ret != -ENOMEM))) {
@@ -257,7 +259,7 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 	}
 
 	rsp->real_data_size = offset;
-	rsp->real_cper_num = valid_batch_count;
+	rsp->real_cper_num = read_batch_count;
 	rsp->remain_num = (ret == -ENOMEM) ? (req->cper_num - i) : 0;
 	rsp->version = 0;
 
