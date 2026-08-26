@@ -4,8 +4,9 @@
  */
 
 /dts-v1/;
+/plugin/;
 
-/ {
+&{/} {
 	model = "DT style selftest";
 	compatible = "example,test-board", "example,test-soc";
 	chassis-type = "handset";

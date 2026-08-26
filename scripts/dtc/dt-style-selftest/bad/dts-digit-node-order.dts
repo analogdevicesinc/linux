@@ -21,15 +21,15 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		serial@20000 {
+			compatible = "example,serial";
+			reg = <0x20000 0x1000>;
+		};
+
 		interrupt-controller@10000 {
 			compatible = "example,intc";
 			reg = <0x10000 0x1000>;
 			interrupts = <1 2 3>;
-		};
-
-		serial@20000 {
-			compatible = "example,serial";
-			reg = <0x20000 0x1000>;
 		};
 
 		serial@30000 {
