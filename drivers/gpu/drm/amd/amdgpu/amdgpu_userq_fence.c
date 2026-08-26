@@ -316,12 +316,12 @@ static bool amdgpu_userq_fence_signaled(struct dma_fence *f)
 {
 	struct amdgpu_userq_fence *fence = to_amdgpu_userq_fence(f);
 	struct amdgpu_userq_fence_driver *fence_drv = fence->fence_drv;
-	u64 rptr, wptr;
+	u64 fence_val, wptr;
 
-	rptr = amdgpu_userq_fence_read(fence_drv);
+	fence_val = amdgpu_userq_fence_read(fence_drv);
 	wptr = fence->base.seqno;
 
-	if (rptr >= wptr)
+	if (fence_val >= wptr)
 		return true;
 
 	return false;
