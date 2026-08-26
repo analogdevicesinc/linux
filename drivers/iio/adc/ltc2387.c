@@ -2,7 +2,7 @@
 /*
  * Linear Technology LTC2387 ADC driver
  *
- * Copyright 2022 Analog Devices Inc.
+ * Copyright 2022 - 2026 Analog Devices Inc.
  */
 
 #include <linux/clk.h>
@@ -204,7 +204,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	clk_gate_wf.duty_length_ns = ref_clk_period_ns * clk_en_time;
 	clk_gate_wf.duty_offset_ns = LTC2387_T_FIRSTCLK_NS;
 
-	if (clk_gate_wf.duty_offset_ns > clk_gate_wf.period_length_ns)
+	if (clk_gate_wf.duty_offset_ns >= clk_gate_wf.period_length_ns)
 		div64_u64_rem(clk_gate_wf.duty_offset_ns, clk_gate_wf.period_length_ns,
 				&clk_gate_wf.duty_offset_ns);
 
@@ -212,7 +212,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	if (ret < 0)
 		return ret;
 
-	ltc->sampling_freq = freq;
+	ltc->sampling_freq = (u64)DIV_ROUND_UP(NSEC_PER_SEC, (u32)clk_gate_wf.period_length_ns);
 
 	return 0;
 }
