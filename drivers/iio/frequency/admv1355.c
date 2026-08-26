@@ -127,6 +127,18 @@
 #define ADMV1355_DSAI_MSK		GENMASK(3, 0)
 #define ADMV1355_DSAQ_MSK		GENMASK(7, 4)
 
+/* 0x800: LO_X4_FILTER[3:0] */
+#define ADMV1355_LO_X4_FILTER_MSK	GENMASK(3, 0)
+
+/* 0x801: LO_X3_FILTER[4:0] */
+#define ADMV1355_LO_X3_FILTER_MSK	GENMASK(4, 0)
+
+/* 0x802: LO_X1_FILTER[4:0] */
+#define ADMV1355_LO_X1_FILTER_MSK	GENMASK(4, 0)
+
+/* 0x805: LO_TRAP_FILTER[9:8] at [1:0] */
+#define ADMV1355_LO_TRAP_9_8_MSK	GENMASK(1, 0)
+
 /* 0x80B: RF_FILTER: HPF_DIRECT[7:4], LPF_DIRECT[3:0] */
 #define ADMV1355_DIRECT_LPF_MSK	GENMASK(3, 0)
 #define ADMV1355_DIRECT_HPF_MSK	GENMASK(7, 4)
@@ -176,6 +188,11 @@ enum admv1355_ext_info {
 	ADMV1355_LO_LON_OFFSET_Q,
 	ADMV1355_RF_DIRECT_LPF_VAL,
 	ADMV1355_RF_DIRECT_HPF_VAL,
+	ADMV1355_LO_X4_FILTER,
+	ADMV1355_LO_X3_FILTER,
+	ADMV1355_LO_X1_FILTER,
+	ADMV1355_LO_TRAP,
+	ADMV1355_LO_DBL_BAND,
 };
 
 enum admv1355_dev_attr_id {
@@ -581,6 +598,46 @@ static ssize_t admv1355_ext_info_read(struct iio_dev *indio_dev,
 			return ret;
 		val = FIELD_GET(ADMV1355_DIRECT_HPF_MSK, data);
 		break;
+	case ADMV1355_LO_X4_FILTER:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_LO_X4_FILTER,
+				  &data);
+		if (ret)
+			return ret;
+		val = FIELD_GET(ADMV1355_LO_X4_FILTER_MSK, data);
+		break;
+	case ADMV1355_LO_X3_FILTER:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_LO_X3_FILTER,
+				  &data);
+		if (ret)
+			return ret;
+		val = FIELD_GET(ADMV1355_LO_X3_FILTER_MSK, data);
+		break;
+	case ADMV1355_LO_X1_FILTER:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_LO_X1_FILTER,
+				  &data);
+		if (ret)
+			return ret;
+		val = FIELD_GET(ADMV1355_LO_X1_FILTER_MSK, data);
+		break;
+	case ADMV1355_LO_TRAP: {
+		unsigned int lo, hi;
+
+		ret = regmap_read(priv->regmap, ADMV1355_REG_LO_TRAP_7_0, &lo);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, ADMV1355_REG_LO_TRAP_9_8, &hi);
+		if (ret)
+			return ret;
+		val = lo | (FIELD_GET(ADMV1355_LO_TRAP_9_8_MSK, hi) << 8);
+		break;
+	}
+	case ADMV1355_LO_DBL_BAND:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_LO_DBL_BAND,
+				  &data);
+		if (ret)
+			return ret;
+		val = data;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -701,6 +758,62 @@ static ssize_t admv1355_ext_info_write(struct iio_dev *indio_dev,
 					 FIELD_PREP(ADMV1355_DIRECT_HPF_MSK,
 						    val));
 		break;
+	case ADMV1355_LO_X4_FILTER:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 15)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_LO_X4_FILTER,
+					 ADMV1355_LO_X4_FILTER_MSK,
+					 FIELD_PREP(ADMV1355_LO_X4_FILTER_MSK,
+						    val));
+		break;
+	case ADMV1355_LO_X3_FILTER:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 31)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_LO_X3_FILTER,
+					 ADMV1355_LO_X3_FILTER_MSK,
+					 FIELD_PREP(ADMV1355_LO_X3_FILTER_MSK,
+						    val));
+		break;
+	case ADMV1355_LO_X1_FILTER:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 31)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_LO_X1_FILTER,
+					 ADMV1355_LO_X1_FILTER_MSK,
+					 FIELD_PREP(ADMV1355_LO_X1_FILTER_MSK,
+						    val));
+		break;
+	case ADMV1355_LO_TRAP:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 1023)
+			return -EINVAL;
+		ret = regmap_write(priv->regmap, ADMV1355_REG_LO_TRAP_7_0,
+				   val & 0xFF);
+		if (ret)
+			break;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_LO_TRAP_9_8,
+					 ADMV1355_LO_TRAP_9_8_MSK,
+					 FIELD_PREP(ADMV1355_LO_TRAP_9_8_MSK,
+						    (val >> 8) & 0x03));
+		break;
+	case ADMV1355_LO_DBL_BAND:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 255)
+			return -EINVAL;
+		ret = regmap_write(priv->regmap, ADMV1355_REG_LO_DBL_BAND, val);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -762,6 +875,11 @@ static const struct iio_chan_spec_ext_info admv1355_lo_ext_info[] = {
 	ADMV1355_EXT_INFO("direct_q_phase_val", ADMV1355_LO_PHASE_Q),
 	ADMV1355_EXT_INFO("direct_lon_offset_i", ADMV1355_LO_LON_OFFSET_I),
 	ADMV1355_EXT_INFO("direct_lon_offset_q", ADMV1355_LO_LON_OFFSET_Q),
+	ADMV1355_EXT_INFO("lo_x4_filter", ADMV1355_LO_X4_FILTER),
+	ADMV1355_EXT_INFO("lo_x3_filter", ADMV1355_LO_X3_FILTER),
+	ADMV1355_EXT_INFO("lo_x1_filter", ADMV1355_LO_X1_FILTER),
+	ADMV1355_EXT_INFO("lo_trap", ADMV1355_LO_TRAP),
+	ADMV1355_EXT_INFO("lo_dbl_band", ADMV1355_LO_DBL_BAND),
 	{ }
 };
 
@@ -1044,20 +1162,190 @@ static ADMV1355_ATTR(filter_sm_step, ADMV1355_DEV_ATTR_FILTER_SM_STEP, 0644);
 /*
  * Filter LUT binary attributes
  *
- * Each entry is 13 registers matching the direct register layout:
- *   +0: LO_X4_FILTER  +1: LO_X3_FILTER  +2: LO_X1_FILTER
- *   +3: GPO_F  +4: LO_TRAP[7:0]
+ * Each entry is 13 registers matching the direct register layout (0x800-0x80C):
+ *   +0: LO_X4_FILTER[3:0]
+ *   +1: LO_X3_FILTER[4:0]
+ *   +2: LO_X1_FILTER[4:0]
+ *   +3: GPO_F[5:0]
+ *   +4: LO_TRAP[7:0]
  *   +5: RF_BAND[7] | LO_PHASE_Q[6:2] | LO_TRAP[9:8]
  *   +6: LO_BAND[7] | MIXER_BAND[6] | LO_SIDEBAND[5] | LO_PHASE_I[4:0]
- *   +7: (reserved)  +8: LON_I  +9: LON_Q
- *   +10: DSAQ[7:4] | DSAI[3:0]  +11: HPF[7:4] | LPF[3:0]
- *   +12: LO_DOUBLER_BAND
+ *   +7: (undocumented, always 0)
+ *   +8: LON_OFFSET_I[7:0]
+ *   +9: LON_OFFSET_Q[7:0]
+ *  +10: DSAQ[7:4] | DSAI[3:0]
+ *  +11: HPF[7:4] | LPF[3:0]
+ *  +12: LO_DOUBLER_BAND[7:0]
  *
- * Text format per line:
- *   FLUT_<page>_<idx> <r0> <r1> ... <r12>    (13 hex values)
+ * Text format per line (bitfield with enumerations):
+ *   FLUT_<page>_<idx> RF (<band>,<lpf>,<hpf>) IF (<dsai>,<dsaq>) \
+ *     LO (<x4>,<x3>,<x1>,<trap>,<lo_band>,<mixer_band>,<sideband>, \
+ *         <phase_i>,<phase_q>,<lon_i>,<lon_q>,<dbl_band>,<gpo_f>)
  *
+ * Enum fields: band={low_band,high_band}, dsai/dsaq={0dB,...,-1500mdB},
+ *              sideband={LSB,USB}. All others are numeric.
  * Lines starting with '#' are comments.
  */
+static int admv1355_find_enum_item(const char *str,
+				   const char * const *items, int num_items)
+{
+	int i;
+
+	for (i = 0; i < num_items; i++) {
+		if (strcmp(str, items[i]) == 0)
+			return i;
+	}
+
+	return -EINVAL;
+}
+
+static int admv1355_parse_filter_lut(struct admv1355_priv *priv, char *data,
+				     size_t size, unsigned int base_reg)
+{
+	char *line, *ptr = data;
+	char band_str[16], dsai_str[16], dsaq_str[16], sb_str[4];
+	unsigned int idx, entry_base;
+	unsigned int lpf, hpf, x4, x3, x1, gpo_f;
+	unsigned int lo_band, mixer_band, phase_i, phase_q;
+	unsigned int lon_i, lon_q, dbl_band;
+	int band_idx, dsai_idx, dsaq_idx, sideband;
+	unsigned int trap;
+	int ret;
+
+	while ((line = strsep(&ptr, "\n"))) {
+		if (line >= data + size)
+			break;
+		if (line[0] == '\0' || line[0] == '#')
+			continue;
+
+		if (strncmp(line, "FLUT_", 5) != 0 || line[6] != '_')
+			return -EINVAL;
+
+		ret = sscanf(line + 7,
+			     "%u RF (%15[^,],%u,%u) "
+			     "IF (%15[^,],%15[^)]) "
+			     "LO (%u,%u,%u,%u,%u,%u,%3[^,],%u,%u,%u,%u,%u,%u)",
+			     &idx,
+			     band_str, &lpf, &hpf,
+			     dsai_str, dsaq_str,
+			     &x4, &x3, &x1, &trap, &lo_band, &mixer_band,
+			     sb_str, &phase_i, &phase_q,
+			     &lon_i, &lon_q, &dbl_band, &gpo_f);
+		if (ret != 19)
+			return -EINVAL;
+
+		if (idx >= ADMV1355_FILTER_LUT_NUM_ENTRIES)
+			return -EINVAL;
+
+		band_idx = admv1355_find_enum_item(band_str,
+				admv1355_rf_band_items,
+				ARRAY_SIZE(admv1355_rf_band_items));
+		dsai_idx = admv1355_find_enum_item(dsai_str,
+				admv1355_dsa_iq_items,
+				ARRAY_SIZE(admv1355_dsa_iq_items));
+		dsaq_idx = admv1355_find_enum_item(dsaq_str,
+				admv1355_dsa_iq_items,
+				ARRAY_SIZE(admv1355_dsa_iq_items));
+		sideband = admv1355_find_enum_item(sb_str,
+				admv1355_mixer_sideband_items,
+				ARRAY_SIZE(admv1355_mixer_sideband_items));
+
+		if (band_idx < 0 || dsai_idx < 0 || dsaq_idx < 0 ||
+		    sideband < 0 || lpf > 15 || hpf > 15 || x4 > 15 ||
+		    x3 > 31 || x1 > 31 || trap > 1023 || gpo_f > 63 ||
+		    lo_band > 1 || mixer_band > 1 || phase_i > 31 ||
+		    phase_q > 31 || lon_i > 255 || lon_q > 255 ||
+		    dbl_band > 255)
+			return -EINVAL;
+
+		entry_base = base_reg + idx * ADMV1355_FILTER_LUT_ENTRY_SIZE;
+
+		/* +0: LO_X4_FILTER[3:0] */
+		ret = regmap_write(priv->regmap, entry_base + 0,
+				   FIELD_PREP(ADMV1355_LO_X4_FILTER_MSK, x4));
+		if (ret)
+			return ret;
+
+		/* +1: LO_X3_FILTER[4:0] */
+		ret = regmap_write(priv->regmap, entry_base + 1,
+				   FIELD_PREP(ADMV1355_LO_X3_FILTER_MSK, x3));
+		if (ret)
+			return ret;
+
+		/* +2: LO_X1_FILTER[4:0] */
+		ret = regmap_write(priv->regmap, entry_base + 2,
+				   FIELD_PREP(ADMV1355_LO_X1_FILTER_MSK, x1));
+		if (ret)
+			return ret;
+
+		/* +3: GPO_F[5:0] */
+		ret = regmap_write(priv->regmap, entry_base + 3,
+				   FIELD_PREP(ADMV1355_GPO_F_DIRECT_MSK, gpo_f));
+		if (ret)
+			return ret;
+
+		/* +4: LO_TRAP[7:0] */
+		ret = regmap_write(priv->regmap, entry_base + 4,
+				   trap & 0xFF);
+		if (ret)
+			return ret;
+
+		/* +5: RF_BAND[7] | LO_PHASE_Q[6:2] | LO_TRAP[9:8] */
+		ret = regmap_write(priv->regmap, entry_base + 5,
+				   FIELD_PREP(ADMV1355_RF_BAND_805_MSK, band_idx) |
+				   FIELD_PREP(ADMV1355_LO_PHASE_Q_MSK, phase_q) |
+				   FIELD_PREP(ADMV1355_LO_TRAP_9_8_MSK,
+					      (trap >> 8) & 0x03));
+		if (ret)
+			return ret;
+
+		/* +6: LO_BAND[7] | MIXER_BAND[6] | LO_SIDEBAND[5] | LO_PHASE_I[4:0] */
+		ret = regmap_write(priv->regmap, entry_base + 6,
+				   FIELD_PREP(ADMV1355_LO_BAND_806_MSK, lo_band) |
+				   FIELD_PREP(ADMV1355_MIXER_BAND_806_MSK, mixer_band) |
+				   FIELD_PREP(ADMV1355_LO_SIDEBAND_MSK, sideband) |
+				   FIELD_PREP(ADMV1355_LO_PHASE_I_MSK, phase_i));
+		if (ret)
+			return ret;
+
+		/* +7: undocumented register, write 0 */
+		ret = regmap_write(priv->regmap, entry_base + 7, 0x00);
+		if (ret)
+			return ret;
+
+		/* +8: LON_OFFSET_I[7:0] */
+		ret = regmap_write(priv->regmap, entry_base + 8, lon_i);
+		if (ret)
+			return ret;
+
+		/* +9: LON_OFFSET_Q[7:0] */
+		ret = regmap_write(priv->regmap, entry_base + 9, lon_q);
+		if (ret)
+			return ret;
+
+		/* +10: DSAQ[7:4] | DSAI[3:0] */
+		ret = regmap_write(priv->regmap, entry_base + 10,
+				   FIELD_PREP(ADMV1355_DSAQ_MSK, dsaq_idx) |
+				   FIELD_PREP(ADMV1355_DSAI_MSK, dsai_idx));
+		if (ret)
+			return ret;
+
+		/* +11: HPF[7:4] | LPF[3:0] */
+		ret = regmap_write(priv->regmap, entry_base + 11,
+				   FIELD_PREP(ADMV1355_DIRECT_HPF_MSK, hpf) |
+				   FIELD_PREP(ADMV1355_DIRECT_LPF_MSK, lpf));
+		if (ret)
+			return ret;
+
+		/* +12: LO_DOUBLER_BAND[7:0] */
+		ret = regmap_write(priv->regmap, entry_base + 12, dbl_band);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static ssize_t admv1355_filter_lut_write(struct file *filp,
 					 struct kobject *kobj,
 					 struct bin_attribute *bin_attr,
@@ -1065,10 +1353,8 @@ static ssize_t admv1355_filter_lut_write(struct file *filp,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct admv1355_priv *priv = iio_priv(indio_dev);
-	unsigned int base_reg, idx, entry_base;
-	unsigned int vals[ADMV1355_FILTER_LUT_ENTRY_SIZE];
-	char *line, *ptr = buf;
-	int ret, i;
+	unsigned int base_reg;
+	int ret;
 
 	if (strcmp(bin_attr->attr.name, "filter_table_config_A") == 0)
 		base_reg = ADMV1355_REG_FILTER_LUTA_BASE;
@@ -1077,37 +1363,9 @@ static ssize_t admv1355_filter_lut_write(struct file *filp,
 
 	guard(mutex)(&priv->lock);
 
-	while ((line = strsep(&ptr, "\n"))) {
-		if (line >= buf + count)
-			break;
-		if (line[0] == '\0' || line[0] == '#')
-			continue;
-
-		/* Skip "FLUT_X_" prefix (7 chars) and parse index + 13 values */
-		if (strncmp(line, "FLUT_", 5) != 0 || line[6] != '_')
-			return -EINVAL;
-
-		ret = sscanf(line + 7,
-			     "%u %x %x %x %x %x %x %x %x %x %x %x %x %x",
-			     &idx,
-			     &vals[0], &vals[1], &vals[2], &vals[3],
-			     &vals[4], &vals[5], &vals[6], &vals[7],
-			     &vals[8], &vals[9], &vals[10], &vals[11],
-			     &vals[12]);
-		if (ret != 14)
-			return -EINVAL;
-
-		if (idx >= ADMV1355_FILTER_LUT_NUM_ENTRIES)
-			return -EINVAL;
-
-		entry_base = base_reg + idx * ADMV1355_FILTER_LUT_ENTRY_SIZE;
-		for (i = 0; i < ADMV1355_FILTER_LUT_ENTRY_SIZE; i++) {
-			ret = regmap_write(priv->regmap, entry_base + i,
-					   vals[i] & 0xFF);
-			if (ret)
-				return ret;
-		}
-	}
+	ret = admv1355_parse_filter_lut(priv, buf, count, base_reg);
+	if (ret)
+		return ret;
 
 	return count;
 }
@@ -1119,9 +1377,11 @@ static ssize_t admv1355_filter_lut_read(struct file *filp,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct admv1355_priv *priv = iio_priv(indio_dev);
-	unsigned int base_reg, entry_base, val;
+	unsigned int base_reg, entry_base;
+	unsigned int r0, r1, r2, r3, r4, r5, r6, r8, r9, r10, r11, r12;
+	unsigned int rf_band, sideband, dsai_val, dsaq_val, trap;
 	int ret, len = 0;
-	unsigned int i, j;
+	unsigned int i;
 	char page;
 
 	if (off)
@@ -1138,21 +1398,87 @@ static ssize_t admv1355_filter_lut_read(struct file *filp,
 	guard(mutex)(&priv->lock);
 
 	len += scnprintf(buf + len, count - len,
-		"# x4 x3 x1 gpo_f trap_lo band_phq_trap lo_sb_phi rsv lon_i lon_q dsaiq filt dbl\n");
+		"# RF (band,lpf,hpf) IF (dsai,dsaq) "
+		"LO (x4,x3,x1,trap,lo_band,mixer_band,sideband,"
+		"phase_i,phase_q,lon_i,lon_q,dbl_band,gpo_f)\n");
 
 	for (i = 0; i < ADMV1355_FILTER_LUT_NUM_ENTRIES; i++) {
 		entry_base = base_reg + i * ADMV1355_FILTER_LUT_ENTRY_SIZE;
 
-		len += scnprintf(buf + len, count - len, "FLUT_%c_%u", page, i);
+		ret = regmap_read(priv->regmap, entry_base + 0, &r0);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, entry_base + 1, &r1);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, entry_base + 2, &r2);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, entry_base + 3, &r3);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, entry_base + 4, &r4);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, entry_base + 5, &r5);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, entry_base + 6, &r6);
+		if (ret)
+			return ret;
+		/* +7 is undocumented — skip */
+		ret = regmap_read(priv->regmap, entry_base + 8, &r8);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, entry_base + 9, &r9);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, entry_base + 10, &r10);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, entry_base + 11, &r11);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, entry_base + 12, &r12);
+		if (ret)
+			return ret;
 
-		for (j = 0; j < ADMV1355_FILTER_LUT_ENTRY_SIZE; j++) {
-			ret = regmap_read(priv->regmap, entry_base + j, &val);
-			if (ret)
-				return ret;
-			len += scnprintf(buf + len, count - len, " %02X", val);
-		}
+		rf_band = FIELD_GET(ADMV1355_RF_BAND_805_MSK, r5);
+		if (rf_band >= ARRAY_SIZE(admv1355_rf_band_items))
+			rf_band = 0;
 
-		len += scnprintf(buf + len, count - len, "\n");
+		sideband = FIELD_GET(ADMV1355_LO_SIDEBAND_MSK, r6);
+
+		dsai_val = FIELD_GET(ADMV1355_DSAI_MSK, r10);
+		if (dsai_val >= ARRAY_SIZE(admv1355_dsa_iq_items))
+			dsai_val = 0;
+		dsaq_val = FIELD_GET(ADMV1355_DSAQ_MSK, r10);
+		if (dsaq_val >= ARRAY_SIZE(admv1355_dsa_iq_items))
+			dsaq_val = 0;
+
+		trap = r4 | (FIELD_GET(ADMV1355_LO_TRAP_9_8_MSK, r5) << 8);
+
+		len += scnprintf(buf + len, count - len,
+			"FLUT_%c_%u RF (%s,%lu,%lu) "
+			"IF (%s,%s) "
+			"LO (%lu,%lu,%lu,%u,%lu,%lu,%s,%lu,%lu,%u,%u,%u,%lu)\n",
+			page, i,
+			admv1355_rf_band_items[rf_band],
+			FIELD_GET(ADMV1355_DIRECT_LPF_MSK, r11),
+			FIELD_GET(ADMV1355_DIRECT_HPF_MSK, r11),
+			admv1355_dsa_iq_items[dsai_val],
+			admv1355_dsa_iq_items[dsaq_val],
+			FIELD_GET(ADMV1355_LO_X4_FILTER_MSK, r0),
+			FIELD_GET(ADMV1355_LO_X3_FILTER_MSK, r1),
+			FIELD_GET(ADMV1355_LO_X1_FILTER_MSK, r2),
+			trap,
+			FIELD_GET(ADMV1355_LO_BAND_806_MSK, r6),
+			FIELD_GET(ADMV1355_MIXER_BAND_806_MSK, r6),
+			admv1355_mixer_sideband_items[sideband],
+			FIELD_GET(ADMV1355_LO_PHASE_I_MSK, r6),
+			FIELD_GET(ADMV1355_LO_PHASE_Q_MSK, r5),
+			r8, r9, r12,
+			FIELD_GET(ADMV1355_GPO_F_DIRECT_MSK, r3));
 	}
 
 	return len;
