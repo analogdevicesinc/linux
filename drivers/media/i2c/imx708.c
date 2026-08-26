@@ -113,6 +113,10 @@ MODULE_PARM_DESC(qbc_adjust, "Quad Bayer broken line correction strength [0,2-5]
 #define IMX708_REG_MID_ANALOG_GAIN	0x3118
 #define IMX708_REG_SHT_ANALOG_GAIN	0x0216
 
+/* MIPI clock lane mode: continuous vs non-continuous */
+#define IMX708_REG_CLKLANE_BLANK	0x3220
+#define IMX708_CLKLANE_BLANK_NONCONT	BIT(0)
+
 /* QBC Re-mosaic broken line correction registers */
 #define IMX708_LPF_INTENSITY_EN		0xC428
 #define IMX708_LPF_INTENSITY_ENABLED	0x00
@@ -877,6 +881,9 @@ struct imx708 {
 	unsigned int long_exp_shift;
 
 	unsigned int link_freq_idx;
+
+	/* CSI-2 bus flags parsed from the endpoint (e.g. non-continuous clock) */
+	unsigned int csi_flags;
 };
 
 static inline struct imx708 *to_imx708(struct v4l2_subdev *_sd)
@@ -1502,6 +1509,16 @@ static int imx708_start_streaming(struct imx708 *imx708)
 			return ret;
 		}
 
+		ret = imx708_write_reg(imx708, IMX708_REG_CLKLANE_BLANK,
+				       IMX708_REG_VALUE_08BIT,
+				       imx708->csi_flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK ?
+				       IMX708_CLKLANE_BLANK_NONCONT : 0);
+		if (ret) {
+			dev_err(&client->dev, "%s failed to set clock lane mode\n",
+				__func__);
+			return ret;
+		}
+
 		ret = imx708_read_reg(imx708, IMX708_REG_BASE_SPC_GAINS_L,
 				      IMX708_REG_VALUE_08BIT, &val);
 		if (ret == 0 && val == 0x40) {
@@ -1998,6 +2015,8 @@ static int imx708_check_hwcfg(struct device *dev, struct imx708 *imx708)
 			ret = -EINVAL;
 			goto error_out;
 	}
+
+	imx708->csi_flags = ep_cfg.bus.mipi_csi2.flags;
 
 	ret = 0;
 
