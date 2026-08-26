@@ -2328,12 +2328,10 @@ static void bxt_set_cdclk(struct intel_display *display,
 						       HSW_PCODE_DE_WRITE_FREQ_REQ,
 						       cdclk_config->voltage_level, 2);
 	}
-	if (ret) {
+	if (ret)
 		drm_err(display->drm,
 			"PCode CDCLK freq set failed, (err %d, freq %d)\n",
 			ret, cdclk);
-		return;
-	}
 
 	intel_update_cdclk(display);
 
