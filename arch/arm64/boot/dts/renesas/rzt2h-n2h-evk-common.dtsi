@@ -652,11 +652,13 @@
 			partition@0 {
 				label = "bl2-1";
 				reg = <0x00000000 0x00060000>;
+				read-only;
 			};
 
 			partition@60000 {
 				label = "fip-1";
 				reg = <0x00060000 0x007a0000>;
+				read-only;
 			};
 
 			partition@800000 {
