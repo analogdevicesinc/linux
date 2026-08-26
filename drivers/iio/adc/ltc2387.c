@@ -44,6 +44,7 @@
 	{								\
 		.type = IIO_VOLTAGE,					\
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),\
 		.indexed = 1,						\
 		.channel = _idx,					\
 		.scan_index = _idx,					\
@@ -59,6 +60,7 @@
 	{								\
 		.type = IIO_VOLTAGE,					\
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),\
 		.scan_type = {						\
 			.sign = 's',					\
 			.storagebits = _storagebits,			\
