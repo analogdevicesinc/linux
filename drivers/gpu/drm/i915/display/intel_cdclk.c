@@ -2335,12 +2335,11 @@ static void bxt_set_cdclk(struct intel_display *display,
 
 	intel_update_cdclk(display);
 
-	if (DISPLAY_VER(display) >= 11)
-		/*
-		 * Can't read out the voltage level :(
-		 * Let's just assume everything is as expected.
-		 */
-		display->cdclk.hw.voltage_level = cdclk_config->voltage_level;
+	/*
+	 * Can't read out the voltage level :(
+	 * Let's just assume everything is as expected.
+	 */
+	display->cdclk.hw.voltage_level = cdclk_config->voltage_level;
 }
 
 static void bxt_sanitize_cdclk(struct intel_display *display)
