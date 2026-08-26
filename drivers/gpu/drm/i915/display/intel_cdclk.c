@@ -2647,7 +2647,6 @@ static void intel_pcode_notify(struct intel_display *display,
 		update_mask |= DISPLAY_TO_PCODE_PIPE_COUNT_VALID;
 
 	ret = intel_parent_pcode_request(display, SKL_PCODE_CDCLK_CONTROL,
-					 SKL_CDCLK_PREPARE_FOR_CHANGE |
 					 update_mask,
 					 SKL_CDCLK_READY_FOR_CHANGE,
 					 SKL_CDCLK_READY_FOR_CHANGE, 3);
