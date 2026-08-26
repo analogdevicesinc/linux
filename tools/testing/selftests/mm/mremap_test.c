@@ -156,6 +156,7 @@ static bool is_range_mapped(FILE *maps_fp, unsigned long start,
 		}
 	}
 
+	free(line);
 	return success;
 }
 
