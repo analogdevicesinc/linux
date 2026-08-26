@@ -79,18 +79,19 @@ def is_preprocessor(stripped):
 
 
 class DtsLine:
-    __slots__ = ('lineno', 'raw', 'linetype', 'indent_str', 'stripped', 'is_root',
+    __slots__ = ('lineno', 'raw', 'code', 'linetype', 'indent_str', 'stripped', 'is_root',
                  'prop_name', 'continuations',
                  'node_name', 'node_addr', 'label', 'ref_name', 'parent', 'depth',
                  'closures')
 
     def __init__(self, lineno, raw, linetype, depth, indent_str, stripped, is_root = False):
         self.lineno = lineno      # 1-based within the block
-        self.raw = raw
+        self.raw = raw            # Entire raw line
         self.linetype = linetype
         self.indent_str = indent_str  # leading whitespace as-is
         self.depth = depth
-        self.stripped = stripped
+        self.stripped = stripped      # Code without indentation
+        self.code = _strip_strings_and_comments(stripped)    # Only the code, skipping trailing comments
         self.is_root = is_root
         self.prop_name = None
         self.continuations = []
@@ -811,8 +812,7 @@ def check_hex_case(ctx):
                            LineType.COMMENT_START, LineType.COMMENT_BODY,
                            LineType.COMMENT_END, LineType.PREPROCESSOR):
             continue
-        text = _strip_strings_and_comments(dl.raw)
-        for m in re.finditer(r'\b0[xX][0-9a-fA-F]+\b', text):
+        for m in re.finditer(r'\b0[xX][0-9a-fA-F]+\b', dl.code):
             lit = m.group(0)
             if any(c.isupper() for c in lit[2:]) or lit[1] == 'X':
                 yield (dl.lineno,
@@ -860,9 +860,9 @@ def check_value_whitespace(ctx):
     for dl in ctx.lines:
         if dl.linetype != LineType.PROPERTY:
             continue
-        segs = [_strip_strings_and_comments(dl.raw).strip()]
+        segs = [dl.code.strip()]
         for cont in dl.continuations:
-            segs.append(_strip_strings_and_comments(cont.stripped).strip())
+            segs.append(cont.code.strip())
         text = ''
         for s in segs:
             if not s:
@@ -895,8 +895,7 @@ def check_node_close_alone(ctx):
                            LineType.COMMENT_START, LineType.COMMENT_BODY,
                            LineType.COMMENT_END, LineType.PREPROCESSOR):
             continue
-        text = _strip_strings_and_comments(dl.raw)
-        if '};' in text:
+        if '};' in dl.code:
             yield (dl.lineno,
                    'closing brace must be on its own line')
 
