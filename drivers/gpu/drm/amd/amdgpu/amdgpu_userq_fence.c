@@ -148,13 +148,13 @@ amdgpu_userq_fence_driver_process(struct amdgpu_userq_fence_driver *fence_drv)
 	LIST_HEAD(to_be_signaled);
 	struct dma_fence *fence;
 	unsigned long flags;
-	u64 rptr;
+	u64 fence_val;
 
 	spin_lock_irqsave(&fence_drv->fence_list_lock, flags);
-	rptr = amdgpu_userq_fence_read(fence_drv);
+	fence_val = amdgpu_userq_fence_read(fence_drv);
 
 	list_for_each_entry(userq_fence, &fence_drv->fences, link) {
-		if (rptr < userq_fence->base.seqno)
+		if (fence_val < userq_fence->base.seqno)
 			break;
 	}
 
