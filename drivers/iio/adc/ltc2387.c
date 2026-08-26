@@ -86,6 +86,8 @@ struct ltc2387_info {
 	unsigned int test_pattern[2];
 	int num_channels;
 	int resolution;
+	/* Gain * 1000 when adi,gain-milli is absent; unity for the bare parts. */
+	u32 default_gain_milli;
 };
 
 #define LTC2387_TEST_PATTERN_16 {					\
@@ -101,6 +103,7 @@ struct ltc2387_info {
 static const struct ltc2387_info ltc2387_infos[] = {
 	[ID_LTC2387_16] = {
 		.name = "ltc2387-16",
+		.default_gain_milli = 1000,
 		.resolution = 16,
 		.test_pattern = LTC2387_TEST_PATTERN_16,
 		.channels = { LTC2378_CHAN(16, 16) },
@@ -108,6 +111,7 @@ static const struct ltc2387_info ltc2387_infos[] = {
 	},
 	[ID_LTC2387_16_X4] = {
 		.name = "ltc2387-16-x4",
+		.default_gain_milli = 1000,
 		.resolution = 16,
 		.test_pattern = LTC2387_TEST_PATTERN_16,
 		.channels = {
@@ -120,6 +124,7 @@ static const struct ltc2387_info ltc2387_infos[] = {
 	},
 	[ID_LTC2387_18] = {
 		.name = "ltc2387-18",
+		.default_gain_milli = 1000,
 		.resolution = 18,
 		.test_pattern = LTC2387_TEST_PATTERN_18,
 		.channels = { LTC2378_CHAN(18, 32) },
@@ -127,6 +132,7 @@ static const struct ltc2387_info ltc2387_infos[] = {
 	},
 	[ID_LTC2387_18_X4] = {
 		.name = "ltc2387-18-x4",
+		.default_gain_milli = 1000,
 		.resolution = 18,
 		.test_pattern = LTC2387_TEST_PATTERN_18,
 		.channels = {
@@ -139,6 +145,7 @@ static const struct ltc2387_info ltc2387_infos[] = {
 	},
 	[ID_ADAQ23875] = {
 		.name = "adaq23875",
+		.default_gain_milli = 2000,
 		.resolution = 16,
 		.test_pattern = LTC2387_TEST_PATTERN_16,
 		.channels = { LTC2378_CHAN(16, 16) },
@@ -146,6 +153,7 @@ static const struct ltc2387_info ltc2387_infos[] = {
 	},
 	[ID_ADAQ23876] = {
 		.name = "adaq23876",
+		.default_gain_milli = 2000,
 		.resolution = 16,
 		.test_pattern = LTC2387_TEST_PATTERN_16,
 		.channels = { LTC2378_CHAN(16, 16) },
@@ -153,6 +161,7 @@ static const struct ltc2387_info ltc2387_infos[] = {
 	},
 	[ID_ADAQ23878] = {
 		.name = "adaq23878",
+		.default_gain_milli = 2000,
 		.resolution = 18,
 		.test_pattern = LTC2387_TEST_PATTERN_18,
 		.channels = { LTC2378_CHAN(18, 32) },
@@ -171,6 +180,7 @@ struct ltc2387_dev {
 
 	unsigned int vref_mv;
 	u32 sampling_freq;
+	u32 gain_milli;
 };
 
 static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
@@ -263,9 +273,10 @@ static int ltc2387_read_raw(struct iio_dev *indio_dev,
 		*val = ltc->sampling_freq;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		*val = ltc->vref_mv * 2;
-		*val2 = chan->scan_type.realbits;
-		return IIO_VAL_FRACTIONAL_LOG2;
+		/* Referred to the SMA input, so divided by the front-end gain. */
+		*val = ltc->vref_mv * 2 * 1000;
+		*val2 = ltc->gain_milli << chan->scan_type.realbits;
+		return IIO_VAL_FRACTIONAL;
 	default:
 		return -EINVAL;
 	}
@@ -405,6 +416,12 @@ static int ltc2387_probe(struct platform_device *pdev)
 	ltc->device_info = device_get_match_data(&pdev->dev);
 	if (!ltc->device_info)
 		return -EINVAL;
+
+	ltc->gain_milli = ltc->device_info->default_gain_milli;
+	device_property_read_u32(&pdev->dev, "adi,gain-milli", &ltc->gain_milli);
+	if (!ltc->gain_milli)
+		return dev_err_probe(&pdev->dev, -EINVAL,
+				     "adi,gain-milli must be nonzero\n");
 
 	indio_dev->channels = ltc->device_info->channels;
 	indio_dev->num_channels = ltc->device_info->num_channels;
