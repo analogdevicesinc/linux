@@ -17,7 +17,9 @@
 		compatible = "ovti,ov5640";
 		reg = <0x3c>;
 
+		{% if cam_cfg.enable_gpio | d(true) %}
 		reset-gpios = <&{{ser_label}} {{reset_pin}} 0>;
+		{% endif %}
 
 		clocks = <&{{xclk_label}}>;
 		clock-names = "xclk";
@@ -26,7 +28,9 @@
 			{{cam_out_label}}: endpoint {
 				clock-lanes = <0>;
 				data-lanes = <1 2>;
+				{% if not cam_cfg.clock_continuous | d(false) %}
 				clock-noncontinuous;
+				{% endif %}
 				link-frequencies = /bits/ 64 <456000000>;
 				remote-endpoint = <&{{cam_out_remote_label}}>;
 			};
@@ -37,12 +41,14 @@
 &{{ser_label}} {
 	ports {
 		port@{{cam_idx}} {
-			reg = <0>;
+			reg = <{{cam_idx}}>;
 
 			{{cam_out_remote_label}}: endpoint {
 				clock-lanes = <0>;
 				data-lanes = <1 2>;
+				{% if not cam_cfg.clock_continuous | d(false) %}
 				clock-noncontinuous;
+				{% endif %}
 				link-frequencies = /bits/ 64 <456000000>;
 				remote-endpoint = <&{{cam_out_label}}>;
 			};
