@@ -17,6 +17,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/kernel.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
@@ -187,6 +188,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 {
 	unsigned long long ref_clk_period_ns;
 	struct pwm_waveform clk_gate_wf = { }, cnv_wf = { };
+	unsigned long long period_cycles;
 	int ret, clk_en_time;
 	u32 rem;
 
@@ -246,7 +248,13 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	if (ret < 0)
 		return ret;
 
-	ltc->sampling_freq = (u64)DIV_ROUND_UP(NSEC_PER_SEC, (u32)clk_gate_wf.period_length_ns);
+	period_cycles = mul_u64_u32_div(cnv_wf.period_length_ns,
+					ltc->ref_clk_rate, NSEC_PER_SEC);
+	if (!period_cycles)
+		return -EINVAL;
+
+	ltc->sampling_freq = DIV_ROUND_CLOSEST_ULL(ltc->ref_clk_rate,
+						   period_cycles);
 
 	return 0;
 }
