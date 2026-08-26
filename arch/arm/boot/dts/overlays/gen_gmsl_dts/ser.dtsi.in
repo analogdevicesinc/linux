@@ -5,6 +5,7 @@
 {% set ser_out_label = ser_label ~ '_out' %}
 {% set ser_out_remote_label = des_in_label_x(ser_idx) %}
 {% set i2c_label = des_i2c_label_x(ser_idx) %}
+{% set ser_out_port = ser_cfg.cameras | length %}
 {% macro ser_in_label_x(x) -%}
 	{{ ser_label ~ '_in_' ~ x }}
 {%- endmacro %}
@@ -47,8 +48,8 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		port@1 {
-			reg = <1>;
+		port@{{ser_out_port}} {
+			reg = <{{ser_out_port}}>;
 
 			{{ser_out_label}}: endpoint {
 				remote-endpoint = <&{{ser_out_remote_label}}>;
