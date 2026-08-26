@@ -8,7 +8,7 @@
 
     <title>SSM2602 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -470,11 +470,11 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm2602&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm2602"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">25000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">GPIO_PF10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">MAX_CTRL_CS</span><span class="p">,</span><span class="w"> </span><span class="cm">/* CS, change it for your board */</span>
@@ -514,12 +514,12 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>How to instantiate I2C devices</span></a></p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 
 <span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;ssm2604&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x1b</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"ssm2604"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x1b</span><span class="p">),</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 <span class="p">}</span>
@@ -813,12 +813,12 @@ sample-rates.</p>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">bf5xx_ssm2602_dai_link</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm2602&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SSM2602&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">cpu_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;bfin-i2s.0&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm2602-hifi&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;bfin-i2s-pcm-audio&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">codec_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm2602.0-001b&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm2602"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"SSM2602"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">cpu_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"bfin-i2s.0"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm2602-hifi"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">platform_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"bfin-i2s-pcm-audio"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">codec_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm2602.0-001b"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bf5xx_ssm2602_ops</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="p">};</span>
@@ -947,11 +947,11 @@ kernel boot, it should print out:</p>
 </li>
 <li><p>Set the audio mixer to Mic (the default is Line, assuming you have built ALSA
 utils):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span> <span class="n">sset</span> <span class="s1">&#39;Input Mux&#39;</span> <span class="s1">&#39;Mic&#39;</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">&#39;Input Mux&#39;</span><span class="p">,</span><span class="mi">0</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span> <span class="n">sset</span> <span class="s1">'Input Mux'</span> <span class="s1">'Mic'</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'Input Mux'</span><span class="p">,</span><span class="mi">0</span>
   <span class="n">Capabilities</span><span class="p">:</span> <span class="n">enum</span>
-  <span class="n">Items</span><span class="p">:</span> <span class="s1">&#39;Line&#39;</span> <span class="s1">&#39;Mic&#39;</span>
-  <span class="n">Item0</span><span class="p">:</span> <span class="s1">&#39;Mic&#39;</span>
+  <span class="n">Items</span><span class="p">:</span> <span class="s1">'Line'</span> <span class="s1">'Mic'</span>
+  <span class="n">Item0</span><span class="p">:</span> <span class="s1">'Mic'</span>
 </pre></div>
 </div>
 <p>Also you can run <code class="docutils literal notranslate"><span class="pre">alsamixer</span></code> to get graphic configuration interface,
@@ -982,13 +982,13 @@ working.</p>
 </div>
 </li>
 <li><p>Optionally check to make sure the Line and headphone are working properly:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span> <span class="n">sset</span> <span class="s1">&#39;Input Mux&#39;</span> <span class="s1">&#39;Line&#39;</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">&#39;Input Mux&#39;</span><span class="p">,</span><span class="mi">0</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span> <span class="n">sset</span> <span class="s1">'Input Mux'</span> <span class="s1">'Line'</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'Input Mux'</span><span class="p">,</span><span class="mi">0</span>
   <span class="n">Capabilities</span><span class="p">:</span> <span class="n">enum</span>
-  <span class="n">Items</span><span class="p">:</span> <span class="s1">&#39;Line&#39;</span> <span class="s1">&#39;Mic&#39;</span>
-  <span class="n">Item0</span><span class="p">:</span> <span class="s1">&#39;Line&#39;</span>
+  <span class="n">Items</span><span class="p">:</span> <span class="s1">'Line'</span> <span class="s1">'Mic'</span>
+  <span class="n">Item0</span><span class="p">:</span> <span class="s1">'Line'</span>
 <span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">d</span> <span class="mi">10</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
-<span class="n">Recording</span> <span class="n">WAVE</span> <span class="s2">&quot;test.wav&quot;</span> <span class="p">:</span> <span class="n">Unsigned</span> <span class="mi">8</span> <span class="n">bit</span><span class="p">,</span> <span class="n">Rate</span> <span class="mi">8000</span> <span class="n">Hz</span><span class="p">,</span> <span class="n">Mono</span>
+<span class="n">Recording</span> <span class="n">WAVE</span> <span class="s2">"test.wav"</span> <span class="p">:</span> <span class="n">Unsigned</span> <span class="mi">8</span> <span class="n">bit</span><span class="p">,</span> <span class="n">Rate</span> <span class="mi">8000</span> <span class="n">Hz</span><span class="p">,</span> <span class="n">Mono</span>
 <span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">aplay</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
 </pre></div>
 </div>

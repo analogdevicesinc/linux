@@ -8,7 +8,7 @@
 
     <title>AD1836 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -449,14 +449,14 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>You need to set the modalias of your SPI info according to your codec. Valid
 values are <code class="docutils literal notranslate"><span class="pre">ad1835</span></code>, <code class="docutils literal notranslate"><span class="pre">ad1836</span></code>, <code class="docutils literal notranslate"><span class="pre">ad1837</span></code>, <code class="docutils literal notranslate"><span class="pre">ad1838</span></code> and <code class="docutils literal notranslate"><span class="pre">ad1839</span></code>. You’ll
 also have to adjust bus_num and chip_select according to your board setup.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad1836&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad1836"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3125000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="cm">/* CS, change it for your board */</span>
@@ -722,12 +722,12 @@ also have to adjust bus_num and chip_select according to your board setup.</p>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">bf5xx_ad1836_dai</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad1836&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;AD1836&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">cpu_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;bfin-tdm.0&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad1836-hifi&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">platform_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;bfin-tdm-pcm-audio&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">codec_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;spi0.4&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad1836"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"AD1836"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">cpu_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"bfin-tdm.0"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad1836-hifi"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">platform_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"bfin-tdm-pcm-audio"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">codec_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"spi0.4"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bf5xx_ad1836_ops</span><span class="p">,</span>
 <span class="p">};</span>
 </pre></div>
@@ -820,41 +820,41 @@ kernel boot, it should print out:</p></li>
 <li><p>Check and set the audio mixer:</p></li>
 </ol>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">&#39;Playback Deemphasis&#39;</span><span class="p">,</span><span class="mi">0</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'Playback Deemphasis'</span><span class="p">,</span><span class="mi">0</span>
   <span class="n">Capabilities</span><span class="p">:</span> <span class="n">enum</span>
-  <span class="n">Items</span><span class="p">:</span> <span class="s1">&#39;None&#39;</span> <span class="s1">&#39;44.1kHz&#39;</span> <span class="s1">&#39;32kHz&#39;</span> <span class="s1">&#39;48kHz&#39;</span>
-  <span class="n">Item0</span><span class="p">:</span> <span class="s1">&#39;48kHz&#39;</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">&#39;ADC High Pass Filter&#39;</span><span class="p">,</span><span class="mi">0</span>
+  <span class="n">Items</span><span class="p">:</span> <span class="s1">'None'</span> <span class="s1">'44.1kHz'</span> <span class="s1">'32kHz'</span> <span class="s1">'48kHz'</span>
+  <span class="n">Item0</span><span class="p">:</span> <span class="s1">'48kHz'</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'ADC High Pass Filter'</span><span class="p">,</span><span class="mi">0</span>
   <span class="n">Capabilities</span><span class="p">:</span> <span class="n">pswitch</span> <span class="n">pswitch</span><span class="o">-</span><span class="n">joined</span>
   <span class="n">Playback</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Mono</span>
   <span class="n">Mono</span><span class="p">:</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">&#39;ADC1&#39;</span><span class="p">,</span><span class="mi">0</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'ADC1'</span><span class="p">,</span><span class="mi">0</span>
   <span class="n">Capabilities</span><span class="p">:</span> <span class="n">pswitch</span>
   <span class="n">Playback</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Front</span> <span class="n">Left</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
   <span class="n">Mono</span><span class="p">:</span>
   <span class="n">Front</span> <span class="n">Left</span><span class="p">:</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
   <span class="n">Front</span> <span class="n">Right</span><span class="p">:</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">&#39;ADC2&#39;</span><span class="p">,</span><span class="mi">0</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'ADC2'</span><span class="p">,</span><span class="mi">0</span>
   <span class="n">Capabilities</span><span class="p">:</span> <span class="n">pswitch</span>
   <span class="n">Playback</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Front</span> <span class="n">Left</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
   <span class="n">Mono</span><span class="p">:</span>
   <span class="n">Front</span> <span class="n">Left</span><span class="p">:</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
   <span class="n">Front</span> <span class="n">Right</span><span class="p">:</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">&#39;DAC1&#39;</span><span class="p">,</span><span class="mi">0</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'DAC1'</span><span class="p">,</span><span class="mi">0</span>
   <span class="n">Capabilities</span><span class="p">:</span> <span class="n">volume</span> <span class="n">pswitch</span>
   <span class="n">Playback</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Front</span> <span class="n">Left</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
   <span class="n">Capture</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Front</span> <span class="n">Left</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
   <span class="n">Limits</span><span class="p">:</span> <span class="mi">0</span> <span class="o">-</span> <span class="mi">1023</span>
   <span class="n">Front</span> <span class="n">Left</span><span class="p">:</span> <span class="mi">1023</span> <span class="p">[</span><span class="mi">100</span><span class="o">%</span><span class="p">]</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
   <span class="n">Front</span> <span class="n">Right</span><span class="p">:</span> <span class="mi">1023</span> <span class="p">[</span><span class="mi">100</span><span class="o">%</span><span class="p">]</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">&#39;DAC2&#39;</span><span class="p">,</span><span class="mi">0</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'DAC2'</span><span class="p">,</span><span class="mi">0</span>
   <span class="n">Capabilities</span><span class="p">:</span> <span class="n">volume</span> <span class="n">pswitch</span>
   <span class="n">Playback</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Front</span> <span class="n">Left</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
   <span class="n">Capture</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Front</span> <span class="n">Left</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
   <span class="n">Limits</span><span class="p">:</span> <span class="mi">0</span> <span class="o">-</span> <span class="mi">1023</span>
   <span class="n">Front</span> <span class="n">Left</span><span class="p">:</span> <span class="mi">1023</span> <span class="p">[</span><span class="mi">100</span><span class="o">%</span><span class="p">]</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
   <span class="n">Front</span> <span class="n">Right</span><span class="p">:</span> <span class="mi">1023</span> <span class="p">[</span><span class="mi">100</span><span class="o">%</span><span class="p">]</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">&#39;DAC3&#39;</span><span class="p">,</span><span class="mi">0</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'DAC3'</span><span class="p">,</span><span class="mi">0</span>
   <span class="n">Capabilities</span><span class="p">:</span> <span class="n">volume</span> <span class="n">pswitch</span>
   <span class="n">Playback</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Front</span> <span class="n">Left</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
   <span class="n">Capture</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Front</span> <span class="n">Left</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
@@ -862,8 +862,8 @@ kernel boot, it should print out:</p></li>
   <span class="n">Front</span> <span class="n">Left</span><span class="p">:</span> <span class="mi">1023</span> <span class="p">[</span><span class="mi">100</span><span class="o">%</span><span class="p">]</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
   <span class="n">Front</span> <span class="n">Right</span><span class="p">:</span> <span class="mi">1023</span> <span class="p">[</span><span class="mi">100</span><span class="o">%</span><span class="p">]</span> <span class="n">Playback</span> <span class="p">[</span><span class="n">on</span><span class="p">]</span>
 
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span> <span class="n">sset</span> <span class="s1">&#39;DAC3&#39;</span> <span class="mi">200</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">&#39;DAC3&#39;</span><span class="p">,</span><span class="mi">0</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span> <span class="n">sset</span> <span class="s1">'DAC3'</span> <span class="mi">200</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'DAC3'</span><span class="p">,</span><span class="mi">0</span>
   <span class="n">Capabilities</span><span class="p">:</span> <span class="n">volume</span> <span class="n">pswitch</span>
   <span class="n">Playback</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Front</span> <span class="n">Left</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
   <span class="n">Capture</span> <span class="n">channels</span><span class="p">:</span> <span class="n">Front</span> <span class="n">Left</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
@@ -891,7 +891,7 @@ set, and DNS servers can be accessed), and working.</p>
 </div>
 <p>Optionally check to make sure the mic and headphone are working properly:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">d</span> <span class="mi">10</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
-<span class="n">Recording</span> <span class="n">WAVE</span> <span class="s2">&quot;test.wav&quot;</span> <span class="p">:</span> <span class="n">Unsigned</span> <span class="mi">8</span> <span class="n">bit</span><span class="p">,</span> <span class="n">Rate</span> <span class="mi">8000</span> <span class="n">Hz</span><span class="p">,</span> <span class="n">Mono</span>
+<span class="n">Recording</span> <span class="n">WAVE</span> <span class="s2">"test.wav"</span> <span class="p">:</span> <span class="n">Unsigned</span> <span class="mi">8</span> <span class="n">bit</span><span class="p">,</span> <span class="n">Rate</span> <span class="mi">8000</span> <span class="n">Hz</span><span class="p">,</span> <span class="n">Mono</span>
 <span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">aplay</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
 </pre></div>
 </div>

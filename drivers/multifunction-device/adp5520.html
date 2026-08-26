@@ -8,7 +8,7 @@
 
     <title>ADP5520 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -626,7 +626,7 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>How to instantiate I2C devices</span></a></p>
 <p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5520_pdev_data{}</a>
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">/CONFIG_PMIC_ADP5520/2-/#if/</a></p>
 <div class="admonition tip">
@@ -830,7 +830,7 @@ Connect the ADP5520 Demo Mother to an USB port.</p>
 <span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">event_test</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">event0</span>
 <span class="n">Input</span> <span class="n">driver</span> <span class="n">version</span> <span class="ow">is</span> <span class="mf">1.0.0</span>
 <span class="n">Input</span> <span class="n">device</span> <span class="n">ID</span><span class="p">:</span> <span class="n">bus</span> <span class="mh">0x18</span> <span class="n">vendor</span> <span class="mh">0x1</span> <span class="n">product</span> <span class="mh">0x5520</span> <span class="n">version</span> <span class="mh">0x1</span>
-<span class="n">Input</span> <span class="n">device</span> <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;adp5520-keys&quot;</span>
+<span class="n">Input</span> <span class="n">device</span> <span class="n">name</span><span class="p">:</span> <span class="s2">"adp5520-keys"</span>
 <span class="n">Supported</span> <span class="n">events</span><span class="p">:</span>
   <span class="n">Event</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">)</span>
     <span class="n">Event</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">)</span>

@@ -8,7 +8,7 @@
 
     <title>ADF7242 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -479,7 +479,7 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/spi/adf7242.h&gt;</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adf7242_platform_data</span><span class="w"> </span><span class="n">adf7242_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -520,7 +520,7 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 <div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">bfin_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_IEEE802154_ADF7242) || defined(CONFIG_IEEE802154_ADF7242_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adf7242&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adf7242"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PF6</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
@@ -539,7 +539,7 @@ Read the
 for more details.</p>
 <p>Example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adf7242</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,adf7242&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adf7242"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x62</span> <span class="n">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
@@ -619,13 +619,13 @@ addresses a0::1 and a0::2, and the short addresses 0x8001 and 0x8002.</p>
 standard GNU tools.</p>
 <section id="configuration-for-the-first-node-zedboard">
 <h4>Configuration for the first node (ZedBoard)<a class="headerlink" href="#configuration-for-the-first-node-zedboard" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/&gt; HW_ADDR=&quot;a0:0:0:0:0:0:0:1&quot;
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/&gt; HW_ADDR="a0:0:0:0:0:0:0:1"
 root:/&gt; DEVICE_ADDR=8001 # hexadecimal
 root:/&gt; PAN_ID=777 # hexadecimal
 root:/&gt; CHANNEL=11
 root:/&gt;
 root:/&gt; iz add wpan-phy0
-Registered new device (&#39;wpan0&#39;) on phy wpan-phy0
+Registered new device ('wpan0') on phy wpan-phy0
 
 root:/&gt; ip link set wpan0 address ${HW_ADDR}
 root:/&gt; ifconfig wpan0 up
@@ -637,13 +637,13 @@ root:/&gt; iz set wpan0 ${PAN_ID} ${DEVICE_ADDR} ${CHANNEL}
 <section id="configuration-for-the-second-node-raspberry-pi">
 <h4>Configuration for the second node (Raspberry Pi)<a class="headerlink" href="#configuration-for-the-second-node-raspberry-pi" title="Link to this heading"></a></h4>
 <p>We only need to change the first two lines:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/&gt; HW_ADDR=&quot;a0:0:0:0:0:0:0:2&quot;
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/&gt; HW_ADDR="a0:0:0:0:0:0:0:2"
 root:/&gt; DEVICE_ADDR=8002 # hexadecimal
 root:/&gt; PAN_ID=777 # hexadecimal
 root:/&gt; CHANNEL=11
 root:/&gt;
 root:/&gt; iz add wpan-phy0
-Registered new device (&#39;wpan0&#39;) on phy wpan-phy0
+Registered new device ('wpan0') on phy wpan-phy0
 
 root:/&gt; ip link set wpan0 address ${HW_ADDR}
 root:/&gt; ifconfig wpan0 up
@@ -689,8 +689,8 @@ IPv6 protocol), we can allow standard Linux network applications to communicate
 over the IEEE 802.15.4 link with standard sockets.</p>
 <section id="id2">
 <h4>Configuration for the first node (ZedBoard)<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/&gt; HW_ADDR=&quot;a0:0:0:0:0:0:0:1&quot; # Same as before
-root:/&gt; IPV6_ADDR=&quot;2001::1/128&quot;
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/&gt; HW_ADDR="a0:0:0:0:0:0:0:1" # Same as before
+root:/&gt; IPV6_ADDR="2001::1/128"
 root:/&gt;
 root:/&gt; ip link add link wpan0 name lowpan0 type lowpan
 root:/&gt; ip link set lowpan0 address ${HW_ADDR}
@@ -702,8 +702,8 @@ root:/&gt; ip route add 2001::/64 dev lowpan0
 </section>
 <section id="id3">
 <h4>Configuration for the second node (Raspberry Pi)<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/&gt; HW_ADDR=&quot;a0:0:0:0:0:0:0:2&quot; # Same as before
-root:/&gt; IPV6_ADDR=&quot;2001::2/128&quot;
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/&gt; HW_ADDR="a0:0:0:0:0:0:0:2" # Same as before
+root:/&gt; IPV6_ADDR="2001::2/128"
 root:/&gt;
 root:/&gt; ip link add link wpan0 name lowpan0 type lowpan
 root:/&gt; ip link set lowpan0 address ${HW_ADDR}
@@ -769,7 +769,7 @@ this behaviour with the following command:</p>
 <p>The following is just to demonstrate that any Linux program can, using standard
 sockets, communicate over the IEEE 802.15.4 link with 6loWPAN:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@raspberrypi</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">ssh</span> <span class="o">-</span><span class="mi">6</span> <span class="n">analog</span><span class="nd">@fe80</span><span class="p">::</span><span class="n">a200</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="o">%</span><span class="n">lowpan0</span>
-<span class="n">analog</span><span class="nd">@fe80</span><span class="p">::</span><span class="n">a200</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="o">%</span><span class="n">lowpan0</span><span class="s1">&#39;s password:</span>
+<span class="n">analog</span><span class="nd">@fe80</span><span class="p">::</span><span class="n">a200</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="o">%</span><span class="n">lowpan0</span><span class="s1">'s password:</span>
 <span class="n">Welcome</span> <span class="n">to</span> <span class="n">Linaro</span> <span class="mf">14.04</span> <span class="p">(</span><span class="n">GNU</span><span class="o">/</span><span class="n">Linux</span> <span class="mf">3.18.0</span><span class="o">-</span><span class="mi">33199</span><span class="o">-</span><span class="n">g62cfd65</span><span class="o">-</span><span class="n">dirty</span> <span class="n">armv7l</span><span class="p">)</span>
 
 <span class="n">Last</span> <span class="n">login</span><span class="p">:</span> <span class="n">Thu</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">02</span><span class="p">:</span><span class="mi">21</span> <span class="mi">1970</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fe80</span><span class="p">::</span><span class="n">a200</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="o">%</span><span class="n">lowpan0</span>

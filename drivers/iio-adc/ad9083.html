@@ -8,7 +8,7 @@
 
     <title>AD9083 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -591,7 +591,7 @@ temperature range.</p>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/iio/adc/adi,ad9083.h&gt;</span>
 <span class="o">&amp;</span><span class="nf">spi0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nl">adc0_ad9083</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9083</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adi,ad9083&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad9083"</span><span class="p">;</span>
 <span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 
 <span class="w">        </span><span class="n">jesd204-device</span><span class="p">;</span>
@@ -602,7 +602,7 @@ temperature range.</p>
 
 <span class="w">        </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">        </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">ad9528</span><span class="w"> </span><span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">        </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adc_ref_clk&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adc_ref_clk"</span><span class="p">;</span>
 <span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">adc-frequency-hz</span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">64 &lt;2000000000&gt;</span><span class="p">;</span><span class="w"> </span><span class="cm">/* 2 GHz */</span>
 
 <span class="w">        </span><span class="cm">/* adi_ad9083 config */</span>

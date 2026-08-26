@@ -8,7 +8,7 @@
 
     <title>AD5064 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -497,15 +497,15 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 regulator.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)</span>
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_consumer_supply</span><span class="w"> </span><span class="n">ad5064_consumer_supplies</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">&quot;vrefA&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;spi0.3&quot;</span><span class="p">),</span>
-<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">&quot;vrefB&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;spi0.3&quot;</span><span class="p">),</span>
-<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">&quot;vrefC&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;spi0.3&quot;</span><span class="p">),</span>
-<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">&quot;vrefD&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;spi0.3&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"vrefA"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.3"</span><span class="p">),</span>
+<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"vrefB"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.3"</span><span class="p">),</span>
+<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"vrefC"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.3"</span><span class="p">),</span>
+<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"vrefD"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.3"</span><span class="p">),</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_init_data</span><span class="w"> </span><span class="n">stamp_avdd_reg_init_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">.</span><span class="n">constraints</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;2V5&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">"2V5"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">valid_ops_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">REGULATOR_CHANGE_STATUS</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">.</span><span class="n">consumer_supplies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ad5624_consumer_supplies</span><span class="p">,</span>
@@ -513,14 +513,14 @@ regulator.</p>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">fixed_voltage_config</span><span class="w"> </span><span class="n">stamp_vdd_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">supply_name</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;board-2V5&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">supply_name</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s">"board-2V5"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">microvolts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2500000</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">gpio</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">enabled_at_boot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">init_data</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">stamp_avdd_reg_init_data</span><span class="p">,</span>
 <span class="p">};</span>
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">platform_device</span><span class="w"> </span><span class="n">brd_voltage_regulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;reg-fixed-voltage&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s">"reg-fixed-voltage"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">id</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">-1</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">num_resources</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">dev</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -560,7 +560,7 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>Depending on the converter IC used, you may need to set the modalias
 accordingly, matching your part name. It may also required to adjust
 max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
@@ -570,7 +570,7 @@ the device in question.</p>
 <span class="cp">    defined(CONFIG_AD5064_SPI_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">        </span><span class="cm">/* the modalias must be the same as spi device driver name */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad5064&quot;</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Name of spi_driver for this device */</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad5064"</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Name of spi_driver for this device */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Framework bus number */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Framework chip select */</span>

@@ -8,7 +8,7 @@
 
     <title>AD7303 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -452,8 +452,8 @@ set if there is an external reference voltage connected to the REF pin. If not
 set, Vdd/2 is used as the reference voltage.</p></li>
 </ul>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dac_vdd</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-       <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-       <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;fixed-supply&quot;</span><span class="p">;</span>
+       <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+       <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
        <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
        <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
        <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
@@ -462,10 +462,10 @@ set, Vdd/2 is used as the reference voltage.</p></li>
 <span class="n">axi_spi_0</span><span class="p">:</span> <span class="n">spi</span><span class="o">@</span><span class="mi">42000000</span> <span class="p">{</span>
        <span class="c1">#address-cells = &lt;1&gt;;</span>
        <span class="c1">#size-cells = &lt;0&gt;;</span>
-       <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xlnx,axi-spi-1.02.a&quot;</span><span class="p">,</span> <span class="s2">&quot;xlnx,xps-spi-2.00.a&quot;</span><span class="p">;</span>
+       <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-spi-1.02.a"</span><span class="p">,</span> <span class="s2">"xlnx,xps-spi-2.00.a"</span><span class="p">;</span>
         <span class="o">...</span>
        <span class="n">ad7303</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-              <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad7303&quot;</span><span class="p">;</span>
+              <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad7303"</span><span class="p">;</span>
               <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
               <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
               <span class="n">Vdd</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dac_vdd</span><span class="o">&gt;</span><span class="p">;</span>

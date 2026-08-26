@@ -8,7 +8,7 @@
 
     <title>AD7625 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -474,8 +474,8 @@ these are identified as EN0 through EN3, with EN2 and EN3 only being
 present/instantiated for the AD796x ADCs. Both subfamilies support the use of
 two devicetree fields for indicating to the driver which mode the device should
 operate in, where <code class="docutils literal notranslate"><span class="pre">X</span></code> is a number between 0 and 3:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span> <span class="s1">&#39;&#39;</span><span class="n">adi</span><span class="p">,</span><span class="n">enX</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="s1">&#39;&#39;</span> <span class="o">-</span> <span class="n">GPIO</span> <span class="s1">&#39;&#39;</span><span class="n">X</span><span class="s1">&#39;&#39;</span> <span class="ow">is</span> <span class="n">hard</span><span class="o">-</span><span class="n">wired</span> <span class="n">to</span> <span class="n">VIO</span>
-<span class="o">-</span> <span class="s1">&#39;&#39;</span><span class="n">enX</span><span class="o">-</span><span class="n">gpios</span><span class="s1">&#39;&#39;</span> <span class="o">-</span> <span class="n">GPIO</span> <span class="s1">&#39;&#39;</span><span class="n">X</span><span class="s1">&#39;&#39;</span> <span class="ow">is</span> <span class="n">configurable</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span> <span class="s1">''</span><span class="n">adi</span><span class="p">,</span><span class="n">enX</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="s1">''</span> <span class="o">-</span> <span class="n">GPIO</span> <span class="s1">''</span><span class="n">X</span><span class="s1">''</span> <span class="ow">is</span> <span class="n">hard</span><span class="o">-</span><span class="n">wired</span> <span class="n">to</span> <span class="n">VIO</span>
+<span class="o">-</span> <span class="s1">''</span><span class="n">enX</span><span class="o">-</span><span class="n">gpios</span><span class="s1">''</span> <span class="o">-</span> <span class="n">GPIO</span> <span class="s1">''</span><span class="n">X</span><span class="s1">''</span> <span class="ow">is</span> <span class="n">configurable</span>
 </pre></div>
 </div>
 <p>By default, if only <code class="docutils literal notranslate"><span class="pre">enX-gpios</span></code> is specified in the devicetree for all GPIOs,
@@ -674,10 +674,10 @@ connected to the CLK pins for transferring data to the host.</p>
 shows a case where EN1 is hard-wired high (and EN0 is implicitly hard-wired
 low):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ad7625</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad7625&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad7625"</span><span class="p">;</span>
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ref_clk</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">pwms</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">0</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">1</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">pwm</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;cnv&quot;</span><span class="p">,</span> <span class="s2">&quot;clk_gate&quot;</span><span class="p">;</span>
+        <span class="n">pwm</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"cnv"</span><span class="p">,</span> <span class="s2">"clk_gate"</span><span class="p">;</span>
         <span class="n">ref</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ref</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vio</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">eval_u16</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vdd1</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">eval_u10</span><span class="o">&gt;</span><span class="p">;</span>
@@ -692,10 +692,10 @@ low):</p>
 shows how to specify all GPIOs as configurable and allow the driver to select
 the default configuration:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ad7960</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad7960&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad7960"</span><span class="p">;</span>
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ref_clk</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">pwms</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">0</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">1</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">pwm</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;cnv&quot;</span><span class="p">,</span> <span class="s2">&quot;clk_gate&quot;</span><span class="p">;</span>
+        <span class="n">pwm</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"cnv"</span><span class="p">,</span> <span class="s2">"clk_gate"</span><span class="p">;</span>
         <span class="n">ref</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ref</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vio</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">eval_u3</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vdd1</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">eval_u10</span><span class="o">&gt;</span><span class="p">;</span>
@@ -712,24 +712,24 @@ the default configuration:</p>
 connected clock and PWMs:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ref_clk</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="n">pwms</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">0</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">1</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="n">pwm</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;cnv&quot;</span><span class="p">,</span> <span class="s2">&quot;clk_gate&quot;</span><span class="p">;</span>
+<span class="n">pwm</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"cnv"</span><span class="p">,</span> <span class="s2">"clk_gate"</span><span class="p">;</span>
 </pre></div>
 </div>
 <p>These are referencing definitions for <code class="docutils literal notranslate"><span class="pre">ref_clk</span></code> and <code class="docutils literal notranslate"><span class="pre">axi_pwm_gen</span></code> specified
 elsewhere in the devicetree:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ref_clk</span><span class="p">:</span> <span class="n">clock</span><span class="o">@</span><span class="mh">0x44a80000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-clkgen-2.00.a&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-clkgen-2.00.a"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44a80000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="c1">#clock-cells = &lt;0&gt;;</span>
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clkc</span> <span class="mi">15</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">clkc</span> <span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;s_axi_aclk&quot;</span><span class="p">,</span> <span class="s2">&quot;clkin1&quot;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;ref_clk&quot;</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"s_axi_aclk"</span><span class="p">,</span> <span class="s2">"clkin1"</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"ref_clk"</span><span class="p">;</span>
 <span class="p">};</span>
 
 <span class="n">axi_pwm_gen</span><span class="p">:</span> <span class="n">pwm</span><span class="o">@</span><span class="mh">0x44a60000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-pwmgen-2.00.a&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-pwmgen-2.00.a"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44a60000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;adc_conversion_trigger&quot;</span><span class="p">;</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="s2">"adc_conversion_trigger"</span><span class="p">;</span>
         <span class="c1">#pwm-cells = &lt;2&gt;;</span>
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ref_clk</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>
@@ -817,8 +817,8 @@ can be viewed and configured using the <code class="docutils literal notranslate
 <h4>Examples<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
 <p>Get device info:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@zed</span><span class="o">-</span><span class="n">tg</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># iio_attr -d ad7625</span>
-<span class="n">dev</span> <span class="s1">&#39;ad7625&#39;</span><span class="p">,</span> <span class="n">attr</span> <span class="s1">&#39;sampling_frequency&#39;</span><span class="p">,</span> <span class="n">value</span> <span class="p">:</span><span class="s1">&#39;5952381&#39;</span>
-<span class="n">dev</span> <span class="s1">&#39;ad7625&#39;</span><span class="p">,</span> <span class="n">attr</span> <span class="s1">&#39;waiting_for_supplier&#39;</span><span class="p">,</span> <span class="n">value</span> <span class="p">:</span><span class="s1">&#39;0&#39;</span>
+<span class="n">dev</span> <span class="s1">'ad7625'</span><span class="p">,</span> <span class="n">attr</span> <span class="s1">'sampling_frequency'</span><span class="p">,</span> <span class="n">value</span> <span class="p">:</span><span class="s1">'5952381'</span>
+<span class="n">dev</span> <span class="s1">'ad7625'</span><span class="p">,</span> <span class="n">attr</span> <span class="s1">'waiting_for_supplier'</span><span class="p">,</span> <span class="n">value</span> <span class="p">:</span><span class="s1">'0'</span>
 </pre></div>
 </div>
 <p>Set sampling frequency:</p>

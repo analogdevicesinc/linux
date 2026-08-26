@@ -8,7 +8,7 @@
 
     <title>AD2S1210 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -585,32 +585,32 @@ hysteresis.</p></td>
 <h3>Interfacing With the AD2S1210 via iio_attr<a class="headerlink" href="#interfacing-with-the-ad2s1210-via-iio-attr" title="Link to this heading"></a></h3>
 <p>Accessing a list of channels:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>analog@setup-2-zed:~ $ iio_attr ad2s1210 -c
-dev &#39;ad2s1210&#39;, channel &#39;angl0&#39; (input, index: 0, format: be:U16/16&gt;&gt;0), found 5 channel-specific attributes
-dev &#39;ad2s1210&#39;, channel &#39;anglvel0&#39; (input, index: 1, format: be:S16/16&gt;&gt;0), found 3 channel-specific attributes
-dev &#39;ad2s1210&#39;, channel &#39;timestamp&#39; (input, index: 2, format: le:S64/64&gt;&gt;0), found 0 channel-specific attributes
-dev &#39;ad2s1210&#39;, channel &#39;phase0&#39; (input), found 1 channel-specific attributes
-dev &#39;ad2s1210&#39;, channel &#39;altvoltage0&#39; (output), found 3 channel-specific attributes
-dev &#39;ad2s1210&#39;, channel &#39;altvoltage2&#39; (input), found 1 channel-specific attributes
-dev &#39;ad2s1210&#39;, channel &#39;angl1&#39; (input), found 1 channel-specific attributes
-dev &#39;ad2s1210&#39;, channel &#39;altvoltage0&#39; (input), found 1 channel-specific attributes
-dev &#39;ad2s1210&#39;, channel &#39;altvoltage1&#39; (input), found 1 channel-specific attributes
+dev 'ad2s1210', channel 'angl0' (input, index: 0, format: be:U16/16&gt;&gt;0), found 5 channel-specific attributes
+dev 'ad2s1210', channel 'anglvel0' (input, index: 1, format: be:S16/16&gt;&gt;0), found 3 channel-specific attributes
+dev 'ad2s1210', channel 'timestamp' (input, index: 2, format: le:S64/64&gt;&gt;0), found 0 channel-specific attributes
+dev 'ad2s1210', channel 'phase0' (input), found 1 channel-specific attributes
+dev 'ad2s1210', channel 'altvoltage0' (output), found 3 channel-specific attributes
+dev 'ad2s1210', channel 'altvoltage2' (input), found 1 channel-specific attributes
+dev 'ad2s1210', channel 'angl1' (input), found 1 channel-specific attributes
+dev 'ad2s1210', channel 'altvoltage0' (input), found 1 channel-specific attributes
+dev 'ad2s1210', channel 'altvoltage1' (input), found 1 channel-specific attributes
 </pre></div>
 </div>
 <p>For example, to get position channel <strong>angl0</strong>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>analog@setup-2-zed:~ $ iio_attr ad2s1210 -ci angl0
-dev &#39;ad2s1210&#39;, channel &#39;angl0&#39; (input), attr &#39;hysteresis&#39;, value &#39;1&#39;
-dev &#39;ad2s1210&#39;, channel &#39;angl0&#39; (input), attr &#39;hysteresis_available&#39;, value
-&#39;0 1&#39;
-dev &#39;ad2s1210&#39;, channel &#39;angl0&#39; (input), attr &#39;label&#39;, value &#39;position&#39;
-dev &#39;ad2s1210&#39;, channel &#39;angl0&#39; (input), attr &#39;raw&#39;, value &#39;34114&#39;
-dev &#39;ad2s1210&#39;, channel &#39;angl0&#39; (input), attr &#39;scale&#39;, value &#39;0.000095874&#39;
+dev 'ad2s1210', channel 'angl0' (input), attr 'hysteresis', value '1'
+dev 'ad2s1210', channel 'angl0' (input), attr 'hysteresis_available', value
+'0 1'
+dev 'ad2s1210', channel 'angl0' (input), attr 'label', value 'position'
+dev 'ad2s1210', channel 'angl0' (input), attr 'raw', value '34114'
+dev 'ad2s1210', channel 'angl0' (input), attr 'scale', value '0.000095874'
 </pre></div>
 </div>
 <p>Or velocity channel <strong>anglvel0</strong>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>analog@setup-2-zed:~ $ iio_attr ad2s1210 -ci anglvel0
-dev &#39;ad2s1210&#39;, channel &#39;anglvel0&#39; (input), attr &#39;label&#39;, value &#39;velocity&#39;
-dev &#39;ad2s1210&#39;, channel &#39;anglvel0&#39; (input), attr &#39;raw&#39;, value &#39;0&#39;
-dev &#39;ad2s1210&#39;, channel &#39;anglvel0&#39; (input), attr &#39;scale&#39;, value &#39;0.023968449&#39;
+dev 'ad2s1210', channel 'anglvel0' (input), attr 'label', value 'velocity'
+dev 'ad2s1210', channel 'anglvel0' (input), attr 'raw', value '0'
+dev 'ad2s1210', channel 'anglvel0' (input), attr 'scale', value '0.023968449'
 </pre></div>
 </div>
 </section>
@@ -750,7 +750,7 @@ WARNING: High-speed mode not enabled
 00000060  85 41 00 00 00 00 00 00  ab 64 11 b1 09 54 9e 17  |.A.......d...T..|
 00000070  85 41 00 00 00 00 00 00  fb f6 a9 b1 09 54 9e 17  |.A...........T..|
 00000080  85 41 00 00 00 00 00 00  85 8b 42 b2 09 54 9e 17  |.A........B..T..|
-00000090  85 41 ff ff 00 00 00 00  13 22 db b2 09 54 9e 17  |.A.......&quot;...T..|
+00000090  85 41 ff ff 00 00 00 00  13 22 db b2 09 54 9e 17  |.A......."...T..|
 000000a0  85 42 00 00 00 00 00 00  e3 b8 73 b3 09 54 9e 17  |.B........s..T..|
 000000b0  85 42 00 00 00 00 00 00  53 4f 0c b4 09 54 9e 17  |.B......SO...T..|
 000000c0  85 41 00 00 00 00 00 00  6a e8 a4 b4 09 54 9e 17  |.A......j....T..|

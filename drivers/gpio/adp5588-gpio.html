@@ -8,7 +8,7 @@
 
     <title>ADP5588 GPIO &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -462,11 +462,11 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>How to instantiate I2C devices</span></a></p>
 <div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_GPIO_ADP5588) || defined(CONFIG_GPIO_ADP5588_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;adp5588-gpio&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adp5588-gpio"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG0</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">adp5588_gpio_data</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
@@ -566,7 +566,7 @@ ADP5588 GPIO device.</p>
 </pre></div>
 </div>
 <p>For more information see also here:
-<a class="icon link reference external" href="https://docs.kernel.org/userspace-api/gpio/sysfs.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>GPIO Sysfs Interface for Userspace</span></a></p>
+<a class="icon link reference external" href="https://docs.kernel.org/userspace-api/gpio/sysfs.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>GPIO Sysfs Interface for Userspace</span></a></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">echo</span> <span class="mi">67</span> <span class="o">&gt;</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/</span><span class="n">export</span>
 
 <span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">echo</span> <span class="n">low</span> <span class="o">&gt;</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/</span><span class="n">gpio67</span><span class="o">/</span><span class="n">direction</span>

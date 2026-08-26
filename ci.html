@@ -8,7 +8,7 @@
 
     <title>Continuous integration &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=fb8972a4" />
     <script async="async" src="_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="_static/icon.svg"/>
     <link rel="index" title="Index" href="genindex.html" />
@@ -487,7 +487,7 @@ that includes the CI workflows, <a class="icon git reference external" href="htt
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;ci: Patch workflows&quot;</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;CI generated commit&quot;</span><span class="w"> </span>-s
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">"ci: Patch workflows"</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">"CI generated commit"</span><span class="w"> </span>-s
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>The cron job is set to update the branches at the end of every day.</p>
@@ -518,7 +518,7 @@ the job-scoped <code class="docutils literal notranslate"><span class="pre">fata
 to be used alongside the <code class="docutils literal notranslate"><span class="pre">needs</span></code> rule, for example:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">build_gcc_aarch64</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">needs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">checks</span><span class="p p-Indicator">]</span>
-<span class="w">  </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">needs.checks.outputs.fatal != &#39;true&#39;</span>
+<span class="w">  </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">needs.checks.outputs.fatal != 'true'</span>
 </pre></div>
 </div>
 </li>
@@ -699,13 +699,13 @@ In this case, the <code class="docutils literal notranslate"><span class="pre">g
 <p>This is an example of <em>~/.config/containers/storage.conf</em> to support such
 environments:</p>
 <div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="k">[storage]</span>
-<span class="na">driver</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;overlay&quot;</span>
+<span class="na">driver</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"overlay"</span>
 <span class="c1"># Set to a path in a non-nfs partition</span>
-<span class="na">graphRoot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;/tmp&quot;</span>
+<span class="na">graphRoot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"/tmp"</span>
 
 <span class="k">[storage.options.overlay]</span>
 <span class="c1"># Single UID</span>
-<span class="na">ignore_chown_errors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+<span class="na">ignore_chown_errors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"true"</span>
 </pre></div>
 </div>
 <p>Ensure apply with <code class="docutils literal notranslate"><span class="pre">podman</span> <span class="pre">system</span> <span class="pre">migrate</span></code> and see the changed settings with
@@ -774,7 +774,7 @@ In this case, export the image and then import on the server:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>user@host:~/linux$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>save<span class="w"> </span>adi/linux:latest<span class="w"> </span><span class="p">|</span><span class="w"> </span>ssh<span class="w"> </span>server<span class="w"> </span><span class="s2">&quot;cat - | podman load&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>save<span class="w"> </span>adi/linux:latest<span class="w"> </span><span class="p">|</span><span class="w"> </span>ssh<span class="w"> </span>server<span class="w"> </span><span class="s2">"cat - | podman load"</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></section>
@@ -877,17 +877,17 @@ Remember to replace <code class="docutils literal notranslate"><span class="pre"
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cr<span class="w"> </span>adi/linux
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>Remote &#39;public&#39; matches &#39;analogdevicesinc&#39;, and has branch &#39;ci&#39;.
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>Remote 'public' matches 'analogdevicesinc', and has branch 'ci'.
 Fetch (y/n)? y
-Fetching branch &#39;ci&#39;...
-Fetched CI branch to &#39;_ci&#39;.
+Fetching branch 'ci'...
+Fetched CI branch to '_ci'.
 
 To clean-up, use:
   git worktree remove _ci
 
 Keep it up to date as well with git pull.
 
-Sourced methods from &#39;/mnt/wsl/data/repos/linux-factory/ci/_ci/ci/build.sh&#39;:
+Sourced methods from '/mnt/wsl/data/repos/linux-factory/ci/_ci/ci/build.sh':
 check_checkpatch                compile_many_devicetrees        assert_compiled
 check_dt_binding_check          compile_kernel                  apply_prerun
 check_coccicheck                compile_kernel_sparse           auto_set_kconfig
@@ -896,7 +896,7 @@ check_assert_defconfigs         compile_gcc_fanalyzer           set_step_warn
 compile_devicetree              compile_clang_analyzer          set_step_fail
 The git commit range was set to:
 $base_sha..$head_sha: @~6..@
-Adjust &#39;$base_sha&#39; and &#39;$head_sha&#39; to your work range.
+Adjust '$base_sha' and '$head_sha' to your work range.
 Directory: /mnt/wsl/data/repos/linux-factory/main
 Mon Oct 13 09:53:55 UTC 2025
 </pre></div>
@@ -938,9 +938,9 @@ CROSS_COMPILE=arm-suse-linux-gnueabi-
 </div>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>auto_set_kconfig on range @~3..@
 Symbols of touched files:
-{&#39;SENSORS_ADP1050&#39;, &#39;AD9081&#39;}
+{'SENSORS_ADP1050', 'AD9081'}
 Resolved symbols:
-{&#39;HWMON&#39;, &#39;I2C&#39;, &#39;SPI&#39;, &#39;AD9081&#39;, &#39;PMBUS&#39;, &#39;HAS_IOMEM&#39;, &#39;IIO&#39;, &#39;SENSORS_ADP1050&#39;}
+{'HWMON', 'I2C', 'SPI', 'AD9081', 'PMBUS', 'HAS_IOMEM', 'IIO', 'SENSORS_ADP1050'}
 #
 # configuration written to .config
 #
@@ -1098,12 +1098,12 @@ limits into the unit, instead of using Podman/Docker equivalents.</p>
 <span class="k">[Service]</span>
 <span class="na">Restart</span><span class="o">=</span><span class="s">on-success</span>
 <span class="na">ExecStart</span><span class="o">=</span><span class="s">/usr/local/bin/entrypoint.sh</span>
-<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;owner_repository=analogdevicesinc/linux&quot;</span>
-<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;runner_name=adi-linux-%q-%i&quot;</span>
-<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;runner_labels=self-hosted,repo-only,v4&quot;</span>
-<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;HOME=/home/runner&quot;</span>
-<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;USER=runner&quot;</span>
-<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;LOGNAME=runner&quot;</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">"owner_repository=analogdevicesinc/linux"</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">"runner_name=adi-linux-%q-%i"</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">"runner_labels=self-hosted,repo-only,v4"</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">"HOME=/home/runner"</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">"USER=runner"</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">"LOGNAME=runner"</span>
 <span class="na">UnsetEnvironment</span><span class="o">=</span><span class="s">XDG_CACHE_HOME XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_RUNTIME_DIR XDG_DATA_DIRS XDG_CONFIG_DIRS DBUS_SESSION_BUS_ADDRESS machine_name SHELL</span>
 <span class="na">LoadCredential</span><span class="o">=</span><span class="s">github_token:%h/.local/share/container/secrets/public_github_token</span>
 <span class="na">RootDirectory</span><span class="o">=</span><span class="s">%h/.local/share/container/images/adi-linux-latest</span>
@@ -1134,17 +1134,17 @@ Also the image <code class="docutils literal notranslate"><span class="pre">runn
 <em>~/.config/systemd/user/container-public-linux&#64;.service.d/machine.conf</em>
 (indentical for the same host, but duplicated per container scope):</p>
 <div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Service]</span>
-<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;name_label=big-server-%i&quot;</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">"name_label=big-server-%i"</span>
 </pre></div>
 </div>
 <p>The script <em>~/.local/bin/container-init.sh</em> provisions an ephemeral copy:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/sh</span>
-<span class="nv">name</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">1</span><span class="p">%%.*</span><span class="si">}</span><span class="s2">&quot;</span>
-<span class="nv">idx</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">1</span><span class="p">##*.</span><span class="si">}</span><span class="s2">&quot;</span>
-mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/runner/</span><span class="nv">$name</span><span class="s2">&quot;</span>
-rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/runner/</span><span class="nv">$name</span><span class="s2">/</span><span class="nv">$idx</span><span class="s2">&quot;</span>
-cp<span class="w"> </span>-a<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/images/</span><span class="nv">$name</span><span class="s2">/home/runner&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">      </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/runner/</span><span class="nv">$name</span><span class="s2">/</span><span class="nv">$idx</span><span class="s2">&quot;</span>
+<span class="nv">name</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">1</span><span class="p">%%.*</span><span class="si">}</span><span class="s2">"</span>
+<span class="nv">idx</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">1</span><span class="p">##*.</span><span class="si">}</span><span class="s2">"</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/runner/</span><span class="nv">$name</span><span class="s2">"</span>
+rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/runner/</span><span class="nv">$name</span><span class="s2">/</span><span class="nv">$idx</span><span class="s2">"</span>
+cp<span class="w"> </span>-a<span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/images/</span><span class="nv">$name</span><span class="s2">/home/runner"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">      </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/runner/</span><span class="nv">$name</span><span class="s2">/</span><span class="nv">$idx</span><span class="s2">"</span>
 </pre></div>
 </div>
 <p>And the init service at <em>~/.config/systemd/user/container-init&#64;.service</em>:</p>
@@ -1167,7 +1167,7 @@ cp<span class="w"> </span>-a<span class="w"> </span><span class="s2">&quot;</spa
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/.local/share/container/secrets$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>install<span class="w"> </span>-m<span class="w"> </span><span class="m">600</span><span class="w"> </span>-D<span class="w"> </span>/dev/stdin<span class="w"> </span>public_github_token<span class="w"> </span><span class="o">&lt;&lt;&lt;</span><span class="w"> </span><span class="s2">&quot;github_pat_MyToken&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>install<span class="w"> </span>-m<span class="w"> </span><span class="m">600</span><span class="w"> </span>-D<span class="w"> </span>/dev/stdin<span class="w"> </span>public_github_token<span class="w"> </span><span class="o">&lt;&lt;&lt;</span><span class="w"> </span><span class="s2">"github_pat_MyToken"</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>If a compatible TPM2 is available, use <code class="docutils literal notranslate"><span class="pre">LoadCredentialEncrypted=</span></code> instead of

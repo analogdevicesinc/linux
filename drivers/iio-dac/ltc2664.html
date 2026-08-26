@@ -8,7 +8,7 @@
 
     <title>LTC2664 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -487,8 +487,8 @@ be set if there is an external reference voltage connected to the REF pin.</p></
 </div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="p">{</span><span class="o">/</span><span class="p">}</span> <span class="p">{</span>
     <span class="n">vcc</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;vcc-supply&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"vcc-supply"</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="p">};</span>
@@ -497,10 +497,10 @@ be set if there is an external reference voltage connected to the REF pin.</p></
 <span class="o">&amp;</span><span class="n">spi0</span> <span class="p">{</span>
     <span class="c1">#address-cells = &lt;1&gt;;</span>
     <span class="c1">#size-cells = &lt;0&gt;;</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
 
     <span class="n">ltc2688</span><span class="p">:</span> <span class="n">ltc2688</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ltc2664&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ltc2664"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
 
@@ -732,17 +732,17 @@ part of the Libiio package.</p></li>
     <span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="p">,</span> <span class="n">ltc2664</span><span class="p">:</span> <span class="n">found</span> <span class="mi">4</span> <span class="n">channels</span>
 
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># iio_attr -c ltc2664</span>
-<span class="n">dev</span> <span class="s1">&#39;ltc2664&#39;</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">&#39;voltage2&#39;</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">found</span> <span class="mi">5</span> <span class="n">channel</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span>
-<span class="n">dev</span> <span class="s1">&#39;ltc2664&#39;</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">&#39;voltage0&#39;</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">found</span> <span class="mi">5</span> <span class="n">channel</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span>
-<span class="n">dev</span> <span class="s1">&#39;ltc2664&#39;</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">&#39;voltage3&#39;</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">found</span> <span class="mi">5</span> <span class="n">channel</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span>
-<span class="n">dev</span> <span class="s1">&#39;ltc2664&#39;</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">&#39;voltage1&#39;</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">found</span> <span class="mi">8</span> <span class="n">channel</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span>
+<span class="n">dev</span> <span class="s1">'ltc2664'</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">'voltage2'</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">found</span> <span class="mi">5</span> <span class="n">channel</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span>
+<span class="n">dev</span> <span class="s1">'ltc2664'</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">'voltage0'</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">found</span> <span class="mi">5</span> <span class="n">channel</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span>
+<span class="n">dev</span> <span class="s1">'ltc2664'</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">'voltage3'</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">found</span> <span class="mi">5</span> <span class="n">channel</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span>
+<span class="n">dev</span> <span class="s1">'ltc2664'</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">'voltage1'</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">found</span> <span class="mi">8</span> <span class="n">channel</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span>
 
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># iio_attr -c ltc2664 voltage0</span>
-<span class="n">dev</span> <span class="s1">&#39;ltc2664&#39;</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">&#39;voltage0&#39;</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">attr</span> <span class="s1">&#39;offset&#39;</span><span class="p">,</span> <span class="n">value</span> <span class="s1">&#39;-32768&#39;</span>
-<span class="n">dev</span> <span class="s1">&#39;ltc2664&#39;</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">&#39;voltage0&#39;</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">attr</span> <span class="s1">&#39;powerdown&#39;</span><span class="p">,</span> <span class="n">value</span> <span class="s1">&#39;1&#39;</span>
-<span class="n">dev</span> <span class="s1">&#39;ltc2664&#39;</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">&#39;voltage0&#39;</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">attr</span> <span class="s1">&#39;raw&#39;</span><span class="p">,</span> <span class="n">value</span> <span class="s1">&#39;1&#39;</span>
-<span class="n">dev</span> <span class="s1">&#39;ltc2664&#39;</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">&#39;voltage0&#39;</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">attr</span> <span class="s1">&#39;raw_available&#39;</span><span class="p">,</span> <span class="n">value</span> <span class="s1">&#39;[0 1 65535]&#39;</span>
-<span class="n">dev</span> <span class="s1">&#39;ltc2664&#39;</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">&#39;voltage0&#39;</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">attr</span> <span class="s1">&#39;scale&#39;</span><span class="p">,</span> <span class="n">value</span> <span class="s1">&#39;0.305175781&#39;</span>
+<span class="n">dev</span> <span class="s1">'ltc2664'</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">'voltage0'</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">attr</span> <span class="s1">'offset'</span><span class="p">,</span> <span class="n">value</span> <span class="s1">'-32768'</span>
+<span class="n">dev</span> <span class="s1">'ltc2664'</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">'voltage0'</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">attr</span> <span class="s1">'powerdown'</span><span class="p">,</span> <span class="n">value</span> <span class="s1">'1'</span>
+<span class="n">dev</span> <span class="s1">'ltc2664'</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">'voltage0'</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">attr</span> <span class="s1">'raw'</span><span class="p">,</span> <span class="n">value</span> <span class="s1">'1'</span>
+<span class="n">dev</span> <span class="s1">'ltc2664'</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">'voltage0'</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">attr</span> <span class="s1">'raw_available'</span><span class="p">,</span> <span class="n">value</span> <span class="s1">'[0 1 65535]'</span>
+<span class="n">dev</span> <span class="s1">'ltc2664'</span><span class="p">,</span> <span class="n">channel</span> <span class="s1">'voltage0'</span> <span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="n">attr</span> <span class="s1">'scale'</span><span class="p">,</span> <span class="n">value</span> <span class="s1">'0.305175781'</span>
 
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># iio_attr -c ltc2664 voltage0 raw 10000</span>
 <span class="mi">10000</span>

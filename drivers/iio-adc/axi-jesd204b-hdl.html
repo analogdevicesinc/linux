@@ -8,7 +8,7 @@
 
     <title>AXI JESD204B HDL &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -450,17 +450,17 @@ register range.</p></li>
 </ul>
 <p>Example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_jesd204b_rx2_0</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">jesd204b</span><span class="o">-</span><span class="n">rx2</span><span class="o">@</span><span class="mi">77</span><span class="n">a00000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xlnx,axi-jesd204b-rx2-1.00.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-jesd204b-rx2-1.00.a"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span> <span class="mh">0x77a00000</span> <span class="mh">0x10000</span> <span class="o">&gt;</span><span class="p">;</span>
     <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ad9250_clkin</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;clkin&quot;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"clkin"</span><span class="p">;</span>
     <span class="n">jesd</span><span class="p">,</span><span class="n">lanesync_en</span><span class="p">;</span>
     <span class="n">jesd</span><span class="p">,</span><span class="n">scramble_en</span><span class="p">;</span>
     <span class="n">jesd</span><span class="p">,</span><span class="n">frames</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">multiframe</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">jesd</span><span class="p">,</span><span class="nb">bytes</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">frame</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">xlnx</span><span class="p">,</span><span class="n">cf</span><span class="o">-</span><span class="n">buftype</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">xlnx</span><span class="p">,</span><span class="n">dphase</span><span class="o">-</span><span class="n">timeout</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x8</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">xlnx</span><span class="p">,</span><span class="n">family</span> <span class="o">=</span> <span class="s2">&quot;kintex7&quot;</span><span class="p">;</span>
+    <span class="n">xlnx</span><span class="p">,</span><span class="n">family</span> <span class="o">=</span> <span class="s2">"kintex7"</span><span class="p">;</span>
     <span class="n">xlnx</span><span class="p">,</span><span class="n">num</span><span class="o">-</span><span class="n">mem</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x1</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">xlnx</span><span class="p">,</span><span class="n">num</span><span class="o">-</span><span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x1</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">xlnx</span><span class="p">,</span><span class="n">s</span><span class="o">-</span><span class="n">axi</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">size</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x1ff</span><span class="o">&gt;</span><span class="p">;</span>
@@ -521,7 +521,7 @@ register range.</p></li>
 
 <span class="c1"># cat lane0_info</span>
 <span class="n">DID</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">BID</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">LID</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="n">SCR</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="mi">1</span>
-<span class="n">K</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span> <span class="n">M</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="n">N</span><span class="p">:</span> <span class="mi">14</span><span class="p">,</span> <span class="n">CS</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">S</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">N</span><span class="s1">&#39;: 16, HD: 1</span>
+<span class="n">K</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span> <span class="n">M</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="n">N</span><span class="p">:</span> <span class="mi">14</span><span class="p">,</span> <span class="n">CS</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">S</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">N</span><span class="s1">': 16, HD: 1</span>
 <span class="n">FCHK</span><span class="p">:</span> <span class="mh">0x81</span><span class="p">,</span> <span class="n">CF</span><span class="p">:</span> <span class="mi">0</span>
 <span class="n">ADJCNT</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">PHYADJ</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ADJDIR</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">JESDV</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">SUBCLASS</span><span class="p">:</span> <span class="mi">1</span>
 <span class="n">MFCNT</span> <span class="p">:</span> <span class="mh">0x0</span>

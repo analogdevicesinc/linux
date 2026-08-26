@@ -8,7 +8,7 @@
 
     <title>AD9081 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -1834,15 +1834,15 @@ channelizers</p></li>
 <span class="w">    </span><span class="nl">trx0_ad9081</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9081</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">        </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">        </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adi,ad9081&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad9081"</span><span class="p">;</span>
 <span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">        </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
 
 <span class="w">        </span><span class="cm">/* Clocks */</span>
 <span class="w">        </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">hmc7044</span><span class="w"> </span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">        </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;dev_clk&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"dev_clk"</span><span class="p">;</span>
 
-<span class="w">        </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;rx_sampl_clk&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;tx_sampl_clk&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"rx_sampl_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"tx_sampl_clk"</span><span class="p">;</span>
 <span class="w">        </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 
 <span class="w">        </span><span class="n">jesd204-device</span><span class="p">;</span>
@@ -1929,7 +1929,7 @@ channelizers</p></li>
 
 <span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">frames-per-multiframe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span><span class="w">   </span><span class="cm">/* JESD K */</span>
 <span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">converter-resolution</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span><span class="w">    </span><span class="cm">/* JESD N */</span>
-<span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">bits-per-sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span><span class="w">     </span><span class="cm">/* JESD NP&#39; */</span>
+<span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">bits-per-sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span><span class="w">     </span><span class="cm">/* JESD NP' */</span>
 <span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">control-bits-per-sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span><span class="w">  </span><span class="cm">/* JESD CS */</span>
 <span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">lanes-per-device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span><span class="w">     </span><span class="cm">/* JESD L */</span>
 <span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">samples-per-converter-per-frame</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="cm">/* JESD S */</span>
@@ -2002,7 +2002,7 @@ channelizers</p></li>
 
 <span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">frames-per-multiframe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span><span class="w">   </span><span class="cm">/* JESD K */</span>
 <span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">converter-resolution</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span><span class="w">    </span><span class="cm">/* JESD N */</span>
-<span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">bits-per-sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span><span class="w">     </span><span class="cm">/* JESD NP&#39; */</span>
+<span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">bits-per-sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span><span class="w">     </span><span class="cm">/* JESD NP' */</span>
 <span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">control-bits-per-sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span><span class="w">  </span><span class="cm">/* JESD CS */</span>
 <span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">lanes-per-device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span><span class="w">     </span><span class="cm">/* JESD L */</span>
 <span class="w">                    </span><span class="n">adi</span><span class="p">,</span><span class="n">samples-per-converter-per-frame</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="cm">/* JESD S */</span>
@@ -3064,7 +3064,7 @@ configured with a matching PRBS.</p>
 </div>
 <p><strong>Example:</strong></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 7 &gt; /sys/bus/platform/devices/84b60000.axi-adxcvr-tx/prbs_select</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># iio_attr -D axi-ad9081-rx-hpc bist_2d_eyescan_jrx &quot;1 7 10&quot;</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># iio_attr -D axi-ad9081-rx-hpc bist_2d_eyescan_jrx "1 7 10"</span>
 <span class="c1"># lane 1 spo_steps 64 rate 10000000</span>
 <span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">204</span><span class="p">,</span><span class="o">-</span><span class="mi">204</span>
 <span class="o">-</span><span class="mi">2</span><span class="p">,</span><span class="mi">204</span><span class="p">,</span><span class="o">-</span><span class="mi">204</span>
@@ -3112,7 +3112,7 @@ first need to identify the IIO device number.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>grep<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span>/sys/bus/iio/devices/iio<span class="se">\:</span>device*/name
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>grep<span class="w"> </span><span class="s2">""</span><span class="w"> </span>/sys/bus/iio/devices/iio<span class="se">\:</span>device*/name
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> /sys/bus/iio/devices/iio:device0/name:ad7291

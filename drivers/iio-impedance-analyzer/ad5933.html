@@ -8,7 +8,7 @@
 
     <title>AD5933 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -504,7 +504,7 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>How to instantiate I2C devices</span></a></p>
 <p>Depending on the converter IC used, you may need to set the I2C_BOARD_INFO name
 accordingly, matching your part name.</p>
 <div class="table-wrapper docutils container">
@@ -528,7 +528,7 @@ accordingly, matching your part name.</p>
 <span class="cp">#if defined(CONFIG_AD5933) || defi</span>
 <span class="n">ned</span><span class="p">(</span><span class="n">CONFIG_AD5933_MODULE</span><span class="p">)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;ad5933&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0D</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"ad5933"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0D</span><span class="p">),</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ad5933_pdata</span><span class="p">,</span><span class="w"> </span><span class="cm">/* optional */</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="cp">#endif</span>
@@ -793,7 +793,7 @@ and the relevant _type attributes to establish the data storage
 format.</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">deviceX</span><span class="o">/</span><span class="n">scan_elements</span><span class="o">&gt;</span> <span class="n">grep</span> <span class="s2">&quot;&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">deviceX</span><span class="o">/</span><span class="n">scan_elements</span><span class="o">&gt;</span> <span class="n">grep</span> <span class="s2">""</span>
 <span class="n">in_voltage0_imag_en</span><span class="p">:</span>    <span class="mi">1</span>
 <span class="n">in_voltage0_imag_index</span><span class="p">:</span> <span class="mi">1</span>
 <span class="n">in_voltage0_imag_type</span><span class="p">:</span>  <span class="n">s16</span><span class="o">/</span><span class="mi">16</span><span class="o">&gt;&gt;</span><span class="mi">0</span>

@@ -8,7 +8,7 @@
 
     <title>AD7944/AD7985/AD7986 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -479,11 +479,11 @@ attached to. The <code class="docutils literal notranslate"><span class="pre">co
 used. The <code class="docutils literal notranslate"><span class="pre">reg</span></code> property indicates the chip select line of the SPI controller
 that is being used.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">spi</span><span class="o">@</span><span class="mi">44</span><span class="n">a00000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-spi-engine-1.00.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-spi-engine-1.00.a"</span><span class="p">;</span>
     <span class="o">...</span>
 
     <span class="n">adc</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad7944&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad7944"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="o">...</span>
 
@@ -506,7 +506,7 @@ the maximum sample rate.</p>
 <p>In this mode, the CS line of the SPI controller is connected to the CNV pin of
 the ADC. The SDI line of the SPI controller is connected to the SDO pin of the
 ADC. The SDI pin of the ADC is hard-wired high.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">spi</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;single&quot;</span><span class="p">;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">spi</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">"single"</span><span class="p">;</span>
 </pre></div>
 </div>
 <p>If using the
@@ -545,7 +545,7 @@ with the FMCZ eval board, compile using the HDL using the <code class="docutils 
 all of the ADCs. The SDI line of the SPI controller is connected to the SDO pin
 of the ADC. The SDI pin of the ADC is connected to the SDO pin of the next ADC
 in the chain. The SDI pin of the last ADC in the chain is hard-wired low.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">spi</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;chain&quot;</span><span class="p">;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">spi</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">"chain"</span><span class="p">;</span>
 <span class="c1">#daisy-chained-devices = &lt;1&gt;;</span>
 </pre></div>
 </div>
@@ -611,8 +611,8 @@ connected to same voltage as BVDD), specify only <code class="docutils literal n
 supplied.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span> <span class="p">{</span>
     <span class="n">eval_u5</span><span class="p">:</span> <span class="nb">eval</span><span class="o">-</span><span class="n">board</span><span class="o">-</span><span class="n">u5</span><span class="o">-</span><span class="n">regulator</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;EVAL +5V supply (U5)&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"EVAL +5V supply (U5)"</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
@@ -664,7 +664,7 @@ follows:</p>
 <p>All IIO devices are represented in <code class="docutils literal notranslate"><span class="pre">sysfs</span></code> as an <code class="docutils literal notranslate"><span class="pre">iio:deviceY</span></code> where <code class="docutils literal notranslate"><span class="pre">Y</span></code>
 will depend on how many IIO devices there are and the order in which they were
 registered. You can see which device is which like this:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># for f in /sys/bus/iio/devices/iio\:device/name; do echo &quot;${f%/name} $(cat $f)&quot;; done</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># for f in /sys/bus/iio/devices/iio\:device/name; do echo "${f%/name} $(cat $f)"; done</span>
 <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span> <span class="n">xadc</span>
 <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span> <span class="n">ad7944</span>
 </pre></div>
@@ -787,7 +787,7 @@ using a Linux host with SPI offload support:</p>
 <span class="c1"># enable the buffer</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 1 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/enable</span>
 <span class="c1"># read one buffer full of data</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># hexdump -n $((8 * 4)) -e&#39;8/4  &quot;%08X &quot; &quot;\n&quot;&#39; /dev/iio\:device1</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># hexdump -n $((8 * 4)) -e'8/4  "%08X " "\n"' /dev/iio\:device1</span>
 <span class="mi">000004</span><span class="n">CA</span> <span class="mi">000004</span><span class="n">C9</span> <span class="mi">000004</span><span class="n">CB</span> <span class="mi">000004</span><span class="n">CA</span> <span class="mi">000004</span><span class="n">CC</span> <span class="mi">000004</span><span class="n">CA</span> <span class="mi">000004</span><span class="n">CB</span> <span class="mi">000004</span><span class="n">CB</span>
 <span class="c1"># disable the buffer</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 0 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/enable</span>

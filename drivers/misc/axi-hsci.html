@@ -8,7 +8,7 @@
 
     <title>AXI HSCI &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -476,21 +476,21 @@ and calibration operations.</p>
 <h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
 <p>Clock generator for HSCI:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">hsci_clkgen</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">clkgen</span><span class="o">@</span><span class="mi">44</span><span class="n">ad0000</span>  <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-clkgen-2.00.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-clkgen-2.00.a"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44ad0000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="c1">#clock-cells = &lt;0&gt;;</span>
     <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk_bus_0</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">clk_bus_0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;s_axi_aclk&quot;</span><span class="p">,</span> <span class="s2">&quot;clkin1&quot;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;hsci_clkgen&quot;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"s_axi_aclk"</span><span class="p">,</span> <span class="s2">"clkin1"</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"hsci_clkgen"</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
 <p>HSCI interface:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_hsci_0</span><span class="p">:</span> <span class="n">axi_hsci_0</span><span class="o">@</span><span class="mi">7</span><span class="n">c500000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-hsci-1.0.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-hsci-1.0.a"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x7c500000</span> <span class="mh">0x40000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">hsci_clkgen</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;pclk&quot;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"pclk"</span><span class="p">;</span>
     <span class="n">adi</span><span class="p">,</span><span class="n">hsci</span><span class="o">-</span><span class="n">interface</span><span class="o">-</span><span class="n">speed</span><span class="o">-</span><span class="n">mhz</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">800</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
@@ -501,7 +501,7 @@ and calibration operations.</p>
 <p>The MxFE device references the HSCI interface using the
 <code class="docutils literal notranslate"><span class="pre">adi,axi-hsci-connected</span></code> property:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ad9084</span><span class="p">:</span> <span class="n">ad9084</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad9084&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad9084"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
 

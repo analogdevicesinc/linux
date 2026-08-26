@@ -8,7 +8,7 @@
 
     <title>AD73322 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -407,7 +407,7 @@ devices, and index of device is mapped to index of ADC/DAC in cascade mode),a
 configure file is needed to make full use of all these devices,otherwise only
 the first pair of ADC/DAC of card 0 can be used as default devices.An example of
 the config file is as following,it should be copy to /etc/asound.conf</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>#Copy this file as /etc/asound.conf to use device &quot;plughw:x,y&quot;.
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>#Copy this file as /etc/asound.conf to use device "plughw:x,y".
 #x:index of card, from 0 to 1 for two cards case; y:index of device,from 0 to 7 for 4 AD73322s on each card case.
 pcm.!plughw {
     @args [ CARD DEV SUBDEV ]

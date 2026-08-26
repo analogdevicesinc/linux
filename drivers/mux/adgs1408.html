@@ -8,7 +8,7 @@
 
     <title>ADGS1408 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -438,13 +438,13 @@ thus allowing sharing.</p>
 <li><p>#mux-control-cells:is required to be &lt;0&gt;</p></li>
 </ul>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">spi0</span> <span class="p">{</span>
-    <span class="n">pinctrl</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span><span class="p">;</span>
+    <span class="n">pinctrl</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"default"</span><span class="p">;</span>
     <span class="n">pinctrl</span><span class="o">-</span><span class="mi">0</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">spi0_pins</span> <span class="o">&amp;</span><span class="n">spi0_cs_pins</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">cs</span><span class="o">-</span><span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span> <span class="mi">8</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span> <span class="mi">7</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
 
         <span class="n">mux</span><span class="p">:</span> <span class="n">mux</span><span class="o">-</span><span class="n">controller</span><span class="o">@</span><span class="mi">2</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,adgs1408&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adgs1408"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="c1">#mux-control-cells = &lt;0&gt;;</span>
@@ -453,13 +453,13 @@ thus allowing sharing.</p>
 
 <span class="o">/</span> <span class="p">{</span>
     <span class="n">adc</span><span class="o">-</span><span class="n">mux</span><span class="o">@</span><span class="mi">3</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;io-channel-mux&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"io-channel-mux"</span><span class="p">;</span>
         <span class="n">io</span><span class="o">-</span><span class="n">channels</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adc</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">io</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;parent&quot;</span><span class="p">;</span>
+        <span class="n">io</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"parent"</span><span class="p">;</span>
         <span class="n">mux</span><span class="o">-</span><span class="n">controls</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">mux</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">channels</span> <span class="o">=</span> <span class="s2">&quot;out_a0&quot;</span><span class="p">,</span> <span class="s2">&quot;out_a1&quot;</span><span class="p">,</span> <span class="s2">&quot;test0&quot;</span><span class="p">,</span> <span class="s2">&quot;test1&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;out_b0&quot;</span><span class="p">,</span> <span class="s2">&quot;out_b1&quot;</span><span class="p">,</span> <span class="s2">&quot;testb0&quot;</span><span class="p">,</span> <span class="s2">&quot;testb1&quot;</span><span class="p">;</span>
+        <span class="n">channels</span> <span class="o">=</span> <span class="s2">"out_a0"</span><span class="p">,</span> <span class="s2">"out_a1"</span><span class="p">,</span> <span class="s2">"test0"</span><span class="p">,</span> <span class="s2">"test1"</span><span class="p">,</span>
+            <span class="s2">"out_b0"</span><span class="p">,</span> <span class="s2">"out_b1"</span><span class="p">,</span> <span class="s2">"testb0"</span><span class="p">,</span> <span class="s2">"testb1"</span><span class="p">;</span>
 
     <span class="p">};</span>
 <span class="p">}</span>
@@ -469,7 +469,7 @@ thus allowing sharing.</p>
 we used a regular IIO ADC driver. Which is interfaced with the IIO mux
 controller consumer.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adc</span><span class="p">:</span> <span class="n">ad7298</span><span class="o">@</span><span class="mi">3</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;ad7298&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"ad7298"</span><span class="p">;</span>
     <span class="c1">#io-channel-cells = &lt;1&gt;;</span>
     <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>

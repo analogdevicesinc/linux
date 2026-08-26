@@ -8,7 +8,7 @@
 
     <title>AD7879 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -552,7 +552,7 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>These snippets are all from the same file.
 <code class="docutils literal notranslate"><span class="pre">arch/blackfin/mach-bf537/boards/stamp.c</span></code>:</p>
 <div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/spi/ad7879.h&gt;</span>
@@ -575,7 +575,7 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 <div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">bfin_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_TOUCHSCREEN_AD7879_SPI) || defined(CONFIG_TOUCHSCREEN_AD7879_SPI_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad7879&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad7879"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bfin_ad7879_ts_info</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PF7</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
@@ -604,7 +604,7 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>How to instantiate I2C devices</span></a></p>
 <div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/spi/ad7879.h&gt;</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ad7879_platform_data</span><span class="w"> </span><span class="n">bfin_ad7879_ts_info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -625,7 +625,7 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_TOUCHSCREEN_AD7879_I2C) || defined(CONFIG_TOUCHSCREEN_AD7879_I2C_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;ad7879&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x2F</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"ad7879"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x2F</span><span class="p">),</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG5</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">bfin_ad7879_ts_info</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
@@ -736,7 +736,7 @@ for the touchscreen</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">event_test</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">event0</span>
 <span class="n">Input</span> <span class="n">driver</span> <span class="n">version</span> <span class="ow">is</span> <span class="mf">1.0.0</span>
 <span class="n">Input</span> <span class="n">device</span> <span class="n">ID</span><span class="p">:</span> <span class="n">bus</span> <span class="mh">0x0</span> <span class="n">vendor</span> <span class="mh">0x0</span> <span class="n">product</span> <span class="mh">0x0</span> <span class="n">version</span> <span class="mh">0x0</span>
-<span class="n">Input</span> <span class="n">device</span> <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;AD7879 Touchscreen&quot;</span>
+<span class="n">Input</span> <span class="n">device</span> <span class="n">name</span><span class="p">:</span> <span class="s2">"AD7879 Touchscreen"</span>
 <span class="n">Supported</span> <span class="n">events</span><span class="p">:</span>
   <span class="n">Event</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Sync</span><span class="p">)</span>
   <span class="n">Event</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">)</span>
@@ -803,7 +803,7 @@ you have not install the necessary modules</p>
 <h3>Find Input by name<a class="headerlink" href="#find-input-by-name" title="Link to this heading"></a></h3>
 <p>In case you like to find out which input/event interface is connected to your
 touchscreen, use the sysfs entries</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/sys/class/input&gt; for i in `find /sys/class/input/ -name name` ; do echo -n %%&quot;$i : &quot;%%; cat $i; done
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/sys/class/input&gt; for i in `find /sys/class/input/ -name name` ; do echo -n %%"$i : "%%; cat $i; done
 ./input2/name : Logitech USB Receive
 ./input1/name : Logitech USB Receiver
 ./input0/name : AD7879 Touchscreen
@@ -937,10 +937,10 @@ linux. Nanox need to use tslib for touchscreen. To enable:</p>
       ----------------------------------------------------------------
 
 (*) DirectFB/Core: Single Application Core. (2008-10-08 07:38)
-(*) Direct/Thread: Started &#39;VT Switcher&#39; (235) [CRITICAL OTHER/OTHER 0/0] &lt;12288&gt;...
-(*) Direct/Thread: Started &#39;Keyboard Input&#39; (236) [INPUT OTHER/OTHER 0/0] &lt;12288&gt;...
+(*) Direct/Thread: Started 'VT Switcher' (235) [CRITICAL OTHER/OTHER 0/0] &lt;12288&gt;...
+(*) Direct/Thread: Started 'Keyboard Input' (236) [INPUT OTHER/OTHER 0/0] &lt;12288&gt;...
 (*) DirectFB/Input: Keyboard 0.9 (directfb.org)
-(*) Direct/Thread: Started &#39;tslib Input&#39; (237) [INPUT OTHER/OTHER 0/0] &lt;12288&gt;...
+(*) Direct/Thread: Started 'tslib Input' (237) [INPUT OTHER/OTHER 0/0] &lt;12288&gt;...
 (*) DirectFB/Input: tslib touchscreen 0 0.1 (tslib)
 (*) DirectFB/Graphics: Generic Software Rasterizer 0.6 (directfb.org)
 (*) DirectFB/Core/WM: Default 0.3 (directfb.org)

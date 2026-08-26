@@ -8,7 +8,7 @@
 
     <title>AD3552R &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -456,14 +456,14 @@ Documentation/devicetree/bindings/clock/clock-bindings.txt</p></li>
 <p>Example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">fpga_axi</span> <span class="p">{</span>
     <span class="n">axi_ad3552r</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">ad3552r</span><span class="o">@</span><span class="mi">44</span><span class="n">a74000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-ad3552r&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-ad3552r"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44a74000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
 
         <span class="n">reset</span><span class="o">-</span><span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio0</span> <span class="mi">92</span> <span class="n">GPIO_ACTIVE_LOW</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ref_clk</span><span class="o">&gt;</span><span class="p">;</span>
 
         <span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dac_tx_dma</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;tx&quot;</span><span class="p">;</span>
+        <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"tx"</span><span class="p">;</span>
     <span class="p">};</span>
 <span class="p">};</span>
 </pre></div>

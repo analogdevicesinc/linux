@@ -8,7 +8,7 @@
 
     <title>AD5791 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -488,14 +488,14 @@ configure the device based on what it is connected to.</p>
 peripheral node, meaning that it is a child node of the SPI controller it is
 connected to.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">spi</span><span class="o">@</span><span class="mh">0x00040000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-spi-engine-1.00.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-spi-engine-1.00.a"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x00040000</span> <span class="mh">0x00010000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="o">...</span>
     <span class="c1">#address-cells = &lt;1&gt;;</span>
     <span class="c1">#size-cells = &lt;0&gt;;</span>
 
     <span class="n">dac</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad5791&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad5791"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">35000000</span><span class="o">&gt;</span><span class="p">;</span>
@@ -515,8 +515,8 @@ VCC and IOVCC is connected to the VCC3P3 supply on the DE10-Nano (U9 is the
 LTC3612EUDC chip that is the actual supply). That supply can be modeled like
 this (at the top level of the devicetree):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vcc3p3</span><span class="p">:</span> <span class="n">regulator</span><span class="o">-</span><span class="n">vcc3p3</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;DE10-Nano VCC3P3 (U9)&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"DE10-Nano VCC3P3 (U9)"</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
@@ -531,8 +531,8 @@ specify what the voltage output is. These are the supplies connected to the VDD
 and VSS pins. Here is an example of how to write the U5 ADP7118ARDZ chip on the
 EVAL board.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dac_vdd</span><span class="p">:</span> <span class="n">regulator</span><span class="o">-</span><span class="n">vdd</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;EVAL VDD (U5)&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"EVAL VDD (U5)"</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4096000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4096000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
@@ -574,7 +574,7 @@ that can be used with the ARDZ evaluation boards.</p>
 <p>To enable SPI offload support in this scenario, a few extra properties are added
 to the SPI controller node (not the DAC peripheral node).</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">tx_dma</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;offload0-tx&quot;</span><span class="p">;</span>
+<span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"offload0-tx"</span><span class="p">;</span>
 <span class="n">trigger</span><span class="o">-</span><span class="n">sources</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">trigger_pwm</span><span class="o">&gt;</span><span class="p">;</span>
 </pre></div>
 </div>

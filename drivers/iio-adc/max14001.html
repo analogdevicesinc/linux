@@ -8,7 +8,7 @@
 
     <title>MAX14001 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -581,7 +581,7 @@ overlay .dtbo file to the overlays directory.</p>
   <span class="c1">#size-cells = &lt;0&gt;;</span>
 
   <span class="n">max14001</span><span class="p">:</span> <span class="n">adc</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,max14001&quot;</span><span class="p">,</span> <span class="s2">&quot;adi,max14002&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,max14001"</span><span class="p">,</span> <span class="s2">"adi,max14002"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">spi</span><span class="o">-</span><span class="n">lsb</span><span class="o">-</span><span class="n">first</span><span class="p">;</span>
@@ -597,7 +597,7 @@ overlay .dtbo file to the overlays directory.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">SPDX</span><span class="o">-</span><span class="n">License</span><span class="o">-</span><span class="n">Identifier</span><span class="p">:</span> <span class="n">GPL</span><span class="o">-</span><span class="mf">2.0</span><span class="o">-</span><span class="n">only</span>
 <span class="o">/*</span>
  <span class="o">*</span> <span class="n">Overlay</span> <span class="k">for</span> <span class="n">the</span> <span class="n">MAX14001</span> <span class="n">ADC</span>
- <span class="o">*</span> <span class="n">Based</span> <span class="n">on</span> <span class="n">Marilene</span><span class="s1">&#39;s max14001 overlay.</span>
+ <span class="o">*</span> <span class="n">Based</span> <span class="n">on</span> <span class="n">Marilene</span><span class="s1">'s max14001 overlay.</span>
  <span class="o">*</span>
  <span class="o">*</span> <span class="n">Copyright</span> <span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="mi">2025</span> <span class="n">Marcelo</span> <span class="n">Schmitt</span> <span class="o">&lt;</span><span class="n">marcelo</span><span class="o">.</span><span class="n">scchmitt1</span><span class="nd">@gmail</span><span class="o">.</span><span class="n">com</span><span class="o">&gt;</span>
  <span class="o">*/</span>
@@ -606,42 +606,42 @@ overlay .dtbo file to the overlays directory.</p>
 <span class="o">/</span><span class="n">plugin</span><span class="o">/</span><span class="p">;</span>
 
 <span class="o">/</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;brcm,bcm2712&quot;</span><span class="p">,</span> <span class="s2">&quot;brcm,bcm2711&quot;</span><span class="p">,</span> <span class="s2">&quot;brcm,bcm2835&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"brcm,bcm2712"</span><span class="p">,</span> <span class="s2">"brcm,bcm2711"</span><span class="p">,</span> <span class="s2">"brcm,bcm2835"</span><span class="p">;</span>
 <span class="p">};</span>
 
 <span class="o">&amp;</span><span class="p">{</span><span class="o">/</span><span class="p">}</span> <span class="p">{</span>
     <span class="n">vdd</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Isolated DC-DC Power Supply Input Voltage&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"Isolated DC-DC Power Supply Input Voltage"</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
     <span class="p">};</span>
 
     <span class="n">vddl</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Logic Power Supply Voltage&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"Logic Power Supply Voltage"</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
     <span class="p">};</span>
 
     <span class="n">vrefin</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">2</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Reference Input Range Voltage&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"Reference Input Range Voltage"</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1250000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1250000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
         <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
     <span class="p">};</span>
 
     <span class="n">max14001pmb</span><span class="o">-</span><span class="n">current</span><span class="o">-</span><span class="n">sense</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;current-sense-amplifier&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"current-sense-amplifier"</span><span class="p">;</span>
         <span class="n">io</span><span class="o">-</span><span class="n">channels</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">max14001_u51</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 
         <span class="n">sense</span><span class="o">-</span><span class="n">resistor</span><span class="o">-</span><span class="n">micro</span><span class="o">-</span><span class="n">ohms</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000</span><span class="o">&gt;</span><span class="p">;</span>
@@ -649,7 +649,7 @@ overlay .dtbo file to the overlays directory.</p>
     <span class="p">};</span>
 
     <span class="n">max14001pmb</span><span class="o">-</span><span class="n">voltage</span><span class="o">-</span><span class="n">divider</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;voltage-divider&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"voltage-divider"</span><span class="p">;</span>
         <span class="n">io</span><span class="o">-</span><span class="n">channels</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">max14001_u11</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">output</span><span class="o">-</span><span class="n">ohms</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">16000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">full</span><span class="o">-</span><span class="n">ohms</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">32000</span><span class="o">&gt;</span><span class="p">;</span>
@@ -657,37 +657,37 @@ overlay .dtbo file to the overlays directory.</p>
 <span class="p">};</span>
 
 <span class="o">&amp;</span><span class="n">spi1</span> <span class="p">{</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
     <span class="o">/*</span> <span class="n">The</span> <span class="n">first</span> <span class="n">ADC</span> <span class="n">measures</span> <span class="n">current</span> <span class="o">*/</span>
     <span class="n">max14001_u51</span><span class="p">:</span> <span class="n">max14001</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,max14001&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,max14001"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vdd</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vdd</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vddl</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vddl</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vrefin</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vrefin</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="c1">#io-channel-cells = &lt;1&gt;;</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
     <span class="p">};</span>
     <span class="o">/*</span> <span class="n">The</span> <span class="n">second</span> <span class="n">ADC</span> <span class="n">measures</span> <span class="n">voltage</span> <span class="o">*/</span>
     <span class="n">max14001_u11</span><span class="p">:</span> <span class="n">max14001</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,max14001&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,max14001"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x1</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vdd</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vdd</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vddl</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vddl</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vrefin</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vrefin</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="c1">#io-channel-cells = &lt;1&gt;;</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
     <span class="p">};</span>
 <span class="p">};</span>
 
 <span class="o">&amp;</span><span class="n">spidev0</span> <span class="p">{</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;disabled&quot;</span><span class="p">;</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">"disabled"</span><span class="p">;</span>
 <span class="p">};</span>
 
 <span class="o">&amp;</span><span class="n">spidev1</span> <span class="p">{</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;disabled&quot;</span><span class="p">;</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">"disabled"</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>

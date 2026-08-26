@@ -8,7 +8,7 @@
 
     <title>AXI ADC HDL &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -566,11 +566,11 @@ See the DMA client binding, Documentation/devicetree/bindings/dma/dma.txt</p></l
     <span class="n">adc_ad9467</span><span class="p">:</span> <span class="n">ad9467</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
         <span class="c1">#address-cells = &lt;1&gt;;</span>
         <span class="c1">#size-cells = &lt;0&gt;;</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;ad9467&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"ad9467"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk_ad9517</span> <span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;adc_clk&quot;</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"adc_clk"</span><span class="p">;</span>
 
         <span class="n">adi</span><span class="p">,</span><span class="n">spi</span><span class="o">-</span><span class="mi">3</span><span class="n">wire</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
     <span class="p">};</span>
@@ -578,7 +578,7 @@ See the DMA client binding, Documentation/devicetree/bindings/dma/dma.txt</p></l
 
 <span class="o">&amp;</span><span class="n">fpga_axi</span> <span class="p">{</span>
     <span class="n">rx_dma</span><span class="p">:</span> <span class="n">rx</span><span class="o">-</span><span class="n">dmac</span><span class="o">@</span><span class="mi">44</span><span class="n">a30000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-dmac-1.00.a&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-dmac-1.00.a"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44A30000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="c1">#dma-cells = &lt;1&gt;;</span>
         <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">57</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
@@ -599,10 +599,10 @@ See the DMA client binding, Documentation/devicetree/bindings/dma/dma.txt</p></l
     <span class="p">};</span>
 
     <span class="n">cf_ad9467_core_0</span><span class="p">:</span> <span class="n">cf</span><span class="o">-</span><span class="n">ad9467</span><span class="o">-</span><span class="n">core</span><span class="o">-</span><span class="n">lpc</span><span class="o">@</span><span class="mi">44</span><span class="n">a00000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xlnx,cf-ad9467-core-1.00.a&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,cf-ad9467-core-1.00.a"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44A00000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">rx_dma</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;rx&quot;</span><span class="p">;</span>
+        <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"rx"</span><span class="p">;</span>
 
         <span class="n">spibus</span><span class="o">-</span><span class="n">connected</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adc_ad9467</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="p">};</span>

@@ -8,7 +8,7 @@
 
     <title>LTC2947 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -484,9 +484,9 @@ number.</p></li>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">spi0</span> <span class="p">{</span>
         <span class="c1">#address-cells = &lt;1&gt;;</span>
         <span class="c1">#size-cells = &lt;0&gt;;</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
         <span class="n">ltc2947_spi</span><span class="p">:</span> <span class="n">ltc2947</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ltc2947&quot;</span><span class="p">;</span>
+                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ltc2947"</span><span class="p">;</span>
                 <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
                 <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="p">};</span>
@@ -497,9 +497,9 @@ number.</p></li>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">i2c0</span> <span class="p">{</span>
         <span class="c1">#address-cells = &lt;1&gt;;</span>
         <span class="c1">#size-cells = &lt;0&gt;;</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
         <span class="n">ltc2947_i2c</span><span class="p">:</span> <span class="n">ltc2947</span><span class="o">@</span><span class="mi">5</span><span class="n">c</span> <span class="p">{</span>
-                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ltc2947&quot;</span><span class="p">;</span>
+                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ltc2947"</span><span class="p">;</span>
                 <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x5c</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="p">};</span>
 <span class="p">};</span>

@@ -8,7 +8,7 @@
 
     <title>AD5380 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -462,12 +462,12 @@ regulator supply. The supply should be called <code class="docutils literal notr
 (<strong>spi0.3</strong>)</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#if IS_ENABLED(CONFIG_REGULATOR_FIXED_VOLTAGE)</span>
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_consumer_supply</span><span class="w"> </span><span class="n">ad5380_consumer_supplies</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">&quot;vref&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;spi0.3&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"vref"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.3"</span><span class="p">),</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_init_data</span><span class="w"> </span><span class="n">stamp_avdd_reg_init_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">.</span><span class="n">constraints</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;2V5&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">"2V5"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">valid_ops_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">REGULATOR_CHANGE_STATUS</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">.</span><span class="n">consumer_supplies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ad5380_consumer_supplies</span><span class="p">,</span>
@@ -475,14 +475,14 @@ regulator supply. The supply should be called <code class="docutils literal notr
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">fixed_voltage_config</span><span class="w"> </span><span class="n">stamp_vdd_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">supply_name</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;board-2V5&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">supply_name</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s">"board-2V5"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">microvolts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2500000</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">gpio</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">enabled_at_boot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">init_data</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">stamp_avdd_reg_init_data</span><span class="p">,</span>
 <span class="p">};</span>
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">platform_device</span><span class="w"> </span><span class="n">brd_voltage_regulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;reg-fixed-voltage&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s">"reg-fixed-voltage"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">id</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">-1</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">num_resources</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">dev</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -522,7 +522,7 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>Depending on the converter IC used, you may need to set the modalias
 accordingly, matching your part name. It may also required to adjust
 max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
@@ -531,7 +531,7 @@ the device in question.</p>
 <span class="cp">#if IS_ENABLED(CONFIG_AD5380)</span>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">        </span><span class="cm">/* the modalias must be the same as spi device driver name */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad5380-5&quot;</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Name of spi_driver for this device */</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad5380-5"</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Name of spi_driver for this device */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Framework bus number */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Framework chip select */</span>
@@ -567,7 +567,7 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>How to instantiate I2C devices</span></a></p>
 <p>Depending on the converter IC used, you may need to set the modalias
 accordingly, matching your part name.</p>
 <div class="admonition note">
@@ -610,7 +610,7 @@ according to your board setup.</p>
 
 <span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;a5380&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x38</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"a5380"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x38</span><span class="p">),</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 <span class="p">}</span>

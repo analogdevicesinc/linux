@@ -8,7 +8,7 @@
 
     <title>SSM4567 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -448,7 +448,7 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>How to instantiate I2C devices</span></a></p>
 <p>The I2C address of the SSM4567 depends on the setting of the ADDR pin.</p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
@@ -471,7 +471,7 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 
 <span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;ssm4567&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"ssm4567"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 <span class="p">}</span>
@@ -492,14 +492,14 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <section id="devicetree">
 <h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i2s</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;...;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"...;</span>
     <span class="o">...</span>
 
     <span class="c1">#size-cells = &lt;0&gt;;</span>
     <span class="c1">#address-cells = &lt;1&gt;;</span>
 
     <span class="n">ssm4567</span><span class="p">:</span> <span class="n">ssm4567</span><span class="o">@</span><span class="mi">34</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ssm4567&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ssm4567"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x34</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="p">};</span>
 <span class="p">};</span>
@@ -687,17 +687,17 @@ must be exactly one bit set in this mask which selects the slot that is used.</p
 <section id="example-dai-configuration">
 <h4>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h4>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dapm_widget</span><span class="w"> </span><span class="n">ssm4567_zed_widgets</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">SND_SOC_DAPM_SPK</span><span class="p">(</span><span class="s">&quot;Speaker&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">),</span>
+<span class="w">    </span><span class="n">SND_SOC_DAPM_SPK</span><span class="p">(</span><span class="s">"Speaker"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">),</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dapm_route</span><span class="w"> </span><span class="n">ssm4567_zed_routes</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s">&quot;Speaker&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;OUT&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s">"Speaker"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">"OUT"</span><span class="w"> </span><span class="p">},</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">ssm4567_zed_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567-hifi&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567-hifi"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">dai_fmt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SND_SOC_DAIFMT_DSP_A</span><span class="w"> </span><span class="o">|</span>
 <span class="w">            </span><span class="n">SND_SOC_DAIFMT_NB_NF</span><span class="w"> </span><span class="o">|</span>
 <span class="w">            </span><span class="n">SND_SOC_DAIFMT_CBS_CFS</span><span class="p">,</span>
@@ -705,7 +705,7 @@ must be exactly one bit set in this mask which selects the slot that is used.</p
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_card</span><span class="w"> </span><span class="n">ssm4567_zed_card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ZED SSM4567&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ZED SSM4567"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">owner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">THIS_MODULE</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">zed_ssm4567_dai_link</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">num_links</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
@@ -744,23 +744,23 @@ higher.</p>
 <span class="p">}</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dapm_widget</span><span class="w"> </span><span class="n">ssm4567_zed_widgets</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">SND_SOC_DAPM_SPK</span><span class="p">(</span><span class="s">&quot;Left Speaker&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">),</span>
-<span class="w">    </span><span class="n">SND_SOC_DAPM_SPK</span><span class="p">(</span><span class="s">&quot;Right Speaker&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">),</span>
+<span class="w">    </span><span class="n">SND_SOC_DAPM_SPK</span><span class="p">(</span><span class="s">"Left Speaker"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">),</span>
+<span class="w">    </span><span class="n">SND_SOC_DAPM_SPK</span><span class="p">(</span><span class="s">"Right Speaker"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">),</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dapm_route</span><span class="w"> </span><span class="n">ssm4567_zed_routes</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s">&quot;Left Speaker&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Left OUT&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s">&quot;Right Speaker&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Right OUT&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s">"Left Speaker"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">"Left OUT"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s">"Right Speaker"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">"Right OUT"</span><span class="w"> </span><span class="p">},</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">snd_soc_dai_link_component</span><span class="w"> </span><span class="n">ssm4567_zed_codec_components</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="cm">/* Left */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567.0-0034&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567-hifi&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567.0-0034"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567-hifi"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="cm">/* Right */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567.0-0035&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567-hifi&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567.0-0035"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567-hifi"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 
 <span class="p">};</span>
@@ -768,18 +768,18 @@ higher.</p>
 <span class="cm">/* Assign prefix to avoid name conflicts */</span>
 <span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_codec_conf</span><span class="w"> </span><span class="n">ssm4567_zed_codec_conf</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">dev_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567.0-0034&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">name_prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Left&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">dev_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567.0-0034"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name_prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"Left"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">dev_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567.0-0035&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">name_prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Right&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">dev_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567.0-0035"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name_prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"Right"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">ssm4567_zed_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ssm4567&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567"</span><span class="p">,</span>
 
 <span class="w">    </span><span class="p">.</span><span class="n">codecs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssm4567_zed_codec_components</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">num_codecs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">ssm4567_zed_codec_components</span><span class="p">),</span>
@@ -793,7 +793,7 @@ higher.</p>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_card</span><span class="w"> </span><span class="n">ssm4567_zed_card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ZED SSM4567&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ZED SSM4567"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">owner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">THIS_MODULE</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">zed_ssm4567_dai_link</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">num_links</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>

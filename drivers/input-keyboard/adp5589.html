@@ -8,7 +8,7 @@
 
     <title>ADP5589 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -586,7 +586,7 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>How to instantiate I2C devices</span></a></p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -610,7 +610,7 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">board_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_KEYBOARD_ADP5589) || defined(CONFIG_KEYBOARD_ADP5589_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;adp5589-keys&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adp5589-keys"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG0</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adp5589_kpad_data</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
@@ -747,7 +747,7 @@ test and driver development we used the ADP5589 Demo Mother/Daughter Board.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root:/&gt; event_test /dev/input/event0
 Input driver version is 1.0.1
 Input device ID: bus 0x18 vendor 0x1 product 0x1 version 0x0
-Input device name: &quot;adp5589-keys&quot;
+Input device name: "adp5589-keys"
 Supported events:
   Event type 0 (Sync)
   Event type 1 (Key)
@@ -928,7 +928,7 @@ BF537-STAMP board and a PMOD-KYPD. Also</p>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">       </span><span class="p">{</span>
-<span class="w">               </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;adp5589-keys&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
+<span class="w">               </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adp5589-keys"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
 <span class="w">               </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adp5589_kpad_data</span><span class="p">,</span>
 <span class="w">               </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG0</span><span class="p">,</span>
 <span class="w">       </span><span class="p">},</span>

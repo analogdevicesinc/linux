@@ -8,7 +8,7 @@
 
     <title>ADRV9002 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -1537,7 +1537,7 @@ test/tweak some features at runtime and then add them to the devicetree (if
 applicable). In order to identify if the IIO device in question (adrv9002-phy)
 you first need to identify the IIO device number. Therefore read the name
 attribute of each IIO device</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># grep &quot;&quot; /sys/bus/iio/devices/iio\:device/name</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># grep "" /sys/bus/iio/devices/iio\:device/name</span>
 <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">name</span><span class="p">:</span><span class="n">ams</span>
 <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">/</span><span class="n">name</span><span class="p">:</span><span class="n">adrv9002</span><span class="o">-</span><span class="n">phy</span>
 <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="o">/</span><span class="n">name</span><span class="p">:</span><span class="n">axi</span><span class="o">-</span><span class="n">adrv9002</span><span class="o">-</span><span class="n">rx</span><span class="o">-</span><span class="n">lpc</span>
@@ -1797,7 +1797,7 @@ first need to identify the IIO device number.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>grep<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span>/sys/bus/iio/devices/iio<span class="se">\:</span>device*/name
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>grep<span class="w"> </span><span class="s2">""</span><span class="w"> </span>/sys/bus/iio/devices/iio<span class="se">\:</span>device*/name
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> /sys/bus/iio/devices/iio:device0/name:ad7291

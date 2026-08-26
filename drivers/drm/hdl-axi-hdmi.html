@@ -8,7 +8,7 @@
 
     <title>AXI HDMI HDL &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -449,7 +449,7 @@ axi-clockgen core’s registers.</p></li>
 </ul>
 <p>Example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_iic_0</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xlnx,axi-iic-1.01.b&quot;</span><span class="p">,</span> <span class="s2">&quot;xlnx,xps-iic-2.00.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-iic-1.01.b"</span><span class="p">,</span> <span class="s2">"xlnx,xps-iic-2.00.a"</span><span class="p">;</span>
     <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">56</span> <span class="mh">0x4</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x41600000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
@@ -462,12 +462,12 @@ axi-clockgen core’s registers.</p></li>
     <span class="c1">#address-cells = &lt;1&gt;;</span>
     <span class="c1">#size-cells = &lt;1&gt;;</span>
     <span class="c1">#dma-cells = &lt;1&gt;;</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xlnx,axi-vdma&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-vdma"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x43000000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">xlnx</span><span class="p">,</span><span class="n">include</span><span class="o">-</span><span class="n">sg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">xlnx</span><span class="p">,</span><span class="n">num</span><span class="o">-</span><span class="n">fstores</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x3</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">dma</span><span class="o">-</span><span class="n">channel</span><span class="o">@</span><span class="mf">7e200000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xlnx,axi-vdma-mm2s-channel&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-vdma-mm2s-channel"</span><span class="p">;</span>
         <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">59</span> <span class="mh">0x4</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">xlnx</span><span class="p">,</span><span class="n">datawidth</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x40</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">xlnx</span><span class="p">,</span><span class="n">genlock</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
@@ -476,7 +476,7 @@ axi-clockgen core’s registers.</p></li>
 <span class="p">};</span>
 
 <span class="n">axi</span><span class="o">-</span><span class="n">hdmi</span><span class="o">@</span><span class="mi">6</span><span class="n">c000000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,cf-axi-hdmi-1.00.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,cf-axi-hdmi-1.00.a"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x6c000000</span> <span class="mh">0x10000</span>
            <span class="mh">0x66000000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">slave_adapter</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_iic_0</span><span class="o">&gt;</span><span class="p">;</span>
@@ -540,9 +540,9 @@ to switch between different screen resolutions at runtime (using the Xservers
 xrandr interface) and adds plug-and-play support for monitors.</p>
 <p>To enable the modesetting driver the following section has to be added to the
 Xorg config (/etc/X11/xorg.org).</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Section</span> <span class="s2">&quot;Device&quot;</span>
-  <span class="n">Identifier</span> <span class="s2">&quot;ADV7511 HDMI&quot;</span>
-  <span class="n">Driver</span> <span class="s2">&quot;modesetting&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Section</span> <span class="s2">"Device"</span>
+  <span class="n">Identifier</span> <span class="s2">"ADV7511 HDMI"</span>
+  <span class="n">Driver</span> <span class="s2">"modesetting"</span>
 <span class="n">EndSection</span>
 </pre></div>
 </div>

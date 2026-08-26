@@ -8,7 +8,7 @@
 
     <title>AD4630 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -485,8 +485,8 @@ and simplify the use of digital isolators. The parts are compatible with 1.2V to
 <h4>Regulator<a class="headerlink" href="#regulator" title="Link to this heading"></a></h4>
 <p>ADC voltage reference</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vref</span><span class="p">:</span> <span class="n">regulator</span><span class="o">-</span><span class="n">vref</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;fixed-supply&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
@@ -500,9 +500,9 @@ and simplify the use of digital isolators. The parts are compatible with 1.2V to
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">clocks</span> <span class="p">{</span>
     <span class="n">cnv_ext_clk</span><span class="p">:</span> <span class="n">ext</span><span class="o">-</span><span class="n">clk</span> <span class="p">{</span>
         <span class="c1">#clock-cells = &lt;0x0&gt;;</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;fixed-clock&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"fixed-clock"</span><span class="p">;</span>
         <span class="n">clock</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">100000000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;cnv_ext_clk&quot;</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"cnv_ext_clk"</span><span class="p">;</span>
     <span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
@@ -512,9 +512,9 @@ and simplify the use of digital isolators. The parts are compatible with 1.2V to
 <h4>Sampling trigger<a class="headerlink" href="#sampling-trigger" title="Link to this heading"></a></h4>
 <p>This PWM generator is used to start the sampling procedure</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_pwm_gen</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">pwm</span><span class="o">-</span><span class="n">gen</span><span class="o">@</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-pwmgen&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-pwmgen"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44b00000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;ad463x_cnv&quot;</span><span class="p">;</span>
+    <span class="n">label</span> <span class="o">=</span> <span class="s2">"ad463x_cnv"</span><span class="p">;</span>
     <span class="c1">#pwm-cells = &lt;2&gt;;</span>
     <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">cnv_ext_clk</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>
@@ -572,20 +572,20 @@ Output is 32-bit test data pattern</p></td>
 </div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">spi</span><span class="p">{</span>
     <span class="n">ad463x</span><span class="p">:</span> <span class="n">ad463x</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad463x&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad463x"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">vref</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vref</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">80000000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">lane</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;four-lanes-per-ch&quot;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">clock</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;echo-clock&quot;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">data</span><span class="o">-</span><span class="n">rate</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;dual&quot;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">out</span><span class="o">-</span><span class="n">data</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;24diff-8com&quot;</span><span class="p">;</span>
+        <span class="n">adi</span><span class="p">,</span><span class="n">lane</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">"four-lanes-per-ch"</span><span class="p">;</span>
+        <span class="n">adi</span><span class="p">,</span><span class="n">clock</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">"echo-clock"</span><span class="p">;</span>
+        <span class="n">adi</span><span class="p">,</span><span class="n">data</span><span class="o">-</span><span class="n">rate</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">"dual"</span><span class="p">;</span>
+        <span class="n">adi</span><span class="p">,</span><span class="n">out</span><span class="o">-</span><span class="n">data</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">"24diff-8com"</span><span class="p">;</span>
         <span class="n">reset</span><span class="o">-</span><span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio0</span> <span class="mi">86</span> <span class="n">GPIO_ACTIVE_LOW</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">cnv_ext_clk</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;trigger_clock&quot;</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"trigger_clock"</span><span class="p">;</span>
         <span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">rx_dma</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;rx&quot;</span><span class="p">;</span>
-        <span class="n">pwm</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;spi_trigger&quot;</span><span class="p">,</span> <span class="s2">&quot;cnv&quot;</span><span class="p">;</span>
+        <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"rx"</span><span class="p">;</span>
+        <span class="n">pwm</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"spi_trigger"</span><span class="p">,</span> <span class="s2">"cnv"</span><span class="p">;</span>
         <span class="n">pwms</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">0</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span>
                <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">1</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="p">};</span>
@@ -676,7 +676,7 @@ of SPI timing requirements that are supported by the SPI_ENGINE IP.</p>
 </pre></div>
 </div>
 <p>You can go to the device folder using:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="c1"># cd $(grep -rw /sys/bus/iio/devices//name -e &quot;ad4630-24&quot; -l | xargs dirname)</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="c1"># cd $(grep -rw /sys/bus/iio/devices//name -e "ad4630-24" -l | xargs dirname)</span>
 </pre></div>
 </div>
 <div class="admonition important">

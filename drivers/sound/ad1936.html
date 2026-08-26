@@ -8,7 +8,7 @@
 
     <title>AD1936 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -448,14 +448,14 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>You need to set the modalias of your SPI info according to your codec. Valid
 values are <code class="docutils literal notranslate"><span class="pre">ad1935</span></code> and <code class="docutils literal notranslate"><span class="pre">ad1937</span></code>, You’ll also have to adjust bus_num and
 chip_select according to your board setup.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad1936&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad1936"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3125000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="cm">/* CS, change it for your board */</span>
@@ -688,12 +688,12 @@ chip_select according to your board setup.</p>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">bf5xx_ad193x_dai</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad193x&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;AD193X&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">cpu_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;bfin-tdm.0&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad193x-hifi&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">platform_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;bfin-tdm-pcm-audio&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">codec_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;spi0.4&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad193x"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"AD193X"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">cpu_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"bfin-tdm.0"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad193x-hifi"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">platform_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"bfin-tdm-pcm-audio"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">codec_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"spi0.4"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bf5xx_ad193x_ops</span><span class="p">,</span>
 <span class="p">};</span>
 </pre></div>

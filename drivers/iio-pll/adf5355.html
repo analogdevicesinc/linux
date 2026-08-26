@@ -8,7 +8,7 @@
 
     <title>ADF5355 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -539,17 +539,17 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 </section>
 <section id="devicetree-bindings">
 <h2>Devicetree bindings<a class="headerlink" href="#devicetree-bindings" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Required</span> <span class="n">properties</span><span class="p">:</span>
     <span class="o">-</span> <span class="n">compatible</span><span class="p">:</span> <span class="n">Should</span> <span class="n">be</span> <span class="n">one</span> <span class="n">of</span>
-        <span class="o">*</span> <span class="s2">&quot;adi,adf5355&quot;</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF5355</span> <span class="n">device</span>
-        <span class="o">*</span> <span class="s2">&quot;adi,adf5356&quot;</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF5356</span> <span class="n">device</span>
-        <span class="o">*</span> <span class="s2">&quot;adi,adf4355&quot;</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF4355</span> <span class="n">device</span>
-        <span class="o">*</span> <span class="s2">&quot;adi,adf4355-2&quot;</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF4355</span><span class="o">-</span><span class="mi">2</span> <span class="n">device</span>
-        <span class="o">*</span> <span class="s2">&quot;adi,adf4355-3&quot;</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF4355</span><span class="o">-</span><span class="mi">3</span> <span class="n">device</span>
+        <span class="o">*</span> <span class="s2">"adi,adf5355"</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF5355</span> <span class="n">device</span>
+        <span class="o">*</span> <span class="s2">"adi,adf5356"</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF5356</span> <span class="n">device</span>
+        <span class="o">*</span> <span class="s2">"adi,adf4355"</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF4355</span> <span class="n">device</span>
+        <span class="o">*</span> <span class="s2">"adi,adf4355-2"</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF4355</span><span class="o">-</span><span class="mi">2</span> <span class="n">device</span>
+        <span class="o">*</span> <span class="s2">"adi,adf4355-3"</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF4355</span><span class="o">-</span><span class="mi">3</span> <span class="n">device</span>
     <span class="o">-</span> <span class="n">reg</span><span class="p">:</span> <span class="n">SPI</span> <span class="n">chip</span> <span class="n">select</span> <span class="n">numbert</span> <span class="k">for</span> <span class="n">the</span> <span class="n">device</span>
     <span class="o">-</span> <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span><span class="p">:</span> <span class="n">Max</span> <span class="n">SPI</span> <span class="n">frequency</span> <span class="n">to</span> <span class="n">use</span> <span class="p">(</span><span class="o">&lt;</span> <span class="mi">20000000</span><span class="p">)</span>
     <span class="o">-</span> <span class="n">clocks</span><span class="p">:</span> <span class="n">From</span> <span class="n">common</span> <span class="n">clock</span> <span class="n">binding</span><span class="o">.</span> <span class="n">Clock</span> <span class="ow">is</span> <span class="n">phandle</span> <span class="n">to</span> <span class="n">clock</span> <span class="k">for</span>
@@ -614,15 +614,15 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Example</span><span class="p">:</span>
 
 <span class="o">&amp;</span><span class="n">spi0</span> <span class="p">{</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
 
     <span class="n">adf5355</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adf5355&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adf5355"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adf4351_clkin</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;clkin&quot;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;adf5355_out&quot;</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"clkin"</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"adf5355_out"</span><span class="p">;</span>
         <span class="n">adi</span><span class="p">,</span><span class="n">charge</span><span class="o">-</span><span class="n">pump</span><span class="o">-</span><span class="n">current</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">900</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">adi</span><span class="p">,</span><span class="n">muxout</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">6</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">adi</span><span class="p">,</span><span class="n">mute</span><span class="o">-</span><span class="n">till</span><span class="o">-</span><span class="n">lock</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
@@ -638,12 +638,12 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 
     <span class="n">adf5356</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
         <span class="c1">#clock-cells = &lt;0&gt;;</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,adf5356&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adf5356"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ad9361_clkin</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;clkin&quot;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;ADF5356&quot;</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"clkin"</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"ADF5356"</span><span class="p">;</span>
         <span class="n">adi</span><span class="p">,</span><span class="n">charge</span><span class="o">-</span><span class="n">pump</span><span class="o">-</span><span class="n">current</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">900</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">adi</span><span class="p">,</span><span class="n">muxout</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">6</span><span class="o">&gt;</span><span class="p">;</span>
                 <span class="n">adi</span><span class="p">,</span><span class="n">muxout</span><span class="o">-</span><span class="n">level</span><span class="o">-</span><span class="mi">3</span><span class="n">v3</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>

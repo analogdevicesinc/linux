@@ -8,7 +8,7 @@
 
     <title>ADMV8818 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -500,12 +500,12 @@ frequency, and thus creating a BPF.</p></li>
       <span class="c1">#address-cells = &lt;1&gt;;</span>
       <span class="c1">#size-cells = &lt;0&gt;;</span>
       <span class="n">admv8818</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,admv8818&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,admv8818"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">admv8818_rfin</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">clock</span><span class="o">-</span><span class="n">scales</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span> <span class="mi">5</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;rf_in&quot;</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"rf_in"</span><span class="p">;</span>
         <span class="n">adi</span><span class="p">,</span><span class="n">bw</span><span class="o">-</span><span class="n">hz</span> <span class="o">=</span> <span class="o">/</span><span class="n">bits</span><span class="o">/</span> <span class="mi">64</span> <span class="o">&lt;</span><span class="mi">600000000</span><span class="o">&gt;</span><span class="p">;</span>
       <span class="p">};</span>
     <span class="p">};</span>

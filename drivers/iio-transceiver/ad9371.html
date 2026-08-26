@@ -8,7 +8,7 @@
 
     <title>AD9371 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -1492,7 +1492,7 @@ the ADC output. TheAuxiliary ADCs can be read like any other IIO ADC.</p>
 </ul>
 <p>To obtain the reading in mV calculate: <em>(in_voltage3_raw + in_voltage3_offset)
 * in_voltage3_scale</em></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device3</span><span class="o">&gt;</span> <span class="n">grep</span> <span class="s2">&quot;&quot;</span> <span class="n">in_voltage3_</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device3</span><span class="o">&gt;</span> <span class="n">grep</span> <span class="s2">""</span> <span class="n">in_voltage3_</span>
 <span class="n">in_voltage3_offset</span><span class="p">:</span><span class="mi">45</span>
 <span class="n">in_voltage3_raw</span><span class="p">:</span><span class="mi">66</span>
 <span class="n">in_voltage3_scale</span><span class="p">:</span><span class="mf">0.775194</span>
@@ -1511,7 +1511,7 @@ TheAuxiliary DACs can be accessed like any other IIO DAC.</p>
 <li><p>out_voltage3_raw</p></li>
 <li><p>out_voltage3_scale</p></li>
 </ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device3</span><span class="o">&gt;</span> <span class="n">grep</span> <span class="s2">&quot;&quot;</span> <span class="n">out_voltage2</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device3</span><span class="o">&gt;</span> <span class="n">grep</span> <span class="s2">""</span> <span class="n">out_voltage2</span>
 <span class="n">out_voltage2_offset</span><span class="p">:</span><span class="mi">204</span>
 <span class="n">out_voltage2_raw</span><span class="p">:</span><span class="mi">0</span>
 <span class="n">out_voltage2_scale</span><span class="p">:</span><span class="mf">1.560671</span>
@@ -2062,7 +2062,7 @@ Only device files prefixed with <code class="docutils literal notranslate"><span
 <p>In order to identify if the IIO device in question (ad9371-phy) you first need
 to identify the IIO device number. Therefore read the name attribute of each IIO
 device</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># grep &quot;&quot; /sys/bus/iio/devices/iio\:device/name</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># grep "" /sys/bus/iio/devices/iio\:device/name</span>
 <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">name</span><span class="p">:</span><span class="n">ad7291</span>
 <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">/</span><span class="n">name</span><span class="p">:</span><span class="n">xadc</span>
 <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="o">/</span><span class="n">name</span><span class="p">:</span><span class="n">ad9528</span><span class="o">-</span><span class="mi">1</span>
@@ -2251,7 +2251,7 @@ first need to identify the IIO device number.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>grep<span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span>/sys/bus/iio/devices/iio<span class="se">\:</span>device*/name
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>grep<span class="w"> </span><span class="s2">""</span><span class="w"> </span>/sys/bus/iio/devices/iio<span class="se">\:</span>device*/name
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> /sys/bus/iio/devices/iio:device0/name:ad7291

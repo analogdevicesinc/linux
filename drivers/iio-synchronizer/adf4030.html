@@ -8,7 +8,7 @@
 
     <title>ADF4030 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -505,7 +505,7 @@ channel</p></li>
         <span class="c1">#size-cells = &lt;0&gt;;</span>
         <span class="n">adf4030</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
             <span class="c1">#clock-cells = &lt;1&gt;;</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,adf4030&quot;</span><span class="p">;</span>
+            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adf4030"</span><span class="p">;</span>
             <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 
             <span class="c1">#address-cells = &lt;1&gt;;</span>
@@ -513,12 +513,12 @@ channel</p></li>
 
             <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
             <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ltc6952</span> <span class="mi">5</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;refin&quot;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;adf4030_bsync_0&quot;</span><span class="p">,</span> <span class="s2">&quot;adf4030_bsync_1&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;adf4030_bsync_2&quot;</span><span class="p">,</span> <span class="s2">&quot;adf4030_bsync_3&quot;</span><span class="p">,</span> <span class="s2">&quot;adf4030_bsync_4&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;adf4030_bsync_5&quot;</span><span class="p">,</span> <span class="s2">&quot;adf4030_bsync_6&quot;</span><span class="p">,</span> <span class="s2">&quot;adf4030_bsync_7&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;adf4030_bsync_8&quot;</span><span class="p">,</span> <span class="s2">&quot;adf4030_bsync_9&quot;</span>  <span class="p">;</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;adf4030&quot;</span><span class="p">;</span>
+            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"refin"</span><span class="p">;</span>
+            <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"adf4030_bsync_0"</span><span class="p">,</span> <span class="s2">"adf4030_bsync_1"</span><span class="p">,</span>
+                <span class="s2">"adf4030_bsync_2"</span><span class="p">,</span> <span class="s2">"adf4030_bsync_3"</span><span class="p">,</span> <span class="s2">"adf4030_bsync_4"</span><span class="p">,</span>
+                <span class="s2">"adf4030_bsync_5"</span><span class="p">,</span> <span class="s2">"adf4030_bsync_6"</span><span class="p">,</span> <span class="s2">"adf4030_bsync_7"</span><span class="p">,</span>
+                <span class="s2">"adf4030_bsync_8"</span><span class="p">,</span> <span class="s2">"adf4030_bsync_9"</span>  <span class="p">;</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="s2">"adf4030"</span><span class="p">;</span>
 
             <span class="n">adi</span><span class="p">,</span><span class="n">vco</span><span class="o">-</span><span class="n">frequency</span><span class="o">-</span><span class="n">hz</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000000</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="mf">2.5</span> <span class="n">GHz</span> <span class="o">*/</span>
             <span class="n">adi</span><span class="p">,</span><span class="n">bsync</span><span class="o">-</span><span class="n">frequency</span><span class="o">-</span><span class="n">hz</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">12500000</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="mf">12.5</span> <span class="n">MHz</span> <span class="o">*/</span>
@@ -527,7 +527,7 @@ channel</p></li>
 
             <span class="n">channel</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
                 <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;SYSREF_0&quot;</span><span class="p">;</span>
+                <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"SYSREF_0"</span><span class="p">;</span>
                 <span class="n">adi</span><span class="p">,</span><span class="n">output</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
                 <span class="n">adi</span><span class="p">,</span><span class="nb">input</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">reconfig</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
                 <span class="n">auto</span><span class="o">-</span><span class="n">align</span><span class="o">-</span><span class="n">on</span><span class="o">-</span><span class="n">sync</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
@@ -535,7 +535,7 @@ channel</p></li>
             <span class="p">};</span>
             <span class="n">channel</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
                 <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;SYSREF_1&quot;</span><span class="p">;</span>
+                <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"SYSREF_1"</span><span class="p">;</span>
                 <span class="n">adi</span><span class="p">,</span><span class="n">output</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
                 <span class="n">adi</span><span class="p">,</span><span class="nb">input</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">reconfig</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
                 <span class="n">auto</span><span class="o">-</span><span class="n">align</span><span class="o">-</span><span class="n">on</span><span class="o">-</span><span class="n">sync</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
@@ -543,7 +543,7 @@ channel</p></li>
             <span class="p">};</span>
             <span class="n">channel</span><span class="o">@</span><span class="mi">4</span> <span class="p">{</span>
                 <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;FPGA_SYSREF_0&quot;</span><span class="p">;</span>
+                <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"FPGA_SYSREF_0"</span><span class="p">;</span>
                 <span class="n">adi</span><span class="p">,</span><span class="n">output</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
                 <span class="n">adi</span><span class="p">,</span><span class="nb">input</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">reconfig</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
                 <span class="n">auto</span><span class="o">-</span><span class="n">align</span><span class="o">-</span><span class="n">on</span><span class="o">-</span><span class="n">sync</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
@@ -551,7 +551,7 @@ channel</p></li>
             <span class="p">};</span>
             <span class="n">channel</span><span class="o">@</span><span class="mi">8</span> <span class="p">{</span>
                 <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;REF&quot;</span><span class="p">;</span>
+                <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"REF"</span><span class="p">;</span>
                 <span class="n">adi</span><span class="p">,</span><span class="n">rcm</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">62</span><span class="o">&gt;</span><span class="p">;</span>
             <span class="p">};</span>
         <span class="p">};</span>

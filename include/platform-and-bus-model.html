@@ -8,7 +8,7 @@
 
     <title>Platform Data &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../_static/icon.svg"/>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -425,35 +425,35 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>How to instantiate I2C devices</span></a></p>
 </section>
 <section id="example-declaring-i2c-devices">
 <h1>Example Declaring I2C Devices<a class="headerlink" href="#example-declaring-i2c-devices" title="Link to this heading"></a></h1>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_TOUCHSCREEN_AD7879_I2C) || defined(CONFIG_TOUCHSCREEN_AD7879_I2C_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;ad7879&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x2F</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"ad7879"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x2F</span><span class="p">),</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG5</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">bfin_ad7879_ts_info</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="cp">#endif</span>
 <span class="cp">#if defined(CONFIG_KEYBOARD_ADP5588) || defined(CONFIG_KEYBOARD_ADP5588_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;adp5588-keys&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adp5588-keys"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG0</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">adp5588_kpad_data</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="cp">#endif</span>
 <span class="cp">#if defined(CONFIG_PMIC_ADP5520) || defined(CONFIG_PMIC_ADP5520_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;pmic-adp5520&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x32</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"pmic-adp5520"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x32</span><span class="p">),</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG0</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">adp5520_pdev_data</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="cp">#endif</span>
 <span class="cp">#if defined(CONFIG_INPUT_ADXL34X_I2C) || defined(CONFIG_INPUT_ADXL34X_I2C_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;adxl34x&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x53</span><span class="p">),</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adxl34x"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x53</span><span class="p">),</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG0</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">adxl34x_info</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
@@ -482,7 +482,7 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 </section>
 <section id="example-declaring-spi-slave-devices">
 <h1>Example Declaring SPI Slave Devices<a class="headerlink" href="#example-declaring-spi-slave-devices" title="Link to this heading"></a></h1>
@@ -491,7 +491,7 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">bfin_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_TOUCHSCREEN_AD7877) || defined(CONFIG_TOUCHSCREEN_AD7877_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w">           </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad7877&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w">           </span><span class="o">=</span><span class="w"> </span><span class="s">"ad7877"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bfin_ad7877_ts_info</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w">                </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PF6</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="mi">12500000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
@@ -502,7 +502,7 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <span class="cp">#endif</span>
 <span class="cp">#if defined(CONFIG_TOUCHSCREEN_AD7879_SPI) || defined(CONFIG_TOUCHSCREEN_AD7879_SPI_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad7879&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad7879"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bfin_ad7879_ts_info</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PF7</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
@@ -514,7 +514,7 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <span class="cp">#endif</span>
 <span class="cp">#if defined(CONFIG_INPUT_ADXL34X_SPI) || defined(CONFIG_INPUT_ADXL34X_SPI_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adxl34x&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s">"adxl34x"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adxl34x_info</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PF6</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mi">5000000</span><span class="p">,</span><span class="w">    </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>

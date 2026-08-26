@@ -8,7 +8,7 @@
 
     <title>AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -527,14 +527,14 @@ bindings.</p>
   vref-supply:
     description: Phandle to the regulator for ADC reference voltage.
 
-  &#39;#address-cells&#39;:
+  '#address-cells':
     const: 1
 
-  &#39;#size-cells&#39;:
+  '#size-cells':
     const: 0
 
 patternProperties:
-  &quot;^channel@([0-1])$&quot;:
+  "^channel@([0-1])$":
     $ref: adc.yaml
     type: object
     description: Represents the external channel connected to the ADC.
@@ -588,13 +588,13 @@ examples:
         #size-cells = &lt;0&gt;;
         / Example for a AD400X devices /
         adc@0 {
-            compatible = &quot;adi,ad4020&quot;;
+            compatible = "adi,ad4020";
             reg = &lt;0&gt;;
             spi-max-frequency = &lt;71000000&gt;;
             vref-supply = &lt;&amp;vref&gt;;
 
             dmas = &lt;&amp;rx_dma 0&gt;;
-            dma-names = &quot;rx&quot;;
+            dma-names = "rx";
 
             #address-cells = &lt;1&gt;;
             #size-cells = &lt;0&gt;;
@@ -612,15 +612,15 @@ examples:
 
         / Example for a ADAQ400X devices /
         adc@0 {
-            compatible = &quot;adi,adaq4003&quot;;
+            compatible = "adi,adaq4003";
             reg = &lt;0&gt;;
             spi-max-frequency = &lt;80000000&gt;;
             dmas = &lt;&amp;rx_dma 0&gt;;
-            dma-names = &quot;rx&quot;;
+            dma-names = "rx";
             clocks = &lt;&amp;spi_clk&gt;;
-            clock-names = &quot;ref_clk&quot;;
+            clock-names = "ref_clk";
             pwms = &lt;&amp;adc_trigger 0 0&gt;;
-            pwm-names = &quot;cnv&quot;;
+            pwm-names = "cnv";
             vref-supply = &lt;&amp;vref&gt;;
 
             #address-cells = &lt;1&gt;;
@@ -822,7 +822,7 @@ and the relevant _type attributes to establish the data storage
 format.</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">/</span><span class="n">scan_elements</span><span class="c1"># grep &quot;&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">/</span><span class="n">scan_elements</span><span class="c1"># grep ""</span>
 <span class="n">in_voltage0_en</span><span class="p">:</span><span class="mi">0</span>
 <span class="n">in_voltage0_index</span><span class="p">:</span><span class="mi">0</span>
 <span class="n">in_voltage0_type</span><span class="p">:</span><span class="n">le</span><span class="p">:</span><span class="n">s18</span><span class="o">/</span><span class="mi">32</span><span class="o">&gt;&gt;</span><span class="mi">0</span>
@@ -851,7 +851,7 @@ continuously while the buffer remains enabled.</p>
 vary according to ADC precision and output code pattern (whether output code is
 twos complement or not). Buffer raw data may be retrieved by reading the
 character device associated with the ADC device.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># hexdump -n 512 -e &#39; 32 &quot;%d &quot; &quot;\n&quot;&#39; /dev/iio:device1</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># hexdump -n 512 -e ' 32 "%d " "\n"' /dev/iio:device1</span>
 <span class="mi">4864</span> <span class="mi">4889</span> <span class="mi">4730</span> <span class="mi">4716</span> <span class="mi">4695</span> <span class="mi">4678</span> <span class="mi">4667</span> <span class="mi">4659</span> <span class="mi">4662</span> <span class="mi">4676</span> <span class="mi">4706</span> <span class="mi">4738</span> <span class="mi">4770</span> <span class="mi">4789</span> <span class="mi">4786</span> <span class="mi">4785</span> <span class="mi">4775</span> <span class="mi">4763</span> <span class="mi">4752</span> <span class="mi">4737</span> <span class="mi">4723</span> <span class="mi">4703</span> <span class="mi">4686</span> <span class="mi">4673</span> <span class="mi">4666</span> <span class="mi">4672</span> <span class="mi">4688</span> <span class="mi">4715</span> <span class="mi">4762</span> <span class="mi">4799</span> <span class="mi">4820</span> <span class="mi">4821</span>
 <span class="mi">4816</span> <span class="mi">4807</span> <span class="mi">4788</span> <span class="mi">4773</span> <span class="mi">4757</span> <span class="mi">4737</span> <span class="mi">4718</span> <span class="mi">4694</span> <span class="mi">4676</span> <span class="mi">4664</span> <span class="mi">4668</span> <span class="mi">4692</span> <span class="mi">4727</span> <span class="mi">4777</span> <span class="mi">4814</span> <span class="mi">4837</span> <span class="mi">4836</span> <span class="mi">4829</span> <span class="mi">4822</span> <span class="mi">4808</span> <span class="mi">4796</span> <span class="mi">4771</span> <span class="mi">4748</span> <span class="mi">4728</span> <span class="mi">4707</span> <span class="mi">4685</span> <span class="mi">4664</span> <span class="mi">4654</span> <span class="mi">4651</span> <span class="mi">4659</span> <span class="mi">4675</span> <span class="mi">4709</span>
 <span class="mi">4757</span> <span class="mi">4801</span> <span class="mi">4823</span> <span class="mi">4826</span> <span class="mi">4812</span> <span class="mi">4800</span> <span class="mi">4789</span> <span class="mi">4770</span> <span class="mi">4749</span> <span class="mi">4724</span> <span class="mi">4700</span> <span class="mi">4677</span> <span class="mi">4653</span> <span class="mi">4644</span> <span class="mi">4633</span> <span class="mi">4639</span> <span class="mi">4659</span> <span class="mi">4695</span> <span class="mi">4738</span> <span class="mi">4777</span> <span class="mi">4798</span> <span class="mi">4799</span> <span class="mi">4794</span> <span class="mi">4785</span> <span class="mi">4772</span> <span class="mi">4755</span> <span class="mi">4735</span> <span class="mi">4712</span> <span class="mi">4692</span> <span class="mi">4668</span> <span class="mi">4652</span> <span class="mi">4646</span>

@@ -8,7 +8,7 @@
 
     <title>AD5593R &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -575,21 +575,21 @@ with the Linux GPIO subsystem.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#include &lt;dt-bindings/iio/adi,ad5592r.h&gt;</span>
 
 <span class="n">vref</span><span class="p">:</span> <span class="n">regulator</span><span class="o">-</span><span class="n">vref</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;vref-ad559x&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"vref-ad559x"</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
 <span class="p">};</span>
 
 <span class="o">&amp;</span><span class="n">i2c0</span> <span class="p">{</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
     <span class="n">clock</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">400000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">ad5593r</span><span class="o">@</span><span class="mi">10</span> <span class="p">{</span>
         <span class="c1">#size-cells = &lt;0&gt;;</span>
         <span class="c1">#address-cells = &lt;1&gt;;</span>
         <span class="c1">#gpio-cells = &lt;2&gt;;</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad5593r&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad5593r"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x10</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">gpio</span><span class="o">-</span><span class="n">controller</span><span class="p">;</span>
 
@@ -700,7 +700,7 @@ inform us about the available channels:</p>
 <span class="n">root</span><span class="nd">@linaro</span><span class="o">-</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">desktop</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="c1">#</span>
 </pre></div>
 </div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@linaro</span><span class="o">-</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">desktop</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="c1"># grep &quot;&quot; *</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@linaro</span><span class="o">-</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">desktop</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="c1"># grep "" *</span>
 <span class="n">dev</span><span class="p">:</span><span class="mi">252</span><span class="p">:</span><span class="mi">2</span>
 <span class="n">in_temp_offset</span><span class="p">:</span><span class="o">-</span><span class="mi">753</span>
 <span class="n">in_temp_raw</span><span class="p">:</span><span class="mi">810</span>
@@ -825,7 +825,7 @@ the signal level).</p>
 <span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span>  <span class="mi">1970</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span>  <span class="mi">1970</span> <span class="n">uevent</span>
 
-<span class="n">root</span><span class="nd">@linaro</span><span class="o">-</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">desktop</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/</span><span class="n">gpiochip890</span><span class="c1"># grep &quot;&quot; *</span>
+<span class="n">root</span><span class="nd">@linaro</span><span class="o">-</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">desktop</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/</span><span class="n">gpiochip890</span><span class="c1"># grep "" *</span>
 <span class="n">base</span><span class="p">:</span><span class="mi">890</span>
 <span class="n">label</span><span class="p">:</span><span class="mi">0</span><span class="o">-</span><span class="mi">0010</span>
 <span class="n">ngpio</span><span class="p">:</span><span class="mi">8</span>

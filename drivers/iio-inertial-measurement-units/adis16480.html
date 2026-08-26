@@ -8,7 +8,7 @@
 
     <title>ADIS16480 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -457,7 +457,7 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>Depending on the converter IC used, you may need to set the modalias
 accordingly, matching your part name. It may also required to adjust
 max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
@@ -466,7 +466,7 @@ the device in question.</p>
 <span class="cp">#if defined(CONFIG_adis16480) \</span>
 <span class="cp">    || defined(CONFIG_adis16480_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adis16480&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adis16480"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="cm">/* CS, change it for your board */</span>
@@ -581,17 +581,17 @@ empty, DIO2 is assigned as default external clock input pin.</p>
 <section id="example">
 <h4>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">imu</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,adis16495-1&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adis16495-1"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3200000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
     <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
     <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">25</span> <span class="n">IRQF_TRIGGER_FALLING</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupt</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;DIO2&quot;</span><span class="p">;</span>
+    <span class="n">interrupt</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"DIO2"</span><span class="p">;</span>
     <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adis16495_sync</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;sync&quot;</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">ext</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">pin</span> <span class="o">=</span> <span class="s2">&quot;DIO1&quot;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"sync"</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">ext</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">pin</span> <span class="o">=</span> <span class="s2">"DIO1"</span><span class="p">;</span>
    <span class="p">};</span>
 </pre></div>
 </div>

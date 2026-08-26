@@ -8,7 +8,7 @@
 
     <title>AD9208 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -628,10 +628,10 @@ controlled gain stage. Either 0dB or 6dB gain can be applied.</p></li>
 </ul>
 <p><strong>Example:</strong></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">spi0</span> <span class="p">{</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;okay&quot;</span><span class="p">;</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
 
     <span class="n">adc0_ad9208</span><span class="p">:</span> <span class="n">ad9208</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad9208x2&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad9208x2"</span><span class="p">;</span>
 
         <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
         <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
@@ -639,7 +639,7 @@ controlled gain stage. Either 0dB or 6dB gain can be applied.</p></li>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 
         <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_ad9208_0_jesd_rx</span><span class="o">&gt;</span><span class="p">,</span>  <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;jesd_adc_clk&quot;</span><span class="p">,</span> <span class="s2">&quot;adc_clk&quot;</span><span class="p">;</span>
+        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"jesd_adc_clk"</span><span class="p">,</span> <span class="s2">"adc_clk"</span><span class="p">;</span>
 
         <span class="n">adi</span><span class="p">,</span><span class="n">powerdown</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">AD9208_PDN_MODE_POWERDOWN</span><span class="o">&gt;</span><span class="p">;</span>
 
@@ -689,7 +689,7 @@ controlled gain stage. Either 0dB or 6dB gain can be applied.</p></li>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adc0_ad9680</span><span class="p">:</span> <span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span> <span class="p">{</span>
     <span class="c1">#address-cells = &lt;1&gt;;</span>
     <span class="c1">#size-cells = &lt;0&gt;;</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad9680&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad9680"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
     <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
@@ -697,7 +697,7 @@ controlled gain stage. Either 0dB or 6dB gain can be applied.</p></li>
     <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
 
     <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9523</span> <span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;adc_clk&quot;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"adc_clk"</span><span class="p">;</span>
 
     <span class="o">/*</span> <span class="n">jesd204</span><span class="o">-</span><span class="n">fsm</span> <span class="n">support</span> <span class="o">*/</span>
     <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
@@ -724,7 +724,7 @@ controlled gain stage. Either 0dB or 6dB gain can be applied.</p></li>
     <span class="n">adi</span><span class="p">,</span><span class="n">octets</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">frame</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>     <span class="o">/*</span> <span class="n">JESD204</span> <span class="p">(</span><span class="n">F</span><span class="p">)</span> <span class="o">*/</span>
     <span class="n">adi</span><span class="p">,</span><span class="n">frames</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">multiframe</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>   <span class="o">/*</span> <span class="n">JESD204</span> <span class="p">(</span><span class="n">K</span><span class="p">)</span> <span class="o">*/</span>
     <span class="n">adi</span><span class="p">,</span><span class="n">converter</span><span class="o">-</span><span class="n">resolution</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">14</span><span class="o">&gt;</span><span class="p">;</span>    <span class="o">/*</span> <span class="n">JESD204</span> <span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="o">*/</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">bits</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">sample</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span>     <span class="o">/*</span> <span class="n">JESD204</span> <span class="p">(</span><span class="n">N</span><span class="s1">&#39;) */</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">bits</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">sample</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span>     <span class="o">/*</span> <span class="n">JESD204</span> <span class="p">(</span><span class="n">N</span><span class="s1">') */</span>
     <span class="n">adi</span><span class="p">,</span><span class="n">control</span><span class="o">-</span><span class="n">bits</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">sample</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>  <span class="o">/*</span> <span class="n">JESD204</span> <span class="p">(</span><span class="n">CS</span><span class="p">)</span> <span class="o">*/</span>
     <span class="n">adi</span><span class="p">,</span><span class="n">subclass</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>         <span class="o">/*</span> <span class="n">JESD204</span> <span class="p">(</span><span class="n">SUBCLASSV</span><span class="p">)</span> <span class="o">*/</span>
 

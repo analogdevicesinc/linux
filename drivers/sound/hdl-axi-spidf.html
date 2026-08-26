@@ -8,7 +8,7 @@
 
     <title>HDL AXI SPIDF &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -438,7 +438,7 @@ via device tree.</p>
 </ul>
 <p>Example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_spdif_tx_0</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">spdif</span><span class="o">-</span><span class="n">tx</span><span class="o">@</span><span class="mi">75</span><span class="n">c00000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-spdif-tx-1.00.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-spdif-tx-1.00.a"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x75c00000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">clock</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">12288000</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>
@@ -537,19 +537,19 @@ via device tree.</p>
 <section id="example-dai-configuration">
 <h4>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h4>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">hdmi_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;HDMI&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;HDMI&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">cpu_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;75c00000.axi-spdif-tx&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">platform_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;xilinx_pcm_audio.2&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">codec_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adv7511.0-0039&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adv7511&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"HDMI"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"HDMI"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">cpu_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"75c00000.axi-spdif-tx"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">platform_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"xilinx_pcm_audio.2"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">codec_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adv7511.0-0039"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adv7511"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">dai_fmt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SND_SOC_DAIFMT_SPDIF</span><span class="w"> </span><span class="o">|</span>
 <span class="w">            </span><span class="n">SND_SOC_DAIFMT_NB_NF</span><span class="w"> </span><span class="o">|</span>
 <span class="w">            </span><span class="n">SND_SOC_DAIFMT_CBS_CFS</span><span class="p">,</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_card</span><span class="w"> </span><span class="n">hdmi_card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;HDMI monitor&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"HDMI monitor"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">owner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">THIS_MODULE</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">hdmi_dai_link</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">num_links</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
@@ -635,11 +635,11 @@ be instantiated via device tree.</p>
     <span class="c1">#address-cells = &lt;1&gt;;</span>
     <span class="c1">#size-cells = &lt;1&gt;;</span>
     <span class="c1">#dma-cells = &lt;1&gt;;</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xlnx,axi-dma&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-dma"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x40400000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">xlnx</span><span class="p">,</span><span class="n">sg</span><span class="o">-</span><span class="n">include</span><span class="o">-</span><span class="n">stscntrl</span><span class="o">-</span><span class="n">strm</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">dma</span><span class="o">-</span><span class="n">channel</span><span class="o">@</span><span class="mi">40400000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xlnx,axi-dma-mm2s-channel&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-dma-mm2s-channel"</span><span class="p">;</span>
         <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">58</span> <span class="mh">0x4</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">xlnx</span><span class="p">,</span><span class="n">datawidth</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x20</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">xlnx</span><span class="p">,</span><span class="n">include</span><span class="o">-</span><span class="n">dre</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
@@ -647,7 +647,7 @@ be instantiated via device tree.</p>
 <span class="p">};</span>
 
 <span class="n">xilinx_pcm_audio</span><span class="p">:</span> <span class="n">xilinx_pcm_audio</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xilinx-pcm-audio&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xilinx-pcm-audio"</span><span class="p">;</span>
     <span class="c1">#size-cells = &lt;0&gt;;</span>
     <span class="c1">#address-cells = &lt;1&gt;;</span>
 
@@ -658,13 +658,13 @@ be instantiated via device tree.</p>
 <span class="p">};</span>
 
 <span class="n">axi_spdif_tx_0</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">spdif</span><span class="o">-</span><span class="n">tx</span><span class="o">@</span><span class="mh">0x75c00000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-spdif-tx-1.00.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-spdif-tx-1.00.a"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x75c00000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">clock</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">12288000</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>
 
 <span class="n">adv7511_hdmi_snd</span><span class="p">:</span> <span class="n">adv7511_hdmi_snd</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adv7511-hdmi-snd&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adv7511-hdmi-snd"</span><span class="p">;</span>
     <span class="n">cpu</span><span class="o">-</span><span class="n">dai</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_spdif_tx_0</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">pcm</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">xilinx_pcm_audio</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>

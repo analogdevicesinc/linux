@@ -8,7 +8,7 @@
 
     <title>AD9523 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -579,7 +579,7 @@ platform_data for the device’s <code class="docutils literal notranslate"><spa
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">ad9523_channel_spec</span><span class="w"> </span><span class="n">ad9523_channels</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="cm">/* ZD output */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">channel_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ZD_OUTPUT&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ZD_OUTPUT"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">divider_output_invert_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">sync_ignore_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">low_power_mode_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
@@ -591,7 +591,7 @@ platform_data for the device’s <code class="docutils literal notranslate"><spa
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="cm">/* DAC CLK */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">channel_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;DAC_CLK&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"DAC_CLK"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">divider_output_invert_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">sync_ignore_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">low_power_mode_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
@@ -601,7 +601,7 @@ platform_data for the device’s <code class="docutils literal notranslate"><spa
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="cm">/* ADC CLK */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">channel_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ADC_CLK&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ADC_CLK"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">divider_output_invert_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">sync_ignore_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">low_power_mode_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
@@ -611,7 +611,7 @@ platform_data for the device’s <code class="docutils literal notranslate"><spa
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="cm">/* DAC REF CLK */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">channel_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;DAC_REF_CLK&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"DAC_REF_CLK"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">divider_output_invert_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">sync_ignore_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">low_power_mode_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
@@ -621,7 +621,7 @@ platform_data for the device’s <code class="docutils literal notranslate"><spa
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="cm">/* TX LO REF */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">channel_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;TX_LO_REF_CLK&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"TX_LO_REF_CLK"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">divider_output_invert_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">sync_ignore_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">low_power_mode_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
@@ -631,7 +631,7 @@ platform_data for the device’s <code class="docutils literal notranslate"><spa
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="cm">/* DAC DCO */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">channel_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;DAC_DCO_CLK&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"DAC_DCO_CLK"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">divider_output_invert_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">sync_ignore_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">low_power_mode_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
@@ -641,7 +641,7 @@ platform_data for the device’s <code class="docutils literal notranslate"><spa
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="cm">/* ADC SYNC */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">channel_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ADC_SYNC_CLK&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ADC_SYNC_CLK"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">divider_output_invert_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">sync_ignore_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">low_power_mode_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
@@ -652,7 +652,7 @@ platform_data for the device’s <code class="docutils literal notranslate"><spa
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="cm">/* RX LO REF */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">channel_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;RX_LO_REF_CLK&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">extended_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"RX_LO_REF_CLK"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">divider_output_invert_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">sync_ignore_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">low_power_mode_en</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
@@ -699,7 +699,7 @@ platform_data for the device’s <code class="docutils literal notranslate"><spa
 <span class="w">    </span><span class="cm">/* Output Channel Configuration */</span>
 <span class="w">    </span><span class="p">.</span><span class="n">num_channels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">ad9523_channels</span><span class="p">),</span>
 <span class="w">    </span><span class="p">.</span><span class="n">channels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ad9523_channels</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad9523-lpc&quot;</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad9523-lpc"</span>
 <span class="p">};</span>
 </pre></div>
 </div>
@@ -713,14 +713,14 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>Depending on the IC used, you may need to set the modalias accordingly, matching
 your part name. It may also required to adjust max_speed_hz. Please consult the
 datasheet, for maximum spi clock supported by the device in question.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_AD9523) || defined(CONFIG_AD9523_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad9523-1&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad9523-1"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
@@ -890,7 +890,7 @@ is unlocked.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">pll1_locked</span>
 <span class="mi">1</span>
 
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">grep</span> <span class="s2">&quot;&quot;</span> <span class="n">pll</span> <span class="n">vcxo</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">grep</span> <span class="s2">""</span> <span class="n">pll</span> <span class="n">vcxo</span>
 <span class="n">pll1_locked</span><span class="p">:</span><span class="mi">1</span>
 <span class="n">pll1_reference_clk_a_present</span><span class="p">:</span><span class="mi">1</span>
 <span class="n">pll1_reference_clk_b_present</span><span class="p">:</span><span class="mi">0</span>

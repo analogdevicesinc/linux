@@ -8,7 +8,7 @@
 
     <title>ADXL362 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -517,7 +517,7 @@ holds this information.</p>
 <span class="cm">     * watermark_odr:</span>
 <span class="cm">     * The Watermark feature can be used to reduce the interrupt/poll load</span>
 <span class="cm">     * of the system. The FIFO fills up to watermark value in sample sets</span>
-<span class="cm">     * [1..170] and then generates an interrupt. Each ODR can have it&#39;s</span>
+<span class="cm">     * [1..170] and then generates an interrupt. Each ODR can have it's</span>
 <span class="cm">     * own watermark.</span>
 <span class="cm">     */</span>
 <span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">watermark_odr_12Hz</span><span class="p">;</span>
@@ -609,7 +609,7 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>Depending on the DDS IC used, you may need to set the modalias accordingly,
 matching your part name. It may also required to adjust max_speed_hz. Please
 consult the datasheet, for maximum spi clock supported by the device in
@@ -617,7 +617,7 @@ question.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_INPUT_ADXL362) || defined(CONFIG_INPUT_ADXL362_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adxl362&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">"adxl362"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adxl362_info</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PF6</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mi">5000000</span><span class="p">,</span><span class="w">    </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
@@ -671,7 +671,7 @@ question.</p>
         <span class="o">---</span> <span class="n">Miscellaneous</span> <span class="n">devices</span>
         <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD714x</span> <span class="n">Capacitance</span> <span class="n">Touch</span> <span class="n">Sensor</span>
         <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">BMA150</span><span class="o">/</span><span class="n">SMB380</span> <span class="n">acceleration</span> <span class="n">sensor</span> <span class="n">support</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MMA8450</span> <span class="o">-</span> <span class="n">Freescale</span><span class="s1">&#39;s 3-Axis, 8/12-bit Digital Accelerometer</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MMA8450</span> <span class="o">-</span> <span class="n">Freescale</span><span class="s1">'s 3-Axis, 8/12-bit Digital Accelerometer</span>
         <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MPU3050</span> <span class="n">Triaxial</span> <span class="n">gyroscope</span> <span class="n">sensor</span>
         <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sharp</span> <span class="n">GP2AP002A00F</span> <span class="n">I2C</span> <span class="n">Proximity</span><span class="o">/</span><span class="n">Opto</span> <span class="n">sensor</span> <span class="n">driver</span>
         <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="n">GPIO</span> <span class="n">tilt</span> <span class="n">switch</span>
@@ -740,7 +740,7 @@ for the accelerometer</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">event_test</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">event0</span>
 <span class="n">Input</span> <span class="n">driver</span> <span class="n">version</span> <span class="ow">is</span> <span class="mf">1.0.1</span>
 <span class="n">Input</span> <span class="n">device</span> <span class="n">ID</span><span class="p">:</span> <span class="n">bus</span> <span class="mh">0x1c</span> <span class="n">vendor</span> <span class="mh">0xad</span> <span class="n">product</span> <span class="mh">0xf2</span> <span class="n">version</span> <span class="mh">0x1</span>
-<span class="n">Input</span> <span class="n">device</span> <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;ADXL362 accelerometer&quot;</span>
+<span class="n">Input</span> <span class="n">device</span> <span class="n">name</span><span class="p">:</span> <span class="s2">"ADXL362 accelerometer"</span>
 <span class="n">Supported</span> <span class="n">events</span><span class="p">:</span>
   <span class="n">Event</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Sync</span><span class="p">)</span>
   <span class="n">Event</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">)</span>

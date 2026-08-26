@@ -8,7 +8,7 @@
 
     <title>AD469x &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -481,11 +481,11 @@ attached to. The <code class="docutils literal notranslate"><span class="pre">co
 used. The <code class="docutils literal notranslate"><span class="pre">reg</span></code> property indicates the chip select line of the SPI controller
 that is being used.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">spi</span><span class="o">@</span><span class="mi">44</span><span class="n">a00000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-spi-engine-1.00.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-spi-engine-1.00.a"</span><span class="p">;</span>
     <span class="o">...</span>
 
     <span class="n">adc</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,ad4696&quot;</span><span class="p">;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad4696"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="o">...</span>
 
@@ -592,8 +592,8 @@ pin number. Typically, these supplies will be 1/2 of the reference voltage.</p>
 we have a signal generator with a differential output where the negative output
 is a 2.5V DC signal.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">signal_gen_neg</span><span class="p">:</span> <span class="n">signal</span><span class="o">-</span><span class="n">generator</span><span class="o">-</span><span class="n">negative</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Signal generator negative output&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"Signal generator negative output"</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
@@ -681,7 +681,7 @@ found as follows:</p>
 <p>All IIO devices are represented in <code class="docutils literal notranslate"><span class="pre">sysfs</span></code> as an <code class="docutils literal notranslate"><span class="pre">iio:deviceY</span></code> where <code class="docutils literal notranslate"><span class="pre">Y</span></code>
 will depend on how many IIO devices there are and the order in which they were
 registered. You can see which device is which like this:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># for f in /sys/bus/iio/devices/iio\:device/name; do echo &quot;${f%/name} $(cat $f)&quot;; done</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># for f in /sys/bus/iio/devices/iio\:device/name; do echo "${f%/name} $(cat $f)"; done</span>
 <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span> <span class="n">xadc</span>
 <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span> <span class="n">ad4695</span>
 </pre></div>
@@ -819,7 +819,7 @@ using a Linux host with SPI offload support:</p>
 <span class="c1"># enable the buffer</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 1 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/enable</span>
 <span class="c1"># read one buffer full of data</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># hexdump -n $((8 * 2 * 2)) -e&#39;2/4  &quot;%04X &quot; &quot;\n&quot;&#39; /dev/iio\:device1</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># hexdump -n $((8 * 2 * 2)) -e'2/4  "%04X " "\n"' /dev/iio\:device1</span>
 <span class="n">AC6D</span> <span class="mi">806</span><span class="n">A</span>
 <span class="mi">1</span><span class="n">DB7</span> <span class="mi">8074</span>
 <span class="mi">65</span><span class="n">C8</span> <span class="mi">805</span><span class="n">F</span>

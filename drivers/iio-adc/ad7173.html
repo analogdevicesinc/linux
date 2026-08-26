@@ -8,7 +8,7 @@
 
     <title>AD7173 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -496,7 +496,7 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">bipolar</span><span class="p">;</span>
         <span class="n">diff</span><span class="o">-</span><span class="n">channels</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">reference</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="s2">&quot;vref&quot;</span><span class="p">;</span>
+        <span class="n">adi</span><span class="p">,</span><span class="n">reference</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="s2">"vref"</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
@@ -782,9 +782,9 @@ channel noise.</p>
 bootup.</p>
 <p>System zero/full scale can be done after bootup using the newly created iio
 interface ‘sys_calibration’ and ‘sys_calibration_mode’</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="s1">&#39;zero_scale&#39;</span> <span class="o">&gt;</span> <span class="n">sys_calibration_mode</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="s1">'zero_scale'</span> <span class="o">&gt;</span> <span class="n">sys_calibration_mode</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">sys_calibration_mode</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="s1">&#39;full_scale&#39;</span> <span class="o">&gt;</span> <span class="n">sys_calibration_mode</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="s1">'full_scale'</span> <span class="o">&gt;</span> <span class="n">sys_calibration_mode</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">sys_calibration_mode</span>
 </pre></div>
 </div>

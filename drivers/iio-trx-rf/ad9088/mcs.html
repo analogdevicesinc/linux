@@ -8,7 +8,7 @@
 
     <title>Multi-Chip Synchronization &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -593,7 +593,7 @@ defined in the device tree:</p>
 ┌─────────────────────────────────────────────────────────┐
 │  ad9088@0 {                                             │
 │      io-channels = &lt;&amp;adf4030 5&gt;, &lt;&amp;adf4382 0&gt;;          │
-│      io-channel-names = &quot;bsync&quot;, &quot;clk&quot;;                 │
+│      io-channel-names = "bsync", "clk";                 │
 │  };                                                     │
 └─────────────────────────────────────────────────────────┘
 
@@ -923,17 +923,17 @@ values with ADF4382 hardware values:</p>
 <span class="w">    </span><span class="n">fw_fine</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tracking_cal_status</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">adf4382_status</span><span class="o">-&gt;</span><span class="n">Fine</span><span class="p">;</span>
 
 <span class="w">    </span><span class="c1">// Read ADF4382 hardware values via IIO</span>
-<span class="w">    </span><span class="n">iio_read_channel_ext_info</span><span class="p">(</span><span class="n">adf4382</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bleed_pol&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">hw_bleed_pol</span><span class="p">);</span>
-<span class="w">    </span><span class="n">iio_read_channel_ext_info</span><span class="p">(</span><span class="n">adf4382</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;coarse_current&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">hw_coarse</span><span class="p">);</span>
-<span class="w">    </span><span class="n">iio_read_channel_ext_info</span><span class="p">(</span><span class="n">adf4382</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;fine_current&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">hw_fine</span><span class="p">);</span>
+<span class="w">    </span><span class="n">iio_read_channel_ext_info</span><span class="p">(</span><span class="n">adf4382</span><span class="p">,</span><span class="w"> </span><span class="s">"bleed_pol"</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">hw_bleed_pol</span><span class="p">);</span>
+<span class="w">    </span><span class="n">iio_read_channel_ext_info</span><span class="p">(</span><span class="n">adf4382</span><span class="p">,</span><span class="w"> </span><span class="s">"coarse_current"</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">hw_coarse</span><span class="p">);</span>
+<span class="w">    </span><span class="n">iio_read_channel_ext_info</span><span class="p">(</span><span class="n">adf4382</span><span class="p">,</span><span class="w"> </span><span class="s">"fine_current"</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">hw_fine</span><span class="p">);</span>
 
 <span class="w">    </span><span class="c1">// Compare and report</span>
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">fw_bleed_pol</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">hw_bleed_pol</span><span class="w"> </span><span class="o">&amp;&amp;</span>
 <span class="w">        </span><span class="n">fw_coarse</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">hw_coarse</span><span class="w"> </span><span class="o">&amp;&amp;</span>
 <span class="w">        </span><span class="n">fw_fine</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">hw_fine</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;SYNCHRONIZED&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"SYNCHRONIZED"</span><span class="p">;</span>
 <span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;MISMATCH - check hardware&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"MISMATCH - check hardware"</span><span class="p">;</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="n">adi_apollo_mcs_cal_bg_tracking_unfreeze</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
@@ -1011,7 +1011,7 @@ values with ADF4382 hardware values:</p>
 <h3>Complete Example<a class="headerlink" href="#complete-example" title="Link to this heading"></a></h3>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cm">/* ADF4030 - SYSREF/BSYNC Generator */</span>
 <span class="nl">adf4030</span><span class="p">:</span><span class="w"> </span><span class="nf">adf4030</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adi,adf4030&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adf4030"</span><span class="p">;</span>
 <span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
 
@@ -1034,14 +1034,14 @@ values with ADF4382 hardware values:</p>
 
 <span class="cm">/* ADF4382 - Clock PLL */</span>
 <span class="nl">adf4382</span><span class="p">:</span><span class="w"> </span><span class="nf">adf4382</span><span class="o">@</span><span class="mi">1</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adi,adf4382&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adf4382"</span><span class="p">;</span>
 <span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
 
 <span class="w">    </span><span class="o">#</span><span class="n">io-channel-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 
 <span class="w">    </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">ref_clk</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ref_clk&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ref_clk"</span><span class="p">;</span>
 
 <span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">ref-frequency-hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">125000000</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">output-frequency-hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">12000000000</span><span class="o">&gt;</span><span class="p">;</span>
@@ -1049,21 +1049,21 @@ values with ADF4382 hardware values:</p>
 
 <span class="cm">/* AD9088 - Apollo Device */</span>
 <span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9088</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adi,ad9088&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad9088"</span><span class="p">;</span>
 <span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
 
 <span class="w">    </span><span class="cm">/* MCS IIO channel connections */</span>
 <span class="w">    </span><span class="n">io-channels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adf4030</span><span class="w"> </span><span class="mi">5</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adf4382</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">    </span><span class="n">io-channel-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;bsync&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;clk&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">io-channel-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"bsync"</span><span class="p">,</span><span class="w"> </span><span class="s">"clk"</span><span class="p">;</span>
 
 <span class="w">    </span><span class="cm">/* MCS Configuration */</span>
 <span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">mcs-track-decimation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">16 &lt;1023&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">trigger-sync-en</span><span class="p">;</span>
 
 <span class="w">    </span><span class="cm">/* Profile and calibration */</span>
-<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">device-profile-fw-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad9088_profile.bin&quot;</span><span class="p">;</span>
-<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">device-calibration-data-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad9088_cal.bin&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">device-profile-fw-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad9088_profile.bin"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">device-calibration-data-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad9088_cal.bin"</span><span class="p">;</span>
 
 <span class="w">    </span><span class="cm">/* ... other properties ... */</span>
 <span class="p">};</span>

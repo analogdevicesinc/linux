@@ -8,7 +8,7 @@
 
     <title>ADL5960 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -468,7 +468,7 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.2.0)"><span>Overview of Linux kernel SPI support</span></a></p>
 <section id="devicetree-properties">
 <h4>Devicetree properties<a class="headerlink" href="#devicetree-properties" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">compatible</span><span class="p">:</span>
@@ -512,7 +512,7 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
     <span class="n">analog</span> <span class="n">voltage</span> <span class="n">regulator</span> <span class="p">(</span><span class="n">see</span> <span class="n">regulator</span><span class="o">/</span><span class="n">regulator</span><span class="o">.</span><span class="n">txt</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s1">&#39;#clock-cells&#39;</span><span class="p">:</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s1">'#clock-cells'</span><span class="p">:</span>
   <span class="n">const</span><span class="p">:</span> <span class="mi">0</span>
 </pre></div>
 </div>
@@ -528,14 +528,14 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 <h4>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h4>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">spi</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">  </span><span class="nf">adl5960-1</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adi,adl5960&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adl5960"</span><span class="p">;</span>
 <span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">12500000</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="cm">/* Clocks */</span>
 <span class="w">    </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adf5610</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">ad9528</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;lo_in&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;offs_in&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"lo_in"</span><span class="p">,</span><span class="w"> </span><span class="s">"offs_in"</span><span class="p">;</span>
 <span class="w">    </span><span class="n">lo_in-clock-scales</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="w"> </span><span class="mi">10</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">    </span><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adl5960-1&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adl5960-1"</span><span class="p">;</span>
 <span class="w">  </span><span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
@@ -556,7 +556,7 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
         <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
             <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
             <span class="n">RF</span> <span class="n">Font</span><span class="o">-</span><span class="n">Ends</span> <span class="o">---&gt;</span>
-               <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADL5960</span> <span class="n">Vector</span> <span class="n">Network</span> <span class="n">Analyzer</span> <span class="n">Front</span><span class="o">-</span><span class="n">End</span><span class="s2">&quot;</span>
+               <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADL5960</span> <span class="n">Vector</span> <span class="n">Network</span> <span class="n">Analyzer</span> <span class="n">Front</span><span class="o">-</span><span class="n">End</span><span class="s2">"</span>
 </pre></div>
 </div>
 </section>
@@ -577,7 +577,7 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">iio</span><span class="p">:</span><span class="n">device0</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device10</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device12</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device14</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device16</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device18</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device3</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device5</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device7</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device9</span>
 <span class="n">iio</span><span class="p">:</span><span class="n">device1</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device11</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device13</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device15</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device17</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device2</span>   <span class="n">iio</span><span class="p">:</span><span class="n">device4</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device6</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device8</span>  <span class="n">iio_sysfs_trigger</span>
 
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="c1"># grep &quot;&quot; /name</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="c1"># grep "" /name</span>
 <span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">name</span><span class="p">:</span><span class="n">ams</span>
 <span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">/</span><span class="n">name</span><span class="p">:</span><span class="n">adrf5720</span>
 <span class="n">iio</span><span class="p">:</span><span class="n">device10</span><span class="o">/</span><span class="n">name</span><span class="p">:</span><span class="n">adl5960</span>

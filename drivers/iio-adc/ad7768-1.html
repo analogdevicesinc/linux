@@ -8,7 +8,7 @@
 
     <title>AD7768-1 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -445,8 +445,8 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 <li><p>interrupts: a list of interrupt specifiers</p></li>
 </ul>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">adc_vref</span><span class="p">:</span><span class="w"> </span><span class="nf">fixedregulator</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;regulator-fixed&quot;</span><span class="p">;</span>
-<span class="w">    </span><span class="n">regulator-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;fixed-supply&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"regulator-fixed"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">regulator-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"fixed-supply"</span><span class="p">;</span>
 <span class="w">    </span><span class="n">regulator-min-microvolt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">4096000</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">regulator-max-microvolt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">4096000</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">regulator-boot-on</span><span class="p">;</span>
@@ -454,17 +454,17 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 <span class="w">    </span><span class="nf">clocks</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nl">ad7768_mclk</span><span class="p">:</span><span class="w"> </span><span class="nf">clock</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">        </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;fixed-clock&quot;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"fixed-clock"</span><span class="p">;</span>
 <span class="w">        </span><span class="n">clock-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16384000</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="p">};</span>
 <span class="p">};</span>
 
 <span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="kr">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;okay&quot;</span><span class="p">;</span>
+<span class="kr">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"okay"</span><span class="p">;</span>
 
 <span class="nf">ad7768</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad7768-1&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad7768-1"</span><span class="p">;</span>
 <span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16000000</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">spi-cpol</span><span class="p">;</span>
@@ -474,7 +474,7 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 <span class="w">    </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">vref-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adc_vref</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">    </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">ad7768_mclk</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;mclk&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"mclk"</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
@@ -625,7 +625,7 @@ debugfs requires root privileges.</p>
 <p>In order to identify if the IIO device in question feature this option you first
 need to identify the IIO device number.</p>
 <p>Therefore read the name attribute of each IIO device</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># grep &quot;&quot; /sys/bus/iio/devices/iio\:device/name</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># grep "" /sys/bus/iio/devices/iio\:device/name</span>
 <span class="n">ad7768</span><span class="o">-</span><span class="mi">1</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1">#</span>
 </pre></div>

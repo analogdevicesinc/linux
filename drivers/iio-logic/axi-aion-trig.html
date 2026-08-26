@@ -8,7 +8,7 @@
 
     <title>AXI AION Trigger &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=fb8972a4" />
     <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -486,25 +486,25 @@ BSYNC synchronization signal.</p>
 <h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
 <p>Basic configuration with JESD204 integration:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_aion_trig</span><span class="p">:</span> <span class="n">axi_aion_trig</span><span class="o">@</span><span class="mi">7</span><span class="n">c600000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-aion-trig-1.0.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-aion-trig-1.0.a"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x7c600000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;device_clk&quot;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"device_clk"</span><span class="p">;</span>
 
     <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
     <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
 
     <span class="n">io</span><span class="o">-</span><span class="n">channels</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adf4030</span> <span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">io</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;bsync&quot;</span><span class="p">;</span>
+    <span class="n">io</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"bsync"</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
 <p>With JESD204 topology connections:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_aion_trig</span><span class="p">:</span> <span class="n">axi_aion_trig</span><span class="o">@</span><span class="mi">7</span><span class="n">c900000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-aion-trig-1.0.a&quot;</span><span class="p">;</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-aion-trig-1.0.a"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x7c900000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
     <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ltc6952</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;device_clk&quot;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"device_clk"</span><span class="p">;</span>
 
     <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
     <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
@@ -513,7 +513,7 @@ BSYNC synchronization signal.</p>
         <span class="o">&lt;&amp;</span><span class="n">adf4030</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_B0_TX</span><span class="o">&gt;</span><span class="p">;</span>
 
     <span class="n">io</span><span class="o">-</span><span class="n">channels</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adf4030</span> <span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">io</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;bsync&quot;</span><span class="p">;</span>
+    <span class="n">io</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"bsync"</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
@@ -542,7 +542,7 @@ BSYNC synchronization signal.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="k">$(</span>grep<span class="w"> </span>-rw<span class="w"> </span>/sys/bus/iio/devices/*/name<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;axi_aion_trig&quot;</span><span class="w"> </span>-l<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>dirname<span class="k">)</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="k">$(</span>grep<span class="w"> </span>-rw<span class="w"> </span>/sys/bus/iio/devices/*/name<span class="w"> </span>-e<span class="w"> </span><span class="s2">"axi_aion_trig"</span><span class="w"> </span>-l<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>dirname<span class="k">)</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><section id="iio-channel-attributes">
