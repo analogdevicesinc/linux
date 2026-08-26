@@ -803,7 +803,6 @@ static void vt_write_tsc_multiplier(struct kvm_vcpu *vcpu)
 	vmx_write_tsc_multiplier(vcpu);
 }
 
-#ifdef CONFIG_X86_64
 static int vt_set_hv_timer(struct kvm_vcpu *vcpu, u64 guest_deadline_tsc,
 			      bool *expired)
 {
@@ -822,7 +821,6 @@ static void vt_cancel_hv_timer(struct kvm_vcpu *vcpu)
 
 	vmx_cancel_hv_timer(vcpu);
 }
-#endif
 
 static void vt_setup_mce(struct kvm_vcpu *vcpu)
 {
