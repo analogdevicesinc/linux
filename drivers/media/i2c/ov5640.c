@@ -1873,8 +1873,36 @@ static int ov5640_set_stream_mipi(struct ov5640_dev *sensor, bool on)
 	if (ret)
 		return ret;
 
-	return ov5640_write_reg(sensor, OV5640_REG_FRAME_CTRL01,
-				on ? 0x00 : 0x0f);
+	ret = ov5640_write_reg(sensor, OV5640_REG_FRAME_CTRL01,
+			       on ? 0x00 : 0x0f);
+	if (ret)
+		return ret;
+
+	if (!on)
+		return 0;
+
+	/*
+	 * MIPI CSI-2 start-of-transmission requires each lane to enter
+	 * high-speed mode out of the LP-11 state (LP11 -> HS). The normal
+	 * power-up sequence can instead leave the lanes going LP00 -> HS.
+	 * Toggling the sensor through software standby (SW_PWDN -> SW_PWUP)
+	 * once the interface is enabled re-initialises the MIPI PHY so the
+	 * lanes settle in LP-11 first and then perform a proper LP11 -> HS
+	 * transition. The default non-continuous-clock path does not need
+	 * this, so skip the pulse there.
+	 */
+	if (sensor->ep.bus.mipi_csi2.flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK)
+		return 0;
+
+	ret = ov5640_write_reg(sensor, OV5640_REG_SYS_CTRL0,
+			       OV5640_REG_SYS_CTRL0_SW_PWDN);
+	if (ret)
+		return ret;
+
+	usleep_range(5000, 10000);
+
+	return ov5640_write_reg(sensor, OV5640_REG_SYS_CTRL0,
+				OV5640_REG_SYS_CTRL0_SW_PWUP);
 }
 
 static int ov5640_get_sysclk(struct ov5640_dev *sensor)
@@ -2545,6 +2573,7 @@ static void ov5640_set_power_off(struct ov5640_dev *sensor)
 static int ov5640_set_power_mipi(struct ov5640_dev *sensor, bool on)
 {
 	int ret;
+	u8 mipi_ctrl00 = 0x04;
 
 	if (!on) {
 		/* Reset MIPI bus settings to their default values. */
@@ -2569,13 +2598,19 @@ static int ov5640_set_power_mipi(struct ov5640_dev *sensor, bool on)
 		return ret;
 
 	/*
-	 * Gate clock and set LP11 in 'no packets mode' (idle)
+	 * Set LP11 in 'no packets mode' (idle) and, unless the endpoint
+	 * requests a non-continuous clock, keep the MIPI clock running
+	 * continuously.
 	 *
-	 * 0x4800 = 0x24
-	 * [5] = 1	: Gate clock when 'no packets'
+	 * 0x4800 = 0x04
+	 * [5] = 0	: Continuous clock (do not gate when 'no packets')
 	 * [2] = 1	: MIPI bus in LP11 when 'no packets'
 	 */
-	ret = ov5640_write_reg(sensor, OV5640_REG_MIPI_CTRL00, 0x24);
+
+	if (sensor->ep.bus.mipi_csi2.flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK)
+		mipi_ctrl00 |= BIT(5);
+
+	ret = ov5640_write_reg(sensor, OV5640_REG_MIPI_CTRL00, mipi_ctrl00);
 	if (ret)
 		return ret;
 
