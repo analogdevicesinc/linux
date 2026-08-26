@@ -24,6 +24,7 @@
 #include <linux/spi/spi.h>
 #include <linux/time.h>
 #include <linux/types.h>
+#include <linux/units.h>
 
 #include <linux/iio/backend.h>
 #include <linux/iio/iio.h>
@@ -100,6 +101,9 @@
 #define AD7768_SPI_REG_MASK				GENMASK(14, 8)
 #define AD7768_SPI_DATA_MASK				GENMASK(7, 0)
 
+#define AD7768_MIN_MCLK_FREQ_HZ				(1150 * HZ_PER_KHZ)
+#define AD7768_MIN_XTAL_FREQ_HZ				(8 * HZ_PER_MHZ)
+#define AD7768_MAX_MCLK_FREQ_HZ				(34 * HZ_PER_MHZ)
 #define AD7768_MAX_CHANNEL				8
 
 enum ad7768_clock_source {
@@ -758,6 +762,23 @@ static int ad7768_get_enable_vref(struct device *dev, unsigned int index)
 	return refp_uV - refn_uV;
 }
 
+static int ad7768_validate_mclk_rate(struct device *dev,
+				     const struct ad7768_state *st)
+{
+	unsigned long min_rate = AD7768_MIN_MCLK_FREQ_HZ;
+	unsigned long rate = clk_get_rate(st->mclk);
+
+	if (st->clock_source == AD7768_CLOCK_SOURCE_XTAL)
+		min_rate = AD7768_MIN_XTAL_FREQ_HZ;
+
+	if (rate < min_rate || rate > AD7768_MAX_MCLK_FREQ_HZ)
+		return dev_err_probe(dev, -EINVAL,
+				     "MCLK rate %lu Hz outside %lu-%lu Hz\n",
+				     rate, min_rate, AD7768_MAX_MCLK_FREQ_HZ);
+
+	return 0;
+}
+
 static int ad7768_probe(struct spi_device *spi)
 {
 	unsigned int spi_readback, rev_id;
@@ -830,6 +851,10 @@ static int ad7768_probe(struct spi_device *spi)
 	if (IS_ERR(st->mclk))
 		return dev_err_probe(dev, PTR_ERR(st->mclk),
 				     "Failed to get master clock\n");
+
+	ret = ad7768_validate_mclk_rate(dev, st);
+	if (ret)
+		return ret;
 
 	st->regmap = devm_regmap_init(dev, &ad7768_regmap_bus, spi,
 				      st->chip_info->regmap_config);
