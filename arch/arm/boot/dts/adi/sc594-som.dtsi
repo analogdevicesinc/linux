@@ -61,7 +61,7 @@
 			reg = <0x28240000 0x160000>,
 					<0x20000000 0x200000>;
 			core-id = <1>;
-			firmware-name = "adi_adsp_core1_fw.ldr";
+			firmware-name = "adi/rpmsg_echo_sharc_core1.ldr";
 			interrupts = <GIC_SPI 165 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
 			adi,svect = <&rcu 0x30>;
 			resets = <&rcu 1 0>, <&rcu 1 1>;
@@ -80,7 +80,7 @@
 			reg = <0x28a40000 0x160000>,
 					<0x20000000 0x200000>;
 			core-id = <2>;
-			firmware-name = "adi_adsp_core2_fw.ldr";
+			firmware-name = "adi/rpmsg_echo_sharc_core2.ldr";
 			interrupts = <GIC_SPI 165 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
 			adi,svect = <&rcu 0x34>;
 			resets = <&rcu 2 0>, <&rcu 2 1>;
