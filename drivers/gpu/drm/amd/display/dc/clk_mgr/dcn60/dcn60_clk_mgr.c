@@ -479,6 +479,39 @@ static int dcn60_get_dtb_ref_freq_khz(struct clk_mgr *clk_mgr_base)
 	return dtb_ref_clk_khz;
 }
 
+/**
+ * dcn60_override_dc_mode_limit - Override DC mode limits from the clock table.
+ * @dc_limit: output DC mode limit to populate
+ * @clk_table: clock table already populated (and possibly overridden)
+ *
+ * Sets the DC mode max frequency for each clock to the highest populated DPM
+ * level in the clock table. Deriving the limit from the clock table (rather
+ * than the raw DAL init table) ensures any overrides applied to the clock
+ * levels are respected.
+ */
+static void dcn60_override_dc_mode_limit(
+		struct clk_limit_table_entry *dc_limit,
+		const struct clk_limit_table *clk_table)
+{
+	const struct clk_limit_table_entry *entries = clk_table->entries;
+	const struct clk_limit_num_entries *num_entries = &clk_table->num_entries_per_clk;
+
+	dc_limit->dcfclk_mhz  = num_entries->num_dcfclk_levels ?
+			entries[num_entries->num_dcfclk_levels - 1].dcfclk_mhz : 0;
+	dc_limit->socclk_mhz  = num_entries->num_socclk_levels ?
+			entries[num_entries->num_socclk_levels - 1].socclk_mhz : 0;
+	dc_limit->dtbclk_mhz  = num_entries->num_dtbclk_levels ?
+			entries[num_entries->num_dtbclk_levels - 1].dtbclk_mhz : 0;
+	dc_limit->dispclk_mhz = num_entries->num_dispclk_levels ?
+			entries[num_entries->num_dispclk_levels - 1].dispclk_mhz : 0;
+	dc_limit->dppclk_mhz  = num_entries->num_dppclk_levels ?
+			entries[num_entries->num_dppclk_levels - 1].dppclk_mhz : 0;
+	dc_limit->memclk_mhz  = num_entries->num_memclk_levels ?
+			entries[num_entries->num_memclk_levels - 1].memclk_mhz : 0;
+	dc_limit->fclk_mhz    = num_entries->num_fclk_levels ?
+			entries[num_entries->num_fclk_levels - 1].fclk_mhz : 0;
+}
+
 static unsigned int dcn60_get_dc_mode_limit_mhz(const DpmClock_t *dpm_clk)
 {
 	if (dpm_clk->NumClocks
@@ -495,8 +528,10 @@ static unsigned int dcn60_get_dc_mode_limit_mhz(const DpmClock_t *dpm_clk)
  *
  * Sets the DC mode max frequency for each clock. If DcMaxClock equals the
  * highest DPM level, the limit is set to 0 (no DC-specific cap).
+ *
+ * Temporarily unused.
  */
-static void dcn60_populate_dc_mode_limit(
+static void __maybe_unused dcn60_populate_dc_mode_limit(
 		struct clk_limit_table_entry *dc_limit,
 		const DalInitTable_t *init_table)
 {
@@ -578,6 +613,20 @@ static void dcn60_populate_clk_table(struct clk_mgr_internal *clk_mgr,
 		clk_table->num_entries = 1;
 }
 
+/**
+ * dcn60_override_clk_table - Override the clock table with hardcoded values.
+ * @clk_table: clock table to override
+ *
+ * Temporary debug/bring-up override that replaces the DPM clock levels
+ * populated from the DAL init table (see dcn60_populate_clk_table) with a
+ * fixed set of hardcoded values. Implement any override as needed.
+ */
+static void dcn60_override_clk_table(struct clk_limit_table *clk_table)
+{
+	/* Override as needed */
+	(void)clk_table;
+}
+
 static void dcn60_override_bw_params(struct clk_mgr_internal *clk_mgr,
 		struct clk_bw_params *bw_params)
 {
@@ -605,12 +654,17 @@ static void dcn60_override_bw_params(struct clk_mgr_internal *clk_mgr,
 
 	bw_params->dc_mode_softmax_memclk = bw_params->dc_mode_limit.memclk_mhz;
 
-	/* The qos model stores dchub_v3 as a const view of a mutable table, so
-	 * cast away const to apply the override.
-	 */
-	if (bw_params->utm_qos_model && bw_params->utm_qos_model->dchub_v3)
+	/* Override as needed - temporary for debug only. */
+	if (bw_params->utm_qos_model && bw_params->utm_qos_model->dchub_v3) {
+		dcn6_test_initialize_utm_qos_model_v3(
+				(struct utm_qos_model *)bw_params->utm_qos_model,
+				(struct utm_qos_model_dchub_v3 *)bw_params->utm_qos_model->dchub_v3);
+
+		// Override for lsdma here is redundant with the above call, but this may need to outlive
+		// the test_initialize call for debug purposes so keep it here for now.
 		dcn6_test_override_lsdma_bandwidth_v3(
 				(struct utm_qos_model_dchub_v3 *)bw_params->utm_qos_model->dchub_v3);
+	}
 }
 
 /**
@@ -685,7 +739,9 @@ static bool dcn60_fetch_dal_init_table(struct clk_mgr_internal *clk_mgr)
 	clk_mgr->smu_ver = init_table->Header.SmuVersion;
 
 	dcn60_populate_clk_table(clk_mgr, &bw_params->clk_table, init_table);
-	dcn60_populate_dc_mode_limit(&bw_params->dc_mode_limit, init_table);
+	// Comment out for now - DC mode limit is not yet used in DCN6 and the current
+	// population from init table will cause undefined behaviors.
+	//dcn60_populate_dc_mode_limit(&bw_params->dc_mode_limit, init_table);
 
 	bw_params->num_channels = init_table->MemoryConfig.NumUmcChannels;
 	bw_params->dram_channel_width_bytes =
@@ -694,6 +750,8 @@ static bool dcn60_fetch_dal_init_table(struct clk_mgr_internal *clk_mgr)
 	dcn60_populate_utm_qos_model(clk_mgr, &bw_params->utm_qos_model, init_table);
 
 	dcn60_override_bw_params(clk_mgr, bw_params);
+	dcn60_override_clk_table(&bw_params->clk_table);
+	dcn60_override_dc_mode_limit(&bw_params->dc_mode_limit, &bw_params->clk_table);
 
 	return true;
 }

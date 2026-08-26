@@ -112,7 +112,7 @@ typedef struct {
  * TABLE_DAL_INIT - Full TABLE_DAL_INIT payload transferred from SMU to DRAM.
  */
 #define TABLE_DAL_INIT    0xD
-#define MAX_PPCLK_COUNT   20
+#define MAX_PPCLK_COUNT   22
 #define DPM_CLOCK_OFFSET(Ppclk) \
 	(sizeof(DalInitHeader_t) + (Ppclk) * sizeof(DpmClock_t))
 #define UTM_TABLE_OFFSET \
