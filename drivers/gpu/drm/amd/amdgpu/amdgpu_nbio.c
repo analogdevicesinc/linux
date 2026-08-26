@@ -221,18 +221,26 @@ void amdgpu_nbio_program_doorbell_entry(
 	if (WARN_ON_ONCE(!entry->ctrl_reg))
 		return;
 
-	/* A NULL CTRL disables and clears the entry. */
-	if (!ctrl) {
-		WREG32_SOC15_IP(NBIO, entry->ctrl_reg, 0);
-		if (entry->ctrl1_reg)
-			WREG32_SOC15_IP(NBIO, entry->ctrl1_reg, 0);
+	if (entry->use_ext) {
+		/* CTRL1 programming is not needed when use_ext is set. */
+		if (WARN_ON_ONCE(entry->ctrl1_reg || ctrl1))
+			return;
+
+		WREG32_PCIE_EXT(
+			(adev->reg_offset[NBIO_HWIP][entry->reg_inst]
+			 [entry->ctrl_reg_base_idx] + entry->ctrl_reg) * 4 +
+			amdgpu_reg_get_smn_base64(
+				adev, NBIO_HWIP, entry->reg_inst),
+			ctrl ? *ctrl : 0);
 		return;
 	}
 
 	if (WARN_ON_ONCE(ctrl1 && !entry->ctrl1_reg))
 		return;
 
-	WREG32_SOC15_IP(NBIO, entry->ctrl_reg, *ctrl);
-	if (ctrl1)
-		WREG32_SOC15_IP(NBIO, entry->ctrl1_reg, *ctrl1);
+	/* A NULL CTRL disables and clears the entry. */
+	WREG32_SOC15_IP(NBIO, entry->ctrl_reg, ctrl ? *ctrl : 0);
+	if (entry->ctrl1_reg && (!ctrl || ctrl1))
+		WREG32_SOC15_IP(NBIO, entry->ctrl1_reg,
+				    ctrl ? *ctrl1 : 0);
 }

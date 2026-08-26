@@ -114,6 +114,15 @@ struct amdgpu_nbio_doorbell_entry {
 	u32 port;
 	u32 ctrl_reg;
 	u32 ctrl1_reg;
+	/*
+	 * Some NBIO generations expose each register instance through a global
+	 * SMN address. The caller invokes the doorbell callback for each required
+	 * instance across the die; reg_inst identifies the instance represented
+	 * by this entry. Extended entries only support a CTRL register.
+	 */
+	bool use_ext;
+	u32 reg_inst;
+	u32 ctrl_reg_base_idx;
 };
 
 struct amdgpu_nbio_doorbell_entries {
