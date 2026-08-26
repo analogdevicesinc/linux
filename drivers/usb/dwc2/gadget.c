@@ -2298,6 +2298,7 @@ static void dwc2_hsotg_rx_data(struct dwc2_hsotg *hsotg, int ep_idx, int size)
 	int to_read;
 	int max_req;
 	int read_ptr;
+	u32 drain;
 
 	if (!hs_req) {
 		u32 epctl = dwc2_readl(hsotg, DOEPCTL(ep_idx));
@@ -2317,30 +2318,46 @@ static void dwc2_hsotg_rx_data(struct dwc2_hsotg *hsotg, int ep_idx, int size)
 	to_read = size;
 	read_ptr = hs_req->req.actual;
 	max_req = hs_req->req.length - read_ptr;
+	drain = 0;
 
 	dev_dbg(hsotg->dev, "%s: read %d/%d, done %d/%d\n",
 		__func__, to_read, max_req, read_ptr, hs_req->req.length);
 
 	if (to_read > max_req) {
 		/*
-		 * more data appeared than we where willing
-		 * to deal with in this request.
+		 * More data appeared than we were willing to deal with in
+		 * this request.  Keep only what fits in the request buffer
+		 * and discard the rest from the FIFO, instead of overwriting
+		 * bytes past the request buffer (a 64-byte packet into a
+		 * request with one byte left used to over-write 63 bytes past
+		 * its end).
 		 */
-
-		/* currently we don't deal this */
-		WARN_ON_ONCE(1);
+		dev_dbg(hsotg->dev, "%s: packet %d > request space %d, dropping %d\n",
+			__func__, to_read, max_req, to_read - max_req);
+		drain = DIV_ROUND_UP(to_read - max_req, 4);
+		to_read = max_req;
 	}
 
 	hs_ep->total_data += to_read;
 	hs_req->req.actual += to_read;
-	to_read = DIV_ROUND_UP(to_read, 4);
 
 	/*
-	 * note, we might over-write the buffer end by 3 bytes depending on
-	 * alignment of the data.
+	 * Copy word-at-a-time so the request buffer is exactly filled and
+	 * never over-run by the 4-byte rounding of the previous FIFO bulk
+	 * read (which could also emit up to 3 bytes past the buffer end).
 	 */
-	dwc2_readl_rep(hsotg, EPFIFO(ep_idx),
-		       hs_req->req.buf + read_ptr, to_read);
+	while (to_read > 0) {
+		u32 word = dwc2_readl(hsotg, EPFIFO(ep_idx));
+		unsigned int chunk = min_t(unsigned int, to_read, 4);
+
+		memcpy(hs_req->req.buf + read_ptr, &word, chunk);
+		read_ptr += chunk;
+		to_read -= chunk;
+	}
+
+	/* drain the discarded bytes so the next FIFO event is a fresh packet */
+	while (drain-- > 0)
+		(void)dwc2_readl(hsotg, EPFIFO(ep_idx));
 }
 
 /**
