@@ -394,10 +394,6 @@ static int aca_banks_update(struct ras_core_context *ras_core,
 	if (!count)
 		goto out;
 
-	/* Only one MCE error is logged for each batch */
-	if (ecc_type != RAS_ERR_TYPE__MCE)
-		batch_tag = ras_log_ring_create_batch_tag(ras_core);
-
 	for (i = 0; i < count; i++) {
 		memset(&bank, 0, sizeof(bank));
 		ret = aca_dump_bank(ras_core, ecc_type, i, &bank);
@@ -419,6 +415,10 @@ static int aca_banks_update(struct ras_core_context *ras_core,
 			ret = aca_parse_bank(ras_core, aca_blk, &bank, &bank_ecc);
 
 		bank.seq_no = aca_get_bank_seqno(ras_core, ecc_type, aca_blk, &bank_ecc);
+
+		/* Only one MCE error is logged for each batch */
+		if (ecc_type != RAS_ERR_TYPE__MCE && !batch_tag)
+			batch_tag = ras_log_ring_create_batch_tag(ras_core);
 
 		aca_log_bank_data(ras_core, &bank, &bank_ecc, batch_tag);
 		aca_bank_log(ras_core, i, count, &bank, &bank_ecc);
