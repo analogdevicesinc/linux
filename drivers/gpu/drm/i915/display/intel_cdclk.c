@@ -209,7 +209,12 @@ static void intel_cdclk_set_cdclk(struct intel_display *display,
 				  const struct intel_cdclk_config *cdclk_config,
 				  enum pipe pipe)
 {
+	if (intel_cdclk_pre_notify(display))
+		return;
+
 	display->cdclk.funcs->set_cdclk(display, cdclk_config, pipe);
+
+	intel_cdclk_post_notify(display, cdclk_config);
 }
 
 static int intel_cdclk_modeset_calc_cdclk(struct intel_atomic_state *state)
@@ -933,10 +938,6 @@ static void bdw_set_cdclk(struct intel_display *display,
 		     "trying to change cdclk frequency with cdclk not enabled\n"))
 		return;
 
-	ret = intel_cdclk_pre_notify(display);
-	if (ret)
-		return;
-
 	intel_de_rmw(display, LCPLL_CTL,
 		     0, LCPLL_CD_SOURCE_FCLK);
 
@@ -959,8 +960,6 @@ static void bdw_set_cdclk(struct intel_display *display,
 					 LCPLL_CD_SOURCE_FCLK_DONE, 1);
 	if (ret)
 		drm_err(display->drm, "Switching back to LCPLL failed\n");
-
-	intel_cdclk_post_notify(display, cdclk_config);
 
 	intel_de_write(display, CDCLK_FREQ,
 		       DIV_ROUND_CLOSEST(cdclk, 1000) - 1);
@@ -1218,7 +1217,6 @@ static void skl_set_cdclk(struct intel_display *display,
 	int cdclk = cdclk_config->cdclk;
 	int vco = cdclk_config->vco;
 	u32 freq_select, cdclk_ctl;
-	int ret;
 
 	/*
 	 * Based on WA#1183 CDCLK rates 308 and 617MHz CDCLK rates are
@@ -1230,10 +1228,6 @@ static void skl_set_cdclk(struct intel_display *display,
 	 */
 	drm_WARN_ON_ONCE(display->drm,
 			 display->platform.skylake && vco == 8640000);
-
-	ret = intel_cdclk_pre_notify(display);
-	if (ret)
-		return;
 
 	freq_select = skl_cdclk_freq_sel(display, cdclk, vco);
 
@@ -1269,8 +1263,6 @@ static void skl_set_cdclk(struct intel_display *display,
 	cdclk_ctl &= ~CDCLK_DIVMUX_CD_OVERRIDE;
 	intel_de_write(display, CDCLK_CTL, cdclk_ctl);
 	intel_de_posting_read(display, CDCLK_CTL);
-
-	intel_cdclk_post_notify(display, cdclk_config);
 
 	intel_update_cdclk(display);
 }
@@ -1362,7 +1354,7 @@ static void skl_cdclk_init_hw(struct intel_display *display)
 	cdclk_config.cdclk = skl_calc_cdclk(0, cdclk_config.vco);
 	cdclk_config.voltage_level = skl_calc_voltage_level(cdclk_config.cdclk);
 
-	skl_set_cdclk(display, &cdclk_config, INVALID_PIPE);
+	intel_cdclk_set_cdclk(display, &cdclk_config, INVALID_PIPE);
 }
 
 static void skl_cdclk_uninit_hw(struct intel_display *display)
@@ -1373,7 +1365,7 @@ static void skl_cdclk_uninit_hw(struct intel_display *display)
 	cdclk_config.vco = 0;
 	cdclk_config.voltage_level = skl_calc_voltage_level(cdclk_config.cdclk);
 
-	skl_set_cdclk(display, &cdclk_config, INVALID_PIPE);
+	intel_cdclk_set_cdclk(display, &cdclk_config, INVALID_PIPE);
 }
 
 struct intel_cdclk_vals {
@@ -2335,11 +2327,6 @@ static void bxt_set_cdclk(struct intel_display *display,
 {
 	struct intel_cdclk_config mid_cdclk_config;
 	int cdclk = cdclk_config->cdclk;
-	int ret;
-
-	ret = intel_cdclk_pre_notify(display);
-	if (ret)
-		return;
 
 	if (DISPLAY_VER(display) >= 20 && cdclk < display->cdclk.hw.cdclk)
 		xe2lpd_mdclk_cdclk_ratio_program(display, cdclk_config);
@@ -2354,8 +2341,6 @@ static void bxt_set_cdclk(struct intel_display *display,
 
 	if (DISPLAY_VER(display) >= 20 && cdclk > display->cdclk.hw.cdclk)
 		xe2lpd_mdclk_cdclk_ratio_program(display, cdclk_config);
-
-	intel_cdclk_post_notify(display, cdclk_config);
 
 	intel_update_cdclk(display);
 
@@ -2463,7 +2448,7 @@ static void bxt_cdclk_init_hw(struct intel_display *display)
 	cdclk_config.voltage_level =
 		intel_cdclk_calc_voltage_level(display, cdclk_config.cdclk);
 
-	bxt_set_cdclk(display, &cdclk_config, INVALID_PIPE);
+	intel_cdclk_set_cdclk(display, &cdclk_config, INVALID_PIPE);
 }
 
 static void bxt_cdclk_uninit_hw(struct intel_display *display)
@@ -2475,7 +2460,7 @@ static void bxt_cdclk_uninit_hw(struct intel_display *display)
 	cdclk_config.voltage_level =
 		intel_cdclk_calc_voltage_level(display, cdclk_config.cdclk);
 
-	bxt_set_cdclk(display, &cdclk_config, INVALID_PIPE);
+	intel_cdclk_set_cdclk(display, &cdclk_config, INVALID_PIPE);
 }
 
 /**
