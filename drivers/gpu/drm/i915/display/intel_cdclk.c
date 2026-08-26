@@ -163,6 +163,9 @@ struct intel_cdclk_funcs {
 	void (*set_cdclk)(struct intel_display *display,
 			  const struct intel_cdclk_config *cdclk_config,
 			  enum pipe pipe);
+	int (*pre_notify)(struct intel_display *display);
+	int (*post_notify)(struct intel_display *display,
+			   const struct intel_cdclk_config *cdclk_config);
 	int (*modeset_calc_cdclk)(struct intel_atomic_state *state);
 	u8 (*calc_voltage_level)(int cdclk);
 };
@@ -171,6 +174,35 @@ void intel_cdclk_get_cdclk(struct intel_display *display,
 			   struct intel_cdclk_config *cdclk_config)
 {
 	display->cdclk.funcs->get_cdclk(display, cdclk_config);
+}
+
+static int intel_cdclk_pre_notify(struct intel_display *display)
+{
+	int ret;
+
+	if (!display->cdclk.funcs->pre_notify)
+		return 0;
+
+	ret = display->cdclk.funcs->pre_notify(display);
+	if (ret)
+		drm_err(display->drm,
+			"Failed to inform system about start of CDCLK change (%d)\n", ret);
+
+	return ret;
+}
+
+static void intel_cdclk_post_notify(struct intel_display *display,
+				    const struct intel_cdclk_config *cdclk_config)
+{
+	int ret;
+
+	if (!display->cdclk.funcs->post_notify)
+		return;
+
+	ret = display->cdclk.funcs->post_notify(display, cdclk_config);
+	if (ret)
+		drm_err(display->drm,
+			"Failed to inform system about end of CDCLK change (%d)\n", ret);
 }
 
 static void intel_cdclk_set_cdclk(struct intel_display *display,
@@ -901,12 +933,9 @@ static void bdw_set_cdclk(struct intel_display *display,
 		     "trying to change cdclk frequency with cdclk not enabled\n"))
 		return;
 
-	ret = bdw_cdclk_pcode_pre_notify(display);
-	if (ret) {
-		drm_err(display->drm,
-			"Failed to inform PCODE about start of CDCLK change (%d)\n", ret);
+	ret = intel_cdclk_pre_notify(display);
+	if (ret)
 		return;
-	}
 
 	intel_de_rmw(display, LCPLL_CTL,
 		     0, LCPLL_CD_SOURCE_FCLK);
@@ -931,10 +960,7 @@ static void bdw_set_cdclk(struct intel_display *display,
 	if (ret)
 		drm_err(display->drm, "Switching back to LCPLL failed\n");
 
-	ret = bdw_cdclk_pcode_post_notify(display, cdclk_config);
-	if (ret)
-		drm_err(display->drm,
-			"Failed to inform PCODE about end of CDCLK change (%d)\n", ret);
+	intel_cdclk_post_notify(display, cdclk_config);
 
 	intel_de_write(display, CDCLK_FREQ,
 		       DIV_ROUND_CLOSEST(cdclk, 1000) - 1);
@@ -1205,12 +1231,9 @@ static void skl_set_cdclk(struct intel_display *display,
 	drm_WARN_ON_ONCE(display->drm,
 			 display->platform.skylake && vco == 8640000);
 
-	ret = skl_cdclk_pcode_pre_notify(display);
-	if (ret) {
-		drm_err(display->drm,
-			"Failed to inform PCODE about start of CDCLK change (%d)\n", ret);
+	ret = intel_cdclk_pre_notify(display);
+	if (ret)
 		return;
-	}
 
 	freq_select = skl_cdclk_freq_sel(display, cdclk, vco);
 
@@ -1247,10 +1270,7 @@ static void skl_set_cdclk(struct intel_display *display,
 	intel_de_write(display, CDCLK_CTL, cdclk_ctl);
 	intel_de_posting_read(display, CDCLK_CTL);
 
-	ret = skl_cdclk_pcode_post_notify(display, cdclk_config);
-	if (ret)
-		drm_err(display->drm,
-			"Failed to inform PCODE about end of CDCLK change (%d)\n", ret);
+	intel_cdclk_post_notify(display, cdclk_config);
 
 	intel_update_cdclk(display);
 }
@@ -2317,24 +2337,9 @@ static void bxt_set_cdclk(struct intel_display *display,
 	int cdclk = cdclk_config->cdclk;
 	int ret;
 
-	/*
-	 * Inform power controller of upcoming frequency change.
-	 * Display versions 14 and beyond do not follow the PUnit
-	 * mailbox communication, skip
-	 * this step.
-	 */
-	if (DISPLAY_VER(display) >= 14 || display->platform.dg2)
-		ret = 0; /* NOOP */
-	else if (DISPLAY_VER(display) >= 11)
-		ret = skl_cdclk_pcode_pre_notify(display);
-	else
-		ret = bxt_cdclk_pcode_pre_notify(display);
-
-	if (ret) {
-		drm_err(display->drm,
-			"Failed to inform PCODE about start of CDCLK change (%d)\n", ret);
+	ret = intel_cdclk_pre_notify(display);
+	if (ret)
 		return;
-	}
 
 	if (DISPLAY_VER(display) >= 20 && cdclk < display->cdclk.hw.cdclk)
 		xe2lpd_mdclk_cdclk_ratio_program(display, cdclk_config);
@@ -2350,16 +2355,7 @@ static void bxt_set_cdclk(struct intel_display *display,
 	if (DISPLAY_VER(display) >= 20 && cdclk > display->cdclk.hw.cdclk)
 		xe2lpd_mdclk_cdclk_ratio_program(display, cdclk_config);
 
-	if (DISPLAY_VER(display) >= 14 || display->platform.dg2)
-		ret = 0; /* NOOP */
-	else if (DISPLAY_VER(display) >= 11)
-		ret = skl_cdclk_pcode_post_notify(display, cdclk_config);
-	else
-		ret = bxt_cdclk_pcode_post_notify(display, cdclk_config);
-
-	if (ret)
-		drm_err(display->drm,
-			"Failed to inform PCODE about end of CDCLK change (%d)\n", ret);
+	intel_cdclk_post_notify(display, cdclk_config);
 
 	intel_update_cdclk(display);
 
@@ -3983,9 +3979,25 @@ static const struct intel_cdclk_funcs xe3lpd_cdclk_funcs = {
 	.calc_voltage_level = xe3lpd_calc_voltage_level,
 };
 
+static const struct intel_cdclk_funcs mtl_cdclk_funcs = {
+	.get_cdclk = bxt_get_cdclk,
+	.set_cdclk = bxt_set_cdclk,
+	.modeset_calc_cdclk = bxt_modeset_calc_cdclk,
+	.calc_voltage_level = rplu_calc_voltage_level,
+};
+
+static const struct intel_cdclk_funcs dg2_cdclk_funcs = {
+	.get_cdclk = bxt_get_cdclk,
+	.set_cdclk = bxt_set_cdclk,
+	.modeset_calc_cdclk = bxt_modeset_calc_cdclk,
+	.calc_voltage_level = tgl_calc_voltage_level,
+};
+
 static const struct intel_cdclk_funcs rplu_cdclk_funcs = {
 	.get_cdclk = bxt_get_cdclk,
 	.set_cdclk = bxt_set_cdclk,
+	.pre_notify = skl_cdclk_pcode_pre_notify,
+	.post_notify = skl_cdclk_pcode_post_notify,
 	.modeset_calc_cdclk = bxt_modeset_calc_cdclk,
 	.calc_voltage_level = rplu_calc_voltage_level,
 };
@@ -3993,6 +4005,8 @@ static const struct intel_cdclk_funcs rplu_cdclk_funcs = {
 static const struct intel_cdclk_funcs tgl_cdclk_funcs = {
 	.get_cdclk = bxt_get_cdclk,
 	.set_cdclk = bxt_set_cdclk,
+	.pre_notify = skl_cdclk_pcode_pre_notify,
+	.post_notify = skl_cdclk_pcode_post_notify,
 	.modeset_calc_cdclk = bxt_modeset_calc_cdclk,
 	.calc_voltage_level = tgl_calc_voltage_level,
 };
@@ -4000,6 +4014,8 @@ static const struct intel_cdclk_funcs tgl_cdclk_funcs = {
 static const struct intel_cdclk_funcs ehl_cdclk_funcs = {
 	.get_cdclk = bxt_get_cdclk,
 	.set_cdclk = bxt_set_cdclk,
+	.pre_notify = skl_cdclk_pcode_pre_notify,
+	.post_notify = skl_cdclk_pcode_post_notify,
 	.modeset_calc_cdclk = bxt_modeset_calc_cdclk,
 	.calc_voltage_level = ehl_calc_voltage_level,
 };
@@ -4007,6 +4023,8 @@ static const struct intel_cdclk_funcs ehl_cdclk_funcs = {
 static const struct intel_cdclk_funcs icl_cdclk_funcs = {
 	.get_cdclk = bxt_get_cdclk,
 	.set_cdclk = bxt_set_cdclk,
+	.pre_notify = skl_cdclk_pcode_pre_notify,
+	.post_notify = skl_cdclk_pcode_post_notify,
 	.modeset_calc_cdclk = bxt_modeset_calc_cdclk,
 	.calc_voltage_level = icl_calc_voltage_level,
 };
@@ -4014,6 +4032,8 @@ static const struct intel_cdclk_funcs icl_cdclk_funcs = {
 static const struct intel_cdclk_funcs bxt_cdclk_funcs = {
 	.get_cdclk = bxt_get_cdclk,
 	.set_cdclk = bxt_set_cdclk,
+	.pre_notify = bxt_cdclk_pcode_pre_notify,
+	.post_notify = bxt_cdclk_pcode_post_notify,
 	.modeset_calc_cdclk = bxt_modeset_calc_cdclk,
 	.calc_voltage_level = bxt_calc_voltage_level,
 };
@@ -4021,12 +4041,16 @@ static const struct intel_cdclk_funcs bxt_cdclk_funcs = {
 static const struct intel_cdclk_funcs skl_cdclk_funcs = {
 	.get_cdclk = skl_get_cdclk,
 	.set_cdclk = skl_set_cdclk,
+	.pre_notify = skl_cdclk_pcode_pre_notify,
+	.post_notify = skl_cdclk_pcode_post_notify,
 	.modeset_calc_cdclk = skl_modeset_calc_cdclk,
 };
 
 static const struct intel_cdclk_funcs bdw_cdclk_funcs = {
 	.get_cdclk = bdw_get_cdclk,
 	.set_cdclk = bdw_set_cdclk,
+	.pre_notify = bdw_cdclk_pcode_pre_notify,
+	.post_notify = bdw_cdclk_pcode_post_notify,
 	.modeset_calc_cdclk = bdw_modeset_calc_cdclk,
 };
 
@@ -4132,16 +4156,16 @@ void intel_init_cdclk_hooks(struct intel_display *display)
 		display->cdclk.funcs = &xe3lpd_cdclk_funcs;
 		display->cdclk.table = xe3lpd_cdclk_table;
 	} else if (DISPLAY_VER(display) >= 20) {
-		display->cdclk.funcs = &rplu_cdclk_funcs;
+		display->cdclk.funcs = &mtl_cdclk_funcs;
 		display->cdclk.table = xe2lpd_cdclk_table;
 	} else if (DISPLAY_VERx100(display) >= 1401) {
-		display->cdclk.funcs = &rplu_cdclk_funcs;
+		display->cdclk.funcs = &mtl_cdclk_funcs;
 		display->cdclk.table = xe2hpd_cdclk_table;
 	} else if (DISPLAY_VER(display) >= 14) {
-		display->cdclk.funcs = &rplu_cdclk_funcs;
+		display->cdclk.funcs = &mtl_cdclk_funcs;
 		display->cdclk.table = mtl_cdclk_table;
 	} else if (display->platform.dg2) {
-		display->cdclk.funcs = &tgl_cdclk_funcs;
+		display->cdclk.funcs = &dg2_cdclk_funcs;
 		display->cdclk.table = dg2_cdclk_table;
 	} else if (display->platform.alderlake_p) {
 		/* Wa_22011320316:adl-p[a0] */
