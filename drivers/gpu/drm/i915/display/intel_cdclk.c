@@ -1170,6 +1170,21 @@ static u32 skl_cdclk_freq_sel(struct intel_display *display,
 	}
 }
 
+static int skl_cdclk_pcode_pre_notify(struct intel_display *display)
+{
+	return intel_parent_pcode_request(display, SKL_PCODE_CDCLK_CONTROL,
+					  SKL_CDCLK_PREPARE_FOR_CHANGE,
+					  SKL_CDCLK_READY_FOR_CHANGE,
+					  SKL_CDCLK_READY_FOR_CHANGE, 3);
+}
+
+static int skl_cdclk_pcode_post_notify(struct intel_display *display,
+				       const struct intel_cdclk_config *cdclk_config)
+{
+	return intel_parent_pcode_write(display, SKL_PCODE_CDCLK_CONTROL,
+					cdclk_config->voltage_level);
+}
+
 static void skl_set_cdclk(struct intel_display *display,
 			  const struct intel_cdclk_config *cdclk_config,
 			  enum pipe pipe)
@@ -1190,10 +1205,7 @@ static void skl_set_cdclk(struct intel_display *display,
 	drm_WARN_ON_ONCE(display->drm,
 			 display->platform.skylake && vco == 8640000);
 
-	ret = intel_parent_pcode_request(display, SKL_PCODE_CDCLK_CONTROL,
-					 SKL_CDCLK_PREPARE_FOR_CHANGE,
-					 SKL_CDCLK_READY_FOR_CHANGE,
-					 SKL_CDCLK_READY_FOR_CHANGE, 3);
+	ret = skl_cdclk_pcode_pre_notify(display);
 	if (ret) {
 		drm_err(display->drm,
 			"Failed to inform PCODE about start of CDCLK change (%d)\n", ret);
@@ -1235,9 +1247,7 @@ static void skl_set_cdclk(struct intel_display *display,
 	intel_de_write(display, CDCLK_CTL, cdclk_ctl);
 	intel_de_posting_read(display, CDCLK_CTL);
 
-	/* inform PCU of the change */
-	ret = intel_parent_pcode_write(display, SKL_PCODE_CDCLK_CONTROL,
-				       cdclk_config->voltage_level);
+	ret = skl_cdclk_pcode_post_notify(display, cdclk_config);
 	if (ret)
 		drm_err(display->drm,
 			"Failed to inform PCODE about end of CDCLK change (%d)\n", ret);
@@ -2293,10 +2303,7 @@ static void bxt_set_cdclk(struct intel_display *display,
 	if (DISPLAY_VER(display) >= 14 || display->platform.dg2)
 		ret = 0; /* NOOP */
 	else if (DISPLAY_VER(display) >= 11)
-		ret = intel_parent_pcode_request(display, SKL_PCODE_CDCLK_CONTROL,
-						 SKL_CDCLK_PREPARE_FOR_CHANGE,
-						 SKL_CDCLK_READY_FOR_CHANGE,
-						 SKL_CDCLK_READY_FOR_CHANGE, 3);
+		ret = skl_cdclk_pcode_pre_notify(display);
 	else
 		/*
 		 * BSpec requires us to wait up to 150usec, but that leads to
@@ -2329,8 +2336,7 @@ static void bxt_set_cdclk(struct intel_display *display,
 	if (DISPLAY_VER(display) >= 14 || display->platform.dg2)
 		ret = 0; /* NOOP */
 	else if (DISPLAY_VER(display) >= 11)
-		ret = intel_parent_pcode_write(display, SKL_PCODE_CDCLK_CONTROL,
-					       cdclk_config->voltage_level);
+		ret = skl_cdclk_pcode_post_notify(display, cdclk_config);
 	else
 		/*
 		 * The timeout isn't specified, the 2ms used here is based on
