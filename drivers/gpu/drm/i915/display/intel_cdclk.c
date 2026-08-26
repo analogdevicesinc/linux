@@ -2253,6 +2253,29 @@ static u32 bxt_cdclk_ctl(struct intel_display *display,
 	return val;
 }
 
+static int bxt_cdclk_pcode_pre_notify(struct intel_display *display)
+{
+	/*
+	 * BSpec requires us to wait up to 150usec, but that leads to
+	 * timeouts; the 2ms used here is based on experiment.
+	 */
+	return intel_parent_pcode_write_timeout(display, HSW_PCODE_DE_WRITE_FREQ_REQ,
+						0x80000000, 2);
+}
+
+static int bxt_cdclk_pcode_post_notify(struct intel_display *display,
+				       const struct intel_cdclk_config *cdclk_config)
+{
+	/*
+	 * The timeout isn't specified, the 2ms used here is based on
+	 * experiment.
+	 * FIXME: Waiting for the request completion could be delayed
+	 * until the next PCODE request based on BSpec.
+	 */
+	return intel_parent_pcode_write_timeout(display, HSW_PCODE_DE_WRITE_FREQ_REQ,
+						cdclk_config->voltage_level, 2);
+}
+
 static void _bxt_set_cdclk(struct intel_display *display,
 			   const struct intel_cdclk_config *cdclk_config,
 			   enum pipe pipe)
@@ -2305,13 +2328,7 @@ static void bxt_set_cdclk(struct intel_display *display,
 	else if (DISPLAY_VER(display) >= 11)
 		ret = skl_cdclk_pcode_pre_notify(display);
 	else
-		/*
-		 * BSpec requires us to wait up to 150usec, but that leads to
-		 * timeouts; the 2ms used here is based on experiment.
-		 */
-		ret = intel_parent_pcode_write_timeout(display,
-						       HSW_PCODE_DE_WRITE_FREQ_REQ,
-						       0x80000000, 2);
+		ret = bxt_cdclk_pcode_pre_notify(display);
 
 	if (ret) {
 		drm_err(display->drm,
@@ -2338,15 +2355,8 @@ static void bxt_set_cdclk(struct intel_display *display,
 	else if (DISPLAY_VER(display) >= 11)
 		ret = skl_cdclk_pcode_post_notify(display, cdclk_config);
 	else
-		/*
-		 * The timeout isn't specified, the 2ms used here is based on
-		 * experiment.
-		 * FIXME: Waiting for the request completion could be delayed
-		 * until the next PCODE request based on BSpec.
-		 */
-		ret = intel_parent_pcode_write_timeout(display,
-						       HSW_PCODE_DE_WRITE_FREQ_REQ,
-						       cdclk_config->voltage_level, 2);
+		ret = bxt_cdclk_pcode_post_notify(display, cdclk_config);
+
 	if (ret)
 		drm_err(display->drm,
 			"Failed to inform PCODE about end of CDCLK change (%d)\n", ret);
