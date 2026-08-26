@@ -2850,9 +2850,6 @@ intel_set_cdclk_pre_plane_update(struct intel_atomic_state *state)
 				 &new_cdclk_state->actual))
 		return;
 
-	if (display->platform.dg2)
-		intel_cdclk_pcode_pre_notify(state);
-
 	if (new_cdclk_state->disable_pipes) {
 		cdclk_config = new_cdclk_state->actual;
 		pipe = INVALID_PIPE;
@@ -2876,6 +2873,9 @@ intel_set_cdclk_pre_plane_update(struct intel_atomic_state *state)
 	cdclk_config.joined_mbus = old_cdclk_state->actual.joined_mbus;
 
 	drm_WARN_ON(display->drm, !new_cdclk_state->base.changed);
+
+	if (display->platform.dg2)
+		intel_cdclk_pcode_pre_notify(state);
 
 	intel_set_cdclk(display, &cdclk_config, pipe,
 			"Pre changing CDCLK to");
@@ -2905,9 +2905,6 @@ intel_set_cdclk_post_plane_update(struct intel_atomic_state *state)
 				 &new_cdclk_state->actual))
 		return;
 
-	if (display->platform.dg2)
-		intel_cdclk_pcode_post_notify(state);
-
 	if (!new_cdclk_state->disable_pipes &&
 	    new_cdclk_state->actual.cdclk < old_cdclk_state->actual.cdclk)
 		pipe = new_cdclk_state->pipe;
@@ -2918,6 +2915,9 @@ intel_set_cdclk_post_plane_update(struct intel_atomic_state *state)
 
 	intel_set_cdclk(display, &new_cdclk_state->actual, pipe,
 			"Post changing CDCLK to");
+
+	if (display->platform.dg2)
+		intel_cdclk_pcode_post_notify(state);
 }
 
 /* pixels per CDCLK */
