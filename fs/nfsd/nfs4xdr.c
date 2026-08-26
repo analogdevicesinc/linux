@@ -3213,7 +3213,7 @@ static __be32 fattr_handle_absent_fs(u32 *bmval0, u32 *bmval1, u32 *bmval2, u32 
 	    *bmval1 & ~WORD1_ABSENT_FS_ATTRS) {
 		if (*bmval0 & FATTR4_WORD0_RDATTR_ERROR ||
 	            *bmval0 & FATTR4_WORD0_FS_LOCATIONS)
-			*rdattr_err = NFSERR_MOVED;
+			*rdattr_err = NFS4ERR_MOVED;
 		else
 			return nfserr_moved;
 	}
