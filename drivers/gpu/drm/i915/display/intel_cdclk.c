@@ -2264,7 +2264,7 @@ static void bxt_set_cdclk(struct intel_display *display,
 {
 	struct intel_cdclk_config mid_cdclk_config;
 	int cdclk = cdclk_config->cdclk;
-	int ret = 0;
+	int ret;
 
 	/*
 	 * Inform power controller of upcoming frequency change.
@@ -2273,7 +2273,7 @@ static void bxt_set_cdclk(struct intel_display *display,
 	 * this step.
 	 */
 	if (DISPLAY_VER(display) >= 14 || display->platform.dg2)
-		; /* NOOP */
+		ret = 0; /* NOOP */
 	else if (DISPLAY_VER(display) >= 11)
 		ret = intel_parent_pcode_request(display, SKL_PCODE_CDCLK_CONTROL,
 						 SKL_CDCLK_PREPARE_FOR_CHANGE,
@@ -2309,15 +2309,12 @@ static void bxt_set_cdclk(struct intel_display *display,
 	if (DISPLAY_VER(display) >= 20 && cdclk > display->cdclk.hw.cdclk)
 		xe2lpd_mdclk_cdclk_ratio_program(display, cdclk_config);
 
-	if (DISPLAY_VER(display) >= 14)
-		/*
-		 * NOOP - No Pcode communication needed for
-		 * Display versions 14 and beyond
-		 */;
-	else if (DISPLAY_VER(display) >= 11 && !display->platform.dg2)
+	if (DISPLAY_VER(display) >= 14 || display->platform.dg2)
+		ret = 0; /* NOOP */
+	else if (DISPLAY_VER(display) >= 11)
 		ret = intel_parent_pcode_write(display, SKL_PCODE_CDCLK_CONTROL,
 					       cdclk_config->voltage_level);
-	if (DISPLAY_VER(display) < 11) {
+	else
 		/*
 		 * The timeout isn't specified, the 2ms used here is based on
 		 * experiment.
@@ -2327,7 +2324,6 @@ static void bxt_set_cdclk(struct intel_display *display,
 		ret = intel_parent_pcode_write_timeout(display,
 						       HSW_PCODE_DE_WRITE_FREQ_REQ,
 						       cdclk_config->voltage_level, 2);
-	}
 	if (ret)
 		drm_err(display->drm,
 			"PCode CDCLK freq set failed, (err %d, freq %d)\n",
