@@ -2624,18 +2624,15 @@ void intel_cdclk_dump_config(struct intel_display *display,
 		    cdclk_config->voltage_level);
 }
 
-static void intel_pcode_notify(struct intel_display *display,
-			       u8 voltage_level,
-			       u8 active_pipe_count,
-			       u16 cdclk,
-			       bool cdclk_update_valid,
-			       bool pipe_count_update_valid)
+static void dg2_cdclk_pcode_notify(struct intel_display *display,
+				   u8 voltage_level,
+				   u8 active_pipe_count,
+				   u16 cdclk,
+				   bool cdclk_update_valid,
+				   bool pipe_count_update_valid)
 {
 	int ret;
 	u32 update_mask = 0;
-
-	if (!display->platform.dg2)
-		return;
 
 	update_mask = DISPLAY_TO_PCODE_UPDATE_MASK(cdclk, active_pipe_count, voltage_level);
 
@@ -2721,7 +2718,7 @@ static int dg2_power_well_count(struct intel_display *display,
 	return display->platform.dg2 ? hweight8(cdclk_state->active_pipes) : 0;
 }
 
-static void intel_cdclk_pcode_pre_notify(struct intel_atomic_state *state)
+static void dg2_cdclk_pcode_pre_notify(struct intel_atomic_state *state)
 {
 	struct intel_display *display = to_intel_display(state);
 	const struct intel_cdclk_state *old_cdclk_state =
@@ -2767,11 +2764,11 @@ static void intel_cdclk_pcode_pre_notify(struct intel_atomic_state *state)
 	if (update_pipe_count)
 		num_active_pipes = dg2_power_well_count(display, new_cdclk_state);
 
-	intel_pcode_notify(display, voltage_level, num_active_pipes, cdclk_mhz,
-			   change_cdclk, update_pipe_count);
+	dg2_cdclk_pcode_notify(display, voltage_level, num_active_pipes, cdclk_mhz,
+			       change_cdclk, update_pipe_count);
 }
 
-static void intel_cdclk_pcode_post_notify(struct intel_atomic_state *state)
+static void dg2_cdclk_pcode_post_notify(struct intel_atomic_state *state)
 {
 	struct intel_display *display = to_intel_display(state);
 	const struct intel_cdclk_state *new_cdclk_state =
@@ -2808,8 +2805,8 @@ static void intel_cdclk_pcode_post_notify(struct intel_atomic_state *state)
 	if (update_pipe_count)
 		num_active_pipes = dg2_power_well_count(display, new_cdclk_state);
 
-	intel_pcode_notify(display, voltage_level, num_active_pipes, cdclk_mhz,
-			   update_cdclk, update_pipe_count);
+	dg2_cdclk_pcode_notify(display, voltage_level, num_active_pipes, cdclk_mhz,
+			       update_cdclk, update_pipe_count);
 }
 
 bool intel_cdclk_is_decreasing_later(struct intel_atomic_state *state)
@@ -2875,7 +2872,7 @@ intel_set_cdclk_pre_plane_update(struct intel_atomic_state *state)
 	drm_WARN_ON(display->drm, !new_cdclk_state->base.changed);
 
 	if (display->platform.dg2)
-		intel_cdclk_pcode_pre_notify(state);
+		dg2_cdclk_pcode_pre_notify(state);
 
 	intel_set_cdclk(display, &cdclk_config, pipe,
 			"Pre changing CDCLK to");
@@ -2919,7 +2916,7 @@ intel_set_cdclk_post_plane_update(struct intel_atomic_state *state)
 			"Post changing CDCLK to");
 
 	if (display->platform.dg2)
-		intel_cdclk_pcode_post_notify(state);
+		dg2_cdclk_pcode_post_notify(state);
 }
 
 /* pixels per CDCLK */
