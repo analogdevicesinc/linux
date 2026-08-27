@@ -176,3 +176,137 @@ impl<'gpu> Pramin<'gpu> {
         Ok(PraminAccess { view })
     }
 }
+
+#[cfg(CONFIG_NOVA_CORE_SELFTESTS)]
+pub(super) mod selftest {
+    use kernel::{
+        device,
+        io::io_read,
+        sizes::SizeConstants, //
+    };
+
+    use super::*;
+    use crate::{
+        selftest_assert,
+        selftest_assert_eq, //
+    };
+
+    /// Test read/write at byte granularity, at unaligned addresses.
+    fn test_byte_readwrite(
+        dev: &device::Device<device::Bound>,
+        pramin: &mut Pramin<'_>,
+        base: VramAddress,
+    ) -> Result {
+        for i in 0u8..4 {
+            let addr = base + 1 + u64::from(i);
+            pramin.window_at::<u8>(addr)?.view().write_val(0xA0 + i);
+        }
+
+        for i in 0u8..4 {
+            let addr = base + 1 + u64::from(i);
+            selftest_assert_eq!(
+                dev,
+                pramin.window_at::<u8>(addr)?.view().read_val(),
+                0xA0 + i
+            );
+        }
+        Ok(())
+    }
+
+    /// Test writing a `u32` and reading back as individual `u8`s.
+    fn test_u32_as_bytes(
+        dev: &device::Device<device::Bound>,
+        pramin: &mut Pramin<'_>,
+        base: VramAddress,
+    ) -> Result {
+        let addr = base + 0x10;
+        let val: u32 = 0xDEADBEEF;
+        pramin.window_at::<u32>(addr)?.view().write_val(val);
+
+        let window = pramin.window_at::<[u8; 4]>(addr)?;
+        for (i, &expected) in val.to_le_bytes().iter().enumerate() {
+            selftest_assert_eq!(dev, io_read!(window.view(), [build: i]), expected);
+        }
+        Ok(())
+    }
+
+    /// Test window repositioning across 1 MiB boundaries.
+    fn test_window_reposition(
+        dev: &device::Device<device::Bound>,
+        pramin: &mut Pramin<'_>,
+        base: VramAddress,
+    ) -> Result {
+        let addr_a = base;
+        let addr_b = base + u64::SZ_2M; // base + 2 MiB (different 1 MiB region).
+        let val_a: u32 = 0x11111111;
+        let val_b: u32 = 0x22222222;
+
+        pramin.window_at::<u32>(addr_a)?.view().write_val(val_a);
+        pramin.window_at::<u32>(addr_b)?.view().write_val(val_b);
+
+        selftest_assert_eq!(
+            dev,
+            pramin.window_at::<u32>(addr_a)?.view().read_val(),
+            val_a
+        );
+        selftest_assert_eq!(
+            dev,
+            pramin.window_at::<u32>(addr_b)?.view().read_val(),
+            val_b
+        );
+        Ok(())
+    }
+
+    /// Test that offsets outside the VRAM region are rejected.
+    fn test_invalid_offset(
+        dev: &device::Device<device::Bound>,
+        pramin: &mut Pramin<'_>,
+        vram_end: VramAddress,
+    ) -> Result {
+        selftest_assert!(dev, pramin.window_at::<u32>(vram_end).is_err());
+        Ok(())
+    }
+
+    /// Test that misaligned accesses are rejected.
+    fn test_misaligned_access(
+        dev: &device::Device<device::Bound>,
+        pramin: &mut Pramin<'_>,
+        base: VramAddress,
+    ) -> Result {
+        // `u16` at odd offset (not 2-byte aligned).
+        selftest_assert!(dev, pramin.window_at::<u16>(base + 0x21).is_err());
+
+        // `u32` at 2-byte-aligned (not 4-byte-aligned) offset.
+        selftest_assert!(dev, pramin.window_at::<u32>(base + 2).is_err());
+
+        // `u64` at a 4-byte-aligned (not 8-byte-aligned) address.
+        selftest_assert!(dev, pramin.window_at::<u64>(base + 0x44).is_err());
+
+        // A `u16` view at an even address is allowed.
+        pramin.window_at::<u16>(base + 0x22)?;
+        Ok(())
+    }
+
+    /// Run PRAMIN self-tests during probe.
+    ///
+    /// `base` is the start of a driver-usable VRAM span that the tests are free to
+    /// overwrite.
+    pub(crate) fn run(
+        dev: &device::Device<device::Bound>,
+        pramin: &mut Pramin<'_>,
+        base: VramAddress,
+    ) -> Result {
+        dev_dbg!(dev, "PRAMIN: starting self-tests\n");
+
+        let vram_end = pramin.vram_range.end;
+
+        test_byte_readwrite(dev, pramin, base)?;
+        test_u32_as_bytes(dev, pramin, base)?;
+        test_window_reposition(dev, pramin, base)?;
+        test_invalid_offset(dev, pramin, vram_end)?;
+        test_misaligned_access(dev, pramin, base)?;
+
+        dev_info!(dev, "PRAMIN: self-tests passed\n");
+        Ok(())
+    }
+}

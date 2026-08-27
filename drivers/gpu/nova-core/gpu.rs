@@ -429,6 +429,18 @@ impl<'gpu> Gpu<'gpu> {
             )?,
         })
     }
+
+    /// Runs self-tests on the constructed [`Gpu`], logging failures without failing probe.
+    #[cfg(CONFIG_NOVA_CORE_SELFTESTS)]
+    pub(crate) fn run_selftests(self: Pin<&mut Self>, pdev: &pci::Device<device::Bound>) {
+        let this = self.project();
+        let dev = pdev.as_ref();
+        let regions = &this.gsp_static_info.usable_fb_regions;
+
+        if let Err(err) = crate::mm::selftest::run(dev, this.mm, regions) {
+            dev_err!(dev, "self-tests failed: {:?}\n", err);
+        }
+    }
 }
 
 /// Reads the boot0 register and returns its raw value.

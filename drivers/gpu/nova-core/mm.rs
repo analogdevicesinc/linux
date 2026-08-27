@@ -3,7 +3,7 @@
 
 //! Memory management subsystems.
 
-#![expect(dead_code)]
+#![cfg_attr(not(CONFIG_NOVA_CORE_SELFTESTS), expect(dead_code))]
 
 use core::{
     fmt::LowerHex,
@@ -121,5 +121,43 @@ impl ops::Sub for VramAddress {
 
     fn sub(self, rhs: Self) -> Self::Output {
         self.into_raw() - rhs.into_raw()
+    }
+}
+
+#[cfg(CONFIG_NOVA_CORE_SELFTESTS)]
+pub(crate) mod selftest {
+    use core::ops::Range;
+
+    use kernel::{
+        device,
+        sizes::SizeConstants, //
+    };
+
+    use super::*;
+
+    /// Run MM subsystem self-tests during probe.
+    pub(crate) fn run(
+        dev: &device::Device<device::Bound>,
+        mm: &mut GpuMm<'_>,
+        usable_fb_regions: &[Range<u64>],
+    ) -> Result {
+        // VRAM span the self-tests are free to overwrite, from the chosen test base.
+        const SELFTEST_SPAN: u64 = u64::SZ_64M;
+
+        let base = usable_fb_regions.iter().find_map(|region| {
+            // Tests rely on this being 8 byte aligned for checking misalignment handling.
+            let base = region.start.align_up(Alignment::new::<8>())?;
+            (base.checked_add(SELFTEST_SPAN)? <= region.end).then_some(base)
+        });
+        let Some(base) = base else {
+            dev_warn!(
+                dev,
+                "PRAMIN: skipping self-tests, no usable VRAM region of {:#x} bytes\n",
+                SELFTEST_SPAN
+            );
+            return Ok(());
+        };
+
+        pramin::selftest::run(dev, mm.pramin_mut(), VramAddress::from_raw(base))
     }
 }
