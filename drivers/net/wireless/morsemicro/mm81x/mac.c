@@ -2035,6 +2035,13 @@ static void mm81x_mac_ops_flush(struct ieee80211_hw *hw,
 		mm81x_mac_wait_queues(mors);
 }
 
+static bool mm81x_mac_ops_tx_frames_pending(struct ieee80211_hw *hw)
+{
+	struct mm81x *mors = hw->priv;
+
+	return mm81x_mac_has_tx_pending(mors);
+}
+
 static int mm81x_mac_ops_set_rts_threshold(struct ieee80211_hw *hw,
 					   int radio_idx, u32 value)
 {
@@ -2260,6 +2267,7 @@ static const struct ieee80211_ops mm81x_ops = {
 	.configure_filter = mm81x_mac_ops_configure_filter,
 	.sta_state = mm81x_mac_ops_sta_state,
 	.flush = mm81x_mac_ops_flush,
+	.tx_frames_pending = mm81x_mac_ops_tx_frames_pending,
 	.set_frag_threshold = mm81x_mac_set_frag_threshold,
 	.set_rts_threshold = mm81x_mac_ops_set_rts_threshold,
 	.sta_statistics = mm81x_mac_ops_sta_statistics,
