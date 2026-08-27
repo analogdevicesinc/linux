@@ -230,7 +230,8 @@ check_dt_binding_check() {
 	#      print(f"{self.schemas[sch_id]['$filename']}: {p}: multiple incompatible types: {v['type']}", file=sys.stderr)
 	#               ~~~~~~~~~~~~^^^^^^^^
 	#  KeyError: 'http://devicetree.org/schemas/crypto/fsl,sec-v4.0.yaml#'
-        pip3 install dtschema==2025.08 yamllint --upgrade
+        CFLAGS="-Wno-error=implicit-function-declaration -Wno-error=int-conversion -DPyInt_AsLong=PyLong_AsLong -DPyString_FromString=PyUnicode_FromString" \
+                pip3 install dtschema==2025.08 yamllint --upgrade
 
 	[[ -z "$files" ]] && return 0
 	while read file; do
