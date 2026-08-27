@@ -197,6 +197,36 @@ static const struct ipu6_buttress_registers ipu7_buttress_regs = {
 	.irq_sai	= IPU7_BUTTRESS_IRQ_SAI_VIOLATION,
 };
 
+static const struct ipu6_buttress_registers ipu7p5_buttress_regs = {
+	/* Registers */
+	.irq_status	= IPU7_BUTTRESS_REG_IRQ_STATUS,
+	.irq_clear	= IPU7_BUTTRESS_REG_IRQ_CLEAR,
+	.irq_enable	= IPU7_BUTTRESS_REG_IRQ_ENABLE,
+	.pwr_status	= IPU7_BUTTRESS_REG_PWR_STATUS,
+	.security_ctl	= IPU7_BUTTRESS_REG_SECURITY_CTL,
+	.fw_reset_ctl	= IPU7_BUTTRESS_REG_FW_RESET_CTL,
+	.fabric_cmd	= IPU7_BUTTRESS_REG_TSC_CMD,
+	.tsw_ctl	= IPU7_BUTTRESS_REG_TSC_CTL,
+	.tsc_lo		= IPU7_BUTTRESS_REG_PB_TIMESTAMP_LO,
+	.wdt		= IPU7_BUTTRESS_REG_IDLE_WDT,
+	.csr_in		= IPU7_BUTTRESS_REG_CSE2IUCSR,
+	.csr_out	= IPU7_BUTTRESS_REG_IU2CSECSR,
+	.db0_in		= IPU7_BUTTRESS_REG_CSE2IUDB0,
+	.db0_out	= IPU7_BUTTRESS_REG_IU2CSEDB0,
+	.data0_in	= IPU7_BUTTRESS_REG_CSE2IUDATA0,
+	.data0_out	= IPU7_BUTTRESS_REG_IU2CSEDATA0,
+	.sku_id		= IPU7_BUTTRESS_REG_SKU,
+
+	/* Bitmasks */
+	.irq_is		= IPU7_BUTTRESS_IRQ_IS_IRQ,
+	.irq_ps		= IPU7_BUTTRESS_IRQ_PS_IRQ,
+	.irq_all	= IPU7_BUTTRESS_IRQS,
+	.irq_events	= IPU7_BUTTRESS_IRQS,
+	.irq_cse_ipc	= IPU7_BUTTRESS_IRQ_IPC_FROM_CSE_IS_WAITING,
+	.irq_exec_done	= IPU7_BUTTRESS_IRQ_IPC_EXEC_DONE_BY_CSE,
+	.irq_sai	= IPU7_BUTTRESS_IRQ_SAI_VIOLATION,
+};
+
 static void
 ipu6_pkg_dir_configure_spc(struct ipu6_device *isp,
 			   const struct ipu6_hw_variants *hw_variant,
@@ -621,6 +651,14 @@ static int ipu6_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		isp->cpd_fw_name = IPU7_FIRMWARE_NAME;
 		isp->model_name = IPU7_MEDIA_DEV_MODEL_NAME;
 		isp->buttress.regs = &ipu7_buttress_regs;
+		isys_ctrl = &ipu7_isys_buttress_ctrl;
+		psys_ctrl = &ipu7_psys_buttress_ctrl;
+		break;
+	case PCI_DEVICE_ID_INTEL_IPU7P5:
+		isp->hw_ver = IPU_VERSION_7P5;
+		isp->cpd_fw_name = IPU7P5_FIRMWARE_NAME;
+		isp->model_name = IPU7P5_MEDIA_DEV_MODEL_NAME;
+		isp->buttress.regs = &ipu7p5_buttress_regs;
 		isys_ctrl = &ipu7_isys_buttress_ctrl;
 		psys_ctrl = &ipu7_psys_buttress_ctrl;
 		break;

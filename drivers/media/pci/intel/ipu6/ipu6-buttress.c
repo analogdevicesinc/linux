@@ -3,6 +3,7 @@
  * Copyright (C) 2013--2024 Intel Corporation
  */
 
+#include <asm/cpu_device_id.h>
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/completion.h>
@@ -900,11 +901,30 @@ static int ipu6_buttress_send_tsc_request(struct ipu6_device *isp)
 	return ret;
 }
 
-int ipu6_buttress_start_tsc_sync(struct ipu6_device *isp)
+static int __ipu7p5_start_tsc_sync(struct ipu6_device *isp)
 {
-	unsigned int i;
+	u32 val;
 
-	for (i = 0; i < BUTTRESS_TSC_SYNC_RESET_TRIAL_MAX; i++) {
+	val = readl(isp->base + IPU7_BUTTRESS_REG_TSC_CTL);
+	val |= IPU7_BUTTRESS_SEL_PB_TIMESTAMP;
+	writel(val, isp->base + IPU7_BUTTRESS_REG_TSC_CTL);
+
+	for (unsigned int i = 0; i < BUTTRESS_TSC_SYNC_RESET_TRIAL_MAX; i++) {
+		val = readl(isp->base + IPU7_BUTTRESS_REG_PB_TIMESTAMP_VALID);
+		if (val == 1)
+			return 0;
+
+		usleep_range(40, 50);
+	}
+
+	dev_err(&isp->pdev->dev, "TSC sync failed (timeout)\n");
+
+	return -ETIMEDOUT;
+}
+
+static int __ipu6_start_tsc_sync(struct ipu6_device *isp)
+{
+	for (unsigned int i = 0; i < BUTTRESS_TSC_SYNC_RESET_TRIAL_MAX; i++) {
 		u32 val;
 		int ret;
 
@@ -924,6 +944,14 @@ int ipu6_buttress_start_tsc_sync(struct ipu6_device *isp)
 	dev_err(&isp->pdev->dev, "TSC sync failed (timeout)\n");
 
 	return -ETIMEDOUT;
+}
+
+int ipu6_buttress_start_tsc_sync(struct ipu6_device *isp)
+{
+	if (IS_IPU7P5(isp))
+		return __ipu7p5_start_tsc_sync(isp);
+
+	return __ipu6_start_tsc_sync(isp);
 }
 EXPORT_SYMBOL_NS_GPL(ipu6_buttress_start_tsc_sync, "INTEL_IPU6");
 
@@ -987,6 +1015,13 @@ u32 ipu7_buttress_get_isys_freq(struct ipu6_device *isp)
 }
 EXPORT_SYMBOL_NS_GPL(ipu7_buttress_get_isys_freq, "INTEL_IPU6");
 
+static const struct x86_cpu_id ipu7_misc_cfg_exclusion[] = {
+	X86_MATCH_VFM_STEPS(INTEL_PANTHERLAKE_L, 0x1, 0x1, 0),
+	{},
+};
+
+#define IPU7_WRXREQOP_OVRD_VAL_MASK  GENMASK(22, 19)
+
 static void ipu7_buttress_setup(struct ipu6_device *isp)
 {
 	struct ipu6_buttress *b = &isp->buttress;
@@ -995,12 +1030,20 @@ static void ipu7_buttress_setup(struct ipu6_device *isp)
 	/* program PB BAR */
 	writel(0, isp->pb_base + IPU7_GLOBAL_INTERRUPT_MASK);
 	val = readl(isp->pb_base + IPU7_BAR2_MISC_CONFIG);
+
 	val |= 0x100U;
+	if (!IS_IPU7_MTL(isp) && !x86_match_cpu(ipu7_misc_cfg_exclusion))
+		val |= FIELD_PREP(IPU7_WRXREQOP_OVRD_VAL_MASK, 0xf) | BIT(18);
 
 	writel(val, isp->pb_base + IPU7_BAR2_MISC_CONFIG);
 
-	writel(BIT(22), isp->pb_base + IPU7_TLBID_HASH_ENABLE_63_32);
-	writel(BIT(1), isp->pb_base + IPU7_TLBID_HASH_ENABLE_127_96);
+	if (IS_IPU7P5(isp)) {
+		writel(BIT(14), isp->pb_base + IPU7_TLBID_HASH_ENABLE_63_32);
+		writel(BIT(9), isp->pb_base + IPU7_TLBID_HASH_ENABLE_95_64);
+	} else {
+		writel(BIT(22), isp->pb_base + IPU7_TLBID_HASH_ENABLE_63_32);
+		writel(BIT(1), isp->pb_base + IPU7_TLBID_HASH_ENABLE_127_96);
+	}
 
 	writel(b->regs->irq_all, isp->base + b->regs->irq_clear);
 	writel(b->regs->irq_all, isp->base + IPU7_BUTTRESS_REG_IRQ_MASK);
