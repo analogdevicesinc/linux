@@ -23,6 +23,8 @@ mod mm;
 mod num;
 mod regs;
 mod sbuffer;
+#[cfg(CONFIG_NOVA_CORE_SELFTESTS)]
+mod selftest;
 mod vbios;
 mod vgpu;
 
