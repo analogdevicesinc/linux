@@ -52,6 +52,9 @@ extern void _local_interrupt_save_state(unsigned long flags);
 extern void _local_interrupt_enable(void);
 #endif /* !MODULE */
 
+#define hardirq_disable_enter()	__preempt_count_add_return(HARDIRQ_DISABLE_OFFSET)
+#define hardirq_disable_exit()	__preempt_count_sub_return(HARDIRQ_DISABLE_OFFSET)
+
 static inline void local_interrupt_disable(void)
 {
 	int new_count;
