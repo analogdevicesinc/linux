@@ -385,7 +385,7 @@ static int amdgpu_userq_fence_read_wptr(struct amdgpu_device *adev,
 		if (unlikely(ret))
 			goto lock_error;
 
-		mapping = amdgpu_vm_bo_lookup_mapping(queue->vm, addr >> PAGE_SHIFT);
+		mapping = amdgpu_vm_bo_lookup_mapping(queue->vm, addr);
 		if (!mapping) {
 			ret = -EINVAL;
 			goto lock_error;

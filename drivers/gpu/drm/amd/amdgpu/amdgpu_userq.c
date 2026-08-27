@@ -241,7 +241,6 @@ int amdgpu_userq_input_va_validate(struct amdgpu_device *adev,
 	struct amdgpu_vm *vm = queue->vm;
 	u64 start_addr;
 	u64 end_addr;
-	u64 start_page;
 
 	/* Caller must hold vm->root.bo reservation */
 	dma_resv_assert_held(queue->vm->root.bo->tbo.base.resv);
@@ -253,16 +252,14 @@ int amdgpu_userq_input_va_validate(struct amdgpu_device *adev,
 	if (check_add_overflow(start_addr, expected_size - 1, &end_addr))
 		return -EINVAL;
 
-	start_page = start_addr >> AMDGPU_GPU_PAGE_SHIFT;
-
-	va_map = amdgpu_vm_bo_lookup_mapping(vm, start_page);
+	va_map = amdgpu_vm_bo_lookup_mapping(vm, start_addr);
 	if (!va_map)
 		return -EINVAL;
 
-	/* Lookup guarantees start_page is mapped; ensure full span is covered. */
+	/* Lookup guarantees start_addr is mapped; ensure full span is covered. */
 	if ((end_addr >> AMDGPU_GPU_PAGE_SHIFT) <= va_map->last) {
 		va_map->bo_va->userq_va_mapped = true;
-		*va_out = start_page;
+		*va_out = start_addr;
 		return 0;
 	}
 

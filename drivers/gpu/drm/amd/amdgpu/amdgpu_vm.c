@@ -2165,6 +2165,7 @@ int amdgpu_vm_bo_clear_mappings(struct amdgpu_device *adev,
 struct amdgpu_bo_va_mapping *amdgpu_vm_bo_lookup_mapping(struct amdgpu_vm *vm,
 							 uint64_t addr)
 {
+	addr /= AMDGPU_GPU_PAGE_SIZE;
 	return amdgpu_vm_it_iter_first(&vm->va, addr, addr);
 }
 
