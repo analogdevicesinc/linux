@@ -239,12 +239,6 @@ struct ipu6_mmu_hw {
 	bool insert_read_before_invalidate;
 };
 
-struct ipu6_mmu_pdata {
-	u32 nr_mmus;
-	struct ipu6_mmu_hw mmu_hw[IPU6_MMU_MAX_DEVICES];
-	int mmid;
-};
-
 struct ipu6_isys_csi2_pdata {
 	void __iomem *base;
 };

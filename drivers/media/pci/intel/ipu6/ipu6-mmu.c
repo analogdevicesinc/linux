@@ -750,27 +750,26 @@ struct ipu6_mmu *ipu6_mmu_init(struct device *dev,
 			       const struct ipu6_hw_variants *hw)
 {
 	struct ipu6_device *isp = pci_get_drvdata(to_pci_dev(dev));
-	struct ipu6_mmu_pdata *pdata;
+	struct ipu6_mmu_hw *mmu_hw;
 	struct ipu6_mmu *mmu;
 	unsigned int i;
 
 	if (hw->nr_mmus > IPU6_MMU_MAX_DEVICES)
 		return ERR_PTR(-EINVAL);
 
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata)
+	mmu_hw = devm_kcalloc(dev, sizeof(*mmu_hw), hw->nr_mmus, GFP_KERNEL);
+	if (!mmu_hw)
 		return ERR_PTR(-ENOMEM);
 
 	for (i = 0; i < hw->nr_mmus; i++) {
-		struct ipu6_mmu_hw *pdata_mmu = &pdata->mmu_hw[i];
 		const struct ipu6_mmu_hw *src_mmu = &hw->mmu_hw[i];
 
 		if (src_mmu->nr_l1streams > IPU6_MMU_MAX_TLB_L1_STREAMS ||
 		    src_mmu->nr_l2streams > IPU6_MMU_MAX_TLB_L2_STREAMS)
 			return ERR_PTR(-EINVAL);
 
-		*pdata_mmu = *src_mmu;
-		pdata_mmu->base = base + src_mmu->offset;
+		mmu_hw[i] = *src_mmu;
+		mmu_hw[i].base = base + src_mmu->offset;
 	}
 
 	mmu = devm_kzalloc(dev, sizeof(*mmu), GFP_KERNEL);
@@ -778,7 +777,7 @@ struct ipu6_mmu *ipu6_mmu_init(struct device *dev,
 		return ERR_PTR(-ENOMEM);
 
 	mmu->mmid = mmid;
-	mmu->mmu_hw = pdata->mmu_hw;
+	mmu->mmu_hw = mmu_hw;
 	mmu->nr_mmus = hw->nr_mmus;
 	mmu->tlb_invalidate = tlb_invalidate;
 	mmu->ready = false;
