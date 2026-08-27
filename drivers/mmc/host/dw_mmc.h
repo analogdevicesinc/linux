@@ -128,7 +128,6 @@ struct dw_mci_dma_slave {
  * @wd_events: pending_events bits still awaited by the armed watch.
  * @wd_states: host->state values for which the armed watch is valid.
  * @cmd11_timer: Timer for SD3.0 voltage switch over scheme.
- * @dto_timer: Timer for broken data transfer over scheme.
  * @mmc: The mmc_host representing this dw_mci.
  * @flags: Random state bits associated with the host.
  * @ctype: Card type for this host.
@@ -244,7 +243,6 @@ struct dw_mci {
 	unsigned long		wd_states;
 
 	struct timer_list       cmd11_timer;
-	struct timer_list       dto_timer;
 
 #ifdef CONFIG_FAULT_INJECTION
 	struct fault_attr	fail_data_crc;

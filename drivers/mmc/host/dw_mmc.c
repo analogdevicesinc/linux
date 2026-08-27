@@ -1998,9 +1998,9 @@ static void dw_mci_set_drto(struct dw_mci *host)
 	drto_ms += 10;
 
 	spin_lock_irqsave(&host->irq_lock, irqflags);
-	if (!test_bit(EVENT_DATA_COMPLETE, &host->pending_events))
-		mod_timer(&host->dto_timer,
-			  jiffies + msecs_to_jiffies(drto_ms));
+	dw_mci_wd_arm(host, drto_ms, BIT(EVENT_DATA_COMPLETE),
+		      DW_MCI_WD_DATA_EVENTS,
+		      BIT(STATE_SENDING_DATA) | BIT(STATE_DATA_BUSY));
 	spin_unlock_irqrestore(&host->irq_lock, irqflags);
 }
 
@@ -2019,8 +2019,6 @@ static bool dw_mci_clear_pending_data_complete(struct dw_mci *host)
 	if (!test_bit(EVENT_DATA_COMPLETE, &host->pending_events))
 		return false;
 
-	/* Extra paranoia just like dw_mci_clear_pending_cmd_complete() */
-	WARN_ON(timer_delete_sync(&host->dto_timer));
 	clear_bit(EVENT_DATA_COMPLETE, &host->pending_events);
 
 	return true;
@@ -2813,7 +2811,7 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 			spin_lock(&host->irq_lock);
 
 			if (host->quirks & DW_MMC_QUIRK_EXTENDED_TMOUT)
-				timer_delete(&host->dto_timer);
+				dw_mci_wd_deliver(host, DW_MCI_WD_DATA_EVENTS);
 
 			/* if there is an error report DATA_ERROR */
 			mci_writel(host, RINTSTS, DW_MCI_DATA_ERROR_FLAGS);
@@ -2834,7 +2832,7 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 		if (pending & SDMMC_INT_DATA_OVER) {
 			spin_lock(&host->irq_lock);
 
-			timer_delete(&host->dto_timer);
+			dw_mci_wd_deliver(host, DW_MCI_WD_DATA_EVENTS);
 
 			mci_writel(host, RINTSTS, SDMMC_INT_DATA_OVER);
 			if (!host->data_status)
@@ -3128,57 +3126,6 @@ static void dw_mci_cmd11_timer(struct timer_list *t)
 	queue_work(system_bh_wq, &host->bh_work);
 }
 
-static void dw_mci_dto_timer(struct timer_list *t)
-{
-	struct dw_mci *host = timer_container_of(host, t, dto_timer);
-	unsigned long irqflags;
-	u32 pending;
-
-	spin_lock_irqsave(&host->irq_lock, irqflags);
-
-	/*
-	 * The DTO timer is much longer than the CTO timer, so it's even less
-	 * likely that we'll these cases, but it pays to be paranoid.
-	 */
-	pending = mci_readl(host, MINTSTS); /* read-only mask reg */
-	if (pending & SDMMC_INT_DATA_OVER) {
-		/* The interrupt should fire; no need to act but we can warn */
-		dev_warn(host->dev, "Unexpected data interrupt latency\n");
-		goto exit;
-	}
-	if (test_bit(EVENT_DATA_COMPLETE, &host->pending_events)) {
-		/* Presumably interrupt handler couldn't delete the timer */
-		dev_warn(host->dev, "DTO timeout when already completed\n");
-		goto exit;
-	}
-
-	/*
-	 * Continued paranoia to make sure we're in the state we expect.
-	 * This paranoia isn't really justified but it seems good to be safe.
-	 */
-	switch (host->state) {
-	case STATE_SENDING_DATA:
-	case STATE_DATA_BUSY:
-		/*
-		 * If DTO interrupt does NOT come in sending data state,
-		 * we should notify the driver to terminate current transfer
-		 * and report a data timeout to the core.
-		 */
-		host->data_status = SDMMC_INT_DRTO;
-		set_bit(EVENT_DATA_ERROR, &host->pending_events);
-		set_bit(EVENT_DATA_COMPLETE, &host->pending_events);
-		queue_work(system_bh_wq, &host->bh_work);
-		break;
-	default:
-		dev_warn(host->dev, "Unexpected data timeout, state %d\n",
-			 host->state);
-		break;
-	}
-
-exit:
-	spin_unlock_irqrestore(&host->irq_lock, irqflags);
-}
-
 static int dw_mci_parse_dt(struct dw_mci *host)
 {
 	struct device *dev = host->dev;
@@ -3329,7 +3276,6 @@ int dw_mci_probe(struct dw_mci *host)
 	hrtimer_setup(&host->wd_timer, dw_mci_watchdog_fn, CLOCK_MONOTONIC,
 		      HRTIMER_MODE_REL);
 	timer_setup(&host->cmd11_timer, dw_mci_cmd11_timer, 0);
-	timer_setup(&host->dto_timer, dw_mci_dto_timer, 0);
 
 	spin_lock_init(&host->lock);
 	spin_lock_init(&host->irq_lock);
