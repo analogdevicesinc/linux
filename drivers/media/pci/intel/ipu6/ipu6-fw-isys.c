@@ -530,6 +530,7 @@ int ipu6_isys_isr_one(struct ipu6_bus_device *adev)
 	struct ipu6_fw_isys_resp_info_abi *resp;
 	struct ipu6_isys_stream *stream;
 	struct ipu6_isys_csi2 *csi2 = NULL;
+	struct isys_fw_msgs *isys_fw_msg = NULL;
 	u32 index;
 	u64 ts;
 
@@ -598,7 +599,15 @@ int ipu6_isys_isr_one(struct ipu6_bus_device *adev)
 		 * firmware only release the capture msg until software
 		 * get pin_data_ready event
 		 */
-		ipu6_put_fw_msg_buf(ipu6_bus_get_drvdata(adev), resp->buf_id);
+		if (!resp->buf_id)
+			dev_warn(&adev->auxdev.dev, "%d: Invalid buf ID\n",
+				 resp->stream_handle);
+		else
+			isys_fw_msg =
+				container_of((void *)(uintptr_t)resp->buf_id,
+					     struct isys_fw_msgs, ipu6.dummy);
+
+		ipu6_put_fw_msg_buf(ipu6_bus_get_drvdata(adev), isys_fw_msg);
 		if (resp->pin_id < IPU6_ISYS_OUTPUT_PINS &&
 		    stream->output_pins_queue[resp->pin_id])
 			ipu6_isys_queue_buf_ready(stream, resp);

@@ -919,17 +919,14 @@ void ipu6_cleanup_fw_msg_bufs(struct ipu6_isys *isys)
 	spin_unlock_irqrestore(&isys->listlock, flags);
 }
 
-void ipu6_put_fw_msg_buf(struct ipu6_isys *isys, uintptr_t data)
+void ipu6_put_fw_msg_buf(struct ipu6_isys *isys, struct isys_fw_msgs *msg)
 {
-	struct isys_fw_msgs *msg;
 	unsigned long flags;
-	void *ptr = (void *)data;
 
-	if (!ptr)
+	if (!msg)
 		return;
 
 	spin_lock_irqsave(&isys->listlock, flags);
-	msg = container_of(ptr, struct isys_fw_msgs, ipu6.dummy);
 	list_move(&msg->head, &isys->framebuflist);
 	spin_unlock_irqrestore(&isys->listlock, flags);
 }

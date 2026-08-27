@@ -544,7 +544,7 @@ static int start_stream_firmware(struct ipu6_isys_video *av,
 
 		ret = ipu6_isys_fw_pin_cfg(__av, stream_cfg);
 		if (ret < 0) {
-			ipu6_put_fw_msg_buf(av->isys, (uintptr_t)stream_cfg);
+			ipu6_put_fw_msg_buf(av->isys, msg);
 			return ret;
 		}
 	}
@@ -561,7 +561,7 @@ static int start_stream_firmware(struct ipu6_isys_video *av,
 				       IPU6_FW_ISYS_SEND_TYPE_STREAM_OPEN);
 	if (ret < 0) {
 		dev_err(dev, "can't open stream (%d)\n", ret);
-		ipu6_put_fw_msg_buf(av->isys, (uintptr_t)stream_cfg);
+		ipu6_put_fw_msg_buf(av->isys, msg);
 		return ret;
 	}
 
@@ -570,7 +570,7 @@ static int start_stream_firmware(struct ipu6_isys_video *av,
 	tout = wait_for_completion_timeout(&stream->stream_open_completion,
 					   IPU6_FW_CALL_TIMEOUT_JIFFIES);
 
-	ipu6_put_fw_msg_buf(av->isys, (uintptr_t)stream_cfg);
+	ipu6_put_fw_msg_buf(av->isys, msg);
 
 	if (!tout) {
 		dev_err(dev, "stream open time out\n");
