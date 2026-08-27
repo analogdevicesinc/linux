@@ -361,7 +361,7 @@ static const struct dma_fence_ops amdgpu_userq_fence_ops = {
  *
  * Read the wptr value from userq's MQD. The userq signal IOCTL
  * creates a dma_fence for the shared buffers that expects the
- * RPTR value written to seq64 memory >= WPTR.
+ * fence_val written to seq64 fence address >= WPTR.
  *
  * Returns wptr value on success, error on failure.
  */
