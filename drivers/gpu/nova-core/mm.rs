@@ -10,7 +10,14 @@ use core::{
     ops, //
 };
 
-use kernel::fmt;
+use kernel::{
+    fmt,
+    prelude::*,
+    ptr::{
+        Alignable,
+        Alignment, //
+    },
+};
 
 /// Physical VRAM address in GPU video memory.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -18,6 +25,9 @@ use kernel::fmt;
 pub(crate) struct VramAddress(u64);
 
 impl VramAddress {
+    /// The zero address.
+    pub(crate) const ZERO: Self = Self::from_raw(0);
+
     /// Creates an address from a raw value.
     pub(crate) const fn from_raw(addr: u64) -> Self {
         Self(addr)
@@ -37,9 +47,25 @@ impl VramAddress {
     }
 }
 
+impl Alignable for VramAddress {
+    fn align_down(self, alignment: Alignment) -> Self {
+        Self::from_raw(self.into_raw().align_down(alignment))
+    }
+
+    fn align_up(self, alignment: Alignment) -> Option<Self> {
+        self.into_raw().align_up(alignment).map(Self::from_raw)
+    }
+}
+
 impl LowerHex for VramAddress {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         LowerHex::fmt(&self.into_raw(), f)
+    }
+}
+
+impl fmt::Debug for VramAddress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(fmt!("{:#x}", self))
     }
 }
 
