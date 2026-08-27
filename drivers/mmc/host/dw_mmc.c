@@ -108,6 +108,7 @@ static void dw_mci_wd_arm(struct dw_mci *host, unsigned long ms,
 
 	host->wd_events = events;
 	host->wd_states = states;
+	host->wd_deadline_ns = ktime_get_ns() + (u64)ms * NSEC_PER_MSEC;
 	hrtimer_start(&host->wd_timer, ms_to_ktime(ms), HRTIMER_MODE_REL);
 }
 
@@ -167,6 +168,7 @@ static enum hrtimer_restart dw_mci_watchdog_fn(struct hrtimer *t)
 
 	host->wd_events = 0;
 	host->wd_states = 0;
+	host->wd_deadline_ns = 0;
 
 	spin_unlock_irqrestore(&host->irq_lock, irqflags);
 
@@ -300,6 +302,10 @@ static void dw_mci_init_debugfs(struct dw_mci *host)
 			   &host->pending_events);
 	debugfs_create_xul("completed_events", 0400, root,
 			   &host->completed_events);
+	debugfs_create_x64("wd_deadline_ns", 0400, root,
+			   &host->wd_deadline_ns);
+	debugfs_create_xul("wd_events", 0400, root, &host->wd_events);
+	debugfs_create_xul("wd_states", 0400, root, &host->wd_states);
 #ifdef CONFIG_FAULT_INJECTION
 	fault_create_debugfs_attr("fail_data_crc", root, &host->fail_data_crc);
 #endif

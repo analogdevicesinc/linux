@@ -240,6 +240,7 @@ struct dw_mci {
 	struct hrtimer		wd_timer;
 	unsigned long		wd_events;
 	unsigned long		wd_states;
+	u64			wd_deadline_ns;
 
 #ifdef CONFIG_FAULT_INJECTION
 	struct fault_attr	fail_data_crc;
