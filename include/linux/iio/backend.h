@@ -133,8 +133,8 @@ enum iio_backend_capabilities {
  * @filter_type_set: Set filter type.
  * @interface_data_align: Perform the data alignment process.
  * @num_lanes_set: Set the number of lanes enabled.
- * @crc_enable: Enable CRC generation and verification.
- * @crc_disable: Disable CRC generation and verification.
+ * @crc_enable: Enable direction-specific CRC handling.
+ * @crc_disable: Disable direction-specific CRC handling.
  * @ddr_enable: Enable interface DDR (Double Data Rate) mode.
  * @ddr_disable: Disable interface DDR (Double Data Rate) mode.
  * @data_stream_enable: Enable data stream.

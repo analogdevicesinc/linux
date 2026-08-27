@@ -21,7 +21,7 @@ description: |
   DOUTx data lines, DCLK (data clock), and DRDY (data ready) signals.
 
   Datasheet at:
-    https://www.analog.com/media/en/technical-documentation/data-sheets/ad7768.pdf
+    https://www.analog.com/media/en/technical-documentation/data-sheets/ad7768-ad7768-4.pdf
 
   HDL reference design:
     https://github.com/analogdevicesinc/hdl/tree/main/projects/ad7768evb
@@ -40,8 +40,18 @@ properties:
     description:
       Master clock (MCLK). Can be supplied as a CMOS clock on the XTAL2/MCLK
       pin, a crystal oscillator connected between the XTAL1 and XTAL2 pins, or
-      an LVDS differential clock on the XTAL1/XTAL2 pin pair. The clock source
-      is selected by the CLK_SEL hardware pin.
+      an LVDS differential clock on the XTAL1/XTAL2 pin pair. CMOS and LVDS
+      clocks must operate from 1.15 MHz to 34 MHz. Crystals must operate from
+      8 MHz to 34 MHz.
+
+  clock-names:
+    description:
+      Identifies the master clock source.
+    enum:
+      - mclk
+      - xtal
+      - lvds
+    default: mclk
 
   avdd1-supply:
     description:
@@ -55,8 +65,9 @@ properties:
       Negative analog supply rail for the AVSS1A, AVSS1B, AVSS2A, AVSS2B,
       and AVSS pins. This rail is referenced to DGND and all AVSS pins must
       be tied to the same potential. In single-supply operation AVSS is
-      nominally 0V; in split-supply operation it can range from 0V to
-      -2.75V with respect to DGND.
+      nominally 0 V; in split-supply operation it can range from 0 V to
+      -2.75 V with respect to DGND. If omitted, AVSS is assumed to be at
+      system ground (0 V).
 
   avdd2-supply:
     description:
@@ -71,21 +82,31 @@ properties:
       processing core via an internal LDO. For 1.8V operation (1.72V to
       1.88V), IOVDD must be tied to the DREGCAP pin.
 
-  ref1-supply:
+  ref1p-supply:
     description:
-      Differential reference voltage supply for the REF1+/REF1- input pair.
-      REF1+ voltage range is from (AVSS + 1V) to AVDD1; REF1- voltage range
-      is from AVSS to (AVDD1 - 1V). The differential reference voltage range
-      is 1V to |AVDD1 - AVSS|. On the AD7768 this reference is used for
-      channels 0 to 3; on the AD7768-4 for channels 0 and 1.
+      Positive reference input supply for REF1+. The voltage range is from
+      (AVSS + 1 V) to AVDD1. Together, REF1+ and REF1- must provide a
+      differential reference voltage from 1 V to |AVDD1 - AVSS|. This
+      reference is used by channels 0 to 3 on the AD7768 and channels 0 and 1
+      on the AD7768-4.
 
-  ref2-supply:
+  ref1n-supply:
     description:
-      Differential reference voltage supply for the REF2+/REF2- input pair.
-      REF2+ voltage range is from (AVSS + 1V) to AVDD1; REF2- voltage range
-      is from AVSS to (AVDD1 - 1V). The differential reference voltage range
-      is 1V to |AVDD1 - AVSS|. On the AD7768 this reference is used for
-      channels 4 to 7; on the AD7768-4 for channels 2 and 3.
+      Negative reference input supply for REF1-. The voltage range is from
+      AVSS to (AVDD1 - 1 V).
+
+  ref2p-supply:
+    description:
+      Positive reference input supply for REF2+. The voltage range is from
+      (AVSS + 1 V) to AVDD1. Together, REF2+ and REF2- must provide a
+      differential reference voltage from 1 V to |AVDD1 - AVSS|. This
+      reference is used by channels 4 to 7 on the AD7768 and channels 2 and 3
+      on the AD7768-4.
+
+  ref2n-supply:
+    description:
+      Negative reference input supply for REF2-. The voltage range is from
+      AVSS to (AVDD1 - 1 V).
 
   reset-gpios:
     maxItems: 1
@@ -166,7 +187,7 @@ properties:
 patternProperties:
   "^channel@[0-7]$":
     type: object
-    description: |
+    description:
       Represents the external channels which are connected to the device.
       AD7768 supports channels 0-7, AD7768-4 supports channels 0-3.
 
@@ -202,11 +223,12 @@ required:
   - reg
   - clocks
   - avdd1-supply
-  - avss-supply
   - avdd2-supply
   - iovdd-supply
-  - ref1-supply
-  - ref2-supply
+  - ref1p-supply
+  - ref1n-supply
+  - ref2p-supply
+  - ref2n-supply
   - io-backends
 
 allOf:
@@ -250,8 +272,10 @@ examples:
             avss-supply = <&avss_regulator>;
             avdd2-supply = <&avdd2_regulator>;
             iovdd-supply = <&iovdd_regulator>;
-            ref1-supply = <&ref1_regulator>;
-            ref2-supply = <&ref2_regulator>;
+            ref1p-supply = <&ref1p_regulator>;
+            ref1n-supply = <&ref1n_regulator>;
+            ref2p-supply = <&ref2p_regulator>;
+            ref2n-supply = <&ref2n_regulator>;
             reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 
             clocks = <&ad7768_mclk>;
@@ -287,52 +311,4 @@ examples:
         };
     };
 
-  - |
-    spi {
-        #address-cells = <1>;
-        #size-cells = <0>;
-
-        adc@1 {
-            compatible = "adi,ad7768-4";
-            reg = <1>;
-            spi-max-frequency = <1000000>;
-
-            avdd1-supply = <&avdd1_regulator>;
-            avss-supply = <&avss_regulator>;
-            avdd2-supply = <&avdd2_regulator>;
-            iovdd-supply = <&iovdd_regulator>;
-            ref1-supply = <&ref1_regulator>;
-            ref2-supply = <&ref2_regulator>;
-
-            clocks = <&ad7768_mclk>;
-
-            adi,data-lines-number = <4>;
-
-            io-backends = <&iio_backend>;
-
-            #address-cells = <1>;
-            #size-cells = <0>;
-
-            regulators {
-                vcm-output {
-                    regulator-name = "vcm-output";
-                    regulator-min-microvolt = <2140000>;
-                    regulator-max-microvolt = <2140000>;
-                    regulator-always-on;
-                };
-            };
-
-            channel@0 {
-                reg = <0>;
-                adi,prechargebuf-pos-enable;
-                adi,refbuf-pos-enable;
-            };
-
-            channel@3 {
-                reg = <3>;
-                adi,prechargebuf-pos-enable;
-                adi,refbuf-pos-enable;
-            };
-        };
-    };
 ...

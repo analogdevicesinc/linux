@@ -29,12 +29,12 @@ struct regmap;
  * @reg_clr_base:	(Optional) clear register base address
  * @reg_dir_in_base:	(Optional) in setting register base address
  * @reg_dir_out_base:	(Optional) out setting register base address
- * @pm_dev:		(Optional) Device to use for runtime power management.
  * @reg_stride:		(Optional) May be set if the registers (of the
  *			same type, dat, set, etc) are not consecutive.
  * @ngpio_per_reg:	(Optional) Number of GPIOs per register
  * @irq_domain:		(Optional) IRQ domain if the controller is
  *			interrupt-capable
+ * @pm_dev:		(Optional) Device to use for runtime power management.
  * @reg_mask_xlate:     (Optional) Translates base address and GPIO
  *			offset to a register/bitmask pair. If not
  *			given the default gpio_regmap_simple_xlate()
@@ -93,10 +93,10 @@ struct gpio_regmap_config {
 	unsigned int reg_clr_base;
 	unsigned int reg_dir_in_base;
 	unsigned int reg_dir_out_base;
-	struct device *pm_dev;
 	int reg_stride;
 	int ngpio_per_reg;
 	struct irq_domain *irq_domain;
+	struct device *pm_dev;
 	unsigned long *fixed_direction_mask;
 	unsigned long *fixed_direction_output;
 

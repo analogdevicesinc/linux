@@ -6,22 +6,34 @@
  */
 
 #include <linux/auxiliary_bus.h>
+#include <linux/bitmap.h>
 #include <linux/bits.h>
-#include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/gpio/driver.h>
 #include <linux/gpio/regmap.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 
 #define AD7768_REG_GPIO_CONTROL		0x0E
+#define   AD7768_GPIO_UGPIO_ENABLE	BIT(7)
+
 #define AD7768_REG_GPIO_WRITE		0x0F
 #define AD7768_REG_GPIO_READ		0x10
 
-#define AD7768_GPIO_UGPIO_ENABLE	BIT(7)
-
 #define AD7768_NUM_GPIOS		5
+
+static int ad7768_gpio_init_valid_mask(struct gpio_chip *gc,
+				       unsigned long *valid_mask,
+				       unsigned int ngpios)
+{
+	unsigned long *mask = dev_get_platdata(gc->parent);
+
+	bitmap_copy(valid_mask, mask, ngpios);
+
+	return 0;
+}
 
 static int ad7768_gpio_reg_mask_xlate(struct gpio_regmap *gpio,
 				      unsigned int base, unsigned int offset,
@@ -53,39 +65,39 @@ static int ad7768_gpio_reg_mask_xlate(struct gpio_regmap *gpio,
 static int ad7768_gpio_probe(struct auxiliary_device *adev,
 			     const struct auxiliary_device_id *id)
 {
-	struct device *dev = &adev->dev;
+	struct device *parent = adev->dev.parent;
 	struct gpio_regmap_config config = {
-		.parent = dev,
-		.label = dev_name(dev->parent),
+		.parent = &adev->dev,
+		.label = dev_name(parent),
 		.ngpio = AD7768_NUM_GPIOS,
 		.reg_dat_base = AD7768_REG_GPIO_READ,
 		.reg_set_base = AD7768_REG_GPIO_WRITE,
 		.reg_dir_out_base = AD7768_REG_GPIO_CONTROL,
-		.pm_dev = dev->parent,
+		.pm_dev = parent,
 		.reg_mask_xlate = ad7768_gpio_reg_mask_xlate,
+		.init_valid_mask = ad7768_gpio_init_valid_mask,
 	};
 	struct gpio_regmap *gpio;
-	struct regmap *regmap;
+	struct regmap *map;
 	int ret;
 
-	regmap = dev_get_regmap(dev->parent, NULL);
-	if (!regmap)
+	map = dev_get_regmap(parent, NULL);
+	if (!map)
 		return -ENODEV;
 
-	PM_RUNTIME_ACQUIRE_IF_ENABLED_AUTOSUSPEND(dev->parent, pm);
+	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(parent, pm);
 	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
 
-	ret = regmap_set_bits(regmap, AD7768_REG_GPIO_CONTROL,
-			      AD7768_GPIO_UGPIO_ENABLE);
+	ret = regmap_set_bits(map, AD7768_REG_GPIO_CONTROL, AD7768_GPIO_UGPIO_ENABLE);
 	if (ret)
 		return ret;
 
-	config.regmap = regmap;
-	config.drvdata = regmap;
-	gpio = devm_gpio_regmap_register(dev, &config);
+	config.regmap = map;
+	config.drvdata = map;
 
+	gpio = devm_gpio_regmap_register(&adev->dev, &config);
 	return PTR_ERR_OR_ZERO(gpio);
 }
 
