@@ -26,6 +26,7 @@ struct ipu6_buttress_ctrl {
 	u32 freq_ctl, pwr_sts_shift, pwr_sts_mask, pwr_sts_on, pwr_sts_off;
 	unsigned int ratio;
 	unsigned int qos_floor;
+	int subsys_id;
 };
 
 struct ipu6_buttress_ipc {
@@ -104,4 +105,6 @@ void ipu6_buttress_exit(struct ipu6_device *isp);
 void ipu6_buttress_csi_port_config(struct ipu6_device *isp,
 				   u32 legacy, u32 combo);
 void ipu6_buttress_restore(struct ipu6_device *isp);
+void ipu7_buttress_wakeup_isys(const struct ipu6_device *isp);
+u32 ipu7_buttress_get_isys_freq(struct ipu6_device *isp);
 #endif /* IPU6_BUTTRESS_H */

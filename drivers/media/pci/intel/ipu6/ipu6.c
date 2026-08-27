@@ -34,6 +34,7 @@
 #include "ipu6-platform-regs.h"
 
 #define IPU6_PCI_BAR		0
+#define IPU7_PCI_PBBAR		4
 
 struct ipu6_cell_program {
 	u32 magic_number;
@@ -209,6 +210,7 @@ static struct ipu6_psys_internal_pdata psys_ipdata = {
 };
 
 static const struct ipu6_buttress_ctrl isys_buttress_ctrl = {
+	.subsys_id = IPU_ISYS,
 	.ratio = IPU6_IS_FREQ_CTL_DEFAULT_RATIO,
 	.qos_floor = IPU6_IS_FREQ_CTL_DEFAULT_QOS_FLOOR_RATIO,
 	.freq_ctl = IPU6_BUTTRESS_REG_IS_FREQ_CTL,
@@ -219,11 +221,34 @@ static const struct ipu6_buttress_ctrl isys_buttress_ctrl = {
 };
 
 static const struct ipu6_buttress_ctrl psys_buttress_ctrl = {
+	.subsys_id = IPU_PSYS,
 	.ratio = IPU6_PS_FREQ_CTL_DEFAULT_RATIO,
 	.qos_floor = IPU6_PS_FREQ_CTL_DEFAULT_QOS_FLOOR_RATIO,
 	.freq_ctl = IPU6_BUTTRESS_REG_PS_FREQ_CTL,
 	.pwr_sts_shift = IPU6_BUTTRESS_PWR_STATE_PS_PWR_SHIFT,
 	.pwr_sts_mask = IPU6_BUTTRESS_PWR_STATE_PS_PWR_MASK,
+	.pwr_sts_on = IPU6_BUTTRESS_PWR_STATE_UP_DONE,
+	.pwr_sts_off = IPU6_BUTTRESS_PWR_STATE_DN_DONE,
+};
+
+static const struct ipu6_buttress_ctrl ipu7_isys_buttress_ctrl = {
+	.subsys_id = IPU_ISYS,
+	.ratio = IPU7_IS_FREQ_CTL_DEFAULT_RATIO,
+	.qos_floor = 0,
+	.freq_ctl = IPU7_BUTTRESS_REG_IS_WORKPOINT_REQ,
+	.pwr_sts_shift = IPU7_BUTTRESS_PWR_STATE_IS_PWR_SHIFT,
+	.pwr_sts_mask = IPU7_BUTTRESS_PWR_STATE_IS_PWR_MASK,
+	.pwr_sts_on = IPU6_BUTTRESS_PWR_STATE_UP_DONE,
+	.pwr_sts_off = IPU6_BUTTRESS_PWR_STATE_DN_DONE,
+};
+
+static const struct ipu6_buttress_ctrl ipu7_psys_buttress_ctrl = {
+	.subsys_id = IPU_PSYS,
+	.ratio = IPU7_PS_FREQ_CTL_DEFAULT_RATIO,
+	.qos_floor = 0,
+	.freq_ctl = IPU7_BUTTRESS_REG_PS_WORKPOINT_REQ,
+	.pwr_sts_shift = IPU7_BUTTRESS_PWR_STATE_PS_PWR_SHIFT,
+	.pwr_sts_mask = IPU7_BUTTRESS_PWR_STATE_PS_PWR_MASK,
 	.pwr_sts_on = IPU6_BUTTRESS_PWR_STATE_UP_DONE,
 	.pwr_sts_off = IPU6_BUTTRESS_PWR_STATE_DN_DONE,
 };
@@ -256,6 +281,35 @@ static const struct ipu6_buttress_registers ipu6_buttress_regs = {
 	.irq_cse_ipc	= BUTTRESS_ISR_IPC_FROM_CSE_IS_WAITING,
 	.irq_exec_done	= BUTTRESS_ISR_IPC_EXEC_DONE_BY_CSE,
 	.irq_sai	= BUTTRESS_ISR_SAI_VIOLATION,
+};
+
+static const struct ipu6_buttress_registers ipu7_buttress_regs = {
+	/* Registers */
+	.irq_status	= IPU7_BUTTRESS_REG_IRQ_STATUS,
+	.irq_clear	= IPU7_BUTTRESS_REG_IRQ_CLEAR,
+	.irq_enable	= IPU7_BUTTRESS_REG_IRQ_ENABLE,
+	.pwr_status	= IPU7_BUTTRESS_REG_PWR_STATUS,
+	.security_ctl	= IPU7_BUTTRESS_REG_SECURITY_CTL,
+	.fw_reset_ctl	= IPU7_BUTTRESS_REG_FW_RESET_CTL,
+	.fabric_cmd	= IPU7_BUTTRESS_REG_TSC_CMD,
+	.tsw_ctl	= IPU7_BUTTRESS_REG_TSC_CTL,
+	.tsc_lo		= IPU7_BUTTRESS_REG_TSC_LO,
+	.wdt		= IPU7_BUTTRESS_REG_IDLE_WDT,
+	.csr_in		= IPU7_BUTTRESS_REG_CSE2IUCSR,
+	.csr_out	= IPU7_BUTTRESS_REG_IU2CSECSR,
+	.db0_in		= IPU7_BUTTRESS_REG_CSE2IUDB0,
+	.db0_out	= IPU7_BUTTRESS_REG_IU2CSEDB0,
+	.data0_in	= IPU7_BUTTRESS_REG_CSE2IUDATA0,
+	.data0_out	= IPU7_BUTTRESS_REG_IU2CSEDATA0,
+
+	/* Bitmasks */
+	.irq_is		= IPU7_BUTTRESS_IRQ_IS_IRQ,
+	.irq_ps		= IPU7_BUTTRESS_IRQ_PS_IRQ,
+	.irq_all	= IPU7_BUTTRESS_IRQS,
+	.irq_events	= IPU7_BUTTRESS_IRQS,
+	.irq_cse_ipc	= IPU7_BUTTRESS_IRQ_IPC_FROM_CSE_IS_WAITING,
+	.irq_exec_done	= IPU7_BUTTRESS_IRQ_IPC_EXEC_DONE_BY_CSE,
+	.irq_sai	= IPU7_BUTTRESS_IRQ_SAI_VIOLATION,
 };
 
 static void
@@ -532,24 +586,6 @@ static int ipu6_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (!isp)
 		return -ENOMEM;
 
-	isp->pdev = pdev;
-	INIT_LIST_HEAD(&isp->devices);
-
-	ret = pcim_enable_device(pdev);
-	if (ret)
-		return dev_err_probe(dev, ret, "Enable PCI device failed\n");
-
-	phys = pci_resource_start(pdev, IPU6_PCI_BAR);
-	dev_dbg(dev, "IPU6 PCI bar[%u] = %pa\n", IPU6_PCI_BAR, &phys);
-
-	isp->base = pcim_iomap_region(pdev, IPU6_PCI_BAR, IPU6_NAME);
-	if (IS_ERR(isp->base))
-		return dev_err_probe(dev, PTR_ERR(isp->base),
-				     "Failed to I/O mem remapping\n");
-
-	pci_set_drvdata(pdev, isp);
-	pci_set_master(pdev);
-
 	isp->cpd_metadata_cmpnt_size = sizeof(struct ipu6_cpd_metadata_cmpnt);
 	isp->buttress.regs = &ipu6_buttress_regs;
 
@@ -577,11 +613,43 @@ static int ipu6_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		isp->hw_ver = IPU_VERSION_6EP_MTL;
 		isp->cpd_fw_name = IPU6EPMTL_FIRMWARE_NAME;
 		break;
+	case PCI_DEVICE_ID_INTEL_IPU7:
+		isp->hw_ver = IPU_VERSION_7;
+		isp->cpd_fw_name = IPU7_FIRMWARE_NAME;
+		isp->buttress.regs = &ipu7_buttress_regs;
+		break;
 	default:
 		return dev_err_probe(dev, -ENODEV,
 				     "Unsupported IPU6 device %x\n",
 				     id->device);
 	}
+
+	isp->pdev = pdev;
+	INIT_LIST_HEAD(&isp->devices);
+
+	ret = pcim_enable_device(pdev);
+	if (ret)
+		return dev_err_probe(dev, ret, "Enable PCI device failed\n");
+
+	phys = pci_resource_start(pdev, IPU6_PCI_BAR);
+	dev_dbg(dev, "IPU6 PCI bar[%u] = %pa\n", IPU6_PCI_BAR, &phys);
+
+	isp->base = pcim_iomap_region(pdev, IPU6_PCI_BAR, IPU6_NAME);
+	if (IS_ERR(isp->base))
+		return dev_err_probe(dev, PTR_ERR(isp->base),
+				     "Failed to I/O mem remapping\n");
+
+	if (IS_IPU7(isp)) {
+		isp->pb_base = pcim_iomap_region(pdev, IPU7_PCI_PBBAR,
+						 IPU6_NAME);
+		if (IS_ERR(isp->pb_base))
+			return dev_err_probe(dev, PTR_ERR(isp->pb_base),
+					     "I/O remapping PB BAR %u failed\n",
+					     IPU7_PCI_PBBAR);
+	}
+
+	pci_set_drvdata(pdev, isp);
+	pci_set_master(pdev);
 
 	ipu6_internal_pdata_init(isp);
 

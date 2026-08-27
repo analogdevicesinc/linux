@@ -22,6 +22,7 @@ struct ipu6_bus_device;
 #define IPU6_FIRMWARE_NAME		"intel/ipu/ipu6_fw.bin"
 #define IPU6EPMTL_FIRMWARE_NAME		"intel/ipu/ipu6epmtl_fw.bin"
 #define IPU6EPADLN_FIRMWARE_NAME	"intel/ipu/ipu6epadln_fw.bin"
+#define IPU7_FIRMWARE_NAME		"intel/ipu/ipu7_fw.bin"
 
 #define IPU_VERSION_6		BIT(0) /* TGL */
 #define IPU_VERSION_6SE		BIT(1) /* JSL */
@@ -64,6 +65,7 @@ struct ipu6_device {
 	u32 cpd_metadata_cmpnt_size;
 
 	void __iomem *base;
+	void __iomem *pb_base;
 	bool need_ipc_reset;
 	bool secure_mode;
 	u8 hw_ver;
