@@ -2130,6 +2130,7 @@ static bool dcn60_resource_construct(
 	dc->config.enable_windowed_mpo_odm = true;
 	dc->config.set_pipe_unlock_order = true; /* Need to ensure DET gets freed before allocating */
 	dc->config.dp_connector_no_native_i2c = true;
+	dc->caps.fused_io_supported = true;
 	/* read VBIOS LTTPR caps */
 	{
 		if (ctx->dc_bios->funcs->get_lttpr_caps) {
