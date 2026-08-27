@@ -108,7 +108,7 @@ enum dp_panel_mode dp_get_panel_mode(struct dc_link *link)
 			/* alternate scrambler reset is required for Travis
 			 * for the case when external chip does not
 			 * provide sink device id, alternate scrambler
-			 * scheme will  be overriden later by querying
+			 * scheme will  be overridden later by querying
 			 * Encoder features
 			 */
 			if (strncmp(
@@ -124,7 +124,7 @@ enum dp_panel_mode dp_get_panel_mode(struct dc_link *link)
 			/* alternate scrambler reset is required for NUTMEG
 			 * for the case when external chip does not provide
 			 * sink device id, alternate scrambler scheme will
-			 * be overriden later by querying Encoder feature
+			 * be overridden later by querying Encoder feature
 			 */
 			if (strncmp(link->dpcd_caps.branch_dev_name,
 				DP_VGA_LVDS_CONVERTER_ID_3,
