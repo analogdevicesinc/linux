@@ -233,58 +233,6 @@ static int buffer_list_get(struct ipu6_isys_stream *stream,
 	return 0;
 }
 
-static void
-ipu6_isys_buf_to_fw_frame_buf_pin(struct vb2_buffer *vb,
-				  struct ipu6_fw_isys_frame_buff_set_abi *set)
-{
-	struct ipu6_isys_queue *aq = vb2_queue_to_isys_queue(vb->vb2_queue);
-	struct vb2_v4l2_buffer *vvb = to_vb2_v4l2_buffer(vb);
-	struct ipu6_isys_video_buffer *ivb =
-		vb2_buffer_to_ipu6_isys_video_buffer(vvb);
-
-	set->output_pins[aq->fw_output].addr = ivb->dma_addr;
-	set->output_pins[aq->fw_output].out_buf_id = vb->index + 1;
-}
-
-/*
- * Convert a buffer list to a isys fw ABI framebuffer set. The
- * buffer list is not modified.
- */
-#define IPU6_ISYS_FRAME_NUM_THRESHOLD  (30)
-void
-ipu6_isys_buf_to_fw_frame_buf(struct ipu6_fw_isys_frame_buff_set_abi *set,
-			      struct ipu6_isys_stream *stream,
-			      struct ipu6_isys_buffer_list *bl)
-{
-	struct ipu6_isys_buffer *ib;
-
-	WARN_ON(!bl->nbufs);
-
-	set->send_irq_sof = 1;
-	set->send_resp_sof = 1;
-	set->send_irq_eof = 0;
-	set->send_resp_eof = 0;
-
-	if (stream->streaming)
-		set->send_irq_capture_ack = 0;
-	else
-		set->send_irq_capture_ack = 1;
-	set->send_irq_capture_done = 0;
-
-	set->send_resp_capture_ack = 1;
-	set->send_resp_capture_done = 1;
-	if (atomic_read(&stream->sequence) >= IPU6_ISYS_FRAME_NUM_THRESHOLD) {
-		set->send_resp_capture_ack = 0;
-		set->send_resp_capture_done = 0;
-	}
-
-	list_for_each_entry(ib, &bl->head, head) {
-		struct vb2_buffer *vb = ipu6_isys_buffer_to_vb2_buffer(ib);
-
-		ipu6_isys_buf_to_fw_frame_buf_pin(vb, set);
-	}
-}
-
 /* Start streaming for real. The buffer list must be available. */
 static int ipu6_isys_stream_start(struct ipu6_isys_video *av,
 				  struct ipu6_isys_buffer_list *bl)
@@ -304,9 +252,7 @@ static int ipu6_isys_stream_start(struct ipu6_isys_video *av,
 	bl = &__bl;
 
 	do {
-		struct ipu6_fw_isys_frame_buff_set_abi *buf = NULL;
 		struct isys_fw_msgs *msg;
-		u16 send_type = IPU6_FW_ISYS_SEND_TYPE_STREAM_CAPTURE;
 
 		ret = buffer_list_get(stream, bl);
 		if (ret < 0)
@@ -316,16 +262,14 @@ static int ipu6_isys_stream_start(struct ipu6_isys_video *av,
 		if (!msg)
 			return -ENOMEM;
 
-		buf = &msg->ipu6.frame;
-		ipu6_isys_buf_to_fw_frame_buf(buf, stream, bl);
-		ipu6_fw_isys_dump_frame_buff_set(dev, buf,
+		ipu6_fw_isys_prepare_buf_set(msg, stream, bl);
+		ipu6_fw_isys_dump_frame_buff_set(dev, msg,
 						 stream->nr_output_pins);
 		ipu6_isys_buffer_list_queue(bl, IPU6_ISYS_BUFFER_LIST_FL_ACTIVE,
 					    0);
-		ret = ipu6_fw_isys_complex_cmd(stream->isys,
-					       stream->stream_handle, buf,
-					       msg->dma_addr, sizeof(*buf),
-					       send_type);
+
+		ret = ipu6_fw_isys_stream_capture(stream->isys,
+						  stream->stream_handle, msg);
 	} while (!WARN_ON(ret));
 
 	return 0;
@@ -349,7 +293,6 @@ static void buf_queue(struct vb2_buffer *vb)
 		vb2_buffer_to_ipu6_isys_video_buffer(vvb);
 	struct ipu6_isys_buffer *ib = &ivb->ib;
 	struct device *dev = &av->isys->adev->auxdev.dev;
-	struct ipu6_fw_isys_frame_buff_set_abi *buf = NULL;
 	struct ipu6_isys_stream *stream = av->stream;
 	struct ipu6_isys_buffer_list bl;
 	struct isys_fw_msgs *msg;
@@ -396,9 +339,8 @@ static void buf_queue(struct vb2_buffer *vb)
 		goto out;
 	}
 
-	buf = &msg->ipu6.frame;
-	ipu6_isys_buf_to_fw_frame_buf(buf, stream, &bl);
-	ipu6_fw_isys_dump_frame_buff_set(dev, buf, stream->nr_output_pins);
+	ipu6_fw_isys_prepare_buf_set(msg, stream, &bl);
+	ipu6_fw_isys_dump_frame_buff_set(dev, msg, stream->nr_output_pins);
 
 	/*
 	 * We must queue the buffers in the buffer list to the
@@ -408,9 +350,8 @@ static void buf_queue(struct vb2_buffer *vb)
 	 */
 	ipu6_isys_buffer_list_queue(&bl, IPU6_ISYS_BUFFER_LIST_FL_ACTIVE, 0);
 
-	ret = ipu6_fw_isys_complex_cmd(stream->isys, stream->stream_handle,
-				       buf, msg->dma_addr, sizeof(*buf),
-				       IPU6_FW_ISYS_SEND_TYPE_STREAM_CAPTURE);
+	ret = ipu6_fw_isys_stream_capture(stream->isys, stream->stream_handle,
+					  msg);
 	if (ret < 0)
 		dev_err(dev, "send stream capture failed\n");
 

@@ -450,115 +450,28 @@ static void put_stream_opened(struct ipu6_isys_video *av)
 	spin_unlock_irqrestore(&av->isys->streams_lock, flags);
 }
 
-static int ipu6_isys_fw_pin_cfg(struct ipu6_isys_video *av,
-				struct ipu6_fw_isys_stream_cfg_data_abi *cfg)
-{
-	struct media_pad *src_pad = media_pad_remote_pad_first(&av->pad);
-	struct v4l2_subdev *sd = media_entity_to_v4l2_subdev(src_pad->entity);
-	struct v4l2_subdev_state *state = v4l2_subdev_get_locked_active_state(sd);
-	struct ipu6_fw_isys_input_pin_info_abi *input_pin;
-	struct ipu6_fw_isys_output_pin_info_abi *output_pin;
-	struct ipu6_isys_stream *stream = av->stream;
-	struct ipu6_isys_queue *aq = &av->aq;
-	struct v4l2_mbus_framefmt fmt;
-	const struct ipu6_isys_pixelformat *pfmt =
-		ipu6_isys_get_isys_format(ipu6_isys_get_format(av), 0);
-	struct v4l2_rect v4l2_crop;
-	struct ipu6_isys *isys = av->isys;
-	int input_pins = cfg->nof_input_pins++;
-	int output_pins;
-	u32 src_stream;
-
-	src_stream = ipu6_isys_get_src_stream_by_src_pad(sd, src_pad->index);
-	fmt = *v4l2_subdev_state_get_format(state, src_pad->index, src_stream);
-	v4l2_crop = *v4l2_subdev_state_get_crop(state, src_pad->index, src_stream);
-
-	input_pin = &cfg->input_pins[input_pins];
-	input_pin->input_res.width = fmt.width;
-	input_pin->input_res.height = fmt.height;
-	input_pin->dt = av->dt;
-	input_pin->bits_per_pix = pfmt->bpp_packed;
-	input_pin->mapped_dt = 0x40; /* invalid mipi data type */
-	input_pin->mipi_decompression = 0;
-	input_pin->capture_mode = IPU6_FW_ISYS_CAPTURE_MODE_REGULAR;
-	input_pin->mipi_store_mode = pfmt->bpp == pfmt->bpp_packed ?
-		IPU6_FW_ISYS_MIPI_STORE_MODE_DISCARD_LONG_HEADER :
-		IPU6_FW_ISYS_MIPI_STORE_MODE_NORMAL;
-	input_pin->crop_first_and_last_lines = v4l2_crop.top & 1;
-
-	output_pins = cfg->nof_output_pins++;
-	aq->fw_output = output_pins;
-	stream->output_pins_queue[output_pins] = aq;
-
-	output_pin = &cfg->output_pins[output_pins];
-	output_pin->input_pin_id = input_pins;
-	output_pin->output_res.width = ipu6_isys_get_frame_width(av);
-	output_pin->output_res.height = ipu6_isys_get_frame_height(av);
-
-	output_pin->stride = ipu6_isys_get_bytes_per_line(av);
-	if (pfmt->bpp != pfmt->bpp_packed)
-		output_pin->pt = IPU6_FW_ISYS_PIN_TYPE_RAW_SOC;
-	else
-		output_pin->pt = IPU6_FW_ISYS_PIN_TYPE_MIPI;
-	output_pin->ft = pfmt->css_pixelformat;
-	output_pin->send_irq = 1;
-	memset(output_pin->ts_offsets, 0, sizeof(output_pin->ts_offsets));
-	output_pin->s2m_pixel_soc_pixel_remapping =
-		S2M_PIXEL_SOC_PIXEL_REMAPPING_FLAG_NO_REMAPPING;
-	output_pin->csi_be_soc_pixel_remapping =
-		CSI_BE_SOC_PIXEL_REMAPPING_FLAG_NO_REMAPPING;
-
-	output_pin->snoopable = true;
-	output_pin->error_handling_enable = false;
-	output_pin->sensor_type = isys->sensor_type++;
-	if (isys->sensor_type > isys->pdata->ipdata->sensor_type_end)
-		isys->sensor_type = isys->pdata->ipdata->sensor_type_start;
-
-	return 0;
-}
-
 static int start_stream_firmware(struct ipu6_isys_video *av,
 				 struct ipu6_isys_buffer_list *bl)
 {
-	struct ipu6_fw_isys_stream_cfg_data_abi *stream_cfg;
-	struct ipu6_fw_isys_frame_buff_set_abi *buf = NULL;
 	struct ipu6_isys_stream *stream = av->stream;
 	struct device *dev = &av->isys->adev->auxdev.dev;
 	struct isys_fw_msgs *msg = NULL;
-	struct ipu6_isys_queue *aq;
 	int ret, retout, tout;
-	u16 send_type;
+	bool capture = bl ? true : false;
 
 	msg = ipu6_get_fw_msg_buf(stream);
 	if (!msg)
 		return -ENOMEM;
 
-	stream_cfg = &msg->ipu6.stream;
-	stream_cfg->src = stream->stream_source;
-	stream_cfg->vc = stream->vc;
-	stream_cfg->isl_use = 0;
-	stream_cfg->sensor_type = IPU6_FW_ISYS_SENSOR_MODE_NORMAL;
-
-	list_for_each_entry(aq, &stream->queues, node) {
-		struct ipu6_isys_video *__av = ipu6_isys_queue_to_video(aq);
-
-		ret = ipu6_isys_fw_pin_cfg(__av, stream_cfg);
-		if (ret < 0) {
-			ipu6_put_fw_msg_buf(av->isys, msg);
-			return ret;
-		}
+	ret = ipu6_fw_isys_prepare_stream_cfg(av, msg);
+	if (ret < 0) {
+		ipu6_put_fw_msg_buf(av->isys, msg);
+		return ret;
 	}
-
-	ipu6_fw_isys_dump_stream_cfg(dev, stream_cfg);
-
-	stream->nr_output_pins = stream_cfg->nof_output_pins;
 
 	reinit_completion(&stream->stream_open_completion);
 
-	ret = ipu6_fw_isys_complex_cmd(av->isys, stream->stream_handle,
-				       stream_cfg, msg->dma_addr,
-				       sizeof(*stream_cfg),
-				       IPU6_FW_ISYS_SEND_TYPE_STREAM_OPEN);
+	ret = ipu6_fw_isys_stream_open(av->isys, stream->stream_handle, msg);
 	if (ret < 0) {
 		dev_err(dev, "can't open stream (%d)\n", ret);
 		ipu6_put_fw_msg_buf(av->isys, msg);
@@ -590,26 +503,16 @@ static int start_stream_firmware(struct ipu6_isys_video *av,
 			ret = -ENOMEM;
 			goto out_put_stream_opened;
 		}
-		buf = &msg->ipu6.frame;
-		ipu6_isys_buf_to_fw_frame_buf(buf, stream, bl);
+
+		ipu6_fw_isys_prepare_buf_set(msg, stream, bl);
 		ipu6_isys_buffer_list_queue(bl,
 					    IPU6_ISYS_BUFFER_LIST_FL_ACTIVE, 0);
 	}
 
 	reinit_completion(&stream->stream_start_completion);
 
-	if (bl) {
-		send_type = IPU6_FW_ISYS_SEND_TYPE_STREAM_START_AND_CAPTURE;
-		ipu6_fw_isys_dump_frame_buff_set(dev, buf,
-						 stream_cfg->nof_output_pins);
-		ret = ipu6_fw_isys_complex_cmd(av->isys, stream->stream_handle,
-					       buf, msg->dma_addr,
-					       sizeof(*buf), send_type);
-	} else {
-		send_type = IPU6_FW_ISYS_SEND_TYPE_STREAM_START;
-		ret = ipu6_fw_isys_simple_cmd(av->isys, stream->stream_handle,
-					      send_type);
-	}
+	ret = ipu6_fw_isys_stream_start(av->isys, stream->stream_handle, msg,
+					capture);
 
 	if (ret < 0) {
 		dev_err(dev, "can't start streaming (%d)\n", ret);
@@ -635,9 +538,7 @@ static int start_stream_firmware(struct ipu6_isys_video *av,
 out_stream_close:
 	reinit_completion(&stream->stream_close_completion);
 
-	retout = ipu6_fw_isys_simple_cmd(av->isys,
-					 stream->stream_handle,
-					 IPU6_FW_ISYS_SEND_TYPE_STREAM_CLOSE);
+	retout = ipu6_fw_isys_stream_close(av->isys, stream->stream_handle);
 	if (retout < 0) {
 		dev_dbg(dev, "can't close stream (%d)\n", retout);
 		goto out_put_stream_opened;
@@ -666,9 +567,7 @@ static void stop_streaming_firmware(struct ipu6_isys_video *av)
 
 	reinit_completion(&stream->stream_stop_completion);
 
-	ret = ipu6_fw_isys_simple_cmd(av->isys, stream->stream_handle,
-				      IPU6_FW_ISYS_SEND_TYPE_STREAM_FLUSH);
-
+	ret = ipu6_fw_isys_stream_flush(av->isys, stream->stream_handle);
 	if (ret < 0) {
 		dev_err(dev, "can't stop stream (%d)\n", ret);
 		return;
@@ -692,8 +591,7 @@ static void close_streaming_firmware(struct ipu6_isys_video *av)
 
 	reinit_completion(&stream->stream_close_completion);
 
-	ret = ipu6_fw_isys_simple_cmd(av->isys, stream->stream_handle,
-				      IPU6_FW_ISYS_SEND_TYPE_STREAM_CLOSE);
+	ret = ipu6_fw_isys_stream_close(av->isys, stream->stream_handle);
 	if (ret < 0) {
 		dev_err(dev, "can't close stream (%d)\n", ret);
 		return;
