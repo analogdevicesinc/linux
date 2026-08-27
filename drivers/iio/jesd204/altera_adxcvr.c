@@ -16,47 +16,6 @@
 #include <linux/platform_device.h>
 #include <linux/jesd204/jesd204.h>
 
-#define DEBUG 1
-
-
-static bool reset_workaround = false;
-module_param(reset_workaround, bool, 0644);
-MODULE_PARM_DESC(reset_workaround, "Enable additional reset workaround in the Altera ADXCVR driver");
-
-static int clk_ready_delay = 0;
-module_param(clk_ready_delay, int, 0644);
-MODULE_PARM_DESC(clk_ready_delay, "Enable additional reset workaround in the Altera ADXCVR driver");
-
-
-static int reset_mdelay = 10;
-module_param(reset_mdelay, int, 0644);
-MODULE_PARM_DESC(reset_mdelay, "If reset_workaround is enabled, the additional delay in ms to wait before resetting the xcvr");
-
-static int timeout_iterations = 4000;
-module_param(timeout_iterations, int, 0644);
-MODULE_PARM_DESC(timeout_iterations, "If reset_workaround is enabled, the additional iterations between successive resets");
-
-
-static bool altera_adxcvr_debug = false;
-module_param(altera_adxcvr_debug, bool, 0644);
-MODULE_PARM_DESC(altera_adxcvr_debug, "Enable verbose debug logging for Altera ADXCVR driver");
-
-
-#define altera_adxcvr_dbg(dev, fmt, ...)                     \
-    do {                                              \
-        if (altera_adxcvr_debug)                             \
-            dev_info(dev, "DBG: " fmt, ##__VA_ARGS__);\
-    } while (0)
-
-#define altera_adxcvr_trace(dev, func)                       \
-    do {                                              \
-        if (altera_adxcvr_debug)                             \
-            dev_info(dev, "TRACE: %s()\n", func);     \
-    } while (0)
-
-
-
-
 /* Registers Description */
 
 /* ADXCVR Registers */
@@ -241,7 +200,6 @@ static void gts_pll_write(struct adxcvr_state *st, unsigned int reg, u32 val)
 {
 	void __iomem *addr = st->gts_pll_regs + reg * 4;
 
-	altera_adxcvr_dbg(st->dev, "gts_pll_write 0x%08x to %px\n", val, addr);
 
 	iowrite32(val, addr);
 }
@@ -250,7 +208,6 @@ static void gts_pll_writeb(struct adxcvr_state *st, unsigned int byte_offset, u8
 {
 	void __iomem *addr = st->gts_pll_regs + byte_offset;
 
-	altera_adxcvr_dbg(st->dev, "gts_pll_writeb 0x%02x to %px\n", val, addr);
 
 	iowrite8(val, addr);
 }
@@ -278,7 +235,6 @@ static void adxcfg_update(struct adxcvr_state *st, unsigned int lane,
 	unsigned int reg, unsigned int mask, unsigned int val)
 {
 	unsigned int rval;
-    altera_adxcvr_trace(st->dev, __func__);
 
 	rval = adxcfg_read(st, lane, reg);
 	rval &= ~mask;
@@ -289,7 +245,6 @@ static void adxcfg_update(struct adxcvr_state *st, unsigned int lane,
 static void adxcfg_acquire_arbitration(struct adxcvr_state *st,
 	unsigned int lane)
 {
-    altera_adxcvr_trace(st->dev, __func__);
 	adxcvr_acquire_arbitration(st, st->adxcfg_regs[lane],
 		XCVR_REG_CAPAB_PMA);
 }
@@ -297,19 +252,16 @@ static void adxcfg_acquire_arbitration(struct adxcvr_state *st,
 static void adxcfg_release_arbitration(struct adxcvr_state *st,
 	unsigned int lane, bool calibrate)
 {
-    altera_adxcvr_trace(st->dev, __func__);
 	adxcvr_release_arbitration(st->adxcfg_regs[lane], calibrate);
 }
 
 static void adxcfg_lock(struct adxcvr_state *st)
 {
-    altera_adxcvr_trace(st->dev, __func__);
 	mutex_lock(&adxcfg_global_lock);
 }
 
 static void adxcfg_unlock(struct adxcvr_state *st)
 {
-    altera_adxcvr_trace(st->dev, __func__);
 	mutex_unlock(&adxcfg_global_lock);
 }
 
@@ -317,7 +269,6 @@ static int atx_pll_calibration_check(struct adxcvr_state *st)
 {
 	unsigned int timeout = 0;
 	unsigned int val;
-    altera_adxcvr_trace(st->dev, __func__);
 
 	/* Wait max 100ms for cal_busy to de-assert */
 	do {
@@ -347,7 +298,6 @@ static int adxcfg_calibration_check(struct adxcvr_state *st, unsigned int lane,
 	unsigned int mask;
 	unsigned int val;
 	const char *msg;
-    altera_adxcvr_trace(st->dev, __func__);
 
 	if (tx) {
 		mask = XCVR_CAPAB_TX_CAL_BUSY_MASK;
@@ -381,7 +331,6 @@ static int xcvr_calib_tx(struct adxcvr_state *st)
 {
 	unsigned lane;
 	unsigned err = 0;
-    altera_adxcvr_trace(st->dev, __func__);
 
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
 		adxcfg_acquire_arbitration(st, lane);
@@ -475,7 +424,6 @@ static ssize_t adxcvr_sysfs_store(struct device *dev,
 
 static void adxcvr_pre_lane_rate_change(struct adxcvr_state *st)
 {
-    altera_adxcvr_trace(st->dev, __func__);
 	adxcfg_lock(st);
 	/*
 	 * Multiple re-configuration requests can be active at the same time.
@@ -491,7 +439,6 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 	unsigned int status;
 	int timeout = 1000;
 	unsigned int i;
-    altera_adxcvr_trace(st->dev, __func__);
 
 	if (--st->reset_counter != 0)
 		return;
@@ -520,24 +467,6 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 		}
 	}
 
-    if (reset_workaround) {
-        /* Reset twice for Agilex workaround */
-        if (st->is_agilex && st->is_transmit) {
-            dev_info(st->dev, "Agilex workaround, resetting TX again\n");
-            adxcvr_write(st, ADXCVR_REG_RESETN, 0);
-            mdelay(reset_mdelay);
-            timeout = timeout_iterations;
-            adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
-            do {
-                mdelay(1);
-                status = adxcvr_read(st, ADXCVR_REG_STATUS);
-                if (status == ADXCVR_STATUS) {
-                    dev_info(st->dev, "ADXCVR_STATUS is 0x%0X.  Breaking out...(iter %d)\n", status, timeout);
-                    break;
-            }
-            } while (timeout--);
-        }
-    }
 }
 
 static void adxcvr_link_clk_work(struct work_struct *work)
@@ -546,7 +475,6 @@ static void adxcvr_link_clk_work(struct work_struct *work)
 		container_of(work, struct adxcvr_state, link_clk_work);
 	unsigned int link_rate;
 	int ret;
-    altera_adxcvr_trace(st->dev, __func__);
 
 	link_rate = READ_ONCE(st->lane_rate) * (1000 / 40);
 
@@ -572,10 +500,6 @@ static void adxcvr_link_clk_work(struct work_struct *work)
 	if (ret < 0)
 		dev_err(st->dev, "Enabling link clock failed: %d\n", ret);
 
-    if (clk_ready_delay) {
-        mdelay(clk_ready_delay);
-    }
-
 	adxcfg_lock(st);
 	adxcvr_finalize_lane_rate_change(st);
 	adxcfg_unlock(st);
@@ -585,7 +509,6 @@ static void adxcvr_post_lane_rate_change(struct adxcvr_state *st,
 	unsigned int lane_rate)
 {
 	bool changed = st->lane_rate != lane_rate;
-    altera_adxcvr_trace(st->dev, __func__);
 
 	st->lane_rate = lane_rate;
     dev_dbg(st->dev, "%s: changed=%d us\n", __func__, (int)changed);
@@ -615,7 +538,6 @@ static unsigned long adxcvr_dummy_pll_recalc_rate(struct clk_hw *clk_hw,
 	unsigned long parent_rate)
 {
 	struct adxcvr_state *st = clk_hw_to_adxcvr(clk_hw);
-    altera_adxcvr_trace(st->dev, __func__);
 
 	return st->lane_rate;
 }
@@ -624,7 +546,6 @@ static long adxcvr_dummy_pll_round_rate(struct clk_hw *clk_hw,
 	unsigned long rate, unsigned long *parent_rate)
 {
 	struct adxcvr_state *st = clk_hw_to_adxcvr(clk_hw);
-    altera_adxcvr_trace(st->dev, __func__);
 	return rate;
 }
 
@@ -632,7 +553,6 @@ static int adxcfg_s10_calibration(struct adxcvr_state *st, bool tx)
 {
 	unsigned int lane;
 	int err = 0;
-    altera_adxcvr_trace(st->dev, __func__);
 
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
 		adxcfg_write(st, lane,
@@ -662,7 +582,6 @@ static int adxcvr_dummy_pll_set_rate(struct clk_hw *clk_hw,
 {
 	struct adxcvr_state *st = clk_hw_to_adxcvr(clk_hw);
 	// u32 val;
-    altera_adxcvr_trace(st->dev, __func__);
 
 	adxcvr_pre_lane_rate_change(st);
 
@@ -732,7 +651,6 @@ static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 	const char *clk_name;
 	struct clk *clk;
 
-    altera_adxcvr_trace(st->dev, __func__);
 	st->initial_recalc = true;
 
 	parent_name = of_clk_get_parent_name(st->dev->of_node, 0);
@@ -744,23 +662,18 @@ static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 		&clk_name);
 
 	init.name = clk_name;
-    altera_adxcvr_dbg(st->dev, "%s setting clk_init_data operations\n", __func__);
 	if (st->atx_pll_regs) {
-        altera_adxcvr_dbg(st->dev, "%s:%d setting clk_init_data ATX_PLL operations\n", __func__, __LINE__);
 		init.ops = &adxcvr_atx_pll_ops;
     }
 	else if (st->gts_pll_regs) {
 		// init.ops = &adxcvr_gts_pll_ops;
-        altera_adxcvr_dbg(st->dev, "%s:%d setting clk_init_data DUMMY operations\n", __func__, __LINE__);
 		init.ops = &adxcvr_dummy_pll_ops;
     }
 	else {
-        altera_adxcvr_dbg(st->dev, "%s:%d setting clk_init_data CDR_PLL operations\n", __func__, __LINE__);
 		init.ops = &adxcvr_cdr_pll_ops;
     }
 	// if (st->skip_pll_reconfig)
 
-    altera_adxcvr_dbg(st->dev, "%s:%d setting clk_init_data FORCING DUMMY operations\n", __func__, __LINE__);
     init.ops = &adxcvr_dummy_pll_ops;
 
 	init.flags = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE;
@@ -855,7 +768,6 @@ static int adxcvr_probe(struct platform_device *pdev)
 	char adxcfg_name[16];
 	int lane;
 	int ret;
-    altera_adxcvr_trace(&pdev->dev, __func__);
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
 	if (!st)
@@ -892,16 +804,25 @@ static int adxcvr_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	/*
+	 * The PHY AVMM windows are shared between the RX and TX instances of a
+	 * duplex link, so they cannot be claimed exclusively - map them without
+	 * request_mem_region(). Concurrent access is serialised by
+	 * adxcfg_global_lock.
+	 */
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
 		sprintf(adxcfg_name, "adxcfg-%d", lane);
 		mem_adxcfg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, adxcfg_name);
-		st->adxcfg_regs[lane] = devm_ioremap_resource(&pdev->dev,
-							      mem_adxcfg);
-        altera_adxcvr_dbg(&pdev->dev, "adxcfg-%d = %px\n", lane, st->adxcfg_regs[lane]);
-		if (IS_ERR(st->adxcfg_regs[lane])) {
-			dev_err(&pdev->dev, "Failed to get adxcfg_regs[%d] resource\n", lane);
-			return PTR_ERR(st->adxcfg_regs[lane]);
+		if (!mem_adxcfg) {
+			dev_err(&pdev->dev, "Missing %s resource\n", adxcfg_name);
+			return -ENODEV;
+		}
+		st->adxcfg_regs[lane] = devm_ioremap(&pdev->dev, mem_adxcfg->start,
+						     resource_size(mem_adxcfg));
+		if (!st->adxcfg_regs[lane]) {
+			dev_err(&pdev->dev, "Failed to map adxcfg_regs[%d] resource\n", lane);
+			return -ENOMEM;
 		}
 	}
 
@@ -939,10 +860,15 @@ static int adxcvr_probe(struct platform_device *pdev)
 		if (st->is_agilex) {
 			mem_gts_pll = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, "gts-pll");
-			st->gts_pll_regs = devm_ioremap_resource(&pdev->dev,
-								 mem_gts_pll);
-			if (IS_ERR(st->gts_pll_regs))
-				return PTR_ERR(st->gts_pll_regs);
+			if (!mem_gts_pll) {
+				dev_err(&pdev->dev, "Missing gts-pll resource\n");
+				return -ENODEV;
+			}
+			/* Nested inside the adxcfg window of its own PHY bank. */
+			st->gts_pll_regs = devm_ioremap(&pdev->dev, mem_gts_pll->start,
+							resource_size(mem_gts_pll));
+			if (!st->gts_pll_regs)
+				return -ENOMEM;
 			dev_info(&pdev->dev, "Mapped gts-pll!");
 
 		}
