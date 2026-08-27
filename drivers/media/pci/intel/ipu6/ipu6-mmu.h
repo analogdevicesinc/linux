@@ -4,9 +4,6 @@
 #ifndef IPU6_MMU_H
 #define IPU6_MMU_H
 
-#define ISYS_MMID 1
-#define PSYS_MMID 0
-
 #include <linux/list.h>
 #include <linux/spinlock_types.h>
 #include <linux/types.h>

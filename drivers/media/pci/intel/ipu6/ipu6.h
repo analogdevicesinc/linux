@@ -70,6 +70,9 @@ struct ipu6_device {
 	bool bus_ready_to_probe;
 };
 
+#define IPU_PSYS	0
+#define IPU_ISYS	1
+
 #define IPU6_ISYS_NAME "isys"
 #define IPU6_PSYS_NAME "psys"
 
