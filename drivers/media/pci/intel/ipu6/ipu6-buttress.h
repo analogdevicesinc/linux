@@ -54,6 +54,7 @@ struct ipu6_buttress_registers {
 	u32 db0_out;
 	u32 data0_in;
 	u32 data0_out;
+	u32 sku_id;
 
 	/* Bitmasks */
 	u32 irq_is;
