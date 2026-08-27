@@ -995,7 +995,6 @@ static int isys_probe(struct auxiliary_device *auxdev,
 	const struct ipu6_isys_internal_csi2_pdata *csi2_pdata;
 	struct ipu6_bus_device *adev = auxdev_to_adev(auxdev);
 	struct ipu6_device *isp = adev->isp;
-	const struct firmware *fw;
 	struct ipu6_isys *isys;
 	unsigned int i;
 	int ret;
@@ -1040,18 +1039,6 @@ static int isys_probe(struct auxiliary_device *auxdev,
 
 	isys_stream_init(isys);
 
-	if (!isp->secure_mode) {
-		fw = isp->cpd_fw;
-		ret = ipu6_map_fw_region(adev, fw->data, fw->size,
-					 DMA_TO_DEVICE, 0);
-		if (ret)
-			goto release_firmware;
-
-		ret = ipu6_cpd_create_pkg_dir(adev, isp->cpd_fw->data);
-		if (ret)
-			goto remove_shared_buffer;
-	}
-
 	cpu_latency_qos_add_request(&isys->pm_qos, PM_QOS_DEFAULT_VALUE);
 
 	ret = alloc_fw_msg_bufs(isys, 20);
@@ -1079,14 +1066,6 @@ free_fw_msg_bufs:
 	free_fw_msg_bufs(isys);
 out_remove_pkg_dir_shared_buffer:
 	cpu_latency_qos_remove_request(&isys->pm_qos);
-	if (!isp->secure_mode)
-		ipu6_cpd_free_pkg_dir(adev);
-remove_shared_buffer:
-	if (!isp->secure_mode)
-		ipu6_unmap_fw_region(adev, DMA_TO_DEVICE);
-release_firmware:
-	if (!isp->secure_mode)
-		release_firmware(adev->fw);
 
 	for (i = 0; i < IPU6_ISYS_MAX_STREAMS; i++)
 		mutex_destroy(&isys->streams[i].mutex);
@@ -1099,9 +1078,7 @@ release_firmware:
 
 static void isys_remove(struct auxiliary_device *auxdev)
 {
-	struct ipu6_bus_device *adev = auxdev_to_adev(auxdev);
 	struct ipu6_isys *isys = dev_get_drvdata(&auxdev->dev);
-	struct ipu6_device *isp = adev->isp;
 	unsigned int i;
 
 	free_fw_msg_bufs(isys);
@@ -1110,12 +1087,6 @@ static void isys_remove(struct auxiliary_device *auxdev)
 	isys_notifier_cleanup(isys);
 
 	cpu_latency_qos_remove_request(&isys->pm_qos);
-
-	if (!isp->secure_mode) {
-		ipu6_cpd_free_pkg_dir(adev);
-		ipu6_unmap_fw_region(adev, DMA_TO_DEVICE);
-		release_firmware(adev->fw);
-	}
 
 	for (i = 0; i < IPU6_ISYS_MAX_STREAMS; i++)
 		mutex_destroy(&isys->streams[i].mutex);
