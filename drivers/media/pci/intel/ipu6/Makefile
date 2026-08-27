@@ -8,7 +8,9 @@ intel-ipu6-y			:= ipu6.o \
 				ipu7-mmu-hw.o \
 				ipu6-buttress.o \
 				ipu6-cpd.o \
-				ipu6-fw-com.o
+				ipu6-fw-com.o \
+				ipu7-fw-com.o \
+				ipu7-boot.o
 
 obj-$(CONFIG_VIDEO_INTEL_IPU6)	+= intel-ipu6.o
 
