@@ -727,8 +727,10 @@ void ipu6_isys_update_stream_watermark(struct ipu6_isys_video *av, bool state)
 {
 	struct isys_iwake_watermark *iwake_watermark =
 		&av->isys->iwake_watermark;
+	struct ipu6_device *isp = av->isys->adev->isp;
 
-	if (!av->watermark.pixel_rate)
+	if (IS_IPU7(isp) ||
+	    !av->watermark.pixel_rate)
 		return;
 
 	if (state) {
