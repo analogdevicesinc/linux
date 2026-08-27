@@ -180,6 +180,7 @@ enum mana_rc_queue_type {
 
 struct mana_ib_rc_qp {
 	struct mana_ib_queue queues[MANA_RC_QUEUE_TYPE_MAX];
+	u32 wqe_size_in_bu;
 };
 
 enum mana_uc_queue_type {
@@ -262,6 +263,7 @@ enum mana_ib_adapter_features {
 	MANA_IB_FEATURE_CLIENT_ERROR_CQE_SUPPORT = BIT(4),
 	MANA_IB_FEATURE_DEV_COUNTERS_SUPPORT = BIT(5),
 	MANA_IB_FEATURE_MULTI_PORTS_SUPPORT = BIT(6),
+	MANA_IB_FEATURE_MSN_IN_WQE_SUPPORT = BIT(7),
 };
 
 struct mana_ib_query_adapter_caps_resp {
@@ -391,7 +393,8 @@ struct mana_rnic_create_qp_req {
 	u32 max_recv_wr;
 	u32 max_send_sge;
 	u32 max_recv_sge;
-	u32 reserved;
+	u8 wqe_size_in_bu;
+	u8 reserved[3];
 }; /* HW Data */
 
 struct mana_rnic_create_qp_resp {

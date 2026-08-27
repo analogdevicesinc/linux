@@ -1060,6 +1060,9 @@ int mana_ib_gd_create_rc_qp(struct mana_ib_dev *mdev, struct mana_ib_qp *qp,
 	req.max_recv_sge = attr->cap.max_recv_sge;
 	req.flags = flags;
 
+	if (flags & MANA_RC_FLAG_FIXED_SIZE_WQE)
+		req.wqe_size_in_bu = qp->rc_qp.wqe_size_in_bu;
+
 	err = mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
 	if (err)
 		return err;

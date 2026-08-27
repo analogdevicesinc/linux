@@ -422,6 +422,11 @@ static u32 mana_ib_wqe_size(u32 sge, u32 oob_size)
 	return ALIGN(wqe_size, GDMA_WQE_BU_SIZE);
 }
 
+static u32 mana_ib_fixed_wqe_size(u32 sge, u32 oob_size)
+{
+	return roundup_pow_of_two(mana_ib_wqe_size(sge, oob_size));
+}
+
 static u32 mana_ib_queue_size(struct ib_qp_init_attr *attr, u32 queue_type)
 {
 	u32 queue_size;
@@ -574,6 +579,15 @@ static int mana_ib_create_rc_qp(struct ib_qp *ibqp, struct ib_pd *ibpd,
 		if (err)
 			goto destroy_queues;
 		j++;
+	}
+
+	if (ucmd.comp_mask & MANA_IB_RC_QP_FIXED_WQE) {
+		u32 wqe_size = mana_ib_fixed_wqe_size(attr->cap.max_send_sge,
+						      INLINE_OOB_EXTRA_LARGE_SIZE);
+		flags |= MANA_RC_FLAG_FIXED_SIZE_WQE;
+		if (mdev->adapter_caps.feature_flags & MANA_IB_FEATURE_MSN_IN_WQE_SUPPORT)
+			flags |= MANA_RC_FLAG_MSN_IN_WQE;
+		qp->rc_qp.wqe_size_in_bu = wqe_size / GDMA_WQE_BU_SIZE;
 	}
 
 	err = mana_ib_gd_create_rc_qp(mdev, qp, attr, doorbell, flags);
