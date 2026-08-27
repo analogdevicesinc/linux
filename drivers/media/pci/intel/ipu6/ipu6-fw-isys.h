@@ -512,21 +512,6 @@ struct ipu6_fw_isys_proxy_resp_info_abi {
 };
 
 /**
- * struct ipu6_fw_proxy_write_queue_token - ISYS proxy write queue token
- * @request_id: update id for the specific proxy write request
- * @region_index: Region id for the proxy write request
- * @offset: Offset of the write request according to the base address
- *	    of the region
- * @value: Value that is requested to be written with the proxy write request
- */
-struct ipu6_fw_proxy_write_queue_token {
-	u32 request_id;
-	u32 region_index;
-	u32 offset;
-	u32 value;
-};
-
-/**
  * struct ipu6_fw_resp_queue_token - ISYS response queue token
  * @resp_info: response info
  */
