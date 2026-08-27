@@ -14,6 +14,7 @@
 #include <media/media-device.h>
 #include <media/v4l2-async.h>
 #include <media/v4l2-device.h>
+#include <media/v4l2-mediabus.h>
 
 #include "ipu6.h"
 #include "ipu6-fw-isys.h"
@@ -96,6 +97,7 @@ struct isys_iwake_watermark {
 struct ipu6_isys_csi2_config {
 	u32 nlanes;
 	u32 port;
+	enum v4l2_mbus_type bus_type;
 };
 
 struct sensor_async_sd {
