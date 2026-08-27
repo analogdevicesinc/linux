@@ -1243,38 +1243,44 @@ static void mm81x_tx_h_fill_info(struct mm81x *mors,
 	}
 }
 
+static int mm81x_tx_h_get_bw(struct mm81x *mors, struct ieee80211_sta *sta,
+			     struct sk_buff *skb, bool is_mgmt)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct mm81x_sta *mors_sta = NULL;
+	int tx_bw_mhz;
+
+	if (ieee80211_is_probe_resp(hdr->frame_control))
+		return 1;
+
+	if (is_mgmt)
+		return cfg80211_chandef_s1g_pri_width(&mors->chandef);
+
+	if (sta)
+		mors_sta = (struct mm81x_sta *)sta->drv_priv;
+
+	tx_bw_mhz = min(mm81x_tx_h_get_max_bw(mors),
+			cfg80211_chandef_get_width(&mors->chandef));
+	if (mors_sta && mors_sta->max_bw_mhz)
+		tx_bw_mhz = min(tx_bw_mhz, mors_sta->max_bw_mhz);
+
+	return tx_bw_mhz;
+}
+
 static void mm81x_mac_ops_tx(struct ieee80211_hw *hw,
 			     struct ieee80211_tx_control *control,
 			     struct sk_buff *skb)
 {
-	struct mm81x *mors = hw->priv;
-	struct mm81x_skbq *mq = NULL;
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_vif *vif = info->control.vif;
-	struct mm81x_skb_tx_info tx_info = { 0 };
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	bool is_mgmt = ieee80211_is_mgmt(hdr->frame_control);
-	int tx_bw_mhz = cfg80211_chandef_get_width(&mors->chandef);
 	struct ieee80211_sta *sta = control->sta;
-	int max_tx_bw = 0, sta_max_bw_mhz = 0;
+	struct mm81x_skb_tx_info tx_info = { 0 };
+	struct mm81x *mors = hw->priv;
+	struct mm81x_skbq *mq;
 
-	if (sta) {
-		struct mm81x_sta *mors_sta = (struct mm81x_sta *)sta->drv_priv;
-
-		sta_max_bw_mhz = mors_sta->max_bw_mhz;
-	}
-
-	max_tx_bw = mm81x_tx_h_get_max_bw(mors);
-	tx_bw_mhz = min(max_tx_bw, tx_bw_mhz);
-
-	if (is_mgmt)
-		tx_bw_mhz = cfg80211_chandef_s1g_pri_width(&mors->chandef);
-	if (sta_max_bw_mhz)
-		tx_bw_mhz = min(tx_bw_mhz, sta_max_bw_mhz);
-	if (ieee80211_is_probe_resp(hdr->frame_control))
-		tx_bw_mhz = 1;
-
-	mm81x_tx_h_fill_info(mors, &tx_info, skb, vif, tx_bw_mhz, sta);
+	mm81x_tx_h_fill_info(mors, &tx_info, skb, info->control.vif,
+			     mm81x_tx_h_get_bw(mors, sta, skb, is_mgmt), sta);
 
 	if (mm81x_tx_h_ps_filtered_for_sta(mors, skb, sta))
 		return;
