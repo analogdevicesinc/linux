@@ -892,16 +892,26 @@ static int adxcvr_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	/*
+	 * The PHY AVMM windows are shared between the RX and TX instances of a
+	 * duplex link, so they cannot be claimed exclusively - map them without
+	 * request_mem_region(). Concurrent access is serialised by
+	 * adxcfg_global_lock.
+	 */
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
 		sprintf(adxcfg_name, "adxcfg-%d", lane);
 		mem_adxcfg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, adxcfg_name);
-		st->adxcfg_regs[lane] = devm_ioremap_resource(&pdev->dev,
-							      mem_adxcfg);
+		if (!mem_adxcfg) {
+			dev_err(&pdev->dev, "Missing %s resource\n", adxcfg_name);
+			return -ENODEV;
+		}
+		st->adxcfg_regs[lane] = devm_ioremap(&pdev->dev, mem_adxcfg->start,
+						     resource_size(mem_adxcfg));
         altera_adxcvr_dbg(&pdev->dev, "adxcfg-%d = %px\n", lane, st->adxcfg_regs[lane]);
-		if (IS_ERR(st->adxcfg_regs[lane])) {
-			dev_err(&pdev->dev, "Failed to get adxcfg_regs[%d] resource\n", lane);
-			return PTR_ERR(st->adxcfg_regs[lane]);
+		if (!st->adxcfg_regs[lane]) {
+			dev_err(&pdev->dev, "Failed to map adxcfg_regs[%d] resource\n", lane);
+			return -ENOMEM;
 		}
 	}
 
@@ -939,10 +949,15 @@ static int adxcvr_probe(struct platform_device *pdev)
 		if (st->is_agilex) {
 			mem_gts_pll = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, "gts-pll");
-			st->gts_pll_regs = devm_ioremap_resource(&pdev->dev,
-								 mem_gts_pll);
-			if (IS_ERR(st->gts_pll_regs))
-				return PTR_ERR(st->gts_pll_regs);
+			if (!mem_gts_pll) {
+				dev_err(&pdev->dev, "Missing gts-pll resource\n");
+				return -ENODEV;
+			}
+			/* Nested inside the adxcfg window of its own PHY bank. */
+			st->gts_pll_regs = devm_ioremap(&pdev->dev, mem_gts_pll->start,
+							resource_size(mem_gts_pll));
+			if (!st->gts_pll_regs)
+				return -ENOMEM;
 			dev_info(&pdev->dev, "Mapped gts-pll!");
 
 		}

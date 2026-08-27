@@ -1,0 +1,553 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084-EBZ
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9084
+ *
+ * hdl_project: <ad9084_ebz/a5e>
+ * board_revision: <>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "socfpga_agilex5_socdk.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/adc/adi,ad9088.h>
+#include <dt-bindings/jesd204/adxcvr.h>
+#include <dt-bindings/iio/frequency/hmc7044.h>
+
+/*
+ * The FMC GPIOs live in the upper half of the 64-bit GPIO space, which the
+ * base design exports through sys_gpio_out/sys_gpio_in. Linux numbers that
+ * bank from 0, so subtract the 32 lower (board) bits.
+ */
+#define fmc_gpio_base (-32)
+
+#define AD9084_RX_LANERATE_KHZ	10000000
+#define AD9084_TX_LANERATE_KHZ	10000000
+#define AD9084_LINK_CLK		    250000000
+#define AD9084_REF_CLK		    250000000
+
+#ifndef DEVICE_PROFILE_NAME
+#define DEVICE_PROFILE_NAME	"204B_L2_M4_NP16_16p0_16x4.bin"
+#endif
+
+#ifndef SYSREF_CLK_MHz
+#define SYSREF_CLK_MHz		(1953125)
+#endif
+
+/ {
+	model = "Analog Devices AD9084-EBZ @Intel/Agilex5-SoCDK";
+
+	clocks {
+		sys_clk: sys_clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "system_clock";
+		};
+
+		dma_clk: dma_clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <250000000>;
+			clock-output-names = "dma_clk";
+		};
+
+		rx_link_clk: rx_link_clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <AD9084_LINK_CLK>;
+			clock-output-names = "rx_link_clk";
+		};
+
+		tx_link_clk: tx_link_clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <AD9084_LINK_CLK>;
+			clock-output-names = "tx_link_clk";
+		};
+
+		clkin_125: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <125000000>;
+			clock-output-names = "clkin_125";
+		};
+	};
+};
+
+&sys_hps_bridges {
+	/*
+	 * Address map from projects/ad9084_ebz/common/ad9084_ebz_qsys.tcl.
+	 * Interrupt numbers are the HDL ad_cpu_interrupt index + 17 (the base
+	 * design maps sys_gpio_in irq 5 to GIC 22).
+	 */
+	axi_ad9084_rx_jesd: axi-jesd204-rx@C0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x000C0000 0x4000>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <0 32 IRQ_TYPE_LEVEL_HIGH>;
+
+		clocks = <&sys_clk>, <&rx_link_clk>, <&hmc7044 9>, <&axi_ad9084_adxcvr_rx 0>;
+		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_rx_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9084_adxcvr_rx 0 FRAMER_LINK_A0_RX>;
+	};
+
+	/*
+	 * The Agilex 5 GTS PHY is a stand-alone core split over two instances,
+	 * one per transceiver bank, behind separate Avalon bridges: jesd204_phy_a
+	 * at 0x01000000 and jesd204_phy_b at 0x02000000. adxcfg-N is indexed by
+	 * the global lane number, so lanes 0..3 are PHY A and lanes 4..7 PHY B.
+	 *
+	 * The per-lane stride is 1 MB, not the 0x40000 the address width suggests:
+	 * jesd204_phy_glue_hw.tcl sizes reconfig_avmm as 18 + log2(NUM_OF_LANES)
+	 * bits, and that bus is WORD addressed, so 20 bits spans 4 MB of byte
+	 * address space per PHY.
+	 */
+	axi_ad9084_adxcvr_rx: axi-ad9084-rx-xcvr@C4000 {
+		compatible = "adi,altera-adxcvr-1.00.a";
+		reg = <0x000C4000 0x00002000>,
+			<0x01000000 0x00100000>,
+			<0x01100000 0x00100000>,
+			<0x01200000 0x00100000>,
+			<0x01300000 0x00100000>;
+			// <0x02000000 0x00100000>,
+			// <0x02100000 0x00100000>,
+			// <0x02200000 0x00100000>,
+			// <0x02300000 0x00100000>;
+		reg-names = "adxcvr",
+			"adxcfg-0", "adxcfg-1",
+			"adxcfg-2", "adxcfg-3";
+			// "adxcfg-4", "adxcfg-5", "adxcfg-6", "adxcfg-7";
+
+		clocks = <&hmc7044 11>, <&rx_link_clk>;
+		clock-names = "ref", "link";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd204_rx_lane_clock";
+
+		adi,stratix10;
+		adi,agilex;
+		adi,skip-pll-reconfiguration;
+
+		/* adxcvr uses this pin to tell the FPGA PLL that the reference clock is stable */
+		refclk-ready-gpios = <&sys_gpio_out (fmc_gpio_base + 56) 0>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&hmc7044 0 FRAMER_LINK_A0_RX>;
+	};
+
+	axi_ad9084_tx_jesd: axi-jesd204-tx@C8000 {
+		compatible = "adi,axi-jesd204-tx-1.0";
+		reg = <0x000C8000 0x4000>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <0 33 IRQ_TYPE_LEVEL_HIGH>;
+
+		clocks = <&sys_clk>, <&tx_link_clk>, <&hmc7044 8>, <&axi_ad9084_adxcvr_tx 0>;
+		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_tx_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9084_adxcvr_tx 0 DEFRAMER_LINK_A0_TX>;
+	};
+
+	/*
+	 * The PHY is duplex, so the TX adxcvr shares the same AVMM windows as the
+	 * RX one.
+	 *
+	 * "gts-pll" is not a separate Qsys slave - intel_systemclk_gts is
+	 * instantiated with conduits only (a5e/system_qsys.tcl). The GTS system PLL
+	 * registers are reached through a transceiver reconfig window instead, at a
+	 * fixed offset inside PHY B's 4 MB aperture. The driver only supports one
+	 * such window, so bank A's PLL is not reachable this way.
+	 */
+	axi_ad9084_adxcvr_tx: axi-ad9084-tx-xcvr@CC000 {
+		compatible = "adi,altera-adxcvr-1.00.a";
+		reg = <0x000CC000 0x00002000>,
+			<0x020a6000 0x00000080>,
+			<0x01000000 0x00100000>,
+			<0x01100000 0x00100000>,
+			<0x01200000 0x00100000>,
+			<0x01300000 0x00100000>;
+			// <0x02000000 0x00100000>,
+			// <0x02100000 0x00100000>,
+			// <0x02200000 0x00100000>,
+			// <0x02300000 0x00100000>;
+		reg-names = "adxcvr", "gts-pll",
+			"adxcfg-0", "adxcfg-1",
+			"adxcfg-2", "adxcfg-3";
+			// "adxcfg-4", "adxcfg-5", "adxcfg-6", "adxcfg-7";
+
+		clocks = <&hmc7044 10>, <&tx_link_clk>;
+		clock-names = "ref", "link";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd204_tx_lane_clock";
+
+		adi,stratix10;
+		adi,agilex;
+		adi,skip-pll-reconfiguration;
+
+		/* adxcvr uses this pin to tell the FPGA PLL that the reference clock is stable */
+		refclk-ready-gpios = <&sys_gpio_out (fmc_gpio_base + 57) 0>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&hmc7044 0 DEFRAMER_LINK_A0_TX>;
+	};
+
+	/*
+	 * s_axi is 16-bit addressed (64 kB), so these cannot live in the 8 kB grid
+	 * the other peripherals use - see ad9084_ebz_qsys.tcl.
+	 */
+	axi_ad9084_rx_data_offload: axi-data-offload-0@100000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x00100000 0x00010000>;
+	};
+
+	axi_ad9084_tx_data_offload: axi-data-offload-1@110000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x00110000 0x00010000>;
+	};
+
+	rx_dma: rx-dmac@D8000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x000D8000 0x00004000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 28 IRQ_TYPE_LEVEL_HIGH>;
+		#dma-cells = <1>;
+		clocks = <&dma_clk>;
+	};
+
+	tx_dma: tx-dmac@DC000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x000DC000 0x00004000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 29 IRQ_TYPE_LEVEL_HIGH>;
+		#dma-cells = <1>;
+		clocks = <&dma_clk>;
+	};
+
+	axi_ad9084_core_rx: axi-ad9084-rx-hpc@D2000 {
+		compatible = "adi,axi-ad9081-rx-1.0";
+		reg = <0x000D2000 0x00002000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&trx0_ad9084>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9084_rx_jesd 0 FRAMER_LINK_A0_RX>;
+	};
+
+	axi_ad9084_core_tx: axi-ad9084-tx-hpc@D4000 {
+		compatible = "adi,axi-ad9081-tx-1.0";
+		reg = <0x000D4000 0x00004000>;
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+		clocks = <&trx0_ad9084 1>;
+		clock-names = "sampl_clk";
+		spibus-connected = <&trx0_ad9084>;
+
+		adi,axi-pl-fifo-enable;
+		adi,axi-data-offload-connected = <&axi_ad9084_tx_data_offload>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&axi_ad9084_tx_jesd 0 DEFRAMER_LINK_A0_TX>;
+	};
+
+	/* Apollo status inputs, 20-bit input-only PIO */
+	axi_ad9084_gpio: gpio@E8000 {
+		compatible = "altr,pio-1.0";
+		reg = <0x000E8000 0x00000010>;
+		altr,gpio-bank-width = <20>;
+		resetvalue = <0>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 34 IRQ_TYPE_LEVEL_HIGH>;
+		altr,interrupt-type = <0>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+	};
+
+	/*
+	 * Second SPI master, dedicated to the AD9084 itself. The clock chip and
+	 * the rest of the board SPI devices hang off sys_spi.
+	 */
+	apollo_spi: spi@EA000 {
+		compatible = "altr,spi-1.0";
+		reg = <0x000EA000 0x00000020>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 35 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+	};
+};
+
+&sys_spi {
+	status = "okay";
+
+	hmc7044: hmc7044@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+
+		// /* The adf4030 is the SYSREF provider; it feeds this device. */
+		jesd204-inputs =
+			<&adf4030 0 FRAMER_LINK_A0_RX>,
+			<&adf4030 0 DEFRAMER_LINK_A0_TX>;
+
+		adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
+
+		adi,pll1-clkin-frequencies = <125000000 125000000 125000000 125000000>;
+		adi,vcxo-frequency = <125000000>;
+
+		adi,pll1-loop-bandwidth-hz = <200>;
+
+		adi,pll2-output-frequency = <2500000000>;
+
+		adi,sysref-timer-divider = <1024>;
+		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_CONT_PULSE>;
+
+		adi,clkin0-buffer-mode  = <0x07>;
+		adi,clkin1-buffer-mode  = <0x07>;
+		adi,oscin-buffer-mode = <0x15>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+		adi,gpo-controls = <0x37 0x33 0x00 0x00>;
+
+		clock-output-names =
+				"hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
+				"hmc7044_out3", "hmc7044_out4", "hmc7044_out5",
+				"hmc7044_out6", "hmc7044_out7", "hmc7044_out8",
+				"hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
+				"hmc7044_out12", "hmc7044_out13";
+
+		hmc7044_c1: channel@1 {
+			reg = <1>;
+			adi,extended-name = "ADF4030_REFIN";
+			adi,divider = <20>;	/* 125 MHz */
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+
+		/* 2500 MHz / 10 = 250 MHz */
+		hmc7044_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "DEV_REFCLK";
+			adi,divider = <10>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c3: channel@3 {
+			reg = <3>;
+			adi,extended-name = "DEV_SYSREF";
+			adi,divider = <1280>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,jesd204-sysref-chan;
+		};
+		hmc7044_c8: channel@8 {
+			reg = <8>;
+			adi,extended-name = "CORE_CLK_TX";
+			adi,divider = <10>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c9: channel@9 {
+			reg = <9>;
+			adi,extended-name = "CORE_CLK_RX";
+			adi,divider = <10>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c10: channel@10 {
+			reg = <10>;
+			adi,extended-name = "FPGA_REFCLK_0";
+			adi,divider = <10>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c11: channel@11 {
+			reg = <11>;
+			adi,extended-name = "FPGA_REFCLK_1";
+			adi,divider = <10>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c13: channel@13 {
+			reg = <13>;
+			adi,extended-name = "FPGA_SYSREF";
+			adi,divider = <1280>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,jesd204-sysref-chan;
+		};
+	};
+
+	adf4030: adf4030@4 {
+		#clock-cells = <1>;
+		compatible = "adi,adf4030";
+		reg = <4>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#io-channel-cells = <1>;
+
+		spi-max-frequency = <1000000>;
+		adi,spi-3wire-enable;
+		clocks = <&hmc7044 1>;
+		clock-names = "refin";
+		clock-output-names = "adf4030_bsync_0", "adf4030_bsync_1",
+			"adf4030_bsync_2", "adf4030_bsync_3", "adf4030_bsync_4",
+			"adf4030_bsync_5", "adf4030_bsync_6", "adf4030_bsync_7",
+			"adf4030_bsync_8", "adf4030_bsync_9";
+		label = "adf4030";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
+		adi,jesd204-max-sysref-frequency-hz = <2000000>;
+
+		adi,vco-frequency-hz = <2500000000>;
+		adi,bsync-frequency-hz = <SYSREF_CLK_MHz>;
+		adi,bsync-autoalign-reference-channel = <0>;
+		adi,bsync-autoalign-iteration-count = <6>;
+		adi,bsync-secondary-frequency-hz = <12500000>;
+
+		channel@0 {
+			/* hmc output */
+			reg = <0>;
+			adi,extended-name = "ADF4030_SCLKOUT3";
+			// auto-align-on-sync-en;
+			adi,rcm = <1>;
+			adi,link-rx-en;
+			adi,float-rx-en;
+		};
+		channel@1 {
+			/* Output debug loopback */
+			reg = <1>;
+			adi,extended-name = "BSYNC1_DEBUG";
+			adi,input-output-reconfig-en;
+			adi,rcm = <62>; /* LVDS */
+			adi,link-rx-en;
+			adi,float-rx-en;
+			adi,output-en;
+		};
+		channel@2 {
+			/* Input debug loopback */
+			reg = <2>;
+			adi,extended-name = "BSYNC2_DEBUG";
+			adi,input-output-reconfig-en;
+			adi,rcm = <62>;
+			adi,link-rx-en;
+			adi,float-rx-en;
+		};
+		channel@5 {
+			/* apollo input */
+			reg = <5>;
+			adi,extended-name = "APOLLO_SYSREF";
+			auto-align-on-sync-en;
+			adi,output-en;
+			adi,input-output-reconfig-en;
+			adi,rcm = <1>;
+			adi,link-rx-en;
+			adi,float-rx-en;
+		};
+		channel@8 {
+			/* fpga sysref_in_p/n input unused*/
+			reg = <8>;
+			adi,extended-name = "SYSREF_IN_FMC";
+			adi,output-en;
+			adi,input-output-reconfig-en;
+			adi,rcm = <62>;
+		};
+		channel@9 {
+			/* fpga sysref_out_p/n input */
+			reg = <9>;
+			adi,extended-name = "SYSREF_OUT_FMC";
+			auto-align-on-sync-en;
+			adi,output-en;
+			adi,link-rx-en;
+			adi,float-rx-en;
+			adi,input-output-reconfig-en;
+		};
+	};
+
+	adf4382: adf4382@0 {
+		#clock-cells = <1>;
+		compatible = "adi,adf4382";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+		adi,spi-3wire-enable;
+		clocks = <&clkin_125>;
+		clock-names = "ref_clk";
+		clock-output-names = "adf4382_out_clk";
+		adi,power-up-frequency = /bits/ 64 <10800000000>;
+		label = "adf4382";
+		#io-channel-cells = <1>;
+	};
+};
+
+&apollo_spi {
+	status = "okay";
+
+	trx0_ad9084: ad9084@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9084";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+
+		/* Clocks */
+		clocks = <&adf4382 0>;
+		clock-names = "dev_clk";
+		dev_clk-clock-scales = <1 10>;
+
+		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>; /* This is the TOP device */
+		jesd204-ignore-errors;
+		jesd204-link-ids = <DEFRAMER_LINK_A0_TX DEFRAMER_LINK_B0_TX FRAMER_LINK_A0_RX FRAMER_LINK_B0_RX>;
+
+
+		jesd204-inputs =
+			<&axi_ad9084_core_rx 0 FRAMER_LINK_A0_RX>,
+			<&axi_ad9084_core_tx 0 DEFRAMER_LINK_A0_TX>;
+
+		reset-gpios = <&sys_gpio_out (fmc_gpio_base + 62) 0>;
+
+		adi,device-profile-fw-name = DEVICE_PROFILE_NAME;
+
+		adi,jrx0-physical-lane-mapping = <5  1  3 7 11 11 11 11 11 11 11 11>;
+		adi,jtx0-logical-lane-mapping = <11 11 11 1 11 11 11 11  2  3 11  0>;
+
+		adi,jrx1-physical-lane-mapping = <1  7 10  3 11 11 11 11 11 11 11 11>;
+		adi,jtx1-logical-lane-mapping = <11 11  1  0 11  2 11  3 11 11 11 11>;
+
+		adi,jtx-ser-amplitude = <0>;
+		adi,jtx-ser-pre-emphasis = <2>;
+		adi,jtx-ser-post-emphasis = <1>;
+
+		adi,subclass = <1>;
+
+		adi,invalid-en;
+	};
+};
