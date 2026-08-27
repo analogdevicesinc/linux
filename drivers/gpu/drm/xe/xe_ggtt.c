@@ -20,6 +20,7 @@
 #include "regs/xe_regs.h"
 #include "xe_assert.h"
 #include "xe_bo.h"
+#include "xe_gt.h"
 #include "xe_gt_printk.h"
 #include "xe_gt_types.h"
 #include "xe_map.h"
@@ -533,27 +534,36 @@ void xe_ggtt_node_remove(struct xe_ggtt_node *node, bool invalidate)
 int xe_ggtt_init(struct xe_ggtt *ggtt)
 {
 	struct xe_device *xe = tile_to_xe(ggtt->tile);
-	unsigned int flags;
 	int err;
 
 	/*
-	 * So we don't need to worry about 64K GGTT layout when dealing with
-	 * scratch entries, rather keep the scratch page in system memory on
-	 * platforms where 64K pages are needed for VRAM.
+	 * Multi-queue misses engine GGTT TLB invalidations (GuC lite-restore
+	 * skips the full context restore), so skip scratch: a stale translation
+	 * to a freed range then faults instead of silently reading scratch.
 	 */
-	flags = 0;
-	if (ggtt->flags & XE_GGTT_FLAGS_64K)
-		flags |= XE_BO_FLAG_SYSTEM;
-	else
-		flags |= XE_BO_FLAG_VRAM_IF_DGFX(ggtt->tile);
+	if (!xe_gt_has_multi_queue(ggtt->tile->primary_gt)) {
+		unsigned int flags = 0;
 
-	ggtt->scratch = xe_managed_bo_create_pin_map(xe, ggtt->tile, XE_PAGE_SIZE, flags);
-	if (IS_ERR(ggtt->scratch)) {
-		err = PTR_ERR(ggtt->scratch);
-		goto err;
+		/*
+		 * So we don't need to worry about 64K GGTT layout when dealing
+		 * with scratch entries, rather keep the scratch page in system
+		 * memory on platforms where 64K pages are needed for VRAM.
+		 */
+		if (ggtt->flags & XE_GGTT_FLAGS_64K)
+			flags |= XE_BO_FLAG_SYSTEM;
+		else
+			flags |= XE_BO_FLAG_VRAM_IF_DGFX(ggtt->tile);
+
+		ggtt->scratch = xe_managed_bo_create_pin_map(xe, ggtt->tile,
+							     XE_PAGE_SIZE, flags);
+		if (IS_ERR(ggtt->scratch)) {
+			err = PTR_ERR(ggtt->scratch);
+			goto err;
+		}
+
+		xe_map_memset(xe, &ggtt->scratch->vmap, 0, 0,
+			      xe_bo_size(ggtt->scratch));
 	}
-
-	xe_map_memset(xe, &ggtt->scratch->vmap, 0, 0, xe_bo_size(ggtt->scratch));
 
 	xe_ggtt_initial_clear(ggtt);
 
