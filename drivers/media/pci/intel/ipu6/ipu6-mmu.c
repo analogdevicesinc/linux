@@ -473,7 +473,12 @@ static struct ipu6_mmu_info *ipu6_mmu_alloc(struct ipu6_device *isp)
 	if (!mmu_info)
 		return NULL;
 
-	mmu_info->aperture_start = 0;
+	if (IS_IPU7(isp))
+		mmu_info->aperture_start = isp->secure_mode ?
+			IPU7_FW_CODE_REGION_END : IPU7_FW_CODE_REGION_START;
+	else
+		mmu_info->aperture_start = 0;
+
 	mmu_info->aperture_end =
 		(dma_addr_t)DMA_BIT_MASK(isp->secure_mode ?
 					 IPU6_MMU_ADDR_BITS :
@@ -532,6 +537,7 @@ EXPORT_SYMBOL_NS_GPL(ipu6_mmu_hw_cleanup, "INTEL_IPU6");
 static struct ipu6_dma_mapping *alloc_dma_mapping(struct ipu6_device *isp)
 {
 	struct ipu6_dma_mapping *dmap;
+	unsigned long base_pfn;
 
 	dmap = kzalloc_obj(*dmap);
 	if (!dmap)
@@ -543,7 +549,9 @@ static struct ipu6_dma_mapping *alloc_dma_mapping(struct ipu6_device *isp)
 		return NULL;
 	}
 
-	init_iova_domain(&dmap->iovad, SZ_4K, 1);
+	base_pfn = max_t(unsigned long, 1,
+			 PFN_DOWN(dmap->mmu_info->aperture_start));
+	init_iova_domain(&dmap->iovad, SZ_4K, base_pfn);
 	dmap->mmu_info->dmap = dmap;
 
 	dev_dbg(&isp->pdev->dev, "alloc mapping\n");
@@ -676,7 +684,7 @@ struct ipu6_mmu *ipu6_mmu_init(struct device *dev,
 	if (!mmu)
 		return ERR_PTR(-ENOMEM);
 
-	mmu->ops = &ipu6_mmu_ops;
+	mmu->ops = IS_IPU7(isp) ? &ipu7_mmu_ops : &ipu6_mmu_ops;
 	mmu->mmid = mmid;
 	mmu->ready = false;
 	INIT_LIST_HEAD(&mmu->vma_list);

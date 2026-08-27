@@ -5,6 +5,7 @@ intel-ipu6-y			:= ipu6.o \
 				ipu6-dma.o \
 				ipu6-mmu.o \
 				ipu6-mmu-hw.o \
+				ipu7-mmu-hw.o \
 				ipu6-buttress.o \
 				ipu6-cpd.o \
 				ipu6-fw-com.o
