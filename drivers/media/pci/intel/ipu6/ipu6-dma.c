@@ -371,6 +371,17 @@ void ipu6_dma_unmap_sg(struct ipu6_bus_device *sys, struct scatterlist *sglist,
 }
 EXPORT_SYMBOL_NS_GPL(ipu6_dma_unmap_sg, "INTEL_IPU6");
 
+static struct iova *ipu7_get_fw_code_region(struct ipu6_bus_device *sys)
+{
+	struct ipu6_mmu *mmu = sys->mmu;
+	unsigned long lo, hi;
+
+	lo = iova_pfn(&mmu->dmap->iovad, IPU7_FW_CODE_REGION_START);
+	hi = iova_pfn(&mmu->dmap->iovad, IPU7_FW_CODE_REGION_END) - 1U;
+
+	return reserve_iova(&mmu->dmap->iovad, lo, hi);
+}
+
 int ipu6_dma_map_sg(struct ipu6_bus_device *sys, struct scatterlist *sglist,
 		    int nents, enum dma_data_direction dir,
 		    unsigned long attrs)
@@ -397,10 +408,13 @@ int ipu6_dma_map_sg(struct ipu6_bus_device *sys, struct scatterlist *sglist,
 	dev_dbg(dev, "dmamap trying to map %d ents %zu pages\n",
 		nents, npages);
 
-	iova = alloc_iova(&mmu->dmap->iovad, npages,
-			  PHYS_PFN(mmu->dmap->mmu_info->aperture_end), 0);
+	if (attrs & DMA_ATTR_RESERVE_REGION)
+		iova = ipu7_get_fw_code_region(sys);
+	else
+		iova = alloc_iova(&mmu->dmap->iovad, npages,
+				  PHYS_PFN(mmu->dmap->mmu_info->aperture_end), 0);
 	if (!iova)
-		return 0;
+		return -ENOMEM;
 
 	dev_dbg(dev, "dmamap: iova low pfn %lu, high pfn %lu\n", iova->pfn_lo,
 		iova->pfn_hi);
