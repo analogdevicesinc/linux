@@ -578,4 +578,7 @@ void ipu6_fw_isys_cleanup(struct ipu6_isys *isys);
 struct ipu6_fw_isys_resp_info_abi *
 ipu6_fw_isys_get_resp(struct ipu6_isys *isys);
 void ipu6_fw_isys_put_resp(struct ipu6_isys *isys);
+int ipu6_isys_isr_one(struct ipu6_bus_device *adev);
+irqreturn_t ipu6_isys_isr(struct ipu6_bus_device *adev);
+
 #endif
