@@ -174,6 +174,38 @@ struct isys_fw_msgs {
 	dma_addr_t dma_addr;
 };
 
+struct ipu6_fw_isys_ops {
+	int (*init)(struct ipu6_isys *isys, unsigned int num_streams);
+	int (*close)(struct ipu6_isys *isys);
+	int (*send_cmd)(struct ipu6_isys *isys,
+			const unsigned int stream_handle,
+			void *cpu_mapped_buf,
+			dma_addr_t dma_mapped_buf,
+			size_t size, u16 send_type);
+	void (*cleanup)(struct ipu6_isys *isys);
+	int (*prepare_stream_cfg)(struct ipu6_isys_video *av,
+				  struct isys_fw_msgs *msg);
+	void (*prepare_buf_set)(struct isys_fw_msgs *msg,
+				struct ipu6_isys_stream *stream,
+				struct ipu6_isys_buffer_list *bl);
+	int (*stream_open)(struct ipu6_isys *isys,
+			   const unsigned int stream_handle,
+			   struct isys_fw_msgs *msg);
+	int (*stream_start)(struct ipu6_isys *isys,
+			    const unsigned int stream_handle,
+			    struct isys_fw_msgs *msg, bool capture);
+	int (*stream_capture)(struct ipu6_isys *isys,
+			      const unsigned int stream_handle,
+			      struct isys_fw_msgs *msg);
+	int (*stream_flush)(struct ipu6_isys *isys,
+			    const unsigned int stream_handle);
+	int (*stream_close)(struct ipu6_isys *isys,
+			    const unsigned int stream_handle);
+	void (*dump_stream_cfg)(struct device *dev, struct isys_fw_msgs *msg);
+	void (*dump_frame_buf_set)(struct device *dev, struct isys_fw_msgs *msg,
+				   unsigned int outputs);
+};
+
 struct isys_fw_msgs *ipu6_get_fw_msg_buf(struct ipu6_isys_stream *stream);
 void ipu6_put_fw_msg_buf(struct ipu6_isys *isys, struct isys_fw_msgs *msg);
 void ipu6_cleanup_fw_msg_bufs(struct ipu6_isys *isys);

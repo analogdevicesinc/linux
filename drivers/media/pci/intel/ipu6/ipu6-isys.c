@@ -1068,6 +1068,7 @@ static const struct ipu6_auxdrv_data ipu6_isys_auxdrv_data = {
 	.isr = ipu6_isys_isr,
 	.isr_threaded = NULL,
 	.wake_isr_thread = false,
+	.fw_ops = &ipu6_fw_isys_ops,
 };
 
 static const struct auxiliary_device_id ipu6_isys_id_table[] = {
