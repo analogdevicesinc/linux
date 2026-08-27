@@ -713,6 +713,11 @@ STATIC_IFN_KUNIT int amdgpu_dm_irq_handler(struct amdgpu_device *adev,
 			entry->src_id,
 			entry->src_data[0]);
 
+	if (!DAL_VALID_IRQ_SRC_NUM(src)) {
+		DRM_ERROR("DM_IRQ: invalid irq_source:%d!\n", src);
+		return 0;
+	}
+
 	dc_interrupt_ack(adev->dm.dc, src);
 
 	/* Call high irq work immediately */
