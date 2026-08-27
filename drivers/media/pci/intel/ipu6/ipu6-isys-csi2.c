@@ -228,56 +228,47 @@ void ipu6_isys_csi2_error(struct ipu6_isys_csi2 *csi2)
 	}
 }
 
-static int ipu6_isys_csi2_set_stream(struct v4l2_subdev *sd,
-				     const struct ipu6_isys_csi2_timing *timing,
-				     unsigned int nlanes, int enable)
+static void ipu6_isys_csi2_stream_disable(struct ipu6_isys_csi2 *csi2)
 {
-	struct ipu6_isys_subdev *asd = to_ipu6_isys_subdev(sd);
-	struct ipu6_isys_csi2 *csi2 = to_ipu6_isys_csi2(asd);
 	struct ipu6_isys *isys = csi2->isys;
-	struct device *dev = &isys->adev->auxdev.dev;
 	struct ipu6_isys_csi2_config cfg;
-	unsigned int nports;
-	int ret = 0;
-	u32 mask = 0;
-	u32 i;
-
-	dev_dbg(dev, "stream %s CSI2-%u with %u lanes\n", enable ? "on" : "off",
-		csi2->port, nlanes);
+	u32 mask = isys->pdata->ipdata->csi2.irq_mask;
 
 	cfg.port = csi2->port;
-	cfg.nlanes = nlanes;
+	cfg.nlanes = csi2->nlanes;
+
+	writel(0, csi2->base + CSI_REG_CSI_FE_ENABLE);
+	writel(0, csi2->base + CSI_REG_PPI2CSI_ENABLE);
+	writel(0, csi2->base + CSI_PORT_REG_BASE_IRQ_CSI +
+	       CSI_PORT_REG_BASE_IRQ_ENABLE_OFFSET);
+	writel(mask, csi2->base + CSI_PORT_REG_BASE_IRQ_CSI +
+	       CSI_PORT_REG_BASE_IRQ_CLEAR_OFFSET);
+	writel(0, csi2->base + CSI_PORT_REG_BASE_IRQ_CSI_SYNC +
+	       CSI_PORT_REG_BASE_IRQ_ENABLE_OFFSET);
+	writel(0xffffffff, csi2->base + CSI_PORT_REG_BASE_IRQ_CSI_SYNC +
+	       CSI_PORT_REG_BASE_IRQ_CLEAR_OFFSET);
+
+	isys->phy_set_power(isys, &cfg, NULL, false);
+
+	writel(0, isys->pdata->base + CSI_REG_HUB_FW_ACCESS_PORT
+	       (isys->pdata->ipdata->csi2.fw_access_port_ofs, csi2->port));
+	writel(0, isys->pdata->base + CSI_REG_HUB_DRV_ACCESS_PORT(csi2->port));
+}
+
+static int ipu6_isys_csi2_stream_enable(struct ipu6_isys_csi2 *csi2)
+{
+	struct ipu6_isys *isys = csi2->isys;
+	struct ipu6_isys_csi2_timing timing = { };
+	struct ipu6_isys_csi2_config cfg;
+	unsigned int nports;
+	u32 mask;
+	int ret;
+
+	cfg.port = csi2->port;
+	cfg.nlanes = csi2->nlanes;
 
 	mask = isys->pdata->ipdata->csi2.irq_mask;
 	nports = isys->pdata->ipdata->csi2.nports;
-
-	if (!enable) {
-		writel(0, csi2->base + CSI_REG_CSI_FE_ENABLE);
-		writel(0, csi2->base + CSI_REG_PPI2CSI_ENABLE);
-
-		writel(0,
-		       csi2->base + CSI_PORT_REG_BASE_IRQ_CSI +
-		       CSI_PORT_REG_BASE_IRQ_ENABLE_OFFSET);
-		writel(mask,
-		       csi2->base + CSI_PORT_REG_BASE_IRQ_CSI +
-		       CSI_PORT_REG_BASE_IRQ_CLEAR_OFFSET);
-		writel(0,
-		       csi2->base + CSI_PORT_REG_BASE_IRQ_CSI_SYNC +
-		       CSI_PORT_REG_BASE_IRQ_ENABLE_OFFSET);
-		writel(0xffffffff,
-		       csi2->base + CSI_PORT_REG_BASE_IRQ_CSI_SYNC +
-		       CSI_PORT_REG_BASE_IRQ_CLEAR_OFFSET);
-
-		isys->phy_set_power(isys, &cfg, timing, false);
-
-		writel(0, isys->pdata->base + CSI_REG_HUB_FW_ACCESS_PORT
-		       (isys->pdata->ipdata->csi2.fw_access_port_ofs,
-			csi2->port));
-		writel(0, isys->pdata->base +
-		       CSI_REG_HUB_DRV_ACCESS_PORT(csi2->port));
-
-		return ret;
-	}
 
 	/* reset port reset */
 	writel(0x1, csi2->base + CSI_REG_PORT_GPREG_SRST);
@@ -285,7 +276,7 @@ static int ipu6_isys_csi2_set_stream(struct v4l2_subdev *sd,
 	writel(0x0, csi2->base + CSI_REG_PORT_GPREG_SRST);
 
 	/* enable port clock */
-	for (i = 0; i < nports; i++) {
+	for (unsigned int i = 0; i < nports; i++) {
 		writel(1, isys->pdata->base + CSI_REG_HUB_DRV_ACCESS_PORT(i));
 		writel(1, isys->pdata->base + CSI_REG_HUB_FW_ACCESS_PORT
 		       (isys->pdata->ipdata->csi2.fw_access_port_ofs, i));
@@ -329,18 +320,18 @@ static int ipu6_isys_csi2_set_stream(struct v4l2_subdev *sd,
 	writel(CSI_SENSOR_INPUT, csi2->base + CSI_REG_CSI_FE_MUX_CTRL);
 	writel(CSI_CNTR_SENSOR_LINE_ID | CSI_CNTR_SENSOR_FRAME_ID,
 	       csi2->base + CSI_REG_CSI_FE_SYNC_CNTR_SEL);
-	writel(FIELD_PREP(PPI_INTF_CONFIG_NOF_ENABLED_DLANES_MASK, nlanes - 1),
+	writel(FIELD_PREP(PPI_INTF_CONFIG_NOF_ENABLED_DLANES_MASK,
+			  csi2->nlanes - 1),
 	       csi2->base + CSI_REG_PPI2CSI_CONFIG_PPI_INTF);
 
 	writel(1, csi2->base + CSI_REG_PPI2CSI_ENABLE);
 	writel(1, csi2->base + CSI_REG_CSI_FE_ENABLE);
 
-	ret = isys->phy_set_power(isys, &cfg, timing, true);
+	ret = ipu6_isys_csi2_calc_timing(csi2, &timing, CSI2_ACCINV);
 	if (ret)
-		dev_err(dev, "csi-%d phy power up failed %d\n", csi2->port,
-			ret);
+		return ret;
 
-	return ret;
+	return isys->phy_set_power(isys, &cfg, &timing, true);
 }
 
 static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
@@ -349,7 +340,6 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 {
 	struct ipu6_isys_subdev *asd = to_ipu6_isys_subdev(sd);
 	struct ipu6_isys_csi2 *csi2 = to_ipu6_isys_csi2(asd);
-	struct ipu6_isys_csi2_timing timing = { };
 	struct v4l2_subdev *remote_sd;
 	struct media_pad *remote_pad;
 	u64 sink_streams;
@@ -362,18 +352,14 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 		v4l2_subdev_state_xlate_streams(state, pad, CSI2_PAD_SINK,
 						&streams_mask);
 
-	ret = ipu6_isys_csi2_calc_timing(csi2, &timing, CSI2_ACCINV);
-	if (ret)
-		return ret;
-
-	ret = ipu6_isys_csi2_set_stream(sd, &timing, csi2->nlanes, true);
+	ret = ipu6_isys_csi2_stream_enable(csi2);
 	if (ret)
 		return ret;
 
 	ret = v4l2_subdev_enable_streams(remote_sd, remote_pad->index,
 					 sink_streams);
 	if (ret) {
-		ipu6_isys_csi2_set_stream(sd, NULL, 0, false);
+		ipu6_isys_csi2_stream_disable(csi2);
 		return ret;
 	}
 
@@ -384,6 +370,8 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 					  struct v4l2_subdev_state *state,
 					  u32 pad, u64 streams_mask)
 {
+	struct ipu6_isys_subdev *asd = to_ipu6_isys_subdev(sd);
+	struct ipu6_isys_csi2 *csi2 = to_ipu6_isys_csi2(asd);
 	struct v4l2_subdev *remote_sd;
 	struct media_pad *remote_pad;
 	u64 sink_streams;
@@ -395,7 +383,7 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 	remote_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
 	remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
 
-	ipu6_isys_csi2_set_stream(sd, NULL, 0, false);
+	ipu6_isys_csi2_stream_disable(csi2);
 
 	v4l2_subdev_disable_streams(remote_sd, remote_pad->index, sink_streams);
 
