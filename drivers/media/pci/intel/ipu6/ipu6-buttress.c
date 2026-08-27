@@ -55,11 +55,11 @@
 
 #define BUTTRESS_MAX_CONSECUTIVE_IRQS	100
 
-int ipu6_buttress_ipc_reset(struct ipu6_device *isp,
-			    struct ipu6_buttress_ipc *ipc)
+int ipu6_buttress_ipc_reset(struct ipu6_device *isp)
 {
 	unsigned int retries = BUTTRESS_IPC_RESET_RETRY;
 	struct ipu6_buttress *b = &isp->buttress;
+	const struct ipu6_buttress_registers *regs = b->regs;
 	u32 val = 0, csr_in_clr;
 
 	if (!isp->secure_mode) {
@@ -70,11 +70,11 @@ int ipu6_buttress_ipc_reset(struct ipu6_device *isp,
 	mutex_lock(&b->ipc_mutex);
 
 	/* Clear-by-1 CSR (all bits), corresponding internal states. */
-	val = readl(isp->base + ipc->csr_in);
-	writel(val, isp->base + ipc->csr_in);
+	val = readl(isp->base + regs->csr_in);
+	writel(val, isp->base + regs->csr_in);
 
 	/* Set peer CSR bit IPC_PEER_COMP_ACTIONS_RST_PHASE1 */
-	writel(ENTRY, isp->base + ipc->csr_out);
+	writel(ENTRY, isp->base + regs->csr_out);
 	/*
 	 * Clear-by-1 all CSR bits EXCEPT following
 	 * bits:
@@ -89,7 +89,7 @@ int ipu6_buttress_ipc_reset(struct ipu6_device *isp,
 
 	do {
 		usleep_range(400, 500);
-		val = readl(isp->base + ipc->csr_in);
+		val = readl(isp->base + regs->csr_in);
 		switch (val) {
 		case ENTRY | EXIT:
 		case ENTRY | EXIT | QUERY:
@@ -100,8 +100,8 @@ int ipu6_buttress_ipc_reset(struct ipu6_device *isp,
 			 * 2) Set peer CSR bit
 			 * IPC_PEER_QUERIED_IP_COMP_ACTIONS_RST_PHASE.
 			 */
-			writel(ENTRY | EXIT, isp->base + ipc->csr_in);
-			writel(QUERY, isp->base + ipc->csr_out);
+			writel(ENTRY | EXIT, isp->base + regs->csr_in);
+			writel(QUERY, isp->base + regs->csr_out);
 			break;
 		case ENTRY:
 		case ENTRY | QUERY:
@@ -112,8 +112,8 @@ int ipu6_buttress_ipc_reset(struct ipu6_device *isp,
 			 * 2) Set peer CSR bit
 			 * IPC_PEER_COMP_ACTIONS_RST_PHASE1.
 			 */
-			writel(ENTRY | QUERY, isp->base + ipc->csr_in);
-			writel(ENTRY, isp->base + ipc->csr_out);
+			writel(ENTRY | QUERY, isp->base + regs->csr_in);
+			writel(ENTRY, isp->base + regs->csr_out);
 			break;
 		case EXIT:
 		case EXIT | QUERY:
@@ -130,17 +130,17 @@ int ipu6_buttress_ipc_reset(struct ipu6_device *isp,
 			 * 3) Set peer CSR bit
 			 * IPC_PEER_COMP_ACTIONS_RST_PHASE2.
 			 */
-			writel(EXIT, isp->base + ipc->csr_in);
-			writel(0, isp->base + ipc->db0_in);
-			writel(csr_in_clr, isp->base + ipc->csr_in);
-			writel(EXIT, isp->base + ipc->csr_out);
+			writel(EXIT, isp->base + regs->csr_in);
+			writel(0, isp->base + regs->db0_in);
+			writel(csr_in_clr, isp->base + regs->csr_in);
+			writel(EXIT, isp->base + regs->csr_out);
 
 			/*
 			 * Read csr_in again to make sure if RST_PHASE2 is done.
 			 * If csr_in is QUERY, it should be handled again.
 			 */
 			usleep_range(200, 300);
-			val = readl(isp->base + ipc->csr_in);
+			val = readl(isp->base + regs->csr_in);
 			if (val & QUERY) {
 				dev_dbg(&isp->pdev->dev,
 					"RST_PHASE2 retry csr_in = %x\n", val);
@@ -155,8 +155,8 @@ int ipu6_buttress_ipc_reset(struct ipu6_device *isp,
 			 * 2) Set peer CSR bit
 			 * IPC_PEER_COMP_ACTIONS_RST_PHASE1
 			 */
-			writel(QUERY, isp->base + ipc->csr_in);
-			writel(ENTRY, isp->base + ipc->csr_out);
+			writel(QUERY, isp->base + regs->csr_in);
+			writel(ENTRY, isp->base + regs->csr_out);
 			break;
 		default:
 			dev_dbg_ratelimited(&isp->pdev->dev,
@@ -171,42 +171,42 @@ int ipu6_buttress_ipc_reset(struct ipu6_device *isp,
 	return -ETIMEDOUT;
 }
 
-static void ipu6_buttress_ipc_validity_close(struct ipu6_device *isp,
-					     struct ipu6_buttress_ipc *ipc)
+static void ipu6_buttress_ipc_validity_close(struct ipu6_device *isp)
 {
 	writel(BUTTRESS_IU2CSECSR_IPC_PEER_DEASSERTED_REG_VALID_REQ,
-	       isp->base + ipc->csr_out);
+	       isp->base + isp->buttress.regs->csr_out);
 }
 
 static int
-ipu6_buttress_ipc_validity_open(struct ipu6_device *isp,
-				struct ipu6_buttress_ipc *ipc)
+ipu6_buttress_ipc_validity_open(struct ipu6_device *isp)
 {
 	unsigned int mask = BUTTRESS_IU2CSECSR_IPC_PEER_ACKED_REG_VALID;
+	const struct ipu6_buttress_registers *regs = isp->buttress.regs;
 	void __iomem *addr;
 	int ret;
 	u32 val;
 
 	writel(BUTTRESS_IU2CSECSR_IPC_PEER_ASSERTED_REG_VALID_REQ,
-	       isp->base + ipc->csr_out);
+	       isp->base + regs->csr_out);
 
-	addr = isp->base + ipc->csr_in;
+	addr = isp->base + regs->csr_in;
 	ret = readl_poll_timeout(addr, val, val & mask, 200,
 				 BUTTRESS_IPC_VALIDITY_TIMEOUT_US);
 	if (ret) {
 		dev_err(&isp->pdev->dev, "CSE validity timeout 0x%x\n", val);
-		ipu6_buttress_ipc_validity_close(isp, ipc);
+		ipu6_buttress_ipc_validity_close(isp);
 	}
 
 	return ret;
 }
 
-static void ipu6_buttress_ipc_recv(struct ipu6_device *isp,
-				   struct ipu6_buttress_ipc *ipc, u32 *ipc_msg)
+static void ipu6_buttress_ipc_recv(struct ipu6_device *isp, u32 *ipc_msg)
 {
+	const struct ipu6_buttress_registers *regs = isp->buttress.regs;
+
 	if (ipc_msg)
-		*ipc_msg = readl(isp->base + ipc->data0_in);
-	writel(0, isp->base + ipc->db0_in);
+		*ipc_msg = readl(isp->base + regs->data0_in);
+	writel(0, isp->base + regs->db0_in);
 }
 
 static int ipu6_buttress_ipc_send_bulk(struct ipu6_device *isp,
@@ -217,13 +217,14 @@ static int ipu6_buttress_ipc_send_bulk(struct ipu6_device *isp,
 	unsigned int i, retry = BUTTRESS_IPC_CMD_SEND_RETRY;
 	struct ipu6_buttress *b = &isp->buttress;
 	struct ipu6_buttress_ipc *ipc = &b->ipc;
+	const struct ipu6_buttress_registers *regs = b->regs;
 	u32 val;
 	int ret;
 	int tout;
 
 	mutex_lock(&b->ipc_mutex);
 
-	ret = ipu6_buttress_ipc_validity_open(isp, ipc);
+	ret = ipu6_buttress_ipc_validity_open(isp);
 	if (ret) {
 		dev_err(&isp->pdev->dev, "IPC validity open failed\n");
 		goto out;
@@ -239,9 +240,9 @@ static int ipu6_buttress_ipc_send_bulk(struct ipu6_device *isp,
 
 		dev_dbg(&isp->pdev->dev, "bulk IPC command: 0x%x\n",
 			msgs[i].cmd);
-		writel(msgs[i].cmd, isp->base + ipc->data0_out);
+		writel(msgs[i].cmd, isp->base + regs->data0_out);
 		val = BUTTRESS_IU2CSEDB0_BUSY | msgs[i].cmd_size;
-		writel(val, isp->base + ipc->db0_out);
+		writel(val, isp->base + regs->db0_out);
 
 		tout = wait_for_completion_timeout(&ipc->send_complete,
 						   tx_timeout_jiffies);
@@ -253,7 +254,7 @@ static int ipu6_buttress_ipc_send_bulk(struct ipu6_device *isp,
 			}
 
 			/* Try again if CSE is not responding on first try */
-			writel(0, isp->base + ipc->db0_out);
+			writel(0, isp->base + regs->db0_out);
 			i--;
 			continue;
 		}
@@ -271,8 +272,8 @@ static int ipu6_buttress_ipc_send_bulk(struct ipu6_device *isp,
 			goto out;
 		}
 
-		if (ipc->nack_mask &&
-		    (ipc->recv_data & ipc->nack_mask) == ipc->nack) {
+		if ((ipc->recv_data & BUTTRESS_CSE2IUDATA0_IPC_NACK_MASK) ==
+		     BUTTRESS_CSE2IUDATA0_IPC_NACK) {
 			dev_err(&isp->pdev->dev,
 				"IPC NACK for cmd 0x%x\n", msgs[i].cmd);
 			ret = -EIO;
@@ -291,7 +292,7 @@ static int ipu6_buttress_ipc_send_bulk(struct ipu6_device *isp,
 	dev_dbg(&isp->pdev->dev, "bulk IPC commands done\n");
 
 out:
-	ipu6_buttress_ipc_validity_close(isp, ipc);
+	ipu6_buttress_ipc_validity_close(isp);
 	mutex_unlock(&b->ipc_mutex);
 	return ret;
 }
@@ -375,7 +376,7 @@ irqreturn_t ipu6_buttress_isr(int irq, void *isp_ptr)
 			dev_dbg(&isp->pdev->dev,
 				"BUTTRESS_ISR_IPC_FROM_CSE_IS_WAITING\n");
 
-			ipu6_buttress_ipc_recv(isp, &b->ipc, &b->ipc.recv_data);
+			ipu6_buttress_ipc_recv(isp, &b->ipc.recv_data);
 			complete(&b->ipc.recv_complete);
 		}
 
@@ -836,15 +837,6 @@ int ipu6_buttress_init(struct ipu6_device *isp)
 	init_completion(&b->ipc.send_complete);
 	init_completion(&b->ipc.recv_complete);
 
-	b->ipc.nack = BUTTRESS_CSE2IUDATA0_IPC_NACK;
-	b->ipc.nack_mask = BUTTRESS_CSE2IUDATA0_IPC_NACK_MASK;
-	b->ipc.csr_in = BUTTRESS_REG_CSE2IUCSR;
-	b->ipc.csr_out = BUTTRESS_REG_IU2CSECSR;
-	b->ipc.db0_in = BUTTRESS_REG_CSE2IUDB0;
-	b->ipc.db0_out = BUTTRESS_REG_IU2CSEDB0;
-	b->ipc.data0_in = BUTTRESS_REG_CSE2IUDATA0;
-	b->ipc.data0_out = BUTTRESS_REG_IU2CSEDATA0;
-
 	INIT_LIST_HEAD(&b->constraints);
 
 	isp->secure_mode = ipu6_buttress_get_secure_mode(isp);
@@ -880,7 +872,7 @@ int ipu6_buttress_init(struct ipu6_device *isp)
 
 	/* Retry couple of times in case of CSE initialization is delayed */
 	do {
-		ret = ipu6_buttress_ipc_reset(isp, &b->ipc);
+		ret = ipu6_buttress_ipc_reset(isp);
 		if (ret) {
 			dev_warn(&isp->pdev->dev,
 				 "IPC reset protocol failed, retrying\n");

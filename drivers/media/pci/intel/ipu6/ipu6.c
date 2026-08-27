@@ -241,6 +241,12 @@ static const struct ipu6_buttress_registers ipu6_buttress_regs = {
 	.tsc_lo		= BUTTRESS_REG_TSC_LO,
 	.wdt		= BUTTRESS_REG_WDT,
 	.btrs_ctrl	= BUTTRESS_REG_BTRS_CTRL,
+	.csr_in		= BUTTRESS_REG_CSE2IUCSR,
+	.csr_out	= BUTTRESS_REG_IU2CSECSR,
+	.db0_in		= BUTTRESS_REG_CSE2IUDB0,
+	.db0_out	= BUTTRESS_REG_IU2CSEDB0,
+	.data0_in	= BUTTRESS_REG_CSE2IUDATA0,
+	.data0_out	= BUTTRESS_REG_IU2CSEDATA0,
 
 	/* Bitmasks */
 	.irq_is		= BUTTRESS_ISR_IS_IRQ,
@@ -779,7 +785,6 @@ static int ipu6_resume(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct ipu6_device *isp = pci_get_drvdata(pdev);
-	struct ipu6_buttress *b = &isp->buttress;
 	int ret;
 
 	/* Configure the arbitration mechanisms for VC requests */
@@ -791,7 +796,7 @@ static int ipu6_resume(struct device *dev)
 
 	ipu6_buttress_restore(isp);
 
-	ret = ipu6_buttress_ipc_reset(isp, &b->ipc);
+	ret = ipu6_buttress_ipc_reset(isp);
 	if (ret)
 		dev_err(&isp->pdev->dev, "IPC reset protocol failed!\n");
 
@@ -820,10 +825,8 @@ static int ipu6_runtime_resume(struct device *dev)
 	ipu6_buttress_restore(isp);
 
 	if (isp->need_ipc_reset) {
-		struct ipu6_buttress *b = &isp->buttress;
-
 		isp->need_ipc_reset = false;
-		ret = ipu6_buttress_ipc_reset(isp, &b->ipc);
+		ret = ipu6_buttress_ipc_reset(isp);
 		if (ret)
 			dev_err(&isp->pdev->dev, "IPC reset protocol failed\n");
 	}
