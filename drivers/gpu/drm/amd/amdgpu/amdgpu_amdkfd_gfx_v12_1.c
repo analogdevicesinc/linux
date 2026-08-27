@@ -111,7 +111,7 @@ static int hqd_dump_v12_1(struct amdgpu_device *adev,
 			uint32_t (**dump)[2], uint32_t *n_regs, uint32_t inst)
 {
 	uint32_t i = 0, reg;
-#define HQD_N_REGS 56
+#define HQD_N_REGS (regCP_HQD_PQ_WPTR_HI - regCP_MQD_BASE_ADDR + 1)
 #define DUMP_REG(addr) do {				\
 		if (WARN_ON_ONCE(i >= HQD_N_REGS))	\
 			break;				\
