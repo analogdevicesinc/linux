@@ -66,6 +66,9 @@
 /* HW restart delay time before terminating hardware IF work items */
 #define MM81X_HW_RESTART_DELAY_MS 20
 
+/* Maximum number of multicast frames to release after a DTIM beacon */
+#define MM81X_MAX_MC_FRAMES_AFTER_DTIM 4
+
 /* clang-format off */
 
 /* mm81x chips do not support 16MHz */
@@ -1287,6 +1290,20 @@ static void mm81x_mac_ops_tx(struct ieee80211_hw *hw,
 				      MM81X_SKB_CHAN_DATA);
 }
 
+static void mm81x_mac_send_buffered_bc(struct mm81x *mors,
+				       struct ieee80211_vif *vif)
+{
+	int count = MM81X_MAX_MC_FRAMES_AFTER_DTIM;
+	struct ieee80211_tx_control control = { 0 };
+	struct sk_buff *bc_frame;
+
+	while (count-- &&
+	       (bc_frame = ieee80211_get_buffered_bc(mors->hw, vif))) {
+		IEEE80211_SKB_CB(bc_frame)->control.vif = vif;
+		mm81x_mac_ops_tx(mors->hw, &control, bc_frame);
+	}
+}
+
 static void mm81x_mac_beacon_work(struct work_struct *work)
 {
 	struct mm81x_vif *mors_vif =
@@ -1318,6 +1335,9 @@ static void mm81x_mac_beacon_work(struct work_struct *work)
 	mm81x_beacon_h_fill_tx_info(mors, &tx_info, mors_vif,
 				    cfg80211_chandef_s1g_pri_width(&mors->chandef));
 	mm81x_skbq_skb_tx(mq, &beacon, &tx_info, MM81X_SKB_CHAN_BEACON);
+
+	if (!test_bit(MM81X_STATE_DATA_QS_STOPPED, &mors->state_flags))
+		mm81x_mac_send_buffered_bc(mors, vif);
 }
 
 static void mm81x_mac_beacon_init(struct mm81x_vif *mors_vif)
