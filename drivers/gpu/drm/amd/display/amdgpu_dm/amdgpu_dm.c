@@ -711,6 +711,9 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
 	/* TODO: Remove after DP2 receiver gets proper support of Cable ID feature */
 	adev->dm.dc->debug.ignore_cable_id = true;
 
+	/* temporary enable immediate restore for FAMS2 */
+	adev->dm.dc->debug.fams2_imm_restore_drr = true;
+
 	if (adev->dm.dc->caps.dp_hdmi21_pcon_support)
 		drm_info(adev_to_drm(adev), "DP-HDMI FRL PCON supported\n");
 

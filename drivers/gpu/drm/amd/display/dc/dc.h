@@ -1289,6 +1289,7 @@ struct dc_debug_options {
 	uint32_t dml21_disable_pstate_method_mask;
 	union fw_assisted_mclk_switch_version fams_version;
 	union dmub_fams2_global_feature_config fams2_config;
+	bool fams2_imm_restore_drr;
 	unsigned int force_cositing;
 	unsigned int disable_spl;
 	unsigned int force_easf;

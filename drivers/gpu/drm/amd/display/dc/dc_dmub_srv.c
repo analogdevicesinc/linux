@@ -1847,6 +1847,9 @@ static void dc_dmub_srv_rb_based_fams2_update_config(struct dc *dc,
 			memcpy(&stream_sub_state_cmd->config,
 					&context->bw_ctx.bw.dcn.fams2_stream_sub_params[i],
 					sizeof(union dmub_cmd_fams2_config));
+
+			/* temp override */
+			stream_base_cmd->config.stream_v1.base.config.bits.imm_restore_drr = dc->debug.fams2_imm_restore_drr;
 		}
 	}
 

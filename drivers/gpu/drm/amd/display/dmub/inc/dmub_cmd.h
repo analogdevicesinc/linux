@@ -2777,6 +2777,7 @@ struct dmub_fams2_stream_static_state {
 			uint8_t is_drr : 1; // stream is DRR enabled
 			uint8_t clamp_vtotal_min : 1; // clamp vtotal to min instead of nominal
 			uint8_t min_ttu_vblank_usable : 1; // if min ttu vblank is above wm, no force pstate is needed in blank
+			uint8_t imm_restore_drr : 1; // does not wait to latch DRR vtotal on restore
 		} bits;
 		uint8_t all;
 	} config;
@@ -2809,6 +2810,7 @@ struct dmub_fams2_cmd_stream_static_base_state {
 			uint8_t is_drr : 1; // stream is DRR enabled
 			uint8_t clamp_vtotal_min : 1; // clamp vtotal to min instead of nominal
 			uint8_t min_ttu_vblank_usable : 1; // if min ttu vblank is above wm, no force pstate is needed in blank
+			uint8_t imm_restore_drr : 1; // does not wait to latch DRR vtotal on restore
 		} bits;
 		uint8_t all;
 	} config;
