@@ -366,14 +366,14 @@ int ipu6_fw_isys_init(struct ipu6_isys *isys, unsigned int num_streams)
 }
 
 struct ipu6_fw_isys_resp_info_abi *
-ipu6_fw_isys_get_resp(void *context, unsigned int queue)
+ipu6_fw_isys_get_resp(struct ipu6_isys *isys)
 {
-	return ipu6_recv_get_token(context, queue);
+	return ipu6_recv_get_token(isys->fwctx, IPU6_BASE_MSG_RECV_QUEUES);
 }
 
-void ipu6_fw_isys_put_resp(void *context, unsigned int queue)
+void ipu6_fw_isys_put_resp(struct ipu6_isys *isys)
 {
-	ipu6_recv_put_token(context, queue);
+	ipu6_recv_put_token(isys->fwctx, IPU6_BASE_MSG_RECV_QUEUES);
 }
 
 void ipu6_fw_isys_dump_stream_cfg(struct device *dev,
