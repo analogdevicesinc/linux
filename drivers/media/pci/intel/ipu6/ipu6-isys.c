@@ -1003,7 +1003,7 @@ struct isys_fw_msgs *ipu6_get_fw_msg_buf(struct ipu6_isys_stream *stream)
 	msg = list_last_entry(&isys->framebuflist, struct isys_fw_msgs, head);
 	list_move(&msg->head, &isys->framebuflist_fw);
 	spin_unlock_irqrestore(&isys->listlock, flags);
-	memset(&msg->fw_msg, 0, sizeof(msg->fw_msg));
+	memset(&msg->ipu6, 0, sizeof(msg->ipu6));
 
 	return msg;
 }
@@ -1029,7 +1029,7 @@ void ipu6_put_fw_msg_buf(struct ipu6_isys *isys, uintptr_t data)
 		return;
 
 	spin_lock_irqsave(&isys->listlock, flags);
-	msg = container_of(ptr, struct isys_fw_msgs, fw_msg.dummy);
+	msg = container_of(ptr, struct isys_fw_msgs, ipu6.dummy);
 	list_move(&msg->head, &isys->framebuflist);
 	spin_unlock_irqrestore(&isys->listlock, flags);
 }

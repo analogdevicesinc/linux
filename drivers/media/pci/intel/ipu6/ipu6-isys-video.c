@@ -533,7 +533,7 @@ static int start_stream_firmware(struct ipu6_isys_video *av,
 	if (!msg)
 		return -ENOMEM;
 
-	stream_cfg = &msg->fw_msg.stream;
+	stream_cfg = &msg->ipu6.stream;
 	stream_cfg->src = stream->stream_source;
 	stream_cfg->vc = stream->vc;
 	stream_cfg->isl_use = 0;
@@ -590,7 +590,7 @@ static int start_stream_firmware(struct ipu6_isys_video *av,
 			ret = -ENOMEM;
 			goto out_put_stream_opened;
 		}
-		buf = &msg->fw_msg.frame;
+		buf = &msg->ipu6.frame;
 		ipu6_isys_buf_to_fw_frame_buf(buf, stream, bl);
 		ipu6_isys_buffer_list_queue(bl,
 					    IPU6_ISYS_BUFFER_LIST_FL_ACTIVE, 0);
