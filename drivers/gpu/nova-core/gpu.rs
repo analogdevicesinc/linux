@@ -29,6 +29,10 @@ use crate::{
         Gsp,
         GspBootContext, //
     },
+    mm::{
+        GpuMm,
+        VramAddress, //
+    },
     vgpu::VgpuManager, //
 };
 
@@ -283,6 +287,11 @@ pub(crate) struct Gpu<'gpu> {
     spec: Spec,
     /// Static GPU information as provided by the GSP.
     gsp_static_info: GetGspStaticInfoReply,
+    /// GPU memory manager owning memory management resources.
+    ///
+    /// Must be kept declared *before* `gsp_resources`, so that its components are dropped while
+    /// the GSP is still operational.
+    mm: GpuMm<'gpu>,
     /// GSP and its resources.
     #[pin]
     gsp_resources: GspResources<'gpu>,
@@ -410,7 +419,14 @@ impl<'gpu> Gpu<'gpu> {
                 }
 
                 info
-            }
+            },
+
+            // Create GPU memory manager owning memory management resources.
+            mm: GpuMm::new(
+                bar,
+                gsp_resources.spec.chipset,
+                VramAddress::from_raw(gsp_static_info.total_fb_end),
+            )?,
         })
     }
 }

@@ -19,9 +19,44 @@ use kernel::{
     },
 };
 
+use crate::{
+    driver::Bar0,
+    gpu::Chipset, //
+};
+
 mod hal;
 mod pramin;
 mod regs;
+
+/// GPU Memory Manager - owns all core MM components.
+///
+/// Provides centralized ownership of memory management resources:
+/// - [`pramin::Pramin`] for direct VRAM access.
+pub(crate) struct GpuMm<'gpu> {
+    pramin: pramin::Pramin<'gpu>,
+}
+
+impl<'gpu> GpuMm<'gpu> {
+    /// Creates the GPU memory manager.
+    pub(crate) fn new(
+        bar: Bar0<'gpu>,
+        chipset: Chipset,
+        total_fb_end: VramAddress,
+    ) -> Result<Self> {
+        // PRAMIN covers all physical VRAM (including GSP-reserved areas
+        // above the usable region, e.g. the BAR1 page directory).
+        let vram_region = VramAddress::ZERO..total_fb_end;
+
+        Ok(Self {
+            pramin: pramin::Pramin::new(bar, chipset, vram_region)?,
+        })
+    }
+
+    /// Access the [`pramin::Pramin`].
+    fn pramin_mut(&mut self) -> &mut pramin::Pramin<'gpu> {
+        &mut self.pramin
+    }
+}
 
 /// Physical VRAM address in GPU video memory.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
