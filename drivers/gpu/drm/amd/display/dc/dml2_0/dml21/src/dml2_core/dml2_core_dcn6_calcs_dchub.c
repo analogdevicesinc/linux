@@ -592,6 +592,8 @@ void dcn6_calculate_flip_schedule(
 	double *final_flip_bw,
 	bool *ImmediateFlipSupportedForPipe)
 {
+	(void)meta_row_height;
+	(void)meta_row_height_chroma;
 	struct dml2_core_shared_CalculateFlipSchedule_locals *l = &s->CalculateFlipSchedule_locals;
 
 	l->dual_plane = dml2_core_utils_is_420(SourcePixelFormat) || dml2_core_utils_is_422_planar(SourcePixelFormat) || SourcePixelFormat == dml2_rgbe_alpha;
