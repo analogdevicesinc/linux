@@ -1257,6 +1257,15 @@ static int mm81x_tx_h_get_bw(struct mm81x *mors, struct ieee80211_sta *sta,
 	if (is_mgmt || info->control.flags & IEEE80211_TX_CTRL_PORT_CTRL_PROTO)
 		return cfg80211_chandef_s1g_pri_width(&mors->chandef);
 
+	/*
+	 * In AP mode group addressed frames go out at the primary width so
+	 * that every associated STA can receive them, including any that
+	 * cannot support the operating width.
+	 */
+	if (info->control.vif->type == NL80211_IFTYPE_AP &&
+	    is_multicast_ether_addr(ieee80211_get_DA(hdr)))
+		return cfg80211_chandef_s1g_pri_width(&mors->chandef);
+
 	if (sta)
 		mors_sta = (struct mm81x_sta *)sta->drv_priv;
 
