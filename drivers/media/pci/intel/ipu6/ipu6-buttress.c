@@ -55,11 +55,6 @@
 
 #define BUTTRESS_MAX_CONSECUTIVE_IRQS	100
 
-static const u32 ipu6_adev_irq_mask[2] = {
-	BUTTRESS_ISR_IS_IRQ,
-	BUTTRESS_ISR_PS_IRQ
-};
-
 int ipu6_buttress_ipc_reset(struct ipu6_device *isp,
 			    struct ipu6_buttress_ipc *ipc)
 {
@@ -337,7 +332,8 @@ irqreturn_t ipu6_buttress_isr(int irq, void *isp_ptr)
 	struct ipu6_device *isp = isp_ptr;
 	struct ipu6_bus_device *adev[] = { isp->isys, isp->psys };
 	struct ipu6_buttress *b = &isp->buttress;
-	u32 reg_irq_sts = BUTTRESS_REG_ISR_STATUS;
+	const struct ipu6_buttress_registers *regs = b->regs;
+	const u32 adev_irq_mask[] = { regs->irq_is, regs->irq_ps };
 	irqreturn_t ret = IRQ_NONE;
 	u32 disable_irqs = 0;
 	u32 irq_status;
@@ -348,7 +344,7 @@ irqreturn_t ipu6_buttress_isr(int irq, void *isp_ptr)
 	if (!active)
 		return IRQ_NONE;
 
-	irq_status = readl(isp->base + reg_irq_sts);
+	irq_status = readl(isp->base + regs->irq_status);
 	if (irq_status == 0 || WARN_ON_ONCE(irq_status == 0xffffffffu)) {
 		if (active > 0)
 			pm_runtime_put_noidle(&isp->pdev->dev);
@@ -356,26 +352,26 @@ irqreturn_t ipu6_buttress_isr(int irq, void *isp_ptr)
 	}
 
 	do {
-		writel(irq_status, isp->base + BUTTRESS_REG_ISR_CLEAR);
+		writel(irq_status, isp->base + regs->irq_clear);
 
-		for (i = 0; i < ARRAY_SIZE(ipu6_adev_irq_mask); i++) {
+		for (i = 0; i < ARRAY_SIZE(adev_irq_mask); i++) {
 			irqreturn_t r = ipu6_buttress_call_isr(adev[i]);
 
-			if (!(irq_status & ipu6_adev_irq_mask[i]))
+			if (!(irq_status & adev_irq_mask[i]))
 				continue;
 
 			if (r == IRQ_WAKE_THREAD) {
 				ret = IRQ_WAKE_THREAD;
-				disable_irqs |= ipu6_adev_irq_mask[i];
+				disable_irqs |= adev_irq_mask[i];
 			} else if (ret == IRQ_NONE && r == IRQ_HANDLED) {
 				ret = IRQ_HANDLED;
 			}
 		}
 
-		if ((irq_status & BUTTRESS_EVENT) && ret == IRQ_NONE)
+		if ((irq_status & regs->irq_events) && ret == IRQ_NONE)
 			ret = IRQ_HANDLED;
 
-		if (irq_status & BUTTRESS_ISR_IPC_FROM_CSE_IS_WAITING) {
+		if (irq_status & regs->irq_cse_ipc) {
 			dev_dbg(&isp->pdev->dev,
 				"BUTTRESS_ISR_IPC_FROM_CSE_IS_WAITING\n");
 
@@ -383,13 +379,13 @@ irqreturn_t ipu6_buttress_isr(int irq, void *isp_ptr)
 			complete(&b->ipc.recv_complete);
 		}
 
-		if (irq_status & BUTTRESS_ISR_IPC_EXEC_DONE_BY_CSE) {
+		if (irq_status & regs->irq_exec_done) {
 			dev_dbg(&isp->pdev->dev,
 				"BUTTRESS_ISR_IPC_EXEC_DONE_BY_CSE\n");
 			complete(&b->ipc.send_complete);
 		}
 
-		if (irq_status & BUTTRESS_ISR_SAI_VIOLATION &&
+		if (irq_status & regs->irq_sai &&
 		    ipu6_buttress_get_secure_mode(isp))
 			dev_err(&isp->pdev->dev,
 				"BUTTRESS_ISR_SAI_VIOLATION\n");
@@ -408,12 +404,12 @@ irqreturn_t ipu6_buttress_isr(int irq, void *isp_ptr)
 			break;
 		}
 
-		irq_status = readl(isp->base + reg_irq_sts);
+		irq_status = readl(isp->base + regs->irq_status);
 	} while (irq_status);
 
 	if (disable_irqs)
-		writel(BUTTRESS_IRQS & ~disable_irqs,
-		       isp->base + BUTTRESS_REG_ISR_ENABLE);
+		writel(regs->irq_all & ~disable_irqs,
+		       isp->base + regs->irq_enable);
 
 	if (active > 0)
 		pm_runtime_put(&isp->pdev->dev);
@@ -424,12 +420,13 @@ irqreturn_t ipu6_buttress_isr(int irq, void *isp_ptr)
 irqreturn_t ipu6_buttress_isr_threaded(int irq, void *isp_ptr)
 {
 	struct ipu6_device *isp = isp_ptr;
+	const struct ipu6_buttress_registers *regs = isp->buttress.regs;
 	struct ipu6_bus_device *adev[] = { isp->isys, isp->psys };
 	const struct ipu6_auxdrv_data *drv_data = NULL;
 	irqreturn_t ret = IRQ_NONE;
 	unsigned int i;
 
-	for (i = 0; i < ARRAY_SIZE(ipu6_adev_irq_mask) && adev[i]; i++) {
+	for (i = 0; i < ARRAY_SIZE(adev) && adev[i]; i++) {
 		drv_data = adev[i]->auxdrv_data;
 		if (!drv_data)
 			continue;
@@ -439,7 +436,7 @@ irqreturn_t ipu6_buttress_isr_threaded(int irq, void *isp_ptr)
 			ret = IRQ_HANDLED;
 	}
 
-	writel(BUTTRESS_IRQS, isp->base + BUTTRESS_REG_ISR_ENABLE);
+	writel(regs->irq_all, isp->base + regs->irq_enable);
 
 	return ret;
 }
@@ -472,7 +469,7 @@ int ipu6_buttress_power(struct device *dev,
 
 	writel(val, isp->base + ctrl->freq_ctl);
 
-	ret = readl_poll_timeout(isp->base + BUTTRESS_REG_PWR_STATE,
+	ret = readl_poll_timeout(isp->base + isp->buttress.regs->pwr_status,
 				 val, (val & ctrl->pwr_sts_mask) == pwr_sts,
 				 100, BUTTRESS_POWER_TIMEOUT_US);
 	if (ret)
@@ -488,7 +485,7 @@ bool ipu6_buttress_get_secure_mode(struct ipu6_device *isp)
 {
 	u32 val;
 
-	val = readl(isp->base + BUTTRESS_REG_SECURITY_CTL);
+	val = readl(isp->base + isp->buttress.regs->security_ctl);
 
 	return val & BUTTRESS_SECURITY_CTL_FW_SECURE_MODE;
 }
@@ -500,7 +497,7 @@ bool ipu6_buttress_auth_done(struct ipu6_device *isp)
 	if (!isp->secure_mode)
 		return true;
 
-	val = readl(isp->base + BUTTRESS_REG_SECURITY_CTL);
+	val = readl(isp->base + isp->buttress.regs->security_ctl);
 	val = FIELD_GET(BUTTRESS_SECURITY_CTL_FW_SETUP_MASK, val);
 
 	return val == BUTTRESS_SECURITY_CTL_AUTH_DONE;
@@ -518,10 +515,10 @@ int ipu6_buttress_reset_authentication(struct ipu6_device *isp)
 	}
 
 	writel(BUTTRESS_FW_RESET_CTL_START, isp->base +
-	       BUTTRESS_REG_FW_RESET_CTL);
+	       isp->buttress.regs->fw_reset_ctl);
 
-	ret = readl_poll_timeout(isp->base + BUTTRESS_REG_FW_RESET_CTL, val,
-				 val & BUTTRESS_FW_RESET_CTL_DONE, 500,
+	ret = readl_poll_timeout(isp->base + isp->buttress.regs->fw_reset_ctl,
+				 val, val & BUTTRESS_FW_RESET_CTL_DONE, 500,
 				 BUTTRESS_CSE_FWRESET_TIMEOUT_US);
 	if (ret) {
 		dev_err(&isp->pdev->dev,
@@ -530,7 +527,8 @@ int ipu6_buttress_reset_authentication(struct ipu6_device *isp)
 	}
 
 	dev_dbg(&isp->pdev->dev, "FW reset for authentication done\n");
-	writel(0, isp->base + BUTTRESS_REG_FW_RESET_CTL);
+	writel(0, isp->base + isp->buttress.regs->fw_reset_ctl);
+
 	/* leave some time for HW restore */
 	usleep_range(800, 1000);
 
@@ -660,7 +658,7 @@ int ipu6_buttress_authenticate(struct ipu6_device *isp)
 	mask = BUTTRESS_SECURITY_CTL_FW_SETUP_MASK;
 	done = BUTTRESS_SECURITY_CTL_FW_SETUP_DONE;
 	fail = BUTTRESS_SECURITY_CTL_AUTH_FAILED;
-	ret = readl_poll_timeout(isp->base + BUTTRESS_REG_SECURITY_CTL, data,
+	ret = readl_poll_timeout(isp->base + b->regs->security_ctl, data,
 				 ((data & mask) == done ||
 				  (data & mask) == fail), 500,
 				 BUTTRESS_CSE_BOOTLOAD_TIMEOUT_US);
@@ -700,7 +698,7 @@ int ipu6_buttress_authenticate(struct ipu6_device *isp)
 	}
 
 	done = BUTTRESS_SECURITY_CTL_AUTH_DONE;
-	ret = readl_poll_timeout(isp->base + BUTTRESS_REG_SECURITY_CTL, data,
+	ret = readl_poll_timeout(isp->base + b->regs->security_ctl, data,
 				 ((data & mask) == done ||
 				  (data & mask) == fail), 500,
 				 BUTTRESS_CSE_AUTHENTICATE_TIMEOUT_US);
@@ -725,15 +723,16 @@ out_unlock:
 
 static int ipu6_buttress_send_tsc_request(struct ipu6_device *isp)
 {
+	const struct ipu6_buttress_registers *regs = isp->buttress.regs;
 	u32 val, mask, done;
 	int ret;
 
 	mask = BUTTRESS_PWR_STATE_HH_STATUS_MASK;
 
 	writel(BUTTRESS_FABRIC_CMD_START_TSC_SYNC,
-	       isp->base + BUTTRESS_REG_FABRIC_CMD);
+	       isp->base + regs->fabric_cmd);
 
-	val = readl(isp->base + BUTTRESS_REG_PWR_STATE);
+	val = readl(isp->base + regs->pwr_status);
 	val = FIELD_GET(mask, val);
 	if (val == BUTTRESS_PWR_STATE_HH_STATE_ERR) {
 		dev_err(&isp->pdev->dev, "Start tsc sync failed\n");
@@ -741,8 +740,8 @@ static int ipu6_buttress_send_tsc_request(struct ipu6_device *isp)
 	}
 
 	done = BUTTRESS_PWR_STATE_HH_STATE_DONE;
-	ret = readl_poll_timeout(isp->base + BUTTRESS_REG_PWR_STATE, val,
-				 FIELD_GET(mask, val) == done, 500,
+	ret = readl_poll_timeout(isp->base + regs->pwr_status,
+				 val, FIELD_GET(mask, val) == done, 500,
 				 BUTTRESS_TSC_SYNC_TIMEOUT_US);
 	if (ret)
 		dev_err(&isp->pdev->dev, "Start tsc sync timeout\n");
@@ -762,11 +761,13 @@ int ipu6_buttress_start_tsc_sync(struct ipu6_device *isp)
 		if (ret != -ETIMEDOUT)
 			return ret;
 
-		val = readl(isp->base + BUTTRESS_REG_TSW_CTL);
+		u32 tsw_ctl = isp->buttress.regs->tsw_ctl;
+
+		val = readl(isp->base + tsw_ctl);
 		val = val | BUTTRESS_TSW_CTL_SOFT_RESET;
-		writel(val, isp->base + BUTTRESS_REG_TSW_CTL);
+		writel(val, isp->base + tsw_ctl);
 		val = val & ~BUTTRESS_TSW_CTL_SOFT_RESET;
-		writel(val, isp->base + BUTTRESS_REG_TSW_CTL);
+		writel(val, isp->base + tsw_ctl);
 	}
 
 	dev_err(&isp->pdev->dev, "TSC sync failed (timeout)\n");
@@ -777,13 +778,14 @@ EXPORT_SYMBOL_NS_GPL(ipu6_buttress_start_tsc_sync, "INTEL_IPU6");
 
 void ipu6_buttress_tsc_read(struct ipu6_device *isp, u64 *val)
 {
+	void __iomem *tsc = isp->base + isp->buttress.regs->tsc_lo;
 	u32 tsc_hi_1, tsc_hi_2, tsc_lo;
 	unsigned long flags;
 
 	local_irq_save(flags);
-	tsc_hi_1 = readl(isp->base + BUTTRESS_REG_TSC_HI);
-	tsc_lo = readl(isp->base + BUTTRESS_REG_TSC_LO);
-	tsc_hi_2 = readl(isp->base + BUTTRESS_REG_TSC_HI);
+	tsc_hi_1 = readl(tsc + BUTTRESS_TSC_HI_OFFSET);
+	tsc_lo = readl(tsc);
+	tsc_hi_2 = readl(tsc + BUTTRESS_TSC_HI_OFFSET);
 	if (tsc_hi_1 == tsc_hi_2) {
 		*val = (u64)tsc_hi_1 << 32 | tsc_lo;
 	} else {
@@ -816,9 +818,9 @@ void ipu6_buttress_restore(struct ipu6_device *isp)
 {
 	struct ipu6_buttress *b = &isp->buttress;
 
-	writel(BUTTRESS_IRQS, isp->base + BUTTRESS_REG_ISR_CLEAR);
-	writel(BUTTRESS_IRQS, isp->base + BUTTRESS_REG_ISR_ENABLE);
-	writel(b->wdt_cached_value, isp->base + BUTTRESS_REG_WDT);
+	writel(b->regs->irq_all, isp->base + b->regs->irq_clear);
+	writel(b->regs->irq_all, isp->base + b->regs->irq_enable);
+	writel(b->wdt_cached_value, isp->base + b->regs->wdt);
 }
 
 int ipu6_buttress_init(struct ipu6_device *isp)
@@ -851,12 +853,12 @@ int ipu6_buttress_init(struct ipu6_device *isp)
 		readl(isp->base + BUTTRESS_REG_SECURITY_TOUCH),
 		readl(isp->base + BUTTRESS_REG_CAMERA_MASK));
 
-	b->wdt_cached_value = readl(isp->base + BUTTRESS_REG_WDT);
-	writel(BUTTRESS_IRQS, isp->base + BUTTRESS_REG_ISR_CLEAR);
-	writel(BUTTRESS_IRQS, isp->base + BUTTRESS_REG_ISR_ENABLE);
+	b->wdt_cached_value = readl(isp->base + b->regs->wdt);
+	writel(b->regs->irq_all, isp->base + b->regs->irq_clear);
+	writel(b->regs->irq_all, isp->base + b->regs->irq_enable);
 
 	/* get ref_clk frequency by reading the indication in btrs control */
-	val = readl(isp->base + BUTTRESS_REG_BTRS_CTRL);
+	val = readl(isp->base + b->regs->btrs_ctrl);
 	val = FIELD_GET(BUTTRESS_REG_BTRS_CTRL_REF_CLK_IND, val);
 
 	switch (val) {
@@ -902,7 +904,7 @@ void ipu6_buttress_exit(struct ipu6_device *isp)
 {
 	struct ipu6_buttress *b = &isp->buttress;
 
-	writel(0, isp->base + BUTTRESS_REG_ISR_ENABLE);
+	writel(0, isp->base + b->regs->irq_enable);
 
 	mutex_destroy(&b->power_mutex);
 	mutex_destroy(&b->auth_mutex);

@@ -42,9 +42,34 @@ struct ipu6_buttress_ipc {
 	u32 data0_in;
 };
 
+struct ipu6_buttress_registers {
+	/* Registers */
+	u32 irq_status;
+	u32 irq_clear;
+	u32 irq_enable;
+	u32 pwr_status;
+	u32 security_ctl;
+	u32 fw_reset_ctl;
+	u32 fabric_cmd;
+	u32 tsw_ctl;
+	u32 tsc_lo;
+	u32 wdt;
+	u32 btrs_ctrl;
+
+	/* Bitmasks */
+	u32 irq_is;
+	u32 irq_ps;
+	u32 irq_all;
+	u32 irq_events;
+	u32 irq_cse_ipc;
+	u32 irq_exec_done;
+	u32 irq_sai;
+};
+
 struct ipu6_buttress {
 	struct mutex power_mutex, auth_mutex, cons_mutex, ipc_mutex;
 	struct ipu6_buttress_ipc ipc;
+	const struct ipu6_buttress_registers *regs;
 	struct list_head constraints;
 	u32 wdt_cached_value;
 	bool force_suspend;
