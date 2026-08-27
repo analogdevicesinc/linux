@@ -588,6 +588,7 @@ static int ipu6_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	isp->cpd_metadata_cmpnt_size = sizeof(struct ipu6_cpd_metadata_cmpnt);
 	isp->buttress.regs = &ipu6_buttress_regs;
+	isp->model_name = IPU6_MEDIA_DEV_MODEL_NAME;
 	isys_ctrl = &ipu6_isys_buttress_ctrl;
 	psys_ctrl = &ipu6_psys_buttress_ctrl;
 
@@ -618,6 +619,7 @@ static int ipu6_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	case PCI_DEVICE_ID_INTEL_IPU7:
 		isp->hw_ver = IPU_VERSION_7;
 		isp->cpd_fw_name = IPU7_FIRMWARE_NAME;
+		isp->model_name = IPU7_MEDIA_DEV_MODEL_NAME;
 		isp->buttress.regs = &ipu7_buttress_regs;
 		isys_ctrl = &ipu7_isys_buttress_ctrl;
 		psys_ctrl = &ipu7_psys_buttress_ctrl;
