@@ -157,6 +157,20 @@ Device attributes
 
 The following IIO attributes are available for each enabled channel:
 
+Voltage scale
+-------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Attribute
+     - Description
+   * - ``in_voltage<N>_scale``
+     - Scale in millivolts per least significant bit for signed 24-bit data,
+       calculated as twice the differential reference voltage used by channel
+       N divided by 2\ :sup:`24`.
+
 Sampling frequency
 ------------------
 

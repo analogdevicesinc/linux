@@ -37,76 +37,47 @@ properties:
 
   clocks:
     maxItems: 1
-    description:
-      Master clock (MCLK). Can be supplied as a CMOS clock on the XTAL2/MCLK
-      pin, a crystal oscillator connected between the XTAL1 and XTAL2 pins, or
-      an LVDS differential clock on the XTAL1/XTAL2 pin pair. CMOS and LVDS
-      clocks must operate from 1.15 MHz to 34 MHz. Crystals must operate from
-      8 MHz to 34 MHz.
 
   clock-names:
     description:
-      Identifies the master clock source.
+      Describes the type of master clock (MCLK) attached to the XTAL1 and
+      XTAL2/MCLK pins. A CMOS clock is supplied on the XTAL2/MCLK pin, a
+      crystal oscillator is connected between the XTAL1 and XTAL2 pins, and an
+      LVDS differential clock is supplied on the XTAL1/XTAL2 pin pair. CMOS and
+      LVDS clocks must operate from 1.15 MHz to 34 MHz. Crystals must operate
+      from 8 MHz to 34 MHz.
     enum:
       - mclk
       - xtal
       - lvds
-    default: mclk
 
   avdd1-supply:
     description:
-      Analog supply voltage for the AVDD1A and AVDD1B pins (5V ± 10% with
-      respect to AVSS). Powers the analog front end, reference input, and
-      common-mode output circuitry. Both pins must be tied to the same
-      potential.
+      Analog supply. Its voltage is used to derive the supply-dependent VCM
+      output level, so it must be a regulator that can report its voltage.
 
   avss-supply:
     description:
-      Negative analog supply rail for the AVSS1A, AVSS1B, AVSS2A, AVSS2B,
-      and AVSS pins. This rail is referenced to DGND and all AVSS pins must
-      be tied to the same potential. In single-supply operation AVSS is
-      nominally 0 V; in split-supply operation it can range from 0 V to
-      -2.75 V with respect to DGND. If omitted, AVSS is assumed to be at
-      system ground (0 V).
+      Negative analog supply. If omitted, AVSS is assumed to be at system
+      ground.
 
-  avdd2-supply:
-    description:
-      Analog supply voltage for the AVDD2A and AVDD2B pins (2V to 5.5V with
-      respect to AVSS). Connects to internal 1.8V analog LDO regulators that
-      power the ADC core. Both pins must be tied to the same potential.
+  avdd2-supply: true
 
-  iovdd-supply:
-    description:
-      Digital supply voltage IOVDD (2.25V to 3.6V with respect to DGND).
-      Sets the logic levels for all interface pins and powers the digital
-      processing core via an internal LDO. For 1.8V operation (1.72V to
-      1.88V), IOVDD must be tied to the DREGCAP pin.
+  iovdd-supply: true
 
-  ref1p-supply:
-    description:
-      Positive reference input supply for REF1+. The voltage range is from
-      (AVSS + 1 V) to AVDD1. Together, REF1+ and REF1- must provide a
-      differential reference voltage from 1 V to |AVDD1 - AVSS|. This
-      reference is used by channels 0 to 3 on the AD7768 and channels 0 and 1
-      on the AD7768-4.
+  ref1p-supply: true
 
   ref1n-supply:
     description:
-      Negative reference input supply for REF1-. The voltage range is from
-      AVSS to (AVDD1 - 1 V).
+      Negative reference input supply for REF1. If omitted, REF1- is assumed
+      to be connected to ground.
 
-  ref2p-supply:
-    description:
-      Positive reference input supply for REF2+. The voltage range is from
-      (AVSS + 1 V) to AVDD1. Together, REF2+ and REF2- must provide a
-      differential reference voltage from 1 V to |AVDD1 - AVSS|. This
-      reference is used by channels 4 to 7 on the AD7768 and channels 2 and 3
-      on the AD7768-4.
+  ref2p-supply: true
 
   ref2n-supply:
     description:
-      Negative reference input supply for REF2-. The voltage range is from
-      AVSS to (AVDD1 - 1 V).
+      Negative reference input supply for REF2. If omitted, REF2- is assumed
+      to be connected to ground.
 
   reset-gpios:
     maxItems: 1
@@ -129,15 +100,6 @@ properties:
       to the MCLK clock domain. In multi-device or daisy-chained systems,
       two successive synchronization pulses must be applied to guarantee all
       ADCs are synchronized.
-
-  sync-out-gpios:
-    maxItems: 1
-    description:
-      GPIO connected to the SYNC_OUT pin. Outputs a synchronization pulse
-      synchronous to MCLK in response to a START pulse or SPI_SYNC command.
-      In single-device configurations this pin must be wired back to SYNC_IN.
-      In multi-device configurations it can be routed to the SYNC_IN pins of
-      all devices in the chain.
 
   gpio-controller: true
 
@@ -162,16 +124,10 @@ properties:
       vcm-output:
         type: object
         description:
-          The VCM pin provides a buffered common-mode voltage output used to
-          bias the analog inputs. It supports three fixed output levels of
-          1650000 uV, 2500000 uV, and 2140000 uV, as well as a
-          supply-dependent (AVDD1 - AVSS) / 2 output derived from
-          avdd1-supply. Select the voltage by setting regulator-min-microvolt
-          and regulator-max-microvolt to the same value. Use
-          regulator-always-on when no DT consumer node references the VCM
-          output. The VCM circuitry is associated with channel 0. When VCM is
-          used externally, channel@0 must be present and kept enabled because
-          placing channel 0 in standby disables the VCM output.
+          Buffered common-mode voltage output on the VCM pin. Use
+          regulator-always-on when no consumer node references this output.
+          Channel 0 must be present and enabled while VCM is used, since
+          putting channel 0 in standby disables the VCM output.
         $ref: /schemas/regulator/regulator.yaml#
         unevaluatedProperties: false
 
@@ -222,13 +178,12 @@ required:
   - compatible
   - reg
   - clocks
+  - clock-names
   - avdd1-supply
   - avdd2-supply
   - iovdd-supply
   - ref1p-supply
-  - ref1n-supply
   - ref2p-supply
-  - ref2n-supply
   - io-backends
 
 allOf:
@@ -279,6 +234,7 @@ examples:
             reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 
             clocks = <&ad7768_mclk>;
+            clock-names = "mclk";
 
             adi,data-lines-number = <8>;
             gpio-controller;

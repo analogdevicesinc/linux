@@ -6,9 +6,41 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	vref: regulator-vref {
+	avdd1_regulator: avdd1-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "fixed-supply";
+		regulator-name = "avdd1";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	avdd2_regulator: avdd2-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "avdd2";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	iovdd_regulator: iovdd-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "iovdd";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	ref1_regulator: ref1-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "ref1";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+	ref2_regulator: ref2-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "ref2";
 		regulator-min-microvolt = <4096000>;
 		regulator-max-microvolt = <4096000>;
 		regulator-always-on;
@@ -80,7 +112,11 @@
 		reg = <0>;
 		spi-max-frequency = <1000000>;
 
-		vref-supply = <&vref>;
+		avdd1-supply = <&avdd1_regulator>;
+		avdd2-supply = <&avdd2_regulator>;
+		iovdd-supply = <&iovdd_regulator>;
+		ref1p-supply = <&ref1_regulator>;
+		ref2p-supply = <&ref2_regulator>;
 		reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 		clocks = <&ad7768_mclk>;
 		clock-names = "mclk";

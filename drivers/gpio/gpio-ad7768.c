@@ -7,7 +7,6 @@
 
 #include <linux/auxiliary_bus.h>
 #include <linux/bitmap.h>
-#include <linux/bits.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/gpio/driver.h>
@@ -65,22 +64,13 @@ static int ad7768_gpio_reg_mask_xlate(struct gpio_regmap *gpio,
 static int ad7768_gpio_probe(struct auxiliary_device *adev,
 			     const struct auxiliary_device_id *id)
 {
-	struct device *parent = adev->dev.parent;
-	struct gpio_regmap_config config = {
-		.parent = &adev->dev,
-		.label = dev_name(parent),
-		.ngpio = AD7768_NUM_GPIOS,
-		.reg_dat_base = AD7768_REG_GPIO_READ,
-		.reg_set_base = AD7768_REG_GPIO_WRITE,
-		.reg_dir_out_base = AD7768_REG_GPIO_CONTROL,
-		.pm_dev = parent,
-		.reg_mask_xlate = ad7768_gpio_reg_mask_xlate,
-		.init_valid_mask = ad7768_gpio_init_valid_mask,
-	};
-	struct gpio_regmap *gpio;
+	struct gpio_regmap_config config;
+	struct device *dev = &adev->dev;
+	struct device *parent;
 	struct regmap *map;
 	int ret;
 
+	parent = dev->parent;
 	map = dev_get_regmap(parent, NULL);
 	if (!map)
 		return -ENODEV;
@@ -94,11 +84,21 @@ static int ad7768_gpio_probe(struct auxiliary_device *adev,
 	if (ret)
 		return ret;
 
-	config.regmap = map;
-	config.drvdata = map;
+	config = (struct gpio_regmap_config) {
+		.parent = dev,
+		.regmap = map,
+		.label = dev_name(parent),
+		.ngpio = AD7768_NUM_GPIOS,
+		.reg_dat_base = AD7768_REG_GPIO_READ,
+		.reg_set_base = AD7768_REG_GPIO_WRITE,
+		.reg_dir_out_base = AD7768_REG_GPIO_CONTROL,
+		.pm_dev = parent,
+		.reg_mask_xlate = ad7768_gpio_reg_mask_xlate,
+		.init_valid_mask = ad7768_gpio_init_valid_mask,
+		.drvdata = map,
+	};
 
-	gpio = devm_gpio_regmap_register(&adev->dev, &config);
-	return PTR_ERR_OR_ZERO(gpio);
+	return PTR_ERR_OR_ZERO(devm_gpio_regmap_register(dev, &config));
 }
 
 static const struct auxiliary_device_id ad7768_gpio_ids[] = {

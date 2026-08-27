@@ -25,6 +25,7 @@ struct gpio_regmap {
 	struct device *parent;
 	struct regmap *regmap;
 	struct gpio_chip gpio_chip;
+	struct device *pm_dev;
 
 	int reg_stride;
 	int ngpio_per_reg;
@@ -33,7 +34,6 @@ struct gpio_regmap {
 	unsigned int reg_clr_base;
 	unsigned int reg_dir_in_base;
 	unsigned int reg_dir_out_base;
-	struct device *pm_dev;
 	unsigned long *fixed_direction_mask;
 	unsigned long *fixed_direction_output;
 
@@ -91,6 +91,12 @@ DEFINE_GUARD(gpio_regmap_runtime, struct gpio_regmap *,
 DEFINE_GUARD_COND(gpio_regmap_runtime, _try,
 		  gpio_regmap_runtime_get(_T), _RET == 0)
 
+#define GPIO_REGMAP_RUNTIME_ACQUIRE(_gpio, _var) \
+	ACQUIRE(gpio_regmap_runtime_try, _var)(_gpio)
+
+#define GPIO_REGMAP_RUNTIME_ACQUIRE_ERR(_var_ptr) \
+	ACQUIRE_ERR(gpio_regmap_runtime, _var_ptr)
+
 static int gpio_regmap_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct gpio_regmap *gpio = gpiochip_get_data(chip);
@@ -103,8 +109,8 @@ static int gpio_regmap_get(struct gpio_chip *chip, unsigned int offset)
 	else
 		base = gpio_regmap_addr(gpio->reg_set_base);
 
-	ACQUIRE(gpio_regmap_runtime_try, pm)(gpio);
-	ret = ACQUIRE_ERR(gpio_regmap_runtime_try, &pm);
+	GPIO_REGMAP_RUNTIME_ACQUIRE(gpio, pm);
+	ret = GPIO_REGMAP_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
 
@@ -131,8 +137,8 @@ static int gpio_regmap_set(struct gpio_chip *chip, unsigned int offset,
 	unsigned int reg, mask, mask_val;
 	int ret;
 
-	ACQUIRE(gpio_regmap_runtime_try, pm)(gpio);
-	ret = ACQUIRE_ERR(gpio_regmap_runtime_try, &pm);
+	GPIO_REGMAP_RUNTIME_ACQUIRE(gpio, pm);
+	ret = GPIO_REGMAP_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
 
@@ -161,8 +167,8 @@ static int gpio_regmap_set_with_clear(struct gpio_chip *chip,
 	unsigned int base, reg, mask;
 	int ret;
 
-	ACQUIRE(gpio_regmap_runtime_try, pm)(gpio);
-	ret = ACQUIRE_ERR(gpio_regmap_runtime_try, &pm);
+	GPIO_REGMAP_RUNTIME_ACQUIRE(gpio, pm);
+	ret = GPIO_REGMAP_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
 
@@ -221,8 +227,8 @@ static int gpio_regmap_get_direction(struct gpio_chip *chip,
 		return -ENOTSUPP;
 	}
 
-	ACQUIRE(gpio_regmap_runtime_try, pm)(gpio);
-	ret = ACQUIRE_ERR(gpio_regmap_runtime_try, &pm);
+	GPIO_REGMAP_RUNTIME_ACQUIRE(gpio, pm);
+	ret = GPIO_REGMAP_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
 
@@ -280,8 +286,8 @@ static int gpio_regmap_set_direction(struct gpio_chip *chip,
 		return -ENOTSUPP;
 	}
 
-	ACQUIRE(gpio_regmap_runtime_try, pm)(gpio);
-	ret = ACQUIRE_ERR(gpio_regmap_runtime_try, &pm);
+	GPIO_REGMAP_RUNTIME_ACQUIRE(gpio, pm);
+	ret = GPIO_REGMAP_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
 
@@ -309,8 +315,8 @@ static int gpio_regmap_direction_output(struct gpio_chip *chip,
 	struct gpio_regmap *gpio = gpiochip_get_data(chip);
 	int ret;
 
-	ACQUIRE(gpio_regmap_runtime_try, pm)(gpio);
-	ret = ACQUIRE_ERR(gpio_regmap_runtime_try, &pm);
+	GPIO_REGMAP_RUNTIME_ACQUIRE(gpio, pm);
+	ret = GPIO_REGMAP_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
 
@@ -387,8 +393,7 @@ struct gpio_regmap *gpio_regmap_register(const struct gpio_regmap_config *config
 	chip->base = -1;
 	chip->names = config->names;
 	chip->label = config->label ?: dev_name(config->parent);
-	chip->can_sleep = config->pm_dev ||
-			  regmap_might_sleep(config->regmap);
+	chip->can_sleep = config->pm_dev || regmap_might_sleep(config->regmap);
 	chip->init_valid_mask = config->init_valid_mask;
 
 	chip->request = gpiochip_generic_request;
