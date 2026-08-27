@@ -31,6 +31,7 @@ struct ipu6_bus_device {
 	u64 *pkg_dir;
 	dma_addr_t pkg_dir_dma_addr;
 	unsigned int pkg_dir_size;
+	u32 fw_entry;
 };
 
 struct ipu6_auxdrv_data {
@@ -47,6 +48,7 @@ struct ipu6_auxdrv_data {
 #define ipu6_bus_get_drvdata(adev) dev_get_drvdata(&(adev)->auxdev.dev)
 
 extern const struct ipu6_fw_isys_ops ipu6_fw_isys_ops;
+extern const struct ipu6_fw_isys_ops ipu7_fw_isys_ops;
 
 struct ipu6_bus_device *
 ipu6_bus_initialize_device(struct pci_dev *pdev, struct device *parent,

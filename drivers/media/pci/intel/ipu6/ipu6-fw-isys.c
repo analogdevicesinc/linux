@@ -15,6 +15,7 @@
 #include "ipu6-isys.h"
 #include "ipu6-platform-isys-csi2-reg.h"
 #include "ipu6-platform-regs.h"
+#include "ipu7-fw-isys.h"
 
 static const char send_msg_types[N_IPU6_FW_ISYS_SEND_TYPE][32] = {
 	"STREAM_OPEN",
@@ -602,7 +603,7 @@ int ipu6_isys_isr_one(struct ipu6_bus_device *adev)
 		}
 
 		isys_fw_msg = container_of((void *)(uintptr_t)resp->buf_id,
-					   struct isys_fw_msgs, ipu6.dummy);
+					   struct isys_fw_msgs, dummy);
 
 		ipu6_put_fw_msg_buf(ipu6_bus_get_drvdata(adev), isys_fw_msg);
 		if (resp->pin_id < IPU6_ISYS_OUTPUT_PINS &&

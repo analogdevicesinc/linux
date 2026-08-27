@@ -684,7 +684,7 @@ static void ipu6_isys_queue_buf_done(struct ipu6_isys_buffer *ib)
 	}
 }
 
-static void
+void
 ipu6_stream_buf_ready(struct ipu6_isys_stream *stream, u8 pin_id, u32 pin_addr,
 		      u64 time, bool error_check)
 {

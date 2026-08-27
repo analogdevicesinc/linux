@@ -627,6 +627,7 @@ int ipu6_isys_video_prepare_stream(struct ipu6_isys_video *av,
 
 	stream->nr_queues = nr_queues;
 	atomic_set(&stream->sequence, 0);
+	atomic_set(&stream->buf_id, 0);
 
 	stream->seq_index = 0;
 	memset(stream->seq, 0, sizeof(stream->seq));

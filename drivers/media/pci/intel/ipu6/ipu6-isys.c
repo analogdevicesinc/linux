@@ -931,6 +931,9 @@ void ipu6_put_fw_msg_buf(struct ipu6_isys *isys, struct isys_fw_msgs *msg)
 	spin_unlock_irqrestore(&isys->listlock, flags);
 }
 
+static const struct ipu6_auxdrv_data ipu6_isys_auxdrv_data;
+static const struct ipu6_auxdrv_data ipu7_isys_auxdrv_data;
+
 static int isys_probe(struct auxiliary_device *auxdev,
 		      const struct auxiliary_device_id *auxdev_id)
 {
@@ -949,8 +952,8 @@ static int isys_probe(struct auxiliary_device *auxdev,
 	if (!isys)
 		return -ENOMEM;
 
-	adev->auxdrv_data =
-		(const struct ipu6_auxdrv_data *)auxdev_id->driver_data;
+	adev->auxdrv_data = IS_IPU7(isp) ? &ipu7_isys_auxdrv_data :
+					   &ipu6_isys_auxdrv_data;
 	adev->auxdrv = to_auxiliary_drv(auxdev->dev.driver);
 	isys->adev = adev;
 	isys->pdata = adev->pdata;
@@ -1071,10 +1074,16 @@ static const struct ipu6_auxdrv_data ipu6_isys_auxdrv_data = {
 	.fw_ops = &ipu6_fw_isys_ops,
 };
 
+static const struct ipu6_auxdrv_data ipu7_isys_auxdrv_data = {
+	.isr = ipu6_isys_isr,
+	.isr_threaded = NULL,
+	.wake_isr_thread = false,
+	.fw_ops = &ipu7_fw_isys_ops,
+};
+
 static const struct auxiliary_device_id ipu6_isys_id_table[] = {
 	{
 		.name = "intel_ipu6.isys",
-		.driver_data = (kernel_ulong_t)&ipu6_isys_auxdrv_data,
 	},
 	{ }
 };

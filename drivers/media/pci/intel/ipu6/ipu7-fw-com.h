@@ -25,6 +25,8 @@ struct ipu7_fw_com_context {
 	dma_addr_t boot_config_dma_addr;
 	u32 boot_config_size;
 	u32 fw_entry;
+	struct ipu7_insys_config *fw_config;
+	dma_addr_t fw_config_dma_addr;
 };
 
 struct ipu7_fw_com_queue_params_config {

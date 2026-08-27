@@ -17,6 +17,7 @@ obj-$(CONFIG_VIDEO_INTEL_IPU6)	+= intel-ipu6.o
 intel-ipu6-isys-y		:= ipu6-isys.o \
 				ipu6-isys-csi2.o \
 				ipu6-fw-isys.o \
+				ipu7-fw-isys.o \
 				ipu6-isys-video.o \
 				ipu6-isys-queue.o \
 				ipu6-isys-subdev.o \
