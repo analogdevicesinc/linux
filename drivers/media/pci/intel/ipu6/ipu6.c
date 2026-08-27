@@ -39,6 +39,10 @@
 #define IPU6_PCI_BAR		0
 #define IPU7_PCI_PBBAR		4
 
+static int force_no_probe_ipu7 = !IS_BUILTIN(CONFIG_VIDEO_INTEL_IPU6_IPU7);
+module_param(force_no_probe_ipu7, int, 0644);
+MODULE_PARM_DESC(force_no_probe_ipu7, "Don't probe ipu7 and ipu7.5 devices");
+
 struct ipu6_cell_program {
 	u32 magic_number;
 
@@ -611,6 +615,10 @@ static int ipu6_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	u32 val, version, sku_id;
 	unsigned long dir;
 	int ret;
+
+	if ((id->device == PCI_DEVICE_ID_INTEL_IPU7 ||
+	     id->device == PCI_DEVICE_ID_INTEL_IPU7P5) && force_no_probe_ipu7)
+		return -ENODEV;
 
 	isp = devm_kzalloc(dev, sizeof(*isp), GFP_KERNEL);
 	if (!isp)
