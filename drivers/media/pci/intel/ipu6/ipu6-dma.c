@@ -286,7 +286,7 @@ void ipu6_dma_free(struct ipu6_bus_device *sys, size_t size, void *vaddr,
 
 	__free_buffer(pages, size, attrs);
 
-	mmu->tlb_invalidate(mmu);
+	mmu->ops->tlb_invalidate(mmu);
 
 	__free_iova(&mmu->dmap->iovad, iova);
 
@@ -366,7 +366,7 @@ void ipu6_dma_unmap_sg(struct ipu6_bus_device *sys, struct scatterlist *sglist,
 	ipu6_mmu_unmap(mmu->dmap->mmu_info, PFN_PHYS(iova->pfn_lo),
 		       PFN_PHYS(iova_size(iova)));
 
-	mmu->tlb_invalidate(mmu);
+	mmu->ops->tlb_invalidate(mmu);
 	__free_iova(&mmu->dmap->iovad, iova);
 }
 EXPORT_SYMBOL_NS_GPL(ipu6_dma_unmap_sg, "INTEL_IPU6");

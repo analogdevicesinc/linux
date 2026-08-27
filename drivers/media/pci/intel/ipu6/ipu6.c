@@ -74,54 +74,6 @@ struct ipu6_cell_program {
 static struct ipu6_isys_internal_pdata isys_ipdata = {
 	.hw_variant = {
 		.offset = IPU6_UNIFIED_OFFSET,
-		.nr_mmus = 3,
-		.mmu_hw = {
-			{
-				.offset = IPU6_ISYS_IOMMU0_OFFSET,
-				.info_bits = IPU6_INFO_REQUEST_DESTINATION_IOSF,
-				.nr_l1streams = 16,
-				.l1_block_sz = {
-					3, 8, 2, 2, 2, 2, 2, 2, 1, 1,
-					1, 1, 1, 1, 1, 1
-				},
-				.nr_l2streams = 16,
-				.l2_block_sz = {
-					2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-					2, 2, 2, 2, 2, 2
-				},
-				.insert_read_before_invalidate = false,
-				.l1_stream_id_reg_offset =
-				IPU6_MMU_L1_STREAM_ID_REG_OFFSET,
-				.l2_stream_id_reg_offset =
-				IPU6_MMU_L2_STREAM_ID_REG_OFFSET,
-			},
-			{
-				.offset = IPU6_ISYS_IOMMU1_OFFSET,
-				.info_bits = 0,
-				.nr_l1streams = 16,
-				.l1_block_sz = {
-					2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-					2, 2, 2, 1, 1, 4
-				},
-				.nr_l2streams = 16,
-				.l2_block_sz = {
-					2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-					2, 2, 2, 2, 2, 2
-				},
-				.insert_read_before_invalidate = false,
-				.l1_stream_id_reg_offset =
-				IPU6_MMU_L1_STREAM_ID_REG_OFFSET,
-				.l2_stream_id_reg_offset =
-				IPU6_MMU_L2_STREAM_ID_REG_OFFSET,
-			},
-			{
-				.offset = IPU6_ISYS_IOMMUI_OFFSET,
-				.info_bits = 0,
-				.nr_l1streams = 0,
-				.nr_l2streams = 0,
-				.insert_read_before_invalidate = false,
-			},
-		},
 		.cdc_fifos = 3,
 		.cdc_fifo_threshold = {6, 8, 2},
 		.dmem_offset = IPU6_ISYS_DMEM_OFFSET,
@@ -133,78 +85,6 @@ static struct ipu6_isys_internal_pdata isys_ipdata = {
 static struct ipu6_psys_internal_pdata psys_ipdata = {
 	.hw_variant = {
 		.offset = IPU6_UNIFIED_OFFSET,
-		.nr_mmus = 4,
-		.mmu_hw = {
-			{
-				.offset = IPU6_PSYS_IOMMU0_OFFSET,
-				.info_bits =
-				IPU6_INFO_REQUEST_DESTINATION_IOSF,
-				.nr_l1streams = 16,
-				.l1_block_sz = {
-					2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-					2, 2, 2, 2, 2, 2
-				},
-				.nr_l2streams = 16,
-				.l2_block_sz = {
-					2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-					2, 2, 2, 2, 2, 2
-				},
-				.insert_read_before_invalidate = false,
-				.l1_stream_id_reg_offset =
-				IPU6_MMU_L1_STREAM_ID_REG_OFFSET,
-				.l2_stream_id_reg_offset =
-				IPU6_MMU_L2_STREAM_ID_REG_OFFSET,
-			},
-			{
-				.offset = IPU6_PSYS_IOMMU1_OFFSET,
-				.info_bits = 0,
-				.nr_l1streams = 32,
-				.l1_block_sz = {
-					1, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-					2, 2, 2, 2, 2, 10,
-					5, 4, 14, 6, 4, 14, 6, 4, 8,
-					4, 2, 1, 1, 1, 1, 14
-				},
-				.nr_l2streams = 32,
-				.l2_block_sz = {
-					2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-					2, 2, 2, 2, 2, 2,
-					2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-					2, 2, 2, 2, 2, 2
-				},
-				.insert_read_before_invalidate = false,
-				.l1_stream_id_reg_offset =
-				IPU6_MMU_L1_STREAM_ID_REG_OFFSET,
-				.l2_stream_id_reg_offset =
-				IPU6_PSYS_MMU1W_L2_STREAM_ID_REG_OFFSET,
-			},
-			{
-				.offset = IPU6_PSYS_IOMMU1R_OFFSET,
-				.info_bits = 0,
-				.nr_l1streams = 16,
-				.l1_block_sz = {
-					1, 4, 4, 4, 4, 16, 8, 4, 32,
-					16, 16, 2, 2, 2, 1, 12
-				},
-				.nr_l2streams = 16,
-				.l2_block_sz = {
-					2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-					2, 2, 2, 2, 2, 2
-				},
-				.insert_read_before_invalidate = false,
-				.l1_stream_id_reg_offset =
-				IPU6_MMU_L1_STREAM_ID_REG_OFFSET,
-				.l2_stream_id_reg_offset =
-				IPU6_MMU_L2_STREAM_ID_REG_OFFSET,
-			},
-			{
-				.offset = IPU6_PSYS_IOMMUI_OFFSET,
-				.info_bits = 0,
-				.nr_l1streams = 0,
-				.nr_l2streams = 0,
-				.insert_read_before_invalidate = false,
-			},
-		},
 		.dmem_offset = IPU6_PSYS_DMEM_OFFSET,
 	},
 };
@@ -478,7 +358,7 @@ ipu6_isys_init(struct pci_dev *pdev, struct device *parent,
 				"ipu6_bus_initialize_device isys failed\n");
 	}
 
-	isys_adev->mmu = ipu6_mmu_init(dev, base, IPU_ISYS, &ipdata->hw_variant);
+	isys_adev->mmu = ipu6_mmu_init(dev, base, IPU_ISYS);
 	if (IS_ERR(isys_adev->mmu)) {
 		put_device(&isys_adev->auxdev.dev);
 		return dev_err_cast_probe(dev, isys_adev->mmu,
@@ -518,8 +398,7 @@ ipu6_psys_init(struct pci_dev *pdev, struct device *parent,
 				"ipu6_bus_initialize_device psys failed\n");
 	}
 
-	psys_adev->mmu = ipu6_mmu_init(&pdev->dev, base, IPU_PSYS,
-				       &ipdata->hw_variant);
+	psys_adev->mmu = ipu6_mmu_init(&pdev->dev, base, IPU_PSYS);
 	if (IS_ERR(psys_adev->mmu)) {
 		put_device(&psys_adev->auxdev.dev);
 		return dev_err_cast_probe(&pdev->dev, psys_adev->mmu,
