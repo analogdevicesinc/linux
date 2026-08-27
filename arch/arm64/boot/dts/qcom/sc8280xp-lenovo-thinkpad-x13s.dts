@@ -1215,6 +1215,38 @@
 		"VA DMIC2", "MIC BIAS3",
 		"TX SWR_ADC1", "ADC2_OUTPUT";
 
+	dp0-dai-link {
+		link-name = "DP0 Playback";
+
+		codec {
+			sound-dai = <&mdss0_dp0>;
+		};
+
+		cpu {
+			sound-dai = <&q6apmbedai DISPLAY_PORT_RX_0>;
+		};
+
+		platform {
+			sound-dai = <&q6apm>;
+		};
+	};
+
+	dp1-dai-link {
+		link-name = "DP1 Playback";
+
+		codec {
+			sound-dai = <&mdss0_dp1>;
+		};
+
+		cpu {
+			sound-dai = <&q6apmbedai DISPLAY_PORT_RX_1>;
+		};
+
+		platform {
+			sound-dai = <&q6apm>;
+		};
+	};
+
 	wcd-playback-dai-link {
 		link-name = "WCD Playback";
 		cpu {
