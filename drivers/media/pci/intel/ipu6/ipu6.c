@@ -624,8 +624,8 @@ static int ipu6_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto out_ipu6_rpm_put;
 	}
 
-	ret = ipu6_buttress_map_fw_image(isp->psys, isp->cpd_fw,
-					 &isp->psys->fw_sgt);
+	ret = ipu6_map_fw_region(isp->psys, isp->cpd_fw->data,
+				 isp->cpd_fw->size, DMA_TO_DEVICE, 0);
 	if (ret) {
 		dev_err_probe(&isp->pdev->dev, ret, "failed to map fw image\n");
 		goto out_ipu6_rpm_put;
@@ -679,7 +679,7 @@ out_ipu6_rpm_put:
 out_ipu6_bus_del_devices:
 	if (!IS_ERR_OR_NULL(isp->psys)) {
 		ipu6_cpd_free_pkg_dir(isp->psys);
-		ipu6_buttress_unmap_fw_image(isp->psys, &isp->psys->fw_sgt);
+		ipu6_unmap_fw_region(isp->psys, DMA_TO_DEVICE);
 	}
 	if (!IS_ERR_OR_NULL(isp->psys) && !IS_ERR_OR_NULL(isp->psys->mmu))
 		ipu6_mmu_cleanup(isp->psys->mmu);
@@ -702,7 +702,7 @@ static void ipu6_pci_remove(struct pci_dev *pdev)
 	devm_free_irq(&pdev->dev, pdev->irq, isp);
 	ipu6_cpd_free_pkg_dir(isp->psys);
 
-	ipu6_buttress_unmap_fw_image(isp->psys, &isp->psys->fw_sgt);
+	ipu6_unmap_fw_region(isp->psys, DMA_TO_DEVICE);
 	ipu6_buttress_exit(isp);
 
 	ipu6_bus_del_devices(pdev);

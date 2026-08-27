@@ -676,55 +676,55 @@ int ipu6_buttress_reset_authentication(struct ipu6_device *isp)
 	return 0;
 }
 
-int ipu6_buttress_map_fw_image(struct ipu6_bus_device *sys,
-			       const struct firmware *fw, struct sg_table *sgt)
+int ipu6_map_fw_region(struct ipu6_bus_device *sys, const void *data,
+		       size_t size, enum dma_data_direction dir,
+		       unsigned long attrs)
 {
-	bool is_vmalloc = is_vmalloc_addr(fw->data);
+	bool is_vmalloc = is_vmalloc_addr(data);
 	struct pci_dev *pdev = sys->isp->pdev;
+	struct sg_table *sgt = &sys->fw_sgt;
 	struct page **pages;
-	const void *addr;
 	unsigned long n_pages;
 	unsigned int i;
 	int ret;
 
-	if (!is_vmalloc && !virt_addr_valid(fw->data))
+	if (!is_vmalloc && !virt_addr_valid(data))
 		return -EDOM;
 
-	n_pages = PFN_UP(fw->size);
+	n_pages = PFN_UP(size);
 
 	pages = kmalloc_objs(*pages, n_pages);
 	if (!pages)
 		return -ENOMEM;
 
-	addr = fw->data;
 	for (i = 0; i < n_pages; i++) {
 		struct page *p = is_vmalloc ?
-			vmalloc_to_page(addr) : virt_to_page(addr);
+			vmalloc_to_page(data) : virt_to_page(data);
 
 		if (!p) {
 			ret = -ENOMEM;
 			goto out;
 		}
 		pages[i] = p;
-		addr += PAGE_SIZE;
+		data += PAGE_SIZE;
 	}
 
-	ret = sg_alloc_table_from_pages(sgt, pages, n_pages, 0, fw->size,
+	ret = sg_alloc_table_from_pages(sgt, pages, n_pages, 0, size,
 					GFP_KERNEL);
 	if (ret) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	ret = dma_map_sgtable(&pdev->dev, sgt, DMA_TO_DEVICE, 0);
+	ret = dma_map_sgtable(&pdev->dev, sgt, dir, 0);
 	if (ret) {
 		sg_free_table(sgt);
 		goto out;
 	}
 
-	ret = ipu6_dma_map_sgtable(sys, sgt, DMA_TO_DEVICE, 0);
+	ret = ipu6_dma_map_sgtable(sys, sgt, dir, attrs);
 	if (ret) {
-		dma_unmap_sgtable(&pdev->dev, sgt, DMA_TO_DEVICE, 0);
+		dma_unmap_sgtable(&pdev->dev, sgt, dir, 0);
 		sg_free_table(sgt);
 		goto out;
 	}
@@ -736,18 +736,18 @@ out:
 
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(ipu6_buttress_map_fw_image, "INTEL_IPU6");
+EXPORT_SYMBOL_NS_GPL(ipu6_map_fw_region, "INTEL_IPU6");
 
-void ipu6_buttress_unmap_fw_image(struct ipu6_bus_device *sys,
-				  struct sg_table *sgt)
+void ipu6_unmap_fw_region(struct ipu6_bus_device *sys,
+			  enum dma_data_direction dir)
 {
 	struct pci_dev *pdev = sys->isp->pdev;
 
-	ipu6_dma_unmap_sgtable(sys, sgt, DMA_TO_DEVICE, 0);
-	dma_unmap_sgtable(&pdev->dev, sgt, DMA_TO_DEVICE, 0);
-	sg_free_table(sgt);
+	ipu6_dma_unmap_sgtable(sys, &sys->fw_sgt, dir, 0);
+	dma_unmap_sgtable(&pdev->dev, &sys->fw_sgt, dir, 0);
+	sg_free_table(&sys->fw_sgt);
 }
-EXPORT_SYMBOL_NS_GPL(ipu6_buttress_unmap_fw_image, "INTEL_IPU6");
+EXPORT_SYMBOL_NS_GPL(ipu6_unmap_fw_region, "INTEL_IPU6");
 
 int ipu6_buttress_authenticate(struct ipu6_device *isp)
 {

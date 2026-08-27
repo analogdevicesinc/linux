@@ -1042,7 +1042,8 @@ static int isys_probe(struct auxiliary_device *auxdev,
 
 	if (!isp->secure_mode) {
 		fw = isp->cpd_fw;
-		ret = ipu6_buttress_map_fw_image(adev, fw, &adev->fw_sgt);
+		ret = ipu6_map_fw_region(adev, fw->data, fw->size,
+					 DMA_TO_DEVICE, 0);
 		if (ret)
 			goto release_firmware;
 
@@ -1082,7 +1083,7 @@ out_remove_pkg_dir_shared_buffer:
 		ipu6_cpd_free_pkg_dir(adev);
 remove_shared_buffer:
 	if (!isp->secure_mode)
-		ipu6_buttress_unmap_fw_image(adev, &adev->fw_sgt);
+		ipu6_unmap_fw_region(adev, DMA_TO_DEVICE);
 release_firmware:
 	if (!isp->secure_mode)
 		release_firmware(adev->fw);
@@ -1112,7 +1113,7 @@ static void isys_remove(struct auxiliary_device *auxdev)
 
 	if (!isp->secure_mode) {
 		ipu6_cpd_free_pkg_dir(adev);
-		ipu6_buttress_unmap_fw_image(adev, &adev->fw_sgt);
+		ipu6_unmap_fw_region(adev, DMA_TO_DEVICE);
 		release_firmware(adev->fw);
 	}
 

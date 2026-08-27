@@ -84,11 +84,11 @@ struct ipu6_ipc_buttress_bulk_msg {
 };
 
 int ipu6_buttress_ipc_reset(struct ipu6_device *isp);
-int ipu6_buttress_map_fw_image(struct ipu6_bus_device *sys,
-			       const struct firmware *fw,
-			       struct sg_table *sgt);
-void ipu6_buttress_unmap_fw_image(struct ipu6_bus_device *sys,
-				  struct sg_table *sgt);
+int ipu6_map_fw_region(struct ipu6_bus_device *sys, const void *data,
+		       size_t size, enum dma_data_direction dir,
+		       unsigned long attrs);
+void ipu6_unmap_fw_region(struct ipu6_bus_device *sys,
+			  enum dma_data_direction dir);
 int ipu6_buttress_power(struct device *dev,
 			const struct ipu6_buttress_ctrl *ctrl, bool on);
 bool ipu6_buttress_get_secure_mode(struct ipu6_device *isp);
