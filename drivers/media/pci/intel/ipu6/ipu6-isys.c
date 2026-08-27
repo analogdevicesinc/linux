@@ -180,13 +180,23 @@ static int isys_csi2_register_subdevices(struct ipu6_isys *isys)
 	int ret;
 
 	for (i = 0; i < csi2_pdata->nports; i++) {
-		ret = ipu6_isys_csi2_init(&isys->csi2[i], isys,
-					  isys->pdata->base +
-					  CSI_REG_PORT_BASE(i), i);
+		void __iomem *base = isys->pdata->base;
+
+		if (IS_IPU7(isys->adev->isp)) {
+			u32 mask = IS_IPU7_MTL(isys->adev->isp) ?
+					IPU7_CSI_LEGACY_IRQ_MASK(i) :
+					IPU7P5_CSI_LEGACY_IRQ_MASK(i);
+
+			isys->isr_csi2_bits |= mask;
+			isys->csi2[i].legacy_irq_mask = mask;
+		} else {
+			base += CSI_REG_PORT_BASE(i);
+			isys->isr_csi2_bits |= IPU6_ISYS_UNISPART_IRQ_CSI2(i);
+		}
+
+		ret = ipu6_isys_csi2_init(&isys->csi2[i], isys, base, i);
 		if (ret)
 			goto fail;
-
-		isys->isr_csi2_bits |= IPU6_ISYS_UNISPART_IRQ_CSI2(i);
 	}
 
 	return 0;
@@ -273,7 +283,36 @@ fail:
 	return ret;
 }
 
-static void isys_setup_hw(struct ipu6_isys *isys)
+static void ipu7_isys_setup_hw(struct ipu6_isys *isys)
+{
+	u32 offset, mask;
+	void __iomem *base = isys->pdata->base;
+
+	offset = IPU7_IS_IO_GPREGS_BASE;
+
+	writel(0x0, base + offset + IPU7_CLK_EN_TXCLKESC);
+	/* Update if ISYS freq updated (0: 400/1, 1:400/2, 63:400/64) */
+	writel(0x0, base + offset + IPU7_CLK_DIV_FACTOR_IS_CLK);
+	/* correct the initial printf configuration */
+	writel(0x200, base + IPU7_IS_UC_CTRL_BASE + IPU7_REG_PRINTF_AXI_CNTL);
+
+	offset = IPU7_IS_UC_CTRL_BASE;
+	mask = IPU7_IS_UC_TO_SW_IRQ_MASK;
+
+	writel(mask, base + offset + IPU7_TO_SW_IRQ_CNTL_CLEAR);
+	writel(mask, base + offset + IPU7_TO_SW_IRQ_CNTL_MASK_N);
+	writel(mask, base + offset + IPU7_TO_SW_IRQ_CNTL_ENABLE);
+
+	offset = IPU7_IS_IO_CSI2_LEGACY_IRQ_CTRL_BASE;
+	mask = IPU7_CSI_RX_LEGACY_IRQ_MASK;
+
+	writel(mask, base + offset + IPU7_IRQ_CTL_EDGE);
+	writel(mask, base + offset + IPU7_IRQ_CTL_CLEAR);
+	writel(mask, base + offset + IPU7_IRQ_CTL_MASK);
+	writel(mask, base + offset + IPU7_IRQ_CTL_ENABLE);
+}
+
+static void ipu6_isys_setup_hw(struct ipu6_isys *isys)
 {
 	void __iomem *base = isys->pdata->base;
 	const u8 *thd = isys->pdata->ipdata->hw_variant.cdc_fifo_threshold;
@@ -783,7 +822,10 @@ static int isys_runtime_pm_resume(struct device *dev)
 	isys->power = 1;
 	spin_unlock_irqrestore(&isys->power_lock, flags);
 
-	isys_setup_hw(isys);
+	if (IS_IPU7(isp))
+		ipu7_isys_setup_hw(isys);
+	else
+		ipu6_isys_setup_hw(isys);
 
 	set_iwake_ltrdid(isys, 0, 0, LTR_ISYS_ON);
 
