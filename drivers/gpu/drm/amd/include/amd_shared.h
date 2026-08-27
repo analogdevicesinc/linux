@@ -287,7 +287,7 @@ enum DC_FEATURE_MASK {
 	 */
 	DC_REPLAY_MASK = (1 << 9),
 	/**
-	 * @DC_FRL_MASK: (0x400) disabled by default
+	 * @DC_FRL_MASK: (0x400) enabled by default
 	 */
 	DC_FRL_MASK = (1 << 10),
 };

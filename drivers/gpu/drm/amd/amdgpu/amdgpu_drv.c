@@ -218,8 +218,9 @@ int amdgpu_smu_pptable_id = -1;
  * DISABLE_FRACTIONAL_PWM (bit 2) disabled by default
  * PSR (bit 3) disabled by default
  * EDP NO POWER SEQUENCING (bit 4) disabled by default
+ * FRL (bit 10) enabled by default
  */
-uint amdgpu_dc_feature_mask = 2;
+uint amdgpu_dc_feature_mask = DC_MULTI_MON_PP_MCLK_SWITCH_MASK | DC_FRL_MASK;
 uint amdgpu_dc_debug_mask;
 uint amdgpu_dc_visual_confirm;
 int amdgpu_async_gfx_ring = 1;
