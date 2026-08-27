@@ -19,6 +19,8 @@ use kernel::{
     },
 };
 
+mod regs;
+
 /// Physical VRAM address in GPU video memory.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
