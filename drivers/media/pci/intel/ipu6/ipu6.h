@@ -70,6 +70,7 @@ struct ipu6_device {
 	bool secure_mode;
 	u8 hw_ver;
 	bool bus_ready_to_probe;
+	u32 *fw_code_region;
 };
 
 #define IPU_PSYS	0
