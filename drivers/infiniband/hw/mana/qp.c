@@ -557,16 +557,22 @@ static int mana_ib_create_rc_qp(struct ib_qp *ibqp, struct ib_pd *ibpd,
 
 	for (i = 0, j = 0; i < MANA_RC_QUEUE_TYPE_MAX; ++i) {
 		if (i == MANA_RC_SEND_QUEUE_MMQ) {
-			qp->rc_qp.queues[i].id = INVALID_QUEUE_ID;
-			qp->rc_qp.queues[i].gdma_region = GDMA_INVALID_DMA_REGION;
+			if (ucmd.comp_mask & MANA_IB_RC_MMQ_CREATE) {
+				flags &= ~MANA_RC_FLAG_NO_MMQ;
+				err = mana_ib_create_queue(mdev, ucmd.mmq_buf, ucmd.mmq_size,
+							   &qp->rc_qp.queues[i]);
+				if (err)
+					goto destroy_queues;
+			} else {
+				qp->rc_qp.queues[i].id = INVALID_QUEUE_ID;
+				qp->rc_qp.queues[i].gdma_region = GDMA_INVALID_DMA_REGION;
+			}
 			continue;
 		}
 		err = mana_ib_create_queue(mdev, ucmd.queue_buf[j], ucmd.queue_size[j],
 					   &qp->rc_qp.queues[i]);
-		if (err) {
-			ibdev_err(&mdev->ib_dev, "Failed to create queue %d, err %d\n", i, err);
+		if (err)
 			goto destroy_queues;
-		}
 		j++;
 	}
 
@@ -580,8 +586,10 @@ static int mana_ib_create_rc_qp(struct ib_qp *ibqp, struct ib_pd *ibpd,
 
 	if (udata) {
 		for (i = 0, j = 0; i < MANA_RC_QUEUE_TYPE_MAX; ++i) {
-			if (i == MANA_RC_SEND_QUEUE_MMQ)
+			if (i == MANA_RC_SEND_QUEUE_MMQ) {
+				resp.mmq_id = qp->rc_qp.queues[i].id;
 				continue;
+			}
 			resp.queue_id[j] = qp->rc_qp.queues[i].id;
 			j++;
 		}
