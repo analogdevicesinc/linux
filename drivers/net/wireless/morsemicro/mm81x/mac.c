@@ -325,7 +325,7 @@ static int mm81x_mac_ops_start(struct ieee80211_hw *hw)
 	return 0;
 }
 
-static int mm81x_tx_h_get_max_bw(struct mm81x *mors)
+static int mm81x_tx_h_get_max_tx_bw(struct mm81x *mors)
 {
 	return MM81X_FW_SUPP(&mors->fw_caps, 8MHZ) ? 8 :
 	       MM81X_FW_SUPP(&mors->fw_caps, 4MHZ) ? 4 :
@@ -1260,10 +1260,10 @@ static int mm81x_tx_h_get_bw(struct mm81x *mors, struct ieee80211_sta *sta,
 	if (sta)
 		mors_sta = (struct mm81x_sta *)sta->drv_priv;
 
-	tx_bw_mhz = min(mm81x_tx_h_get_max_bw(mors),
+	tx_bw_mhz = min(mm81x_tx_h_get_max_tx_bw(mors),
 			cfg80211_chandef_get_width(&mors->chandef));
-	if (mors_sta && mors_sta->max_bw_mhz)
-		tx_bw_mhz = min(tx_bw_mhz, mors_sta->max_bw_mhz);
+	if (mors_sta && mors_sta->max_rx_bw_mhz)
+		tx_bw_mhz = min(tx_bw_mhz, mors_sta->max_rx_bw_mhz);
 
 	return tx_bw_mhz;
 }
@@ -1718,6 +1718,9 @@ static int mm81x_mac_ops_sta_state(struct ieee80211_hw *hw,
 			mors_vif->u.ap.num_stas++;
 		else if (vif->type == NL80211_IFTYPE_STATION)
 			mors_vif->u.sta.is_assoc = true;
+
+		mors_sta->max_rx_bw_mhz =
+			S1G_SUPP_CH_WIDTH_MAX(sta->deflink.s1g_cap.cap);
 	}
 
 	if (new_state < old_state && new_state == IEEE80211_STA_NONE) {
