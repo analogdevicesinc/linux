@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 
 #include <dt-bindings/clock/nvidia,tegra264.h>
+#include <dt-bindings/gpio/nvidia,tegra264-gpio.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/mailbox/tegra186-hsp.h>
 #include <dt-bindings/memory/nvidia,tegra264.h>

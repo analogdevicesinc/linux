@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 
+#include <dt-bindings/input/linux-event-codes.h>
+#include <dt-bindings/input/gpio-keys.h>
+
 / {
 	aliases {
 		serial0 = &{/bus@0/serial@c4e0000};
@@ -21,5 +24,25 @@
 		cooling-levels = <77 102 140 192 255>;
 		pwms = <&pwm4 0 40000>;
 		#cooling-cells = <2>;
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		key-force-recovery {
+			label = "Force Recovery";
+			gpios = <&gpio_aon TEGRA264_AON_GPIO(EE, 1) GPIO_ACTIVE_LOW>;
+			linux,input-type = <EV_KEY>;
+			linux,code = <KEY_SLEEP>;
+		};
+
+		key-power {
+			label = "Power";
+			gpios = <&gpio_aon TEGRA264_AON_GPIO(AA, 5) GPIO_ACTIVE_LOW>;
+			linux,input-type = <EV_KEY>;
+			linux,code = <KEY_POWER>;
+			wakeup-event-action = <EV_ACT_ASSERTED>;
+			wakeup-source;
+		};
 	};
 };
