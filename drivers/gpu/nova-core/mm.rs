@@ -19,6 +19,7 @@ use kernel::{
     },
 };
 
+mod hal;
 mod regs;
 
 /// Physical VRAM address in GPU video memory.
