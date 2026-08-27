@@ -43,6 +43,7 @@ struct ipu6_isys_csi2 {
 	u32 receiver_errors;
 	unsigned int nlanes;
 	unsigned int port;
+	u32 legacy_irq_mask;
 };
 
 struct ipu6_isys_csi2_timing {
