@@ -32,6 +32,7 @@
 #include "ipu6-platform-buttress-regs.h"
 #include "ipu6-platform-isys-csi2-reg.h"
 #include "ipu6-platform-regs.h"
+#include "ipu7-isys-csi2-regs.h"
 
 #define IPU6_PCI_BAR		0
 #define IPU7_PCI_PBBAR		4
@@ -324,6 +325,11 @@ static void ipu6_internal_pdata_init(struct ipu6_device *isp)
 		isys_ipdata.max_sram_blocks = IPU6SE_NOF_SRAM_BLOCKS_MAX;
 		isys_ipdata.max_devq_size = IPU6SE_DEV_SEND_QUEUE_SIZE;
 		psys_ipdata.hw_variant.spc_offset = IPU6SE_PSYS_SPC_OFFSET;
+	}
+
+	if (IS_IPU7(isp)) {
+		isys_ipdata.csi2.gpreg = IPU7_IS_IO_CSI2_GPREGS_BASE;
+		isys_ipdata.csi2.nports = 4;
 	}
 }
 

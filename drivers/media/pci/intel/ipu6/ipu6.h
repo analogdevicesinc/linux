@@ -136,6 +136,8 @@ struct ipu6_isys_internal_csi2_pdata {
 	u32 ctrl0_irq_lnp;
 	u32 ctrl0_irq_status;
 	u32 fw_access_port_ofs;
+	/* IPU7-specific field */
+	u32 gpreg;
 };
 
 struct ipu6_isys_internal_tpg_pdata {

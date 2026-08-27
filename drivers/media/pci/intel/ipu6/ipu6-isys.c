@@ -41,6 +41,9 @@
 #include "ipu6-platform-buttress-regs.h"
 #include "ipu6-platform-isys-csi2-reg.h"
 #include "ipu6-platform-regs.h"
+#include "ipu7-isys-csi-phy.h"
+#include "ipu7-isys-csi2-regs.h"
+#include "ipu7-platform-regs.h"
 
 #define IPU6_BUTTRESS_FABIC_CONTROL		0x68
 #define GDA_ENABLE_IWAKE_INDEX			2
@@ -1004,7 +1007,9 @@ static int isys_probe(struct auxiliary_device *auxdev,
 
 	isys_iwake_watermark_init(isys);
 
-	if (IS_IPU6SE(adev->isp))
+	if (IS_IPU7(adev->isp))
+		isys->phy_set_power = ipu7_isys_csi_phy_set_power;
+	else if (IS_IPU6SE(adev->isp))
 		isys->phy_set_power = ipu6_isys_jsl_phy_set_power;
 	else if (IS_IPU6EP_MTL(adev->isp))
 		isys->phy_set_power = ipu6_isys_dwc_phy_set_power;
