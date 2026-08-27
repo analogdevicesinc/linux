@@ -290,8 +290,6 @@ EXPORT_SYMBOL_NS_GPL(ipu6_configure_spc, "INTEL_IPU6");
 
 static void ipu6_internal_pdata_init(struct ipu6_device *isp)
 {
-	u8 hw_ver = isp->hw_ver;
-
 	isys_ipdata.num_parallel_streams = IPU6_ISYS_NUM_STREAMS;
 	isys_ipdata.sram_gran_shift = IPU6_SRAM_GRANULARITY_SHIFT;
 	isys_ipdata.sram_gran_size = IPU6_SRAM_GRANULARITY_SIZE;
@@ -314,19 +312,19 @@ static void ipu6_internal_pdata_init(struct ipu6_device *isp)
 		IPU6_REG_ISYS_CSI_TOP_CTRL0_IRQ_STATUS;
 	isys_ipdata.csi2.ctrl0_irq_lnp =
 		IPU6_REG_ISYS_CSI_TOP_CTRL0_IRQ_LEVEL_NOT_PULSE;
-	isys_ipdata.enhanced_iwake = is_ipu6ep_mtl(hw_ver) || is_ipu6ep(hw_ver);
+	isys_ipdata.enhanced_iwake = IS_IPU6EP_MTL(isp) || IS_IPU6EP(isp);
 	psys_ipdata.hw_variant.spc_offset = IPU6_PSYS_SPC_OFFSET;
 	isys_ipdata.csi2.fw_access_port_ofs = CSI_REG_HUB_FW_ACCESS_PORT_OFS;
 
-	if (is_ipu6ep(hw_ver)) {
+	if (IS_IPU6EP(isp)) {
 		isys_ipdata.ltr = IPU6EP_LTR_VALUE;
 		isys_ipdata.memopen_threshold = IPU6EP_MIN_MEMOPEN_TH;
 	}
 
-	if (is_ipu6_tgl(hw_ver))
+	if (IS_IPU6_TGL(isp))
 		isys_ipdata.csi2.nports = IPU6_TGL_ISYS_CSI2_NPORTS;
 
-	if (is_ipu6ep_mtl(hw_ver)) {
+	if (IS_IPU6EP_MTL(isp)) {
 		isys_ipdata.csi2.nports = IPU6EP_MTL_ISYS_CSI2_NPORTS;
 
 		isys_ipdata.csi2.ctrl0_irq_edge =
@@ -347,7 +345,7 @@ static void ipu6_internal_pdata_init(struct ipu6_device *isp)
 		isys_ipdata.memopen_threshold = IPU6EP_MTL_MIN_MEMOPEN_TH;
 	}
 
-	if (is_ipu6se(hw_ver)) {
+	if (IS_IPU6SE(isp)) {
 		isys_ipdata.csi2.nports = IPU6SE_ISYS_CSI2_NPORTS;
 		isys_ipdata.csi2.irq_mask = IPU6SE_CSI_RX_ERROR_IRQ_MASK;
 		isys_ipdata.num_parallel_streams = IPU6SE_ISYS_NUM_STREAMS;
@@ -454,12 +452,13 @@ ipu6_psys_init(struct pci_dev *pdev, struct device *parent,
 	return psys_adev;
 }
 
-static int ipu6_pci_config_setup(struct pci_dev *dev, u8 hw_ver)
+static int ipu6_pci_config_setup(struct pci_dev *dev)
 {
+	struct ipu6_device *isp = pci_get_drvdata(dev);
 	int ret;
 
 	/* No PCI msi capability for IPU6EP */
-	if (is_ipu6ep(hw_ver) || is_ipu6ep_mtl(hw_ver)) {
+	if (IS_IPU6EP(isp) || IS_IPU6EP_MTL(isp)) {
 		/* likely do nothing as msi not enabled by default */
 		pci_disable_msi(dev);
 		return 0;
@@ -525,26 +524,26 @@ static int ipu6_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	isp->cpd_metadata_cmpnt_size = sizeof(struct ipu6_cpd_metadata_cmpnt);
 	switch (id->device) {
 	case PCI_DEVICE_ID_INTEL_IPU6:
-		isp->hw_ver = IPU6_VER_6;
+		isp->hw_ver = IPU_VERSION_6;
 		isp->cpd_fw_name = IPU6_FIRMWARE_NAME;
 		break;
 	case PCI_DEVICE_ID_INTEL_IPU6SE:
-		isp->hw_ver = IPU6_VER_6SE;
+		isp->hw_ver = IPU_VERSION_6SE;
 		isp->cpd_fw_name = IPU6SE_FIRMWARE_NAME;
 		isp->cpd_metadata_cmpnt_size =
 			sizeof(struct ipu6se_cpd_metadata_cmpnt);
 		break;
 	case PCI_DEVICE_ID_INTEL_IPU6EP_ADLP:
 	case PCI_DEVICE_ID_INTEL_IPU6EP_RPLP:
-		isp->hw_ver = IPU6_VER_6EP;
+		isp->hw_ver = IPU_VERSION_6EP;
 		isp->cpd_fw_name = IPU6EP_FIRMWARE_NAME;
 		break;
 	case PCI_DEVICE_ID_INTEL_IPU6EP_ADLN:
-		isp->hw_ver = IPU6_VER_6EP;
+		isp->hw_ver = IPU_VERSION_6EP;
 		isp->cpd_fw_name = IPU6EPADLN_FIRMWARE_NAME;
 		break;
 	case PCI_DEVICE_ID_INTEL_IPU6EP_MTL:
-		isp->hw_ver = IPU6_VER_6EP_MTL;
+		isp->hw_ver = IPU_VERSION_6EP_MTL;
 		isp->cpd_fw_name = IPU6EPMTL_FIRMWARE_NAME;
 		break;
 	default:
@@ -564,7 +563,7 @@ static int ipu6_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	dma_set_max_seg_size(dev, UINT_MAX);
 
-	ret = ipu6_pci_config_setup(pdev, isp->hw_ver);
+	ret = ipu6_pci_config_setup(pdev);
 	if (ret)
 		return ret;
 

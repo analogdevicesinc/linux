@@ -23,39 +23,15 @@ struct ipu6_bus_device;
 #define IPU6EPMTL_FIRMWARE_NAME		"intel/ipu/ipu6epmtl_fw.bin"
 #define IPU6EPADLN_FIRMWARE_NAME	"intel/ipu/ipu6epadln_fw.bin"
 
-enum ipu6_version {
-	IPU6_VER_INVALID = 0,
-	IPU6_VER_6 = 1,
-	IPU6_VER_6SE = 3,
-	IPU6_VER_6EP = 5,
-	IPU6_VER_6EP_MTL = 6,
-};
+#define IPU_VERSION_6		BIT(0) /* TGL */
+#define IPU_VERSION_6SE		BIT(1) /* JSL */
+#define IPU_VERSION_6EP		BIT(2) /* ADL/RPL */
+#define IPU_VERSION_6EP_MTL	BIT(3) /* MTL */
 
-/*
- * IPU6 - TGL
- * IPU6SE - JSL
- * IPU6EP - ADL/RPL
- * IPU6EP_MTL - MTL
- */
-static inline bool is_ipu6se(u8 hw_ver)
-{
-	return hw_ver == IPU6_VER_6SE;
-}
-
-static inline bool is_ipu6ep(u8 hw_ver)
-{
-	return hw_ver == IPU6_VER_6EP;
-}
-
-static inline bool is_ipu6ep_mtl(u8 hw_ver)
-{
-	return hw_ver == IPU6_VER_6EP_MTL;
-}
-
-static inline bool is_ipu6_tgl(u8 hw_ver)
-{
-	return hw_ver == IPU6_VER_6;
-}
+#define IS_IPU6_TGL(isp)	((isp)->hw_ver & IPU_VERSION_6)
+#define IS_IPU6SE(isp)		((isp)->hw_ver & IPU_VERSION_6SE)
+#define IS_IPU6EP(isp)		((isp)->hw_ver & IPU_VERSION_6EP)
+#define IS_IPU6EP_MTL(isp)	((isp)->hw_ver & IPU_VERSION_6EP_MTL)
 
 /*
  * ISYS DMA can overshoot. For higher resolutions over allocation is one line
