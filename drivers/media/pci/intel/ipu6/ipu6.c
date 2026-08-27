@@ -232,9 +232,15 @@ void ipu6_configure_spc(struct ipu6_device *isp,
 			int pkg_dir_idx, void __iomem *base, u64 *pkg_dir,
 			dma_addr_t pkg_dir_dma_addr)
 {
-	void __iomem *dmem_base = base + hw_variant->dmem_offset;
-	void __iomem *spc_regs_base = base + hw_variant->spc_offset;
+	void __iomem *dmem_base;
+	void __iomem *spc_regs_base;
 	u32 val;
+
+	if (IS_IPU7(isp))
+		return;
+
+	dmem_base = base + hw_variant->dmem_offset;
+	spc_regs_base = base + hw_variant->spc_offset;
 
 	val = readl(spc_regs_base + IPU6_PSYS_REG_SPC_STATUS_CTRL);
 	val |= IPU6_PSYS_SPC_STATUS_CTRL_ICACHE_INVALIDATE;
