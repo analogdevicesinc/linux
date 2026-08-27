@@ -27,11 +27,17 @@ struct ipu6_bus_device;
 #define IPU_VERSION_6SE		BIT(1) /* JSL */
 #define IPU_VERSION_6EP		BIT(2) /* ADL/RPL */
 #define IPU_VERSION_6EP_MTL	BIT(3) /* MTL */
+#define IPU_VERSION_7		BIT(4) /* LNL */
+#define IPU_VERSION_7P5		BIT(5) /* PTL */
 
 #define IS_IPU6_TGL(isp)	((isp)->hw_ver & IPU_VERSION_6)
 #define IS_IPU6SE(isp)		((isp)->hw_ver & IPU_VERSION_6SE)
 #define IS_IPU6EP(isp)		((isp)->hw_ver & IPU_VERSION_6EP)
 #define IS_IPU6EP_MTL(isp)	((isp)->hw_ver & IPU_VERSION_6EP_MTL)
+#define IS_IPU7(isp)		((isp)->hw_ver & \
+				 (IPU_VERSION_7 | IPU_VERSION_7P5))
+#define IS_IPU7_MTL(isp)	((isp)->hw_ver & IPU_VERSION_7)
+#define IS_IPU7P5(isp)		((isp)->hw_ver & IPU_VERSION_7P5)
 
 /*
  * ISYS DMA can overshoot. For higher resolutions over allocation is one line
