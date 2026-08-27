@@ -1247,13 +1247,14 @@ static int mm81x_tx_h_get_bw(struct mm81x *mors, struct ieee80211_sta *sta,
 			     struct sk_buff *skb, bool is_mgmt)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct mm81x_sta *mors_sta = NULL;
 	int tx_bw_mhz;
 
 	if (ieee80211_is_probe_resp(hdr->frame_control))
 		return 1;
 
-	if (is_mgmt)
+	if (is_mgmt || info->control.flags & IEEE80211_TX_CTRL_PORT_CTRL_PROTO)
 		return cfg80211_chandef_s1g_pri_width(&mors->chandef);
 
 	if (sta)
