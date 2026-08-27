@@ -172,7 +172,7 @@ struct mana_ib_cq {
 enum mana_rc_queue_type {
 	MANA_RC_SEND_QUEUE_REQUESTER = 0,
 	MANA_RC_SEND_QUEUE_RESPONDER,
-	MANA_RC_SEND_QUEUE_FMR,
+	MANA_RC_SEND_QUEUE_MMQ,
 	MANA_RC_RECV_QUEUE_REQUESTER,
 	MANA_RC_RECV_QUEUE_RESPONDER,
 	MANA_RC_QUEUE_TYPE_MAX,
@@ -372,7 +372,9 @@ struct mana_rnic_destroy_cq_resp {
 }; /* HW Data */
 
 enum mana_rnic_create_rc_flags {
-	MANA_RC_FLAG_NO_FMR = 2,
+	MANA_RC_FLAG_NO_MMQ = BIT(1),
+	MANA_RC_FLAG_FIXED_SIZE_WQE = BIT(3),
+	MANA_RC_FLAG_MSN_IN_WQE = BIT(4),
 };
 
 struct mana_rnic_create_qp_req {

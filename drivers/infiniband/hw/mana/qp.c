@@ -549,14 +549,14 @@ static int mana_ib_create_rc_qp(struct ib_qp *ibqp, struct ib_pd *ibpd,
 
 	mana_ucontext = rdma_udata_to_drv_context(udata, struct mana_ib_ucontext, ibucontext);
 	doorbell = mana_ucontext->doorbell;
-	flags = MANA_RC_FLAG_NO_FMR;
-	err = ib_copy_validate_udata_in(udata, ucmd, queue_size);
+	flags = MANA_RC_FLAG_NO_MMQ;
+	err = ib_copy_validate_udata_in_cm(udata, ucmd, queue_size,
+					   MANA_IB_RC_QP_FIXED_WQE | MANA_IB_RC_MMQ_CREATE);
 	if (err)
 		return err;
 
 	for (i = 0, j = 0; i < MANA_RC_QUEUE_TYPE_MAX; ++i) {
-		/* skip FMR for user-level RC QPs */
-		if (i == MANA_RC_SEND_QUEUE_FMR) {
+		if (i == MANA_RC_SEND_QUEUE_MMQ) {
 			qp->rc_qp.queues[i].id = INVALID_QUEUE_ID;
 			qp->rc_qp.queues[i].gdma_region = GDMA_INVALID_DMA_REGION;
 			continue;
@@ -580,7 +580,7 @@ static int mana_ib_create_rc_qp(struct ib_qp *ibqp, struct ib_pd *ibpd,
 
 	if (udata) {
 		for (i = 0, j = 0; i < MANA_RC_QUEUE_TYPE_MAX; ++i) {
-			if (i == MANA_RC_SEND_QUEUE_FMR)
+			if (i == MANA_RC_SEND_QUEUE_MMQ)
 				continue;
 			resp.queue_id[j] = qp->rc_qp.queues[i].id;
 			j++;
