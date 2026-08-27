@@ -610,6 +610,12 @@ static int gt_init_with_gt_forcewake(struct xe_gt *gt)
 	 */
 	gt->info.gmdid = xe_mmio_read32(&gt->mmio, GMD_ID);
 
+	if (GRAPHICS_VER(gt_to_xe(gt)) >= 20 && xe_gt_is_main_type(gt))
+		gt->info.has_wmtp_disabled = !!(xe_mmio_read32(&gt->mmio, XEHP_FUSE4) &
+			CFEG_WMTP_DISABLE);
+	else
+		gt->info.has_wmtp_disabled = 0;
+
 	/*
 	 * Wa_14026539277 can't be implemented as a regular GT workaround (i.e.
 	 * as an entry in gt_was[]) for two reasons: it is actually a device
