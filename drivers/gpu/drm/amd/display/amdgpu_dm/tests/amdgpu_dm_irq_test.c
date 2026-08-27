@@ -4710,6 +4710,50 @@ static void dm_test_irq_handler_dispatches_work(struct kunit *test)
 	amdgpu_dm_irq_fini(adev);
 }
 
+/**
+ * dm_test_irq_handler_invalid_source - Test the IRQ handler source guard
+ * @test: The KUnit test context
+ *
+ * When dc_interrupt_to_irq_source() cannot map the hardware entry it returns
+ * DC_IRQ_SOURCE_INVALID, which must not be used to index the DM handler
+ * tables. amdgpu_dm_irq_handler() should bail out early without dispatching
+ * to either the high- or low-context handlers.
+ */
+static void dm_test_irq_handler_invalid_source(struct kunit *test)
+{
+	struct dc_interrupt_params int_params = { 0 };
+	struct amdgpu_iv_entry entry = { 0 };
+	struct amdgpu_device *adev;
+	int high_count = 0;
+	int low_count = 0;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_irq_init(adev), 0);
+
+	/* This stub maps every src_id to DC_IRQ_SOURCE_INVALID. */
+	adev->dm.dc = dm_test_alloc_dc_with_irq_service(test, &dm_test_irq_service_funcs_unmapped);
+
+	int_params.int_context = INTERRUPT_HIGH_IRQ_CONTEXT;
+	int_params.irq_source = DC_IRQ_SOURCE_VBLANK1;
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test,
+		amdgpu_dm_irq_register_interrupt(adev, &int_params, dm_test_irq_handler_count,
+						 &high_count));
+
+	int_params.int_context = INTERRUPT_LOW_IRQ_CONTEXT;
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test,
+		amdgpu_dm_irq_register_interrupt(adev, &int_params, dm_test_irq_handler_count,
+						 &low_count));
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_irq_handler(adev, NULL, &entry), 0);
+
+	flush_workqueue(adev->dm.irq_wq);
+	KUNIT_EXPECT_EQ(test, high_count, 0);
+	KUNIT_EXPECT_EQ(test, low_count, 0);
+
+	amdgpu_dm_irq_fini(adev);
+}
+
 /* Tests for dm_handle_vmin_vmax_update() */
 
 /**
@@ -4953,6 +4997,7 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_register_outbox_irq_handlers_with_dmub),
 	/* amdgpu_dm_irq_handler */
 	KUNIT_CASE(dm_test_irq_handler_dispatches_work),
+	KUNIT_CASE(dm_test_irq_handler_invalid_source),
 	/* dm_handle_vmin_vmax_update */
 	KUNIT_CASE(dm_test_handle_vmin_vmax_update),
 	{}
