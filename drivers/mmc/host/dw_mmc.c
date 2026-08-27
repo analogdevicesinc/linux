@@ -1393,17 +1393,16 @@ static void dw_mci_start_request(struct dw_mci *host, struct mmc_command *cmd)
 		/*
 		 * Databook says to fail after 2ms w/ no response, but evidence
 		 * shows that sometimes the cmd11 interrupt takes over 130ms.
-		 * We'll set to 500ms, plus an extra jiffy just in case jiffies
-		 * is just about to roll over.
+		 * We'll set to 500ms.
 		 *
 		 * We do this whole thing under spinlock and only if the
 		 * command hasn't already completed (indicating the irq
 		 * already ran so we don't want the timeout).
 		 */
 		spin_lock_irqsave(&host->irq_lock, irqflags);
-		if (!test_bit(EVENT_CMD_COMPLETE, &host->pending_events))
-			mod_timer(&host->cmd11_timer,
-				jiffies + msecs_to_jiffies(500) + 1);
+		dw_mci_wd_arm(host, 500, DW_MCI_WD_CMD_EVENTS,
+			      DW_MCI_WD_CMD_EVENTS,
+			      BIT(STATE_SENDING_CMD11));
 		spin_unlock_irqrestore(&host->irq_lock, irqflags);
 	}
 
@@ -2784,15 +2783,9 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 			mci_writel(host, RINTSTS, SDMMC_INT_VOLT_SWITCH);
 			pending &= ~SDMMC_INT_VOLT_SWITCH;
 
-			/*
-			 * Hold the lock; we know cmd11_timer can't be kicked
-			 * off after the lock is released, so safe to delete.
-			 */
 			spin_lock(&host->irq_lock);
 			dw_mci_cmd_interrupt(host, pending);
 			spin_unlock(&host->irq_lock);
-
-			timer_delete(&host->cmd11_timer);
 		}
 
 		if (pending & DW_MCI_CMD_ERROR_FLAGS) {
@@ -3112,20 +3105,6 @@ no_dma:
 	host->use_dma = TRANS_MODE_PIO;
 }
 
-static void dw_mci_cmd11_timer(struct timer_list *t)
-{
-	struct dw_mci *host = timer_container_of(host, t, cmd11_timer);
-
-	if (host->state != STATE_SENDING_CMD11) {
-		dev_warn(host->dev, "Unexpected CMD11 timeout\n");
-		return;
-	}
-
-	host->cmd_status = SDMMC_INT_RTO;
-	set_bit(EVENT_CMD_COMPLETE, &host->pending_events);
-	queue_work(system_bh_wq, &host->bh_work);
-}
-
 static int dw_mci_parse_dt(struct dw_mci *host)
 {
 	struct device *dev = host->dev;
@@ -3275,7 +3254,6 @@ int dw_mci_probe(struct dw_mci *host)
 
 	hrtimer_setup(&host->wd_timer, dw_mci_watchdog_fn, CLOCK_MONOTONIC,
 		      HRTIMER_MODE_REL);
-	timer_setup(&host->cmd11_timer, dw_mci_cmd11_timer, 0);
 
 	spin_lock_init(&host->lock);
 	spin_lock_init(&host->irq_lock);

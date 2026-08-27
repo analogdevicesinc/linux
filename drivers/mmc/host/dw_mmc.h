@@ -127,7 +127,6 @@ struct dw_mci_dma_slave {
  *	time so that the state machine can synthesize an error.
  * @wd_events: pending_events bits still awaited by the armed watch.
  * @wd_states: host->state values for which the armed watch is valid.
- * @cmd11_timer: Timer for SD3.0 voltage switch over scheme.
  * @mmc: The mmc_host representing this dw_mci.
  * @flags: Random state bits associated with the host.
  * @ctype: Card type for this host.
@@ -241,8 +240,6 @@ struct dw_mci {
 	struct hrtimer		wd_timer;
 	unsigned long		wd_events;
 	unsigned long		wd_states;
-
-	struct timer_list       cmd11_timer;
 
 #ifdef CONFIG_FAULT_INJECTION
 	struct fault_attr	fail_data_crc;
