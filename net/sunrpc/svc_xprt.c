@@ -64,8 +64,10 @@ static LIST_HEAD(svc_xprt_class_list);
  *		- Can be set or cleared at any time.
  *		- After a set, svc_xprt_enqueue must be called to enqueue
  *		  the transport for processing.
- *		- After a clear, the transport must be read/accepted.
- *		  If this succeeds, it must be set again.
+ *		- After clearing XPT_CONN, the transport must be
+ *		  accepted. If this succeeds, the bit must be set again.
+ *		- xpo_recvfrom decides when XPT_DATA is cleared; see
+ *		  svc_xprt_received.
  *	XPT_CLOSE:
  *		- Can set at any time. It is never cleared.
  *      XPT_DEAD:
@@ -218,8 +220,9 @@ EXPORT_SYMBOL_GPL(svc_xprt_init);
  * The caller must hold the XPT_BUSY bit and must
  * not thereafter touch transport data.
  *
- * Note: XPT_DATA only gets cleared when a read-attempt finds no (or
- * insufficient) data.
+ * Note: xpo_recvfrom decides when to clear XPT_DATA. A transport may
+ * leave the bit set until a read attempt finds no (or insufficient)
+ * data, or clear it as soon as it consumes the last queued receive.
  */
 void svc_xprt_received(struct svc_xprt *xprt)
 {
