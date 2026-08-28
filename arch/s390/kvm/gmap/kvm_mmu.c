@@ -111,10 +111,10 @@ void s390_kvm_mmu_commit_memory_region(struct kvm *kvm,
 		kvm_s390_update_cmma_dirty(kvm, old);
 		switch (change) {
 		case KVM_MR_DELETE:
-			rc = dat_delete_slot(mc, kvm->arch.gmap->asce, old->base_gfn, old->npages);
+			rc = dat_delete_slot(kvm->arch.gmap->asce, old->base_gfn, old->npages);
 			break;
 		case KVM_MR_MOVE:
-			rc = dat_delete_slot(mc, kvm->arch.gmap->asce, old->base_gfn, old->npages);
+			rc = dat_delete_slot(kvm->arch.gmap->asce, old->base_gfn, old->npages);
 			if (rc)
 				break;
 			fallthrough;
