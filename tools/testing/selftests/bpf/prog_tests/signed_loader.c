@@ -571,8 +571,9 @@ static void signature_too_large(void)
 
 	if (gen_loader_fixture_init(&f) == 0) {
 		/*
-		 * signature_size beyond the kernel's bound (KMALLOC_MAX_CACHE_SIZE)
-		 * is rejected before the buffer is read.
+		 * signature_size beyond the kernel's bound
+		 * (BPF_PROG_MAX_SIGNATURE_SIZE) is rejected before the buffer
+		 * is read.
 		 */
 		fd = load_loader(f.gopts.insns, f.gopts.insns_sz, -1, junk,
 				 64 << 20, KEY_SPEC_SESSION_KEYRING, 0);
