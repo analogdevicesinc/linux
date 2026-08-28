@@ -25,13 +25,17 @@
 #include <linux/cpuhplock.h>
 #include <linux/device-id/x86_cpu.h>
 #include <linux/errno.h>
+#include <linux/gfp_types.h>
 #include <linux/init.h>
+#include <linux/jiffies.h>
 #include <linux/limits.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
 #include <linux/printk.h>
+#include <linux/slab.h>
 #include <linux/topology.h>
 #include <linux/types.h>
+#include <linux/xarray.h>
 
 #include <asm/cpu_device_id.h>
 #include <asm/cpufeatures.h>
@@ -39,6 +43,16 @@
 #include <asm/mce.h>
 #include <asm/msr.h>
 #include <asm/msr-index.h>
+
+/*
+ * A 10-minute observation period helps distinguish between:
+ *
+ *  - A long-term accumulation of transient corrected errors
+ *    (filter stays clear after reset).
+ *
+ *  - Permanent defects (filter overflows again quickly).
+ */
+#define BFF_OVERFLOW_INTERVAL	secs_to_jiffies(10 * 60)
 
 /* Intel bitfix filter control register defines */
 #define MSR_MC0_BFF_CTL		0x000006c0
@@ -76,6 +90,8 @@ static const struct x86_cpu_id bff_cpu_ids[] __initconst = {
 MODULE_DEVICE_TABLE(x86cpu, bff_cpu_ids);
 
 static const enum bff_bank_type *bff_bank_types;
+
+static DEFINE_XARRAY(bff_bank_xa);
 
 /* Diamond Rapids maps APICID[2] to the IMH instance within a socket. */
 #define APICID_IMH_NUM		GENMASK(2, 2)
@@ -149,6 +165,41 @@ static unsigned long bff_get_id(struct mce *mce)
 	return id;
 }
 
+/*
+ * Save current timestamp for bff_id. Return true if it is within
+ * BFF_OVERFLOW_INTERVAL of previous timestamp for this bff_id.
+ */
+static bool bff_overflow_is_frequent(unsigned long bff_id)
+{
+	unsigned long now = jiffies, interval_end;
+	unsigned long *ts;
+
+	if (bff_id == ULONG_MAX)
+		return false;
+
+	ts = xa_load(&bff_bank_xa, bff_id);
+	if (!ts) {
+		ts = kzalloc_obj(*ts);
+		if (!ts) {
+			pr_warn("Failed to allocate timestamp for bitfix filter 0x%lx\n", bff_id);
+			return false;
+		}
+		if (xa_is_err(xa_store(&bff_bank_xa, bff_id, ts, GFP_KERNEL))) {
+			kfree(ts);
+			pr_warn("Failed to record timestamp for bitfix filter 0x%lx\n", bff_id);
+			return false;
+		}
+		*ts = now;
+
+		return false;
+	}
+
+	interval_end = *ts + BFF_OVERFLOW_INTERVAL;
+	*ts = now;
+
+	return time_before(now, interval_end);
+}
+
 static void bff_reset_and_report(struct mce *mce)
 {
 	/* Reset bitfix filter using the CPU that logged the yellow status */
@@ -156,8 +207,18 @@ static void bff_reset_and_report(struct mce *mce)
 		pr_warn("Failed to reset bitfix filter for CPU %d Bank %d\n",
 			mce->extcpu, mce->bank);
 
-	/* Placeholder use of bff_get_id() */
-	pr_debug("unique_id = 0x%lx\n", bff_get_id(mce));
+	/*
+	 * Use the unique id for the bitfix filter instance that overflowed and
+	 * check if this is a repeat within the BFF_OVERFLOW_INTERVAL. If it
+	 * is, then report at WARN severity as the user may want to take action.
+	 */
+	if (bff_overflow_is_frequent(bff_get_id(mce))) {
+		pr_warn_ratelimited(HW_ERR "Socket %d CPU %d Bank %d bitfix filter overflowed frequently\n",
+				    mce->socketid, mce->extcpu, mce->bank);
+	} else {
+		pr_notice_ratelimited(HW_ERR "Socket %d CPU %d Bank %d bitfix filter overflowed\n",
+				      mce->socketid, mce->extcpu, mce->bank);
+	}
 }
 
 static int bff_mce_notify(struct notifier_block *nb, unsigned long val, void *data)
@@ -216,7 +277,14 @@ static int __init bff_init(void)
 
 static void __exit bff_exit(void)
 {
+	unsigned long bff_id;
+	unsigned long *ts;
+
 	mce_unregister_decode_chain(&bff_notifier);
+
+	xa_for_each(&bff_bank_xa, bff_id, ts)
+		kfree(ts);
+	xa_destroy(&bff_bank_xa);
 }
 
 module_init(bff_init);
