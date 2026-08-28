@@ -37,6 +37,8 @@
 
 #define COUNTER_SET_LEN		3
 
+#define HW_MARGINING_DWORDS		3
+
 /*
  * USB4 spec doesn't specify dwell range, the range of 100 ms to 500 ms
  * probed to give good results.
@@ -1307,7 +1309,7 @@ static int margining_run_write(void *data, u64 val)
 			    margining->lanes);
 
 		ret = usb4_port_hw_margin(port, margining->target, margining->index, &params,
-					  margining->results, ARRAY_SIZE(margining->results));
+					  margining->results, HW_MARGINING_DWORDS);
 	}
 
 	if (down_sw)
@@ -1429,7 +1431,7 @@ static int margining_results_show(struct seq_file *s, void *not_used)
 	seq_printf(s, "0x%08x\n", margining->results[0]);
 	/* Only the hardware margining has two result dwords */
 	if (!margining->software) {
-		for (int i = 1; i < ARRAY_SIZE(margining->results); i++)
+		for (int i = 1; i < HW_MARGINING_DWORDS; i++)
 			seq_printf(s, "0x%08x\n", margining->results[i]);
 
 		if (margining->lanes == USB4_MARGINING_LANE_ALL) {
