@@ -462,7 +462,7 @@ static void signed_btf_fd_array_rejected(void)
 	dir = mkdtemp(dir_tmpl);
 	if (!ASSERT_OK_PTR(dir, "mkdtemp"))
 		return;
-	if (!ASSERT_OK(run_setup("setup", dir), "verify_sig_setup")) {
+	if (!ASSERT_OK(run_setup("setup-rsa", dir), "verify_sig_setup")) {
 		rmdir(dir);
 		return;
 	}
@@ -914,7 +914,7 @@ static void signature_authenticates_insns(void)
 	dir = mkdtemp(dir_tmpl);
 	if (!ASSERT_OK_PTR(dir, "mkdtemp"))
 		return;
-	if (!ASSERT_OK(run_setup("setup", dir), "verify_sig_setup")) {
+	if (!ASSERT_OK(run_setup("setup-rsa", dir), "verify_sig_setup")) {
 		rmdir(dir);
 		return;
 	}
@@ -1014,7 +1014,7 @@ static void signature_authenticates_metadata(void)
 	dir = mkdtemp(dir_tmpl);
 	if (!ASSERT_OK_PTR(dir, "mkdtemp"))
 		return;
-	if (!ASSERT_OK(run_setup("setup", dir), "verify_sig_setup")) {
+	if (!ASSERT_OK(run_setup("setup-rsa", dir), "verify_sig_setup")) {
 		rmdir(dir);
 		return;
 	}
@@ -1350,7 +1350,7 @@ static void lsm_signature_verdict(void)
 	dir = mkdtemp(dir_tmpl);
 	if (!ASSERT_OK_PTR(dir, "mkdtemp"))
 		goto out;
-	if (!ASSERT_OK(run_setup("setup", dir), "verify_sig_setup")) {
+	if (!ASSERT_OK(run_setup("setup-rsa", dir), "verify_sig_setup")) {
 		rmdir(dir);
 		dir = NULL;
 		goto out;
@@ -1533,7 +1533,7 @@ static void loadtime_verify(struct bpf_object *obj, int expect_maps)
 	dir = mkdtemp(dir_tmpl);
 	if (!ASSERT_OK_PTR(dir, "mkdtemp"))
 		return;
-	if (!ASSERT_OK(run_setup("setup", dir), "verify_sig_setup")) {
+	if (!ASSERT_OK(run_setup("setup-rsa", dir), "verify_sig_setup")) {
 		rmdir(dir);
 		return;
 	}
@@ -1631,7 +1631,7 @@ static void signed_no_fd_array(void)
 	dir = mkdtemp(dir_tmpl);
 	if (!ASSERT_OK_PTR(dir, "mkdtemp"))
 		return;
-	if (!ASSERT_OK(run_setup("setup", dir), "verify_sig_setup")) {
+	if (!ASSERT_OK(run_setup("setup-rsa", dir), "verify_sig_setup")) {
 		rmdir(dir);
 		return;
 	}
@@ -1702,7 +1702,7 @@ static void signed_map_by_fd_rejected(void)
 	dir = mkdtemp(dir_tmpl);
 	if (!ASSERT_OK_PTR(dir, "mkdtemp"))
 		goto out_map;
-	if (!ASSERT_OK(run_setup("setup", dir), "verify_sig_setup")) {
+	if (!ASSERT_OK(run_setup("setup-rsa", dir), "verify_sig_setup")) {
 		rmdir(dir);
 		goto out_map;
 	}
@@ -1764,7 +1764,7 @@ static void signed_sparse_fd_array_rejected(void)
 	dir = mkdtemp(dir_tmpl);
 	if (!ASSERT_OK_PTR(dir, "mkdtemp"))
 		goto out_map;
-	if (!ASSERT_OK(run_setup("setup", dir), "verify_sig_setup")) {
+	if (!ASSERT_OK(run_setup("setup-rsa", dir), "verify_sig_setup")) {
 		rmdir(dir);
 		goto out_map;
 	}
@@ -1818,7 +1818,7 @@ static void signed_module_kfunc_rejected(void)
 	dir = mkdtemp(dir_tmpl);
 	if (!ASSERT_OK_PTR(dir, "mkdtemp"))
 		return;
-	if (!ASSERT_OK(run_setup("setup", dir), "verify_sig_setup")) {
+	if (!ASSERT_OK(run_setup("setup-rsa", dir), "verify_sig_setup")) {
 		rmdir(dir);
 		return;
 	}
