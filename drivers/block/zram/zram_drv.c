@@ -438,7 +438,7 @@ static void mark_idle(struct zram *zram, ktime_t cutoff)
 		}
 
 #ifdef CONFIG_ZRAM_TRACK_ENTRY_ACTIME
-		is_idle = !cutoff ||
+		is_idle = cutoff == KTIME_MIN ||
 			ktime_after(cutoff, zram->table[index].attr.ac_time);
 #endif
 		if (is_idle)
@@ -453,7 +453,7 @@ static ssize_t idle_store(struct device *dev, struct device_attribute *attr,
 			  const char *buf, size_t len)
 {
 	struct zram *zram = dev_to_zram(dev);
-	ktime_t cutoff = 0;
+	ktime_t cutoff = KTIME_MIN;
 
 	if (!sysfs_streq(buf, "all")) {
 		/*
@@ -464,7 +464,7 @@ static ssize_t idle_store(struct device *dev, struct device_attribute *attr,
 
 		if (IS_ENABLED(CONFIG_ZRAM_TRACK_ENTRY_ACTIME) &&
 		    !kstrtouint(buf, 0, &age_sec))
-			cutoff = ktime_sub((u32)ktime_get_boottime_seconds(),
+			cutoff = ktime_sub(ktime_get_boottime_seconds(),
 					   age_sec);
 		else
 			return -EINVAL;
@@ -475,7 +475,7 @@ static ssize_t idle_store(struct device *dev, struct device_attribute *attr,
 		return -EINVAL;
 
 	/*
-	 * A cutoff of 0 marks everything as idle, this is the
+	 * A cutoff of KTIME_MIN marks everything as idle, this is the
 	 * "all" behavior.
 	 */
 	mark_idle(zram, cutoff);
