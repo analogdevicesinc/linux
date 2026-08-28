@@ -18,7 +18,6 @@ extern void set_mmu_pid(unsigned long pid);
  * full mm invalidation. So use flush_tlb_mm() for everything.
  */
 
-#include <linux/pagemap.h>
 #include <asm-generic/tlb.h>
 
 #endif /* _ASM_NIOS2_TLB_H */

@@ -11,7 +11,7 @@
 #include <linux/unaligned.h>
 #include <linux/devm-helpers.h>
 #include <linux/mfd/rk808.h>
-#include <linux/irq.h>
+#include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
