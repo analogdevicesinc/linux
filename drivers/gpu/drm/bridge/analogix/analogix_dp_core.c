@@ -1244,6 +1244,73 @@ static const struct drm_bridge_funcs analogix_dp_bridge_funcs = {
 	.detect = analogix_dp_bridge_detect,
 };
 
+static int analogix_dp_dt_parse_lanes_map(struct analogix_dp_device *dp)
+{
+	struct video_info *video_info = &dp->video_info;
+	struct device_node *endpoint;
+	u32 lane_idx[LANE_COUNT4];
+	u32 map[LANE_COUNT4] = {0, 1, 2, 3};
+	bool used[LANE_COUNT4] = {false};
+	int num_lanes;
+	int ret, i;
+
+	memcpy(video_info->lane_map, map, sizeof(map));
+
+	num_lanes = drm_of_get_data_lanes_count_ep(dp->dev->of_node, 1, 0, 1,
+						   video_info->max_lane_count);
+	if (num_lanes < 0)
+		return -EINVAL;
+
+	endpoint = of_graph_get_endpoint_by_regs(dp->dev->of_node, 1, 0);
+	if (!endpoint)
+		return -EINVAL;
+
+	ret = of_property_read_u32_array(endpoint, "data-lanes", lane_idx, num_lanes);
+	of_node_put(endpoint);
+	if (ret)
+		return -EINVAL;
+
+	for (i = 0; i < num_lanes; i++) {
+		if (lane_idx[i] >= LANE_COUNT4) {
+			dev_dbg(dp->dev, "data-lanes[%d] = %u is out of range\n", i, lane_idx[i]);
+			return -EINVAL;
+		}
+
+		if (used[lane_idx[i]]) {
+			dev_dbg(dp->dev, "data-lanes[%d] = %u is duplicate\n", i, lane_idx[i]);
+			return -EINVAL;
+		}
+
+		used[lane_idx[i]] = true;
+		map[i] = lane_idx[i];
+	}
+
+	/*
+	 * Fill the map[] entries not described by 'data-lanes' with the
+	 * lane indices not used so far, e.g. for 'data-lanes = <3 1>':
+	 *
+	 *	used[]       = {0, 1, 0, 1}  // only lanes 1 and 3 are used
+	 *	map[] before = {3, 1, x, x}  // x = unassigned
+	 *	map[] after  = {3, 1, 0, 2}
+	 *
+	 * Unused entries have no effect on the current link with fewer
+	 * lanes in use, but filling them with distinct indices keeps the
+	 * LANE_MAP register holding a valid permutation, just like its
+	 * reset value (0xe4), so the mapping remains sane if a sink with
+	 * a different lane count is connected later, e.g. via DP hot-plug.
+	 */
+	for (i = 0; i < LANE_COUNT4 && num_lanes < LANE_COUNT4; i++) {
+		if (!used[i])
+			map[num_lanes++] = i;
+	}
+
+	dev_dbg(dp->dev, "Using parsed lane map: <%u %u %u %u>\n", map[0], map[1], map[2], map[3]);
+
+	memcpy(video_info->lane_map, map, sizeof(map));
+
+	return 0;
+}
+
 static int analogix_dp_dt_parse_pdata(struct analogix_dp_device *dp)
 {
 	struct device_node *dp_node = dp->dev->of_node;
@@ -1281,6 +1348,9 @@ static int analogix_dp_dt_parse_pdata(struct analogix_dp_device *dp)
 		video_info->max_lane_count = val;
 		break;
 	}
+
+	if (analogix_dp_dt_parse_lanes_map(dp))
+		dev_dbg(dp->dev, "No valid data-lanes found, using default lane map\n");
 
 	return 0;
 }
