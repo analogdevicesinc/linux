@@ -75,6 +75,7 @@ all_files := \
 		sys/reboot.h \
 		sys/resource.h \
 		sys/select.h \
+		sys/sendfile.h \
 		sys/stat.h \
 		sys/syscall.h \
 		sys/sysmacros.h \
