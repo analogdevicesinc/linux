@@ -1211,8 +1211,15 @@ void dc_dmub_srv_subvp_save_surf_addr(const struct dc_dmub_srv *dc_dmub_srv, con
 void dc_dmub_srv_cursor_offload_init(struct dc *dc)
 {
 	struct dmub_rb_cmd_cursor_offload_init *init;
-	struct dc_dmub_srv *dc_dmub_srv = dc->ctx->dmub_srv;
+	struct dc_dmub_srv *dc_dmub_srv;
 	union dmub_rb_cmd cmd;
+
+	if (!dc || !dc->ctx)
+		return;
+
+	dc_dmub_srv = dc->ctx->dmub_srv;
+	if (!dc_dmub_srv || !dc_dmub_srv->dmub)
+		return;
 
 	if (!dc->config.enable_cursor_offload)
 		return;

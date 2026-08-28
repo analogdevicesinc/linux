@@ -607,6 +607,13 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
 
 	init_data.flags.enable_mipi_converter_optimization = true;
 
+	/*
+	 * Request HW cursor offload so DMUB programs the cursor; cursor
+	 * updates then avoid the DMUB inbox0 HW lock during mclk switches.
+	 * dc_dmub_srv_cursor_offload_init() self-gates on FW capability.
+	 */
+	init_data.flags.enable_cursor_offload = true;
+
 	init_data.dcn_reg_offsets = adev->reg_offset[DCE_HWIP][0];
 	init_data.nbio_reg_offsets = adev->reg_offset[NBIO_HWIP][0];
 	init_data.clk_reg_offsets = adev->reg_offset[CLK_HWIP][0];
@@ -723,6 +730,9 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
 	}
 
 	dc_hardware_init(adev->dm.dc);
+
+	/* Enable cursor offload if the DMUB firmware supports it. */
+	dc_dmub_srv_cursor_offload_init(adev->dm.dc);
 
 	/* GOP/vBIOS may leave an OPTC enabled for a display present at power-on
 	 * but no longer driven (e.g. an external DP unplugged at boot). Such a
