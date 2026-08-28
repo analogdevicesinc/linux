@@ -134,8 +134,8 @@ static int msc313e_wdt_probe(struct platform_device *pdev)
 		return PTR_ERR(priv->clk);
 	}
 
-	priv->wdev.info = &msc313e_wdt_ident,
-	priv->wdev.ops = &msc313e_wdt_ops,
+	priv->wdev.info = &msc313e_wdt_ident;
+	priv->wdev.ops = &msc313e_wdt_ops;
 	priv->wdev.parent = dev;
 	priv->wdev.min_timeout = MSC313E_WDT_MIN_TIMEOUT;
 	rate = clk_get_rate(priv->clk);
