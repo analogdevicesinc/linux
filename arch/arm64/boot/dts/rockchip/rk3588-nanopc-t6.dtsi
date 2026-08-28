@@ -100,14 +100,14 @@
 
 	sound {
 		compatible = "simple-audio-card";
-		pinctrl-names = "default";
+		label = "Onboard Analog Realtek ALC5616";
 		pinctrl-0 = <&hp_det>;
+		pinctrl-names = "default";
 
-		simple-audio-card,name = "realtek,rt5616-codec";
 		simple-audio-card,format = "i2s";
-		simple-audio-card,mclk-fs = <256>;
-
 		simple-audio-card,hp-det-gpios = <&gpio1 RK_PC4 GPIO_ACTIVE_LOW>;
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,name = "realtek,rt5616-codec";
 
 		simple-audio-card,widgets =
 			"Headphone", "Headphones",
@@ -121,6 +121,7 @@
 		simple-audio-card,cpu {
 			sound-dai = <&i2s0_8ch>;
 		};
+
 		simple-audio-card,codec {
 			sound-dai = <&rt5616>;
 		};
@@ -551,17 +552,11 @@
 	rt5616: codec@1b {
 		compatible = "realtek,rt5616";
 		reg = <0x1b>;
-		clocks = <&cru I2S0_8CH_MCLKOUT>;
+		assigned-clocks = <&cru I2S0_8CH_MCLKOUT_TO_IO>;
+		assigned-clock-rates = <12288000>;
+		clocks = <&cru I2S0_8CH_MCLKOUT_TO_IO>;
 		clock-names = "mclk";
 		#sound-dai-cells = <0>;
-		assigned-clocks = <&cru I2S0_8CH_MCLKOUT>;
-		assigned-clock-rates = <12288000>;
-
-		port {
-			rt5616_p0_0: endpoint {
-				remote-endpoint = <&i2s0_8ch_p0_0>;
-			};
-		};
 	};
 
 	/* connected with MIPI-CSI1 */
@@ -573,21 +568,9 @@
 };
 
 &i2s0_8ch {
+	pinctrl-0 = <&i2s0_lrck &i2s0_mclk &i2s0_sclk &i2s0_sdi0 &i2s0_sdo0>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&i2s0_lrck
-		     &i2s0_mclk
-		     &i2s0_sclk
-		     &i2s0_sdi0
-		     &i2s0_sdo0>;
 	status = "okay";
-
-	i2s0_8ch_p0: port {
-		i2s0_8ch_p0_0: endpoint {
-			dai-format = "i2s";
-			mclk-fs = <256>;
-			remote-endpoint = <&rt5616_p0_0>;
-		};
-	};
 };
 
 &i2s5_8ch {
