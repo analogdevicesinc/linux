@@ -31,9 +31,8 @@ struct max2035x {
 	struct device *dev;
 	struct regmap *regmap;
 
-	struct i2c_client *i2c;			/* PLC (MAX20355:0x28, MAX20357:0x15) */
 	struct i2c_client *fuelgauge;	/* Fuelgauge (0x36) */
-	struct i2c_client *ram;			/* RAM (MAX20355:0x40, MAX20357:0x55) */
+	struct i2c_client *ram;			/* RAM (MAX20355:0x50, MAX20357:0x55) */
 
 	struct max2035x_plc *plc_data;
 	struct max2035x_ram *ram_data;
@@ -49,5 +48,12 @@ struct max2035x {
 struct max2035x *max2035x_get_device(enum max2035x_type type, int channel);
 void max2035x_register_device(struct max2035x *chip);
 void max2035x_unregister_device(struct max2035x *chip);
+
+int max2035x_plc_init(void);
+void max2035x_plc_exit(void);
+int max2035x_fuelgauge_init(void);
+void max2035x_fuelgauge_exit(void);
+int max2035x_ram_init(void);
+void max2035x_ram_exit(void);
 
 #endif /* __LINUX_MFD_MAX2035X_H__ */

@@ -10,20 +10,10 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/mfd/core.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
 #include <linux/interrupt.h>
 
 #include "max2035x.h"
 #include "max2035x_registers.h"
-
-/* Submodule init/exit functions */
-extern int max2035x_plc_init(void);
-extern void max2035x_plc_exit(void);
-extern int max2035x_fuelgauge_init(void);
-extern void max2035x_fuelgauge_exit(void);
-extern int max2035x_ram_init(void);
-extern void max2035x_ram_exit(void);
 
 static struct max2035x *slave_chips[2];
 static struct max2035x *master_chip;
@@ -167,9 +157,7 @@ static irqreturn_t max2035x_irq_thread(int irq, void *data)
 static int max2035x_probe(struct i2c_client *client)
 {
 	struct max2035x *chip;
-	const struct of_device_id *match;
 	struct regmap_config regmap_cfg;
-	struct device_node *np;
 	unsigned int rev, rev_reg;
 	const struct mfd_cell *cells;
 	int ncells, ret;
@@ -181,23 +169,11 @@ static int max2035x_probe(struct i2c_client *client)
 	chip->dev = &client->dev;
 	chip->irq = client->irq;
 
-	/* Identify device variant from DT compatible */
-	match = of_match_device(max2035x_of_match, chip->dev);
-	if (!match)
-		return dev_err_probe(chip->dev, -ENODEV, "%s : No matching device tree compatible\n", __func__);
-
-	chip->type = (enum max2035x_type)match->data;
+	chip->type = (enum max2035x_type)(uintptr_t)i2c_get_match_data(client);
 
 	/* Init regmap */
 	regmap_cfg = max2035x_regmap_cfg;
 	regmap_cfg.max_register = MAX2035X_REG_MAX(chip->type);
-
-	np = client->dev.of_node;
-	if (np && np->parent) {
-		if (of_property_read_u32(np->parent, "reg", &chip->channel_id))
-			chip->channel_id = 99;
-	} else
-		chip->channel_id = 99;
 
 	chip->regmap = devm_regmap_init_i2c(client, &regmap_cfg);
 	if (IS_ERR(chip->regmap))
@@ -230,6 +206,11 @@ static int max2035x_probe(struct i2c_client *client)
 	if (IS_ERR(chip->fuelgauge))
 		return dev_err_probe(chip->dev, PTR_ERR(chip->fuelgauge), "%s : Failed to create the Fuelgauge device\n", __func__);
 
+	ret = devm_add_action_or_reset(chip->dev,
+			(void (*)(void *))i2c_unregister_device, chip->fuelgauge);
+	if (ret)
+		return ret;
+
 	i2c_set_clientdata(chip->fuelgauge, chip);
 
 	chip->ram = i2c_new_ancillary_device(client, "ram",
@@ -238,6 +219,11 @@ static int max2035x_probe(struct i2c_client *client)
 					     MAX20357_I2C_ADDR_RAM);
 	if (IS_ERR(chip->ram))
 		return dev_err_probe(chip->dev, PTR_ERR(chip->ram), "%s : Failed to create the RAM device\n", __func__);
+
+	ret = devm_add_action_or_reset(chip->dev,
+			(void (*)(void *))i2c_unregister_device, chip->ram);
+	if (ret)
+		return ret;
 
 	i2c_set_clientdata(chip->ram, chip);
 
@@ -262,33 +248,19 @@ static int max2035x_probe(struct i2c_client *client)
 			__func__, chip->type == MAX20355 ? "MAX20355" : "MAX20357");
 
 	max2035x_register_device(chip);
+	ret = devm_add_action_or_reset(chip->dev,
+			(void (*)(void *))max2035x_unregister_device, chip);
+	if (ret)
+		return ret;
 
 	/* Register MFD sub-devices */
-	ret = devm_mfd_add_devices(chip->dev, chip->channel_id,
-								cells, ncells, NULL, 0, NULL);
+	ret = devm_mfd_add_devices(chip->dev, PLATFORM_DEVID_AUTO,
+				   cells, ncells, NULL, 0, NULL);
 
 	if (ret)
 		return dev_err_probe(chip->dev, ret, "%s : Failed to add MFD devices\n", __func__);
 
 	return 0;
-}
-
-static void max2035x_remove(struct i2c_client *client)
-{
-    struct max2035x *chip = i2c_get_clientdata(client);
-
-    if (!chip)
-		return;
-
-	max2035x_unregister_device(chip);
-
-    if (chip->fuelgauge)
-		i2c_unregister_device(chip->fuelgauge);
-
-    if (chip->ram)
-		i2c_unregister_device(chip->ram);
-
-    dev_info(chip->dev, "%s : MAX2035x Core removed\n", __func__);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -307,7 +279,6 @@ static struct i2c_driver max2035x_driver = {
 		.of_match_table = max2035x_of_match,
 	},
 	.probe = max2035x_probe,
-	.remove = max2035x_remove,
 	.id_table = max2035x_id,
 };
 

@@ -304,4 +304,8 @@ obj-$(CONFIG_MFD_UPBOARD_FPGA)	+= upboard-fpga.o
 
 obj-$(CONFIG_MFD_LOONGSON_SE)	+= loongson-se.o
 
-obj-$(CONFIG_MFD_MAX2035X)	+= maxim/max2035x/
+obj-$(CONFIG_MFD_MAX2035X)	+= mfd_max2035x.o
+mfd_max2035x-y			:= maxim/max2035x/max2035x.o \
+				   maxim/max2035x/max2035x_plc.o \
+				   maxim/max2035x/max2035x_fuelgauge.o \
+				   maxim/max2035x/max2035x_ram.o

@@ -4,7 +4,6 @@
  *
  * Analog Devices MAX2035x Fuelgauge Driver
  */
-#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
 #include <linux/firmware.h>
@@ -805,7 +804,3 @@ void max2035x_fuelgauge_exit(void)
 {
 	platform_unregister_drivers(fuelgauge_drivers, ARRAY_SIZE(fuelgauge_drivers));
 }
-
-MODULE_DESCRIPTION("Analog Devices MAX2035x Fuelgauge Driver");
-MODULE_AUTHOR("Judy Na <judy.na@analog.com>");
-MODULE_LICENSE("GPL");
