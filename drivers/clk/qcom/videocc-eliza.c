@@ -8,7 +8,7 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 
-#include <dt-bindings/clock/qcom,glymur-videocc.h>
+#include <dt-bindings/clock/qcom,eliza-videocc.h>
 
 #include "clk-alpha-pll.h"
 #include "clk-branch.h"
@@ -25,6 +25,7 @@ enum {
 	DT_BI_TCXO,
 	DT_BI_TCXO_AO,
 	DT_SLEEP_CLK,
+	DT_AHB_CLK,
 };
 
 enum {
@@ -33,29 +34,14 @@ enum {
 	P_VIDEO_CC_PLL0_OUT_MAIN,
 };
 
-static const struct pll_vco taycan_eko_t_vco[] = {
-	{ 249600000, 2500000000, 0 },
-};
-
 static const struct pll_vco lucid_ole_vco[] = {
 	{ 249600000, 2300000000, 0 },
 };
 
-/* 720.0 MHz Configuration */
+/* 576.0 MHz Configuration */
 static const struct alpha_pll_config video_cc_pll0_config = {
-	.l = 0x25,
-	.alpha = 0x8000,
-	.config_ctl_val = 0x25c400e7,
-	.config_ctl_hi_val = 0x0a8060e0,
-	.config_ctl_hi1_val = 0xf51dea20,
-	.user_ctl_val = 0x00000008,
-	.user_ctl_hi_val = 0x00000002,
-};
-
-/* 720.0 MHz Configuration */
-static const struct alpha_pll_config video_cc_pll0_config_nord = {
-	.l = 0x25,
-	.alpha = 0x8000,
+	.l = 0x1e,
+	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00182261,
 	.config_ctl_hi1_val = 0x82aa299c,
@@ -64,15 +50,15 @@ static const struct alpha_pll_config video_cc_pll0_config_nord = {
 	.test_ctl_hi1_val = 0x00009000,
 	.test_ctl_hi2_val = 0x00000034,
 	.user_ctl_val = 0x00000000,
-	.user_ctl_hi_val = 0x00400005,
+	.user_ctl_hi_val = 0x00000005,
 };
 
 static struct clk_alpha_pll video_cc_pll0 = {
 	.offset = 0x0,
 	.config = &video_cc_pll0_config,
-	.vco_table = taycan_eko_t_vco,
-	.num_vco = ARRAY_SIZE(taycan_eko_t_vco),
-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_TAYCAN_EKO_T],
+	.vco_table = lucid_ole_vco,
+	.num_vco = ARRAY_SIZE(lucid_ole_vco),
+	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE],
 	.clkr = {
 		.hw.init = &(const struct clk_init_data) {
 			.name = "video_cc_pll0",
@@ -80,7 +66,7 @@ static struct clk_alpha_pll video_cc_pll0 = {
 				.index = DT_BI_TCXO,
 			},
 			.num_parents = 1,
-			.ops = &clk_alpha_pll_taycan_eko_t_ops,
+			.ops = &clk_alpha_pll_lucid_evo_ops,
 		},
 	},
 };
@@ -122,6 +108,7 @@ static struct clk_rcg2 video_cc_ahb_clk_src = {
 	.hid_width = 5,
 	.parent_map = video_cc_parent_map_0,
 	.freq_tbl = ftbl_video_cc_ahb_clk_src,
+	.hw_clk_ctrl = true,
 	.clkr.hw.init = &(const struct clk_init_data) {
 		.name = "video_cc_ahb_clk_src",
 		.parent_data = video_cc_parent_data_0,
@@ -131,22 +118,15 @@ static struct clk_rcg2 video_cc_ahb_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_video_cc_mvs0_clk_src_nord[] = {
-	F(720000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
-	F(1305000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
-	F(1440000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
-	F(1600000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
-	F(1680000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
-	{ }
-};
-
 static const struct freq_tbl ftbl_video_cc_mvs0_clk_src[] = {
+	F(576000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
+	F(633000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	F(720000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1014000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1098000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
+	F(1113000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1332000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1600000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
-	F(1965000000, P_VIDEO_CC_PLL0_OUT_MAIN, 1, 0, 0),
 	{ }
 };
 
@@ -156,6 +136,7 @@ static struct clk_rcg2 video_cc_mvs0_clk_src = {
 	.hid_width = 5,
 	.parent_map = video_cc_parent_map_1,
 	.freq_tbl = ftbl_video_cc_mvs0_clk_src,
+	.hw_clk_ctrl = true,
 	.clkr.hw.init = &(const struct clk_init_data) {
 		.name = "video_cc_mvs0_clk_src",
 		.parent_data = video_cc_parent_data_1,
@@ -171,7 +152,7 @@ static const struct freq_tbl ftbl_video_cc_sleep_clk_src[] = {
 };
 
 static struct clk_rcg2 video_cc_sleep_clk_src = {
-	.cmd_rcgr = 0x8120,
+	.cmd_rcgr = 0x8110,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = video_cc_parent_map_2,
@@ -186,7 +167,7 @@ static struct clk_rcg2 video_cc_sleep_clk_src = {
 };
 
 static struct clk_rcg2 video_cc_xo_clk_src = {
-	.cmd_rcgr = 0x80f8,
+	.cmd_rcgr = 0x80f4,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = video_cc_parent_map_0,
@@ -201,7 +182,7 @@ static struct clk_rcg2 video_cc_xo_clk_src = {
 };
 
 static struct clk_regmap_div video_cc_mvs0_div_clk_src = {
-	.reg = 0x809c,
+	.reg = 0x80ac,
 	.shift = 0,
 	.width = 4,
 	.clkr.hw.init = &(const struct clk_init_data) {
@@ -216,7 +197,7 @@ static struct clk_regmap_div video_cc_mvs0_div_clk_src = {
 };
 
 static struct clk_regmap_div video_cc_mvs0c_div2_div_clk_src = {
-	.reg = 0x8060,
+	.reg = 0x8058,
 	.shift = 0,
 	.width = 4,
 	.clkr.hw.init = &(const struct clk_init_data) {
@@ -230,28 +211,13 @@ static struct clk_regmap_div video_cc_mvs0c_div2_div_clk_src = {
 	},
 };
 
-static struct clk_regmap_div video_cc_mvs1_div_clk_src = {
-	.reg = 0x80d8,
-	.shift = 0,
-	.width = 4,
-	.clkr.hw.init = &(const struct clk_init_data) {
-		.name = "video_cc_mvs1_div_clk_src",
-		.parent_hws = (const struct clk_hw*[]) {
-			&video_cc_mvs0_clk_src.clkr.hw,
-		},
-		.num_parents = 1,
-		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_regmap_div_ro_ops,
-	},
-};
-
 static struct clk_branch video_cc_mvs0_clk = {
-	.halt_reg = 0x807c,
+	.halt_reg = 0x80a0,
 	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x807c,
+	.hwcg_reg = 0x80a0,
 	.hwcg_bit = 1,
 	.clkr = {
-		.enable_reg = 0x807c,
+		.enable_reg = 0x80a0,
 		.enable_mask = BIT(0),
 		.hw.init = &(const struct clk_init_data) {
 			.name = "video_cc_mvs0_clk",
@@ -265,31 +231,13 @@ static struct clk_branch video_cc_mvs0_clk = {
 	},
 };
 
-static struct clk_branch video_cc_mvs0_freerun_clk = {
-	.halt_reg = 0x808c,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x808c,
-		.enable_mask = BIT(0),
-		.hw.init = &(const struct clk_init_data) {
-			.name = "video_cc_mvs0_freerun_clk",
-			.parent_hws = (const struct clk_hw*[]) {
-				&video_cc_mvs0_div_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch video_cc_mvs0_shift_clk = {
-	.halt_reg = 0x8114,
+	.halt_reg = 0x8144,
 	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x8114,
+	.hwcg_reg = 0x8144,
 	.hwcg_bit = 1,
 	.clkr = {
-		.enable_reg = 0x8114,
+		.enable_reg = 0x8144,
 		.enable_mask = BIT(0),
 		.hw.init = &(const struct clk_init_data) {
 			.name = "video_cc_mvs0_shift_clk",
@@ -321,92 +269,16 @@ static struct clk_branch video_cc_mvs0c_clk = {
 	},
 };
 
-static struct clk_branch video_cc_mvs0c_freerun_clk = {
-	.halt_reg = 0x805c,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x805c,
-		.enable_mask = BIT(0),
-		.hw.init = &(const struct clk_init_data) {
-			.name = "video_cc_mvs0c_freerun_clk",
-			.parent_hws = (const struct clk_hw*[]) {
-				&video_cc_mvs0c_div2_div_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch video_cc_mvs0c_shift_clk = {
-	.halt_reg = 0x811c,
+	.halt_reg = 0x8148,
 	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x811c,
+	.hwcg_reg = 0x8148,
 	.hwcg_bit = 1,
 	.clkr = {
-		.enable_reg = 0x811c,
+		.enable_reg = 0x8148,
 		.enable_mask = BIT(0),
 		.hw.init = &(const struct clk_init_data) {
 			.name = "video_cc_mvs0c_shift_clk",
-			.parent_hws = (const struct clk_hw*[]) {
-				&video_cc_xo_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch video_cc_mvs1_clk = {
-	.halt_reg = 0x80b8,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x80b8,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x80b8,
-		.enable_mask = BIT(0),
-		.hw.init = &(const struct clk_init_data) {
-			.name = "video_cc_mvs1_clk",
-			.parent_hws = (const struct clk_hw*[]) {
-				&video_cc_mvs1_div_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch video_cc_mvs1_freerun_clk = {
-	.halt_reg = 0x80c8,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x80c8,
-		.enable_mask = BIT(0),
-		.hw.init = &(const struct clk_init_data) {
-			.name = "video_cc_mvs1_freerun_clk",
-			.parent_hws = (const struct clk_hw*[]) {
-				&video_cc_mvs1_div_clk_src.clkr.hw,
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch video_cc_mvs1_shift_clk = {
-	.halt_reg = 0x8118,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x8118,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x8118,
-		.enable_mask = BIT(0),
-		.hw.init = &(const struct clk_init_data) {
-			.name = "video_cc_mvs1_shift_clk",
 			.parent_hws = (const struct clk_hw*[]) {
 				&video_cc_xo_clk_src.clkr.hw,
 			},
@@ -430,7 +302,7 @@ static struct gdsc video_cc_mvs0c_gdsc = {
 };
 
 static struct gdsc video_cc_mvs0_gdsc = {
-	.gdscr = 0x8068,
+	.gdscr = 0x808c,
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0x6,
@@ -438,132 +310,95 @@ static struct gdsc video_cc_mvs0_gdsc = {
 		.name = "video_cc_mvs0_gdsc",
 	},
 	.pwrsts = PWRSTS_OFF_ON,
-	.flags = HW_CTRL_TRIGGER | POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 	.parent = &video_cc_mvs0c_gdsc.pd,
+	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE | HW_CTRL_TRIGGER,
 };
 
-static struct gdsc video_cc_mvs1_gdsc = {
-	.gdscr = 0x80a4,
-	.en_rest_wait_val = 0x2,
-	.en_few_wait_val = 0x2,
-	.clk_dis_wait_val = 0x6,
-	.pd = {
-		.name = "video_cc_mvs1_gdsc",
-	},
-	.pwrsts = PWRSTS_OFF_ON,
-	.flags = HW_CTRL_TRIGGER | POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
-};
-
-static struct clk_regmap *video_cc_glymur_clocks[] = {
+static struct clk_regmap *video_cc_eliza_clocks[] = {
 	[VIDEO_CC_AHB_CLK_SRC] = &video_cc_ahb_clk_src.clkr,
 	[VIDEO_CC_MVS0_CLK] = &video_cc_mvs0_clk.clkr,
 	[VIDEO_CC_MVS0_CLK_SRC] = &video_cc_mvs0_clk_src.clkr,
 	[VIDEO_CC_MVS0_DIV_CLK_SRC] = &video_cc_mvs0_div_clk_src.clkr,
-	[VIDEO_CC_MVS0_FREERUN_CLK] = &video_cc_mvs0_freerun_clk.clkr,
 	[VIDEO_CC_MVS0_SHIFT_CLK] = &video_cc_mvs0_shift_clk.clkr,
 	[VIDEO_CC_MVS0C_CLK] = &video_cc_mvs0c_clk.clkr,
 	[VIDEO_CC_MVS0C_DIV2_DIV_CLK_SRC] = &video_cc_mvs0c_div2_div_clk_src.clkr,
-	[VIDEO_CC_MVS0C_FREERUN_CLK] = &video_cc_mvs0c_freerun_clk.clkr,
 	[VIDEO_CC_MVS0C_SHIFT_CLK] = &video_cc_mvs0c_shift_clk.clkr,
-	[VIDEO_CC_MVS1_CLK] = &video_cc_mvs1_clk.clkr,
-	[VIDEO_CC_MVS1_DIV_CLK_SRC] = &video_cc_mvs1_div_clk_src.clkr,
-	[VIDEO_CC_MVS1_FREERUN_CLK] = &video_cc_mvs1_freerun_clk.clkr,
-	[VIDEO_CC_MVS1_SHIFT_CLK] = &video_cc_mvs1_shift_clk.clkr,
 	[VIDEO_CC_PLL0] = &video_cc_pll0.clkr,
 	[VIDEO_CC_SLEEP_CLK_SRC] = &video_cc_sleep_clk_src.clkr,
 	[VIDEO_CC_XO_CLK_SRC] = &video_cc_xo_clk_src.clkr,
 };
 
-static struct gdsc *video_cc_glymur_gdscs[] = {
+static struct gdsc *video_cc_eliza_gdscs[] = {
 	[VIDEO_CC_MVS0_GDSC] = &video_cc_mvs0_gdsc,
 	[VIDEO_CC_MVS0C_GDSC] = &video_cc_mvs0c_gdsc,
-	[VIDEO_CC_MVS1_GDSC] = &video_cc_mvs1_gdsc,
 };
 
-static const struct qcom_reset_map video_cc_glymur_resets[] = {
-	[VIDEO_CC_INTERFACE_BCR] = { 0x80dc },
-	[VIDEO_CC_MVS0_BCR] = { 0x8064 },
-	[VIDEO_CC_MVS0C_FREERUN_CLK_ARES] = { 0x805c, 2 },
+static const struct qcom_reset_map video_cc_eliza_resets[] = {
+	[VIDEO_CC_INTERFACE_BCR] = { 0x80d8 },
+	[VIDEO_CC_MVS0_CLK_ARES] = { 0x80a0, 2 },
+	[VIDEO_CC_MVS0_BCR] = { 0x8088 },
+	[VIDEO_CC_MVS0C_CLK_ARES] = { 0x804c, 2 },
 	[VIDEO_CC_MVS0C_BCR] = { 0x8030 },
-	[VIDEO_CC_MVS0_FREERUN_CLK_ARES] = { 0x808c, 2 },
-	[VIDEO_CC_MVS1_FREERUN_CLK_ARES] = { 0x80c8, 2 },
-	[VIDEO_CC_MVS1_BCR] = { 0x80a0 },
+	[VIDEO_CC_XO_CLK_ARES] = { 0x810c, 2 },
 };
 
-static struct clk_alpha_pll *video_cc_glymur_plls[] = {
+static struct clk_alpha_pll *video_cc_eliza_plls[] = {
 	&video_cc_pll0,
 };
 
-static const u32 video_cc_glymur_critical_cbcrs[] = {
-	0x80e0, /* VIDEO_CC_AHB_CLK */
-	0x8138, /* VIDEO_CC_SLEEP_CLK */
-	0x8110, /* VIDEO_CC_XO_CLK */
+static const u32 video_cc_eliza_critical_cbcrs[] = {
+	0x80dc, /* VIDEO_CC_AHB_CLK */
+	0x8128, /* VIDEO_CC_SLEEP_CLK */
+	0x810c, /* VIDEO_CC_XO_CLK */
 };
 
-static const struct regmap_config video_cc_glymur_regmap_config = {
+static const struct regmap_config video_cc_eliza_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
-	.max_register = 0x9f54,
+	.max_register = 0x9f50,
 	.fast_io = true,
 };
 
-static void clk_glymur_regs_configure(struct device *dev, struct regmap *regmap)
-{
-	/* Update CTRL_IN register */
-	regmap_update_bits(regmap, 0x9f24, BIT(0), BIT(0));
-}
-
-static const struct qcom_cc_driver_data video_cc_glymur_driver_data = {
-	.alpha_plls = video_cc_glymur_plls,
-	.num_alpha_plls = ARRAY_SIZE(video_cc_glymur_plls),
-	.clk_cbcrs = video_cc_glymur_critical_cbcrs,
-	.num_clk_cbcrs = ARRAY_SIZE(video_cc_glymur_critical_cbcrs),
-	.clk_regs_configure = clk_glymur_regs_configure,
+static const struct qcom_cc_driver_data video_cc_eliza_driver_data = {
+	.alpha_plls = video_cc_eliza_plls,
+	.num_alpha_plls = ARRAY_SIZE(video_cc_eliza_plls),
+	.clk_cbcrs = video_cc_eliza_critical_cbcrs,
+	.num_clk_cbcrs = ARRAY_SIZE(video_cc_eliza_critical_cbcrs),
 };
 
-static const struct qcom_cc_desc video_cc_glymur_desc = {
-	.config = &video_cc_glymur_regmap_config,
-	.clks = video_cc_glymur_clocks,
-	.num_clks = ARRAY_SIZE(video_cc_glymur_clocks),
-	.resets = video_cc_glymur_resets,
-	.num_resets = ARRAY_SIZE(video_cc_glymur_resets),
-	.gdscs = video_cc_glymur_gdscs,
-	.num_gdscs = ARRAY_SIZE(video_cc_glymur_gdscs),
+static const struct qcom_cc_desc video_cc_eliza_desc = {
+	.config = &video_cc_eliza_regmap_config,
+	.clks = video_cc_eliza_clocks,
+	.num_clks = ARRAY_SIZE(video_cc_eliza_clocks),
+	.resets = video_cc_eliza_resets,
+	.num_resets = ARRAY_SIZE(video_cc_eliza_resets),
+	.gdscs = video_cc_eliza_gdscs,
+	.num_gdscs = ARRAY_SIZE(video_cc_eliza_gdscs),
 	.use_rpm = true,
-	.driver_data = &video_cc_glymur_driver_data,
+	.driver_data = &video_cc_eliza_driver_data,
 };
 
-static const struct of_device_id video_cc_glymur_match_table[] = {
-	{ .compatible = "qcom,glymur-videocc" },
-	{ .compatible = "qcom,nord-videocc" },
+static const struct of_device_id video_cc_eliza_match_table[] = {
+	{ .compatible = "qcom,eliza-videocc" },
 	{ }
 };
-MODULE_DEVICE_TABLE(of, video_cc_glymur_match_table);
+MODULE_DEVICE_TABLE(of, video_cc_eliza_match_table);
 
-static int video_cc_glymur_probe(struct platform_device *pdev)
+static int video_cc_eliza_probe(struct platform_device *pdev)
 {
-	if (of_device_is_compatible(pdev->dev.of_node, "qcom,nord-videocc")) {
-		video_cc_pll0.vco_table = lucid_ole_vco;
-		video_cc_pll0.num_vco = ARRAY_SIZE(lucid_ole_vco);
-		video_cc_pll0.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
-		video_cc_pll0.config = &video_cc_pll0_config_nord;
-
-		video_cc_mvs0_clk_src.freq_tbl = ftbl_video_cc_mvs0_clk_src_nord;
-	}
-
-	return qcom_cc_probe(pdev, &video_cc_glymur_desc);
+	return qcom_cc_probe(pdev, &video_cc_eliza_desc);
 }
 
-static struct platform_driver video_cc_glymur_driver = {
-	.probe = video_cc_glymur_probe,
+static struct platform_driver video_cc_eliza_driver = {
+	.probe = video_cc_eliza_probe,
 	.driver = {
-		.name = "videocc-glymur",
-		.of_match_table = video_cc_glymur_match_table,
+		.name = "videocc-eliza",
+		.of_match_table = video_cc_eliza_match_table,
 	},
 };
 
-module_platform_driver(video_cc_glymur_driver);
+module_platform_driver(video_cc_eliza_driver);
 
-MODULE_DESCRIPTION("QTI VIDEOCC Glymur Driver");
+MODULE_DESCRIPTION("QTI VIDEOCC Eliza Driver");
 MODULE_LICENSE("GPL");
