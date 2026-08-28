@@ -1164,12 +1164,6 @@
 	status = "okay";
 };
 
-&uart2 {
-	pinctrl-0 = <&uart2m0_xfer>;
-	pinctrl-names = "default";
-	status = "okay";
-};
-
 &u2phy0 {
 	status = "okay";
 };
@@ -1186,7 +1180,15 @@
 	status = "okay";
 };
 
+&u2phy2 {
+	status = "okay";
+};
+
 &u2phy2_host {
+	status = "okay";
+};
+
+&u2phy3 {
 	status = "okay";
 };
 
@@ -1194,11 +1196,41 @@
 	status = "okay";
 };
 
-&u2phy2 {
+&uart2 {
+	pinctrl-0 = <&uart2m0_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
-&u2phy3 {
+&usb_host0_ehci {
+	status = "okay";
+};
+
+&usb_host0_ohci {
+	status = "okay";
+};
+
+&usb_host0_xhci {
+	usb-role-switch;
+	status = "okay";
+
+	port {
+		usb_host0_xhci_drd_sw: endpoint {
+			remote-endpoint = <&usbc0_hs>;
+		};
+	};
+};
+
+&usb_host1_ehci {
+	status = "okay";
+};
+
+&usb_host1_ohci {
+	status = "okay";
+};
+
+&usb_host1_xhci {
+	dr_mode = "host";
 	status = "okay";
 };
 
@@ -1227,38 +1259,6 @@
 
 &usbdp_phy1 {
 	phy-supply = <&vbus5v0_usb>;
-	status = "okay";
-};
-
-&usb_host0_ehci {
-	status = "okay";
-};
-
-&usb_host0_ohci {
-	status = "okay";
-};
-
-&usb_host0_xhci {
-	usb-role-switch;
-	status = "okay";
-
-	port {
-		usb_host0_xhci_drd_sw: endpoint {
-			remote-endpoint = <&usbc0_hs>;
-		};
-	};
-};
-
-&usb_host1_xhci {
-	dr_mode = "host";
-	status = "okay";
-};
-
-&usb_host1_ehci {
-	status = "okay";
-};
-
-&usb_host1_ohci {
 	status = "okay";
 };
 
