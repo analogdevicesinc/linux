@@ -1156,18 +1156,23 @@ static int margining_run_sw(struct tb_margining *margining,
 	u32 nsamples = margining->dwell_time / DWELL_SAMPLE_INTERVAL;
 	int ret, i;
 
+	if (params->error_counter != USB4_MARGIN_SW_ERROR_COUNTER_START)
+		goto out_stop_or_clear;
+
 	ret = usb4_port_sw_margin(margining->port, margining->target, margining->index,
 				  params, margining->results);
 	if (ret)
-		goto out_stop;
+		return ret;
 
 	for (i = 0; i <= nsamples; i++) {
 		u32 errors = 0;
 
 		ret = usb4_port_sw_margin_errors(margining->port, margining->target,
 						 margining->index, &margining->results[1]);
-		if (ret)
+		if (ret) {
+			tb_port_warn(margining->port, "failed to read margining error counters\n");
 			break;
+		}
 
 		if (margining->lanes == USB4_MARGINING_LANE_RX0)
 			errors = FIELD_GET(USB4_MARGIN_SW_ERR_COUNTER_LANE_0_MASK,
@@ -1188,14 +1193,13 @@ static int margining_run_sw(struct tb_margining *margining,
 		fsleep(DWELL_SAMPLE_INTERVAL * USEC_PER_MSEC);
 	}
 
-out_stop:
+out_stop_or_clear:
 	/*
-	 * Stop the counters but don't clear them to allow the
+	 * Stop the counters or clear them as per the
 	 * different error counter configurations.
 	 */
-	margining_modify_error_counter(margining, margining->lanes,
-				       USB4_MARGIN_SW_ERROR_COUNTER_STOP);
-	return ret;
+	return margining_modify_error_counter(margining, margining->lanes,
+					      params->error_counter);
 }
 
 static int validate_margining(struct tb_margining *margining)
@@ -1272,7 +1276,7 @@ static int margining_run_write(void *data, u64 val)
 
 	if (margining->software) {
 		struct usb4_port_margining_params params = {
-			.error_counter = USB4_MARGIN_SW_ERROR_COUNTER_CLEAR,
+			.error_counter = margining->error_counter,
 			.lanes = margining->lanes,
 			.time = margining->time,
 			.voltage_time_offset = margining->voltage_time_offset,
