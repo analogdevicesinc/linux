@@ -644,6 +644,8 @@ static int gmc_v12_0_early_init(struct amdgpu_ip_block *ip_block)
 		adev->gmc.xgmi.connected_to_cpu =
 			adev->smuio.funcs->is_host_gpu_xgmi_supported(adev);
 
+	adev->gmc.init_pte_flags = AMDGPU_PTE_IS_PTE;
+
 	switch (amdgpu_ip_version(adev, GC_HWIP, 0)) {
 	case IP_VERSION(12, 1, 0):
 		gmc_v12_1_set_gmc_funcs(adev);
