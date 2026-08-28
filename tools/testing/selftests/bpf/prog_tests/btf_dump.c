@@ -2,8 +2,6 @@
 #include <test_progs.h>
 #include <bpf/btf.h>
 
-static int duration = 0;
-
 void btf_dump_printf(void *ctx, const char *fmt, va_list args)
 {
 	vfprintf(ctx, fmt, args);
@@ -69,8 +67,9 @@ static int test_btf_dump_case(int n, struct btf_dump_test_case *t)
 	if (!t->known_ptr_sz) {
 		btf__set_pointer_size(btf, 8);
 	} else {
-		CHECK(btf__pointer_size(btf) != 8, "ptr_sz", "exp %d, got %zu\n",
-		      8, btf__pointer_size(btf));
+		size_t ptr_sz = btf__pointer_size(btf);
+
+		ASSERT_EQ(ptr_sz, (size_t)8, "ptr_sz");
 	}
 
 	snprintf(out_file, sizeof(out_file), "/tmp/%s.output.XXXXXX", t->file);
@@ -80,8 +79,7 @@ static int test_btf_dump_case(int n, struct btf_dump_test_case *t)
 		goto done;
 	}
 	f = fdopen(fd, "w");
-	if (CHECK(f == NULL, "open_tmp",  "failed to open file: %s(%d)\n",
-		  strerror(errno), errno)) {
+	if (!ASSERT_OK_PTR(f, "open_tmp")) {
 		close(fd);
 		goto done;
 	}
@@ -89,9 +87,8 @@ static int test_btf_dump_case(int n, struct btf_dump_test_case *t)
 	err = btf_dump_all_types(btf, f);
 	fclose(f);
 	close(fd);
-	if (CHECK(err, "btf_dump", "failure during C dumping: %d\n", err)) {
+	if (!ASSERT_OK(err, "btf_dump"))
 		goto done;
-	}
 
 	snprintf(test_file, sizeof(test_file), "progs/%s.c", t->file);
 	if (access(test_file, R_OK) == -1)
@@ -114,10 +111,10 @@ static int test_btf_dump_case(int n, struct btf_dump_test_case *t)
 		 "out {sub(/^[ \\t]*\\*/, \"\"); print}' '%s' | diff -u - '%s'",
 		 test_file, out_file);
 	err = system(diff_cmd);
-	if (CHECK(err, "diff",
-		  "differing test output, output=%s, err=%d, diff cmd:\n%s\n",
-		  out_file, err, diff_cmd))
+	if (!ASSERT_OK(err, "diff")) {
+		fprintf(stdout, "output=%s, diff cmd:\n%s\n", out_file, diff_cmd);
 		goto done;
+	}
 
 	remove(out_file);
 
