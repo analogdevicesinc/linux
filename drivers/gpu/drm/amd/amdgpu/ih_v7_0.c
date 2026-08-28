@@ -395,7 +395,8 @@ static int ih_v7_0_irq_init(struct amdgpu_device *adev)
 
 	pci_set_master(adev->pdev);
 
-	if (amdgpu_ip_version(adev, OSSSYS_HWIP, 0) == IP_VERSION(7, 1, 0)) {
+	if (!(adev->flags & AMD_IS_APU) ||
+	    amdgpu_ip_version(adev, OSSSYS_HWIP, 0) == IP_VERSION(7, 1, 0)) {
 		/* Allocate the doorbell for IH Retry CAM */
 		adev->irq.retry_cam_doorbell_index = (adev->doorbell_index.ih + 2) << 1;
 		WREG32_SOC15(OSSSYS, 0, regIH_DOORBELL_RETRY_CAM,
