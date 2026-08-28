@@ -115,7 +115,7 @@ void intel_parent_pc8_block(struct intel_display *display);
 void intel_parent_pc8_unblock(struct intel_display *display);
 
 /* pcode */
-int intel_parent_pcode_read(struct intel_display *display, u32 mbox, u32 *val, u32 *val1);
+int intel_parent_pcode_read(struct intel_display *display, u32 mbox, u32 *val0, u32 *val1);
 int intel_parent_pcode_write_timeout(struct intel_display *display, u32 mbox, u32 val, int timeout_ms);
 int intel_parent_pcode_write(struct intel_display *display, u32 mbox, u32 val);
 int intel_parent_pcode_request(struct intel_display *display, u32 mbox, u32 request,

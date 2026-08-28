@@ -179,7 +179,7 @@ struct intel_display_pc8_interface {
 };
 
 struct intel_display_pcode_interface {
-	int (*read)(struct drm_device *drm, u32 mbox, u32 *val, u32 *val1);
+	int (*read)(struct drm_device *drm, u32 mbox, u32 *val0, u32 *val1);
 	int (*write)(struct drm_device *drm, u32 mbox, u32 val, int timeout_ms);
 	int (*request)(struct drm_device *drm, u32 mbox, u32 request,
 		       u32 reply_mask, u32 reply, int timeout_base_ms);
