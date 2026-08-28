@@ -9490,6 +9490,12 @@ L:	linux-edac@vger.kernel.org
 S:	Maintained
 F:	drivers/edac/igen6_edac.c
 
+EDAC-INTEL-BFF-RESET
+M:	Tony Luck <tony.luck@intel.com>
+L:	linux-edac@vger.kernel.org
+S:	Maintained
+F:	drivers/edac/intel-bff.c
+
 EDAC-MPC85XX
 L:	linux-edac@vger.kernel.org
 S:	Orphan
