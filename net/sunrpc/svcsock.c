@@ -800,6 +800,7 @@ static struct svc_xprt_class svc_udp_class = {
 	.xcl_ops = &svc_udp_ops,
 	.xcl_max_payload = RPCSVC_MAXPAYLOAD_UDP,
 	.xcl_ident = XPRT_TRANSPORT_UDP,
+	.xcl_flags = SVC_XPRT_FLAG_WSPACE_RESERVE,
 };
 
 static void svc_udp_init(struct svc_sock *svsk, struct svc_serv *serv)

@@ -478,11 +478,11 @@ static bool svc_xprt_ready(struct svc_xprt *xprt)
 
 	/*
 	 * If another cpu has recently updated xpt_flags,
-	 * sk_sock->flags, xpt_reserved, or xpt_nr_rqsts, we need to
-	 * know about it; otherwise it's possible that both that cpu and
-	 * this one could call svc_xprt_enqueue() without either
-	 * svc_xprt_enqueue() recognizing that the conditions below
-	 * are satisfied, and we could stall indefinitely:
+	 * sk_sock->flags, xpt_reserved (UDP only), or xpt_nr_rqsts,
+	 * we need to know about it; otherwise it's possible that both
+	 * that cpu and this one could call svc_xprt_enqueue() without
+	 * either svc_xprt_enqueue() recognizing that the conditions
+	 * below are satisfied, and we could stall indefinitely:
 	 */
 	smp_rmb();
 	xpt_flags = READ_ONCE(xprt->xpt_flags);
@@ -554,6 +554,10 @@ static struct svc_xprt *svc_xprt_dequeue(struct svc_pool *pool)
  * to make sure the reply fits.  This function reduces that reserved
  * space to be the amount of space used already, plus @space.
  *
+ * The transport's reservation is tracked only on classes that set
+ * SVC_XPRT_FLAG_WSPACE_RESERVE.  On the others, only @rqstp's
+ * reservation is updated.
+ *
  */
 void svc_reserve(struct svc_rqst *rqstp, int space)
 {
@@ -562,10 +566,12 @@ void svc_reserve(struct svc_rqst *rqstp, int space)
 	space += rqstp->rq_res.head[0].iov_len;
 
 	if (xprt && space < rqstp->rq_reserved) {
-		atomic_sub((rqstp->rq_reserved - space),
-			   &xprt->xpt_reserved);
+		if (xprt->xpt_class->xcl_flags & SVC_XPRT_FLAG_WSPACE_RESERVE) {
+			atomic_sub((rqstp->rq_reserved - space),
+				   &xprt->xpt_reserved);
+			svc_xprt_resource_released(xprt);
+		}
 		rqstp->rq_reserved = space;
-		svc_xprt_resource_released(xprt);
 	}
 }
 EXPORT_SYMBOL_GPL(svc_reserve);
@@ -872,7 +878,8 @@ static void svc_handle_xprt(struct svc_rqst *rqstp, struct svc_xprt *xprt)
 		else
 			len = xprt->xpt_ops->xpo_recvfrom(rqstp);
 		rqstp->rq_reserved = serv->sv_max_mesg;
-		atomic_add(rqstp->rq_reserved, &xprt->xpt_reserved);
+		if (xprt->xpt_class->xcl_flags & SVC_XPRT_FLAG_WSPACE_RESERVE)
+			atomic_add(rqstp->rq_reserved, &xprt->xpt_reserved);
 		if (len <= 0)
 			goto out;
 
