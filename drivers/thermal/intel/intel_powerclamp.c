@@ -534,23 +534,17 @@ static struct idle_inject_device *ii_dev;
  */
 static bool idle_inject_update(void)
 {
-	bool update = false;
-
 	/* We can't sleep in this callback */
 	if (!mutex_trylock(&powerclamp_lock))
 		return true;
 
 	if (!(powerclamp_data.count % powerclamp_data.window_size_now)) {
+		unsigned int runtime;
 
 		should_skip = powerclamp_adjust_controls(powerclamp_data.target_ratio,
 							 powerclamp_data.guard,
 							 powerclamp_data.window_size_now);
-		update = true;
-	}
-
-	if (update) {
-		unsigned int runtime = get_run_time();
-
+		runtime = get_run_time();
 		idle_inject_set_duration(ii_dev, runtime, duration);
 	}
 
@@ -558,10 +552,7 @@ static bool idle_inject_update(void)
 
 	mutex_unlock(&powerclamp_lock);
 
-	if (should_skip)
-		return false;
-
-	return true;
+	return !should_skip;
 }
 
 /* This function starts idle injection by calling idle_inject_start() */
