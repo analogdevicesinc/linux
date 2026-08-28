@@ -39,6 +39,12 @@ enum {
 #define KEY_SPEC_BPF_KEYRING	-9
 #endif
 
+/* verify_sig_setup.sh exits with this when openssl cannot do ML-DSA. */
+#define SETUP_SKIP		(-77)
+
+/* FIPS-204 ML-DSA-87 signature size, see include/crypto/mldsa.h. */
+#define MLDSA87_SIGNATURE_SIZE	4627
+
 static int load_loader(const void *insns, __u32 insns_sz, int map_fd,
 		       const void *sig, __u32 sig_sz, __s32 keyring_id,
 		       __u32 fd_array_cnt)
@@ -161,12 +167,30 @@ static int run_setup(const char *cmd, const char *dir)
 	}
 	if (waitpid(pid, &status, 0) < 0)
 		return -errno;
-	return (WIFEXITED(status) &&
-		WEXITSTATUS(status) == 0) ? 0 : -EINVAL;
+	if (!WIFEXITED(status))
+		return -EINVAL;
+	return -WEXITSTATUS(status);
 }
 
-static int sign_buf(const char *dir, const void *buf, __u32 len,
-		    void *sig, __u32 *sig_sz)
+static void genkey_dir_fini(const char *dir)
+{
+	static const char * const files[] = {
+		"signing_key.der", "signing_key.pem", "x509.genkey",
+	};
+	char path[PATH_MAX];
+	size_t i;
+
+	if (!dir)
+		return;
+	for (i = 0; i < ARRAY_SIZE(files); i++) {
+		snprintf(path, sizeof(path), "%s/%s", dir, files[i]);
+		unlink(path);
+	}
+	rmdir(dir);
+}
+
+static int sign_buf_digest(const char *dir, const void *buf, __u32 len,
+			   void *sig, __u32 *sig_sz, const char *digest)
 {
 	char data_tmpl[PATH_MAX], key[PATH_MAX];
 	char sigpath[PATH_MAX + sizeof(".p7s")];
@@ -195,7 +219,7 @@ static int sign_buf(const char *dir, const void *buf, __u32 len,
 	}
 	if (pid == 0) {
 		snprintf(key, sizeof(key), "%s/signing_key.pem", dir);
-		execlp("./sign-file", "./sign-file", "-d", "sha256",
+		execlp("./sign-file", "./sign-file", "-d", digest,
 		       key, key, data_tmpl, NULL);
 		exit(1);
 	}
@@ -231,6 +255,12 @@ out_sig:
 out:
 	unlink(data_tmpl);
 	return ret;
+}
+
+static int sign_buf(const char *dir, const void *buf, __u32 len,
+		    void *sig, __u32 *sig_sz)
+{
+	return sign_buf_digest(dir, buf, len, sig, sig_sz, "sha256");
 }
 
 struct gen_loader_fixture {
@@ -1608,6 +1638,89 @@ static void loadtime_with_map(void)
 }
 
 /*
+ * End-to-end signed load with a post-quantum key. ML-DSA (FIPS-204) is wired
+ * through the X.509 and PKCS#7 parsers, and BPF reaches them via
+ * verify_pkcs7_signature() without knowing the algorithm, so an ML-DSA key in
+ * the keyring should verify an ML-DSA signed program with no BPF-side work.
+ */
+static void mldsa_signed_load(void)
+{
+	char dir_tmpl[] = "/tmp/bpfmldsaXXXXXX";
+	int map_fd = -1, prog_fd = -1, err;
+	__u8 *sig = NULL, *buf = NULL;
+	struct gen_loader_fixture f;
+	bool have_fixture = false;
+	__u32 sig_sz = 16384;
+	char *dir;
+
+	syscall(__NR_request_key, "keyring", "_uid.0", NULL,
+		KEY_SPEC_SESSION_KEYRING);
+	dir = mkdtemp(dir_tmpl);
+	if (!ASSERT_OK_PTR(dir, "mkdtemp"))
+		return;
+
+	err = run_setup("setup-mldsa", dir);
+	if (err == SETUP_SKIP) {
+		printf("%s:SKIP:no working ML-DSA signing, set SELFTESTS_VERBOSE=1\n",
+		       __func__);
+		test__skip();
+		genkey_dir_fini(dir);
+		return;
+	}
+	if (!ASSERT_OK(err, "verify_sig_setup setup-mldsa")) {
+		genkey_dir_fini(dir);
+		return;
+	}
+
+	sig = malloc(sig_sz);
+	if (!ASSERT_OK_PTR(sig, "sig buf"))
+		goto out;
+	have_fixture = true;
+	if (gen_loader_fixture_init(&f) != 0)
+		goto out;
+
+	buf = malloc((size_t)f.gopts.insns_sz + f.data_sz);
+	if (!ASSERT_OK_PTR(buf, "signbuf"))
+		goto out;
+	memcpy(buf, f.gopts.insns, f.gopts.insns_sz);
+	memcpy(buf + f.gopts.insns_sz, f.blob, f.data_sz);
+
+	/*
+	 * ML-DSA hashes the message itself, but openssl before 4.0 cannot
+	 * produce a CMS message without signedAttrs for it, and with those in
+	 * play only SHA-512 is permitted for the messageDigest attribute.
+	 */
+	if (!ASSERT_OK(sign_buf_digest(dir, buf, f.gopts.insns_sz + f.data_sz,
+				       sig, &sig_sz, "sha512"),
+		       "sign insns||metadata with ML-DSA"))
+		goto out;
+
+	/*
+	 * Guard against the setup silently handing back some other key type:
+	 * an RSA or ECDSA signature is a few hundred bytes, where an ML-DSA-87
+	 * one cannot be smaller than the raw signature it carries.
+	 */
+	ASSERT_GT(sig_sz, MLDSA87_SIGNATURE_SIZE, "ML-DSA-87 signature size");
+
+	map_fd = setup_meta_map(&f);
+	if (!ASSERT_OK_FD(map_fd, "meta_map"))
+		goto out;
+	prog_fd = load_loader(f.gopts.insns, f.gopts.insns_sz, map_fd, sig,
+			      sig_sz, KEY_SPEC_SESSION_KEYRING, 1);
+	ASSERT_OK_FD(prog_fd, "ML-DSA signed loader load");
+out:
+	if (prog_fd >= 0)
+		close(prog_fd);
+	if (map_fd >= 0)
+		close(map_fd);
+	if (have_fixture)
+		gen_loader_fixture_fini(&f);
+	free(buf);
+	free(sig);
+	run_setup("cleanup", dir);
+}
+
+/*
  * A signed program need not bind any map. A plain BPF_PROG_TYPE_SYSCALL
  * program with no fd_array is signed over its instructions alone: the kernel
  * verifies the signature, folds no metadata, and the program loads. Exercise
@@ -1890,6 +2003,8 @@ void test_signed_loader(void)
 		signature_bad_keyring();
 	if (test__start_subtest("bpf_keyring_sealed"))
 		bpf_keyring_sealed();
+	if (test__start_subtest("mldsa_signed_load"))
+		mldsa_signed_load();
 	if (test__start_subtest("metadata_ctx_max_entries_ignored"))
 		metadata_ctx_max_entries_ignored();
 	if (test__start_subtest("metadata_ctx_initial_value_ignored"))
