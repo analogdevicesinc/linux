@@ -659,12 +659,13 @@
 
 
 		mmc0: mmc@310c7000 {
-			compatible = "snps,dwcmshc-sdhci";
+			compatible = "adi,adsp-sc598-dwcmshc", "snps,dwcmshc-sdhci";
 			reg = <0x310c7000 0x1000>;
 			interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>; /* Status */
 				     /*<GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>;*/ /* Wakeup */
-			clocks = <&clk ADSP_SC598_CLK_EMMC>;
-			clock-names = "core";
+			clocks = <&clk ADSP_SC598_CLK_EMMC>,
+				 <&clk ADSP_SC598_CLK_EMMC_TIMER_QMC>;
+			clock-names = "core", "timer";
 			bus-width = <8>;
 			status = "disabled";
 		};
