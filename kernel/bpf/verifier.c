@@ -21165,12 +21165,16 @@ static int bpf_prog_verify_signature(struct bpf_verifier_env *env,
 	if (!attr->signature_size ||
 	    attr->signature_size > KMALLOC_MAX_CACHE_SIZE)
 		return -EINVAL;
-	if (system_keyring_id_check(attr->keyring_id) == 0)
+	if (system_keyring_id_check(attr->keyring_id) == 0) {
 		key = bpf_lookup_system_key(attr->keyring_id);
-	else if (attr->keyring_id == KEY_SPEC_BPF_KEYRING)
+	} else if (attr->keyring_id == KEY_SPEC_BPF_KEYRING) {
 		key = bpf_lookup_keyring();
-	else
+	} else if (bpf_keyring_enforced()) {
+		verbose(env, "caller-supplied keyring refused, use bpf keyring\n");
+		return -EPERM;
+	} else {
 		key = bpf_lookup_user_key(attr->keyring_id, 0);
+	}
 	if (!key) {
 		if (attr->keyring_id == KEY_SPEC_BPF_KEYRING) {
 			verbose(env, "the bpf keyring is empty or has not been restricted\n");

@@ -18,6 +18,11 @@ static bool bpf_keyring_unsealed __ro_after_init;
 module_param_named(keyring_unsealed, bpf_keyring_unsealed, bool, 0444);
 MODULE_PARM_DESC(keyring_unsealed, "Leave the bpf keyring unsealed");
 
+bool bpf_keyring_enforced(void)
+{
+	return bpf_keyring_unsealed;
+}
+
 struct bpf_key *bpf_lookup_keyring(void)
 {
 	struct bpf_key *bkey;
