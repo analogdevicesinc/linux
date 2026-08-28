@@ -990,7 +990,7 @@ static struct timing_generator *dcn60_get_ref_tg_for_hubbub_probe(
  * @dc:             DC structure
  * @context:        Committed dc state to resolve streams from
  * @probe:          Probe state to build sequence for
- * @status:         Perfmon status to update with probe results
+ * @status:         Prior perfmon status, then the result sink for the sequence
  * @block_sequence: Block sequence to append steps to
  * @num_steps:      Number of steps in the block sequence
  *
@@ -1009,14 +1009,29 @@ static void dcn60_build_hubbub_perfmon_sequence(
 	uint32_t refclk_mhz = dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000;
 	struct timing_generator *ref_tg = dcn60_get_ref_tg_for_hubbub_probe(context);
 	struct block_sequence_state seq_state = { .steps = block_sequence, .num_steps = num_steps };
+	bool was_measuring = status->measuring;
 
 	if (!hubbub || !hubbub->funcs || !hubbub->funcs->perfmon.reset)
 		return;
 
-	status->type = probe->type;
-
 	if (probe->target_state == DC_PROBE_NOT_MEASURING) {
 		hwss_add_hubbub_perfmon_reset(&seq_state, hubbub);
+		return;
+	}
+
+	if (probe->target_state == DC_PROBE_MEASURING) {
+		if (probe->type != DC_PROBE_URGENT_ASSERTION_COUNT ||
+				!hubbub->funcs->perfmon.start_measuring_urgent_assertion_count ||
+				!hubbub->funcs->perfmon.get_urgent_assertion_count)
+			return;
+
+		if (!was_measuring) {
+			hwss_add_hubbub_perfmon_reset(&seq_state, hubbub);
+			hwss_add_hubbub_perfmon_start_urgent_assertion_count(&seq_state, hubbub);
+		}
+
+		hwss_add_hubbub_perfmon_get_urgent_assertion_count(&seq_state, hubbub,
+				refclk_mhz, &status->u.urgent_assertion_count);
 		return;
 	}
 
@@ -1059,7 +1074,7 @@ static void dcn60_build_hubbub_perfmon_sequence(
 		hwss_add_tg_wait_for_state(&seq_state, ref_tg, CRTC_STATE_VACTIVE);
 		hwss_add_hubbub_perfmon_get_out_of_order_bw(&seq_state, hubbub,
 				refclk_mhz, &status->u.bandwidth_mbps, NULL);
-		break;
+		return;
 
 	case DC_PROBE_AVG_MEM_BW:
 		/* In-order counter accumulates over a full frame, so no timing group
@@ -1076,7 +1091,7 @@ static void dcn60_build_hubbub_perfmon_sequence(
 		hwss_add_tg_wait_for_state(&seq_state, ref_tg, CRTC_STATE_VBLANK);
 		hwss_add_hubbub_perfmon_get_in_order_bw(&seq_state, hubbub,
 				refclk_mhz, 0, &status->u.bandwidth_mbps, NULL);
-		break;
+		return;
 
 	case DC_PROBE_MEM_LATENCY:
 		if (!hubbub->funcs->perfmon.start_measuring_memory_latencies ||
@@ -1091,7 +1106,7 @@ static void dcn60_build_hubbub_perfmon_sequence(
 		hwss_add_tg_wait_for_state(&seq_state, ref_tg, CRTC_STATE_VBLANK);
 		hwss_add_hubbub_perfmon_get_memory_latencies(&seq_state, hubbub,
 				refclk_mhz, &status->u.latency);
-		break;
+		return;
 
 	case DC_PROBE_URGENT_ASSERTION_COUNT:
 		if (!hubbub->funcs->perfmon.start_measuring_urgent_assertion_count ||
@@ -1106,7 +1121,7 @@ static void dcn60_build_hubbub_perfmon_sequence(
 		hwss_add_tg_wait_for_state(&seq_state, ref_tg, CRTC_STATE_VBLANK);
 		hwss_add_hubbub_perfmon_get_urgent_assertion_count(&seq_state, hubbub,
 				refclk_mhz, &status->u.urgent_assertion_count);
-		break;
+		return;
 
 	case DC_PROBE_PREFETCH_DATA_SIZE:
 		if (!hubbub->funcs->perfmon.start_measuring_prefetch_data_size ||
@@ -1121,7 +1136,7 @@ static void dcn60_build_hubbub_perfmon_sequence(
 		hwss_add_tg_wait_for_state(&seq_state, ref_tg, CRTC_STATE_VBLANK);
 		hwss_add_hubbub_perfmon_get_prefetch_data_size(&seq_state, hubbub,
 				&status->u.prefetch_data_size);
-		break;
+		return;
 
 	case DC_PROBE_URGENT_RAMP_LATENCY:
 		/* Requires caller-supplied window params not available in probe model. */
@@ -1136,9 +1151,22 @@ static void dcn60_build_hubbub_perfmon_sequence(
  * dcn60_update_probe_status - Set the valid flag on a latched probe result.
  * @status: result sink whose u was written by the GET BLS step during execute
  */
-static void dcn60_update_probe_status(struct dc_probe_status *status)
+static void dcn60_update_probe_status(
+		struct dc_probe_status *status,
+		const struct dc_probe_state *probe)
 {
-	switch (status->type) {
+	struct dc_probe_status result = *status;
+
+	memset(status, 0, sizeof(*status));
+
+	if (probe->target_state == DC_PROBE_NOT_MEASURING)
+		return;
+
+	status->type = probe->type;
+	status->measuring = probe->target_state == DC_PROBE_MEASURING;
+	status->u = result.u;
+
+	switch (probe->type) {
 	case DC_PROBE_PEAK_MEM_BW:
 	case DC_PROBE_PEAK_MEM_BW_STRESSED:
 	case DC_PROBE_AVG_MEM_BW:
@@ -1194,11 +1222,11 @@ void dcn60_program_perfmon(struct dc *dc, struct dc_state *context)
 		return;
 
 	context->block_sequence_steps = 0;
-	memset(context->probe_status, 0, sizeof(context->probe_status));
 
 	for (i = 0; i < context->probe_count; i++) {
 		if (is_probe_measurement_type_for_hubbub(context->probes[i].type))
-			dcn60_build_hubbub_perfmon_sequence(dc, context, &context->probes[i],
+			dcn60_build_hubbub_perfmon_sequence(dc, context,
+					&context->probes[i],
 					&context->probe_status[i],
 					context->block_sequence,
 					&context->block_sequence_steps);
@@ -1207,7 +1235,7 @@ void dcn60_program_perfmon(struct dc *dc, struct dc_state *context)
 	hwss_execute_sequence(dc, context->block_sequence, context->block_sequence_steps);
 
 	for (i = 0; i < context->probe_count; i++)
-		dcn60_update_probe_status(&context->probe_status[i]);
+		dcn60_update_probe_status(&context->probe_status[i], &context->probes[i]);
 }
 
 static bool dcn60_has_active_memory_request(const struct dc *dc)

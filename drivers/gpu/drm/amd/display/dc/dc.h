@@ -2223,6 +2223,7 @@ struct dc_probe_latencies {
 /**
  * struct dc_probe_status - results for a probe.
  * @valid: true if a measurement was latched.
+ * @measuring: true if the hardware counter is currently running.
  * @type: type of the probe that produced this result.
  * @u.bandwidth_mbps:         peak BW in Mbps (DC_PROBE_PEAK_MEM_BW).
  * @u.latency:                min/max/avg memory latency in ns (DC_PROBE_MEM_LATENCY),
@@ -2232,6 +2233,7 @@ struct dc_probe_latencies {
  */
 struct dc_probe_status {
 	bool                       valid;
+	bool                       measuring;
 	enum dc_probe_type         type;
 	union {
 		uint32_t bandwidth_mbps;

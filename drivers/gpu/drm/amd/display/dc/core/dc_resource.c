@@ -4581,11 +4581,31 @@ enum dc_status resource_validate_probe_set(struct dc *dc,
 		return DC_NOT_SUPPORTED;
 
 	for (i = 0; i < probe_count; i++) {
-		if (probes[i].target_state == DC_PROBE_MEASURING)
+		switch (probes[i].type) {
+		/* These global probes support a one-frame measurement and reset. */
+		case DC_PROBE_PEAK_MEM_BW:
+		case DC_PROBE_PEAK_MEM_BW_STRESSED:
+		case DC_PROBE_AVG_MEM_BW:
+		case DC_PROBE_MEM_LATENCY:
+		case DC_PROBE_PREFETCH_DATA_SIZE:
+			if (probes[i].scope.type != DC_PROBE_SCOPE_GLOBAL)
+				return DC_NOT_SUPPORTED;
+			if (probes[i].target_state != DC_PROBE_NOT_MEASURING &&
+					probes[i].target_state != DC_PROBE_MEASURED)
+				return DC_NOT_SUPPORTED;
+			break;
+		/* The global urgent assertion counter additionally supports polling. */
+		case DC_PROBE_URGENT_ASSERTION_COUNT:
+			if (probes[i].scope.type != DC_PROBE_SCOPE_GLOBAL)
+				return DC_NOT_SUPPORTED;
+			if (probes[i].target_state != DC_PROBE_NOT_MEASURING &&
+					probes[i].target_state != DC_PROBE_MEASURING &&
+					probes[i].target_state != DC_PROBE_MEASURED)
+				return DC_NOT_SUPPORTED;
+			break;
+		default:
 			return DC_NOT_SUPPORTED;
-
-		if (probes[i].scope.type != DC_PROBE_SCOPE_GLOBAL)
-			return DC_NOT_SUPPORTED;
+		}
 
 		if (probes[i].type == DC_PROBE_PEAK_MEM_BW_STRESSED &&
 				!dc->res_pool->lsdma_scratch.buffer)
