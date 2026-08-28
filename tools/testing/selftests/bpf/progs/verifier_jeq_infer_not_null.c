@@ -3,7 +3,9 @@
 
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
+#include <stdbool.h>
 #include "bpf_misc.h"
+#include "bpf_kfuncs.h"
 
 struct {
 	__uint(type, BPF_MAP_TYPE_XSKMAP);
@@ -11,6 +13,13 @@ struct {
 	__type(key, int);
 	__type(value, int);
 } map_xskmap SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, int);
+} map_hash SEC(".maps");
 
 /* This is equivalent to the following program:
  *
@@ -262,6 +271,49 @@ __naked void jne_reg_reg_null_check(void)
         : __imm(bpf_map_lookup_elem),
           __imm_addr(map_xskmap)
         : __clobber_all);
+}
+
+/*
+ * A comparison between PTR_TO_MEM | MEM_RDONLY | PTR_UNTRUSTED and
+ * PTR_TO_MAP_VALUE_OR_NULL should not infer that map pointer is not null.
+ * A bug in check_cond_jmp_op() made such inference possible.
+ */
+SEC("raw_tp")
+__failure
+__msg("error: invalid dereference of R0 (a nullable map value pointer)")
+__msg(">>> 11 | (61) r0 = *(u32 *)(r0 +0)")
+__naked void untrusted_mem_does_not_infer_map_value_non_null(void)
+{
+	asm volatile ("					\
+	/* r6 = bpf_rdonly_cast(0, 0); */		\
+	r1 = 0;						\
+	r2 = 0;						\
+	call %[bpf_rdonly_cast];			\
+	r6 = r0;					\
+	/* r0 = bpf_map_lookup_elem(map_hash, &key); */	\
+	*(u64 *)(r10 - 8) = 0;				\
+	r1 = %[map_hash] ll;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	call %[bpf_map_lookup_elem];			\
+	/*						\
+	 * buggy verifier assumed that r6 can't be null	\
+	 * and marked r0 non-null as well.		\
+	 */						\
+	if r6 != r0 goto 1f;				\
+	r0 = *(u32 *)(r0 + 0);				\
+1:	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_rdonly_cast),
+	  __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_hash)
+	: __clobber_all);
+}
+
+void kfunc_root(void)
+{
+	bpf_rdonly_cast(0, 0);
 }
 
 char _license[] SEC("license") = "GPL";
