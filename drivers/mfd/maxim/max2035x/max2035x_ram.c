@@ -145,7 +145,3 @@ void max2035x_ram_exit(void)
 {
 	platform_unregister_drivers(ram_drivers, ARRAY_SIZE(ram_drivers));
 }
-
-MODULE_DESCRIPTION("Analog Devices MAX2035x RAM Driver");
-MODULE_AUTHOR("Judy Na <judy.na@analog.com>");
-MODULE_LICENSE("GPL");

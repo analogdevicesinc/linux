@@ -2573,7 +2573,18 @@ config MFD_MAX7360
 	  additional drivers must be enabled in order to use the functionality
 	  of the device.
 
-source "drivers/mfd/maxim/max2035x/Kconfig"
+config MFD_MAX2035X
+	tristate "Analog Devices MAX20355/MAX20357 PMIC Support"
+	depends on I2C
+	select MFD_CORE
+	select REGMAP_I2C
+	help
+	  Say yes here to support for Analog Devices MAX20355 and MAX20357.
+	  These devices provide PLC-based power management and monitoring
+	  functions for system power control.
+	  This driver provides common support for accessing the device;
+	  additional drivers must be enabled to use specific functions
+	  such as fuelgauge or charger control.
 
 endmenu
 endif

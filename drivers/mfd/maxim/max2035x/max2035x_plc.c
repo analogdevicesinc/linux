@@ -6,7 +6,6 @@
  * Shared PLC engine for MAX20355 (Master) and MAX20357 (Slave)
  */
 
-#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
 #include <linux/math64.h>
@@ -3044,31 +3043,31 @@ ssize_t max2035x_plc_show_attrs(struct device *dev,
 		ret = max2035x_read_soc(chip);
 		if (ret < 0)
 			return ret;
-		return sprintf(buf, "%d.%02d%%\n", ret / 100, ret % 100);
+		return sysfs_emit(buf, "%d.%02d%%\n", ret / 100, ret % 100);
 
 	} else if (attr == &dev_attr_vcell) {
 		ret = max2035x_read_vcell(chip);
 		if (ret < 0)
 			return ret;
-		return sprintf(buf, "%d.%03d mV\n", ret / 1000, ret % 1000);
+		return sysfs_emit(buf, "%d.%03d mV\n", ret / 1000, ret % 1000);
 
 	} else if (attr == &dev_attr_tte) {
 		ret = max2035x_read_tte(chip);
 		if (ret < 0)
 			return ret;
-		return sprintf(buf, "%d sec\n", ret);
+		return sysfs_emit(buf, "%d sec\n", ret);
 
 	} else if (attr == &dev_attr_avg_vcell) {
 		ret = max2035x_read_avgvcell(chip);
 		if (ret < 0)
 			return ret;
-		return sprintf(buf, "%d.%03d mV\n", ret / 1000, ret % 1000);
+		return sysfs_emit(buf, "%d.%03d mV\n", ret / 1000, ret % 1000);
 
 	} else if (attr == &dev_attr_ttf) {
 		ret = max2035x_read_ttf(chip);
 		if (ret < 0)
 			return ret;
-		return sprintf(buf, "%d sec\n", ret);
+		return sysfs_emit(buf, "%d sec\n", ret);
 
 	} else if (attr == &dev_attr_slave_bat_volt) {
 		if (chip->type == MAX20355) {
@@ -3082,9 +3081,9 @@ ssize_t max2035x_plc_show_attrs(struct device *dev,
 			if (volt2 < 0)
 				return volt2;
 
-			return sprintf(buf, "slave1: %d mV\nslave2: %d mV\n", volt1, volt2);
+			return sysfs_emit(buf, "slave1: %d mV\nslave2: %d mV\n", volt1, volt2);
 		}
-		return sprintf(buf, "Not supported\n");
+		return sysfs_emit(buf, "Not supported\n");
 
 	} else if (attr == &dev_attr_slave_soc) {
 		if (chip->type == MAX20355) {
@@ -3098,9 +3097,9 @@ ssize_t max2035x_plc_show_attrs(struct device *dev,
 			if (soc2 < 0)
 				return soc2;
 
-			return sprintf(buf, "slave1: %d%%\nslave2: %d%%\n", soc1, soc2);
+			return sysfs_emit(buf, "slave1: %d%%\nslave2: %d%%\n", soc1, soc2);
 		}
-		return sprintf(buf, "Not supported\n");
+		return sysfs_emit(buf, "Not supported\n");
 	}
 
 	return -EINVAL;
@@ -3209,7 +3208,3 @@ void max2035x_plc_exit(void)
 {
 	platform_unregister_drivers(plc_drivers, ARRAY_SIZE(plc_drivers));
 }
-
-MODULE_DESCRIPTION("Analog Devices MAX2035x PLC driver");
-MODULE_AUTHOR("Judy Na <judy.na@analog.com>");
-MODULE_LICENSE("GPL");

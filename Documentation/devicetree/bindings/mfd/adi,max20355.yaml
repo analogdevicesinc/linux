@@ -28,17 +28,16 @@ properties:
       - adi,max20357
 
   reg:
-    minItems: 1
-    maxItems: 3
+    items:
+      - description: PLC registers
+      - description: Fuel Gauge registers
+      - description: RAM registers
 
   reg-names:
-    minItems: 1
-    maxItems: 3
     items:
-      enum:
-        - plc
-        - fuel-gauge
-        - ram
+      - const: plc
+      - const: fuel-gauge
+      - const: ram
 
   interrupts:
     maxItems: 1
