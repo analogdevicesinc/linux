@@ -8,6 +8,8 @@
 #include <dt-bindings/power/nvidia,tegra264-bpmp.h>
 #include <dt-bindings/reset/nvidia,tegra264.h>
 
+#include "thermal/nvidia,tegra264-bpmp.h"
+
 / {
 	compatible = "nvidia,tegra264";
 	interrupt-parent = <&gic>;
@@ -4662,6 +4664,33 @@
 			<&bpmp TEGRA264_CLK_PLLA1_OUT1>;
 
 		status = "disabled";
+	};
+
+	thermal-zones {
+		cpu-thermal {
+			thermal-sensors = <&{/bpmp/thermal} TEGRA264_THERMAL_ZONE_CPU_MAX>;
+			status = "disabled";
+		};
+
+		gpu-thermal {
+			thermal-sensors = <&{/bpmp/thermal} TEGRA264_THERMAL_ZONE_GPU_MAX>;
+			status = "disabled";
+		};
+
+		soc012-thermal {
+			thermal-sensors = <&{/bpmp/thermal} TEGRA264_THERMAL_ZONE_SOC_012_MAX>;
+			status = "disabled";
+		};
+
+		soc345-thermal {
+			thermal-sensors = <&{/bpmp/thermal} TEGRA264_THERMAL_ZONE_SOC_345_MAX>;
+			status = "disabled";
+		};
+
+		tj-thermal {
+			thermal-sensors = <&{/bpmp/thermal} TEGRA264_THERMAL_ZONE_TJ_MAX>;
+			status = "disabled";
+		};
 	};
 
 	timer {
