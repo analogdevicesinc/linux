@@ -1048,11 +1048,6 @@ void hubbub31_init(struct hubbub *hubbub)
 				DISPCLK_R_DCHUBBUB_GATE_DIS, 1,
 				DCFCLK_R_DCHUBBUB_GATE_DIS, 1);
 	}
-
-	/*
-	only the DCN will determine when to connect the SDP port
-	*/
-	REG_UPDATE(DCHUBBUB_SDPIF_CFG0,	SDPIF_PORT_CONTROL, 1);
 }
 static const struct hubbub_funcs hubbub31_funcs = {
 	.update_dchub = hubbub2_update_dchub,
