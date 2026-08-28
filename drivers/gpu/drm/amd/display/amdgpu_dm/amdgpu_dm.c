@@ -4615,6 +4615,13 @@ static void amdgpu_dm_commit_streams(struct drm_atomic_commit *state,
 		    (!new_crtc_state->active ||
 		     drm_atomic_crtc_needs_modeset(new_crtc_state))) {
 			manage_dm_interrupts(adev, acrtc, NULL);
+			/*
+			 * ISM hysteresis lives on system_dfl_wq, not the
+			 * vblank workqueue. Wait it out so a timer armed while
+			 * the stream existed cannot allow idle after the
+			 * stream is released.
+			 */
+			amdgpu_dm_ism_flush(&acrtc->ism);
 			dc_stream_release(dm_old_crtc_state->stream);
 		}
 	}
