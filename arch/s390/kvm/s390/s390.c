@@ -5781,7 +5781,6 @@ void kvm_arch_commit_memory_region(struct kvm *kvm, struct kvm_memory_slot *old,
 				   const struct kvm_memory_slot *new,
 				   enum kvm_mr_change change)
 {
-	s390_kvm_mmu_commit_memory_region(kvm, old, new, change);
 }
 
 /**
