@@ -937,6 +937,10 @@ enum amdgpu_transfer_function {
 	AMDGPU_TRANSFER_FUNCTION_COUNT
 };
 
+struct dc_flip_addrs;
+struct dc_scaling_info;
+struct dc_plane_info;
+
 struct dm_plane_state {
 	struct drm_plane_state base;
 	struct dc_plane_state *dc_state;
@@ -1006,6 +1010,16 @@ struct dm_plane_state {
 	 * applying blend LUT.
 	 */
 	enum amdgpu_transfer_function blend_tf;
+
+	/* Cached per-plane surface descriptors kept in the DRM plane state.
+	 * The DRM atomic old/new state swap lets us compare the previous
+	 * commit's values (old) against the newly computed ones to detect a
+	 * real plane change (vs an address-only flip) so DC only gets a
+	 * scaling_info/plane_info surface update when it actually changed.
+	 */
+	struct dc_flip_addrs *flip_addr;
+	struct dc_scaling_info *scaling_info;
+	struct dc_plane_info *plane_info;
 };
 
 enum amdgpu_dm_cursor_mode {

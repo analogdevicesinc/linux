@@ -2977,7 +2977,7 @@ static void dm_test_plane_reset_initializes_state(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, new_state->shaper_tf, AMDGPU_TRANSFER_FUNCTION_DEFAULT);
 	KUNIT_EXPECT_EQ(test, new_state->blend_tf, AMDGPU_TRANSFER_FUNCTION_DEFAULT);
 
-	kfree(new_state);
+	amdgpu_dm_plane_drm_plane_destroy_state(plane, &new_state->base);
 }
 
 /**
@@ -3000,6 +3000,14 @@ static void dm_test_plane_duplicate_state_copies_fields(struct kunit *test)
 	KUNIT_ASSERT_NOT_NULL(test, plane);
 	KUNIT_ASSERT_NOT_NULL(test, old_state);
 
+	/* duplicate_state kmemdup()s these, so the source state must own them. */
+	old_state->flip_addr = kunit_kzalloc(test, sizeof(*old_state->flip_addr), GFP_KERNEL);
+	old_state->scaling_info = kunit_kzalloc(test, sizeof(*old_state->scaling_info), GFP_KERNEL);
+	old_state->plane_info = kunit_kzalloc(test, sizeof(*old_state->plane_info), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->flip_addr);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->scaling_info);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->plane_info);
+
 	old_state->degamma_tf = AMDGPU_TRANSFER_FUNCTION_PQ_EOTF;
 	old_state->hdr_mult = 0x123456789ULL;
 	old_state->shaper_tf = AMDGPU_TRANSFER_FUNCTION_IDENTITY;
@@ -3016,7 +3024,7 @@ static void dm_test_plane_duplicate_state_copies_fields(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dup_state->blend_tf, AMDGPU_TRANSFER_FUNCTION_SRGB_EOTF);
 	KUNIT_EXPECT_NULL(test, dup_state->dc_state);
 
-	kfree(dup_state);
+	amdgpu_dm_plane_drm_plane_destroy_state(plane, dup_base);
 }
 
 /*
@@ -3067,6 +3075,15 @@ static void dm_test_plane_duplicate_state_copies_resources(struct kunit *test)
 	kref_init(&dc_plane_state->refcount);
 	old_state->dc_state = dc_plane_state;
 	dm_test_attach_color_blobs(test, &adev->ddev, old_state);
+
+	/* duplicate_state kmemdup()s these, so the source state must own them. */
+	old_state->flip_addr = kunit_kzalloc(test, sizeof(*old_state->flip_addr), GFP_KERNEL);
+	old_state->scaling_info = kunit_kzalloc(test, sizeof(*old_state->scaling_info), GFP_KERNEL);
+	old_state->plane_info = kunit_kzalloc(test, sizeof(*old_state->plane_info), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->flip_addr);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->scaling_info);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->plane_info);
+
 	plane->state = &old_state->base;
 
 	dup_base = amdgpu_dm_plane_drm_plane_duplicate_state(plane);

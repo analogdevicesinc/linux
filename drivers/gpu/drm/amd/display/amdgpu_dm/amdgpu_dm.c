@@ -3924,6 +3924,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 		bool plane_needs_flip;
 		struct dc_plane_state *dc_plane;
 		struct dm_plane_state *dm_new_plane_state = to_dm_plane_state(new_plane_state);
+		struct dm_plane_state *dm_old_plane_state = to_dm_plane_state(old_plane_state);
 
 		/* Cursor plane is handled after stream updates */
 		if (plane->type == DRM_PLANE_TYPE_CURSOR &&
@@ -3958,11 +3959,22 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 			bundle->surface_updates[planes_count].cm = &dc_plane->cm;
 		}
 
-		amdgpu_dm_plane_fill_dc_scaling_info(dm->adev, new_plane_state,
-				     &bundle->scaling_infos[planes_count]);
+		if (amdgpu_dm_plane_fill_dc_scaling_info(dm->adev, new_plane_state,
+							 &bundle->scaling_infos[planes_count])) {
+			planes_count += 1;
+			continue;
+		}
 
-		bundle->surface_updates[planes_count].scaling_info =
-			&bundle->scaling_infos[planes_count];
+		/* Cache the newly computed scaling_info in the plane state */
+		*dm_new_plane_state->scaling_info =
+			bundle->scaling_infos[planes_count];
+
+		/* Only send a scaling_info update if it changed vs the old state */
+		if (memcmp(dm_old_plane_state->scaling_info,
+			   dm_new_plane_state->scaling_info,
+			   sizeof(struct dc_scaling_info)))
+			bundle->surface_updates[planes_count].scaling_info =
+				&bundle->scaling_infos[planes_count];
 
 		plane_needs_flip = old_plane_state->fb && new_plane_state->fb;
 
@@ -3985,8 +3997,16 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 				 new_plane_state->plane->index,
 				 bundle->plane_infos[planes_count].dcc.enable);
 
-		bundle->surface_updates[planes_count].plane_info =
-			&bundle->plane_infos[planes_count];
+		/* Cache the newly computed plane_info in the plane state */
+		*dm_new_plane_state->plane_info =
+			bundle->plane_infos[planes_count];
+
+		/* Only send a plane_info update if it changed vs the old state */
+		if (memcmp(dm_old_plane_state->plane_info,
+			   dm_new_plane_state->plane_info,
+			   sizeof(struct dc_plane_info)))
+			bundle->surface_updates[planes_count].plane_info =
+				&bundle->plane_infos[planes_count];
 
 		if (acrtc_state->stream->link->psr_settings.psr_feature_enabled ||
 		    acrtc_state->stream->link->replay_settings.replay_feature_enabled) {
@@ -4041,7 +4061,16 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 
 		timestamp_ns = ktime_get_ns();
 		bundle->flip_addrs[planes_count].flip_timestamp_in_us = div_u64(timestamp_ns, 1000);
-		bundle->surface_updates[planes_count].flip_addr = &bundle->flip_addrs[planes_count];
+		/* Cache the newly computed flip_addr in the plane state */
+		*dm_new_plane_state->flip_addr =
+			bundle->flip_addrs[planes_count];
+
+		/* Only send a flip_addr update if it changed vs the old state */
+		if (memcmp(dm_old_plane_state->flip_addr,
+			   dm_new_plane_state->flip_addr,
+			   sizeof(struct dc_flip_addrs)))
+			bundle->surface_updates[planes_count].flip_addr =
+				&bundle->flip_addrs[planes_count];
 		bundle->surface_updates[planes_count].surface = dc_plane;
 
 		if (!bundle->surface_updates[planes_count].surface) {

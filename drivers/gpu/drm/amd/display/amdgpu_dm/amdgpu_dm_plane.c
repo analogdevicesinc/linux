@@ -33,6 +33,7 @@
 #include <drm/drm_fourcc.h>
 
 #include "amdgpu.h"
+#include "dc.h"
 #include "dal_asic_id.h"
 #include "amdgpu_display.h"
 #include "amdgpu_dm_trace.h"
@@ -1806,6 +1807,18 @@ STATIC_IFN_KUNIT void amdgpu_dm_plane_drm_plane_reset(struct drm_plane *plane)
 	if (!amdgpu_state)
 		return;
 
+	amdgpu_state->flip_addr = kzalloc_obj(*amdgpu_state->flip_addr);
+	amdgpu_state->scaling_info = kzalloc_obj(*amdgpu_state->scaling_info);
+	amdgpu_state->plane_info = kzalloc_obj(*amdgpu_state->plane_info);
+	if (!amdgpu_state->flip_addr || !amdgpu_state->scaling_info ||
+	    !amdgpu_state->plane_info) {
+		kfree(amdgpu_state->flip_addr);
+		kfree(amdgpu_state->scaling_info);
+		kfree(amdgpu_state->plane_info);
+		kfree(amdgpu_state);
+		return;
+	}
+
 	if (plane->state)
 		plane->funcs->atomic_destroy_state(plane, plane->state);
 
@@ -1826,6 +1839,21 @@ amdgpu_dm_plane_drm_plane_duplicate_state(struct drm_plane *plane)
 	dm_plane_state = kzalloc_obj(*dm_plane_state);
 	if (!dm_plane_state)
 		return NULL;
+
+	dm_plane_state->flip_addr = kmemdup(old_dm_plane_state->flip_addr,
+		sizeof(*old_dm_plane_state->flip_addr), GFP_KERNEL);
+	dm_plane_state->scaling_info = kmemdup(old_dm_plane_state->scaling_info,
+		sizeof(*old_dm_plane_state->scaling_info), GFP_KERNEL);
+	dm_plane_state->plane_info = kmemdup(old_dm_plane_state->plane_info,
+		sizeof(*old_dm_plane_state->plane_info), GFP_KERNEL);
+	if (!dm_plane_state->flip_addr || !dm_plane_state->scaling_info ||
+	    !dm_plane_state->plane_info) {
+		kfree(dm_plane_state->flip_addr);
+		kfree(dm_plane_state->scaling_info);
+		kfree(dm_plane_state->plane_info);
+		kfree(dm_plane_state);
+		return NULL;
+	}
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &dm_plane_state->base);
 
@@ -1945,6 +1973,10 @@ STATIC_IFN_KUNIT void amdgpu_dm_plane_drm_plane_destroy_state(struct drm_plane *
 		drm_property_blob_put(dm_plane_state->shaper_lut);
 	if (dm_plane_state->blend_lut)
 		drm_property_blob_put(dm_plane_state->blend_lut);
+
+	kfree(dm_plane_state->flip_addr);
+	kfree(dm_plane_state->scaling_info);
+	kfree(dm_plane_state->plane_info);
 
 	if (dm_plane_state->dc_state)
 		dc_plane_state_release(dm_plane_state->dc_state);
