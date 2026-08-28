@@ -3886,6 +3886,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 	bool flip_latched_during_prog = false;
 	bool dirty_rects_changed = false;
 	bool updated_planes_and_streams = false;
+	bool stream_update_needed = false;
 	struct {
 		struct dc_surface_update surface_updates[MAX_SURFACES];
 		struct dc_plane_info plane_infos[MAX_SURFACES];
@@ -3919,6 +3920,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 
 		bundle->stream_update.cursor_position =
 				&acrtc_state->stream->cursor_position;
+		stream_update_needed = true;
 	}
 
 	if (acrtc_state->active_planes == 0 &&
@@ -3942,8 +3944,10 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 			if ((fb && crtc == pcrtc) ||
 			    (old_plane_state->fb && old_plane_state->crtc == pcrtc)) {
 				cursor_update = true;
-				if (amdgpu_ip_version(dm->adev, DCE_HWIP, 0) != 0)
+				if (amdgpu_ip_version(dm->adev, DCE_HWIP, 0) != 0) {
 					amdgpu_dm_update_cursor(plane, old_plane_state, &bundle->stream_update);
+					stream_update_needed = true;
+				}
 			}
 
 			continue;
@@ -4152,6 +4156,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 					&acrtc_state->stream->vrr_infopacket;
 				bundle->stream_update.vsp_infopacket =
 					&acrtc_state->stream->vsp_infopacket;
+				stream_update_needed = true;
 			}
 		}
 	}
@@ -4186,6 +4191,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 		if (new_pcrtc_state->mode_changed) {
 			bundle->stream_update.src = acrtc_state->stream->src;
 			bundle->stream_update.dst = acrtc_state->stream->dst;
+			stream_update_needed = true;
 		}
 
 		if (new_pcrtc_state->color_mgmt_changed) {
@@ -4203,11 +4209,14 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 				(struct dc_3dlut *) acrtc_state->stream->lut3d_func;
 			bundle->stream_update.func_shaper =
 				(struct dc_transfer_func *) acrtc_state->stream->func_shaper;
+			stream_update_needed = true;
 		}
 
 		acrtc_state->stream->abm_level = acrtc_state->abm_level;
-		if (acrtc_state->abm_level != dm_old_crtc_state->abm_level)
+		if (acrtc_state->abm_level != dm_old_crtc_state->abm_level) {
 			bundle->stream_update.abm_level = &acrtc_state->abm_level;
+			stream_update_needed = true;
+		}
 
 		/*
 		 * If FreeSync state on the stream has changed then we need to
@@ -4226,7 +4235,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 					 acrtc_state->update_type,
 					 planes_count,
 					 acrtc_state->stream,
-					 &bundle->stream_update,
+					 stream_update_needed ? &bundle->stream_update : NULL,
 					 bundle->surface_updates);
 		updated_planes_and_streams = true;
 
