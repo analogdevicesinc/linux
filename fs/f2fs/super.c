@@ -1971,7 +1971,7 @@ static void destroy_device_list(struct f2fs_sb_info *sbi)
 
 	for (i = 0; i < sbi->s_ndevs; i++) {
 		if (i > 0)
-			bdev_fput(FDEV(i).bdev_file);
+			fs_bdev_file_release(FDEV(i).bdev_file, sbi->sb);
 #ifdef CONFIG_BLK_DEV_ZONED
 		kvfree(FDEV(i).blkz_seq);
 #endif
@@ -3775,7 +3775,7 @@ f2fs_get_devices(struct super_block *sb,
 static const struct fscrypt_operations f2fs_cryptops = {
 	.inode_info_offs	= (int)offsetof(struct f2fs_inode_info, i_crypt_info) -
 				  (int)offsetof(struct f2fs_inode_info, vfs_inode),
-	.needs_bounce_pages	= 1,
+	.is_block_based		= 1,
 	.has_32bit_inodes	= 1,
 	.supports_subblock_data_units = 1,
 	.legacy_key_prefix	= "f2fs:",
@@ -4901,8 +4901,8 @@ static int f2fs_scan_devices(struct f2fs_sb_info *sbi)
 				FDEV(i).end_blk = FDEV(i).start_blk +
 						SEGS_TO_BLKS(sbi,
 						FDEV(i).total_segments) - 1;
-				FDEV(i).bdev_file = bdev_file_open_by_path(
-					FDEV(i).path, mode, sbi->sb, NULL);
+				FDEV(i).bdev_file = fs_bdev_file_open_by_path(
+					FDEV(i).path, mode, sbi->sb, sbi->sb);
 			}
 		}
 		if (IS_ERR(FDEV(i).bdev_file))

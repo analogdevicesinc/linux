@@ -626,6 +626,14 @@ static int tbnet_alloc_tx_buffers(struct tbnet *net)
 	return 0;
 }
 
+static void tbnet_connect_failed(struct tbnet *net)
+{
+	/* Leave login_received set: only the peer can make it true again. */
+	mutex_lock(&net->connection_lock);
+	net->login_sent = false;
+	mutex_unlock(&net->connection_lock);
+}
+
 static void tbnet_connected_work(struct work_struct *work)
 {
 	struct tbnet *net = container_of(work, typeof(*net), connected_work);
@@ -647,6 +655,9 @@ static void tbnet_connected_work(struct work_struct *work)
 	ret = tb_xdomain_alloc_in_hopid(net->xd, net->remote_transmit_path);
 	if (ret != net->remote_transmit_path) {
 		netdev_err(net->dev, "failed to allocate Rx HopID\n");
+		if (ret >= 0)
+			tb_xdomain_release_in_hopid(net->xd, ret);
+		tbnet_connect_failed(net);
 		return;
 	}
 
@@ -691,6 +702,7 @@ err_stop_rings:
 	tb_ring_stop(net->rx_ring.ring);
 	tb_ring_stop(net->tx_ring.ring);
 	tb_xdomain_release_in_hopid(net->xd, net->remote_transmit_path);
+	tbnet_connect_failed(net);
 }
 
 static void tbnet_login_work(struct work_struct *work)
@@ -1350,7 +1362,7 @@ static void tbnet_generate_mac(struct net_device *dev)
 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
 }
 
-static int tbnet_probe(struct tb_service *svc, const struct tb_service_id *id)
+static int tbnet_probe(struct tb_service *svc)
 {
 	struct tb_xdomain *xd = tb_service_parent(svc);
 	struct net_device *dev;
@@ -1470,7 +1482,7 @@ static DEFINE_SIMPLE_DEV_PM_OPS(tbnet_pm_ops, tbnet_suspend, tbnet_resume);
 
 static const struct tb_service_id tbnet_ids[] = {
 	{ TB_SERVICE("network", 1) },
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(tbsvc, tbnet_ids);
 
