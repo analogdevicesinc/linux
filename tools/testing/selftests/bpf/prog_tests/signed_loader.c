@@ -32,7 +32,12 @@ enum {
 	BPF_SIG_KEYRING_SECONDARY,
 	BPF_SIG_KEYRING_PLATFORM,
 	BPF_SIG_KEYRING_USER,
+	BPF_SIG_KEYRING_BPF,
 };
+
+#ifndef KEY_SPEC_BPF_KEYRING
+#define KEY_SPEC_BPF_KEYRING	-9
+#endif
 
 static int load_loader(const void *insns, __u32 insns_sz, int map_fd,
 		       const void *sig, __u32 sig_sz, __s32 keyring_id,
@@ -621,6 +626,83 @@ static void signature_bad_keyring(void)
 		fd = load_loader(f.gopts.insns, f.gopts.insns_sz, -1, junk,
 				 sizeof(junk), INT_MAX, 0);
 		ASSERT_EQ(fd, -EINVAL, "signature with bad keyring_id rejected");
+		if (fd >= 0)
+			close(fd);
+	}
+	gen_loader_fixture_fini(&f);
+}
+
+static bool keyring_unsealed_boot(void)
+{
+	char val = 0;
+	int fd;
+
+	fd = open("/sys/module/bpf/parameters/keyring_unsealed", O_RDONLY);
+	if (fd < 0)
+		return false;
+	if (read(fd, &val, 1) != 1)
+		val = 0;
+	close(fd);
+	return val == 'Y' || val == '1';
+}
+
+static int bpf_keyring_lookup(int *nr_keys)
+{
+	char line[512], type[32], desc[64];
+	int serial = -ENOENT;
+	FILE *f;
+
+	f = fopen("/proc/keys", "r");
+	if (!f)
+		return -errno;
+
+	while (fgets(line, sizeof(line), f)) {
+		unsigned int hex;
+		char *sum;
+
+		if (sscanf(line, "%x %*s %*s %*s %*s %*s %*s %31s %63s",
+			   &hex, type, desc) != 3)
+			continue;
+		if (strcmp(type, "keyring") || strcmp(desc, ".bpf:"))
+			continue;
+
+		serial = (int)hex;
+		if (nr_keys) {
+			sum = strstr(line, ".bpf: ");
+			*nr_keys = !sum || !strncmp(sum + 6, "empty", 5) ?
+				   0 : atoi(sum + 6);
+		}
+		break;
+	}
+	fclose(f);
+	return serial;
+}
+
+static void bpf_keyring_sealed(void)
+{
+	static const __u8 junk[64] = {};
+	struct gen_loader_fixture f;
+	int serial, key, fd;
+
+	if (keyring_unsealed_boot()) {
+		printf("%s:SKIP:the bpf keyring was unsealed at boot\n", __func__);
+		test__skip();
+		return;
+	}
+	serial = bpf_keyring_lookup(NULL);
+	if (serial >= 0) {
+		key = syscall(__NR_add_key, "user", "sealprobe", "x", 1,
+			      KEY_SPEC_BPF_KEYRING);
+		if (key >= 0)
+			syscall(__NR_keyctl, KEYCTL_UNLINK, key,
+				KEY_SPEC_BPF_KEYRING);
+		ASSERT_EQ(key < 0 ? -errno : 0, -EPERM,
+			  "nothing links into a sealed keyring");
+	}
+	if (gen_loader_fixture_init(&f) == 0) {
+		fd = load_loader(f.gopts.insns, f.gopts.insns_sz, -1, junk,
+				 sizeof(junk), KEY_SPEC_BPF_KEYRING, 0);
+		ASSERT_EQ(fd, -ENOKEY, "sealed bpf keyring rejected");
 		if (fd >= 0)
 			close(fd);
 	}
@@ -1806,6 +1888,8 @@ void test_signed_loader(void)
 		signature_zero_size();
 	if (test__start_subtest("signature_bad_keyring"))
 		signature_bad_keyring();
+	if (test__start_subtest("bpf_keyring_sealed"))
+		bpf_keyring_sealed();
 	if (test__start_subtest("metadata_ctx_max_entries_ignored"))
 		metadata_ctx_max_entries_ignored();
 	if (test__start_subtest("metadata_ctx_initial_value_ignored"))
