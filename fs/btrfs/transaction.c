@@ -456,12 +456,12 @@ static int record_root_in_trans(struct btrfs_trans_handle *trans,
 		 *
 		 * When this is zero, they can trust root->last_trans and fly
 		 * through btrfs_record_root_in_trans without having to take the
-		 * lock.  smp_wmb() makes sure that all the writes above are
-		 * done before we pop in the zero below
+		 * lock. smp_wmb() makes sure readers that see the last_trans
+		 * update also see IN_TRANS_SETUP set, and clear_bit_unlock()
+		 * publishes the relocation setup before we clear the bit.
 		 */
 		ret = btrfs_init_reloc_root(trans, root);
-		smp_mb__before_atomic();
-		clear_bit(BTRFS_ROOT_IN_TRANS_SETUP, &root->state);
+		clear_bit_unlock(BTRFS_ROOT_IN_TRANS_SETUP, &root->state);
 	}
 	return ret;
 }
@@ -499,10 +499,12 @@ int btrfs_record_root_in_trans(struct btrfs_trans_handle *trans,
 	 * see record_root_in_trans for comments about IN_TRANS_SETUP usage
 	 * and barriers
 	 */
-	smp_rmb();
-	if (btrfs_get_root_last_trans(root) == trans->transid &&
-	    !test_bit(BTRFS_ROOT_IN_TRANS_SETUP, &root->state))
-		return 0;
+	if (btrfs_get_root_last_trans(root) == trans->transid) {
+		/* Order the last_trans load before testing IN_TRANS_SETUP. */
+		smp_rmb();
+		if (!test_bit_acquire(BTRFS_ROOT_IN_TRANS_SETUP, &root->state))
+			return 0;
+	}
 
 	mutex_lock(&fs_info->reloc_mutex);
 	ret = record_root_in_trans(trans, root, false);
