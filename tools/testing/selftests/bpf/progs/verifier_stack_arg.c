@@ -436,6 +436,7 @@ __naked void stack_arg_sequential_calls(void)
 
 SEC("socket")
 __description("stack_arg is not supported by compiler or jit, use a dummy test")
+__skip("stack_arg is not supported by compiler or jit")
 __success
 int dummy_test(void)
 {

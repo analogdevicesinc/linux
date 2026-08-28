@@ -174,6 +174,7 @@ __naked void stack_arg_read_without_write_2(void)
 
 SEC("socket")
 __description("stack_arg order is not supported by compiler or jit, use a dummy test")
+__skip("stack_arg order is not supported by compiler or jit")
 __success
 int dummy_test(void)
 {
