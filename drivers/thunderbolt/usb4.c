@@ -1826,13 +1826,14 @@ int usb4_port_sw_margin(struct tb_port *port, enum usb4_sb_target target,
  * @target: Sideband target
  * @index: Retimer index if target is %USB4_SB_TARGET_RETIMER
  * @errors: Error metadata is copied here.
+ * @dwords: Number of dwords to read error counter values
  *
  * This reads back the software margining error counters from the port.
  *
  * Return: %0 on success, negative errno otherwise.
  */
 int usb4_port_sw_margin_errors(struct tb_port *port, enum usb4_sb_target target,
-			       u8 index, u32 *errors)
+			       u8 index, u32 *errors, size_t dwords)
 {
 	int ret;
 
@@ -1842,7 +1843,7 @@ int usb4_port_sw_margin_errors(struct tb_port *port, enum usb4_sb_target target,
 		return ret;
 
 	return usb4_port_sb_read(port, target, index, USB4_SB_METADATA, errors,
-				 sizeof(*errors));
+				 sizeof(*errors) * dwords);
 }
 
 static inline int usb4_port_retimer_op(struct tb_port *port, u8 index,
