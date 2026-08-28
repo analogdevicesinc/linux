@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <test_progs.h>
 #include <bpf/btf.h>
+#include "testing_helpers.h"
 
 void btf_dump_printf(void *ctx, const char *fmt, va_list args)
 {
@@ -43,12 +44,75 @@ done:
 	return err;
 }
 
+/*
+ * Expected output is embedded in the test case source, between
+ * START-EXPECTED-OUTPUT and END-EXPECTED-OUTPUT markers. A region is either
+ * plain C, where a declaration doubles as its own expectation, or C wrapped in
+ * a block comment, where the rendered form differs from the source. All
+ * regions of a file concatenate into one expectation, compared against one
+ * whole-file dump.
+ *
+ * Returns a malloc'd buffer for the caller to free, or NULL on failure.
+ */
+static char *read_expected_output(const char *path)
+{
+	size_t out_sz = 0, line_cap = 0;
+	char *out = NULL, *line = NULL;
+	bool in_region = false;
+	FILE *f, *out_file;
+
+	f = fopen(path, "r");
+	if (!f)
+		return NULL;
+
+	out_file = open_memstream(&out, &out_sz);
+	if (!out_file) {
+		fclose(f);
+		return NULL;
+	}
+
+	while (getline(&line, &line_cap, f) > 0) {
+		const char *p;
+
+		if (strstr(line, "START-EXPECTED-OUTPUT")) {
+			in_region = true;
+			continue;
+		}
+		if (strstr(line, "END-EXPECTED-OUTPUT"))
+			in_region = false;
+		if (!in_region)
+			continue;
+
+		p = line + strspn(line, " \t");
+
+		/* opening or closing line of a commented out region */
+		if (!strncmp(p, "/*", 2) || !strncmp(p, "*/", 2))
+			continue;
+
+		/*
+		 * Only a '*' directly after the indentation is a comment
+		 * prefix. Without one the line is taken as it is, leading
+		 * whitespace included.
+		 */
+		p = *p == '*' ? p + 1 : line;
+
+		fputs(p, out_file);
+	}
+
+	free(line);
+	fclose(f);
+	fclose(out_file);
+	return out;
+}
+
 static int test_btf_dump_case(int n, struct btf_dump_test_case *t)
 {
-	char test_file[256], out_file[256], diff_cmd[1024];
+	char *dump = NULL, *expected = NULL;
 	struct btf *btf = NULL;
-	int err = 0, fd = -1;
-	FILE *f = NULL;
+	char test_file[256];
+	size_t dump_sz = 0;
+	int err = 0;
+	FILE *f;
 
 	snprintf(test_file, sizeof(test_file), "%s.bpf.o", t->file);
 
@@ -72,21 +136,14 @@ static int test_btf_dump_case(int n, struct btf_dump_test_case *t)
 		ASSERT_EQ(ptr_sz, (size_t)8, "ptr_sz");
 	}
 
-	snprintf(out_file, sizeof(out_file), "/tmp/%s.output.XXXXXX", t->file);
-	fd = mkstemp(out_file);
-	if (!ASSERT_GE(fd, 0, "create_tmp")) {
-		err = fd;
-		goto done;
-	}
-	f = fdopen(fd, "w");
-	if (!ASSERT_OK_PTR(f, "open_tmp")) {
-		close(fd);
+	f = open_memstream(&dump, &dump_sz);
+	if (!ASSERT_OK_PTR(f, "open_memstream")) {
+		err = -errno;
 		goto done;
 	}
 
 	err = btf_dump_all_types(btf, f);
 	fclose(f);
-	close(fd);
 	if (!ASSERT_OK(err, "btf_dump"))
 		goto done;
 
@@ -97,28 +154,23 @@ static int test_btf_dump_case(int n, struct btf_dump_test_case *t)
 		 * without preserving the directory structure.
 		 */
 		snprintf(test_file, sizeof(test_file), "%s.c", t->file);
-	/*
-	 * Diff test output and expected test output, contained between
-	 * START-EXPECTED-OUTPUT and END-EXPECTED-OUTPUT lines in test case.
-	 * For expected output lines, everything before '*' is stripped out.
-	 * Also lines containing comment start and comment end markers are
-	 * ignored. 
-	 */
-	snprintf(diff_cmd, sizeof(diff_cmd),
-		 "awk '/START-EXPECTED-OUTPUT/{out=1;next} "
-		 "/END-EXPECTED-OUTPUT/{out=0} "
-		 "/\\/\\*|\\*\\//{next} " /* ignore comment start/end lines */
-		 "out {sub(/^[ \\t]*\\*/, \"\"); print}' '%s' | diff -u - '%s'",
-		 test_file, out_file);
-	err = system(diff_cmd);
-	if (!ASSERT_OK(err, "diff")) {
-		fprintf(stdout, "output=%s, diff cmd:\n%s\n", out_file, diff_cmd);
+
+	expected = read_expected_output(test_file);
+	if (!ASSERT_OK_PTR(expected, "read_expected_output")) {
+		err = -errno;
 		goto done;
 	}
 
-	remove(out_file);
+	/*
+	 * The mismatch has already been reported, so this only has to
+	 * register the failure. ASSERT_OK() would append a stale errno to it.
+	 */
+	err = compare_text_to_expected(dump, expected);
+	ASSERT_EQ(err, 0, "compare_text_to_expected");
 
 done:
+	free(expected);
+	free(dump);
 	btf__free(btf);
 	return err;
 }
