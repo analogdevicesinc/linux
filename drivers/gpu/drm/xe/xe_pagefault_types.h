@@ -34,6 +34,13 @@ enum xe_pagefault_type {
 /** struct xe_pagefault_ops - Xe pagefault ops (producer) */
 struct xe_pagefault_ops {
 	/**
+	 * @ack_fault_begin: Ack fault begin
+	 * @private: producer private data
+	 *
+	 * Page fault producer begins acknowledgment from the consumer.
+	 */
+	void (*ack_fault_begin)(void *private);
+	/**
 	 * @ack_fault: Ack fault
 	 * @pf: Page fault
 	 * @err: Error state of fault
@@ -42,6 +49,13 @@ struct xe_pagefault_ops {
 	 * sends the result to the HW/FW interface.
 	 */
 	void (*ack_fault)(struct xe_pagefault *pf, int err);
+	/**
+	 * @ack_fault_end: Ack fault end
+	 * @private: producer private data
+	 *
+	 * Page fault producer ends acknowledgment from the consumer.
+	 */
+	void (*ack_fault_end)(void *private);
 };
 
 /**
@@ -60,34 +74,58 @@ struct xe_pagefault {
 	/**
 	 * @consumer: State for the software handling the fault. Populated by
 	 * the producer and may be modified by the consumer to communicate
-	 * information back to the producer upon fault acknowledgment.
+	 * information back to the producer upon fault acknowledgment. After
+	 * fault acknowledgment, the producer should only access consumer fields
+	 * via well defined helpers.
 	 */
 	struct {
-		/** @consumer.page_addr: address of page fault */
-		u64 page_addr;
-		/** @consumer.asid: address space ID */
-		u32 asid;
 		/**
-		 * @consumer.access_type: access type and prefetch flag packed
-		 * into a u8.
+		 * @consumer.page_addr: address of page fault, populated by
+		 * consumer after fault completion
 		 */
-		u8 access_type;
+		u64 page_addr;
+		union {
+			struct {
+				/**
+				 * @consumer.alloc_state: page fault allocation
+				 * state
+				 */
+				u8 alloc_state;
+				/**
+				 * @consumer.access_type: access type, u8 rather
+				 * than enum to keep size compact
+				 */
+				u8 access_type;
 #define XE_PAGEFAULT_ACCESS_TYPE_MASK	GENMASK(1, 0)
 #define XE_PAGEFAULT_ACCESS_PREFETCH	BIT(7)
-		/**
-		 * @consumer.fault_type_level: fault type and level, u8 rather
-		 * than enum to keep size compact
-		 */
-		u8 fault_type_level;
+				/**
+				 * @consumer.fault_type_level: fault type and
+				 * level, u8 rather than enum to keep size
+				 * compact
+				 */
+				u8 fault_type_level;
 #define XE_PAGEFAULT_TYPE_LEVEL_NACK		0xff	/* Producer indicates nack fault */
-#define XE_PAGEFAULT_LEVEL_MASK			GENMASK(3, 0)
-#define XE_PAGEFAULT_TYPE_MASK			GENMASK(7, 4)
-		/** @consumer.engine_class: engine class */
-		u8 engine_class;
-		/** @consumer.engine_instance: engine instance */
-		u8 engine_instance;
-		/** @consumer.reserved: reserved bits for future expansion */
-		u64 reserved;
+#define XE_PAGEFAULT_LEVEL_MASK			GENMASK(2, 0)
+#define XE_PAGEFAULT_TYPE_MASK			GENMASK(6, 3)
+#define XE_PAGEFAULT_REQUEUE_MASK		BIT(7)
+				/** @consumer.engine_class_instance: engine class and instance */
+				u8 engine_class_instance;
+#define XE_PAGEFAULT_ENGINE_CLASS_MASK		GENMASK(3, 0)
+#define XE_PAGEFAULT_ENGINE_INSTANCE_MASK	GENMASK(7, 4)
+				/** @consumer.asid: address space ID */
+				u32 asid;
+			};
+			/**
+			 * @consumer.end_addr: end address of page fault,
+			 * populated by consumer after fault completion
+			 */
+			u64 end_addr;
+		};
+		/**
+		 * @consumer.next: next pagefault chained to this fault,
+		 * protected by pf_queue lock
+		 */
+		struct xe_pagefault *next;
 	} consumer;
 	/**
 	 * @producer: State for the producer (i.e., HW/FW interface). Populated
@@ -129,10 +167,38 @@ struct xe_pagefault_queue {
 	u32 head;
 	/** @tail: Tail pointer in bytes, moved by consumer, protected by @lock */
 	u32 tail;
-	/** @lock: protects page fault queue */
+	/** @lock: protects page fault queue, workers caches */
 	spinlock_t lock;
-	/** @worker: to process page faults */
-	struct work_struct worker;
+};
+
+/**
+ * struct xe_pagefault_work - Xe page fault work item (consumer)
+ *
+ * Represents a worker that pops a &struct xe_pagefault from the page fault
+ * queue and processes it.
+ */
+struct xe_pagefault_work {
+	/** @xe: Back-pointer to the Xe device */
+	struct xe_device *xe;
+	/** @id: Identifier for this work item */
+	int id;
+	/**
+	 * @cache: Page fault cache for the currently processed fault
+	 *
+	 * Protected by the page fault queue lock.
+	 */
+	struct {
+		/** @cache.start: Start address of the current page fault */
+		u64 start;
+		/** @cache.end: End address of the current page fault */
+		u64 end;
+		/** @cache.asid: Address space ID of the current page fault */
+		u32 asid;
+		/** @cache.pf: Pointer to the current page fault */
+		struct xe_pagefault *pf;
+	} cache;
+	/** @work: Work item used to process the page fault */
+	struct work_struct work;
 };
 
 #endif

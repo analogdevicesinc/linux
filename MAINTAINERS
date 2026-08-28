@@ -9118,6 +9118,19 @@ T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
 F:	drivers/gpu/drm/drm_privacy_screen*
 F:	include/drm/drm_privacy_screen*
 
+DRM RAS
+M:	Riana Tauro <riana.tauro@intel.com>
+M:	Rodrigo Vivi <rodrigo.vivi@intel.com>
+R:	Aravind Iddamsetty <aravind.iddamsetty@linux.intel.com>
+R:	Raag Jadav <raag.jadav@intel.com>
+L:	dri-devel@lists.freedesktop.org
+S:	Supported
+T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
+F:	Documentation/netlink/specs/drm_ras.yaml
+F:	Documentation/gpu/drm-ras.rst
+F:	drivers/gpu/drm/drm_ras*
+F:	include/drm/drm_ras*
+
 DRM TTM SUBSYSTEM
 M:	Christian Koenig <christian.koenig@amd.com>
 M:	Huang Rui <ray.huang@amd.com>

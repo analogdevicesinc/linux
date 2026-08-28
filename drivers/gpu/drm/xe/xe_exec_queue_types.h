@@ -70,6 +70,13 @@ struct xe_exec_queue_group {
 	spinlock_t suspend_lock;
 	/** @sync_pending: CGP_SYNC_DONE g2h response pending */
 	bool sync_pending;
+	/**
+	 * @cgp_update_q: Queue that issued the currently outstanding (sent)
+	 * CGP_SYNC or REGISTER_CONTEXT_MULTI_QUEUE; NULL when none is
+	 * outstanding. Used during VF recovery to identify and replay the
+	 * message whose CGP_SYNC_DONE was not received.
+	 */
+	struct xe_exec_queue *cgp_update_q;
 	/** @banned: Group banned */
 	bool banned;
 	/** @stopped: Group is stopped, protected by list_lock */
@@ -128,20 +135,18 @@ struct xe_exec_queue {
 
 /* queue used for kernel submission only */
 #define EXEC_QUEUE_FLAG_KERNEL			BIT(0)
-/* kernel engine only destroyed at driver unload */
-#define EXEC_QUEUE_FLAG_PERMANENT		BIT(1)
 /* for VM jobs. Caller needs to hold rpm ref when creating queue with this flag */
-#define EXEC_QUEUE_FLAG_VM			BIT(2)
+#define EXEC_QUEUE_FLAG_VM			BIT(1)
 /* child of VM queue for multi-tile VM jobs */
-#define EXEC_QUEUE_FLAG_BIND_ENGINE_CHILD	BIT(3)
+#define EXEC_QUEUE_FLAG_BIND_ENGINE_CHILD	BIT(2)
 /* kernel exec_queue only, set priority to highest level */
-#define EXEC_QUEUE_FLAG_HIGH_PRIORITY		BIT(4)
+#define EXEC_QUEUE_FLAG_HIGH_PRIORITY		BIT(3)
 /* flag to indicate low latency hint to guc */
-#define EXEC_QUEUE_FLAG_LOW_LATENCY		BIT(5)
+#define EXEC_QUEUE_FLAG_LOW_LATENCY		BIT(4)
 /* for migration (kernel copy, clear, bind) jobs */
-#define EXEC_QUEUE_FLAG_MIGRATE			BIT(6)
+#define EXEC_QUEUE_FLAG_MIGRATE			BIT(5)
 /* for programming COMMON_SLICE_CHICKEN3 on first submission */
-#define EXEC_QUEUE_FLAG_DISABLE_STATE_CACHE_PERF_FIX	BIT(7)
+#define EXEC_QUEUE_FLAG_DISABLE_STATE_CACHE_PERF_FIX	BIT(6)
 
 	/**
 	 * @flags: flags for this exec queue, should statically setup aside from ban
