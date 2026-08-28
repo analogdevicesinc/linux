@@ -214,7 +214,7 @@ static int rocket_job_push(struct rocket_job *job)
 	struct rocket_device *rdev = job->rdev;
 	struct drm_gem_object **bos;
 	struct ww_acquire_ctx acquire_ctx;
-	u32 bo_count;
+	int bo_count;
 	int ret = 0;
 
 	if (check_add_overflow(job->in_bo_count, job->out_bo_count, &bo_count))
@@ -582,6 +582,11 @@ static int rocket_ioctl_submit_job(struct drm_device *dev, struct drm_file *file
 	int ret = 0;
 
 	if (job->task_count == 0)
+		return -EINVAL;
+
+	/* GEM lookup takes a signed object count. */
+	if (job->in_bo_handle_count > INT_MAX ||
+	    job->out_bo_handle_count > INT_MAX)
 		return -EINVAL;
 
 	rjob = kzalloc_obj(*rjob);
