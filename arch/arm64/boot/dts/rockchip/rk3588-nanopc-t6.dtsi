@@ -195,8 +195,8 @@
 		compatible = "regulator-fixed";
 		enable-active-high;
 		gpio = <&gpio4 RK_PC2 GPIO_ACTIVE_HIGH>;
+		pinctrl-0 = <&pcie_m2_1_pwren_pin>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pcie_m2_1_pwren>;
 		regulator-name = "vdd_mpcie_3v3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
@@ -207,8 +207,8 @@
 		compatible = "regulator-fixed";
 		enable-active-high;
 		gpios = <&gpio2 RK_PC5 GPIO_ACTIVE_HIGH>;
+		pinctrl-0 = <&pcie_m2_0_pwren_pin>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pcie_m2_0_pwren>;
 		regulator-name = "vcc3v3_pcie_m2_0";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
@@ -629,26 +629,26 @@
 };
 
 &pcie2x1l0 {
+	pinctrl-0 = <&pcie_25glan_perstb_b_pin>;
+	pinctrl-names = "default";
 	reset-gpios = <&gpio4 RK_PB3 GPIO_ACTIVE_HIGH>;
 	vpcie3v3-supply = <&vcc_3v3_s3>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pcie2_0_rst>;
 	status = "okay";
 };
 
 &pcie2x1l1 {
+	pinctrl-0 = <&pcie_wifi_perstn_pin>;
+	pinctrl-names = "default";
 	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
 	vpcie3v3-supply = <&vdd_mpcie_3v3>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pcie2_1_rst>;
 	status = "okay";
 };
 
 &pcie2x1l2 {
+	pinctrl-0 = <&pcie_25glan_perstb_pin>;
+	pinctrl-names = "default";
 	reset-gpios = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;
 	vpcie3v3-supply = <&vcc_3v3_s3>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pcie2_2_rst>;
 	status = "okay";
 };
 
@@ -716,24 +716,24 @@
 	};
 
 	pcie {
-		pcie2_0_rst: pcie2-0-rst {
-			rockchip,pins = <4 RK_PB3 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-
-		pcie2_1_rst: pcie2-1-rst {
-			rockchip,pins = <4 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-
-		pcie2_2_rst: pcie2-2-rst {
+		pcie_25glan_perstb_pin: pcie-25glan-perstb-pin {
 			rockchip,pins = <4 RK_PA4 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 
-		pcie_m2_0_pwren: pcie-m20-pwren {
+		pcie_25glan_perstb_b_pin: pcie-25glan-perstb-b-pin {
+			rockchip,pins = <4 RK_PB3 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		pcie_m2_0_pwren_pin: pcie-m2-0-pwren-pin {
 			rockchip,pins = <2 RK_PC5 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 
-		pcie_m2_1_pwren: pcie-m21-pwren {
+		pcie_m2_1_pwren_pin: pcie-m2-1-pwren-pin {
 			rockchip,pins = <4 RK_PC2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		pcie_wifi_perstn_pin: pcie-wifi-perstn-pin {
+			rockchip,pins = <4 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
