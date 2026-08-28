@@ -24,6 +24,7 @@
 #include <linux/bpf_lsm.h>
 #include <linux/security.h>
 #include <linux/verification.h>
+#include <linux/keyctl.h>
 #include <linux/btf_ids.h>
 #include <linux/poison.h>
 #include <linux/module.h>
@@ -21127,6 +21128,8 @@ static enum bpf_sig_keyring bpf_classify_keyring(s32 keyring_id)
 		return BPF_SIG_KEYRING_SECONDARY;
 	case (s32)(unsigned long)VERIFY_USE_PLATFORM_KEYRING:
 		return BPF_SIG_KEYRING_PLATFORM;
+	case KEY_SPEC_BPF_KEYRING:
+		return BPF_SIG_KEYRING_BPF;
 	default:
 		return BPF_SIG_KEYRING_USER;
 	}
@@ -21164,9 +21167,15 @@ static int bpf_prog_verify_signature(struct bpf_verifier_env *env,
 		return -EINVAL;
 	if (system_keyring_id_check(attr->keyring_id) == 0)
 		key = bpf_lookup_system_key(attr->keyring_id);
+	else if (attr->keyring_id == KEY_SPEC_BPF_KEYRING)
+		key = bpf_lookup_keyring();
 	else
 		key = bpf_lookup_user_key(attr->keyring_id, 0);
 	if (!key) {
+		if (attr->keyring_id == KEY_SPEC_BPF_KEYRING) {
+			verbose(env, "the bpf keyring is empty or has not been restricted\n");
+			return -ENOKEY;
+		}
 		verbose(env, "cannot resolve signing keyring with keyring_id %d\n",
 			attr->keyring_id);
 		return -EINVAL;

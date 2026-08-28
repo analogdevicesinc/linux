@@ -667,6 +667,14 @@ Kernel parameters
 
 			See Documentation/admin-guide/bootconfig.rst
 
+	bpf.keyring_unsealed=
+			[BPF] When set to 1, leave the bpf keyring unsealed
+			after initialization so that userspace can provision
+			keys. Once the keyring is restricted it becomes active
+			and can be used for BPF program signature verification.
+
+			See Documentation/bpf/signing.rst
+
 	bttv.card=	[HW,V4L] bttv (bt848 + bt878 based grabber cards)
 	bttv.radio=	Most important insmod options are available as
 			kernel args too.
