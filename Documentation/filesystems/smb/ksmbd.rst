@@ -82,8 +82,7 @@ Signing Update                 Supported.
 Pre-authentication integrity   Supported.
 SMB3 encryption(CCM, GCM)      Supported. (CCM/GCM128 and CCM/GCM256 supported)
 SMB direct(RDMA)               Supported.
-SMB3 Multi-channel             Partially Supported. Planned to implement
-                               replay/retry mechanisms for future.
+SMB3 Multi-channel             Supported.
 Receive Side Scaling mode      Supported.
 SMB3.1.1 POSIX extension       Supported.
 ACLs                           Partially Supported. only DACLs available, SACLs
@@ -113,7 +112,8 @@ ksmbd/nfsd interoperability    Planned for future. The features that ksmbd
                                support are Leases, Notify, ACLs and Share modes.
 SMB3.1.1 Compression           Supported.
 SMB3.1.1 over QUIC             Planned for future.
-Signing/Encryption over RDMA   Planned for future.
+Signing over RDMA              Under development.
+Encryption over RDMA           Supported.
 SMB3.1.1 GMAC signing support  Planned for future.
 ============================== =================================================
 
