@@ -30,6 +30,7 @@ config ADRV904X
 	tristate "Analog Devices ADRV904X/ADRV9040 RF Transceiver driver"
 	depends on SPI
 	select CF_AXI_ADC
+	select IIO_KFIFO_BUF
 	help
 	  Say yes here to build support for Analog Devices:
 	  ADRV904X/ADRV9040 RF Transceivers. Provides direct access
