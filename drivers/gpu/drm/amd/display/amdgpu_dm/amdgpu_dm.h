@@ -1251,7 +1251,6 @@ void s3_handle_mst(struct drm_device *dev, bool suspend);
 void dm_gpureset_commit_state(struct dc_state *dc_state, struct amdgpu_display_manager *dm);
 int dm_plane_layer_index_cmp(const void *a, const void *b);
 bool update_planes_and_stream_adapter(struct dc *dc,
-				      int update_type,
 				      int planes_count,
 				      struct dc_stream_state *stream,
 				      struct dc_stream_update *stream_update,

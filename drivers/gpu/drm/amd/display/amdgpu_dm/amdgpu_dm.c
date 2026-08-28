@@ -274,7 +274,6 @@ static const struct amdgpu_dm_kunit_ops *amdgpu_dm_ops;
  * before passing control to DC.
  *
  * @dc: Display Core control structure
- * @update_type: specify whether it is FULL/MEDIUM/FAST update
  * @planes_count: planes count to update
  * @stream: stream state
  * @stream_update: stream update
@@ -283,7 +282,6 @@ static const struct amdgpu_dm_kunit_ops *amdgpu_dm_ops;
  */
 STATIC_IFN_KUNIT INLINE_IFN_KUNIT
 bool update_planes_and_stream_adapter(struct dc *dc,
-				      int update_type,
 				      int planes_count,
 				      struct dc_stream_state *stream,
 				      struct dc_stream_update *stream_update,
@@ -1806,7 +1804,6 @@ STATIC_IFN_KUNIT void dm_gpureset_commit_state(struct dc_state *dc_state,
 		}
 
 		update_planes_and_stream_adapter(dm->dc,
-					 UPDATE_TYPE_FULL,
 					 dc_state->stream_status[k].plane_count,
 					 dc_state->streams[k],
 					 &bundle->stream_update,
@@ -4232,7 +4229,6 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 		}
 		mutex_lock(&dm->dc_lock);
 		update_planes_and_stream_adapter(dm->dc,
-					 acrtc_state->update_type,
 					 planes_count,
 					 acrtc_state->stream,
 					 stream_update_needed ? &bundle->stream_update : NULL,
