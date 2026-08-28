@@ -705,7 +705,7 @@
 
 	hym8563 {
 		rtc_int_l_pin: rtc-int-l-pin {
-			rockchip,pins = <0 RK_PB0 RK_FUNC_GPIO &pcfg_pull_up>;
+			rockchip,pins = <0 RK_PB0 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
