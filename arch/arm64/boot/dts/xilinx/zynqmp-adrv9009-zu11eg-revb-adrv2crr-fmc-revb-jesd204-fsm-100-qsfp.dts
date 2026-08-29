@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADRV2CRR-FMC using ADRV9009-ZU11EG Rev.B System on Module
+ *
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmc>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+
+#include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-jesd204-fsm.dts"
+
+/ {
+	model = "Analog Devices ADRV9009ZU11EG Corundum support";
+	/delete-node/ leds;
+};
+
+&fpga_axi {
+	mqnic0: ethernet@a0000000 {
+		compatible = "corundum,mqnic";
+		reg = <0x0 0xa0000000 0x1000000>;
+		reg-names = "csr";
+		interrupt-parent = <&gic>;
+		interrupts = <0 93 1>;
+		assigned-clocks = <&zynqmp_clk 72>; // PL1_REF
+		assigned-clock-rates = <250000000>;
+		resets = <&zynqmp_reset 117>; // ZYNQMP_RESET_PS_PL1
+		reset-names = "reset";
+	};
+};
