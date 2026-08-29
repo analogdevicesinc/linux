@@ -3708,6 +3708,52 @@ static void dm_test_add_modifier_alloc_failure(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, size, 1ULL << 62);
 }
 
+/**
+ * dm_test_fill_plane_buffer_attributes_gfx6() - Verify the pre-GFX9 dispatch.
+ * @test: KUnit test context.
+ *
+ * Verify if a pre-Vega family decodes tiling from the GFX6 modifier instead of
+ * taking the GFX9 or GFX12 modifier paths, and propagates the decode error for
+ * a modifier the GFX6 decoder does not understand.
+ */
+static void dm_test_fill_plane_buffer_attributes_gfx6(struct kunit *test)
+{
+	struct dc_tiling_info tiling_info = {0};
+	struct dc_plane_dcc_param dcc = {0};
+	struct dc_plane_address address = {0};
+	struct plane_size plane_size = {0};
+	struct amdgpu_framebuffer *afb;
+	struct amdgpu_device *adev;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	afb = kunit_kzalloc(test, sizeof(*afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, afb);
+
+	adev->family = AMDGPU_FAMILY_CZ;
+	afb->address = 0x80000000ULL;
+	afb->base.width = 1920;
+	afb->base.height = 1080;
+	afb->base.pitches[0] = 7680;
+	afb->base.format = drm_format_info(DRM_FORMAT_XRGB8888);
+	KUNIT_ASSERT_NOT_NULL(test, afb->base.format);
+	afb->base.modifier = AMD_FMT_MOD |
+			     AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX6) |
+			     AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX6_1D_TILED_THIN1) |
+			     AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_DISPLAY);
+
+	KUNIT_EXPECT_EQ(test, dm_test_graphics_attrs(adev, afb, &tiling_info,
+						     &plane_size, &dcc, &address), 0);
+	KUNIT_EXPECT_EQ(test, address.type, (int)PLN_ADDR_TYPE_GRAPHICS);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfxversion, (int)DcGfxVersion8);
+
+	afb->base.modifier = AMD_FMT_MOD |
+			     AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX9);
+
+	KUNIT_EXPECT_EQ(test, dm_test_graphics_attrs(adev, afb, &tiling_info,
+						     &plane_size, &dcc, &address), -EINVAL);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3746,6 +3792,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_fill_plane_buffer_attributes() */
 	KUNIT_CASE(dm_test_fill_plane_buffer_attributes_video),
 	KUNIT_CASE(dm_test_fill_plane_buffer_attributes_gfx12),
+	KUNIT_CASE(dm_test_fill_plane_buffer_attributes_gfx6),
 	/* amdgpu_dm_plane_get_cursor_position() */
 	KUNIT_CASE(dm_test_get_cursor_position),
 	KUNIT_CASE(dm_test_get_cursor_position_bad_size),
