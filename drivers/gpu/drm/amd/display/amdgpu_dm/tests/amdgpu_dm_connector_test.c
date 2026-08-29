@@ -27,6 +27,7 @@
 #include "amdgpu_dm.h"
 #include "amdgpu_dm_connector.h"
 #include "amdgpu_dm_backlight.h"
+#include "amdgpu_dm_psr.h"
 #include "include/grph_object_id.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
 #include "inc/link_service.h"
@@ -4176,6 +4177,217 @@ static void dm_test_create_stream_existing_sink(struct kunit *test)
 
 	KUNIT_ASSERT_NOT_NULL(test, stream);
 	KUNIT_EXPECT_PTR_EQ(test, stream->sink, sink);
+
+	dc_stream_release(stream);
+	dc_sink_release(sink);
+}
+
+/* Append a copy of the context mode to the connector's mode list. */
+static void dm_test_stream_add_mode(struct kunit *test, struct dm_test_stream_ctx *ctx,
+				    u32 type)
+{
+	struct drm_display_mode *mode = drm_mode_create(ctx->drm);
+
+	KUNIT_ASSERT_NOT_NULL(test, mode);
+	drm_mode_copy(mode, ctx->mode);
+	mode->type = type;
+	list_add_tail(&mode->head, &ctx->aconnector->base.modes);
+}
+
+/* Give the context mode a full set of CRTC timings. */
+static void dm_test_stream_set_timings(struct dm_test_stream_ctx *ctx)
+{
+	ctx->mode->hsync_start = 2008;
+	ctx->mode->hsync_end = 2052;
+	ctx->mode->htotal = 2200;
+	ctx->mode->vsync_start = 1084;
+	ctx->mode->vsync_end = 1089;
+	ctx->mode->vtotal = 1125;
+}
+
+/* Create a real dc_sink of @signal owned by the caller. */
+static struct dc_sink *dm_test_stream_add_sink(struct kunit *test,
+					       struct dm_test_stream_ctx *ctx,
+					       enum signal_type signal)
+{
+	struct dc_sink_init_data sink_init = { 0 };
+	struct dc_sink *sink;
+
+	sink_init.link = ctx->link;
+	sink_init.sink_signal = signal;
+	sink = dc_sink_create(&sink_init);
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+	sink->sink_signal = signal;
+	ctx->aconnector->dc_sink = sink;
+
+	return sink;
+}
+
+/**
+ * dm_test_create_stream_preferred_mode - Test the preferred mode drives the timing
+ * @test: The KUnit test context
+ *
+ * A preferred mode in the connector's mode list is used to recompute the CRTC
+ * timings of the requested mode before the stream properties are filled in.
+ */
+static void dm_test_create_stream_preferred_mode(struct kunit *test)
+{
+	struct dm_test_stream_ctx *ctx = dm_test_stream_ctx_alloc(test);
+	struct dc_stream_state *stream;
+
+	dm_test_stream_set_timings(ctx);
+	dm_test_stream_add_mode(test, ctx, DRM_MODE_TYPE_PREFERRED);
+
+	stream = create_stream_for_sink(&ctx->aconnector->base, ctx->mode,
+					ctx->dm_state, NULL, 8,
+					PIXEL_ENCODING_RGB, false);
+
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.h_addressable, 1920);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.v_addressable, 1080);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.h_total, 2200);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.v_total, 1125);
+	dc_stream_release(stream);
+}
+
+/**
+ * dm_test_create_stream_scaled_keeps_refresh - Test scaling reuses the old timing
+ * @test: The KUnit test context
+ *
+ * With scaling enabled and an unchanged refresh rate the stream properties are
+ * filled from the old stream so the VIC and sync polarities are preserved.
+ */
+static void dm_test_create_stream_scaled_keeps_refresh(struct kunit *test)
+{
+	struct dm_test_stream_ctx *ctx = dm_test_stream_ctx_alloc(test);
+	struct dc_stream_state *stream;
+
+	dm_test_stream_set_timings(ctx);
+	dm_test_stream_add_mode(test, ctx, DRM_MODE_TYPE_PREFERRED);
+	ctx->dm_state->scaling = RMX_FULL;
+
+	stream = create_stream_for_sink(&ctx->aconnector->base, ctx->mode,
+					ctx->dm_state, NULL, 8,
+					PIXEL_ENCODING_RGB, false);
+
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.h_addressable, 1920);
+	dc_stream_release(stream);
+}
+
+/**
+ * dm_test_create_stream_timing_override - Test the automated test timing override
+ * @test: The KUnit test context
+ *
+ * A connector carrying a requested timing from an automated test replaces the
+ * timing derived from the mode.
+ */
+static void dm_test_create_stream_timing_override(struct kunit *test)
+{
+	struct dm_test_stream_ctx *ctx = dm_test_stream_ctx_alloc(test);
+	struct dc_crtc_timing *timing;
+	struct dc_stream_state *stream;
+
+	timing = kunit_kzalloc(test, sizeof(*timing), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, timing);
+	timing->h_addressable = 1280;
+	timing->v_addressable = 720;
+	timing->display_color_depth = COLOR_DEPTH_101010;
+
+	ctx->aconnector->timing_changed = true;
+	ctx->aconnector->timing_requested = timing;
+
+	stream = create_stream_for_sink(&ctx->aconnector->base, ctx->mode,
+					ctx->dm_state, NULL, 8,
+					PIXEL_ENCODING_RGB, false);
+
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.h_addressable, 1280);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.display_color_depth,
+			(int)COLOR_DEPTH_101010);
+	dc_stream_release(stream);
+}
+
+/**
+ * dm_test_create_stream_dp_vsc_colorimetry - Test the DP VSC SDP colorimetry decision
+ * @test: The KUnit test context
+ *
+ * A DisplayPort sink on a DPCD 1.4 link advertising VSC SDP colorimetry, and
+ * without the disable-colorimetry quirk, enables VSC SDP colorimetry and
+ * arms the self refresh entry delay.
+ */
+static void dm_test_create_stream_dp_vsc_colorimetry(struct kunit *test)
+{
+	struct dm_test_stream_ctx *ctx = dm_test_stream_ctx_alloc(test);
+	struct dc_stream_state *stream;
+	struct dc_sink *sink;
+
+	sink = dm_test_stream_add_sink(test, ctx, SIGNAL_TYPE_DISPLAY_PORT);
+	ctx->link->dpcd_caps.dpcd_rev.raw = 0x14;
+	ctx->link->dpcd_caps.dprx_feature.bits.VSC_SDP_COLORIMETRY_SUPPORTED = 1;
+
+	stream = create_stream_for_sink(&ctx->aconnector->base, ctx->mode,
+					ctx->dm_state, NULL, 8,
+					PIXEL_ENCODING_RGB, false);
+
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+	KUNIT_EXPECT_EQ(test, (int)stream->signal, (int)SIGNAL_TYPE_DISPLAY_PORT);
+	KUNIT_EXPECT_TRUE(test, stream->use_vsc_sdp_for_colorimetry);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->sr_skip_count, AMDGPU_DM_PSR_ENTRY_DELAY);
+
+	dc_stream_release(stream);
+	dc_sink_release(sink);
+}
+
+/**
+ * dm_test_create_stream_dp_colorimetry_quirk - Test the disable colorimetry quirk
+ * @test: The KUnit test context
+ */
+static void dm_test_create_stream_dp_colorimetry_quirk(struct kunit *test)
+{
+	struct dm_test_stream_ctx *ctx = dm_test_stream_ctx_alloc(test);
+	struct dc_stream_state *stream;
+	struct dc_sink *sink;
+
+	sink = dm_test_stream_add_sink(test, ctx, SIGNAL_TYPE_DISPLAY_PORT);
+	sink->edid_caps.panel_patch.disable_colorimetry = true;
+	ctx->link->dpcd_caps.dpcd_rev.raw = 0x14;
+	ctx->link->dpcd_caps.dprx_feature.bits.VSC_SDP_COLORIMETRY_SUPPORTED = 1;
+
+	stream = create_stream_for_sink(&ctx->aconnector->base, ctx->mode,
+					ctx->dm_state, NULL, 8,
+					PIXEL_ENCODING_RGB, false);
+
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+	KUNIT_EXPECT_FALSE(test, stream->use_vsc_sdp_for_colorimetry);
+
+	dc_stream_release(stream);
+	dc_sink_release(sink);
+}
+
+/**
+ * dm_test_create_stream_hdmi_vsif - Test the HDMI vendor specific infoframe
+ * @test: The KUnit test context
+ *
+ * An HDMI sink takes the HDMI Forum vendor specific infoframe path. A plain
+ * 2D, non-HDMI-VIC timing carries no payload, so the packet stays invalid.
+ */
+static void dm_test_create_stream_hdmi_vsif(struct kunit *test)
+{
+	struct dm_test_stream_ctx *ctx = dm_test_stream_ctx_alloc(test);
+	struct dc_stream_state *stream;
+	struct dc_sink *sink;
+
+	ctx->link->connector_signal = SIGNAL_TYPE_HDMI_TYPE_A;
+	sink = dm_test_stream_add_sink(test, ctx, SIGNAL_TYPE_HDMI_TYPE_A);
+
+	stream = create_stream_for_sink(&ctx->aconnector->base, ctx->mode,
+					ctx->dm_state, NULL, 8,
+					PIXEL_ENCODING_RGB, false);
+
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+	KUNIT_EXPECT_EQ(test, (int)stream->signal, (int)SIGNAL_TYPE_HDMI_TYPE_A);
+	KUNIT_EXPECT_FALSE(test, stream->vsp_infopacket.valid);
 
 	dc_stream_release(stream);
 	dc_sink_release(sink);
@@ -8730,6 +8942,12 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_create_stream_virtual_signal),
 	KUNIT_CASE(dm_test_create_stream_scaling_src),
 	KUNIT_CASE(dm_test_create_stream_existing_sink),
+	KUNIT_CASE(dm_test_create_stream_preferred_mode),
+	KUNIT_CASE(dm_test_create_stream_scaled_keeps_refresh),
+	KUNIT_CASE(dm_test_create_stream_timing_override),
+	KUNIT_CASE(dm_test_create_stream_dp_vsc_colorimetry),
+	KUNIT_CASE(dm_test_create_stream_dp_colorimetry_quirk),
+	KUNIT_CASE(dm_test_create_stream_hdmi_vsif),
 	/* amdgpu_dm_connector_detect */
 	KUNIT_CASE(dm_test_detect_force_on),
 	KUNIT_CASE(dm_test_detect_force_on_digital),
