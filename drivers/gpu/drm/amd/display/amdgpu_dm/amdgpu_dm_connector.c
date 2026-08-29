@@ -3427,6 +3427,7 @@ int amdgpu_dm_initialize_hdmi_connector(struct amdgpu_dm_connector *aconnector)
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_initialize_hdmi_connector);
 
 /*
  * Note: this function assumes that dc_link_detect() was called for the

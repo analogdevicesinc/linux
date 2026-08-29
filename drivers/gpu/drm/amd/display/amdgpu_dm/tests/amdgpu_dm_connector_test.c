@@ -9063,6 +9063,24 @@ static void dm_test_init_helper_hpd_debounce_disabled(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, ctx->aconnector->hdmi_hpd_debounce_delay_ms, 0);
 }
 
+/* Tests for amdgpu_dm_initialize_hdmi_connector() */
+
+/**
+ * dm_test_initialize_hdmi_cec_registers - Test the CEC notifier is registered
+ * @test: The KUnit test context
+ *
+ * Without DC_DISABLE_HDMI_CEC in the debug mask a CEC notifier is created for
+ * the connector.
+ */
+static void dm_test_initialize_hdmi_cec_registers(struct kunit *test)
+{
+	struct dm_test_init_helper_ctx *ctx =
+		dm_test_init_helper_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_initialize_hdmi_connector(ctx->aconnector), 0);
+	KUNIT_EXPECT_NOT_NULL(test, ctx->aconnector->notifier);
+}
+
 static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* get_subconnector_type */
 	KUNIT_CASE(dm_test_subconnector_type_none),
@@ -9457,6 +9475,8 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_init_helper_edp),
 	KUNIT_CASE(dm_test_init_helper_hdcp_property),
 	KUNIT_CASE(dm_test_init_helper_hpd_debounce_disabled),
+	/* amdgpu_dm_initialize_hdmi_connector */
+	KUNIT_CASE(dm_test_initialize_hdmi_cec_registers),
 	{}
 };
 
