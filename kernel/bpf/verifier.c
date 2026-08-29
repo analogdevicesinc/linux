@@ -11675,6 +11675,17 @@ static bool btf_struct_member_walk(struct bpf_verifier_env *env, const struct bt
 		const struct btf_array *array;
 
 		member_type = btf_type_skip_modifiers(btf, member->type, NULL);
+		/*
+		 * Every element of an array is laid out in the value being
+		 * returned, so an array counts as its element type however many
+		 * dimensions deep that is.
+		 */
+		while (btf_type_is_array(member_type)) {
+			array = btf_array(member_type);
+			if (!array->nelems)
+				return false;
+			member_type = btf_type_skip_modifiers(btf, array->type, NULL);
+		}
 		if (btf_type_is_struct(member_type)) {
 			if (rec >= 3) {
 				verbose(env, "max struct nesting depth exceeded\n");
@@ -11683,12 +11694,6 @@ static bool btf_struct_member_walk(struct bpf_verifier_env *env, const struct bt
 			if (!btf_struct_member_walk(env, btf, member_type, member_kinds, rec + 1))
 				return false;
 			continue;
-		}
-		if (btf_type_is_array(member_type)) {
-			array = btf_array(member_type);
-			if (!array->nelems)
-				return false;
-			member_type = btf_type_skip_modifiers(btf, array->type, NULL);
 		}
 		if (!btf_member_kind_allowed(btf, member_type, member_kinds))
 			return false;
