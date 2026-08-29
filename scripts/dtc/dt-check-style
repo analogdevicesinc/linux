@@ -280,7 +280,7 @@ def parse_node_header(dl):
 
 
 def parse_property_name(dl):
-    m = re.match(r'^([a-zA-Z0-9#][a-zA-Z0-9,._+#-]*)\s*[=;]', dl.stripped)
+    m = re.match(r'^([a-zA-Z0-9#][a-zA-Z0-9,._+?#-]*)\s*[=;]', dl.stripped)
     if m:
         dl.prop_name = m.group(1)
 
