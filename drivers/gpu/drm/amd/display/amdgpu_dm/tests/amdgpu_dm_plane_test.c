@@ -506,6 +506,11 @@ static void dm_test_format_mod_supported(struct kunit *test)
 
 	KUNIT_EXPECT_FALSE(test,
 			   amdgpu_dm_plane_format_mod_supported(plane, DRM_FORMAT_NV12, listed_mod));
+
+	/* 4 bytes per pixel, but its extra plane collides with the DCC metadata plane. */
+	KUNIT_EXPECT_FALSE(test,
+			   amdgpu_dm_plane_format_mod_supported(plane, DRM_FORMAT_XRGB8888_A8,
+								listed_mod));
 }
 
 /**
