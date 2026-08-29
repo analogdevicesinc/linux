@@ -2504,18 +2504,18 @@
 
 			#global-interrupts = <1>;
 			interrupts = <GIC_SPI 404 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 401 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH>,
-		                <GIC_SPI 403 IRQ_TYPE_LEVEL_HIGH>;
+				     <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 401 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 403 IRQ_TYPE_LEVEL_HIGH>;
 
 			clocks = <&gcc GCC_HLOS1_VOTE_LPASS_ADSP_SMMU_CLK>,
 				 <&gcc GCC_HLOS1_VOTE_LPASS_CORE_SMMU_CLK>;
