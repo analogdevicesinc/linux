@@ -959,6 +959,9 @@ def check_tab_in_yaml_example(ctx):
             continue
         if '\t' in dl.raw:
             yield (dl.lineno, 'tab character not allowed in DTS example')
+        for cont in dl.continuations:
+            if '\t' in cont.raw:
+                yield (cont.lineno, 'tab character not allowed in DTS example')
 
 
 def check_trailing_whitespace(ctx):

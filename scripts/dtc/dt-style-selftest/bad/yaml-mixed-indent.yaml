@@ -26,4 +26,6 @@ examples:
     device@1000 {
     	   compatible = "example,test-mixed";
         reg = <0x1000 0x100>;
+        clocks = <1>,
+    	           <2>;
     };
