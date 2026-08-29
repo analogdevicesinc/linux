@@ -3754,6 +3754,41 @@ static void dm_test_fill_plane_buffer_attributes_gfx6(struct kunit *test)
 						     &plane_size, &dcc, &address), -EINVAL);
 }
 
+/**
+ * dm_test_atomic_check_success() - Verify a fully valid plane state is accepted.
+ * @test: KUnit test context.
+ *
+ * Verify if atomic_check reports success once DC validation accepts the plane.
+ * The resource pool exposes no validate_plane callback, so DC falls back to
+ * checking the source and destination rectangles only.
+ */
+static void dm_test_atomic_check_success(struct kunit *test)
+{
+	struct dm_plane_state *dm_plane_state;
+	struct drm_crtc_state *new_crtc_state;
+	struct drm_atomic_commit *state;
+	struct resource_pool *res_pool;
+	struct amdgpu_device *adev;
+	struct drm_framebuffer *fb;
+	struct drm_plane *plane;
+
+	adev = dm_test_init_atomic_check_state(test, &state, &plane, &dm_plane_state,
+					       &new_crtc_state, &fb);
+	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
+	res_pool->funcs = kunit_kzalloc(test, sizeof(*res_pool->funcs), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool->funcs);
+
+	adev->dm.dc->res_pool = res_pool;
+
+	dm_plane_state->dc_state->src_rect.width = 100;
+	dm_plane_state->dc_state->src_rect.height = 100;
+	dm_plane_state->dc_state->dst_rect.width = 100;
+	dm_plane_state->dc_state->dst_rect.height = 100;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_atomic_check(plane, state), 0);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3837,6 +3872,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_atomic_check_helper_failure),
 	KUNIT_CASE(dm_test_atomic_check_color_pipeline_conflict),
 	KUNIT_CASE(dm_test_atomic_check_scaling_failure),
+	KUNIT_CASE(dm_test_atomic_check_success),
 	/* amdgpu_dm_plane_panic_flush() */
 	KUNIT_CASE(dm_test_panic_flush_no_dc_state),
 	/* amdgpu_dm_plane_drm_plane_reset() */
