@@ -22,6 +22,7 @@ enum chips {
 	max34441,
 	max34446,
 	max34451,
+	max34452,
 	max34460,
 	max34461,
 };
@@ -50,6 +51,7 @@ enum chips {
 #define MAX34440_IOUT_OC_FAULT_LIMIT	0x4A
 
 #define MAX34451ETNA6_MFR_REV		0x0012
+#define MAX34451ETNA8_MFR_REV		0x0014
 
 #define MAX34451_MFR_CHANNEL_CONFIG	0xe4
 #define MAX34451_MFR_CHANNEL_CONFIG_SEL_MASK	0x3f
@@ -81,6 +83,38 @@ static int max34440_read_word_data(struct i2c_client *client, int page,
 		ret = pmbus_read_word_data(client, page, phase,
 					   data->iout_oc_warn_limit);
 		break;
+	case PMBUS_VIN_OV_FAULT_LIMIT:
+	case PMBUS_VIN_OV_WARN_LIMIT:
+	case PMBUS_VIN_UV_WARN_LIMIT:
+	case PMBUS_VIN_UV_FAULT_LIMIT:
+	case PMBUS_MFR_VIN_MIN:
+	case PMBUS_MFR_VIN_MAX:
+	case PMBUS_IIN_OC_WARN_LIMIT:
+	case PMBUS_IIN_OC_FAULT_LIMIT:
+	case PMBUS_MFR_IIN_MAX:
+	case PMBUS_MFR_VOUT_MIN:
+	case PMBUS_MFR_VOUT_MAX:
+	case PMBUS_IOUT_UC_FAULT_LIMIT:
+	case PMBUS_MFR_IOUT_MAX:
+	case PMBUS_UT_WARN_LIMIT:
+	case PMBUS_UT_FAULT_LIMIT:
+	case PMBUS_MFR_MAX_TEMP_1:
+		/*
+		 * MAX34451/MAX34452/ADPM family do not support VIN/IIN limit
+		 * registers, manufacturer-specific min/max registers, or
+		 * undercurrent/undertemperature fault limits. Accessing these
+		 * triggers CML error and asserts ALERT.
+		 */
+		if (data->id == max34451 || data->id == max34452 ||
+		    data->id == adpm12160 || data->id == adpm12200 ||
+		    data->id == adpm12250)
+			return -ENXIO;
+		ret = -ENODATA;
+		break;
+	case PMBUS_VOUT_OV_WARN_LIMIT:
+		if (data->id == max34452)
+			return -ENXIO;
+		return -ENODATA;
 	case PMBUS_VIRT_READ_VOUT_MIN:
 		ret = pmbus_read_word_data(client, page, phase,
 					   MAX34440_MFR_VOUT_MIN);
@@ -91,8 +125,8 @@ static int max34440_read_word_data(struct i2c_client *client, int page,
 		break;
 	case PMBUS_VIRT_READ_IOUT_AVG:
 		if (data->id != max34446 && data->id != max34451 &&
-		    data->id != adpm12160 && data->id != adpm12200 &&
-		    data->id != adpm12250)
+		    data->id != max34452 && data->id != adpm12160 &&
+		    data->id != adpm12200 && data->id != adpm12250)
 			return -ENXIO;
 		ret = pmbus_read_word_data(client, page, phase,
 					   MAX34446_MFR_IOUT_AVG);
@@ -157,6 +191,10 @@ static int max34440_write_word_data(struct i2c_client *client, int page,
 		ret = pmbus_write_word_data(client, page, data->iout_oc_warn_limit,
 					    word);
 		break;
+	case PMBUS_VOUT_OV_WARN_LIMIT:
+		if (data->id == max34452)
+			return -ENXIO;
+		return -ENODATA;
 	case PMBUS_VIRT_RESET_POUT_HISTORY:
 		ret = pmbus_write_word_data(client, page,
 					    MAX34446_MFR_POUT_PEAK, 0);
@@ -177,8 +215,8 @@ static int max34440_write_word_data(struct i2c_client *client, int page,
 		ret = pmbus_write_word_data(client, page,
 					    MAX34440_MFR_IOUT_PEAK, 0);
 		if (!ret && (data->id == max34446 || data->id == max34451 ||
-			     data->id == adpm12160 || data->id == adpm12200 ||
-			     data->id == adpm12250))
+			     data->id == max34452 || data->id == adpm12160 ||
+			     data->id == adpm12200 || data->id == adpm12250))
 			ret = pmbus_write_word_data(client, page,
 					MAX34446_MFR_IOUT_AVG, 0);
 
@@ -237,6 +275,53 @@ static int max34440_read_byte_data(struct i2c_client *client, int page, int reg)
 	return ret;
 }
 
+static int max34451_read_byte_data(struct i2c_client *client, int page, int reg)
+{
+	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
+	const struct max34440_data *data = to_max34440_data(info);
+
+	switch (reg) {
+	case PMBUS_STATUS_BYTE:
+	case PMBUS_STATUS_OTHER:
+		/*
+		 * MAX34451/MAX34452/ADPM family do not support STATUS_BYTE or
+		 * STATUS_OTHER registers. Accessing them triggers CML
+		 * error and asserts ALERT.
+		 */
+		if (data->id == max34451 || data->id == max34452 ||
+		    data->id == adpm12160 || data->id == adpm12200 ||
+		    data->id == adpm12250)
+			return -ENXIO;
+		return -ENODATA;
+	default:
+		return -ENODATA;
+	}
+}
+
+static int max34451_write_byte_data(struct i2c_client *client, int page,
+				    int reg, u8 byte)
+{
+	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
+	const struct max34440_data *data = to_max34440_data(info);
+
+	switch (reg) {
+	case PMBUS_STATUS_BYTE:
+	case PMBUS_STATUS_OTHER:
+		/*
+		 * MAX34451/MAX34452/ADPM family do not support STATUS_BYTE or
+		 * STATUS_OTHER registers. Writing to them triggers CML
+		 * error and asserts ALERT.
+		 */
+		if (data->id == max34451 || data->id == max34452 ||
+		    data->id == adpm12160 || data->id == adpm12200 ||
+		    data->id == adpm12250)
+			return -ENXIO;
+		return -ENODATA;
+	default:
+		return -ENODATA;
+	}
+}
+
 static int max34451_set_supported_funcs(struct i2c_client *client,
 					 struct max34440_data *data)
 {
@@ -260,16 +345,28 @@ static int max34451_set_supported_funcs(struct i2c_client *client,
 	if (rv < 0)
 		return rv;
 
-	if (rv >= MAX34451ETNA6_MFR_REV) {
+	if (data->id == max34451 && rv >= MAX34451ETNA6_MFR_REV) {
 		max34451_na6 = true;
 		data->info.format[PSC_VOLTAGE_IN] = direct;
 		data->info.format[PSC_CURRENT_IN] = direct;
-		data->info.m[PSC_VOLTAGE_IN] = 1;
+
 		data->info.b[PSC_VOLTAGE_IN] = 0;
-		data->info.R[PSC_VOLTAGE_IN] = 3;
-		data->info.m[PSC_CURRENT_IN] = 1;
 		data->info.b[PSC_CURRENT_IN] = 0;
-		data->info.R[PSC_CURRENT_IN] = 2;
+		if (rv >= MAX34451ETNA8_MFR_REV) {
+			data->info.m[PSC_VOLTAGE_IN] = 125;
+			data->info.R[PSC_VOLTAGE_IN] = 0;
+			data->info.m[PSC_VOLTAGE_OUT] = 125;
+			data->info.R[PSC_VOLTAGE_OUT] = 0;
+			data->info.m[PSC_CURRENT_IN] = 250;
+			data->info.R[PSC_CURRENT_IN] = -1;
+			data->info.m[PSC_CURRENT_OUT] = 250;
+			data->info.R[PSC_CURRENT_OUT] = -1;
+		} else {
+			data->info.m[PSC_VOLTAGE_IN] = 1;
+			data->info.R[PSC_VOLTAGE_IN] = 3;
+			data->info.m[PSC_CURRENT_IN] = 1;
+			data->info.R[PSC_CURRENT_IN] = 2;
+		}
 		data->iout_oc_fault_limit = PMBUS_IOUT_OC_FAULT_LIMIT;
 		data->iout_oc_warn_limit = PMBUS_IOUT_OC_WARN_LIMIT;
 	}
@@ -355,7 +452,9 @@ static struct pmbus_driver_info max34440_info[] = {
 		.func[9] = PMBUS_HAVE_VIN | PMBUS_HAVE_STATUS_INPUT,
 		.func[10] = PMBUS_HAVE_IIN | PMBUS_HAVE_STATUS_INPUT,
 		.func[18] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.read_byte_data = max34451_read_byte_data,
 		.read_word_data = max34440_read_word_data,
+		.write_byte_data = max34451_write_byte_data,
 		.write_word_data = max34440_write_word_data,
 	},
 	[adpm12200] = {
@@ -391,7 +490,9 @@ static struct pmbus_driver_info max34440_info[] = {
 		.func[10] = PMBUS_HAVE_IIN | PMBUS_HAVE_STATUS_INPUT,
 		.func[14] = PMBUS_HAVE_IOUT,
 		.func[18] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.read_byte_data = max34451_read_byte_data,
 		.read_word_data = max34440_read_word_data,
+		.write_byte_data = max34451_write_byte_data,
 		.write_word_data = max34440_write_word_data,
 	},
 	[adpm12250] = {
@@ -425,7 +526,9 @@ static struct pmbus_driver_info max34440_info[] = {
 		.func[10] = PMBUS_HAVE_IIN | PMBUS_HAVE_STATUS_INPUT,
 		.func[14] = PMBUS_HAVE_IOUT,
 		.func[18] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.read_byte_data = max34451_read_byte_data,
 		.read_word_data = max34440_read_word_data,
+		.write_byte_data = max34451_write_byte_data,
 		.write_word_data = max34440_write_word_data,
 	},
 	[max34440] = {
@@ -570,7 +673,34 @@ static struct pmbus_driver_info max34440_info[] = {
 		.func[18] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
 		.func[19] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
 		.func[20] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.read_byte_data = max34451_read_byte_data,
 		.read_word_data = max34440_read_word_data,
+		.write_byte_data = max34451_write_byte_data,
+		.write_word_data = max34440_write_word_data,
+	},
+	[max34452] = {
+		.pages = 21,
+		.format[PSC_VOLTAGE_OUT] = direct,
+		.format[PSC_TEMPERATURE] = direct,
+		.format[PSC_CURRENT_OUT] = direct,
+		.m[PSC_VOLTAGE_OUT] = 1,
+		.b[PSC_VOLTAGE_OUT] = 0,
+		.R[PSC_VOLTAGE_OUT] = 3,
+		.m[PSC_CURRENT_OUT] = 1,
+		.b[PSC_CURRENT_OUT] = 0,
+		.R[PSC_CURRENT_OUT] = 2,
+		.m[PSC_TEMPERATURE] = 1,
+		.b[PSC_TEMPERATURE] = 0,
+		.R[PSC_TEMPERATURE] = 2,
+		/* func 0-15 is set dynamically before probing */
+		.func[16] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.func[17] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.func[18] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.func[19] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.func[20] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.read_byte_data = max34451_read_byte_data,
+		.read_word_data = max34440_read_word_data,
+		.write_byte_data = max34451_write_byte_data,
 		.write_word_data = max34440_write_word_data,
 	},
 	[max34460] = {
@@ -654,7 +784,7 @@ static int max34440_probe(struct i2c_client *client)
 	data->iout_oc_fault_limit = MAX34440_IOUT_OC_FAULT_LIMIT;
 	data->iout_oc_warn_limit = MAX34440_IOUT_OC_WARN_LIMIT;
 
-	if (data->id == max34451) {
+	if (data->id == max34451 || data->id == max34452) {
 		rv = max34451_set_supported_funcs(client, data);
 		if (rv)
 			return rv;
@@ -675,6 +805,7 @@ static const struct i2c_device_id max34440_id[] = {
 	{"max34441", max34441},
 	{"max34446", max34446},
 	{"max34451", max34451},
+	{"max34452", max34452},
 	{"max34460", max34460},
 	{"max34461", max34461},
 	{}
