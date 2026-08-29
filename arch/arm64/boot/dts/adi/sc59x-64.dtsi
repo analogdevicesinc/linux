@@ -640,7 +640,7 @@
 		pinctrl0: pinctrl@31004600 {
 			compatible = "adi,adsp-pinctrl";
 			reg = <0x31004600 0x400>;
-			adi,port-sizes = <16 16 16 16 16 16 16 16 7>;
+			adi,npins = <135>;
 		};
 
 		sru_ctrl_dai0: sru-ctrl-dai0@310c9000 {
