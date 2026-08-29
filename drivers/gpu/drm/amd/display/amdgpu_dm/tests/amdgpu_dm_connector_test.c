@@ -9620,6 +9620,134 @@ static void dm_test_conn_init_get_modes_hook(struct kunit *test)
 	KUNIT_EXPECT_GT(test, ctx->aconnector->num_modes, 0);
 }
 
+/* Tests for dm_force_atomic_commit() */
+
+/* Fails the very first state duplication so the error path is taken. */
+static struct drm_connector_state *
+dm_test_force_dup_state_fail(struct drm_connector *connector)
+{
+	return NULL;
+}
+
+static const struct drm_connector_funcs dm_test_force_fail_funcs = {
+	.reset = amdgpu_dm_connector_funcs_reset,
+	.atomic_duplicate_state = dm_test_force_dup_state_fail,
+	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+};
+
+/* The atomic modeset check dereferences the helper funcs unconditionally. */
+static int dm_test_force_get_modes(struct drm_connector *connector)
+{
+	return 0;
+}
+
+static const struct drm_connector_helper_funcs dm_test_force_conn_helper_funcs = {
+	.get_modes = dm_test_force_get_modes,
+};
+
+struct dm_test_force_ctx {
+	struct drm_device *drm;
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_modeset_acquire_ctx acquire_ctx;
+};
+
+static void dm_test_force_drop_locks(void *data)
+{
+	struct dm_test_force_ctx *ctx = data;
+
+	ctx->drm->mode_config.acquire_ctx = NULL;
+	drm_modeset_drop_locks(&ctx->acquire_ctx);
+	drm_modeset_acquire_fini(&ctx->acquire_ctx);
+}
+
+/*
+ * Build a disabled but fully initialized pipe: a primary plane, a CRTC (whose
+ * drm_crtc is the first member of amdgpu_crtc, so to_amdgpu_crtc() resolves)
+ * and a connector wired to an encoder that still points at the CRTC, which is
+ * the state dm_force_atomic_commit() is asked to restore.
+ */
+static struct dm_test_force_ctx *
+dm_test_force_ctx_alloc(struct kunit *test, const struct drm_connector_funcs *funcs)
+{
+	struct dm_test_force_ctx *ctx;
+	struct drm_encoder *encoder;
+	struct drm_plane *primary;
+	struct drm_crtc *crtc;
+	struct device *dev;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	dev = drm_kunit_helper_alloc_device(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
+	ctx->drm = __drm_kunit_helper_alloc_drm_device(test, dev,
+						       sizeof(struct amdgpu_device),
+						       offsetof(struct amdgpu_device, ddev),
+						       DRIVER_MODESET | DRIVER_ATOMIC);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->drm);
+
+	primary = drm_kunit_helper_create_primary_plane(test, ctx->drm, NULL, NULL,
+							NULL, 0, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, primary);
+	crtc = drm_kunit_helper_create_crtc(test, ctx->drm, primary, NULL, NULL, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+
+	ctx->aconnector = drmm_kzalloc(ctx->drm, sizeof(*ctx->aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector);
+	KUNIT_ASSERT_EQ(test,
+			drmm_connector_init(ctx->drm, &ctx->aconnector->base, funcs,
+					    DRM_MODE_CONNECTOR_HDMIA, NULL), 0);
+	drm_connector_helper_add(&ctx->aconnector->base, &dm_test_force_conn_helper_funcs);
+
+	encoder = drmm_kzalloc(ctx->drm, sizeof(*encoder), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, encoder);
+	KUNIT_ASSERT_EQ(test,
+			drmm_encoder_init(ctx->drm, encoder, NULL,
+					  DRM_MODE_ENCODER_TMDS, NULL), 0);
+	encoder->crtc = crtc;
+	ctx->aconnector->base.encoder = encoder;
+
+	drm_mode_config_reset(ctx->drm);
+
+	drm_modeset_acquire_init(&ctx->acquire_ctx, 0);
+	ctx->drm->mode_config.acquire_ctx = &ctx->acquire_ctx;
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_force_drop_locks, ctx), 0);
+
+	return ctx;
+}
+
+/**
+ * dm_test_force_commit_succeeds - Test the forced restore commits the pipe
+ * @test: The KUnit test context
+ *
+ * The connector, its CRTC and the CRTC primary plane are pulled into a fresh
+ * atomic state, the CRTC is marked as needing a modeset and the commit
+ * succeeds.
+ */
+static void dm_test_force_commit_succeeds(struct kunit *test)
+{
+	struct dm_test_force_ctx *ctx =
+		dm_test_force_ctx_alloc(test, &dm_test_connector_funcs);
+
+	KUNIT_EXPECT_EQ(test, dm_force_atomic_commit(&ctx->aconnector->base), 0);
+}
+
+/**
+ * dm_test_force_commit_conn_state_error - Test a failed connector state duplication
+ * @test: The KUnit test context
+ *
+ * When the connector state cannot be duplicated the error is propagated and
+ * the partially built atomic state is released without committing.
+ */
+static void dm_test_force_commit_conn_state_error(struct kunit *test)
+{
+	struct dm_test_force_ctx *ctx =
+		dm_test_force_ctx_alloc(test, &dm_test_force_fail_funcs);
+
+	KUNIT_EXPECT_EQ(test, dm_force_atomic_commit(&ctx->aconnector->base), -ENOMEM);
+}
+
 static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* get_subconnector_type */
 	KUNIT_CASE(dm_test_subconnector_type_none),
@@ -10029,6 +10157,9 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_conn_init_hdmi),
 	KUNIT_CASE(dm_test_conn_init_dvi),
 	KUNIT_CASE(dm_test_conn_init_get_modes_hook),
+	/* dm_force_atomic_commit */
+	KUNIT_CASE(dm_test_force_commit_succeeds),
+	KUNIT_CASE(dm_test_force_commit_conn_state_error),
 	{}
 };
 

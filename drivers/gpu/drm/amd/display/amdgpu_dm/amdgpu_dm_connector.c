@@ -3507,7 +3507,7 @@ out_free:
 }
 EXPORT_IF_KUNIT(amdgpu_dm_connector_init);
 
-static int dm_force_atomic_commit(struct drm_connector *connector)
+STATIC_IFN_KUNIT int dm_force_atomic_commit(struct drm_connector *connector)
 {
 	int ret = 0;
 	struct drm_device *ddev = connector->dev;
@@ -3567,6 +3567,7 @@ out:
 
 	return ret;
 }
+EXPORT_IF_KUNIT(dm_force_atomic_commit);
 
 /*
  * This function handles all cases when set mode does not come upon hotplug.
