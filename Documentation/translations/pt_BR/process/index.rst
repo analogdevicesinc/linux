@@ -74,6 +74,7 @@ gerenciamento de bugs e vulnerabilidades.
    :maxdepth: 1
 
    Falhas de segurança <security-bugs>
+   Problemas de hardware sob embargo <embargoed-hardware-issues>
    CVEs <cve>
 
 Informações para mantenedores
