@@ -3505,6 +3505,7 @@ out_free:
 	}
 	return res;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_init);
 
 static int dm_force_atomic_commit(struct drm_connector *connector)
 {

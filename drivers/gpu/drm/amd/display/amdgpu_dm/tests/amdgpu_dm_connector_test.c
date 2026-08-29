@@ -16,6 +16,7 @@
 #include <drm/drm_managed.h>
 #include <drm/drm_mode_object.h>
 #include <drm/drm_modes.h>
+#include <drm/drm_modeset_helper_vtables.h>
 #include <drm/drm_property.h>
 #include <linux/hdmi.h>
 #include <linux/i2c.h>
@@ -9434,6 +9435,191 @@ static void dm_test_fs_caps_disables_replay(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, ctx->link->replay_settings.replay_feature_enabled);
 }
 
+/* Tests for amdgpu_dm_connector_init() and the get_modes() helper hook */
+
+/*
+ * amdgpu_dm_create_i2c() parents the adapter on adev->pdev->dev, so
+ * devm_i2c_add_adapter() needs a registered device there. Provide one by
+ * registering the device embedded in a KUnit allocated pci_dev.
+ */
+static void dm_test_conn_init_release_dev(struct device *dev)
+{
+	/* Backing storage is KUnit managed, so there is nothing to free. */
+}
+
+static void dm_test_conn_init_unregister_dev(void *data)
+{
+	device_unregister(data);
+}
+
+struct dm_test_conn_init_ctx {
+	struct amdgpu_device *adev;
+	struct drm_device *drm;
+	struct amdgpu_display_manager *dm;
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_encoder *aencoder;
+	struct dc_link *link;
+};
+
+static struct dm_test_conn_init_ctx *
+dm_test_conn_init_ctx_alloc(struct kunit *test, enum signal_type signal)
+{
+	struct dm_test_conn_init_ctx *ctx;
+	struct link_service *link_srv;
+	struct dc_context *dc_ctx;
+	struct ddc_service *ddc;
+	struct pci_dev *pdev;
+	struct device *dev;
+	struct dc *dc;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	dev = drm_kunit_helper_alloc_device(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
+	ctx->drm = __drm_kunit_helper_alloc_drm_device(test, dev,
+						       sizeof(struct amdgpu_device),
+						       offsetof(struct amdgpu_device, ddev),
+						       DRIVER_MODESET);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->drm);
+	ctx->adev = drm_to_adev(ctx->drm);
+	ctx->adev->dev = dev;
+	ctx->adev->mode_info.num_crtc = 1;
+	dm_test_create_mode_props(test, ctx->adev);
+
+	pdev = kunit_kzalloc(test, sizeof(*pdev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, pdev);
+	device_initialize(&pdev->dev);
+	pdev->dev.parent = dev;
+	pdev->dev.release = dm_test_conn_init_release_dev;
+	KUNIT_ASSERT_EQ(test, dev_set_name(&pdev->dev, "dm-test-i2c-parent"), 0);
+	KUNIT_ASSERT_EQ(test, device_add(&pdev->dev), 0);
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_conn_init_unregister_dev,
+						  &pdev->dev), 0);
+	ctx->adev->pdev = pdev;
+
+	ctx->dm = &ctx->adev->dm;
+	ctx->dm->adev = ctx->adev;
+	ctx->dm->ddev = ctx->drm;
+
+	dc_ctx = kunit_kzalloc(test, sizeof(*dc_ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc_ctx);
+	dc_ctx->driver_context = ctx->adev;
+
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	link_srv->dp_get_encoding_format = dm_test_gm_enc_8b10b;
+
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	dc->ctx = dc_ctx;
+	dc->link_srv = link_srv;
+
+	ctx->link = kunit_kzalloc(test, sizeof(*ctx->link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link);
+	ctx->link->connector_signal = signal;
+	ctx->link->dc = dc;
+	ctx->link->link_enc = kunit_kzalloc(test, sizeof(*ctx->link->link_enc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link->link_enc);
+
+	ddc = kunit_kzalloc(test, sizeof(*ddc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ddc);
+	ddc->ctx = dc_ctx;
+	ddc->link = ctx->link;
+	ctx->link->ddc = ddc;
+
+	dc->links[0] = ctx->link;
+	dc->link_count = 1;
+	ctx->dm->dc = dc;
+
+	/* amdgpu_dm_connector_destroy() and amdgpu_dm_encoder_destroy() kfree() these. */
+	ctx->aconnector = kzalloc_obj(*ctx->aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector);
+	ctx->aencoder = kzalloc_obj(*ctx->aencoder);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aencoder);
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_encoder_init(ctx->drm, ctx->aencoder, 0), 0);
+
+	return ctx;
+}
+
+/**
+ * dm_test_conn_init_hdmi - Test a HDMI connector is fully brought up
+ * @test: The KUnit test context
+ *
+ * The DC link is bound to the connector, an i2c adapter is created and
+ * registered as the DDC bus, the DRM connector is initialized with the DM
+ * funcs and helpers, the encoder is attached and the CEC notifier registered.
+ */
+static void dm_test_conn_init_hdmi(struct kunit *test)
+{
+	struct dm_test_conn_init_ctx *ctx =
+		dm_test_conn_init_ctx_alloc(test, SIGNAL_TYPE_HDMI_TYPE_A);
+	struct drm_connector *connector = &ctx->aconnector->base;
+
+	KUNIT_ASSERT_EQ(test,
+			amdgpu_dm_connector_init(ctx->dm, ctx->aconnector, 0,
+						 ctx->aencoder), 0);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->link->priv, ctx->aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector->i2c);
+	KUNIT_EXPECT_PTR_EQ(test, connector->ddc, &ctx->aconnector->i2c->base);
+	KUNIT_EXPECT_EQ(test, connector->connector_type, DRM_MODE_CONNECTOR_HDMIA);
+	KUNIT_EXPECT_NOT_NULL(test, connector->helper_private);
+	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_link, ctx->link);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->connector_id, 0);
+	KUNIT_EXPECT_EQ(test, connector->possible_encoders,
+			drm_encoder_mask(&ctx->aencoder->base));
+	KUNIT_EXPECT_NOT_NULL(test, ctx->aconnector->notifier);
+}
+
+/**
+ * dm_test_conn_init_dvi - Test a DVI link maps to a DVI-D connector
+ * @test: The KUnit test context
+ *
+ * A single link DVI signal is not HDMI, so no CEC notifier is registered.
+ */
+static void dm_test_conn_init_dvi(struct kunit *test)
+{
+	struct dm_test_conn_init_ctx *ctx =
+		dm_test_conn_init_ctx_alloc(test, SIGNAL_TYPE_DVI_SINGLE_LINK);
+
+	KUNIT_ASSERT_EQ(test,
+			amdgpu_dm_connector_init(ctx->dm, ctx->aconnector, 0,
+						 ctx->aencoder), 0);
+
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->base.connector_type,
+			DRM_MODE_CONNECTOR_DVID);
+	KUNIT_EXPECT_NULL(test, ctx->aconnector->notifier);
+}
+
+/**
+ * dm_test_conn_init_get_modes_hook - Test the installed get_modes helper
+ * @test: The KUnit test context
+ *
+ * The connector helper funcs that amdgpu_dm_connector_init() installs forward
+ * mode enumeration to amdgpu_dm_connector_get_modes(), which synthesizes the
+ * no-EDID fallback modes.
+ */
+static void dm_test_conn_init_get_modes_hook(struct kunit *test)
+{
+	struct dm_test_conn_init_ctx *ctx =
+		dm_test_conn_init_ctx_alloc(test, SIGNAL_TYPE_HDMI_TYPE_A);
+	const struct drm_connector_helper_funcs *helper;
+	struct drm_connector *connector = &ctx->aconnector->base;
+
+	KUNIT_ASSERT_EQ(test,
+			amdgpu_dm_connector_init(ctx->dm, ctx->aconnector, 0,
+						 ctx->aencoder), 0);
+
+	helper = connector->helper_private;
+	KUNIT_ASSERT_NOT_NULL(test, helper);
+	KUNIT_ASSERT_NOT_NULL(test, helper->get_modes);
+
+	KUNIT_EXPECT_GT(test, helper->get_modes(connector), 0);
+	KUNIT_EXPECT_GT(test, ctx->aconnector->num_modes, 0);
+}
+
 static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* get_subconnector_type */
 	KUNIT_CASE(dm_test_subconnector_type_none),
@@ -9839,6 +10025,10 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_fs_caps_force_min_hz_quirk),
 	KUNIT_CASE(dm_test_fs_caps_mccs_clears_capability),
 	KUNIT_CASE(dm_test_fs_caps_disables_replay),
+	/* amdgpu_dm_connector_init */
+	KUNIT_CASE(dm_test_conn_init_hdmi),
+	KUNIT_CASE(dm_test_conn_init_dvi),
+	KUNIT_CASE(dm_test_conn_init_get_modes_hook),
 	{}
 };
 
