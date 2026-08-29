@@ -12459,6 +12459,7 @@ F:	drivers/crypto/nx/Makefile
 F:	drivers/crypto/nx/nx-842*
 F:	include/linux/sw842.h
 F:	lib/842/
+F:	lib/tests/842_decompress_kunit.c
 
 IBM Power in-Nest Crypto Acceleration
 M:	Breno Leitão <leitao@debian.org>
