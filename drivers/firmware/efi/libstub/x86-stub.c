@@ -649,7 +649,7 @@ setup_e820(struct boot_params *params, struct setup_data *e820ext, u32 e820ext_s
 		}
 
 		if (nr_entries == ARRAY_SIZE(params->e820_table)) {
-			u32 need = (nr_desc - i) * sizeof(struct e820_entry) +
+			u32 need = (nr_desc - i) * sizeof(struct boot_e820_entry) +
 				   sizeof(struct setup_data);
 
 			if (!e820ext || e820ext_size < need)
@@ -685,7 +685,7 @@ static efi_status_t alloc_e820ext(u32 nr_desc, struct setup_data **e820ext,
 	unsigned long size;
 
 	size = sizeof(struct setup_data) +
-		sizeof(struct e820_entry) * nr_desc;
+		sizeof(struct boot_e820_entry) * nr_desc;
 
 	if (*e820ext) {
 		efi_bs_call(free_pool, *e820ext);
