@@ -118,7 +118,7 @@ static bool vma_is_special_huge(const struct vm_area_struct *vma)
 	return vma_test_any(vma, VMA_PFNMAP_BIT, VMA_MIXEDMAP_BIT);
 }
 
-static bool vma_bypass_thp_tuneables_file(const struct vm_area_struct *vma,
+static bool vma_file_bypass_thp_tuneables(const struct vm_area_struct *vma,
 		enum tva_type type)
 {
 	const bool has_huge_fault = vma->vm_ops->huge_fault;
@@ -132,7 +132,7 @@ static bool vma_bypass_thp_tuneables_file(const struct vm_area_struct *vma,
 	return false;
 }
 
-static bool vma_thp_tuneables_allow_file(vm_flags_t vm_flags)
+static bool vma_file_allow_thp_tuneables(vm_flags_t vm_flags)
 {
 	/* THP=always? */
 	if (hugepage_global_always())
@@ -143,11 +143,11 @@ static bool vma_thp_tuneables_allow_file(vm_flags_t vm_flags)
 	return false;
 }
 
-static bool vma_check_thp_tuneables_file(const struct vm_area_struct *vma,
+static bool vma_file_check_thp_tuneables(const struct vm_area_struct *vma,
 		vm_flags_t vm_flags, enum tva_type type)
 {
-	return vma_bypass_thp_tuneables_file(vma, type) ||
-		vma_thp_tuneables_allow_file(vm_flags);
+	return vma_file_bypass_thp_tuneables(vma, type) ||
+		vma_file_allow_thp_tuneables(vm_flags);
 }
 
 static bool vma_can_map_huge_file(const struct vm_area_struct *vma,
@@ -159,7 +159,7 @@ static bool vma_can_map_huge_file(const struct vm_area_struct *vma,
 	 * Enforce THP collapse requirements as necessary. Anonymous vmas
 	 * were already handled in thp_vma_allowable_orders().
 	 */
-	if (!vma_check_thp_tuneables_file(vma, vm_flags, type))
+	if (!vma_file_check_thp_tuneables(vma, vm_flags, type))
 		return false;
 
 	switch (type) {
