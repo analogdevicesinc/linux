@@ -12,7 +12,6 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/adi-adsp.h>
 #include <dt-bindings/pinctrl/adi-adsp-sru.h>
-#include <dt-bindings/net/ti-dp83867.h>
 #include "sc59x.dtsi"
 
 / {
