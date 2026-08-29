@@ -652,6 +652,8 @@ def check_mixed_indent_chars(ctx):
                 continue
             if re.search(r' \t', cont.indent_str):
                 yield (cont.lineno, 'mixed tabs and spaces in indent')
+            if cont.indent_str.count(' ') > 7:
+                yield (cont.lineno, 'too many space characters in indent (more than 7)')
 
 
 def check_node_close_alone(ctx):
