@@ -7973,13 +7973,23 @@ static int btf_validate_return_type(struct bpf_verifier_env *env, struct btf *bt
 	if (btf_type_is_struct(t) && t->size <= 16) {
 		/*
 		 * A global function's caller models the return as an opaque
-		 * scalar pair, so it may only return scalars by value. A local
-		 * function is verified inline, so a pointer field stays tracked
-		 * and needs no such restriction.
+		 * scalar pair, so a pointer member would be laundered into a
+		 * scalar and escape provenance and reference tracking. Only
+		 * scalars and arena pointers are allowed: an arena pointer has
+		 * no provenance to lose, since a program may already derive one
+		 * from any scalar with addr_space_cast(), which confines the
+		 * result to the arena. The main program is the exception: it
+		 * returns to the kernel, which has no arena to cast the address
+		 * back into. A local function is verified inline, so its caller
+		 * receives the real register state and any member is fine.
 		 */
 		bool local_func = subprog && !is_global;
+		u32 member_kinds = BTF_MEMBER_SCALAR;
 
-		if (local_func || btf_struct_is_composed_of(env, btf, t, BTF_MEMBER_SCALAR))
+		if (subprog)
+			member_kinds |= BTF_MEMBER_ARENA_PTR;
+
+		if (local_func || btf_struct_is_composed_of(env, btf, t, member_kinds))
 			return 0;
 	}
 
@@ -8073,10 +8083,16 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 	err = btf_validate_return_type(env, btf, t, subprog, is_global);
 	if (err) {
 		if (is_global) {
+			/* Only a subprogram may return arena pointers. */
+			const char *supported = subprog ?
+				"void, scalar, arena pointer, or a struct/union of "
+				"scalars and arena pointers" :
+				"void, scalar, or a scalar-only struct/union";
+
 			bpf_log(log,
 				"Global function %s() has unsupported return type. "
-				"Only void, scalar, or a scalar-only struct/union up to 16 bytes is supported.\n",
-				tname);
+				"Only %s up to 16 bytes is supported.\n",
+				tname, supported);
 		}
 		return err;
 	}
