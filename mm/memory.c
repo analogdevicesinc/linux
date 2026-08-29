@@ -2569,7 +2569,7 @@ static int insert_pages(struct vm_area_struct *vma, unsigned long addr,
 more:
 	pmd = walk_to_pmd(mm, addr);
 	if (!pmd) {
-		err = -EFAULT;
+		err = -ENOMEM;
 		goto out;
 	}
 
