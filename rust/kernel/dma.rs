@@ -996,15 +996,15 @@ impl<T: KnownSize + AsBytes + ?Sized> debugfs::BinaryWriter for Coherent<T> {
 /// - `size` is the allocation size in bytes as passed to `dma_alloc_attrs`.
 /// - `dma_attrs` contains the attributes used for the allocation, always including
 ///   `DMA_ATTR_NO_KERNEL_MAPPING`.
-pub struct CoherentHandle {
-    dev: ARef<device::Device>,
+pub struct CoherentHandle<'a> {
+    dev: &'a device::Device<Bound>,
     dma_addr: DmaAddress,
     cpu_handle: NonNull<c_void>,
     size: usize,
     dma_attrs: Attrs,
 }
 
-impl CoherentHandle {
+impl<'a> CoherentHandle<'a> {
     /// Allocates `size` bytes of coherent DMA memory without creating a kernel virtual mapping.
     ///
     /// Additional DMA attributes may be passed via `dma_attrs`; `DMA_ATTR_NO_KERNEL_MAPPING` is
@@ -1012,7 +1012,7 @@ impl CoherentHandle {
     ///
     /// Returns `EINVAL` if `size` is zero, `ENOMEM` if the allocation fails.
     pub fn alloc_with_attrs(
-        dev: &device::Device<Bound>,
+        dev: &'a device::Device<Bound>,
         size: usize,
         gfp_flags: kernel::alloc::Flags,
         dma_attrs: Attrs,
@@ -1038,9 +1038,9 @@ impl CoherentHandle {
 
         // INVARIANT: `cpu_handle` is the opaque handle from a successful `dma_alloc_attrs` call
         // with `DMA_ATTR_NO_KERNEL_MAPPING`, `dma_addr` is the corresponding DMA address,
-        // and we hold a refcounted reference to the device.
+        // and `dev` is a valid reference to a bound device that outlives this allocation.
         Ok(Self {
-            dev: dev.into(),
+            dev,
             dma_addr,
             cpu_handle,
             size,
@@ -1051,7 +1051,7 @@ impl CoherentHandle {
     /// Allocates `size` bytes of coherent DMA memory without creating a kernel virtual mapping.
     #[inline]
     pub fn alloc(
-        dev: &device::Device<Bound>,
+        dev: &'a device::Device<Bound>,
         size: usize,
         gfp_flags: kernel::alloc::Flags,
     ) -> Result<Self> {
@@ -1073,7 +1073,7 @@ impl CoherentHandle {
     }
 }
 
-impl Drop for CoherentHandle {
+impl Drop for CoherentHandle<'_> {
     fn drop(&mut self) {
         // SAFETY: All values are valid by the type invariants on `CoherentHandle`.
         // `cpu_handle` is the opaque handle from `dma_alloc_attrs` and is passed back unchanged.
@@ -1091,12 +1091,12 @@ impl Drop for CoherentHandle {
 
 // SAFETY: `CoherentHandle` only holds a device reference, a DMA address, an opaque CPU handle,
 // and a size. None of these are tied to a specific thread.
-unsafe impl Send for CoherentHandle {}
+unsafe impl Send for CoherentHandle<'_> {}
 
 // SAFETY: `CoherentHandle` provides no CPU access to the underlying allocation. The only
 // operations on `&CoherentHandle` are reading the DMA address and size, both of which are
 // plain `Copy` values.
-unsafe impl Sync for CoherentHandle {}
+unsafe impl Sync for CoherentHandle<'_> {}
 
 /// View type for `Coherent`.
 ///

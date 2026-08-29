@@ -49,7 +49,7 @@ pub(crate) struct SysmemFlush<'sys> {
     device: &'sys device::Device,
     bar: Bar0<'sys>,
     /// Keep the page alive as long as we need it.
-    page: CoherentHandle,
+    page: CoherentHandle<'sys>,
 }
 
 impl<'sys> SysmemFlush<'sys> {
