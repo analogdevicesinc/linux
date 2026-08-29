@@ -3885,6 +3885,62 @@ static void dm_test_handle_cursor_update_no_stream(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, ctx->acrtc->cursor_height, 64);
 }
 
+static int dm_test_clear_dcc_tiling_count;
+
+static void dm_test_clear_surface_dcc_and_tiling(struct pipe_ctx *pipe_ctx,
+						 struct dc_plane_state *plane_state,
+						 bool clear_tiling)
+{
+	if (clear_tiling)
+		dm_test_clear_dcc_tiling_count++;
+}
+
+/**
+ * dm_test_panic_flush_disables_dcc() - Verify panic flush disables DCC.
+ * @test: KUnit test context.
+ *
+ * Verify if panic_flush asks DC to clear DCC on the active pipe, and requests
+ * the tiling teardown as well when the framebuffer is not linear.
+ */
+static void dm_test_panic_flush_disables_dcc(struct kunit *test)
+{
+	struct dc_plane_state *dc_plane_state;
+	struct dm_plane_state *dm_plane_state;
+	struct resource_pool *res_pool;
+	struct drm_framebuffer *fb;
+	struct drm_plane *plane;
+	struct dc *dc;
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	dm_plane_state = kunit_kzalloc(test, sizeof(*dm_plane_state), GFP_KERNEL);
+	dc_plane_state = kunit_kzalloc(test, sizeof(*dc_plane_state), GFP_KERNEL);
+	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
+	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	KUNIT_ASSERT_NOT_NULL(test, dm_plane_state);
+	KUNIT_ASSERT_NOT_NULL(test, dc_plane_state);
+	KUNIT_ASSERT_NOT_NULL(test, fb);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
+
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	dc->current_state = dm_kunit_alloc_dc_state(test);
+	dc->hwss.clear_surface_dcc_and_tiling = dm_test_clear_surface_dcc_and_tiling;
+	res_pool->pipe_count = 1;
+	dc->res_pool = res_pool;
+	dc_plane_state->ctx = dc->ctx;
+
+	fb->modifier = AMD_FMT_MOD;
+	dm_plane_state->base.fb = fb;
+	dm_plane_state->dc_state = dc_plane_state;
+	plane->state = &dm_plane_state->base;
+
+	dm_test_clear_dcc_tiling_count = 0;
+
+	amdgpu_dm_plane_panic_flush(plane);
+
+	KUNIT_EXPECT_EQ(test, dm_test_clear_dcc_tiling_count, 1);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3973,6 +4029,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_atomic_check_success),
 	/* amdgpu_dm_plane_panic_flush() */
 	KUNIT_CASE(dm_test_panic_flush_no_dc_state),
+	KUNIT_CASE(dm_test_panic_flush_disables_dcc),
 	/* amdgpu_dm_plane_drm_plane_reset() */
 	KUNIT_CASE(dm_test_plane_reset_initializes_state),
 	/* amdgpu_dm_plane_drm_plane_duplicate_state() */
