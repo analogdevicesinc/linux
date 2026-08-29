@@ -11647,9 +11647,8 @@ static bool is_kfunc_arg_implicit(const struct bpf_call_arg_meta *meta, u32 arg_
 }
 
 /* Returns true if struct is composed of scalars, 4 levels of nesting allowed */
-bool btf_type_is_scalar_struct(struct bpf_verifier_env *env,
-			       const struct btf *btf,
-			       const struct btf_type *t, int rec)
+static bool btf_struct_member_walk(struct bpf_verifier_env *env, const struct btf *btf,
+				   const struct btf_type *t, int rec)
 {
 	const struct btf_type *member_type;
 	const struct btf_member *member;
@@ -11667,7 +11666,7 @@ bool btf_type_is_scalar_struct(struct bpf_verifier_env *env,
 				verbose(env, "max struct nesting depth exceeded\n");
 				return false;
 			}
-			if (!btf_type_is_scalar_struct(env, btf, member_type, rec + 1))
+			if (!btf_struct_member_walk(env, btf, member_type, rec + 1))
 				return false;
 			continue;
 		}
@@ -11684,6 +11683,13 @@ bool btf_type_is_scalar_struct(struct bpf_verifier_env *env,
 			return false;
 	}
 	return true;
+}
+
+bool btf_type_is_scalar_struct(struct bpf_verifier_env *env,
+			       const struct btf *btf,
+			       const struct btf_type *t)
+{
+	return btf_struct_member_walk(env, btf, t, 0);
 }
 
 enum kfunc_ptr_arg_type {
@@ -12066,7 +12072,7 @@ get_kfunc_arg_type(struct bpf_verifier_env *env, struct bpf_call_arg_meta *meta,
 		 (is_kfunc_arg_mem_size(meta->btf, &args[arg + 1]) ||
 		  is_kfunc_arg_const_mem_size(meta->btf, &args[arg + 1]))) {
 		if (!btf_type_is_void(ref_t) && !btf_type_is_scalar(ref_t) &&
-		    !btf_type_is_scalar_struct(env, meta->btf, ref_t, 0)) {
+		    !btf_type_is_scalar_struct(env, meta->btf, ref_t)) {
 			verbose(env, "%s pointer type %s %s must point to void, scalar, or struct with scalar\n",
 				reg_arg_name(env, argno), btf_type_str(ref_t), ref_tname);
 			return -EINVAL;
@@ -12082,7 +12088,7 @@ get_kfunc_arg_type(struct bpf_verifier_env *env, struct bpf_call_arg_meta *meta,
 		 * scalars. The access size is derived from the pointed-to BTF type.
 		 */
 		if (!btf_type_is_scalar(ref_t) &&
-		    !btf_type_is_scalar_struct(env, meta->btf, ref_t, 0)) {
+		    !btf_type_is_scalar_struct(env, meta->btf, ref_t)) {
 			verbose(env, "%s pointer type %s %s must point to scalar, or struct with scalar\n",
 				reg_arg_name(env, argno), btf_type_str(ref_t), ref_tname);
 			return -EINVAL;
@@ -13138,7 +13144,7 @@ check_ok:
 				break;
 			}
 
-			if (!btf_type_is_scalar_struct(env, meta->btf, ref_t, 0)) {
+			if (!btf_type_is_scalar_struct(env, meta->btf, ref_t)) {
 				enum bpf_reg_type reg2btf_type = lookup_reg2btf_ids(ref_id);
 				const char *expected_type;
 
@@ -13680,7 +13686,7 @@ static int check_special_kfunc(struct bpf_verifier_env *env, struct bpf_call_arg
 
 		struct_meta = btf_find_struct_meta(ret_btf, ret_btf_id);
 		if (is_bpf_percpu_obj_new_kfunc(meta->func_id)) {
-			if (!btf_type_is_scalar_struct(env, ret_btf, ret_t, 0)) {
+			if (!btf_type_is_scalar_struct(env, ret_btf, ret_t)) {
 				verbose(env, "bpf_percpu_obj_new type ID argument must be of a struct of scalars\n");
 				return -EINVAL;
 			}
@@ -14059,7 +14065,7 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 		 * otherwise a pointer field would be laundered into a scalar
 		 * and escape provenance and reference tracking.
 		 */
-		if (!btf_type_is_scalar_struct(env, desc_btf, t, 0)) {
+		if (!btf_type_is_scalar_struct(env, desc_btf, t)) {
 			verbose(env,
 				"kernel function %s returns %s %s that is not composed of scalars\n",
 				func_name, btf_type_str(t),
