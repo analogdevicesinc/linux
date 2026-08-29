@@ -9081,6 +9081,359 @@ static void dm_test_initialize_hdmi_cec_registers(struct kunit *test)
 	KUNIT_EXPECT_NOT_NULL(test, ctx->aconnector->notifier);
 }
 
+/* Tests for amdgpu_dm_update_freesync_caps() */
+
+static void dm_test_fs_free_edid(void *data)
+{
+	drm_edid_free(data);
+}
+
+/*
+ * Build a two block EDID: the minimal base block with its extension count set
+ * to one, followed by @ext, with both checksums recomputed so drm_edid_raw()
+ * and the DRM EDID parsers accept it.
+ */
+static const struct drm_edid *dm_test_fs_edid_alloc(struct kunit *test, const u8 *ext)
+{
+	const struct drm_edid *drm_edid;
+	u8 *raw;
+	int i;
+
+	raw = kunit_kzalloc(test, 2 * EDID_LENGTH, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, raw);
+	memcpy(raw, dm_test_uad_edid, EDID_LENGTH);
+	memcpy(raw + EDID_LENGTH, ext, EDID_LENGTH);
+	raw[EDID_LENGTH - 2] = 1;
+
+	for (i = 0; i < 2; i++) {
+		u8 *block = raw + i * EDID_LENGTH;
+		u8 sum = 0;
+		int j;
+
+		for (j = 0; j < EDID_LENGTH - 1; j++)
+			sum += block[j];
+		block[EDID_LENGTH - 1] = -sum;
+	}
+
+	drm_edid = drm_edid_alloc(raw, 2 * EDID_LENGTH);
+	KUNIT_ASSERT_NOT_NULL(test, drm_edid);
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_fs_free_edid,
+						  (void *)drm_edid), 0);
+
+	return drm_edid;
+}
+
+/*
+ * A DisplayID extension holding a dynamic video timing range descriptor, which
+ * is what parse_edid_displayid_vrr() scans for.
+ */
+static const struct drm_edid *
+dm_test_fs_edid_displayid(struct kunit *test, u8 min_vfreq, u8 max_vfreq)
+{
+	u8 ext[EDID_LENGTH] = {0};
+
+	ext[0] = DM_TEST_DISPLAYID_EXT;
+	ext[1] = 0x25;
+	ext[2] = 0x00;
+	ext[3] = 9;
+	ext[10] = min_vfreq;
+	ext[11] = max_vfreq;
+
+	return dm_test_fs_edid_alloc(test, ext);
+}
+
+/*
+ * A CTA-861 extension with no data blocks, enough for parse_hdmi_amd_vsdb() to
+ * accept the block and hand it to the (mocked) DMCU parser.
+ */
+static const struct drm_edid *dm_test_fs_edid_cea(struct kunit *test)
+{
+	u8 ext[EDID_LENGTH] = {0};
+
+	ext[0] = DM_TEST_CEA_EXT;
+	ext[1] = 3;
+	ext[2] = 4;
+
+	return dm_test_fs_edid_alloc(test, ext);
+}
+
+/*
+ * A CTA-861 extension carrying a 15-byte AMD VSDB v3 payload, which
+ * drm_parse_amd_vsdb() turns into connector->display_info.amd_vsdb and
+ * get_amd_vsdb() then reads back.
+ */
+static const struct drm_edid *
+dm_test_fs_edid_amd_vsdb(struct kunit *test, u8 feature_caps)
+{
+	u8 ext[EDID_LENGTH] = {0};
+
+	ext[0] = DM_TEST_CEA_EXT;
+	ext[1] = 3;
+	ext[2] = 4 + 1 + 15;
+	ext[4] = (3 << 5) | 15;		/* vendor data block, 15-byte payload */
+	ext[5] = 0x1a;			/* AMD IEEE OUI, LSB first */
+	ext[8] = 0x03;			/* AMD VSDB payload version */
+	ext[9] = feature_caps;
+
+	return dm_test_fs_edid_alloc(test, ext);
+}
+
+struct dm_test_fs_caps_ctx {
+	struct amdgpu_device *adev;
+	struct drm_device *drm;
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_link *link;
+	struct dc_sink *sink;
+	struct resource_pool *pool;
+};
+
+/*
+ * Build a connector that clears every guard at the top of
+ * amdgpu_dm_update_freesync_caps(): a reset connector state, a dc_sink whose
+ * dc_context reports a VRR capable DCE version, and a non-NULL freesync
+ * module. The resource pool carries no DMCU, so tests that need the AMD VSDB
+ * parser to succeed install one.
+ */
+static struct dm_test_fs_caps_ctx *
+dm_test_fs_caps_ctx_alloc(struct kunit *test, enum signal_type sink_signal)
+{
+	struct dm_test_fs_caps_ctx *ctx;
+	struct dc_context *dc_ctx;
+	struct device *dev;
+	struct dc *dc;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	dev = drm_kunit_helper_alloc_device(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
+	ctx->drm = __drm_kunit_helper_alloc_drm_device(test, dev,
+						       sizeof(struct amdgpu_device),
+						       offsetof(struct amdgpu_device, ddev),
+						       DRIVER_MODESET);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->drm);
+	ctx->adev = drm_to_adev(ctx->drm);
+	ctx->adev->dm.adev = ctx->adev;
+	mutex_init(&ctx->adev->dm.dc_lock);
+
+	ctx->aconnector = drmm_kzalloc(ctx->drm, sizeof(*ctx->aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector);
+	KUNIT_ASSERT_EQ(test,
+			drmm_connector_init(ctx->drm, &ctx->aconnector->base,
+					    &dm_test_connector_funcs,
+					    DRM_MODE_CONNECTOR_DisplayPort, NULL), 0);
+	amdgpu_dm_connector_funcs_reset(&ctx->aconnector->base);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector->base.state);
+	KUNIT_ASSERT_EQ(test,
+			drm_connector_attach_vrr_capable_property(&ctx->aconnector->base), 0);
+
+	dc_ctx = kunit_kzalloc(test, sizeof(*dc_ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc_ctx);
+	dc_ctx->driver_context = ctx->adev;
+	dc_ctx->dce_version = DCE_VERSION_8_0;
+
+	ctx->pool = kunit_kzalloc(test, sizeof(*ctx->pool), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->pool);
+
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	dc->ctx = dc_ctx;
+	dc->res_pool = ctx->pool;
+	ctx->adev->dm.dc = dc;
+
+	ctx->adev->dm.freesync_module =
+		kunit_kzalloc(test, sizeof(struct mod_freesync), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->adev->dm.freesync_module);
+
+	ctx->link = kunit_kzalloc(test, sizeof(*ctx->link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link);
+	ctx->aconnector->dc_link = ctx->link;
+
+	ctx->sink = kunit_kzalloc(test, sizeof(*ctx->sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->sink);
+	ctx->sink->ctx = dc_ctx;
+	ctx->sink->sink_signal = sink_signal;
+	ctx->aconnector->dc_sink = ctx->sink;
+
+	return ctx;
+}
+
+static bool dm_test_fs_caps_capable(struct dm_test_fs_caps_ctx *ctx)
+{
+	return to_dm_connector_state(ctx->aconnector->base.state)->freesync_capable;
+}
+
+/**
+ * dm_test_fs_caps_dp_msa_range - Test a DP sink with an invalid-MSA range
+ * @test: The KUnit test context
+ *
+ * A DisplayPort sink allowing invalid MSA timing takes its refresh range from
+ * the monitor range that parse_edid_displayid_vrr() recovered, and a range
+ * wider than 10Hz marks the connector FreeSync capable.
+ */
+static void dm_test_fs_caps_dp_msa_range(struct kunit *test)
+{
+	struct dm_test_fs_caps_ctx *ctx =
+		dm_test_fs_caps_ctx_alloc(test, SIGNAL_TYPE_DISPLAY_PORT);
+	const struct drm_edid *drm_edid = dm_test_fs_edid_displayid(test, 40, 144);
+
+	ctx->link->dpcd_caps.allow_invalid_MSA_timing_param = true;
+
+	amdgpu_dm_update_freesync_caps(&ctx->aconnector->base, drm_edid, false);
+
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->min_vfreq, 40);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->max_vfreq, 144);
+	KUNIT_EXPECT_TRUE(test, dm_test_fs_caps_capable(ctx));
+}
+
+/**
+ * dm_test_fs_caps_dp_narrow_range - Test a range of 10Hz or less is rejected
+ * @test: The KUnit test context
+ */
+static void dm_test_fs_caps_dp_narrow_range(struct kunit *test)
+{
+	struct dm_test_fs_caps_ctx *ctx =
+		dm_test_fs_caps_ctx_alloc(test, SIGNAL_TYPE_DISPLAY_PORT);
+	const struct drm_edid *drm_edid = dm_test_fs_edid_displayid(test, 60, 65);
+
+	ctx->link->dpcd_caps.allow_invalid_MSA_timing_param = true;
+
+	amdgpu_dm_update_freesync_caps(&ctx->aconnector->base, drm_edid, false);
+
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->min_vfreq, 60);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->max_vfreq, 65);
+	KUNIT_EXPECT_FALSE(test, dm_test_fs_caps_capable(ctx));
+}
+
+/**
+ * dm_test_fs_caps_dp_msa_not_allowed - Test a DP sink requiring valid MSA
+ * @test: The KUnit test context
+ *
+ * Without allow_invalid_MSA_timing_param the reported range is ignored and the
+ * connector keeps a zero refresh range.
+ */
+static void dm_test_fs_caps_dp_msa_not_allowed(struct kunit *test)
+{
+	struct dm_test_fs_caps_ctx *ctx =
+		dm_test_fs_caps_ctx_alloc(test, SIGNAL_TYPE_DISPLAY_PORT);
+	const struct drm_edid *drm_edid = dm_test_fs_edid_displayid(test, 40, 144);
+
+	amdgpu_dm_update_freesync_caps(&ctx->aconnector->base, drm_edid, false);
+
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->min_vfreq, 0);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->max_vfreq, 0);
+	KUNIT_EXPECT_FALSE(test, dm_test_fs_caps_capable(ctx));
+}
+
+/**
+ * dm_test_fs_caps_edp_replay_mode - Test an eDP panel advertising replay
+ * @test: The KUnit test context
+ *
+ * An AMD VSDB with the replay feature bit set records the replay mode and its
+ * VSDB version on the connector and selects the eDP adaptive sync type.
+ */
+static void dm_test_fs_caps_edp_replay_mode(struct kunit *test)
+{
+	struct dm_test_fs_caps_ctx *ctx =
+		dm_test_fs_caps_ctx_alloc(test, SIGNAL_TYPE_EDP);
+	const struct drm_edid *drm_edid = dm_test_fs_edid_amd_vsdb(test, 0x40);
+
+	amdgpu_dm_update_freesync_caps(&ctx->aconnector->base, drm_edid, false);
+
+	KUNIT_EXPECT_TRUE(test, ctx->aconnector->vsdb_info.replay_mode);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->vsdb_info.amd_vsdb_version, 3);
+	KUNIT_EXPECT_EQ(test, (int)ctx->aconnector->as_type, (int)ADAPTIVE_SYNC_TYPE_EDP);
+}
+
+/**
+ * dm_test_fs_caps_hdmi_no_vsdb - Test an HDMI sink with no AMD VSDB
+ * @test: The KUnit test context
+ *
+ * Without a DMCU the CEA parse fails, so no refresh range is recorded.
+ */
+static void dm_test_fs_caps_hdmi_no_vsdb(struct kunit *test)
+{
+	struct dm_test_fs_caps_ctx *ctx =
+		dm_test_fs_caps_ctx_alloc(test, SIGNAL_TYPE_HDMI_TYPE_A);
+	const struct drm_edid *drm_edid = dm_test_fs_edid_cea(test);
+
+	amdgpu_dm_update_freesync_caps(&ctx->aconnector->base, drm_edid, false);
+
+	KUNIT_EXPECT_FALSE(test, ctx->aconnector->vsdb_info.freesync_supported);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->max_vfreq, 0);
+	KUNIT_EXPECT_FALSE(test, dm_test_fs_caps_capable(ctx));
+}
+
+/**
+ * dm_test_fs_caps_force_min_hz_quirk - Test the forced FreeSync minimum quirk
+ * @test: The KUnit test context
+ *
+ * A quirked panel overrides the minimum refresh rate on both the connector and
+ * the published monitor range once FreeSync is otherwise supported.
+ */
+static void dm_test_fs_caps_force_min_hz_quirk(struct kunit *test)
+{
+	struct dm_test_fs_caps_ctx *ctx =
+		dm_test_fs_caps_ctx_alloc(test, SIGNAL_TYPE_DISPLAY_PORT);
+	const struct drm_edid *drm_edid = dm_test_fs_edid_displayid(test, 40, 144);
+	struct drm_connector *connector = &ctx->aconnector->base;
+
+	ctx->link->dpcd_caps.allow_invalid_MSA_timing_param = true;
+	ctx->sink->edid_caps.panel_patch.force_freesync_min_hz = 50;
+
+	amdgpu_dm_update_freesync_caps(connector, drm_edid, false);
+
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->min_vfreq, 50);
+	KUNIT_EXPECT_EQ(test, connector->display_info.monitor_range.min_vfreq, 50);
+}
+
+/**
+ * dm_test_fs_caps_mccs_clears_capability - Test MCCS withdraws FreeSync support
+ * @test: The KUnit test context
+ *
+ * When the sink advertises a FreeSync VCP code but MCCS reports no support,
+ * the connector loses its FreeSync capability.
+ */
+static void dm_test_fs_caps_mccs_clears_capability(struct kunit *test)
+{
+	struct dm_test_fs_caps_ctx *ctx =
+		dm_test_fs_caps_ctx_alloc(test, SIGNAL_TYPE_DISPLAY_PORT);
+	const struct drm_edid *drm_edid = dm_test_fs_edid_displayid(test, 40, 144);
+
+	ctx->link->dpcd_caps.allow_invalid_MSA_timing_param = true;
+	/* A non-DP, non-HDMI link keeps dm_helpers_read_mccs_caps() off the wire. */
+	ctx->link->connector_signal = SIGNAL_TYPE_VIRTUAL;
+	ctx->sink->edid_caps.freesync_vcp_code = 0x60;
+
+	amdgpu_dm_update_freesync_caps(&ctx->aconnector->base, drm_edid, true);
+
+	KUNIT_EXPECT_FALSE(test, ctx->sink->mccs_caps.freesync_supported);
+	KUNIT_EXPECT_FALSE(test, dm_test_fs_caps_capable(ctx));
+}
+
+/**
+ * dm_test_fs_caps_disables_replay - Test replay is dropped without FreeSync
+ * @test: The KUnit test context
+ *
+ * A link advertising replay support has it withdrawn when the connector ends
+ * up without FreeSync capability.
+ */
+static void dm_test_fs_caps_disables_replay(struct kunit *test)
+{
+	struct dm_test_fs_caps_ctx *ctx =
+		dm_test_fs_caps_ctx_alloc(test, SIGNAL_TYPE_DISPLAY_PORT);
+	const struct drm_edid *drm_edid = dm_test_fs_edid_displayid(test, 40, 144);
+
+	ctx->link->replay_settings.config.replay_supported = true;
+	ctx->link->replay_settings.replay_feature_enabled = true;
+
+	amdgpu_dm_update_freesync_caps(&ctx->aconnector->base, drm_edid, false);
+
+	KUNIT_EXPECT_FALSE(test, ctx->link->replay_settings.config.replay_supported);
+	KUNIT_EXPECT_FALSE(test, ctx->link->replay_settings.replay_feature_enabled);
+}
+
 static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* get_subconnector_type */
 	KUNIT_CASE(dm_test_subconnector_type_none),
@@ -9477,6 +9830,15 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_init_helper_hpd_debounce_disabled),
 	/* amdgpu_dm_initialize_hdmi_connector */
 	KUNIT_CASE(dm_test_initialize_hdmi_cec_registers),
+	/* amdgpu_dm_update_freesync_caps */
+	KUNIT_CASE(dm_test_fs_caps_dp_msa_range),
+	KUNIT_CASE(dm_test_fs_caps_dp_narrow_range),
+	KUNIT_CASE(dm_test_fs_caps_dp_msa_not_allowed),
+	KUNIT_CASE(dm_test_fs_caps_edp_replay_mode),
+	KUNIT_CASE(dm_test_fs_caps_hdmi_no_vsdb),
+	KUNIT_CASE(dm_test_fs_caps_force_min_hz_quirk),
+	KUNIT_CASE(dm_test_fs_caps_mccs_clears_capability),
+	KUNIT_CASE(dm_test_fs_caps_disables_replay),
 	{}
 };
 
