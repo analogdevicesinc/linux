@@ -19,6 +19,11 @@ void __kfunc_btf_root(void)
 	  "r"(&bpf_kfunc_call_test_ret_fastcall),
 	  "r"(&bpf_kfunc_call_test_ret_ptr),
 	  "r"(&bpf_kfunc_call_test_ret_ii),
+	  "r"(&bpf_kfunc_call_test_ret_nested),
+	  "r"(&bpf_kfunc_call_test_ret_ptr_arr),
+	  "r"(&bpf_kfunc_call_test_ret_deep),
+	  "r"(&bpf_kfunc_call_test_ret_arr_struct),
+	  "r"(&bpf_kfunc_call_test_ret_arr2d),
 	  "r"(&bpf_kfunc_call_test_ret_big));
 }
 
@@ -72,6 +77,7 @@ __naked int aggregate_ret_kfunc_fastcall_fail(void)
 SEC("tc")
 __arch_x86_64 __arch_arm64
 __failure __msg("is not composed of scalars or arena pointers")
+__msg("member 'p' has type PTR")
 __naked int aggregate_ret_kfunc_ptr_fail(void)
 {
 	asm volatile (
@@ -81,6 +87,82 @@ __naked int aggregate_ret_kfunc_ptr_fail(void)
 	"exit;"
 	:
 	: __imm(bpf_kfunc_call_test_ret_ptr)
+	: __clobber_all);
+}
+
+SEC("tc")
+__arch_x86_64 __arch_arm64
+__failure __msg("is not composed of scalars or arena pointers")
+__msg("member 'in.p' has type PTR")
+__naked int aggregate_ret_kfunc_nested_ptr_fail(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"call %[bpf_kfunc_call_test_ret_nested];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_kfunc_call_test_ret_nested)
+	: __clobber_all);
+}
+
+SEC("tc")
+__arch_x86_64 __arch_arm64
+__failure __msg("is not composed of scalars or arena pointers")
+__msg("member 'p[]' has type PTR")
+__naked int aggregate_ret_kfunc_ptr_arr_fail(void)
+{
+	asm volatile (
+	"call %[bpf_kfunc_call_test_ret_ptr_arr];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_kfunc_call_test_ret_ptr_arr)
+	: __clobber_all);
+}
+
+SEC("tc")
+__arch_x86_64 __arch_arm64
+__failure __msg("is not composed of scalars or arena pointers")
+__msg("member 'in1[].in2.p' has type PTR")
+__naked int aggregate_ret_kfunc_arr_struct_fail(void)
+{
+	asm volatile (
+	"call %[bpf_kfunc_call_test_ret_arr_struct];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_kfunc_call_test_ret_arr_struct)
+	: __clobber_all);
+}
+
+SEC("tc")
+__arch_x86_64 __arch_arm64
+__failure __msg("is not composed of scalars or arena pointers")
+__msg("member 'a[].p' has type PTR")
+__naked int aggregate_ret_kfunc_arr2d_fail(void)
+{
+	asm volatile (
+	"call %[bpf_kfunc_call_test_ret_arr2d];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_kfunc_call_test_ret_arr2d)
+	: __clobber_all);
+}
+
+SEC("tc")
+__arch_x86_64 __arch_arm64
+__failure __msg("max struct nesting depth exceeded")
+__naked int aggregate_ret_kfunc_too_deep_fail(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"call %[bpf_kfunc_call_test_ret_deep];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_kfunc_call_test_ret_deep)
 	: __clobber_all);
 }
 
