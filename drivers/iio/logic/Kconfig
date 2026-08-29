@@ -15,5 +15,18 @@ endmenu
 
 config AXI_AION_TRIG
 	tristate "AXI AION Trigger support"
+	select REGMAP_MMIO
 	help
 	  Support for the AXI AION Trigger module HDL IP Core.
+
+config ADSY1100_NYX
+	tristate "Analog Devices ADSY1100 Nyx RF front-end controller"
+	depends on GPIOLIB && OF
+	help
+	  Say yes here to support the Nyx RF front-end daughter board on the
+	  Analog Devices ADSY1100 Apollo SOM platform.
+
+	  The driver exposes per-channel digital step attenuator settings
+	  (in dB), filter band selection, channel powerdown and RX LNA
+	  bypass through the IIO sysfs interface, driving the underlying
+	  GPIOs as a single high-level device.
