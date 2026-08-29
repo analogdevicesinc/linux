@@ -1182,6 +1182,8 @@ properties:
               - ayntec,odin2mini
               - ayntec,odin2portal
               - ayntec,thor
+              - retroidpocket,nova
+              - retroidpocket,rp6
           - const: qcom,qcs8550
           - const: qcom,sm8550
 
