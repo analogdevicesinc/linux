@@ -3789,6 +3789,102 @@ static void dm_test_atomic_check_success(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_atomic_check(plane, state), 0);
 }
 
+struct dm_test_cursor_ctx {
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state *crtc_state;
+	struct drm_plane_state *state;
+	struct drm_plane_state old_state;
+	struct drm_plane *plane;
+};
+
+/*
+ * Build a 64x64 cursor plane bound to an amdgpu_crtc whose DM CRTC state
+ * carries no DC stream, so the cursor update stops before programming DC.
+ */
+static struct dm_test_cursor_ctx *dm_test_alloc_cursor_ctx(struct kunit *test)
+{
+	struct amdgpu_framebuffer *afb;
+	struct dm_test_cursor_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	afb = kunit_kzalloc(test, sizeof(*afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+	KUNIT_ASSERT_NOT_NULL(test, afb);
+
+	ctx->adev = dm_kunit_alloc_adev(test);
+	ctx->acrtc = kunit_kzalloc(test, sizeof(*ctx->acrtc), GFP_KERNEL);
+	ctx->crtc_state = kunit_kzalloc(test, sizeof(*ctx->crtc_state), GFP_KERNEL);
+	ctx->state = kunit_kzalloc(test, sizeof(*ctx->state), GFP_KERNEL);
+	ctx->plane = kunit_kzalloc(test, sizeof(*ctx->plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->plane);
+
+	ctx->adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	ctx->acrtc->base.dev = &ctx->adev->ddev;
+	ctx->acrtc->base.state = &ctx->crtc_state->base;
+	ctx->acrtc->max_cursor_width = 64;
+	ctx->acrtc->max_cursor_height = 64;
+
+	afb->address = 0x80000000ULL;
+	afb->base.pitches[0] = 256;
+	afb->base.format = drm_format_info(DRM_FORMAT_ARGB8888);
+	KUNIT_ASSERT_NOT_NULL(test, afb->base.format);
+
+	ctx->state->fb = &afb->base;
+	ctx->state->crtc = &ctx->acrtc->base;
+	ctx->state->crtc_w = 64;
+	ctx->state->crtc_h = 64;
+
+	ctx->plane->dev = &ctx->adev->ddev;
+	ctx->plane->state = ctx->state;
+
+	return ctx;
+}
+
+/**
+ * dm_test_handle_cursor_update_disabled() - Verify the cursor-off path.
+ * @test: KUnit test context.
+ *
+ * Verify if a cursor positioned fully off the left edge is treated as disabled
+ * and returns before the cursor geometry is latched on the CRTC.
+ */
+static void dm_test_handle_cursor_update_disabled(struct kunit *test)
+{
+	struct dm_test_cursor_ctx *ctx = dm_test_alloc_cursor_ctx(test);
+
+	ctx->state->crtc_x = -64;
+
+	amdgpu_dm_plane_handle_cursor_update(ctx->plane, &ctx->old_state);
+
+	KUNIT_EXPECT_EQ(test, ctx->acrtc->cursor_width, 0);
+	KUNIT_EXPECT_EQ(test, ctx->acrtc->cursor_height, 0);
+}
+
+/**
+ * dm_test_handle_cursor_update_no_stream() - Verify cursor attribute assembly.
+ * @test: KUnit test context.
+ *
+ * Verify if an enabled cursor latches its geometry on the CRTC and builds the
+ * DC cursor attributes, including the degamma ROM bit, before stopping at the
+ * missing DC stream.
+ */
+static void dm_test_handle_cursor_update_no_stream(struct kunit *test)
+{
+	struct dm_test_cursor_ctx *ctx = dm_test_alloc_cursor_ctx(test);
+
+	ctx->crtc_state->cm_is_degamma_srgb = true;
+	ctx->adev->dm.dc->caps.color.dpp.gamma_corr = true;
+
+	amdgpu_dm_plane_handle_cursor_update(ctx->plane, &ctx->old_state);
+
+	KUNIT_EXPECT_EQ(test, ctx->acrtc->cursor_width, 64);
+	KUNIT_EXPECT_EQ(test, ctx->acrtc->cursor_height, 64);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3861,6 +3957,8 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_helper_cleanup_fb_no_fb),
 	/* amdgpu_dm_plane_handle_cursor_update() */
 	KUNIT_CASE(dm_test_handle_cursor_update_no_fb),
+	KUNIT_CASE(dm_test_handle_cursor_update_disabled),
+	KUNIT_CASE(dm_test_handle_cursor_update_no_stream),
 	/* amdgpu_dm_plane_atomic_async_update() */
 	KUNIT_CASE(dm_test_atomic_async_update_copies_state),
 	/* amdgpu_dm_plane_atomic_async_check() */
