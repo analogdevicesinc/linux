@@ -222,7 +222,7 @@ static void drv260x_worker(struct work_struct *work)
 
 	gpiod_set_value(haptics->enable_gpio, 1);
 	/* Data sheet says to wait 250us before trying to communicate */
-	udelay(250);
+	fsleep(250);
 
 	error = regmap_write(haptics->regmap,
 			     DRV260X_MODE, DRV260X_RT_PLAYBACK);
