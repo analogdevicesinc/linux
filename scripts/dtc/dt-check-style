@@ -676,6 +676,31 @@ def check_node_close_alone(ctx):
                    'closing brace must be on its own line')
 
 
+def check_node_name(ctx):
+    """Only recommended characters are used in node names."""
+    for dl in ctx.lines:
+        if not dl.node_name in (None, '/'):
+            if not re.match(r'[0-9a-z][0-9a-z-]*(?<!-)$', dl.node_name):
+                yield (dl.lineno, f'node name "{dl.node_name}" is using discouraged style')
+
+
+def check_property_name(ctx):
+    """Only recommended characters are used in property names."""
+    for dl in ctx.lines:
+        if dl.prop_name:
+            exceptions = ['cpu_off', 'cpu_on', 'cpu_suspend',
+                          'device_type', 'dr_mode',
+                          'mmc-hs200-1_2v', 'mmc-hs200-1_8v', 'mmc-hs400-1_2v', 'mmc-hs400-1_8v',
+                          'opp-avg-kBps', 'opp-peak-kBps', 'phy_type']
+
+            if re.match(r'\#([0-9a-z][0-9a-z-]*(?<!-),)?[a-z-]+-cells$', dl.prop_name):
+                continue
+            if dl.prop_name in exceptions:
+                continue
+            if not re.match(r'([0-9a-z][0-9a-z-]*(?<!-),)?[0-9a-z][0-9a-z-]*(?<!-)$', dl.prop_name):
+                yield (dl.lineno, f'property name "{dl.prop_name}" is using discouraged style')
+
+
 def _property_bucket(name):
     """Return the canonical bucket index for a property:
        0 device_type
@@ -1098,6 +1123,12 @@ RULES = [
     Rule('node-close-alone', 'strict',
          'closing brace must be on its own line',
          check_node_close_alone),
+    Rule('node-name', 'strict',
+         'node names use only recommended characters (see DTS Coding Style)',
+         check_node_name),
+    Rule('property-name', 'strict',
+         'property names use only recommended characters (see DTS Coding Style)',
+         check_property_name),
     Rule('property-order', 'strict',
          'canonical bucket + pairing + natural-sort order of properties',
          check_property_order),
