@@ -2319,6 +2319,7 @@ int amdgpu_dm_plane_init(struct amdgpu_display_manager *dm,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_init);
 
 bool amdgpu_dm_plane_is_video_format(uint32_t format)
 {

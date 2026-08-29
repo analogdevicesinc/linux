@@ -3941,6 +3941,73 @@ static void dm_test_panic_flush_disables_dcc(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dm_test_clear_dcc_tiling_count, 1);
 }
 
+/*
+ * Build a DM ready to initialize planes on a real DRM device. The plane itself
+ * is plain kzalloc'd because DRM frees it through drm_plane_helper_destroy()
+ * when the mode config is torn down.
+ */
+static struct drm_plane *dm_test_alloc_init_plane(struct kunit *test,
+						  struct amdgpu_device **adev_out)
+{
+	struct amdgpu_device *adev;
+	struct drm_plane *plane;
+
+	adev = dm_kunit_alloc_adev(test);
+	adev->family = AMDGPU_FAMILY_NV;
+	adev->dm.adev = adev;
+	adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	plane = kzalloc_obj(*plane, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	plane->type = DRM_PLANE_TYPE_OVERLAY;
+
+	*adev_out = adev;
+
+	return plane;
+}
+
+/**
+ * dm_test_plane_init_creates_optional_properties() - Verify optional properties.
+ * @test: KUnit test context.
+ *
+ * Verify if a Bonaire-or-newer non-cursor plane on a DCE version above 3.0.1
+ * gains the rotation property and framebuffer damage clips.
+ */
+static void dm_test_plane_init_creates_optional_properties(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_plane *plane;
+
+	plane = dm_test_alloc_init_plane(test, &adev);
+	adev->asic_type = CHIP_BONAIRE;
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 1, 0);
+
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_plane_init(&adev->dm, plane, 1, NULL), 0);
+
+	KUNIT_EXPECT_NOT_NULL(test, plane->rotation_property);
+	KUNIT_EXPECT_NOT_NULL(test, adev->ddev.mode_config.prop_fb_damage_clips);
+}
+
+/**
+ * dm_test_plane_init_creates_color_pipeline() - Verify color pipeline creation.
+ * @test: KUnit test context.
+ *
+ * Verify if a non-cursor plane on DCN 3.0 or newer gets a default color
+ * pipeline exposed through the COLOR_PIPELINE property.
+ */
+static void dm_test_plane_init_creates_color_pipeline(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_plane *plane;
+
+	plane = dm_test_alloc_init_plane(test, &adev);
+	adev->dm.dc->ctx->dce_version = DCN_VERSION_3_0;
+
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_plane_init(&adev->dm, plane, 1, NULL), 0);
+
+	KUNIT_EXPECT_NOT_NULL(test, plane->color_pipeline_property);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -4078,6 +4145,9 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_validate_dcc_not_capable_fails),
 	KUNIT_CASE(dm_test_validate_dcc_success_and_scan_mapping),
 	KUNIT_CASE(dm_test_validate_dcc_independent_64b_mismatch_fails),
+	/* amdgpu_dm_plane_init() */
+	KUNIT_CASE(dm_test_plane_init_creates_optional_properties),
+	KUNIT_CASE(dm_test_plane_init_creates_color_pipeline),
 	{}
 };
 
