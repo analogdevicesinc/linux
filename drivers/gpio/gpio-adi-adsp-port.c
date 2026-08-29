@@ -133,7 +133,6 @@ static int adsp_gpio_probe(struct platform_device *pdev)
 	gpio->gpio.to_irq = adsp_gpio_to_irq;
 	gpio->gpio.request = gpiochip_generic_request;
 	gpio->gpio.free = gpiochip_generic_free;
-	gpio->gpio.ngpio = ADSP_PORT_NGPIO;
 	gpio->gpio.parent = dev;
 	gpio->gpio.base = -1;
 	ret = devm_gpiochip_add_data(dev, &gpio->gpio, gpio);
