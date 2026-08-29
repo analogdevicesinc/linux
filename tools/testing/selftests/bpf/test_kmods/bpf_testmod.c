@@ -981,6 +981,34 @@ __bpf_kfunc struct prog_test_ret_ptr bpf_kfunc_call_test_ret_ptr(u64 tag)
 	return r;
 }
 
+__bpf_kfunc struct prog_test_ret_arena bpf_kfunc_call_test_ret_arena(u64 addr)
+{
+	struct prog_test_ret_arena r = { .a = (void *)addr, .b = (void *)(addr + 4) };
+
+	return r;
+}
+
+__bpf_kfunc struct prog_test_ret_arena_mixed bpf_kfunc_call_test_ret_arena_mixed(u64 addr)
+{
+	struct prog_test_ret_arena_mixed r = { .p = (void *)addr, .tag = 0xbeef };
+
+	return r;
+}
+
+__bpf_kfunc struct prog_test_ret_arena_untagged bpf_kfunc_call_test_ret_arena_untagged(u64 addr)
+{
+	struct prog_test_ret_arena_untagged r = { .a = (void *)addr, .b = NULL };
+
+	return r;
+}
+
+__bpf_kfunc union prog_test_ret_arena_union bpf_kfunc_call_test_ret_arena_union(u64 addr)
+{
+	union prog_test_ret_arena_union r = { .a = (void *)addr };
+
+	return r;
+}
+
 __bpf_kfunc struct prog_test_ret_nested bpf_kfunc_call_test_ret_nested(u64 tag)
 {
 	struct prog_test_ret_nested r = { .in = { .p = NULL }, .tag = tag };
@@ -1574,6 +1602,10 @@ BTF_ID_FLAGS(func, bpf_kfunc_call_test_i128)
 BTF_ID_FLAGS(func, bpf_kfunc_call_test_ret_pair)
 BTF_ID_FLAGS(func, bpf_kfunc_call_test_ret_fastcall, KF_FASTCALL)
 BTF_ID_FLAGS(func, bpf_kfunc_call_test_ret_ptr)
+BTF_ID_FLAGS(func, bpf_kfunc_call_test_ret_arena)
+BTF_ID_FLAGS(func, bpf_kfunc_call_test_ret_arena_mixed)
+BTF_ID_FLAGS(func, bpf_kfunc_call_test_ret_arena_untagged)
+BTF_ID_FLAGS(func, bpf_kfunc_call_test_ret_arena_union)
 BTF_ID_FLAGS(func, bpf_kfunc_call_test_ret_nested)
 BTF_ID_FLAGS(func, bpf_kfunc_call_test_ret_ptr_arr)
 BTF_ID_FLAGS(func, bpf_kfunc_call_test_ret_arr_struct)
