@@ -1227,15 +1227,15 @@ YAMAHA_DEVICE(0x7010, "UB99"),
 	}
 },
 {
-	/* only 44.1 kHz works at the moment */
+	/* S24_3LE; altsettings 1-4 match the device clock. */
 	USB_DEVICE(0x0582, 0x0120),
 	QUIRK_DRIVER_INFO {
 		/* .vendor_name = "Roland", */
-		/* .product_name = "OCTO-CAPTURE", */
+		/* .product_name = "OCTA-CAPTURE", */
 		QUIRK_DATA_COMPOSITE {
 			{
 				QUIRK_DATA_AUDIOFORMAT(0) {
-					.formats = SNDRV_PCM_FMTBIT_S32_LE,
+					.formats = SNDRV_PCM_FMTBIT_S24_3LE,
 					.channels = 10,
 					.iface = 0,
 					.altsetting = 1,
@@ -1250,8 +1250,56 @@ YAMAHA_DEVICE(0x7010, "UB99"),
 				}
 			},
 			{
+				QUIRK_DATA_AUDIOFORMAT(0) {
+					.formats = SNDRV_PCM_FMTBIT_S24_3LE,
+					.channels = 10,
+					.iface = 0,
+					.altsetting = 2,
+					.altset_idx = 2,
+					.endpoint = 0x05,
+					.ep_attr = 0x05,
+					.rates = SNDRV_PCM_RATE_48000,
+					.rate_min = 48000,
+					.rate_max = 48000,
+					.nr_rates = 1,
+					.rate_table = (unsigned int[]) { 48000 }
+				}
+			},
+			{
+				QUIRK_DATA_AUDIOFORMAT(0) {
+					.formats = SNDRV_PCM_FMTBIT_S24_3LE,
+					.channels = 10,
+					.iface = 0,
+					.altsetting = 3,
+					.altset_idx = 3,
+					.endpoint = 0x05,
+					.ep_attr = 0x05,
+					.rates = SNDRV_PCM_RATE_96000,
+					.rate_min = 96000,
+					.rate_max = 96000,
+					.nr_rates = 1,
+					.rate_table = (unsigned int[]) { 96000 }
+				}
+			},
+			{
+				QUIRK_DATA_AUDIOFORMAT(0) {
+					.formats = SNDRV_PCM_FMTBIT_S24_3LE,
+					.channels = 4,
+					.iface = 0,
+					.altsetting = 4,
+					.altset_idx = 4,
+					.endpoint = 0x05,
+					.ep_attr = 0x05,
+					.rates = SNDRV_PCM_RATE_192000,
+					.rate_min = 192000,
+					.rate_max = 192000,
+					.nr_rates = 1,
+					.rate_table = (unsigned int[]) { 192000 }
+				}
+			},
+			{
 				QUIRK_DATA_AUDIOFORMAT(1) {
-					.formats = SNDRV_PCM_FMTBIT_S32_LE,
+					.formats = SNDRV_PCM_FMTBIT_S24_3LE,
 					.channels = 12,
 					.iface = 1,
 					.altsetting = 1,
@@ -1263,6 +1311,54 @@ YAMAHA_DEVICE(0x7010, "UB99"),
 					.rate_max = 44100,
 					.nr_rates = 1,
 					.rate_table = (unsigned int[]) { 44100 }
+				}
+			},
+			{
+				QUIRK_DATA_AUDIOFORMAT(1) {
+					.formats = SNDRV_PCM_FMTBIT_S24_3LE,
+					.channels = 12,
+					.iface = 1,
+					.altsetting = 2,
+					.altset_idx = 2,
+					.endpoint = 0x85,
+					.ep_attr = 0x25,
+					.rates = SNDRV_PCM_RATE_48000,
+					.rate_min = 48000,
+					.rate_max = 48000,
+					.nr_rates = 1,
+					.rate_table = (unsigned int[]) { 48000 }
+				}
+			},
+			{
+				QUIRK_DATA_AUDIOFORMAT(1) {
+					.formats = SNDRV_PCM_FMTBIT_S24_3LE,
+					.channels = 12,
+					.iface = 1,
+					.altsetting = 3,
+					.altset_idx = 3,
+					.endpoint = 0x85,
+					.ep_attr = 0x25,
+					.rates = SNDRV_PCM_RATE_96000,
+					.rate_min = 96000,
+					.rate_max = 96000,
+					.nr_rates = 1,
+					.rate_table = (unsigned int[]) { 96000 }
+				}
+			},
+			{
+				QUIRK_DATA_AUDIOFORMAT(1) {
+					.formats = SNDRV_PCM_FMTBIT_S24_3LE,
+					.channels = 4,
+					.iface = 1,
+					.altsetting = 4,
+					.altset_idx = 4,
+					.endpoint = 0x85,
+					.ep_attr = 0x25,
+					.rates = SNDRV_PCM_RATE_192000,
+					.rate_min = 192000,
+					.rate_max = 192000,
+					.nr_rates = 1,
+					.rate_table = (unsigned int[]) { 192000 }
 				}
 			},
 			{
