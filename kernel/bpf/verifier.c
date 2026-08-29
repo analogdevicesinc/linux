@@ -9995,9 +9995,14 @@ static int check_func_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 		 */
 		if (!returns_void) {
 			nregs = bpf_ret_reg_pair(env, subprog) ? 2 : 1;
-			for (i = 0; i < nregs; i++)
-				mark_reg_unknown(env, caller->regs, ret_regs[i]);
+			mark_reg_unknown(env, caller->regs, ret_regs[0]);
 			bpf_diag_mod_end(env);
+			for (i = 1; i < nregs; i++) {
+				bpf_diag_mod_begin(env, &caller->regs[ret_regs[i]], NULL,
+						   BPF_DIAG_MOD_WRITE);
+				mark_reg_unknown(env, caller->regs, ret_regs[i]);
+				bpf_diag_mod_end(env);
+			}
 		}
 
 		if (env->subprog_info[subprog].might_throw) {
@@ -10403,10 +10408,14 @@ static int prepare_func_exit(struct bpf_verifier_env *env, int *insn_idx)
 		 * return to the caller whatever the callee had in the
 		 * return register(s)
 		 */
-		bpf_diag_mod_begin(env, &caller->regs[BPF_REG_0], r0, BPF_DIAG_MOD_WRITE);
-		for (i = 0; i < nregs; i++)
-			caller->regs[ret_regs[i]] = callee->regs[ret_regs[i]];
-		bpf_diag_mod_end(env);
+		for (i = 0; i < nregs; i++) {
+			u32 regno = ret_regs[i];
+
+			bpf_diag_mod_begin(env, &caller->regs[regno], &callee->regs[regno],
+					   BPF_DIAG_MOD_WRITE);
+			caller->regs[regno] = callee->regs[regno];
+			bpf_diag_mod_end(env);
+		}
 	}
 
 	/* for callbacks like bpf_loop or bpf_for_each_map_elem go back to callsite,
@@ -11342,15 +11351,33 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 
 /*
  * Mark the register(s) holding a @size byte kfunc return value as unknown
- * scalars. Both halves of a register pair are treated the same way.
+ * scalars and return how many registers that took. Both halves of a register
+ * pair are treated the same way.
+ *
+ * R0 is written in the diagnostic modification scope the caller opened before
+ * the caller-saved scrub, since R0 gets no scrub record of its own and that
+ * scope is what carries its pre-call value into the history. A scope tracks a
+ * single register and does not nest, so close it before recording the rest of
+ * the return value. A value that fits in R0 leaves the caller's scope open for
+ * the caller to close, so a later write to R0 still lands in it.
  */
-static void mark_kfunc_ret_regs(struct bpf_verifier_env *env,
-				struct bpf_reg_state *regs, u32 size)
+static u32 mark_kfunc_ret_regs(struct bpf_verifier_env *env,
+			       struct bpf_reg_state *regs, u32 size)
 {
 	u32 i, nregs = ret_regs_cnt(size);
 
-	for (i = 0; i < nregs; i++)
+	mark_reg_unknown(env, regs, ret_regs[0]);
+	if (nregs == 1)
+		return nregs;
+
+	bpf_diag_mod_end(env);
+	for (i = 1; i < nregs; i++) {
+		bpf_diag_mod_begin(env, &regs[ret_regs[i]], NULL, BPF_DIAG_MOD_WRITE);
 		mark_reg_unknown(env, regs, ret_regs[i]);
+		bpf_diag_mod_end(env);
+	}
+
+	return nregs;
 }
 
 static bool is_kfunc_acquire(struct bpf_call_arg_meta *meta)
@@ -13767,7 +13794,7 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	struct bpf_insn_aux_data *insn_aux;
 	const char *operation;
 	int err, insn_idx = *insn_idx_p;
-	u32 i, nargs, ptr_type_id;
+	u32 i, nargs, ptr_type_id, ret_nregs = 1;
 	struct bpf_kfunc_desc *desc;
 	struct btf *desc_btf;
 	int id;
@@ -14021,7 +14048,7 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	}
 
 	if (btf_type_is_scalar(t)) {
-		mark_kfunc_ret_regs(env, regs, t->size);
+		ret_nregs = mark_kfunc_ret_regs(env, regs, t->size);
 		if (meta.btf == btf_vmlinux && (meta.func_id == special_kfunc_list[KF_bpf_res_spin_lock] ||
 		    meta.func_id == special_kfunc_list[KF_bpf_res_spin_lock_irqsave]))
 			__mark_reg_const_zero(env, &regs[BPF_REG_0]);
@@ -14039,7 +14066,7 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 				btf_name_by_offset(desc_btf, t->name_off));
 			return -EINVAL;
 		}
-		mark_kfunc_ret_regs(env, regs, t->size);
+		ret_nregs = mark_kfunc_ret_regs(env, regs, t->size);
 	} else if (btf_type_is_ptr(t)) {
 		ptr_type = btf_type_skip_modifiers(desc_btf, t->type, &ptr_type_id);
 		err = check_special_kfunc(env, &meta, regs, insn_aux, ptr_type, desc_btf);
@@ -14170,7 +14197,8 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	 * Record R0 before process_iter_next_call() snapshots the alternate
 	 * iterator path's diagnostic position.
 	 */
-	bpf_diag_mod_end(env);
+	if (ret_nregs == 1)
+		bpf_diag_mod_end(env);
 
 	if (bpf_is_iter_next_kfunc(&meta)) {
 		err = process_iter_next_call(env, insn_idx, &meta);
