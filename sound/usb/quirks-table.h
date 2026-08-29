@@ -1363,8 +1363,8 @@ YAMAHA_DEVICE(0x7010, "UB99"),
 			},
 			{
 				QUIRK_DATA_MIDI_FIXED_ENDPOINT(2) {
-					.out_cables = 0x0001,
-					.in_cables  = 0x0001
+					.out_cables = 0x0005,
+					.in_cables  = 0x0003
 				}
 			},
 			{ QUIRK_DATA_IGNORE(3) },
