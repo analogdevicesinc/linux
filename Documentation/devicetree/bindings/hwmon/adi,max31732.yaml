@@ -1,0 +1,199 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/adi,max31732.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX31732 Temperature Sensor
+
+maintainers:
+  - Sinan Divarci <Sinan.Divarci@analog.com>
+
+description: |
+  The Analog Devices MAX31732 is a local plus four-channel remote temperature
+  sensor that exposes two ALARM outputs, programmable limits and calibration
+  aids. The driver reports readings through the Linux hwmon subsystem and can
+  optionally use the ALARM pins as interrupts.
+
+properties:
+  compatible:
+    const: adi,max31732
+
+  reg:
+    description: I2C address of the device.
+    maxItems: 1
+
+  interrupts:
+    description: Optional ALARM1/ALARM2 interrupt lines.
+    minItems: 1
+    maxItems: 2
+
+  interrupt-names:
+    description: Names matching the provided interrupts.
+    minItems: 1
+    maxItems: 2
+    items:
+      - const: ALARM1
+      - const: ALARM2
+
+  adi,alarm1-interrupt-mode:
+    type: boolean
+    description: Use the ALARM1 output in interrupt (latching) mode.
+
+  adi,alarm2-interrupt-mode:
+    type: boolean
+    description: Use the ALARM2 output in interrupt (latching) mode.
+
+  adi,alarm1-fault-queue:
+    description: Number of consecutive faults required to assert ALARM1.
+    enum: [1, 2, 4, 6]
+    default: 1
+
+  adi,alarm2-fault-queue:
+    description: Number of consecutive faults required to assert ALARM2.
+    enum: [1, 2, 4, 6]
+    default: 1
+
+  adi,extended-range:
+    type: boolean
+    description: |
+      Enable the device extended range (+64°C offset) at probe time. When set,
+      the temperature reading range shifts from [-128°C, +127.9375°C] to
+      [-64°C, +191.9375°C] for primary limits and [-64°C, +191°C] for
+      secondary limits.
+
+  adi,ignore-isc2gnd:
+    type: boolean
+    description: |
+      Mask short-circuit-to-ground faults for remote channels. When set,
+      the device ignores shorts between DXN and ground.
+
+  adi,custom-ideality-factor-r1:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    maximum: 255
+    description: |
+      Custom ideality factor for remote channel 1. Allows calibration for
+      non-standard diode characteristics. When specified, overrides the
+      default ideality factor for this channel.
+
+  adi,custom-ideality-factor-r2:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    maximum: 255
+    description: Custom ideality factor for remote channel 2.
+
+  adi,custom-ideality-factor-r3:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    maximum: 255
+    description: Custom ideality factor for remote channel 3.
+
+  adi,custom-ideality-factor-r4:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    maximum: 255
+    description: Custom ideality factor for remote channel 4.
+
+  adi,filter-channels:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 0x1e
+    description: |
+      Bitmask to enable digital filtering on remote channels (bits 1-4).
+      The filter averages the previous four temperature conversions.
+      Bit 0 (local channel) is ignored. Bit 1 = remote1, bit 2 = remote2,
+      bit 3 = remote3, bit 4 = remote4.
+
+  adi,beta-compensation-channels:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 0x1e
+    description: |
+      Bitmask to enable beta compensation on remote channels (bits 1-4).
+      Bit encoding same as adi,filter-channels.
+
+  adi,highest-temp-channels:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 0x1f
+    description: |
+      Bitmask to enable highest temperature tracking per channel (bits 0-4).
+      Bit 0 = local, bits 1-4 = remote channels 1-4. The hardware records
+      the highest temperature seen on enabled channels.
+
+  adi,reference-temp-local:
+    $ref: /schemas/types.yaml#/definitions/int32
+    description: |
+      Reference junction temperature for the local channel in milli-degrees
+      Celsius. Used for calibration purposes.
+
+  adi,reference-temp-remote1:
+    $ref: /schemas/types.yaml#/definitions/int32
+    description: Reference junction temperature for remote channel 1 (in m°C).
+
+  adi,reference-temp-remote2:
+    $ref: /schemas/types.yaml#/definitions/int32
+    description: Reference junction temperature for remote channel 2 (in m°C).
+
+  adi,reference-temp-remote3:
+    $ref: /schemas/types.yaml#/definitions/int32
+    description: Reference junction temperature for remote channel 3 (in m°C).
+
+  adi,reference-temp-remote4:
+    $ref: /schemas/types.yaml#/definitions/int32
+    description: Reference junction temperature for remote channel 4 (in m°C).
+
+  adi,alarm1-mask:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 0x1f
+    description: |
+      Bitmask to disable ALARM1 assertions for specific channels at probe time.
+      Bit 0 = local channel, bits 1-4 = remote channels 1-4.
+      Set bit to 1 to mask (disable) the alarm for that channel.
+
+  adi,alarm2-mask:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 0x1f
+    description: |
+      Bitmask to disable ALARM2 assertions for specific channels at probe time.
+      Same bit encoding as adi,alarm1-mask.
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/gpio/gpio.h>
+
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        sensor@1c {
+            compatible = "adi,max31732";
+            reg = <0x1c>;
+            interrupt-parent = <&gpio>;
+            interrupts = <17 IRQ_TYPE_EDGE_FALLING>, <27 IRQ_TYPE_EDGE_FALLING>;
+            interrupt-names = "ALARM1", "ALARM2";
+            adi,alarm1-interrupt-mode;
+            adi,alarm1-fault-queue = <4>;
+            adi,alarm2-fault-queue = <2>;
+            adi,extended-range;
+            adi,ignore-isc2gnd;
+            adi,custom-ideality-factor-r1 = <100>;
+            adi,filter-channels = <0x1e>;  /* Enable for all remote channels */
+            adi,beta-compensation-channels = <0x06>;  /* Enable for remote 1 and 2 */
+            adi,highest-temp-channels = <0x1f>;  /* Track all channels */
+            adi,reference-temp-local = <25000>;  /* 25°C in m°C */
+            adi,reference-temp-remote1 = <25000>;
+            adi,alarm1-mask = <0x08>;
+            adi,alarm2-mask = <0x10>;
+        };
+    };

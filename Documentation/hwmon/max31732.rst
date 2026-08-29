@@ -1,0 +1,171 @@
+.. SPDX-License-Identifier: GPL-2.0
+
+Analog Devices MAX31732 hardware monitor
+========================================
+
+Supported chips
+---------------
+
+* Analog Devices MAX31732 - 4-channel remote plus on-chip temperature sensor
+
+  Prefix: ``max31732``
+
+  I2C addresses: 0x1c - 0x4f (can be selected by connecting a resistor between ADD pin and GND)
+
+  Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/max31732.pdf
+
+Overview
+--------
+
+The MAX31732 combines a local temperature sensor with four remote
+probes. The local sensor monitors the chip's own temperature, while the remote probes monitor external diode-connected transistors.
+The device supports comparator or interrupt behaviour on
+two open-drain ALARM outputs, implements programmable fault queues,
+and exposes calibration features such as custom ideality factors and beta compensation.
+The Linux driver uses the regmap abstraction on top of the I2C bus and integrates with the HWMON
+subsystem, exposing standard hwmon ``temp`` attributes through the modern hwmon API.
+
+Key device capabilities
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- Five measurement channels (local sensor + four remote diodes)
+- 12-bit temperature conversion with 0.0625°C resolution
+- Extended range option that shifts the readable window by +64°C
+- Independent primary (ALARM1) and secondary (ALARM2) alarm thresholds
+- Per-channel programmable offsets, digital filtering and calibration
+- Comparator or interrupt mode for alarm outputs
+- Non-volatile (MTP) storage for alarm/fault configuration (not exposed by driver)
+
+Temperature data is reported in milli-degree Celsius through standard hwmon sysfs attributes.
+
+Standard temperature attributes
+-------------------------------
+
+The driver implements standard hwmon temperature attributes.
+All attributes follow the standard hwmon sysfs interface.
+
+===================== == =====================================================
+temp[1-5]_input       RO Instantaneous temperature for local (1) and remote
+                         channels (2-5). Returns -ENODATA if channel is
+                         disabled.
+temp[1-5]_enable      RW Enable (1) or disable (0) a channel.
+temp[1-5]_max         RW Primary over-temperature limit (asserts ALARM1).
+temp[1-5]_max_alarm   RO Primary over-temperature alarm status.
+temp[1-5]_crit        RW Secondary over-temperature limit (asserts ALARM2).
+temp[1-5]_crit_alarm  RO Secondary over-temperature alarm status.
+temp1_min             RW Primary under-temperature limit (asserts ALARM1).
+                         This is a shared limit that applies to all channels.
+temp[1-5]_min_alarm   RO Primary under-temperature alarm status.
+temp1_lcrit           RW Secondary under-temperature limit (asserts ALARM2).
+                         This is a shared limit that applies to all channels.
+temp[1-5]_lcrit_alarm RO Secondary under-temperature alarm status.
+temp[2-5]_offset      RW Programmable offset for each remote channel
+                         (-14.875°C to +17°C in 0.125°C steps). Writing
+                         a non-zero offset automatically enables the offset
+                         for that channel.
+temp[2-5]_fault       RO Indicates open/short fault detection on remote
+                         sensors (0=no fault, 1=fault detected).
+===================== == =====================================================
+
+Notes:
+
+* temp1 represents the local (on-chip) temperature sensor
+* temp2-5 represent remote channels 1-4 respectively
+* Only temp1_min and temp1_lcrit are writable; these limits apply globally
+* Offsets are only available for remote channels (temp2-5), not the local channel
+* All temperatures are in milli-degrees Celsius
+* The extended_range mode (configured via device tree) adds a +64°C offset
+  to all temperature readings, allowing measurements above +127.9375°C
+
+Device Tree configuration
+-------------------------
+
+The driver accepts several device tree properties to configure the device at
+probe time. These properties configure hardware behavior but are not exposed
+as runtime sysfs attributes.
+
+Refer to ``Documentation/devicetree/bindings/hwmon/adi,max31732.yaml`` for the
+complete device tree binding specification.
+
+Configuration properties
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+``interrupts`` / ``interrupt-names``
+    Optional interrupt lines for ALARM1/ALARM2 outputs. When specified, the
+    driver registers threaded IRQ handlers that clear status registers and
+    issue hwmon_notify_event() callbacks to userspace.
+
+``adi,alarm1-interrupt-mode`` / ``adi,alarm2-interrupt-mode``
+    Configure ALARM outputs to function in interrupt (latching) mode.
+    When absent, outputs operate in comparator mode.
+
+``adi,alarm1-fault-queue`` / ``adi,alarm2-fault-queue``
+    Number of consecutive faults (1, 2, 4, or 6) required before the
+    corresponding ALARM output asserts. Defaults to 1.
+
+``adi,extended-range``
+    Enable extended temperature range at probe time. When set, adds a +64°C
+    offset to all temperature readings, allowing measurements from -64°C to
+    +191.9375°C (primary limits) or +191°C (secondary limits).
+
+``adi,ignore-isc2gnd``
+    Mask short-circuit-to-ground faults for remote channels.
+
+``adi,alarm1-mask`` / ``adi,alarm2-mask``
+    5-bit mask (0x00-0x1f) to disable ALARM assertions for specific channels
+    at probe time. Bit 0 = local channel, bits 1-4 = remote channels 1-4.
+    Set bit to 1 to mask (disable) the alarm for that channel.
+
+``adi,custom-ideality-factor-r[1-4]``
+    Custom ideality factor (1-255) for each remote channel. Allows calibration
+    for non-standard diode characteristics.
+
+``adi,filter-channels``
+    Bitmask (bits 1-4) to enable digital filtering on remote channels. The
+    filter averages the previous four conversions.
+
+``adi,beta-compensation-channels``
+    Bitmask (bits 1-4) to enable beta compensation on remote channels.
+
+``adi,highest-temp-channels``
+    Bitmask (bits 0-4) to enable highest temperature tracking per channel.
+    Note: The highest temperature values are not currently exposed via sysfs.
+
+``adi,reference-temp-local``
+    Reference junction temperature for the local channel (in milli-degrees C).
+
+``adi,reference-temp-remote[1-4]``
+    Reference junction temperatures for remote channels (in milli-degrees C).
+
+Interrupt support
+-----------------
+
+The driver optionally registers threaded IRQ handlers for the ALARM1 and
+ALARM2 outputs. Provide ``interrupts`` and matching ``interrupt-names`` 
+("ALARM1", "ALARM2") in the device tree to enable interrupt handling.
+
+When an alarm interrupt fires, the driver:
+
+1. Reads the status registers (PRIMARY/SECONDARY HIGH/LOW STATUS)
+2. Logs critical messages identifying which channels triggered the alarm
+3. Calls hwmon_notify_event() for each affected channel
+4. Returns IRQ_HANDLED
+
+This allows userspace monitoring tools to react promptly to temperature events
+through the standard hwmon notification mechanism.
+
+If interrupts are not specified in device tree, the corresponding ALARM outputs
+are masked (all channels disabled) and polling must be used to detect alarm
+conditions via the _alarm sysfs attributes.
+
+Usage notes
+-----------
+
+* All temperatures are in milli-degree Celsius (m°C)
+* The driver uses REGCACHE_MAPLE for register caching with explicit volatile ranges
+* Channel enable/disable state is checked at probe; if all channels are disabled,
+  the STOP bit is set to halt conversions
+* The extended_range setting and other hardware configurations are applied once
+  at probe time and cannot be changed at runtime
+* Temperature offset writes automatically enable/disable the offset feature based
+  on whether a non-zero value is written
