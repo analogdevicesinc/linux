@@ -5,7 +5,10 @@
 //! To make this driver probe, QEMU must be run with `-device pci-testdev`.
 
 use kernel::{
-    device::Core,
+    device::{
+        Bound,
+        Core, //
+    },
     dma::{
         Coherent,
         DataDirection,
@@ -23,13 +26,14 @@ use kernel::{
     scatterlist::{
         Owned,
         SGTable, //
-    },
-    sync::aref::ARef, //
+    }, //
 };
 
+struct DmaSampleDriver;
+
 #[pin_data(PinnedDrop)]
-struct DmaSampleDriver {
-    pdev: ARef<pci::Device>,
+struct DmaSampleData<'bound> {
+    pdev: &'bound pci::Device<Bound>,
     ca: Coherent<[MyStruct]>,
     #[pin]
     sgt: SGTable<Owned<VVec<u8>>>,
@@ -67,13 +71,13 @@ kernel::pci_device_table!(
 
 impl pci::Driver for DmaSampleDriver {
     type IdInfo = ();
-    type Data<'bound> = Self;
+    type Data<'bound> = DmaSampleData<'bound>;
     const ID_TABLE: pci::IdTable<Self::IdInfo> = &PCI_TABLE;
 
     fn probe<'bound>(
         pdev: &'bound pci::Device<Core<'_>>,
         _info: Option<&'bound Self::IdInfo>,
-    ) -> impl PinInit<Self, Error> + 'bound {
+    ) -> impl PinInit<Self::Data<'bound>, Error> + 'bound {
         pin_init::pin_init_scope(move || {
             dev_info!(pdev, "Probe DMA test driver.\n");
 
@@ -94,8 +98,8 @@ impl pci::Driver for DmaSampleDriver {
 
             let sgt = SGTable::new(pdev.as_ref(), pages, DataDirection::ToDevice, GFP_KERNEL);
 
-            Ok(try_pin_init!(Self {
-                pdev: pdev.into(),
+            Ok(try_pin_init!(Self::Data {
+                pdev,
                 ca,
                 sgt <- sgt,
             }))
@@ -103,7 +107,7 @@ impl pci::Driver for DmaSampleDriver {
     }
 }
 
-impl DmaSampleDriver {
+impl DmaSampleData<'_> {
     fn check_dma(&self) {
         for (i, value) in TEST_VALUES.into_iter().enumerate() {
             let val0 = io_read!(self.ca, [panic: i].h);
@@ -116,7 +120,7 @@ impl DmaSampleDriver {
 }
 
 #[pinned_drop]
-impl PinnedDrop for DmaSampleDriver {
+impl PinnedDrop for DmaSampleData<'_> {
     fn drop(self: Pin<&mut Self>) {
         dev_info!(self.pdev, "Unload DMA test driver.\n");
 
