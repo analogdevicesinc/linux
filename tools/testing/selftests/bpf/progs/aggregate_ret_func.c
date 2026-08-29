@@ -2,6 +2,7 @@
 /* Copyright (c) 2026 Meta Platforms, Inc. and affiliates. */
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
+#include <bpf_arena_common.h>
 #include "bpf_misc.h"
 
 typedef unsigned __int128 u128;
@@ -229,6 +230,151 @@ __naked int aggregate_ret_global_union_ptr_fail(void)
 	"exit;"
 	:
 	: __imm(global_ret_union_ptr)
+	: __clobber_all);
+}
+
+#endif
+
+/*
+ * gcc returns a by-value struct through a hidden pointer, and emits the
+ * 'r0 = r1' returning it after the __naked body's exit, leaving the
+ * subprogram falling through. Build these with clang only.
+ */
+#if defined(__clang__)
+
+struct arena_pair {
+	void __arena *lo;
+	void __arena *hi;
+};
+
+struct arena_and_scalar {
+	void __arena *p;
+	__u64 x;
+};
+
+struct arena_array {
+	void __arena *p[2];
+};
+
+struct arena_single {
+	void __arena *p;
+};
+
+union arena_upair {
+	void __arena *p;
+	__u64 halves[2];
+};
+
+__naked struct arena_pair global_ret_arena_pair(void)
+{
+	asm volatile (
+	"r0 = 0;"
+	"r2 = 0;"
+	"exit;"
+	);
+}
+
+SEC("tc")
+__load_if_JITed()
+__success __retval(0)
+__naked int aggregate_ret_global_arena_pair(void)
+{
+	asm volatile (
+	"call %[global_ret_arena_pair];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(global_ret_arena_pair)
+	: __clobber_all);
+}
+
+__naked struct arena_and_scalar global_ret_arena_and_scalar(void)
+{
+	asm volatile (
+	"r0 = 0;"
+	"r2 = 0;"
+	"exit;"
+	);
+}
+
+SEC("tc")
+__load_if_JITed()
+__success __retval(0)
+__naked int aggregate_ret_global_arena_and_scalar(void)
+{
+	asm volatile (
+	"call %[global_ret_arena_and_scalar];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(global_ret_arena_and_scalar)
+	: __clobber_all);
+}
+
+__naked struct arena_array global_ret_arena_array(void)
+{
+	asm volatile (
+	"r0 = 0;"
+	"r2 = 0;"
+	"exit;"
+	);
+}
+
+SEC("tc")
+__load_if_JITed()
+__success __retval(0)
+__naked int aggregate_ret_global_arena_array(void)
+{
+	asm volatile (
+	"call %[global_ret_arena_array];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(global_ret_arena_array)
+	: __clobber_all);
+}
+
+__naked struct arena_single global_ret_arena_single(void)
+{
+	asm volatile (
+	"r0 = 0;"
+	"exit;"
+	);
+}
+
+SEC("tc")
+__success __retval(0)
+__naked int aggregate_ret_global_arena_single(void)
+{
+	asm volatile (
+	"call %[global_ret_arena_single];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(global_ret_arena_single)
+	: __clobber_all);
+}
+
+__naked union arena_upair global_ret_arena_union(void)
+{
+	asm volatile (
+	"r0 = 0;"
+	"r2 = 0;"
+	"exit;"
+	);
+}
+
+SEC("tc")
+__load_if_JITed()
+__success __retval(0)
+__naked int aggregate_ret_global_arena_union(void)
+{
+	asm volatile (
+	"call %[global_ret_arena_union];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(global_ret_arena_union)
 	: __clobber_all);
 }
 
