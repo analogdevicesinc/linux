@@ -7979,7 +7979,7 @@ static int btf_validate_return_type(struct bpf_verifier_env *env, struct btf *bt
 		 */
 		bool local_func = subprog && !is_global;
 
-		if (local_func || btf_type_is_scalar_struct(env, btf, t))
+		if (local_func || btf_struct_is_composed_of(env, btf, t, BTF_MEMBER_SCALAR))
 			return 0;
 	}
 

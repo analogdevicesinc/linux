@@ -11646,9 +11646,23 @@ static bool is_kfunc_arg_implicit(const struct bpf_call_arg_meta *meta, u32 arg_
 	return argn <= arg_idx;
 }
 
-/* Returns true if struct is composed of scalars, 4 levels of nesting allowed */
+static bool btf_member_kind_allowed(const struct btf *btf, const struct btf_type *t,
+				    u32 member_kinds)
+{
+	if ((member_kinds & BTF_MEMBER_SCALAR) && btf_type_is_scalar(t))
+		return true;
+	if ((member_kinds & BTF_MEMBER_ARENA_PTR) && btf_type_is_arena_ptr(btf, t))
+		return true;
+	return false;
+}
+
+/*
+ * Returns true if every member of struct @t is of a kind listed in
+ * @member_kinds, 4 levels of nesting allowed. An array member counts as its
+ * element type.
+ */
 static bool btf_struct_member_walk(struct bpf_verifier_env *env, const struct btf *btf,
-				   const struct btf_type *t, int rec)
+				   const struct btf_type *t, u32 member_kinds, int rec)
 {
 	const struct btf_type *member_type;
 	const struct btf_member *member;
@@ -11666,7 +11680,7 @@ static bool btf_struct_member_walk(struct bpf_verifier_env *env, const struct bt
 				verbose(env, "max struct nesting depth exceeded\n");
 				return false;
 			}
-			if (!btf_struct_member_walk(env, btf, member_type, rec + 1))
+			if (!btf_struct_member_walk(env, btf, member_type, member_kinds, rec + 1))
 				return false;
 			continue;
 		}
@@ -11675,21 +11689,25 @@ static bool btf_struct_member_walk(struct bpf_verifier_env *env, const struct bt
 			if (!array->nelems)
 				return false;
 			member_type = btf_type_skip_modifiers(btf, array->type, NULL);
-			if (!btf_type_is_scalar(member_type))
-				return false;
-			continue;
 		}
-		if (!btf_type_is_scalar(member_type))
+		if (!btf_member_kind_allowed(btf, member_type, member_kinds))
 			return false;
 	}
 	return true;
 }
 
-bool btf_type_is_scalar_struct(struct bpf_verifier_env *env,
+bool btf_struct_is_composed_of(struct bpf_verifier_env *env,
 			       const struct btf *btf,
-			       const struct btf_type *t)
+			       const struct btf_type *t, u32 member_kinds)
 {
-	return btf_struct_member_walk(env, btf, t, 0);
+	return btf_struct_member_walk(env, btf, t, member_kinds, 0);
+}
+
+static bool btf_type_is_scalar_struct(struct bpf_verifier_env *env,
+				      const struct btf *btf,
+				      const struct btf_type *t)
+{
+	return btf_struct_is_composed_of(env, btf, t, BTF_MEMBER_SCALAR);
 }
 
 enum kfunc_ptr_arg_type {
