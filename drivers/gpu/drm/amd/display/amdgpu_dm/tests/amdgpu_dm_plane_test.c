@@ -3686,6 +3686,28 @@ static void dm_test_atomic_async_update_copies_state(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, cur_state->crtc_h, 64U);
 }
 
+/**
+ * dm_test_add_modifier_alloc_failure() - Verify the growth allocation failure.
+ * @test: KUnit test context.
+ *
+ * Verify if a failed capacity growth releases and clears the modifier list so
+ * the caller can detect the allocation failure.
+ */
+static void dm_test_add_modifier_alloc_failure(struct kunit *test)
+{
+	/* Doubling this capacity overflows the kmalloc_array() size product. */
+	u64 cap = 1ULL << 62;
+	u64 size = cap;
+	u64 *mods = kmalloc_array(1, sizeof(*mods), GFP_KERNEL);
+
+	KUNIT_ASSERT_NOT_NULL(test, mods);
+
+	amdgpu_dm_plane_add_modifier(&mods, &size, &cap, 0x1234ULL);
+
+	KUNIT_EXPECT_PTR_EQ(test, mods, NULL);
+	KUNIT_EXPECT_EQ(test, size, 1ULL << 62);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3782,6 +3804,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_add_modifier_appends_value),
 	KUNIT_CASE(dm_test_add_modifier_grows_capacity),
 	KUNIT_CASE(dm_test_add_modifier_noop_when_mods_null),
+	KUNIT_CASE(dm_test_add_modifier_alloc_failure),
 	/* amdgpu_dm_plane_add_modifier_dedup() */
 	KUNIT_CASE(dm_test_add_modifier_dedup_skips_duplicate),
 	KUNIT_CASE(dm_test_add_modifier_dedup_noop_when_mods_null),
