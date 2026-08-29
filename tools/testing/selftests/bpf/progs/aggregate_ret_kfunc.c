@@ -71,7 +71,7 @@ __naked int aggregate_ret_kfunc_fastcall_fail(void)
 
 SEC("tc")
 __arch_x86_64 __arch_arm64
-__failure __msg("is not composed of scalars")
+__failure __msg("is not composed of scalars or arena pointers")
 __naked int aggregate_ret_kfunc_ptr_fail(void)
 {
 	asm volatile (
