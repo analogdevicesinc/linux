@@ -10205,9 +10205,8 @@ S:	Maintained
 F:	drivers/nvmem/layouts/fixed-layout.c
 
 FLEXTIMER FTM-QUADDEC DRIVER
-M:	Patrick Havelange <patrick.havelange@essensium.com>
 L:	linux-iio@vger.kernel.org
-S:	Maintained
+S:	Orphan
 F:	Documentation/devicetree/bindings/counter/fsl,ftm-quaddec.yaml
 F:	drivers/counter/ftm-quaddec.c
 
