@@ -42,6 +42,7 @@ devem estar familiarizados.
    Como aplicar patches <applying-patches>
    Backporting e resolução de conflitos <backporting>
    Adicionando uma nova chamada de Sistema <adding-syscalls>
+   Por que a classe de tipo "volatile" não deve ser usada <volatile-considered-harmful>
    Como não Deixar as ioctls malfeitas <botching-up-ioctls>
 
 Guias de políticas e declarações de desenvolvedores
