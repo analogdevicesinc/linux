@@ -8,9 +8,11 @@
 #include <kunit/test.h>
 
 #include <drm/drm_drv.h>
+#include <drm/drm_atomic_uapi.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_fixed.h>
 #include <drm/drm_kunit_helpers.h>
+#include <drm/drm_managed.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_connector.h>
 #include <drm/drm_mode_config.h>
@@ -3638,6 +3640,393 @@ static void dm_mst_test_pre_validate_dsc_not_needed(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, dm_state);
 }
 
+/* Tests for pre_compute_mst_dsc_configs_for_state */
+
+/**
+ * dm_mst_test_pre_compute_configs_skips_sst - non-MST streams are not considered
+ * @test: KUnit test context
+ */
+static void dm_mst_test_pre_compute_configs_skips_sst(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dc_stream_state *stream;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	stream = dm_mst_test_add_link_stream(test, ctx.dc_state, ctx.link, ctx.aconnector);
+	stream->ctx = ctx.dc->ctx;
+	stream->signal = SIGNAL_TYPE_DISPLAY_PORT;
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx.state, ctx.dc_state, vars), 0);
+}
+
+/**
+ * dm_mst_test_pre_compute_configs_skips_incomplete - streams without a sink are skipped
+ * @test: KUnit test context
+ */
+static void dm_mst_test_pre_compute_configs_skips_incomplete(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dc_stream_state *stream;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	stream = dm_mst_test_add_link_stream(test, ctx.dc_state, ctx.link, ctx.aconnector);
+	stream->ctx = ctx.dc->ctx;
+	stream->signal = SIGNAL_TYPE_DISPLAY_PORT_MST;
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx.state, ctx.dc_state, vars), 0);
+}
+
+/**
+ * dm_mst_test_pre_compute_configs_no_recompute - an unchanged topology is left alone
+ * @test: KUnit test context
+ *
+ * The stream is DSC capable but is_dsc_need_re_compute() reports no change, so
+ * the precompute leaves the existing configuration in place.
+ */
+static void dm_mst_test_pre_compute_configs_no_recompute(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	ctx.link->type = dc_connection_single;
+	dm_mst_test_add_mst_dsc_stream(test, &ctx, NULL);
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx.state, ctx.dc_state, vars), 0);
+}
+
+/* Tests for compute_mst_dsc_configs_for_link */
+
+static const struct drm_connector_funcs dm_mst_test_dsc_link_conn_funcs = {
+	.reset = drm_atomic_helper_connector_reset,
+	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+};
+
+static enum dp_link_encoding dm_mst_test_mst_encoding_format(const struct dc_link *link)
+{
+	return DP_8b_10b_ENCODING;
+}
+
+struct dm_mst_test_dsc_link_ctx {
+	struct drm_modeset_acquire_ctx acquire_ctx;
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_dp_mst_topology_state *mst_state;
+	struct drm_atomic_commit *state;
+	struct dc_stream_state *stream;
+	struct drm_device *drm;
+	struct dc_state *dc_state;
+};
+
+static void dm_mst_test_dsc_link_drop_locks(void *data)
+{
+	struct dm_mst_test_dsc_link_ctx *ctx = data;
+
+	ctx->drm->mode_config.acquire_ctx = NULL;
+	drm_modeset_drop_locks(&ctx->acquire_ctx);
+	drm_modeset_acquire_fini(&ctx->acquire_ctx);
+}
+
+static void dm_mst_test_destroy_mst_mgr(void *data)
+{
+	struct drm_dp_mst_topology_mgr *mgr = data;
+
+	mgr->mst_state = false;
+	drm_dp_mst_topology_mgr_destroy(mgr);
+}
+
+/*
+ * Full fixture for the DSC bandwidth sharing loop: a real DRM pipe and atomic
+ * state (the DRM MST helpers need private object locking), a real topology
+ * manager, and one MST stream whose 1920x1080 timing does not fit
+ * uncompressed. @total_avail_slots decides which compression pass succeeds.
+ *
+ * The context is KUnit allocated because the modeset locks are dropped from a
+ * deferred action, long after the test body has returned.
+ */
+static struct dm_mst_test_dsc_link_ctx *
+dm_mst_test_alloc_dsc_link_ctx(struct kunit *test, int total_avail_slots)
+{
+	struct dm_mst_test_dsc_link_ctx *ctx;
+	struct drm_connector_state *conn_state;
+	struct drm_crtc_state *crtc_state;
+	struct link_service *link_srv;
+	struct resource_pool *res_pool;
+	struct drm_dp_mst_port *port;
+	struct drm_plane *primary;
+	struct drm_crtc *crtc;
+	struct dc_sink *sink;
+	struct dc_link *link;
+	struct device *dev;
+	struct dc *dc;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	dev = drm_kunit_helper_alloc_device(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
+	ctx->drm = __drm_kunit_helper_alloc_drm_device(test, dev,
+						       sizeof(struct amdgpu_device),
+						       offsetof(struct amdgpu_device, ddev),
+						       DRIVER_MODESET | DRIVER_ATOMIC);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->drm);
+
+	primary = drm_kunit_helper_create_primary_plane(test, ctx->drm, NULL, NULL, NULL, 0, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, primary);
+	crtc = drm_kunit_helper_create_crtc(test, ctx->drm, primary, NULL, NULL, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+
+	ctx->aconnector = drmm_kzalloc(ctx->drm, sizeof(*ctx->aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector);
+	KUNIT_ASSERT_EQ(test,
+			drmm_connector_init(ctx->drm, &ctx->aconnector->base,
+					    &dm_mst_test_dsc_link_conn_funcs,
+					    DRM_MODE_CONNECTOR_DisplayPort, NULL), 0);
+	drm_mode_config_reset(ctx->drm);
+
+	KUNIT_ASSERT_EQ(test,
+			drm_dp_mst_topology_mgr_init(&ctx->aconnector->mst_mgr, ctx->drm,
+						     &ctx->aconnector->dm_dp_aux.aux, 16, 4,
+						     ctx->aconnector->base.base.id), 0);
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_mst_test_destroy_mst_mgr,
+						  &ctx->aconnector->mst_mgr), 0);
+
+	drm_modeset_acquire_init(&ctx->acquire_ctx, 0);
+	ctx->drm->mode_config.acquire_ctx = &ctx->acquire_ctx;
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_mst_test_dsc_link_drop_locks, ctx), 0);
+
+	ctx->state = drm_kunit_helper_atomic_state_alloc(test, ctx->drm, &ctx->acquire_ctx);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->state);
+
+	crtc_state = drm_atomic_get_crtc_state(ctx->state, crtc);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc_state);
+	crtc_state->enable = true;
+	crtc_state->active = true;
+	crtc_state->mode_changed = true;
+
+	conn_state = drm_atomic_get_connector_state(ctx->state, &ctx->aconnector->base);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
+	/* Takes the connector reference that the state teardown drops again. */
+	KUNIT_ASSERT_EQ(test, drm_atomic_set_crtc_for_connector(conn_state, crtc), 0);
+
+	ctx->mst_state = drm_atomic_get_mst_topology_state(ctx->state, &ctx->aconnector->mst_mgr);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->mst_state);
+	/* One time slot per 10 PBN keeps the slot counts small and exact. */
+	ctx->mst_state->pbn_div.full = dfixed_const(10);
+	ctx->mst_state->total_avail_slots = total_avail_slots;
+	/* Needed for the payload limit check; mst_primary stays NULL. */
+	ctx->aconnector->mst_mgr.mst_state = true;
+
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
+	sink = kunit_kzalloc(test, sizeof(*sink), GFP_KERNEL);
+	port = kunit_kzalloc(test, sizeof(*port), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+	KUNIT_ASSERT_NOT_NULL(test, port);
+
+	link_srv->mst_decide_link_encoding_format = dm_mst_test_mst_encoding_format;
+
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	dc->link_srv = link_srv;
+	dc->res_pool = res_pool;
+	dc->current_state = dm_kunit_alloc_dc_state(test);
+
+	link = dm_kunit_alloc_link(test);
+	link->dc = dc;
+	link->ctx = dc->ctx;
+	link->type = dc_connection_mst_branch;
+
+	sink->ctx = dc->ctx;
+	dm_mst_test_setup_dsc_caps(test, dc, sink);
+
+	/* The payload allocation takes a reference, so start above zero. */
+	kref_init(&port->malloc_kref);
+	port->mgr = &ctx->aconnector->mst_mgr;
+	port->connector = &ctx->aconnector->base;
+	port->full_pbn = 2000;
+
+	ctx->aconnector->dc_link = link;
+	ctx->aconnector->dc_sink = sink;
+	ctx->aconnector->mst_output_port = port;
+
+	ctx->dc_state = dm_kunit_alloc_dc_state(test);
+	ctx->stream = dm_kunit_alloc_stream(test, link);
+	ctx->stream->ctx = dc->ctx;
+	ctx->stream->sink = sink;
+	ctx->stream->dm_stream_context = ctx->aconnector;
+	ctx->stream->signal = SIGNAL_TYPE_DISPLAY_PORT_MST;
+	dm_mst_test_set_dsc_timing(&ctx->stream->timing);
+	ctx->dc_state->streams[0] = ctx->stream;
+	ctx->dc_state->stream_count = 1;
+
+	return ctx;
+}
+
+/**
+ * dm_mst_test_dsc_link_fits_uncompressed - plenty of time slots means no DSC
+ * @test: KUnit test context
+ *
+ * The first pass allocates the uncompressed peak PBN and the MST check
+ * succeeds, so DSC is left disabled for the stream.
+ */
+static void dm_mst_test_dsc_link_fits_uncompressed(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dm_mst_test_dsc_link_ctx *ctx;
+
+	ctx = dm_mst_test_alloc_dsc_link_ctx(test, 64);
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx->state, ctx->dc_state, vars), 0);
+	KUNIT_EXPECT_FALSE(test, vars[0].dsc_enabled);
+	KUNIT_EXPECT_EQ(test, (u32)ctx->stream->timing.flags.DSC, 0U);
+	KUNIT_EXPECT_PTR_EQ(test, vars[0].aconnector, ctx->aconnector);
+}
+
+/**
+ * dm_mst_test_dsc_link_enables_compression - a tight link is compressed
+ * @test: KUnit test context
+ *
+ * The uncompressed allocation does not fit, so the driver falls back to
+ * maximum compression and then optimises the bits per pixel back up. DSC ends
+ * up enabled with a bpp above the policy minimum.
+ */
+static void dm_mst_test_dsc_link_enables_compression(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dm_mst_test_dsc_link_ctx *ctx;
+
+	ctx = dm_mst_test_alloc_dsc_link_ctx(test, 30);
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx->state, ctx->dc_state, vars), 0);
+	KUNIT_EXPECT_TRUE(test, vars[0].dsc_enabled);
+	KUNIT_EXPECT_GT(test, vars[0].bpp_x16, 0);
+	KUNIT_EXPECT_EQ(test, (u32)ctx->stream->timing.flags.DSC, 1U);
+}
+
+/**
+ * dm_mst_test_dsc_link_out_of_slots - even max compression can be too big
+ * @test: KUnit test context
+ *
+ * When the fully compressed stream still exceeds the available time slots the
+ * -ENOSPC from the MST check is propagated to the caller.
+ */
+static void dm_mst_test_dsc_link_out_of_slots(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dm_mst_test_dsc_link_ctx *ctx;
+
+	ctx = dm_mst_test_alloc_dsc_link_ctx(test, 10);
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx->state, ctx->dc_state, vars), -ENOSPC);
+}
+
+/**
+ * dm_mst_test_dsc_link_forced_dsc - forced DSC discards the uncompressed pass
+ * @test: KUnit test context
+ *
+ * With DSC forced on from debugfs the uncompressed allocation is not applied
+ * even though it fits. The MST check returned 0 rather than -ENOSPC, so the
+ * helper returns that success without programming a DSC config.
+ */
+static void dm_mst_test_dsc_link_forced_dsc(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dm_mst_test_dsc_link_ctx *ctx;
+
+	ctx = dm_mst_test_alloc_dsc_link_ctx(test, 64);
+	ctx->aconnector->dsc_settings.dsc_force_enable = DSC_CLK_FORCE_ENABLE;
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx->state, ctx->dc_state, vars), 0);
+	KUNIT_EXPECT_FALSE(test, vars[0].dsc_enabled);
+	KUNIT_EXPECT_EQ(test, (u32)ctx->stream->timing.flags.DSC, 0U);
+}
+
+/**
+ * dm_mst_test_dsc_link_forced_dsc_stays_on - forced DSC is never disabled again
+ * @test: KUnit test context
+ *
+ * Once compression is needed, try_disable_dsc() only reconsiders streams left
+ * at the default DSC clock setting, so a forced stream keeps DSC enabled.
+ */
+static void dm_mst_test_dsc_link_forced_dsc_stays_on(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dm_mst_test_dsc_link_ctx *ctx;
+
+	ctx = dm_mst_test_alloc_dsc_link_ctx(test, 30);
+	ctx->aconnector->dsc_settings.dsc_force_enable = DSC_CLK_FORCE_ENABLE;
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx->state, ctx->dc_state, vars), 0);
+	KUNIT_EXPECT_TRUE(test, vars[0].dsc_enabled);
+}
+
+/**
+ * dm_mst_test_dsc_link_bpp_overwrite - a forced bpp overrides the computed one
+ * @test: KUnit test context
+ */
+static void dm_mst_test_dsc_link_bpp_overwrite(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dm_mst_test_dsc_link_ctx *ctx;
+
+	ctx = dm_mst_test_alloc_dsc_link_ctx(test, 30);
+	ctx->aconnector->dsc_settings.dsc_bits_per_pixel = 10 * 16;
+	ctx->aconnector->dsc_settings.dsc_num_slices_h = 2;
+	ctx->aconnector->dsc_settings.dsc_num_slices_v = 4;
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx->state, ctx->dc_state, vars), 0);
+	KUNIT_EXPECT_EQ(test, ctx->stream->timing.dsc_cfg.bits_per_pixel, 10 * 16);
+	KUNIT_EXPECT_EQ(test, (u32)ctx->stream->timing.dsc_cfg.num_slices_h, 2U);
+	KUNIT_EXPECT_EQ(test, (u32)ctx->stream->timing.dsc_cfg.num_slices_v, 4U);
+}
+
+/**
+ * dm_mst_test_dsc_link_compression_disabled - forcing DSC off keeps it off
+ * @test: KUnit test context
+ *
+ * A stream whose DSC clock is force disabled is allocated its uncompressed
+ * bandwidth in the max compression pass as well.
+ */
+static void dm_mst_test_dsc_link_compression_disabled(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dm_mst_test_dsc_link_ctx *ctx;
+
+	ctx = dm_mst_test_alloc_dsc_link_ctx(test, 30);
+	ctx->aconnector->dsc_settings.dsc_force_enable = DSC_CLK_FORCE_DISABLE;
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx->state, ctx->dc_state, vars), -ENOSPC);
+}
+
+/**
+ * dm_mst_test_dsc_link_bpp_between_limits - spare slots raise the bits per pixel
+ * @test: KUnit test context
+ *
+ * With only part of the slack available the optimisation loop hands out a fair
+ * share of the free time slots and derives the resulting bits per pixel from
+ * the new PBN, landing between the policy minimum and maximum.
+ */
+static void dm_mst_test_dsc_link_bpp_between_limits(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dm_mst_test_dsc_link_ctx *ctx;
+
+	ctx = dm_mst_test_alloc_dsc_link_ctx(test, 63);
+	/* Smaller slots leave the fair share below the full slack. */
+	ctx->mst_state->pbn_div.full = dfixed_const(4);
+
+	KUNIT_EXPECT_EQ(test, pre_compute_mst_dsc_configs_for_state(ctx->state, ctx->dc_state, vars), 0);
+	KUNIT_EXPECT_TRUE(test, vars[0].dsc_enabled);
+	KUNIT_EXPECT_GT(test, vars[0].bpp_x16, 8 * 16);
+	KUNIT_EXPECT_LT(test, vars[0].bpp_x16, 16 * 16);
+}
+
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_match),
@@ -3771,6 +4160,19 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_compute_configs_no_recompute),
 	/* pre_validate_dsc tests */
 	KUNIT_CASE(dm_mst_test_pre_validate_dsc_not_needed),
+	/* pre_compute_mst_dsc_configs_for_state tests */
+	KUNIT_CASE(dm_mst_test_pre_compute_configs_skips_sst),
+	KUNIT_CASE(dm_mst_test_pre_compute_configs_skips_incomplete),
+	KUNIT_CASE(dm_mst_test_pre_compute_configs_no_recompute),
+	/* compute_mst_dsc_configs_for_link tests */
+	KUNIT_CASE(dm_mst_test_dsc_link_fits_uncompressed),
+	KUNIT_CASE(dm_mst_test_dsc_link_enables_compression),
+	KUNIT_CASE(dm_mst_test_dsc_link_out_of_slots),
+	KUNIT_CASE(dm_mst_test_dsc_link_forced_dsc),
+	KUNIT_CASE(dm_mst_test_dsc_link_forced_dsc_stays_on),
+	KUNIT_CASE(dm_mst_test_dsc_link_bpp_overwrite),
+	KUNIT_CASE(dm_mst_test_dsc_link_compression_disabled),
+	KUNIT_CASE(dm_mst_test_dsc_link_bpp_between_limits),
 	{}
 };
 

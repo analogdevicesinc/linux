@@ -115,6 +115,9 @@ int find_crtc_index_in_state_by_stream(struct drm_atomic_commit *state,
 bool is_dsc_precompute_needed(struct drm_atomic_commit *state);
 bool is_dsc_need_re_compute(struct drm_atomic_commit *state, struct dc_state *dc_state,
 			    struct dc_link *dc_link);
+int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state,
+					  struct dc_state *dc_state,
+					  struct dsc_mst_fairness_vars *vars);
 bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnector);
 bool retrieve_downstream_port_device(struct amdgpu_dm_connector *aconnector);
 bool retrieve_branch_specific_data(struct amdgpu_dm_connector *aconnector);

@@ -1689,9 +1689,9 @@ int compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state,
 }
 EXPORT_IF_KUNIT(compute_mst_dsc_configs_for_state);
 
-static int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state,
-						 struct dc_state *dc_state,
-						 struct dsc_mst_fairness_vars *vars)
+STATIC_IFN_KUNIT int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state,
+							   struct dc_state *dc_state,
+							   struct dsc_mst_fairness_vars *vars)
 {
 	int i, j;
 	struct dc_stream_state *stream;
@@ -1741,6 +1741,7 @@ static int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state
 
 	return ret;
 }
+EXPORT_IF_KUNIT(pre_compute_mst_dsc_configs_for_state);
 
 STATIC_IFN_KUNIT int find_crtc_index_in_state_by_stream(struct drm_atomic_commit *state,
 							struct dc_stream_state *stream)
