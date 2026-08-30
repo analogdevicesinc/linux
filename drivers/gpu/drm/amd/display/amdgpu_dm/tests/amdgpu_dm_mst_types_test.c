@@ -886,6 +886,26 @@ static void dm_mst_test_aux_transfer_non_ack_reply(struct kunit *test)
 }
 
 /**
+ * dm_mst_test_aux_transfer_oversized - oversized AUX message is rejected.
+ * @test: KUnit test context.
+ *
+ * The payload is copied into a 16-byte stack buffer, so a larger message must
+ * be rejected with -E2BIG before the AUX handle is touched. The guard warns,
+ * which is the expected behaviour for this caller bug.
+ */
+static void dm_mst_test_aux_transfer_oversized(struct kunit *test)
+{
+	struct drm_dp_aux_msg msg = { 0 };
+	u8 buffer[17] = { 0 };
+
+	msg.request = DP_AUX_NATIVE_WRITE;
+	msg.buffer = buffer;
+	msg.size = sizeof(buffer);
+
+	KUNIT_EXPECT_EQ(test, dm_dp_aux_transfer(NULL, &msg), (ssize_t)-E2BIG);
+}
+
+/**
  * dm_mst_test_fill_payload_flags_native_write - native write request decode.
  * @test: KUnit test context.
  *
@@ -2089,6 +2109,7 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_aux_transfer_error_result),
 	KUNIT_CASE(dm_mst_test_aux_transfer_hpd_discon_quirk),
 	KUNIT_CASE(dm_mst_test_aux_transfer_non_ack_reply),
+	KUNIT_CASE(dm_mst_test_aux_transfer_oversized),
 	/* dm_dp_aux_fill_payload_flags tests */
 	KUNIT_CASE(dm_mst_test_fill_payload_flags_native_write),
 	KUNIT_CASE(dm_mst_test_fill_payload_flags_native_read),
