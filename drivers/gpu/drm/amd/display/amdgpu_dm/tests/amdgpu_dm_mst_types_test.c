@@ -2276,6 +2276,124 @@ static void dm_mst_test_sideband_msg_ready_ack_write_fails(struct kunit *test)
 	dm_mst_test_free_armed_sideband_connector(aconnector);
 }
 
+/*
+ * Fake DPCD backing store for the DSC helpers. Unlike the sideband fake above
+ * it is addressed absolutely, because these helpers read offsets spread across
+ * the whole map (0x60 DSC caps, 0x100 link settings, 0x500 branch descriptor).
+ */
+#define DM_MST_TEST_DSC_DPCD_SIZE 0x600
+
+static u8 dm_mst_test_dsc_dpcd[DM_MST_TEST_DSC_DPCD_SIZE];
+static struct drm_dp_aux *dm_mst_test_dsc_aux_fail;
+
+static ssize_t dm_mst_test_dsc_aux_transfer(struct drm_dp_aux *aux,
+					    struct drm_dp_aux_msg *msg)
+{
+	size_t i;
+
+	if (aux == dm_mst_test_dsc_aux_fail)
+		return -EIO;
+
+	if (msg->address + msg->size > DM_MST_TEST_DSC_DPCD_SIZE)
+		return -EINVAL;
+
+	msg->reply = DP_AUX_NATIVE_REPLY_ACK;
+
+	if ((msg->request & ~DP_AUX_I2C_MOT) == DP_AUX_NATIVE_WRITE)
+		return msg->size;
+
+	for (i = 0; i < msg->size; i++)
+		((u8 *)msg->buffer)[i] = dm_mst_test_dsc_dpcd[msg->address + i];
+
+	return msg->size;
+}
+
+/* Clears the shared store; call once per test before initialising any AUX. */
+static void dm_mst_test_reset_dsc_dpcd(void)
+{
+	memset(dm_mst_test_dsc_dpcd, 0, sizeof(dm_mst_test_dsc_dpcd));
+	dm_mst_test_dsc_aux_fail = NULL;
+}
+
+static void dm_mst_test_init_dsc_aux(struct drm_dp_aux *aux, const char *name)
+{
+	aux->name = name;
+	aux->transfer = dm_mst_test_dsc_aux_transfer;
+	drm_dp_aux_init(aux);
+	drm_dp_dpcd_set_probe(aux, false);
+}
+
+static struct drm_dp_aux *dm_mst_test_alloc_dsc_aux(struct kunit *test, const char *name)
+{
+	struct drm_dp_aux *aux = kunit_kzalloc(test, sizeof(*aux), GFP_KERNEL);
+
+	KUNIT_ASSERT_NOT_NULL(test, aux);
+	dm_mst_test_init_dsc_aux(aux, name);
+
+	return aux;
+}
+
+/* Tests for dp_get_link_current_set_bw */
+
+/*
+ * Program DPCD 0x100..0x10f, the 16-byte window the helper reads in one go.
+ * @coding is the raw DP_MAIN_LINK_CHANNEL_CODING_SET byte at 0x108.
+ */
+static void dm_mst_test_set_link_settings(u8 link_bw_set, u8 lane_count, u8 coding)
+{
+	dm_mst_test_dsc_dpcd[DP_LINK_BW_SET] = link_bw_set;
+	dm_mst_test_dsc_dpcd[DP_LANE_COUNT_SET] = lane_count;
+	dm_mst_test_dsc_dpcd[DP_MAIN_LINK_CHANNEL_CODING_SET] = coding;
+}
+
+struct dm_mst_link_bw_param {
+	const char *name;
+	u8 link_bw_set;
+	u8 lane_count;
+	u8 coding;
+	bool aux_fails;
+	bool supported;
+	uint32_t cur_link_bw;
+};
+
+static const struct dm_mst_link_bw_param dm_mst_link_bw_params[] = {
+	{ "hbr2_8b_10b", DP_LINK_BW_5_4, 4, DP_8b_10b_ENCODING, false, true, 16761600 },
+	{ "uhbr10", DP_LINK_BW_10, 4, DP_128b_132b_ENCODING, false, true, 38564000 },
+	{ "uhbr13_5", DP_LINK_BW_13_5, 4, DP_128b_132b_ENCODING, false, true, 52061400 },
+	{ "uhbr20", DP_LINK_BW_20, 4, DP_128b_132b_ENCODING, false, true, 77128000 },
+	{ "unlisted_uhbr_rate", 0x1e, 4, DP_128b_132b_ENCODING, false, false, 0 },
+	{ "unknown_encoding", DP_LINK_BW_5_4, 4, DP_UNKNOWN_ENCODING, false, false, 0 },
+	{ "dpcd_read_error", DP_LINK_BW_5_4, 4, DP_8b_10b_ENCODING, true, false, 0 },
+};
+
+KUNIT_ARRAY_PARAM_DESC(dm_mst_link_bw, dm_mst_link_bw_params, name);
+
+/**
+ * dm_mst_test_link_current_set_bw - the current link settings are priced
+ * @test: KUnit test context
+ *
+ * For 8b/10b the raw DP_LINK_BW_SET byte is the link rate in 27MHz units, so
+ * HBR2 (0x14) yields 20 * 27000 * 10 kbps per lane scaled by the 80% data
+ * efficiency and the 97% FEC efficiency. For 128b/132b the byte instead
+ * selects a UHBR rate scaled by its own efficiency. An unlisted UHBR rate, an
+ * unknown channel coding and a short DPCD read all report no bandwidth.
+ */
+static void dm_mst_test_link_current_set_bw(struct kunit *test)
+{
+	const struct dm_mst_link_bw_param *param = test->param_value;
+	uint32_t cur_link_bw = 0xdeadbeef;
+	struct drm_dp_aux *aux;
+
+	dm_mst_test_reset_dsc_dpcd();
+	aux = dm_mst_test_alloc_dsc_aux(test, "dm_mst_test_link_bw_aux");
+	dm_mst_test_set_link_settings(param->link_bw_set, param->lane_count, param->coding);
+	if (param->aux_fails)
+		dm_mst_test_dsc_aux_fail = aux;
+
+	KUNIT_EXPECT_EQ(test, dp_get_link_current_set_bw(aux, &cur_link_bw), param->supported);
+	KUNIT_EXPECT_EQ(test, cur_link_bw, param->cur_link_bw);
+}
+
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_match),
@@ -2360,6 +2478,8 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	/* dm_dp_mst_connector_destroy tests */
 	KUNIT_CASE(dm_mst_test_connector_destroy_no_sink),
 	KUNIT_CASE(dm_mst_test_connector_destroy_releases_sink),
+	/* dp_get_link_current_set_bw tests */
+	KUNIT_CASE_PARAM(dm_mst_test_link_current_set_bw, dm_mst_link_bw_gen_params),
 	{}
 };
 

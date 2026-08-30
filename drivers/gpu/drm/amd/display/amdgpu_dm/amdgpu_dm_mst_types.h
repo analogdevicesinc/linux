@@ -65,6 +65,7 @@ struct dc_state;
 struct dc_stream_state;
 struct dm_atomic_state;
 struct drm_atomic_commit;
+struct drm_dp_aux;
 struct drm_dp_mst_port;
 struct drm_dp_mst_topology_mgr;
 
@@ -104,6 +105,7 @@ enum dc_status dm_dp_mst_is_port_support_mode(
 
 #if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
 void amdgpu_dm_mst_reset_mst_connector_setting(struct amdgpu_dm_connector *aconnector);
+bool dp_get_link_current_set_bw(struct drm_dp_aux *aux, uint32_t *cur_link_bw);
 bool retrieve_downstream_port_device(struct amdgpu_dm_connector *aconnector);
 bool retrieve_branch_specific_data(struct amdgpu_dm_connector *aconnector);
 ssize_t dm_dp_aux_transfer_result(ssize_t result,

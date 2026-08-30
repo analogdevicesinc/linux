@@ -1930,7 +1930,7 @@ static bool is_dsc_common_config_possible(struct dc_stream_state *stream,
 #endif
 
 #if defined(CONFIG_DRM_AMD_DC_FP) || IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
-static bool dp_get_link_current_set_bw(struct drm_dp_aux *aux, uint32_t *cur_link_bw)
+STATIC_IFN_KUNIT bool dp_get_link_current_set_bw(struct drm_dp_aux *aux, uint32_t *cur_link_bw)
 {
 	uint32_t total_data_bw_efficiency_x10000 = 0;
 	uint32_t link_rate_per_lane_kbps = 0;
@@ -1985,6 +1985,7 @@ static bool dp_get_link_current_set_bw(struct drm_dp_aux *aux, uint32_t *cur_lin
 	*cur_link_bw = link_rate_per_lane_kbps * lane_count.bits.LANE_COUNT_SET / 10000 * total_data_bw_efficiency_x10000;
 	return true;
 }
+EXPORT_IF_KUNIT(dp_get_link_current_set_bw);
 #endif
 
 enum dc_status dm_dp_mst_is_port_support_mode(
