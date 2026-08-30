@@ -3276,6 +3276,225 @@ static void dm_mst_test_dsc_precompute_needed(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, is_dsc_precompute_needed(ctx.state), param->needed);
 }
 
+/* Tests for is_dsc_need_re_compute */
+
+struct dm_mst_test_recompute_ctx {
+	struct amdgpu_device *adev;
+	struct drm_atomic_commit *state;
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_connector_state *conn_state;
+	struct drm_crtc_state *crtc_state;
+	struct dc_state *dc_state;
+	struct dc_link *link;
+	struct dc *dc;
+};
+
+/*
+ * One MST connector on one CRTC, with an empty new dc_state and an empty
+ * current dc_state. Tests populate the streams they need and adjust the CRTC
+ * state flags to select the branch under test.
+ */
+static void dm_mst_test_init_recompute_ctx(struct kunit *test,
+					   struct dm_mst_test_recompute_ctx *ctx)
+{
+	struct drm_crtc *crtc;
+
+	ctx->adev = dm_kunit_alloc_adev(test);
+	ctx->adev->ddev.mode_config.num_crtc = 1;
+
+	ctx->dc = dm_kunit_alloc_dc_with_ctx(test);
+	ctx->dc->current_state = dm_kunit_alloc_dc_state(test);
+	ctx->dc_state = dm_kunit_alloc_dc_state(test);
+
+	ctx->link = dm_kunit_alloc_link(test);
+	ctx->link->dc = ctx->dc;
+	ctx->link->type = dc_connection_mst_branch;
+
+	ctx->aconnector = dm_kunit_alloc_connector(test, ctx->adev, ctx->link);
+	ctx->conn_state = kunit_kzalloc(test, sizeof(*ctx->conn_state), GFP_KERNEL);
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	ctx->crtc_state = kunit_kzalloc(test, sizeof(*ctx->crtc_state), GFP_KERNEL);
+	ctx->state = kunit_kzalloc(test, sizeof(*ctx->state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->conn_state);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state);
+
+	ctx->state->dev = &ctx->adev->ddev;
+	ctx->state->crtcs = kunit_kzalloc(test, sizeof(*ctx->state->crtcs), GFP_KERNEL);
+	ctx->state->connectors = kunit_kzalloc(test, sizeof(*ctx->state->connectors), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state->crtcs);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state->connectors);
+
+	crtc->dev = &ctx->adev->ddev;
+	ctx->crtc_state->crtc = crtc;
+	ctx->state->crtcs[0].ptr = crtc;
+	ctx->state->crtcs[0].new_state = ctx->crtc_state;
+	ctx->state->crtcs[0].old_state = ctx->crtc_state;
+
+	ctx->conn_state->connector = &ctx->aconnector->base;
+	ctx->conn_state->crtc = crtc;
+	ctx->state->connectors[0].ptr = &ctx->aconnector->base;
+	ctx->state->connectors[0].new_state = ctx->conn_state;
+	ctx->state->num_connector = 1;
+}
+
+static struct dc_stream_state *dm_mst_test_add_link_stream(struct kunit *test,
+							   struct dc_state *dc_state,
+							   struct dc_link *link,
+							   struct amdgpu_dm_connector *aconnector)
+{
+	struct dc_stream_state *stream = dm_kunit_alloc_stream(test, link);
+
+	KUNIT_ASSERT_LT(test, dc_state->stream_count, MAX_PIPES);
+	stream->dm_stream_context = aconnector;
+	dc_state->streams[dc_state->stream_count++] = stream;
+
+	return stream;
+}
+
+/**
+ * dm_mst_test_recompute_not_mst_branch - only MST branches are recomputed
+ * @test: KUnit test context
+ */
+static void dm_mst_test_recompute_not_mst_branch(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	ctx.link->type = dc_connection_single;
+
+	KUNIT_EXPECT_FALSE(test, is_dsc_need_re_compute(ctx.state, ctx.dc_state, ctx.link));
+}
+
+/**
+ * dm_mst_test_recompute_legacy_hub_without_dsc - old hubs without DSC are skipped
+ * @test: KUnit test context
+ *
+ * A hub matching the no-virtual-DPCD workaround but reporting neither DSC nor
+ * DSC passthrough support cannot use MST DSC at all.
+ */
+static void dm_mst_test_recompute_legacy_hub_without_dsc(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	dm_mst_test_arm_dsc_aux_workaround(ctx.link);
+
+	KUNIT_EXPECT_FALSE(test, is_dsc_need_re_compute(ctx.state, ctx.dc_state, ctx.link));
+}
+
+/**
+ * dm_mst_test_recompute_no_stream_on_link - no stream on the link, nothing to do
+ * @test: KUnit test context
+ *
+ * The new state only drives another link, so this hub keeps its current DSC
+ * configuration.
+ */
+static void dm_mst_test_recompute_no_stream_on_link(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+	struct dc_link *other_link;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	other_link = dm_kunit_alloc_link(test);
+	dm_mst_test_add_link_stream(test, ctx.dc_state, other_link, ctx.aconnector);
+
+	KUNIT_EXPECT_FALSE(test, is_dsc_need_re_compute(ctx.state, ctx.dc_state, ctx.link));
+}
+
+/**
+ * dm_mst_test_recompute_on_mode_change - a modeset on the link forces a recompute
+ * @test: KUnit test context
+ */
+static void dm_mst_test_recompute_on_mode_change(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	dm_mst_test_add_link_stream(test, ctx.dc_state, ctx.link, ctx.aconnector);
+	ctx.crtc_state->enable = true;
+	ctx.crtc_state->active = true;
+	ctx.crtc_state->mode_changed = true;
+
+	KUNIT_EXPECT_TRUE(test, is_dsc_need_re_compute(ctx.state, ctx.dc_state, ctx.link));
+}
+
+/**
+ * dm_mst_test_recompute_unchanged_stream - an untouched stream needs no recompute
+ * @test: KUnit test context
+ *
+ * The same stream is present in both the new and the current state and its
+ * CRTC reports no change, so the existing DSC configuration still applies.
+ */
+static void dm_mst_test_recompute_unchanged_stream(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	dm_mst_test_add_link_stream(test, ctx.dc_state, ctx.link, ctx.aconnector);
+	dm_mst_test_add_link_stream(test, ctx.dc->current_state, ctx.link, ctx.aconnector);
+	ctx.crtc_state->enable = true;
+	ctx.crtc_state->active = true;
+
+	KUNIT_EXPECT_FALSE(test, is_dsc_need_re_compute(ctx.state, ctx.dc_state, ctx.link));
+}
+
+/**
+ * dm_mst_test_recompute_stream_removed - dropping a stream forces a recompute
+ * @test: KUnit test context
+ *
+ * A stream that is on the link in the current state but absent from the new
+ * state frees up bandwidth, so the remaining streams must be recomputed.
+ */
+static void dm_mst_test_recompute_stream_removed(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+	struct amdgpu_dm_connector *gone;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	gone = dm_kunit_alloc_connector(test, ctx.adev, ctx.link);
+	dm_mst_test_add_link_stream(test, ctx.dc_state, ctx.link, ctx.aconnector);
+	dm_mst_test_add_link_stream(test, ctx.dc->current_state, ctx.link, gone);
+	ctx.crtc_state->enable = true;
+	ctx.crtc_state->active = true;
+
+	KUNIT_EXPECT_TRUE(test, is_dsc_need_re_compute(ctx.state, ctx.dc_state, ctx.link));
+}
+
+/**
+ * dm_mst_test_recompute_stream_without_connector - streams need a DM connector
+ * @test: KUnit test context
+ *
+ * A stream on the link whose DM context is not set cannot be attributed to a
+ * connector, so it does not count towards the streams on the link.
+ */
+static void dm_mst_test_recompute_stream_without_connector(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	dm_mst_test_add_link_stream(test, ctx.dc_state, ctx.link, NULL);
+
+	KUNIT_EXPECT_FALSE(test, is_dsc_need_re_compute(ctx.state, ctx.dc_state, ctx.link));
+}
+
+/**
+ * dm_mst_test_recompute_connector_without_crtc - a disabled connector is skipped
+ * @test: KUnit test context
+ */
+static void dm_mst_test_recompute_connector_without_crtc(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	dm_mst_test_add_link_stream(test, ctx.dc_state, ctx.link, ctx.aconnector);
+	dm_mst_test_add_link_stream(test, ctx.dc->current_state, ctx.link, ctx.aconnector);
+	ctx.conn_state->crtc = NULL;
+
+	KUNIT_EXPECT_FALSE(test, is_dsc_need_re_compute(ctx.state, ctx.dc_state, ctx.link));
+}
+
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_match),
@@ -3393,6 +3612,15 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_find_crtc_index_no_match),
 	/* is_dsc_precompute_needed tests */
 	KUNIT_CASE_PARAM(dm_mst_test_dsc_precompute_needed, dm_mst_precompute_gen_params),
+	/* is_dsc_need_re_compute tests */
+	KUNIT_CASE(dm_mst_test_recompute_not_mst_branch),
+	KUNIT_CASE(dm_mst_test_recompute_legacy_hub_without_dsc),
+	KUNIT_CASE(dm_mst_test_recompute_no_stream_on_link),
+	KUNIT_CASE(dm_mst_test_recompute_on_mode_change),
+	KUNIT_CASE(dm_mst_test_recompute_unchanged_stream),
+	KUNIT_CASE(dm_mst_test_recompute_stream_removed),
+	KUNIT_CASE(dm_mst_test_recompute_stream_without_connector),
+	KUNIT_CASE(dm_mst_test_recompute_connector_without_crtc),
 	{}
 };
 
