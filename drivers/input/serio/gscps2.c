@@ -236,8 +236,9 @@ static void gscps2_flush(struct gscps2port *ps2port)
 	ps2port->append = 0;
 }
 
-static void gscps2_read_data(struct gscps2port *ps2port)
+static bool gscps2_read_data(struct gscps2port *ps2port)
 {
+	bool read_any = false;
 	u8 status;
 
 	guard(spinlock_irqsave)(&ps2port->lock);
@@ -247,11 +248,14 @@ static void gscps2_read_data(struct gscps2port *ps2port)
 		if (!(status & GSC_STAT_RBNE))
 			break;
 
+		read_any = true;
 		ps2port->buffer[ps2port->append].str = status;
 		ps2port->buffer[ps2port->append].data =
 				gscps2_readb_input(ps2port->addr);
 		ps2port->append = (ps2port->append + 1) & BUFFER_SIZE;
 	} while (true);
+
+	return read_any;
 }
 
 static bool gscps2_report_data(struct gscps2port *ps2port)
@@ -300,11 +304,14 @@ static bool gscps2_report_data(struct gscps2port *ps2port)
 static irqreturn_t gscps2_interrupt(int irq, void *dev)
 {
 	struct gscps2port *ps2port;
+	bool handled = false;
 
 	guard(rcu)();
 
-	list_for_each_entry_rcu(ps2port, &ps2port_list, node)
-		gscps2_read_data(ps2port);
+	list_for_each_entry_rcu(ps2port, &ps2port_list, node) {
+		if (gscps2_read_data(ps2port))
+			handled = true;
+	}
 
 	/* all data was read from the ports - now report the data to upper layer */
 	list_for_each_entry_rcu(ps2port, &ps2port_list, node) {
@@ -314,7 +321,7 @@ static irqreturn_t gscps2_interrupt(int irq, void *dev)
 		}
 	}
 
-	return IRQ_HANDLED;
+	return IRQ_RETVAL(handled);
 }
 
 /*
