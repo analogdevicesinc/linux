@@ -9995,9 +9995,14 @@ static int check_func_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 		 */
 		if (!returns_void) {
 			nregs = bpf_ret_reg_pair(env, subprog) ? 2 : 1;
-			for (i = 0; i < nregs; i++)
-				mark_reg_unknown(env, caller->regs, ret_regs[i]);
+			mark_reg_unknown(env, caller->regs, ret_regs[0]);
 			bpf_diag_mod_end(env);
+			for (i = 1; i < nregs; i++) {
+				bpf_diag_mod_begin(env, &caller->regs[ret_regs[i]], NULL,
+						   BPF_DIAG_MOD_WRITE);
+				mark_reg_unknown(env, caller->regs, ret_regs[i]);
+				bpf_diag_mod_end(env);
+			}
 		}
 
 		if (env->subprog_info[subprog].might_throw) {
@@ -10403,10 +10408,14 @@ static int prepare_func_exit(struct bpf_verifier_env *env, int *insn_idx)
 		 * return to the caller whatever the callee had in the
 		 * return register(s)
 		 */
-		bpf_diag_mod_begin(env, &caller->regs[BPF_REG_0], r0, BPF_DIAG_MOD_WRITE);
-		for (i = 0; i < nregs; i++)
-			caller->regs[ret_regs[i]] = callee->regs[ret_regs[i]];
-		bpf_diag_mod_end(env);
+		for (i = 0; i < nregs; i++) {
+			u32 regno = ret_regs[i];
+
+			bpf_diag_mod_begin(env, &caller->regs[regno], &callee->regs[regno],
+					   BPF_DIAG_MOD_WRITE);
+			caller->regs[regno] = callee->regs[regno];
+			bpf_diag_mod_end(env);
+		}
 	}
 
 	/* for callbacks like bpf_loop or bpf_for_each_map_elem go back to callsite,
@@ -11342,15 +11351,33 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 
 /*
  * Mark the register(s) holding a @size byte kfunc return value as unknown
- * scalars. Both halves of a register pair are treated the same way.
+ * scalars and return how many registers that took. Both halves of a register
+ * pair are treated the same way.
+ *
+ * R0 is written in the diagnostic modification scope the caller opened before
+ * the caller-saved scrub, since R0 gets no scrub record of its own and that
+ * scope is what carries its pre-call value into the history. A scope tracks a
+ * single register and does not nest, so close it before recording the rest of
+ * the return value. A value that fits in R0 leaves the caller's scope open for
+ * the caller to close, so a later write to R0 still lands in it.
  */
-static void mark_kfunc_ret_regs(struct bpf_verifier_env *env,
-				struct bpf_reg_state *regs, u32 size)
+static u32 mark_kfunc_ret_regs(struct bpf_verifier_env *env,
+			       struct bpf_reg_state *regs, u32 size)
 {
 	u32 i, nregs = ret_regs_cnt(size);
 
-	for (i = 0; i < nregs; i++)
+	mark_reg_unknown(env, regs, ret_regs[0]);
+	if (nregs == 1)
+		return nregs;
+
+	bpf_diag_mod_end(env);
+	for (i = 1; i < nregs; i++) {
+		bpf_diag_mod_begin(env, &regs[ret_regs[i]], NULL, BPF_DIAG_MOD_WRITE);
 		mark_reg_unknown(env, regs, ret_regs[i]);
+		bpf_diag_mod_end(env);
+	}
+
+	return nregs;
 }
 
 static bool is_kfunc_acquire(struct bpf_call_arg_meta *meta)
@@ -11619,13 +11646,39 @@ static bool is_kfunc_arg_implicit(const struct bpf_call_arg_meta *meta, u32 arg_
 	return argn <= arg_idx;
 }
 
-/* Returns true if struct is composed of scalars, 4 levels of nesting allowed */
-bool btf_type_is_scalar_struct(struct bpf_verifier_env *env,
-			       const struct btf *btf,
-			       const struct btf_type *t, int rec)
+#define BTF_MEMBER_MAX_DEPTH	4
+#define BTF_MEMBER_PATH_LEN	64
+
+struct btf_member_path {
+	const struct btf_member *member[BTF_MEMBER_MAX_DEPTH];
+	bool in_array[BTF_MEMBER_MAX_DEPTH];
+	const struct btf_type *bad_type;
+	int depth;
+	bool too_deep;
+};
+
+static bool btf_member_kind_allowed(const struct btf *btf, const struct btf_type *t,
+				    u32 member_kinds)
+{
+	if ((member_kinds & BTF_MEMBER_SCALAR) && btf_type_is_scalar(t))
+		return true;
+	if ((member_kinds & BTF_MEMBER_ARENA_PTR) && btf_type_is_arena_ptr(btf, t))
+		return true;
+	return false;
+}
+
+/*
+ * Returns true if every member of struct @t is of a kind listed in
+ * @member_kinds, 4 levels of nesting allowed. An array member counts as its
+ * element type.
+ */
+static bool btf_struct_member_walk(struct bpf_verifier_env *env, const struct btf *btf,
+				   const struct btf_type *t, u32 member_kinds, int rec,
+				   struct btf_member_path *path)
 {
 	const struct btf_type *member_type;
 	const struct btf_member *member;
+	bool in_array;
 	u32 i;
 
 	if (!btf_type_is_struct(t))
@@ -11634,29 +11687,83 @@ bool btf_type_is_scalar_struct(struct bpf_verifier_env *env,
 	for_each_member(i, t, member) {
 		const struct btf_array *array;
 
+		in_array = false;
 		member_type = btf_type_skip_modifiers(btf, member->type, NULL);
+		/*
+		 * Every element of an array is laid out in the value being
+		 * returned, so an array counts as its element type however many
+		 * dimensions deep that is.
+		 */
+		while (btf_type_is_array(member_type)) {
+			array = btf_array(member_type);
+			if (!array->nelems) {
+				member_type = NULL;
+				goto bad_member;
+			}
+			member_type = btf_type_skip_modifiers(btf, array->type, NULL);
+			in_array = true;
+		}
 		if (btf_type_is_struct(member_type)) {
-			if (rec >= 3) {
+			if (rec >= BTF_MEMBER_MAX_DEPTH - 1) {
 				verbose(env, "max struct nesting depth exceeded\n");
+				if (path)
+					path->too_deep = true;
 				return false;
 			}
-			if (!btf_type_is_scalar_struct(env, btf, member_type, rec + 1))
-				return false;
+			if (!btf_struct_member_walk(env, btf, member_type, member_kinds,
+						    rec + 1, path))
+				goto bad_path;
 			continue;
 		}
-		if (btf_type_is_array(member_type)) {
-			array = btf_array(member_type);
-			if (!array->nelems)
-				return false;
-			member_type = btf_type_skip_modifiers(btf, array->type, NULL);
-			if (!btf_type_is_scalar(member_type))
-				return false;
-			continue;
-		}
-		if (!btf_type_is_scalar(member_type))
-			return false;
+		if (!btf_member_kind_allowed(btf, member_type, member_kinds))
+			goto bad_member;
 	}
 	return true;
+
+bad_member:
+	if (path) {
+		path->depth = rec + 1;
+		path->bad_type = member_type;
+	}
+bad_path:
+	if (path && path->depth) {
+		path->member[rec] = member;
+		path->in_array[rec] = in_array;
+	}
+	return false;
+}
+
+bool btf_struct_is_composed_of(struct bpf_verifier_env *env,
+			       const struct btf *btf,
+			       const struct btf_type *t, u32 member_kinds)
+{
+	return btf_struct_member_walk(env, btf, t, member_kinds, 0, NULL);
+}
+
+static bool btf_type_is_scalar_struct(struct bpf_verifier_env *env,
+				      const struct btf *btf,
+				      const struct btf_type *t)
+{
+	return btf_struct_is_composed_of(env, btf, t, BTF_MEMBER_SCALAR);
+}
+
+static void btf_member_path_str(const struct btf *btf, const struct btf_member_path *path,
+				char *buf, size_t buf_sz)
+{
+	size_t len = 0;
+	int i;
+
+	buf[0] = '\0';
+	for (i = 0; i < path->depth; i++) {
+		const char *name = btf_name_by_offset(btf, path->member[i]->name_off);
+
+		/* An anonymous struct or union has no name to spell. */
+		if (!name || !name[0])
+			continue;
+		len += scnprintf(buf + len, buf_sz - len, "%s%s", len ? "." : "", name);
+		if (path->in_array[i])
+			len += scnprintf(buf + len, buf_sz - len, "[]");
+	}
 }
 
 enum kfunc_ptr_arg_type {
@@ -12039,7 +12146,7 @@ get_kfunc_arg_type(struct bpf_verifier_env *env, struct bpf_call_arg_meta *meta,
 		 (is_kfunc_arg_mem_size(meta->btf, &args[arg + 1]) ||
 		  is_kfunc_arg_const_mem_size(meta->btf, &args[arg + 1]))) {
 		if (!btf_type_is_void(ref_t) && !btf_type_is_scalar(ref_t) &&
-		    !btf_type_is_scalar_struct(env, meta->btf, ref_t, 0)) {
+		    !btf_type_is_scalar_struct(env, meta->btf, ref_t)) {
 			verbose(env, "%s pointer type %s %s must point to void, scalar, or struct with scalar\n",
 				reg_arg_name(env, argno), btf_type_str(ref_t), ref_tname);
 			return -EINVAL;
@@ -12055,7 +12162,7 @@ get_kfunc_arg_type(struct bpf_verifier_env *env, struct bpf_call_arg_meta *meta,
 		 * scalars. The access size is derived from the pointed-to BTF type.
 		 */
 		if (!btf_type_is_scalar(ref_t) &&
-		    !btf_type_is_scalar_struct(env, meta->btf, ref_t, 0)) {
+		    !btf_type_is_scalar_struct(env, meta->btf, ref_t)) {
 			verbose(env, "%s pointer type %s %s must point to scalar, or struct with scalar\n",
 				reg_arg_name(env, argno), btf_type_str(ref_t), ref_tname);
 			return -EINVAL;
@@ -13111,7 +13218,7 @@ check_ok:
 				break;
 			}
 
-			if (!btf_type_is_scalar_struct(env, meta->btf, ref_t, 0)) {
+			if (!btf_type_is_scalar_struct(env, meta->btf, ref_t)) {
 				enum bpf_reg_type reg2btf_type = lookup_reg2btf_ids(ref_id);
 				const char *expected_type;
 
@@ -13653,7 +13760,7 @@ static int check_special_kfunc(struct bpf_verifier_env *env, struct bpf_call_arg
 
 		struct_meta = btf_find_struct_meta(ret_btf, ret_btf_id);
 		if (is_bpf_percpu_obj_new_kfunc(meta->func_id)) {
-			if (!btf_type_is_scalar_struct(env, ret_btf, ret_t, 0)) {
+			if (!btf_type_is_scalar_struct(env, ret_btf, ret_t)) {
 				verbose(env, "bpf_percpu_obj_new type ID argument must be of a struct of scalars\n");
 				return -EINVAL;
 			}
@@ -13767,7 +13874,7 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	struct bpf_insn_aux_data *insn_aux;
 	const char *operation;
 	int err, insn_idx = *insn_idx_p;
-	u32 i, nargs, ptr_type_id;
+	u32 i, nargs, ptr_type_id, ret_nregs = 1;
 	struct bpf_kfunc_desc *desc;
 	struct btf *desc_btf;
 	int id;
@@ -14021,25 +14128,63 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	}
 
 	if (btf_type_is_scalar(t)) {
-		mark_kfunc_ret_regs(env, regs, t->size);
+		ret_nregs = mark_kfunc_ret_regs(env, regs, t->size);
 		if (meta.btf == btf_vmlinux && (meta.func_id == special_kfunc_list[KF_bpf_res_spin_lock] ||
 		    meta.func_id == special_kfunc_list[KF_bpf_res_spin_lock_irqsave]))
 			__mark_reg_const_zero(env, &regs[BPF_REG_0]);
 	} else if (btf_type_is_struct(t)) {
+		struct btf_member_path path = {};
+		const char *member_note = "";
+
 		/*
 		 * The returned struct comes back as raw register bits modeled
-		 * as an unknown scalar, so it must contain only scalars:
-		 * otherwise a pointer field would be laundered into a scalar
-		 * and escape provenance and reference tracking.
+		 * as an unknown scalar, so a pointer member would be laundered
+		 * into a scalar and escape provenance and reference tracking.
+		 * Only scalars and arena pointers are allowed; see
+		 * btf_validate_return_type() in btf.c for why an arena pointer
+		 * is safe here.
 		 */
-		if (!btf_type_is_scalar_struct(env, desc_btf, t, 0)) {
+		if (!btf_struct_member_walk(env, desc_btf, t,
+					    BTF_MEMBER_SCALAR | BTF_MEMBER_ARENA_PTR, 0, &path)) {
 			verbose(env,
-				"kernel function %s returns %s %s that is not composed of scalars\n",
+				"kernel function %s returns %s %s that is not composed of scalars or arena pointers\n",
 				func_name, btf_type_str(t),
 				btf_name_by_offset(desc_btf, t->name_off));
+			if (path.too_deep) {
+				member_note = bpf_diag_fmt(
+					env, " It nests structs more than %d levels deep.",
+					BTF_MEMBER_MAX_DEPTH);
+			} else if (path.depth) {
+				char bad_name[BTF_MEMBER_PATH_LEN];
+
+				btf_member_path_str(desc_btf, &path, bad_name, sizeof(bad_name));
+				if (!path.bad_type) {
+					verbose(env, "member '%s' is a zero-length array\n",
+						bad_name);
+					member_note = bpf_diag_fmt(
+						env, " Its member '%s' is a zero-length array.",
+						bad_name);
+				} else {
+					verbose(env, "member '%s' has type %s\n", bad_name,
+						btf_type_str(path.bad_type));
+					member_note = bpf_diag_fmt(
+						env,
+						" Its member '%s' is %s, not a scalar or an arena pointer.",
+						bad_name, btf_type_str(path.bad_type));
+				}
+			}
+			bpf_diag_program_structure(
+				env, insn_idx, "unsupported kernel function return type",
+				"Call a kernel function that returns only scalars or arena pointers by value.",
+				"%s() returns %s %s by value.%s "
+				"Only kfuncs returning scalar values or arena pointers, or "
+				"structures composed of scalar values or arena pointers are "
+				"supported.",
+				func_name, btf_type_str(t),
+				btf_name_by_offset(desc_btf, t->name_off), member_note);
 			return -EINVAL;
 		}
-		mark_kfunc_ret_regs(env, regs, t->size);
+		ret_nregs = mark_kfunc_ret_regs(env, regs, t->size);
 	} else if (btf_type_is_ptr(t)) {
 		ptr_type = btf_type_skip_modifiers(desc_btf, t->type, &ptr_type_id);
 		err = check_special_kfunc(env, &meta, regs, insn_aux, ptr_type, desc_btf);
@@ -14170,7 +14315,8 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	 * Record R0 before process_iter_next_call() snapshots the alternate
 	 * iterator path's diagnostic position.
 	 */
-	bpf_diag_mod_end(env);
+	if (ret_nregs == 1)
+		bpf_diag_mod_end(env);
 
 	if (bpf_is_iter_next_kfunc(&meta)) {
 		err = process_iter_next_call(env, insn_idx, &meta);
