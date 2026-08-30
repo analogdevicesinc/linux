@@ -3495,6 +3495,149 @@ static void dm_mst_test_recompute_connector_without_crtc(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, is_dsc_need_re_compute(ctx.state, ctx.dc_state, ctx.link));
 }
 
+/* Tests for compute_mst_dsc_configs_for_state and pre_validate_dsc */
+
+typedef enum dc_status (*dm_mst_test_remove_stream_fn)(struct dc *dc, struct dc_state *new_ctx,
+						       struct dc_stream_state *stream);
+
+static enum dc_status dm_mst_test_remove_stream_fails(struct dc *dc, struct dc_state *new_ctx,
+						      struct dc_stream_state *stream)
+{
+	return DC_ERROR_UNEXPECTED;
+}
+
+/*
+ * Add a stream to @ctx that walks as far into the DSC config helpers as the
+ * caller allows: an MST signal, a DM connector, an MST output port and a DSC
+ * capable sink. The helpers dereference res_pool->funcs unconditionally, so
+ * the pool is always given one, carrying @remove_stream.
+ */
+static struct dc_stream_state *
+dm_mst_test_add_mst_dsc_stream(struct kunit *test, struct dm_mst_test_recompute_ctx *ctx,
+			       dm_mst_test_remove_stream_fn remove_stream)
+{
+	struct dc_stream_state *stream;
+	struct resource_pool *res_pool;
+	struct drm_dp_mst_port *port;
+	struct resource_funcs *funcs;
+	struct dc_sink *sink;
+
+	sink = kunit_kzalloc(test, sizeof(*sink), GFP_KERNEL);
+	port = kunit_kzalloc(test, sizeof(*port), GFP_KERNEL);
+	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
+	funcs = kunit_kzalloc(test, sizeof(*funcs), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+	KUNIT_ASSERT_NOT_NULL(test, port);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
+	KUNIT_ASSERT_NOT_NULL(test, funcs);
+
+	funcs->remove_stream_from_ctx = remove_stream;
+	res_pool->funcs = funcs;
+	ctx->dc->res_pool = res_pool;
+	sink->dsc_caps.dsc_dec_caps.is_dsc_supported = true;
+	ctx->aconnector->dc_sink = sink;
+	ctx->aconnector->mst_output_port = port;
+
+	stream = dm_mst_test_add_link_stream(test, ctx->dc_state, ctx->link, ctx->aconnector);
+	stream->ctx = ctx->dc->ctx;
+	stream->signal = SIGNAL_TYPE_DISPLAY_PORT_MST;
+
+	return stream;
+}
+
+/**
+ * dm_mst_test_compute_configs_skips_sst - non-MST streams are not considered
+ * @test: KUnit test context
+ */
+static void dm_mst_test_compute_configs_skips_sst(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dc_stream_state *stream;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	stream = dm_mst_test_add_link_stream(test, ctx.dc_state, ctx.link, ctx.aconnector);
+	stream->ctx = ctx.dc->ctx;
+	stream->signal = SIGNAL_TYPE_DISPLAY_PORT;
+
+	KUNIT_EXPECT_EQ(test, compute_mst_dsc_configs_for_state(ctx.state, ctx.dc_state, vars), 0);
+}
+
+/**
+ * dm_mst_test_compute_configs_skips_incomplete - streams without a sink are skipped
+ * @test: KUnit test context
+ *
+ * An MST stream whose connector has neither a sink nor an output port yet is
+ * not ready for DSC bandwidth sharing.
+ */
+static void dm_mst_test_compute_configs_skips_incomplete(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dc_stream_state *stream;
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	stream = dm_mst_test_add_link_stream(test, ctx.dc_state, ctx.link, ctx.aconnector);
+	stream->ctx = ctx.dc->ctx;
+	stream->signal = SIGNAL_TYPE_DISPLAY_PORT_MST;
+
+	KUNIT_EXPECT_EQ(test, compute_mst_dsc_configs_for_state(ctx.state, ctx.dc_state, vars), 0);
+}
+
+/**
+ * dm_mst_test_compute_configs_remove_stream_fails - a DC resource failure aborts
+ * @test: KUnit test context
+ */
+static void dm_mst_test_compute_configs_remove_stream_fails(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	dm_mst_test_add_mst_dsc_stream(test, &ctx, dm_mst_test_remove_stream_fails);
+
+	KUNIT_EXPECT_EQ(test, compute_mst_dsc_configs_for_state(ctx.state, ctx.dc_state, vars),
+			-EINVAL);
+}
+
+/**
+ * dm_mst_test_compute_configs_no_recompute - an unchanged topology is left alone
+ * @test: KUnit test context
+ *
+ * The stream is DSC capable but is_dsc_need_re_compute() reports no change, so
+ * the existing configuration is kept and no DSC resource is requested.
+ */
+static void dm_mst_test_compute_configs_no_recompute(struct kunit *test)
+{
+	struct dm_mst_test_recompute_ctx ctx;
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+
+	dm_mst_test_init_recompute_ctx(test, &ctx);
+	ctx.link->type = dc_connection_single;
+	dm_mst_test_add_mst_dsc_stream(test, &ctx, NULL);
+
+	KUNIT_EXPECT_EQ(test, compute_mst_dsc_configs_for_state(ctx.state, ctx.dc_state, vars), 0);
+}
+
+/**
+ * dm_mst_test_pre_validate_dsc_not_needed - precompute is skipped when unneeded
+ * @test: KUnit test context
+ *
+ * Without a DSC capable MST hub in the state there is nothing to precompute,
+ * so pre_validate_dsc() must succeed without touching the DM atomic state.
+ */
+static void dm_mst_test_pre_validate_dsc_not_needed(struct kunit *test)
+{
+	struct dm_mst_test_crtc_state_ctx ctx;
+	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {};
+	struct dm_atomic_state *dm_state = NULL;
+
+	dm_mst_test_init_crtc_state_ctx(test, &ctx, 1);
+
+	KUNIT_EXPECT_EQ(test, pre_validate_dsc(ctx.state, &dm_state, vars), 0);
+	KUNIT_EXPECT_NULL(test, dm_state);
+}
+
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_match),
@@ -3621,6 +3764,13 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_recompute_stream_removed),
 	KUNIT_CASE(dm_mst_test_recompute_stream_without_connector),
 	KUNIT_CASE(dm_mst_test_recompute_connector_without_crtc),
+	/* compute_mst_dsc_configs_for_state tests */
+	KUNIT_CASE(dm_mst_test_compute_configs_skips_sst),
+	KUNIT_CASE(dm_mst_test_compute_configs_skips_incomplete),
+	KUNIT_CASE(dm_mst_test_compute_configs_remove_stream_fails),
+	KUNIT_CASE(dm_mst_test_compute_configs_no_recompute),
+	/* pre_validate_dsc tests */
+	KUNIT_CASE(dm_mst_test_pre_validate_dsc_not_needed),
 	{}
 };
 
