@@ -2473,6 +2473,153 @@ static void dm_mst_test_synaptics_cascaded(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, is_synaptics_cascaded_panamera(link, port), param->cascaded);
 }
 
+/* Tests for validate_dsc_caps_on_connector */
+
+struct dm_mst_test_dsc_ctx {
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_dm_connector *root;
+	struct drm_dp_mst_port *port;
+	struct dc_sink *sink;
+	struct dc_link *link;
+};
+
+/*
+ * Build an MST endpoint whose port hangs directly off the primary branch. With
+ * an all-zero DPCD, drm_dp_mst_dsc_aux_for_port() finds no DSC-capable AUX, so
+ * each test can steer the driver's own fallbacks in isolation.
+ */
+static void dm_mst_test_init_dsc_ctx(struct kunit *test, struct dm_mst_test_dsc_ctx *ctx)
+{
+	struct drm_dp_mst_branch *branch;
+	struct dc *dc;
+
+	dm_mst_test_reset_dsc_dpcd();
+
+	ctx->aconnector = kunit_kzalloc(test, sizeof(*ctx->aconnector), GFP_KERNEL);
+	ctx->root = kunit_kzalloc(test, sizeof(*ctx->root), GFP_KERNEL);
+	ctx->sink = kunit_kzalloc(test, sizeof(*ctx->sink), GFP_KERNEL);
+	branch = kunit_kzalloc(test, sizeof(*branch), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->root);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->sink);
+	KUNIT_ASSERT_NOT_NULL(test, branch);
+
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	ctx->link = dm_kunit_alloc_link(test);
+	ctx->link->ctx = dc->ctx;
+
+	ctx->port = dm_mst_test_alloc_mgr_port(test);
+	ctx->port->parent = branch;
+	dm_mst_test_init_dsc_aux(&ctx->port->aux, "dm_mst_test_port_dsc_aux");
+	dm_mst_test_init_dsc_aux(&ctx->root->dm_dp_aux.aux, "dm_mst_test_root_dsc_aux");
+
+	ctx->aconnector->dc_link = ctx->link;
+	ctx->aconnector->dc_sink = ctx->sink;
+	ctx->aconnector->mst_output_port = ctx->port;
+	ctx->aconnector->mst_root = ctx->root;
+}
+
+/* Make needs_dsc_aux_workaround() accept the link. */
+static void dm_mst_test_arm_dsc_aux_workaround(struct dc_link *link)
+{
+	link->dpcd_caps.branch_dev_id = DP_BRANCH_DEVICE_ID_90CC24;
+	link->dpcd_caps.dpcd_rev.raw = DPCD_REV_14;
+	link->dpcd_caps.sink_count.bits.SINK_COUNT = 2;
+}
+
+/**
+ * dm_mst_test_validate_dsc_caps_no_aux - no DSC AUX means no DSC capabilities
+ * @test: KUnit test context
+ *
+ * When neither the DRM helper, the Synaptics workaround nor the cascaded hub
+ * quirk yields a DSC AUX channel, validation must fail without touching DPCD.
+ */
+static void dm_mst_test_validate_dsc_caps_no_aux(struct kunit *test)
+{
+	struct dm_mst_test_dsc_ctx ctx;
+
+	dm_mst_test_init_dsc_ctx(test, &ctx);
+
+	KUNIT_EXPECT_FALSE(test, validate_dsc_caps_on_connector(ctx.aconnector));
+	KUNIT_EXPECT_NULL(test, ctx.aconnector->dsc_aux);
+}
+
+/**
+ * dm_mst_test_validate_dsc_caps_aux_workaround - MST dock AUX fallback is used
+ * @test: KUnit test context
+ *
+ * A DSC capable dock in front of a non-DSC display leaves the DRM helper
+ * without an AUX, so the driver must fall back to the MST root's AUX and parse
+ * the DSC capabilities read from it.
+ */
+static void dm_mst_test_validate_dsc_caps_aux_workaround(struct kunit *test)
+{
+	struct dm_mst_test_dsc_ctx ctx;
+
+	dm_mst_test_init_dsc_ctx(test, &ctx);
+	dm_mst_test_arm_dsc_aux_workaround(ctx.link);
+	dm_mst_test_dsc_dpcd[DP_DSC_SUPPORT] = DP_DSC_DECOMPRESSION_IS_SUPPORTED;
+
+	KUNIT_EXPECT_TRUE(test, validate_dsc_caps_on_connector(ctx.aconnector));
+	KUNIT_EXPECT_PTR_EQ(test, ctx.aconnector->dsc_aux, &ctx.root->dm_dp_aux.aux);
+	KUNIT_EXPECT_TRUE(test, ctx.sink->dsc_caps.dsc_dec_caps.is_dsc_supported);
+}
+
+/**
+ * dm_mst_test_validate_dsc_caps_cascaded_hub - cascaded hub uses the mgr AUX
+ * @test: KUnit test context
+ *
+ * On a cascaded Synaptics Panamera hub the DSC decoder lives on the primary
+ * branch, so the topology manager's AUX must win over every other fallback.
+ */
+static void dm_mst_test_validate_dsc_caps_cascaded_hub(struct kunit *test)
+{
+	struct dm_mst_test_dsc_ctx ctx;
+
+	dm_mst_test_init_dsc_ctx(test, &ctx);
+	dm_mst_test_arm_dsc_aux_workaround(ctx.link);
+	dm_mst_test_set_panamera_ids(ctx.link, DP_BRANCH_DEVICE_ID_90CC24, 0x50,
+				     SYNAPTICS_CASCADED_HUB_ID);
+	dm_mst_test_dsc_dpcd[DP_DSC_SUPPORT] = DP_DSC_DECOMPRESSION_IS_SUPPORTED;
+
+	KUNIT_EXPECT_TRUE(test, validate_dsc_caps_on_connector(ctx.aconnector));
+	KUNIT_EXPECT_PTR_EQ(test, ctx.aconnector->dsc_aux, ctx.port->mgr->aux);
+}
+
+/**
+ * dm_mst_test_validate_dsc_caps_read_error - a failed DSC caps read is fatal
+ * @test: KUnit test context
+ */
+static void dm_mst_test_validate_dsc_caps_read_error(struct kunit *test)
+{
+	struct dm_mst_test_dsc_ctx ctx;
+
+	dm_mst_test_init_dsc_ctx(test, &ctx);
+	dm_mst_test_arm_dsc_aux_workaround(ctx.link);
+	dm_mst_test_dsc_aux_fail = &ctx.root->dm_dp_aux.aux;
+
+	KUNIT_EXPECT_FALSE(test, validate_dsc_caps_on_connector(ctx.aconnector));
+	KUNIT_EXPECT_PTR_EQ(test, ctx.aconnector->dsc_aux, &ctx.root->dm_dp_aux.aux);
+}
+
+/**
+ * dm_mst_test_validate_dsc_caps_unsupported - a sink without DSC is rejected
+ * @test: KUnit test context
+ *
+ * The AUX resolves but the sink reports no decompression support, so parsing
+ * the raw capabilities fails and the connector must not be marked DSC capable.
+ */
+static void dm_mst_test_validate_dsc_caps_unsupported(struct kunit *test)
+{
+	struct dm_mst_test_dsc_ctx ctx;
+
+	dm_mst_test_init_dsc_ctx(test, &ctx);
+	dm_mst_test_arm_dsc_aux_workaround(ctx.link);
+
+	KUNIT_EXPECT_FALSE(test, validate_dsc_caps_on_connector(ctx.aconnector));
+	KUNIT_EXPECT_FALSE(test, ctx.sink->dsc_caps.dsc_dec_caps.is_dsc_supported);
+}
+
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_match),
@@ -2561,6 +2708,12 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE_PARAM(dm_mst_test_link_current_set_bw, dm_mst_link_bw_gen_params),
 	/* is_synaptics_cascaded_panamera tests */
 	KUNIT_CASE_PARAM(dm_mst_test_synaptics_cascaded, dm_mst_panamera_gen_params),
+	/* validate_dsc_caps_on_connector tests */
+	KUNIT_CASE(dm_mst_test_validate_dsc_caps_no_aux),
+	KUNIT_CASE(dm_mst_test_validate_dsc_caps_aux_workaround),
+	KUNIT_CASE(dm_mst_test_validate_dsc_caps_cascaded_hub),
+	KUNIT_CASE(dm_mst_test_validate_dsc_caps_read_error),
+	KUNIT_CASE(dm_mst_test_validate_dsc_caps_unsupported),
 	{}
 };
 

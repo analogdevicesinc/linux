@@ -107,6 +107,7 @@ enum dc_status dm_dp_mst_is_port_support_mode(
 void amdgpu_dm_mst_reset_mst_connector_setting(struct amdgpu_dm_connector *aconnector);
 bool is_synaptics_cascaded_panamera(struct dc_link *link, struct drm_dp_mst_port *port);
 bool dp_get_link_current_set_bw(struct drm_dp_aux *aux, uint32_t *cur_link_bw);
+bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnector);
 bool retrieve_downstream_port_device(struct amdgpu_dm_connector *aconnector);
 bool retrieve_branch_specific_data(struct amdgpu_dm_connector *aconnector);
 ssize_t dm_dp_aux_transfer_result(ssize_t result,

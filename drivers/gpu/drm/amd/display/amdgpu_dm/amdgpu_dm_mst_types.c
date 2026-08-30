@@ -295,7 +295,7 @@ STATIC_IFN_KUNIT bool is_synaptics_cascaded_panamera(struct dc_link *link, struc
 }
 EXPORT_IF_KUNIT(is_synaptics_cascaded_panamera);
 
-static bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnector)
+STATIC_IFN_KUNIT bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnector)
 {
 	struct dc_sink *dc_sink = aconnector->dc_sink;
 	struct drm_dp_mst_port *port = aconnector->mst_output_port;
@@ -339,6 +339,7 @@ static bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnecto
 
 	return true;
 }
+EXPORT_IF_KUNIT(validate_dsc_caps_on_connector);
 #endif
 
 STATIC_IFN_KUNIT bool retrieve_downstream_port_device(struct amdgpu_dm_connector *aconnector)
