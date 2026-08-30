@@ -82,7 +82,7 @@ static bool check_image_region(u64 base, u64 size)
 
 /**
  * efi_kaslr_relocate_kernel() - Relocate the kernel (random if KASLR enabled)
- * @image_addr: Pointer to the current kernel location
+ * @image_addr:		Pointer to the current kernel location
  * @reserve_addr:	Pointer to the relocated kernel location
  * @reserve_size:	Size of the relocated kernel
  * @kernel_size:	Size of the text + data
@@ -91,8 +91,8 @@ static bool check_image_region(u64 base, u64 size)
  * @phys_seed:		Random seed used for the relocation
  *
  * If KASLR is not enabled, this function relocates the kernel to a fixed
- * address (or leave it as its current location). If KASLR is enabled, the
- * kernel physical location is randomized using the seed in parameter.
+ * address or leaves it at its current location. If KASLR is enabled, the
+ * kernel's physical location is randomized using the supplied seed.
  *
  * Return:	status code, EFI_SUCCESS if relocation is successful
  */
