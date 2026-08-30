@@ -228,6 +228,8 @@ static int wait_TBE(char __iomem *addr)
  */
 static void gscps2_flush(struct gscps2port *ps2port)
 {
+	lockdep_assert_held(&ps2port->lock);
+
 	while (gscps2_readb_status(ps2port->addr) & GSC_STAT_RBNE)
 		gscps2_readb_input(ps2port->addr);
 	ps2port->act = 0;
@@ -364,7 +366,8 @@ static void gscps2_enable(struct gscps2port *ps2port, bool enable)
 	}
 
 	wait_TBE(ps2port->addr);
-	gscps2_flush(ps2port);
+	scoped_guard(spinlock_irqsave, &ps2port->lock)
+		gscps2_flush(ps2port);
 }
 
 /*
@@ -551,7 +554,8 @@ static void __exit gscps2_remove(struct parisc_device *dev)
 
 	serio_unregister_port(ps2port->port);
 	free_irq(dev->irq, ps2port);
-	gscps2_flush(ps2port);
+	scoped_guard(spinlock_irqsave, &ps2port->lock)
+		gscps2_flush(ps2port);
 	iounmap(ps2port->addr);
 #if 0
 	release_mem_region(dev->hpa, GSC_STATUS + 4);
