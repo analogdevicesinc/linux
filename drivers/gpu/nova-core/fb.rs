@@ -177,7 +177,7 @@ impl FbRanges {
     pub(crate) fn new(
         chipset: Chipset,
         bar: Bar0<'_>,
-        gsp_fw: &GspFirmware,
+        gsp_fw: &GspFirmware<'_>,
         vgpu_state: VgpuState,
     ) -> Result<Self> {
         let hal = hal::fb_hal(chipset);

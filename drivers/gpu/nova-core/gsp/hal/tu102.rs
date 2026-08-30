@@ -52,12 +52,12 @@ use crate::{
 //
 // Since there are two variants of the prepared firmware (with and without a bootloader), this type
 // abstracts the difference.
-enum FwsecUnloadFirmware {
+enum FwsecUnloadFirmware<'a> {
     WithoutBl(FwsecFirmware),
-    WithBl(FwsecFirmwareWithBl),
+    WithBl(FwsecFirmwareWithBl<'a>),
 }
 
-impl FwsecUnloadFirmware {
+impl FwsecUnloadFirmware<'_> {
     /// Runs the FWSEC SB firmware.
     fn run(
         &self,
@@ -74,12 +74,12 @@ impl FwsecUnloadFirmware {
 
 // Contains the firmware required to fully reset GSP on chipsets where the GSP is started using
 // FWSEC/Booter.
-struct Sec2UnloadBundle {
-    fwsec_sb: FwsecUnloadFirmware,
+struct Sec2UnloadBundle<'a> {
+    fwsec_sb: FwsecUnloadFirmware<'a>,
     booter_unloader: BooterFirmware,
 }
 
-impl UnloadBundle for Sec2UnloadBundle {
+impl UnloadBundle for Sec2UnloadBundle<'_> {
     fn run(&self, ctx: &mut GspBootContext<'_, '_>) -> Result {
         let dev = ctx.dev();
         let bar = ctx.bar;
@@ -213,14 +213,14 @@ impl Tu102 {
     }
 
     /// Load and prepare the resources required to properly reset the GSP after it has been stopped.
-    fn build_unload_bundle(
+    fn build_unload_bundle<'gpu>(
         &self,
-        dev: &device::Device<device::Bound>,
+        dev: &'gpu device::Device<device::Bound>,
         chipset: Chipset,
         bios: &Vbios,
         gsp_falcon: &Falcon<'_, GspEngine>,
         sec2_falcon: &Falcon<'_, Sec2>,
-    ) -> Result<crate::gsp::UnloadBundle> {
+    ) -> Result<crate::gsp::UnloadBundle<'gpu>> {
         // Load the FWSEC SB firmware, as well as its bootloader if required.
         let fwsec_sb = FwsecFirmware::new(dev, gsp_falcon, bios, FwsecCommand::Sb)?;
         let fwsec_sb = if self.needs_fwsec_bootloader {
@@ -241,18 +241,18 @@ impl Tu102 {
             },
             GFP_KERNEL,
         )
-        .map(|b| crate::gsp::UnloadBundle(b))
+        .map(|b| crate::gsp::UnloadBundle(b as KBox<dyn UnloadBundle + 'gpu>))
         .map_err(Into::into)
     }
 }
 
 impl GspHal for Tu102 {
-    fn boot(
+    fn boot<'gpu>(
         &self,
-        gsp: &Gsp,
-        ctx: &mut GspBootContext<'_, '_>,
-        gsp_fw: &GspFirmware,
-    ) -> Result<Option<crate::gsp::UnloadBundle>> {
+        gsp: &Gsp<'gpu>,
+        ctx: &mut GspBootContext<'_, 'gpu>,
+        gsp_fw: &GspFirmware<'gpu>,
+    ) -> Result<Option<crate::gsp::UnloadBundle<'gpu>>> {
         let dev = ctx.dev();
         let bar = ctx.bar;
         let chipset = ctx.chipset;
@@ -317,9 +317,9 @@ impl GspHal for Tu102 {
 
     fn post_boot(
         &self,
-        gsp: &Gsp,
+        gsp: &Gsp<'_>,
         ctx: &mut GspBootContext<'_, '_>,
-        gsp_fw: &GspFirmware,
+        gsp_fw: &GspFirmware<'_>,
     ) -> Result {
         GspSequencer::run(&gsp.cmdq, ctx, &gsp.libos, gsp_fw.bootloader.app_version)?;
 

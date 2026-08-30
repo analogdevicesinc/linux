@@ -34,7 +34,7 @@ struct DmaSampleDriver;
 #[pin_data(PinnedDrop)]
 struct DmaSampleData<'bound> {
     pdev: &'bound pci::Device<Bound>,
-    ca: Coherent<[MyStruct]>,
+    ca: Coherent<'bound, [MyStruct]>,
     #[pin]
     sgt: SGTable<Owned<VVec<u8>>>,
 }
@@ -86,7 +86,7 @@ impl pci::Driver for DmaSampleDriver {
             // SAFETY: There are no concurrent calls to DMA allocation and mapping primitives.
             unsafe { pdev.dma_set_mask_and_coherent(mask)? };
 
-            let ca: Coherent<[MyStruct]> =
+            let ca: Coherent<'_, [MyStruct]> =
                 Coherent::zeroed_slice(pdev.as_ref(), TEST_VALUES.len(), GFP_KERNEL)?;
 
             for (i, value) in TEST_VALUES.into_iter().enumerate() {
