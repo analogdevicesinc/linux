@@ -59,8 +59,7 @@ static bool check_image_region(u64 base, u64 size)
 {
 	struct efi_boot_memmap *map __free(efi_pool) = NULL;
 	efi_status_t status;
-	bool ret = false;
-	int map_offset;
+	unsigned long map_offset;
 
 	status = efi_get_memory_map(&map, false);
 	if (status != EFI_SUCCESS)
@@ -74,13 +73,11 @@ static bool check_image_region(u64 base, u64 size)
 		 * Find the region that covers base, and return whether
 		 * it covers base+size bytes.
 		 */
-		if (base >= md->phys_addr && base < end) {
-			ret = (base + size) <= end;
-			break;
-		}
+		if (base >= md->phys_addr && base < end)
+			return (base + size) <= end;
 	}
 
-	return ret;
+	return false;
 }
 
 /**
