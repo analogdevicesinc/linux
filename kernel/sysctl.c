@@ -1332,6 +1332,87 @@ int proc_do_large_bitmap(const struct ctl_table *table, int dir,
 	return err;
 }
 
+int proc_do_static_key(const struct ctl_table *table, int dir,
+		       void *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct static_key *key = (struct static_key *)table->data;
+	static DEFINE_MUTEX(static_key_mutex);
+	int val, ret;
+	struct ctl_table tmp = {
+		.data   = &val,
+		.maxlen = sizeof(val),
+		.mode   = table->mode,
+		.extra1 = SYSCTL_ZERO,
+		.extra2 = SYSCTL_ONE,
+	};
+
+	if (SYSCTL_USER_TO_KERN(dir) && !capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	mutex_lock(&static_key_mutex);
+	val = static_key_enabled(key);
+	ret = proc_dointvec_minmax(&tmp, dir, buffer, lenp, ppos);
+	if (SYSCTL_USER_TO_KERN(dir) && !ret) {
+		if (val)
+			static_key_enable(key);
+		else
+			static_key_disable(key);
+	}
+	mutex_unlock(&static_key_mutex);
+	return ret;
+}
+
+static const struct ctl_table sysctl_subsys_table[] = {
+	{
+		.procname	= "sysctl_writes_strict",
+		.data		= &sysctl_writes_strict,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_NEG_ONE,
+		.extra2		= SYSCTL_ONE,
+	},
+	{
+		.procname	= "ngroups_max",
+		.data		= (void *)&ngroups_max,
+		.maxlen		= sizeof (int),
+		.mode		= 0444,
+		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "cap_last_cap",
+		.data		= (void *)&cap_last_cap,
+		.maxlen		= sizeof(int),
+		.mode		= 0444,
+		.proc_handler	= proc_dointvec,
+	},
+#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_ALLOW
+	{
+		.procname	= "unaligned-trap",
+		.data		= &unaligned_enabled,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+#endif
+#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_NO_WARN
+	{
+		.procname	= "ignore-unaligned-usertrap",
+		.data		= &no_unaligned_warning,
+		.maxlen		= sizeof (int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+#endif
+};
+
+int __init sysctl_init_bases(void)
+{
+	register_sysctl_init("kernel", sysctl_subsys_table);
+
+	return 0;
+}
+
 #else /* CONFIG_SYSCTL */
 
 int proc_dostring(const struct ctl_table *table, int dir,
@@ -1431,89 +1512,12 @@ int proc_do_large_bitmap(const struct ctl_table *table, int dir,
 	return -ENOSYS;
 }
 
-#endif /* CONFIG_SYSCTL */
-
-#ifdef CONFIG_SYSCTL
 int proc_do_static_key(const struct ctl_table *table, int dir,
 		       void *buffer, size_t *lenp, loff_t *ppos)
 {
-	struct static_key *key = (struct static_key *)table->data;
-	static DEFINE_MUTEX(static_key_mutex);
-	int val, ret;
-	struct ctl_table tmp = {
-		.data   = &val,
-		.maxlen = sizeof(val),
-		.mode   = table->mode,
-		.extra1 = SYSCTL_ZERO,
-		.extra2 = SYSCTL_ONE,
-	};
-
-	if (SYSCTL_USER_TO_KERN(dir) && !capable(CAP_SYS_ADMIN))
-		return -EPERM;
-
-	mutex_lock(&static_key_mutex);
-	val = static_key_enabled(key);
-	ret = proc_dointvec_minmax(&tmp, dir, buffer, lenp, ppos);
-	if (SYSCTL_USER_TO_KERN(dir) && !ret) {
-		if (val)
-			static_key_enable(key);
-		else
-			static_key_disable(key);
-	}
-	mutex_unlock(&static_key_mutex);
-	return ret;
+	return -ENOSYS;
 }
 
-static const struct ctl_table sysctl_subsys_table[] = {
-	{
-		.procname	= "sysctl_writes_strict",
-		.data		= &sysctl_writes_strict,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= SYSCTL_NEG_ONE,
-		.extra2		= SYSCTL_ONE,
-	},
-	{
-		.procname	= "ngroups_max",
-		.data		= (void *)&ngroups_max,
-		.maxlen		= sizeof (int),
-		.mode		= 0444,
-		.proc_handler	= proc_dointvec,
-	},
-	{
-		.procname	= "cap_last_cap",
-		.data		= (void *)&cap_last_cap,
-		.maxlen		= sizeof(int),
-		.mode		= 0444,
-		.proc_handler	= proc_dointvec,
-	},
-#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_ALLOW
-	{
-		.procname	= "unaligned-trap",
-		.data		= &unaligned_enabled,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-#endif
-#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_NO_WARN
-	{
-		.procname	= "ignore-unaligned-usertrap",
-		.data		= &no_unaligned_warning,
-		.maxlen		= sizeof (int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-#endif
-};
-
-int __init sysctl_init_bases(void)
-{
-	register_sysctl_init("kernel", sysctl_subsys_table);
-
-	return 0;
-}
 #endif /* CONFIG_SYSCTL */
 /*
  * No sense putting this after each symbol definition, twice,
