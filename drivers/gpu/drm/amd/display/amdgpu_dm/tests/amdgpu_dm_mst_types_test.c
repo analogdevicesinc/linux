@@ -29,6 +29,8 @@
 #include "amdgpu_dm_hdcp.h"
 #include "amdgpu_dm_mst_types.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
+#include "dsc/dsc.h"
+#include "inc/core_types.h"
 #include "inc/link_service.h"
 
 /*
@@ -2620,6 +2622,363 @@ static void dm_mst_test_validate_dsc_caps_unsupported(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, ctx.sink->dsc_caps.dsc_dec_caps.is_dsc_supported);
 }
 
+/* Tests for dm_dp_mst_is_port_support_mode */
+
+static uint32_t dm_mst_test_root_link_bw_kbps;
+
+static uint32_t dm_mst_test_root_bandwidth_kbps(const struct dc_link *link,
+						const struct dc_link_settings *link_settings)
+{
+	return dm_mst_test_root_link_bw_kbps;
+}
+
+struct dm_mst_test_port_mode_ctx {
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_stream_state *stream;
+	struct drm_dp_mst_port *port;
+	struct dc_sink *sink;
+	struct dc_link *link;
+	struct dc *dc;
+};
+
+/*
+ * Build the minimum needed to price a mode: a link whose root bandwidth is
+ * faked, a virtual channel sized by the port's full_pbn, and a 24bpp timing
+ * that needs pix_clk_100hz / 10 * 24 kbps uncompressed.
+ */
+static void dm_mst_test_init_port_mode_ctx(struct kunit *test,
+					   struct dm_mst_test_port_mode_ctx *ctx,
+					   uint32_t root_link_bw_kbps, u32 full_pbn,
+					   uint32_t pix_clk_100hz)
+{
+	struct link_service *link_srv;
+	struct resource_pool *res_pool;
+
+	dm_mst_test_reset_dsc_dpcd();
+
+	ctx->aconnector = kunit_kzalloc(test, sizeof(*ctx->aconnector), GFP_KERNEL);
+	ctx->sink = kunit_kzalloc(test, sizeof(*ctx->sink), GFP_KERNEL);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->sink);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
+
+	dm_mst_test_root_link_bw_kbps = root_link_bw_kbps;
+	link_srv->dp_link_bandwidth_kbps = dm_mst_test_root_bandwidth_kbps;
+
+	ctx->dc = dm_kunit_alloc_dc_with_ctx(test);
+	ctx->dc->link_srv = link_srv;
+	ctx->dc->res_pool = res_pool;
+
+	ctx->link = dm_kunit_alloc_link(test);
+	ctx->link->dc = ctx->dc;
+	ctx->link->ctx = ctx->dc->ctx;
+
+	ctx->sink->ctx = ctx->dc->ctx;
+	ctx->port = dm_mst_test_alloc_mgr_port(test);
+	ctx->port->full_pbn = full_pbn;
+
+	ctx->stream = dm_kunit_alloc_stream(test, ctx->link);
+	ctx->stream->sink = ctx->sink;
+	ctx->stream->timing.display_color_depth = COLOR_DEPTH_888;
+	ctx->stream->timing.pix_clk_100hz = pix_clk_100hz;
+
+	ctx->aconnector->dc_link = ctx->link;
+	ctx->aconnector->dc_sink = ctx->sink;
+	ctx->aconnector->mst_output_port = ctx->port;
+}
+
+/**
+ * dm_mst_test_port_mode_fits_without_dsc - sufficient bandwidth needs no DSC
+ * @test: KUnit test context
+ *
+ * When the uncompressed stream fits into the smaller of the root link and the
+ * virtual channel bandwidth, the mode is accepted before any DSC evaluation.
+ */
+static void dm_mst_test_port_mode_fits_without_dsc(struct kunit *test)
+{
+	struct dm_mst_test_port_mode_ctx ctx;
+
+	dm_mst_test_init_port_mode_ctx(test, &ctx, 1000000, 1000, 100000);
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(ctx.aconnector, ctx.stream), DC_OK);
+	KUNIT_EXPECT_EQ(test, (u32)ctx.stream->timing.flags.DSC, 0U);
+}
+
+/**
+ * dm_mst_test_port_mode_no_dsc_aux - DSC is required but unavailable
+ * @test: KUnit test context
+ *
+ * A mode that exceeds the end-to-end bandwidth on a connector without a DSC
+ * AUX channel cannot be compressed, so validation must fail.
+ */
+static void dm_mst_test_port_mode_no_dsc_aux(struct kunit *test)
+{
+	struct dm_mst_test_port_mode_ctx ctx;
+
+	dm_mst_test_init_port_mode_ctx(test, &ctx, 100000, 10, 100000);
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(ctx.aconnector, ctx.stream),
+			DC_FAIL_BANDWIDTH_VALIDATE);
+}
+
+/**
+ * dm_mst_test_port_mode_no_common_dsc_config - no shared DSC config is fatal
+ * @test: KUnit test context
+ *
+ * With a DSC AUX but no DSC encoder in the resource pool, source and sink share
+ * no usable DSC configuration and the mode must be rejected.
+ */
+static void dm_mst_test_port_mode_no_common_dsc_config(struct kunit *test)
+{
+	struct dm_mst_test_port_mode_ctx ctx;
+
+	dm_mst_test_init_port_mode_ctx(test, &ctx, 100000, 10, 100000);
+	ctx.aconnector->dsc_aux = ctx.port->mgr->aux;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(ctx.aconnector, ctx.stream),
+			DC_FAIL_BANDWIDTH_VALIDATE);
+}
+
+/*
+ * 1920x1080@60 RGB 8bpc needs 3564000 kbps uncompressed, and roughly 1188000
+ * kbps at the 8bpp DSC policy minimum.
+ */
+#define DM_MST_TEST_DSC_PIX_CLK_100HZ	1485000
+
+/* Enough of dsc2_get_enc_caps() for the DSC policy and bandwidth maths. */
+static void dm_mst_test_dsc_get_enc_caps(struct dsc_enc_caps *dsc_enc_caps, int pixel_clock_100Hz)
+{
+	dsc_enc_caps->dsc_version = 0x21;
+	dsc_enc_caps->slice_caps.bits.NUM_SLICES_1 = 1;
+	dsc_enc_caps->slice_caps.bits.NUM_SLICES_2 = 1;
+	dsc_enc_caps->slice_caps.bits.NUM_SLICES_4 = 1;
+	dsc_enc_caps->lb_bit_depth = 13;
+	dsc_enc_caps->is_block_pred_supported = true;
+	dsc_enc_caps->color_formats.bits.RGB = 1;
+	dsc_enc_caps->color_depth.bits.COLOR_DEPTH_8_BPC = 1;
+	dsc_enc_caps->max_total_throughput_mps = 4800;
+	dsc_enc_caps->max_slice_width = 5184;
+	dsc_enc_caps->bpp_increment_div = 16;
+}
+
+static const struct dsc_funcs dm_mst_test_dsc_funcs = {
+	.dsc_get_enc_caps = dm_mst_test_dsc_get_enc_caps,
+};
+
+/* Install the DSC encoder fake and matching sink decoder capabilities. */
+static void dm_mst_test_setup_dsc_caps(struct kunit *test, struct dc *dc, struct dc_sink *sink)
+{
+	struct dsc_dec_dpcd_caps *dec = &sink->dsc_caps.dsc_dec_caps;
+	struct display_stream_compressor *dsc;
+
+	dsc = kunit_kzalloc(test, sizeof(*dsc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dsc);
+
+	dsc->funcs = &dm_mst_test_dsc_funcs;
+	dsc->ctx = dc->ctx;
+	dc->res_pool->dscs[0] = dsc;
+
+	dec->is_dsc_supported = true;
+	dec->dsc_version = 0x21;
+	dec->rc_buffer_size = 16 * 1024;
+	dec->slice_caps1.bits.NUM_SLICES_1 = 1;
+	dec->slice_caps1.bits.NUM_SLICES_2 = 1;
+	dec->slice_caps1.bits.NUM_SLICES_4 = 1;
+	dec->lb_bit_depth = 13;
+	dec->is_block_pred_supported = true;
+	dec->color_formats.bits.RGB = 1;
+	dec->color_depth.bits.COLOR_DEPTH_8_BPC = 1;
+	dec->throughput_mode_0_mps = 1000;
+	dec->throughput_mode_1_mps = 1000;
+	dec->max_slice_width = 5120;
+	dec->bpp_increment_div = 16;
+}
+
+static void dm_mst_test_set_dsc_timing(struct dc_crtc_timing *timing)
+{
+	timing->display_color_depth = COLOR_DEPTH_888;
+	timing->pixel_encoding = PIXEL_ENCODING_RGB;
+	timing->h_addressable = 1920;
+	timing->v_addressable = 1080;
+	timing->pix_clk_100hz = DM_MST_TEST_DSC_PIX_CLK_100HZ;
+}
+
+/*
+ * Give the source a DSC encoder and the sink matching decoder capabilities so
+ * is_dsc_common_config_possible() succeeds, and switch to a timing that does
+ * not fit uncompressed.
+ */
+static void dm_mst_test_enable_dsc(struct kunit *test, struct dm_mst_test_port_mode_ctx *ctx)
+{
+	struct drm_dp_mst_branch *branch;
+
+	branch = kunit_kzalloc(test, sizeof(*branch), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, branch);
+
+	dm_mst_test_setup_dsc_caps(test, ctx->dc, ctx->sink);
+	dm_mst_test_set_dsc_timing(&ctx->stream->timing);
+
+	ctx->port->parent = branch;
+	dm_mst_test_init_dsc_aux(&ctx->port->aux, "dm_mst_test_port_mode_aux");
+	ctx->aconnector->dsc_aux = ctx->port->mgr->aux;
+}
+
+/**
+ * dm_mst_test_port_mode_dsc_passthrough_fits - DSC passthrough accepts the mode
+ * @test: KUnit test context
+ *
+ * With DSC passthrough the compressed stream travels the whole path, so a
+ * minimum compression that fits the end-to-end bandwidth enables DSC.
+ */
+static void dm_mst_test_port_mode_dsc_passthrough_fits(struct kunit *test)
+{
+	struct dm_mst_test_port_mode_ctx ctx;
+
+	dm_mst_test_init_port_mode_ctx(test, &ctx, 2500000, 1000, 100000);
+	dm_mst_test_enable_dsc(test, &ctx);
+	ctx.port->passthrough_aux = ctx.port->mgr->aux;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(ctx.aconnector, ctx.stream), DC_OK);
+	KUNIT_EXPECT_EQ(test, (u32)ctx.stream->timing.flags.DSC, 1U);
+}
+
+/**
+ * dm_mst_test_port_mode_dsc_passthrough_too_narrow - max compression still too big
+ * @test: KUnit test context
+ *
+ * When even the smallest DSC bitstream exceeds the end-to-end bandwidth the
+ * mode must be rejected instead of enabling DSC.
+ */
+static void dm_mst_test_port_mode_dsc_passthrough_too_narrow(struct kunit *test)
+{
+	struct dm_mst_test_port_mode_ctx ctx;
+
+	dm_mst_test_init_port_mode_ctx(test, &ctx, 1000000, 1000, 100000);
+	dm_mst_test_enable_dsc(test, &ctx);
+	ctx.port->passthrough_aux = ctx.port->mgr->aux;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(ctx.aconnector, ctx.stream),
+			DC_FAIL_BANDWIDTH_VALIDATE);
+	KUNIT_EXPECT_EQ(test, (u32)ctx.stream->timing.flags.DSC, 0U);
+}
+
+/**
+ * dm_mst_test_port_mode_last_link_too_slow - the uncompressed last link is checked
+ * @test: KUnit test context
+ *
+ * DSC is decoded at the endpoint, so the last DP link still carries the
+ * uncompressed stream. Its current link settings are read from DPCD and cached
+ * on the connector, and a mode that does not fit is rejected.
+ */
+static void dm_mst_test_port_mode_last_link_too_slow(struct kunit *test)
+{
+	struct dm_mst_test_port_mode_ctx ctx;
+
+	dm_mst_test_init_port_mode_ctx(test, &ctx, 2500000, 1000, 100000);
+	dm_mst_test_enable_dsc(test, &ctx);
+	ctx.port->pdt = DP_PEER_DEVICE_SST_SINK;
+	/* RBR x1: 1257120 kbps, far below the 3564000 kbps the mode needs. */
+	dm_mst_test_set_link_settings(DP_LINK_BW_1_62, 1, DP_8b_10b_ENCODING);
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(ctx.aconnector, ctx.stream),
+			DC_FAIL_BANDWIDTH_VALIDATE);
+	KUNIT_EXPECT_EQ(test, ctx.aconnector->mst_local_bw, 1257120U);
+	KUNIT_EXPECT_EQ(test, ctx.aconnector->vc_full_pbn, ctx.port->full_pbn);
+}
+
+/**
+ * dm_mst_test_port_mode_last_link_cached_bw - a cached last link bandwidth is reused
+ * @test: KUnit test context
+ *
+ * While the virtual channel allocation is unchanged the previously read link
+ * bandwidth is reused instead of going out to DPCD again.
+ */
+static void dm_mst_test_port_mode_last_link_cached_bw(struct kunit *test)
+{
+	struct dm_mst_test_port_mode_ctx ctx;
+
+	dm_mst_test_init_port_mode_ctx(test, &ctx, 2500000, 1000, 100000);
+	dm_mst_test_enable_dsc(test, &ctx);
+	ctx.port->pdt = DP_PEER_DEVICE_SST_SINK;
+	ctx.aconnector->vc_full_pbn = ctx.port->full_pbn;
+	ctx.aconnector->mst_local_bw = 100000;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(ctx.aconnector, ctx.stream),
+			DC_FAIL_BANDWIDTH_VALIDATE);
+	KUNIT_EXPECT_EQ(test, ctx.aconnector->mst_local_bw, 100000U);
+}
+
+/**
+ * dm_mst_test_port_mode_last_link_synaptics_quirk - Synaptics hubs skip the check
+ * @test: KUnit test context
+ *
+ * Synaptics branch devices misreport their last link settings, so the last
+ * link bandwidth check is skipped for them and the mode is accepted.
+ */
+static void dm_mst_test_port_mode_last_link_synaptics_quirk(struct kunit *test)
+{
+	struct dm_mst_test_port_mode_ctx ctx;
+
+	dm_mst_test_init_port_mode_ctx(test, &ctx, 2500000, 1000, 100000);
+	dm_mst_test_enable_dsc(test, &ctx);
+	ctx.port->pdt = DP_PEER_DEVICE_SST_SINK;
+	ctx.aconnector->branch_ieee_oui = DP_BRANCH_DEVICE_ID_90CC24;
+	dm_mst_test_set_link_settings(DP_LINK_BW_1_62, 1, DP_8b_10b_ENCODING);
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(ctx.aconnector, ctx.stream), DC_OK);
+	KUNIT_EXPECT_EQ(test, (u32)ctx.stream->timing.flags.DSC, 1U);
+}
+
+/**
+ * dm_mst_test_port_mode_upstream_vc_too_small - the upstream hop is the bottleneck
+ * @test: KUnit test context
+ *
+ * For a nested topology the virtual channel of the link before the last one
+ * caps the compressed bandwidth, and a mode that exceeds it is rejected.
+ */
+static void dm_mst_test_port_mode_upstream_vc_too_small(struct kunit *test)
+{
+	struct dm_mst_test_port_mode_ctx ctx;
+	struct drm_dp_mst_port *upstream;
+
+	dm_mst_test_init_port_mode_ctx(test, &ctx, 2500000, 1000, 100000);
+	dm_mst_test_enable_dsc(test, &ctx);
+	ctx.port->pdt = DP_PEER_DEVICE_NONE;
+
+	upstream = kunit_kzalloc(test, sizeof(*upstream), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, upstream);
+	/* 100 PBN is about 670950 kbps, below the DSC minimum for this mode. */
+	upstream->full_pbn = 100;
+	ctx.port->parent->port_parent = upstream;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(ctx.aconnector, ctx.stream),
+			DC_FAIL_BANDWIDTH_VALIDATE);
+}
+
+/**
+ * dm_mst_test_port_mode_branch_throughput_exceeded - branch decoder limit applies
+ * @test: KUnit test context
+ *
+ * Even with a valid DSC configuration the branch decoder's overall throughput
+ * for RGB must be able to carry the pixel rate.
+ */
+static void dm_mst_test_port_mode_branch_throughput_exceeded(struct kunit *test)
+{
+	struct dm_mst_test_port_mode_ctx ctx;
+
+	dm_mst_test_init_port_mode_ctx(test, &ctx, 2500000, 1000, 100000);
+	dm_mst_test_enable_dsc(test, &ctx);
+	ctx.port->passthrough_aux = ctx.port->mgr->aux;
+	/* 100 Mpix/s cannot carry the 148.5 Mpix/s this mode needs. */
+	ctx.sink->dsc_caps.dsc_dec_caps.branch_overall_throughput_0_mps = 100;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(ctx.aconnector, ctx.stream),
+			DC_FAIL_BANDWIDTH_VALIDATE);
+}
+
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_match),
@@ -2714,6 +3073,17 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_validate_dsc_caps_cascaded_hub),
 	KUNIT_CASE(dm_mst_test_validate_dsc_caps_read_error),
 	KUNIT_CASE(dm_mst_test_validate_dsc_caps_unsupported),
+	/* dm_dp_mst_is_port_support_mode tests */
+	KUNIT_CASE(dm_mst_test_port_mode_fits_without_dsc),
+	KUNIT_CASE(dm_mst_test_port_mode_no_dsc_aux),
+	KUNIT_CASE(dm_mst_test_port_mode_no_common_dsc_config),
+	KUNIT_CASE(dm_mst_test_port_mode_dsc_passthrough_fits),
+	KUNIT_CASE(dm_mst_test_port_mode_dsc_passthrough_too_narrow),
+	KUNIT_CASE(dm_mst_test_port_mode_last_link_too_slow),
+	KUNIT_CASE(dm_mst_test_port_mode_last_link_cached_bw),
+	KUNIT_CASE(dm_mst_test_port_mode_last_link_synaptics_quirk),
+	KUNIT_CASE(dm_mst_test_port_mode_upstream_vc_too_small),
+	KUNIT_CASE(dm_mst_test_port_mode_branch_throughput_exceeded),
 	{}
 };
 
