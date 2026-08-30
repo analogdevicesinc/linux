@@ -65,6 +65,7 @@ struct dc_state;
 struct dc_stream_state;
 struct dm_atomic_state;
 struct drm_atomic_commit;
+struct drm_dp_mst_port;
 struct drm_dp_mst_topology_mgr;
 
 uint32_t dm_mst_get_pbn_divider(struct dc_link *link);
@@ -119,6 +120,9 @@ int dm_dp_mst_atomic_check(struct drm_connector *connector,
 int dm_dp_mst_detect(struct drm_connector *connector,
 			     struct drm_modeset_acquire_ctx *ctx, bool force);
 int dm_dp_mst_get_modes(struct drm_connector *connector);
+struct drm_connector *dm_dp_add_mst_connector(struct drm_dp_mst_topology_mgr *mgr,
+					      struct drm_dp_mst_port *port,
+					      const char *pathprop);
 int amdgpu_dm_mst_connector_late_register(struct drm_connector *connector);
 void amdgpu_dm_mst_connector_early_unregister(struct drm_connector *connector);
 void dm_dp_mst_connector_destroy(struct drm_connector *connector);

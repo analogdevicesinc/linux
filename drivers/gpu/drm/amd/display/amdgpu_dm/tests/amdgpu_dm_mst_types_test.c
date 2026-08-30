@@ -15,6 +15,7 @@
 #include <drm/drm_connector.h>
 #include <drm/drm_mode_config.h>
 #include <drm/drm_modeset_lock.h>
+#include <drm/drm_property.h>
 #include <drm/display/drm_dp.h>
 #include <drm/display/drm_dp_helper.h>
 #include <drm/display/drm_dp_mst_helper.h>
@@ -1297,6 +1298,203 @@ static void dm_mst_test_create_fake_mst_encoders(struct kunit *test)
 	}
 }
 
+/* Tests for dm_dp_add_mst_connector */
+
+struct dm_mst_test_add_ctx {
+	struct amdgpu_device *adev;
+	struct amdgpu_dm_connector *master;
+	struct drm_dp_mst_port *port;
+	struct dc_link *link;
+};
+
+/*
+ * Stand in for amdgpu_display_modeset_create_props(), which the test module
+ * cannot link against. Only the properties amdgpu_dm_connector_init_helper()
+ * attaches are created.
+ */
+static void dm_mst_test_create_mode_props(struct kunit *test, struct amdgpu_device *adev)
+{
+	struct amdgpu_mode_info *mode_info = &adev->mode_info;
+	struct drm_device *drm = adev_to_drm(adev);
+
+	KUNIT_ASSERT_EQ(test, drm_mode_create_scaling_mode_property(drm), 0);
+
+	mode_info->underscan_property =
+		drm_property_create_range(drm, 0, "underscan", 0, 1);
+	mode_info->underscan_hborder_property =
+		drm_property_create_range(drm, 0, "underscan hborder", 0, 128);
+	mode_info->underscan_vborder_property =
+		drm_property_create_range(drm, 0, "underscan vborder", 0, 128);
+	KUNIT_ASSERT_NOT_NULL(test, mode_info->underscan_property);
+	KUNIT_ASSERT_NOT_NULL(test, mode_info->underscan_hborder_property);
+	KUNIT_ASSERT_NOT_NULL(test, mode_info->underscan_vborder_property);
+}
+
+/*
+ * Build the MST root connector and the topology port the new downstream
+ * connector hangs off. The port has no parent branch so the callback takes the
+ * "no branch descriptor" path without needing a sideband AUX backend.
+ */
+static void dm_mst_test_init_add_ctx(struct kunit *test, struct dm_mst_test_add_ctx *ctx)
+{
+	struct amdgpu_device *adev;
+	struct drm_device *drm;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+	drm = &adev->ddev;
+	ret = drmm_mode_config_init(drm);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+	dm_mst_test_create_mode_props(test, adev);
+
+	adev->dm.adev = adev;
+	adev->dm.ddev = drm;
+	adev->dm.display_indexes_num = 2;
+	adev->mode_info.num_crtc = 2;
+	dm_dp_create_fake_mst_encoders(adev);
+
+	ctx->adev = adev;
+	ctx->link = dm_kunit_alloc_link(test);
+	/* Inflexible DIG mapping lets link_enc_cfg_get_link_enc() skip the dc lookup. */
+	ctx->link->link_enc = kunit_kzalloc(test, sizeof(*ctx->link->link_enc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link->link_enc);
+
+	ctx->master = dm_kunit_alloc_connector(test, adev, ctx->link);
+	ctx->master->connector_id = 5;
+	ret = drm_connector_init(drm, &ctx->master->base, &dm_mst_test_connector_funcs,
+				 DRM_MODE_CONNECTOR_DisplayPort);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	ctx->port = kunit_kzalloc(test, sizeof(*ctx->port), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->port);
+	kref_init(&ctx->port->malloc_kref);
+	ctx->port->mgr = &ctx->master->mst_mgr;
+}
+
+/* True when @prop is attached to the connector's mode object. */
+static bool dm_mst_test_has_prop(struct drm_connector *connector, struct drm_property *prop)
+{
+	struct drm_object_properties *props = connector->base.properties;
+	int i;
+
+	if (!prop)
+		return false;
+
+	for (i = 0; i < props->count; i++)
+		if (props->properties[i] == prop)
+			return true;
+
+	return false;
+}
+
+/**
+ * dm_mst_test_add_mst_connector_creates - Test downstream connector creation
+ * @test: KUnit test context
+ *
+ * The topology callback must allocate a DisplayPort connector bound to the port
+ * and the root connector, inherit the root's dc_link and connector id, attach
+ * every fake MST encoder, publish the path property and take a malloc
+ * reference on the port.
+ */
+static void dm_mst_test_add_mst_connector_creates(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct dm_mst_test_add_ctx ctx;
+	struct drm_connector *connector;
+
+	dm_mst_test_init_add_ctx(test, &ctx);
+
+	connector = dm_dp_add_mst_connector(&ctx.master->mst_mgr, ctx.port, "1-3");
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+
+	aconnector = to_amdgpu_dm_connector(connector);
+	KUNIT_EXPECT_PTR_EQ(test, aconnector->mst_output_port, ctx.port);
+	KUNIT_EXPECT_PTR_EQ(test, aconnector->mst_root, ctx.master);
+	KUNIT_EXPECT_PTR_EQ(test, aconnector->dc_link, ctx.link);
+	KUNIT_EXPECT_EQ(test, aconnector->connector_id, 5);
+	KUNIT_EXPECT_TRUE(test, aconnector->mst_status & MST_PROBE);
+	KUNIT_EXPECT_EQ(test, aconnector->branch_ieee_oui, 0U);
+	KUNIT_EXPECT_EQ(test, connector->connector_type, DRM_MODE_CONNECTOR_DisplayPort);
+	KUNIT_EXPECT_EQ(test, connector->possible_encoders, 0x3U);
+	KUNIT_EXPECT_NOT_NULL(test, connector->state);
+	KUNIT_EXPECT_NOT_NULL(test, connector->path_blob_ptr);
+	KUNIT_EXPECT_EQ(test, kref_read(&ctx.port->malloc_kref), 2U);
+	KUNIT_EXPECT_TRUE(test,
+			  dm_mst_test_has_prop(connector,
+					       ctx.adev->ddev.mode_config.path_property));
+	KUNIT_EXPECT_TRUE(test,
+			  dm_mst_test_has_prop(connector,
+					       ctx.adev->ddev.mode_config.tile_property));
+
+	dm_dp_mst_connector_destroy(connector);
+}
+
+/**
+ * dm_mst_test_add_mst_connector_inherits_props - Test optional property sharing
+ * @test: KUnit test context
+ *
+ * Max bpc, VRR capable and colorspace properties are only attached to the new
+ * connector when the root connector already owns them, so the downstream
+ * connector shares the root's property objects.
+ */
+static void dm_mst_test_add_mst_connector_inherits_props(struct kunit *test)
+{
+	struct dm_mst_test_add_ctx ctx;
+	struct drm_connector *connector;
+	struct drm_device *drm;
+
+	dm_mst_test_init_add_ctx(test, &ctx);
+	drm = &ctx.adev->ddev;
+
+	ctx.master->base.max_bpc_property =
+		drm_property_create_range(drm, 0, "max bpc", 8, 16);
+	ctx.master->base.vrr_capable_property =
+		drm_property_create_bool(drm, DRM_MODE_PROP_IMMUTABLE, "vrr_capable");
+	KUNIT_ASSERT_NOT_NULL(test, ctx.master->base.max_bpc_property);
+	KUNIT_ASSERT_NOT_NULL(test, ctx.master->base.vrr_capable_property);
+	KUNIT_ASSERT_EQ(test, drm_mode_create_dp_colorspace_property(&ctx.master->base, 0), 0);
+
+	connector = dm_dp_add_mst_connector(&ctx.master->mst_mgr, ctx.port, "1-4");
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+
+	KUNIT_EXPECT_PTR_EQ(test, connector->max_bpc_property, ctx.master->base.max_bpc_property);
+	KUNIT_EXPECT_PTR_EQ(test, connector->vrr_capable_property,
+			    ctx.master->base.vrr_capable_property);
+	KUNIT_EXPECT_PTR_EQ(test, connector->colorspace_property,
+			    ctx.master->base.colorspace_property);
+	KUNIT_EXPECT_TRUE(test, dm_mst_test_has_prop(connector, connector->max_bpc_property));
+	KUNIT_EXPECT_TRUE(test, dm_mst_test_has_prop(connector, connector->colorspace_property));
+
+	dm_dp_mst_connector_destroy(connector);
+}
+
+/**
+ * dm_mst_test_add_mst_connector_init_fails - Test the connector init failure path
+ * @test: KUnit test context
+ *
+ * Exhausting the device connector index space makes drm_connector_dynamic_init()
+ * fail, so the callback must free the connector it allocated, leave the port
+ * malloc reference untouched and report no connector to the MST helpers.
+ */
+static void dm_mst_test_add_mst_connector_init_fails(struct kunit *test)
+{
+	struct dm_mst_test_add_ctx ctx;
+	struct drm_device *drm;
+	int id;
+
+	dm_mst_test_init_add_ctx(test, &ctx);
+	drm = &ctx.adev->ddev;
+
+	/* drm_connector_init_only() takes an index out of the same [0, 31] space. */
+	do {
+		id = ida_alloc_max(&drm->mode_config.connector_ida, 31, GFP_KERNEL);
+	} while (id >= 0);
+	KUNIT_ASSERT_EQ(test, id, -ENOSPC);
+
+	KUNIT_EXPECT_NULL(test, dm_dp_add_mst_connector(&ctx.master->mst_mgr, ctx.port, "1-5"));
+	KUNIT_EXPECT_EQ(test, kref_read(&ctx.port->malloc_kref), 1U);
+}
+
 /**
  * dm_mst_test_atomic_check_no_old_crtc - Test atomic check no-op path
  * @test: KUnit test context
@@ -2134,6 +2332,10 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_atomic_best_encoder),
 	/* dm_dp_create_fake_mst_encoders tests */
 	KUNIT_CASE(dm_mst_test_create_fake_mst_encoders),
+	/* dm_dp_add_mst_connector tests */
+	KUNIT_CASE(dm_mst_test_add_mst_connector_creates),
+	KUNIT_CASE(dm_mst_test_add_mst_connector_inherits_props),
+	KUNIT_CASE(dm_mst_test_add_mst_connector_init_fails),
 	/* dm_dp_mst_atomic_check tests */
 	KUNIT_CASE(dm_mst_test_atomic_check_no_old_crtc),
 	/* dm_dp_mst_detect tests */

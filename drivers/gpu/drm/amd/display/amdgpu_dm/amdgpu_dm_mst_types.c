@@ -660,7 +660,7 @@ dm_dp_create_fake_mst_encoders(struct amdgpu_device *adev)
 }
 EXPORT_IF_KUNIT(dm_dp_create_fake_mst_encoders);
 
-static struct drm_connector *
+STATIC_IFN_KUNIT struct drm_connector *
 dm_dp_add_mst_connector(struct drm_dp_mst_topology_mgr *mgr,
 			struct drm_dp_mst_port *port,
 			const char *pathprop)
@@ -742,6 +742,7 @@ dm_dp_add_mst_connector(struct drm_dp_mst_topology_mgr *mgr,
 
 	return connector;
 }
+EXPORT_IF_KUNIT(dm_dp_add_mst_connector);
 
 /*
  * Select the ESI[1] mask used to filter the MST sideband ready bits for a
