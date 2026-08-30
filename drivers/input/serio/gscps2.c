@@ -288,6 +288,8 @@ static bool gscps2_report_data(struct gscps2port *ps2port)
 	}
 }
 
+static DEFINE_SPINLOCK(gscps2_interrupt_lock);
+
 /**
  * gscps2_interrupt() - Interruption service routine
  * @irq: interrupt number which triggered (unused)
@@ -305,21 +307,31 @@ static irqreturn_t gscps2_interrupt(int irq, void *dev)
 {
 	struct gscps2port *ps2port;
 	bool handled = false;
+	bool more_data;
+
+	ACQUIRE(spinlock_irqsave_try, lock)(&gscps2_interrupt_lock);
+	if (ACQUIRE_ERR(spinlock_irqsave_try, &lock))
+		return IRQ_NONE;
 
 	guard(rcu)();
 
-	list_for_each_entry_rcu(ps2port, &ps2port_list, node) {
-		if (gscps2_read_data(ps2port))
-			handled = true;
-	}
+	do {
+		more_data = false;
 
-	/* all data was read from the ports - now report the data to upper layer */
-	list_for_each_entry_rcu(ps2port, &ps2port_list, node) {
-		if (gscps2_report_data(ps2port)) {
-			/* More data ready - break early to restart interrupt */
-			break;
+		list_for_each_entry_rcu(ps2port, &ps2port_list, node) {
+			if (gscps2_read_data(ps2port))
+				handled = true;
 		}
-	}
+
+		/* all data was read from the ports - now report the data to upper layer */
+		list_for_each_entry_rcu(ps2port, &ps2port_list, node) {
+			if (gscps2_report_data(ps2port)) {
+				/* More data ready - restart loop to read new data */
+				more_data = true;
+				break;
+			}
+		}
+	} while (more_data);
 
 	return IRQ_RETVAL(handled);
 }
