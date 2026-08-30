@@ -137,6 +137,12 @@ struct enic_port_profile {
 	u8 mac_addr[ETH_ALEN];
 };
 
+enum enic_vf_link_state {
+	ENIC_VF_LINK_STATE_UNKNOWN,
+	ENIC_VF_LINK_STATE_DOWN,
+	ENIC_VF_LINK_STATE_UP,
+};
+
 /* enic_rfs_fltr_node - rfs filter node in hash table
  *	@@keys: IPv4 5 tuple
  *	@flow_id: flow_id of clsf filter provided by kernel
@@ -312,6 +318,13 @@ struct enic {
 	unsigned int admin_msg_count;	/* current depth of admin_msg_list */
 	void (*admin_rq_handler)(struct enic *enic, void *buf,
 				 unsigned int len);
+	/* The PF is authoritative for a V2 VF's carrier.  Keep the last
+	 * notification across an ordinary netdev close/open and serialize it
+	 * against the open/stop carrier transition.
+	 */
+	spinlock_t vf_link_state_lock;
+	enum enic_vf_link_state vf_link_state;
+	bool vf_link_running;
 
 	/* MBOX protocol state — mbox_lock serializes admin WQ sends */
 	struct mutex mbox_lock;

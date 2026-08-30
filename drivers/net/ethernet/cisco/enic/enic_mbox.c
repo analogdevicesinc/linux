@@ -396,31 +396,60 @@ static void enic_mbox_vf_handle_link_state(struct enic *enic, void *payload)
 {
 	struct enic_mbox_pf_link_state_notif_msg *notif = payload;
 	struct enic_mbox_pf_link_state_ack_msg ack = {};
+	u32 link_state = le32_to_cpu(notif->link_state);
 	int err;
 
-	switch (le32_to_cpu(notif->link_state)) {
+	spin_lock_bh(&enic->vf_link_state_lock);
+	switch (link_state) {
 	case ENIC_MBOX_LINK_STATE_ENABLE:
-		if (!netif_carrier_ok(enic->netdev))
+		enic->vf_link_state = ENIC_VF_LINK_STATE_UP;
+		if (enic->vf_link_running &&
+		    !netif_carrier_ok(enic->netdev))
 			netif_carrier_on(enic->netdev);
 		netdev_dbg(enic->netdev, "MBOX: link state -> UP\n");
 		break;
 	case ENIC_MBOX_LINK_STATE_DISABLE:
-		if (netif_carrier_ok(enic->netdev))
+		enic->vf_link_state = ENIC_VF_LINK_STATE_DOWN;
+		if (enic->vf_link_running &&
+		    netif_carrier_ok(enic->netdev))
 			netif_carrier_off(enic->netdev);
 		netdev_dbg(enic->netdev, "MBOX: link state -> DOWN\n");
 		break;
 	default:
 		netdev_warn(enic->netdev, "MBOX: unknown link state %u\n",
-			    le32_to_cpu(notif->link_state));
+			    link_state);
 		ack.ack.ret_major = cpu_to_le16(ENIC_MBOX_ERR_GENERIC);
 		break;
 	}
+	spin_unlock_bh(&enic->vf_link_state_lock);
 
 	err = enic_mbox_send_msg(enic, ENIC_MBOX_PF_LINK_STATE_ACK,
 				 ENIC_MBOX_DST_PF, &ack, sizeof(ack));
 	if (err && net_ratelimit())
 		netdev_warn(enic->netdev,
 			    "MBOX: failed to send link state ACK: %d\n", err);
+}
+
+void enic_mbox_vf_link_state_reset(struct enic *enic)
+{
+	spin_lock_bh(&enic->vf_link_state_lock);
+	enic->vf_link_state = ENIC_VF_LINK_STATE_UNKNOWN;
+	if (enic->vf_link_running && netif_carrier_ok(enic->netdev))
+		netif_carrier_off(enic->netdev);
+	spin_unlock_bh(&enic->vf_link_state_lock);
+}
+
+void enic_mbox_vf_link_state_set_running(struct enic *enic, bool running)
+{
+	spin_lock_bh(&enic->vf_link_state_lock);
+	enic->vf_link_running = running;
+	if (running && enic->vf_link_state == ENIC_VF_LINK_STATE_UP) {
+		if (!netif_carrier_ok(enic->netdev))
+			netif_carrier_on(enic->netdev);
+	} else if (netif_carrier_ok(enic->netdev)) {
+		netif_carrier_off(enic->netdev);
+	}
+	spin_unlock_bh(&enic->vf_link_state_lock);
 }
 
 static bool enic_mbox_vf_payload_ok(struct enic *enic, u8 msg_type,
