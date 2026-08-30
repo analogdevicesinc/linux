@@ -29,13 +29,11 @@ EXPORT_SYMBOL(sysctl_vals);
 const unsigned long sysctl_long_vals[] = { 0, 1, LONG_MAX };
 EXPORT_SYMBOL_GPL(sysctl_long_vals);
 
-#if defined(CONFIG_SYSCTL)
+#ifdef CONFIG_SYSCTL
 
 /* Constants used for minimum and maximum */
 static const int ngroups_max = NGROUPS_MAX;
 static const int cap_last_cap = CAP_LAST_CAP;
-
-#ifdef CONFIG_SYSCTL
 
 /**
  * enum sysctl_writes_mode - supported sysctl write modes
@@ -64,14 +62,6 @@ enum sysctl_writes_mode {
 };
 
 static enum sysctl_writes_mode sysctl_writes_strict = SYSCTL_WRITES_STRICT;
-#endif /* CONFIG_SYSCTL */
-#endif /* CONFIG_SYSCTL */
-
-/*
- * /proc/sys support
- */
-
-#ifdef CONFIG_SYSCTL
 
 static int _proc_do_string(char *data, int maxlen, int dir,
 		char *buffer, size_t *lenp, loff_t *ppos)
@@ -1443,7 +1433,7 @@ int proc_do_large_bitmap(const struct ctl_table *table, int dir,
 
 #endif /* CONFIG_SYSCTL */
 
-#if defined(CONFIG_SYSCTL)
+#ifdef CONFIG_SYSCTL
 int proc_do_static_key(const struct ctl_table *table, int dir,
 		       void *buffer, size_t *lenp, loff_t *ppos)
 {
@@ -1475,7 +1465,6 @@ int proc_do_static_key(const struct ctl_table *table, int dir,
 }
 
 static const struct ctl_table sysctl_subsys_table[] = {
-#ifdef CONFIG_SYSCTL
 	{
 		.procname	= "sysctl_writes_strict",
 		.data		= &sysctl_writes_strict,
@@ -1485,7 +1474,6 @@ static const struct ctl_table sysctl_subsys_table[] = {
 		.extra1		= SYSCTL_NEG_ONE,
 		.extra2		= SYSCTL_ONE,
 	},
-#endif
 	{
 		.procname	= "ngroups_max",
 		.data		= (void *)&ngroups_max,
