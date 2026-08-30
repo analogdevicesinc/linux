@@ -2206,9 +2206,10 @@ static void enic_admin_chan_reopen(struct enic *enic)
 {
 	int err;
 
-	/* Install the MBOX receive handler and reset the sequence number
-	 * before opening the channel, so the handler is in place before the
-	 * admin interrupt is unmasked and no early completion is dropped.
+	/* Install the MBOX receive handler and clear pending reply state before
+	 * opening the channel, so the handler is in place before the admin
+	 * interrupt is unmasked and no early completion is dropped.  Keep the
+	 * sequence number monotonic across channel generations.
 	 */
 	enic_mbox_init(enic);
 
@@ -2220,7 +2221,7 @@ static void enic_admin_chan_reopen(struct enic *enic)
 	 * registration over a dead channel.
 	 */
 	if (enic_is_sriov_vf_v2(enic))
-		enic->vf_registered = false;
+		WRITE_ONCE(enic->vf_registered, false);
 
 	err = enic_admin_channel_open(enic);
 	if (err) {
@@ -3349,7 +3350,7 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 err_out_admin_close:
 	if (enic_is_sriov_vf_v2(enic)) {
-		if (enic->vf_registered) {
+		if (READ_ONCE(enic->vf_registered)) {
 			int unreg_err = enic_mbox_vf_unregister(enic);
 
 			if (unreg_err)
@@ -3402,7 +3403,7 @@ static void enic_remove(struct pci_dev *pdev)
 		 * touching a netdev that is being torn down.
 		 */
 		if (enic_is_sriov_vf_v2(enic)) {
-			if (enic->vf_registered) {
+			if (READ_ONCE(enic->vf_registered)) {
 				int unreg_err = enic_mbox_vf_unregister(enic);
 
 				if (unreg_err)

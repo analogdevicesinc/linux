@@ -329,15 +329,14 @@ struct enic {
 	/* MBOX protocol state — mbox_lock serializes admin WQ sends */
 	struct mutex mbox_lock;
 	u64 mbox_msg_num;
-	/* MBOX request-reply state.  mbox_expected_reply is written and
-	 * cleared by the process-context request helpers (capability/register/
-	 * unregister) and only read by the admin_msg_work receive handlers, so
-	 * it is annotated with READ_ONCE()/WRITE_ONCE() rather than locked:
-	 * only one request is in flight at a time (requesters run under RTNL or
-	 * single-threaded probe/remove), so each request is serialized and its
-	 * reply completes mbox_comp before the next request is issued.
+	/* MBOX request-reply state.  Existing request callers allow only one
+	 * request in flight.  The state lock arbitrates reply acceptance against
+	 * timeout invalidation, while mbox_comp publishes the accepted result to
+	 * the requester.
 	 */
 	struct completion mbox_comp;
+	spinlock_t mbox_state_lock;	/* protects expected reply state */
+	u64 mbox_expected_msg_num;
 	u8 mbox_expected_reply;
 	bool mbox_initialized;
 
