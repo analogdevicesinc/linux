@@ -356,13 +356,6 @@ static inline int gscps2_writeb_output(struct gscps2port *ps2port, u8 data)
 	scoped_guard(spinlock_irqsave, &ps2port->lock)
 		writeb(data, addr + GSC_XMTDATA);
 
-	/* this is ugly, but due to timing of the port it seems to be necessary. */
-	mdelay(6);
-
-	/* make sure any received data is returned as fast as possible */
-	/* this is important e.g. when we set the LEDs on the keyboard */
-	gscps2_interrupt(0, NULL);
-
 	return 1;
 }
 
