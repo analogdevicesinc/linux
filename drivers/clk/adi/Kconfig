@@ -2,10 +2,18 @@
 config COMMON_CLK_ADI_PLL
 	bool
 
+config COMMON_CLK_ADI_ADSP_CDU
+	bool
+	help
+	 Support for the Clock Distribution Unit (CDU) in Analog Devices
+	 ADSP SoCs. The CDU selects and routes core system clocks to
+	 various SoC specific peripherals.
+
 config COMMON_CLK_ADI_SC57X
 	bool "ADI SC573 clock driver"
 	depends on ARCH_SC57X || COMPILE_TEST
 	select COMMON_CLK_ADI_PLL
+	select COMMON_CLK_ADI_ADSP_CDU
 	help
 	  This enables the ADI SC573-ezlite clock driver. The driver provides
 	  support for the clock controller on the ADI SC573-ezlite SoC.
@@ -16,6 +24,7 @@ config COMMON_CLK_ADI_SC58X
 	bool "ADI SC589 clock driver"
 	depends on ARCH_SC58X || COMPILE_TEST
 	select COMMON_CLK_ADI_PLL
+	select COMMON_CLK_ADI_ADSP_CDU
 	help
 	  This enables the ADI SC589 clock driver. The driver provides
 	  support for the clock controller on the ADI SC589 SoC.
@@ -26,6 +35,7 @@ config COMMON_CLK_ADI_SC594
 	bool "ADI SC594 clock driver"
 	depends on ARCH_SC59X || COMPILE_TEST
 	select COMMON_CLK_ADI_PLL
+	select COMMON_CLK_ADI_ADSP_CDU
 	help
 	  This enables the ADI SC594 clock driver. The driver provides
 	  support for the clock controller on the ADI SC594 SoC.
@@ -36,8 +46,9 @@ config COMMON_CLK_ADI_SC598
 	bool "ADI SC598 clock driver"
 	depends on ARCH_SC59X_64 || COMPILE_TEST
 	select COMMON_CLK_ADI_PLL
+	select COMMON_CLK_ADI_ADSP_CDU
 	help
-	  This enables the ADI SC594 clock driver. The driver provides
+	  This enables the ADI SC598 clock driver. The driver provides
 	  support for the clock controller on the ADI SC598 SoC.
 	  If you are using the ADI SC598 SoC, say Y here.
 	  If unsure, say N.

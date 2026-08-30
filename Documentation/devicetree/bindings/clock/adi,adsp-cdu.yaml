@@ -1,0 +1,281 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/adi,adsp-cdu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADSP Clock Distribution Unit
+
+maintainers:
+  - Qasim Ijaz <Qasim.Ijaz@analog.com>
+
+description: |
+  The Clock Distribution Unit (CDU) routes core system clocks to
+  processor cores, memory controllers, and peripheral interfaces
+  across the ADSP SoCs. It consists of multiple clock multiplexers,
+  each supporting up to four input clock sources, some of which may
+  be unavailable on a particular output. Each CDU output can also
+  be independently enabled or disabled.
+
+  The CDU also contains the CLKINSEL mux, which selects the reference
+  clock supplied to CGU1. On the ADSP-SC598 SoC, this mux also selects
+  the reference clock supplied to the additional DDR PLL block.
+
+properties:
+  compatible:
+    enum:
+      - adi,adsp-sc573-cdu
+      - adi,adsp-sc589-cdu
+      - adi,adsp-sc594-cdu
+      - adi,adsp-sc598-cdu
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    minItems: 15
+    maxItems: 20
+
+  clock-names: true
+
+  '#clock-cells':
+    const: 1
+    description:
+      The clock specifier selects a CDU output clock defined in the
+      corresponding SoC-specific CDU clock binding header.
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: adi,adsp-sc573-cdu
+    then:
+      properties:
+        clocks:
+          items:
+            - description: SYS_CLKIN0 reference clock
+            - description: SYS_CLKIN1 reference clock
+            - description: CGU0 CCLK0 output
+            - description: CGU0 CCLK1 output
+            - description: CGU0 SYSCLK output
+            - description: CGU0 DCLK output
+            - description: CGU0 OCLK output
+            - description: CGU0 SCLK1 output
+            - description: CGU1 CCLK0 output
+            - description: CGU1 CCLK1 output
+            - description: CGU1 DCLK output
+            - description: CGU1 OCLK output
+            - description: CGU1 SCLK1 output
+            - description: Half rate CGU0 OCLK output
+            - description: Half rate CGU1 CCLK1 output
+
+        clock-names:
+          items:
+            - const: sys_clkin0
+            - const: sys_clkin1
+            - const: cclk0_0
+            - const: cclk1_0
+            - const: sysclk_0
+            - const: dclk_0
+            - const: oclk_0
+            - const: sclk1_0
+            - const: cclk0_1
+            - const: cclk1_1
+            - const: dclk_1
+            - const: oclk_1
+            - const: sclk1_1
+            - const: oclk_0/2
+            - const: cclk1_1/2
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: adi,adsp-sc589-cdu
+    then:
+      properties:
+        clocks:
+          items:
+            - description: SYS_CLKIN0 reference clock
+            - description: SYS_CLKIN1 reference clock
+            - description: CGU0 CCLK0 output
+            - description: CGU0 CCLK1 output
+            - description: CGU0 SYSCLK output
+            - description: CGU0 SCLK0 output
+            - description: CGU0 SCLK1 output
+            - description: CGU0 DCLK output
+            - description: CGU0 OCLK output
+            - description: CGU1 CCLK0 output
+            - description: CGU1 CCLK1 output
+            - description: CGU1 SCLK0 output
+            - description: CGU1 SCLK1 output
+            - description: CGU1 DCLK output
+            - description: CGU1 OCLK output
+            - description: Half rate CGU0 OCLK output
+            - description: Half rate CGU1 CCLK1 output
+
+        clock-names:
+          items:
+            - const: sys_clkin0
+            - const: sys_clkin1
+            - const: cclk0_0
+            - const: cclk1_0
+            - const: sysclk_0
+            - const: sclk0_0
+            - const: sclk1_0
+            - const: dclk_0
+            - const: oclk_0
+            - const: cclk0_1
+            - const: cclk1_1
+            - const: sclk0_1
+            - const: sclk1_1
+            - const: dclk_1
+            - const: oclk_1
+            - const: oclk_0/2
+            - const: cclk1_1/2
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: adi,adsp-sc594-cdu
+    then:
+      properties:
+        clocks:
+          items:
+            - description: SYS_CLKIN0 reference clock
+            - description: SYS_CLKIN1 reference clock
+            - description: CGU0 CCLK0 output
+            - description: CGU0 CCLK1 output
+            - description: CGU0 SYSCLK output
+            - description: CGU0 SCLK0 output
+            - description: CGU0 SCLK1 output
+            - description: CGU0 DCLK output
+            - description: CGU0 OCLK output
+            - description: CGU1 CCLK0 output
+            - description: CGU1 SYSCLK output
+            - description: CGU1 SCLK0 output
+            - description: CGU1 SCLK1 output
+            - description: CGU1 DCLK output
+            - description: CGU1 OCLK output
+
+        clock-names:
+          items:
+            - const: sys_clkin0
+            - const: sys_clkin1
+            - const: cclk0_0
+            - const: cclk1_0
+            - const: sysclk_0
+            - const: sclk0_0
+            - const: sclk1_0
+            - const: dclk_0
+            - const: oclk_0
+            - const: cclk0_1
+            - const: sysclk_1
+            - const: sclk0_1
+            - const: sclk1_1
+            - const: dclk_1
+            - const: oclk_1
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: adi,adsp-sc598-cdu
+    then:
+      properties:
+        clocks:
+          items:
+            - description: SYS_CLKIN0 reference clock
+            - description: SYS_CLKIN1 reference clock
+            - description: CGU0 CCLK0 output
+            - description: CGU0 CCLK1 output
+            - description: CGU0 CCLK2 output
+            - description: CGU0 SYSCLK output
+            - description: CGU0 SCLK0 output
+            - description: CGU0 SCLK1 output
+            - description: CGU0 DCLK output
+            - description: Half rate CGU0 DCLK output
+            - description: CGU0 OCLK output
+            - description: CGU1 CCLK0 output
+            - description: CGU1 CCLK2 output
+            - description: CGU1 SYSCLK output
+            - description: CGU1 SCLK0 output
+            - description: CGU1 SCLK1 output
+            - description: Half rate CGU1 SCLK1 output
+            - description: CGU1 DCLK output
+            - description: Half rate CGU1 DCLK output
+            - description: CGU1 OCLK output
+
+        clock-names:
+          items:
+            - const: sys_clkin0
+            - const: sys_clkin1
+            - const: cclk0_0
+            - const: cclk1_0
+            - const: cclk2_0
+            - const: sysclk_0
+            - const: sclk0_0
+            - const: sclk1_0
+            - const: dclk_0
+            - const: dclk_0/2
+            - const: oclk_0
+            - const: cclk0_1
+            - const: cclk2_1
+            - const: sysclk_1
+            - const: sclk0_1
+            - const: sclk1_1
+            - const: sclk1_1/2
+            - const: dclk_1
+            - const: dclk_1/2
+            - const: oclk_1
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - '#clock-cells'
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/adi-sc5xx-clock.h>
+
+    clock-controller@3108f000 {
+        compatible = "adi,adsp-sc594-cdu";
+        reg = <0x3108f000 0x100>;
+        #clock-cells = <1>;
+        clocks = <&sys_clkin0>,
+                 <&sys_clkin1>,
+                 <&clk ADSP_SC594_CLK_CGU0_CCLK0>,
+                 <&clk ADSP_SC594_CLK_CGU0_CCLK1>,
+                 <&clk ADSP_SC594_CLK_CGU0_SYSCLK>,
+                 <&clk ADSP_SC594_CLK_CGU0_SCLK0>,
+                 <&clk ADSP_SC594_CLK_CGU0_SCLK1>,
+                 <&clk ADSP_SC594_CLK_CGU0_DCLK>,
+                 <&clk ADSP_SC594_CLK_CGU0_OCLK>,
+                 <&clk ADSP_SC594_CLK_CGU1_CCLK0>,
+                 <&clk ADSP_SC594_CLK_CGU1_SYSCLK>,
+                 <&clk ADSP_SC594_CLK_CGU1_SCLK0>,
+                 <&clk ADSP_SC594_CLK_CGU1_SCLK1>,
+                 <&clk ADSP_SC594_CLK_CGU1_DCLK>,
+                 <&clk ADSP_SC594_CLK_CGU1_OCLK>;
+        clock-names = "sys_clkin0",
+                      "sys_clkin1",
+                      "cclk0_0",
+                      "cclk1_0",
+                      "sysclk_0",
+                      "sclk0_0",
+                      "sclk1_0",
+                      "dclk_0",
+                      "oclk_0",
+                      "cclk0_1",
+                      "sysclk_1",
+                      "sclk0_1",
+                      "sclk1_1",
+                      "dclk_1",
+                      "oclk_1";
+    };
