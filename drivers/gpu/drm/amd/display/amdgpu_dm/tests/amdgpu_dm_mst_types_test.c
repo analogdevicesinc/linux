@@ -3109,6 +3109,173 @@ static void dm_mst_test_conv_frl_bw_bottleneck(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dsc_bw_in_kbps, 6000U);
 }
 
+/* Tests for log_dsc_params */
+
+/**
+ * dm_mst_test_log_dsc_params - logging the fairness vars leaves them untouched
+ * @test: KUnit test context
+ *
+ * log_dsc_params() only traces, so the only observable contract is that it
+ * walks @count entries starting at @k without modifying them.
+ */
+static void dm_mst_test_log_dsc_params(struct kunit *test)
+{
+	struct dsc_mst_fairness_vars vars[3] = {
+		{ .pbn = 100, .dsc_enabled = false, .bpp_x16 = 160 },
+		{ .pbn = 200, .dsc_enabled = true, .bpp_x16 = 192 },
+		{ .pbn = 300, .dsc_enabled = true, .bpp_x16 = 256 },
+	};
+
+	log_dsc_params(2, vars, 1);
+
+	KUNIT_EXPECT_EQ(test, vars[1].pbn, 200);
+	KUNIT_EXPECT_EQ(test, vars[2].bpp_x16, 256);
+}
+
+/* Tests for find_crtc_index_in_state_by_stream and is_dsc_precompute_needed */
+
+struct dm_mst_test_crtc_state_ctx {
+	struct drm_atomic_commit *state;
+	struct drm_crtc *crtcs;
+	struct dm_crtc_state *crtc_states;
+	struct drm_connector *connector;
+	struct drm_connector_state *conn_state;
+};
+
+/*
+ * Hand-build an atomic state with @num_crtc CRTCs, each carrying a DM CRTC
+ * state. drm_atomic_state_alloc() would need a fully registered mode config,
+ * and the helpers under test only walk the crtcs/connectors arrays.
+ */
+static void dm_mst_test_init_crtc_state_ctx(struct kunit *test,
+					    struct dm_mst_test_crtc_state_ctx *ctx,
+					    unsigned int num_crtc)
+{
+	struct amdgpu_device *adev;
+	unsigned int i;
+
+	adev = dm_kunit_alloc_adev(test);
+	adev->ddev.mode_config.num_crtc = num_crtc;
+
+	ctx->state = kunit_kzalloc(test, sizeof(*ctx->state), GFP_KERNEL);
+	ctx->crtcs = kunit_kcalloc(test, num_crtc, sizeof(*ctx->crtcs), GFP_KERNEL);
+	ctx->crtc_states = kunit_kcalloc(test, num_crtc, sizeof(*ctx->crtc_states), GFP_KERNEL);
+	ctx->connector = kunit_kzalloc(test, sizeof(*ctx->connector), GFP_KERNEL);
+	ctx->conn_state = kunit_kzalloc(test, sizeof(*ctx->conn_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtcs);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc_states);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->connector);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->conn_state);
+
+	ctx->state->dev = &adev->ddev;
+	ctx->state->crtcs = kunit_kcalloc(test, num_crtc, sizeof(*ctx->state->crtcs), GFP_KERNEL);
+	ctx->state->connectors = kunit_kzalloc(test, sizeof(*ctx->state->connectors), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state->crtcs);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state->connectors);
+
+	for (i = 0; i < num_crtc; i++) {
+		ctx->crtcs[i].dev = &adev->ddev;
+		ctx->crtc_states[i].base.crtc = &ctx->crtcs[i];
+		ctx->state->crtcs[i].ptr = &ctx->crtcs[i];
+		ctx->state->crtcs[i].new_state = &ctx->crtc_states[i].base;
+		ctx->state->crtcs[i].old_state = &ctx->crtc_states[i].base;
+	}
+}
+
+/* Attach the context's connector to @crtc so the CRTC looks driven. */
+static void dm_mst_test_attach_connector(struct dm_mst_test_crtc_state_ctx *ctx,
+					 struct drm_crtc *crtc)
+{
+	ctx->conn_state->crtc = crtc;
+	ctx->state->connectors[0].ptr = ctx->connector;
+	ctx->state->connectors[0].new_state = ctx->conn_state;
+	ctx->state->num_connector = 1;
+}
+
+/**
+ * dm_mst_test_find_crtc_index_matches - the CRTC driving a stream is found
+ * @test: KUnit test context
+ */
+static void dm_mst_test_find_crtc_index_matches(struct kunit *test)
+{
+	struct dm_mst_test_crtc_state_ctx ctx;
+	struct dc_stream_state *stream;
+
+	dm_mst_test_init_crtc_state_ctx(test, &ctx, 3);
+	stream = dm_kunit_alloc_stream(test, NULL);
+	ctx.crtc_states[2].stream = stream;
+
+	KUNIT_EXPECT_EQ(test, find_crtc_index_in_state_by_stream(ctx.state, stream), 2);
+}
+
+/**
+ * dm_mst_test_find_crtc_index_no_match - an unknown stream yields -1
+ * @test: KUnit test context
+ */
+static void dm_mst_test_find_crtc_index_no_match(struct kunit *test)
+{
+	struct dm_mst_test_crtc_state_ctx ctx;
+	struct dc_stream_state *stream;
+
+	dm_mst_test_init_crtc_state_ctx(test, &ctx, 2);
+	stream = dm_kunit_alloc_stream(test, NULL);
+
+	KUNIT_EXPECT_EQ(test, find_crtc_index_in_state_by_stream(ctx.state, stream), -1);
+}
+
+struct dm_mst_precompute_param {
+	const char *name;
+	bool connector_attached;
+	bool has_stream;
+	enum dc_connection_type link_type;
+	bool dsc_support;
+	bool dsc_passthrough;
+	bool needed;
+};
+
+static const struct dm_mst_precompute_param dm_mst_precompute_params[] = {
+	{ "no_connector", false, true, dc_connection_mst_branch, true, false, false },
+	{ "dsc_hub", true, true, dc_connection_mst_branch, true, false, true },
+	{ "dsc_passthrough_hub", true, true, dc_connection_mst_branch, false, true, true },
+	{ "sst_link", true, true, dc_connection_single, true, false, false },
+	{ "mst_without_dsc", true, true, dc_connection_mst_branch, false, false, false },
+	{ "no_stream", true, false, dc_connection_mst_branch, true, false, false },
+};
+
+KUNIT_ARRAY_PARAM_DESC(dm_mst_precompute, dm_mst_precompute_params, name);
+
+/**
+ * dm_mst_test_dsc_precompute_needed - precompute needs a driven DSC MST hub
+ * @test: KUnit test context
+ *
+ * A DSC or DSC passthrough capable MST branch that a connector in the state
+ * drives needs its bandwidth precomputed. A CRTC no connector drives aborts
+ * the scan, and SST links or MST branches without DSC never need it.
+ */
+static void dm_mst_test_dsc_precompute_needed(struct kunit *test)
+{
+	const struct dm_mst_precompute_param *param = test->param_value;
+	struct dm_mst_test_crtc_state_ctx ctx;
+	struct dc_link *link;
+
+	dm_mst_test_init_crtc_state_ctx(test, &ctx, 1);
+	if (param->connector_attached)
+		dm_mst_test_attach_connector(&ctx, &ctx.crtcs[0]);
+
+	if (param->has_stream) {
+		link = dm_kunit_alloc_link(test);
+		link->type = param->link_type;
+		link->dpcd_caps.dsc_caps.dsc_basic_caps.fields.dsc_support.DSC_SUPPORT =
+			param->dsc_support;
+		link->dpcd_caps.dsc_caps.dsc_basic_caps.fields.dsc_support.DSC_PASSTHROUGH_SUPPORT =
+			param->dsc_passthrough;
+		ctx.crtc_states[0].stream = dm_kunit_alloc_stream(test, link);
+	}
+
+	KUNIT_EXPECT_EQ(test, is_dsc_precompute_needed(ctx.state), param->needed);
+}
+
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_match),
@@ -3219,6 +3386,13 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_conv_frl_bw_not_hdmi_port),
 	KUNIT_CASE(dm_mst_test_conv_frl_bw_sink_without_frl),
 	KUNIT_CASE(dm_mst_test_conv_frl_bw_bottleneck),
+	/* log_dsc_params tests */
+	KUNIT_CASE(dm_mst_test_log_dsc_params),
+	/* find_crtc_index_in_state_by_stream tests */
+	KUNIT_CASE(dm_mst_test_find_crtc_index_matches),
+	KUNIT_CASE(dm_mst_test_find_crtc_index_no_match),
+	/* is_dsc_precompute_needed tests */
+	KUNIT_CASE_PARAM(dm_mst_test_dsc_precompute_needed, dm_mst_precompute_gen_params),
 	{}
 };
 

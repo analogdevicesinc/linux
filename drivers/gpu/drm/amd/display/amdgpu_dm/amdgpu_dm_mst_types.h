@@ -109,6 +109,10 @@ bool is_synaptics_cascaded_panamera(struct dc_link *link, struct drm_dp_mst_port
 bool dp_get_link_current_set_bw(struct drm_dp_aux *aux, uint32_t *cur_link_bw);
 bool get_conv_frl_bw(struct amdgpu_dm_connector *aconnector,
 		     uint32_t *bw_in_kbps, uint32_t *dsc_bw_in_kbps);
+void log_dsc_params(int count, struct dsc_mst_fairness_vars *vars, int k);
+int find_crtc_index_in_state_by_stream(struct drm_atomic_commit *state,
+				       struct dc_stream_state *stream);
+bool is_dsc_precompute_needed(struct drm_atomic_commit *state);
 bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnector);
 bool retrieve_downstream_port_device(struct amdgpu_dm_connector *aconnector);
 bool retrieve_branch_specific_data(struct amdgpu_dm_connector *aconnector);

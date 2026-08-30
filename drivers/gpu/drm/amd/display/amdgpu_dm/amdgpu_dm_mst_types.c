@@ -1303,7 +1303,7 @@ static void build_frl_mst_dsc_params(struct amdgpu_dm_connector *aconnector,
 	}
 }
 
-static void log_dsc_params(int count, struct dsc_mst_fairness_vars *vars, int k)
+STATIC_IFN_KUNIT void log_dsc_params(int count, struct dsc_mst_fairness_vars *vars, int k)
 {
 	int i;
 
@@ -1311,6 +1311,7 @@ static void log_dsc_params(int count, struct dsc_mst_fairness_vars *vars, int k)
 		DRM_DEBUG_DRIVER("MST_DSC DSC params: stream #%d --- dsc_enabled = %d, bpp_x16 = %d, pbn = %d\n",
 				 i, vars[i + k].dsc_enabled, vars[i + k].bpp_x16, vars[i + k].pbn);
 }
+EXPORT_IF_KUNIT(log_dsc_params);
 
 static int compute_mst_dsc_configs_for_link(struct drm_atomic_commit *state,
 					    struct dc_state *dc_state,
@@ -1739,8 +1740,8 @@ static int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state
 	return ret;
 }
 
-static int find_crtc_index_in_state_by_stream(struct drm_atomic_commit *state,
-					      struct dc_stream_state *stream)
+STATIC_IFN_KUNIT int find_crtc_index_in_state_by_stream(struct drm_atomic_commit *state,
+							struct dc_stream_state *stream)
 {
 	int i;
 	struct drm_crtc *crtc;
@@ -1754,6 +1755,7 @@ static int find_crtc_index_in_state_by_stream(struct drm_atomic_commit *state,
 	}
 	return -1;
 }
+EXPORT_IF_KUNIT(find_crtc_index_in_state_by_stream);
 
 static bool is_link_to_dschub(struct dc_link *dc_link)
 {
@@ -1770,7 +1772,7 @@ static bool is_link_to_dschub(struct dc_link *dc_link)
 	return true;
 }
 
-static bool is_dsc_precompute_needed(struct drm_atomic_commit *state)
+STATIC_IFN_KUNIT bool is_dsc_precompute_needed(struct drm_atomic_commit *state)
 {
 	int i;
 	struct drm_crtc *crtc;
@@ -1790,6 +1792,7 @@ static bool is_dsc_precompute_needed(struct drm_atomic_commit *state)
 	}
 	return ret;
 }
+EXPORT_IF_KUNIT(is_dsc_precompute_needed);
 
 int pre_validate_dsc(struct drm_atomic_commit *state,
 		     struct dm_atomic_state **dm_state_ptr,
