@@ -238,6 +238,8 @@ static void gscps2_read_data(struct gscps2port *ps2port)
 {
 	u8 status;
 
+	guard(spinlock_irqsave)(&ps2port->lock);
+
 	do {
 		status = gscps2_readb_status(ps2port->addr);
 		if (!(status & GSC_STAT_RBNE))
@@ -255,7 +257,7 @@ static bool gscps2_report_data(struct gscps2port *ps2port)
 	unsigned int rxflags;
 	u8 data, status;
 
-	while (ps2port->act != ps2port->append) {
+	while (true) {
 		/*
 		 * Did new data arrived while we read existing data ?
 		 * If yes, exit now and let the new irq handler start
@@ -264,17 +266,20 @@ static bool gscps2_report_data(struct gscps2port *ps2port)
 		if (gscps2_readb_status(ps2port->addr) & GSC_STAT_CMPINTR)
 			return true;
 
-		status = ps2port->buffer[ps2port->act].str;
-		data   = ps2port->buffer[ps2port->act].data;
+		scoped_guard(spinlock_irqsave, &ps2port->lock) {
+			if (ps2port->act == ps2port->append)
+				return false;
 
-		ps2port->act = (ps2port->act + 1) & BUFFER_SIZE;
+			status = ps2port->buffer[ps2port->act].str;
+			data   = ps2port->buffer[ps2port->act].data;
+			ps2port->act = (ps2port->act + 1) & BUFFER_SIZE;
+		}
+
 		rxflags = ((status & GSC_STAT_TERR) ? SERIO_TIMEOUT : 0) |
 			  ((status & GSC_STAT_PERR) ? SERIO_PARITY  : 0);
 
 		serio_interrupt(ps2port->port, data, rxflags);
 	}
-
-	return false;
 }
 
 /**
@@ -296,11 +301,8 @@ static irqreturn_t gscps2_interrupt(int irq, void *dev)
 
 	guard(rcu)();
 
-	list_for_each_entry_rcu(ps2port, &ps2port_list, node) {
-		guard(spinlock_irqsave)(&ps2port->lock);
-
+	list_for_each_entry_rcu(ps2port, &ps2port_list, node)
 		gscps2_read_data(ps2port);
-	}
 
 	/* all data was read from the ports - now report the data to upper layer */
 	list_for_each_entry_rcu(ps2port, &ps2port_list, node) {
