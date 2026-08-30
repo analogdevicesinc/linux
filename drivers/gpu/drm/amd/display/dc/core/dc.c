@@ -3201,6 +3201,7 @@ static struct dc_update_descriptor check_update_surfaces_for_stream(
 		}
 
 		if ((stream_update->hdr_static_metadata && !stream_update->stream->use_dynamic_meta) ||
+				stream_update->output_color_space ||
 				stream_update->vrr_infopacket ||
 				stream_update->vsc_infopacket ||
 				stream_update->vsp_infopacket ||
@@ -4194,6 +4195,7 @@ static void commit_planes_do_stream_update_sequence(struct dc *dc,
 				hwss_add_setup_periodic_interrupt(&seq_state, dc, pipe_ctx);
 
 			if ((stream_update->hdr_static_metadata && !stream->use_dynamic_meta) ||
+					stream_update->output_color_space ||
 					stream_update->vrr_infopacket ||
 					stream_update->vsc_infopacket ||
 					stream_update->vsp_infopacket ||
@@ -4376,6 +4378,7 @@ static void commit_planes_do_stream_update(struct dc *dc,
 				hwss_setup_periodic_interrupt(dc, pipe_ctx);
 
 			if ((stream_update->hdr_static_metadata && !stream->use_dynamic_meta) ||
+					stream_update->output_color_space ||
 					stream_update->vrr_infopacket ||
 					stream_update->vsc_infopacket ||
 					stream_update->vsp_infopacket ||
