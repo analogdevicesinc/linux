@@ -1735,6 +1735,7 @@ enum bpf_sig_keyring {
 	BPF_SIG_KEYRING_SECONDARY,
 	BPF_SIG_KEYRING_PLATFORM,
 	BPF_SIG_KEYRING_USER,
+	BPF_SIG_KEYRING_BPF,
 };
 
 struct bpf_prog_aux {
@@ -3819,6 +3820,8 @@ struct bpf_key {
 #if defined(CONFIG_KEYS) && defined(CONFIG_BPF_SYSCALL)
 struct bpf_key *bpf_lookup_user_key(s32 serial, u64 flags);
 struct bpf_key *bpf_lookup_system_key(u64 id);
+struct bpf_key *bpf_lookup_keyring(void);
+bool bpf_keyring_enforced(void);
 void bpf_key_put(struct bpf_key *bkey);
 int bpf_verify_pkcs7_signature(const struct bpf_dynptr *data_p,
 			       const struct bpf_dynptr *sig_p,
@@ -3837,6 +3840,16 @@ static inline struct bpf_key *bpf_lookup_user_key(u32 serial, u64 flags)
 static inline struct bpf_key *bpf_lookup_system_key(u64 id)
 {
 	return NULL;
+}
+
+static inline struct bpf_key *bpf_lookup_keyring(void)
+{
+	return NULL;
+}
+
+static inline bool bpf_keyring_enforced(void)
+{
+	return false;
 }
 
 static inline void bpf_key_put(struct bpf_key *bkey)
