@@ -2394,6 +2394,85 @@ static void dm_mst_test_link_current_set_bw(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, cur_link_bw, param->cur_link_bw);
 }
 
+/* Tests for is_synaptics_cascaded_panamera */
+
+/*
+ * A Panamera hub is identified by its branch device ID plus the high nibble of
+ * the fifth branch device name byte; the cascaded variant additionally reports
+ * SYNAPTICS_CASCADED_HUB_ID at DPCD 0x50e.
+ */
+static void dm_mst_test_set_panamera_ids(struct dc_link *link, u32 branch_dev_id,
+					 u8 dev_name_4, u8 cascaded_id)
+{
+	link->dpcd_caps.branch_dev_id = branch_dev_id;
+	link->dpcd_caps.branch_dev_name[4] = dev_name_4;
+	dm_mst_test_dsc_dpcd[DP_BRANCH_VENDOR_SPECIFIC_START + 2] = cascaded_id;
+}
+
+static struct drm_dp_mst_port *dm_mst_test_alloc_mgr_port(struct kunit *test)
+{
+	struct drm_dp_mst_topology_mgr *mgr;
+	struct drm_dp_mst_port *port;
+
+	mgr = kunit_kzalloc(test, sizeof(*mgr), GFP_KERNEL);
+	port = kunit_kzalloc(test, sizeof(*port), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, mgr);
+	KUNIT_ASSERT_NOT_NULL(test, port);
+
+	mutex_init(&mgr->lock);
+	mgr->aux = dm_mst_test_alloc_dsc_aux(test, "dm_mst_test_mgr_aux");
+	port->mgr = mgr;
+
+	return port;
+}
+
+struct dm_mst_panamera_param {
+	const char *name;
+	u32 branch_dev_id;
+	u8 dev_name_4;
+	u8 cascaded_id;
+	bool aux_fails;
+	bool cascaded;
+};
+
+static const struct dm_mst_panamera_param dm_mst_panamera_params[] = {
+	{ "cascaded_hub", DP_BRANCH_DEVICE_ID_90CC24, 0x50,
+	  SYNAPTICS_CASCADED_HUB_ID, false, true },
+	{ "wrong_dev_id", 0x001122, 0x50, SYNAPTICS_CASCADED_HUB_ID, false, false },
+	{ "not_panamera", DP_BRANCH_DEVICE_ID_90CC24, 0x40,
+	  SYNAPTICS_CASCADED_HUB_ID, false, false },
+	{ "not_cascaded", DP_BRANCH_DEVICE_ID_90CC24, 0x50, 0, false, false },
+	{ "dpcd_read_error", DP_BRANCH_DEVICE_ID_90CC24, 0x50,
+	  SYNAPTICS_CASCADED_HUB_ID, true, false },
+};
+
+KUNIT_ARRAY_PARAM_DESC(dm_mst_panamera, dm_mst_panamera_params, name);
+
+/**
+ * dm_mst_test_synaptics_cascaded - only a cascaded Panamera hub is detected
+ * @test: KUnit test context
+ *
+ * All three conditions must hold: the Synaptics branch device ID, a Panamera
+ * device name and the cascaded hub ID in the branch vendor data. A failed
+ * vendor read leaves the hub undetected.
+ */
+static void dm_mst_test_synaptics_cascaded(struct kunit *test)
+{
+	const struct dm_mst_panamera_param *param = test->param_value;
+	struct drm_dp_mst_port *port;
+	struct dc_link *link;
+
+	dm_mst_test_reset_dsc_dpcd();
+	port = dm_mst_test_alloc_mgr_port(test);
+	link = dm_kunit_alloc_link(test);
+	dm_mst_test_set_panamera_ids(link, param->branch_dev_id, param->dev_name_4,
+				     param->cascaded_id);
+	if (param->aux_fails)
+		dm_mst_test_dsc_aux_fail = port->mgr->aux;
+
+	KUNIT_EXPECT_EQ(test, is_synaptics_cascaded_panamera(link, port), param->cascaded);
+}
+
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_match),
@@ -2480,6 +2559,8 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_connector_destroy_releases_sink),
 	/* dp_get_link_current_set_bw tests */
 	KUNIT_CASE_PARAM(dm_mst_test_link_current_set_bw, dm_mst_link_bw_gen_params),
+	/* is_synaptics_cascaded_panamera tests */
+	KUNIT_CASE_PARAM(dm_mst_test_synaptics_cascaded, dm_mst_panamera_gen_params),
 	{}
 };
 

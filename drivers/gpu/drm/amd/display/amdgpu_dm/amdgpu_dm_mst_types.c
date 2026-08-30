@@ -279,7 +279,7 @@ bool needs_dsc_aux_workaround(struct dc_link *link)
 EXPORT_IF_KUNIT(needs_dsc_aux_workaround);
 
 #if defined(CONFIG_DRM_AMD_DC_FP) || IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
-static bool is_synaptics_cascaded_panamera(struct dc_link *link, struct drm_dp_mst_port *port)
+STATIC_IFN_KUNIT bool is_synaptics_cascaded_panamera(struct dc_link *link, struct drm_dp_mst_port *port)
 {
 	u8 branch_vendor_data[4] = { 0 }; // Vendor data 0x50C ~ 0x50F
 
@@ -293,6 +293,7 @@ static bool is_synaptics_cascaded_panamera(struct dc_link *link, struct drm_dp_m
 
 	return false;
 }
+EXPORT_IF_KUNIT(is_synaptics_cascaded_panamera);
 
 static bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnector)
 {
