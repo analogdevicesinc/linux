@@ -17986,10 +17986,9 @@ F:	drivers/misc/atmel-ssc.c
 F:	include/linux/atmel-ssc.h
 
 Microchip Timer Counter Block (TCB) Capture Driver
-M:	Kamel Bouhara <kamel.bouhara@bootlin.com>
 L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
 L:	linux-iio@vger.kernel.org
-S:	Maintained
+S:	Orphan
 F:	drivers/counter/microchip-tcb-capture.c
 F:	include/uapi/linux/counter/microchip-tcb-capture.h
 
