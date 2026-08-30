@@ -26,6 +26,7 @@
 #include <linux/io.h>
 #include <linux/ioport.h>
 #include <linux/property.h>
+#include <linux/rcupdate.h>
 #include <linux/serio.h>
 
 #include <asm/irq.h>
@@ -195,6 +196,7 @@ struct gscps2port {
 	int id;
 };
 
+static DEFINE_SPINLOCK(ps2port_list_lock);
 static LIST_HEAD(ps2port_list);
 
 /*
@@ -292,14 +294,16 @@ static irqreturn_t gscps2_interrupt(int irq, void *dev)
 {
 	struct gscps2port *ps2port;
 
-	list_for_each_entry(ps2port, &ps2port_list, node) {
+	guard(rcu)();
+
+	list_for_each_entry_rcu(ps2port, &ps2port_list, node) {
 		guard(spinlock_irqsave)(&ps2port->lock);
 
 		gscps2_read_data(ps2port);
-	} /* list_for_each_entry */
+	}
 
 	/* all data was read from the ports - now report the data to upper layer */
-	list_for_each_entry(ps2port, &ps2port_list, node) {
+	list_for_each_entry_rcu(ps2port, &ps2port_list, node) {
 		if (gscps2_report_data(ps2port)) {
 			/* More data ready - break early to restart interrupt */
 			break;
@@ -397,6 +401,9 @@ static int gscps2_open(struct serio *port)
 
 	gscps2_reset(ps2port);
 
+	scoped_guard(spinlock_irqsave, &ps2port_list_lock)
+		list_add_tail_rcu(&ps2port->node, &ps2port_list);
+
 	/* enable it */
 	gscps2_enable(ps2port, true);
 
@@ -413,6 +420,11 @@ static void gscps2_close(struct serio *port)
 	struct gscps2port *ps2port = port->port_data;
 
 	gscps2_enable(ps2port, false);
+
+	scoped_guard(spinlock_irqsave, &ps2port_list_lock)
+		list_del_rcu(&ps2port->node);
+
+	synchronize_rcu();
 }
 
 /**
@@ -446,6 +458,7 @@ static int __init gscps2_probe(struct parisc_device *dev)
 
 	ps2port->port = serio;
 	ps2port->padev = dev;
+	INIT_LIST_HEAD(&ps2port->node);
 	ps2port->addr = ioremap(hpa, GSC_STATUS + 4);
 	if (!ps2port->addr) {
 		ret = -ENOMEM;
@@ -501,8 +514,6 @@ static int __init gscps2_probe(struct parisc_device *dev)
 
 	serio_register_port(ps2port->port);
 
-	list_add_tail(&ps2port->node, &ps2port_list);
-
 	return 0;
 
 fail:
@@ -539,12 +550,10 @@ static void __exit gscps2_remove(struct parisc_device *dev)
 	serio_unregister_port(ps2port->port);
 	free_irq(dev->irq, ps2port);
 	gscps2_flush(ps2port);
-	list_del(&ps2port->node);
 	iounmap(ps2port->addr);
 #if 0
 	release_mem_region(dev->hpa, GSC_STATUS + 4);
 #endif
-	dev_set_drvdata(&dev->dev, NULL);
 	kfree(ps2port);
 }
 
