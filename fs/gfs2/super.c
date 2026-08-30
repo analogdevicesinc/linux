@@ -1180,8 +1180,10 @@ static enum evict_behavior gfs2_upgrade_iopen_glock(struct inode *inode)
 {
 	struct gfs2_glock *gl = gfs2_inode_glock(inode);
 	struct gfs2_inode *ip = GFS2_I(inode);
-	struct gfs2_sbd *sdp = GFS2_SB(inode);
 	struct gfs2_holder *gh = &ip->i_iopen_gh;
+	struct wait_queue_head *holder_waitq, *glock_waitq;
+	struct wait_queue_entry holder_wait, glock_wait;
+	long ret = 5 * HZ;
 	int error;
 
 	gh->gh_flags |= GL_NOCACHE;
@@ -1212,10 +1214,28 @@ static enum evict_behavior gfs2_upgrade_iopen_glock(struct inode *inode)
 	if (error)
 		return EVICT_SHOULD_SKIP_DELETE;
 
-	wait_event_interruptible_timeout(sdp->sd_async_glock_wait,
-		!test_bit(HIF_WAIT, &gh->gh_iflags) ||
-		glock_needs_demote(gl),
-		5 * HZ);
+	holder_waitq = bit_waitqueue(&gh->gh_iflags, HIF_WAIT);
+	glock_waitq = bit_waitqueue(&gl->gl_flags, GLF_DEMOTE);
+	init_wait(&holder_wait);
+	init_wait(&glock_wait);
+	for (;;) {
+		prepare_to_wait(holder_waitq, &holder_wait, TASK_INTERRUPTIBLE);
+		prepare_to_wait(glock_waitq, &glock_wait, TASK_INTERRUPTIBLE);
+		if (gfs2_glock_poll(gh) || glock_needs_demote(gl))
+			break;
+		if (signal_pending(current))
+			break;
+		ret = schedule_timeout(ret);
+		if (gfs2_glock_poll(gh) || glock_needs_demote(gl))
+			break;
+		if (!ret)
+			break;
+		if (signal_pending(current))
+			break;
+	}
+	finish_wait(holder_waitq, &holder_wait);
+	finish_wait(glock_waitq, &glock_wait);
+
 	if (!test_bit(HIF_HOLDER, &gh->gh_iflags)) {
 		gfs2_glock_dq(gh);
 		if (glock_needs_demote(gl))

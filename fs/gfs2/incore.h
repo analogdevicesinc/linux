@@ -716,7 +716,6 @@ struct gfs2_sbd {
 	struct work_struct sd_freeze_work;
 	struct work_struct sd_withdraw_work;
 	wait_queue_head_t sd_kill_wait;
-	wait_queue_head_t sd_async_glock_wait;
 	atomic_t sd_glock_disposal;
 	struct completion sd_locking_init;
 	struct completion sd_withdraw_helper;
