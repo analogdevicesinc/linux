@@ -2979,6 +2979,136 @@ static void dm_mst_test_port_mode_branch_throughput_exceeded(struct kunit *test)
 			DC_FAIL_BANDWIDTH_VALIDATE);
 }
 
+/* Tests for get_conv_frl_bw */
+
+/* Deterministic stand-in for the DC raw-FRL-rate lookup table. */
+static uint32_t dm_mst_test_bw_kbps_from_raw_frl(uint8_t bw)
+{
+	return bw * 3000;
+}
+
+/*
+ * Wire up a DP-to-HDMI2.1 protocol converter: the PCON capability lives on the
+ * DC caps, the converter's own limit in the downstream port caps, and the sink
+ * limits in the EDID caps.
+ */
+static struct amdgpu_dm_connector *dm_mst_test_alloc_frl_connector(struct kunit *test,
+								   bool pcon_support,
+								   u8 dwn_strm_port_type,
+								   u8 max_encoded_link_bw,
+								   u8 max_frl_rate,
+								   u8 frl_dsc_max_frl_rate)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct link_service *link_srv;
+	struct dc_sink *sink;
+	struct dc_link *link;
+	struct dc *dc;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	sink = kunit_kzalloc(test, sizeof(*sink), GFP_KERNEL);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+
+	link_srv->bw_kbps_from_raw_frl_link_rate_data = dm_mst_test_bw_kbps_from_raw_frl;
+
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	dc->link_srv = link_srv;
+	dc->caps.dp_hdmi21_pcon_support = pcon_support;
+
+	link = dm_kunit_alloc_link(test);
+	link->dc = dc;
+
+	sink->edid_caps.max_frl_rate = max_frl_rate;
+	sink->edid_caps.frl_dsc_max_frl_rate = frl_dsc_max_frl_rate;
+
+	aconnector->dc_link = link;
+	aconnector->dc_sink = sink;
+	aconnector->mst_downstream_port_caps.bytes.byte0.bits.DWN_STRM_PORTX_TYPE =
+		dwn_strm_port_type;
+	aconnector->mst_downstream_port_caps.bytes.byte2.bits.MAX_ENCODED_LINK_BW_SUPPORT =
+		max_encoded_link_bw;
+
+	return aconnector;
+}
+
+/**
+ * dm_mst_test_conv_frl_bw_no_pcon_support - DC without PCON support finds no FRL
+ * @test: KUnit test context
+ */
+static void dm_mst_test_conv_frl_bw_no_pcon_support(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	uint32_t bw_in_kbps = 0;
+	uint32_t dsc_bw_in_kbps = 0;
+
+	aconnector = dm_mst_test_alloc_frl_connector(test, false, DOWN_STREAM_DETAILED_HDMI,
+						     3, 5, 2);
+
+	KUNIT_EXPECT_FALSE(test, get_conv_frl_bw(aconnector, &bw_in_kbps, &dsc_bw_in_kbps));
+	KUNIT_EXPECT_EQ(test, bw_in_kbps, 0U);
+	KUNIT_EXPECT_EQ(test, dsc_bw_in_kbps, 0U);
+}
+
+/**
+ * dm_mst_test_conv_frl_bw_not_hdmi_port - a non-HDMI downstream port has no FRL
+ * @test: KUnit test context
+ */
+static void dm_mst_test_conv_frl_bw_not_hdmi_port(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	uint32_t bw_in_kbps = 0;
+	uint32_t dsc_bw_in_kbps = 0;
+
+	aconnector = dm_mst_test_alloc_frl_connector(test, true, DOWN_STREAM_DETAILED_DP, 3, 5, 2);
+
+	KUNIT_EXPECT_FALSE(test, get_conv_frl_bw(aconnector, &bw_in_kbps, &dsc_bw_in_kbps));
+	KUNIT_EXPECT_EQ(test, bw_in_kbps, 0U);
+}
+
+/**
+ * dm_mst_test_conv_frl_bw_sink_without_frl - a sink not reporting FRL is skipped
+ * @test: KUnit test context
+ *
+ * Without a sink FRL rate in the EDID there is no endpoint to negotiate with,
+ * so no bandwidth is reported even though the converter advertises one.
+ */
+static void dm_mst_test_conv_frl_bw_sink_without_frl(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	uint32_t bw_in_kbps = 0;
+	uint32_t dsc_bw_in_kbps = 0;
+
+	aconnector = dm_mst_test_alloc_frl_connector(test, true, DOWN_STREAM_DETAILED_HDMI,
+						     3, 0, 2);
+
+	KUNIT_EXPECT_FALSE(test, get_conv_frl_bw(aconnector, &bw_in_kbps, &dsc_bw_in_kbps));
+	KUNIT_EXPECT_EQ(test, bw_in_kbps, 0U);
+}
+
+/**
+ * dm_mst_test_conv_frl_bw_bottleneck - the converter and sink limits are combined
+ * @test: KUnit test context
+ *
+ * The reported bandwidth is the smaller of the converter and sink FRL rates,
+ * and the DSC bandwidth is further capped by the sink's DSC FRL rate.
+ */
+static void dm_mst_test_conv_frl_bw_bottleneck(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	uint32_t bw_in_kbps = 0;
+	uint32_t dsc_bw_in_kbps = 0;
+
+	aconnector = dm_mst_test_alloc_frl_connector(test, true, DOWN_STREAM_DETAILED_HDMI,
+						     3, 5, 2);
+
+	KUNIT_EXPECT_TRUE(test, get_conv_frl_bw(aconnector, &bw_in_kbps, &dsc_bw_in_kbps));
+	KUNIT_EXPECT_EQ(test, bw_in_kbps, 9000U);
+	KUNIT_EXPECT_EQ(test, dsc_bw_in_kbps, 6000U);
+}
+
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_match),
@@ -3084,6 +3214,11 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_port_mode_last_link_synaptics_quirk),
 	KUNIT_CASE(dm_mst_test_port_mode_upstream_vc_too_small),
 	KUNIT_CASE(dm_mst_test_port_mode_branch_throughput_exceeded),
+	/* get_conv_frl_bw tests */
+	KUNIT_CASE(dm_mst_test_conv_frl_bw_no_pcon_support),
+	KUNIT_CASE(dm_mst_test_conv_frl_bw_not_hdmi_port),
+	KUNIT_CASE(dm_mst_test_conv_frl_bw_sink_without_frl),
+	KUNIT_CASE(dm_mst_test_conv_frl_bw_bottleneck),
 	{}
 };
 

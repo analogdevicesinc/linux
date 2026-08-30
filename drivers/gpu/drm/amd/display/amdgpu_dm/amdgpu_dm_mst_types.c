@@ -1231,8 +1231,8 @@ static int try_disable_dsc(struct drm_atomic_commit *state,
 	return 0;
 }
 
-static bool get_conv_frl_bw(struct amdgpu_dm_connector *aconnector,
-							uint32_t *bw_in_kbps, uint32_t *dsc_bw_in_kbps)
+STATIC_IFN_KUNIT bool get_conv_frl_bw(struct amdgpu_dm_connector *aconnector,
+				      uint32_t *bw_in_kbps, uint32_t *dsc_bw_in_kbps)
 {
 	unsigned int max_conv_bw_in_kbps = 0;
 	unsigned int max_sink_bw_in_kbps = 0;
@@ -1258,6 +1258,7 @@ static bool get_conv_frl_bw(struct amdgpu_dm_connector *aconnector,
 
 	return *bw_in_kbps > 0; // Frl endpoint is detected
 }
+EXPORT_IF_KUNIT(get_conv_frl_bw);
 
 static void build_frl_mst_dsc_params(struct amdgpu_dm_connector *aconnector,
 								struct dc_stream_state *stream,
