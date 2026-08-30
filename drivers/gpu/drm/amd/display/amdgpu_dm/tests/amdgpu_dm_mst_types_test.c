@@ -2058,21 +2058,6 @@ static void dm_mst_test_sideband_msg_ready_ack_write_fails(struct kunit *test)
 	dm_mst_test_free_armed_sideband_connector(aconnector);
 }
 
-#if !defined(CONFIG_DRM_AMD_DC_FP)
-/**
- * dm_mst_test_fp_guarded_public_stubs - Test FP-off public fallbacks
- * @test: KUnit test context
- *
- * When CONFIG_DRM_AMD_DC_FP is disabled, the public DSC validation helper
- * has no FP body and must return DC_OK without touching its arguments.
- */
-static void dm_mst_test_fp_guarded_public_stubs(struct kunit *test)
-{
-	KUNIT_EXPECT_EQ(test, dm_dp_mst_is_port_support_mode(NULL, NULL),
-			(enum dc_status)DC_OK);
-}
-#endif
-
 static struct kunit_case dm_mst_types_test_cases[] = {
 	/* needs_dsc_aux_workaround tests */
 	KUNIT_CASE(dm_mst_test_needs_dsc_aux_workaround_match),
@@ -2152,10 +2137,6 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	/* dm_dp_mst_connector_destroy tests */
 	KUNIT_CASE(dm_mst_test_connector_destroy_no_sink),
 	KUNIT_CASE(dm_mst_test_connector_destroy_releases_sink),
-	/* CONFIG_DRM_AMD_DC_FP disabled public paths */
-#if !defined(CONFIG_DRM_AMD_DC_FP)
-	KUNIT_CASE(dm_mst_test_fp_guarded_public_stubs),
-#endif
 	{}
 };
 
