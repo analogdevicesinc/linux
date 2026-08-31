@@ -6,9 +6,20 @@
 #include <linux/mm.h>
 #include <linux/fs.h>
 #include <linux/sched/coredump.h>
+#include <uapi/linux/coredump.h>
 #include <asm/siginfo.h>
 
 #ifdef CONFIG_COREDUMP
+/**
+ * enum coredump_state - what happened while the coredump was written
+ * @COREDUMP_STATE_STARTED: the dumper committed to writing a coredump
+ * @COREDUMP_STATE_TRUNCATED: the dumper stopped before it had written all of it
+ */
+enum coredump_state {
+	COREDUMP_STATE_STARTED		= (1U << 0),
+	COREDUMP_STATE_TRUNCATED	= (1U << 1),
+};
+
 struct core_vma_metadata {
 	unsigned long start, end;
 	vm_flags_t flags;
@@ -26,7 +37,15 @@ struct coredump_params {
 	/* Snapshot of dumpable at dump start. */
 	enum task_dumpable dumpable;
 	int cpu;
+	/* COREDUMP_* options negotiated with the coredump server. */
+	u64 mask;
+	/* COREDUMP_STATE_* raised while the coredump is written. */
+	enum coredump_state state;
+	/* Record header scratch, NULL unless the coredump is a record stream. */
+	struct coredump_record_header *record_hdr;
+	/* Bytes handed to the file, record headers included. */
 	loff_t written;
+	/* Offset in the coredump, record headers excluded. */
 	loff_t pos;
 	loff_t to_skip;
 	int vma_count;
@@ -41,13 +60,13 @@ extern unsigned int core_file_note_size_limit;
  * These are the only things you should do on a core-file: use only these
  * functions to write out all the necessary info.
  */
-extern void dump_skip_to(struct coredump_params *cprm, unsigned long to);
-extern void dump_skip(struct coredump_params *cprm, size_t nr);
-extern int dump_emit(struct coredump_params *cprm, const void *addr, int nr);
-extern int dump_align(struct coredump_params *cprm, int align);
-int dump_user_range(struct coredump_params *cprm, unsigned long start,
-		    unsigned long len);
-extern void vfs_coredump(const kernel_siginfo_t *siginfo);
+void dump_skip_to(struct coredump_params *cprm, unsigned long to);
+void dump_skip(struct coredump_params *cprm, size_t nr);
+bool dump_emit(struct coredump_params *cprm, const void *addr, int nr);
+bool dump_align(struct coredump_params *cprm, int align);
+bool dump_user_range(struct coredump_params *cprm, unsigned long start,
+		     unsigned long len);
+void vfs_coredump(const kernel_siginfo_t *siginfo);
 
 /*
  * Logging for the coredump code, ratelimited.
