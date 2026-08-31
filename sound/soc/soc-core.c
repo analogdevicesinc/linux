@@ -248,34 +248,6 @@ static inline int snd_soc_dlc_dai_is_empty(struct snd_soc_dai_link_component *dl
 	return !(dlc->dai_args || dlc->dai_name);
 }
 
-static int snd_soc_is_matching_dai(const struct snd_soc_dai_link_component *dlc,
-				   struct snd_soc_dai *dai)
-{
-	if (!dlc)
-		return 0;
-
-	if (dlc->dai_args)
-		return snd_soc_dai_matches_args(dai, dlc->dai_args);
-
-	if (!dlc->dai_name)
-		return 1;
-
-	/* see snd_soc_dai_name() */
-
-	if (dai->driver->name &&
-	    strcmp(dlc->dai_name, dai->driver->name) == 0)
-		return 1;
-
-	if (strcmp(dlc->dai_name, dai->name) == 0)
-		return 1;
-
-	if (dai->component->name &&
-	    strcmp(dlc->dai_name, dai->component->name) == 0)
-		return 1;
-
-	return 0;
-}
-
 static int snd_soc_rtd_add_component(struct snd_soc_pcm_runtime *rtd,
 				     struct snd_soc_component *component)
 {
@@ -837,7 +809,7 @@ static int snd_soc_is_matching_component(
 		struct snd_soc_dai *dai;
 
 		for_each_component_dais(component, dai)
-			if (snd_soc_is_matching_dai(dlc, dai))
+			if (snd_soc_dai_matches_dlc(dai, dlc))
 				return 1;
 		return 0;
 	}
@@ -897,7 +869,7 @@ struct snd_soc_dai *snd_soc_find_dai(
 	for_each_component(component)
 		if (snd_soc_is_matching_component(dlc, component))
 			for_each_component_dais(component, dai)
-				if (snd_soc_is_matching_dai(dlc, dai))
+				if (snd_soc_dai_matches_dlc(dai, dlc))
 					return dai;
 
 	return NULL;

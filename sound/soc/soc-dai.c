@@ -1028,9 +1028,37 @@ int snd_soc_dai_matches_args(const struct snd_soc_dai *dai,
 	return 1;
 }
 
+int snd_soc_dai_matches_dlc(struct snd_soc_dai *dai,
+			    const struct snd_soc_dai_link_component *dlc)
+{
+	if (!dlc)
+		return 0;
+
+	if (dlc->dai_args)
+		return snd_soc_dai_matches_args(dai, dlc->dai_args);
+
+	if (!dlc->dai_name)
+		return 1;
+
+	/* see snd_soc_dai_name() */
+
+	if (dai->driver->name &&
+	    strcmp(dlc->dai_name, dai->driver->name) == 0)
+		return 1;
+
+	if (strcmp(dlc->dai_name, dai->name) == 0)
+		return 1;
+
+	if (dai->component->name &&
+	    strcmp(dlc->dai_name, dai->component->name) == 0)
+		return 1;
+
+	return 0;
+}
+
 const char *snd_soc_dai_name(const struct snd_soc_dai *dai)
 {
-	/* see snd_soc_is_matching_dai() */
+	/* see snd_soc_dai_matches_dlc() */
 	if (dai->driver->name)
 		return dai->driver->name;
 
