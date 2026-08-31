@@ -458,7 +458,7 @@ register_shm_helper(struct tee_context *ctx, struct iov_iter *iter, u32 flags,
 		 * If we only got a few pages, update to release the
 		 * correct amount below.
 		 */
-		shm->num_pages = len / PAGE_SIZE;
+		shm->num_pages = DIV_ROUND_UP(len + off, PAGE_SIZE);
 		ret = ERR_PTR(-ENOMEM);
 		goto err_put_shm_pages;
 	}
