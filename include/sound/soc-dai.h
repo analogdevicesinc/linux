@@ -494,12 +494,16 @@ struct snd_soc_dai {
 	void *priv;
 };
 
+const struct snd_soc_pcm_stream *
+snd_soc_dai_pcm_stream_get_i(const struct snd_soc_dai *dai, int stream);
 static inline const struct snd_soc_pcm_stream *
-snd_soc_dai_get_pcm_stream(const struct snd_soc_dai *dai, int stream)
+snd_soc_dai_pcm_stream_get_s(const struct snd_soc_dai *dai, struct snd_pcm_substream *substream)
 {
-	return (stream == SNDRV_PCM_STREAM_PLAYBACK) ?
-		&dai->driver->playback : &dai->driver->capture;
+	return snd_soc_dai_pcm_stream_get_i(dai, substream->stream);
 }
+#define snd_soc_dai_pcm_stream_get(dai, x) _Generic((x),		\
+	int :				snd_soc_dai_pcm_stream_get_i,	\
+	struct snd_pcm_substream * :	snd_soc_dai_pcm_stream_get_s)(dai, x)
 
 #define snd_soc_dai_get_widget_playback(dai)	snd_soc_dai_get_widget(dai, SNDRV_PCM_STREAM_PLAYBACK)
 #define snd_soc_dai_get_widget_capture(dai)	snd_soc_dai_get_widget(dai, SNDRV_PCM_STREAM_CAPTURE)
@@ -614,5 +618,8 @@ struct snd_soc_dai *snd_soc_dai_register(struct snd_soc_component *component,
 					 struct snd_soc_dai_driver *dai_drv,
 					 bool legacy_dai_naming);
 void snd_soc_dai_unregister(struct snd_soc_dai *dai);
+
+/* REMOVE ME */
+#define snd_soc_dai_get_pcm_stream			snd_soc_dai_pcm_stream_get
 
 #endif

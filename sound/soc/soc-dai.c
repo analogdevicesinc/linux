@@ -1073,6 +1073,14 @@ const char *snd_soc_dai_name(const struct snd_soc_dai *dai)
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_name);
 
+const struct snd_soc_pcm_stream *
+snd_soc_dai_pcm_stream_get_i(const struct snd_soc_dai *dai, int stream)
+{
+	return (stream == SNDRV_PCM_STREAM_PLAYBACK) ?
+		&dai->driver->playback : &dai->driver->capture;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_pcm_stream_get_i);
+
 void snd_soc_dai_unregister(struct snd_soc_dai *dai)
 {
 	lockdep_assert_held(&client_mutex);
