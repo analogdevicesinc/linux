@@ -136,7 +136,8 @@ void dcn401_blank_pixel_data_sequence(
 	bool blank,
 	struct block_sequence_state *seq_state);
 void dcn401_initialize_min_clocks(struct dc *dc);
-void dcn401_update_cursor_offload_pipe(struct dc *dc, const struct pipe_ctx *pipe);
+void dcn401_update_cursor_offload_pipe(struct dmub_srv *dmub, uint32_t stream_idx,
+		uint8_t pipe_idx, const struct dpp *dpp, const struct hubp *hubp);
 
 void dcn401_program_all_writeback_pipes_in_tree_sequence(
 		struct dc *dc,

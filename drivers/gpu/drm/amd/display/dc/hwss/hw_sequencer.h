@@ -837,11 +837,6 @@ struct hubp_program_mcache_id_and_split_coordinate_params {
 	struct mcache_regs_struct *mcache_regs;
 };
 
-struct abort_cursor_offload_update_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
-};
-
 struct cursor_lock_params {
 	struct dc *dc;
 	struct pipe_ctx *pipe_ctx;
@@ -906,18 +901,32 @@ struct phantom_hubp_post_enable_params {
 };
 
 struct begin_cursor_offload_update_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct dmub_srv *dmub;
+	struct dpp *dpp;
+	struct hubp *hubp;
+	uint32_t stream_idx;
 };
 
 struct update_cursor_offload_pipe_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct dmub_srv *dmub;
+	const struct dpp *dpp;
+	const struct hubp *hubp;
+	uint32_t stream_idx;
+	uint8_t pipe_idx;
 };
 
 struct commit_cursor_offload_update_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct dmub_srv *dmub;
+	struct dpp *dpp;
+	struct hubp *hubp;
+	uint32_t stream_idx;
+};
+
+struct abort_cursor_offload_update_params {
+	struct dmub_srv *dmub;
+	struct dpp *dpp;
+	struct hubp *hubp;
+	uint32_t stream_idx;
 };
 
 struct stream_enc_update_hdmi_info_packets_params {
@@ -1535,10 +1544,17 @@ struct hw_sequencer_funcs {
 	void (*set_cursor_position)(struct pipe_ctx *pipe);
 	void (*set_cursor_attribute)(struct pipe_ctx *pipe);
 	void (*set_cursor_sdr_white_level)(struct pipe_ctx *pipe);
-	void (*abort_cursor_offload_update)(struct dc *dc, const struct pipe_ctx *pipe);
-	void (*begin_cursor_offload_update)(struct dc *dc, const struct pipe_ctx *pipe);
-	void (*commit_cursor_offload_update)(struct dc *dc, const struct pipe_ctx *pipe);
-	void (*update_cursor_offload_pipe)(struct dc *dc, const struct pipe_ctx *pipe);
+	void (*abort_cursor_offload_update)(struct dmub_srv *dmub, struct dpp *dpp,
+			struct hubp *hubp, uint32_t stream_idx);
+	void (*begin_cursor_offload_update)(struct dmub_srv *dmub, struct dpp *dpp,
+			struct hubp *hubp, uint32_t stream_idx);
+	void (*commit_cursor_offload_update)(struct dmub_srv *dmub, struct dpp *dpp,
+			struct hubp *hubp, uint32_t stream_idx);
+	void (*update_cursor_offload_pipe)(struct dmub_srv *dmub,
+			uint32_t stream_idx,
+			uint8_t pipe_idx,
+			const struct dpp *dpp,
+			const struct hubp *hubp);
 	void (*notify_cursor_offload_drr_update)(struct dc *dc, struct dc_state *context,
 						 const struct dc_stream_state *stream);
 	void (*program_cursor_offload_now)(struct dc *dc, const struct pipe_ctx *pipe);
@@ -2126,8 +2142,6 @@ void hwss_dpp_set_scaler(union block_sequence_params *params);
 
 void hwss_hubp_mem_program_viewport(union block_sequence_params *params);
 
-void hwss_abort_cursor_offload_update(union block_sequence_params *params);
-
 void hwss_send_cursor_info_to_dmu(union block_sequence_params *params);
 
 void hwss_set_cursor_attribute(union block_sequence_params *params);
@@ -2152,11 +2166,13 @@ void hwss_phantom_hubp_post_enable(union block_sequence_params *params);
 
 void hwss_cursor_lock(union block_sequence_params *params);
 
-void hwss_begin_cursor_offload_update(union block_sequence_params *params);
+void hwss_begin_cursor_offload_update(struct dc *dc, union block_sequence_params *params);
 
-void hwss_commit_cursor_offload_update(union block_sequence_params *params);
+void hwss_commit_cursor_offload_update(struct dc *dc, union block_sequence_params *params);
 
-void hwss_update_cursor_offload_pipe(union block_sequence_params *params);
+void hwss_update_cursor_offload_pipe(struct dc *dc, union block_sequence_params *params);
+
+void hwss_abort_cursor_offload_update(struct dc *dc, union block_sequence_params *params);
 
 void hwss_setup_periodic_interrupt(struct dc *dc, struct pipe_ctx *pipe_ctx);
 

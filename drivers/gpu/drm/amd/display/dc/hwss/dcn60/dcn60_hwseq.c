@@ -790,23 +790,17 @@ void dcn60_set_cursor_attribute(struct pipe_ctx *pipe_ctx)
 		pipe_ctx->plane_res.dpp, attributes);
 }
 
-void dcn60_update_cursor_offload_pipe(struct dc *dc, const struct pipe_ctx *pipe)
+void dcn60_update_cursor_offload_pipe(struct dmub_srv *dmub, uint32_t stream_idx,
+		uint8_t pipe_idx, const struct dpp *dpp, const struct hubp *hubp)
 {
-	volatile struct dmub_cursor_offload_v1 *cs = dc->ctx->dmub_srv->dmub->cursor_offload_v1;
-	const struct pipe_ctx *top_pipe = resource_get_otg_master(pipe);
-	const struct hubp *hubp = pipe->plane_res.hubp;
-	const struct dpp *dpp = pipe->plane_res.dpp;
+	volatile struct dmub_cursor_offload_v1 *cs = dmub->cursor_offload_v1;
 	volatile struct dmub_cursor_offload_pipe_data_dcn60_v1 *p;
-	uint32_t stream_idx, write_idx, payload_idx;
+	uint32_t write_idx, payload_idx;
 
-	if (!top_pipe || !hubp || !dpp)
-		return;
-
-	stream_idx = top_pipe->pipe_idx;
 	write_idx = cs->offload_streams[stream_idx].write_idx + 1; /*  new payload (+1) */
 	payload_idx = write_idx % ARRAY_SIZE(cs->offload_streams[stream_idx].payloads);
 
-	p = &cs->offload_streams[stream_idx].payloads[payload_idx].pipe_data[pipe->pipe_idx].dcn60;
+	p = &cs->offload_streams[stream_idx].payloads[payload_idx].pipe_data[pipe_idx].dcn60;
 
 	p->CURSOR0_0_CURSOR_SURFACE_ADDRESS = hubp->att.SURFACE_ADDR;
 	p->CURSOR0_0_CURSOR_SURFACE_ADDRESS_HIGH = hubp->att.SURFACE_ADDR_HIGH;
@@ -843,7 +837,7 @@ void dcn60_update_cursor_offload_pipe(struct dc *dc, const struct pipe_ctx *pipe
 	p->HUBPREQ0_CURSOR_SETTINGS__CURSOR0_CHUNK_HDL_ADJUST = hubp->att.settings.bits.chunk_hdl_adjust;
 	p->HUBPREQ0_CURSOR_SETTINGS__FORCE_CURSOR_TO_DISP_PREF = hubp->att.settings.bits.force_cursor_to_disp_pref;
 
-	cs->offload_streams[stream_idx].payloads[payload_idx].pipe_mask |= (1u << pipe->pipe_idx);
+	cs->offload_streams[stream_idx].payloads[payload_idx].pipe_mask |= (1u << pipe_idx);
 }
 
 /**

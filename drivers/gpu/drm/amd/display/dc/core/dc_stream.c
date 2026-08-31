@@ -323,7 +323,12 @@ void program_cursor_attributes(
 			pipe_to_program = pipe_ctx;
 
 			if (enable_cursor_offload && dc->hwss.begin_cursor_offload_update) {
-				dc->hwss.begin_cursor_offload_update(dc, pipe_ctx);
+				struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
+
+				if (top_pipe)
+					dc->hwss.begin_cursor_offload_update(dc->ctx->dmub_srv->dmub,
+						pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp,
+						top_pipe->pipe_idx);
 			} else {
 				dc->hwss.cursor_lock(dc, pipe_to_program, true);
 				if (pipe_to_program->next_odm_pipe)
@@ -335,13 +340,24 @@ void program_cursor_attributes(
 		update_cursor_info_to_dmu(dc, pipe_ctx);
 		if (dc->hwss.set_cursor_sdr_white_level)
 			dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
-		if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe)
-			dc->hwss.update_cursor_offload_pipe(dc, pipe_ctx);
+		if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe) {
+			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
+
+			if (top_pipe)
+				dc->hwss.update_cursor_offload_pipe(dc->ctx->dmub_srv->dmub,
+					top_pipe->pipe_idx, pipe_ctx->pipe_idx,
+					pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp);
+		}
 	}
 
 	if (pipe_to_program) {
 		if (enable_cursor_offload && dc->hwss.commit_cursor_offload_update) {
-			dc->hwss.commit_cursor_offload_update(dc, pipe_to_program);
+			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_to_program);
+
+			if (top_pipe)
+				dc->hwss.commit_cursor_offload_update(dc->ctx->dmub_srv->dmub,
+					pipe_to_program->plane_res.dpp, pipe_to_program->plane_res.hubp,
+					top_pipe->pipe_idx);
 		} else {
 			dc->hwss.cursor_lock(dc, pipe_to_program, false);
 			if (pipe_to_program->next_odm_pipe)
@@ -484,24 +500,42 @@ void program_cursor_position(
 		if (!pipe_to_program) {
 			pipe_to_program = pipe_ctx;
 
-			if (enable_cursor_offload && dc->hwss.begin_cursor_offload_update)
-				dc->hwss.begin_cursor_offload_update(dc, pipe_ctx);
-			else
+			if (enable_cursor_offload && dc->hwss.begin_cursor_offload_update) {
+				struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
+
+				if (top_pipe)
+					dc->hwss.begin_cursor_offload_update(dc->ctx->dmub_srv->dmub,
+						pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp,
+						top_pipe->pipe_idx);
+			} else {
 				dc->hwss.cursor_lock(dc, pipe_to_program, true);
+			}
 		}
 
 		dc->hwss.set_cursor_position(pipe_ctx);
-		if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe)
-			dc->hwss.update_cursor_offload_pipe(dc, pipe_ctx);
+		if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe) {
+			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
+
+			if (top_pipe)
+				dc->hwss.update_cursor_offload_pipe(dc->ctx->dmub_srv->dmub,
+					top_pipe->pipe_idx, pipe_ctx->pipe_idx,
+					pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp);
+		}
 
 		update_cursor_info_to_dmu(dc, pipe_ctx);
 	}
 
 	if (pipe_to_program) {
-		if (enable_cursor_offload && dc->hwss.commit_cursor_offload_update)
-			dc->hwss.commit_cursor_offload_update(dc, pipe_to_program);
-		else
+		if (enable_cursor_offload && dc->hwss.commit_cursor_offload_update) {
+			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_to_program);
+
+			if (top_pipe)
+				dc->hwss.commit_cursor_offload_update(dc->ctx->dmub_srv->dmub,
+					pipe_to_program->plane_res.dpp, pipe_to_program->plane_res.hubp,
+					top_pipe->pipe_idx);
+		} else {
 			dc->hwss.cursor_lock(dc, pipe_to_program, false);
+		}
 	}
 }
 
