@@ -40,7 +40,7 @@ Status
 
 **Note:** In order to achieve the maximum sample rate, using a SPI offload such
 as the
-`AXI SPI Engine <http://analogdevicesinc.github.io/hdl/library/spi_engine/index.html>`__
+:external+hdl:ref:`spi_engine`
 is required.
 
 Files
@@ -66,7 +66,7 @@ Devicetree configuration
 The devicetree (``.dts`` file) describes how the chip is wired up. The example
 devicetree linked above is for the evaluation board with the FMCZ connector
 using the default jumper positions and the
-`AD469X-EVB HDL project <http://analogdevicesinc.github.io/hdl/projects/ad469x_evb/index.html>`__
+:external+hdl:ref:`ad469x_evb`
 compiled with ``make SPI_4WIRE=0``.
 
 If you change any jumpers on the evaluation board or modify the HDL project, you
@@ -136,7 +136,7 @@ GPIO at the same time, so in this case we use both the ``cnv-gpios`` and the
    pwms = <&adc_trigger 0 100000>;
 
 If using the
-`AD469X-EVB HDL project <http://analogdevicesinc.github.io/hdl/projects/ad469x_evb/index.html>`__,
+:external+hdl:ref:`ad469x_evb`,
 with the FMCZ evaluation board, compile using the HDL using ``make
 SPI_4WIRE=0``.
 

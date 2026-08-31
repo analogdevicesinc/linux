@@ -15,7 +15,7 @@ Supported Devices
 Evaluation Boards
 -----------------
 
-- `PmodDA1 <http://www.digilentinc.com/Products/Detail.cfm?Prod=PMOD-DA1>`__
+- `PmodDA1 <https://digilent.com/reference/pmod/pmodda1/start>`__
 
 Description
 -----------

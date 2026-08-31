@@ -125,7 +125,7 @@ Currently, the mainline Linux kernel doesn‘t support one SDO line of the chip.
 The ADI Linux kernel does support this. In this case you will need to add a
 ’‘adi,num-sdi’’ property that corresponds to the ``NUM_OF_SDI`` compile option
 that was used when compiling the FPGA bitstream from the
-`AD738x-FMC HDL project <https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/index.html>`__.
+:external+hdl:ref:`ad738x_fmc`.
 
 ::
 
@@ -282,7 +282,7 @@ This driver can be used in two different ways. In order to be able to achieve
 the maximum sample rate (e.g. 4 MSPS), it needs to be used with a specialized
 SPI controller that supports offloading. And example of such a SPI controller
 can be found in the
-`example AD738x-FMC HDL project <https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/index.html>`__.
+example :external+hdl:ref:`ad738x_fmc`.
 It can also be used with conventional SPI controllers, but sampling rate will be
 limited by the software and hardware capabilities of the system it is running
 on.

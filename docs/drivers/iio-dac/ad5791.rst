@@ -196,7 +196,7 @@ data from DMA to the DAC with high speed and precise timing compared to
 traditional SPI controllers.
 
 There is a reference HDL project available
-`here <https://analogdevicesinc.github.io/hdl/projects/ad57xx_ardz/index.html>`__
+:external+hdl:ref:`ad57xx_ardz`
 that can be used with the ARDZ evaluation boards.
 
 To enable SPI offload support in this scenario, a few extra properties are added

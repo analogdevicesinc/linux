@@ -19,7 +19,7 @@ Evaluation Boards
 - :adi:`EVAL-ADXL313-Z-M`
 - :adi:`EVAL-ADXRS450Z`
 - :adi:`EVAL-ADXRS453Z`
-- `PmodGYRO2 <http://www.digilentinc.com/Products/Detail.cfm?Prod=PMOD-GYRO2>`__
+- `PmodGYRO2 <https://digilent.com/reference/pmod/pmodgyro2/start>`__
 
 ADXRS450: ±300°/sec High Vibration Immunity Digital Gyro
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -20,8 +20,8 @@ Required Hardware
 ~~~~~~~~~~~~~~~~~
 
 - `ZedBoard <http://www.zedboard.org>`__
-- `PmodAD1 <http://www.digilentinc.com/Products/Detail.cfm?Prod=PMOD-AD1>`__
-- `PmodDA1 <http://www.digilentinc.com/Products/Detail.cfm?Prod=PMOD-DA1>`__
+- `PmodAD1 <https://digilent.com/reference/pmod/pmodad1/start>`__
+- `PmodDA1 <https://digilent.com/reference/pmod/pmodda1/start>`__
 
 Prepare the SD Card
 ~~~~~~~~~~~~~~~~~~~
