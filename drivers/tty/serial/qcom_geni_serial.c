@@ -289,6 +289,10 @@ static struct qcom_geni_serial_port *get_port_from_line(int line, bool console, 
 	} else {
 		int max_alias_num = of_alias_get_highest_id("serial");
 
+		port = devm_kzalloc(dev, sizeof(*port), GFP_KERNEL);
+		if (!port)
+			return ERR_PTR(-ENOMEM);
+
 		if (line < 0 || line >= nr_ports)
 			line = ida_alloc_range(&port_ida, max_alias_num + 1,
 					       nr_ports - 1, GFP_KERNEL);
@@ -298,10 +302,6 @@ static struct qcom_geni_serial_port *get_port_from_line(int line, bool console, 
 
 		if (line < 0)
 			return ERR_PTR(-ENXIO);
-
-		port = devm_kzalloc(dev, sizeof(*port), GFP_KERNEL);
-		if (!port)
-			return ERR_PTR(-ENOMEM);
 
 		port->uport.iotype = UPIO_MEM;
 		port->uport.ops = &qcom_geni_uart_pops;
@@ -1883,7 +1883,7 @@ static int qcom_geni_serial_probe(struct platform_device *pdev)
 
 	ret = port->dev_data->resources_init(&port->se);
 	if (ret)
-		return ret;
+		goto error;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -1970,7 +1970,6 @@ static int qcom_geni_serial_probe(struct platform_device *pdev)
 						port->wakeup_irq);
 		if (ret) {
 			device_init_wakeup(&pdev->dev, false);
-			ida_free(&port_ida, uport->line);
 			goto error;
 		}
 	}
@@ -1994,6 +1993,8 @@ static int qcom_geni_serial_probe(struct platform_device *pdev)
 	return 0;
 
 error:
+	if (!data->console)
+		ida_free(&port_ida, uport->line);
 	if (port->rx_dma_addr) {
 		dma_unmap_single(pdev->dev.parent, port->rx_dma_addr,
 				 DMA_RX_BUF_SIZE, DMA_FROM_DEVICE);
@@ -2015,7 +2016,8 @@ static void qcom_geni_serial_remove(struct platform_device *pdev)
 	irq_work_sync(&port->tx_kick);
 	dev_pm_clear_wake_irq(&pdev->dev);
 	device_init_wakeup(&pdev->dev, false);
-	ida_free(&port_ida, uport->line);
+	if (!port->dev_data->console)
+		ida_free(&port_ida, uport->line);
 	uart_remove_one_port(drv, &port->uport);
 
 	if (port->rx_dma_addr) {
