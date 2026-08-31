@@ -260,11 +260,9 @@ static void check_anon_vma_clone(struct vm_area_struct *dst,
 	/* For the anon_vma to be compatible, it can only be singular. */
 	VM_WARN_ON_ONCE(operation == VMA_OP_MERGE_UNFAULTED &&
 			!list_is_singular(&src->anon_vma_chain));
-#ifdef CONFIG_PER_VMA_LOCK
 	/* Only merging an unfaulted VMA leaves the destination attached. */
 	VM_WARN_ON_ONCE(operation != VMA_OP_MERGE_UNFAULTED &&
 			vma_is_attached(dst));
-#endif
 }
 
 static void maybe_reuse_anon_vma(struct vm_area_struct *dst,
