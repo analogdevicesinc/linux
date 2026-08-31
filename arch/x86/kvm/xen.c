@@ -1439,12 +1439,17 @@ static int kvm_xen_hypercall_complete_userspace(struct kvm_vcpu *vcpu)
 	return kvm_xen_hypercall_set_result(vcpu, run->xen.u.hcall.result);
 }
 
-static inline int kvm_max_evtchn_port(struct kvm *kvm)
+static inline int max_evtchn_port(bool has_64bit_shinfo)
 {
-	if (kvm_xen_has_64bit_shinfo(kvm))
+	if (has_64bit_shinfo)
 		return EVTCHN_2L_NR_CHANNELS;
 	else
 		return COMPAT_EVTCHN_2L_NR_CHANNELS;
+}
+
+static inline int kvm_max_evtchn_port(struct kvm *kvm)
+{
+	return max_evtchn_port(kvm_xen_has_64bit_shinfo(kvm));
 }
 
 static bool wait_pending_event(struct kvm_vcpu *vcpu, int nr_ports,
@@ -1816,8 +1821,9 @@ static void kvm_xen_check_poller(struct kvm_vcpu *vcpu, int port)
 int kvm_xen_set_evtchn_fast(struct kvm_xen_evtchn *xe, struct kvm *kvm)
 {
 	struct gfn_to_pfn_cache *gpc = &kvm->arch.xen.shinfo_cache;
-	struct kvm_vcpu *vcpu;
+	bool has_64bit_shinfo = kvm_xen_has_64bit_shinfo(kvm);
 	unsigned long *pending_bits, *mask_bits;
+	struct kvm_vcpu *vcpu;
 	unsigned long flags;
 	int port_word_bit;
 	bool kick_vcpu = false;
@@ -1833,7 +1839,7 @@ int kvm_xen_set_evtchn_fast(struct kvm_xen_evtchn *xe, struct kvm *kvm)
 		WRITE_ONCE(xe->vcpu_idx, vcpu->vcpu_idx);
 	}
 
-	if (xe->port >= kvm_max_evtchn_port(kvm))
+	if (xe->port >= max_evtchn_port(has_64bit_shinfo))
 		return -EINVAL;
 
 	rc = -EWOULDBLOCK;
@@ -1844,7 +1850,7 @@ int kvm_xen_set_evtchn_fast(struct kvm_xen_evtchn *xe, struct kvm *kvm)
 	if (!kvm_gpc_check(gpc, PAGE_SIZE))
 		goto out_rcu;
 
-	if (kvm_xen_has_64bit_shinfo(kvm)) {
+	if (has_64bit_shinfo) {
 		struct shared_info *shinfo = gpc->khva;
 		pending_bits = (unsigned long *)&shinfo->evtchn_pending;
 		mask_bits = (unsigned long *)&shinfo->evtchn_mask;
@@ -1885,7 +1891,7 @@ int kvm_xen_set_evtchn_fast(struct kvm_xen_evtchn *xe, struct kvm *kvm)
 			goto out_rcu;
 		}
 
-		if (kvm_xen_has_64bit_shinfo(kvm)) {
+		if (has_64bit_shinfo) {
 			struct vcpu_info *vcpu_info = gpc->khva;
 			if (!test_and_set_bit(port_word_bit, &vcpu_info->evtchn_pending_sel)) {
 				WRITE_ONCE(vcpu_info->evtchn_upcall_pending, 1);
