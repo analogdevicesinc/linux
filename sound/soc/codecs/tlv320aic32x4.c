@@ -916,11 +916,19 @@ static int aic32x4_set_bias_level(struct snd_soc_component *component,
 			 | SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S24_3LE \
 			 | SNDRV_PCM_FMTBIT_S32_LE)
 
+static const u64 aic32x4_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B;
 static const struct snd_soc_dai_ops aic32x4_ops = {
 	.hw_params = aic32x4_hw_params,
 	.mute_stream = aic32x4_mute,
 	.set_fmt = aic32x4_set_dai_fmt,
 	.set_sysclk = aic32x4_set_dai_sysclk,
+	.auto_selectable_formats	= &aic32x4_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 	.no_capture_mute = 1,
 };
 
