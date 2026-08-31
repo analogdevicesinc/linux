@@ -188,29 +188,13 @@ mt7530_mii_read(struct mt7530_priv *priv, u32 reg)
 static int
 mt7530_write(struct mt7530_priv *priv, u32 reg, u32 val)
 {
-	int ret;
-
-	mt7530_mutex_lock(priv);
-
-	ret = mt7530_mii_write(priv, reg, val);
-
-	mt7530_mutex_unlock(priv);
-
-	return ret;
+	return mt7530_mii_write(priv, reg, val);
 }
 
 static u32
 _mt7530_read(struct mt7530_dummy_poll *p)
 {
-	u32 val;
-
-	mt7530_mutex_lock(p->priv);
-
-	val = mt7530_mii_read(p->priv, p->reg);
-
-	mt7530_mutex_unlock(p->priv);
-
-	return val;
+	return mt7530_mii_read(p->priv, p->reg);
 }
 
 static u32
@@ -226,11 +210,7 @@ static void
 mt7530_rmw(struct mt7530_priv *priv, u32 reg,
 	   u32 mask, u32 set)
 {
-	mt7530_mutex_lock(priv);
-
 	regmap_update_bits(priv->regmap, reg, mask, set);
-
-	mt7530_mutex_unlock(priv);
 }
 
 static void
@@ -257,14 +237,10 @@ mt7530_fdb_cmd(struct mt7530_priv *priv, enum mt7530_fdb_cmd cmd, u32 *rsp)
 	if (ret)
 		return ret;
 
-	mt7530_mutex_lock(priv);
-
 	ret = regmap_read_poll_timeout(priv->regmap, MT7530_ATC, val,
 				       !(val & ATC_BUSY), 20, 20000);
 	if (!ret)
 		ret = regmap_read(priv->regmap, MT7530_ATC, &val);
-
-	mt7530_mutex_unlock(priv);
 
 	if (ret < 0) {
 		dev_err(priv->dev, "reset timeout\n");
@@ -560,7 +536,7 @@ mt7531_ind_c45_phy_read(struct mt7530_priv *priv, int port, int devad,
 	u32 reg, val;
 	int ret;
 
-	mt7530_mutex_lock(priv);
+	mutex_lock(&priv->reg_mutex);
 
 	ret = regmap_read_poll_timeout(priv->regmap, MT7531_PHY_IAC, val,
 				       !(val & MT7531_PHY_ACS_ST), 20, 100000);
@@ -597,7 +573,7 @@ mt7531_ind_c45_phy_read(struct mt7530_priv *priv, int port, int devad,
 
 	ret = val & MT7531_MDIO_RW_DATA_MASK;
 out:
-	mt7530_mutex_unlock(priv);
+	mutex_unlock(&priv->reg_mutex);
 
 	return ret;
 }
@@ -609,7 +585,7 @@ mt7531_ind_c45_phy_write(struct mt7530_priv *priv, int port, int devad,
 	u32 val, reg;
 	int ret;
 
-	mt7530_mutex_lock(priv);
+	mutex_lock(&priv->reg_mutex);
 
 	ret = regmap_read_poll_timeout(priv->regmap, MT7531_PHY_IAC, val,
 				       !(val & MT7531_PHY_ACS_ST), 20, 100000);
@@ -645,7 +621,7 @@ mt7531_ind_c45_phy_write(struct mt7530_priv *priv, int port, int devad,
 	}
 
 out:
-	mt7530_mutex_unlock(priv);
+	mutex_unlock(&priv->reg_mutex);
 
 	return ret;
 }
@@ -656,7 +632,7 @@ mt7531_ind_c22_phy_read(struct mt7530_priv *priv, int port, int regnum)
 	int ret;
 	u32 val;
 
-	mt7530_mutex_lock(priv);
+	mutex_lock(&priv->reg_mutex);
 
 	ret = regmap_read_poll_timeout(priv->regmap, MT7531_PHY_IAC, val,
 				       !(val & MT7531_PHY_ACS_ST), 20, 100000);
@@ -681,7 +657,7 @@ mt7531_ind_c22_phy_read(struct mt7530_priv *priv, int port, int regnum)
 
 	ret = val & MT7531_MDIO_RW_DATA_MASK;
 out:
-	mt7530_mutex_unlock(priv);
+	mutex_unlock(&priv->reg_mutex);
 
 	return ret;
 }
@@ -693,7 +669,7 @@ mt7531_ind_c22_phy_write(struct mt7530_priv *priv, int port, int regnum,
 	int ret;
 	u32 reg;
 
-	mt7530_mutex_lock(priv);
+	mutex_lock(&priv->reg_mutex);
 
 	ret = regmap_read_poll_timeout(priv->regmap, MT7531_PHY_IAC, reg,
 				       !(reg & MT7531_PHY_ACS_ST), 20, 100000);
@@ -717,7 +693,7 @@ mt7531_ind_c22_phy_write(struct mt7530_priv *priv, int port, int regnum,
 	}
 
 out:
-	mt7530_mutex_unlock(priv);
+	mutex_unlock(&priv->reg_mutex);
 
 	return ret;
 }
@@ -1452,8 +1428,6 @@ mt7530_port_change_mtu(struct dsa_switch *ds, int port, int new_mtu)
 	if (!dsa_is_cpu_port(ds, port))
 		return 0;
 
-	mt7530_mutex_lock(priv);
-
 	val = mt7530_mii_read(priv, MT7530_GMACCR);
 	val &= ~MAX_RX_PKT_LEN_MASK;
 
@@ -1472,8 +1446,6 @@ mt7530_port_change_mtu(struct dsa_switch *ds, int port, int new_mtu)
 	}
 
 	mt7530_mii_write(priv, MT7530_GMACCR, val);
-
-	mt7530_mutex_unlock(priv);
 
 	return 0;
 }
@@ -1642,14 +1614,10 @@ mt7530_vlan_cmd(struct mt7530_priv *priv, enum mt7530_vlan_cmd cmd, u16 vid)
 	if (ret)
 		return ret;
 
-	mt7530_mutex_lock(priv);
-
 	ret = regmap_read_poll_timeout(priv->regmap, MT7530_VTCR, val,
 				       !(val & VTCR_BUSY), 20, 20000);
 	if (!ret)
 		ret = regmap_read(priv->regmap, MT7530_VTCR, &val);
-
-	mt7530_mutex_unlock(priv);
 
 	if (ret < 0) {
 		dev_err(priv->dev, "poll timeout\n");
@@ -2319,21 +2287,6 @@ static const struct regmap_irq mt7530_irqs[] = {
 	REGMAP_IRQ_REG_LINE(31, 32), /* ACL */
 };
 
-/* Serialize regmap-irq's mask sync like every other regmap user */
-static int mt7530_irq_mask_sync(int index, unsigned int mask_buf_def,
-				unsigned int mask_buf, void *irq_drv_data)
-{
-	struct mt7530_priv *priv = irq_drv_data;
-	int ret;
-
-	mt7530_mutex_lock(priv);
-	ret = regmap_update_bits(priv->regmap, MT7530_SYS_INT_EN,
-				 mask_buf_def, ~mask_buf);
-	mt7530_mutex_unlock(priv);
-
-	return ret;
-}
-
 static const struct regmap_irq_chip mt7530_regmap_irq_chip = {
 	.name = KBUILD_MODNAME,
 	.status_base = MT7530_SYS_INT_STS,
@@ -2343,14 +2296,12 @@ static const struct regmap_irq_chip mt7530_regmap_irq_chip = {
 	.irqs = mt7530_irqs,
 	.num_irqs = ARRAY_SIZE(mt7530_irqs),
 	.num_regs = 1,
-	.handle_mask_sync = mt7530_irq_mask_sync,
 };
 
 static int
 mt7530_setup_irq(struct mt7530_priv *priv)
 {
 	struct regmap_irq_chip_data *irq_data;
-	struct regmap_irq_chip *chip;
 	struct device *dev = priv->dev;
 	struct device_node *np = dev->of_node;
 	int irq, ret;
@@ -2370,17 +2321,10 @@ mt7530_setup_irq(struct mt7530_priv *priv)
 	if (priv->id == ID_MT7530 || priv->id == ID_MT7621)
 		mt7530_set(priv, MT7530_TOP_SIG_CTRL, TOP_SIG_CTRL_NORMAL);
 
-	chip = devm_kmemdup(dev, &mt7530_regmap_irq_chip, sizeof(*chip),
-			    GFP_KERNEL);
-	if (!chip)
-		return -ENOMEM;
-
-	chip->irq_drv_data = priv;
-
 	ret = devm_regmap_add_irq_chip_fwnode(dev, dev_fwnode(dev),
 					      priv->regmap, irq,
 					      IRQF_ONESHOT,
-					      0, chip,
+					      0, &mt7530_regmap_irq_chip,
 					      &irq_data);
 	if (ret)
 		return ret;
