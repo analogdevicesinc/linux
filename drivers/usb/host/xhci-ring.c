@@ -4312,11 +4312,16 @@ int xhci_queue_isoc_tx_prepare(struct xhci_hcd *xhci, gfp_t mem_flags,
 	check_interval(urb, ep_ctx);
 
 	/*
-	 * Check if this starts the isoc data flow. Relies on hw setting ep ctx
-	 * state after doorbell ring. Consider adding list_empty(td_list) check
+	 * Schedule the URB discontiguously if all previous URBs have completed.
+	 * XXX core can't tell if completions are pending but not running yet.
 	 */
-	if (GET_EP_CTX_STATE(ep_ctx) != EP_STATE_RUNNING)
+	if (list_empty(&ep_ring->td_list) &&
+	    !hcd_periodic_completion_in_progress(xhci_to_hcd(xhci), urb->ep)) {
+		if (GET_EP_CTX_STATE(ep_ctx) == EP_STATE_RUNNING)
+			xhci_dbg(xhci, "Unexpected running ring at isoc stream start, uframe: %d\n",
+				 xep->next_uframe);
 		xep->next_uframe = -1;
+	}
 
 	return xhci_queue_isoc_tx(xhci, mem_flags, urb, slot_id, ep_index);
 }
