@@ -186,6 +186,34 @@ impl MmWithUser {
         })
     }
 
+    /// Find the VMA covering 'address' and read-lock it.
+    ///
+    /// The fast path does not take mmap_lock. Waits for writers to finish if the
+    /// VMA is being modified by taking mmap_lock.
+    /// Use when mmap_lock is not held, otherwise use vma_start_read_locked().
+    /// Nothing prevents VMAs being unmapped/mapped before or after the VMA is
+    /// looked up, if a stronger guarantee is required, take an mmap_lock.
+    ///
+    /// Return: If a VMA exists which spans @address, return that VMA, read-locked.
+    /// If no VMA is mapped there or, very unlikely, a reference count overflow
+    /// occurred, return NULL.
+    #[inline]
+    pub fn vma_start_read_unlocked(&self, vma_addr: usize) -> Option<VmaReadGuard<'_>> {
+        // SAFETY: We may invoke `vma_start_read_unlocked` because we know this `mm` has non-zero
+        // `mm_users`.
+        let vma = unsafe { bindings::vma_start_read_unlocked(self.as_raw(), vma_addr) };
+        if vma.is_null() {
+            return None;
+        }
+        // INVARIANT: We just acquired the VMA read lock.
+        Some(VmaReadGuard {
+            // SAFETY: If `vma_start_read_unlocked` returns a non-null ptr, then it points at a
+            // valid vma. The vma is stable for as long as the vma read lock is held.
+            vma: unsafe { VmaRef::from_raw(vma) },
+            _nts: NotThreadSafe,
+        })
+    }
+
     /// Lock the mmap read lock.
     #[inline]
     pub fn mmap_read_lock(&self) -> MmapReadGuard<'_> {
