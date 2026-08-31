@@ -2218,7 +2218,7 @@ attribute-sets:
         name: conf
         type: binary
         sub-type: u32
-        doc: u32 indexed by ipv6-devconf - 1 on output, on input it's a nest
+        doc: u32 indexed by ipv6-devconf on output, input is not yet implemented
       -
         name: stats
         type: binary
