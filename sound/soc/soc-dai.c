@@ -1117,6 +1117,13 @@ void snd_soc_dai_stream_tdm_mask_set(struct snd_soc_dai *dai, int stream, unsign
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_stream_tdm_mask_set);
 
+unsigned int snd_soc_dai_stream_active(const struct snd_soc_dai *dai, int stream)
+{
+	/* see snd_soc_dai_action() for setup */
+	return dai->stream[stream].active;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_stream_active);
+
 void snd_soc_dai_unregister(struct snd_soc_dai *dai)
 {
 	lockdep_assert_held(&client_mutex);
