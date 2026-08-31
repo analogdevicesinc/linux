@@ -637,10 +637,9 @@ static struct acpi_device *handle_to_device(acpi_handle handle,
 
 	status = acpi_get_data_full(handle, acpi_scan_drop_device,
 				    (void **)&adev, callback);
-	if (ACPI_FAILURE(status) || !adev) {
-		acpi_handle_debug(handle, "No context!\n");
+	if (ACPI_FAILURE(status) || !adev)
 		return NULL;
-	}
+
 	return adev;
 }
 
