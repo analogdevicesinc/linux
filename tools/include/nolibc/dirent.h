@@ -55,10 +55,11 @@ DIR *opendir(const char *name)
 {
 	int fd;
 
-	fd = open(name, O_RDONLY);
+	fd = open(name, O_RDONLY | O_DIRECTORY);
 	if (fd == -1)
 		return NULL;
-	return fdopendir(fd);
+
+	return (DIR *)(intptr_t)~fd;
 }
 
 static __attribute__((unused))
