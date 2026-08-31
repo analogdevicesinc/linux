@@ -1150,5 +1150,5 @@ static struct platform_driver otto_emdio_driver = {
 
 module_platform_driver(otto_emdio_driver);
 
-MODULE_DESCRIPTION("RTL9300 MDIO driver");
+MODULE_DESCRIPTION("RTL83xx/RTL93xx MDIO driver");
 MODULE_LICENSE("GPL");
