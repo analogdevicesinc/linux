@@ -10691,17 +10691,40 @@ static enum llc_mig can_migrate_llc(int src_cpu, int dst_cpu,
 	return mig_llc;
 }
 
+static inline bool task_misfits_asym_cpu(struct lb_env *env, struct task_struct *p)
+{
+	/*
+	 * On asymmetric CPU capacity domains, do not let cache-aware
+	 * balancing pull the task onto a destination CPU that cannot
+	 * accommodate it. Doing so would turn the task into a misfit on
+	 * the destination, trading a cache-locality gain for a capacity
+	 * loss. If the task already does not fit its source CPU, the move
+	 * cannot make things worse, so let the LLC preference decide.
+	 */
+	if ((env->sd->flags & SD_ASYM_CPUCAPACITY) && p &&
+	    !task_fits_cpu(p, env->dst_cpu) &&
+	    task_fits_cpu(p, env->src_cpu))
+		return true;
+
+	return false;
+}
+
 /*
  * Check if task p can migrate from source LLC to
  * destination LLC in terms of cache aware load balance.
  */
-static enum llc_mig can_migrate_llc_task(int src_cpu, int dst_cpu,
+static enum llc_mig can_migrate_llc_task(struct lb_env *env,
 					 struct task_struct *p)
 {
 	struct mm_struct *mm;
 	bool to_pref;
-	int cpu;
+	int cpu, src_cpu, dst_cpu;
 
+	if (task_misfits_asym_cpu(env, p))
+		return mig_forbid;
+
+	src_cpu = env->src_cpu;
+	dst_cpu = env->dst_cpu;
 	mm = p->mm;
 	if (!mm)
 		return mig_unrestricted;
@@ -10758,6 +10781,14 @@ alb_break_llc(struct lb_env *env)
 		unsigned long util = 0;
 		struct task_struct *cur;
 
+		/*
+		 * Migrating misfit tasks from current CPU
+		 * to CPU with a better fit.
+		 * Prioritize that over LLC preference.
+		 */
+		if (env->migration_type == migrate_misfit)
+			return false;
+
 		if (env->src_rq->nr_running <= 1)
 			return true;
 
@@ -10765,7 +10796,8 @@ alb_break_llc(struct lb_env *env)
 		if (cur && cur->sched_class == &fair_sched_class)
 			util = task_util(cur);
 
-		if (can_migrate_llc(env->src_cpu, env->dst_cpu,
+		if (task_misfits_asym_cpu(env, cur) ||
+		    can_migrate_llc(env->src_cpu, env->dst_cpu,
 				    util, false) == mig_forbid)
 			return true;
 	}
@@ -10805,8 +10837,7 @@ static bool migrate_degrades_llc(struct task_struct *p, struct lb_env *env)
 	    READ_ONCE(p->preferred_llc) != llc_id(env->dst_cpu))
 		return true;
 
-	if (can_migrate_llc_task(env->src_cpu,
-				 env->dst_cpu, p) != mig_forbid)
+	if (can_migrate_llc_task(env, p) != mig_forbid)
 		return false;
 
 	return true;
@@ -11867,6 +11898,15 @@ static inline bool llc_balance(struct lb_env *env, struct sg_lb_stats *sgs,
 		return false;
 
 	if (env->sd->flags & SD_SHARE_LLC)
+		return false;
+
+	/*
+	 * On asymmetric domains, group_misfit_task_load
+	 * should be prioritized to move tasks to CPU that fit them
+	 * over aggregating tasks to their preferred LLC.
+	 */
+	if ((env->sd->flags & SD_ASYM_CPUCAPACITY) &&
+	    sgs->group_misfit_task_load)
 		return false;
 
 	/*
