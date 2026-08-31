@@ -1750,7 +1750,9 @@ void dcn10_init_pipes(struct dc *dc, struct dc_state *context)
 
 		if (tg->funcs->is_tg_enabled(tg)) {
 			if (tg->funcs->init_odm)
-				tg->funcs->init_odm(tg);
+				if (!tg->funcs->is_odm_enabled ||
+					!tg->funcs->is_odm_enabled(tg))
+						tg->funcs->init_odm(tg);
 		}
 
 		tg->funcs->tg_init(tg);
