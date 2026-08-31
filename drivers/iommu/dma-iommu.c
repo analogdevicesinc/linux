@@ -789,8 +789,14 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	 * its driver is not setting DMA masks accurately, the hardware has
 	 * some inherent bug in handling >32-bit addresses, or not all the
 	 * expected address bits are wired up between the device and the IOMMU.
+	 *
+	 * A device that only shares another device's group, added with
+	 * iommu_group_add_device() and having no requester ID of its own, has no
+	 * per-device iommu state to keep this preference in, so it just gets
+	 * whatever the allocator returns.
 	 */
-	if (dma_limit > DMA_BIT_MASK(32) && dev->iommu->pci_32bit_workaround) {
+	if (dma_limit > DMA_BIT_MASK(32) && dev->iommu &&
+	    dev->iommu->pci_32bit_workaround) {
 		iova = alloc_iova_fast(iovad, iova_len,
 				       DMA_BIT_MASK(32) >> shift, false);
 		if (iova)
