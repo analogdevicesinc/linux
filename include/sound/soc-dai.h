@@ -551,46 +551,8 @@ static inline void *snd_soc_dai_get_drvdata(struct snd_soc_dai *dai)
 	return dev_get_drvdata(dai->dev);
 }
 
-/**
- * snd_soc_dai_set_stream() - Configures a DAI for stream operation
- * @dai: DAI
- * @stream: STREAM (opaque structure depending on DAI type)
- * @direction: Stream direction(Playback/Capture)
- * Some subsystems, such as SoundWire, don't have a notion of direction and we reuse
- * the ASoC stream direction to configure sink/source ports.
- * Playback maps to source ports and Capture for sink ports.
- *
- * This should be invoked with NULL to clear the stream set previously.
- * Returns 0 on success, a negative error code otherwise.
- */
-static inline int snd_soc_dai_set_stream(struct snd_soc_dai *dai,
-					 void *stream, int direction)
-{
-	if (dai->driver->ops->set_stream)
-		return dai->driver->ops->set_stream(dai, stream, direction);
-	else
-		return -ENOTSUPP;
-}
-
-/**
- * snd_soc_dai_get_stream() - Retrieves stream from DAI
- * @dai: DAI
- * @direction: Stream direction(Playback/Capture)
- *
- * This routine only retrieves that was previously configured
- * with snd_soc_dai_get_stream()
- *
- * Returns pointer to stream or an ERR_PTR value, e.g.
- * ERR_PTR(-ENOTSUPP) if callback is not supported;
- */
-static inline void *snd_soc_dai_get_stream(struct snd_soc_dai *dai,
-					   int direction)
-{
-	if (dai->driver->ops->get_stream)
-		return dai->driver->ops->get_stream(dai, direction);
-	else
-		return ERR_PTR(-ENOTSUPP);
-}
+int snd_soc_dai_set_stream(struct snd_soc_dai *dai, void *stream, int direction);
+void *snd_soc_dai_get_stream(struct snd_soc_dai *dai, int direction);
 
 struct snd_soc_dai *snd_soc_dai_register(struct snd_soc_component *component,
 					 struct snd_soc_dai_driver *dai_drv,
