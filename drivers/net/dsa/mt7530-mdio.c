@@ -48,6 +48,9 @@ mt7530_regmap_read(void *context, unsigned int reg, unsigned int *val)
 	u16 page, r, lo, hi;
 	int ret;
 
+	/* Callers do not check for errors, keep the value deterministic */
+	*val = 0;
+
 	page = (reg >> 6) & 0x3ff;
 	r = (reg >> 2) & 0xf;
 
