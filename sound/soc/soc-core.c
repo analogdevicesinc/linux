@@ -41,6 +41,7 @@
 #include <sound/soc-topology.h>
 #include <sound/soc-link.h>
 #include <sound/initval.h>
+#include "soc-internal.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/asoc.h>
@@ -2480,7 +2481,7 @@ EXPORT_SYMBOL_GPL(snd_soc_unregister_card);
  * Simplify DAI link configuration by removing ".-1" from device names
  * and sanitizing names.
  */
-static char *fmt_single_name(struct device *dev, int *id)
+char *snd_soc_fmt_single_name(struct device *dev, int *id)
 {
 	const char *devname = dev_name(dev);
 	char *found, *name;
@@ -2529,8 +2530,7 @@ static char *fmt_single_name(struct device *dev, int *id)
  * Simplify DAI link naming for single devices with multiple DAIs by removing
  * any ".-1" and using the DAI name (instead of device name).
  */
-static inline char *fmt_multiple_name(struct device *dev,
-		struct snd_soc_dai_driver *dai_drv)
+char *snd_soc_fmt_multiple_name(struct device *dev, struct snd_soc_dai_driver *dai_drv)
 {
 	if (dai_drv->name == NULL) {
 		dev_err(dev,
@@ -2586,9 +2586,9 @@ struct snd_soc_dai *snd_soc_register_dai(struct snd_soc_component *component,
 	 */
 	if (legacy_dai_naming &&
 	    (dai_drv->id == 0 || dai_drv->name == NULL)) {
-		dai->name = fmt_single_name(dev, &dai->id);
+		dai->name = snd_soc_fmt_single_name(dev, &dai->id);
 	} else {
-		dai->name = fmt_multiple_name(dev, dai_drv);
+		dai->name = snd_soc_fmt_multiple_name(dev, dai_drv);
 		if (dai_drv->id)
 			dai->id = dai_drv->id;
 		else
@@ -2724,7 +2724,7 @@ static int soc_component_initialize(struct snd_soc_component *component,
 	mutex_init(&component->io_mutex);
 
 	if (!component->name) {
-		component->name = fmt_single_name(dev, NULL);
+		component->name = snd_soc_fmt_single_name(dev, NULL);
 		if (!component->name) {
 			dev_err(dev, "ASoC: Failed to allocate name\n");
 			return -ENOMEM;
