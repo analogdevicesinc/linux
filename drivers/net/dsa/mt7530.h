@@ -933,18 +933,6 @@ struct mt7530_hw_stats {
 	u8		sizeof_stat;
 };
 
-struct mt7530_dummy_poll {
-	struct mt7530_priv *priv;
-	u32 reg;
-};
-
-static inline void INIT_MT7530_DUMMY_POLL(struct mt7530_dummy_poll *p,
-					  struct mt7530_priv *priv, u32 reg)
-{
-	p->priv = priv;
-	p->reg = reg;
-}
-
 int mt7530_probe_common(struct mt7530_priv *priv);
 void mt7530_remove_common(struct mt7530_priv *priv);
 

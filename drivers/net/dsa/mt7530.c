@@ -154,16 +154,6 @@ core_clear(struct mt7530_priv *priv, u32 reg, u32 val)
 	core_rmw(priv, reg, val, 0);
 }
 
-static u32
-mt7530_mii_poll(struct mt7530_dummy_poll *p)
-{
-	u32 val;
-
-	regmap_read(p->priv->regmap, p->reg, &val);
-
-	return val;
-}
-
 static int
 mt7530_fdb_cmd(struct mt7530_priv *priv, enum mt7530_fdb_cmd cmd, u32 *rsp)
 {
@@ -2379,7 +2369,6 @@ mt7530_setup(struct dsa_switch *ds)
 	struct device_node *dn = NULL;
 	struct device_node *phy_node;
 	struct device_node *mac_np;
-	struct mt7530_dummy_poll p;
 	phy_interface_t interface;
 	struct dsa_port *cpu_dp;
 	u32 id, val;
@@ -2440,9 +2429,8 @@ mt7530_setup(struct dsa_switch *ds)
 	}
 
 	/* Waiting for MT7530 got to stable */
-	INIT_MT7530_DUMMY_POLL(&p, priv, MT753X_TRAP);
-	ret = readx_poll_timeout(mt7530_mii_poll, &p, val, val != 0,
-				 20, 1000000);
+	ret = regmap_read_poll_timeout(priv->regmap, MT753X_TRAP, val,
+				       val != 0, 20, 1000000);
 	if (ret < 0) {
 		dev_err(priv->dev, "reset timeout\n");
 		return ret;
@@ -2665,7 +2653,6 @@ static int
 mt7531_setup(struct dsa_switch *ds)
 {
 	struct mt7530_priv *priv = ds->priv;
-	struct mt7530_dummy_poll p;
 	u32 val, id;
 	int ret, i;
 
@@ -2683,9 +2670,8 @@ mt7531_setup(struct dsa_switch *ds)
 	}
 
 	/* Waiting for MT7530 got to stable */
-	INIT_MT7530_DUMMY_POLL(&p, priv, MT753X_TRAP);
-	ret = readx_poll_timeout(mt7530_mii_poll, &p, val, val != 0,
-				 20, 1000000);
+	ret = regmap_read_poll_timeout(priv->regmap, MT753X_TRAP, val,
+				       val != 0, 20, 1000000);
 	if (ret < 0) {
 		dev_err(priv->dev, "reset timeout\n");
 		return ret;
