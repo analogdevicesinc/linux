@@ -1452,8 +1452,8 @@ static inline int kvm_max_evtchn_port(struct kvm *kvm)
 	return max_evtchn_port(kvm_xen_has_64bit_shinfo(kvm));
 }
 
-static bool wait_pending_event(struct kvm_vcpu *vcpu, int nr_ports,
-			       evtchn_port_t *ports)
+static bool wait_pending_event(struct kvm_vcpu *vcpu, bool has_64bit_shinfo,
+			       int nr_ports, evtchn_port_t *ports)
 {
 	struct kvm *kvm = vcpu->kvm;
 	struct gfn_to_pfn_cache *gpc = &kvm->arch.xen.shinfo_cache;
@@ -1468,7 +1468,7 @@ static bool wait_pending_event(struct kvm_vcpu *vcpu, int nr_ports,
 		goto out_rcu;
 
 	ret = false;
-	if (kvm_xen_has_64bit_shinfo(kvm)) {
+	if (has_64bit_shinfo) {
 		struct shared_info *shinfo = gpc->khva;
 		pending_bits = (unsigned long *)&shinfo->evtchn_pending;
 	} else {
@@ -1493,6 +1493,7 @@ static bool wait_pending_event(struct kvm_vcpu *vcpu, int nr_ports,
 static bool kvm_xen_schedop_poll(struct kvm_vcpu *vcpu, bool is_64bit,
 				 u64 param, u64 *r)
 {
+	bool has_64bit_shinfo = kvm_xen_has_64bit_shinfo(vcpu->kvm);
 	struct sched_poll sched_poll;
 	evtchn_port_t port, *ports;
 	struct x86_exception e;
@@ -1551,7 +1552,7 @@ static bool kvm_xen_schedop_poll(struct kvm_vcpu *vcpu, bool is_64bit,
 	}
 
 	for (i = 0; i < sched_poll.nr_ports; i++) {
-		if (ports[i] >= kvm_max_evtchn_port(vcpu->kvm)) {
+		if (ports[i] >= max_evtchn_port(has_64bit_shinfo)) {
 			*r = -EINVAL;
 			goto out;
 		}
@@ -1564,7 +1565,7 @@ static bool kvm_xen_schedop_poll(struct kvm_vcpu *vcpu, bool is_64bit,
 
 	set_bit(vcpu->vcpu_idx, vcpu->kvm->arch.xen.poll_mask);
 
-	if (!wait_pending_event(vcpu, sched_poll.nr_ports, ports)) {
+	if (!wait_pending_event(vcpu, has_64bit_shinfo, sched_poll.nr_ports, ports)) {
 		kvm_set_mp_state(vcpu, KVM_MP_STATE_HALTED);
 
 		if (sched_poll.timeout)
