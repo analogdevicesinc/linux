@@ -789,7 +789,7 @@ DEFINE_GUARD_COND(__priv__iio_dev_mode_lock, _try_direct,
  *
  * Tries to acquire the direct mode lock with cleanup ACQUIRE() semantics and
  * automatically releases it at the end of the scope. It most be always paired
- * with IIO_DEV_ACQUIRE_ERR(), for example (notice the scope braces)::
+ * with IIO_DEV_ACQUIRE_FAILED(), for example (notice the scope braces)::
  *
  *	switch() {
  *	case IIO_CHAN_INFO_RAW: {
