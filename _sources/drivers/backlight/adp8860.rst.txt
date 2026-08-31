@@ -187,7 +187,7 @@ The LED class allows control of LEDs from userspace. LEDs appear in
 /sys/class/leds/. The brightness file will set the brightness of the LED (taking
 a value 0-255). The LEDS class also introduces the optional concept of an LED
 trigger. A trigger is a kernel based source of led events, such as ide-disk or
-backlight control. For more information read linux/Documentaion/leds-class.txt
+backlight control. For more information, read :external+upstream:doc:`leds/leds-class`.
 
 ::
 

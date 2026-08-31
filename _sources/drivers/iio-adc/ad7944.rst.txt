@@ -40,7 +40,7 @@ Status
 
 **Note:** In order to achieve the maximum sample rate, using a SPI offload such
 as the
-`AXI SPI Engine <http://analogdevicesinc.github.io/hdl/library/spi_engine/index.html>`__
+:external+hdl:ref:`spi_engine`
 is required. This feature is not yet supported in mainline Linux.
 
 Files
@@ -66,7 +66,7 @@ Devicetree configuration
 The devicetree (``.dts`` file) describes how the chip is wired up. The example
 devicetree linked above is for the evaluation board with the FMCZ connector
 using the default jumper positions and the
-`Pulsar ADC HDL project <http://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html>`__
+:external+hdl:ref:`pulsar_adc`
 compiled with ``make FMC_N_PMOD=1 SPI_OP_MODE=2``.
 
 If you change any jumpers on the evaluation board or modify the HDL project, you
@@ -119,7 +119,7 @@ ADC. The SDI pin of the ADC is hard-wired high.
    adi,spi-mode = "single";
 
 If using the
-`Pulsar ADC HDL project <http://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html>`__,
+:external+hdl:ref:`pulsar_adc`,
 with the FMCZ eval board, compile using the HDL using the ``make FMC_N_PMOD=1
 SPI_OP_MODE=2`` options. And add the following extra node to the top level of
 the devicetree to pull the SDI pin high.
@@ -150,7 +150,7 @@ omitted, but GPIO connected to the CNV pin needs to be specified.
    cnv-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
 
 If using the
-`Pulsar ADC HDL project <http://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html>`__,
+:external+hdl:ref:`pulsar_adc`,
 with the FMCZ eval board, compile using the HDL using the ``make FMC_N_PMOD=1
 SPI_OP_MODE=1`` options.
 
@@ -170,7 +170,7 @@ in the chain. The SDI pin of the last ADC in the chain is hard-wired low.
 Change ``#daisy-chained-devices`` to the actual number of devices in the chain.
 
 If using the
-`Pulsar ADC HDL project <http://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html>`__,
+:external+hdl:ref:`pulsar_adc`,
 with the FMCZ eval board, compile using the HDL using the ``make FMC_N_PMOD=1
 SPI_OP_MODE=2`` options. And add the following extra node to the top level of
 the devicetree to pull the SDI pin low.

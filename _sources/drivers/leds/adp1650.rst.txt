@@ -167,7 +167,7 @@ The LED class allows control of LEDs from userspace. LEDs appear in
 a value 0-255).
 
 For more information read
-`linux/Documentaion/leds-class.txt <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/linux/Documentaion/leds-class.txt>`__
+:external+upstream:doc:`leds/leds-class`
 
 ::
 

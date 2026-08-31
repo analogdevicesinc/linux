@@ -176,7 +176,7 @@ Parallel
 
 When using the parallel bus, the ADC node is a child of a parallel bus
 controller. In particular, the driver currently only supports the
-`AXI AD7606x <https://analogdevicesinc.github.io/hdl/library/axi_ad7606x/index.html>`__
+:external+hdl:ref:`axi_ad7606x`
 FPGA IP block for parallel bus. In addition to being the child of the parallel
 controller, the ADC node also needs a ``io-backends`` property to link it to the
 AXI AD7606X IP block.

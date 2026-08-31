@@ -64,13 +64,13 @@ Devicetree Configuration
 
 The devicetree (``.dts`` file) describes how the chip is wired up. The examples
 linked above are for evaluation boards connected to a Zedboard and using the
-`PULSAR-LVDS HDL Project <https://analogdevicesinc.github.io/hdl/projects/pulsar_lvds/index.html>`__.
+:external+hdl:ref:`pulsar_lvds_adc`.
 Depending on the desired configuration for the AD762x/AD796x devices in your
 design, you may need to alter the devicetree for use.
 
 The ADC has a number of EN (``enable``) GPIOs that define its operational mode.
 In the
-`PULSAR-LVDS HDL Project <https://analogdevicesinc.github.io/hdl/projects/pulsar_lvds/index.html#gpios>`__,
+:external+hdl:ref:`pulsar_lvds_adc`,
 these are identified as EN0 through EN3, with EN2 and EN3 only being
 present/instantiated for the AD796x ADCs. Both subfamilies support the use of
 two devicetree fields for indicating to the driver which mode the device should
@@ -321,9 +321,9 @@ elsewhere in the devicetree:
    };
 
 Where the
-`AXI CLK Generator <https://analogdevicesinc.github.io/hdl/library/axi_clkgen/index.html>`__
+:external+hdl:ref:`axi_clkgen`
 and
-`AXI PWM Generator <https://analogdevicesinc.github.io/hdl/library/axi_pwm_gen/index.html>`__
+:external+hdl:ref:`axi_pwm_gen`
 drivers are used, respectively.
 
 Linux Driver

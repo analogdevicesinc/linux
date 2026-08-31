@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="SSM4329 Sound CODEC Linux Driver." name="description" />
+
+    <title>SSM4329 &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=fb8972a4" />
+    <script async="async" src="../../../_static/app.umd.js?v=26d0298f"></script>
+    <link rel="icon" href="../../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex/" />
+    <link rel="search" title="Search" href="../../../search/" />
+    <link rel="next" title="SSM4567" href="../ssm4567/" />
+    <link rel="prev" title="SSM2602" href="../ssm2602/" />
+   
+  
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://developer.analog.com/" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Documentation</label>
+        
+        <a id="logo" href="../../../">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">SSM4329</a><ul>
+<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
+<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
+<li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
+<li><a class="reference internal" href="#alsa-controls">ALSA Controls</a></li>
+<li><a class="reference internal" href="#sigmadsp-firmware">SigmaDSP Firmware</a></li>
+<li><a class="reference internal" href="#pll-configuration">PLL configuration</a></li>
+<li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
+<li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
+<li><a class="reference internal" href="#tdm-configuration">TDM configuration</a></li>
+<li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More information</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../../">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../../">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../backlight/adp8860/">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../backlight/adp8870/">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../clk/ad9545/">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../demo/pmod-ad1-da1-demo/">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../dma/axi-dmac/">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../drm/adv7511/">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../drm/hdl-axi-hdmi/">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../gpio/adp5588-gpio/">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../hwmon/axi_fan_control/">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../hwmon/ltc2947/">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-accelerometer/adis16201/">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-accelerometer/adis16203/">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-accelerometer/adis16209/">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-accelerometer/adis16240/">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-accelerometer/adxl313/">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-accelerometer/adxl355/">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-accelerometer/adxl367/">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-accelerometer/adxl372/">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad400x/">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad4030/">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad4134/">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad4170/">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad4630/">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad463x/">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad4695/">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad6676/">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7091r5/">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7091r8/">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7124/">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7173/">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7192/">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7266/">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7280a/">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7291/">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7298/">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad738x/">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7476a/">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7606/">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7625/">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7766/">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7768/">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7768-1/">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7780/">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7791/">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7793/">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7887/">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7944/">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad7998/">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad9083/">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ad9208/">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/adaq8092/">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/adas1000/">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/axi-adc-hdl/">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/axi-jesd204b-gt-hdl/">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/axi-jesd204b-hdl/">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ltc2358/">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ltc2387/">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/ltc2499/">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/max11205/">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/max14001/">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-adc/max22531/">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-addac/ad74413r/">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-amplifiers/ad8366/">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-amplifiers/ada4250/">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-amplifiers/hmc425a/">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7150/">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7152/">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5421/">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5446/">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5449/">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5504/">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5592r/">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5593r/">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5624r/">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5676/">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5755/">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5758/">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5764/">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5770r/">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9832/">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9834/">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dds/axi-dac-dds-hdl/">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-filter/admv8818/">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-gyroscope/adis16060/">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-gyroscope/adis16080/">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-gyroscope/adis16130/">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-gyroscope/adis16136/">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-gyroscope/adis16260/">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-gyroscope/adxrs450/">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-impedance-analyzer/ad5933/">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-inertial-measurement-units/adis16400/">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-inertial-measurement-units/adis16475/">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-inertial-measurement-units/adis16480/">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-logic/axi-aion-trig/">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/ad9162/">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/ad9508/">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/ad9517/">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/ad9523/">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/ad9528/">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/adf4159/">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/adf4350/">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/adf4360/">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/adf4371/">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/adf4377/">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/adf4382/">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/adf5355/">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/admfm2000/">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/admv1013/">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/admv1014/">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/adrf6780/">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/hmc7044/">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-pll/ltc6952/">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-resolver/ad2s1200/">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-resolver/ad2s1210/">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-resolver/ad2s90/">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-synchronizer/adf4030/">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-temperature/ltc2983/">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/ad9361/">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/ad9361-customization/">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/ad9371/">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/ad9371-customization/">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adar1000/">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adar4000/">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv9002/">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv9002-customization/">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv9009/">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv9009-customization/">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv9025/">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv9025-customization/">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv904x/">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv904x-customization/">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-trx-rf/ad9081/">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-vector-power/adl5960/">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../input-keyboard/adp5588/">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../input-keyboard/adp5589/">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../input-misc/ad714x/">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../input-misc/adxl345/">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../input-misc/adxl362/">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../input-touchscreen/ad7873/">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../input-touchscreen/ad7877/">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../input-touchscreen/ad7879/">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../jesd204/axi_adxcvr/">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../jesd204/axi_jesd204_rx/">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../jesd204/axi_jesd204_tx/">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../jesd204/jesd204-fsm-framework/">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../leds/adp1650/">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../misc/axi-hsci/">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../misc/axi-tdd/">AXI TDD</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../misc/dpot/">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../multifunction-device/adp5520/">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../mux/adgs1408/">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../net-mac-phy/adin1110/">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../net-mac-phy/adin2111/">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../net-mac-phy/open_alliance/">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../net-phy/adin/">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../net-phy/adin1100/">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../net-phy/adin1320/">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../networking-mac802154/adf7242/">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../pmbus/adm1275/">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../regulator/ad5398/">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../regulator/adp150/">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../serial/max310x/">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad1835a/">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad1936/">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad73322/">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adau1361/">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adau1372/">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adau1373/">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adau1381/">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adau1701/">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adau1860/">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adau1977/">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adau7002/">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adau7118/">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adav801/">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hdl-axi-i2s/">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hdl-axi-spidf/">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ssm2518/">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ssm2602/">SSM2602</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ssm4567/">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../spi/spi_engine/">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../../iio-trx-rf/ad9088/">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../iio-trx-rf/ad9088/mcs/">Multi-Chip Synchronization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../iio-trx-rf/ad9088/gpio/">GPIO usage</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contribute/">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../ci/">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../mainline/">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../../">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="ssm4329">
+<span id="id1"></span><h1>SSM4329<a class="headerlink" href="#ssm4329" title="Link to this heading"></a></h1>
+<p>SSM4329 Sound CODEC Linux Driver.</p>
+<section id="supported-devices">
+<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
+<section id="status">
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Mainlined?</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/asoc-ssm4329/sound/soc/codecs/ssm4329.c" target="_blank">ADI tree</a></p></td>
+<td><p>No</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="files">
+<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/asoc-ssm4329/sound/soc/codecs/ssm4329.c" target="_blank">sound/soc/codecs/ssm4329.c</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/asoc-ssm4329/sound/soc/codecs/ssm4329.h" target="_blank">sound/soc/codecs/ssm4329.h</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+</section>
+<section id="example-device-initialization">
+<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<p>For compile time configuration, it’s common Linux practice to keep board- and
+application-specific configuration out of the main driver file, instead putting
+it into the board support file.</p>
+<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
+based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
+describing devices and how they are connected to the SoC. This can include
+available ports, chip variants, preferred modes, default initialization,
+additional pin roles, and so on. This shrinks the board-support packages (BSPs)
+and minimizes board and application specific #ifdefs in drivers.</p>
+<p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
+Instead, the software must know which devices are connected on each I2C bus
+segment, and what address these devices are using. For this reason, the kernel
+code must instantiate I2C devices explicitly. There are different ways to
+achieve this, depending on the context and requirements. However the most
+common method is to declare the I2C devices by bus number.</p>
+<p>This method is appropriate when the I2C bus is a system bus, as in many
+embedded systems, wherein each I2C bus has a number which is known in advance.
+It is thus possible to pre-declare the I2C devices that inhabit this bus. This
+is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_board_info</span></code>, which is registered by
+calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
+<p>So, to enable such a driver one need only edit the board support file by adding
+an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc1)"><span>How to instantiate I2C devices</span></a></p>
+<p>The I2C address of the SSM4329 depends on the setting of the ADDR0 and ADDR1
+pins</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>ADDR0</p></th>
+<th class="head"><p>ADDR1</p></th>
+<th class="head"><p>I2C Address</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>0</p></td>
+<td><p>0x34</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>0</p></td>
+<td><p>0x35</p></td>
+</tr>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>1</p></td>
+<td><p>0x36</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>1</p></td>
+<td><p>0x37</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"ssm4329"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">stamp_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+<span class="w">    </span><span class="n">i2c_register_board_info</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">,</span>
+<span class="w">                </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">bfin_i2c_board_info</span><span class="p">));</span>
+<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">arch_initcall</span><span class="p">(</span><span class="n">board_init</span><span class="p">);</span>
+</pre></div>
+</div>
+<section id="devicetree">
+<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i2s</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"...;</span>
+    <span class="o">...</span>
+
+    <span class="c1">#size-cells = &lt;0&gt;;</span>
+    <span class="c1">#address-cells = &lt;1&gt;;</span>
+
+    <span class="n">ssm4329</span><span class="p">:</span> <span class="n">ssm4329</span><span class="o">@</span><span class="mi">34</span> <span class="p">{</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ssm4329"</span><span class="p">;</span>
+        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x34</span><span class="o">&gt;</span><span class="p">;</span>
+        <span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span> <span class="mi">5</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="asoc-dapm-widgets">
+<h3>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>OUT</p></td>
+<td><p>Class-D Amplifier Output</p></td>
+</tr>
+<tr class="row-odd"><td><p>AIN</p></td>
+<td><p>Mono ADC Input</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="alsa-controls">
+<h3>ALSA Controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>DAC Playback Switch</p></td>
+<td><p>Mutes/Unmutes the DAC path</p></td>
+</tr>
+<tr class="row-odd"><td><p>DAC Playback Volume</p></td>
+<td><p>Configures the digital Volume of the DAC</p></td>
+</tr>
+<tr class="row-even"><td><p>DAC Clip Point Volume</p></td>
+<td><p>Configures the cliping point of the DAC</p></td>
+</tr>
+<tr class="row-odd"><td><p>Interpolator Playback Volume</p></td>
+<td><p>Configures the digital Volume of the Interpolator</p></td>
+</tr>
+<tr class="row-even"><td><p>Interpolator Clip Point Volume</p></td>
+<td><p>Configures the cliping point of the DAC</p></td>
+</tr>
+<tr class="row-odd"><td><p>ADC Playback Switch</p></td>
+<td><p>Mutes/Unmutes the ADC path</p></td>
+</tr>
+<tr class="row-even"><td><p>ADC Capture Volume</p></td>
+<td><p>Configures the digital Volume of the ADC</p></td>
+</tr>
+<tr class="row-odd"><td><p>DAC High Pass Filter Switch</p></td>
+<td><p>Enables/Disables the High Pass Filter for the DAC</p></td>
+</tr>
+<tr class="row-even"><td><p>DAC Low-power Switch</p></td>
+<td><p>Enables/Disables Low-power mode for the DAC</p></td>
+</tr>
+<tr class="row-odd"><td><p>ADC High Pass Filter Switch</p></td>
+<td><p>Enables/Disables the High Pass Filter for the ADC</p></td>
+</tr>
+<tr class="row-even"><td><p>ADC Low-power Switch</p></td>
+<td><p>Enables/Disables Low-power mode for the DAC</p></td>
+</tr>
+<tr class="row-odd"><td><p>Interpolator Playback Switch</p></td>
+<td><p>Mute/Unmutes the Interpolator path</p></td>
+</tr>
+<tr class="row-even"><td><p>Low-EMI Mode Playback Switch</p></td>
+<td><p>Enables/Disables Low-EMI mode for the Class-D stage</p></td>
+</tr>
+<tr class="row-odd"><td><p>Amplifier Boost Switch</p></td>
+<td><p>Enables/Disables the boost of of the Class-D stage</p></td>
+</tr>
+<tr class="row-even"><td><p>DAC Playback Mux</p></td>
+<td><p>Selects the audio source for the DAC. Possible values: <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Interpolator Playback Mux</p></td>
+<td><p>Selects the audio source for the Interpolator path. Possible values:
+<code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p>Serial Port 1 Channel 1 Output Mux</p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
+<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
+<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Serial Port 1 Channel 2 Output Mux</p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
+<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
+<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Serial Port 1 Channel 3 Output Mux</p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
+<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
+<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Serial Port 1 Channel 4 Output Mux</p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
+<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
+<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Serial Port 2 Channel 1 Output Mux</p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
+<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
+<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Serial Port 2 Channel 2 Output Mux</p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
+<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
+<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Serial Port 2 Channel 3 Output Mux</p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
+<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
+<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Serial Port 2 Channel 4 Output Mux</p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
+<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
+<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Input SRC Channel 1 Mux</p></td>
+<td><p>Select the audio source for the sample-rate-converter channel 1. Possible
+values: <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span> <span class="pre">Channel</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span> <span class="pre">Channel</span> <span class="pre">3</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">3</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">DSP</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Input SRC Channel 2 Mux</p></td>
+<td><p>Select the audio source for the input sample-rate-converter channel 2.
+Possible values: <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span> <span class="pre">Channel</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span> <span class="pre">Channel</span>
+<span class="pre">4</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">4</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">DSP</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p>Output SRC Channel 1 Mux</p></td>
+<td><p>Selects the audio source for the output sample-rate converter channel 1.
+Possible values: <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">Input</span> <span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Output SRC Channel 2 Mux</p></td>
+<td><p>Selects the audio source for the output sample-rate converter channel 2.
+Possible values: <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">Input</span> <span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="sigmadsp-firmware">
+<h3>SigmaDSP Firmware<a class="headerlink" href="#sigmadsp-firmware" title="Link to this heading"></a></h3>
+<p>In order to use the SigmaDSP core of the SSM4329 you need to provide a firmware
+file. Please refer to the
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/sigmadsp_genfirmware" target="_blank">SigmaDSP Firmware Utility for Linux</a>
+page on how to generate a firmware file. The firmware file for SSM4329 driver
+has to be named <strong>ssm4329.bin</strong>.</p>
+</section>
+<section id="pll-configuration">
+<h3>PLL configuration<a class="headerlink" href="#pll-configuration" title="Link to this heading"></a></h3>
+<p>To configure the PLL of the device the <code class="docutils literal notranslate"><span class="pre">snd_soc_codec_set_pll()</span></code> function can
+be used. It should be used to configure the internal PLL correctly depending on
+the external clock source and the desired sampling rate. The <code class="docutils literal notranslate"><span class="pre">clk_id</span></code>
+parameter must always be <code class="docutils literal notranslate"><span class="pre">SSM4329_PLL</span></code>. The <code class="docutils literal notranslate"><span class="pre">source</span></code> parameter must be one
+of the input clock source constants listed below. The freq_in parameter must be
+in the range of 8000 to 2700000, this needs to match the frequency of the
+selected input clock source. The freq_out parameter should typically be
+98304000.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#define SSM4329_PLL 0</span>
+
+<span class="cp">#define SSM4329_PLL_SRC_MCLKIN  0</span>
+<span class="cp">#define SSM4329_PLL_SRC_FSYNC1  1</span>
+<span class="cp">#define SSM4329_PLL_SRC_BCLK1   2</span>
+<span class="cp">#define SSM4329_PLL_SRC_FSYNC2  3</span>
+<span class="cp">#define SSM4329_PLL_SRC_BCLK2   4</span>
+</pre></div>
+</div>
+</section>
+<section id="dai-configuration">
+<h3>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
+<p>The codec driver registers two DAIs, one for each serial port. The DAIs are
+named <strong>``ssm4329-sp0``</strong> and <strong>``ssm4329-sp1``</strong>.</p>
+<section id="supported-dai-formats">
+<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Supported by driver</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>SND_SOC_DAIFMT_I2S</p></td>
+<td><p>yes</p></td>
+<td><p>I2S mode</p></td>
+</tr>
+<tr class="row-odd"><td><p>SND_SOC_DAIFMT_RIGHT_J</p></td>
+<td><p>yes</p></td>
+<td><p>Right Justified mode</p></td>
+</tr>
+<tr class="row-even"><td><p>SND_SOC_DAIFMT_LEFT_J</p></td>
+<td><p>yes</p></td>
+<td><p>Left Justified mode</p></td>
+</tr>
+<tr class="row-odd"><td><p>SND_SOC_DAIFMT_DSP_A</p></td>
+<td><p>yes</p></td>
+<td><p>data MSB after FRM LRC</p></td>
+</tr>
+<tr class="row-even"><td><p>SND_SOC_DAIFMT_DSP_B</p></td>
+<td><p>yes</p></td>
+<td><p>data MSB during FRM LRC</p></td>
+</tr>
+<tr class="row-odd"><td><p>SND_SOC_DAIFMT_AC97</p></td>
+<td><p>no</p></td>
+<td><p>AC97 mode</p></td>
+</tr>
+<tr class="row-even"><td><p>SND_SOC_DAIFMT_PDM</p></td>
+<td><p>no</p></td>
+<td><p>Pulse density modulation</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>SND_SOC_DAIFMT_NB_NF</p></td>
+<td><p>yes</p></td>
+<td><p>Normal bit- and frameclock</p></td>
+</tr>
+<tr class="row-odd"><td><p>SND_SOC_DAIFMT_NB_IF</p></td>
+<td><p>yes</p></td>
+<td><p>Normal bitclock, inverted frameclock</p></td>
+</tr>
+<tr class="row-even"><td><p>SND_SOC_DAIFMT_IB_NF</p></td>
+<td><p>yes</p></td>
+<td><p>Inverted frameclock, normal bitclock</p></td>
+</tr>
+<tr class="row-odd"><td><p>SND_SOC_DAIFMT_IB_IF</p></td>
+<td><p>yes</p></td>
+<td><p>Inverted bit- and frameclock</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>SND_SOC_DAIFMT_CBM_CFM</p></td>
+<td><p>yes</p></td>
+<td><p>Codec bit- and frameclock master</p></td>
+</tr>
+<tr class="row-even"><td><p>SND_SOC_DAIFMT_CBS_CFM</p></td>
+<td><p>yes</p></td>
+<td><p>Codec bitclock slave, frameclock master</p></td>
+</tr>
+<tr class="row-odd"><td><p>SND_SOC_DAIFMT_CBM_CFS</p></td>
+<td><p>yes</p></td>
+<td><p>Codec bitclock master, frameclock slave</p></td>
+</tr>
+<tr class="row-even"><td><p>SND_SOC_DAIFMT_CBS_CFS</p></td>
+<td><p>yes</p></td>
+<td><p>Codec bit- and frameclock slave</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="tdm-configuration">
+<h4>TDM configuration<a class="headerlink" href="#tdm-configuration" title="Link to this heading"></a></h4>
+<p>If you want to use the SSM4329 in TDM mode you can configure it using
+snd_soc_dai_set_tdm_slot() from you ASoC board driver.</p>
+<p>The following restrictions apply to the parameters of
+snd_soc_dai_set_tdm_slot().</p>
+<ul class="simple">
+<li><p><strong>tx_mask</strong> specifies the output channel mapping for the serial port. The
+first set bit specifies the slot for the first channel, the second set bit the
+slot for the second channel and so on.</p></li>
+<li><p><strong>rx_mask</strong> specifies the input channel mapping for the serial port. The first
+set bit specifies the slot for the first channel, the second set bit the slot
+for the second channel and so on.</p></li>
+<li><p><strong>slots</strong> must be between 1 and 16</p></li>
+<li><p><strong>width</strong> must be either 16, 24, 32</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">ssm4329_link_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_pcm_runtime</span><span class="w"> </span><span class="o">*</span><span class="n">rtd</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tdm_slot</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">codec_dai</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0c</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0c</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">ssm4329_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">...,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">init</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssm4329_link_init</span><span class="p">,</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="example-dai-configuration">
+<h4>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h4>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">"../codecs/ssm4329.h"</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">ssm4329_zed_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_pcm_runtime</span><span class="w"> </span><span class="o">*</span><span class="n">rtd</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">snd_soc_codec_set_pll</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">codec_dai</span><span class="o">-&gt;</span><span class="n">codec</span><span class="p">,</span><span class="w"> </span><span class="n">SSM4329_PLL</span><span class="p">,</span>
+<span class="w">                </span><span class="n">SSM4329_PLL_SRC_MCLKIN</span><span class="p">,</span><span class="w"> </span><span class="mi">12288000</span><span class="p">,</span><span class="w"> </span><span class="mi">2048</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">48000</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dapm_widget</span><span class="w"> </span><span class="n">ssm4329_zed_widgets</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">SND_SOC_DAPM_SPK</span><span class="p">(</span><span class="s">"Speaker Out"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">),</span>
+<span class="w">    </span><span class="n">SND_SOC_DAPM_LINEIN</span><span class="p">(</span><span class="s">"Line In"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">),</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dapm_route</span><span class="w"> </span><span class="n">ssm4329_zed_routes</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s">"Speaker Out"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">"OUT"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s">"AIN"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w">  </span><span class="s">"Line In"</span><span class="w"> </span><span class="p">}</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">ssm4329_zed_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4329"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4329"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4329-sp1"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">dai_fmt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SND_SOC_DAIFMT_I2S</span><span class="w"> </span><span class="o">|</span>
+<span class="w">            </span><span class="n">SND_SOC_DAIFMT_NB_NF</span><span class="w"> </span><span class="o">|</span>
+<span class="w">            </span><span class="n">SND_SOC_DAIFMT_CBS_CFS</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">init</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssm4329_zed_init</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_card</span><span class="w"> </span><span class="n">ssm4329_zed_card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ZED SSM4329"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">owner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">THIS_MODULE</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">zed_ssm4329_dai_link</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_links</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">dapm_widgets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">zed_ssm4329_widgets</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_dapm_widgets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">zed_ssm4329_widgets</span><span class="p">),</span>
+<span class="w">    </span><span class="p">.</span><span class="n">dapm_routes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">zed_ssm4329_routes</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_dapm_routes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">zed_ssm4329_routes</span><span class="p">),</span>
+<span class="w">    </span><span class="p">.</span><span class="n">fully_routed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="more-information">
+<h3>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/sigmastudio" target="_blank">SigmaStudio</a></p></li>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/sigmadsp_genfirmware" target="_blank">SigmaDSP Firmware Utility for Linux</a></p></li>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/sigmatcp" target="_blank">SigmaStudio Network Utility for Linux</a></p></li>
+</ul>
+<p><em>Need Help?</em></p>
+<ul class="simple">
+<li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="../ssm2602/" title="Previous document (Alt+Shift+LeftArrow)" class="prev">SSM2602</a>
+    <a href="../ssm4567/" title="Next document (Alt+Shift+RightArrow)" class="next">SSM4567</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

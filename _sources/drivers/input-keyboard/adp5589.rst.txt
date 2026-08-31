@@ -18,7 +18,7 @@ Evaluation Boards
 
 - :adi:`ADP5589CP-EVALZ`
 - :adi:`ADP5585CP-EVALZ`
-- `PMOD-IOXP <http://digilentinc.com/Products/Detail.cfm?NavPath=2,401,960&Prod=PMOD-IOXP>`__
+- `PMOD-IOXP <https://digilent.com/reference/pmod/pmodioxp/start>`__
 
 Description
 -----------
