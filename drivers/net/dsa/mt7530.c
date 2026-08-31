@@ -203,16 +203,16 @@ mt7530_fdb_read(struct mt7530_priv *priv, struct mt7530_fdb *fdb)
 			__func__, __LINE__, i, reg[i]);
 	}
 
-	fdb->vid = (reg[1] >> CVID) & CVID_MASK;
-	fdb->aging = (reg[2] >> AGE_TIMER) & AGE_TIMER_MASK;
-	fdb->port_mask = (reg[2] >> PORT_MAP) & PORT_MAP_MASK;
-	fdb->mac[0] = (reg[0] >> MAC_BYTE_0) & MAC_BYTE_MASK;
-	fdb->mac[1] = (reg[0] >> MAC_BYTE_1) & MAC_BYTE_MASK;
-	fdb->mac[2] = (reg[0] >> MAC_BYTE_2) & MAC_BYTE_MASK;
-	fdb->mac[3] = (reg[0] >> MAC_BYTE_3) & MAC_BYTE_MASK;
-	fdb->mac[4] = (reg[1] >> MAC_BYTE_4) & MAC_BYTE_MASK;
-	fdb->mac[5] = (reg[1] >> MAC_BYTE_5) & MAC_BYTE_MASK;
-	fdb->noarp = ((reg[2] >> ENT_STATUS) & ENT_STATUS_MASK) == STATIC_ENT;
+	fdb->vid = FIELD_GET(CVID_MASK, reg[1]);
+	fdb->aging = FIELD_GET(AGE_TIMER_MASK, reg[2]);
+	fdb->port_mask = FIELD_GET(PORT_MAP_MASK, reg[2]);
+	fdb->mac[0] = FIELD_GET(MAC_BYTE_0_MASK, reg[0]);
+	fdb->mac[1] = FIELD_GET(MAC_BYTE_1_MASK, reg[0]);
+	fdb->mac[2] = FIELD_GET(MAC_BYTE_2_MASK, reg[0]);
+	fdb->mac[3] = FIELD_GET(MAC_BYTE_3_MASK, reg[0]);
+	fdb->mac[4] = FIELD_GET(MAC_BYTE_4_MASK, reg[1]);
+	fdb->mac[5] = FIELD_GET(MAC_BYTE_5_MASK, reg[1]);
+	fdb->noarp = FIELD_GET(ENT_STATUS_MASK, reg[2]) == STATIC_ENT;
 }
 
 static void
@@ -223,22 +223,22 @@ mt7530_fdb_write(struct mt7530_priv *priv, u16 vid,
 	u32 reg[3] = { 0 };
 	int i;
 
-	reg[1] |= vid & CVID_MASK;
+	reg[1] |= FIELD_PREP(CVID_MASK, vid);
 	reg[1] |= ATA2_IVL;
 	reg[1] |= ATA2_FID(FID_BRIDGED);
-	reg[2] |= (aging & AGE_TIMER_MASK) << AGE_TIMER;
-	reg[2] |= (port_mask & PORT_MAP_MASK) << PORT_MAP;
+	reg[2] |= FIELD_PREP(AGE_TIMER_MASK, aging);
+	reg[2] |= FIELD_PREP(PORT_MAP_MASK, port_mask);
 	/* STATIC_ENT indicate that entry is static wouldn't
 	 * be aged out and STATIC_EMP specified as erasing an
 	 * entry
 	 */
-	reg[2] |= (type & ENT_STATUS_MASK) << ENT_STATUS;
-	reg[1] |= mac[5] << MAC_BYTE_5;
-	reg[1] |= mac[4] << MAC_BYTE_4;
-	reg[0] |= mac[3] << MAC_BYTE_3;
-	reg[0] |= mac[2] << MAC_BYTE_2;
-	reg[0] |= mac[1] << MAC_BYTE_1;
-	reg[0] |= mac[0] << MAC_BYTE_0;
+	reg[2] |= FIELD_PREP(ENT_STATUS_MASK, type);
+	reg[1] |= FIELD_PREP(MAC_BYTE_5_MASK, mac[5]);
+	reg[1] |= FIELD_PREP(MAC_BYTE_4_MASK, mac[4]);
+	reg[0] |= FIELD_PREP(MAC_BYTE_3_MASK, mac[3]);
+	reg[0] |= FIELD_PREP(MAC_BYTE_2_MASK, mac[2]);
+	reg[0] |= FIELD_PREP(MAC_BYTE_1_MASK, mac[1]);
+	reg[0] |= FIELD_PREP(MAC_BYTE_0_MASK, mac[0]);
 
 	/* Write array into the ARL table */
 	for (i = 0; i < 3; i++)
@@ -380,22 +380,22 @@ mt7531_pll_setup(struct mt7530_priv *priv)
 
 	/* Step 4: program COREPLL output frequency to 500MHz */
 	regmap_read(priv->regmap, MT7531_PLLGP_CR0, &val);
-	val &= ~RG_COREPLL_POSDIV_M;
-	val |= 2 << RG_COREPLL_POSDIV_S;
+	val &= ~RG_COREPLL_POSDIV_MASK;
+	val |= RG_COREPLL_POSDIV(2);
 	regmap_write(priv->regmap, MT7531_PLLGP_CR0, val);
 	usleep_range(25, 35);
 
 	switch (xtal) {
 	case MT7531_XTAL_FSEL_25MHZ:
 		regmap_read(priv->regmap, MT7531_PLLGP_CR0, &val);
-		val &= ~RG_COREPLL_SDM_PCW_M;
-		val |= 0x140000 << RG_COREPLL_SDM_PCW_S;
+		val &= ~RG_COREPLL_SDM_PCW_MASK;
+		val |= RG_COREPLL_SDM_PCW(0x140000);
 		regmap_write(priv->regmap, MT7531_PLLGP_CR0, val);
 		break;
 	case MT7531_XTAL_FSEL_40MHZ:
 		regmap_read(priv->regmap, MT7531_PLLGP_CR0, &val);
-		val &= ~RG_COREPLL_SDM_PCW_M;
-		val |= 0x190000 << RG_COREPLL_SDM_PCW_S;
+		val &= ~RG_COREPLL_SDM_PCW_MASK;
+		val |= RG_COREPLL_SDM_PCW(0x190000);
 		regmap_write(priv->regmap, MT7531_PLLGP_CR0, val);
 		break;
 	}
@@ -1555,7 +1555,7 @@ mt7530_vlan_cmd(struct mt7530_priv *priv, enum mt7530_vlan_cmd cmd, u16 vid)
 	u32 val;
 	int ret;
 
-	val = VTCR_BUSY | VTCR_FUNC(cmd) | vid;
+	val = VTCR_BUSY | VTCR_FUNC(cmd) | VTCR_VID(vid);
 	ret = regmap_write(priv->regmap, MT7530_VTCR, val);
 	if (ret)
 		return ret;
@@ -1789,7 +1789,7 @@ mt7530_port_mdb_add(struct dsa_switch *ds, int port,
 	mt7530_fdb_write(priv, vid, 0, addr, 0, STATIC_EMP);
 	if (!mt7530_fdb_cmd(priv, MT7530_FDB_READ, NULL)) {
 		regmap_read(priv->regmap, MT7530_ATRD, &val);
-		port_mask = (val >> PORT_MAP) & PORT_MAP_MASK;
+		port_mask = FIELD_GET(PORT_MAP_MASK, val);
 	}
 
 	port_mask |= BIT(port);
@@ -1818,7 +1818,7 @@ mt7530_port_mdb_del(struct dsa_switch *ds, int port,
 	mt7530_fdb_write(priv, vid, 0, addr, 0, STATIC_EMP);
 	if (!mt7530_fdb_cmd(priv, MT7530_FDB_READ, NULL)) {
 		regmap_read(priv->regmap, MT7530_ATRD, &val);
-		port_mask = (val >> PORT_MAP) & PORT_MAP_MASK;
+		port_mask = FIELD_GET(PORT_MAP_MASK, val);
 	}
 
 	port_mask &= ~BIT(port);
@@ -1926,7 +1926,7 @@ mt7530_hw_vlan_update(struct mt7530_priv *priv, u16 vid,
 
 	regmap_read(priv->regmap, MT7530_VAWD1, &val);
 
-	entry->old_members = (val >> PORT_MEM_SHFT) & PORT_MEM_MASK;
+	entry->old_members = FIELD_GET(PORT_MEM_MASK, val);
 
 	/* Manipulate entry */
 	vlan_op(priv, entry);
@@ -2437,7 +2437,7 @@ mt7530_setup(struct dsa_switch *ds)
 	}
 
 	regmap_read(priv->regmap, MT7530_CREV, &id);
-	id >>= CHIP_NAME_SHIFT;
+	id = FIELD_GET(CHIP_NAME_MASK, id);
 	if (id != MT7530_ID) {
 		dev_err(priv->dev, "chip %x can't be supported\n", id);
 		return -ENODEV;
@@ -2678,7 +2678,7 @@ mt7531_setup(struct dsa_switch *ds)
 	}
 
 	regmap_read(priv->regmap, MT7531_CREV, &id);
-	id >>= CHIP_NAME_SHIFT;
+	id = FIELD_GET(CHIP_NAME_MASK, id);
 
 	if (id != MT7531_ID) {
 		dev_err(priv->dev, "chip %x can't be supported\n", id);
