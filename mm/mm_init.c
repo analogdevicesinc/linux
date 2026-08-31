@@ -1037,7 +1037,7 @@ static void zone_device_page_init_from_template(struct page *page,
 	if (!is_highmem_idx(ZONE_DEVICE))
 		set_page_address(template, __va(pfn << PAGE_SHIFT));
 #endif
-	memcpy(page, template, sizeof(*page));
+	memcpy_nontemporal(page, template, sizeof(*page));
 }
 
 /*
