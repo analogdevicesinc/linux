@@ -141,10 +141,12 @@
 	usb2_phy: usb2-phy {
 		compatible = "usb-nop-xceiv";
 		vbus-supply = <&reg_5p0v_usb>;
+		#phy-cells = <0>;
 	};
 
 	usb3_phy: usb3-phy {
 		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
 	};
 
 	soc {
