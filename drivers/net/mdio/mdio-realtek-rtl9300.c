@@ -148,6 +148,28 @@
 #define RTL8380_SMI_POLL_CTRL			0xa17c
 #define RTL8380_SMI_PORT0_5_ADDR_CTRL		0xa1c8
 
+#define RTL8390_NUM_BUSES			2
+#define RTL8390_NUM_PAGES			8192
+#define RTL8390_NUM_PORTS			52
+#define RTL8390_BCAST_PHYID_CTRL		0x03ec
+#define RTL8390_PHYREG_ACCESS_CTRL		0x03dc
+#define   RTL8390_PHY_CTRL_REG_ADDR		GENMASK(9, 5)
+#define   RTL8390_PHY_CTRL_MAIN_PAGE		GENMASK(22, 10)
+#define   RTL8390_PHY_CTRL_FAIL			BIT(1)
+#define   RTL8390_PHY_CTRL_WRITE		BIT(3)
+#define   RTL8390_PHY_CTRL_READ			0
+#define   RTL8390_PHY_CTRL_TYPE_C45		BIT(2)
+#define   RTL8390_PHY_CTRL_TYPE_C22		0
+#define RTL8390_PHYREG_CTRL			0x03e0
+#define   RTL8390_PHY_CTRL_EXT_PAGE		GENMASK(8, 0)
+#define RTL8390_PHYREG_DATA_CTRL		0x03f0
+#define   RTL8390_PHY_CTRL_INDATA		GENMASK(31, 16)
+#define   RTL8390_PHY_CTRL_DATA			GENMASK(15, 0)
+#define RTL8390_PHYREG_MMD_CTRL			0x03f4
+#define RTL8390_PHYREG_PORT_CTRL_LOW		0x03e4
+#define RTL8390_PHYREG_PORT_CTRL_HIGH		0x03e8
+#define RTL8390_SMI_PORT_POLLING_CTRL		0x03fc
+
 #define RTL9300_NUM_BUSES			4
 #define RTL9300_NUM_PAGES			4096
 #define RTL9300_NUM_PORTS			28
@@ -427,6 +449,62 @@ static int otto_emdio_8380_write_c45(struct mii_bus *bus, int port,
 	};
 
 	return otto_emdio_write_cmd(bus, RTL8380_PHY_CTRL_TYPE_C45, &cmd_data);
+}
+
+static int otto_emdio_8390_read_c22(struct mii_bus *bus, int port, int regnum, u32 *value)
+{
+	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c22_data	= FIELD_PREP(RTL8390_PHY_CTRL_REG_ADDR, regnum) |
+				  FIELD_PREP(RTL8390_PHY_CTRL_MAIN_PAGE, priv->page[port]),
+		.ext_page	= FIELD_PREP(RTL8390_PHY_CTRL_EXT_PAGE, 0x1ff),
+		.io_data	= FIELD_PREP(RTL8390_PHY_CTRL_INDATA, port),
+	};
+
+	return otto_emdio_read_cmd(bus, RTL8390_PHY_CTRL_TYPE_C22, &cmd_data,
+				   RTL8390_PHY_CTRL_DATA, value);
+}
+
+static int otto_emdio_8390_write_c22(struct mii_bus *bus, int port, int regnum, u16 value)
+{
+	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c22_data	= FIELD_PREP(RTL8390_PHY_CTRL_REG_ADDR, regnum) |
+				  FIELD_PREP(RTL8390_PHY_CTRL_MAIN_PAGE, priv->page[port]),
+		.ext_page	= FIELD_PREP(RTL8390_PHY_CTRL_EXT_PAGE, 0x1ff),
+		.io_data	= FIELD_PREP(RTL8390_PHY_CTRL_INDATA, value),
+		.port_mask_high	= (u32)(BIT_ULL(port) >> 32),
+		.port_mask_low	= (u32)(BIT_ULL(port)),
+	};
+
+	return otto_emdio_write_cmd(bus, RTL8390_PHY_CTRL_TYPE_C22, &cmd_data);
+}
+
+static int otto_emdio_8390_read_c45(struct mii_bus *bus, int port,
+				    int dev_addr, int regnum, u32 *value)
+{
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c45_data	= FIELD_PREP(PHY_CTRL_MMD_DEVAD, dev_addr) |
+				  FIELD_PREP(PHY_CTRL_MMD_REG, regnum),
+		.io_data	= FIELD_PREP(RTL8390_PHY_CTRL_INDATA, port),
+	};
+
+	return otto_emdio_read_cmd(bus, RTL8390_PHY_CTRL_TYPE_C45, &cmd_data,
+				   RTL8390_PHY_CTRL_DATA, value);
+}
+
+static int otto_emdio_8390_write_c45(struct mii_bus *bus, int port,
+				     int dev_addr, int regnum, u16 value)
+{
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c45_data	= FIELD_PREP(PHY_CTRL_MMD_DEVAD, dev_addr) |
+				  FIELD_PREP(PHY_CTRL_MMD_REG, regnum),
+		.io_data	= FIELD_PREP(RTL8390_PHY_CTRL_INDATA, value),
+		.port_mask_high	= (u32)(BIT_ULL(port) >> 32),
+		.port_mask_low	= (u32)(BIT_ULL(port)),
+	};
+
+	return otto_emdio_write_cmd(bus, RTL8390_PHY_CTRL_TYPE_C45, &cmd_data);
 }
 
 static int otto_emdio_9300_read_c22(struct mii_bus *bus, int port, int regnum, u32 *value)
@@ -980,6 +1058,29 @@ static const struct otto_emdio_info otto_emdio_8380_info = {
 	.write_c45 = otto_emdio_8380_write_c45,
 };
 
+static const struct otto_emdio_info otto_emdio_8390_info = {
+	.cmd_fail = RTL8390_PHY_CTRL_FAIL,
+	.cmd_read = RTL8390_PHY_CTRL_READ,
+	.cmd_write = RTL8390_PHY_CTRL_WRITE,
+	.cmd_regs = {
+		.broadcast = RTL8390_BCAST_PHYID_CTRL,
+		.c22_data = RTL8390_PHYREG_ACCESS_CTRL,
+		.c45_data = RTL8390_PHYREG_MMD_CTRL,
+		.ext_page = RTL8390_PHYREG_CTRL,
+		.io_data = RTL8390_PHYREG_DATA_CTRL,
+		.port_mask_low = RTL8390_PHYREG_PORT_CTRL_LOW,
+		.port_mask_high = RTL8390_PHYREG_PORT_CTRL_HIGH,
+	},
+	.num_buses = RTL8390_NUM_BUSES,
+	.num_pages = RTL8390_NUM_PAGES,
+	.num_ports = RTL8390_NUM_PORTS,
+	.poll_ctrl = RTL8390_SMI_PORT_POLLING_CTRL,
+	.read_c22 = otto_emdio_8390_read_c22,
+	.read_c45 = otto_emdio_8390_read_c45,
+	.write_c22 = otto_emdio_8390_write_c22,
+	.write_c45 = otto_emdio_8390_write_c45,
+};
+
 static const struct otto_emdio_info otto_emdio_9300_info = {
 	.addr_map_base = RTL9300_SMI_PORT0_5_ADDR_CTRL,
 	.bus_map_base = RTL9300_SMI_PORT0_15_POLLING_SEL,
@@ -1031,6 +1132,7 @@ static const struct otto_emdio_info otto_emdio_9310_info = {
 
 static const struct of_device_id otto_emdio_ids[] = {
 	{ .compatible = "realtek,rtl8380-mdio", .data = &otto_emdio_8380_info },
+	{ .compatible = "realtek,rtl8391-mdio", .data = &otto_emdio_8390_info },
 	{ .compatible = "realtek,rtl9301-mdio", .data = &otto_emdio_9300_info },
 	{ .compatible = "realtek,rtl9311-mdio", .data = &otto_emdio_9310_info },
 	{}
