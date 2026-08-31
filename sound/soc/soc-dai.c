@@ -1105,6 +1105,18 @@ void snd_soc_dai_stream_dma_data_set_i(struct snd_soc_dai *dai, int stream, void
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_stream_dma_data_set_i);
 
+unsigned int snd_soc_dai_stream_tdm_mask_get(const struct snd_soc_dai *dai, int stream)
+{
+	return dai->stream[stream].tdm_mask;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_stream_tdm_mask_get);
+
+void snd_soc_dai_stream_tdm_mask_set(struct snd_soc_dai *dai, int stream, unsigned int tdm_mask)
+{
+	dai->stream[stream].tdm_mask = tdm_mask;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_stream_tdm_mask_set);
+
 void snd_soc_dai_unregister(struct snd_soc_dai *dai)
 {
 	lockdep_assert_held(&client_mutex);

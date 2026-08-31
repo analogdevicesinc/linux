@@ -535,17 +535,8 @@ static inline void snd_soc_dai_stream_dma_data_set_s(struct snd_soc_dai *dai, st
 	int :				snd_soc_dai_stream_dma_data_set_i,	\
 	struct snd_pcm_substream * :	snd_soc_dai_stream_dma_data_set_s)(dai, x, data)
 
-static inline unsigned int snd_soc_dai_tdm_mask_get(const struct snd_soc_dai *dai,
-						    int stream)
-{
-	return dai->stream[stream].tdm_mask;
-}
-
-static inline void snd_soc_dai_tdm_mask_set(struct snd_soc_dai *dai, int stream,
-					    unsigned int tdm_mask)
-{
-	dai->stream[stream].tdm_mask = tdm_mask;
-}
+unsigned int snd_soc_dai_stream_tdm_mask_get(const struct snd_soc_dai *dai, int stream);
+void snd_soc_dai_stream_tdm_mask_set(struct snd_soc_dai *dai, int stream, unsigned int tdm_mask);
 
 static inline unsigned int snd_soc_dai_stream_active(const struct snd_soc_dai *dai,
 						     int stream)
@@ -627,6 +618,8 @@ void snd_soc_dai_unregister(struct snd_soc_dai *dai);
 #define snd_soc_dai_dma_data_set_capture(dai,  data)	snd_soc_dai_stream_dma_data_set(dai, SNDRV_PCM_STREAM_CAPTURE,  data)
 #define snd_soc_dai_set_dma_data			snd_soc_dai_stream_dma_data_set
 #define snd_soc_dai_dma_data_set			snd_soc_dai_stream_dma_data_set
+#define snd_soc_dai_tdm_mask_get			snd_soc_dai_stream_tdm_mask_get
+#define snd_soc_dai_tdm_mask_set			snd_soc_dai_stream_tdm_mask_set
 static inline void snd_soc_dai_init_dma_data(struct snd_soc_dai *dai, void *playback, void *capture)
 {
 	snd_soc_dai_stream_dma_data_set_playback(dai, playback);
