@@ -800,12 +800,29 @@ static int es8311_set_bias_level(struct snd_soc_component *component,
 	return 0;
 }
 
+static const u64 es8311_selectable_formats[] = {
+	/* Hi Priority */
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF,
+	/* Low Priority */
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF,
+};
+
 static const struct snd_soc_dai_ops es8311_dai_ops = {
 	.startup = es8311_startup,
 	.hw_params = es8311_hw_params,
 	.mute_stream = es8311_mute,
 	.set_sysclk = es8311_set_sysclk,
 	.set_fmt = es8311_set_dai_fmt,
+	.auto_selectable_formats = es8311_selectable_formats,
+	.num_auto_selectable_formats = ARRAY_SIZE(es8311_selectable_formats),
 	.no_capture_mute = 1,
 };
 
