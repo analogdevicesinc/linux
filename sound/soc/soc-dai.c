@@ -9,6 +9,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 #include <sound/soc-link.h>
+#include "soc-internal.h"
 
 #define soc_dai_ret(dai, ret) _soc_dai_ret(dai, __func__, ret)
 static inline int _soc_dai_ret(const struct snd_soc_dai *dai,
@@ -989,3 +990,22 @@ int snd_soc_dai_compr_get_metadata(struct snd_soc_dai *dai,
 	return soc_dai_ret(dai, ret);
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_compr_get_metadata);
+
+/**
+ * snd_soc_dai_add_controls - add an array of controls to a DAI.
+ * Convenience function to add a list of controls.
+ *
+ * @dai: DAI to add controls to
+ * @controls: array of controls to add
+ * @num_controls: number of elements in the array
+ *
+ * Return 0 for success, else error.
+ */
+int snd_soc_dai_add_controls(struct snd_soc_dai *dai,
+			     const struct snd_kcontrol_new *controls, int num_controls)
+{
+	struct snd_card *card = dai->component->card->snd_card;
+
+	return snd_soc_add_controls(card, dai->dev, controls, num_controls, NULL, dai);
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_add_controls);

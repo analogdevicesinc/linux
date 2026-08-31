@@ -18,5 +18,8 @@
  */
 char *snd_soc_fmt_single_name(struct device *dev, int *id);
 char *snd_soc_fmt_multiple_name(struct device *dev, struct snd_soc_dai_driver *dai_drv);
+int snd_soc_add_controls(struct snd_card *card, struct device *dev,
+			 const struct snd_kcontrol_new *controls, int num_controls,
+			 const char *prefix, void *data);
 
 #endif /* __SOC_INTERNAL_H */

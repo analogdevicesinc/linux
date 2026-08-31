@@ -213,7 +213,8 @@ int snd_soc_dai_get_channel_map(const struct snd_soc_dai *dai,
 		unsigned int *rx_num, unsigned int *rx_slot);
 
 int snd_soc_dai_is_dummy(const struct snd_soc_dai *dai);
-
+int snd_soc_dai_add_controls(struct snd_soc_dai *dai,
+			     const struct snd_kcontrol_new *controls, int num_controls);
 int snd_soc_dai_hw_params(struct snd_soc_dai *dai,
 			  struct snd_pcm_substream *substream,
 			  struct snd_pcm_hw_params *params);
