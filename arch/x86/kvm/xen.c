@@ -1485,7 +1485,7 @@ static bool wait_pending_event(struct kvm_vcpu *vcpu, int nr_ports,
 	return ret;
 }
 
-static bool kvm_xen_schedop_poll(struct kvm_vcpu *vcpu, bool longmode,
+static bool kvm_xen_schedop_poll(struct kvm_vcpu *vcpu, bool is_64bit,
 				 u64 param, u64 *r)
 {
 	struct sched_poll sched_poll;
@@ -1497,7 +1497,7 @@ static bool kvm_xen_schedop_poll(struct kvm_vcpu *vcpu, bool longmode,
 	    !(vcpu->kvm->arch.xen.hvm_config.flags & KVM_XEN_HVM_CONFIG_EVTCHN_SEND))
 		return false;
 
-	if (IS_ENABLED(CONFIG_64BIT) && !longmode) {
+	if (IS_ENABLED(CONFIG_64BIT) && !is_64bit) {
 		struct compat_sched_poll sp32;
 
 		/* Sanity check that the compat struct definition is correct */
@@ -1594,12 +1594,12 @@ static void cancel_evtchn_poll(struct timer_list *t)
 	kvm_vcpu_kick(vcpu);
 }
 
-static bool kvm_xen_hcall_sched_op(struct kvm_vcpu *vcpu, bool longmode,
+static bool kvm_xen_hcall_sched_op(struct kvm_vcpu *vcpu, bool is_64bit,
 				   int cmd, u64 param, u64 *r)
 {
 	switch (cmd) {
 	case SCHEDOP_poll:
-		if (kvm_xen_schedop_poll(vcpu, longmode, param, r))
+		if (kvm_xen_schedop_poll(vcpu, is_64bit, param, r))
 			return true;
 		fallthrough;
 	case SCHEDOP_yield:
@@ -1618,7 +1618,7 @@ struct compat_vcpu_set_singleshot_timer {
     uint32_t flags;
 } __attribute__((packed));
 
-static bool kvm_xen_hcall_vcpu_op(struct kvm_vcpu *vcpu, bool longmode, int cmd,
+static bool kvm_xen_hcall_vcpu_op(struct kvm_vcpu *vcpu, bool is_64bit, int cmd,
 				  int vcpu_id, u64 param, u64 *r)
 {
 	struct vcpu_set_singleshot_timer oneshot;
@@ -1662,7 +1662,7 @@ static bool kvm_xen_hcall_vcpu_op(struct kvm_vcpu *vcpu, bool longmode, int cmd,
 		BUILD_BUG_ON(sizeof_field(struct compat_vcpu_set_singleshot_timer, flags) !=
 			     sizeof_field(struct vcpu_set_singleshot_timer, flags));
 
-		if (kvm_read_guest_virt(vcpu, param, &oneshot, longmode ? sizeof(oneshot) :
+		if (kvm_read_guest_virt(vcpu, param, &oneshot, is_64bit ? sizeof(oneshot) :
 					sizeof(struct compat_vcpu_set_singleshot_timer), &e)) {
 			*r = -EFAULT;
 			return true;
@@ -1694,7 +1694,7 @@ static bool kvm_xen_hcall_set_timer_op(struct kvm_vcpu *vcpu, uint64_t timeout,
 
 int kvm_xen_hypercall(struct kvm_vcpu *vcpu)
 {
-	bool longmode;
+	bool is_64bit;
 	u64 input, params[6], r = -ENOSYS;
 	bool handled = false;
 	u8 cpl;
@@ -1704,8 +1704,8 @@ int kvm_xen_hypercall(struct kvm_vcpu *vcpu)
 	    kvm_hv_hypercall_enabled(vcpu))
 		return kvm_hv_hypercall(vcpu);
 
-	longmode = is_64_bit_hypercall(vcpu);
-	if (!longmode) {
+	is_64bit = is_64_bit_hypercall(vcpu);
+	if (!is_64bit) {
 		input = kvm_eax_read(vcpu);
 		params[0] = kvm_ebx_read(vcpu);
 		params[1] = kvm_ecx_read(vcpu);
@@ -1751,17 +1751,17 @@ int kvm_xen_hypercall(struct kvm_vcpu *vcpu)
 			handled = kvm_xen_hcall_evtchn_send(vcpu, params[1], &r);
 		break;
 	case __HYPERVISOR_sched_op:
-		handled = kvm_xen_hcall_sched_op(vcpu, longmode, params[0],
+		handled = kvm_xen_hcall_sched_op(vcpu, is_64bit, params[0],
 						 params[1], &r);
 		break;
 	case __HYPERVISOR_vcpu_op:
-		handled = kvm_xen_hcall_vcpu_op(vcpu, longmode, params[0], params[1],
+		handled = kvm_xen_hcall_vcpu_op(vcpu, is_64bit, params[0], params[1],
 						params[2], &r);
 		break;
 	case __HYPERVISOR_set_timer_op: {
 		u64 timeout = params[0];
 		/* In 32-bit mode, the 64-bit timeout is in two 32-bit params. */
-		if (!longmode)
+		if (!is_64bit)
 			timeout |= params[1] << 32;
 		handled = kvm_xen_hcall_set_timer_op(vcpu, timeout, &r);
 		break;
@@ -1776,7 +1776,7 @@ int kvm_xen_hypercall(struct kvm_vcpu *vcpu)
 handle_in_userspace:
 	vcpu->run->exit_reason = KVM_EXIT_XEN;
 	vcpu->run->xen.type = KVM_EXIT_XEN_HCALL;
-	vcpu->run->xen.u.hcall.longmode = longmode;
+	vcpu->run->xen.u.hcall.longmode = is_64bit;
 	vcpu->run->xen.u.hcall.cpl = cpl;
 	vcpu->run->xen.u.hcall.input = input;
 	vcpu->run->xen.u.hcall.params[0] = params[0];
