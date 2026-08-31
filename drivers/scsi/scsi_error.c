@@ -63,7 +63,7 @@ static enum scsi_disposition scsi_try_to_abort_cmd(const struct scsi_host_templa
 
 void scsi_eh_wakeup(struct Scsi_Host *shost, unsigned int busy)
 {
-	lockdep_assert_held(shost->host_lock);
+	lockdep_assert_held(&shost->host_lock);
 
 	if (busy == shost->host_failed) {
 		trace_scsi_eh_wakeup(shost);
@@ -88,9 +88,9 @@ void scsi_rcu_eh_wakeup(struct work_struct *work)
 
 	busy = scsi_host_busy(shost);
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	scsi_eh_wakeup(shost, busy);
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 }
 
 /**
@@ -103,7 +103,7 @@ void scsi_schedule_eh(struct Scsi_Host *shost)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 
 	if (scsi_host_set_state(shost, SHOST_RECOVERY) == 0 ||
 	    scsi_host_set_state(shost, SHOST_CANCEL_RECOVERY) == 0) {
@@ -111,7 +111,7 @@ void scsi_schedule_eh(struct Scsi_Host *shost)
 		queue_work(shost->tmf_work_q, &shost->eh_work);
 	}
 
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 }
 EXPORT_SYMBOL_GPL(scsi_schedule_eh);
 
@@ -201,7 +201,7 @@ scmd_eh_abort_handler(struct work_struct *work)
 		goto out;
 	}
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	list_del_init(&scmd->eh_entry);
 
 	/*
@@ -213,7 +213,7 @@ scmd_eh_abort_handler(struct work_struct *work)
 		if (shost->eh_deadline != -1)
 			shost->last_reset = 0;
 
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 
 	if (!scsi_noretry_cmd(scmd) &&
 	    scsi_cmd_retry_allowed(scmd) &&
@@ -231,9 +231,9 @@ scmd_eh_abort_handler(struct work_struct *work)
 	return;
 
 out:
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	list_del_init(&scmd->eh_entry);
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 
 	scsi_eh_scmd_add(scmd);
 }
@@ -267,12 +267,12 @@ scsi_abort_command(struct scsi_cmnd *scmd)
 		return FAILED;
 	}
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	if (shost->eh_deadline != -1 && !shost->last_reset)
 		shost->last_reset = jiffies;
 	BUG_ON(!list_empty(&scmd->eh_entry));
 	list_add_tail(&scmd->eh_entry, &shost->eh_abort_list);
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 
 	scmd->eh_eflags |= SCSI_EH_ABORT_SCHEDULED;
 	SCSI_LOG_ERROR_RECOVERY(3,
@@ -305,9 +305,9 @@ static void scsi_eh_inc_host_failed(struct rcu_head *head)
 	unsigned int busy;
 	unsigned long flags;
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	shost->host_failed++;
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 	/*
 	 * The counting of busy requests needs to occur after adding to
 	 * host_failed or after the lock acquire for adding to host_failed
@@ -315,9 +315,9 @@ static void scsi_eh_inc_host_failed(struct rcu_head *head)
 	 */
 	busy = scsi_host_busy(shost);
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	scsi_eh_wakeup(shost, busy);
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 }
 
 /**
@@ -333,7 +333,7 @@ void scsi_eh_scmd_add(struct scsi_cmnd *scmd)
 	WARN_ON_ONCE(!shost->ehandler);
 	WARN_ON_ONCE(!test_bit(SCMD_STATE_INFLIGHT, &scmd->state));
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	if (scsi_host_set_state(shost, SHOST_RECOVERY)) {
 		ret = scsi_host_set_state(shost, SHOST_CANCEL_RECOVERY);
 		WARN_ON_ONCE(ret);
@@ -343,7 +343,7 @@ void scsi_eh_scmd_add(struct scsi_cmnd *scmd)
 
 	scsi_eh_reset(scmd);
 	list_add_tail(&scmd->eh_entry, &shost->eh_cmd_q);
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 	/*
 	 * Ensure that all tasks observe the host state change before the
 	 * host_failed change.
@@ -940,9 +940,9 @@ static enum scsi_disposition scsi_try_host_reset(struct scsi_cmnd *scmd)
 	if (rtn == SUCCESS) {
 		if (!hostt->skip_settle_delay)
 			ssleep(HOST_RESET_SETTLE_TIME);
-		spin_lock_irqsave(host->host_lock, flags);
+		spin_lock_irqsave(&host->host_lock, flags);
 		scsi_report_bus_reset(host, scmd_channel(scmd));
-		spin_unlock_irqrestore(host->host_lock, flags);
+		spin_unlock_irqrestore(&host->host_lock, flags);
 	}
 
 	return rtn;
@@ -970,9 +970,9 @@ static enum scsi_disposition scsi_try_bus_reset(struct scsi_cmnd *scmd)
 	if (rtn == SUCCESS) {
 		if (!hostt->skip_settle_delay)
 			ssleep(BUS_RESET_SETTLE_TIME);
-		spin_lock_irqsave(host->host_lock, flags);
+		spin_lock_irqsave(&host->host_lock, flags);
 		scsi_report_bus_reset(host, scmd_channel(scmd));
-		spin_unlock_irqrestore(host->host_lock, flags);
+		spin_unlock_irqrestore(&host->host_lock, flags);
 	}
 
 	return rtn;
@@ -1006,10 +1006,10 @@ static enum scsi_disposition scsi_try_target_reset(struct scsi_cmnd *scmd)
 
 	rtn = hostt->eh_target_reset_handler(scmd);
 	if (rtn == SUCCESS) {
-		spin_lock_irqsave(host->host_lock, flags);
+		spin_lock_irqsave(&host->host_lock, flags);
 		__starget_for_each_device(scsi_target(scmd->device), NULL,
 					  __scsi_report_device_reset);
-		spin_unlock_irqrestore(host->host_lock, flags);
+		spin_unlock_irqrestore(&host->host_lock, flags);
 	}
 
 	return rtn;
@@ -2215,11 +2215,11 @@ static void scsi_restart_operations(struct Scsi_Host *shost)
 	SCSI_LOG_ERROR_RECOVERY(3,
 		shost_printk(KERN_INFO, shost, "waking up host to restart\n"));
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	if (scsi_host_set_state(shost, SHOST_RUNNING))
 		if (scsi_host_set_state(shost, SHOST_CANCEL))
 			BUG_ON(scsi_host_set_state(shost, SHOST_DEL));
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 
 	wake_up(&shost->host_wait);
 
@@ -2239,11 +2239,11 @@ static void scsi_restart_operations(struct Scsi_Host *shost)
 	 * recovery or scsi_device_unbusy() will wake us again when these
 	 * pending commands complete.
 	 */
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	if (shost->host_eh_scheduled)
 		if (scsi_host_set_state(shost, SHOST_RECOVERY))
 			WARN_ON(scsi_host_set_state(shost, SHOST_CANCEL_RECOVERY));
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 }
 
 /**
@@ -2335,19 +2335,19 @@ static void scsi_unjam_host(struct Scsi_Host *shost)
 	LIST_HEAD(eh_work_q);
 	LIST_HEAD(eh_done_q);
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	list_splice_init(&shost->eh_cmd_q, &eh_work_q);
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 
 	SCSI_LOG_ERROR_RECOVERY(1, scsi_eh_prt_fail_stats(shost, &eh_work_q));
 
 	if (!scsi_eh_get_sense(&eh_work_q, &eh_done_q))
 		scsi_eh_ready_devs(shost, &eh_work_q, &eh_done_q);
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	if (shost->eh_deadline != -1)
 		shost->last_reset = 0;
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 	scsi_eh_flush_done_q(&eh_done_q);
 }
 
@@ -2551,9 +2551,9 @@ scsi_ioctl_reset(struct scsi_device *dev, int __user *arg)
 
 	scmd->sc_data_direction		= DMA_BIDIRECTIONAL;
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	shost->tmf_in_progress = 1;
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 
 	switch (val & ~SG_SCSI_RESET_NO_ESCALATE) {
 	case SG_SCSI_RESET_NOTHING:
@@ -2586,9 +2586,9 @@ scsi_ioctl_reset(struct scsi_device *dev, int __user *arg)
 
 	error = (rtn == SUCCESS) ? 0 : -EIO;
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	shost->tmf_in_progress = 0;
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 
 	/*
 	 * be sure to wake up anyone who was sleeping or had their queue
