@@ -1439,7 +1439,7 @@ static int kvm_xen_hypercall_complete_userspace(struct kvm_vcpu *vcpu)
 	return kvm_xen_hypercall_set_result(vcpu, run->xen.u.hcall.result);
 }
 
-static inline int max_evtchn_port(struct kvm *kvm)
+static inline int kvm_max_evtchn_port(struct kvm *kvm)
 {
 	if (kvm_xen_has_64bit_shinfo(kvm))
 		return EVTCHN_2L_NR_CHANNELS;
@@ -1546,7 +1546,7 @@ static bool kvm_xen_schedop_poll(struct kvm_vcpu *vcpu, bool is_64bit,
 	}
 
 	for (i = 0; i < sched_poll.nr_ports; i++) {
-		if (ports[i] >= max_evtchn_port(vcpu->kvm)) {
+		if (ports[i] >= kvm_max_evtchn_port(vcpu->kvm)) {
 			*r = -EINVAL;
 			goto out;
 		}
@@ -1833,7 +1833,7 @@ int kvm_xen_set_evtchn_fast(struct kvm_xen_evtchn *xe, struct kvm *kvm)
 		WRITE_ONCE(xe->vcpu_idx, vcpu->vcpu_idx);
 	}
 
-	if (xe->port >= max_evtchn_port(kvm))
+	if (xe->port >= kvm_max_evtchn_port(kvm))
 		return -EINVAL;
 
 	rc = -EWOULDBLOCK;
@@ -1995,7 +1995,7 @@ int kvm_xen_setup_evtchn(struct kvm *kvm,
 	struct kvm_vcpu *vcpu;
 
 	/*
-	 * Don't check for the port being within range of max_evtchn_port().
+	 * Don't check for the port being within range of kvm_max_evtchn_port().
 	 * Userspace can configure what ever targets it likes; events just won't
 	 * be delivered if/while the target is invalid, just like userspace can
 	 * configure MSIs which target non-existent APICs.
@@ -2004,8 +2004,8 @@ int kvm_xen_setup_evtchn(struct kvm *kvm,
 	 * can be restored *independently* of other things like creating vCPUs,
 	 * without imposing an ordering dependency on userspace.  In this
 	 * particular case, the problematic ordering would be with setting the
-	 * Xen 'long mode' flag, which changes max_evtchn_port() to allow 4096
-	 * instead of 1024 event channels.
+	 * Xen 'long mode' flag, which changes kvm_max_evtchn_port() to allow
+	 * 4096 instead of 1024 event channels.
 	 */
 
 	/* We only support 2 level event channels for now */
@@ -2042,7 +2042,7 @@ int kvm_xen_hvm_evtchn_send(struct kvm *kvm, struct kvm_irq_routing_xen_evtchn *
 	struct kvm_xen_evtchn e;
 	int ret;
 
-	if (!uxe->port || uxe->port >= max_evtchn_port(kvm))
+	if (!uxe->port || uxe->port >= kvm_max_evtchn_port(kvm))
 		return -EINVAL;
 
 	/* We only support 2 level event channels for now */
@@ -2152,7 +2152,7 @@ static int kvm_xen_eventfd_assign(struct kvm *kvm,
 
 	case EVTCHNSTAT_interdomain:
 		if (data->u.evtchn.deliver.port.port) {
-			if (data->u.evtchn.deliver.port.port >= max_evtchn_port(kvm))
+			if (data->u.evtchn.deliver.port.port >= kvm_max_evtchn_port(kvm))
 				goto out_noeventfd; /* -EINVAL */
 		} else {
 			eventfd = eventfd_ctx_fdget(data->u.evtchn.deliver.eventfd.fd);
@@ -2270,7 +2270,7 @@ static int kvm_xen_setattr_evtchn(struct kvm *kvm, struct kvm_xen_hvm_attr *data
 	if (data->u.evtchn.flags == KVM_XEN_EVTCHN_RESET)
 		return kvm_xen_eventfd_reset(kvm);
 
-	if (!port || port >= max_evtchn_port(kvm))
+	if (!port || port >= kvm_max_evtchn_port(kvm))
 		return -EINVAL;
 
 	if (data->u.evtchn.flags == KVM_XEN_EVTCHN_DEASSIGN)
