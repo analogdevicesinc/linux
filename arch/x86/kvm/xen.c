@@ -679,13 +679,28 @@ void kvm_xen_inject_pending_events(struct kvm_vcpu *v)
 	if (kvm_xen_has_64bit_shinfo(v->kvm)) {
 		struct vcpu_info *vi = gpc->khva;
 
-		asm volatile(LOCK_PREFIX "orq %0, %1\n"
-			     "notq %0\n"
-			     LOCK_PREFIX "andq %0, %2\n"
-			     : "=r" (evtchn_pending_sel),
-			       "+m" (vi->evtchn_pending_sel),
-			       "+m" (v->arch.xen.evtchn_pending_sel)
-			     : "0" (evtchn_pending_sel));
+		if (IS_ALIGNED((unsigned long)&vi->evtchn_pending_sel, sizeof(u64)))
+			asm volatile(LOCK_PREFIX "orq %[src], %[dst]\n"
+				     : [dst] "+m" (vi->evtchn_pending_sel)
+				     : [src] "r" (evtchn_pending_sel));
+		else
+			/*
+			 * The cast keeps the shift well-defined on 32-bit,
+			 * where evtchn_pending_sel is 32 bits wide and this
+			 * branch is unreachable anyway (this is inside
+			 * kvm_xen_has_64bit_shinfo(), which is gated on
+			 * IS_ENABLED(CONFIG_64BIT)).
+			 */
+			asm volatile(LOCK_PREFIX "orl %[src_lo], %[dst_lo]\n"
+				     LOCK_PREFIX "orl %[src_hi], %[dst_hi]\n"
+				     : [dst_lo] "+m" (vi->evtchn_pending_sel),
+				       [dst_hi] "+m" (*(((u32 *)&vi->evtchn_pending_sel) + 1))
+				     : [src_lo] "r" ((u32)evtchn_pending_sel),
+				       [src_hi] "r" ((u32)((u64)evtchn_pending_sel >> 32)));
+
+		asm volatile(LOCK_PREFIX "andq %1, %0\n"
+			     : "+m" (v->arch.xen.evtchn_pending_sel)
+			     : "r" (~evtchn_pending_sel));
 		WRITE_ONCE(vi->evtchn_upcall_pending, 1);
 	} else {
 		u32 evtchn_pending_sel32 = evtchn_pending_sel;
