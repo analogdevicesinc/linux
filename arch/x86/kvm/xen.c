@@ -678,12 +678,12 @@ void kvm_xen_inject_pending_events(struct kvm_vcpu *v)
 	/* Now gpc->khva is a valid kernel address for the vcpu_info */
 	if (kvm_xen_has_64bit_shinfo(v->kvm)) {
 		struct vcpu_info *vi = gpc->khva;
+		void *vi_pending_sel = &vi->evtchn_pending_sel;
 
-		if (IS_ALIGNED((unsigned long)&vi->evtchn_pending_sel, sizeof(u64)))
-			asm volatile(LOCK_PREFIX "orq %[src], %[dst]\n"
-				     : [dst] "+m" (vi->evtchn_pending_sel)
-				     : [src] "r" (evtchn_pending_sel));
-		else
+		if (IS_ALIGNED((unsigned long)vi_pending_sel, sizeof(u64))) {
+			atomic64_or(evtchn_pending_sel, vi_pending_sel);
+		} else {
+			atomic_or(evtchn_pending_sel, vi_pending_sel);
 			/*
 			 * The cast keeps the shift well-defined on 32-bit,
 			 * where evtchn_pending_sel is 32 bits wide and this
@@ -691,28 +691,17 @@ void kvm_xen_inject_pending_events(struct kvm_vcpu *v)
 			 * kvm_xen_has_64bit_shinfo(), which is gated on
 			 * IS_ENABLED(CONFIG_64BIT)).
 			 */
-			asm volatile(LOCK_PREFIX "orl %[src_lo], %[dst_lo]\n"
-				     LOCK_PREFIX "orl %[src_hi], %[dst_hi]\n"
-				     : [dst_lo] "+m" (vi->evtchn_pending_sel),
-				       [dst_hi] "+m" (*(((u32 *)&vi->evtchn_pending_sel) + 1))
-				     : [src_lo] "r" ((u32)evtchn_pending_sel),
-				       [src_hi] "r" ((u32)((u64)evtchn_pending_sel >> 32)));
+			atomic_or((u64)evtchn_pending_sel >> 32,
+				  vi_pending_sel + 4);
+		}
 
-		asm volatile(LOCK_PREFIX "andq %1, %0\n"
-			     : "+m" (v->arch.xen.evtchn_pending_sel)
-			     : "r" (~evtchn_pending_sel));
+		atomic64_andnot(evtchn_pending_sel, (void *)&v->arch.xen.evtchn_pending_sel);
 		WRITE_ONCE(vi->evtchn_upcall_pending, 1);
 	} else {
-		u32 evtchn_pending_sel32 = evtchn_pending_sel;
 		struct compat_vcpu_info *vi = gpc->khva;
 
-		asm volatile(LOCK_PREFIX "orl %0, %1\n"
-			     "notl %0\n"
-			     LOCK_PREFIX "andl %0, %2\n"
-			     : "=r" (evtchn_pending_sel32),
-			       "+m" (vi->evtchn_pending_sel),
-			       "+m" (v->arch.xen.evtchn_pending_sel)
-			     : "0" (evtchn_pending_sel32));
+		atomic_or(evtchn_pending_sel, (void *)&vi->evtchn_pending_sel);
+		atomic_andnot(evtchn_pending_sel, (void *)&v->arch.xen.evtchn_pending_sel);
 		WRITE_ONCE(vi->evtchn_upcall_pending, 1);
 	}
 
