@@ -434,7 +434,7 @@ netdev_nl_queue_fill_lease(struct sk_buff *rsp, struct net_device *netdev,
 nla_put_failure_unlock:
 	rcu_read_unlock();
 nla_put_failure:
-	return -ENOMEM;
+	return -EMSGSIZE;
 }
 
 static int
