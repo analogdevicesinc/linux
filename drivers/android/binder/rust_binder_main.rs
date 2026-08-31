@@ -158,7 +158,7 @@ trait DeliverToRead: ListArcSafe + Send + Sync {
     /// Generally only set to true for non-oneway transactions.
     fn should_sync_wakeup(&self) -> bool;
 
-    fn debug_print(&self, m: &SeqFile, prefix: &str, transaction_prefix: &str) -> Result<()>;
+    fn debug_print(&self, m: &SeqFile, prefix: &str, transaction_prefix: &str) -> Result;
 }
 
 // Wrapper around a `DeliverToRead` with linked list links.
@@ -274,7 +274,7 @@ impl DeliverToRead for DeliverCode {
         false
     }
 
-    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result<()> {
+    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result {
         seq_print!(m, "{}", prefix);
         if self.skip.load(Relaxed) {
             seq_print!(m, "(skipped) ");
@@ -545,7 +545,7 @@ unsafe extern "C" fn rust_binder_transactions_show(
     0
 }
 
-fn rust_binder_transactions_show_impl(m: &SeqFile) -> Result<()> {
+fn rust_binder_transactions_show_impl(m: &SeqFile) -> Result {
     seq_print!(m, "binder transactions:\n");
     let contexts = context::get_all_contexts()?;
     for ctx in contexts {
@@ -558,7 +558,7 @@ fn rust_binder_transactions_show_impl(m: &SeqFile) -> Result<()> {
     Ok(())
 }
 
-fn rust_binder_stats_show_impl(m: &SeqFile) -> Result<()> {
+fn rust_binder_stats_show_impl(m: &SeqFile) -> Result {
     seq_print!(m, "binder stats:\n");
     stats::GLOBAL_STATS.debug_print("", m);
     let contexts = context::get_all_contexts()?;
@@ -572,7 +572,7 @@ fn rust_binder_stats_show_impl(m: &SeqFile) -> Result<()> {
     Ok(())
 }
 
-fn rust_binder_state_show_impl(m: &SeqFile) -> Result<()> {
+fn rust_binder_state_show_impl(m: &SeqFile) -> Result {
     seq_print!(m, "binder state:\n");
     let contexts = context::get_all_contexts()?;
     for ctx in contexts {
@@ -585,7 +585,7 @@ fn rust_binder_state_show_impl(m: &SeqFile) -> Result<()> {
     Ok(())
 }
 
-fn rust_binder_proc_show_impl(m: &SeqFile, pid: Pid) -> Result<()> {
+fn rust_binder_proc_show_impl(m: &SeqFile, pid: Pid) -> Result {
     seq_print!(m, "binder proc state:\n");
     let contexts = context::get_all_contexts()?;
     for ctx in contexts {

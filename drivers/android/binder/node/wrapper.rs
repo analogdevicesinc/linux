@@ -64,7 +64,7 @@ impl DeliverToRead for NodeWrapper {
     }
 
     #[inline(never)]
-    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result<()> {
+    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result {
         seq_print!(
             m,
             "{}node work {}: u{:016x} c{:016x}\n",

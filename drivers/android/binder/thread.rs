@@ -481,7 +481,7 @@ impl Thread {
     }
 
     #[inline(never)]
-    pub(crate) fn debug_print(self: &Arc<Self>, m: &SeqFile, print_all: bool) -> Result<()> {
+    pub(crate) fn debug_print(self: &Arc<Self>, m: &SeqFile, print_all: bool) -> Result {
         let inner = self.inner.lock();
 
         if print_all || inner.current_transaction.is_some() || !inner.work_list.is_empty() {
@@ -1280,7 +1280,7 @@ impl Thread {
         cmd: u32,
         reader: &mut UserSliceReader,
         info: &mut TransactionInfo,
-    ) -> Result<()> {
+    ) -> Result {
         let td = match cmd {
             BC_TRANSACTION | BC_REPLY => {
                 reader.read::<BinderTransactionData>()?.with_buffers_size(0)
@@ -1311,7 +1311,7 @@ impl Thread {
     }
 
     #[inline(never)]
-    fn transaction(self: &Arc<Self>, cmd: u32, reader: &mut UserSliceReader) -> Result<()> {
+    fn transaction(self: &Arc<Self>, cmd: u32, reader: &mut UserSliceReader) -> Result {
         let mut info = TransactionInfo::zeroed();
         self.read_transaction_info(cmd, reader, &mut info)?;
 
@@ -1776,7 +1776,7 @@ impl DeliverToRead for ThreadError {
         false
     }
 
-    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result<()> {
+    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result {
         seq_print!(
             m,
             "{}transaction error: {}\n",

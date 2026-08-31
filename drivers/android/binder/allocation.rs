@@ -503,7 +503,7 @@ impl BinderObject {
     /// The closure should write the bytes for the object into the provided slice.
     pub(crate) fn read_from_inner<R>(reader: R) -> Result<BinderObject>
     where
-        R: FnOnce(&mut [u8; size_of::<BinderObject>()]) -> Result<()>,
+        R: FnOnce(&mut [u8; size_of::<BinderObject>()]) -> Result,
     {
         let mut obj = MaybeUninit::<BinderObject>::zeroed();
 
