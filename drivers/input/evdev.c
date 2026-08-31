@@ -1180,8 +1180,9 @@ static long evdev_do_ioctl(struct file *file, unsigned int cmd,
 		return str_to_user(dev->uniq, size, p);
 
 	case EVIOC_MASK_SIZE(EVIOCSFF):
-		if (input_ff_effect_from_user(p, size, &effect))
-			return -EFAULT;
+		error = input_ff_effect_from_user(p, size, &effect);
+		if (error)
+			return error;
 
 		error = input_ff_upload(dev, &effect, file);
 		if (error)
