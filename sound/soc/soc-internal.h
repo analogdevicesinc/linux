@@ -16,6 +16,8 @@
 /*
  * In soc-core
  */
+extern struct mutex client_mutex;
+
 char *snd_soc_fmt_single_name(struct device *dev, int *id);
 char *snd_soc_fmt_multiple_name(struct device *dev, struct snd_soc_dai_driver *dai_drv);
 int snd_soc_add_controls(struct snd_card *card, struct device *dev,

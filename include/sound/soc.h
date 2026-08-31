@@ -1386,10 +1386,6 @@ void snd_soc_dlc_use_cpu_as_platform(struct snd_soc_dai_link_component *platform
 struct of_phandle_args *snd_soc_copy_dai_args(struct device *dev,
 					      const struct of_phandle_args *args);
 struct snd_soc_dai *snd_soc_get_dai_via_args(const struct of_phandle_args *dai_args);
-struct snd_soc_dai *snd_soc_register_dai(struct snd_soc_component *component,
-					 struct snd_soc_dai_driver *dai_drv,
-					 bool legacy_dai_naming);
-void snd_soc_unregister_dai(struct snd_soc_dai *dai);
 
 struct snd_soc_dai *snd_soc_find_dai(
 	const struct snd_soc_dai_link_component *dlc);
@@ -1552,5 +1548,7 @@ static inline void _snd_soc_dpcm_mutex_assert_held_r(struct snd_soc_pcm_runtime 
  * REMOVE ME
  */
 #define snd_soc_add_dai_controls			snd_soc_dai_add_controls
+#define snd_soc_register_dai				snd_soc_dai_register
+#define snd_soc_unregister_dai				snd_soc_dai_unregister
 
 #endif

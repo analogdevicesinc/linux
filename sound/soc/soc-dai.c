@@ -1071,3 +1071,71 @@ const char *snd_soc_dai_name(const struct snd_soc_dai *dai)
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_name);
+
+void snd_soc_dai_unregister(struct snd_soc_dai *dai)
+{
+	lockdep_assert_held(&client_mutex);
+
+	dev_dbg(dai->dev, "ASoC: Unregistered DAI '%s'\n", dai->name);
+	list_del(&dai->list);
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_unregister);
+
+/**
+ * snd_soc_dai_register - Register a DAI dynamically & create its widgets
+ *
+ * @component: The component the DAIs are registered for
+ * @dai_drv: DAI driver to use for the DAI
+ * @legacy_dai_naming: if %true, use legacy single-name format;
+ * 	if %false, use multiple-name format;
+ *
+ * Topology can use this API to register DAIs when probing a component.
+ * These DAIs's widgets will be freed in the card cleanup and the DAIs
+ * will be freed in the component cleanup.
+ */
+struct snd_soc_dai *snd_soc_dai_register(struct snd_soc_component *component,
+					 struct snd_soc_dai_driver *dai_drv,
+					 bool legacy_dai_naming)
+{
+	struct device *dev = component->dev;
+	struct snd_soc_dai *dai;
+
+	lockdep_assert_held(&client_mutex);
+
+	dai = devm_kzalloc(dev, sizeof(*dai), GFP_KERNEL);
+	if (dai == NULL)
+		return NULL;
+
+	/*
+	 * Back in the old days when we still had component-less DAIs,
+	 * instead of having a static name, component-less DAIs would
+	 * inherit the name of the parent device so it is possible to
+	 * register multiple instances of the DAI. We still need to keep
+	 * the same naming style even though those DAIs are not
+	 * component-less anymore.
+	 */
+	if (legacy_dai_naming &&
+	    (dai_drv->id == 0 || dai_drv->name == NULL)) {
+		dai->name = snd_soc_fmt_single_name(dev, &dai->id);
+	} else {
+		dai->name = snd_soc_fmt_multiple_name(dev, dai_drv);
+		if (dai_drv->id)
+			dai->id = dai_drv->id;
+		else
+			dai->id = component->num_dai;
+	}
+	if (!dai->name)
+		return NULL;
+
+	dai->component = component;
+	dai->dev = dev;
+	dai->driver = dai_drv;
+
+	/* see for_each_component_dais */
+	list_add_tail(&dai->list, &component->dai_list);
+	component->num_dai++;
+
+	dev_dbg(dev, "ASoC: Registered DAI '%s'\n", dai->name);
+	return dai;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_register);

@@ -610,4 +610,9 @@ static inline void *snd_soc_dai_get_stream(struct snd_soc_dai *dai,
 		return ERR_PTR(-ENOTSUPP);
 }
 
+struct snd_soc_dai *snd_soc_dai_register(struct snd_soc_component *component,
+					 struct snd_soc_dai_driver *dai_drv,
+					 bool legacy_dai_naming);
+void snd_soc_dai_unregister(struct snd_soc_dai *dai);
+
 #endif
