@@ -233,22 +233,6 @@ static inline void snd_soc_debugfs_exit(void) { }
 
 #endif
 
-static int snd_soc_is_match_dai_args(const struct of_phandle_args *args1,
-				     const struct of_phandle_args *args2)
-{
-	if (!args1 || !args2)
-		return 0;
-
-	if (args1->np != args2->np)
-		return 0;
-
-	for (int i = 0; i < args1->args_count; i++)
-		if (args1->args[i] != args2->args[i])
-			return 0;
-
-	return 1;
-}
-
 static inline int snd_soc_dlc_component_is_empty(struct snd_soc_dai_link_component *dlc)
 {
 	return !(dlc->dai_args || dlc->name || dlc->of_node);
@@ -271,7 +255,7 @@ static int snd_soc_is_matching_dai(const struct snd_soc_dai_link_component *dlc,
 		return 0;
 
 	if (dlc->dai_args)
-		return snd_soc_is_match_dai_args(dai->driver->dai_args, dlc->dai_args);
+		return snd_soc_dai_matches_args(dai, dlc->dai_args);
 
 	if (!dlc->dai_name)
 		return 1;
@@ -3516,7 +3500,7 @@ struct snd_soc_dai *snd_soc_get_dai_via_args(const struct of_phandle_args *dai_a
 
 	for_each_component(component) {
 		for_each_component_dais(component, dai)
-			if (snd_soc_is_match_dai_args(dai->driver->dai_args, dai_args))
+			if (snd_soc_dai_matches_args(dai, dai_args))
 				return dai;
 	}
 	return NULL;

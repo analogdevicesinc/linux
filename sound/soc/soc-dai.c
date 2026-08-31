@@ -1010,6 +1010,24 @@ int snd_soc_dai_add_controls(struct snd_soc_dai *dai,
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_add_controls);
 
+int snd_soc_dai_matches_args(const struct snd_soc_dai *dai,
+			     const struct of_phandle_args *args2)
+{
+	const struct of_phandle_args *args1 = dai->driver->dai_args;
+
+	if (!args1 || !args2)
+		return 0;
+
+	if (args1->np != args2->np)
+		return 0;
+
+	for (int i = 0; i < args1->args_count; i++)
+		if (args1->args[i] != args2->args[i])
+			return 0;
+
+	return 1;
+}
+
 const char *snd_soc_dai_name(const struct snd_soc_dai *dai)
 {
 	/* see snd_soc_is_matching_dai() */
