@@ -6978,14 +6978,14 @@ static int tg_throttle_down(struct task_group *tg, void *data)
 static bool throttle_cfs_rq(struct cfs_rq *cfs_rq)
 {
 	struct cfs_bandwidth *cfs_b = tg_cfs_bandwidth(cfs_rq->tg);
-	struct sched_entity *curr = cfs_rq->curr;
+	struct sched_entity *curr = cfs_rq->h_curr;
 	struct rq *rq = rq_of(cfs_rq);
 
 	scoped_guard(raw_spinlock, &cfs_b->lock) {
 		u64 target_runtime = 1;
 
 		/*
-		 * If cfs_rq->curr is still runnable, we are here from an
+		 * If cfs_rq->h_curr is still runnable, we are here from an
 		 * update_curr(). Request sysctl_sched_cfs_bandwidth_slice
 		 * worth of bandwidth to continue running.
 		 *
