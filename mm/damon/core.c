@@ -2988,6 +2988,22 @@ static unsigned int damos_get_in_active_mem_bp(bool active_ratio)
 	return mult_frac(inactive, 10000, total);
 }
 
+static unsigned int damos_hugepage_mem_bp(void)
+{
+	unsigned long thp, total_pages, free_pages;
+
+	total_pages = totalram_pages();
+	free_pages = global_zone_page_state(NR_FREE_PAGES);
+
+	if (total_pages <= free_pages)
+		return 10000;
+
+	thp = global_node_page_state(NR_ANON_THPS) +
+				global_node_page_state(NR_SHMEM_THPS) +
+				global_node_page_state(NR_FILE_THPS);
+	return mult_frac(thp, 10000, total_pages - free_pages);
+}
+
 static void damos_set_quota_goal_current_value(struct damon_ctx *c,
 		struct damos *s, struct damos_quota_goal *goal)
 {
@@ -3018,6 +3034,9 @@ static void damos_set_quota_goal_current_value(struct damon_ctx *c,
 	case DAMOS_QUOTA_NODE_ELIGIBLE_MEM_BP:
 		goal->current_value = damos_get_node_eligible_mem_bp(c, s,
 				goal->nid);
+		break;
+	case DAMOS_QUOTA_HUGEPAGE_MEM_BP:
+		goal->current_value = damos_hugepage_mem_bp();
 		break;
 	default:
 		break;
