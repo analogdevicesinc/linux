@@ -366,8 +366,7 @@ static int adxl367_set_act_interrupt_en(struct adxl367_state *st,
 {
 	unsigned int mask = adxl367_act_int_mask_tbl[act];
 
-	return regmap_update_bits(st->regmap, ADXL367_REG_INT1_MAP,
-				  mask, en ? mask : 0);
+	return regmap_assign_bits(st->regmap, ADXL367_REG_INT1_MAP, mask, en);
 }
 
 static int adxl367_get_act_interrupt_en(struct adxl367_state *st,
@@ -401,9 +400,8 @@ static int adxl367_set_act_en(struct adxl367_state *st,
 static int adxl367_set_fifo_watermark_interrupt_en(struct adxl367_state *st,
 						   bool en)
 {
-	return regmap_update_bits(st->regmap, ADXL367_REG_INT1_MAP,
-				  ADXL367_INT_FIFO_WATERMARK_MASK,
-				  en ? ADXL367_INT_FIFO_WATERMARK_MASK : 0);
+	return regmap_assign_bits(st->regmap, ADXL367_REG_INT1_MAP,
+				  ADXL367_INT_FIFO_WATERMARK_MASK, en);
 }
 
 static int adxl367_get_fifo_mode(struct adxl367_state *st,
@@ -631,8 +629,7 @@ static int adxl367_set_odr(struct iio_dev *indio_dev, enum adxl367_odr odr)
 static int adxl367_set_temp_adc_en(struct adxl367_state *st, unsigned int reg,
 				   bool en)
 {
-	return regmap_update_bits(st->regmap, reg, ADXL367_ADC_EN_MASK,
-				  en ? ADXL367_ADC_EN_MASK : 0);
+	return regmap_assign_bits(st->regmap, reg, ADXL367_ADC_EN_MASK, en);
 }
 
 static int adxl367_set_temp_adc_reg_en(struct adxl367_state *st,
