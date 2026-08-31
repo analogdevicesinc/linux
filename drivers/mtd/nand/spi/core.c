@@ -822,7 +822,7 @@ static int spinand_mtd_regular_page_read(struct mtd_info *mtd, loff_t from,
 	bool disable_ecc = false;
 	bool ecc_failed = false;
 	unsigned int retry_mode = 0;
-	int ret;
+	int ret = 0;
 
 	old_stats = mtd->ecc_stats;
 
@@ -1359,6 +1359,7 @@ static const struct spinand_manufacturer *spinand_manufacturers[] = {
 	&fmsh_spinand_manufacturer,
 	&foresee_spinand_manufacturer,
 	&gigadevice_spinand_manufacturer,
+	&heyangtek_spinand_manufacturer,
 	&macronix_spinand_manufacturer,
 	&micron_spinand_manufacturer,
 	&paragon_spinand_manufacturer,

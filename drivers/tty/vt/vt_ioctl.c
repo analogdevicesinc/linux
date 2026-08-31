@@ -406,6 +406,8 @@ static int vt_k_ioctl(struct tty_struct *tty, unsigned int cmd,
 	/* this could be folded into KDSKBMODE, but for compatibility
 	   reasons it is not so easy to fold KDGKBMETA into KDGKBMODE */
 	case KDSKBMETA:
+		if (!perm)
+			return -EPERM;
 		return vt_do_kdskbmeta(console, arg);
 
 	case KDGKBMETA:
@@ -596,6 +598,8 @@ static int vt_setactivate(struct vt_setactivate __user *sa)
 		return -EFAULT;
 	if (vsa.console == 0 || vsa.console > MAX_NR_CONSOLES)
 		return -ENXIO;
+	if (vsa.mode.mode != VT_AUTO && vsa.mode.mode != VT_PROCESS)
+		return -EINVAL;
 
 	vsa.console--;
 	vsa.console = array_index_nospec(vsa.console, MAX_NR_CONSOLES);

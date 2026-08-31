@@ -1051,8 +1051,10 @@ static int mlxbf_i2c_init_resource(struct platform_device *pdev,
 
 	tmp_res->io = devm_platform_get_and_ioremap_resource(pdev, type, &tmp_res->params);
 	if (IS_ERR(tmp_res->io)) {
+		int ret = PTR_ERR(tmp_res->io);
+
 		devm_kfree(dev, tmp_res);
-		return PTR_ERR(tmp_res->io);
+		return ret;
 	}
 
 	tmp_res->type = type;
@@ -2348,7 +2350,7 @@ static int mlxbf_i2c_probe(struct platform_device *pdev)
 			       IRQF_SHARED | IRQF_PROBE_SHARED,
 			       dev_name(dev), priv);
 	if (ret < 0)
-		return dev_err_probe(dev, ret, "Cannot get irq %d\n", irq);
+		return ret;
 
 	priv->irq = irq;
 

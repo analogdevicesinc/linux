@@ -185,6 +185,20 @@ enum ec_sensors {
 #define SENSOR_TEMP_SENSOR_EXTRA_2 BIT(ec_sensor_temp_sensor_extra_2)
 #define SENSOR_TEMP_SENSOR_EXTRA_3 BIT(ec_sensor_temp_sensor_extra_3)
 
+/*
+ * The values for temperature sensor readings without physical sensors connected.
+ * The value varies across generations and is seemingly defined by the EC chip
+ * used in the given board.
+ */
+static const s32 temperature_blank_values[] = {-62, -60, -40};
+
+static const s32 environment_temp_sensors =
+	SENSOR_TEMP_T_SENSOR | SENSOR_TEMP_T_SENSOR_ALT1 |
+	SENSOR_TEMP_WATER_IN | SENSOR_TEMP_WATER_OUT |
+	SENSOR_TEMP_WATER_BLOCK_IN | SENSOR_TEMP_WATER_BLOCK_OUT |
+	SENSOR_TEMP_T_SENSOR_2 | SENSOR_TEMP_SENSOR_EXTRA_1 |
+	SENSOR_TEMP_SENSOR_EXTRA_2 | SENSOR_TEMP_SENSOR_EXTRA_3;
+
 enum board_family {
 	family_unknown,
 	family_amd_400_series,
@@ -386,6 +400,8 @@ static const struct ec_sensor_info sensors_family_intel_600[] = {
 	[ec_sensor_temp_t_sensor] =
 		EC_SENSOR("T_Sensor", hwmon_temp, 1, 0x00, 0x3d),
 	[ec_sensor_temp_vrm] = EC_SENSOR("VRM", hwmon_temp, 1, 0x00, 0x3e),
+	[ec_sensor_fan_cpu_opt] =
+		EC_SENSOR("CPU_Opt", hwmon_fan, 2, 0x00, 0xb0),
 	[ec_sensor_fan_water_flow] =
 		EC_SENSOR("Water_Flow", hwmon_fan, 2, 0x00, 0xbe),
 	[ec_sensor_temp_water_in] =
@@ -487,6 +503,14 @@ static const struct ec_board_info board_info_crosshair_x670e_hero = {
 	.family = family_amd_600_series,
 };
 
+static const struct ec_board_info board_info_crosshair_x870e_hero = {
+	.sensors = SENSOR_TEMP_CPU | SENSOR_TEMP_CPU_PACKAGE |
+		SENSOR_TEMP_MB | SENSOR_TEMP_VRM |
+		SENSOR_TEMP_T_SENSOR | SENSOR_FAN_CPU_OPT,
+	.mutex_path = ASUS_HW_ACCESS_MUTEX_SB_PCI0_SBRG_SIO1_MUT0,
+	.family = family_amd_800_series,
+};
+
 static const struct ec_board_info board_info_maximus_vi_hero = {
 	.sensors = SENSOR_SET_TEMP_CHIPSET_CPU_MB |
 		SENSOR_TEMP_T_SENSOR |
@@ -523,6 +547,14 @@ static const struct ec_board_info board_info_maximus_z690_formula = {
 static const struct ec_board_info board_info_maximus_z790_extreme = {
 	.sensors = SENSOR_TEMP_T_SENSOR | SENSOR_TEMP_VRM |
 		SENSOR_SET_TEMP_WATER | SENSOR_FAN_WATER_FLOW,
+	.mutex_path = ASUS_HW_ACCESS_MUTEX_RMTW_ASMX,
+	.family = family_intel_700_series,
+};
+
+static const struct ec_board_info board_info_maximus_z790_hero = {
+	.sensors = SENSOR_TEMP_T_SENSOR | SENSOR_TEMP_VRM |
+		SENSOR_SET_TEMP_WATER | SENSOR_FAN_WATER_FLOW |
+		SENSOR_FAN_CPU_OPT,
 	.mutex_path = ASUS_HW_ACCESS_MUTEX_RMTW_ASMX,
 	.family = family_intel_700_series,
 };
@@ -588,6 +620,13 @@ static const struct ec_board_info board_info_pro_art_x870E_creator_wifi = {
 		SENSOR_TEMP_T_SENSOR | SENSOR_FAN_CPU_OPT,
 	.mutex_path = ASUS_HW_ACCESS_MUTEX_SB_PCI0_SBRG_SIO1_MUT0,
 	.family = family_amd_800_series,
+};
+
+static const struct ec_board_info board_info_pro_art_z690_creator_wifi = {
+	.sensors = SENSOR_TEMP_T_SENSOR | SENSOR_TEMP_VRM |
+		SENSOR_FAN_CPU_OPT,
+	.mutex_path = ASUS_HW_ACCESS_MUTEX_SB_PC00_LPCB_SIO1_MUT0,
+	.family = family_intel_600_series,
 };
 
 static const struct ec_board_info board_info_pro_ws_trx50_sage_wifi = {
@@ -743,7 +782,7 @@ static const struct ec_board_info board_info_strix_x870_i_gaming_wifi = {
 
 static const struct ec_board_info board_info_strix_x870e_e_gaming_wifi = {
 	.sensors = SENSOR_TEMP_CPU | SENSOR_TEMP_CPU_PACKAGE |
-		SENSOR_TEMP_MB | SENSOR_TEMP_VRM |
+		SENSOR_TEMP_MB | SENSOR_TEMP_VRM | SENSOR_TEMP_T_SENSOR |
 		SENSOR_FAN_CPU_OPT,
 	.mutex_path = ASUS_HW_ACCESS_MUTEX_SB_PCI0_SBRG_SIO1_MUT0,
 	.family = family_amd_800_series,
@@ -859,6 +898,8 @@ static const struct dmi_system_id dmi_table[] = {
 					&board_info_pro_art_x670E_creator_wifi),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ProArt X870E-CREATOR WIFI",
 					&board_info_pro_art_x870E_creator_wifi),
+	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ProArt Z690-CREATOR WIFI",
+					&board_info_pro_art_z690_creator_wifi),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("Pro WS TRX50-SAGE WIFI",
 					&board_info_pro_ws_trx50_sage_wifi),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("Pro WS TRX50-SAGE WIFI A",
@@ -883,6 +924,8 @@ static const struct dmi_system_id dmi_table[] = {
 					&board_info_crosshair_x670e_gene),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG CROSSHAIR X670E HERO",
 					&board_info_crosshair_x670e_hero),
+	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG CROSSHAIR X870E HERO",
+					&board_info_crosshair_x870e_hero),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG MAXIMUS XI HERO",
 					&board_info_maximus_xi_hero),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG MAXIMUS XI HERO (WI-FI)",
@@ -893,6 +936,8 @@ static const struct dmi_system_id dmi_table[] = {
 					&board_info_maximus_z690_formula),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG MAXIMUS Z790 EXTREME",
 					&board_info_maximus_z790_extreme),
+	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG MAXIMUS Z790 HERO",
+					&board_info_maximus_z790_hero),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG STRIX B550-E GAMING",
 					&board_info_strix_b550_e_gaming),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG STRIX B550-I GAMING",
@@ -927,8 +972,12 @@ static const struct dmi_system_id dmi_table[] = {
 					&board_info_strix_x870_i_gaming_wifi),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG STRIX X870E-E GAMING WIFI",
 					&board_info_strix_x870e_e_gaming_wifi),
+	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG STRIX X870E-E GAMING WIFI7 R2",
+					&board_info_strix_x870e_e_gaming_wifi),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG STRIX X870E-H GAMING WIFI7",
 					&board_info_strix_x870e_h_gaming_wifi7),
+	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG STRIX Z390-E GAMING",
+					&board_info_strix_z390_f_gaming),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG STRIX Z390-F GAMING",
 					&board_info_strix_z390_f_gaming),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ROG STRIX Z490-F GAMING",
@@ -955,6 +1004,7 @@ static const struct dmi_system_id dmi_table[] = {
 };
 
 struct ec_sensor {
+	/* this is ec_sensors enum value */
 	unsigned int info_index;
 	s32 cached_value;
 };
@@ -1009,7 +1059,7 @@ struct ec_sensors_data {
 	/* sorted list of unique register banks */
 	u8 banks[ASUS_EC_MAX_BANK + 1];
 	/* in jiffies */
-	unsigned long last_updated;
+	u64 next_update;
 	struct lock_data lock_data;
 	/* number of board EC sensors */
 	u8 nr_sensors;
@@ -1045,6 +1095,12 @@ static const struct ec_sensor_info *
 get_sensor_info(const struct ec_sensors_data *state, int index)
 {
 	return state->sensors_info + state->sensors[index].info_index;
+}
+
+static enum ec_sensors
+get_ec_sensor_type(const struct ec_sensors_data *state, int index)
+{
+	return state->sensors[index].info_index;
 }
 
 static int find_ec_sensor_index(const struct ec_sensors_data *ec,
@@ -1189,7 +1245,7 @@ static int asus_ec_block_read(const struct device *dev,
 		}
 		for (ireg = 0; ireg < ec->nr_registers; ireg++) {
 			reg_bank = register_bank(ec->registers[ireg]);
-			if (reg_bank < bank) {
+			if (reg_bank != bank) {
 				continue;
 			}
 			ec_read(register_index(ec->registers[ireg]),
@@ -1278,17 +1334,27 @@ static int get_cached_value_or_update(const struct device *dev,
 				      int sensor_index,
 				      struct ec_sensors_data *state, s32 *value)
 {
-	if (time_after(jiffies, state->last_updated + HZ)) {
+	if (time_after64(get_jiffies_64(), state->next_update)) {
 		if (update_ec_sensors(dev, state)) {
 			dev_err(dev, "update_ec_sensors() failure\n");
 			return -EIO;
 		}
-
-		state->last_updated = jiffies;
+		state->next_update = get_jiffies_64() + HZ;
 	}
 
 	*value = state->sensors[sensor_index].cached_value;
 	return 0;
+}
+
+static bool is_blank_temperature_value(s32 value)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(temperature_blank_values); ++i) {
+		if (value == temperature_blank_values[i])
+			return true;
+	}
+	return false;
 }
 
 /*
@@ -1298,6 +1364,8 @@ static int get_cached_value_or_update(const struct device *dev,
 static int asus_ec_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 			      u32 attr, int channel, long *val)
 {
+	const struct ec_sensor_info *sensor_info;
+	enum ec_sensors ec_sensor;
 	int ret;
 	s32 value = 0;
 
@@ -1309,12 +1377,19 @@ static int asus_ec_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 	}
 
 	ret = get_cached_value_or_update(dev, sidx, state, &value);
-	if (!ret) {
-		*val = scale_sensor_value(value,
-					  get_sensor_info(state, sidx)->type);
-	}
+	if (ret)
+		return ret;
 
-	return ret;
+	sensor_info = get_sensor_info(state, sidx);
+	if (sensor_info->type == hwmon_temp) {
+		ec_sensor = get_ec_sensor_type(state, sidx);
+		if ((environment_temp_sensors & BIT(ec_sensor)) &&
+		    is_blank_temperature_value(value))
+			return -ENODATA;
+	}
+	*val = scale_sensor_value(value, sensor_info->type);
+
+	return 0;
 }
 
 static int asus_ec_hwmon_read_string(struct device *dev,
@@ -1402,6 +1477,7 @@ static int asus_ec_probe(struct platform_device *pdev)
 	if (!ec_data)
 		return -ENOMEM;
 
+	ec_data->next_update = INITIAL_JIFFIES;
 	dev_set_drvdata(dev, ec_data);
 	ec_data->board_info = pboard_info;
 
@@ -1495,9 +1571,11 @@ static int asus_ec_probe(struct platform_device *pdev)
 		if (!nr_count[type])
 			continue;
 
-		asus_ec_hwmon_add_chan_info(asus_ec_hwmon_chan, dev,
-					     nr_count[type], type,
-					     hwmon_attributes[type]);
+		status = asus_ec_hwmon_add_chan_info(asus_ec_hwmon_chan, dev,
+						     nr_count[type], type,
+						     hwmon_attributes[type]);
+		if (status)
+			return status;
 		*ptr_asus_ec_ci++ = asus_ec_hwmon_chan++;
 	}
 

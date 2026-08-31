@@ -388,11 +388,13 @@ static inline void cdns_spi_writer(struct cdns_spi *xspi)
 
 /**
  * cdns_spi_process_fifo - Fills the TX FIFO, and drain the RX FIFO
+ * @ctlr:	Pointer to the spi_controller structure
  * @xspi:	Pointer to the cdns_spi structure
  * @ntx:	Number of bytes to pack into the TX FIFO
  * @nrx:	Number of bytes to drain from the RX FIFO
  */
-static void cdns_spi_process_fifo(struct cdns_spi *xspi, int ntx, int nrx)
+static void cdns_spi_process_fifo(struct spi_controller *ctlr,
+				  struct cdns_spi *xspi, int ntx, int nrx)
 {
 	ntx = clamp(ntx, 0, xspi->tx_bytes);
 	nrx = clamp(nrx, 0, xspi->rx_bytes);
@@ -407,6 +409,16 @@ static void cdns_spi_process_fifo(struct cdns_spi *xspi, int ntx, int nrx)
 		}
 
 		if (ntx) {
+			/* When xspi in busy condition, bytes may send failed,
+			 * then spi control didn't work thoroughly, add one byte
+			 * delay. Only in host mode; in target mode this delay
+			 * causes data corruption as the target fails to prepare
+			 * data in time.
+			 */
+			if (!spi_controller_is_target(ctlr) &&
+			    (cdns_spi_read(xspi, CDNS_SPI_ISR) & CDNS_SPI_IXR_TXFULL))
+				udelay(10);
+
 			cdns_spi_writer(xspi);
 			ntx--;
 		}
@@ -460,14 +472,14 @@ static irqreturn_t cdns_spi_irq(int irq, void *dev_id)
 			cdns_spi_write(xspi, CDNS_SPI_THLD, 1);
 
 		if (xspi->tx_bytes) {
-			cdns_spi_process_fifo(xspi, trans_cnt, trans_cnt);
+			cdns_spi_process_fifo(ctlr, xspi, trans_cnt, trans_cnt);
 		} else {
 			/* Fixed delay due to controller limitation with
 			 * RX_NEMPTY incorrect status
 			 * Xilinx AR:65885 contains more details
 			 */
 			udelay(10);
-			cdns_spi_process_fifo(xspi, 0, trans_cnt);
+			cdns_spi_process_fifo(ctlr, xspi, 0, trans_cnt);
 			cdns_spi_write(xspi, CDNS_SPI_IDR,
 				       CDNS_SPI_IXR_DEFAULT);
 			spi_finalize_current_transfer(ctlr);
@@ -520,17 +532,11 @@ static int cdns_transfer_one(struct spi_controller *ctlr,
 			cdns_spi_write(xspi, CDNS_SPI_THLD, xspi->tx_fifo_depth >> 1);
 	}
 
-	/* When xspi in busy condition, bytes may send failed,
-	 * then spi control didn't work thoroughly, add one byte delay
-	 */
-	if (cdns_spi_read(xspi, CDNS_SPI_ISR) & CDNS_SPI_IXR_TXFULL)
-		udelay(10);
-
 	xspi->n_bytes = cdns_spi_n_bytes(transfer);
 	xspi->tx_bytes = DIV_ROUND_UP(xspi->tx_bytes, xspi->n_bytes);
 	xspi->rx_bytes = DIV_ROUND_UP(xspi->rx_bytes, xspi->n_bytes);
 
-	cdns_spi_process_fifo(xspi, xspi->tx_fifo_depth, 0);
+	cdns_spi_process_fifo(ctlr, xspi, xspi->tx_fifo_depth, 0);
 
 	cdns_spi_write(xspi, CDNS_SPI_IER, CDNS_SPI_IXR_DEFAULT);
 	return transfer->len;
@@ -801,7 +807,7 @@ static void cdns_spi_remove(struct platform_device *pdev)
  *
  * Return:	0 on success and error value on error
  */
-static int __maybe_unused cdns_spi_suspend(struct device *dev)
+static int cdns_spi_suspend(struct device *dev)
 {
 	struct spi_controller *ctlr = dev_get_drvdata(dev);
 
@@ -816,7 +822,7 @@ static int __maybe_unused cdns_spi_suspend(struct device *dev)
  *
  * Return:	0 on success and error value on error
  */
-static int __maybe_unused cdns_spi_resume(struct device *dev)
+static int cdns_spi_resume(struct device *dev)
 {
 	struct spi_controller *ctlr = dev_get_drvdata(dev);
 	struct cdns_spi *xspi = spi_controller_get_devdata(ctlr);
@@ -833,7 +839,7 @@ static int __maybe_unused cdns_spi_resume(struct device *dev)
  *
  * Return:	0 on success and error value on error
  */
-static int __maybe_unused cdns_spi_runtime_resume(struct device *dev)
+static int cdns_spi_runtime_resume(struct device *dev)
 {
 	struct spi_controller *ctlr = dev_get_drvdata(dev);
 	struct cdns_spi *xspi = spi_controller_get_devdata(ctlr);
@@ -862,7 +868,7 @@ static int __maybe_unused cdns_spi_runtime_resume(struct device *dev)
  *
  * Return:	Always 0
  */
-static int __maybe_unused cdns_spi_runtime_suspend(struct device *dev)
+static int cdns_spi_runtime_suspend(struct device *dev)
 {
 	struct spi_controller *ctlr = dev_get_drvdata(dev);
 	struct cdns_spi *xspi = spi_controller_get_devdata(ctlr);
@@ -874,9 +880,8 @@ static int __maybe_unused cdns_spi_runtime_suspend(struct device *dev)
 }
 
 static const struct dev_pm_ops cdns_spi_dev_pm_ops = {
-	SET_RUNTIME_PM_OPS(cdns_spi_runtime_suspend,
-			   cdns_spi_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(cdns_spi_suspend, cdns_spi_resume)
+	RUNTIME_PM_OPS(cdns_spi_runtime_suspend, cdns_spi_runtime_resume, NULL)
+	SYSTEM_SLEEP_PM_OPS(cdns_spi_suspend, cdns_spi_resume)
 };
 
 static const struct of_device_id cdns_spi_of_match[] = {
@@ -894,7 +899,7 @@ static struct platform_driver cdns_spi_driver = {
 	.driver = {
 		.name = CDNS_SPI_NAME,
 		.of_match_table = cdns_spi_of_match,
-		.pm = &cdns_spi_dev_pm_ops,
+		.pm = pm_ptr(&cdns_spi_dev_pm_ops),
 	},
 };
 

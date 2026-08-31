@@ -154,7 +154,6 @@ static struct luo_session *luo_session_alloc(const char *name)
 		return ERR_PTR(-ENOMEM);
 
 	strscpy(session->name, name, sizeof(session->name));
-	INIT_LIST_HEAD(&session->file_set.files_list);
 	luo_file_set_init(&session->file_set);
 	INIT_LIST_HEAD(&session->list);
 	mutex_init(&session->mutex);
@@ -316,8 +315,12 @@ static int luo_session_finish(struct luo_session *session,
 			      struct luo_ucmd *ucmd)
 {
 	struct liveupdate_session_finish *argp = ucmd->cmd;
-	int err = luo_session_finish_one(session);
+	int err;
 
+	if (argp->reserved)
+		return -EINVAL;
+
+	err = luo_session_finish_one(session);
 	if (err)
 		return err;
 
@@ -378,7 +381,7 @@ static const struct luo_ioctl_op luo_session_ioctl_ops[] = {
 	IOCTL_OP(LIVEUPDATE_SESSION_RETRIEVE_FD, luo_session_retrieve_fd,
 		 struct liveupdate_session_retrieve_fd, token, LUO_IOCTL_INCOMING),
 	IOCTL_OP(LIVEUPDATE_SESSION_GET_NAME, luo_session_get_name,
-		 struct liveupdate_session_retrieve_fd, token, LUO_IOCTL_ALL),
+		 struct liveupdate_session_get_name, name, LUO_IOCTL_ALL),
 };
 
 static bool luo_ioctl_type_valid(struct luo_session *session,

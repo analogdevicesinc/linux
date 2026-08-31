@@ -9,7 +9,7 @@
 union io_query_data {
 	struct io_uring_query_opcode opcodes;
 	struct io_uring_query_zcrx zcrx;
-	struct io_uring_query_zcrx_notif zcrx_notif;
+	struct io_uring_query_zcrx_event zcrx_notif;
 	struct io_uring_query_scq scq;
 };
 
@@ -38,7 +38,7 @@ static ssize_t io_query_zcrx(union io_query_data *data)
 	e->register_flags = ZCRX_SUPPORTED_REG_FLAGS;
 	e->area_flags = IORING_ZCRX_AREA_DMABUF;
 	e->nr_ctrl_opcodes = __ZCRX_CTRL_LAST;
-	e->rq_hdr_size = sizeof(struct io_uring);
+	e->rq_hdr_size = sizeof(struct zcrx_rq_hdr);
 	e->rq_hdr_alignment = L1_CACHE_BYTES;
 	e->features = ZCRX_FEATURES;
 	e->__resv2 = 0;
@@ -47,11 +47,11 @@ static ssize_t io_query_zcrx(union io_query_data *data)
 
 static ssize_t io_query_zcrx_notif(union io_query_data *data)
 {
-	struct io_uring_query_zcrx_notif *e = &data->zcrx_notif;
+	struct io_uring_query_zcrx_event *e = &data->zcrx_notif;
 
-	e->notif_flags = ZCRX_NOTIF_TYPE_MASK;
-	e->notif_stats_size = sizeof(struct zcrx_notif_stats);
-	e->notif_stats_off_alignment = __alignof__(struct zcrx_notif_stats);
+	e->event_flags = ZCRX_EVENT_TYPE_MASK;
+	e->stats_size = sizeof(struct zcrx_stats);
+	e->stats_off_alignment = __alignof__(struct zcrx_stats);
 	e->__resv1 = 0;
 	memset(&e->__resv2, 0, sizeof(e->__resv2));
 	return sizeof(*e);
@@ -76,6 +76,9 @@ static int io_handle_query_entry(union io_query_data *data, void __user *uhdr,
 
 	if (copy_from_user(&hdr, uhdr, sizeof(hdr)))
 		return -EFAULT;
+	/* copy_struct_to_user() zeros up to usize bytes */
+	if (hdr.size > PAGE_SIZE)
+		return -E2BIG;
 	usize = hdr.size;
 	hdr.size = min(hdr.size, IO_MAX_QUERY_SIZE);
 	udata = u64_to_user_ptr(hdr.query_data);
@@ -96,7 +99,7 @@ static int io_handle_query_entry(union io_query_data *data, void __user *uhdr,
 	case IO_URING_QUERY_ZCRX:
 		ret = io_query_zcrx(data);
 		break;
-	case IO_URING_QUERY_ZCRX_NOTIF:
+	case IO_URING_QUERY_ZCRX_EVENT:
 		ret = io_query_zcrx_notif(data);
 		break;
 	case IO_URING_QUERY_SCQ:

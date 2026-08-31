@@ -1145,7 +1145,7 @@ will be referred to. All time durations are in microseconds.
 	This file exists whether the controller is enabled or not.
 
 	It always reports the following three stats, which account for all the
-	processes in the cgroup:
+	processes in the cgroup (including those in descendant cgroups):
 
 	- usage_usec
 	- user_usec
@@ -1159,6 +1159,27 @@ will be referred to. All time durations are in microseconds.
 	- throttled_usec
 	- nr_bursts
 	- burst_usec
+
+	Note that the above five CFS bandwidth stats are non-hierarchical;
+	they only account for throttling caused by this cgroup's own bandwidth
+	limit, not including throttling inherited from ancestor cgroups.
+
+  cpu.stat.local
+	A read-only flat-keyed file.
+	This file exists whether the controller is enabled or not.
+
+	It reports the following stat when the controller is enabled:
+
+	- throttled_usec
+
+	Unlike the ``throttled_usec`` reported by ``cpu.stat`` which
+	accounts for throttling caused by this cgroup's own CFS
+	bandwidth limit, ``cpu.stat.local`` reports the actual
+	throttling time incurred by this cgroup's own runqueues,
+	which may include throttling inherited from ancestor
+	cgroup bandwidth limits.
+
+	When the controller is not enabled, this stat is not reported.
 
   cpu.weight
 	A read-write single value file which exists on non-root
@@ -1570,7 +1591,7 @@ The following nested keys are defined.
 	  sock (npn)
 		Amount of memory used in network transmission buffers
 
-	  vmalloc (npn)
+	  vmalloc
 		Amount of memory used for vmap backed memory.
 
 	  shmem
@@ -1735,7 +1756,7 @@ The following nested keys are defined.
 		Number of pages written from zswap to swap.
 
 	  zswap_incomp
-		Number of incompressible pages currently stored in zswap
+		Amount of memory used by incompressible pages currently stored in zswap
 		without compression. These pages could not be compressed to
 		a size smaller than PAGE_SIZE, so they are stored as-is.
 
@@ -1909,7 +1930,7 @@ The following nested keys are defined.
 	is allowed unless memory.swap.max is set to 0.
 
   memory.pressure
-	A read-only nested-keyed file.
+	A read-write nested-keyed file.
 
 	Shows pressure stall information for memory. See
 	:ref:`Documentation/accounting/psi.rst <psi>` for details.
@@ -1984,9 +2005,13 @@ IO
 
 The "io" controller regulates the distribution of IO resources.  This
 controller implements both weight based and absolute bandwidth or IOPS
-limit distribution; however, weight based distribution is available
-only if cfq-iosched is in use and neither scheme is available for
-blk-mq devices.
+limit distribution.  Absolute BPS and IOPS limits are enforced by
+blk-throttle and apply to all devices, while weight based proportional
+distribution is provided by the iocost cost model controller
+(CONFIG_BLK_CGROUP_IOCOST) and, when the BFQ I/O scheduler is in use
+for a device, by BFQ's own cgroup support.  Latency-based protection
+(CONFIG_BLK_CGROUP_IOLATENCY) and I/O priority assignment
+(CONFIG_BLK_CGROUP_IOPRIO) are also available.
 
 
 IO Interface Files
@@ -2169,7 +2194,7 @@ IO Interface Files
 	  8:16 rbps=2097152 wbps=max riops=max wiops=max
 
   io.pressure
-	A read-only nested-keyed file.
+	A read-write nested-keyed file.
 
 	Shows pressure stall information for IO. See
 	:ref:`Documentation/accounting/psi.rst <psi>` for details.
@@ -2239,9 +2264,12 @@ IO Latency
 ~~~~~~~~~~
 
 This is a cgroup v2 controller for IO workload protection.  You provide a group
-with a latency target, and if the average latency exceeds that target the
-controller will throttle any peers that have a lower latency target than the
-protected workload.
+with a latency target, and if the group misses its target the controller will
+throttle any peers that have a lower latency target than the protected
+workload.  How a miss is detected depends on the device: on rotational devices
+the average latency over the window must exceed the target, while on
+non-rotational devices a miss is counted once enough of the IOs in the window
+individually exceed the target.
 
 The limits are only applied at the peer level in the hierarchy.  This means that
 in the diagram below, only groups A, B, and C will influence each other, and
@@ -2257,10 +2285,13 @@ groups D and F will influence each other.  Group G will influence nobody::
 So the ideal way to configure this is to set io.latency in groups A, B, and C.
 Generally you do not want to set a value lower than the latency your device
 supports.  Experiment to find the value that works best for your workload.
-Start at higher than the expected latency for your device and watch the
-avg_lat value in io.stat for your workload group to get an idea of the
-latency you see during normal operation.  Use the avg_lat value as a basis for
-your real setting, setting at 10-15% higher than the value in io.stat.
+Start at higher than the expected latency for your device and, with
+blkcg_debug_stats enabled, observe io.stat for your workload group to get an
+idea of the latency you see during normal operation.  On rotational devices,
+use the avg_lat value as a basis for your real setting, setting it 10-15%
+higher.  On non-rotational devices io.stat reports no average latency; set
+the target based on your device and use the missed/total fields to verify it
+is being met.
 
 How IO Latency Throttling Works
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2278,9 +2309,9 @@ This throttling takes 2 forms:
   throttled without possibly adversely affecting higher priority groups.  This
   includes swapping and metadata IO.  These types of IO are allowed to occur
   normally, however they are "charged" to the originating group.  If the
-  originating group is being throttled you will see the use_delay and delay
-  fields in io.stat increase.  The delay value is how many microseconds that are
-  being added to any process that runs in this group.  Because this number can
+  originating group is being throttled you will see the use_delay and delay_nsec
+  fields in io.stat increase.  The delay_nsec value is how many nanoseconds that
+  are being added to any process that runs in this group.  Because this number can
   grow quite large if there is a lot of swapping or metadata IO occurring we
   limit the individual delay events to 1 second at a time.
 
@@ -2298,21 +2329,40 @@ IO Latency Interface Files
 
   io.stat
 	If the controller is enabled you will see extra stats in io.stat in
-	addition to the normal ones.
+	addition to the normal ones.  These debug stats are only emitted when
+	the blkcg_debug_stats module parameter is enabled (it is disabled by
+	default).
+
+	The reported latency fields depend on the device.  Rotational devices
+	report avg_lat and win; non-rotational devices report missed and total
+	instead.  missed and total are live counters for the current window and
+	may change between reads.
 
 	  depth
 		This is the current queue depth for the group.
 
 	  avg_lat
-		This is an exponential moving average with a decay rate of 1/exp
-		bound by the sampling interval.  The decay rate interval can be
-		calculated by multiplying the win value in io.stat by the
-		corresponding number of samples based on the win value.
+		(Rotational devices only.)  This is an exponential moving
+		average with a decay rate of 1/exp bound by the sampling
+		interval.  The decay rate interval can be calculated by
+		multiplying the win value in io.stat by the corresponding number
+		of samples based on the win value.
 
 	  win
-		The sampling window size in milliseconds.  This is the minimum
-		duration of time between evaluation events.  Windows only elapse
-		with IO activity.  Idle periods extend the most recent window.
+		(Rotational devices only.)  The sampling window size in
+		milliseconds.  This is the minimum duration of time between
+		evaluation events.  Windows only elapse with IO activity.  Idle
+		periods extend the most recent window.
+
+	  missed
+		(Non-rotational devices only.)  The number of IOs in the
+		current window whose latency exceeded the target.  A group is
+		considered to be missing its target once missed reaches a
+		certain ratio of total.
+
+	  total
+		(Non-rotational devices only.)  The total number of IOs
+		accounted in the current window.
 
 IO Priority
 ~~~~~~~~~~~
@@ -2526,6 +2576,13 @@ Cpuset Interface Files
 	before spawning new tasks into the cpuset.  Even if there is
 	a need to change "cpuset.mems" with active tasks, it shouldn't
 	be done frequently.
+
+	For a multithreaded process, the threadgroup leader is
+	considered the owner of the group's memory. Memory policy
+	rebinding and migration will only happen with respect to the
+	threadgroup leader. To avoid unexpected results, non-leading
+	threads shouldn't be put into another cgroup whose "cpuset.mems"
+	doesn't fully overlap that of the threadgroup leader.
 
   cpuset.mems.effective
 	A read-only multiple values file which exists on all
@@ -2752,6 +2809,11 @@ RDMA
 The "rdma" controller regulates the distribution and accounting of
 RDMA resources.
 
+RDMA devices from all network namespaces are listed. Each line starts with
+the device name. If more than one device has the same name, ``index=N``
+follows the name, where ``N`` is the system-wide RDMA device index, unique
+among registered devices.
+
 RDMA Interface Files
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -2760,7 +2822,11 @@ RDMA Interface Files
 	except root that describes current configured resource limit
 	for a RDMA/IB device.
 
-	Lines are keyed by device name and are not ordered.
+	Lines are keyed by device name and are not ordered. A write may
+	include ``index=N`` after the device name. The index is optional
+	when the name is globally unique. If multiple devices have that
+	name, the index is required and a write without it fails with
+	``-ENOTUNIQ``.
 	Each line contains space separated resource name and its configured
 	limit that can be distributed.
 
@@ -2775,6 +2841,10 @@ RDMA Interface Files
 
 	  mlx4_0 hca_handle=2 hca_object=2000
 	  ocrdma1 hca_handle=3 hca_object=max
+
+	For devices with duplicate names, select the device by index::
+
+	  echo "rxe0 index=5 hca_handle=2" > rdma.max
 
   rdma.current
 	A read-only file that describes current resource usage.
@@ -2940,7 +3010,8 @@ include/linux/misc_cgroup.h.
 Misc Interface Files
 ~~~~~~~~~~~~~~~~~~~~
 
-Miscellaneous controller provides 3 interface files. If two misc resources (res_a and res_b) are registered then:
+Miscellaneous controller provides the following interface files. If two misc
+resources (res_a and res_b) are registered then:
 
   misc.capacity
         A read-only flat-keyed file shown only in the root cgroup.  It shows

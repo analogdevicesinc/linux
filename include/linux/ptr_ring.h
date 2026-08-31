@@ -96,7 +96,13 @@ static inline bool ptr_ring_full_bh(struct ptr_ring *r)
 	return ret;
 }
 
-/* Note: callers invoking this in a loop must use a compiler barrier,
+/* Report whether the next __ptr_ring_produce() has room for one entry:
+ * 0 means the single slot at r->queue[r->producer] is free, -ENOSPC means
+ * the ring is full, which is transient, and -EINVAL means r->size is 0,
+ * which is permanent. A caller that stops producing and waits for space
+ * must therefore do so only for -ENOSPC.
+ *
+ * Note: callers invoking this in a loop must use a compiler barrier,
  * for example cpu_relax(). Callers must hold producer_lock.
  */
 static inline int __ptr_ring_check_produce(struct ptr_ring *r)
@@ -117,10 +123,10 @@ static inline int __ptr_ring_check_produce(struct ptr_ring *r)
  */
 static inline int __ptr_ring_produce(struct ptr_ring *r, void *ptr)
 {
-	int p = __ptr_ring_check_produce(r);
+	int ret = __ptr_ring_check_produce(r);
 
-	if (p)
-		return p;
+	if (ret)
+		return ret;
 
 	/* Make sure the pointer we are storing points to a valid data. */
 	/* Pairs with the dependency ordering in __ptr_ring_consume. */

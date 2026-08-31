@@ -466,6 +466,7 @@ struct ucsi_debugfs_entry {
 	struct ucsi_data {
 		u64 low;
 		u64 high;
+		u64 ext;
 	} response;
 	int status;
 	u8 message_out[MESSAGE_OUT_MAX_LEN];
@@ -582,6 +583,7 @@ int ucsi_write_message_out_command(struct ucsi *ucsi, u64 command,
 				   void *msg_out, size_t msg_out_size);
 
 void ucsi_altmode_update_active(struct ucsi_connector *con);
+int ucsi_suspend(struct ucsi *ucsi);
 int ucsi_resume(struct ucsi *ucsi);
 
 void ucsi_notify_common(struct ucsi *ucsi, u32 cci);

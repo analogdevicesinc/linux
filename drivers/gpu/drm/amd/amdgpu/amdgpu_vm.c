@@ -766,18 +766,24 @@ bool amdgpu_vm_need_pipeline_sync(struct amdgpu_ring *ring,
  * @ring: ring to use for flush
  * @job:  related job
  * @need_pipe_sync: is pipe sync needed
+ * @emit_spm_needed: does the caller need to emit spm
+ * @emit_gds_needed: does the caller need to emit gds
  *
  * Emit a VM flush when it is necessary.
  */
 void amdgpu_vm_flush(struct amdgpu_ring *ring, struct amdgpu_job *job,
-		     bool need_pipe_sync)
+		     bool *need_pipe_sync, bool *emit_spm_needed,
+		     bool *emit_gds_needed)
 {
 	struct amdgpu_device *adev = ring->adev;
-	struct amdgpu_isolation *isolation = &adev->isolation[ring->xcp_id];
+	struct amdgpu_isolation *isolation =
+		&adev->isolation[ring->xcp_id == AMDGPU_XCP_NO_PARTITION ?
+				 0 : ring->xcp_id];
 	unsigned vmhub = ring->vm_hub;
 	struct amdgpu_vmid_mgr *id_mgr = &adev->vm_manager.id_mgr[vmhub];
 	struct amdgpu_vmid *id = &id_mgr->ids[job->vmid];
-	bool spm_update_needed = job->spm_update_needed;
+	bool spm_update_needed = adev->gfx.rlc.funcs->update_spm_vmid &&
+		job->spm_update_needed;
 	bool gds_switch_needed = ring->funcs->emit_gds_switch &&
 		job->gds_switch_needed;
 	bool vm_flush_needed = job->vm_needs_flush;
@@ -785,6 +791,7 @@ void amdgpu_vm_flush(struct amdgpu_ring *ring, struct amdgpu_job *job,
 	bool pasid_mapping_needed = false;
 	struct dma_fence *fence = NULL;
 	unsigned int patch = 0;
+	bool emit_fence;
 
 	if (amdgpu_vmid_had_gpu_reset(adev, id)) {
 		gds_switch_needed = true;
@@ -800,6 +807,7 @@ void amdgpu_vm_flush(struct amdgpu_ring *ring, struct amdgpu_job *job,
 	mutex_unlock(&id_mgr->lock);
 
 	gds_switch_needed &= !!ring->funcs->emit_gds_switch;
+	spm_update_needed &= !!adev->gfx.rlc.funcs->update_spm_vmid;
 	vm_flush_needed &= !!ring->funcs->emit_vm_flush  &&
 			job->vm_pd_addr != AMDGPU_BO_INVALID_OFFSET;
 	pasid_mapping_needed &= adev->gmc.gmc_funcs->emit_pasid_mapping &&
@@ -810,8 +818,18 @@ void amdgpu_vm_flush(struct amdgpu_ring *ring, struct amdgpu_job *job,
 		ring->funcs->emit_cleaner_shader && job->base.s_fence &&
 		&job->base.s_fence->scheduled == isolation->spearhead;
 
-	if (!vm_flush_needed && !gds_switch_needed && !need_pipe_sync &&
-	    !cleaner_shader_needed)
+	emit_fence = vm_flush_needed || pasid_mapping_needed ||
+		cleaner_shader_needed;
+
+	*emit_spm_needed = spm_update_needed;
+	if (spm_update_needed && emit_fence)
+		*emit_spm_needed = false;
+
+	*emit_gds_needed = gds_switch_needed;
+	if (gds_switch_needed && emit_fence)
+		*emit_gds_needed = false;
+
+	if (!emit_fence)
 		return;
 
 	amdgpu_ring_ib_begin(ring);
@@ -830,8 +848,10 @@ void amdgpu_vm_flush(struct amdgpu_ring *ring, struct amdgpu_job *job,
 		patch = amdgpu_ring_init_cond_exec(ring,
 						   ring->cond_exe_gpu_addr);
 
-	if (need_pipe_sync)
+	if (*need_pipe_sync) {
 		amdgpu_ring_emit_pipeline_sync(ring);
+		*need_pipe_sync = false;
+	}
 
 	if (cleaner_shader_needed)
 		ring->funcs->emit_cleaner_shader(ring);
@@ -844,16 +864,14 @@ void amdgpu_vm_flush(struct amdgpu_ring *ring, struct amdgpu_job *job,
 	if (pasid_mapping_needed)
 		amdgpu_gmc_emit_pasid_mapping(ring, job->vmid, job->pasid);
 
-	if (spm_update_needed && adev->gfx.rlc.funcs->update_spm_vmid)
+	if (spm_update_needed)
 		adev->gfx.rlc.funcs->update_spm_vmid(adev, ring->xcc_id, ring, job->vmid);
 
-	if (ring->funcs->emit_gds_switch &&
-	    gds_switch_needed) {
+	if (gds_switch_needed)
 		amdgpu_ring_emit_gds_switch(ring, job->vmid, job->gds_base,
-					    job->gds_size, job->gws_base,
-					    job->gws_size, job->oa_base,
-					    job->oa_size);
-	}
+						    job->gds_size, job->gws_base,
+						    job->gws_size, job->oa_base,
+						    job->oa_size);
 
 	amdgpu_fence_emit(ring, job->hw_vm_fence, 0);
 	fence = &job->hw_vm_fence->base;
@@ -1391,7 +1409,13 @@ int amdgpu_vm_bo_update(struct amdgpu_device *adev, struct amdgpu_bo_va *bo_va,
 			amdgpu_vm_bo_evicted(&bo_va->base);
 		else
 			amdgpu_vm_bo_idle(&bo_va->base);
-	} else {
+	} else if (bo) {
+		/*
+		 * A PRT/sparse mapping has no BO and is kept off the vm_bo
+		 * state lists (see amdgpu_vm_bo_base_init()); putting it on the
+		 * idle list here would let amdgpu_vm_handle_moved() dereference
+		 * the NULL bo after a reset.
+		 */
 		amdgpu_vm_bo_idle(&bo_va->base);
 	}
 
@@ -3000,6 +3024,8 @@ bool amdgpu_vm_handle_fault(struct amdgpu_device *adev, u32 pasid,
 	is_compute_context = vm->is_compute_context;
 
 	if (is_compute_context) {
+		__label__ drm_exec_retry;
+
 		/* Release the root PD lock since svm_range_restore_pages
 		 * might try to take it.
 		 * TODO: rework svm_range_restore_pages so that this isn't

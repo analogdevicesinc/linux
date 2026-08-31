@@ -73,13 +73,6 @@ MODULE_PARM_DESC(terminal, "Enable break codes on an IBM Terminal keyboard conne
 #define ATKBD_KEYMAP_SIZE	512
 
 static const unsigned short atkbd_set2_keycode[ATKBD_KEYMAP_SIZE] = {
-#ifdef CONFIG_KEYBOARD_ATKBD_HP_KEYCODES
-
-/* XXX: need a more general approach */
-
-#include "hpps2atkbd.h"	/* include the keyboard scancodes */
-
-#else
 	  0, 67, 65, 63, 61, 59, 60, 88,183, 68, 66, 64, 62, 15, 41,117,
 	184, 56, 42, 93, 29, 16,  2,  0,185,  0, 44, 31, 30, 17,  3,  0,
 	186, 46, 45, 32, 18,  5,  4, 95,187, 57, 47, 33, 20, 19,  6,183,
@@ -99,7 +92,6 @@ static const unsigned short atkbd_set2_keycode[ATKBD_KEYMAP_SIZE] = {
 	110,111,108,112,106,103,  0,119,  0,118,109,  0, 99,104,119,  0,
 
 	  0,  0,  0, 65, 99,
-#endif
 };
 
 static const unsigned short atkbd_set3_keycode[ATKBD_KEYMAP_SIZE] = {
@@ -1919,7 +1911,22 @@ static const struct dmi_system_id atkbd_dmi_quirk_table[] __initconst = {
 	{
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "HONOR"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "BCC-N"),
+		},
+		.callback = atkbd_deactivate_fixup,
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HONOR"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "FMB-P"),
+		},
+		.callback = atkbd_deactivate_fixup,
+	},
+	{
+		/* HONOR MagicBook Pro 14 2026 */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HONOR"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "ZQC-P"),
 		},
 		.callback = atkbd_deactivate_fixup,
 	},
@@ -1932,9 +1939,10 @@ static const struct dmi_system_id atkbd_dmi_quirk_table[] __initconst = {
 		.callback = atkbd_deactivate_fixup,
 	},
 	{
+		/* Xiaomi Book Pro 14 (TM2424) */
 		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "HONOR"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "BCC-N"),
+			DMI_MATCH(DMI_SYS_VENDOR, "XIAOMI"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Xiaomi Book Pro 14"),
 		},
 		.callback = atkbd_deactivate_fixup,
 	},

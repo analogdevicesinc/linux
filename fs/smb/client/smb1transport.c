@@ -260,9 +260,23 @@ SendReceive(const unsigned int xid, struct cifs_ses *ses,
 		goto out;
 
 	if (out_buf) {
-		*pbytes_returned = resp_iov.iov_len;
-		if (resp_iov.iov_len)
-			memcpy(out_buf, resp_iov.iov_base, resp_iov.iov_len);
+		/* Use smbCalcSize() for both single- and multi-part T2 responses,
+		 * both here and in coalesce_t2().
+		 */
+		unsigned int copy_len;
+		if (WARN_ON_ONCE(!resp_iov.iov_base)) {
+			rc = -EIO;
+			goto out;
+		}
+		copy_len = smbCalcSize(resp_iov.iov_base);
+		if (copy_len > CIFSMaxBufSize + MAX_CIFS_HDR_SIZE) {
+			cifs_dbg(VFS, "response size %u exceeds buffer\n",
+				 copy_len);
+			rc = -ENOBUFS;
+			goto out;
+		}
+		*pbytes_returned = copy_len;
+		memcpy(out_buf, resp_iov.iov_base, copy_len);
 	}
 
 out:
@@ -361,11 +375,30 @@ coalesce_t2(char *second_buf, struct smb_hdr *target_hdr, unsigned int *pdu_len)
 	data_area_of_tgt = (char *)&pSMBt->hdr.Protocol +
 				get_unaligned_le16(&pSMBt->t2_rsp.DataOffset);
 
-	/* validate target area */
 	data_area_of_src = (char *)&pSMBs->hdr.Protocol +
 				get_unaligned_le16(&pSMBs->t2_rsp.DataOffset);
 
 	data_area_of_tgt += total_in_tgt;
+
+	/*
+	 * DataOffset fields are server-supplied and not validated against
+	 * buffer bounds; check both data pointers before mutating the
+	 * target header.
+	 */
+	if (data_area_of_tgt < (char *)target_hdr +
+				sizeof(struct smb_t2_rsp) + sizeof(__le16) ||
+	    data_area_of_tgt + total_in_src >
+	    (char *)target_hdr + CIFSMaxBufSize + MAX_CIFS_HDR_SIZE) {
+		cifs_dbg(VFS, "%s: target data area out of bounds\n", __func__);
+		return -EPROTO;
+	}
+	if (data_area_of_src < second_buf +
+				sizeof(struct smb_t2_rsp) + sizeof(__le16) ||
+	    data_area_of_src + total_in_src >
+	    second_buf + smbCalcSize((struct smb_hdr *)second_buf)) {
+		cifs_dbg(VFS, "%s: secondary data area out of bounds\n", __func__);
+		return -EPROTO;
+	}
 
 	total_in_tgt += total_in_src;
 	/* is the result too big for the field? */
@@ -386,11 +419,13 @@ coalesce_t2(char *second_buf, struct smb_hdr *target_hdr, unsigned int *pdu_len)
 	}
 	put_bcc(byte_count, target_hdr);
 
-	byte_count = *pdu_len;
-	byte_count += total_in_src;
+	/* use smbCalcSize() rather than *pdu_len: the demux loop resets
+	 * *pdu_len to each secondary's pdu_length, making it unreliable.
+	 */
+	byte_count = smbCalcSize(target_hdr);
 	/* don't allow buffer to overflow */
 	if (byte_count > CIFSMaxBufSize + MAX_CIFS_HDR_SIZE) {
-		cifs_dbg(FYI, "coalesced BCC exceeds buffer size (%u)\n",
+		cifs_dbg(FYI, "coalesced size exceeds buffer size (%u)\n",
 			 byte_count);
 		return -ENOBUFS;
 	}
@@ -414,10 +449,18 @@ bool
 cifs_check_trans2(struct mid_q_entry *mid, struct TCP_Server_Info *server,
 		  char *buf, int malformed)
 {
-	if (malformed)
+	if (malformed || check2ndT2(buf) <= 0) {
+		/* mid->multiRsp blocks the server buf detach in handle_mid();
+		 * returning false here would leak resp_buf and leave a dangling
+		 * server->smallbuf/bigbuf after the user thread frees resp_buf.
+		 */
+		if (mid->multiRsp) {
+			mid->multiEnd = true;
+			dequeue_mid(server, mid, true);
+			return true;
+		}
 		return false;
-	if (check2ndT2(buf) <= 0)
-		return false;
+	}
 	mid->multiRsp = true;
 	if (mid->resp_buf) {
 		/* merge response - fix up 1st*/

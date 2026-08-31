@@ -1679,8 +1679,10 @@ static void verify_bio_data_sectors(struct btrfs_raid_bio *rbio,
 			continue;
 
 		/* No csum for this sector, skip to the next sector. */
-		if (!test_bit(total_sector_nr, rbio->csum_bitmap))
+		if (!test_bit(total_sector_nr, rbio->csum_bitmap)) {
+			total_sector_nr++;
 			continue;
+		}
 
 		expected_csum = rbio->csum_buf + total_sector_nr * fs_info->csum_size;
 		btrfs_calculate_block_csum_pages(fs_info, paddrs, csum_buf);
@@ -2909,13 +2911,12 @@ static int scrub_assemble_read_bios(struct btrfs_raid_bio *rbio)
 			continue;
 
 		/*
-		 * We want to find all the sectors missing from the rbio and
-		 * read them from the disk. If sector_paddr_in_rbio() finds a sector
-		 * in the bio list we don't need to read it off the stripe.
+		 * A parity-scrub rbio carries no data in its bio list: the
+		 * only bio there is the empty completion bio added by
+		 * raid56_parity_alloc_scrub_rbio().  Every sector is read
+		 * from the stripe, so only assert that invariant here.
 		 */
-		paddrs = sector_paddrs_in_rbio(rbio, stripe, sectornr, 1);
-		if (paddrs == NULL)
-			continue;
+		ASSERT(!sector_paddrs_in_rbio(rbio, stripe, sectornr, 1));
 
 		paddrs = rbio_stripe_paddrs(rbio, stripe, sectornr);
 		/*
@@ -2996,13 +2997,11 @@ void raid56_parity_submit_scrub_rbio(struct btrfs_raid_bio *rbio)
  * This is due to the fact rbio has its own page management for its cache.
  */
 void raid56_parity_cache_data_folios(struct btrfs_raid_bio *rbio,
-				     struct folio **data_folios, u64 data_logical)
+				     void *vaddr, u64 data_logical)
 {
 	struct btrfs_fs_info *fs_info = rbio->bioc->fs_info;
 	const u64 offset_in_full_stripe = data_logical -
 					  rbio->bioc->full_stripe_logical;
-	unsigned int findex = 0;
-	unsigned int foffset = 0;
 	int ret;
 
 	/*
@@ -3025,18 +3024,10 @@ void raid56_parity_cache_data_folios(struct btrfs_raid_bio *rbio,
 	     cur_off < offset_in_full_stripe + BTRFS_STRIPE_LEN;
 	     cur_off += PAGE_SIZE) {
 		const unsigned int pindex = cur_off >> PAGE_SHIFT;
-		void *kaddr;
 
-		kaddr = kmap_local_page(rbio->stripe_pages[pindex]);
-		memcpy_from_folio(kaddr, data_folios[findex], foffset, PAGE_SIZE);
-		kunmap_local(kaddr);
-
-		foffset += PAGE_SIZE;
-		ASSERT(foffset <= folio_size(data_folios[findex]));
-		if (foffset == folio_size(data_folios[findex])) {
-			findex++;
-			foffset = 0;
-		}
+		ASSERT(cur_off - offset_in_full_stripe + PAGE_SIZE <= BTRFS_STRIPE_LEN);
+		memcpy_to_page(rbio->stripe_pages[pindex], 0,
+			       vaddr + cur_off - offset_in_full_stripe, PAGE_SIZE);
 	}
 	bitmap_set(rbio->stripe_uptodate_bitmap,
 		   offset_in_full_stripe >> fs_info->sectorsize_bits,

@@ -128,7 +128,12 @@ static void smp_setup_cpu(int cpu)
 	else if (cpu != boot_cpuid)
 		xics_setup_cpu();
 
-	if (firmware_has_feature(FW_FEATURE_SPLPAR))
+	/*
+	 * Initialize VPA on non-boot cpus since boot-cpu vpa was
+	 * already initialized in pSeries_setup_arch()
+	 */
+	if (firmware_has_feature(FW_FEATURE_SPLPAR) &&
+	    cpu != boot_cpuid)
 		vpa_init(cpu);
 
 	cpumask_clear_cpu(cpu, of_spin_mask);
@@ -194,10 +199,12 @@ static int pseries_cause_nmi_ipi(int cpu)
 
 static __init void pSeries_smp_probe(void)
 {
-	if (xive_enabled())
-		xive_smp_probe();
-	else
+	if (xive_enabled()) {
+		if (xive_smp_probe() < 0)
+			return;
+	} else {
 		xics_smp_probe();
+	}
 
 	/* No doorbell facility, must use the interrupt controller for IPIs */
 	if (!cpu_has_feature(CPU_FTR_DBELL))

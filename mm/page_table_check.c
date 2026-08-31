@@ -151,10 +151,20 @@ void __page_table_check_pte_clear(struct mm_struct *mm, unsigned long addr,
 	if (&init_mm == mm)
 		return;
 
-	if (pte_user_accessible_page(mm, addr, pte))
+	if (pte_user_accessible_page(mm, addr, pte) && !pte_special(pte))
 		page_table_check_clear(pte_pfn(pte), PAGE_SIZE >> PAGE_SHIFT);
 }
 EXPORT_SYMBOL(__page_table_check_pte_clear);
+
+static inline bool page_table_check_huge_zero_pmd(pmd_t pmd)
+{
+	unsigned long pfn = pmd_pfn(pmd);
+
+	if (!pfn_valid(pfn))
+		return false;
+
+	return is_huge_zero_folio(page_folio(pfn_to_page(pfn)));
+}
 
 void __page_table_check_pmd_clear(struct mm_struct *mm, unsigned long addr,
 				  pmd_t pmd)
@@ -162,7 +172,8 @@ void __page_table_check_pmd_clear(struct mm_struct *mm, unsigned long addr,
 	if (&init_mm == mm)
 		return;
 
-	if (pmd_user_accessible_page(mm, addr, pmd))
+	if (pmd_user_accessible_page(mm, addr, pmd) &&
+	    !page_table_check_huge_zero_pmd(pmd))
 		page_table_check_clear(pmd_pfn(pmd), PMD_SIZE >> PAGE_SHIFT);
 }
 EXPORT_SYMBOL(__page_table_check_pmd_clear);
@@ -188,8 +199,8 @@ static inline bool softleaf_cached_writable(softleaf_t entry)
 static void page_table_check_pte_flags(pte_t pte)
 {
 	if (pte_present(pte)) {
-		WARN_ON_ONCE(pte_uffd_wp(pte) && pte_write(pte));
-	} else if (pte_swp_uffd_wp(pte)) {
+		WARN_ON_ONCE(pte_uffd(pte) && pte_write(pte));
+	} else if (pte_swp_uffd(pte)) {
 		const softleaf_t entry = softleaf_from_pte(pte);
 
 		WARN_ON_ONCE(softleaf_cached_writable(entry));
@@ -208,7 +219,7 @@ void __page_table_check_ptes_set(struct mm_struct *mm, unsigned long addr,
 
 	for (i = 0; i < nr; i++)
 		__page_table_check_pte_clear(mm, addr + PAGE_SIZE * i, ptep_get(ptep + i));
-	if (pte_user_accessible_page(mm, addr, pte))
+	if (pte_user_accessible_page(mm, addr, pte) && !pte_special(pte))
 		page_table_check_set(pte_pfn(pte), nr, pte_write(pte));
 }
 EXPORT_SYMBOL(__page_table_check_ptes_set);
@@ -216,9 +227,9 @@ EXPORT_SYMBOL(__page_table_check_ptes_set);
 static inline void page_table_check_pmd_flags(pmd_t pmd)
 {
 	if (pmd_present(pmd)) {
-		if (pmd_uffd_wp(pmd))
+		if (pmd_uffd(pmd))
 			WARN_ON_ONCE(pmd_write(pmd));
-	} else if (pmd_swp_uffd_wp(pmd)) {
+	} else if (pmd_swp_uffd(pmd)) {
 		const softleaf_t entry = softleaf_from_pmd(pmd);
 
 		WARN_ON_ONCE(softleaf_cached_writable(entry));
@@ -238,7 +249,8 @@ void __page_table_check_pmds_set(struct mm_struct *mm, unsigned long addr,
 
 	for (i = 0; i < nr; i++)
 		__page_table_check_pmd_clear(mm, addr + PMD_SIZE * i, *(pmdp + i));
-	if (pmd_user_accessible_page(mm, addr, pmd))
+	if (pmd_user_accessible_page(mm, addr, pmd) &&
+	    !page_table_check_huge_zero_pmd(pmd))
 		page_table_check_set(pmd_pfn(pmd), stride * nr, pmd_write(pmd));
 }
 EXPORT_SYMBOL(__page_table_check_pmds_set);

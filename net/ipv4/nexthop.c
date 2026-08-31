@@ -39,6 +39,7 @@ static const struct nla_policy rtm_nh_policy_new[] = {
 	[NHA_ENCAP_TYPE]	= { .type = NLA_U16 },
 	[NHA_ENCAP]		= { .type = NLA_NESTED },
 	[NHA_FDB]		= { .type = NLA_FLAG },
+	[NHA_DST_PORT]		= NLA_POLICY_MIN(NLA_BE16, 1),
 	[NHA_RES_GROUP]		= { .type = NLA_NESTED },
 	[NHA_HW_STATS_ENABLE]	= NLA_POLICY_MAX(NLA_U32, true),
 };
@@ -956,6 +957,9 @@ static int nh_fill_node(struct sk_buff *skb, struct nexthop *nh,
 	} else if (nhi->fdb_nh) {
 		if (nla_put_flag(skb, NHA_FDB))
 			goto nla_put_failure;
+		if (nhi->dst_port &&
+		    nla_put_be16(skb, NHA_DST_PORT, nhi->dst_port))
+			goto nla_put_failure;
 	} else {
 		const struct net_device *dev;
 
@@ -1054,6 +1058,9 @@ static size_t nh_nlmsg_size_single(struct nexthop *nh)
 			sz += nla_total_size(sizeof(const struct in6_addr));
 		break;
 	}
+
+	if (nhi->dst_port)
+		sz += nla_total_size(2);	/* NHA_DST_PORT */
 
 	if (nhi->fib_nhc.nhc_lwtstate) {
 		sz += lwtunnel_get_encap_size(nhi->fib_nhc.nhc_lwtstate);
@@ -1597,14 +1604,21 @@ static int fib6_check_nh_list(struct nexthop *old, struct nexthop *new,
 			      struct netlink_ext_ack *extack)
 {
 	struct fib6_info *f6i;
+	int err = 0;
 
 	if (list_empty(&old->f6i_list))
 		return 0;
 
+	spin_lock_bh(&old->lock);
 	list_for_each_entry(f6i, &old->f6i_list, nh_list) {
-		if (check_src_addr(&f6i->fib6_src.addr, extack) < 0)
-			return -EINVAL;
+		err = check_src_addr(&f6i->fib6_src.addr, extack);
+		if (err)
+			break;
 	}
+	spin_unlock_bh(&old->lock);
+
+	if (err)
+		return err;
 
 	return fib6_check_nexthop(new, NULL, extack);
 }
@@ -1788,8 +1802,8 @@ static bool nh_res_bucket_migrate(struct nh_res_table *res_table,
 				  bool notify_nl, bool force)
 {
 	struct nh_res_bucket *bucket = &res_table->nh_buckets[bucket_index];
+	struct netlink_ext_ack extack = {};
 	struct nh_grp_entry *new_nhge;
-	struct netlink_ext_ack extack;
 	int err;
 
 	new_nhge = list_first_entry_or_null(&res_table->uw_nh_entries,
@@ -2233,18 +2247,18 @@ static void remove_one_nexthop(struct net *net, struct nexthop *nh,
 static void nh_rt_cache_flush(struct net *net, struct nexthop *nh,
 			      struct nexthop *replaced_nh)
 {
-	struct fib6_info *f6i;
 	struct nh_group *nhg;
+	bool have_f6i;
 	int i;
 
 	if (!list_empty(&nh->fi_list))
 		rt_cache_flush(net);
 
-	list_for_each_entry(f6i, &nh->f6i_list, nh_list) {
-		spin_lock_bh(&f6i->fib6_table->tb6_lock);
-		fib6_update_sernum_upto_root(net, f6i);
-		spin_unlock_bh(&f6i->fib6_table->tb6_lock);
-	}
+	spin_lock_bh(&nh->lock);
+	have_f6i = !list_empty(&nh->f6i_list);
+	spin_unlock_bh(&nh->lock);
+	if (have_f6i)
+		rt_genid_bump_ipv6(net);
 
 	/* if an IPv6 group was replaced, we have to release all old
 	 * dsts to make sure all refcounts are released
@@ -2538,8 +2552,10 @@ static void __nexthop_replace_notify(struct net *net, struct nexthop *nh,
 			fi->nh_updated = false;
 	}
 
+	spin_lock_bh(&nh->lock);
 	list_for_each_entry(f6i, &nh->f6i_list, nh_list)
 		fib6_rt_update(net, f6i, info);
+	spin_unlock_bh(&nh->lock);
 }
 
 /* send RTM_NEWROUTE with REPLACE flag set for all FIB entries
@@ -2956,8 +2972,10 @@ static struct nexthop *nexthop_create(struct net *net, struct nh_config *cfg,
 	nhi->family = cfg->nh_family;
 	nhi->fib_nhc.nhc_scope = RT_SCOPE_LINK;
 
-	if (cfg->nh_fdb)
+	if (cfg->nh_fdb) {
 		nhi->fdb_nh = 1;
+		nhi->dst_port = cfg->nh_dst_port;
+	}
 
 	if (cfg->nh_blackhole) {
 		nhi->reject_nh = 1;
@@ -3145,6 +3163,15 @@ static int rtm_to_nh_config(struct net *net, struct sk_buff *skb,
 			goto out;
 		}
 		cfg->nh_fdb = nla_get_flag(tb[NHA_FDB]);
+	}
+
+	if (tb[NHA_DST_PORT]) {
+		if (!tb[NHA_FDB] || !tb[NHA_GATEWAY]) {
+			NL_SET_ERR_MSG(extack,
+				       "Destination port can only be set on fdb nexthops that have a gateway");
+			goto out;
+		}
+		cfg->nh_dst_port = nla_get_be16(tb[NHA_DST_PORT]);
 	}
 
 	if (tb[NHA_GROUP]) {
@@ -4192,12 +4219,22 @@ static const struct rtnl_msg_handler nexthop_rtnl_msg_handlers[] __initconst = {
 
 static int __init nexthop_init(void)
 {
-	register_pernet_subsys(&nexthop_net_ops);
+	int err;
 
-	register_netdevice_notifier(&nh_netdev_notifier);
+	err = register_pernet_subsys(&nexthop_net_ops);
+	if (err)
+		return err;
+
+	err = register_netdevice_notifier(&nh_netdev_notifier);
+	if (err)
+		goto err_unregister_pernet;
 
 	rtnl_register_many(nexthop_rtnl_msg_handlers);
 
 	return 0;
+
+err_unregister_pernet:
+	unregister_pernet_subsys(&nexthop_net_ops);
+	return err;
 }
 subsys_initcall(nexthop_init);

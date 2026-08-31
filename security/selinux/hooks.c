@@ -94,6 +94,7 @@
 #include <linux/io_uring/cmd.h>
 #include <uapi/linux/lsm.h>
 #include <linux/memfd.h>
+#include <uapi/linux/inet_diag.h>
 
 #include "initcalls.h"
 #include "avc.h"
@@ -106,6 +107,7 @@
 #include "netlabel.h"
 #include "audit.h"
 #include "avc_ss.h"
+#include "ima.h"
 
 #define SELINUX_INODE_INIT_XATTRS 1
 
@@ -1336,11 +1338,11 @@ static int selinux_genfs_get_sid(struct dentry *dentry,
 	struct super_block *sb = dentry->d_sb;
 	char *buffer, *path;
 
-	buffer = (char *)__get_free_page(GFP_KERNEL);
+	buffer = kmalloc(PATH_MAX, GFP_KERNEL);
 	if (!buffer)
 		return -ENOMEM;
 
-	path = dentry_path_raw(dentry, buffer, PAGE_SIZE);
+	path = dentry_path_raw(dentry, buffer, PATH_MAX);
 	if (IS_ERR(path))
 		rc = PTR_ERR(path);
 	else {
@@ -1361,7 +1363,7 @@ static int selinux_genfs_get_sid(struct dentry *dentry,
 			rc = 0;
 		}
 	}
-	free_page((unsigned long)buffer);
+	kfree(buffer);
 	return rc;
 }
 
@@ -2974,6 +2976,10 @@ static int selinux_inode_init_security(struct inode *inode, struct inode *dir,
 
 	sbsec = selinux_superblock(dir->i_sb);
 
+	if (!selinux_initialized() ||
+	    !(sbsec->flags & SBLABEL_MNT))
+		return -EOPNOTSUPP;
+
 	newsid = crsec->create_sid;
 	newsclass = inode_mode_to_security_class(inode->i_mode);
 	rc = selinux_determine_inode_label(crsec, dir, qstr, newsclass, &newsid);
@@ -2987,10 +2993,6 @@ static int selinux_inode_init_security(struct inode *inode, struct inode *dir,
 		isec->sid = newsid;
 		isec->initialized = LABEL_INITIALIZED;
 	}
-
-	if (!selinux_initialized() ||
-	    !(sbsec->flags & SBLABEL_MNT))
-		return -EOPNOTSUPP;
 
 	xattr = lsm_get_xattr_slot(xattrs, xattr_count);
 	if (xattr) {
@@ -3969,9 +3971,9 @@ static int selinux_file_ioctl_compat(struct file *file, unsigned int cmd,
 
 static int default_noexec __ro_after_init;
 
-static int __file_map_prot_check(const struct cred *cred,
-				 const struct file *file, unsigned long prot,
-				 bool shared, bool bf_user_file)
+static int __file_map_prot_check(const struct file *file, unsigned long prot,
+				 bool shared, bool mounter_check,
+				 bool bf_user_file)
 {
 	struct inode *inode = NULL;
 	bool prot_exec = prot & PROT_EXEC;
@@ -3984,10 +3986,10 @@ static int __file_map_prot_check(const struct cred *cred,
 			inode = file_inode(file);
 	}
 
-	if (default_noexec && prot_exec &&
+	if (!mounter_check && default_noexec && prot_exec &&
 	    (!file || IS_PRIVATE(inode) || (!shared && prot_write))) {
 		int rc;
-		u32 sid = cred_sid(cred);
+		u32 sid = current_sid();
 
 		/*
 		 * We are making executable an anonymous mapping or a private
@@ -4000,6 +4002,8 @@ static int __file_map_prot_check(const struct cred *cred,
 	}
 
 	if (file) {
+		const struct cred *cred = mounter_check ?
+				file->f_cred : current_cred();
 		/* "read" always possible, "write" only if shared */
 		u32 av = FILE__READ;
 		if (shared && prot_write)
@@ -4013,11 +4017,11 @@ static int __file_map_prot_check(const struct cred *cred,
 	return 0;
 }
 
-static inline int file_map_prot_check(const struct cred *cred,
-				      const struct file *file,
-				      unsigned long prot, bool shared)
+static inline int file_map_prot_check(const struct file *file,
+				      unsigned long prot, bool shared,
+				      bool mounter_check)
 {
-	return __file_map_prot_check(cred, file, prot, shared, false);
+	return __file_map_prot_check(file, prot, shared, mounter_check, false);
 }
 
 static int selinux_mmap_addr(unsigned long addr)
@@ -4033,12 +4037,14 @@ static int selinux_mmap_addr(unsigned long addr)
 	return rc;
 }
 
-static int selinux_mmap_file_common(const struct cred *cred, struct file *file,
-				    unsigned long prot, bool shared)
+static int selinux_mmap_file_common(struct file *file, unsigned long prot,
+				    bool shared, bool mounter_check)
 {
 	if (file) {
 		int rc;
 		struct common_audit_data ad;
+		const struct cred *cred = mounter_check ?
+				file->f_cred : current_cred();
 
 		ad.type = LSM_AUDIT_DATA_FILE;
 		ad.u.file = file;
@@ -4047,15 +4053,16 @@ static int selinux_mmap_file_common(const struct cred *cred, struct file *file,
 			return rc;
 	}
 
-	return file_map_prot_check(cred, file, prot, shared);
+	return file_map_prot_check(file, prot, shared, mounter_check);
 }
 
 static int selinux_mmap_file(struct file *file,
 			     unsigned long reqprot __always_unused,
 			     unsigned long prot, unsigned long flags)
 {
-	return selinux_mmap_file_common(current_cred(), file, prot,
-					(flags & MAP_TYPE) == MAP_SHARED);
+	return selinux_mmap_file_common(file, prot,
+					(flags & MAP_TYPE) == MAP_SHARED,
+					false);
 }
 
 /**
@@ -4087,8 +4094,9 @@ static int selinux_mmap_backing_file(struct vm_area_struct *vma,
 	if (vma->vm_flags & VM_EXEC)
 		prot |= PROT_EXEC;
 
-	return selinux_mmap_file_common(backing_file->f_cred, backing_file,
-					prot, vma->vm_flags & VM_SHARED);
+	return selinux_mmap_file_common(backing_file, prot,
+					vma->vm_flags & VM_SHARED,
+					true);
 }
 
 static int selinux_file_mprotect(struct vm_area_struct *vma,
@@ -4149,11 +4157,11 @@ static int selinux_file_mprotect(struct vm_area_struct *vma,
 		}
 	}
 
-	rc = __file_map_prot_check(cred, file, prot, shared, backing_file);
+	rc = __file_map_prot_check(file, prot, shared, false, backing_file);
 	if (rc)
 		return rc;
 	if (backing_file) {
-		rc = file_map_prot_check(file->f_cred, file, prot, shared);
+		rc = file_map_prot_check(file, prot, shared, true);
 		if (rc)
 			return rc;
 	}
@@ -4994,9 +5002,8 @@ static int selinux_socket_socketpair(struct socket *socka,
    Need to determine whether we should perform a name_bind
    permission check between the socket and the port number. */
 
-static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, int addrlen)
+static int __selinux_socket_bind(struct sock *sk, struct sockaddr *address, int addrlen)
 {
-	struct sock *sk = sock->sk;
 	struct sk_security_struct *sksec = selinux_sock(sk);
 	u16 family;
 	int err;
@@ -5126,13 +5133,17 @@ err_af:
 	return -EAFNOSUPPORT;
 }
 
+static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, int addrlen)
+{
+	return __selinux_socket_bind(sock->sk, address, addrlen);
+}
+
 /* This supports connect(2) and SCTP connect services such as sctp_connectx(3)
  * and sctp_sendmsg(3) as described in Documentation/security/SCTP.rst
  */
-static int selinux_socket_connect_helper(struct socket *sock,
+static int selinux_socket_connect_helper(struct sock *sk,
 					 struct sockaddr *address, int addrlen)
 {
-	struct sock *sk = sock->sk;
 	struct sk_security_struct *sksec = selinux_sock(sk);
 	int err;
 
@@ -5221,7 +5232,7 @@ static int selinux_socket_connect(struct socket *sock,
 	int err;
 	struct sock *sk = sock->sk;
 
-	err = selinux_socket_connect_helper(sock, address, addrlen);
+	err = selinux_socket_connect_helper(sk, address, addrlen);
 	if (err)
 		return err;
 
@@ -5262,7 +5273,24 @@ static int selinux_socket_accept(struct socket *sock, struct socket *newsock)
 static int selinux_socket_sendmsg(struct socket *sock, struct msghdr *msg,
 				  int size)
 {
-	return sock_has_perm(sock->sk, SOCKET__WRITE);
+	int rc;
+	struct sockaddr *const addr = msg->msg_name;
+	const int addrlen = msg->msg_namelen;
+
+	rc = sock_has_perm(sock->sk, SOCKET__WRITE);
+	if (rc)
+		return rc;
+
+	if (addr && (msg->msg_flags & MSG_FASTOPEN) &&
+	    (sk_is_tcp(sock->sk) ||
+	     (sk_is_inet(sock->sk) && sock->sk->sk_type == SOCK_STREAM &&
+	      sock->sk->sk_protocol == IPPROTO_MPTCP))) {
+		rc = selinux_socket_connect(sock, addr, addrlen);
+		if (rc)
+			return rc;
+	}
+
+	return 0;
 }
 
 static int selinux_socket_recvmsg(struct socket *sock, struct msghdr *msg,
@@ -5706,13 +5734,11 @@ static int selinux_sctp_bind_connect(struct sock *sk, int optname,
 	int len, err = 0, walk_size = 0;
 	void *addr_buf;
 	struct sockaddr *addr;
-	struct socket *sock;
 
 	if (!selinux_policycap_extsockclass())
 		return 0;
 
 	/* Process one or more addresses that may be IPv4 or IPv6 */
-	sock = sk->sk_socket;
 	addr_buf = address;
 
 	while (walk_size < addrlen) {
@@ -5741,14 +5767,14 @@ static int selinux_sctp_bind_connect(struct sock *sk, int optname,
 		case SCTP_PRIMARY_ADDR:
 		case SCTP_SET_PEER_PRIMARY_ADDR:
 		case SCTP_SOCKOPT_BINDX_ADD:
-			err = selinux_socket_bind(sock, addr, len);
+			err = __selinux_socket_bind(sk, addr, len);
 			break;
 		/* Connect checks */
 		case SCTP_SOCKOPT_CONNECTX:
 		case SCTP_PARAM_SET_PRIMARY:
 		case SCTP_PARAM_ADD_IP:
 		case SCTP_SENDMSG_CONNECT:
-			err = selinux_socket_connect_helper(sock, addr, len);
+			err = selinux_socket_connect_helper(sk, addr, len);
 			if (err)
 				return err;
 
@@ -6272,12 +6298,17 @@ static int selinux_netlink_send(struct sock *sk, struct sk_buff *skb)
 				return rc;
 		} else if (rc == -EINVAL) {
 			/* -EINVAL is a missing msg/perm mapping */
-			pr_warn_ratelimited("SELinux: unrecognized netlink"
-				" message: protocol=%hu nlmsg_type=%hu sclass=%s"
-				" pid=%d comm=%s\n",
-				sk->sk_protocol, nlh->nlmsg_type,
-				secclass_map[sclass - 1].name,
-				task_pid_nr(current), current->comm);
+			if (sclass == SECCLASS_NETLINK_TCPDIAG_SOCKET &&
+			    nlh->nlmsg_type == DCCPDIAG_GETSOCK)
+				pr_warn_once("SELinux: DCCP has been removed, pid=%d comm=%s\n",
+					     task_pid_nr(current), current->comm);
+			else
+				pr_warn_ratelimited("SELinux: unrecognized netlink"
+					" message: protocol=%hu nlmsg_type=%hu sclass=%s"
+					" pid=%d comm=%s\n",
+					sk->sk_protocol, nlh->nlmsg_type,
+					secclass_map[sclass - 1].name,
+					task_pid_nr(current), current->comm);
 			if (enforcing_enabled() &&
 			    !security_get_allow_unknown())
 				return rc;
@@ -7849,6 +7880,8 @@ static __init int selinux_init(void)
 	ebitmap_cache_init();
 
 	hashtab_cache_init();
+
+	selinux_ima_config_len_init();
 
 	security_add_hooks(selinux_hooks, ARRAY_SIZE(selinux_hooks),
 			   &selinux_lsmid);

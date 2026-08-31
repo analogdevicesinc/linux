@@ -192,8 +192,8 @@ x86_virt_spec_ctrl(u64 guest_virt_spec_ctrl, bool setguest)
 	 * If SSBD is not handled in MSR_SPEC_CTRL on AMD, update
 	 * MSR_AMD64_L2_CFG or MSR_VIRT_SPEC_CTRL if supported.
 	 */
-	if (!static_cpu_has(X86_FEATURE_LS_CFG_SSBD) &&
-	    !static_cpu_has(X86_FEATURE_VIRT_SSBD))
+	if (!cpu_feature_enabled(X86_FEATURE_LS_CFG_SSBD) &&
+	    !cpu_feature_enabled(X86_FEATURE_VIRT_SSBD))
 		return;
 
 	/*
@@ -201,7 +201,7 @@ x86_virt_spec_ctrl(u64 guest_virt_spec_ctrl, bool setguest)
 	 * virtual MSR value. If its not permanently enabled, evaluate
 	 * current's TIF_SSBD thread flag.
 	 */
-	if (static_cpu_has(X86_FEATURE_SPEC_STORE_BYPASS_DISABLE))
+	if (cpu_feature_enabled(X86_FEATURE_SPEC_STORE_BYPASS_DISABLE))
 		hostval = SPEC_CTRL_SSBD;
 	else
 		hostval = ssbd_tif_to_spec_ctrl(ti->flags);
@@ -2499,8 +2499,8 @@ static void __init ssb_apply_mitigation(void)
 		 * Intel uses the SPEC CTRL MSR Bit(2) for this, while AMD may
 		 * use a completely different MSR and bit dependent on family.
 		 */
-		if (!static_cpu_has(X86_FEATURE_SPEC_CTRL_SSBD) &&
-		    !static_cpu_has(X86_FEATURE_AMD_SSBD)) {
+		if (!cpu_feature_enabled(X86_FEATURE_SPEC_CTRL_SSBD) &&
+		    !cpu_feature_enabled(X86_FEATURE_AMD_SSBD)) {
 			x86_amd_ssb_disable();
 		} else {
 			x86_spec_ctrl_base |= SPEC_CTRL_SSBD;
@@ -3775,3 +3775,42 @@ void __warn_thunk(void)
 {
 	WARN_ONCE(1, "Unpatched return thunk in use. This should not happen!\n");
 }
+
+#ifdef CONFIG_MITIGATION_SRSO
+/*
+ * Called during exception/interrupt entry if interrupted during the
+ * safe-RET sequence.  The safe-RET sequence consists of 3 instructions:
+ *
+ *	CALL
+ *	LEA 8(%RSP), %RSP
+ *	RET
+ *
+ * An interrupt after the CALL or after the LEA could potentially lead
+ * to branch predictor poisoning and results in the sequence not being
+ * able to be safely resumed.
+ *
+ * Therefore, modify the regs state as if the remaining part of the
+ * safe-RET sequence executed so the interrupt returns back to the
+ * desired return target, instead of the to the safe-RET sequence.
+ */
+void noinstr handle_interrupted_saferet(struct pt_regs *regs)
+{
+	unsigned long rip = regs->ip;
+
+	if (rip == (unsigned long) srso_safe_ret ||
+	    rip == (unsigned long) srso_alias_safe_ret) {
+	    /* Modify stack pointer as if LEA executed: */
+	    regs->sp += 8;
+	}
+
+	/*
+	 * Adjust registers as if RET executed:
+	 *
+	 * 1. Read the return address off the stack and into rIP:
+	 */
+	regs->ip = *(unsigned long *)(regs->sp);
+
+	/* 2. Pop rIP off the stack: */
+	regs->sp += 8;
+}
+#endif /* CONFIG_MITIGATION_SRSO */

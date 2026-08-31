@@ -7,6 +7,8 @@
 
 #include <linux/clockchips.h>
 #include <linux/irqflags.h>
+#include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/percpu.h>
 #include <linux/context_tracking_state.h>
 #include <linux/cpumask.h>
@@ -44,9 +46,6 @@ static inline void tick_unfreeze(void) { }
 
 #ifdef CONFIG_TICK_ONESHOT
 extern void tick_irq_enter(void);
-#  ifndef arch_needs_cpu
-#   define arch_needs_cpu() (0)
-#  endif
 # else
 static inline void tick_irq_enter(void) { }
 #endif
