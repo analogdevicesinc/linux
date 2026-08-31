@@ -1154,3 +1154,88 @@ void snd_soc_dai_symmetric_set_params(struct snd_soc_dai *dai,
 		dai->symmetric_sample_bits = 0;
 	}
 }
+
+int snd_soc_dai_symmetric_apply(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	int ret;
+
+	if (!snd_soc_dai_active(dai))
+		return 0;
+
+#define __symmetric_apply(name, NAME)							\
+	if (dai->symmetric_##name &&							\
+	    (dai->driver->symmetric_##name || rtd->dai_link->symmetric_##name)) {	\
+		dev_dbg(dai->dev, "ASoC: Symmetry forces %s to %d\n",			\
+			#name, dai->symmetric_##name);					\
+											\
+		ret = snd_pcm_hw_constraint_single(substream->runtime,			\
+						   SNDRV_PCM_HW_PARAM_##NAME,		\
+						   dai->symmetric_##name);		\
+		if (ret < 0)								\
+			return snd_soc_ret(dai->dev, ret,				\
+					   "Unable to apply %s constraint\n", #name);	\
+	}
+
+	__symmetric_apply(rate,		RATE);
+	__symmetric_apply(channels,	CHANNELS);
+	__symmetric_apply(sample_bits,	SAMPLE_BITS);
+
+	return 0;
+}
+
+int snd_soc_dai_symmetric_params(struct snd_pcm_substream *substream,
+				 struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct snd_soc_dai d;
+	struct snd_soc_dai *dai;
+	struct snd_soc_dai *cpu_dai;
+	unsigned int symmetry, i;
+
+	d.name = __func__;
+	snd_soc_dai_symmetric_set_params(&d, params);
+
+#define __symmetric_params(xxx)						\
+	symmetry = rtd->dai_link->symmetric_##xxx;			\
+	for_each_rtd_dais(rtd, i, dai)					\
+		symmetry |= dai->driver->symmetric_##xxx;		\
+									\
+	if (symmetry)							\
+		for_each_rtd_cpu_dais(rtd, i, cpu_dai)			\
+			if (!snd_soc_dai_is_dummy(cpu_dai) &&		\
+			    cpu_dai->symmetric_##xxx &&			\
+			    cpu_dai->symmetric_##xxx != d.symmetric_##xxx) \
+				return snd_soc_ret(rtd->dev, -EINVAL,	\
+						   "unmatched %s symmetry: %s:%d - %s:%d\n", \
+						   #xxx, cpu_dai->name, cpu_dai->symmetric_##xxx, \
+						   d.name, d.symmetric_##xxx);
+
+	/* reject unmatched parameters when applying symmetry */
+	__symmetric_params(rate);
+	__symmetric_params(channels);
+	__symmetric_params(sample_bits);
+
+	return 0;
+}
+
+void snd_soc_dai_symmetric_update(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct snd_soc_dai_link *link = rtd->dai_link;
+	struct snd_soc_dai *dai;
+	unsigned int symmetry, i;
+
+	symmetry = link->symmetric_rate		||
+		   link->symmetric_channels	||
+		   link->symmetric_sample_bits;
+
+	for_each_rtd_dais(rtd, i, dai)
+		symmetry = symmetry				||
+			   dai->driver->symmetric_rate		||
+			   dai->driver->symmetric_channels	||
+			   dai->driver->symmetric_sample_bits;
+
+	if (symmetry)
+		substream->runtime->hw.info |= SNDRV_PCM_INFO_JOINT_DUPLEX;
+}

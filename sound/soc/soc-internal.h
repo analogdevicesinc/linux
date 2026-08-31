@@ -29,5 +29,8 @@ int snd_soc_add_controls(struct snd_card *card, struct device *dev,
  */
 void snd_soc_dai_symmetric_set_params(struct snd_soc_dai *dai,
 				      struct snd_pcm_hw_params *params);
+int snd_soc_dai_symmetric_apply(struct snd_pcm_substream *substream, struct snd_soc_dai *dai);
+int snd_soc_dai_symmetric_params(struct snd_pcm_substream *substream, struct snd_pcm_hw_params *params);
+void snd_soc_dai_symmetric_update(struct snd_pcm_substream *substream);
 
 #endif /* __SOC_INTERNAL_H */
