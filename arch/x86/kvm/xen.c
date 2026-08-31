@@ -2141,7 +2141,7 @@ static int kvm_xen_eventfd_update(struct kvm *kvm,
 
 	/* Protect writes to evtchnfd as well as the idr lookup.  */
 	mutex_lock(&kvm->arch.xen.xen_lock);
-	evtchnfd = idr_find(&kvm->arch.xen.evtchn_ports, port);
+	evtchnfd = xa_load(&kvm->arch.xen.evtchn_ports, port);
 
 	ret = -ENOENT;
 	if (!evtchnfd)
@@ -2235,13 +2235,13 @@ static int kvm_xen_eventfd_assign(struct kvm *kvm,
 	}
 
 	mutex_lock(&kvm->arch.xen.xen_lock);
-	ret = idr_alloc(&kvm->arch.xen.evtchn_ports, evtchnfd, port, port + 1,
+	ret = xa_insert(&kvm->arch.xen.evtchn_ports, port, evtchnfd,
 			GFP_KERNEL);
 	mutex_unlock(&kvm->arch.xen.xen_lock);
-	if (ret >= 0)
+	if (!ret)
 		return 0;
 
-	if (ret == -ENOSPC)
+	if (ret == -EBUSY)
 		ret = -EEXIST;
 out:
 	if (eventfd)
@@ -2256,7 +2256,7 @@ static int kvm_xen_eventfd_deassign(struct kvm *kvm, u32 port)
 	struct evtchnfd *evtchnfd;
 
 	mutex_lock(&kvm->arch.xen.xen_lock);
-	evtchnfd = idr_remove(&kvm->arch.xen.evtchn_ports, port);
+	evtchnfd = xa_erase(&kvm->arch.xen.evtchn_ports, port);
 	mutex_unlock(&kvm->arch.xen.xen_lock);
 
 	if (!evtchnfd)
@@ -2272,7 +2272,7 @@ static int kvm_xen_eventfd_deassign(struct kvm *kvm, u32 port)
 static int kvm_xen_eventfd_reset(struct kvm *kvm)
 {
 	struct evtchnfd *evtchnfd, **all_evtchnfds;
-	int i;
+	unsigned long i;
 	int n = 0;
 
 	mutex_lock(&kvm->arch.xen.xen_lock);
@@ -2282,7 +2282,7 @@ static int kvm_xen_eventfd_reset(struct kvm *kvm)
 	 * critical section, first collect all the evtchnfd objects
 	 * in an array as they are removed from evtchn_ports.
 	 */
-	idr_for_each_entry(&kvm->arch.xen.evtchn_ports, evtchnfd, i)
+	xa_for_each(&kvm->arch.xen.evtchn_ports, i, evtchnfd)
 		n++;
 
 	all_evtchnfds = kmalloc_objs(struct evtchnfd *, n);
@@ -2292,9 +2292,9 @@ static int kvm_xen_eventfd_reset(struct kvm *kvm)
 	}
 
 	n = 0;
-	idr_for_each_entry(&kvm->arch.xen.evtchn_ports, evtchnfd, i) {
+	xa_for_each(&kvm->arch.xen.evtchn_ports, i, evtchnfd) {
 		all_evtchnfds[n++] = evtchnfd;
-		idr_remove(&kvm->arch.xen.evtchn_ports, evtchnfd->send_port);
+		xa_erase(&kvm->arch.xen.evtchn_ports, evtchnfd->send_port);
 	}
 	mutex_unlock(&kvm->arch.xen.xen_lock);
 
@@ -2345,12 +2345,10 @@ static bool kvm_xen_hcall_evtchn_send(struct kvm_vcpu *vcpu, u64 param, u64 *r)
 	}
 
 	/*
-	 * evtchnfd is protected by kvm->srcu; the idr lookup instead
-	 * is protected by RCU.
+	 * evtchnfd is protected by kvm->srcu; the xa_load is RCU-safe
+	 * internally, no explicit rcu_read_lock() needed.
 	 */
-	rcu_read_lock();
-	evtchnfd = idr_find(&vcpu->kvm->arch.xen.evtchn_ports, send.port);
-	rcu_read_unlock();
+	evtchnfd = xa_load(&vcpu->kvm->arch.xen.evtchn_ports, send.port);
 	if (!evtchnfd)
 		return false;
 
@@ -2397,23 +2395,23 @@ void kvm_xen_destroy_vcpu(struct kvm_vcpu *vcpu)
 void kvm_xen_init_vm(struct kvm *kvm)
 {
 	mutex_init(&kvm->arch.xen.xen_lock);
-	idr_init(&kvm->arch.xen.evtchn_ports);
+	xa_init(&kvm->arch.xen.evtchn_ports);
 	kvm_gpc_init(&kvm->arch.xen.shinfo_cache, kvm);
 }
 
 void kvm_xen_destroy_vm(struct kvm *kvm)
 {
 	struct evtchnfd *evtchnfd;
-	int i;
+	unsigned long i;
 
 	kvm_gpc_deactivate(&kvm->arch.xen.shinfo_cache);
 
-	idr_for_each_entry(&kvm->arch.xen.evtchn_ports, evtchnfd, i) {
+	xa_for_each(&kvm->arch.xen.evtchn_ports, i, evtchnfd) {
 		if (!evtchnfd->deliver.port.port)
 			eventfd_ctx_put(evtchnfd->deliver.eventfd.ctx);
 		kfree(evtchnfd);
 	}
-	idr_destroy(&kvm->arch.xen.evtchn_ports);
+	xa_destroy(&kvm->arch.xen.evtchn_ports);
 
 	if (kvm->arch.xen.hvm_config.msr)
 		static_branch_slow_dec_deferred(&kvm_xen_enabled);
