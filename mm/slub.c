@@ -5342,7 +5342,12 @@ static void *___kmalloc_large_node(size_t size, gfp_t flags, int node)
 {
 	struct page *page;
 	void *ptr = NULL;
-	unsigned int order = get_order(size);
+	unsigned int order;
+
+	if (WARN_ON_ONCE_GFP(size > KMALLOC_MAX_SIZE, flags))
+		return NULL;
+
+	order = get_order(size);
 
 	if (unlikely(flags & GFP_SLAB_BUG_MASK))
 		flags = kmalloc_fix_flags(flags);
