@@ -7192,7 +7192,7 @@ static bool distribute_cfs_runtime(struct cfs_bandwidth *cfs_b)
 		if (!list_empty(&cfs_rq->throttled_csd_list))
 			continue;
 
-		if (cfs_rq->curr) {
+		if (cfs_rq->h_curr) {
 			update_rq_clock(rq);
 			update_curr(cfs_rq);
 		}
