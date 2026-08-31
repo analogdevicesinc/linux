@@ -629,6 +629,7 @@ struct mac_device_info {
 	void __iomem *pcsr;     /* vpointer to device CSRs */
 	unsigned int multicast_filter_bins;
 	unsigned int unicast_filter_entries;
+	unsigned int multi_addr;
 	unsigned int mcast_bits_log2;
 	unsigned int rx_csum;
 	unsigned int num_vlan;
@@ -637,6 +638,8 @@ struct mac_device_info {
 	u8 vlan_fail_q;
 	bool hw_vlan_en;
 	bool reverse_sgmii_enable;
+	bool additional_32_addr;
+	bool additional_64_addr;
 
 	/* This spinlock protects read-modify-write of the interrupt
 	 * mask/enable registers.

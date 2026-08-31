@@ -75,8 +75,6 @@
 #define GMAC_PACKET_FILTER_IPFE		BIT(20)
 #define GMAC_PACKET_FILTER_RA		BIT(31)
 
-#define GMAC_MAX_PERFECT_ADDRESSES	128
-
 /* MAC RX Queue Enable */
 #define GMAC_RX_QUEUE_CLEAR(queue)	~(GENMASK(1, 0) << ((queue) * 2))
 #define GMAC_RX_AV_QUEUE_ENABLE(queue)	BIT((queue) * 2)
