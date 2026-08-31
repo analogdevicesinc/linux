@@ -79,6 +79,19 @@
  */
 #define ADA4355_ENABLE_ERROR_MASK           0x00C8
 
+/*
+ * Zynq-7000 uses IDELAYE2, whose tap counter is 5 bits wide. Sweeping further
+ * aliases every 32 taps, so find_opt() locks onto a repeating pattern and
+ * reports success on a meaningless delay. UltraScale+ (IDELAYE3) is 9 bits and
+ * needs 512 instead.
+ */
+#define IDELAY_NUM_TAPS 32
+#define IDELAY_STEP     1
+#define IDELAY_ENTRIES  (IDELAY_NUM_TAPS / IDELAY_STEP)
+
+/* Frame lane sits above the data lanes in the up_delay_cntrl address space */
+#define ADA4355_FRAME_DELAY_LANE            2
+
 static const int ada4355_scale_table[][2] = {
 	{2000, 0}, /* 2V differential range (±1V) for 1V reference */
 };
@@ -89,6 +102,11 @@ struct ada4355_state {
 	struct clk		*clk;
 	struct mutex		lock;
 	unsigned int		num_lanes;
+
+	/* Readback census for the setup transcript, see ada4355_write_verify() */
+	unsigned int		rb_total;
+	unsigned int		rb_mismatch;
+	unsigned int		rb_ff;
 };
 
 static const struct regmap_config ada4355_regmap_config = {
@@ -102,6 +120,51 @@ static struct ada4355_state *ada4355_get_data(struct iio_dev *indio_dev)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 
 	return conv->phy;
+}
+
+/*
+ * Write a register, read it straight back, and log both. On the Quad ADA4356
+ * FMC the SDO return path is dead, so every readback comes back 0xFF; the
+ * census kept here lets ada4355_setup() tell "the part is mute" apart from
+ * "this particular write did not stick", which the bare error codes cannot.
+ * Self-clearing and write-only registers pass verify=false.
+ */
+static int ada4355_write_verify(struct ada4355_state *st, unsigned int reg,
+				unsigned int val, bool verify, const char *name)
+{
+	unsigned int rb;
+	int ret;
+
+	ret = regmap_write(st->regmap, reg, val);
+	if (ret) {
+		dev_err(&st->spi->dev, "  W 0x%03X %-20s <= 0x%02X  WRITE FAILED (%d)\n",
+			reg, name, val, ret);
+		return ret;
+	}
+
+	if (!verify) {
+		dev_info(&st->spi->dev, "  W 0x%03X %-20s <= 0x%02X  (no readback)\n",
+			 reg, name, val);
+		return 0;
+	}
+
+	ret = regmap_read(st->regmap, reg, &rb);
+	if (ret) {
+		dev_warn(&st->spi->dev, "  W 0x%03X %-20s <= 0x%02X  READ FAILED (%d)\n",
+			 reg, name, val, ret);
+		return 0;
+	}
+
+	st->rb_total++;
+	if (rb != val)
+		st->rb_mismatch++;
+	if (rb == 0xFF)
+		st->rb_ff++;
+
+	dev_info(&st->spi->dev, "  W 0x%03X %-20s <= 0x%02X  RB 0x%02X  %s\n",
+		 reg, name, val, rb, rb == val ? "ok" : "MISMATCH");
+
+	return 0;
 }
 
 static int ada4355_reg_access(struct iio_dev *indio_dev, unsigned int reg,
@@ -213,32 +276,72 @@ static int find_opt(u8 *field, u32 size, u32 *ret_start)
 	return max_cnt;
 }
 
+/*
+ * Decode up_clock_mon: it counts adc_clk edges over a 65536-cycle window of the
+ * 100 MHz AXI clock. A wrong or absent DCO shows up here long before it shows
+ * up as a failed IDELAY sweep, so it is the first thing worth printing.
+ */
+static void ada4355_log_clk_mon(struct device *dev, struct axiadc_state *axi_adc_st)
+{
+	unsigned int freq = ADI_TO_CLK_FREQ(axiadc_read(axi_adc_st, ADI_REG_CLK_FREQ));
+	unsigned int ratio = ADI_TO_CLK_RATIO(axiadc_read(axi_adc_st, ADI_REG_CLK_RATIO));
+	u32 hz = (u32)(((u64)freq * ratio * 100000000ULL) >> 16);
+
+	dev_info(dev, "  CLK_FREQ 0x%08X  CLK_RATIO 0x%08X  => adc_clk %u.%03u MHz\n",
+		 freq, ratio, hz / 1000000, (hz / 1000) % 1000);
+
+	if (!freq)
+		dev_warn(dev, "  adc_clk is not running at all (no DCO reaching this instance)\n");
+}
+
+static void ada4355_log_sweep(struct device *dev, const char *what, const u8 *field)
+{
+	char buf[IDELAY_ENTRIES + 1];
+	unsigned int i;
+
+	for (i = 0; i < IDELAY_ENTRIES; i++)
+		buf[i] = field[i] ? 'X' : '-';
+	buf[IDELAY_ENTRIES] = '\0';
+
+	dev_info(dev, "  %-10s taps 0-%u |%s|\n", what, IDELAY_ENTRIES - 1, buf);
+}
+
 static int ada4355_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *axi_adc_st = iio_priv(indio_dev);
 	struct ada4355_state *st = ada4355_get_data(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	/*
-	 * Zynq-7000 uses IDELAYE2, whose tap counter is 5 bits wide. Sweeping
-	 * further aliases every 32 taps, so find_opt() locks onto a repeating
-	 * pattern and reports success on a meaningless delay. UltraScale+
-	 * (IDELAYE3) is 9 bits and needs 512 instead.
-	 */
-	#define IDELAY_NUM_TAPS 32
-	#define IDELAY_STEP     1
-	#define IDELAY_ENTRIES  (IDELAY_NUM_TAPS / IDELAY_STEP)
+	struct device *dev = &conv->spi->dev;
 	u8 pn_status[3][IDELAY_ENTRIES];
-	int opt_delay, c, s;
+	unsigned int opt_delay, s;
+	int c;
 	int ret;
-	unsigned int reg_cntrl;
+	unsigned int reg_cntrl, ver, cfg;
 	unsigned int i, delay, val, idx;
 	bool cal_ok = true;
+
+	ver = axiadc_read(axi_adc_st, ADI_AXI_REG_VERSION);
+	cfg = axiadc_read(axi_adc_st, ADI_REG_CONFIG);
+
+	dev_info(dev, "==== ada4355_post_setup: AXI core state ====\n");
+	dev_info(dev, "  VERSION %u.%u.%u  ID 0x%08X  CONFIG 0x%08X%s\n",
+		 ADI_AXI_PCORE_VER_MAJOR(ver), ADI_AXI_PCORE_VER_MINOR(ver),
+		 ADI_AXI_PCORE_VER_PATCH(ver),
+		 axiadc_read(axi_adc_st, ADI_AXI_REG_ID), cfg,
+		 (cfg & ADI_DELAY_CONTROL_DISABLE) ? " [IDELAY CONTROL DISABLED]" : "");
+	ada4355_log_clk_mon(dev, axi_adc_st);
+	dev_info(dev, "  RSTN 0x%08X  CNTRL 0x%08X  STATUS 0x%08X\n",
+		 axiadc_read(axi_adc_st, ADI_REG_RSTN),
+		 axiadc_read(axi_adc_st, ADI_REG_CNTRL),
+		 axiadc_read(axi_adc_st, ADI_REG_STATUS));
 
 	/* Set number of lanes and assert sync */
 	reg_cntrl = axiadc_read(axi_adc_st, ADI_REG_CNTRL);
 	reg_cntrl |= ADI_NUM_LANES(st->num_lanes);
 	reg_cntrl |= ADI_SYNC;
 	axiadc_write(axi_adc_st, ADI_REG_CNTRL, reg_cntrl);
+	dev_info(dev, "  CNTRL <= 0x%08X (num_lanes=%u, SYNC), RB 0x%08X\n",
+		 reg_cntrl, st->num_lanes, axiadc_read(axi_adc_st, ADI_REG_CNTRL));
 
 	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);
 
@@ -247,22 +350,26 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 	for (idx = 0, delay = 0; delay < IDELAY_NUM_TAPS; delay += IDELAY_STEP, idx++) {
 		val = axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0));
 		axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), val);
-		axiadc_write(axi_adc_st, 0x808, delay);
+		axiadc_write(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE), delay);
 		mdelay(1);
 		pn_status[0][idx] =
 			(axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) & ADI_PN_ERR) ? 1 : 0;
 	}
 	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, 0);
 
+	dev_info(dev, "---- IDELAY sweep ('-' = pass, 'X' = PN error) ----\n");
+	ada4355_log_sweep(dev, "frame", &pn_status[0][0]);
+
 	c = find_opt(&pn_status[0][0], IDELAY_ENTRIES, &s);
 	if (c == 0) {
-		dev_err(&conv->spi->dev, "frame lane: no valid IDELAY window found\n");
+		dev_err(dev, "frame lane: no valid IDELAY window found\n");
 		cal_ok = false;
 	}
 	opt_delay = (s + c / 2) * IDELAY_STEP;
-	axiadc_write(axi_adc_st, 0x808, opt_delay);
-	dev_info(&conv->spi->dev, "frame lane: selected delay %d (window %d steps)\n",
-		 opt_delay, c);
+	axiadc_write(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE), opt_delay);
+	dev_info(dev, "  frame      window [%u..%u] %d wide, delay %u, RB %u\n",
+		 s, s + (c ? c - 1 : 0), c, opt_delay,
+		 axiadc_read(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE)));
 
 	/* Data lane IDELAY sweep: one lane at a time */
 	for (i = 0; i < st->num_lanes; i++) {
@@ -270,7 +377,7 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 		for (idx = 0, delay = 0; delay < IDELAY_NUM_TAPS; delay += IDELAY_STEP, idx++) {
 			val = axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0));
 			axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), val);
-			axiadc_write(axi_adc_st, 0x800 + (i * 4), delay);
+			axiadc_write(axi_adc_st, ADI_REG_DELAY(i), delay);
 			mdelay(1);
 			pn_status[i][idx] =
 				(axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) & ADI_PN_ERR) ? 1 : 0;
@@ -279,160 +386,209 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 	}
 
 	for (i = 0; i < st->num_lanes; i++) {
+		char name[8];
+
+		snprintf(name, sizeof(name), "lane %u", i);
+		ada4355_log_sweep(dev, name, &pn_status[i][0]);
+
 		c = find_opt(&pn_status[i][0], IDELAY_ENTRIES, &s);
 		if (c == 0) {
-			dev_err(&conv->spi->dev, "lane %u: no valid IDELAY window found\n", i);
+			dev_err(dev, "lane %u: no valid IDELAY window found\n", i);
 			cal_ok = false;
 		}
 		opt_delay = (s + c / 2) * IDELAY_STEP;
-		axiadc_write(axi_adc_st, 0x800 + (i * 4), opt_delay);
-		dev_info(&conv->spi->dev, "lane %u: selected delay %d (window %d steps)\n",
-			 i, opt_delay, c);
+		axiadc_write(axi_adc_st, ADI_REG_DELAY(i), opt_delay);
+		dev_info(dev, "  lane %u     window [%u..%u] %d wide, delay %u, RB %u\n",
+			 i, s, s + (c ? c - 1 : 0), c, opt_delay,
+			 axiadc_read(axi_adc_st, ADI_REG_DELAY(i)));
 	}
 
-	if (cal_ok)
-		dev_info(&conv->spi->dev, "IDELAY calibration complete\n");
-	else
-		dev_err(&conv->spi->dev, "IDELAY calibration failed\n");
+	dev_info(dev, "  post-sweep STATUS 0x%08X  CHAN_STATUS(0) 0x%08X\n",
+		 axiadc_read(axi_adc_st, ADI_REG_STATUS),
+		 axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)));
+
+	if (cal_ok) {
+		dev_info(dev, "==== IDELAY calibration complete ====\n");
+	} else {
+		dev_err(dev, "==== IDELAY calibration FAILED ====\n");
+		/*
+		 * An all-'X' sweep means the comparison never passed at any tap,
+		 * which is a data/clock problem rather than a timing problem —
+		 * distinguish those two for whoever reads the log.
+		 */
+		dev_err(dev, "all taps failing points at a missing DCO or a pattern mismatch, "
+			     "not at IDELAY timing; check CLK_FREQ above and that 0xFFFC is "
+			     "actually being driven\n");
+	}
 
 	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), 0);
 
 	/* Switch ADC back to normal input */
 	ret = regmap_write(st->regmap, ADA4355_REG_TEST_MODE, ADA4355_INPUT_SIGNALS);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "failed to restore TEST_MODE to normal input: %d\n", ret);
 		return ret;
+	}
+	dev_info(dev, "ada4355_post_setup: TEST_MODE restored to normal input\n");
 
 	return 0;
 }
 
 static int ada4355_setup(struct ada4355_state *st)
 {
+	struct device *dev = &st->spi->dev;
 	unsigned int reg, id;
 	int ret;
 	struct gpio_desc *gpio_vld_en;
 
-	dev_info(&st->spi->dev, "ada4355_setup: enter\n");
+	st->rb_total = 0;
+	st->rb_mismatch = 0;
+	st->rb_ff = 0;
 
-	/* Digital reset */
-	ret = regmap_write(st->regmap, ADA4355_REG_POWER_MODES, ADA4355_DIGITAL_RESET);
-	if (ret) {
-		dev_err(&st->spi->dev, "ada4355_setup: write POWER_MODES reset failed %d\n", ret);
-		return ret;
-	}
+	dev_info(dev, "==== ada4355_setup: SPI register transcript ====\n");
 
-	ret = regmap_read(st->regmap, ADA4355_REG_POWER_MODES, &reg);
-	if (ret) {
-		dev_err(&st->spi->dev, "ada4355_setup: read POWER_MODES failed %d\n", ret);
-		return ret;
-	}
-	dev_info(&st->spi->dev, "ada4355_setup: POWER_MODES readback = 0x%02X\n", reg);
-
-	ret = regmap_write(st->regmap, ADA4355_REG_POWER_MODES,
-			   reg & ADA4355_NORMAL_OPERATION);
+	/* Digital reset: self-clearing, readback here would be meaningless */
+	ret = ada4355_write_verify(st, ADA4355_REG_POWER_MODES,
+				   ADA4355_DIGITAL_RESET, false, "POWER_MODES/rst");
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, ADA4355_REG_CHIP_CONFIGURATION, 0x00);
+	/*
+	 * First read of the session. Anything other than 0x00 here means the
+	 * SDO path is suspect before a single config register has been touched.
+	 */
+	ret = regmap_read(st->regmap, ADA4355_REG_POWER_MODES, &reg);
+	if (ret) {
+		dev_err(dev, "  R 0x%03X POWER_MODES         READ FAILED (%d)\n",
+			ADA4355_REG_POWER_MODES, ret);
+		return ret;
+	}
+	dev_info(dev, "  R 0x%03X POWER_MODES         => 0x%02X (post-reset, expect 0x00)\n",
+		 ADA4355_REG_POWER_MODES, reg);
+
+	ret = ada4355_write_verify(st, ADA4355_REG_POWER_MODES,
+				   0x00, true, "POWER_MODES");
+	if (ret)
+		return ret;
+
+	ret = ada4355_write_verify(st, ADA4355_REG_CHIP_CONFIGURATION,
+				   0x00, true, "CHIP_CONFIGURATION");
 	if (ret)
 		return ret;
 
 	/* Select all channels for subsequent register writes */
-	ret = regmap_write(st->regmap, ADA4355_REG_DEVICE_INDEX, 0x02);
+	ret = ada4355_write_verify(st, ADA4355_REG_DEVICE_INDEX,
+				   0x02, true, "DEVICE_INDEX");
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, ADA4355_REG_SERIAL_CHANNEL_STATUS, 0x03);
+	ret = ada4355_write_verify(st, ADA4355_REG_SERIAL_CHANNEL_STATUS,
+				   0x03, true, "SERIAL_CHAN_STATUS");
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, ADA4355_REG_DEVICE_INDEX, 0x31);
+	ret = ada4355_write_verify(st, ADA4355_REG_DEVICE_INDEX,
+				   0x31, true, "DEVICE_INDEX");
 	if (ret)
 		return ret;
 
 	/* Verify chip identity — shared between ADA4355 and ADA4356 */
 	ret = regmap_read(st->regmap, ADA4355_REG_CHIP_ID, &id);
 	if (ret) {
-		dev_err(&st->spi->dev, "ada4355_setup: read CHIP_ID failed %d\n", ret);
+		dev_err(dev, "  R 0x%03X CHIP_ID             READ FAILED (%d)\n",
+			ADA4355_REG_CHIP_ID, ret);
 		return ret;
 	}
-	dev_info(&st->spi->dev, "ada4355_setup: CHIP_ID = 0x%02X (expected 0x%02X)\n",
-		 id, ADA4355_CHIP_ID);
+	dev_info(dev, "  R 0x%03X CHIP_ID             => 0x%02X (expect 0x%02X)\n",
+		 ADA4355_REG_CHIP_ID, id, ADA4355_CHIP_ID);
 
-	if (id != ADA4355_CHIP_ID) {
-		dev_err(&st->spi->dev, "Unrecognized CHIP_ID 0x%02X\n", id);
-		return -EINVAL;
-	}
-	dev_info(&st->spi->dev, "ada4355_setup: CHIP_ID verified OK\n");
+	/* Quad ADA4356 FMC: SDO cannot return through the level shifter, so every
+	 * readback is 0xFF. Writes still reach the part, so configure it blind.
+	 */
+	if (id != ADA4355_CHIP_ID)
+		dev_warn(dev, "Unrecognized CHIP_ID 0x%02X, configuring blind\n", id);
 
 	/* Enable DDR two-lane bitwise serial output */
-	ret = regmap_read(st->regmap, ADA4355_REG_SERIAL_OUT_DATA_CNTRL, &reg);
+	ret = ada4355_write_verify(st, ADA4355_REG_SERIAL_OUT_DATA_CNTRL,
+				   ADA4355_DDR_TWO_LANE_BITWISE, true,
+				   "SERIAL_OUT_DATA_CNTRL");
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, ADA4355_REG_SERIAL_OUT_DATA_CNTRL,
-			   ADA4355_DDR_TWO_LANE_BITWISE);
+	/* Commit register writes: self-clearing */
+	ret = ada4355_write_verify(st, ADA4355_REG_TRANFER,
+				   ADA4355_OVERRIDE, false, "TRANSFER");
 	if (ret)
 		return ret;
-	dev_info(&st->spi->dev, "ada4355_setup: SERIAL_OUT_DATA_CNTRL = 0x%02X\n",
-		 ADA4355_DDR_TWO_LANE_BITWISE);
-
-	/* Commit register writes */
-	ret = regmap_read(st->regmap, ADA4355_REG_TRANFER, &reg);
-	if (ret)
-		return ret;
-
-	ret = regmap_write(st->regmap, ADA4355_REG_TRANFER, reg | ADA4355_OVERRIDE);
-	if (ret)
-		return ret;
-	dev_info(&st->spi->dev, "ada4355_setup: TRANSFER committed\n");
 
 	/* User input mode with test pattern 0xFFFC for IDELAY calibration */
-	ret = regmap_write(st->regmap, ADA4355_REG_TEST_MODE, ADA4355_USER_INPUT);
+	ret = ada4355_write_verify(st, ADA4355_REG_TEST_MODE,
+				   ADA4355_USER_INPUT, true, "TEST_MODE/user_in");
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, ADA4355_REG_USER_PATT1_MSB, 0xFF);
+	ret = ada4355_write_verify(st, ADA4355_REG_USER_PATT1_MSB,
+				   0xFF, true, "USER_PATT1_MSB");
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, ADA4355_REG_USER_PATT1_LSB, 0xFC);
+	ret = ada4355_write_verify(st, ADA4355_REG_USER_PATT1_LSB,
+				   0xFC, true, "USER_PATT1_LSB");
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, ADA4355_REG_USER_PATT2_MSB, 0xFF);
+	ret = ada4355_write_verify(st, ADA4355_REG_USER_PATT2_MSB,
+				   0xFF, true, "USER_PATT2_MSB");
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, ADA4355_REG_USER_PATT2_LSB, 0xFC);
+	ret = ada4355_write_verify(st, ADA4355_REG_USER_PATT2_LSB,
+				   0xFC, true, "USER_PATT2_LSB");
 	if (ret)
 		return ret;
-	dev_info(&st->spi->dev, "ada4355_setup: test pattern 0xFFFC set (USER_INPUT mode)\n");
 
 	/* Two's complement output format */
-	ret = regmap_write(st->regmap, ADA4355_REG_OUTPUT_MODE, ADA4355_TWOSCOMP);
+	ret = ada4355_write_verify(st, ADA4355_REG_OUTPUT_MODE,
+				   ADA4355_TWOSCOMP, true, "OUTPUT_MODE/2scomp");
 	if (ret)
 		return ret;
-	dev_info(&st->spi->dev, "ada4355_setup: OUTPUT_MODE = twos-complement\n");
 
 	/* Fix sample rate at 125 MSPS */
-	ret = regmap_write(st->regmap, ADA4355_REG_RESOLUTION_SAMPLE_RATE, ADA4355_125_RATE);
+	ret = ada4355_write_verify(st, ADA4355_REG_RESOLUTION_SAMPLE_RATE,
+				   ADA4355_125_RATE, true, "RESOLUTION_SMP_RATE");
 	if (ret)
 		return ret;
-	dev_info(&st->spi->dev, "ada4355_setup: sample rate fixed at 125 MSPS\n");
+	dev_warn(dev, "  NOTE: 0x100 written without a following TRANSFER (0xFF=0x01), so the "
+		      "125 MSPS override is NOT latched yet\n");
+
+	dev_info(dev, "==== transcript end: %u readbacks, %u mismatched, %u read 0xFF ====\n",
+		 st->rb_total, st->rb_mismatch, st->rb_ff);
+
+	if (st->rb_total && st->rb_ff == st->rb_total)
+		dev_warn(dev, "every readback is 0xFF: SDO never drives the bus. Suspect the "
+			      "SDO_1P8V level shifter (A-side VS on 1P8V_LDO), not the ADC\n");
+	else if (st->rb_mismatch)
+		dev_warn(dev, "%u of %u readbacks disagree: writes are reaching the part "
+			      "selectively, so this is not a simple dead-SDO fault\n",
+			 st->rb_mismatch, st->rb_total);
+	else if (st->rb_total)
+		dev_info(dev, "all %u readbacks verified: SPI path to this DUT is healthy\n",
+			 st->rb_total);
 
 	/* Optional GPIO: enable ADC output valid (board-specific, may be absent) */
-	gpio_vld_en = devm_gpiod_get_optional(&st->spi->dev, "gpio-vld-en", GPIOD_OUT_LOW);
+	gpio_vld_en = devm_gpiod_get_optional(dev, "gpio-vld-en", GPIOD_OUT_LOW);
 	if (IS_ERR(gpio_vld_en))
-		return dev_err_probe(&st->spi->dev, PTR_ERR(gpio_vld_en),
+		return dev_err_probe(dev, PTR_ERR(gpio_vld_en),
 				     "Failed to get gpio-vld-en\n");
 
 	if (gpio_vld_en)
-		dev_info(&st->spi->dev, "ada4355_setup: gpio-vld-en present, asserting high\n");
+		dev_info(dev, "ada4355_setup: gpio-vld-en present, asserting high\n");
 	else
-		dev_info(&st->spi->dev, "ada4355_setup: gpio-vld-en not present (optional)\n");
+		dev_info(dev, "ada4355_setup: gpio-vld-en absent (VLDEN is hard pulled to "
+			      "3P3V_MAIN via R13 on this board, so this is expected)\n");
 	gpiod_set_value_cansleep(gpio_vld_en, 1);
 
-	dev_info(&st->spi->dev, "ada4355_setup: complete\n");
+	dev_info(dev, "ada4355_setup: complete\n");
 	return 0;
 }
 
@@ -461,9 +617,10 @@ static int ada4355_probe(struct spi_device *spi)
 	struct regmap *regmap;
 	int ret;
 
-	dev_info(&spi->dev, "ada4355_probe: enter (SPI bus %d, cs %d, mode 0x%x, max_speed %u Hz)\n",
+	dev_info(&spi->dev, "ada4355_probe: enter, DT node %pOF\n", spi->dev.of_node);
+	dev_info(&spi->dev, "ada4355_probe: SPI bus %d, cs %d, mode 0x%x, %u bits, max_speed %u Hz\n",
 		 spi->controller->bus_num, spi_get_chipselect(spi, 0),
-		 spi->mode, spi->max_speed_hz);
+		 spi->mode, spi->bits_per_word, spi->max_speed_hz);
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)

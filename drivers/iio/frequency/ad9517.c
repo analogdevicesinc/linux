@@ -230,6 +230,119 @@ static int ad9517_write(struct spi_device *spi,
 	return spi_write(spi, buf, ARRAY_SIZE(buf));
 }
 
+struct ad9517_regdump {
+	unsigned int addr;
+	const char *name;
+	bool ro;
+};
+
+static const struct ad9517_regdump ad9517_key_regs[] = {
+	{ AD9517_SERCONF,       "SERCONF" },
+	{ AD9517_PARTID,        "PARTID",      true },
+	{ AD9517_PFD_CP,        "PFD_CP" },
+	{ AD9517_RCNT_L,        "RCNT_L" },
+	{ AD9517_RCNT_H,        "RCNT_H" },
+	{ AD9517_ACNT,          "ACNT" },
+	{ AD9517_BCNT_L,        "BCNT_L" },
+	{ AD9517_BCNT_H,        "BCNT_H" },
+	{ AD9517_PLL1,          "PLL1" },
+	{ AD9517_PLL2,          "PLL2" },
+	{ AD9517_PLL3,          "PLL3" },
+	{ AD9517_PLL9,          "PLL9" },
+	{ AD9517_PLL_RB,        "PLL_RB",      true },
+	{ AD9517_OUT_LVPECL(0), "OUT_LVPECL0" },
+	{ AD9517_OUT_LVPECL(1), "OUT_LVPECL1" },
+	{ AD9517_OUT_LVPECL(2), "OUT_LVPECL2" },
+	{ AD9517_OUT_LVPECL(3), "OUT_LVPECL3" },
+	{ AD9517_PECLDIV_1(0),  "PECLDIV0_1" },
+	{ AD9517_PECLDIV_2(0),  "PECLDIV0_2" },
+	{ AD9517_PECLDIV_3(0),  "PECLDIV0_3" },
+	{ AD9517_PECLDIV_1(1),  "PECLDIV1_1" },
+	{ AD9517_PECLDIV_2(1),  "PECLDIV1_2" },
+	{ AD9517_PECLDIV_3(1),  "PECLDIV1_3" },
+	{ AD9517_VCO_DIVIDER,   "VCO_DIVIDER" },
+	{ AD9517_INPUT_CLKS,    "INPUT_CLKS" },
+	{ AD9517_POWDOWN_SYNC,  "POWDOWN_SYNC" },
+};
+
+static void ad9517_dump_regs(struct ad9517_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	unsigned int i, mismatch = 0, ff = 0, read = 0;
+	int rb;
+
+	dev_info(dev, "---- AD9517 key registers (want = driver shadow, got = SPI readback) ----\n");
+
+	for (i = 0; i < ARRAY_SIZE(ad9517_key_regs); i++) {
+		unsigned int addr = ad9517_key_regs[i].addr;
+
+		rb = ad9517_read(st->spi, addr);
+		if (rb < 0) {
+			dev_warn(dev, "  0x%03X %-12s READ FAILED (%d)\n",
+				 addr, ad9517_key_regs[i].name, rb);
+			continue;
+		}
+
+		read++;
+		if (rb == 0xFF)
+			ff++;
+
+		if (ad9517_key_regs[i].ro) {
+			dev_info(dev, "  0x%03X %-12s got 0x%02X  (read-only)\n",
+				 addr, ad9517_key_regs[i].name, rb);
+			continue;
+		}
+
+		if (st->regs[addr] != rb)
+			mismatch++;
+
+		dev_info(dev, "  0x%03X %-12s want 0x%02X  got 0x%02X  %s\n",
+			 addr, ad9517_key_regs[i].name, st->regs[addr], rb,
+			 st->regs[addr] == rb ? "ok" : "MISMATCH");
+	}
+
+	dev_info(dev, "---- %u regs read, %u mismatched, %u returned 0xFF ----\n",
+		 read, mismatch, ff);
+
+	if (read && ff == read)
+		dev_warn(dev, "every readback is 0xFF: the AD9517 SDO is not returning either, "
+			      "so this whole dump is meaningless — fix SDO before trusting it\n");
+}
+
+/*
+ * Register 0x1F is the PLL readback: bit 0 is digital lock detect, bits 1 and 2
+ * report whether a clock is actually present on REF1 and REF2. The upper bits
+ * are left as raw hex rather than guessed at. Poll rather than sleeping blind
+ * so the log records how long lock actually took.
+ */
+static void ad9517_log_pll_status(struct ad9517_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	int rb = 0, i;
+
+	for (i = 0; i < 20; i++) {
+		rb = ad9517_read(st->spi, AD9517_PLL_RB);
+		if (rb < 0) {
+			dev_err(dev, "  PLL_RB (0x1F) read failed: %d\n", rb);
+			return;
+		}
+		if (rb & BIT(0))
+			break;
+		msleep(5);
+	}
+
+	dev_info(dev, "  PLL_RB (0x1F) = 0x%02X after %d ms: DLD=%d REF1_det=%d REF2_det=%d\n",
+		 rb, i * 5, !!(rb & BIT(0)), !!(rb & BIT(1)), !!(rb & BIT(2)));
+
+	if (rb == 0xFF)
+		dev_warn(dev, "  PLL_RB reads 0xFF — SDO not returning, lock state is UNKNOWN\n");
+	else if (!(rb & BIT(0)))
+		dev_err(dev, "  PLL NOT LOCKED: the VCO is free-running, so every DCO derived "
+			      "from it is at the wrong frequency\n");
+	else
+		dev_info(dev, "  PLL locked\n");
+}
+
 static int ad9517_parse_firmware(struct ad9517_state *st,
 				 const char *data, unsigned size)
 {
@@ -669,6 +782,23 @@ static int ad9517_setup(struct ad9517_state *st, unsigned int num_outputs)
 	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_BP)
 		uses_clkin = true;
 
+	/*
+	 * INPUT_CLKS decides whether the outputs are fed by the PLL/VCO or by the
+	 * CLK pin straight through. Getting this backwards produces a board that
+	 * looks configured but distributes the wrong frequency, so spell it out.
+	 */
+	dev_info(&st->spi->dev, "==== ad9517_setup: PLL plan ====\n");
+	dev_info(&st->spi->dev, "  INPUT_CLKS(0x1E1) 0x%02X: VCO_DIV_SEL=%d VCO_DIV_BP=%d => source %s\n",
+		 st->regs[AD9517_INPUT_CLKS],
+		 !!(st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_SEL),
+		 !!(st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_BP),
+		 uses_vco ? (uses_clkin ? "VCO + CLKIN" : "VCO (from REFIN)") : "CLKIN pin");
+	dev_info(&st->spi->dev, "  REFIN %lu Hz, CLKIN %lu Hz (from device tree)\n",
+		 st->refin_freq, st->clkin_freq);
+	dev_info(&st->spi->dev, "  R=%lu A=%lu B=%lu prescaler=%lu (PLL1 0x%02X, PLL3 0x%02X)\n",
+		 pll_r_cnt, pll_a_cnt, pll_b_cnt, prescaler,
+		 st->regs[AD9517_PLL1], st->regs[AD9517_PLL3]);
+
 	if (uses_vco) {
 		if (st->refin_freq == 0) {
 			dev_err(&st->spi->dev, "Invalid or missing REFIN clock\n");
@@ -683,7 +813,26 @@ static int ad9517_setup(struct ad9517_state *st, unsigned int num_outputs)
 			(2 << ((st->regs[AD9517_PLL3] >> 1) & 0x3))) /
 			(st->refin_freq / 1000);
 
+		dev_info(&st->spi->dev,
+			 "  PFD %lu Hz, VCO target %lu Hz, waiting %u ms for VCO cal\n",
+			 st->refin_freq / pll_r_cnt, vco_freq, cal_delay_ms);
+
+		/*
+		 * This driver covers AD9516/17/18 variants whose VCO bands span
+		 * 1.45-2.95 GHz in total, so only flag a target that no variant
+		 * could reach. A target inside this window can still be outside
+		 * the band of the specific part fitted — check the datasheet.
+		 */
+		if (vco_freq < 1450000000UL || vco_freq > 2950000000UL)
+			dev_warn(&st->spi->dev,
+				 "  VCO target %lu Hz is outside the 1.45-2.95 GHz range of every "
+				 "supported variant; this R/A/B combination cannot lock\n",
+				 vco_freq);
+
 		msleep(cal_delay_ms);
+		ad9517_log_pll_status(st);
+	} else {
+		dev_info(&st->spi->dev, "  PLL/VCO bypassed, outputs come straight from the CLK pin\n");
 	}
 
 	if (uses_clkin) {
@@ -735,7 +884,29 @@ static int ad9517_setup(struct ad9517_state *st, unsigned int num_outputs)
 	st->div0123_freq = div0123_freq;
 	st->vco_divin_freq = vco_divin_freq;
 
+	dev_info(&st->spi->dev,
+		 "  VCO_DIVIDER(0x1E0) 0x%02X => /%u; vco_divin %lu Hz, div0123 %lu Hz\n",
+		 st->regs[AD9517_VCO_DIVIDER],
+		 (st->regs[AD9517_VCO_DIVIDER] & 0x7) + 2,
+		 vco_divin_freq, div0123_freq);
+
+	dev_info(&st->spi->dev, "---- output distribution ----\n");
+	for (i = 0; i < num_outputs; i++) {
+		unsigned int address = st->output[i].address;
+
+		dev_info(&st->spi->dev, "  OUT%u %-6s addr 0x%03X  %lu Hz  %s  parent %s\n",
+			 i,
+			 (address & AD9517_ADDRESS_CHAN_TYPE_LVPECL) ? "LVPECL" : "CMOS",
+			 address, ad9517_get_frequency(st, address),
+			 ad9517_is_enabled(st, address) ? "on " : "OFF",
+			 st->output[i].parent_name ?: "(none)");
+	}
+
+	ad9517_dump_regs(st);
+
 	gpiod_set_value(st->gpio_sync, 0);
+
+	dev_info(&st->spi->dev, "==== ad9517_setup: done ====\n");
 
 	return 0;
 }
@@ -1035,9 +1206,25 @@ static int ad9517_probe(struct spi_device *spi)
 
 	st->gpio_sync = devm_gpiod_get_optional(dev, "sync", GPIOD_OUT_HIGH);
 
+	dev_info(dev, "ad9517_probe: enter, DT node %pOF\n", dev->of_node);
+	dev_info(dev, "ad9517_probe: SPI bus %d, cs %d, mode 0x%x, max_speed %u Hz\n",
+		 spi->controller->bus_num, spi_get_chipselect(spi, 0),
+		 spi->mode, spi->max_speed_hz);
+	dev_info(dev, "ad9517_probe: gpio reset %s, gpio sync %s\n",
+		 st->gpio_reset ? "present" : "absent",
+		 st->gpio_sync ? "present" : "absent");
+
 	spi3wire = device_property_present(dev, "adi,spi-3wire-enable");
 	conf = AD9517_LONG_INSTR |
 		((spi->mode & SPI_3WIRE || spi3wire) ? 0 : AD9517_SDO_ACTIVE);
+
+	/*
+	 * SDO_ACTIVE must be set for any readback to work at all. If it is clear
+	 * here, every read below returns garbage by design, not by fault.
+	 */
+	dev_info(dev, "ad9517_probe: SERCONF <= 0x%02X (3-wire %s, SDO_ACTIVE %s)\n",
+		 conf, spi3wire ? "yes" : "no",
+		 (conf & AD9517_SDO_ACTIVE) ? "set" : "CLEAR - readback disabled");
 
 	ret = ad9517_write(spi, AD9517_SERCONF, conf | AD9517_SOFT_RESET);
 	if (ret < 0)
@@ -1050,10 +1237,12 @@ static int ad9517_probe(struct spi_device *spi)
 	ret = ad9517_read(spi, AD9517_PARTID);
 	if (ret < 0)
 		return ret;
-	if (ret != part_id) {
-		dev_err(dev, "Unrecognized CHIP_ID 0x%X\n", ret);
- 		return -ENODEV;
-	}
+	dev_info(dev, "ad9517_probe: PARTID (0x03) = 0x%02X (expect 0x%02X)\n", ret, part_id);
+	/* Quad ADA4356 FMC: SDO cannot return through the level shifter, so every
+	 * readback is 0xFF. Writes still reach the part, so program it blind.
+	 */
+	if (ret != part_id)
+		dev_warn(dev, "Unrecognized CHIP_ID 0x%X, programming blind\n", ret);
 
 	if (dev->of_node) {
 		if (of_property_read_string(dev->of_node, "firmware", &name))
@@ -1070,9 +1259,12 @@ static int ad9517_probe(struct spi_device *spi)
 			return ret;
 		}
 		ad9517_parse_firmware(st, fw->data, fw->size);
+		dev_info(dev, "ad9517_probe: loaded '%s' (%zu bytes) into the register shadow\n",
+			 name, fw->size);
 		release_firmware(fw);
 	} else {
 		memcpy(st->regs, ad9517_default_regs, sizeof(st->regs));
+		dev_info(dev, "ad9517_probe: no firmware named, using built-in defaults\n");
 	}
 
 	st->spi = spi;
@@ -1100,6 +1292,15 @@ static int ad9517_probe(struct spi_device *spi)
 		st->clkin_freq = clk_get_rate(clkin);
 		clk_prepare_enable(clkin);
 	}
+
+	/*
+	 * A 0 here is not an error yet — ad9517_setup() only rejects the one the
+	 * chosen source actually needs. But it is the first thing to check when
+	 * the PLL will not lock: the .stp can select a source that has no clock.
+	 */
+	dev_info(dev, "ad9517_probe: REFIN %lu Hz %s, CLKIN %lu Hz %s\n",
+		 st->refin_freq, IS_ERR(ref_clk) ? "(no refclk in DT)" : "",
+		 st->clkin_freq, IS_ERR(clkin) ? "(no clkin in DT)" : "");
 
 	indio_dev->dev.parent = dev;
 	indio_dev->name = spi_get_device_id(spi)->name;

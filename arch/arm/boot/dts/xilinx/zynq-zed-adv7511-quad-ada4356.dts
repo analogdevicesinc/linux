@@ -164,16 +164,14 @@
 	};
 
 	/*
-	 * U13: Y4 125 MHz -> CLK input -> OUT4..OUT7 -> CLKP/N_A..D, one LVDS
-	 * sample clock per DUT.  The .stp bypasses the VCO divider so the
-	 * distribution runs straight off the 125 MHz input.
+	 * U13: Y4 125 MHz -> REFIN.  LVDS OUT4..OUT7 -> CLKP/N_A..D, one sample
+	 * clock per DUT.  LVPECL OUT0..OUT3 are not routed on this board.
 	 */
 	clk_ad9517: ad9517@4 {
 		compatible = "adi,ad9517-4";
 		reg = <4>;
 
-		spi-max-frequency = <10000000>;
-		adi,spi-3wire-enable;
+		spi-max-frequency = <1000000>;
 
 		clocks = <&ad9517_ref_clk>, <&ad9517_ref_clk>;
 		clock-names = "refclk", "clkin";
@@ -181,6 +179,9 @@
 		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
 		#clock-cells = <1>;
 
-		firmware = "ada4356_intbypass_ad9517.stp";
+		/* 125 MHz REFIN /R5 -> 25 MHz PFD x N60 -> 1500 MHz VCO /6 -> 250 MHz /2 -> 125 MHz.
+		 * The old "intbypass" file selected the CLK pin, which is the unpopulated EXT_CLK SMA.
+		 */
+		firmware = "ada4356_pll_ad9517.stp";
 	};
 };
