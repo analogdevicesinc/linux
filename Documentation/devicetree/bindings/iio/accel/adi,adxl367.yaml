@@ -33,7 +33,14 @@ properties:
     maxItems: 1
 
   interrupts:
-    maxItems: 1
+    minItems: 1
+    maxItems: 2
+
+  interrupt-names:
+    minItems: 1
+    items:
+      - enum: [INT1, INT2]
+      - const: INT2
 
   vdd-supply: true
   vddio-supply: true
@@ -61,6 +68,7 @@ examples:
         reg = <0x53>;
         interrupt-parent = <&gpio>;
         interrupts = <25 IRQ_TYPE_EDGE_RISING>;
+        interrupt-names = "INT1";
       };
     };
   - |
@@ -76,5 +84,6 @@ examples:
         spi-max-frequency = <1000000>;
         interrupt-parent = <&gpio>;
         interrupts = <25 IRQ_TYPE_EDGE_RISING>;
+        interrupt-names = "INT1";
       };
     };
