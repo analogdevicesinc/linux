@@ -581,7 +581,8 @@ static int gfx_v12_1_init_microcode(struct amdgpu_device *adev)
 	adev->gfx.mec2_fw = NULL;
 
 	if (adev->gfx.imu.funcs) {
-		if (adev->gfx.imu.funcs->init_microcode) {
+		if (adev->gfx.imu.funcs->init_microcode &&
+		    adev->firmware.load_type != AMDGPU_FW_LOAD_PSP) {
 			err = adev->gfx.imu.funcs->init_microcode(adev);
 			if (err)
 				dev_err(adev->dev, "Failed to load imu firmware!\n");

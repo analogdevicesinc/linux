@@ -32,8 +32,6 @@
 #include "gc/gc_12_1_0_sh_mask.h"
 #include "mmhub/mmhub_4_2_0_offset.h"
 
-MODULE_FIRMWARE("amdgpu/gc_12_1_0_imu.bin");
-
 #define TRANSFER_RAM_MASK	0x001c0000
 
 static int imu_v12_1_init_microcode(struct amdgpu_device *adev)
