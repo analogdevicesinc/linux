@@ -212,10 +212,8 @@ rtl83xx_probe(struct device *dev,
 					  "failed to get reset control\n");
 
 	priv->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(priv->reset)) {
-		dev_err(dev, "failed to get RESET GPIO\n");
-		return ERR_CAST(priv->reset);
-	}
+	if (IS_ERR(priv->reset))
+		return dev_err_cast_probe(dev, priv->reset, "failed to get RESET GPIO\n");
 
 	dev_set_drvdata(dev, priv);
 
