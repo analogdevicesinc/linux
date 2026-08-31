@@ -1831,7 +1831,7 @@ int kvm_xen_set_evtchn_fast(struct kvm_xen_evtchn *xe, struct kvm *kvm)
 {
 	struct gfn_to_pfn_cache *gpc = &kvm->arch.xen.shinfo_cache;
 	bool has_64bit_shinfo = kvm_xen_has_64bit_shinfo(kvm);
-	unsigned long *pending_bits, *mask_bits;
+	unsigned long *pending_bits, *mask_bits, vi_pending_sel_ofs;
 	struct kvm_vcpu *vcpu;
 	unsigned long flags;
 	int port_word_bit;
@@ -1864,11 +1864,18 @@ int kvm_xen_set_evtchn_fast(struct kvm_xen_evtchn *xe, struct kvm *kvm)
 		pending_bits = (unsigned long *)&shinfo->evtchn_pending;
 		mask_bits = (unsigned long *)&shinfo->evtchn_mask;
 		port_word_bit = xe->port / 64;
+
+		vi_pending_sel_ofs = offsetof(struct vcpu_info, evtchn_pending_sel);
 	} else {
 		struct compat_shared_info *shinfo = gpc->khva;
 		pending_bits = (unsigned long *)&shinfo->evtchn_pending;
 		mask_bits = (unsigned long *)&shinfo->evtchn_mask;
 		port_word_bit = xe->port / 32;
+
+		vi_pending_sel_ofs = offsetof(struct compat_vcpu_info, evtchn_pending_sel);
+
+		/* test_and_set_bit() needs 64-bit alignment, but that's OK */
+		BUILD_BUG_ON(offsetof(struct compat_shared_info, evtchn_pending) & 7);
 	}
 
 	/*
@@ -1884,6 +1891,8 @@ int kvm_xen_set_evtchn_fast(struct kvm_xen_evtchn *xe, struct kvm *kvm)
 		rc = -ENOTCONN; /* Masked */
 		kvm_xen_check_poller(vcpu, xe->port);
 	} else {
+		bool old;
+
 		rc = 1; /* Delivered to the bitmap in shared_info. */
 		/* Now switch to the vCPU's vcpu_info to set the index and pending_sel */
 		read_unlock_irqrestore(&gpc->lock, flags);
@@ -1900,19 +1909,29 @@ int kvm_xen_set_evtchn_fast(struct kvm_xen_evtchn *xe, struct kvm *kvm)
 			goto out_rcu;
 		}
 
-		if (has_64bit_shinfo) {
-			struct vcpu_info *vcpu_info = gpc->khva;
-			if (!test_and_set_bit(port_word_bit, &vcpu_info->evtchn_pending_sel)) {
-				WRITE_ONCE(vcpu_info->evtchn_upcall_pending, 1);
-				kick_vcpu = true;
-			}
-		} else {
-			struct compat_vcpu_info *vcpu_info = gpc->khva;
-			if (!test_and_set_bit(port_word_bit,
-					      (unsigned long *)&vcpu_info->evtchn_pending_sel)) {
-				WRITE_ONCE(vcpu_info->evtchn_upcall_pending, 1);
-				kick_vcpu = true;
-			}
+		/*
+		 * Explicitly use a 32-bit btsl instead of test_and_set_bit(),
+		 * which would use btsq on x86-64. The vcpu_info is guest-
+		 * controlled and only required to be 32-bit aligned, so a
+		 * 64-bit access could generate a split-lock #AC.
+		 *
+		 * Note, this does not apply to the test_and_set_bit() on
+		 * pending_bits above: that is in the per-VM shared_info, which
+		 * is page aligned, so the access is guaranteed to be 64-bit
+		 * aligned.
+		 */
+		old = GEN_BINARY_RMWcc(LOCK_PREFIX "btsl",
+				       *(u32 *)(gpc->khva + vi_pending_sel_ofs),
+				       c, "Ir", port_word_bit);
+		if (!old) {
+			struct vcpu_info *vi = gpc->khva;
+
+			/* No need for compat handling */
+			BUILD_BUG_ON(offsetof(struct vcpu_info, evtchn_upcall_pending) !=
+				     offsetof(struct compat_vcpu_info, evtchn_upcall_pending));
+
+			WRITE_ONCE(vi->evtchn_upcall_pending, 1);
+			kick_vcpu = true;
 		}
 
 		/* For the per-vCPU lapic vector, deliver it as MSI. */
