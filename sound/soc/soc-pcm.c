@@ -26,6 +26,7 @@
 #include <sound/soc-dpcm.h>
 #include <sound/soc-link.h>
 #include <sound/initval.h>
+#include "soc-internal.h"
 
 
 DEFINE_GUARD(snd_soc_card_mutex, struct snd_soc_card *,
@@ -427,20 +428,6 @@ void dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe, int dir, int event)
 	snd_soc_dapm_stream_event(fe, dir, event);
 }
 
-void soc_pcm_set_dai_params(struct snd_soc_dai *dai,
-			    struct snd_pcm_hw_params *params)
-{
-	if (params) {
-		dai->symmetric_rate	   = params_rate(params);
-		dai->symmetric_channels	   = params_channels(params);
-		dai->symmetric_sample_bits = snd_pcm_format_physical_width(params_format(params));
-	} else {
-		dai->symmetric_rate	   = 0;
-		dai->symmetric_channels	   = 0;
-		dai->symmetric_sample_bits = 0;
-	}
-}
-
 static int soc_pcm_apply_symmetry(struct snd_pcm_substream *substream,
 					struct snd_soc_dai *soc_dai)
 {
@@ -589,7 +576,7 @@ static int soc_pcm_params_symmetry(struct snd_pcm_substream *substream,
 	unsigned int symmetry, i;
 
 	d.name = __func__;
-	soc_pcm_set_dai_params(&d, params);
+	snd_soc_dai_symmetric_set_params(&d, params);
 
 #define __soc_pcm_params_symmetry(xxx)					\
 	symmetry = rtd->dai_link->symmetric_##xxx;			\
@@ -879,7 +866,7 @@ static int soc_pcm_clean(struct snd_soc_pcm_runtime *rtd,
 		/* Make sure DAI parameters cleared if the DAI becomes inactive */
 		for_each_rtd_dais(rtd, i, dai) {
 			if (snd_soc_dai_active(dai) == 0)
-				soc_pcm_set_dai_params(dai, NULL);
+				snd_soc_dai_symmetric_set_params(dai, NULL);
 		}
 	}
 
@@ -1135,7 +1122,7 @@ static int soc_pcm_hw_clean(struct snd_soc_pcm_runtime *rtd,
 	/* clear the corresponding DAIs parameters when going to be inactive */
 	for_each_rtd_dais(rtd, i, dai) {
 		if (snd_soc_dai_active(dai) == 1)
-			soc_pcm_set_dai_params(dai, NULL);
+			snd_soc_dai_symmetric_set_params(dai, NULL);
 
 		if (snd_soc_dai_stream_active(dai, substream->stream) == 1) {
 			if (!snd_soc_dai_mute_is_ctrled_at_trigger(dai))
@@ -1237,7 +1224,7 @@ static int __soc_pcm_hw_params(struct snd_pcm_substream *substream,
 		if(ret < 0)
 			goto out;
 
-		soc_pcm_set_dai_params(codec_dai, &tmp_params);
+		snd_soc_dai_symmetric_set_params(codec_dai, &tmp_params);
 		snd_soc_dapm_update_dai(substream, &tmp_params, codec_dai);
 	}
 
@@ -1275,7 +1262,7 @@ static int __soc_pcm_hw_params(struct snd_pcm_substream *substream,
 			goto out;
 
 		/* store the parameters for each DAI */
-		soc_pcm_set_dai_params(cpu_dai, &tmp_params);
+		snd_soc_dai_symmetric_set_params(cpu_dai, &tmp_params);
 		snd_soc_dapm_update_dai(substream, &tmp_params, cpu_dai);
 	}
 

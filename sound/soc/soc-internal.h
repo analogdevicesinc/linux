@@ -24,4 +24,10 @@ int snd_soc_add_controls(struct snd_card *card, struct device *dev,
 			 const struct snd_kcontrol_new *controls, int num_controls,
 			 const char *prefix, void *data);
 
+/*
+ * In soc-dai
+ */
+void snd_soc_dai_symmetric_set_params(struct snd_soc_dai *dai,
+				      struct snd_pcm_hw_params *params);
+
 #endif /* __SOC_INTERNAL_H */

@@ -6,6 +6,7 @@
 // Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
 //
 
+#include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 #include <sound/soc-link.h>
@@ -1139,3 +1140,17 @@ struct snd_soc_dai *snd_soc_dai_register(struct snd_soc_component *component,
 	return dai;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_register);
+
+void snd_soc_dai_symmetric_set_params(struct snd_soc_dai *dai,
+				      struct snd_pcm_hw_params *params)
+{
+	if (params) {
+		dai->symmetric_rate	   = params_rate(params);
+		dai->symmetric_channels	   = params_channels(params);
+		dai->symmetric_sample_bits = snd_pcm_format_physical_width(params_format(params));
+	} else {
+		dai->symmetric_rate	   = 0;
+		dai->symmetric_channels	   = 0;
+		dai->symmetric_sample_bits = 0;
+	}
+}
