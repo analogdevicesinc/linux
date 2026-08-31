@@ -198,7 +198,7 @@
 				};
 
 				temp_sensor: temp@4c {
-					compatible = "ti,lm75";
+					compatible = "national,lm75";
 					reg = <0x4c>;
 					vs-supply = <&reg_3p3v>;
 				};
