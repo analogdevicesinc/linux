@@ -97,6 +97,7 @@ download_artifacts() {
 
 	# Extract cdn_url and tags
 	tuple=$(cat "$tmpdir/.query" | (jq -r '.[] | "\(.cdn_url)|\(.tags.info | join(","))"'))
+	[ "$SBOM_ONLY" == "true" ] && { tuple=$(echo "$tuple" | grep '.sbom|') ; } || :
 	[[ -z "$tuple" ]] && { echo "No artifacts found." ; return 1 ; }
 
 	log_info "Got $(echo "$tuple" | wc -l) artifacts"
