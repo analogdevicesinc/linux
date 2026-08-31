@@ -126,6 +126,28 @@
 #include <linux/property.h>
 #include <linux/regmap.h>
 
+#define RTL8380_NUM_BUSES			1
+#define RTL8380_NUM_PAGES			4096
+#define RTL8380_NUM_PORTS			28
+#define RTL8380_SMI_GLB_CTRL			0xa100
+#define   RTL8380_SMI_PHY_PATCH_DONE		BIT(15)
+#define RTL8380_SMI_ACCESS_PHY_CTRL_0		0xa1b8
+#define RTL8380_SMI_ACCESS_PHY_CTRL_1		0xa1bc
+#define   RTL8380_PHY_CTRL_REG_ADDR		GENMASK(24, 20)
+#define   RTL8380_PHY_CTRL_PARK_PAGE		GENMASK(19, 15)
+#define   RTL8380_PHY_CTRL_MAIN_PAGE		GENMASK(14, 3)
+#define   RTL8380_PHY_CTRL_WRITE		BIT(2)
+#define   RTL8380_PHY_CTRL_READ			0
+#define   RTL8380_PHY_CTRL_TYPE_C45		BIT(1)
+#define   RTL8380_PHY_CTRL_TYPE_C22		0
+#define   RTL8380_PHY_CTRL_FAIL			0 /* no fail indicator */
+#define RTL8380_SMI_ACCESS_PHY_CTRL_2		0xa1c0
+#define   RTL8380_PHY_CTRL_INDATA		GENMASK(31, 16)
+#define   RTL8380_PHY_CTRL_DATA			GENMASK(15, 0)
+#define RTL8380_SMI_ACCESS_PHY_CTRL_3		0xa1c4
+#define RTL8380_SMI_POLL_CTRL			0xa17c
+#define RTL8380_SMI_PORT0_5_ADDR_CTRL		0xa1c8
+
 #define RTL9300_NUM_BUSES			4
 #define RTL9300_NUM_PAGES			4096
 #define RTL9300_NUM_PORTS			28
@@ -351,6 +373,60 @@ static int otto_emdio_write_cmd(struct mii_bus *bus, u32 cmd,
 	lockdep_assert_held(&priv->lock);
 
 	return otto_emdio_run_cmd(bus, cmd | priv->info->cmd_write, cmd_data);
+}
+
+static int otto_emdio_8380_read_c22(struct mii_bus *bus, int port, int regnum, u32 *value)
+{
+	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c22_data	= FIELD_PREP(RTL8380_PHY_CTRL_REG_ADDR, regnum) |
+				  FIELD_PREP(RTL8380_PHY_CTRL_PARK_PAGE, 0x1f) |
+				  FIELD_PREP(RTL8380_PHY_CTRL_MAIN_PAGE, priv->page[port]),
+		.io_data	= FIELD_PREP(RTL8380_PHY_CTRL_INDATA, port),
+	};
+
+	return otto_emdio_read_cmd(bus, RTL8380_PHY_CTRL_TYPE_C22, &cmd_data,
+				   RTL8380_PHY_CTRL_DATA, value);
+}
+
+static int otto_emdio_8380_write_c22(struct mii_bus *bus, int port, int regnum, u16 value)
+{
+	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c22_data	= FIELD_PREP(RTL8380_PHY_CTRL_REG_ADDR, regnum) |
+				  FIELD_PREP(RTL8380_PHY_CTRL_PARK_PAGE, 0x1f) |
+				  FIELD_PREP(RTL8380_PHY_CTRL_MAIN_PAGE, priv->page[port]),
+		.io_data	= FIELD_PREP(RTL8380_PHY_CTRL_INDATA, value),
+		.port_mask_low	= BIT(port),
+	};
+
+	return otto_emdio_write_cmd(bus, RTL8380_PHY_CTRL_TYPE_C22, &cmd_data);
+}
+
+static int otto_emdio_8380_read_c45(struct mii_bus *bus, int port,
+				    int dev_addr, int regnum, u32 *value)
+{
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c45_data	= FIELD_PREP(PHY_CTRL_MMD_DEVAD, dev_addr) |
+				  FIELD_PREP(PHY_CTRL_MMD_REG, regnum),
+		.io_data	= FIELD_PREP(RTL8380_PHY_CTRL_INDATA, port),
+	};
+
+	return otto_emdio_read_cmd(bus, RTL8380_PHY_CTRL_TYPE_C45, &cmd_data,
+				   RTL8380_PHY_CTRL_DATA, value);
+}
+
+static int otto_emdio_8380_write_c45(struct mii_bus *bus, int port,
+				     int dev_addr, int regnum, u16 value)
+{
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c45_data	= FIELD_PREP(PHY_CTRL_MMD_DEVAD, dev_addr) |
+				  FIELD_PREP(PHY_CTRL_MMD_REG, regnum),
+		.io_data	= FIELD_PREP(RTL8380_PHY_CTRL_INDATA, value),
+		.port_mask_low	= BIT(port),
+	};
+
+	return otto_emdio_write_cmd(bus, RTL8380_PHY_CTRL_TYPE_C45, &cmd_data);
 }
 
 static int otto_emdio_9300_read_c22(struct mii_bus *bus, int port, int regnum, u32 *value)
@@ -584,6 +660,15 @@ static int otto_emdio_setup_topology(struct otto_emdio_priv *priv)
 	}
 
 	return 0;
+}
+
+static int otto_emdio_8380_setup_controller(struct otto_emdio_priv *priv)
+{
+	/*
+	 * PHY_PATCH_DONE enables PHY control via SoC. This is required for PHY access, including
+	 * patching and must be set before the PHYs are probed.
+	 */
+	return regmap_set_bits(priv->regmap, RTL8380_SMI_GLB_CTRL, RTL8380_SMI_PHY_PATCH_DONE);
 }
 
 static int otto_emdio_9300_setup_controller(struct otto_emdio_priv *priv)
@@ -873,6 +958,28 @@ static int otto_emdio_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct otto_emdio_info otto_emdio_8380_info = {
+	.addr_map_base = RTL8380_SMI_PORT0_5_ADDR_CTRL,
+	.cmd_fail = RTL8380_PHY_CTRL_FAIL,
+	.cmd_read = RTL8380_PHY_CTRL_READ,
+	.cmd_write = RTL8380_PHY_CTRL_WRITE,
+	.cmd_regs = {
+		.c22_data = RTL8380_SMI_ACCESS_PHY_CTRL_1,
+		.c45_data = RTL8380_SMI_ACCESS_PHY_CTRL_3,
+		.io_data = RTL8380_SMI_ACCESS_PHY_CTRL_2,
+		.port_mask_low = RTL8380_SMI_ACCESS_PHY_CTRL_0,
+	},
+	.num_buses = RTL8380_NUM_BUSES,
+	.num_pages = RTL8380_NUM_PAGES,
+	.num_ports = RTL8380_NUM_PORTS,
+	.poll_ctrl = RTL8380_SMI_POLL_CTRL,
+	.setup_controller = otto_emdio_8380_setup_controller,
+	.read_c22 = otto_emdio_8380_read_c22,
+	.read_c45 = otto_emdio_8380_read_c45,
+	.write_c22 = otto_emdio_8380_write_c22,
+	.write_c45 = otto_emdio_8380_write_c45,
+};
+
 static const struct otto_emdio_info otto_emdio_9300_info = {
 	.addr_map_base = RTL9300_SMI_PORT0_5_ADDR_CTRL,
 	.bus_map_base = RTL9300_SMI_PORT0_15_POLLING_SEL,
@@ -923,6 +1030,7 @@ static const struct otto_emdio_info otto_emdio_9310_info = {
 };
 
 static const struct of_device_id otto_emdio_ids[] = {
+	{ .compatible = "realtek,rtl8380-mdio", .data = &otto_emdio_8380_info },
 	{ .compatible = "realtek,rtl9301-mdio", .data = &otto_emdio_9300_info },
 	{ .compatible = "realtek,rtl9311-mdio", .data = &otto_emdio_9310_info },
 	{}
