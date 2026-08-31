@@ -274,7 +274,7 @@ static int bio_map_user_iov(struct request *rq, struct iov_iter *iter,
 	 * No alignment requirements on our part to support arbitrary
 	 * passthrough commands.
 	 */
-	ret = bio_iov_iter_get_pages(bio, iter, 0);
+	ret = bio_iov_iter_get_pages(bio, iter, 0, 0);
 	if (ret)
 		goto out_put;
 	ret = blk_rq_append_bio(rq, bio);
@@ -473,7 +473,7 @@ static int blk_rq_map_user_bvec(struct request *rq, const struct iov_iter *iter)
 	bio = blk_rq_map_bio_alloc(rq, 0, GFP_KERNEL);
 	if (!bio)
 		return -ENOMEM;
-	bio_iov_bvec_set(bio, iter);
+	bio_iov_iter_set(bio, iter);
 
 	ret = blk_rq_append_bio(rq, bio);
 	if (ret)
@@ -653,6 +653,7 @@ int blk_rq_map_kern(struct request *rq, void *kbuf, unsigned int len,
 		gfp_t gfp_mask)
 {
 	unsigned long addr = (unsigned long) kbuf;
+	bool do_copy;
 	struct bio *bio;
 	int ret;
 
@@ -661,7 +662,8 @@ int blk_rq_map_kern(struct request *rq, void *kbuf, unsigned int len,
 	if (!len || !kbuf)
 		return -EINVAL;
 
-	if (!blk_rq_aligned(rq->q, addr, len) || object_is_on_stack(kbuf))
+	do_copy = !blk_rq_aligned(rq->q, addr, len) || object_is_on_stack(kbuf);
+	if (do_copy)
 		bio = bio_copy_kern(rq, kbuf, len, gfp_mask);
 	else
 		bio = bio_map_kern(rq, kbuf, len, gfp_mask);
@@ -670,8 +672,11 @@ int blk_rq_map_kern(struct request *rq, void *kbuf, unsigned int len,
 		return PTR_ERR(bio);
 
 	ret = blk_rq_append_bio(rq, bio);
-	if (unlikely(ret))
+	if (unlikely(ret)) {
+		if (do_copy)
+			bio_free_pages(bio);
 		blk_mq_map_bio_put(bio);
+	}
 	return ret;
 }
 EXPORT_SYMBOL(blk_rq_map_kern);

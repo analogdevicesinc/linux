@@ -323,10 +323,10 @@ impl PinnedDrop for GspResources<'_> {
 }
 
 impl<'gpu> Gpu<'gpu> {
-    pub(crate) fn new(
-        pdev: &'gpu pci::Device<device::Core<'_>>,
+    pub(crate) fn new<'a>(
+        pdev: &'gpu pci::Device<device::Core<'a>>,
         bar: Bar0<'gpu>,
-    ) -> impl PinInit<Self, Error> + 'gpu {
+    ) -> impl PinInit<Self, Error> + use<'gpu, 'a> {
         let dev = pdev.as_ref();
 
         try_pin_init!(Self {

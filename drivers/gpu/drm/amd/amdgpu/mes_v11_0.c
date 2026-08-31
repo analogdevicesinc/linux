@@ -86,7 +86,7 @@ static void mes_v11_0_ring_set_wptr(struct amdgpu_ring *ring)
 			     ring->wptr);
 		WDOORBELL64(ring->doorbell_index, ring->wptr);
 	} else {
-		BUG();
+		dev_warn_once(adev->dev, "%s requires doorbell!\n", __func__);
 	}
 }
 
@@ -97,12 +97,15 @@ static u64 mes_v11_0_ring_get_rptr(struct amdgpu_ring *ring)
 
 static u64 mes_v11_0_ring_get_wptr(struct amdgpu_ring *ring)
 {
+	struct amdgpu_device *adev = ring->adev;
 	u64 wptr;
 
-	if (ring->use_doorbell)
+	if (ring->use_doorbell) {
 		wptr = atomic64_read((atomic64_t *)ring->wptr_cpu_addr);
-	else
-		BUG();
+	} else {
+		dev_warn_once(adev->dev, "%s requires doorbell!\n", __func__);
+		wptr = 0;
+	}
 	return wptr;
 }
 
@@ -294,8 +297,8 @@ static int convert_to_mes_queue_type(int queue_type)
 	else if (queue_type == AMDGPU_RING_TYPE_SDMA)
 		return MES_QUEUE_TYPE_SDMA;
 	else
-		BUG();
-	return -1;
+		WARN(1, "Invalid queue type %d\n", queue_type);
+	return MES_QUEUE_TYPE_GFX;
 }
 
 static int convert_to_mes_priority_level(int priority_level)
@@ -1014,6 +1017,8 @@ static int mes_v11_0_set_hw_resources(struct amdgpu_mes *mes)
 	mes_set_hw_res_pkt.enable_reg_active_poll = 1;
 	mes_set_hw_res_pkt.enable_level_process_quantum_check = 1;
 	mes_set_hw_res_pkt.oversubscription_timer = 50;
+	if (adev->mes.use_rs64mem)
+		mes_set_hw_res_pkt.use_rs64mem_for_proc_gang_ctx = 1;
 
 	if (amdgpu_mes_log_enable) {
 		mes_set_hw_res_pkt.enable_mes_event_int_logging = 1;
@@ -1599,12 +1604,14 @@ static int mes_v11_0_queue_init(struct amdgpu_device *adev,
 	struct amdgpu_ring *ring;
 	int r;
 
-	if (pipe == AMDGPU_MES_KIQ_PIPE)
+	if (pipe == AMDGPU_MES_KIQ_PIPE) {
 		ring = &adev->gfx.kiq[0].ring;
-	else if (pipe == AMDGPU_MES_SCHED_PIPE)
+	} else if (pipe == AMDGPU_MES_SCHED_PIPE) {
 		ring = &adev->mes.ring[0];
-	else
-		BUG();
+	} else {
+		WARN(1, "Invalid MES pipe %d\n", pipe);
+		return -EINVAL;
+	}
 
 	if ((pipe == AMDGPU_MES_SCHED_PIPE) &&
 	    (amdgpu_in_reset(adev) || adev->in_suspend)) {
@@ -1687,7 +1694,7 @@ static int mes_v11_0_mqd_sw_init(struct amdgpu_device *adev,
 	else if (pipe == AMDGPU_MES_SCHED_PIPE)
 		ring = &adev->mes.ring[0];
 	else
-		BUG();
+		return -EINVAL;
 
 	if (ring->mqd_obj)
 		return 0;
@@ -1947,6 +1954,8 @@ static int mes_v11_0_hw_init(struct amdgpu_ip_block *ip_block)
 	if (adev->mes.ring[0].sched.ready)
 		goto out;
 
+	adev->mes.use_rs64mem = false;
+
 	if (!adev->enable_mes_kiq) {
 		if (adev->firmware.load_type == AMDGPU_FW_LOAD_DIRECT) {
 			r = mes_v11_0_load_microcode(adev,
@@ -1966,11 +1975,12 @@ static int mes_v11_0_hw_init(struct amdgpu_ip_block *ip_block)
 
 	/* Allocate GPU buffer for array size query results */
 	r = amdgpu_mes_rs64mem_init(&adev->mes);
-	if (r)
+	if (r) {
 		dev_warn(adev->dev,
 			 "RS64 local memory init failed (%d),"
 			 "falling back to system memory path\n", r);
-
+		adev->mes.use_rs64mem = false;
+	}
 	r = mes_v11_0_set_hw_resources(&adev->mes);
 
 	if (r)
@@ -1987,6 +1997,7 @@ static int mes_v11_0_hw_init(struct amdgpu_ip_block *ip_block)
 				 "Failed to query ctx array sizes (%d),"
 				 "disabling RS64 local memory\n", r);
 			/* Continue without optimization - not fatal */
+			adev->mes.use_rs64mem = false;
 		}
 	}
 
@@ -2028,10 +2039,6 @@ failure:
 
 static int mes_v11_0_hw_fini(struct amdgpu_ip_block *ip_block)
 {
-	struct amdgpu_device *adev = ip_block->adev;
-
-	if (adev->mes.use_rs64mem)
-		amdgpu_mes_rs64mem_fini(&adev->mes);
 	return 0;
 }
 

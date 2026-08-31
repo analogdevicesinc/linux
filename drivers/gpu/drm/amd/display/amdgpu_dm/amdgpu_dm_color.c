@@ -33,7 +33,7 @@
 #include "amdgpu_dm_colorop.h"
 #include "dc.h"
 #include "modules/color/color_gamma.h"
-#include "amdgpu_dm_kunit_helpers.h"
+#include "dm_helpers.h"
 
 
 /**
@@ -172,6 +172,7 @@ void amdgpu_dm_init_color_mod(void)
 {
 	setup_x_points_distribution();
 }
+EXPORT_IF_KUNIT(amdgpu_dm_init_color_mod);
 
 STATIC_IFN_KUNIT INLINE_IFN_KUNIT
 struct fixed31_32 amdgpu_dm_fixpt_from_s3132(__u64 x)
@@ -470,6 +471,12 @@ bool __is_lut_linear(const struct drm_color_lut *lut, uint32_t size)
 	uint32_t expected;
 	int delta;
 
+	/* A LUT with fewer than two entries can't be interpolated and would
+	 * divide by zero below (size - 1); it can't be treated as linear.
+	 */
+	if (size < 2)
+		return false;
+
 	for (i = 0; i < size; i++) {
 		/* All color values should equal */
 		if ((lut[i].red != lut[i].green) || (lut[i].green != lut[i].blue))
@@ -617,9 +624,10 @@ EXPORT_IF_KUNIT(__drm_ctm_3x4_to_dc_matrix);
  * Returns:
  * 0 in case of success, -ENOMEM if fails
  */
-static int __set_legacy_tf(struct dc_transfer_func *func,
-			   const struct drm_color_lut *lut, uint32_t lut_size,
-			   bool has_rom)
+STATIC_IFN_KUNIT int
+__set_legacy_tf(struct dc_transfer_func *func,
+		const struct drm_color_lut *lut, uint32_t lut_size,
+		bool has_rom)
 {
 	struct dc_gamma *gamma = NULL;
 	struct calculate_buffer cal_buffer = {0};
@@ -644,6 +652,7 @@ static int __set_legacy_tf(struct dc_transfer_func *func,
 
 	return res ? 0 : -ENOMEM;
 }
+EXPORT_IF_KUNIT(__set_legacy_tf);
 
 /**
  * __set_output_tf - calculates the output transfer function based on expected input space.
@@ -655,9 +664,10 @@ static int __set_legacy_tf(struct dc_transfer_func *func,
  * Returns:
  * 0 in case of success. -ENOMEM if fails.
  */
-static int __set_output_tf(struct dc_transfer_func *func,
-			   const struct drm_color_lut *lut, uint32_t lut_size,
-			   bool has_rom)
+STATIC_IFN_KUNIT int
+__set_output_tf(struct dc_transfer_func *func,
+		const struct drm_color_lut *lut, uint32_t lut_size,
+		bool has_rom)
 {
 	struct dc_gamma *gamma = NULL;
 	struct calculate_buffer cal_buffer = {0};
@@ -702,6 +712,7 @@ static int __set_output_tf(struct dc_transfer_func *func,
 
 	return res ? 0 : -ENOMEM;
 }
+EXPORT_IF_KUNIT(__set_output_tf);
 
 /**
  * __set_output_tf_32 - calculates the output transfer function based on expected input space.
@@ -713,9 +724,10 @@ static int __set_output_tf(struct dc_transfer_func *func,
  * Returns:
  * 0 in case of success. -ENOMEM if fails.
  */
-static int __set_output_tf_32(struct dc_transfer_func *func,
-			      const struct drm_color_lut32 *lut, uint32_t lut_size,
-			      bool has_rom)
+STATIC_IFN_KUNIT int
+__set_output_tf_32(struct dc_transfer_func *func,
+		   const struct drm_color_lut32 *lut, uint32_t lut_size,
+		   bool has_rom)
 {
 	struct dc_gamma *gamma = NULL;
 	struct calculate_buffer cal_buffer = {0};
@@ -758,6 +770,7 @@ static int __set_output_tf_32(struct dc_transfer_func *func,
 
 	return res ? 0 : -ENOMEM;
 }
+EXPORT_IF_KUNIT(__set_output_tf_32);
 
 STATIC_IFN_KUNIT void __set_tf_bypass(struct dc_transfer_func *tf)
 {
@@ -819,8 +832,9 @@ EXPORT_IF_KUNIT(amdgpu_dm_set_atomic_regamma);
  * Returns:
  * 0 in case of success. -ENOMEM if fails.
  */
-static int __set_input_tf(struct dc_color_caps *caps, struct dc_transfer_func *func,
-			  const struct drm_color_lut *lut, uint32_t lut_size)
+STATIC_IFN_KUNIT int __set_input_tf(struct dc_color_caps *caps,
+				    struct dc_transfer_func *func,
+				    const struct drm_color_lut *lut, uint32_t lut_size)
 {
 	struct dc_gamma *gamma = NULL;
 	bool res;
@@ -843,6 +857,7 @@ static int __set_input_tf(struct dc_color_caps *caps, struct dc_transfer_func *f
 
 	return res ? 0 : -ENOMEM;
 }
+EXPORT_IF_KUNIT(__set_input_tf);
 
 /**
  * __set_input_tf_32 - calculates the input transfer function based on expected
@@ -855,8 +870,9 @@ static int __set_input_tf(struct dc_color_caps *caps, struct dc_transfer_func *f
  * Returns:
  * 0 in case of success. -ENOMEM if fails.
  */
-static int __set_input_tf_32(struct dc_color_caps *caps, struct dc_transfer_func *func,
-			     const struct drm_color_lut32 *lut, uint32_t lut_size)
+STATIC_IFN_KUNIT int __set_input_tf_32(struct dc_color_caps *caps,
+				       struct dc_transfer_func *func,
+				       const struct drm_color_lut32 *lut, uint32_t lut_size)
 {
 	struct dc_gamma *gamma = NULL;
 	bool res;
@@ -879,6 +895,7 @@ static int __set_input_tf_32(struct dc_color_caps *caps, struct dc_transfer_func
 
 	return res ? 0 : -ENOMEM;
 }
+EXPORT_IF_KUNIT(__set_input_tf_32);
 
 STATIC_IFN_KUNIT
 enum dc_transfer_func_predefined
@@ -1177,6 +1194,7 @@ int amdgpu_dm_verify_lut3d_size(struct amdgpu_device *adev,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_verify_lut3d_size);
 
 /**
  * amdgpu_dm_verify_lut_sizes - verifies if DRM luts match the hw supported sizes
@@ -1321,6 +1339,7 @@ int amdgpu_dm_check_crtc_color_mgmt(struct dm_crtc_state *crtc,
 
 	return r;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_check_crtc_color_mgmt);
 
 /**
  * amdgpu_dm_update_crtc_color_mgmt: Maps DRM color management to DC stream.
@@ -1379,6 +1398,7 @@ int amdgpu_dm_update_crtc_color_mgmt(struct dm_crtc_state *crtc)
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_update_crtc_color_mgmt);
 
 static int
 map_crtc_degamma_to_dc_plane(struct dm_crtc_state *crtc,
@@ -1475,6 +1495,13 @@ __set_dm_plane_degamma(struct drm_plane_state *plane_state,
 	degamma_lut = __extract_blob_lut(dm_plane_state->degamma_lut,
 					 &degamma_size);
 
+	if (degamma_lut && degamma_size != MAX_COLOR_LUT_ENTRIES) {
+		drm_dbg(plane_state->state->dev,
+			"Invalid Plane Degamma LUT size. Should be %u but got %u.\n",
+			MAX_COLOR_LUT_ENTRIES, degamma_size);
+		return -EINVAL;
+	}
+
 	has_degamma_lut = degamma_lut &&
 			  !__is_lut_linear(degamma_lut, degamma_size);
 
@@ -1545,7 +1572,7 @@ __set_colorop_in_tf_1d_curve(struct dc_plane_state *dc_plane_state,
 }
 EXPORT_IF_KUNIT(__set_colorop_in_tf_1d_curve);
 
-static int
+STATIC_IFN_KUNIT int
 __set_dm_plane_colorop_degamma(struct drm_plane_state *plane_state,
 			       struct dc_plane_state *dc_plane_state,
 			       struct drm_colorop *colorop)
@@ -1571,8 +1598,9 @@ __set_dm_plane_colorop_degamma(struct drm_plane_state *plane_state,
 
 	return __set_colorop_in_tf_1d_curve(dc_plane_state, colorop_state);
 }
+EXPORT_IF_KUNIT(__set_dm_plane_colorop_degamma);
 
-static int
+STATIC_IFN_KUNIT int
 __set_dm_plane_colorop_3x4_matrix(struct drm_plane_state *plane_state,
 				  struct dc_plane_state *dc_plane_state,
 				  struct drm_colorop *colorop)
@@ -1612,8 +1640,9 @@ __set_dm_plane_colorop_3x4_matrix(struct drm_plane_state *plane_state,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(__set_dm_plane_colorop_3x4_matrix);
 
-static int
+STATIC_IFN_KUNIT int
 __set_dm_plane_colorop_multiplier(struct drm_plane_state *plane_state,
 				  struct dc_plane_state *dc_plane_state,
 				  struct drm_colorop *colorop)
@@ -1641,6 +1670,7 @@ __set_dm_plane_colorop_multiplier(struct drm_plane_state *plane_state,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(__set_dm_plane_colorop_multiplier);
 
 static int
 __set_dm_plane_colorop_shaper(struct drm_plane_state *plane_state,
@@ -2125,3 +2155,4 @@ int amdgpu_dm_update_plane_color_mgmt(struct dm_crtc_state *crtc,
 
 	return amdgpu_dm_plane_set_color_properties(plane_state, dc_plane_state);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_update_plane_color_mgmt);

@@ -689,6 +689,41 @@ DEFINE_EVENT(btrfs__ordered_extent, btrfs_ordered_extent_lookup_first,
 	     TP_ARGS(inode, ordered)
 );
 
+/*
+ * The writepage fixup worker deferred a block because this still-running
+ * ordered extent covers it.
+ */
+DEFINE_EVENT(btrfs__ordered_extent, btrfs_writepage_fixup_defer,
+
+	     TP_PROTO(const struct btrfs_inode *inode,
+		      const struct btrfs_ordered_extent *ordered),
+
+	     TP_ARGS(inode, ordered)
+);
+
+/* The writepage fixup worker reserved space for a block and set delalloc. */
+TRACE_EVENT(btrfs_writepage_fixup_reserve,
+
+	TP_PROTO(const struct btrfs_inode *inode, u64 start, u32 len),
+
+	TP_ARGS(inode, start, len),
+
+	TP_STRUCT__entry_btrfs(
+		__field(	u64,	ino		)
+		__field(	u64,	start		)
+		__field(	u32,	len		)
+	),
+
+	TP_fast_assign_btrfs(inode->root->fs_info,
+		__entry->ino	= btrfs_ino(inode);
+		__entry->start	= start;
+		__entry->len	= len;
+	),
+
+	TP_printk_btrfs("ino=%llu start=%llu len=%u",
+			__entry->ino, __entry->start, __entry->len)
+);
+
 DEFINE_EVENT(btrfs__ordered_extent, btrfs_ordered_extent_split,
 
 	     TP_PROTO(const struct btrfs_inode *inode,
@@ -1578,9 +1613,9 @@ TRACE_EVENT(btrfs_sync_log_enter,
 		__entry->log_transid_committed	=
 			data_race(root->log_transid_committed);
 		__entry->log_committing		=
-			atomic_read(&root->log_commit[ctx->log_transid % 2]);
+			data_race(root->log_commit[ctx->log_transid % 2]);
 		__entry->log_committing_prev	=
-			atomic_read(&root->log_commit[(ctx->log_transid + 1) % 2]);
+			data_race(root->log_commit[(ctx->log_transid + 1) % 2]);
 		__entry->log_writers		= atomic_read(&root->log_writers);
 	),
 

@@ -38,6 +38,13 @@ static void trigger_create_kthread_locked(void)
 	}
 }
 
+static void trigger_data_free_one(struct event_trigger_data *data)
+{
+	if (data->private_data_free)
+		data->private_data_free(data);
+	kfree(data);
+}
+
 static void trigger_data_free_queued_locked(void)
 {
 	struct event_trigger_data *data, *tmp;
@@ -52,7 +59,7 @@ static void trigger_data_free_queued_locked(void)
 	tracepoint_synchronize_unregister();
 
 	llist_for_each_entry_safe(data, tmp, llnodes, llist)
-		kfree(data);
+		trigger_data_free_one(data);
 }
 
 /* Bulk garbage collection of event_trigger_data elements */
@@ -75,7 +82,7 @@ static int trigger_kthread_fn(void *ignore)
 		tracepoint_synchronize_unregister();
 
 		llist_for_each_entry_safe(data, tmp, llnodes, llist)
-			kfree(data);
+			trigger_data_free_one(data);
 	}
 
 	return 0;
@@ -1717,6 +1724,14 @@ int event_enable_trigger_print(struct seq_file *m,
 	return 0;
 }
 
+static void enable_trigger_private_data_free(struct event_trigger_data *data)
+{
+	struct enable_trigger_data *enable_data = data->private_data;
+
+	trace_event_put_ref(enable_data->file->event_call);
+	kfree(enable_data);
+}
+
 void event_enable_trigger_free(struct event_trigger_data *data)
 {
 	struct enable_trigger_data *enable_data = data->private_data;
@@ -1728,9 +1743,8 @@ void event_enable_trigger_free(struct event_trigger_data *data)
 	if (!data->ref) {
 		/* Remove the SOFT_MODE flag */
 		trace_event_enable_disable(enable_data->file, 0, 1);
-		trace_event_put_ref(enable_data->file->event_call);
+		data->private_data_free = enable_trigger_private_data_free;
 		trigger_data_free(data);
-		kfree(enable_data);
 	}
 }
 
@@ -1739,7 +1753,7 @@ int event_enable_trigger_parse(struct event_command *cmd_ops,
 			       char *glob, char *cmd, char *param_and_filter)
 {
 	struct trace_event_file *event_enable_file;
-	struct enable_trigger_data *enable_data;
+	struct enable_trigger_data *enable_data __free(kfree) = NULL;
 	struct event_trigger_data *trigger_data;
 	struct trace_array *tr = file->tr;
 	char *param, *filter;
@@ -1789,17 +1803,13 @@ int event_enable_trigger_parse(struct event_command *cmd_ops,
 	enable_data->file = event_enable_file;
 
 	trigger_data = trigger_data_alloc(cmd_ops, cmd, param, enable_data);
-	if (!trigger_data) {
-		kfree(enable_data);
+	if (!trigger_data)
 		return ret;
-	}
 
 	if (remove) {
 		event_trigger_unregister(cmd_ops, file, glob+1, trigger_data);
 		kfree(trigger_data);
-		kfree(enable_data);
-		ret = 0;
-		return ret;
+		return 0;
 	}
 
 	/* Up the trigger_data count to make sure nothing frees it on failure */
@@ -1828,7 +1838,12 @@ int event_enable_trigger_parse(struct event_command *cmd_ops,
 	if (ret)
 		goto out_disable;
 
+	/* It's now safe to free the reference taken earlier */
 	event_trigger_free(trigger_data);
+
+	/* The enabled_data is assigned to trigger_data->private_data */
+	retain_and_null_ptr(enable_data);
+
 	return ret;
  out_disable:
 	trace_event_enable_disable(event_enable_file, 0, 1);
@@ -1837,7 +1852,6 @@ int event_enable_trigger_parse(struct event_command *cmd_ops,
  out_free:
 	event_trigger_reset_filter(cmd_ops, trigger_data);
 	event_trigger_free(trigger_data);
-	kfree(enable_data);
 
 	return ret;
 }

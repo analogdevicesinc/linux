@@ -198,8 +198,8 @@ exit:
 
 int amdgpu_job_alloc(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 		     struct drm_sched_entity *entity, void *owner,
-		     unsigned int num_ibs, struct amdgpu_job **job,
-		     u64 drm_client_id)
+		     unsigned int num_ibs, u64 drm_client_id,
+		     gfp_t gfp_flags, struct amdgpu_job **job)
 {
 	struct amdgpu_fence *af;
 	int r;
@@ -207,18 +207,18 @@ int amdgpu_job_alloc(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 	if (num_ibs == 0)
 		return -EINVAL;
 
-	*job = kzalloc_flex(**job, ibs, num_ibs);
+	*job = kzalloc_flex(**job, ibs, num_ibs, gfp_flags);
 	if (!*job)
 		return -ENOMEM;
 
-	af = kzalloc_obj(struct amdgpu_fence);
+	af = kzalloc_obj(struct amdgpu_fence, gfp_flags);
 	if (!af) {
 		r = -ENOMEM;
 		goto err_job;
 	}
 	(*job)->hw_fence = af;
 
-	af = kzalloc_obj(struct amdgpu_fence);
+	af = kzalloc_obj(struct amdgpu_fence, gfp_flags);
 	if (!af) {
 		r = -ENOMEM;
 		goto err_fence;
@@ -252,12 +252,13 @@ err_job:
 int amdgpu_job_alloc_with_ib(struct amdgpu_device *adev,
 			     struct drm_sched_entity *entity, void *owner,
 			     size_t size, enum amdgpu_ib_pool_type pool_type,
-			     struct amdgpu_job **job, u64 k_job_id)
+			     u64 k_job_id, struct amdgpu_job **job)
 {
 	int r;
 
-	r = amdgpu_job_alloc(adev, NULL, entity, owner, 1, job,
-			     k_job_id);
+	r = amdgpu_job_alloc(adev, NULL, entity, owner, 1, k_job_id,
+			     amdgpu_ib_pool_gfp_flags(adev, pool_type),
+			     job);
 	if (r)
 		return r;
 
@@ -399,9 +400,7 @@ static struct dma_fence *
 amdgpu_job_prepare_job(struct drm_sched_job *sched_job,
 		      struct drm_sched_entity *s_entity)
 {
-	struct drm_gpu_scheduler *sched =
-		container_of(s_entity->rq, typeof(*sched), rq);
-	struct amdgpu_ring *ring = to_amdgpu_ring(sched);
+	struct amdgpu_ring *ring = to_amdgpu_ring(s_entity->rq->sched);
 	struct amdgpu_job *job = to_amdgpu_job(sched_job);
 	struct dma_fence *fence;
 	int r;
@@ -494,22 +493,25 @@ drm_sched_entity_queue_pop(struct drm_sched_entity *entity)
 
 void amdgpu_job_stop_all_jobs_on_sched(struct drm_gpu_scheduler *sched)
 {
-	struct drm_sched_rq *rq = &sched->rq;
-	struct drm_sched_entity *s_entity;
 	struct drm_sched_job *s_job;
+	struct drm_sched_entity *s_entity = NULL;
+	int i;
 
 	/* Signal all jobs not yet scheduled */
-	spin_lock(&rq->lock);
-	list_for_each_entry(s_entity, &rq->entities, list) {
-		while ((s_job = drm_sched_entity_queue_pop(s_entity))) {
-			struct drm_sched_fence *s_fence = s_job->s_fence;
+	for (i = DRM_SCHED_PRIORITY_KERNEL; i < sched->num_rqs; i++) {
+		struct drm_sched_rq *rq = sched->sched_rq[i];
+		spin_lock(&rq->lock);
+		list_for_each_entry(s_entity, &rq->entities, list) {
+			while ((s_job = drm_sched_entity_queue_pop(s_entity))) {
+				struct drm_sched_fence *s_fence = s_job->s_fence;
 
-			dma_fence_signal(&s_fence->scheduled);
-			dma_fence_set_error(&s_fence->finished, -EHWPOISON);
-			dma_fence_signal(&s_fence->finished);
+				dma_fence_signal(&s_fence->scheduled);
+				dma_fence_set_error(&s_fence->finished, -EHWPOISON);
+				dma_fence_signal(&s_fence->finished);
+			}
 		}
+		spin_unlock(&rq->lock);
 	}
-	spin_unlock(&rq->lock);
 
 	/* Signal all jobs already scheduled to HW */
 	list_for_each_entry(s_job, &sched->pending_list, list) {

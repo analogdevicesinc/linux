@@ -1385,7 +1385,7 @@ succeeded:
 out_remove_new_fa:
 	fib_remove_alias(t, tp, l, new_fa);
 out_free_new_fa:
-	kmem_cache_free(fn_alias_kmem, new_fa);
+	alias_free_mem_rcu(new_fa);
 out:
 	fib_release_info(fi);
 err:
@@ -2137,8 +2137,7 @@ void fib_info_notify_update(struct net *net, struct nl_info *info)
 		struct hlist_head *head = &net->ipv4.fib_table_hash[h];
 		struct fib_table *tb;
 
-		hlist_for_each_entry_rcu(tb, head, tb_hlist,
-					 lockdep_rtnl_is_held())
+		hlist_for_each_entry_rcu(tb, head, tb_hlist, true)
 			__fib_info_notify_update(net, tb, info);
 	}
 }

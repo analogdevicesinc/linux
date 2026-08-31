@@ -16,6 +16,7 @@
 #include <linux/i2c.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/limits.h>
 #include <linux/module.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
@@ -122,6 +123,7 @@ static const struct regmap_config ina2xx_regmap_config = {
 enum ina2xx_ids {
 	ina219,
 	ina226,
+	ina232,
 	ina234,
 	ina260,
 	sy24655
@@ -196,6 +198,20 @@ static const struct ina2xx_config ina2xx_config[] = {
 		.current_shift = 4,
 		.has_update_interval = true,
 	},
+	[ina232] = {
+		.config_default = INA226_CONFIG_DEFAULT,
+		.calibration_value = 2048,
+		.shunt_div = 400,
+		.shunt_voltage_shift = 0,
+		.bus_voltage_shift = 0,
+		.bus_voltage_lsb = 1600,
+		.power_lsb_factor = 32,
+		.has_alerts = true,
+		.has_ishunt = false,
+		.has_power_average = false,
+		.current_shift = 0,
+		.has_update_interval = true,
+	},
 	[ina260] = {
 		.config_default = INA260_CONFIG_DEFAULT,
 		.shunt_div = 400,
@@ -266,30 +282,34 @@ static u16 ina226_interval_to_reg(long interval)
 	return FIELD_PREP(INA226_AVG_RD_MASK, avg_bits);
 }
 
-static int ina2xx_get_value(struct ina2xx_data *data, u8 reg,
-			    unsigned int regval)
+static long ina2xx_get_value(struct ina2xx_data *data, u8 reg,
+			     unsigned int regval)
 {
-	int val;
+	s64 val64;
+	long val;
 
 	switch (reg) {
 	case INA2XX_SHUNT_VOLTAGE:
 		/* signed register */
-		val = (s16)regval >> data->config->shunt_voltage_shift;
-		val = DIV_ROUND_CLOSEST(val, data->config->shunt_div);
+		val = DIV_ROUND_CLOSEST((s16)regval >> data->config->shunt_voltage_shift,
+					data->config->shunt_div);
 		break;
 	case INA2XX_BUS_VOLTAGE:
-		val = (regval >> data->config->bus_voltage_shift) *
-		  data->config->bus_voltage_lsb;
-		val = DIV_ROUND_CLOSEST(val, 1000);
+		val = DIV_ROUND_CLOSEST((regval >> data->config->bus_voltage_shift) *
+					data->config->bus_voltage_lsb, 1000);
 		break;
 	case INA2XX_POWER:
-		val = regval * data->power_lsb_uW;
+		val = min_t(u64, (u64)regval * data->power_lsb_uW, LONG_MAX);
 		break;
 	case INA2XX_CURRENT:
 		/* signed register, result in mA */
-		val = ((s16)regval >> data->config->current_shift) *
+		val64 = (s64)((s16)regval >> data->config->current_shift) *
 		  data->current_lsb_uA;
-		val = DIV_ROUND_CLOSEST(val, 1000);
+		if (val64 < 0)
+			val64 = -DIV_ROUND_CLOSEST_ULL(-val64, 1000);
+		else
+			val64 = DIV_ROUND_CLOSEST_ULL(val64, 1000);
+		val = clamp_val(val64, LONG_MIN, LONG_MAX);
 		break;
 	case INA2XX_CALIBRATION:
 		val = regval;
@@ -378,27 +398,29 @@ static int ina2xx_read_init(struct device *dev, int reg, long *val)
  */
 static u16 ina226_alert_to_reg(struct ina2xx_data *data, int reg, long val)
 {
+	long limit;
+
 	switch (reg) {
 	case INA2XX_SHUNT_VOLTAGE:
-		val = clamp_val(val, 0, SHRT_MAX * data->config->shunt_div);
-		val *= data->config->shunt_div;
-		val <<= data->config->shunt_voltage_shift;
-		return clamp_val(val, 0, SHRT_MAX);
+		val = min_t(long, val, DIV_ROUND_CLOSEST(SHRT_MAX, data->config->shunt_div));
+		return min_t(long, (val * data->config->shunt_div) << data->config->shunt_voltage_shift,
+			     SHRT_MAX);
 	case INA2XX_BUS_VOLTAGE:
-		val = clamp_val(val, 0, 200000);
-		val = (val * 1000) << data->config->bus_voltage_shift;
-		val = DIV_ROUND_CLOSEST(val, data->config->bus_voltage_lsb);
-		return clamp_val(val, 0, USHRT_MAX);
+		val = min_t(long, val, 130000);
+		return min_t(long,
+			     DIV_ROUND_CLOSEST((val * 1000) << data->config->bus_voltage_shift,
+					       data->config->bus_voltage_lsb),
+			     USHRT_MAX);
 	case INA2XX_POWER:
-		val = clamp_val(val, 0, UINT_MAX - data->power_lsb_uW);
-		val = DIV_ROUND_CLOSEST(val, data->power_lsb_uW);
-		return clamp_val(val, 0, USHRT_MAX);
+		val = min_t(long, val, LONG_MAX - data->power_lsb_uW);
+		return min_t(long, DIV_ROUND_CLOSEST(val, data->power_lsb_uW), USHRT_MAX);
 	case INA2XX_CURRENT:
-		val = clamp_val(val, INT_MIN / 1000, INT_MAX / 1000);
+		limit = (LONG_MAX - (data->current_lsb_uA / 2)) / 1000;
+		val = min_t(long, val, limit);
 		/* signed register, result in mA */
 		val = DIV_ROUND_CLOSEST(val * 1000, data->current_lsb_uA);
-		val <<= data->config->current_shift;
-		return clamp_val(val, SHRT_MIN, SHRT_MAX);
+		limit = SHRT_MAX >> data->config->current_shift;
+		return (u16)(min_t(long, val, limit) << data->config->current_shift);
 	default:
 		/* programmer goofed */
 		WARN_ON_ONCE(1);
@@ -537,6 +559,7 @@ static int sy24655_average_power_read(struct ina2xx_data *data, u8 reg, long *va
 	u8 template[6];
 	int ret;
 	long accumulator_24, sample_count;
+	u64 val64;
 
 	/* 48-bit register read */
 	ret = i2c_smbus_read_i2c_block_data(data->client, reg, 6, template);
@@ -555,7 +578,8 @@ static int sy24655_average_power_read(struct ina2xx_data *data, u8 reg, long *va
 		return 0;
 	}
 
-	*val = DIV_ROUND_CLOSEST(accumulator_24, sample_count) * data->power_lsb_uW;
+	val64 = (u64)DIV_ROUND_CLOSEST(accumulator_24, sample_count) * data->power_lsb_uW;
+	*val = min_t(u64, val64, LONG_MAX);
 
 	return 0;
 }
@@ -1005,6 +1029,7 @@ static const struct i2c_device_id ina2xx_id[] = {
 	{ .name = "ina226", .driver_data = ina226 },
 	{ .name = "ina230", .driver_data = ina226 },
 	{ .name = "ina231", .driver_data = ina226 },
+	{ .name = "ina232", .driver_data = ina232 },
 	{ .name = "ina234", .driver_data = ina234 },
 	{ .name = "ina260", .driver_data = ina260 },
 	{ .name = "sy24655", .driver_data = sy24655 },
@@ -1036,6 +1061,10 @@ static const struct of_device_id __maybe_unused ina2xx_of_match[] = {
 	{
 		.compatible = "ti,ina231",
 		.data = (void *)ina226
+	},
+	{
+		.compatible = "ti,ina232",
+		.data = (void *)ina232
 	},
 	{
 		.compatible = "ti,ina234",

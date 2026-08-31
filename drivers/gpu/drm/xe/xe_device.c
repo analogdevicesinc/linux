@@ -282,7 +282,7 @@ static vm_fault_t barrier_fault(struct vm_fault *vmf)
 	pgprot_t prot;
 	int idx;
 
-	prot = vm_get_page_prot(vma->vm_flags);
+	prot = vma_get_page_prot(vma);
 
 	if (drm_dev_enter(dev, &idx)) {
 		unsigned long pfn;
@@ -331,7 +331,7 @@ static int xe_pci_barrier_mmap(struct file *filp,
 	if (vma->vm_end - vma->vm_start > SZ_4K)
 		return -EINVAL;
 
-	if (is_cow_mapping(vma->vm_flags))
+	if (vma_is_cow_mapping(vma))
 		return -EINVAL;
 
 	if (vma->vm_flags & (VM_READ | VM_EXEC))
@@ -427,7 +427,6 @@ static const struct drm_ioctl_desc xe_ioctls_admin_only[] = {
 
 static const struct drm_driver admin_only_driver = {
 	.driver_features =
-	    XE_DISPLAY_DRIVER_FEATURES |
 	    DRIVER_GEM | DRIVER_RENDER,
 	.open = xe_file_open,
 	.postclose = xe_file_close,
@@ -439,7 +438,6 @@ static const struct drm_driver admin_only_driver = {
 	.major = DRIVER_MAJOR,
 	.minor = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
-	XE_DISPLAY_DRIVER_OPS,
 };
 
 /**
@@ -581,7 +579,7 @@ int xe_device_init_early(struct xe_device *xe)
 						       WQ_MEM_RECLAIM);
 	xe->ordered_wq = alloc_ordered_workqueue("xe-ordered-wq", 0);
 	xe->unordered_wq = alloc_workqueue("xe-unordered-wq", WQ_PERCPU, 0);
-	xe->destroy_wq = alloc_workqueue("xe-destroy-wq", WQ_PERCPU, 0);
+	xe->destroy_wq = alloc_workqueue("xe-destroy-wq", WQ_PERCPU | WQ_MEM_RECLAIM, 0);
 	if (!xe->ordered_wq || !xe->unordered_wq ||
 	    !xe->preempt_fence_wq || !xe->destroy_wq) {
 		/*
@@ -923,6 +921,27 @@ static void xe_device_wedged_fini(struct drm_device *drm, void *arg)
 		xe_pm_runtime_put(xe);
 }
 
+#ifdef CONFIG_DRM_XE_DEBUG_PAGE_SIZE
+static int xe_debug_page_size_alloc_ctrl_init(struct xe_device *xe)
+{
+	int err;
+
+	err = drmm_mutex_init(&xe->drm, &xe->page_size_alloc_ctrl.lock);
+	if (err)
+		return err;
+
+	xe->page_size_alloc_ctrl.mode = XE_PAGE_SIZE_ALLOC_CTRL_MODE_NONE;
+	xe->page_size_alloc_ctrl.cur_index = 0;
+
+	return 0;
+}
+#else
+static int xe_debug_page_size_alloc_ctrl_init(struct xe_device *xe)
+{
+	return 0;
+}
+#endif
+
 int xe_device_probe(struct xe_device *xe)
 {
 	struct xe_tile *tile;
@@ -1075,6 +1094,10 @@ int xe_device_probe(struct xe_device *xe)
 	if (err)
 		return err;
 
+	err = xe_debug_page_size_alloc_ctrl_init(xe);
+	if (err)
+		return err;
+
 	err = drm_dev_register(&xe->drm, 0);
 	if (err)
 		return err;
@@ -1118,7 +1141,18 @@ int xe_device_probe(struct xe_device *xe)
 	if (err)
 		goto err_unregister_display;
 
-	return devm_add_action_or_reset(xe->drm.dev, xe_device_sanitize, xe);
+	/*
+	 * Process and log any errors detected by hardware. Possible results can
+	 * include declaring the device as wedged, which must be done only after
+	 * xe_device_wedged_fini() is registered.
+	 */
+	xe_ras_process_errors(xe);
+
+	err = devm_add_action_or_reset(xe->drm.dev, xe_device_sanitize, xe);
+	if (err)
+		goto err_unregister_display;
+
+	return 0;
 
 err_unregister_display:
 	xe_display_unregister(xe);

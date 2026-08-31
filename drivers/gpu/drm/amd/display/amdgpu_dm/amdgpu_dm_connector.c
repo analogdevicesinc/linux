@@ -42,7 +42,6 @@
 #include "amdgpu_display.h"
 #include "amdgpu_dm.h"
 #include "amdgpu_dm_connector.h"
-#include "amdgpu_dm_kunit_helpers.h"
 #include "amdgpu_dm_plane.h"
 #include "amdgpu_dm_crtc.h"
 #include "amdgpu_dm_wb.h"
@@ -91,11 +90,12 @@ static const struct drm_encoder_funcs amdgpu_dm_encoder_funcs = {
 	.destroy = amdgpu_dm_encoder_destroy,
 };
 
-static void dm_encoder_helper_disable(struct drm_encoder *encoder)
+STATIC_IFN_KUNIT void dm_encoder_helper_disable(struct drm_encoder *encoder)
 {
 }
+EXPORT_IF_KUNIT(dm_encoder_helper_disable);
 
-static int dm_encoder_helper_atomic_check(struct drm_encoder *encoder,
+STATIC_IFN_KUNIT int dm_encoder_helper_atomic_check(struct drm_encoder *encoder,
 					  struct drm_crtc_state *crtc_state,
 					  struct drm_connector_state *conn_state)
 {
@@ -147,7 +147,7 @@ static int dm_encoder_helper_atomic_check(struct drm_encoder *encoder,
 		int max_bpc = conn_state->max_requested_bpc;
 
 		is_y420 = drm_mode_is_420_also(&connector->display_info, adjusted_mode) &&
-			  aconnector->force_yuv420_output;
+			  aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR420;
 		color_depth = amdgpu_dm_convert_color_depth_from_display_info(connector,
 								    is_y420,
 								    max_bpc);
@@ -165,6 +165,7 @@ static int dm_encoder_helper_atomic_check(struct drm_encoder *encoder,
 	}
 	return 0;
 }
+EXPORT_IF_KUNIT(dm_encoder_helper_atomic_check);
 
 const struct drm_encoder_helper_funcs amdgpu_dm_encoder_helper_funcs = {
 	.disable = dm_encoder_helper_disable,
@@ -333,7 +334,7 @@ int amdgpu_dm_detect_mst_link_for_all_connectors(struct drm_device *dev)
 }
 EXPORT_IF_KUNIT(amdgpu_dm_detect_mst_link_for_all_connectors);
 
-static void hdmi_cec_unset_edid(struct amdgpu_dm_connector *aconnector)
+STATIC_IFN_KUNIT void hdmi_cec_unset_edid(struct amdgpu_dm_connector *aconnector)
 {
 	struct cec_notifier *n = aconnector->notifier;
 
@@ -342,6 +343,7 @@ static void hdmi_cec_unset_edid(struct amdgpu_dm_connector *aconnector)
 
 	cec_notifier_phys_addr_invalidate(n);
 }
+EXPORT_IF_KUNIT(hdmi_cec_unset_edid);
 
 void amdgpu_dm_hdmi_cec_set_edid(struct amdgpu_dm_connector *aconnector)
 {
@@ -354,6 +356,7 @@ void amdgpu_dm_hdmi_cec_set_edid(struct amdgpu_dm_connector *aconnector)
 	cec_notifier_set_phys_addr(n,
 				   connector->display_info.source_physical_address);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_hdmi_cec_set_edid);
 
 void amdgpu_dm_s3_handle_hdmi_cec(struct drm_device *ddev, bool suspend)
 {
@@ -374,6 +377,7 @@ void amdgpu_dm_s3_handle_hdmi_cec(struct drm_device *ddev, bool suspend)
 	}
 	drm_connector_list_iter_end(&conn_iter);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_s3_handle_hdmi_cec);
 
 
 struct drm_connector *
@@ -655,6 +659,7 @@ void amdgpu_dm_update_connector_after_detect(
 	if (!drm_kms_helper_is_poll_worker())
 		mutex_unlock(&dev->mode_config.mutex);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_update_connector_after_detect);
 
 enum dc_color_depth
 amdgpu_dm_convert_color_depth_from_display_info(const struct drm_connector *connector,
@@ -850,16 +855,15 @@ STATIC_IFN_KUNIT void fill_stream_properties_from_drm_display_mode(
 	const struct drm_connector *connector,
 	const struct drm_connector_state *connector_state,
 	const struct dc_stream_state *old_stream,
-	int requested_bpc)
+	int requested_bpc,
+	enum dc_pixel_encoding requested_encoding,
+	bool is_hdmi_ep)
 {
-	bool is_dp_or_hdmi = dc_is_hdmi_signal(stream->signal) || dc_is_dp_signal(stream->signal);
 	struct dc_crtc_timing *timing_out = &stream->timing;
 	const struct drm_display_info *info = &connector->display_info;
 	struct amdgpu_dm_connector *aconnector = NULL;
 	struct hdmi_vendor_infoframe hv_frame;
 	struct hdmi_avi_infoframe avi_frame;
-	bool want_420;
-	bool want_422;
 	ssize_t err;
 
 	if (connector->connector_type != DRM_MODE_CONNECTOR_WRITEBACK)
@@ -873,40 +877,13 @@ STATIC_IFN_KUNIT void fill_stream_properties_from_drm_display_mode(
 	timing_out->v_border_top = 0;
 	timing_out->v_border_bottom = 0;
 
-	want_420 = (aconnector && aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR420) ||
-		   (connector_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_YCBCR420);
-	want_422 = (aconnector && aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR422) ||
-		   (connector_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_YCBCR422);
-
-	if (drm_mode_is_420_only(info, mode_in) &&
-	    (want_420 || connector_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_AUTO)) {
-		timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR420;
-	} else if (drm_mode_is_420_also(info, mode_in) && want_420) {
-		timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR420;
-	} else if ((info->color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422)) &&
-		   want_422 && is_dp_or_hdmi) {
-		timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR422;
-	} else if (connector_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_YCBCR444 &&
-		   (info->color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444)) &&
-		   is_dp_or_hdmi) {
-		timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR444;
-	} else if (connector_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_RGB444 ||
-		   connector_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_AUTO) {
-		timing_out->pixel_encoding = PIXEL_ENCODING_RGB;
-	} else {
-		/*
-		 * If a format was explicitly requested but the requested format
-		 * can't be satisfied, set it to an invalid value so that an
-		 * error bubbles up to userspace. This way, userspace knows it
-		 * needs to make a better choice.
-		 */
-		if (connector_state->color_format != DRM_CONNECTOR_COLOR_FORMAT_AUTO)
-			timing_out->pixel_encoding = PIXEL_ENCODING_UNDEFINED;
-		else if (drm_mode_is_420_only(info, mode_in))
-			timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR420;
-		else
-			timing_out->pixel_encoding = PIXEL_ENCODING_RGB;
-	}
+	/*
+	 * The pixel encoding to use is decided entirely by the caller (see
+	 * amdgpu_dm_create_validate_stream_for_sink()), which enumerates only
+	 * the encodings the sink actually advertises. This helper must not
+	 * second-guess that choice; it simply applies it.
+	 */
+	timing_out->pixel_encoding = requested_encoding;
 
 	timing_out->timing_3d_format = TIMING_3D_FORMAT_NONE;
 	timing_out->display_color_depth = amdgpu_dm_convert_color_depth_from_display_info(
@@ -972,14 +949,15 @@ STATIC_IFN_KUNIT void fill_stream_properties_from_drm_display_mode(
 
 	stream->out_transfer_func.type = TF_TYPE_PREDEFINED;
 	stream->out_transfer_func.tf = TRANSFER_FUNCTION_SRGB;
-	if (stream->signal == SIGNAL_TYPE_HDMI_TYPE_A) {
-		if (!adjust_colour_depth_from_display_info(timing_out, info) &&
-		    drm_mode_is_420_also(info, mode_in) &&
-		    timing_out->pixel_encoding != PIXEL_ENCODING_YCBCR420) {
-			timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR420;
-			adjust_colour_depth_from_display_info(timing_out, info);
-		}
-	}
+
+	/* Clamp the HDMI colour depth to what the sink's max TMDS clock
+	 * allows. The pixel encoding is fixed by the caller and must not be
+	 * changed here: the caller already enumerates YCbCr420 as its own
+	 * candidate, so silently switching to it would hide an enumeration
+	 * bug and produce a stream the caller never asked to validate.
+	 */
+	if (is_hdmi_ep)
+		adjust_colour_depth_from_display_info(timing_out, info);
 
 	stream->output_color_space = amdgpu_dm_get_output_color_space(timing_out, connector_state);
 	stream->content_type = get_output_content_type(connector_state);
@@ -1384,12 +1362,71 @@ static void apply_dsc_policy_for_stream(struct amdgpu_dm_connector *aconnector,
 }
 #endif
 
-static struct dc_stream_state *
+void amdgpu_dm_update_stream_scaling_settings(struct drm_device *dev,
+					   const struct drm_display_mode *mode,
+					   const struct dm_connector_state *dm_state,
+					   struct dc_stream_state *stream)
+{
+	enum amdgpu_rmx_type rmx_type;
+
+	struct rect src = { 0 }; /* viewport in composition space*/
+	struct rect dst = { 0 }; /* stream addressable area */
+
+	/* no mode. nothing to be done */
+	if (!mode)
+		return;
+
+	/* Full screen scaling by default */
+	src.width = mode->hdisplay;
+	src.height = mode->vdisplay;
+	dst.width = stream->timing.h_addressable;
+	dst.height = stream->timing.v_addressable;
+
+	if (dm_state) {
+		rmx_type = dm_state->scaling;
+		if (rmx_type == RMX_ASPECT || rmx_type == RMX_OFF) {
+			if (src.width * dst.height <
+					src.height * dst.width) {
+				/* height needs less upscaling/more downscaling */
+				dst.width = src.width *
+						dst.height / src.height;
+			} else {
+				/* width needs less upscaling/more downscaling */
+				dst.height = src.height *
+						dst.width / src.width;
+			}
+		} else if (rmx_type == RMX_CENTER) {
+			dst = src;
+		}
+
+		dst.x = (stream->timing.h_addressable - dst.width) / 2;
+		dst.y = (stream->timing.v_addressable - dst.height) / 2;
+
+		if (dm_state->underscan_enable) {
+			dst.x += dm_state->underscan_hborder / 2;
+			dst.y += dm_state->underscan_vborder / 2;
+			dst.width -= dm_state->underscan_hborder;
+			dst.height -= dm_state->underscan_vborder;
+		}
+	}
+
+	stream->src = src;
+	stream->dst = dst;
+
+	drm_dbg_kms(dev, "Destination Rectangle x:%d  y:%d  width:%d  height:%d\n",
+		    dst.x, dst.y, dst.width, dst.height);
+
+}
+EXPORT_IF_KUNIT(amdgpu_dm_update_stream_scaling_settings);
+
+STATIC_IFN_KUNIT struct dc_stream_state *
 create_stream_for_sink(struct drm_connector *connector,
 		       const struct drm_display_mode *drm_mode,
 		       const struct dm_connector_state *dm_state,
 		       const struct dc_stream_state *old_stream,
-		       int requested_bpc)
+		       int requested_bpc,
+		       enum dc_pixel_encoding requested_encoding,
+		       bool is_hdmi_ep)
 {
 	struct drm_device *dev = connector->dev;
 	struct amdgpu_dm_connector *aconnector = NULL;
@@ -1500,11 +1537,11 @@ create_stream_for_sink(struct drm_connector *connector,
 	if (!scale || mode_refresh != preferred_refresh)
 		fill_stream_properties_from_drm_display_mode(
 			stream, &mode, connector, con_state, NULL,
-			requested_bpc);
+			requested_bpc, requested_encoding, is_hdmi_ep);
 	else
 		fill_stream_properties_from_drm_display_mode(
 			stream, &mode, connector, con_state, old_stream,
-			requested_bpc);
+			requested_bpc, requested_encoding, is_hdmi_ep);
 
 	/* The rest isn't needed for writeback connectors */
 	if (!aconnector)
@@ -1568,6 +1605,7 @@ finish:
 
 	return stream;
 }
+EXPORT_IF_KUNIT(create_stream_for_sink);
 
 /**
  * amdgpu_dm_connector_poll - Poll a connector to see if it's connected to a display
@@ -1583,7 +1621,7 @@ finish:
  *
  * Return: The probed connector status (connected/disconnected/unknown).
  */
-static enum drm_connector_status
+STATIC_IFN_KUNIT enum drm_connector_status
 amdgpu_dm_connector_poll(struct amdgpu_dm_connector *aconnector, bool force)
 {
 	struct drm_connector *connector = &aconnector->base;
@@ -1635,6 +1673,40 @@ amdgpu_dm_connector_poll(struct amdgpu_dm_connector *aconnector, bool force)
 	mutex_unlock(&aconnector->hpd_lock);
 	return status;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_poll);
+
+/*
+ * Apple Studio Display exposes two SST DP links for a 2x1 tiled panel.
+ * The primary tile advertises the full 5120x2880 mode (with DSC on the
+ * bandwidth-sufficient link) while the secondary carries a per-tile
+ * 2560x2880 timing on a insufficient bandwidth link. Hide the secondary
+ * connector from userspace so compositors configure a single 5K stream
+ * on the primary link only.
+ */
+static bool amdgpu_dm_hide_secondary_tile_from_userspace(struct drm_connector *connector)
+{
+	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
+
+	if (!aconnector->dc_sink)
+		return false;
+
+	if (!aconnector->dc_sink->edid_caps.panel_patch.disable_second_tile)
+		return false;
+
+	drm_edid_connector_update(connector, aconnector->drm_edid);
+
+	if (!connector->has_tile)
+		return false;
+
+	if (!connector->tile_h_loc && !connector->tile_v_loc)
+		return false;
+
+	drm_dbg_kms(connector->dev,
+		    "[CONNECTOR:%d:%s] hiding secondary Apple Studio Display tile from userspace\n",
+		    connector->base.id, connector->name);
+
+	return true;
+}
 
 /**
  * amdgpu_dm_connector_detect() - Detect whether a DRM connector is connected to a display
@@ -1658,7 +1730,7 @@ amdgpu_dm_connector_poll(struct amdgpu_dm_connector *aconnector, bool force)
  * Return: The connector status (connected, disconnected, or unknown).
  *
  */
-static enum drm_connector_status
+STATIC_IFN_KUNIT enum drm_connector_status
 amdgpu_dm_connector_detect(struct drm_connector *connector, bool force)
 {
 	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
@@ -1679,9 +1751,13 @@ amdgpu_dm_connector_detect(struct drm_connector *connector, bool force)
 		(!aconnector->dc_sink || aconnector->dc_sink->edid_caps.analog))
 		return amdgpu_dm_connector_poll(aconnector, force);
 
+	if (amdgpu_dm_hide_secondary_tile_from_userspace(connector))
+		return connector_status_disconnected;
+
 	return (aconnector->dc_sink ? connector_status_connected :
 			connector_status_disconnected);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_detect);
 
 int amdgpu_dm_connector_atomic_set_property(struct drm_connector *connector,
 					    struct drm_connector_state *connector_state,
@@ -1800,7 +1876,7 @@ int amdgpu_dm_connector_atomic_get_property(struct drm_connector *connector,
 }
 EXPORT_IF_KUNIT(amdgpu_dm_connector_atomic_get_property);
 
-static void amdgpu_dm_connector_unregister(struct drm_connector *connector)
+STATIC_IFN_KUNIT void amdgpu_dm_connector_unregister(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *amdgpu_dm_connector = to_amdgpu_dm_connector(connector);
 
@@ -1810,8 +1886,9 @@ static void amdgpu_dm_connector_unregister(struct drm_connector *connector)
 	cec_notifier_conn_unregister(amdgpu_dm_connector->notifier);
 	drm_dp_aux_unregister(&amdgpu_dm_connector->dm_dp_aux.aux);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_unregister);
 
-static void amdgpu_dm_connector_destroy(struct drm_connector *connector)
+STATIC_IFN_KUNIT void amdgpu_dm_connector_destroy(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
 	struct amdgpu_device *adev = drm_to_adev(connector->dev);
@@ -1852,6 +1929,7 @@ static void amdgpu_dm_connector_destroy(struct drm_connector *connector)
 
 	kfree(connector);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_destroy);
 
 void amdgpu_dm_connector_funcs_reset(struct drm_connector *connector)
 {
@@ -1913,7 +1991,7 @@ amdgpu_dm_connector_atomic_duplicate_state(struct drm_connector *connector)
 }
 EXPORT_IF_KUNIT(amdgpu_dm_connector_atomic_duplicate_state);
 
-static int
+STATIC_IFN_KUNIT int
 amdgpu_dm_connector_late_register(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *amdgpu_dm_connector =
@@ -1943,8 +2021,9 @@ amdgpu_dm_connector_late_register(struct drm_connector *connector)
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_late_register);
 
-static void amdgpu_dm_connector_funcs_force(struct drm_connector *connector)
+STATIC_IFN_KUNIT void amdgpu_dm_connector_funcs_force(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
 	struct dc_link *dc_link = aconnector->dc_link;
@@ -1980,6 +2059,7 @@ static void amdgpu_dm_connector_funcs_force(struct drm_connector *connector)
 			&dc_em_sink->edid_caps);
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_funcs_force);
 
 static const struct drm_connector_funcs amdgpu_dm_connector_funcs = {
 	.reset = amdgpu_dm_connector_funcs_reset,
@@ -2000,7 +2080,7 @@ static int get_modes(struct drm_connector *connector)
 	return amdgpu_dm_connector_get_modes(connector);
 }
 
-static void create_eml_sink(struct amdgpu_dm_connector *aconnector)
+STATIC_IFN_KUNIT void create_eml_sink(struct amdgpu_dm_connector *aconnector)
 {
 	struct drm_connector *connector = &aconnector->base;
 	struct dc_link *dc_link = aconnector->dc_link;
@@ -2045,8 +2125,9 @@ static void create_eml_sink(struct amdgpu_dm_connector *aconnector)
 			dc_sink_retain(aconnector->dc_sink);
 	}
 }
+EXPORT_IF_KUNIT(create_eml_sink);
 
-static void handle_edid_mgmt(struct amdgpu_dm_connector *aconnector)
+STATIC_IFN_KUNIT void handle_edid_mgmt(struct amdgpu_dm_connector *aconnector)
 {
 	struct dc_link *link = (struct dc_link *)aconnector->dc_link;
 
@@ -2061,8 +2142,9 @@ static void handle_edid_mgmt(struct amdgpu_dm_connector *aconnector)
 
 	create_eml_sink(aconnector);
 }
+EXPORT_IF_KUNIT(handle_edid_mgmt);
 
-static enum dc_status dm_validate_stream_and_context(struct dc *dc,
+STATIC_IFN_KUNIT enum dc_status dm_validate_stream_and_context(struct dc *dc,
 						struct dc_stream_state *stream)
 {
 	enum dc_status dc_result = DC_ERROR_UNEXPECTED;
@@ -2124,6 +2206,7 @@ cleanup:
 
 	return dc_result;
 }
+EXPORT_IF_KUNIT(dm_validate_stream_and_context);
 
 static enum dc_status
 dm_validate_stream_color_format(const struct drm_connector_state *drm_state,
@@ -2163,13 +2246,32 @@ amdgpu_dm_create_validate_stream_for_sink(struct drm_connector *connector,
 					  const struct dm_connector_state *dm_state,
 					  const struct dc_stream_state *old_stream)
 {
+	/*
+	 * Ordered lists of the encodings and bit depths we are willing to
+	 * validate, best quality/bandwidth first. The per-sink masks built
+	 * below gate which of these entries are actually attempted.
+	 */
+	static const enum dc_pixel_encoding encoding_order[] = {
+		PIXEL_ENCODING_YCBCR444,
+		PIXEL_ENCODING_RGB,
+		PIXEL_ENCODING_YCBCR422,
+		PIXEL_ENCODING_YCBCR420,
+	};
+	static const u8 bpc_order[] = { 16, 12, 10, 8, 6 };
+
 	struct amdgpu_dm_connector *aconnector = NULL;
 	struct amdgpu_device *adev = drm_to_adev(connector->dev);
-	struct dc_stream_state *stream;
+	const struct drm_display_info *info = &connector->display_info;
+	struct dc_stream_state *stream = NULL;
 	const struct drm_connector_state *drm_state = dm_state ? &dm_state->base : NULL;
 	int requested_bpc = drm_state ? drm_state->max_requested_bpc : 8;
 	enum dc_status dc_result = DC_OK;
-	uint8_t bpc_limit = 6;
+	enum signal_type signal = SIGNAL_TYPE_NONE;
+	bool want_420, want_422, is_dp_or_hdmi;
+	u32 encoding_mask = 0;
+	u32 bpc_mask = 0;
+	bool is_hdmi_ep = false;
+	unsigned int i, j;
 
 	if (!dm_state)
 		return NULL;
@@ -2177,91 +2279,183 @@ amdgpu_dm_create_validate_stream_for_sink(struct drm_connector *connector,
 	if (connector->connector_type != DRM_MODE_CONNECTOR_WRITEBACK)
 		aconnector = to_amdgpu_dm_connector(connector);
 
-	if (aconnector &&
-	    (aconnector->dc_link->connector_signal == SIGNAL_TYPE_HDMI_TYPE_A ||
-	     aconnector->dc_link->connector_signal == SIGNAL_TYPE_HDMI_FRL ||
-	     aconnector->dc_link->dpcd_caps.dongle_type == DISPLAY_DONGLE_DP_HDMI_CONVERTER))
-		bpc_limit = 8;
-
-	do {
-		drm_dbg_kms(connector->dev, "Trying with %d bpc\n", requested_bpc);
-		stream = create_stream_for_sink(connector, drm_mode,
-						dm_state, old_stream,
-						requested_bpc);
-		if (stream == NULL) {
+	/*
+	 * Writeback connectors have no sink EDID to enumerate against. They
+	 * only ever use RGB at the requested depth, so build and validate a
+	 * single stream directly and return it (dc_validate_stream() is not
+	 * meaningful for the writeback path).
+	 */
+	if (!aconnector) {
+		stream = create_stream_for_sink(connector, drm_mode, dm_state,
+						old_stream, requested_bpc,
+						PIXEL_ENCODING_RGB, is_hdmi_ep);
+		if (!stream)
 			drm_err(adev_to_drm(adev), "Failed to create stream for sink!\n");
-			break;
-		}
+		return stream;
+	}
 
-		dc_result = dc_validate_stream(adev->dm.dc, stream);
+	signal = aconnector->dc_link->connector_signal;
 
-		if (!aconnector) /* writeback connector */
-			return stream;
+	/*
+	 * Determine whether this is a native HDMI sink or a DP->HDMI dongle.
+	 * Since we check for it a few times below, cache the result.
+	 */
+	is_hdmi_ep = (signal == SIGNAL_TYPE_HDMI_TYPE_A ||
+		     signal == SIGNAL_TYPE_HDMI_FRL 	||
+		     aconnector->dc_link->dpcd_caps.dongle_type ==
+			     DISPLAY_DONGLE_DP_HDMI_CONVERTER);
+	is_dp_or_hdmi = dc_is_hdmi_signal(signal) || dc_is_dp_signal(signal);
 
-		if (dc_result == DC_OK && stream->signal == SIGNAL_TYPE_DISPLAY_PORT_MST)
-			dc_result = dm_dp_mst_is_port_support_mode(aconnector, stream);
+	/*
+	 * Build the set of pixel encodings this sink advertises, so we only
+	 * ever validate combinations the display can actually accept. Ordered
+	 * best-first: RGB / YCbCr444 (full bandwidth) -> YCbCr422 -> YCbCr420.
+	 *
+	 *  - RGB is the mandatory baseline and always available.
+	 *  - YCbCr444 is only meaningful for native HDMI sinks.
+	 *  - A 420-only mode collapses the mask to YCbCr420 alone.
+	 *  - The debugfs force_yuv_pixel_format override pins the encoding to a
+	 *    single dc_pixel_encoding when set (PIXEL_ENCODING_UNDEFINED means
+	 *    "no override"). An explicit YCbCr420 force is honoured even on
+	 *    modes the sink only lists as RGB/4:4:4 capable
+	 *    (drm_mode_is_420_also() clear), as required for HDMI compliance
+	 *    testing; dc_validate_stream() still rejects anything the link
+	 *    genuinely cannot carry. The YCbCr422/YCbCr444 forces stay gated on
+	 *    the sink's advertised caps.
+	 */
+	want_420 = (aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR420) ||
+		(drm_state && drm_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_YCBCR420);
+	want_422 = (aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR422) ||
+		(drm_state && drm_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_YCBCR422);
 
-		if (dc_result == DC_OK)
-			dc_result = dm_validate_stream_and_context(adev->dm.dc, stream);
+	if (drm_mode_is_420_only(info, drm_mode) &&
+	    (want_420 || (drm_state && drm_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_AUTO))) {
+		encoding_mask = BIT(PIXEL_ENCODING_YCBCR420);
+	} else if (drm_mode_is_420_also(info, drm_mode) && want_420) {
+		encoding_mask = BIT(PIXEL_ENCODING_YCBCR420);
+	} else if ((info->color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422)) &&
+		   want_422 && is_dp_or_hdmi) {
+		encoding_mask = BIT(PIXEL_ENCODING_YCBCR422);
+	} else if (((aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR444) ||
+		    (drm_state && drm_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_YCBCR444)) &&
+		   (info->color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444)) &&
+		   is_dp_or_hdmi) {
+		encoding_mask = BIT(PIXEL_ENCODING_YCBCR444);
+	} else if (drm_state && drm_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_RGB444) {
+		encoding_mask = BIT(PIXEL_ENCODING_RGB);
+	} else {
+		encoding_mask = BIT(PIXEL_ENCODING_RGB);
 
-		if (dc_result == DC_OK)
-			dc_result = dm_validate_stream_color_format(drm_state, stream);
+		if ((info->color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444)) &&
+		    is_hdmi_ep)
+			encoding_mask |= BIT(PIXEL_ENCODING_YCBCR444);
 
-		if (dc_result != DC_OK) {
-			drm_dbg_kms(connector->dev, "Pruned mode %d x %d (clk %d) %s %s -- %s\n",
+		if (info->color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422))
+			encoding_mask |= BIT(PIXEL_ENCODING_YCBCR422);
+
+		if (drm_mode_is_420_also(info, drm_mode))
+			encoding_mask |= BIT(PIXEL_ENCODING_YCBCR420);
+	}
+
+	/*
+	 * Build the set of bit depths to try, high-to-low. Start from the
+	 * atomic-requested cap and clear anything the sink cannot do:
+	 *
+	 *  - Never exceed the requested bpc.
+	 *  - HDMI/FRL and DP->HDMI dongles have no defined 6 bpc mode.
+	 *  - Any depth above the EDID-reported bpc is dropped.
+	 *
+	 * amdgpu_dm_convert_color_depth_from_display_info() applies the final
+	 * per-encoding cap (e.g. YCbCr420 deep-colour limits) when the stream
+	 * is built, so this mask only needs the coarse sink limits.
+	 */
+	for (j = 0; j < ARRAY_SIZE(bpc_order); j++) {
+		u8 bpc = bpc_order[j];
+
+		if (requested_bpc > 0 && bpc > requested_bpc)
+			continue;
+
+		if (bpc == 6 && is_hdmi_ep)
+			continue;
+
+		if (info->bpc && bpc > info->bpc)
+			continue;
+
+		bpc_mask |= BIT(bpc);
+	}
+
+	/*
+	 * Enumerate the supported (encoding, bpc) combinations in priority
+	 * order and return the first that validates. Because the masks only
+	 * contain sink-supported entries, this is generic across connector
+	 * types and needs no encoding-specific fallback afterwards.
+	 *
+	 * The selection lives entirely on the stack and is passed by value to
+	 * create_stream_for_sink(); no shared connector state is mutated. This
+	 * matters because this helper runs concurrently from the connector
+	 * probe worker (->mode_valid) and from a compositor's atomic check on
+	 * the same connector.
+	 */
+	for (i = 0; i < ARRAY_SIZE(encoding_order); i++) {
+		enum dc_pixel_encoding enc = encoding_order[i];
+
+		if (!(encoding_mask & BIT(enc)))
+			continue;
+
+		for (j = 0; j < ARRAY_SIZE(bpc_order); j++) {
+			u8 bpc = bpc_order[j];
+
+			if (!(bpc_mask & BIT(bpc)))
+				continue;
+
+			drm_dbg_kms(connector->dev,
+				    "Trying %s with %d bpc (encoding_mask=0x%x bpc_mask=0x%x requested_bpc=%d drm max_bpc)\n",
+				    dc_pixel_encoding_to_str(enc), bpc,
+				    encoding_mask, bpc_mask, requested_bpc);
+
+			stream = create_stream_for_sink(connector, drm_mode,
+							dm_state, old_stream,
+							bpc, enc, is_hdmi_ep);
+			if (stream == NULL) {
+				drm_err(adev_to_drm(adev), "Failed to create stream for sink!\n");
+				return NULL;
+			}
+
+			dc_result = dc_validate_stream(adev->dm.dc, stream);
+
+			if (dc_result == DC_OK &&
+			    stream->signal == SIGNAL_TYPE_DISPLAY_PORT_MST)
+				dc_result = dm_dp_mst_is_port_support_mode(aconnector, stream);
+
+			if (dc_result == DC_OK)
+				dc_result = dm_validate_stream_and_context(adev->dm.dc, stream);
+
+			if (dc_result == DC_OK)
+				dc_result = dm_validate_stream_color_format(drm_state, stream);
+
+			if (dc_result == DC_OK)
+				return stream;
+
+			drm_dbg_kms(connector->dev, "Pruned mode %d x %d (refresh rate %d) %s %s -- %s\n",
 				      drm_mode->hdisplay,
 				      drm_mode->vdisplay,
-				      drm_mode->clock,
+				      drm_mode_vrefresh(drm_mode),
 				      dc_pixel_encoding_to_str(stream->timing.pixel_encoding),
 				      dc_color_depth_to_str(stream->timing.display_color_depth),
 				      dc_status_to_str(dc_result));
 
 			dc_stream_release(stream);
 			stream = NULL;
-			requested_bpc -= 2; /* lower bpc to retry validation */
 		}
-
-	} while (stream == NULL && requested_bpc >= bpc_limit);
-
-	switch (dc_result) {
-	/*
-	 * If we failed to validate DP bandwidth stream with the requested RGB color depth,
-	 * we try to fallback and configure in order:
-	 * YUV422 (8bpc, 6bpc)
-	 * YUV420 (8bpc, 6bpc)
-	 */
-	case DC_FAIL_ENC_VALIDATE:
-	case DC_EXCEED_DONGLE_CAP:
-	case DC_NO_DP_LINK_BANDWIDTH:
-		/* recursively entered twice and already tried both YUV422 and YUV420 */
-		if (aconnector->force_yuv422_output && aconnector->force_yuv420_output)
-			break;
-		/* first failure; try YUV422 */
-		if (!aconnector->force_yuv422_output) {
-			drm_dbg_kms(connector->dev, "%s:%d Validation failed with %d, retrying w/ YUV422\n",
-				    __func__, __LINE__, dc_result);
-			aconnector->force_yuv422_output = true;
-		/* recursively entered and YUV422 failed, try YUV420 */
-		} else if (!aconnector->force_yuv420_output) {
-			drm_dbg_kms(connector->dev, "%s:%d Validation failed with %d, retrying w/ YUV420\n",
-				    __func__, __LINE__, dc_result);
-			aconnector->force_yuv420_output = true;
-		}
-		stream = amdgpu_dm_create_validate_stream_for_sink(connector, drm_mode,
-							 dm_state, old_stream);
-		aconnector->force_yuv422_output = false;
-		aconnector->force_yuv420_output = false;
-		break;
-	case DC_OK:
-		break;
-	default:
-		drm_dbg_kms(connector->dev, "%s:%d Unhandled validation failure %d\n",
-			    __func__, __LINE__, dc_result);
-		break;
 	}
 
-	return stream;
+	/*
+	 * Every sink-supported combination was exhausted without validating;
+	 * the mode is genuinely unsupported on this link.
+	 */
+	return NULL;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_create_validate_stream_for_sink);
 
 enum drm_mode_status amdgpu_dm_connector_mode_valid(struct drm_connector *connector,
 				   const struct drm_display_mode *mode)
@@ -2315,6 +2509,7 @@ fail:
 	/* TODO: error handling*/
 	return result;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_mode_valid);
 
 int amdgpu_dm_fill_hdr_info_packet(const struct drm_connector_state *state,
 				   struct dc_info_packet *out)
@@ -2529,7 +2724,7 @@ STATIC_IFN_KUNIT int to_drm_connector_type(enum signal_type st, uint32_t connect
 }
 EXPORT_IF_KUNIT(to_drm_connector_type);
 
-static struct drm_encoder *amdgpu_dm_connector_to_encoder(struct drm_connector *connector)
+STATIC_IFN_KUNIT struct drm_encoder *amdgpu_dm_connector_to_encoder(struct drm_connector *connector)
 {
 	struct drm_encoder *encoder;
 
@@ -2539,8 +2734,9 @@ static struct drm_encoder *amdgpu_dm_connector_to_encoder(struct drm_connector *
 
 	return NULL;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_to_encoder);
 
-static void amdgpu_dm_get_native_mode(struct drm_connector *connector)
+STATIC_IFN_KUNIT void amdgpu_dm_get_native_mode(struct drm_connector *connector)
 {
 	struct drm_encoder *encoder;
 	struct amdgpu_encoder *amdgpu_encoder;
@@ -2568,8 +2764,9 @@ static void amdgpu_dm_get_native_mode(struct drm_connector *connector)
 
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_get_native_mode);
 
-static struct drm_display_mode *
+STATIC_IFN_KUNIT struct drm_display_mode *
 amdgpu_dm_create_common_mode(struct drm_encoder *encoder,
 			     const char *name,
 			     int hdisplay, int vdisplay)
@@ -2592,6 +2789,7 @@ amdgpu_dm_create_common_mode(struct drm_encoder *encoder,
 	return mode;
 
 }
+EXPORT_IF_KUNIT(amdgpu_dm_create_common_mode);
 
 static const struct amdgpu_dm_mode_size {
 	char name[DRM_DISPLAY_MODE_LEN];
@@ -2611,7 +2809,7 @@ static const struct amdgpu_dm_mode_size {
 	{"1920x1200", 1920, 1200}
 };
 
-static void amdgpu_dm_connector_add_common_modes(struct drm_encoder *encoder,
+STATIC_IFN_KUNIT void amdgpu_dm_connector_add_common_modes(struct drm_encoder *encoder,
 						 struct drm_connector *connector)
 {
 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
@@ -2659,6 +2857,7 @@ static void amdgpu_dm_connector_add_common_modes(struct drm_encoder *encoder,
 		amdgpu_dm_connector->num_modes++;
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_add_common_modes);
 
 void amdgpu_set_panel_orientation(struct drm_connector *connector)
 {
@@ -2690,7 +2889,48 @@ void amdgpu_set_panel_orientation(struct drm_connector *connector)
 						       native_mode->vdisplay);
 }
 
-static void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *connector,
+/*
+ * The Apple Studio Display primary tile advertises both the full 5120x2880
+ * mode and the per-tile 2560x2880 timing. As the secondary tile is hidden from
+ * userspace (see amdgpu_dm_hide_secondary_tile_from_userspace()), drop the
+ * per-tile timing from the primary connector so compositors only pick the full
+ * 5K mode.
+ */
+static void amdgpu_dm_prune_primary_tile_modes(struct drm_connector *connector)
+{
+	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
+	struct drm_display_mode *mode, *t;
+
+	if (!aconnector->dc_sink)
+		return;
+
+	if (!aconnector->dc_sink->edid_caps.panel_patch.disable_second_tile)
+		return;
+
+	if (!connector->has_tile)
+		return;
+
+	/* Only prune the per-tile timing from the primary tile. */
+	if (connector->tile_h_loc || connector->tile_v_loc)
+		return;
+
+	list_for_each_entry_safe(mode, t, &connector->probed_modes, head) {
+		if (mode->hdisplay != connector->tile_h_size ||
+		    mode->vdisplay != connector->tile_v_size)
+			continue;
+
+		drm_dbg_kms(connector->dev,
+			    "[CONNECTOR:%d:%s] pruning per-tile %dx%d timing from primary Apple Studio Display tile\n",
+			    connector->base.id, connector->name,
+			    mode->hdisplay, mode->vdisplay);
+
+		list_del(&mode->head);
+		drm_mode_destroy(connector->dev, mode);
+		aconnector->num_modes--;
+	}
+}
+
+STATIC_IFN_KUNIT void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *connector,
 					      const struct drm_edid *drm_edid)
 {
 	struct amdgpu_dm_connector *amdgpu_dm_connector =
@@ -2701,6 +2941,8 @@ static void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *connector,
 		INIT_LIST_HEAD(&connector->probed_modes);
 		amdgpu_dm_connector->num_modes =
 				drm_edid_connector_add_modes(connector);
+
+		amdgpu_dm_prune_primary_tile_modes(connector);
 
 		/* sorting the probed modes before calling function
 		 * amdgpu_dm_get_native_mode() since EDID can have
@@ -2722,6 +2964,7 @@ static void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *connector,
 		amdgpu_dm_connector->num_modes = 0;
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_ddc_get_modes);
 
 STATIC_IFN_KUNIT bool is_duplicate_mode(struct amdgpu_dm_connector *aconnector,
 			      struct drm_display_mode *mode)
@@ -2737,7 +2980,7 @@ STATIC_IFN_KUNIT bool is_duplicate_mode(struct amdgpu_dm_connector *aconnector,
 }
 EXPORT_IF_KUNIT(is_duplicate_mode);
 
-static uint add_fs_modes(struct amdgpu_dm_connector *aconnector)
+STATIC_IFN_KUNIT uint add_fs_modes(struct amdgpu_dm_connector *aconnector)
 {
 	const struct drm_display_mode *m;
 	struct drm_display_mode *new_mode;
@@ -2812,8 +3055,9 @@ static uint add_fs_modes(struct amdgpu_dm_connector *aconnector)
  out:
 	return new_modes_count;
 }
+EXPORT_IF_KUNIT(add_fs_modes);
 
-static void amdgpu_dm_connector_add_freesync_modes(struct drm_connector *connector,
+STATIC_IFN_KUNIT void amdgpu_dm_connector_add_freesync_modes(struct drm_connector *connector,
 						   const struct drm_edid *drm_edid)
 {
 	struct amdgpu_dm_connector *amdgpu_dm_connector =
@@ -2836,6 +3080,7 @@ static void amdgpu_dm_connector_add_freesync_modes(struct drm_connector *connect
 		amdgpu_dm_connector->num_modes +=
 			add_fs_modes(amdgpu_dm_connector);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_add_freesync_modes);
 
 static int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
 {
@@ -2908,7 +3153,7 @@ static void hdmi_frl_status_polling_work(struct work_struct *work)
 		if (!dc_is_hdmi_signal(dc_link->connector_signal))
 			continue;
 
-		if (dc_link->connector_signal != SIGNAL_TYPE_HDMI_FRL)
+		if (dc_link->frl_link_settings.frl_link_rate == 0)
 			continue;
 
 		link_update = dc_link_frl_poll_status_flag(dc_link);
@@ -3068,7 +3313,7 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
 	}
 }
 
-static int amdgpu_dm_i2c_xfer(struct i2c_adapter *i2c_adap,
+STATIC_IFN_KUNIT int amdgpu_dm_i2c_xfer(struct i2c_adapter *i2c_adap,
 			      struct i2c_msg *msgs, int num)
 {
 	struct amdgpu_i2c_adapter *i2c = i2c_get_adapdata(i2c_adap);
@@ -3112,11 +3357,13 @@ static int amdgpu_dm_i2c_xfer(struct i2c_adapter *i2c_adap,
 	kfree(cmd.payloads);
 	return result;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_i2c_xfer);
 
-static u32 amdgpu_dm_i2c_func(struct i2c_adapter *adap)
+STATIC_IFN_KUNIT u32 amdgpu_dm_i2c_func(struct i2c_adapter *adap)
 {
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_i2c_func);
 
 static const struct i2c_algorithm amdgpu_dm_i2c_algo = {
 	.master_xfer = amdgpu_dm_i2c_xfer,
@@ -3477,7 +3724,7 @@ static bool parse_edid_cea(struct amdgpu_dm_connector *aconnector,
 	return ret;
 }
 
-static void parse_edid_displayid_vrr(struct drm_connector *connector,
+STATIC_IFN_KUNIT void parse_edid_displayid_vrr(struct drm_connector *connector,
 				     const struct edid *edid)
 {
 	u8 *edid_ext = NULL;
@@ -3519,8 +3766,9 @@ static void parse_edid_displayid_vrr(struct drm_connector *connector,
 		j++;
 	}
 }
+EXPORT_IF_KUNIT(parse_edid_displayid_vrr);
 
-static int get_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+STATIC_IFN_KUNIT int get_amd_vsdb(struct amdgpu_dm_connector *aconnector,
 			struct amdgpu_hdmi_vsdb_info *vsdb_info)
 {
 	struct drm_connector *connector = &aconnector->base;
@@ -3530,8 +3778,9 @@ static int get_amd_vsdb(struct amdgpu_dm_connector *aconnector,
 
 	return connector->display_info.amd_vsdb.version != 0;
 }
+EXPORT_IF_KUNIT(get_amd_vsdb);
 
-static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+STATIC_IFN_KUNIT int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
 			       const struct edid *edid,
 			       struct amdgpu_hdmi_vsdb_info *vsdb_info)
 {
@@ -3562,6 +3811,7 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
 
 	return valid_vsdb_found ? i : -ENODEV;
 }
+EXPORT_IF_KUNIT(parse_hdmi_amd_vsdb);
 
 /**
  * amdgpu_dm_update_freesync_caps - Update Freesync capabilities

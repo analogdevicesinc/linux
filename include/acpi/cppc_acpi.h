@@ -69,7 +69,10 @@ struct cpc_register_resource {
 	acpi_object_type type;
 	u64 __iomem *sys_mem_vaddr;
 	union {
-		struct cpc_reg reg;
+		struct {
+			struct cpc_reg reg;
+			bool use_rmw_lock;
+		};
 		u64 int_value;
 	} cpc_entry;
 };
@@ -170,12 +173,14 @@ extern u64 cppc_get_dmi_max_khz(void);
 extern unsigned int cppc_perf_to_khz(struct cppc_perf_caps *caps, unsigned int perf);
 extern unsigned int cppc_khz_to_perf(struct cppc_perf_caps *caps, unsigned int freq);
 extern bool acpi_cpc_valid(void);
-extern bool cppc_allow_fast_switch(void);
+bool cppc_allow_fast_switch(const struct cpumask *cpus);
 extern int acpi_get_psd_map(unsigned int cpu, struct cppc_cpudata *cpu_data);
 extern int cppc_get_transition_latency(int cpu);
 extern bool cpc_ffh_supported(void);
 extern bool cpc_supported_by_cpu(void);
 extern int cpc_read_ffh(int cpunum, struct cpc_reg *reg, u64 *val);
+extern int cpc_read_ffh_fb_ctrs(int cpu, struct cpc_reg *reg1, u64 *val1,
+				struct cpc_reg *reg2, u64 *val2);
 extern int cpc_write_ffh(int cpunum, struct cpc_reg *reg, u64 val);
 extern int cppc_get_epp_perf(int cpunum, u64 *epp_perf);
 extern int cppc_set_epp_perf(int cpu, struct cppc_perf_ctrls *perf_ctrls, bool enable);
@@ -234,7 +239,8 @@ static inline bool acpi_cpc_valid(void)
 {
 	return false;
 }
-static inline bool cppc_allow_fast_switch(void)
+
+static inline bool cppc_allow_fast_switch(const struct cpumask *cpus)
 {
 	return false;
 }
@@ -247,6 +253,11 @@ static inline bool cpc_ffh_supported(void)
 	return false;
 }
 static inline int cpc_read_ffh(int cpunum, struct cpc_reg *reg, u64 *val)
+{
+	return -EOPNOTSUPP;
+}
+static inline int cpc_read_ffh_fb_ctrs(int cpu, struct cpc_reg *reg1, u64 *val1,
+				       struct cpc_reg *reg2, u64 *val2)
 {
 	return -EOPNOTSUPP;
 }

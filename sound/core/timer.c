@@ -458,6 +458,8 @@ static void remove_slave_links(struct snd_timer_instance *timeri,
 		list_del_init(&slave->ack_list);
 		list_del_init(&slave->active_list);
 	}
+	/* the close is done; a reopen must not see the mark */
+	timeri->flags &= ~SNDRV_TIMER_IFLG_DEAD;
 }
 
 /*
@@ -489,10 +491,20 @@ static void snd_timer_close_locked(struct snd_timer_instance *timeri,
 	snd_timer_stop(timeri);
 
 	if (timer) {
+		struct snd_timer_instance *slave;
+		bool busy;
+
 		timer->num_instances--;
-		/* wait, until the active callback is finished */
+		/* unqueue then drain the slaves' callbacks before remove_slave_links() severs them */
 		spin_lock_irq(&timer->lock);
-		while (timeri->flags & SNDRV_TIMER_IFLG_CALLBACK) {
+		list_for_each_entry(slave, &timeri->slave_list_head, open_list)
+			list_del_init(&slave->ack_list);
+		for (;;) {
+			busy = timeri->flags & SNDRV_TIMER_IFLG_CALLBACK;
+			list_for_each_entry(slave, &timeri->slave_list_head, open_list)
+				busy |= slave->flags & SNDRV_TIMER_IFLG_CALLBACK;
+			if (!busy)
+				break;
 			spin_unlock_irq(&timer->lock);
 			udelay(10);
 			spin_lock_irq(&timer->lock);
@@ -927,12 +939,15 @@ void snd_timer_interrupt(struct snd_timer * timer, unsigned long ticks_left)
 			ack_list_head = &timer->ack_list_head;
 		else
 			ack_list_head = &timer->sack_list_head;
-		if (list_empty(&ti->ack_list))
+		/* don't requeue an instance whose callback is still running */
+		if (list_empty(&ti->ack_list) &&
+		    !(ti->flags & SNDRV_TIMER_IFLG_CALLBACK))
 			list_add_tail(&ti->ack_list, ack_list_head);
 		list_for_each_entry(ts, &ti->slave_active_head, active_list) {
 			ts->pticks = ti->pticks;
 			ts->resolution = resolution;
-			if (list_empty(&ts->ack_list))
+			if (list_empty(&ts->ack_list) &&
+			    !(ts->flags & SNDRV_TIMER_IFLG_CALLBACK))
 				list_add_tail(&ts->ack_list, ack_list_head);
 		}
 	}
@@ -1531,11 +1546,8 @@ static int realloc_user_queue(struct snd_timer_user *tu, int size)
 static int snd_timer_user_open(struct inode *inode, struct file *file)
 {
 	struct snd_timer_user *tu;
-	int err;
 
-	err = stream_open(inode, file);
-	if (err < 0)
-		return err;
+	stream_open(inode, file);
 
 	tu = kzalloc_obj(*tu);
 	if (tu == NULL)
@@ -2161,9 +2173,9 @@ static long snd_utimer_ioctl(struct file *file, unsigned int ioctl, unsigned lon
 }
 
 static const struct file_operations snd_utimer_fops = {
-	.llseek = noop_llseek,
-	.release = snd_utimer_release,
-	.unlocked_ioctl = snd_utimer_ioctl,
+	.llseek		=	noop_llseek,
+	.release	=	snd_utimer_release,
+	.unlocked_ioctl	=	snd_utimer_ioctl,
 };
 
 static int snd_utimer_start(struct snd_timer *t)
@@ -2515,16 +2527,15 @@ static __poll_t snd_timer_user_poll(struct file *file, poll_table * wait)
 #define snd_timer_user_ioctl_compat	NULL
 #endif
 
-static const struct file_operations snd_timer_f_ops =
-{
-	.owner =	THIS_MODULE,
-	.read =		snd_timer_user_read,
-	.open =		snd_timer_user_open,
-	.release =	snd_timer_user_release,
-	.poll =		snd_timer_user_poll,
-	.unlocked_ioctl =	snd_timer_user_ioctl,
-	.compat_ioctl =	snd_timer_user_ioctl_compat,
-	.fasync = 	snd_timer_user_fasync,
+static const struct file_operations snd_timer_f_ops = {
+	.owner		=	THIS_MODULE,
+	.read		=	snd_timer_user_read,
+	.open		=	snd_timer_user_open,
+	.release	=	snd_timer_user_release,
+	.poll		=	snd_timer_user_poll,
+	.unlocked_ioctl	=	snd_timer_user_ioctl,
+	.compat_ioctl	=	snd_timer_user_ioctl_compat,
+	.fasync		=	snd_timer_user_fasync,
 };
 
 /* unregister the system timer */

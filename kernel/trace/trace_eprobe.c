@@ -87,6 +87,8 @@ static int eprobe_dyn_event_show(struct seq_file *m, struct dyn_event *ev)
 		seq_printf(m, " %s=%s", ep->tp.args[i].name, ep->tp.args[i].comm);
 	seq_putc(m, '\n');
 
+	trace_probe_dump_args(m, &ep->tp);
+
 	return 0;
 }
 
@@ -172,7 +174,8 @@ static bool eprobe_dyn_event_match(const char *system, const char *event,
 	if (!slash)
 		return false;
 
-	if (strncmp(ep->event_system, argv[0], slash - argv[0]))
+	if (strncmp(ep->event_system, argv[0], slash - argv[0]) ||
+	    ep->event_system[slash - argv[0]] != '\0')
 		return false;
 	if (strcmp(ep->event_name, slash + 1))
 		return false;

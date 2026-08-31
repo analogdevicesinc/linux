@@ -805,9 +805,9 @@ void mod_power_replay_notify_mode_change(struct mod_power *mod_power,
 	core_power = MOD_POWER_TO_CORE(mod_power);
 	active_replay_events = core_power->map[stream_index].replay_events;
 
-	/* DMSS holds the panel in a forced freeze (e.g. during HDR/SDR toggle).
-	 * Re-running dp_setup_replay would reprogram DPCD 0x37B and disturb the
-	 * freeze, so skip the replay re-setup until DMSS releases the override.
+	/* forced psr is active for seamless switch.
+	 * Re-running edp_setup_psr would disturb the freeze,
+	 * so skip the PSR re-setup until forced psr releases the override.
 	 */
 	if (active_replay_events & replay_event_os_override_hold)
 		return;

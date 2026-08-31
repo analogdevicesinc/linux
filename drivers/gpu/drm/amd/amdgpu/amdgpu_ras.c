@@ -1436,7 +1436,7 @@ static int amdgpu_uniras_clear_badpages_info(struct amdgpu_device *adev)
 				&req, sizeof(req), NULL, 0);
 	if (ret) {
 		dev_err(adev->dev, "Failed to clear bad pages info, ret: %d\n", ret);
-		return ret;
+		return -EINVAL;
 	}
 
 	return 0;
@@ -1536,7 +1536,7 @@ static int amdgpu_uniras_error_inject(struct amdgpu_device *adev,
 	inject_req.method = info->value;
 
 	return amdgpu_ras_mgr_handle_ras_cmd(adev, RAS_CMD__INJECT_ERROR,
-			&inject_req, sizeof(inject_req), &rsp, sizeof(rsp));
+	       &inject_req, sizeof(inject_req), &rsp, sizeof(rsp)) ? -EINVAL : 0;
 }
 
 /* wrapper of psp_ras_trigger_error */
@@ -2751,7 +2751,8 @@ static void amdgpu_ras_do_recovery(struct work_struct *work)
 		}
 
 		if (amdgpu_ras_get_error_query_mode(adev, &error_query_mode)) {
-			if (error_query_mode == AMDGPU_RAS_FIRMWARE_ERROR_QUERY) {
+			if (error_query_mode == AMDGPU_RAS_FIRMWARE_ERROR_QUERY &&
+			    (ras->gpu_reset_flags & AMDGPU_RAS_GPU_RESET_MODE1_RESET)) {
 				/* wait 500ms to ensure pmfw polling mca bank info done */
 				msleep(500);
 			}
@@ -4422,6 +4423,10 @@ bool amdgpu_ras_get_error_query_mode(struct amdgpu_device *adev,
 
 	if (amdgpu_sriov_vf(adev)) {
 		*error_query_mode = AMDGPU_RAS_VIRT_ERROR_COUNT_QUERY;
+	} else if (amdgpu_uniras_enabled(adev)) {
+		*error_query_mode = amdgpu_ras_mgr_get_debug_mode(adev) ?
+			AMDGPU_RAS_DIRECT_ERROR_QUERY :
+			AMDGPU_RAS_FIRMWARE_ERROR_QUERY;
 	} else {
 		*error_query_mode = AMDGPU_RAS_DIRECT_ERROR_QUERY;
 	}

@@ -561,6 +561,12 @@ struct bnge_napi {
 #define BNGE_VNIC_DEFAULT	0
 #define BNGE_MAX_UC_ADDRS	4
 
+#define BNGE_RX_MASK_CFG_FLAGS				\
+	(CFA_L2_SET_RX_MASK_REQ_MASK_PROMISCUOUS |	\
+	 CFA_L2_SET_RX_MASK_REQ_MASK_MCAST |		\
+	 CFA_L2_SET_RX_MASK_REQ_MASK_ALL_MCAST |	\
+	 CFA_L2_SET_RX_MASK_REQ_MASK_BCAST)
+
 struct bnge_vnic_info {
 	u16		fw_vnic_id;
 #define BNGE_MAX_CTX_PER_VNIC	8
@@ -630,8 +636,8 @@ struct bnge_l2_filter {
 	refcount_t		refcnt;
 };
 
-u16 bnge_cp_ring_for_rx(struct bnge_rx_ring_info *rxr);
-u16 bnge_cp_ring_for_tx(struct bnge_tx_ring_info *txr);
+u32 bnge_cp_ring_for_rx(struct bnge_rx_ring_info *rxr);
+u32 bnge_cp_ring_for_tx(struct bnge_tx_ring_info *txr);
 void bnge_fill_hw_rss_tbl(struct bnge_net *bn, struct bnge_vnic_info *vnic);
 int bnge_alloc_rx_data(struct bnge_net *bn, struct bnge_rx_ring_info *rxr,
 		       u16 prod, gfp_t gfp);

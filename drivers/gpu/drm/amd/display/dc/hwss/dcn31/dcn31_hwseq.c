@@ -540,7 +540,7 @@ static void dcn31_reset_back_end_for_pipe(
 	link = pipe_ctx->stream->link;
 
 	if (!(link->connector_signal == SIGNAL_TYPE_EDP &&
-	      link->skip_implict_edp_power_control))
+	      link->forced_psr_active))
 		dc->hwss.set_abm_immediate_disable(pipe_ctx);
 
 	if (dc->hwseq)
@@ -558,7 +558,7 @@ static void dcn31_reset_back_end_for_pipe(
 			OPTC_DSC_DISABLED, 0, 0);
 
 	if (!(link->connector_signal == SIGNAL_TYPE_EDP &&
-	      link->skip_implict_edp_power_control)) {
+	      link->forced_psr_active)) {
 		pipe_ctx->stream_res.tg->funcs->disable_crtc(pipe_ctx->stream_res.tg);
 		pipe_ctx->stream_res.tg->funcs->enable_optc_clock(pipe_ctx->stream_res.tg, false);
 	}
@@ -591,8 +591,8 @@ static void dcn31_reset_back_end_for_pipe(
 	 * VBIOS lit up eDP, so check link status too.
 	 */
 	if (link->connector_signal == SIGNAL_TYPE_EDP &&
-	    link->skip_implict_edp_power_control) {
-		/* DMSS is holding the panel across the commit; skip dpms-off. */
+	    link->forced_psr_active) {
+		/* forced psr is active for seamless switch; skip dpms-off. */
 		if (pipe_ctx->stream_res.audio)
 			dc->hwss.disable_audio_stream(pipe_ctx);
 	} else if (!pipe_ctx->stream->dpms_off || link->link_status.link_active)

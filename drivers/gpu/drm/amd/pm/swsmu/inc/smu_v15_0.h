@@ -26,7 +26,7 @@
 #include "amdgpu_smu.h"
 
 #define SMU15_DRIVER_IF_VERSION_INV 0xFFFFFFFF
-#define SMU15_DRIVER_IF_VERSION_SMU_V15_0 0x7
+#define SMU15_DRIVER_IF_VERSION_SMU_V15_0 0x9
 
 
 #define FEATURE_MASK(feature) (1ULL << feature)
@@ -142,12 +142,13 @@ int smu_v15_0_set_allowed_mask(struct smu_context *smu);
 
 int smu_v15_0_notify_display_change(struct smu_context *smu);
 
-int smu_v15_0_get_current_power_limit(struct smu_context *smu,
-				      uint32_t *power_limit);
+int smu_v15_0_get_ppt_limit(struct smu_context *smu,
+			    enum smu_ppt_limit_type limit_type,
+			    uint32_t *ppt_limit);
 
-int smu_v15_0_set_power_limit(struct smu_context *smu,
-			      enum smu_ppt_limit_type limit_type,
-			      uint32_t limit);
+int smu_v15_0_set_ppt_limit(struct smu_context *smu,
+			    enum smu_ppt_limit_type limit_type,
+			    uint32_t limit);
 
 int smu_v15_0_gfx_off_control(struct smu_context *smu, bool enable);
 

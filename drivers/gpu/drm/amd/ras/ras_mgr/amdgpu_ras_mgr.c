@@ -284,6 +284,7 @@ static int amdgpu_ras_mgr_init_umc_config(struct amdgpu_device *adev,
 	struct ras_umc_config *umc_cfg = &config->umc_cfg;
 
 	umc_cfg->umc_vram_type = adev->gmc.vram_type;
+	umc_cfg->num_umc = adev->gmc.num_umc;
 
 	return 0;
 }
@@ -309,6 +310,7 @@ static struct ras_core_context *amdgpu_ras_mgr_create_ras_core(struct amdgpu_dev
 		amdgpu_ras_mgr_eeprom_is_supported(adev);
 	init_config.poison_supported =
 		amdgpu_ras_is_poison_mode_supported(adev);
+	init_config.ras_debug_mask = amdgpu_debug_mask;
 
 	amdgpu_ras_mgr_init_aca_config(adev, &init_config);
 	amdgpu_ras_mgr_init_eeprom_config(adev, &init_config);
@@ -798,9 +800,24 @@ int amdgpu_ras_mgr_lookup_bad_pages_in_a_row(struct amdgpu_device *adev,
 int amdgpu_ras_mgr_set_debug_mode(struct amdgpu_device *adev, bool enable)
 {
 	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+	int ret;
 
 	if (!ras_mgr || !ras_mgr->ras_core || !ras_mgr->ras_is_ready)
 		return false;
 
-	return ras_core_set_debug_mode(ras_mgr->ras_core, enable);
+	ret = ras_core_set_debug_mode(ras_mgr->ras_core, enable);
+	if (!ret)
+		ras_mgr->is_debug_mode = enable;
+
+	return ret;
+}
+
+bool amdgpu_ras_mgr_get_debug_mode(struct amdgpu_device *adev)
+{
+	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+
+	if (!ras_mgr || !ras_mgr->ras_core || !ras_mgr->ras_is_ready)
+		return true;
+
+	return ras_mgr->is_debug_mode;
 }

@@ -116,17 +116,26 @@ static struct vgic_irq *vgic_add_lpi(struct kvm *kvm, u32 intid,
 		kfree(irq);
 		irq = oldirq;
 	} else {
-		ret = xa_err(__xa_store(&dist->lpi_xa, intid, irq, 0));
+		/*
+		 * The entry is either empty or contains a dead LPI (refcount=0)
+		 * from the deferred release path, pending cleanup by
+		 * vgic_release_deleted_lpis(). Evict and free it if present.
+		 */
+		oldirq = __xa_store(&dist->lpi_xa, intid, irq,
+				    GFP_NOWAIT | __GFP_ACCOUNT);
+		ret = xa_err(oldirq);
+		if (ret) {
+			xa_unlock_irqrestore(&dist->lpi_xa, flags);
+			kfree(irq);
+
+			return ERR_PTR(ret);
+		}
+
+		if (oldirq && !WARN_ON_ONCE(refcount_read(&oldirq->refcount)))
+			kfree_rcu(oldirq, rcu);
 	}
 
 	xa_unlock_irqrestore(&dist->lpi_xa, flags);
-
-	if (ret) {
-		xa_release(&dist->lpi_xa, intid);
-		kfree(irq);
-
-		return ERR_PTR(ret);
-	}
 
 	/*
 	 * We "cache" the configuration table entries in our struct vgic_irq's.
@@ -507,6 +516,8 @@ static struct vgic_its *__vgic_doorbell_to_its(struct kvm *kvm, gpa_t db)
 {
 	struct kvm_io_device *kvm_io_dev;
 	struct vgic_io_device *iodev;
+
+	guard(srcu)(&kvm->srcu);
 
 	kvm_io_dev = kvm_io_bus_get_dev(kvm, KVM_MMIO_BUS, db);
 	if (!kvm_io_dev)
@@ -2024,15 +2035,16 @@ static u32 compute_next_devid_offset(struct list_head *h,
 
 static u32 compute_next_eventid_offset(struct list_head *h, struct its_ite *ite)
 {
-	struct its_ite *next;
-	u32 next_offset;
+	struct its_ite *next = ite;
 
-	if (list_is_last(&ite->ite_list, h))
-		return 0;
-	next = list_next_entry(ite, ite_list);
-	next_offset = next->event_id - ite->event_id;
+	/* Point at the next ITE that vgic_its_save_ite() stores as valid. */
+	list_for_each_entry_continue(next, h, ite_list) {
+		if (next->collection)
+			return min_t(u32, next->event_id - ite->event_id,
+				     VITS_ITE_MAX_EVENTID_OFFSET);
+	}
 
-	return min_t(u32, next_offset, VITS_ITE_MAX_EVENTID_OFFSET);
+	return 0;
 }
 
 /**
@@ -2107,6 +2119,14 @@ static int vgic_its_save_ite(struct vgic_its *its, struct its_device *dev,
 {
 	u32 next_offset;
 	u64 val;
+
+	/*
+	 * MAPC with V=0 keeps the ITEs mapped but drops their collection,
+	 * and with it the ICID. Save a zeroed entry, which the restore path
+	 * reads back as invalid.
+	 */
+	if (!ite->collection)
+		return vgic_its_write_entry_lock(its, gpa, 0ULL, ite);
 
 	next_offset = compute_next_eventid_offset(&dev->itt_head, ite);
 	val = ((u64)next_offset << KVM_ITS_ITE_NEXT_SHIFT) |
@@ -2521,6 +2541,9 @@ static int vgic_its_save_collection_table(struct vgic_its *its)
 	max_size = GITS_BASER_NR_PAGES(baser) * SZ_64K;
 
 	list_for_each_entry(collection, &its->collection_list, coll_list) {
+		if (!vgic_its_check_id(its, baser, collection->collection_id, NULL))
+			return -EINVAL;
+
 		ret = vgic_its_save_cte(its, collection, gpa);
 		if (ret)
 			return ret;

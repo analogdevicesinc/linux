@@ -58,9 +58,9 @@ bool mod_power_psr_notify_mode_change(struct mod_power *mod_power,
 	// stream_index is passed as validated parameter
 	active_psr_events = core_power->map[stream_index].psr_events;
 
-	/* DMSS holds the panel in a forced PSR freeze (e.g. during HDR/SDR toggle).
-	 * Re-running edp_setup_psr would reprogram DPCD 0x170 and disturb the freeze,
-	 * so skip the PSR re-setup until DMSS releases the override.
+	/* forced psr is active for seamless switch.
+	 * Re-running edp_setup_psr would disturb the freeze,
+	 * so skip the PSR re-setup until forced psr releases the override.
 	 */
 	if (active_psr_events & psr_event_os_override_hold)
 		return false;

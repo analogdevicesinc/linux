@@ -62,7 +62,17 @@ int dm_init_microcode(struct amdgpu_device *adev);
 #define FIRMWARE_DCN_401_DMUB		"amdgpu/dcn_4_0_1_dmcub.bin"
 #define FIRMWARE_DCN_42_DMUB		"amdgpu/dcn_4_2_dmcub.bin"
 #define FIRMWARE_DCN_42B_DMUB		"amdgpu/dcn_4_2_1_dmcub.bin"
+#define FIRMWARE_DCN_60_DMUB		"amdgpu/dcn_6_0_0_dmcub.bin"
 #define FIRMWARE_RAVEN_DMCU		"amdgpu/raven_dmcu.bin"
 #define FIRMWARE_NAVI12_DMCU		"amdgpu/navi12_dmcu.bin"
+
+#if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
+struct dc_context;
+struct dmub_cmd_fused_request;
+
+void *dm_dmub_get_vbios_bounding_box(struct amdgpu_device *adev);
+void abort_fused_io(struct dc_context *ctx,
+		    const struct dmub_cmd_fused_request *request);
+#endif
 
 #endif /* AMDGPU_DM_AMDGPU_DM_DMUB_H_ */

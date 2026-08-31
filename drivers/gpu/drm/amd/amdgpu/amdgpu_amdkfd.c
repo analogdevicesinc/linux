@@ -39,6 +39,7 @@
 #if IS_ENABLED(CONFIG_HSA_AMD)
 #include "kfd_priv.h"
 #endif
+#include "kfd_svm.h"
 
 /* Total memory size in system memory and all GPU VRAM. Used to
  * estimate worst case amount of memory to reserve for page tables
@@ -711,7 +712,8 @@ int amdgpu_amdkfd_submit_ib(struct amdgpu_device *adev,
 		goto err;
 	}
 
-	ret = amdgpu_job_alloc(adev, NULL, NULL, NULL, 1, &job, 0);
+	ret = amdgpu_job_alloc(adev, NULL, NULL, NULL, 1, 0, GFP_KERNEL,
+			       &job);
 	if (ret)
 		goto err;
 

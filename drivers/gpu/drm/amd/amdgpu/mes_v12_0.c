@@ -59,7 +59,7 @@ static void mes_v12_0_ring_set_wptr(struct amdgpu_ring *ring)
 			     ring->wptr);
 		WDOORBELL64(ring->doorbell_index, ring->wptr);
 	} else {
-		BUG();
+		dev_warn_once(adev->dev, "%s requires doorbell!\n", __func__);
 	}
 }
 
@@ -70,12 +70,15 @@ static u64 mes_v12_0_ring_get_rptr(struct amdgpu_ring *ring)
 
 static u64 mes_v12_0_ring_get_wptr(struct amdgpu_ring *ring)
 {
+	struct amdgpu_device *adev = ring->adev;
 	u64 wptr;
 
-	if (ring->use_doorbell)
+	if (ring->use_doorbell) {
 		wptr = atomic64_read((atomic64_t *)ring->wptr_cpu_addr);
-	else
-		BUG();
+	} else {
+		dev_warn_once(adev->dev, "%s requires doorbell!\n", __func__);
+		wptr = 0;
+	}
 	return wptr;
 }
 
@@ -279,8 +282,8 @@ static int convert_to_mes_queue_type(int queue_type)
 	else if (queue_type == AMDGPU_RING_TYPE_MES)
 		return MES_QUEUE_TYPE_SCHQ;
 	else
-		BUG();
-	return -1;
+		WARN(1, "Invalid queue type %d\n", queue_type);
+	return MES_QUEUE_TYPE_GFX;
 }
 
 static int convert_to_mes_priority_level(int priority_level)
@@ -990,10 +993,16 @@ static int mes_v12_0_set_hw_resources(struct amdgpu_mes *mes, int pipe)
 	/*
 	 * Keep oversubscribe timer for sdma . When we have unmapped doorbell
 	 * handling support, other queue will not use the oversubscribe timer.
-	 * handling  mode - 0: disabled; 1: basic version; 2: basic+ version
+	 * handling  mode - 0: disabled; 1: basic; 2: basic+; 3: basic++
+	 *
+	 * Use basic+ (2): on an unmapped-queue doorbell ring MES reads the
+	 * per-queue CP_UNMAPPED_QUEUE bitmap and clears the ringing queue's
+	 * work_done so it is rescheduled. basic (1) only sets a coarse
+	 * level-wide ready flag without clearing work_done, so a queue that
+	 * rings after work_done was set is skipped and its work is lost.
 	 */
 	mes_set_hw_res_pkt.oversubscription_timer = mes_rev < 0x8b ? 0 : 50;
-	mes_set_hw_res_pkt.unmapped_doorbell_handling = 1;
+	mes_set_hw_res_pkt.unmapped_doorbell_handling = 2;
 
 	if (amdgpu_mes_log_enable) {
 		mes_set_hw_res_pkt.enable_mes_event_int_logging = 1;

@@ -40,7 +40,6 @@
 
 #include "dc.h"
 #include "dm_helpers.h"
-#include "amdgpu_dm_kunit_helpers.h"
 
 #include "ddc_service_types.h"
 #include "dpcd_defs.h"
@@ -486,7 +485,8 @@ static int dm_dp_mst_get_modes(struct drm_connector *connector)
 			struct drm_device *dev = connector->dev;
 			struct amdgpu_device *adev = drm_to_adev(dev);
 
-			if (adev->dm.hdcp_workqueue) {
+			if (adev->dm.hdcp_workqueue &&
+			    connector->index < AMDGPU_DM_MAX_DISPLAY_COUNT) {
 				struct hdcp_workqueue *hdcp_work = adev->dm.hdcp_workqueue;
 				struct hdcp_workqueue *hdcp_w =
 					&hdcp_work[aconnector->dc_link->link_index];

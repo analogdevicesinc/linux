@@ -26,6 +26,7 @@
 #include "amdgpu_gfx.h"
 #include "mes_userqueue.h"
 #include "amdgpu_userq_fence.h"
+#include "amdgpu_trace.h"
 
 #define AMDGPU_USERQ_PROC_CTX_SZ PAGE_SIZE
 #define AMDGPU_USERQ_GANG_CTX_SZ PAGE_SIZE
@@ -70,27 +71,23 @@ mes_userq_create_wptr_mapping(struct amdgpu_device *adev,
 		ret = -EINVAL;
 		goto fail_map;
 	}
-
-	/* TODO use eviction fence instead of pinning. */
-	ret = amdgpu_bo_pin(wptr_obj->obj, AMDGPU_GEM_DOMAIN_GTT);
+	/* Keep WPTR BO under eviction-fence control instead of pinning. */
+	ret = amdgpu_evf_mgr_attach_fence(&uq_mgr_to_fpriv(uq_mgr)->evf_mgr, wptr_obj->obj);
 	if (ret) {
-		DRM_ERROR("Failed to pin wptr bo. ret %d\n", ret);
+		DRM_ERROR("Failed to attach eviction fence to wptr bo. ret %d\n", ret);
 		goto fail_map;
 	}
 
 	ret = amdgpu_ttm_alloc_gart(&wptr_obj->obj->tbo);
 	if (ret) {
-		DRM_ERROR("Failed to bind bo to GART. ret %d\n", ret);
-		goto fail_alloc_gart;
+		DRM_ERROR("Failed to bind wptr bo to GART. ret %d\n", ret);
+		goto fail_map;
 	}
 
 	queue->wptr_obj.gpu_addr = amdgpu_bo_gpu_offset(wptr_obj->obj);
 
 	drm_exec_fini(&exec);
 	return 0;
-
-fail_alloc_gart:
-	amdgpu_bo_unpin(wptr_obj->obj);
 fail_map:
 	amdgpu_bo_unref(&wptr_obj->obj);
 fail_lock:
@@ -147,10 +144,23 @@ static int mes_userq_map(struct amdgpu_usermode_queue *queue)
 	queue_input.doorbell_offset = userq_props->doorbell_index;
 	queue_input.page_table_base_addr = amdgpu_gmc_pd_addr(queue->vm->root.bo);
 	queue_input.wptr_mc_addr = queue->wptr_obj.gpu_addr;
+
 	if (mes->use_rs64mem) {
-		amdgpu_mes_alloc_proc_ctx_index(mes, queue);
-		queue_input.process_context_array_index = queue->proc_ctx_array_index;
-		amdgpu_mes_alloc_gang_ctx_index(mes, queue);
+		if (!uq_mgr->proc_ctx_allocated) {
+			r = amdgpu_mes_alloc_proc_ctx_index(mes, &uq_mgr->proc_ctx_array_index);
+			if (r) {
+				DRM_ERROR("Failed to allocate userq process index err:%d\n", r);
+				return r;
+			}
+			uq_mgr->proc_ctx_allocated = true;
+		}
+
+		r = amdgpu_mes_alloc_gang_ctx_index(mes, &queue->gang_ctx_array_index);
+		if (r) {
+			DRM_ERROR("Failed to allocate userq gang index err:%d\n", r);
+			return r;
+		}
+		queue_input.process_context_array_index = uq_mgr->proc_ctx_array_index;
 		queue_input.gang_context_array_index = queue->gang_ctx_array_index;
 	}
 	amdgpu_mes_lock(&adev->mes);
@@ -183,10 +193,8 @@ static int mes_userq_unmap(struct amdgpu_usermode_queue *queue)
 	amdgpu_mes_lock(&adev->mes);
 	r = adev->mes.funcs->remove_hw_queue(&adev->mes, &queue_input);
 	amdgpu_mes_unlock(&adev->mes);
-	if (mes->use_rs64mem) {
-		amdgpu_mes_free_proc_ctx_index(mes, queue);
-		amdgpu_mes_free_gang_ctx_index(mes, queue);
-	}
+	if (mes->use_rs64mem)
+		amdgpu_mes_free_gang_ctx_index(mes, queue->gang_ctx_array_index);
 	if (r)
 		DRM_ERROR("Failed to unmap queue in HW, err (%d)\n", r);
 	return r;
@@ -209,7 +217,16 @@ int mes_userq_reset(struct amdgpu_usermode_queue *queue)
 	amdgpu_mes_unlock(&adev->mes);
 	if (r)
 		return r;
-	return mes_userq_unmap(queue);
+
+	/* mes_userq_unmap() does not update queue->state; mark it UNMAPPED so the
+	 * destroy path does not issue a second REMOVE_QUEUE for the removed queue.
+	 */
+	r = mes_userq_unmap(queue);
+	if (!r) {
+		trace_amdgpu_userq_state_changed(queue, AMDGPU_USERQ_STATE_UNMAPPED);
+		queue->state = AMDGPU_USERQ_STATE_UNMAPPED;
+	}
+	return r;
 }
 
 int mes_userq_reset_queue(struct amdgpu_device *adev,
@@ -239,9 +256,7 @@ int mes_userq_reset_queue(struct amdgpu_device *adev,
 				r = mes_userq_unmap(uq);
 				if (r)
 					return r;
-				atomic_inc(&adev->gpu_reset_counter);
 				amdgpu_userq_fence_driver_force_completion(uq);
-				drm_dev_wedged_event(adev_to_drm(adev), DRM_WEDGE_RECOVERY_NONE, NULL);
 				break;
 			}
 		}
@@ -513,9 +528,6 @@ static void mes_userq_mqd_destroy(struct amdgpu_usermode_queue *queue)
 	amdgpu_bo_free_kernel(&queue->mqd.obj, &queue->mqd.gpu_addr,
 			      &queue->mqd.cpu_ptr);
 
-	amdgpu_bo_reserve(queue->wptr_obj.obj, true);
-	amdgpu_bo_unpin(queue->wptr_obj.obj);
-	amdgpu_bo_unreserve(queue->wptr_obj.obj);
 	amdgpu_bo_unref(&queue->wptr_obj.obj);
 }
 

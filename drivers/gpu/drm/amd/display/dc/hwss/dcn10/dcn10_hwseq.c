@@ -524,7 +524,7 @@ static void dcn10_log_color_state(struct dc *dc,
 	DTN_INFO("DPP Color Caps: input_lut_shared:%d  icsc:%d"
 		 "  dgam_ram:%d  dgam_rom: srgb:%d,bt2020:%d,gamma2_2:%d,pq:%d,hlg:%d"
 		 "  post_csc:%d  gamcor:%d  dgam_rom_for_yuv:%d  3d_lut:%d"
-		 "  blnd_lut:%d  oscs:%d\n\n",
+		 "  upsp_pre_scaler:%d  blnd_lut:%d  oscs:%d\n\n",
 		 dc->caps.color.dpp.input_lut_shared,
 		 dc->caps.color.dpp.icsc,
 		 dc->caps.color.dpp.dgam_ram,
@@ -537,6 +537,7 @@ static void dcn10_log_color_state(struct dc *dc,
 		 dc->caps.color.dpp.gamma_corr,
 		 dc->caps.color.dpp.dgam_rom_for_yuv,
 		 dc->caps.color.dpp.hw_3d_lut,
+		 dc->caps.color.dpp.upsp_pre_scaler,
 		 dc->caps.color.dpp.ogam_ram,
 		 dc->caps.color.dpp.ocsc);
 
@@ -2154,16 +2155,19 @@ static void log_tf(struct dc_context *ctx,
 	}
 }
 
-bool dcn10_set_output_transfer_func(struct dc *dc, struct pipe_ctx *pipe_ctx,
-				const struct dc_stream_state *stream)
+bool dcn10_set_output_transfer_func(struct set_output_transfer_func_params *params)
 {
-	struct dpp *dpp = pipe_ctx->plane_res.dpp;
+	struct dpp *dpp = params->dpp;
+	const struct dc_stream_state *stream = params->stream;
+	struct dc *dc;
 
 	if (!stream)
 		return false;
 
 	if (dpp == NULL)
 		return false;
+
+	dc = dpp->ctx->dc;
 
 	dpp->regamma_params.hw_points_num = GAMMA_HW_POINTS_NUM;
 
@@ -2814,28 +2818,32 @@ static void dcn10_enable_plane(
 
 }
 
-void dcn10_program_gamut_remap(struct pipe_ctx *pipe_ctx)
+void dcn10_program_gamut_remap(struct program_gamut_remap_params *params)
 {
+	struct dpp *dpp = params->dpp;
+	const struct dc_stream_state *stream = params->stream;
+	const struct dc_plane_state *plane = params->plane;
 	int i = 0;
 	struct dpp_grph_csc_adjustment adjust;
+
 	memset(&adjust, 0, sizeof(adjust));
 	adjust.gamut_adjust_type = GRAPHICS_GAMUT_ADJUST_TYPE_BYPASS;
 
 
-	if (pipe_ctx->stream->gamut_remap_matrix.enable_remap == true) {
+	if (stream->gamut_remap_matrix.enable_remap == true) {
 		adjust.gamut_adjust_type = GRAPHICS_GAMUT_ADJUST_TYPE_SW;
 		for (i = 0; i < CSC_TEMPERATURE_MATRIX_SIZE; i++)
 			adjust.temperature_matrix[i] =
-				pipe_ctx->stream->gamut_remap_matrix.matrix[i];
-	} else if (pipe_ctx->plane_state &&
-		   pipe_ctx->plane_state->gamut_remap_matrix.enable_remap == true) {
+				stream->gamut_remap_matrix.matrix[i];
+	} else if (plane &&
+		   plane->gamut_remap_matrix.enable_remap == true) {
 		adjust.gamut_adjust_type = GRAPHICS_GAMUT_ADJUST_TYPE_SW;
 		for (i = 0; i < CSC_TEMPERATURE_MATRIX_SIZE; i++)
 			adjust.temperature_matrix[i] =
-				pipe_ctx->plane_state->gamut_remap_matrix.matrix[i];
+				plane->gamut_remap_matrix.matrix[i];
 	}
 
-	pipe_ctx->plane_res.dpp->funcs->dpp_set_gamut_remap(pipe_ctx->plane_res.dpp, &adjust);
+	dpp->funcs->dpp_set_gamut_remap(dpp, &adjust);
 }
 
 
@@ -3152,7 +3160,7 @@ static void dcn10_update_dchubp_dpp(
 
 	if (plane_state->update_bits.full_update) {
 		/*gamut remap*/
-		dc->hwss.program_gamut_remap(pipe_ctx);
+		hwss_program_gamut_remap(pipe_ctx);
 
 		dc->hwss.program_output_csc(dc,
 				pipe_ctx,
@@ -3297,7 +3305,7 @@ void dcn10_program_pipe(
 	 * doing heavy calculation and programming
 	 */
 	if (pipe_ctx->plane_state->update_bits.full_update)
-		hws->funcs.set_output_transfer_func(dc, pipe_ctx, pipe_ctx->stream);
+		hwss_set_output_transfer_func(dc, pipe_ctx);
 }
 
 void dcn10_wait_for_pending_cleared(struct dc *dc,

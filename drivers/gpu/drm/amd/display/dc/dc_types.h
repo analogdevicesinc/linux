@@ -188,6 +188,7 @@ struct dc_panel_patch {
 	unsigned int skip_audio_sab_check;
 	unsigned int mst_start_top_delay;
 	unsigned int remove_sink_ext_caps;
+	bool disable_second_tile;
 	unsigned int disable_colorimetry;
 	uint8_t blankstream_before_otg_off;
 	bool oled_optimize_display_on;
@@ -386,6 +387,16 @@ struct dc_csc_adjustments {
 	struct fixed31_32 saturation;
 	struct fixed31_32 brightness;
 	struct fixed31_32 hue;
+};
+
+enum dc_scaling_linearity {
+	DC_SCALING_LINEARITY_LINEAR,
+	DC_SCALING_LINEARITY_SOURCE,
+};
+
+enum dc_blending_linearity {
+	DC_BLENDING_LINEARITY_LINEAR,
+	DC_BLENDING_LINEARITY_SOURCE,
 };
 
 /* Scaling format */
@@ -1034,8 +1045,9 @@ enum backlight_control_type {
 	BACKLIGHT_CONTROL_AMD_AUX = 2,
 };
 
-#if defined(CONFIG_DRM_AMD_SECURE_DISPLAY)
 #define MAX_CRC_WINDOW_NUM	2
+
+#if defined(CONFIG_DRM_AMD_SECURE_DISPLAY)
 
 struct otg_phy_mux {
 	uint8_t phy_output_num;
@@ -1414,28 +1426,20 @@ enum dc_cm_lut_swizzle {
 
 enum dc_cm_lut_pixel_format {
 	CM_LUT_PIXEL_FORMAT_RGBA16161616_UNORM_12MSB,
-#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 	CM_LUT_PIXEL_FORMAT_BGRA16161616_UNORM_12MSB,
-#endif
 	CM_LUT_PIXEL_FORMAT_RGBA16161616_UNORM_12LSB,
-#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 	CM_LUT_PIXEL_FORMAT_BGRA16161616_UNORM_12LSB,
-#endif
 	CM_LUT_PIXEL_FORMAT_RGBA16161616_FLOAT_FP1_5_10,
-#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 	CM_LUT_PIXEL_FORMAT_BGRA16161616_FLOAT_FP1_5_10
-#endif
 };
 
 enum dc_cm_lut_size {
 	CM_LUT_SIZE_NONE,
 	CM_LUT_SIZE_999,
 	CM_LUT_SIZE_171717,
-#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 	CM_LUT_SIZE_333333,
 	CM_LUT_SIZE_454545,
 	CM_LUT_SIZE_656565,
-#endif
 };
 
 #ifndef TRIM_CM2

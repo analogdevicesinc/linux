@@ -22,15 +22,20 @@
 
 use kernel::{
     clk::Clk,
-    device::{Bound, Core, Device},
-    devres,
+    device::{
+        Bound,
+        Core,
+        Device, //
+    },
     io::{
-        mem::IoMem,
+        mem::DevresIoMem,
         Io, //
     },
-    of, platform,
+    of,
+    platform,
     prelude::*,
-    pwm, time,
+    pwm,
+    time, //
 };
 
 const TH1520_MAX_PWM_NUM: u32 = 6;
@@ -85,7 +90,7 @@ struct Th1520WfHw {
 #[pin_data(PinnedDrop)]
 struct Th1520PwmDriverData {
     #[pin]
-    iomem: devres::Devres<IoMem<'static, TH1520_PWM_REG_SIZE>>,
+    iomem: DevresIoMem<TH1520_PWM_REG_SIZE>,
     clk: Clk,
 }
 
@@ -300,7 +305,6 @@ struct Th1520PwmPlatformDriver;
 
 kernel::of_device_table!(
     OF_TABLE,
-    MODULE_OF_TABLE,
     <Th1520PwmPlatformDriver as platform::Driver>::IdInfo,
     [(of::DeviceId::new(c"thead,th1520-pwm"), ())]
 );
