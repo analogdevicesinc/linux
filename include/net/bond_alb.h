@@ -123,9 +123,14 @@ struct tlb_slave_info {
 			 */
 };
 
+struct unbalanced_load_stats {
+	u32			tx_bytes;
+};
+
 struct alb_bond_info {
 	struct tlb_client_info	*tx_hashtbl; /* Dynamically allocated */
-	u32			unbalanced_load;
+	struct unbalanced_load_stats __percpu	*unbalanced_load;
+	u32			prev_total_unbalanced;
 	atomic_t		tx_rebalance_counter;
 	int			lp_counter;
 	/* -------- rlb parameters -------- */
