@@ -494,6 +494,8 @@ definitions:
         name: ndisc-evict-nocarrier
       -
         name: accept-untracked-na
+      -
+        name: accept-ra-min-lft
   -
     name: ifla-icmp6-stats
     enum-name:
