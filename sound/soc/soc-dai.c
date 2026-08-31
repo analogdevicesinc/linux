@@ -1093,6 +1093,18 @@ void snd_soc_dai_stream_widget_set(struct snd_soc_dai *dai, int stream, struct s
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_stream_widget_set);
 
+void *snd_soc_dai_stream_dma_data_get_i(const struct snd_soc_dai *dai, int stream)
+{
+	return dai->stream[stream].dma_data;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_stream_dma_data_get_i);
+
+void snd_soc_dai_stream_dma_data_set_i(struct snd_soc_dai *dai, int stream, void *data)
+{
+	dai->stream[stream].dma_data = data;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_stream_dma_data_set_i);
+
 void snd_soc_dai_unregister(struct snd_soc_dai *dai)
 {
 	lockdep_assert_held(&client_mutex);

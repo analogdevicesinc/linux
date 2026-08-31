@@ -513,27 +513,27 @@ struct snd_soc_dapm_widget *snd_soc_dai_stream_widget_get(struct snd_soc_dai *da
 #define snd_soc_dai_stream_widget_set_capture(dai,  widget)	snd_soc_dai_stream_widget_set(dai, SNDRV_PCM_STREAM_CAPTURE,  widget)
 void snd_soc_dai_stream_widget_set(struct snd_soc_dai *dai, int stream, struct snd_soc_dapm_widget *widget);
 
-#define snd_soc_dai_dma_data_get_playback(dai)	snd_soc_dai_dma_data_get(dai, SNDRV_PCM_STREAM_PLAYBACK)
-#define snd_soc_dai_dma_data_get_capture(dai)	snd_soc_dai_dma_data_get(dai, SNDRV_PCM_STREAM_CAPTURE)
-#define snd_soc_dai_get_dma_data(dai, ss)	snd_soc_dai_dma_data_get(dai, ss->stream)
-static inline void *snd_soc_dai_dma_data_get(const struct snd_soc_dai *dai, int stream)
+#define snd_soc_dai_stream_dma_data_get_playback(dai)	snd_soc_dai_stream_dma_data_get(dai, SNDRV_PCM_STREAM_PLAYBACK)
+#define snd_soc_dai_stream_dma_data_get_capture(dai)	snd_soc_dai_stream_dma_data_get(dai, SNDRV_PCM_STREAM_CAPTURE)
+void *snd_soc_dai_stream_dma_data_get_i(const struct snd_soc_dai *dai, int stream);
+static inline void *snd_soc_dai_stream_dma_data_get_s(const struct snd_soc_dai *dai, struct snd_pcm_substream *substream)
 {
-	return dai->stream[stream].dma_data;
+	return snd_soc_dai_stream_dma_data_get_i(dai, substream->stream);
 }
+#define snd_soc_dai_stream_dma_data_get(dai, x) _Generic((x),			\
+	int :				snd_soc_dai_stream_dma_data_get_i,	\
+	struct snd_pcm_substream * :	snd_soc_dai_stream_dma_data_get_s)(dai, x)
 
-#define snd_soc_dai_dma_data_set_playback(dai, data)	snd_soc_dai_dma_data_set(dai, SNDRV_PCM_STREAM_PLAYBACK, data)
-#define snd_soc_dai_dma_data_set_capture(dai,  data)	snd_soc_dai_dma_data_set(dai, SNDRV_PCM_STREAM_CAPTURE,  data)
-#define snd_soc_dai_set_dma_data(dai, ss, data)		snd_soc_dai_dma_data_set(dai, ss->stream, data)
-static inline void snd_soc_dai_dma_data_set(struct snd_soc_dai *dai, int stream, void *data)
+#define snd_soc_dai_stream_dma_data_set_playback(dai, data)	snd_soc_dai_stream_dma_data_set(dai, SNDRV_PCM_STREAM_PLAYBACK, data)
+#define snd_soc_dai_stream_dma_data_set_capture(dai,  data)	snd_soc_dai_stream_dma_data_set(dai, SNDRV_PCM_STREAM_CAPTURE,  data)
+void snd_soc_dai_stream_dma_data_set_i(struct snd_soc_dai *dai, int stream, void *data);
+static inline void snd_soc_dai_stream_dma_data_set_s(struct snd_soc_dai *dai, struct snd_pcm_substream *substream, void *data)
 {
-	dai->stream[stream].dma_data = data;
+	snd_soc_dai_stream_dma_data_set_i(dai, substream->stream, data);
 }
-
-static inline void snd_soc_dai_init_dma_data(struct snd_soc_dai *dai, void *playback, void *capture)
-{
-	snd_soc_dai_dma_data_set_playback(dai, playback);
-	snd_soc_dai_dma_data_set_capture(dai,  capture);
-}
+#define snd_soc_dai_stream_dma_data_set(dai, x, data) _Generic((x),		\
+	int :				snd_soc_dai_stream_dma_data_set_i,	\
+	struct snd_pcm_substream * :	snd_soc_dai_stream_dma_data_set_s)(dai, x, data)
 
 static inline unsigned int snd_soc_dai_tdm_mask_get(const struct snd_soc_dai *dai,
 						    int stream)
@@ -619,5 +619,18 @@ void snd_soc_dai_unregister(struct snd_soc_dai *dai);
 #define snd_soc_dai_set_widget_playback(dai, widget)	snd_soc_dai_stream_widget_set(dai, SNDRV_PCM_STREAM_PLAYBACK, widget)
 #define snd_soc_dai_set_widget_capture(dai,  widget)	snd_soc_dai_stream_widget_set(dai, SNDRV_PCM_STREAM_CAPTURE,  widget)
 #define snd_soc_dai_set_widget				snd_soc_dai_stream_widget_set
+#define snd_soc_dai_dma_data_get_playback(dai)		snd_soc_dai_stream_dma_data_get(dai, SNDRV_PCM_STREAM_PLAYBACK)
+#define snd_soc_dai_dma_data_get_capture(dai)		snd_soc_dai_stream_dma_data_get(dai, SNDRV_PCM_STREAM_CAPTURE)
+#define snd_soc_dai_get_dma_data			snd_soc_dai_stream_dma_data_get
+#define snd_soc_dai_dma_data_get			snd_soc_dai_stream_dma_data_get
+#define snd_soc_dai_dma_data_set_playback(dai, data)	snd_soc_dai_stream_dma_data_set(dai, SNDRV_PCM_STREAM_PLAYBACK, data)
+#define snd_soc_dai_dma_data_set_capture(dai,  data)	snd_soc_dai_stream_dma_data_set(dai, SNDRV_PCM_STREAM_CAPTURE,  data)
+#define snd_soc_dai_set_dma_data			snd_soc_dai_stream_dma_data_set
+#define snd_soc_dai_dma_data_set			snd_soc_dai_stream_dma_data_set
+static inline void snd_soc_dai_init_dma_data(struct snd_soc_dai *dai, void *playback, void *capture)
+{
+	snd_soc_dai_stream_dma_data_set_playback(dai, playback);
+	snd_soc_dai_stream_dma_data_set_capture(dai,  capture);
+}
 
 #endif
