@@ -181,8 +181,9 @@ Code  Seq#    Include File                                             Comments
 'M'   01-03  drivers/scsi/megaraid/megaraid_sas.h
 'M'   00-0F  drivers/video/fsl-diu-fb.h                                conflict!
 'N'   00-1F  drivers/usb/scanner.h
-'N'   40-7F  drivers/block/nvme.c
-'N'   80-8F  uapi/linux/ntsync.h                                       NT synchronization primitives
+'N'   40-7F  uapi/linux/nvme_ioctl.h
+'N'   80-83  uapi/linux/ntsync.h and uapi/linux/nvme_ioctl.h           conflict!
+'N'   84-8F  uapi/linux/ntsync.h                                       NT synchronization primitives
                                                                        <mailto:wine-devel@winehq.org>
 'O'   00-06  mtd/ubi-user.h                                            UBI
 'P'   all    linux/soundcard.h                                         conflict!
