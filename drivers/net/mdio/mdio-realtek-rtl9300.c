@@ -844,6 +844,7 @@ static struct platform_driver otto_emdio_driver = {
 	.driver = {
 		.name = "mdio-rtl9300",
 		.of_match_table = otto_emdio_ids,
+		.suppress_bind_attrs = true,
 	},
 };
 
