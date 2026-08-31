@@ -7236,8 +7236,12 @@ static void skb_ext_put_sp(struct sec_path *sp)
 {
 	unsigned int i;
 
+	if (!sp->len)
+		return;
+
 	for (i = 0; i < sp->len; i++)
 		xfrm_state_put(sp->xvec[i]);
+	sp->len = 0;
 }
 #endif
 
@@ -7260,10 +7264,8 @@ void __skb_ext_del(struct sk_buff *skb, enum skb_ext_id id)
 #ifdef CONFIG_XFRM
 	} else if (id == SKB_EXT_SEC_PATH &&
 		   refcount_read(&ext->refcnt) == 1) {
-		struct sec_path *sp = skb_ext_get_ptr(ext, SKB_EXT_SEC_PATH);
 
-		skb_ext_put_sp(sp);
-		sp->len = 0;
+		skb_ext_put_sp(skb_ext_get_ptr(ext, SKB_EXT_SEC_PATH));
 #endif
 	}
 }
