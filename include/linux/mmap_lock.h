@@ -76,8 +76,6 @@ static inline void mmap_assert_write_locked(const struct mm_struct *mm)
 	rwsem_assert_held_write(&mm->mmap_lock);
 }
 
-#ifdef CONFIG_PER_VMA_LOCK
-
 #ifdef CONFIG_LOCKDEP
 #define __vma_lockdep_map(vma) (&vma->vmlock_dep_map)
 #else
@@ -297,6 +295,9 @@ int __vma_start_write(struct vm_area_struct *vma, int state);
  */
 static inline void vma_start_write(struct vm_area_struct *vma)
 {
+	if (!IS_ENABLED(CONFIG_MMU))
+		return;
+
 	if (__is_vma_write_locked(vma))
 		return;
 
@@ -319,6 +320,9 @@ static inline void vma_start_write(struct vm_area_struct *vma)
 static inline __must_check
 int vma_start_write_killable(struct vm_area_struct *vma)
 {
+	if (!IS_ENABLED(CONFIG_MMU))
+		return 0;
+
 	if (__is_vma_write_locked(vma))
 		return 0;
 
@@ -331,6 +335,11 @@ int vma_start_write_killable(struct vm_area_struct *vma)
  */
 static inline void vma_assert_write_locked(struct vm_area_struct *vma)
 {
+	if (!IS_ENABLED(CONFIG_MMU)) {
+		mmap_assert_write_locked(vma->vm_mm);
+		return;
+	}
+
 	VM_WARN_ON_ONCE_VMA(!__is_vma_write_locked(vma), vma);
 }
 
@@ -342,6 +351,11 @@ static inline void vma_assert_write_locked(struct vm_area_struct *vma)
 static inline void vma_assert_locked(struct vm_area_struct *vma)
 {
 	unsigned int refcnt;
+
+	if (!IS_ENABLED(CONFIG_MMU)) {
+		mmap_assert_locked(vma->vm_mm);
+		return;
+	}
 
 	if (IS_ENABLED(CONFIG_LOCKDEP)) {
 		if (!lock_is_held(__vma_lockdep_map(vma)))
@@ -432,6 +446,9 @@ static inline bool vma_is_attached(struct vm_area_struct *vma)
  */
 static inline void vma_assert_attached(struct vm_area_struct *vma)
 {
+	if (!IS_ENABLED(CONFIG_MMU))
+		return;
+
 	WARN_ON_ONCE(!vma_is_attached(vma));
 }
 
@@ -442,6 +459,9 @@ static inline void vma_assert_detached(struct vm_area_struct *vma)
 
 static inline void vma_mark_attached(struct vm_area_struct *vma)
 {
+	if (!IS_ENABLED(CONFIG_MMU))
+		return;
+
 	vma_assert_write_locked(vma);
 	vma_assert_detached(vma);
 	refcount_set_release(&vma->vm_refcnt, 1);
@@ -451,6 +471,9 @@ void __vma_exclude_readers_for_detach(struct vm_area_struct *vma);
 
 static inline void vma_mark_detached(struct vm_area_struct *vma)
 {
+	if (!IS_ENABLED(CONFIG_MMU))
+		return;
+
 	vma_assert_write_locked(vma);
 	vma_assert_attached(vma);
 
@@ -483,54 +506,6 @@ struct vm_area_struct *lock_vma_under_rcu(struct mm_struct *mm,
 struct vm_area_struct *lock_next_vma(struct mm_struct *mm,
 				     struct vma_iterator *iter,
 				     unsigned long address);
-
-#else /* CONFIG_PER_VMA_LOCK */
-
-static inline void mm_lock_seqcount_init(struct mm_struct *mm) {}
-static inline void mm_lock_seqcount_begin(struct mm_struct *mm) {}
-static inline void mm_lock_seqcount_end(struct mm_struct *mm) {}
-
-static inline bool mmap_lock_speculate_try_begin(struct mm_struct *mm, unsigned int *seq)
-{
-	return false;
-}
-
-static inline bool mmap_lock_speculate_retry(struct mm_struct *mm, unsigned int seq)
-{
-	return true;
-}
-static inline void vma_lock_init(struct vm_area_struct *vma, bool reset_refcnt) {}
-static inline void vma_end_read(struct vm_area_struct *vma) {}
-static inline void vma_start_write(struct vm_area_struct *vma) {}
-static inline __must_check
-int vma_start_write_killable(struct vm_area_struct *vma) { return 0; }
-static inline void vma_assert_write_locked(struct vm_area_struct *vma)
-		{ mmap_assert_write_locked(vma->vm_mm); }
-static inline bool vma_is_attached(struct vm_area_struct *vma)
-		{ return true; }
-static inline void vma_assert_attached(struct vm_area_struct *vma) {}
-static inline void vma_assert_detached(struct vm_area_struct *vma) {}
-static inline void vma_mark_attached(struct vm_area_struct *vma) {}
-static inline void vma_mark_detached(struct vm_area_struct *vma) {}
-
-static inline struct vm_area_struct *lock_vma_under_rcu(struct mm_struct *mm,
-		unsigned long address)
-{
-	return NULL;
-}
-
-static inline void vma_assert_locked(struct vm_area_struct *vma)
-{
-	mmap_assert_locked(vma->vm_mm);
-}
-
-static inline void vma_assert_stabilised(struct vm_area_struct *vma)
-{
-	/* If no VMA locks, then either mmap lock suffices to stabilise. */
-	mmap_assert_locked(vma->vm_mm);
-}
-
-#endif /* CONFIG_PER_VMA_LOCK */
 
 static inline void vma_assert_can_modify(struct vm_area_struct *vma)
 {
