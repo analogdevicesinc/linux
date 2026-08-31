@@ -779,22 +779,6 @@ static void dwmac4_sarc_configure(void __iomem *ioaddr, int val)
 	writel(value, ioaddr + GMAC_CONFIG);
 }
 
-static void dwmac4_set_arp_offload(struct mac_device_info *hw, bool en,
-				   u32 addr)
-{
-	void __iomem *ioaddr = hw->pcsr;
-	u32 value;
-
-	writel(addr, ioaddr + GMAC_ARP_ADDR);
-
-	value = readl(ioaddr + GMAC_CONFIG);
-	if (en)
-		value |= GMAC_CONFIG_ARPEN;
-	else
-		value &= ~GMAC_CONFIG_ARPEN;
-	writel(value, ioaddr + GMAC_CONFIG);
-}
-
 static int dwmac4_config_l3_filter(struct mac_device_info *hw, u32 filter_no,
 				   bool en, bool ipv6, bool sa, bool inv,
 				   u32 match)
@@ -926,7 +910,6 @@ const struct stmmac_ops dwmac4_ops = {
 	.set_filter = dwmac4_set_filter,
 	.set_mac_loopback = dwmac4_set_mac_loopback,
 	.sarc_configure = dwmac4_sarc_configure,
-	.set_arp_offload = dwmac4_set_arp_offload,
 	.config_l3_filter = dwmac4_config_l3_filter,
 	.config_l4_filter = dwmac4_config_l4_filter,
 };
@@ -963,7 +946,6 @@ const struct stmmac_ops dwmac410_ops = {
 	.flex_pps_config = dwmac5_flex_pps_config,
 	.set_mac_loopback = dwmac4_set_mac_loopback,
 	.sarc_configure = dwmac4_sarc_configure,
-	.set_arp_offload = dwmac4_set_arp_offload,
 	.config_l3_filter = dwmac4_config_l3_filter,
 	.config_l4_filter = dwmac4_config_l4_filter,
 	.fpe_map_preemption_class = dwmac5_fpe_map_preemption_class,
@@ -1005,7 +987,6 @@ const struct stmmac_ops dwmac510_ops = {
 	.flex_pps_config = dwmac5_flex_pps_config,
 	.set_mac_loopback = dwmac4_set_mac_loopback,
 	.sarc_configure = dwmac4_sarc_configure,
-	.set_arp_offload = dwmac4_set_arp_offload,
 	.config_l3_filter = dwmac4_config_l3_filter,
 	.config_l4_filter = dwmac4_config_l4_filter,
 	.fpe_map_preemption_class = dwmac5_fpe_map_preemption_class,
