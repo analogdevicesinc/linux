@@ -26,6 +26,7 @@
 #include <net/pkt_cls.h>
 
 #include "chip.h"
+#include "leds.h"
 #include "smi.h"
 
 struct yt921x_mib_desc {
@@ -150,8 +151,6 @@ static const struct yt921x_info yt921x_infos[] = {
 	},
 	{}
 };
-
-#define YT921X_NAME	"yt921x"
 
 #define YT921X_VID_UNWARE	4095
 
@@ -4225,6 +4224,15 @@ static int yt921x_edata_read(struct yt921x_priv *priv, u8 addr, u8 *valp)
 	return yt921x_edata_read_cont(priv, addr, valp);
 }
 
+static void yt921x_dsa_teardown(struct dsa_switch *ds)
+{
+	struct yt921x_priv *priv = to_yt921x_priv(ds);
+
+#if IS_ENABLED(CONFIG_NET_DSA_YT921X_LEDS)
+	yt921x_leds_remove(priv);
+#endif
+}
+
 static int yt921x_chip_detect(struct yt921x_priv *priv)
 {
 	struct device *dev = to_device(priv);
@@ -4581,6 +4589,12 @@ static int yt921x_dsa_setup(struct dsa_switch *ds)
 	if (res)
 		return res;
 
+#if IS_ENABLED(CONFIG_NET_DSA_YT921X_LEDS)
+	res = yt921x_leds_setup(priv);
+	if (res)
+		dev_warn(dev, "Failed to setup LEDs: %d\n", res);
+#endif
+
 	return 0;
 }
 
@@ -4661,6 +4675,7 @@ static const struct dsa_switch_ops yt921x_dsa_switch_ops = {
 	.port_add_dscp_prio	= yt921x_dsa_port_add_dscp_prio,
 #endif
 	/* chip */
+	.teardown		= yt921x_dsa_teardown,
 	.setup			= yt921x_dsa_setup,
 };
 
