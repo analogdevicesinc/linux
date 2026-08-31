@@ -759,9 +759,38 @@ static inline bool coredump_sock_send(struct file *file, struct coredump_req *re
 	return ret == sizeof(*req);
 }
 
-static_assert(sizeof(struct coredump_req) == COREDUMP_REQ_SIZE_VER0);
-static_assert(sizeof(struct coredump_ack) == COREDUMP_ACK_SIZE_VER0);
+static_assert(sizeof(struct coredump_req) == COREDUMP_REQ_SIZE_VER1);
+static_assert(sizeof(struct coredump_ack) == COREDUMP_ACK_SIZE_VER1);
 static_assert(sizeof(enum coredump_mark) == sizeof(__u32));
+
+/* Every memory type this kernel knows. */
+#define COREDUMP_MEMORY_ALL						\
+	(COREDUMP_MEMORY_ANON_PRIVATE | COREDUMP_MEMORY_ANON_SHARED |	\
+	 COREDUMP_MEMORY_FILE_PRIVATE | COREDUMP_MEMORY_FILE_SHARED |	\
+	 COREDUMP_MEMORY_ELF_HEADERS |					\
+	 COREDUMP_MEMORY_HUGETLB_PRIVATE | COREDUMP_MEMORY_HUGETLB_SHARED | \
+	 COREDUMP_MEMORY_DAX_PRIVATE | COREDUMP_MEMORY_DAX_SHARED)
+
+#define COREDUMP_MEMORY_TYPE_BIT(mmf) BIT((mmf) - MMF_DUMP_FILTER_SHIFT)
+static_assert(COREDUMP_MEMORY_ALL == (MMF_DUMP_FILTER_MASK >> MMF_DUMP_FILTER_SHIFT));
+static_assert(COREDUMP_MEMORY_ANON_PRIVATE ==
+	      COREDUMP_MEMORY_TYPE_BIT(MMF_DUMP_ANON_PRIVATE));
+static_assert(COREDUMP_MEMORY_ANON_SHARED ==
+	      COREDUMP_MEMORY_TYPE_BIT(MMF_DUMP_ANON_SHARED));
+static_assert(COREDUMP_MEMORY_FILE_PRIVATE ==
+	      COREDUMP_MEMORY_TYPE_BIT(MMF_DUMP_MAPPED_PRIVATE));
+static_assert(COREDUMP_MEMORY_FILE_SHARED ==
+	      COREDUMP_MEMORY_TYPE_BIT(MMF_DUMP_MAPPED_SHARED));
+static_assert(COREDUMP_MEMORY_ELF_HEADERS ==
+	      COREDUMP_MEMORY_TYPE_BIT(MMF_DUMP_ELF_HEADERS));
+static_assert(COREDUMP_MEMORY_HUGETLB_PRIVATE ==
+	      COREDUMP_MEMORY_TYPE_BIT(MMF_DUMP_HUGETLB_PRIVATE));
+static_assert(COREDUMP_MEMORY_HUGETLB_SHARED ==
+	      COREDUMP_MEMORY_TYPE_BIT(MMF_DUMP_HUGETLB_SHARED));
+static_assert(COREDUMP_MEMORY_DAX_PRIVATE ==
+	      COREDUMP_MEMORY_TYPE_BIT(MMF_DUMP_DAX_PRIVATE));
+static_assert(COREDUMP_MEMORY_DAX_SHARED ==
+	      COREDUMP_MEMORY_TYPE_BIT(MMF_DUMP_DAX_SHARED));
 
 static inline bool coredump_sock_mark(struct file *file, enum coredump_mark mark)
 {
@@ -804,11 +833,14 @@ static inline void coredump_sock_shutdown(struct file *file)
 static bool coredump_sock_request(struct core_name *cn, struct coredump_params *cprm)
 {
 	struct coredump_req req = {
-		.size		= sizeof(struct coredump_req),
-		.mask		= COREDUMP_KERNEL | COREDUMP_USERSPACE |
-				  COREDUMP_REJECT | COREDUMP_WAIT |
-				  COREDUMP_RECORDS | COREDUMP_SPARSE,
-		.size_ack	= sizeof(struct coredump_ack),
+		.size			= sizeof(struct coredump_req),
+		.mask			= COREDUMP_KERNEL | COREDUMP_USERSPACE |
+					  COREDUMP_REJECT | COREDUMP_WAIT |
+					  COREDUMP_RECORDS | COREDUMP_SPARSE |
+					  COREDUMP_MEMORY_TYPES,
+		.size_ack		= sizeof(struct coredump_ack),
+		.memory_types		= cprm->memory_types,
+		.memory_types_mask	= COREDUMP_MEMORY_ALL,
 	};
 	struct coredump_ack ack = {};
 	ssize_t usize;
@@ -873,12 +905,40 @@ static bool coredump_sock_request(struct core_name *cn, struct coredump_params *
 		return false;
 	}
 
+	if (ack.mask & COREDUMP_MEMORY_TYPES) {
+		/* The memory types need the whole field. */
+		if (usize < COREDUMP_ACK_SIZE_VER1) {
+			coredump_sock_mark(cprm->file, COREDUMP_MARK_MINSIZE);
+			return false;
+		}
+
+		/* The memory types only select what the kernel writes. */
+		if (!(ack.mask & COREDUMP_KERNEL)) {
+			coredump_sock_mark(cprm->file, COREDUMP_MARK_CONFLICTING);
+			return false;
+		}
+
+		/* Refuse unknown memory types. */
+		if (ack.memory_types & ~req.memory_types_mask) {
+			coredump_sock_mark(cprm->file, COREDUMP_MARK_UNSUPPORTED);
+			return false;
+		}
+	} else if (ack.memory_types) {
+		/* Like @spare the field must be zero when it isn't used. */
+		coredump_sock_mark(cprm->file, COREDUMP_MARK_UNSUPPORTED);
+		return false;
+	}
+
 	/* Record header scratch; a bvec can't point at the stack. */
 	if (ack.mask & COREDUMP_RECORDS) {
 		cprm->record_hdr = kmalloc_obj(*cprm->record_hdr);
 		if (!cprm->record_hdr)
 			return false;
 	}
+
+	/* The server's selection replaces the task's entirely. */
+	if (ack.mask & COREDUMP_MEMORY_TYPES)
+		cprm->memory_types = ack.memory_types;
 
 	cprm->mask = ack.mask;
 	return coredump_sock_mark(cprm->file, COREDUMP_MARK_REQACK);
@@ -1190,6 +1250,10 @@ static void do_coredump(struct core_name *cn, struct coredump_params *cprm,
 	}
 }
 
+#define COREDUMP_TASK_MEMORY_TYPES(mm)                         \
+	((__mm_flags_get_word((mm)) & MMF_DUMP_FILTER_MASK) >> \
+	 MMF_DUMP_FILTER_SHIFT)
+
 void vfs_coredump(const kernel_siginfo_t *siginfo)
 {
 	size_t *argv __free(kfree) = NULL;
@@ -1201,8 +1265,8 @@ void vfs_coredump(const kernel_siginfo_t *siginfo)
 	struct coredump_params cprm = {
 		.siginfo = siginfo,
 		.limit = rlimit(RLIMIT_CORE),
-		/* Snapshot MMF_DUMP_FILTER_* (unlocked) and dumpable for the dump. */
-		.mm_flags = __mm_flags_get_word(mm),
+		/* Snapshot the memory types (unlocked) and dumpable for the dump. */
+		.memory_types = COREDUMP_TASK_MEMORY_TYPES(mm),
 		.dumpable = task_exec_state_get_dumpable(current),
 		.vma_meta = NULL,
 		.cpu = raw_smp_processor_id(),
@@ -1736,15 +1800,15 @@ static bool always_dump_vma(struct vm_area_struct *vma)
 }
 
 #define DUMP_SIZE_MAYBE_ELFHDR_PLACEHOLDER 1
+#define COREDUMP_MEMORY_TYPE_INCLUDE(types, type) \
+	((types) & COREDUMP_MEMORY_##type)
 
 /*
  * Decide how much of @vma's contents should be included in a core dump.
  */
 static unsigned long vma_dump_size(struct vm_area_struct *vma,
-				   unsigned long mm_flags)
+				   u64 memory_types)
 {
-#define FILTER(type)	(mm_flags & (1UL << MMF_DUMP_##type))
-
 	/* always dump the vdso and vsyscall sections */
 	if (always_dump_vma(vma))
 		goto whole;
@@ -1754,18 +1818,22 @@ static unsigned long vma_dump_size(struct vm_area_struct *vma,
 
 	/* support for DAX */
 	if (vma_is_dax(vma)) {
-		if ((vma->vm_flags & VM_SHARED) && FILTER(DAX_SHARED))
+		if ((vma->vm_flags & VM_SHARED) &&
+		    COREDUMP_MEMORY_TYPE_INCLUDE(memory_types, DAX_SHARED))
 			goto whole;
-		if (!(vma->vm_flags & VM_SHARED) && FILTER(DAX_PRIVATE))
+		if (!(vma->vm_flags & VM_SHARED) &&
+		    COREDUMP_MEMORY_TYPE_INCLUDE(memory_types, DAX_PRIVATE))
 			goto whole;
 		return 0;
 	}
 
 	/* Hugetlb memory check */
 	if (is_vm_hugetlb_page(vma)) {
-		if ((vma->vm_flags & VM_SHARED) && FILTER(HUGETLB_SHARED))
+		if ((vma->vm_flags & VM_SHARED) &&
+		    COREDUMP_MEMORY_TYPE_INCLUDE(memory_types, HUGETLB_SHARED))
 			goto whole;
-		if (!(vma->vm_flags & VM_SHARED) && FILTER(HUGETLB_PRIVATE))
+		if (!(vma->vm_flags & VM_SHARED) &&
+		    COREDUMP_MEMORY_TYPE_INCLUDE(memory_types, HUGETLB_PRIVATE))
 			goto whole;
 		return 0;
 	}
@@ -1777,25 +1845,27 @@ static unsigned long vma_dump_size(struct vm_area_struct *vma,
 	/* By default, dump shared memory if mapped from an anonymous file. */
 	if (vma->vm_flags & VM_SHARED) {
 		if (file_inode(vma->vm_file)->i_nlink == 0 ?
-		    FILTER(ANON_SHARED) : FILTER(MAPPED_SHARED))
+			    COREDUMP_MEMORY_TYPE_INCLUDE(memory_types, ANON_SHARED) :
+			    COREDUMP_MEMORY_TYPE_INCLUDE(memory_types, FILE_SHARED))
 			goto whole;
 		return 0;
 	}
 
 	/* Dump segments that have been written to.  */
-	if ((!IS_ENABLED(CONFIG_MMU) || vma->anon_vma) && FILTER(ANON_PRIVATE))
+	if ((!IS_ENABLED(CONFIG_MMU) || vma->anon_vma) &&
+	    COREDUMP_MEMORY_TYPE_INCLUDE(memory_types, ANON_PRIVATE))
 		goto whole;
 	if (vma->vm_file == NULL)
 		return 0;
 
-	if (FILTER(MAPPED_PRIVATE))
+	if (COREDUMP_MEMORY_TYPE_INCLUDE(memory_types, FILE_PRIVATE))
 		goto whole;
 
 	/*
 	 * If this is the beginning of an executable file mapping,
 	 * dump the first page to aid in determining what was mapped here.
 	 */
-	if (FILTER(ELF_HEADERS) &&
+	if (COREDUMP_MEMORY_TYPE_INCLUDE(memory_types, ELF_HEADERS) &&
 	    vma->vm_pgoff == 0 && (vma->vm_flags & VM_READ)) {
 		if ((READ_ONCE(file_inode(vma->vm_file)->i_mode) & 0111) != 0)
 			return PAGE_SIZE;
@@ -1810,8 +1880,6 @@ static unsigned long vma_dump_size(struct vm_area_struct *vma,
 		 */
 		return DUMP_SIZE_MAYBE_ELFHDR_PLACEHOLDER;
 	}
-
-#undef	FILTER
 
 	return 0;
 
@@ -1897,7 +1965,7 @@ static bool dump_vma_snapshot(struct coredump_params *cprm)
 		m->start = vma->vm_start;
 		m->end = vma->vm_end;
 		m->flags = vma->vm_flags;
-		m->dump_size = vma_dump_size(vma, cprm->mm_flags);
+		m->dump_size = vma_dump_size(vma, cprm->memory_types);
 		m->pgoff = vma->vm_pgoff;
 		m->file = vma->vm_file;
 		if (m->file)
