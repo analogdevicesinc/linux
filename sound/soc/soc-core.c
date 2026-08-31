@@ -276,7 +276,7 @@ static int snd_soc_is_matching_dai(const struct snd_soc_dai_link_component *dlc,
 	if (!dlc->dai_name)
 		return 1;
 
-	/* see snd_soc_dai_name_get() */
+	/* see snd_soc_dai_name() */
 
 	if (dai->driver->name &&
 	    strcmp(dlc->dai_name, dai->driver->name) == 0)
@@ -291,22 +291,6 @@ static int snd_soc_is_matching_dai(const struct snd_soc_dai_link_component *dlc,
 
 	return 0;
 }
-
-const char *snd_soc_dai_name_get(const struct snd_soc_dai *dai)
-{
-	/* see snd_soc_is_matching_dai() */
-	if (dai->driver->name)
-		return dai->driver->name;
-
-	if (dai->name)
-		return dai->name;
-
-	if (dai->component->name)
-		return dai->component->name;
-
-	return NULL;
-}
-EXPORT_SYMBOL_GPL(snd_soc_dai_name_get);
 
 static int snd_soc_rtd_add_component(struct snd_soc_pcm_runtime *rtd,
 				     struct snd_soc_component *component)
@@ -3457,7 +3441,7 @@ int snd_soc_get_dlc(const struct of_phandle_args *args, struct snd_soc_dai_link_
 				id--;
 			}
 
-			dlc->dai_name	= snd_soc_dai_name_get(dai);
+			dlc->dai_name	= snd_soc_dai_name(dai);
 		} else if (ret) {
 			/*
 			 * if another error than ENOTSUPP is returned go on and

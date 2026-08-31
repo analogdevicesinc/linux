@@ -1009,3 +1009,19 @@ int snd_soc_dai_add_controls(struct snd_soc_dai *dai,
 	return snd_soc_add_controls(card, dai->dev, controls, num_controls, NULL, dai);
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_add_controls);
+
+const char *snd_soc_dai_name(const struct snd_soc_dai *dai)
+{
+	/* see snd_soc_is_matching_dai() */
+	if (dai->driver->name)
+		return dai->driver->name;
+
+	if (dai->name)
+		return dai->name;
+
+	if (dai->component->name)
+		return dai->component->name;
+
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_name);
