@@ -496,6 +496,8 @@ definitions:
         name: accept-untracked-na
       -
         name: accept-ra-min-lft
+      -
+        name: force-forwarding
   -
     name: ifla-icmp6-stats
     enum-name:
