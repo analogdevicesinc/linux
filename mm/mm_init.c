@@ -1029,6 +1029,17 @@ static void __ref __init_zone_device_page(struct page *page, unsigned long pfn,
 	}
 }
 
+static void zone_device_page_init_from_template(struct page *page,
+		unsigned long pfn, struct page *template)
+{
+	set_page_section_from_pfn(template, pfn);
+#ifdef WANT_PAGE_VIRTUAL
+	if (!is_highmem_idx(ZONE_DEVICE))
+		set_page_address(template, __va(pfn << PAGE_SHIFT));
+#endif
+	memcpy(page, template, sizeof(*page));
+}
+
 /*
  * With compound page geometry and when struct pages are stored in ram most
  * tail pages are reused. Consequently, the amount of unique struct pages to
@@ -1091,6 +1102,8 @@ void __ref memmap_init_zone_device(struct zone *zone,
 	unsigned long zone_idx = zone_idx(zone);
 	unsigned long start = jiffies;
 	int nid = pgdat->node_id;
+	struct page template;
+	struct page *page;
 
 	if (WARN_ON_ONCE(!pgmap || zone_idx != ZONE_DEVICE))
 		return;
@@ -1105,10 +1118,29 @@ void __ref memmap_init_zone_device(struct zone *zone,
 		nr_pages = end_pfn - start_pfn;
 	}
 
-	for (pfn = start_pfn; pfn < end_pfn; pfn += pfns_per_compound) {
-		struct page *page = pfn_to_page(pfn);
+	if (!nr_pages)
+		return;
 
-		__init_zone_device_page(page, pfn, zone_idx, nid, pgmap);
+	/*
+	 * Seed the reusable head-page template from the first real struct
+	 * page. The normal page-init and refcount helpers must operate on
+	 * a real memmap entry rather than a stack object.
+	 */
+	pfn = start_pfn;
+	page = pfn_to_page(pfn);
+	__init_zone_device_page(page, pfn, zone_idx, nid, pgmap);
+	memcpy(&template, page, sizeof(*page));
+	if (pfns_per_compound != 1)
+		memmap_init_compound(page, pfn, zone_idx, nid, pgmap,
+				     compound_nr_pages(pfn, altmap, pgmap));
+	pfn += pfns_per_compound;
+
+	/* Initialize the remaining head pages from template. */
+	for (; pfn < end_pfn; pfn += pfns_per_compound) {
+		page = pfn_to_page(pfn);
+
+		zone_device_page_init_from_template(page, pfn,
+						    &template);
 
 		if (IS_ALIGNED(pfn, PAGES_PER_SECTION))
 			cond_resched();
