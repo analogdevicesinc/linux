@@ -688,13 +688,10 @@ static int otto_emdio_probe_one(struct device *dev, struct otto_emdio_priv *priv
 		return -ENOMEM;
 
 	bus->name = "Realtek Switch MDIO Bus";
-	if (priv->smi_bus_is_c45[mdio_bus]) {
-		bus->read_c45 = otto_emdio_read_c45;
-		bus->write_c45 = otto_emdio_write_c45;
-	} else {
-		bus->read = otto_emdio_read_c22;
-		bus->write = otto_emdio_write_c22;
-	}
+	bus->read_c45 = otto_emdio_read_c45;
+	bus->write_c45 = otto_emdio_write_c45;
+	bus->read = otto_emdio_read_c22;
+	bus->write = otto_emdio_write_c22;
 	bus->parent = dev;
 	bus->notify_phy_attach = otto_emdio_notify_phy_attach;
 	bus->notify_phy_detach = otto_emdio_notify_phy_detach;
