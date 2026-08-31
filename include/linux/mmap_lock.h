@@ -228,10 +228,14 @@ static inline void vma_refcount_put(struct vm_area_struct *vma)
 }
 
 /*
- * Use only while holding mmap read lock which guarantees that locking will not
- * fail (nobody can concurrently write-lock the vma). vma_start_read() should
+ * Use only while holding mmap read lock which guarantees that vma lock is not
+ * contended (nobody can concurrently write-lock the vma). vma_start_read() should
  * not be used in such cases because it might fail due to mm_lock_seq overflow.
  * This functionality is used to obtain vma read lock and drop the mmap read lock.
+ *
+ * VMA can't be detached while we are holding mmap lock, therefore in practice this
+ * function can fail only when there are so many readers that vm_refcnt overflows.
+ * The failure case is very unlikely and is already annotated as such internally.
  */
 static inline bool vma_start_read_locked_nested(struct vm_area_struct *vma, int subclass)
 {
@@ -247,15 +251,22 @@ static inline bool vma_start_read_locked_nested(struct vm_area_struct *vma, int 
 }
 
 /*
- * Use only while holding mmap read lock which guarantees that locking will not
- * fail (nobody can concurrently write-lock the vma). vma_start_read() should
+ * Use only while holding mmap read lock which guarantees that vma lock is not
+ * contended (nobody can concurrently write-lock the vma). vma_start_read() should
  * not be used in such cases because it might fail due to mm_lock_seq overflow.
  * This functionality is used to obtain vma read lock and drop the mmap read lock.
+ *
+ * VMA can't be detached while we are holding mmap lock, therefore in practice this
+ * function can fail only when there are so many readers that vm_refcnt overflows.
+ * The failure case is very unlikely and is already annotated as such internally.
  */
 static inline bool vma_start_read_locked(struct vm_area_struct *vma)
 {
 	return vma_start_read_locked_nested(vma, 0);
 }
+
+struct vm_area_struct *vma_start_read_unlocked(struct mm_struct *mm,
+					       unsigned long address);
 
 static inline void vma_end_read(struct vm_area_struct *vma)
 {
