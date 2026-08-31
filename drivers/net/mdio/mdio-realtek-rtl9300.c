@@ -274,9 +274,9 @@ static int otto_emdio_run_cmd(struct mii_bus *bus, u32 cmd,
 	u32 cmdstate;
 	int ret;
 
-	/* Defensive pre check just in case something goes horrible wrong */
+	/* Defensive pre check just in case something goes horribly wrong */
 	ret = regmap_read_poll_timeout(priv->regmap, info->cmd_regs.c22_data,
-				       cmdstate, !(cmdstate & PHY_CTRL_CMD), 10, 1000);
+				       cmdstate, !(cmdstate & PHY_CTRL_CMD), 10, 10000);
 	if (ret)
 		return ret;
 
@@ -316,7 +316,7 @@ static int otto_emdio_run_cmd(struct mii_bus *bus, u32 cmd,
 		return ret;
 
 	ret = regmap_read_poll_timeout(priv->regmap, info->cmd_regs.c22_data,
-				       cmdstate, !(cmdstate & PHY_CTRL_CMD), 10, 1000);
+				       cmdstate, !(cmdstate & PHY_CTRL_CMD), 10, 10000);
 	if (ret)
 		return ret;
 
