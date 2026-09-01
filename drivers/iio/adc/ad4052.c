@@ -40,9 +40,9 @@
 #define AD4052_REG_MODE_SET				0x20
 #define     AD4052_REG_MODE_SET_ENTER_ADC		BIT(0)
 #define AD4052_REG_ADC_MODES				0x21
+#define     AD4052_REG_ADC_MODES_SIGN_EXT_EN_MSK	BIT(6)
 #define     AD4052_REG_ADC_MODES_MODE_MSK		GENMASK(1, 0)
 #define AD4052_REG_ADC_CONFIG				0x22
-#define     AD4052_REG_ADC_CONFIG_SIGN_EXT_EN_MSK	BIT(6)
 #define     AD4052_REG_ADC_CONFIG_REF_EN_MSK		BIT(5)
 #define     AD4052_REG_ADC_CONFIG_SCALE_EN_MSK		BIT(4)
 #define AD4052_REG_AVG_CONFIG				0x23
@@ -326,9 +326,9 @@ static int ad4052_get_oversampling_ratio(struct ad4052_state *st, int *val)
 
 static int ad4052_set_sign_ext(struct ad4052_state *st, bool en)
 {
-	return regmap_update_bits(st->regmap, AD4052_REG_ADC_CONFIG,
-				  AD4052_REG_ADC_CONFIG_SIGN_EXT_EN_MSK,
-				  FIELD_PREP(AD4052_REG_ADC_CONFIG_SIGN_EXT_EN_MSK,
+	return regmap_update_bits(st->regmap, AD4052_REG_ADC_MODES,
+				  AD4052_REG_ADC_MODES_SIGN_EXT_EN_MSK,
+				  FIELD_PREP(AD4052_REG_ADC_MODES_SIGN_EXT_EN_MSK,
 					     en));
 }
 
