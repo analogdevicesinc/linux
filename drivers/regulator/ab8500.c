@@ -422,11 +422,10 @@ static int ab8500_regulator_disable(struct regulator_dev *rdev)
 	return ret;
 }
 
-static int ab8500_regulator_is_enabled(struct regulator_dev *rdev)
+static int ab8500_regulator_get_enable_value(struct regulator_dev *rdev)
 {
 	int ret;
 	struct ab8500_regulator_info *info = rdev_get_drvdata(rdev);
-	u8 enable_mask;
 	u8 regval;
 
 	if (info == NULL) {
@@ -442,18 +441,71 @@ static int ab8500_regulator_is_enabled(struct regulator_dev *rdev)
 		return ret;
 	}
 
-	enable_mask = info->enable_mask ? info->enable_mask : info->update_mask;
-
 	dev_vdbg(rdev_get_dev(rdev),
 		"%s-is_enabled (bank, reg, mask, value): 0x%x, 0x%x, 0x%x,"
 		" 0x%x\n",
 		info->desc.name, info->update_bank, info->update_reg,
-		enable_mask, regval);
+		info->update_mask, regval);
 
-	if (regval & enable_mask)
-		return 1;
+	return regval & info->update_mask;
+}
+
+static int ab8500_regulator_is_enabled(struct regulator_dev *rdev)
+{
+	struct ab8500_regulator_info *info = rdev_get_drvdata(rdev);
+	u8 enable_mask;
+	int ret;
+
+	ret = ab8500_regulator_get_enable_value(rdev);
+	if (ret < 0)
+		return ret;
+
+	enable_mask = info->enable_mask ? info->enable_mask : info->update_mask;
+
+	return !!(ret & enable_mask);
+}
+
+static int ab8500_buck_enable(struct regulator_dev *rdev)
+{
+	int ret;
+
+	/* Keep an OTP-selected hardware or low-power mode intact. */
+	ret = ab8500_regulator_is_enabled(rdev);
+	if (ret)
+		return ret < 0 ? ret : 0;
+
+	return ab8500_regulator_enable(rdev);
+}
+
+static int ab8500_buck_init(struct regulator_dev *rdev,
+			    struct regulator_config *config)
+{
+	struct ab8500_regulator_info *info = config->driver_data;
+	int ret;
+
+	ret = ab8500_regulator_get_enable_value(rdev);
+	if (ret <= 0)
+		return ret;
+
+	/* Report forced LP accurately; HP and hardware control are normal mode. */
+	if (ret == info->update_val_idle)
+		info->update_val = info->update_val_idle;
 	else
-		return 0;
+		info->update_val = info->update_val_normal;
+
+	/*
+	 * The SMPS enable state is selected by OTP.  An enabled rail may
+	 * supply discrete board components which are not represented as
+	 * regulator consumers, so keep it out of the unused-regulator sweep.
+	 */
+	rdev->constraints->boot_on = true;
+	rdev->constraints->always_on = true;
+	rdev->constraints->valid_ops_mask &= ~REGULATOR_CHANGE_STATUS;
+
+	dev_dbg(config->dev, "%s: preserving OTP-enabled state\n",
+		info->desc.name);
+
+	return 0;
 }
 
 static unsigned int ab8500_regulator_get_optimum_mode(
@@ -861,7 +913,7 @@ static const struct regulator_ops ab8500_regulator_linear_range_volt_ops = {
 };
 
 static const struct regulator_ops ab8500_buck_ops = {
-	.enable			= ab8500_regulator_enable,
+	.enable			= ab8500_buck_enable,
 	.disable		= ab8500_regulator_disable,
 	.is_enabled		= ab8500_regulator_is_enabled,
 	.get_optimum_mode	= ab8500_regulator_get_optimum_mode,
@@ -1127,6 +1179,7 @@ static struct ab8500_regulator_info
 		.desc = {
 			.name		= "BUCK-SMPS1",
 			.ops		= &ab8500_buck_ops,
+			.init_cb	= ab8500_buck_init,
 			.type		= REGULATOR_VOLTAGE,
 			.id		= AB8500_BUCK_SMPS1,
 			.owner		= THIS_MODULE,
@@ -1152,6 +1205,7 @@ static struct ab8500_regulator_info
 		.desc = {
 			.name		= "BUCK-SMPS2",
 			.ops		= &ab8500_buck_ops,
+			.init_cb	= ab8500_buck_init,
 			.type		= REGULATOR_VOLTAGE,
 			.id		= AB8500_BUCK_SMPS2,
 			.owner		= THIS_MODULE,
@@ -1177,6 +1231,7 @@ static struct ab8500_regulator_info
 		.desc = {
 			.name		= "BUCK-SMPS3",
 			.ops		= &ab8500_buck_ops,
+			.init_cb	= ab8500_buck_init,
 			.type		= REGULATOR_VOLTAGE,
 			.id		= AB8500_BUCK_SMPS3,
 			.owner		= THIS_MODULE,
@@ -1556,6 +1611,7 @@ static struct ab8500_regulator_info
 		.desc = {
 			.name		= "BUCK-SMPSA",
 			.ops		= &ab8500_buck_ops,
+			.init_cb	= ab8500_buck_init,
 			.type		= REGULATOR_VOLTAGE,
 			.id		= AB8505_BUCK_SMPSA,
 			.owner		= THIS_MODULE,
@@ -1581,6 +1637,7 @@ static struct ab8500_regulator_info
 		.desc = {
 			.name		= "BUCK-SMPSB",
 			.ops		= &ab8500_buck_ops,
+			.init_cb	= ab8500_buck_init,
 			.type		= REGULATOR_VOLTAGE,
 			.id		= AB8505_BUCK_SMPSB,
 			.owner		= THIS_MODULE,
@@ -1606,6 +1663,7 @@ static struct ab8500_regulator_info
 		.desc = {
 			.name		= "BUCK-SAFE",
 			.ops		= &ab8500_buck_ops,
+			.init_cb	= ab8500_buck_init,
 			.type		= REGULATOR_VOLTAGE,
 			.id		= AB8505_BUCK_SAFE,
 			.owner		= THIS_MODULE,
