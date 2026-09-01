@@ -300,12 +300,16 @@ static int drm_bridge_connector_detect_ctx(struct drm_connector *connector,
 	struct drm_bridge *detect = bridge_connector->bridge_detect;
 	struct drm_bridge *hdmi = bridge_connector->bridge_hdmi;
 	enum drm_connector_status status;
+	int ret;
 
 	if (detect) {
 		status = detect->funcs->detect(detect, connector);
 
-		if (hdmi)
-			drm_atomic_helper_connector_hdmi_hotplug(connector, status);
+		if (hdmi) {
+			ret = drm_atomic_helper_connector_hdmi_hotplug(connector, ctx, status);
+			if (ret == -EDEADLK)
+				return ret;
+		}
 
 		drm_bridge_connector_hpd_notify(connector, status);
 	} else {
