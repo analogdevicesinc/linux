@@ -1385,7 +1385,6 @@ static void gfx_v12_1_ip_dump(struct amdgpu_ip_block *ip_block)
 
 	num_xcc = NUM_XCC(adev->gfx.xcc_mask);
 
-	amdgpu_gfx_off_ctrl(adev, false);
 	for (xcc_id = 0; xcc_id < num_xcc; xcc_id++) {
 		xcc_offset = xcc_id * reg_count;
 		for (i = 0; i < reg_count; i++)
@@ -1393,7 +1392,6 @@ static void gfx_v12_1_ip_dump(struct amdgpu_ip_block *ip_block)
 				RREG32(SOC15_REG_ENTRY_OFFSET_INST(gc_reg_list_12_1[i],
 								   GET_INST(GC, xcc_id)));
 	}
-	amdgpu_gfx_off_ctrl(adev, true);
 
 	/* dump compute queue registers for all instances */
 	if (!adev->gfx.ip_dump_compute_queues)
@@ -1402,7 +1400,7 @@ static void gfx_v12_1_ip_dump(struct amdgpu_ip_block *ip_block)
 	num_inst = adev->gfx.mec.num_mec * adev->gfx.mec.num_pipe_per_mec *
 		adev->gfx.mec.num_queue_per_pipe;
 	reg_count = ARRAY_SIZE(gc_cp_reg_list_12_1);
-	amdgpu_gfx_off_ctrl(adev, false);
+
 	mutex_lock(&adev->srbm_mutex);
 	for (xcc_id = 0; xcc_id < num_xcc; xcc_id++) {
 		xcc_offset = xcc_id * reg_count * num_inst;
@@ -1429,7 +1427,6 @@ static void gfx_v12_1_ip_dump(struct amdgpu_ip_block *ip_block)
 	}
 	soc_v1_0_grbm_select(adev, 0, 0, 0, 0, 0);
 	mutex_unlock(&adev->srbm_mutex);
-	amdgpu_gfx_off_ctrl(adev, true);
 }
 
 static int gfx_v12_1_sw_init(struct amdgpu_ip_block *ip_block)
@@ -3299,20 +3296,7 @@ static void gfx_v12_cntl_pg(struct amdgpu_device *adev, bool enable)
 static int gfx_v12_1_set_powergating_state(struct amdgpu_ip_block *ip_block,
 					   enum amd_powergating_state state)
 {
-	struct amdgpu_device *adev = ip_block->adev;
-	bool enable = (state == AMD_PG_STATE_GATE);
-
-	if (amdgpu_sriov_vf(adev))
-		return 0;
-
-	switch (amdgpu_ip_version(adev, GC_HWIP, 0)) {
-	case IP_VERSION(12, 1, 0):
-		amdgpu_gfx_off_ctrl(adev, enable);
-		break;
-	default:
-		break;
-	}
-
+	/* No powergating state for GC v12.1 */
 	return 0;
 }
 
