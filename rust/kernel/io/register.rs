@@ -182,6 +182,24 @@ where
     }
 }
 
+// Provides a `IoLoc` impl that for a fixed offset.
+#[doc(hidden)]
+pub struct OffsetLoc<Base: ?Sized, T>(usize, PhantomData<(T, Base)>);
+
+impl<Base: ?Sized, T> OffsetLoc<Base, T> {
+    #[inline]
+    pub const fn new(offset: usize) -> Self {
+        Self(offset, PhantomData)
+    }
+}
+
+impl<Base: ?Sized, T> IoLoc<Base, T> for OffsetLoc<Base, T> {
+    #[inline(always)]
+    fn offset(self) -> usize {
+        self.0
+    }
+}
+
 /// Trait providing a base address to be added to the offset of a relative register to obtain
 /// its actual offset.
 ///
@@ -519,6 +537,19 @@ pub const fn element_alias_offset<Base: ?Sized, Alias: RegisterArray<Base = Base
 ///
 /// In this example, `SCRATCH_BOOT_STATUS` uses the same I/O address as `SCRATCH`, while providing
 /// its own `completed` field.
+///
+/// If you do not wish to have a bitfield defined, you can also create a register using an existing
+/// type.
+///
+/// ```no_run
+/// # use kernel::io::*;
+/// register! {
+///     base: Region<0x1000>;
+///
+///     /// UART RX register.
+///     pub UART_RX: u8 @ 0x100;
+/// }
+/// ```
 ///
 /// ## Relative registers
 ///

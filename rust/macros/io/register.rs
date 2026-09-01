@@ -16,6 +16,7 @@ use syn::{
     bracketed,
     parenthesized,
     parse::Parse,
+    parse_quote,
     spanned::Spanned,
     token,
     Attribute,
@@ -62,11 +63,11 @@ struct Reg {
     attrs: Vec<Attribute>,
     vis: Visibility,
     name: Ident,
-    storage: Type,
+    ty: Type,
     array: Option<RegArrayDef>,
     relative_base: Option<Path>,
     offset: RegOffset,
-    bitfield_args: Group,
+    bitfield: Option<(Type, Group)>,
 }
 
 impl Parse for Reg {
@@ -74,11 +75,22 @@ impl Parse for Reg {
         let attrs = input.call(Attribute::parse_outer)?;
         let vis = input.parse()?;
         let name = input.parse()?;
-        let storage = {
+
+        let lh = input.lookahead1();
+        let (ty, bitfield_storage) = if lh.peek(Token![:]) {
+            let _: Token![:] = input.parse()?;
+            (input.parse()?, None)
+        } else if lh.peek(token::Paren) {
             let content;
             parenthesized!(content in input);
-            content.parse()?
+            let bitfield_storage = Some(content.parse()?);
+
+            // For bitfields, bitfield macro will generate a type with the same name as `name`.
+            (parse_quote!(#name), bitfield_storage)
+        } else {
+            Err(lh.error())?
         };
+
         let array = if input.peek(token::Bracket) {
             let content;
             bracketed!(content in input);
@@ -133,22 +145,28 @@ impl Parse for Reg {
             Err(lh.error())?
         };
 
-        let lh = input.lookahead1();
-        let bitfield_args = if lh.peek(token::Brace) {
-            input.parse()?
+        let bitfield = if let Some(storage) = bitfield_storage {
+            let lh = input.lookahead1();
+            let args = if lh.peek(token::Brace) {
+                input.parse()?
+            } else {
+                Err(lh.error())?
+            };
+            Some((storage, args))
         } else {
-            Err(lh.error())?
+            let _: Token![;] = input.parse()?;
+            None
         };
 
         Ok(Self {
             attrs,
             vis,
             name,
-            storage,
+            ty,
             array,
             relative_base,
             offset,
-            bitfield_args,
+            bitfield,
         })
     }
 }
@@ -188,11 +206,11 @@ pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
             attrs,
             vis,
             name,
-            storage,
+            ty,
             array,
             relative_base,
             offset,
-            bitfield_args,
+            bitfield,
         } = reg;
 
         // Use register name's span for generated code, so error messages (if any) can point to it
@@ -213,21 +231,33 @@ pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
             }
         };
 
-        outputs.extend(quote_spanned!(span =>
-            ::kernel::bitfield!(
-                // `#[allow(non_camel_case_types)]` is added since register names typically use
-                // `SCREAMING_CASE`.
-                #[allow(non_camel_case_types)]
-                #(#attrs)* #vis struct #name(#storage) #bitfield_args
-            );
+        if let Some((storage, args)) = &bitfield {
+            outputs.extend(quote_spanned!(span =>
+                ::kernel::bitfield!(
+                    // `#[allow(non_camel_case_types)]` is added since register names typically use
+                    // `SCREAMING_CASE`.
+                    #[allow(non_camel_case_types)]
+                    #(#attrs)* #vis struct #name(#storage) #args
+                );
 
-            impl ::kernel::io::register::Register for #name {
-                type Base = #base;
-                const OFFSET: usize = #offset;
-            }
-        ));
+                impl ::kernel::io::register::Register for #name {
+                    type Base = #base;
+                    const OFFSET: usize = #offset;
+                }
+            ));
+        }
 
         match array {
+            None if bitfield.is_none() && relative_base.is_none() => outputs.extend(quote!(
+                #(#attrs)* #vis const #name: ::kernel::io::register::OffsetLoc<#base, #ty> =
+                    ::kernel::io::register::OffsetLoc::new(#offset);
+            )),
+
+            _ if bitfield.is_none() => Err(Error::new_spanned(
+                ty,
+                "defining without bitfield is not yet supported for this type of register",
+            ))?,
+
             None => match relative_base {
                 None => outputs.extend(quote_spanned!(span =>
                     impl ::kernel::io::register::FixedRegister for #name {}
@@ -249,12 +279,12 @@ pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
                 let stride = if let Some(stride) = &def.stride {
                     outputs.extend(quote_spanned!(stride.span().resolved_at(span) =>
                         ::kernel::build_assert::static_assert!(
-                            ::core::mem::size_of::<#storage>() <= #stride
+                            ::core::mem::size_of::<#ty>() <= #stride
                         );
                     ));
                     quote!(#stride)
                 } else {
-                    quote_spanned!(span => ::core::mem::size_of::<#storage>())
+                    quote_spanned!(span => ::core::mem::size_of::<#ty>())
                 };
 
                 outputs.extend(quote_spanned!(span =>
