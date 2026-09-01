@@ -1363,7 +1363,7 @@ static struct dentry *gfs2_mkdir(struct mnt_idmap *idmap, struct inode *dir,
  *
  */
 
-static int gfs2_mknod(struct mnt_idmap *idmap, struct inode *dir,
+static int gfs2_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 		      struct dentry *dentry, umode_t mode, dev_t dev)
 {
 	return gfs2_create_inode(dir, dentry, NULL, mode, dev, NULL, 0, 0);

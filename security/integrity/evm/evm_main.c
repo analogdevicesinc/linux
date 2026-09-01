@@ -1140,7 +1140,7 @@ static void evm_file_release(struct file *file)
 		iint->flags &= ~EVM_NEW_FILE;
 }
 
-static void evm_post_path_mknod(struct mnt_idmap *idmap, struct dentry *dentry)
+static void evm_post_path_mknod(const struct mnt_idmap *idmap, struct dentry *dentry)
 {
 	struct inode *inode = d_backing_inode(dentry);
 	struct evm_iint_cache *iint = evm_iint_inode(inode);

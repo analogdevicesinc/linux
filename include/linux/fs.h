@@ -2008,7 +2008,7 @@ struct inode_operations {
 	struct dentry *(*mkdir) (struct mnt_idmap *, struct inode *,
 				 struct dentry *, umode_t);
 	int (*rmdir) (struct inode *,struct dentry *);
-	int (*mknod) (struct mnt_idmap *, struct inode *,struct dentry *,
+	int (*mknod) (const struct mnt_idmap *, struct inode *,struct dentry *,
 		      umode_t,dev_t);
 	int (*rename) (struct mnt_idmap *, struct inode *, struct dentry *,
 			struct inode *, struct dentry *, unsigned int);

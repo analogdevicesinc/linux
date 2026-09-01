@@ -29,7 +29,7 @@
 #include "acl.h"
 
 static int
-v9fs_vfs_mknod_dotl(struct mnt_idmap *idmap, struct inode *dir,
+v9fs_vfs_mknod_dotl(const struct mnt_idmap *idmap, struct inode *dir,
 		    struct dentry *dentry, umode_t omode, dev_t rdev);
 
 /**
@@ -809,7 +809,7 @@ v9fs_vfs_link_dotl(struct dentry *old_dentry, struct inode *dir,
  *
  */
 static int
-v9fs_vfs_mknod_dotl(struct mnt_idmap *idmap, struct inode *dir,
+v9fs_vfs_mknod_dotl(const struct mnt_idmap *idmap, struct inode *dir,
 		    struct dentry *dentry, umode_t omode, dev_t rdev)
 {
 	int err;

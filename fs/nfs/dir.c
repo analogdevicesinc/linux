@@ -2448,7 +2448,7 @@ EXPORT_SYMBOL_GPL(nfs_create);
  * See comments for nfs_proc_create regarding failed operations.
  */
 int
-nfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
+nfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	  struct dentry *dentry, umode_t mode, dev_t rdev)
 {
 	struct iattr attr;

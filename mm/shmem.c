@@ -3818,7 +3818,7 @@ static int shmem_statfs(struct dentry *dentry, struct kstatfs *buf)
  * File creation. Allocate an inode, and we're done..
  */
 static int
-shmem_mknod(struct mnt_idmap *idmap, struct inode *dir,
+shmem_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	    struct dentry *dentry, umode_t mode, dev_t dev)
 {
 	struct inode *inode;
@@ -3970,7 +3970,7 @@ static int shmem_rmdir(struct inode *dir, struct dentry *dentry)
 	return shmem_unlink(dir, dentry);
 }
 
-static int shmem_whiteout(struct mnt_idmap *idmap,
+static int shmem_whiteout(const struct mnt_idmap *idmap,
 			  struct inode *old_dir, struct dentry *old_dentry)
 {
 	struct dentry *whiteout;

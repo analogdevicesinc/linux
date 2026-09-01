@@ -279,7 +279,7 @@ xfs_generic_create(
 
 STATIC int
 xfs_vn_mknod(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	struct inode		*dir,
 	struct dentry		*dentry,
 	umode_t			mode,

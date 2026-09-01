@@ -69,7 +69,7 @@ static int bad_inode_rmdir (struct inode *dir, struct dentry *dentry)
 	return -EIO;
 }
 
-static int bad_inode_mknod(struct mnt_idmap *idmap, struct inode *dir,
+static int bad_inode_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 			   struct dentry *dentry, umode_t mode, dev_t rdev)
 {
 	return -EIO;

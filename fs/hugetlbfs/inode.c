@@ -954,7 +954,7 @@ static struct inode *hugetlbfs_get_inode(struct super_block *sb,
 /*
  * File creation. Allocate an inode, and we're done..
  */
-static int hugetlbfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
+static int hugetlbfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 			   struct dentry *dentry, umode_t mode, dev_t dev)
 {
 	struct inode *inode;

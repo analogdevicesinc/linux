@@ -403,7 +403,7 @@ static int udf_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 	return finish_open_simple(file, 0);
 }
 
-static int udf_mknod(struct mnt_idmap *idmap, struct inode *dir,
+static int udf_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 		     struct dentry *dentry, umode_t mode, dev_t rdev)
 {
 	struct inode *inode;

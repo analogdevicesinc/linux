@@ -719,7 +719,7 @@ static int hostfs_rmdir(struct inode *ino, struct dentry *dentry)
 	return err;
 }
 
-static int hostfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
+static int hostfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 			struct dentry *dentry, umode_t mode, dev_t dev)
 {
 	struct inode *inode;

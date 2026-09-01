@@ -696,7 +696,7 @@ out_free_xid:
 	return rc;
 }
 
-int cifs_mknod(struct mnt_idmap *idmap, struct inode *inode,
+int cifs_mknod(const struct mnt_idmap *idmap, struct inode *inode,
 	       struct dentry *direntry, umode_t mode, dev_t device_number)
 {
 	int rc = -EPERM;

@@ -1425,7 +1425,7 @@ EXPORT_SYMBOL(security_path_mknod);
  *
  * Update inode security field after a regular file has been created.
  */
-void security_path_post_mknod(struct mnt_idmap *idmap, struct dentry *dentry)
+void security_path_post_mknod(const struct mnt_idmap *idmap, struct dentry *dentry)
 {
 	if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
 		return;

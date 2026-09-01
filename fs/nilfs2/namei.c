@@ -113,7 +113,7 @@ static int nilfs_create(struct mnt_idmap *idmap, struct inode *dir,
 }
 
 static int
-nilfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
+nilfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	    struct dentry *dentry, umode_t mode, dev_t rdev)
 {
 	struct inode *inode;

@@ -879,7 +879,7 @@ static void ima_post_create_tmpfile(const struct mnt_idmap *idmap,
  * Mark files created via the mknodat syscall as new, so that the
  * file data can be written later.
  */
-static void ima_post_path_mknod(struct mnt_idmap *idmap, struct dentry *dentry)
+static void ima_post_path_mknod(const struct mnt_idmap *idmap, struct dentry *dentry)
 {
 	struct ima_iint_cache *iint;
 	struct inode *inode = dentry->d_inode;

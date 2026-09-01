@@ -934,7 +934,7 @@ out_err:
 	return err;
 }
 
-static int fuse_mknod(struct mnt_idmap *, struct inode *, struct dentry *,
+static int fuse_mknod(const struct mnt_idmap *, struct inode *, struct dentry *,
 		      umode_t, dev_t);
 static int fuse_atomic_open(struct inode *dir, struct dentry *entry,
 			    struct file *file, unsigned flags,
@@ -1069,7 +1069,7 @@ static int create_new_nondir(const struct mnt_idmap *idmap, struct fuse_mount *f
 	return PTR_ERR(create_new_entry(idmap, fm, args, dir, entry, mode));
 }
 
-static int fuse_mknod(struct mnt_idmap *idmap, struct inode *dir,
+static int fuse_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 		      struct dentry *entry, umode_t mode, dev_t rdev)
 {
 	struct fuse_mknod_in inarg;

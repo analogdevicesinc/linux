@@ -7004,7 +7004,7 @@ out_inode:
 	return ret;
 }
 
-static int btrfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
+static int btrfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, umode_t mode, dev_t rdev)
 {
 	struct inode *inode;

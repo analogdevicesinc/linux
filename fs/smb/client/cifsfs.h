@@ -64,7 +64,7 @@ struct dentry *cifs_lookup(struct inode *parent_dir_inode,
 int cifs_unlink(struct inode *dir, struct dentry *dentry);
 int cifs_hardlink(struct dentry *old_file, struct inode *inode,
 		  struct dentry *direntry);
-int cifs_mknod(struct mnt_idmap *idmap, struct inode *inode,
+int cifs_mknod(const struct mnt_idmap *idmap, struct inode *inode,
 	       struct dentry *direntry, umode_t mode, dev_t device_number);
 struct dentry *cifs_mkdir(struct mnt_idmap *idmap, struct inode *inode,
 			  struct dentry *direntry, umode_t mode);

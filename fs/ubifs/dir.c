@@ -1077,7 +1077,7 @@ out_budg:
 	return ERR_PTR(err);
 }
 
-static int ubifs_mknod(struct mnt_idmap *idmap, struct inode *dir,
+static int ubifs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, umode_t mode, dev_t rdev)
 {
 	struct inode *inode;
