@@ -104,6 +104,7 @@ properties:
       - description: TI AM33 based platform
         items:
           - enum:
+              - beagle,am335x-bone-black-revd
               - compulab,cm-t335
               - moxa,uc-8100-me-t
               - novatech,am335x-lxm
