@@ -272,7 +272,7 @@ void kernfs_evict_inode(struct inode *inode)
 	kernfs_put(kn);
 }
 
-int kernfs_iop_permission(struct mnt_idmap *idmap,
+int kernfs_iop_permission(const struct mnt_idmap *idmap,
 			  struct inode *inode, int mask)
 {
 	struct kernfs_node *kn;

@@ -9375,7 +9375,7 @@ int btrfs_prealloc_file_range_trans(struct inode *inode,
  * we are marking them with IOP_FASTPERM_MAY_EXEC, allowing path lookup to
  * elide calls here.
  */
-static int btrfs_permission(struct mnt_idmap *idmap,
+static int btrfs_permission(const struct mnt_idmap *idmap,
 			    struct inode *inode, int mask)
 {
 	struct btrfs_root *root = BTRFS_I(inode)->root;

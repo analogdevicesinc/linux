@@ -802,7 +802,7 @@ int ovl_set_nlink_lower(struct dentry *dentry);
 unsigned int ovl_get_nlink(struct ovl_fs *ofs, struct dentry *lowerdentry,
 			   struct dentry *upperdentry,
 			   unsigned int fallback);
-int ovl_permission(struct mnt_idmap *idmap, struct inode *inode,
+int ovl_permission(const struct mnt_idmap *idmap, struct inode *inode,
 		   int mask);
 
 #ifdef CONFIG_FS_POSIX_ACL

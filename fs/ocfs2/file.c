@@ -1349,7 +1349,7 @@ bail:
 	return err;
 }
 
-int ocfs2_permission(struct mnt_idmap *idmap, struct inode *inode,
+int ocfs2_permission(const struct mnt_idmap *idmap, struct inode *inode,
 		     int mask)
 {
 	int ret, had_lock;

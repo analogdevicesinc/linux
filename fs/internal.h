@@ -55,7 +55,7 @@ extern int filename_lookup(int dfd, struct filename *name, unsigned flags,
 			   struct path *path, const struct path *root);
 int filename_rmdir(int dfd, struct filename *name);
 int filename_unlinkat(int dfd, struct filename *name);
-int may_linkat(struct mnt_idmap *idmap, const struct path *link);
+int may_linkat(const struct mnt_idmap *idmap, const struct path *link);
 int filename_renameat2(int olddfd, struct filename *oldname, int newdfd,
 		 struct filename *newname, unsigned int flags);
 int filename_mkdirat(int dfd, struct filename *name, umode_t mode);

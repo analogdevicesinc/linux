@@ -115,7 +115,7 @@ static int ksmbd_vfs_path_lookup(struct ksmbd_share_config *share_conf,
 	return 0;
 }
 
-void ksmbd_vfs_query_maximal_access(struct mnt_idmap *idmap,
+void ksmbd_vfs_query_maximal_access(const struct mnt_idmap *idmap,
 				   struct dentry *dentry, __le32 *daccess)
 {
 	*daccess = cpu_to_le32(FILE_READ_ATTRIBUTES | READ_CONTROL);

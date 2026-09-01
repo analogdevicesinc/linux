@@ -371,7 +371,7 @@ struct filename *complete_getname(struct delayed_filename *v)
  * On non-idmapped mounts or if permission checking is to be performed on the
  * raw inode simply pass @nop_mnt_idmap.
  */
-static int check_acl(struct mnt_idmap *idmap,
+static int check_acl(const struct mnt_idmap *idmap,
 		     struct inode *inode, int mask)
 {
 #ifdef CONFIG_FS_POSIX_ACL
@@ -435,7 +435,7 @@ static inline bool no_acl_inode(struct inode *inode)
  * On non-idmapped mounts or if permission checking is to be performed on the
  * raw inode simply pass @nop_mnt_idmap.
  */
-static int acl_permission_check(struct mnt_idmap *idmap,
+static int acl_permission_check(const struct mnt_idmap *idmap,
 				struct inode *inode, int mask)
 {
 	unsigned int mode = inode->i_mode;
@@ -518,7 +518,7 @@ static int acl_permission_check(struct mnt_idmap *idmap,
  * On non-idmapped mounts or if permission checking is to be performed on the
  * raw inode simply pass @nop_mnt_idmap.
  */
-int generic_permission(struct mnt_idmap *idmap, struct inode *inode,
+int generic_permission(const struct mnt_idmap *idmap, struct inode *inode,
 		       int mask)
 {
 	int ret;
@@ -575,7 +575,7 @@ EXPORT_SYMBOL(generic_permission);
  * flag in inode->i_opflags, that says "this has not special
  * permission function, use the fast case".
  */
-static inline int do_inode_permission(struct mnt_idmap *idmap,
+static inline int do_inode_permission(const struct mnt_idmap *idmap,
 				      struct inode *inode, int mask)
 {
 	if (unlikely(!(inode->i_opflags & IOP_FASTPERM))) {
@@ -625,7 +625,7 @@ static int sb_permission(struct super_block *sb, struct inode *inode, int mask)
  *
  * When checking for MAY_APPEND, MAY_WRITE must also be set in @mask.
  */
-int inode_permission(struct mnt_idmap *idmap,
+int inode_permission(const struct mnt_idmap *idmap,
 		     struct inode *inode, int mask)
 {
 	int retval;
@@ -680,7 +680,7 @@ EXPORT_SYMBOL(inode_permission);
  * on IOP_FASTPERM can still get the optimization if they set IOP_FASTPERM_MAY_EXEC
  * on their directory inodes.
  */
-static __always_inline int lookup_inode_permission_may_exec(struct mnt_idmap *idmap,
+static __always_inline int lookup_inode_permission_may_exec(const struct mnt_idmap *idmap,
 	struct inode *inode, int mask)
 {
 	/* Lookup already checked this to return -ENOTDIR */
@@ -1314,7 +1314,7 @@ static inline int may_follow_link(struct nameidata *nd, const struct inode *inod
  *
  * Otherwise returns true.
  */
-static bool safe_hardlink_source(struct mnt_idmap *idmap,
+static bool safe_hardlink_source(const struct mnt_idmap *idmap,
 				 struct inode *inode)
 {
 	umode_t mode = inode->i_mode;
@@ -1357,7 +1357,7 @@ static bool safe_hardlink_source(struct mnt_idmap *idmap,
  *
  * Returns 0 if successful, -ve on error.
  */
-int may_linkat(struct mnt_idmap *idmap, const struct path *link)
+int may_linkat(const struct mnt_idmap *idmap, const struct path *link)
 {
 	struct inode *inode = link->dentry->d_inode;
 
@@ -1952,7 +1952,7 @@ static struct dentry *lookup_slow_killable(const struct qstr *name,
 	return res;
 }
 
-static inline int may_lookup(struct mnt_idmap *idmap,
+static inline int may_lookup(const struct mnt_idmap *idmap,
 			     struct nameidata *restrict nd)
 {
 	int err, mask;
@@ -4228,7 +4228,7 @@ bool may_open_dev(const struct path *path)
 		!(path->mnt->mnt_sb->s_iflags & SB_I_NODEV);
 }
 
-static int may_open(struct mnt_idmap *idmap, const struct path *path,
+static int may_open(const struct mnt_idmap *idmap, const struct path *path,
 		    int acc_mode, int flag)
 {
 	struct dentry *dentry = path->dentry;
@@ -4312,7 +4312,7 @@ static inline int open_to_namei_flags(int flag)
 	return flag;
 }
 
-static int may_o_create(struct mnt_idmap *idmap,
+static int may_o_create(const struct mnt_idmap *idmap,
 			const struct path *dir, struct dentry *dentry,
 			umode_t mode)
 {

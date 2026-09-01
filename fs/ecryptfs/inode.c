@@ -849,7 +849,7 @@ int ecryptfs_truncate(struct dentry *dentry, loff_t new_length)
 }
 
 static int
-ecryptfs_permission(struct mnt_idmap *idmap, struct inode *inode,
+ecryptfs_permission(const struct mnt_idmap *idmap, struct inode *inode,
 		    int mask)
 {
 	return inode_permission(&nop_mnt_idmap,

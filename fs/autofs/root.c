@@ -11,7 +11,7 @@
 
 #include "autofs_i.h"
 
-static int autofs_dir_permission(struct mnt_idmap *, struct inode *, int);
+static int autofs_dir_permission(const struct mnt_idmap *, struct inode *, int);
 static int autofs_dir_symlink(struct mnt_idmap *, struct inode *,
 			      struct dentry *, const char *);
 static int autofs_dir_unlink(struct inode *, struct dentry *);
@@ -552,7 +552,7 @@ static struct dentry *autofs_lookup(struct inode *dir,
 	return NULL;
 }
 
-static int autofs_dir_permission(struct mnt_idmap *idmap,
+static int autofs_dir_permission(const struct mnt_idmap *idmap,
 				 struct inode *inode, int mask)
 {
 	if (mask & MAY_WRITE) {

@@ -3098,7 +3098,7 @@ out:
  * Check inode permissions.  We verify we have a valid value for
  * the AUTH cap, then call the generic handler.
  */
-int ceph_permission(struct mnt_idmap *idmap, struct inode *inode,
+int ceph_permission(const struct mnt_idmap *idmap, struct inode *inode,
 		    int mask)
 {
 	int err;

@@ -1726,7 +1726,7 @@ static noinline int btrfs_search_path_in_tree(struct btrfs_root *root, u64 dirid
 	return 0;
 }
 
-static int btrfs_search_path_in_tree_user(struct mnt_idmap *idmap,
+static int btrfs_search_path_in_tree_user(const struct mnt_idmap *idmap,
 				struct inode *inode,
 				struct btrfs_ioctl_ino_lookup_user_args *args)
 {

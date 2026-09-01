@@ -774,7 +774,7 @@ static int hostfs_rename2(struct mnt_idmap *idmap,
 	return err;
 }
 
-static int hostfs_permission(struct mnt_idmap *idmap,
+static int hostfs_permission(const struct mnt_idmap *idmap,
 			     struct inode *ino, int desired)
 {
 	char *name;

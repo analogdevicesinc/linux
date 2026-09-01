@@ -1763,7 +1763,7 @@ static int fuse_perm_getattr(struct inode *inode, int mask)
  * access request is sent.  Execute permission is still checked
  * locally based on file mode.
  */
-static int fuse_permission(struct mnt_idmap *idmap,
+static int fuse_permission(const struct mnt_idmap *idmap,
 			   struct inode *inode, int mask)
 {
 	struct fuse_conn *fc = get_fuse_conn(inode);

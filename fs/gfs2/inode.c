@@ -1963,7 +1963,7 @@ out:
  * Returns: errno
  */
 
-int gfs2_permission(struct mnt_idmap *idmap, struct inode *inode,
+int gfs2_permission(const struct mnt_idmap *idmap, struct inode *inode,
 		    int mask)
 {
 	int may_not_block = mask & MAY_NOT_BLOCK;

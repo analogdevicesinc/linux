@@ -303,7 +303,7 @@ int ovl_getattr(struct mnt_idmap *idmap, const struct path *path,
 	return err;
 }
 
-int ovl_permission(struct mnt_idmap *idmap,
+int ovl_permission(const struct mnt_idmap *idmap,
 		   struct inode *inode, int mask)
 {
 	struct inode *upperinode = ovl_inode_upper(inode);

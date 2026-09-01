@@ -97,7 +97,7 @@ int gfs2_dinode_dealloc(struct gfs2_inode *ip);
 
 struct inode *gfs2_lookupi(struct inode *dir, const struct qstr *name,
 			   int is_root);
-int gfs2_permission(struct mnt_idmap *idmap,
+int gfs2_permission(const struct mnt_idmap *idmap,
 		    struct inode *inode, int mask);
 struct inode *gfs2_lookup_meta(struct inode *dip, const char *name);
 void gfs2_dinode_out(const struct gfs2_inode *ip, void *buf);

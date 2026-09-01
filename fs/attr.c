@@ -369,7 +369,7 @@ void setattr_copy(const struct mnt_idmap *idmap, struct inode *inode,
 }
 EXPORT_SYMBOL(setattr_copy);
 
-int may_setattr(struct mnt_idmap *idmap, struct inode *inode,
+int may_setattr(const struct mnt_idmap *idmap, struct inode *inode,
 		unsigned int ia_valid)
 {
 	int error;

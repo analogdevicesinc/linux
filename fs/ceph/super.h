@@ -1166,7 +1166,7 @@ static inline int ceph_do_getattr(struct inode *inode, int mask, bool force)
 {
 	return __ceph_do_getattr(inode, NULL, mask, force);
 }
-extern int ceph_permission(struct mnt_idmap *idmap,
+extern int ceph_permission(const struct mnt_idmap *idmap,
 			   struct inode *inode, int mask);
 
 struct ceph_iattr {

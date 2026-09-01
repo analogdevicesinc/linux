@@ -189,7 +189,7 @@ static void set_tracefs_inode_owner(struct inode *inode)
 		inode->i_gid = gid;
 }
 
-static int tracefs_permission(struct mnt_idmap *idmap,
+static int tracefs_permission(const struct mnt_idmap *idmap,
 			      struct inode *inode, int mask)
 {
 	set_tracefs_inode_owner(inode);

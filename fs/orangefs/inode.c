@@ -872,7 +872,7 @@ int orangefs_getattr(struct mnt_idmap *idmap, const struct path *path,
 	return ret;
 }
 
-int orangefs_permission(struct mnt_idmap *idmap,
+int orangefs_permission(const struct mnt_idmap *idmap,
 			struct inode *inode, int mask)
 {
 	int ret;

@@ -22,7 +22,7 @@ bool failfs_mnt(const struct vfsmount *mnt)
 	return mnt->mnt_sb == failfs_root_path.mnt->mnt_sb;
 }
 
-static int failfs_permission(struct mnt_idmap *idmap, struct inode *inode,
+static int failfs_permission(const struct mnt_idmap *idmap, struct inode *inode,
 			     int mask)
 {
 	return -EOPNOTSUPP;
