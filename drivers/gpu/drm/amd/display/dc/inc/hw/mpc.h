@@ -281,6 +281,7 @@ struct mpc_tree {
 struct mpc {
 	const struct mpc_funcs *funcs;
 	struct dc_context *ctx;
+	int inst;
 
 	struct mpcc mpcc_array[MAX_MPCC];
 	struct pwl_params blender_params;

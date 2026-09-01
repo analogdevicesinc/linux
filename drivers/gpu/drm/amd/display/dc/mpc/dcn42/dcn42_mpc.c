@@ -121,6 +121,7 @@ void dcn42_mpc_construct(struct dcn42_mpc *mpc42,
 	int i;
 
 	mpc42->base.ctx = ctx;
+	mpc42->base.inst = 0;
 
 	mpc42->base.funcs = &dcn42_mpc_funcs;
 

@@ -273,6 +273,7 @@ void dcn60_mpc_construct(struct dcn60_mpc *mpc60,
 	int i;
 
 	mpc60->base.ctx = ctx;
+	mpc60->base.inst = 0;
 
 	mpc60->base.funcs = &dcn60_mpc_funcs;
 

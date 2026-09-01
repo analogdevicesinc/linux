@@ -680,6 +680,7 @@ void dcn401_mpc_construct(struct dcn401_mpc *mpc401,
 	int i;
 
 	mpc401->base.ctx = ctx;
+	mpc401->base.inst = 0;
 
 	mpc401->base.funcs = &dcn401_mpc_funcs;
 
