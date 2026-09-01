@@ -914,7 +914,7 @@ extern const struct file_operations ovl_file_operations;
 int ovl_real_fileattr_get(const struct path *realpath, struct file_kattr *fa);
 int ovl_real_fileattr_set(const struct path *realpath, struct file_kattr *fa);
 int ovl_fileattr_get(struct dentry *dentry, struct file_kattr *fa);
-int ovl_fileattr_set(struct mnt_idmap *idmap,
+int ovl_fileattr_set(const struct mnt_idmap *idmap,
 		     struct dentry *dentry, struct file_kattr *fa);
 struct ovl_file;
 struct ovl_file *ovl_file_alloc(struct file *realfile);

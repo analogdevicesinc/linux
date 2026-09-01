@@ -278,7 +278,7 @@ int btrfs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 	return 0;
 }
 
-int btrfs_fileattr_set(struct mnt_idmap *idmap,
+int btrfs_fileattr_set(const struct mnt_idmap *idmap,
 		       struct dentry *dentry, struct file_kattr *fa)
 {
 	struct btrfs_inode *inode = BTRFS_I(d_inode(dentry));

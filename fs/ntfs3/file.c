@@ -129,7 +129,7 @@ int ntfs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 /*
  * ntfs_fileattr_set - inode_operations::fileattr_set
  */
-int ntfs_fileattr_set(struct mnt_idmap *idmap, struct dentry *dentry,
+int ntfs_fileattr_set(const struct mnt_idmap *idmap, struct dentry *dentry,
 		      struct file_kattr *fa)
 {
 	struct inode *inode = d_inode(dentry);

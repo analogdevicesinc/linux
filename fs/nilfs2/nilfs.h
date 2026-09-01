@@ -270,7 +270,7 @@ extern int nilfs_sync_file(struct file *, loff_t, loff_t, int);
 
 /* ioctl.c */
 int nilfs_fileattr_get(struct dentry *dentry, struct file_kattr *m);
-int nilfs_fileattr_set(struct mnt_idmap *idmap,
+int nilfs_fileattr_set(const struct mnt_idmap *idmap,
 		       struct dentry *dentry, struct file_kattr *fa);
 long nilfs_ioctl(struct file *, unsigned int, unsigned long);
 long nilfs_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg);

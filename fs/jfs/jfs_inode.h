@@ -10,7 +10,7 @@ struct fid;
 extern struct inode *ialloc(struct inode *, umode_t);
 extern int jfs_fsync(struct file *, loff_t, loff_t, int);
 extern int jfs_fileattr_get(struct dentry *dentry, struct file_kattr *fa);
-extern int jfs_fileattr_set(struct mnt_idmap *idmap,
+extern int jfs_fileattr_set(const struct mnt_idmap *idmap,
 			    struct dentry *dentry, struct file_kattr *fa);
 extern long jfs_ioctl(struct file *, unsigned int, unsigned long);
 extern struct inode *jfs_iget(struct super_block *, unsigned long);

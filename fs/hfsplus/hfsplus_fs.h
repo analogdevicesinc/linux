@@ -465,7 +465,7 @@ int hfsplus_getattr(struct mnt_idmap *idmap, const struct path *path,
 int hfsplus_file_fsync(struct file *file, loff_t start, loff_t end,
 		       int datasync);
 int hfsplus_fileattr_get(struct dentry *dentry, struct file_kattr *fa);
-int hfsplus_fileattr_set(struct mnt_idmap *idmap,
+int hfsplus_fileattr_set(const struct mnt_idmap *idmap,
 			 struct dentry *dentry, struct file_kattr *fa);
 
 /* ioctl.c */

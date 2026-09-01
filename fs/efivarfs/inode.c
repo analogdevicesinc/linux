@@ -150,7 +150,7 @@ efivarfs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 }
 
 static int
-efivarfs_fileattr_set(struct mnt_idmap *idmap,
+efivarfs_fileattr_set(const struct mnt_idmap *idmap,
 		      struct dentry *dentry, struct file_kattr *fa)
 {
 	unsigned int i_flags = 0;

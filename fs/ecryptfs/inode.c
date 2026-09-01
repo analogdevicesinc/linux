@@ -1078,7 +1078,7 @@ static int ecryptfs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 	return vfs_fileattr_get(ecryptfs_dentry_to_lower(dentry), fa);
 }
 
-static int ecryptfs_fileattr_set(struct mnt_idmap *idmap,
+static int ecryptfs_fileattr_set(const struct mnt_idmap *idmap,
 				 struct dentry *dentry, struct file_kattr *fa)
 {
 	struct dentry *lower_dentry = ecryptfs_dentry_to_lower(dentry);
