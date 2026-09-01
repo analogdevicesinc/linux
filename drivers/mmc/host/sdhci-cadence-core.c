@@ -7,6 +7,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
+#include <linux/dma-mapping.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/mmc/host.h>
@@ -90,6 +91,7 @@ struct sdhci_cdns4_phy_cfg {
 struct sdhci_cdns_drv_data {
 	int (*init)(struct platform_device *pdev);
 	const struct sdhci_pltfm_data pltfm_data;
+	u64 dma_mask;
 };
 
 static const struct sdhci_cdns4_phy_cfg sdhci_cdns4_phy_cfgs[] = {
@@ -194,6 +196,23 @@ static unsigned int sdhci_cdns_get_timeout_clock(struct sdhci_host *host)
 	 * Base Clock Frequency.
 	 */
 	return host->max_clk;
+}
+
+static int sdhci_cdns_set_dma_mask(struct sdhci_host *host)
+{
+	const struct sdhci_cdns_drv_data *data;
+	struct device *dev = mmc_dev(host->mmc);
+	int ret;
+
+	data = of_device_get_match_data(dev);
+	if (!data || !data->dma_mask)
+		return 0;
+
+	ret = dma_set_mask_and_coherent(dev, data->dma_mask);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to set DMA mask\n");
+
+	return 0;
 }
 
 static void sdhci_cdns_set_emmc_mode(struct sdhci_cdns_priv *priv, u32 mode)
@@ -462,6 +481,48 @@ static int elba_drv_init(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct reset_control_bulk_data sdhci_cdns6_agilex5_reset_ids[] = {
+	{ .id = "sdhc-reset" },
+	{ .id = "combophy" },
+	{ .id = "sdmmc-ocp" },
+};
+
+static int sdhci_cdns6_agilex5_init(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct reset_control_bulk_data *resets;
+	int ret;
+
+	resets = devm_kmemdup(dev, sdhci_cdns6_agilex5_reset_ids,
+			      sizeof(sdhci_cdns6_agilex5_reset_ids), GFP_KERNEL);
+	if (!resets)
+		return -ENOMEM;
+
+	/*
+	 * Assert SDHCI, SoftPHY (combophy), and SDMMC OCP/AXI resets together
+	 * so their active periods overlap before all domains are released.
+	 * SoftPHY is shared with NAND, but only one of SDMMC
+	 * or NAND is enabled on a given board.
+	 */
+	ret = devm_reset_control_bulk_get_exclusive(dev, ARRAY_SIZE(sdhci_cdns6_agilex5_reset_ids),
+						    resets);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to get resets\n");
+
+	ret = reset_control_bulk_assert(ARRAY_SIZE(sdhci_cdns6_agilex5_reset_ids), resets);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to assert resets\n");
+
+	/* Hold resets asserted long enough for all clock domains to capture. */
+	usleep_range(10, 20);
+
+	ret = reset_control_bulk_deassert(ARRAY_SIZE(sdhci_cdns6_agilex5_reset_ids), resets);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to deassert resets\n");
+
+	return 0;
+}
+
 static const struct sdhci_ops sdhci_cdns4_ops = {
 	.set_clock = sdhci_set_clock,
 	.get_timeout_clock = sdhci_cdns_get_timeout_clock,
@@ -479,6 +540,18 @@ static const struct sdhci_ops sdhci_cdns6_ops = {
 	.platform_execute_tuning = sdhci_cdns_execute_tuning,
 	.set_uhs_signaling = sdhci_cdns_set_uhs_signaling,
 	.hw_reset = sdhci_cdns6_hw_reset,
+};
+
+static const struct sdhci_ops sdhci_cdns6_agilex5_ops = {
+	.set_clock = sdhci_cdns6_set_clock,
+	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
+	.get_timeout_clock = sdhci_cdns_get_timeout_clock,
+	.set_bus_width = sdhci_set_bus_width,
+	.reset = sdhci_reset,
+	.platform_execute_tuning = sdhci_cdns_execute_tuning,
+	.set_uhs_signaling = sdhci_cdns_set_uhs_signaling,
+	.hw_reset = sdhci_cdns6_hw_reset,
+	.set_dma_mask = sdhci_cdns_set_dma_mask,
 };
 
 static const struct sdhci_cdns_drv_data sdhci_cdns_uniphier_drv_data = {
@@ -506,6 +579,18 @@ static const struct sdhci_cdns_drv_data sdhci_cdns4_drv_data = {
 	.pltfm_data = {
 		.ops = &sdhci_cdns4_ops,
 	},
+};
+
+static const struct sdhci_cdns_drv_data sdhci_cdns6_agilex5_drv_data = {
+	.init = sdhci_cdns6_agilex5_init,
+	.pltfm_data = {
+		.ops = &sdhci_cdns6_agilex5_ops,
+		.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
+			  SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12,
+		.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+			   SDHCI_QUIRK2_ACMD23_BROKEN,
+	},
+	.dma_mask = DMA_BIT_MASK(40),
 };
 
 static const struct sdhci_cdns_drv_data sdhci_cdns6_drv_data = {
@@ -715,6 +800,10 @@ static const struct of_device_id sdhci_cdns_match[] = {
 	{
 		.compatible = "cdns,sd4hc",
 		.data = &sdhci_cdns4_drv_data,
+	},
+	{
+		.compatible = "altr,agilex5-sd6hc",
+		.data = &sdhci_cdns6_agilex5_drv_data,
 	},
 	{
 		.compatible = "cdns,sd6hc",
