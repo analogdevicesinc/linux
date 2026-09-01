@@ -177,16 +177,14 @@ static int atmel_ecdh_compute_shared_secret(struct kpp_request *req)
 	work_data->client = ctx->client;
 
 	ret = atmel_i2c_init_ecdh_cmd(&work_data->cmd, req->src);
-	if (ret)
-		goto free_work_data;
+	if (ret) {
+		kfree(work_data);
+		return ret;
+	}
 
 	atmel_i2c_enqueue(work_data, atmel_ecdh_done, req);
 
 	return -EINPROGRESS;
-
-free_work_data:
-	kfree(work_data);
-	return ret;
 }
 
 static struct i2c_client *atmel_ecc_i2c_client_alloc(void)
