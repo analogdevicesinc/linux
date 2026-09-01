@@ -284,7 +284,8 @@ static void pxav3_set_uhs_signaling(struct sdhci_host *host, unsigned int uhs)
 		    uhs == MMC_TIMING_UHS_DDR50) {
 			reg_val &= ~SDIO3_CONF_CLK_INV;
 			reg_val |= SDIO3_CONF_SD_FB_CLK;
-		} else if (uhs == MMC_TIMING_MMC_HS) {
+		} else if (uhs == MMC_TIMING_MMC_HS ||
+			   uhs == MMC_TIMING_SD_HS) {
 			reg_val &= ~SDIO3_CONF_CLK_INV;
 			reg_val &= ~SDIO3_CONF_SD_FB_CLK;
 		} else {
