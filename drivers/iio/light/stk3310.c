@@ -766,10 +766,10 @@ static DEFINE_SIMPLE_DEV_PM_OPS(stk3310_pm_ops, stk3310_suspend,
 				stk3310_resume);
 
 static const struct i2c_device_id stk3310_i2c_id[] = {
-	{ .name = "STK3013" },
-	{ .name = "STK3310" },
-	{ .name = "STK3311" },
-	{ .name = "STK3335" },
+	{ .name = "stk3013" },
+	{ .name = "stk3310" },
+	{ .name = "stk3311" },
+	{ .name = "stk3335" },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, stk3310_i2c_id);
