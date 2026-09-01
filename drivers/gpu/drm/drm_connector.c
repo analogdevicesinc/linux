@@ -602,6 +602,13 @@ int drmm_connector_hdmi_init(struct drm_device *dev,
 	    !hdmi_funcs->hdmi.write_infoframe)
 		return -EINVAL;
 
+	if (hdmi_funcs->supported_hdmi_ver >= HDMI_VERSION_2_0 &&
+	    (!hdmi_funcs->scrambler_enable ||
+	     !hdmi_funcs->scrambler_disable)) {
+		drm_err(dev, "Scrambler callbacks missing for HDMI 2.x\n");
+		return -EINVAL;
+	}
+
 	if (!(connector_type == DRM_MODE_CONNECTOR_HDMIA ||
 	      connector_type == DRM_MODE_CONNECTOR_HDMIB))
 		return -EINVAL;
@@ -918,6 +925,9 @@ void drm_connector_cleanup(struct drm_connector *connector)
 	if (WARN_ON(connector->registration_state ==
 		    DRM_CONNECTOR_REGISTERED))
 		drm_connector_unregister(connector);
+
+	if (connector->hdmi.scdc_work_initialized)
+		cancel_delayed_work_sync(&connector->hdmi.scdc_work);
 
 	platform_device_unregister(connector->hdmi_audio.codec_pdev);
 
