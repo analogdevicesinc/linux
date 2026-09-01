@@ -19,6 +19,7 @@ use syn::{
     spanned::Spanned,
     token,
     Attribute,
+    Error,
     Expr,
     Ident,
     Path,
@@ -153,21 +154,23 @@ impl Parse for Reg {
 }
 
 pub(crate) struct RegDef {
-    base: Option<Type>,
+    base: Type,
     regs: Vec<Reg>,
 }
 
 impl Parse for RegDef {
     fn parse(input: syn::parse::ParseStream<'_>) -> Result<Self> {
-        let base = if input.peek(kw::base) {
-            let _: kw::base = input.parse()?;
-            let _: Token![:] = input.parse()?;
-            let base = input.parse()?;
-            let _: Token![;] = input.parse()?;
-            Some(base)
-        } else {
-            None
-        };
+        let _: kw::base = input.parse().map_err(|e| {
+            Error::new(
+                e.span(),
+                "a base type needs to be specified for `register!` invocation with `base: ty;`",
+            )
+        })?;
+
+        let _: Token![:] = input.parse()?;
+        let base = input.parse()?;
+        let _: Token![;] = input.parse()?;
+
         let mut regs = Vec::new();
         while !input.is_empty() {
             regs.push(input.parse()?);
@@ -179,15 +182,7 @@ impl Parse for RegDef {
 pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
     let mut outputs = TokenStream::new();
 
-    if let Some(base) = &def.base {
-        outputs.extend(quote_spanned!(base.span() =>
-            const _: () = {
-                #[allow(unused)]
-                type Base = #base;
-            };
-        ));
-    }
-
+    let base = &def.base;
     for reg in def.regs {
         let Reg {
             attrs,
@@ -208,18 +203,12 @@ pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
             RegOffset::Fixed { offset } => quote!(#offset),
             RegOffset::Alias { alias } => {
                 quote_spanned!(alias.span().resolved_at(span) =>
-                    <#alias as ::kernel::io::register::Register>::OFFSET
+                    ::kernel::io::register::alias_offset::<#base, #alias>()
                 )
             }
             RegOffset::ElementAlias { alias, idx } => {
-                outputs.extend(quote_spanned!(idx.span().resolved_at(span) =>
-                    ::kernel::build_assert::static_assert!(
-                        (#idx) < <#alias as ::kernel::io::register::RegisterArray>::SIZE
-                    );
-                ));
                 quote_spanned!(alias.span().resolved_at(span) =>
-                    <#alias as ::kernel::io::register::Register>::OFFSET
-                        + (#idx) * <#alias as ::kernel::io::register::RegisterArray>::STRIDE
+                    ::kernel::io::register::element_alias_offset::<#base, #alias>(#idx)
                 )
             }
         };
@@ -233,6 +222,7 @@ pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
             );
 
             impl ::kernel::io::register::Register for #name {
+                type Base = #base;
                 const OFFSET: usize = #offset;
             }
         ));

@@ -121,10 +121,11 @@ use crate::{
     io::IoLoc, //
 };
 
-use super::Region;
-
 /// Trait implemented by all registers.
 pub trait Register: Sized {
+    /// Base type for this register.
+    type Base: ?Sized;
+
     /// Start offset of the register.
     ///
     /// The interpretation of this offset depends on the type of the register.
@@ -136,9 +137,9 @@ pub trait FixedRegister: Register {}
 
 /// Allows `()` to be used as the `location` parameter of [`Io::write`](super::Io::write) when
 /// passing a [`FixedRegister`] value.
-impl<const SIZE: usize, T> IoLoc<Region<SIZE>, T> for ()
+impl<Base: ?Sized, T> IoLoc<Base, T> for ()
 where
-    T: FixedRegister,
+    T: FixedRegister<Base = Base>,
 {
     #[inline(always)]
     fn offset(self) -> usize {
@@ -148,9 +149,9 @@ where
 
 /// A [`FixedRegister`] carries its location in its type. Thus `FixedRegister` values can be used
 /// as an [`IoLoc`].
-impl<const SIZE: usize, T> IoLoc<Region<SIZE>, T> for T
+impl<Base: ?Sized, T> IoLoc<Base, T> for T
 where
-    T: FixedRegister,
+    T: FixedRegister<Base = Base>,
 {
     #[inline(always)]
     fn offset(self) -> usize {
@@ -171,9 +172,9 @@ impl<T: FixedRegister> FixedRegisterLoc<T> {
     }
 }
 
-impl<const SIZE: usize, T> IoLoc<Region<SIZE>, T> for FixedRegisterLoc<T>
+impl<Base: ?Sized, T> IoLoc<Base, T> for FixedRegisterLoc<T>
 where
-    T: FixedRegister,
+    T: FixedRegister<Base = Base>,
 {
     #[inline(always)]
     fn offset(self) -> usize {
@@ -240,9 +241,9 @@ where
     }
 }
 
-impl<const SIZE: usize, T, B> IoLoc<Region<SIZE>, T> for RelativeRegisterLoc<T, B>
+impl<SuperBase: ?Sized, T, B> IoLoc<SuperBase, T> for RelativeRegisterLoc<T, B>
 where
-    T: RelativeRegister,
+    T: RelativeRegister<Base = SuperBase>,
     B: RegisterBase<T::BaseFamily> + ?Sized,
 {
     #[inline(always)]
@@ -282,9 +283,9 @@ impl<T: RegisterArray> RegisterArrayLoc<T> {
     }
 }
 
-impl<const SIZE: usize, T> IoLoc<Region<SIZE>, T> for RegisterArrayLoc<T>
+impl<Base: ?Sized, T> IoLoc<Base, T> for RegisterArrayLoc<T>
 where
-    T: RegisterArray,
+    T: RegisterArray<Base = Base>,
 {
     #[inline(always)]
     fn offset(self) -> usize {
@@ -367,9 +368,9 @@ where
     }
 }
 
-impl<const SIZE: usize, T, B> IoLoc<Region<SIZE>, T> for RelativeRegisterArrayLoc<T, B>
+impl<SuperBase: ?Sized, T, B> IoLoc<SuperBase, T> for RelativeRegisterArrayLoc<T, B>
 where
-    T: RelativeRegisterArray,
+    T: RelativeRegisterArray<Base = SuperBase>,
     B: RegisterBase<T::BaseFamily> + ?Sized,
 {
     #[inline(always)]
@@ -393,9 +394,9 @@ pub trait LocatedRegister<Base: ?Sized> {
     fn into_io_op(self) -> (Self::Location, Self::Value);
 }
 
-impl<const SIZE: usize, T> LocatedRegister<Region<SIZE>> for T
+impl<Base: ?Sized, T> LocatedRegister<Base> for T
 where
-    T: FixedRegister,
+    T: FixedRegister<Base = Base>,
 {
     type Location = FixedRegisterLoc<Self::Value>;
     type Value = T;
@@ -404,6 +405,27 @@ where
     fn into_io_op(self) -> (FixedRegisterLoc<T>, T) {
         (FixedRegisterLoc::new(), self)
     }
+}
+
+/// Helper function for register alias implementation.
+///
+/// This is used to enforce base matching.
+#[doc(hidden)]
+#[inline(always)] // for const eval only
+pub const fn alias_offset<Base: ?Sized, Alias: Register<Base = Base>>() -> usize {
+    Alias::OFFSET
+}
+
+/// Helper function for register element alias implementation.
+///
+/// This is used to enforce base matching and provide bounds checking.
+#[doc(hidden)]
+#[inline(always)] // for const eval only
+pub const fn element_alias_offset<Base: ?Sized, Alias: RegisterArray<Base = Base>>(
+    idx: usize,
+) -> usize {
+    assert!(idx < Alias::SIZE);
+    Alias::OFFSET + idx * Alias::STRIDE
 }
 
 /// Defines a dedicated type for a register, including getter and setter methods for its fields and

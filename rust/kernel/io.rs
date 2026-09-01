@@ -1685,21 +1685,34 @@ where
 /// The syntax is of form `io_project!(io, proj)` where `io` is an expression to a type that
 /// implements [`Io`] and `proj` is a [projection specification](kernel::ptr::project!).
 ///
+/// `io_project!` can also project to a subview of registers defined with [`register!`] macro.
+/// Register projection has syntax `io_project!(io, try: REGISTER)` for fallible projection and
+/// `io_project!(io, build: REGISTER)` for infallible projection.
+///
 /// # Examples
 ///
 /// ```
 /// use kernel::io::{
 ///     io_project,
+///     register,
 ///     Mmio,
 /// };
 /// #[repr(C)]
 /// struct MyStruct { field: u32, }
+///
+/// register! {
+///     base: MyStruct;
+///     FIELD(u32) @ 0 {
+///         31:0 val;
+///     }
+/// }
 ///
 /// # fn test(mmio: Mmio<'_, [MyStruct]>) -> Result {
 /// // let mmio: Mmio<[MyStruct]>;
 /// let field: Mmio<'_, u32> = io_project!(mmio, [try: 1].field);
 /// let whole: Mmio<'_, MyStruct> = io_project!(mmio, [try: 2]);
 /// let nested: Mmio<'_, u32> = io_project!(whole, .field);
+/// let reg: Mmio<'_, FIELD> = io_project!(whole, build: FIELD);
 /// # Ok::<(), Error>(()) }
 /// ```
 #[macro_export]
