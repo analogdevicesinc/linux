@@ -1456,7 +1456,7 @@ static inline vfsuid_t i_uid_into_vfsuid(const struct mnt_idmap *idmap,
  *
  * Return: true if @inode's i_uid field needs to be updated, false if not.
  */
-static inline bool i_uid_needs_update(struct mnt_idmap *idmap,
+static inline bool i_uid_needs_update(const struct mnt_idmap *idmap,
 				      const struct iattr *attr,
 				      const struct inode *inode)
 {
@@ -1474,7 +1474,7 @@ static inline bool i_uid_needs_update(struct mnt_idmap *idmap,
  * Safely update @inode's i_uid field translating the vfsuid of any idmapped
  * mount into the filesystem kuid.
  */
-static inline void i_uid_update(struct mnt_idmap *idmap,
+static inline void i_uid_update(const struct mnt_idmap *idmap,
 				const struct iattr *attr,
 				struct inode *inode)
 {
@@ -1508,7 +1508,7 @@ static inline vfsgid_t i_gid_into_vfsgid(const struct mnt_idmap *idmap,
  *
  * Return: true if @inode's i_gid field needs to be updated, false if not.
  */
-static inline bool i_gid_needs_update(struct mnt_idmap *idmap,
+static inline bool i_gid_needs_update(const struct mnt_idmap *idmap,
 				      const struct iattr *attr,
 				      const struct inode *inode)
 {
@@ -1526,7 +1526,7 @@ static inline bool i_gid_needs_update(struct mnt_idmap *idmap,
  * Safely update @inode's i_gid field translating the vfsgid of any idmapped
  * mount into the filesystem kgid.
  */
-static inline void i_gid_update(struct mnt_idmap *idmap,
+static inline void i_gid_update(const struct mnt_idmap *idmap,
 				const struct iattr *attr,
 				struct inode *inode)
 {

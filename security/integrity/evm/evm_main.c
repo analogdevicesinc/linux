@@ -933,7 +933,7 @@ static inline void evm_inode_post_remove_acl(struct mnt_idmap *idmap,
 	evm_inode_post_removexattr(dentry, acl_name);
 }
 
-static int evm_attr_change(struct mnt_idmap *idmap,
+static int evm_attr_change(const struct mnt_idmap *idmap,
 			   struct dentry *dentry, struct iattr *attr)
 {
 	struct inode *inode = d_backing_inode(dentry);
