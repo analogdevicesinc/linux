@@ -259,7 +259,6 @@ struct power_supply_config {
 struct power_supply_desc {
 	const char *name;
 	enum power_supply_type type;
-	u8 charge_behaviours;
 	u32 charge_types;
 	u32 usb_types;
 	const enum power_supply_property *properties;
@@ -295,14 +294,17 @@ struct power_supply_desc {
 	 */
 	int (*init)(struct power_supply *psy);
 
+	/* For APM emulation, think legacy userspace. */
+	int use_for_apm;
+
 	/*
 	 * Set if thermal zone should not be created for this power supply.
 	 * For example for virtual supplies forwarding calls to actual
 	 * sensors or other supplies.
 	 */
 	bool no_thermal;
-	/* For APM emulation, think legacy userspace. */
-	int use_for_apm;
+
+	u8 charge_behaviours;
 };
 
 struct power_supply_ext {
