@@ -1869,6 +1869,12 @@ bool dc_validate_boot_timing(const struct dc *dc,
 		return false;
 	}
 
+	if (sink->edid_caps.panel_patch.disable_fec &&
+		(link->fec_state == dc_link_fec_enabled)) {
+		DC_LOG_DEBUG("boot timing validation failed due to FEC WA & FEC HW is active\n");
+		return false;
+	}
+
 	/* Check for enabled DIG to identify enabled display */
 	if (!link->link_enc->funcs->is_dig_enabled(link->link_enc)) {
 		DC_LOG_DEBUG("boot timing validation failed due to disabled DIG\n");
