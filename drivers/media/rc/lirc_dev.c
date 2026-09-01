@@ -492,6 +492,8 @@ static long lirc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			ret = -ENOTTY;
 		else if (val <= 0)
 			ret = -EINVAL;
+		else if (fh->carrier_low && fh->carrier_low > val)
+			ret = -EINVAL;
 		else
 			ret = dev->s_rx_carrier_range(dev, fh->carrier_low,
 						      val);
