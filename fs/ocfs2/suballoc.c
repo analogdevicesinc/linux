@@ -3070,7 +3070,20 @@ static int _ocfs2_free_suballoc_bits(handle_t *handle,
 	}
 	group = (struct ocfs2_group_desc *) group_bh->b_data;
 
-	BUG_ON((count + start_bit) > le16_to_cpu(group->bg_bits));
+	/*
+	 * Group descriptor validation only guarantees bg_bits within the
+	 * physical bitmap size, so double check the freeing range here.
+	 * Otherwise ocfs2_block_group_clear_bits() would clear bits beyond
+	 * bg_bitmap.
+	 */
+	if ((count + start_bit) > le16_to_cpu(group->bg_bits)) {
+		status = ocfs2_error(alloc_inode->i_sb,
+				     "Group descriptor #%llu has %u bits, cannot free bits %u+%u\n",
+				     (unsigned long long)le64_to_cpu(group->bg_blkno),
+				     le16_to_cpu(group->bg_bits),
+				     count, start_bit);
+		goto bail;
+	}
 
 	if (ocfs2_is_cluster_bitmap(alloc_inode))
 		old_bg_contig_free_bits = group->bg_contig_free_bits;
