@@ -50,7 +50,7 @@ static int minix_mknod(struct mnt_idmap *idmap, struct inode *dir,
 	return add_nondir(dentry, inode);
 }
 
-static int minix_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+static int minix_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct file *file, umode_t mode)
 {
 	struct inode *inode = minix_new_inode(dir, mode);

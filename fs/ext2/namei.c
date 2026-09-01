@@ -117,7 +117,7 @@ static int ext2_create (struct mnt_idmap * idmap,
 	return ext2_add_nondir(dentry, inode);
 }
 
-static int ext2_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+static int ext2_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 			struct file *file, umode_t mode)
 {
 	struct inode *inode = ext2_new_inode(dir, mode, NULL);

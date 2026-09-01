@@ -9391,7 +9391,7 @@ static int btrfs_permission(const struct mnt_idmap *idmap,
 	return generic_permission(idmap, inode, mask);
 }
 
-static int btrfs_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+static int btrfs_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct file *file, umode_t mode)
 {
 	struct btrfs_fs_info *fs_info = inode_to_fs_info(dir);

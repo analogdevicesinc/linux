@@ -2881,7 +2881,7 @@ retry:
 	return err;
 }
 
-static int ext4_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+static int ext4_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 			struct file *file, umode_t mode)
 {
 	handle_t *handle;

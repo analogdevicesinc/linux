@@ -1638,7 +1638,7 @@ EXPORT_SYMBOL_GPL(security_inode_create);
  *
  * Update inode security data after a tmpfile has been created.
  */
-void security_inode_post_create_tmpfile(struct mnt_idmap *idmap,
+void security_inode_post_create_tmpfile(const struct mnt_idmap *idmap,
 					struct inode *inode)
 {
 	if (unlikely(IS_PRIVATE(inode)))

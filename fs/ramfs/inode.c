@@ -163,7 +163,7 @@ out:
 	return error;
 }
 
-static int ramfs_tmpfile(struct mnt_idmap *idmap,
+static int ramfs_tmpfile(const struct mnt_idmap *idmap,
 			 struct inode *dir, struct file *file, umode_t mode)
 {
 	struct inode *inode;

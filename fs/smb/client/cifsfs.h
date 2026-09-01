@@ -57,7 +57,7 @@ int cifs_create(struct mnt_idmap *idmap, struct inode *dir,
 		struct dentry *direntry, umode_t mode);
 int cifs_atomic_open(struct inode *dir, struct dentry *direntry,
 		     struct file *file, unsigned int oflags, umode_t mode);
-int cifs_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+int cifs_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 		 struct file *file, umode_t mode);
 struct dentry *cifs_lookup(struct inode *parent_dir_inode,
 			   struct dentry *direntry, unsigned int flags);

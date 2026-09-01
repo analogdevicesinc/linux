@@ -846,7 +846,7 @@ EXPORT_SYMBOL_GPL(ima_inode_hash);
  * Skip calling process_measurement(), but indicate which newly, created
  * tmpfiles are in policy.
  */
-static void ima_post_create_tmpfile(struct mnt_idmap *idmap,
+static void ima_post_create_tmpfile(const struct mnt_idmap *idmap,
 				    struct inode *inode)
 
 {

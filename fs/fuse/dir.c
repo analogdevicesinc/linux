@@ -1098,7 +1098,7 @@ static int fuse_create(struct mnt_idmap *idmap, struct inode *dir,
 	return fuse_mknod(idmap, dir, entry, mode, 0);
 }
 
-static int fuse_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+static int fuse_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 			struct file *file, umode_t mode)
 {
 	struct fuse_conn *fc = get_fuse_conn(dir);

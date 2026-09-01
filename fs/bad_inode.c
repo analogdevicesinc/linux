@@ -146,7 +146,7 @@ static int bad_inode_atomic_open(struct inode *inode, struct dentry *dentry,
 	return -EIO;
 }
 
-static int bad_inode_tmpfile(struct mnt_idmap *idmap,
+static int bad_inode_tmpfile(const struct mnt_idmap *idmap,
 			     struct inode *inode, struct file *file,
 			     umode_t mode)
 {

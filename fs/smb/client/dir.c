@@ -1059,7 +1059,7 @@ static int set_tmpfile_attr(const unsigned int xid, unsigned int oflags,
  * The initial dentry state is unhashed-negative.  On success, dentry will
  * become unhashed-positive by calling d_instantiate().
  */
-int cifs_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+int cifs_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 		 struct file *file, umode_t mode)
 {
 	struct dentry *dentry = file->f_path.dentry;

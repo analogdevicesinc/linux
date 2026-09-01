@@ -928,7 +928,7 @@ out:
 	return err;
 }
 
-static int f2fs_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+static int f2fs_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 			struct file *file, umode_t mode)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(dir);

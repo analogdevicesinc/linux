@@ -1420,7 +1420,7 @@ static int ovl_dummy_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int ovl_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+static int ovl_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct file *file, umode_t mode)
 {
 	int err;
