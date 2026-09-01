@@ -1543,7 +1543,7 @@ static int smack_inode_removexattr(struct mnt_idmap *idmap,
  *
  * Returns 0 if access is permitted, an error code otherwise
  */
-static int smack_inode_set_acl(struct mnt_idmap *idmap,
+static int smack_inode_set_acl(const struct mnt_idmap *idmap,
 			       struct dentry *dentry, const char *acl_name,
 			       struct posix_acl *kacl)
 {
@@ -1566,7 +1566,7 @@ static int smack_inode_set_acl(struct mnt_idmap *idmap,
  *
  * Returns 0 if access is permitted, an error code otherwise
  */
-static int smack_inode_get_acl(struct mnt_idmap *idmap,
+static int smack_inode_get_acl(const struct mnt_idmap *idmap,
 			       struct dentry *dentry, const char *acl_name)
 {
 	struct smk_audit_info ad;
@@ -1588,7 +1588,7 @@ static int smack_inode_get_acl(struct mnt_idmap *idmap,
  *
  * Returns 0 if access is permitted, an error code otherwise
  */
-static int smack_inode_remove_acl(struct mnt_idmap *idmap,
+static int smack_inode_remove_acl(const struct mnt_idmap *idmap,
 				  struct dentry *dentry, const char *acl_name)
 {
 	struct smk_audit_info ad;

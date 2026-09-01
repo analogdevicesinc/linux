@@ -652,7 +652,7 @@ static int evm_inode_removexattr(struct mnt_idmap *idmap, struct dentry *dentry,
 }
 
 #ifdef CONFIG_FS_POSIX_ACL
-static int evm_inode_set_acl_change(struct mnt_idmap *idmap,
+static int evm_inode_set_acl_change(const struct mnt_idmap *idmap,
 				    struct dentry *dentry, const char *name,
 				    struct posix_acl *kacl)
 {
@@ -671,7 +671,7 @@ static int evm_inode_set_acl_change(struct mnt_idmap *idmap,
 	return 0;
 }
 #else
-static inline int evm_inode_set_acl_change(struct mnt_idmap *idmap,
+static inline int evm_inode_set_acl_change(const struct mnt_idmap *idmap,
 					   struct dentry *dentry,
 					   const char *name,
 					   struct posix_acl *kacl)
@@ -693,7 +693,7 @@ static inline int evm_inode_set_acl_change(struct mnt_idmap *idmap,
  *
  * Return: zero on success, -EPERM on failure.
  */
-static int evm_inode_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+static int evm_inode_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 			     const char *acl_name, struct posix_acl *kacl)
 {
 	enum integrity_status evm_status;
@@ -745,7 +745,7 @@ static int evm_inode_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
  *
  * Return: zero on success, -EPERM on failure.
  */
-static int evm_inode_remove_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+static int evm_inode_remove_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 				const char *acl_name)
 {
 	return evm_inode_set_acl(idmap, dentry, acl_name, NULL);
@@ -926,7 +926,7 @@ static void evm_inode_post_removexattr(struct dentry *dentry,
  * Update the 'security.evm' xattr with the EVM HMAC re-calculated after
  * removing posix acls.
  */
-static inline void evm_inode_post_remove_acl(struct mnt_idmap *idmap,
+static inline void evm_inode_post_remove_acl(const struct mnt_idmap *idmap,
 					     struct dentry *dentry,
 					     const char *acl_name)
 {

@@ -21,7 +21,7 @@ struct posix_acl *ntfs_get_acl(struct mnt_idmap *idmap, struct dentry *dentry,
 			       int type);
 int ntfs_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
 		 struct posix_acl *acl, int type);
-int ntfs_init_acl(struct mnt_idmap *idmap, struct inode *inode,
+int ntfs_init_acl(const struct mnt_idmap *idmap, struct inode *inode,
 		  struct inode *dir);
 #else
 #define ntfs_get_acl NULL

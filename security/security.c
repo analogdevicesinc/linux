@@ -1953,7 +1953,7 @@ int security_inode_setxattr(struct mnt_idmap *idmap,
  *
  * Return: Returns 0 if permission is granted.
  */
-int security_inode_set_acl(struct mnt_idmap *idmap,
+int security_inode_set_acl(const struct mnt_idmap *idmap,
 			   struct dentry *dentry, const char *acl_name,
 			   struct posix_acl *kacl)
 {
@@ -1990,7 +1990,7 @@ void security_inode_post_set_acl(struct dentry *dentry, const char *acl_name,
  *
  * Return: Returns 0 if permission is granted.
  */
-int security_inode_get_acl(struct mnt_idmap *idmap,
+int security_inode_get_acl(const struct mnt_idmap *idmap,
 			   struct dentry *dentry, const char *acl_name)
 {
 	if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
@@ -2009,7 +2009,7 @@ int security_inode_get_acl(struct mnt_idmap *idmap,
  *
  * Return: Returns 0 if permission is granted.
  */
-int security_inode_remove_acl(struct mnt_idmap *idmap,
+int security_inode_remove_acl(const struct mnt_idmap *idmap,
 			      struct dentry *dentry, const char *acl_name)
 {
 	if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
@@ -2026,7 +2026,7 @@ int security_inode_remove_acl(struct mnt_idmap *idmap,
  * Update inode security data after successfully removing posix acls on
  * @dentry in @idmap. The posix acls are identified by @acl_name.
  */
-void security_inode_post_remove_acl(struct mnt_idmap *idmap,
+void security_inode_post_remove_acl(const struct mnt_idmap *idmap,
 				    struct dentry *dentry, const char *acl_name)
 {
 	if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))

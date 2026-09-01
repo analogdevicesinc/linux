@@ -378,7 +378,7 @@ EXPORT_SYMBOL(posix_acl_from_mode);
  * by the acl. Returns -E... otherwise.
  */
 int
-posix_acl_permission(struct mnt_idmap *idmap, struct inode *inode,
+posix_acl_permission(const struct mnt_idmap *idmap, struct inode *inode,
 		     const struct posix_acl *acl, int want)
 {
 	const struct posix_acl_entry *pa, *pe, *mask_obj;
@@ -709,7 +709,7 @@ EXPORT_SYMBOL_GPL(posix_acl_create);
  *
  * Called from set_acl inode operations.
  */
-int posix_acl_update_mode(struct mnt_idmap *idmap,
+int posix_acl_update_mode(const struct mnt_idmap *idmap,
 			  struct inode *inode, umode_t *mode_p,
 			  struct posix_acl **acl)
 {
@@ -889,7 +889,7 @@ EXPORT_SYMBOL (posix_acl_to_xattr);
  * Return: On success, the size of the stored uapi posix acls, on error a
  * negative errno.
  */
-static ssize_t vfs_posix_acl_to_xattr(struct mnt_idmap *idmap,
+static ssize_t vfs_posix_acl_to_xattr(const struct mnt_idmap *idmap,
 				      struct inode *inode,
 				      const struct posix_acl *acl, void *buffer,
 				      size_t size)

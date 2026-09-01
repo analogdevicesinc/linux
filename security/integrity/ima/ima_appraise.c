@@ -790,7 +790,7 @@ static int ima_inode_setxattr(struct mnt_idmap *idmap, struct dentry *dentry,
 	return result;
 }
 
-static int ima_inode_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+static int ima_inode_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 			     const char *acl_name, struct posix_acl *kacl)
 {
 	if (evm_revalidate_status(acl_name))
@@ -815,7 +815,7 @@ static int ima_inode_removexattr(struct mnt_idmap *idmap, struct dentry *dentry,
 	return result;
 }
 
-static int ima_inode_remove_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+static int ima_inode_remove_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 				const char *acl_name)
 {
 	return ima_inode_set_acl(idmap, dentry, acl_name, NULL);

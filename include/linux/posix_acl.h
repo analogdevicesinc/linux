@@ -84,7 +84,7 @@ struct posix_acl *posix_acl_clone(const struct posix_acl *acl, gfp_t flags);
 int posix_acl_chmod(struct mnt_idmap *, struct dentry *, umode_t);
 extern int posix_acl_create(struct inode *, umode_t *, struct posix_acl **,
 		struct posix_acl **);
-int posix_acl_update_mode(struct mnt_idmap *, struct inode *, umode_t *,
+int posix_acl_update_mode(const struct mnt_idmap *, struct inode *, umode_t *,
 			  struct posix_acl **);
 
 int simple_set_acl(struct mnt_idmap *, struct dentry *,
@@ -96,7 +96,7 @@ void set_cached_acl(struct inode *inode, int type, struct posix_acl *acl);
 void forget_cached_acl(struct inode *inode, int type);
 void forget_all_cached_acls(struct inode *inode);
 int posix_acl_valid(struct user_namespace *, const struct posix_acl *);
-int posix_acl_permission(struct mnt_idmap *, struct inode *,
+int posix_acl_permission(const struct mnt_idmap *, struct inode *,
 			 const struct posix_acl *, int);
 
 static inline void cache_no_acl(struct inode *inode)

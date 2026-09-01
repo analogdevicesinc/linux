@@ -391,7 +391,7 @@ static int ntfs_sd_add_everyone(struct ntfs_inode *ni)
 	return ret;
 }
 
-static struct ntfs_inode *__ntfs_create(struct mnt_idmap *idmap, struct inode *dir,
+static struct ntfs_inode *__ntfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 		__le16 *name, u8 name_len, mode_t mode, dev_t dev,
 		const char *target, int target_len)
 {
