@@ -426,7 +426,7 @@ static void __init hv_stimer_setup_percpu_clockev(void)
 	int ret;
 
 	/*
-	 * Continue afters errors in setting up stimer clockevents
+	 * Continue after errors in setting up stimer clockevents
 	 * as we can run with the LAPIC timer as a fallback.
 	 */
 	ret = hv_stimer_alloc(false);
@@ -434,7 +434,7 @@ static void __init hv_stimer_setup_percpu_clockev(void)
 		pr_warn("stimer setup failed with error %d\n", ret);
 
 	/*
-	 * Still register the LAPIC timer to allows users
+	 * Still register the LAPIC timer to allow users
 	 * to switch to LAPIC timer via /sys, if they want to.
 	 */
 	if (old_setup_percpu_clockev)
