@@ -623,6 +623,26 @@ static void show_one_worker_pool(struct worker_pool *pool);
 	list_for_each_entry_rcu((pwq), &(wq)->pwqs, pwqs_node,		\
 				 lockdep_is_held(&(wq->mutex)))
 
+/*
+ * Per-node arrays in this file carry an extra slot at nr_node_ids serving
+ * NUMA_NO_NODE. Return the slot after all nodes.
+ */
+static int next_node_with_fallback(int node)
+{
+	if (node >= nr_node_ids)
+		return nr_node_ids + 1;
+
+	node = next_node(node, node_possible_map);
+	if (node >= nr_node_ids)
+		return nr_node_ids;
+	return node;
+}
+
+#define for_each_node_with_fallback(node)				\
+	for ((node) = first_node(node_possible_map);			\
+	     (node) <= nr_node_ids;					\
+	     (node) = next_node_with_fallback(node))
+
 #ifdef CONFIG_DEBUG_OBJECTS_WORK
 
 static const struct debug_obj_descr work_debug_descr;
@@ -5083,13 +5103,10 @@ static void free_node_nr_active(struct wq_node_nr_active **nna_ar)
 {
 	int node;
 
-	for_each_node(node) {
+	for_each_node_with_fallback(node) {
 		kfree(nna_ar[node]);
 		nna_ar[node] = NULL;
 	}
-
-	kfree(nna_ar[nr_node_ids]);
-	nna_ar[nr_node_ids] = NULL;
 }
 
 static void init_node_nr_active(struct wq_node_nr_active *nna)
@@ -5109,20 +5126,14 @@ static int alloc_node_nr_active(struct wq_node_nr_active **nna_ar)
 	struct wq_node_nr_active *nna;
 	int node;
 
-	for_each_node(node) {
-		nna = kzalloc_node(sizeof(*nna), GFP_KERNEL, node);
+	for_each_node_with_fallback(node) {
+		nna = kzalloc_node(sizeof(*nna), GFP_KERNEL,
+				   node < nr_node_ids ? node : NUMA_NO_NODE);
 		if (!nna)
 			goto err_free;
 		init_node_nr_active(nna);
 		nna_ar[node] = nna;
 	}
-
-	/* [nr_node_ids] is used as the fallback */
-	nna = kzalloc_node(sizeof(*nna), GFP_KERNEL, NUMA_NO_NODE);
-	if (!nna)
-		goto err_free;
-	init_node_nr_active(nna);
-	nna_ar[nr_node_ids] = nna;
 
 	return 0;
 
