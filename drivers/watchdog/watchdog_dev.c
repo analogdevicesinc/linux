@@ -305,6 +305,10 @@ static int watchdog_stop(struct watchdog_device *wdd)
 	if (wdd->ops->stop) {
 		clear_bit(WDOG_HW_RUNNING, &wdd->status);
 		err = wdd->ops->stop(wdd);
+		if (err < 0) {
+			pr_err("watchdog%d: Failed to stop watchdog: %pe\n",
+			       wdd->id, ERR_PTR(err));
+		}
 		trace_watchdog_stop(wdd, err);
 	} else {
 		set_bit(WDOG_HW_RUNNING, &wdd->status);
