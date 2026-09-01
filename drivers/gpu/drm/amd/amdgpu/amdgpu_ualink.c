@@ -2680,10 +2680,19 @@ static void amdgpu_ualink_send_tlb_shootdown(struct amdgpu_device *adev,
 		r = amdgpu_ualink_remote_shootdown(adev, remote_acc_id,
 					npa_addr, size,
 					AMDGPU_UALINK_HEAVYWEIGHT_TLB_SHOOTDOWN);
-		if (r)
+		if (r) {
 			dev_err(adev->dev,
 				"EXP-CLEANUP: TLB shootdown send failed to remote:%u\n",
 				remote_acc_id);
+
+			/* Send failed: mark the connection NOT_READY so the
+			 * rest of this cleanup (and other cleanups) skip the
+			 * unreachable peer via amdgpu_ualink_check_conn_ready().
+			 */
+			amdgpu_ualink_handle_connection_reset(adev, remote_acc_id,
+						AMDGPU_UALINK_CONN_NOT_READY,
+						imp_entry->generation_count);
+		}
 	}
 }
 
