@@ -121,8 +121,8 @@ use crate::{
     io::IoLoc, //
 };
 
-/// Trait implemented by all registers.
-pub trait Register: Sized {
+/// Trait implemented by registers with a fixed offset.
+pub trait FixedRegister: Sized {
     /// Base type for this register.
     type Base: ?Sized;
 
@@ -131,9 +131,6 @@ pub trait Register: Sized {
     /// The interpretation of this offset depends on the type of the register.
     const OFFSET: usize;
 }
-
-/// Trait implemented by registers with a fixed offset.
-pub trait FixedRegister: Register {}
 
 /// Allows `()` to be used as the `location` parameter of [`Io::write`](super::Io::write) when
 /// passing a [`FixedRegister`] value.
@@ -201,7 +198,14 @@ impl<Base: ?Sized, T> IoLoc<Base, T> for OffsetLoc<Base, T> {
 }
 
 /// Trait implemented by arrays of registers.
-pub trait RegisterArray: Register {
+pub trait RegisterArray: Sized {
+    /// Base type for this register.
+    type Base: ?Sized;
+
+    /// Start offset of the register.
+    ///
+    /// The interpretation of this offset depends on the type of the register.
+    const OFFSET: usize;
     /// Number of elements in the registers array.
     const SIZE: usize;
     /// Number of bytes between the start of elements in the registers array.
@@ -267,8 +271,8 @@ pub trait Array {
 ///
 /// Implementors can be used with [`Io::write_reg`](super::Io::write_reg).
 pub trait LocatedRegister<Base: ?Sized> {
-    /// Register value to write.
-    type Value: Register;
+    /// Value to write.
+    type Value;
     /// Full location information at which to write the value.
     type Location: IoLoc<Base, Self::Value>;
 
@@ -295,7 +299,7 @@ where
 /// This is used to enforce base matching.
 #[doc(hidden)]
 #[inline(always)] // for const eval only
-pub const fn alias_offset<Base: ?Sized, Alias: Register<Base = Base>>() -> usize {
+pub const fn alias_offset<Base: ?Sized, Alias: FixedRegister<Base = Base>>() -> usize {
     Alias::OFFSET
 }
 
