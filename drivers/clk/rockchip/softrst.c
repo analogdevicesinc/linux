@@ -13,7 +13,6 @@ struct rockchip_softrst {
 	struct reset_controller_dev	rcdev;
 	const int			*lut;
 	void __iomem			*reg_base;
-	int				num_regs;
 };
 
 #define NUM_PER_REG	16
@@ -75,7 +74,6 @@ void rockchip_register_softrst_lut(struct device_node *np,
 
 	softrst->reg_base = base;
 	softrst->lut = lookup_table;
-	softrst->num_regs = num_regs;
 
 	softrst->rcdev.owner = THIS_MODULE;
 	if (lookup_table)
