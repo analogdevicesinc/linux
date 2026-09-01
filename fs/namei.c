@@ -3111,7 +3111,7 @@ int lookup_noperm_common(struct qstr *qname, struct dentry *base)
 	return 0;
 }
 
-static int lookup_one_common(struct mnt_idmap *idmap,
+static int lookup_one_common(const struct mnt_idmap *idmap,
 			     struct qstr *qname, struct dentry *base)
 {
 	int err;
@@ -3190,7 +3190,7 @@ EXPORT_SYMBOL(lookup_noperm);
  *
  * The caller must hold base->i_rwsem.
  */
-struct dentry *lookup_one(struct mnt_idmap *idmap, struct qstr *name,
+struct dentry *lookup_one(const struct mnt_idmap *idmap, struct qstr *name,
 			  struct dentry *base)
 {
 	struct dentry *dentry;
@@ -3223,7 +3223,7 @@ EXPORT_SYMBOL(lookup_one);
  *	    - ERR_PTR(-ENOENT) if parent has been removed, or
  *	    - ERR_PTR(-EACCES) if parent directory is not searchable.
  */
-struct dentry *lookup_one_unlocked(struct mnt_idmap *idmap, struct qstr *name,
+struct dentry *lookup_one_unlocked(const struct mnt_idmap *idmap, struct qstr *name,
 				   struct dentry *base)
 {
 	int err;
@@ -3263,7 +3263,7 @@ EXPORT_SYMBOL(lookup_one_unlocked);
  *	   - same errors as lookup_one_unlocked() or
  *	   - ERR_PTR(-EINTR) if a fatal signal is pending.
  */
-struct dentry *lookup_one_positive_killable(struct mnt_idmap *idmap,
+struct dentry *lookup_one_positive_killable(const struct mnt_idmap *idmap,
 					    struct qstr *name,
 					    struct dentry *base)
 {
@@ -3306,7 +3306,7 @@ EXPORT_SYMBOL(lookup_one_positive_killable);
  *	   - ERR_PTR(-ENOENT) if the name could not be found, or
  *	   - same errors as lookup_one_unlocked().
  */
-struct dentry *lookup_one_positive_unlocked(struct mnt_idmap *idmap,
+struct dentry *lookup_one_positive_unlocked(const struct mnt_idmap *idmap,
 					    struct qstr *name,
 					    struct dentry *base)
 {
@@ -3396,7 +3396,7 @@ EXPORT_SYMBOL(lookup_noperm_positive_unlocked);
  *
  * Returns: a negative or positive dentry, or an error.
  */
-struct dentry *start_creating(struct mnt_idmap *idmap, struct dentry *parent,
+struct dentry *start_creating(const struct mnt_idmap *idmap, struct dentry *parent,
 			      struct qstr *name)
 {
 	int err = lookup_one_common(idmap, name, parent);
@@ -3423,7 +3423,7 @@ EXPORT_SYMBOL(start_creating);
  *
  * Returns: a positive dentry, or an error.
  */
-struct dentry *start_removing(struct mnt_idmap *idmap, struct dentry *parent,
+struct dentry *start_removing(const struct mnt_idmap *idmap, struct dentry *parent,
 			      struct qstr *name)
 {
 	int err = lookup_one_common(idmap, name, parent);
@@ -3451,7 +3451,7 @@ EXPORT_SYMBOL(start_removing);
  *
  * Returns: a negative or positive dentry, or an error.
  */
-struct dentry *start_creating_killable(struct mnt_idmap *idmap,
+struct dentry *start_creating_killable(const struct mnt_idmap *idmap,
 				       struct dentry *parent,
 				       struct qstr *name)
 {
@@ -3482,7 +3482,7 @@ EXPORT_SYMBOL(start_creating_killable);
  *
  * Returns: a positive dentry, or an error.
  */
-struct dentry *start_removing_killable(struct mnt_idmap *idmap,
+struct dentry *start_removing_killable(const struct mnt_idmap *idmap,
 				       struct dentry *parent,
 				       struct qstr *name)
 {
@@ -3642,7 +3642,7 @@ int user_path_at(int dfd, const char __user *name, unsigned flags,
 }
 EXPORT_SYMBOL(user_path_at);
 
-int __check_sticky(struct mnt_idmap *idmap, struct inode *dir,
+int __check_sticky(const struct mnt_idmap *idmap, struct inode *dir,
 		   struct inode *inode)
 {
 	kuid_t fsuid = current_fsuid();
@@ -3675,7 +3675,7 @@ EXPORT_SYMBOL(__check_sticky);
  * 11. We don't allow removal of NFS sillyrenamed files; it's handled by
  *     nfs_async_unlink().
  */
-int may_delete_dentry(struct mnt_idmap *idmap, struct inode *dir,
+int may_delete_dentry(const struct mnt_idmap *idmap, struct inode *dir,
 		      struct dentry *victim, bool isdir)
 {
 	struct inode *inode = d_backing_inode(victim);
@@ -3728,7 +3728,7 @@ EXPORT_SYMBOL(may_delete_dentry);
  *  4. We should have write and exec permissions on dir
  *  5. We can't do it if dir is immutable (done in permission())
  */
-int may_create_dentry(struct mnt_idmap *idmap,
+int may_create_dentry(const struct mnt_idmap *idmap,
 		      struct inode *dir, struct dentry *child)
 {
 	audit_inode_child(dir, child, AUDIT_TYPE_CHILD_CREATE);
@@ -4174,7 +4174,7 @@ static inline umode_t vfs_prepare_mode(const struct mnt_idmap *idmap,
  * On non-idmapped mounts or if permission checking is to be performed on the
  * raw inode simply pass @nop_mnt_idmap.
  */
-int vfs_create(struct mnt_idmap *idmap, struct dentry *dentry, umode_t mode,
+int vfs_create(const struct mnt_idmap *idmap, struct dentry *dentry, umode_t mode,
 	       struct delegated_inode *di)
 {
 	struct inode *dir = d_inode(dentry->d_parent);
@@ -4287,7 +4287,7 @@ static int may_open(const struct mnt_idmap *idmap, const struct path *path,
 	return 0;
 }
 
-static int handle_truncate(struct mnt_idmap *idmap, struct file *filp)
+static int handle_truncate(const struct mnt_idmap *idmap, struct file *filp)
 {
 	const struct path *path = &filp->f_path;
 	struct inode *inode = path->dentry->d_inode;
@@ -4863,7 +4863,7 @@ static int do_open(struct nameidata *nd,
  * On non-idmapped mounts or if permission checking is to be performed on the
  * raw inode simply pass @nop_mnt_idmap.
  */
-int vfs_tmpfile(struct mnt_idmap *idmap,
+int vfs_tmpfile(const struct mnt_idmap *idmap,
 		const struct path *parentpath,
 		struct file *file, umode_t mode)
 {
@@ -4921,7 +4921,7 @@ int vfs_tmpfile(struct mnt_idmap *idmap,
  * hence this is only for kernel internal use, and must not be installed into
  * file tables or such.
  */
-struct file *kernel_tmpfile_open(struct mnt_idmap *idmap,
+struct file *kernel_tmpfile_open(const struct mnt_idmap *idmap,
 				 const struct path *parentpath,
 				 umode_t mode, int open_flag,
 				 const struct cred *cred)
@@ -5236,7 +5236,7 @@ EXPORT_SYMBOL(dentry_create);
  * On non-idmapped mounts or if permission checking is to be performed on the
  * raw inode simply pass @nop_mnt_idmap.
  */
-int vfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
+int vfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	      struct dentry *dentry, umode_t mode, dev_t dev,
 	      struct delegated_inode *delegated_inode)
 {
@@ -5378,7 +5378,7 @@ SYSCALL_DEFINE3(mknod, const char __user *, filename, umode_t, mode, unsigned, d
  *
  * In case of an error the dentry is dput() and an ERR_PTR() is returned.
  */
-struct dentry *vfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+struct dentry *vfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct dentry *dentry, umode_t mode,
 			 struct delegated_inode *delegated_inode)
 {
@@ -5485,7 +5485,7 @@ SYSCALL_DEFINE2(mkdir, const char __user *, pathname, umode_t, mode)
  * On non-idmapped mounts or if permission checking is to be performed on the
  * raw inode simply pass @nop_mnt_idmap.
  */
-int vfs_rmdir(struct mnt_idmap *idmap, struct inode *dir,
+int vfs_rmdir(const struct mnt_idmap *idmap, struct inode *dir,
 	      struct dentry *dentry, struct delegated_inode *delegated_inode)
 {
 	int error = may_delete_dentry(idmap, dir, dentry, true);
@@ -5620,7 +5620,7 @@ SYSCALL_DEFINE1(rmdir, const char __user *, pathname)
  * On non-idmapped mounts or if permission checking is to be performed on the
  * raw inode simply pass @nop_mnt_idmap.
  */
-int vfs_unlink(struct mnt_idmap *idmap, struct inode *dir,
+int vfs_unlink(const struct mnt_idmap *idmap, struct inode *dir,
 	       struct dentry *dentry, struct delegated_inode *delegated_inode)
 {
 	struct inode *target = dentry->d_inode;
@@ -5770,7 +5770,7 @@ SYSCALL_DEFINE1(unlink, const char __user *, pathname)
  * On non-idmapped mounts or if permission checking is to be performed on the
  * raw inode simply pass @nop_mnt_idmap.
  */
-int vfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
+int vfs_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 		struct dentry *dentry, const char *oldname,
 		struct delegated_inode *delegated_inode)
 {
@@ -5872,7 +5872,7 @@ SYSCALL_DEFINE2(symlink, const char __user *, oldname, const char __user *, newn
  * On non-idmapped mounts or if permission checking is to be performed on the
  * raw inode simply pass @nop_mnt_idmap.
  */
-int vfs_link(struct dentry *old_dentry, struct mnt_idmap *idmap,
+int vfs_link(struct dentry *old_dentry, const struct mnt_idmap *idmap,
 	     struct inode *dir, struct dentry *new_dentry,
 	     struct delegated_inode *delegated_inode)
 {

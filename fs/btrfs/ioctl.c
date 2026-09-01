@@ -864,7 +864,7 @@ free_pending:
  * inside this filesystem so it's quite a bit simpler.
  */
 static noinline int btrfs_mksubvol(struct dentry *parent,
-				   struct mnt_idmap *idmap,
+				   const struct mnt_idmap *idmap,
 				   struct qstr *qname, struct btrfs_root *snap_src,
 				   bool readonly,
 				   struct btrfs_qgroup_inherit *inherit)
@@ -911,7 +911,7 @@ out_dput:
 }
 
 static noinline int btrfs_mksnapshot(struct dentry *parent,
-				   struct mnt_idmap *idmap,
+				   const struct mnt_idmap *idmap,
 				   struct qstr *qname,
 				   struct btrfs_root *root,
 				   bool readonly,

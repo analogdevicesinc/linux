@@ -63,7 +63,7 @@ int filename_mknodat(int dfd, struct filename *name, umode_t mode, unsigned int 
 int filename_symlinkat(struct filename *from, int newdfd, struct filename *to);
 int filename_linkat(int olddfd, struct filename *old, int newdfd,
 			struct filename *new, int flags);
-int vfs_tmpfile(struct mnt_idmap *idmap,
+int vfs_tmpfile(const struct mnt_idmap *idmap,
 		const struct path *parentpath,
 		struct file *file, umode_t mode);
 struct dentry *d_hash_and_lookup(struct dentry *, struct qstr *);
