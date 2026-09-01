@@ -593,6 +593,8 @@ drm_bridge_connector_read_edid(struct drm_connector *connector)
 }
 
 static const struct drm_connector_hdmi_funcs drm_bridge_connector_hdmi_funcs = {
+	.supported_formats = BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444),
+	.max_bpc = 8,
 	.tmds_char_rate_valid = drm_bridge_connector_tmds_char_rate_valid,
 	.read_edid = drm_bridge_connector_read_edid,
 	.avi = {
@@ -826,8 +828,6 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 	struct drm_connector *connector;
 	struct i2c_adapter *ddc = NULL;
 	struct drm_bridge *panel_bridge __free(drm_bridge_put) = NULL;
-	unsigned int supported_formats = BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444);
-	unsigned int max_bpc = 8;
 	bool support_hdcp = false;
 	int connector_type;
 	int ret;
@@ -910,11 +910,6 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 				return ERR_PTR(-EINVAL);
 
 			bridge_connector->bridge_hdmi = drm_bridge_get(bridge);
-
-			if (bridge->supported_formats)
-				supported_formats = bridge->supported_formats;
-			if (bridge->max_bpc)
-				max_bpc = bridge->max_bpc;
 		}
 
 		if (bridge->ops & DRM_BRIDGE_OP_HDMI_AUDIO) {
@@ -996,10 +991,30 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 		return ERR_PTR(-EINVAL);
 
 	if (bridge_connector->bridge_hdmi) {
-		if (!connector->ycbcr_420_allowed)
-			supported_formats &= ~BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
-
 		bridge_connector->hdmi_funcs = drm_bridge_connector_hdmi_funcs;
+
+		bridge_connector->hdmi_funcs.vendor = bridge_connector->bridge_hdmi->vendor;
+		bridge_connector->hdmi_funcs.product = bridge_connector->bridge_hdmi->product;
+
+		if (bridge_connector->bridge_hdmi->supported_hdmi_ver)
+			bridge_connector->hdmi_funcs.supported_hdmi_ver =
+				bridge_connector->bridge_hdmi->supported_hdmi_ver;
+
+		if (bridge_connector->bridge_hdmi->supported_formats)
+			bridge_connector->hdmi_funcs.supported_formats =
+				bridge_connector->bridge_hdmi->supported_formats;
+
+		if (!connector->ycbcr_420_allowed)
+			bridge_connector->hdmi_funcs.supported_formats &=
+				~BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
+
+		if (bridge_connector->bridge_hdmi->max_tmds_char_rate)
+			bridge_connector->hdmi_funcs.supported_tmds_char_rate =
+				bridge_connector->bridge_hdmi->max_tmds_char_rate;
+
+		if (bridge_connector->bridge_hdmi->max_bpc)
+			bridge_connector->hdmi_funcs.max_bpc =
+				bridge_connector->bridge_hdmi->max_bpc;
 
 		if (bridge_connector->bridge_hdmi->ops & DRM_BRIDGE_OP_HDMI_AUDIO)
 			bridge_connector->hdmi_funcs.audio =
@@ -1013,14 +1028,10 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 			bridge_connector->hdmi_funcs.spd =
 				drm_bridge_connector_hdmi_spd_infoframe;
 
-		ret = drmm_connector_hdmi_ini2(drm, connector,
-					       bridge_connector->bridge_hdmi->vendor,
-					       bridge_connector->bridge_hdmi->product,
+		ret = drmm_connector_hdmi_init(drm, connector,
 					       &drm_bridge_connector_funcs,
 					       &bridge_connector->hdmi_funcs,
-					       connector_type, ddc,
-					       supported_formats,
-					       max_bpc);
+					       connector_type, ddc);
 		if (ret)
 			return ERR_PTR(ret);
 	} else {

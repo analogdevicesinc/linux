@@ -1082,11 +1082,25 @@ struct drm_bridge {
 	const char *product;
 
 	/**
+	 * @supported_hdmi_ver: HDMI version the bridge is conformant with.
+	 * This is only relevant if @DRM_BRIDGE_OP_HDMI is set.
+	 */
+	enum hdmi_version supported_hdmi_ver;
+
+	/**
 	 * @supported_formats: Bitmask of @drm_output_color_format listing
 	 * supported output formats. This is only relevant if
 	 * @DRM_BRIDGE_OP_HDMI is set.
 	 */
 	unsigned int supported_formats;
+
+	/**
+	 * @max_tmds_char_rate: Maximum TMDS character rate, in Hz, the HDMI
+	 * bridge supports. A value of 0 means the core should use the default
+	 * limit implied by @supported_hdmi_ver. This is only relevant if
+	 * @DRM_BRIDGE_OP_HDMI is set.
+	 */
+	unsigned long long max_tmds_char_rate;
 
 	/**
 	 * @max_bpc: Maximum bits per char the HDMI bridge supports. Allowed

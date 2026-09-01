@@ -460,9 +460,13 @@ void drm_bridge_add(struct drm_bridge *bridge)
 	mutex_init(&bridge->hpd_state_mutex);
 	mutex_init(&bridge->hpd_mutex);
 
-	if (bridge->ops & DRM_BRIDGE_OP_HDMI)
+	if (bridge->ops & DRM_BRIDGE_OP_HDMI) {
+		if (bridge->supported_hdmi_ver == HDMI_VERSION_UNKNOWN)
+			DRM_WARN("HDMI bridge misses supported HDMI version\n");
+
 		bridge->ycbcr_420_allowed = !!(bridge->supported_formats &
 					       BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420));
+	}
 
 	mutex_lock(&bridge_lock);
 	list_add_tail(&bridge->list, &bridge_list);
