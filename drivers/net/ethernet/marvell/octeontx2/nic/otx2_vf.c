@@ -297,10 +297,9 @@ static int otx2vf_register_mbox_intr(struct otx2_nic *vf, bool probe_pf)
 
 	err = otx2_sync_mbox_msg(&vf->mbox);
 	if (err) {
-		dev_warn(vf->dev,
-			 "AF not responding to mailbox, deferring probe\n");
 		otx2vf_disable_mbox_intr(vf);
-		return -EPROBE_DEFER;
+		return dev_err_probe(vf->dev, -EPROBE_DEFER,
+			 "AF not responding to mailbox, deferring probe\n");
 	}
 	return 0;
 }

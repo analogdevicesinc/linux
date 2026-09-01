@@ -1167,10 +1167,9 @@ int otx2_register_mbox_intr(struct otx2_nic *pf, bool probe_af)
 	}
 	err = otx2_sync_mbox_msg(&pf->mbox);
 	if (err) {
-		dev_warn(pf->dev,
-			 "AF not responding to mailbox, deferring probe\n");
 		otx2_disable_mbox_intr(pf);
-		return -EPROBE_DEFER;
+		return dev_err_probe(pf->dev, -EPROBE_DEFER,
+			 "AF not responding to mailbox, deferring probe\n");
 	}
 
 	return 0;
@@ -2993,11 +2992,9 @@ int otx2_check_pf_usable(struct otx2_nic *nic)
 	 * otherwise this driver probe should be deferred
 	 * until AF driver comes up.
 	 */
-	if (!rev) {
-		dev_warn(nic->dev,
+	if (!rev)
+		return dev_err_probe(nic->dev, -EPROBE_DEFER,
 			 "AF is not initialized, deferring probe\n");
-		return -EPROBE_DEFER;
-	}
 	return 0;
 }
 
