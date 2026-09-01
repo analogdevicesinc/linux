@@ -904,17 +904,17 @@ static int tbnet_poll(struct napi_struct *napi, int budget)
 		       le32_to_cpu(net->rx_hdr.frame_count) - 1;
 
 		rx_packets++;
-		net->stats.rx_bytes += frame_size;
 
 		if (last) {
+			/* Before eth_type_trans() pulls the Ethernet header. */
+			net->stats.rx_packets++;
+			net->stats.rx_bytes += skb->len;
 			skb->protocol = eth_type_trans(skb, net->dev);
 			trace_tbnet_rx_skb(skb);
 			napi_gro_receive(&net->napi, skb);
 			net->skb = NULL;
 		}
 	}
-
-	net->stats.rx_packets += rx_packets;
 
 	if (cleaned_count)
 		tbnet_alloc_rx_buffers(net, cleaned_count);
@@ -1362,7 +1362,7 @@ static void tbnet_generate_mac(struct net_device *dev)
 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
 }
 
-static int tbnet_probe(struct tb_service *svc, const struct tb_service_id *id)
+static int tbnet_probe(struct tb_service *svc)
 {
 	struct tb_xdomain *xd = tb_service_parent(svc);
 	struct net_device *dev;
@@ -1482,7 +1482,7 @@ static DEFINE_SIMPLE_DEV_PM_OPS(tbnet_pm_ops, tbnet_suspend, tbnet_resume);
 
 static const struct tb_service_id tbnet_ids[] = {
 	{ TB_SERVICE("network", 1) },
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(tbsvc, tbnet_ids);
 
