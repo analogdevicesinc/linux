@@ -275,7 +275,7 @@ __connector_hdmi_init(struct kunit *test,
 	conn = &priv->connector;
 	conn->ycbcr_420_allowed = !!(formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420));
 
-	ret = drmm_connector_hdmi_init(drm, conn,
+	ret = drmm_connector_hdmi_ini2(drm, conn,
 				       "Vendor", "Product",
 				       &dummy_connector_funcs,
 				       hdmi_funcs,
