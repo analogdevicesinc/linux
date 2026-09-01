@@ -121,61 +121,15 @@ use crate::{
     io::IoLoc, //
 };
 
-/// Trait implemented by registers with a fixed offset.
-pub trait FixedRegister: Sized {
-    /// Base type for this register.
-    type Base: ?Sized;
-
-    /// Start offset of the register.
-    ///
-    /// The interpretation of this offset depends on the type of the register.
-    const OFFSET: usize;
-}
-
 /// Allows `()` to be used as the `location` parameter of [`Io::write`](super::Io::write) when
-/// passing a [`FixedRegister`] value.
+/// passing a [`FixedIoLoc`] value.
 impl<Base: ?Sized, T> IoLoc<Base, T> for ()
 where
-    T: FixedRegister<Base = Base>,
+    T: FixedIoLoc<Base>,
 {
     #[inline(always)]
     fn offset(self) -> usize {
-        T::OFFSET
-    }
-}
-
-/// A [`FixedRegister`] carries its location in its type. Thus `FixedRegister` values can be used
-/// as an [`IoLoc`].
-impl<Base: ?Sized, T> IoLoc<Base, T> for T
-where
-    T: FixedRegister<Base = Base>,
-{
-    #[inline(always)]
-    fn offset(self) -> usize {
-        T::OFFSET
-    }
-}
-
-/// Location of a fixed register.
-pub struct FixedRegisterLoc<T: FixedRegister>(PhantomData<T>);
-
-impl<T: FixedRegister> FixedRegisterLoc<T> {
-    /// Returns the location of `T`.
-    #[inline(always)]
-    // We do not implement `Default` so we can be const.
-    #[expect(clippy::new_without_default)]
-    pub const fn new() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<Base: ?Sized, T> IoLoc<Base, T> for FixedRegisterLoc<T>
-where
-    T: FixedRegister<Base = Base>,
-{
-    #[inline(always)]
-    fn offset(self) -> usize {
-        T::OFFSET
+        T::LOCATION.offset()
     }
 }
 
@@ -187,6 +141,11 @@ impl<Base: ?Sized, T> OffsetLoc<Base, T> {
     #[inline]
     pub const fn new(offset: usize) -> Self {
         Self(offset, PhantomData)
+    }
+
+    #[inline]
+    pub const fn const_offset(self) -> usize {
+        self.0
     }
 }
 
@@ -266,6 +225,17 @@ pub trait Array {
     }
 }
 
+/// Trait implemented by types that indicate there is a fixed I/O location for this given type.
+///
+/// Implementors can be used with [`Io::write_reg`](super::Io::write_reg).
+pub trait FixedIoLoc<Base: ?Sized>: Sized {
+    /// Type of [`FixedIoLoc::LOCATION`].
+    type Location: IoLoc<Base, Self>;
+
+    /// Location of this type within given base.
+    const LOCATION: Self::Location;
+}
+
 /// Trait implemented by items that contain both a register value and the absolute I/O location at
 /// which to write it.
 ///
@@ -283,24 +253,15 @@ pub trait LocatedRegister<Base: ?Sized> {
 
 impl<Base: ?Sized, T> LocatedRegister<Base> for T
 where
-    T: FixedRegister<Base = Base>,
+    T: FixedIoLoc<Base>,
 {
-    type Location = FixedRegisterLoc<Self::Value>;
+    type Location = T::Location;
     type Value = T;
 
     #[inline(always)]
-    fn into_io_op(self) -> (FixedRegisterLoc<T>, T) {
-        (FixedRegisterLoc::new(), self)
+    fn into_io_op(self) -> (T::Location, T) {
+        (T::LOCATION, self)
     }
-}
-
-/// Helper function for register alias implementation.
-///
-/// This is used to enforce base matching.
-#[doc(hidden)]
-#[inline(always)] // for const eval only
-pub const fn alias_offset<Base: ?Sized, Alias: FixedRegister<Base = Base>>() -> usize {
-    Alias::OFFSET
 }
 
 /// Helper function for register element alias implementation.
@@ -417,6 +378,35 @@ pub const fn element_alias_offset<Base: ?Sized, Alias: RegisterArray<Base = Base
 ///     /// UART RX register.
 ///     pub UART_RX: u8 @ 0x100;
 /// }
+/// ```
+///
+/// In case there is a fixed register associated with a specific type in the base, you can apply
+/// `#[unique]` attribute which enables `write_reg` shorthand. This is automatically applied to
+/// bitfields instantiated via the `register!` macro.
+///
+/// This should only be used when types meaningfully represent a register. For example, in the
+/// previous `UART_RX` example, even if only a single register is defined with `u8` type, it is a
+/// bad idea to annotate it with `#[unique]`.
+///
+/// ```no_run
+/// # use kernel::{bitfield, io::*};
+///
+/// bitfield! {
+///     pub struct Reset(u32) {
+///         0:0 reset;
+///     }
+/// }
+///
+/// register! {
+///     base: Region<0x1000>;
+///
+///     pub RESET: #[unique] Reset @ 0x100;
+/// }
+///
+/// # fn test(mmio: Mmio<'_, Region<0x1000>>) {
+/// // let mmio: Mmio<'_, Region<0x1000>>;
+/// mmio.write_reg(Reset::zeroed().with_const_reset::<1>());
+/// # }
 /// ```
 ///
 /// ## Arrays of registers
