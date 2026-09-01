@@ -1375,6 +1375,10 @@ static int compute_mst_dsc_configs_for_link(struct drm_atomic_commit *state,
 		params[count].num_slices_v = aconnector->dsc_settings.dsc_num_slices_v;
 		params[count].bpp_overwrite = aconnector->dsc_settings.dsc_bits_per_pixel;
 		params[count].compression_possible = stream->sink->dsc_caps.dsc_dec_caps.is_dsc_supported;
+		if (params[count].compression_possible &&
+		    dc_link->ep_type == DISPLAY_ENDPOINT_USB4_DPIA &&
+		    dc_link->dpia_bw_alloc_config.bw_alloc_enabled)
+			params[count].clock_force_enable = DSC_CLK_FORCE_ENABLE;
 		dc_dsc_get_policy_for_timing(params[count].timing, 0, &dsc_policy, dc_link_get_highest_encoding_format(stream->link));
 		is_frl_endpoint_present = get_conv_frl_bw(aconnector, &frl_conv_bw_in_kbps, &frl_conv_dsc_bw_in_kbps);
 		if (stream->sink->dsc_caps.dsc_dec_caps.is_dsc_supported &&
@@ -1386,7 +1390,10 @@ static int compute_mst_dsc_configs_for_link(struct drm_atomic_commit *state,
 				stream->sink->ctx->dc->res_pool->dscs[0],
 				stream->sink->ctx->dc->debug.dsc_min_slice_height_override,
 				dsc_policy.min_target_bpp * 16,
-				dsc_policy.max_target_bpp * 16,
+				(dc_link->ep_type == DISPLAY_ENDPOINT_USB4_DPIA &&
+				 dc_link->dpia_bw_alloc_config.bw_alloc_enabled) ?
+					dsc_policy.min_target_bpp * 16 :
+					dsc_policy.max_target_bpp * 16,
 				&stream->sink->dsc_caps.dsc_dec_caps,
 				&stream->timing,
 				dc_link_get_highest_encoding_format(dc_link),
