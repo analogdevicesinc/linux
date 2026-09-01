@@ -1362,12 +1362,29 @@ drm_atomic_helper_connector_hdmi_update(struct drm_connector *connector,
 					enum drm_connector_status status)
 {
 	const struct drm_edid *drm_edid;
+	int ret;
 
 	if (status == connector_status_disconnected) {
-		// TODO: also handle scramber, HDMI sink disconnected.
+		/*
+		 * .detect_ctx() can only ever return a drm_connector_status or
+		 * -EDEADLK. Handle deadlocks, and report any !EDEADLK error.
+		 */
+		ret = drm_connector_hdmi_sync_scdc(connector, false, ctx);
+		if (ret) {
+			if (ret == -EDEADLK)
+				return ret;
+
+			drm_warn(connector->dev, "Ignored SCDC sync error: %d\n", ret);
+		}
+
 		drm_connector_hdmi_audio_plugged_notify(connector, false);
-		drm_edid_connector_update(connector, NULL);
+
+		ret = drm_edid_connector_update(connector, NULL);
+		if (ret)
+			drm_warn(connector->dev, "Ignored EDID update error: %d\n", ret);
+
 		drm_connector_cec_phys_addr_invalidate(connector);
+
 		return 0;
 	}
 
@@ -1381,7 +1398,18 @@ drm_atomic_helper_connector_hdmi_update(struct drm_connector *connector,
 	drm_edid_free(drm_edid);
 
 	if (status == connector_status_connected) {
-		// TODO: also handle scramber, HDMI sink is now connected.
+		/*
+		 * .detect_ctx() can only ever return a drm_connector_status or
+		 * -EDEADLK. Handle deadlocks, and report any !EDEADLK error.
+		 */
+		ret = drm_connector_hdmi_sync_scdc(connector, true, ctx);
+		if (ret) {
+			if (ret == -EDEADLK)
+				return ret;
+
+			drm_warn(connector->dev, "Ignored SCDC sync error: %d\n", ret);
+		}
+
 		drm_connector_hdmi_audio_plugged_notify(connector, true);
 		drm_connector_cec_phys_addr_set(connector);
 	}
