@@ -688,7 +688,7 @@ static int ovl_create_or_link(struct dentry *dentry, struct inode *inode,
 	return err;
 }
 
-static int ovl_create_object(struct mnt_idmap *idmap, struct dentry *dentry,
+static int ovl_create_object(const struct mnt_idmap *idmap, struct dentry *dentry,
 			     int mode, dev_t rdev, const char *link)
 {
 	int err;

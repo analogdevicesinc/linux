@@ -3890,7 +3890,7 @@ void f2fs_destroy_evict_inode_work(void);
 int f2fs_update_extension_list(struct f2fs_sb_info *sbi, const char *name,
 							bool hot, bool set);
 struct dentry *f2fs_get_parent(struct dentry *child);
-int f2fs_get_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+int f2fs_get_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 		     struct inode **new_inode);
 
 /*

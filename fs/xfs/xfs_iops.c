@@ -169,7 +169,7 @@ xfs_create_need_xattr(
 
 STATIC int
 xfs_generic_create(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	struct inode		*dir,
 	struct dentry		*dentry,
 	umode_t			mode,

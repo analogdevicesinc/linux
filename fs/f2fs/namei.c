@@ -231,7 +231,7 @@ static void set_file_temperature(struct f2fs_sb_info *sbi, struct inode *inode,
 		file_set_hot(inode);
 }
 
-static struct inode *f2fs_new_inode(struct mnt_idmap *idmap,
+static struct inode *f2fs_new_inode(const struct mnt_idmap *idmap,
 						struct inode *dir, umode_t mode,
 						const char *name)
 {
@@ -857,7 +857,7 @@ out:
 	return err;
 }
 
-static int __f2fs_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+static int __f2fs_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 			  struct file *file, umode_t mode, bool is_whiteout,
 			  struct inode **new_inode, struct f2fs_filename *fname)
 {
@@ -944,7 +944,7 @@ static int f2fs_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
 	return finish_open_simple(file, err);
 }
 
-static int f2fs_create_whiteout(struct mnt_idmap *idmap,
+static int f2fs_create_whiteout(const struct mnt_idmap *idmap,
 				struct inode *dir, struct inode **whiteout,
 				struct f2fs_filename *fname)
 {
@@ -952,14 +952,14 @@ static int f2fs_create_whiteout(struct mnt_idmap *idmap,
 						true, whiteout, fname);
 }
 
-int f2fs_get_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+int f2fs_get_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 		     struct inode **new_inode)
 {
 	return __f2fs_tmpfile(idmap, dir, NULL, S_IFREG,
 				false, new_inode, NULL);
 }
 
-static int f2fs_rename(struct mnt_idmap *idmap, struct inode *old_dir,
+static int f2fs_rename(const struct mnt_idmap *idmap, struct inode *old_dir,
 			struct dentry *old_dentry, struct inode *new_dir,
 			struct dentry *new_dentry, unsigned int flags)
 {

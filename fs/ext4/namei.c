@@ -3753,7 +3753,7 @@ static void ext4_update_dir_count(handle_t *handle, struct ext4_renament *ent)
 	}
 }
 
-static struct inode *ext4_whiteout_for_rename(struct mnt_idmap *idmap,
+static struct inode *ext4_whiteout_for_rename(const struct mnt_idmap *idmap,
 					      struct ext4_renament *ent,
 					      int credits, handle_t **h)
 {
@@ -3796,7 +3796,7 @@ retry:
  * while new_{dentry,inode) refers to the destination dentry/inode
  * This comes from rename(const char *oldpath, const char *newpath)
  */
-static int ext4_rename(struct mnt_idmap *idmap, struct inode *old_dir,
+static int ext4_rename(const struct mnt_idmap *idmap, struct inode *old_dir,
 		       struct dentry *old_dentry, struct inode *new_dir,
 		       struct dentry *new_dentry, unsigned int flags)
 {

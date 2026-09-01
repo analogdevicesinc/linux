@@ -534,7 +534,7 @@ static unsigned int create_subvol_num_items(const struct btrfs_qgroup_inherit *i
 	return num_items;
 }
 
-static noinline int create_subvol(struct mnt_idmap *idmap,
+static noinline int create_subvol(const struct mnt_idmap *idmap,
 				  struct inode *dir, struct dentry *dentry,
 				  struct btrfs_qgroup_inherit *inherit)
 {

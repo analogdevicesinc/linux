@@ -3022,7 +3022,7 @@ static struct offset_ctx *shmem_get_offset_ctx(struct inode *inode)
 	return &SHMEM_I(inode)->dir_offsets;
 }
 
-static struct inode *__shmem_get_inode(struct mnt_idmap *idmap,
+static struct inode *__shmem_get_inode(const struct mnt_idmap *idmap,
 				       struct super_block *sb,
 				       struct inode *dir, umode_t mode,
 				       dev_t dev, vma_flags_t flags)
@@ -3102,7 +3102,7 @@ static struct inode *__shmem_get_inode(struct mnt_idmap *idmap,
 }
 
 #ifdef CONFIG_TMPFS_QUOTA
-static struct inode *shmem_get_inode(struct mnt_idmap *idmap,
+static struct inode *shmem_get_inode(const struct mnt_idmap *idmap,
 				     struct super_block *sb, struct inode *dir,
 				     umode_t mode, dev_t dev, vma_flags_t flags)
 {
@@ -3130,7 +3130,7 @@ errout:
 	return ERR_PTR(err);
 }
 #else
-static struct inode *shmem_get_inode(struct mnt_idmap *idmap,
+static struct inode *shmem_get_inode(const struct mnt_idmap *idmap,
 				     struct super_block *sb, struct inode *dir,
 				     umode_t mode, dev_t dev, vma_flags_t flags)
 {
@@ -5792,7 +5792,7 @@ static inline void shmem_unacct_size(unsigned long flags, loff_t size)
 {
 }
 
-static inline struct inode *shmem_get_inode(struct mnt_idmap *idmap,
+static inline struct inode *shmem_get_inode(const struct mnt_idmap *idmap,
 				struct super_block *sb, struct inode *dir,
 				umode_t mode, dev_t dev, vma_flags_t flags)
 {
