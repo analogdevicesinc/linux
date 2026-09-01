@@ -121,41 +121,29 @@ struct ad4052_chip_info {
 	u16 prod_id;
 	u16 avg_max;
 	u8 grade;
+	u8 sample_realbits;
+	u8 burst_realbits;
 };
 
-enum {
-	AD4052_SCAN_TYPE_SAMPLE,
-	AD4052_SCAN_TYPE_BURST_AVG,
+/*
+ * In oversampling mode, the precision increases (20-bits for AD4052/AD4058 and
+ * 14-bit for AD4050/AD4056). Consider the max precision as the scan type.
+ *
+ * The SPI engine transfers the number of bits based on the word length but
+ * AXI DMAC always outputs 32-bits (right-justified).
+ */
+static const struct iio_scan_type ad4052_scan_type_12_s = {
+	.sign = 's',
+	.realbits = 14,
+	.storagebits = 32,
+	.endianness = IIO_CPU,
 };
 
-static const struct iio_scan_type ad4052_scan_type_12_s[] = {
-	[AD4052_SCAN_TYPE_SAMPLE] = {
-		.sign = 's',
-		.realbits = 12,
-		.storagebits = 32,
-		.endianness = IIO_CPU,
-	},
-	[AD4052_SCAN_TYPE_BURST_AVG] = {
-		.sign = 's',
-		.realbits = 14,
-		.storagebits = 32,
-		.endianness = IIO_CPU,
-	},
-};
-
-static const struct iio_scan_type ad4052_scan_type_16_s[] = {
-	[AD4052_SCAN_TYPE_SAMPLE] = {
-		.sign = 's',
-		.realbits = 16,
-		.storagebits = 32,
-		.endianness = IIO_CPU,
-	},
-	[AD4052_SCAN_TYPE_BURST_AVG] = {
-		.sign = 's',
-		.realbits = 20,
-		.storagebits = 32,
-		.endianness = IIO_CPU,
-	},
+static const struct iio_scan_type ad4052_scan_type_16_s = {
+	.sign = 's',
+	.realbits = 20,
+	.storagebits = 32,
+	.endianness = IIO_CPU,
 };
 
 static const unsigned int ad4052_conversion_freqs[] = {
@@ -307,9 +295,7 @@ static const struct iio_event_spec ad4052_events[] = {
 	.channel = 0,									\
 	.event_spec = ad4052_events,							\
 	.num_event_specs = ARRAY_SIZE(ad4052_events),					\
-	.has_ext_scan_type = 1,								\
-	.ext_scan_type = ad4052_scan_type_##bits##_s,					\
-	.num_ext_scan_type = ARRAY_SIZE(ad4052_scan_type_##bits##_s),			\
+	.scan_type = ad4052_scan_type_##bits##_s					\
 }
 
 #define AD4052_OFFLOAD_CHAN(bits) {							\
@@ -324,9 +310,7 @@ static const struct iio_event_spec ad4052_events[] = {
 	.channel = 0,									\
 	.event_spec = ad4052_events,							\
 	.num_event_specs = ARRAY_SIZE(ad4052_events),					\
-	.has_ext_scan_type = 1,								\
-	.ext_scan_type = ad4052_scan_type_##bits##_s,					\
-	.num_ext_scan_type = ARRAY_SIZE(ad4052_scan_type_##bits##_s),			\
+	.scan_type = ad4052_scan_type_##bits##_s					\
 }
 
 static const struct ad4052_chip_info ad4050_chip_info = {
@@ -336,6 +320,8 @@ static const struct ad4052_chip_info ad4050_chip_info = {
 	.prod_id = 0x70,
 	.avg_max = 256,
 	.grade = AD4052_2MSPS,
+	.sample_realbits = 12,
+	.burst_realbits = 14,
 };
 
 static const struct ad4052_chip_info ad4052_chip_info = {
@@ -345,6 +331,8 @@ static const struct ad4052_chip_info ad4052_chip_info = {
 	.prod_id = 0x72,
 	.avg_max = 4096,
 	.grade = AD4052_2MSPS,
+	.sample_realbits = 16,
+	.burst_realbits = 20,
 };
 
 static const struct ad4052_chip_info ad4056_chip_info = {
@@ -354,6 +342,8 @@ static const struct ad4052_chip_info ad4056_chip_info = {
 	.prod_id = 0x76,
 	.avg_max = 256,
 	.grade = AD4052_500KSPS,
+	.sample_realbits = 12,
+	.burst_realbits = 14,
 };
 
 static const struct ad4052_chip_info ad4058_chip_info = {
@@ -363,6 +353,8 @@ static const struct ad4052_chip_info ad4058_chip_info = {
 	.prod_id = 0x78,
 	.avg_max = 4096,
 	.grade = AD4052_500KSPS,
+	.sample_realbits = 16,
+	.burst_realbits = 20,
 };
 
 static ssize_t sampling_frequency_show(struct device *dev,
@@ -533,45 +525,68 @@ static int ad4052_set_sign_ext(struct ad4052_state *st, bool en)
 					     en));
 }
 
-static int ad4052_update_xfer_raw(struct iio_dev *indio_dev,
-				  struct iio_chan_spec const *chan)
+/*
+ * REVISIT: for libiio v0 support, scan type always reports the resolution
+ * with burst avg enabled.
+ */
+static u8 ad4052_mode_realbits(struct ad4052_state *st,
+			       enum ad4052_operation_mode mode)
 {
-	struct ad4052_state *st = iio_priv(indio_dev);
-	const struct iio_scan_type *scan_type;
-	struct spi_transfer *xfer = &st->xfer;
+	if (mode == AD4052_BURST_AVERAGING_MODE)
+		return st->chip->burst_realbits;
 
-	scan_type = iio_get_current_scan_type(indio_dev, chan);
-	if (IS_ERR(scan_type))
-		return PTR_ERR(scan_type);
-
-	xfer->rx_buf = st->buf.bytes;
-	xfer->bits_per_word = roundup_pow_of_two(scan_type->realbits); /* + SE_BITS */
-	xfer->len = spi_bpw_to_bytes(scan_type->realbits);
-	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uV);
-
-	return ad4052_set_sign_ext(st, xfer->bits_per_word == 32);
+	return st->chip->sample_realbits;
 }
 
-static int ad4052_update_xfer_offload(struct iio_dev *indio_dev,
-				      struct iio_chan_spec const *chan)
+/*
+ * AD4052/AD4058 requires one extra byte to pad to the static scan type, corrected
+ * with SE_BYTE, but reducing the nominal speed.
+ */
+static bool ad4052_mode_sign_ext(struct ad4052_state *st,
+				 enum ad4052_operation_mode mode)
 {
-	struct ad4052_state *st = iio_priv(indio_dev);
-	const struct iio_scan_type *scan_type;
-	struct spi_transfer *xfer = &st->offload_xfer;
-	int ret;
+	u8 realbits = ad4052_mode_realbits(st, mode);
 
-	scan_type = iio_get_current_scan_type(indio_dev, chan);
-	if (IS_ERR(scan_type))
-		return PTR_ERR(scan_type);
+	return round_up(realbits, BITS_PER_BYTE) < st->chip->burst_realbits;
+}
 
-	xfer->bits_per_word = roundup_pow_of_two(scan_type->realbits); /* + SE_BITS */
-	xfer->offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
-	xfer->len = spi_bpw_to_bytes(scan_type->realbits);
+static u8 ad4052_mode_wordbits(struct ad4052_state *st,
+			       enum ad4052_operation_mode mode)
+{
+	u8 realbits = ad4052_mode_realbits(st, mode);
+	u8 wordbits = round_up(realbits, BITS_PER_BYTE); /* + SE_BITS */
+
+	if (ad4052_mode_sign_ext(st, mode))
+		wordbits += BITS_PER_BYTE; /* + SE_BYTE */
+
+	return wordbits;
+}
+
+/*
+ * The SPI engine transfers the number of bits based on the word length but
+ * AXI DMAC always outputs 32-bits (right-justified), so the sign-extended
+ * result of any mode matches the static scan type.
+ */
+static void ad4052_update_xfer_raw(struct ad4052_state *st)
+{
+	u8 wordbits = ad4052_mode_wordbits(st, st->mode);
+	struct spi_transfer *xfer = &st->xfer;
+
+	xfer->rx_buf = st->buf.bytes;
+	xfer->bits_per_word = wordbits;
+	xfer->len = spi_bpw_to_bytes(wordbits);
 	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uV);
+}
 
-	ret = ad4052_set_sign_ext(st, xfer->bits_per_word == 32);
-	if (ret)
-		return ret;
+static int ad4052_update_xfer_offload(struct ad4052_state *st)
+{
+	u8 wordbits = ad4052_mode_wordbits(st, st->mode);
+	struct spi_transfer *xfer = &st->offload_xfer;
+
+	xfer->bits_per_word = wordbits;
+	xfer->offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+	xfer->len = spi_bpw_to_bytes(wordbits);
+	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uV);
 
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
 	st->offload_msg.offload = st->offload;
@@ -618,9 +633,15 @@ static int ad4052_set_operation_mode(struct ad4052_state *st,
 {
 	const unsigned int samp_freq = mode == AD4052_MONITOR_MODE ?
 				       st->events_frequency : st->sampling_frequency;
+	bool sign_ext;
 	int ret;
 
 	ret = ad4052_conversion_frequency_set(st, samp_freq);
+	if (ret)
+		return ret;
+
+	sign_ext = ad4052_mode_sign_ext(st, mode);
+	ret = ad4052_set_sign_ext(st, sign_ext);
 	if (ret)
 		return ret;
 
@@ -648,16 +669,10 @@ static int ad4052_soft_reset(struct ad4052_state *st)
 	return 0;
 }
 
-static int ad4052_setup(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
-			const bool *ref_sel)
+static int ad4052_setup(struct iio_dev *indio_dev, const bool *ref_sel)
 {
 	struct ad4052_state *st = iio_priv(indio_dev);
-	const struct iio_scan_type *scan_type;
 	int ret;
-
-	scan_type = iio_get_current_scan_type(indio_dev, chan);
-	if (IS_ERR(scan_type))
-		return PTR_ERR(scan_type);
 
 	ret = regmap_update_bits(st->regmap, AD4052_REG_GP_CONF,
 				 AD4052_REG_GP_CONF_MODE_MSK_1,
@@ -848,18 +863,13 @@ static int ad4052_get_sampling_frequency_offload(struct iio_dev *indio_dev,
 static int ad4052_get_chan_scale(struct iio_dev *indio_dev, int *val, int *val2)
 {
 	struct ad4052_state *st = iio_priv(indio_dev);
-	const struct iio_scan_type *scan_type;
 
 	/*
 	 * In burst averaging mode the averaging filter accumulates resulting
 	 * in a sample with increased precision.
 	 */
-	scan_type = iio_get_current_scan_type(indio_dev, st->chip->channels);
-	if (IS_ERR(scan_type))
-		return PTR_ERR(scan_type);
-
 	*val = (st->vref_uV * 2) / (MICRO / MILLI); /* signed */
-	*val2 = scan_type->realbits - 1;
+	*val2 = ad4052_mode_realbits(st, st->mode) - 1;
 
 	return IIO_VAL_FRACTIONAL_LOG2;
 }
@@ -919,11 +929,14 @@ static int __ad4052_read_chan_raw(struct ad4052_state *st, int *val)
 {
 	struct spi_device *spi = st->spi;
 	struct spi_transfer t_cnv = {};
+	u8 sign_bit;
 	int ret;
 
 	ret = ad4052_set_operation_mode(st, st->mode);
 	if (ret)
 		return ret;
+
+	ad4052_update_xfer_raw(st);
 
 	reinit_completion(&st->completion);
 
@@ -951,10 +964,12 @@ static int __ad4052_read_chan_raw(struct ad4052_state *st, int *val)
 	if (ret)
 		return ret;
 
+	/* The SPI word is in CPU order, sign extended up to the word length */
+	sign_bit = ad4052_mode_wordbits(st, st->mode) - 1;
 	if (st->xfer.len == 2)
-		*val = sign_extend32(st->buf.be16, 15);
+		*val = sign_extend32(st->buf.be16, sign_bit);
 	else
-		*val = sign_extend32(st->buf.be32, 23);
+		*val = sign_extend32(st->buf.be32, sign_bit);
 
 	return ad4052_exit_command(st);
 }
@@ -1311,9 +1326,9 @@ static int __pm_ad4052_triggered_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	ret = ad4052_update_xfer_offload(indio_dev, indio_dev->channels);
+	ret = ad4052_update_xfer_offload(st);
 	if (ret)
-		goto out_xfer_error;
+		return ret;
 
 	ret = spi_optimize_message(st->spi, &st->offload_msg);
 	if (ret)
@@ -1411,16 +1426,6 @@ static int ad4052_debugfs_reg_access(struct iio_dev *indio_dev, unsigned int reg
 		return regmap_write(st->regmap, reg, writeval);
 }
 
-static int ad4052_get_current_scan_type(const struct iio_dev *indio_dev,
-					const struct iio_chan_spec *chan)
-{
-	struct ad4052_state *st = iio_priv(indio_dev);
-
-	return st->mode == AD4052_BURST_AVERAGING_MODE ?
-			   AD4052_SCAN_TYPE_BURST_AVG :
-			   AD4052_SCAN_TYPE_SAMPLE;
-}
-
 static const struct iio_info ad4052_info = {
 	.read_raw = ad4052_read_raw,
 	.write_raw = ad4052_write_raw,
@@ -1430,7 +1435,6 @@ static const struct iio_info ad4052_info = {
 	.read_event_value = ad4052_read_event_value,
 	.write_event_value = ad4052_write_event_value,
 	.event_attrs = &ad4052_event_attribute_group,
-	.get_current_scan_type = ad4052_get_current_scan_type,
 	.debugfs_reg_access = ad4052_debugfs_reg_access,
 };
 
@@ -1768,7 +1772,7 @@ static int ad4052_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = ad4052_setup(indio_dev, indio_dev->channels, &ref_sel);
+	ret = ad4052_setup(indio_dev, &ref_sel);
 	if (ret)
 		return ret;
 
@@ -1776,9 +1780,7 @@ static int ad4052_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = ad4052_update_xfer_raw(indio_dev, indio_dev->channels);
-	if (ret)
-		return ret;
+	ad4052_update_xfer_raw(st);
 
 	pm_runtime_set_active(dev);
 	ret = devm_pm_runtime_enable(dev);
