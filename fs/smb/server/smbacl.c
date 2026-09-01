@@ -257,7 +257,7 @@ void id_to_sid(unsigned int cid, uint sidtype, struct smb_sid *ssid)
 	ssid->num_subauth++;
 }
 
-static int sid_to_id(struct mnt_idmap *idmap,
+static int sid_to_id(const struct mnt_idmap *idmap,
 		     struct smb_sid *psid, uint sidtype,
 		     struct smb_fattr *fattr)
 {
@@ -383,7 +383,7 @@ void free_acl_state(struct posix_acl_state *state)
 	kfree(state->groups);
 }
 
-static void parse_dacl(struct mnt_idmap *idmap,
+static void parse_dacl(const struct mnt_idmap *idmap,
 		       struct smb_acl *pdacl, char *end_of_acl,
 		       struct smb_sid *pownersid, struct smb_sid *pgrpsid,
 		       struct smb_fattr *fattr)
@@ -608,7 +608,7 @@ static void parse_dacl(struct mnt_idmap *idmap,
 	free_acl_state(&default_acl_state);
 }
 
-static void set_posix_acl_entries_dacl(struct mnt_idmap *idmap,
+static void set_posix_acl_entries_dacl(const struct mnt_idmap *idmap,
 				       struct smb_ace *pndace,
 				       struct smb_fattr *fattr, u16 *num_aces,
 				       u16 *size, u16 existing_nt_aces,
@@ -739,7 +739,7 @@ posix_default_acl:
 	}
 }
 
-static void set_ntacl_dacl(struct mnt_idmap *idmap,
+static void set_ntacl_dacl(const struct mnt_idmap *idmap,
 			   struct smb_acl *pndacl,
 			   struct smb_acl *nt_dacl,
 			   unsigned int aces_size,
@@ -798,7 +798,7 @@ next_ace:
 	pndacl->size = cpu_to_le16(le16_to_cpu(pndacl->size) + size);
 }
 
-static void set_mode_dacl(struct mnt_idmap *idmap,
+static void set_mode_dacl(const struct mnt_idmap *idmap,
 			  struct smb_acl *pndacl, struct smb_fattr *fattr)
 {
 	struct smb_ace *pace, *pndace;
@@ -884,7 +884,7 @@ static int parse_sid(struct smb_sid *psid, char *end_of_acl)
 }
 
 /* Convert CIFS ACL to POSIX form */
-int parse_sec_desc(struct mnt_idmap *idmap, struct smb_ntsd *pntsd,
+int parse_sec_desc(const struct mnt_idmap *idmap, struct smb_ntsd *pntsd,
 		   int acl_len, struct smb_fattr *fattr)
 {
 	int rc = 0;
@@ -1017,7 +1017,7 @@ size_t smb_acl_sec_desc_scratch_len(struct smb_fattr *fattr,
 }
 
 /* Convert permission bits from mode to equivalent CIFS ACL */
-int build_sec_desc(struct mnt_idmap *idmap,
+int build_sec_desc(const struct mnt_idmap *idmap,
 		   struct smb_ntsd *pntsd, struct smb_ntsd *ppntsd,
 		   int ppntsd_size, int addition_info, __u32 *secdesclen,
 		   struct smb_fattr *fattr)

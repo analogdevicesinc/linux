@@ -806,7 +806,7 @@ int ovl_permission(struct mnt_idmap *idmap, struct inode *inode,
 		   int mask);
 
 #ifdef CONFIG_FS_POSIX_ACL
-struct posix_acl *do_ovl_get_acl(struct mnt_idmap *idmap,
+struct posix_acl *do_ovl_get_acl(const struct mnt_idmap *idmap,
 				 struct inode *inode, int type,
 				 bool rcu, bool noperm);
 static inline struct posix_acl *ovl_get_inode_acl(struct inode *inode, int type,

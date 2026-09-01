@@ -751,7 +751,7 @@ static u32 fuse_ext_size(size_t size)
 /*
  * This adds just a single supplementary group that matches the parent's group.
  */
-static int get_create_supp_group(struct mnt_idmap *idmap,
+static int get_create_supp_group(const struct mnt_idmap *idmap,
 				 struct inode *dir,
 				 struct fuse_in_arg *ext)
 {
@@ -782,7 +782,7 @@ static int get_create_supp_group(struct mnt_idmap *idmap,
 	return 0;
 }
 
-static int get_create_ext(struct mnt_idmap *idmap,
+static int get_create_ext(const struct mnt_idmap *idmap,
 			  struct fuse_args *args,
 			  struct inode *dir, struct dentry *dentry,
 			  umode_t mode)
@@ -1375,7 +1375,7 @@ out:
 	return err;
 }
 
-static void fuse_fillattr(struct mnt_idmap *idmap, struct inode *inode,
+static void fuse_fillattr(const struct mnt_idmap *idmap, struct inode *inode,
 			  struct fuse_attr *attr, struct kstat *stat)
 {
 	unsigned int blkbits;
@@ -1429,7 +1429,7 @@ static void fuse_statx_to_attr(struct fuse_statx *sx, struct fuse_attr *attr)
 	attr->blksize = sx->blksize;
 }
 
-static int fuse_do_statx(struct mnt_idmap *idmap, struct inode *inode,
+static int fuse_do_statx(const struct mnt_idmap *idmap, struct inode *inode,
 			 struct file *file, struct kstat *stat)
 {
 	int err;
@@ -1490,7 +1490,7 @@ static int fuse_do_statx(struct mnt_idmap *idmap, struct inode *inode,
 	return 0;
 }
 
-static int fuse_do_getattr(struct mnt_idmap *idmap, struct inode *inode,
+static int fuse_do_getattr(const struct mnt_idmap *idmap, struct inode *inode,
 			   struct kstat *stat, struct file *file)
 {
 	int err;
@@ -2000,7 +2000,7 @@ static bool update_mtime(unsigned ivalid, bool trust_local_mtime)
 	return true;
 }
 
-static void iattr_to_fattr(struct mnt_idmap *idmap, struct fuse_conn *fc,
+static void iattr_to_fattr(const struct mnt_idmap *idmap, struct fuse_conn *fc,
 			   struct iattr *iattr, struct fuse_setattr_in *arg,
 			   bool trust_local_cmtime)
 {

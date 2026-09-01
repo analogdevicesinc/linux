@@ -77,7 +77,7 @@ static inline bool initial_idmapping(const struct user_namespace *ns)
  * returned.
  */
 
-vfsuid_t make_vfsuid(struct mnt_idmap *idmap,
+vfsuid_t make_vfsuid(const struct mnt_idmap *idmap,
 		     struct user_namespace *fs_userns,
 		     kuid_t kuid)
 {
@@ -117,7 +117,7 @@ EXPORT_SYMBOL_GPL(make_vfsuid);
  * If @kgid has no mapping in either @idmap or @fs_userns INVALID_GID is
  * returned.
  */
-vfsgid_t make_vfsgid(struct mnt_idmap *idmap,
+vfsgid_t make_vfsgid(const struct mnt_idmap *idmap,
 		     struct user_namespace *fs_userns, kgid_t kgid)
 {
 	gid_t gid;
@@ -147,7 +147,7 @@ EXPORT_SYMBOL_GPL(make_vfsgid);
  *
  * Return: @vfsuid mapped into the filesystem idmapping
  */
-kuid_t from_vfsuid(struct mnt_idmap *idmap,
+kuid_t from_vfsuid(const struct mnt_idmap *idmap,
 		   struct user_namespace *fs_userns, vfsuid_t vfsuid)
 {
 	uid_t uid;
@@ -176,7 +176,7 @@ EXPORT_SYMBOL_GPL(from_vfsuid);
  *
  * Return: @vfsgid mapped into the filesystem idmapping
  */
-kgid_t from_vfsgid(struct mnt_idmap *idmap,
+kgid_t from_vfsgid(const struct mnt_idmap *idmap,
 		   struct user_namespace *fs_userns, vfsgid_t vfsgid)
 {
 	gid_t gid;
@@ -340,9 +340,10 @@ void mnt_idmap_put(const struct mnt_idmap *idmap)
 }
 EXPORT_SYMBOL_GPL(mnt_idmap_put);
 
-int statmount_mnt_idmap(struct mnt_idmap *idmap, struct seq_file *seq, bool uid_map)
+int statmount_mnt_idmap(const struct mnt_idmap *idmap, struct seq_file *seq, bool uid_map)
 {
-	struct uid_gid_map *map, *map_up;
+	const struct uid_gid_map *map;
+	struct uid_gid_map *map_up;
 	u32 idx, nr_mappings;
 
 	if (!is_valid_mnt_idmap(idmap))
@@ -362,7 +363,7 @@ int statmount_mnt_idmap(struct mnt_idmap *idmap, struct seq_file *seq, bool uid_
 
 	for (idx = 0, nr_mappings = 0; idx < map->nr_extents; idx++) {
 		uid_t lower;
-		struct uid_gid_extent *extent;
+		const struct uid_gid_extent *extent;
 
 		if (map->nr_extents <= UID_GID_MAP_MAX_BASE_EXTENTS)
 			extent = &map->extent[idx];

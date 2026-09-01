@@ -2568,7 +2568,7 @@ out:
 	return ret;
 }
 
-int __ceph_setattr(struct mnt_idmap *idmap, struct inode *inode,
+int __ceph_setattr(const struct mnt_idmap *idmap, struct inode *inode,
 		   struct iattr *attr, struct ceph_iattr *cia)
 {
 	struct ceph_inode_info *ci = ceph_inode(inode);

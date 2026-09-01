@@ -1540,7 +1540,7 @@ out:
 	return err;
 }
 
-static struct xattr_smb_acl *ksmbd_vfs_make_xattr_posix_acl(struct mnt_idmap *idmap,
+static struct xattr_smb_acl *ksmbd_vfs_make_xattr_posix_acl(const struct mnt_idmap *idmap,
 							    struct inode *inode,
 							    int acl_type)
 {
@@ -2253,7 +2253,7 @@ int ksmbd_vfs_set_init_posix_acl(struct mnt_idmap *idmap,
 	return rc;
 }
 
-int ksmbd_vfs_inherit_posix_acl(struct mnt_idmap *idmap,
+int ksmbd_vfs_inherit_posix_acl(const struct mnt_idmap *idmap,
 				const struct path *path, struct inode *parent_inode)
 {
 	struct posix_acl *acls;

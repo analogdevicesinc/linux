@@ -1057,7 +1057,7 @@ int simple_acl_create(struct inode *dir, struct inode *inode)
 	return 0;
 }
 
-static int vfs_set_acl_idmapped_mnt(struct mnt_idmap *idmap,
+static int vfs_set_acl_idmapped_mnt(const struct mnt_idmap *idmap,
 				    struct user_namespace *fs_userns,
 				    struct posix_acl *acl)
 {

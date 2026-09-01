@@ -481,7 +481,7 @@ static enum integrity_status evm_verify_current_integrity(struct dentry *dentry)
  *
  * Returns 1 if passed xattr value differs from current value, 0 otherwise.
  */
-static int evm_xattr_change(struct mnt_idmap *idmap,
+static int evm_xattr_change(const struct mnt_idmap *idmap,
 			    struct dentry *dentry, const char *xattr_name,
 			    const void *xattr_value, size_t xattr_value_len)
 {
@@ -517,7 +517,7 @@ out:
  * For posix xattr acls only, permit security.evm, even if it currently
  * doesn't exist, to be updated unless the EVM signature is immutable.
  */
-static int evm_protect_xattr(struct mnt_idmap *idmap,
+static int evm_protect_xattr(const struct mnt_idmap *idmap,
 			     struct dentry *dentry, const char *xattr_name,
 			     const void *xattr_value, size_t xattr_value_len)
 {
