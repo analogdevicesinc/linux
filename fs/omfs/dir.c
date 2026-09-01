@@ -285,7 +285,7 @@ static struct dentry *omfs_mkdir(const struct mnt_idmap *idmap, struct inode *di
 	return ERR_PTR(omfs_add_node(dir, dentry, mode));
 }
 
-static int omfs_create(struct mnt_idmap *idmap, struct inode *dir,
+static int omfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, umode_t mode)
 {
 	return omfs_add_node(dir, dentry, mode | S_IFREG);

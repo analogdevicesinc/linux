@@ -450,7 +450,7 @@ bail:
 	return ERR_PTR(status);
 }
 
-static int dlmfs_create(struct mnt_idmap *idmap,
+static int dlmfs_create(const struct mnt_idmap *idmap,
 			struct inode *dir,
 			struct dentry *dentry,
 			umode_t mode)

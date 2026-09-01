@@ -74,7 +74,7 @@ static bool efivarfs_valid_name(const char *str, int len)
 	return uuid_is_valid(s);
 }
 
-static int efivarfs_create(struct mnt_idmap *idmap, struct inode *dir,
+static int efivarfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 			   struct dentry *dentry, umode_t mode)
 {
 	struct inode *inode = NULL;

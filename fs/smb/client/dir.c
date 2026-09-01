@@ -640,7 +640,7 @@ out_free_xid:
  * The initial dentry state is hashed-negative.  On success, dentry will become
  * hashed-positive by calling d_instantiate().
  */
-int cifs_create(struct mnt_idmap *idmap, struct inode *dir,
+int cifs_create(const struct mnt_idmap *idmap, struct inode *dir,
 		struct dentry *direntry, umode_t mode)
 {
 	struct cifs_sb_info *cifs_sb = CIFS_SB(dir);

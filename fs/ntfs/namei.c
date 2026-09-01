@@ -732,7 +732,7 @@ err_out:
 	return ERR_PTR(err);
 }
 
-static int ntfs_create(struct mnt_idmap *idmap, struct inode *dir,
+static int ntfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 		struct dentry *dentry, umode_t mode)
 {
 	struct ntfs_volume *vol = NTFS_SB(dir->i_sb);

@@ -97,7 +97,7 @@ struct dentry *ext2_get_parent(struct dentry *child)
  * If the create succeeds, we fill in the inode information
  * with d_instantiate(). 
  */
-static int ext2_create (struct mnt_idmap * idmap,
+static int ext2_create (const struct mnt_idmap * idmap,
 			struct inode * dir, struct dentry * dentry,
 			umode_t mode)
 {

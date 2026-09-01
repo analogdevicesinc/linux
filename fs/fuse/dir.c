@@ -1092,7 +1092,7 @@ static int fuse_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	return create_new_nondir(idmap, fm, &args, dir, entry, mode);
 }
 
-static int fuse_create(struct mnt_idmap *idmap, struct inode *dir,
+static int fuse_create(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *entry, umode_t mode)
 {
 	return fuse_mknod(idmap, dir, entry, mode, 0);

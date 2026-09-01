@@ -266,7 +266,7 @@ out:
  * Returns zero on success; non-zero on error condition
  */
 static int
-ecryptfs_create(struct mnt_idmap *idmap,
+ecryptfs_create(const struct mnt_idmap *idmap,
 		struct inode *directory_inode, struct dentry *ecryptfs_dentry,
 		umode_t mode)
 {

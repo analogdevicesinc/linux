@@ -75,7 +75,7 @@ const struct file_operations bfs_dir_operations = {
 	.llseek		= generic_file_llseek,
 };
 
-static int bfs_create(struct mnt_idmap *idmap, struct inode *dir,
+static int bfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 		      struct dentry *dentry, umode_t mode)
 {
 	int err;

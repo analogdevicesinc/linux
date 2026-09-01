@@ -15,7 +15,7 @@
 /*
  * Get a newly allocated inode to go with a negative dentry.
  */
-static int orangefs_create(struct mnt_idmap *idmap,
+static int orangefs_create(const struct mnt_idmap *idmap,
 			struct inode *dir,
 			struct dentry *dentry,
 			umode_t mode)

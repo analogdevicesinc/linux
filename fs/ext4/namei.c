@@ -2812,7 +2812,7 @@ static int ext4_add_nondir(handle_t *handle,
  * If the create succeeds, we fill in the inode information
  * with d_instantiate().
  */
-static int ext4_create(struct mnt_idmap *idmap, struct inode *dir,
+static int ext4_create(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, umode_t mode)
 {
 	handle_t *handle;

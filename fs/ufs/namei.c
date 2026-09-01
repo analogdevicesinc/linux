@@ -69,7 +69,7 @@ static struct dentry *ufs_lookup(struct inode * dir, struct dentry *dentry, unsi
  * If the create succeeds, we fill in the inode information
  * with d_instantiate(). 
  */
-static int ufs_create (struct mnt_idmap * idmap,
+static int ufs_create (const struct mnt_idmap * idmap,
 		struct inode * dir, struct dentry * dentry, umode_t mode)
 {
 	struct inode *inode;

@@ -296,7 +296,7 @@ out:
 	return err;
 }
 
-static int vboxsf_dir_mkfile(struct mnt_idmap *idmap,
+static int vboxsf_dir_mkfile(const struct mnt_idmap *idmap,
 			     struct inode *parent, struct dentry *dentry,
 			     umode_t mode)
 {

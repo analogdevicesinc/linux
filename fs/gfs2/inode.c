@@ -967,7 +967,7 @@ fail:
  * Returns: errno
  */
 
-static int gfs2_create(struct mnt_idmap *idmap, struct inode *dir,
+static int gfs2_create(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, umode_t mode)
 {
 	return gfs2_create_inode(dir, dentry, NULL, S_IFREG | mode, 0, NULL, 0, 1);

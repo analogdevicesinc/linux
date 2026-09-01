@@ -730,7 +730,7 @@ out:
 	return err;
 }
 
-static int ovl_create(struct mnt_idmap *idmap, struct inode *dir,
+static int ovl_create(const struct mnt_idmap *idmap, struct inode *dir,
 		      struct dentry *dentry, umode_t mode)
 {
 	return ovl_create_object(idmap, dentry, (mode & 07777) | S_IFREG, 0, NULL);

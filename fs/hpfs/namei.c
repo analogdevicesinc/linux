@@ -128,7 +128,7 @@ bail:
 	return ERR_PTR(err);
 }
 
-static int hpfs_create(struct mnt_idmap *idmap, struct inode *dir,
+static int hpfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, umode_t mode)
 {
 	const unsigned char *name = dentry->d_name.name;

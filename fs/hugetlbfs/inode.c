@@ -977,7 +977,7 @@ static struct dentry *hugetlbfs_mkdir(const struct mnt_idmap *idmap, struct inod
 	return ERR_PTR(retval);
 }
 
-static int hugetlbfs_create(struct mnt_idmap *idmap,
+static int hugetlbfs_create(const struct mnt_idmap *idmap,
 			    struct inode *dir, struct dentry *dentry,
 			    umode_t mode)
 {

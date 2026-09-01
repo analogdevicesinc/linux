@@ -592,7 +592,7 @@ static struct inode *hostfs_iget(struct super_block *sb, char *name)
 	return inode;
 }
 
-static int hostfs_create(struct mnt_idmap *idmap, struct inode *dir,
+static int hostfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct dentry *dentry, umode_t mode)
 {
 	struct inode *inode;

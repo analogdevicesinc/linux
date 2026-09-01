@@ -2437,7 +2437,7 @@ out_err:
 	return error;
 }
 
-int nfs_create(struct mnt_idmap *idmap, struct inode *dir,
+int nfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 	       struct dentry *dentry, umode_t mode)
 {
 	return nfs_do_create(dir, dentry, mode, O_EXCL);

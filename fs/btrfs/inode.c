@@ -7018,7 +7018,7 @@ static int btrfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	return btrfs_create_common(dir, dentry, inode);
 }
 
-static int btrfs_create(struct mnt_idmap *idmap, struct inode *dir,
+static int btrfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 			struct dentry *dentry, umode_t mode)
 {
 	struct inode *inode;

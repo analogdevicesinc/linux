@@ -671,7 +671,7 @@ static struct dentry *ocfs2_mkdir(const struct mnt_idmap *idmap,
 	return ERR_PTR(ret);
 }
 
-static int ocfs2_create(struct mnt_idmap *idmap,
+static int ocfs2_create(const struct mnt_idmap *idmap,
 			struct inode *dir,
 			struct dentry *dentry,
 			umode_t mode)

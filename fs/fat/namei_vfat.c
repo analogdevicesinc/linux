@@ -753,7 +753,7 @@ error:
 	return ERR_PTR(err);
 }
 
-static int vfat_create(struct mnt_idmap *idmap, struct inode *dir,
+static int vfat_create(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, umode_t mode)
 {
 	struct super_block *sb = dir->i_sb;

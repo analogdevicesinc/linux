@@ -127,7 +127,7 @@ static struct dentry *ramfs_mkdir(const struct mnt_idmap *idmap, struct inode *d
 	return ERR_PTR(retval);
 }
 
-static int ramfs_create(struct mnt_idmap *idmap, struct inode *dir,
+static int ramfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 			struct dentry *dentry, umode_t mode)
 {
 	return ramfs_mknod(&nop_mnt_idmap, dir, dentry, mode | S_IFREG, 0);
