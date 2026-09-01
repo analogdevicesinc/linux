@@ -65,7 +65,6 @@ struct Reg {
     name: Ident,
     ty: Type,
     array: Option<RegArrayDef>,
-    relative_base: Option<Path>,
     offset: RegOffset,
     bitfield: Option<(Type, Group)>,
 }
@@ -110,26 +109,15 @@ impl Parse for Reg {
 
         // Parse offset and the base it's relative to.
         let lh = input.lookahead1();
-        let mut relative_base = None;
         let offset = if lh.peek(Token![@]) {
             let _: Token![@] = input.parse()?;
-
-            if input.peek(Ident) {
-                relative_base = Some(input.parse()?);
-                let _: Token![+] = input.parse()?;
-            }
 
             RegOffset::Fixed {
                 offset: input.parse()?,
             }
         } else if lh.peek(Token![=>]) {
             let _: Token![=>] = input.parse()?;
-            let mut alias: Path = input.parse()?;
-            if input.peek(Token![+]) {
-                let _: Token![+] = input.parse()?;
-                relative_base = Some(alias);
-                alias = input.parse()?;
-            }
+            let alias: Path = input.parse()?;
 
             if input.peek(token::Bracket) {
                 let content;
@@ -164,7 +152,6 @@ impl Parse for Reg {
             name,
             ty,
             array,
-            relative_base,
             offset,
             bitfield,
         })
@@ -208,7 +195,6 @@ pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
             name,
             ty,
             array,
-            relative_base,
             offset,
             bitfield,
         } = reg;
@@ -248,7 +234,7 @@ pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
         }
 
         match array {
-            None if bitfield.is_none() && relative_base.is_none() => outputs.extend(quote!(
+            None if bitfield.is_none() => outputs.extend(quote!(
                 #(#attrs)* #vis const #name: ::kernel::io::register::OffsetLoc<#base, #ty> =
                     ::kernel::io::register::OffsetLoc::new(#offset);
             )),
@@ -258,21 +244,12 @@ pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
                 "defining without bitfield is not yet supported for this type of register",
             ))?,
 
-            None => match relative_base {
-                None => outputs.extend(quote_spanned!(span =>
-                    impl ::kernel::io::register::FixedRegister for #name {}
+            None => outputs.extend(quote_spanned!(span =>
+                impl ::kernel::io::register::FixedRegister for #name {}
 
-                    #(#attrs)* #vis const #name: ::kernel::io::register::FixedRegisterLoc<#name> =
-                        ::kernel::io::register::FixedRegisterLoc::<#name>::new();
-                )),
-                Some(relative_base) => outputs.extend(quote_spanned!(span =>
-                    impl ::kernel::io::register::WithBase for #name {
-                        type BaseFamily = #relative_base;
-                    }
-
-                    impl ::kernel::io::register::RelativeRegister for #name {}
-                )),
-            },
+                #(#attrs)* #vis const #name: ::kernel::io::register::FixedRegisterLoc<#name> =
+                    ::kernel::io::register::FixedRegisterLoc::<#name>::new();
+            )),
 
             Some(def) => {
                 let size = &def.size;
@@ -288,24 +265,13 @@ pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
                 };
 
                 outputs.extend(quote_spanned!(span =>
+                    impl ::kernel::io::register::Array for #name {}
+
                     impl ::kernel::io::register::RegisterArray for #name {
                         const SIZE: usize = #size;
                         const STRIDE: usize = #stride;
                     }
                 ));
-
-                match relative_base {
-                    None => outputs.extend(quote_spanned!(span =>
-                        impl ::kernel::io::register::Array for #name {}
-                    )),
-                    Some(relative_base) => outputs.extend(quote_spanned!(span =>
-                        impl ::kernel::io::register::WithBase for #name {
-                            type BaseFamily = #relative_base;
-                        }
-
-                        impl ::kernel::io::register::RelativeRegisterArray for #name {}
-                    )),
-                }
             }
         };
     }
