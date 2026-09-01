@@ -299,7 +299,7 @@ int filename_setxattr(int dfd, struct filename *filename,
 int setxattr_copy(const char __user *name, struct kernel_xattr_ctx *ctx);
 int import_xattr_name(struct xattr_name *kname, const char __user *name);
 
-int may_write_xattr(struct mnt_idmap *idmap, struct inode *inode);
+int may_write_xattr(const struct mnt_idmap *idmap, struct inode *inode);
 
 #ifdef CONFIG_FS_POSIX_ACL
 int do_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,

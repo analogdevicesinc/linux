@@ -1439,7 +1439,7 @@ static inline void i_gid_write(struct inode *inode, gid_t gid)
  * Return: whe inode's i_uid mapped down according to @idmap.
  * If the inode's i_uid has no mapping INVALID_VFSUID is returned.
  */
-static inline vfsuid_t i_uid_into_vfsuid(struct mnt_idmap *idmap,
+static inline vfsuid_t i_uid_into_vfsuid(const struct mnt_idmap *idmap,
 					 const struct inode *inode)
 {
 	return make_vfsuid(idmap, i_user_ns(inode), inode->i_uid);
@@ -1491,7 +1491,7 @@ static inline void i_uid_update(struct mnt_idmap *idmap,
  * Return: the inode's i_gid mapped down according to @idmap.
  * If the inode's i_gid has no mapping INVALID_VFSGID is returned.
  */
-static inline vfsgid_t i_gid_into_vfsgid(struct mnt_idmap *idmap,
+static inline vfsgid_t i_gid_into_vfsgid(const struct mnt_idmap *idmap,
 					 const struct inode *inode)
 {
 	return make_vfsgid(idmap, i_user_ns(inode), inode->i_gid);
@@ -2173,7 +2173,7 @@ extern loff_t vfs_dedupe_file_range_one(struct file *src_file, loff_t src_pos,
 				 (inode)->i_rdev == WHITEOUT_DEV)
 #define IS_ANON_FILE(inode)	((inode)->i_flags & S_ANON_INODE)
 
-static inline bool HAS_UNMAPPED_ID(struct mnt_idmap *idmap,
+static inline bool HAS_UNMAPPED_ID(const struct mnt_idmap *idmap,
 				   struct inode *inode)
 {
 	return !vfsuid_valid(i_uid_into_vfsuid(idmap, inode)) ||

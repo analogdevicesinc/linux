@@ -143,7 +143,7 @@ error:
 	return err;
 }
 
-static bool exfat_allow_set_time(struct mnt_idmap *idmap,
+static bool exfat_allow_set_time(const struct mnt_idmap *idmap,
 				 struct exfat_sb_info *sbi, struct inode *inode)
 {
 	mode_t allow_utime = sbi->options.allow_utime;

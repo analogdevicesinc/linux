@@ -3604,7 +3604,7 @@ static int smb2_create_sd_buffer(struct ksmbd_work *work,
 }
 
 static void ksmbd_acls_fattr(struct smb_fattr *fattr,
-			     struct mnt_idmap *idmap,
+			     const struct mnt_idmap *idmap,
 			     struct inode *inode)
 {
 	vfsuid_t vfsuid = i_uid_into_vfsuid(idmap, inode);

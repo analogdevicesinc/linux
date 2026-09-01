@@ -100,7 +100,7 @@ xattr_resolve_name(struct inode *inode, const char **name)
  *
  * Return: On success zero is returned. On error a negative errno is returned.
  */
-int may_write_xattr(struct mnt_idmap *idmap, struct inode *inode)
+int may_write_xattr(const struct mnt_idmap *idmap, struct inode *inode)
 {
 	if (IS_IMMUTABLE(inode))
 		return -EPERM;

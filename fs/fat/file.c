@@ -493,7 +493,7 @@ static int fat_sanitize_mode(const struct msdos_sb_info *sbi,
 	return 0;
 }
 
-static int fat_allow_set_time(struct mnt_idmap *idmap,
+static int fat_allow_set_time(const struct mnt_idmap *idmap,
 			      struct msdos_sb_info *sbi, struct inode *inode)
 {
 	umode_t allow_utime = sbi->options.allow_utime;

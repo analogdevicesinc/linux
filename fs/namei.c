@@ -1407,7 +1407,7 @@ int may_linkat(struct mnt_idmap *idmap, const struct path *link)
  *
  * Returns 0 if the open is allowed, -ve on error.
  */
-static int may_create_in_sticky(struct mnt_idmap *idmap, struct nameidata *nd,
+static int may_create_in_sticky(const struct mnt_idmap *idmap, struct nameidata *nd,
 				struct inode *const inode)
 {
 	umode_t dir_mode = nd->dir_mode;
