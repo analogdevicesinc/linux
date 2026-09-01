@@ -17,6 +17,8 @@
 		serial0 = &uart0;
 		ethernet0 = &eth0;
 		ethernet1 = &eth1;
+		i2c2 = &i2c2;
+		i2c8 = &i2c8;
 		mmc0 = &emmc;
 		mmc1 = &sdhci0;
 	};
@@ -134,6 +136,35 @@
 		rgmii1: phy@1 {
 			reg = <0x1>;
 			motorcomm,auto-sleep-disabled;
+		};
+	};
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_0_cfg>;
+	status = "okay";
+
+	eeprom@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+		pagesize = <16>;
+		size = <256>;
+		read-only;
+		vcc-supply = <&buck3_1v8>;
+
+		nvmem-layout {
+			compatible = "onie,tlv-layout";
+
+			mac-address {
+				#nvmem-cell-cells = <1>;
+			};
+
+			num-macs {
+			};
+
+			product-name {
+			};
 		};
 	};
 };
