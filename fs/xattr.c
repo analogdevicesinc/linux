@@ -787,7 +787,7 @@ SYSCALL_DEFINE5(fsetxattr, int, fd, const char __user *, name,
  * Extended attribute GET operations
  */
 static ssize_t
-do_getxattr(struct mnt_idmap *idmap, struct dentry *d,
+do_getxattr(const struct mnt_idmap *idmap, struct dentry *d,
 	struct kernel_xattr_ctx *ctx)
 {
 	ssize_t error;

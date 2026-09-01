@@ -954,7 +954,7 @@ const struct xattr_handler * const ntfs_xattr_handlers[] = {
 // clang-format on
 
 #ifdef CONFIG_NTFS_FS_POSIX_ACL
-struct posix_acl *ntfs_get_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+struct posix_acl *ntfs_get_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 			       int type)
 {
 	struct inode *inode = d_inode(dentry);

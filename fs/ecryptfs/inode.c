@@ -1090,7 +1090,7 @@ static int ecryptfs_fileattr_set(const struct mnt_idmap *idmap,
 	return rc;
 }
 
-static struct posix_acl *ecryptfs_get_acl(struct mnt_idmap *idmap,
+static struct posix_acl *ecryptfs_get_acl(const struct mnt_idmap *idmap,
 					  struct dentry *dentry, int type)
 {
 	return vfs_get_acl(idmap, ecryptfs_dentry_to_lower(dentry),

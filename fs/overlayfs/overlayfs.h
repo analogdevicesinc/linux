@@ -814,7 +814,7 @@ static inline struct posix_acl *ovl_get_inode_acl(struct inode *inode, int type,
 {
 	return do_ovl_get_acl(&nop_mnt_idmap, inode, type, rcu, true);
 }
-static inline struct posix_acl *ovl_get_acl(struct mnt_idmap *idmap,
+static inline struct posix_acl *ovl_get_acl(const struct mnt_idmap *idmap,
 					    struct dentry *dentry, int type)
 {
 	return do_ovl_get_acl(idmap, d_inode(dentry), type, false, false);

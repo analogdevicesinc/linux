@@ -118,7 +118,7 @@ void forget_all_cached_acls(struct inode *inode)
 }
 EXPORT_SYMBOL(forget_all_cached_acls);
 
-static struct posix_acl *__get_acl(struct mnt_idmap *idmap,
+static struct posix_acl *__get_acl(const struct mnt_idmap *idmap,
 				   struct dentry *dentry, struct inode *inode,
 				   int type)
 {
@@ -1168,7 +1168,7 @@ EXPORT_SYMBOL_GPL(vfs_set_acl);
  *
  * Return: On success POSIX ACLs in VFS format, on error negative errno.
  */
-struct posix_acl *vfs_get_acl(struct mnt_idmap *idmap,
+struct posix_acl *vfs_get_acl(const struct mnt_idmap *idmap,
 			      struct dentry *dentry, const char *acl_name)
 {
 	struct inode *inode = d_inode(dentry);
@@ -1286,7 +1286,7 @@ int do_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 	return error;
 }
 
-ssize_t do_get_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+ssize_t do_get_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		   const char *acl_name, void *kvalue, size_t size)
 {
 	ssize_t error;

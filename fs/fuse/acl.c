@@ -62,7 +62,7 @@ static inline bool fuse_no_acl(const struct fuse_conn *fc,
 	return !fc->posix_acl && (i_user_ns(inode) != &init_user_ns);
 }
 
-struct posix_acl *fuse_get_acl(struct mnt_idmap *idmap,
+struct posix_acl *fuse_get_acl(const struct mnt_idmap *idmap,
 			       struct dentry *dentry, int type)
 {
 	struct inode *inode = d_inode(dentry);

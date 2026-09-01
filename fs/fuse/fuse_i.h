@@ -1205,7 +1205,7 @@ extern const struct xattr_handler * const fuse_xattr_handlers[];
 
 struct posix_acl;
 struct posix_acl *fuse_get_inode_acl(struct inode *inode, int type, bool rcu);
-struct posix_acl *fuse_get_acl(struct mnt_idmap *idmap,
+struct posix_acl *fuse_get_acl(const struct mnt_idmap *idmap,
 			       struct dentry *dentry, int type);
 int fuse_set_acl(const struct mnt_idmap *, struct dentry *dentry,
 		 struct posix_acl *acl, int type);

@@ -107,7 +107,7 @@ static inline void cache_no_acl(struct inode *inode)
 
 int vfs_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		const char *acl_name, struct posix_acl *kacl);
-struct posix_acl *vfs_get_acl(struct mnt_idmap *idmap,
+struct posix_acl *vfs_get_acl(const struct mnt_idmap *idmap,
 			      struct dentry *dentry, const char *acl_name);
 int vfs_remove_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		   const char *acl_name);
@@ -148,7 +148,7 @@ static inline int vfs_set_acl(const struct mnt_idmap *idmap,
 	return -EOPNOTSUPP;
 }
 
-static inline struct posix_acl *vfs_get_acl(struct mnt_idmap *idmap,
+static inline struct posix_acl *vfs_get_acl(const struct mnt_idmap *idmap,
 					    struct dentry *dentry,
 					    const char *acl_name)
 {
