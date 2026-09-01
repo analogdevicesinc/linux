@@ -225,7 +225,7 @@ static inline kgid_t vfsgid_into_kgid(vfsgid_t vfsgid)
  *
  * Return: the caller's current fsuid mapped up according to @idmap.
  */
-static inline kuid_t mapped_fsuid(struct mnt_idmap *idmap,
+static inline kuid_t mapped_fsuid(const struct mnt_idmap *idmap,
 				  struct user_namespace *fs_userns)
 {
 	return from_vfsuid(idmap, fs_userns, VFSUIDT_INIT(current_fsuid()));
@@ -244,7 +244,7 @@ static inline kuid_t mapped_fsuid(struct mnt_idmap *idmap,
  *
  * Return: the caller's current fsgid mapped up according to @idmap.
  */
-static inline kgid_t mapped_fsgid(struct mnt_idmap *idmap,
+static inline kgid_t mapped_fsgid(const struct mnt_idmap *idmap,
 				  struct user_namespace *fs_userns)
 {
 	return from_vfsgid(idmap, fs_userns, VFSGIDT_INIT(current_fsgid()));

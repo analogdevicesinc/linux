@@ -1544,7 +1544,7 @@ static inline void i_gid_update(struct mnt_idmap *idmap,
  * an idmapped mount map the caller's fsuid according to @idmap.
  */
 static inline void inode_fsuid_set(struct inode *inode,
-				   struct mnt_idmap *idmap)
+				   const struct mnt_idmap *idmap)
 {
 	inode->i_uid = mapped_fsuid(idmap, i_user_ns(inode));
 }
@@ -1558,7 +1558,7 @@ static inline void inode_fsuid_set(struct inode *inode,
  * an idmapped mount map the caller's fsgid according to @idmap.
  */
 static inline void inode_fsgid_set(struct inode *inode,
-				   struct mnt_idmap *idmap)
+				   const struct mnt_idmap *idmap)
 {
 	inode->i_gid = mapped_fsgid(idmap, i_user_ns(inode));
 }
@@ -1575,7 +1575,7 @@ static inline void inode_fsgid_set(struct inode *inode,
  * Return: true if fsuid and fsgid is mapped, false if not.
  */
 static inline bool fsuidgid_has_mapping(struct super_block *sb,
-					struct mnt_idmap *idmap)
+					const struct mnt_idmap *idmap)
 {
 	struct user_namespace *fs_userns = sb->s_user_ns;
 	kuid_t kuid;

@@ -820,7 +820,7 @@ static void free_ext_value(struct fuse_args *args)
  * If the filesystem doesn't support this, then fall back to separate
  * 'mknod' + 'open' requests.
  */
-static int fuse_create_open(struct mnt_idmap *idmap, struct inode *dir,
+static int fuse_create_open(const struct mnt_idmap *idmap, struct inode *dir,
 			    struct dentry *entry, struct file *file,
 			    unsigned int flags, umode_t mode, u32 opcode)
 {
@@ -980,7 +980,7 @@ mknod:
 /*
  * Code shared between mknod, mkdir, symlink and link
  */
-static struct dentry *create_new_entry(struct mnt_idmap *idmap, struct fuse_mount *fm,
+static struct dentry *create_new_entry(const struct mnt_idmap *idmap, struct fuse_mount *fm,
 				       struct fuse_args *args, struct inode *dir,
 				       struct dentry *entry, umode_t mode)
 {
@@ -1053,7 +1053,7 @@ static struct dentry *create_new_entry(struct mnt_idmap *idmap, struct fuse_moun
 	return ERR_PTR(err);
 }
 
-static int create_new_nondir(struct mnt_idmap *idmap, struct fuse_mount *fm,
+static int create_new_nondir(const struct mnt_idmap *idmap, struct fuse_mount *fm,
 			     struct fuse_args *args, struct inode *dir,
 			     struct dentry *entry, umode_t mode)
 {
@@ -1256,9 +1256,10 @@ static int fuse_rmdir(struct inode *dir, struct dentry *entry)
 	return err;
 }
 
-static int fuse_rename_common(struct mnt_idmap *idmap, struct inode *olddir, struct dentry *oldent,
-			      struct inode *newdir, struct dentry *newent,
-			      unsigned int flags, int opcode, size_t argsize)
+static int fuse_rename_common(const struct mnt_idmap *idmap, struct inode *olddir,
+			      struct dentry *oldent, struct inode *newdir,
+			      struct dentry *newent, unsigned int flags,
+			      int opcode, size_t argsize)
 {
 	int err;
 	struct fuse_rename2_in inarg;

@@ -1003,7 +1003,7 @@ void __exit fuse_ctl_cleanup(void);
 /*
  * Simple request sending that does request allocation and freeing
  */
-ssize_t __fuse_simple_request(struct mnt_idmap *idmap,
+ssize_t __fuse_simple_request(const struct mnt_idmap *idmap,
 			      struct fuse_mount *fm,
 			      struct fuse_args *args);
 
@@ -1012,7 +1012,7 @@ static inline ssize_t fuse_simple_request(struct fuse_mount *fm, struct fuse_arg
 	return __fuse_simple_request(&invalid_mnt_idmap, fm, args);
 }
 
-static inline ssize_t fuse_simple_idmap_request(struct mnt_idmap *idmap,
+static inline ssize_t fuse_simple_idmap_request(const struct mnt_idmap *idmap,
 						struct fuse_mount *fm,
 						struct fuse_args *args)
 {
