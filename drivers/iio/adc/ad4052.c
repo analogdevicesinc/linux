@@ -30,7 +30,8 @@
 #define AD4052_REG_DEVICE_CONFIG			0x02
 #define     AD4052_REG_DEVICE_CONFIG_POWER_MODE_MSK	GENMASK(1, 0)
 #define     AD4052_REG_DEVICE_CONFIG_LOW_POWER_MODE	3
-#define AD4052_REG_PROD_ID_1				0x05
+#define AD4052_REG_PRODUCT_ID_L				0x04
+#define AD4052_REG_PRODUCT_ID_H				0x05
 #define AD4052_REG_DEVICE_GRADE				0x06
 #define AD4052_REG_SCRATCH_PAD				0x0A
 #define AD4052_REG_VENDOR_H				0x0D
@@ -354,17 +355,16 @@ static int ad4052_update_xfer_raw(struct iio_dev *indio_dev,
 static int ad4052_check_ids(struct ad4052_state *st)
 {
 	struct device *dev = &st->spi->dev;
+	unsigned int reg_val;
 	int ret;
 	u16 val;
 
-	ret = regmap_bulk_read(st->regmap, AD4052_REG_PROD_ID_1,
-			       &st->buf.be16, sizeof(st->buf.be16));
+	ret = regmap_read(st->regmap, AD4052_REG_PRODUCT_ID_L, &reg_val);
 	if (ret)
 		return ret;
 
-	val = be16_to_cpu(st->buf.be16);
-	if (val != st->chip->prod_id)
-		dev_warn(dev, "Production ID x%x does not match expected value", val);
+	if (reg_val != st->chip->prod_id)
+		dev_warn(dev, "Production ID x%x does not match expected value", reg_val);
 
 	ret = regmap_bulk_read(st->regmap, AD4052_REG_VENDOR_H,
 			       &st->buf.be16, sizeof(st->buf.be16));
