@@ -190,6 +190,7 @@ dtb-$(CONFIG_SOC_TI81XX) += \
 # Enable support for device-tree overlays
 DTC_FLAGS_am335x-bone += -@
 DTC_FLAGS_am335x-boneblack += -@
+DTC_FLAGS_am335x-boneblack-revd += -@
 DTC_FLAGS_am335x-boneblack-wireless += -@
 DTC_FLAGS_am335x-bonegreen += -@
 DTC_FLAGS_am335x-bonegreen-wireless += -@
