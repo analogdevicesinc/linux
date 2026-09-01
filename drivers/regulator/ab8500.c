@@ -20,6 +20,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/err.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/mfd/abx500.h>
 #include <linux/mfd/abx500/ab8500.h>
@@ -542,6 +543,8 @@ static int ab8500_regulator_set_mode(struct regulator_dev *rdev,
 		return -EINVAL;
 	}
 
+	guard(mutex)(&shared_mode_mutex);
+
 	if (info->mode_mask) {
 		bank = info->mode_bank;
 		reg = info->mode_reg;
@@ -551,9 +554,6 @@ static int ab8500_regulator_set_mode(struct regulator_dev *rdev,
 		reg = info->update_reg;
 		mask = info->update_mask;
 	}
-
-	if (info->shared_mode)
-		mutex_lock(&shared_mode_mutex);
 
 	switch (mode) {
 	case REGULATOR_MODE_NORMAL:
@@ -573,7 +573,7 @@ static int ab8500_regulator_set_mode(struct regulator_dev *rdev,
 			if (!shared_regulator->shared_mode->lp_mode_req) {
 				/* Other regulator prevent LP mode */
 				info->shared_mode->lp_mode_req = true;
-				goto out_unlock;
+				return 0;
 			}
 
 			lp_mode_req = true;
@@ -585,18 +585,15 @@ static int ab8500_regulator_set_mode(struct regulator_dev *rdev,
 			val = info->update_val_idle;
 		break;
 	default:
-		ret = -EINVAL;
-		goto out_unlock;
+		return -EINVAL;
 	}
 
 	if (info->mode_mask) {
 		enabled = 1;
 	} else {
 		enabled = ab8500_regulator_is_enabled(rdev);
-		if (enabled < 0) {
-			ret = enabled;
-			goto out_unlock;
-		}
+		if (enabled < 0)
+			return enabled;
 	}
 
 	if (enabled) {
@@ -605,7 +602,7 @@ static int ab8500_regulator_set_mode(struct regulator_dev *rdev,
 		if (ret < 0) {
 			dev_err(rdev_get_dev(rdev),
 				"couldn't set regulator mode\n");
-			goto out_unlock;
+			return ret;
 		}
 
 		dev_vdbg(rdev_get_dev(rdev),
@@ -620,10 +617,6 @@ static int ab8500_regulator_set_mode(struct regulator_dev *rdev,
 
 	if (info->shared_mode)
 		info->shared_mode->lp_mode_req = lp_mode_req;
-
-out_unlock:
-	if (info->shared_mode)
-		mutex_unlock(&shared_mode_mutex);
 
 	return ret;
 }
