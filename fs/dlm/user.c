@@ -512,6 +512,7 @@ static ssize_t device_write(struct file *file, const char __user *buf,
 			    size_t count, loff_t *ppos)
 {
 	struct dlm_user_proc *proc = file->private_data;
+	size_t name_payload = 0;
 	struct dlm_write_request *kbuf;
 	int error;
 
@@ -545,6 +546,7 @@ static ssize_t device_write(struct file *file, const char __user *buf,
 
 		if (count > sizeof(struct dlm_write_request32))
 			namelen = count - sizeof(struct dlm_write_request32);
+		name_payload = namelen;
 
 		k32buf = (struct dlm_write_request32 *)kbuf;
 
@@ -561,7 +563,13 @@ static ssize_t device_write(struct file *file, const char __user *buf,
 
 		compat_input(kbuf, k32buf, namelen);
 		kfree(k32buf);
+	} else {
+		if (count > sizeof(*kbuf))
+			name_payload = count - sizeof(*kbuf);
 	}
+#else
+	if (count > sizeof(*kbuf))
+		name_payload = count - sizeof(*kbuf);
 #endif
 
 	/* do we really need this? can a write happen after a close? */
@@ -569,6 +577,15 @@ static ssize_t device_write(struct file *file, const char __user *buf,
 	    (proc && test_bit(DLM_PROC_FLAGS_CLOSING, &proc->flags))) {
 		error = -EINVAL;
 		goto out_free;
+	}
+
+	if (kbuf->cmd == DLM_USER_LOCK &&
+	    !(kbuf->i.lock.flags & DLM_LKF_CONVERT)) {
+		if (kbuf->i.lock.namelen > name_payload ||
+		    kbuf->i.lock.namelen > DLM_RESNAME_MAXLEN) {
+			error = -EINVAL;
+			goto out_free;
+		}
 	}
 
 	error = -EINVAL;
