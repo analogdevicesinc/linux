@@ -44,6 +44,8 @@ struct vgic_v5_cpu_if;
 #define __KVM_HCALL_MAP(m, ...) __KVM_HCALL_MAP_N(COUNT_ARGS(__VA_ARGS__), m, __VA_ARGS__)
 
 #define __KVM_HCALL_DECL(t, a)	t a
+#define __KVM_HCALL_LONG(t, a)	unsigned long a
+#define __KVM_HCALL_CAST(t, a)	(__force t) a
 #define __KVM_HCALL_ARGS(t, a)	a
 
 #ifndef __KVM_NVHE_HYPERVISOR__
@@ -113,8 +115,15 @@ struct vgic_v5_cpu_if;
 #define kvm_call_hyp_ret(f, ...) f(__VA_ARGS__)
 #define kvm_call_hyp_nvhe(f, ...) f(__VA_ARGS__)
 
-#define DECLARE_KVM_HOST_HCALL(ret, name, ...)
-#define DECLARE_KVM_HOST_HCALL0(ret, name)
+/*
+ * At EL2 each declaration emits the canonical signature of the hypercall,
+ * which DEFINE_KVM_HOST_HCALL() in hyp-main.c checks the handler
+ * definition against.
+ */
+#define DECLARE_KVM_HOST_HCALL(ret, name, ...)				\
+	typedef ret kvm_host_hcall_sig_##name(__KVM_HCALL_MAP(__KVM_HCALL_DECL, __VA_ARGS__));
+#define DECLARE_KVM_HOST_HCALL0(ret, name)				\
+	typedef ret kvm_host_hcall_sig_##name(void);
 #endif /* __KVM_NVHE_HYPERVISOR__ */
 
 /* Hypercalls that are unavailable once pKVM has finalised. */
