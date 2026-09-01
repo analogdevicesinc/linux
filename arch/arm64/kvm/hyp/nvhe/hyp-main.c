@@ -771,8 +771,8 @@ static void handle___pkvm_unreserve_vm(struct kvm_cpu_context *host_ctxt)
 static void handle___pkvm_init_vm(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(struct kvm *, host_kvm, host_ctxt, 1);
-	DECLARE_REG(unsigned long, vm_hva, host_ctxt, 2);
-	DECLARE_REG(unsigned long, pgd_hva, host_ctxt, 3);
+	DECLARE_REG(void *, vm_hva, host_ctxt, 2);
+	DECLARE_REG(void *, pgd_hva, host_ctxt, 3);
 
 	host_kvm = kern_hyp_va(host_kvm);
 	cpu_reg(host_ctxt, 1) = __pkvm_init_vm(host_kvm, vm_hva, pgd_hva);
@@ -782,7 +782,7 @@ static void handle___pkvm_init_vcpu(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(pkvm_handle_t, handle, host_ctxt, 1);
 	DECLARE_REG(struct kvm_vcpu *, host_vcpu, host_ctxt, 2);
-	DECLARE_REG(unsigned long, vcpu_hva, host_ctxt, 3);
+	DECLARE_REG(void *, vcpu_hva, host_ctxt, 3);
 
 	host_vcpu = kern_hyp_va(host_vcpu);
 	cpu_reg(host_ctxt, 1) = __pkvm_init_vcpu(handle, host_vcpu, vcpu_hva);
@@ -828,7 +828,7 @@ static void handle___pkvm_finalize_teardown_vm(struct kvm_cpu_context *host_ctxt
 
 static void handle___tracing_load(struct kvm_cpu_context *host_ctxt)
 {
-	DECLARE_REG(unsigned long, desc_hva, host_ctxt, 1);
+	DECLARE_REG(void *, desc_hva, host_ctxt, 1);
 	DECLARE_REG(size_t, desc_size, host_ctxt, 2);
 
 	cpu_reg(host_ctxt, 1) = __tracing_load(desc_hva, desc_size);
