@@ -593,6 +593,18 @@ static inline int ocfs2_supports_discontig_bg(struct ocfs2_super *osb)
 	return 0;
 }
 
+/*
+ * A suballocator block group bitmap starts right after the group
+ * descriptor header, so a suballoc bit can never exceed this number
+ * of bits.  Derive it from ocfs2_group_bitmap_size() which also caps
+ * it at OCFS2_MAX_BG_BITMAP_SIZE when discontig_bg is enabled.
+ */
+static inline u32 ocfs2_suballoc_bits_per_block(struct super_block *sb)
+{
+	return ocfs2_group_bitmap_size(sb, 1,
+				       OCFS2_SB(sb)->s_feature_incompat) * 8;
+}
+
 static inline unsigned int ocfs2_link_max(struct ocfs2_super *osb)
 {
 	if (ocfs2_supports_indexed_dirs(osb))
