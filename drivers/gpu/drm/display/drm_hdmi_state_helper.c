@@ -1424,3 +1424,24 @@ void drm_atomic_helper_connector_hdmi_force(struct drm_connector *connector)
 	drm_atomic_helper_connector_hdmi_update(connector, NULL, connector->status);
 }
 EXPORT_SYMBOL(drm_atomic_helper_connector_hdmi_force);
+
+/**
+ * drm_atomic_helper_connector_hdmi_force_ctx - HDMI Connector implementation
+ * of the force_ctx callback
+ * @connector: A pointer to the HDMI connector
+ * @ctx: Lock acquisition context to be used for resetting CRTC
+ *
+ * This function implements the .force_ctx() callback for the HDMI connectors.
+ * It can either be used directly as the callback or should be called from
+ * within the .force_ctx() callback implementation to maintain the HDMI-specific
+ * connector's data.
+ *
+ * Returns:
+ * Zero on success, error code on failure, including -EDEADLK.
+ */
+int drm_atomic_helper_connector_hdmi_force_ctx(struct drm_connector *connector,
+					       struct drm_modeset_acquire_ctx *ctx)
+{
+	return drm_atomic_helper_connector_hdmi_update(connector, ctx, connector->status);
+}
+EXPORT_SYMBOL(drm_atomic_helper_connector_hdmi_force_ctx);
