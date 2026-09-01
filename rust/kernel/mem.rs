@@ -100,3 +100,135 @@ pub const fn safe_transmute<Src: IntoBytes, Dst: FromBytes>(val: Src) -> Dst {
     // SAFETY: `transmute` is safe with `IntoBytes` and `FromBytes` bounds.
     unsafe { transmute(val) }
 }
+
+/// Type that is layout-compatible with a primitive representation.
+///
+/// # Safety
+///
+/// - [`Self`] must have the same size and alignment as [`Self::Repr`].
+/// - [`Self`] must be [transmutable] to [`Self::Repr`].
+/// - Neither [`Self`] nor [`Self::Repr`] contains interior mutability.
+///
+/// The above basically says that `&Self` can be transmuted to `&Self::Repr`.
+///
+/// [transmutable]: core::mem::transmute
+pub unsafe trait AsRepr: Sized {
+    /// Primitive representation of this type.
+    type Repr;
+
+    /// Convert from [`&Self`](Self) to [`&Self::Repr`](AsRepr::Repr).
+    #[inline(always)]
+    fn as_repr(this: &Self) -> &Self::Repr {
+        // SAFETY: Per safety requirement of the trait.
+        unsafe { core::mem::transmute(this) }
+    }
+
+    /// Convert from [`Self`] to [`Self::Repr`].
+    #[inline(always)]
+    fn into_repr(this: Self) -> Self::Repr {
+        // SAFETY: Per safety requirement of the trait.
+        unsafe { transmute(this) }
+    }
+
+    /// Convert from [`Self::Repr`] to [`Self`].
+    ///
+    /// # Safety
+    ///
+    /// `repr` must be a valid bit pattern of [`Self`] and satisfy type-specific invariants of it.
+    ///
+    /// Alternatively, if `repr` is previously obtained using [`Self::into_repr`], and each
+    /// `from_repr_unchecked` should correspond to a unique `into_repr` call, then it is safe to
+    /// call as well (this means that we're undoing a `into_repr` call getting the exact bytes
+    /// back).
+    ///
+    /// No guarantee is made if the result of a `into_repr` is passed to multiple
+    /// `from_repr_unchecked` (i.e. copies are made), to allow for cases where `Repr` is a pointer
+    /// and the user of the API wants ownership transfer. Users that want the ability to call
+    /// `from_repr_unchecked` after copying can require `Copy` bound explicitly.
+    #[inline(always)]
+    unsafe fn from_repr_unchecked(repr: Self::Repr) -> Self {
+        // SAFETY: Per safety requirement, `repr` is valid repr of `Self`, or it is previously from
+        // `into_repr`, in which case we're undoing the transmute so it is also safe.
+        unsafe { transmute(repr) }
+    }
+}
+
+/// Type that is bi-directionally transmutable with a primitive representation.
+///
+/// # Safety
+///
+/// - [`Self`] must be [transmutable] from [`Self::Repr`].
+///
+/// [transmutable]: core::mem::transmute
+/// [`Self::Repr`]: AsRepr::Repr
+pub unsafe trait AsReprMut: AsRepr {
+    /// Convert from `&mut Self` to [`&mut Self::Repr`](AsRepr::Repr).
+    #[inline(always)]
+    fn as_repr_mut(this: &mut Self) -> &mut Self::Repr {
+        // SAFETY: Per safety requirement of the trait.
+        unsafe { core::mem::transmute(this) }
+    }
+
+    /// Convert from [`Self::Repr`](AsRepr::Repr) to `Self`.
+    #[inline(always)]
+    fn from_repr(repr: Self::Repr) -> Self {
+        // SAFETY: Per safety requirement of the trait.
+        unsafe { transmute(repr) }
+    }
+}
+
+// SAFETY: `bool` has the same size and alignment as `u8`, and Rust guarantees that `bool` has
+// only two valid bit patterns: 0 (`false`) and 1 (`true`). Thus `bool` can be transmuted to `u8`.
+// Neither types contain interior mutability.
+unsafe impl AsRepr for bool {
+    type Repr = u8;
+}
+
+// SAFETY: `*mut T` has the same size and alignment with `*const c_void`, and thus `*mut T` is
+// transmutable to `*const c_void`. Neither types contain interior mutability.
+unsafe impl<T> AsRepr for *mut T {
+    type Repr = *const c_void;
+}
+
+// SAFETY: `*mut T` is transmutable from `*const c_void`.
+unsafe impl<T> AsReprMut for *mut T {}
+
+// SAFETY: `*const T` has the same size and alignment with `*const c_void`, and is transmutable to
+// `*const c_void`. Neither types contain interior mutability.
+unsafe impl<T> AsRepr for *const T {
+    type Repr = *const c_void;
+}
+
+// SAFETY: `*const T` is transmutable from `*const c_void`.
+unsafe impl<T> AsReprMut for *const T {}
+
+macro_rules! int_impl {
+    ($($unsigned:ident $signed:ident ,)*) => {$(
+        // SAFETY: `$unsigned` has the same size and alignment with itself, and is transmutable to
+        // itself. It does not contain interior mutability.
+        unsafe impl AsRepr for $unsigned {
+            type Repr = $unsigned;
+        }
+
+        // SAFETY: `$unsigned` is transmutable from itself.
+        unsafe impl AsReprMut for $unsigned {}
+
+        // SAFETY: `$signed` has the same size and alignment with `$unsigned`, and is transmutable
+        // to it Neither types contain interior mutability.
+        unsafe impl AsRepr for $signed {
+            type Repr = $unsigned;
+        }
+
+        // SAFETY: `$signed` is transmutable from `$unsigned`.
+        unsafe impl AsReprMut for $signed {}
+    )*};
+}
+
+int_impl! {
+    u8 i8,
+    u16 i16,
+    u32 i32,
+    u64 i64,
+    // `usize` is not normalized to particular integer for portability.
+    usize isize,
+}
