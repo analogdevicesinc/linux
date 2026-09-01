@@ -751,7 +751,7 @@ free_inode:
 	goto out;
 }
 
-static struct dentry *f2fs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *f2fs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				 struct dentry *dentry, umode_t mode)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(dir);

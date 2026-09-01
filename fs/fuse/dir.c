@@ -1116,7 +1116,7 @@ static int fuse_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 	return err;
 }
 
-static struct dentry *fuse_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *fuse_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				 struct dentry *entry, umode_t mode)
 {
 	struct fuse_mkdir_in inarg;

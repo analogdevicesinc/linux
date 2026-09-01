@@ -94,7 +94,7 @@ static struct tracefs_dir_ops {
 	int (*rmdir)(const char *name);
 } tracefs_ops __ro_after_init;
 
-static struct dentry *tracefs_syscall_mkdir(struct mnt_idmap *idmap,
+static struct dentry *tracefs_syscall_mkdir(const struct mnt_idmap *idmap,
 					    struct inode *inode, struct dentry *dentry,
 					    umode_t mode)
 {

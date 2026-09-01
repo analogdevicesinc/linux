@@ -19,7 +19,7 @@ static void hpfs_update_directory_times(struct inode *dir)
 	hpfs_write_inode_nolock(dir);
 }
 
-static struct dentry *hpfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *hpfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				 struct dentry *dentry, umode_t mode)
 {
 	const unsigned char *name = dentry->d_name.name;

@@ -300,7 +300,7 @@ xfs_vn_create(
 
 STATIC struct dentry *
 xfs_vn_mkdir(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	struct inode		*dir,
 	struct dentry		*dentry,
 	umode_t			mode)

@@ -2994,7 +2994,7 @@ out:
 	return err;
 }
 
-static struct dentry *ext4_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *ext4_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				 struct dentry *dentry, umode_t mode)
 {
 	handle_t *handle;

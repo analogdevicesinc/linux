@@ -279,7 +279,7 @@ out_free_inode:
 	return err;
 }
 
-static struct dentry *omfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *omfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				 struct dentry *dentry, umode_t mode)
 {
 	return ERR_PTR(omfs_add_node(dir, dentry, mode));

@@ -33,7 +33,7 @@ static int jffs2_link (struct dentry *,struct inode *,struct dentry *);
 static int jffs2_unlink (struct inode *,struct dentry *);
 static int jffs2_symlink (struct mnt_idmap *, struct inode *,
 			  struct dentry *, const char *);
-static struct dentry *jffs2_mkdir (struct mnt_idmap *, struct inode *,struct dentry *,
+static struct dentry *jffs2_mkdir (const struct mnt_idmap *, struct inode *,struct dentry *,
 				   umode_t);
 static int jffs2_rmdir (struct inode *,struct dentry *);
 static int jffs2_mknod (const struct mnt_idmap *, struct inode *,struct dentry *,
@@ -448,7 +448,7 @@ static int jffs2_symlink (struct mnt_idmap *idmap, struct inode *dir_i,
 }
 
 
-static struct dentry *jffs2_mkdir (struct mnt_idmap *idmap, struct inode *dir_i,
+static struct dentry *jffs2_mkdir (const struct mnt_idmap *idmap, struct inode *dir_i,
 				   struct dentry *dentry, umode_t mode)
 {
 	struct jffs2_inode_info *f, *dir_f;

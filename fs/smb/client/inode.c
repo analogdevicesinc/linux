@@ -2276,7 +2276,7 @@ posix_mkdir_get_info:
 }
 #endif /* CONFIG_CIFS_ALLOW_INSECURE_LEGACY */
 
-struct dentry *cifs_mkdir(struct mnt_idmap *idmap, struct inode *inode,
+struct dentry *cifs_mkdir(const struct mnt_idmap *idmap, struct inode *inode,
 			  struct dentry *direntry, umode_t mode)
 {
 	int rc = 0;

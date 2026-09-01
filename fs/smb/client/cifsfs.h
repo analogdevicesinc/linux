@@ -66,7 +66,7 @@ int cifs_hardlink(struct dentry *old_file, struct inode *inode,
 		  struct dentry *direntry);
 int cifs_mknod(const struct mnt_idmap *idmap, struct inode *inode,
 	       struct dentry *direntry, umode_t mode, dev_t device_number);
-struct dentry *cifs_mkdir(struct mnt_idmap *idmap, struct inode *inode,
+struct dentry *cifs_mkdir(const struct mnt_idmap *idmap, struct inode *inode,
 			  struct dentry *direntry, umode_t mode);
 int cifs_rmdir(struct inode *inode, struct dentry *direntry);
 int cifs_rename2(const struct mnt_idmap *idmap, struct inode *source_dir,

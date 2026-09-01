@@ -213,7 +213,7 @@ static int hfs_create(struct mnt_idmap *idmap, struct inode *dir,
  * in a directory, given the inode for the parent directory and the
  * name (and its length) of the new directory.
  */
-static struct dentry *hfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *hfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				struct dentry *dentry, umode_t mode)
 {
 	struct inode *inode;

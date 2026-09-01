@@ -679,7 +679,7 @@ v9fs_vfs_create(struct mnt_idmap *idmap, struct inode *dir,
  *
  */
 
-static struct dentry *v9fs_vfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *v9fs_vfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				     struct dentry *dentry, umode_t mode)
 {
 	u32 perm;

@@ -118,7 +118,7 @@ out:
 	return error;
 }
 
-static struct dentry *ramfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *ramfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				 struct dentry *dentry, umode_t mode)
 {
 	int retval = ramfs_mknod(&nop_mnt_idmap, dir, dentry, mode, 0);

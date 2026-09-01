@@ -655,7 +655,7 @@ static int ocfs2_mknod_locked(struct ocfs2_super *osb,
 				    suballoc_loc, suballoc_bit);
 }
 
-static struct dentry *ocfs2_mkdir(struct mnt_idmap *idmap,
+static struct dentry *ocfs2_mkdir(const struct mnt_idmap *idmap,
 				  struct inode *dir,
 				  struct dentry *dentry,
 				  umode_t mode)

@@ -967,7 +967,7 @@ static int hugetlbfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	return 0;
 }
 
-static struct dentry *hugetlbfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *hugetlbfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				      struct dentry *dentry, umode_t mode)
 {
 	int retval = hugetlbfs_mknod(idmap, dir, dentry,

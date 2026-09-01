@@ -419,7 +419,7 @@ static int udf_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	return udf_add_nondir(dentry, inode);
 }
 
-static struct dentry *udf_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *udf_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				struct dentry *dentry, umode_t mode)
 {
 	struct inode *inode;

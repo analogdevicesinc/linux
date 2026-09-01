@@ -104,7 +104,7 @@ static int minix_link(struct dentry * old_dentry, struct inode * dir,
 	return add_nondir(dentry, inode);
 }
 
-static struct dentry *minix_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *minix_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				  struct dentry *dentry, umode_t mode)
 {
 	struct inode * inode;

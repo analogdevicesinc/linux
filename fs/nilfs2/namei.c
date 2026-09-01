@@ -218,7 +218,7 @@ static int nilfs_link(struct dentry *old_dentry, struct inode *dir,
 	return err;
 }
 
-static struct dentry *nilfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *nilfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				  struct dentry *dentry, umode_t mode)
 {
 	struct inode *inode;

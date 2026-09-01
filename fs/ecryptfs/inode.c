@@ -503,7 +503,7 @@ out_lock:
 	return rc;
 }
 
-static struct dentry *ecryptfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *ecryptfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				     struct dentry *dentry, umode_t mode)
 {
 	int rc;

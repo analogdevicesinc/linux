@@ -35,7 +35,7 @@ static bool afs_lookup_filldir(struct dir_context *ctx, const char *name, int nl
 #define AFS_LOOKUP ((filldir_t)0x137UL)
 static int afs_create(struct mnt_idmap *idmap, struct inode *dir,
 		      struct dentry *dentry, umode_t mode);
-static struct dentry *afs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *afs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				struct dentry *dentry, umode_t mode);
 static int afs_rmdir(struct inode *dir, struct dentry *dentry);
 static int afs_unlink(struct inode *dir, struct dentry *dentry);
@@ -1310,7 +1310,7 @@ static const struct afs_operation_ops afs_mkdir_operation = {
 /*
  * create a directory on an AFS filesystem
  */
-static struct dentry *afs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *afs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				struct dentry *dentry, umode_t mode)
 {
 	struct afs_operation *op;

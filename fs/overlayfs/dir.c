@@ -736,7 +736,7 @@ static int ovl_create(struct mnt_idmap *idmap, struct inode *dir,
 	return ovl_create_object(idmap, dentry, (mode & 07777) | S_IFREG, 0, NULL);
 }
 
-static struct dentry *ovl_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *ovl_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				struct dentry *dentry, umode_t mode)
 {
 	return ERR_PTR(ovl_create_object(idmap, dentry, (mode & 07777) | S_IFDIR, 0, NULL));
