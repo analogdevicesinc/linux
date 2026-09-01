@@ -359,7 +359,7 @@ struct dentry *find_next_child(struct dentry *parent, struct dentry *prev);
 int anon_inode_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		       struct kstat *stat, u32 request_mask,
 		       unsigned int query_flags);
-int anon_inode_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int anon_inode_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		       struct iattr *attr);
 void pidfs_get_root(struct path *path);
 void nsfs_get_root(struct path *path);

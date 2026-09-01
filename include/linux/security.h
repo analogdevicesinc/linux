@@ -422,9 +422,9 @@ int security_inode_readlink(struct dentry *dentry);
 int security_inode_follow_link(struct dentry *dentry, struct inode *inode,
 			       bool rcu);
 int security_inode_permission(struct inode *inode, int mask);
-int security_inode_setattr(struct mnt_idmap *idmap,
+int security_inode_setattr(const struct mnt_idmap *idmap,
 			   struct dentry *dentry, struct iattr *attr);
-void security_inode_post_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+void security_inode_post_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 				 int ia_valid);
 int security_inode_getattr(const struct path *path);
 int security_inode_setxattr(const struct mnt_idmap *idmap,
@@ -979,7 +979,7 @@ static inline int security_inode_permission(struct inode *inode, int mask)
 	return 0;
 }
 
-static inline int security_inode_setattr(struct mnt_idmap *idmap,
+static inline int security_inode_setattr(const struct mnt_idmap *idmap,
 					 struct dentry *dentry,
 					 struct iattr *attr)
 {
@@ -987,7 +987,7 @@ static inline int security_inode_setattr(struct mnt_idmap *idmap,
 }
 
 static inline void
-security_inode_post_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+security_inode_post_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 			    int ia_valid)
 { }
 

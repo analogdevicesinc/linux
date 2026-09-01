@@ -634,7 +634,7 @@ void ima_update_xattr(struct ima_iint_cache *iint, struct file *file)
  * This function is called from notify_change(), which expects the caller
  * to lock the inode's i_mutex.
  */
-static void ima_inode_post_setattr(struct mnt_idmap *idmap,
+static void ima_inode_post_setattr(const struct mnt_idmap *idmap,
 				   struct dentry *dentry, int ia_valid)
 {
 	struct inode *inode = d_backing_inode(dentry);

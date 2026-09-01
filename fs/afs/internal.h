@@ -1260,7 +1260,7 @@ extern struct inode *afs_iget(struct afs_operation *, struct afs_vnode_param *);
 extern struct inode *afs_root_iget(struct super_block *, struct key *);
 extern int afs_getattr(const struct mnt_idmap *idmap, const struct path *,
 		       struct kstat *, u32, unsigned int);
-extern int afs_setattr(struct mnt_idmap *idmap, struct dentry *, struct iattr *);
+extern int afs_setattr(const struct mnt_idmap *idmap, struct dentry *, struct iattr *);
 extern void afs_evict_inode(struct inode *);
 extern int afs_drop_inode(struct inode *);
 

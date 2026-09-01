@@ -57,7 +57,7 @@ int anon_inode_getattr(const struct mnt_idmap *idmap, const struct path *path,
 	return 0;
 }
 
-int anon_inode_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int anon_inode_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		       struct iattr *attr)
 {
 	return -EOPNOTSUPP;

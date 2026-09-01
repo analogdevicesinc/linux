@@ -3549,7 +3549,7 @@ cifs_setattr_exit:
 }
 
 int
-cifs_setattr(struct mnt_idmap *idmap, struct dentry *direntry,
+cifs_setattr(const struct mnt_idmap *idmap, struct dentry *direntry,
 	     struct iattr *attrs)
 {
 	struct cifs_sb_info *cifs_sb = CIFS_SB(direntry->d_sb);

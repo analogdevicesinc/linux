@@ -514,7 +514,7 @@ static int fat_allow_set_time(const struct mnt_idmap *idmap,
 /* valid file mode bits */
 #define FAT_VALID_MODE	(S_IFREG | S_IFDIR | S_IRWXUGO)
 
-int fat_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int fat_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		struct iattr *attr)
 {
 	struct msdos_sb_info *sbi = MSDOS_SB(dentry->d_sb);

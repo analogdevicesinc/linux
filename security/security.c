@@ -1855,7 +1855,7 @@ int security_inode_permission(struct inode *inode, int mask)
  *
  * Return: Returns 0 if permission is granted.
  */
-int security_inode_setattr(struct mnt_idmap *idmap,
+int security_inode_setattr(const struct mnt_idmap *idmap,
 			   struct dentry *dentry, struct iattr *attr)
 {
 	if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
@@ -1872,7 +1872,7 @@ EXPORT_SYMBOL_GPL(security_inode_setattr);
  *
  * Update inode security field after successful setting file attributes.
  */
-void security_inode_post_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+void security_inode_post_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 				 int ia_valid)
 {
 	if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))

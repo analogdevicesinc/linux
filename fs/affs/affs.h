@@ -184,7 +184,7 @@ extern int	affs_rename2(const struct mnt_idmap *idmap,
 /* inode.c */
 
 extern struct inode		*affs_new_inode(struct inode *dir);
-extern int			 affs_setattr(struct mnt_idmap *idmap,
+extern int			 affs_setattr(const struct mnt_idmap *idmap,
 					struct dentry *dentry, struct iattr *attr);
 extern void			 affs_evict_inode(struct inode *inode);
 extern struct inode		*affs_iget(struct super_block *sb,

@@ -117,7 +117,7 @@ static bool pde_subdir_insert(struct proc_dir_entry *dir,
 	return true;
 }
 
-static int proc_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+static int proc_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		struct iattr *iattr)
 {
 	struct inode *inode = d_inode(dentry);

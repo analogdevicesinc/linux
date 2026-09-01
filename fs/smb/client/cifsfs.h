@@ -80,7 +80,7 @@ int cifs_revalidate_mapping(struct inode *inode);
 int cifs_zap_mapping(struct inode *inode);
 int cifs_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		 struct kstat *stat, u32 request_mask, unsigned int flags);
-int cifs_setattr(struct mnt_idmap *idmap, struct dentry *direntry,
+int cifs_setattr(const struct mnt_idmap *idmap, struct dentry *direntry,
 		 struct iattr *attrs);
 int cifs_fiemap(struct inode *inode, struct fiemap_extent_info *fei, u64 start,
 		u64 len);

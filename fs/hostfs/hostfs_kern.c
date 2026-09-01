@@ -801,7 +801,7 @@ static int hostfs_permission(const struct mnt_idmap *idmap,
 	return err;
 }
 
-static int hostfs_setattr(struct mnt_idmap *idmap,
+static int hostfs_setattr(const struct mnt_idmap *idmap,
 			  struct dentry *dentry, struct iattr *attr)
 {
 	struct inode *inode = d_inode(dentry);

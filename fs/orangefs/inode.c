@@ -828,7 +828,7 @@ int __orangefs_setattr_mode(struct dentry *dentry, struct iattr *iattr)
 /*
  * Change attributes of an object referenced by dentry.
  */
-int orangefs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int orangefs_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		     struct iattr *iattr)
 {
 	int ret;

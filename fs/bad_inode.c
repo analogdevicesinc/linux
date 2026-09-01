@@ -102,7 +102,7 @@ static int bad_inode_getattr(const struct mnt_idmap *idmap,
 	return -EIO;
 }
 
-static int bad_inode_setattr(struct mnt_idmap *idmap,
+static int bad_inode_setattr(const struct mnt_idmap *idmap,
 			     struct dentry *direntry, struct iattr *attrs)
 {
 	return -EIO;

@@ -1014,7 +1014,7 @@ v9fs_vfs_getattr(const struct mnt_idmap *idmap, const struct path *path,
  *
  */
 
-static int v9fs_vfs_setattr(struct mnt_idmap *idmap,
+static int v9fs_vfs_setattr(const struct mnt_idmap *idmap,
 			    struct dentry *dentry, struct iattr *iattr)
 {
 	int retval, use_dentry = 0;

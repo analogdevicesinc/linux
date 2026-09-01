@@ -76,7 +76,7 @@ prototypes::
 	void (*truncate) (struct inode *);
 	int (*permission) (const struct mnt_idmap *, struct inode *, int, unsigned int);
 	struct posix_acl * (*get_inode_acl)(struct inode *, int, bool);
-	int (*setattr) (struct mnt_idmap *, struct dentry *, struct iattr *);
+	int (*setattr) (const struct mnt_idmap *, struct dentry *, struct iattr *);
 	int (*getattr) (const struct mnt_idmap *, const struct path *, struct kstat *, u32, unsigned int);
 	ssize_t (*listxattr) (struct dentry *, char *, size_t);
 	int (*fiemap)(struct inode *, struct fiemap_extent_info *, u64 start, u64 len);

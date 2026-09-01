@@ -2020,7 +2020,7 @@ int ubifs_calc_dark(const struct ubifs_info *c, int spc);
 
 /* file.c */
 int ubifs_fsync(struct file *file, loff_t start, loff_t end, int datasync);
-int ubifs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int ubifs_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		  struct iattr *attr);
 int ubifs_update_time(struct inode *inode, enum fs_update_time type,
 		      unsigned int flags);

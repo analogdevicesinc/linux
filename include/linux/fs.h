@@ -2012,7 +2012,7 @@ struct inode_operations {
 		      umode_t,dev_t);
 	int (*rename) (const struct mnt_idmap *, struct inode *, struct dentry *,
 			struct inode *, struct dentry *, unsigned int);
-	int (*setattr) (struct mnt_idmap *, struct dentry *, struct iattr *);
+	int (*setattr) (const struct mnt_idmap *, struct dentry *, struct iattr *);
 	int (*getattr) (const struct mnt_idmap *, const struct path *,
 			struct kstat *, u32, unsigned int);
 	ssize_t (*listxattr) (struct dentry *, char *, size_t);
@@ -2707,7 +2707,7 @@ static inline int bmap(struct inode *inode,  sector_t *block)
 }
 #endif
 
-int notify_change(struct mnt_idmap *, struct dentry *,
+int notify_change(const struct mnt_idmap *, struct dentry *,
 		  struct iattr *, struct delegated_inode *);
 int inode_permission(const struct mnt_idmap *, struct inode *, int);
 int generic_permission(const struct mnt_idmap *, struct inode *, int);
@@ -3261,7 +3261,7 @@ extern int dcache_dir_open(struct inode *, struct file *);
 extern int dcache_dir_close(struct inode *, struct file *);
 extern loff_t dcache_dir_lseek(struct file *, loff_t, int);
 extern int dcache_readdir(struct file *, struct dir_context *);
-extern int simple_setattr(struct mnt_idmap *, struct dentry *,
+extern int simple_setattr(const struct mnt_idmap *, struct dentry *,
 			  struct iattr *);
 extern int simple_getattr(const struct mnt_idmap *, const struct path *,
 			  struct kstat *, u32, unsigned int);

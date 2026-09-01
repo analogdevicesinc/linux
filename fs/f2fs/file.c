@@ -1121,7 +1121,7 @@ static void __setattr_copy(const struct mnt_idmap *idmap,
 #define __setattr_copy setattr_copy
 #endif
 
-int f2fs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int f2fs_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		 struct iattr *attr)
 {
 	struct inode *inode = d_inode(dentry);

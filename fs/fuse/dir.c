@@ -2324,7 +2324,7 @@ unlock:
 	return err;
 }
 
-static int fuse_setattr(struct mnt_idmap *idmap, struct dentry *entry,
+static int fuse_setattr(const struct mnt_idmap *idmap, struct dentry *entry,
 			struct iattr *attr)
 {
 	struct inode *inode = d_inode(entry);

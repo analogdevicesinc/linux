@@ -18,7 +18,7 @@
 #include "overlayfs.h"
 
 
-int ovl_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int ovl_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		struct iattr *attr)
 {
 	int err;

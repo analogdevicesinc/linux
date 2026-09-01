@@ -347,7 +347,7 @@ int exfat_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 	return 0;
 }
 
-int exfat_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int exfat_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		  struct iattr *attr)
 {
 	struct exfat_sb_info *sbi = EXFAT_SB(dentry->d_sb);

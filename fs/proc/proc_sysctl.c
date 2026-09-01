@@ -817,7 +817,7 @@ static int proc_sys_permission(const struct mnt_idmap *idmap,
 	return error;
 }
 
-static int proc_sys_setattr(struct mnt_idmap *idmap,
+static int proc_sys_setattr(const struct mnt_idmap *idmap,
 			    struct dentry *dentry, struct iattr *attr)
 {
 	struct inode *inode = d_inode(dentry);

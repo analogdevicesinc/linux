@@ -948,7 +948,7 @@ static inline bool ovl_force_readonly(struct ovl_fs *ofs)
 /* xattr.c */
 
 const struct xattr_handler * const *ovl_xattr_handlers(struct ovl_fs *ofs);
-int ovl_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int ovl_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		struct iattr *attr);
 int ovl_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		struct kstat *stat, u32 request_mask, unsigned int flags);

@@ -1117,7 +1117,7 @@ out:
 	return ret;
 }
 
-int ocfs2_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int ocfs2_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		  struct iattr *attr)
 {
 	int status = 0, size_change;

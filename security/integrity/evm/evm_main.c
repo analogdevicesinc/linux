@@ -956,7 +956,7 @@ static int evm_attr_change(const struct mnt_idmap *idmap,
  * Permit update of file attributes when files have a valid EVM signature,
  * except in the case of them having an immutable portable signature.
  */
-static int evm_inode_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+static int evm_inode_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 			     struct iattr *attr)
 {
 	unsigned int ia_valid = attr->ia_valid;
@@ -1008,7 +1008,7 @@ static int evm_inode_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
  * This function is called from notify_change(), which expects the caller
  * to lock the inode's i_mutex.
  */
-static void evm_inode_post_setattr(struct mnt_idmap *idmap,
+static void evm_inode_post_setattr(const struct mnt_idmap *idmap,
 				   struct dentry *dentry, int ia_valid)
 {
 	if (!evm_revalidate_status(NULL))

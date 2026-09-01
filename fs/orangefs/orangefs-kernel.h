@@ -352,7 +352,7 @@ struct inode *orangefs_new_inode(struct super_block *sb,
 
 int __orangefs_setattr(struct inode *, struct iattr *);
 int __orangefs_setattr_mode(struct dentry *dentry, struct iattr *iattr);
-int orangefs_setattr(struct mnt_idmap *, struct dentry *, struct iattr *);
+int orangefs_setattr(const struct mnt_idmap *, struct dentry *, struct iattr *);
 
 int orangefs_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		     struct kstat *stat, u32 request_mask, unsigned int flags);

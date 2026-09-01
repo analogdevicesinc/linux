@@ -304,7 +304,7 @@ int coda_getattr(const struct mnt_idmap *idmap, const struct path *path,
 	return err;
 }
 
-int coda_setattr(struct mnt_idmap *idmap, struct dentry *de,
+int coda_setattr(const struct mnt_idmap *idmap, struct dentry *de,
 		 struct iattr *iattr)
 {
 	struct inode *inode = d_inode(de);

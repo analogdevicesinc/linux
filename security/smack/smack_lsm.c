@@ -1270,7 +1270,7 @@ static int smack_inode_permission(struct inode *inode, int mask)
  *
  * Returns 0 if access is permitted, an error code otherwise
  */
-static int smack_inode_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+static int smack_inode_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 			       struct iattr *iattr)
 {
 	struct smk_audit_info ad;

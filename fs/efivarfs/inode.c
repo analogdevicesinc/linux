@@ -170,7 +170,7 @@ efivarfs_fileattr_set(const struct mnt_idmap *idmap,
 }
 
 /* copy of simple_setattr except that it doesn't do i_size updates */
-static int efivarfs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+static int efivarfs_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		   struct iattr *iattr)
 {
 	struct inode *inode = d_inode(dentry);
