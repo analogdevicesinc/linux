@@ -29,6 +29,18 @@ struct vgic_v3_cpu_if;
 struct vgic_v5_cpu_if;
 
 /*
+ * A host VA carried by a hypercall argument. At EL2 such a pointer must not
+ * be dereferenced until it is translated with kern_hyp_va_host(); sparse
+ * flags any use that skips the translation. The tag describes the EL2 view
+ * only: the host dereferences its own VAs freely.
+ */
+#if defined(__KVM_NVHE_HYPERVISOR__) && defined(__CHECKER__)
+#define __kern	__attribute__((noderef, address_space(__kern)))
+#else
+#define __kern
+#endif
+
+/*
  * Hypercall signatures are declared as (type, name) argument pairs.
  * __KVM_HCALL_MAP() applies a macro to each pair, in the mold of __MAP()
  * in <linux/syscalls.h>. The ladder is indexed by list entries, two per
@@ -142,24 +154,24 @@ DECLARE_KVM_HOST_HCALL0(int, __pkvm_prot_finalize)
 
 /* Hypercalls that are always available and common to [nh]VHE/pKVM. */
 DECLARE_KVM_HOST_HCALL(void, __kvm_adjust_pc,
-	struct kvm_vcpu *, vcpu)
+	struct kvm_vcpu __kern *, vcpu)
 DECLARE_KVM_HOST_HCALL(int, __kvm_vcpu_run,
-	struct kvm_vcpu *, vcpu)
+	struct kvm_vcpu __kern *, vcpu)
 DECLARE_KVM_HOST_HCALL0(void, __kvm_flush_vm_context)
 DECLARE_KVM_HOST_HCALL(void, __kvm_tlb_flush_vmid_ipa,
-	struct kvm_s2_mmu *, mmu, phys_addr_t, ipa, int, level)
+	struct kvm_s2_mmu __kern *, mmu, phys_addr_t, ipa, int, level)
 DECLARE_KVM_HOST_HCALL(void, __kvm_tlb_flush_vmid_ipa_nsh,
-	struct kvm_s2_mmu *, mmu, phys_addr_t, ipa, int, level)
+	struct kvm_s2_mmu __kern *, mmu, phys_addr_t, ipa, int, level)
 DECLARE_KVM_HOST_HCALL(void, __kvm_tlb_flush_vmid,
-	struct kvm_s2_mmu *, mmu)
+	struct kvm_s2_mmu __kern *, mmu)
 DECLARE_KVM_HOST_HCALL(void, __kvm_tlb_flush_vmid_range,
-	struct kvm_s2_mmu *, mmu, phys_addr_t, start, unsigned long, pages)
+	struct kvm_s2_mmu __kern *, mmu, phys_addr_t, start, unsigned long, pages)
 DECLARE_KVM_HOST_HCALL(void, __kvm_flush_cpu_context,
-	struct kvm_s2_mmu *, mmu)
+	struct kvm_s2_mmu __kern *, mmu)
 DECLARE_KVM_HOST_HCALL(void, __kvm_timer_set_cntvoff,
 	u64, cntvoff)
 DECLARE_KVM_HOST_HCALL(int, __tracing_load,
-	void *, desc_hva, size_t, desc_size)
+	void __kern *, desc_hva, size_t, desc_size)
 DECLARE_KVM_HOST_HCALL0(void, __tracing_unload)
 DECLARE_KVM_HOST_HCALL(int, __tracing_enable,
 	bool, enable)
@@ -174,13 +186,13 @@ DECLARE_KVM_HOST_HCALL(int, __tracing_enable_event,
 DECLARE_KVM_HOST_HCALL(void, __tracing_write_event,
 	u64, id)
 DECLARE_KVM_HOST_HCALL(void, __vgic_v3_save_aprs,
-	struct vgic_v3_cpu_if *, cpu_if)
+	struct vgic_v3_cpu_if __kern *, cpu_if)
 DECLARE_KVM_HOST_HCALL(void, __vgic_v3_restore_vmcr_aprs,
-	struct vgic_v3_cpu_if *, cpu_if)
+	struct vgic_v3_cpu_if __kern *, cpu_if)
 DECLARE_KVM_HOST_HCALL(void, __vgic_v5_save_apr,
-	struct vgic_v5_cpu_if *, cpu_if)
+	struct vgic_v5_cpu_if __kern *, cpu_if)
 DECLARE_KVM_HOST_HCALL(void, __vgic_v5_restore_vmcr_apr,
-	struct vgic_v5_cpu_if *, cpu_if)
+	struct vgic_v5_cpu_if __kern *, cpu_if)
 
 /* Hypercalls that are available only when pKVM has finalised. */
 DECLARE_KVM_HOST_HCALL(int, __pkvm_host_share_hyp,
@@ -205,10 +217,11 @@ DECLARE_KVM_HOST_HCALL0(int, __pkvm_reserve_vm)
 DECLARE_KVM_HOST_HCALL(void, __pkvm_unreserve_vm,
 	pkvm_handle_t, handle)
 DECLARE_KVM_HOST_HCALL(int, __pkvm_init_vm,
-	struct kvm *, host_kvm, void *, vm_hva, void *, pgd_hva)
+	struct kvm __kern *, host_kvm, void __kern *, vm_hva,
+	void __kern *, pgd_hva)
 DECLARE_KVM_HOST_HCALL(int, __pkvm_init_vcpu,
-	pkvm_handle_t, handle, struct kvm_vcpu *, host_vcpu,
-	void *, vcpu_hva)
+	pkvm_handle_t, handle, struct kvm_vcpu __kern *, host_vcpu,
+	void __kern *, vcpu_hva)
 DECLARE_KVM_HOST_HCALL0(int, __pkvm_vcpu_in_poison_fault)
 DECLARE_KVM_HOST_HCALL(int, __pkvm_force_reclaim_guest_page,
 	phys_addr_t, phys)
