@@ -373,7 +373,7 @@ void ext4_reset_inode_seed(struct inode *inode)
  *
  */
 static long swap_inode_boot_loader(struct super_block *sb,
-				struct mnt_idmap *idmap,
+				const struct mnt_idmap *idmap,
 				struct inode *inode)
 {
 	handle_t *handle;

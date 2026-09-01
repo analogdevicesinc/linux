@@ -3886,7 +3886,7 @@ static long btrfs_ioctl_quota_rescan_wait(struct btrfs_fs_info *fs_info)
 }
 
 static long _btrfs_ioctl_set_received_subvol(struct file *file,
-					    struct mnt_idmap *idmap,
+					    const struct mnt_idmap *idmap,
 					    struct btrfs_ioctl_received_subvol_args *sa)
 {
 	struct inode *inode = file_inode(file);
