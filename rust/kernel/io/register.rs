@@ -117,9 +117,6 @@ use super::Region;
 
 /// Trait implemented by all registers.
 pub trait Register: Sized {
-    /// Backing primitive type of the register.
-    type Storage: Into<Self> + From<Self>;
-
     /// Start offset of the register.
     ///
     /// The interpretation of this offset depends on the type of the register.
@@ -135,8 +132,6 @@ impl<const SIZE: usize, T> IoLoc<Region<SIZE>, T> for ()
 where
     T: FixedRegister,
 {
-    type IoType = T::Storage;
-
     #[inline(always)]
     fn offset(self) -> usize {
         T::OFFSET
@@ -149,8 +144,6 @@ impl<const SIZE: usize, T> IoLoc<Region<SIZE>, T> for T
 where
     T: FixedRegister,
 {
-    type IoType = T::Storage;
-
     #[inline(always)]
     fn offset(self) -> usize {
         T::OFFSET
@@ -174,8 +167,6 @@ impl<const SIZE: usize, T> IoLoc<Region<SIZE>, T> for FixedRegisterLoc<T>
 where
     T: FixedRegister,
 {
-    type IoType = T::Storage;
-
     #[inline(always)]
     fn offset(self) -> usize {
         T::OFFSET
@@ -246,8 +237,6 @@ where
     T: RelativeRegister,
     B: RegisterBase<T::BaseFamily> + ?Sized,
 {
-    type IoType = T::Storage;
-
     #[inline(always)]
     fn offset(self) -> usize {
         RelativeRegisterLoc::offset(self)
@@ -289,8 +278,6 @@ impl<const SIZE: usize, T> IoLoc<Region<SIZE>, T> for RegisterArrayLoc<T>
 where
     T: RegisterArray,
 {
-    type IoType = T::Storage;
-
     #[inline(always)]
     fn offset(self) -> usize {
         T::OFFSET + self.0 * T::STRIDE
@@ -377,8 +364,6 @@ where
     T: RelativeRegisterArray,
     B: RegisterBase<T::BaseFamily> + ?Sized,
 {
-    type IoType = T::Storage;
-
     #[inline(always)]
     fn offset(self) -> usize {
         self.0.offset() + self.1 * T::STRIDE

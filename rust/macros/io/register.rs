@@ -213,8 +213,6 @@ pub(crate) fn register(def: RegDef) -> Result<TokenStream> {
             );
 
             impl ::kernel::io::register::Register for #name {
-                type Storage = #storage;
-
                 const OFFSET: usize = #offset;
             }
         ));
