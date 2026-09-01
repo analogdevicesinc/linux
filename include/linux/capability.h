@@ -181,9 +181,9 @@ static inline bool ns_capable_setid(struct user_namespace *ns, int cap)
 }
 #endif /* CONFIG_MULTIUSER */
 bool privileged_wrt_inode_uidgid(struct user_namespace *ns,
-				 struct mnt_idmap *idmap,
+				 const struct mnt_idmap *idmap,
 				 const struct inode *inode);
-bool capable_wrt_inode_uidgid(struct mnt_idmap *idmap,
+bool capable_wrt_inode_uidgid(const struct mnt_idmap *idmap,
 			      const struct inode *inode, int cap);
 extern bool file_ns_capable(const struct file *file, struct user_namespace *ns, int cap);
 extern bool ptracer_capable(struct task_struct *tsk, struct user_namespace *ns);

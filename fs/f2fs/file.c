@@ -1096,7 +1096,7 @@ int f2fs_getattr(struct mnt_idmap *idmap, const struct path *path,
 }
 
 #ifdef CONFIG_F2FS_FS_POSIX_ACL
-static void __setattr_copy(struct mnt_idmap *idmap,
+static void __setattr_copy(const struct mnt_idmap *idmap,
 			   struct inode *inode, const struct iattr *attr)
 {
 	unsigned int ia_valid = attr->ia_valid;

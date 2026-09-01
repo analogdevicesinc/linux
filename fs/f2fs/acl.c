@@ -219,7 +219,7 @@ struct posix_acl *f2fs_get_acl(struct inode *inode, int type, bool rcu)
 	return __f2fs_get_acl(inode, type, NULL);
 }
 
-static int f2fs_acl_update_mode(struct mnt_idmap *idmap,
+static int f2fs_acl_update_mode(const struct mnt_idmap *idmap,
 				struct inode *inode, umode_t *mode_p,
 				struct posix_acl **acl)
 {
@@ -240,7 +240,7 @@ static int f2fs_acl_update_mode(struct mnt_idmap *idmap,
 	return 0;
 }
 
-static int __f2fs_set_acl(struct mnt_idmap *idmap,
+static int __f2fs_set_acl(const struct mnt_idmap *idmap,
 			struct inode *inode, int type,
 			struct posix_acl *acl, struct folio *ifolio)
 {
