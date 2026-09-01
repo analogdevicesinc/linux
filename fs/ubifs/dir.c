@@ -1667,7 +1667,7 @@ static int ubifs_rename(const struct mnt_idmap *idmap,
 	return do_rename(old_dir, old_dentry, new_dir, new_dentry, flags);
 }
 
-int ubifs_getattr(struct mnt_idmap *idmap, const struct path *path,
+int ubifs_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		  struct kstat *stat, u32 request_mask, unsigned int flags)
 {
 	loff_t size;

@@ -342,7 +342,7 @@ int proc_fd_permission(const struct mnt_idmap *idmap,
 	return rv;
 }
 
-static int proc_fd_getattr(struct mnt_idmap *idmap,
+static int proc_fd_getattr(const struct mnt_idmap *idmap,
 			const struct path *path, struct kstat *stat,
 			u32 request_mask, unsigned int query_flags)
 {

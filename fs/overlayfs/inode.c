@@ -168,7 +168,7 @@ static inline int ovl_real_getattr_nosec(struct super_block *sb,
 		return vfs_getattr_nosec(path, stat, request_mask, flags);
 }
 
-int ovl_getattr(struct mnt_idmap *idmap, const struct path *path,
+int ovl_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		struct kstat *stat, u32 request_mask, unsigned int flags)
 {
 	struct dentry *dentry = path->dentry;

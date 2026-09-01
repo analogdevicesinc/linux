@@ -6263,7 +6263,7 @@ u32 ext4_dio_alignment(struct inode *inode)
 	return 1; /* use the iomap defaults */
 }
 
-int ext4_getattr(struct mnt_idmap *idmap, const struct path *path,
+int ext4_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		 struct kstat *stat, u32 request_mask, unsigned int query_flags)
 {
 	struct inode *inode = d_inode(path->dentry);
@@ -6332,7 +6332,7 @@ int ext4_getattr(struct mnt_idmap *idmap, const struct path *path,
 	return 0;
 }
 
-int ext4_file_getattr(struct mnt_idmap *idmap,
+int ext4_file_getattr(const struct mnt_idmap *idmap,
 		      const struct path *path, struct kstat *stat,
 		      u32 request_mask, unsigned int query_flags)
 {

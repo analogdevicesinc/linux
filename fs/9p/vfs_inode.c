@@ -966,7 +966,7 @@ error:
  */
 
 static int
-v9fs_vfs_getattr(struct mnt_idmap *idmap, const struct path *path,
+v9fs_vfs_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		 struct kstat *stat, u32 request_mask, unsigned int flags)
 {
 	struct dentry *dentry = path->dentry;

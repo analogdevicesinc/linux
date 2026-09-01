@@ -1317,7 +1317,7 @@ bail:
 	return status;
 }
 
-int ocfs2_getattr(struct mnt_idmap *idmap, const struct path *path,
+int ocfs2_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		  struct kstat *stat, u32 request_mask, unsigned int flags)
 {
 	struct inode *inode = d_inode(path->dentry);

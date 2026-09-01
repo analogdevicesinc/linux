@@ -29,7 +29,7 @@
 
 #include "internal.h"
 
-int simple_getattr(struct mnt_idmap *idmap, const struct path *path,
+int simple_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		   struct kstat *stat, u32 request_mask,
 		   unsigned int query_flags)
 {

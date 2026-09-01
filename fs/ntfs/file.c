@@ -364,7 +364,7 @@ out:
 	return err;
 }
 
-int ntfs_getattr(struct mnt_idmap *idmap, const struct path *path,
+int ntfs_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		struct kstat *stat, unsigned int request_mask,
 		unsigned int query_flags)
 {

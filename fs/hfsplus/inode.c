@@ -335,7 +335,7 @@ static int hfsplus_setattr(struct mnt_idmap *idmap,
 	return 0;
 }
 
-int hfsplus_getattr(struct mnt_idmap *idmap, const struct path *path,
+int hfsplus_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		    struct kstat *stat, u32 request_mask,
 		    unsigned int query_flags)
 {

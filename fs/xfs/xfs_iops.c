@@ -679,7 +679,7 @@ xfs_report_atomic_write(
 
 STATIC int
 xfs_vn_getattr(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	const struct path	*path,
 	struct kstat		*stat,
 	u32			request_mask,

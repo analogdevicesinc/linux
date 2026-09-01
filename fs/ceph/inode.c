@@ -2398,7 +2398,7 @@ static const char *ceph_encrypted_get_link(struct dentry *dentry,
 				   done);
 }
 
-static int ceph_encrypted_symlink_getattr(struct mnt_idmap *idmap,
+static int ceph_encrypted_symlink_getattr(const struct mnt_idmap *idmap,
 					  const struct path *path,
 					  struct kstat *stat, u32 request_mask,
 					  unsigned int query_flags)
@@ -3145,7 +3145,7 @@ static int statx_to_caps(u32 want, umode_t mode)
  * Get all the attributes. If we have sufficient caps for the requested attrs,
  * then we can avoid talking to the MDS at all.
  */
-int ceph_getattr(struct mnt_idmap *idmap, const struct path *path,
+int ceph_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		 struct kstat *stat, u32 request_mask, unsigned int flags)
 {
 	struct inode *inode = d_inode(path->dentry);

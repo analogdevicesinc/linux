@@ -222,7 +222,7 @@ out_fc:
 }
 
 static int
-nfs_namespace_getattr(struct mnt_idmap *idmap,
+nfs_namespace_getattr(const struct mnt_idmap *idmap,
 		      const struct path *path, struct kstat *stat,
 		      u32 request_mask, unsigned int query_flags)
 {

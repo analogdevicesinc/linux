@@ -1537,7 +1537,7 @@ static int fuse_do_getattr(const struct mnt_idmap *idmap, struct inode *inode,
 	return err;
 }
 
-static int fuse_update_get_attr(struct mnt_idmap *idmap, struct inode *inode,
+static int fuse_update_get_attr(const struct mnt_idmap *idmap, struct inode *inode,
 				struct file *file, struct kstat *stat,
 				u32 request_mask, unsigned int flags)
 {
@@ -2387,7 +2387,7 @@ static int fuse_setattr(struct mnt_idmap *idmap, struct dentry *entry,
 	return ret;
 }
 
-static int fuse_getattr(struct mnt_idmap *idmap,
+static int fuse_getattr(const struct mnt_idmap *idmap,
 			const struct path *path, struct kstat *stat,
 			u32 request_mask, unsigned int flags)
 {

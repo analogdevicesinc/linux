@@ -432,7 +432,7 @@ int fat_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 }
 EXPORT_SYMBOL_GPL(fat_fileattr_get);
 
-int fat_getattr(struct mnt_idmap *idmap, const struct path *path,
+int fat_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		struct kstat *stat, u32 request_mask, unsigned int flags)
 {
 	struct inode *inode = d_inode(path->dentry);

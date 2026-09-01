@@ -35,7 +35,7 @@ static struct dentry *failfs_lookup(struct inode *dir, struct dentry *dentry,
 	return ERR_PTR(-EOPNOTSUPP);
 }
 
-static int failfs_getattr(struct mnt_idmap *idmap, const struct path *path,
+static int failfs_getattr(const struct mnt_idmap *idmap, const struct path *path,
 			  struct kstat *stat, u32 request_mask,
 			  unsigned int query_flags)
 {

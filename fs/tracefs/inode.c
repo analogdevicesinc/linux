@@ -196,7 +196,7 @@ static int tracefs_permission(const struct mnt_idmap *idmap,
 	return generic_permission(idmap, inode, mask);
 }
 
-static int tracefs_getattr(struct mnt_idmap *idmap,
+static int tracefs_getattr(const struct mnt_idmap *idmap,
 			   const struct path *path, struct kstat *stat,
 			   u32 request_mask, unsigned int flags)
 {

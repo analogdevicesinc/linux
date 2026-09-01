@@ -834,7 +834,7 @@ static int proc_sys_setattr(struct mnt_idmap *idmap,
 	return 0;
 }
 
-static int proc_sys_getattr(struct mnt_idmap *idmap,
+static int proc_sys_getattr(const struct mnt_idmap *idmap,
 			    const struct path *path, struct kstat *stat,
 			    u32 request_mask, unsigned int query_flags)
 {

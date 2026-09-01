@@ -939,7 +939,7 @@ out:
 	return rc;
 }
 
-static int ecryptfs_getattr_link(struct mnt_idmap *idmap,
+static int ecryptfs_getattr_link(const struct mnt_idmap *idmap,
 				 const struct path *path, struct kstat *stat,
 				 u32 request_mask, unsigned int flags)
 {
@@ -965,7 +965,7 @@ static int ecryptfs_getattr_link(struct mnt_idmap *idmap,
 	return rc;
 }
 
-static int ecryptfs_getattr(struct mnt_idmap *idmap,
+static int ecryptfs_getattr(const struct mnt_idmap *idmap,
 			    const struct path *path, struct kstat *stat,
 			    u32 request_mask, unsigned int flags)
 {

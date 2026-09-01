@@ -95,7 +95,7 @@ static int bad_inode_permission(const struct mnt_idmap *idmap,
 	return -EIO;
 }
 
-static int bad_inode_getattr(struct mnt_idmap *idmap,
+static int bad_inode_getattr(const struct mnt_idmap *idmap,
 			     const struct path *path, struct kstat *stat,
 			     u32 request_mask, unsigned int query_flags)
 {
