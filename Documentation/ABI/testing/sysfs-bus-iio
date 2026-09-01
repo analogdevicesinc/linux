@@ -507,6 +507,7 @@ What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_z_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_red_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_green_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_blue_scale
+What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_clear_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_concentration_co2_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_volumeflow_scale
 What:		/sys/bus/iio/devices/iio:deviceX/in_volumeflowY_scale
