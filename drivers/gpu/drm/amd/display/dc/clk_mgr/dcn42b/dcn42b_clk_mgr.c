@@ -35,6 +35,8 @@
 #include "dcn/dcn_4_2_1_offset.h"
 #include "dcn/dcn_4_2_1_sh_mask.h"
 
+#include <linux/power_supply.h>
+
 #define DCN_BASE__INST0_SEG0                       0x00000012
 #define DCN_BASE__INST0_SEG1                       0x000000C0
 
@@ -391,30 +393,38 @@ uint32_t dcn42b_get_clock_freq_from_clkip(struct clk_mgr *clk_mgr_base, enum clo
 
 #define DCN42B_MIN_DCFCLK_MHZ 200
 #define DCN42B_MAX_DCFCLK_MHZ 600
+#define DCN42B_AC_MIN_DCFCLK_MHZ 300
 
 /*
  * dcn42b_update_clocks - DCN42B wrapper around dcn42_update_clocks.
  *
- * Sanitizes the user-requested force-min-DCFCLK override
- * (DalForceMinDcFclkMhz -> dc->debug.force_min_dcfclk_mhz) to the DCN42B
- * supported DCFCLK range before delegating to the shared dcn42_update_clocks(),
- * which applies the floor to new_clocks->dcfclk_khz. Clamping here (rather than
- * in the shared dcn42 path) keeps the [200, 600] MHz limit DCN42B-specific.
+ * Establishes the DCN42B force-min-DCFCLK floor consumed by the shared
+ * dcn42_update_clocks(), which applies it to new_clocks->dcfclk_khz:
+ *   - a user override (dc->debug.force_min_dcfclk_mhz)
+ *     wins, sanitized to the [200, 600] MHz supported range;
+ *   - otherwise DCFCLK is floored at 300 MHz on wall power, and left
+ *     unconstrained on battery.
+ * dc->debug is restored afterwards so the override survives AC/DC transitions.
  */
 static void dcn42b_update_clocks(struct clk_mgr *clk_mgr_base,
 			struct dc_state *context,
 			bool safe_to_lower)
 {
 	struct dc *dc = clk_mgr_base->ctx->dc;
+	unsigned int user_force_min_dcfclk_mhz = dc->debug.force_min_dcfclk_mhz;
 
 	if (dc->debug.force_min_dcfclk_mhz > 0) {
 		if (dc->debug.force_min_dcfclk_mhz < DCN42B_MIN_DCFCLK_MHZ)
 			dc->debug.force_min_dcfclk_mhz = DCN42B_MIN_DCFCLK_MHZ;
 		else if (dc->debug.force_min_dcfclk_mhz > DCN42B_MAX_DCFCLK_MHZ)
 			dc->debug.force_min_dcfclk_mhz = DCN42B_MAX_DCFCLK_MHZ;
+	} else if (power_supply_is_system_supplied()) {
+		dc->debug.force_min_dcfclk_mhz = DCN42B_AC_MIN_DCFCLK_MHZ;
 	}
 
 	dcn42_update_clocks(clk_mgr_base, context, safe_to_lower);
+
+	dc->debug.force_min_dcfclk_mhz = user_force_min_dcfclk_mhz;
 }
 
 static struct clk_mgr_funcs dcn42b_funcs = {
