@@ -608,7 +608,7 @@ EXPORT_SYMBOL(__posix_acl_chmod);
  * performed on the raw inode simply pass @nop_mnt_idmap.
  */
 int
- posix_acl_chmod(struct mnt_idmap *idmap, struct dentry *dentry,
+ posix_acl_chmod(const struct mnt_idmap *idmap, struct dentry *dentry,
 		    umode_t mode)
 {
 	struct inode *inode = d_inode(dentry);
@@ -937,7 +937,7 @@ static ssize_t vfs_posix_acl_to_xattr(const struct mnt_idmap *idmap,
 }
 
 int
-set_posix_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+set_posix_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 	      int type, struct posix_acl *acl)
 {
 	struct inode *inode = d_inode(dentry);
@@ -1018,7 +1018,7 @@ const struct xattr_handler nop_posix_acl_default = {
 };
 EXPORT_SYMBOL_GPL(nop_posix_acl_default);
 
-int simple_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+int simple_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		   struct posix_acl *acl, int type)
 {
 	int error;
@@ -1091,7 +1091,7 @@ static int vfs_set_acl_idmapped_mnt(const struct mnt_idmap *idmap,
  *
  * Return: On success 0, on error negative errno.
  */
-int vfs_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+int vfs_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		const char *acl_name, struct posix_acl *kacl)
 {
 	int acl_type;
@@ -1212,7 +1212,7 @@ EXPORT_SYMBOL_GPL(vfs_get_acl);
  *
  * Return: On success 0, on error negative errno.
  */
-int vfs_remove_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+int vfs_remove_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		   const char *acl_name)
 {
 	int acl_type;
@@ -1265,7 +1265,7 @@ out_inode_unlock:
 }
 EXPORT_SYMBOL_GPL(vfs_remove_acl);
 
-int do_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+int do_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 	       const char *acl_name, const void *kvalue, size_t size)
 {
 	int error;

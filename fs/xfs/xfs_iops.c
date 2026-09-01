@@ -777,7 +777,7 @@ xfs_vn_change_ok(
  */
 static int
 xfs_setattr_nonsize(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	struct dentry		*dentry,
 	struct xfs_inode	*ip,
 	struct iattr		*iattr)
@@ -903,7 +903,7 @@ out_dqrele:
  */
 int
 xfs_vn_setattr_size(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	struct dentry		*dentry,
 	struct iattr		*iattr)
 {

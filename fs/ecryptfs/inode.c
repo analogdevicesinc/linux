@@ -1097,7 +1097,7 @@ static struct posix_acl *ecryptfs_get_acl(struct mnt_idmap *idmap,
 			   posix_acl_xattr_name(type));
 }
 
-static int ecryptfs_set_acl(struct mnt_idmap *idmap,
+static int ecryptfs_set_acl(const struct mnt_idmap *idmap,
 			    struct dentry *dentry, struct posix_acl *acl,
 			    int type)
 {

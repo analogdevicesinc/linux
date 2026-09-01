@@ -289,7 +289,7 @@ static int __f2fs_set_acl(const struct mnt_idmap *idmap,
 	return error;
 }
 
-int f2fs_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+int f2fs_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		 struct posix_acl *acl, int type)
 {
 	struct inode *inode = d_inode(dentry);

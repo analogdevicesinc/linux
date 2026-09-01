@@ -819,7 +819,7 @@ static inline struct posix_acl *ovl_get_acl(struct mnt_idmap *idmap,
 {
 	return do_ovl_get_acl(idmap, d_inode(dentry), type, false, false);
 }
-int ovl_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+int ovl_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		struct posix_acl *acl, int type);
 struct posix_acl *ovl_get_acl_path(const struct path *path,
 				   const char *acl_name, bool noperm);

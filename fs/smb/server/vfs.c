@@ -1471,7 +1471,7 @@ struct dentry *ksmbd_vfs_kern_path_create(struct ksmbd_work *work,
 	return dent;
 }
 
-int ksmbd_vfs_remove_acl_xattrs(struct mnt_idmap *idmap,
+int ksmbd_vfs_remove_acl_xattrs(const struct mnt_idmap *idmap,
 				const struct path *path)
 {
 	char *name, *xattr_list = NULL;
@@ -2200,7 +2200,7 @@ void ksmbd_vfs_posix_lock_unblock(struct file_lock *flock)
 	locks_delete_block(flock);
 }
 
-int ksmbd_vfs_set_init_posix_acl(struct mnt_idmap *idmap,
+int ksmbd_vfs_set_init_posix_acl(const struct mnt_idmap *idmap,
 				 const struct path *path)
 {
 	struct posix_acl_state acl_state;

@@ -74,20 +74,20 @@ extern int __posix_acl_create(struct posix_acl **, gfp_t, umode_t *);
 extern int __posix_acl_chmod(struct posix_acl **, gfp_t, umode_t);
 
 extern struct posix_acl *get_posix_acl(struct inode *, int);
-int set_posix_acl(struct mnt_idmap *, struct dentry *, int,
+int set_posix_acl(const struct mnt_idmap *, struct dentry *, int,
 		  struct posix_acl *);
 
 struct posix_acl *get_cached_acl_rcu(struct inode *inode, int type);
 struct posix_acl *posix_acl_clone(const struct posix_acl *acl, gfp_t flags);
 
 #ifdef CONFIG_FS_POSIX_ACL
-int posix_acl_chmod(struct mnt_idmap *, struct dentry *, umode_t);
+int posix_acl_chmod(const struct mnt_idmap *, struct dentry *, umode_t);
 extern int posix_acl_create(struct inode *, umode_t *, struct posix_acl **,
 		struct posix_acl **);
 int posix_acl_update_mode(const struct mnt_idmap *, struct inode *, umode_t *,
 			  struct posix_acl **);
 
-int simple_set_acl(struct mnt_idmap *, struct dentry *,
+int simple_set_acl(const struct mnt_idmap *, struct dentry *,
 		   struct posix_acl *, int);
 extern int simple_acl_create(struct inode *, struct inode *);
 
@@ -105,16 +105,16 @@ static inline void cache_no_acl(struct inode *inode)
 	inode->i_default_acl = NULL;
 }
 
-int vfs_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+int vfs_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		const char *acl_name, struct posix_acl *kacl);
 struct posix_acl *vfs_get_acl(struct mnt_idmap *idmap,
 			      struct dentry *dentry, const char *acl_name);
-int vfs_remove_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+int vfs_remove_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		   const char *acl_name);
 int posix_acl_listxattr(struct inode *inode, char **buffer,
 			ssize_t *remaining_size);
 #else
-static inline int posix_acl_chmod(struct mnt_idmap *idmap,
+static inline int posix_acl_chmod(const struct mnt_idmap *idmap,
 				  struct dentry *dentry, umode_t mode)
 {
 	return 0;
@@ -141,7 +141,7 @@ static inline void forget_all_cached_acls(struct inode *inode)
 {
 }
 
-static inline int vfs_set_acl(struct mnt_idmap *idmap,
+static inline int vfs_set_acl(const struct mnt_idmap *idmap,
 			      struct dentry *dentry, const char *name,
 			      struct posix_acl *acl)
 {
@@ -155,7 +155,7 @@ static inline struct posix_acl *vfs_get_acl(struct mnt_idmap *idmap,
 	return ERR_PTR(-EOPNOTSUPP);
 }
 
-static inline int vfs_remove_acl(struct mnt_idmap *idmap,
+static inline int vfs_remove_acl(const struct mnt_idmap *idmap,
 				 struct dentry *dentry, const char *acl_name)
 {
 	return -EOPNOTSUPP;

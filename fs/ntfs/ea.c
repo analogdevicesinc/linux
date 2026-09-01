@@ -1080,7 +1080,7 @@ out:
 	return err;
 }
 
-int ntfs_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+int ntfs_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		 struct posix_acl *acl, int type)
 {
 	return ntfs_set_acl_ex(idmap, d_inode(dentry), acl, type, false);

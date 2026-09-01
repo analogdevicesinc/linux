@@ -152,7 +152,7 @@ int ksmbd_vfs_fill_dentry_attrs(struct ksmbd_work *work,
 				struct ksmbd_kstat *ksmbd_kstat);
 void ksmbd_vfs_posix_lock_wait(struct file_lock *flock);
 void ksmbd_vfs_posix_lock_unblock(struct file_lock *flock);
-int ksmbd_vfs_remove_acl_xattrs(struct mnt_idmap *idmap,
+int ksmbd_vfs_remove_acl_xattrs(const struct mnt_idmap *idmap,
 				const struct path *path);
 int ksmbd_vfs_remove_sd_xattrs(const struct mnt_idmap *idmap, const struct path *path);
 int ksmbd_vfs_set_sd_xattr(struct ksmbd_conn *conn,
@@ -171,7 +171,7 @@ int ksmbd_vfs_set_dos_attrib_xattr(const struct mnt_idmap *idmap,
 int ksmbd_vfs_get_dos_attrib_xattr(const struct mnt_idmap *idmap,
 				   struct dentry *dentry,
 				   struct xattr_dos_attrib *da);
-int ksmbd_vfs_set_init_posix_acl(struct mnt_idmap *idmap,
+int ksmbd_vfs_set_init_posix_acl(const struct mnt_idmap *idmap,
 				 const struct path *path);
 int ksmbd_vfs_inherit_posix_acl(const struct mnt_idmap *idmap,
 				const struct path *path,

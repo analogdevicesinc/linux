@@ -652,7 +652,7 @@ int setxattr_copy(const char __user *name, struct kernel_xattr_ctx *ctx)
 	return error;
 }
 
-static int do_setxattr(struct mnt_idmap *idmap, struct dentry *dentry,
+static int do_setxattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		struct kernel_xattr_ctx *ctx)
 {
 	if (is_posix_acl_xattr(ctx->kname->name))
@@ -1029,7 +1029,7 @@ SYSCALL_DEFINE3(flistxattr, int, fd, char __user *, list, size_t, size)
  * Extended attribute REMOVE operations
  */
 static long
-removexattr(struct mnt_idmap *idmap, struct dentry *d, const char *name)
+removexattr(const struct mnt_idmap *idmap, struct dentry *d, const char *name)
 {
 	if (is_posix_acl_xattr(name))
 		return vfs_remove_acl(idmap, d, name);
