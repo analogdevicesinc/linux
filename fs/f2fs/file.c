@@ -2361,7 +2361,7 @@ static int f2fs_ioc_getversion(struct file *filp, unsigned long arg)
 static int f2fs_ioc_start_atomic_write(struct file *filp, bool truncate)
 {
 	struct inode *inode = file_inode(filp);
-	struct mnt_idmap *idmap = file_mnt_idmap(filp);
+	const struct mnt_idmap *idmap = file_mnt_idmap(filp);
 	struct f2fs_inode_info *fi = F2FS_I(inode);
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	loff_t isize;
@@ -2473,7 +2473,7 @@ out:
 static int f2fs_ioc_commit_atomic_write(struct file *filp)
 {
 	struct inode *inode = file_inode(filp);
-	struct mnt_idmap *idmap = file_mnt_idmap(filp);
+	const struct mnt_idmap *idmap = file_mnt_idmap(filp);
 	int ret;
 
 	if (!(filp->f_mode & FMODE_WRITE))
@@ -2508,7 +2508,7 @@ static int f2fs_ioc_commit_atomic_write(struct file *filp)
 static int f2fs_ioc_abort_atomic_write(struct file *filp)
 {
 	struct inode *inode = file_inode(filp);
-	struct mnt_idmap *idmap = file_mnt_idmap(filp);
+	const struct mnt_idmap *idmap = file_mnt_idmap(filp);
 	int ret;
 
 	if (!(filp->f_mode & FMODE_WRITE))

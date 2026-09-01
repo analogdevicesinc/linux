@@ -2459,7 +2459,7 @@ struct filename {
 static_assert(offsetof(struct filename, iname) % sizeof(long) == 0);
 static_assert(sizeof(struct filename) % 64 == 0);
 
-static inline struct mnt_idmap *file_mnt_idmap(const struct file *file)
+static inline const struct mnt_idmap *file_mnt_idmap(const struct file *file)
 {
 	return mnt_idmap(file->f_path.mnt);
 }

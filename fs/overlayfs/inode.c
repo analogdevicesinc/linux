@@ -406,7 +406,7 @@ struct posix_acl *ovl_get_acl_path(const struct path *path,
 				   const char *acl_name, bool noperm)
 {
 	struct posix_acl *real_acl, *clone;
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	struct inode *realinode = d_inode(path->dentry);
 
 	idmap = mnt_idmap(path->mnt);

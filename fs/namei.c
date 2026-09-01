@@ -1273,7 +1273,7 @@ fs_initcall(init_fs_namei_sysctls);
  */
 static inline int may_follow_link(struct nameidata *nd, const struct inode *inode)
 {
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	vfsuid_t vfsuid;
 
 	if (!sysctl_protected_symlinks)
@@ -2596,7 +2596,7 @@ static int link_path_walk(const char *name, struct nameidata *nd)
 
 	/* At this point we know we have a real path component. */
 	for(;;) {
-		struct mnt_idmap *idmap;
+		const struct mnt_idmap *idmap;
 		const char *link;
 		unsigned long lastword;
 
@@ -4432,7 +4432,7 @@ static struct dentry *lookup_open(struct nameidata *nd, struct file *file,
 				  const struct open_flags *op)
 {
 	struct delegated_inode delegated_inode = { };
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	struct dentry *dir = nd->path.dentry;
 	struct inode *dir_inode = dir->d_inode;
 	int open_flag;
@@ -4789,7 +4789,7 @@ finish_lookup:
 static int do_open(struct nameidata *nd,
 		   struct file *file, const struct open_flags *op)
 {
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	int open_flag = op->open_flag;
 	bool do_truncate;
 	int acc_mode;
@@ -5169,7 +5169,7 @@ struct file *dentry_create(struct path *path, int flags, umode_t mode,
 	struct dentry *orig_dentry = dentry;
 	struct dentry *dir = dentry->d_parent;
 	struct inode *dir_inode = d_inode(dir);
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	int error, create_error;
 
 	file = alloc_empty_file(flags, cred);
@@ -5294,7 +5294,7 @@ int filename_mknodat(int dfd, struct filename *name, umode_t mode,
 		     unsigned int dev)
 {
 	struct delegated_inode di = { };
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	struct dentry *dentry;
 	struct path path;
 	int error;
@@ -5949,7 +5949,7 @@ EXPORT_SYMBOL(vfs_link);
 int filename_linkat(int olddfd, struct filename *old,
 		    int newdfd, struct filename *new, int flags)
 {
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	struct dentry *new_dentry;
 	struct path old_path, new_path;
 	struct delegated_inode delegated_inode = { };

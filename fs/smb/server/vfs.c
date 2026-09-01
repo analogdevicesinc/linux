@@ -183,7 +183,7 @@ int ksmbd_vfs_create(struct ksmbd_work *work, const char *name, umode_t mode)
  */
 int ksmbd_vfs_mkdir(struct ksmbd_work *work, const char *name, umode_t mode)
 {
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	struct path path;
 	struct dentry *dentry, *d;
 	int err = 0;
@@ -386,7 +386,7 @@ static int ksmbd_vfs_stream_write(struct ksmbd_file *fp, char *buf, loff_t *pos,
 {
 	const struct cred *saved_cred;
 	char *stream_buf = NULL, *wbuf;
-	struct mnt_idmap *idmap = file_mnt_idmap(fp->filp);
+	const struct mnt_idmap *idmap = file_mnt_idmap(fp->filp);
 	size_t size;
 	ssize_t v_len;
 	int err = 0;
@@ -577,7 +577,7 @@ int ksmbd_vfs_fsync(struct ksmbd_work *work, u64 fid, u64 p_id)
  */
 int ksmbd_vfs_remove_file(struct ksmbd_work *work, const struct path *path)
 {
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	struct dentry *parent = path->dentry->d_parent;
 	int err;
 
@@ -1202,7 +1202,7 @@ int ksmbd_vfs_unlink(struct file *filp)
 	const struct cred *saved_cred;
 	int err = 0;
 	struct dentry *dir, *dentry = filp->f_path.dentry;
-	struct mnt_idmap *idmap = file_mnt_idmap(filp);
+	const struct mnt_idmap *idmap = file_mnt_idmap(filp);
 
 	saved_cred = override_creds(filp->f_cred);
 	err = mnt_want_write(filp->f_path.mnt);
@@ -2316,7 +2316,7 @@ static int __ksmbd_vfs_set_compression(struct ksmbd_work *work,
 	const struct cred *saved_cred = NULL;
 	struct file_kattr fa;
 	struct dentry *dentry = fp->filp->f_path.dentry;
-	struct mnt_idmap *idmap = file_mnt_idmap(fp->filp);
+	const struct mnt_idmap *idmap = file_mnt_idmap(fp->filp);
 	u32 flags;
 	__le32 old_fattr;
 	int rc;

@@ -1149,7 +1149,7 @@ static noinline int __btrfs_ioctl_snap_create(struct file *file,
 {
 	int ret;
 	struct qstr qname = QSTR(name);
-	struct mnt_idmap *idmap = file_mnt_idmap(file);
+	const struct mnt_idmap *idmap = file_mnt_idmap(file);
 
 	if (!S_ISDIR(file_inode(file)->i_mode))
 		return -ENOTDIR;
@@ -2226,7 +2226,7 @@ static noinline int btrfs_ioctl_snap_destroy(struct file *file,
 	struct btrfs_root *dest = NULL;
 	struct btrfs_ioctl_vol_args AUTO_KFREE(vol_args);
 	struct btrfs_ioctl_vol_args_v2 AUTO_KFREE(vol_args2);
-	struct mnt_idmap *idmap = file_mnt_idmap(file);
+	const struct mnt_idmap *idmap = file_mnt_idmap(file);
 	char *subvol_name, *subvol_name_ptr = NULL;
 	int ret = 0;
 	bool destroy_parent = false;

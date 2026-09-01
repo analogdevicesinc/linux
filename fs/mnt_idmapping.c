@@ -312,14 +312,14 @@ struct mnt_idmap *alloc_mnt_idmap(struct user_namespace *mnt_userns)
  *
  * Return: @idmap with reference count bumped if @not_mnt_idmap isn't passed.
  */
-struct mnt_idmap *mnt_idmap_get(const struct mnt_idmap *idmap)
+const struct mnt_idmap *mnt_idmap_get(const struct mnt_idmap *idmap)
 {
 	struct mnt_idmap *nonconst_idmap = (struct mnt_idmap *)idmap;
 
 	if (idmap != &nop_mnt_idmap && idmap != &invalid_mnt_idmap)
 		refcount_inc(&nonconst_idmap->count);
 
-	return nonconst_idmap;
+	return idmap;
 }
 EXPORT_SYMBOL_GPL(mnt_idmap_get);
 
