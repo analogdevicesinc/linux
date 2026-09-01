@@ -672,7 +672,8 @@ static int __maybe_unused intel_suspend(struct device *dev)
 		return 0;
 	}
 
-	ret = sdw_intel_stop_bus(sdw, false, false);
+	/* Perform clock stop with proper mode and keep the bus unwakeable in system suspend. */
+	ret = sdw_intel_stop_bus(sdw, true, false);
 	if (ret < 0) {
 		dev_err(dev, "%s: cannot stop bus: %d\n", __func__, ret);
 		return ret;
