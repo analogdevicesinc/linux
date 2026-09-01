@@ -28,7 +28,7 @@ struct mnt_idmap {
  * mapping. This means that {g,u}id 0 is mapped to {g,u}id 0, {g,u}id 1 is
  * mapped to {g,u}id 1, [...], {g,u}id 1000 to {g,u}id 1000, [...].
  */
-struct mnt_idmap nop_mnt_idmap = {
+const struct mnt_idmap nop_mnt_idmap = {
 	.count	= REFCOUNT_INIT(1),
 };
 EXPORT_SYMBOL_GPL(nop_mnt_idmap);
@@ -37,7 +37,7 @@ EXPORT_SYMBOL_GPL(nop_mnt_idmap);
  * Carries the invalid idmapping of a full 0-4294967295 {g,u}id range.
  * This means that all {g,u}ids are mapped to INVALID_VFS{G,U}ID.
  */
-struct mnt_idmap invalid_mnt_idmap = {
+const struct mnt_idmap invalid_mnt_idmap = {
 	.count	= REFCOUNT_INIT(1),
 };
 EXPORT_SYMBOL_GPL(invalid_mnt_idmap);
