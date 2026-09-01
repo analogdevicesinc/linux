@@ -2003,7 +2003,7 @@ struct inode_operations {
 		       umode_t);
 	int (*link) (struct dentry *,struct inode *,struct dentry *);
 	int (*unlink) (struct inode *,struct dentry *);
-	int (*symlink) (struct mnt_idmap *, struct inode *,struct dentry *,
+	int (*symlink) (const struct mnt_idmap *, struct inode *,struct dentry *,
 			const char *);
 	struct dentry *(*mkdir) (const struct mnt_idmap *, struct inode *,
 				 struct dentry *, umode_t);

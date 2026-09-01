@@ -9023,7 +9023,7 @@ out:
 	return ret;
 }
 
-static int btrfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int btrfs_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct dentry *dentry, const char *symname)
 {
 	struct btrfs_fs_info *fs_info = inode_to_fs_info(dir);

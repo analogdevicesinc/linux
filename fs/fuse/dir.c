@@ -1146,7 +1146,7 @@ static struct dentry *fuse_mkdir(const struct mnt_idmap *idmap, struct inode *di
 	return create_new_entry(idmap, fm, &args, dir, entry, S_IFDIR);
 }
 
-static int fuse_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int fuse_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 			struct dentry *entry, const char *link)
 {
 	struct fuse_mount *fm = get_fuse_mount(dir);

@@ -69,7 +69,7 @@ static int minix_create(struct mnt_idmap *idmap, struct inode *dir,
 	return minix_mknod(&nop_mnt_idmap, dir, dentry, mode, 0);
 }
 
-static int minix_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int minix_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct dentry *dentry, const char *symname)
 {
 	int i = strlen(symname)+1;

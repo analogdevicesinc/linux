@@ -425,7 +425,7 @@ err_put_old_path:
 	return err;
 }
 
-static int vboxsf_dir_symlink(struct mnt_idmap *idmap,
+static int vboxsf_dir_symlink(const struct mnt_idmap *idmap,
 			      struct inode *parent, struct dentry *dentry,
 			      const char *symname)
 {

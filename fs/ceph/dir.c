@@ -1032,7 +1032,7 @@ static int prep_encrypted_symlink_target(struct ceph_mds_request *req,
 }
 #endif
 
-static int ceph_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int ceph_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 			struct dentry *dentry, const char *dest)
 {
 	struct ceph_mds_client *mdsc = ceph_sb_to_mdsc(dir->i_sb);

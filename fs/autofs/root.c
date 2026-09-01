@@ -12,7 +12,7 @@
 #include "autofs_i.h"
 
 static int autofs_dir_permission(const struct mnt_idmap *, struct inode *, int);
-static int autofs_dir_symlink(struct mnt_idmap *, struct inode *,
+static int autofs_dir_symlink(const struct mnt_idmap *, struct inode *,
 			      struct dentry *, const char *);
 static int autofs_dir_unlink(struct inode *, struct dentry *);
 static int autofs_dir_rmdir(struct inode *, struct dentry *);
@@ -572,7 +572,7 @@ static int autofs_dir_permission(const struct mnt_idmap *idmap,
 	return generic_permission(idmap, inode, mask);
 }
 
-static int autofs_dir_symlink(struct mnt_idmap *idmap,
+static int autofs_dir_symlink(const struct mnt_idmap *idmap,
 			      struct inode *dir, struct dentry *dentry,
 			      const char *symname)
 {

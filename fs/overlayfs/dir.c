@@ -752,7 +752,7 @@ static int ovl_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	return ovl_create_object(idmap, dentry, mode, rdev, NULL);
 }
 
-static int ovl_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int ovl_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, const char *link)
 {
 	return ovl_create_object(idmap, dentry, S_IFLNK, 0, link);

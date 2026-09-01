@@ -460,7 +460,7 @@ out:
 	return res;
 }
 
-static int hfsplus_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int hfsplus_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 			   struct dentry *dentry, const char *symname)
 {
 	struct hfsplus_sb_info *sbi = HFSPLUS_SB(dir->i_sb);

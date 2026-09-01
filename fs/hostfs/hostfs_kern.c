@@ -673,7 +673,7 @@ static int hostfs_unlink(struct inode *ino, struct dentry *dentry)
 	return err;
 }
 
-static int hostfs_symlink(struct mnt_idmap *idmap, struct inode *ino,
+static int hostfs_symlink(const struct mnt_idmap *idmap, struct inode *ino,
 			  struct dentry *dentry, const char *to)
 {
 	char *file;

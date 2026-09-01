@@ -998,7 +998,7 @@ static int hugetlbfs_tmpfile(const struct mnt_idmap *idmap,
 	return finish_open_simple(file, 0);
 }
 
-static int hugetlbfs_symlink(struct mnt_idmap *idmap,
+static int hugetlbfs_symlink(const struct mnt_idmap *idmap,
 			     struct inode *dir, struct dentry *dentry,
 			     const char *symname)
 {

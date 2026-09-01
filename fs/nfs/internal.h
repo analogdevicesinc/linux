@@ -402,7 +402,7 @@ struct dentry *nfs_mkdir(const struct mnt_idmap *, struct inode *, struct dentry
 			 umode_t);
 int nfs_rmdir(struct inode *, struct dentry *);
 int nfs_unlink(struct inode *, struct dentry *);
-int nfs_symlink(struct mnt_idmap *, struct inode *, struct dentry *,
+int nfs_symlink(const struct mnt_idmap *, struct inode *, struct dentry *,
 		const char *);
 int nfs_link(struct dentry *, struct inode *, struct dentry *);
 int nfs_mknod(const struct mnt_idmap *, struct inode *, struct dentry *, umode_t,

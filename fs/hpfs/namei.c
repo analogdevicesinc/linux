@@ -289,7 +289,7 @@ bail:
 	return err;
 }
 
-static int hpfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int hpfs_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 			struct dentry *dentry, const char *symlink)
 {
 	const unsigned char *name = dentry->d_name.name;

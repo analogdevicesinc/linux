@@ -1815,7 +1815,7 @@ bail:
 	return status;
 }
 
-static int ocfs2_symlink(struct mnt_idmap *idmap,
+static int ocfs2_symlink(const struct mnt_idmap *idmap,
 			 struct inode *dir,
 			 struct dentry *dentry,
 			 const char *symname)

@@ -567,7 +567,7 @@ out:
 	return ret;
 }
 
-static int udf_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int udf_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, const char *symname)
 {
 	struct inode *inode;

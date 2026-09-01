@@ -152,7 +152,7 @@ static int ext2_mknod (const struct mnt_idmap * idmap, struct inode * dir,
 	return err;
 }
 
-static int ext2_symlink (struct mnt_idmap * idmap, struct inode * dir,
+static int ext2_symlink (const struct mnt_idmap * idmap, struct inode * dir,
 	struct dentry * dentry, const char * symname)
 {
 	struct super_block * sb = dir->i_sb;

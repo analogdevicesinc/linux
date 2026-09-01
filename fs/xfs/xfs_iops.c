@@ -425,7 +425,7 @@ xfs_vn_unlink(
 
 STATIC int
 xfs_vn_symlink(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	struct inode		*dir,
 	struct dentry		*dentry,
 	const char		*symname)

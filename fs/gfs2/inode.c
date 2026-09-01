@@ -1323,7 +1323,7 @@ out_inodes:
  * Returns: errno
  */
 
-static int gfs2_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int gfs2_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 			struct dentry *dentry, const char *symname)
 {
 	unsigned int size;

@@ -1249,7 +1249,7 @@ static int v9fs_vfs_mkspecial(struct inode *dir, struct dentry *dentry,
  */
 
 static int
-v9fs_vfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
+v9fs_vfs_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 		 struct dentry *dentry, const char *symname)
 {
 	p9_debug(P9_DEBUG_VFS, " %llu,%pd,%s\n",

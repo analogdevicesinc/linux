@@ -138,7 +138,7 @@ nilfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	return err;
 }
 
-static int nilfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int nilfs_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct dentry *dentry, const char *symname)
 {
 	struct nilfs_transaction_info ti;
