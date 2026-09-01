@@ -1263,7 +1263,7 @@ out:
 	return ret;
 }
 
-static int exfat_rename(struct mnt_idmap *idmap,
+static int exfat_rename(const struct mnt_idmap *idmap,
 			struct inode *old_dir, struct dentry *old_dentry,
 			struct inode *new_dir, struct dentry *new_dentry,
 			unsigned int flags)

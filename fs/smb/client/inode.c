@@ -2526,7 +2526,7 @@ do_rename_exit:
 }
 
 int
-cifs_rename2(struct mnt_idmap *idmap, struct inode *source_dir,
+cifs_rename2(const struct mnt_idmap *idmap, struct inode *source_dir,
 	     struct dentry *source_dentry, struct inode *target_dir,
 	     struct dentry *target_dentry, unsigned int flags)
 {

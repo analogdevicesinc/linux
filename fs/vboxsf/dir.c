@@ -382,7 +382,7 @@ static int vboxsf_dir_unlink(struct inode *parent, struct dentry *dentry)
 	return 0;
 }
 
-static int vboxsf_dir_rename(struct mnt_idmap *idmap,
+static int vboxsf_dir_rename(const struct mnt_idmap *idmap,
 			     struct inode *old_parent,
 			     struct dentry *old_dentry,
 			     struct inode *new_parent,

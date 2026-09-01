@@ -1307,7 +1307,7 @@ static int fuse_rename_common(const struct mnt_idmap *idmap, struct inode *olddi
 	return err;
 }
 
-static int fuse_rename2(struct mnt_idmap *idmap, struct inode *olddir,
+static int fuse_rename2(const struct mnt_idmap *idmap, struct inode *olddir,
 			struct dentry *oldent, struct inode *newdir,
 			struct dentry *newent, unsigned int flags)
 {

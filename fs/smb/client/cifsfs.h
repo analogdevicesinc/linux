@@ -69,7 +69,7 @@ int cifs_mknod(const struct mnt_idmap *idmap, struct inode *inode,
 struct dentry *cifs_mkdir(struct mnt_idmap *idmap, struct inode *inode,
 			  struct dentry *direntry, umode_t mode);
 int cifs_rmdir(struct inode *inode, struct dentry *direntry);
-int cifs_rename2(struct mnt_idmap *idmap, struct inode *source_dir,
+int cifs_rename2(const struct mnt_idmap *idmap, struct inode *source_dir,
 		 struct dentry *source_dentry, struct inode *target_dir,
 		 struct dentry *target_dentry, unsigned int flags);
 int cifs_revalidate_file_attr(struct file *filp);

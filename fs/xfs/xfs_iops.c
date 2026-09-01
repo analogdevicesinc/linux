@@ -466,7 +466,7 @@ xfs_vn_symlink(
 
 STATIC int
 xfs_vn_rename(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	struct inode		*odir,
 	struct dentry		*odentry,
 	struct inode		*ndir,

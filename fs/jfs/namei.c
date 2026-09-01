@@ -1066,7 +1066,7 @@ static int jfs_symlink(struct mnt_idmap *idmap, struct inode *dip,
  *
  * FUNCTION:	rename a file or directory
  */
-static int jfs_rename(struct mnt_idmap *idmap, struct inode *old_dir,
+static int jfs_rename(const struct mnt_idmap *idmap, struct inode *old_dir,
 		      struct dentry *old_dentry, struct inode *new_dir,
 		      struct dentry *new_dentry, unsigned int flags)
 {

@@ -573,7 +573,7 @@ static struct dentry *hfsplus_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 	return ERR_PTR(hfsplus_mknod(&nop_mnt_idmap, dir, dentry, mode, 0));
 }
 
-static int hfsplus_rename(struct mnt_idmap *idmap,
+static int hfsplus_rename(const struct mnt_idmap *idmap,
 			  struct inode *old_dir, struct dentry *old_dentry,
 			  struct inode *new_dir, struct dentry *new_dentry,
 			  unsigned int flags)

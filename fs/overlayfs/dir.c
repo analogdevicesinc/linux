@@ -1344,7 +1344,7 @@ static void ovl_rename_end(struct ovl_renamedata *ovlrd)
 		ovl_drop_write(ovlrd->old_dentry);
 }
 
-static int ovl_rename(struct mnt_idmap *idmap, struct inode *olddir,
+static int ovl_rename(const struct mnt_idmap *idmap, struct inode *olddir,
 		      struct dentry *old, struct inode *newdir,
 		      struct dentry *new, unsigned int flags)
 {

@@ -38,7 +38,7 @@ static struct dentry *jffs2_mkdir (struct mnt_idmap *, struct inode *,struct den
 static int jffs2_rmdir (struct inode *,struct dentry *);
 static int jffs2_mknod (const struct mnt_idmap *, struct inode *,struct dentry *,
 			umode_t,dev_t);
-static int jffs2_rename (struct mnt_idmap *, struct inode *,
+static int jffs2_rename (const struct mnt_idmap *, struct inode *,
 			 struct dentry *, struct inode *, struct dentry *,
 			 unsigned int);
 
@@ -769,7 +769,7 @@ static int jffs2_mknod (const struct mnt_idmap *idmap, struct inode *dir_i,
 	return ret;
 }
 
-static int jffs2_rename (struct mnt_idmap *idmap,
+static int jffs2_rename (const struct mnt_idmap *idmap,
 			 struct inode *old_dir_i, struct dentry *old_dentry,
 			 struct inode *new_dir_i, struct dentry *new_dentry,
 			 unsigned int flags)

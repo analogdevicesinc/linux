@@ -364,7 +364,7 @@ out:
 	return ret ? ERR_PTR(ret) : NULL;
 }
 
-static int orangefs_rename(struct mnt_idmap *idmap,
+static int orangefs_rename(const struct mnt_idmap *idmap,
 			struct inode *old_dir,
 			struct dentry *old_dentry,
 			struct inode *new_dir,

@@ -407,7 +407,7 @@ int nfs_symlink(struct mnt_idmap *, struct inode *, struct dentry *,
 int nfs_link(struct dentry *, struct inode *, struct dentry *);
 int nfs_mknod(const struct mnt_idmap *, struct inode *, struct dentry *, umode_t,
 	      dev_t);
-int nfs_rename(struct mnt_idmap *, struct inode *, struct dentry *,
+int nfs_rename(const struct mnt_idmap *, struct inode *, struct dentry *,
 	       struct inode *, struct dentry *, unsigned int);
 
 #ifdef CONFIG_NFS_V4_2

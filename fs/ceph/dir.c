@@ -1478,7 +1478,7 @@ out:
 	return err;
 }
 
-static int ceph_rename(struct mnt_idmap *idmap, struct inode *old_dir,
+static int ceph_rename(const struct mnt_idmap *idmap, struct inode *old_dir,
 		       struct dentry *old_dentry, struct inode *new_dir,
 		       struct dentry *new_dentry, unsigned int flags)
 {
