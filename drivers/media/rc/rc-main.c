@@ -391,7 +391,7 @@ static unsigned int ir_establish_scancode(struct rc_dev *dev,
 					  struct rc_map *rc_map,
 					  u64 scancode, bool resize)
 {
-	unsigned int i;
+	unsigned int i, lo, hi;
 
 	lockdep_assert_held(&rc_map->lock);
 
@@ -406,15 +406,21 @@ static unsigned int ir_establish_scancode(struct rc_dev *dev,
 	if (dev->scancode_mask)
 		scancode &= dev->scancode_mask;
 
-	/* First check if we already have a mapping for this ir command */
-	for (i = 0; i < rc_map->len; i++) {
+	/*
+	 * Binary search for an existing mapping for this ir command.
+	 */
+	lo = 0;
+	hi = rc_map->len;
+	while (lo < hi) {
+		i = lo + (hi - lo) / 2;
 		if (rc_map->scan[i].scancode == scancode)
 			return i;
-
-		/* Keytable is sorted from lowest to highest scancode */
-		if (rc_map->scan[i].scancode >= scancode)
-			break;
+		if (rc_map->scan[i].scancode < scancode)
+			lo = i + 1;
+		else
+			hi = i;
 	}
+	i = lo;
 
 	/* No previous mapping found, we might need to grow the table */
 	if (rc_map->size == rc_map->len) {
