@@ -1477,7 +1477,7 @@ int gfs2_quota_init(struct gfs2_sbd *sdp)
 			spin_lock_bucket(hash);
 			old_qd = gfs2_qd_search_bucket_noref(hash, sdp, qc_id);
 			if (old_qd) {
-				fs_err(sdp, "Corruption found in quota_change%u"
+				fs_err(sdp, "Corruption found in quota_change%u "
 					    "file: duplicate identifier in "
 					    "slot %u\n",
 					    sdp->sd_jdesc->jd_jid, slot);
