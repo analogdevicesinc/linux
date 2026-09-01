@@ -1675,8 +1675,15 @@ reread:
 		struct deviceSpec *dsea =
 			(struct deviceSpec *)udf_get_extendedattr(inode, 12, 1);
 
-		if (!dsea || !udf_device_spec_valid(dsea))
+		if (IS_ERR(dsea)) {
+			ret = PTR_ERR(dsea);
 			goto out;
+		}
+		/* Device inodes must have a device spec attribute */
+		if (!dsea || !udf_device_spec_valid(dsea)) {
+			ret = -EFSCORRUPTED;
+			goto out;
+		}
 		init_special_inode(inode, inode->i_mode,
 				MKDEV(le32_to_cpu(dsea->majorDeviceIdent),
 				      le32_to_cpu(dsea->minorDeviceIdent)));
@@ -1836,13 +1843,19 @@ int udf_write_inode(struct inode *inode, struct writeback_control *wbc)
 		struct regid *eid;
 		struct deviceSpec *dsea =
 			(struct deviceSpec *)udf_get_extendedattr(inode, 12, 1);
+
+		/* Validity of extended attrs was checked on load */
+		if (WARN_ON_ONCE(IS_ERR(dsea))) {
+			err = PTR_ERR(dsea);
+			goto out_unlock;
+		}
 		if (!dsea) {
 			dsea = (struct deviceSpec *)
 				udf_add_extendedattr(inode,
 						     sizeof(struct deviceSpec) +
 						     sizeof(struct regid), 12, 0x3);
-			if (!dsea) {
-				err = -ENOSPC;
+			if (IS_ERR(dsea)) {
+				err = PTR_ERR(dsea);
 				goto out_unlock;
 			}
 			dsea->attrType = cpu_to_le32(12);
@@ -1851,10 +1864,6 @@ int udf_write_inode(struct inode *inode, struct writeback_control *wbc)
 						sizeof(struct deviceSpec) +
 						sizeof(struct regid));
 			dsea->impUseLength = cpu_to_le32(sizeof(struct regid));
-		}
-		if (!udf_device_spec_valid(dsea)) {
-			err = -EFSCORRUPTED;
-			goto out_unlock;
 		}
 		eid = (struct regid *)dsea->impUse;
 		memset(eid, 0, sizeof(*eid));
