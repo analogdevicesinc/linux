@@ -255,6 +255,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_SIMPLE_MUX
 	imply SND_SOC_SMA1303
 	imply SND_SOC_SMA1307
+	imply SND_SOC_SN624X_SDCA_SDW
 	imply SND_SOC_SPDIF
 	imply SND_SOC_SRC4XXX_I2C
 	imply SND_SOC_SSM2305
@@ -2098,6 +2099,18 @@ config SND_SOC_SMA1307
 	  amplifier with feedback-loop.
 	  If you are using a system with an SMA1307 amplifier connected
 	  via I2C, enable this option.
+
+config SND_SOC_SN624X_SDCA_SDW
+	tristate "Senary SN624x SDCA Codec - SDW"
+	depends on SND_SOC_SDCA
+	depends on SOUNDWIRE
+	select REGMAP_SOUNDWIRE
+	select REGMAP_SOUNDWIRE_MBQ
+	help
+	  Enable support for Senary SN624x SDCA SoundWire codecs.
+	  These multi-function devices provide headset jack, speaker
+	  amplifier, and digital microphone endpoints on the SoundWire
+	  bus.
 
 config SND_SOC_SPDIF
 	tristate "S/PDIF CODEC"
