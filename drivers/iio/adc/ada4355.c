@@ -81,13 +81,26 @@
 
 /*
  * Zynq-7000 uses IDELAYE2, whose tap counter is 5 bits wide. Sweeping further
- * aliases every 32 taps, so find_opt() locks onto a repeating pattern and
- * reports success on a meaningless delay. UltraScale+ (IDELAYE3) is 9 bits and
+ * aliases every 32 taps, so the window search locks onto a repeating pattern
+ * and reports success on a meaningless delay. UltraScale+ (IDELAYE3) is 9 and
  * needs 512 instead.
  */
 #define IDELAY_NUM_TAPS 32
 #define IDELAY_STEP     1
 #define IDELAY_ENTRIES  (IDELAY_NUM_TAPS / IDELAY_STEP)
+
+/*
+ * A tap is only as trustworthy as the number of samples observed at it. 1 ms at
+ * 125 MSPS is ~125k samples, which is short enough that a lane slipping once
+ * every few hundred microseconds still reads as clean — that produced eye maps
+ * showing a wide, inviting plateau that fails solidly under any longer look.
+ * The sweep dwell is a compromise; the confirm dwell on the final candidate is
+ * what actually gates acceptance.
+ */
+#define ADA4355_TAP_DWELL_MS    10
+#define ADA4355_CONFIRM_MS      250
+
+#define ADA4355_MAX_RUNS        (IDELAY_ENTRIES / 2)
 
 /* Frame lane sits above the data lanes in the up_delay_cntrl address space */
 #define ADA4355_FRAME_DELAY_LANE            2
@@ -247,33 +260,107 @@ static void ada4355_clk_disable(void *data)
 	clk_disable_unprepare(conv->clk);
 }
 
-static int find_opt(u8 *field, u32 size, u32 *ret_start)
+struct ada4355_run {
+	unsigned int start;
+	unsigned int len;
+};
+
+static unsigned int ada4355_find_runs(const u8 *field, unsigned int size,
+				      struct ada4355_run *runs)
 {
-	int i, cnt = 0, max_cnt = 0, start, max_start = 0;
+	unsigned int i, n = 0;
+	int start = -1;
 
-	for (i = 0, start = -1; i < size; i++) {
-		if (field[i] == 0) {
-			if (start == -1)
+	for (i = 0; i < size; i++) {
+		if (!field[i]) {
+			if (start < 0)
 				start = i;
-			cnt++;
-		} else {
-			if (cnt > max_cnt) {
-				max_cnt = cnt;
-				max_start = start;
-			}
-			start = -1;
-			cnt = 0;
+			continue;
 		}
+		if (start >= 0 && n < ADA4355_MAX_RUNS) {
+			runs[n].start = start;
+			runs[n].len = i - start;
+			n++;
+		}
+		start = -1;
 	}
 
-	if (cnt > max_cnt) {
-		max_cnt = cnt;
-		max_start = start;
+	if (start >= 0 && n < ADA4355_MAX_RUNS) {
+		runs[n].start = start;
+		runs[n].len = size - start;
+		n++;
 	}
 
-	*ret_start = max_start;
+	return n;
+}
 
-	return max_cnt;
+static bool ada4355_run_clipped(const struct ada4355_run *run, unsigned int size)
+{
+	return run->start == 0 || run->start + run->len == size;
+}
+
+/*
+ * A narrower window with both edges visible beats a wider one that runs off the
+ * end of the tap range: the latter's true centre may lie outside anything
+ * IDELAY can reach, so its apparent width says nothing about the real margin.
+ */
+static const struct ada4355_run *ada4355_best_run(const struct ada4355_run *runs,
+						  unsigned int n, unsigned int size)
+{
+	const struct ada4355_run *best = NULL;
+	unsigned int i;
+
+	for (i = 0; i < n; i++) {
+		if (ada4355_run_clipped(&runs[i], size))
+			continue;
+		if (!best || runs[i].len > best->len)
+			best = &runs[i];
+	}
+	if (best)
+		return best;
+
+	for (i = 0; i < n; i++)
+		if (!best || runs[i].len > best->len)
+			best = &runs[i];
+
+	return best;
+}
+
+static void ada4355_sweep_lane(struct axiadc_state *axi_adc_st, unsigned int lane,
+			       unsigned int err_mask, u8 *field)
+{
+	unsigned int delay;
+
+	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, err_mask);
+
+	for (delay = 0; delay < IDELAY_ENTRIES; delay++) {
+		/*
+		 * Clear the sticky error after moving the delay, never before.
+		 * Changing any delay makes the frame FSM re-hunt for 0xF0, and a
+		 * re-search that wraps shift_cnt past 7 pulses frame_err. Clearing
+		 * first latches that pulse and smears passing taps into failures.
+		 */
+		axiadc_write(axi_adc_st, ADI_REG_DELAY(lane), delay);
+		axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), ADI_PN_ERR);
+		msleep(ADA4355_TAP_DWELL_MS);
+		field[delay] = (axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) &
+				ADI_PN_ERR) ? 1 : 0;
+	}
+
+	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, 0);
+}
+
+static bool ada4355_link_clean(struct axiadc_state *axi_adc_st, unsigned int err_mask)
+{
+	bool clean;
+
+	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, err_mask);
+	axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), ADI_PN_ERR);
+	msleep(ADA4355_CONFIRM_MS);
+	clean = !(axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) & ADI_PN_ERR);
+	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, 0);
+
+	return clean;
 }
 
 /*
@@ -312,13 +399,16 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 	struct ada4355_state *st = ada4355_get_data(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct device *dev = &conv->spi->dev;
-	u8 pn_status[3][IDELAY_ENTRIES];
-	unsigned int opt_delay, s;
-	int c;
+	u8 frame_map[IDELAY_ENTRIES];
+	u8 lane_map[ADA4355_FRAME_DELAY_LANE][IDELAY_ENTRIES];
+	struct ada4355_run plateau[ADA4355_MAX_RUNS], run[ADA4355_MAX_RUNS];
+	unsigned int best_delay[ADA4355_FRAME_DELAY_LANE] = {};
+	unsigned int best_frame = 0, best_score = 0;
+	unsigned int all_mask, nplateau, p;
 	int ret;
 	unsigned int reg_cntrl, ver, cfg;
-	unsigned int i, delay, val, idx;
-	bool cal_ok = true;
+	unsigned int i;
+	bool cal_ok = false;
 
 	ver = axiadc_read(axi_adc_st, ADI_AXI_REG_VERSION);
 	cfg = axiadc_read(axi_adc_st, ADI_REG_CONFIG);
@@ -345,81 +435,109 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 
 	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);
 
-	/* Frame lane IDELAY sweep: find widest passing window */
-	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, BIT(2));
-	for (idx = 0, delay = 0; delay < IDELAY_NUM_TAPS; delay += IDELAY_STEP, idx++) {
-		val = axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0));
-		axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), val);
-		axiadc_write(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE), delay);
-		mdelay(1);
-		pn_status[0][idx] =
-			(axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) & ADI_PN_ERR) ? 1 : 0;
-	}
-	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, 0);
+	all_mask = BIT(2) | GENMASK(st->num_lanes - 1, 0);
+
+	/*
+	 * The frame delay is not an independent lane. axi_ada4355_if.v shifts the
+	 * interleaved data word by 2*shift_cnt, and shift_cnt is produced solely by
+	 * the frame FSM hunting 0xF0 on FCO, so stepping the frame into a different
+	 * eye plateau rotates BOTH data lanes by exactly one UI. With 32 taps
+	 * covering ~2.7 UI and a correct byte phase recurring only once per 8 UI,
+	 * a data lane whose phase is a UI away from the frame's has no reachable
+	 * window at all — which is why picking the frame first and never revisiting
+	 * it left half the lanes uncalibrated. Sweep the data lanes inside each
+	 * frame plateau instead, and let a long confirm decide the winner.
+	 */
+	ada4355_sweep_lane(axi_adc_st, ADA4355_FRAME_DELAY_LANE, BIT(2), frame_map);
 
 	dev_info(dev, "---- IDELAY sweep ('-' = pass, 'X' = PN error) ----\n");
-	ada4355_log_sweep(dev, "frame", &pn_status[0][0]);
+	ada4355_log_sweep(dev, "frame", frame_map);
 
-	c = find_opt(&pn_status[0][0], IDELAY_ENTRIES, &s);
-	if (c == 0) {
-		dev_err(dev, "frame lane: no valid IDELAY window found\n");
-		cal_ok = false;
-	}
-	opt_delay = (s + c / 2) * IDELAY_STEP;
-	axiadc_write(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE), opt_delay);
-	dev_info(dev, "  frame      window [%u..%u] %d wide, delay %u, RB %u\n",
-		 s, s + (c ? c - 1 : 0), c, opt_delay,
-		 axiadc_read(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE)));
+	nplateau = ada4355_find_runs(frame_map, IDELAY_ENTRIES, plateau);
+	if (!nplateau)
+		dev_err(dev, "frame lane: no valid IDELAY window at any tap\n");
 
-	/* Data lane IDELAY sweep: one lane at a time */
-	for (i = 0; i < st->num_lanes; i++) {
-		axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, BIT(i));
-		for (idx = 0, delay = 0; delay < IDELAY_NUM_TAPS; delay += IDELAY_STEP, idx++) {
-			val = axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0));
-			axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), val);
-			axiadc_write(axi_adc_st, ADI_REG_DELAY(i), delay);
-			mdelay(1);
-			pn_status[i][idx] =
-				(axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) & ADI_PN_ERR) ? 1 : 0;
+	for (p = 0; p < nplateau; p++) {
+		unsigned int frame_delay = plateau[p].start + plateau[p].len / 2;
+		unsigned int try_delay[ADA4355_FRAME_DELAY_LANE];
+		unsigned int worst = IDELAY_ENTRIES, score;
+		bool unclipped = true, usable = true;
+
+		axiadc_write(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE),
+			     frame_delay);
+		dev_info(dev, "  frame plateau [%u..%u] -> frame delay %u\n",
+			 plateau[p].start, plateau[p].start + plateau[p].len - 1,
+			 frame_delay);
+
+		for (i = 0; i < st->num_lanes; i++) {
+			const struct ada4355_run *win;
+			unsigned int nrun;
+			char name[8];
+
+			ada4355_sweep_lane(axi_adc_st, i, BIT(i), lane_map[i]);
+			snprintf(name, sizeof(name), "lane %u", i);
+			ada4355_log_sweep(dev, name, lane_map[i]);
+
+			nrun = ada4355_find_runs(lane_map[i], IDELAY_ENTRIES, run);
+			win = ada4355_best_run(run, nrun, IDELAY_ENTRIES);
+			if (!win) {
+				dev_info(dev, "    lane %u has no window here\n", i);
+				usable = false;
+				break;
+			}
+
+			try_delay[i] = win->start + win->len / 2;
+			worst = min(worst, win->len);
+			unclipped &= !ada4355_run_clipped(win, IDELAY_ENTRIES);
+			dev_info(dev, "    lane %u window [%u..%u] %u wide -> delay %u\n",
+				 i, win->start, win->start + win->len - 1, win->len,
+				 try_delay[i]);
 		}
-		axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, 0);
+
+		if (!usable)
+			continue;
+
+		for (i = 0; i < st->num_lanes; i++)
+			axiadc_write(axi_adc_st, ADI_REG_DELAY(i), try_delay[i]);
+
+		if (!ada4355_link_clean(axi_adc_st, all_mask)) {
+			dev_info(dev, "    rejected: link not stable over %u ms\n",
+				 ADA4355_CONFIRM_MS);
+			continue;
+		}
+
+		score = worst + (unclipped ? IDELAY_ENTRIES : 0);
+		if (score > best_score) {
+			best_score = score;
+			best_frame = frame_delay;
+			for (i = 0; i < st->num_lanes; i++)
+				best_delay[i] = try_delay[i];
+			cal_ok = true;
+		}
 	}
 
-	for (i = 0; i < st->num_lanes; i++) {
-		char name[8];
+	if (cal_ok) {
+		axiadc_write(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE),
+			     best_frame);
+		for (i = 0; i < st->num_lanes; i++)
+			axiadc_write(axi_adc_st, ADI_REG_DELAY(i), best_delay[i]);
 
-		snprintf(name, sizeof(name), "lane %u", i);
-		ada4355_log_sweep(dev, name, &pn_status[i][0]);
-
-		c = find_opt(&pn_status[i][0], IDELAY_ENTRIES, &s);
-		if (c == 0) {
-			dev_err(dev, "lane %u: no valid IDELAY window found\n", i);
-			cal_ok = false;
-		}
-		opt_delay = (s + c / 2) * IDELAY_STEP;
-		axiadc_write(axi_adc_st, ADI_REG_DELAY(i), opt_delay);
-		dev_info(dev, "  lane %u     window [%u..%u] %d wide, delay %u, RB %u\n",
-			 i, s, s + (c ? c - 1 : 0), c, opt_delay,
-			 axiadc_read(axi_adc_st, ADI_REG_DELAY(i)));
+		dev_info(dev, "==== IDELAY calibration complete ====\n");
+		dev_info(dev, "  frame delay %u (RB %u)\n", best_frame,
+			 axiadc_read(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE)));
+		for (i = 0; i < st->num_lanes; i++)
+			dev_info(dev, "  lane %u delay %u (RB %u)\n", i, best_delay[i],
+				 axiadc_read(axi_adc_st, ADI_REG_DELAY(i)));
+	} else {
+		dev_err(dev, "==== IDELAY calibration FAILED ====\n");
+		dev_err(dev, "no frame plateau gave both lanes a stable window; if every "
+			     "tap failed then the DCO or the 0xFFFC pattern is missing "
+			     "rather than mistimed - check CLK_FREQ above\n");
 	}
 
 	dev_info(dev, "  post-sweep STATUS 0x%08X  CHAN_STATUS(0) 0x%08X\n",
 		 axiadc_read(axi_adc_st, ADI_REG_STATUS),
 		 axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)));
-
-	if (cal_ok) {
-		dev_info(dev, "==== IDELAY calibration complete ====\n");
-	} else {
-		dev_err(dev, "==== IDELAY calibration FAILED ====\n");
-		/*
-		 * An all-'X' sweep means the comparison never passed at any tap,
-		 * which is a data/clock problem rather than a timing problem —
-		 * distinguish those two for whoever reads the log.
-		 */
-		dev_err(dev, "all taps failing points at a missing DCO or a pattern mismatch, "
-			     "not at IDELAY timing; check CLK_FREQ above and that 0xFFFC is "
-			     "actually being driven\n");
-	}
 
 	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), 0);
 
@@ -605,6 +723,11 @@ static int ada4355_properties_parse(struct ada4355_state *st)
 
 	ret = of_property_read_u32(spi->dev.of_node, "num_lanes", &val);
 	st->num_lanes = ret ? 1 : val;
+	if (st->num_lanes > ADA4355_FRAME_DELAY_LANE) {
+		dev_warn(&spi->dev, "num_lanes=%u exceeds the %u data lanes the IP has, clamping\n",
+			 st->num_lanes, ADA4355_FRAME_DELAY_LANE);
+		st->num_lanes = ADA4355_FRAME_DELAY_LANE;
+	}
 
 	return 0;
 }

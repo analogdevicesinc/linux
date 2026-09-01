@@ -60,7 +60,7 @@
 		clocks = <&clkc 15>;
 	};
 
-	axi_ada4356_0: axi-adc@44a00000 {
+	axi_ada4356_0: ada4356-a@44a00000 {
 		compatible = "adi,axi-adc-legacy-10.0.a";
 		reg = <0x44a00000 0x10000>;
 		dmas = <&rx_dma_0 0>;
@@ -68,7 +68,7 @@
 		spibus-connected = <&adc_ada4356_0>;
 	};
 
-	axi_ada4356_1: axi-adc@44a10000 {
+	axi_ada4356_1: ada4356-b@44a10000 {
 		compatible = "adi,axi-adc-legacy-10.0.a";
 		reg = <0x44a10000 0x10000>;
 		dmas = <&rx_dma_1 0>;
@@ -76,7 +76,7 @@
 		spibus-connected = <&adc_ada4356_1>;
 	};
 
-	axi_ada4356_2: axi-adc@44a20000 {
+	axi_ada4356_2: ada4356-c@44a20000 {
 		compatible = "adi,axi-adc-legacy-10.0.a";
 		reg = <0x44a20000 0x10000>;
 		dmas = <&rx_dma_2 0>;
@@ -84,12 +84,132 @@
 		spibus-connected = <&adc_ada4356_2>;
 	};
 
-	axi_ada4356_3: axi-adc@44a30000 {
+	axi_ada4356_3: ada4356-d@44a30000 {
 		compatible = "adi,axi-adc-legacy-10.0.a";
 		reg = <0x44a30000 0x10000>;
 		dmas = <&rx_dma_3 0>;
 		dma-names = "rx";
 		spibus-connected = <&adc_ada4356_3>;
+	};
+
+	/*
+	 * The FMC I2C bus (i2c-1 at runtime). Every per-channel analog control
+	 * on this board sits behind three MAX7320 8-bit output expanders, and
+	 * all three power up in a state that makes the board unusable, so the
+	 * hogs below are what bring it up correctly. Output power-up state is a
+	 * function of the address strap: 0x59 comes up 0x0F, 0x5D/0x5E 0xFF.
+	 * See "Table 3. MAX7320 Address Map", schematic page 24.
+	 */
+	i2c@41620000 {
+		src_en: gpio@59 {
+			compatible = "maxim,max7320";
+			reg = <0x59>;
+			gpio-controller;
+			#gpio-cells = <2>;
+
+			gpio-line-names = "VLOGIC_POT", "", "", "",
+					  "SRC_EN_A", "SRC_EN_B",
+					  "SRC_EN_C", "SRC_EN_D";
+
+			/*
+			 * SRC_EN_x drives the SDA_N/SDB_N shutdown pins of each
+			 * channel's LTC6269 Howland source directly -- no
+			 * inverter, HIGH = running. Left at its 0x0F power-up
+			 * value the ADC captures a clean DC pedestal that does
+			 * not respond to the input at all, and unplugging the
+			 * SMA changes nothing: it looks like dead hardware.
+			 * O1..O3 are genuinely unconnected and left alone.
+			 */
+			src-en-hog {
+				gpio-hog;
+				gpios = <0 GPIO_ACTIVE_HIGH>,
+					<4 GPIO_ACTIVE_HIGH>,
+					<5 GPIO_ACTIVE_HIGH>,
+					<6 GPIO_ACTIVE_HIGH>,
+					<7 GPIO_ACTIVE_HIGH>;
+				output-high;
+			};
+		};
+
+		fe_ctrl_ab: gpio@5d {
+			compatible = "maxim,max7320";
+			reg = <0x5d>;
+			gpio-controller;
+			#gpio-cells = <2>;
+
+			gpio-line-names = "CURR_DIV_EN_B", "GSEL0_B",
+					  "GSEL1_B", "FREQ_SEL_B",
+					  "CURR_DIV_EN_A", "GSEL0_A",
+					  "GSEL1_A", "FREQ_SEL_A";
+
+			/*
+			 * Per channel: FREQ_SEL=1, GSEL1=0, GSEL0=1,
+			 * CURR_DIV_EN=0. FREQ_SEL=1 is the narrow filter and is
+			 * worth 1.3 ENOB -- measured, not assumed: clearing it
+			 * takes the 10-62.5 MHz noise from 5.5 to 21.5 LSB rms.
+			 * The 0xFF power-up leaves GSEL1=GSEL0=1, which the ADI
+			 * spec calls an invalid transimpedance setting.
+			 */
+			fe-ab-high-hog {
+				gpio-hog;
+				gpios = <1 GPIO_ACTIVE_HIGH>,
+					<3 GPIO_ACTIVE_HIGH>,
+					<5 GPIO_ACTIVE_HIGH>,
+					<7 GPIO_ACTIVE_HIGH>;
+				output-high;
+			};
+
+			fe-ab-low-hog {
+				gpio-hog;
+				gpios = <0 GPIO_ACTIVE_HIGH>,
+					<2 GPIO_ACTIVE_HIGH>,
+					<4 GPIO_ACTIVE_HIGH>,
+					<6 GPIO_ACTIVE_HIGH>;
+				output-low;
+			};
+		};
+
+		fe_ctrl_cd: gpio@5e {
+			compatible = "maxim,max7320";
+			reg = <0x5e>;
+			gpio-controller;
+			#gpio-cells = <2>;
+
+			gpio-line-names = "CURR_DIV_EN_D", "GSEL0_D",
+					  "GSEL1_D", "FREQ_SEL_D",
+					  "CURR_DIV_EN_C", "GSEL0_C",
+					  "GSEL1_C", "FREQ_SEL_C";
+
+			fe-cd-high-hog {
+				gpio-hog;
+				gpios = <1 GPIO_ACTIVE_HIGH>,
+					<3 GPIO_ACTIVE_HIGH>,
+					<5 GPIO_ACTIVE_HIGH>,
+					<7 GPIO_ACTIVE_HIGH>;
+				output-high;
+			};
+
+			fe-cd-low-hog {
+				gpio-hog;
+				gpios = <0 GPIO_ACTIVE_HIGH>,
+					<2 GPIO_ACTIVE_HIGH>,
+					<4 GPIO_ACTIVE_HIGH>,
+					<6 GPIO_ACTIVE_HIGH>;
+				output-low;
+			};
+		};
+
+		/*
+		 * Rail monitor. in_voltage4_raw is 5V_BHCS; the on-board
+		 * divider makes it 2.441 mV per count, and DS2's power-good
+		 * comparator trips below raw 1843 (4.5 V). Enabling all four
+		 * BHCS sources is the largest load on that rail, so this needs
+		 * to be present, not hot-added by hand after every boot.
+		 */
+		adc@2f {
+			compatible = "adi,ad7291";
+			reg = <0x2f>;
+		};
 	};
 };
 
