@@ -13,6 +13,7 @@
 #include <drm/drm_vblank.h>
 
 #include "intel_atomic.h"
+#include "intel_crtc.h"
 #include "intel_cursor.h"
 #include "intel_cursor_regs.h"
 #include "intel_de.h"
@@ -904,6 +905,7 @@ intel_legacy_cursor_update(struct drm_plane *_plane,
 	struct intel_cursor_joiner_state joined_pipe_state[I915_MAX_PIPES] = {};
 	struct intel_crtc *pipe_crtc;
 	int num_pipes = 0;
+	u32 start_vbl_count, end_vbl_count;
 	int ret;
 
 	/*
@@ -1049,16 +1051,36 @@ intel_legacy_cursor_update(struct drm_plane *_plane,
 		local_irq_disable();
 	}
 
-	if (joined_pipe_state[0].new_plane_state->uapi.visible) {
-		intel_plane_update_noarm(NULL, plane, crtc_state,
-					 joined_pipe_state[0].new_plane_state);
-		intel_plane_update_arm(NULL, plane, crtc_state,
-				       joined_pipe_state[0].new_plane_state);
-	} else {
-		intel_plane_disable_arm(NULL, plane, crtc_state);
+	/*
+	 * Joiner pipes are vblank-synchronized, so sampling only the primary
+	 * pipe is sufficient to detect a straddle across all joined pipes.
+	 * The vblank evasion above also operates on the primary pipe only.
+	 */
+	start_vbl_count = intel_crtc_get_vblank_counter(joined_pipe_state[0].crtc);
+
+	for (int i = 0; i < num_pipes; i++) {
+		if (joined_pipe_state[i].new_plane_state->uapi.visible) {
+			intel_plane_update_noarm(NULL, joined_pipe_state[i].plane,
+						 joined_pipe_state[i].crtc_state,
+						 joined_pipe_state[i].new_plane_state);
+			intel_plane_update_arm(NULL, joined_pipe_state[i].plane,
+					       joined_pipe_state[i].crtc_state,
+					       joined_pipe_state[i].new_plane_state);
+		} else {
+			intel_plane_disable_arm(NULL, joined_pipe_state[i].plane,
+						joined_pipe_state[i].crtc_state);
+		}
 	}
 
+	end_vbl_count = intel_crtc_get_vblank_counter(joined_pipe_state[0].crtc);
+
 	local_irq_enable();
+
+	if (start_vbl_count != end_vbl_count)
+		drm_err(display->drm,
+			"Atomic update failure on pipe %c (start=%u end=%u)\n",
+			pipe_name(joined_pipe_state[0].crtc->pipe),
+			start_vbl_count, end_vbl_count);
 
 	intel_psr_unlock(crtc_state);
 
