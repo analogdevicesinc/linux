@@ -4,6 +4,7 @@
  */
 
 #include <linux/miscdevice.h>
+#include <linux/capability.h>
 #include <linux/init.h>
 #include <linux/wait.h>
 #include <linux/file.h>
@@ -910,6 +911,10 @@ static int ctl_device_close(struct inode *inode, struct file *file)
 
 static int monitor_device_open(struct inode *inode, struct file *file)
 {
+	/* dlm_controld is the only expected opener; last close stops LS. */
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	atomic_inc(&dlm_monitor_opened);
 	dlm_monitor_unused = 0;
 	return 0;
@@ -958,6 +963,7 @@ static struct miscdevice monitor_device = {
 	.name  = "dlm-monitor",
 	.fops  = &monitor_device_fops,
 	.minor = MISC_DYNAMIC_MINOR,
+	.mode  = 0600,
 };
 
 int __init dlm_user_init(void)
