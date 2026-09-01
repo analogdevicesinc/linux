@@ -8,6 +8,8 @@
 	ARM64	ARM64 architecture is enabled.
 	CLK	Common clock infrastructure is enabled.
 	CMA	Contiguous Memory Area support is enabled.
+	CPU_FREQ CPU frequency scaling is enabled.
+	CPU_IDLE CPU idle time management is enabled.
 	DRM	Direct Rendering Management support is enabled.
 	DYNAMIC_DEBUG Build in debug messages and enable them at runtime
 	EARLY	Parameter processed too early to be embedded in initrd.
@@ -2075,8 +2077,14 @@ Kernel parameters
 	hugetlb_cma=	[HW,CMA,EARLY] The size of a CMA area used for allocation
 			of gigantic hugepages. Or using node format, the size
 			of a CMA area per node can be specified.
-			Format: nn[KMGTPE] or (node format)
-				<node>:nn[KMGTPE][,<node>:nn[KMGTPE]]
+			The size can be an absolute value (e.g., 2G) or a
+			percentage of the total memory or node memory (e.g., 20%).
+			Percentage-derived sizes are rounded down to a multiple of
+			the architecture's gigantic hugepage size and may become
+			zero.
+			Format: nn[KMGTPE] or nn% or (node format)
+				<node>:nn[KMGTPE][,<node>:nn[KMGTPE]] or
+				<node>:nn%[,<node>:nn%]
 
 			The size must be a multiple of the gigantic page size.
 			When using node format, this applies to each per-node size.
@@ -4852,6 +4860,12 @@ Kernel parameters
 			Adjust the minimal page reporting order. The page
 			reporting is disabled when it exceeds MAX_PAGE_ORDER.
 
+	page_reporting.page_reporting_delay_ms=
+			[KNL] Free page reporting delay in milliseconds
+			Format: <unsigned integer>
+			Adjust the delay in milliseconds between free page
+			reporting intervals. Default is 2000 (2 seconds).
+
 	panic=		[KNL] Kernel behaviour on panic: delay <timeout>
 			timeout > 0: seconds before rebooting
 			timeout = 0: wait forever
@@ -4892,6 +4906,7 @@ Kernel parameters
 
 	panic_print=	Bitmask for printing system info when panic happens.
 			User can chose combination of the following bits:
+
 			bit 0: print all tasks info
 			bit 1: print system memory info
 			bit 2: print timer info
@@ -4900,10 +4915,16 @@ Kernel parameters
 			bit 5: replay all kernel messages on consoles at the end of panic
 			bit 6: print all CPUs backtrace (if available in the arch)
 			bit 7: print only tasks in uninterruptible (blocked) state
-			*Be aware* that this option may print a _lot_ of lines,
-			so there are risks of losing older messages in the log.
-			Use this option carefully, maybe worth to setup a
-			bigger log buffer with "log_buf_len" along with this.
+
+			*Be aware* that this option may print a _lot_ of lines.
+
+			There is an increased risk of losing older messages in
+			the log. Maybe worth to setup a	bigger log buffer with
+			"log_buf_len" along with this.
+
+			Also consider using "printk.console_no_auto_verbose=Y"
+			if using this along with pstore, to avoid extra delays
+			due to increased console verbosity during panic.
 
 	panic_sys_info= A comma separated list of extra information to be dumped
                         on panic.
@@ -4918,7 +4939,9 @@ Kernel parameters
                         all_bt:         print all CPUs backtrace (if available in the arch)
                         blocked_tasks:  print only tasks in uninterruptible (blocked) state
 
-                        This is a human readable alternative to the 'panic_print' option.
+			This is a human readable alternative to the 'panic_print'
+			option above. Please be aware of the caveats using this,
+			check the 'panic_print' parameter for more details.
 
 	panic_console_replay
 			When panic happens, replay all kernel messages on
