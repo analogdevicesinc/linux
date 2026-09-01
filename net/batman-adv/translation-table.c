@@ -1422,13 +1422,12 @@ int batadv_tt_local_dump(struct sk_buff *msg, struct netlink_callback *cb)
 /**
  * batadv_tt_local_set_pending_event() - trigger events for TT pending removal
  * @bat_priv: the bat priv with all the mesh interface information
- * @tt_local_entry: local TT entry to mark
+ * @tt_local_entry: local TT entry which was marked as BATADV_TT_CLIENT_PENDING
  * @flags: TT change flags to announce together with the pending removal
  * @message: debug message describing the reason for the change
  *
- * Schedule the TT change announcement for the entry. The entry is kept in the
- * local table until the next TTVN increment so that a consistency-check
- * response can still be answered.
+ * Schedule the TT change announcement for the entry. The caller must already
+ * have added BATADV_TT_CLIENT_PENDING to the @tt_local_entry
  */
 static void
 batadv_tt_local_set_pending_event(struct batadv_priv *bat_priv,
