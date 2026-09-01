@@ -384,6 +384,46 @@ out_free_vram_pages:
 	return r;
 }
 
+/* Check if a range of addresses is already resident in VRAM to avoid
+ * unnecessary migrations that would trigger MMU notifiers causing the range
+ * to be unmapped and faulted again unnecessarily.
+ *
+ * Called with prange->migrate_mutex held.
+ */
+static bool
+svm_range_window_resident(struct kfd_node *node, struct svm_range *prange,
+			  u64 start, u64 end)
+{
+	struct kfd_process *p = container_of(prange->svms, struct kfd_process, svms);
+	unsigned long i, offset, npages;
+	dma_addr_t *addr;
+	uint32_t gpuid;
+	int32_t gpuidx;
+
+	if (kfd_process_gpuid_from_node(p, node, &gpuid, &gpuidx))
+		return false;
+	if (prange->actual_loc != gpuid)
+		return false;
+
+	addr = prange->dma_addr[gpuidx];
+	if (!addr)
+		return false;
+
+	start = max(start >> PAGE_SHIFT, prange->start);
+	end = min(end >> PAGE_SHIFT, prange->last + 1);
+	if (end <= start)
+		return true;
+
+	offset = start - prange->start;
+	npages = end - start;
+
+	for (i = offset; i < offset + npages; i++)
+		if (!(addr[i] & SVM_RANGE_VRAM_DOMAIN))
+			return false;
+
+	return true;
+}
+
 static long
 svm_migrate_vma_to_vram(struct kfd_node *node, struct svm_range *prange,
 			struct vm_area_struct *vma, u64 start,
@@ -400,6 +440,12 @@ svm_migrate_vma_to_vram(struct kfd_node *node, struct svm_range *prange,
 	dma_addr_t *scratch;
 	void *buf;
 	int r = -ENOMEM;
+
+	/* Avoid unnecessary migrations and MMU notifiers if all the data is
+	 * already resident in VRAM.
+	 */
+	if (svm_range_window_resident(node, prange, start, end))
+		return 0;
 
 	memset(&migrate, 0, sizeof(migrate));
 	migrate.vma = vma;
