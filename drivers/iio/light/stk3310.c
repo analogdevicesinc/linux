@@ -181,26 +181,48 @@ static const struct iio_chan_spec_ext_info stk3310_ext_info[] = {
 	{ }
 };
 
+#define STK3310_LIGHT_CHANNEL {				\
+	.type = IIO_LIGHT,				\
+	.address = STK3310_REG_ALS_DATA_MSB,		\
+	.info_mask_separate =				\
+		BIT(IIO_CHAN_INFO_RAW) |		\
+		BIT(IIO_CHAN_INFO_SCALE) |		\
+		BIT(IIO_CHAN_INFO_INT_TIME),		\
+}
+
+#define STK3310_PROXIMITY_CHANNEL {			\
+	.type = IIO_PROXIMITY,				\
+	.address = STK3310_REG_PS_DATA_MSB,		\
+	.info_mask_separate =				\
+		BIT(IIO_CHAN_INFO_RAW) |		\
+		BIT(IIO_CHAN_INFO_SCALE) |		\
+		BIT(IIO_CHAN_INFO_INT_TIME),		\
+	.event_spec = stk3310_events,			\
+	.num_event_specs = ARRAY_SIZE(stk3310_events),	\
+	.ext_info = stk3310_ext_info,			\
+}
+
 static const struct iio_chan_spec stk3310_channels[] = {
-	{
-		.type = IIO_LIGHT,
-		.address = STK3310_REG_ALS_DATA_MSB,
-		.info_mask_separate =
-			BIT(IIO_CHAN_INFO_RAW) |
-			BIT(IIO_CHAN_INFO_SCALE) |
-			BIT(IIO_CHAN_INFO_INT_TIME),
-	},
-	{
-		.type = IIO_PROXIMITY,
-		.address = STK3310_REG_PS_DATA_MSB,
-		.info_mask_separate =
-			BIT(IIO_CHAN_INFO_RAW) |
-			BIT(IIO_CHAN_INFO_SCALE) |
-			BIT(IIO_CHAN_INFO_INT_TIME),
-		.event_spec = stk3310_events,
-		.num_event_specs = ARRAY_SIZE(stk3310_events),
-		.ext_info = stk3310_ext_info,
-	}
+	STK3310_LIGHT_CHANNEL,
+	STK3310_PROXIMITY_CHANNEL,
+};
+
+/**
+ * struct stk3310_chip_info - chip-specific data
+ * @name: device name reported to the IIO core
+ * @channels: channel specification
+ * @num_channels: number of channels
+ */
+struct stk3310_chip_info {
+	const char *name;
+	const struct iio_chan_spec *channels __counted_by_ptr(num_channels);
+	unsigned int num_channels;
+};
+
+static const struct stk3310_chip_info stk3310_chip_info = {
+	.name = STK3310_DRIVER_NAME,
+	.channels = stk3310_channels,
+	.num_channels = ARRAY_SIZE(stk3310_channels),
 };
 
 static IIO_CONST_ATTR(in_illuminance_scale_available, STK3310_SCALE_AVAILABLE);
@@ -632,9 +654,15 @@ out:
 
 static int stk3310_probe(struct i2c_client *client)
 {
+	const struct stk3310_chip_info *chip_info;
+	struct device *dev = &client->dev;
 	int ret;
 	struct iio_dev *indio_dev;
 	struct stk3310_data *data;
+
+	chip_info = i2c_get_match_data(client);
+	if (!chip_info)
+		return dev_err_probe(dev, -ENODATA, "missing driver data\n");
 
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
 	if (!indio_dev)
@@ -654,10 +682,10 @@ static int stk3310_probe(struct i2c_client *client)
 		return ret;
 
 	indio_dev->info = &stk3310_info;
-	indio_dev->name = STK3310_DRIVER_NAME;
+	indio_dev->name = chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = stk3310_channels;
-	indio_dev->num_channels = ARRAY_SIZE(stk3310_channels);
+	indio_dev->channels = chip_info->channels;
+	indio_dev->num_channels = chip_info->num_channels;
 
 	ret = stk3310_init(indio_dev);
 	if (ret < 0)
@@ -763,28 +791,27 @@ static DEFINE_SIMPLE_DEV_PM_OPS(stk3310_pm_ops, stk3310_suspend,
 				stk3310_resume);
 
 static const struct i2c_device_id stk3310_i2c_id[] = {
-	{ .name = "stk3013" },
-	{ .name = "stk3310" },
-	{ .name = "stk3311" },
-	{ .name = "stk3335" },
+	{ .name = "stk3013", .driver_data = (kernel_ulong_t)&stk3310_chip_info },
+	{ .name = "stk3310", .driver_data = (kernel_ulong_t)&stk3310_chip_info },
+	{ .name = "stk3311", .driver_data = (kernel_ulong_t)&stk3310_chip_info },
+	{ .name = "stk3335", .driver_data = (kernel_ulong_t)&stk3310_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, stk3310_i2c_id);
 
 static const struct acpi_device_id stk3310_acpi_id[] = {
-	{"STK3013", 0},
-	{"STK3310", 0},
-	{"STK3311", 0},
+	{ .id = "STK3013", .driver_data = (kernel_ulong_t)&stk3310_chip_info },
+	{ .id = "STK3310", .driver_data = (kernel_ulong_t)&stk3310_chip_info },
+	{ .id = "STK3311", .driver_data = (kernel_ulong_t)&stk3310_chip_info },
 	{ }
 };
-
 MODULE_DEVICE_TABLE(acpi, stk3310_acpi_id);
 
 static const struct of_device_id stk3310_of_match[] = {
-	{ .compatible = "sensortek,stk3013", },
-	{ .compatible = "sensortek,stk3310", },
-	{ .compatible = "sensortek,stk3311", },
-	{ .compatible = "sensortek,stk3335", },
+	{ .compatible = "sensortek,stk3013", .data = &stk3310_chip_info },
+	{ .compatible = "sensortek,stk3310", .data = &stk3310_chip_info },
+	{ .compatible = "sensortek,stk3311", .data = &stk3310_chip_info },
+	{ .compatible = "sensortek,stk3335", .data = &stk3310_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, stk3310_of_match);
