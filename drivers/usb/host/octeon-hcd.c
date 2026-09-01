@@ -853,6 +853,14 @@ retry:
 	 *    USBC_GAHBCFG[PTXFEMPLVL]
 	 *    Global interrupt mask, USBC_GAHBCFG[GLBLINTRMSK] = 1
 	 */
+	usbcx_gahbcfg.u32 = cvmx_usb_read_csr32(usb,
+						CVMX_USBCX_GHWCFG3(usb->index));
+	if (usbcx_gahbcfg.u32 == 0xffffffff || usbcx_gahbcfg.u32 == 0) {
+		dev_err(dev, "USB core is not responding (GHWCFG3=0x%08x)\n",
+			usbcx_gahbcfg.u32);
+		return -ENODEV;
+	}
+
 	usbcx_gahbcfg.u32 = 0;
 	usbcx_gahbcfg.s.dmaen = !(usb->init_flags &
 				  CVMX_USB_INITIALIZE_FLAGS_NO_DMA);
