@@ -2036,9 +2036,9 @@ static bool dcn60_resource_construct(
 	dc->caps.cache_line_size = 64;
 	dc->caps.cache_num_ways = 16;
 
-	dc->caps.max_slave_planes = 2;
-	dc->caps.max_slave_yuv_planes = 2;
-	dc->caps.max_slave_rgb_planes = 2;
+	dc->caps.max_slave_planes = 3;
+	dc->caps.max_slave_yuv_planes = 3;
+	dc->caps.max_slave_rgb_planes = 3;
 	dc->caps.post_blend_color_processing = true;
 	dc->caps.force_dp_tps4_for_cp2520 = true;
 	dc->caps.hdmi_hpo = true;
