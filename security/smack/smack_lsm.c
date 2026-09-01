@@ -1348,7 +1348,7 @@ static int smack_inode_xattr_skipcap(const char *name)
  *
  * Returns 0 if access is permitted, an error code otherwise
  */
-static int smack_inode_setxattr(struct mnt_idmap *idmap,
+static int smack_inode_setxattr(const struct mnt_idmap *idmap,
 				struct dentry *dentry, const char *name,
 				const void *value, size_t size, int flags)
 {
@@ -1482,7 +1482,7 @@ static int smack_inode_getxattr(struct dentry *dentry, const char *name)
  *
  * Returns 0 if access is permitted, an error code otherwise
  */
-static int smack_inode_removexattr(struct mnt_idmap *idmap,
+static int smack_inode_removexattr(const struct mnt_idmap *idmap,
 				   struct dentry *dentry, const char *name)
 {
 	struct inode_smack *isp;
@@ -1612,7 +1612,7 @@ static int smack_inode_remove_acl(const struct mnt_idmap *idmap,
  *
  * Returns the size of the attribute or an error code
  */
-static int smack_inode_getsecurity(struct mnt_idmap *idmap,
+static int smack_inode_getsecurity(const struct mnt_idmap *idmap,
 				   struct inode *inode, const char *name,
 				   void **buffer, bool alloc)
 {

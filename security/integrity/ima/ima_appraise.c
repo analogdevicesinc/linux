@@ -757,7 +757,7 @@ static int validate_hash_algo(struct dentry *dentry,
 	return -EACCES;
 }
 
-static int ima_inode_setxattr(struct mnt_idmap *idmap, struct dentry *dentry,
+static int ima_inode_setxattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 			      const char *xattr_name, const void *xattr_value,
 			      size_t xattr_value_len, int flags)
 {
@@ -799,7 +799,7 @@ static int ima_inode_set_acl(const struct mnt_idmap *idmap, struct dentry *dentr
 	return 0;
 }
 
-static int ima_inode_removexattr(struct mnt_idmap *idmap, struct dentry *dentry,
+static int ima_inode_removexattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 				 const char *xattr_name)
 {
 	int result, digsig = -1;

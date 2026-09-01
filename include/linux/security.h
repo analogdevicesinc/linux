@@ -188,8 +188,8 @@ int cap_inode_setxattr(struct dentry *dentry, const char *name,
 int cap_inode_removexattr(const struct mnt_idmap *idmap,
 			  struct dentry *dentry, const char *name);
 int cap_inode_need_killpriv(struct dentry *dentry);
-int cap_inode_killpriv(struct mnt_idmap *idmap, struct dentry *dentry);
-int cap_inode_getsecurity(struct mnt_idmap *idmap,
+int cap_inode_killpriv(const struct mnt_idmap *idmap, struct dentry *dentry);
+int cap_inode_getsecurity(const struct mnt_idmap *idmap,
 			  struct inode *inode, const char *name, void **buffer,
 			  bool alloc);
 extern int cap_mmap_addr(unsigned long addr);
@@ -427,7 +427,7 @@ int security_inode_setattr(struct mnt_idmap *idmap,
 void security_inode_post_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 				 int ia_valid);
 int security_inode_getattr(const struct path *path);
-int security_inode_setxattr(struct mnt_idmap *idmap,
+int security_inode_setxattr(const struct mnt_idmap *idmap,
 			    struct dentry *dentry, const char *name,
 			    const void *value, size_t size, int flags);
 int security_inode_set_acl(const struct mnt_idmap *idmap,
@@ -446,7 +446,7 @@ void security_inode_post_setxattr(struct dentry *dentry, const char *name,
 				  const void *value, size_t size, int flags);
 int security_inode_getxattr(struct dentry *dentry, const char *name);
 int security_inode_listxattr(struct dentry *dentry);
-int security_inode_removexattr(struct mnt_idmap *idmap,
+int security_inode_removexattr(const struct mnt_idmap *idmap,
 			       struct dentry *dentry, const char *name);
 void security_inode_post_removexattr(struct dentry *dentry, const char *name);
 int security_inode_file_setattr(struct dentry *dentry,
@@ -454,8 +454,8 @@ int security_inode_file_setattr(struct dentry *dentry,
 int security_inode_file_getattr(struct dentry *dentry,
 			      struct file_kattr *fa);
 int security_inode_need_killpriv(struct dentry *dentry);
-int security_inode_killpriv(struct mnt_idmap *idmap, struct dentry *dentry);
-int security_inode_getsecurity(struct mnt_idmap *idmap,
+int security_inode_killpriv(const struct mnt_idmap *idmap, struct dentry *dentry);
+int security_inode_getsecurity(const struct mnt_idmap *idmap,
 			       struct inode *inode, const char *name,
 			       void **buffer, bool alloc);
 int security_inode_setsecurity(struct inode *inode, const char *name, const void *value, size_t size, int flags);
@@ -996,7 +996,7 @@ static inline int security_inode_getattr(const struct path *path)
 	return 0;
 }
 
-static inline int security_inode_setxattr(struct mnt_idmap *idmap,
+static inline int security_inode_setxattr(const struct mnt_idmap *idmap,
 		struct dentry *dentry, const char *name, const void *value,
 		size_t size, int flags)
 {
@@ -1050,7 +1050,7 @@ static inline int security_inode_listxattr(struct dentry *dentry)
 	return 0;
 }
 
-static inline int security_inode_removexattr(struct mnt_idmap *idmap,
+static inline int security_inode_removexattr(const struct mnt_idmap *idmap,
 					     struct dentry *dentry,
 					     const char *name)
 {
@@ -1078,13 +1078,13 @@ static inline int security_inode_need_killpriv(struct dentry *dentry)
 	return cap_inode_need_killpriv(dentry);
 }
 
-static inline int security_inode_killpriv(struct mnt_idmap *idmap,
+static inline int security_inode_killpriv(const struct mnt_idmap *idmap,
 					  struct dentry *dentry)
 {
 	return cap_inode_killpriv(idmap, dentry);
 }
 
-static inline int security_inode_getsecurity(struct mnt_idmap *idmap,
+static inline int security_inode_getsecurity(const struct mnt_idmap *idmap,
 					     struct inode *inode,
 					     const char *name, void **buffer,
 					     bool alloc)

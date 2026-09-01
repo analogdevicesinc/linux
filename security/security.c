@@ -1921,7 +1921,7 @@ int security_inode_getattr(const struct path *path)
  *
  * Return: Returns 0 if permission is granted.
  */
-int security_inode_setxattr(struct mnt_idmap *idmap,
+int security_inode_setxattr(const struct mnt_idmap *idmap,
 			    struct dentry *dentry, const char *name,
 			    const void *value, size_t size, int flags)
 {
@@ -2108,7 +2108,7 @@ int security_inode_listxattr(struct dentry *dentry)
  *
  * Return: Returns 0 if permission is granted.
  */
-int security_inode_removexattr(struct mnt_idmap *idmap,
+int security_inode_removexattr(const struct mnt_idmap *idmap,
 			       struct dentry *dentry, const char *name)
 {
 	int rc;
@@ -2197,7 +2197,7 @@ int security_inode_need_killpriv(struct dentry *dentry)
  * Return: Return 0 on success.  If error is returned, then the operation
  *         causing setuid bit removal is failed.
  */
-int security_inode_killpriv(struct mnt_idmap *idmap,
+int security_inode_killpriv(const struct mnt_idmap *idmap,
 			    struct dentry *dentry)
 {
 	return call_int_hook(inode_killpriv, idmap, dentry);
@@ -2219,7 +2219,7 @@ int security_inode_killpriv(struct mnt_idmap *idmap,
  *
  * Return: Returns size of buffer on success.
  */
-int security_inode_getsecurity(struct mnt_idmap *idmap,
+int security_inode_getsecurity(const struct mnt_idmap *idmap,
 			       struct inode *inode, const char *name,
 			       void **buffer, bool alloc)
 {

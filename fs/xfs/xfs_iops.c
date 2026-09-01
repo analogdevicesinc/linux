@@ -754,7 +754,7 @@ xfs_vn_getattr(
 
 static int
 xfs_vn_change_ok(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	struct dentry		*dentry,
 	struct iattr		*iattr)
 {

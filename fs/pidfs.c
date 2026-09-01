@@ -1102,7 +1102,7 @@ static int pidfs_xattr_get(const struct xattr_handler *handler,
 }
 
 static int pidfs_xattr_set(const struct xattr_handler *handler,
-			   struct mnt_idmap *idmap, struct dentry *unused,
+			   const struct mnt_idmap *idmap, struct dentry *unused,
 			   struct inode *inode, const char *suffix,
 			   const void *value, size_t size, int flags)
 {

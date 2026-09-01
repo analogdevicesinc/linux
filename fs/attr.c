@@ -158,7 +158,7 @@ static bool chgrp_ok(const struct mnt_idmap *idmap,
  * Should be called as the first thing in ->setattr implementations,
  * possibly after taking additional locks.
  */
-int setattr_prepare(struct mnt_idmap *idmap, struct dentry *dentry,
+int setattr_prepare(const struct mnt_idmap *idmap, struct dentry *dentry,
 		    struct iattr *attr)
 {
 	struct inode *inode = d_inode(dentry);

@@ -2143,7 +2143,7 @@ int fuse_flush_times(struct inode *inode, struct fuse_file *ff)
  * vmtruncate() doesn't allow for this case, so do the rlimit checking
  * and the actual truncation by hand.
  */
-int fuse_do_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int fuse_do_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		    struct iattr *attr, struct file *file)
 {
 	struct inode *inode = d_inode(dentry);

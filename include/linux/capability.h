@@ -210,11 +210,11 @@ static inline bool checkpoint_restore_ns_capable_noaudit(struct user_namespace *
 }
 
 /* audit system wants to get cap info from files as well */
-int get_vfs_caps_from_disk(struct mnt_idmap *idmap,
+int get_vfs_caps_from_disk(const struct mnt_idmap *idmap,
 			   const struct dentry *dentry,
 			   struct cpu_vfs_cap_data *cpu_caps);
 
-int cap_convert_nscap(struct mnt_idmap *idmap, struct dentry *dentry,
+int cap_convert_nscap(const struct mnt_idmap *idmap, struct dentry *dentry,
 		      const void **ivalue, size_t size);
 
 #endif /* !_LINUX_CAPABILITY_H */

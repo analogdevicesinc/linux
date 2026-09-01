@@ -863,7 +863,7 @@ static bool ntfs_is_reserved_lxattr(const char *name)
  * ntfs_setxattr - inode_operations::setxattr
  */
 static noinline int ntfs_setxattr(const struct xattr_handler *handler,
-				  struct mnt_idmap *idmap, struct dentry *de,
+				  const struct mnt_idmap *idmap, struct dentry *de,
 				  struct inode *inode, const char *name,
 				  const void *value, size_t size, int flags)
 {

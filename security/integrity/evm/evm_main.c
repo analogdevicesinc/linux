@@ -607,7 +607,7 @@ out:
  * userspace from writing HMAC value.  Writing 'security.evm' requires
  * requires CAP_SYS_ADMIN privileges.
  */
-static int evm_inode_setxattr(struct mnt_idmap *idmap, struct dentry *dentry,
+static int evm_inode_setxattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 			      const char *xattr_name, const void *xattr_value,
 			      size_t xattr_value_len, int flags)
 {
@@ -639,7 +639,7 @@ static int evm_inode_setxattr(struct mnt_idmap *idmap, struct dentry *dentry,
  * Removing 'security.evm' requires CAP_SYS_ADMIN privileges and that
  * the current value is valid.
  */
-static int evm_inode_removexattr(struct mnt_idmap *idmap, struct dentry *dentry,
+static int evm_inode_removexattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 				 const char *xattr_name)
 {
 	/* Policy permits modification of the protected xattrs even though

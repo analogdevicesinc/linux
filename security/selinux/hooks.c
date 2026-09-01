@@ -3367,7 +3367,7 @@ static int selinux_inode_xattr_skipcap(const char *name)
 	return !strcmp(name, XATTR_NAME_SELINUX);
 }
 
-static int selinux_inode_setxattr(struct mnt_idmap *idmap,
+static int selinux_inode_setxattr(const struct mnt_idmap *idmap,
 				  struct dentry *dentry, const char *name,
 				  const void *value, size_t size, int flags)
 {
@@ -3526,7 +3526,7 @@ static int selinux_inode_listxattr(struct dentry *dentry)
 	return dentry_has_perm(cred, dentry, FILE__GETATTR);
 }
 
-static int selinux_inode_removexattr(struct mnt_idmap *idmap,
+static int selinux_inode_removexattr(const struct mnt_idmap *idmap,
 				     struct dentry *dentry, const char *name)
 {
 	/* if not a selinux xattr, only check the ordinary setattr perm */
@@ -3606,7 +3606,7 @@ static int selinux_path_notify(const struct path *path, u64 mask,
  *
  * Permission check is handled by selinux_inode_getxattr hook.
  */
-static int selinux_inode_getsecurity(struct mnt_idmap *idmap,
+static int selinux_inode_getsecurity(const struct mnt_idmap *idmap,
 				     struct inode *inode, const char *name,
 				     void **buffer, bool alloc)
 {

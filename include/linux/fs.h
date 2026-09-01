@@ -3399,7 +3399,7 @@ static inline bool generic_ci_validate_strict_name(struct inode *dir,
 
 int may_setattr(const struct mnt_idmap *idmap, struct inode *inode,
 		unsigned int ia_valid);
-int setattr_prepare(struct mnt_idmap *, struct dentry *, struct iattr *);
+int setattr_prepare(const struct mnt_idmap *, struct dentry *, struct iattr *);
 extern int inode_newsize_ok(const struct inode *, loff_t offset);
 void setattr_copy(const struct mnt_idmap *, struct inode *inode,
 		  const struct iattr *attr);

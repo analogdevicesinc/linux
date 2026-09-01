@@ -148,7 +148,7 @@ prototypes::
 		   struct inode *inode, const char *name, void *buffer,
 		   size_t size);
 	int (*set)(const struct xattr_handler *handler,
-                   struct mnt_idmap *idmap,
+                   const struct mnt_idmap *idmap,
                    struct dentry *dentry, struct inode *inode, const char *name,
                    const void *buffer, size_t size, int flags);
 

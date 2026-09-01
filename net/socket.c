@@ -422,7 +422,7 @@ static const struct xattr_handler sockfs_xattr_handler = {
 };
 
 static int sockfs_security_xattr_set(const struct xattr_handler *handler,
-				     struct mnt_idmap *idmap,
+				     const struct mnt_idmap *idmap,
 				     struct dentry *dentry, struct inode *inode,
 				     const char *suffix, const void *value,
 				     size_t size, int flags)
@@ -447,7 +447,7 @@ static int sockfs_user_xattr_get(const struct xattr_handler *handler,
 }
 
 static int sockfs_user_xattr_set(const struct xattr_handler *handler,
-				 struct mnt_idmap *idmap,
+				 const struct mnt_idmap *idmap,
 				 struct dentry *dentry, struct inode *inode,
 				 const char *suffix, const void *value,
 				 size_t size, int flags)
