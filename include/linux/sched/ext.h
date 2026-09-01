@@ -91,7 +91,7 @@ struct scx_dispatch_q {
 	struct rhash_head	hash_node;
 	struct llist_node	free_node;
 	struct scx_sched	*sched;
-	struct scx_dsq_pcpu __percpu *pcpu;
+	struct scx_dsq_pcpu __percpu *pcpu_user;
 	struct rcu_head		rcu;
 };
 
