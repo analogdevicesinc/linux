@@ -857,8 +857,7 @@ pub trait Io<'a>: IoBase<'a> {
         L: IoLoc<Self::Target, T>,
         Self::Backend: IoCapable<<T as AsRepr>::Repr>,
     {
-        let view = io_view::<Self, T>(self, location.offset())?;
-        Ok(view.read_val())
+        Ok(io_read!(self, try: location))
     }
 
     /// Generic fallible write with runtime bounds check.
@@ -891,8 +890,7 @@ pub trait Io<'a>: IoBase<'a> {
         L: IoLoc<Self::Target, T>,
         Self::Backend: IoCapable<<T as AsRepr>::Repr>,
     {
-        let view = io_view::<Self, T>(self, location.offset())?;
-        view.write_val(value);
+        io_write!(self, try: location, value);
         Ok(())
     }
 
@@ -971,7 +969,7 @@ pub trait Io<'a>: IoBase<'a> {
         Self::Backend: IoCapable<<T as AsRepr>::Repr>,
         F: FnOnce(T) -> T,
     {
-        let view = io_view::<Self, T>(self, location.offset())?;
+        let view = io_project!(self, try: location);
         view.write_val(f(view.read_val()));
         Ok(())
     }
@@ -1004,8 +1002,7 @@ pub trait Io<'a>: IoBase<'a> {
         L: IoLoc<Self::Target, T>,
         Self::Backend: IoCapable<<T as AsRepr>::Repr>,
     {
-        let view = io_view_assert::<Self, T>(self, location.offset());
-        view.read_val()
+        io_read!(self, build: location)
     }
 
     /// Generic infallible write with compile-time bounds check.
@@ -1036,8 +1033,7 @@ pub trait Io<'a>: IoBase<'a> {
         L: IoLoc<Self::Target, T>,
         Self::Backend: IoCapable<<T as AsRepr>::Repr>,
     {
-        let view = io_view_assert::<Self, T>(self, location.offset());
-        view.write_val(value)
+        io_write!(self, build: location, value);
     }
 
     /// Generic infallible write of a fully-located register value.
@@ -1114,7 +1110,7 @@ pub trait Io<'a>: IoBase<'a> {
         Self::Backend: IoCapable<<T as AsRepr>::Repr>,
         F: FnOnce(T) -> T,
     {
-        let view = io_view_assert::<Self, T>(self, location.offset());
+        let view = io_project!(self, build: location);
         view.write_val(f(view.read_val()));
     }
 }
@@ -1659,6 +1655,25 @@ where
         // SAFETY: Per safety requirement.
         unsafe { T::Backend::project_view::<T::Target, _>(self.0, ptr) }
     }
+
+    #[inline(always)]
+    pub fn try_project_loc<U, L>(
+        self,
+        location: L,
+    ) -> Result<<T::Backend as IoBackend>::View<'a, U>>
+    where
+        L: IoLoc<T::Target, U>,
+    {
+        io_view::<_, U>(self.0, location.offset())
+    }
+
+    #[inline(always)]
+    pub fn project_loc<U, L>(self, location: L) -> <T::Backend as IoBackend>::View<'a, U>
+    where
+        L: IoLoc<T::Target, U>,
+    {
+        io_view_assert::<_, U>(self.0, location.offset())
+    }
 }
 
 /// Project an I/O type to a subview of it.
@@ -1686,6 +1701,21 @@ where
 #[macro_export]
 #[doc(hidden)]
 macro_rules! io_project {
+    // Register projection
+    ($io:expr, try: $ioloc:expr) => {{
+        #[allow(unused)]
+        use $crate::io::IoBase as _;
+        let view = $crate::io::ProjectHelper($io.as_view());
+        view.try_project_loc($ioloc)?
+    }};
+    ($io:expr, build: $ioloc:expr) => {{
+        #[allow(unused)]
+        use $crate::io::IoBase as _;
+        let view = $crate::io::ProjectHelper($io.as_view());
+        view.project_loc($ioloc)
+    }};
+
+    // Field or index projection
     ($io:expr, $($proj:tt)*) => {{
         #[allow(unused)]
         use $crate::io::IoBase as _;
@@ -1755,6 +1785,12 @@ macro_rules! io_write {
     };
     (@parse [$io:expr] [$($proj:tt)*] [[$flavor:ident: $index:expr] $($rest:tt)*]) => {
         $crate::io_write!(@parse [$io] [$($proj)* [$flavor: $index]] [$($rest)*])
+    };
+    (@parse [$io:expr] [] [try: $ioloc:expr, $($rest:tt)*]) => {
+        $crate::io_write!(@parse [$io] [try: $ioloc] [, $($rest)*])
+    };
+    (@parse [$io:expr] [] [build: $ioloc:expr, $($rest:tt)*]) => {
+        $crate::io_write!(@parse [$io] [build: $ioloc] [, $($rest)*])
     };
     ($io:expr, $($rest:tt)*) => {
         $crate::io_write!(@parse [$io] [] [$($rest)*])
