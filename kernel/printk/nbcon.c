@@ -1837,6 +1837,8 @@ void nbcon_free(struct console *con)
 	/* Synchronize the kthread stop. */
 	lockdep_assert_console_list_lock_held();
 
+	irq_work_sync(&con->irq_work);
+
 	if (printk_kthreads_running) {
 		nbcon_kthread_stop(con);
 
