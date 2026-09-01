@@ -312,12 +312,14 @@ struct mnt_idmap *alloc_mnt_idmap(struct user_namespace *mnt_userns)
  *
  * Return: @idmap with reference count bumped if @not_mnt_idmap isn't passed.
  */
-struct mnt_idmap *mnt_idmap_get(struct mnt_idmap *idmap)
+struct mnt_idmap *mnt_idmap_get(const struct mnt_idmap *idmap)
 {
-	if (idmap != &nop_mnt_idmap && idmap != &invalid_mnt_idmap)
-		refcount_inc(&idmap->count);
+	struct mnt_idmap *nonconst_idmap = (struct mnt_idmap *)idmap;
 
-	return idmap;
+	if (idmap != &nop_mnt_idmap && idmap != &invalid_mnt_idmap)
+		refcount_inc(&nonconst_idmap->count);
+
+	return nonconst_idmap;
 }
 EXPORT_SYMBOL_GPL(mnt_idmap_get);
 
@@ -328,11 +330,13 @@ EXPORT_SYMBOL_GPL(mnt_idmap_get);
  * If this is a non-initial idmapping, put the reference count when a mount is
  * released and free it if we're the last user.
  */
-void mnt_idmap_put(struct mnt_idmap *idmap)
+void mnt_idmap_put(const struct mnt_idmap *idmap)
 {
+	struct mnt_idmap *nonconst_idmap = (struct mnt_idmap *)idmap;
+
 	if (idmap != &nop_mnt_idmap && idmap != &invalid_mnt_idmap &&
-	    refcount_dec_and_test(&idmap->count))
-		free_mnt_idmap(idmap);
+	    refcount_dec_and_test(&nonconst_idmap->count))
+		free_mnt_idmap(nonconst_idmap);
 }
 EXPORT_SYMBOL_GPL(mnt_idmap_put);
 

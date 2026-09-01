@@ -327,8 +327,8 @@ ssize_t __kernel_write_iter(struct file *file, struct iov_iter *from, loff_t *po
  * fs/attr.c
  */
 struct mnt_idmap *alloc_mnt_idmap(struct user_namespace *mnt_userns);
-struct mnt_idmap *mnt_idmap_get(struct mnt_idmap *idmap);
-void mnt_idmap_put(struct mnt_idmap *idmap);
+struct mnt_idmap *mnt_idmap_get(const struct mnt_idmap *idmap);
+void mnt_idmap_put(const struct mnt_idmap *idmap);
 struct stashed_operations {
 	struct dentry *(*stash_dentry)(struct dentry **stashed,
 				       struct dentry *dentry);
