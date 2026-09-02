@@ -7,6 +7,7 @@
  * perf top, perf record, perf report, etc.) are started.
  */
 
+#include <linux/compiler.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -53,6 +54,38 @@ static void __noreturn usage(const char *err)
 static int use_pager = -1;
 static FILE *debug_fp = NULL;
 
+
+#ifndef HAVE_LIBTRACEEVENT
+#define DECLARE_LIBTRACEEVENT_STUB(_cmd) \
+	int cmd_##_cmd(int argc __always_unused, const char **argv __always_unused) \
+	{ \
+		fprintf(stderr, \
+			"'" #_cmd "' command not available: missing libtraceevent " \
+			"devel package at build time.\n"); \
+		return -1; \
+	}
+
+DECLARE_LIBTRACEEVENT_STUB(timechart)
+DECLARE_LIBTRACEEVENT_STUB(sched)
+DECLARE_LIBTRACEEVENT_STUB(kmem)
+DECLARE_LIBTRACEEVENT_STUB(lock)
+DECLARE_LIBTRACEEVENT_STUB(trace)
+DECLARE_LIBTRACEEVENT_STUB(kwork)
+#endif
+
+#ifndef HAVE_LIBELF_SUPPORT
+#define DECLARE_LIBELF_SUPPORT_STUB(_cmd) \
+	int cmd_##_cmd(int argc __always_unused, const char **argv __always_unused) \
+	{ \
+		fprintf(stderr, \
+			"'" #_cmd "' command not available: missing libelf " \
+			"devel package at build time.\n"); \
+		return -1; \
+	}
+
+DECLARE_LIBELF_SUPPORT_STUB(probe)
+#endif
+
 struct cmd_struct {
 	const char *cmd;
 	int (*fn)(int, const char **);
@@ -76,36 +109,24 @@ static const struct cmd_struct commands[] = {
 	{ "report",	cmd_report,	0 },
 	{ "bench",	cmd_bench,	0 },
 	{ "stat",	cmd_stat,	0 },
-#ifdef HAVE_LIBTRACEEVENT
 	{ "timechart",	cmd_timechart,	0 },
-#endif
 	{ "top",	cmd_top,	0 },
 	{ "annotate",	cmd_annotate,	0 },
 	{ "version",	cmd_version,	0 },
 	{ "script",	cmd_script,	0 },
-#ifdef HAVE_LIBTRACEEVENT
 	{ "sched",	cmd_sched,	0 },
-#endif
-#ifdef HAVE_LIBELF_SUPPORT
 	{ "probe",	cmd_probe,	0 },
-#endif
-#ifdef HAVE_LIBTRACEEVENT
 	{ "kmem",	cmd_kmem,	0 },
 	{ "lock",	cmd_lock,	0 },
-#endif
 	{ "kvm",	cmd_kvm,	0 },
 	{ "test",	cmd_test,	0 },
-#if defined(HAVE_LIBTRACEEVENT)
 	{ "trace",	cmd_trace,	0 },
-#endif
 	{ "inject",	cmd_inject,	0 },
 	{ "mem",	cmd_mem,	0 },
 	{ "data",	cmd_data,	0 },
 	{ "ftrace",	cmd_ftrace,	0 },
 	{ "daemon",	cmd_daemon,	0 },
-#ifdef HAVE_LIBTRACEEVENT
 	{ "kwork",	cmd_kwork,	0 },
-#endif
 };
 
 struct pager_config {
@@ -514,15 +535,9 @@ int main(int argc, const char **argv)
 		argv[0] = cmd;
 	}
 	if (strstarts(cmd, "trace")) {
-#ifndef HAVE_LIBTRACEEVENT
-		fprintf(stderr,
-			"trace command not available: missing libtraceevent devel package at build time.\n");
-		goto out;
-#else
 		setup_path();
 		argv[0] = "trace";
 		return cmd_trace(argc, argv);
-#endif
 	}
 	/* Look for flags.. */
 	argv++;
