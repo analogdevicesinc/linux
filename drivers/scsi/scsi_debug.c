@@ -79,7 +79,7 @@ static const char *sdebug_version_date = "20210520";
  */
 #define DEF_ATO 1
 #define DEF_CDB_LEN 10
-#define DEF_JDELAY   1		/* if > 0 unit is a jiffy */
+#define DEF_JDELAY   0		/* if > 0 unit is a jiffy */
 #define DEF_DEV_SIZE_PRE_INIT   0
 #define DEF_DEV_SIZE_MB   8
 #define DEF_ZBC_DEV_SIZE_MB   128
@@ -106,6 +106,7 @@ static const char *sdebug_version_date = "20210520";
 #define DEF_PTYPE   TYPE_DISK
 #define DEF_RANDOM false
 #define DEF_REMOVABLE false
+#define DEF_CLUSTERING true
 #define DEF_SCSI_LEVEL   7    /* INQUIRY, byte2 [6->SPC-4; 7->SPC-5] */
 #define DEF_SECTOR_SIZE 512
 #define DEF_UNMAP_ALIGNMENT 0
@@ -217,8 +218,7 @@ struct tape_block {
  * /sys/class/scsi_device/<h:c:t:l>/device/queue_depth
  * but cannot exceed SDEBUG_CANQUEUE .
  */
-#define SDEBUG_CANQUEUE_WORDS  3	/* a WORD is bits in a long */
-#define SDEBUG_CANQUEUE  (SDEBUG_CANQUEUE_WORDS * BITS_PER_LONG)
+#define SDEBUG_CANQUEUE  (4096)
 #define DEF_CMD_PER_LUN  SDEBUG_CANQUEUE
 
 /* UA - Unit Attention; SA - Service Action; SSU - Start Stop Unit */
@@ -850,7 +850,7 @@ static int sdebug_num_hosts;
 static int sdebug_add_host = DEF_NUM_HOST;  /* in sysfs this is relative */
 static int sdebug_ato = DEF_ATO;
 static int sdebug_cdb_len = DEF_CDB_LEN;
-static int sdebug_jdelay = DEF_JDELAY;	/* if > 0 then unit is jiffies */
+static int sdebug_jdelay = DEF_JDELAY;
 static int sdebug_dev_size_mb = DEF_DEV_SIZE_PRE_INIT;
 static int sdebug_dif = DEF_DIF;
 static int sdebug_dix = DEF_DIX;
@@ -899,7 +899,7 @@ static int sdebug_uuid_ctl = DEF_UUID_CTL;
 static bool sdebug_random = DEF_RANDOM;
 static bool sdebug_per_host_store = DEF_PER_HOST_STORE;
 static bool sdebug_removable = DEF_REMOVABLE;
-static bool sdebug_clustering;
+static bool sdebug_clustering = DEF_CLUSTERING;
 static bool sdebug_host_lock = DEF_HOST_LOCK;
 static bool sdebug_strict = DEF_STRICT;
 static bool sdebug_no_rwlock;
@@ -7373,8 +7373,8 @@ MODULE_VERSION(SDEBUG_VERSION);
 MODULE_PARM_DESC(add_host, "add n hosts, in sysfs if negative remove host(s) (def=1)");
 MODULE_PARM_DESC(ato, "application tag ownership: 0=disk 1=host (def=1)");
 MODULE_PARM_DESC(cdb_len, "suggest CDB lengths to drivers (def=10)");
-MODULE_PARM_DESC(clustering, "when set enables larger transfers (def=0)");
-MODULE_PARM_DESC(delay, "response delay (def=1 jiffy); 0:imm, -1,-2:tiny");
+MODULE_PARM_DESC(clustering, "when set enables larger transfers (def=1)");
+MODULE_PARM_DESC(delay, "response delay (def=0 jiffy); 0:imm, -1,-2:tiny");
 MODULE_PARM_DESC(dev_size_mb, "size in MiB of ram shared by devs(def=8)");
 MODULE_PARM_DESC(dif, "data integrity field type: 0-3 (def=0)");
 MODULE_PARM_DESC(dix, "data integrity extensions mask (def=0)");
