@@ -50,7 +50,7 @@ struct mfis_chan_priv {
 };
 
 struct mfis_priv {
-	spinlock_t unprotect_lock; /* guards access to the unprotection reg */
+	raw_spinlock_t unprotect_lock; /* guards access to unprotection reg */
 	struct device *dev;
 	struct mfis_reg common_reg;
 	struct mfis_reg mbox_reg;
@@ -80,10 +80,10 @@ static void mfis_write(struct mfis_reg *mreg, u32 reg, u32 val)
 	unprotect_code = (MFIS_UNPROTECT_KEY & ~unprotect_mask) |
 			 ((mreg->start + reg) & unprotect_mask);
 
-	spin_lock_irqsave(&priv->unprotect_lock, flags);
+	raw_spin_lock_irqsave(&priv->unprotect_lock, flags);
 	iowrite32(unprotect_code, priv->common_reg.base + MFISWACNTR);
 	iowrite32(val, mreg->base + reg);
-	spin_unlock_irqrestore(&priv->unprotect_lock, flags);
+	raw_spin_unlock_irqrestore(&priv->unprotect_lock, flags);
 }
 
 /********************************************************
@@ -323,7 +323,7 @@ static int mfis_probe(struct platform_device *pdev)
 	if (!priv->info)
 		return -ENOENT;
 
-	spin_lock_init(&priv->unprotect_lock);
+	raw_spin_lock_init(&priv->unprotect_lock);
 
 	ret = mfis_reg_probe(pdev, priv, &priv->common_reg, "common", true);
 	if (ret)
