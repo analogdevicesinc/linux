@@ -17,6 +17,7 @@
 
 #define PCI_DEVICE_ID_AMD_MP2		0x15E4
 #define PCI_DEVICE_ID_AMD_MP2_1_1	0x164A
+#define PCI_DEVICE_ID_AMD_MP2_1_2	0x1152
 
 #define AMD_C2P_MSG(regno) (0x10500 + ((regno) * 4))
 #define AMD_P2C_MSG(regno) (0x10680 + ((regno) * 4))
@@ -39,6 +40,7 @@ enum cmd_id {
 enum amd_mp2_version {
 	MP2_VER_V2 = 1,
 	MP2_VER_1_1 = 2,
+	MP2_VER_1_2 = 3,
 };
 
 struct amd_mp2_sensor_info {

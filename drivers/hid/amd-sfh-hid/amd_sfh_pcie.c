@@ -597,6 +597,7 @@ static SIMPLE_DEV_PM_OPS(amd_mp2_pm_ops, amd_mp2_pci_suspend,
 static const struct pci_device_id amd_mp2_pci_tbl[] = {
 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_MP2) },
 	{ PCI_DEVICE_DATA(AMD, MP2_1_1, MP2_VER_1_1) },
+	{ PCI_DEVICE_DATA(AMD, MP2_1_2, MP2_VER_1_2) },
 	{ }
 };
 MODULE_DEVICE_TABLE(pci, amd_mp2_pci_tbl);
