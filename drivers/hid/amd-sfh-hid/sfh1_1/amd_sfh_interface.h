@@ -130,6 +130,7 @@ struct sfh_accel_data {
 	struct sfh_common_data commondata;
 	struct sfh_float32 acceldata;
 	u32 accelstatus;
+	u32 c2p3_data;
 };
 
 struct sfh_gyro_data {
