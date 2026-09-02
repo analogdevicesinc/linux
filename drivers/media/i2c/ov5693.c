@@ -35,6 +35,11 @@
 #define OV5693_STOP_STREAMING			0x00
 #define OV5693_SW_RESET				0x01
 
+/* MIPI transmitter control */
+#define OV5693_MIPI_CTRL00_REG			CCI_REG8(0x4800)
+/* Gate the clock lane when there is no packet to transmit */
+#define OV5693_MIPI_CTRL00_CLOCK_LANE_GATE	BIT(5)
+
 #define OV5693_REG_CHIP_ID			CCI_REG16(0x300a)
 /* Yes, this is right. The datasheet for the OV5693 gives its ID as 0x5690 */
 #define OV5693_CHIP_ID				0x5690
@@ -143,6 +148,9 @@ struct ov5693_device {
 	struct gpio_desc *powerdown;
 	struct regulator_bulk_data supplies[OV5693_NUM_SUPPLIES];
 	struct clk *xvclk;
+
+	/* Gate the MIPI clock lane when idle (CSI-2 non-continuous clock) */
+	bool clock_ncont;
 
 	struct ov5693_mode {
 		struct v4l2_rect crop;
@@ -610,6 +618,19 @@ static int ov5693_mode_configure(struct ov5693_device *ov5693)
 static int ov5693_enable_streaming(struct ov5693_device *ov5693, bool enable)
 {
 	int ret = 0;
+
+	/*
+	 * Gate the MIPI clock lane while idle if the CSI-2 link is configured
+	 * for a non-continuous clock. Only that bit is touched, and only in
+	 * that case, so the register keeps whatever the platform left in it
+	 * and the clock stays free-running as before everywhere else. It
+	 * needs no counterpart at stream off: the link is down by then, and
+	 * the register returns to its default when the sensor is powered off.
+	 */
+	if (enable && ov5693->clock_ncont)
+		cci_update_bits(ov5693->regmap, OV5693_MIPI_CTRL00_REG,
+				OV5693_MIPI_CTRL00_CLOCK_LANE_GATE,
+				OV5693_MIPI_CTRL00_CLOCK_LANE_GATE, &ret);
 
 	cci_write(ov5693->regmap, OV5693_SW_STREAM_REG,
 		  enable ? OV5693_START_STREAMING : OV5693_STOP_STREAMING,
@@ -1258,6 +1279,9 @@ static int ov5693_check_hwcfg(struct ov5693_device *ov5693)
 		ret = -EINVAL;
 		goto out_free_bus_cfg;
 	}
+
+	ov5693->clock_ncont = bus_cfg.bus.mipi_csi2.flags &
+			      V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK;
 
 out_free_bus_cfg:
 	v4l2_fwnode_endpoint_free(&bus_cfg);
