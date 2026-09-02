@@ -17,6 +17,10 @@
 #define IPU_SENSOR_ROTATION_NORMAL		0
 #define IPU_SENSOR_ROTATION_INVERTED		1
 
+/* Flags for struct ipu_sensor_config */
+/* The sensor's CSI-2 transmitter needs a non-continuous clock */
+#define IPU_BR_FL_CSI2_CLK_NONCONTINUOUS	BIT(0)
+
 /*
  * Sensor config specific to one or more IPUs, identified by their PCI product
  * IDs, with flags describing what the sensor needs there. Entries for one HID
@@ -80,6 +84,7 @@ enum ipu_bridge_ep_props {
 	IPU_BRIDGE_EP_DATA_LANES,
 	IPU_BRIDGE_EP_REMOTE_EP,
 	IPU_BRIDGE_EP_LINK_FREQUENCIES,
+	IPU_BRIDGE_EP_CLOCK_NONCONTINUOUS,
 	IPU_BRIDGE_EP_NUM_OF,
 	IPU_BRIDGE_EP_NUM_ENTRIES
 };

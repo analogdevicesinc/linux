@@ -50,6 +50,14 @@
  *
  * Please keep the list sorted by ACPI HID.
  */
+/* IPU6 variants whose CSI-2 receiver needs the ov5693 clock lane gated */
+static const u16 ipu6_ov5693_ncont_clk[] = {
+	PCI_DEVICE_ID_INTEL_IPU6,		/* Tiger Lake */
+	PCI_DEVICE_ID_INTEL_IPU6EP_ADLP,	/* Alder Lake-P */
+	PCI_DEVICE_ID_INTEL_IPU6EP_ADLN,	/* Alder Lake-N */
+	0
+};
+
 static const struct ipu_sensor_config ipu_supported_sensors[] = {
 	/* Himax HM1092 */
 	IPU_SENSOR_CONFIG("HIMX1092", 2, 180000000, 180480000),
@@ -62,6 +70,9 @@ static const struct ipu_sensor_config ipu_supported_sensors[] = {
 	/* GalaxyCore GC0310 */
 	IPU_SENSOR_CONFIG("INT0310", 1, 55692000),
 	/* Omnivision OV5693 */
+	IPU_SENSOR_CONFIG_MATCH_FL("INT33BE", ipu6_ov5693_ncont_clk,
+				   IPU_BR_FL_CSI2_CLK_NONCONTINUOUS,
+				   1, 419200000),
 	IPU_SENSOR_CONFIG("INT33BE", 1, 419200000),
 	/* Onsemi MT9M114 */
 	IPU_SENSOR_CONFIG("INT33F0", 1, 384000000),
@@ -98,6 +109,9 @@ static const struct ipu_sensor_config ipu_supported_sensors[] = {
 	/* Omnivision OV5675 */
 	IPU_SENSOR_CONFIG("OVTI5675", 1, 450000000),
 	/* Omnivision OV5693 */
+	IPU_SENSOR_CONFIG_MATCH_FL("OVTI5693", ipu6_ov5693_ncont_clk,
+				   IPU_BR_FL_CSI2_CLK_NONCONTINUOUS,
+				   1, 419200000),
 	IPU_SENSOR_CONFIG("OVTI5693", 1, 419200000),
 	/* Omnivision OV8856 */
 	IPU_SENSOR_CONFIG("OVTI8856", 3, 180000000, 360000000, 720000000),
@@ -565,6 +579,10 @@ static void ipu_bridge_create_fwnode_properties(
 			PROPERTY_ENTRY_U64_ARRAY_LEN(names->link_frequencies,
 						     cfg->link_freqs,
 						     cfg->nr_link_freqs);
+
+	if (cfg->flags & IPU_BR_FL_CSI2_CLK_NONCONTINUOUS)
+		sensor->ep_properties[IPU_BRIDGE_NEXT_PROPERTY(i, EP_CLOCK_NONCONTINUOUS)] =
+			PROPERTY_ENTRY_BOOL("clock-noncontinuous");
 
 	sensor->ipu_properties[0] = PROPERTY_ENTRY_U32_ARRAY_LEN(
 					sensor->prop_names.data_lanes,
