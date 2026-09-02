@@ -8,6 +8,7 @@
 #include <linux/dmi.h>
 #include <linux/i2c.h>
 #include <linux/mei_cl_bus.h>
+#include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/property.h>
@@ -893,8 +894,28 @@ err_put_adev:
 	return ret;
 }
 
+/*
+ * Whether a sensor config applies to the IPU this bridge sits on. A config
+ * listing PCI product IDs only applies to those IPUs.
+ */
+static bool ipu_bridge_config_matches(const struct ipu_sensor_config *cfg,
+				      struct ipu_bridge *bridge)
+{
+	const u16 *id;
+
+	if (!cfg->pci_ids)
+		return true;
+
+	for (id = cfg->pci_ids; *id; id++)
+		if (*id == bridge->pci_id)
+			return true;
+
+	return false;
+}
+
 static int ipu_bridge_connect_sensors(struct ipu_bridge *bridge)
 {
+	const char *done_hid = NULL;
 	unsigned int i;
 	int ret;
 
@@ -902,9 +923,22 @@ static int ipu_bridge_connect_sensors(struct ipu_bridge *bridge)
 		const struct ipu_sensor_config *cfg =
 			&ipu_supported_sensors[i];
 
+		/*
+		 * Entries for one HID are adjacent, IPU-specific ones first,
+		 * so the generic entry is skipped once a specific one has
+		 * matched and the sensor is not connected twice.
+		 */
+		if (done_hid && !strcmp(cfg->hid, done_hid))
+			continue;
+
+		if (!ipu_bridge_config_matches(cfg, bridge))
+			continue;
+
 		ret = ipu_bridge_connect_sensor(cfg, bridge);
 		if (ret)
 			goto err_unregister_sensors;
+
+		done_hid = cfg->hid;
 	}
 
 	return 0;
@@ -1000,6 +1034,7 @@ int ipu_bridge_init(struct device *dev,
 		sizeof(bridge->ipu_node_name));
 	bridge->ipu_hid_node.name = bridge->ipu_node_name;
 	bridge->dev = dev;
+	bridge->pci_id = dev_is_pci(dev) ? to_pci_dev(dev)->device : 0;
 	bridge->parse_sensor_fwnode = parse_sensor_fwnode;
 
 	ret = software_node_register(&bridge->ipu_hid_node);

@@ -17,12 +17,23 @@
 #define IPU_SENSOR_ROTATION_NORMAL		0
 #define IPU_SENSOR_ROTATION_INVERTED		1
 
-#define IPU_SENSOR_CONFIG(_HID, _NR, ...)	\
-	(const struct ipu_sensor_config) {	\
-		.hid = _HID,			\
-		.nr_link_freqs = _NR,		\
-		.link_freqs = { __VA_ARGS__ }	\
+/*
+ * Sensor config specific to one or more IPUs, identified by their PCI product
+ * IDs, with flags describing what the sensor needs there. Entries for one HID
+ * must be adjacent in ipu_supported_sensors[], with the IPU-specific ones
+ * before the generic one.
+ */
+#define IPU_SENSOR_CONFIG_MATCH_FL(_HID, _IDS, _FLAGS, _NR, ...)	\
+	(const struct ipu_sensor_config) {				\
+		.hid = _HID,						\
+		.pci_ids = _IDS,					\
+		.flags = _FLAGS,					\
+		.nr_link_freqs = _NR,					\
+		.link_freqs = { __VA_ARGS__ }				\
 	}
+
+#define IPU_SENSOR_CONFIG(_HID, _NR, ...)				\
+	IPU_SENSOR_CONFIG_MATCH_FL(_HID, NULL, 0, _NR, __VA_ARGS__)
 
 #define NODE_SENSOR(_HID, _PROPS)		\
 	(const struct software_node) {		\
@@ -132,6 +143,9 @@ struct ipu_node_names {
 
 struct ipu_sensor_config {
 	const char *hid;
+	/* Zero-terminated list of IPU PCI product IDs, NULL for any IPU */
+	const u16 *pci_ids;
+	const u32 flags;
 	const u8 nr_link_freqs;
 	const u64 link_freqs[MAX_NUM_LINK_FREQS];
 };
@@ -177,6 +191,8 @@ typedef int (*ipu_parse_sensor_fwnode_t)(struct acpi_device *adev,
 
 struct ipu_bridge {
 	struct device *dev;
+	/* PCI product ID of the IPU, 0 if it is not a PCI device */
+	u16 pci_id;
 	ipu_parse_sensor_fwnode_t parse_sensor_fwnode;
 	char ipu_node_name[ACPI_ID_LEN];
 	struct software_node ipu_hid_node;
