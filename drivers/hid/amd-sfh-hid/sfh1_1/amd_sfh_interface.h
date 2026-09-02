@@ -165,6 +165,12 @@ struct hpd_status {
 	};
 };
 
+struct sfh_hpd_data {
+	struct sfh_common_data commondata;
+	u32 reserved;
+	struct hpd_status status;
+};
+
 struct sfh_op_mode {
 	union {
 		u32 val;

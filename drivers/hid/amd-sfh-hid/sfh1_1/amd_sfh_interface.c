@@ -160,7 +160,9 @@ static int amd_sfh_mode_info(u32 *platform_type, u32 *laptop_placement)
 
 static int amd_sfh_hpd_info(u8 *user_present)
 {
+	struct sfh_hpd_data hpd_data;
 	struct hpd_status hpdstatus;
+	void __iomem *sensoraddr;
 
 	if (!user_present)
 		return -EINVAL;
@@ -168,8 +170,16 @@ static int amd_sfh_hpd_info(u8 *user_present)
 	if (!emp2 || !emp2->dev_en.is_hpd_present || !emp2->dev_en.is_hpd_enabled)
 		return -ENODEV;
 
-	hpdstatus.val = readl(emp2->mmio + amd_get_c2p_val(emp2, 4));
-	*user_present = hpdstatus.shpd.presence;
+	if (emp2->mp2_ver >= MP2_VER_1_2) {
+		sensoraddr = emp2->vsbase +
+			(HPD_IDX * SENSOR_DATA_MEM_SIZE_DEFAULT) +
+			OFFSET_SENSOR_DATA_DEFAULT;
+		memcpy_fromio(&hpd_data, sensoraddr, sizeof(struct sfh_hpd_data));
+		*user_present = hpd_data.status.shpd.presence;
+	} else {
+		hpdstatus.val = readl(emp2->mmio + amd_get_c2p_val(emp2, 4));
+		*user_present = hpdstatus.shpd.presence;
+	}
 
 	return 0;
 }
