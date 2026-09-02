@@ -158,6 +158,30 @@ static int uevent_listener(unsigned long post_flags, bool expect_uevent,
 		ssize_t r;
 
 		r = recvmsg(sk_fd, &hdr, 0);
+		if (r < 0 && errno == ENOBUFS) {
+			/*
+			 * The socket receive buffer overran and the kernel
+			 * dropped uevents. This may happen due to udev
+			 * rebroadcasting kernel uevents that end up in the
+			 * receive buffer as we are subscribed to all groups.
+			 *
+			 * When a uevent is expected, we trigger it multiple
+			 * times to tolerate drops, so keep listening for one
+			 * of the remaining copies. The parent bounds this
+			 * wait by killing us on a timeout.
+			 *
+			 * When no uevent is expected, our socket sits in a
+			 * namespace that should not receive any, so a drop
+			 * means traffic reached it, or that we can no longer
+			 * prove it did not. Rather fail.
+			 */
+			if (!expect_uevent) {
+				fprintf(stderr, "Unexpected buffer overrun\n");
+				ret = -1;
+				break;
+			}
+			continue;
+		}
 		if (r <= 0) {
 			fprintf(stderr, "%s - Failed to receive uevent\n", strerror(errno));
 			ret = -1;
