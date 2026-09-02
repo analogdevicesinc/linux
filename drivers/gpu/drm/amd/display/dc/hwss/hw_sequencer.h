@@ -54,6 +54,7 @@ struct pg_block_update;
 struct drr_params;
 struct dc_underflow_debug_data;
 struct dsc_optc_config;
+struct dscl_prog_data;
 struct vm_system_aperture_param;
 struct stream_encoder;
 struct hpo_dp_stream_encoder;
@@ -171,7 +172,8 @@ struct set_output_transfer_func_params {
 	const struct dc_stream_state *stream;
 };
 struct program_upsp_params {
-	struct pipe_ctx *pipe_ctx;
+	struct dpp *dpp;
+	const struct dscl_prog_data *dscl_prog_data;
 };
 
 struct update_visual_confirm_params {
@@ -2627,6 +2629,10 @@ void hwss_add_mpc_insert_plane(struct block_sequence_state *seq_state,
 void hwss_add_dpp_set_scaler(struct block_sequence_state *seq_state,
 		struct dpp *dpp,
 		const struct scaler_data *scl_data);
+
+void hwss_add_dpp_program_upsp(struct block_sequence_state *seq_state,
+		struct dpp *dpp,
+		const struct dscl_prog_data *dscl_prog_data);
 
 void hwss_add_hubp_mem_program_viewport(struct block_sequence_state *seq_state,
 		struct hubp *hubp,

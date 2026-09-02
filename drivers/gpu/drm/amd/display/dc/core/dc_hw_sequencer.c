@@ -1023,11 +1023,9 @@ void hwss_build_full_sequence(struct dc *dc,
 					if (current_pipe->plane_res.hubp->funcs->hubp_program_mcache_id_and_split_coordinate)
 						hwss_add_hubp_program_mcache_id(&seq_state, current_pipe->plane_res.hubp, &current_pipe->mcache_regs);
 
-					if (current_pipe->plane_res.dpp->funcs->dpp_program_upsp) {
-						block_sequence[*num_steps].params.program_upsp_params.pipe_ctx = current_pipe;
-						block_sequence[*num_steps].func = DPP_PROGRAM_UPSP;
-						(*num_steps)++;
-					}
+					if (current_pipe->plane_res.dpp->funcs->dpp_program_upsp)
+						hwss_add_dpp_program_upsp(&seq_state, current_pipe->plane_res.dpp,
+							&current_pipe->plane_res.scl_data.dscl_prog_data);
 				}
 			}
 			current_pipe = current_pipe->bottom_pipe;
@@ -3009,18 +3007,11 @@ void hwss_program_bias_and_scale(union block_sequence_params *params)
 
 void hwss_program_upsp(union block_sequence_params *params)
 {
-	struct pipe_ctx *pipe_ctx = params->program_upsp_params.pipe_ctx;
-	struct dpp *dpp = pipe_ctx->plane_res.dpp;
-	struct dscl_prog_data *dscl_prog_data = &pipe_ctx->plane_res.scl_data.dscl_prog_data;
+	struct dpp *dpp = params->program_upsp_params.dpp;
+	const struct dscl_prog_data *dscl_prog_data = params->program_upsp_params.dscl_prog_data;
 
-	if (!dpp || !dscl_prog_data)
-		return;
-
-	if (dpp && dpp->funcs->dpp_program_upsp) {
-		// program upsampler
-		dpp->funcs->dpp_program_upsp(dpp,
-				dscl_prog_data);
-	}
+	if (dpp && dscl_prog_data && dpp->funcs->dpp_program_upsp)
+		dpp->funcs->dpp_program_upsp(dpp, dscl_prog_data);
 }
 
 void hwss_power_on_mpc_mem_pwr(union block_sequence_params *params)
@@ -5733,6 +5724,18 @@ void hwss_add_dpp_set_scaler(struct block_sequence_state *seq_state,
 		seq_state->steps[*seq_state->num_steps].func = DPP_SET_SCALER;
 		seq_state->steps[*seq_state->num_steps].params.dpp_set_scaler_params.dpp = dpp;
 		seq_state->steps[*seq_state->num_steps].params.dpp_set_scaler_params.scl_data = scl_data;
+		(*seq_state->num_steps)++;
+	}
+}
+
+void hwss_add_dpp_program_upsp(struct block_sequence_state *seq_state,
+		struct dpp *dpp,
+		const struct dscl_prog_data *dscl_prog_data)
+{
+	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		seq_state->steps[*seq_state->num_steps].func = DPP_PROGRAM_UPSP;
+		seq_state->steps[*seq_state->num_steps].params.program_upsp_params.dpp = dpp;
+		seq_state->steps[*seq_state->num_steps].params.program_upsp_params.dscl_prog_data = dscl_prog_data;
 		(*seq_state->num_steps)++;
 	}
 }
