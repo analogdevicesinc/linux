@@ -69,16 +69,32 @@ static int exfat_statfs(struct dentry *dentry, struct kstatfs *buf)
 	return 0;
 }
 
+static inline __u8 exfat_calc_perc_in_use(const struct exfat_sb_info *sbi)
+{
+	const unsigned long long total_clus = EXFAT_DATA_CLUSTER_COUNT(sbi);
+	unsigned long long ret = sbi->used_clusters;
+
+	ret *= 100;
+	ret /= total_clus;
+	return (__u8)ret;
+}
+
 static int exfat_set_vol_flags(struct super_block *sb, unsigned short new_flags)
 {
 	struct exfat_sb_info *sbi = EXFAT_SB(sb);
 	struct boot_sector *p_boot = (struct boot_sector *)sbi->boot_bh->b_data;
+	__u8 new_piu;
 
 	/* retain persistent-flags */
 	new_flags |= sbi->vol_flags_persistent;
 
+	if (new_flags & VOLUME_DIRTY)
+		new_piu = 0xFF;
+	else
+		new_piu = exfat_calc_perc_in_use(sbi);
+
 	/* flags are not changed */
-	if (sbi->vol_flags == new_flags)
+	if (sbi->vol_flags == new_flags && new_piu == p_boot->percent_in_use)
 		return 0;
 
 	sbi->vol_flags = new_flags;
@@ -90,6 +106,7 @@ static int exfat_set_vol_flags(struct super_block *sb, unsigned short new_flags)
 		return 0;
 
 	p_boot->vol_flags = cpu_to_le16(new_flags);
+	p_boot->percent_in_use = new_piu;
 
 	set_buffer_uptodate(sbi->boot_bh);
 	mark_buffer_dirty(sbi->boot_bh);
