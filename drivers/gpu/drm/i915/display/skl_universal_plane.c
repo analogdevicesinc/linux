@@ -1248,7 +1248,10 @@ static u32 glk_plane_color_ctl_input_csc(const struct intel_plane_state *plane_s
 	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
 	u32 ctl = 0;
 
-	if (fb->format->is_yuv && !icl_is_hdr_plane(display, plane->id)) {
+	if (!fb->format->is_yuv)
+		return 0;
+
+	if (!icl_is_hdr_plane(display, plane->id)) {
 		switch (plane_state->hw.color_encoding) {
 		case DRM_COLOR_YCBCR_BT709:
 			ctl |= PLANE_COLOR_CSC_MODE_YUV709_TO_RGB709;
@@ -1259,13 +1262,12 @@ static u32 glk_plane_color_ctl_input_csc(const struct intel_plane_state *plane_s
 		default:
 			ctl |= PLANE_COLOR_CSC_MODE_YUV601_TO_RGB601;
 		}
-		if (plane_state->hw.color_range == DRM_COLOR_YCBCR_FULL_RANGE)
-			ctl |= PLANE_COLOR_YUV_RANGE_CORRECTION_DISABLE;
-	} else if (fb->format->is_yuv) {
+	} else {
 		ctl |= PLANE_COLOR_INPUT_CSC_ENABLE;
-		if (plane_state->hw.color_range == DRM_COLOR_YCBCR_FULL_RANGE)
-			ctl |= PLANE_COLOR_YUV_RANGE_CORRECTION_DISABLE;
 	}
+
+	if (plane_state->hw.color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+		ctl |= PLANE_COLOR_YUV_RANGE_CORRECTION_DISABLE;
 
 	return ctl;
 }
