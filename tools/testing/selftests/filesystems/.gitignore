@@ -3,7 +3,6 @@ open_o_creat_o_dir
 dnotify_test
 devpts_pts
 fclog
-file_stressor
 anon_inode_test
 kernfs_test
 idmapped_tmpfile
