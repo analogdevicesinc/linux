@@ -54,7 +54,6 @@ perf-util-y += string.o
 perf-util-y += strlist.o
 perf-util-y += strfilter.o
 perf-util-y += top.o
-perf-util-y += usage.o
 perf-util-y += dso.o
 perf-util-y += dsos.o
 perf-util-y += symbol.o
