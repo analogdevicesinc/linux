@@ -36,7 +36,6 @@
 
 struct imx8m_chip_data {
 	void __iomem *dap;
-	struct regmap *regmap;
 	struct reset_control *run_stall;
 };
 
