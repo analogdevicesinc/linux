@@ -41,7 +41,7 @@ static int panic_on_timeout;
  * <0: the NMI watchdog has not been set up, and cannot be enabled
  *  0: the NMI watchdog is disabled, but can be enabled
  */
-atomic_t nmi_active = ATOMIC_INIT(0);		/* oprofile uses this */
+atomic_t nmi_active = ATOMIC_INIT(0);
 EXPORT_SYMBOL(nmi_active);
 static int nmi_init_done;
 static unsigned int nmi_hz = HZ;
