@@ -12,7 +12,7 @@
 #include "skl_universal_plane.h"
 
 #define MAX_COLOR_PIPELINES 1
-#define MAX_COLOROP 4
+#define MAX_COLOROP 5
 #define PLANE_DEGAMMA_SIZE 128
 #define PLANE_GAMMA_SIZE 32
 
@@ -31,6 +31,7 @@ static const struct drm_colorop_funcs intel_colorop_funcs = {
  * the pipeline totally unusable.
  */
 static const enum intel_color_block xe3plpd_primary_plane_pipeline[] = {
+	INTEL_PLANE_CB_CSC_FF,
 	INTEL_PLANE_CB_PRE_CSC_LUT,
 	INTEL_PLANE_CB_CSC,
 	INTEL_PLANE_CB_3DLUT,
@@ -38,6 +39,7 @@ static const enum intel_color_block xe3plpd_primary_plane_pipeline[] = {
 };
 
 static const enum intel_color_block hdr_plane_pipeline[] = {
+	INTEL_PLANE_CB_CSC_FF,
 	INTEL_PLANE_CB_PRE_CSC_LUT,
 	INTEL_PLANE_CB_CSC,
 	INTEL_PLANE_CB_POST_CSC_LUT,
