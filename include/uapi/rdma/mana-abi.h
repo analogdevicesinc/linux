@@ -111,6 +111,7 @@ struct mana_ib_create_qp_rss_resp {
 enum mana_ib_ucontext_support {
 	MANA_IB_UCNTX_ALLOC_PDN_SUPPORT = 1 << 0,
 	MANA_IB_UCNTX_RC_EXT_SUPPORT = 1 << 1,
+	MANA_IB_UCNTX_RC_SQ_POW2_SUPPORT = 1 << 2,
 };
 
 struct mana_ib_alloc_ucontext_resp {

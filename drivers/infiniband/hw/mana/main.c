@@ -248,6 +248,8 @@ int mana_ib_alloc_ucontext(struct ib_ucontext *ibcontext,
 	ucontext->doorbell = doorbell_page;
 	ucmd_resp.comp_mask = MANA_IB_UCNTX_ALLOC_PDN_SUPPORT;
 	ucmd_resp.comp_mask |= MANA_IB_UCNTX_RC_EXT_SUPPORT;
+	if (mdev->adapter_caps.feature_flags & MANA_IB_FEATURE_RC_QP_SQ_POW2_SUPPORT)
+		ucmd_resp.comp_mask |= MANA_IB_UCNTX_RC_SQ_POW2_SUPPORT;
 	ret = ib_respond_udata(udata, ucmd_resp);
 	if (ret)
 		return ret;
