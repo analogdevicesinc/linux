@@ -7960,7 +7960,7 @@ static inline void preempt_dynamic_init(void) { }
 #endif /* CONFIG_PREEMPT_DYNAMIC */
 
 const char *preempt_modes[] = {
-	"none", "voluntary", "full", "lazy", NULL,
+	"full", "lazy", NULL,
 };
 
 const char *preempt_model_str(void)

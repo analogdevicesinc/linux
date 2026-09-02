@@ -280,16 +280,10 @@ static ssize_t sched_dynamic_write(struct file *filp, const char __user *ubuf,
 
 static int sched_dynamic_show(struct seq_file *m, void *v)
 {
-	int i = (IS_ENABLED(CONFIG_PREEMPT_RT) || IS_ENABLED(CONFIG_ARCH_HAS_PREEMPT_LAZY)) * 2;
 	int mode = READ_ONCE(preempt_dynamic_mode);
-	int j;
 
-	/* Count entries in NULL terminated preempt_modes */
-	for (j = 0; preempt_modes[j]; j++)
-		;
-	j -= !IS_ENABLED(CONFIG_ARCH_HAS_PREEMPT_LAZY);
-
-	for (; i < j; i++) {
+	/* Stop at NULL terminator */
+	for (int i = 0; preempt_modes[i]; i++) {
 		if (mode == i)
 			seq_puts(m, "(");
 		seq_puts(m, preempt_modes[i]);
