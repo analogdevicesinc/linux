@@ -655,6 +655,7 @@ void xe_vm_add_fault_entry_pf(struct xe_vm *vm, struct xe_pagefault *pf)
 				  pf->consumer.fault_type_level);
 	e->fault_level = FIELD_GET(XE_PAGEFAULT_LEVEL_MASK,
 				   pf->consumer.fault_type_level);
+	e->srcid = FIELD_GET(XE_PAGEFAULT_SRCID_MASK, pf->consumer.id);
 
 	list_add_tail(&e->list, &vm->faults.list);
 	vm->faults.len++;
@@ -4277,6 +4278,11 @@ static u8 xe_to_user_fault_level(u8 fault_level)
 	return fault_level;
 }
 
+static u8 xe_to_user_srcid(u8 srcid)
+{
+	return srcid;
+}
+
 static int fill_faults(struct xe_vm *vm,
 		       struct drm_xe_vm_get_property *args)
 {
@@ -4303,6 +4309,8 @@ static int fill_faults(struct xe_vm *vm,
 		fault_entry.access_type = xe_to_user_access_type(entry->access_type);
 		fault_entry.fault_type = xe_to_user_fault_type(entry->fault_type);
 		fault_entry.fault_level = xe_to_user_fault_level(entry->fault_level);
+
+		fault_entry.srcid = xe_to_user_srcid(entry->srcid);
 
 		memcpy(&fault_list[i], &fault_entry, entry_size);
 
