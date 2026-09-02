@@ -51,6 +51,7 @@
 #include "util/units.h"
 #include "util/unwind.h"
 #include "util/util.h" // perf_tip()
+#include "ui/keysyms.h"
 #include "ui/ui.h"
 #include "ui/progress.h"
 #include "util/block-info.h"

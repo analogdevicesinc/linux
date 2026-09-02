@@ -24,6 +24,7 @@
 #include "arch/common.h"
 #include "builtin.h"
 #include "perf.h"
+#include "ui/keysyms.h"
 #include "ui/progress.h"
 #include "ui/ui.h"
 #include "util/annotate-data.h"
@@ -45,6 +46,13 @@
 #include "util/symbol.h"
 #include "util/tool.h"
 #include "util/util.h"
+
+#ifndef HAVE_SLANG_SUPPORT
+#undef K_LEFT
+#define K_LEFT  -1000
+#undef K_RIGHT
+#define K_RIGHT -2000
+#endif
 
 struct perf_annotate {
 	struct perf_tool tool;

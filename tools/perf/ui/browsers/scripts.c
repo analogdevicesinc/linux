@@ -7,6 +7,7 @@
 #include "../../util/session.h"
 #include "../../util/symbol.h"
 #include "../browser.h"
+#include "../keysyms.h"
 #include "../libslang.h"
 #include "config.h"
 #include <linux/err.h>
