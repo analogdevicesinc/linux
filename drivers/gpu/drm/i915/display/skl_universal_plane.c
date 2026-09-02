@@ -1246,9 +1246,11 @@ static u32 glk_plane_color_ctl_input_csc(const struct intel_plane_state *plane_s
 	struct intel_display *display = to_intel_display(plane_state);
 	const struct drm_framebuffer *fb = plane_state->hw.fb;
 	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
+	bool color_pipeline = !!plane_state->uapi.color_pipeline;
+	bool needs_csc = color_pipeline ? plane_state->hw.csc_ff_enable : fb->format->is_yuv;
 	u32 ctl = 0;
 
-	if (!fb->format->is_yuv)
+	if (!needs_csc)
 		return 0;
 
 	if (!icl_is_hdr_plane(display, plane->id)) {
