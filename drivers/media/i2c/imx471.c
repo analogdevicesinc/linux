@@ -41,7 +41,7 @@
 /* Analog gain control */
 #define IMX471_REG_ANALOG_GAIN			CCI_REG16(0x0204)
 #define IMX471_ANA_GAIN_MIN			0
-#define IMX471_ANA_GAIN_MAX			800
+#define IMX471_ANA_GAIN_MAX			960
 #define IMX471_ANA_GAIN_STEP			1
 #define IMX471_ANA_GAIN_DEFAULT			0
 
