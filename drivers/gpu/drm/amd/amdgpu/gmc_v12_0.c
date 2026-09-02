@@ -861,7 +861,6 @@ static int gmc_v12_0_sw_init(struct amdgpu_ip_block *ip_block)
 		pte_addr_mask = 0x000FFFFFFFFFF000ULL; /* 52 bit PA */
 		dma_addr_bits = 52;
 		adev->gmc.translate_further = adev->vm_manager.num_level > 1;
-		adev->gmc.init_pte_flags = AMDGPU_PTE_IS_PTE;
 		break;
 	default:
 		dev_warn(adev->dev, "Unrecognized GC IP version: 0x%08x\n",
