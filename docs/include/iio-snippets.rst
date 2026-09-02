@@ -422,9 +422,9 @@ IIO pointers
 * IIO mailing list: linux-iio@vger.kernel.org
 * `IIO Linux Kernel Documentation sysfs-bus-iio-* <https://www.kernel.org/doc/Documentation/ABI/testing>`_
 * `IIO Documentation <https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-iio>`_
-* :external+documentation:ref:`iio-oscilloscope`
-* :external+documentation:ref:`libiio`
-* :external+documentation:ref:`libiio internals`
+* :external+system-level:ref:`iio-oscilloscope`
+* :external+system-level:ref:`libiio`
+* :external+system-level:ref:`libiio internals`
 * `IIO High Speed <https://events.static.linuxfound.org/sites/events/files/slides/iio_high_speed.pdf>`_
 * `Software Defined Radio using the IIO framework <http://video.fosdem.org/2015/devroom-software_defined_radio/iiosdr.mp4>`_
 * `libiio introduction <https://www.youtube.com/watch?v=p_VntEwUe24>`_

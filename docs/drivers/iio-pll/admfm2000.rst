@@ -25,11 +25,11 @@ This driver supports the
 Description
 -----------
 
-This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
 driver, targeting serial interface Microwave converters. The industrial I/O
 subsystem provides a unified framework for drivers for many different types of
 converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See :external+documentation:ref:`iio` for more information.
+spi, etc). See :external+system-level:ref:`iio` for more information.
 
 Source Code
 -----------

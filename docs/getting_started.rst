@@ -30,9 +30,9 @@ For generic instructions on how to build the Linux Kernel, see
 
 For specific targets broadly used by us:
 
-- :external+documentation:ref:`linux-kernel zynq`
-- :external+documentation:ref:`linux-kernel zynqmp`
-- :external+documentation:ref:`linux-kernel microblaze`
+- :external+system-level:ref:`linux-kernel zynq`
+- :external+system-level:ref:`linux-kernel zynqmp`
+- :external+system-level:ref:`linux-kernel microblaze`
 - `Build Raspberry Pi Linux Kernel <https://www.raspberrypi.com/documentation/computers/linux_kernel.html>`__
 
 From the instructions above, you adjust the defconfig, devicetrees of interest,
