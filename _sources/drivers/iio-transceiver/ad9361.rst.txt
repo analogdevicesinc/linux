@@ -39,11 +39,11 @@ Evaluation Boards
 Description
 -----------
 
-This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
 driver, targeting RF Transceivers. The industrial I/O subsystem provides a
 unified framework for drivers for many different types of converters and sensors
 using a number of different physical interfaces (i2c, spi, etc). See
-:external+documentation:ref:`iio` for more information.
+:external+system-level:ref:`iio` for more information.
 
 Source Code
 -----------
@@ -194,7 +194,7 @@ Driver testing / API
 
    An example program which uses the interface can be found here:
 
-   - :external+documentation:ref:`iio-oscilloscope`
+   - :external+system-level:ref:`iio-oscilloscope`
    - :dokuwiki:`AD936X Plugin Description </resources/tools-software/linux-software/fmcomms2_plugin>`
 
 General attribute naming convention:
@@ -1360,7 +1360,7 @@ and sample rate calculations.
 This is what the
 :dokuwiki:`FMCOMMS5 </resources/eval/user-guides/ad-fmcomms5-ebz>`,
 :adi:`ADI RF SOM1 <adrv9364>`, :adi:`ADI RF SOM2 <adrv9361>` and the
-:external+documentation:ref:`pluto` use.
+:external+system-level:ref:`pluto` use.
 
 Since every time this is written, it will re-calculate and re-program all the
 PLL settings (Tx LO, Rx LO, ADC and DAC sample rates), this should only be

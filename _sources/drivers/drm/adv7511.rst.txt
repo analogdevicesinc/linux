@@ -463,7 +463,7 @@ More information
 
 - :ref:`hdl-axi-hdmi`
 - :ref:`hdl-axi-spidf`
-- :external+documentation:ref:`linux-kernel zynq`
+- :external+system-level:ref:`linux-kernel zynq`
 
 .. include:: /include/need-help.rst
    :start-after: .. start-need-help

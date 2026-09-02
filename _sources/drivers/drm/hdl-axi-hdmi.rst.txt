@@ -203,7 +203,7 @@ More information
 -
   :dokuwiki+deprecated:`AD-FMCOMMS1-EBZ Reference Design <resources/fpga/xilinx/fmc/ad-fmcomms1-ebz>`
 - :ref:`adv7511`
-- :external+documentation:ref:`linux-kernel zynq`
+- :external+system-level:ref:`linux-kernel zynq`
 
 .. include:: /include/need-help.rst
    :start-after: .. start-need-help
