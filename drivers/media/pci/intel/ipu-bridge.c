@@ -491,6 +491,7 @@ static void ipu_bridge_create_fwnode_properties(
 {
 	struct ipu_property_names *names = &sensor->prop_names;
 	struct software_node *nodes = sensor->swnodes;
+	unsigned int i = 0;
 
 	sensor->prop_names = prop_names;
 
@@ -548,21 +549,21 @@ static void ipu_bridge_create_fwnode_properties(
 			PROPERTY_ENTRY_REF_ARRAY("lens-focus", sensor->vcm_ref);
 	}
 
-	sensor->ep_properties[0] = PROPERTY_ENTRY_U32(
-					sensor->prop_names.bus_type,
-					V4L2_FWNODE_BUS_TYPE_CSI2_DPHY);
-	sensor->ep_properties[1] = PROPERTY_ENTRY_U32_ARRAY_LEN(
-					sensor->prop_names.data_lanes,
-					bridge->data_lanes, sensor->lanes);
-	sensor->ep_properties[2] = PROPERTY_ENTRY_REF_ARRAY(
-					sensor->prop_names.remote_endpoint,
-					sensor->local_ref);
+	sensor->ep_properties[IPU_BRIDGE_NEXT_PROPERTY(i, EP_BUS_TYPE)] =
+		PROPERTY_ENTRY_U32(names->bus_type,
+				   V4L2_FWNODE_BUS_TYPE_CSI2_DPHY);
+	sensor->ep_properties[IPU_BRIDGE_NEXT_PROPERTY(i, EP_DATA_LANES)] =
+		PROPERTY_ENTRY_U32_ARRAY_LEN(names->data_lanes,
+					     bridge->data_lanes, sensor->lanes);
+	sensor->ep_properties[IPU_BRIDGE_NEXT_PROPERTY(i, EP_REMOTE_EP)] =
+		PROPERTY_ENTRY_REF_ARRAY(names->remote_endpoint,
+					 sensor->local_ref);
 
 	if (cfg->nr_link_freqs > 0)
-		sensor->ep_properties[3] = PROPERTY_ENTRY_U64_ARRAY_LEN(
-			sensor->prop_names.link_frequencies,
-			cfg->link_freqs,
-			cfg->nr_link_freqs);
+		sensor->ep_properties[IPU_BRIDGE_NEXT_PROPERTY(i, EP_LINK_FREQUENCIES)] =
+			PROPERTY_ENTRY_U64_ARRAY_LEN(names->link_frequencies,
+						     cfg->link_freqs,
+						     cfg->nr_link_freqs);
 
 	sensor->ipu_properties[0] = PROPERTY_ENTRY_U32_ARRAY_LEN(
 					sensor->prop_names.data_lanes,

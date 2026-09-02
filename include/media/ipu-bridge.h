@@ -64,6 +64,23 @@ enum ipu_sensor_swnodes {
 	SWNODE_COUNT
 };
 
+enum ipu_bridge_ep_props {
+	IPU_BRIDGE_EP_BUS_TYPE,
+	IPU_BRIDGE_EP_DATA_LANES,
+	IPU_BRIDGE_EP_REMOTE_EP,
+	IPU_BRIDGE_EP_LINK_FREQUENCIES,
+	IPU_BRIDGE_EP_NUM_OF,
+	IPU_BRIDGE_EP_NUM_ENTRIES
+};
+
+/*
+ * Get the index of the next property in a property array, with a given maximum
+ * value.
+ */
+#define IPU_BRIDGE_NEXT_PROPERTY(index, max)		\
+	(WARN_ON((index) > IPU_BRIDGE_##max) ?		\
+	 IPU_BRIDGE_##max : (index)++)
+
 /* Data representation as it is in ACPI SSDB buffer */
 struct ipu_sensor_ssdb {
 	u8 version;
@@ -141,7 +158,7 @@ struct ipu_sensor {
 	const char *vcm_type;
 
 	struct ipu_property_names prop_names;
-	struct property_entry ep_properties[5];
+	struct property_entry ep_properties[IPU_BRIDGE_EP_NUM_ENTRIES];
 	struct property_entry dev_properties[5];
 	struct property_entry ipu_properties[3];
 	struct property_entry ivsc_properties[1];
