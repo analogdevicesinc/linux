@@ -112,8 +112,13 @@ struct xe_pagefault {
 				u8 engine_class_instance;
 #define XE_PAGEFAULT_ENGINE_CLASS_MASK		GENMASK(3, 0)
 #define XE_PAGEFAULT_ENGINE_INSTANCE_MASK	GENMASK(7, 4)
-				/** @consumer.asid: address space ID */
-				u32 asid;
+				/**
+				 * @consumer.id: address space ID and SRCID, folded into one
+				 * to keep size compact
+				 */
+				u32 id;
+#define XE_PAGEFAULT_ASID_MASK	GENMASK(23, 0)
+#define XE_PAGEFAULT_SRCID_MASK	GENMASK(31, 24)
 			};
 			/**
 			 * @consumer.end_addr: end address of page fault,
