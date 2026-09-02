@@ -4,6 +4,7 @@
 #define __COREDUMP_TEST_H
 
 #include "../kselftest_harness.h"
+#include "coredump_notify_signal.h"
 
 #include "coredump_test_helpers.h"
 
