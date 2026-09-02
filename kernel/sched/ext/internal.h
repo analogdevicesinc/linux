@@ -2115,6 +2115,22 @@ extern struct scx_sched *scx_enabling_sub_sched;
 #define scx_error(sch, fmt, args...)						\
 	scx_exit((sch), SCX_EXIT_ERROR, 0, fmt, ##args)
 
+/*
+ * Tracing progs can call kfuncs from NMI. Kfuncs that take scheduler locks or
+ * touch the kick lists, which are only protected by irq masking, can't run
+ * there, so abort the scheduler instead. scx_error() is NMI-safe.
+ */
+static __always_inline bool __scx_kf_allowed_ctx(struct scx_sched *sch, const char *who)
+{
+	if (unlikely(in_nmi())) {
+		scx_error(sch, "%s called from NMI", who);
+		return false;
+	}
+	return true;
+}
+
+#define scx_kf_allowed_ctx(sch)	__scx_kf_allowed_ctx((sch), __func__)
+
 /**
  * scx_root_protected_live - Root sched for paths that only run while live
  *
