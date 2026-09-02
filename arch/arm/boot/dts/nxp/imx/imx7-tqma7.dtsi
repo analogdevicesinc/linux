@@ -137,17 +137,17 @@
 		};
 	};
 
+	/* NXP SE97BTP with temperature sensor + eeprom, TQMa7x 02xx */
+	se97b: temperature-sensor@1e {
+		compatible = "nxp,se97b", "jedec,jc-42.4-temp";
+		reg = <0x1e>;
+	};
+
 	/* LM75A temperature sensor, TQMa7x 01xx */
 	lm75a: temperature-sensor@48 {
 		compatible = "national,lm75a";
 		reg = <0x48>;
 		vs-supply = <&vgen4_reg>;
-	};
-
-	/* NXP SE97BTP with temperature sensor + eeprom, TQMa7x 02xx */
-	se97b: temperature-sensor@1e {
-		compatible = "nxp,se97b", "jedec,jc-42.4-temp";
-		reg = <0x1e>;
 	};
 
 	/* ST M24C64 */
