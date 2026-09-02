@@ -51,8 +51,8 @@ static void trace_noc_enable_hw(struct trace_noc_drvdata *drvdata)
 {
 	u32 val;
 
-	/* No valid ATID, simply enable the unit */
-	if (drvdata->atid == -EOPNOTSUPP) {
+	/* 0 means no ID assignment, simply enable the unit */
+	if (drvdata->atid == 0) {
 		writel(TRACE_NOC_CTRL_PORTEN, drvdata->base + TRACE_NOC_CTRL);
 		return;
 	}
@@ -130,10 +130,8 @@ static int trace_noc_init_default_data(struct trace_noc_drvdata *drvdata)
 {
 	int atid;
 
-	if (!dev_is_amba(drvdata->dev)) {
-		drvdata->atid = -EOPNOTSUPP;
+	if (!dev_is_amba(drvdata->dev))
 		return 0;
-	}
 
 	atid = coresight_trace_id_get_system_id();
 	if (atid < 0)
@@ -166,7 +164,7 @@ static umode_t trace_id_is_visible(struct kobject *kobj,
 	struct device *dev = kobj_to_dev(kobj);
 	struct trace_noc_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (attr == &dev_attr_traceid.attr && drvdata->atid < 0)
+	if (attr == &dev_attr_traceid.attr && drvdata->atid == 0)
 		return 0;
 
 	return attr->mode;
