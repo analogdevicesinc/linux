@@ -670,11 +670,10 @@ static const struct dc_debug_options debug_defaults_drv = {
 			.enable_ppt_check = true,
 			.enable_offload_flip = true,
 			.enable_stall_recovery = true,
+			.alternate_channel_workaround = true,
 		}
 	},
 	.force_cositing = CHROMA_COSITING_NONE + 1,
-	.dml21_disable_pstate_method_mask = 0x20, // disable alt-ch unconditionally until dependencies are ready
-
 };
 
 static const struct dc_check_config config_defaults = {
