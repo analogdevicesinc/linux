@@ -6,10 +6,8 @@
  * This is the main hub from which the sub-commands (perf stat,
  * perf top, perf record, perf report, etc.) are started.
  */
-#include "perf.h"
 
 #include <errno.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +19,6 @@
 #include <sys/stat.h>
 
 #include <api/fs/tracing_path.h>
-#include <internal/lib.h> // page_size
 #include <perf/core.h>
 #include <subcmd/exec-cmd.h>
 #include <subcmd/help.h>
@@ -30,7 +27,6 @@
 #include <subcmd/run-command.h>
 
 #include "builtin.h"
-#include "perf-sys.h"
 #include "ui/ui.h"
 #include "util/build-id.h"
 #include "util/config.h"
