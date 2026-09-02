@@ -8,10 +8,10 @@
  */
 #include "builtin.h"
 #include "perf.h"
+#include <stdbool.h>
 
 #include "util/color.h"
 #include <linux/list.h>
-#include "util/cache.h"
 #include <linux/rbtree.h>
 #include "util/symbol.h"
 
@@ -38,12 +38,16 @@
 #include "util/branch.h"
 #include "util/util.h"
 #include "ui/progress.h"
+#include "ui/ui.h"
 
 #include <dlfcn.h>
 #include <errno.h>
 #include <linux/bitmap.h>
 #include <linux/err.h>
 #include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 struct perf_annotate {
 	struct perf_tool tool;
