@@ -1051,6 +1051,10 @@ int xe_device_probe(struct xe_device *xe)
 	if (err)
 		return err;
 
+	err = xe_vram_reserve_memtest_bo(xe);
+	if (err)
+		return err;
+
 	for_each_tile(tile, xe, id) {
 		err = xe_tile_init(tile);
 		if (err)
@@ -1066,6 +1070,10 @@ int xe_device_probe(struct xe_device *xe)
 		if (err)
 			return err;
 	}
+
+	err = xe_vram_memtest(xe);
+	if (err)
+		return err;
 
 	err = xe_pagefault_init(xe);
 	if (err)

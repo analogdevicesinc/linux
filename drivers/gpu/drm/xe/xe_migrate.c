@@ -2650,3 +2650,67 @@ void xe_migrate_job_lock_assert(struct xe_exec_queue *q)
 #if IS_ENABLED(CONFIG_DRM_XE_KUNIT_TEST)
 #include "tests/xe_migrate.c"
 #endif
+
+#if IS_ENABLED(CONFIG_DRM_XE_DEBUG_MEM)
+int xe_migrate_debug_ccs_overlap(struct xe_migrate *m,
+				 struct xe_bo *scratch_bo,
+				 bool write_to_ccs)
+{
+	struct xe_device *xe = tile_to_xe(m->tile);
+	struct xe_gt *gt = m->tile->primary_gt;
+	struct dma_fence *fence;
+	struct xe_bb *bb;
+	struct xe_sched_job *job;
+	u64 first_page_dpa, clear_L0_ofs, scratch_dpa, scratch_L0_ofs;
+
+	if (!xe_device_has_flat_ccs(xe))
+		return -EINVAL;
+
+	first_page_dpa = xe_vram_region_dpa_base(m->tile->mem.vram);
+	clear_L0_ofs = xe_migrate_vram_ofs(xe, first_page_dpa, true);
+
+	scratch_dpa = xe_bo_addr(scratch_bo, 0, XE_PAGE_SIZE);
+	scratch_L0_ofs = xe_migrate_vram_ofs(xe, scratch_dpa, false);
+
+	bb = xe_bb_new(gt, EMIT_COPY_CCS_DW + 1, xe->info.has_usm);
+	if (IS_ERR(bb)) {
+		drm_warn(&xe->drm, "Failed to create bb for VRAM overlap check\n");
+		return PTR_ERR(bb);
+	}
+
+	/* 4MB payload = 8KB CCS metadata */
+	if (write_to_ccs) {
+		emit_copy_ccs(gt, bb, clear_L0_ofs, true,
+			      scratch_L0_ofs, false, SZ_4M);
+	} else {
+		emit_copy_ccs(gt, bb, scratch_L0_ofs, false,
+			      clear_L0_ofs, true, SZ_4M);
+	}
+
+	bb->cs[bb->len++] = MI_BATCH_BUFFER_END;
+
+	job = xe_bb_create_migration_job(m->q, bb,
+					 xe_migrate_batch_base(m, xe->info.has_usm),
+					 0);
+	if (!IS_ERR(job)) {
+		xe_sched_job_add_migrate_flush(job, MI_FLUSH_DW_CCS);
+
+		mutex_lock(&m->job_mutex);
+		xe_sched_job_arm(job);
+
+		fence = dma_fence_get(&job->drm.s_fence->finished);
+		xe_sched_job_push(job);
+		mutex_unlock(&m->job_mutex);
+
+		dma_fence_wait(fence, false);
+		dma_fence_put(fence);
+	} else {
+		drm_warn(&xe->drm, "Failed to create job for VRAM overlap check\n");
+		xe_bb_free(bb, NULL);
+		return PTR_ERR(job);
+	}
+
+	xe_bb_free(bb, NULL);
+	return 0;
+}
+#endif
