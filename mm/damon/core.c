@@ -15,7 +15,6 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-#include <linux/string_choices.h>
 
 /* for damon_get_folio() used by node eligible memory metrics */
 #include "ops-common.h"
