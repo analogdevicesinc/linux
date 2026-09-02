@@ -5,18 +5,20 @@
  * Copyright (C) 2015, Taeung Song <treeze.taeung@gmail.com>
  *
  */
-#include "builtin.h"
-
-#include <subcmd/parse-options.h>
-#include "util/debug.h"
-#include "util/config.h"
-#include "util/path.h"
-#include <linux/string.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
+
+#include <linux/string.h>
+
+#include <subcmd/parse-options.h>
+
+#include "builtin.h"
+#include "util/config.h"
+#include "util/debug.h"
+#include "util/path.h"
 
 static bool use_system_config, use_user_config;
 

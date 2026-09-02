@@ -2,8 +2,9 @@
 #ifndef _PERF_PATH_H
 #define _PERF_PATH_H
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
+
 #include <linux/compiler.h>
 
 struct dirent;

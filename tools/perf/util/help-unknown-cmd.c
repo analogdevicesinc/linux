@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0
-#include "config.h"
-#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <subcmd/help.h>
-#include "../builtin.h"
-#include "levenshtein.h"
+
 #include <linux/zalloc.h>
+#include <poll.h>
+
+#include <subcmd/help.h>
+
+#include "../builtin.h"
+#include "config.h"
+#include "levenshtein.h"
 
 static int autocorrect;
 
