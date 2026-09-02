@@ -255,7 +255,7 @@ Driver testing
    An example program whiroot@analog:/sys/bus/iio/devices# ls -lch uses the
    interface can be found here:
 
-   - :external+documentation:ref:`iio-oscilloscope`
+   - :external+system-level:ref:`iio-oscilloscope`
 
 Show device name
 ~~~~~~~~~~~~~~~~

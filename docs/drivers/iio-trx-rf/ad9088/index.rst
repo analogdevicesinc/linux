@@ -333,7 +333,7 @@ General IIO and driver conventions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Controlling the MxFE is done via the IIO sysfs interface. For convenience users
-can use :external+documentation:ref:`libiio` and its various programming
+can use :external+system-level:ref:`libiio` and its various programming
 languages bindings.
 
 The MxFE IIO device under /sys/bus/iio/devices/iio:deviceX features a set of

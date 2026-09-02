@@ -12,12 +12,12 @@ devices are compact, high accuracy, low power, 16-channel, 16-bit, multiplexed
 input precision, successive approximation register (SAR) analog-to-digital
 converters (ADCs) with Easy Drive features and extensive digital functionality.
 
-This page describes Linux industrial I/O (:external+documentation:ref:`iio`)
+This page describes Linux industrial I/O (:external+system-level:ref:`iio`)
 subsystem driver, targeting single channel SPI interface :adi:`AD4695`
 and similar ADC devices. The industrial I/O subsystem provides a unified
 framework for drivers for many different types of converters and sensors using a
 number of different physical interfaces (I2C, SPI, etc). See
-:external+documentation:ref:`iio` for more information.
+:external+system-level:ref:`iio` for more information.
 
 Supported Devices
 -----------------
@@ -523,7 +523,7 @@ Typical ZedBoard software setup
 Install OS on the ZedBoard
 ''''''''''''''''''''''''''
 
-ADI provides a :external+documentation:ref:`kuiper` distribution for supported
+ADI provides a :external+system-level:ref:`kuiper` distribution for supported
 evaluation boards. Step by step guides for imaging Kuiper Linux are available
 for
 :dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`

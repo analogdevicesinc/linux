@@ -30,7 +30,7 @@ source_suffix = '.rst'
 interref_repos = [
     'hdl',
     'scopy',
-    'documentation',
+    'system-level',
     'pyadi-jif',
     'kuiper',
 ]

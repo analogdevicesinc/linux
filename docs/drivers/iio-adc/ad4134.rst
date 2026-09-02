@@ -96,7 +96,7 @@ Flash Kuiper Linux to the SD card
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Install Kuiper Linux to the SD card. Step by step guides for imaging
-:external+documentation:ref:`kuiper` are available for
+:external+system-level:ref:`kuiper` are available for
 :dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
 and
 :dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
@@ -182,7 +182,7 @@ and devicetree.dtb files.
      -
 
 Follow the **Configuring the SD Card for FPGA Projects** section of the
-:external+documentation:ref:`kuiper` page.
+:external+system-level:ref:`kuiper` page.
 
 Copy the following files onto the BOOT partition to configure the SD card:
 
@@ -255,7 +255,7 @@ Driver testing
    An example program whiroot@analog:/sys/bus/iio/devices# ls -lch uses the
    interface can be found here:
 
-   - :external+documentation:ref:`iio-oscilloscope`
+   - :external+system-level:ref:`iio-oscilloscope`
 
 Show device name
 ~~~~~~~~~~~~~~~~
