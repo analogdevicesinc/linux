@@ -2777,7 +2777,8 @@ static bool patch_address_for_sbs_tb_stereo(
 	return false;
 }
 
-void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
+void dcn20_prepare_plane_addr_update(const struct dc *dc, struct pipe_ctx *pipe_ctx,
+		struct dc_plane_address *addr_to_program, bool *flip_immediate)
 {
 	bool addr_patched = false;
 	PHYSICAL_ADDRESS_LOC addr;
@@ -2792,10 +2793,8 @@ void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
 	vm_helper_mark_vmid_used(dc->vm_helper, plane_state->address.vmid,
 			(uint8_t)pipe_ctx->plane_res.hubp->inst);
 
-	pipe_ctx->plane_res.hubp->funcs->hubp_program_surface_flip_and_addr(
-			pipe_ctx->plane_res.hubp,
-			&plane_state->address,
-			plane_state->flip_immediate);
+	*addr_to_program = plane_state->address;
+	*flip_immediate = plane_state->flip_immediate;
 
 	plane_state->status.requested_address = plane_state->address;
 
@@ -2804,6 +2803,22 @@ void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
 
 	if (addr_patched)
 		pipe_ctx->plane_state->address.grph_stereo.left_addr = addr;
+}
+
+void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
+{
+	struct dc_plane_address address;
+	bool flip_immediate;
+
+	if (pipe_ctx->plane_state == NULL)
+		return;
+
+	dcn20_prepare_plane_addr_update(dc, pipe_ctx, &address, &flip_immediate);
+
+	pipe_ctx->plane_res.hubp->funcs->hubp_program_surface_flip_and_addr(
+			pipe_ctx->plane_res.hubp,
+			&address,
+			flip_immediate);
 }
 
 void dcn20_unblank_stream(struct pipe_ctx *pipe_ctx,

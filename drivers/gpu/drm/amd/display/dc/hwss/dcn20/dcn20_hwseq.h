@@ -41,6 +41,8 @@ void dcn20_post_unlock_program_front_end(
 		struct dc *dc,
 		struct dc_state *context);
 void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx);
+void dcn20_prepare_plane_addr_update(const struct dc *dc, struct pipe_ctx *pipe_ctx,
+		struct dc_plane_address *addr_to_program, bool *flip_immediate);
 void dcn20_update_mpcc(struct dc *dc, struct pipe_ctx *pipe_ctx);
 bool dcn20_set_input_transfer_func(struct set_input_transfer_func_params *params);
 bool dcn20_set_output_transfer_func(struct set_output_transfer_func_params *params);

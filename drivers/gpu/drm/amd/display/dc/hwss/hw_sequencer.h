@@ -92,8 +92,9 @@ struct program_triplebuffer_params {
 };
 
 struct update_plane_addr_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct hubp *hubp;
+	struct dc_plane_address address;
+	bool flip_immediate;
 };
 
 struct set_input_transfer_func_params {
@@ -1457,6 +1458,10 @@ struct hw_sequencer_funcs {
 			struct dc_state *context);
 	void (*update_plane_addr)(const struct dc *dc,
 			struct pipe_ctx *pipe_ctx);
+	void (*prepare_plane_addr_update)(const struct dc *dc,
+			struct pipe_ctx *pipe_ctx,
+			struct dc_plane_address *addr_to_program,
+			bool *flip_immediate);
 	void (*update_dchub)(struct dce_hwseq *hws,
 			struct dchub_init_data *dh_data);
 	void (*wait_for_mpcc_disconnect)(struct dc *dc,

@@ -39,6 +39,7 @@ static const struct hw_sequencer_funcs dcn10_funcs = {
 	.post_unlock_program_front_end = dcn10_post_unlock_program_front_end,
 	.wait_for_pending_cleared = dcn10_wait_for_pending_cleared,
 	.update_plane_addr = dcn10_update_plane_addr,
+	.prepare_plane_addr_update = dcn10_prepare_plane_addr_update,
 	.update_dchub = dcn10_update_dchub,
 	.update_pending_status = dcn10_update_pending_status,
 	.clear_surface_dcc_and_tiling = dcn10_reset_surface_dcc_and_tiling,

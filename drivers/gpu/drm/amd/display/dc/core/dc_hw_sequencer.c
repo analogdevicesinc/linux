@@ -1471,7 +1471,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 					block_sequence[*num_steps].func = HUBP_PROGRAM_TRIPLEBUFFER;
 					(*num_steps)++;
 				}
-				if (dc->hwss.update_plane_addr && current_mpc_pipe->plane_state->update_bits.addr_update) {
+				if (dc->hwss.prepare_plane_addr_update && current_mpc_pipe->plane_state->update_bits.addr_update) {
 					if (resource_is_pipe_type(current_mpc_pipe, OTG_MASTER) &&
 							stream_status->mall_stream_config.type == SUBVP_MAIN) {
 						block_sequence[*num_steps].params.subvp_save_surf_addr.dc_dmub_srv = dc->ctx->dmub_srv;
@@ -1481,10 +1481,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 						(*num_steps)++;
 					}
 
-					block_sequence[*num_steps].params.update_plane_addr_params.dc = dc;
-					block_sequence[*num_steps].params.update_plane_addr_params.pipe_ctx = current_mpc_pipe;
-					block_sequence[*num_steps].func = HUBP_UPDATE_PLANE_ADDR;
-					(*num_steps)++;
+					hwss_add_hubp_update_plane_addr(&seq_state, dc, current_mpc_pipe);
 				}
 
 				if (current_mpc_pipe->plane_state->update_bits.lut_3d &&
@@ -1713,8 +1710,10 @@ void hwss_execute_sequence(struct dc *dc,
 					params->program_triplebuffer_params.enableTripleBuffer);
 			break;
 		case HUBP_UPDATE_PLANE_ADDR:
-			dc->hwss.update_plane_addr(params->update_plane_addr_params.dc,
-					params->update_plane_addr_params.pipe_ctx);
+			params->update_plane_addr_params.hubp->funcs->hubp_program_surface_flip_and_addr(
+					params->update_plane_addr_params.hubp,
+					&params->update_plane_addr_params.address,
+					params->update_plane_addr_params.flip_immediate);
 			break;
 		case DPP_SET_INPUT_TRANSFER_FUNC:
 			hws->funcs.set_input_transfer_func(&params->set_input_transfer_func_params);
@@ -2345,9 +2344,18 @@ void hwss_add_hubp_update_plane_addr(struct block_sequence_state *seq_state,
 		struct dc *dc,
 		struct pipe_ctx *pipe_ctx)
 {
+	struct hubp *hubp = pipe_ctx->plane_res.hubp;
+
+	if (!dc->hwss.prepare_plane_addr_update || !hubp || !hubp->funcs->hubp_program_surface_flip_and_addr)
+		return;
+
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.update_plane_addr_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.update_plane_addr_params.pipe_ctx = pipe_ctx;
+		struct update_plane_addr_params *params =
+			&seq_state->steps[*seq_state->num_steps].params.update_plane_addr_params;
+
+		dc->hwss.prepare_plane_addr_update(dc, pipe_ctx,
+				&params->address, &params->flip_immediate);
+		params->hubp = hubp;
 		seq_state->steps[*seq_state->num_steps].func = HUBP_UPDATE_PLANE_ADDR;
 		(*seq_state->num_steps)++;
 	}
