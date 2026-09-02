@@ -1,0 +1,292 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/ad1936
+
+.. _ad1936:
+
+AD1936
+======
+
+AD1936 Sound CODEC Linux Driver.
+
+Supported devices
+-----------------
+
+- :adi:`AD1933`
+- :adi:`AD1934`
+- :adi:`AD1936`
+- :adi:`AD1937`
+- :adi:`AD1938`
+- :adi:`AD1939`
+- :adi:`ADAU1328`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD1937AZ`
+- :adi:`EVAL-AD1938AZ`
+- :adi:`EVAL-AD1939AZ`
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainline?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ad193x.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ad193x.c>`__
+     -
+     -
+
+Files
+^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `sound/soc/codecs/ad193x.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ad193x.c>`__
+   * - include
+     - `sound/soc/codecs/ad193x.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ad193x.h>`__
+
+Example device initialization
+-----------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+You need to set the modalias of your SPI info according to your codec. Valid
+values are ``ad1935`` and ``ad1937``, You’ll also have to adjust bus_num and
+chip_select according to your board setup.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+       [--snip--]
+       {
+           .modalias = "ad1936",
+           .max_speed_hz = 3125000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0,
+           .chip_select = 4, /* CS, change it for your board */
+           .mode = SPI_MODE_3,
+       },
+       [--snip--]
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+ASoC DAPM Widgets
+~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - DAC1OUT
+     - DAC Channel1 Output
+   * - DAC2OUT
+     - DAC Channel2 Output
+   * - DAC3OUT
+     - DAC Channel3 Output
+   * - DAC4OUT
+     - DAC Channel4 Output
+   * - ADC1IN
+     - ADC Channel1 Input
+   * - ADC2IN
+     - ADC Channel2 Input
+
+ALSA Controls
+~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - ADC High Pass Filter Switch
+     - Enable/Disable ADC high-pass filter
+   * - Playback Deemphasis
+     - Select playback de-emphasis. Possible Values: ``None``, ``48kHz``,
+       ``44.1kHz``, ``32kHz``
+   * - DAC1 Volume
+     - DAC Channel 1 volume
+   * - DAC2 Volume
+     - DAC Channel 2 volume
+   * - DAC3 Volume
+     - DAC Channel 3 volume
+   * - DAC4 Volume
+     - DAC Channel 4 volume
+   * - DAC1 Switch
+     - Mute/Unmute DAC Channel 1
+   * - DAC2 Switch
+     - Mute/Unmute DAC Channel 2
+   * - DAC3 Switch
+     - Mute/Unmute DAC Channel 3
+   * - DAC4 Switch
+     - Mute/Unmute DAC Channel 4
+   * - ADC1 Switch
+     - Mute/Unmute ADC Channel1
+   * - ADC2 Switch
+     - Mute/Unmute ADC Channel2
+
+DAI Configuration
+~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - DAI name
+   * - ``ad193x-hifi``
+
+Supported DAI formats
+^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Supported by driver
+     - Description
+   * - SND_SOC_DAIFMT_I2S
+     - yes
+     - I2S mode
+   * - SND_SOC_DAIFMT_RIGHT_J
+     - no
+     - Right Justified mode
+   * - SND_SOC_DAIFMT_LEFT_J
+     - no
+     - Left Justified mode
+   * - SND_SOC_DAIFMT_DSP_A
+     - yes
+     - data MSB after FRM LRC
+   * - SND_SOC_DAIFMT_DSP_B
+     - no
+     - data MSB during FRM LRC
+   * - SND_SOC_DAIFMT_AC97
+     - no
+     - AC97 mode
+   * - SND_SOC_DAIFMT_PDM
+     - no
+     - Pulse density modulation
+   * -
+     -
+     -
+   * - SND_SOC_DAIFMT_NB_NF
+     - yes
+     - Normal bit- and frameclock
+   * - SND_SOC_DAIFMT_NB_IF
+     - yes
+     - Normal bitclock, inverted frameclock
+   * - SND_SOC_DAIFMT_IB_NF
+     - yes
+     - Inverted frameclock, normal bitclock
+   * - SND_SOC_DAIFMT_IB_IF
+     - yes
+     - Inverted bit- and frameclock
+   * -
+     -
+     -
+   * - SND_SOC_DAIFMT_CBM_CFM
+     - yes
+     - Codec bit- and frameclock master
+   * - SND_SOC_DAIFMT_CBS_CFM
+     - yes
+     - Codec bitclock slave, frameclock master
+   * - SND_SOC_DAIFMT_CBM_CFS
+     - yes
+     - Codec bitclock master, frameclock slave
+   * - SND_SOC_DAIFMT_CBS_CFS
+     - yes
+     - Codec bit- and frameclock slave
+
+Example DAI Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code:: c
+
+   static int bf5xx_ad193x_hw_params(struct snd_pcm_substream *substream,
+       struct snd_pcm_hw_params *params)
+   {
+       struct snd_soc_pcm_runtime *rtd = substream->private_data;
+       struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+       struct snd_soc_dai *codec_dai = rtd->codec_dai;
+       int ret;
+
+       /* set cpu DAI configuration */
+       ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_DSP_A |
+           SND_SOC_DAIFMT_IB_IF | SND_SOC_DAIFMT_CBM_CFM);
+       if (ret < 0)
+           return ret;
+
+       /* set codec DAI configuration */
+       ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_A |
+           SND_SOC_DAIFMT_IB_IF | SND_SOC_DAIFMT_CBM_CFM);
+       if (ret < 0)
+           return ret;
+
+       return 0;
+   }
+
+   static struct snd_soc_ops bf5xx_ad193x_ops = {
+       .hw_params = bf5xx_ad193x_hw_params,
+   };
+
+   static struct snd_soc_dai_link bf5xx_ad193x_dai = {
+       .name = "ad193x",
+       .stream_name = "AD193X",
+       .cpu_dai_name = "bfin-tdm.0",
+       .codec_dai_name = "ad193x-hifi",
+       .platform_name = "bfin-tdm-pcm-audio",
+       .codec_name = "spi0.4",
+       .ops = &bf5xx_ad193x_ops,
+   };
+
+AD193X evaluation board driver
+------------------------------
+
+Adding Kernel Support - As a module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To add support for the built-in codec AD193X of BF5XX to the kernel build
+system, a few things must be enabled properly for things to work.The
+configuration is as following:
+
+::
+
+   Linux Kernel Configuration
+     Device Drivers  --->
+       Sound  --->
+         <M> Sound card support
+           Advanced Linux Sound Architecture  --->
+             <M> Advanced Linux Sound Architecture
+             < > Sequencer support
+             <M> OSS Mixer API
+             <M> OSS PCM (digital audio) API
+             <M>   ALSA for SoC audio support  --->
+                 <M>   SoC I2S(TDM mode) Audio for the ADI BF5xx chip
+                 <M>   SoC AD193X Audio support for BF5xx
+
+Doing this will create modules (outside the kernel). The modules will be
+inserted automatically when it is needed. You can also build sound driver into
+kernel.
