@@ -55,9 +55,6 @@ static int determine_lmem_bar_size(struct xe_device *xe, struct xe_vram_region *
 	/* XXX: Need to change when xe link code is ready */
 	lmem_bar->dpa_base = 0;
 
-	/* set up a map to the total memory area. */
-	lmem_bar->mapping = devm_ioremap_wc(&pdev->dev, lmem_bar->io_start, lmem_bar->io_size);
-
 	return 0;
 }
 
@@ -196,7 +193,7 @@ static void vram_fini(void *arg)
 	struct xe_tile *tile;
 	int id;
 
-	xe->mem.vram->mapping = NULL;
+	xe_assert(xe, !xe->mem.vram->mapping);
 
 	for_each_tile(tile, xe, id) {
 		tile->mem.vram->mapping = NULL;
@@ -257,8 +254,15 @@ static int vram_region_init(struct xe_device *xe, struct xe_vram_region *vram,
 		return -ENODEV;
 	}
 
+	if (vram != xe->mem.vram) {
+		struct pci_dev *pdev = to_pci_dev(xe->drm.dev);
+
+		vram->mapping = devm_ioremap_wc(&pdev->dev, vram->io_start, vram->io_size);
+		if (!vram->mapping)
+			return -ENOMEM;
+	}
+
 	vram->dpa_base = lmem_bar->dpa_base + offset;
-	vram->mapping = lmem_bar->mapping + offset;
 	vram->usable_size = usable_size;
 
 	print_vram_region_info(xe, vram);
