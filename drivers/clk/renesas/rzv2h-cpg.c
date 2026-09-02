@@ -923,9 +923,6 @@ rzv2h_cpg_fixed_mod_status_clk_register(const struct cpg_core_clk *core,
 		return ERR_CAST(parent);
 
 	parent_name = __clk_get_name(parent);
-	parent = priv->clks[core->parent];
-	if (IS_ERR(parent))
-		return ERR_CAST(parent);
 
 	clk_hw_data = devm_kzalloc(priv->dev, sizeof(*clk_hw_data), GFP_KERNEL);
 	if (!clk_hw_data)
