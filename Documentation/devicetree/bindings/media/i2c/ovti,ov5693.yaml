@@ -82,6 +82,8 @@ properties:
         unevaluatedProperties: false
 
         properties:
+          clock-noncontinuous: true
+
           link-frequencies: true
 
           data-lanes:
