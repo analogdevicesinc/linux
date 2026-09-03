@@ -138,11 +138,10 @@ int execmem_restore_rox(void *ptr, size_t size)
 static void execmem_cache_clean(struct work_struct *work)
 {
 	struct maple_tree *free_areas = &execmem_cache.free_areas;
-	struct mutex *mutex = &execmem_cache.mutex;
 	MA_STATE(mas, free_areas, 0, ULONG_MAX);
 	void *area;
 
-	mutex_lock(mutex);
+	guard(mutex)(&execmem_cache.mutex);
 	mas_for_each(&mas, area, ULONG_MAX) {
 		struct vm_struct *vm = find_vm_area(area);
 		size_t size = mas_range_len(&mas);
@@ -163,7 +162,6 @@ static void execmem_cache_clean(struct work_struct *work)
 			vfree(area);
 		}
 	}
-	mutex_unlock(mutex);
 }
 
 static DECLARE_WORK(execmem_cache_clean_work, execmem_cache_clean);
@@ -269,7 +267,7 @@ static void *__execmem_cache_alloc(struct execmem_range *range, size_t size)
 static void *execmem_vmalloc_rox(struct execmem_range *range, size_t size,
 				 unsigned long vm_flags)
 {
-	void *p = execmem_vmalloc(range, size, PAGE_KERNEL, vm_flags);
+	void *p __free(vfree) = execmem_vmalloc(range, size, PAGE_KERNEL, vm_flags);
 	int err;
 
 	if (!p)
@@ -280,22 +278,17 @@ static void *execmem_vmalloc_rox(struct execmem_range *range, size_t size,
 	set_vm_flush_reset_perms(p);
 	err = set_memory_rox((unsigned long)p, size >> PAGE_SHIFT);
 	if (err)
-		goto err_free_mem;
+		return NULL;
 
-	return p;
-
-err_free_mem:
-	vfree(p);
-	return NULL;
+	return no_free_ptr(p);
 }
 
 static void *execmem_cache_populate_alloc(struct execmem_range *range, size_t size)
 {
 	unsigned long vm_flags = VM_REQUIRE_HUGE_VMAP;
 	size_t alloc_size = round_up(size, PMD_SIZE);
-	struct mutex *mutex = &execmem_cache.mutex;
+	void *p __free(vfree) = NULL;
 	int err;
-	void *p;
 
 	p = execmem_vmalloc_rox(range, alloc_size, vm_flags);
 	if (!p)
@@ -306,20 +299,15 @@ static void *execmem_cache_populate_alloc(struct execmem_range *range, size_t si
 	 * as an atomic operation, otherwise they may be consumed
 	 * by a parallel call to the execmem_cache_alloc function.
 	 */
-	mutex_lock(mutex);
+	guard(mutex)(&execmem_cache.mutex);
 	err = execmem_cache_add_locked(p, alloc_size, GFP_KERNEL);
-	if (!err)
-		p = execmem_cache_alloc_locked(range, size);
-	mutex_unlock(mutex);
-
 	if (err)
-		goto err_free_mem;
+		return NULL;
 
-	return p;
+	/* the chunk belongs to the cache now */
+	retain_and_null_ptr(p);
 
-err_free_mem:
-	vfree(p);
-	return NULL;
+	return execmem_cache_alloc_locked(range, size);
 }
 
 static void *execmem_alloc_rox(struct execmem_range *range, size_t size)
