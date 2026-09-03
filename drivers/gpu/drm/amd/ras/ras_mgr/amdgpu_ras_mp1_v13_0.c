@@ -105,14 +105,14 @@ static int mp1_v13_0_dump_valid_bank(struct ras_core_context *ras_core,
 }
 
 static int mp1_v13_0_eeprom_send_msg(struct ras_core_context *ras_core,
-				enum ras_fw_eeprom_cmd index, uint32_t param, uint32_t *read_arg)
+				u32 msg_id, uint32_t param, uint32_t *read_arg)
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
 	int ret = 0;
 
 	if (down_read_trylock(&adev->reset_domain->sem)) {
 		ret = mp1_v13_send_smu_msg(adev,
-			pmfw_eeprom_msgs[index], param, read_arg);
+			pmfw_eeprom_msgs[msg_id], param, read_arg);
 		up_read(&adev->reset_domain->sem);
 	} else {
 		ret = -RAS_CORE_GPU_IN_MODE1_RESET;
