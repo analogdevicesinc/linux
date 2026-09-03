@@ -335,6 +335,7 @@ static bool apple_match_product_name(void)
 
 static void apple_set_os(void)
 {
+	static efi_guid_t apple_set_os_guid = APPLE_SET_OS_PROTOCOL_GUID;
 	struct {
 		unsigned long version;
 		efi_status_t (__efiapi *set_os_version)(const char *);
@@ -345,7 +346,7 @@ static void apple_set_os(void)
 	if (!efi_is_64bit() || !apple_match_product_name())
 		return;
 
-	status = efi_bs_call(locate_protocol, &APPLE_SET_OS_PROTOCOL_GUID, NULL,
+	status = efi_bs_call(locate_protocol, &apple_set_os_guid, NULL,
 			     (void **)&set_os);
 	if (status != EFI_SUCCESS)
 		return;
