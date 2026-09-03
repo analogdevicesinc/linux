@@ -39,7 +39,7 @@ static int nau8360_dsp_chan_kcs_setup(struct snd_soc_component *cp,
 		.cmd_id = _id, \
 	}
 
-/**
+/*
  * Preamble Fragment Masks:
  * FIELD           | BITS   | SHIFT | MASK | DETAILS
  * ----------------|--------|-------|------|---------------------------------
@@ -53,7 +53,7 @@ static int nau8360_dsp_chan_kcs_setup(struct snd_soc_component *cp,
 #define NAU8360_HOST_LEN_LOW_MASK	GENMASK(17, 16)
 #define NAU8360_HOST_PREAMBLE_MASK	GENMASK(15, 0)
 
-/**
+/*
  * Payload Fragment Masks:
  * FIELD           | BITS   | SHIFT | MASK | DETAILS
  * ----------------|--------|-------|------|---------------------------------
@@ -63,7 +63,7 @@ static int nau8360_dsp_chan_kcs_setup(struct snd_soc_component *cp,
 #define NAU8360_HOST_PARAM_SIZE_MASK	GENMASK(31, 16)
 #define NAU8360_HOST_PARAM_OFFSET_MASK	GENMASK(15, 0)
 
-/**
+/*
  * Trailing Fragment Masks:
  * FIELD           | BITS   | SHIFT | MASK | DETAILS
  * ----------------|--------|-------|------|---------------------------------
@@ -76,7 +76,7 @@ static int nau8360_dsp_chan_kcs_setup(struct snd_soc_component *cp,
 #define NAU8360_TRAIL_PAD_MASK		GENMASK(13, 12)
 #define NAU8360_TRAIL_LEN_HIGH_MASK	GENMASK(15, 14)
 
-/**
+/*
  * Reply Preamble Masks:
  * FIELD           | BITS   | SHIFT | MASK | DETAILS
  * ----------------|--------|-------|------|---------------------------------
@@ -364,7 +364,7 @@ static int nau8360_reply_from_dsp(struct snd_soc_component *cp,
 /**
  * nau8360_send_dsp_command - Send command to DSP
  *
- * @component:  component to register
+ * @cp:  component to register
  * @cmd_id:  DSP supported command ID
  * @kcs_setup: KCS setup structure
  * @dsp_addr: DSP address
@@ -454,7 +454,7 @@ static inline int nau8360_send_dsp_broadcast(struct snd_soc_component *cp, int c
 /**
  * nau8360_dsp_kcs_setup - Send KCS setup command to DSP
  *
- * @component:  component to register
+ * @cp:  component to register
  * @offset: address offset relative to KCS start
  * @size: size of data writen to KCS
  * @data: data writen to KCS setup
