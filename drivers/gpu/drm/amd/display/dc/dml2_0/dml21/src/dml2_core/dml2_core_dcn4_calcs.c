@@ -2001,6 +2001,10 @@ static void CalculateMALLUseForStaticScreen(
 #endif
 	}
 
+	/*  If no MALL is allocated for DCN, there is no need to calculate usage for static screen. */
+	if (MALLAllocatedForDCN == 0)
+		return;
+
 	SurfaceToAddToMALL = 0;
 	CanAddAnotherSurfaceToMALL = true;
 	while (CanAddAnotherSurfaceToMALL) {
