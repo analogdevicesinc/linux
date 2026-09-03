@@ -123,26 +123,41 @@ static int sysfs_get_link_ksettings(struct device *dev,
 				    struct ethtool_link_ksettings *cmd)
 {
 	struct net_device *netdev = to_net_dev(dev);
+	bool need_rtnl;
 	int ret;
 
 	/*
-	 * The check is also done in __ethtool_get_link_ksettings; this helps
+	 * The check is also done in netif_get_link_ksettings; this helps
 	 * returning early without hitting the locking section below.
 	 */
 	if (!netdev->ethtool_ops->get_link_ksettings)
 		return -EINVAL;
 
-	ret = sysfs_rtnl_lock(&dev->kobj, &attr->attr, netdev);
-	if (ret)
-		return ret;
+	need_rtnl = !netdev_need_ops_lock(netdev) ||
+		    (netdev->ethtool_ops->op_needs_rtnl &
+		     ETHTOOL_OP_NEEDS_RTNL_LINKSETTINGS);
+	if (need_rtnl) {
+		ret = sysfs_rtnl_lock(&dev->kobj, &attr->attr, netdev);
+		if (ret)
+			return ret;
+	}
+	netdev_lock_ops(netdev);
+
+	if (!dev_isalive(netdev)) {
+		ret = -ENODEV;
+		goto unlock;
+	}
 
 	ret = -EINVAL;
 	if (netif_running(netdev)) {
-		if (!__ethtool_get_link_ksettings(netdev, cmd))
+		if (!netif_get_link_ksettings(netdev, cmd))
 			ret = 0;
 	}
 
-	rtnl_unlock();
+unlock:
+	netdev_unlock_ops(netdev);
+	if (need_rtnl)
+		rtnl_unlock();
 	return ret;
 }
 
