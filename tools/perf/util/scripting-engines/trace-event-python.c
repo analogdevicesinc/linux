@@ -165,7 +165,7 @@ static int get_argument_count(PyObject *handler)
 {
 	int arg_count = 0;
 
-	PyObject *code_obj = code_obj = PyObject_GetAttrString(handler, "__code__");
+	PyObject *code_obj = PyObject_GetAttrString(handler, "__code__");
 	PyErr_Clear();
 	if (code_obj) {
 		PyObject *arg_count_obj = PyObject_GetAttrString(code_obj,
