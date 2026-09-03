@@ -923,7 +923,7 @@ static void __br_multicast_query_handle_vlan(struct net_bridge_mcast *brmctx,
 	else if (br_multicast_ctx_is_vlan(brmctx))
 		vlan = brmctx->vlan;
 
-	if (vlan && !(vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED)) {
+	if (vlan && !(READ_ONCE(vlan->flags) & BRIDGE_VLAN_INFO_UNTAGGED)) {
 		u16 vlan_proto;
 
 		if (br_vlan_get_proto(brmctx->br->dev, &vlan_proto) != 0)
