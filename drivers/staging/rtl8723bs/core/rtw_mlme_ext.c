@@ -2401,8 +2401,8 @@ void issue_probersp(struct adapter *padapter, unsigned char *da, u8 is_valid_p2p
 	dump_mgntframe(padapter, pmgntframe);
 }
 
-static void _issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da,
-			    bool append_wps)
+static void issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da,
+			   bool append_wps)
 {
 	struct xmit_frame		*pmgntframe;
 	struct pkt_attrib		*pattrib;
@@ -2479,16 +2479,6 @@ static void _issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *p
 	pattrib->last_txcmdsz = pattrib->pktlen;
 
 	dump_mgntframe(padapter, pmgntframe);
-}
-
-inline void issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da)
-{
-	_issue_probereq(padapter, pssid, da, 1);
-}
-
-void issue_probereq_ex(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da)
-{
-	_issue_probereq(padapter, pssid, da, 0);
 }
 
 /*  if psta == NULL, indicate we are station(client) now... */
@@ -3727,22 +3717,25 @@ void site_survey(struct adapter *padapter)
 
 					/* IOT issue, When wifi_spec is not set, send one probe req without WPS IE. */
 					if (padapter->registrypriv.wifi_spec)
-						issue_probereq(padapter, &(pmlmeext->sitesurvey_res.ssid[i]), NULL);
+						issue_probereq(padapter,
+							       &pmlmeext->sitesurvey_res.ssid[i],
+							       NULL, true);
 					else
-						issue_probereq_ex(padapter,
-								  &pmlmeext->sitesurvey_res.ssid[i],
-								  NULL);
+						issue_probereq(padapter,
+							       &pmlmeext->sitesurvey_res.ssid[i],
+							       NULL, false);
 
-					issue_probereq(padapter, &(pmlmeext->sitesurvey_res.ssid[i]), NULL);
+					issue_probereq(padapter, &pmlmeext->sitesurvey_res.ssid[i],
+						       NULL, true);
 				}
 
 				if (pmlmeext->sitesurvey_res.scan_mode == SCAN_ACTIVE) {
 					/* IOT issue, When wifi_spec is not set, send one probe req without WPS IE. */
 					if (padapter->registrypriv.wifi_spec)
-						issue_probereq(padapter, NULL, NULL);
+						issue_probereq(padapter, NULL, NULL, true);
 					else
-						issue_probereq_ex(padapter, NULL, NULL);
-					issue_probereq(padapter, NULL, NULL);
+						issue_probereq(padapter, NULL, NULL, false);
+					issue_probereq(padapter, NULL, NULL, true);
 				}
 			}
 		}
@@ -4860,15 +4853,18 @@ void linked_status_chk(struct adapter *padapter)
 			{
 				if (rx_chk != _SUCCESS) {
 					if (pmlmeext->retry == 0) {
-						issue_probereq_ex(padapter,
-								  &pmlmeinfo->network.ssid,
-								  pmlmeinfo->network.mac_address);
-						issue_probereq_ex(padapter,
-								  &pmlmeinfo->network.ssid,
-								  pmlmeinfo->network.mac_address);
-						issue_probereq_ex(padapter,
-								  &pmlmeinfo->network.ssid,
-								  pmlmeinfo->network.mac_address);
+						issue_probereq(padapter,
+							       &pmlmeinfo->network.ssid,
+							       pmlmeinfo->network.mac_address,
+							       false);
+						issue_probereq(padapter,
+							       &pmlmeinfo->network.ssid,
+							       pmlmeinfo->network.mac_address,
+							       false);
+						issue_probereq(padapter,
+							       &pmlmeinfo->network.ssid,
+							       pmlmeinfo->network.mac_address,
+							       false);
 					}
 				}
 
