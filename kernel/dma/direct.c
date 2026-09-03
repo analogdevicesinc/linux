@@ -120,6 +120,7 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
 	int node = dev_to_node(dev);
 	struct page *page;
 	u64 phys_limit;
+	void *va;
 
 	WARN_ON_ONCE(!PAGE_ALIGNED(size));
 
@@ -133,9 +134,9 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
 		dma_free_contiguous(dev, page, size);
 	}
 
-	while ((page = alloc_pages_node(node, gfp, get_order(size)))
-	       && !dma_coherent_ok(dev, page_to_phys(page), size)) {
-		__free_pages(page, get_order(size));
+	while ((va = alloc_pages_exact_nid(node, size, gfp)) &&
+	       !dma_coherent_ok(dev, virt_to_phys(va), size)) {
+		free_pages_exact(va, size);
 
 		if (IS_ENABLED(CONFIG_ZONE_DMA32) &&
 		    phys_limit < DMA_BIT_MASK(64) &&
@@ -146,6 +147,7 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
 		else
 			return NULL;
 	}
+	page = va ? virt_to_page(va) : NULL;
 
 	return page;
 }
