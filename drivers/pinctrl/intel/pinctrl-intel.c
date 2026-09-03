@@ -1702,13 +1702,32 @@ int intel_pinctrl_probe(struct platform_device *pdev,
 }
 EXPORT_SYMBOL_NS_GPL(intel_pinctrl_probe, "PINCTRL_INTEL");
 
+static const struct intel_pinctrl_soc_data *
+intel_pinctrl_get_soc_data_by_hid(const struct platform_device *pdev)
+{
+	const struct intel_pinctrl_soc_data *data;
+	const struct device *dev = &pdev->dev;
+	const struct platform_device_id *id;
+
+	data = device_get_match_data(dev);
+	if (data)
+		return data;
+
+	id = platform_get_device_id(pdev);
+	if (!id)
+		return ERR_PTR(-ENODEV);
+
+	data = (const struct intel_pinctrl_soc_data *)id->driver_data;
+	return data ?: ERR_PTR(-ENODATA);
+}
+
 int intel_pinctrl_probe_by_hid(struct platform_device *pdev)
 {
 	const struct intel_pinctrl_soc_data *data;
 
-	data = device_get_match_data(&pdev->dev);
-	if (!data)
-		return -ENODATA;
+	data = intel_pinctrl_get_soc_data_by_hid(pdev);
+	if (IS_ERR(data))
+		return PTR_ERR(data);
 
 	return intel_pinctrl_probe(pdev, data);
 }
