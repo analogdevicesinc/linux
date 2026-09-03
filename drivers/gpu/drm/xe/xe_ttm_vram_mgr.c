@@ -21,6 +21,7 @@
 #include "xe_lrc.h"
 #include "xe_mmio.h"
 #include "xe_pm.h"
+#include "xe_printk.h"
 #include "xe_res_cursor.h"
 #include "xe_ttm_stolen_mgr.h"
 #include "xe_ttm_vram_mgr.h"
@@ -903,6 +904,12 @@ int xe_ttm_vram_handle_addr_fault(struct xe_device *xe, u64 addr)
 	}
 	vram_mgr = &vr->ttm;
 	mm = &vram_mgr->mm;
+
+	if (xe->ras.disable_vram_page_offline) {
+		xe_err(xe, "0x%llx is reported as corrupted address by HW\n",
+		       addr);
+		return -EOPNOTSUPP;
+	}
 
 	/* Reserve page at address */
 	return xe_ttm_vram_reserve_page_at_addr(xe, addr - vr->dpa_base, vram_mgr, mm);
