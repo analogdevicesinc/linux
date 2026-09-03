@@ -282,7 +282,7 @@ static inline void fill_node_footer(const struct folio *folio, nid_t nid,
 	unsigned int old_flag = 0;
 
 	if (reset)
-		memset(rn, 0, F2FS_BLKSIZE);
+		memset(rn, 0, F2FS_BLKSIZE(F2FS_F_SB(folio)));
 	else
 		old_flag = le32_to_cpu(footer->flag);
 

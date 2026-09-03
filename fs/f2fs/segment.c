@@ -1316,7 +1316,8 @@ static void __submit_zone_reset_cmd(struct f2fs_sb_info *sbi,
 	submit_bio(bio);
 
 	atomic_inc(&dcc->issued_discard);
-	f2fs_update_iostat(sbi, NULL, FS_ZONE_RESET_IO, dc->di.len * F2FS_BLKSIZE);
+	f2fs_update_iostat(sbi, NULL, FS_ZONE_RESET_IO,
+			   dc->di.len * F2FS_BLKSIZE(sbi));
 }
 #endif
 
@@ -1419,7 +1420,8 @@ static int __submit_discard_cmd(struct f2fs_sb_info *sbi,
 
 		atomic_inc(&dcc->issued_discard);
 
-		f2fs_update_iostat(sbi, NULL, FS_DISCARD_IO, len * F2FS_BLKSIZE);
+		f2fs_update_iostat(sbi, NULL, FS_DISCARD_IO,
+			   len * F2FS_BLKSIZE(sbi));
 
 		lstart += len;
 		start += len;
@@ -2851,7 +2853,7 @@ void f2fs_update_meta_page(struct f2fs_sb_info *sbi,
 	if (IS_ERR(folio))
 		return;
 
-	memcpy(folio_address(folio), src, PAGE_SIZE);
+	memcpy(folio_address(folio), src, F2FS_BLKSIZE(sbi));
 	folio_mark_dirty(folio);
 	f2fs_folio_put(folio, true);
 }
@@ -4204,7 +4206,7 @@ void f2fs_do_write_meta_page(struct f2fs_sb_info *sbi, struct folio *folio,
 	f2fs_submit_page_write(&fio);
 
 	stat_inc_meta_count(sbi, folio->index);
-	f2fs_update_iostat(sbi, NULL, io_type, F2FS_BLKSIZE);
+	f2fs_update_iostat(sbi, NULL, io_type, F2FS_BLKSIZE(sbi));
 }
 
 void f2fs_do_write_node_page(unsigned int nid, struct f2fs_io_info *fio)
@@ -4214,7 +4216,8 @@ void f2fs_do_write_node_page(unsigned int nid, struct f2fs_io_info *fio)
 	set_summary(&sum, nid, 0, 0);
 	do_write_page(&sum, fio);
 
-	f2fs_update_iostat(fio->sbi, NULL, fio->io_type, F2FS_BLKSIZE);
+	f2fs_update_iostat(fio->sbi, NULL, fio->io_type,
+					F2FS_BLKSIZE(fio->sbi));
 }
 
 void f2fs_outplace_write_data(struct dnode_of_data *dn,
@@ -4230,7 +4233,8 @@ void f2fs_outplace_write_data(struct dnode_of_data *dn,
 	do_write_page(&sum, fio);
 	f2fs_update_data_blkaddr(dn, fio->new_blkaddr);
 
-	f2fs_update_iostat(sbi, dn->inode, fio->io_type, F2FS_BLKSIZE);
+	f2fs_update_iostat(sbi, dn->inode, fio->io_type,
+					F2FS_BLKSIZE(sbi));
 }
 
 int f2fs_inplace_write_data(struct f2fs_io_info *fio)
@@ -4272,7 +4276,7 @@ int f2fs_inplace_write_data(struct f2fs_io_info *fio)
 		f2fs_update_device_state(fio->sbi, fio->ino,
 						fio->new_blkaddr, 1);
 		f2fs_update_iostat(fio->sbi, fio_inode(fio),
-						fio->io_type, F2FS_BLKSIZE);
+						fio->io_type, F2FS_BLKSIZE(fio->sbi));
 	}
 
 	return err;

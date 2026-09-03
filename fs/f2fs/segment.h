@@ -432,7 +432,7 @@ static inline void seg_info_to_sit_folio(struct f2fs_sb_info *sbi,
 	int i;
 
 	raw_sit = folio_address(folio);
-	memset(raw_sit, 0, PAGE_SIZE);
+	memset(raw_sit, 0, F2FS_BLKSIZE(sbi));
 	for (i = 0; i < end - start; i++) {
 		rs = &raw_sit->entries[i];
 		se = get_seg_entry(sbi, start + i);

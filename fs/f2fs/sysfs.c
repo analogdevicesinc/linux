@@ -1871,8 +1871,8 @@ static int __maybe_unused disk_map_seq_show(struct seq_file *seq,
 	struct f2fs_sb_info *sbi = F2FS_SB(sb);
 	int i;
 
-	seq_printf(seq, "Address Layout   : %5luB Block address (# of Segments)\n",
-					F2FS_BLKSIZE);
+	seq_printf(seq, "Address Layout   : %5uB Block address (# of Segments)\n",
+		   F2FS_BLKSIZE(sbi));
 	seq_printf(seq, " SB            : %12s\n", "0/1024B");
 	seq_printf(seq, " seg0_blkaddr  : 0x%010x\n", SEG0_BLKADDR(sbi));
 	seq_printf(seq, " Checkpoint    : 0x%010x (%10d)\n",
@@ -1889,13 +1889,13 @@ static int __maybe_unused disk_map_seq_show(struct seq_file *seq,
 	seq_printf(seq, " Main          : 0x%010x (%10d)\n",
 			SM_I(sbi)->main_blkaddr,
 			le32_to_cpu(F2FS_RAW_SUPER(sbi)->segment_count_main));
-	seq_printf(seq, " Block size    : %12lu KB\n", F2FS_BLKSIZE >> 10);
+	seq_printf(seq, " Block size    : %12u KB\n", F2FS_BLKSIZE(sbi) >> 10);
 	seq_printf(seq, " Segment size  : %12d MB\n",
-			(BLKS_PER_SEG(sbi) << (F2FS_BLKSIZE_BITS - 10)) >> 10);
+			(BLKS_PER_SEG(sbi) << (F2FS_BLKSIZE_BITS(sbi) - 10)) >> 10);
 	seq_printf(seq, " Segs/Sections : %12d\n",
 			SEGS_PER_SEC(sbi));
 	seq_printf(seq, " Section size  : %12d MB\n",
-			(BLKS_PER_SEC(sbi) << (F2FS_BLKSIZE_BITS - 10)) >> 10);
+			(BLKS_PER_SEC(sbi) << (F2FS_BLKSIZE_BITS(sbi) - 10)) >> 10);
 	seq_printf(seq, " # of Sections : %12d\n",
 			le32_to_cpu(F2FS_RAW_SUPER(sbi)->section_count));
 

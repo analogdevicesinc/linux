@@ -448,7 +448,7 @@ static int f2fs_move_inline_dirents(struct inode *dir, struct folio *ifolio,
 	 * Start by zeroing the full block, to ensure that all unused space is
 	 * zeroed and no uninitialized memory is leaked to disk.
 	 */
-	memset(dentry_blk, 0, F2FS_BLKSIZE);
+	memset(dentry_blk, 0, F2FS_BLKSIZE(F2FS_I_SB(dir)));
 
 	make_dentry_ptr_inline(dir, &src, inline_dentry);
 	make_dentry_ptr_block(dir, &dst, dentry_blk);
@@ -477,8 +477,8 @@ static int f2fs_move_inline_dirents(struct inode *dir, struct folio *ifolio,
 		F2FS_I(dir)->i_inline_xattr_size = 0;
 
 	f2fs_i_depth_write(dir, 1);
-	if (i_size_read(dir) < PAGE_SIZE)
-		f2fs_i_size_write(dir, PAGE_SIZE);
+	if (i_size_read(dir) < F2FS_BLKSIZE(F2FS_I_SB(dir)))
+		f2fs_i_size_write(dir, F2FS_BLKSIZE(F2FS_I_SB(dir)));
 out:
 	f2fs_folio_put(folio, true);
 	return err;

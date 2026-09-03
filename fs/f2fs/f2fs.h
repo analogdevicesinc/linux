@@ -2258,6 +2258,7 @@ static inline struct f2fs_sb_info *F2FS_F_SB(const struct folio *folio)
 #define F2FS_ORPHANS_PER_BLOCK(sbi)	((sbi)->orphans_per_block)
 #define GET_ORPHAN_BLOCKS(sbi, n)	DIV_ROUND_UP((n), \
 					F2FS_ORPHANS_PER_BLOCK(sbi))
+#define CP_CHKSUM_OFFSET(sbi)		(F2FS_BLKSIZE(sbi) - sizeof(__le32))
 
 #define NODE_DIR1_BLOCK(sbi)		(DEF_ADDRS_PER_INODE(sbi) + 1)
 #define NODE_DIR2_BLOCK(sbi)		(DEF_ADDRS_PER_INODE(sbi) + 2)
@@ -2312,7 +2313,7 @@ static inline struct f2fs_checkpoint *F2FS_CKPT(struct f2fs_sb_info *sbi)
 
 static inline struct node_footer *F2FS_NODE_FOOTER(const struct folio *folio)
 {
-	return folio_address(folio) + F2FS_BLKSIZE -
+	return folio_address(folio) + F2FS_BLKSIZE(F2FS_F_SB(folio)) -
 		sizeof(struct node_footer);
 }
 
@@ -2328,7 +2329,8 @@ static inline struct f2fs_inode *F2FS_INODE(const struct folio *folio)
 
 static inline __le32 *F2FS_INODE_NIDS(const struct folio *folio)
 {
-	return folio_address(folio) + F2FS_BLKSIZE - sizeof(struct node_footer) -
+	return folio_address(folio) + F2FS_BLKSIZE(F2FS_F_SB(folio)) -
+		sizeof(struct node_footer) -
 		SIZE_OF_I_NID;
 }
 
@@ -2977,7 +2979,7 @@ static inline void *__bitmap_ptr(struct f2fs_sb_info *sbi, int flag)
 		if (flag == NAT_BITMAP)
 			return tmp_ptr;
 		else
-			return (unsigned char *)ckpt + F2FS_BLKSIZE;
+			return (unsigned char *)ckpt + F2FS_BLKSIZE(sbi);
 	} else {
 		offset = (flag == NAT_BITMAP) ?
 			le32_to_cpu(ckpt->sit_ver_bitmap_bytesize) : 0;
