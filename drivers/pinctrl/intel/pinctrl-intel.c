@@ -1714,11 +1714,11 @@ int intel_pinctrl_probe_by_hid(struct platform_device *pdev)
 }
 EXPORT_SYMBOL_NS_GPL(intel_pinctrl_probe_by_hid, "PINCTRL_INTEL");
 
-const struct intel_pinctrl_soc_data *intel_pinctrl_get_soc_data(struct platform_device *pdev)
+const struct intel_pinctrl_soc_data *intel_pinctrl_get_soc_data(const struct platform_device *pdev)
 {
 	const struct intel_pinctrl_soc_data * const *table;
 	const struct intel_pinctrl_soc_data *data;
-	struct device *dev = &pdev->dev;
+	const struct device *dev = &pdev->dev;
 
 	table = device_get_match_data(dev);
 	if (table) {
