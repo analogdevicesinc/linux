@@ -22,7 +22,7 @@
 #define ORIG_TYPE_NAME(node) \
 	(TYPE_NAME(TYPE_MAIN_VARIANT(node)) != NULL_TREE ? ((const unsigned char *)IDENTIFIER_POINTER(TYPE_NAME(TYPE_MAIN_VARIANT(node)))) : (const unsigned char *)"anonymous")
 
-#define INFORM(loc, msg, ...)	inform(loc, "randstruct: " msg, ##__VA_ARGS__)
+#define INFORM(loc, msg, ...)	warning_at(loc, 0, "randstruct: " msg, ##__VA_ARGS__)
 #define MISMATCH(loc, how, ...)	INFORM(loc, "casting between randomized structure pointer types (" how "): %qT and %qT\n", __VA_ARGS__)
 
 __visible int plugin_is_GPL_compatible;
