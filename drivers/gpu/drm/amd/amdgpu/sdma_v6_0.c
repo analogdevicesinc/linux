@@ -1556,6 +1556,34 @@ static int sdma_v6_0_ring_preempt_ib(struct amdgpu_ring *ring)
 	return r;
 }
 
+/* dword stride between adjacent per-queue register banks */
+#define SDMA_V6_0_QUEUE_REG_STRIDE \
+	(regSDMA0_QUEUE1_RB_CNTL - regSDMA0_QUEUE0_RB_CNTL)
+
+/* find the HW slot (instance, queue_id) whose doorbell matches doorbell_index */
+static bool sdma_v6_0_detect_hung_queue(struct amdgpu_device *adev,
+					u32 doorbell_index,
+					u32 *instance_id, u32 *queue_id)
+{
+	u32 i, q, reg, dboff;
+
+	for (i = 0; i < adev->sdma.num_instances; i++) {
+		for (q = 0; q < 8; q++) {
+			reg = sdma_v6_0_get_reg_offset(adev, i,
+				regSDMA0_QUEUE0_DOORBELL_OFFSET +
+				q * SDMA_V6_0_QUEUE_REG_STRIDE);
+			dboff = (RREG32(reg) &
+				 SDMA0_QUEUE0_DOORBELL_OFFSET__OFFSET_MASK) >> 2;
+			if (dboff == doorbell_index) {
+				*instance_id = i;
+				*queue_id = q;
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 static int sdma_v6_0_reset_queue(struct amdgpu_ring *ring,
 				 unsigned int vmid,
 				 struct amdgpu_fence *timedout_fence)
@@ -1762,6 +1790,10 @@ static const struct amdgpu_ring_funcs sdma_v6_0_ring_funcs = {
 	.reset = sdma_v6_0_reset_queue,
 };
 
+static const struct amdgpu_sdma_funcs sdma_v6_0_sdma_funcs = {
+	.detect_hung_queue = sdma_v6_0_detect_hung_queue,
+};
+
 static void sdma_v6_0_set_ring_funcs(struct amdgpu_device *adev)
 {
 	int i;
@@ -1769,6 +1801,7 @@ static void sdma_v6_0_set_ring_funcs(struct amdgpu_device *adev)
 	for (i = 0; i < adev->sdma.num_instances; i++) {
 		adev->sdma.instance[i].ring.funcs = &sdma_v6_0_ring_funcs;
 		adev->sdma.instance[i].ring.me = i;
+		adev->sdma.instance[i].funcs = &sdma_v6_0_sdma_funcs;
 	}
 }
 
