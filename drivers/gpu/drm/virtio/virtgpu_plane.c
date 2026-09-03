@@ -121,8 +121,8 @@ static int virtio_gpu_plane_atomic_check(struct drm_plane *plane,
 	 * so preserve userspace's accumulated per-buffer damage for those.
 	 */
 	bo = gem_to_virtio_gpu_obj(new_plane_state->fb->obj[0]);
-	if (old_plane_state->fb != new_plane_state->fb && bo->dumb)
-		new_plane_state->ignore_damage_clips = true;
+	new_plane_state->ignore_damage_clips =
+		old_plane_state->fb != new_plane_state->fb && bo->dumb;
 
 	crtc_state = drm_atomic_get_crtc_state(state,
 					       new_plane_state->crtc);
