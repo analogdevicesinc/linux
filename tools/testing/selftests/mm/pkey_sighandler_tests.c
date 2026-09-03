@@ -556,5 +556,4 @@ int main(int argc, char *argv[])
 	}
 
 	ksft_finished();
-	return 0;
 }
