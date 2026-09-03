@@ -4137,7 +4137,7 @@ static int disable_sched_schedstat(void)
 }
 
 /* perf.data or any other output file name used by stats subcommand (only). */
-const char *output_name;
+static const char *output_name;
 
 static int perf_sched__schedstat_record(struct perf_sched *sched,
 					int argc, const char **argv)
