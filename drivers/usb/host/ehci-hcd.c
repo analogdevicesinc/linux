@@ -187,7 +187,8 @@ static int ehci_halt (struct ehci_hcd *ehci)
 	/* disable any irqs left enabled by previous code */
 	ehci_writel(ehci, 0, &ehci->regs->intr_enable);
 
-	if (ehci_is_TDI(ehci) && !tdi_in_host_mode(ehci)) {
+	if (ehci_is_TDI(ehci) && !ehci->no_tdi_mode &&
+	    !tdi_in_host_mode(ehci)) {
 		spin_unlock_irq(&ehci->lock);
 		return 0;
 	}
@@ -254,7 +255,7 @@ int ehci_reset(struct ehci_hcd *ehci)
 	if (retval)
 		return retval;
 
-	if (ehci_is_TDI(ehci))
+	if (ehci_is_TDI(ehci) && !ehci->no_tdi_mode)
 		tdi_reset (ehci);
 
 	if (ehci->debug)
@@ -342,10 +343,12 @@ static void ehci_silence_controller(struct ehci_hcd *ehci)
 	ehci_turn_off_all_ports(ehci);
 
 	/* make BIOS/etc use companion controller during reboot */
-	ehci_writel(ehci, 0, &ehci->regs->configured_flag);
+	if (!ehci->no_configured_flag) {
+		ehci_writel(ehci, 0, &ehci->regs->configured_flag);
 
-	/* unblock posted writes */
-	ehci_readl(ehci, &ehci->regs->configured_flag);
+		/* unblock posted writes */
+		ehci_readl(ehci, &ehci->regs->configured_flag);
+	}
 	spin_unlock_irq(&ehci->lock);
 }
 
@@ -629,7 +632,8 @@ static int ehci_run (struct usb_hcd *hcd)
 	 */
 	down_write(&ehci_cf_port_reset_rwsem);
 	ehci->rh_state = EHCI_RH_RUNNING;
-	ehci_writel(ehci, FLAG_CF, &ehci->regs->configured_flag);
+	if (!ehci->no_configured_flag)
+		ehci_writel(ehci, FLAG_CF, &ehci->regs->configured_flag);
 
 	/* Wait until HC become operational */
 	ehci_readl(ehci, &ehci->regs->command);	/* unblock posted writes */
@@ -909,6 +913,8 @@ static int ehci_urb_enqueue (
 	case PIPE_ISOCHRONOUS:
 		if (urb->dev->speed == USB_SPEED_HIGH)
 			return itd_submit (ehci, urb, mem_flags);
+		else if (ehci->no_fsls_isoc)
+			return -EOPNOTSUPP;
 		else
 			return sitd_submit (ehci, urb, mem_flags);
 	}
@@ -1184,7 +1190,8 @@ int ehci_resume(struct usb_hcd *hcd, bool force_reset)
 	 * then we maintained suspend power.
 	 * Just undo the effect of ehci_suspend().
 	 */
-	if (ehci_readl(ehci, &ehci->regs->configured_flag) == FLAG_CF &&
+	if ((ehci->no_configured_flag ||
+	     ehci_readl(ehci, &ehci->regs->configured_flag) == FLAG_CF) &&
 			!force_reset) {
 		int	mask = INTR_MASK;
 
@@ -1216,7 +1223,8 @@ int ehci_resume(struct usb_hcd *hcd, bool force_reset)
 		goto skip;
 
 	ehci_writel(ehci, ehci->command, &ehci->regs->command);
-	ehci_writel(ehci, FLAG_CF, &ehci->regs->configured_flag);
+	if (!ehci->no_configured_flag)
+		ehci_writel(ehci, FLAG_CF, &ehci->regs->configured_flag);
 	ehci_readl(ehci, &ehci->regs->command);	/* unblock posted writes */
 
 	ehci->rh_state = EHCI_RH_SUSPENDED;

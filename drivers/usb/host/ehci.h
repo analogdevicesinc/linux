@@ -235,6 +235,9 @@ struct ehci_hcd {			/* one per controller */
 	unsigned		spurious_oc:1;
 	unsigned		is_aspeed:1;
 	unsigned		zx_wakeup_clear_needed:1;
+	unsigned		no_configured_flag:1;
+	unsigned		no_tdi_mode:1;
+	unsigned		no_fsls_isoc:1;
 
 	/* required for usb32 quirk */
 	#define OHCI_CTRL_HCFS          (3 << 6)
