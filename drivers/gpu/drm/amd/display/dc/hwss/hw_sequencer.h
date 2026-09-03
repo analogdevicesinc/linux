@@ -95,6 +95,7 @@ struct update_plane_addr_params {
 	struct hubp *hubp;
 	struct dc_plane_address address;
 	bool flip_immediate;
+	bool dcc;
 };
 
 struct set_input_transfer_func_params {

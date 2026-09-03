@@ -2100,7 +2100,8 @@ void dcn10_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
 	pipe_ctx->plane_res.hubp->funcs->hubp_program_surface_flip_and_addr(
 			pipe_ctx->plane_res.hubp,
 			&address,
-			flip_immediate);
+			flip_immediate,
+			pipe_ctx->plane_state->dcc.enable);
 }
 
 bool dcn10_set_input_transfer_func(struct set_input_transfer_func_params *params)
@@ -4184,5 +4185,6 @@ void dcn10_reset_surface_dcc_and_tiling(struct pipe_ctx *pipe_ctx,
 	/* force page flip to see the new content of the framebuffer */
 	hubp->funcs->hubp_program_surface_flip_and_addr(hubp,
 							&plane_state->address,
-							true);
+							true,
+							plane_state->dcc.enable);
 }

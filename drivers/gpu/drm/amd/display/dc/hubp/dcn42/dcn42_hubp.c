@@ -398,9 +398,12 @@ void hubp42_program_3dlut_fl_config(struct hubp *hubp,
 static bool hubp42_program_surface_flip_and_addr(
 	struct hubp *hubp,
 	const struct dc_plane_address *address,
-	bool flip_immediate)
+	bool flip_immediate,
+	bool dcc)
 {
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
+
+	(void)dcc;
 
 	//program flip type
 	REG_UPDATE(DCSURF_FLIP_CONTROL,

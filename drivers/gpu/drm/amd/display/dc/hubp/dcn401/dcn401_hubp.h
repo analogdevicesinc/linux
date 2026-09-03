@@ -271,7 +271,8 @@ void hubp401_setup_interdependent(
 bool hubp401_program_surface_flip_and_addr(
 	struct hubp *hubp,
 	const struct dc_plane_address *address,
-	bool flip_immediate);
+	bool flip_immediate,
+	bool dcc);
 
 void hubp401_dcc_control(struct hubp *hubp,
 		struct dc_plane_dcc_param *dcc);

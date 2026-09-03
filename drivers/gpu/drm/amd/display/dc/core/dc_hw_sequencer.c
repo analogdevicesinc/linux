@@ -1713,7 +1713,8 @@ void hwss_execute_sequence(struct dc *dc,
 			params->update_plane_addr_params.hubp->funcs->hubp_program_surface_flip_and_addr(
 					params->update_plane_addr_params.hubp,
 					&params->update_plane_addr_params.address,
-					params->update_plane_addr_params.flip_immediate);
+					params->update_plane_addr_params.flip_immediate,
+					params->update_plane_addr_params.dcc);
 			break;
 		case DPP_SET_INPUT_TRANSFER_FUNC:
 			hws->funcs.set_input_transfer_func(&params->set_input_transfer_func_params);
@@ -2356,6 +2357,7 @@ void hwss_add_hubp_update_plane_addr(struct block_sequence_state *seq_state,
 		dc->hwss.prepare_plane_addr_update(dc, pipe_ctx,
 				&params->address, &params->flip_immediate);
 		params->hubp = hubp;
+		params->dcc = pipe_ctx->plane_state ? pipe_ctx->plane_state->dcc.enable : false;
 		seq_state->steps[*seq_state->num_steps].func = HUBP_UPDATE_PLANE_ADDR;
 		(*seq_state->num_steps)++;
 	}
