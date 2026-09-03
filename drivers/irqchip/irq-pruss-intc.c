@@ -516,24 +516,21 @@ static const char * const irq_names[MAX_NUM_HOST_IRQS] = {
 
 static int pruss_intc_probe(struct platform_device *pdev)
 {
-	const struct pruss_intc_match_data *data;
 	struct device *dev = &pdev->dev;
 	struct pruss_intc *intc;
 	struct pruss_host_irq_data *host_data;
 	int i, irq, ret;
 	u8 max_system_events, irqs_reserved = 0;
 
-	data = of_device_get_match_data(dev);
-	if (!data)
-		return -ENODEV;
-
-	max_system_events = data->num_system_events;
-
 	intc = devm_kzalloc(dev, sizeof(*intc), GFP_KERNEL);
 	if (!intc)
 		return -ENOMEM;
 
-	intc->soc_config = data;
+	intc->soc_config = of_device_get_match_data(dev);
+	if (!intc->soc_config)
+		return -ENODEV;
+	max_system_events = intc->soc_config->num_system_events;
+
 	intc->dev = dev;
 	platform_set_drvdata(pdev, intc);
 
