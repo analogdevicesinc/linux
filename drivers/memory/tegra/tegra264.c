@@ -717,11 +717,15 @@ static const char *const tegra264_rt_error_names[16] = {
 };
 
 /*
- * MC instance aperture mapping for hubc registers
+ * On Tegra264 the memory controller error interrupts are distributed across
+ * several HUB/HUBC apertures. Each aperture is accessed like a broadcast
+ * channel through mc_ch_readl()/mc_ch_writel() using its fixed index.
  */
-static const int mc_hubc_aperture_number[5] = {
-	7, 8, 9, 10, 11
-};
+#define TEGRA264_MC_APERTURE_DISP	7
+#define TEGRA264_MC_APERTURE_SYSTEM	8
+#define TEGRA264_MC_APERTURE_VISION	9
+#define TEGRA264_MC_APERTURE_UPHY	10
+#define TEGRA264_MC_APERTURE_TOP	11
 
 /*
  * tegra264_mc_icc_set() - Pass MC client info to the BPMP-FW
@@ -1057,27 +1061,27 @@ static irqreturn_t handle_hub_irq(int irq, void *data, int mc_hubc_aperture_numb
 
 static irqreturn_t handle_disp_hub_irq(int irq, void *data)
 {
-	return handle_hub_irq(irq, data, mc_hubc_aperture_number[0]);
+	return handle_hub_irq(irq, data, TEGRA264_MC_APERTURE_DISP);
 }
 
 static irqreturn_t handle_system_hub_irq(int irq, void *data)
 {
-	return handle_hub_irq(irq, data, mc_hubc_aperture_number[1]);
+	return handle_hub_irq(irq, data, TEGRA264_MC_APERTURE_SYSTEM);
 }
 
 static irqreturn_t handle_vision_hub_irq(int irq, void *data)
 {
-	return handle_hub_irq(irq, data, mc_hubc_aperture_number[2]);
+	return handle_hub_irq(irq, data, TEGRA264_MC_APERTURE_VISION);
 }
 
 static irqreturn_t handle_uphy_hub_irq(int irq, void *data)
 {
-	return handle_hub_irq(irq, data, mc_hubc_aperture_number[3]);
+	return handle_hub_irq(irq, data, TEGRA264_MC_APERTURE_UPHY);
 }
 
 static irqreturn_t handle_top_hub_irq(int irq, void *data)
 {
-	return handle_hub_irq(irq, data, mc_hubc_aperture_number[4]);
+	return handle_hub_irq(irq, data, TEGRA264_MC_APERTURE_TOP);
 }
 
 static irqreturn_t handle_generic_irq(struct tegra_mc *mc, unsigned long intstat_reg)
