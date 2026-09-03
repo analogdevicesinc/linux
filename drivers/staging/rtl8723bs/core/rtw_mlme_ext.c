@@ -2401,9 +2401,8 @@ void issue_probersp(struct adapter *padapter, unsigned char *da, u8 is_valid_p2p
 	dump_mgntframe(padapter, pmgntframe);
 }
 
-static void _issue_probereq(struct adapter *padapter,
-			    struct ndis_802_11_ssid *pssid,
-			    u8 *da, u8 ch, bool append_wps, bool wait_ack)
+static void _issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da,
+			    bool append_wps)
 {
 	struct xmit_frame		*pmgntframe;
 	struct pkt_attrib		*pattrib;
@@ -2468,9 +2467,6 @@ static void _issue_probereq(struct adapter *padapter,
 		pframe = rtw_set_ie(pframe, WLAN_EID_SUPP_RATES, bssrate_len, bssrate, &(pattrib->pktlen));
 	}
 
-	if (ch)
-		pframe = rtw_set_ie(pframe, WLAN_EID_DS_PARAMS, 1, &ch, &pattrib->pktlen);
-
 	if (append_wps) {
 		/* add wps_ie for wps2.0 */
 		if (pmlmepriv->wps_probe_req_ie_len > 0 && pmlmepriv->wps_probe_req_ie) {
@@ -2482,21 +2478,17 @@ static void _issue_probereq(struct adapter *padapter,
 
 	pattrib->last_txcmdsz = pattrib->pktlen;
 
-	if (wait_ack) {
-		dump_mgntframe_and_wait_ack(padapter, pmgntframe);
-	} else {
-		dump_mgntframe(padapter, pmgntframe);
-	}
+	dump_mgntframe(padapter, pmgntframe);
 }
 
 inline void issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da)
 {
-	_issue_probereq(padapter, pssid, da, 0, 1, false);
+	_issue_probereq(padapter, pssid, da, 1);
 }
 
 void issue_probereq_ex(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da)
 {
-	_issue_probereq(padapter, pssid, da, 0, 0, false);
+	_issue_probereq(padapter, pssid, da, 0);
 }
 
 /*  if psta == NULL, indicate we are station(client) now... */
