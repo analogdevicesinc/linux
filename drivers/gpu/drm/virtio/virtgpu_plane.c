@@ -105,6 +105,7 @@ static int virtio_gpu_plane_atomic_check(struct drm_plane *plane,
 										 plane);
 	struct drm_plane_state *old_plane_state = drm_atomic_get_old_plane_state(state,
 										 plane);
+	struct virtio_gpu_object *bo;
 	bool is_cursor = plane->type == DRM_PLANE_TYPE_CURSOR;
 	struct drm_crtc_state *crtc_state;
 	int ret;
@@ -115,9 +116,12 @@ static int virtio_gpu_plane_atomic_check(struct drm_plane *plane,
 	/*
 	 * Ignore damage clips if the framebuffer attached to the plane's state
 	 * has changed since the last plane update (page-flip). In this case, a
-	 * full plane update should happen because uploads are done per-buffer.
+	 * full plane update should happen for dumb buffers because uploads are
+	 * done per-buffer. Rendered resources are already coherent on the host,
+	 * so preserve userspace's accumulated per-buffer damage for those.
 	 */
-	if (old_plane_state->fb != new_plane_state->fb)
+	bo = gem_to_virtio_gpu_obj(new_plane_state->fb->obj[0]);
+	if (old_plane_state->fb != new_plane_state->fb && bo->dumb)
 		new_plane_state->ignore_damage_clips = true;
 
 	crtc_state = drm_atomic_get_crtc_state(state,
