@@ -58,3 +58,20 @@ int test_tp_btf_signal_deliver_info_no_deref(void *ctx)
 	asm volatile("r1 = *(u64 *)(r1 +8); r1 = *(u32 *)(r1 +0);" ::: __clobber_all);
 	return 0;
 }
+
+SEC("tp_btf/sched_process_wait")
+__failure __msg("R1 invalid mem access 'trusted_ptr_or_null_'")
+int test_raw_tp_null_sched_process_wait_arg_1(void *ctx)
+{
+	asm volatile("r1 = *(u64 *)(r1 +0); r1 = *(u32 *)(r1 +0);" ::: __clobber_all);
+	return 0;
+}
+
+SEC("tp_btf/sched_process_wait")
+__success
+int test_raw_tp_null_sched_process_wait_arg_1_checked(void *ctx)
+{
+	asm volatile("r1 = *(u64 *)(r1 +0); if r1 == 0 goto +1; "
+		     "r1 = *(u32 *)(r1 +0);" ::: __clobber_all);
+	return 0;
+}
