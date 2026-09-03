@@ -11,6 +11,7 @@
 #include <linux/kvm_para.h>
 #include <linux/rcu_notifier.h>
 #include <linux/smp.h>
+#include <linux/rtmutex.h>
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -305,6 +306,8 @@ struct rcu_stall_chk_rdr {
 	int nesting;
 	union rcu_special rs;
 	bool on_blkd_list;
+	bool rcu_rdr_running;
+	int rcu_rdr_boosted;
 };
 
 /*
@@ -313,6 +316,7 @@ struct rcu_stall_chk_rdr {
  */
 static int check_slow_task(struct task_struct *t, void *arg)
 {
+	struct rcu_node *rnp;
 	struct rcu_stall_chk_rdr *rscrp = arg;
 
 	if (task_curr(t))
@@ -320,6 +324,19 @@ static int check_slow_task(struct task_struct *t, void *arg)
 	rscrp->nesting = t->rcu_read_lock_nesting;
 	rscrp->rs = t->rcu_read_unlock_special;
 	rscrp->on_blkd_list = !list_empty(&t->rcu_node_entry);
+	rscrp->rcu_rdr_running = task_curr(t);
+	rscrp->rcu_rdr_boosted = 0;
+	if (rscrp->on_blkd_list) {
+		rnp = READ_ONCE(t->rcu_blocked_node);
+		raw_spin_lock_rcu_node(rnp); /* irqs already disabled. */
+		if (rnp == READ_ONCE(t->rcu_blocked_node)) {
+			if (rt_mutex_owner(&rnp->boost_mtx.rtmutex) == t)
+				rscrp->rcu_rdr_boosted = 1;
+		} else {
+			rscrp->rcu_rdr_boosted = 2;
+		}
+		raw_spin_unlock_rcu_node(rnp); /* irqs remain disabled. */
+	}
 	return 0;
 }
 
@@ -357,12 +374,14 @@ static int rcu_print_task_stall(struct rcu_node *rnp, unsigned long flags)
 		if (task_call_func(t, check_slow_task, &rscr))
 			pr_cont(" P%d", t->pid);
 		else
-			pr_cont(" P%d/%d:%c%c%c%c",
+			pr_cont(" P%d/%d:%c%c%c%c%c%c",
 				t->pid, rscr.nesting,
 				".b"[rscr.rs.b.blocked],
 				".q"[rscr.rs.b.need_qs],
 				".e"[rscr.rs.b.exp_hint],
-				".l"[rscr.on_blkd_list]);
+				".l"[rscr.on_blkd_list],
+				".R"[rscr.rcu_rdr_running],
+				".B?"[rscr.rcu_rdr_boosted]);
 		lockdep_assert_irqs_disabled();
 		put_task_struct(t);
 		ndetected++;
