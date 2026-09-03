@@ -159,7 +159,8 @@ static int __init check_cpu_stall_init(void)
 early_initcall(check_cpu_stall_init);
 
 /* If so specified via sysctl, panic, yielding cleaner stall-warning output. */
-static void panic_on_rcu_stall(const struct cpumask *stalled_mask)
+static void panic_on_rcu_stall(const struct cpumask *stalled_mask,
+			       unsigned long *gsp, unsigned long gp_seq)
 {
 	static int cpu_stall;
 
@@ -169,6 +170,11 @@ static void panic_on_rcu_stall(const struct cpumask *stalled_mask)
 	 */
 	if (scx_rcu_cpu_stall(stalled_mask))
 		return;
+
+	if (gsp && rcu_seq_current(gsp) != gp_seq) {
+		pr_err("INFO: Stall ended before panic check.\n");
+		return;
+	}
 
 	if (++cpu_stall < sysctl_max_rcu_stall_to_panic)
 		return;
@@ -703,7 +709,7 @@ static void print_other_cpu_stall(unsigned long gp_seq, unsigned long gps)
 
 	nbcon_cpu_emergency_exit();
 
-	panic_on_rcu_stall(&rcu_stall_cpumask);
+	panic_on_rcu_stall(&rcu_stall_cpumask, &rcu_state.gp_seq, gp_seq);
 
 	rcu_force_quiescent_state();  /* Kick them all. */
 }
@@ -758,7 +764,7 @@ static void print_cpu_stall(unsigned long gp_seq, unsigned long gps)
 
 	cpumask_clear(&rcu_stall_cpumask);
 	cpumask_set_cpu(smp_processor_id(), &rcu_stall_cpumask);
-	panic_on_rcu_stall(&rcu_stall_cpumask);
+	panic_on_rcu_stall(&rcu_stall_cpumask, &rcu_state.gp_seq, gp_seq);
 
 	/*
 	 * Attempt to revive the RCU machinery by forcing a context switch.
