@@ -2221,6 +2221,15 @@ static inline void scx_schedule_reenq_local(struct rq *rq, u64 reenq_flags)
  */
 static inline struct rq *scx_locked_rq(void)
 {
+	/*
+	 * Tracing progs can call kfuncs from NMI. scx_locked_rq_state tracks
+	 * the rq locked by the interrupted context, so a non-NULL read from
+	 * NMI would falsely claim its lock. Return NULL from NMI so that
+	 * callers take their unlocked paths.
+	 */
+	if (unlikely(in_nmi()))
+		return NULL;
+
 	return __this_cpu_read(scx_locked_rq_state);
 }
 
