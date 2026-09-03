@@ -13,6 +13,7 @@
 #include "xe_bo.h"
 #include "xe_exec_queue_types.h"
 #include "xe_gt_stats.h"
+#include "xe_log.h"
 #include "xe_migrate.h"
 #include "xe_module.h"
 #include "xe_pagefault.h"
@@ -1361,9 +1362,9 @@ retry:
 				else
 					goto retry;
 			} else {
-				drm_err(&vm->xe->drm,
-					"VRAM allocation failed, retry count exceeded, asid=%u, errno=%pe\n",
-					vm->usm.asid, ERR_PTR(err));
+				xe_log_err(gt, PAGEFAULT, err,
+					   "VRAM allocation failed, retry count exceeded, ASID=%u\n",
+					   vm->usm.asid);
 				goto err_out;
 			}
 		}
@@ -1384,9 +1385,9 @@ get_pages:
 			range_debug(range, "PAGE FAULT - RETRY PAGES");
 			goto retry;
 		} else {
-			drm_err(&vm->xe->drm,
-				"Get pages failed, retry count exceeded, asid=%u, gpusvm=%p, errno=%pe\n",
-				vm->usm.asid, &vm->svm.gpusvm, ERR_PTR(err));
+			xe_log_err(gt, PAGEFAULT, err,
+				   "Get pages failed, retry count exceeded, ASID=%u, GPUVM=%s\n",
+				   vm->usm.asid, vm->svm.gpusvm.name);
 		}
 	}
 	if (err) {
