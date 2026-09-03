@@ -70,7 +70,7 @@ int br_mst_get_state(const struct net_device *dev, u16 msti, u8 *state)
 
 	list_for_each_entry(v, &vg->vlan_list, vlist) {
 		if (v->brvlan->msti == msti) {
-			*state = v->state;
+			*state = br_vlan_get_state(v);
 			return 0;
 		}
 	}
@@ -145,7 +145,7 @@ static void br_mst_vlan_sync_state(struct net_bridge_vlan *pv, u16 msti)
 		 * it.
 		 */
 		if (v != pv && v->brvlan->msti == msti) {
-			br_mst_vlan_set_state(vg, pv, v->state);
+			br_mst_vlan_set_state(vg, pv, br_vlan_get_state(v));
 			return;
 		}
 	}
@@ -282,7 +282,8 @@ int br_mst_fill_info(struct sk_buff *skb,
 		nest = nla_nest_start_noflag(skb, IFLA_BRIDGE_MST_ENTRY);
 		if (!nest ||
 		    nla_put_u16(skb, IFLA_BRIDGE_MST_ENTRY_MSTI, v->brvlan->msti) ||
-		    nla_put_u8(skb, IFLA_BRIDGE_MST_ENTRY_STATE, v->state)) {
+		    nla_put_u8(skb, IFLA_BRIDGE_MST_ENTRY_STATE,
+			       br_vlan_get_state(v))) {
 			err = -EMSGSIZE;
 			break;
 		}

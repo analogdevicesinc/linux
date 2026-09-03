@@ -40,7 +40,7 @@ static void __vlan_add_pvid(struct net_bridge_vlan_group *vg,
 	if (vg->pvid == v->vid)
 		return;
 
-	br_vlan_set_pvid_state(vg, v->state);
+	br_vlan_set_pvid_state(vg, br_vlan_get_state(v));
 	WRITE_ONCE(vg->pvid, v->vid);
 }
 

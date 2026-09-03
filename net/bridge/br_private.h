@@ -687,6 +687,15 @@ static inline bool br_vlan_should_use(const struct net_bridge_vlan *v)
 	return true;
 }
 
+/* The vlan state can be changed with only rcu held by the mst code so
+ * annotate the lock-free read. br_vlan_set_state() is kept further down
+ * because it needs br_multicast_update_vlan_mcast_ctx().
+ */
+static inline u8 br_vlan_get_state(const struct net_bridge_vlan *v)
+{
+	return READ_ONCE(v->state);
+}
+
 static inline bool nbp_state_should_learn(const struct net_bridge_port *p)
 {
 	return p->state == BR_STATE_LEARNING || p->state == BR_STATE_FORWARDING;
@@ -1299,7 +1308,7 @@ br_multicast_port_ctx_state_disabled(const struct net_bridge_mcast_port *pmctx)
 	return pmctx->port->state == BR_STATE_DISABLED ||
 	       (br_multicast_port_ctx_is_vlan(pmctx) &&
 		(br_multicast_port_ctx_vlan_disabled(pmctx) ||
-		 pmctx->vlan->state == BR_STATE_DISABLED));
+		 br_vlan_get_state(pmctx->vlan) == BR_STATE_DISABLED));
 }
 
 static inline bool
@@ -1308,7 +1317,7 @@ br_multicast_port_ctx_state_stopped(const struct net_bridge_mcast_port *pmctx)
 	return br_multicast_port_ctx_state_disabled(pmctx) ||
 	       pmctx->port->state == BR_STATE_BLOCKING ||
 	       (br_multicast_port_ctx_is_vlan(pmctx) &&
-		pmctx->vlan->state == BR_STATE_BLOCKING);
+		br_vlan_get_state(pmctx->vlan) == BR_STATE_BLOCKING);
 }
 
 static inline bool
@@ -1915,14 +1924,6 @@ bool br_vlan_global_opts_can_enter_range(const struct net_bridge_vlan *v_curr,
 					 const struct net_bridge_vlan *r_end);
 bool br_vlan_global_opts_fill(struct sk_buff *skb, u16 vid, u16 vid_range,
 			      const struct net_bridge_vlan *v_opts);
-
-/* vlan state manipulation helpers using *_ONCE to annotate lock-free access,
- * while br_vlan_set_state() may access data protected by multicast_lock.
- */
-static inline u8 br_vlan_get_state(const struct net_bridge_vlan *v)
-{
-	return READ_ONCE(v->state);
-}
 
 static inline void br_vlan_set_state(struct net_bridge_vlan *v, u8 state)
 {
