@@ -269,6 +269,4 @@ int main(void)
 				      NUM_ITERATIONS);
 
 	ksft_exit(iter == NUM_ITERATIONS);
-
-	return 0;
 }
