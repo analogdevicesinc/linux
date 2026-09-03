@@ -3,6 +3,7 @@
 #define _LINUX_VMALLOC_H
 
 #include <linux/alloc_tag.h>
+#include <linux/cleanup.h>
 #include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/init.h>
@@ -214,6 +215,8 @@ void *__must_check vrealloc_node_align_noprof(const void *p, size_t size,
 
 extern void vfree(const void *addr);
 extern void vfree_atomic(const void *addr);
+
+DEFINE_FREE(vfree, void *, if (!IS_ERR_OR_NULL(_T)) vfree(_T))
 
 extern void *vmap(struct page **pages, unsigned int count,
 			unsigned long flags, pgprot_t prot);
