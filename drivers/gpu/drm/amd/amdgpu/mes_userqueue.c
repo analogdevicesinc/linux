@@ -213,10 +213,35 @@ int mes_userq_reset(struct amdgpu_usermode_queue *queue)
 	struct mes_reset_queue_input queue_input;
 	int r;
 
-	/* XXX: add a FW version check for SDMA per queue reset */
+	/* already reset by an earlier job's hang-detect; just signal and bail */
+	if (queue->state == AMDGPU_USERQ_STATE_HUNG)
+		return 0;
+
 	memset(&queue_input, 0x0, sizeof(struct mes_reset_queue_input));
 	queue_input.doorbell_offset = queue->doorbell_index;
 	queue_input.queue_type = queue->queue_type;
+
+	/*
+	 * The MES packet reset fails once the hung queue wedges MES. For SDMA the
+	 * queue is still on its HW slot, so reset it over MMIO instead: recover
+	 * the (instance, queue_id) slot from the doorbell.
+	 */
+	if (queue->queue_type == AMDGPU_HW_IP_DMA &&
+	    adev->sdma.instance[0].funcs &&
+	    adev->sdma.instance[0].funcs->detect_hung_queue) {
+		u32 instance, hw_queue_id;
+
+		if (adev->sdma.instance[0].funcs->detect_hung_queue(adev,
+				queue->doorbell_index, &instance, &hw_queue_id)) {
+			queue_input.use_mmio = true;
+			queue_input.me_id = instance;
+			queue_input.queue_id = hw_queue_id;
+		} else {
+			dev_warn(adev->dev,
+				 "SDMA userq (doorbell %llu) not on any HW slot; falling back to MES reset\n",
+				 queue->doorbell_index);
+		}
+	}
 
 	amdgpu_mes_lock(&adev->mes);
 	r = adev->mes.funcs->reset_hw_queue(&adev->mes, &queue_input);
@@ -224,15 +249,19 @@ int mes_userq_reset(struct amdgpu_usermode_queue *queue)
 	if (r)
 		return r;
 
-	/* mes_userq_unmap() does not update queue->state; mark it UNMAPPED so the
-	 * destroy path does not issue a second REMOVE_QUEUE for the removed queue.
-	 */
+	/* drop the queue from MES */
 	r = mes_userq_unmap(queue);
-	if (!r) {
-		trace_amdgpu_userq_state_changed(queue, AMDGPU_USERQ_STATE_UNMAPPED);
-		queue->state = AMDGPU_USERQ_STATE_UNMAPPED;
-	}
-	return r;
+	if (r)
+		return r;
+
+	/*
+	 * HUNG, not UNMAPPED: the guilty job is still in the ring, so the
+	 * restore worker must not re-map and re-run it.
+	 */
+	trace_amdgpu_userq_state_changed(queue, AMDGPU_USERQ_STATE_HUNG);
+	queue->state = AMDGPU_USERQ_STATE_HUNG;
+
+	return 0;
 }
 
 int mes_userq_reset_queue(struct amdgpu_device *adev,
