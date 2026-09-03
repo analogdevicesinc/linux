@@ -308,45 +308,33 @@ static int atmel_tdes_crypt_pdc_stop(struct atmel_tdes_dev *dd)
 
 static int atmel_tdes_buff_init(struct atmel_tdes_dev *dd)
 {
-	int err = -ENOMEM;
-
 	dd->buf_in = (void *)__get_free_page(GFP_KERNEL);
 	dd->buf_out = (void *)__get_free_page(GFP_KERNEL);
-	dd->buflen = PAGE_SIZE;
-	dd->buflen &= ~(DES_BLOCK_SIZE - 1);
+	dd->buflen = PAGE_SIZE & ~(DES_BLOCK_SIZE - 1);
 
 	if (!dd->buf_in || !dd->buf_out) {
-		dev_dbg(dd->dev, "unable to alloc pages.\n");
+		dev_err(dd->dev, "failed to allocate DMA buffers\n");
 		goto err_alloc;
 	}
 
-	/* MAP here */
-	dd->dma_addr_in = dma_map_single(dd->dev, dd->buf_in,
-					dd->buflen, DMA_TO_DEVICE);
-	err = dma_mapping_error(dd->dev, dd->dma_addr_in);
-	if (err) {
-		dev_dbg(dd->dev, "dma %zd bytes error\n", dd->buflen);
-		goto err_map_in;
-	}
+	dd->dma_addr_in = dma_map_single(dd->dev, dd->buf_in, dd->buflen, DMA_TO_DEVICE);
+	if (dma_mapping_error(dd->dev, dd->dma_addr_in))
+		goto err_map;
 
-	dd->dma_addr_out = dma_map_single(dd->dev, dd->buf_out,
-					dd->buflen, DMA_FROM_DEVICE);
-	err = dma_mapping_error(dd->dev, dd->dma_addr_out);
-	if (err) {
-		dev_dbg(dd->dev, "dma %zd bytes error\n", dd->buflen);
-		goto err_map_out;
+	dd->dma_addr_out = dma_map_single(dd->dev, dd->buf_out, dd->buflen, DMA_FROM_DEVICE);
+	if (dma_mapping_error(dd->dev, dd->dma_addr_out)) {
+		dma_unmap_single(dd->dev, dd->dma_addr_in, dd->buflen, DMA_TO_DEVICE);
+		goto err_map;
 	}
 
 	return 0;
 
-err_map_out:
-	dma_unmap_single(dd->dev, dd->dma_addr_in, dd->buflen,
-		DMA_TO_DEVICE);
-err_map_in:
+err_map:
+	dev_err(dd->dev, "failed to map %zu bytes for DMA\n", dd->buflen);
 err_alloc:
 	free_page((unsigned long)dd->buf_out);
 	free_page((unsigned long)dd->buf_in);
-	return err;
+	return -ENOMEM;
 }
 
 static void atmel_tdes_buff_cleanup(struct atmel_tdes_dev *dd)
