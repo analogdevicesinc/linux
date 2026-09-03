@@ -727,6 +727,9 @@ static const char *const tegra264_rt_error_names[16] = {
 #define TEGRA264_MC_APERTURE_UPHY	10
 #define TEGRA264_MC_APERTURE_TOP	11
 
+/* Tegra264 splits the MCF common interrupt status across five slices. */
+#define TEGRA264_MC_NUM_SLICES 5
+
 /*
  * tegra264_mc_icc_set() - Pass MC client info to the BPMP-FW
  * @src: ICC node for Memory Controller's (MC) Client
@@ -941,7 +944,7 @@ static irqreturn_t handle_mcf_irq(int irq, void *data)
 
 	for_each_set_bit(slice, &common_intstat, 32) {
 		/* Find out the slice number on which interrupt occurred */
-		if (slice > 4) {
+		if (slice >= TEGRA264_MC_NUM_SLICES) {
 			dev_err(mc->dev, "Slice index out of bounds: %u\n", slice);
 			return IRQ_NONE;
 		}
