@@ -32,6 +32,7 @@
 #include "xe_sriov_vf.h"
 #include "xe_step.h"
 #include "xe_tile_debugfs.h"
+#include "xe_ttm_vram_mgr.h"
 #include "xe_vsec.h"
 #include "xe_wa.h"
 
@@ -772,6 +773,8 @@ void xe_debugfs_register(struct xe_device *xe)
 	man = ttm_manager_type(bdev, XE_PL_STOLEN);
 	if (man)
 		ttm_resource_manager_create_debugfs(man, root, "stolen_mm");
+
+	xe_ttm_vram_debugfs_init(xe, root);
 
 	for_each_tile(tile, xe, tile_id)
 		xe_tile_debugfs_register(tile);

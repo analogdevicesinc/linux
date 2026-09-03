@@ -5,6 +5,7 @@
  */
 
 #include <linux/cgroup_dmem.h>
+#include <linux/debugfs.h>
 
 #include <drm/drm_managed.h>
 #include <drm/drm_drv.h>
@@ -915,3 +916,73 @@ int xe_ttm_vram_handle_addr_fault(struct xe_device *xe, u64 addr)
 	return xe_ttm_vram_reserve_page_at_addr(xe, addr - vr->dpa_base, vram_mgr, mm);
 }
 EXPORT_SYMBOL(xe_ttm_vram_handle_addr_fault);
+
+static int vram_bad_pages_show(struct seq_file *m, void *unused)
+{
+	struct xe_device *xe = m->private;
+	struct xe_ttm_vram_offline_resource *pos;
+	struct ttm_resource_manager *man;
+	struct xe_ttm_vram_mgr *mgr;
+	struct xe_tile *tile;
+	u8 id;
+
+	man = ttm_manager_type(&xe->ttm, XE_PL_VRAM0);
+	if (man)
+		/* TODO Hook with RAS to show max_pages fetched from FW */
+		seq_printf(m, "max_pages: %d\n",
+			   to_xe_ttm_vram_mgr(man)->max_pages);
+
+	for_each_tile(tile, xe, id) {
+		struct xe_vram_region *vr = tile->mem.vram;
+
+		man = ttm_manager_type(&xe->ttm, XE_PL_VRAM0 + id);
+		if (!man || !vr)
+			continue;
+		mgr = to_xe_ttm_vram_mgr(man);
+
+		rcu_read_lock();
+
+		list_for_each_entry_rcu(pos, &mgr->offlined_pages, offlined_link) {
+			u64 pfn;
+
+			pfn = (pos->addr + vr->dpa_base) >> PAGE_SHIFT;
+			seq_printf(m, "0x%016llx : 0x%016lx : R\n", pfn, PAGE_SIZE);
+		}
+
+		list_for_each_entry_rcu(pos, &mgr->queued_pages, queued_link) {
+			u64 pfn;
+
+			pfn = (pos->addr + vr->dpa_base) >> PAGE_SHIFT;
+			seq_printf(m, "0x%016llx : 0x%016lx : %c\n",
+				   pfn, PAGE_SIZE, pos->status ? 'F' : 'P');
+		}
+
+		rcu_read_unlock();
+	}
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(vram_bad_pages);
+
+/**
+ * xe_ttm_vram_debugfs_init - Initialize VRAM debugfs interfaces
+ * @xe: The xe device structure pointer
+ * @root: The root dentry of the debugfs directory
+ *
+ * This function registers platform-specific VRAM debugfs files used for
+ * testing and debugging. Currently, it exposes the "vram_bad_pages" interface
+ * to inspect marked faulty memory pages, restricted specifically to the
+ * %XE_CRESCENTISLAND platform.
+ *
+ * Return: Void.
+ */
+void xe_ttm_vram_debugfs_init(struct xe_device *xe, struct dentry *root)
+{
+	/*
+	 * TODO: Replace platform check with xe->info
+	 * once the feature flag is plumbed through device info.
+	 */
+	if (xe->info.platform != XE_CRESCENTISLAND)
+		return;
+	debugfs_create_file("vram_bad_pages", 0444, root, xe, &vram_bad_pages_fops);
+}
