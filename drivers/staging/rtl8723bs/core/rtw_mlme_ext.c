@@ -2499,25 +2499,11 @@ inline void issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *ps
 	_issue_probereq(padapter, pssid, da, 0, 1, false);
 }
 
-int issue_probereq_ex(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da, u8 ch, bool append_wps,
-	int try_cnt, int wait_ms)
+int issue_probereq_ex(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da)
 {
 	int ret;
-	int i = 0;
 
-	do {
-		ret = _issue_probereq(padapter, pssid, da, ch, append_wps,
-				      wait_ms > 0);
-
-		i++;
-
-		if (padapter->driver_stopped || padapter->bSurpriseRemoved)
-			break;
-
-		if (i < try_cnt && wait_ms > 0 && ret == _FAIL)
-			msleep(wait_ms);
-
-	} while ((i < try_cnt) && ((ret == _FAIL) || (wait_ms == 0)));
+	ret = _issue_probereq(padapter, pssid, da, 0, 0, false);
 
 	if (ret != _FAIL) {
 		ret = _SUCCESS;
@@ -3768,7 +3754,9 @@ void site_survey(struct adapter *padapter)
 					if (padapter->registrypriv.wifi_spec)
 						issue_probereq(padapter, &(pmlmeext->sitesurvey_res.ssid[i]), NULL);
 					else
-						issue_probereq_ex(padapter, &(pmlmeext->sitesurvey_res.ssid[i]), NULL, 0, 0, 0, 0);
+						issue_probereq_ex(padapter,
+								  &pmlmeext->sitesurvey_res.ssid[i],
+								  NULL);
 
 					issue_probereq(padapter, &(pmlmeext->sitesurvey_res.ssid[i]), NULL);
 				}
@@ -3778,7 +3766,7 @@ void site_survey(struct adapter *padapter)
 					if (padapter->registrypriv.wifi_spec)
 						issue_probereq(padapter, NULL, NULL);
 					else
-						issue_probereq_ex(padapter, NULL, NULL, 0, 0, 0, 0);
+						issue_probereq_ex(padapter, NULL, NULL);
 					issue_probereq(padapter, NULL, NULL);
 				}
 			}
@@ -4899,16 +4887,13 @@ void linked_status_chk(struct adapter *padapter)
 					if (pmlmeext->retry == 0) {
 						issue_probereq_ex(padapter,
 								  &pmlmeinfo->network.ssid,
-								  pmlmeinfo->network.mac_address,
-								  0, 0, 0, 0);
+								  pmlmeinfo->network.mac_address);
 						issue_probereq_ex(padapter,
 								  &pmlmeinfo->network.ssid,
-								  pmlmeinfo->network.mac_address,
-								  0, 0, 0, 0);
+								  pmlmeinfo->network.mac_address);
 						issue_probereq_ex(padapter,
 								  &pmlmeinfo->network.ssid,
-								  pmlmeinfo->network.mac_address,
-								  0, 0, 0, 0);
+								  pmlmeinfo->network.mac_address);
 					}
 				}
 
