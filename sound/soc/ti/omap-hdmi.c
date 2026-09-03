@@ -405,7 +405,6 @@ static int omap_hdmi_audio_probe(struct platform_device *pdev)
 	card->dev = dev;
 
 	atomic_set(&ad->jack_state, -1);
-	ad->card = card;
 
 	snd_soc_card_set_drvdata(card, ad);
 	ret = devm_snd_soc_register_card(dev, card);
