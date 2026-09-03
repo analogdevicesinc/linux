@@ -29,6 +29,8 @@
  */
 #define EFI_READ_CHUNK_SIZE	SZ_1M
 
+static efi_guid_t fs_proto = EFI_FILE_SYSTEM_GUID;
+
 struct finfo {
 	efi_file_info_t info;
 	efi_char16_t	filename[MAX_FILENAME_SIZE];
@@ -74,7 +76,6 @@ static efi_status_t efi_open_file(efi_file_protocol_t *volume,
 static efi_status_t efi_open_volume(efi_loaded_image_t *image,
 				    efi_file_protocol_t **fh)
 {
-	static efi_guid_t fs_proto = EFI_FILE_SYSTEM_GUID;
 	efi_simple_file_system_protocol_t *io;
 	efi_status_t status;
 
@@ -129,7 +130,6 @@ static efi_status_t efi_open_device_path(efi_file_protocol_t **volume,
 					 struct finfo *fi)
 {
 	static efi_guid_t text_to_dp_guid = EFI_DEVICE_PATH_FROM_TEXT_PROTOCOL_GUID;
-	static efi_guid_t fs_proto = EFI_FILE_SYSTEM_GUID;
 	static efi_device_path_from_text_protocol_t *text_to_dp = NULL;
 	efi_device_path_protocol_t *initrd_dp;
 	efi_simple_file_system_protocol_t *io;

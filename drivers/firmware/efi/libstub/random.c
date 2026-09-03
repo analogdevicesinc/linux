@@ -8,6 +8,8 @@
 
 #include "efistub.h"
 
+static efi_guid_t rng_proto = EFI_RNG_PROTOCOL_GUID;
+
 typedef union efi_rng_protocol efi_rng_protocol_t;
 
 union efi_rng_protocol {
@@ -38,7 +40,6 @@ union efi_rng_protocol {
  */
 efi_status_t efi_get_random_bytes(unsigned long size, u8 *out)
 {
-	static efi_guid_t rng_proto = EFI_RNG_PROTOCOL_GUID;
 	efi_status_t status;
 	efi_rng_protocol_t *rng = NULL;
 
@@ -64,7 +65,6 @@ efi_status_t efi_get_random_bytes(unsigned long size, u8 *out)
  */
 efi_status_t efi_random_get_seed(void)
 {
-	static efi_guid_t rng_proto = EFI_RNG_PROTOCOL_GUID;
 	static efi_guid_t rng_algo_raw = EFI_RNG_ALGORITHM_RAW;
 	static efi_guid_t rng_table_guid = LINUX_EFI_RANDOM_SEED_TABLE_GUID;
 	struct linux_efi_random_seed *prev_seed, *seed = NULL;

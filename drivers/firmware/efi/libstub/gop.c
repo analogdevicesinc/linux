@@ -24,6 +24,8 @@ enum efi_cmdline_option {
 	EFI_CMDLINE_LIST
 };
 
+static efi_guid_t graphics_output_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+
 static struct {
 	enum efi_cmdline_option option;
 	union {
@@ -425,7 +427,6 @@ static void setup_edid_info(struct edid_info *edid, u32 gop_size_of_edid, u8 *go
 static efi_handle_t find_handle_with_primary_gop(unsigned long num, const efi_handle_t handles[],
 						 efi_graphics_output_protocol_t **found_gop)
 {
-	static efi_guid_t graphics_output_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 	static efi_guid_t console_out_device_guid = EFI_CONSOLE_OUT_DEVICE_GUID;
 	efi_graphics_output_protocol_t *first_gop;
 	efi_handle_t h, first_gop_handle;
@@ -481,7 +482,6 @@ static efi_handle_t find_handle_with_primary_gop(unsigned long num, const efi_ha
 
 efi_status_t efi_setup_graphics(struct screen_info *si, struct edid_info *edid)
 {
-	static efi_guid_t graphics_output_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 	static efi_guid_t edid_active_guid = EFI_EDID_ACTIVE_PROTOCOL_GUID;
 	static efi_guid_t edid_discovered_guid = EFI_EDID_DISCOVERED_PROTOCOL_GUID;
 	efi_handle_t *handles __free(efi_pool) = NULL;
