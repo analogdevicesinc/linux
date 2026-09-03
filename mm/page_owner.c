@@ -307,8 +307,8 @@ static inline void __update_page_owner_free_handle(struct page *page,
 			page_owner->free_handle = handle;
 		}
 		page_owner->free_ts_nsec = free_ts_nsec;
-		page_owner->free_pid = current->pid;
-		page_owner->free_tgid = current->tgid;
+		page_owner->free_pid = pid;
+		page_owner->free_tgid = tgid;
 	}
 	rcu_read_unlock();
 }
