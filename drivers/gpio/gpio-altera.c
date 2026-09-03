@@ -221,8 +221,8 @@ static int altera_gpio_probe(struct platform_device *pdev)
 
 	mapped_irq = platform_get_irq_optional(pdev, 0);
 	if (mapped_irq < 0) {
-		if (irq != -ENXIO)
-			return irq;
+		if (mapped_irq != -ENXIO)
+			return mapped_irq;
 		goto skip_irq;
 	}
 
