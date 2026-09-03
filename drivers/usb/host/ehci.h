@@ -126,6 +126,12 @@ struct ehci_hcd {			/* one per controller */
 #ifdef CONFIG_USB_EHCI_DEVIANT_PORT_STATUS_REG
 	u32 __iomem		*port_status;
 #endif
+#ifdef CONFIG_USB_EHCI_PORT_RESET_HOOKS
+	int			(*pre_port_reset)(struct ehci_hcd *ehci,
+						  unsigned int port);
+	int			(*post_port_reset)(struct ehci_hcd *ehci,
+						   unsigned int port);
+#endif
 
 	__u32			hcs_params;	/* cached register copy */
 	spinlock_t		lock;

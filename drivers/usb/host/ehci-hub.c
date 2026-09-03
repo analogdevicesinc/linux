@@ -963,6 +963,13 @@ int ehci_hub_control(
 			/* see what we found out */
 			temp = check_reset_complete (ehci, wIndex, status_reg,
 					ehci_readl(ehci, status_reg));
+#ifdef CONFIG_USB_EHCI_PORT_RESET_HOOKS
+			if (ehci->post_port_reset) {
+				retval = ehci->post_port_reset(ehci, wIndex);
+				if (retval)
+					goto error_exit;
+			}
+#endif
 		}
 
 		/* transfer dedicated ports to the companion hc */
@@ -1121,7 +1128,16 @@ int ehci_hub_control(
 				 */
 				if (ehci_has_fsl_hs_errata(ehci))
 					temp |= (1 << PORTSC_FSL_PFSC);
+
+#ifdef CONFIG_USB_EHCI_PORT_RESET_HOOKS
+				if (ehci->pre_port_reset) {
+					retval = ehci->pre_port_reset(ehci, wIndex);
+					if (retval)
+						goto error_exit;
+				}
+#endif
 			}
+
 			ehci_writel(ehci, temp, status_reg);
 			break;
 

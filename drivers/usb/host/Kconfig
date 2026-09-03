@@ -215,6 +215,10 @@ config USB_EHCI_DEVIANT_PORT_STATUS_REG
 	bool
 	# Used for hosts with a deviant port status register location
 
+config USB_EHCI_PORT_RESET_HOOKS
+	bool
+	# Used for hosts with controller-specific port reset sequencing
+
 config XPS_USB_HCD_XILINX
 	bool "Use Xilinx usb host EHCI controller core"
 	depends on (PPC32 || MICROBLAZE)
