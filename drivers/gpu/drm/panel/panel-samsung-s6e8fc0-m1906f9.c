@@ -17,6 +17,8 @@
 #include <drm/drm_panel.h>
 #include <drm/drm_probe_helper.h>
 
+#include "panel-samsung-dsi.h"
+
 struct s6e8fc0_ctx {
 	struct drm_panel panel;
 	struct mipi_dsi_device *dsi;
@@ -45,20 +47,11 @@ static void s6e8fc0_m1906f9_reset(struct s6e8fc0_ctx *ctx)
 	usleep_range(10000, 11000);
 }
 
-#define s6e8fc0_test_key_on_lvl2(ctx) \
-	mipi_dsi_dcs_write_seq_multi(ctx, 0xf0, 0x5a, 0x5a)
-#define s6e8fc0_test_key_off_lvl2(ctx) \
-	mipi_dsi_dcs_write_seq_multi(ctx, 0xf0, 0xa5, 0xa5)
-#define s6e8fc0_test_key_on_lvl3(ctx) \
-	mipi_dsi_dcs_write_seq_multi(ctx, 0xfc, 0x5a, 0x5a)
-#define s6e8fc0_test_key_off_lvl3(ctx) \
-	mipi_dsi_dcs_write_seq_multi(ctx, 0xfc, 0xa5, 0xa5)
-
 static int s6e8fc0_m1906f9_on(struct s6e8fc0_ctx *ctx)
 {
 	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
 
-	s6e8fc0_test_key_on_lvl3(&dsi_ctx);
+	samsung_dsi_test_key_on_lvl3(&dsi_ctx);
 
 	mipi_dsi_dcs_set_display_brightness_multi(&dsi_ctx, 0x0000);
 	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, MIPI_DCS_WRITE_CONTROL_DISPLAY,
@@ -71,15 +64,15 @@ static int s6e8fc0_m1906f9_on(struct s6e8fc0_ctx *ctx)
 	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xed,
 				     0xe4, 0x08, 0x96, 0xa4, 0x2a, 0x72, 0xe2,
 				     0xca, 0x00);
-	s6e8fc0_test_key_off_lvl3(&dsi_ctx);
-	s6e8fc0_test_key_on_lvl2(&dsi_ctx);
-	s6e8fc0_test_key_on_lvl3(&dsi_ctx);
+	samsung_dsi_test_key_off_lvl3(&dsi_ctx);
+	samsung_dsi_test_key_on_lvl2(&dsi_ctx);
+	samsung_dsi_test_key_on_lvl3(&dsi_ctx);
 	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xe1, 0x93);
 	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb0, 0x05, 0xf4);
 	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf4, 0x03);
 	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xed, 0x01, 0x81, 0x04);
-	s6e8fc0_test_key_off_lvl2(&dsi_ctx);
-	s6e8fc0_test_key_off_lvl3(&dsi_ctx);
+	samsung_dsi_test_key_off_lvl2(&dsi_ctx);
+	samsung_dsi_test_key_off_lvl3(&dsi_ctx);
 
 	return dsi_ctx.accum_err;
 }
