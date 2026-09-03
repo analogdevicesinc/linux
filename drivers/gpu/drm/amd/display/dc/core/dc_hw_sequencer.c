@@ -1102,11 +1102,13 @@ void hwss_build_post_unlock_full_sequence(struct dc *dc,
 		if (pipe->plane_state && !pipe->top_pipe) {
 			while (pipe) {
 				if (pipe->stream && dc_state_get_pipe_subvp_type(context, pipe) == SUBVP_PHANTOM) {
-					/* Apply update flags for phantom pipes using existing HWS functions */
+					/* Phantom SW state must be updated before the pipe sequence is built,
+					 * since the build reads the update flags and scaling params.
+					 */
 					if (dc->hwss.apply_update_flags_for_phantom)
-						hwss_add_hws_apply_update_flags_for_phantom(&seq_state, pipe);
+						dc->hwss.apply_update_flags_for_phantom(pipe);
 					if (dc->hwss.update_phantom_vp_position)
-						hwss_add_hws_update_phantom_vp_position(&seq_state, dc, context, pipe);
+						dc->hwss.update_phantom_vp_position(dc, context, pipe);
 
 					/* Program the phantom pipe - use program_pipe_sequence if available */
 					if (dc->hwseq && dc->hwseq->funcs.program_pipe_sequence)
@@ -1803,14 +1805,6 @@ void hwss_execute_sequence(struct dc *dc,
 		case HUBP_WAIT_PIPE_READ_START:
 			params->hubp_wait_pipe_read_start_params.hubp->funcs->hubp_wait_pipe_read_start(
 				params->hubp_wait_pipe_read_start_params.hubp);
-			break;
-		case HWS_APPLY_UPDATE_FLAGS_FOR_PHANTOM:
-			dc->hwss.apply_update_flags_for_phantom(params->apply_update_flags_for_phantom_params.pipe_ctx);
-			break;
-		case HWS_UPDATE_PHANTOM_VP_POSITION:
-			dc->hwss.update_phantom_vp_position(params->update_phantom_vp_position_params.dc,
-				params->update_phantom_vp_position_params.context,
-				params->update_phantom_vp_position_params.pipe_ctx);
 			break;
 		case OPTC_SET_ODM_COMBINE:
 			hwss_set_odm_combine(params);
@@ -2586,36 +2580,6 @@ void hwss_add_hubp_wait_pipe_read_start(struct block_sequence_state *seq_state,
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
 		seq_state->steps[*seq_state->num_steps].params.hubp_wait_pipe_read_start_params.hubp = hubp;
 		seq_state->steps[*seq_state->num_steps].func = HUBP_WAIT_PIPE_READ_START;
-		(*seq_state->num_steps)++;
-	}
-}
-
-/*
- * Helper function to add HWS apply update flags for phantom to block sequence
- */
-void hwss_add_hws_apply_update_flags_for_phantom(struct block_sequence_state *seq_state,
-		struct pipe_ctx *pipe_ctx)
-{
-	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.apply_update_flags_for_phantom_params.pipe_ctx = pipe_ctx;
-		seq_state->steps[*seq_state->num_steps].func = HWS_APPLY_UPDATE_FLAGS_FOR_PHANTOM;
-		(*seq_state->num_steps)++;
-	}
-}
-
-/*
- * Helper function to add HWS update phantom VP position to block sequence
- */
-void hwss_add_hws_update_phantom_vp_position(struct block_sequence_state *seq_state,
-		struct dc *dc,
-		struct dc_state *context,
-		struct pipe_ctx *pipe_ctx)
-{
-	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.update_phantom_vp_position_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.update_phantom_vp_position_params.context = context;
-		seq_state->steps[*seq_state->num_steps].params.update_phantom_vp_position_params.pipe_ctx = pipe_ctx;
-		seq_state->steps[*seq_state->num_steps].func = HWS_UPDATE_PHANTOM_VP_POSITION;
 		(*seq_state->num_steps)++;
 	}
 }

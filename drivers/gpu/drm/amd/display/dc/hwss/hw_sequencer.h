@@ -249,16 +249,6 @@ struct hubp_wait_pipe_read_start_params {
 	struct hubp *hubp;
 };
 
-struct apply_update_flags_for_phantom_params {
-	struct pipe_ctx *pipe_ctx;
-};
-
-struct update_phantom_vp_position_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
-	struct dc_state *context;
-};
-
 struct set_odm_combine_params {
 	struct timing_generator *tg;
 	int opp_inst[MAX_PIPES];
@@ -1098,8 +1088,6 @@ union block_sequence_params {
 	struct control_cm_hist_params control_cm_hist_params;
 	struct program_cursor_update_now_params program_cursor_update_now_params;
 	struct hubp_wait_pipe_read_start_params hubp_wait_pipe_read_start_params;
-	struct apply_update_flags_for_phantom_params apply_update_flags_for_phantom_params;
-	struct update_phantom_vp_position_params update_phantom_vp_position_params;
 	struct set_odm_combine_params set_odm_combine_params;
 	struct set_odm_bypass_params set_odm_bypass_params;
 	struct opp_pipe_clock_control_params opp_pipe_clock_control_params;
@@ -1278,8 +1266,6 @@ enum block_sequence_func {
 	DPP_PROGRAM_CM_HIST,
 	PROGRAM_CURSOR_UPDATE_NOW,
 	HUBP_WAIT_PIPE_READ_START,
-	HWS_APPLY_UPDATE_FLAGS_FOR_PHANTOM,
-	HWS_UPDATE_PHANTOM_VP_POSITION,
 	OPTC_SET_ODM_COMBINE,
 	OPTC_SET_ODM_BYPASS,
 	OPP_PIPE_CLOCK_CONTROL,
@@ -2247,12 +2233,6 @@ void hwss_add_lsdma_send_pio_copy(struct block_sequence_state *seq_state,
 		uint32_t byte_count, uint32_t overlap_disable);
 void hwss_add_hubp_wait_pipe_read_start(struct block_sequence_state *seq_state,
 		struct hubp *hubp);
-
-void hwss_add_hws_apply_update_flags_for_phantom(struct block_sequence_state *seq_state,
-		struct pipe_ctx *pipe_ctx);
-
-void hwss_add_hws_update_phantom_vp_position(struct block_sequence_state *seq_state,
-		struct dc *dc, struct dc_state *context, struct pipe_ctx *pipe_ctx);
 
 void hwss_add_optc_set_odm_combine(struct block_sequence_state *seq_state,
 		struct timing_generator *tg, int opp_inst[MAX_PIPES], int opp_head_count,
