@@ -933,6 +933,7 @@ struct damon_ctx *damon_new_ctx(void)
 	INIT_LIST_HEAD(&ctx->adaptive_targets);
 	INIT_LIST_HEAD(&ctx->schemes);
 
+	ctx->call_controls_obsolete = true;
 	prandom_seed_state(&ctx->rnd_state, get_random_u64());
 
 	return ctx;
@@ -2205,10 +2206,6 @@ int damon_kdamond_pid(struct damon_ctx *ctx)
  * safely access the internal data of the &struct damon_ctx without additional
  * synchronization.  The return value of the function will be saved in
  * &damon_call_control->return_code.
- *
- * Note that this function should be called only after damon_start() with the
- * @ctx has succeeded.  Otherwise, this function could fall into an indefinite
- * wait.
  *
  * When this function is failed, the @ctx is guaranteed to be stopped.
  *
