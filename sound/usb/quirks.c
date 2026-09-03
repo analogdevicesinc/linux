@@ -1805,6 +1805,62 @@ static void set_format_emu_quirk(struct snd_usb_substream *subs,
 	subs->pkt_offset_adj = (emu_samplerate_id >= EMU_QUIRK_SR_176400HZ) ? 4 : 0;
 }
 
+/*
+ * The DDJ-SZ needs a vendor "arm" sequence before its capture path
+ * produces real audio; without it capture runs with no USB or ALSA error
+ * but delivers a hard zero on every channel. The sequence is replicated
+ * byte-for-byte from a USB capture of the Windows driver: each write is
+ * followed by a status read whose content is a fixed value regardless of
+ * what was written, but the read is replicated too, since it is unclear
+ * whether the device requires it to process the preceding write.
+ *
+ * This runs from snd_usb_set_format_quirk(), i.e. on every format setup
+ * rather than once per device. Re-arming is harmless in practice and
+ * keeps the device armed if it is reset behind our back.
+ */
+static void ddj_sz_arm_quirk(struct usb_device *dev)
+{
+	static const struct {
+		u16 value;
+		u16 index;
+		u8 read_len;
+	} cmds[] = {
+		{ 0x0100, 0x8002, 6 },
+		{ 0x0200, 0x8002, 6 },
+		{ 0x0303, 0x8002, 6 },
+		{ 0x0403, 0x8002, 6 },
+		{ 0x050a, 0x8002, 6 },
+		{ 0x0000, 0x8003, 2 },
+	};
+	u8 buf[6];
+	unsigned int i;
+	int err;
+
+	for (i = 0; i < ARRAY_SIZE(cmds); i++) {
+		err = snd_usb_ctl_msg(dev, usb_sndctrlpipe(dev, 0), 3,
+				      USB_DIR_OUT | USB_TYPE_VENDOR |
+				      USB_RECIP_DEVICE,
+				      cmds[i].value, cmds[i].index, NULL, 0);
+		if (err < 0)
+			goto err_out;
+
+		err = snd_usb_ctl_msg(dev, usb_rcvctrlpipe(dev, 0), 0,
+				      USB_DIR_IN | USB_TYPE_VENDOR |
+				      USB_RECIP_DEVICE,
+				      0x0000, cmds[i].index, buf,
+				      cmds[i].read_len);
+		if (err < 0)
+			goto err_out;
+	}
+
+	return;
+
+err_out:
+	dev_warn(&dev->dev,
+		 "DDJ-SZ: arm sequence step %u failed (%d), capture may be silent\n",
+		 i, err);
+}
+
 static int pioneer_djm_set_format_quirk(struct snd_usb_substream *subs,
 					u16 windex)
 {
@@ -1985,6 +2041,10 @@ void snd_usb_set_format_quirk(struct snd_usb_substream *subs,
 	case USB_ID(0x08e4, 0x017f): /* Pioneer DJM-750 */
 	case USB_ID(0x08e4, 0x0163): /* Pioneer DJM-850 */
 		pioneer_djm_set_format_quirk(subs, 0x0086);
+		break;
+	case USB_ID(0x08e4, 0x0191): /* Pioneer DDJ-SZ */
+		ddj_sz_arm_quirk(subs->dev);
+		pioneer_djm_set_format_quirk(subs, 0x0082);
 		break;
 	case USB_ID(0x0dba, 0x5000):
 		mbox3_set_format_quirk(subs, fmt); /* Digidesign Mbox 3 */
