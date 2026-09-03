@@ -2401,11 +2401,10 @@ void issue_probersp(struct adapter *padapter, unsigned char *da, u8 is_valid_p2p
 	dump_mgntframe(padapter, pmgntframe);
 }
 
-static int _issue_probereq(struct adapter *padapter,
-			   struct ndis_802_11_ssid *pssid,
-			   u8 *da, u8 ch, bool append_wps, bool wait_ack)
+static void _issue_probereq(struct adapter *padapter,
+			    struct ndis_802_11_ssid *pssid,
+			    u8 *da, u8 ch, bool append_wps, bool wait_ack)
 {
-	int ret = _FAIL;
 	struct xmit_frame		*pmgntframe;
 	struct pkt_attrib		*pattrib;
 	unsigned char *pframe;
@@ -2420,7 +2419,7 @@ static int _issue_probereq(struct adapter *padapter,
 
 	pmgntframe = alloc_mgtxmitframe(pxmitpriv);
 	if (!pmgntframe)
-		goto exit;
+		return;
 
 	/* update attribute */
 	pattrib = &pmgntframe->attrib;
@@ -2484,14 +2483,10 @@ static int _issue_probereq(struct adapter *padapter,
 	pattrib->last_txcmdsz = pattrib->pktlen;
 
 	if (wait_ack) {
-		ret = dump_mgntframe_and_wait_ack(padapter, pmgntframe);
+		dump_mgntframe_and_wait_ack(padapter, pmgntframe);
 	} else {
 		dump_mgntframe(padapter, pmgntframe);
-		ret = _SUCCESS;
 	}
-
-exit:
-	return ret;
 }
 
 inline void issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da)
@@ -2499,21 +2494,9 @@ inline void issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *ps
 	_issue_probereq(padapter, pssid, da, 0, 1, false);
 }
 
-int issue_probereq_ex(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da)
+void issue_probereq_ex(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da)
 {
-	int ret;
-
-	ret = _issue_probereq(padapter, pssid, da, 0, 0, false);
-
-	if (ret != _FAIL) {
-		ret = _SUCCESS;
-		#ifndef DBG_XMIT_ACK
-		goto exit;
-		#endif
-	}
-
-exit:
-	return ret;
+	_issue_probereq(padapter, pssid, da, 0, 0, false);
 }
 
 /*  if psta == NULL, indicate we are station(client) now... */
