@@ -1080,6 +1080,7 @@ void hubbub31_construct(struct dcn20_hubbub *hubbub31,
 	int pixel_chunk_size_kb,
 	int config_return_buffer_size_kb)
 {
+	hubbub31->base.inst = 0;
 
 	hubbub3_construct(hubbub31, ctx, hubbub_regs, hubbub_shift, hubbub_mask);
 	hubbub31->base.funcs = &hubbub31_funcs;

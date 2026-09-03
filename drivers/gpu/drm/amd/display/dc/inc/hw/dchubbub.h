@@ -301,6 +301,7 @@ struct hubbub_funcs {
 struct hubbub {
 	const struct hubbub_funcs *funcs;
 	struct dc_context *ctx;
+	int inst;
 	bool riommu_active;
 };
 
