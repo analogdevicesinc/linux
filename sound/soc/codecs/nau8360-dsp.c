@@ -20,7 +20,7 @@
 #include "nau8360.h"
 
 #define NAU8360_DSP_IDLE_RETRY 10
-const unsigned short nau8360_dsp_addr[NAU8360_DSP_FW_NUM] = {
+static const unsigned short nau8360_dsp_addr[NAU8360_DSP_FW_NUM] = {
 	NAU8360_RF000_DSP_COMM, NAU8360_RF002_DSP_COMM };
 
 static int nau8360_dsp_chan_kcs_setup(struct snd_soc_component *cp,

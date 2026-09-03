@@ -409,7 +409,7 @@ static int nau8360_peq_coeff_get(struct snd_kcontrol *kcontrol,
 	struct nau8360 *nau8360 = snd_soc_component_get_drvdata(cp);
 	struct soc_bytes_ext *params = (void *)kcontrol->private_value;
 	int i, value, reg, ret = 0;
-	u16 *val = (u16 *)ucontrol->value.bytes.data;
+	__be16 *val = (__be16 *)ucontrol->value.bytes.data;
 
 	/* Use the DAPM lock to prevent race conditions during DAPM power-up
 	 * state transitions, and check component active status to prohibit
