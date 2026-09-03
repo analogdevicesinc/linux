@@ -2367,6 +2367,10 @@ static int filename_trans_read_helper(struct policydb *p, struct policy_file *fp
 		if (rc)
 			goto out;
 
+		rc = -EINVAL;
+		if (ebitmap_get_highest_set_bit(&datum->stypes) >= p->p_types.nprim)
+			goto out;
+
 		rc = next_entry(buf, fp, sizeof(u32));
 		if (rc)
 			goto out;
