@@ -2216,10 +2216,11 @@ static int cxl_region_attach(struct cxl_region *cxlr,
 		int test_pos;
 
 		test_pos = cxl_calc_interleave_pos(target, &cxlr->hpa_range);
-		dev_dbg(&target->cxld.dev,
-			"Test cxl_calc_interleave_pos(): %s test_pos:%d target->pos:%d\n",
-			(test_pos == target->pos) ? "success" : "fail",
-			test_pos, target->pos);
+		if (test_pos != target->pos)
+			dev_warn(&cxlr->dev,
+				 "%s: position mismatch: calculated:%d assigned:%d\n",
+				 dev_name(&target->cxld.dev), test_pos,
+				 target->pos);
 	}
 
 	return 0;
