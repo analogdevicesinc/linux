@@ -135,21 +135,37 @@ jobs:
 
         [ -z "$( ls -A 'dist' )" ] && exit
 
-        cd dist
-        for file in * ; do
+        cs-upload-artifact() {
+          local tags="$1"
+          local file="$2"
+          local package_file
+
           echo "$file"
           package_file=$(
-            cs-package-upload ${{ env.CLOUDSMITH_API_KEY }} \
-                              ${{ vars.CLOUDSMITH_NAMESPACE }} \
-                              ${{ vars.CLOUDSMITH_REPOSITORY }} \
+            cs-package-upload "${{ env.CLOUDSMITH_API_KEY }}" \
+                              "${{ vars.CLOUDSMITH_NAMESPACE }}" \
+                              "${{ vars.CLOUDSMITH_REPOSITORY }}" \
                               "$file"
           )
 
-          cs-package-store-raw ${{ env.CLOUDSMITH_API_KEY }} \
-                               ${{ vars.CLOUDSMITH_NAMESPACE }} \
-                               ${{ vars.CLOUDSMITH_REPOSITORY }} \
-                               $package_file \
-                               $file \
-                               "$tags_" \
-                               ${{ github.sha }}
-        done
+          cs-package-store-raw "${{ env.CLOUDSMITH_API_KEY }}" \
+                               "${{ vars.CLOUDSMITH_NAMESPACE }}" \
+                               "${{ vars.CLOUDSMITH_REPOSITORY }}" \
+                               "$package_file" \
+                               "$file" \
+                               "$tags" \
+                               "${{ github.sha }}"
+        }
+        export -f cs-package-upload cs-package-store-raw cs-upload-artifact
+
+        cd dist
+
+        if command -v parallel &>/dev/null ; then
+          printf '%s\n' * |
+            parallel --jobs 8 "cs-upload-artifact \"$tags_\" {}"
+        else
+          echo "Tip: install gnu_parallel to upload in parallel."
+          for file in * ; do
+            cs-upload-artifact "$tags_" "$file"
+          done
+        fi
