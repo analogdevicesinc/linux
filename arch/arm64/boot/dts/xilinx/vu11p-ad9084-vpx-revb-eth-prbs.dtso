@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#define XCVR_ETH_PRBS   1
+
+#include "vu11p-ad9084-vpx-revb.dtso"

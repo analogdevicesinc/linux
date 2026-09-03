@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * PRBS test access for the PCIe transceivers. Included from inside the base
+ * overlay's fpga-region block: fpga_region rejects a second overlay fragment
+ * targeting the same region, so these nodes cannot live in a fragment of their
+ * own. Requires the HDL built with XCVR_PRBS=1.
+ */
+
+	pcie_gt_refclk: clock@4 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <100000000>;
+		clock-output-names = "pcie_gt_refclk";
+	};
+
+	/*
+	 * No jesd204-device: these instances exist only to reach the GT PRBS
+	 * generator/checker and the per-channel DRP. sys-clk-select must stay
+	 * off XCVR_CPLL so adxcvr_enforce_settings() takes its early return and
+	 * never reprograms the quad the PCIe core owns.
+	 */
+	axi_pcie_adxcvr_rx: axi-adxcvr-pcie-rx@88360000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x0 0x88360000 0x0 0x1000>;
+
+		clocks = <&pcie_gt_refclk>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "pcie_rx_gt_clk", "pcie_rx_out_clk";
+
+		adi,sys-clk-select = <XCVR_QPLL1>;
+		adi,out-clk-select = <XCVR_OUTCLK_PCS>;
+	};
+
+	axi_pcie_adxcvr_tx: axi-adxcvr-pcie-tx@88370000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x0 0x88370000 0x0 0x1000>;
+
+		clocks = <&pcie_gt_refclk>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "pcie_tx_gt_clk", "pcie_tx_out_clk";
+
+		adi,sys-clk-select = <XCVR_QPLL1>;
+		adi,out-clk-select = <XCVR_OUTCLK_PCS>;
+	};
+
+	/*
+	 * Channel 1 lines 0..23 are LOOPBACK[2:0] per lane, channel 2 lines
+	 * 0..7 are TXINHIBIT per lane.
+	 */
+	axi_pcie_xcvr_gpio: gpio@88380000 {
+		compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x0 0x88380000 0x0 0x10000>;
+		xlnx,all-inputs = <0x0>;
+		xlnx,all-inputs-2 = <0x0>;
+		xlnx,all-outputs = <0x1>;
+		xlnx,all-outputs-2 = <0x1>;
+		xlnx,dout-default = <0x00000000>;
+		xlnx,dout-default-2 = <0x00000000>;
+		xlnx,gpio-width = <0x18>;
+		xlnx,gpio2-width = <0x8>;
+		xlnx,interrupt-present = <0x0>;
+		xlnx,is-dual = <0x1>;
+	};

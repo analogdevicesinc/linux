@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * PRBS test access for the QSFP transceivers. Included from inside the base
+ * overlay's fpga-region block: fpga_region rejects a second overlay fragment
+ * targeting the same region, so these nodes cannot live in a fragment of their
+ * own. Requires the HDL built with XCVR_ETH_PRBS=1, which drives the quad from
+ * util_adxcvr instead of an Ethernet MAC and so cannot coexist with CORUNDUM=1.
+ */
+
+	qsfp_gt_refclk: clock@5 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <156250000>;
+		clock-output-names = "qsfp_gt_refclk";
+	};
+
+	/*
+	 * No jesd204-device: these instances exist only to reach the GT PRBS
+	 * generator/checker and the per-channel DRP. sys-clk-select must stay off
+	 * XCVR_CPLL so adxcvr_enforce_settings() takes its early return: the lane
+	 * rate is the one baked into the bitstream, and xilinx_xcvr_calc_qpll_config()
+	 * would reject it anyway, since it checks refclk * N / m against the 16.375
+	 * GHz QPLL0 ceiling without the factor of two GTY applies to the line rate.
+	 *
+	 */
+	axi_eth_adxcvr_rx: axi-adxcvr-eth-rx@88390000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x0 0x88390000 0x0 0x1000>;
+
+		clocks = <&qsfp_gt_refclk>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "eth_rx_gt_clk", "eth_rx_out_clk";
+
+		adi,sys-clk-select = <XCVR_QPLL1>;
+		adi,out-clk-select = <XCVR_OUTCLK_PCS>;
+	};
+
+	axi_eth_adxcvr_tx: axi-adxcvr-eth-tx@883a0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x0 0x883A0000 0x0 0x1000>;
+
+		clocks = <&qsfp_gt_refclk>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "eth_tx_gt_clk", "eth_tx_out_clk";
+
+		adi,sys-clk-select = <XCVR_QPLL1>;
+		adi,out-clk-select = <XCVR_OUTCLK_PCS>;
+	};
+
+	/*
+	 * Lines 0..11 are LOOPBACK[2:0] per lane, UG578 encoding. gtwizard brings the
+	 * port out, so no QSFP loopback module is needed for an internal test.
+	 */
+	axi_eth_xcvr_gpio: gpio@883b0000 {
+		compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x0 0x883B0000 0x0 0x10000>;
+		xlnx,all-inputs = <0x0>;
+		xlnx,all-inputs-2 = <0x0>;
+		xlnx,all-outputs = <0x1>;
+		xlnx,all-outputs-2 = <0x0>;
+		xlnx,dout-default = <0x00000000>;
+		xlnx,dout-default-2 = <0x00000000>;
+		xlnx,gpio-width = <0xc>;
+		xlnx,gpio2-width = <0x20>;
+		xlnx,interrupt-present = <0x0>;
+		xlnx,is-dual = <0x0>;
+	};

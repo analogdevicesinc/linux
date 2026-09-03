@@ -25,6 +25,14 @@
 #define WITH_AION		1
 #endif
 
+#ifndef XCVR_PCIE_PRBS
+#define XCVR_PCIE_PRBS	0
+#endif
+
+#ifndef XCVR_ETH_PRBS
+#define XCVR_ETH_PRBS	0
+#endif
+
 #ifndef VU11_FIRMWARE_NAME
 #define VU11_FIRMWARE_NAME	"vu11p.bin"
 #endif
@@ -780,4 +788,12 @@
 		#size-cells = <0>;
 		status = "disabled";
 	};
+
+#if XCVR_PCIE_PRBS
+#include "vu11p-ad9084-vpx-revb-prbs.dtsi"
+#endif
+
+#if XCVR_ETH_PRBS
+#include "vu11p-ad9084-vpx-revb-eth-prbs.dtsi"
+#endif
 };
