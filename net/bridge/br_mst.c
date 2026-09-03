@@ -86,7 +86,7 @@ static void br_mst_vlan_set_state(struct net_bridge_vlan_group *vg,
 	if (br_vlan_get_state(v) == state)
 		return;
 
-	if (v->vid == vg->pvid)
+	if (v->vid == br_get_pvid(vg))
 		br_vlan_set_pvid_state(vg, state);
 
 	br_vlan_set_state(v, state);
