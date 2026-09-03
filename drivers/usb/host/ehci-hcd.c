@@ -325,7 +325,7 @@ static void ehci_turn_off_all_ports(struct ehci_hcd *ehci)
 		ehci_port_power(ehci, port, false);
 		spin_lock_irq(&ehci->lock);
 		ehci_writel(ehci, PORT_RWC_BITS,
-				&ehci->regs->port_status[port]);
+				ehci_portsc(ehci, port));
 	}
 }
 
@@ -811,8 +811,7 @@ restart:
 			/* leverage per-port change bits feature */
 			if (!(ppcd & (1 << i)))
 				continue;
-			pstatus = ehci_readl(ehci,
-					 &ehci->regs->port_status[i]);
+			pstatus = ehci_readl(ehci, ehci_portsc(ehci, i));
 
 			if (pstatus & PORT_OWNER)
 				continue;
@@ -1109,7 +1108,7 @@ static void ehci_remove_device(struct usb_hcd *hcd, struct usb_device *udev)
 /* Clear wakeup signal locked in zhaoxin platform when device plug in. */
 static void ehci_zx_wakeup_clear(struct ehci_hcd *ehci)
 {
-	u32 __iomem	*reg = &ehci->regs->port_status[4];
+	u32 __iomem	*reg = ehci_portsc(ehci, 4);
 	u32 		t1 = ehci_readl(ehci, reg);
 
 	t1 &= (u32)~0xf0000;
