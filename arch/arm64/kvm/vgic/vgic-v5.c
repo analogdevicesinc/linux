@@ -773,6 +773,8 @@ int vgic_v5_map_resources(struct kvm *kvm)
 {
 	if (!vgic_initialized(kvm))
 		return -EBUSY;
+	if (kvm->arch.vgic.vgic_v5_irs_data->lpi_ist_restore_pending)
+		return -EINVAL;
 
 	return 0;
 }

@@ -491,6 +491,9 @@ struct vgic_v5_irs {
 		bool valid;
 		u64 addr;
 	} ist_baser;
+
+	/* A valid userspace-restored BASER still needs its host LPI IST. */
+	bool lpi_ist_restore_pending;
 };
 
 struct vgic_dist {
