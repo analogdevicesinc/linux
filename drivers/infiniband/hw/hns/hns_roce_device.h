@@ -654,6 +654,7 @@ struct hns_roce_qp {
 	u8			priority;
 	spinlock_t flush_lock;
 	struct hns_roce_dip *dip;
+	bool ud_sl_set;
 };
 
 struct hns_roce_ib_iboe {
@@ -1047,6 +1048,7 @@ struct hns_roce_dev {
 	struct hns_roce_dev_debugfs dbgfs;
 	atomic64_t *dfx_cnt;
 	struct hns_roce_scc_param *scc_param;
+	u8 gsi_sl;
 };
 
 enum hns_roce_trace_type {

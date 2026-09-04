@@ -24,8 +24,12 @@
 /* MANA doesn't have any limit for MR size */
 #define MANA_IB_MAX_MR_SIZE	U64_MAX
 
-/* Send queue ID mask */
-#define MANA_SENDQ_MASK	BIT(31)
+/*
+ * Send queue ID mask. Queue IDs are 2-bit aligned (see MANA_QID_SUBTYPE_MASK),
+ * so bit 0 is always free to tag send queues in the lookup table. This keeps
+ * the whole top byte available to index per-port GSI QPs by (port << 24).
+ */
+#define MANA_SENDQ_MASK	BIT(0)
 /* Queue ID encodes type in the lower 2 bits */
 #define MANA_QID_SUBTYPE_MASK 0x3
 
@@ -172,7 +176,7 @@ struct mana_ib_cq {
 enum mana_rc_queue_type {
 	MANA_RC_SEND_QUEUE_REQUESTER = 0,
 	MANA_RC_SEND_QUEUE_RESPONDER,
-	MANA_RC_SEND_QUEUE_FMR,
+	MANA_RC_SEND_QUEUE_MMQ,
 	MANA_RC_RECV_QUEUE_REQUESTER,
 	MANA_RC_RECV_QUEUE_RESPONDER,
 	MANA_RC_QUEUE_TYPE_MAX,
@@ -180,6 +184,7 @@ enum mana_rc_queue_type {
 
 struct mana_ib_rc_qp {
 	struct mana_ib_queue queues[MANA_RC_QUEUE_TYPE_MAX];
+	u32 wqe_size_in_bu;
 };
 
 enum mana_uc_queue_type {
@@ -262,6 +267,8 @@ enum mana_ib_adapter_features {
 	MANA_IB_FEATURE_CLIENT_ERROR_CQE_SUPPORT = BIT(4),
 	MANA_IB_FEATURE_DEV_COUNTERS_SUPPORT = BIT(5),
 	MANA_IB_FEATURE_MULTI_PORTS_SUPPORT = BIT(6),
+	MANA_IB_FEATURE_MSN_IN_WQE_SUPPORT = BIT(7),
+	MANA_IB_FEATURE_MULTI_PORT_GSI_SUPPORT = BIT(15),
 };
 
 struct mana_ib_query_adapter_caps_resp {
@@ -372,7 +379,9 @@ struct mana_rnic_destroy_cq_resp {
 }; /* HW Data */
 
 enum mana_rnic_create_rc_flags {
-	MANA_RC_FLAG_NO_FMR = 2,
+	MANA_RC_FLAG_NO_MMQ = BIT(1),
+	MANA_RC_FLAG_FIXED_SIZE_WQE = BIT(3),
+	MANA_RC_FLAG_MSN_IN_WQE = BIT(4),
 };
 
 struct mana_rnic_create_qp_req {
@@ -389,7 +398,8 @@ struct mana_rnic_create_qp_req {
 	u32 max_recv_wr;
 	u32 max_send_sge;
 	u32 max_recv_sge;
-	u32 reserved;
+	u8 wqe_size_in_bu;
+	u8 reserved[3];
 }; /* HW Data */
 
 struct mana_rnic_create_qp_resp {
@@ -445,7 +455,13 @@ struct mana_rnic_create_udqp_req {
 	u32 max_recv_wr;
 	u32 max_send_sge;
 	u32 max_recv_sge;
+	u8 mac[ETH_ALEN];     /* V2: port MAC for multi-port GSI */
+	u16 flags;            /* V2: MANA_UD_QP_FLAG_* */
 }; /* HW Data */
+
+enum mana_ud_qp_flags {
+	MANA_UD_QP_FLAG_CREATE_IN_INIT = BIT(0),
+};
 
 struct mana_rnic_create_udqp_resp {
 	struct gdma_resp_hdr hdr;
