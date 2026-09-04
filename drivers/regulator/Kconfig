@@ -864,7 +864,7 @@ config REGULATOR_MP8859
 	  module. The module will be named "mp8859".
 
 config REGULATOR_MP886X
-	tristate "MPS MP8869 regulator driver"
+	tristate "MPS MP8864/MP8867/MP8869 regulator driver"
 	depends on I2C && OF
 	select REGMAP_I2C
 	help
