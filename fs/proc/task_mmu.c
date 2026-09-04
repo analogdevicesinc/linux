@@ -130,8 +130,6 @@ static void release_task_mempolicy(struct proc_maps_private *priv)
 }
 #endif
 
-#ifdef CONFIG_PER_VMA_LOCK
-
 static inline int lock_ctx_mm(struct proc_maps_locking_ctx *lock_ctx)
 {
 	int ret = mmap_read_lock_killable(lock_ctx->mm);
@@ -232,46 +230,6 @@ static inline void reacquire_rcu(struct proc_maps_private *priv)
 	/* Reinitialize the iterator. */
 	vma_iter_set(&priv->iter, priv->lock_ctx.locked_vma->vm_end);
 }
-
-#else /* CONFIG_PER_VMA_LOCK */
-
-static inline int lock_ctx_mm(struct proc_maps_locking_ctx *lock_ctx)
-{
-	return mmap_read_lock_killable(lock_ctx->mm);
-}
-
-static inline void unlock_ctx_mm(struct proc_maps_locking_ctx *lock_ctx)
-{
-	mmap_read_unlock(lock_ctx->mm);
-}
-
-static inline bool lock_vma_range(struct seq_file *m,
-				  struct proc_maps_locking_ctx *lock_ctx)
-{
-	return lock_ctx_mm(lock_ctx) == 0;
-}
-
-static inline void unlock_vma_range(struct proc_maps_locking_ctx *lock_ctx)
-{
-	unlock_ctx_mm(lock_ctx);
-}
-
-static struct vm_area_struct *get_next_vma(struct proc_maps_private *priv,
-					   loff_t last_pos)
-{
-	return vma_next(&priv->iter);
-}
-
-static inline bool fallback_to_mmap_lock(struct proc_maps_private *priv,
-					 loff_t pos)
-{
-	return false;
-}
-
-static inline void drop_rcu(struct proc_maps_private *priv) {}
-static inline void reacquire_rcu(struct proc_maps_private *priv) {}
-
-#endif /* CONFIG_PER_VMA_LOCK */
 
 static struct vm_area_struct *proc_get_vma(struct seq_file *m, loff_t *ppos)
 {
@@ -560,8 +518,6 @@ static int pid_maps_open(struct inode *inode, struct file *file)
 		PROCMAP_QUERY_VMA_FLAGS				\
 )
 
-#ifdef CONFIG_PER_VMA_LOCK
-
 static int query_vma_setup(struct proc_maps_locking_ctx *lock_ctx)
 {
 	reset_lock_ctx(lock_ctx);
@@ -611,26 +567,6 @@ static struct vm_area_struct *query_vma_find_by_addr(struct proc_maps_locking_ct
 
 	return vma;
 }
-
-#else /* CONFIG_PER_VMA_LOCK */
-
-static int query_vma_setup(struct proc_maps_locking_ctx *lock_ctx)
-{
-	return mmap_read_lock_killable(lock_ctx->mm);
-}
-
-static void query_vma_teardown(struct proc_maps_locking_ctx *lock_ctx)
-{
-	mmap_read_unlock(lock_ctx->mm);
-}
-
-static struct vm_area_struct *query_vma_find_by_addr(struct proc_maps_locking_ctx *lock_ctx,
-						     unsigned long addr)
-{
-	return find_vma(lock_ctx->mm, addr);
-}
-
-#endif  /* CONFIG_PER_VMA_LOCK */
 
 static struct vm_area_struct *query_matching_vma(struct proc_maps_locking_ctx *lock_ctx,
 						 unsigned long addr, u32 flags)
@@ -1314,8 +1250,6 @@ static const struct mm_walk_ops smaps_shmem_walk_ops = {
 	.walk_lock		= PGWALK_RDLOCK,
 };
 
-#ifdef CONFIG_PER_VMA_LOCK
-
 static const struct mm_walk_ops smaps_walk_vma_lock_ops = {
 	.pmd_entry		= smaps_pte_range,
 	.hugetlb_entry		= smaps_hugetlb_range,
@@ -1344,22 +1278,6 @@ get_smaps_shmem_walk_ops(struct proc_maps_private *priv)
 		return  &smaps_shmem_walk_ops;
 	return &smaps_shmem_walk_vma_lock_ops;
 }
-
-#else /* CONFIG_PER_VMA_LOCK */
-
-static inline const struct mm_walk_ops *
-get_smaps_walk_ops(struct proc_maps_private *priv)
-{
-	return &smaps_walk_ops;
-}
-
-static inline const struct mm_walk_ops *
-get_smaps_shmem_walk_ops(struct proc_maps_private *priv)
-{
-	return &smaps_shmem_walk_ops;
-}
-
-#endif /* CONFIG_PER_VMA_LOCK */
 
 /*
  * Gather mem stats from @vma with the indicated beginning
@@ -3497,7 +3415,6 @@ static const struct mm_walk_ops show_numa_ops = {
 	.walk_lock = PGWALK_RDLOCK,
 };
 
-#ifdef CONFIG_PER_VMA_LOCK
 static const struct mm_walk_ops show_numa_vma_lock_ops = {
 	.hugetlb_entry = gather_hugetlb_stats,
 	.pmd_entry = gather_pte_stats,
@@ -3511,16 +3428,6 @@ get_show_numa_ops(struct proc_maps_private *priv)
 		return &show_numa_ops;
 	return &show_numa_vma_lock_ops;
 }
-
-#else /* CONFIG_PER_VMA_LOCK */
-
-static inline const struct mm_walk_ops *
-get_show_numa_ops(struct proc_maps_private *priv)
-{
-	return &show_numa_ops;
-}
-
-#endif /* CONFIG_PER_VMA_LOCK */
 
 /*
  * Display pages allocated per node and memory policy via /proc.
