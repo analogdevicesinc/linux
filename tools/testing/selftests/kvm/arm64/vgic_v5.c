@@ -13,11 +13,17 @@
 #include "vgic.h"
 
 #define NR_VCPUS		1
+#define VGIC_V5_LPI_NR_VCPUS	2
+#define VGIC_V5_LPI_MEMSLOT	1
 #define VGIC_V5_NR_PRIVATE_IRQS	64
 #define VGIC_V5_DEFAULT_NR_SPIS	32
 #define VGIC_V5_MAX_NR_SPIS	BIT(10)
 #define VGIC_V5_IRS_SIZE		0x20000
 #define VGIC_V5_IRS_WAIT_RETRIES	1000000
+#define VGIC_V5_LPI_IST_BASE_GPA	(GICV5_IRS_CONFIG_BASE_GPA + VGIC_V5_IRS_SIZE)
+#define VGIC_V5_LPI_IST_SIZE		0x10000
+#define LPI_TEST_TO_VPE1		0
+#define LPI_TEST_TO_VPE0		1
 
 static u64 max_phys_size;
 
@@ -33,6 +39,8 @@ struct vm_gic {
 #define GUEST_CMD_IRQ_DIEOI	11
 #define GUEST_CMD_IS_AWAKE	12
 #define GUEST_CMD_IS_READY	13
+#define GUEST_CMD_LPI_SENT	14
+#define GUEST_CMD_LPI_REPLIED	15
 
 static struct kvm_vgic_v5_ist vgic_v5_ist_attr(void *spi_ist, size_t spi_size,
 					       void *lpi_ist, size_t lpi_size)
@@ -47,11 +55,22 @@ static struct kvm_vgic_v5_ist vgic_v5_ist_attr(void *spi_ist, size_t spi_size,
 
 static u32 spi_line_expected;
 static bool spi_line_level_sensitive;
+static bool lpi_ist_ready;
+
+static u64 gicv5_hwirq(u32 type, u32 intid)
+{
+	return FIELD_PREP(GICV5_HWIRQ_TYPE, type) |
+	       FIELD_PREP(GICV5_HWIRQ_ID, intid);
+}
+
+static u64 gicv5_lpi_hwirq(u32 lpi)
+{
+	return gicv5_hwirq(GICV5_HWIRQ_TYPE_LPI, lpi);
+}
 
 static u64 gicv5_spi_hwirq(u32 spi)
 {
-	return FIELD_PREP(GICV5_HWIRQ_TYPE, GICV5_HWIRQ_TYPE_SPI) |
-	       FIELD_PREP(GICV5_HWIRQ_ID, spi);
+	return gicv5_hwirq(GICV5_HWIRQ_TYPE_SPI, spi);
 }
 
 static void gicv5_setup_and_enable_hwirq(u64 hwirq, u32 target_vpe)
@@ -71,6 +90,18 @@ static void gicv5_setup_and_enable_hwirq(u64 hwirq, u32 target_vpe)
 static void gicv5_enable_spi(u32 spi, u32 target_vpe)
 {
 	gicv5_setup_and_enable_hwirq(gicv5_spi_hwirq(spi), target_vpe);
+}
+
+static void gicv5_enable_lpi(u32 lpi, u32 target_vpe)
+{
+	gicv5_setup_and_enable_hwirq(gicv5_lpi_hwirq(lpi), target_vpe);
+}
+
+static void gicv5_send_lpi(u32 lpi)
+{
+	u64 hwirq = gicv5_lpi_hwirq(lpi);
+
+	gic_insn(hwirq | GICV5_GIC_CDPEND_PENDING_MASK, CDPEND);
 }
 
 static void gicv5_wait_for_irs_idle(u32 reg, u32 idle)
@@ -102,11 +133,69 @@ static void gicv5_configure_spi(u32 spi, bool level)
 				GICV5_IRS_SPI_STATUSR_IDLE);
 }
 
+static u32 gicv5_lpi_istsz(u32 idr2, u32 lpi_id_bits)
+{
+	if (!(idr2 & GICV5_IRS_IDR2_ISTMD))
+		return GICV5_IRS_IST_CFGR_ISTSZ_4;
+
+	if (lpi_id_bits >= FIELD_GET(GICV5_IRS_IDR2_ISTMD_SZ, idr2))
+		return GICV5_IRS_IST_CFGR_ISTSZ_16;
+
+	return GICV5_IRS_IST_CFGR_ISTSZ_8;
+}
+
+static void gicv5_configure_lpi_ist(void)
+{
+	u32 idr2, min_lpi_id_bits, lpi_id_bits, id_bits, istsz;
+	u64 val;
+
+	idr2 = readl(GICV5_IRS_CONFIG_BASE_GVA + GICV5_IRS_IDR2);
+	GUEST_ASSERT(idr2 & GICV5_IRS_IDR2_LPI);
+
+	min_lpi_id_bits = FIELD_GET(GICV5_IRS_IDR2_MIN_LPI_ID_BITS, idr2);
+	id_bits = FIELD_GET(GICV5_IRS_IDR2_ID_BITS, idr2);
+	/* Default to 32 LPIs, unless the min requirement is higher */
+	lpi_id_bits = max(5U, min_lpi_id_bits);
+	GUEST_ASSERT(lpi_id_bits <= id_bits);
+
+	istsz = gicv5_lpi_istsz(idr2, lpi_id_bits);
+	/*
+	 * We allocate a fixed-size IST buffer on the host to avoid dynamic
+	 * allocation from the guest. Make sure it fits the linear IST described
+	 * by IDR2 before programming IRS_IST_BASER.
+	 */
+	GUEST_ASSERT((BIT_ULL(lpi_id_bits) << (istsz + 2)) <= VGIC_V5_LPI_IST_SIZE);
+
+	val = FIELD_PREP(GICV5_IRS_IST_CFGR_LPI_ID_BITS, lpi_id_bits) |
+	      FIELD_PREP(GICV5_IRS_IST_CFGR_ISTSZ, istsz);
+	writel(val, GICV5_IRS_CONFIG_BASE_GVA + GICV5_IRS_IST_CFGR);
+
+	val = FIELD_PREP(GICV5_IRS_IST_BASER_ADDR_MASK,
+			 VGIC_V5_LPI_IST_BASE_GPA >> GICV5_IRS_IST_BASER_ADDR_SHIFT);
+	val |= GICV5_IRS_IST_BASER_VALID;
+	writeq(val, GICV5_IRS_CONFIG_BASE_GVA + GICV5_IRS_IST_BASER);
+
+	GUEST_ASSERT_EQ(readl(GICV5_IRS_CONFIG_BASE_GVA + GICV5_IRS_IST_STATUSR),
+			GICV5_IRS_IST_STATUSR_IDLE);
+
+	/* The address is immutable while the BASER is valid. */
+	writeq(val ^ FIELD_PREP(GICV5_IRS_IST_BASER_ADDR_MASK, 1),
+	       GICV5_IRS_CONFIG_BASE_GVA + GICV5_IRS_IST_BASER);
+	GUEST_ASSERT_EQ(readq(GICV5_IRS_CONFIG_BASE_GVA +
+			      GICV5_IRS_IST_BASER), val);
+}
+
 static void gicv5_enable_irs(void)
 {
 	writel(GICV5_IRS_CR0_IRSEN,
 	       GICV5_IRS_CONFIG_BASE_GVA + GICV5_IRS_CR0);
 	gicv5_wait_for_irs_idle(GICV5_IRS_CR0, GICV5_IRS_CR0_IDLE);
+}
+
+static void gicv5_configure_test_lpis(void)
+{
+	gicv5_enable_lpi(LPI_TEST_TO_VPE1, 1);
+	gicv5_enable_lpi(LPI_TEST_TO_VPE0, 0);
 }
 
 static void guest_ppi_irq_handler(struct ex_regs *regs)
@@ -209,6 +298,67 @@ static void guest_spi_line_code(void)
 		wfi();
 }
 
+static void guest_lpi_irq_handler(struct ex_regs *regs)
+{
+	u32 vcpu_id = guest_get_vcpuid();
+	u32 expected_lpi = vcpu_id ? LPI_TEST_TO_VPE1 : LPI_TEST_TO_VPE0;
+	u64 expected_hwirq = gicv5_lpi_hwirq(expected_lpi);
+	u32 hwirq;
+	u64 ia;
+
+	ia = gicr_insn(CDIA);
+	if (!GICV5_GICR_CDIA_VALID(ia))
+		return;
+
+	gsb_ack();
+	isb();
+
+	hwirq = FIELD_GET(GICV5_GICR_CDIA_INTID, ia);
+	GUEST_ASSERT_EQ(hwirq, expected_hwirq);
+
+	gic_insn(hwirq, CDDI);
+	gic_insn(0, CDEOI);
+
+	if (vcpu_id) {
+		gicv5_send_lpi(LPI_TEST_TO_VPE0);
+		GUEST_SYNC(GUEST_CMD_LPI_REPLIED);
+		while (1)
+			wfi();
+	}
+
+	GUEST_DONE();
+}
+
+static void guest_lpi_code(void)
+{
+	u32 vcpu_id = guest_get_vcpuid();
+
+	local_irq_disable();
+
+	if (!vcpu_id) {
+		gicv5_enable_irs();
+		gicv5_configure_lpi_ist();
+		gicv5_configure_test_lpis();
+		WRITE_ONCE(lpi_ist_ready, true);
+	}
+
+	/* Go bang if we run VCPU1 before VCPU0 */
+	GUEST_ASSERT(READ_ONCE(lpi_ist_ready));
+
+	gicv5_cpu_enable_interrupts();
+	local_irq_enable();
+
+	GUEST_SYNC(GUEST_CMD_IS_READY);
+
+	if (!vcpu_id) {
+		gicv5_send_lpi(LPI_TEST_TO_VPE1);
+		GUEST_SYNC(GUEST_CMD_LPI_SENT);
+	}
+
+	while (1)
+		wfi();
+}
+
 /* we don't want to assert on run execution, hence that helper */
 static int run_vcpu(struct kvm_vcpu *vcpu)
 {
@@ -275,6 +425,48 @@ static void vgic_v5_spi_line_vm_create(struct vm_gic *v,
 	kvm_device_attr_set(v->gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
 			    KVM_VGIC_V5_ADDR_TYPE_IRS, &attr);
 	vgic_v5_map_irs(v->vm);
+	kvm_device_attr_set(v->gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
+}
+
+static void vgic_v5_lpi_vm_create(struct vm_gic *v,
+				  struct kvm_vcpu *vcpus[VGIC_V5_LPI_NR_VCPUS])
+{
+	unsigned int nr_lpi_ist_pages;
+	u64 attr;
+	int i;
+
+	v->gic_dev_type = KVM_DEV_TYPE_ARM_VGIC_V5;
+	v->vm = __vm_create(VM_SHAPE_DEFAULT, VGIC_V5_LPI_NR_VCPUS, 0);
+	v->gic_fd = kvm_create_device(v->vm, v->gic_dev_type);
+
+	for (i = 0; i < VGIC_V5_LPI_NR_VCPUS; i++) {
+		vcpus[i] = vm_vcpu_add(v->vm, i, guest_lpi_code);
+		TEST_ASSERT(vcpus[i], "Failed to create vCPU");
+	}
+
+	vm_init_descriptor_tables(v->vm);
+	vm_install_exception_handler(v->vm, VECTOR_IRQ_CURRENT,
+				     guest_lpi_irq_handler);
+
+	for (i = 0; i < VGIC_V5_LPI_NR_VCPUS; i++)
+		vcpu_init_descriptor_tables(vcpus[i]);
+
+	attr = GICV5_IRS_CONFIG_BASE_GPA;
+	kvm_device_attr_set(v->gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+			    KVM_VGIC_V5_ADDR_TYPE_IRS, &attr);
+	vgic_v5_map_irs(v->vm);
+
+	nr_lpi_ist_pages = vm_calc_num_guest_pages(v->vm->mode,
+						   VGIC_V5_LPI_IST_SIZE);
+	vm_userspace_mem_region_add(v->vm, VM_MEM_SRC_ANONYMOUS,
+				    VGIC_V5_LPI_IST_BASE_GPA,
+				    VGIC_V5_LPI_MEMSLOT,
+				    nr_lpi_ist_pages, 0);
+	/* Map the IST at VA == IPA so the guest can program the same BASER. */
+	virt_map(v->vm, VGIC_V5_LPI_IST_BASE_GPA,
+		 VGIC_V5_LPI_IST_BASE_GPA, nr_lpi_ist_pages);
+
 	kvm_device_attr_set(v->gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
 			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
 }
@@ -1184,6 +1376,54 @@ static void test_vgic_v5_spis(void)
 	vgic_v5_run_spi_line_test(VGIC_V5_DEFAULT_NR_SPIS, 2, true, false);
 }
 
+static void test_vgic_v5_lpis(void)
+{
+	struct kvm_vcpu *vcpus[VGIC_V5_LPI_NR_VCPUS];
+	struct ucall uc;
+	struct vm_gic v;
+	int ret;
+
+	lpi_ist_ready = false;
+	vgic_v5_lpi_vm_create(&v, vcpus);
+	sync_global_to_guest(v.vm, lpi_ist_ready);
+
+	/* VPE0 programs a linear LPI IST from the virtual IRS ID registers. */
+	ret = run_vcpu(vcpus[0]);
+	TEST_ASSERT(!ret, "Failed to run GICv5 LPI vCPU0");
+	TEST_ASSERT(get_ucall(vcpus[0], &uc) == UCALL_SYNC &&
+		    uc.args[1] == GUEST_CMD_IS_READY,
+		    "GICv5 LPI vCPU0 did not become ready");
+
+	/* VPE1 waits for the shared LPI setup and enables its CPU interface. */
+	ret = run_vcpu(vcpus[1]);
+	TEST_ASSERT(!ret, "Failed to run GICv5 LPI vCPU1");
+	TEST_ASSERT(get_ucall(vcpus[1], &uc) == UCALL_SYNC &&
+		    uc.args[1] == GUEST_CMD_IS_READY,
+		    "GICv5 LPI vCPU1 did not become ready");
+
+	/* VPE0 sends an LPI to VPE1. */
+	ret = run_vcpu(vcpus[0]);
+	TEST_ASSERT(!ret, "Failed to run GICv5 LPI vCPU0 sender");
+	TEST_ASSERT(get_ucall(vcpus[0], &uc) == UCALL_SYNC &&
+		    uc.args[1] == GUEST_CMD_LPI_SENT,
+		    "GICv5 LPI vCPU0 did not send LPI");
+
+	/* VPE1 consumes the LPI and replies with another LPI. */
+	ret = run_vcpu(vcpus[1]);
+	TEST_ASSERT(!ret, "Failed to run GICv5 LPI vCPU1 receiver");
+	TEST_ASSERT(get_ucall(vcpus[1], &uc) == UCALL_SYNC &&
+		    uc.args[1] == GUEST_CMD_LPI_REPLIED,
+		    "GICv5 LPI vCPU1 did not reply");
+
+	/* VPE0 consumes the reply LPI and ends the test. */
+	ret = run_vcpu(vcpus[0]);
+	TEST_ASSERT(!ret, "Failed to run GICv5 LPI vCPU0 receiver");
+	TEST_ASSERT(get_ucall(vcpus[0], &uc) == UCALL_DONE,
+		    "GICv5 LPI vCPU0 did not complete");
+
+	vm_gic_destroy(&v);
+}
+
 /*
  * Returns 0 if it's possible to create GIC device of a given type (V5).
  */
@@ -1238,6 +1478,9 @@ void run_tests(u32 gic_dev_type)
 
 	pr_info("Test VGICv5 SPIs\n");
 	test_vgic_v5_spis();
+
+	pr_info("Test VGICv5 LPIs\n");
+	test_vgic_v5_lpis();
 }
 
 int main(int ac, char **av)
