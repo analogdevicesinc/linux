@@ -16,6 +16,7 @@
 #include <linux/bitfield.h>
 #include <linux/i2c.h>
 #include <linux/irq.h>
+#include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/property.h>

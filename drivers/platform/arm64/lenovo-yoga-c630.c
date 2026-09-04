@@ -10,7 +10,7 @@
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
-#include <linux/irqreturn.h>
+#include <linux/interrupt.h>
 #include <linux/lockdep.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
