@@ -135,10 +135,28 @@ static const struct vgic_region_attr gic_v5_irs_region = {
 	.alignment = GICV5_IRS_ALIGN,
 };
 
+struct vgic_sysreg_attr {
+	const char	*name;
+	u32		encoding;
+};
+
 struct vgic_irs_reg_attr {
 	const char	*name;
 	u64		attr;
 };
+
+#define PACK_SR(r)						\
+	((sys_reg_Op0(r) << 14) |				\
+	 (sys_reg_Op1(r) << 11) |				\
+	 (sys_reg_CRn(r) << 7) |				\
+	 (sys_reg_CRm(r) << 3) |				\
+	 (sys_reg_Op2(r)))
+
+#define SR(r)							\
+	{							\
+		.name		= #r,				\
+		.encoding	= r,				\
+	}
 
 #define IRS_REG(r)						\
 	{							\
@@ -199,6 +217,35 @@ static const struct vgic_irs_reg_attr gic_v5_irs_regs[] = {
 	IRS_REG(GICV5_IRS_SWERR_STATUSR),
 	IRS_REG(GICV5_IRS_SWERR_SYNDROMER0),
 	IRS_REG(GICV5_IRS_SWERR_SYNDROMER1),
+};
+
+static const struct vgic_sysreg_attr gic_v5_cpu_sysregs[] = {
+	SR(SYS_ICC_ICSR_EL1),
+	SR(SYS_ICC_PPI_ENABLER0_EL1),
+	SR(SYS_ICC_PPI_ENABLER1_EL1),
+	SR(SYS_ICC_PPI_SACTIVER0_EL1),
+	SR(SYS_ICC_PPI_SACTIVER1_EL1),
+	SR(SYS_ICC_PPI_SPENDR0_EL1),
+	SR(SYS_ICC_PPI_SPENDR1_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR0_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR1_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR2_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR3_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR4_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR5_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR6_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR7_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR8_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR9_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR10_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR11_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR12_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR13_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR14_EL1),
+	SR(SYS_ICC_PPI_PRIORITYR15_EL1),
+	SR(SYS_ICC_APR_EL1),
+	SR(SYS_ICC_CR0_EL1),
+	SR(SYS_ICC_PCR_EL1),
 };
 
 static void test_vgic_v5_addr_attrs(void)
@@ -708,6 +755,93 @@ static void test_vgic_v5_userspace_ppis_attrs(void)
 	vm_gic_destroy(&v);
 }
 
+static void test_vgic_v5_cpu_sysreg_attrs(void)
+{
+	struct kvm_vcpu *vcpu;
+	struct vm_gic v;
+	u64 attr, val;
+	int ret, i;
+
+	v.gic_dev_type = KVM_DEV_TYPE_ARM_VGIC_V5;
+	v.vm = __vm_create(VM_SHAPE_DEFAULT, NR_VCPUS, 0);
+	v.gic_fd = kvm_create_device(v.vm, v.gic_dev_type);
+	vcpu = vm_vcpu_add(v.vm, 0, NULL);
+	TEST_ASSERT(vcpu, "Failed to create vCPU");
+
+	/* Check existing group/attribute */
+	attr = PACK_SR(SYS_ICC_CR0_EL1);
+	kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS, attr);
+
+	/* CPU sysregs are not accessible before the VGIC is initialized. */
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+				    attr, &val);
+	TEST_ASSERT(ret && errno == EBUSY, "GICv5 CPU_SYSREGS get before init");
+
+	val = 0;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+				    attr, &val);
+	TEST_ASSERT(ret && errno == EBUSY, "GICv5 CPU_SYSREGS set before init");
+
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
+
+	/* Read all exposed CPU sysregs and write the value back. */
+	for (i = 0; i < ARRAY_SIZE(gic_v5_cpu_sysregs); i++) {
+		attr = PACK_SR(gic_v5_cpu_sysregs[i].encoding);
+		ret = __kvm_has_device_attr(v.gic_fd,
+					    KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+					    attr);
+		TEST_ASSERT(!ret, "GICv5 CPU_SYSREGS missing %s",
+			    gic_v5_cpu_sysregs[i].name);
+
+		val = 0xbad;
+		ret = __kvm_device_attr_get(v.gic_fd,
+					    KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+					    attr, &val);
+		TEST_ASSERT(!ret, "GICv5 CPU_SYSREGS get failed for %s",
+			    gic_v5_cpu_sysregs[i].name);
+
+		ret = __kvm_device_attr_set(v.gic_fd,
+					    KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+					    attr, &val);
+		TEST_ASSERT(!ret, "GICv5 CPU_SYSREGS set failed for %s",
+			    gic_v5_cpu_sysregs[i].name);
+	}
+
+	/* Check non existent GICv3 sysreg */
+	attr = PACK_SR(SYS_ICC_CTLR_EL1);
+	ret = __kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+				    attr);
+	TEST_ASSERT(ret && errno == ENXIO, "GICv5 CPU_SYSREGS accepted bad sysreg");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+				    attr, &val);
+	TEST_ASSERT(ret && errno == ENOENT, "GICv5 CPU_SYSREGS get bad sysreg");
+
+	/* Check non existing vCPU */
+	attr = PACK_SR(SYS_ICC_CR0_EL1) |
+	       (1ULL << KVM_DEV_ARM_VGIC_V3_MPIDR_SHIFT);
+	ret = __kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+				    attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 CPU_SYSREGS accepted bad MPIDR");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+				    attr, &val);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 CPU_SYSREGS get bad MPIDR");
+
+	/* Check bad user pointers */
+	attr = PACK_SR(SYS_ICC_CR0_EL1);
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+				    attr, NULL);
+	TEST_ASSERT(ret && errno == EFAULT, "GICv5 CPU_SYSREGS get with bad pointer");
+
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CPU_SYSREGS,
+				    attr, NULL);
+	TEST_ASSERT(ret && errno == EFAULT, "GICv5 CPU_SYSREGS set with bad pointer");
+
+	vm_gic_destroy(&v);
+}
+
 static void test_vgic_v5_ppis(u32 gic_dev_type)
 {
 	struct kvm_vcpu *vcpus[NR_VCPUS];
@@ -849,6 +983,9 @@ void run_tests(u32 gic_dev_type)
 
 	pr_info("Test VGICv5 userspace PPI attrs\n");
 	test_vgic_v5_userspace_ppis_attrs();
+
+	pr_info("Test VGICv5 CPU sysreg attrs\n");
+	test_vgic_v5_cpu_sysreg_attrs();
 
 
 	pr_info("Test VGICv5 PPIs\n");
