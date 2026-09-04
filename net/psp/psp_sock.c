@@ -181,9 +181,11 @@ static int psp_assoc_set_tx(struct psp_dev *psd, struct psp_assoc *pas,
 {
 	int err;
 
-	err = psp_dev_tx_key_add(psd, pas, key, extack);
-	if (err)
-		return err;
+	if (psp_dev_has_sadb(psd)) {
+		err = psp_dev_tx_key_add(psd, pas, key, extack);
+		if (err)
+			return err;
+	}
 
 	memcpy(&pas->tx, key, sizeof(*key));
 	return 0;

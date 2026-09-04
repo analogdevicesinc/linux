@@ -68,9 +68,9 @@ psp_dev_create(struct net_device *netdev,
 		    !psd_ops->set_config ||
 		    !psd_ops->key_rotate ||
 		    !psd_ops->rx_spi_alloc ||
-		    !psd_ops->tx_key_add ||
-		    !psd_ops->tx_key_del ||
-		    !psd_ops->get_stats))
+		    !psd_ops->get_stats ||
+		    (!psd_ops->tx_key_add != !psd_ops->tx_key_del) ||
+		    (psd_caps->assoc_drv_spc && !psd_ops->tx_key_add)))
 		return ERR_PTR(-EINVAL);
 
 	psd = kzalloc_obj(*psd);
