@@ -55,10 +55,9 @@ int check_journal_clean(struct gfs2_sbd *sdp, struct gfs2_jdesc *jd,
 	int error;
 	struct gfs2_holder j_gh;
 	struct gfs2_log_header_host head;
-	struct gfs2_inode *ip;
+	struct gfs2_glock *gl = gfs2_inode_glock(jd->jd_inode);
 
-	ip = GFS2_I(jd->jd_inode);
-	error = gfs2_glock_nq_init(ip->i_gl, LM_ST_SHARED, LM_FLAG_RECOVER |
+	error = gfs2_glock_nq_init(gl, LM_ST_SHARED, LM_FLAG_RECOVER |
 				   GL_EXACT | GL_NOCACHE, &j_gh);
 	if (error) {
 		if (verbose)
@@ -333,6 +332,7 @@ void gfs2_consist_i(struct gfs2_sbd *sdp, const char *function,
 void gfs2_consist_inode_i(struct gfs2_inode *ip,
 			  const char *function, char *file, unsigned int line)
 {
+	struct gfs2_glock *gl = gfs2_inode_glock(&ip->i_inode);
 	struct gfs2_sbd *sdp = GFS2_SB(&ip->i_inode);
 
 	gfs2_lm(sdp,
@@ -342,7 +342,7 @@ void gfs2_consist_inode_i(struct gfs2_inode *ip,
 		(unsigned long long)ip->i_no_formal_ino,
 		(unsigned long long)ip->i_no_addr,
 		function, file, line);
-	gfs2_dump_glock(NULL, ip->i_gl, 1);
+	gfs2_dump_glock(NULL, gl, 1);
 	gfs2_withdraw(sdp);
 }
 
