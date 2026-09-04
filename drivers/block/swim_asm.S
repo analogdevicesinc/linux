@@ -43,6 +43,10 @@
 	.equ	sector_size, 512
 	.equ	.Lmark_sequence_len,	4
 
+	.equ	.Lmr_clear_fifo,	0x01
+	.equ	.Lmr_action,		0x08
+	.equ	.Lmr_write_action,	0x18
+
 	.equ	.Lhr_crc_error,		0x02
 	.equ	.Lhr_fifo_2bytes,	0x40
 	.equ	.Lhr_fifo_1byte,	0x80
@@ -95,11 +99,11 @@ sector_data_mark:
 	lea	%a3@(read_data), %a5
 	lea	%a3@(read_mark), %a3
 
-	moveb	#0x18, %a3@(write_mode0 - read_mark)
-	moveb	#0x01, %a3@(write_mode1 - read_mark)
-	moveb	#0x01, %a3@(write_mode0 - read_mark)
+	moveb	#.Lmr_write_action, %a3@(write_mode0 - read_mark)
+	moveb	#.Lmr_clear_fifo, %a3@(write_mode1 - read_mark)
+	moveb	#.Lmr_clear_fifo, %a3@(write_mode0 - read_mark)
 	tstb	%a3@(read_error - read_mark)
-	moveb	#0x08, %a3@(write_mode1 - read_mark)
+	moveb	#.Lmr_action, %a3@(write_mode1 - read_mark)
 
 	lea	sector_address_mark, %a1
 	moveq	#.Lmark_sequence_len, %d4
@@ -157,7 +161,7 @@ crc1:	tstb	%a2@
 
 	moveq	#0, %d0
 signal_nonyb:
-	moveb	#0x18, %a3@(write_mode0 - read_mark)
+	moveb	#.Lmr_write_action, %a3@(write_mode0 - read_mark)
 	rts
 
 	.global swim_read_sector_data
@@ -177,11 +181,11 @@ mfm_read_data:
 	lea	%a3@(read_data), %a5
 	lea	%a3@(read_mark), %a3
 
-	moveb	#0x18, %a3@(write_mode0 - read_mark)
-	moveb	#0x01, %a3@(write_mode1 - read_mark)
-	moveb	#0x01, %a3@(write_mode0 - read_mark)
+	moveb	#.Lmr_write_action, %a3@(write_mode0 - read_mark)
+	moveb	#.Lmr_clear_fifo, %a3@(write_mode1 - read_mark)
+	moveb	#.Lmr_clear_fifo, %a3@(write_mode0 - read_mark)
 	tstb	%a3@(read_error - read_mark)
-	moveb	#0x08, %a3@(write_mode1 - read_mark)
+	moveb	#.Lmr_action, %a3@(write_mode1 - read_mark)
 
 	lea	sector_data_mark, %a1
 	moveq	#.Lmark_sequence_len, %d4
@@ -239,7 +243,7 @@ data_crc1:
 	subl	%d4, %d0
 
 data_exit:
-	moveb	#0x18, %a3@(write_mode0 - read_mark)
+	moveb	#.Lmr_write_action, %a3@(write_mode0 - read_mark)
 	rts
 
 .Lmaybe_store:
