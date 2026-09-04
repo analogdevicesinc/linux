@@ -394,7 +394,7 @@ impl<'a, E: FalconEngine + 'static> Falcon<'a, E> {
 
         self.bar.write(
             WithBase::of::<E>(),
-            regs::NV_PFALCON_FALCON_RM::from(self.bar.read(regs::NV_PMC_BOOT_0).into_raw()),
+            regs::NV_PFALCON_FALCON_RM::from(crate::gpu::boot_0_raw(self.bar)),
         );
 
         Ok(())

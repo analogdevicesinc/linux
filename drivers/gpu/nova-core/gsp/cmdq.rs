@@ -2,13 +2,7 @@
 
 mod continuation;
 
-use core::{
-    mem,
-    sync::atomic::{
-        fence,
-        Ordering, //
-    },
-};
+use core::mem;
 
 use kernel::{
     device,
@@ -27,6 +21,12 @@ use kernel::{
     ptr,
     sync::{
         aref::ARef,
+        barrier::{
+            dma_mb,
+            Full,
+            Read,
+            Write, //
+        },
         Mutex, //
     },
     time::Delta,
@@ -404,7 +404,12 @@ impl DmaGspMem {
     //
     // - The returned value is within `0..MSGQ_NUM_PAGES`.
     fn gsp_write_ptr(&self) -> u32 {
-        MsgqTxHeader::write_ptr(io_project!(self.0, .gspq.tx)) % MSGQ_NUM_PAGES
+        let ptr = MsgqTxHeader::write_ptr(io_project!(self.0, .gspq.tx)) % MSGQ_NUM_PAGES;
+
+        // ORDERING: LOAD->LOAD ordering needed to order `gsp_write_ptr` read before data read.
+        dma_mb(Read);
+
+        ptr
     }
 
     // Returns the index of the memory page the GSP will read the next command from.
@@ -413,7 +418,12 @@ impl DmaGspMem {
     //
     // - The returned value is within `0..MSGQ_NUM_PAGES`.
     fn gsp_read_ptr(&self) -> u32 {
-        MsgqRxHeader::read_ptr(io_project!(self.0, .gspq.rx)) % MSGQ_NUM_PAGES
+        let ptr = MsgqRxHeader::read_ptr(io_project!(self.0, .gspq.rx)) % MSGQ_NUM_PAGES;
+
+        // ORDERING: LOAD->STORE ordering needed to order `gsp_read_ptr` read before data write.
+        dma_mb(Full);
+
+        ptr
     }
 
     // Returns the index of the memory page the CPU can read the next message from.
@@ -427,12 +437,11 @@ impl DmaGspMem {
 
     // Informs the GSP that it can send `elem_count` new pages into the message queue.
     fn advance_cpu_read_ptr(&mut self, elem_count: u32) {
+        // ORDERING: LOAD->STORE ordering needed to order `cpu_read_ptr` write after data read.
+        dma_mb(Full);
+
         let rx = io_project!(self.0, .cpuq.rx);
         let rptr = MsgqRxHeader::read_ptr(rx).wrapping_add(elem_count) % MSGQ_NUM_PAGES;
-
-        // Ensure read pointer is properly ordered.
-        fence(Ordering::SeqCst);
-
         MsgqRxHeader::set_read_ptr(rx, rptr)
     }
 
@@ -447,12 +456,12 @@ impl DmaGspMem {
 
     // Informs the GSP that it can process `elem_count` new pages from the command queue.
     fn advance_cpu_write_ptr(&mut self, elem_count: u32) {
+        // ORDERING: STORE->STORE ordering needed to order `cpu_write_ptr` write after data write.
+        dma_mb(Write);
+
         let tx = io_project!(self.0, .cpuq.tx);
         let wptr = MsgqTxHeader::write_ptr(tx).wrapping_add(elem_count) % MSGQ_NUM_PAGES;
         MsgqTxHeader::set_write_ptr(tx, wptr);
-
-        // Ensure all command data is visible before triggering the GSP read.
-        fence(Ordering::SeqCst);
     }
 }
 
