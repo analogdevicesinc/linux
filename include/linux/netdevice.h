@@ -1135,13 +1135,16 @@ struct netdev_net_notifier {
  *				struct netdev_hw_addr_list *uc,
  *				struct netdev_hw_addr_list *mc);
  *	Async version of ndo_set_rx_mode which runs in process context
- *	with rtnl_lock and netdev_lock_ops(dev) held. The uc/mc parameters
+ *	under the netdev instance lock for "ops locked" drivers, or
+ *	rtnl_lock for all other drivers. The uc/mc parameters
  *	are snapshots of the address lists - iterate with
  *	netdev_hw_addr_list_for_each(ha, uc). Return 0 on success or a
  *	negative errno to request a retry via the core backoff.
  *
  * void (*ndo_work)(struct net_device *dev, unsigned long events);
  *	Run deferred work scheduled with netdev_work_sched(@events).
+ *	Runs in process context under the netdev instance lock for "ops
+ *	locked" drivers, or rtnl_lock for all other drivers.
  *
  * int (*ndo_set_mac_address)(struct net_device *dev, void *addr);
  *	This function  is called when the Media Access Control address

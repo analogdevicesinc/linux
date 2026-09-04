@@ -292,15 +292,21 @@ ndo_set_rx_mode:
 	in process context.
 
 ndo_set_rx_mode_async:
-	Synchronization: rtnl_lock() semaphore. In addition, netdev instance
-	lock if the driver implements queue management or shaper API.
+	Synchronization: netdev instance lock for "ops locked" drivers,
+	rtnl_lock() semaphore for all other drivers.
 	Context: process (from a work queue)
 	Notes: Async version of ndo_set_rx_mode which runs in process
 	context. Receives snapshots of the unicast and multicast address lists.
 
 ndo_change_rx_flags:
-	Synchronization: rtnl_lock() semaphore. In addition, netdev instance
-	lock if the driver implements queue management or shaper API.
+	Synchronization: netdev instance lock for "ops locked" drivers,
+	rtnl_lock() semaphore for all other drivers.
+
+ndo_work:
+	Synchronization: netdev instance lock for "ops locked" drivers,
+	rtnl_lock() semaphore for all other drivers.
+	Context: process (from a work queue)
+	Notes: Runs deferred work scheduled with netdev_work_sched().
 
 ndo_setup_tc:
 	Locking depends on ``tc_setup_type``. For most types the callback
