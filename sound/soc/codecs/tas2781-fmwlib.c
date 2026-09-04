@@ -110,7 +110,7 @@ struct tas2781_cali_specific {
 };
 
 static const char deviceNumber[TASDEVICE_DSP_TAS_MAX_DEVICE] = {
-	1, 2, 1, 2, 1, 1, 0, 2, 4, 3, 1, 2, 3, 4, 1, 2
+	1, 2, 1, 2, 1, 1, 0, 2, 4, 3, 1, 2, 3, 4, 1, 2, 1, 2, 3, 4,
 };
 
 /* fixed m68k compiling issue: mapping table can save code field */
@@ -1959,6 +1959,8 @@ static void dspbin_type_check(struct tasdevice_priv *tas_priv,
 		else
 			tas_priv->dspbin_typ = TASDEV_ALPHA;
 	}
+	if (tas_priv->chip_id == TAS2573)
+		return;
 	if ((tas_priv->dspbin_typ != TASDEV_BASIC) &&
 		(ppcver < PPC3_VERSION_TAS5825_BASE))
 		tas_priv->fw_parse_fct_param_address =
