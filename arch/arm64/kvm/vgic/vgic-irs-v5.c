@@ -503,6 +503,43 @@ static void vgic_v5_mmio_write_irs_ist(struct kvm_vcpu *vcpu, gpa_t addr,
 	}
 }
 
+static unsigned long vgic_v5_coresight_read(struct kvm_vcpu *vcpu,
+					    gpa_t addr, unsigned int len)
+{
+	const size_t offset = addr & (SZ_64K - 1);
+
+	switch (offset) {
+	case GICV5_CORESIGHT_DEVARCH:
+		return GICV5_CORESIGHT_DEVARCH_VAL;
+	case GICV5_CORESIGHT_PIDR4:
+		return GICV5_CORESIGHT_PIDR4_JEP106_CONT;
+	case GICV5_CORESIGHT_PIDR5:
+		return GICV5_CORESIGHT_PIDR5_RES0;
+	case GICV5_CORESIGHT_PIDR6:
+		return GICV5_CORESIGHT_PIDR6_RES0;
+	case GICV5_CORESIGHT_PIDR7:
+		return GICV5_CORESIGHT_PIDR7_RES0;
+	case GICV5_CORESIGHT_PIDR0:
+		return GICV5_CORESIGHT_PIDR0_PART_0;
+	case GICV5_CORESIGHT_PIDR1:
+		return GICV5_CORESIGHT_PIDR1_DES_0_PART_1;
+	case GICV5_CORESIGHT_PIDR2:
+		return GICV5_CORESIGHT_PIDR2_DES_1;
+	case GICV5_CORESIGHT_PIDR3:
+		return GICV5_CORESIGHT_PIDR3_REVAND_CMOD;
+	case GICV5_CORESIGHT_CIDR0:
+		return GICV5_CORESIGHT_CIDR0_VAL;
+	case GICV5_CORESIGHT_CIDR1:
+		return GICV5_CORESIGHT_CIDR1_VAL;
+	case GICV5_CORESIGHT_CIDR2:
+		return GICV5_CORESIGHT_CIDR2_VAL;
+	case GICV5_CORESIGHT_CIDR3:
+		return GICV5_CORESIGHT_CIDR3_VAL;
+	default:
+		return 0;
+	}
+}
+
 static unsigned long vgic_v5_mmio_uaccess_read_irs_status(struct kvm_vcpu *vcpu,
 							  gpa_t addr,
 							  unsigned int len)
@@ -840,6 +877,47 @@ static const struct vgic_register_region vgic_v5_irs_registers[] = {
 	REGISTER_DESC_WITH_LENGTH(GICV5_IRS_SWERR_SYNDROMER1,
 				  vgic_mmio_read_raz, vgic_mmio_write_wi, 8,
 				  VGIC_ACCESS_64bit | VGIC_ACCESS_32bit),
+
+	/* CoreSight identification registers */
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_DEVARCH,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_PIDR4,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_PIDR5,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_PIDR6,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_PIDR7,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_PIDR0,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_PIDR1,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_PIDR2,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_PIDR3,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_CIDR0,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_CIDR1,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_CIDR2,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
+	REGISTER_DESC_WITH_LENGTH(GICV5_CORESIGHT_CIDR3,
+				  vgic_v5_coresight_read, vgic_mmio_write_wi, 4,
+				  VGIC_ACCESS_32bit),
 };
 
 unsigned int vgic_v5_init_irs_iodev(struct vgic_io_device *dev)
