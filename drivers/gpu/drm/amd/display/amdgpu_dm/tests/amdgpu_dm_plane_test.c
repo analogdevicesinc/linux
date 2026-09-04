@@ -633,152 +633,95 @@ static void dm_test_helper_check_state_viewport_reject(struct kunit *test)
 }
 
 /**
- * dm_test_validate_dcc_disabled_returns_success() - Verify disabled DCC is accepted.
+ * dm_test_validate_dcc_early_exits() - Verify the checks before the DC query.
  * @test: KUnit test context.
  *
- * Verify if DCC validation succeeds when DCC is disabled.
+ * Verify if disabled DCC is accepted without consulting DC, and if a video
+ * format on a pre-GFX12 device and a missing capability callback are rejected.
  */
-static void dm_test_validate_dcc_disabled_returns_success(struct kunit *test)
+static void dm_test_validate_dcc_early_exits(struct kunit *test)
 {
-	struct amdgpu_device *adev;
-	struct dc *dc;
-	struct dc_tiling_info tiling_info = {0};
-	struct dc_plane_dcc_param dcc = {0};
-	struct dc_plane_address address = {0};
-	struct plane_size plane_size = {0};
-
-	dm_test_init_validate_dcc_inputs(&adev, &dc, &tiling_info, &dcc, &address,
-					 &plane_size, test);
-	dcc.enable = 0;
-
-	KUNIT_EXPECT_EQ(test,
-			amdgpu_dm_plane_validate_dcc(adev, SURFACE_PIXEL_FORMAT_GRPH_ARGB8888,
-			ROTATION_ANGLE_0, &tiling_info, &dcc,
-			&address, &plane_size),
-			0);
-}
-
-/**
- * dm_test_validate_dcc_video_non_gfx12_fails() - Verify video format restriction on pre-GFX12.
- * @test: KUnit test context.
- *
- * Verify if video format DCC validation fails on non-GFX12 devices.
- */
-static void dm_test_validate_dcc_video_non_gfx12_fails(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct dc *dc;
-	struct dc_tiling_info tiling_info = {0};
-	struct dc_plane_dcc_param dcc = {0};
-	struct dc_plane_address address = {0};
-	struct plane_size plane_size = {0};
-
-	dm_test_init_validate_dcc_inputs(&adev, &dc, &tiling_info, &dcc, &address,
-					 &plane_size, test);
-	adev->family = AMDGPU_FAMILY_NV;
-
-	KUNIT_EXPECT_EQ(test,
-			amdgpu_dm_plane_validate_dcc(adev, SURFACE_PIXEL_FORMAT_VIDEO_420_YCbCr,
-			ROTATION_ANGLE_0, &tiling_info, &dcc,
-			&address, &plane_size),
-			-EINVAL);
-}
-
-/**
- * dm_test_validate_dcc_missing_cap_func_fails() - Verify missing capability callback fails.
- * @test: KUnit test context.
- *
- * Verify if validation fails when DCC capability callback is not provided.
- */
-static void dm_test_validate_dcc_missing_cap_func_fails(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct dc *dc;
-	struct dc_tiling_info tiling_info = {0};
-	struct dc_plane_dcc_param dcc = {0};
-	struct dc_plane_address address = {0};
-	struct plane_size plane_size = {0};
-
-	dm_test_init_validate_dcc_inputs(&adev, &dc, &tiling_info, &dcc, &address,
-					 &plane_size, test);
-	dc->cap_funcs.get_dcc_compression_cap = NULL;
-
-	KUNIT_EXPECT_EQ(test,
-			amdgpu_dm_plane_validate_dcc(adev, SURFACE_PIXEL_FORMAT_GRPH_ARGB8888,
-			ROTATION_ANGLE_0, &tiling_info, &dcc,
-			&address, &plane_size),
-			-EINVAL);
-}
-
-/**
- * dm_test_validate_dcc_cap_callback_fails() - Verify callback failure path.
- * @test: KUnit test context.
- *
- * Verify if validation fails when the DCC capability callback returns false.
- */
-static void dm_test_validate_dcc_cap_callback_fails(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct dc *dc;
-	struct dc_tiling_info tiling_info = {0};
-	struct dc_plane_dcc_param dcc = {0};
-	struct dc_plane_address address = {0};
-	struct plane_size plane_size = {0};
-	enum surface_pixel_format format = SURFACE_PIXEL_FORMAT_GRPH_ARGB8888;
-	enum dc_rotation_angle rotation = ROTATION_ANGLE_0;
-	struct dm_test_dcc_cap_ctx ctx = {
-		.callback_ret = false,
-		.capable = true,
+	static const struct {
+		const char *name;
+		bool dcc_enable;
+		enum surface_pixel_format format;
+		int expected;
+	} cases[] = {
+		{ "dcc disabled", false, SURFACE_PIXEL_FORMAT_GRPH_ARGB8888, 0 },
+		{ "video before gfx12", true, SURFACE_PIXEL_FORMAT_VIDEO_420_YCbCr, -EINVAL },
+		{ "no capability callback", true, SURFACE_PIXEL_FORMAT_GRPH_ARGB8888, -EINVAL },
 	};
-	int ret;
+	unsigned int i;
 
-	dm_test_init_validate_dcc_inputs(&adev, &dc, &tiling_info, &dcc, &address,
-					 &plane_size, test);
-	dc->cap_funcs.get_dcc_compression_cap = dm_test_get_dcc_compression_cap;
-	dm_test_dcc_ctx = &ctx;
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		struct amdgpu_device *adev;
+		struct dc *dc;
+		struct dc_tiling_info tiling_info = {0};
+		struct dc_plane_dcc_param dcc = {0};
+		struct dc_plane_address address = {0};
+		struct plane_size plane_size = {0};
+		int ret;
 
-	ret = amdgpu_dm_plane_validate_dcc(adev, format, rotation, &tiling_info,
-					   &dcc, &address, &plane_size);
-	KUNIT_EXPECT_EQ(test, ret, -EINVAL);
-	KUNIT_EXPECT_TRUE(test, ctx.called);
+		dm_test_init_validate_dcc_inputs(&adev, &dc, &tiling_info, &dcc, &address,
+						 &plane_size, test);
+		dcc.enable = cases[i].dcc_enable;
 
-	dm_test_dcc_ctx = NULL;
+		ret = amdgpu_dm_plane_validate_dcc(adev, cases[i].format, ROTATION_ANGLE_0,
+						   &tiling_info, &dcc, &address, &plane_size);
+		KUNIT_EXPECT_EQ_MSG(test, ret, cases[i].expected, "%s", cases[i].name);
+	}
 }
 
 /**
- * dm_test_validate_dcc_not_capable_fails() - Verify not-capable callback output.
+ * dm_test_validate_dcc_rejects_from_cap() - Verify rejections from the DC query.
  * @test: KUnit test context.
  *
- * Verify if validation fails when the DCC capability callback reports that the
- * surface is not DCC capable.
+ * Verify if a failing capability callback, a surface reported as not DCC
+ * capable, and an independent_64b_blks mismatch are all rejected.
  */
-static void dm_test_validate_dcc_not_capable_fails(struct kunit *test)
+static void dm_test_validate_dcc_rejects_from_cap(struct kunit *test)
 {
-	struct amdgpu_device *adev;
-	struct dc *dc;
-	struct dc_tiling_info tiling_info = {0};
-	struct dc_plane_dcc_param dcc = {0};
-	struct dc_plane_address address = {0};
-	struct plane_size plane_size = {0};
-	enum surface_pixel_format format = SURFACE_PIXEL_FORMAT_GRPH_ARGB8888;
-	enum dc_rotation_angle rotation = ROTATION_ANGLE_0;
-	struct dm_test_dcc_cap_ctx ctx = {
-		.callback_ret = true,
-		.capable = false,
+	static const struct {
+		const char *name;
+		bool callback_ret;
+		bool capable;
+		bool output_independent_64b_blks;
+		u32 independent_64b_blks;
+	} cases[] = {
+		{ "callback fails", false, true, false, 1 },
+		{ "not capable", true, false, false, 1 },
+		{ "independent 64B mismatch", true, true, true, 0 },
 	};
-	int ret;
+	unsigned int i;
 
-	dm_test_init_validate_dcc_inputs(&adev, &dc, &tiling_info, &dcc, &address,
-					 &plane_size, test);
-	dc->cap_funcs.get_dcc_compression_cap = dm_test_get_dcc_compression_cap;
-	dm_test_dcc_ctx = &ctx;
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		struct amdgpu_device *adev;
+		struct dc *dc;
+		struct dc_tiling_info tiling_info = {0};
+		struct dc_plane_dcc_param dcc = {0};
+		struct dc_plane_address address = {0};
+		struct plane_size plane_size = {0};
+		struct dm_test_dcc_cap_ctx ctx = {
+			.callback_ret = cases[i].callback_ret,
+			.capable = cases[i].capable,
+			.output_independent_64b_blks = cases[i].output_independent_64b_blks,
+		};
+		int ret;
 
-	ret = amdgpu_dm_plane_validate_dcc(adev, format, rotation, &tiling_info,
-					   &dcc, &address, &plane_size);
-	KUNIT_EXPECT_EQ(test, ret, -EINVAL);
-	KUNIT_EXPECT_TRUE(test, ctx.called);
+		dm_test_init_validate_dcc_inputs(&adev, &dc, &tiling_info, &dcc, &address,
+						 &plane_size, test);
+		dcc.independent_64b_blks = cases[i].independent_64b_blks;
+		dc->cap_funcs.get_dcc_compression_cap = dm_test_get_dcc_compression_cap;
+		dm_test_dcc_ctx = &ctx;
 
-	dm_test_dcc_ctx = NULL;
+		ret = amdgpu_dm_plane_validate_dcc(adev, SURFACE_PIXEL_FORMAT_GRPH_ARGB8888,
+						   ROTATION_ANGLE_0, &tiling_info, &dcc,
+						   &address, &plane_size);
+		dm_test_dcc_ctx = NULL;
+
+		KUNIT_EXPECT_EQ_MSG(test, ret, -EINVAL, "%s", cases[i].name);
+		KUNIT_EXPECT_TRUE_MSG(test, ctx.called, "%s", cases[i].name);
+	}
 }
 
 /**
@@ -815,41 +758,6 @@ static void dm_test_validate_dcc_success_and_scan_mapping(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)ctx.captured_input.scan, (int)SCAN_DIRECTION_VERTICAL);
 	KUNIT_EXPECT_EQ(test, (int)ctx.captured_input.format,
 			(int)SURFACE_PIXEL_FORMAT_GRPH_ARGB8888);
-
-	dm_test_dcc_ctx = NULL;
-}
-
-/**
- * dm_test_validate_dcc_independent_64b_mismatch_fails() - Verify 64B compatibility check.
- * @test: KUnit test context.
- *
- * Verify if validation fails when independent_64b_blks values do not match.
- */
-static void dm_test_validate_dcc_independent_64b_mismatch_fails(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct dc *dc;
-	struct dc_tiling_info tiling_info = {0};
-	struct dc_plane_dcc_param dcc = {0};
-	struct dc_plane_address address = {0};
-	struct plane_size plane_size = {0};
-	struct dm_test_dcc_cap_ctx ctx = {
-		.callback_ret = true,
-		.capable = true,
-		.output_independent_64b_blks = true,
-	};
-
-	dm_test_init_validate_dcc_inputs(&adev, &dc, &tiling_info, &dcc, &address,
-					 &plane_size, test);
-	dcc.independent_64b_blks = 0;
-	dc->cap_funcs.get_dcc_compression_cap = dm_test_get_dcc_compression_cap;
-	dm_test_dcc_ctx = &ctx;
-
-	KUNIT_EXPECT_EQ(test,
-			amdgpu_dm_plane_validate_dcc(adev, SURFACE_PIXEL_FORMAT_GRPH_ARGB8888,
-			ROTATION_ANGLE_0, &tiling_info, &dcc,
-			&address, &plane_size),
-			-EINVAL);
 
 	dm_test_dcc_ctx = NULL;
 }
@@ -3868,13 +3776,9 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_fill_gfx9_tiling_info_from_modifier() */
 	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_modifier),
 	/* amdgpu_dm_plane_validate_dcc() */
-	KUNIT_CASE(dm_test_validate_dcc_disabled_returns_success),
-	KUNIT_CASE(dm_test_validate_dcc_video_non_gfx12_fails),
-	KUNIT_CASE(dm_test_validate_dcc_missing_cap_func_fails),
-	KUNIT_CASE(dm_test_validate_dcc_cap_callback_fails),
-	KUNIT_CASE(dm_test_validate_dcc_not_capable_fails),
+	KUNIT_CASE(dm_test_validate_dcc_early_exits),
+	KUNIT_CASE(dm_test_validate_dcc_rejects_from_cap),
 	KUNIT_CASE(dm_test_validate_dcc_success_and_scan_mapping),
-	KUNIT_CASE(dm_test_validate_dcc_independent_64b_mismatch_fails),
 	/* amdgpu_dm_plane_init() */
 	KUNIT_CASE(dm_test_plane_init_creates_optional_properties),
 	KUNIT_CASE(dm_test_plane_init_creates_color_pipeline),
