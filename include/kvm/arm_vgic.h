@@ -525,6 +525,9 @@ struct vgic_v5_cpu_if {
 	 */
 	u64	vgic_icsr;
 
+	/* The contextr used to make VPEs resident and non-resident */
+	u64	vgic_contextr;
+
 	struct gicv5_vpe gicv5_vpe;
 };
 
