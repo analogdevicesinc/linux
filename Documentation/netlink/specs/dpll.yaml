@@ -760,9 +760,6 @@ operations:
           attributes:
             - id
             - frequency
-            - direction
-            - prio
-            - state
             - parent-device
             - parent-pin
             - phase-adjust
