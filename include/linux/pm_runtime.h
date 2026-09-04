@@ -352,11 +352,11 @@ static inline int pm_runtime_force_resume(struct device *dev) { return -ENXIO; }
 #endif /* CONFIG_PM_SLEEP */
 
 /**
- * pm_runtime_idle - Conditionally set up autosuspend of a device or suspend it.
+ * pm_runtime_idle - Conditionally initiate autosuspend of a device or suspend it.
  * @dev: Target device.
  *
  * Invoke the "idle check" callback of @dev and, depending on its return value,
- * set up autosuspend of @dev or suspend it (depending on whether or not
+ * initiate autosuspend of @dev or suspend it (depending on whether or not
  * autosuspend has been enabled for it).
  *
  * Return:
@@ -400,13 +400,13 @@ static inline int pm_runtime_suspend(struct device *dev)
 }
 
 /**
- * pm_runtime_autosuspend - Update the last access time and set up autosuspend
+ * pm_runtime_autosuspend - Update the last access time and initiate autosuspend
  * of a device.
  * @dev: Target device.
  *
- * First update the last access time, then set up autosuspend of @dev or suspend
- * it (depending on whether or not autosuspend is enabled for it) without
- * engaging its "idle check" callback.
+ * First update the last access time, then initiate autosuspend of @dev or
+ * suspend it (depending on whether or not autosuspend is enabled for it)
+ * without engaging its "idle check" callback.
  *
  * Return:
  * * %1: Success; device was already suspended.
@@ -442,11 +442,11 @@ static inline int pm_runtime_resume(struct device *dev)
 }
 
 /**
- * pm_request_idle - Queue up "idle check" execution for a device.
+ * pm_request_idle - Request an asynchronous idle check for a device.
  * @dev: Target device.
  *
- * Queue up a work item to run an equivalent of pm_runtime_idle() for @dev
- * asynchronously.
+ * Asynchronously request the PM core to evaluate whether @dev can be idled
+ * or suspended, invoking its ->runtime_idle() callback if provided.
  *
  * Return:
  * * %0: Success.
@@ -465,8 +465,11 @@ static inline int pm_request_idle(struct device *dev)
 }
 
 /**
- * pm_request_resume - Queue up runtime-resume of a device.
+ * pm_request_resume - Request an asynchronous runtime resume for a device.
  * @dev: Target device.
+ *
+ * Asynchronously request the PM core to resume @dev to %RPM_ACTIVE state
+ * without modifying its usage counter.
  *
  * Return:
  * * %1: Success; @dev is already %RPM_ACTIVE.
@@ -479,12 +482,11 @@ static inline int pm_request_resume(struct device *dev)
 }
 
 /**
- * pm_request_autosuspend - Update the last access time and queue up autosuspend
- * of a device.
+ * pm_request_autosuspend - Update access time and request delayed suspension.
  * @dev: Target device.
  *
- * Update the last access time of a device and queue up a work item to run an
- * equivalent pm_runtime_autosuspend() for @dev asynchronously.
+ * Update the last access time of @dev and asynchronously request the PM core
+ * to suspend it after the autosuspend delay has elapsed.
  *
  * Return:
  * * %1: Success; device was already suspended.
@@ -505,11 +507,11 @@ static inline int pm_request_autosuspend(struct device *dev)
 }
 
 /**
- * pm_runtime_get - Bump up usage counter and queue up resume of a device.
+ * pm_runtime_get - Increment usage counter and request asynchronous resume.
  * @dev: Target device.
  *
- * Bump up the runtime PM usage counter of @dev and queue up a work item to
- * carry out runtime-resume of it.
+ * Increment the runtime PM usage counter of @dev and, if the device is
+ * currently suspended, asynchronously request the PM core to resume it.
  *
  * Return:
  * * %1: Success; @dev is already %RPM_ACTIVE.
@@ -528,12 +530,10 @@ static inline int pm_runtime_get(struct device *dev)
  * Bump up the runtime PM usage counter of @dev and carry out runtime-resume of
  * it synchronously.
  *
- * The possible return values of this function are the same as for
- * pm_runtime_resume() and the runtime PM usage counter of @dev remains
- * incremented in all cases, even if it returns an error code.
- * Consider using pm_runtime_resume_and_get() instead of it, especially
- * if its return value is checked by the caller, as this is likely to result
- * in cleaner code.
+ * Note that the runtime PM usage counter of @dev remains incremented in all
+ * cases, even if it returns an error code. Consider using
+ * pm_runtime_resume_and_get() instead, especially if the return value is
+ * checked by the caller, as this is likely to result in cleaner code.
  *
  * Return:
  * * %1: Success; @dev is already %RPM_ACTIVE.
@@ -575,11 +575,12 @@ static inline int pm_runtime_resume_and_get(struct device *dev)
 }
 
 /**
- * pm_runtime_put - Drop device usage counter and queue up "idle check" if 0.
+ * pm_runtime_put - Drop device usage counter and request asynchronous idle check.
  * @dev: Target device.
  *
- * Decrement the runtime PM usage counter of @dev and if it turns out to be
- * equal to 0, queue up a work item for @dev like in pm_request_idle().
+ * Decrement the runtime PM usage counter of @dev. If the counter reaches zero
+ * and the device has no active child dependencies, asynchronously request the
+ * PM core to idle or suspend the device.
  */
 static inline void pm_runtime_put(struct device *dev)
 {
@@ -611,13 +612,13 @@ static inline int __pm_runtime_put_autosuspend(struct device *dev)
 }
 
 /**
- * pm_runtime_put_autosuspend - Update the last access time of a device, drop
- * its usage counter and queue autosuspend if the usage counter becomes 0.
+ * pm_runtime_put_autosuspend - Update the last access time, drop usage counter
+ * and request autosuspend.
  * @dev: Target device.
  *
- * Update the last access time of @dev, decrement runtime PM usage counter of
- * @dev and if it turns out to be equal to 0, queue up a work item for @dev like
- * in pm_request_autosuspend().
+ * Update the last access time of @dev and decrement its runtime PM usage
+ * counter. If the counter drops to zero, asynchronously request the PM core to
+ * suspend the device once its autosuspend delay has elapsed.
  *
  * Return:
  * * %1: Success. Usage counter dropped to zero, but device was already suspended.
@@ -688,10 +689,12 @@ DEFINE_GUARD_COND(pm_runtime_active_auto, _try_enabled,
  * pm_runtime_put_sync - Drop device usage counter and run "idle check" if 0.
  * @dev: Target device.
  *
- * Decrement the runtime PM usage counter of @dev and if it turns out to be
- * equal to 0, invoke the "idle check" callback of @dev and, depending on its
- * return value, set up autosuspend of @dev or suspend it (depending on whether
- * or not autosuspend has been enabled for it).
+ * Decrement the runtime PM usage counter of @dev. If the counter drops to zero,
+ * synchronously evaluate and trigger idle/suspend handling.
+ *
+ * Note that this does not update the last access time, but it does respect
+ * existing autosuspend timers. If @dev uses autosuspend, consider using
+ * pm_runtime_put_sync_autosuspend() or pm_runtime_put_sync_suspend() instead.
  *
  * The runtime PM usage counter of @dev remains decremented in all cases, even
  * if it returns an error code.
@@ -718,8 +721,12 @@ static inline int pm_runtime_put_sync(struct device *dev)
  * pm_runtime_put_sync_suspend - Drop device usage counter and suspend if 0.
  * @dev: Target device.
  *
- * Decrement the runtime PM usage counter of @dev and if it turns out to be
- * equal to 0, carry out runtime-suspend of @dev synchronously.
+ * Decrement the runtime PM usage counter of @dev. If the counter drops to zero,
+ * suspend the device synchronously.
+ *
+ * This API differs from pm_runtime_put_sync() and
+ * pm_runtime_put_sync_autosuspend() in that it ignores any outstanding
+ * autosuspend delays.
  *
  * The runtime PM usage counter of @dev remains decremented in all cases, even
  * if it returns an error code.
@@ -747,10 +754,11 @@ static inline int pm_runtime_put_sync_suspend(struct device *dev)
  * drop device usage counter and autosuspend if 0.
  * @dev: Target device.
  *
- * Update the last access time of @dev, decrement the runtime PM usage counter
- * of @dev and if it turns out to be equal to 0, set up autosuspend of @dev or
- * suspend it synchronously (depending on whether or not autosuspend has been
- * enabled for it).
+ * Update the last access time of @dev and decrement its runtime PM usage
+ * counter. If the counter drops to zero, synchronously suspend the device (or
+ * schedule autosuspend if the delay has not elapsed).
+ *
+ * Prefer this API over pm_runtime_put_sync() for devices that use autosuspend.
  *
  * The runtime PM usage counter of @dev remains decremented in all cases, even
  * if it returns an error code.
@@ -827,9 +835,8 @@ static inline int pm_runtime_set_suspended(struct device *dev)
  *
  * If the counter is zero when this function runs and there is a pending runtime
  * resume request for @dev, it will be resumed.  If the counter is still zero at
- * that point, all of the pending runtime PM requests for @dev will be canceled
- * and all runtime PM operations in progress involving it will be waited for to
- * complete.
+ * that point, this function cancels all pending runtime PM requests for @dev
+ * and waits for its runtime PM operations to complete (if any).
  *
  * For each invocation of this function for @dev, there must be a matching
  * pm_runtime_enable() call, so that runtime PM is eventually enabled for it
