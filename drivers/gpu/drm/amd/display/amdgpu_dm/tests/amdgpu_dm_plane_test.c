@@ -117,142 +117,111 @@ static void dm_test_plane_is_video_format_known_video(struct kunit *test)
 }
 
 /**
- * dm_test_fill_blending_defaults() - Verify default blending output values.
+ * dm_test_fill_blending_pixel_blend_modes() - Verify per-pixel blending modes.
  * @test: KUnit test context.
  *
- * Verify if default blending output values are used for opaque alpha and no
- * per-pixel blending.
+ * Verify if opaque alpha keeps the default outputs, and if the premultiplied
+ * and coverage modes enable per-pixel alpha for an alpha-capable format.
  */
-static void dm_test_fill_blending_defaults(struct kunit *test)
+static void dm_test_fill_blending_pixel_blend_modes(struct kunit *test)
 {
-	struct drm_plane_state state = { 0 };
-	bool per_pixel_alpha;
-	bool pre_multiplied_alpha;
-	bool global_alpha;
-	int global_alpha_value;
-
-	state.pixel_blend_mode = DRM_MODE_BLEND_PIXEL_NONE;
-	state.alpha = 0xffff;
-
-	amdgpu_dm_plane_fill_blending_from_plane_state(&state,
-						       &per_pixel_alpha,
-						       &pre_multiplied_alpha,
-						       &global_alpha,
-						       &global_alpha_value);
-
-	KUNIT_EXPECT_FALSE(test, per_pixel_alpha);
-	KUNIT_EXPECT_TRUE(test, pre_multiplied_alpha);
-	KUNIT_EXPECT_FALSE(test, global_alpha);
-	KUNIT_EXPECT_EQ(test, global_alpha_value, 0xff);
-}
-
-/**
- * dm_test_fill_blending_premulti_alpha_format() - Verify premultiplied alpha path.
- * @test: KUnit test context.
- *
- * Verify if premultiplied mode enables per-pixel alpha for ARGB8888.
- */
-static void dm_test_fill_blending_premulti_alpha_format(struct kunit *test)
-{
-	struct drm_plane_state state = { 0 };
+	static const struct {
+		const char *name;
+		unsigned int blend_mode;
+		bool with_fb;
+		bool per_pixel_alpha;
+		bool pre_multiplied_alpha;
+	} cases[] = {
+		{ "defaults", DRM_MODE_BLEND_PIXEL_NONE, false, false, true },
+		{ "premultiplied", DRM_MODE_BLEND_PREMULTI, true, true, true },
+		{ "coverage", DRM_MODE_BLEND_COVERAGE, true, true, false },
+	};
 	struct drm_framebuffer fb = { 0 };
-	bool per_pixel_alpha;
-	bool pre_multiplied_alpha;
-	bool global_alpha;
-	int global_alpha_value;
+	unsigned int i;
 
 	fb.format = drm_format_info(DRM_FORMAT_ARGB8888);
 	KUNIT_ASSERT_NOT_NULL(test, fb.format);
 
-	state.fb = &fb;
-	state.pixel_blend_mode = DRM_MODE_BLEND_PREMULTI;
-	state.alpha = 0xffff;
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		struct drm_plane_state state = { 0 };
+		bool per_pixel_alpha;
+		bool pre_multiplied_alpha;
+		bool global_alpha;
+		int global_alpha_value;
 
-	amdgpu_dm_plane_fill_blending_from_plane_state(&state,
-						       &per_pixel_alpha,
-						       &pre_multiplied_alpha,
-						       &global_alpha,
-						       &global_alpha_value);
+		if (cases[i].with_fb)
+			state.fb = &fb;
+		state.pixel_blend_mode = cases[i].blend_mode;
+		state.alpha = 0xffff;
 
-	KUNIT_EXPECT_TRUE(test, per_pixel_alpha);
-	KUNIT_EXPECT_TRUE(test, pre_multiplied_alpha);
-	KUNIT_EXPECT_FALSE(test, global_alpha);
-	KUNIT_EXPECT_EQ(test, global_alpha_value, 0xff);
+		amdgpu_dm_plane_fill_blending_from_plane_state(&state,
+							       &per_pixel_alpha,
+							       &pre_multiplied_alpha,
+							       &global_alpha,
+							       &global_alpha_value);
+
+		KUNIT_EXPECT_EQ_MSG(test, per_pixel_alpha, cases[i].per_pixel_alpha,
+				    "%s", cases[i].name);
+		KUNIT_EXPECT_EQ_MSG(test, pre_multiplied_alpha, cases[i].pre_multiplied_alpha,
+				    "%s", cases[i].name);
+		KUNIT_EXPECT_FALSE_MSG(test, global_alpha, "%s", cases[i].name);
+		KUNIT_EXPECT_EQ_MSG(test, global_alpha_value, 0xff, "%s", cases[i].name);
+	}
 }
 
 /**
- * dm_test_fill_blending_coverage_alpha_format() - Verify coverage mode behavior.
+ * dm_test_fill_blending_global_alpha() - Verify global alpha down-scaling.
  * @test: KUnit test context.
  *
- * Verify if coverage mode sets per-pixel alpha and disables
- * pre_multiplied_alpha for ARGB8888.
- */
-static void dm_test_fill_blending_coverage_alpha_format(struct kunit *test)
-{
-	struct drm_plane_state state = { 0 };
-	struct drm_framebuffer fb = { 0 };
-	bool per_pixel_alpha;
-	bool pre_multiplied_alpha;
-	bool global_alpha;
-	int global_alpha_value;
-
-	fb.format = drm_format_info(DRM_FORMAT_ARGB8888);
-	KUNIT_ASSERT_NOT_NULL(test, fb.format);
-
-	state.fb = &fb;
-	state.pixel_blend_mode = DRM_MODE_BLEND_COVERAGE;
-	state.alpha = 0xffff;
-
-	amdgpu_dm_plane_fill_blending_from_plane_state(&state,
-						       &per_pixel_alpha,
-						       &pre_multiplied_alpha,
-						       &global_alpha,
-						       &global_alpha_value);
-
-	KUNIT_EXPECT_TRUE(test, per_pixel_alpha);
-	KUNIT_EXPECT_FALSE(test, pre_multiplied_alpha);
-	KUNIT_EXPECT_FALSE(test, global_alpha);
-	KUNIT_EXPECT_EQ(test, global_alpha_value, 0xff);
-}
-
-/**
- * dm_test_fill_blending_global_alpha() - Verify global alpha conversion to 8 bits.
- * @test: KUnit test context.
- *
- * Verify if global alpha is enabled and converted from 16-bit to 8-bit.
+ * Verify if global alpha is enabled and the 16-bit DRM alpha is scaled down to
+ * the 8-bit hardware field, or to the 12-bit field used by DCN 4.2.
  */
 static void dm_test_fill_blending_global_alpha(struct kunit *test)
 {
-	struct amdgpu_device *adev;
-	struct drm_plane *plane;
-	struct drm_plane_state *state;
-	bool per_pixel_alpha;
-	bool pre_multiplied_alpha;
-	bool global_alpha;
-	int global_alpha_value;
+	static const struct {
+		const char *name;
+		u32 dce_version;
+		int expected;
+	} cases[] = {
+		{ "8-bit field", IP_VERSION(4, 0, 0), 0x80 },
+		{ "DCN 4.2 12-bit field", IP_VERSION(4, 2, 0), 0x800 },
+	};
+	unsigned int i;
 
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
-	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
-	KUNIT_ASSERT_NOT_NULL(test, plane);
-	KUNIT_ASSERT_NOT_NULL(test, state);
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		struct amdgpu_device *adev;
+		struct drm_plane *plane;
+		struct drm_plane_state *state;
+		bool per_pixel_alpha;
+		bool pre_multiplied_alpha;
+		bool global_alpha;
+		int global_alpha_value;
 
-	plane->dev = &adev->ddev;
-	state->plane = plane;
-	state->pixel_blend_mode = DRM_MODE_BLEND_PIXEL_NONE;
-	state->alpha = 0x8000;
+		adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+		plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+		state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+		KUNIT_ASSERT_NOT_NULL(test, adev);
+		KUNIT_ASSERT_NOT_NULL(test, plane);
+		KUNIT_ASSERT_NOT_NULL(test, state);
 
-	amdgpu_dm_plane_fill_blending_from_plane_state(state,
-						       &per_pixel_alpha,
-						       &pre_multiplied_alpha,
-						       &global_alpha,
-						       &global_alpha_value);
+		adev->ip_versions[DCE_HWIP][0] = cases[i].dce_version;
+		plane->dev = &adev->ddev;
+		state->plane = plane;
+		state->pixel_blend_mode = DRM_MODE_BLEND_PIXEL_NONE;
+		state->alpha = 0x8000;
 
-	KUNIT_EXPECT_FALSE(test, per_pixel_alpha);
-	KUNIT_EXPECT_TRUE(test, pre_multiplied_alpha);
-	KUNIT_EXPECT_TRUE(test, global_alpha);
-	KUNIT_EXPECT_EQ(test, global_alpha_value, 0x80);
+		amdgpu_dm_plane_fill_blending_from_plane_state(state,
+							       &per_pixel_alpha,
+							       &pre_multiplied_alpha,
+							       &global_alpha,
+							       &global_alpha_value);
+
+		KUNIT_EXPECT_FALSE_MSG(test, per_pixel_alpha, "%s", cases[i].name);
+		KUNIT_EXPECT_TRUE_MSG(test, pre_multiplied_alpha, "%s", cases[i].name);
+		KUNIT_EXPECT_TRUE_MSG(test, global_alpha, "%s", cases[i].name);
+		KUNIT_EXPECT_EQ_MSG(test, global_alpha_value, cases[i].expected,
+				    "%s", cases[i].name);
+	}
 }
 
 /**
@@ -1155,45 +1124,6 @@ static void dm_test_get_format_info(struct kunit *test)
 			    NULL);
 	format_info = amdgpu_dm_plane_get_format_info(DRM_FORMAT_XRGB8888, dcc_mod);
 	KUNIT_EXPECT_NOT_NULL(test, format_info);
-}
-
-/**
- * dm_test_fill_blending_global_alpha_dcn42() - Verify DCN 4.2 alpha scaling.
- * @test: KUnit test context.
- *
- * Verify if DCN 4.2 scales the 16-bit DRM alpha down by 4 bits instead of 8.
- */
-static void dm_test_fill_blending_global_alpha_dcn42(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct drm_plane *plane;
-	struct drm_plane_state *state;
-	bool per_pixel_alpha;
-	bool pre_multiplied_alpha;
-	bool global_alpha;
-	int global_alpha_value;
-
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
-	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
-	KUNIT_ASSERT_NOT_NULL(test, plane);
-	KUNIT_ASSERT_NOT_NULL(test, state);
-
-	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(4, 2, 0);
-	plane->dev = &adev->ddev;
-	state->plane = plane;
-	state->pixel_blend_mode = DRM_MODE_BLEND_PIXEL_NONE;
-	state->alpha = 0x8000;
-
-	amdgpu_dm_plane_fill_blending_from_plane_state(state,
-						       &per_pixel_alpha,
-						       &pre_multiplied_alpha,
-						       &global_alpha,
-						       &global_alpha_value);
-
-	KUNIT_EXPECT_TRUE(test, global_alpha);
-	KUNIT_EXPECT_EQ(test, global_alpha_value, 0x800);
 }
 
 /* Modifier lists are terminated by DRM_FORMAT_MOD_INVALID, which is not counted. */
@@ -4023,11 +3953,8 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_get_format_info() */
 	KUNIT_CASE(dm_test_get_format_info),
 	/* amdgpu_dm_plane_fill_blending_from_plane_state() */
-	KUNIT_CASE(dm_test_fill_blending_defaults),
-	KUNIT_CASE(dm_test_fill_blending_premulti_alpha_format),
-	KUNIT_CASE(dm_test_fill_blending_coverage_alpha_format),
+	KUNIT_CASE(dm_test_fill_blending_pixel_blend_modes),
 	KUNIT_CASE(dm_test_fill_blending_global_alpha),
-	KUNIT_CASE(dm_test_fill_blending_global_alpha_dcn42),
 	/* amdgpu_dm_plane_modifier_* helpers() */
 	KUNIT_CASE(dm_test_modifier_has_dcc),
 	KUNIT_CASE(dm_test_modifier_gfx9_swizzle_mode),
