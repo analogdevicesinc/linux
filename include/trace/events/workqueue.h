@@ -126,7 +126,47 @@ TRACE_EVENT(workqueue_execute_end,
 	TP_printk("work struct %p: function %ps", __entry->work, __entry->function)
 );
 
+/**
+ * workqueue_cpu_intensive - called when a work item exceeds cpu_intensive threshold
+ * @pwq:	pointer to struct pool_workqueue
+ * @work:	pointer to struct work_struct
+ * @function:	pointer to worker function
+ * @duration_us: CPU time consumed in microseconds
+ *
+ * This event occurs when a concurrency-managed work item runs for longer
+ * than wq_cpu_intensive_thresh_us without sleeping and is excluded from
+ * concurrency management to prevent stalling other work items.
+ */
+TRACE_EVENT(workqueue_cpu_intensive,
+
+	TP_PROTO(struct pool_workqueue *pwq, struct work_struct *work,
+		 work_func_t function, u64 duration_us),
+
+	TP_ARGS(pwq, work, function, duration_us),
+
+	TP_STRUCT__entry(
+		__field( void *,	work		)
+		__field( void *,	function	)
+		__string( workqueue,	pwq->wq->name	)
+		__field( int,		cpu		)
+		__field( u64,		duration_us	)
+	),
+
+	TP_fast_assign(
+		__entry->work		= work;
+		__entry->function	= function;
+		__assign_str(workqueue);
+		__entry->cpu		= pwq->pool->cpu;
+		__entry->duration_us	= duration_us;
+	),
+
+	TP_printk("work struct=%p function=%ps workqueue=%s cpu=%d duration_us=%llu",
+		  __entry->work, __entry->function, __get_str(workqueue),
+		  __entry->cpu, __entry->duration_us)
+);
+
 #endif /*  _TRACE_WORKQUEUE_H */
 
 /* This part must be outside protection */
 #include <trace/define_trace.h>
+

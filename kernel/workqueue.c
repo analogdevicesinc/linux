@@ -56,6 +56,7 @@
 #include <linux/kvm_para.h>
 #include <linux/delay.h>
 #include <linux/irq_work.h>
+#include <linux/math64.h>
 
 #include "workqueue_internal.h"
 
@@ -1535,6 +1536,7 @@ void wq_worker_tick(struct task_struct *task)
 	struct worker *worker = kthread_data(task);
 	struct pool_workqueue *pwq = worker->current_pwq;
 	struct worker_pool *pool = worker->pool;
+	u64 delta;
 
 	if (!pwq)
 		return;
@@ -1575,6 +1577,11 @@ void wq_worker_tick(struct task_struct *task)
 		pwq->stats[PWQ_STAT_CM_WAKEUP]++;
 
 	raw_spin_unlock(&pool->lock);
+
+	delta = READ_ONCE(worker->task->se.sum_exec_runtime) - worker->current_at;
+	trace_workqueue_cpu_intensive(pwq, worker->current_work,
+				      worker->current_func,
+				      div_u64(delta, NSEC_PER_USEC));
 }
 
 /**
