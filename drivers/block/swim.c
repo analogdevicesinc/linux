@@ -8,6 +8,14 @@
  * based on SWIM3 driver (c) Paul Mackerras, 1996
  * based on netBSD IWM driver (c) 1997, 1998 Hauke Fath.
  *
+ * See also:
+ * Inside Macintosh, vol. III, ch. 2
+ * https://archive.org/details/SWIMDesignDocs
+ * NEC uPD72070 FDC datasheet
+ * mkLinux source file swimiiicommonhal.c
+ * http://www.mac.linux-m68k.org/devel/iwm.php.html
+ * MAME source file sonydriv.cpp
+ *
  * 2004-08-21 (lv) - Initial implementation
  * 2008-10-30 (lv) - Port to 2.6
  */
