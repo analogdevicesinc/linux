@@ -354,6 +354,11 @@ static int gpio_mmio_dir_return(struct gpio_chip *gc, unsigned int gpio,
 	if (!chip->pinctrl)
 		return 0;
 
+#ifdef CONFIG_PINCTRL
+	if (list_empty(&gc->gpiodev->pin_ranges))
+		return 0;
+#endif
+
 	if (dir_out)
 		return pinctrl_gpio_direction_output(gc, gpio);
 	else
