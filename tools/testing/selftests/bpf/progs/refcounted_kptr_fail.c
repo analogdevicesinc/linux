@@ -28,6 +28,17 @@ struct map_value_refcount_only {
 	struct node_refcount_only __kptr *node;
 };
 
+struct rcu_graph_node {
+	struct bpf_rb_node node;
+	long data;
+};
+
+struct rcu_graph_node *just_here_because_btf_bug;
+
+struct map_value_rcu_graph {
+	struct rcu_graph_node __kptr *node;
+};
+
 extern void bpf_rcu_read_lock(void) __ksym;
 extern void bpf_rcu_read_unlock(void) __ksym;
 
@@ -36,6 +47,8 @@ private(A) struct bpf_spin_lock glock;
 private(A) struct bpf_rb_root groot __contains(node_acquire, node);
 private(B) struct bpf_spin_lock lock;
 private(B) struct bpf_list_head head __contains(node_refcounted, list);
+private(C) struct bpf_spin_lock graph_lock;
+private(C) struct bpf_rb_root graph_root __contains(rcu_graph_node, node);
 
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
@@ -43,6 +56,13 @@ struct {
 	__type(value, struct map_value_refcount_only);
 	__uint(max_entries, 1);
 } stashed_refcount_only SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, int);
+	__type(value, struct map_value_rcu_graph);
+	__uint(max_entries, 1);
+} stashed_rcu_graph SEC(".maps");
 
 static bool less(struct bpf_rb_node *a, const struct bpf_rb_node *b)
 {
@@ -135,6 +155,61 @@ long refcount_acquire_rcu_map_kptr_unchecked_drop(void *ctx)
 	bpf_obj_drop(m);
 
 	return 0;
+}
+
+SEC("?syscall")
+__failure
+__msg("bpf_rbtree_remove can only take non-owning or refcounted "
+      "bpf_rb_node pointer")
+long rbtree_remove_after_rcu_unlock(void *ctx)
+{
+	struct map_value_rcu_graph *mapval;
+	struct bpf_rb_node *rb_node;
+	struct rcu_graph_node *node;
+	int idx = 0;
+
+	mapval = bpf_map_lookup_elem(&stashed_rcu_graph, &idx);
+	if (!mapval)
+		return 0;
+
+	bpf_rcu_read_lock();
+	node = mapval->node;
+	if (!node) {
+		bpf_rcu_read_unlock();
+		return 0;
+	}
+	bpf_rcu_read_unlock();
+
+	bpf_spin_lock(&graph_lock);
+	rb_node = bpf_rbtree_remove(&graph_root, &node->node);
+	bpf_spin_unlock(&graph_lock);
+	if (rb_node)
+		bpf_obj_drop(container_of(rb_node, struct rcu_graph_node, node));
+
+	return 0;
+}
+
+SEC("?syscall")
+__failure __msg("invalid mem access 'scalar'")
+long graph_kptr_after_spin_unlock(void *ctx)
+{
+	struct map_value_rcu_graph *mapval;
+	struct rcu_graph_node *node;
+	int idx = 0;
+
+	mapval = bpf_map_lookup_elem(&stashed_rcu_graph, &idx);
+	if (!mapval)
+		return 0;
+
+	bpf_spin_lock(&graph_lock);
+	node = mapval->node;
+	if (!node) {
+		bpf_spin_unlock(&graph_lock);
+		return 0;
+	}
+	bpf_spin_unlock(&graph_lock);
+
+	return node->data;
 }
 
 SEC("?tc")
