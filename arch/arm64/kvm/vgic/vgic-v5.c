@@ -7,6 +7,7 @@
 
 #include <linux/bitops.h>
 #include <linux/irqchip/arm-vgic-info.h>
+#include <linux/irqdomain.h>
 
 #include "vgic.h"
 
@@ -125,6 +126,137 @@ skip_v5:
 	return 0;
 }
 
+/*
+ * This set of irq_chip functions is specific for doorbells.
+ */
+static const struct irq_chip vgic_v5_db_irq_chip = {
+	.name = "GICv5-DB",
+	.irq_mask = irq_chip_mask_parent,
+	.irq_unmask = irq_chip_unmask_parent,
+	.irq_eoi = irq_chip_eoi_parent,
+	.irq_set_affinity = irq_chip_set_affinity_parent,
+	.irq_get_irqchip_state = irq_chip_get_parent_state,
+	.irq_set_irqchip_state = irq_chip_set_parent_state,
+	.flags = IRQCHIP_SET_TYPE_MASKED | IRQCHIP_SKIP_SET_WAKE |
+		 IRQCHIP_MASK_ON_SUSPEND,
+};
+
+static void vgic_v5_irq_db_domain_free(struct irq_domain *domain,
+				       unsigned int virq, unsigned int nr_irqs)
+{
+	int i;
+
+	for (i = 0; i < nr_irqs; i++) {
+		struct irq_data *d = irq_domain_get_irq_data(domain, virq + i);
+
+		irq_set_handler(virq + i, NULL);
+		irq_domain_reset_irq_data(d);
+	}
+
+	irq_domain_free_irqs_parent(domain, virq, nr_irqs);
+}
+
+static int vgic_v5_irq_db_domain_alloc(struct irq_domain *domain,
+				       unsigned int virq, unsigned int nr_irqs,
+				       void *arg)
+{
+	const struct irq_chip *chip = &vgic_v5_db_irq_chip;
+	struct vgic_v5_vm *vm = arg;
+	struct irq_data *irqd;
+	int ret;
+
+	if (!vm) {
+		kvm_err("invalid parameter for doorbell irq allocation\n");
+		return -EINVAL;
+	}
+
+	ret = irq_domain_alloc_irqs_parent(domain, virq, nr_irqs, NULL);
+	if (ret)
+		return ret;
+
+	for (int i = 0; i < nr_irqs; i++) {
+		irq_domain_set_hwirq_and_chip(domain, virq + i, i, chip,
+					      domain->host_data);
+		irqd = irq_desc_get_irq_data(irq_to_desc(virq + i));
+		irqd_set_single_target(irqd);
+	}
+
+	return 0;
+}
+
+static const struct irq_domain_ops vgic_v5_irq_db_domain_ops = {
+	.alloc = vgic_v5_irq_db_domain_alloc,
+	.free = vgic_v5_irq_db_domain_free,
+};
+
+static int vgic_v5_create_per_vm_domain(struct kvm *kvm)
+{
+	struct vgic_v5_vm *vm = &kvm->arch.vgic.gicv5_vm;
+	int nr_vcpus = atomic_read(&kvm->online_vcpus);
+	int id = task_pid_nr(current);
+	int ret, db_virq = 0;
+
+	if (!gicv5_global_data.lpi_domain) {
+		kvm_err("LPI domain uninitialized, can't set up KVM Doorbells\n");
+		return -ENODEV;
+	}
+
+	vm->fwnode = irq_domain_alloc_named_id_fwnode("GICv5-vpe-db", id);
+	if (!vm->fwnode)
+		return -ENOMEM;
+
+	/*
+	 * KVM per-VM VPE DB domain; child of LPI domain; only ever handles
+	 * doorbells. We know how many doorbells we have, and therefore we
+	 * create a linear domain.
+	 */
+	vm->domain = irq_domain_create_hierarchy(gicv5_global_data.lpi_domain,
+						 0, nr_vcpus, vm->fwnode,
+						 &vgic_v5_irq_db_domain_ops, vm);
+	if (!vm->domain) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	db_virq = irq_domain_alloc_irqs(vm->domain, nr_vcpus, NUMA_NO_NODE, vm);
+	if (db_virq <= 0) {
+		ret = db_virq;
+		goto err;
+	}
+
+	kvm->arch.vgic.gicv5_vm.vpe_db_base = db_virq;
+
+	return 0;
+
+err:
+	if (vm->domain)
+		irq_domain_remove(vm->domain);
+	if (vm->fwnode)
+		irq_domain_free_fwnode(vm->fwnode);
+
+	kvm->arch.vgic.gicv5_vm.vpe_db_base = 0;
+	vm->domain = NULL;
+	vm->fwnode = NULL;
+
+	return ret;
+}
+
+static void vgic_v5_teardown_per_vm_domain(struct vgic_v5_vm *vm)
+{
+	if (!vm->domain)
+		return;
+
+	if (vm->vpe_db_base) {
+		irq_domain_free_irqs(vm->vpe_db_base, vm->domain->revmap_size);
+		vm->vpe_db_base = 0;
+	}
+
+	irq_domain_remove(vm->domain);
+	irq_domain_free_fwnode(vm->fwnode);
+	vm->domain = NULL;
+	vm->fwnode = NULL;
+}
+
 void vgic_v5_reset(struct kvm_vcpu *vcpu)
 {
 	/*
@@ -140,10 +272,16 @@ void vgic_v5_reset(struct kvm_vcpu *vcpu)
 	vcpu->arch.vgic_cpu.num_pri_bits = 5;
 }
 
+void vgic_v5_teardown(struct kvm *kvm)
+{
+	vgic_v5_teardown_per_vm_domain(&kvm->arch.vgic.gicv5_vm);
+}
+
 int vgic_v5_init(struct kvm *kvm)
 {
 	struct kvm_vcpu *vcpu;
 	unsigned long idx;
+	int ret;
 
 	if (vgic_initialized(kvm))
 		return 0;
@@ -154,6 +292,10 @@ int vgic_v5_init(struct kvm *kvm)
 			return -EINVAL;
 		}
 	}
+
+	ret = vgic_v5_create_per_vm_domain(kvm);
+	if (ret)
+		return ret;
 
 	/* We only allow userspace to drive the SW_PPI, if it is implemented. */
 	bitmap_zero(kvm->arch.vgic.gicv5_vm.userspace_ppis,
