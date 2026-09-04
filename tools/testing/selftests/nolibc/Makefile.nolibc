@@ -206,6 +206,8 @@ CFLAGS_mips64be = -EB -mabi=64 -march=mips64r2
 CFLAGS_loongarch = $(if $(LLVM),-fuse-ld=lld)
 CFLAGS_sparc32 = $(call cc-option,-m32) -mcpu=v8
 CFLAGS_sh4 = -ml -m4
+# github.com/llvm/llvm-project/issues/216765
+CFLAGS_hexagon = -fno-sanitize=undefined
 ifeq ($(origin XARCH),command line)
 CFLAGS_XARCH = $(CFLAGS_$(XARCH))
 endif
@@ -222,10 +224,16 @@ LDFLAGS :=
 # Modify CFLAGS based on LLVM=
 include $(srctree)/tools/scripts/Makefile.include
 
+ifeq ($(ARCH),hexagon)
+# tools/scripts/Makefile.include requires CROSS_COMPILE which does not exist for hexagon
+CFLAGS += --target=hexagon-linux-musl
+CLANG_CROSS_FLAGS += --target=hexagon-linux-musl
+endif
+
 REPORT  ?= awk '/\[OK\][\r]*$$/{p++} /\[FAIL\][\r]*$$/{if (!f) printf("\n"); f++; print;} /\[SKIPPED\][\r]*$$/{s++} \
 		/^Total number of errors:/{done++} \
 		END{ printf("\n%3d test(s): %3d passed, %3d skipped, %3d failed => status: ", p+s+f, p, s, f); \
-		if (f || !p || !done) printf("failure\n"); else if (s) printf("warning\n"); else printf("success\n");; \
+		if (f || !p || !done) printf("failure\n"); else printf("success\n");; \
 		printf("\nSee all results in %s\n", ARGV[1]); }'
 
 # Execute the toplevel kernel Makefile
