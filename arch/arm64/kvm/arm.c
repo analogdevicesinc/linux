@@ -979,7 +979,7 @@ int kvm_arch_vcpu_run_pid_change(struct kvm_vcpu *vcpu)
 			return ret;
 	}
 
-	ret = vgic_v5_finalize_ppi_state(kvm);
+	ret = vgic_v5_finalize_ppi_state(vcpu);
 	if (ret)
 		return ret;
 
