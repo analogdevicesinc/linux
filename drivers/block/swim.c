@@ -180,9 +180,9 @@ struct floppy_state {
 	enum media_type	 type;
 	int		 write_protected;
 
-	int		 total_secs;
-	int		 secpercyl;
-	int		 secpertrack;
+	unsigned int	 total_secs;
+	unsigned int	 secpercyl;
+	unsigned int	 secpertrack;
 
 	/* in-use information */
 
@@ -452,68 +452,79 @@ static int floppy_eject(struct floppy_state *fs)
 	return 0;
 }
 
-static inline int swim_read_sector(struct floppy_state *fs,
-				   int side, int track,
-				   int sector, unsigned char *buffer)
+static unsigned int swim_read_sector_range(struct floppy_state *fs,
+					unsigned int side, unsigned int track,
+					unsigned int start, unsigned int count,
+					unsigned char *buffer)
 {
 	struct swim __iomem *base = fs->swd->base;
 	unsigned long flags;
 	struct sector_header header;
-	int ret = -1;
-	short i;
+	unsigned int i, bits = 0;
 
-	swim_track(fs, track);
-	swim_head(base, side);
+	if (count > 0) {
+		count = min(count, fs->secpertrack);
+		bits = GENMASK(count - 1, 0);
+	}
 
 	local_irq_save(flags);
-	for (i = 0; i < 36; i++) {
-		if (swim_read_sector_header(base, &header) ||
-		    swim_read(base, error) || header.track != track ||
-		    header.side != side || header.size != 2)
-			continue;
-		if (header.sector == sector) {
-			/* found */
-
-			ret = swim_read_sector_data(base, buffer);
-			if (swim_read(base, error))
-				ret = -EIO;
+	for (i = 0; i < fs->secpertrack + 1; i++) {
+		if (bits == 0) /* All sectors were read ok */
 			break;
+
+		if (swim_read_sector_header(base, &header) == 0 &&
+		    swim_read(base, error) == 0) {
+			unsigned int offset = header.sector - start;
+			unsigned char *buf = NULL;
+			int len;
+
+			if (header.track == track && header.side == side &&
+			    header.size == 2 && header.sector >= start &&
+			    header.sector < start + count &&
+			    (bits & BIT(offset)))
+				buf = buffer + 512 * offset;
+			len = swim_read_sector_data(base, buf);
+			if (swim_read(base, error) == 0 && buf && len == 512)
+				bits &= ~BIT(offset);
 		}
 	}
 	local_irq_restore(flags);
 
-	return ret;
+	return bits ? ffs(bits) - 1 : count; /* No. of contiguous ok sectors */
 }
 
 static blk_status_t floppy_read_sectors(struct floppy_state *fs,
-			       int req_sector, int sectors_nb,
-			       unsigned char *buffer)
+					unsigned int req_sector,
+					unsigned int sectors_nb,
+					unsigned char *buffer)
 {
 	struct swim __iomem *base = fs->swd->base;
-	int ret;
-	int side, track, sector;
-	int i, try;
-
+	unsigned int try = 0;
 
 	swim_drive(base, fs->location);
 	swim_READY_timeout(base);
 
-	for (i = req_sector; i < req_sector + sectors_nb; i++) {
-		int x;
-		track = i / fs->secpercyl;
-		x = i % fs->secpercyl;
-		side = x / fs->secpertrack;
-		sector = x % fs->secpertrack + 1;
+	while (sectors_nb) {
+		unsigned int cyl, x, head, sector, n, n_ok;
 
-		try = 5;
-		do {
-			ret = swim_read_sector(fs, side, track, sector,
-						buffer);
-			if (try-- == 0)
-				return BLK_STS_IOERR;
-		} while (ret != 512);
+		cyl = req_sector / fs->secpercyl;
+		x = req_sector % fs->secpercyl;
+		head = (x >= fs->secpertrack) ? 1 : 0;
+		sector = x % fs->secpertrack;
+		n = min(sectors_nb, fs->secpertrack - sector);
 
-		buffer += ret;
+		swim_track(fs, cyl);
+		swim_head(base, head);
+
+		n_ok = swim_read_sector_range(fs, head, cyl, sector + 1, n, buffer);
+		if (n_ok == n)
+			try = 0;
+		else if (++try >= 5)
+			return BLK_STS_IOERR;
+
+		buffer += 512 * n_ok;
+		sectors_nb -= n_ok;
+		req_sector += n_ok;
 	}
 
 	return 0;

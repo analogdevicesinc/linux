@@ -198,12 +198,14 @@ read_data_loop:
 	dbne	%d2, read_data_loop
 	beq	data_exit
 	moveq	#max_retry, %d2
-	moveb	%a5@, %a4@+
+	moveb	%a5@, %d3
+	bsr	.Lmaybe_store
 	dbra	%d4, 1f
 	bra	data_crc0
 1:	andb	#.Lhr_fifo_2bytes, %d5
 	beq	read_data_loop
-	moveb	%a5@, %a4@+
+	moveb	%a5@, %d3
+	bsr	.Lmaybe_store
 	dbra	%d4, read_data_loop
 
 	/* read CRC */
@@ -240,3 +242,9 @@ data_crc1:
 data_exit:
 	moveb	#0x18, %a3@(write_mode0 - read_mark)
 	rts
+
+.Lmaybe_store:
+	tstl	%a4
+	beq	9f
+	moveb	%d3, %a4@+
+9:	rts
