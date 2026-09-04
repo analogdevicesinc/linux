@@ -550,42 +550,63 @@ static void dm_test_fill_gfx9_plane_attributes_from_modifiers(struct kunit *test
 }
 
 /**
- * dm_test_helper_check_state_viewport_reject() - Verify viewport outside screen rejects state.
+ * dm_test_helper_check_state_viewport_rejects() - Verify viewport rejections.
  * @test: KUnit test context.
  *
- * Verify if plane state is rejected when the viewport is outside display bounds.
+ * Verify if a viewport outside the display bounds, or one clipped by an edge
+ * to below the minimum pipe-split width or height, is rejected.
  */
-static void dm_test_helper_check_state_viewport_reject(struct kunit *test)
+static void dm_test_helper_check_state_viewport_rejects(struct kunit *test)
 {
-	struct drm_plane *plane;
-	struct drm_plane_state *state;
-	struct drm_crtc *crtc;
-	struct drm_crtc_state *new_crtc_state;
-	struct drm_framebuffer *fb;
+	static const struct {
+		const char *name;
+		int crtc_x;
+		int crtc_y;
+		int crtc_w;
+		int crtc_h;
+		int hdisplay;
+		int vdisplay;
+	} cases[] = {
+		{ "outside the display", 200, 0, 100, 100, 100, 100 },
+		{ "width below minimum", 0, 0, 10, 100, 1920, 1080 },
+		{ "top-clipped height", -2, -95, 100, 100, 1920, 1080 },
+		{ "bottom-clipped height", 0, 95, 100, 100, 1920, 100 },
+	};
+	unsigned int i;
 
-	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
-	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	new_crtc_state = kunit_kzalloc(test, sizeof(*new_crtc_state), GFP_KERNEL);
-	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, plane);
-	KUNIT_ASSERT_NOT_NULL(test, state);
-	KUNIT_ASSERT_NOT_NULL(test, crtc);
-	KUNIT_ASSERT_NOT_NULL(test, new_crtc_state);
-	KUNIT_ASSERT_NOT_NULL(test, fb);
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		struct drm_plane *plane;
+		struct drm_plane_state *state;
+		struct drm_crtc *crtc;
+		struct drm_crtc_state *new_crtc_state;
+		struct drm_framebuffer *fb;
+		int ret;
 
-	plane->type = DRM_PLANE_TYPE_OVERLAY;
-	state->plane = plane;
-	state->fb = fb;
-	state->crtc = crtc;
-	state->crtc_x = 200;
-	state->crtc_y = 0;
-	state->crtc_w = 100;
-	state->crtc_h = 100;
-	new_crtc_state->mode.crtc_hdisplay = 100;
-	new_crtc_state->mode.crtc_vdisplay = 100;
+		plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+		state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+		crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+		new_crtc_state = kunit_kzalloc(test, sizeof(*new_crtc_state), GFP_KERNEL);
+		fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
+		KUNIT_ASSERT_NOT_NULL(test, plane);
+		KUNIT_ASSERT_NOT_NULL(test, state);
+		KUNIT_ASSERT_NOT_NULL(test, crtc);
+		KUNIT_ASSERT_NOT_NULL(test, new_crtc_state);
+		KUNIT_ASSERT_NOT_NULL(test, fb);
 
-	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_helper_check_state(state, new_crtc_state), -EINVAL);
+		plane->type = DRM_PLANE_TYPE_OVERLAY;
+		state->plane = plane;
+		state->fb = fb;
+		state->crtc = crtc;
+		state->crtc_x = cases[i].crtc_x;
+		state->crtc_y = cases[i].crtc_y;
+		state->crtc_w = cases[i].crtc_w;
+		state->crtc_h = cases[i].crtc_h;
+		new_crtc_state->mode.crtc_hdisplay = cases[i].hdisplay;
+		new_crtc_state->mode.crtc_vdisplay = cases[i].vdisplay;
+
+		ret = amdgpu_dm_plane_helper_check_state(state, new_crtc_state);
+		KUNIT_EXPECT_EQ_MSG(test, ret, -EINVAL, "%s", cases[i].name);
+	}
 }
 
 /**
@@ -1734,130 +1755,6 @@ static void dm_test_fill_plane_buffer_attributes_gfx12(struct kunit *test)
 }
 
 /**
- * dm_test_helper_check_state_small_viewport_width() - Verify width rejection.
- * @test: KUnit test context.
- *
- * Verify if a viewport width below the minimum pipe-split width is rejected.
- */
-static void dm_test_helper_check_state_small_viewport_width(struct kunit *test)
-{
-	struct drm_plane *plane;
-	struct drm_plane_state *state;
-	struct drm_crtc *crtc;
-	struct drm_crtc_state *new_crtc_state;
-	struct drm_framebuffer *fb;
-
-	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
-	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	new_crtc_state = kunit_kzalloc(test, sizeof(*new_crtc_state), GFP_KERNEL);
-	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, plane);
-	KUNIT_ASSERT_NOT_NULL(test, state);
-	KUNIT_ASSERT_NOT_NULL(test, crtc);
-	KUNIT_ASSERT_NOT_NULL(test, new_crtc_state);
-	KUNIT_ASSERT_NOT_NULL(test, fb);
-
-	plane->type = DRM_PLANE_TYPE_OVERLAY;
-	state->plane = plane;
-	state->fb = fb;
-	state->crtc = crtc;
-	state->crtc_x = 0;
-	state->crtc_y = 0;
-	state->crtc_w = 10;
-	state->crtc_h = 100;
-	new_crtc_state->mode.crtc_hdisplay = 1920;
-	new_crtc_state->mode.crtc_vdisplay = 1080;
-
-	KUNIT_EXPECT_EQ(test,
-			amdgpu_dm_plane_helper_check_state(state, new_crtc_state),
-			-EINVAL);
-}
-
-/**
- * dm_test_helper_check_state_small_viewport_height() - Verify height rejection.
- * @test: KUnit test context.
- *
- * Verify if a negative-offset viewport with a too-small height is rejected.
- */
-static void dm_test_helper_check_state_small_viewport_height(struct kunit *test)
-{
-	struct drm_plane *plane;
-	struct drm_plane_state *state;
-	struct drm_crtc *crtc;
-	struct drm_crtc_state *new_crtc_state;
-	struct drm_framebuffer *fb;
-
-	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
-	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	new_crtc_state = kunit_kzalloc(test, sizeof(*new_crtc_state), GFP_KERNEL);
-	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, plane);
-	KUNIT_ASSERT_NOT_NULL(test, state);
-	KUNIT_ASSERT_NOT_NULL(test, crtc);
-	KUNIT_ASSERT_NOT_NULL(test, new_crtc_state);
-	KUNIT_ASSERT_NOT_NULL(test, fb);
-
-	plane->type = DRM_PLANE_TYPE_OVERLAY;
-	state->plane = plane;
-	state->fb = fb;
-	state->crtc = crtc;
-	state->crtc_x = -2;
-	state->crtc_y = -95;
-	state->crtc_w = 100;
-	state->crtc_h = 100;
-	new_crtc_state->mode.crtc_hdisplay = 1920;
-	new_crtc_state->mode.crtc_vdisplay = 1080;
-
-	KUNIT_EXPECT_EQ(test,
-			amdgpu_dm_plane_helper_check_state(state, new_crtc_state),
-			-EINVAL);
-}
-
-/**
- * dm_test_helper_check_state_bottom_clipped_height() - Verify bottom clipping.
- * @test: KUnit test context.
- *
- * Verify if a viewport clipped by the bottom edge to below the minimum height
- * is rejected.
- */
-static void dm_test_helper_check_state_bottom_clipped_height(struct kunit *test)
-{
-	struct drm_plane *plane;
-	struct drm_plane_state *state;
-	struct drm_crtc *crtc;
-	struct drm_crtc_state *new_crtc_state;
-	struct drm_framebuffer *fb;
-
-	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
-	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	new_crtc_state = kunit_kzalloc(test, sizeof(*new_crtc_state), GFP_KERNEL);
-	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, plane);
-	KUNIT_ASSERT_NOT_NULL(test, state);
-	KUNIT_ASSERT_NOT_NULL(test, crtc);
-	KUNIT_ASSERT_NOT_NULL(test, new_crtc_state);
-	KUNIT_ASSERT_NOT_NULL(test, fb);
-
-	plane->type = DRM_PLANE_TYPE_OVERLAY;
-	state->plane = plane;
-	state->fb = fb;
-	state->crtc = crtc;
-	state->crtc_x = 0;
-	state->crtc_y = 95;
-	state->crtc_w = 100;
-	state->crtc_h = 100;
-	new_crtc_state->mode.crtc_hdisplay = 1920;
-	new_crtc_state->mode.crtc_vdisplay = 100;
-
-	KUNIT_EXPECT_EQ(test,
-			amdgpu_dm_plane_helper_check_state(state, new_crtc_state),
-			-EINVAL);
-}
-
-/**
  * dm_test_helper_check_state_scaling_caps() - Verify DC scaling caps are applied.
  * @test: KUnit test context.
  *
@@ -2274,43 +2171,29 @@ static void dm_test_atomic_check_missing_crtc_state(struct kunit *test)
 }
 
 /**
- * dm_test_atomic_check_helper_failure() - Verify helper-check failures return.
+ * dm_test_atomic_check_rejects() - Verify the checks before DC validation.
  * @test: KUnit test context.
  *
  * Verify if atomic_check returns before DC validation when the DRM helper state
- * validation rejects the plane.
+ * validation rejects the plane, when both the plane COLOR_PIPELINE and the CRTC
+ * DEGAMMA_LUT are in use, and when filling the scaling info fails.
  */
-static void dm_test_atomic_check_helper_failure(struct kunit *test)
+static void dm_test_atomic_check_rejects(struct kunit *test)
 {
 	struct drm_atomic_commit *state;
 	struct drm_plane *plane;
 	struct dm_plane_state *dm_plane_state;
 	struct drm_crtc_state *new_crtc_state;
 	struct drm_framebuffer *fb;
+	struct amdgpu_device *adev;
+	void *color_pipeline;
+	void *degamma_lut;
 
 	dm_test_init_atomic_check_state(test, &state, &plane, &dm_plane_state,
 					&new_crtc_state, &fb);
 	dm_plane_state->base.crtc_w = 10;
 
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_atomic_check(plane, state), -EINVAL);
-}
-
-/**
- * dm_test_atomic_check_color_pipeline_conflict() - Verify color conflict rejection.
- * @test: KUnit test context.
- *
- * Verify if atomic_check rejects use of both plane COLOR_PIPELINE and CRTC
- * DEGAMMA_LUT before DC validation.
- */
-static void dm_test_atomic_check_color_pipeline_conflict(struct kunit *test)
-{
-	struct drm_atomic_commit *state;
-	struct drm_plane *plane;
-	struct dm_plane_state *dm_plane_state;
-	struct drm_crtc_state *new_crtc_state;
-	struct drm_framebuffer *fb;
-	void *color_pipeline;
-	void *degamma_lut;
 
 	dm_test_init_atomic_check_state(test, &state, &plane, &dm_plane_state,
 					&new_crtc_state, &fb);
@@ -2323,22 +2206,6 @@ static void dm_test_atomic_check_color_pipeline_conflict(struct kunit *test)
 	new_crtc_state->degamma_lut = degamma_lut;
 
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_atomic_check(plane, state), -EINVAL);
-}
-
-/**
- * dm_test_atomic_check_scaling_failure() - Verify scaling-info failures return.
- * @test: KUnit test context.
- *
- * Verify if atomic_check returns the scaling-info error before DC validation.
- */
-static void dm_test_atomic_check_scaling_failure(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct drm_atomic_commit *state;
-	struct drm_plane *plane;
-	struct dm_plane_state *dm_plane_state;
-	struct drm_crtc_state *new_crtc_state;
-	struct drm_framebuffer *fb;
 
 	adev = dm_test_init_atomic_check_state(test, &state, &plane, &dm_plane_state,
 					       &new_crtc_state, &fb);
@@ -3417,10 +3284,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_fill_gfx9_plane_attributes_validate_fails),
 	KUNIT_CASE(dm_test_fill_gfx9_plane_attributes_dcc_ind_blk),
 	/* amdgpu_dm_plane_helper_check_state() */
-	KUNIT_CASE(dm_test_helper_check_state_viewport_reject),
-	KUNIT_CASE(dm_test_helper_check_state_small_viewport_width),
-	KUNIT_CASE(dm_test_helper_check_state_small_viewport_height),
-	KUNIT_CASE(dm_test_helper_check_state_bottom_clipped_height),
+	KUNIT_CASE(dm_test_helper_check_state_viewport_rejects),
 	KUNIT_CASE(dm_test_helper_check_state_scaling_caps),
 	/* amdgpu_dm_plane_helper_prepare_fb() */
 	KUNIT_CASE(dm_test_helper_prepare_fb_no_fb),
@@ -3438,9 +3302,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_atomic_check() */
 	KUNIT_CASE(dm_test_atomic_check_no_dc_state),
 	KUNIT_CASE(dm_test_atomic_check_missing_crtc_state),
-	KUNIT_CASE(dm_test_atomic_check_helper_failure),
-	KUNIT_CASE(dm_test_atomic_check_color_pipeline_conflict),
-	KUNIT_CASE(dm_test_atomic_check_scaling_failure),
+	KUNIT_CASE(dm_test_atomic_check_rejects),
 	KUNIT_CASE(dm_test_atomic_check_success),
 	/* amdgpu_dm_plane_panic_flush() */
 	KUNIT_CASE(dm_test_panic_flush_no_dc_state),
