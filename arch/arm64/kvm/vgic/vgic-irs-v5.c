@@ -708,6 +708,7 @@ int kvm_vgic_v5_irs_init(struct kvm *kvm, unsigned int nr_spis)
 			 * view it is always enabled.
 			 */
 			irq->enabled = 1;
+			vgic_v5_set_spi_ops(irq);
 		}
 
 		nr_spi_bits = fls(roundup_pow_of_two(nr_spis)) - 1;
