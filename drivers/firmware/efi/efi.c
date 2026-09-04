@@ -8,7 +8,7 @@
  *
  * This code registers /sys/firmware/efi{,/efivars} when EFI is supported,
  * allowing the efivarfs to be mounted or the efivars module to be loaded.
- * The existance of /sys/firmware/efi may also be used by userspace to
+ * The existence of /sys/firmware/efi may also be used by userspace to
  * determine that the system supports EFI.
  */
 
