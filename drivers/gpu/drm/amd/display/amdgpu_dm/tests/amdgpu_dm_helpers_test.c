@@ -177,6 +177,34 @@ static void dm_test_apply_edid_quirks_disable_colorimetry(struct kunit *test)
 }
 
 /**
+ * dm_test_apply_edid_quirks_psr_phy_power_down - Test SDC PSR PHY power-down quirk
+ * @test: The KUnit test context
+ *
+ * The quirk is embedded-only, so an external signal leaves the debug option
+ * alone and an embedded one forces PHY power down/up level 2.
+ */
+static void dm_test_apply_edid_quirks_psr_phy_power_down(struct kunit *test)
+{
+	struct dc_edid_caps edid_caps = {0};
+	struct dc_link *link = dm_test_quirk_link(test);
+	struct dc *dc = dm_kunit_alloc_dc_with_ctx(test);
+	struct edid *external = dm_test_edid_with_panel_id(test,
+			drm_edid_encode_panel_id('S', 'D', 'C', 0x4197));
+	struct edid *embedded = dm_test_edid_with_panel_id(test,
+			drm_edid_encode_panel_id('S', 'D', 'C', 0x4203));
+
+	link->ctx = dc->ctx;
+
+	link->connector_signal = SIGNAL_TYPE_DISPLAY_PORT;
+	apply_edid_quirks(link, external, &edid_caps);
+	KUNIT_EXPECT_FALSE(test, dc->debug.psr_phy_force_phy_power_down_up_level_2);
+
+	link->connector_signal = SIGNAL_TYPE_EDP;
+	apply_edid_quirks(link, embedded, &edid_caps);
+	KUNIT_EXPECT_TRUE(test, dc->debug.psr_phy_force_phy_power_down_up_level_2);
+}
+
+/**
  * dm_test_apply_edid_quirks_skip_phy_ssc - Test DEL 0x4147 PHY SSC quirk
  * @test: The KUnit test context
  */
@@ -461,6 +489,40 @@ static void dm_test_parse_edid_caps_hdmi_frl_dsc(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dm_helpers_parse_edid_caps(link, dc_edid, edid_caps), EDID_OK);
 	KUNIT_EXPECT_TRUE(test, edid_caps->frl_dsc_support);
 	KUNIT_EXPECT_TRUE(test, edid_caps->frl_dsc_10bpc);
+}
+
+/**
+ * dm_test_parse_edid_caps_hdmi_comp_auto - Test the HDMI compliance-auto branch
+ * @test: The KUnit test context
+ *
+ * A connector flagged for automated HDMI compliance forces the FRL and FRL DSC
+ * debug options on and records the quirk in the panel patch.
+ */
+static void dm_test_parse_edid_caps_hdmi_comp_auto(struct kunit *test)
+{
+	struct dc_link *link = dm_test_quirk_link(test);
+	struct amdgpu_dm_connector *aconnector = link->priv;
+	struct dc *dc = dm_kunit_alloc_dc_with_ctx(test);
+	struct dc_edid_caps *edid_caps;
+	struct dc_edid *dc_edid;
+
+	dc_edid = kunit_kzalloc(test, sizeof(*dc_edid), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc_edid);
+	edid_caps = kunit_kzalloc(test, sizeof(*edid_caps), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, edid_caps);
+
+	link->dc = dc;
+	link->ctx = dc->ctx;
+
+	dm_test_fill_base_edid(dc_edid, true);
+
+	aconnector->base.display_info.is_hdmi = true;
+	aconnector->hdmi_comp_auto = true;
+
+	KUNIT_EXPECT_EQ(test, dm_helpers_parse_edid_caps(link, dc_edid, edid_caps), EDID_OK);
+	KUNIT_EXPECT_TRUE(test, edid_caps->panel_patch.hdmi_comp_auto);
+	KUNIT_EXPECT_TRUE(test, dc->debug.force_frl_max);
+	KUNIT_EXPECT_TRUE(test, dc->debug.force_frl_dsc);
 }
 
 /*
@@ -4570,6 +4632,60 @@ static void dm_test_read_local_edid_i2c_no_response(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dm_test_prepare_ddc_calls, 1U);
 }
 
+/**
+ * dm_test_read_local_edid_vbios_embedded - Test the VBIOS hardcoded EDID path
+ * @test: The KUnit test context
+ *
+ * An embedded panel with no DDC line has no I2C adapter to read from, so the
+ * helper falls back to the EDID hardcoded in the VBIOS embedded panel info.
+ */
+static void dm_test_read_local_edid_vbios_embedded(struct kunit *test)
+{
+	struct dm_test_local_edid fixture = dm_test_setup_local_edid(test);
+	struct dm_test_vbios_edid *vbios;
+
+	vbios = kunit_kzalloc(test, sizeof(*vbios), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, vbios);
+
+	vbios->bios.funcs = &dm_test_vbios_edid_funcs;
+	vbios->result = BP_RESULT_OK;
+	/* the fixture already holds a valid base EDID */
+	vbios->fake_edid = fixture.aux->edid;
+	vbios->fake_edid_size = EDID_LENGTH;
+
+	fixture.ctx->dc_bios = &vbios->bios;
+	fixture.link->ctx = fixture.ctx;
+	fixture.link->aux_mode = false;
+	fixture.link->ddc_hw_inst = GPIO_DDC_LINE_UNKNOWN;
+	fixture.link->connector_signal = SIGNAL_TYPE_EDP;
+
+	KUNIT_EXPECT_EQ(test,
+			dm_helpers_read_local_edid(fixture.ctx, fixture.link, fixture.sink),
+			EDID_OK);
+	KUNIT_EXPECT_EQ(test, fixture.sink->dc_edid.length, (uint32_t)EDID_LENGTH);
+	KUNIT_EXPECT_EQ(test, fixture.sink->edid_caps.manufacturer_id, 0xAC10);
+}
+
+/**
+ * dm_test_read_local_edid_corrupt_checksum - Test the corrupt-EDID compliance path
+ * @test: The KUnit test context
+ *
+ * The sink serves an EDID with a bad checksum, so the DDC read fails and marks
+ * the connector's EDID corrupt. The helper writes the real checksum back over
+ * AUX, clears the corrupt flag and reports EDID_BAD_CHECKSUM.
+ */
+static void dm_test_read_local_edid_corrupt_checksum(struct kunit *test)
+{
+	struct dm_test_local_edid fixture = dm_test_setup_local_edid(test);
+
+	fixture.aux->edid[EDID_LENGTH - 1] ^= 0xFF;
+
+	KUNIT_EXPECT_EQ(test,
+			dm_helpers_read_local_edid(fixture.ctx, fixture.link, fixture.sink),
+			EDID_BAD_CHECKSUM);
+	KUNIT_EXPECT_FALSE(test, fixture.aconnector->base.edid_corrupt);
+}
+
 static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	/* edid_extract_panel_id */
 	KUNIT_CASE(dm_test_edid_extract_panel_id_basic),
@@ -4579,6 +4695,7 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_apply_edid_quirks_disable_fams),
 	KUNIT_CASE(dm_test_apply_edid_quirks_remove_sink_ext_caps),
 	KUNIT_CASE(dm_test_apply_edid_quirks_disable_colorimetry),
+	KUNIT_CASE(dm_test_apply_edid_quirks_psr_phy_power_down),
 	KUNIT_CASE(dm_test_apply_edid_quirks_skip_phy_ssc),
 	KUNIT_CASE(dm_test_apply_edid_quirks_force_freesync_min),
 	KUNIT_CASE(dm_test_apply_edid_quirks_unknown_noop),
@@ -4591,6 +4708,7 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_parse_edid_caps_bad_checksum),
 	KUNIT_CASE(dm_test_parse_edid_caps_hdmi_frl),
 	KUNIT_CASE(dm_test_parse_edid_caps_hdmi_frl_dsc),
+	KUNIT_CASE(dm_test_parse_edid_caps_hdmi_comp_auto),
 	KUNIT_CASE(dm_test_parse_edid_caps_cea_audio),
 	KUNIT_CASE(dm_test_parse_edid_caps_cea_no_speaker),
 	/* ACPI / VBIOS / local EDID readers */
@@ -4774,6 +4892,8 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_read_local_edid_aux_mode),
 	KUNIT_CASE(dm_test_read_local_edid_test_request),
 	KUNIT_CASE(dm_test_read_local_edid_i2c_no_response),
+	KUNIT_CASE(dm_test_read_local_edid_vbios_embedded),
+	KUNIT_CASE(dm_test_read_local_edid_corrupt_checksum),
 	{}
 };
 
