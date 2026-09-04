@@ -94,12 +94,12 @@ static __always_inline struct kvm_vcpu *vt_to_vcpu(struct vcpu_vt *vt)
 	return &(container_of(vt, struct vcpu_vmx_tdx, vt)->vcpu);
 }
 
-static __always_inline union vmx_exit_reason vmx_get_exit_reason(struct kvm_vcpu *vcpu)
+static __always_inline union vmx_exit_reason vt_get_exit_reason(struct kvm_vcpu *vcpu)
 {
 	return to_vt(vcpu)->exit_reason;
 }
 
-static __always_inline unsigned long vmx_get_exit_qual(struct kvm_vcpu *vcpu)
+static __always_inline unsigned long vt_get_exit_qual(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vt *vt = to_vt(vcpu);
 
@@ -110,7 +110,7 @@ static __always_inline unsigned long vmx_get_exit_qual(struct kvm_vcpu *vcpu)
 	return vt->exit_qualification;
 }
 
-static __always_inline u32 vmx_get_intr_info(struct kvm_vcpu *vcpu)
+static __always_inline u32 vt_get_intr_info(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vt *vt = to_vt(vcpu);
 

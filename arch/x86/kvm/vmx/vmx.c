@@ -1791,7 +1791,7 @@ int vmx_check_emulate_instruction(struct kvm_vcpu *vcpu, int emul_type,
 	 * so that guest userspace can't DoS the guest simply by triggering
 	 * emulation (enclaves are CPL3 only).
 	 */
-	if (vmx_get_exit_reason(vcpu).enclave_mode) {
+	if (vt_get_exit_reason(vcpu).enclave_mode) {
 		kvm_queue_exception(vcpu, UD_VECTOR);
 		return X86EMUL_PROPAGATE_FAULT;
 	}
@@ -1806,7 +1806,7 @@ int vmx_check_emulate_instruction(struct kvm_vcpu *vcpu, int emul_type,
 
 static int skip_emulated_instruction(struct kvm_vcpu *vcpu)
 {
-	union vmx_exit_reason exit_reason = vmx_get_exit_reason(vcpu);
+	union vmx_exit_reason exit_reason = vt_get_exit_reason(vcpu);
 	unsigned long rip, orig_rip;
 	u32 instr_len;
 
@@ -5383,7 +5383,7 @@ bool vmx_guest_inject_ac(struct kvm_vcpu *vcpu)
 
 static int vmx_handle_page_fault(struct kvm_vcpu *vcpu, u32 error_code)
 {
-	unsigned long cr2 = vmx_get_exit_qual(vcpu);
+	unsigned long cr2 = vt_get_exit_qual(vcpu);
 
 	if (vcpu->arch.apf.host_apf_flags)
 		goto handle_pf;
@@ -5431,7 +5431,7 @@ static int handle_exception_nmi(struct kvm_vcpu *vcpu)
 	u32 vect_info;
 
 	vect_info = vmx->idt_vectoring_info;
-	intr_info = vmx_get_intr_info(vcpu);
+	intr_info = vt_get_intr_info(vcpu);
 
 	/*
 	 * Machine checks are handled by handle_exception_irqoff(), or by
@@ -5512,7 +5512,7 @@ static int handle_exception_nmi(struct kvm_vcpu *vcpu)
 
 	switch (ex_no) {
 	case DB_VECTOR:
-		dr6 = vmx_get_exit_qual(vcpu);
+		dr6 = vt_get_exit_qual(vcpu);
 		if (!(vcpu->guest_debug &
 		      (KVM_GUESTDBG_SINGLESTEP | KVM_GUESTDBG_USE_HW_BP))) {
 			/*
@@ -5588,7 +5588,7 @@ static int handle_io(struct kvm_vcpu *vcpu)
 	int size, in, string;
 	unsigned port;
 
-	exit_qualification = vmx_get_exit_qual(vcpu);
+	exit_qualification = vt_get_exit_qual(vcpu);
 	string = (exit_qualification & 16) != 0;
 
 	++vcpu->stat.io_exits;
@@ -5677,7 +5677,7 @@ static int handle_cr(struct kvm_vcpu *vcpu)
 	int err;
 	int ret;
 
-	exit_qualification = vmx_get_exit_qual(vcpu);
+	exit_qualification = vt_get_exit_qual(vcpu);
 	cr = exit_qualification & 15;
 	reg = (exit_qualification >> 8) & 15;
 	switch ((exit_qualification >> 4) & 3) {
@@ -5755,7 +5755,7 @@ static int handle_dr(struct kvm_vcpu *vcpu)
 	int dr, dr7, reg;
 	int err = 1;
 
-	exit_qualification = vmx_get_exit_qual(vcpu);
+	exit_qualification = vt_get_exit_qual(vcpu);
 	dr = exit_qualification & DEBUG_REG_ACCESS_NUM;
 
 	/* First, if DR does not exist, trigger UD */
@@ -5851,7 +5851,7 @@ static int handle_interrupt_window(struct kvm_vcpu *vcpu)
 
 static int handle_invlpg(struct kvm_vcpu *vcpu)
 {
-	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+	unsigned long exit_qualification = vt_get_exit_qual(vcpu);
 
 	kvm_mmu_invlpg(vcpu, exit_qualification);
 	return kvm_skip_emulated_instruction(vcpu);
@@ -5860,7 +5860,7 @@ static int handle_invlpg(struct kvm_vcpu *vcpu)
 static int handle_apic_access(struct kvm_vcpu *vcpu)
 {
 	if (likely(fasteoi)) {
-		unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+		unsigned long exit_qualification = vt_get_exit_qual(vcpu);
 		int access_type, offset;
 
 		access_type = exit_qualification & APIC_ACCESS_TYPE;
@@ -5881,7 +5881,7 @@ static int handle_apic_access(struct kvm_vcpu *vcpu)
 
 static int handle_apic_eoi_induced(struct kvm_vcpu *vcpu)
 {
-	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+	unsigned long exit_qualification = vt_get_exit_qual(vcpu);
 	int vector = exit_qualification & 0xff;
 
 	/* EOI-induced VM exit is trap-like and thus no need to adjust IP */
@@ -5891,7 +5891,7 @@ static int handle_apic_eoi_induced(struct kvm_vcpu *vcpu)
 
 static int handle_apic_write(struct kvm_vcpu *vcpu)
 {
-	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+	unsigned long exit_qualification = vt_get_exit_qual(vcpu);
 
 	/*
 	 * APIC-write VM-Exit is trap-like, KVM doesn't need to advance RIP and
@@ -5919,7 +5919,7 @@ static int handle_task_switch(struct kvm_vcpu *vcpu)
 	idt_index = (vmx->idt_vectoring_info & VECTORING_INFO_VECTOR_MASK);
 	type = (vmx->idt_vectoring_info & VECTORING_INFO_TYPE_MASK);
 
-	exit_qualification = vmx_get_exit_qual(vcpu);
+	exit_qualification = vt_get_exit_qual(vcpu);
 
 	reason = (u32)exit_qualification >> 30;
 	if (reason == TASK_SWITCH_GATE && idt_v) {
@@ -5965,7 +5965,7 @@ static int handle_task_switch(struct kvm_vcpu *vcpu)
 
 static int handle_ept_violation(struct kvm_vcpu *vcpu)
 {
-	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+	unsigned long exit_qualification = vt_get_exit_qual(vcpu);
 	gpa_t gpa;
 
 	/*
@@ -6156,7 +6156,7 @@ static int handle_invpcid(struct kvm_vcpu *vcpu)
 	/* According to the Intel instruction reference, the memory operand
 	 * is read even if it isn't needed (e.g., for type==all)
 	 */
-	if (get_vmx_mem_address(vcpu, vmx_get_exit_qual(vcpu),
+	if (get_vmx_mem_address(vcpu, vt_get_exit_qual(vcpu),
 				vmx_instruction_info, false,
 				sizeof(operand), &gva))
 		return 1;
@@ -6170,7 +6170,7 @@ static int handle_pml_full(struct kvm_vcpu *vcpu)
 
 	trace_kvm_pml_full(vcpu->vcpu_id);
 
-	exit_qualification = vmx_get_exit_qual(vcpu);
+	exit_qualification = vt_get_exit_qual(vcpu);
 
 	/*
 	 * PML buffer FULL happened while executing iret from NMI,
@@ -6263,7 +6263,7 @@ static int handle_encls(struct kvm_vcpu *vcpu)
 
 static int handle_notify(struct kvm_vcpu *vcpu)
 {
-	unsigned long exit_qual = vmx_get_exit_qual(vcpu);
+	unsigned long exit_qual = vt_get_exit_qual(vcpu);
 
 	/*
 	 * Notify VM exit happened while executing iret from NMI,
@@ -6283,13 +6283,13 @@ static int vmx_get_msr_imm_reg(struct kvm_vcpu *vcpu)
 
 static int handle_rdmsr_imm(struct kvm_vcpu *vcpu)
 {
-	return kvm_emulate_rdmsr_imm(vcpu, vmx_get_exit_qual(vcpu),
+	return kvm_emulate_rdmsr_imm(vcpu, vt_get_exit_qual(vcpu),
 				     vmx_get_msr_imm_reg(vcpu));
 }
 
 static int handle_wrmsr_imm(struct kvm_vcpu *vcpu)
 {
-	return kvm_emulate_wrmsr_imm(vcpu, vmx_get_exit_qual(vcpu),
+	return kvm_emulate_wrmsr_imm(vcpu, vt_get_exit_qual(vcpu),
 				     vmx_get_msr_imm_reg(vcpu));
 }
 
@@ -6368,10 +6368,10 @@ void vmx_get_exit_info(struct kvm_vcpu *vcpu, u32 *reason,
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 
 	*reason = vmx->vt.exit_reason.full;
-	*info1 = vmx_get_exit_qual(vcpu);
+	*info1 = vt_get_exit_qual(vcpu);
 	if (!(vmx->vt.exit_reason.failed_vmentry)) {
 		*info2 = vmx->idt_vectoring_info;
-		*intr_info = vmx_get_intr_info(vcpu);
+		*intr_info = vt_get_intr_info(vcpu);
 		if (is_exception_with_error_code(*intr_info))
 			*error_code = vmcs_read32(VM_EXIT_INTR_ERROR_CODE);
 		else
@@ -6682,7 +6682,7 @@ void dump_vmcs(struct kvm_vcpu *vcpu)
 int vmx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
-	union vmx_exit_reason exit_reason = vmx_get_exit_reason(vcpu);
+	union vmx_exit_reason exit_reason = vt_get_exit_reason(vcpu);
 	u32 vectoring_info = vmx->idt_vectoring_info;
 	u16 exit_handler_index;
 
@@ -7140,7 +7140,7 @@ static void vmx_recover_nmi_blocking(struct vcpu_vmx *vmx)
 		if (vmx->loaded_vmcs->nmi_known_unmasked)
 			return;
 
-		exit_intr_info = vmx_get_intr_info(&vmx->vcpu);
+		exit_intr_info = vt_get_intr_info(&vmx->vcpu);
 		unblock_nmi = (exit_intr_info & INTR_INFO_UNBLOCK_NMI) != 0;
 		vector = exit_intr_info & INTR_INFO_VECTOR_MASK;
 		/*
@@ -7307,14 +7307,14 @@ static fastpath_t vmx_exit_handlers_fastpath(struct kvm_vcpu *vcpu,
 	 * the fastpath even, all other exits must use the slow path.
 	 */
 	if (is_guest_mode(vcpu) &&
-	    vmx_get_exit_reason(vcpu).basic != EXIT_REASON_PREEMPTION_TIMER)
+	    vt_get_exit_reason(vcpu).basic != EXIT_REASON_PREEMPTION_TIMER)
 		return EXIT_FASTPATH_NONE;
 
-	switch (vmx_get_exit_reason(vcpu).basic) {
+	switch (vt_get_exit_reason(vcpu).basic) {
 	case EXIT_REASON_MSR_WRITE:
 		return handle_fastpath_wrmsr(vcpu);
 	case EXIT_REASON_MSR_WRITE_IMM:
-		return handle_fastpath_wrmsr_imm(vcpu, vmx_get_exit_qual(vcpu),
+		return handle_fastpath_wrmsr_imm(vcpu, vt_get_exit_qual(vcpu),
 						 vmx_get_msr_imm_reg(vcpu));
 	case EXIT_REASON_PREEMPTION_TIMER:
 		return handle_fastpath_preemption_timer(vcpu, force_immediate_exit);
@@ -7356,7 +7356,7 @@ static noinstr void vmx_vcpu_enter_exit(struct kvm_vcpu *vcpu,
 	}
 
 	vmx->vt.exit_reason.full = vmcs_read32(VM_EXIT_REASON);
-	if (likely(!vmx_get_exit_reason(vcpu).failed_vmentry))
+	if (likely(!vt_get_exit_reason(vcpu).failed_vmentry))
 		vmx->idt_vectoring_info = vmcs_read32(IDT_VECTORING_INFO_FIELD);
 
 	vt_handle_nmi(vcpu);
@@ -7496,7 +7496,7 @@ fastpath_t vmx_vcpu_run(struct kvm_vcpu *vcpu, u64 run_flags)
 		 * checking.
 		 */
 		if (vcpu->arch.nested_run_pending &&
-		    !vmx_get_exit_reason(vcpu).failed_vmentry)
+		    !vt_get_exit_reason(vcpu).failed_vmentry)
 			++vcpu->stat.nested_run;
 
 		vcpu->arch.nested_run_pending = 0;
@@ -7507,7 +7507,7 @@ fastpath_t vmx_vcpu_run(struct kvm_vcpu *vcpu, u64 run_flags)
 
 	trace_kvm_exit(vcpu, KVM_ISA_VMX);
 
-	if (unlikely(vmx_get_exit_reason(vcpu).failed_vmentry))
+	if (unlikely(vt_get_exit_reason(vcpu).failed_vmentry))
 		return EXIT_FASTPATH_NONE;
 
 	vmx->loaded_vmcs->launched = 1;

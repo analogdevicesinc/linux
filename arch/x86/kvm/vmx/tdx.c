@@ -741,7 +741,7 @@ bool tdx_interrupt_allowed(struct kvm_vcpu *vcpu)
 	 * interrupt is always allowed unless TDX guest calls TDVMCALL with HLT,
 	 * which passes the interrupt blocked flag.
 	 */
-	return vmx_get_exit_reason(vcpu).basic != EXIT_REASON_HLT ||
+	return vt_get_exit_reason(vcpu).basic != EXIT_REASON_HLT ||
 	       !to_tdx(vcpu)->vp_enter_args.r12;
 }
 
@@ -759,7 +759,7 @@ static bool tdx_protected_apic_has_interrupt(struct kvm_vcpu *vcpu)
 	 * otherwise the interrupt would have been serviced at the instruction
 	 * boundary.
 	 */
-	if (vmx_get_exit_reason(vcpu).basic != EXIT_REASON_HLT ||
+	if (vt_get_exit_reason(vcpu).basic != EXIT_REASON_HLT ||
 	    to_tdx(vcpu)->vp_enter_args.r12)
 		return false;
 
@@ -996,7 +996,7 @@ static noinstr void tdx_vcpu_enter_exit(struct kvm_vcpu *vcpu)
 
 static bool tdx_failed_vmentry(struct kvm_vcpu *vcpu)
 {
-	return vmx_get_exit_reason(vcpu).failed_vmentry;
+	return vt_get_exit_reason(vcpu).failed_vmentry;
 }
 
 static fastpath_t tdx_exit_handlers_fastpath(struct kvm_vcpu *vcpu)
@@ -1153,7 +1153,7 @@ void tdx_inject_nmi(struct kvm_vcpu *vcpu)
 
 static int tdx_handle_exception_nmi(struct kvm_vcpu *vcpu)
 {
-	u32 intr_info = vmx_get_intr_info(vcpu);
+	u32 intr_info = vt_get_intr_info(vcpu);
 
 	/*
 	 * Machine checks are handled by handle_exception_irqoff(), or by
@@ -1925,7 +1925,7 @@ void tdx_deliver_interrupt(struct kvm_lapic *apic, int delivery_mode,
 static inline bool tdx_is_sept_violation_unexpected_pending(struct kvm_vcpu *vcpu)
 {
 	u64 eeq_type = to_tdx(vcpu)->ext_exit_qualification & TDX_EXT_EXIT_QUAL_TYPE_MASK;
-	u64 eq = vmx_get_exit_qual(vcpu);
+	u64 eq = vt_get_exit_qual(vcpu);
 
 	if (eeq_type != TDX_EXT_EXIT_QUAL_TYPE_PENDING_EPT_VIOLATION)
 		return false;
@@ -1961,7 +1961,7 @@ static int tdx_handle_ept_violation(struct kvm_vcpu *vcpu)
 		/* Only private GPA triggers zero-step mitigation */
 		local_retry = true;
 	} else {
-		exit_qual = vmx_get_exit_qual(vcpu);
+		exit_qual = vt_get_exit_qual(vcpu);
 		/*
 		 * EPT violation due to instruction fetch should never be
 		 * triggered from shared memory in TDX guest.  If such EPT
@@ -2043,7 +2043,7 @@ int tdx_complete_emulated_msr(struct kvm_vcpu *vcpu, int err)
 		return 1;
 	}
 
-	if (vmx_get_exit_reason(vcpu).basic == EXIT_REASON_MSR_READ)
+	if (vt_get_exit_reason(vcpu).basic == EXIT_REASON_MSR_READ)
 		tdvmcall_set_return_val(vcpu, kvm_read_edx_eax(vcpu));
 
 	return 1;
@@ -2054,7 +2054,7 @@ int tdx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t fastpath)
 {
 	struct vcpu_tdx *tdx = to_tdx(vcpu);
 	u64 vp_enter_ret = tdx->vp_enter_ret;
-	union vmx_exit_reason exit_reason = vmx_get_exit_reason(vcpu);
+	union vmx_exit_reason exit_reason = vt_get_exit_reason(vcpu);
 
 	if (fastpath != EXIT_FASTPATH_NONE)
 		return 1;
@@ -2150,7 +2150,7 @@ int tdx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t fastpath)
 		return 1;
 	case EXIT_REASON_NOTIFY:
 		/* NMI blocking state is handled by TDX module */
-		return __vt_handle_notify(vcpu, vmx_get_exit_qual(vcpu));
+		return __vt_handle_notify(vcpu, vt_get_exit_qual(vcpu));
 	case EXIT_REASON_BUS_LOCK:
 		return vt_handle_bus_lock_vmexit(vcpu);
 	default:
@@ -2169,9 +2169,9 @@ void tdx_get_exit_info(struct kvm_vcpu *vcpu, u32 *reason,
 
 	*reason = tdx->vt.exit_reason.full;
 	if (tdx_is_exit_reason_valid(tdx->vp_enter_ret)) {
-		*info1 = vmx_get_exit_qual(vcpu);
+		*info1 = vt_get_exit_qual(vcpu);
 		*info2 = tdx->ext_exit_qualification;
-		*intr_info = vmx_get_intr_info(vcpu);
+		*intr_info = vt_get_intr_info(vcpu);
 	} else {
 		*info1 = 0;
 		*info2 = 0;
