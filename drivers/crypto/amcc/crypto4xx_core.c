@@ -1315,9 +1315,13 @@ static int crypto4xx_probe(struct platform_device *ofdev)
 	if (rc)
 		goto err_irq;
 
-	ppc4xx_trng_probe(core_dev);
+	rc = ppc4xx_trng_probe(core_dev);
+	if (rc)
+		goto err_crypto;
 	return 0;
 
+err_crypto:
+	crypto4xx_unregister_alg(core_dev->dev);
 err_irq:
 	free_irq(core_dev->irq, core_dev);
 err_tasklet:
