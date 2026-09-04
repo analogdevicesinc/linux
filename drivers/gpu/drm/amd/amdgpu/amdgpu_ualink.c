@@ -2902,7 +2902,8 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 	}
 
 	/* Send NPA-REVOKE to all importers which have imported this memory.
-	 * On send failure clear the bit (no response will arrive).
+	 * On send failure clear the bit (no response will arrive) and mark the
+	 * connection NOT_READY so other cleanups skip this unreachable peer.
 	 */
 	for_each_set_bit(remote_acc_id, exp_xa_node->importers_bitmap,
 				 AMDGPU_UALINK_ACCEL_MAX) {
@@ -2915,6 +2916,11 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 				"EXP-CLEANUP: NPA-REVOKE send failed to remote:%u\n",
 				remote_acc_id);
 			clear_bit(remote_acc_id, exp_xa_node->npa_release_bitmap);
+
+			imp_entry = &exp_xa_node->importer_entries[remote_acc_id];
+			amdgpu_ualink_handle_connection_reset(adev, remote_acc_id,
+						AMDGPU_UALINK_CONN_NOT_READY,
+						imp_entry->generation_count);
 		}
 	}
 
@@ -5597,10 +5603,27 @@ static int amdgpu_ualink_send_command(struct amdgpu_device *adev,
 		r = amdgpu_lsdma_copy_mem(adev, src,
 					  ring->rb_npa_gart + rem * 64,
 					  64);
-		r = amdgpu_lsdma_copy_mem(adev, src + 64, ring->wptr_npa_gart, 8);
+		if (!r)
+			r = amdgpu_lsdma_copy_mem(adev, src + 64,
+						  ring->wptr_npa_gart, 8);
+		if (!r)
+			r = amdgpu_lsdma_copy_mem(adev, src + 72,
+						  doorbell_npa_gart, 4);
 
-		r = amdgpu_lsdma_copy_mem(adev, src + 72, doorbell_npa_gart, 4);
 		amdgpu_job_free(job);
+
+		/* Copy failed: command never reached the remote, so no
+		 * writeback will arrive. Return now instead of polling the
+		 * completion for the full remote timeout.
+		 */
+		if (r) {
+			dev_dbg(adev->dev,
+				"remote %u lsdma copy failed (r %d), skip completion wait\n",
+				remote_accel_id, r);
+			mutex_unlock(&peer->lock);
+			return r;
+		}
+
 		goto out_wait_complete;
         }
 
