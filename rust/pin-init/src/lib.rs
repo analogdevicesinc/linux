@@ -304,6 +304,9 @@ pub use alloc::InPlaceInit;
 /// This macro enables the use of the [`pin_init!`] macro. When pin-initializing a `struct`,
 /// then `#[pin]` directs the type of initializer that is required.
 ///
+/// Tuple structs are supported as well. Their fields have no names, so the generated projection
+/// is a tuple struct too and its fields are accessed by index.
+///
 /// If your `struct` implements `Drop`, then you need to add `PinnedDrop` as arguments to this
 /// macro, and change your `Drop` implementation to `PinnedDrop` annotated with
 /// `#[`[`macro@pinned_drop`]`]`, since dropping pinned values requires extra care.
@@ -324,6 +327,26 @@ pub use alloc::InPlaceInit;
 ///     #[pin]
 ///     queue: CMutex<Vec<Command>>,
 ///     buf: Box<[u8; 1024 * 1024]>,
+/// }
+/// ```
+///
+/// The same as a tuple struct, projected by index:
+///
+/// ```
+/// # #![feature(allocator_api)]
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// use core::pin::Pin;
+/// use pin_init::pin_data;
+///
+/// enum Command {
+///     /* ... */
+/// }
+///
+/// #[pin_data]
+/// struct DriverData(#[pin] CMutex<Vec<Command>>, Box<[u8; 1024 * 1024]>);
+///
+/// fn queue(data: Pin<&mut DriverData>) -> Pin<&mut CMutex<Vec<Command>>> {
+///     data.project().0
 /// }
 /// ```
 ///
