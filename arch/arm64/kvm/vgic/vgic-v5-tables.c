@@ -10,6 +10,7 @@
 #include <linux/mutex.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
+#include <linux/uaccess.h>
 #include <linux/xarray.h>
 #include <asm/kvm_mmu.h>
 
@@ -65,6 +66,20 @@ static DEFINE_XARRAY(vm_info);
 #define GICV5_VPED_ADDR_SHIFT		3ULL
 #define GICV5_VPED_ADDR			GENMASK_ULL(55, 3)
 
+/* L2 Interrupt State Table Entry */
+#define GICV5_ISTL2E_PENDING		BIT(0)
+#define GICV5_ISTL2E_ACTIVE		BIT(1)
+#define GICV5_ISTL2E_HM			BIT(2)
+#define GICV5_ISTL2E_ENABLE		BIT(3)
+#define GICV5_ISTL2E_IRM		BIT(4)
+#define GICV5_ISTL2E_HWU		GENMASK(10, 9)
+#define GICV5_ISTL2E_PRIORITY		GENMASK(15, 11)
+#define GICV5_ISTL2E_IAFFID		GENMASK(31, 16)
+
+#define GICV5_ISTE_SIZE(istsz)		BIT((istsz) + 2)
+#define GICV5_LINEAR_IST_SIZE(id_bits, istsz)	\
+	(BIT(id_bits) * GICV5_ISTE_SIZE(istsz))
+
 /*
  * The LPI and SPI configuration is stored in the 2nd and 3rd 64-bit chunks of
  * the VMTE (0-based). We call this a section here in an attempt to simplify the
@@ -72,6 +87,26 @@ static DEFINE_XARRAY(vm_info);
  */
 #define GICV5_VMTEL2_LPI_SECTION	2
 #define GICV5_VMTEL2_SPI_SECTION	3
+
+struct vgic_v5_ist_desc {
+	struct vgic_v5_vm_info	*vmi;
+	void			*base;
+	unsigned int		id_bits;
+	unsigned int		istsz;
+	unsigned int		l2sz;
+	size_t			iste_size;
+	bool			present;
+};
+
+struct vgic_v5_two_level_ist_shape {
+	size_t	l1_entries;
+	size_t	l2_entries;
+};
+
+struct vgic_v5_pending_irq {
+	u32			irq;
+	struct list_head	next;
+};
 
 static int vgic_v5_alloc_linear_ist(struct kvm *kvm, bool spi_ist,
 				    unsigned int id_bits,
@@ -104,6 +139,22 @@ static void vgic_v5_clean_inval(void *va, size_t size)
 
 	if (kvm_vgic_global_state.vgic_v5_irs_caps.non_coherent)
 		dcache_clean_inval_poc(base, base + size);
+}
+
+static void vgic_v5_drain_pending_irqs(struct kvm *kvm,
+				       struct vgic_v5_vm_info *vmi,
+				       bool reinject)
+{
+	struct vgic_v5_pending_irq *pirq, *tmp;
+
+	list_for_each_entry_safe(pirq, tmp, &vmi->pending_irqs, next) {
+		if (reinject)
+			kvm_call_hyp(__vgic_v5_vdpend, pirq->irq, true,
+				     vgic_v5_vm_id(kvm));
+
+		list_del(&pirq->next);
+		kfree(pirq);
+	}
 }
 
 /*
@@ -465,6 +516,13 @@ int vgic_v5_vmte_init(struct kvm *kvm)
 		goto out_fail;
 	vmi_inserted = true;
 
+	/*
+	 * If we are restoring the state of a guest, we need to re-inject any
+	 * IRQs that were pending when the state of the guest was originally
+	 * saved. We use the pending_irqs list for this.
+	 */
+	INIT_LIST_HEAD(&vmi->pending_irqs);
+
 	/* Allocate and assign the VM Descriptor, if required. */
 	if (vmt_info->vmd_size != 0) {
 		vmd_alloc_size = round_up(vmt_info->vmd_size,
@@ -603,6 +661,9 @@ int vgic_v5_vmte_release(struct kvm *kvm)
 	vmi = xa_load(&vm_info, vm_id);
 	if (!vmi)
 		goto no_vmi;
+
+	/* Unlikely, but possible. Avoid leaking the memory. */
+	vgic_v5_drain_pending_irqs(kvm, vmi, false);
 
 	/* If we have an LPI IST, free it */
 	if (vmi->h_lpi_ist) {
@@ -1201,6 +1262,18 @@ static int vgic_v5_spi_ist_free(struct kvm *kvm)
 	return vgic_v5_linear_ist_free(kvm, true);
 }
 
+int vgic_v5_lpi_ist_exists(struct kvm *kvm)
+{
+	u32 vm_id = vgic_v5_vm_id(kvm);
+	struct vgic_v5_vm_info *vmi;
+
+	vmi = xa_load(&vm_info, vm_id);
+	if (!vmi)
+		return -ENXIO;
+
+	return !!vmi->h_lpi_ist;
+}
+
 /*
  * Allocate an IST for LPIs.
  *
@@ -1276,4 +1349,527 @@ int vgic_v5_lpi_ist_free(struct kvm *kvm)
 		return vgic_v5_linear_ist_free(kvm, false);
 	else
 		return vgic_v5_two_level_ist_free(kvm, false);
+}
+
+static struct vgic_v5_two_level_ist_shape
+vgic_v5_two_level_ist_shape(const struct vgic_v5_ist_desc *ist)
+{
+	struct vgic_v5_two_level_ist_shape shape;
+	size_t l2bits, n;
+
+	l2bits = (10 - ist->istsz) + (2 * ist->l2sz);
+	n = max(2, ist->id_bits - l2bits + 3 - 1);
+
+	shape.l1_entries = BIT(n + 1) / GICV5_IRS_ISTL1E_SIZE;
+	shape.l2_entries = BIT(l2bits);
+
+	return shape;
+}
+
+static int vgic_v5_read_vm_ist_desc(struct kvm *kvm, unsigned int section,
+				    struct vgic_v5_ist_desc *ist)
+{
+	u32 vm_id = vgic_v5_vm_id(kvm);
+	struct vmtl2_entry *vmte;
+	u64 vmte_ist_section;
+
+	vmte = vgic_v5_get_l2_vmte(vm_id);
+	if (IS_ERR(vmte))
+		return PTR_ERR(vmte);
+
+	scoped_guard(raw_spinlock_irqsave, &vgic_v5_irs_lock) {
+		vgic_v5_clean_inval(vmte, sizeof(*vmte));
+		vmte_ist_section = le64_to_cpu(READ_ONCE(vmte->val[section]));
+	}
+
+	ist->id_bits = FIELD_GET(GICV5_VMTEL2E_IST_ID_BITS, vmte_ist_section);
+	ist->istsz = FIELD_GET(GICV5_VMTEL2E_IST_ISTSZ, vmte_ist_section);
+	ist->l2sz = FIELD_GET(GICV5_VMTEL2E_IST_L2SZ, vmte_ist_section);
+	ist->iste_size = GICV5_ISTE_SIZE(ist->istsz);
+
+	return !!(vmte_ist_section & GICV5_VMTEL2E_IST_VALID);
+}
+
+static int vgic_v5_get_spi_ist_desc(struct kvm *kvm,
+				    struct vgic_v5_ist_desc *ist)
+{
+	u32 vm_id = vgic_v5_vm_id(kvm);
+	int ret;
+
+	memset(ist, 0, sizeof(*ist));
+
+	ist->vmi = xa_load(&vm_info, vm_id);
+	if (!ist->vmi)
+		return -ENXIO;
+
+	ret = vgic_v5_read_vm_ist_desc(kvm, GICV5_VMTEL2_SPI_SECTION, ist);
+	if (ret < 0)
+		return ret;
+
+	ist->base = ist->vmi->h_spi_ist;
+	if (!ret || !ist->base)
+		return -ENXIO;
+
+	ist->present = true;
+	return 0;
+}
+
+static int vgic_v5_get_lpi_ist_desc(struct kvm *kvm,
+				    struct vgic_v5_ist_desc *ist)
+{
+	u32 vm_id = vgic_v5_vm_id(kvm);
+	bool guest_valid, host_valid;
+	int ret;
+
+	memset(ist, 0, sizeof(*ist));
+
+	ist->vmi = xa_load(&vm_info, vm_id);
+	if (WARN_ON_ONCE(!ist->vmi))
+		return -ENXIO;
+
+	ret = vgic_v5_read_vm_ist_desc(kvm, GICV5_VMTEL2_LPI_SECTION, ist);
+	if (ret < 0)
+		return ret;
+
+	host_valid = ret;
+	guest_valid = kvm->arch.vgic.vgic_v5_irs_data->ist_baser.valid;
+	ist->base = ist->vmi->h_lpi_ist;
+
+	/* If there is no IST to save/restore, return without error. */
+	if (!guest_valid && !host_valid && !ist->base)
+		return 0;
+
+	/* Mismatched combination of valid state */
+	if (!guest_valid || !host_valid || !ist->base)
+		return -ENXIO;
+
+	if (ist->vmi->h_lpi_ist_structure && !ist->vmi->h_lpi_l2_ists)
+		return -ENXIO;
+
+	ist->present = true;
+	return 0;
+}
+
+/*
+ * Save a linear host IST to userspace memory.
+ *
+ * Only the architected 32-bit ISTE state is stored. Metadata is skipped when
+ * striding through the host IST.
+ */
+static int vgic_v5_save_linear_ist(const struct vgic_v5_ist_desc *ist,
+				   u32 __user *uaddr, size_t nr_entries)
+{
+	__le32 h_iste;
+	size_t index;
+	int ret;
+
+	vgic_v5_clean_inval(ist->base,
+			    GICV5_LINEAR_IST_SIZE(ist->id_bits, ist->istsz));
+
+	for (index = 0; index < nr_entries; index++) {
+		__le32 *h_iste_addr = ist->base + index * ist->iste_size;
+
+		h_iste = READ_ONCE(*h_iste_addr);
+		ret = put_user(h_iste, uaddr);
+		if (ret)
+			return ret;
+
+		uaddr++;
+	}
+
+	return 0;
+}
+
+/*
+ * Save a two-level host IST to userspace memory.
+ *
+ * Only the architected 32-bit ISTE state is stored. Metadata is skipped when
+ * striding through the host IST.
+ */
+static int vgic_v5_save_two_level_ist(const struct vgic_v5_ist_desc *ist,
+				      u32 __user *uaddr)
+{
+	struct vgic_v5_two_level_ist_shape shape;
+	size_t h_l1_index, h_l2_index;
+	void *h_l2_ist_base;
+	__le32 h_iste;
+	int ret;
+
+	shape = vgic_v5_two_level_ist_shape(ist);
+
+	vgic_v5_clean_inval(ist->base,
+			    shape.l1_entries * sizeof(*ist->vmi->h_lpi_ist));
+
+	for (h_l1_index = 0; h_l1_index < shape.l1_entries; h_l1_index++) {
+		u64 l1_iste;
+
+		/*
+		 * Host L2 ISTs are preallocated. Any invalid L1 entry means the
+		 * host IST state is inconsistent.
+		 */
+		l1_iste = le64_to_cpu(READ_ONCE(ist->vmi->h_lpi_ist[h_l1_index]));
+		if (!FIELD_GET(GICV5_ISTL1E_VALID, l1_iste))
+			return -ENXIO;
+
+		h_l2_ist_base = ist->vmi->h_lpi_l2_ists[h_l1_index];
+		if (!h_l2_ist_base)
+			return -ENXIO;
+
+		vgic_v5_clean_inval(h_l2_ist_base,
+				    shape.l2_entries * ist->iste_size);
+
+		for (h_l2_index = 0; h_l2_index < shape.l2_entries; h_l2_index++) {
+			h_iste = *(__le32 *)(h_l2_ist_base +
+					     h_l2_index * ist->iste_size);
+
+			ret = put_user(h_iste, uaddr);
+			if (ret)
+				return ret;
+
+			uaddr++;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * Save the SPI IST to userspace-provided memory.
+ */
+int vgic_v5_save_spi_ist(struct kvm *kvm, struct kvm_vgic_v5_ist *ist_attr)
+{
+	struct vgic_v5_ist_desc ist;
+	u32 __user *uaddr;
+	int ret;
+
+	ret = vgic_v5_get_spi_ist_desc(kvm, &ist);
+	if (ret)
+		return ret;
+
+	uaddr = (u32 __user *)(unsigned long)ist_attr->spi_ist_addr;
+
+	/* The host SPI IST is always linear. */
+	return vgic_v5_save_linear_ist(&ist, uaddr,
+				       kvm->arch.vgic.nr_spis);
+}
+
+/*
+ * Save the LPI IST to userspace memory.
+ *
+ * The LPI IST may be linear or two-level, so host iteration depends on the
+ * allocated host shape.
+ */
+int vgic_v5_save_lpi_ist(struct kvm *kvm, struct kvm_vgic_v5_ist *ist_attr)
+{
+	struct vgic_v5_ist_desc ist;
+	u32 __user *uaddr;
+	int ret;
+
+	ret = vgic_v5_get_lpi_ist_desc(kvm, &ist);
+	if (ret)
+		return ret;
+
+	if (!ist.present)
+		return 0;
+
+	/*
+	 * Userspace sized the buffer from the guest-visible configuration.
+	 * Refuse to walk a host IST with a different number of entries.
+	 */
+	if (ist.id_bits !=
+	    kvm->arch.vgic.vgic_v5_irs_data->ist_cfgr.lpi_id_bits)
+		return -EINVAL;
+
+	uaddr = (u32 __user *)(unsigned long)ist_attr->lpi_ist_addr;
+
+	if (!ist.vmi->h_lpi_ist_structure)
+		return vgic_v5_save_linear_ist(&ist, uaddr,
+					       BIT(ist.id_bits));
+
+	return vgic_v5_save_two_level_ist(&ist, uaddr);
+}
+
+/*
+ * Track any SPIs and LPIs that were marked as pending at the point where the
+ * IST was restored.
+ *
+ * Restored pending state is cleared from the host ISTE and replayed with VDPEND
+ * before the VM first runs.
+ */
+static int vgic_v5_track_pending_irq(struct list_head *pending_irqs, u32 intid,
+				     u32 type)
+{
+	struct vgic_v5_pending_irq *pirq;
+
+	pirq = kzalloc_obj(*pirq, GFP_KERNEL);
+	if (!pirq)
+		return -ENOMEM;
+
+	/* Encode the interrupt as a GICv5 IntID. */
+	pirq->irq = FIELD_PREP(GICV5_HWIRQ_TYPE, type) |
+		    FIELD_PREP(GICV5_HWIRQ_ID, intid);
+
+	INIT_LIST_HEAD(&pirq->next);
+	list_add_tail(&pirq->next, pending_irqs);
+
+	return 0;
+}
+
+/*
+ * Process and sanitise each restored ISTE.
+ *
+ * HWU is for hardware use and must not survive migration. Pending state is
+ * tracked, cleared from the ISTE, and replayed before the VM first runs.
+ */
+static int vgic_v5_process_iste(__le32 *iste, struct list_head *pending_irqs,
+				u32 intid, u32 type)
+{
+	u32 iste_data = le32_to_cpu(READ_ONCE(*iste));
+	int ret;
+
+	/* Pending state is replayed later with VDPEND. */
+	if (iste_data & GICV5_ISTL2E_PENDING) {
+		ret = vgic_v5_track_pending_irq(pending_irqs, intid, type);
+		if (ret)
+			return ret;
+	}
+
+	iste_data &= ~GICV5_ISTL2E_PENDING;
+	iste_data &= ~GICV5_ISTL2E_HWU;
+
+	WRITE_ONCE(*iste, cpu_to_le32(iste_data));
+
+	return 0;
+}
+
+static void vgic_v5_restore_spi_config(struct kvm *kvm, __le32 iste, u32 spi)
+{
+	u32 iste_data = le32_to_cpu(iste);
+	bool pending = iste_data & GICV5_ISTL2E_PENDING;
+	struct vgic_irq *irq;
+	unsigned long flags;
+
+	irq = vgic_get_irq(kvm, vgic_v5_make_spi(spi));
+	if (WARN_ON_ONCE(!irq))
+		return;
+
+	raw_spin_lock_irqsave(&irq->irq_lock, flags);
+
+	if (iste_data & GICV5_ISTL2E_HM)
+		irq->config = VGIC_CONFIG_LEVEL;
+	else
+		irq->config = VGIC_CONFIG_EDGE;
+
+	if (irq->config == VGIC_CONFIG_EDGE)
+		irq->pending_latch = pending;
+	else if (pending)
+		irq->pending_latch = true;
+	else if (!irq->active)
+		irq->pending_latch = false;
+
+	raw_spin_unlock_irqrestore(&irq->irq_lock, flags);
+	vgic_put_irq(kvm, irq);
+}
+
+static int vgic_v5_restore_ist_entry(struct kvm *kvm,
+				     const struct vgic_v5_ist_desc *ist,
+				     void *h_iste_addr, __le32 h_iste,
+				     u32 intid, u32 intid_type)
+{
+	__le32 raw_iste = h_iste;
+	int ret;
+
+	/*
+	 * Sanitise the IST, clearing HWU & pending fields. Pending state is
+	 * later replayed via GIC VDPEND.
+	 */
+	ret = vgic_v5_process_iste(&h_iste, &ist->vmi->pending_irqs,
+				   intid, intid_type);
+	if (ret)
+		return ret;
+
+	if (intid_type == GICV5_HWIRQ_TYPE_SPI)
+		vgic_v5_restore_spi_config(kvm, raw_iste, intid);
+
+	/*
+	 * Zero the full ISTE (incl metadata), and write back the non-metadata
+	 * region, only.
+	 */
+	memset(h_iste_addr, 0, ist->iste_size);
+	WRITE_ONCE(*(__le32 *)h_iste_addr, h_iste);
+	vgic_v5_clean_inval(h_iste_addr, ist->iste_size);
+
+	return 0;
+}
+
+/*
+ * Restore a userspace IST image to a linear host IST.
+ *
+ * The userspace IST image is a linear array of 32-bit ISTEs.
+ */
+static int vgic_v5_restore_linear_ist(struct kvm *kvm,
+				      const struct vgic_v5_ist_desc *ist,
+				      u32 __user *uaddr, size_t nr_entries,
+				      u32 intid_type)
+{
+	__le32 h_iste;
+	size_t index;
+	int ret;
+
+	for (index = 0; index < nr_entries; index++) {
+		void *h_iste_addr = ist->base + index * ist->iste_size;
+
+		ret = get_user(h_iste, uaddr);
+		if (ret)
+			return ret;
+
+		ret = vgic_v5_restore_ist_entry(kvm, ist, h_iste_addr,
+					h_iste, index, intid_type);
+		if (ret)
+			return ret;
+
+		uaddr++;
+	}
+
+	return 0;
+}
+
+/*
+ * Restore a userspace IST image to a two-level host IST.
+ *
+ * The userspace IST image is a linear array of 32-bit ISTEs.
+ */
+static int vgic_v5_restore_two_level_ist(struct kvm *kvm,
+					 const struct vgic_v5_ist_desc *ist,
+					 u32 __user *uaddr, u32 intid_type)
+{
+	struct vgic_v5_two_level_ist_shape shape;
+	size_t h_l1_index, h_l2_index;
+	void *h_l2_ist_base;
+	__le32 h_iste;
+	int ret;
+
+	shape = vgic_v5_two_level_ist_shape(ist);
+
+	vgic_v5_clean_inval(ist->vmi->h_lpi_ist,
+			    shape.l1_entries * sizeof(*ist->vmi->h_lpi_ist));
+
+	for (h_l1_index = 0; h_l1_index < shape.l1_entries; ++h_l1_index) {
+		u64 l1_iste;
+
+		/*
+		 * Host L2 ISTs are preallocated. Any invalid L1 entry means the
+		 * host IST state is inconsistent.
+		 */
+		l1_iste = le64_to_cpu(READ_ONCE(ist->vmi->h_lpi_ist[h_l1_index]));
+		if (!FIELD_GET(GICV5_ISTL1E_VALID, l1_iste))
+			return -ENXIO;
+
+		h_l2_ist_base = ist->vmi->h_lpi_l2_ists[h_l1_index];
+		if (!h_l2_ist_base)
+			return -ENXIO;
+
+		for (h_l2_index = 0; h_l2_index < shape.l2_entries; h_l2_index++) {
+			void *h_iste_addr = h_l2_ist_base +
+					    h_l2_index * ist->iste_size;
+			u32 intid = h_l1_index * shape.l2_entries + h_l2_index;
+
+			ret = get_user(h_iste, uaddr);
+			if (ret)
+				return ret;
+
+			ret = vgic_v5_restore_ist_entry(kvm, ist, h_iste_addr,
+							h_iste, intid,
+							intid_type);
+			if (ret)
+				return ret;
+
+			uaddr++;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * Restore the SPI IST from userspace-provided buffer to the host-allocated IST.
+ */
+int vgic_v5_restore_spi_ist(struct kvm *kvm, struct kvm_vgic_v5_ist *ist_attr)
+{
+	u32 __user *uaddr;
+	struct vgic_v5_ist_desc ist;
+	int ret;
+
+	ret = vgic_v5_get_spi_ist_desc(kvm, &ist);
+	if (ret)
+		return ret;
+
+	uaddr = (u32 __user *)(unsigned long)ist_attr->spi_ist_addr;
+
+	/* The host SPI IST is always linear. */
+	return vgic_v5_restore_linear_ist(kvm, &ist, uaddr,
+					  kvm->arch.vgic.nr_spis,
+					  GICV5_HWIRQ_TYPE_SPI);
+}
+
+/*
+ * Restore the LPI IST from userspace memory to the host-allocated LPI IST.
+ *
+ * The host LPI IST may be linear or two-level, so host iteration depends on the
+ * host IST's shape.
+ */
+int vgic_v5_restore_lpi_ist(struct kvm *kvm, struct kvm_vgic_v5_ist *ist_attr)
+{
+	u32 __user *uaddr;
+	struct vgic_v5_ist_desc ist;
+	int ret;
+
+	ret = vgic_v5_get_lpi_ist_desc(kvm, &ist);
+	if (ret)
+		return ret;
+
+	if (!ist.present)
+		return 0;
+
+	uaddr = (u32 __user *)(unsigned long)ist_attr->lpi_ist_addr;
+
+	if (!ist.vmi->h_lpi_ist_structure)
+		return vgic_v5_restore_linear_ist(kvm, &ist, uaddr,
+						  BIT(ist.id_bits),
+						  GICV5_HWIRQ_TYPE_LPI);
+
+	return vgic_v5_restore_two_level_ist(kvm, &ist, uaddr,
+					     GICV5_HWIRQ_TYPE_LPI);
+}
+
+/*
+ * Process the pending IRQs removing them from the list and optionally injecting
+ * them.
+ */
+static int vgic_v5_process_pending_irqs(struct kvm *kvm, bool inject)
+{
+	u32 vm_id = vgic_v5_vm_id(kvm);
+	struct vgic_v5_vm_info *vmi;
+
+	lockdep_assert_held(&kvm->arch.config_lock);
+
+	vmi = xa_load(&vm_info, vm_id);
+	if (!vmi)
+		return -ENXIO;
+
+	vgic_v5_drain_pending_irqs(kvm, vmi, inject);
+
+	return 0;
+}
+
+/* Replay pending state that was cleared while restoring guest IST state. */
+int vgic_v5_restore_pending_irqs(struct kvm *kvm)
+{
+	return vgic_v5_process_pending_irqs(kvm, true);
+}
+
+/* Drop pending state collected by a failed IST restore. */
+void vgic_v5_discard_pending_irqs(struct kvm *kvm)
+{
+	vgic_v5_process_pending_irqs(kvm, false);
 }

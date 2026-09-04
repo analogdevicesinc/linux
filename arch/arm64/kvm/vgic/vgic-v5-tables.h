@@ -9,6 +9,7 @@
 #include <linux/spinlock.h>
 #include <linux/idr.h>
 #include <linux/irqchip/arm-gic-v5.h>
+#include <linux/list.h>
 
 /* Level 1 Virtual Machine Table Entry */
 typedef __le64 vmtl1_entry;
@@ -44,6 +45,9 @@ struct vgic_v5_vm_info {
 	__le64			*h_lpi_ist;
 	__le64			**h_lpi_l2_ists;
 	__le64			*h_spi_ist;
+
+	/* Tracking of pending interrupts as part of IST restore */
+	struct list_head	pending_irqs;
 };
 
 struct vgic_v5_vmt {
@@ -118,7 +122,19 @@ int vgic_v5_vmte_alloc_vpe(struct kvm_vcpu *vcpu);
 int vgic_v5_vmte_free_vpe(struct kvm_vcpu *vcpu);
 
 int vgic_v5_spi_ist_alloc(struct kvm *kvm, unsigned int id_bits);
+int vgic_v5_lpi_ist_exists(struct kvm *kvm);
 int vgic_v5_lpi_ist_alloc(struct kvm *kvm, unsigned int id_bits);
 int vgic_v5_lpi_ist_free(struct kvm *kvm);
+
+int vgic_v5_save_spi_ist(struct kvm *kvm,
+			 struct kvm_vgic_v5_ist *ist_attr);
+int vgic_v5_save_lpi_ist(struct kvm *kvm,
+			 struct kvm_vgic_v5_ist *ist_attr);
+int vgic_v5_restore_spi_ist(struct kvm *kvm,
+			    struct kvm_vgic_v5_ist *ist_attr);
+int vgic_v5_restore_lpi_ist(struct kvm *kvm,
+			    struct kvm_vgic_v5_ist *ist_attr);
+int vgic_v5_restore_pending_irqs(struct kvm *kvm);
+void vgic_v5_discard_pending_irqs(struct kvm *kvm);
 
 #endif

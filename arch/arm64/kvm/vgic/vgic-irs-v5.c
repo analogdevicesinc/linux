@@ -382,6 +382,20 @@ static u64 vgic_v5_read_irs_ist_baser(struct vgic_v5_irs *irs)
 	return value;
 }
 
+static bool vgic_v5_ist_cfgr_matches(const struct vgic_v5_irs *irs,
+				     unsigned long val)
+{
+	u8 lpi_id_bits = FIELD_GET(GICV5_IRS_IST_CFGR_LPI_ID_BITS, val);
+	u8 l2sz = FIELD_GET(GICV5_IRS_IST_CFGR_L2SZ, val);
+	u8 istsz = FIELD_GET(GICV5_IRS_IST_CFGR_ISTSZ, val);
+	bool structure = !!(val & GICV5_IRS_IST_CFGR_STRUCTURE);
+
+	return irs->ist_cfgr.lpi_id_bits == lpi_id_bits &&
+	       irs->ist_cfgr.l2sz == l2sz &&
+	       irs->ist_cfgr.istsz == istsz &&
+	       irs->ist_cfgr.structure == structure;
+}
+
 static unsigned long vgic_v5_mmio_read_irs_ist(struct kvm_vcpu *vcpu,
 					       gpa_t addr, unsigned int len)
 {
@@ -566,6 +580,7 @@ static int vgic_v5_mmio_uaccess_write_irs(struct kvm_vcpu *vcpu, gpa_t addr,
 	struct vgic_dist *vgic = &vcpu->kvm->arch.vgic;
 	struct vgic_v5_irs *irs_data = vgic->vgic_v5_irs_data;
 	size_t offset = addr & (SZ_64K - 1);
+	int ret;
 
 	/*
 	 * The following registers are ONLY settable via uaccesses. The guest
@@ -662,8 +677,11 @@ static int vgic_v5_mmio_uaccess_write_irs(struct kvm_vcpu *vcpu, gpa_t addr,
 			return -EINVAL;
 		break;
 	case GICV5_IRS_IST_BASER:
-		if (irs_data->ist_baser.valid &&
-		    !vgic_v5_ist_baser_matches(irs_data, val))
+		ret = vgic_v5_lpi_ist_exists(vcpu->kvm);
+		if (ret < 0)
+			return ret;
+
+		if (ret && !vgic_v5_ist_baser_matches(irs_data, val))
 			return -EINVAL;
 
 		if (!irs_data->ist_baser.valid &&
@@ -673,6 +691,13 @@ static int vgic_v5_mmio_uaccess_write_irs(struct kvm_vcpu *vcpu, gpa_t addr,
 		vgic_v5_update_irs_ist_baser(irs_data, val);
 		break;
 	case GICV5_IRS_IST_CFGR:
+		ret = vgic_v5_lpi_ist_exists(vcpu->kvm);
+		if (ret < 0)
+			return ret;
+
+		if (ret && !vgic_v5_ist_cfgr_matches(irs_data, val))
+			return -EINVAL;
+
 		irs_data->ist_cfgr.lpi_id_bits = FIELD_GET(GICV5_IRS_IST_CFGR_LPI_ID_BITS, val);
 		irs_data->ist_cfgr.l2sz = FIELD_GET(GICV5_IRS_IST_CFGR_L2SZ, val);
 		irs_data->ist_cfgr.istsz = FIELD_GET(GICV5_IRS_IST_CFGR_ISTSZ, val);
@@ -1084,6 +1109,24 @@ int kvm_vgic_v5_irs_init(struct kvm *kvm, unsigned int nr_spis)
 	irs->lpi_ist_restore_pending = false;
 
 	return 0;
+}
+
+int vgic_v5_irs_lpi_ist_id_bits(struct kvm *kvm, unsigned int *id_bits)
+{
+	struct vgic_v5_irs *irs = kvm->arch.vgic.vgic_v5_irs_data;
+
+	if (!irs)
+		return -ENXIO;
+
+	if (!irs->ist_baser.valid)
+		return 0;
+
+	if (!vgic_v5_ist_cfgr_valid(irs))
+		return -EINVAL;
+
+	*id_bits = irs->ist_cfgr.lpi_id_bits;
+
+	return 1;
 }
 
 int vgic_v5_has_attr_regs(struct kvm_device *dev, struct kvm_device_attr *attr)

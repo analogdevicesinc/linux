@@ -5,10 +5,11 @@
 
 #include <kvm/arm_vgic.h>
 
-#include <linux/kvm_host.h>
 #include <linux/bitops.h>
 #include <linux/irqchip/arm-vgic-info.h>
 #include <linux/irqdomain.h>
+#include <linux/kvm_host.h>
+#include <linux/uaccess.h>
 
 #include "vgic-v5-tables.h"
 #include "vgic.h"
@@ -218,6 +219,17 @@ static int vgic_v5_irs_wait_for_vpe_op(void)
 					NULL);
 }
 
+/*
+ * Wait for a write to IRS_SAVE_VMR to complete.
+ */
+static int vgic_v5_irs_wait_for_save_vm_op(u32 *statusr)
+{
+	return gicv5_wait_for_op_atomic(irs_caps.irs_base,
+					GICV5_IRS_SAVE_VM_STATUSR,
+					GICV5_IRS_SAVE_VM_STATUSR_IDLE,
+					statusr);
+}
+
 static int vgic_v5_irs_write_vm_mmio_reg(u64 val, u32 offset)
 {
 	int ret;
@@ -384,6 +396,27 @@ static int vgic_v5_irs_set_up_vpe(u16 vm_id, u16 vpe_id,
 		return ret;
 
 	return 0;
+}
+
+static int vgic_v5_irs_save_vm_op(u16 vm_id, bool save, u32 *statusr)
+{
+	u64 save_vmr;
+	int ret;
+
+	save_vmr = FIELD_PREP(GICV5_IRS_SAVE_VMR_VM_ID, vm_id);
+	save_vmr |= GICV5_IRS_SAVE_VMR_Q;
+	save_vmr |= FIELD_PREP(GICV5_IRS_SAVE_VMR_S, save);
+
+	guard(raw_spinlock_irqsave)(&vgic_v5_irs_lock);
+
+	/* Make sure that we are idle to begin with. */
+	ret = vgic_v5_irs_wait_for_save_vm_op(NULL);
+	if (ret)
+		return ret;
+
+	irs_writeq_relaxed(save_vmr, GICV5_IRS_SAVE_VMR);
+
+	return vgic_v5_irs_wait_for_save_vm_op(statusr);
 }
 
 static irqreturn_t db_handler(int irq, void *data)
@@ -1097,9 +1130,9 @@ static bool vgic_v5_set_spi_pending_state(struct kvm_vcpu *vcpu,
 	return true;
 }
 
-static bool vgic_v5_spi_queue_irq_unlock(struct kvm *kvm,
-					 struct vgic_irq *irq,
-					 unsigned long flags)
+bool vgic_v5_spi_queue_irq_unlock(struct kvm *kvm,
+				  struct vgic_irq *irq,
+				  unsigned long flags)
 	__releases(&irq->irq_lock)
 {
 	lockdep_assert_held(&irq->irq_lock);
@@ -1270,4 +1303,301 @@ void vgic_v5_save_state(struct kvm_vcpu *vcpu)
 	__vgic_v5_save_state(cpu_if);
 	__vgic_v5_save_ppi_state(cpu_if);
 	dsb(sy);
+}
+
+static int vgic_v5_irs_status_is_quiesced(u32 statusr)
+{
+	if (statusr & GICV5_IRS_SAVE_VM_STATUSR_Q)
+		return 0;
+
+	return -EBUSY;
+}
+
+static int vgic_v5_irs_is_quiesced(u16 vm_id)
+{
+	u32 statusr;
+	int ret;
+
+	/*
+	 * Ensure that the IST snapshot is complete before asking the IRS
+	 * whether the VM remained quiescent while it was copied.
+	 */
+	mb();
+
+	ret = vgic_v5_irs_save_vm_op(vm_id, false, &statusr);
+	if (ret)
+		return ret;
+
+	return vgic_v5_irs_status_is_quiesced(statusr);
+}
+
+static int vgic_v5_copy_ist_attr(struct kvm_device_attr *attr,
+				 struct kvm_vgic_v5_ist *ist_attr)
+{
+	void __user *uaddr = (void __user *)(unsigned long)attr->addr;
+
+	if (!uaddr)
+		return -EINVAL;
+
+	if (copy_from_user(ist_attr, uaddr, sizeof(*ist_attr)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int vgic_v5_validate_ist_user_buffer(__u64 addr, __u64 size,
+					    size_t expected)
+{
+	if (!addr || size != expected)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int vgic_v5_validate_ist_attr(struct kvm *kvm,
+				     const struct kvm_vgic_v5_ist *ist_attr)
+{
+	unsigned int id_bits;
+	int ret;
+
+	/* We always have SPIs to save */
+	ret = vgic_v5_validate_ist_user_buffer(ist_attr->spi_ist_addr,
+					ist_attr->spi_ist_size,
+					kvm->arch.vgic.nr_spis * sizeof(__u32));
+	if (ret)
+		return ret;
+
+	/* We don't always have LPIs to save */
+	ret = vgic_v5_irs_lpi_ist_id_bits(kvm, &id_bits);
+	if (ret < 0)
+		return ret;
+
+	/* No LPI IST */
+	if (!ret) {
+		if (ist_attr->lpi_ist_addr || ist_attr->lpi_ist_size)
+			return -EINVAL;
+
+		return 0;
+	}
+
+	return vgic_v5_validate_ist_user_buffer(ist_attr->lpi_ist_addr,
+					       ist_attr->lpi_ist_size,
+					       BIT(id_bits) * sizeof(__u32));
+}
+
+int vgic_v5_irs_save_ists(struct kvm *kvm, struct kvm_device_attr *attr)
+{
+	struct kvm_vgic_v5_ist ist_attr;
+	u16 vm_id = vgic_v5_vm_id(kvm);
+	u32 statusr;
+	int ret = 0;
+
+	mutex_lock(&kvm->lock);
+
+	if (kvm_trylock_all_vcpus(kvm)) {
+		mutex_unlock(&kvm->lock);
+		return -EBUSY;
+	}
+
+	mutex_lock(&kvm->arch.config_lock);
+
+	if (!vgic_initialized(kvm)) {
+		ret = -EBUSY;
+		goto out_unlock;
+	}
+
+	ret = vgic_v5_copy_ist_attr(attr, &ist_attr);
+	if (ret)
+		goto out_unlock;
+
+	ret = vgic_v5_validate_ist_attr(kvm, &ist_attr);
+	if (ret)
+		goto out_unlock;
+
+	ret = vgic_v5_irs_save_vm_op(vm_id, true, &statusr);
+	if (ret) {
+		kvm_err("Failed to save GICv5 IRS VM state: %d\n", ret);
+		goto out_unlock;
+	}
+
+	ret = vgic_v5_irs_status_is_quiesced(statusr);
+	if (ret)
+		goto out_unlock;
+
+	/* Save the SPI IST to the userspace buffer. */
+	ret = vgic_v5_save_spi_ist(kvm, &ist_attr);
+	if (ret)
+		goto out_unlock;
+
+	ret = vgic_v5_irs_is_quiesced(vm_id);
+	if (ret)
+		goto out_unlock;
+
+	/* Save the LPI IST to the userspace buffer. */
+	ret = vgic_v5_save_lpi_ist(kvm, &ist_attr);
+	if (ret)
+		goto out_unlock;
+
+	ret = vgic_v5_irs_is_quiesced(vm_id);
+	if (ret)
+		goto out_unlock;
+
+out_unlock:
+	mutex_unlock(&kvm->arch.config_lock);
+	kvm_unlock_all_vcpus(kvm);
+	mutex_unlock(&kvm->lock);
+
+	return ret;
+}
+
+/* Allocate the LPI IST to restore into */
+static int vgic_v5_restore_lpi_ist_alloc(struct kvm *kvm, bool *allocated)
+{
+	unsigned int id_bits;
+	int ret;
+
+	*allocated = false;
+
+	ret = vgic_v5_irs_lpi_ist_id_bits(kvm, &id_bits);
+	if (ret <= 0)
+		return ret;
+
+	ret = vgic_v5_lpi_ist_alloc(kvm, id_bits);
+	if (ret)
+		return ret;
+
+	*allocated = true;
+
+	return 0;
+}
+
+/*
+ * Clean up the LPI IST if we allocated it, and restore the VMTE to the
+ * original, valid state.
+ */
+static void vgic_v5_restore_cleanup(struct kvm *kvm,
+				    struct kvm_vcpu *vcpu,
+				    bool lpi_ist_allocated)
+{
+	/*
+	 * We are on the restore failure path, so we do a best-effort
+	 * cleanup. These commands might fail, but at this stage this is the
+	 * best we can realistically do.
+	 */
+	if (lpi_ist_allocated) {
+		if (!vgic_v5_send_command(vcpu, VMTE_MAKE_INVALID))
+			vgic_v5_lpi_ist_free(kvm);
+	}
+
+	vgic_v5_send_command(vcpu, VMTE_MAKE_VALID);
+}
+
+int vgic_v5_irs_restore_ists(struct kvm *kvm, struct kvm_device_attr *attr)
+{
+	bool lpi_ist_allocated = false, vmte_invalid = false;
+	struct kvm_vcpu *vcpu0 = kvm_get_vcpu(kvm, 0);
+	struct kvm_vgic_v5_ist ist_attr;
+	int ret = 0;
+
+	mutex_lock(&kvm->lock);
+
+	if (kvm_trylock_all_vcpus(kvm)) {
+		mutex_unlock(&kvm->lock);
+		return -EBUSY;
+	}
+
+	mutex_lock(&kvm->arch.config_lock);
+
+	if (!vgic_initialized(kvm)) {
+		ret = -EBUSY;
+		goto out_unlock;
+	}
+
+	if (kvm_vm_has_ran_once(kvm)) {
+		ret = -EBUSY;
+		goto out_unlock;
+	}
+
+	ret = vgic_v5_copy_ist_attr(attr, &ist_attr);
+	if (ret)
+		goto out_unlock;
+
+	ret = vgic_v5_validate_ist_attr(kvm, &ist_attr);
+	if (ret)
+		goto out_unlock;
+
+	ret = vgic_v5_lpi_ist_exists(kvm);
+	if (ret) {
+		if (ret > 0)
+			ret = -EBUSY;
+		goto out_unlock;
+	}
+
+	/*
+	 * If the guest has previously allocated an IST (which we check based on
+	 * the IRS_IST_BASER), extract the number of LPI ID bits from the
+	 * IRS_IST_CFGR. Else, do nothing.
+	 *
+	 * We do this before making the VMTE invalid as we rely on
+	 * IRS_VMAP_VISTR to mark the IST as valid in the VMTE. This can only
+	 * happen while the VMTE is valid.
+	 */
+	ret = vgic_v5_restore_lpi_ist_alloc(kvm, &lpi_ist_allocated);
+	if (ret)
+		goto out_unlock;
+
+	/*
+	 * Host ISTs are updated while the VMTE is invalid, so the GIC cannot
+	 * observe partially restored state.
+	 */
+	ret = vgic_v5_send_command(vcpu0, VMTE_MAKE_INVALID);
+	if (ret) {
+		/*
+		 * If invalidation fails, the restore cannot safely update host
+		 * IST state.
+		 */
+		goto out_unlock;
+	}
+	vmte_invalid = true;
+
+	/* Restore the SPI IST from the userspace buffer. */
+	ret = vgic_v5_restore_spi_ist(kvm, &ist_attr);
+	if (ret)
+		goto out_unlock;
+
+	/* Restore the LPI IST from the userspace buffer. */
+	if (lpi_ist_allocated) {
+		ret = vgic_v5_restore_lpi_ist(kvm, &ist_attr);
+		if (ret)
+			goto out_unlock;
+	}
+
+	/* And make the VM Valid again */
+	ret = vgic_v5_send_command(vcpu0, VMTE_MAKE_VALID);
+	if (ret)
+		goto out_unlock;
+	vmte_invalid = false;
+
+	/*
+	 * As part of restoring the ISTs, and previously pending interrupts have
+	 * been tracked and made non-pending. Now that the ISTs have been
+	 * restored, and the VM is valid again, restore the pending interrupts.
+	 */
+	ret = vgic_v5_restore_pending_irqs(kvm);
+	if (ret)
+		goto out_unlock;
+
+	kvm->arch.vgic.vgic_v5_irs_data->lpi_ist_restore_pending = false;
+
+out_unlock:
+	if (ret && (vmte_invalid || lpi_ist_allocated)) {
+		vgic_v5_discard_pending_irqs(kvm);
+		vgic_v5_restore_cleanup(kvm, vcpu0, lpi_ist_allocated);
+	}
+
+	mutex_unlock(&kvm->arch.config_lock);
+	kvm_unlock_all_vcpus(kvm);
+	mutex_unlock(&kvm->lock);
+
+	return ret;
 }
