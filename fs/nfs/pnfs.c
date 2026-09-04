@@ -1167,11 +1167,12 @@ pnfs_alloc_init_layoutget_args(struct inode *ino,
 	   struct nfs_open_context *ctx,
 	   const nfs4_stateid *stateid,
 	   const struct pnfs_layout_range *range,
-	   gfp_t gfp_flags)
+	   size_t min_reply_sz, gfp_t gfp_flags)
 {
 	struct nfs_server *server = pnfs_find_server(ino, ctx);
 	size_t max_reply_sz = server->pnfs_curr_ld->max_layoutget_response;
-	size_t max_pages = max_response_pages(server);
+	size_t session_pages = max_response_pages(server);
+	size_t max_pages = session_pages;
 	struct nfs4_layoutget *lgp;
 
 	dprintk("--> %s\n", __func__);
@@ -1184,6 +1185,17 @@ pnfs_alloc_init_layoutget_args(struct inode *ino,
 		size_t npages = (max_reply_sz + PAGE_SIZE - 1) >> PAGE_SHIFT;
 		if (npages < max_pages)
 			max_pages = npages;
+	}
+
+	/*
+	 * A previous LAYOUTGET for this layout did not fit the reply
+	 * buffer: raise the layout driver's default up to the session's
+	 * maximum response size.
+	 */
+	if (min_reply_sz) {
+		size_t npages = (min_reply_sz + PAGE_SIZE - 1) >> PAGE_SHIFT;
+		if (npages > max_pages)
+			max_pages = min(npages, session_pages);
 	}
 
 	lgp->args.layout.pages = nfs4_alloc_pages(max_pages, gfp_flags);
@@ -2145,6 +2157,7 @@ pnfs_update_layout(struct inode *ino,
 		.inode = ino,
 	};
 	unsigned long giveup = jiffies + (clp->cl_lease_time << 1);
+	size_t reply_sz = 0;
 	bool first;
 
 	if (!pnfs_enabled_sb(NFS_SERVER(ino))) {
@@ -2304,7 +2317,8 @@ lookup_again:
 	if (arg.length != NFS4_MAX_UINT64)
 		arg.length = PAGE_ALIGN(arg.length);
 
-	lgp = pnfs_alloc_init_layoutget_args(ino, ctx, &stateid, &arg, gfp_flags);
+	lgp = pnfs_alloc_init_layoutget_args(ino, ctx, &stateid, &arg, reply_sz,
+					     gfp_flags);
 	if (!lgp) {
 		lseg = ERR_PTR(-ENOMEM);
 		trace_pnfs_update_layout(ino, pos, count, iomode, lo, NULL,
@@ -2331,12 +2345,29 @@ lookup_again:
 			break;
 		case -ENODATA:
 			/* The server returned NFS4ERR_LAYOUTUNAVAILABLE */
-		case -EMSGSIZE:
-			/* The layout exceeded loga_maxcount (NFS4ERR_TOOSMALL) */
 			pnfs_layout_set_fail_bit(
 				lo, pnfs_iomode_to_fail_bit(iomode));
 			lseg = NULL;
 			goto out_put_layout_hdr;
+		case -EMSGSIZE: {
+			/*
+			 * The layout exceeded loga_maxcount (NFS4ERR_TOOSMALL):
+			 * retry once with the reply buffer raised to the
+			 * session's maximum response size before falling back
+			 * to I/O through the MDS.
+			 */
+			size_t max = max_response_pages(server) << PAGE_SHIFT;
+
+			if (reply_sz < max) {
+				reply_sz = max;
+				exception.retry = 1;
+				break;
+			}
+			pnfs_layout_set_fail_bit(
+				lo, pnfs_iomode_to_fail_bit(iomode));
+			lseg = NULL;
+			goto out_put_layout_hdr;
+		}
 		default:
 			if (!nfs_error_is_fatal(PTR_ERR(lseg))) {
 				pnfs_layout_clear_fail_bit(lo, pnfs_iomode_to_fail_bit(iomode));
@@ -2450,7 +2481,7 @@ static void _lgopen_prepare_attached(struct nfs4_opendata *data,
 	lo = _pnfs_grab_empty_layout(ino, ctx);
 	if (!lo)
 		return;
-	lgp = pnfs_alloc_init_layoutget_args(ino, ctx, &current_stateid, &rng,
+	lgp = pnfs_alloc_init_layoutget_args(ino, ctx, &current_stateid, &rng, 0,
 					     nfs_io_gfp_mask());
 	if (!lgp) {
 		clear_and_wake_up_bit(NFS_LAYOUT_FIRST_LAYOUTGET, &lo->plh_flags);
@@ -2476,7 +2507,7 @@ static void _lgopen_prepare_floating(struct nfs4_opendata *data,
 	};
 	struct nfs4_layoutget *lgp;
 
-	lgp = pnfs_alloc_init_layoutget_args(ino, ctx, &current_stateid, &rng,
+	lgp = pnfs_alloc_init_layoutget_args(ino, ctx, &current_stateid, &rng, 0,
 					     nfs_io_gfp_mask());
 	if (!lgp)
 		return;
