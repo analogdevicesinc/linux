@@ -41,7 +41,7 @@ static u8 spi_nor_get_sr_cmp_mask(struct spi_nor *nor)
 {
 	struct spi_nor_flash_parameter *params = nor->params;
 
-	if (!(params->flags & SNOR_F_NO_READ_CR) &&
+	if (params->opcodes.read_sr2 &&
 	    params->flags & SNOR_F_HAS_SR2_CMP_BIT6)
 		return SR2_CMP_BIT6;
 	else
@@ -202,12 +202,50 @@ static int spi_nor_build_sr(struct spi_nor *nor, const u8 *old_sr, u8 *new_sr,
 }
 
 /*
+ * Make sure we do our best to guess SR2. This has historically only be needed
+ * for swp.c, so let's keep this extra carefulness in this file.
+ */
+static int spi_nor_read_sr2_careful(struct spi_nor *nor, u8 *sr2)
+{
+	struct spi_nor_flash_parameter *params = nor->params;
+	int ret;
+
+	if (params->opcodes.read_sr2) {
+		ret = spi_nor_read_sr_ll(nor, params->opcodes.read_sr2, sr2, 1);
+		if (ret)
+			return ret;
+	} else if ((spi_nor_get_protocol_width(nor->read_proto) == 4 ||
+		   spi_nor_get_protocol_width(nor->write_proto) == 4) &&
+		   nor->params->quad_enable) {
+		/*
+		 * Make sure the QE bit is persistently kept. qe_mask[1] will be
+		 * 0 if the QE bit is in SR1.
+		 */
+		*sr2 = params->qe_mask[1];
+	} else {
+		return 0;
+	}
+
+	return 0;
+}
+
+static int spi_nor_read_sr1_and_sr2_careful(struct spi_nor *nor, u8 *sr)
+{
+	int ret;
+
+	ret = spi_nor_read_sr1(nor, &sr[0]);
+	if (ret)
+		return ret;
+
+	return spi_nor_read_sr2_careful(nor, &sr[1]);
+}
+
+/*
  * Keep a local cache containing all lock-related bits for debugfs use only.
  * This way, debugfs never needs to access the flash directly.
  */
 void spi_nor_cache_sr_lock_bits(struct spi_nor *nor, u8 *sr)
 {
-	struct spi_nor_flash_parameter *params = nor->params;
 	u8 bp_mask = spi_nor_get_sr_bp_mask(nor);
 	u8 tb_mask = spi_nor_get_sr_tb_mask(nor);
 	u8 cmp_mask = spi_nor_get_sr_cmp_mask(nor);
@@ -215,17 +253,9 @@ void spi_nor_cache_sr_lock_bits(struct spi_nor *nor, u8 *sr)
 
 
 	if (!sr) {
-		if (spi_nor_read_sr(nor, nor->bouncebuf))
+		if (spi_nor_read_sr1_and_sr2_careful(nor, sr_cr))
 			return;
 
-		sr_cr[0] = nor->bouncebuf[0];
-
-		if (!(params->flags & SNOR_F_NO_READ_CR)) {
-			if (spi_nor_read_cr(nor, nor->bouncebuf))
-				return;
-		}
-
-		sr_cr[1] = nor->bouncebuf[0];
 		sr = sr_cr;
 	}
 
@@ -282,19 +312,9 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, u64 len)
 	int ret;
 	u8 pow;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr1_and_sr2_careful(nor, status_old);
 	if (ret)
 		return ret;
-
-	status_old[0] = nor->bouncebuf[0];
-
-	if (!(params->flags & SNOR_F_NO_READ_CR)) {
-		ret = spi_nor_read_cr(nor, nor->bouncebuf);
-		if (ret)
-			return ret;
-
-		status_old[1] = nor->bouncebuf[0];
-	}
 
 	/* If nothing in our range is unlocked, we don't need to do anything */
 	if (spi_nor_is_locked_sr(nor, ofs, len, status_old))
@@ -387,10 +407,7 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, u64 len)
 	    (ofs_old < ofs_new || (ofs_new + len_new) < (ofs_old + len_old)))
 		return -EINVAL;
 
-	if (params->flags & SNOR_F_NO_READ_CR)
-		ret = spi_nor_write_sr_and_check(nor, best_status_new[0]);
-	else
-		ret = spi_nor_write_sr_cr_and_check(nor, best_status_new);
+	ret = spi_nor_write_sr1_and_sr2_and_check(nor, best_status_new);
 	if (ret)
 		return ret;
 
@@ -419,19 +436,9 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, u64 len)
 	int ret;
 	u8 pow;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr1_and_sr2_careful(nor, status_old);
 	if (ret)
 		return ret;
-
-	status_old[0] = nor->bouncebuf[0];
-
-	if (!(params->flags & SNOR_F_NO_READ_CR)) {
-		ret = spi_nor_read_cr(nor, nor->bouncebuf);
-		if (ret)
-			return ret;
-
-		status_old[1] = nor->bouncebuf[0];
-	}
 
 	/* If nothing in our range is locked, we don't need to do anything */
 	if (spi_nor_is_unlocked_sr(nor, ofs, len, status_old))
@@ -522,10 +529,7 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, u64 len)
 	    (ofs_new < ofs_old || (ofs_old + len_old) < (ofs_new + len_new)))
 		return -EINVAL;
 
-	if (params->flags & SNOR_F_NO_READ_CR)
-		ret = spi_nor_write_sr_and_check(nor, best_status_new[0]);
-	else
-		ret = spi_nor_write_sr_cr_and_check(nor, best_status_new);
+	ret = spi_nor_write_sr1_and_sr2_and_check(nor, best_status_new);
 	if (ret)
 		return ret;
 
@@ -543,23 +547,12 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, u64 len)
  */
 static int spi_nor_sr_is_locked(struct spi_nor *nor, loff_t ofs, u64 len)
 {
-	struct spi_nor_flash_parameter *params = nor->params;
 	u8 sr_cr[2] = {};
 	int ret;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr1_and_sr2_careful(nor, sr_cr);
 	if (ret)
 		return ret;
-
-	sr_cr[0] = nor->bouncebuf[0];
-
-	if (!(params->flags & SNOR_F_NO_READ_CR)) {
-		ret = spi_nor_read_cr(nor, nor->bouncebuf);
-		if (ret)
-			return ret;
-
-		sr_cr[1] = nor->bouncebuf[0];
-	}
 
 	return spi_nor_is_locked_sr(nor, ofs, len, sr_cr);
 }

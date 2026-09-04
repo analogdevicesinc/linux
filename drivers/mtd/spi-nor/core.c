@@ -445,75 +445,6 @@ int spi_nor_read_id(struct spi_nor *nor, u8 naddr, u8 ndummy, u8 *id,
 }
 
 /**
- * spi_nor_read_sr() - Read the Status Register.
- * @nor:	pointer to 'struct spi_nor'.
- * @sr:		pointer to a DMA-able buffer where the value of the
- *              Status Register will be written. Should be at least 2 bytes.
- *
- * Return: 0 on success, -errno otherwise.
- */
-int spi_nor_read_sr(struct spi_nor *nor, u8 *sr)
-{
-	int ret;
-
-	if (nor->spimem) {
-		struct spi_mem_op op = SPI_NOR_RDSR_OP(sr);
-
-		if (nor->reg_proto == SNOR_PROTO_8_8_8_DTR) {
-			op.addr.nbytes = nor->params->rdsr_addr_nbytes;
-			op.dummy.nbytes = nor->params->rdsr_dummy;
-			/*
-			 * We don't want to read only one byte in DTR mode. So,
-			 * read 2 and then discard the second byte.
-			 */
-			op.data.nbytes = 2;
-		}
-
-		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
-
-		ret = spi_mem_exec_op(nor->spimem, &op);
-	} else {
-		ret = spi_nor_controller_ops_read_reg(nor, SPINOR_OP_RDSR, sr,
-						      1);
-	}
-
-	if (ret)
-		dev_dbg(nor->dev, "error %d reading SR\n", ret);
-
-	return ret;
-}
-
-/**
- * spi_nor_read_cr() - Read the Configuration Register using the
- * SPINOR_OP_RDCR (35h) command.
- * @nor:	pointer to 'struct spi_nor'
- * @cr:		pointer to a DMA-able buffer where the value of the
- *              Configuration Register will be written.
- *
- * Return: 0 on success, -errno otherwise.
- */
-int spi_nor_read_cr(struct spi_nor *nor, u8 *cr)
-{
-	int ret;
-
-	if (nor->spimem) {
-		struct spi_mem_op op = SPI_NOR_RDCR_OP(cr);
-
-		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
-
-		ret = spi_mem_exec_op(nor->spimem, &op);
-	} else {
-		ret = spi_nor_controller_ops_read_reg(nor, SPINOR_OP_RDCR, cr,
-						      1);
-	}
-
-	if (ret)
-		dev_dbg(nor->dev, "error %d reading CR\n", ret);
-
-	return ret;
-}
-
-/**
  * spi_nor_set_4byte_addr_mode_en4b_ex4b() - Enter/Exit 4-byte address mode
  *			using SPINOR_OP_EN4B/SPINOR_OP_EX4B. Typically used by
  *			Winbond and Macronix.
@@ -618,12 +549,13 @@ int spi_nor_set_4byte_addr_mode_brwr(struct spi_nor *nor, bool enable)
 int spi_nor_sr_ready(struct spi_nor *nor)
 {
 	int ret;
+	u8 sr;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr1(nor, &sr);
 	if (ret)
 		return ret;
 
-	return !(nor->bouncebuf[0] & SR_WIP);
+	return !(sr & SR_WIP);
 }
 
 /**
@@ -785,34 +717,91 @@ int spi_nor_global_block_unlock(struct spi_nor *nor)
 }
 
 /**
- * spi_nor_write_sr() - Write the Status Register.
+ * spi_nor_read_sr_ll() - Low-level Status Registers read.
  * @nor:	pointer to 'struct spi_nor'.
- * @sr:		pointer to DMA-able buffer to write to the Status Register.
- * @len:	number of bytes to write to the Status Register.
+ * @opcode:	opcode for the status register read operation.
+ * @sr:		pointer to buffer for storing the content of the status registers.
+ * @len:	number of status registers to read (1 or 2).
  *
  * Return: 0 on success, -errno otherwise.
  */
-int spi_nor_write_sr(struct spi_nor *nor, const u8 *sr, size_t len)
+int spi_nor_read_sr_ll(struct spi_nor *nor, u8 opcode, u8 *sr,
+		       unsigned int len)
 {
-	int ret;
+	int ret, i;
 
-	ret = spi_nor_write_enable(nor);
-	if (ret)
-		return ret;
+	if (len > 2)
+		return -EINVAL;
+
+	for (i = 0; i < len; i++)
+		nor->bouncebuf[i] = 0;
 
 	if (nor->spimem) {
-		struct spi_mem_op op = SPI_NOR_WRSR_OP(sr, len);
+		struct spi_mem_op op = SPI_NOR_RDSR_OP(opcode, nor->bouncebuf, len);
+
+		if (nor->reg_proto == SNOR_PROTO_8_8_8_DTR) {
+			op.addr.nbytes = nor->params->rdsr_addr_nbytes;
+			op.dummy.nbytes = nor->params->rdsr_dummy;
+			/*
+			 * We don't want to read only one byte in DTR mode. So,
+			 * read 2 and then discard the second byte.
+			 */
+			op.data.nbytes = 2;
+		}
 
 		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
 
 		ret = spi_mem_exec_op(nor->spimem, &op);
 	} else {
-		ret = spi_nor_controller_ops_write_reg(nor, SPINOR_OP_WRSR, sr,
-						       len);
+		ret = spi_nor_controller_ops_read_reg(nor, opcode, nor->bouncebuf, len);
+	}
+
+	memcpy(sr, nor->bouncebuf, len);
+
+	if (ret)
+		dev_dbg(nor->dev, "Error %d reading Status Registers\n", ret);
+
+	return ret;
+}
+
+/**
+ * spi_nor_write_sr_ll() - Low-level Status Registers write.
+ * @nor:	pointer to 'struct spi_nor'.
+ * @opcode:	opcode for the status register write operation.
+ * @sr:		pointer to status registers buffer to write.
+ * @len:	number of status registers to write.
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+static int spi_nor_write_sr_ll(struct spi_nor *nor, u8 opcode,	const u8 *sr,
+			       unsigned int len)
+{
+	int ret, i;
+
+	if (len > 2)
+		return -EINVAL;
+
+	ret = spi_nor_write_enable(nor);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < len; i++)
+		nor->bouncebuf[i] = sr[i];
+
+	if (nor->spimem) {
+		struct spi_mem_op op = SPI_NOR_WRSR_OP(opcode,
+						       nor->bouncebuf, len);
+
+		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
+
+		ret = spi_mem_exec_op(nor->spimem, &op);
+	} else {
+		ret = spi_nor_controller_ops_write_reg(nor, opcode,
+						       nor->bouncebuf, len);
 	}
 
 	if (ret) {
-		dev_dbg(nor->dev, "error %d writing SR\n", ret);
+		dev_dbg(nor->dev, "Error %d writing Status Registers\n", ret);
 		return ret;
 	}
 
@@ -820,309 +809,193 @@ int spi_nor_write_sr(struct spi_nor *nor, const u8 *sr, size_t len)
 }
 
 /**
- * spi_nor_write_sr1_and_check() - Write one byte to the Status Register 1 and
- * ensure that the byte written match the received value.
- * @nor:	pointer to a 'struct spi_nor'.
- * @sr1:	byte value to be written to the Status Register.
+ * spi_nor_read_sr1() - Read SR1 only
+ * Useful for:
+ *   - The core to offer a generic "read SR1 and SR2" capability
+ *   - Manufacturer drivers (since they know the chip SR layout)
+ *   - Polling the BUSY bit in the core
  *
- * Return: 0 on success, -errno otherwise.
+ * @nor: the spi_nor structure
+ * @sr1: pointer to a valid SR1 buffer
+ *
+ * Return 0 or errno.
  */
-static int spi_nor_write_sr1_and_check(struct spi_nor *nor, u8 sr1)
+int spi_nor_read_sr1(struct spi_nor *nor, u8 *sr1)
 {
-	int ret;
-
-	nor->bouncebuf[0] = sr1;
-
-	ret = spi_nor_write_sr(nor, nor->bouncebuf, 1);
-	if (ret)
-		return ret;
-
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
-	if (ret)
-		return ret;
-
-	if (nor->bouncebuf[0] != sr1) {
-		dev_dbg(nor->dev, "SR1: read back test failed\n");
-		return -EIO;
-	}
-
-	return 0;
+	return spi_nor_read_sr_ll(nor, nor->params->opcodes.read_sr1, sr1, 1);
 }
 
 /**
- * spi_nor_write_16bit_sr_and_check() - Write the Status Register 1 and the
- * Status Register 2 in one shot. Ensure that the byte written in the Status
- * Register 1 match the received value, and that the 16-bit Write did not
- * affect what was already in the Status Register 2.
- * @nor:	pointer to a 'struct spi_nor'.
- * @sr1:	byte value to be written to the Status Register 1.
+ * spi_nor_read_sr2() - Read SR2 only
+ * Useful for:
+ *   - The core to offer a generic "read SR1 and SR2" capability
+ *   - Manufacturer drivers (since they know the chip SR layout)
+ *   - SR2 based OTP configuration
  *
- * Return: 0 on success, -errno otherwise.
+ * @nor: the spi_nor structure
+ * @sr2: pointer to a valid SR2 buffer
+ *
+ * Return 0 or errno.
  */
-static int spi_nor_write_16bit_sr_and_check(struct spi_nor *nor, u8 sr1)
+int spi_nor_read_sr2(struct spi_nor *nor, u8 *sr2)
+{
+	struct spi_nor_flash_parameter *params = nor->params;
+
+	if (!params->opcodes.read_sr2)
+		return -EINVAL;
+
+	return spi_nor_read_sr_ll(nor, params->opcodes.read_sr2, sr2, 1);
+}
+
+/**
+ * spi_nor_read_sr1_and_sr2() - Read SR1 then SR2
+ * General purpose helper.
+ *
+ * @nor: the spi_nor structure
+ * @sr: pointer to a valid 2-byte array
+ *
+ * Return 0 or errno.
+ */
+int spi_nor_read_sr1_and_sr2(struct spi_nor *nor, u8 *sr)
+{
+	int ret;
+
+	ret = spi_nor_read_sr1(nor, &sr[0]);
+	if (ret)
+		return ret;
+
+	return spi_nor_read_sr2(nor, &sr[1]);
+}
+
+/**
+ * spi_nor_write_sr1() - Write SR1 only
+ * Useful for:
+ *   - Manufacturer drivers (since they know the chip SR layout)
+ *
+ * @nor: the spi_nor structure
+ * @sr1: pointer to a valid SR1 buffer
+ *
+ * Return 0 or errno.
+ */
+int spi_nor_write_sr1(struct spi_nor *nor, const u8 *sr1)
+{
+	if (WARN_ONCE(!nor->params->opcodes.write_sr1,
+		      "Restricted helper use, write SR1 not supported"))
+		return -EIO;
+
+	return spi_nor_write_sr_ll(nor, nor->params->opcodes.write_sr1, sr1, 1);
+}
+
+/**
+ * spi_nor_write_sr2() - Write SR2 only
+ * Useful for:
+ *   - Manufacturer drivers (since they know the chip SR layout)
+ *   - SR2 based OTP configuration
+ *
+ * @nor: the spi_nor structure
+ * @sr2: pointer to a valid SR2 buffer
+ *
+ * Return 0 or errno.
+ */
+int spi_nor_write_sr2(struct spi_nor *nor, const u8 *sr2)
+{
+	if (WARN_ONCE(!nor->params->opcodes.write_sr2,
+		      "Restricted helper use, write SR2 not supported"))
+		return -EIO;
+
+	return spi_nor_write_sr_ll(nor, nor->params->opcodes.write_sr2, sr2, 1);
+}
+
+/**
+ * spi_nor_write_sr1_and_sr2() - Write SR1 then SR2
+ * General purpose helper, always safe to call. Will expectedly ignore
+ * SR2 on certain chips.
+ *
+ * @nor: the spi_nor structure
+ * @sr: pointer to a valid 2-byte array
+ *
+ * Return 0 or errno.
+ */
+static int spi_nor_write_sr1_and_sr2(struct spi_nor *nor, const u8 *sr)
 {
 	struct spi_nor_flash_parameter *params = nor->params;
 	int ret;
-	u8 *sr_cr = nor->bouncebuf;
-	u8 cr_written;
 
-	/* Make sure we don't overwrite the contents of Status Register 2. */
-	if (!(params->flags & SNOR_F_NO_READ_CR)) {
-		ret = spi_nor_read_cr(nor, &sr_cr[1]);
-		if (ret)
-			return ret;
-	} else if ((spi_nor_get_protocol_width(nor->read_proto) == 4 ||
-		    spi_nor_get_protocol_width(nor->write_proto) == 4) &&
-		   nor->params->quad_enable) {
-		/*
-		 * If the Status Register 2 Read command (35h) is not
-		 * supported, we should at least be sure we don't
-		 * change the value of the SR2 Quad Enable bit.
-		 *
-		 * When the Quad Enable method is set and the buswidth is 4, we
-		 * can safely assume that the value of the QE bit is one, as a
-		 * consequence of the nor->params->quad_enable() call.
-		 *
-		 * According to the JESD216 revB standard, BFPT DWORDS[15],
-		 * bits 22:20, the 16-bit Write Status (01h) command is
-		 * available just for the cases in which the QE bit is
-		 * described in SR2 at BIT(1).
-		 */
-		sr_cr[1] = SR2_QUAD_EN_BIT1;
-	} else {
-		sr_cr[1] = 0;
-	}
+	if (params->opcodes.write_sr1_and_sr2)
+		return spi_nor_write_sr_ll(nor,
+					   params->opcodes.write_sr1_and_sr2,
+					   sr, 2);
 
-	sr_cr[0] = sr1;
-
-	ret = spi_nor_write_sr(nor, sr_cr, 2);
+	ret = spi_nor_write_sr1(nor, &sr[0]);
 	if (ret)
 		return ret;
 
-	ret = spi_nor_read_sr(nor, sr_cr);
-	if (ret)
-		return ret;
-
-	if (sr1 != sr_cr[0]) {
-		dev_dbg(nor->dev, "SR: Read back test failed\n");
-		return -EIO;
-	}
-
-	if (params->flags & SNOR_F_NO_READ_CR)
-		return 0;
-
-	cr_written = sr_cr[1];
-
-	ret = spi_nor_read_cr(nor, &sr_cr[1]);
-	if (ret)
-		return ret;
-
-	if (cr_written != sr_cr[1]) {
-		dev_dbg(nor->dev, "CR: read back test failed\n");
-		return -EIO;
-	}
+	if (params->opcodes.write_sr2)
+		return spi_nor_write_sr2(nor, &sr[1]);
 
 	return 0;
 }
 
 /**
- * spi_nor_write_16bit_cr_and_check() - Write the Status Register 1 and the
- * Configuration Register in one shot. Ensure that the byte written in the
- * Configuration Register match the received value, and that the 16-bit Write
- * did not affect what was already in the Status Register 1.
- * @nor:	pointer to a 'struct spi_nor'.
- * @cr:		byte value to be written to the Configuration Register.
+ * spi_nor_write_sr1_and_sr2_and_check() - Write SR1 then SR2, then read
+ *					   them back and verifies
+ * General purpose helper, always safe to call. Will expectedly ignore
+ * SR2 on certain chips.
  *
- * Return: 0 on success, -errno otherwise.
+ * @nor: the spi_nor structure
+ * @sr: pointer to a valid 2-byte array
+ *
+ * Return 0 or errno.
  */
-int spi_nor_write_16bit_cr_and_check(struct spi_nor *nor, u8 cr)
+int spi_nor_write_sr1_and_sr2_and_check(struct spi_nor *nor, const u8 *sr)
 {
+	u8 tmp[2];
 	int ret;
-	u8 *sr_cr = nor->bouncebuf;
-	u8 sr_written;
 
-	/* Keep the current value of the Status Register 1. */
-	ret = spi_nor_read_sr(nor, sr_cr);
+	ret = spi_nor_write_sr1_and_sr2(nor, sr);
 	if (ret)
 		return ret;
 
-	sr_cr[1] = cr;
-
-	ret = spi_nor_write_sr(nor, sr_cr, 2);
+	ret = spi_nor_read_sr1_and_sr2(nor, tmp);
 	if (ret)
 		return ret;
 
-	sr_written = sr_cr[0];
-
-	ret = spi_nor_read_sr(nor, sr_cr);
-	if (ret)
-		return ret;
-
-	if (sr_written != sr_cr[0]) {
-		dev_dbg(nor->dev, "SR: Read back test failed\n");
+	if (sr[0] != tmp[0] || sr[1] != tmp[1])
 		return -EIO;
-	}
-
-	if (nor->params->flags & SNOR_F_NO_READ_CR)
-		return 0;
-
-	ret = spi_nor_read_cr(nor, &sr_cr[1]);
-	if (ret)
-		return ret;
-
-	if (cr != sr_cr[1]) {
-		dev_dbg(nor->dev, "CR: read back test failed\n");
-		return -EIO;
-	}
 
 	return 0;
 }
 
 /**
- * spi_nor_write_16bit_sr_cr_and_check() - Write the Status Register 1 and the
- * Configuration Register in one shot. Ensure that the bytes written in both
- * registers match the received value.
- * @nor:	pointer to a 'struct spi_nor'.
- * @regs:	two-byte array with values to be written to the status and
- *		configuration registers.
+ * spi_nor_generic_quad_enable() - Read the status registers,
+ *				   apply the QE bit mask,
+ *				   write the status registers,
+ *				   read them back and check the content.
+ *
+ * @nor:	pointer to 'struct spi_nor'
  *
  * Return: 0 on success, -errno otherwise.
  */
-static int spi_nor_write_16bit_sr_cr_and_check(struct spi_nor *nor, const u8 *regs)
+static int spi_nor_generic_quad_enable(struct spi_nor *nor)
 {
-	u8 written_regs[2];
+	u8 *qe_mask = nor->params->qe_mask;
+	u8 sr[2] = {};
 	int ret;
 
-	written_regs[0] = regs[0];
-	written_regs[1] = regs[1];
-	nor->bouncebuf[0] = regs[0];
-	nor->bouncebuf[1] = regs[1];
-
-	ret = spi_nor_write_sr(nor, nor->bouncebuf, 2);
-	if (ret)
-		return ret;
-
-	ret = spi_nor_read_sr(nor, &nor->bouncebuf[0]);
-	if (ret)
-		return ret;
-
-	if (written_regs[0] != nor->bouncebuf[0]) {
-		dev_dbg(nor->dev, "SR: Read back test failed\n");
-		return -EIO;
-	}
-
-	if (nor->params->flags & SNOR_F_NO_READ_CR)
+	if (!qe_mask[0] && !qe_mask[1])
 		return 0;
 
-	ret = spi_nor_read_cr(nor, &nor->bouncebuf[1]);
+	ret = spi_nor_read_sr1_and_sr2(nor, sr);
 	if (ret)
 		return ret;
 
-	if (written_regs[1] != nor->bouncebuf[1]) {
-		dev_dbg(nor->dev, "CR: read back test failed\n");
-		return -EIO;
-	}
+	if (sr[0] & qe_mask[0] || sr[1] & qe_mask[1])
+		return 0;
 
-	return 0;
-}
+	sr[0] |= qe_mask[0];
+	sr[1] |= qe_mask[1];
 
-/**
- * spi_nor_write_sr_and_check() - Write the Status Register 1 and ensure that
- * the byte written match the received value without affecting other bits in the
- * Status Register 1 and 2.
- * @nor:	pointer to a 'struct spi_nor'.
- * @sr1:	byte value to be written to the Status Register.
- *
- * Return: 0 on success, -errno otherwise.
- */
-int spi_nor_write_sr_and_check(struct spi_nor *nor, u8 sr1)
-{
-	if (nor->params->flags & SNOR_F_HAS_16BIT_SR)
-		return spi_nor_write_16bit_sr_and_check(nor, sr1);
-
-	return spi_nor_write_sr1_and_check(nor, sr1);
-}
-
-/**
- * spi_nor_write_sr_cr_and_check() - Write the Status Register 1 and ensure that
- * the byte written match the received value. Same for the Control Register if
- * available.
- * @nor:	pointer to a 'struct spi_nor'.
- * @regs:	byte array to be written to the registers.
- *
- * Return: 0 on success, -errno otherwise.
- */
-int spi_nor_write_sr_cr_and_check(struct spi_nor *nor, const u8 *regs)
-{
-	if (nor->params->flags & SNOR_F_HAS_16BIT_SR)
-		return spi_nor_write_16bit_sr_cr_and_check(nor, regs);
-
-	return spi_nor_write_sr1_and_check(nor, regs[0]);
-}
-
-/**
- * spi_nor_write_sr2() - Write the Status Register 2 using the
- * SPINOR_OP_WRSR2 (3eh) command.
- * @nor:	pointer to 'struct spi_nor'.
- * @sr2:	pointer to DMA-able buffer to write to the Status Register 2.
- *
- * Return: 0 on success, -errno otherwise.
- */
-static int spi_nor_write_sr2(struct spi_nor *nor, const u8 *sr2)
-{
-	int ret;
-
-	ret = spi_nor_write_enable(nor);
-	if (ret)
-		return ret;
-
-	if (nor->spimem) {
-		struct spi_mem_op op = SPI_NOR_WRSR2_OP(sr2);
-
-		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
-
-		ret = spi_mem_exec_op(nor->spimem, &op);
-	} else {
-		ret = spi_nor_controller_ops_write_reg(nor, SPINOR_OP_WRSR2,
-						       sr2, 1);
-	}
-
-	if (ret) {
-		dev_dbg(nor->dev, "error %d writing SR2\n", ret);
-		return ret;
-	}
-
-	return spi_nor_wait_till_ready(nor);
-}
-
-/**
- * spi_nor_read_sr2() - Read the Status Register 2 using the
- * SPINOR_OP_RDSR2 (3fh) command.
- * @nor:	pointer to 'struct spi_nor'.
- * @sr2:	pointer to DMA-able buffer where the value of the
- *		Status Register 2 will be written.
- *
- * Return: 0 on success, -errno otherwise.
- */
-static int spi_nor_read_sr2(struct spi_nor *nor, u8 *sr2)
-{
-	int ret;
-
-	if (nor->spimem) {
-		struct spi_mem_op op = SPI_NOR_RDSR2_OP(sr2);
-
-		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
-
-		ret = spi_mem_exec_op(nor->spimem, &op);
-	} else {
-		ret = spi_nor_controller_ops_read_reg(nor, SPINOR_OP_RDSR2, sr2,
-						      1);
-	}
-
-	if (ret)
-		dev_dbg(nor->dev, "error %d reading SR2\n", ret);
-
-	return ret;
+	return spi_nor_write_sr1_and_sr2_and_check(nor, sr);
 }
 
 /**
@@ -1914,106 +1787,6 @@ erase_err:
 	return ret;
 }
 
-/**
- * spi_nor_sr1_bit6_quad_enable() - Set the Quad Enable BIT(6) in the Status
- * Register 1.
- * @nor:	pointer to a 'struct spi_nor'
- *
- * Bit 6 of the Status Register 1 is the QE bit for Macronix like QSPI memories.
- *
- * Return: 0 on success, -errno otherwise.
- */
-int spi_nor_sr1_bit6_quad_enable(struct spi_nor *nor)
-{
-	int ret;
-
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
-	if (ret)
-		return ret;
-
-	if (nor->bouncebuf[0] & SR1_QUAD_EN_BIT6)
-		return 0;
-
-	nor->bouncebuf[0] |= SR1_QUAD_EN_BIT6;
-
-	return spi_nor_write_sr1_and_check(nor, nor->bouncebuf[0]);
-}
-
-/**
- * spi_nor_sr2_bit1_quad_enable() - set the Quad Enable BIT(1) in the Status
- * Register 2.
- * @nor:       pointer to a 'struct spi_nor'.
- *
- * Bit 1 of the Status Register 2 is the QE bit for Spansion like QSPI memories.
- *
- * Return: 0 on success, -errno otherwise.
- */
-int spi_nor_sr2_bit1_quad_enable(struct spi_nor *nor)
-{
-	int ret;
-
-	if (nor->params->flags & SNOR_F_NO_READ_CR)
-		return spi_nor_write_16bit_cr_and_check(nor, SR2_QUAD_EN_BIT1);
-
-	ret = spi_nor_read_cr(nor, nor->bouncebuf);
-	if (ret)
-		return ret;
-
-	if (nor->bouncebuf[0] & SR2_QUAD_EN_BIT1)
-		return 0;
-
-	nor->bouncebuf[0] |= SR2_QUAD_EN_BIT1;
-
-	return spi_nor_write_16bit_cr_and_check(nor, nor->bouncebuf[0]);
-}
-
-/**
- * spi_nor_sr2_bit7_quad_enable() - set QE bit in Status Register 2.
- * @nor:	pointer to a 'struct spi_nor'
- *
- * Set the Quad Enable (QE) bit in the Status Register 2.
- *
- * This is one of the procedures to set the QE bit described in the SFDP
- * (JESD216 rev B) specification but no manufacturer using this procedure has
- * been identified yet, hence the name of the function.
- *
- * Return: 0 on success, -errno otherwise.
- */
-int spi_nor_sr2_bit7_quad_enable(struct spi_nor *nor)
-{
-	u8 *sr2 = nor->bouncebuf;
-	int ret;
-	u8 sr2_written;
-
-	/* Check current Quad Enable bit value. */
-	ret = spi_nor_read_sr2(nor, sr2);
-	if (ret)
-		return ret;
-	if (*sr2 & SR2_QUAD_EN_BIT7)
-		return 0;
-
-	/* Update the Quad Enable bit. */
-	*sr2 |= SR2_QUAD_EN_BIT7;
-
-	ret = spi_nor_write_sr2(nor, sr2);
-	if (ret)
-		return ret;
-
-	sr2_written = *sr2;
-
-	/* Read back and check it. */
-	ret = spi_nor_read_sr2(nor, sr2);
-	if (ret)
-		return ret;
-
-	if (*sr2 != sr2_written) {
-		dev_dbg(nor->dev, "SR2: Read back test failed\n");
-		return -EIO;
-	}
-
-	return 0;
-}
-
 static const struct spi_nor_manufacturer *manufacturers[] = {
 	&spi_nor_atmel,
 	&spi_nor_eon,
@@ -2504,6 +2277,7 @@ spi_nor_spimem_adjust_hwcaps(struct spi_nor *nor, u32 *hwcaps)
 {
 	struct spi_nor_flash_parameter *params = nor->params;
 	unsigned int cap;
+	u8 opcode;
 
 	/* X-X-X modes are not supported yet, mask them all. */
 	*hwcaps &= ~SNOR_HWCAPS_X_X_X;
@@ -2535,14 +2309,15 @@ spi_nor_spimem_adjust_hwcaps(struct spi_nor *nor, u32 *hwcaps)
 			*hwcaps &= ~BIT(cap);
 	}
 
-	/* Some SPI controllers might not support CR read opcode. */
-	if (!(params->flags & SNOR_F_NO_READ_CR)) {
-		struct spi_mem_op op = SPI_NOR_RDCR_OP(nor->bouncebuf);
+	/* Some SPI controllers might not support reading SR2 */
+	opcode = nor->params->opcodes.read_sr2;
+	if (opcode) {
+		struct spi_mem_op op = SPI_NOR_RDSR_OP(opcode, nor->bouncebuf, 1);
 
 		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
 
 		if (!spi_mem_supports_op(nor->spimem, &op))
-			params->flags |= SNOR_F_NO_READ_CR;
+			nor->params->opcodes.read_sr2 = 0;
 	}
 }
 
@@ -3057,11 +2832,14 @@ static void spi_nor_init_default_params(struct spi_nor *nor)
 	const struct flash_info *info = nor->info;
 	struct device_node *np = spi_nor_get_flash_node(nor);
 
-	params->quad_enable = spi_nor_sr2_bit1_quad_enable;
-	params->otp.org = info->otp;
+	/* Default to 16-bit Read/Write Status commands */
+	params->opcodes.read_sr1 = SPINOR_OP_RDSR;
+	params->opcodes.read_sr2 = SPINOR_OP_RDCR;
+	params->opcodes.write_sr1_and_sr2 = SPINOR_OP_WRSR;
+	params->quad_enable = spi_nor_generic_quad_enable;
+	params->qe_mask[1] = BIT(1);
 
-	/* Default to 16-bit Write Status (01h) Command */
-	params->flags |= SNOR_F_HAS_16BIT_SR;
+	params->otp.org = info->otp;
 
 	/* Set SPI NOR sizes. */
 	params->writesize = 1;

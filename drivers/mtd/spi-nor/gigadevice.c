@@ -23,8 +23,10 @@ gd25q256_post_bfpt(struct spi_nor *nor,
 	 *      GD25Q256E      | SFDP_JESD216_MAJOR | SFDP_JESD216B_MINOR
 	 */
 	if (bfpt_header->major == SFDP_JESD216_MAJOR &&
-	    bfpt_header->minor == SFDP_JESD216_MINOR)
-		nor->params->quad_enable = spi_nor_sr1_bit6_quad_enable;
+	    bfpt_header->minor == SFDP_JESD216_MINOR) {
+		nor->params->qe_mask[0] = BIT(6);
+		nor->params->qe_mask[1] = 0;
+	}
 
 	return 0;
 }

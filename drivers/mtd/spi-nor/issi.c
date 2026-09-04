@@ -131,7 +131,8 @@ static const struct flash_info issi_nor_parts[] = {
 
 static void issi_nor_default_init(struct spi_nor *nor)
 {
-	nor->params->quad_enable = spi_nor_sr1_bit6_quad_enable;
+	nor->params->qe_mask[0] = BIT(6);
+	nor->params->qe_mask[1] = 0;
 }
 
 static const struct spi_nor_fixups issi_fixups = {

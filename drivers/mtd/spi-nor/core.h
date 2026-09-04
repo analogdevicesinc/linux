@@ -37,35 +37,17 @@
 		   SPI_MEM_OP_NO_DUMMY,					\
 		   SPI_MEM_OP_NO_DATA)
 
-#define SPI_NOR_RDSR_OP(buf)						\
-	SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDSR, 0),			\
+#define SPI_NOR_RDSR_OP(opcode, buf, len)				\
+	SPI_MEM_OP(SPI_MEM_OP_CMD(opcode, 0),				\
 		   SPI_MEM_OP_NO_ADDR,					\
 		   SPI_MEM_OP_NO_DUMMY,					\
-		   SPI_MEM_OP_DATA_IN(1, buf, 0))
+		   SPI_MEM_OP_DATA_IN(len, buf, 0))
 
-#define SPI_NOR_WRSR_OP(buf, len)					\
-	SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_WRSR, 0),			\
+#define SPI_NOR_WRSR_OP(opcode, buf, len)				\
+	SPI_MEM_OP(SPI_MEM_OP_CMD(opcode, 0),				\
 		   SPI_MEM_OP_NO_ADDR,					\
 		   SPI_MEM_OP_NO_DUMMY,					\
 		   SPI_MEM_OP_DATA_OUT(len, buf, 0))
-
-#define SPI_NOR_RDSR2_OP(buf)						\
-	SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDSR2, 0),			\
-		   SPI_MEM_OP_NO_ADDR,					\
-		   SPI_MEM_OP_NO_DUMMY,					\
-		   SPI_MEM_OP_DATA_OUT(1, buf, 0))
-
-#define SPI_NOR_WRSR2_OP(buf)						\
-	SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_WRSR2, 0),			\
-		   SPI_MEM_OP_NO_ADDR,					\
-		   SPI_MEM_OP_NO_DUMMY,					\
-		   SPI_MEM_OP_DATA_OUT(1, buf, 0))
-
-#define SPI_NOR_RDCR_OP(buf)						\
-	SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDCR, 0),			\
-		   SPI_MEM_OP_NO_ADDR,					\
-		   SPI_MEM_OP_NO_DUMMY,					\
-		   SPI_MEM_OP_DATA_IN(1, buf, 0))
 
 #define SPI_NOR_EN4B_EX4B_OP(enable)					\
 	SPI_MEM_OP(SPI_MEM_OP_CMD(enable ? SPINOR_OP_EN4B : SPINOR_OP_EX4B, 0),	\
@@ -131,8 +113,6 @@ enum spi_nor_option_flags {
 	SNOR_F_4B_OPCODES	= BIT(3),
 	SNOR_F_HAS_4BAIT	= BIT(4),
 	SNOR_F_HAS_LOCK		= BIT(5),
-	SNOR_F_HAS_16BIT_SR	= BIT(6),
-	SNOR_F_NO_READ_CR	= BIT(7),
 	SNOR_F_HAS_SR_TB_BIT6	= BIT(8),
 	SNOR_F_HAS_4BIT_BP      = BIT(9),
 	SNOR_F_HAS_SR_BP3_BIT6  = BIT(10),
@@ -347,9 +327,19 @@ struct spi_nor_otp {
  * List of variable opcodes used by the chip.
  *
  * @die_erase: opcode for erasing a die, defaults to SPINOR_OP_CHIP_ERASE
+ * @read_sr1: opcode for reading SR1 alone
+ * @read_sr2: opcode for reading SR2 alone
+ * @write_sr1: opcode for writing SR1 alone
+ * @write_sr2: opcode for writing SR2 alone
+ * @write_sr1_and_sr2: opcode for writing SR1 then SR2 in one operation
  */
 struct spi_nor_opcodes {
 	u8 die_erase;
+	u8 read_sr1;
+	u8 read_sr2;
+	u8 write_sr1;
+	u8 write_sr2;
+	u8 write_sr1_and_sr2;
 };
 
 /**
@@ -388,6 +378,7 @@ struct spi_nor_opcodes {
  * @otp:		SPI NOR OTP info.
  * @set_octal_dtr:	enables or disables SPI NOR octal DTR mode.
  * @quad_enable:	enables SPI NOR quad mode.
+ * @qe_mask:		two bytes mask used to set/clear the QE bit
  * @set_4byte_addr_mode: puts the SPI NOR in 4 byte addressing mode.
  * @ready:		(optional) flashes might use a different mechanism
  *			than reading the status register to indicate they
@@ -420,6 +411,7 @@ struct spi_nor_flash_parameter {
 
 	int (*set_octal_dtr)(struct spi_nor *nor, bool enable);
 	int (*quad_enable)(struct spi_nor *nor);
+	u8				qe_mask[2];
 	int (*set_4byte_addr_mode)(struct spi_nor *nor, bool enable);
 	int (*ready)(struct spi_nor *nor);
 
@@ -645,18 +637,17 @@ int spi_nor_wait_till_ready(struct spi_nor *nor);
 int spi_nor_global_block_unlock(struct spi_nor *nor);
 int spi_nor_prep_and_lock(struct spi_nor *nor);
 void spi_nor_unlock_and_unprep(struct spi_nor *nor);
-int spi_nor_sr1_bit6_quad_enable(struct spi_nor *nor);
-int spi_nor_sr2_bit1_quad_enable(struct spi_nor *nor);
-int spi_nor_sr2_bit7_quad_enable(struct spi_nor *nor);
 int spi_nor_read_id(struct spi_nor *nor, u8 naddr, u8 ndummy, u8 *id,
 		    enum spi_nor_protocol reg_proto);
-int spi_nor_read_sr(struct spi_nor *nor, u8 *sr);
 int spi_nor_sr_ready(struct spi_nor *nor);
-int spi_nor_read_cr(struct spi_nor *nor, u8 *cr);
-int spi_nor_write_sr(struct spi_nor *nor, const u8 *sr, size_t len);
-int spi_nor_write_sr_and_check(struct spi_nor *nor, u8 sr1);
-int spi_nor_write_16bit_cr_and_check(struct spi_nor *nor, u8 cr);
-int spi_nor_write_sr_cr_and_check(struct spi_nor *nor, const u8 *regs);
+int spi_nor_read_sr_ll(struct spi_nor *nor, u8 opcode, u8 *sr,
+		       unsigned int len);
+int spi_nor_read_sr1(struct spi_nor *nor, u8 *sr1);
+int spi_nor_read_sr2(struct spi_nor *nor, u8 *sr2);
+int spi_nor_read_sr1_and_sr2(struct spi_nor *nor, u8 *sr);
+int spi_nor_write_sr1(struct spi_nor *nor, const u8 *sr1);
+int spi_nor_write_sr2(struct spi_nor *nor, const u8 *sr2);
+int spi_nor_write_sr1_and_sr2_and_check(struct spi_nor *nor, const u8 *sr);
 
 ssize_t spi_nor_read_data(struct spi_nor *nor, loff_t from, size_t len,
 			  u8 *buf);

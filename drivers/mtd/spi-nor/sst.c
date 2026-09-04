@@ -21,16 +21,17 @@ static int sst26vf_nor_lock(struct spi_nor *nor, loff_t ofs, u64 len)
 static int sst26vf_nor_unlock(struct spi_nor *nor, loff_t ofs, u64 len)
 {
 	int ret;
+	u8 cr;
 
 	/* We only support unlocking the entire flash array. */
 	if (ofs != 0 || len != nor->params->size)
 		return -EINVAL;
 
-	ret = spi_nor_read_cr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr2(nor, &cr);
 	if (ret)
 		return ret;
 
-	if (!(nor->bouncebuf[0] & SST26VF_CR_BPNV)) {
+	if (!(cr & SST26VF_CR_BPNV)) {
 		dev_dbg(nor->dev, "Any block has been permanently locked\n");
 		return -EINVAL;
 	}

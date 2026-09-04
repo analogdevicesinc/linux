@@ -520,12 +520,12 @@ static int winbond_nor_late_init(struct spi_nor *nor)
 	 * been to declare CR reads as unsupported, whereas the Jedec
 	 * specification doesn't clearly state that. In practice, all these
 	 * chips do support reading back the CR, which is needed for SWP support,
-	 * so make sure that capability remains enabled (needed for SWP).
+	 * so make sure that capability remains enabled.
 	 * In practice, only exclude the old W25X family (JEDEC ID: EF 30 xx)
 	 * which actually does not support this feature.
 	 */
 	if (nor->id[1] > 0x30)
-		nor->params->flags &= ~SNOR_F_NO_READ_CR;
+		params->opcodes.read_sr2 = SPINOR_OP_RDCR;
 
 	/*
 	 * Winbond has reused many IDs, up to four times at this

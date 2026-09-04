@@ -65,11 +65,12 @@ mx25l3255e_late_init_fixups(struct spi_nor *nor)
 
 	/*
 	 * SFDP of MX25L3255E is JESD216, which does not include the Quad
-	 * Enable bit Requirement in BFPT. As a result, during BFPT parsing,
-	 * the quad_enable method is not set to spi_nor_sr1_bit6_quad_enable.
-	 * Therefore, it is necessary to correct this setting by late_init.
+	 * Enable bit Requirement in BFPT. As a result, during BFPT parsing
+	 * the quad_enable mask is reset. Therefore, it is necessary to
+	 * correct this setting by late_init.
 	 */
-	params->quad_enable = spi_nor_sr1_bit6_quad_enable;
+	params->qe_mask[0] = BIT(6);
+	params->qe_mask[1] = 0;
 
 	/*
 	 * In addition, MX25L3255E also supports 1-4-4 page program in 3-byte
@@ -340,7 +341,8 @@ static int macronix_nor_set_octal_dtr(struct spi_nor *nor, bool enable)
 
 static void macronix_nor_default_init(struct spi_nor *nor)
 {
-	nor->params->quad_enable = spi_nor_sr1_bit6_quad_enable;
+	nor->params->qe_mask[0] = BIT(6);
+	nor->params->qe_mask[1] = 0;
 }
 
 static int macronix_nor_late_init(struct spi_nor *nor)

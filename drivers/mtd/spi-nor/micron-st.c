@@ -229,7 +229,7 @@ static int mt25qu512a_post_bfpt_fixup(struct spi_nor *nor,
 				      const struct sfdp_parameter_header *bfpt_header,
 				      const struct sfdp_bfpt *bfpt)
 {
-	nor->params->flags &= ~SNOR_F_HAS_16BIT_SR;
+	nor->params->opcodes.write_sr1 = 0;
 	return 0;
 }
 
@@ -633,7 +633,7 @@ static int micron_st_nor_ready(struct spi_nor *nor)
 static void micron_st_nor_default_init(struct spi_nor *nor)
 {
 	nor->params->flags |= SNOR_F_HAS_LOCK;
-	nor->params->flags &= ~SNOR_F_HAS_16BIT_SR;
+	nor->params->opcodes.write_sr1 = 0;
 	nor->params->quad_enable = NULL;
 }
 

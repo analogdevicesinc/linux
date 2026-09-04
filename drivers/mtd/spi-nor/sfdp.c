@@ -592,10 +592,21 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 	val >>= BFPT_DWORD11_PAGE_SIZE_SHIFT;
 	params->page_size = 1U << val;
 
+	/*
+	 * The standard declares various read and write status methods, some of
+	 * them will be overloaded based on the QER field.
+	 */
+	params->opcodes.read_sr1 = SPINOR_OP_RDSR;
+	params->opcodes.read_sr2 = SPINOR_OP_RDCR;
+	params->opcodes.write_sr1 = SPINOR_OP_WRSR;
+	params->opcodes.write_sr1_and_sr2 = SPINOR_OP_WRSR;
+
+	params->qe_mask[0] = 0;
+	params->qe_mask[1] = 0;
+
 	/* Quad Enable Requirements. */
 	switch (bfpt.dwords[SFDP_DWORD(15)] & BFPT_DWORD15_QER_MASK) {
 	case BFPT_DWORD15_QER_NONE:
-		params->quad_enable = NULL;
 		break;
 
 	case BFPT_DWORD15_QER_SR2_BIT1_NO_1B_WR:
@@ -603,23 +614,28 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 		 * Writing only one byte to the Status Register has the
 		 * side-effect of clearing Status Register 2.
 		 */
+		fallthrough;
 	case BFPT_DWORD15_QER_SR2_BIT1_NO_RD:
 		/*
 		 * Read Configuration Register (35h) instruction is not
-		 * supported.
+		 * supported. 16-bit writes expected.
 		 */
-		params->flags |= SNOR_F_HAS_16BIT_SR | SNOR_F_NO_READ_CR;
-		params->quad_enable = spi_nor_sr2_bit1_quad_enable;
+		params->opcodes.read_sr2 = 0;
+		params->opcodes.write_sr1 = 0;
+		params->qe_mask[1] = BIT(1);
 		break;
 
 	case BFPT_DWORD15_QER_SR1_BIT6:
-		params->flags &= ~SNOR_F_HAS_16BIT_SR;
-		params->quad_enable = spi_nor_sr1_bit6_quad_enable;
+		params->opcodes.read_sr2 = 0;
+		params->opcodes.write_sr1_and_sr2 = 0;
+		params->qe_mask[0] = BIT(6);
 		break;
 
 	case BFPT_DWORD15_QER_SR2_BIT7:
-		params->flags &= ~SNOR_F_HAS_16BIT_SR;
-		params->quad_enable = spi_nor_sr2_bit7_quad_enable;
+		params->opcodes.read_sr2 = SPINOR_OP_RDSR2;
+		params->opcodes.write_sr1_and_sr2 = 0;
+		params->opcodes.write_sr2 = SPINOR_OP_WRSR2;
+		params->qe_mask[1] = BIT(7);
 		break;
 
 	case BFPT_DWORD15_QER_SR2_BIT1:
@@ -629,15 +645,18 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 		 * Register 2, so let's be cautious and keep the default
 		 * assumption of a 16-bit Write Status (01h) command.
 		 */
-		params->flags |= SNOR_F_HAS_16BIT_SR;
-
-		params->quad_enable = spi_nor_sr2_bit1_quad_enable;
+		params->opcodes.write_sr1 = 0;
+		params->qe_mask[1] = BIT(1);
 		break;
 
 	default:
 		dev_dbg(nor->dev, "BFPT QER reserved value used\n");
 		break;
 	}
+
+	/* opcodes sanity check */
+	WARN_ON(!params->opcodes.read_sr1 ||
+		(!params->opcodes.write_sr1 && !params->opcodes.write_sr1_and_sr2));
 
 	dword = bfpt.dwords[SFDP_DWORD(16)] & BFPT_DWORD16_4B_ADDR_MODE_MASK;
 	if (SFDP_MASK_CHECK(dword, BFPT_DWORD16_4B_ADDR_MODE_BRWR))

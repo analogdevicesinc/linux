@@ -399,8 +399,9 @@ static int cypress_nor_determine_addr_mode_by_sr1(struct spi_nor *nor,
 					  nor->bouncebuf);
 	bool is3byte, is4byte;
 	int ret;
+	u8 sr;
 
-	ret = spi_nor_read_sr(nor, &nor->bouncebuf[1]);
+	ret = spi_nor_read_sr1(nor, &sr);
 	if (ret)
 		return ret;
 
@@ -408,7 +409,7 @@ static int cypress_nor_determine_addr_mode_by_sr1(struct spi_nor *nor,
 	if (ret)
 		return ret;
 
-	is3byte = (nor->bouncebuf[0] == nor->bouncebuf[1]);
+	is3byte = (nor->bouncebuf[0] == sr);
 
 	op = (struct spi_mem_op)
 		CYPRESS_NOR_RD_ANY_REG_OP(4, SPINOR_REG_CYPRESS_STR1V, 0,
@@ -417,7 +418,7 @@ static int cypress_nor_determine_addr_mode_by_sr1(struct spi_nor *nor,
 	if (ret)
 		return ret;
 
-	is4byte = (nor->bouncebuf[0] == nor->bouncebuf[1]);
+	is4byte = (nor->bouncebuf[0] == sr);
 
 	if (is3byte == is4byte)
 		return -EIO;
@@ -1105,13 +1106,14 @@ static const struct flash_info spansion_nor_parts[] = {
 static int spansion_nor_sr_ready_and_clear(struct spi_nor *nor)
 {
 	int ret;
+	u8 sr;
 
-	ret = spi_nor_read_sr(nor, nor->bouncebuf);
+	ret = spi_nor_read_sr1(nor, &sr);
 	if (ret)
 		return ret;
 
-	if (nor->bouncebuf[0] & (SR_E_ERR | SR_P_ERR)) {
-		if (nor->bouncebuf[0] & SR_E_ERR)
+	if (sr & (SR_E_ERR | SR_P_ERR)) {
+		if (sr & SR_E_ERR)
 			dev_err(nor->dev, "Erase Error occurred\n");
 		else
 			dev_err(nor->dev, "Programming Error occurred\n");
@@ -1131,7 +1133,7 @@ static int spansion_nor_sr_ready_and_clear(struct spi_nor *nor)
 		return -EIO;
 	}
 
-	return !(nor->bouncebuf[0] & SR_WIP);
+	return !(sr & SR_WIP);
 }
 
 static int spansion_nor_late_init(struct spi_nor *nor)
