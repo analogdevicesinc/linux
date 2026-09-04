@@ -72,6 +72,9 @@
 
 #define NUM_JPEG_RINGS_FW	10
 
+/* Custom 5-second timeout (in us) for unload messages */
+#define SMU_V15_0_8_MSG_TIMEOUT_US	(5 * 1000 * 1000)
+
 #define to_amdgpu_device(x) (container_of(x, struct amdgpu_device, pm.smu_i2c))
 
 #define SMU_15_0_8_FEA_MAP(smu_feature, smu_15_0_8_feature)                    \
@@ -1279,12 +1282,18 @@ static int smu_v15_0_8_register_irq_handler(struct smu_context *smu)
 
 static int smu_v15_0_8_notify_unload(struct smu_context *smu)
 {
+	struct smu_msg_ctl *ctl = &smu->msg_ctl;
+	struct smu_msg_args args = {
+		.msg     = SMU_MSG_PrepareMp1ForUnload,
+		.timeout = SMU_V15_0_8_MSG_TIMEOUT_US,
+	};
+
 	if (amdgpu_in_reset(smu->adev))
 		return 0;
 
 	dev_dbg(smu->adev->dev, "Notify PMFW about driver unload");
 	/* Ignore return, just intimate FW that driver is not going to be there */
-	smu_cmn_send_smc_msg(smu, SMU_MSG_PrepareMp1ForUnload, NULL);
+	ctl->ops->send_msg(ctl, &args);
 
 	return 0;
 }

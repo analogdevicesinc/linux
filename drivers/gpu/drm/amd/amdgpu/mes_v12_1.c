@@ -167,7 +167,7 @@ static int mes_v12_1_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 	unsigned long flags;
 	u64 status_gpu_addr;
 	u32 seq, status_offset;
-	u64 *status_ptr;
+	u32 *status_ptr;
 	signed long r;
 	int ret;
 
@@ -186,7 +186,7 @@ static int mes_v12_1_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 		return ret;
 
 	status_gpu_addr = adev->wb.gpu_addr + (status_offset * 4);
-	status_ptr = (u64 *)&adev->wb.wb[status_offset];
+	status_ptr = &adev->wb.wb[status_offset];
 	*status_ptr = 0;
 
 	spin_lock_irqsave(ring_lock, flags);
@@ -235,7 +235,7 @@ static int mes_v12_1_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 			xcc_id, pipe, x_pkt->header.opcode);
 
 	r = amdgpu_fence_wait_polling(ring, seq, timeout);
-	if (r < 1 || !lower_32_bits(*status_ptr)) {
+	if (r < 1 || !*status_ptr) {
 		if (misc_op_str)
 			dev_err(adev->dev,
 				"MES(%d, %d) failed to respond to msg=%s (%s)\n",
@@ -291,10 +291,9 @@ static int mes_v12_1_add_hw_queue(struct amdgpu_mes *mes,
 {
 	union MESAPI__ADD_QUEUE mes_add_queue_pkt;
 	int xcc_id = input->xcc_id;
-	int inst = MES_PIPE_INST(xcc_id, AMDGPU_MES_SCHED_PIPE);
 
 	if (mes->enable_coop_mode)
-		xcc_id = mes->master_xcc_ids[inst];
+		xcc_id = mes->master_xcc_ids[xcc_id];
 
 	memset(&mes_add_queue_pkt, 0, sizeof(mes_add_queue_pkt));
 
@@ -352,10 +351,9 @@ static int mes_v12_1_remove_hw_queue(struct amdgpu_mes *mes,
 {
 	union MESAPI__REMOVE_QUEUE mes_remove_queue_pkt;
 	int xcc_id = input->xcc_id;
-	int inst = MES_PIPE_INST(xcc_id, AMDGPU_MES_SCHED_PIPE);
 
 	if (mes->enable_coop_mode)
-		xcc_id = mes->master_xcc_ids[inst];
+		xcc_id = mes->master_xcc_ids[xcc_id];
 
 	memset(&mes_remove_queue_pkt, 0, sizeof(mes_remove_queue_pkt));
 
@@ -378,7 +376,6 @@ static int mes_v12_1_reset_hw_queue(struct amdgpu_mes *mes,
 				    struct mes_reset_queue_input *input)
 {
 	union MESAPI__RESET mes_reset_queue_pkt;
-	int pipe;
 
 	memset(&mes_reset_queue_pkt, 0, sizeof(mes_reset_queue_pkt));
 
@@ -388,17 +385,12 @@ static int mes_v12_1_reset_hw_queue(struct amdgpu_mes *mes,
 
 	mes_reset_queue_pkt.doorbell_offset = input->doorbell_offset;
 	/* mes_reset_queue_pkt.gang_context_addr = input->gang_context_addr; */
-	/*mes_reset_queue_pkt.reset_queue_only = 1;*/
-
-	if (mes->adev->enable_uni_mes)
-		pipe = AMDGPU_MES_KIQ_PIPE;
-	else
-		pipe = AMDGPU_MES_SCHED_PIPE;
+	mes_reset_queue_pkt.reset_queue_only = 1;
 
 	return mes_v12_1_submit_pkt_and_poll_completion(mes,
-			input->xcc_id, pipe,
+			input->xcc_id, AMDGPU_MES_SCHED_PIPE,
 			&mes_reset_queue_pkt, sizeof(mes_reset_queue_pkt),
-			offsetof(union MESAPI__REMOVE_QUEUE, api_status));
+			offsetof(union MESAPI__RESET, api_status));
 }
 
 static int mes_v12_1_map_legacy_queue(struct amdgpu_mes *mes,
@@ -574,7 +566,8 @@ static int mes_v12_1_misc_op(struct amdgpu_mes *mes,
 	union MESAPI__MISC misc_pkt;
 	int pipe;
 
-	if (mes->adev->enable_uni_mes)
+	/*OP_WRM_REG_WR_WAIT is used to do tlb invalidation which need to be handled in sched pipe for gfx_12_1.*/
+	if (mes->adev->enable_uni_mes && input->op != MES_MISC_OP_WRM_REG_WR_WAIT)
 		pipe = AMDGPU_MES_KIQ_PIPE;
 	else
 		pipe = AMDGPU_MES_SCHED_PIPE;
@@ -663,7 +656,7 @@ static int mes_v12_1_set_hw_resources_1(struct amdgpu_mes *mes,
 					  int pipe, int xcc_id)
 {
 	union MESAPI_SET_HW_RESOURCES_1 mes_set_hw_res_1_pkt;
-	int master_xcc_id, inst = MES_PIPE_INST(xcc_id, pipe);
+	int master_xcc_id;
 
 	memset(&mes_set_hw_res_1_pkt, 0, sizeof(mes_set_hw_res_1_pkt));
 
@@ -673,14 +666,14 @@ static int mes_v12_1_set_hw_resources_1(struct amdgpu_mes *mes,
 	mes_set_hw_res_1_pkt.mes_kiq_unmap_timeout = 100;
 
 	/* From version 0x74 above, pipe1 support use shared command buffer
-	   to distribute some tasks on individual XCCs*/
+ 	   to distribute some tasks on individual XCCs*/
 	if (mes->enable_coop_mode &&
 	    ((pipe == AMDGPU_MES_SCHED_PIPE) ||
 	    ((mes->kiq_version & AMDGPU_MES_VERSION_MASK) >= 0x74))) {
-		master_xcc_id = mes->master_xcc_ids[inst];
+		master_xcc_id = mes->master_xcc_ids[xcc_id];
 		mes_set_hw_res_1_pkt.mes_coop_mode = 1;
 		mes_set_hw_res_1_pkt.coop_sch_shared_mc_addr =
-			mes->shared_cmd_buf_gpu_addr[master_xcc_id + pipe];
+			mes->shared_cmd_buf_gpu_addr[MES_PIPE_INST(master_xcc_id, pipe)];
 	}
 
 	return mes_v12_1_submit_pkt_and_poll_completion(mes, xcc_id, pipe,
@@ -743,6 +736,8 @@ static int mes_v12_1_set_hw_resources(struct amdgpu_mes *mes,
 	mes_set_hw_res_pkt.use_different_vmid_compute = 1;
 	mes_set_hw_res_pkt.enable_reg_active_poll = 1;
 	mes_set_hw_res_pkt.enable_level_process_quantum_check = 1;
+	/* proceeds pipe reset if queue reset fails */
+	mes_set_hw_res_pkt.enable_compute_pipe_reset = 1;
 
 	/*
 	 * Keep oversubscribe timer for sdma . When we have unmapped doorbell
@@ -945,11 +940,11 @@ static int mes_v12_1_inv_tlbs_pasid(struct amdgpu_mes *mes,
 {
 	union MESAPI__INV_TLBS mes_inv_tlbs;
 	int xcc_id = input->xcc_id;
-	int inst = MES_PIPE_INST(xcc_id, AMDGPU_MES_SCHED_PIPE);
 	int ret;
 
+	/* See mes_v12_1_add_hw_queue() for the indexing rationale. */
 	if (mes->enable_coop_mode)
-		xcc_id = mes->master_xcc_ids[inst];
+		xcc_id = mes->master_xcc_ids[xcc_id];
 
 	memset(&mes_inv_tlbs, 0, sizeof(mes_inv_tlbs));
 
@@ -966,7 +961,7 @@ static int mes_v12_1_inv_tlbs_pasid(struct amdgpu_mes *mes,
 	if (ret < 0)
 		return -EINVAL;
 	mes_inv_tlbs.invalidate_tlbs.hub_id = ret;
-	return mes_v12_1_submit_pkt_and_poll_completion(mes, xcc_id, AMDGPU_MES_KIQ_PIPE,
+	return mes_v12_1_submit_pkt_and_poll_completion(mes, xcc_id, AMDGPU_MES_SCHED_PIPE,
 			&mes_inv_tlbs, sizeof(mes_inv_tlbs),
 			offsetof(union MESAPI__INV_TLBS, api_status));
 
@@ -1737,6 +1732,34 @@ static void mes_v12_1_kiq_dequeue_sched(struct amdgpu_device *adev,
 	adev->mes.ring[MES_PIPE_INST(xcc_id, 0)].sched.ready = false;
 }
 
+static void mes_v12_1_kiq_dequeue(struct amdgpu_device *adev, int xcc_id)
+{
+	int i;
+
+	mutex_lock(&adev->srbm_mutex);
+	soc_v1_0_grbm_select(adev, 3, AMDGPU_MES_KIQ_PIPE, 0, 0,
+			     GET_INST(GC, xcc_id));
+
+	/* disable the queue if it's active */
+	if (RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_ACTIVE) & 1) {
+		WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_DEQUEUE_REQUEST, 1);
+		for (i = 0; i < adev->usec_timeout; i++) {
+			if (!(RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_ACTIVE) & 1))
+				break;
+			udelay(1);
+		}
+		WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_DEQUEUE_REQUEST, 0);
+	}
+
+	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_DOORBELL_CONTROL, 0);
+	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_WPTR_LO, 0);
+	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_WPTR_HI, 0);
+	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_RPTR, 0);
+
+	soc_v1_0_grbm_select(adev, 0, 0, 0, 0, GET_INST(GC, xcc_id));
+	mutex_unlock(&adev->srbm_mutex);
+}
+
 static void mes_v12_1_kiq_setting(struct amdgpu_ring *ring, int xcc_id)
 {
 	uint32_t tmp;
@@ -1836,6 +1859,10 @@ static int mes_v12_1_kiq_hw_fini(struct amdgpu_device *adev, uint32_t xcc_id)
 
 		adev->mes.ring[inst].sched.ready = false;
 	}
+
+	/* dequeue KIQ HQD on unbind to clear stale rptr/wptr on rebind */
+	if (!amdgpu_in_reset(adev) && !adev->in_suspend)
+		mes_v12_1_kiq_dequeue(adev, xcc_id);
 
 	mes_v12_1_enable(adev, false, xcc_id);
 

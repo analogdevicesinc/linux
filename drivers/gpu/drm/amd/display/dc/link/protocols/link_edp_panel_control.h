@@ -77,4 +77,8 @@ bool edp_setup_freesync_replay(struct dc_link *link, const struct dc_stream_stat
 void edp_set_panel_power(struct dc_link *link, bool powerOn);
 void edp_set_panel_assr(struct dc_link *link, struct pipe_ctx *pipe_ctx,
 		enum dp_panel_mode *panel_mode, bool enable);
+
+void edp_set_panel_polarity_enabled(const struct dc_link *link, bool enable);
+void edp_panel_polarity_reset(struct dc_link *link);
+bool edp_get_panel_polarity(struct dc_link *link, int32_t *polarity);
 #endif /* __DC_LINK_EDP_POWER_CONTROL_H__ */

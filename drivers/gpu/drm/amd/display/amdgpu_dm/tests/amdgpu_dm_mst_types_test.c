@@ -8,11 +8,13 @@
 #include <kunit/test.h>
 
 #include <drm/drm_drv.h>
+#include <drm/drm_edid.h>
 #include <drm/drm_fixed.h>
 #include <drm/drm_kunit_helpers.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_connector.h>
 #include <drm/drm_mode_config.h>
+#include <drm/drm_modeset_lock.h>
 #include <drm/display/drm_dp.h>
 #include <drm/display/drm_dp_helper.h>
 #include <drm/display/drm_dp_mst_helper.h>
@@ -23,6 +25,7 @@
 #include "amdgpu.h"
 #include "amdgpu_mode.h"
 #include "amdgpu_dm.h"
+#include "amdgpu_dm_hdcp.h"
 #include "amdgpu_dm_mst_types.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
 #include "inc/link_service.h"
@@ -38,6 +41,7 @@ static int dm_mst_test_aux_transfer_raw_result;
 static u8 dm_mst_test_aux_transfer_raw_reply;
 static enum aux_return_code_type dm_mst_test_aux_transfer_raw_operation_result;
 static ssize_t dm_mst_test_aux_transfer_override;
+static ssize_t dm_mst_test_aux_write_override;
 
 static int dm_mst_test_aux_transfer_raw(struct ddc_service *ddc,
 						struct aux_payload *payload,
@@ -109,6 +113,8 @@ static ssize_t dm_mst_test_aux_transfer(struct drm_dp_aux *aux,
 		msg->reply = DP_AUX_NATIVE_REPLY_ACK;
 		return msg->size;
 	case DP_AUX_NATIVE_WRITE:
+		if (dm_mst_test_aux_write_override)
+			return dm_mst_test_aux_write_override;
 		msg->reply = DP_AUX_NATIVE_REPLY_ACK;
 		return msg->size;
 	default:
@@ -146,6 +152,7 @@ static struct amdgpu_dm_connector *dm_mst_test_alloc_sideband_connector(struct k
 
 	memset(dm_mst_test_dpcd, 0, sizeof(dm_mst_test_dpcd));
 	dm_mst_test_aux_transfer_override = 0;
+	dm_mst_test_aux_write_override = 0;
 
 	return aconnector;
 }
@@ -1339,6 +1346,718 @@ static void dm_mst_test_detect_unregistered(struct kunit *test)
 			(int)connector_status_disconnected);
 }
 
+/*
+ * Fake DC remote-sink backend. dc_link_add_remote_sink() and
+ * dc_link_remove_remote_sink() are thin wrappers over these link_service
+ * callbacks, so overriding them is enough to run the MST connector paths
+ * without a DC core.
+ */
+static struct dc_sink *dm_mst_test_next_remote_sink;
+static struct dc_sink *dm_mst_test_removed_sink;
+static unsigned int dm_mst_test_add_remote_sink_calls;
+static unsigned int dm_mst_test_remove_remote_sink_calls;
+
+/* Signature copied verbatim from struct link_service::add_remote_sink. */
+static struct dc_sink *dm_mst_test_add_remote_sink(
+		struct dc_link *link,
+		const uint8_t *edid,
+		unsigned int len,
+		struct dc_sink_init_data *init_data)
+{
+	struct dc_sink *sink = dm_mst_test_next_remote_sink;
+
+	dm_mst_test_add_remote_sink_calls++;
+
+	if (sink) {
+		sink->link = link;
+		sink->sink_signal = init_data->sink_signal;
+		link->sink_count++;
+	}
+
+	return sink;
+}
+
+/* Signature copied verbatim from struct link_service::remove_remote_sink. */
+static void dm_mst_test_remove_remote_sink(struct dc_link *link, struct dc_sink *sink)
+{
+	dm_mst_test_remove_remote_sink_calls++;
+	dm_mst_test_removed_sink = sink;
+
+	if (link->sink_count)
+		link->sink_count--;
+}
+
+/*
+ * dc_sink_release() frees the sink with kfree(), so these must not come from
+ * the KUnit managed allocator.
+ */
+static struct dc_sink *dm_mst_test_alloc_sink(struct kunit *test)
+{
+	struct dc_sink *sink = kzalloc_obj(*sink);
+
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+	kref_init(&sink->refcount);
+
+	return sink;
+}
+
+struct dm_mst_test_child {
+	struct amdgpu_device *adev;
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_dm_connector *root;
+	struct drm_dp_mst_port *port;
+	struct dc_link *link;
+};
+
+/*
+ * Build an MST downstream connector hanging off a root connector. The topology
+ * manager is left empty (no mst_primary) so the DRM MST helpers take their
+ * "port is gone" paths instead of requiring a real branch device.
+ */
+static void dm_mst_test_init_child(struct kunit *test, struct dm_mst_test_child *child)
+{
+	struct link_service *link_srv;
+	struct amdgpu_device *adev;
+	struct dc *dc;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+	ret = drmm_mode_config_init(&adev->ddev);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	child->port = kunit_kzalloc(test, sizeof(*child->port), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	KUNIT_ASSERT_NOT_NULL(test, child->port);
+
+	link_srv->add_remote_sink = dm_mst_test_add_remote_sink;
+	link_srv->remove_remote_sink = dm_mst_test_remove_remote_sink;
+	dc->link_srv = link_srv;
+
+	child->adev = adev;
+	child->link = dm_kunit_alloc_link(test);
+	child->link->dc = dc;
+
+	child->root = dm_kunit_alloc_connector(test, adev, child->link);
+	child->root->mst_mgr.dev = &adev->ddev;
+	mutex_init(&child->root->mst_mgr.lock);
+	drm_modeset_lock_init(&child->root->mst_mgr.base.lock);
+
+	child->port->mgr = &child->root->mst_mgr;
+	child->port->aux.name = "dm_mst_test_port_aux";
+	child->port->aux.transfer = dm_mst_test_aux_transfer;
+	drm_dp_aux_init(&child->port->aux);
+	drm_dp_dpcd_set_probe(&child->port->aux, false);
+
+	child->aconnector = dm_kunit_alloc_connector(test, adev, child->link);
+	child->aconnector->mst_root = child->root;
+	child->aconnector->mst_output_port = child->port;
+
+	ret = drm_connector_init(&adev->ddev, &child->aconnector->base,
+				 &dm_mst_test_connector_funcs,
+				 DRM_MODE_CONNECTOR_DisplayPort);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+	/* The MST (un)register helpers log through the connector's kernel device. */
+	child->aconnector->base.kdev = adev->ddev.dev;
+
+	memset(dm_mst_test_dpcd, 0, sizeof(dm_mst_test_dpcd));
+	dm_mst_test_aux_transfer_override = 0;
+	dm_mst_test_aux_write_override = 0;
+	dm_mst_test_next_remote_sink = NULL;
+	dm_mst_test_removed_sink = NULL;
+	dm_mst_test_add_remote_sink_calls = 0;
+	dm_mst_test_remove_remote_sink_calls = 0;
+}
+
+static void dm_mst_test_fini_child(struct dm_mst_test_child *child)
+{
+	drm_edid_free(child->aconnector->drm_edid);
+	drm_edid_free(child->port->cached_edid);
+	drm_connector_cleanup(&child->aconnector->base);
+	drm_modeset_lock_fini(&child->root->mst_mgr.base.lock);
+	mutex_destroy(&child->root->mst_mgr.lock);
+}
+
+/* Tests for dm_dp_mst_get_modes */
+
+/**
+ * dm_mst_test_get_modes_no_edid_adds_default_sink - Test default remote sink
+ * @test: KUnit test context
+ *
+ * When the remote EDID cannot be read, dm_dp_mst_get_modes() must clear the
+ * MST_REMOTE_EDID status and register a default remote sink for the connector.
+ */
+static void dm_mst_test_get_modes_no_edid_adds_default_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+	sink = dm_mst_test_alloc_sink(test);
+	dm_mst_test_next_remote_sink = sink;
+	child.aconnector->mst_status = MST_REMOTE_EDID;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_add_remote_sink_calls, 1U);
+	KUNIT_EXPECT_PTR_EQ(test, child.aconnector->dc_sink, sink);
+	KUNIT_EXPECT_PTR_EQ(test, sink->priv, (void *)child.aconnector);
+	KUNIT_EXPECT_EQ(test, child.aconnector->mst_status & MST_REMOTE_EDID, 0);
+
+	dc_sink_release(sink);
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_get_modes_no_edid_sink_alloc_fails - Test remote sink failure
+ * @test: KUnit test context
+ *
+ * If DC cannot add the default remote sink, dm_dp_mst_get_modes() must bail out
+ * with zero modes and leave the connector without a sink.
+ */
+static void dm_mst_test_get_modes_no_edid_sink_alloc_fails(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_add_remote_sink_calls, 1U);
+	KUNIT_EXPECT_NULL(test, child.aconnector->dc_sink);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_get_modes_no_edid_keeps_existing_sink - Test cached sink reuse
+ * @test: KUnit test context
+ *
+ * With no readable EDID but an existing remote sink, dm_dp_mst_get_modes() must
+ * keep that sink and must not ask DC for another one.
+ */
+static void dm_mst_test_get_modes_no_edid_keeps_existing_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+	sink = dm_mst_test_alloc_sink(test);
+	child.aconnector->dc_sink = sink;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_add_remote_sink_calls, 0U);
+	KUNIT_EXPECT_PTR_EQ(test, child.aconnector->dc_sink, sink);
+
+	dc_sink_release(sink);
+	dm_mst_test_fini_child(&child);
+}
+
+/* Minimal EDID base block: valid header, no extensions, correct checksum. */
+static const u8 dm_mst_test_edid[EDID_LENGTH] = {
+	0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00,
+	[EDID_LENGTH - 1] = 0x06,
+};
+
+/**
+ * dm_mst_test_get_modes_cached_edid_replaces_virtual_sink - Test EDID sink path
+ * @test: KUnit test context
+ *
+ * With a cached EDID and a placeholder virtual sink, dm_dp_mst_get_modes() must
+ * release the virtual sink, add a real remote sink built from the EDID, and
+ * update the connector's mode list.
+ */
+static void dm_mst_test_get_modes_cached_edid_replaces_virtual_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+	struct dc_sink *virtual_sink;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+
+	child.aconnector->drm_edid = drm_edid_alloc(dm_mst_test_edid, sizeof(dm_mst_test_edid));
+	KUNIT_ASSERT_NOT_NULL(test, child.aconnector->drm_edid);
+
+	virtual_sink = dm_mst_test_alloc_sink(test);
+	virtual_sink->sink_signal = SIGNAL_TYPE_VIRTUAL;
+	child.aconnector->dc_sink = virtual_sink;
+
+	sink = dm_mst_test_alloc_sink(test);
+	dm_mst_test_next_remote_sink = sink;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_add_remote_sink_calls, 1U);
+	KUNIT_EXPECT_PTR_EQ(test, child.aconnector->dc_sink, sink);
+	KUNIT_EXPECT_EQ(test, sink->sink_signal, SIGNAL_TYPE_DISPLAY_PORT_MST);
+	KUNIT_EXPECT_PTR_EQ(test, sink->priv, (void *)child.aconnector);
+
+	dc_sink_release(sink);
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_get_modes_cached_edid_sink_alloc_fails - Test EDID sink failure
+ * @test: KUnit test context
+ *
+ * If DC cannot add the remote sink built from the cached EDID,
+ * dm_dp_mst_get_modes() must bail out with zero modes.
+ */
+static void dm_mst_test_get_modes_cached_edid_sink_alloc_fails(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+
+	child.aconnector->drm_edid = drm_edid_alloc(dm_mst_test_edid, sizeof(dm_mst_test_edid));
+	KUNIT_ASSERT_NOT_NULL(test, child.aconnector->drm_edid);
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_add_remote_sink_calls, 1U);
+	KUNIT_EXPECT_NULL(test, child.aconnector->dc_sink);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_get_modes_restores_hdcp_properties - Test HDCP property restore
+ * @test: KUnit test context
+ *
+ * A connector re-plugged at the same display index must have its content
+ * protection state restored from the HDCP workqueue when the remote sink is
+ * re-created.
+ */
+static void dm_mst_test_get_modes_restores_hdcp_properties(struct kunit *test)
+{
+	struct dm_connector_state *conn_state;
+	struct dm_mst_test_child child;
+	struct hdcp_workqueue *hdcp;
+	struct dc_sink *sink;
+	unsigned int index;
+
+	dm_mst_test_init_child(test, &child);
+
+	child.aconnector->drm_edid = drm_edid_alloc(dm_mst_test_edid, sizeof(dm_mst_test_edid));
+	KUNIT_ASSERT_NOT_NULL(test, child.aconnector->drm_edid);
+
+	/* drm_connector_cleanup() hands the state back to the DRM helper's kfree(). */
+	conn_state = kzalloc_obj(*conn_state);
+	hdcp = kunit_kzalloc(test, sizeof(*hdcp), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, conn_state);
+	KUNIT_ASSERT_NOT_NULL(test, hdcp);
+
+	index = child.aconnector->base.index;
+	hdcp->hdcp_content_type[index] = DRM_MODE_HDCP_CONTENT_TYPE1;
+	hdcp->content_protection[index] = DRM_MODE_CONTENT_PROTECTION_ENABLED;
+	child.adev->dm.hdcp_workqueue = hdcp;
+	child.aconnector->base.state = &conn_state->base;
+
+	sink = dm_mst_test_alloc_sink(test);
+	dm_mst_test_next_remote_sink = sink;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_PTR_EQ(test, child.aconnector->dc_sink, sink);
+	KUNIT_EXPECT_EQ(test, child.aconnector->base.state->hdcp_content_type,
+			(unsigned int)DRM_MODE_HDCP_CONTENT_TYPE1);
+	KUNIT_EXPECT_EQ(test, child.aconnector->base.state->content_protection,
+			(unsigned int)DRM_MODE_CONTENT_PROTECTION_ENABLED);
+
+	dc_sink_release(sink);
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_get_modes_reads_remote_edid - Test remote EDID caching
+ * @test: KUnit test context
+ *
+ * When the MST port is still in the topology, dm_dp_mst_get_modes() must read
+ * its EDID, cache it on the connector and flag MST_REMOTE_EDID.
+ */
+static void dm_mst_test_get_modes_reads_remote_edid(struct kunit *test)
+{
+	struct drm_dp_mst_branch *mstb;
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+
+	/* Minimal topology so drm_dp_mst_edid_read() can validate the port. */
+	mstb = kunit_kzalloc(test, sizeof(*mstb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, mstb);
+	mstb->mgr = &child.root->mst_mgr;
+	INIT_LIST_HEAD(&mstb->ports);
+	list_add(&child.port->next, &mstb->ports);
+	kref_init(&child.port->topology_kref);
+	child.root->mst_mgr.mst_primary = mstb;
+
+	child.port->cached_edid = drm_edid_alloc(dm_mst_test_edid, sizeof(dm_mst_test_edid));
+	KUNIT_ASSERT_NOT_NULL(test, child.port->cached_edid);
+
+	sink = dm_mst_test_alloc_sink(test);
+	dm_mst_test_next_remote_sink = sink;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_get_modes(&child.aconnector->base), 0);
+
+	KUNIT_EXPECT_NOT_NULL(test, child.aconnector->drm_edid);
+	KUNIT_EXPECT_EQ(test, child.aconnector->mst_status & MST_REMOTE_EDID, (int)MST_REMOTE_EDID);
+	KUNIT_EXPECT_PTR_EQ(test, child.aconnector->dc_sink, sink);
+
+	dc_sink_release(sink);
+	dm_mst_test_fini_child(&child);
+}
+
+/* Tests for dm_dp_mst_detect */
+
+/**
+ * dm_mst_test_detect_reads_port_dpcd_rev - Test DPCD revision probing
+ * @test: KUnit test context
+ *
+ * For a peer device with an unknown DPCD revision, dm_dp_mst_detect() must probe
+ * DP_DP13_DPCD_REV over the port AUX and cache the returned revision.
+ */
+static void dm_mst_test_detect_reads_port_dpcd_rev(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+	child.port->pdt = DP_PEER_DEVICE_SST_SINK;
+	/* Both DP_DP13_DPCD_REV and DP_DPCD_REV alias to offset 0 in the fake. */
+	dm_mst_test_dpcd[0] = 0x13;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_detect(&child.aconnector->base, NULL, false),
+			(int)connector_status_disconnected);
+
+	KUNIT_EXPECT_EQ(test, (int)child.port->dpcd_rev, 0x13);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_detect_unknown_dpcd_rev - Test unreadable DPCD revision
+ * @test: KUnit test context
+ *
+ * When both DPCD revision registers read back as zero, dm_dp_mst_detect() must
+ * leave the cached revision cleared instead of reporting a bogus value.
+ */
+static void dm_mst_test_detect_unknown_dpcd_rev(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+	child.port->pdt = DP_PEER_DEVICE_SST_SINK;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_detect(&child.aconnector->base, NULL, false),
+			(int)connector_status_disconnected);
+
+	KUNIT_EXPECT_EQ(test, (int)child.port->dpcd_rev, 0);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_detect_dpcd_read_error - Test unreachable port DPCD
+ * @test: KUnit test context
+ *
+ * When the remote DPCD read is NAKed, dm_dp_mst_detect() must leave the cached
+ * revision untouched instead of storing a garbage value.
+ */
+static void dm_mst_test_detect_dpcd_read_error(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+	child.port->pdt = DP_PEER_DEVICE_SST_SINK;
+	dm_mst_test_aux_transfer_override = -EIO;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_detect(&child.aconnector->base, NULL, false),
+			(int)connector_status_disconnected);
+
+	KUNIT_EXPECT_EQ(test, (int)child.port->dpcd_rev, 0);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_detect_disconnect_releases_sink - Test unplug sink release
+ * @test: KUnit test context
+ *
+ * A port with no peer device must have its cached DPCD revision cleared, and the
+ * resulting disconnected status must release the remote sink and reset the MST
+ * connector state.
+ */
+static void dm_mst_test_detect_disconnect_releases_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+	child.port->pdt = DP_PEER_DEVICE_NONE;
+	child.port->dpcd_rev = 0x14;
+
+	sink = dm_mst_test_alloc_sink(test);
+	child.aconnector->dc_sink = sink;
+	child.aconnector->dsc_aux = &child.port->aux;
+	child.aconnector->mst_local_bw = 1234;
+	child.link->sink_count = 1;
+
+	KUNIT_EXPECT_EQ(test, dm_dp_mst_detect(&child.aconnector->base, NULL, false),
+			(int)connector_status_disconnected);
+
+	KUNIT_EXPECT_EQ(test, (int)child.port->dpcd_rev, 0);
+	KUNIT_EXPECT_EQ(test, dm_mst_test_remove_remote_sink_calls, 1U);
+	KUNIT_EXPECT_PTR_EQ(test, dm_mst_test_removed_sink, sink);
+	KUNIT_EXPECT_NULL(test, child.aconnector->dc_sink);
+	KUNIT_EXPECT_NULL(test, child.aconnector->dsc_aux);
+	KUNIT_EXPECT_EQ(test, child.aconnector->mst_local_bw, 0U);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/* Tests for amdgpu_dm_mst_connector_late_register */
+
+/**
+ * dm_mst_test_connector_late_register - Test MST connector late registration
+ * @test: KUnit test context
+ *
+ * amdgpu_dm_mst_connector_late_register() must register the port's remote AUX
+ * bus and report success.
+ */
+static void dm_mst_test_connector_late_register(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_mst_connector_late_register(&child.aconnector->base), 0);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/* Tests for amdgpu_dm_mst_connector_early_unregister */
+
+/**
+ * dm_mst_test_connector_early_unregister_no_sink - Test unregister without sink
+ * @test: KUnit test context
+ *
+ * With no remote sink attached, amdgpu_dm_mst_connector_early_unregister() must
+ * only reset the MST status.
+ */
+static void dm_mst_test_connector_early_unregister_no_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+	child.aconnector->mst_status = MST_REMOTE_EDID;
+
+	amdgpu_dm_mst_connector_early_unregister(&child.aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_remove_remote_sink_calls, 0U);
+	KUNIT_EXPECT_EQ(test, (int)child.aconnector->mst_status, (int)MST_STATUS_DEFAULT);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_connector_early_unregister_releases_sink - Test sink release
+ * @test: KUnit test context
+ *
+ * When the port leaves the topology, amdgpu_dm_mst_connector_early_unregister()
+ * must remove the remote sink from the link and reset the MST connector state.
+ */
+static void dm_mst_test_connector_early_unregister_releases_sink(struct kunit *test)
+{
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+
+	sink = dm_mst_test_alloc_sink(test);
+	child.aconnector->dc_sink = sink;
+	child.aconnector->vc_full_pbn = 42;
+	child.link->sink_count = 1;
+
+	amdgpu_dm_mst_connector_early_unregister(&child.aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_remove_remote_sink_calls, 1U);
+	KUNIT_EXPECT_PTR_EQ(test, dm_mst_test_removed_sink, sink);
+	KUNIT_EXPECT_NULL(test, child.aconnector->dc_sink);
+	KUNIT_EXPECT_EQ(test, child.aconnector->vc_full_pbn, 0U);
+	KUNIT_EXPECT_EQ(test, (int)child.aconnector->mst_status, (int)MST_STATUS_DEFAULT);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/* Tests for dm_dp_mst_connector_destroy */
+
+/*
+ * dm_dp_mst_connector_destroy() frees both the connector and the MST port, so
+ * they are allocated outside the KUnit managed allocator. The parent branch
+ * device takes an extra malloc reference so it survives the port teardown.
+ */
+static struct amdgpu_dm_connector *
+dm_mst_test_alloc_destroyable_connector(struct kunit *test, struct dm_mst_test_child *child)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_dp_mst_branch *mstb;
+	struct drm_dp_mst_port *port;
+	int ret;
+
+	aconnector = kzalloc_obj(*aconnector);
+	port = kzalloc_obj(*port);
+	mstb = kunit_kzalloc(test, sizeof(*mstb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, port);
+	KUNIT_ASSERT_NOT_NULL(test, mstb);
+
+	mstb->mgr = &child->root->mst_mgr;
+	kref_init(&mstb->malloc_kref);
+	kref_get(&mstb->malloc_kref);
+
+	port->mgr = &child->root->mst_mgr;
+	port->parent = mstb;
+	kref_init(&port->malloc_kref);
+
+	aconnector->dc_link = child->link;
+	aconnector->mst_root = child->root;
+	aconnector->mst_output_port = port;
+
+	ret = drm_connector_init(&child->adev->ddev, &aconnector->base,
+				 &dm_mst_test_connector_funcs,
+				 DRM_MODE_CONNECTOR_DisplayPort);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	return aconnector;
+}
+
+/**
+ * dm_mst_test_connector_destroy_no_sink - Test destroy without a remote sink
+ * @test: KUnit test context
+ *
+ * dm_dp_mst_connector_destroy() must clean up the DRM connector and drop the MST
+ * port reference even when no remote sink was ever attached.
+ */
+static void dm_mst_test_connector_destroy_no_sink(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct dm_mst_test_child child;
+
+	dm_mst_test_init_child(test, &child);
+	aconnector = dm_mst_test_alloc_destroyable_connector(test, &child);
+
+	dm_dp_mst_connector_destroy(&aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_remove_remote_sink_calls, 0U);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/**
+ * dm_mst_test_connector_destroy_releases_sink - Test destroy releases the sink
+ * @test: KUnit test context
+ *
+ * dm_dp_mst_connector_destroy() must remove the remote sink from the DC link
+ * before tearing down the connector.
+ */
+static void dm_mst_test_connector_destroy_releases_sink(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct dm_mst_test_child child;
+	struct dc_sink *sink;
+
+	dm_mst_test_init_child(test, &child);
+	aconnector = dm_mst_test_alloc_destroyable_connector(test, &child);
+
+	sink = dm_mst_test_alloc_sink(test);
+	aconnector->dc_sink = sink;
+	child.link->sink_count = 1;
+
+	dm_dp_mst_connector_destroy(&aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_mst_test_remove_remote_sink_calls, 1U);
+	KUNIT_EXPECT_PTR_EQ(test, dm_mst_test_removed_sink, sink);
+
+	dm_mst_test_fini_child(&child);
+}
+
+/*
+ * Sideband connector with a live topology manager and the DOWN_REP ready bit
+ * armed, so dm_handle_mst_sideband_msg_ready_event() reaches its ack path.
+ */
+static struct amdgpu_dm_connector *
+dm_mst_test_alloc_armed_sideband_connector(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_device *adev;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+	ret = drmm_mode_config_init(&adev->ddev);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	aconnector = dm_mst_test_alloc_sideband_connector(test);
+
+	ret = drm_dp_mst_topology_mgr_init(&aconnector->mst_mgr, &adev->ddev,
+					   &aconnector->dm_dp_aux.aux, 16, 4, 0);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+	aconnector->mst_mgr.mst_state = true;
+	dm_mst_test_dpcd[(DP_SINK_COUNT_ESI + 1) & 0xf] = DP_DOWN_REP_MSG_RDY;
+
+	return aconnector;
+}
+
+static void dm_mst_test_free_armed_sideband_connector(struct amdgpu_dm_connector *aconnector)
+{
+	aconnector->mst_mgr.mst_state = false;
+	drm_dp_mst_topology_mgr_destroy(&aconnector->mst_mgr);
+}
+
+/**
+ * dm_mst_test_sideband_msg_ready_acks_down_rep - Test DOWN_REP ack handling
+ * @test: KUnit test context
+ *
+ * With an active topology manager and the DOWN_REP ready bit set, the sideband
+ * handler must acknowledge the event at DPCD and keep polling until the
+ * iteration limit is reached, since the fake sideband message never completes.
+ */
+static void dm_mst_test_sideband_msg_ready_acks_down_rep(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_mst_test_alloc_armed_sideband_connector(test);
+
+	dm_handle_mst_sideband_msg_ready_event(&aconnector->mst_mgr, DOWN_REP_MSG_RDY_EVENT);
+
+	KUNIT_EXPECT_EQ(test, aconnector->mst_mgr.sink_count, 0);
+
+	dm_mst_test_free_armed_sideband_connector(aconnector);
+}
+
+/**
+ * dm_mst_test_sideband_msg_ready_ack_write_fails - Test failed DPCD ack
+ * @test: KUnit test context
+ *
+ * When the DPCD acknowledge write keeps failing, the sideband handler must give
+ * up after the third retry instead of looping forever.
+ */
+static void dm_mst_test_sideband_msg_ready_ack_write_fails(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+
+	aconnector = dm_mst_test_alloc_armed_sideband_connector(test);
+	dm_mst_test_aux_write_override = -EIO;
+
+	dm_handle_mst_sideband_msg_ready_event(&aconnector->mst_mgr, DOWN_REP_MSG_RDY_EVENT);
+
+	KUNIT_EXPECT_EQ(test, aconnector->mst_mgr.sink_count, 0);
+
+	dm_mst_test_free_armed_sideband_connector(aconnector);
+}
+
 #if !defined(CONFIG_DRM_AMD_DC_FP)
 /**
  * dm_mst_test_fp_guarded_public_stubs - Test FP-off public fallbacks
@@ -1399,6 +2118,8 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_sideband_msg_ready_no_ready_bits),
 	KUNIT_CASE(dm_mst_test_sideband_msg_ready_read_error),
 	KUNIT_CASE(dm_mst_test_sideband_msg_ready_without_mst_state),
+	KUNIT_CASE(dm_mst_test_sideband_msg_ready_acks_down_rep),
+	KUNIT_CASE(dm_mst_test_sideband_msg_ready_ack_write_fails),
 	KUNIT_CASE(dm_mst_test_down_rep_msg_ready_wrapper),
 	/* amdgpu_dm_initialize_dp_connector tests */
 	KUNIT_CASE(dm_mst_test_initialize_dp_connector_edp),
@@ -1411,6 +2132,26 @@ static struct kunit_case dm_mst_types_test_cases[] = {
 	KUNIT_CASE(dm_mst_test_atomic_check_no_old_crtc),
 	/* dm_dp_mst_detect tests */
 	KUNIT_CASE(dm_mst_test_detect_unregistered),
+	KUNIT_CASE(dm_mst_test_detect_reads_port_dpcd_rev),
+	KUNIT_CASE(dm_mst_test_detect_unknown_dpcd_rev),
+	KUNIT_CASE(dm_mst_test_detect_dpcd_read_error),
+	KUNIT_CASE(dm_mst_test_detect_disconnect_releases_sink),
+	/* dm_dp_mst_get_modes tests */
+	KUNIT_CASE(dm_mst_test_get_modes_no_edid_adds_default_sink),
+	KUNIT_CASE(dm_mst_test_get_modes_no_edid_sink_alloc_fails),
+	KUNIT_CASE(dm_mst_test_get_modes_no_edid_keeps_existing_sink),
+	KUNIT_CASE(dm_mst_test_get_modes_cached_edid_replaces_virtual_sink),
+	KUNIT_CASE(dm_mst_test_get_modes_cached_edid_sink_alloc_fails),
+	KUNIT_CASE(dm_mst_test_get_modes_restores_hdcp_properties),
+	KUNIT_CASE(dm_mst_test_get_modes_reads_remote_edid),
+	/* amdgpu_dm_mst_connector_late_register tests */
+	KUNIT_CASE(dm_mst_test_connector_late_register),
+	/* amdgpu_dm_mst_connector_early_unregister tests */
+	KUNIT_CASE(dm_mst_test_connector_early_unregister_no_sink),
+	KUNIT_CASE(dm_mst_test_connector_early_unregister_releases_sink),
+	/* dm_dp_mst_connector_destroy tests */
+	KUNIT_CASE(dm_mst_test_connector_destroy_no_sink),
+	KUNIT_CASE(dm_mst_test_connector_destroy_releases_sink),
 	/* CONFIG_DRM_AMD_DC_FP disabled public paths */
 #if !defined(CONFIG_DRM_AMD_DC_FP)
 	KUNIT_CASE(dm_mst_test_fp_guarded_public_stubs),

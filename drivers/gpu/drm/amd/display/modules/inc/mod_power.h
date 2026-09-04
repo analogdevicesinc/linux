@@ -174,6 +174,7 @@ enum replay_event {
 	replay_event_os_request_force_ffu = 0x2000000,
 	replay_event_os_override_hold = 0x4000000,
 	replay_event_crc_window_active = 0x8000000,
+	replay_event_waiting_stream_regen = 0x10000000,
 };
 
 enum replay_enable_option {

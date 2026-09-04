@@ -1045,6 +1045,12 @@ static int gmc_v7_0_sw_init(struct amdgpu_ip_block *ip_block)
 	 * amdkfd will use VMIDs 8-15
 	 */
 	adev->vm_manager.first_kfd_vmid = 8;
+	amdgpu_vmid_mgr_set_vmid_mask(adev,
+				      GENMASK(adev->vm_manager.first_kfd_vmid - 1, 1),
+				      false);
+	amdgpu_vmid_mgr_set_vmid_mask(adev,
+				      GENMASK(adev->vm_manager.first_kfd_vmid - 1, 1),
+				      true);
 	amdgpu_vm_manager_init(adev);
 
 	/* base offset of vram pages */
@@ -1346,7 +1352,6 @@ static const struct amd_ip_funcs gmc_v7_0_ip_funcs = {
 	.hw_fini = gmc_v7_0_hw_fini,
 	.suspend = gmc_v7_0_suspend,
 	.resume = gmc_v7_0_resume,
-	.is_idle = gmc_v7_0_is_idle,
 	.wait_for_idle = gmc_v7_0_wait_for_idle,
 	.soft_reset = gmc_v7_0_soft_reset,
 	.set_clockgating_state = gmc_v7_0_set_clockgating_state,

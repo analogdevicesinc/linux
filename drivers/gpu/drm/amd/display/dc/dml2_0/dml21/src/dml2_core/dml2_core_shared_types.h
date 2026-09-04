@@ -1039,6 +1039,7 @@ struct dml2_core_internal_mode_program {
 	double MaxActiveFCLKChangeLatencySupported;
 	bool USRRetrainingSupport;
 	bool g6_temp_read_support;
+	bool global_z8_stutter_supported;
 	enum dml2_pstate_change_support FCLKChangeSupport[DML2_MAX_PLANES];
 	enum dml2_pstate_change_support DRAMClockChangeSupport[DML2_MAX_PLANES];
 	enum dml2_pstate_change_support temp_read_or_ppt_support[DML2_MAX_PLANES];
@@ -1657,6 +1658,9 @@ struct dml2_core_shared_CalculateFlipSchedule_locals {
 	double num_rows;
 	double hvm_scaled_row_bytes;
 	double hvm_scaled_vm_row_bytes;
+	double vm_time_budget;
+	double row_time_budget;
+	double vm_and_row_time_budget;
 	bool dual_plane;
 };
 
@@ -1841,6 +1845,7 @@ struct dml2_core_calcs_CalculateWatermarksMALLUseAndDRAMSpeedChangeSupport_param
 	bool *g6_temp_read_support;
 	enum dml2_pstate_change_support *temp_read_or_ppt_support;
 	bool *global_temp_read_or_ppt_supported;
+	bool *global_z8_stutter_supported;
 };
 
 struct dml2_core_calcs_CalculateSwathAndDETConfiguration_params {
@@ -2295,6 +2300,8 @@ struct dml2_core_calcs_calculate_alternate_params {
 	unsigned int *Read256BlockHeightC;
 	unsigned int *MacroTileWidthY;
 	unsigned int *MacroTileWidthC;
+	unsigned int *MacroTileHeightY;
+	unsigned int *MacroTileHeightC;
 	unsigned int *VInitPrefillY;
 	unsigned int *VInitPrefillC;
 	double *VRatioPrefetchY;

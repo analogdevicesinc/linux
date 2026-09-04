@@ -291,7 +291,9 @@ enum dc_status dcn60_apply_single_controller_ctx_to_hw(
 			dc_is_virtual_signal(pipe_ctx->stream->signal)))
 			dc->link_srv->set_dsc_enable(pipe_ctx, true);
 	}
-	if (!stream->dpms_off)
+	if (!stream->dpms_off &&
+	    !(link->connector_signal == SIGNAL_TYPE_EDP &&
+	      link->forced_psr_active))
 		dc->link_srv->set_dpms_on(context, pipe_ctx);
 
 	/* DCN3.1 FPGA Workaround
@@ -310,7 +312,9 @@ enum dc_status dcn60_apply_single_controller_ctx_to_hw(
 	 * is constructed with the same sink). Make sure not to override
 	 * and link programming on the main.
 	 */
-	if (dc_state_get_pipe_subvp_type(context, pipe_ctx) != SUBVP_PHANTOM) {
+	if (dc_state_get_pipe_subvp_type(context, pipe_ctx) != SUBVP_PHANTOM &&
+	    !(link->connector_signal == SIGNAL_TYPE_EDP &&
+	      link->forced_psr_active)) {
 		pipe_ctx->stream->link->psr_settings.psr_feature_enabled = false;
 		pipe_ctx->stream->link->replay_settings.replay_feature_enabled = false;
 	}
@@ -753,6 +757,12 @@ void dcn60_init_hw(struct dc *dc)
 	if (dc->res_pool->hubbub->funcs->set_request_limit && dc->config.sdpif_request_limit_words_per_umc > 0)
 		dc->res_pool->hubbub->funcs->set_request_limit(dc->res_pool->hubbub, dc->ctx->dc_bios->vram_info.num_chans, dc->config.sdpif_request_limit_words_per_umc);
 
+	if (dc->res_pool->hubbub->funcs->override_utm_client_qc_profile && dc->debug.override_utm_client_qc_profile) {
+		dc->res_pool->hubbub->funcs->override_utm_client_qc_profile(dc->res_pool->hubbub, dc->debug.utm_client_qc_profiles[0], 0);
+		dc->res_pool->hubbub->funcs->override_utm_client_qc_profile(dc->res_pool->hubbub, dc->debug.utm_client_qc_profiles[1], 1);
+		dc->res_pool->hubbub->funcs->override_utm_client_qc_profile(dc->res_pool->hubbub, dc->debug.utm_client_qc_profiles[2], 2);
+	}
+
 	// Get DMCUB capabilities
 	if (dc->ctx->dmub_srv) {
 		dc_dmub_srv_query_caps_cmd(dc->ctx->dmub_srv);
@@ -897,16 +907,6 @@ static void dcn60_build_hubbub_perfmon_sequence(
 
 	if (probe->target_state != DC_PROBE_MEASURED || !ref_tg)
 		return;
-
-	/* Peak BW needs a single timing group. The out-of-order counter spans one
-	 * prefetch window, which is meaningless when streams in separate timing
-	 * groups have non-overlapping prefetch windows. */
-	if (probe->type == DC_PROBE_PEAK_MEM_BW) {
-		int group_size = context->stream_status[0].timing_sync_info.group_size;
-
-		if (group_size != context->stream_count)
-			return;
-	}
 
 	switch (probe->type) {
 	case DC_PROBE_PEAK_MEM_BW:

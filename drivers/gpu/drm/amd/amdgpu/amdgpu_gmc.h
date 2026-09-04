@@ -114,6 +114,8 @@ struct amdgpu_gmc_fault {
 struct amdgpu_vmhub_funcs {
 	void (*print_l2_protection_fault_status)(struct amdgpu_device *adev,
 						 uint32_t status);
+	void (*print_l2_protection_fault_status_hi)(struct amdgpu_device *adev,
+						    uint32_t status);
 	uint32_t (*get_invalidate_req)(unsigned int vmid, uint32_t flush_type);
 };
 
@@ -125,6 +127,7 @@ struct amdgpu_vmhub {
 	uint32_t	vm_inv_eng0_ack;
 	uint32_t	vm_context0_cntl;
 	uint32_t	vm_l2_pro_fault_status;
+	uint32_t	vm_l2_pro_fault_status_hi;
 	uint32_t	vm_l2_pro_fault_cntl;
 
 	/*

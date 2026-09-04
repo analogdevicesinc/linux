@@ -28,6 +28,10 @@
 #include "oss/osssys_7_1_0_sh_mask.h"
 #include "ivsrcid/vmc/irqsrcs_vmc_1_0.h"
 
+static void gmc_v12_1_get_mtypes(struct amdgpu_device *adev,
+				 unsigned int *mtype_local,
+				 unsigned int *mtype_remote);
+
 static int gmc_v12_1_vm_fault_interrupt_state(struct amdgpu_device *adev,
 					      struct amdgpu_irq_src *src,
 					      unsigned int type,
@@ -100,6 +104,23 @@ static int gmc_v12_1_vm_fault_interrupt_state(struct amdgpu_device *adev,
 	return 0;
 }
 
+/*
+ * NodeID definition in interrupt cookie for gmc v12.1.0
+ *
+ * DIE		IH Cookie NodeID
+ * MID0		0x0
+ * AID0		0x1
+ * AID0.XCD0	0x2
+ * AID0.XCD1	0x3
+ * AID0.XCD2	0x4
+ * AID0.XCD3	0x5
+ * MID1		0x8
+ * AID1		0x9
+ * AID1.XCD0	0xA
+ * AID1.XCD1	0xB
+ * AID1.XCD2	0xC
+ * AID1.XCD3	0xD
+ */
 static int gmc_v12_1_process_interrupt(struct amdgpu_device *adev,
 				       struct amdgpu_irq_src *source,
 				       struct amdgpu_iv_entry *entry)
@@ -111,7 +132,7 @@ static int gmc_v12_1_process_interrupt(struct amdgpu_device *adev,
 	uint32_t cam_index = 0;
 	const char *hub_name;
 	int ret, xcc_id = 0;
-	uint32_t status = 0;
+	uint32_t status = 0, status_hi = 0;
 	const char *die_name;
 	char die_name_buf[32];
 	u64 addr;
@@ -128,7 +149,7 @@ static int gmc_v12_1_process_interrupt(struct amdgpu_device *adev,
 
 	if (entry->client_id == SOC_V1_0_IH_CLIENTID_VMC) {
 		hub_name = "mmhub0";
-		vmhub = AMDGPU_MMHUB0(node_id / 4);
+		vmhub = AMDGPU_MMHUB0(node_id / 8);
 	} else {
 		hub_name = "gfxhub0";
 		if (adev->gfx.funcs->ih_node_to_logical_xcc) {
@@ -226,18 +247,29 @@ static int gmc_v12_1_process_interrupt(struct amdgpu_device *adev,
 		RREG32(hub->vm_l2_pro_fault_status);
 
 	status = RREG32(hub->vm_l2_pro_fault_status);
+	if (hub->vmhub_funcs &&
+	    hub->vmhub_funcs->print_l2_protection_fault_status_hi)
+		status_hi = RREG32(hub->vm_l2_pro_fault_status_hi);
 
 	/* Only print L2 fault status if the status register could be read and
 	 * contains useful information
 	 */
-	if (!status)
+	if (!status && !status_hi)
 		return 0;
 
 	WREG32_P(hub->vm_l2_pro_fault_cntl, 1, ~1);
 
 	amdgpu_vm_update_fault_cache(adev, entry->pasid, addr, status, vmhub);
 
+	if (!hub->vmhub_funcs || !hub->vmhub_funcs->print_l2_protection_fault_status) {
+		dev_warn_once(adev->dev, "vmhub %d print fault status func not defined\n", vmhub);
+		return 0;
+	}
+
 	hub->vmhub_funcs->print_l2_protection_fault_status(adev, status);
+	if (hub->vmhub_funcs->print_l2_protection_fault_status_hi)
+		hub->vmhub_funcs->print_l2_protection_fault_status_hi(adev,
+								     status_hi);
 
 	return 0;
 }
@@ -553,7 +585,12 @@ static void gmc_v12_1_get_vm_pde(struct amdgpu_device *adev, int level,
 	if (!(*flags & AMDGPU_PDE_PTE_GFX12) && !(*flags & AMDGPU_PTE_SYSTEM))
 		*addr = adev->vm_manager.vram_base_offset + *addr -
 			adev->gmc.vram_start;
-	BUG_ON(*addr & 0xFFFF00000000003FULL);
+
+	if (*addr & ~adev->gmc.pte_addr_mask) {
+		dev_err(adev->dev, "Invalid PDE address: %llx\n", *addr);
+		*addr = 0;
+		*flags &= ~AMDGPU_PTE_VALID;
+	}
 
 	*flags |= AMDGPU_PTE_SNOOPED;
 
@@ -564,11 +601,68 @@ static void gmc_v12_1_get_vm_pde(struct amdgpu_device *adev, int level,
 		/* Set the block fragment size */
 		if (!(*flags & AMDGPU_PDE_PTE_GFX12))
 			*flags |= AMDGPU_PDE_BFS_GFX12(0x9);
-
-	} else if (level == AMDGPU_VM_PDB0) {
-		if (*flags & AMDGPU_PDE_PTE_GFX12)
-			*flags &= ~AMDGPU_PDE_PTE_GFX12;
 	}
+}
+
+static void gmc_v12_1_get_npa_flags(struct amdgpu_device *adev,
+				    uint64_t *flags)
+{
+	unsigned int mtype_local, mtype_remote;
+
+	gmc_v12_1_get_mtypes(adev, &mtype_local, &mtype_remote);
+
+	*flags = AMDGPU_PTE_MTYPE_GFX12(*flags, mtype_remote);
+	/* VSCT = 0011 to identify NPA. Additionally PTE.B = 1 */
+	*flags |= AMDGPU_PTE_SNOOPED | AMDGPU_PTE_PRT_GFX12 |
+		   AMDGPU_PTE_BUS_ATOMICS;
+	*flags &= ~AMDGPU_PTE_VALID;
+	*flags &= ~AMDGPU_PTE_EXECUTABLE;
+}
+
+/*
+ * Resolve the MTYPEs used for local and remote memory accesses on GFX 12.1.
+ * Both default to an ASIC-dependent value that can be overridden through the
+ * amdgpu_mtype_local and amdgpu_mtype_remote module parameters.
+ */
+static void gmc_v12_1_get_mtypes(struct amdgpu_device *adev,
+				 unsigned int *mtype_local,
+				 unsigned int *mtype_remote)
+{
+	bool is_aid_a1 = (adev->rev_id & 0x10);
+
+	/* Local memory: ASIC default depends on the AID stepping. */
+	*mtype_local = is_aid_a1 ? MTYPE_RW : MTYPE_NC;
+	if (amdgpu_mtype_local == 0)
+		*mtype_local = MTYPE_RW;
+	else if (amdgpu_mtype_local == 1)
+		*mtype_local = MTYPE_NC;
+	else if (amdgpu_mtype_local == 2)
+		DRM_INFO_ONCE("MTYPE_CC not supported for local memory\n");
+
+	/* Remote memory defaults to MTYPE_UC on GFX 12.1. */
+	*mtype_remote = MTYPE_UC;
+	if (amdgpu_mtype_remote == 0)
+		*mtype_remote = MTYPE_NC;
+	else if (amdgpu_mtype_remote == 1)
+		*mtype_remote = MTYPE_UC;
+
+	DRM_INFO_ONCE("Using %s for local memory and %s for remote memory\n",
+		      *mtype_local == MTYPE_RW ? "MTYPE_RW" : "MTYPE_NC",
+		      *mtype_remote == MTYPE_NC ? "MTYPE_NC" : "MTYPE_UC");
+}
+
+/*
+ * The compute MQD coherent_aql_mtype field (offset 509) must be programmed to
+ * 0 whenever the driver maps local or remote memory as MTYPE_NC, and to 1 in
+ * all other cases.
+ */
+u32 gmc_v12_1_get_coherent_aql_mtype(struct amdgpu_device *adev)
+{
+	unsigned int mtype_local, mtype_remote;
+
+	gmc_v12_1_get_mtypes(adev, &mtype_local, &mtype_remote);
+
+	return (mtype_local == MTYPE_NC || mtype_remote == MTYPE_NC) ? 0 : 1;
 }
 
 static void gmc_v12_1_get_coherence_flags(struct amdgpu_device *adev,
@@ -586,25 +680,10 @@ static void gmc_v12_1_get_coherence_flags(struct amdgpu_device *adev,
 	unsigned int mtype, mtype_local, mtype_remote;
 	bool snoop = false;
 	bool is_local = false;
-	bool is_aid_a1;
 
 	switch (gc_ip_version) {
 	case IP_VERSION(12, 1, 0):
-		is_aid_a1 = (adev->rev_id & 0x10);
-
-		mtype_local = is_aid_a1 ? MTYPE_RW : MTYPE_NC;
-		mtype_remote = is_aid_a1 ? MTYPE_NC : MTYPE_UC;
-		if (amdgpu_mtype_local == 0) {
-			DRM_INFO_ONCE("Using MTYPE_RW for local memory\n");
-			mtype_local = MTYPE_RW;
-		} else if (amdgpu_mtype_local == 1) {
-			DRM_INFO_ONCE("Using MTYPE_NC for local memory\n");
-			mtype_local = MTYPE_NC;
-		} else if (amdgpu_mtype_local == 2) {
-			DRM_INFO_ONCE("MTYPE_CC not supported, using %s for local memory\n", is_aid_a1 ? "MTYPE_RW" : "MTYPE_NC");
-		} else {
-			DRM_INFO_ONCE("Using %s for local memory\n", is_aid_a1 ? "MTYPE_RW" : "MTYPE_NC");
-		}
+		gmc_v12_1_get_mtypes(adev, &mtype_local, &mtype_remote);
 
 		is_local = (is_vram && adev == bo_adev);
 		snoop = true;
@@ -638,6 +717,8 @@ static void gmc_v12_1_get_vm_pte(struct amdgpu_device *adev,
 				 uint32_t vm_flags,
 				 uint64_t *flags)
 {
+	struct ttm_resource *mem;
+
 	if (vm_flags & AMDGPU_VM_PAGE_EXECUTABLE)
 		*flags |= AMDGPU_PTE_EXECUTABLE;
 	else
@@ -659,8 +740,17 @@ static void gmc_v12_1_get_vm_pte(struct amdgpu_device *adev,
 		break;
 	}
 
-	if ((*flags & AMDGPU_PTE_VALID) && bo)
-		gmc_v12_1_get_coherence_flags(adev, bo, flags);
+	if (bo) {
+		mem = bo->tbo.resource;
+		if (mem && mem->mem_type == AMDGPU_PL_NPA) {
+			dev_dbg(adev->dev,
+				"Setting PTE for NPA BO, mem->type: %d, mem->start: %lx, mem->size: %u, cur_flags: %llx\n",
+				mem->mem_type, mem->start, (u32)mem->size, *flags);
+			gmc_v12_1_get_npa_flags(adev, flags);
+		} else if (*flags & AMDGPU_PTE_VALID) {
+			gmc_v12_1_get_coherence_flags(adev, bo, flags);
+		}
+	}
 }
 
 static const struct amdgpu_gmc_funcs gmc_v12_1_gmc_funcs = {
@@ -702,4 +792,37 @@ void gmc_v12_1_init_vram_info(struct amdgpu_device *adev)
 	/* TODO: query vram_info from ip discovery binary */
 	adev->gmc.vram_type = AMDGPU_VRAM_TYPE_HBM4;
 	adev->gmc.vram_width = 384 * 64;
+}
+
+void gmc_v12_1_init_nps_details(struct amdgpu_device *adev)
+{
+	enum amdgpu_memory_partition mode;
+	uint32_t supp_modes;
+	int i;
+
+	adev->gmc.supported_nps_modes = 0;
+
+	if (amdgpu_sriov_vf(adev) || (adev->flags & AMD_IS_APU))
+		return;
+
+	mode = amdgpu_gmc_get_memory_partition(adev, &supp_modes);
+
+	/* Mode detected by hardware and supported modes available */
+	if ((mode != UNKNOWN_MEMORY_PARTITION_MODE) && supp_modes) {
+		while ((i = ffs(supp_modes))) {
+			if (AMDGPU_ALL_NPS_MASK & BIT(i))
+				adev->gmc.supported_nps_modes |= BIT(i);
+			supp_modes &= supp_modes - 1;
+		}
+	} else {
+		switch (amdgpu_ip_version(adev, GC_HWIP, 0)) {
+		case IP_VERSION(12, 1, 0):
+			adev->gmc.supported_nps_modes =
+				BIT(AMDGPU_NPS1_PARTITION_MODE) |
+				BIT(AMDGPU_NPS2_PARTITION_MODE);
+			break;
+		default:
+			break;
+		}
+	}
 }

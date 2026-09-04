@@ -504,9 +504,9 @@ static void amdgpu_dm_plane_add_gfx10_1_modifiers(const struct amdgpu_device *ad
  * present at specific indices.
  * See SiLib::HwlSetupTileInfo() and CiLib::HwlSetupTileInfo() in addrlib.
  */
-static u32 amdgpu_dm_plane_get_gfx6_tile_idx(const struct amdgpu_device *adev,
-					 const u32 bpp,
-					 const enum array_mode_values arr)
+STATIC_IFN_KUNIT u32 amdgpu_dm_plane_get_gfx6_tile_idx(const struct amdgpu_device *adev,
+						       const u32 bpp,
+						       const enum array_mode_values arr)
 {
 	/* Assume that the microtile mode is DISPLAY. */
 
@@ -527,6 +527,7 @@ static u32 amdgpu_dm_plane_get_gfx6_tile_idx(const struct amdgpu_device *adev,
 		return 12;
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_get_gfx6_tile_idx);
 
 /**
  * amdgpu_dm_plane_calc_gfx7_tile_split() - Calculate tile split on GFX7-8
@@ -542,9 +543,9 @@ static u32 amdgpu_dm_plane_get_gfx6_tile_idx(const struct amdgpu_device *adev,
  * can be calculated. The TILE_SPLIT field is only used for the depth micro tile mode.
  * See CiLib::HwlComputeMacroModeIndex() in addrlib.
  */
-static u32 amdgpu_dm_plane_calc_gfx7_tile_split(const struct amdgpu_device *adev,
-						const u32 bpp,
-						const u32 gb_tile_mode)
+STATIC_IFN_KUNIT u32 amdgpu_dm_plane_calc_gfx7_tile_split(const struct amdgpu_device *adev,
+							  const u32 bpp,
+							  const u32 gb_tile_mode)
 {
 	/* Assume 2D_TILED_THIN1 mode with non-DEPTH microtiles */
 	const u32 sample_split = (gb_tile_mode >> 25) & 0x3;
@@ -557,6 +558,7 @@ static u32 amdgpu_dm_plane_calc_gfx7_tile_split(const struct amdgpu_device *adev
 		     256,
 		     adev->gfx.config.mem_row_size_in_kb * 1024);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_calc_gfx7_tile_split);
 
 /**
  * amdgpu_dm_plane_get_gfx7_macro_tile_idx() - Get macro tile mode index on GFX7-8
@@ -570,7 +572,8 @@ static u32 amdgpu_dm_plane_calc_gfx7_tile_split(const struct amdgpu_device *adev
  * present at specific indices.
  * See CiLib::HwlComputeMacroModeIndex() in addrlib.
  */
-static u32 amdgpu_dm_plane_get_gfx7_macro_tile_idx(const u32 bpp, const u32 tile_split_bytes)
+STATIC_IFN_KUNIT u32 amdgpu_dm_plane_get_gfx7_macro_tile_idx(const u32 bpp,
+							     const u32 tile_split_bytes)
 {
 	const u32 thickness = 1;
 	const u32 tile_size_pixels = 8 * 8;
@@ -582,6 +585,7 @@ static u32 amdgpu_dm_plane_get_gfx7_macro_tile_idx(const u32 bpp, const u32 tile
 
 	return macro_tile_idx;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_get_gfx7_macro_tile_idx);
 
 /**
  * amdgpu_dm_plane_calc_gfx6_mod() - Calculate a DRM format modifier for GFX6-8
@@ -593,9 +597,9 @@ static u32 amdgpu_dm_plane_get_gfx7_macro_tile_idx(const u32 bpp, const u32 tile
  * Select suitable micro and macro tile modes for the given bits per pixel,
  * and calculate the corresponding DRM format modifier.
  */
-static u64 amdgpu_dm_plane_calc_gfx6_mod(const struct amdgpu_device *adev,
-					 const u32 bpp,
-					 const enum array_mode_values arr)
+STATIC_IFN_KUNIT u64 amdgpu_dm_plane_calc_gfx6_mod(const struct amdgpu_device *adev,
+						   const u32 bpp,
+						   const enum array_mode_values arr)
 {
 	u32 array_mode, micro_tile_mode, tile_split_bytes;
 	u32 gb_macrotile_mode, macrotile_idx;
@@ -645,6 +649,7 @@ static u64 amdgpu_dm_plane_calc_gfx6_mod(const struct amdgpu_device *adev,
 		AMD_FMT_MOD_SET(MACRO_TILE_ASPECT, (gb_macrotile_mode >> 4) & 0x3) |
 		AMD_FMT_MOD_SET(NUM_BANKS, (gb_macrotile_mode >> 6) & 0x3);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_calc_gfx6_mod);
 
 /**
  * amdgpu_dm_plane_gfx6_format_mod_supported() - Check if a modifier is supported on GFX6-8
@@ -656,9 +661,9 @@ static u64 amdgpu_dm_plane_calc_gfx6_mod(const struct amdgpu_device *adev,
  * On GFX6-8, not all DRM format modifier can be used with all image formats.
  * Check whether the specified modifier is supported with the given bits per pixel value.
  */
-static bool amdgpu_dm_plane_gfx6_format_mod_supported(const struct amdgpu_device *adev,
-						      const u32 bpp,
-						      const u64 modifier)
+STATIC_IFN_KUNIT bool amdgpu_dm_plane_gfx6_format_mod_supported(const struct amdgpu_device *adev,
+								const u32 bpp,
+								const u64 modifier)
 {
 	const u32 array_mode = AMD_FMT_MOD_GET(TILE, modifier);
 	const u32 micro_tile_mode = AMD_FMT_MOD_GET(MICROTILE, modifier);
@@ -697,6 +702,7 @@ static bool amdgpu_dm_plane_gfx6_format_mod_supported(const struct amdgpu_device
 	/* Verify that the modifier is the same that we'd expose for this bpp */
 	return amdgpu_dm_plane_calc_gfx6_mod(adev, bpp, array_mode) == modifier;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_gfx6_format_mod_supported);
 
 /**
  * amdgpu_dm_plane_add_gfx6_modifiers() - Expose modifiers for GFX6-8
@@ -1217,8 +1223,8 @@ int amdgpu_dm_plane_fill_plane_buffer_attributes(struct amdgpu_device *adev,
 }
 EXPORT_IF_KUNIT(amdgpu_dm_plane_fill_plane_buffer_attributes);
 
-static int amdgpu_dm_plane_helper_prepare_fb(struct drm_plane *plane,
-					     struct drm_plane_state *new_state)
+STATIC_IFN_KUNIT int amdgpu_dm_plane_helper_prepare_fb(struct drm_plane *plane,
+						       struct drm_plane_state *new_state)
 {
 	struct amdgpu_framebuffer *afb;
 	struct drm_gem_object *obj;
@@ -1315,9 +1321,10 @@ error_unlock:
 	amdgpu_bo_unreserve(rbo);
 	return r;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_helper_prepare_fb);
 
-static void amdgpu_dm_plane_helper_cleanup_fb(struct drm_plane *plane,
-					      struct drm_plane_state *old_state)
+STATIC_IFN_KUNIT void amdgpu_dm_plane_helper_cleanup_fb(struct drm_plane *plane,
+							struct drm_plane_state *old_state)
 {
 	struct amdgpu_bo *rbo;
 	int r;
@@ -1336,6 +1343,7 @@ static void amdgpu_dm_plane_helper_cleanup_fb(struct drm_plane *plane,
 	amdgpu_bo_unreserve(rbo);
 	amdgpu_bo_unref(&rbo);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_helper_cleanup_fb);
 
 STATIC_IFN_KUNIT void amdgpu_dm_plane_get_min_max_dc_plane_scaling(struct drm_device *dev,
 								   struct drm_framebuffer *fb,
@@ -1730,9 +1738,10 @@ void amdgpu_dm_plane_handle_cursor_update(struct drm_plane *plane,
 		mutex_unlock(&adev->dm.dc_lock);
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_handle_cursor_update);
 
-static void amdgpu_dm_plane_atomic_async_update(struct drm_plane *plane,
-						struct drm_atomic_commit *state)
+STATIC_IFN_KUNIT void amdgpu_dm_plane_atomic_async_update(struct drm_plane *plane,
+							  struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state,
 									   plane);
@@ -1754,6 +1763,7 @@ static void amdgpu_dm_plane_atomic_async_update(struct drm_plane *plane,
 
 	amdgpu_dm_plane_handle_cursor_update(plane, old_state);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_atomic_async_update);
 
 STATIC_IFN_KUNIT void amdgpu_dm_plane_panic_flush(struct drm_plane *plane)
 {

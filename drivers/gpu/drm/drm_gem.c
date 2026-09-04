@@ -353,8 +353,11 @@ void drm_gem_object_handle_put_unlocked(struct drm_gem_object *obj)
 	}
 	mutex_unlock(&dev->object_name_lock);
 
-	if (final)
+	if (final) {
+		if (obj->funcs->handle_free)
+			obj->funcs->handle_free(obj);
 		drm_gem_object_put(obj);
+	}
 }
 
 /*

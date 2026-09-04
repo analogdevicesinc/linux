@@ -26,6 +26,7 @@
 #include "amdgpu.h"
 #include "amdgpu_trace.h"
 #include "amdgpu_vm.h"
+#include "amdgpu_vm_internal.h"
 #include "amdgpu_job.h"
 
 /*
@@ -407,10 +408,14 @@ int amdgpu_vm_pt_clear(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 
 	if (adev->asic_type >= CHIP_VEGA10) {
 		if (level != AMDGPU_VM_PTB) {
+			if (vm->is_npa)
+				flags = adev->gmc.noretry_flags;
 			/* Handle leaf PDEs as PTEs */
 			flags |= AMDGPU_PDE_PTE_FLAG(adev);
 			amdgpu_gmc_get_vm_pde(adev, level,
 					      &value, &flags);
+		} else if (vm->is_npa) {
+			flags = adev->gmc.noretry_flags;
 		} else {
 			/* Workaround for fault priority problem on GMC9 */
 			flags = AMDGPU_PTE_EXECUTABLE | adev->gmc.init_pte_flags;
@@ -444,6 +449,7 @@ int amdgpu_vm_pt_create(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 {
 	struct amdgpu_bo_param bp;
 	unsigned int num_entries;
+	int r;
 
 	memset(&bp, 0, sizeof(bp));
 
@@ -476,7 +482,24 @@ int amdgpu_vm_pt_create(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 	if (vm->root.bo)
 		bp.resv = vm->root.bo->tbo.base.resv;
 
-	return amdgpu_bo_create_vm(adev, &bp, vmbo);
+	r = amdgpu_bo_create_vm(adev, &bp, vmbo);
+	if (r)
+		return r;
+
+	/* Assumes that reservation is shared with the VM root and that the
+	 * reservation is locked
+	 */
+	if (vm->root.bo && vm->is_npa) {
+		struct amdgpu_bo *pt_bo = &(*vmbo)->bo;
+
+		r = amdgpu_bo_pin(pt_bo, AMDGPU_GEM_DOMAIN_VRAM);
+		if (r) {
+			amdgpu_bo_unref(&pt_bo);
+			return r;
+		}
+	}
+
+	return 0;
 }
 
 /**
@@ -526,6 +549,8 @@ static int amdgpu_vm_pt_alloc(struct amdgpu_device *adev,
 	return 0;
 
 error_free_pt:
+	if (vm->is_npa)
+		amdgpu_bo_unpin(pt_bo);
 	amdgpu_bo_unref(&pt_bo);
 	return r;
 }
@@ -539,6 +564,9 @@ static void amdgpu_vm_pt_free(struct amdgpu_vm_bo_base *entry)
 {
 	if (!entry->bo)
 		return;
+
+	if (entry->vm->is_npa)
+		amdgpu_bo_unpin(entry->bo);
 
 	amdgpu_vm_update_stats(entry, entry->bo->tbo.resource, -1);
 	entry->bo->vm_bo = NULL;
@@ -881,7 +909,6 @@ int amdgpu_vm_ptes_update(struct amdgpu_vm_update_params *params,
 		entry_end = min(entry_end, end);
 
 		do {
-			struct amdgpu_vm *vm = params->vm;
 			uint64_t upd_end = min(entry_end, frag_end);
 			unsigned int nptes = (upd_end - frag_start) >> shift;
 			uint64_t upd_flags = flags | AMDGPU_PTE_FRAG(frag);
@@ -893,9 +920,7 @@ int amdgpu_vm_ptes_update(struct amdgpu_vm_update_params *params,
 
 			trace_amdgpu_vm_update_ptes(params, frag_start, upd_end,
 						    min(nptes, 32u), dst, incr,
-						    upd_flags,
-						    vm->task_info ? vm->task_info->tgid : 0,
-						    vm->immediate.fence_context);
+						    upd_flags);
 			amdgpu_vm_pte_update_flags(params, to_amdgpu_bo_vm(pt),
 						   cursor.level, pe_start, dst,
 						   nptes, incr, upd_flags);

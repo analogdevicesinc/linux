@@ -41,7 +41,7 @@
 #define DC_LOGGER CTX->logger
 #define GPINT_RETRY_NUM 20
 
-#define MAX_WAIT_US 100000
+#define MAX_WAIT_US 500000
 
 static void dc_dmub_srv_construct(struct dc_dmub_srv *dc_srv, struct dc *dc,
 				  struct dmub_srv *dmub)
@@ -2474,4 +2474,74 @@ void dc_dmub_srv_get_fams2_debug_meta(struct dc_dmub_srv *dc_dmub_srv)
 
 	dm_execute_dmub_cmd_list(dc_dmub_srv->ctx, 1, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
 
+}
+
+void dc_dmub_srv_panel_polarity_set_enable(struct dc_dmub_srv *dc_dmub_srv, uint8_t panel_inst, bool enable)
+{
+	union dmub_rb_cmd cmd;
+	struct dc_context *ctx = dc_dmub_srv->ctx;
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	cmd.panel_polarity_enable.header.type = DMUB_CMD__PANEL_POLARITY;
+	cmd.panel_polarity_enable.header.sub_type = DMUB_CMD__PANEL_POLARITY_ENABLE;
+	cmd.panel_polarity_enable.header.payload_bytes = sizeof(cmd.panel_polarity_enable.data);
+	cmd.panel_polarity_enable.data.enable = enable ? 1 : 0;
+	cmd.panel_polarity_enable.data.otg_inst = panel_inst;
+
+	dc_wake_and_execute_dmub_cmd(ctx, &cmd, DM_DMUB_WAIT_TYPE_NO_WAIT);
+}
+
+void dc_dmub_srv_panel_polarity_reset(struct dc_dmub_srv *dc_dmub_srv, uint8_t panel_inst)
+{
+	union dmub_rb_cmd cmd;
+	struct dc_context *ctx = dc_dmub_srv->ctx;
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	cmd.panel_polarity_enable.header.type = DMUB_CMD__PANEL_POLARITY;
+	cmd.panel_polarity_enable.header.sub_type = DMUB_CMD__PANEL_POLARITY_RESET;
+	cmd.panel_polarity_enable.header.payload_bytes = sizeof(cmd.panel_polarity_enable.data);
+	cmd.panel_polarity_enable.data.otg_inst = panel_inst;
+
+	dc_wake_and_execute_dmub_cmd(ctx, &cmd, DM_DMUB_WAIT_TYPE_NO_WAIT);
+}
+
+bool dc_dmub_srv_panel_polarity_get_polarity(struct dc_dmub_srv *dc_dmub_srv, uint8_t panel_inst, int32_t *polarity)
+{
+	bool ret = false;
+	uint32_t raw_polarity = 0;
+	uint32_t retry_count = 0;
+	struct dc_context *ctx = dc_dmub_srv->ctx;
+
+	*polarity = 0;
+
+	do {
+		/* Send gpint command and wait for ack */
+		if (dc_wake_and_execute_gpint(ctx, DMUB_GPINT__PANEL_POLARITY_GET_BIAS, panel_inst, &raw_polarity,
+			DM_DMUB_WAIT_TYPE_WAIT_WITH_REPLY)) {
+			*polarity = (int32_t)raw_polarity;
+			ret = true;
+		}
+	} while (++retry_count <= 1000 && ret == false);
+
+	return ret;
+}
+
+void dc_dmub_srv_hubbub_set_riommu_pctrl(const struct dc_context *ctx, uint32_t value)
+{
+	union dmub_rb_cmd cmd;
+
+	if (!(ctx->dce_version == DCN_VERSION_4_2 || ctx->dce_version == DCN_VERSION_4_2B))
+		return;
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	cmd.dc_bls_dchvm_init.header.type = DMUB_CMD__DC_BLS;
+	cmd.dc_bls_dchvm_init.header.sub_type = DMUB_CMD__DC_BLS_DCHVM_INIT;
+	cmd.dc_bls_dchvm_init.header.payload_bytes = sizeof(struct dmub_cmd_dc_bls_dchvm_init_data);
+
+	cmd.dc_bls_dchvm_init.data.riommu_pctrl_val = value;
+
+	dc_wake_and_execute_dmub_cmd(ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
 }

@@ -5,6 +5,7 @@
 #include "dcn60_soc_and_ip_translator.h"
 #include "soc_and_ip_translator/dcn401/dcn401_soc_and_ip_translator.h"
 #include "bounding_boxes/dcn6_soc_bb.h"
+#include "dal_asic_id.h"
 
 /* soc_and_ip_translator component used to get up-to-date values for bounding box.
  * Bounding box values are stored in several locations and locations can vary with DCN revision.
@@ -94,7 +95,10 @@ static void apply_soc_bb_updates(struct dml2_soc_bb *soc_bb, const struct dc *dc
 static void dcn60_get_soc_bb(struct dml2_soc_bb *soc_bb, const struct dc *dc, const struct dml2_configuration_options *config)
 {
 	//get default soc_bb with static values
-	dcn6_test_initialize_soc_bb(soc_bb);
+	if (ASICREV_IS_DCN6_VARIANT_LITE3(dc->ctx->asic_id.hw_internal_rev))
+		dcn6b_test_initialize_soc_bb(soc_bb);
+	else
+		dcn6_test_initialize_soc_bb(soc_bb);
 	//get default soc_bb with static values
 	apply_soc_bb_updates(soc_bb, dc, config);
 

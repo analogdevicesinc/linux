@@ -28,6 +28,8 @@
 #include <linux/printk.h>
 #include <linux/dev_printk.h>
 #include <linux/mempool.h>
+#include <linux/math64.h>
+#include <linux/time.h>
 #include "amdgpu.h"
 
 /* inject address is 52 bits */

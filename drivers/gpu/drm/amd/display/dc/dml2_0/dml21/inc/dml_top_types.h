@@ -480,6 +480,7 @@ struct dml2_display_cfg_programming {
 	struct {
 		bool meets_eco; // Stutter cycles will meet Z8 ECO criteria
 		bool supported_in_blank; // Changing to configurations where this is false requires Z8 to be disabled during the transition
+		bool global_support; // Z8 supported in vblank or vactive
 	} z8_stutter;
 
 	struct dml2_dchub_global_register_set global_regs;

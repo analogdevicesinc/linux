@@ -32,6 +32,7 @@
 #include "dcn10/dcn10_cm_common.h"
 #include "dcn10/dcn10_hubbub.h"
 #include "dcn20/dcn20_optc.h"
+#include "dcn20/dcn20_hwseq.h"
 #include "dcn30/dcn30_cm_common.h"
 #include "dcn32/dcn32_hwseq.h"
 #include "dcn401_hwseq.h"
@@ -76,7 +77,8 @@ void dcn401_initialize_min_clocks(struct dc *dc)
 		if (dc->clk_mgr->funcs->get_dispclk_from_dentist) {
 			clocks->dispclk_khz = dc->clk_mgr->funcs->get_dispclk_from_dentist(dc->clk_mgr);
 		} else {
-			clocks->dispclk_khz = dc->clk_mgr->boot_snapshot.dispclk * 1000;
+			// Boot snapshot is already in Khz
+			clocks->dispclk_khz = dc->clk_mgr->boot_snapshot.dispclk;
 		}
 	}
 	clocks->ref_dtbclk_khz = dc->clk_mgr->bw_params->clk_table.entries[0].dtbclk_mhz * 1000;
@@ -420,24 +422,21 @@ void dcn401_trigger_3dlut_dma_load(struct pipe_ctx *pipe_ctx)
 	}
 }
 
-bool dcn401_set_mcm_luts(struct pipe_ctx *pipe_ctx,
-				const struct dc_plane_state *plane_state)
+bool dcn401_set_mcm_luts(struct dc *dc, struct dpp *dpp, struct hubp *hubp,
+				struct hubp *primary_hubp, struct mpc *mpc, int mpcc_id,
+				struct dc_stream_state *stream,
+				struct dc_plane_state *plane_state)
 {
-	struct dc *dc = pipe_ctx->plane_res.hubp->ctx->dc;
-	const struct pipe_ctx *primary_dpp_pipe_ctx = resource_get_primary_dpp_pipe(pipe_ctx);
-	struct dpp *dpp_base = pipe_ctx->plane_res.dpp;
-	struct hubp *hubp = pipe_ctx->plane_res.hubp;
-	struct hubp *primary_hubp = primary_dpp_pipe_ctx ?
-			primary_dpp_pipe_ctx->plane_res.hubp : hubp;   /* fall back to current pipe */
 	const struct dc_plane_cm *cm = &plane_state->cm;
-	int mpcc_id = hubp->inst;
-	struct mpc *mpc = dc->res_pool->mpc;
 	union mcm_lut_params m_lut_params;
 	struct dc_3dlut_dma lut3d_dma;
 	bool lut_enable;
 	bool lut_bank_a;
 	bool rval;
 	bool result = true;
+
+	(void)dc;
+	(void)stream;
 
 	/* decide LUT bank based on current in use */
 	mpc->funcs->get_lut_mode(mpc, MCM_LUT_1DLUT, mpcc_id, &lut_enable, &lut_bank_a);
@@ -465,9 +464,9 @@ bool dcn401_set_mcm_luts(struct pipe_ctx *pipe_ctx,
 		else if (cm->blend_func.type == TF_TYPE_DISTRIBUTED_POINTS) {
 			rval = cm3_helper_translate_curve_to_hw_format(plane_state->ctx,
 					&cm->blend_func,
-					&dpp_base->regamma_params,
+					&dpp->regamma_params,
 					false);
-			m_lut_params.pwl = rval ? &dpp_base->regamma_params : NULL;
+			m_lut_params.pwl = rval ? &dpp->regamma_params : NULL;
 		}
 
 		if (!m_lut_params.pwl) {
@@ -492,9 +491,9 @@ bool dcn401_set_mcm_luts(struct pipe_ctx *pipe_ctx,
 			ASSERT(false);
 			rval = cm3_helper_translate_curve_to_hw_format(plane_state->ctx,
 					&cm->shaper_func,
-					&dpp_base->shaper_params,
+					&dpp->shaper_params,
 					true);
-			m_lut_params.pwl = rval ? &dpp_base->shaper_params : NULL;
+			m_lut_params.pwl = rval ? &dpp->shaper_params : NULL;
 		}
 		if (!m_lut_params.pwl) {
 			lut_enable = false;
@@ -1332,28 +1331,10 @@ bool dcn401_apply_idle_power_optimizations(struct dc *dc, bool enable)
 	return true;
 }
 
-void dcn401_wait_for_dcc_meta_propagation(const struct dc *dc,
-		const struct pipe_ctx *top_pipe)
+void dcn401_wait_for_dcc_meta_propagation(uint32_t delay)
 {
-	bool is_wait_needed = false;
-	const struct pipe_ctx *pipe_ctx = top_pipe;
-
-	/* check if any surfaces are updating address while using flip immediate and dcc */
-	while (pipe_ctx != NULL) {
-		if (pipe_ctx->plane_state &&
-				pipe_ctx->plane_state->dcc.enable &&
-				pipe_ctx->plane_state->flip_immediate &&
-				pipe_ctx->plane_state->update_bits.addr_update) {
-			is_wait_needed = true;
-			break;
-		}
-
-		/* check next pipe */
-		pipe_ctx = pipe_ctx->bottom_pipe;
-	}
-
-	if (is_wait_needed && dc->debug.dcc_meta_propagation_delay_us > 0) {
-		udelay(dc->debug.dcc_meta_propagation_delay_us);
+	if (delay > 0) {
+		udelay(delay);
 	}
 }
 
@@ -1864,7 +1845,10 @@ void dcn401_unblank_stream(struct pipe_ctx *pipe_ctx,
 	}
 
 	if (dc_is_hdmi_frl_signal(pipe_ctx->stream->signal)) {
-		if (link->link_status.link_active && link->frl_link_settings.frl_link_rate != 0)
+		bool unblank_required =
+			link->link_status.link_active && link->frl_link_settings.frl_link_rate != 0;
+
+		if (unblank_required)
 			pipe_ctx->stream_res.hpo_frl_stream_enc->funcs->hdmi_frl_unblank(
 					pipe_ctx->stream_res.hpo_frl_stream_enc,
 					pipe_ctx->stream_res.tg->inst);
@@ -1952,7 +1936,7 @@ void dcn401_interdependent_update_lock(struct dc *dc,
 					!tg->funcs->is_tg_enabled(tg) ||
 					dc_state_get_pipe_subvp_type(context, pipe) == SUBVP_PHANTOM)
 				continue;
-			dc->hwss.pipe_control_lock(dc, pipe, true);
+			hwss_pipe_control_lock(dc, pipe, true);
 		}
 	} else {
 		/* Need to free DET being used first and have pipe update, then unlock the remaining pipes*/
@@ -1968,7 +1952,7 @@ void dcn401_interdependent_update_lock(struct dc *dc,
 
 			if (dc->scratch.pipes_to_unlock_first[i]) {
 				struct pipe_ctx *old_pipe = &dc->current_state->res_ctx.pipe_ctx[i];
-				dc->hwss.pipe_control_lock(dc, pipe, false);
+				hwss_pipe_control_lock(dc, pipe, false);
 				/* Assumes pipe of the same index in current_state is also an OTG_MASTER pipe*/
 				dcn401_wait_for_det_buffer_update_under_otg_master(dc, dc->current_state, old_pipe);
 			}
@@ -1987,12 +1971,13 @@ void dcn401_interdependent_update_lock(struct dc *dc,
 				continue;
 			}
 
-			dc->hwss.pipe_control_lock(dc, pipe, false);
+			hwss_pipe_control_lock(dc, pipe, false);
 		}
 	}
 }
 
-void dcn401_perform_3dlut_wa_unlock(struct pipe_ctx *pipe_ctx)
+void dcn401_perform_3dlut_wa_unlock(struct timing_generator *tg,
+		struct hubp *primary_hubp)
 {
 	/* If 3DLUT FL is enabled and 3DLUT is in use, follow the workaround sequence for pipe unlock to make sure that
 	 * HUBP will properly fetch 3DLUT contents after unlock.
@@ -2000,45 +1985,24 @@ void dcn401_perform_3dlut_wa_unlock(struct pipe_ctx *pipe_ctx)
 	 * This is meant to work around a known HW issue where VREADY will cancel the pending 3DLUT_ENABLE signal regardless
 	 * of whether OTG lock is currently being held or not.
 	 */
-	if (!pipe_ctx)
+	if (!tg)
 		return;
 
-	const struct pipe_ctx *otg_master_pipe_ctx = resource_get_otg_master(pipe_ctx);
-	struct timing_generator *tg = otg_master_pipe_ctx ?
-			otg_master_pipe_ctx->stream_res.tg : NULL;
-	const struct pipe_ctx *primary_dpp_pipe_ctx = resource_is_pipe_type(pipe_ctx, DPP_PIPE) ?
-			resource_get_primary_dpp_pipe(pipe_ctx) : pipe_ctx;
-	struct hubp *primary_hubp = primary_dpp_pipe_ctx ?
-			primary_dpp_pipe_ctx->plane_res.hubp : NULL;
+	if (tg->funcs->set_vupdate_keepout)
+		tg->funcs->set_vupdate_keepout(tg, true);
 
-	if (!otg_master_pipe_ctx || !tg) {
-		return;
-	}
+	if (primary_hubp && primary_hubp->funcs->hubp_enable_3dlut_fl)
+		primary_hubp->funcs->hubp_enable_3dlut_fl(primary_hubp, true);
 
-	if (primary_dpp_pipe_ctx &&
-			primary_dpp_pipe_ctx->plane_state &&
-			primary_dpp_pipe_ctx->plane_state->cm.flags.bits.lut3d_enable &&
-			primary_dpp_pipe_ctx->plane_state->cm.flags.bits.lut3d_dma_enable) {
-		if (tg->funcs->set_vupdate_keepout)
-			tg->funcs->set_vupdate_keepout(tg, true);
+	tg->funcs->unlock(tg);
+	if (tg->funcs->wait_update_lock_status)
+		tg->funcs->wait_update_lock_status(tg, false);
 
-		if (primary_hubp && primary_hubp->funcs->hubp_enable_3dlut_fl) {
-			primary_hubp->funcs->hubp_enable_3dlut_fl(primary_hubp, true);
-		}
+	if (primary_hubp && primary_hubp->funcs->hubp_enable_3dlut_fl)
+		primary_hubp->funcs->hubp_enable_3dlut_fl(primary_hubp, true);
 
-		tg->funcs->unlock(tg);
-		if (tg->funcs->wait_update_lock_status)
-			tg->funcs->wait_update_lock_status(tg, false);
-
-		if (primary_hubp && primary_hubp->funcs->hubp_enable_3dlut_fl) {
-			primary_hubp->funcs->hubp_enable_3dlut_fl(primary_hubp, true);
-		}
-
-		if (tg->funcs->set_vupdate_keepout)
-			tg->funcs->set_vupdate_keepout(tg, false);
-	} else {
-		tg->funcs->unlock(tg);
-	}
+	if (tg->funcs->set_vupdate_keepout)
+		tg->funcs->set_vupdate_keepout(tg, false);
 }
 
 void dcn401_program_outstanding_updates(struct dc *dc,
@@ -2305,7 +2269,7 @@ void dcn401_program_pipe(
 			pipe_ctx->plane_state->update_bits.gamma_change ||
 			pipe_ctx->plane_state->update_bits.lut_3d ||
 			pipe_ctx->update_flags.bits.enable))
-		hws->funcs.set_input_transfer_func(dc, pipe_ctx, pipe_ctx->plane_state);
+		hwss_set_input_transfer_func(dc, pipe_ctx);
 
 	/* dcn10_translate_regamma_to_hw_format takes 750us to finish
 	 * only do gamma programming for powering on, internal memcmp to avoid
@@ -2462,7 +2426,7 @@ void dcn401_program_pipe_sequence(
 			pipe_ctx->plane_state->update_bits.lut_3d ||
 			pipe_ctx->update_flags.bits.enable)) {
 
-		hwss_add_dpp_set_input_transfer_func(seq_state, dc, pipe_ctx, pipe_ctx->plane_state);
+		hwss_add_dpp_set_input_transfer_func(seq_state, dc, pipe_ctx);
 	}
 
 	/* dcn10_translate_regamma_to_hw_format takes 750us to finish
@@ -3479,89 +3443,24 @@ void dcn401_update_writeback_sequence(
 	hwss_add_mcif_wb_config_buf(seq_state, mcif_wb, &wb_info->mcif_buf_params, wb_info->dwb_params.dest_height);
 }
 
-static int find_free_gsl_group(const struct dc *dc)
-{
-	if (dc->res_pool->gsl_groups.gsl_0 == 0)
-		return 1;
-	if (dc->res_pool->gsl_groups.gsl_1 == 0)
-		return 2;
-	if (dc->res_pool->gsl_groups.gsl_2 == 0)
-		return 3;
-
-	return 0;
-}
-
 void dcn401_setup_gsl_group_as_lock_sequence(
 		const struct dc *dc,
 		struct pipe_ctx *pipe_ctx,
 		bool enable,
 		struct block_sequence_state *seq_state)
 {
-	struct gsl_params gsl;
-	int group_idx;
+	struct tg_set_gsl_params gsl_params = { 0 };
+	struct tg_set_gsl_source_select_params gsl_source_select_params = { 0 };
 
-	memset(&gsl, 0, sizeof(struct gsl_params));
+	dcn20_build_gsl_group_as_lock(dc, pipe_ctx, enable,
+			&gsl_params, &gsl_source_select_params);
+	if (!gsl_source_select_params.group_idx)
+		return;
 
-	if (enable) {
-		/* return if group already assigned since GSL was set up
-		 * for vsync flip, we would unassign so it can't be "left over"
-		 */
-		if (pipe_ctx->stream_res.gsl_group > 0)
-			return;
-
-		group_idx = find_free_gsl_group(dc);
-		ASSERT(group_idx != 0);
-		pipe_ctx->stream_res.gsl_group = (uint8_t)group_idx;
-
-		/* set gsl group reg field and mark resource used */
-		switch (group_idx) {
-		case 1:
-			gsl.gsl0_en = 1;
-			dc->res_pool->gsl_groups.gsl_0 = 1;
-			break;
-		case 2:
-			gsl.gsl1_en = 1;
-			dc->res_pool->gsl_groups.gsl_1 = 1;
-			break;
-		case 3:
-			gsl.gsl2_en = 1;
-			dc->res_pool->gsl_groups.gsl_2 = 1;
-			break;
-		default:
-			BREAK_TO_DEBUGGER();
-			return; // invalid case
-		}
-		gsl.gsl_master_en = 1;
-	} else {
-		group_idx = pipe_ctx->stream_res.gsl_group;
-		if (group_idx == 0)
-			return; // if not in use, just return
-
-		pipe_ctx->stream_res.gsl_group = 0;
-
-		/* unset gsl group reg field and mark resource free */
-		switch (group_idx) {
-		case 1:
-			gsl.gsl0_en = 0;
-			dc->res_pool->gsl_groups.gsl_0 = 0;
-			break;
-		case 2:
-			gsl.gsl1_en = 0;
-			dc->res_pool->gsl_groups.gsl_1 = 0;
-			break;
-		case 3:
-			gsl.gsl2_en = 0;
-			dc->res_pool->gsl_groups.gsl_2 = 0;
-			break;
-		default:
-			BREAK_TO_DEBUGGER();
-			return;
-		}
-		gsl.gsl_master_en = 0;
-	}
-
-	hwss_add_tg_set_gsl(seq_state, pipe_ctx->stream_res.tg, gsl);
-	hwss_add_tg_set_gsl_source_select(seq_state, pipe_ctx->stream_res.tg, group_idx, enable ? 4 : 0);
+	hwss_add_tg_set_gsl(seq_state, gsl_params.tg, gsl_params.gsl);
+	hwss_add_tg_set_gsl_source_select(seq_state, gsl_source_select_params.tg,
+			gsl_source_select_params.group_idx,
+			gsl_source_select_params.gsl_ready_signal);
 }
 
 void dcn401_disable_plane_sequence(
@@ -3844,8 +3743,7 @@ void dcn401_update_dchubp_dpp_sequence(struct dc *dc,
 		hwss_add_set_cursor_position(seq_state, dc, pipe_ctx);
 
 		/* Step 16: Cursor SDR white level */
-		if (dc->hwss.set_cursor_sdr_white_level)
-			hwss_add_set_cursor_sdr_white_level(seq_state, dc, pipe_ctx);
+		hwss_add_set_cursor_sdr_white_level(seq_state, pipe_ctx);
 	}
 
 	/* Step 17: Gamut remap and output CSC */

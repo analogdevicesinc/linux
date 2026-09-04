@@ -43,7 +43,7 @@
 #include "inc/hw/dmcu.h"
 #include "dml/display_mode_lib.h"
 
-#include "dml2_0/dml2_wrapper.h"
+#include "dml2_wrapper/dml2_wrapper.h"
 
 #include "dmub/inc/dmub_cmd.h"
 
@@ -66,7 +66,7 @@ struct dcn_dsc_reg_state;
 struct dcn_optc_reg_state;
 struct dcn_dccg_reg_state;
 
-#define DC_VER "3.2.392"
+#define DC_VER "3.2.396"
 
 /**
  * MAX_SURFACES - representative of the upper bound of surfaces that can be piped to a single CRTC
@@ -432,6 +432,7 @@ struct dc_caps {
 	uint8_t num_of_dpias_per_host_router;
 	/* limit of the ODM only, could be limited by other factors (like pipe count)*/
 	uint8_t max_odm_combine_factor;
+	bool utm_support;
 };
 
 struct dc_bug_wa {
@@ -652,6 +653,7 @@ enum visual_confirm {
 	VISUAL_CONFIRM_VABC = 21,
 	VISUAL_CONFIRM_DCC = 22,
 	VISUAL_CONFIRM_BOOSTED_REFRESH_RATE = 23,
+	VISUAL_CONFIRM_DM_PASSTHROUGH = 26,
 	VISUAL_CONFIRM_EXPLICIT = 0x80000000,
 };
 
@@ -1319,8 +1321,11 @@ struct dc_debug_options {
 	bool enable_replay_esd_recovery;
 	uint8_t iommu_mismatch_temp_wka;
 	bool disable_dynamic_expansion_for_test_pattern;
+	bool psr_phy_force_phy_power_down_up_level_2;
 	uint32_t dml21_custom_derate_num_dpms;
 	uint32_t dml21_custom_derate_at_dpm[DML2_MAX_NUM_DPM_LVL];
+	bool override_utm_client_qc_profile;
+	uint8_t utm_client_qc_profiles[4];
 };
 
 
@@ -3894,5 +3899,12 @@ bool dc_get_qos_info(struct dc *dc, struct dc_qos_info *info);
 unsigned int dc_override_memory_bandwidth_request(
 		struct dc *dc,
 		unsigned int bw_mbps);
+
+/**
+ * Panel Polarity Control
+ */
+void dc_link_set_panel_polarity_enable(struct dc_link *link, bool enable);
+void dc_link_panel_polarity_reset(struct dc_link *link);
+bool dc_link_get_panel_polarity(struct dc_link *link, int32_t *polarity);
 
 #endif /* DC_INTERFACE_H_ */

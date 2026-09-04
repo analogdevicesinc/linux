@@ -663,7 +663,8 @@ int pqm_update_mqd(struct process_queue_manager *pqm,
 
 	/* ASICs that have WGPs must enforce pairwise enabled mask checks. */
 	if (minfo && minfo->cu_mask.ptr &&
-			KFD_GC_VERSION(pqn->q->device) >= IP_VERSION(10, 0, 0)) {
+			KFD_GC_VERSION(pqn->q->device) >= IP_VERSION(10, 0, 0) &&
+			KFD_GC_VERSION(pqn->q->device) < IP_VERSION(12, 1, 0)) {
 		int i;
 
 		for (i = 0; i < minfo->cu_mask.count; i += 2) {

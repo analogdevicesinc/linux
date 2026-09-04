@@ -71,6 +71,8 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
 				     struct dc_link *link,
 				     int link_index);
 
+void hdmi_frl_status_polling_work(struct work_struct *work);
+
 enum drm_mode_status amdgpu_dm_connector_mode_valid(struct drm_connector *connector,
 						    const struct drm_display_mode *mode);
 
@@ -168,6 +170,8 @@ void amdgpu_dm_connector_add_common_modes(struct drm_encoder *encoder,
 					  struct drm_connector *connector);
 void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *connector,
 				       const struct drm_edid *drm_edid);
+int amdgpu_dm_connector_get_modes(struct drm_connector *connector);
+void amdgpu_dm_prune_primary_tile_modes(struct drm_connector *connector);
 uint add_fs_modes(struct amdgpu_dm_connector *aconnector);
 void amdgpu_dm_connector_add_freesync_modes(struct drm_connector *connector,
 					    const struct drm_edid *drm_edid);
@@ -222,5 +226,8 @@ void decide_crtc_timing_for_drm_display_mode(struct drm_display_mode *drm_mode,
 					     bool scale_enabled);
 void amdgpu_dm_set_panel_type(struct amdgpu_dm_connector *aconnector);
 void amdgpu_dm_update_cacp_caps(struct amdgpu_dm_connector *aconnector);
+struct drm_atomic_commit;
+int amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
+				     struct drm_atomic_commit *state);
 #endif
 #endif /* __AMDGPU_DM_CONNECTOR_H__ */
