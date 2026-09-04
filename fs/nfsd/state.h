@@ -45,6 +45,25 @@
 #include "nfsfh.h"
 #include "nfsd.h"
 
+/*
+ * Before processing a COMPOUND operation, we have to check that there
+ * is enough space in the buffer for XDR encode to succeed.  otherwise,
+ * we might process an operation with side effects, and be unable to
+ * tell the client that the operation succeeded.
+ *
+ * COMPOUND_ERR_SLACK_SPACE - this is the minimum bytes of buffer space
+ * needed to encode an operation which has failed with NFS4ERR_RESOURCE.
+ * care is taken to ensure that we never fall below this level for any
+ * reason.
+ */
+#define COMPOUND_ERR_SLACK_SPACE	16     /* OP_SETATTR */
+
+#define NFSD_LAUNDROMAT_MINTIMEOUT      1   /* seconds */
+#define	NFSD_CLIENT_MAX_TRIM_PER_RUN	128
+#define	NFS4_CLIENTS_PER_GB		1024
+#define NFSD_DELEGRETURN_TIMEOUT	(HZ / 34)	/* 30ms */
+#define	NFSD_CB_GETATTR_TIMEOUT		NFSD_DELEGRETURN_TIMEOUT
+
 typedef struct {
 	u32             cl_boot;
 	u32             cl_id;
@@ -126,10 +145,13 @@ struct nfs4_stid {
 #define SC_TYPE_COPY		BIT(4)
 	unsigned short		sc_type;
 
-/* nn->deleg_lock protects sc_status for delegation stateids.
- * ->cl_lock protects sc_status for open and lock stateids.
- * ->st_mutex also protect sc_status for open stateids.
- * ->ls_lock protects sc_status for layout stateids.
+/*
+ * nn->deleg_lock protects sc_status for hashed delegation stateids.
+ * ->cl_lock protects the bits set as one is disposed of
+ * (SC_STATUS_CLOSED, SC_STATUS_FREEABLE, SC_STATUS_FREED) and
+ * sc_status for open and lock stateids. ->st_mutex also protects
+ * sc_status for open stateids. ->ls_lock protects sc_status for
+ * layout stateids.
  */
 /*
  * For an open stateid kept around *only* to process close replays.
@@ -270,7 +292,8 @@ struct nfsd4_cb_notify {
  * If the server attempts to recall a delegation and the client doesn't do so
  * before a timeout, the server may also revoke the delegation. In that case,
  * the object will either be destroyed (v4.0) or moved to a per-client list of
- * revoked delegations (v4.1+).
+ * revoked delegations (v4.1+). A v4.1+ client that rejects the recall holds
+ * no record of the delegation, so the object is destroyed rather than listed.
  *
  * This object is a superset of the nfs4_stid.
  */
@@ -286,8 +309,18 @@ struct nfs4_delegation {
 	int			dl_retries;
 	struct nfsd4_callback	dl_recall;
 	bool			dl_recalled;
+	bool			dl_recall_rejected;
 	bool			dl_written;
 	bool			dl_setattr;
+
+	/* Forward-channel slot that carried the granting request */
+	struct {
+		u32			sessionid_seq;
+		u32			slotid;
+		u32			seqid;
+		bool			valid;
+		bool			retired_at_send;
+	} dl_recall_grant;
 
 	union {
 		/* for CB_GETATTR */
