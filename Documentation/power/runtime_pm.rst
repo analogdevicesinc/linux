@@ -203,103 +203,12 @@ rules:
 3. Runtime PM Device Fields
 ===========================
 
-The following device runtime PM fields are present in 'struct dev_pm_info', as
-defined in include/linux/pm.h:
+Device PM fields are found in 'struct dev_pm_info', as defined in
+include/linux/pm.h. Many of those fields track runtime PM configuration and
+state.
 
-  `struct timer_list suspend_timer;`
-    - timer used for scheduling (delayed) suspend and autosuspend requests
-
-  `unsigned long timer_expires;`
-    - timer expiration time, in jiffies (if this is different from zero, the
-      timer is running and will expire at that time, otherwise the timer is not
-      running)
-
-  `struct work_struct work;`
-    - work structure used for queuing up requests (i.e. work items in pm_wq)
-
-  `wait_queue_head_t wait_queue;`
-    - wait queue used if any of the helper functions needs to wait for another
-      one to complete
-
-  `spinlock_t lock;`
-    - lock used for synchronization
-
-  `atomic_t usage_count;`
-    - the usage counter of the device
-
-  `atomic_t child_count;`
-    - the count of 'active' children of the device
-
-  `unsigned int ignore_children;`
-    - if set, the value of child_count is ignored (but still updated)
-
-  `unsigned int disable_depth;`
-    - used for disabling the helper functions (they work normally if this is
-      equal to zero); the initial value of it is 1 (i.e. runtime PM is
-      initially disabled for all devices)
-
-  `int runtime_error;`
-    - if set, there was a fatal error (one of the callbacks returned error code
-      as described in Section 2), so the helper functions will not work until
-      this flag is cleared; this is the error code returned by the failing
-      callback
-
-  `unsigned int idle_notification;`
-    - if set, ->runtime_idle() is being executed
-
-  `unsigned int request_pending;`
-    - if set, there's a pending request (i.e. a work item queued up into pm_wq)
-
-  `enum rpm_request request;`
-    - type of request that's pending (valid if request_pending is set)
-
-  `unsigned int deferred_resume;`
-    - set if ->runtime_resume() is about to be run while ->runtime_suspend() is
-      being executed for that device and it is not practical to wait for the
-      suspend to complete; means "start a resume as soon as you've suspended"
-
-  `enum rpm_status runtime_status;`
-    - the runtime PM status of the device; this field's initial value is
-      RPM_SUSPENDED, which means that each device is initially regarded by the
-      PM core as 'suspended', regardless of its real hardware status
-
-  `enum rpm_status last_status;`
-    - the last runtime PM status of the device captured before disabling runtime
-      PM for it (invalid initially and when disable_depth is 0)
-
-  `unsigned int runtime_auto;`
-    - if set, indicates that the user space has allowed the device driver to
-      power manage the device at run time via the /sys/devices/.../power/control
-      `interface;` it may only be modified with the help of the
-      pm_runtime_allow() and pm_runtime_forbid() helper functions
-
-  `unsigned int no_callbacks;`
-    - indicates that the device does not use the runtime PM callbacks (see
-      Section 8); it may be modified only by the pm_runtime_no_callbacks()
-      helper function
-
-  `unsigned int irq_safe;`
-    - indicates that the ->runtime_suspend() and ->runtime_resume() callbacks
-      will be invoked with the spinlock held and interrupts disabled
-
-  `unsigned int use_autosuspend;`
-    - indicates that the device's driver supports delayed autosuspend (see
-      Section 9); it may be modified only by the
-      pm_runtime{_dont}_use_autosuspend() helper functions
-
-  `unsigned int timer_autosuspends;`
-    - indicates that the PM core should attempt to carry out an autosuspend
-      when the timer expires rather than a normal suspend
-
-  `int autosuspend_delay;`
-    - the delay time (in milliseconds) to be used for autosuspend
-
-  `unsigned long last_busy;`
-    - the time (in jiffies) when the pm_runtime_mark_last_busy() helper
-      function was last called for this device; used in calculating inactivity
-      periods for autosuspend
-
-All of the above fields are members of the 'power' member of 'struct device'.
+.. kernel-doc:: include/linux/pm.h
+   :identifiers: dev_pm_info
 
 4. Runtime PM Device Helper Functions
 =====================================
