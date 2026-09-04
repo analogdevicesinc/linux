@@ -371,6 +371,8 @@ struct vgic_redist_region {
 #define VGIC_V5_VM_ID_INVAL		(-1)
 
 struct vgic_v5_vm {
+	struct kvm		*kvm;
+
 	/*
 	 * We only expose a subset of PPIs to the guest. This subset is a
 	 * combination of the PPIs that are actually implemented and what we

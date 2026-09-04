@@ -99,6 +99,11 @@ int vgic_v5_probe(const struct gic_kvm_info *info)
 		goto skip_v5;
 	}
 
+	if (!gicv5_global_data.lpi_domain) {
+		kvm_err("GICv5 LPI domain unavailable\n");
+		return -ENODEV;
+	}
+
 	vgic_v5_irs_cache_id_regs(info);
 	vgic_v5_get_implemented_ppis();
 
@@ -381,12 +386,35 @@ static int vgic_v5_irs_set_up_vpe(u16 vm_id, u16 vpe_id,
 	return 0;
 }
 
+static irqreturn_t db_handler(int irq, void *data)
+{
+	struct kvm_vcpu *vcpu = data;
+
+	WRITE_ONCE(vcpu->arch.vgic_cpu.vgic_v5.gicv5_vpe.db_fired, true);
+
+	kvm_make_request(KVM_REQ_IRQ_PENDING, vcpu);
+	kvm_vcpu_kick(vcpu);
+
+	return IRQ_HANDLED;
+}
+
+static int vgic_v5_send_command(struct kvm_vcpu *vcpu, enum gicv5_vcpu_cmd cmd)
+{
+	int irq = vgic_v5_vpe_db(vcpu);
+
+	if (!irq)
+		return -ENXIO;
+
+	return irq_set_vcpu_affinity(irq, &cmd);
+}
+
 static int vgic_v5_db_set_vcpu_affinity(struct irq_data *data, void *vcpu_info)
 {
 	struct vgic_v5_vm *vm = data->domain->host_data;
 	enum gicv5_vcpu_cmd *cmd = vcpu_info;
-	/* Our VPE ID is the index within the doorbell domain */
-	u16 vpe_id = data->hwirq;
+	unsigned int vcpu_idx = data->hwirq;
+	struct kvm_vcpu *vcpu;
+	u16 vpe_id;
 
 	guard(raw_spinlock_irqsave)(&vgic_v5_irs_lock);
 
@@ -398,6 +426,17 @@ static int vgic_v5_db_set_vcpu_affinity(struct irq_data *data, void *vcpu_info)
 	case VMTE_MAKE_INVALID:
 		return vgic_v5_irs_set_vm_invalid(vm->vm_id);
 	case VPE_MAKE_VALID:
+		/*
+		 * The index in the doorbell domain aligns with our flat
+		 * vcpu_idx index. However, we need the actual VPE ID, which
+		 * means we first need to resolve the actual vcpu.
+		 */
+		vcpu = kvm_get_vcpu(vm->kvm, vcpu_idx);
+		if (!vcpu)
+			return -EINVAL;
+
+		vpe_id = vgic_v5_vpe_id(vcpu);
+
 		/*
 		 * We need the actual LPI ID which lives in the top-most parent
 		 * domain. This hwirq won't include the type (LPI) but that's
@@ -453,14 +492,8 @@ static int vgic_v5_irq_db_domain_alloc(struct irq_domain *domain,
 				       void *arg)
 {
 	const struct irq_chip *chip = &vgic_v5_db_irq_chip;
-	struct vgic_v5_vm *vm = arg;
 	struct irq_data *irqd;
 	int ret;
-
-	if (!vm) {
-		kvm_err("invalid parameter for doorbell irq allocation\n");
-		return -EINVAL;
-	}
 
 	ret = irq_domain_alloc_irqs_parent(domain, virq, nr_irqs, NULL);
 	if (ret)
@@ -488,20 +521,10 @@ static int vgic_v5_create_per_vm_domain(struct kvm *kvm)
 	int id = task_pid_nr(current);
 	int ret, db_virq = 0;
 
-	if (!gicv5_global_data.lpi_domain) {
-		kvm_err("LPI domain uninitialized, can't set up KVM Doorbells\n");
-		return -ENODEV;
-	}
-
 	vm->fwnode = irq_domain_alloc_named_id_fwnode("GICv5-vpe-db", id);
 	if (!vm->fwnode)
 		return -ENOMEM;
 
-	/*
-	 * KVM per-VM VPE DB domain; child of LPI domain; only ever handles
-	 * doorbells. We know how many doorbells we have, and therefore we
-	 * create a linear domain.
-	 */
 	vm->domain = irq_domain_create_hierarchy(gicv5_global_data.lpi_domain,
 						 0, nr_vcpus, vm->fwnode,
 						 &vgic_v5_irq_db_domain_ops, vm);
@@ -538,11 +561,6 @@ static void vgic_v5_teardown_per_vm_domain(struct vgic_v5_vm *vm)
 	if (!vm->domain)
 		return;
 
-	if (vm->vpe_db_base) {
-		irq_domain_free_irqs(vm->vpe_db_base, vm->domain->revmap_size);
-		vm->vpe_db_base = 0;
-	}
-
 	irq_domain_remove(vm->domain);
 	irq_domain_free_fwnode(vm->fwnode);
 	vm->domain = NULL;
@@ -562,32 +580,121 @@ void vgic_v5_reset(struct kvm_vcpu *vcpu)
 	 * CPUIF (but potentially fewer in the IRS).
 	 */
 	vcpu->arch.vgic_cpu.num_pri_bits = 5;
+
+	/* Make the VPE valid in the VPET */
+	if (WARN_ON(vgic_v5_send_command(vcpu, VPE_MAKE_VALID)))
+		return;
+}
+
+static void vgic_v5_free_doorbells(struct kvm *kvm, unsigned int nr_dbs)
+{
+	struct vgic_v5_vm *vm = &kvm->arch.vgic.gicv5_vm;
+	struct kvm_vcpu *vcpu;
+	unsigned long i;
+	int db;
+
+	for (i = 0; i < nr_dbs; i++) {
+		vcpu = kvm_get_vcpu(kvm, i);
+		db = vgic_v5_vpe_db(vcpu);
+		if (!db)
+			continue;
+
+		free_irq(db, vcpu);
+		vcpu->arch.vgic_cpu.vgic_v5.gicv5_vpe.db = 0;
+	}
+
+	if (vm->vpe_db_base) {
+		irq_domain_free_irqs(vm->vpe_db_base,
+				     atomic_read(&kvm->online_vcpus));
+		vm->vpe_db_base = 0;
+	}
 }
 
 void vgic_v5_teardown(struct kvm *kvm)
 {
+	struct vgic_dist *dist = &kvm->arch.vgic;
+	struct kvm_vcpu *vcpu, *vcpu0;
+	bool release_vm_id = true;
+	unsigned long i;
+	int rc;
+
+	lockdep_assert_held(&kvm->arch.config_lock);
+
+	/*
+	 * If the VM's ID isn't valid, then we either failed init very early or
+	 * we've been called a second time. Nothing to do here in either case.
+	 */
+	if (kvm->arch.vgic.gicv5_vm.vm_id == VGIC_V5_VM_ID_INVAL)
+		return;
+
+	if (kvm->arch.vgic.gicv5_vm.vmte_allocated) {
+		/* Make the VM invalid  */
+		vcpu0 = kvm_get_vcpu(kvm, 0);
+		rc = vgic_v5_send_command(vcpu0, VMTE_MAKE_INVALID);
+		if (rc) {
+			kvm_err("could not make VMTE invalid\n");
+			release_vm_id = false;
+			goto out_free_doorbells;
+		}
+
+		kvm_for_each_vcpu(i, vcpu, kvm) {
+			if (vgic_v5_vmte_free_vpe(vcpu)) {
+				kvm_err("Failed to free VPE\n");
+				release_vm_id = false;
+				goto out_free_doorbells;
+			}
+		}
+
+		if (vgic_v5_vmte_release(kvm)) {
+			kvm_err("Failed to release VM 0x%x\n", dist->gicv5_vm.vm_id);
+			release_vm_id = false;
+		}
+	}
+
+out_free_doorbells:
+	vgic_v5_free_doorbells(kvm, atomic_read(&kvm->online_vcpus));
 	vgic_v5_teardown_per_vm_domain(&kvm->arch.vgic.gicv5_vm);
+
+	/*
+	 * We only release the VM ID itself if we didn't fail earlier. It does
+	 * mean that we might lose the VM ID (and associated VMTE, etc), but
+	 * given that we've failed to tear them down correctly there's no way to
+	 * safely reuse them. The VM ID allocating IDA will make sure we don't
+	 * accidentally reuse this partially torn down state.
+	 */
+	if (release_vm_id)
+		vgic_v5_release_vm_id(kvm);
 }
 
+/*
+ * Claim and populate a VMTE (optionally making a new L2 VMT valid), create VPE
+ * doorbells, allocate VPET and populate for each VPE.
+ *
+ * Note: We do need to put the cart before the horse here. The VPE doorbells are
+ * our conduit for communication with the IRS, which means we need to have those
+ * before making the VMTE valid.
+ *
+ * On failure, we clean up in the teardown path (vgic_v5_teardown()).
+ */
 int vgic_v5_init(struct kvm *kvm)
 {
-	struct kvm_vcpu *vcpu;
-	unsigned long idx;
-	int ret;
+	struct kvm_vcpu *vcpu, *vcpu0;
+	int nr_vcpus, ret = 0;
+	unsigned int db_virq;
+	unsigned long i;
 
-	if (vgic_initialized(kvm))
-		return 0;
+	lockdep_assert_held(&kvm->arch.config_lock);
 
-	kvm_for_each_vcpu(idx, vcpu, kvm) {
+	nr_vcpus = atomic_read(&kvm->online_vcpus);
+	if (nr_vcpus == 0)
+		return -ENODEV;
+
+	kvm_for_each_vcpu(i, vcpu, kvm) {
 		if (vcpu_has_nv(vcpu)) {
 			kvm_err("Nested GICv5 VMs are currently unsupported\n");
 			return -EINVAL;
 		}
 	}
-
-	ret = vgic_v5_create_per_vm_domain(kvm);
-	if (ret)
-		return ret;
 
 	/* We only allow userspace to drive the SW_PPI, if it is implemented. */
 	bitmap_zero(kvm->arch.vgic.gicv5_vm.userspace_ppis,
@@ -597,7 +704,63 @@ int vgic_v5_init(struct kvm *kvm)
 		   kvm->arch.vgic.gicv5_vm.userspace_ppis,
 		   ppi_caps.impl_ppi_mask, VGIC_V5_NR_PRIVATE_IRQS);
 
+	ret = vgic_v5_allocate_vm_id(kvm);
+	if (ret)
+		return ret;
+
+	/*
+	 * Stash a backpointer to struct kvm. It is required to resolve the VPE
+	 * ID from the doorbell index, which matches the flat vcpu_idx and not
+	 * the vcpu_id.
+	 */
+	kvm->arch.vgic.gicv5_vm.kvm = kvm;
+
+	ret = vgic_v5_create_per_vm_domain(kvm);
+	if (ret)
+		goto err;
+
+	db_virq = kvm->arch.vgic.gicv5_vm.vpe_db_base;
+	kvm_for_each_vcpu(i, vcpu, kvm) {
+		ret = request_irq(db_virq + i, db_handler, 0, "vcpu", vcpu);
+		if (ret)
+			goto err;
+
+		/* Stash it with the VCPU for easy retrieval */
+		vcpu->arch.vgic_cpu.vgic_v5.gicv5_vpe.db = db_virq + i;
+	}
+
+	/* Populate VMTE (with VPET and VM descriptor) */
+	ret = vgic_v5_vmte_init(kvm);
+	if (ret)
+		goto err;
+
+	/* We pick the first vcpu to make the VMTE valid - any would do */
+	vcpu0 = kvm_get_vcpu(kvm, 0);
+	ret = vgic_v5_send_command(vcpu0, VMTE_MAKE_VALID);
+	if (ret)
+		goto err;
+
+	/* Populate the VPETE for each VPE. */
+	kvm_for_each_vcpu(i, vcpu, kvm) {
+		ret = vgic_v5_vmte_alloc_vpe(vcpu);
+		if (ret)
+			goto err;
+	}
+
 	return 0;
+
+err:
+	/*
+	 * Explicitly tear everything down on failure. The teardown function is
+	 * written to handle any partial state we might have, so we don't need
+	 * to do any clean-up first. Teardown will be called a second time on VM
+	 * destruction, but that's fine - it is better to leave things in a
+	 * clean state now, and doubly so because userspace could actually go
+	 * and retry init.
+	 */
+	vgic_v5_teardown(kvm);
+
+	return ret;
 }
 
 int vgic_v5_map_resources(struct kvm *kvm)
