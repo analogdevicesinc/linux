@@ -1529,7 +1529,7 @@ static const struct of_device_id cpsw_of_mtable[] = {
 	{ .compatible = "ti,am335x-cpsw"},
 	{ .compatible = "ti,am4372-cpsw"},
 	{ .compatible = "ti,dra7-cpsw"},
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, cpsw_of_mtable);
 
