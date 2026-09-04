@@ -71,7 +71,7 @@ static unsigned char mincore_swap(swp_entry_t entry, bool shmem)
 	 */
 	if (shmem) {
 		si = get_swap_device(entry);
-		if (!si)
+		if (IS_ERR_OR_NULL(si))
 			return 0;
 	}
 	folio = swap_cache_get_folio(entry);

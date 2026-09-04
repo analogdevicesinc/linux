@@ -95,20 +95,7 @@ struct mem_cgroup_per_node {
 	struct lruvec_stats			*lruvec_stats;
 	struct shrinker_info __rcu	*shrinker_info;
 
-#ifdef CONFIG_MEMCG_V1
-	/*
-	 * Memcg-v1 only stuff in middle as buffer between read mostly fields
-	 * and update often fields to avoid false sharing. If v1 stuff is
-	 * not present, an explicit padding is needed.
-	 */
-
-	struct rb_node		tree_node;	/* RB tree node */
-	unsigned long		usage_in_excess;/* Set to the value by which */
-						/* the soft limit is exceeded*/
-	bool			on_tree;
-#else
 	CACHELINE_PADDING(_pad1_);
-#endif
 
 	/* Fields which get updated often at the end. */
 	struct lruvec		lruvec;
@@ -219,6 +206,7 @@ struct mem_cgroup {
 	spinlock_t	 peaks_lock;
 
 	/* Range enforcement for interrupt charges */
+	struct irq_work high_irq_work;
 	struct work_struct high_work;
 
 #ifdef CONFIG_ZSWAP
@@ -292,8 +280,6 @@ struct mem_cgroup {
 	struct page_counter tcpmem;		/* v1 only */
 
 	struct memcg1_events_percpu __percpu *events_percpu;
-
-	unsigned long soft_limit;
 
 	/* protected by memcg_oom_lock */
 	bool oom_lock;
@@ -380,7 +366,7 @@ enum objext_flags {
 static inline struct mem_cgroup *obj_cgroup_memcg(struct obj_cgroup *objcg)
 {
 	lockdep_assert_once(rcu_read_lock_held() || lockdep_is_held(&cgroup_mutex));
-	return READ_ONCE(objcg->memcg);
+	return objcg ? READ_ONCE(objcg->memcg) : NULL;
 }
 
 /*
@@ -433,7 +419,7 @@ static inline struct mem_cgroup *folio_memcg(struct folio *folio)
 {
 	struct obj_cgroup *objcg = folio_objcg(folio);
 
-	return objcg ? obj_cgroup_memcg(objcg) : NULL;
+	return obj_cgroup_memcg(objcg);
 }
 
 /*
@@ -476,7 +462,7 @@ static inline struct mem_cgroup *folio_memcg_check(struct folio *folio)
 
 	objcg = (void *)(memcg_data & ~OBJEXTS_FLAGS_MASK);
 
-	return objcg ? obj_cgroup_memcg(objcg) : NULL;
+	return obj_cgroup_memcg(objcg);
 }
 
 static inline struct mem_cgroup *page_memcg_check(struct page *page)
@@ -1049,6 +1035,11 @@ void mem_cgroup_flush_workqueue(void);
 
 extern int mem_cgroup_init(void);
 #else /* CONFIG_MEMCG */
+
+static inline struct mem_cgroup *obj_cgroup_memcg(struct obj_cgroup *objcg)
+{
+	return NULL;
+}
 
 #define MEM_CGROUP_ID_SHIFT	0
 
@@ -1919,10 +1910,6 @@ static inline bool mem_cgroup_zswap_writeback_enabled(struct mem_cgroup *memcg)
 /* Cgroup v1-related declarations */
 
 #ifdef CONFIG_MEMCG_V1
-unsigned long memcg1_soft_limit_reclaim(pg_data_t *pgdat, int order,
-					gfp_t gfp_mask,
-					unsigned long *total_scanned);
-
 bool mem_cgroup_oom_synchronize(bool wait);
 
 static inline bool task_in_memcg_oom(struct task_struct *p)
@@ -1943,14 +1930,6 @@ static inline void mem_cgroup_exit_user_fault(void)
 }
 
 #else /* CONFIG_MEMCG_V1 */
-static inline
-unsigned long memcg1_soft_limit_reclaim(pg_data_t *pgdat, int order,
-					gfp_t gfp_mask,
-					unsigned long *total_scanned)
-{
-	return 0;
-}
-
 static inline bool task_in_memcg_oom(struct task_struct *p)
 {
 	return false;
