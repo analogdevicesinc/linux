@@ -1217,7 +1217,7 @@ const struct iomap_ops gfs2_iomap_ops = {
  * @inode: The inode
  * @lblock: The logical block number
  * @bh_map: The bh to be mapped
- * @create: True if its ok to alloc blocks to satify the request
+ * @create: True if its ok to alloc blocks to satisfy the request
  *
  * The size of the requested mapping is defined in bh_map->b_size.
  *
