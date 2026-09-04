@@ -137,13 +137,14 @@ static inline void pm_runtime_put_noidle(struct device *dev)
  * pm_runtime_suspended - Check whether or not a device is runtime-suspended.
  * @dev: Target device.
  *
- * Return %true if runtime PM is enabled for @dev and its runtime PM status is
- * %RPM_SUSPENDED, or %false otherwise.
- *
  * Note that the return value of this function can only be trusted if it is
  * called under the runtime PM lock of @dev or under conditions in which
  * runtime PM cannot be either disabled or enabled for @dev and its runtime PM
  * status cannot change.
+ *
+ * Return:
+ * * %true: @dev has runtime PM enabled and its status is %RPM_SUSPENDED.
+ * * %false: Otherwise.
  */
 static inline bool pm_runtime_suspended(struct device *dev)
 {
@@ -155,13 +156,14 @@ static inline bool pm_runtime_suspended(struct device *dev)
  * pm_runtime_active - Check whether or not a device is runtime-active.
  * @dev: Target device.
  *
- * Return %true if runtime PM is disabled for @dev or its runtime PM status is
- * %RPM_ACTIVE, or %false otherwise.
- *
  * Note that the return value of this function can only be trusted if it is
  * called under the runtime PM lock of @dev or under conditions in which
  * runtime PM cannot be either disabled or enabled for @dev and its runtime PM
  * status cannot change.
+ *
+ * Return:
+ * * %true: Runtime PM is disabled for @dev or its status is %RPM_ACTIVE.
+ * * %false: Otherwise.
  */
 static inline bool pm_runtime_active(struct device *dev)
 {
@@ -173,12 +175,13 @@ static inline bool pm_runtime_active(struct device *dev)
  * pm_runtime_status_suspended - Check if runtime PM status is "suspended".
  * @dev: Target device.
  *
- * Return %true if the runtime PM status of @dev is %RPM_SUSPENDED, or %false
- * otherwise, regardless of whether or not runtime PM has been enabled for @dev.
- *
  * Note that the return value of this function can only be trusted if it is
  * called under the runtime PM lock of @dev or under conditions in which the
  * runtime PM status of @dev cannot change.
+ *
+ * Return:
+ * * %true: Runtime PM status of @dev is %RPM_SUSPENDED.
+ * * %false: Otherwise.
  */
 static inline bool pm_runtime_status_suspended(struct device *dev)
 {
@@ -189,11 +192,13 @@ static inline bool pm_runtime_status_suspended(struct device *dev)
  * pm_runtime_enabled - Check if runtime PM is enabled.
  * @dev: Target device.
  *
- * Return %true if runtime PM is enabled for @dev or %false otherwise.
- *
  * Note that the return value of this function can only be trusted if it is
  * called under the runtime PM lock of @dev or under conditions in which
  * runtime PM cannot be either disabled or enabled for @dev.
+ *
+ * Return:
+ * * %true: Runtime PM is enabled for @dev.
+ * * %false: Otherwise.
  */
 static inline bool pm_runtime_enabled(struct device *dev)
 {
@@ -205,6 +210,10 @@ static inline bool pm_runtime_enabled(struct device *dev)
  * @dev: Target device.
  *
  * Do not call this function outside system suspend/resume code paths.
+ *
+ * Return:
+ * * %true: Runtime PM enabling is blocked for @dev.
+ * * %false: Otherwise.
  */
 static inline bool pm_runtime_blocked(struct device *dev)
 {
@@ -215,8 +224,9 @@ static inline bool pm_runtime_blocked(struct device *dev)
  * pm_runtime_has_no_callbacks - Check if runtime PM callbacks may be present.
  * @dev: Target device.
  *
- * Return %true if @dev is a special device without runtime PM callbacks or
- * %false otherwise.
+ * Return:
+ * * %true: @dev is marked as having no runtime PM callbacks.
+ * * %false: Otherwise.
  */
 static inline bool pm_runtime_has_no_callbacks(struct device *dev)
 {
@@ -239,9 +249,11 @@ static inline void pm_runtime_mark_last_busy(struct device *dev)
  * pm_runtime_is_irq_safe - Check if runtime PM can work in interrupt context.
  * @dev: Target device.
  *
- * Return %true if @dev has been marked as an "IRQ-safe" device (with respect
- * to runtime PM), in which case its runtime PM callabcks can be expected to
- * work correctly when invoked from interrupt handlers.
+ * Return:
+ * * %true: @dev has been marked as an "IRQ-safe" device, in which case its
+ *   runtime PM callbacks can be expected to work correctly from interrupt
+ *   handlers.
+ * * %false: Otherwise.
  */
 static inline bool pm_runtime_is_irq_safe(struct device *dev)
 {
@@ -348,17 +360,17 @@ static inline int pm_runtime_force_resume(struct device *dev) { return -ENXIO; }
  * autosuspend has been enabled for it).
  *
  * Return:
- * * 0: Success.
- * * -EINVAL: Runtime PM error.
- * * -EACCES: Runtime PM disabled.
- * * -EAGAIN: Runtime PM usage counter non-zero, Runtime PM status change
- *            ongoing or device not in %RPM_ACTIVE state.
- * * -EBUSY: Runtime PM child_count non-zero.
- * * -EPERM: Device PM QoS resume latency 0.
- * * -EINPROGRESS: Suspend already in progress.
- * * -ENOSYS: CONFIG_PM not enabled.
- * Other values and conditions for the above values are possible as returned by
- * Runtime PM idle and suspend callbacks.
+ * * %0: Success.
+ * * %-EINVAL: Runtime PM error.
+ * * %-EACCES: Runtime PM disabled.
+ * * %-EAGAIN: Runtime PM usage counter non-zero, Runtime PM status change
+ *   ongoing or device not in %RPM_ACTIVE state.
+ * * %-EBUSY: Runtime PM child_count non-zero.
+ * * %-EPERM: Device PM QoS resume latency 0.
+ * * %-EINPROGRESS: Suspend already in progress.
+ * * %-ENOSYS: %CONFIG_PM not enabled.
+ * * Other values and conditions for the above values are possible as returned
+ *   by Runtime PM idle and suspend callbacks.
  */
 static inline int pm_runtime_idle(struct device *dev)
 {
@@ -370,17 +382,17 @@ static inline int pm_runtime_idle(struct device *dev)
  * @dev: Target device.
  *
  * Return:
- * * 1: Success; device was already suspended.
- * * 0: Success.
- * * -EINVAL: Runtime PM error.
- * * -EACCES: Runtime PM disabled.
- * * -EAGAIN: Runtime PM usage counter non-zero or Runtime PM status change
- *            ongoing.
- * * -EBUSY: Runtime PM child_count non-zero.
- * * -EPERM: Device PM QoS resume latency 0.
- * * -ENOSYS: CONFIG_PM not enabled.
- * Other values and conditions for the above values are possible as returned by
- * Runtime PM suspend callbacks.
+ * * %1: Success; device was already suspended.
+ * * %0: Success.
+ * * %-EINVAL: Runtime PM error.
+ * * %-EACCES: Runtime PM disabled.
+ * * %-EAGAIN: Runtime PM usage counter non-zero or Runtime PM status change
+ *   ongoing.
+ * * %-EBUSY: Runtime PM child_count non-zero.
+ * * %-EPERM: Device PM QoS resume latency 0.
+ * * %-ENOSYS: %CONFIG_PM not enabled.
+ * * Other values and conditions for the above values are possible as returned
+ *   by Runtime PM suspend callbacks.
  */
 static inline int pm_runtime_suspend(struct device *dev)
 {
@@ -397,17 +409,17 @@ static inline int pm_runtime_suspend(struct device *dev)
  * engaging its "idle check" callback.
  *
  * Return:
- * * 1: Success; device was already suspended.
- * * 0: Success.
- * * -EINVAL: Runtime PM error.
- * * -EACCES: Runtime PM disabled.
- * * -EAGAIN: Runtime PM usage counter non-zero or Runtime PM status change
- *            ongoing.
- * * -EBUSY: Runtime PM child_count non-zero.
- * * -EPERM: Device PM QoS resume latency 0.
- * * -ENOSYS: CONFIG_PM not enabled.
- * Other values and conditions for the above values are possible as returned by
- * Runtime PM suspend callbacks.
+ * * %1: Success; device was already suspended.
+ * * %0: Success.
+ * * %-EINVAL: Runtime PM error.
+ * * %-EACCES: Runtime PM disabled.
+ * * %-EAGAIN: Runtime PM usage counter non-zero or Runtime PM status change
+ *   ongoing.
+ * * %-EBUSY: Runtime PM child_count non-zero.
+ * * %-EPERM: Device PM QoS resume latency 0.
+ * * %-ENOSYS: %CONFIG_PM not enabled.
+ * * Other values and conditions for the above values are possible as returned
+ *   by Runtime PM suspend callbacks.
  */
 static inline int pm_runtime_autosuspend(struct device *dev)
 {
@@ -418,6 +430,11 @@ static inline int pm_runtime_autosuspend(struct device *dev)
 /**
  * pm_runtime_resume - Resume a device synchronously.
  * @dev: Target device.
+ *
+ * Return:
+ * * %1: Success; @dev is already %RPM_ACTIVE.
+ * * %0: Success.
+ * * Error code on failure.
  */
 static inline int pm_runtime_resume(struct device *dev)
 {
@@ -432,15 +449,15 @@ static inline int pm_runtime_resume(struct device *dev)
  * asynchronously.
  *
  * Return:
- * * 0: Success.
- * * -EINVAL: Runtime PM error.
- * * -EACCES: Runtime PM disabled.
- * * -EAGAIN: Runtime PM usage counter non-zero, Runtime PM status change
- *            ongoing or device not in %RPM_ACTIVE state.
- * * -EBUSY: Runtime PM child_count non-zero.
- * * -EPERM: Device PM QoS resume latency 0.
- * * -EINPROGRESS: Suspend already in progress.
- * * -ENOSYS: CONFIG_PM not enabled.
+ * * %0: Success.
+ * * %-EINVAL: Runtime PM error.
+ * * %-EACCES: Runtime PM disabled.
+ * * %-EAGAIN: Runtime PM usage counter non-zero, Runtime PM status change
+ *   ongoing or device not in %RPM_ACTIVE state.
+ * * %-EBUSY: Runtime PM child_count non-zero.
+ * * %-EPERM: Device PM QoS resume latency 0.
+ * * %-EINPROGRESS: Suspend already in progress.
+ * * %-ENOSYS: %CONFIG_PM not enabled.
  */
 static inline int pm_request_idle(struct device *dev)
 {
@@ -450,6 +467,11 @@ static inline int pm_request_idle(struct device *dev)
 /**
  * pm_request_resume - Queue up runtime-resume of a device.
  * @dev: Target device.
+ *
+ * Return:
+ * * %1: Success; @dev is already %RPM_ACTIVE.
+ * * %0: Success.
+ * * Error code on failure.
  */
 static inline int pm_request_resume(struct device *dev)
 {
@@ -465,16 +487,16 @@ static inline int pm_request_resume(struct device *dev)
  * equivalent pm_runtime_autosuspend() for @dev asynchronously.
  *
  * Return:
- * * 1: Success; device was already suspended.
- * * 0: Success.
- * * -EINVAL: Runtime PM error.
- * * -EACCES: Runtime PM disabled.
- * * -EAGAIN: Runtime PM usage counter non-zero or Runtime PM status change
- *            ongoing.
- * * -EBUSY: Runtime PM child_count non-zero.
- * * -EPERM: Device PM QoS resume latency 0.
- * * -EINPROGRESS: Suspend already in progress.
- * * -ENOSYS: CONFIG_PM not enabled.
+ * * %1: Success; device was already suspended.
+ * * %0: Success.
+ * * %-EINVAL: Runtime PM error.
+ * * %-EACCES: Runtime PM disabled.
+ * * %-EAGAIN: Runtime PM usage counter non-zero or Runtime PM status change
+ *   ongoing.
+ * * %-EBUSY: Runtime PM child_count non-zero.
+ * * %-EPERM: Device PM QoS resume latency 0.
+ * * %-EINPROGRESS: Suspend already in progress.
+ * * %-ENOSYS: %CONFIG_PM not enabled.
  */
 static inline int pm_request_autosuspend(struct device *dev)
 {
@@ -488,6 +510,11 @@ static inline int pm_request_autosuspend(struct device *dev)
  *
  * Bump up the runtime PM usage counter of @dev and queue up a work item to
  * carry out runtime-resume of it.
+ *
+ * Return:
+ * * %1: Success; @dev is already %RPM_ACTIVE.
+ * * %0: Success; runtime-resume was queued.
+ * * Error code on failure.
  */
 static inline int pm_runtime_get(struct device *dev)
 {
@@ -507,6 +534,11 @@ static inline int pm_runtime_get(struct device *dev)
  * Consider using pm_runtime_resume_and_get() instead of it, especially
  * if its return value is checked by the caller, as this is likely to result
  * in cleaner code.
+ *
+ * Return:
+ * * %1: Success; @dev is already %RPM_ACTIVE.
+ * * %0: Success.
+ * * Error code on failure.
  */
 static inline int pm_runtime_get_sync(struct device *dev)
 {
@@ -531,8 +563,11 @@ static inline int pm_runtime_get_active(struct device *dev, int rpmflags)
  * @dev: Target device.
  *
  * Resume @dev synchronously and if that is successful, increment its runtime
- * PM usage counter. Return 0 if the runtime PM usage counter of @dev has been
- * incremented or a negative error code otherwise.
+ * PM usage counter.
+ *
+ * Return:
+ * * %0: Success; @dev is active and its usage counter has been incremented.
+ * * Negative error code on failure; usage counter is unchanged.
  */
 static inline int pm_runtime_resume_and_get(struct device *dev)
 {
@@ -559,16 +594,16 @@ static inline void pm_runtime_put(struct device *dev)
  * equal to 0, queue up a work item for @dev like in pm_request_autosuspend().
  *
  * Return:
- * * 1: Success. Usage counter dropped to zero, but device was already suspended.
- * * 0: Success.
- * * -EINVAL: Runtime PM error.
- * * -EACCES: Runtime PM disabled.
- * * -EAGAIN: Runtime PM usage counter became non-zero or Runtime PM status
- *            change ongoing.
- * * -EBUSY: Runtime PM child_count non-zero.
- * * -EPERM: Device PM QoS resume latency 0.
- * * -EINPROGRESS: Suspend already in progress.
- * * -ENOSYS: CONFIG_PM not enabled.
+ * * %1: Success. Usage counter dropped to zero, but device was already suspended.
+ * * %0: Success.
+ * * %-EINVAL: Runtime PM error.
+ * * %-EACCES: Runtime PM disabled.
+ * * %-EAGAIN: Runtime PM usage counter became non-zero or Runtime PM status
+ *   change ongoing.
+ * * %-EBUSY: Runtime PM child_count non-zero.
+ * * %-EPERM: Device PM QoS resume latency 0.
+ * * %-EINPROGRESS: Suspend already in progress.
+ * * %-ENOSYS: %CONFIG_PM not enabled.
  */
 static inline int __pm_runtime_put_autosuspend(struct device *dev)
 {
@@ -585,16 +620,16 @@ static inline int __pm_runtime_put_autosuspend(struct device *dev)
  * in pm_request_autosuspend().
  *
  * Return:
- * * 1: Success. Usage counter dropped to zero, but device was already suspended.
- * * 0: Success.
- * * -EINVAL: Runtime PM error.
- * * -EACCES: Runtime PM disabled.
- * * -EAGAIN: Runtime PM usage counter became non-zero or Runtime PM status
- *            change ongoing.
- * * -EBUSY: Runtime PM child_count non-zero.
- * * -EPERM: Device PM QoS resume latency 0.
- * * -EINPROGRESS: Suspend already in progress.
- * * -ENOSYS: CONFIG_PM not enabled.
+ * * %1: Success. Usage counter dropped to zero, but device was already suspended.
+ * * %0: Success.
+ * * %-EINVAL: Runtime PM error.
+ * * %-EACCES: Runtime PM disabled.
+ * * %-EAGAIN: Runtime PM usage counter became non-zero or Runtime PM status
+ *   change ongoing.
+ * * %-EBUSY: Runtime PM child_count non-zero.
+ * * %-EPERM: Device PM QoS resume latency 0.
+ * * %-EINPROGRESS: Suspend already in progress.
+ * * %-ENOSYS: %CONFIG_PM not enabled.
  */
 static inline int pm_runtime_put_autosuspend(struct device *dev)
 {
@@ -662,17 +697,17 @@ DEFINE_GUARD_COND(pm_runtime_active_auto, _try_enabled,
  * if it returns an error code.
  *
  * Return:
- * * 1: Success. Usage counter dropped to zero, but device was already suspended.
- * * 0: Success.
- * * -EINVAL: Runtime PM error.
- * * -EACCES: Runtime PM disabled.
- * * -EAGAIN: Runtime PM usage counter became non-zero or Runtime PM status
- *            change ongoing.
- * * -EBUSY: Runtime PM child_count non-zero.
- * * -EPERM: Device PM QoS resume latency 0.
- * * -ENOSYS: CONFIG_PM not enabled.
- * Other values and conditions for the above values are possible as returned by
- * Runtime PM suspend callbacks.
+ * * %1: Success. Usage counter dropped to zero, but device was already suspended.
+ * * %0: Success.
+ * * %-EINVAL: Runtime PM error.
+ * * %-EACCES: Runtime PM disabled.
+ * * %-EAGAIN: Runtime PM usage counter became non-zero or Runtime PM status
+ *   change ongoing.
+ * * %-EBUSY: Runtime PM child_count non-zero.
+ * * %-EPERM: Device PM QoS resume latency 0.
+ * * %-ENOSYS: %CONFIG_PM not enabled.
+ * * Other values and conditions for the above values are possible as returned
+ *   by Runtime PM suspend callbacks.
  */
 static inline int pm_runtime_put_sync(struct device *dev)
 {
@@ -690,17 +725,17 @@ static inline int pm_runtime_put_sync(struct device *dev)
  * if it returns an error code.
  *
  * Return:
- * * 1: Success. Usage counter dropped to zero, but device was already suspended.
- * * 0: Success.
- * * -EINVAL: Runtime PM error.
- * * -EACCES: Runtime PM disabled.
- * * -EAGAIN: Runtime PM usage counter became non-zero or Runtime PM status
- *            change ongoing.
- * * -EBUSY: Runtime PM child_count non-zero.
- * * -EPERM: Device PM QoS resume latency 0.
- * * -ENOSYS: CONFIG_PM not enabled.
- * Other values and conditions for the above values are possible as returned by
- * Runtime PM suspend callbacks.
+ * * %1: Success. Usage counter dropped to zero, but device was already suspended.
+ * * %0: Success.
+ * * %-EINVAL: Runtime PM error.
+ * * %-EACCES: Runtime PM disabled.
+ * * %-EAGAIN: Runtime PM usage counter became non-zero or Runtime PM status
+ *   change ongoing.
+ * * %-EBUSY: Runtime PM child_count non-zero.
+ * * %-EPERM: Device PM QoS resume latency 0.
+ * * %-ENOSYS: %CONFIG_PM not enabled.
+ * * Other values and conditions for the above values are possible as returned
+ *   by Runtime PM suspend callbacks.
  */
 static inline int pm_runtime_put_sync_suspend(struct device *dev)
 {
@@ -721,18 +756,18 @@ static inline int pm_runtime_put_sync_suspend(struct device *dev)
  * if it returns an error code.
  *
  * Return:
- * * 1: Success. Usage counter dropped to zero, but device was already suspended.
- * * 0: Success.
- * * -EINVAL: Runtime PM error.
- * * -EACCES: Runtime PM disabled.
- * * -EAGAIN: Runtime PM usage counter became non-zero or Runtime PM status
- *            change ongoing.
- * * -EBUSY: Runtime PM child_count non-zero.
- * * -EPERM: Device PM QoS resume latency 0.
- * * -EINPROGRESS: Suspend already in progress.
- * * -ENOSYS: CONFIG_PM not enabled.
- * Other values and conditions for the above values are possible as returned by
- * Runtime PM suspend callbacks.
+ * * %1: Success. Usage counter dropped to zero, but device was already suspended.
+ * * %0: Success.
+ * * %-EINVAL: Runtime PM error.
+ * * %-EACCES: Runtime PM disabled.
+ * * %-EAGAIN: Runtime PM usage counter became non-zero or Runtime PM status
+ *   change ongoing.
+ * * %-EBUSY: Runtime PM child_count non-zero.
+ * * %-EPERM: Device PM QoS resume latency 0.
+ * * %-EINPROGRESS: Suspend already in progress.
+ * * %-ENOSYS: %CONFIG_PM not enabled.
+ * * Other values and conditions for the above values are possible as returned
+ *   by Runtime PM suspend callbacks.
  */
 static inline int pm_runtime_put_sync_autosuspend(struct device *dev)
 {
@@ -748,6 +783,10 @@ static inline int pm_runtime_put_sync_autosuspend(struct device *dev)
  * of it will be taken into account.
  *
  * It is not valid to call this function for devices with runtime PM enabled.
+ *
+ * Return:
+ * * %0: Success.
+ * * Error code on failure.
  */
 static inline int pm_runtime_set_active(struct device *dev)
 {
@@ -762,6 +801,10 @@ static inline int pm_runtime_set_active(struct device *dev)
  * dependencies of it will be taken into account.
  *
  * It is not valid to call this function for devices with runtime PM enabled.
+ *
+ * Return:
+ * * %0: Success.
+ * * Error code on failure.
  */
 static inline int pm_runtime_set_suspended(struct device *dev)
 {

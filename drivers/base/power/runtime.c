@@ -162,7 +162,7 @@ static void pm_runtime_cancel_pending(struct device *dev)
 	dev->power.request = RPM_REQ_NONE;
 }
 
-/*
+/**
  * pm_runtime_autosuspend_expiration - Get a device's autosuspend-delay expiration time.
  * @dev: Device to handle.
  *
@@ -200,7 +200,7 @@ static int dev_memalloc_noio(struct device *dev, void *data)
 	return dev->power.memalloc_noio;
 }
 
-/*
+/**
  * pm_runtime_set_memalloc_noio - Set a device's memalloc_noio flag.
  * @dev: Device to handle.
  * @enable: True for setting the flag and False for clearing the flag.
@@ -1044,6 +1044,11 @@ static enum hrtimer_restart  pm_suspend_timer_fn(struct hrtimer *timer)
  * pm_schedule_suspend - Set up a timer to submit a suspend request in future.
  * @dev: Device to suspend.
  * @delay: Time to wait before submitting a suspend request, in milliseconds.
+ *
+ * Return:
+ * * %1: Success; @dev is already %RPM_SUSPENDED.
+ * * %0: Success.
+ * * Error code on failure.
  */
 int pm_schedule_suspend(struct device *dev, unsigned int delay)
 {
@@ -1106,7 +1111,7 @@ static int rpm_drop_usage_count(struct device *dev)
  * warning, increment it, and return an error).  Then carry out an idle
  * notification, either synchronous or asynchronous.
  *
- * This routine may be called in atomic context if the RPM_ASYNC flag is set,
+ * This routine may be called in atomic context if the %RPM_ASYNC flag is set,
  * or if pm_runtime_irq_safe() has been called.
  */
 int __pm_runtime_idle(struct device *dev, int rpmflags)
@@ -1144,7 +1149,7 @@ EXPORT_SYMBOL_GPL(__pm_runtime_idle);
  * warning, increment it, and return an error).  Then carry out a suspend,
  * either synchronous or asynchronous.
  *
- * This routine may be called in atomic context if the RPM_ASYNC flag is set,
+ * This routine may be called in atomic context if the %RPM_ASYNC flag is set,
  * or if pm_runtime_irq_safe() has been called.
  */
 int __pm_runtime_suspend(struct device *dev, int rpmflags)
@@ -1180,7 +1185,7 @@ EXPORT_SYMBOL_GPL(__pm_runtime_suspend);
  * If the RPM_GET_PUT flag is set, increment the device's usage count.  Then
  * carry out a resume, either synchronous or asynchronous.
  *
- * This routine may be called in atomic context if the RPM_ASYNC flag is set,
+ * This routine may be called in atomic context if the %RPM_ASYNC flag is set,
  * or if pm_runtime_irq_safe() has been called.
  */
 int __pm_runtime_resume(struct device *dev, int rpmflags)
@@ -1255,9 +1260,12 @@ static int pm_runtime_get_conditional(struct device *dev, bool ign_usage_count)
  * @dev: Target device.
  *
  * Increment the runtime PM usage counter of @dev if its runtime PM status is
- * %RPM_ACTIVE, in which case it returns 1. If the device is in a different
- * state, 0 is returned. -EINVAL is returned if runtime PM is disabled for the
- * device, in which case also the usage_count will remain unmodified.
+ * already %RPM_ACTIVE
+ *
+ * Return:
+ * * %-EINVAL: Runtime PM is disabled for @dev. The usage counter is not incremented.
+ * * %1: Success; usage counter is incremented.
+ * * %0: @dev was not active.
  */
 int pm_runtime_get_if_active(struct device *dev)
 {
