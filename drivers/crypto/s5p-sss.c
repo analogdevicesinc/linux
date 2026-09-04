@@ -1445,7 +1445,7 @@ static void s5p_hash_tasklet_cb(unsigned long data)
 	return;
 
 finish:
-	/* finish curent request */
+	/* finish current request */
 	s5p_hash_finish_req(dd->hash_req, 0);
 
 	/* If we are not busy, process next req */
