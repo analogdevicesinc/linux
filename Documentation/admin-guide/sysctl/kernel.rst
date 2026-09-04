@@ -1610,8 +1610,10 @@ If a value outside of this range is written to ``threads-max`` an
 timer_migration
 ===============
 
-When set to a non-zero value, attempt to migrate timers away from idle cpus to
-allow them to remain in low power states longer.
+When set to a non-zero value, attempt to migrate high-resolution timers from
+nohz isolated (nohz_full) to housekeeping CPUs.
+See Documentation/admin-guide/cpu-isolation.rst
+and Documentation/admin-guide/kernel-parameters.rst.
 
 Default is set (1).
 
