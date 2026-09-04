@@ -2365,7 +2365,7 @@ static unsigned int crypt_authenckey_size(struct crypt_config *cc)
 /*
  * If AEAD is composed like authenc(hmac(sha256),xts(aes)),
  * the key must be for some reason in special format.
- * This funcion converts cc->key to this special format.
+ * This function converts cc->key to this special format.
  */
 static void crypt_copy_authenckey(char *p, const void *key,
 				  unsigned int enckeylen, unsigned int authkeylen)
