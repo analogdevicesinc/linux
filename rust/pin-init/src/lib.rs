@@ -592,7 +592,7 @@ macro_rules! stack_try_pin_init {
     };
 }
 
-/// Construct an in-place, fallible pinned initializer for `struct`s.
+/// Construct an in-place, fallible pinned initializer for structs, including tuple structs.
 ///
 /// The error type defaults to [`Infallible`]; if you need a different one, write `? Error` at the
 /// end, after the struct initializer.
@@ -621,6 +621,28 @@ macro_rules! stack_try_pin_init {
 ///     b: Bar {
 ///         x: 64,
 ///     },
+/// });
+/// # initializer }
+/// # Box::pin_init(demo()).unwrap();
+/// ```
+///
+/// The fields of a tuple struct are addressed by their index:
+///
+/// ```rust
+/// # use pin_init::*;
+/// # use core::pin::Pin;
+/// #[pin_data]
+/// struct Pair(usize, Bar);
+///
+/// #[pin_data]
+/// struct Bar {
+///     x: u32,
+/// }
+///
+/// # fn demo() -> impl PinInit<Pair> {
+/// let initializer = pin_init!(Pair {
+///     0: 42,
+///     1 <- Bar { x: 64 },
 /// });
 /// # initializer }
 /// # Box::pin_init(demo()).unwrap();
@@ -744,9 +766,11 @@ macro_rules! stack_try_pin_init {
 ///
 /// # Syntax
 ///
-/// As already mentioned in the examples above, inside of `pin_init!` a `struct` initializer with
-/// the following modifications is expected:
+/// As already mentioned in the examples above, inside of `pin_init!` a struct initializer with the
+/// following modifications is expected:
 /// - Fields that you want to initialize in-place have to use `<-` instead of `:`.
+/// - Tuple struct fields are named by their index, as in `0: value` or `0 <- initializer`. They
+///   are not exposed by a `let` binding, since they have no name to bind.
 /// - You can use `_: { /* run any user-code here */ },` anywhere where you can place fields in
 ///   order to run arbitrary code.
 /// - In front of the initializer you can write `&this in` to have access to a [`NonNull<Self>`]
@@ -785,7 +809,7 @@ macro_rules! stack_try_pin_init {
 /// [`NonNull<Self>`]: core::ptr::NonNull
 pub use pin_init_internal::pin_init;
 
-/// Construct an in-place, fallible initializer for `struct`s.
+/// Construct an in-place, fallible initializer for structs, including tuple structs.
 ///
 /// This macro defaults the error to [`Infallible`]; if you need a different one, write `? Error`
 /// at the end, after the struct initializer.

@@ -8,10 +8,13 @@ use syn::{
     parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
-    token, Attribute, Block, Expr, ExprCall, ExprPath, Ident, Path, Token, Type,
+    token, Attribute, Block, Expr, ExprCall, ExprPath, Ident, LitInt, Member, Path, Token, Type,
 };
 
-use crate::diagnostics::{DiagCtxt, ErrorGuaranteed};
+use crate::{
+    diagnostics::{DiagCtxt, ErrorGuaranteed},
+    util::*,
+};
 
 pub(crate) struct Initializer {
     attrs: Vec<InitializerAttribute>,
@@ -36,11 +39,11 @@ struct InitializerField {
 
 enum InitializerKind {
     Value {
-        ident: Ident,
+        member: Member,
         value: Option<(Token![:], Expr)>,
     },
     Init {
-        ident: Ident,
+        member: Member,
         _left_arrow_token: Token![<-],
         value: Expr,
     },
@@ -52,9 +55,9 @@ enum InitializerKind {
 }
 
 impl InitializerKind {
-    fn ident(&self) -> Option<&Ident> {
+    fn member(&self) -> Option<&Member> {
         match self {
-            Self::Value { ident, .. } | Self::Init { ident, .. } => Some(ident),
+            Self::Value { member, .. } | Self::Init { member, .. } => Some(member),
             Self::Code { .. } => None,
         }
     }
@@ -229,9 +232,9 @@ fn init_fields(
             cfgs
         };
 
-        let ident = match kind {
-            InitializerKind::Value { ident, .. } => ident,
-            InitializerKind::Init { ident, .. } => ident,
+        let member = match kind {
+            InitializerKind::Value { member, .. } => member,
+            InitializerKind::Init { member, .. } => member,
             InitializerKind::Code { block, .. } => {
                 let stmt = &block.stmts;
                 res.extend(quote! {
@@ -243,27 +246,28 @@ fn init_fields(
                 continue;
             }
         };
+        let ident = member.as_ident();
 
         let slot = if pinned {
             quote! {
                 // SAFETY:
                 // - `slot` is valid and properly aligned.
-                // - `make_field_check` checks that `&raw mut (*slot).#ident` is properly aligned.
-                // - `make_field_check` prevents `#ident` from being used twice, therefore
-                //   `(*slot).#ident` is exclusively accessed and has not been initialized.
+                // - `make_field_check` checks that `&raw mut (*slot).#member` is properly aligned.
+                // - `make_field_check` prevents `#member` from being used twice, therefore
+                //   `(*slot).#member` is exclusively accessed and has not been initialized.
                 (unsafe { #data.#ident(#slot) })
             }
         } else {
             quote! {
                 // For `init!()` macro, everything is unpinned.
                 // SAFETY:
-                // - `&raw mut (*slot).#ident` is valid.
-                // - `make_field_check` checks that `&raw mut (*slot).#ident` is properly aligned.
-                // - `make_field_check` prevents `#ident` from being used twice, therefore
-                //   `(*slot).#ident` is exclusively accessed and has not been initialized.
+                // - `&raw mut (*slot).#member` is valid.
+                // - `make_field_check` checks that `&raw mut (*slot).#member` is properly aligned.
+                // - `make_field_check` prevents `#member` from being used twice, therefore
+                //   `(*slot).#member` is exclusively accessed and has not been initialized.
                 (unsafe {
                     ::pin_init::__internal::Slot::<::pin_init::__internal::Unpinned, _>::new(
-                        &raw mut (*#slot).#ident
+                        &raw mut (*#slot).#member
                     )
                 })
             }
@@ -273,11 +277,11 @@ fn init_fields(
         let guard = format_ident!("__{ident}_guard", span = Span::mixed_site());
 
         let init = match kind {
-            InitializerKind::Value { ident, value } => {
+            InitializerKind::Value { value, .. } => {
                 let value = value
                     .as_ref()
                     .map(|(_, value)| quote!(#value))
-                    .unwrap_or_else(|| quote!(#ident));
+                    .unwrap_or_else(|| quote!(#member));
 
                 quote! {
                     #(#attrs)*
@@ -294,14 +298,23 @@ fn init_fields(
             InitializerKind::Code { .. } => unreachable!(),
         };
 
+        // A tuple field has no name that could be bound here (the `_0` identifiers are considered
+        // implementation detail and not user-facing).
+        let binding = match member {
+            Member::Named(ident) => quote! {
+                #(#cfgs)*
+                // Allow `non_snake_case` since the same warning is going to be reported for the
+                // struct field.
+                #[allow(unused_variables, non_snake_case)]
+                let #ident = #guard.let_binding();
+            },
+            Member::Unnamed(_) => quote!(),
+        };
+
         res.extend(quote! {
             #init
 
-            #(#cfgs)*
-            // Allow `non_snake_case` since the same warning is going to be reported for the struct
-            // field.
-            #[allow(unused_variables, non_snake_case)]
-            let #ident = #guard.let_binding();
+            #binding
         });
 
         guards.push(guard);
@@ -326,9 +339,9 @@ fn make_field_check(
 ) -> TokenStream {
     let field_attrs: Vec<_> = fields
         .iter()
-        .filter_map(|f| f.kind.ident().map(|_| &f.attrs))
+        .filter_map(|f| f.kind.member().map(|_| &f.attrs))
         .collect();
-    let field_name: Vec<_> = fields.iter().filter_map(|f| f.kind.ident()).collect();
+    let field_name: Vec<_> = fields.iter().filter_map(|f| f.kind.member()).collect();
     let zeroing_trailer = match init_kind {
         InitKind::Normal => None,
         InitKind::Zeroing => Some(quote! {
@@ -376,7 +389,8 @@ impl Parse for Initializer {
             let lh = content.lookahead1();
             if lh.peek(End) || lh.peek(Token![..]) {
                 break;
-            } else if lh.peek(Ident) || lh.peek(Token![_]) || lh.peek(Token![#]) {
+            } else if lh.peek(Ident) || lh.peek(LitInt) || lh.peek(Token![_]) || lh.peek(Token![#])
+            {
                 fields.push_value(content.parse()?);
                 let lh = content.lookahead1();
                 if lh.peek(End) {
@@ -450,31 +464,36 @@ impl Parse for InitializerField {
 impl Parse for InitializerKind {
     fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
         let lh = input.lookahead1();
-        if lh.peek(Token![_]) {
-            Ok(Self::Code {
+        let member = if lh.peek(Token![_]) {
+            return Ok(Self::Code {
                 _underscore_token: input.parse()?,
                 _colon_token: input.parse()?,
                 block: input.parse()?,
+            });
+        } else if lh.peek(Ident) || lh.peek(LitInt) {
+            input.parse::<Member>()?
+        } else {
+            return Err(lh.error());
+        };
+
+        let lh = input.lookahead1();
+        if lh.peek(Token![<-]) {
+            Ok(Self::Init {
+                member,
+                _left_arrow_token: input.parse()?,
+                value: input.parse()?,
             })
-        } else if lh.peek(Ident) {
-            let ident = input.parse()?;
-            let lh = input.lookahead1();
-            if lh.peek(Token![<-]) {
-                Ok(Self::Init {
-                    ident,
-                    _left_arrow_token: input.parse()?,
-                    value: input.parse()?,
-                })
-            } else if lh.peek(Token![:]) {
-                Ok(Self::Value {
-                    ident,
-                    value: Some((input.parse()?, input.parse()?)),
-                })
-            } else if lh.peek(Token![,]) || lh.peek(End) {
-                Ok(Self::Value { ident, value: None })
-            } else {
-                Err(lh.error())
-            }
+        } else if lh.peek(Token![:]) {
+            Ok(Self::Value {
+                member,
+                value: Some((input.parse()?, input.parse()?)),
+            })
+        } else if matches!(member, Member::Named(_)) && (lh.peek(Token![,]) || lh.peek(End)) {
+            // Short-hand syntax, available for named fields only.
+            Ok(Self::Value {
+                member,
+                value: None,
+            })
         } else {
             Err(lh.error())
         }
