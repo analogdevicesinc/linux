@@ -1142,7 +1142,7 @@ static int spi_nor_erase_die(struct spi_nor *nor, loff_t addr, size_t die_size)
 
 	if (nor->spimem) {
 		struct spi_mem_op op =
-			SPI_NOR_DIE_ERASE_OP(nor->params->die_erase_opcode,
+			SPI_NOR_DIE_ERASE_OP(nor->params->opcodes.die_erase,
 					     nor->addr_nbytes, addr, multi_die);
 
 		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
@@ -3023,8 +3023,8 @@ static int spi_nor_late_init_params(struct spi_nor *nor)
 			return ret;
 	}
 
-	if (!nor->params->die_erase_opcode)
-		nor->params->die_erase_opcode = SPINOR_OP_CHIP_ERASE;
+	if (!nor->params->opcodes.die_erase)
+		nor->params->opcodes.die_erase = SPINOR_OP_CHIP_ERASE;
 
 	/* Default method kept for backward compatibility. */
 	if (!params->set_4byte_addr_mode)

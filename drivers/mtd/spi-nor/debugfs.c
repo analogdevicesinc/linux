@@ -144,7 +144,7 @@ static int spi_nor_params_show(struct seq_file *s, void *data)
 	}
 
 	string_get_size(params->size, 1, STRING_UNITS_2, buf, sizeof(buf));
-	seq_printf(s, " %02x (%s)\n", params->die_erase_opcode, buf);
+	seq_printf(s, " %02x (%s)\n", params->opcodes.die_erase, buf);
 
 	seq_puts(s, "\nsector map\n");
 	seq_puts(s, " region (in hex)   | erase mask | overlaid\n");

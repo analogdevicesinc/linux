@@ -343,6 +343,16 @@ struct spi_nor_otp {
 };
 
 /**
+ * struct spi_nor_opcodes - SPI NOR flash specific opcodes.
+ * List of variable opcodes used by the chip.
+ *
+ * @die_erase: opcode for erasing a die, defaults to SPINOR_OP_CHIP_ERASE
+ */
+struct spi_nor_opcodes {
+	u8 die_erase;
+};
+
+/**
  * struct spi_nor_flash_parameter - SPI NOR flash parameters and settings.
  * Includes legacy flash parameters and settings that can be overwritten
  * by the spi_nor_fixups hooks, or dynamically when parsing the JESD216
@@ -365,7 +375,6 @@ struct spi_nor_otp {
  *			command in octal DTR mode.
  * @n_banks:		number of banks.
  * @n_dice:		number of dice in the flash memory.
- * @die_erase_opcode:	die erase opcode. Defaults to SPINOR_OP_CHIP_ERASE.
  * @vreg_offset:	volatile register offset for each die.
  * @hwcaps:		describes the read and page program hardware
  *			capabilities.
@@ -398,7 +407,6 @@ struct spi_nor_flash_parameter {
 	u8				rdsr_addr_nbytes;
 	u8				n_banks;
 	u8				n_dice;
-	u8				die_erase_opcode;
 	u32				*vreg_offset;
 
 	struct spi_nor_hwcaps		hwcaps;
@@ -406,6 +414,7 @@ struct spi_nor_flash_parameter {
 	struct spi_nor_pp_command	page_programs[SNOR_CMD_PP_MAX];
 	enum spi_nor_cmd_ext		cmd_ext_type;
 
+	struct spi_nor_opcodes		opcodes;
 	struct spi_nor_erase_map        erase_map;
 	struct spi_nor_otp		otp;
 

@@ -131,7 +131,7 @@ static int micron_st_nor_four_die_late_init(struct spi_nor *nor)
 {
 	struct spi_nor_flash_parameter *params = nor->params;
 
-	params->die_erase_opcode = SPINOR_OP_MT_DIE_ERASE;
+	params->opcodes.die_erase = SPINOR_OP_MT_DIE_ERASE;
 	params->n_dice = 4;
 
 	/*
@@ -147,7 +147,7 @@ static int micron_st_nor_two_die_late_init(struct spi_nor *nor)
 {
 	struct spi_nor_flash_parameter *params = nor->params;
 
-	params->die_erase_opcode = SPINOR_OP_MT_DIE_ERASE;
+	params->opcodes.die_erase = SPINOR_OP_MT_DIE_ERASE;
 	params->n_dice = 2;
 
 	/*
