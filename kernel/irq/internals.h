@@ -79,6 +79,8 @@ enum {
 	IRQS_SYSFS		= 0x00004000,
 };
 
+#define __irqd_to_state(d) ACCESS_PRIVATE((d)->common, state_use_accessors)
+
 #include "debug.h"
 #include "settings.h"
 
@@ -217,8 +219,6 @@ static inline class_irqdesc_lock_t class_irqdesc_lock_constructor(unsigned int i
 	scoped_guard(irqdesc_lock, _irq, true, _check)
 
 #define scoped_irqdesc		((struct irq_desc *)(__guard_ptr(irqdesc_lock)(&scope)))
-
-#define __irqd_to_state(d) ACCESS_PRIVATE((d)->common, state_use_accessors)
 
 static inline unsigned int irqd_get(struct irq_data *d)
 {

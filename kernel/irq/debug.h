@@ -3,10 +3,9 @@
  * Debugging printout:
  */
 
-#define ___P(f) if (desc->status_use_accessors & f) printk("%14s set\n", #f)
-#define ___PS(f) if (desc->istate & f) printk("%14s set\n", #f)
-/* FIXME */
-#define ___PD(f) do { } while (0)
+#define ___P(f) if (desc->status_use_accessors & f) printk("%20s set\n", #f)
+#define ___PS(f) if (desc->istate & f) printk("%20s set\n", #f)
+#define ___PD(f) if (__irqd_to_state(&(desc->irq_data)) & f) printk("%20s set\n", #f)
 
 static inline void print_irq_desc(unsigned int irq, struct irq_desc *desc)
 {
@@ -39,9 +38,9 @@ static inline void print_irq_desc(unsigned int irq, struct irq_desc *desc)
 	___PS(IRQS_WAITING);
 	___PS(IRQS_PENDING);
 
-	___PD(IRQS_INPROGRESS);
-	___PD(IRQS_DISABLED);
-	___PD(IRQS_MASKED);
+	___PD(IRQD_IRQ_INPROGRESS);
+	___PD(IRQD_IRQ_DISABLED);
+	___PD(IRQD_IRQ_MASKED);
 }
 
 #undef ___P
