@@ -1602,6 +1602,8 @@ static void nau8360_coeff_set_def(struct nau8360 *nau8360)
 			i * NAU8360_TOT_BAND_COE_RANGE, 0x20);
 	}
 	nau8360_peq_mem_enable(regmap, false);
+	regmap_update_bits(regmap, NAU8360_R9D_PEQ_CTL, NAU8360_PEQ_BAND_MASK,
+		NAU8360_PEQ_BAND_8 << NAU8360_PEQ_BAND_SFT);
 	mutex_unlock(&nau8360->lock);
 }
 
