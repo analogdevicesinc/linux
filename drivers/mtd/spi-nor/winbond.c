@@ -247,7 +247,7 @@ static const struct flash_info winbond_nor_parts[] = {
 		.size = SZ_1M,
 		.no_sfdp_flags = SECT_4K,
 	}, {
-		/* W25Q32JV-Q/N */
+		/* W25Q32JV-Q/N, W25Q32RV-Q/N */
 		.id = SNOR_ID(0xef, 0x40, 0x16),
 		.name = "w25q32",
 		.size = SZ_4M,
