@@ -6,11 +6,13 @@
  */
 
 #include <kunit/test.h>
+#include <drm/drm_drv.h>
 #include <drm/drm_kunit_helpers.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
 #include <drm/drm_writeback.h>
+#include <drm/display/drm_dp_helper.h>
 
 #include "dc.h"
 #include "inc/core_types.h"
@@ -113,6 +115,18 @@ static enum dc_status dm_test_dp_read_hpd_rx_irq_data_ok(struct dc_link *link,
 							 union hpd_irq_data *irq_data)
 {
 	return DC_OK;
+}
+
+static const struct dc_link_status *dm_test_get_link_status(const struct dc_link *link)
+{
+	return &link->link_status;
+}
+
+/* Fail every AUX transaction so the MST ESI read loop bails out immediately. */
+static ssize_t dm_test_aux_transfer_fail(struct drm_dp_aux *aux,
+					 struct drm_dp_aux_msg *msg)
+{
+	return -EIO;
 }
 
 /*
@@ -509,6 +523,22 @@ static const struct drm_connector_funcs dm_test_connector_funcs = {
 static void dm_test_connector_cleanup(void *data)
 {
 	drm_connector_cleanup(data);
+}
+
+static void dm_test_drm_dev_unregister(void *data)
+{
+	drm_dev_unregister(data);
+}
+
+/*
+ * Registering the DRM device gives its primary minor a sysfs device, which the
+ * DRM hotplug uevent helpers dereference unconditionally.
+ */
+static void dm_test_register_drm_dev(struct kunit *test, struct amdgpu_device *adev)
+{
+	KUNIT_ASSERT_EQ(test, drm_dev_register(&adev->ddev, 0), 0);
+	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_drm_dev_unregister,
+							&adev->ddev), 0);
 }
 
 /* Tests for amdgpu_dm_hpd_to_dal_irq_source() */
@@ -2412,6 +2442,155 @@ static void dm_test_hpd_rx_offload_work_no_connection(struct kunit *test)
 	dm_handle_hpd_rx_offload_work(&offload_work->work);
 }
 
+/*
+ * Build a queued hpd_rx_irq_offload_work for dm_handle_hpd_rx_offload_work():
+ * an adev that is not in reset, an offload queue owning a connector with an
+ * HPD lock, and a DisplayPort dc/link pair that reports a present sink.
+ * Caller sets the link_srv stubs and the service-IRQ bits its branch needs.
+ *
+ * The work item is kzalloc'd because the worker frees it.
+ */
+static struct hpd_rx_irq_offload_work *
+dm_test_setup_hpd_rx_offload_work(struct kunit *test,
+				  struct link_service **link_srv_out)
+{
+	struct hpd_rx_irq_offload_work_queue *offload_wq;
+	struct hpd_rx_irq_offload_work *offload_work;
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+	struct amdgpu_device *adev;
+	struct dc_context *ctx;
+	struct dc_link *link;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	mutex_init(&adev->dm.dc_lock);
+	adev->reset_domain = kunit_kzalloc(test, sizeof(*adev->reset_domain),
+					   GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev->reset_domain);
+
+	offload_wq = kunit_kzalloc(test, sizeof(*offload_wq), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, offload_wq);
+	spin_lock_init(&offload_wq->offload_lock);
+
+	aconn = dm_kunit_alloc_connector(test, adev, NULL);
+	mutex_init(&aconn->hpd_lock);
+	offload_wq->aconnector = aconn;
+
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link_srv);
+	link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+
+	link_srv->detect_connection_type = dm_test_detect_connection_single;
+	dc->link_srv = link_srv;
+	dc->ctx = ctx;
+	ctx->dc = dc;
+	link->dc = dc;
+	link->ctx = ctx;
+	link->connector_signal = SIGNAL_TYPE_DISPLAY_PORT;
+	aconn->dc_link = link;
+
+	offload_work = kzalloc_obj(*offload_work, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, offload_work);
+	offload_work->offload_wq = offload_wq;
+	offload_work->adev = adev;
+	INIT_WORK(&offload_work->work, dm_handle_hpd_rx_offload_work);
+
+	*link_srv_out = link_srv;
+
+	return offload_work;
+}
+
+/**
+ * dm_test_hpd_rx_offload_work_detect_type_fails - Test detect failure logging
+ * @test: The KUnit test context
+ *
+ * When dc_link_detect_connection_type() fails the worker logs an error and
+ * carries on with the connection type left as none, so it still skips out
+ * before any DP IRQ handling.
+ */
+static void dm_test_hpd_rx_offload_work_detect_type_fails(struct kunit *test)
+{
+	struct hpd_rx_irq_offload_work *offload_work;
+	struct link_service *link_srv;
+
+	dm_test_automated_test_count = 0;
+
+	offload_work = dm_test_setup_hpd_rx_offload_work(test, &link_srv);
+	link_srv->detect_connection_type = dm_test_detect_connection_fail;
+	link_srv->dp_handle_automated_test = dm_test_dp_handle_automated_test;
+	offload_work->data.bytes.device_service_irq.bits.AUTOMATED_TEST = 1;
+
+	dm_handle_hpd_rx_offload_work(&offload_work->work);
+
+	KUNIT_EXPECT_EQ(test, dm_test_automated_test_count, 0);
+}
+
+/**
+ * dm_test_hpd_rx_offload_work_in_reset - Test the GPU-reset early exit
+ * @test: The KUnit test context
+ *
+ * A GPU reset owns the link, so a deferred HPD RX IRQ must be dropped before
+ * any DP IRQ handling runs.
+ */
+static void dm_test_hpd_rx_offload_work_in_reset(struct kunit *test)
+{
+	struct hpd_rx_irq_offload_work *offload_work;
+	struct link_service *link_srv;
+
+	dm_test_automated_test_count = 0;
+
+	offload_work = dm_test_setup_hpd_rx_offload_work(test, &link_srv);
+	link_srv->dp_handle_automated_test = dm_test_dp_handle_automated_test;
+	offload_work->data.bytes.device_service_irq.bits.AUTOMATED_TEST = 1;
+	atomic_set(&offload_work->adev->reset_domain->in_gpu_reset, 1);
+
+	dm_handle_hpd_rx_offload_work(&offload_work->work);
+
+	KUNIT_EXPECT_EQ(test, dm_test_automated_test_count, 0);
+}
+
+/**
+ * dm_test_hpd_rx_offload_work_msg_rdy - Test the MST message-ready branch
+ * @test: The KUnit test context
+ *
+ * A deferred UP_REQ_MSG_RDY drains the sideband messages and then re-opens the
+ * queue for the next MST message-ready event. The AUX transfers all fail, so
+ * the ESI read loop bails out on its first iteration.
+ */
+static void dm_test_hpd_rx_offload_work_msg_rdy(struct kunit *test)
+{
+	struct hpd_rx_irq_offload_work *offload_work;
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+	struct dc_link *link;
+
+	offload_work = dm_test_setup_hpd_rx_offload_work(test, &link_srv);
+	aconn = offload_work->offload_wq->aconnector;
+	link = aconn->dc_link;
+
+	link_srv->get_status = dm_test_get_link_status;
+	link->link_status.dpcd_caps = &link->dpcd_caps;
+
+	mutex_init(&aconn->handle_mst_msg_ready);
+	aconn->dm_dp_aux.aux.name = "dm_irq_test_msg_rdy_aux";
+	aconn->dm_dp_aux.aux.transfer = dm_test_aux_transfer_fail;
+	drm_dp_aux_init(&aconn->dm_dp_aux.aux);
+	drm_dp_dpcd_set_probe(&aconn->dm_dp_aux.aux, false);
+
+	offload_work->offload_wq->is_handling_mst_msg_rdy_event = true;
+	offload_work->data.bytes.device_service_irq.bits.UP_REQ_MSG_RDY = 1;
+
+	dm_handle_hpd_rx_offload_work(&offload_work->work);
+
+	KUNIT_EXPECT_FALSE(test, offload_work->offload_wq->is_handling_mst_msg_rdy_event);
+}
+
 /**
  * dm_test_hpd_rx_offload_work_automated_test - Test AUTOMATED_TEST branch
  * @test: The KUnit test context
@@ -2480,6 +2659,37 @@ static void dm_test_hpd_rx_offload_work_automated_test(struct kunit *test)
 	dm_handle_hpd_rx_offload_work(&offload_work->work);
 
 	KUNIT_EXPECT_EQ(test, dm_test_automated_test_count, 1);
+}
+
+/**
+ * dm_test_hpd_rx_offload_work_timing_changed - Test the forced reconnect path
+ * @test: The KUnit test context
+ *
+ * An automated test that changed the timing must force the connector off and
+ * back on again through force_connector_state(), which sends a hotplug uevent
+ * and therefore needs a registered DRM device.
+ */
+static void dm_test_hpd_rx_offload_work_timing_changed(struct kunit *test)
+{
+	struct hpd_rx_irq_offload_work *offload_work;
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+
+	offload_work = dm_test_setup_hpd_rx_offload_work(test, &link_srv);
+	aconn = offload_work->offload_wq->aconnector;
+	dm_test_register_drm_dev(test, offload_work->adev);
+
+	link_srv->dp_handle_automated_test = dm_test_dp_handle_automated_test;
+	aconn->timing_changed = true;
+	aconn->dc_link->aux_access_disabled = true;
+	offload_work->data.bytes.device_service_irq.bits.AUTOMATED_TEST = 1;
+
+	/* The forced off/on cycle must leave the connector back at its default. */
+	aconn->base.force = DRM_FORCE_ON;
+
+	dm_handle_hpd_rx_offload_work(&offload_work->work);
+
+	KUNIT_EXPECT_EQ(test, aconn->base.force, DRM_FORCE_UNSPECIFIED);
 }
 
 /**
@@ -5079,7 +5289,11 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	/* dm_handle_hpd_rx_offload_work */
 	KUNIT_CASE(dm_test_hpd_rx_offload_work_no_connector),
 	KUNIT_CASE(dm_test_hpd_rx_offload_work_no_connection),
+	KUNIT_CASE(dm_test_hpd_rx_offload_work_detect_type_fails),
+	KUNIT_CASE(dm_test_hpd_rx_offload_work_in_reset),
+	KUNIT_CASE(dm_test_hpd_rx_offload_work_msg_rdy),
 	KUNIT_CASE(dm_test_hpd_rx_offload_work_automated_test),
+	KUNIT_CASE(dm_test_hpd_rx_offload_work_timing_changed),
 	KUNIT_CASE(dm_test_hpd_rx_offload_work_link_loss),
 	/* amdgpu_dm_hdmi_hpd_debounce_work */
 	KUNIT_CASE(dm_test_hdmi_hpd_debounce_detect_false),
