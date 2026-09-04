@@ -744,10 +744,12 @@ ieee80211_tx_h_rate_ctrl(struct ieee80211_tx_data *tx)
 		assoc = test_sta_flag(tx->sta, WLAN_STA_ASSOC);
 
 	/*
-	 * Lets not bother rate control if we're associated and cannot
-	 * talk to the sta. This should not happen.
+	 * Lets not bother rate control if we're associated and cannot talk to
+	 * the sta. This should not happen - except for frames that aren't
+	 * really for the peer to start with and already ignore rates.
 	 */
-	if (WARN(test_bit(SCAN_SW_SCANNING, &tx->local->scanning) && assoc &&
+	if (!(info->control.flags & IEEE80211_TX_CTRL_DONT_USE_RATE_MASK) &&
+	    WARN(test_bit(SCAN_SW_SCANNING, &tx->local->scanning) && assoc &&
 		 !rate_usable_index_exists(sband, &tx->sta->sta),
 		 "%s: Dropped data frame as no usable bitrate found while "
 		 "scanning and associated. Target station: "
