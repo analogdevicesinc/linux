@@ -4396,15 +4396,15 @@ struct hwsim_new_radio_params {
 	bool background_radar;
 };
 
-static void hwsim_mcast_config_msg(struct sk_buff *mcast_skb,
+static void hwsim_mcast_config_msg(struct sk_buff *mcast_skb, struct net *net,
 				   struct genl_info *info)
 {
 	if (info)
 		genl_notify(&hwsim_genl_family, mcast_skb, info,
 			    HWSIM_MCGRP_CONFIG, GFP_KERNEL);
 	else
-		genlmsg_multicast(&hwsim_genl_family, mcast_skb, 0,
-				  HWSIM_MCGRP_CONFIG, GFP_KERNEL);
+		genlmsg_multicast_netns(&hwsim_genl_family, net, mcast_skb, 0,
+					HWSIM_MCGRP_CONFIG, GFP_KERNEL);
 }
 
 static int append_radio_msg(struct sk_buff *skb, int id,
@@ -4488,7 +4488,8 @@ static int append_radio_msg(struct sk_buff *skb, int id,
 	return 0;
 }
 
-static void hwsim_mcast_new_radio(int id, struct genl_info *info,
+static void hwsim_mcast_new_radio(int id, struct net *net,
+				  struct genl_info *info,
 				  struct hwsim_new_radio_params *param)
 {
 	struct sk_buff *mcast_skb;
@@ -4508,7 +4509,7 @@ static void hwsim_mcast_new_radio(int id, struct genl_info *info,
 
 	genlmsg_end(mcast_skb, data);
 
-	hwsim_mcast_config_msg(mcast_skb, info);
+	hwsim_mcast_config_msg(mcast_skb, net, info);
 	return;
 
 out_err:
@@ -6190,7 +6191,7 @@ static int mac80211_hwsim_new_radio(struct genl_info *info,
 	hwsim_radios_generation++;
 	spin_unlock_bh(&hwsim_radio_lock);
 
-	hwsim_mcast_new_radio(idx, info, param);
+	hwsim_mcast_new_radio(idx, wiphy_net(data->hw->wiphy), info, param);
 
 	return idx;
 
@@ -6208,7 +6209,7 @@ failed:
 }
 
 static void hwsim_mcast_del_radio(int id, const char *hwname,
-				  struct genl_info *info)
+				  struct net *net, struct genl_info *info)
 {
 	struct sk_buff *skb;
 	void *data;
@@ -6234,7 +6235,7 @@ static void hwsim_mcast_del_radio(int id, const char *hwname,
 
 	genlmsg_end(skb, data);
 
-	hwsim_mcast_config_msg(skb, info);
+	hwsim_mcast_config_msg(skb, net, info);
 
 	return;
 
@@ -6246,7 +6247,7 @@ static void mac80211_hwsim_del_radio(struct mac80211_hwsim_data *data,
 				     const char *hwname,
 				     struct genl_info *info)
 {
-	hwsim_mcast_del_radio(data->idx, hwname, info);
+	hwsim_mcast_del_radio(data->idx, hwname, wiphy_net(data->hw->wiphy), info);
 	debugfs_remove_recursive(data->debugfs);
 	ieee80211_unregister_hw(data->hw);
 	device_release_driver(data->dev);
