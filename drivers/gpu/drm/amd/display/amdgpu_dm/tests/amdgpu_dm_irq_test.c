@@ -61,6 +61,12 @@ static bool dm_test_detect_link_false(struct dc_link *link,
 	return false;
 }
 
+static bool dm_test_detect_link_true(struct dc_link *link,
+				     enum dc_detect_reason reason)
+{
+	return true;
+}
+
 /* Spy on dc_link_detect() to prove the debounce early-return skipped it. */
 static int dm_test_detect_link_count;
 
@@ -2764,6 +2770,51 @@ static void dm_test_hpd_rx_offload_work_link_loss(struct kunit *test)
 
 /* Tests for amdgpu_dm_hdmi_hpd_debounce_work() */
 
+/*
+ * Build an aconnector wired for amdgpu_dm_hdmi_hpd_debounce_work(): an HPD
+ * lock, the debounce work item and a dc/link pair whose re-detect fails.
+ * Caller sets the link_srv stubs and any sinks the branch under test needs.
+ */
+static struct amdgpu_dm_connector *dm_test_setup_hdmi_debounce(struct kunit *test,
+							       struct link_service **link_srv_out)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+	struct amdgpu_device *adev;
+	struct dc_context *ctx;
+	struct dc_link *link;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	mutex_init(&adev->dm.dc_lock);
+
+	aconn = dm_kunit_alloc_connector(test, adev, NULL);
+	mutex_init(&aconn->hpd_lock);
+	INIT_DELAYED_WORK(&aconn->hdmi_hpd_debounce_work,
+			  amdgpu_dm_hdmi_hpd_debounce_work);
+
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link_srv);
+	link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+
+	link_srv->detect_link = dm_test_detect_link_false;
+	dc->ctx = ctx;
+	dc->link_srv = link_srv;
+	ctx->dc = dc;
+	link->dc = dc;
+	link->ctx = ctx;
+	aconn->dc_link = link;
+
+	*link_srv_out = link_srv;
+
+	return aconn;
+}
+
 /**
  * dm_test_hdmi_hpd_debounce_detect_false - Test debounce false detect path
  * @test: The KUnit test context
@@ -2871,6 +2922,67 @@ static void dm_test_hdmi_hpd_debounce_reallow_idle(struct kunit *test)
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconn->hdmi_prev_sink);
 
 	amdgpu_dm_hdmi_hpd_debounce_work(&aconn->hdmi_hpd_debounce_work.work);
+	KUNIT_EXPECT_NULL(test, aconn->hdmi_prev_sink);
+}
+
+/**
+ * dm_test_hdmi_hpd_debounce_sink_unchanged - Test the spontaneous-toggle path
+ * @test: The KUnit test context
+ *
+ * A re-detect that finds the same sink as before the HPD toggle is an internal
+ * re-enable, so the connector state is refreshed but no hotplug event is sent
+ * to userspace. An MST-state connector keeps
+ * amdgpu_dm_update_connector_after_detect() to its early return.
+ */
+static void dm_test_hdmi_hpd_debounce_sink_unchanged(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+	struct dc_link *link;
+
+	aconn = dm_test_setup_hdmi_debounce(test, &link_srv);
+	link_srv->detect_link = dm_test_detect_link_true;
+	aconn->mst_mgr.mst_state = true;
+	link = aconn->dc_link;
+
+	/* Two identically zeroed sinks compare equal, i.e. a spurious toggle. */
+	link->local_sink = dm_test_sink_create(link);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link->local_sink);
+	aconn->hdmi_prev_sink = dm_test_sink_create(link);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconn->hdmi_prev_sink);
+
+	amdgpu_dm_hdmi_hpd_debounce_work(&aconn->hdmi_hpd_debounce_work.work);
+
+	KUNIT_EXPECT_NULL(test, aconn->hdmi_prev_sink);
+
+	dm_test_sink_release(link->local_sink);
+}
+
+/**
+ * dm_test_hdmi_hpd_debounce_sink_changed - Test the real-hotplug path
+ * @test: The KUnit test context
+ *
+ * A re-detect that finds a different sink than the one cached before the HPD
+ * toggle is a real hotplug, so userspace must be notified. Sending the uevent
+ * needs a registered DRM device.
+ */
+static void dm_test_hdmi_hpd_debounce_sink_changed(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+
+	aconn = dm_test_setup_hdmi_debounce(test, &link_srv);
+	dm_test_register_drm_dev(test, drm_to_adev(aconn->base.dev));
+
+	link_srv->detect_link = dm_test_detect_link_true;
+	aconn->mst_mgr.mst_state = true;
+
+	/* The link lost its sink, so it cannot match the cached one. */
+	aconn->hdmi_prev_sink = dm_test_sink_create(aconn->dc_link);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconn->hdmi_prev_sink);
+
+	amdgpu_dm_hdmi_hpd_debounce_work(&aconn->hdmi_hpd_debounce_work.work);
+
 	KUNIT_EXPECT_NULL(test, aconn->hdmi_prev_sink);
 }
 
@@ -5298,6 +5410,8 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	/* amdgpu_dm_hdmi_hpd_debounce_work */
 	KUNIT_CASE(dm_test_hdmi_hpd_debounce_detect_false),
 	KUNIT_CASE(dm_test_hdmi_hpd_debounce_reallow_idle),
+	KUNIT_CASE(dm_test_hdmi_hpd_debounce_sink_unchanged),
+	KUNIT_CASE(dm_test_hdmi_hpd_debounce_sink_changed),
 	/* handle_hpd_irq/handle_hpd_irq_helper */
 	KUNIT_CASE(dm_test_handle_hpd_irq_disabled),
 	KUNIT_CASE(dm_test_handle_hpd_irq_helper_debounce_schedule),
