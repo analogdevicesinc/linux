@@ -318,6 +318,8 @@ static struct mbox_info *zynqmp_r5_setup_mbox(struct device *cdev)
 	if (!ipi)
 		return NULL;
 
+	INIT_WORK(&ipi->mbox_work, handle_event_notified);
+
 	mbox_cl = &ipi->mbox_cl;
 	mbox_cl->rx_callback = zynqmp_r5_mb_rx_cb;
 	mbox_cl->tx_block = false;
@@ -329,6 +331,7 @@ static struct mbox_info *zynqmp_r5_setup_mbox(struct device *cdev)
 	ipi->tx_chan = mbox_request_channel_byname(mbox_cl, "tx");
 	if (IS_ERR(ipi->tx_chan)) {
 		ipi->tx_chan = NULL;
+		cancel_work_sync(&ipi->mbox_work);
 		kfree(ipi);
 		dev_warn(cdev, "mbox tx channel request failed\n");
 		return NULL;
@@ -339,12 +342,11 @@ static struct mbox_info *zynqmp_r5_setup_mbox(struct device *cdev)
 		mbox_free_channel(ipi->tx_chan);
 		ipi->rx_chan = NULL;
 		ipi->tx_chan = NULL;
+		cancel_work_sync(&ipi->mbox_work);
 		kfree(ipi);
 		dev_warn(cdev, "mbox rx channel request failed\n");
 		return NULL;
 	}
-
-	INIT_WORK(&ipi->mbox_work, handle_event_notified);
 
 	return ipi;
 }
@@ -364,6 +366,8 @@ static void zynqmp_r5_free_mbox(struct mbox_info *ipi)
 		ipi->rx_chan = NULL;
 	}
 
+	cancel_work_sync(&ipi->mbox_work);
+
 	kfree(ipi);
 }
 
@@ -381,7 +385,10 @@ static void zynqmp_r5_rproc_kick(struct rproc *rproc, int vqid)
 	int ret;
 
 	ipi = r5_core->ipi;
-	if (!ipi)
+	if (!ipi || !ipi->tx_chan)
+		return;
+
+	if (mbox_chan_tx_slots_available(ipi->tx_chan) == 0)
 		return;
 
 	mb_msg = (struct zynqmp_ipi_message *)ipi->tx_mc_buf;
