@@ -12,6 +12,7 @@
 
 /* GIC component base address is guest PA space */
 #define GICV5_IRS_CONFIG_BASE_GPA	0x8000000ULL
+#define GICV5_IRS_CONFIG_BASE_GVA	((volatile void *)GICV5_IRS_CONFIG_BASE_GPA)
 
 #define GICV5_IRS_SIZE			0x20000
 #define GICV5_IRS_ALIGN			0x10000
@@ -78,6 +79,12 @@
 #define GICV5_IRS_IDR0_INT_DOM_SECURE		0b00
 
 #define GICV5_IRS_IDR1_PRIORITY_BITS	GENMASK(22, 20)
+
+#define GICV5_IRS_CR0_IDLE		BIT(1)
+#define GICV5_IRS_CR0_IRSEN		BIT(0)
+
+#define GICV5_IRS_SPI_SELR_ID		GENMASK(23, 0)
+#define GICV5_IRS_SPI_CFGR_TM		BIT(0)
 
 #define GICV5_IRS_SYNC_STATUSR_IDLE	BIT(0)
 #define GICV5_IRS_SPI_STATUSR_IDLE	BIT(0)
@@ -154,6 +161,10 @@
 #define GICV5_GICR_CDNMIA_VALID(r)	FIELD_GET(GICV5_GICR_CDNMIA_VALID_MASK, r)
 #define GICV5_GICR_CDNMIA_TYPE_MASK	GENMASK_ULL(31, 29)
 #define GICV5_GICR_CDNMIA_ID_MASK	GENMASK_ULL(23, 0)
+
+#define GICV5_HWIRQ_TYPE		GENMASK_ULL(31, 29)
+#define GICV5_HWIRQ_ID			GENMASK_ULL(23, 0)
+#define GICV5_HWIRQ_TYPE_SPI		0x3
 
 #define gicr_insn(insn)			read_sysreg_s(GICV5_OP_GICR_##insn)
 #define gic_insn(v, insn)		write_sysreg_s(v, GICV5_OP_GIC_##insn)

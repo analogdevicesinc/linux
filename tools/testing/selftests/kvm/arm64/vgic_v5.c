@@ -16,6 +16,8 @@
 #define VGIC_V5_NR_PRIVATE_IRQS	64
 #define VGIC_V5_DEFAULT_NR_SPIS	32
 #define VGIC_V5_MAX_NR_SPIS	BIT(10)
+#define VGIC_V5_IRS_SIZE		0x20000
+#define VGIC_V5_IRS_WAIT_RETRIES	1000000
 
 static u64 max_phys_size;
 
@@ -43,7 +45,71 @@ static struct kvm_vgic_v5_ist vgic_v5_ist_attr(void *spi_ist, size_t spi_size,
 	};
 }
 
-static void guest_irq_handler(struct ex_regs *regs)
+static u32 spi_line_expected;
+static bool spi_line_level_sensitive;
+
+static u64 gicv5_spi_hwirq(u32 spi)
+{
+	return FIELD_PREP(GICV5_HWIRQ_TYPE, GICV5_HWIRQ_TYPE_SPI) |
+	       FIELD_PREP(GICV5_HWIRQ_ID, spi);
+}
+
+static void gicv5_setup_and_enable_hwirq(u64 hwirq, u32 target_vpe)
+{
+	u64 val;
+
+	val = hwirq | FIELD_PREP(GICV5_GIC_CDPRI_PRIORITY_MASK,
+				 GICV5_IRQ_DEFAULT_PRI);
+	gic_insn(val, CDPRI);
+
+	val = hwirq | FIELD_PREP(GICV5_GIC_CDAFF_IAFFID_MASK, target_vpe);
+	gic_insn(val, CDAFF);
+
+	gic_insn(hwirq, CDEN);
+}
+
+static void gicv5_enable_spi(u32 spi, u32 target_vpe)
+{
+	gicv5_setup_and_enable_hwirq(gicv5_spi_hwirq(spi), target_vpe);
+}
+
+static void gicv5_wait_for_irs_idle(u32 reg, u32 idle)
+{
+	int i;
+
+	for (i = 0; i < VGIC_V5_IRS_WAIT_RETRIES; i++) {
+		if (readl(GICV5_IRS_CONFIG_BASE_GVA + reg) & idle)
+			return;
+
+		cpu_relax();
+	}
+
+	GUEST_FAIL("IRS operation did not become idle");
+}
+
+static void gicv5_configure_spi(u32 spi, bool level)
+{
+	u32 val;
+
+	val = FIELD_PREP(GICV5_IRS_SPI_SELR_ID, spi);
+	writel(val, GICV5_IRS_CONFIG_BASE_GVA + GICV5_IRS_SPI_SELR);
+	gicv5_wait_for_irs_idle(GICV5_IRS_SPI_STATUSR,
+				GICV5_IRS_SPI_STATUSR_IDLE);
+
+	val = level ? GICV5_IRS_SPI_CFGR_TM : 0;
+	writel(val, GICV5_IRS_CONFIG_BASE_GVA + GICV5_IRS_SPI_CFGR);
+	gicv5_wait_for_irs_idle(GICV5_IRS_SPI_STATUSR,
+				GICV5_IRS_SPI_STATUSR_IDLE);
+}
+
+static void gicv5_enable_irs(void)
+{
+	writel(GICV5_IRS_CR0_IRSEN,
+	       GICV5_IRS_CONFIG_BASE_GVA + GICV5_IRS_CR0);
+	gicv5_wait_for_irs_idle(GICV5_IRS_CR0, GICV5_IRS_CR0_IDLE);
+}
+
+static void guest_ppi_irq_handler(struct ex_regs *regs)
 {
 	bool valid;
 	u32 hwirq;
@@ -100,6 +166,49 @@ static void guest_code(void)
 		cpu_relax();
 }
 
+static void guest_spi_irq_handler(struct ex_regs *regs)
+{
+	bool valid;
+	u32 hwirq;
+	u64 ia;
+
+	ia = gicr_insn(CDIA);
+	valid = GICV5_GICR_CDIA_VALID(ia);
+
+	if (!valid)
+		return;
+
+	gsb_ack();
+	isb();
+
+	hwirq = FIELD_GET(GICV5_GICR_CDIA_INTID, ia);
+
+	GUEST_ASSERT_EQ(hwirq, gicv5_spi_hwirq(READ_ONCE(spi_line_expected)));
+
+	gic_insn(hwirq, CDDI);
+	gic_insn(0, CDEOI);
+
+	GUEST_DONE();
+}
+
+static void guest_spi_line_code(void)
+{
+	local_irq_disable();
+
+	gicv5_enable_irs();
+	gicv5_cpu_enable_interrupts();
+	gicv5_configure_spi(READ_ONCE(spi_line_expected),
+			    READ_ONCE(spi_line_level_sensitive));
+	gicv5_enable_spi(READ_ONCE(spi_line_expected), 0);
+
+	local_irq_enable();
+
+	GUEST_SYNC(GUEST_CMD_IS_READY);
+
+	while (1)
+		wfi();
+}
+
 /* we don't want to assert on run execution, hence that helper */
 static int run_vcpu(struct kvm_vcpu *vcpu)
 {
@@ -112,6 +221,17 @@ static void vm_gic_destroy(struct vm_gic *v)
 	kvm_vm_free(v->vm);
 }
 
+static void vgic_v5_map_irs(struct kvm_vm *vm)
+{
+	unsigned int nr_irs_pages;
+
+	nr_irs_pages = vm_calc_num_guest_pages(vm->mode, VGIC_V5_IRS_SIZE);
+
+	/* Map the IRS at VA == IPA so guest MMIO writes hit the IRS IODEV. */
+	virt_map(vm, GICV5_IRS_CONFIG_BASE_GPA,
+		 GICV5_IRS_CONFIG_BASE_GPA, nr_irs_pages);
+}
+
 static u32 vgic_v5_irq_line_payload(u32 type, u32 num)
 {
 	return (type << KVM_ARM_IRQ_TYPE_SHIFT) |
@@ -121,6 +241,93 @@ static u32 vgic_v5_irq_line_payload(u32 type, u32 num)
 static int __vgic_v5_irq_line(struct kvm_vm *vm, u32 type, u32 num, int level)
 {
 	return _kvm_irq_line(vm, vgic_v5_irq_line_payload(type, num), level);
+}
+
+static void vgic_v5_spi_line(struct kvm_vm *vm, u32 spi, int level)
+{
+	int ret = __vgic_v5_irq_line(vm, KVM_ARM_IRQ_TYPE_SPI, spi, level);
+
+	TEST_ASSERT(!ret, "KVM_IRQ_LINE failed for SPI %u level %d",
+		    spi, level);
+}
+
+static void vgic_v5_spi_line_vm_create(struct vm_gic *v,
+				       struct kvm_vcpu **vcpu,
+				       u32 nr_spis)
+{
+	u64 attr;
+
+	v->gic_dev_type = KVM_DEV_TYPE_ARM_VGIC_V5;
+	v->vm = __vm_create(VM_SHAPE_DEFAULT, NR_VCPUS, 0);
+	v->gic_fd = kvm_create_device(v->vm, v->gic_dev_type);
+	*vcpu = vm_vcpu_add(v->vm, 0, guest_spi_line_code);
+	TEST_ASSERT(*vcpu, "Failed to create vCPU");
+
+	vm_init_descriptor_tables(v->vm);
+	vm_install_exception_handler(v->vm, VECTOR_IRQ_CURRENT,
+				     guest_spi_irq_handler);
+	vcpu_init_descriptor_tables(*vcpu);
+
+	kvm_device_attr_set(v->gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS, 0,
+			    &nr_spis);
+
+	attr = GICV5_IRS_CONFIG_BASE_GPA;
+	kvm_device_attr_set(v->gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+			    KVM_VGIC_V5_ADDR_TYPE_IRS, &attr);
+	vgic_v5_map_irs(v->vm);
+	kvm_device_attr_set(v->gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
+}
+
+static void vgic_v5_run_spi_line_test(u32 nr_spis, u32 expected_spi,
+				      bool level_sensitive,
+				      bool lower_before_run)
+{
+	struct kvm_vcpu *vcpu;
+	struct vm_gic v;
+	struct ucall uc;
+	int ret;
+
+	spi_line_expected = expected_spi;
+	spi_line_level_sensitive = level_sensitive;
+
+	vgic_v5_spi_line_vm_create(&v, &vcpu, nr_spis);
+
+	sync_global_to_guest(v.vm, spi_line_expected);
+	sync_global_to_guest(v.vm, spi_line_level_sensitive);
+
+	ret = run_vcpu(vcpu);
+	TEST_ASSERT(!ret, "Failed to run GICv5 IRQ_LINE VM");
+	TEST_ASSERT(get_ucall(vcpu, &uc) == UCALL_SYNC &&
+		    uc.args[1] == GUEST_CMD_IS_READY,
+		    "GICv5 IRQ_LINE guest did not become ready");
+
+	vgic_v5_spi_line(v.vm, expected_spi, 1);
+	/*
+	 * For edge-triggered SPIs, a following low transition must be ignored:
+	 * once the edge has made the SPI pending, it cannot be recalled. This
+	 * allows us to test that.
+	 */
+	if (lower_before_run)
+		vgic_v5_spi_line(v.vm, expected_spi, 0);
+
+	while (1) {
+		ret = run_vcpu(vcpu);
+		TEST_ASSERT(!ret, "Failed to run GICv5 IRQ_LINE VM");
+
+		switch (get_ucall(vcpu, &uc)) {
+		case UCALL_ABORT:
+			REPORT_GUEST_ASSERT(uc);
+			break;
+		case UCALL_DONE:
+			goto done;
+		default:
+			TEST_FAIL("Unknown ucall %lu", uc.cmd);
+		}
+	}
+
+done:
+	vm_gic_destroy(&v);
 }
 
 struct vgic_region_attr {
@@ -860,7 +1067,8 @@ static void test_vgic_v5_ppis(u32 gic_dev_type)
 		vcpus[i] = vm_vcpu_add(v.vm, i, guest_code);
 
 	vm_init_descriptor_tables(v.vm);
-	vm_install_exception_handler(v.vm, VECTOR_IRQ_CURRENT, guest_irq_handler);
+	vm_install_exception_handler(v.vm, VECTOR_IRQ_CURRENT,
+				     guest_ppi_irq_handler);
 
 	for (i = 0; i < NR_VCPUS; i++)
 		vcpu_init_descriptor_tables(vcpus[i]);
@@ -916,9 +1124,9 @@ static void test_vgic_v5_ppis(u32 gic_dev_type)
 
 				kvm_irq_line(v.vm, irq, level);
 			} else if (uc.args[1] == GUEST_CMD_IS_AWAKE) {
-				pr_info("Guest skipping WFI due to pending IRQ\n");
+				pr_debug("Guest skipping WFI due to pending IRQ\n");
 			} else if (uc.args[1] == GUEST_CMD_IRQ_CDIA) {
-				pr_info("Guest acknowledged IRQ\n");
+				pr_debug("Guest acknowledged IRQ\n");
 			}
 
 			continue;
@@ -936,6 +1144,44 @@ done:
 	TEST_ASSERT(ret == 0, "Failed to test GICv5 PPIs");
 
 	vm_gic_destroy(&v);
+}
+
+static void test_vgic_v5_spis(void)
+{
+	struct kvm_vcpu *vcpu;
+	struct vm_gic v;
+	int ret;
+
+	/* Default NR_IRQS exposes 32 SPIs, numbered 0..31 in KVM_IRQ_LINE. */
+	vgic_v5_spi_line_vm_create(&v, &vcpu, VGIC_V5_DEFAULT_NR_SPIS);
+	ret = __vgic_v5_irq_line(v.vm, KVM_ARM_IRQ_TYPE_SPI,
+				 VGIC_V5_DEFAULT_NR_SPIS, 1);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 accepted first invalid SPI");
+
+	vm_gic_destroy(&v);
+
+	/* Basic SPI injection through KVM_IRQ_LINE. */
+	vgic_v5_run_spi_line_test(VGIC_V5_DEFAULT_NR_SPIS, 0, false, false);
+
+	/* The last valid SPI in the maximum configured range is injectable. */
+	vgic_v5_run_spi_line_test(VGIC_V5_MAX_NR_SPIS,
+				  VGIC_V5_MAX_NR_SPIS - 1, false, false);
+
+	vgic_v5_spi_line_vm_create(&v, &vcpu, VGIC_V5_MAX_NR_SPIS);
+	ret = __vgic_v5_irq_line(v.vm, KVM_ARM_IRQ_TYPE_SPI,
+				 VGIC_V5_MAX_NR_SPIS, 1);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 accepted configured invalid SPI");
+	vm_gic_destroy(&v);
+
+	/*
+	 * Edge SPIs remain pending after the line is lowered.  The low
+	 * transition is injected before the guest runs and must be ignored:
+	 * once an edge interrupt is pending, lowering the line cannot recall it.
+	 */
+	vgic_v5_run_spi_line_test(VGIC_V5_DEFAULT_NR_SPIS, 1, false, true);
+
+	/* Level SPIs can be raised and delivered through KVM_IRQ_LINE. */
+	vgic_v5_run_spi_line_test(VGIC_V5_DEFAULT_NR_SPIS, 2, true, false);
 }
 
 /*
@@ -987,9 +1233,11 @@ void run_tests(u32 gic_dev_type)
 	pr_info("Test VGICv5 CPU sysreg attrs\n");
 	test_vgic_v5_cpu_sysreg_attrs();
 
-
 	pr_info("Test VGICv5 PPIs\n");
 	test_vgic_v5_ppis(gic_dev_type);
+
+	pr_info("Test VGICv5 SPIs\n");
+	test_vgic_v5_spis();
 }
 
 int main(int ac, char **av)
