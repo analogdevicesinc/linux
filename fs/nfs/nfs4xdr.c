@@ -6187,7 +6187,7 @@ static int decode_layoutget(struct xdr_stream *xdr, struct rpc_rqst *req,
 		dprintk("NFS: server cheating in layoutget reply: "
 				"layout len %u > recvd %u\n",
 				res->layoutp->len, recvd);
-		status = -EINVAL;
+		status = -EMSGSIZE;
 		goto out;
 	}
 
