@@ -222,7 +222,7 @@ extern int swim_read_sector_data(struct swim __iomem *base,
 				 unsigned char *data);
 
 static DEFINE_MUTEX(swim_mutex);
-static inline void set_swim_mode(struct swim __iomem *base, int enable)
+static void set_swim_mode(struct swim __iomem *base, int enable)
 {
 	struct iwm __iomem *iwm_base = (struct iwm __iomem *)base;
 	unsigned long flags;
@@ -250,7 +250,7 @@ static inline void set_swim_mode(struct swim __iomem *base, int enable)
 	local_irq_restore(flags);
 }
 
-static inline int get_swim_mode(struct swim __iomem *base)
+static int get_swim_mode(struct swim __iomem *base)
 {
 	unsigned long flags;
 
@@ -321,7 +321,7 @@ static inline bool swim_readbit(struct swim __iomem *base, int bit)
 	ret; \
 })
 
-static inline void swim_drive(struct swim __iomem *base,
+static void swim_drive(struct swim __iomem *base,
 			      enum drive_location location)
 {
 	if (location == INTERNAL_DRIVE) {
@@ -340,8 +340,8 @@ static inline void swim_drive(struct swim __iomem *base,
 	udelay(1);
 }
 
-static inline void swim_motor(struct swim __iomem *base,
-			      enum motor_action action)
+static void swim_motor(struct swim __iomem *base,
+		       enum motor_action action)
 {
 	if (action == ON) {
 		swim_action(base, MOTOR_ON);
@@ -352,7 +352,7 @@ static inline void swim_motor(struct swim __iomem *base,
 	}
 }
 
-static inline void swim_eject(struct swim __iomem *base)
+static void swim_eject(struct swim __iomem *base)
 {
 	swim_action(base, EJECT);
 	swim_readbit_timeout(base, DISK_IN, false, 2000 * 1000);
@@ -367,14 +367,14 @@ static inline void swim_head(struct swim __iomem *base, enum head head)
 		swim_select(base, READ_DATA_0);
 }
 
-static inline int swim_step(struct swim __iomem *base)
+static int swim_step(struct swim __iomem *base)
 {
 	swim_action(base, STEP);
 	udelay(150);
 	return swim_readbit_timeout(base, STEP, false, 20 * 1000);
 }
 
-static inline int swim_track00(struct swim __iomem *base)
+static int swim_track00(struct swim __iomem *base)
 {
 	int try;
 
@@ -394,7 +394,7 @@ static inline int swim_track00(struct swim __iomem *base)
 	return -1;
 }
 
-static inline int swim_seek(struct swim __iomem *base, int step)
+static int swim_seek(struct swim __iomem *base, int step)
 {
 	if (step < 0) {
 		swim_action(base, SEEK_NEGATIVE);
@@ -419,7 +419,7 @@ static inline int swim_seek(struct swim __iomem *base, int step)
 	return 0;
 }
 
-static inline int swim_track(struct floppy_state *fs,  int track)
+static int swim_track(struct floppy_state *fs,  int track)
 {
 	struct swim __iomem *base = fs->swd->base;
 	int ret;
