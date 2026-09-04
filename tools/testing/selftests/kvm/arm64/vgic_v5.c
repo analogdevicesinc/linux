@@ -18,6 +18,8 @@
 
 static u64 max_phys_size;
 
+#define VGIC_V5_TEST_IST_BASER_GPA	0x10000000ULL
+
 struct vm_gic {
 	struct kvm_vm *vm;
 	int gic_fd;
@@ -108,6 +110,72 @@ static const struct vgic_region_attr gic_v5_irs_region = {
 	.attr = KVM_VGIC_V5_ADDR_TYPE_IRS,
 	.size = GICV5_IRS_SIZE,
 	.alignment = GICV5_IRS_ALIGN,
+};
+
+struct vgic_irs_reg_attr {
+	const char	*name;
+	u64		attr;
+};
+
+#define IRS_REG(r)						\
+	{							\
+		.name		= #r,				\
+		.attr		= r,				\
+	}
+
+static const struct vgic_irs_reg_attr gic_v5_irs_regs[] = {
+	IRS_REG(GICV5_IRS_IDR0),
+	IRS_REG(GICV5_IRS_IDR1),
+	IRS_REG(GICV5_IRS_IDR2),
+	IRS_REG(GICV5_IRS_IDR3),
+	IRS_REG(GICV5_IRS_IDR4),
+	IRS_REG(GICV5_IRS_IDR5),
+	IRS_REG(GICV5_IRS_IDR6),
+	IRS_REG(GICV5_IRS_IDR7),
+	IRS_REG(GICV5_IRS_IIDR),
+	IRS_REG(GICV5_IRS_AIDR),
+	IRS_REG(GICV5_IRS_CR0),
+	IRS_REG(GICV5_IRS_CR1),
+	IRS_REG(GICV5_IRS_SYNCR),
+	IRS_REG(GICV5_IRS_SYNC_STATUSR),
+	IRS_REG(GICV5_IRS_SPI_VMR),
+	IRS_REG(GICV5_IRS_SPI_SELR),
+	IRS_REG(GICV5_IRS_SPI_DOMAINR),
+	IRS_REG(GICV5_IRS_SPI_RESAMPLER),
+	IRS_REG(GICV5_IRS_SPI_CFGR),
+	IRS_REG(GICV5_IRS_SPI_STATUSR),
+	IRS_REG(GICV5_IRS_PE_SELR),
+	IRS_REG(GICV5_IRS_PE_STATUSR),
+	IRS_REG(GICV5_IRS_PE_CR0),
+	IRS_REG(GICV5_IRS_IST_BASER),
+	IRS_REG(GICV5_IRS_IST_CFGR),
+	IRS_REG(GICV5_IRS_IST_STATUSR),
+	IRS_REG(GICV5_IRS_MAP_L2_ISTR),
+	IRS_REG(GICV5_IRS_VMT_BASER),
+	IRS_REG(GICV5_IRS_VMT_CFGR),
+	IRS_REG(GICV5_IRS_VMT_STATUSR),
+	IRS_REG(GICV5_IRS_VPE_SELR),
+	IRS_REG(GICV5_IRS_VPE_DBR),
+	IRS_REG(GICV5_IRS_VPE_HPPIR),
+	IRS_REG(GICV5_IRS_VPE_CR0),
+	IRS_REG(GICV5_IRS_VPE_STATUSR),
+	IRS_REG(GICV5_IRS_VM_DBR),
+	IRS_REG(GICV5_IRS_VM_SELR),
+	IRS_REG(GICV5_IRS_VM_STATUSR),
+	IRS_REG(GICV5_IRS_VMAP_L2_VMTR),
+	IRS_REG(GICV5_IRS_VMAP_VMR),
+	IRS_REG(GICV5_IRS_VMAP_VISTR),
+	IRS_REG(GICV5_IRS_VMAP_L2_VISTR),
+	IRS_REG(GICV5_IRS_VMAP_VPER),
+	IRS_REG(GICV5_IRS_SAVE_VMR),
+	IRS_REG(GICV5_IRS_SAVE_VM_STATUSR),
+	IRS_REG(GICV5_IRS_MEC_IDR),
+	IRS_REG(GICV5_IRS_MEC_MECID_R),
+	IRS_REG(GICV5_IRS_MPAM_IDR),
+	IRS_REG(GICV5_IRS_MPAM_PARTID_R),
+	IRS_REG(GICV5_IRS_SWERR_STATUSR),
+	IRS_REG(GICV5_IRS_SWERR_SYNDROMER0),
+	IRS_REG(GICV5_IRS_SWERR_SYNDROMER1),
 };
 
 static void test_vgic_v5_addr_attrs(void)
@@ -271,6 +339,194 @@ static void test_vgic_v5_nr_irqs_attrs(void)
 
 }
 
+static void test_vgic_v5_irs_regs_attrs(void)
+{
+	struct kvm_vcpu *vcpu;
+	struct vm_gic v;
+	u64 attr, val;
+	int ret, i;
+
+	v.gic_dev_type = KVM_DEV_TYPE_ARM_VGIC_V5;
+	v.vm = __vm_create(VM_SHAPE_DEFAULT, NR_VCPUS, 0);
+	v.gic_fd = kvm_create_device(v.vm, v.gic_dev_type);
+	vcpu = vm_vcpu_add(v.vm, 0, NULL);
+	TEST_ASSERT(vcpu, "Failed to create vCPU");
+
+	/* IRS_REGS attributes can be probed before the IRS base is set. */
+	kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+			    GICV5_IRS_IDR0);
+
+	attr = GICV5_IRS_CONFIG_BASE_GPA;
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+			    KVM_VGIC_V5_ADDR_TYPE_IRS, &attr);
+
+	/* Check existing group/attribute */
+	kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+			    GICV5_IRS_IDR0);
+
+	/* IRS_REGS are not accessible before the VGIC is initialized. */
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR0, &val);
+	TEST_ASSERT(ret && errno == EBUSY, "GICv5 IRS_REGS get before init");
+
+	val = 0;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR0, &val);
+	TEST_ASSERT(ret && errno == EBUSY, "GICv5 IRS_REGS set before init");
+
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
+
+	/* Read all supported IRS regs and write the value back. */
+	for (i = 0; i < ARRAY_SIZE(gic_v5_irs_regs); i++) {
+		attr = gic_v5_irs_regs[i].attr;
+		ret = __kvm_has_device_attr(v.gic_fd,
+					    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+					    attr);
+		TEST_ASSERT(!ret, "GICv5 IRS_REGS missing %s",
+			    gic_v5_irs_regs[i].name);
+
+		val = 0xbad;
+		ret = __kvm_device_attr_get(v.gic_fd,
+					    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+					    attr, &val);
+		TEST_ASSERT(!ret, "GICv5 IRS_REGS get failed for %s",
+			    gic_v5_irs_regs[i].name);
+
+		ret = __kvm_device_attr_set(v.gic_fd,
+					    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+					    attr, &val);
+		TEST_ASSERT(!ret, "GICv5 IRS_REGS set failed for %s",
+			    gic_v5_irs_regs[i].name);
+	}
+
+	/* Check bad offsets */
+	attr = 0x10000;
+	ret = __kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    attr);
+	TEST_ASSERT(ret && errno == ENXIO, "GICv5 IRS_REGS accepted bad offset");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    attr, &val);
+	TEST_ASSERT(ret && errno == ENXIO, "GICv5 IRS_REGS get bad offset");
+
+	/* Check alignment for 32-bit and 64-bit IRS regs. */
+	attr = GICV5_IRS_IDR0 + 2;
+	ret = __kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IRS_REGS accepted unaligned 32-bit attr");
+
+	attr = GICV5_IRS_IST_BASER + 4;
+	ret = __kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IRS_REGS accepted unaligned 64-bit attr");
+
+	/* Check bad user pointers */
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR0, NULL);
+	TEST_ASSERT(ret && errno == EFAULT, "GICv5 IRS_REGS get with bad pointer");
+
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR0, NULL);
+	TEST_ASSERT(ret && errno == EFAULT, "GICv5 IRS_REGS set with bad pointer");
+
+	/* ID restore validation rejects unsupported values. */
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR0, &val);
+	TEST_ASSERT(!ret, "GICv5 IRS_REGS get IDR0 failed");
+	val &= ~GICV5_IRS_IDR0_INT_DOM;
+	val |= FIELD_PREP(GICV5_IRS_IDR0_INT_DOM,
+			  GICV5_IRS_IDR0_INT_DOM_SECURE);
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR0, &val);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IRS_REGS accepted bad IDR0 domain");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR0, &val);
+	TEST_ASSERT(!ret, "GICv5 IRS_REGS get IDR0 failed");
+	val |= GICV5_IRS_IDR0_SETLPI;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR0, &val);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IRS_REGS accepted unsupported IDR0");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR1, &val);
+	TEST_ASSERT(!ret, "GICv5 IRS_REGS get IDR1 failed");
+	val |= FIELD_PREP(GICV5_IRS_IDR1_PRIORITY_BITS, 0x7);
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR1, &val);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IRS_REGS accepted bad IDR1");
+
+	val = 0;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR2, &val);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IRS_REGS accepted bad IDR2");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR5, &val);
+	TEST_ASSERT(!ret, "GICv5 IRS_REGS get IDR5 failed");
+	val++;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR5, &val);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IRS_REGS accepted bad IDR5");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR6, &val);
+	TEST_ASSERT(!ret, "GICv5 IRS_REGS get IDR6 failed");
+	val++;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR6, &val);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IRS_REGS accepted bad IDR6");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR7, &val);
+	TEST_ASSERT(!ret, "GICv5 IRS_REGS get IDR7 failed");
+	val++;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IDR7, &val);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IRS_REGS accepted bad IDR7");
+
+	/* Status registers read as idle through userspace accessors. */
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_SYNC_STATUSR, &val);
+	TEST_ASSERT(!ret && val == GICV5_IRS_SYNC_STATUSR_IDLE,
+		    "GICv5 IRS_REGS SYNC_STATUSR is not idle");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_SPI_STATUSR, &val);
+	TEST_ASSERT(!ret && val == GICV5_IRS_SPI_STATUSR_IDLE,
+		    "GICv5 IRS_REGS SPI_STATUSR is not idle");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_PE_STATUSR, &val);
+	TEST_ASSERT(!ret && val == GICV5_IRS_PE_STATUSR_IDLE,
+		    "GICv5 IRS_REGS PE_STATUSR is not idle");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_STATUSR, &val);
+	TEST_ASSERT(!ret && val == GICV5_IRS_IST_STATUSR_IDLE,
+		    "GICv5 IRS_REGS IST_STATUSR is not idle");
+
+	/*
+	 * Userspace restores IST_BASER without allocating or accessing an IST.
+	 * Supply a synthetic, aligned guest address only to verify the register
+	 * round trip.
+	 */
+	val = FIELD_PREP(GICV5_IRS_IST_BASER_ADDR_MASK,
+			 VGIC_V5_TEST_IST_BASER_GPA >> GICV5_IRS_IST_BASER_ADDR_SHIFT);
+	val |= GICV5_IRS_IST_BASER_VALID;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_BASER, &val);
+	TEST_ASSERT(!ret, "GICv5 IRS_REGS failed to restore IST_BASER");
+
+	attr = 0xbad;
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_BASER, &attr);
+	TEST_ASSERT(!ret && attr == val, "GICv5 IRS_REGS IST_BASER restore mismatch");
+
+	vm_gic_destroy(&v);
+}
+
 static void test_vgic_v5_ppis(u32 gic_dev_type)
 {
 	struct kvm_vcpu *vcpus[NR_VCPUS];
@@ -389,6 +645,10 @@ void run_tests(u32 gic_dev_type)
 
 	pr_info("Test VGICv5 NR_IRQS attrs\n");
 	test_vgic_v5_nr_irqs_attrs();
+
+	pr_info("Test VGICv5 IRS_REGS attrs\n");
+	test_vgic_v5_irs_regs_attrs();
+
 
 	pr_info("Test VGICv5 PPIs\n");
 	test_vgic_v5_ppis(gic_dev_type);
