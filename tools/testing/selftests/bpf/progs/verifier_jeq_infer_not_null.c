@@ -391,6 +391,33 @@ __naked void bounded_offset_infers_map_value_non_null(void)
 	: __clobber_all);
 }
 
+/*
+ * The low 32 bits of a map value pointer may be zero, hence a 32-bit
+ * compare with zero cannot be predicted from the pointer being non-NULL
+ * and both successors of such a jump have to be verified.
+ */
+SEC("socket")
+__failure __msg("invalid access to map value, value_size=4 off=32 size=4")
+__naked void jmp32_ptr_vs_zero_jne(void)
+{
+	asm volatile ("					\
+	/* r0 = bpf_map_lookup_elem(map_hash, &key); */	\
+	*(u64 *)(r10 - 8) = 0;				\
+	r1 = %[map_hash] ll;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	call %[bpf_map_lookup_elem];			\
+	if r0 == 0 goto 1f;				\
+	if w0 != 0 goto 1f;				\
+	r0 = *(u32 *)(r0 + 32);				\
+1:	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_hash)
+	: __clobber_all);
+}
+
 void kfunc_root(void)
 {
 	bpf_rdonly_cast(0, 0);
