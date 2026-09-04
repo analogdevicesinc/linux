@@ -118,6 +118,9 @@ struct ns_common {
 	unsigned int inum;
 	struct ns_tree;
 	struct rcu_head ns_rcu;
+#ifdef CONFIG_SECURITY
+	void *ns_security;
+#endif
 };
 
 #define to_ns_common(__ns)                                    \
