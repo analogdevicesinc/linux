@@ -247,6 +247,12 @@ struct irq_ops {
 	bool (*get_input_level)(int vintid);
 
 	/*
+	 * Function pointer to directly update hardware pending state after the
+	 * VGIC shadow pending state has changed.
+	 */
+	bool (*set_pending_state)(struct kvm_vcpu *vcpu, struct vgic_irq *irq);
+
+	/*
 	 * Function pointer to override the queuing of an IRQ.
 	 */
 	bool (*queue_irq_unlock)(struct kvm *kvm, struct vgic_irq *irq,
