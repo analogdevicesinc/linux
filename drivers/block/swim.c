@@ -105,6 +105,8 @@ struct iwm {
 
 /* Select values for swim_select and swim_readbit */
 
+#define SEL_MASK	0x100
+
 #define SEEK_POSITIVE	0x000
 #define SEEK_NEGATIVE	0x004
 #define STEP		0x001
@@ -115,6 +117,7 @@ struct iwm {
 #define SETMFM		0x101
 #define SETGCR		0x105
 
+#define STEPPING	0x001
 #define READ_DATA_0	0x004
 #define ONEMEG_DRIVE	0x005
 #define SINGLE_SIDED	0x006
@@ -271,7 +274,7 @@ static inline void swim_select(struct swim __iomem *base, int sel)
 {
 	swim_write(base, phase, RELAX | PHASE_PIN_DIR);
 
-	via1_set_head(sel & 0x100);
+	via1_set_head(sel & SEL_MASK);
 
 	swim_write(base, phase, (sel & CA_MASK) | PHASE_PIN_DIR);
 }
@@ -366,7 +369,7 @@ static int swim_step(struct swim __iomem *base)
 {
 	swim_action(base, STEP);
 	udelay(150);
-	return swim_readbit_timeout(base, STEP, false, 20 * 1000);
+	return swim_readbit_timeout(base, STEPPING, false, 20 * 1000);
 }
 
 static int swim_track00(struct swim __iomem *base)
