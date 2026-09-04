@@ -716,7 +716,7 @@ void tdx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
 	struct vcpu_tdx *tdx = to_tdx(vcpu);
 
-	vmx_vcpu_pi_load(vcpu, cpu);
+	vt_vcpu_pi_load(vcpu, cpu);
 	if (vcpu->cpu == cpu || !is_hkid_assigned(to_kvm_tdx(vcpu->kvm)))
 		return;
 
@@ -826,7 +826,7 @@ static void tdx_prepare_switch_to_host(struct kvm_vcpu *vcpu)
 
 void tdx_vcpu_put(struct kvm_vcpu *vcpu)
 {
-	vmx_vcpu_pi_put(vcpu);
+	vt_vcpu_pi_put(vcpu);
 	tdx_prepare_switch_to_host(vcpu);
 }
 
@@ -1917,7 +1917,7 @@ void tdx_deliver_interrupt(struct kvm_lapic *apic, int delivery_mode,
 	struct vcpu_tdx *tdx = to_tdx(vcpu);
 
 	/* TDX supports only posted interrupt.  No lapic emulation. */
-	__vmx_deliver_posted_interrupt(vcpu, &tdx->vt.pi_desc, vector);
+	__vt_deliver_posted_interrupt(vcpu, &tdx->vt.pi_desc, vector);
 
 	trace_kvm_apicv_accept_irq(vcpu->vcpu_id, delivery_mode, trig_mode, vector);
 }

@@ -173,8 +173,8 @@ static inline void kvm_vcpu_trigger_posted_interrupt(struct kvm_vcpu *vcpu,
  * Post an interrupt to a vCPU's PIR and trigger the vCPU to process the
  * interrupt if necessary.
  */
-static inline void __vmx_deliver_posted_interrupt(struct kvm_vcpu *vcpu,
-						  struct pi_desc *pi_desc, int vector)
+static inline void __vt_deliver_posted_interrupt(struct kvm_vcpu *vcpu,
+						 struct pi_desc *pi_desc, int vector)
 {
 	if (pi_test_and_set_pir(vector, pi_desc))
 		return;
