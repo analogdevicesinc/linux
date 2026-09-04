@@ -928,12 +928,13 @@ static void dm_test_add_modifier_failure_paths(struct kunit *test)
 }
 
 /**
- * dm_test_fill_gfx9_tiling_info_from_device_pre_10_3() - Verify GFX9 field copy before 10.3.
+ * dm_test_fill_gfx9_tiling_info_from_device() - Verify GFX9 device field copy.
  * @test: KUnit test context.
  *
- * Verify if pre-10.3 device fields are copied and existing num_pkrs is kept.
+ * Verify if the device tiling fields are copied, and if num_pkrs is left
+ * untouched before GFX 10.3 but taken from the device from GFX 10.3 onwards.
  */
-static void dm_test_fill_gfx9_tiling_info_from_device_pre_10_3(struct kunit *test)
+static void dm_test_fill_gfx9_tiling_info_from_device(struct kunit *test)
 {
 	struct amdgpu_device *adev;
 	struct dc_tiling_info tiling_info = {0};
@@ -962,21 +963,6 @@ static void dm_test_fill_gfx9_tiling_info_from_device_pre_10_3(struct kunit *tes
 	KUNIT_EXPECT_EQ(test, tiling_info.gfx9.num_rb_per_se, 2U);
 	KUNIT_EXPECT_EQ(test, tiling_info.gfx9.shaderEnable, 1U);
 	KUNIT_EXPECT_EQ(test, tiling_info.gfx9.num_pkrs, 0x5aU);
-}
-
-/**
- * dm_test_fill_gfx9_tiling_info_from_device_10_3_plus() - Verify num_pkrs update on 10.3+.
- * @test: KUnit test context.
- *
- * Verify if 10.3+ device fields are copied and num_pkrs is updated.
- */
-static void dm_test_fill_gfx9_tiling_info_from_device_10_3_plus(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct dc_tiling_info tiling_info = {0};
-
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	adev->gfx.config.gb_addr_config_fields.num_pipes = 2;
 	adev->gfx.config.gb_addr_config_fields.num_banks = 4;
@@ -986,6 +972,8 @@ static void dm_test_fill_gfx9_tiling_info_from_device_10_3_plus(struct kunit *te
 	adev->gfx.config.gb_addr_config_fields.num_rb_per_se = 1;
 	adev->gfx.config.gb_addr_config_fields.num_pkrs = 6;
 	adev->ip_versions[GC_HWIP][0] = IP_VERSION(10, 3, 0);
+
+	memset(&tiling_info, 0, sizeof(tiling_info));
 
 	amdgpu_dm_plane_fill_gfx9_tiling_info_from_device(adev, &tiling_info);
 
@@ -1000,15 +988,18 @@ static void dm_test_fill_gfx9_tiling_info_from_device_10_3_plus(struct kunit *te
 }
 
 /**
- * dm_test_fill_gfx9_tiling_info_from_modifier_linear() - Verify non-AMD modifier keeps device values.
+ * dm_test_fill_gfx9_tiling_info_from_modifier() - Verify GFX9 modifier decoding.
  * @test: KUnit test context.
  *
- * Verify if linear modifier path keeps values from device configuration.
+ * Verify if a non-AMD modifier keeps the device values, if an AMD modifier
+ * updates the bank count on pre-NV families, and if it updates the packer
+ * count on NV and later.
  */
-static void dm_test_fill_gfx9_tiling_info_from_modifier_linear(struct kunit *test)
+static void dm_test_fill_gfx9_tiling_info_from_modifier(struct kunit *test)
 {
 	struct amdgpu_device *adev;
 	struct dc_tiling_info tiling_info = {0};
+	uint64_t modifier;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, adev);
@@ -1034,33 +1025,13 @@ static void dm_test_fill_gfx9_tiling_info_from_modifier_linear(struct kunit *tes
 	KUNIT_EXPECT_EQ(test, tiling_info.gfx9.num_rb_per_se, 2U);
 	KUNIT_EXPECT_EQ(test, tiling_info.gfx9.shaderEnable, 1U);
 	KUNIT_EXPECT_EQ(test, tiling_info.gfx9.num_pkrs, 3U);
-}
-
-/**
- * dm_test_fill_gfx9_tiling_info_from_modifier_pre_nv() - Verify AMD modifier updates banks on pre-NV.
- * @test: KUnit test context.
- *
- * Verify if AMD modifier updates pre-NV pipe, engine, and bank fields.
- */
-static void dm_test_fill_gfx9_tiling_info_from_modifier_pre_nv(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct dc_tiling_info tiling_info = {0};
-	uint64_t modifier;
-
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	adev->family = AMDGPU_FAMILY_RV;
-	adev->gfx.config.gb_addr_config_fields.num_pipes = 4;
 	adev->gfx.config.gb_addr_config_fields.num_banks = 16;
-	adev->gfx.config.gb_addr_config_fields.pipe_interleave_size = 256;
-	adev->gfx.config.gb_addr_config_fields.num_se = 2;
-	adev->gfx.config.gb_addr_config_fields.max_compress_frags = 1;
-	adev->gfx.config.gb_addr_config_fields.num_rb_per_se = 2;
 	adev->gfx.config.gb_addr_config_fields.num_pkrs = 7;
 	adev->ip_versions[GC_HWIP][0] = IP_VERSION(10, 2, 9);
 
+	memset(&tiling_info, 0, sizeof(tiling_info));
 	tiling_info.gfx9.num_pkrs = 0x5a;
 
 	modifier = AMD_FMT_MOD |
@@ -1076,22 +1047,6 @@ static void dm_test_fill_gfx9_tiling_info_from_modifier_pre_nv(struct kunit *tes
 	KUNIT_EXPECT_EQ(test, tiling_info.gfx9.num_banks, 8U);
 	KUNIT_EXPECT_EQ(test, tiling_info.gfx9.num_pkrs, 0x5aU);
 	KUNIT_EXPECT_EQ(test, tiling_info.gfx9.shaderEnable, 1U);
-}
-
-/**
- * dm_test_fill_gfx9_tiling_info_from_modifier_nv() - Verify AMD modifier updates packers on NV+.
- * @test: KUnit test context.
- *
- * Verify if AMD modifier updates NV+ pipe, engine, and packer fields.
- */
-static void dm_test_fill_gfx9_tiling_info_from_modifier_nv(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct dc_tiling_info tiling_info = {0};
-	uint64_t modifier;
-
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	adev->family = AMDGPU_FAMILY_NV;
 	adev->gfx.config.gb_addr_config_fields.num_pipes = 2;
@@ -1102,6 +1057,8 @@ static void dm_test_fill_gfx9_tiling_info_from_modifier_nv(struct kunit *test)
 	adev->gfx.config.gb_addr_config_fields.num_rb_per_se = 1;
 	adev->gfx.config.gb_addr_config_fields.num_pkrs = 2;
 	adev->ip_versions[GC_HWIP][0] = IP_VERSION(10, 3, 0);
+
+	memset(&tiling_info, 0, sizeof(tiling_info));
 
 	modifier = AMD_FMT_MOD |
 		    AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX9_64K_S_X) |
@@ -3963,12 +3920,9 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_gfx6_format_mod_supported() */
 	KUNIT_CASE(dm_test_gfx6_format_mod_supported),
 	/* amdgpu_dm_plane_fill_gfx9_tiling_info_from_device() */
-	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device_pre_10_3),
-	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device_10_3_plus),
+	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device),
 	/* amdgpu_dm_plane_fill_gfx9_tiling_info_from_modifier() */
-	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_modifier_linear),
-	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_modifier_pre_nv),
-	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_modifier_nv),
+	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_modifier),
 	/* amdgpu_dm_plane_validate_dcc() */
 	KUNIT_CASE(dm_test_validate_dcc_disabled_returns_success),
 	KUNIT_CASE(dm_test_validate_dcc_video_non_gfx12_fails),
