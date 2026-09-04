@@ -3127,6 +3127,7 @@ static void send_mayday(struct pool_workqueue *pwq)
 		list_add_tail(&pwq->mayday_node, &wq->maydays);
 		wake_up_process(wq->rescuer->task);
 		pwq->stats[PWQ_STAT_MAYDAY]++;
+		trace_workqueue_mayday(pwq);
 	}
 }
 
@@ -3633,6 +3634,7 @@ static bool assign_rescuer_work(struct pool_workqueue *pwq, struct worker *rescu
 	list_for_each_entry_safe_from(work, n, &pool->worklist, entry) {
 		if (get_work_pwq(work) == pwq && assign_work(work, rescuer, &n)) {
 			pwq->stats[PWQ_STAT_RESCUED]++;
+			trace_workqueue_rescued(pwq, work, work->func);
 			/* put the cursor for next search */
 			list_move_tail(&cursor->entry, &n->entry);
 			return true;

@@ -165,6 +165,73 @@ TRACE_EVENT(workqueue_cpu_intensive,
 		  __entry->cpu, __entry->duration_us)
 );
 
+/**
+ * workqueue_mayday - called when a pool_workqueue sends mayday to rescuer
+ * @pwq:	pointer to struct pool_workqueue
+ *
+ * This event occurs when a worker pool fails to create a new worker and
+ * requests the workqueue's rescuer thread to process pending works.
+ */
+TRACE_EVENT(workqueue_mayday,
+
+	TP_PROTO(struct pool_workqueue *pwq),
+
+	TP_ARGS(pwq),
+
+	TP_STRUCT__entry(
+		__string( workqueue,	pwq->wq->name	)
+		__field( int,		pool_id		)
+		__field( int,		cpu		)
+		__field( int,		nr_active	)
+	),
+
+	TP_fast_assign(
+		__assign_str(workqueue);
+		__entry->pool_id	= pwq->pool->id;
+		__entry->cpu		= pwq->pool->cpu;
+		__entry->nr_active	= pwq->nr_active;
+	),
+
+	TP_printk("workqueue=%s pool_id=%d cpu=%d nr_active=%d",
+		  __get_str(workqueue), __entry->pool_id, __entry->cpu,
+		  __entry->nr_active)
+);
+
+/**
+ * workqueue_rescued - called when a work item is assigned to a rescuer
+ * @pwq:	pointer to struct pool_workqueue
+ * @work:	pointer to struct work_struct
+ * @function:	pointer to worker function
+ *
+ * This event occurs when a work item is claimed by a rescuer thread
+ * to guarantee forward progress.
+ */
+TRACE_EVENT(workqueue_rescued,
+
+	TP_PROTO(struct pool_workqueue *pwq, struct work_struct *work,
+		 work_func_t function),
+
+	TP_ARGS(pwq, work, function),
+
+	TP_STRUCT__entry(
+		__field( void *,	work		)
+		__field( void *,	function	)
+		__string( workqueue,	pwq->wq->name	)
+		__field( int,		cpu		)
+	),
+
+	TP_fast_assign(
+		__entry->work		= work;
+		__entry->function	= function;
+		__assign_str(workqueue);
+		__entry->cpu		= pwq->pool->cpu;
+	),
+
+	TP_printk("work struct=%p function=%ps workqueue=%s cpu=%d",
+		  __entry->work, __entry->function, __get_str(workqueue),
+		  __entry->cpu)
+);
+
 #endif /*  _TRACE_WORKQUEUE_H */
 
 /* This part must be outside protection */
