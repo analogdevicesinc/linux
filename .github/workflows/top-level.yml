@@ -211,3 +211,23 @@ jobs:
       dts_files: >
         arch/arm64/boot/dts/adi/*.dts
         arch/arm/boot/dts/adi/*.dts
+
+  hardware-test:
+    needs: [build_gcc_aarch64_sc598-som-ezkit_defconfig, build_gcc_aarch64_sc598-som-ezlite_defconfig, build_gcc_aarch64_sc846-som-ezkit_defconfig, compile_devicetrees]
+    if: ${{ vars.RUNNER_HW_TEST != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - needs: '["sc598", "ezkit"]'
+          - needs: '["sc598", "ezlite"]'
+          - needs: '["sc846", "ezkit"]'
+    uses: analogdevicesinc/linux/.github/workflows/hw-test.yml@ci
+    with:
+      test-set: 'adsp/initramfs-boot'
+      needs: ${{ matrix.needs }}
+    secrets: inherit
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
