@@ -21,6 +21,7 @@
 #include "amdgpu.h"
 #include "amdgpu_mode.h"
 #include "amdgpu_dm.h"
+#include "amdgpu_dm_hdcp.h"
 #include "amdgpu_dm_irq.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
 #include "dc_dmub_srv.h"
@@ -545,6 +546,39 @@ static void dm_test_register_drm_dev(struct kunit *test, struct amdgpu_device *a
 	KUNIT_ASSERT_EQ(test, drm_dev_register(&adev->ddev, 0), 0);
 	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test, dm_test_drm_dev_unregister,
 							&adev->ddev), 0);
+}
+
+static void dm_test_hdcp_dummy_work(struct work_struct *work)
+{
+}
+
+/*
+ * Allocate the minimal hdcp_workqueue that hdcp_reset_display() and
+ * hdcp_handle_cpirq() touch: the per-link mutex, the delayed works
+ * process_output() re-arms, and the CP IRQ work item.
+ */
+static struct hdcp_workqueue *dm_test_alloc_hdcp_workqueue(struct kunit *test)
+{
+	struct hdcp_workqueue *hdcp_work;
+
+	hdcp_work = kunit_kzalloc(test, sizeof(*hdcp_work), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, hdcp_work);
+
+	mutex_init(&hdcp_work->mutex);
+	INIT_WORK(&hdcp_work->cpirq_work, dm_test_hdcp_dummy_work);
+	INIT_DELAYED_WORK(&hdcp_work->callback_dwork, dm_test_hdcp_dummy_work);
+	INIT_DELAYED_WORK(&hdcp_work->watchdog_timer_dwork, dm_test_hdcp_dummy_work);
+	INIT_DELAYED_WORK(&hdcp_work->property_validate_dwork, dm_test_hdcp_dummy_work);
+
+	return hdcp_work;
+}
+
+static void dm_test_flush_hdcp_workqueue(struct hdcp_workqueue *hdcp_work)
+{
+	flush_work(&hdcp_work->cpirq_work);
+	cancel_delayed_work_sync(&hdcp_work->callback_dwork);
+	cancel_delayed_work_sync(&hdcp_work->watchdog_timer_dwork);
+	cancel_delayed_work_sync(&hdcp_work->property_validate_dwork);
 }
 
 /* Tests for amdgpu_dm_hpd_to_dal_irq_source() */
@@ -3207,6 +3241,88 @@ static void dm_test_handle_hpd_irq_helper_detect_type_fails(struct kunit *test)
 }
 
 /**
+ * dm_test_handle_hpd_irq_helper_hdcp_reset - Test the HDCP reset branch
+ * @test: The KUnit test context
+ *
+ * An HPD invalidates the link's HDCP authentication, so a driver carrying an
+ * HDCP work queue must reset the display and flag the connector state for a
+ * property update.
+ */
+static void dm_test_handle_hpd_irq_helper_hdcp_reset(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct hdcp_workqueue *hdcp_work;
+	struct link_service *link_srv;
+
+	aconn = dm_test_setup_hpd_irq_helper(test, &link_srv);
+	link_srv->detect_link = dm_test_detect_link_false;
+
+	hdcp_work = dm_test_alloc_hdcp_workqueue(test);
+	drm_to_adev(aconn->base.dev)->dm.hdcp_workqueue = hdcp_work;
+
+	handle_hpd_irq_helper(aconn, DETECT_REASON_HPD);
+
+	KUNIT_EXPECT_TRUE(test, to_dm_connector_state(aconn->base.state)->update_hdcp);
+
+	dm_test_flush_hdcp_workqueue(hdcp_work);
+}
+
+/**
+ * dm_test_handle_hpd_irq_helper_forced_detect - Test the forced-connector branch
+ * @test: The KUnit test context
+ *
+ * A connector forced on but reporting no connection is emulated rather than
+ * detected, and an HPD RX always notifies userspace. An unset connector signal
+ * keeps amdgpu_dm_emulated_link_detect() to its unsupported-signal early
+ * return.
+ */
+static void dm_test_handle_hpd_irq_helper_forced_detect(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+
+	dm_test_detect_link_count = 0;
+
+	aconn = dm_test_setup_hpd_irq_helper(test, &link_srv);
+	dm_test_register_drm_dev(test, drm_to_adev(aconn->base.dev));
+
+	link_srv->detect_link = dm_test_detect_link_false_count;
+	aconn->base.force = DRM_FORCE_ON;
+	aconn->dc_link->ctx->driver_context = drm_to_adev(aconn->base.dev);
+
+	handle_hpd_irq_helper(aconn, DETECT_REASON_HPDRX);
+
+	/* The emulated path replaces detection entirely. */
+	KUNIT_EXPECT_EQ(test, dm_test_detect_link_count, 0);
+}
+
+/**
+ * dm_test_handle_hpd_irq_helper_detect_true - Test the connected detect branch
+ * @test: The KUnit test context
+ *
+ * A successful re-detect refreshes the connector state and notifies userspace.
+ * An MST-state connector keeps amdgpu_dm_update_connector_after_detect() to its
+ * early return.
+ */
+static void dm_test_handle_hpd_irq_helper_detect_true(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+
+	aconn = dm_test_setup_hpd_irq_helper(test, &link_srv);
+	dm_test_register_drm_dev(test, drm_to_adev(aconn->base.dev));
+
+	link_srv->detect_connection_type = dm_test_detect_connection_single;
+	link_srv->detect_link = dm_test_detect_link_true;
+	aconn->mst_mgr.mst_state = true;
+	aconn->fake_enable = true;
+
+	handle_hpd_irq_helper(aconn, DETECT_REASON_HPD);
+
+	KUNIT_EXPECT_FALSE(test, aconn->fake_enable);
+}
+
+/**
  * dm_test_handle_hpd_irq_helper_debounce_pending - Test pending-debounce exit
  * @test: The KUnit test context
  *
@@ -5419,6 +5535,9 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_handle_hpd_irq_helper_detect_false),
 	KUNIT_CASE(dm_test_handle_hpd_irq_helper_detect_type_fails),
 	KUNIT_CASE(dm_test_handle_hpd_irq_helper_debounce_pending),
+	KUNIT_CASE(dm_test_handle_hpd_irq_helper_hdcp_reset),
+	KUNIT_CASE(dm_test_handle_hpd_irq_helper_forced_detect),
+	KUNIT_CASE(dm_test_handle_hpd_irq_helper_detect_true),
 	/* handle_hpd_rx_irq/schedule_hpd_rx_offload_work */
 	KUNIT_CASE(dm_test_handle_hpd_rx_irq_disabled),
 	KUNIT_CASE(dm_test_handle_hpd_rx_irq_no_left_work),
