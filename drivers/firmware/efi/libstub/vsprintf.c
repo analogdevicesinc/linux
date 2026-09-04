@@ -113,6 +113,9 @@ char *put_dec(char *end, unsigned long long n)
 	return p;
 }
 
+/* we are called with base 8, 10 or 16, only, thus don't need "G..."  */
+static const char digits[16] = "0123456789ABCDEF"; /* "GHIJKLMNOPQRSTUVWXYZ"; */
+
 static
 char *number(char *end, unsigned long long num, int base, char locase)
 {
@@ -120,9 +123,6 @@ char *number(char *end, unsigned long long num, int base, char locase)
 	 * locase = 0 or 0x20. ORing digits or letters with 'locase'
 	 * produces same digits or (maybe lowercased) letters
 	 */
-
-	/* we are called with base 8, 10 or 16, only, thus don't need "G..."  */
-	static const char digits[16] = "0123456789ABCDEF"; /* "GHIJKLMNOPQRSTUVWXYZ"; */
 
 	switch (base) {
 	case 10:
@@ -142,6 +142,29 @@ char *number(char *end, unsigned long long num, int base, char locase)
 	}
 
 	return end;
+}
+
+static char *guid_to_str(const efi_guid_t *guid, char *out, char locase)
+{
+	static const u8 guid_index[UUID_SIZE] = {
+		3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15,
+	};
+
+	for (int i = 0, p = 0; i < ARRAY_SIZE(guid_index); i++) {
+		u8 byte = guid->b[guid_index[i]];
+
+		out[p++] = locase | digits[byte >> 4];
+		out[p++] = locase | digits[byte & 0xf];
+
+		switch (i) {
+		case 3:
+		case 5:
+		case 7:
+		case 9:
+			out[p++] = '-';
+		}
+	}
+	return out;
 }
 
 #define ZEROPAD	1		/* pad with zero */
@@ -253,8 +276,7 @@ do {				\
 int efi_vsnprintf(efi_char16_t *buf, size_t size, const char *fmt, va_list ap,
 		  bool crlf)
 {
-	/* The maximum space required is to print a 64-bit number in octal */
-	char tmp[(sizeof(unsigned long long) * 8 + 2) / 3];
+	char tmp[UUID_STRING_LEN];
 	char *tmp_end = &tmp[ARRAY_SIZE(tmp)];
 	long long num;
 	int base;
@@ -367,6 +389,14 @@ int efi_vsnprintf(efi_char16_t *buf, size_t size, const char *fmt, va_list ap,
 			break;
 
 		case 'p':
+			if (fmt[1] == 'U' && (fmt[2] | 0x20) == 'l') {
+				flags &= LEFT;
+				s = guid_to_str(va_arg(args, efi_guid_t *), tmp, fmt[2] & 0x20);
+				precision = len = UUID_STRING_LEN;
+				fmt += 2;
+				goto output;
+			}
+
 			if (precision < 0)
 				precision = 2 * sizeof(void *);
 			fallthrough;
