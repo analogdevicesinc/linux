@@ -464,7 +464,6 @@ static inline int swim_read_sector(struct floppy_state *fs,
 
 	swim_track(fs, track);
 	swim_head(base, side);
-	swim_write(base, mode0, side);
 
 	local_irq_save(flags);
 	for (i = 0; i < 36; i++) {
