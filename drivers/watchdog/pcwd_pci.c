@@ -114,7 +114,7 @@ static unsigned long is_active;
 static char expect_release;
 /* this is private data for each PCI-PC watchdog card */
 static struct {
-	/* Wether or not the card has a temperature device */
+	/* Whether or not the card has a temperature device */
 	int supports_temp;
 	/* The card's boot status */
 	int boot_status;
