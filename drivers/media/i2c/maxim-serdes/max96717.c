@@ -141,22 +141,32 @@
 
 #define MAX96717_MIPI_RX0			0x330
 #define MAX96717_MIPI_RX0_NONCONTCLK_EN		BIT(6)
+#define MAX96717_MIPI_RX0_CTRL1_VC_MAP_EN	BIT(5)
+#define MAX96717_MIPI_RX0_CTRL0_VC_MAP_EN	BIT(4)
+#define MAX96717_MIPI_RX0_PHY_CONFIG		GENMASK(2, 0)
+#define MAX9295D_MIPI_RX0_PHY_CONFIG_2X4_AB	0b110
 
 #define MAX96717_MIPI_RX1			0x331
-#define MAX96717_MIPI_RX1_CTRL_NUM_LANES	GENMASK(5, 4)
+#define MAX96717_MIPI_RX1_NUM_LANES		GENMASK(1, 0)
 
 #define MAX96717_MIPI_RX2			0x332
 #define MAX96717_MIPI_RX2_PHY1_LANE_MAP		GENMASK(7, 4)
+#define MAX9295D_MIPI_RX2_PHY1_LANE_MAP		GENMASK(7, 4)
+#define MAX9295D_MIPI_RX2_PHY0_LANE_MAP		GENMASK(3, 0)
 
 #define MAX96717_MIPI_RX3			0x333
 #define MAX96717_MIPI_RX3_PHY2_LANE_MAP		GENMASK(3, 0)
+#define MAX9295D_MIPI_RX3_PHY3_LANE_MAP		GENMASK(7, 4)
+#define MAX9295D_MIPI_RX3_PHY2_LANE_MAP		GENMASK(3, 0)
 
 #define MAX96717_MIPI_RX4			0x334
 #define MAX96717_MIPI_RX4_PHY1_POL_MAP		GENMASK(5, 4)
+#define MAX9295D_MIPI_RX4_PHY0_POL_MAP		GENMASK(2, 0)
 
 #define MAX96717_MIPI_RX5			0x335
 #define MAX96717_MIPI_RX5_PHY2_POL_MAP		GENMASK(1, 0)
 #define MAX96717_MIPI_RX5_PHY2_POL_MAP_CLK	BIT(2)
+#define MAX9295D_MIPI_RX5_PHY3_POL_MAP		GENMASK(6, 4)
 
 #define MAX96717_EXTA(x)			(0x3dc + (x))
 
@@ -229,6 +239,8 @@ struct max96717_chip_info {
 	unsigned int pipe_hw_ids[MAX96717_PIPES_NUM];
 	unsigned int num_phys;
 	unsigned int phy_hw_ids[MAX96717_PHYS_NUM];
+	struct max_serdes_phys_configs phys_configs;
+	bool max9295d_port_layout;
 };
 
 #define ser_to_priv(_ser) \
@@ -934,6 +946,7 @@ static int max96717_init_phy(struct max_ser *ser,
 {
 	struct max96717_priv *priv = ser_to_priv(ser);
 	unsigned int num_data_lanes = phy->mipi.num_data_lanes;
+	unsigned int phy_id = max96717_phy_id(priv, phy);
 	unsigned int used_data_lanes = 0;
 	unsigned int val;
 	unsigned int i;
@@ -952,9 +965,8 @@ static int max96717_init_phy(struct max_ser *ser,
 
 	/* Configure a lane count. */
 	ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX1,
-				 MAX96717_MIPI_RX1_CTRL_NUM_LANES,
-				 FIELD_PREP(MAX96717_MIPI_RX1_CTRL_NUM_LANES,
-					    num_data_lanes - 1));
+				 MAX96717_MIPI_RX1_NUM_LANES << (phy_id * 4),
+				 (num_data_lanes - 1) << (phy_id * 4));
 	if (ret)
 		return ret;
 
@@ -972,40 +984,88 @@ static int max96717_init_phy(struct max_ser *ser,
 		used_data_lanes |= BIT(map);
 	}
 
-	ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX3,
-				 MAX96717_MIPI_RX3_PHY2_LANE_MAP,
-				 FIELD_PREP(MAX96717_MIPI_RX3_PHY2_LANE_MAP, val));
-	if (ret)
-		return ret;
+	if (priv->info->max9295d_port_layout && phy_id == 0) {
+		ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX2,
+					 MAX9295D_MIPI_RX2_PHY1_LANE_MAP |
+					 MAX9295D_MIPI_RX2_PHY0_LANE_MAP,
+					 FIELD_PREP(MAX9295D_MIPI_RX2_PHY1_LANE_MAP,
+						    val & 0xf) |
+					 FIELD_PREP(MAX9295D_MIPI_RX2_PHY0_LANE_MAP,
+						    val >> 4));
+		if (ret)
+			return ret;
+	} else if (priv->info->max9295d_port_layout && phy_id == 1) {
+		ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX3,
+					 MAX9295D_MIPI_RX3_PHY3_LANE_MAP |
+					 MAX9295D_MIPI_RX3_PHY2_LANE_MAP,
+					 FIELD_PREP(MAX9295D_MIPI_RX3_PHY3_LANE_MAP,
+						    val >> 4) |
+					 FIELD_PREP(MAX9295D_MIPI_RX3_PHY2_LANE_MAP,
+						    val & 0xf));
+		if (ret)
+			return ret;
+	} else {
+		ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX3,
+					 MAX96717_MIPI_RX3_PHY2_LANE_MAP,
+					 FIELD_PREP(MAX96717_MIPI_RX3_PHY2_LANE_MAP, val));
+		if (ret)
+			return ret;
 
-	ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX2,
-				 MAX96717_MIPI_RX2_PHY1_LANE_MAP,
-				 FIELD_PREP(MAX96717_MIPI_RX2_PHY1_LANE_MAP, val >> 4));
-	if (ret)
-		return ret;
+		ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX2,
+					 MAX96717_MIPI_RX2_PHY1_LANE_MAP,
+					 FIELD_PREP(MAX96717_MIPI_RX2_PHY1_LANE_MAP, val >> 4));
+		if (ret)
+			return ret;
+	}
 
 	/* Configure lane polarity. */
 	for (i = 0, val = 0; i < num_data_lanes; i++)
 		if (phy->mipi.lane_polarities[i + 1])
 			val |= BIT(i);
 
-	ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX5,
-				 MAX96717_MIPI_RX5_PHY2_POL_MAP,
-				 FIELD_PREP(MAX96717_MIPI_RX5_PHY2_POL_MAP, val));
-	if (ret)
-		return ret;
+	if (priv->info->max9295d_port_layout && phy_id == 0) {
+		ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX4,
+					 MAX96717_MIPI_RX4_PHY1_POL_MAP |
+					 MAX9295D_MIPI_RX4_PHY0_POL_MAP,
+					 FIELD_PREP(MAX96717_MIPI_RX4_PHY1_POL_MAP,
+						    val & 0x3) |
+					 FIELD_PREP(MAX9295D_MIPI_RX4_PHY0_POL_MAP,
+						    ((val >> 2) & 0x3) |
+						    (phy->mipi.lane_polarities[0] << 2)));
+		if (ret)
+			return ret;
+	} else if (priv->info->max9295d_port_layout && phy_id == 1) {
+		ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX5,
+					 MAX9295D_MIPI_RX5_PHY3_POL_MAP |
+					 MAX96717_MIPI_RX5_PHY2_POL_MAP |
+					 MAX96717_MIPI_RX5_PHY2_POL_MAP_CLK,
+					 FIELD_PREP(MAX9295D_MIPI_RX5_PHY3_POL_MAP,
+						    val & 0x3) |
+					 FIELD_PREP(MAX96717_MIPI_RX5_PHY2_POL_MAP |
+						    MAX96717_MIPI_RX5_PHY2_POL_MAP_CLK,
+						    ((val >> 2) & 0x3) |
+						    (phy->mipi.lane_polarities[0] << 2)));
+		if (ret)
+			return ret;
+	} else {
+		ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX5,
+					 MAX96717_MIPI_RX5_PHY2_POL_MAP,
+					 FIELD_PREP(MAX96717_MIPI_RX5_PHY2_POL_MAP, val));
+		if (ret)
+			return ret;
 
-	ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX4,
-				 MAX96717_MIPI_RX4_PHY1_POL_MAP,
-				 FIELD_PREP(MAX96717_MIPI_RX4_PHY1_POL_MAP, val >> 2));
-	if (ret)
-		return ret;
+		ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX4,
+					 MAX96717_MIPI_RX4_PHY1_POL_MAP,
+					 FIELD_PREP(MAX96717_MIPI_RX4_PHY1_POL_MAP, val >> 2));
+		if (ret)
+			return ret;
 
-	ret = regmap_assign_bits(priv->regmap, MAX96717_MIPI_RX5,
-				 MAX96717_MIPI_RX5_PHY2_POL_MAP_CLK,
-				 phy->mipi.lane_polarities[0]);
-	if (ret)
-		return ret;
+		ret = regmap_assign_bits(priv->regmap, MAX96717_MIPI_RX5,
+					 MAX96717_MIPI_RX5_PHY2_POL_MAP_CLK,
+					 phy->mipi.lane_polarities[0]);
+		if (ret)
+			return ret;
+	}
 
 	if (priv->info->supports_noncontinuous_clock) {
 		ret = regmap_assign_bits(priv->regmap, MAX96717_MIPI_RX0,
@@ -1260,6 +1320,10 @@ static const struct max_serdes_phys_config max96717_phys_configs[] = {
 	{ { 4 } },
 };
 
+static const struct max_serdes_phys_config max9295d_phys_configs[] = {
+	{ { 4, 4 } },
+};
+
 static int max96717_init_tpg(struct max_ser *ser)
 {
 	struct max96717_priv *priv = ser_to_priv(ser);
@@ -1298,6 +1362,15 @@ static int max96717_init(struct max_ser *ser)
 					    MAX96717_CMU2_PFDDIV_RSHORT_1_1V));
 	if (ret)
 		return ret;
+
+	if (priv->info->max9295d_port_layout) {
+		ret = regmap_update_bits(priv->regmap, MAX96717_MIPI_RX0,
+					 MAX96717_MIPI_RX0_PHY_CONFIG,
+					 FIELD_PREP(MAX96717_MIPI_RX0_PHY_CONFIG,
+						    MAX9295D_MIPI_RX0_PHY_CONFIG_2X4_AB));
+		if (ret)
+			return ret;
+	}
 
 	if (ser->ops->set_tunnel_enable) {
 		ret = ser->ops->set_tunnel_enable(ser, false);
@@ -1617,6 +1690,10 @@ static int max96717_probe(struct i2c_client *client)
 	ops->num_pipes = priv->info->num_pipes;
 	ops->num_dts_per_pipe = priv->info->num_dts_per_pipe;
 	ops->num_phys = priv->info->num_phys;
+
+	if (priv->info->phys_configs.num_configs)
+		ops->phys_configs = priv->info->phys_configs;
+
 	priv->ser.ops = ops;
 
 	ret = max96717_wait_for_device(priv);
@@ -1650,6 +1727,18 @@ static const struct max96717_chip_info max9295a_info = {
 	.phy_hw_ids = { 1 },
 };
 
+static const struct max96717_chip_info max9295d_info = {
+	.modes = BIT(MAX_SERDES_GMSL_PIXEL_MODE),
+	.num_pipes = 2,
+	.num_dts_per_pipe = 2,
+	.pipe_hw_ids = { 1, 0 },
+	.num_phys = 2,
+	.phy_hw_ids = { 0, 1 },
+	.phys_configs = { .configs = max9295d_phys_configs,
+			  .num_configs = ARRAY_SIZE(max9295d_phys_configs) },
+	.max9295d_port_layout = true,
+};
+
 static const struct max96717_chip_info max96717_info = {
 	.modes = BIT(MAX_SERDES_GMSL_PIXEL_MODE) |
 		 BIT(MAX_SERDES_GMSL_TUNNEL_MODE),
@@ -1665,6 +1754,7 @@ static const struct max96717_chip_info max96717_info = {
 
 static const struct of_device_id max96717_of_ids[] = {
 	{ .compatible = "maxim,max9295a", .data = &max9295a_info },
+	{ .compatible = "maxim,max9295d", .data = &max9295d_info },
 	{ .compatible = "maxim,max96717", .data = &max96717_info },
 	{ .compatible = "maxim,max96717f", .data = &max96717_info },
 	{ .compatible = "maxim,max96793", .data = &max96717_info },

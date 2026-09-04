@@ -8,6 +8,7 @@
 - [Example Configuration](#example-configuration)
 - [Usage](#usage)
 - [Applying the Overlay](#applying-the-overlay)
+- [Capturing from Multiple Cameras on a Single GMSL Link](#capturing-from-multiple-cameras-on-a-single-gmsl-link)
 - [Troubleshooting](#troubleshooting)
 - [References](#references)
 
@@ -223,6 +224,36 @@ The JSON configuration file defines the GMSL setup. Below are the primary parame
    ```bash
    sudo reboot
    ```
+
+## Capturing from Multiple Cameras on a Single GMSL Link
+
+Some serializers (e.g. `max9295d`) carry more than one camera over a single GMSL link. In that case the deserializer only sets up a route for the *first* camera automatically. The other camera streams arrive on the same deserializer sink pad, told apart by their stream number, and have to be routed to userspace by hand with `media-ctl` before they can be captured.
+
+First, find the correct media device (there may be several `/dev/media*`):
+
+```bash
+media-ctl -p
+```
+
+Pick the device that lists your GMSL parts (for example `/dev/media0`) and use it with `-d` below. Read the entity names and pad numbers from that same output — the names used below are placeholders.
+
+Then route both camera streams through the graph. Send the routing commands **before** setting any formats: `-R` resets every pad format, so running it later would undo formats you have already applied.
+
+```bash
+# Deserializer: send link streams 0 and 1 to two separate source pads
+media-ctl -d /dev/media0 -R '"deserializer":0/0->1/0[1],0/1->2/0[1]'
+```
+
+```bash
+# CSI-2 receiver: send the two streams to two capture channels
+media-ctl -d /dev/media0 -R '"csi2":0/0->3/0[1],0/1->3/1[1]'
+```
+
+After routing, set matching formats along both chains (sensor -> serializer -> deserializer -> CSI-2), enable the CSI-2 links, and each camera will appear on its own `/dev/videoN`.
+
+### Ordering multi-camera serializers
+
+The deserializer hands its pipes to the enabled links in turn, and the lowest-numbered link collects any extra pipes. A serializer that carries several cameras over one link needs more than one pipe, so it must land on a link that receives the extras. In a mixed setup, list the multi-camera serializer **first** in the `links` array (so it takes the lowest-numbered link) — otherwise a deserializer with only as many pipes as cameras (e.g. `max96724`, four pipes) can run out of pipes for it and the extra streams fail to route. With a single serializer, or when every camera has its own link, ordering does not matter.
 
 ## Troubleshooting
 
