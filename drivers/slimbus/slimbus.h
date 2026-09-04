@@ -325,7 +325,7 @@ enum slim_transport_protocol {
  * @prot: Transport protocol used in this stream
  * @rate: Data rate of samples *
  * @bps: bits per sample
- * @ratem: rate multipler which is super frame rate/data rate
+ * @ratem: rate multiplier which is super frame rate/data rate
  * @num_ports: number of ports
  * @ports: pointer to instance of ports
  * @node: list head for stream associated with slim device.
