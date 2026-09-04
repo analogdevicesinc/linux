@@ -43,6 +43,20 @@ static bool is_w25qxxrv(const struct spi_nor *nor)
 	return sfdp_h->minor >= SFDP_JESD216F_MINOR;
 }
 
+static bool is_zd25q128c(const struct spi_nor *nor,
+			 const struct sfdp_parameter_header *bfpt_header)
+{
+	/*
+	 * Zetta ZD25Q128C is a clone of the Winbond device. But the encoded
+	 * size is really wrong. It seems that they confused Mbit with MiB.
+	 * Thus the flash is discovered as a 2MiB device.
+	 */
+	return bfpt_header->major == SFDP_JESD216_MAJOR &&
+	       bfpt_header->minor == SFDP_JESD216_MINOR &&
+	       nor->params->size == SZ_2M &&
+	       nor->params->erase_map.regions[0].size == SZ_2M;
+}
+
 /*
  * Since SFDP is populated after ->default_init(), the match functions using
  * nor->sfdp as discriminant cannot be used for this specific early fixup.
@@ -62,15 +76,7 @@ w25q128_post_bfpt_fixups(struct spi_nor *nor,
 			 const struct sfdp_parameter_header *bfpt_header,
 			 const struct sfdp_bfpt *bfpt)
 {
-	/*
-	 * Zetta ZD25Q128C is a clone of the Winbond device. But the encoded
-	 * size is really wrong. It seems that they confused Mbit with MiB.
-	 * Thus the flash is discovered as a 2MiB device.
-	 */
-	if (bfpt_header->major == SFDP_JESD216_MAJOR &&
-	    bfpt_header->minor == SFDP_JESD216_MINOR &&
-	    nor->params->size == SZ_2M &&
-	    nor->params->erase_map.regions[0].size == SZ_2M) {
+	if (is_zd25q128c(nor, bfpt_header) || winbond_rv_match(nor)) {
 		nor->params->size = SZ_16M;
 		nor->params->erase_map.regions[0].size = SZ_16M;
 	}
@@ -261,7 +267,7 @@ static const struct flash_info winbond_nor_parts[] = {
 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.flags = SPI_NOR_QUAD_PP | SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB | SPI_NOR_HAS_CMP,
 	}, {
-		/* W25Q128JV-Q/N */
+		/* W25Q128JV-Q/N, W25Q12RV-Q/N */
 		.id = SNOR_ID(0xef, 0x40, 0x18),
 		/* Flavors w/ and w/o SFDP. */
 		.name = "w25q128",
