@@ -190,6 +190,33 @@ long rbtree_remove_after_rcu_unlock(void *ctx)
 }
 
 SEC("?syscall")
+__failure __msg("R1 is neither owning or non-owning ref")
+long refcount_acquire_after_rcu_unlock(void *ctx)
+{
+	struct map_value_refcount_only *mapval;
+	struct node_refcount_only *node, *ref;
+	int idx = 0;
+
+	mapval = bpf_map_lookup_elem(&stashed_refcount_only, &idx);
+	if (!mapval)
+		return 0;
+
+	bpf_rcu_read_lock();
+	node = mapval->node;
+	if (!node) {
+		bpf_rcu_read_unlock();
+		return 0;
+	}
+	bpf_rcu_read_unlock();
+
+	ref = bpf_refcount_acquire(node);
+	if (ref)
+		bpf_obj_drop(ref);
+
+	return 0;
+}
+
+SEC("?syscall")
 __failure __msg("invalid mem access 'scalar'")
 long graph_kptr_after_spin_unlock(void *ctx)
 {
