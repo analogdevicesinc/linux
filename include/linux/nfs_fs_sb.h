@@ -248,6 +248,10 @@ struct nfs_server {
 						   that are supported on this
 						   filesystem */
 	struct pnfs_layoutdriver_type  *pnfs_curr_ld; /* Active layout driver */
+	unsigned int		lg_reply_sz;	/* Learned LAYOUTGET reply
+						   buffer size, when the layout
+						   driver's default has proved
+						   too small */
 	struct rpc_wait_queue	roc_rpcwaitq;
 
 	/* the following fields are protected by nfs_client->cl_lock */

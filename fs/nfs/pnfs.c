@@ -1188,10 +1188,12 @@ pnfs_alloc_init_layoutget_args(struct inode *ino,
 	}
 
 	/*
-	 * A previous LAYOUTGET for this layout did not fit the reply
-	 * buffer: raise the layout driver's default up to the session's
-	 * maximum response size.
+	 * A previous LAYOUTGET on this layout or on this server did not
+	 * fit the reply buffer: raise the layout driver's default up to
+	 * the session's maximum response size.
 	 */
+	if (!min_reply_sz)
+		min_reply_sz = READ_ONCE(server->lg_reply_sz);
 	if (min_reply_sz) {
 		size_t npages = (min_reply_sz + PAGE_SIZE - 1) >> PAGE_SHIFT;
 		if (npages > max_pages)
@@ -2387,6 +2389,13 @@ lookup_again:
 			goto lookup_again;
 		}
 	} else {
+		/*
+		 * A LAYOUTGET that only succeeded with an escalated reply
+		 * buffer: remember the size so that future LAYOUTGETs to
+		 * this server skip the attempt at the driver's default.
+		 */
+		if (reply_sz)
+			WRITE_ONCE(server->lg_reply_sz, reply_sz);
 		pnfs_layout_clear_fail_bit(lo, pnfs_iomode_to_fail_bit(iomode));
 	}
 
