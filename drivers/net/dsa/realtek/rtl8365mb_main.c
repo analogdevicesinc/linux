@@ -3352,7 +3352,7 @@ const struct realtek_variant rtl8365mb_variant = {
 
 static const struct of_device_id rtl8365mb_of_match[] = {
 	{ .compatible = "realtek,rtl8365mb", .data = &rtl8365mb_variant, },
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, rtl8365mb_of_match);
 
