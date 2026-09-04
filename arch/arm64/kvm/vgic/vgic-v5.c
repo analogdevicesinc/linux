@@ -11,6 +11,7 @@
 #include "vgic.h"
 
 #define ppi_caps	kvm_vgic_global_state.vgic_v5_ppi_caps
+#define irs_caps	kvm_vgic_global_state.vgic_v5_irs_caps
 
 /*
  * Not all PPIs are guaranteed to be implemented for GICv5. Deterermine which
@@ -32,6 +33,21 @@ static void vgic_v5_get_implemented_ppis(void)
 
 	/* The PMUIRQ is available if we have the PMU */
 	__assign_bit(GICV5_ARCH_PPI_PMUIRQ, ppi_caps.impl_ppi_mask, system_supports_pmuv3());
+}
+
+static u32 irs_readl_relaxed(const u32 reg_offset)
+{
+	return readl_relaxed(irs_caps.irs_base + reg_offset);
+}
+
+static void vgic_v5_irs_cache_id_regs(const struct gic_kvm_info *info)
+{
+	irs_caps.irs_base = info->gicv5_irs.base;
+	irs_caps.non_coherent = info->gicv5_irs.non_coherent;
+
+	irs_caps.idr2 = irs_readl_relaxed(GICV5_IRS_IDR2);
+	irs_caps.idr3 = irs_readl_relaxed(GICV5_IRS_IDR3);
+	irs_caps.idr4 = irs_readl_relaxed(GICV5_IRS_IDR4);
 }
 
 /*
@@ -60,9 +76,11 @@ int vgic_v5_probe(const struct gic_kvm_info *info)
 		goto skip_v5;
 	}
 
-	kvm_vgic_global_state.max_gic_vcpus = VGIC_V5_MAX_CPUS;
-
+	vgic_v5_irs_cache_id_regs(info);
 	vgic_v5_get_implemented_ppis();
+
+	kvm_vgic_global_state.max_gic_vcpus = min(vgic_v5_irs_max_vpes(&irs_caps),
+						  VGIC_V5_MAX_CPUS);
 
 	ret = kvm_register_vgic_device(KVM_DEV_TYPE_ARM_VGIC_V5);
 	if (ret) {

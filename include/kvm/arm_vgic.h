@@ -132,6 +132,19 @@ enum vgic_type {
 	VGIC_V5,		/* Newer, fancier GICv5 */
 };
 
+struct vgic_v5_irs_caps {
+	/* Base address of the host IRS's CONFIG_FRAME */
+	void __iomem	*irs_base;
+
+	/* Raw host IRS ID registers */
+	u32		idr2;
+	u32		idr3;
+	u32		idr4;
+
+	/* Is the IRS coherent with us, or not? */
+	bool		non_coherent;
+};
+
 /* same for all guests, as depending only on the _host's_ GIC model */
 struct vgic_global {
 	/* type of the host GIC */
@@ -182,6 +195,9 @@ struct vgic_global {
 	struct {
 		DECLARE_BITMAP(impl_ppi_mask, VGIC_V5_NR_PRIVATE_IRQS);
 	} vgic_v5_ppi_caps;
+
+	/* GICv5 IRS capabilities */
+	struct vgic_v5_irs_caps vgic_v5_irs_caps;
 };
 
 extern struct vgic_global kvm_vgic_global_state;
@@ -626,6 +642,65 @@ void kvm_vgic_v4_unset_forwarding(struct kvm *kvm, int host_irq);
 int vgic_v4_load(struct kvm_vcpu *vcpu);
 void vgic_v4_commit(struct kvm_vcpu *vcpu);
 int vgic_v4_put(struct kvm_vcpu *vcpu);
+
+static inline u8 vgic_v5_irs_ist_id_bits(const struct vgic_v5_irs_caps *caps)
+{
+	return FIELD_GET(GICV5_IRS_IDR2_ID_BITS, caps->idr2);
+}
+
+static inline u8 vgic_v5_irs_min_lpi_id_bits(const struct vgic_v5_irs_caps *caps)
+{
+	return FIELD_GET(GICV5_IRS_IDR2_MIN_LPI_ID_BITS, caps->idr2);
+}
+
+static inline bool vgic_v5_irs_ist_levels(const struct vgic_v5_irs_caps *caps)
+{
+	return !!(caps->idr2 & GICV5_IRS_IDR2_IST_LEVELS);
+}
+
+static inline u8 vgic_v5_irs_ist_l2sz(const struct vgic_v5_irs_caps *caps)
+{
+	return FIELD_GET(GICV5_IRS_IDR2_IST_L2SZ, caps->idr2);
+}
+
+static inline bool vgic_v5_irs_istmd(const struct vgic_v5_irs_caps *caps)
+{
+	return !!(caps->idr2 & GICV5_IRS_IDR2_ISTMD);
+}
+
+static inline u8 vgic_v5_irs_istmd_sz(const struct vgic_v5_irs_caps *caps)
+{
+	return FIELD_GET(GICV5_IRS_IDR2_ISTMD_SZ, caps->idr2);
+}
+
+static inline u32 vgic_v5_irs_max_vms(const struct vgic_v5_irs_caps *caps)
+{
+	return BIT(FIELD_GET(GICV5_IRS_IDR3_VM_ID_BITS, caps->idr3));
+}
+
+static inline bool vgic_v5_irs_two_level_vmt_support(const struct vgic_v5_irs_caps *caps)
+{
+	return !!(caps->idr3 & GICV5_IRS_IDR3_VMT_LEVELS);
+}
+
+static inline u16 vgic_v5_irs_vmd_size(const struct vgic_v5_irs_caps *caps)
+{
+	if (!(caps->idr3 & GICV5_IRS_IDR3_VMD))
+		return 0;
+
+	return BIT(FIELD_GET(GICV5_IRS_IDR3_VMD_SZ, caps->idr3));
+}
+
+static inline u16 vgic_v5_irs_vped_size(const struct vgic_v5_irs_caps *caps)
+{
+	return BIT(FIELD_GET(GICV5_IRS_IDR4_VPED_SZ, caps->idr4));
+}
+
+static inline u32 vgic_v5_irs_max_vpes(const struct vgic_v5_irs_caps *caps)
+{
+	/* Field stores VPE_ID_BITS - 1 */
+	return BIT(FIELD_GET(GICV5_IRS_IDR4_VPE_ID_BITS, caps->idr4) + 1);
+}
 
 int vgic_v5_finalize_ppi_state(struct kvm *kvm);
 bool vgic_v5_ppi_queue_irq_unlock(struct kvm *kvm, struct vgic_irq *irq,
