@@ -1296,7 +1296,7 @@ int pm_runtime_get_if_in_use(struct device *dev)
 EXPORT_SYMBOL_GPL(pm_runtime_get_if_in_use);
 
 /**
- * __pm_runtime_set_status - Set runtime PM status of a device.
+ * __pm_runtime_set_status - Set runtime PM status of a device and clear errors.
  * @dev: Device to handle.
  * @status: New runtime PM status of the device.
  *
@@ -1315,7 +1315,7 @@ EXPORT_SYMBOL_GPL(pm_runtime_get_if_in_use);
  * If @dev has any suppliers (as reflected by device links to them), and @status
  * is RPM_ACTIVE, they will be activated upfront and if the activation of one
  * of them fails, the status of @dev will be changed to RPM_SUSPENDED (instead
- * of the @status value) and the suppliers will be deacticated on exit.  The
+ * of the @status value) and the suppliers will be deactivated on exit.  The
  * error returned by the failing supplier activation will be returned in that
  * case.
  */

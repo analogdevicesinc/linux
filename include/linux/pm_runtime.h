@@ -776,13 +776,18 @@ static inline int pm_runtime_put_sync_autosuspend(struct device *dev)
 }
 
 /**
- * pm_runtime_set_active - Set runtime PM status to "active".
+ * pm_runtime_set_active - Set runtime PM status to "active" and clear errors.
  * @dev: Target device.
  *
- * Set the runtime PM status of @dev to %RPM_ACTIVE and ensure that dependencies
- * of it will be taken into account.
+ * Set the runtime PM status of @dev to %RPM_ACTIVE and ensure that its
+ * dependencies will be taken into account. Also clear the device's error
+ * status (@dev->power.runtime_error).
  *
- * It is not valid to call this function for devices with runtime PM enabled.
+ * It is only valid to call this function if runtime PM is disabled or if
+ * @dev->power.runtime_error is set.
+ *
+ * This will fail if suppliers cannot be resumed, or if the parent is not in
+ * the correct state.
  *
  * Return:
  * * %0: Success.
@@ -794,13 +799,15 @@ static inline int pm_runtime_set_active(struct device *dev)
 }
 
 /**
- * pm_runtime_set_suspended - Set runtime PM status to "suspended".
+ * pm_runtime_set_suspended - Set runtime PM status to "suspended" and clear errors.
  * @dev: Target device.
  *
- * Set the runtime PM status of @dev to %RPM_SUSPENDED and ensure that
- * dependencies of it will be taken into account.
+ * Set the runtime PM status of @dev to %RPM_SUSPENDED and ensure that its
+ * dependencies will be taken into account. Also clear the device's error
+ * status (@dev->power.runtime_error).
  *
- * It is not valid to call this function for devices with runtime PM enabled.
+ * It is only valid to call this function if runtime PM is disabled or if
+ * @dev->power.runtime_error is set.
  *
  * Return:
  * * %0: Success.
