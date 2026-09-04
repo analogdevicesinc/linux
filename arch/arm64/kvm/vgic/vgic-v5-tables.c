@@ -73,6 +73,21 @@ static DEFINE_XARRAY(vm_info);
 #define GICV5_VMTEL2_LPI_SECTION	2
 #define GICV5_VMTEL2_SPI_SECTION	3
 
+static int vgic_v5_alloc_linear_ist(struct kvm *kvm, bool spi_ist,
+				    unsigned int id_bits,
+				    unsigned int istsz);
+static int vgic_v5_alloc_l1_ist(struct kvm *kvm, unsigned int id_bits,
+				unsigned int istsz, unsigned int l2_split);
+static int vgic_v5_alloc_l2_ists(struct kvm *kvm, unsigned int id_bits,
+				 unsigned int istsz, unsigned int l2_split);
+static int vgic_v5_alloc_two_level_lpi_ist(struct kvm *kvm,
+					   unsigned int id_bits,
+					   unsigned int istsz,
+					   unsigned int l2_split);
+static int vgic_v5_linear_ist_free(struct kvm *kvm, bool spi);
+static int vgic_v5_two_level_ist_free(struct kvm *kvm, bool spi);
+static int vgic_v5_spi_ist_free(struct kvm *kvm);
+
 /*
  * Our IRS might be coherent or non-coherent. If coherent, we can just emit a
  * DSB to ensure that we're in sync. However, when non-coherent, we need to
@@ -562,25 +577,6 @@ out_fail:
 }
 
 /*
- * The following set of forward declarations makes the code layout a *little*
- * clearer as it lets us keep the IST-related code together.
- */
-static int vgic_v5_alloc_linear_ist(struct kvm *kvm, bool spi_ist,
-				    unsigned int id_bits,
-				    unsigned int istsz);
-static int vgic_v5_alloc_l1_ist(struct kvm *kvm, unsigned int id_bits,
-				unsigned int istsz, unsigned int l2_split);
-static int vgic_v5_alloc_l2_ists(struct kvm *kvm, unsigned int id_bits,
-				 unsigned int istsz, unsigned int l2_split);
-static int vgic_v5_alloc_two_level_lpi_ist(struct kvm *kvm,
-					   unsigned int id_bits,
-					   unsigned int istsz,
-					   unsigned int l2_split);
-static int vgic_v5_linear_ist_free(struct kvm *kvm, bool spi);
-static int vgic_v5_two_level_ist_free(struct kvm *kvm, bool spi);
-static int vgic_v5_spi_ist_free(struct kvm *kvm);
-
-/*
  * Release the VMT Entry, freeing up any allocated data structures before
  * zeroing the VMTE.
  *
@@ -723,6 +719,18 @@ int vgic_v5_vmte_free_vpe(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+phys_addr_t vgic_v5_get_vmt_base(void)
+{
+	phys_addr_t vmt_base;
+
+	if (!vmt_info->two_level)
+		vmt_base = virt_to_phys(vmt_info->linear.vmt_base);
+	else
+		vmt_base = virt_to_phys(vmt_info->l2.vmt_base);
+
+	return vmt_base;
+}
+
 /*
  * Assign an already allocated IST to the VM by populating the fields in the
  * corresponding VMTE. We re-use this code for both an SPI IST and LPI IST, even
@@ -785,8 +793,30 @@ static int vgic_v5_vmte_assign_ist(struct kvm *kvm, phys_addr_t ist_base,
 	/* Finally, mark the entry as valid */
 	cmd = spi_ist ? SPI_VIST_MAKE_VALID : LPI_VIST_MAKE_VALID;
 	ret = irq_set_vcpu_affinity(vgic_v5_vpe_db(vcpu0), &cmd);
+	if (ret) {
+		/*
+		 * A timeout does not tell us whether the IRS consumed the
+		 * command, so we're in some indeterminate and potentially
+		 * transient state.  It may still make the VIST valid and access
+		 * the backing memory, so leave both the VMTE and allocation
+		 * intact. Killing the VM ensures that teardown is the only path
+		 * that can reclaim them, after it has successfully made the
+		 * complete VMTE invalid.
+		 */
+		if (ret == -ETIMEDOUT) {
+			kvm_vm_dead(kvm);
+			return ret;
+		}
 
-	return ret;
+		scoped_guard(raw_spinlock_irqsave, &vgic_v5_irs_lock) {
+			WRITE_ONCE(vmte->val[section], 0ULL);
+			vgic_v5_clean_inval(vmte, sizeof(*vmte));
+		}
+
+		return ret;
+	}
+
+	return 0;
 }
 
 /*
@@ -1137,7 +1167,8 @@ int vgic_v5_spi_ist_alloc(struct kvm *kvm, unsigned int id_bits)
 	ret = vgic_v5_vmte_assign_ist(kvm, base_addr, false, id_bits, 0, istsz,
 				      true);
 	if (ret) {
-		vgic_v5_free_allocated_spi_ist(kvm);
+		if (ret != -ETIMEDOUT)
+			vgic_v5_free_allocated_spi_ist(kvm);
 		return ret;
 	}
 
@@ -1207,7 +1238,7 @@ int vgic_v5_lpi_ist_alloc(struct kvm *kvm, unsigned int id_bits)
 	phys_addr = virt_to_phys(vmi->h_lpi_ist);
 	ret = vgic_v5_vmte_assign_ist(kvm, phys_addr, two_level, id_bits, l2sz,
 				      istsz, false);
-	if (ret)
+	if (ret && ret != -ETIMEDOUT)
 		vgic_v5_free_allocated_lpi_ist(vmi, id_bits, istsz, l2sz);
 
 	return ret;
