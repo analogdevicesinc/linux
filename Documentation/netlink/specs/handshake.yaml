@@ -22,7 +22,8 @@ definitions:
     type: enum
     name: handler-class
     value-start: 0
-    entries: [none, tlshd, max]
+    entries: [none, tlshd]
+    render-max: true
   -
     type: enum
     name: msg-type
