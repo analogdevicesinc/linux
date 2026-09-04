@@ -74,6 +74,8 @@ static struct wake_capable_part wake_capable_list[] = {
 	{0x025d, 0x721},
 	{0x025d, 0x722},
 	{0x04b3, 0x9356},
+	{0x0102, 0x5572},
+	{0x0102, 0x5682},
 };
 
 static bool is_wake_capable(struct sdw_slave *slave)
@@ -159,7 +161,7 @@ static int sdw_master_read_intel_prop(struct sdw_bus *bus)
 	struct sdw_intel_prop *intel_prop;
 	struct fwnode_handle *link;
 	char name[32];
-	u32 quirk_mask;
+	u32 quirk_mask = 0;
 
 	/* Find master handle */
 	snprintf(name, sizeof(name),
