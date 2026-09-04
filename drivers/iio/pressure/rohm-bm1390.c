@@ -267,7 +267,7 @@ static int bm1390_read_data(struct bm1390_data *data,
 	guard(mutex)(&data->mutex);
 	/*
 	 * We use 'continuous mode' even for raw read because according to the
-	 * data-sheet an one-shot mode can't be used with IIR filter.
+	 * data-sheet a one-shot mode can't be used with IIR filter.
 	 */
 	ret = bm1390_meas_set(data, BM1390_MEAS_MODE_CONTINUOUS);
 	if (ret)

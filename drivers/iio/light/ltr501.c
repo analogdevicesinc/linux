@@ -486,7 +486,7 @@ static int ltr501_write_intr_prst(struct ltr501_data *data,
 		if (ret < 0)
 			return ret;
 
-		/* period should be atleast equal to sampling period */
+		/* period should be at least equal to sampling period */
 		if (period < samp_period)
 			return -EINVAL;
 
@@ -506,7 +506,7 @@ static int ltr501_write_intr_prst(struct ltr501_data *data,
 		if (ret < 0)
 			return ret;
 
-		/* period should be atleast equal to rate */
+		/* period should be at least equal to rate */
 		if (period < samp_period)
 			return -EINVAL;
 
