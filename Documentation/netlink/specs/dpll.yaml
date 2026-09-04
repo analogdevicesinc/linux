@@ -632,6 +632,7 @@ operations:
             - mode-supported
             - lock-status
             - lock-status-error
+            - clock-quality-level
             - temp
             - clock-id
             - type
