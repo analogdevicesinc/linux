@@ -1124,6 +1124,8 @@ static struct gic_kvm_info gic_v5_kvm_info __initdata;
 
 static void __init gic_of_setup_kvm_info(struct device_node *node)
 {
+	struct gicv5_irs_chip_data *irs_data = gicv5_irs_get_chip_data();
+
 	/*
 	 * If we don't have native GICv5 virtualisation support, then
 	 * we also don't have FEAT_GCIE_LEGACY - the architecture
@@ -1135,6 +1137,9 @@ static void __init gic_of_setup_kvm_info(struct device_node *node)
 	}
 
 	gic_v5_kvm_info.type = GIC_V5;
+
+	gic_v5_kvm_info.gicv5_irs.base = irs_data->irs_base;
+	gic_v5_kvm_info.gicv5_irs.non_coherent = !!(irs_data->flags & IRS_FLAGS_NON_COHERENT);
 
 	/* GIC Virtual CPU interface maintenance interrupt */
 	gic_v5_kvm_info.no_maint_irq_mask = false;

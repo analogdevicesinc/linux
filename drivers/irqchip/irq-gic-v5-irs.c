@@ -21,8 +21,6 @@
  */
 #define LPI_ID_BITS_LINEAR		12
 
-#define IRS_FLAGS_NON_COHERENT		BIT(0)
-
 static DEFINE_PER_CPU_READ_MOSTLY(struct gicv5_irs_chip_data *, per_cpu_irs_data);
 static LIST_HEAD(irs_nodes);
 
@@ -48,6 +46,11 @@ static void irs_writeq_relaxed(struct gicv5_irs_chip_data *irs_data,
 			       const u64 val, const u32 reg_offset)
 {
 	writeq_relaxed(val, irs_data->irs_base + reg_offset);
+}
+
+struct gicv5_irs_chip_data *gicv5_irs_get_chip_data(void)
+{
+	return per_cpu(per_cpu_irs_data, 0);
 }
 
 /*
