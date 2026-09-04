@@ -163,9 +163,6 @@
 		); \
 }
 
-/*  Get the N-bytes alignent offset from the current length */
-#define N_BYTE_ALIGMENT(__Value, __Aligment) ((__Aligment == 1) ? (__Value) : (((__Value + __Aligment - 1) / __Aligment) * __Aligment))
-
 #define TEST_FLAG(__Flag, __testFlag)		(((__Flag) & (__testFlag)) != 0)
 #define SET_FLAG(__Flag, __setFlag)			((__Flag) |= __setFlag)
 #define CLEAR_FLAG(__Flag, __clearFlag)		((__Flag) &= ~(__clearFlag))
