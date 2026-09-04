@@ -13,8 +13,10 @@
 
 #pragma GCC poison to_vmx
 
+static_assert(offsetof(struct vcpu_vmx_tdx, vt) == offsetof(struct vcpu_vmx, vt));
+
 #ifdef CONFIG_KVM_INTEL_TDX
-static_assert(offsetof(struct vcpu_vmx, vt) == offsetof(struct vcpu_tdx, vt));
+static_assert(offsetof(struct vcpu_vmx_tdx, vt) == offsetof(struct vcpu_tdx, vt));
 
 static void vt_disable_virtualization_cpu(void)
 {

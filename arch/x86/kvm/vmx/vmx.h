@@ -304,14 +304,19 @@ struct kvm_vmx {
 	u64 *pid_table;
 };
 
+struct vcpu_vmx_tdx {
+	struct kvm_vcpu vcpu;
+	struct vcpu_vt vt;
+};
+
 static __always_inline struct vcpu_vt *to_vt(struct kvm_vcpu *vcpu)
 {
-	return &(container_of(vcpu, struct vcpu_vmx, vcpu)->vt);
+	return &(container_of(vcpu, struct vcpu_vmx_tdx, vcpu)->vt);
 }
 
 static __always_inline struct kvm_vcpu *vt_to_vcpu(struct vcpu_vt *vt)
 {
-	return &(container_of(vt, struct vcpu_vmx, vt)->vcpu);
+	return &(container_of(vt, struct vcpu_vmx_tdx, vt)->vcpu);
 }
 
 static __always_inline union vmx_exit_reason vmx_get_exit_reason(struct kvm_vcpu *vcpu)
