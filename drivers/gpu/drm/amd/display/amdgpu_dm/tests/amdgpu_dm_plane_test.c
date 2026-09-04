@@ -855,12 +855,13 @@ static void dm_test_validate_dcc_independent_64b_mismatch_fails(struct kunit *te
 }
 
 /**
- * dm_test_add_modifier_appends_value() - Verify one modifier append.
+ * dm_test_add_modifier_appends_and_grows() - Verify append and capacity growth.
  * @test: KUnit test context.
  *
- * Verify if a modifier is appended and size is updated.
+ * Verify if a modifier is appended within the existing capacity, and if a full
+ * list is grown while preserving the modifiers already stored.
  */
-static void dm_test_add_modifier_appends_value(struct kunit *test)
+static void dm_test_add_modifier_appends_and_grows(struct kunit *test)
 {
 	uint64_t size = 0;
 	uint64_t cap = 2;
@@ -876,20 +877,10 @@ static void dm_test_add_modifier_appends_value(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, mods[0], 0x1234ULL);
 
 	kfree(mods);
-}
 
-/**
- * dm_test_add_modifier_grows_capacity() - Verify add triggers growth and preserves old data.
- * @test: KUnit test context.
- *
- * Verify if modifier array growth keeps old data and appends new data.
- */
-static void dm_test_add_modifier_grows_capacity(struct kunit *test)
-{
-	uint64_t size = 1;
-	uint64_t cap = 1;
-	uint64_t *mods = kmalloc_array(cap, sizeof(*mods), GFP_KERNEL);
-
+	size = 1;
+	cap = 1;
+	mods = kmalloc_array(cap, sizeof(*mods), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, mods);
 	mods[0] = 0xAAULL;
 
@@ -905,12 +896,14 @@ static void dm_test_add_modifier_grows_capacity(struct kunit *test)
 }
 
 /**
- * dm_test_add_modifier_noop_when_mods_null() - Verify helper is a no-op on NULL mods list.
+ * dm_test_add_modifier_failure_paths() - Verify the two failure paths.
  * @test: KUnit test context.
  *
- * Verify if add_modifier does nothing when the modifier list is NULL.
+ * Verify if the append is a no-op once the modifier list is NULL, and if a
+ * failed capacity growth releases and clears the list so the caller can detect
+ * the allocation failure.
  */
-static void dm_test_add_modifier_noop_when_mods_null(struct kunit *test)
+static void dm_test_add_modifier_failure_paths(struct kunit *test)
 {
 	uint64_t size = 3;
 	uint64_t cap = 7;
@@ -921,6 +914,17 @@ static void dm_test_add_modifier_noop_when_mods_null(struct kunit *test)
 	KUNIT_EXPECT_PTR_EQ(test, mods, NULL);
 	KUNIT_EXPECT_EQ(test, size, 3ULL);
 	KUNIT_EXPECT_EQ(test, cap, 7ULL);
+
+	/* Doubling this capacity overflows the kmalloc_array() size product. */
+	cap = 1ULL << 62;
+	size = cap;
+	mods = kmalloc_array(1, sizeof(*mods), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, mods);
+
+	amdgpu_dm_plane_add_modifier(&mods, &size, &cap, 0x1234ULL);
+
+	KUNIT_EXPECT_PTR_EQ(test, mods, NULL);
+	KUNIT_EXPECT_EQ(test, size, 1ULL << 62);
 }
 
 /**
@@ -3020,13 +3024,14 @@ static void dm_test_plane_destroy_state_releases_resources(struct kunit *test)
 }
 
 /**
- * dm_test_add_modifier_dedup_skips_duplicate() - Verify duplicates are not appended.
+ * dm_test_add_modifier_dedup() - Verify the de-duplicating append.
  * @test: KUnit test context.
  *
  * Verify if a modifier already present in the list is not appended a second
- * time.
+ * time, and if the append is a no-op once the list is NULL after an earlier
+ * allocation failure.
  */
-static void dm_test_add_modifier_dedup_skips_duplicate(struct kunit *test)
+static void dm_test_add_modifier_dedup(struct kunit *test)
 {
 	u64 size = 2;
 	u64 cap = 4;
@@ -3047,20 +3052,10 @@ static void dm_test_add_modifier_dedup_skips_duplicate(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, mods[2], 0xCCULL);
 
 	kfree(mods);
-}
 
-/**
- * dm_test_add_modifier_dedup_noop_when_mods_null() - Verify NULL list is a no-op.
- * @test: KUnit test context.
- *
- * Verify if the de-duplicating append does nothing when the modifier list is
- * NULL after an earlier allocation failure.
- */
-static void dm_test_add_modifier_dedup_noop_when_mods_null(struct kunit *test)
-{
-	u64 size = 3;
-	u64 cap = 7;
-	u64 *mods = NULL;
+	size = 3;
+	cap = 7;
+	mods = NULL;
 
 	amdgpu_dm_plane_add_modifier_dedup(&mods, &size, &cap, 0x55ULL);
 
@@ -3556,28 +3551,6 @@ static void dm_test_atomic_async_update_copies_state(struct kunit *test)
 }
 
 /**
- * dm_test_add_modifier_alloc_failure() - Verify the growth allocation failure.
- * @test: KUnit test context.
- *
- * Verify if a failed capacity growth releases and clears the modifier list so
- * the caller can detect the allocation failure.
- */
-static void dm_test_add_modifier_alloc_failure(struct kunit *test)
-{
-	/* Doubling this capacity overflows the kmalloc_array() size product. */
-	u64 cap = 1ULL << 62;
-	u64 size = cap;
-	u64 *mods = kmalloc_array(1, sizeof(*mods), GFP_KERNEL);
-
-	KUNIT_ASSERT_NOT_NULL(test, mods);
-
-	amdgpu_dm_plane_add_modifier(&mods, &size, &cap, 0x1234ULL);
-
-	KUNIT_EXPECT_PTR_EQ(test, mods, NULL);
-	KUNIT_EXPECT_EQ(test, size, 1ULL << 62);
-}
-
-/**
  * dm_test_fill_plane_buffer_attributes_gfx6() - Verify the pre-GFX9 dispatch.
  * @test: KUnit test context.
  *
@@ -3968,13 +3941,10 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_plane_destroy_state_minimal),
 	KUNIT_CASE(dm_test_plane_destroy_state_releases_resources),
 	/* amdgpu_dm_plane_add_modifier() */
-	KUNIT_CASE(dm_test_add_modifier_appends_value),
-	KUNIT_CASE(dm_test_add_modifier_grows_capacity),
-	KUNIT_CASE(dm_test_add_modifier_noop_when_mods_null),
-	KUNIT_CASE(dm_test_add_modifier_alloc_failure),
+	KUNIT_CASE(dm_test_add_modifier_appends_and_grows),
+	KUNIT_CASE(dm_test_add_modifier_failure_paths),
 	/* amdgpu_dm_plane_add_modifier_dedup() */
-	KUNIT_CASE(dm_test_add_modifier_dedup_skips_duplicate),
-	KUNIT_CASE(dm_test_add_modifier_dedup_noop_when_mods_null),
+	KUNIT_CASE(dm_test_add_modifier_dedup),
 	/* amdgpu_dm_plane_fill_gfx6_tiling_info_from_modifier() */
 	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_linear),
 	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_rejects),
