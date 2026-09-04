@@ -13,6 +13,7 @@
 #include "vgic.h"
 
 #define NR_VCPUS		1
+#define VGIC_V5_NR_PRIVATE_IRQS	64
 #define VGIC_V5_DEFAULT_NR_SPIS	32
 #define VGIC_V5_MAX_NR_SPIS	BIT(10)
 
@@ -109,6 +110,17 @@ static void vm_gic_destroy(struct vm_gic *v)
 {
 	close(v->gic_fd);
 	kvm_vm_free(v->vm);
+}
+
+static u32 vgic_v5_irq_line_payload(u32 type, u32 num)
+{
+	return (type << KVM_ARM_IRQ_TYPE_SHIFT) |
+	       FIELD_PREP(KVM_ARM_IRQ_NUM_MASK, num);
+}
+
+static int __vgic_v5_irq_line(struct kvm_vm *vm, u32 type, u32 num, int level)
+{
+	return _kvm_irq_line(vm, vgic_v5_irq_line_payload(type, num), level);
 }
 
 struct vgic_region_attr {
@@ -655,6 +667,47 @@ static void test_vgic_v5_ist_attrs(void)
 	vm_gic_destroy(&v);
 }
 
+static void test_vgic_v5_userspace_ppis_attrs(void)
+{
+	struct kvm_vcpu *vcpu;
+	struct vm_gic v;
+	u64 user_ppis[2];
+	int ret;
+
+	v.gic_dev_type = KVM_DEV_TYPE_ARM_VGIC_V5;
+	v.vm = __vm_create(VM_SHAPE_DEFAULT, NR_VCPUS, 0);
+	v.gic_fd = kvm_create_device(v.vm, v.gic_dev_type);
+	vcpu = vm_vcpu_add(v.vm, 0, NULL);
+	TEST_ASSERT(vcpu, "Failed to create vCPU");
+
+	kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT);
+	kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_USERSPACE_PPIS);
+
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
+
+	user_ppis[0] = 0;
+	user_ppis[1] = 0xbad;
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+				    KVM_DEV_ARM_VGIC_USERSPACE_PPIS, user_ppis);
+	TEST_ASSERT(!ret, "GICv5 USERSPACE_PPIS get failed");
+	TEST_ASSERT(user_ppis[0] & BIT(GICV5_ARCH_PPI_SW_PPI),
+		    "GICv5 USERSPACE_PPIS does not expose SW_PPI");
+	TEST_ASSERT(!user_ppis[1], "GICv5 USERSPACE_PPIS upper word is not zero");
+
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+				    KVM_DEV_ARM_VGIC_USERSPACE_PPIS, user_ppis);
+	TEST_ASSERT(ret && errno == ENXIO, "GICv5 USERSPACE_PPIS set accepted");
+
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+				    KVM_DEV_ARM_VGIC_USERSPACE_PPIS, NULL);
+	TEST_ASSERT(ret && errno == EFAULT, "GICv5 USERSPACE_PPIS get with bad pointer");
+
+	vm_gic_destroy(&v);
+}
+
 static void test_vgic_v5_ppis(u32 gic_dev_type)
 {
 	struct kvm_vcpu *vcpus[NR_VCPUS];
@@ -693,6 +746,20 @@ static void test_vgic_v5_ppis(u32 gic_dev_type)
 	/* We should always be able to drive the SW_PPI. */
 	TEST_ASSERT(user_ppis[0] & BIT(GICV5_ARCH_PPI_SW_PPI),
 		"SW_PPI is not drivable by userspace");
+
+	/* PPIs not explicitly exposed to userspace must be rejected. */
+	for (i = 0; i < VGIC_V5_NR_PRIVATE_IRQS; i++) {
+		if (user_ppis[i / 64] & BIT_ULL(i % 64))
+			continue;
+
+		ret = __vgic_v5_irq_line(v.vm, KVM_ARM_IRQ_TYPE_PPI, i, 1);
+		TEST_ASSERT(ret && errno == EINVAL,
+			    "GICv5 accepted non-userspace PPI %d", i);
+	}
+
+	ret = __vgic_v5_irq_line(v.vm, KVM_ARM_IRQ_TYPE_PPI,
+				 VGIC_V5_NR_PRIVATE_IRQS, 1);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 accepted out-of-range PPI");
 
 	while (1) {
 		ret = run_vcpu(vcpus[0]);
@@ -779,6 +846,9 @@ void run_tests(u32 gic_dev_type)
 
 	pr_info("Test VGICv5 IST attrs\n");
 	test_vgic_v5_ist_attrs();
+
+	pr_info("Test VGICv5 userspace PPI attrs\n");
+	test_vgic_v5_userspace_ppis_attrs();
 
 
 	pr_info("Test VGICv5 PPIs\n");
