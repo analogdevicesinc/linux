@@ -13,6 +13,9 @@
 /* GIC component base address is guest PA space */
 #define GICV5_IRS_CONFIG_BASE_GPA	0x8000000ULL
 
+#define GICV5_IRS_SIZE			0x20000
+#define GICV5_IRS_ALIGN			0x10000
+
 /*
  * Definitions for GICv5 instructions for the Current Domain
  */

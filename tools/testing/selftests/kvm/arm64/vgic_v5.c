@@ -14,6 +14,8 @@
 
 #define NR_VCPUS		1
 
+static u64 max_phys_size;
+
 struct vm_gic {
 	struct kvm_vm *vm;
 	int gic_fd;
@@ -24,6 +26,104 @@ struct vm_gic {
 #define GUEST_CMD_IRQ_DIEOI	11
 #define GUEST_CMD_IS_AWAKE	12
 #define GUEST_CMD_IS_READY	13
+
+/* we don't want to assert on run execution, hence that helper */
+static int run_vcpu(struct kvm_vcpu *vcpu)
+{
+	return __vcpu_run(vcpu) ? -errno : 0;
+}
+
+static void vm_gic_destroy(struct vm_gic *v)
+{
+	close(v->gic_fd);
+	kvm_vm_free(v->vm);
+}
+
+struct vgic_region_attr {
+	u64 attr;
+	u64 size;
+	u64 alignment;
+};
+
+static const struct vgic_region_attr gic_v5_irs_region = {
+	.attr = KVM_VGIC_V5_ADDR_TYPE_IRS,
+	.size = GICV5_IRS_SIZE,
+	.alignment = GICV5_IRS_ALIGN,
+};
+
+static void test_vgic_v5_create(void)
+{
+	struct kvm_vcpu *vcpu;
+	struct vm_gic v;
+	u64 addr;
+	int ret;
+
+	v.gic_dev_type = KVM_DEV_TYPE_ARM_VGIC_V5;
+	v.vm = __vm_create(VM_SHAPE_DEFAULT, NR_VCPUS, 0);
+	v.gic_fd = kvm_create_device(v.vm, v.gic_dev_type);
+
+	/* Check existing group/attributes */
+	kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR, gic_v5_irs_region.attr);
+
+	/* check non existing attribute */
+	ret = __kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR, -1);
+	TEST_ASSERT(ret && errno == ENXIO, "attribute not supported");
+
+	/* get IRS base address before setting*/
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+				    KVM_VGIC_V5_ADDR_TYPE_IRS, &addr);
+	TEST_ASSERT(!ret && addr == (-1ULL), "GICv5 IRS returns VGIC_ADDR_UNDEF");
+
+	/* misaligned IRS address settings */
+	addr = gic_v5_irs_region.alignment / 0x10;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+				    KVM_VGIC_V5_ADDR_TYPE_IRS, &addr);
+	TEST_ASSERT(ret && errno == EINVAL, "GIC IRS base not aligned");
+
+	/* out of range address */
+	addr = max_phys_size;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+				    KVM_VGIC_V5_ADDR_TYPE_IRS, &addr);
+	TEST_ASSERT(ret && errno == E2BIG, "IRS address beyond IPA limit");
+
+	/* Space for half an IRS (an IRS is: 2 * irs.alignment). */
+	addr = max_phys_size - gic_v5_irs_region.alignment;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+				    KVM_VGIC_V5_ADDR_TYPE_IRS, &addr);
+	TEST_ASSERT(ret && errno == E2BIG,
+			"half of the IRS is beyond IPA limit");
+
+	/* set IRS base address @0x0*/
+	addr = 0x00000;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+				    KVM_VGIC_V5_ADDR_TYPE_IRS, &addr);
+	TEST_ASSERT(!ret, "GICv5 IRS base correctly set");
+
+	/* get IRS base address */
+	addr = 0xbad;
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+				    KVM_VGIC_V5_ADDR_TYPE_IRS, &addr);
+	TEST_ASSERT(!ret && addr == 0, "GICv5 IRS base correctly set");
+
+	/* Attempt to create a second IRS region */
+	addr = 0xE0000;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+				    KVM_VGIC_V5_ADDR_TYPE_IRS, &addr);
+	TEST_ASSERT(ret && errno == EEXIST, "GICv5 IRS base set again");
+
+	vm_gic_destroy(&v);
+
+	/* Try running a VM without ever setting the IRS base addr */
+	v.vm = __vm_create(VM_SHAPE_DEFAULT, NR_VCPUS, 0);
+	v.gic_fd = kvm_create_device(v.vm, v.gic_dev_type);
+	vcpu = vm_vcpu_add(v.vm, 0, NULL);
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
+	ret = run_vcpu(vcpu);
+	TEST_ASSERT(ret && errno == ENXIO, "GICv5 IRS base not set");
+
+	vm_gic_destroy(&v);
+}
 
 static void guest_irq_handler(struct ex_regs *regs)
 {
@@ -79,19 +179,6 @@ static void guest_code(void)
 
 	/* Loop forever waiting for interrupts */
 	while (1);
-}
-
-
-/* we don't want to assert on run execution, hence that helper */
-static int run_vcpu(struct kvm_vcpu *vcpu)
-{
-	return __vcpu_run(vcpu) ? -errno : 0;
-}
-
-static void vm_gic_destroy(struct vm_gic *v)
-{
-	close(v->gic_fd);
-	kvm_vm_free(v->vm);
 }
 
 static void test_vgic_v5_ppis(u32 gic_dev_type)
@@ -207,13 +294,19 @@ int test_kvm_device(u32 gic_dev_type)
 
 void run_tests(u32 gic_dev_type)
 {
+	pr_info("Test VGICv5 Creation & Setup\n");
+	test_vgic_v5_create();
+
 	pr_info("Test VGICv5 PPIs\n");
 	test_vgic_v5_ppis(gic_dev_type);
 }
 
 int main(int ac, char **av)
 {
-	int ret;
+	int pa_bits, ret;
+
+	pa_bits = vm_guest_mode_params[VM_MODE_DEFAULT].pa_bits;
+	max_phys_size = 1ULL << pa_bits;
 
 	test_disable_default_vgic();
 
