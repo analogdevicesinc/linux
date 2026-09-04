@@ -285,8 +285,8 @@ static struct nfs4_ff_layout_mirror *ff_layout_alloc_mirror(u32 dss_count,
 
 	mirror->dss_count = dss_count;
 	mirror->dss =
-		kzalloc_objs(struct nfs4_ff_layout_ds_stripe, dss_count,
-			     gfp_flags);
+		kvzalloc_objs(struct nfs4_ff_layout_ds_stripe, dss_count,
+			      gfp_flags);
 	if (mirror->dss == NULL) {
 		kfree(mirror);
 		return NULL;
@@ -315,7 +315,7 @@ static void ff_layout_free_mirror(struct nfs4_ff_layout_mirror *mirror)
 		nfs4_ff_layout_put_deviceid(mirror->dss[dss_id].mirror_ds);
 	}
 
-	kfree(mirror->dss);
+	kvfree(mirror->dss);
 	kfree(mirror);
 }
 
