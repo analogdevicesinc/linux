@@ -690,9 +690,8 @@ int vgic_lazy_init(struct kvm *kvm)
 int kvm_vgic_map_resources(struct kvm *kvm)
 {
 	struct vgic_dist *dist = &kvm->arch.vgic;
-	bool needs_dist = true;
 	enum vgic_type type;
-	gpa_t dist_base;
+	gpa_t dist_base, irs_base;
 	int ret = 0;
 
 	if (likely(smp_load_acquire(&dist->ready)))
@@ -715,13 +714,12 @@ int kvm_vgic_map_resources(struct kvm *kvm)
 	} else {
 		ret = vgic_v5_map_resources(kvm);
 		type = VGIC_V5;
-		needs_dist = false;
 	}
 
 	if (ret)
 		goto out;
 
-	if (needs_dist) {
+	if (type != VGIC_V5) {
 		dist_base = dist->vgic_dist_base;
 		mutex_unlock(&kvm->arch.config_lock);
 
@@ -731,7 +729,19 @@ int kvm_vgic_map_resources(struct kvm *kvm)
 			goto out_slots;
 		}
 	} else {
+		irs_base = dist->vgic_v5_irs_data->vgic_v5_irs_base;
 		mutex_unlock(&kvm->arch.config_lock);
+
+		if (IS_VGIC_ADDR_UNDEF(irs_base)) {
+			ret = -ENXIO;
+			goto out_slots;
+		}
+
+		ret = vgic_v5_register_irs_iodev(kvm, irs_base);
+		if (ret) {
+			kvm_err("Unable to register VGIC IRS MMIO regions\n");
+			goto out_slots;
+		}
 	}
 
 	smp_store_release(&dist->ready, true);

@@ -31,7 +31,12 @@
 #define VGIC_MAX_SPI		1019
 #define VGIC_MAX_RESERVED	1023
 #define VGIC_MIN_LPI		8192
-#define KVM_IRQCHIP_NUM_PINS	(1020 - 32)
+
+/*
+ * The common IRQ routing table must accommodate all GIC types. GICv2 and
+ * GICv3 need 988 pins, while GICv5 needs 1024 pins.
+ */
+#define KVM_IRQCHIP_NUM_PINS	1024
 
 /*
  * GICv5 supports 128 PPIs, but only the first 64 are architected. We only
@@ -41,6 +46,7 @@
  */
 #define VGIC_V5_NR_PRIVATE_IRQS	64
 #define VGIC_V5_DEFAULT_NR_SPIS	32
+#define VGIC_V5_MAX_NR_SPIS	BIT(10)
 
 #define is_v5_type(t, i)	(FIELD_GET(GICV5_HWIRQ_TYPE, (i)) == (t))
 
