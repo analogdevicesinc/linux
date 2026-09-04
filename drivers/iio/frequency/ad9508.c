@@ -66,6 +66,8 @@
 
 #define AD9508_NUM_CHAN		4
 
+#define AD9508_NUM_REGS		45
+
 struct ad9508_outputs {
 	struct clk_hw hw;
 	struct iio_dev *indio_dev;
@@ -88,7 +90,7 @@ struct ad9508_state {
 	struct gpio_desc		*reset_gpio;
 	struct gpio_desc		*sync_gpio;
 	bool			write_mode_only;
-	unsigned long		regs_hw[44];
+	unsigned long		regs_hw[AD9508_NUM_REGS];
 	struct mutex		lock;
 
 	/*
@@ -196,7 +198,19 @@ static int ad9508_get_channel_div_enable(struct iio_dev *indio_dev, unsigned cha
 
 static int ad9508_sync(struct iio_dev *indio_dev)
 {
-	int ret = ad9508_write(indio_dev,
+	struct ad9508_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (st->sync_gpio) {
+		/* SYNC_BAR is active low: assert then deassert to pulse */
+		gpiod_set_value_cansleep(st->sync_gpio, 0);
+		fsleep(1);
+		gpiod_set_value_cansleep(st->sync_gpio, 1);
+
+		return 0;
+	}
+
+	ret = ad9508_write(indio_dev,
 			AD9508_SYNC_BAR, 0);
 	if (ret < 0)
 		return ret;

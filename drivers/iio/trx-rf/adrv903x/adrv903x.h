@@ -74,6 +74,7 @@ enum debugfs_cmd {
 	DBGFS_RX7_ADC_STATUS,
 	DBGFS_ORX0_ADC_STATUS,
 	DBGFS_ORX1_ADC_STATUS,
+	DBGFS_TX_TO_ORX_MAPPING,
 };
 
 enum adrv903x_rx_ext_info {

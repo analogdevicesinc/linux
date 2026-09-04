@@ -1,0 +1,9 @@
+/dts-v1/;
+/plugin/;
+
+#include "vu11p-ad9084-vpx-revb-204C_M4_L8_NP16_8p0_4x2.dtso"
+
+// RevB-1 uses LTC6955 (not -1) so not divider for ADF4382
+&adf4382 {
+	clocks = <&clkin_125>;
+};

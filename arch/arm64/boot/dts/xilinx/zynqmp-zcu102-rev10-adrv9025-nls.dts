@@ -22,7 +22,6 @@
 	 * HDL index + 78: A=54->132, B=53->131, C=52->130, D=51->129.
 	 * A/C = side-A/side-B enable, B/D = side-A/side-B channel select.
 	 */
-
 	orx-ctrl-a-gpios = <&gpio 132 0>;
 	orx-ctrl-b-gpios = <&gpio 131 0>;
 	orx-ctrl-c-gpios = <&gpio 130 0>;

@@ -40,6 +40,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD4000
 	imply AD4062 if I3C
 	imply AD4080
+	imply ADI_AXI_ADC
 	imply AD4170_4
 	imply AD4630
 	imply AD4691
@@ -58,6 +59,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD7923
 	imply AD7944
 	imply AD7949
+	imply AD7405
 	imply AD7476
 	imply AD7606_IFACE_PARALLEL
 	imply AD7606_IFACE_SPI
@@ -227,4 +229,5 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADF4382
 	imply AXI_AION_TRIG
 	imply AD9088
+	imply ADRV904X
 
