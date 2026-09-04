@@ -10,7 +10,10 @@ use syn::{
     Field, Fields, Generics, Ident, Item, PathSegment, Type, TypePath, Visibility, WhereClause,
 };
 
-use crate::diagnostics::{DiagCtxt, ErrorGuaranteed};
+use crate::{
+    diagnostics::{DiagCtxt, ErrorGuaranteed},
+    util::*,
+};
 
 pub(crate) mod kw {
     syn::custom_keyword!(PinnedDrop);
@@ -81,21 +84,11 @@ pub(crate) fn pin_data(
     //
     // We need to perform this after parsing so we can reliably detect field cfgs.
     for (field_idx, field) in struct_.fields.iter_mut().enumerate() {
-        let cfg: Vec<_> = field
-            .attrs
-            .iter()
-            .filter(|a| a.path().is_ident("cfg"))
-            .map(|a| {
-                a.parse_args::<TokenStream>()
-                    .expect("parse as token stream cannot fail")
-            })
-            .collect();
-
+        let cfg = field.attrs.extract_cfg_attrs();
         if cfg.is_empty() {
             continue;
         }
 
-        field.attrs.retain(|a| !a.path().is_ident("cfg"));
         let cfg_true_struct = quote!(#struct_);
 
         let punctuated = match &mut struct_.fields {

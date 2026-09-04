@@ -18,6 +18,7 @@ mod diagnostics;
 mod init;
 mod pin_data;
 mod pinned_drop;
+mod util;
 mod zeroable;
 
 #[proc_macro_attribute]
