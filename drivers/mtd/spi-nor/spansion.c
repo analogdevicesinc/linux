@@ -907,7 +907,6 @@ static const struct flash_info spansion_nor_parts[] = {
 		.sector_size = SZ_256K,
 		.no_sfdp_flags = SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.mfr_flags = USE_CLSR,
-		.fixups = &s25fs_s_nor_fixups,
 	}, {
 		.id = SNOR_ID(0x01, 0x20, 0x18, 0x03, 0x00),
 		.name = "s25sl12800",
@@ -943,7 +942,6 @@ static const struct flash_info spansion_nor_parts[] = {
 		.size = SZ_16M,
 		.no_sfdp_flags = SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.mfr_flags = USE_CLSR,
-		.fixups = &s25fs_s_nor_fixups,
 	}, {
 		.id = SNOR_ID(0x01, 0x20, 0x18, 0x4d, 0x01),
 		.name = "s25fl129p1",
@@ -1003,76 +1001,61 @@ static const struct flash_info spansion_nor_parts[] = {
 		.id = SNOR_ID(0x34, 0x2a, 0x1a, 0x0f, 0x03, 0x90),
 		.name = "s25hl512t",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s25hx_t_fixups
 	}, {
 		.id = SNOR_ID(0x34, 0x2a, 0x1b, 0x0f, 0x03, 0x90),
 		.name = "s25hl01gt",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s25hx_t_fixups
 	}, {
 		.id = SNOR_ID(0x34, 0x2a, 0x1c, 0x0f, 0x00, 0x90),
 		.name = "s25hl02gt",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s25hx_t_fixups
 	}, {
 		.id = SNOR_ID(0x34, 0x2b, 0x19, 0x0f, 0x08, 0x90),
 		.name = "s25fs256t",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s25fs256t_fixups
 	}, {
 		.id = SNOR_ID(0x34, 0x2b, 0x1a, 0x0f, 0x03, 0x90),
 		.name = "s25hs512t",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s25hx_t_fixups
 	}, {
 		.id = SNOR_ID(0x34, 0x2b, 0x1b, 0x0f, 0x03, 0x90),
 		.name = "s25hs01gt",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s25hx_t_fixups
 	}, {
 		.id = SNOR_ID(0x34, 0x2b, 0x1c, 0x0f, 0x00, 0x90),
 		.name = "s25hs02gt",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s25hx_t_fixups
 	}, {
 		/* S28HL256T */
 		.id = SNOR_ID(0x34, 0x5a, 0x19),
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s28hx_t_fixups,
 	}, {
 		.id = SNOR_ID(0x34, 0x5a, 0x1a),
 		.name = "s28hl512t",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s28hx_t_fixups,
 	}, {
 		.id = SNOR_ID(0x34, 0x5a, 0x1b),
 		.name = "s28hl01gt",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s28hx_t_fixups,
 	}, {
 		/* S28HL02GT */
 		.id = SNOR_ID(0x34, 0x5a, 0x1c),
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s28hx_t_fixups,
 	}, {
 		.id = SNOR_ID(0x34, 0x5b, 0x19),
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s28hx_t_fixups,
 	}, {
 		.id = SNOR_ID(0x34, 0x5b, 0x1a),
 		.name = "s28hs512t",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s28hx_t_fixups,
 	}, {
 		.id = SNOR_ID(0x34, 0x5b, 0x1b),
 		.name = "s28hs01gt",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s28hx_t_fixups,
 	}, {
 		.id = SNOR_ID(0x34, 0x5b, 0x1c),
 		.name = "s28hs02gt",
 		.mfr_flags = USE_CLPEF,
-		.fixups = &s28hx_t_fixups,
 	}, {
 		.id = SNOR_ID(0xef, 0x40, 0x13),
 		.name = "s25fl004k",
@@ -1172,9 +1155,31 @@ static const struct spi_nor_fixups spansion_nor_fixups = {
 	.late_init = spansion_nor_late_init,
 };
 
+static const struct spi_nor_fixup spansion_fixups[] = {
+	{ .fixups = &spansion_nor_fixups },
+	{ .id = SNOR_ID(0x01, 0x02, 0x20, 0x4d, 0x00, 0x81), .fixups = &s25fs_s_nor_fixups },
+	{ .id = SNOR_ID(0x01, 0x20, 0x18, 0x4d, 0x01, 0x81), .fixups = &s25fs_s_nor_fixups },
+	{ .id = SNOR_ID(0x34, 0x2a, 0x1a, 0x0f, 0x03, 0x90), .fixups = &s25hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x2a, 0x1b, 0x0f, 0x03, 0x90), .fixups = &s25hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x2a, 0x1c, 0x0f, 0x00, 0x90), .fixups = &s25hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x2b, 0x19, 0x0f, 0x08, 0x90), .fixups = &s25fs256t_fixups },
+	{ .id = SNOR_ID(0x34, 0x2b, 0x1a, 0x0f, 0x03, 0x90), .fixups = &s25hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x2b, 0x1b, 0x0f, 0x03, 0x90), .fixups = &s25hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x2b, 0x1c, 0x0f, 0x00, 0x90), .fixups = &s25hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x5a, 0x19), .fixups = &s28hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x5a, 0x1a), .fixups = &s28hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x5a, 0x1b), .fixups = &s28hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x5a, 0x1c), .fixups = &s28hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x5b, 0x19), .fixups = &s28hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x5b, 0x1a), .fixups = &s28hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x5b, 0x1b), .fixups = &s28hx_t_fixups },
+	{ .id = SNOR_ID(0x34, 0x5b, 0x1c), .fixups = &s28hx_t_fixups },
+};
+
 const struct spi_nor_manufacturer spi_nor_spansion = {
 	.name = "spansion",
 	.parts = spansion_nor_parts,
 	.nparts = ARRAY_SIZE(spansion_nor_parts),
-	.fixups = &spansion_nor_fixups,
+	.fixups = spansion_fixups,
+	.nfixups = ARRAY_SIZE(spansion_fixups),
 };

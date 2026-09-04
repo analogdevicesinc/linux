@@ -416,18 +416,23 @@ static int spi_nor_post_bfpt_fixups(struct spi_nor *nor,
 				    const struct sfdp_parameter_header *bfpt_header,
 				    const struct sfdp_bfpt *bfpt)
 {
+	const struct spi_nor_fixup *fixups;
+	unsigned int i;
 	int ret;
 
-	if (nor->manufacturer && nor->manufacturer->fixups &&
-	    nor->manufacturer->fixups->post_bfpt) {
-		ret = nor->manufacturer->fixups->post_bfpt(nor, bfpt_header,
-							   bfpt);
-		if (ret)
-			return ret;
-	}
+	if (!nor->manufacturer || !nor->manufacturer->fixups)
+		return 0;
 
-	if (nor->info->fixups && nor->info->fixups->post_bfpt)
-		return nor->info->fixups->post_bfpt(nor, bfpt_header, bfpt);
+	fixups = nor->manufacturer->fixups;
+
+	for (i = 0; i < nor->manufacturer->nfixups; i++) {
+		if (fixups[i].fixups->post_bfpt &&
+		    spi_nor_fixup_match(nor, &fixups[i])) {
+			ret = fixups[i].fixups->post_bfpt(nor, bfpt_header, bfpt);
+			if (ret)
+				return ret;
+		}
+	}
 
 	return 0;
 }
@@ -758,12 +763,19 @@ static u8 spi_nor_smpt_addr_nbytes(const struct spi_nor *nor, const u32 settings
 static void spi_nor_smpt_read_dummy_fixups(const struct spi_nor *nor,
 					   u8 *read_dummy)
 {
-	if (nor->manufacturer && nor->manufacturer->fixups &&
-	    nor->manufacturer->fixups->smpt_read_dummy)
-		nor->manufacturer->fixups->smpt_read_dummy(nor, read_dummy);
+	const struct spi_nor_fixup *fixups;
+	unsigned int i;
 
-	if (nor->info->fixups && nor->info->fixups->smpt_read_dummy)
-		nor->info->fixups->smpt_read_dummy(nor, read_dummy);
+	if (!nor->manufacturer || !nor->manufacturer->fixups)
+		return;
+
+	fixups = nor->manufacturer->fixups;
+
+	for (i = 0; i < nor->manufacturer->nfixups; i++) {
+		if (fixups[i].fixups->smpt_read_dummy &&
+		    spi_nor_fixup_match(nor, &fixups[i]))
+			fixups[i].fixups->smpt_read_dummy(nor, read_dummy);
+	}
 }
 
 /**
@@ -788,12 +800,19 @@ static u8 spi_nor_smpt_read_dummy(const struct spi_nor *nor, const u32 settings)
 
 static void spi_nor_smpt_map_id_fixups(const struct spi_nor *nor, u8 *map_id)
 {
-	if (nor->manufacturer && nor->manufacturer->fixups &&
-	    nor->manufacturer->fixups->smpt_map_id)
-		nor->manufacturer->fixups->smpt_map_id(nor, map_id);
+	const struct spi_nor_fixup *fixups;
+	unsigned int i;
 
-	if (nor->info->fixups && nor->info->fixups->smpt_map_id)
-		nor->info->fixups->smpt_map_id(nor, map_id);
+	if (!nor->manufacturer || !nor->manufacturer->fixups)
+		return;
+
+	fixups = nor->manufacturer->fixups;
+
+	for (i = 0; i < nor->manufacturer->nfixups; i++) {
+		if (fixups[i].fixups->smpt_map_id &&
+		    spi_nor_fixup_match(nor, &fixups[i]))
+			fixups[i].fixups->smpt_map_id(nor, map_id);
+	}
 }
 
 /**
@@ -1445,17 +1464,23 @@ out:
  */
 static int spi_nor_post_sfdp_fixups(struct spi_nor *nor)
 {
+	const struct spi_nor_fixup *fixups;
+	unsigned int i;
 	int ret;
 
-	if (nor->manufacturer && nor->manufacturer->fixups &&
-	    nor->manufacturer->fixups->post_sfdp) {
-		ret = nor->manufacturer->fixups->post_sfdp(nor);
-		if (ret)
-			return ret;
-	}
+	if (!nor->manufacturer || !nor->manufacturer->fixups)
+		return 0;
 
-	if (nor->info->fixups && nor->info->fixups->post_sfdp)
-		return nor->info->fixups->post_sfdp(nor);
+	fixups = nor->manufacturer->fixups;
+
+	for (i = 0; i < nor->manufacturer->nfixups; i++) {
+		if (fixups[i].fixups->post_sfdp &&
+		    spi_nor_fixup_match(nor, &fixups[i])) {
+			ret = fixups[i].fixups->post_sfdp(nor);
+			if (ret)
+				return ret;
+		}
+	}
 
 	return 0;
 }

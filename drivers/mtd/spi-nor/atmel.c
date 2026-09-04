@@ -194,47 +194,40 @@ static const struct flash_info atmel_nor_parts[] = {
 		.size = SZ_512K,
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE,
 		.no_sfdp_flags = SECT_4K,
-		.fixups = &atmel_nor_global_protection_fixups,
 	}, {
 		.id = SNOR_ID(0x1f, 0x45, 0x01),
 		.name = "at26df081a",
 		.size = SZ_1M,
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE,
 		.no_sfdp_flags = SECT_4K,
-		.fixups = &atmel_nor_global_protection_fixups
 	}, {
 		.id = SNOR_ID(0x1f, 0x46, 0x01),
 		.name = "at26df161a",
 		.size = SZ_2M,
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE,
 		.no_sfdp_flags = SECT_4K,
-		.fixups = &atmel_nor_global_protection_fixups
 	}, {
 		.id = SNOR_ID(0x1f, 0x47, 0x00),
 		.name = "at25df321",
 		.size = SZ_4M,
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE,
 		.no_sfdp_flags = SECT_4K,
-		.fixups = &atmel_nor_global_protection_fixups
 	}, {
 		.id = SNOR_ID(0x1f, 0x47, 0x01),
 		.name = "at25df321a",
 		.size = SZ_4M,
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE,
 		.no_sfdp_flags = SECT_4K,
-		.fixups = &atmel_nor_global_protection_fixups
 	}, {
 		.id = SNOR_ID(0x1f, 0x47, 0x08),
 		.name = "at25ff321a",
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE,
-		.fixups = &atmel_nor_global_protection_fixups
 	}, {
 		.id = SNOR_ID(0x1f, 0x48, 0x00),
 		.name = "at25df641",
 		.size = SZ_8M,
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE,
 		.no_sfdp_flags = SECT_4K,
-		.fixups = &atmel_nor_global_protection_fixups
 	}, {
 		.id = SNOR_ID(0x1f, 0x66, 0x01),
 		.name = "at25fs010",
@@ -242,14 +235,12 @@ static const struct flash_info atmel_nor_parts[] = {
 		.size = SZ_128K,
 		.flags = SPI_NOR_HAS_LOCK,
 		.no_sfdp_flags = SECT_4K,
-		.fixups = &at25fs_nor_fixups
 	}, {
 		.id = SNOR_ID(0x1f, 0x66, 0x04),
 		.name = "at25fs040",
 		.size = SZ_512K,
 		.flags = SPI_NOR_HAS_LOCK,
 		.no_sfdp_flags = SECT_4K,
-		.fixups = &at25fs_nor_fixups
 	}, {
 		.id = SNOR_ID(0x1f, 0x87, 0x01),
 		.size = SZ_4M,
@@ -257,8 +248,22 @@ static const struct flash_info atmel_nor_parts[] = {
 	},
 };
 
+static const struct spi_nor_fixup atmel_fixups[] = {
+	{ .id = SNOR_ID(0x1f, 0x44, 0x01), .fixups = &atmel_nor_global_protection_fixups },
+	{ .id = SNOR_ID(0x1f, 0x45, 0x01), .fixups = &atmel_nor_global_protection_fixups },
+	{ .id = SNOR_ID(0x1f, 0x46, 0x01), .fixups = &atmel_nor_global_protection_fixups },
+	{ .id = SNOR_ID(0x1f, 0x47, 0x00), .fixups = &atmel_nor_global_protection_fixups },
+	{ .id = SNOR_ID(0x1f, 0x47, 0x01), .fixups = &atmel_nor_global_protection_fixups },
+	{ .id = SNOR_ID(0x1f, 0x47, 0x08), .fixups = &atmel_nor_global_protection_fixups },
+	{ .id = SNOR_ID(0x1f, 0x48, 0x00), .fixups = &atmel_nor_global_protection_fixups },
+	{ .id = SNOR_ID(0x1f, 0x66, 0x01), .fixups = &at25fs_nor_fixups },
+	{ .id = SNOR_ID(0x1f, 0x66, 0x04), .fixups = &at25fs_nor_fixups },
+};
+
 const struct spi_nor_manufacturer spi_nor_atmel = {
 	.name = "atmel",
 	.parts = atmel_nor_parts,
 	.nparts = ARRAY_SIZE(atmel_nor_parts),
+	.fixups = atmel_fixups,
+	.nfixups = ARRAY_SIZE(atmel_fixups),
 };

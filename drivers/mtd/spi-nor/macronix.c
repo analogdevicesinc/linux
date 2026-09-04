@@ -159,24 +159,19 @@ static const struct flash_info macronix_nor_parts[] = {
 		.size = SZ_16M,
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_4BIT_BP,
 		.no_sfdp_flags = SECT_4K,
-		.fixups = &mx25l12805d_4pp3b_fixups,
 	}, {
 		/* MX25L25635E, MX25L25645G */
 		.id = SNOR_ID(0xc2, 0x20, 0x19),
-		.fixups = &mx25l25635_fixups
 	}, {
 		/* MX25L51245G, MX25L51273G, MX66L51235F */
 		.id = SNOR_ID(0xc2, 0x20, 0x1a),
 		.fixup_flags = SPI_NOR_4B_OPCODES,
-		.fixups = &macronix_qpp4b_fixups,
 	}, {
 		/* MX66L1G45G */
 		.id = SNOR_ID(0xc2, 0x20, 0x1b),
-		.fixups = &macronix_qpp4b_fixups,
 	}, {
 		/* MX66L2G45G */
 		.id = SNOR_ID(0xc2, 0x20, 0x1c),
-		.fixups = &macronix_qpp4b_fixups,
 	}, {
 		.id = SNOR_ID(0xc2, 0x23, 0x14),
 		.name = "mx25v8035f",
@@ -215,15 +210,12 @@ static const struct flash_info macronix_nor_parts[] = {
 	}, {
 		/* MX25U51245G, MX25U51293G */
 		.id = SNOR_ID(0xc2, 0x25, 0x3a),
-		.fixups = &macronix_qpp4b_fixups,
 	}, {
 		/* MX66U1G45G, MX66U1G93G */
 		.id = SNOR_ID(0xc2, 0x25, 0x3b),
-		.fixups = &macronix_qpp4b_fixups,
 	}, {
 		/* MX66U2G45G */
 		.id = SNOR_ID(0xc2, 0x25, 0x3c),
-		.fixups = &macronix_qpp4b_fixups,
 	}, {
 		.id = SNOR_ID(0xc2, 0x26, 0x18),
 		.name = "mx25l12855e",
@@ -255,7 +247,6 @@ static const struct flash_info macronix_nor_parts[] = {
 	}, {
 		/* MX25L3255E */
 		.id = SNOR_ID(0xc2, 0x9e, 0x16),
-		.fixups = &mx25l3255e_fixups,
 	},
 	/*
 	 * This spares us of adding new flash entries for flashes that can be
@@ -359,9 +350,23 @@ static const struct spi_nor_fixups macronix_nor_fixups = {
 	.late_init = macronix_nor_late_init,
 };
 
+static const struct spi_nor_fixup macronix_fixups[] = {
+	{ .fixups = &macronix_nor_fixups },
+	{ .id = SNOR_ID(0xc2, 0x20, 0x18), .fixups = &mx25l12805d_4pp3b_fixups },
+	{ .id = SNOR_ID(0xc2, 0x20, 0x19), .fixups = &mx25l25635_fixups },
+	{ .id = SNOR_ID(0xc2, 0x20, 0x1a), .fixups = &macronix_qpp4b_fixups },
+	{ .id = SNOR_ID(0xc2, 0x20, 0x1b), .fixups = &macronix_qpp4b_fixups },
+	{ .id = SNOR_ID(0xc2, 0x20, 0x1c), .fixups = &macronix_qpp4b_fixups },
+	{ .id = SNOR_ID(0xc2, 0x25, 0x3a), .fixups = &macronix_qpp4b_fixups },
+	{ .id = SNOR_ID(0xc2, 0x25, 0x3b), .fixups = &macronix_qpp4b_fixups },
+	{ .id = SNOR_ID(0xc2, 0x25, 0x3c), .fixups = &macronix_qpp4b_fixups },
+	{ .id = SNOR_ID(0xc2, 0x9e, 0x16), .fixups = &mx25l3255e_fixups },
+};
+
 const struct spi_nor_manufacturer spi_nor_macronix = {
 	.name = "macronix",
 	.parts = macronix_nor_parts,
 	.nparts = ARRAY_SIZE(macronix_nor_parts),
-	.fixups = &macronix_nor_fixups,
+	.fixups = macronix_fixups,
+	.nfixups = ARRAY_SIZE(macronix_fixups),
 };

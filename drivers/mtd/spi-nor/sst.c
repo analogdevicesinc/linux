@@ -152,14 +152,12 @@ static const struct flash_info sst_nor_parts[] = {
 		.id = SNOR_ID(0xbf, 0x26, 0x42),
 		.name = "sst26vf032b",
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE,
-		.fixups = &sst26vf_nor_fixups,
 	}, {
 		.id = SNOR_ID(0xbf, 0x26, 0x43),
 		.name = "sst26vf064b",
 		.size = SZ_8M,
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_SWP_IS_VOLATILE,
 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
-		.fixups = &sst26vf_nor_fixups,
 	}, {
 		.id = SNOR_ID(0xbf, 0x26, 0x51),
 		.name = "sst26wf016b",
@@ -278,9 +276,16 @@ static const struct spi_nor_fixups sst_nor_fixups = {
 	.late_init = sst_nor_late_init,
 };
 
+static const struct spi_nor_fixup sst_fixups[] = {
+	{ .fixups = &sst_nor_fixups },
+	{ .id = SNOR_ID(0xbf, 0x26, 0x42), .fixups = &sst26vf_nor_fixups },
+	{ .id = SNOR_ID(0xbf, 0x26, 0x43), .fixups = &sst26vf_nor_fixups },
+};
+
 const struct spi_nor_manufacturer spi_nor_sst = {
 	.name = "sst",
 	.parts = sst_nor_parts,
 	.nparts = ARRAY_SIZE(sst_nor_parts),
-	.fixups = &sst_nor_fixups,
+	.fixups = sst_fixups,
+	.nfixups = ARRAY_SIZE(sst_fixups),
 };

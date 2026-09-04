@@ -2618,6 +2618,26 @@ static int spi_nor_setup(struct spi_nor *nor,
 	return spi_nor_set_addr_nbytes(nor);
 }
 
+bool spi_nor_fixup_match(const struct spi_nor *nor,
+			 const struct spi_nor_fixup *fixup)
+{
+	const struct spi_nor_id *id = nor->info ? nor->info->id : NULL;
+
+	/* Filter by ID first, if available */
+	if (fixup->id) {
+		if (!id || fixup->id->len > id->len ||
+		    memcmp(id->bytes, fixup->id->bytes, fixup->id->len))
+			return false;
+	}
+
+	/* Further filter with the match callback, if provided */
+	if (fixup->match)
+		return fixup->match(nor);
+
+	/* Either there was an ID and it matched, or it is a catch-all entry */
+	return true;
+}
+
 /**
  * spi_nor_manufacturer_init_params() - Initialize the flash's parameters and
  * settings based on MFR register and ->default_init() hook.
@@ -2625,12 +2645,19 @@ static int spi_nor_setup(struct spi_nor *nor,
  */
 static void spi_nor_manufacturer_init_params(struct spi_nor *nor)
 {
-	if (nor->manufacturer && nor->manufacturer->fixups &&
-	    nor->manufacturer->fixups->default_init)
-		nor->manufacturer->fixups->default_init(nor);
+	const struct spi_nor_fixup *fixups;
+	unsigned int i;
 
-	if (nor->info->fixups && nor->info->fixups->default_init)
-		nor->info->fixups->default_init(nor);
+	if (!nor->manufacturer || !nor->manufacturer->fixups)
+		return;
+
+	fixups = nor->manufacturer->fixups;
+
+	for (i = 0; i < nor->manufacturer->nfixups; i++) {
+		if (fixups[i].fixups->default_init &&
+		    spi_nor_fixup_match(nor, &fixups[i]))
+			fixups[i].fixups->default_init(nor);
+	}
 }
 
 /**
@@ -2780,22 +2807,24 @@ static void spi_nor_init_fixup_flags(struct spi_nor *nor)
 static int spi_nor_late_init_params(struct spi_nor *nor)
 {
 	struct spi_nor_flash_parameter *params = nor->params;
+	const struct spi_nor_fixup *fixups;
+	unsigned int i;
 	int ret;
 
 	/* Needed by some late_init hooks */
 	spi_nor_init_flags(nor);
 
-	if (nor->manufacturer && nor->manufacturer->fixups &&
-	    nor->manufacturer->fixups->late_init) {
-		ret = nor->manufacturer->fixups->late_init(nor);
-		if (ret)
-			return ret;
-	}
+	if (nor->manufacturer && nor->manufacturer->fixups) {
+		fixups = nor->manufacturer->fixups;
 
-	if (nor->info->fixups && nor->info->fixups->late_init) {
-		ret = nor->info->fixups->late_init(nor);
-		if (ret)
-			return ret;
+		for (i = 0; i < nor->manufacturer->nfixups; i++) {
+			if (fixups[i].fixups->late_init &&
+			    spi_nor_fixup_match(nor, &fixups[i])) {
+				ret = fixups[i].fixups->late_init(nor);
+				if (ret)
+					return ret;
+			}
+		}
 	}
 
 	if (!nor->params->opcodes.die_erase)

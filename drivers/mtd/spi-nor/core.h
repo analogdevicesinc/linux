@@ -453,6 +453,19 @@ struct spi_nor_fixups {
 };
 
 /**
+ * struct spi_nor_fixup - SPI NOR fixup registration.
+ * @id:		(optional) flash ID this fixup applies to, may only match the
+ *		ID prefix, eg. just the first few bytes to match a whole family
+ * @match:	(optional) custom match function (can be used together with @id)
+ * @fixups:	the fixup hooks to apply when this entry matches
+ */
+struct spi_nor_fixup {
+	const struct spi_nor_id *id;
+	bool (*match)(const struct spi_nor *nor);
+	const struct spi_nor_fixups *fixups;
+};
+
+/**
  * struct spi_nor_id - SPI NOR flash ID.
  *
  * @bytes: the bytes returned by the flash when issuing command 9F. Typically,
@@ -564,7 +577,6 @@ struct flash_info {
 	u8 mfr_flags;
 
 	const struct spi_nor_otp_organization *otp;
-	const struct spi_nor_fixups *fixups;
 };
 
 #define SNOR_ID(...)							\
@@ -586,13 +598,16 @@ struct flash_info {
  * @name: manufacturer name
  * @parts: array of parts supported by this manufacturer
  * @nparts: number of entries in the parts array
- * @fixups: hooks called at various points in time during spi_nor_scan()
+ * @fixups: list of fixups, each matched by ID (or a custom match function),
+ *          applied to any part of this manufacturer.
+ * @nfixups: number of entries in the fixups array
  */
 struct spi_nor_manufacturer {
 	const char *name;
 	const struct flash_info *parts;
 	unsigned int nparts;
-	const struct spi_nor_fixups *fixups;
+	const struct spi_nor_fixup *fixups;
+	unsigned int nfixups;
 };
 
 /**
@@ -623,6 +638,8 @@ extern const struct spi_nor_manufacturer spi_nor_xmc;
 
 extern const struct attribute_group *spi_nor_sysfs_groups[];
 
+bool spi_nor_fixup_match(const struct spi_nor *nor,
+			 const struct spi_nor_fixup *fixup);
 void spi_nor_spimem_setup_op(const struct spi_nor *nor,
 			     struct spi_mem_op *op,
 			     const enum spi_nor_protocol proto);
