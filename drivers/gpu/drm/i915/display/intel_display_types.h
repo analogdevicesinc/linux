@@ -289,6 +289,9 @@ struct intel_encoder {
 	 */
 	enum icl_port_dpll_id (*port_pll_type)(struct intel_encoder *encoder,
 					       const struct intel_crtc_state *crtc_state);
+	const struct intel_ddi_buf_trans *(*get_buf_trans_override)(struct intel_encoder *encoder,
+								    const struct intel_crtc_state *crtc_state,
+								    int *n_entries);
 	const struct intel_ddi_buf_trans *(*get_buf_trans)(struct intel_encoder *encoder,
 							   const struct intel_crtc_state *crtc_state,
 							   int *n_entries);

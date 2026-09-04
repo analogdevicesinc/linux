@@ -1857,5 +1857,13 @@ const struct intel_ddi_buf_trans *intel_ddi_buf_trans_get(struct intel_encoder *
 							  const struct intel_crtc_state *crtc_state,
 							  int *n_entries)
 {
+	if (encoder->get_buf_trans_override) {
+		const struct intel_ddi_buf_trans *override;
+
+		override = encoder->get_buf_trans_override(encoder, crtc_state, n_entries);
+		if (override)
+			return intel_get_buf_trans(override, n_entries);
+	}
+
 	return encoder->get_buf_trans(encoder, crtc_state, n_entries);
 }
