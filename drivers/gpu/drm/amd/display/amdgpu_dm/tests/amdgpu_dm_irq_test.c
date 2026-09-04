@@ -1301,6 +1301,28 @@ static void dm_test_get_crtc_by_otg_inst_empty_list(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, amdgpu_dm_get_crtc_by_otg_inst(adev, 0));
 }
 
+/**
+ * dm_test_get_crtc_by_otg_inst_unassigned_otg - Test CRTC lookup for a disabled OTG
+ * @test: The KUnit test context
+ *
+ * An IRQ that names an OTG instance of -1 cannot be matched, so the lookup
+ * trips its WARN_ON and falls back to the first CRTC rather than walking the
+ * list.
+ */
+static void dm_test_get_crtc_by_otg_inst_unassigned_otg(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+
+	adev = dm_kunit_alloc_adev(test);
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	adev->mode_info.crtcs[0] = acrtc;
+
+	KUNIT_EXPECT_PTR_EQ(test, amdgpu_dm_get_crtc_by_otg_inst(adev, -1), acrtc);
+}
+
 /* Tests for amdgpu_dm_set_irq_funcs() */
 
 /**
@@ -4865,6 +4887,7 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_get_crtc_by_otg_inst_returns_match),
 	KUNIT_CASE(dm_test_get_crtc_by_otg_inst_returns_null),
 	KUNIT_CASE(dm_test_get_crtc_by_otg_inst_empty_list),
+	KUNIT_CASE(dm_test_get_crtc_by_otg_inst_unassigned_otg),
 	/* amdgpu_dm_set_irq_funcs */
 	KUNIT_CASE(dm_test_set_irq_funcs),
 	/* amdgpu_dm_irq_suspend/resume_early/resume_late */
