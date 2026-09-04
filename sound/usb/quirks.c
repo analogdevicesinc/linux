@@ -3,6 +3,7 @@
  */
 
 #include <linux/cleanup.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -1855,6 +1856,75 @@ static int rme_digiface_set_format_quirk(struct snd_usb_substream *subs)
 	return 0;
 }
 
+#define ROLAND_CAPTURE_RATE_REQUEST		3
+#define ROLAND_CAPTURE_RATE_READ_VALUE		0x0001
+#define ROLAND_CAPTURE_RATE_WRITE_VALUE		0x0008
+#define ROLAND_CAPTURE_RATE_WRITE_PREFIX	0x40
+#define ROLAND_CAPTURE_RATE_RETRIES		40
+#define ROLAND_CAPTURE_RATE_POLL_MS		25
+
+/*
+ * OCTA-CAPTURE and QUAD-CAPTURE use the same vendor request for their
+ * hardware clock.  A read returns the 24-bit little-endian rate followed by
+ * a transition-status byte.  A write carries 0x40 followed by the rate.
+ */
+static int roland_capture_read_rate(struct usb_device *dev, u32 *rate)
+{
+	u8 data[4];
+	int err;
+
+	err = snd_usb_ctl_msg(dev, usb_rcvctrlpipe(dev, 0),
+			      ROLAND_CAPTURE_RATE_REQUEST,
+			      USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+			      ROLAND_CAPTURE_RATE_READ_VALUE, 0,
+			      data, sizeof(data));
+	if (err != sizeof(data))
+		return err < 0 ? err : -EIO;
+
+	*rate = combine_triple(data);
+	return 0;
+}
+
+static void roland_capture_set_rate(struct snd_usb_substream *subs)
+{
+	struct snd_usb_audio *chip = subs->stream->chip;
+	struct usb_device *dev = chip->dev;
+	u32 rate = subs->data_endpoint->cur_rate;
+	u32 current_rate;
+	u8 data[4];
+	int err;
+	int i;
+
+	/* Serialize playback and capture endpoint starts during a clock change. */
+	guard(mutex)(&chip->mutex);
+	err = roland_capture_read_rate(dev, &current_rate);
+	if (!err && current_rate == rate)
+		return;
+
+	data[0] = ROLAND_CAPTURE_RATE_WRITE_PREFIX;
+	data[1] = rate;
+	data[2] = rate >> 8;
+	data[3] = rate >> 16;
+	err = snd_usb_ctl_msg(dev, usb_sndctrlpipe(dev, 0),
+			      ROLAND_CAPTURE_RATE_REQUEST,
+			      USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+			      ROLAND_CAPTURE_RATE_WRITE_VALUE, 0,
+			      data, sizeof(data));
+	if (err != sizeof(data)) {
+		usb_audio_warn(chip, "cannot set Roland sample rate to %u Hz: %d\n",
+			       rate, err < 0 ? err : -EIO);
+		return;
+	}
+
+	for (i = 0; i < ROLAND_CAPTURE_RATE_RETRIES; i++) {
+		err = roland_capture_read_rate(dev, &current_rate);
+		if (!err && current_rate == rate)
+			return;
+		msleep(ROLAND_CAPTURE_RATE_POLL_MS);
+	}
+	usb_audio_warn(chip, "Roland sample rate did not reach %u Hz\n", rate);
+}
+
 void snd_usb_set_format_quirk(struct snd_usb_substream *subs,
 			      const struct audioformat *fmt)
 {
@@ -1884,6 +1954,10 @@ void snd_usb_set_format_quirk(struct snd_usb_substream *subs,
 	case USB_ID(0x2a39, 0x3f8c): /* RME Digiface USB */
 	case USB_ID(0x2a39, 0x3fa0): /* RME Digiface USB (alternate) */
 		rme_digiface_set_format_quirk(subs);
+		break;
+	case USB_ID(0x0582, 0x0120): /* Roland OCTA-CAPTURE */
+	case USB_ID(0x0582, 0x012f): /* Roland QUAD-CAPTURE */
+		roland_capture_set_rate(subs);
 		break;
 	}
 }
