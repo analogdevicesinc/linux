@@ -75,8 +75,8 @@ struct selinux_fs_info {
 	char **bool_pending_names;
 	int *bool_pending_values;
 	struct dentry *class_dir;
-	unsigned long last_class_ino;
-	unsigned long last_ino;
+	u64 last_class_ino;
+	u64 last_ino;
 	struct super_block *sb;
 };
 
@@ -304,15 +304,14 @@ static int sel_make_bools(struct selinux_policy *newpolicy, struct dentry *bool_
 			  int **bool_pending_values);
 static int sel_make_classes(struct selinux_policy *newpolicy,
 			    struct dentry *class_dir,
-			    unsigned long *last_class_ino);
+			    u64 *last_class_ino);
 
 /* declaration for sel_make_class_dirs */
 static struct dentry *sel_make_dir(struct dentry *dir, const char *name,
-			unsigned long *ino);
+				   u64 *ino);
 
 /* declaration for sel_make_policy_nodes */
-static struct dentry *sel_make_swapover_dir(struct super_block *sb,
-						unsigned long *ino);
+static struct dentry *sel_make_swapover_dir(struct super_block *sb, u64 *ino);
 
 static ssize_t sel_read_mls(struct file *filp, char __user *buf,
 				size_t count, loff_t *ppos)
@@ -467,7 +466,7 @@ static int sel_make_policy_nodes(struct selinux_fs_info *fsi,
 	unsigned int bool_num = 0;
 	char **bool_names = NULL;
 	int *bool_values = NULL;
-	unsigned long tmp_ino = fsi->last_ino; /* Don't increment last_ino in this function */
+	u64 tmp_ino = fsi->last_ino; /* Don't increment last_ino in this function */
 
 	tmp_parent = sel_make_swapover_dir(fsi->sb, &tmp_ino);
 	if (IS_ERR(tmp_parent))
@@ -1568,22 +1567,22 @@ static int sel_make_initcon_files(struct dentry *dir)
 	return err;
 }
 
-static inline unsigned long sel_class_to_ino(u16 class)
+static inline u64 sel_class_to_ino(u16 class)
 {
 	return (class * (SEL_VEC_MAX + 1)) | SEL_CLASS_INO_OFFSET;
 }
 
-static inline u16 sel_ino_to_class(unsigned long ino)
+static inline u16 sel_ino_to_class(u64 ino)
 {
 	return (ino & SEL_INO_MASK) / (SEL_VEC_MAX + 1);
 }
 
-static inline unsigned long sel_perm_to_ino(u16 class, u32 perm)
+static inline u64 sel_perm_to_ino(u16 class, u32 perm)
 {
 	return (class * (SEL_VEC_MAX + 1) + perm) | SEL_CLASS_INO_OFFSET;
 }
 
-static inline u32 sel_ino_to_perm(unsigned long ino)
+static inline u32 sel_ino_to_perm(u64 ino)
 {
 	return (ino & SEL_INO_MASK) % (SEL_VEC_MAX + 1);
 }
@@ -1591,7 +1590,7 @@ static inline u32 sel_ino_to_perm(unsigned long ino)
 static ssize_t sel_read_class(struct file *file, char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ino = file_inode(file)->i_ino;
+	u64 ino = file_inode(file)->i_ino;
 	char res[TMPBUFLEN];
 	ssize_t len = scnprintf(res, sizeof(res), "%d", sel_ino_to_class(ino));
 	return simple_read_from_buffer(buf, count, ppos, res, len);
@@ -1605,7 +1604,7 @@ static const struct file_operations sel_class_ops = {
 static ssize_t sel_read_perm(struct file *file, char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	unsigned long ino = file_inode(file)->i_ino;
+	u64 ino = file_inode(file)->i_ino;
 	char res[TMPBUFLEN];
 	ssize_t len = scnprintf(res, sizeof(res), "%d", sel_ino_to_perm(ino));
 	return simple_read_from_buffer(buf, count, ppos, res, len);
@@ -1622,7 +1621,7 @@ static ssize_t sel_read_policycap(struct file *file, char __user *buf,
 	int value;
 	char tmpbuf[TMPBUFLEN];
 	ssize_t length;
-	unsigned long i_ino = file_inode(file)->i_ino;
+	u64 i_ino = file_inode(file)->i_ino;
 
 	value = security_policycap_supported(i_ino & SEL_INO_MASK);
 	length = scnprintf(tmpbuf, TMPBUFLEN, "%d", value);
@@ -1698,7 +1697,7 @@ static int sel_make_class_dir_entries(struct selinux_policy *newpolicy,
 
 static int sel_make_classes(struct selinux_policy *newpolicy,
 			    struct dentry *class_dir,
-			    unsigned long *last_class_ino)
+			    u64 *last_class_ino)
 {
 	u32 i, nclasses;
 	int rc;
@@ -1763,7 +1762,7 @@ static int sel_make_policycap(struct dentry *dir)
 }
 
 static struct dentry *sel_make_dir(struct dentry *dir, const char *name,
-			unsigned long *ino)
+				   u64 *ino)
 {
 	struct inode *inode;
 
@@ -1792,8 +1791,7 @@ static const struct inode_operations swapover_dir_inode_operations = {
 	.permission	= reject_all,
 };
 
-static struct dentry *sel_make_swapover_dir(struct super_block *sb,
-						unsigned long *ino)
+static struct dentry *sel_make_swapover_dir(struct super_block *sb, u64 *ino)
 {
 	struct dentry *dentry;
 	struct inode *inode;
