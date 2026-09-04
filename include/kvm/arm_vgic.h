@@ -40,6 +40,7 @@
  * in KVM for now. At a future stage, this can be bumped up to 128, if required.
  */
 #define VGIC_V5_NR_PRIVATE_IRQS	64
+#define VGIC_V5_DEFAULT_NR_SPIS	32
 
 #define is_v5_type(t, i)	(FIELD_GET(GICV5_HWIRQ_TYPE, (i)) == (t))
 

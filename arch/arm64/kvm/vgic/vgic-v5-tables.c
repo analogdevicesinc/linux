@@ -642,6 +642,22 @@ no_vmi:
 	return 0;
 }
 
+/*
+ * Provide a way for the IRS MMIO emulation to correctly populate the number of
+ * IAFFID bits (which correspond to our vpe_id_bits.
+ */
+u8 vgic_v5_vmte_vpe_id_bits(struct kvm_vcpu *vcpu)
+{
+	u32 vm_id = vgic_v5_vm_id(vcpu->kvm);
+	struct vgic_v5_vm_info *vmi;
+
+	vmi = xa_load(&vm_info, vm_id);
+	if (!vmi)
+		return 0;
+
+	return vmi->vpe_id_bits;
+}
+
 /* Provide the preallocated VPE descriptor to the hardware via the VPE Table. */
 int vgic_v5_vmte_alloc_vpe(struct kvm_vcpu *vcpu)
 {

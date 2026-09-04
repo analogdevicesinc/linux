@@ -1159,6 +1159,14 @@ static int check_vcpu_requests(struct kvm_vcpu *vcpu)
 			preempt_enable();
 		}
 
+		if (kvm_check_request(KVM_REQ_RELOAD_GICv5, vcpu)) {
+			/* The IRS enable bit was changed */
+			preempt_disable();
+			vgic_v5_put(vcpu);
+			vgic_v5_load(vcpu);
+			preempt_enable();
+		}
+
 		if (kvm_check_request(KVM_REQ_RELOAD_PMU, vcpu))
 			kvm_vcpu_reload_pmu(vcpu);
 
