@@ -352,7 +352,8 @@ static void dm_test_fill_dc_scaling_info(struct kunit *test)
  * dm_test_get_min_max_dc_plane_scaling() - Verify format-specific cap selection and 1->1000 conversion.
  * @test: KUnit test context.
  *
- * Verify if min/max scaling values are correct for NV12 and XRGB8888 formats.
+ * Verify if min/max scaling values are correct for the NV12, XRGB8888 and fp16
+ * caps.
  */
 static void dm_test_get_min_max_dc_plane_scaling(struct kunit *test)
 {
@@ -374,6 +375,8 @@ static void dm_test_get_min_max_dc_plane_scaling(struct kunit *test)
 	dc->caps.planes[0].max_downscale_factor.nv12 = 1;
 	dc->caps.planes[0].max_upscale_factor.argb8888 = 1600;
 	dc->caps.planes[0].max_downscale_factor.argb8888 = 250;
+	dc->caps.planes[0].max_upscale_factor.fp16 = 2000;
+	dc->caps.planes[0].max_downscale_factor.fp16 = 500;
 
 	fb->format = drm_format_info(DRM_FORMAT_NV12);
 	KUNIT_ASSERT_NOT_NULL(test, fb->format);
@@ -386,13 +389,20 @@ static void dm_test_get_min_max_dc_plane_scaling(struct kunit *test)
 	amdgpu_dm_plane_get_min_max_dc_plane_scaling(&adev->ddev, fb, &min_downscale, &max_upscale);
 	KUNIT_EXPECT_EQ(test, min_downscale, 250);
 	KUNIT_EXPECT_EQ(test, max_upscale, 1600);
+
+	fb->format = drm_format_info(DRM_FORMAT_ARGB16161616F);
+	KUNIT_ASSERT_NOT_NULL(test, fb->format);
+	amdgpu_dm_plane_get_min_max_dc_plane_scaling(&adev->ddev, fb, &min_downscale, &max_upscale);
+	KUNIT_EXPECT_EQ(test, min_downscale, 500);
+	KUNIT_EXPECT_EQ(test, max_upscale, 2000);
 }
 
 /**
  * dm_test_get_cursor_position() - Verify cursor clipping and off-screen handling.
  * @test: KUnit test context.
  *
- * Verify if cursor clipping, hotspot adjustment, and off-screen disable behavior work.
+ * Verify if cursor clipping, hotspot adjustment, off-screen disable behavior
+ * and the oversized-cursor rejection work.
  */
 static void dm_test_get_cursor_position(struct kunit *test)
 {
@@ -443,6 +453,11 @@ static void dm_test_get_cursor_position(struct kunit *test)
 			amdgpu_dm_plane_get_cursor_position(plane, &amdgpu_crtc->base, &position),
 			0);
 	KUNIT_EXPECT_FALSE(test, position.enable);
+
+	state->crtc_w = 128;
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_cursor_position(plane, &amdgpu_crtc->base, &position),
+			-EINVAL);
 }
 
 /**
@@ -1719,39 +1734,6 @@ static void dm_test_fill_plane_buffer_attributes_gfx12(struct kunit *test)
 }
 
 /**
- * dm_test_get_min_max_dc_plane_scaling_fp16() - Verify fp16 cap selection.
- * @test: KUnit test context.
- *
- * Verify if 64bpp fp16 formats use the fp16 scaling caps.
- */
-static void dm_test_get_min_max_dc_plane_scaling_fp16(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct dc *dc;
-	struct drm_framebuffer *fb;
-	int min_downscale = 0;
-	int max_upscale = 0;
-
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
-	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
-	KUNIT_ASSERT_NOT_NULL(test, dc);
-	KUNIT_ASSERT_NOT_NULL(test, fb);
-
-	adev->dm.dc = dc;
-	dc->caps.planes[0].max_upscale_factor.fp16 = 2000;
-	dc->caps.planes[0].max_downscale_factor.fp16 = 500;
-
-	fb->format = drm_format_info(DRM_FORMAT_ARGB16161616F);
-	KUNIT_ASSERT_NOT_NULL(test, fb->format);
-	amdgpu_dm_plane_get_min_max_dc_plane_scaling(&adev->ddev, fb,
-						     &min_downscale, &max_upscale);
-	KUNIT_EXPECT_EQ(test, min_downscale, 500);
-	KUNIT_EXPECT_EQ(test, max_upscale, 2000);
-}
-
-/**
  * dm_test_helper_check_state_small_viewport_width() - Verify width rejection.
  * @test: KUnit test context.
  *
@@ -2022,45 +2004,6 @@ static void dm_test_fill_dc_scaling_info_plane_caps(struct kunit *test)
 	KUNIT_EXPECT_EQ(test,
 			amdgpu_dm_plane_fill_dc_scaling_info(adev, state, &info),
 			0);
-}
-
-/**
- * dm_test_get_cursor_position_bad_size() - Verify oversized cursor rejection.
- * @test: KUnit test context.
- *
- * Verify if a cursor larger than the CRTC maximum is rejected.
- */
-static void dm_test_get_cursor_position_bad_size(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	struct amdgpu_crtc *amdgpu_crtc;
-	struct drm_plane *plane;
-	struct drm_plane_state *state;
-	struct drm_framebuffer *fb;
-	struct dc_cursor_position position = {0};
-
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	amdgpu_crtc = kunit_kzalloc(test, sizeof(*amdgpu_crtc), GFP_KERNEL);
-	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
-	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
-	KUNIT_ASSERT_NOT_NULL(test, amdgpu_crtc);
-	KUNIT_ASSERT_NOT_NULL(test, plane);
-	KUNIT_ASSERT_NOT_NULL(test, state);
-	KUNIT_ASSERT_NOT_NULL(test, fb);
-
-	amdgpu_crtc->max_cursor_width = 64;
-	amdgpu_crtc->max_cursor_height = 64;
-	plane->dev = &adev->ddev;
-	plane->state = state;
-	state->fb = fb;
-	state->crtc_w = 128;
-	state->crtc_h = 32;
-
-	KUNIT_EXPECT_EQ(test,
-			amdgpu_dm_plane_get_cursor_position(plane, &amdgpu_crtc->base, &position),
-			-EINVAL);
 }
 
 /**
@@ -3455,14 +3398,12 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_fill_dc_scaling_info_plane_caps),
 	/* amdgpu_dm_plane_get_min_max_dc_plane_scaling() */
 	KUNIT_CASE(dm_test_get_min_max_dc_plane_scaling),
-	KUNIT_CASE(dm_test_get_min_max_dc_plane_scaling_fp16),
 	/* amdgpu_dm_plane_fill_plane_buffer_attributes() */
 	KUNIT_CASE(dm_test_fill_plane_buffer_attributes_video),
 	KUNIT_CASE(dm_test_fill_plane_buffer_attributes_gfx12),
 	KUNIT_CASE(dm_test_fill_plane_buffer_attributes_gfx6),
 	/* amdgpu_dm_plane_get_cursor_position() */
 	KUNIT_CASE(dm_test_get_cursor_position),
-	KUNIT_CASE(dm_test_get_cursor_position_bad_size),
 	/* amdgpu_dm_plane_format_mod_supported() */
 	KUNIT_CASE(dm_test_format_mod_supported),
 	KUNIT_CASE(dm_test_format_mod_supported_d_swizzle_reject),
