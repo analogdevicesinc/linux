@@ -1095,6 +1095,52 @@ void vgic_v5_put(struct kvm_vcpu *vcpu)
 	kvm_call_hyp(__vgic_v5_save_apr, cpu_if);
 
 	cpu_if->vgic_contextr = 0;
+	if (vcpu_get_flag(vcpu, IN_WFI)) {
+		u32 priority_mask;
+		int dbpm;
+
+		/*
+		 * Find the virtual running priority and use this to calculate
+		 * the doorbell priority mask. We combine the highest active
+		 * priority and the CPU's priority mask. The guest can't handle
+		 * interrupts with priorities less than or equal to the virtual
+		 * running priority, so there's literally no point in waking the
+		 * guest for these.
+		 *
+		 * The priority needs to be higher than the mask to signal, so
+		 * pick the next higher priority (subtract 1).
+		 */
+		priority_mask = vgic_v5_get_effective_priority_mask(vcpu);
+
+		/*
+		 * Request a doorbell *unless* the priority is 0, indicating
+		 * that no interrupt can wake the CPU up.
+		 */
+		if (priority_mask) {
+			int db_irq = vgic_v5_vpe_db(vcpu);
+			struct irq_data *d = irq_get_irq_data(db_irq);
+			const struct cpumask *aff = irq_data_get_effective_affinity_mask(d);
+			int cpu = smp_processor_id();
+
+			dbpm = priority_mask - 1;
+			cpu_if->vgic_contextr = FIELD_PREP(ICH_CONTEXTR_EL2_DB, 1) |
+						FIELD_PREP(ICH_CONTEXTR_EL2_DBPM, dbpm);
+
+			/*
+			 * Make the doorbell affine to this CPU, if it isn't
+			 * already. Actively check the cpumask first as it is
+			 * cheaper than changing the affinity every time.
+			 */
+			if (!cpumask_test_cpu(cpu, aff)) {
+				int ret;
+
+				ret = irq_set_affinity(db_irq, cpumask_of(cpu));
+				if (ret)
+					kvm_debug_ratelimited("Failed to move doorbell IRQ %d to CPU %d: %d\n",
+							      db_irq, cpu, ret);
+			}
+		}
+	}
 
 	kvm_call_hyp(__vgic_v5_make_non_resident, cpu_if);
 

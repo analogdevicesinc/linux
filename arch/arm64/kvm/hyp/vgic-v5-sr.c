@@ -23,6 +23,15 @@ void __vgic_v5_make_resident(struct vgic_v5_cpu_if *cpu_if)
 void __vgic_v5_make_non_resident(struct vgic_v5_cpu_if *cpu_if)
 {
 	/*
+	 * Clear the db_fired state to ensure that we're ready for the next
+	 * doorbell when it is requested. If a doorbell firing caused us to
+	 * enter the guest, then we've already consumed that state at this
+	 * point, so this is safe to clear. Use WRITE_ONCE() to ensure we're not
+	 * racing with the doorbell firing and setting the state true again.
+	 */
+	WRITE_ONCE(cpu_if->gicv5_vpe.db_fired, false);
+
+	/*
 	 * Make as non-resident before actually making non-resident. Avoids race
 	 * with doorbell arriving.
 	 */
