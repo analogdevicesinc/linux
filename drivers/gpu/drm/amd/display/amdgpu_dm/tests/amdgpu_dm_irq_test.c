@@ -231,6 +231,19 @@ static bool dm_test_handle_hpd_rx_result_true(struct dc_link *link,
 	return true;
 }
 
+static bool dm_test_handle_hpd_rx_cp_irq(struct dc_link *link,
+					 union hpd_irq_data *hpd_irq_data,
+					 bool *link_loss,
+					 bool defer_handling,
+					 bool *has_left_work)
+{
+	*link_loss = false;
+	*has_left_work = false;
+	hpd_irq_data->bytes.device_service_irq.bits.CP_IRQ = 1;
+
+	return false;
+}
+
 static bool dm_test_allow_hpd_rx_irq_true(const struct dc_link *link)
 {
 	return true;
@@ -3594,6 +3607,123 @@ static void dm_test_handle_hpd_rx_irq_downstream_change(struct kunit *test)
 	KUNIT_EXPECT_TRUE(test, aconn->fake_enable);
 }
 
+/**
+ * dm_test_handle_hpd_rx_irq_detect_type_fails - Test HPDRX detect failure logging
+ * @test: The KUnit test context
+ *
+ * A handled HPD RX IRQ on a connector that is not an MST root means a
+ * downstream port status change, so the handler must re-detect the link. The
+ * connection-type probe is stubbed to fail, so it logs an error and continues
+ * into the re-detect branch, and a non-MST-branch link also exercises the
+ * trailing CEC IRQ dispatch.
+ */
+static void dm_test_handle_hpd_rx_irq_detect_type_fails(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+
+	dm_test_detect_link_count = 0;
+
+	aconn = dm_test_setup_hpd_rx_irq(test, &link_srv);
+	link_srv->dp_handle_hpd_rx_irq = dm_test_handle_hpd_rx_result_true;
+	link_srv->detect_connection_type = dm_test_detect_connection_fail;
+	link_srv->detect_link = dm_test_detect_link_false_count;
+
+	aconn->mst_mgr.mst_state = false;
+	aconn->dc_link->type = dc_connection_single;
+
+	handle_hpd_rx_irq(aconn);
+
+	KUNIT_EXPECT_EQ(test, dm_test_detect_link_count, 1);
+}
+
+/**
+ * dm_test_handle_hpd_rx_irq_forced_detect - Test HPDRX forced-connector branch
+ * @test: The KUnit test context
+ *
+ * A connector forced on but reporting no connection is emulated rather than
+ * detected, and userspace is always notified. An unset connector signal keeps
+ * amdgpu_dm_emulated_link_detect() to its unsupported-signal early return, and
+ * a sink-less link keeps amdgpu_dm_update_connector_after_detect() to its
+ * unchanged-sink early return.
+ */
+static void dm_test_handle_hpd_rx_irq_forced_detect(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+
+	dm_test_detect_link_count = 0;
+
+	aconn = dm_test_setup_hpd_rx_irq(test, &link_srv);
+	dm_test_register_drm_dev(test, drm_to_adev(aconn->base.dev));
+
+	link_srv->dp_handle_hpd_rx_irq = dm_test_handle_hpd_rx_result_true;
+	link_srv->detect_connection_type = dm_test_detect_connection_none;
+	link_srv->detect_link = dm_test_detect_link_false_count;
+
+	aconn->mst_mgr.mst_state = false;
+	aconn->base.force = DRM_FORCE_ON;
+	aconn->dc_link->ctx->driver_context = drm_to_adev(aconn->base.dev);
+	aconn->fake_enable = true;
+
+	handle_hpd_rx_irq(aconn);
+
+	KUNIT_EXPECT_FALSE(test, aconn->fake_enable);
+	KUNIT_EXPECT_EQ(test, dm_test_detect_link_count, 0);
+}
+
+/**
+ * dm_test_handle_hpd_rx_irq_detect_true - Test HPDRX connected detect branch
+ * @test: The KUnit test context
+ *
+ * A downstream-port change that re-detects a display refreshes the connector
+ * and notifies userspace. A sink-less link keeps
+ * amdgpu_dm_update_connector_after_detect() to its unchanged-sink early return.
+ */
+static void dm_test_handle_hpd_rx_irq_detect_true(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct link_service *link_srv;
+
+	aconn = dm_test_setup_hpd_rx_irq(test, &link_srv);
+	dm_test_register_drm_dev(test, drm_to_adev(aconn->base.dev));
+
+	link_srv->dp_handle_hpd_rx_irq = dm_test_handle_hpd_rx_result_true;
+	link_srv->detect_connection_type = dm_test_detect_connection_single;
+	link_srv->detect_link = dm_test_detect_link_true;
+
+	aconn->mst_mgr.mst_state = false;
+	aconn->fake_enable = true;
+
+	handle_hpd_rx_irq(aconn);
+
+	KUNIT_EXPECT_FALSE(test, aconn->fake_enable);
+}
+
+/**
+ * dm_test_handle_hpd_rx_irq_cp_irq - Test HPDRX content-protection dispatch
+ * @test: The KUnit test context
+ *
+ * A CP_IRQ in the device service field must be handed to the HDCP work queue
+ * for the connector that raised it.
+ */
+static void dm_test_handle_hpd_rx_irq_cp_irq(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconn;
+	struct hdcp_workqueue *hdcp_work;
+	struct link_service *link_srv;
+
+	aconn = dm_test_setup_hpd_rx_irq(test, &link_srv);
+	link_srv->dp_handle_hpd_rx_irq = dm_test_handle_hpd_rx_cp_irq;
+
+	hdcp_work = dm_test_alloc_hdcp_workqueue(test);
+	drm_to_adev(aconn->base.dev)->dm.hdcp_workqueue = hdcp_work;
+
+	handle_hpd_rx_irq(aconn);
+
+	dm_test_flush_hdcp_workqueue(hdcp_work);
+}
+
 /* Tests for dmub_hpd_callback()/dmub_hpd_sense_callback() */
 
 /**
@@ -5545,6 +5675,10 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_handle_hpd_rx_irq_msg_rdy),
 	KUNIT_CASE(dm_test_handle_hpd_rx_irq_link_loss),
 	KUNIT_CASE(dm_test_handle_hpd_rx_irq_downstream_change),
+	KUNIT_CASE(dm_test_handle_hpd_rx_irq_detect_type_fails),
+	KUNIT_CASE(dm_test_handle_hpd_rx_irq_forced_detect),
+	KUNIT_CASE(dm_test_handle_hpd_rx_irq_detect_true),
+	KUNIT_CASE(dm_test_handle_hpd_rx_irq_cp_irq),
 	KUNIT_CASE(dm_test_schedule_hpd_rx_offload_work),
 	/* dmub_hpd_callback/dmub_hpd_sense_callback */
 	KUNIT_CASE(dm_test_dmub_hpd_callback_null_inputs),
