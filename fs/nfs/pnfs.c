@@ -1210,7 +1210,7 @@ pnfs_alloc_init_layoutget_args(struct inode *ino,
 				lgp->args.minlength = i_size - range->offset;
 		}
 	}
-	lgp->args.maxcount = PNFS_LAYOUT_MAXSIZE;
+	lgp->args.maxcount = lgp->args.layout.pglen;
 	pnfs_copy_range(&lgp->args.range, range);
 	lgp->args.type = server->pnfs_curr_ld->id;
 	lgp->args.inode = ino;
