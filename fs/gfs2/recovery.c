@@ -156,7 +156,7 @@ int __get_log_header(struct gfs2_sbd *sdp, const struct gfs2_log_header *lh,
  * @blk: the block to look at
  * @head: the log header to return
  *
- * Read the log header for a given segement in a given journal.  Do a few
+ * Read the log header for a given segment in a given journal.  Do a few
  * sanity checks on it.
  *
  * Returns: 0 on success,
