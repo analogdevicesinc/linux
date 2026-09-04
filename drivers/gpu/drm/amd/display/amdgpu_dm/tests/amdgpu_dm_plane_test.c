@@ -1341,44 +1341,65 @@ static void dm_test_get_plane_modifiers_gfx9(struct kunit *test)
 }
 
 /**
+ * dm_test_get_plane_modifiers_gfx10_and_gfx12() - Verify newer family dispatch.
+ * @test: KUnit test context.
+ *
+ * Verify if the GFX10.1, GFX10.3 and GFX12 configurations each dispatch to
+ * their modifier builder and produce a terminated list.
+ */
+static void dm_test_get_plane_modifiers_gfx10_and_gfx12(struct kunit *test)
+{
+	static const struct {
+		u32 family;
+		u32 gc_ip_version;
+		u32 num_pipes;
+		u32 num_pkrs;
+	} cases[] = {
+		{ AMDGPU_FAMILY_NV, IP_VERSION(10, 1, 0), 4, 0 },
+		{ AMDGPU_FAMILY_NV, IP_VERSION(10, 3, 0), 4, 2 },
+		{ AMDGPU_FAMILY_GC_12_0_0, 0, 0, 0 },
+	};
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		struct amdgpu_device *adev;
+
+		adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+		KUNIT_ASSERT_NOT_NULL(test, adev);
+
+		adev->family = cases[i].family;
+		adev->ip_versions[GC_HWIP][0] = cases[i].gc_ip_version;
+		adev->gfx.config.gb_addr_config_fields.num_pipes = cases[i].num_pipes;
+		adev->gfx.config.gb_addr_config_fields.num_pkrs = cases[i].num_pkrs;
+
+		dm_test_expect_mods_terminated(test, adev);
+	}
+}
+
+/**
  * dm_test_get_plane_modifiers_rv() - Verify RV modifier list generation.
  * @test: KUnit test context.
  *
- * Verify if pre-Raven2 RV devices add RV-specific S-swizzle modifiers and
- * non-constant-encode DCC modifiers.
+ * Verify if RV devices add the RV-specific S-swizzle modifiers, and if the
+ * constant-encode DCC variants only appear from Raven2 onwards.
  */
 static void dm_test_get_plane_modifiers_rv(struct kunit *test)
 {
-	struct amdgpu_device *adev;
-	u64 *mods;
-	u64 dcc_mod;
-	u64 s_x_mod;
-	u64 s_mod;
+	static const struct {
+		const char *name;
+		u32 external_rev_id;
+		u32 constant_encode;
+	} cases[] = {
+		{ "raven", 0x80, 0 },
+		{ "raven2", 0x81, 1 },
+	};
 	int pipes = 2;
 	int pipe_xor_bits = 3;
 	int bank_xor_bits = 2;
+	u64 s_x_mod;
+	u64 s_mod;
+	unsigned int i;
 
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
-
-	adev->family = AMDGPU_FAMILY_RV;
-	adev->asic_type = CHIP_RAVEN;
-	adev->external_rev_id = 0x80;
-	adev->gfx.config.gb_addr_config_fields.num_pipes = 4;
-	adev->gfx.config.gb_addr_config_fields.num_banks = 4;
-	adev->gfx.config.gb_addr_config_fields.num_se = 2;
-	adev->gfx.config.gb_addr_config_fields.num_rb_per_se = 2;
-
-	mods = dm_test_get_primary_mods(test, adev);
-	dcc_mod = AMD_FMT_MOD |
-		  AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX9_64K_S_X) |
-		  AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX9) |
-		  AMD_FMT_MOD_SET(PIPE_XOR_BITS, pipe_xor_bits) |
-		  AMD_FMT_MOD_SET(BANK_XOR_BITS, bank_xor_bits) |
-		  AMD_FMT_MOD_SET(DCC, 1) |
-		  AMD_FMT_MOD_SET(DCC_INDEPENDENT_64B, 1) |
-		  AMD_FMT_MOD_SET(DCC_MAX_COMPRESSED_BLOCK, AMD_FMT_MOD_DCC_BLOCK_64B) |
-		  AMD_FMT_MOD_SET(DCC_CONSTANT_ENCODE, 0);
 	s_x_mod = AMD_FMT_MOD |
 		  AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX9_64K_S_X) |
 		  AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX9) |
@@ -1388,105 +1409,49 @@ static void dm_test_get_plane_modifiers_rv(struct kunit *test)
 		AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX9_64K_S) |
 		AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX9);
 
-	KUNIT_EXPECT_TRUE(test, dm_test_mods_contain(mods, dcc_mod));
-	KUNIT_EXPECT_TRUE(test, dm_test_mods_contain(mods, dcc_mod |
-							     AMD_FMT_MOD_SET(DCC_RETILE, 1) |
-							     AMD_FMT_MOD_SET(RB, 2) |
-							     AMD_FMT_MOD_SET(PIPE, pipes)));
-	KUNIT_EXPECT_TRUE(test, dm_test_mods_contain(mods, s_x_mod));
-	KUNIT_EXPECT_TRUE(test, dm_test_mods_contain(mods, s_mod));
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		struct amdgpu_device *adev;
+		u64 *mods;
+		u64 dcc_mod;
+		u64 retile_mod;
 
-	kfree(mods);
-}
+		adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+		KUNIT_ASSERT_NOT_NULL(test, adev);
 
-/**
- * dm_test_get_plane_modifiers_rv_constant_encode() - Verify Raven2+ modifiers.
- * @test: KUnit test context.
- *
- * Verify if Raven2 and later RV devices add the constant-encode modifier
- * variants.
- */
-static void dm_test_get_plane_modifiers_rv_constant_encode(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-	u64 *mods;
-	u64 dcc_mod;
-	int pipes = 2;
-	int pipe_xor_bits = 3;
-	int bank_xor_bits = 2;
+		adev->family = AMDGPU_FAMILY_RV;
+		adev->asic_type = CHIP_RAVEN;
+		adev->external_rev_id = cases[i].external_rev_id;
+		adev->gfx.config.gb_addr_config_fields.num_pipes = 4;
+		adev->gfx.config.gb_addr_config_fields.num_banks = 4;
+		adev->gfx.config.gb_addr_config_fields.num_se = 2;
+		adev->gfx.config.gb_addr_config_fields.num_rb_per_se = 2;
 
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
+		mods = dm_test_get_primary_mods(test, adev);
+		dcc_mod = AMD_FMT_MOD |
+			  AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX9_64K_S_X) |
+			  AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX9) |
+			  AMD_FMT_MOD_SET(PIPE_XOR_BITS, pipe_xor_bits) |
+			  AMD_FMT_MOD_SET(BANK_XOR_BITS, bank_xor_bits) |
+			  AMD_FMT_MOD_SET(DCC, 1) |
+			  AMD_FMT_MOD_SET(DCC_INDEPENDENT_64B, 1) |
+			  AMD_FMT_MOD_SET(DCC_MAX_COMPRESSED_BLOCK, AMD_FMT_MOD_DCC_BLOCK_64B) |
+			  AMD_FMT_MOD_SET(DCC_CONSTANT_ENCODE, cases[i].constant_encode);
+		retile_mod = dcc_mod |
+			     AMD_FMT_MOD_SET(DCC_RETILE, 1) |
+			     AMD_FMT_MOD_SET(RB, 2) |
+			     AMD_FMT_MOD_SET(PIPE, pipes);
 
-	adev->family = AMDGPU_FAMILY_RV;
-	adev->asic_type = CHIP_RAVEN;
-	adev->external_rev_id = 0x81;
-	adev->gfx.config.gb_addr_config_fields.num_pipes = 4;
-	adev->gfx.config.gb_addr_config_fields.num_banks = 4;
-	adev->gfx.config.gb_addr_config_fields.num_se = 2;
-	adev->gfx.config.gb_addr_config_fields.num_rb_per_se = 2;
+		KUNIT_EXPECT_TRUE_MSG(test, dm_test_mods_contain(mods, dcc_mod),
+				      "%s", cases[i].name);
+		KUNIT_EXPECT_TRUE_MSG(test, dm_test_mods_contain(mods, retile_mod),
+				      "%s", cases[i].name);
+		KUNIT_EXPECT_TRUE_MSG(test, dm_test_mods_contain(mods, s_x_mod),
+				      "%s", cases[i].name);
+		KUNIT_EXPECT_TRUE_MSG(test, dm_test_mods_contain(mods, s_mod),
+				      "%s", cases[i].name);
 
-	mods = dm_test_get_primary_mods(test, adev);
-	dcc_mod = AMD_FMT_MOD |
-		  AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX9_64K_S_X) |
-		  AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX9) |
-		  AMD_FMT_MOD_SET(PIPE_XOR_BITS, pipe_xor_bits) |
-		  AMD_FMT_MOD_SET(BANK_XOR_BITS, bank_xor_bits) |
-		  AMD_FMT_MOD_SET(DCC, 1) |
-		  AMD_FMT_MOD_SET(DCC_INDEPENDENT_64B, 1) |
-		  AMD_FMT_MOD_SET(DCC_MAX_COMPRESSED_BLOCK, AMD_FMT_MOD_DCC_BLOCK_64B) |
-		  AMD_FMT_MOD_SET(DCC_CONSTANT_ENCODE, 1);
-
-	KUNIT_EXPECT_TRUE(test, dm_test_mods_contain(mods, dcc_mod));
-	KUNIT_EXPECT_TRUE(test, dm_test_mods_contain(mods, dcc_mod |
-							     AMD_FMT_MOD_SET(DCC_RETILE, 1) |
-							     AMD_FMT_MOD_SET(RB, 2) |
-							     AMD_FMT_MOD_SET(PIPE, pipes)));
-
-	kfree(mods);
-}
-
-/**
- * dm_test_get_plane_modifiers_gfx10_1() - Verify GFX10.1 modifier list generation.
- * @test: KUnit test context.
- *
- * Verify if a pre-10.3 NV family device dispatches to the GFX10.1 modifier
- * builder and produces a terminated list.
- */
-static void dm_test_get_plane_modifiers_gfx10_1(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
-
-	adev->family = AMDGPU_FAMILY_NV;
-	adev->gfx.config.gb_addr_config_fields.num_pipes = 4;
-	adev->ip_versions[GC_HWIP][0] = IP_VERSION(10, 1, 0);
-
-	dm_test_expect_mods_terminated(test, adev);
-}
-
-/**
- * dm_test_get_plane_modifiers_gfx10_3() - Verify GFX10.3 modifier list generation.
- * @test: KUnit test context.
- *
- * Verify if a 10.3+ NV family device dispatches to the GFX10.3 modifier
- * builder and produces a terminated list.
- */
-static void dm_test_get_plane_modifiers_gfx10_3(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
-
-	adev->family = AMDGPU_FAMILY_NV;
-	adev->gfx.config.gb_addr_config_fields.num_pipes = 4;
-	adev->gfx.config.gb_addr_config_fields.num_pkrs = 2;
-	adev->ip_versions[GC_HWIP][0] = IP_VERSION(10, 3, 0);
-
-	dm_test_expect_mods_terminated(test, adev);
+		kfree(mods);
+	}
 }
 
 /**
@@ -1569,25 +1534,6 @@ static void dm_test_get_plane_modifiers_gfx11_256k_first(struct kunit *test)
 
 	dm_test_gfx11_reg_ctx = NULL;
 	kfree(mods);
-}
-
-/**
- * dm_test_get_plane_modifiers_gfx12() - Verify GFX12 modifier list generation.
- * @test: KUnit test context.
- *
- * Verify if the GFX12 family dispatches to the GFX12 modifier builder and
- * produces a terminated list.
- */
-static void dm_test_get_plane_modifiers_gfx12(struct kunit *test)
-{
-	struct amdgpu_device *adev;
-
-	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, adev);
-
-	adev->family = AMDGPU_FAMILY_GC_12_0_0;
-
-	dm_test_expect_mods_terminated(test, adev);
 }
 
 /**
@@ -3949,12 +3895,9 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_get_plane_modifiers_gfx6),
 	KUNIT_CASE(dm_test_get_plane_modifiers_gfx9),
 	KUNIT_CASE(dm_test_get_plane_modifiers_rv),
-	KUNIT_CASE(dm_test_get_plane_modifiers_rv_constant_encode),
-	KUNIT_CASE(dm_test_get_plane_modifiers_gfx10_1),
-	KUNIT_CASE(dm_test_get_plane_modifiers_gfx10_3),
+	KUNIT_CASE(dm_test_get_plane_modifiers_gfx10_and_gfx12),
 	KUNIT_CASE(dm_test_get_plane_modifiers_gfx11_64k_first),
 	KUNIT_CASE(dm_test_get_plane_modifiers_gfx11_256k_first),
-	KUNIT_CASE(dm_test_get_plane_modifiers_gfx12),
 	/* amdgpu_dm_plane_fill_dc_scaling_info() */
 	KUNIT_CASE(dm_test_fill_dc_scaling_info),
 	KUNIT_CASE(dm_test_fill_dc_scaling_info_nv12_dcn1x),
