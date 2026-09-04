@@ -138,7 +138,7 @@ struct usb_pcwd_private {
 	/* true if we received a report after a command */
 	atomic_t		cmd_received;
 
-	/* Wether or not the device exists */
+	/* Whether or not the device exists */
 	int			exists;
 	/* locks this structure */
 	struct mutex		mtx;
