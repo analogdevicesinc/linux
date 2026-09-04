@@ -2158,7 +2158,7 @@ err:
 
 static void ucsi_resume_work(struct work_struct *work)
 {
-	struct ucsi *ucsi = container_of(work, struct ucsi, resume_work);
+	struct ucsi *ucsi = container_of(to_delayed_work(work), struct ucsi, resume_work);
 	struct ucsi_connector *con;
 	u64 command;
 	int ret;
@@ -2167,6 +2167,11 @@ static void ucsi_resume_work(struct work_struct *work)
 	command = UCSI_SET_NOTIFICATION_ENABLE | ucsi->ntfy;
 	ret = ucsi_send_command(ucsi, command, NULL, 0);
 	if (ret < 0) {
+		if (++ucsi->resume_retries < 5) {
+			queue_delayed_work(system_dfl_long_wq, &ucsi->resume_work,
+					   msecs_to_jiffies(500));
+			return;
+		}
 		dev_err(ucsi->dev, "failed to re-enable notifications (%d)\n", ret);
 		return;
 	}
@@ -2187,6 +2192,7 @@ int ucsi_suspend(struct ucsi *ucsi)
 	 * EC is stopped for suspend; state is re-read on resume.
 	 */
 	cancel_delayed_work_sync(&ucsi->work);
+	cancel_delayed_work_sync(&ucsi->resume_work);
 
 	if (!ucsi->connector)
 		return 0;
@@ -2200,8 +2206,10 @@ EXPORT_SYMBOL_GPL(ucsi_suspend);
 
 int ucsi_resume(struct ucsi *ucsi)
 {
-	if (ucsi->connector)
-		queue_work(system_long_wq, &ucsi->resume_work);
+	if (ucsi->connector) {
+		ucsi->resume_retries = 0;
+		queue_delayed_work(system_dfl_long_wq, &ucsi->resume_work, 0);
+	}
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ucsi_resume);
@@ -2317,7 +2325,7 @@ struct ucsi *ucsi_create(struct device *dev, const struct ucsi_operations *ops)
 	if (!ucsi)
 		return ERR_PTR(-ENOMEM);
 
-	INIT_WORK(&ucsi->resume_work, ucsi_resume_work);
+	INIT_DELAYED_WORK(&ucsi->resume_work, ucsi_resume_work);
 	INIT_DELAYED_WORK(&ucsi->work, ucsi_init_work);
 	mutex_init(&ucsi->ppm_lock);
 	init_completion(&ucsi->complete);
@@ -2383,7 +2391,7 @@ void ucsi_unregister(struct ucsi *ucsi)
 
 	/* Make sure that we are not in the middle of driver initialization */
 	cancel_delayed_work_sync(&ucsi->work);
-	cancel_work_sync(&ucsi->resume_work);
+	cancel_delayed_work_sync(&ucsi->resume_work);
 
 	ucsi_debugfs_unregister(ucsi);
 
