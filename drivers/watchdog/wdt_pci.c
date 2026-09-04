@@ -347,7 +347,7 @@ static irqreturn_t wdtpci_interrupt(int irq, void *dev_id)
  *	@ppos: pointer to the position to write. No seeks allowed
  *
  *	A write to a watchdog device is defined as a keepalive signal. Any
- *	write of data will do, as we we don't define content meaning.
+ *	write of data will do, as we don't define content meaning.
  */
 
 static ssize_t wdtpci_write(struct file *file, const char __user *buf,
@@ -443,7 +443,7 @@ static long wdtpci_ioctl(struct file *file, unsigned int cmd,
  *	open and on opening we load the counters. Counter zero is a 100Hz
  *	cascade, into counter 1 which downcounts to reboot. When the counter
  *	triggers counter 2 downcounts the length of the reset pulse which
- *	set set to be as long as possible.
+ *	set to be as long as possible.
  */
 
 static int wdtpci_open(struct inode *inode, struct file *file)
