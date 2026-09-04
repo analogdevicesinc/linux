@@ -196,3 +196,69 @@ Groups:
     -EBUSY   VGIC is not initialized, one or more VCPUs are running, or a
              write is attempted after a VCPU has run
     =======  =================================================================
+
+  KVM_DEV_ARM_VGIC_GRP_IST
+    Attributes:
+      This interface is used to either save the state of the IRS's Interrupt
+      State Tables (ISTs), or to restore them. A get operation saves IST state,
+      and a set operation restores IST state. kvm_device_attr.attr is reserved
+      and must be zero.
+
+      The VGIC must be initialized before using this interface. Restore must be
+      performed before the VM has run. For restore, userspace must have already
+      restored the IRS state needed to describe any guest LPI IST.
+
+      Saving first asks the IRS to save and quiesce the VM so that interrupt
+      state has been written back to the ISTs. KVM checks that the VM remains
+      quiesced while copying out the SPI and LPI IST state.
+
+      kvm_device_attr.addr points to a struct kvm_vgic_v5_ist::
+
+        struct kvm_vgic_v5_ist {
+                __u64   spi_ist_addr;
+                __u64   spi_ist_size;
+                __u64   lpi_ist_addr;
+                __u64   lpi_ist_size;
+        };
+
+      The SPI and LPI IST buffers contain one little-endian 32-bit IST entry per
+      interrupt, in interrupt number order. Only the architected 32-bit ISTE
+      state is exposed to userspace; host IST layout and metadata are private to
+      KVM.
+
+      The SPI IST buffer is required and its size must be:
+
+        nr_spis * sizeof(__u32)
+
+      where nr_spis is the value returned by KVM_DEV_ARM_VGIC_GRP_NR_IRQS for
+      the VGICv5 device. For VGICv5 this value is the number of SPIs, not the
+      total number of interrupts.
+
+      The LPI IST buffer is required if the guest's IRS_IST_CFGR and
+      IRS_IST_BASER state describes a valid LPI IST, and its size must be:
+
+        BIT(lpi_id_bits) * sizeof(__u32)
+
+      where lpi_id_bits is the LPI ID width configured in IRS_IST_CFGR. If no
+      LPI IST is configured, lpi_ist_addr and lpi_ist_size must both be zero.
+
+    Errors:
+
+      ===========  ============================================================
+      -EBUSY       One or more VCPUs are running, the VGIC is not initialized,
+                   restore was requested after the VM has run, an LPI IST
+                   already exists, or the save operation completed but the VM
+                   did not remain quiesced
+      -EINVAL      attr->addr is NULL, the userspace IST descriptor is missing
+                   a required buffer, supplies a non-zero LPI buffer when no
+                   LPI IST is configured, has a buffer size that does not match
+                   the configured VGICv5 IST state, or an internal VM table
+                   operation rejected the VM state
+      -EFAULT      Invalid user pointer for attr->addr, spi_ist_addr, or
+                   lpi_ist_addr
+      -ENXIO       Required per-VM VGICv5/IST backing state is missing or
+                   inconsistent
+      -ENOMEM      Restoring IST state failed while allocating the host LPI IST
+                   or tracking pending interrupts
+      -ETIMEDOUT   An IRS save/VM operation timed out
+      ===========  ============================================================
