@@ -547,6 +547,7 @@ static void vp_reset(struct virtio_device *vdev)
 {
 	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
 	struct virtio_pci_modern_device *mdev = &vp_dev->mdev;
+	u8 status;
 
 	/* 0 status means a reset. */
 	vp_modern_set_status(mdev, 0);
@@ -555,13 +556,13 @@ static void vp_reset(struct virtio_device *vdev)
 	 * This will flush out the status write, and flush in device writes,
 	 * including MSI-X interrupts, if any.
 	 */
-	while (vp_modern_get_status(mdev))
+	while ((status = vp_modern_get_status(mdev))) {
+		if (VIRTIO_STATUS_ERROR(status))
+			break;
 		msleep(1);
+	}
 
 	vp_modern_avq_cleanup(vdev);
-
-	/* Flush pending VQ/configuration callbacks. */
-	vp_synchronize_vectors(vdev);
 }
 
 static int vp_active_vq(struct virtqueue *vq, u16 msix_vec)

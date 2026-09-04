@@ -46,6 +46,22 @@
 #define VIRTIO_CONFIG_S_FAILED		0x80
 
 /*
+ * Check if a status value indicates an error
+ * All device_status bits currently defined by the virtio spec (bits
+ * 0,1,2,3,6,7). Bits 4 and 5 (0x10, 0x20) are reserved/undefined -- a
+ * real device must never set them. A status byte with any bit outside
+ * this mask set cannot be a legitimate value: either the device is
+ * violating the spec, or the read never actually reached it (e.g.
+ * PCI_COMMAND memory decode is disabled and this is a synthesized
+ * all-ones bus response instead of real device state).
+ */
+#define VIRTIO_STATUS_ERROR(val) \
+	(((u8)(val)) & \
+	 ~(VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER | \
+	   VIRTIO_CONFIG_S_DRIVER_OK | VIRTIO_CONFIG_S_FEATURES_OK | \
+	   VIRTIO_CONFIG_S_NEEDS_RESET | VIRTIO_CONFIG_S_FAILED))
+
+/*
  * Virtio feature bits VIRTIO_TRANSPORT_F_START through
  * VIRTIO_TRANSPORT_F_END are reserved for the transport
  * being used (e.g. virtio_ring, virtio_pci etc.), the
