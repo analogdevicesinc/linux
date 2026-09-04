@@ -35,11 +35,87 @@
  *
  * The driver works out the mapping based on the MDIO bus described in device tree and phandles on
  * the ethernet-ports property.
+ *
+ * The devices have a hardware polling unit that runs in the background without any CPU load. It
+ * constantly scans the MDIO bus and the attached PHYs and updates the MAC status registers.
+ *
+ * How does the polling work?
+ *
+ * Each device has a SMI_POLL_CTRL register. A per-port bitmask decides if the hardware polling of
+ * the associated bus/address is active or not. The hardware runs a tight loop over this and for
+ * each set polling bit it issues a status check for the PHY. Attaching a logic analyzer to the
+ * MDIO bus of an RTL8380 and RTL8393 gives the following commands (in kernel notation):
+ *
+ *	RTL8380				RTL8393
+ *	---------------------------	---------------------------
+ *	phy_write(phy, 31, 0x0);	phy_read(phy, 0);
+ *	phy_write(phy, 13, 0x7);	phy_read(phy, 1);
+ *	phy_write(phy, 14, 0x3c);	phy_read(phy, 4);
+ *	phy_write(phy, 13, 0x8007);	phy_read(phy, 5);
+ *	phy_read(phy, 14);		phy_read(phy, 6);
+ *	phy_write(phy, 13, 0x7);	phy_read(phy, 9);
+ *	phy_write(phy, 14, 0x3d);	phy_read(phy, 10);
+ *	phy_write(phy, 13, 0x8007);	phy_read(phy, 15);
+ *	phy_read(phy, 14);		phy_write(phy, 13, 0x7);
+ *	phy_read(phy, 9);		phy_write(phy, 14, 0x3c);
+ *	phy_read(phy, 10);		phy_write(phy, 13, 0x4007);
+ *	phy_read(phy, 15);		phy_read(phy, 14);
+ *	phy_read(phy, 0);		phy_write(phy, 13, 0x7);
+ *	phy_read(phy, 1);		phy_write(phy, 14, 0x3d);
+ *	phy_read(phy, 4);		phy_write(phy, 13, 0x4007);
+ *	phy_read(phy, 5);		phy_read(phy, 14);
+ *	phy_read(phy, 6);
+ *
+ * After one PHY status is read, the polling engine goes over to the next PHY. If one bus is fully
+ * scanned it switches over to the next bus. Basically the polling system is always busy and the
+ * MAC state is updated in real-time.
+ *
+ * This is a glimpse look at the complexity of the polling and leaves out the C45 case and the MAC
+ * register update logic afterwards. Important to note:
+ *
+ * - 100 MBit downshifts (broken cables) are identified and propagated to the MAC correctly
+ * - Access to MDIO_AN_EEE_ADV and MDIO_AN_EEE_LPABLE works via C45 over C22.
+ * - It is unclear if these sequences change for different PHYs.
+ * - Access to Realtek reserved register 26 (link speed) has not yet been seen.
+ *
+ * How does MDIO access from kernel work?
+ *
+ * When issuing MDIO accesses via an MMIO based interface the final write to the command register
+ * sets a "run command now" bit. Between two polling sequences for different PHYs the hardware
+ * checks if a user command needs to run and sends it onto the bus. Afterwards it simply continues
+ * its polling work. Inspecting the command sequence for a paged write on the logic analyzer gives:
+ *
+ *	RTL8380				RTL8393
+ *	---------------------------	---------------------------
+ *	phy_write(phy, 31, page);	phy_write(phy, 31, page);
+ *	phy_write(phy, reg, value);	phy_write(phy, reg, value);
+ *					phy_write(phy, 31, 0);
+ *
+ * What does this mean?
+ *
+ * There are slight differences in polling and PHY access between the models but the challenge
+ * stays the same. On the one hand that greatly simplifies the MAC layer, on the other hand it
+ * has some implications for the kernel PHY subsystem.
+ *
+ * - Without the polling and a proper MAC status, some of the link handling features do not work.
+ *   Especially an unpopulated MAC_LINK_STS register cancels operations to other MAC registers.
+ * - The Realtek page register 31 is magically modified in the background so that polling will
+ *   read the right data. On the RTL838x polling simply resets it to zero. Other devices seem
+ *   to track the page access "magically" in the background.
+ * - A C45 over C22 kernel access sequence is most likely to fail because chances are high that
+ *   the polling engine overwrites registers 13/14 in between.
+ * - PHY firmware loading can have issues. Especially if a PHY is designed to expect a clean
+ *   sequence of registers and values without deviation.
+ * - An access to one PHY will need to wait for the next free slot of the polling engine.
+ *
+ * Conclusion: The Realtek MDIO bus driver PHY access must know and handle any interference that
+ * arises from the above described hardware polling.
  */
 
 #include <linux/bitfield.h>
 #include <linux/bitmap.h>
 #include <linux/bits.h>
+#include <linux/device.h>
 #include <linux/find.h>
 #include <linux/mdio.h>
 #include <linux/mfd/syscon.h>
@@ -49,6 +125,50 @@
 #include <linux/platform_device.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
+
+#define RTL8380_NUM_BUSES			1
+#define RTL8380_NUM_PAGES			4096
+#define RTL8380_NUM_PORTS			28
+#define RTL8380_SMI_GLB_CTRL			0xa100
+#define   RTL8380_SMI_PHY_PATCH_DONE		BIT(15)
+#define RTL8380_SMI_ACCESS_PHY_CTRL_0		0xa1b8
+#define RTL8380_SMI_ACCESS_PHY_CTRL_1		0xa1bc
+#define   RTL8380_PHY_CTRL_REG_ADDR		GENMASK(24, 20)
+#define   RTL8380_PHY_CTRL_PARK_PAGE		GENMASK(19, 15)
+#define   RTL8380_PHY_CTRL_MAIN_PAGE		GENMASK(14, 3)
+#define   RTL8380_PHY_CTRL_WRITE		BIT(2)
+#define   RTL8380_PHY_CTRL_READ			0
+#define   RTL8380_PHY_CTRL_TYPE_C45		BIT(1)
+#define   RTL8380_PHY_CTRL_TYPE_C22		0
+#define   RTL8380_PHY_CTRL_FAIL			0 /* no fail indicator */
+#define RTL8380_SMI_ACCESS_PHY_CTRL_2		0xa1c0
+#define   RTL8380_PHY_CTRL_INDATA		GENMASK(31, 16)
+#define   RTL8380_PHY_CTRL_DATA			GENMASK(15, 0)
+#define RTL8380_SMI_ACCESS_PHY_CTRL_3		0xa1c4
+#define RTL8380_SMI_POLL_CTRL			0xa17c
+#define RTL8380_SMI_PORT0_5_ADDR_CTRL		0xa1c8
+
+#define RTL8390_NUM_BUSES			2
+#define RTL8390_NUM_PAGES			8192
+#define RTL8390_NUM_PORTS			52
+#define RTL8390_BCAST_PHYID_CTRL		0x03ec
+#define RTL8390_PHYREG_ACCESS_CTRL		0x03dc
+#define   RTL8390_PHY_CTRL_REG_ADDR		GENMASK(9, 5)
+#define   RTL8390_PHY_CTRL_MAIN_PAGE		GENMASK(22, 10)
+#define   RTL8390_PHY_CTRL_FAIL			BIT(1)
+#define   RTL8390_PHY_CTRL_WRITE		BIT(3)
+#define   RTL8390_PHY_CTRL_READ			0
+#define   RTL8390_PHY_CTRL_TYPE_C45		BIT(2)
+#define   RTL8390_PHY_CTRL_TYPE_C22		0
+#define RTL8390_PHYREG_CTRL			0x03e0
+#define   RTL8390_PHY_CTRL_EXT_PAGE		GENMASK(8, 0)
+#define RTL8390_PHYREG_DATA_CTRL		0x03f0
+#define   RTL8390_PHY_CTRL_INDATA		GENMASK(31, 16)
+#define   RTL8390_PHY_CTRL_DATA			GENMASK(15, 0)
+#define RTL8390_PHYREG_MMD_CTRL			0x03f4
+#define RTL8390_PHYREG_PORT_CTRL_LOW		0x03e4
+#define RTL8390_PHYREG_PORT_CTRL_HIGH		0x03e8
+#define RTL8390_SMI_PORT_POLLING_CTRL		0x03fc
 
 #define RTL9300_NUM_BUSES			4
 #define RTL9300_NUM_PAGES			4096
@@ -70,6 +190,7 @@
 #define   RTL9300_PHY_CTRL_INDATA		GENMASK(31, 16)
 #define   RTL9300_PHY_CTRL_DATA			GENMASK(15, 0)
 #define RTL9300_SMI_ACCESS_PHY_CTRL_3		0xcb7c
+#define RTL9300_SMI_POLL_CTRL			0xca90
 #define RTL9300_SMI_PORT0_5_ADDR_CTRL		0xcb80
 
 #define RTL9310_NUM_BUSES			4
@@ -95,11 +216,15 @@
 #define   RTL9310_PHY_CTRL_INDATA		GENMASK(15, 0)
 #define RTL9310_SMI_INDRT_ACCESS_MMD_CTRL	0x0c18
 #define RTL9310_SMI_PORT_ADDR_CTRL		0x0c74
+#define RTL9310_SMI_PORT_POLLING_CTRL		0x0ccc
 #define RTL9310_SMI_PORT_POLLING_SEL		0x0c9c
 
 #define PHY_CTRL_CMD				BIT(0)
 #define PHY_CTRL_MMD_DEVAD			GENMASK(20, 16)
 #define PHY_CTRL_MMD_REG			GENMASK(15, 0)
+
+#define RTL_VENDOR_ID				0x001cc800
+#define RTL_PAGE_SELECT				31
 
 #define MAP_ADDRS_PER_REG			6
 #define MAP_BITS_PER_ADDR			5
@@ -126,6 +251,7 @@ struct otto_emdio_priv {
 	struct regmap *regmap;
 	struct mutex lock; /* protect HW access */
 	DECLARE_BITMAP(valid_ports, MAX_PORTS);
+	u16 page[MAX_PORTS];
 	u8 smi_bus[MAX_PORTS];
 	u8 smi_addr[MAX_PORTS];
 	bool smi_bus_is_c45[MAX_SMI_BUSSES];
@@ -142,6 +268,7 @@ struct otto_emdio_info {
 	u8 num_buses;
 	u8 num_ports;
 	u16 num_pages;
+	u32 poll_ctrl;
 	int (*setup_controller)(struct otto_emdio_priv *priv);
 	int (*read_c22)(struct mii_bus *bus, int port, int regnum, u32 *value);
 	int (*read_c45)(struct mii_bus *bus, int port, int dev_addr, int regnum, u32 *value);
@@ -177,6 +304,12 @@ static struct otto_emdio_priv *otto_emdio_bus_to_priv(struct mii_bus *bus)
 	return chan->priv;
 }
 
+static int otto_emdio_set_port_polling(struct otto_emdio_priv *priv, int port, bool active)
+{
+	return regmap_assign_bits(priv->regmap, priv->info->poll_ctrl + (port / 32) * 4,
+				  BIT(port % 32), active);
+}
+
 static int otto_emdio_run_cmd(struct mii_bus *bus, u32 cmd,
 			      struct otto_emdio_cmd_regs *cmd_data)
 {
@@ -185,9 +318,9 @@ static int otto_emdio_run_cmd(struct mii_bus *bus, u32 cmd,
 	u32 cmdstate;
 	int ret;
 
-	/* Defensive pre check just in case something goes horrible wrong */
+	/* Defensive pre check just in case something goes horribly wrong */
 	ret = regmap_read_poll_timeout(priv->regmap, info->cmd_regs.c22_data,
-				       cmdstate, !(cmdstate & PHY_CTRL_CMD), 10, 1000);
+				       cmdstate, !(cmdstate & PHY_CTRL_CMD), 10, 10000);
 	if (ret)
 		return ret;
 
@@ -227,7 +360,7 @@ static int otto_emdio_run_cmd(struct mii_bus *bus, u32 cmd,
 		return ret;
 
 	ret = regmap_read_poll_timeout(priv->regmap, info->cmd_regs.c22_data,
-				       cmdstate, !(cmdstate & PHY_CTRL_CMD), 10, 1000);
+				       cmdstate, !(cmdstate & PHY_CTRL_CMD), 10, 10000);
 	if (ret)
 		return ret;
 
@@ -264,13 +397,123 @@ static int otto_emdio_write_cmd(struct mii_bus *bus, u32 cmd,
 	return otto_emdio_run_cmd(bus, cmd | priv->info->cmd_write, cmd_data);
 }
 
+static int otto_emdio_8380_read_c22(struct mii_bus *bus, int port, int regnum, u32 *value)
+{
+	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c22_data	= FIELD_PREP(RTL8380_PHY_CTRL_REG_ADDR, regnum) |
+				  FIELD_PREP(RTL8380_PHY_CTRL_PARK_PAGE, 0x1f) |
+				  FIELD_PREP(RTL8380_PHY_CTRL_MAIN_PAGE, priv->page[port]),
+		.io_data	= FIELD_PREP(RTL8380_PHY_CTRL_INDATA, port),
+	};
+
+	return otto_emdio_read_cmd(bus, RTL8380_PHY_CTRL_TYPE_C22, &cmd_data,
+				   RTL8380_PHY_CTRL_DATA, value);
+}
+
+static int otto_emdio_8380_write_c22(struct mii_bus *bus, int port, int regnum, u16 value)
+{
+	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c22_data	= FIELD_PREP(RTL8380_PHY_CTRL_REG_ADDR, regnum) |
+				  FIELD_PREP(RTL8380_PHY_CTRL_PARK_PAGE, 0x1f) |
+				  FIELD_PREP(RTL8380_PHY_CTRL_MAIN_PAGE, priv->page[port]),
+		.io_data	= FIELD_PREP(RTL8380_PHY_CTRL_INDATA, value),
+		.port_mask_low	= BIT(port),
+	};
+
+	return otto_emdio_write_cmd(bus, RTL8380_PHY_CTRL_TYPE_C22, &cmd_data);
+}
+
+static int otto_emdio_8380_read_c45(struct mii_bus *bus, int port,
+				    int dev_addr, int regnum, u32 *value)
+{
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c45_data	= FIELD_PREP(PHY_CTRL_MMD_DEVAD, dev_addr) |
+				  FIELD_PREP(PHY_CTRL_MMD_REG, regnum),
+		.io_data	= FIELD_PREP(RTL8380_PHY_CTRL_INDATA, port),
+	};
+
+	return otto_emdio_read_cmd(bus, RTL8380_PHY_CTRL_TYPE_C45, &cmd_data,
+				   RTL8380_PHY_CTRL_DATA, value);
+}
+
+static int otto_emdio_8380_write_c45(struct mii_bus *bus, int port,
+				     int dev_addr, int regnum, u16 value)
+{
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c45_data	= FIELD_PREP(PHY_CTRL_MMD_DEVAD, dev_addr) |
+				  FIELD_PREP(PHY_CTRL_MMD_REG, regnum),
+		.io_data	= FIELD_PREP(RTL8380_PHY_CTRL_INDATA, value),
+		.port_mask_low	= BIT(port),
+	};
+
+	return otto_emdio_write_cmd(bus, RTL8380_PHY_CTRL_TYPE_C45, &cmd_data);
+}
+
+static int otto_emdio_8390_read_c22(struct mii_bus *bus, int port, int regnum, u32 *value)
+{
+	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c22_data	= FIELD_PREP(RTL8390_PHY_CTRL_REG_ADDR, regnum) |
+				  FIELD_PREP(RTL8390_PHY_CTRL_MAIN_PAGE, priv->page[port]),
+		.ext_page	= FIELD_PREP(RTL8390_PHY_CTRL_EXT_PAGE, 0x1ff),
+		.io_data	= FIELD_PREP(RTL8390_PHY_CTRL_INDATA, port),
+	};
+
+	return otto_emdio_read_cmd(bus, RTL8390_PHY_CTRL_TYPE_C22, &cmd_data,
+				   RTL8390_PHY_CTRL_DATA, value);
+}
+
+static int otto_emdio_8390_write_c22(struct mii_bus *bus, int port, int regnum, u16 value)
+{
+	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c22_data	= FIELD_PREP(RTL8390_PHY_CTRL_REG_ADDR, regnum) |
+				  FIELD_PREP(RTL8390_PHY_CTRL_MAIN_PAGE, priv->page[port]),
+		.ext_page	= FIELD_PREP(RTL8390_PHY_CTRL_EXT_PAGE, 0x1ff),
+		.io_data	= FIELD_PREP(RTL8390_PHY_CTRL_INDATA, value),
+		.port_mask_high	= (u32)(BIT_ULL(port) >> 32),
+		.port_mask_low	= (u32)(BIT_ULL(port)),
+	};
+
+	return otto_emdio_write_cmd(bus, RTL8390_PHY_CTRL_TYPE_C22, &cmd_data);
+}
+
+static int otto_emdio_8390_read_c45(struct mii_bus *bus, int port,
+				    int dev_addr, int regnum, u32 *value)
+{
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c45_data	= FIELD_PREP(PHY_CTRL_MMD_DEVAD, dev_addr) |
+				  FIELD_PREP(PHY_CTRL_MMD_REG, regnum),
+		.io_data	= FIELD_PREP(RTL8390_PHY_CTRL_INDATA, port),
+	};
+
+	return otto_emdio_read_cmd(bus, RTL8390_PHY_CTRL_TYPE_C45, &cmd_data,
+				   RTL8390_PHY_CTRL_DATA, value);
+}
+
+static int otto_emdio_8390_write_c45(struct mii_bus *bus, int port,
+				     int dev_addr, int regnum, u16 value)
+{
+	struct otto_emdio_cmd_regs cmd_data = {
+		.c45_data	= FIELD_PREP(PHY_CTRL_MMD_DEVAD, dev_addr) |
+				  FIELD_PREP(PHY_CTRL_MMD_REG, regnum),
+		.io_data	= FIELD_PREP(RTL8390_PHY_CTRL_INDATA, value),
+		.port_mask_high	= (u32)(BIT_ULL(port) >> 32),
+		.port_mask_low	= (u32)(BIT_ULL(port)),
+	};
+
+	return otto_emdio_write_cmd(bus, RTL8390_PHY_CTRL_TYPE_C45, &cmd_data);
+}
+
 static int otto_emdio_9300_read_c22(struct mii_bus *bus, int port, int regnum, u32 *value)
 {
 	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
 	struct otto_emdio_cmd_regs cmd_data = {
 		.c22_data	= FIELD_PREP(RTL9300_PHY_CTRL_REG_ADDR, regnum) |
 				  FIELD_PREP(RTL9300_PHY_CTRL_PARK_PAGE, 0x1f) |
-				  FIELD_PREP(RTL9300_PHY_CTRL_MAIN_PAGE, RAW_PAGE(priv)),
+				  FIELD_PREP(RTL9300_PHY_CTRL_MAIN_PAGE, priv->page[port]),
 		.io_data	= FIELD_PREP(RTL9300_PHY_CTRL_INDATA, port),
 	};
 
@@ -284,7 +527,7 @@ static int otto_emdio_9300_write_c22(struct mii_bus *bus, int port, int regnum, 
 	struct otto_emdio_cmd_regs cmd_data = {
 		.c22_data	= FIELD_PREP(RTL9300_PHY_CTRL_REG_ADDR, regnum) |
 				  FIELD_PREP(RTL9300_PHY_CTRL_PARK_PAGE, 0x1f) |
-				  FIELD_PREP(RTL9300_PHY_CTRL_MAIN_PAGE, RAW_PAGE(priv)),
+				  FIELD_PREP(RTL9300_PHY_CTRL_MAIN_PAGE, priv->page[port]),
 		.io_data	= FIELD_PREP(RTL9300_PHY_CTRL_INDATA, value),
 		.port_mask_low	= BIT(port),
 	};
@@ -324,7 +567,7 @@ static int otto_emdio_9310_read_c22(struct mii_bus *bus, int port, int regnum, u
 	struct otto_emdio_cmd_regs cmd_data = {
 		.broadcast	= FIELD_PREP(RTL9310_BC_PORT_ID, port),
 		.c22_data	= FIELD_PREP(RTL9310_PHY_CTRL_REG_ADDR, regnum) |
-				  FIELD_PREP(RTL9310_PHY_CTRL_MAIN_PAGE, RAW_PAGE(priv)),
+				  FIELD_PREP(RTL9310_PHY_CTRL_MAIN_PAGE, priv->page[port]),
 	};
 
 	return otto_emdio_read_cmd(bus, RTL9310_PHY_CTRL_TYPE_C22, &cmd_data,
@@ -336,7 +579,7 @@ static int otto_emdio_9310_write_c22(struct mii_bus *bus, int port, int regnum, 
 	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
 	struct otto_emdio_cmd_regs cmd_data = {
 		.c22_data	= FIELD_PREP(RTL9310_PHY_CTRL_REG_ADDR, regnum) |
-				  FIELD_PREP(RTL9310_PHY_CTRL_MAIN_PAGE, RAW_PAGE(priv)),
+				  FIELD_PREP(RTL9310_PHY_CTRL_MAIN_PAGE, priv->page[port]),
 		.io_data	= FIELD_PREP(RTL9310_PHY_CTRL_INDATA, value),
 		.port_mask_high	= (u32)(BIT_ULL(port) >> 32),
 		.port_mask_low	= (u32)(BIT_ULL(port)),
@@ -378,27 +621,53 @@ static int otto_emdio_read_c22(struct mii_bus *bus, int phy_id, int regnum)
 	int ret, port;
 	u32 value;
 
+	if (regnum == MII_MMD_CTRL || regnum == MII_MMD_DATA) {
+		dev_warn_once(&bus->dev,
+			      "C45 over C22 read access broken due to polling\n");
+		return -EOPNOTSUPP;
+	}
+
 	port = otto_emdio_phy_to_port(bus, phy_id);
 	if (port < 0)
 		return port;
 
-	scoped_guard(mutex, &priv->lock)
+	scoped_guard(mutex, &priv->lock) {
+		if (regnum == RTL_PAGE_SELECT)
+			return priv->page[port];
+
 		ret = priv->info->read_c22(bus, port, regnum, &value);
+	}
 
 	return ret ? ret : value;
 }
 
-static int otto_emdio_write_c22(struct mii_bus *bus, int phy_id, int regnum, u16 value)
+static int otto_emdio_write_c22(struct mii_bus *bus, int phy_id, int regnum,
+				u16 value)
 {
 	struct otto_emdio_priv *priv = otto_emdio_bus_to_priv(bus);
 	int ret, port;
+
+	if (regnum == MII_MMD_CTRL || regnum == MII_MMD_DATA) {
+		dev_warn_once(&bus->dev,
+			      "C45 over C22 write access broken due to polling\n");
+		return -EOPNOTSUPP;
+	}
 
 	port = otto_emdio_phy_to_port(bus, phy_id);
 	if (port < 0)
 		return port;
 
-	scoped_guard(mutex, &priv->lock)
+	scoped_guard(mutex, &priv->lock) {
+		if (regnum == RTL_PAGE_SELECT) {
+			if (value >= RAW_PAGE(priv))
+				return -EINVAL;
+
+			priv->page[port] = value;
+			return 0;
+		}
+
 		ret = priv->info->write_c22(bus, port, regnum, value);
+	}
 
 	return ret;
 }
@@ -471,6 +740,15 @@ static int otto_emdio_setup_topology(struct otto_emdio_priv *priv)
 	return 0;
 }
 
+static int otto_emdio_8380_setup_controller(struct otto_emdio_priv *priv)
+{
+	/*
+	 * PHY_PATCH_DONE enables PHY control via SoC. This is required for PHY access, including
+	 * patching and must be set before the PHYs are probed.
+	 */
+	return regmap_set_bits(priv->regmap, RTL8380_SMI_GLB_CTRL, RTL8380_SMI_PHY_PATCH_DONE);
+}
+
 static int otto_emdio_9300_setup_controller(struct otto_emdio_priv *priv)
 {
 	u32 glb_ctrl_mask = 0, glb_ctrl_val = 0;
@@ -507,6 +785,51 @@ static int otto_emdio_9310_setup_controller(struct otto_emdio_priv *priv)
 	return 0;
 }
 
+static int otto_emdio_notify_phy_attach(struct phy_device *phydev)
+{
+	int port = otto_emdio_phy_to_port(phydev->mdio.bus, phydev->mdio.addr);
+	struct otto_emdio_chan *chan = phydev->mdio.bus->priv;
+	struct otto_emdio_priv *priv = chan->priv;
+
+	if (port < 0) {
+		/* All subsequent bus operations will fail */
+		phydev_err(phydev, "PHY is not mapped to a valid switch port\n");
+		return port;
+	}
+
+	/* "sync" page in case of previously failed attachment */
+	scoped_guard(mutex, &priv->lock)
+		priv->page[port] = 0;
+
+	if (!priv->smi_bus_is_c45[chan->mdio_bus] &&
+	    !phy_id_compare_vendor(phydev->phy_id, RTL_VENDOR_ID)) {
+		phydev_err(phydev, "Only Realtek PHYs allowed on C22 bus\n");
+		return -EOPNOTSUPP;
+	}
+
+	return otto_emdio_set_port_polling(priv, port, true);
+}
+
+static void otto_emdio_notify_phy_detach(struct phy_device *phydev)
+{
+	struct mii_bus *bus = phydev->mdio.bus;
+	struct otto_emdio_priv *priv;
+	int port;
+
+	priv = otto_emdio_bus_to_priv(phydev->mdio.bus);
+	port = otto_emdio_phy_to_port(phydev->mdio.bus, phydev->mdio.addr);
+
+	if (port < 0)
+		return;
+
+	/* "sync" page for next attachment */
+	scoped_guard(mutex, &priv->lock)
+		priv->page[port] = 0;
+
+	if (otto_emdio_set_port_polling(priv, port, false))
+		dev_err(bus->parent, "failed to disable polling for port %d\n", port);
+}
+
 static int otto_emdio_probe_one(struct device *dev, struct otto_emdio_priv *priv,
 				 struct fwnode_handle *node)
 {
@@ -528,14 +851,14 @@ static int otto_emdio_probe_one(struct device *dev, struct otto_emdio_priv *priv
 		return -ENOMEM;
 
 	bus->name = "Realtek Switch MDIO Bus";
-	if (priv->smi_bus_is_c45[mdio_bus]) {
-		bus->read_c45 = otto_emdio_read_c45;
-		bus->write_c45 = otto_emdio_write_c45;
-	} else {
-		bus->read = otto_emdio_read_c22;
-		bus->write = otto_emdio_write_c22;
-	}
+	bus->read_c45 = otto_emdio_read_c45;
+	bus->write_c45 = otto_emdio_write_c45;
+	bus->read = otto_emdio_read_c22;
+	bus->write = otto_emdio_write_c22;
 	bus->parent = dev;
+	bus->notify_phy_attach = otto_emdio_notify_phy_attach;
+	bus->notify_phy_detach = otto_emdio_notify_phy_detach;
+
 	chan = bus->priv;
 	chan->mdio_bus = mdio_bus;
 	chan->priv = priv;
@@ -652,6 +975,19 @@ put_nodes:
 	return err;
 }
 
+static int otto_emdio_init_polling(struct otto_emdio_priv *priv)
+{
+	int err;
+
+	for (int port = 0; port < priv->info->num_ports; port++) {
+		err = otto_emdio_set_port_polling(priv, port, false);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
 static int otto_emdio_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -670,6 +1006,10 @@ static int otto_emdio_probe(struct platform_device *pdev)
 	priv->regmap = syscon_node_to_regmap(dev->parent->of_node);
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
+
+	err = otto_emdio_init_polling(priv);
+	if (err)
+		return err;
 
 	platform_set_drvdata(pdev, priv);
 
@@ -696,6 +1036,51 @@ static int otto_emdio_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct otto_emdio_info otto_emdio_8380_info = {
+	.addr_map_base = RTL8380_SMI_PORT0_5_ADDR_CTRL,
+	.cmd_fail = RTL8380_PHY_CTRL_FAIL,
+	.cmd_read = RTL8380_PHY_CTRL_READ,
+	.cmd_write = RTL8380_PHY_CTRL_WRITE,
+	.cmd_regs = {
+		.c22_data = RTL8380_SMI_ACCESS_PHY_CTRL_1,
+		.c45_data = RTL8380_SMI_ACCESS_PHY_CTRL_3,
+		.io_data = RTL8380_SMI_ACCESS_PHY_CTRL_2,
+		.port_mask_low = RTL8380_SMI_ACCESS_PHY_CTRL_0,
+	},
+	.num_buses = RTL8380_NUM_BUSES,
+	.num_pages = RTL8380_NUM_PAGES,
+	.num_ports = RTL8380_NUM_PORTS,
+	.poll_ctrl = RTL8380_SMI_POLL_CTRL,
+	.setup_controller = otto_emdio_8380_setup_controller,
+	.read_c22 = otto_emdio_8380_read_c22,
+	.read_c45 = otto_emdio_8380_read_c45,
+	.write_c22 = otto_emdio_8380_write_c22,
+	.write_c45 = otto_emdio_8380_write_c45,
+};
+
+static const struct otto_emdio_info otto_emdio_8390_info = {
+	.cmd_fail = RTL8390_PHY_CTRL_FAIL,
+	.cmd_read = RTL8390_PHY_CTRL_READ,
+	.cmd_write = RTL8390_PHY_CTRL_WRITE,
+	.cmd_regs = {
+		.broadcast = RTL8390_BCAST_PHYID_CTRL,
+		.c22_data = RTL8390_PHYREG_ACCESS_CTRL,
+		.c45_data = RTL8390_PHYREG_MMD_CTRL,
+		.ext_page = RTL8390_PHYREG_CTRL,
+		.io_data = RTL8390_PHYREG_DATA_CTRL,
+		.port_mask_low = RTL8390_PHYREG_PORT_CTRL_LOW,
+		.port_mask_high = RTL8390_PHYREG_PORT_CTRL_HIGH,
+	},
+	.num_buses = RTL8390_NUM_BUSES,
+	.num_pages = RTL8390_NUM_PAGES,
+	.num_ports = RTL8390_NUM_PORTS,
+	.poll_ctrl = RTL8390_SMI_PORT_POLLING_CTRL,
+	.read_c22 = otto_emdio_8390_read_c22,
+	.read_c45 = otto_emdio_8390_read_c45,
+	.write_c22 = otto_emdio_8390_write_c22,
+	.write_c45 = otto_emdio_8390_write_c45,
+};
+
 static const struct otto_emdio_info otto_emdio_9300_info = {
 	.addr_map_base = RTL9300_SMI_PORT0_5_ADDR_CTRL,
 	.bus_map_base = RTL9300_SMI_PORT0_15_POLLING_SEL,
@@ -711,6 +1096,7 @@ static const struct otto_emdio_info otto_emdio_9300_info = {
 	.num_buses = RTL9300_NUM_BUSES,
 	.num_ports = RTL9300_NUM_PORTS,
 	.num_pages = RTL9300_NUM_PAGES,
+	.poll_ctrl = RTL9300_SMI_POLL_CTRL,
 	.setup_controller = otto_emdio_9300_setup_controller,
 	.read_c22 = otto_emdio_9300_read_c22,
 	.read_c45 = otto_emdio_9300_read_c45,
@@ -736,6 +1122,7 @@ static const struct otto_emdio_info otto_emdio_9310_info = {
 	.num_buses = RTL9310_NUM_BUSES,
 	.num_pages = RTL9310_NUM_PAGES,
 	.num_ports = RTL9310_NUM_PORTS,
+	.poll_ctrl = RTL9310_SMI_PORT_POLLING_CTRL,
 	.setup_controller = otto_emdio_9310_setup_controller,
 	.read_c22 = otto_emdio_9310_read_c22,
 	.read_c45 = otto_emdio_9310_read_c45,
@@ -744,6 +1131,8 @@ static const struct otto_emdio_info otto_emdio_9310_info = {
 };
 
 static const struct of_device_id otto_emdio_ids[] = {
+	{ .compatible = "realtek,rtl8380-mdio", .data = &otto_emdio_8380_info },
+	{ .compatible = "realtek,rtl8391-mdio", .data = &otto_emdio_8390_info },
 	{ .compatible = "realtek,rtl9301-mdio", .data = &otto_emdio_9300_info },
 	{ .compatible = "realtek,rtl9311-mdio", .data = &otto_emdio_9310_info },
 	{}
@@ -755,10 +1144,11 @@ static struct platform_driver otto_emdio_driver = {
 	.driver = {
 		.name = "mdio-rtl9300",
 		.of_match_table = otto_emdio_ids,
+		.suppress_bind_attrs = true,
 	},
 };
 
 module_platform_driver(otto_emdio_driver);
 
-MODULE_DESCRIPTION("RTL9300 MDIO driver");
+MODULE_DESCRIPTION("RTL83xx/RTL93xx MDIO driver");
 MODULE_LICENSE("GPL");

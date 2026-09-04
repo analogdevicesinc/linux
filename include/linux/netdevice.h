@@ -5606,12 +5606,12 @@ static inline bool netif_has_l3_rx_handler(const struct net_device *dev)
 
 static inline bool netif_is_l3_master(const struct net_device *dev)
 {
-	return dev->priv_flags & IFF_L3MDEV_MASTER;
+	return IS_ENABLED(CONFIG_NET_VRF) && (dev->priv_flags & IFF_L3MDEV_MASTER);
 }
 
 static inline bool netif_is_l3_slave(const struct net_device *dev)
 {
-	return dev->priv_flags & IFF_L3MDEV_SLAVE;
+	return IS_ENABLED(CONFIG_NET_VRF) && (dev->priv_flags & IFF_L3MDEV_SLAVE);
 }
 
 static inline int dev_sdif(const struct net_device *dev)

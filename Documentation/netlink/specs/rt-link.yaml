@@ -494,6 +494,10 @@ definitions:
         name: ndisc-evict-nocarrier
       -
         name: accept-untracked-na
+      -
+        name: accept-ra-min-lft
+      -
+        name: force-forwarding
   -
     name: ifla-icmp6-stats
     enum-name:
@@ -2218,7 +2222,7 @@ attribute-sets:
         name: conf
         type: binary
         sub-type: u32
-        doc: u32 indexed by ipv6-devconf - 1 on output, on input it's a nest
+        doc: u32 indexed by ipv6-devconf on output, input is not yet implemented
       -
         name: stats
         type: binary

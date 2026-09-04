@@ -3334,6 +3334,10 @@ static const struct realtek_ops rtl8365mb_ops = {
 	.phy_write = rtl8365mb_phy_write,
 };
 
+static const char *const rtl8365mb_supplies[] = {
+	"avddh", "avddl", "dvddio", "dvddio1", "dvddl", "pllvddl",
+};
+
 const struct realtek_variant rtl8365mb_variant = {
 	.ds_ops = &rtl8365mb_switch_ops,
 	.ops = &rtl8365mb_ops,
@@ -3342,6 +3346,8 @@ const struct realtek_variant rtl8365mb_variant = {
 	.cmd_read = 0xb9,
 	.cmd_write = 0xb8,
 	.chip_data_sz = sizeof(struct rtl8365mb),
+	.supplies = rtl8365mb_supplies,
+	.num_supplies = ARRAY_SIZE(rtl8365mb_supplies),
 };
 
 static const struct of_device_id rtl8365mb_of_match[] = {
