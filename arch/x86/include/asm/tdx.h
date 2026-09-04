@@ -120,11 +120,17 @@ static inline bool tdx_supports_runtime_update(const struct tdx_sys_info *sysinf
 
 bool tdx_supports_dynamic_pamt(const struct tdx_sys_info *sysinfo);
 
+int tdx_pamt_get(kvm_pfn_t pfn);
+void tdx_pamt_put(kvm_pfn_t pfn);
+
 int tdx_guest_keyid_alloc(void);
 u32 tdx_get_nr_guest_keyids(void);
 void tdx_guest_keyid_free(unsigned int keyid);
 
 void tdx_quirk_reset_paddr(unsigned long base, unsigned long size);
+
+struct page *tdx_alloc_control_page(void);
+void tdx_free_control_page(struct page *page);
 
 struct tdx_td {
 	/* TD root structure: */

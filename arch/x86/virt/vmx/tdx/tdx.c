@@ -292,7 +292,7 @@ static __init void free_dpamt_refcounts(void)
 	dpamt_refcounts = NULL;
 }
 
-static __maybe_unused atomic_t *tdx_find_dpamt_refcount(unsigned long pfn)
+static atomic_t *tdx_find_dpamt_refcount(unsigned long pfn)
 {
 	/* Find which PMD a PFN is in. */
 	unsigned long index = pfn >> (PMD_SHIFT - PAGE_SHIFT);
@@ -2097,7 +2097,7 @@ static u64 pamt_2mb_arg(kvm_pfn_t pfn)
 	return hpa_2mb | TDX_PS_2M;
 }
 
-/* Add PAMT backing for the 2MB region surrounding the given pfn. */
+/* Add DPAMT backing for the 2MB region surrounding the given pfn. */
 static u64 tdh_phymem_pamt_add(kvm_pfn_t pfn, struct page **pamt_pages)
 {
 	struct tdx_module_args args = {
@@ -2109,7 +2109,7 @@ static u64 tdh_phymem_pamt_add(kvm_pfn_t pfn, struct page **pamt_pages)
 	return seamcall(TDH_PHYMEM_PAMT_ADD, &args);
 }
 
-/* Remove PAMT backing for the 2MB region surrounding the given pfn. */
+/* Remove DPAMT backing for the 2MB region surrounding the given pfn. */
 static u64 tdh_phymem_pamt_remove(kvm_pfn_t pfn, struct page **pamt_pages)
 {
 	struct tdx_module_args args = {
@@ -2128,20 +2128,14 @@ static u64 tdh_phymem_pamt_remove(kvm_pfn_t pfn, struct page **pamt_pages)
 	return 0;
 }
 
-/*
- * Allocate DPAMT memory for the 2MB aligned region  surrounding
- * the given page.
- *
- * Only call this when the pfn is known not to already have Dynamic
- * PAMT pages in the TDX module for it.
- *
- * Effectively it is not (yet) like a get, and more like a manual
- * manipulation of the DPAMT backing for the 2MB aligned range
- * covered by the pfn.
- */
-static int __tdx_pamt_get(kvm_pfn_t pfn)
+/* Serializes adding/removing DPAMT memory */
+static DEFINE_SPINLOCK(dpamt_lock);
+
+/* Bump DPAMT refcount for the given pfn and allocate DPAMT backing if needed. */
+int tdx_pamt_get(kvm_pfn_t pfn)
 {
 	struct page *pamt_pages[TDX_DPAMT_ENTRY_PAGE_CNT];
+	atomic_t *dpamt_refcount;
 	u64 tdx_status;
 	int ret;
 
@@ -2152,41 +2146,59 @@ static int __tdx_pamt_get(kvm_pfn_t pfn)
 	if (ret)
 		return ret;
 
+	dpamt_refcount = tdx_find_dpamt_refcount(pfn);
+
+	spin_lock(&dpamt_lock);
+
+	/*
+	 * If the DPAMT entry is already added (i.e. refcount >= 1),
+	 * then just increment the refcount.
+	 */
+	if (atomic_inc_not_zero(dpamt_refcount))
+		goto out_free;
+
+	/* Try to add the PAMT page and take the refcount 0->1. */
 	tdx_status = tdh_phymem_pamt_add(pfn, pamt_pages);
-	if (tdx_status != TDX_SUCCESS) {
+	if (WARN_ON_ONCE(tdx_status != TDX_SUCCESS)) {
 		ret = -EIO;
 		goto out_free;
 	}
 
+	atomic_set(dpamt_refcount, 1);
+	spin_unlock(&dpamt_lock);
 	return 0;
 
 out_free:
+	spin_unlock(&dpamt_lock);
 	free_pamt_array(pamt_pages);
 
 	return ret;
 }
+EXPORT_SYMBOL_FOR_KVM(tdx_pamt_get);
 
-/*
- * Free DPAMT memory for the 2MB aligned region surrounding the
- * given page. Only call this when the pfn is known to already
- * have DPAMT pages in the TDX module for it, and no other pfns
- * in the aligned 2MB physical region still need it.
- *
- * Don't make multiple calls concurrently of __tdx_pamt_get/put(),
- * as there is no protections from races.
- *
- * Effectively it is not (yet) like a refcounted put, and more like a
- * manual manipulation of the DPAMT backing for the 2MB aligned
- * range covered by the pfn.
- */
-static void __tdx_pamt_put(kvm_pfn_t pfn)
+/* Drop DPAMT refcount for the given pfn and free DPAMT backing if needed. */
+void tdx_pamt_put(kvm_pfn_t pfn)
 {
 	struct page *pamt_pages[TDX_DPAMT_ENTRY_PAGE_CNT] = {};
+	atomic_t *dpamt_refcount;
 	u64 tdx_status;
 
 	if (!tdx_supports_dynamic_pamt(&tdx_sysinfo))
 		return;
 
+	dpamt_refcount = tdx_find_dpamt_refcount(pfn);
+
+	spin_lock(&dpamt_lock);
+	/*
+	 * If there is more than 1 reference on the DPAMT entry, don't
+	 * remove it yet. Just decrement the refcount.
+	 */
+	if (atomic_read(dpamt_refcount) > 1) {
+		atomic_dec(dpamt_refcount);
+		goto out_unlock;
+	}
+
+	/* Try to remove the pamt page and take the refcount 1->0. */
 	tdx_status = tdh_phymem_pamt_remove(pfn, pamt_pages);
 
 	/*
@@ -2194,23 +2206,26 @@ static void __tdx_pamt_put(kvm_pfn_t pfn)
 	 * tdh_phymem_pamt_remove() fails.  Don't panic/BUG_ON(), as
 	 * there is no risk of data corruption, but do yell loudly as
 	 * failure indicates a kernel bug, memory is being leaked, and
-	 * the dangling PAMT entry may cause future operations to fail.
+	 * the dangling DPAMT entry may cause future operations to fail.
 	 */
 	if (WARN_ON_ONCE(tdx_status != TDX_SUCCESS))
-		return;
+		goto out_unlock;
 
+	atomic_set(dpamt_refcount, 0);
+	spin_unlock(&dpamt_lock);
 	free_pamt_array(pamt_pages);
+	return;
+out_unlock:
+	spin_unlock(&dpamt_lock);
 }
+EXPORT_SYMBOL_FOR_KVM(tdx_pamt_put);
 
 /*
  * Return a page that can be gifted to the TDX module for use as a "control"
  * page, i.e. pages that are used for control structures for a given TDX
- * guest, and thus obtain TDX protections, including PAMT tracking.
- *
- * This function is currently only safe to call once. And not safe to call
- * if __tdx_pamt_get() is called before or after.
+ * guest, and thus obtain TDX protections, including DPAMT tracking.
  */
-static __maybe_unused struct page *__tdx_alloc_control_page(void)
+struct page *tdx_alloc_control_page(void)
 {
 	struct page *page;
 
@@ -2218,31 +2233,28 @@ static __maybe_unused struct page *__tdx_alloc_control_page(void)
 	if (!page)
 		return NULL;
 
-	if (__tdx_pamt_get(page_to_pfn(page))) {
+	if (tdx_pamt_get(page_to_pfn(page))) {
 		__free_page(page);
 		return NULL;
 	}
 
 	return page;
 }
+EXPORT_SYMBOL_FOR_KVM(tdx_alloc_control_page);
 
 /*
  * Free a page that was gifted to the TDX module for use as a control
  * page. After this, the page is no longer protected by TDX.
- *
- * Like __tdx_pamt_put(), this is currently only safe to call this when
- * a page is already known to have DPAMT pages in the TDX module for
- * it, and no other pages in the aligned 2MB physical region will
- * still need the backing.
  */
-static __maybe_unused void __tdx_free_control_page(struct page *page)
+void tdx_free_control_page(struct page *page)
 {
 	if (!page)
 		return;
 
-	__tdx_pamt_put(page_to_pfn(page));
+	tdx_pamt_put(page_to_pfn(page));
 	__free_page(page);
 }
+EXPORT_SYMBOL_FOR_KVM(tdx_free_control_page);
 
 void tdx_sys_disable(void)
 {
