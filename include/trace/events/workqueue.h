@@ -9,6 +9,7 @@
 #include <linux/workqueue.h>
 
 struct pool_workqueue;
+struct worker_pool;
 
 /**
  * workqueue_queue_work - called when a work gets queued
@@ -230,6 +231,44 @@ TRACE_EVENT(workqueue_rescued,
 	TP_printk("work struct=%p function=%ps workqueue=%s cpu=%d",
 		  __entry->work, __entry->function, __get_str(workqueue),
 		  __entry->cpu)
+);
+
+/**
+ * workqueue_bh_budget_yield - called when a BH worker yields due to budget exhaustion
+ * @pool:	pointer to struct worker_pool
+ * @restarts:	number of restarts executed
+ * @timeout:	whether execution hit the time limit (BH_WORKER_JIFFIES)
+ * @highpri:	whether this is a high-priority BH pool
+ *
+ * This event occurs when a bottom-half (BH) worker pool running in softirq
+ * context exhausts its execution time slice or restart limit and must yield
+ * execution.
+ */
+TRACE_EVENT(workqueue_bh_budget_yield,
+
+	TP_PROTO(struct worker_pool *pool, int restarts, bool timeout, bool highpri),
+
+	TP_ARGS(pool, restarts, timeout, highpri),
+
+	TP_STRUCT__entry(
+		__field( int,	pool_id		)
+		__field( int,	cpu		)
+		__field( int,	restarts	)
+		__field( bool,	timeout		)
+		__field( bool,	highpri		)
+	),
+
+	TP_fast_assign(
+		__entry->pool_id	= pool->id;
+		__entry->cpu		= pool->cpu;
+		__entry->restarts	= restarts;
+		__entry->timeout	= timeout;
+		__entry->highpri	= highpri;
+	),
+
+	TP_printk("pool_id=%d cpu=%d restarts=%d timeout=%d highpri=%d",
+		  __entry->pool_id, __entry->cpu, __entry->restarts,
+		  __entry->timeout, __entry->highpri)
 );
 
 #endif /*  _TRACE_WORKQUEUE_H */
