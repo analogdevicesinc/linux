@@ -4797,6 +4797,24 @@ static int hci_le_set_def_rate_sync(struct hci_dev *hdev)
 	cp.cont_num = cpu_to_le16(0x0001);
 	cp.supv_timeout = cpu_to_le16(0x000c);	/* 120 ms */
 
+	/* The connection event length recommended in requests by a Peripheral
+	 * uses units of 125 us with a valid range of 0x0001 to 0x7CFF
+	 * (0.125 ms to 3.999875 s), so 0x0000 cannot be used. Also note that
+	 * the Controller is not required to use these values:
+	 *
+	 * BLUETOOTH CORE SPECIFICATION Version 6.2 | Vol 4, Part E
+	 * 7.8.158. LE Set Default Rate Parameters command
+	 *
+	 * The Min_CE_Length and Max_CE_Length parameters provide the
+	 * Controller with the expected minimum and maximum length of the
+	 * connection events. The Controller is not required to use these
+	 * values.
+	 *
+	 * So it is safe to just use the minimum.
+	 */
+	cp.min_ce_len = cpu_to_le16(0x0001);
+	cp.max_ce_len = cpu_to_le16(0x0001);
+
 	return __hci_cmd_sync_status(hdev, HCI_OP_LE_SET_DEF_RATE,
 				     sizeof(cp), &cp, HCI_CMD_TIMEOUT);
 }
@@ -5358,6 +5376,30 @@ static int hci_dev_init_sync(struct hci_dev *hdev)
 	return ret;
 }
 
+static void hci_dev_drop_last_cmd_req_and_close(struct hci_dev *hdev)
+{
+	/* Drop last sent command */
+	if (hdev->sent_cmd) {
+		cancel_delayed_work_sync(&hdev->cmd_timer);
+		kfree_skb(hdev->sent_cmd);
+		hdev->sent_cmd = NULL;
+	}
+
+	/* Drop last request */
+	if (hdev->req_skb) {
+		kfree_skb(hdev->req_skb);
+		hdev->req_skb = NULL;
+		hci_dev_clear_flag(hdev, HCI_CMD_PENDING);
+	}
+
+	clear_bit(HCI_RUNNING, &hdev->flags);
+	hci_sock_dev_event(hdev, HCI_DEV_CLOSE);
+
+	/* After this point our queues are empty and no tasks are scheduled. */
+	hdev->close(hdev);
+	hdev->flags &= BIT(HCI_RAW);
+}
+
 int hci_dev_open_sync(struct hci_dev *hdev)
 {
 	int ret;
@@ -5444,23 +5486,7 @@ int hci_dev_open_sync(struct hci_dev *hdev)
 		if (hdev->flush)
 			hdev->flush(hdev);
 
-		if (hdev->sent_cmd) {
-			cancel_delayed_work_sync(&hdev->cmd_timer);
-			kfree_skb(hdev->sent_cmd);
-			hdev->sent_cmd = NULL;
-		}
-
-		if (hdev->req_skb) {
-			kfree_skb(hdev->req_skb);
-			hdev->req_skb = NULL;
-			hci_dev_clear_flag(hdev, HCI_CMD_PENDING);
-		}
-
-		clear_bit(HCI_RUNNING, &hdev->flags);
-		hci_sock_dev_event(hdev, HCI_DEV_CLOSE);
-
-		hdev->close(hdev);
-		hdev->flags &= BIT(HCI_RAW);
+		hci_dev_drop_last_cmd_req_and_close(hdev);
 	}
 
 done:
@@ -5627,28 +5653,10 @@ int hci_dev_close_sync(struct hci_dev *hdev)
 	skb_queue_purge(&hdev->cmd_q);
 	skb_queue_purge(&hdev->raw_q);
 
-	/* Drop last sent command */
-	if (hdev->sent_cmd) {
-		cancel_delayed_work_sync(&hdev->cmd_timer);
-		kfree_skb(hdev->sent_cmd);
-		hdev->sent_cmd = NULL;
-	}
-
-	/* Drop last request */
-	if (hdev->req_skb) {
-		kfree_skb(hdev->req_skb);
-		hdev->req_skb = NULL;
-		hci_dev_clear_flag(hdev, HCI_CMD_PENDING);
-	}
-
-	clear_bit(HCI_RUNNING, &hdev->flags);
-	hci_sock_dev_event(hdev, HCI_DEV_CLOSE);
-
-	/* After this point our queues are empty and no tasks are scheduled. */
-	hdev->close(hdev);
+	/* Drop last sent command, last request and close */
+	hci_dev_drop_last_cmd_req_and_close(hdev);
 
 	/* Clear flags */
-	hdev->flags &= BIT(HCI_RAW);
 	hci_dev_clear_volatile_flags(hdev);
 	hci_dev_clear_flag(hdev, HCI_CMD_DRAIN_WORKQUEUE);
 
@@ -7467,8 +7475,24 @@ static int hci_le_conn_rate_request_sync(struct hci_dev *hdev, void *data)
 	cp.max_latency	= cpu_to_le16(params->max_latency);
 	cp.cont_num	= cpu_to_le16(params->cont_num);
 	cp.supv_timeout	= cpu_to_le16(params->rate_supv_timeout);
-	cp.min_ce_len	= cpu_to_le16(0x0000);
-	cp.max_ce_len	= cpu_to_le16(0x0000);
+
+	/* The connection event length recommended in requests by a Peripheral
+	 * uses units of 125 us with a valid range of 0x0001 to 0x7CFF
+	 * (0.125 ms to 3.999875 s), so 0x0000 cannot be used. Also note that
+	 * the Controller is not required to use these values:
+	 *
+	 * BLUETOOTH CORE SPECIFICATION Version 6.2 | Vol 4, Part E
+	 * 7.8.157. LE Connection Rate Request command
+	 *
+	 * The Min_CE_Length and Max_CE_Length parameters provide the
+	 * Controller with the expected minimum and maximum length of the
+	 * connection events. The Controller is not required to use these
+	 * values.
+	 *
+	 * So it is safe to just use the minimum.
+	 */
+	cp.min_ce_len	= cpu_to_le16(0x0001);
+	cp.max_ce_len	= cpu_to_le16(0x0001);
 
 	hci_dev_unlock(hdev);
 
