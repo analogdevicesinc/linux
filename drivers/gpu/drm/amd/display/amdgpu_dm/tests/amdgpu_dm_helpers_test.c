@@ -2488,6 +2488,39 @@ static void dm_test_dmub_aux_transfer_sync_hpd_discon(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)result, (int)AUX_RET_ERROR_HPD_DISCON);
 }
 
+/**
+ * dm_test_dmub_aux_transfer_sync_hpd_connected - Test the transfer is forwarded to DMUB
+ * @test: The KUnit test context
+ *
+ * With HPD connected the helper forwards the payload to
+ * amdgpu_dm_process_dmub_aux_transfer_sync(). dc->link_count is zero, so the
+ * async transfer is rejected and the engine-acquire error is reported.
+ */
+static void dm_test_dmub_aux_transfer_sync_hpd_connected(struct kunit *test)
+{
+	struct aux_payload payload = {0};
+	enum aux_return_code_type result = AUX_RET_SUCCESS;
+	struct amdgpu_device *adev;
+	struct dc_context *ctx;
+	struct dc_link *link;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	ctx = dm_kunit_alloc_dc_with_ctx(test)->ctx;
+	link = dm_kunit_alloc_link(test);
+
+	ctx->driver_context = adev;
+	mutex_init(&adev->dm.dpia_aux_lock);
+	init_completion(&adev->dm.dmub_aux_transfer_done);
+	link->hpd_status = true;
+
+	ret = dm_helper_dmub_aux_transfer_sync(ctx, link, &payload, &result);
+
+	KUNIT_EXPECT_EQ(test, ret, -1);
+	KUNIT_EXPECT_EQ(test, (int)result, (int)AUX_RET_ERROR_ENGINE_ACQUIRE);
+}
+
 /* Tests for empty stub functions (must not crash) */
 
 /**
@@ -3075,6 +3108,56 @@ static void dm_test_read_mccs_caps_i2c_failure(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, fake->reads, 0U);
 }
 
+/* Counts sized I2C-over-AUX writes; the bracketing bare-address ones have size 0. */
+static unsigned int dm_test_mccs_aux_writes;
+
+static ssize_t dm_test_mccs_aux_transfer(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg)
+{
+	if ((msg->request & ~DP_AUX_I2C_MOT) == DP_AUX_I2C_WRITE && msg->size)
+		dm_test_mccs_aux_writes++;
+
+	msg->reply = DP_AUX_I2C_REPLY_ACK;
+	return msg->size;
+}
+
+/*
+ * Route the fixture's link through an AUX DDC instead of the fake I2C adapter,
+ * so the MCCS helpers take their link->aux_mode branch.
+ */
+static void dm_test_mccs_use_aux(struct dm_test_mccs_fixture *fixture)
+{
+	struct drm_dp_aux *aux = &fixture->aconnector->dm_dp_aux.aux;
+
+	aux->drm_dev = &fixture->adev->ddev;
+	aux->transfer = dm_test_mccs_aux_transfer;
+	drm_dp_aux_init(aux);
+
+	fixture->aconnector->base.dev = &fixture->adev->ddev;
+	fixture->link->aux_mode = true;
+	dm_test_mccs_aux_writes = 0;
+}
+
+/**
+ * dm_test_read_mccs_caps_aux_mode - Test the MCCS VCP request over I2C-over-AUX
+ * @test: The KUnit test context
+ *
+ * The AUX DDC ACKs both transactions but answers with an empty VCP reply, so
+ * every attempt is retried and the request finally fails.
+ */
+static void dm_test_read_mccs_caps_aux_mode(struct kunit *test)
+{
+	struct dm_test_mccs_fixture fixture = dm_test_alloc_mccs_fixture(test);
+
+	dm_test_mccs_use_aux(&fixture);
+	fixture.link->connector_signal = SIGNAL_TYPE_HDMI_TYPE_A;
+	fixture.sink->edid_caps.freesync_vcp_code = 0xe3;
+
+	dm_helpers_read_mccs_caps(fixture.ctx, fixture.link, fixture.sink);
+
+	KUNIT_EXPECT_FALSE(test, fixture.sink->mccs_caps.freesync_supported);
+	KUNIT_EXPECT_EQ(test, dm_test_mccs_aux_writes, 5U);
+}
+
 /* Tests for dm_helpers_mccs_vcp_set() */
 
 /**
@@ -3186,6 +3269,23 @@ static void dm_test_mccs_vcp_set_i2c_failure(struct kunit *test)
 
 	KUNIT_EXPECT_EQ(test, fake->writes, 5U);
 	KUNIT_EXPECT_EQ(test, fake->reads, 0U);
+}
+
+/**
+ * dm_test_mccs_vcp_set_aux_mode - Test the MCCS VCP set over I2C-over-AUX
+ * @test: The KUnit test context
+ */
+static void dm_test_mccs_vcp_set_aux_mode(struct kunit *test)
+{
+	struct dm_test_mccs_fixture fixture = dm_test_alloc_mccs_fixture(test);
+
+	dm_test_mccs_use_aux(&fixture);
+	fixture.sink->mccs_caps.freesync_supported = true;
+	fixture.sink->edid_caps.freesync_vcp_code = 0xe3;
+
+	dm_helpers_mccs_vcp_set(fixture.ctx, fixture.link, fixture.sink);
+
+	KUNIT_EXPECT_EQ(test, dm_test_mccs_aux_writes, 1U);
 }
 
 /* Tests for dm_helpers_construct_old_payload() */
@@ -4809,6 +4909,7 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_submit_i2c_partial_transfer),
 	/* dm_helper_dmub_aux_transfer_sync */
 	KUNIT_CASE(dm_test_dmub_aux_transfer_sync_hpd_discon),
+	KUNIT_CASE(dm_test_dmub_aux_transfer_sync_hpd_connected),
 	/* Empty stub functions */
 	KUNIT_CASE(dm_test_dp_update_branch_info_no_crash),
 	KUNIT_CASE(dm_test_mst_poll_pending_down_reply_no_crash),
@@ -4854,12 +4955,14 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_read_mccs_caps_hdmi_vcp_request),
 	KUNIT_CASE(dm_test_read_mccs_caps_legacy_pcon_vcp_request),
 	KUNIT_CASE(dm_test_read_mccs_caps_i2c_failure),
+	KUNIT_CASE(dm_test_read_mccs_caps_aux_mode),
 	/* dm_helpers_mccs_vcp_set */
 	KUNIT_CASE(dm_test_mccs_vcp_set_null_ctx),
 	KUNIT_CASE(dm_test_mccs_vcp_set_not_supported),
 	KUNIT_CASE(dm_test_mccs_vcp_set_null_link),
 	KUNIT_CASE(dm_test_mccs_vcp_set_i2c_packet),
 	KUNIT_CASE(dm_test_mccs_vcp_set_i2c_failure),
+	KUNIT_CASE(dm_test_mccs_vcp_set_aux_mode),
 	/* dm_helpers_construct_old_payload */
 	KUNIT_CASE(dm_test_construct_old_payload_empty_list),
 	KUNIT_CASE(dm_test_construct_old_payload_intervening),
