@@ -107,6 +107,8 @@ yt921x_led_blink_set(struct yt921x_priv *priv, int port, int group,
 		       YT921X_LED_DUTY(1, 2);
 
 		use_cycle = false;
+	} else if (!*onp || !*offp) {
+		return yt921x_led_force_set(priv, port, group, *onp);
 	} else {
 		res = yt921x_led_blink_select(priv, *onp, *offp, &cycle, &duty);
 		if (res)
