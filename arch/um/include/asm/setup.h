@@ -6,6 +6,6 @@
  * command line, so this choice is ok.
  */
 
-#define COMMAND_LINE_SIZE 4096
+#define COMMAND_LINE_SIZE CONFIG_COMMAND_LINE_SIZE
 
 #endif		/* SETUP_H_INCLUDED */

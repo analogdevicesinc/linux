@@ -12,6 +12,10 @@
 #ifndef _UAPI_M68K_SETUP_H
 #define _UAPI_M68K_SETUP_H
 
-#define COMMAND_LINE_SIZE 256
+#ifdef __KERNEL__
+#define COMMAND_LINE_SIZE	CONFIG_COMMAND_LINE_SIZE
+#else
+#define COMMAND_LINE_SIZE	256
+#endif
 
 #endif /* _UAPI_M68K_SETUP_H */
