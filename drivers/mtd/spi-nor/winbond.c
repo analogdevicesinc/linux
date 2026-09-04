@@ -203,7 +203,7 @@ static const struct flash_info winbond_nor_parts[] = {
 		.name = "w25q32",
 		.size = SZ_4M,
 		.no_sfdp_flags = SECT_4K,
-		.flags = SPI_NOR_QUAD_PP,
+		.flags = SPI_NOR_QUAD_PP | SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB | SPI_NOR_HAS_CMP,
 	}, {
 		/* W25Q64JV-Q/N */
 		.id = SNOR_ID(0xef, 0x40, 0x17),
@@ -522,6 +522,9 @@ static int winbond_nor_late_init(struct spi_nor *nor)
 		/* SPI_NOR_QUAD_PP was unsupported */
 		p->hwcaps.mask &= ~SNOR_HWCAPS_PP_1_1_4;
 		spi_nor_set_pp_settings(&p->page_programs[SNOR_CMD_PP_1_1_4], 0, 0);
+
+		/* SPI_NOR_HAS_CMP was unsupported */
+		nor->params->flags &= ~SNOR_F_HAS_SR2_CMP_BIT6;
 	}
 
 	return 0;
