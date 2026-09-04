@@ -5,10 +5,12 @@
 
 #include <kvm/arm_vgic.h>
 
+#include <linux/kvm_host.h>
 #include <linux/bitops.h>
 #include <linux/irqchip/arm-vgic-info.h>
 #include <linux/irqdomain.h>
 
+#include "vgic-v5-tables.h"
 #include "vgic.h"
 
 #define ppi_caps	kvm_vgic_global_state.vgic_v5_ppi_caps
@@ -126,6 +128,22 @@ skip_v5:
 	return 0;
 }
 
+static int vgic_v5_db_set_vcpu_affinity(struct irq_data *data, void *vcpu_info)
+{
+	enum gicv5_vcpu_cmd *cmd = vcpu_info;
+
+	guard(raw_spinlock_irqsave)(&vgic_v5_irs_lock);
+
+	switch (*cmd) {
+	case VMT_L2_MAP:
+	case VMTE_MAKE_VALID:
+	case VMTE_MAKE_INVALID:
+		/* Not yet implemented */
+	default:
+		return -EINVAL;
+	}
+}
+
 /*
  * This set of irq_chip functions is specific for doorbells.
  */
@@ -137,6 +155,7 @@ static const struct irq_chip vgic_v5_db_irq_chip = {
 	.irq_set_affinity = irq_chip_set_affinity_parent,
 	.irq_get_irqchip_state = irq_chip_get_parent_state,
 	.irq_set_irqchip_state = irq_chip_set_parent_state,
+	.irq_set_vcpu_affinity = vgic_v5_db_set_vcpu_affinity,
 	.flags = IRQCHIP_SET_TYPE_MASKED | IRQCHIP_SKIP_SET_WAKE |
 		 IRQCHIP_MASK_ON_SUSPEND,
 };
