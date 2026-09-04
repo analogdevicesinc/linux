@@ -258,18 +258,23 @@ static void dm_test_modifier_gfx9_swizzle_mode(struct kunit *test)
  * dm_test_get_plane_formats() - Verify plane format counts for key plane types.
  * @test: KUnit test context.
  *
- * Verify if returned format counts match primary, overlay, and cursor planes.
+ * Verify if returned format counts match primary, overlay, and cursor planes,
+ * and if an overlay with a DCN universal plane cap reports the RGB list
+ * instead of the overlay-only list.
  */
 static void dm_test_get_plane_formats(struct kunit *test)
 {
 	struct drm_plane *plane;
 	struct dc_plane_cap *cap;
+	struct dc_plane_cap *universal_cap;
 	uint32_t formats[32] = {0};
 
 	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
 	cap = kunit_kzalloc(test, sizeof(*cap), GFP_KERNEL);
+	universal_cap = kunit_kzalloc(test, sizeof(*universal_cap), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, plane);
 	KUNIT_ASSERT_NOT_NULL(test, cap);
+	KUNIT_ASSERT_NOT_NULL(test, universal_cap);
 
 	plane->type = DRM_PLANE_TYPE_PRIMARY;
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_get_plane_formats(plane, NULL, formats, 32), 14);
@@ -281,6 +286,11 @@ static void dm_test_get_plane_formats(struct kunit *test)
 
 	plane->type = DRM_PLANE_TYPE_OVERLAY;
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_get_plane_formats(plane, NULL, formats, 32), 9);
+
+	universal_cap->type = DC_PLANE_TYPE_DCN_UNIVERSAL;
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_plane_formats(plane, universal_cap, formats, 32),
+			14);
 
 	plane->type = DRM_PLANE_TYPE_CURSOR;
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_get_plane_formats(plane, NULL, formats, 32), 1);
@@ -1305,32 +1315,6 @@ static u64 dm_test_gfx11_dcc_4k_modifier(u32 pipe_xor_bits, u32 pkrs, u32 tile)
 	       AMD_FMT_MOD_SET(DCC_INDEPENDENT_64B, 1) |
 	       AMD_FMT_MOD_SET(DCC_INDEPENDENT_128B, 1) |
 	       AMD_FMT_MOD_SET(DCC_MAX_COMPRESSED_BLOCK, AMD_FMT_MOD_DCC_BLOCK_64B);
-}
-
-/**
- * dm_test_get_plane_formats_overlay_universal_cap() - Verify universal overlay.
- * @test: KUnit test context.
- *
- * Verify if an overlay plane with a DCN universal plane cap reports the RGB
- * format list instead of the overlay-only list.
- */
-static void dm_test_get_plane_formats_overlay_universal_cap(struct kunit *test)
-{
-	struct drm_plane *plane;
-	struct dc_plane_cap *cap;
-	u32 formats[32] = {0};
-
-	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
-	cap = kunit_kzalloc(test, sizeof(*cap), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, plane);
-	KUNIT_ASSERT_NOT_NULL(test, cap);
-
-	plane->type = DRM_PLANE_TYPE_OVERLAY;
-	cap->type = DC_PLANE_TYPE_DCN_UNIVERSAL;
-
-	KUNIT_EXPECT_EQ(test,
-			amdgpu_dm_plane_get_plane_formats(plane, cap, formats, 32),
-			14);
 }
 
 /**
@@ -3960,7 +3944,6 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_modifier_gfx9_swizzle_mode),
 	/* amdgpu_dm_plane_get_plane_formats() */
 	KUNIT_CASE(dm_test_get_plane_formats),
-	KUNIT_CASE(dm_test_get_plane_formats_overlay_universal_cap),
 	/* amdgpu_dm_plane_get_plane_modifiers() */
 	KUNIT_CASE(dm_test_get_plane_modifiers),
 	KUNIT_CASE(dm_test_get_plane_modifiers_gfx6),
