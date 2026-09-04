@@ -579,6 +579,28 @@ static const struct qcom_snd_soc_common qcs6490_priv_data = {
 	.wcd_jack = true,
 };
 
+static const struct qcom_snd_soc_common rubikpi3_priv_data = {
+	.driver_name = "qcs6490",
+	.dapm_widgets = sc8280xp_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(sc8280xp_dapm_widgets),
+	.codec_dai_fmt = SND_SOC_DAIFMT_I2S |
+			 SND_SOC_DAIFMT_NB_NF |
+			 SND_SOC_DAIFMT_BC_FC,
+	SC8280XP_DAI_DATA({
+			.id = PRIMARY_MI2S_RX,
+			.mclk_rate = 19200000,
+			.codec_sysclk_set = true,
+			.mi2s_bclk_enable = true,
+			.jack_setup = SC8280XP_JACK_SETUP_CODEC,
+		}, {
+			.id = PRIMARY_MI2S_TX,
+			.mclk_rate = 19200000,
+			.codec_sysclk_set = true,
+			.mi2s_bclk_enable = true,
+		}
+	),
+};
+
 static const struct qcom_snd_soc_common qcs8275_priv_data = {
 	.driver_name = "qcs8300",
 	.dapm_widgets = max98090_dapm_widgets,
@@ -658,6 +680,7 @@ static const struct of_device_id snd_sc8280xp_dt_match[] = {
 	{ .compatible = "qcom,qcm6490-idp-sndcard", .data = &qcm6490_priv_data },
 	{ .compatible = "qcom,qcs615-sndcard", .data = &qcs615_priv_data },
 	{ .compatible = "qcom,qcs6490-rb3gen2-sndcard", .data = &qcs6490_priv_data },
+	{ .compatible = "thundercomm,qcs6490-rubikpi3-sndcard", .data = &rubikpi3_priv_data },
 	{ .compatible = "qcom,qcs8275-sndcard", .data = &qcs8275_priv_data },
 	{ .compatible = "qcom,qcs9075-sndcard", .data = &qcs9100_priv_data },
 	{ .compatible = "qcom,qcs9100-sndcard", .data = &qcs9100_priv_data },
