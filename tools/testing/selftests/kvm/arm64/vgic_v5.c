@@ -100,6 +100,7 @@ static void test_vgic_v5_ppis(u32 gic_dev_type)
 	struct ucall uc;
 	u64 user_ppis[2];
 	struct vm_gic v;
+	uint64_t attr;
 	int ret, i;
 
 	v.gic_dev_type = gic_dev_type;
@@ -115,6 +116,11 @@ static void test_vgic_v5_ppis(u32 gic_dev_type)
 
 	for (i = 0; i < NR_VCPUS; i++)
 		vcpu_init_descriptor_tables(vcpus[i]);
+
+	/* Set the address of the IRS before initialising the GIC */
+	attr = GICV5_IRS_CONFIG_BASE_GPA;
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+			    KVM_VGIC_V5_ADDR_TYPE_IRS, &attr);
 
 	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
 			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
