@@ -827,7 +827,7 @@ static void saa7164_get_descriptors(struct saa7164_dev *dev)
 		saa7164_dump_hwdesc(dev);
 
 	if (dev->intfdesc.bLength != sizeof(struct tmComResInterfaceDescr)) {
-		printk(KERN_ERR "struct struct tmComResInterfaceDescr is mangled\n");
+		printk(KERN_ERR "struct tmComResInterfaceDescr is mangled\n");
 		printk(KERN_ERR "Need %x got %d\n", dev->intfdesc.bLength,
 			(u32)sizeof(struct tmComResInterfaceDescr));
 	} else
