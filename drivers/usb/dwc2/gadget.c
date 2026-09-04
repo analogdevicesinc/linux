@@ -658,7 +658,7 @@ static int dwc2_hsotg_write_fifo(struct dwc2_hsotg *hsotg,
 }
 
 /**
- * get_ep_limit - get the maximum data legnth for this endpoint
+ * get_ep_limit - get the maximum data length for this endpoint
  * @hs_ep: The endpoint
  *
  * Return the maximum data that can be queued in one go on a given endpoint
@@ -5563,7 +5563,7 @@ int dwc2_gadget_exit_hibernation(struct dwc2_hsotg *hsotg,
 	dwc2_hib_restore_common(hsotg, rem_wakeup, 0);
 
 	if (!reset) {
-		/* Clear all pending interupts */
+		/* Clear all pending interrupts */
 		dwc2_writel(hsotg, 0xffffffff, GINTSTS);
 	}
 
@@ -5612,7 +5612,7 @@ int dwc2_gadget_exit_hibernation(struct dwc2_hsotg *hsotg,
 	}
 	/* Wait for interrupts which must be cleared */
 	mdelay(2);
-	/* Clear all pending interupts */
+	/* Clear all pending interrupts */
 	dwc2_writel(hsotg, 0xffffffff, GINTSTS);
 
 	/* Restore global registers */
