@@ -42,6 +42,7 @@
  * application ID.
  */
 enum xe_sysctrl_app_id {
+	XE_SYSCTRL_APP_OCODE	= 0x0C,
 	XE_SYSCTRL_APP_DIAG	= 0x0D,
 };
 
@@ -179,6 +180,24 @@ xe_sysctrl_check_app_status(struct xe_device *xe, enum xe_sysctrl_app_id app_id)
 		return XE_SYSCTRL_FIRMWARE_APP_BOOTED;
 
 	return XE_SYSCTRL_FIRMWARE_APP_INITIALIZED;
+}
+
+/**
+ * xe_sysctrl_is_oobmsm_fw_ready() - Check if oCode firmware is fully initialized
+ * @xe: xe device instance
+ *
+ * Returns true if oCode firmware has reached the initialized state, indicating
+ * it is ready to handle requests.
+ *
+ * Callers must only invoke this on platforms where System Controller is
+ * present (xe->info.has_sysctrl).
+ *
+ * Return: true if oCode firmware is initialized, false otherwise
+ */
+bool xe_sysctrl_is_oobmsm_fw_ready(struct xe_device *xe)
+{
+	return xe_sysctrl_check_app_status(xe, XE_SYSCTRL_APP_OCODE) ==
+	       XE_SYSCTRL_FIRMWARE_APP_INITIALIZED;
 }
 
 /**
