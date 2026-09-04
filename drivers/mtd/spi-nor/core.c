@@ -3007,15 +3007,15 @@ static int spi_nor_late_init_params(struct spi_nor *nor)
 	struct spi_nor_flash_parameter *params = nor->params;
 	int ret;
 
+	/* Needed by some late_init hooks */
+	spi_nor_init_flags(nor);
+
 	if (nor->manufacturer && nor->manufacturer->fixups &&
 	    nor->manufacturer->fixups->late_init) {
 		ret = nor->manufacturer->fixups->late_init(nor);
 		if (ret)
 			return ret;
 	}
-
-	/* Needed by some flashes late_init hooks. */
-	spi_nor_init_flags(nor);
 
 	if (nor->info->fixups && nor->info->fixups->late_init) {
 		ret = nor->info->fixups->late_init(nor);
