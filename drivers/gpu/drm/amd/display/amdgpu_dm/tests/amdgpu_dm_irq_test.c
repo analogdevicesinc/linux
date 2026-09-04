@@ -14,6 +14,7 @@
 
 #include "dc.h"
 #include "inc/core_types.h"
+#include "inc/hw/timing_generator.h"
 #include "irq/irq_service.h"
 #include "amdgpu.h"
 #include "amdgpu_mode.h"
@@ -213,6 +214,23 @@ static bool dm_test_allow_hpd_rx_irq_true(const struct dc_link *link)
 {
 	return true;
 }
+
+/* Report a scanout position past the start of the front porch. */
+static void dm_test_tg_get_scanoutpos(struct timing_generator *tg,
+				      uint32_t *v_blank_start,
+				      uint32_t *v_blank_end,
+				      uint32_t *h_position,
+				      uint32_t *v_position)
+{
+	*v_blank_start = 100;
+	*v_blank_end = 110;
+	*h_position = 0;
+	*v_position = 200;
+}
+
+static const struct timing_generator_funcs dm_test_tg_funcs = {
+	.get_scanoutpos = dm_test_tg_get_scanoutpos,
+};
 
 
 static uint32_t dm_test_dmub_get_outbox0_wptr(struct dmub_srv *dmub)
@@ -3658,6 +3676,124 @@ static void dm_test_pflip_high_irq_completes_flip(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, acrtc->pflip_status, AMDGPU_FLIP_NONE);
 }
 
+/*
+ * Build a CRTC with a submitted flip on an active-VRR stream whose scanout
+ * position comes from the given fake timing generator (NULL for a stream that
+ * is not on any pipe, so the position is unavailable).
+ */
+static struct amdgpu_crtc *dm_test_setup_vrr_pflip_crtc(struct kunit *test,
+							struct timing_generator *tg)
+{
+	struct dc_stream_state *stream;
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct dc_link *link;
+	struct dc *dc;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
+
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	dc->current_state = kunit_kzalloc(test, sizeof(*dc->current_state),
+					  GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc->current_state);
+	adev->dm.dc = dc;
+
+	link = dm_kunit_alloc_link(test);
+	stream = dm_kunit_alloc_stream(test, link);
+	stream->ctx = dc->ctx;
+
+	if (tg) {
+		dc->current_state->res_ctx.pipe_ctx[0].stream = stream;
+		dc->current_state->res_ctx.pipe_ctx[0].stream_res.tg = tg;
+	}
+
+	acrtc = dm_test_add_crtc(test, adev);
+	acrtc->pflip_status = AMDGPU_FLIP_SUBMITTED;
+	acrtc->dm_irq_params.stream = stream;
+	acrtc->dm_irq_params.freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
+
+	return acrtc;
+}
+
+/**
+ * dm_test_pflip_high_irq_vrr_no_scanoutpos - Test VRR flip with no scanout data
+ * @test: The KUnit test context
+ *
+ * When the stream is not on any pipe the scanout position is unavailable, so
+ * the handler cannot tell it is inside the front porch and completes the flip
+ * immediately.
+ */
+static void dm_test_pflip_high_irq_vrr_no_scanoutpos(struct kunit *test)
+{
+	struct drm_pending_vblank_event *event;
+	struct common_irq_params params = { 0 };
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+
+	acrtc = dm_test_setup_vrr_pflip_crtc(test, NULL);
+	adev = drm_to_adev(acrtc->base.dev);
+
+	/* drm_crtc_send_vblank_event() consumes (kfree()s) the event. */
+	event = kzalloc_obj(*event, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, event);
+	acrtc->event = event;
+
+	/* Balance the handler's drm_crtc_vblank_put(). */
+	adev->ddev.vblank[0].enabled = true;
+	KUNIT_ASSERT_EQ(test, drm_crtc_vblank_get(&acrtc->base), 0);
+
+	params.adev = adev;
+	params.irq_src = (enum dc_irq_source)IRQ_TYPE_PFLIP;
+
+	dm_pflip_high_irq(&params);
+
+	KUNIT_EXPECT_NULL(test, acrtc->event);
+	KUNIT_EXPECT_EQ(test, acrtc->pflip_status, AMDGPU_FLIP_NONE);
+}
+
+/**
+ * dm_test_pflip_high_irq_vrr_front_porch - Test VRR flip inside the front porch
+ * @test: The KUnit test context
+ *
+ * A VRR flip that completes while scanout is still in the front porch has no
+ * valid vblank count yet, so the event is queued on the device's vblank event
+ * list for the late vblank handler to send out instead.
+ */
+static void dm_test_pflip_high_irq_vrr_front_porch(struct kunit *test)
+{
+	struct drm_pending_vblank_event *event;
+	struct common_irq_params params = { 0 };
+	struct timing_generator *tg;
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+
+	tg = kunit_kzalloc(test, sizeof(*tg), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, tg);
+	tg->funcs = &dm_test_tg_funcs;
+
+	acrtc = dm_test_setup_vrr_pflip_crtc(test, tg);
+	adev = drm_to_adev(acrtc->base.dev);
+
+	event = kzalloc_obj(*event, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, event);
+	acrtc->event = event;
+
+	params.adev = adev;
+	params.irq_src = (enum dc_irq_source)IRQ_TYPE_PFLIP;
+
+	dm_pflip_high_irq(&params);
+
+	KUNIT_EXPECT_NULL(test, acrtc->event);
+	KUNIT_EXPECT_EQ(test, acrtc->pflip_status, AMDGPU_FLIP_NONE);
+	KUNIT_ASSERT_PTR_EQ(test, adev->ddev.vblank_event_list.next,
+			    &event->base.link);
+
+	/* The event was queued rather than sent, so the test owns it. */
+	list_del(&event->base.link);
+	kfree(event);
+}
+
 /**
  * dm_test_vupdate_high_irq_no_crtc - Test vupdate high IRQ with no CRTC
  * @test: The KUnit test context
@@ -4981,6 +5117,8 @@ static struct kunit_case amdgpu_dm_irq_tests[] = {
 	KUNIT_CASE(dm_test_pflip_high_irq_no_crtc),
 	KUNIT_CASE(dm_test_pflip_high_irq_not_submitted),
 	KUNIT_CASE(dm_test_pflip_high_irq_completes_flip),
+	KUNIT_CASE(dm_test_pflip_high_irq_vrr_no_scanoutpos),
+	KUNIT_CASE(dm_test_pflip_high_irq_vrr_front_porch),
 	KUNIT_CASE(dm_test_vupdate_high_irq_no_crtc),
 	KUNIT_CASE(dm_test_vupdate_high_irq_dcn_completes_flip),
 	KUNIT_CASE(dm_test_vupdate_high_irq_dcn_no_active_planes),
