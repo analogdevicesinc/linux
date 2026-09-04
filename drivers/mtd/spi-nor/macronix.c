@@ -40,7 +40,7 @@ mx25l25635_post_bfpt_fixups(struct spi_nor *nor,
 	 * its BFPT table.
 	 */
 	if (bfpt->dwords[SFDP_DWORD(5)] & BFPT_DWORD5_FAST_READ_4_4_4)
-		nor->flags |= SNOR_F_4B_OPCODES;
+		nor->params->flags |= SNOR_F_4B_OPCODES;
 
 	return 0;
 }
@@ -83,6 +83,25 @@ mx25l3255e_late_init_fixups(struct spi_nor *nor)
 	return 0;
 }
 
+static int
+mx25l12805d_4pp3b_post_sfdp_fixups(struct spi_nor *nor)
+{
+	struct spi_nor_flash_parameter *params = nor->params;
+
+	/*
+	 * JEDEC ID 0xc22018 is shared by MX25L12805D (no SFDP, no 4PP) and
+	 * MX25L12833F/MX25L12845G (support SFDP and 4PP in 3-byte mode).
+	 * The legacy 05D lacks SFDP and will not execute this hook. For
+	 * the newer flashes, 3-byte 1-4-4 PP is not defined in SFDP, so
+	 * we safely enable it here.
+	 */
+	params->hwcaps.mask |= SNOR_HWCAPS_PP_1_4_4;
+	spi_nor_set_pp_settings(&params->page_programs[SNOR_CMD_PP_1_4_4],
+				SPINOR_OP_PP_1_4_4, SNOR_PROTO_1_4_4);
+
+	return 0;
+}
+
 static const struct spi_nor_fixups mx25l25635_fixups = {
 	.post_bfpt = mx25l25635_post_bfpt_fixups,
 	.post_sfdp = macronix_qpp4b_post_sfdp_fixups,
@@ -94,6 +113,10 @@ static const struct spi_nor_fixups macronix_qpp4b_fixups = {
 
 static const struct spi_nor_fixups mx25l3255e_fixups = {
 	.late_init = mx25l3255e_late_init_fixups,
+};
+
+static const struct spi_nor_fixups mx25l12805d_4pp3b_fixups = {
+	.post_sfdp = mx25l12805d_4pp3b_post_sfdp_fixups,
 };
 
 static const struct flash_info macronix_nor_parts[] = {
@@ -130,15 +153,18 @@ static const struct flash_info macronix_nor_parts[] = {
 		.size = SZ_8M,
 		.no_sfdp_flags = SECT_4K,
 	}, {
-		/* MX25L12805D */
+		/* MX25L12805D, MX25L12833F, MX25L12845G */
 		.id = SNOR_ID(0xc2, 0x20, 0x18),
+		.size = SZ_16M,
 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_4BIT_BP,
+		.no_sfdp_flags = SECT_4K,
+		.fixups = &mx25l12805d_4pp3b_fixups,
 	}, {
 		/* MX25L25635E, MX25L25645G */
 		.id = SNOR_ID(0xc2, 0x20, 0x19),
 		.fixups = &mx25l25635_fixups
 	}, {
-		/* MX66L51235F */
+		/* MX25L51245G, MX25L51273G, MX66L51235F */
 		.id = SNOR_ID(0xc2, 0x20, 0x1a),
 		.fixup_flags = SPI_NOR_4B_OPCODES,
 		.fixups = &macronix_qpp4b_fixups,
@@ -186,11 +212,11 @@ static const struct flash_info macronix_nor_parts[] = {
 		.size = SZ_16M,
 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 	}, {
-		/* MX25U51245G */
+		/* MX25U51245G, MX25U51293G */
 		.id = SNOR_ID(0xc2, 0x25, 0x3a),
 		.fixups = &macronix_qpp4b_fixups,
 	}, {
-		/* MX66U1G45G */
+		/* MX66U1G45G, MX66U1G93G */
 		.id = SNOR_ID(0xc2, 0x25, 0x3b),
 		.fixups = &macronix_qpp4b_fixups,
 	}, {

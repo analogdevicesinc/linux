@@ -13,12 +13,13 @@
 
 static u8 spi_nor_get_sr_bp_mask(struct spi_nor *nor)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	u8 mask = SR_BP2 | SR_BP1 | SR_BP0;
 
-	if (nor->flags & SNOR_F_HAS_SR_BP3_BIT6)
+	if (params->flags & SNOR_F_HAS_SR_BP3_BIT6)
 		return mask | SR_BP3_BIT6;
 
-	if (nor->flags & SNOR_F_HAS_4BIT_BP)
+	if (params->flags & SNOR_F_HAS_4BIT_BP)
 		return mask | SR_BP3;
 
 	return mask;
@@ -26,9 +27,11 @@ static u8 spi_nor_get_sr_bp_mask(struct spi_nor *nor)
 
 static u8 spi_nor_get_sr_tb_mask(struct spi_nor *nor)
 {
-	if (nor->flags & SNOR_F_HAS_SR_TB_BIT6)
+	struct spi_nor_flash_parameter *params = nor->params;
+
+	if (params->flags & SNOR_F_HAS_SR_TB_BIT6)
 		return SR_TB_BIT6;
-	else if (nor->flags & SNOR_F_HAS_SR_TB)
+	else if (params->flags & SNOR_F_HAS_SR_TB)
 		return SR_TB_BIT5;
 	else
 		return 0;
@@ -36,8 +39,10 @@ static u8 spi_nor_get_sr_tb_mask(struct spi_nor *nor)
 
 static u8 spi_nor_get_sr_cmp_mask(struct spi_nor *nor)
 {
-	if (!(nor->flags & SNOR_F_NO_READ_CR) &&
-	    nor->flags & SNOR_F_HAS_SR2_CMP_BIT6)
+	struct spi_nor_flash_parameter *params = nor->params;
+
+	if (!(params->flags & SNOR_F_NO_READ_CR) &&
+	    params->flags & SNOR_F_HAS_SR2_CMP_BIT6)
 		return SR2_CMP_BIT6;
 	else
 		return 0;
@@ -67,15 +72,16 @@ u64 spi_nor_get_min_prot_length_sr(struct spi_nor *nor)
 void spi_nor_get_locked_range_sr(struct spi_nor *nor, const u8 *sr, loff_t *ofs,
 				 u64 *len)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	u64 min_prot_len;
 	u8 bp_mask = spi_nor_get_sr_bp_mask(nor);
 	u8 tb_mask = spi_nor_get_sr_tb_mask(nor);
 	u8 cmp_mask = spi_nor_get_sr_cmp_mask(nor);
 	u8 bp, val = sr[0] & bp_mask;
-	bool tb = (nor->flags & SNOR_F_HAS_SR_TB) ? sr[0] & tb_mask : 0;
+	bool tb = (params->flags & SNOR_F_HAS_SR_TB) ? sr[0] & tb_mask : 0;
 	bool cmp = sr[1] & cmp_mask;
 
-	if (nor->flags & SNOR_F_HAS_SR_BP3_BIT6 && val & SR_BP3_BIT6)
+	if (params->flags & SNOR_F_HAS_SR_BP3_BIT6 && val & SR_BP3_BIT6)
 		val = (val & ~SR_BP3_BIT6) | SR_BP3;
 
 	bp = val >> SR_BP_SHIFT;
@@ -153,10 +159,11 @@ static bool spi_nor_is_unlocked_sr(struct spi_nor *nor, loff_t ofs, u64 len,
 
 static int spi_nor_sr_set_bp_mask(struct spi_nor *nor, u8 *sr, u8 pow)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	u8 mask = spi_nor_get_sr_bp_mask(nor);
 	u8 val = pow << SR_BP_SHIFT;
 
-	if (nor->flags & SNOR_F_HAS_SR_BP3_BIT6 && val & SR_BP3)
+	if (params->flags & SNOR_F_HAS_SR_BP3_BIT6 && val & SR_BP3)
 		val = (val & ~SR_BP3) | SR_BP3_BIT6;
 
 	if (val & ~mask)
@@ -200,6 +207,7 @@ static int spi_nor_build_sr(struct spi_nor *nor, const u8 *old_sr, u8 *new_sr,
  */
 void spi_nor_cache_sr_lock_bits(struct spi_nor *nor, u8 *sr)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	u8 bp_mask = spi_nor_get_sr_bp_mask(nor);
 	u8 tb_mask = spi_nor_get_sr_tb_mask(nor);
 	u8 cmp_mask = spi_nor_get_sr_cmp_mask(nor);
@@ -212,7 +220,7 @@ void spi_nor_cache_sr_lock_bits(struct spi_nor *nor, u8 *sr)
 
 		sr_cr[0] = nor->bouncebuf[0];
 
-		if (!(nor->flags & SNOR_F_NO_READ_CR)) {
+		if (!(params->flags & SNOR_F_NO_READ_CR)) {
 			if (spi_nor_read_cr(nor, nor->bouncebuf))
 				return;
 		}
@@ -261,13 +269,14 @@ void spi_nor_cache_sr_lock_bits(struct spi_nor *nor, u8 *sr)
  */
 static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, u64 len)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	u64 min_prot_len = spi_nor_get_min_prot_length_sr(nor);
 	u8 status_old[2] = {}, status_new[2] = {}, status_new_cmp[2] = {};
 	u8 *best_status_new = status_new;
 	loff_t ofs_old, ofs_new, ofs_new_cmp;
 	u64 len_old, len_new, len_new_cmp;
 	loff_t lock_len;
-	bool can_be_top = true, can_be_bottom = nor->flags & SNOR_F_HAS_SR_TB,
+	bool can_be_top = true, can_be_bottom = params->flags & SNOR_F_HAS_SR_TB,
 		can_be_cmp = spi_nor_get_sr_cmp_mask(nor);
 	bool use_top;
 	int ret;
@@ -279,7 +288,7 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, u64 len)
 
 	status_old[0] = nor->bouncebuf[0];
 
-	if (!(nor->flags & SNOR_F_NO_READ_CR)) {
+	if (!(params->flags & SNOR_F_NO_READ_CR)) {
 		ret = spi_nor_read_cr(nor, nor->bouncebuf);
 		if (ret)
 			return ret;
@@ -313,7 +322,7 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, u64 len)
 		lock_len = ofs + len;
 
 	if (lock_len == nor->params->size)
-		pow = (nor->flags & SNOR_F_HAS_4BIT_BP) ? GENMASK(3, 0) : GENMASK(2, 0);
+		pow = (params->flags & SNOR_F_HAS_4BIT_BP) ? GENMASK(3, 0) : GENMASK(2, 0);
 	else
 		pow = ilog2(lock_len) - ilog2(min_prot_len) + 1;
 
@@ -359,7 +368,7 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, u64 len)
 	 * wrongly tied to GND (that includes internal pull-downs).
 	 * WP# pin hard strapped to GND can be a valid use case.
 	 */
-	if (!(nor->flags & SNOR_F_NO_WP))
+	if (!(params->flags & SNOR_F_NO_WP))
 		best_status_new[0] |= SR_SRWD;
 
 	spi_nor_get_locked_range_sr(nor, status_old, &ofs_old, &len_old);
@@ -378,7 +387,7 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, u64 len)
 	    (ofs_old < ofs_new || (ofs_new + len_new) < (ofs_old + len_old)))
 		return -EINVAL;
 
-	if (nor->flags & SNOR_F_NO_READ_CR)
+	if (params->flags & SNOR_F_NO_READ_CR)
 		ret = spi_nor_write_sr_and_check(nor, best_status_new[0]);
 	else
 		ret = spi_nor_write_sr_cr_and_check(nor, best_status_new);
@@ -397,13 +406,14 @@ static int spi_nor_sr_lock(struct spi_nor *nor, loff_t ofs, u64 len)
  */
 static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, u64 len)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	u64 min_prot_len = spi_nor_get_min_prot_length_sr(nor);
 	u8 status_old[2] = {}, status_new[2] = {}, status_new_cmp[2] = {};
 	u8 *best_status_new = status_new;
 	loff_t ofs_old, ofs_new, ofs_new_cmp;
 	u64 len_old, len_new, len_new_cmp;
 	loff_t lock_len;
-	bool can_be_top = true, can_be_bottom = nor->flags & SNOR_F_HAS_SR_TB,
+	bool can_be_top = true, can_be_bottom = params->flags & SNOR_F_HAS_SR_TB,
 		can_be_cmp = spi_nor_get_sr_cmp_mask(nor);
 	bool use_top;
 	int ret;
@@ -415,7 +425,7 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, u64 len)
 
 	status_old[0] = nor->bouncebuf[0];
 
-	if (!(nor->flags & SNOR_F_NO_READ_CR)) {
+	if (!(params->flags & SNOR_F_NO_READ_CR)) {
 		ret = spi_nor_read_cr(nor, nor->bouncebuf);
 		if (ret)
 			return ret;
@@ -512,7 +522,7 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, u64 len)
 	    (ofs_new < ofs_old || (ofs_old + len_old) < (ofs_new + len_new)))
 		return -EINVAL;
 
-	if (nor->flags & SNOR_F_NO_READ_CR)
+	if (params->flags & SNOR_F_NO_READ_CR)
 		ret = spi_nor_write_sr_and_check(nor, best_status_new[0]);
 	else
 		ret = spi_nor_write_sr_cr_and_check(nor, best_status_new);
@@ -533,6 +543,7 @@ static int spi_nor_sr_unlock(struct spi_nor *nor, loff_t ofs, u64 len)
  */
 static int spi_nor_sr_is_locked(struct spi_nor *nor, loff_t ofs, u64 len)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	u8 sr_cr[2] = {};
 	int ret;
 
@@ -542,7 +553,7 @@ static int spi_nor_sr_is_locked(struct spi_nor *nor, loff_t ofs, u64 len)
 
 	sr_cr[0] = nor->bouncebuf[0];
 
-	if (!(nor->flags & SNOR_F_NO_READ_CR)) {
+	if (!(params->flags & SNOR_F_NO_READ_CR)) {
 		ret = spi_nor_read_cr(nor, nor->bouncebuf);
 		if (ret)
 			return ret;
@@ -628,9 +639,10 @@ static int spi_nor_is_locked(struct mtd_info *mtd, loff_t ofs, u64 len)
  */
 void spi_nor_try_unlock_all(struct spi_nor *nor)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	int ret;
 
-	if (!(nor->flags & SNOR_F_HAS_LOCK))
+	if (!(params->flags & SNOR_F_HAS_LOCK))
 		return;
 
 	dev_dbg(nor->dev, "Unprotecting entire flash array\n");

@@ -537,7 +537,7 @@ static void cypress_nor_ecc_init(struct spi_nor *nor)
 	 * same ECC data unit without an erase are not allowed.
 	 */
 	nor->params->writesize = 16;
-	nor->flags |= SNOR_F_ECC;
+	nor->params->flags |= SNOR_F_ECC;
 }
 
 static int
@@ -545,7 +545,6 @@ s25fs256t_post_bfpt_fixup(struct spi_nor *nor,
 			  const struct sfdp_parameter_header *bfpt_header,
 			  const struct sfdp_bfpt *bfpt)
 {
-	struct spi_mem_op op;
 	int ret;
 
 	/* Assign 4-byte address mode method that is not determined in BFPT */
@@ -554,19 +553,6 @@ s25fs256t_post_bfpt_fixup(struct spi_nor *nor,
 	ret = cypress_nor_set_addr_mode_nbytes(nor);
 	if (ret)
 		return ret;
-
-	/* Read Architecture Configuration Register (ARCFN) */
-	op = (struct spi_mem_op)
-		CYPRESS_NOR_RD_ANY_REG_OP(nor->params->addr_mode_nbytes,
-					  SPINOR_REG_CYPRESS_ARCFN, 1,
-					  nor->bouncebuf);
-	ret = spi_nor_read_any_reg(nor, &op, nor->reg_proto);
-	if (ret)
-		return ret;
-
-	/* ARCFN value must be 0 if uniform sector is selected  */
-	if (nor->bouncebuf[0])
-		return -ENODEV;
 
 	return 0;
 }
@@ -598,6 +584,22 @@ static int s25fs256t_post_sfdp_fixup(struct spi_nor *nor)
 
 static int s25fs256t_late_init(struct spi_nor *nor)
 {
+	struct spi_mem_op op;
+	int ret;
+
+	/* Read Architecture Configuration Register (ARCFN) */
+	op = (struct spi_mem_op)
+		CYPRESS_NOR_RD_ANY_REG_OP(nor->params->addr_mode_nbytes,
+					  SPINOR_REG_CYPRESS_ARCFN, 1,
+					  nor->bouncebuf);
+	ret = spi_nor_read_any_reg(nor, &op, nor->reg_proto);
+	if (ret)
+		return ret;
+
+	/* ARCFN value must be 0 if uniform sector is selected  */
+	if (nor->bouncebuf[0])
+		return -ENODEV;
+
 	cypress_nor_ecc_init(nor);
 
 	return 0;
@@ -868,7 +870,7 @@ static const struct flash_info spansion_nor_parts[] = {
 		.name = "s25fl256s0",
 		.size = SZ_32M,
 		.sector_size = SZ_256K,
-		.no_sfdp_flags = SPI_NOR_SKIP_SFDP | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
+		.no_sfdp_flags = SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.mfr_flags = USE_CLSR,
 	}, {
 		.id = SNOR_ID(0x01, 0x02, 0x19, 0x4d, 0x00, 0x81),
@@ -1139,7 +1141,7 @@ static int spansion_nor_late_init(struct spi_nor *nor)
 	u8 mfr_flags = nor->info->mfr_flags;
 
 	if (params->size > SZ_16M) {
-		nor->flags |= SNOR_F_4B_OPCODES;
+		params->flags |= SNOR_F_4B_OPCODES;
 		/* No small sector erase for 4-byte command set */
 		nor->erase_opcode = SPINOR_OP_SE;
 		nor->mtd.erasesize = nor->info->sector_size ?:

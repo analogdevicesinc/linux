@@ -177,7 +177,7 @@ static int mt35xu512aba_post_sfdp_fixup(struct spi_nor *nor)
 	spi_nor_set_pp_settings(&nor->params->page_programs[SNOR_CMD_PP_8_8_8_DTR],
 				SPINOR_OP_PP_4B, SNOR_PROTO_8_8_8_DTR);
 
-	nor->cmd_ext_type = SPI_NOR_EXT_REPEAT;
+	nor->params->cmd_ext_type = SPI_NOR_EXT_REPEAT;
 	nor->params->rdsr_dummy = 8;
 	nor->params->rdsr_addr_nbytes = 0;
 
@@ -229,7 +229,7 @@ static int mt25qu512a_post_bfpt_fixup(struct spi_nor *nor,
 				      const struct sfdp_parameter_header *bfpt_header,
 				      const struct sfdp_bfpt *bfpt)
 {
-	nor->flags &= ~SNOR_F_HAS_16BIT_SR;
+	nor->params->flags &= ~SNOR_F_HAS_16BIT_SR;
 	return 0;
 }
 
@@ -632,8 +632,8 @@ static int micron_st_nor_ready(struct spi_nor *nor)
 
 static void micron_st_nor_default_init(struct spi_nor *nor)
 {
-	nor->flags |= SNOR_F_HAS_LOCK;
-	nor->flags &= ~SNOR_F_HAS_16BIT_SR;
+	nor->params->flags |= SNOR_F_HAS_LOCK;
+	nor->params->flags &= ~SNOR_F_HAS_16BIT_SR;
 	nor->params->quad_enable = NULL;
 }
 

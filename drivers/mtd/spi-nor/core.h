@@ -121,10 +121,12 @@
 		   SPI_MEM_OP_NO_ADDR,					\
 		   SPI_MEM_OP_NO_DATA)
 
-/* Keep these in sync with the list in debugfs.c */
+/*
+ * This could contain holes, if adding a new flag use the first free spot.
+ * Keep the flags in sync with the list in debugfs.c
+ */
 enum spi_nor_option_flags {
 	SNOR_F_HAS_SR_TB	= BIT(0),
-	SNOR_F_NO_OP_CHIP_ERASE	= BIT(1),
 	SNOR_F_BROKEN_RESET	= BIT(2),
 	SNOR_F_4B_OPCODES	= BIT(3),
 	SNOR_F_HAS_4BAIT	= BIT(4),
@@ -348,6 +350,7 @@ struct spi_nor_otp {
  *
  * @bank_size:		the flash memory bank density in bytes.
  * @size:		the total flash memory density in bytes.
+ * @flags:		flag options for the current SPI NOR (SNOR_F_*)
  * @writesize		Minimal writable flash unit size. Defaults to 1. Set to
  *			ECC unit size for ECC-ed flashes.
  * @page_size:		the page size of the SPI NOR flash memory.
@@ -370,6 +373,7 @@ struct spi_nor_otp {
  *                      in the array, the higher priority.
  * @page_programs:	page program capabilities ordered by priority: the
  *                      higher index in the array, the higher priority.
+ * @cmd_ext_type:	the command opcode extension type for DTR mode.
  * @erase_map:		the erase map parsed from the SFDP Sector Map Parameter
  *                      Table.
  * @otp:		SPI NOR OTP info.
@@ -385,6 +389,7 @@ struct spi_nor_otp {
 struct spi_nor_flash_parameter {
 	u64				bank_size;
 	u64				size;
+	u32				flags;
 	u32				writesize;
 	u32				page_size;
 	u8				addr_nbytes;
@@ -399,6 +404,7 @@ struct spi_nor_flash_parameter {
 	struct spi_nor_hwcaps		hwcaps;
 	struct spi_nor_read_command	reads[SNOR_CMD_READ_MAX];
 	struct spi_nor_pp_command	page_programs[SNOR_CMD_PP_MAX];
+	enum spi_nor_cmd_ext		cmd_ext_type;
 
 	struct spi_nor_erase_map        erase_map;
 	struct spi_nor_otp		otp;
@@ -496,9 +502,7 @@ struct spi_nor_id {
  *                            be used with SPI_NOR_HAS_LOCK.
  *
  * @no_sfdp_flags:  flags that indicate support that can be discovered via SFDP.
- *                  Used when SFDP tables are not defined in the flash. These
- *                  flags are used together with the SPI_NOR_SKIP_SFDP flag.
- *   SPI_NOR_SKIP_SFDP:       skip parsing of SFDP tables.
+ *                  Used when SFDP tables are not defined in the flash.
  *   SECT_4K:                 SPINOR_OP_BE_4K works uniformly.
  *   SPI_NOR_DUAL_READ:       flash supports Dual Read.
  *   SPI_NOR_QUAD_READ:       flash supports Quad Read.
@@ -545,7 +549,6 @@ struct flash_info {
 #define SPI_NOR_HAS_CMP			BIT(10)
 
 	u8 no_sfdp_flags;
-#define SPI_NOR_SKIP_SFDP		BIT(0)
 #define SECT_4K				BIT(1)
 #define SPI_NOR_DUAL_READ		BIT(3)
 #define SPI_NOR_QUAD_READ		BIT(4)
@@ -679,10 +682,6 @@ void spi_nor_set_erase_type(struct spi_nor_erase_type *erase, u32 size,
 void spi_nor_mask_erase_type(struct spi_nor_erase_type *erase);
 void spi_nor_init_uniform_erase_map(struct spi_nor_erase_map *map,
 				    u8 erase_mask, u64 flash_size);
-
-int spi_nor_post_bfpt_fixups(struct spi_nor *nor,
-			     const struct sfdp_parameter_header *bfpt_header,
-			     const struct sfdp_bfpt *bfpt);
 
 void spi_nor_init_default_locking_ops(struct spi_nor *nor);
 bool spi_nor_has_default_locking_ops(struct spi_nor *nor);

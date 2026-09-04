@@ -64,7 +64,7 @@ w25q256_post_bfpt_fixups(struct spi_nor *nor,
 	 */
 	if (bfpt_header->major == SFDP_JESD216_MAJOR &&
 	    bfpt_header->minor == SFDP_JESD216A_MINOR)
-		nor->flags |= SNOR_F_4B_OPCODES;
+		nor->params->flags |= SNOR_F_4B_OPCODES;
 
 	return 0;
 }
@@ -84,7 +84,7 @@ winbond_rdcr_post_bfpt_fixup(struct spi_nor *nor,
 	 * both incorrect and impractical, as the chip features a CMP bit for its
 	 * locking scheme that lays in the Control Register, and needs to be read.
 	 */
-	nor->flags &= ~SNOR_F_NO_READ_CR;
+	nor->params->flags &= ~SNOR_F_NO_READ_CR;
 
 	return 0;
 }
