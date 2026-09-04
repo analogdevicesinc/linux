@@ -24,6 +24,14 @@
 #define VGIC_V5_LPI_IST_SIZE		0x10000
 #define LPI_TEST_TO_VPE1		0
 #define LPI_TEST_TO_VPE0		1
+#define RESTORE_TEST_LPI_PENDING		0
+#define RESTORE_TEST_LPI_ENABLED		1
+#define RESTORE_TEST_SPI_PRIO_HIGH		0
+#define RESTORE_TEST_SPI_PRIO_LOW		1
+#define RESTORE_TEST_SPI_PENDING_DISABLED	2
+#define RESTORE_TEST_SPI_ENABLED		3
+#define VGIC_V5_IST_PRIO_HIGH		0x08
+#define VGIC_V5_IST_PRIO_LOW		0x10
 
 static u64 max_phys_size;
 
@@ -41,6 +49,9 @@ struct vm_gic {
 #define GUEST_CMD_IS_READY	13
 #define GUEST_CMD_LPI_SENT	14
 #define GUEST_CMD_LPI_REPLIED	15
+#define GUEST_CMD_IST_SOURCE_READY	16
+#define GUEST_CMD_IST_SPI_INJECT_READY	17
+#define GUEST_CMD_IST_LPI_INJECT_READY	18
 
 static struct kvm_vgic_v5_ist vgic_v5_ist_attr(void *spi_ist, size_t spi_size,
 					       void *lpi_ist, size_t lpi_size)
@@ -56,6 +67,7 @@ static struct kvm_vgic_v5_ist vgic_v5_ist_attr(void *spi_ist, size_t spi_size,
 static u32 spi_line_expected;
 static bool spi_line_level_sensitive;
 static bool lpi_ist_ready;
+static u32 ist_restore_irq_count[VGIC_V5_LPI_NR_VCPUS];
 
 static u64 gicv5_hwirq(u32 type, u32 intid)
 {
@@ -84,6 +96,27 @@ static void gicv5_setup_and_enable_hwirq(u64 hwirq, u32 target_vpe)
 	val = hwirq | FIELD_PREP(GICV5_GIC_CDAFF_IAFFID_MASK, target_vpe);
 	gic_insn(val, CDAFF);
 
+	gic_insn(hwirq, CDEN);
+}
+
+static void gicv5_set_hwirq_priority(u64 hwirq, u32 priority)
+{
+	u64 val;
+
+	val = hwirq | FIELD_PREP(GICV5_GIC_CDPRI_PRIORITY_MASK, priority);
+	gic_insn(val, CDPRI);
+}
+
+static void gicv5_set_hwirq_affinity(u64 hwirq, u32 target_vpe)
+{
+	u64 val;
+
+	val = hwirq | FIELD_PREP(GICV5_GIC_CDAFF_IAFFID_MASK, target_vpe);
+	gic_insn(val, CDAFF);
+}
+
+static void gicv5_enable_hwirq(u64 hwirq)
+{
 	gic_insn(hwirq, CDEN);
 }
 
@@ -196,6 +229,15 @@ static void gicv5_configure_test_lpis(void)
 {
 	gicv5_enable_lpi(LPI_TEST_TO_VPE1, 1);
 	gicv5_enable_lpi(LPI_TEST_TO_VPE0, 0);
+}
+
+static void gicv5_set_pcr(u32 priority)
+{
+	u64 pcr;
+
+	pcr = FIELD_PREP(ICC_PCR_EL1_PRIORITY, priority);
+	write_sysreg_s(pcr, SYS_ICC_PCR_EL1);
+	isb();
 }
 
 static void guest_ppi_irq_handler(struct ex_regs *regs)
@@ -329,6 +371,11 @@ static void guest_lpi_irq_handler(struct ex_regs *regs)
 	GUEST_DONE();
 }
 
+static void guest_unexpected_irq_handler(struct ex_regs *regs)
+{
+	GUEST_FAIL("Unexpected IRQ");
+}
+
 static void guest_lpi_code(void)
 {
 	u32 vcpu_id = guest_get_vcpuid();
@@ -354,6 +401,165 @@ static void guest_lpi_code(void)
 		gicv5_send_lpi(LPI_TEST_TO_VPE1);
 		GUEST_SYNC(GUEST_CMD_LPI_SENT);
 	}
+
+	while (1)
+		wfi();
+}
+
+static void restore_test_setup_hwirq(u64 hwirq, u32 target_vpe,
+				     u32 priority, bool enable)
+{
+	gicv5_set_hwirq_priority(hwirq, priority);
+	gicv5_set_hwirq_affinity(hwirq, target_vpe);
+
+	if (enable)
+		gicv5_enable_hwirq(hwirq);
+}
+
+/*
+ * The source VM configures SPI and LPI state for the IST save/restore test.
+ * It leaves interrupts disabled, allowing userspace to save the state before
+ * the restore VM enables interrupts and checks delivery.
+ */
+static void guest_ist_source_code(void)
+{
+	local_irq_disable();
+
+	gicv5_enable_irs();
+	gicv5_configure_lpi_ist();
+
+	restore_test_setup_hwirq(gicv5_lpi_hwirq(RESTORE_TEST_LPI_PENDING),
+				 1, VGIC_V5_IST_PRIO_HIGH, true);
+	restore_test_setup_hwirq(gicv5_lpi_hwirq(RESTORE_TEST_LPI_ENABLED),
+				 1, VGIC_V5_IST_PRIO_HIGH, true);
+	restore_test_setup_hwirq(gicv5_spi_hwirq(RESTORE_TEST_SPI_PRIO_HIGH),
+				 0, VGIC_V5_IST_PRIO_HIGH, true);
+	restore_test_setup_hwirq(gicv5_spi_hwirq(RESTORE_TEST_SPI_PRIO_LOW),
+				 0, VGIC_V5_IST_PRIO_LOW, true);
+	restore_test_setup_hwirq(gicv5_spi_hwirq(RESTORE_TEST_SPI_ENABLED),
+				 0, VGIC_V5_IST_PRIO_HIGH, true);
+	restore_test_setup_hwirq(gicv5_spi_hwirq(RESTORE_TEST_SPI_PENDING_DISABLED),
+				 0, VGIC_V5_IST_PRIO_HIGH, false);
+
+	gicv5_send_lpi(RESTORE_TEST_LPI_PENDING);
+
+	GUEST_SYNC(GUEST_CMD_IST_SOURCE_READY);
+
+	while (1)
+		wfi();
+}
+
+/*
+ * This is the restore VM for the IST save/restore test. The IRS regs and ISTs
+ * have been restored before this code runs. Based on which VPE is running, a
+ * different set of interrupts is expected. We check that we get what we
+ * expected before terminating the test.
+ *
+ * The expected interrupts for VPE0 are:
+ * - High-priority SPI, pending and enabled before save.
+ * - Low-priority SPI, pending and enabled before save. This is only delivered
+ *   after the guest lowers the masked priority via ICC_PCR_EL1.
+ * - SPI that was pending but disabled before save. This is only delivered
+ *   after the guest enables it after restore.
+ * - SPI that was enabled but not pending before save. Userspace injects this
+ *   after restore to check that the enable state and affinity were restored.
+ *
+ * The expected interrupts for VPE1 are:
+ * - LPI that was pending and enabled before save.
+ * - LPI that was enabled but not pending before save. The guest injects this
+ *   after restore to check that the enable state and affinity were restored.
+ */
+static void guest_ist_restore_irq_handler(struct ex_regs *regs)
+{
+	u32 vcpu_id = guest_get_vcpuid();
+	u32 count = ist_restore_irq_count[vcpu_id];
+	u64 hwirq, expected_hwirq = 0;
+	u64 ia;
+
+	ia = gicr_insn(CDIA);
+	if (!GICV5_GICR_CDIA_VALID(ia))
+		return;
+
+	gsb_ack();
+	isb();
+
+	hwirq = FIELD_GET(GICV5_GICR_CDIA_INTID, ia);
+
+	if (!vcpu_id) {
+		switch (count) {
+		case 0:
+			expected_hwirq = gicv5_spi_hwirq(RESTORE_TEST_SPI_PRIO_HIGH);
+			break;
+		case 1:
+			expected_hwirq = gicv5_spi_hwirq(RESTORE_TEST_SPI_PRIO_LOW);
+			break;
+		case 2:
+			expected_hwirq = gicv5_spi_hwirq(RESTORE_TEST_SPI_PENDING_DISABLED);
+			break;
+		case 3:
+			expected_hwirq = gicv5_spi_hwirq(RESTORE_TEST_SPI_ENABLED);
+			break;
+		default:
+			GUEST_FAIL("Unexpected VPE0 IST restore interrupt");
+		}
+	} else {
+		switch (count) {
+		case 0:
+			expected_hwirq = gicv5_lpi_hwirq(RESTORE_TEST_LPI_PENDING);
+			break;
+		case 1:
+			expected_hwirq = gicv5_lpi_hwirq(RESTORE_TEST_LPI_ENABLED);
+			break;
+		default:
+			GUEST_FAIL("Unexpected VPE1 IST restore interrupt");
+		}
+	}
+
+	GUEST_ASSERT_EQ(hwirq, expected_hwirq);
+
+	gic_insn(hwirq, CDDI);
+	gic_insn(0, CDEOI);
+	ist_restore_irq_count[vcpu_id]++;
+
+	if (!vcpu_id) {
+		switch (count) {
+		case 0:
+			gicv5_set_pcr(VGIC_V5_IST_PRIO_LOW);
+			break;
+		case 1:
+			gicv5_enable_hwirq(
+				gicv5_spi_hwirq(RESTORE_TEST_SPI_PENDING_DISABLED));
+			break;
+		case 2:
+			GUEST_SYNC(GUEST_CMD_IST_SPI_INJECT_READY);
+			break;
+		case 3:
+			GUEST_DONE();
+		}
+	} else {
+		switch (count) {
+		case 0:
+			gicv5_send_lpi(RESTORE_TEST_LPI_ENABLED);
+			GUEST_SYNC(GUEST_CMD_IST_LPI_INJECT_READY);
+			break;
+		case 1:
+			GUEST_DONE();
+		}
+	}
+}
+
+static void guest_ist_restore_code(void)
+{
+	local_irq_disable();
+
+	gicv5_cpu_enable_interrupts();
+
+	if (!guest_get_vcpuid())
+		gicv5_set_pcr(VGIC_V5_IST_PRIO_HIGH);
+
+	GUEST_SYNC(GUEST_CMD_IS_READY);
+
+	local_irq_enable();
 
 	while (1)
 		wfi();
@@ -429,8 +635,10 @@ static void vgic_v5_spi_line_vm_create(struct vm_gic *v,
 			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
 }
 
-static void vgic_v5_lpi_vm_create(struct vm_gic *v,
-				  struct kvm_vcpu *vcpus[VGIC_V5_LPI_NR_VCPUS])
+static void vgic_v5_lpi_ist_vm_create(struct vm_gic *v,
+				      struct kvm_vcpu *vcpus[VGIC_V5_LPI_NR_VCPUS],
+				      void (*guest_code)(void),
+				      void (*irq_handler)(struct ex_regs *))
 {
 	unsigned int nr_lpi_ist_pages;
 	u64 attr;
@@ -441,13 +649,13 @@ static void vgic_v5_lpi_vm_create(struct vm_gic *v,
 	v->gic_fd = kvm_create_device(v->vm, v->gic_dev_type);
 
 	for (i = 0; i < VGIC_V5_LPI_NR_VCPUS; i++) {
-		vcpus[i] = vm_vcpu_add(v->vm, i, guest_lpi_code);
+		vcpus[i] = vm_vcpu_add(v->vm, i, guest_code);
 		TEST_ASSERT(vcpus[i], "Failed to create vCPU");
 	}
 
 	vm_init_descriptor_tables(v->vm);
 	vm_install_exception_handler(v->vm, VECTOR_IRQ_CURRENT,
-				     guest_lpi_irq_handler);
+				     irq_handler);
 
 	for (i = 0; i < VGIC_V5_LPI_NR_VCPUS; i++)
 		vcpu_init_descriptor_tables(vcpus[i]);
@@ -463,12 +671,30 @@ static void vgic_v5_lpi_vm_create(struct vm_gic *v,
 				    VGIC_V5_LPI_IST_BASE_GPA,
 				    VGIC_V5_LPI_MEMSLOT,
 				    nr_lpi_ist_pages, 0);
-	/* Map the IST at VA == IPA so the guest can program the same BASER. */
+	/*
+	 * Map the IST at VA == IPA so the guest can program the same BASER
+	 * address.
+	 */
 	virt_map(v->vm, VGIC_V5_LPI_IST_BASE_GPA,
 		 VGIC_V5_LPI_IST_BASE_GPA, nr_lpi_ist_pages);
 
 	kvm_device_attr_set(v->gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
 			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
+}
+
+static void vgic_v5_lpi_vm_create(struct vm_gic *v,
+				  struct kvm_vcpu *vcpus[VGIC_V5_LPI_NR_VCPUS])
+{
+	vgic_v5_lpi_ist_vm_create(v, vcpus, guest_lpi_code,
+				  guest_lpi_irq_handler);
+}
+
+static void vgic_v5_ist_restore_vm_create(struct vm_gic *v,
+					  struct kvm_vcpu *vcpus[VGIC_V5_LPI_NR_VCPUS],
+					  void (*guest_code)(void),
+					  void (*irq_handler)(struct ex_regs *))
+{
+	vgic_v5_lpi_ist_vm_create(v, vcpus, guest_code, irq_handler);
 }
 
 static void vgic_v5_run_spi_line_test(u32 nr_spis, u32 expected_spi,
@@ -520,6 +746,15 @@ static void vgic_v5_run_spi_line_test(u32 nr_spis, u32 expected_spi,
 
 done:
 	vm_gic_destroy(&v);
+}
+
+static void vgic_v5_expect_sync(struct kvm_vcpu *vcpu, u64 cmd,
+				const char *msg)
+{
+	struct ucall uc;
+
+	TEST_ASSERT(get_ucall(vcpu, &uc) == UCALL_SYNC && uc.args[1] == cmd,
+		    "%s", msg);
 }
 
 struct vgic_region_attr {
@@ -646,6 +881,52 @@ static const struct vgic_sysreg_attr gic_v5_cpu_sysregs[] = {
 	SR(SYS_ICC_CR0_EL1),
 	SR(SYS_ICC_PCR_EL1),
 };
+
+static void vgic_v5_save_irs_regs(struct vm_gic *v, u64 *regs)
+{
+	int ret, i;
+
+	for (i = 0; i < ARRAY_SIZE(gic_v5_irs_regs); i++) {
+		ret = __kvm_device_attr_get(v->gic_fd,
+					    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+					    gic_v5_irs_regs[i].attr,
+					    &regs[i]);
+		TEST_ASSERT(!ret, "GICv5 IRS_REGS save failed for %s",
+			    gic_v5_irs_regs[i].name);
+	}
+}
+
+static void vgic_v5_restore_irs_regs(struct vm_gic *v, u64 *regs)
+{
+	int ret, i;
+
+	for (i = 0; i < ARRAY_SIZE(gic_v5_irs_regs); i++) {
+		ret = __kvm_device_attr_set(v->gic_fd,
+					    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+					    gic_v5_irs_regs[i].attr,
+					    &regs[i]);
+		TEST_ASSERT(!ret, "GICv5 IRS_REGS restore failed for %s",
+			    gic_v5_irs_regs[i].name);
+	}
+}
+
+static u64 vgic_v5_saved_irs_reg(u64 *regs, u64 attr)
+{
+	for (int i = 0; i < ARRAY_SIZE(gic_v5_irs_regs); i++) {
+		if (gic_v5_irs_regs[i].attr == attr)
+			return regs[i];
+	}
+
+	TEST_FAIL("GICv5 IRS register 0x%lx was not saved", attr);
+}
+
+static size_t vgic_v5_lpi_ist_state_size(u64 *irs_regs)
+{
+	u64 cfgr = vgic_v5_saved_irs_reg(irs_regs, GICV5_IRS_IST_CFGR);
+	u32 lpi_id_bits = FIELD_GET(GICV5_IRS_IST_CFGR_LPI_ID_BITS, cfgr);
+
+	return BIT(lpi_id_bits) * sizeof(__u32);
+}
 
 static void test_vgic_v5_addr_attrs(void)
 {
@@ -1424,6 +1705,218 @@ static void test_vgic_v5_lpis(void)
 	vm_gic_destroy(&v);
 }
 
+static void test_vgic_v5_ist_save_restore(void)
+{
+	static u32 lpi_ist[VGIC_V5_LPI_IST_SIZE / sizeof(u32)];
+	static u32 lpi_ist_resave[VGIC_V5_LPI_IST_SIZE / sizeof(u32)];
+	static u32 spi_ist[VGIC_V5_DEFAULT_NR_SPIS];
+	static u32 spi_ist_resave[VGIC_V5_DEFAULT_NR_SPIS];
+	static u64 irs_regs[ARRAY_SIZE(gic_v5_irs_regs)];
+	struct kvm_vcpu *vcpus[VGIC_V5_LPI_NR_VCPUS];
+	struct kvm_vgic_v5_ist ist_attr;
+	struct vm_gic src, dst;
+	u64 ist_baser, bad_ist_baser;
+	u64 ist_cfgr, bad_ist_cfgr;
+	size_t lpi_ist_size;
+	int ret;
+
+	memset(ist_restore_irq_count, 0, sizeof(ist_restore_irq_count));
+
+	vgic_v5_ist_restore_vm_create(&src, vcpus, guest_ist_source_code,
+				      guest_unexpected_irq_handler);
+
+	ret = run_vcpu(vcpus[0]);
+	TEST_ASSERT(!ret, "Failed to run GICv5 IST save source VM");
+	vgic_v5_expect_sync(vcpus[0], GUEST_CMD_IST_SOURCE_READY,
+			    "GICv5 IST source guest did not become ready");
+
+	/*
+	 * The guest configured enable/priority/affinity state. Make selected
+	 * SPIs pending from userspace so the SPI IST save path sees them.
+	 */
+	vgic_v5_spi_line(src.vm, RESTORE_TEST_SPI_PRIO_HIGH, 1);
+	vgic_v5_spi_line(src.vm, RESTORE_TEST_SPI_PRIO_LOW, 1);
+	vgic_v5_spi_line(src.vm, RESTORE_TEST_SPI_PENDING_DISABLED, 1);
+
+	vgic_v5_save_irs_regs(&src, irs_regs);
+	lpi_ist_size = vgic_v5_lpi_ist_state_size(irs_regs);
+
+	/*
+	 * VCPU0 has configured the initial state. KVM must reject missing or
+	 * incorrectly sized LPI storage before accepting the complete IST image.
+	 */
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist), NULL, 0);
+	ret = __kvm_device_attr_get(src.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST save accepted missing LPI buffer");
+
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist), lpi_ist,
+					 lpi_ist_size - sizeof(__u32));
+	ret = __kvm_device_attr_get(src.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST save accepted bad LPI size");
+
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist), lpi_ist,
+					 lpi_ist_size);
+	ret = __kvm_device_attr_get(src.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(!ret, "GICv5 IST save failed");
+
+	vm_gic_destroy(&src);
+
+	/* Create the guest that we are restoring state into */
+	memset(ist_restore_irq_count, 0, sizeof(ist_restore_irq_count));
+	vgic_v5_ist_restore_vm_create(&dst, vcpus, guest_ist_restore_code,
+				      guest_ist_restore_irq_handler);
+	sync_global_to_guest(dst.vm, ist_restore_irq_count);
+
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist), lpi_ist,
+					 lpi_ist_size);
+	ret = __kvm_device_attr_set(dst.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST restore before IRS state");
+
+	vgic_v5_restore_irs_regs(&dst, irs_regs);
+
+	/* BASER remains mutable until the host LPI IST has been allocated. */
+	ist_baser = vgic_v5_saved_irs_reg(irs_regs, GICV5_IRS_IST_BASER);
+	bad_ist_baser = ist_baser ^
+			 FIELD_PREP(GICV5_IRS_IST_BASER_ADDR_MASK, 1);
+	ret = __kvm_device_attr_set(dst.gic_fd,
+				    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_BASER, &bad_ist_baser);
+	TEST_ASSERT(!ret, "GICv5 rejected changed unallocated IST_BASER");
+
+	bad_ist_baser = ist_baser & ~GICV5_IRS_IST_BASER_VALID;
+	ret = __kvm_device_attr_set(dst.gic_fd,
+				    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_BASER, &bad_ist_baser);
+	TEST_ASSERT(!ret, "GICv5 rejected invalidated unallocated IST_BASER");
+
+	ret = __kvm_device_attr_set(dst.gic_fd,
+				    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_BASER, &ist_baser);
+	TEST_ASSERT(!ret, "GICv5 failed to restore IST_BASER");
+
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist), NULL, 0);
+	ret = __kvm_device_attr_set(dst.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST restore accepted missing LPI buffer");
+
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist), lpi_ist,
+					 lpi_ist_size - sizeof(__u32));
+	ret = __kvm_device_attr_set(dst.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST restore accepted bad LPI size");
+
+	/* Restore the VMM-owned SPI and LPI IST images. */
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist), lpi_ist,
+					 lpi_ist_size);
+	ret = __kvm_device_attr_set(dst.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(!ret, "GICv5 IST restore failed");
+
+	/* A live IST makes BASER and the guest-visible configuration immutable. */
+	ret = __kvm_device_attr_set(dst.gic_fd,
+				    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_BASER, &ist_baser);
+	TEST_ASSERT(!ret, "GICv5 rejected unchanged live IST_BASER");
+
+	bad_ist_baser = ist_baser ^
+			 FIELD_PREP(GICV5_IRS_IST_BASER_ADDR_MASK, 1);
+	ret = __kvm_device_attr_set(dst.gic_fd,
+				    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_BASER, &bad_ist_baser);
+	TEST_ASSERT(ret && errno == EINVAL,
+		    "GICv5 accepted changed live IST_BASER");
+
+	bad_ist_baser = ist_baser & ~GICV5_IRS_IST_BASER_VALID;
+	ret = __kvm_device_attr_set(dst.gic_fd,
+				    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_BASER, &bad_ist_baser);
+	TEST_ASSERT(ret && errno == EINVAL,
+		    "GICv5 accepted invalidated live IST_BASER");
+
+	ist_cfgr = vgic_v5_saved_irs_reg(irs_regs, GICV5_IRS_IST_CFGR);
+	ret = __kvm_device_attr_set(dst.gic_fd,
+				    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_CFGR, &ist_cfgr);
+	TEST_ASSERT(!ret, "GICv5 rejected unchanged live IST_CFGR");
+
+	bad_ist_cfgr = ist_cfgr ^
+			FIELD_PREP(GICV5_IRS_IST_CFGR_LPI_ID_BITS, 1);
+	ret = __kvm_device_attr_set(dst.gic_fd,
+				    KVM_DEV_ARM_VGIC_GRP_IRS_REGS,
+				    GICV5_IRS_IST_CFGR, &bad_ist_cfgr);
+	TEST_ASSERT(ret && errno == EINVAL,
+		    "GICv5 accepted changed live IST_CFGR");
+
+	/*
+	 * Re-save the restored IST image before the destination VM runs, so a
+	 * dropped serialized field fails independently of later interrupt
+	 * delivery.
+	 */
+	ist_attr = vgic_v5_ist_attr(spi_ist_resave, sizeof(spi_ist_resave),
+				     lpi_ist_resave, lpi_ist_size);
+	ret = __kvm_device_attr_get(dst.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(!ret, "GICv5 IST re-save failed");
+	TEST_ASSERT(!memcmp(spi_ist, spi_ist_resave, sizeof(spi_ist)),
+		    "GICv5 SPI IST state changed across restore");
+	TEST_ASSERT(!memcmp(lpi_ist, lpi_ist_resave, lpi_ist_size),
+		    "GICv5 LPI IST state changed across restore");
+
+	/*
+	 * At this stage, the guest's IST state should match what was saved. Run
+	 * each vcpu once to let it enable interrupts, etc.
+	 */
+	ret = run_vcpu(vcpus[0]);
+	TEST_ASSERT(!ret, "Failed to run GICv5 IST restore vCPU0");
+	vgic_v5_expect_sync(vcpus[0], GUEST_CMD_IS_READY,
+			    "GICv5 IST restore vCPU0 did not become ready");
+
+	ret = run_vcpu(vcpus[1]);
+	TEST_ASSERT(!ret, "Failed to run GICv5 IST restore vCPU1");
+	vgic_v5_expect_sync(vcpus[1], GUEST_CMD_IS_READY,
+			    "GICv5 IST restore vCPU1 did not become ready");
+
+	/*
+	 * VPE0 consumes two pending SPIs in restored priority order, then
+	 * enables a restored pending-but-disabled SPI.
+	 */
+	ret = run_vcpu(vcpus[0]);
+	TEST_ASSERT(!ret, "Failed to consume restored GICv5 SPIs");
+	vgic_v5_expect_sync(vcpus[0], GUEST_CMD_IST_SPI_INJECT_READY,
+			    "GICv5 IST restore vCPU0 did not consume restored SPIs");
+
+	/*
+	 * This SPI was enabled before save, but not pending.  Inject it after
+	 * restore to prove enable, priority and affinity were restored.
+	 */
+	vgic_v5_spi_line(dst.vm, RESTORE_TEST_SPI_ENABLED, 1);
+
+	ret = run_vcpu(vcpus[0]);
+	TEST_ASSERT(!ret, "Failed to consume post-restore GICv5 SPI");
+	TEST_ASSERT(get_ucall(vcpus[0], NULL) == UCALL_DONE,
+		    "GICv5 IST restore vCPU0 did not complete");
+
+	/*
+	 * VPE1 consumes a restored pending LPI, then pends another LPI that
+	 * was enabled before save but not pending.
+	 */
+	ret = run_vcpu(vcpus[1]);
+	TEST_ASSERT(!ret, "Failed to consume restored GICv5 LPI");
+	vgic_v5_expect_sync(vcpus[1], GUEST_CMD_IST_LPI_INJECT_READY,
+			    "GICv5 IST restore vCPU1 did not consume restored LPI");
+
+	ret = run_vcpu(vcpus[1]);
+	TEST_ASSERT(!ret, "Failed to consume post-restore GICv5 LPI");
+	TEST_ASSERT(get_ucall(vcpus[1], NULL) == UCALL_DONE,
+		    "GICv5 IST restore vCPU1 did not complete");
+
+	vm_gic_destroy(&dst);
+}
+
 /*
  * Returns 0 if it's possible to create GIC device of a given type (V5).
  */
@@ -1481,6 +1974,9 @@ void run_tests(u32 gic_dev_type)
 
 	pr_info("Test VGICv5 LPIs\n");
 	test_vgic_v5_lpis();
+
+	pr_info("Test VGICv5 IST save/restore\n");
+	test_vgic_v5_ist_save_restore();
 }
 
 int main(int ac, char **av)
