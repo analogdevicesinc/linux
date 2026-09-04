@@ -2,7 +2,7 @@
 /*
  * Driver for SWIM (Sander Woz Integrated Machine) floppy controller
  *
- * Copyright (C) 2004,2008 Laurent Vivier <Laurent@lvivier.info>
+ * Copyright (C) 2004, 2008 Laurent Vivier <Laurent@lvivier.info>
  *
  * based on Alastair Bridgewater SWIM analysis, 2001
  * based on SWIM3 driver (c) Paul Mackerras, 1996
@@ -69,7 +69,7 @@ struct swim {
 	REG(read_handshake)
 } __attribute__((packed));
 
-#define swim_write(base, reg, v) 	out_8(&(base)->write_##reg, (v))
+#define swim_write(base, reg, v)	out_8(&(base)->write_##reg, (v))
 #define swim_read(base, reg)		in_8(&(base)->read_##reg)
 
 /* IWM registers */
@@ -93,7 +93,7 @@ struct iwm {
 	REG(q7H)
 } __attribute__((packed));
 
-#define iwm_write(base, reg, v) 	out_8(&(base)->reg, (v))
+#define iwm_write(base, reg, v)		out_8(&(base)->reg, (v))
 #define iwm_read(base, reg)		in_8(&(base)->reg)
 
 /* Bits in phase register */
@@ -165,23 +165,23 @@ struct floppy_state {
 	/* physical properties */
 
 	enum drive_location location;	/* internal or external drive */
-	int		 head_number;	/* single- or double-sided drive */
+	int head_number;		/* single- or double-sided drive */
 
 	/* media */
 
-	int		 disk_in;
-	int		 ejected;
-	enum media_type	 type;
-	int		 write_protected;
+	int disk_in;
+	int ejected;
+	enum media_type type;
+	int write_protected;
 
-	unsigned int	 total_secs;
-	unsigned int	 secpercyl;
-	unsigned int	 secpertrack;
+	unsigned int total_secs;
+	unsigned int secpercyl;
+	unsigned int secpertrack;
 
 	/* in-use information */
 
-	int		track;
-	int		ref_count;
+	int track;
+	int ref_count;
 	bool registered;
 
 	struct gendisk *disk;
@@ -216,6 +216,7 @@ extern int swim_read_sector_data(struct swim __iomem *base,
 				 unsigned char *data);
 
 static DEFINE_MUTEX(swim_mutex);
+
 static void set_swim_mode(struct swim __iomem *base, int enable)
 {
 	struct iwm __iomem *iwm_base = (struct iwm __iomem *)base;
@@ -402,7 +403,7 @@ static int swim_seek(struct swim __iomem *base, int step)
 	if (step == 0)
 		return 0;
 
-	for ( ; step > 0; step--) {
+	for (; step > 0; step--) {
 		if (swim_step(base))
 			return -1;
 	}
@@ -413,7 +414,7 @@ static int swim_seek(struct swim __iomem *base, int step)
 	return 0;
 }
 
-static int swim_track(struct floppy_state *fs,  int track)
+static int swim_track(struct floppy_state *fs, int track)
 {
 	struct swim __iomem *base = fs->swd->base;
 	int ret;
@@ -555,10 +556,10 @@ out:
 }
 
 static struct floppy_struct floppy_type[4] = {
-	{    0,  0, 0,  0, 0, 0x00, 0x00, 0x00, 0x00, NULL }, /* no testing   */
+	{    0,  0, 0,  0, 0, 0x00, 0x00, 0x00, 0x00, NULL }, /* no testing */
 	{  720,  9, 1, 80, 0, 0x2A, 0x02, 0xDF, 0x50, NULL }, /* 360KB SS 3.5"*/
-	{ 1440,  9, 2, 80, 0, 0x2A, 0x02, 0xDF, 0x50, NULL }, /* 720KB 3.5"   */
-	{ 2880, 18, 2, 80, 0, 0x1B, 0x00, 0xCF, 0x6C, NULL }, /* 1.44MB 3.5"  */
+	{ 1440,  9, 2, 80, 0, 0x2A, 0x02, 0xDF, 0x50, NULL }, /* 720KB 3.5" */
+	{ 2880, 18, 2, 80, 0, 0x1B, 0x00, 0xCF, 0x6C, NULL }, /* 1.44MB 3.5" */
 };
 
 static int get_floppy_geometry(struct floppy_state *fs, int type,
@@ -585,10 +586,11 @@ static void setup_medium(struct floppy_state *fs)
 
 	if (swim_readbit(base, DISK_IN)) {
 		struct floppy_struct *g;
+
 		fs->disk_in = 1;
 		fs->write_protected = swim_readbit(base, WRITE_PROT);
 		fs->type = swim_readbit(base, TWOMEG_MEDIA) ?
-			HD_MEDIA : DD_MEDIA;
+			   HD_MEDIA : DD_MEDIA;
 		fs->head_number = swim_readbit(base, SINGLE_SIDED) ? 1 : 2;
 		get_floppy_geometry(fs, 0, &g);
 		fs->total_secs = g->size;
@@ -690,7 +692,7 @@ static int floppy_ioctl(struct block_device *bdev, blk_mode_t mode,
 	int err;
 
 	if ((cmd & 0x80) && !capable(CAP_SYS_ADMIN))
-			return -EPERM;
+		return -EPERM;
 
 	switch (cmd) {
 	case FDEJECT:
@@ -809,7 +811,7 @@ static int swim_floppy_init(struct platform_device *pdev)
 	bool *data = pdev->dev.platform_data;
 	bool fast_fclk = data && *data;
 	struct queue_limits lim = {
-		.features		= BLK_FEAT_ROTATIONAL,
+		.features = BLK_FEAT_ROTATIONAL,
 	};
 	int err;
 	int drive;
@@ -961,7 +963,7 @@ static void swim_remove(struct platform_device *dev)
 static struct platform_driver swim_driver = {
 	.probe  = swim_probe,
 	.remove = swim_remove,
-	.driver   = {
+	.driver = {
 		.name	= CARDNAME,
 	},
 };

@@ -5,7 +5,7 @@
  * needs assembly language because is very timing dependent
  * this controller exists only on macintosh 680x0 based
  *
- * Copyright (C) 2004,2008 Laurent Vivier <Laurent@lvivier.info>
+ * Copyright (C) 2004, 2008 Laurent Vivier <Laurent@lvivier.info>
  *
  * based on Alastair Bridgewater SWIM analysis, 2001
  * based on netBSD IWM driver (c) 1997, 1998 Hauke Fath.
@@ -110,7 +110,6 @@ sector_data_mark:
 	/* read header */
 
 	moveq	#max_retry, %d2
-
 amark0:	tstb	%a2@
 	dbmi	%d2, amark0
 	bpl	signal_nonyb
@@ -118,7 +117,6 @@ amark0:	tstb	%a2@
 	moveb	%a5@, %a4@(o_track)
 
 	moveq	#max_retry, %d2
-
 amark1:	tstb	%a2@
 	dbmi	%d2, amark1
 	bpl	signal_nonyb
@@ -126,7 +124,6 @@ amark1:	tstb	%a2@
 	moveb	%a5@, %a4@(o_side)
 
 	moveq	#max_retry, %d2
-
 amark2:	tstb	%a2@
 	dbmi	%d2, amark2
 	bpl	signal_nonyb
@@ -134,7 +131,6 @@ amark2:	tstb	%a2@
 	moveb	%a5@, %a4@(o_sector)
 
 	moveq	#max_retry, %d2
-
 amark3:	tstb	%a2@
 	dbmi	%d2, amark3
 	bpl	signal_nonyb
@@ -142,7 +138,6 @@ amark3:	tstb	%a2@
 	moveb	%a5@, %a4@(o_size)
 
 	moveq	#max_retry, %d2
-
 crc0:	tstb	%a2@
 	dbmi	%d2, crc0
 	bpl	signal_nonyb
@@ -150,7 +145,6 @@ crc0:	tstb	%a2@
 	moveb	%a5@, %a4@(o_crc0)
 
 	moveq	#max_retry, %d2
-
 crc1:	tstb	%a2@
 	dbmi	%d2, crc1
 	bpl	signal_nonyb
@@ -197,13 +191,14 @@ mfm_read_data:
 
 	/* read data */
 
-	movel	#sector_size-1, %d4		/* sector size */
+	movel	#sector_size - 1, %d4		/* sector size */
 	movew	#max_retry, %d2
 read_data_loop:
 	moveb	%a2@, %d5
 	andb	#(.Lhr_fifo_1byte + .Lhr_fifo_2bytes), %d5
 	dbne	%d2, read_data_loop
 	beq	data_exit
+
 	moveq	#max_retry, %d2
 	moveb	%a5@, %d3
 	bsr	.Lmaybe_store
@@ -219,7 +214,6 @@ read_data_loop:
 
 	movew	#max_retry, %d2
 data_crc0:
-
 	tstb	%a2@
 	dbmi	%d2, data_crc0
 	bpl	data_exit
@@ -227,9 +221,7 @@ data_crc0:
 	moveb	%a5@, %d5
 
 	moveq	#max_retry, %d2
-
 data_crc1:
-
 	tstb	%a2@
 	dbmi	%d2, data_crc1
 	bpl	data_exit
