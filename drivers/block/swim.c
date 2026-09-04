@@ -764,6 +764,7 @@ static void swim_add_floppy(struct swim_priv *swd, enum drive_location location)
 	if (swim_track00(base))
 		goto out;
 
+	fs->swd = swd;
 	fs->location = location;
 
 	fs->type = HD_MEDIA;
@@ -853,8 +854,6 @@ static int swim_floppy_init(struct platform_device *pdev)
 			err = PTR_ERR(swd->unit[drive].disk);
 			goto exit_put_disks;
 		}
-
-		swd->unit[drive].swd = swd;
 	}
 
 	for (drive = 0; drive < swd->floppy_count; drive++) {
