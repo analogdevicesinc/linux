@@ -200,3 +200,14 @@ jobs:
         sc594-som-ezlite_defconfig-*
         sc598-som-ezkit_defconfig-*
         sc598-som-ezlite_defconfig-*
+
+  compile_devicetrees:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/compile-devicetrees.yml@ci
+    secrets: inherit
+    with:
+      compiler: "gcc"
+      archs: "arm arm64"
+      dts_files: >
+        arch/arm64/boot/dts/adi/*.dts
+        arch/arm/boot/dts/adi/*.dts
