@@ -3536,6 +3536,30 @@ static void dm_test_mst_start_top_mgr_set_mst_fail(struct kunit *test)
 }
 
 /**
+ * dm_test_mst_start_top_mgr_already_started - Test MST start on an active manager
+ * @test: The KUnit test context
+ *
+ * With the topology manager already in MST mode,
+ * drm_dp_mst_topology_mgr_set_mst(true) is a no-op that returns success, so the
+ * helper logs the cached DPCD caps and returns true.
+ */
+static void dm_test_mst_start_top_mgr_already_started(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_link *link;
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	link = dm_kunit_alloc_link(test);
+
+	mutex_init(&aconnector->mst_mgr.lock);
+	aconnector->mst_mgr.mst_state = true;
+	link->priv = aconnector;
+
+	KUNIT_EXPECT_TRUE(test, dm_helpers_dp_mst_start_top_mgr(NULL, link, false));
+}
+
+/**
  * dm_test_mst_stop_top_mgr_active - Test MST stop on an active topology manager
  * @test: The KUnit test context
  *
@@ -4881,6 +4905,7 @@ static struct kunit_case amdgpu_dm_helpers_test_cases[] = {
 	KUNIT_CASE(dm_test_mst_stop_top_mgr_null_priv),
 	KUNIT_CASE(dm_test_mst_start_top_mgr_boot),
 	KUNIT_CASE(dm_test_mst_start_top_mgr_set_mst_fail),
+	KUNIT_CASE(dm_test_mst_start_top_mgr_already_started),
 	KUNIT_CASE(dm_test_mst_stop_top_mgr_active),
 	/* dm_helpers_dp_write_hblank_reduction */
 	KUNIT_CASE(dm_test_dp_write_hblank_reduction_false),
