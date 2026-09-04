@@ -146,7 +146,6 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reset-gpios = <&chipcommon 10 GPIO_ACTIVE_LOW>;
-				reset-names = "robo_reset";
 				reg = <0>;
 				dsa,member = <1 0>;
 				pinctrl-names = "default";
@@ -184,6 +183,7 @@
 					sw1_p8: port@8 {
 						reg = <8>;
 						ethernet = <&sw0_p0>;
+						phy-mode = "rgmii";
 						label = "cpu";
 
 						fixed-link {
