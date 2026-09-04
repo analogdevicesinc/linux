@@ -3029,7 +3029,7 @@ static int _regulator_do_enable(struct regulator_dev *rdev)
 	 */
 	trace_regulator_enable_delay(rdev_get_name(rdev));
 
-	/* If poll_enabled_time is set, poll upto the delay calculated
+	/* If poll_enabled_time is set, poll up to the delay calculated
 	 * above, delaying poll_enabled_time uS to check if the regulator
 	 * actually got enabled.
 	 * If the regulator isn't enabled after our delay helper has expired,
