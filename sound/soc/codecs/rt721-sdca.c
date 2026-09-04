@@ -206,6 +206,7 @@ static void rt721_sdca_amp_preset(struct rt721_sdca_priv *rt721)
 	regmap_write(rt721->regmap,
 		SDW_SDCA_CTL(FUNC_NUM_AMP, RT721_SDCA_ENT_FU55,
 			RT721_SDCA_CTL_FU_MUTE, CH_02), 0x00);
+	regmap_write(rt721->regmap, 0x2f5d, 0x1);
 }
 
 static void rt721_sdca_jack_preset(struct rt721_sdca_priv *rt721)
