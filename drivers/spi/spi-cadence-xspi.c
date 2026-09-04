@@ -5,6 +5,7 @@
 #include <linux/acpi.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
+#include <linux/dma-mapping.h>
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
@@ -70,6 +71,7 @@
 #define CDNS_XSPI_INIT_LEGACY			BIT(9)
 #define CDNS_XSPI_INIT_FAIL			BIT(8)
 #define CDNS_XSPI_CTRL_BUSY			BIT(7)
+#define CDNS_XSPI_ACMD_ENGINE_BUSY		BIT(2)
 
 /* Controller interrupt status register */
 #define CDNS_XSPI_INTR_STATUS_REG		0x0110
@@ -110,6 +112,43 @@
 #define CDNS_XSPI_SDMA_TRD_INFO_REG		0x0244
 #define CDNS_XSPI_SDMA_DIR			BIT(8)
 
+#define CDNS_XSPI_ACMD_THRD_0			0
+#define CDNS_XSPI_ACMD_THRD_0_MASK		BIT(CDNS_XSPI_ACMD_THRD_0)
+
+/* Command status pointer register, selects the thread CMD_STAT refers to */
+#define CDNS_XSPI_CMD_STATUS_PTR_REG		0x0040
+#define CDNS_XSPI_CMD_STATUS_PTR_SEL		GENMASK(2, 0)
+
+/* CMD0 layout for ACMD PIO sequences */
+#define CDNS_XSPI_ACMD_MODE			GENMASK(31, 30)
+#define CDNS_XSPI_ACMD_MODE_PIO			1
+#define CDNS_XSPI_ACMD_TRD_NUM			GENMASK(26, 24)
+#define CDNS_XSPI_ACMD_BANK			GENMASK(22, 20)
+#define CDNS_XSPI_ACMD_DMA_SEL			BIT(19)
+#define CDNS_XSPI_ACMD_INT			BIT(18)
+#define CDNS_XSPI_ACMD_CMD_TYPE			GENMASK(15, 0)
+
+/* ACMD sequence types. Any other value is reserved. */
+#define CDNS_XSPI_ACMD_TYPE_READ		0x2200
+
+/* Read sequence configuration, consumed by the ACMD engine */
+#define CDNS_XSPI_READ_SEQ_CFG0_REG		0x0430
+#define CDNS_XSPI_READ_SEQ_CFG0_CMD_VALUE	GENMASK(7, 0)
+#define CDNS_XSPI_READ_SEQ_CFG0_CMD_IOS		GENMASK(9, 8)
+#define CDNS_XSPI_READ_SEQ_CFG0_ADDR_CNT	GENMASK(14, 12)
+#define CDNS_XSPI_READ_SEQ_CFG0_ADDR_IOS	GENMASK(17, 16)
+#define CDNS_XSPI_READ_SEQ_CFG0_DAT_IOS		GENMASK(21, 20)
+#define CDNS_XSPI_READ_SEQ_CFG0_DMY_CNT		GENMASK(29, 24)
+
+#define CDNS_XSPI_READ_SEQ_CFG1_REG		0x0434
+
+/*
+ * Minimum read length routed to the auto command engine. Below this the
+ * per-command setup costs more than the saved PIO drain; 2048 is the point where
+ * it starts to pay off.
+ */
+#define CDNS_XSPI_ACMD_MIN_BYTES		2048
+
 /* Controller features register */
 #define CDNS_XSPI_CTRL_FEATURES_REG		0x0F04
 #define CDNS_XSPI_NUM_BANKS			GENMASK(25, 24)
@@ -146,6 +185,8 @@
 /* STIG command status fields */
 #define CDNS_XSPI_CMD_STATUS_COMPLETED		BIT(15)
 #define CDNS_XSPI_CMD_STATUS_FAILED		BIT(14)
+/* Bit 4 is defined in ACMD mode only; STIG documents 13:4 as reserved */
+#define CDNS_XSPI_CMD_STATUS_DEVICE_ERROR	BIT(4)
 #define CDNS_XSPI_CMD_STATUS_DQS_ERROR		BIT(3)
 #define CDNS_XSPI_CMD_STATUS_CRC_ERROR		BIT(2)
 #define CDNS_XSPI_CMD_STATUS_BUS_ERROR		BIT(1)
@@ -348,10 +389,12 @@ struct cdns_xspi_dev {
 	int cur_cs;
 	unsigned int sdmasize;
 
+	int cur_work_mode;
+
 	struct completion cmd_complete;
 	struct completion auto_cmd_complete;
 	struct completion sdma_complete;
-	bool sdma_error;
+	bool xfer_error;
 
 	void *in_buffer;
 	const void *out_buffer;
@@ -488,6 +531,18 @@ static int cdns_xspi_wait_for_controller_idle(struct cdns_xspi_dev *cdns_xspi)
 					  100, 1000);
 }
 
+static int cdns_xspi_wait_for_acmd_idle(struct cdns_xspi_dev *cdns_xspi)
+{
+	u32 ctrl_status;
+
+	return readl_relaxed_poll_timeout(cdns_xspi->iobase +
+					  CDNS_XSPI_CTRL_STATUS_REG,
+					  ctrl_status,
+					  ((ctrl_status &
+					    CDNS_XSPI_ACMD_ENGINE_BUSY) == 0),
+					  100, 1000);
+}
+
 static void cdns_xspi_trigger_command(struct cdns_xspi_dev *cdns_xspi,
 				      u32 cmd_regs[6])
 {
@@ -499,13 +554,19 @@ static void cdns_xspi_trigger_command(struct cdns_xspi_dev *cdns_xspi,
 	writel(cmd_regs[0], cdns_xspi->iobase + CDNS_XSPI_CMD_REG_0);
 }
 
-static int cdns_xspi_check_command_status(struct cdns_xspi_dev *cdns_xspi)
+static int cdns_xspi_check_command_status(struct cdns_xspi_dev *cdns_xspi,
+					  bool acmd)
 {
 	int ret = 0;
 	u32 cmd_status = readl(cdns_xspi->iobase + CDNS_XSPI_CMD_STATUS_REG);
 
 	if (cmd_status & CDNS_XSPI_CMD_STATUS_COMPLETED) {
 		if ((cmd_status & CDNS_XSPI_CMD_STATUS_FAILED) != 0) {
+			if (acmd && cmd_status & CDNS_XSPI_CMD_STATUS_DEVICE_ERROR) {
+				dev_err(cdns_xspi->dev,
+					"Device reported an error\n");
+				ret = -EPROTO;
+			}
 			if (cmd_status & CDNS_XSPI_CMD_STATUS_DQS_ERROR) {
 				dev_err(cdns_xspi->dev,
 					"Incorrect DQS pulses detected\n");
@@ -546,6 +607,19 @@ static void cdns_xspi_set_interrupts(struct cdns_xspi_dev *cdns_xspi,
 	else
 		intr_enable &= ~CDNS_XSPI_INTR_MASK;
 	writel(intr_enable, cdns_xspi->iobase + CDNS_XSPI_INTR_ENABLE_REG);
+}
+
+static void cdns_xspi_set_thread_error_interrupt(struct cdns_xspi_dev *cdns_xspi,
+						 bool enabled)
+{
+	u32 intr_enable;
+
+	intr_enable = readl(cdns_xspi->iobase + CDNS_XSPI_TRD_ERR_INTR_EN);
+	if (enabled)
+		intr_enable |= CDNS_XSPI_ACMD_THRD_0_MASK;
+	else
+		intr_enable &= ~CDNS_XSPI_ACMD_THRD_0_MASK;
+	writel(intr_enable, cdns_xspi->iobase + CDNS_XSPI_TRD_ERR_INTR_EN);
 }
 
 static void marvell_xspi_set_interrupts(struct cdns_xspi_dev *cdns_xspi,
@@ -724,6 +798,24 @@ static void marvell_xspi_sdma_handle(struct cdns_xspi_dev *cdns_xspi)
 	}
 }
 
+static int cdns_xspi_set_work_mode(struct cdns_xspi_dev *cdns_xspi, int mode)
+{
+	int ret;
+
+	if (cdns_xspi->cur_work_mode == mode)
+		return 0;
+
+	ret = cdns_xspi_wait_for_controller_idle(cdns_xspi);
+	if (ret < 0)
+		return ret;
+
+	writel(FIELD_PREP(CDNS_XSPI_CTRL_WORK_MODE, mode),
+	       cdns_xspi->iobase + CDNS_XSPI_CTRL_CONFIG_REG);
+	cdns_xspi->cur_work_mode = mode;
+
+	return 0;
+}
+
 static int cdns_xspi_send_stig_command(struct cdns_xspi_dev *cdns_xspi,
 				       const struct spi_mem_op *op,
 				       bool data_phase)
@@ -733,15 +825,12 @@ static int cdns_xspi_send_stig_command(struct cdns_xspi_dev *cdns_xspi,
 	int ret;
 	int dummybytes = op->dummy.nbytes;
 
-	ret = cdns_xspi_wait_for_controller_idle(cdns_xspi);
-	if (ret < 0)
-		return -EIO;
-
-	writel(FIELD_PREP(CDNS_XSPI_CTRL_WORK_MODE, CDNS_XSPI_WORK_MODE_STIG),
-	       cdns_xspi->iobase + CDNS_XSPI_CTRL_CONFIG_REG);
+	ret = cdns_xspi_set_work_mode(cdns_xspi, CDNS_XSPI_WORK_MODE_STIG);
+	if (ret)
+		return ret;
 
 	cdns_xspi->set_interrupts_handler(cdns_xspi, true);
-	cdns_xspi->sdma_error = false;
+	cdns_xspi->xfer_error = false;
 
 	memset(cmd_regs, 0, sizeof(cmd_regs));
 	cmd_regs[1] = CDNS_XSPI_CMD_FLD_P1_INSTR_CMD_1(op, data_phase);
@@ -771,7 +860,7 @@ static int cdns_xspi_send_stig_command(struct cdns_xspi_dev *cdns_xspi,
 		cdns_xspi_trigger_command(cdns_xspi, cmd_regs);
 
 		wait_for_completion(&cdns_xspi->sdma_complete);
-		if (cdns_xspi->sdma_error) {
+		if (cdns_xspi->xfer_error) {
 			cdns_xspi->set_interrupts_handler(cdns_xspi, false);
 			return -EIO;
 		}
@@ -781,11 +870,111 @@ static int cdns_xspi_send_stig_command(struct cdns_xspi_dev *cdns_xspi,
 	wait_for_completion(&cdns_xspi->cmd_complete);
 	cdns_xspi->set_interrupts_handler(cdns_xspi, false);
 
-	cmd_status = cdns_xspi_check_command_status(cdns_xspi);
+	cmd_status = cdns_xspi_check_command_status(cdns_xspi, false);
 	if (cmd_status)
 		return -EPROTO;
 
 	return 0;
+}
+
+static void cdns_xspi_acmd_setup_read_seq(struct cdns_xspi_dev *cdns_xspi,
+					  const struct spi_mem_op *op)
+{
+	u32 cfg0;
+
+	cfg0 = FIELD_PREP(CDNS_XSPI_READ_SEQ_CFG0_CMD_VALUE, op->cmd.opcode) |
+	       FIELD_PREP(CDNS_XSPI_READ_SEQ_CFG0_CMD_IOS,
+			  ilog2(op->cmd.buswidth)) |
+	       FIELD_PREP(CDNS_XSPI_READ_SEQ_CFG0_ADDR_CNT, op->addr.nbytes) |
+	       FIELD_PREP(CDNS_XSPI_READ_SEQ_CFG0_ADDR_IOS,
+			  ilog2(op->addr.buswidth)) |
+	       FIELD_PREP(CDNS_XSPI_READ_SEQ_CFG0_DAT_IOS,
+			  ilog2(op->data.buswidth));
+
+	if (op->dummy.nbytes && op->dummy.buswidth)
+		cfg0 |= FIELD_PREP(CDNS_XSPI_READ_SEQ_CFG0_DMY_CNT,
+				   (op->dummy.nbytes * 8) / op->dummy.buswidth);
+
+	writel(cfg0, cdns_xspi->iobase + CDNS_XSPI_READ_SEQ_CFG0_REG);
+
+	/* No command extension, no mode byte, no cache-random read. */
+	writel(0, cdns_xspi->iobase + CDNS_XSPI_READ_SEQ_CFG1_REG);
+}
+
+static int cdns_xspi_acmd_check_status(struct cdns_xspi_dev *cdns_xspi)
+{
+	writel(FIELD_PREP(CDNS_XSPI_CMD_STATUS_PTR_SEL, CDNS_XSPI_ACMD_THRD_0),
+	       cdns_xspi->iobase + CDNS_XSPI_CMD_STATUS_PTR_REG);
+
+	return cdns_xspi_check_command_status(cdns_xspi, true);
+}
+
+static int cdns_xspi_acmd_read(struct cdns_xspi_dev *cdns_xspi,
+			       const struct spi_mem_op *op)
+{
+	u32 cmd_regs[6];
+	dma_addr_t dma_addr;
+	int ret;
+
+	ret = cdns_xspi_set_work_mode(cdns_xspi, CDNS_XSPI_WORK_MODE_ACMD);
+	if (ret)
+		return ret;
+
+	ret = cdns_xspi_wait_for_acmd_idle(cdns_xspi);
+	if (ret)
+		return ret;
+
+	cdns_xspi_acmd_setup_read_seq(cdns_xspi, op);
+
+	dma_addr = dma_map_single(cdns_xspi->dev, op->data.buf.in,
+				  op->data.nbytes, DMA_FROM_DEVICE);
+	if (dma_mapping_error(cdns_xspi->dev, dma_addr))
+		return -ENOMEM;
+
+	cdns_xspi->xfer_error = false;
+	reinit_completion(&cdns_xspi->auto_cmd_complete);
+	writel(CDNS_XSPI_ACMD_THRD_0_MASK,
+	       cdns_xspi->iobase + CDNS_XSPI_TRD_COMP_INTR_STATUS);
+	writel(CDNS_XSPI_ACMD_THRD_0_MASK,
+	       cdns_xspi->iobase + CDNS_XSPI_TRD_ERR_INTR_STATUS);
+	cdns_xspi_set_thread_error_interrupt(cdns_xspi, true);
+	cdns_xspi->set_interrupts_handler(cdns_xspi, true);
+
+	memset(cmd_regs, 0, sizeof(cmd_regs));
+	cmd_regs[1] = lower_32_bits(op->addr.val);
+	cmd_regs[5] = upper_32_bits(op->addr.val);
+	cmd_regs[2] = lower_32_bits(dma_addr);
+	cmd_regs[3] = upper_32_bits(dma_addr);
+	cmd_regs[4] = op->data.nbytes - 1;
+	cmd_regs[0] = FIELD_PREP(CDNS_XSPI_ACMD_MODE,
+				 CDNS_XSPI_ACMD_MODE_PIO) |
+		      FIELD_PREP(CDNS_XSPI_ACMD_TRD_NUM, CDNS_XSPI_ACMD_THRD_0) |
+		      FIELD_PREP(CDNS_XSPI_ACMD_BANK, cdns_xspi->cur_cs) |
+		      CDNS_XSPI_ACMD_DMA_SEL | CDNS_XSPI_ACMD_INT |
+		      FIELD_PREP(CDNS_XSPI_ACMD_CMD_TYPE,
+				 CDNS_XSPI_ACMD_TYPE_READ);
+
+	cdns_xspi_trigger_command(cdns_xspi, cmd_regs);
+
+	wait_for_completion(&cdns_xspi->auto_cmd_complete);
+
+	cdns_xspi->set_interrupts_handler(cdns_xspi, false);
+	cdns_xspi_set_thread_error_interrupt(cdns_xspi, false);
+	dma_unmap_single(cdns_xspi->dev, dma_addr, op->data.nbytes,
+			 DMA_FROM_DEVICE);
+
+	if (cdns_xspi->xfer_error)
+		return -EIO;
+
+	return cdns_xspi_acmd_check_status(cdns_xspi);
+}
+
+static bool cdns_xspi_acmd_can_read(const struct spi_mem_op *op)
+{
+	if (op->data.dir != SPI_MEM_DATA_IN || !op->addr.nbytes)
+		return false;
+
+	return op->data.nbytes >= CDNS_XSPI_ACMD_MIN_BYTES;
 }
 
 static int cdns_xspi_mem_op(struct cdns_xspi_dev *cdns_xspi,
@@ -796,6 +985,9 @@ static int cdns_xspi_mem_op(struct cdns_xspi_dev *cdns_xspi,
 
 	if (cdns_xspi->cur_cs != spi_get_chipselect(mem->spi, 0))
 		cdns_xspi->cur_cs = spi_get_chipselect(mem->spi, 0);
+
+	if (cdns_xspi_acmd_can_read(op))
+		return cdns_xspi_acmd_read(cdns_xspi, op);
 
 	return cdns_xspi_send_stig_command(cdns_xspi, op,
 					   (dir != SPI_MEM_NO_DATA));
@@ -893,6 +1085,9 @@ static int cdns_xspi_adjust_mem_op_size(struct spi_mem *mem, struct spi_mem_op *
 	struct cdns_xspi_dev *cdns_xspi =
 		spi_controller_get_devdata(mem->spi->controller);
 
+	if (cdns_xspi_acmd_can_read(op))
+		return 0;
+
 	op->data.nbytes = clamp_val(op->data.nbytes, 0, cdns_xspi->sdmasize);
 
 	return 0;
@@ -917,8 +1112,9 @@ static const struct spi_controller_mem_ops marvell_xspi_mem_ops = {
 static irqreturn_t cdns_xspi_irq_handler(int this_irq, void *dev)
 {
 	struct cdns_xspi_dev *cdns_xspi = dev;
-	u32 irq_status;
+	bool acmd_done = false;
 	irqreturn_t result = IRQ_NONE;
+	u32 irq_status;
 
 	irq_status = readl(cdns_xspi->iobase + CDNS_XSPI_INTR_STATUS_REG);
 	writel(irq_status, cdns_xspi->iobase + CDNS_XSPI_INTR_STATUS_REG);
@@ -929,7 +1125,7 @@ static irqreturn_t cdns_xspi_irq_handler(int this_irq, void *dev)
 		if (irq_status & CDNS_XSPI_SDMA_ERROR) {
 			dev_err(cdns_xspi->dev,
 				"Slave DMA transaction error\n");
-			cdns_xspi->sdma_error = true;
+			cdns_xspi->xfer_error = true;
 			complete(&cdns_xspi->sdma_complete);
 		}
 
@@ -947,10 +1143,27 @@ static irqreturn_t cdns_xspi_irq_handler(int this_irq, void *dev)
 		writel(irq_status,
 		       cdns_xspi->iobase + CDNS_XSPI_TRD_COMP_INTR_STATUS);
 
-		complete(&cdns_xspi->auto_cmd_complete);
+		if (irq_status & CDNS_XSPI_ACMD_THRD_0_MASK)
+			acmd_done = true;
 
 		result = IRQ_HANDLED;
 	}
+
+	irq_status = readl(cdns_xspi->iobase + CDNS_XSPI_TRD_ERR_INTR_STATUS);
+	if (irq_status) {
+		writel(irq_status,
+		       cdns_xspi->iobase + CDNS_XSPI_TRD_ERR_INTR_STATUS);
+
+		if (irq_status & CDNS_XSPI_ACMD_THRD_0_MASK) {
+			cdns_xspi->xfer_error = true;
+			acmd_done = true;
+		}
+
+		result = IRQ_HANDLED;
+	}
+
+	if (acmd_done)
+		complete(&cdns_xspi->auto_cmd_complete);
 
 	return result;
 }
