@@ -31,6 +31,17 @@ struct vm_gic {
 #define GUEST_CMD_IS_AWAKE	12
 #define GUEST_CMD_IS_READY	13
 
+static struct kvm_vgic_v5_ist vgic_v5_ist_attr(void *spi_ist, size_t spi_size,
+					       void *lpi_ist, size_t lpi_size)
+{
+	return (struct kvm_vgic_v5_ist) {
+		.spi_ist_addr = (uintptr_t)spi_ist,
+		.spi_ist_size = spi_size,
+		.lpi_ist_addr = (uintptr_t)lpi_ist,
+		.lpi_ist_size = lpi_size,
+	};
+}
+
 static void guest_irq_handler(struct ex_regs *regs)
 {
 	bool valid;
@@ -527,6 +538,123 @@ static void test_vgic_v5_irs_regs_attrs(void)
 	vm_gic_destroy(&v);
 }
 
+static void test_vgic_v5_ist_attrs(void)
+{
+	struct kvm_vgic_v5_ist ist_attr;
+	struct kvm_vcpu *vcpu;
+	struct vm_gic v;
+	u32 spi_ist[VGIC_V5_DEFAULT_NR_SPIS];
+	u64 attr;
+	int ret;
+
+	v.gic_dev_type = KVM_DEV_TYPE_ARM_VGIC_V5;
+	v.vm = __vm_create(VM_SHAPE_DEFAULT, NR_VCPUS, 0);
+	v.gic_fd = kvm_create_device(v.vm, v.gic_dev_type);
+	vcpu = vm_vcpu_add(v.vm, 0, NULL);
+	TEST_ASSERT(vcpu, "Failed to create vCPU");
+
+	/* Check existing group/attribute */
+	kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST, 0);
+
+	/* Check non-existing attribute */
+	ret = __kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST, 1);
+	TEST_ASSERT(ret && errno == ENXIO, "GICv5 IST accepted bad attr");
+
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist), NULL, 0);
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    1, &ist_attr);
+	TEST_ASSERT(ret && errno == ENXIO, "GICv5 IST get accepted bad attr");
+
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    1, &ist_attr);
+	TEST_ASSERT(ret && errno == ENXIO, "GICv5 IST set accepted bad attr");
+
+	attr = GICV5_IRS_CONFIG_BASE_GPA;
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+			    KVM_VGIC_V5_ADDR_TYPE_IRS, &attr);
+
+	/* IST save/restore is not accessible before the VGIC is initialized. */
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EBUSY, "GICv5 IST get before init");
+
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EBUSY, "GICv5 IST set before init");
+
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
+
+	/* A VM with SPIs must provide a userspace IST descriptor. */
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, NULL);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST get accepted NULL descriptor");
+
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, NULL);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST set accepted NULL descriptor");
+
+	/* Check bad userspace IST descriptors. */
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, (void *)1);
+	TEST_ASSERT(ret && errno == EFAULT, "GICv5 IST get with bad descriptor");
+
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, (void *)1);
+	TEST_ASSERT(ret && errno == EFAULT, "GICv5 IST set with bad descriptor");
+
+	/* Check missing and incorrectly sized SPI IST buffers. */
+	ist_attr = vgic_v5_ist_attr(NULL, 0, NULL, 0);
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST get accepted missing SPI buffer");
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST set accepted missing SPI buffer");
+
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist) - sizeof(__u32),
+					 NULL, 0);
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST set accepted bad SPI size");
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST get accepted bad SPI size");
+
+	/* LPI storage must be absent when no LPI IST is configured. */
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist), spi_ist,
+					 sizeof(__u32));
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST get accepted unexpected LPI buffer");
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 IST set accepted unexpected LPI buffer");
+
+	vm_gic_destroy(&v);
+
+	/* IST restore is rejected after the VM has run. */
+	v.vm = __vm_create(VM_SHAPE_DEFAULT, NR_VCPUS, 0);
+	v.gic_fd = kvm_create_device(v.vm, v.gic_dev_type);
+	vcpu = vm_vcpu_add(v.vm, 0, guest_code);
+
+	attr = GICV5_IRS_CONFIG_BASE_GPA;
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+			    KVM_VGIC_V5_ADDR_TYPE_IRS, &attr);
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
+
+	ret = run_vcpu(vcpu);
+	TEST_ASSERT(!ret, "Failed to run GICv5 VM before IST restore test");
+
+	ist_attr = vgic_v5_ist_attr(spi_ist, sizeof(spi_ist), NULL, 0);
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_IST,
+				    0, &ist_attr);
+	TEST_ASSERT(ret && errno == EBUSY, "GICv5 IST restore after run");
+
+	vm_gic_destroy(&v);
+}
+
 static void test_vgic_v5_ppis(u32 gic_dev_type)
 {
 	struct kvm_vcpu *vcpus[NR_VCPUS];
@@ -648,6 +776,9 @@ void run_tests(u32 gic_dev_type)
 
 	pr_info("Test VGICv5 IRS_REGS attrs\n");
 	test_vgic_v5_irs_regs_attrs();
+
+	pr_info("Test VGICv5 IST attrs\n");
+	test_vgic_v5_ist_attrs();
 
 
 	pr_info("Test VGICv5 PPIs\n");
