@@ -162,9 +162,6 @@ int create_user_ns(struct cred *new)
 	ns_tree_add(ns);
 	return 0;
 fail_keyring:
-#ifdef CONFIG_PERSISTENT_KEYRINGS
-	key_put(ns->persistent_keyring_register);
-#endif
 	ns_common_free(ns);
 fail_free:
 	kmem_cache_free(user_ns_cachep, ns);
