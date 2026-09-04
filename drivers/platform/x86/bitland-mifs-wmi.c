@@ -246,7 +246,11 @@ static int bitland_check_performance_capability(struct bitland_mifs_wmi_data *da
 		return -EOPNOTSUPP;
 
 	ret = bitland_mifs_wmi_call(data, &input, &output);
-	if (ret)
+	/* Not all systems support this function, do not perform further checks on them */
+	if (ret == -EOPNOTSUPP)
+		return 0;
+
+	if (ret < 0)
 		return ret;
 
 	if (output.data[0] != WMI_SYSTEM_AC_CIRCULARHOLE)

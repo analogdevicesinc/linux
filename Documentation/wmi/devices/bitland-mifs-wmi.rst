@@ -214,7 +214,8 @@ Performance Modes
 Changing the performance mode via Command ID 0x08 (SystemPerMode) affects the
 power limits (PL1/PL2) and fan curves managed by the Embedded Controller (EC).
 Note that the "Full-speed" and "Performance" mode (1, 3) is typically only
-available when the system is connected to a DC power source (not USB-C/PD).
+available when the system is connected to a DC power source (not USB-C/PD on
+model with a dedicated DC connector).
 
 In the driver implementation, switch to performance/full-speed mode without
 DC power connected will throw the EOPNOTSUPP error.
