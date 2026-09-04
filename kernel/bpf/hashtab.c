@@ -530,6 +530,9 @@ static int htab_map_check_btf(struct bpf_map *map, const struct btf *btf,
 {
 	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
 
+	if (btf_type_is_void(key_type))
+		return -EINVAL;
+
 	if (htab_is_prealloc(htab))
 		return 0;
 	/*
@@ -1025,7 +1028,7 @@ static void pcpu_copy_value(struct bpf_htab *htab, void __percpu *pptr,
 	} else {
 		u32 size = round_up(htab->map.value_size, 8);
 		void *val;
-		int cpu;
+		int cpu, off = 0;
 
 		if (map_flags & BPF_F_CPU) {
 			cpu = map_flags >> 32;
@@ -1037,9 +1040,10 @@ static void pcpu_copy_value(struct bpf_htab *htab, void __percpu *pptr,
 
 		for_each_possible_cpu(cpu) {
 			ptr = per_cpu_ptr(pptr, cpu);
-			val = (map_flags & BPF_F_ALL_CPUS) ? value : value + size * cpu;
+			val = (map_flags & BPF_F_ALL_CPUS) ? value : value + off;
 			copy_map_value(&htab->map, ptr, val);
 			bpf_obj_cancel_fields(&htab->map, ptr);
+			off += size;
 		}
 	}
 }
@@ -3109,6 +3113,9 @@ static int rhtab_map_check_btf(struct bpf_map *map, const struct btf *btf,
 			       const struct btf_type *value_type)
 {
 	struct bpf_rhtab *rhtab = container_of(map, struct bpf_rhtab, map);
+
+	if (btf_type_is_void(key_type))
+		return -EINVAL;
 
 	return bpf_ma_set_dtor(map, &rhtab->ma, rhtab_mem_dtor);
 }
