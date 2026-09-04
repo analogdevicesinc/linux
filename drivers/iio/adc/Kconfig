@@ -576,20 +576,22 @@ config AD9467
 	  called ad9467.
 
 config ADE9000
-	tristate "Analog Devices ADE9000 Multiphase Energy, and Power Quality Monitoring IC Driver"
+	tristate "Analog Devices Multiphase Energy and Power Quality Monitoring IC Driver"
 	depends on SPI
 	select REGMAP_SPI
 	select IIO_BUFFER
 	select IIO_KFIFO_BUF
 	help
-	  Say yes here to build support for the Analog Devices ADE9000,
-	  a highly accurate, multiphase energy and power quality monitoring
-	  integrated circuit.
+	  Say yes here to build support for the following Analog Devices
+	  highly accurate, multiphase energy and power quality monitoring
+	  integrated circuits:
+	    - ADE9000
+	    - ADE9078
 
-	  The device features high-precision analog-to-digital converters
+	  The devices feature high-precision analog-to-digital converters
 	  and digital signal processing to compute RMS values, power factor,
-	  frequency, and harmonic analysis. It supports SPI communication
-	  and provides buffered data output through the IIO framework.
+	  frequency, and harmonic analysis. They support SPI communication
+	  and provide buffered data output through the IIO framework.
 
 	  To compile this driver as a module, choose M here: the module will
 	  be called ade9000.
@@ -652,6 +654,17 @@ config AT91_SAMA5D2_ADC
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called at91-sama5d2_adc.
+
+config AXIADO_SARADC
+	tristate "Axiado SARADC driver"
+	depends on ARCH_AXIADO || COMPILE_TEST
+	select REGMAP_MMIO
+	help
+	  Say yes here to build support for the SARADC found in Axiado
+	  SoCs.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called axiado_saradc.
 
 config AXP20X_ADC
 	tristate "X-Powers AXP20X and AXP22X ADC driver"
@@ -1801,11 +1814,14 @@ config TI_ADS1018
          called ti-ads1018.
 
 config TI_ADS1100
-	tristate "Texas Instruments ADS1100 and ADS1000 ADC"
+	tristate "Texas Instruments ADS1100 and similar single channel I2C ADC"
 	depends on I2C
 	help
-	  If you say yes here you get support for Texas Instruments ADS1100 and
-	  ADS1000 ADC chips.
+	  If you say yes here you get support for TI single channel I2C Analog
+	  Devices.
+	  * ADS1000 12-Bit, 128 SPS Analog-to-Digital Converter
+	  * ADS1100 16-Bit, 128 SPS Analog-to-Digital Converter
+	  * ADS1110 16-Bit, 240 SPS Analog-to-Digital Converter
 
 	  This driver can also be built as a module. If so, the module will be
 	  called ti-ads1100.
@@ -1821,6 +1837,16 @@ config TI_ADS1119
 
          This driver can also be built as a module. If so, the module will be
          called ti-ads1119.
+
+config TI_ADS112C04
+	tristate "Texas Instruments ADS112C04 ADC"
+	depends on I2C
+	help
+	  If you say yes here you get support for Texas Instruments
+	  ADS112C04 (16-bit) I2C analog to digital converters.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called ti-ads112c04.
 
 config TI_ADS112C14
 	tristate "Texas Instruments ADS112C14/ADS122C14"
