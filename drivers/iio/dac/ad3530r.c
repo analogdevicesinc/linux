@@ -61,14 +61,12 @@
 #define AD3530R_SLD_TRIG_A			BIT(7)
 #define AD3530R_OUTPUT_CONTROL_RANGE		BIT(2)
 #define AD3530R_REFERENCE_CONTROL_SEL		BIT(0)
-#define AD3530R_REG_VAL_MASK			GENMASK(15, 0)
 #define AD3530R_OP_MODE_CHAN_MSK(chan)		(GENMASK(1, 0) << 2 * (chan))
 
 #define AD3530R_SW_RESET			(BIT(7) | BIT(0))
 #define AD3530R_INTERNAL_VREF_mV		2500
 #define AD3530R_LDAC_PULSE_US			100
 
-#define AD3530R_DAC_MAX_VAL			GENMASK(15, 0)
 #define AD3530R_CH_PER_REG			4
 #define AD3530R_CH_PER_BANK			8
 #define AD3531R_MAX_CHANNELS			4
@@ -99,6 +97,7 @@ struct ad3530r_chip_info {
 	unsigned int num_channels;
 	unsigned int num_banks;
 	unsigned int num_op_mode_regs;
+	unsigned int resolution;
 	bool internal_ref_support;
 };
 
@@ -310,7 +309,7 @@ static int ad3530r_dac_write(struct ad3530r_state *st, unsigned int chan,
 	int ret;
 
 	guard(mutex)(&st->lock);
-	st->buf = cpu_to_be16(val);
+	st->buf = cpu_to_be16(val << (16 - st->chip_info->resolution));
 
 	ret = regmap_bulk_write(st->regmap, st->chip_info->input_ch_reg(chan),
 				&st->buf, sizeof(st->buf));
@@ -340,12 +339,12 @@ static int ad3530r_read_raw(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		*val = FIELD_GET(AD3530R_REG_VAL_MASK, be16_to_cpu(st->buf));
+		*val = be16_to_cpu(st->buf) >> (16 - st->chip_info->resolution);
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		*val = st->vref_mV;
-		*val2 = 16;
+		*val2 = st->chip_info->resolution;
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 	default:
@@ -361,7 +360,7 @@ static int ad3530r_write_raw(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
-		if (val < 0 || val > AD3530R_DAC_MAX_VAL)
+		if (val < 0 || val > GENMASK(st->chip_info->resolution - 1, 0))
 			return -EINVAL;
 
 		return ad3530r_dac_write(st, chan->channel, val);
@@ -525,6 +524,7 @@ static const struct regmap_config ad3532r_regmap_config = {
 
 static const struct ad3530r_chip_info ad3530_chip = {
 	.name = "ad3530",
+	.resolution = 16,
 	.channels = ad3530r_channels,
 	.regmap_config = &ad3530r_regmap_config,
 	.num_channels = ARRAY_SIZE(ad3530r_channels),
@@ -541,6 +541,7 @@ static const struct ad3530r_chip_info ad3530_chip = {
 
 static const struct ad3530r_chip_info ad3530r_chip = {
 	.name = "ad3530r",
+	.resolution = 16,
 	.channels = ad3530r_channels,
 	.regmap_config = &ad3530r_regmap_config,
 	.num_channels = ARRAY_SIZE(ad3530r_channels),
@@ -557,6 +558,7 @@ static const struct ad3530r_chip_info ad3530r_chip = {
 
 static const struct ad3530r_chip_info ad3531_chip = {
 	.name = "ad3531",
+	.resolution = 16,
 	.channels = ad3531r_channels,
 	.regmap_config = &ad3530r_regmap_config,
 	.num_channels = ARRAY_SIZE(ad3531r_channels),
@@ -573,6 +575,7 @@ static const struct ad3530r_chip_info ad3531_chip = {
 
 static const struct ad3530r_chip_info ad3531r_chip = {
 	.name = "ad3531r",
+	.resolution = 16,
 	.channels = ad3531r_channels,
 	.regmap_config = &ad3530r_regmap_config,
 	.num_channels = ARRAY_SIZE(ad3531r_channels),
@@ -589,6 +592,7 @@ static const struct ad3530r_chip_info ad3531r_chip = {
 
 static const struct ad3530r_chip_info ad3532_chip = {
 	.name = "ad3532",
+	.resolution = 16,
 	.channels = ad3532r_channels,
 	.regmap_config = &ad3532r_regmap_config,
 	.num_channels = ARRAY_SIZE(ad3532r_channels),
@@ -605,6 +609,7 @@ static const struct ad3530r_chip_info ad3532_chip = {
 
 static const struct ad3530r_chip_info ad3532r_chip = {
 	.name = "ad3532r",
+	.resolution = 16,
 	.channels = ad3532r_channels,
 	.regmap_config = &ad3532r_regmap_config,
 	.num_channels = ARRAY_SIZE(ad3532r_channels),
