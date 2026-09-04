@@ -1059,6 +1059,7 @@ void vgic_v5_flush_ppi_state(struct kvm_vcpu *vcpu)
 
 void vgic_v5_load(struct kvm_vcpu *vcpu)
 {
+	bool irichppidis = !READ_ONCE(vcpu->kvm->arch.vgic.enabled);
 	struct vgic_v5_cpu_if *cpu_if = &vcpu->arch.vgic_cpu.vgic_v5;
 	u16 vm = vgic_v5_vm_id(vcpu->kvm);
 	u16 vpe = vgic_v5_vpe_id(vcpu);
@@ -1075,6 +1076,7 @@ void vgic_v5_load(struct kvm_vcpu *vcpu)
 	kvm_call_hyp(__vgic_v5_restore_vmcr_apr, cpu_if);
 
 	cpu_if->vgic_contextr = FIELD_PREP(ICH_CONTEXTR_EL2_V, true) |
+				FIELD_PREP(ICH_CONTEXTR_EL2_IRICHPPIDIS, irichppidis) |
 				FIELD_PREP(ICH_CONTEXTR_EL2_VPE, vpe) |
 				FIELD_PREP(ICH_CONTEXTR_EL2_VM, vm);
 
@@ -1101,7 +1103,10 @@ void vgic_v5_put(struct kvm_vcpu *vcpu)
 	kvm_call_hyp(__vgic_v5_save_apr, cpu_if);
 
 	cpu_if->vgic_contextr = 0;
-	if (vcpu_get_flag(vcpu, IN_WFI)) {
+
+	/* Request a doorbell if entering WFI, unless the IRS is disabled */
+	if (vcpu_get_flag(vcpu, IN_WFI) &&
+	    READ_ONCE(vcpu->kvm->arch.vgic.enabled)) {
 		u32 priority_mask;
 		int dbpm;
 
