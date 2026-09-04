@@ -130,25 +130,14 @@ struct iwm {
 
 /* Bits in handshake register */
 
-#define MARK_BYTE	0x01
-#define CRC_ZERO	0x02
-#define RDDATA		0x04
 #define SENSE		0x08
-#define MOTEN		0x10
-#define ERROR		0x20
 #define DAT2BYTE	0x40
 #define DAT1BYTE	0x80
 
 /* bits in setup register */
 
-#define S_INV_WDATA	0x01
-#define S_3_5_SELECT	0x02
-#define S_GCR		0x04
 #define S_FCLK_DIV2	0x08
-#define S_ERROR_CORR	0x10
 #define S_IBM_DRIVE	0x20
-#define S_GCR_WRITE	0x40
-#define S_TIMEOUT	0x80
 
 /* bits in mode register */
 
@@ -157,11 +146,8 @@ struct iwm {
 #define ENBL2		0x04
 #define ACTION		0x08
 #define WRITE_MODE	0x10
-#define HEDSEL		0x20
 #define ISM_SELECT	0x40
 #define MOTON		0x80
-
-/*----------------------------------------------------------------------------*/
 
 enum drive_location {
 	NO_DRIVE = 0,
