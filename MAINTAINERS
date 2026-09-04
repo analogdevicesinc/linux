@@ -13038,6 +13038,8 @@ F:	drivers/scsi/isci/
 
 INTEL COMPUTER VISION SENSING (CVS) DRIVER
 M:	Miguel Vadillo <miguel.vadillo@intel.com>
+M:	Sakari Ailus <sakari.ailus@linux.intel.com>
+R:	Antti Laakso <antti.laakso@linux.intel.com>
 L:	linux-media@vger.kernel.org
 S:	Maintained
 F:	drivers/media/i2c/cvs/
@@ -13225,6 +13227,15 @@ S:	Supported
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/iommu/linux.git
 F:	drivers/iommu/intel/
 
+INTEL IPU BRIDGE
+M:	Sakari Ailus <sakari.ailus@linux.intel.com>
+M:	Dan Scally <dan.scally@ideasonboard.com>
+R:	Hans de Goede <hansg@kernel.org>
+L:	linux-media@vger.kernel.org
+S:	Maintained
+F:	drivers/media/pci/intel/ipu-bridge.c
+F:	include/media/ipu-bridge.h
+
 INTEL IPU3 CSI-2 CIO2 DRIVER
 M:	Yong Zhi <yong.zhi@intel.com>
 M:	Sakari Ailus <sakari.ailus@linux.intel.com>
@@ -13246,6 +13257,8 @@ F:	drivers/staging/media/ipu3/
 
 INTEL IPU6 INPUT SYSTEM DRIVER
 M:	Sakari Ailus <sakari.ailus@linux.intel.com>
+R:	Antti Laakso <antti.laakso@linux.intel.com>
+R:	"Sapre, Sarang" <sarang.sapre@intel.com>
 L:	linux-media@vger.kernel.org
 S:	Maintained
 T:	git git://linuxtv.org/media.git
@@ -13482,6 +13495,7 @@ K:	\bSGX_
 INTEL SKYLAKE INT3472 ACPI DEVICE DRIVER
 M:	Daniel Scally <dan.scally@ideasonboard.com>
 M:	Sakari Ailus <sakari.ailus@linux.intel.com>
+L:	linux-media@vger.kernel.org
 S:	Maintained
 T:	git git://linuxtv.org/media.git
 F:	drivers/platform/x86/intel/int3472/
@@ -16411,6 +16425,7 @@ M:	Frank Li <Frank.Li@nxp.com>
 M:	Martin Kepplinger-Novakovic <martink@posteo.de>
 R:	Rui Miguel Silva <rmfrfs@gmail.com>
 R:	Purism Kernel Team <kernel@puri.sm>
+R:	Bryan O'Donoghue <bod@kernel.org>
 L:	imx@lists.linux.dev
 L:	linux-media@vger.kernel.org
 S:	Maintained
@@ -19736,6 +19751,14 @@ L:	linux-media@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/media/nxp,imx8-jpeg.yaml
 F:	drivers/media/platform/nxp/imx-jpeg
+
+NXP i.MX 95 CSI PIXEL FORMATTER V4L2 DRIVER
+M:	Guoniu Zhou <guoniu.zhou@nxp.com>
+L:	imx@lists.linux.dev
+L:	linux-media@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/media/fsl,imx95-csi-formatter.yaml
+F:	drivers/media/platform/nxp/imx95-csi-formatter.c
 
 NXP i.MX CLOCK DRIVERS
 M:	Abel Vesa <abelvesa@kernel.org>
@@ -26565,6 +26588,7 @@ F:	include/linux/soc/amd/isp4_misc.h
 
 SYNOPSYS DESIGNWARE MIPI CSI-2 RECEIVER DRIVER
 M:	Michael Riesch <michael.riesch@collabora.com>
+R:	Bryan O'Donoghue <bod@kernel.org>
 L:	linux-media@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/media/rockchip,rk3568-mipi-csi2.yaml
