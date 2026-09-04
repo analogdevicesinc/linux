@@ -2049,6 +2049,7 @@ bool tdx_supports_dynamic_pamt(const struct tdx_sys_info *sysinfo)
 	/* To be enabled when kernel is ready. */
 	return false;
 }
+EXPORT_SYMBOL_FOR_KVM(tdx_supports_dynamic_pamt);
 
 static struct page *tdx_alloc_page_pamt_cache(struct tdx_pamt_cache *cache)
 {
