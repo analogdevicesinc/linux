@@ -457,11 +457,25 @@ struct spi_nor_fixups {
  * @id:		(optional) flash ID this fixup applies to, may only match the
  *		ID prefix, eg. just the first few bytes to match a whole family
  * @match:	(optional) custom match function (can be used together with @id)
+ * @fixup_flags: flags that indicate support that can be discovered via SFDP
+ *		 ideally, but can not be discovered for this particular flash
+ *		 because the SFDP table that indicates this support is not
+ *		 defined by the flash. In case the table for this support is
+ *		 defined but has wrong values, one should instead use a
+ *		 post_sfdp() hook to set the SNOR_F equivalent flag.
+ *
+ *	SPI_NOR_4B_OPCODES: use dedicated 4byte address op codes to support
+ *			    memory size above 128Mib.
+ *	SPI_NOR_IO_MODE_EN_VOLATILE: flash enables the best available I/O mode
+ *				     via a volatile bit.
  * @fixups:	the fixup hooks to apply when this entry matches
  */
 struct spi_nor_fixup {
 	const struct spi_nor_id *id;
 	bool (*match)(const struct spi_nor *nor);
+	u8 fixup_flags;
+#define SPI_NOR_4B_OPCODES		BIT(0)
+#define SPI_NOR_IO_MODE_EN_VOLATILE	BIT(1)
 	const struct spi_nor_fixups *fixups;
 };
 
@@ -524,22 +538,10 @@ struct spi_nor_id {
  *   SPI_NOR_OCTAL_DTR_READ:  flash supports octal DTR Read.
  *   SPI_NOR_OCTAL_DTR_PP:    flash supports Octal DTR Page Program.
  *
- * @fixup_flags:    flags that indicate support that can be discovered via SFDP
- *                  ideally, but can not be discovered for this particular flash
- *                  because the SFDP table that indicates this support is not
- *                  defined by the flash. In case the table for this support is
- *                  defined but has wrong values, one should instead use a
- *                  post_sfdp() hook to set the SNOR_F equivalent flag.
- *
- *   SPI_NOR_4B_OPCODES:      use dedicated 4byte address op codes to support
- *                            memory size above 128Mib.
- *   SPI_NOR_IO_MODE_EN_VOLATILE: flash enables the best available I/O mode
- *                            via a volatile bit.
  * @mfr_flags:      manufacturer private flags. Used in the manufacturer fixup
  *                  hooks to differentiate support between flashes of the same
  *                  manufacturer.
  * @otp_org:        flash's OTP organization.
- * @fixups:         part specific fixup hooks.
  */
 struct flash_info {
 	char *name;
@@ -569,10 +571,6 @@ struct flash_info {
 #define SPI_NOR_OCTAL_READ		BIT(5)
 #define SPI_NOR_OCTAL_DTR_READ		BIT(6)
 #define SPI_NOR_OCTAL_DTR_PP		BIT(7)
-
-	u8 fixup_flags;
-#define SPI_NOR_4B_OPCODES		BIT(0)
-#define SPI_NOR_IO_MODE_EN_VOLATILE	BIT(1)
 
 	u8 mfr_flags;
 

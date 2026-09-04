@@ -2654,7 +2654,7 @@ static void spi_nor_manufacturer_init_params(struct spi_nor *nor)
 	fixups = nor->manufacturer->fixups;
 
 	for (i = 0; i < nor->manufacturer->nfixups; i++) {
-		if (fixups[i].fixups->default_init &&
+		if (fixups[i].fixups && fixups[i].fixups->default_init &&
 		    spi_nor_fixup_match(nor, &fixups[i]))
 			fixups[i].fixups->default_init(nor);
 	}
@@ -2787,13 +2787,24 @@ static void spi_nor_init_flags(struct spi_nor *nor)
 static void spi_nor_init_fixup_flags(struct spi_nor *nor)
 {
 	struct spi_nor_flash_parameter *params = nor->params;
-	const u8 fixup_flags = nor->info->fixup_flags;
+	const struct spi_nor_fixup *fixups;
+	unsigned int i;
 
-	if (fixup_flags & SPI_NOR_4B_OPCODES)
-		params->flags |= SNOR_F_4B_OPCODES;
+	if (!nor->manufacturer || !nor->manufacturer->fixups)
+		return;
 
-	if (fixup_flags & SPI_NOR_IO_MODE_EN_VOLATILE)
-		params->flags |= SNOR_F_IO_MODE_EN_VOLATILE;
+	fixups = nor->manufacturer->fixups;
+
+	for (i = 0; i < nor->manufacturer->nfixups; i++) {
+		if (!fixups[i].fixup_flags ||
+		    !spi_nor_fixup_match(nor, &fixups[i]))
+			continue;
+
+		if (fixups[i].fixup_flags & SPI_NOR_4B_OPCODES)
+			params->flags |= SNOR_F_4B_OPCODES;
+		if (fixups[i].fixup_flags & SPI_NOR_IO_MODE_EN_VOLATILE)
+			params->flags |= SNOR_F_IO_MODE_EN_VOLATILE;
+	}
 }
 
 /**
@@ -2818,7 +2829,7 @@ static int spi_nor_late_init_params(struct spi_nor *nor)
 		fixups = nor->manufacturer->fixups;
 
 		for (i = 0; i < nor->manufacturer->nfixups; i++) {
-			if (fixups[i].fixups->late_init &&
+			if (fixups[i].fixups && fixups[i].fixups->late_init &&
 			    spi_nor_fixup_match(nor, &fixups[i])) {
 				ret = fixups[i].fixups->late_init(nor);
 				if (ret)

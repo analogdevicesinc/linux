@@ -101,7 +101,6 @@ static const struct flash_info issi_nor_parts[] = {
 	}, {
 		.id = SNOR_ID(0x9d, 0x60, 0x19),
 		.name = "is25lp256",
-		.fixup_flags = SPI_NOR_4B_OPCODES,
 	}, {
 		.id = SNOR_ID(0x9d, 0x70, 0x16),
 		.name = "is25wp032",
@@ -121,7 +120,6 @@ static const struct flash_info issi_nor_parts[] = {
 		.id = SNOR_ID(0x9d, 0x70, 0x19),
 		.name = "is25wp256",
 		.flags = SPI_NOR_QUAD_PP,
-		.fixup_flags = SPI_NOR_4B_OPCODES,
 	}
 };
 
@@ -146,8 +144,10 @@ static bool issi_pm25lv_match(const struct spi_nor *nor)
 static const struct spi_nor_fixup issi_fixup_list[] = {
 	{ .fixups = &issi_fixups },
 	{ .match = issi_pm25lv_match, .fixups = &pm25lv_nor_fixups },
-	{ .id = SNOR_ID(0x9d, 0x60, 0x19), .fixups = &is25lp256_fixups },
-	{ .id = SNOR_ID(0x9d, 0x70, 0x19), .fixups = &is25lp256_fixups },
+	{ .id = SNOR_ID(0x9d, 0x60, 0x19), .fixups = &is25lp256_fixups,
+	  .fixup_flags = SPI_NOR_4B_OPCODES },
+	{ .id = SNOR_ID(0x9d, 0x70, 0x19), .fixups = &is25lp256_fixups,
+	  .fixup_flags = SPI_NOR_4B_OPCODES },
 };
 
 const struct spi_nor_manufacturer spi_nor_issi = {
