@@ -14,6 +14,9 @@
 
 #define NR_VCPUS		1
 #define VGIC_V5_LPI_NR_VCPUS	2
+#define VGIC_V5_SPARSE_NR_VCPUS	2
+#define VGIC_V5_SPARSE_VCPU0_ID	17
+#define VGIC_V5_SPARSE_VCPU1_ID	3
 #define VGIC_V5_LPI_MEMSLOT	1
 #define VGIC_V5_NR_PRIVATE_IRQS	64
 #define VGIC_V5_DEFAULT_NR_SPIS	32
@@ -295,6 +298,13 @@ static void guest_code(void)
 	/* Loop forever waiting for interrupts */
 	for (;;)
 		cpu_relax();
+}
+
+static void guest_iaffid_code(void)
+{
+	GUEST_SYNC(FIELD_GET(ICC_IAFFIDR_EL1_IAFFID,
+				     read_sysreg_s(SYS_ICC_IAFFIDR_EL1)));
+	GUEST_DONE();
 }
 
 static void guest_spi_irq_handler(struct ex_regs *regs)
@@ -1522,6 +1532,53 @@ static void test_vgic_v5_cpu_sysreg_attrs(void)
 	vm_gic_destroy(&v);
 }
 
+static void test_vgic_v5_sparse_vcpu_ids(void)
+{
+	struct kvm_vcpu *vcpus[VGIC_V5_SPARSE_NR_VCPUS];
+	const u32 vcpu_ids[VGIC_V5_SPARSE_NR_VCPUS] = {
+		VGIC_V5_SPARSE_VCPU0_ID,
+		VGIC_V5_SPARSE_VCPU1_ID,
+	};
+	int ret, i;
+	struct ucall uc;
+	struct vm_gic v;
+	u64 attr;
+
+	v.gic_dev_type = KVM_DEV_TYPE_ARM_VGIC_V5;
+	v.vm = __vm_create(VM_SHAPE_DEFAULT, VGIC_V5_SPARSE_NR_VCPUS, 0);
+	v.gic_fd = kvm_create_device(v.vm, v.gic_dev_type);
+
+	/* Create two vCPUs with legal, albeit sparse, IDs. */
+	for (i = 0; i < ARRAY_SIZE(vcpus); i++) {
+		vcpus[i] = vm_vcpu_add(v.vm, vcpu_ids[i], guest_iaffid_code);
+		TEST_ASSERT(vcpus[i], "Failed to create vCPU %u", vcpu_ids[i]);
+	}
+
+	attr = GICV5_IRS_CONFIG_BASE_GPA;
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_ADDR,
+			    KVM_VGIC_V5_ADDR_TYPE_IRS, &attr);
+	vgic_v5_map_irs(v.vm);
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
+
+	/* Check both are runnable, and read back their correct IAFFIDs */
+	for (i = 0; i < ARRAY_SIZE(vcpus); i++) {
+		/* IAFFID is the VPE ID and must match the userspace vCPU ID. */
+		ret = run_vcpu(vcpus[i]);
+		TEST_ASSERT(!ret, "Failed to run GICv5 vCPU %u", vcpu_ids[i]);
+		TEST_ASSERT(get_ucall(vcpus[i], &uc) == UCALL_SYNC &&
+			    uc.args[1] == vcpu_ids[i],
+			    "GICv5 vCPU %u IAFFID mismatch", vcpu_ids[i]);
+
+		ret = run_vcpu(vcpus[i]);
+		TEST_ASSERT(!ret, "Failed to complete GICv5 vCPU %u", vcpu_ids[i]);
+		TEST_ASSERT(get_ucall(vcpus[i], NULL) == UCALL_DONE,
+			    "GICv5 vCPU %u did not complete", vcpu_ids[i]);
+	}
+
+	vm_gic_destroy(&v);
+}
+
 static void test_vgic_v5_ppis(u32 gic_dev_type)
 {
 	struct kvm_vcpu *vcpus[NR_VCPUS];
@@ -1965,6 +2022,9 @@ void run_tests(u32 gic_dev_type)
 
 	pr_info("Test VGICv5 CPU sysreg attrs\n");
 	test_vgic_v5_cpu_sysreg_attrs();
+
+	pr_info("Test VGICv5 sparse vCPU IDs\n");
+	test_vgic_v5_sparse_vcpu_ids();
 
 	pr_info("Test VGICv5 PPIs\n");
 	test_vgic_v5_ppis(gic_dev_type);
