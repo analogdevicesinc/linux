@@ -1709,6 +1709,7 @@ struct clk_mgr_internal *dcn60_clk_mgr_construct(
 
 	clk_mgr = &clk_mgr60->base;
 	clk_mgr->base.ctx = ctx;
+	clk_mgr->base.inst = 0;
 	clk_mgr->base.funcs = &dcn60_funcs;
 	clk_mgr->regs = &clk_mgr_regs_dcn60;
 	clk_mgr->clk_mgr_shift = &clk_mgr_shift_dcn60;
