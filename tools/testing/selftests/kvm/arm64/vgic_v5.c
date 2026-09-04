@@ -13,6 +13,8 @@
 #include "vgic.h"
 
 #define NR_VCPUS		1
+#define VGIC_V5_DEFAULT_NR_SPIS	32
+#define VGIC_V5_MAX_NR_SPIS	BIT(10)
 
 static u64 max_phys_size;
 
@@ -26,6 +28,63 @@ struct vm_gic {
 #define GUEST_CMD_IRQ_DIEOI	11
 #define GUEST_CMD_IS_AWAKE	12
 #define GUEST_CMD_IS_READY	13
+
+static void guest_irq_handler(struct ex_regs *regs)
+{
+	bool valid;
+	u32 hwirq;
+	u64 ia;
+	static int count;
+
+	/*
+	 * We have pending interrupts. Should never actually enter WFI
+	 * here!
+	 */
+	wfi();
+	GUEST_SYNC(GUEST_CMD_IS_AWAKE);
+
+	ia = gicr_insn(CDIA);
+	valid = GICV5_GICR_CDIA_VALID(ia);
+
+	GUEST_SYNC(GUEST_CMD_IRQ_CDIA);
+
+	if (!valid)
+		return;
+
+	gsb_ack();
+	isb();
+
+	hwirq = FIELD_GET(GICV5_GICR_CDIA_INTID, ia);
+
+	gic_insn(hwirq, CDDI);
+	gic_insn(0, CDEOI);
+
+	GUEST_SYNC(GUEST_CMD_IRQ_DIEOI);
+
+	if (++count >= 2)
+		GUEST_DONE();
+
+	/* Ask for the next interrupt to be injected */
+	GUEST_SYNC(GUEST_CMD_IS_READY);
+}
+
+static void guest_code(void)
+{
+	local_irq_disable();
+
+	gicv5_cpu_enable_interrupts();
+	local_irq_enable();
+
+	/* Enable the SW_PPI (3) */
+	write_sysreg_s(BIT_ULL(3), SYS_ICC_PPI_ENABLER0_EL1);
+
+	/* Ask for the first interrupt to be injected */
+	GUEST_SYNC(GUEST_CMD_IS_READY);
+
+	/* Loop forever waiting for interrupts */
+	for (;;)
+		cpu_relax();
+}
 
 /* we don't want to assert on run execution, hence that helper */
 static int run_vcpu(struct kvm_vcpu *vcpu)
@@ -51,7 +110,7 @@ static const struct vgic_region_attr gic_v5_irs_region = {
 	.alignment = GICV5_IRS_ALIGN,
 };
 
-static void test_vgic_v5_create(void)
+static void test_vgic_v5_addr_attrs(void)
 {
 	struct kvm_vcpu *vcpu;
 	struct vm_gic v;
@@ -125,60 +184,91 @@ static void test_vgic_v5_create(void)
 	vm_gic_destroy(&v);
 }
 
-static void guest_irq_handler(struct ex_regs *regs)
+static void test_vgic_v5_nr_irqs_attrs(void)
 {
-	bool valid;
-	u32 hwirq;
-	u64 ia;
-	static int count;
+	struct kvm_vcpu *vcpu;
+	struct vm_gic v;
+	u32 nr_irqs;
+	int ret;
 
-	/*
-	 * We have pending interrupts. Should never actually enter WFI
-	 * here!
-	 */
-	wfi();
-	GUEST_SYNC(GUEST_CMD_IS_AWAKE);
+	v.gic_dev_type = KVM_DEV_TYPE_ARM_VGIC_V5;
+	v.vm = __vm_create(VM_SHAPE_DEFAULT, NR_VCPUS, 0);
+	v.gic_fd = kvm_create_device(v.vm, v.gic_dev_type);
 
-	ia = gicr_insn(CDIA);
-	valid = GICV5_GICR_CDIA_VALID(ia);
+	/* Check existing group/attribute */
+	kvm_has_device_attr(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS, 0);
 
-	GUEST_SYNC(GUEST_CMD_IRQ_CDIA);
+	/* Before userspace sets NR_IRQS, no SPI count has been selected. */
+	nr_irqs = 0xbad;
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS,
+				    0, &nr_irqs);
+	TEST_ASSERT(!ret && nr_irqs == 0, "GICv5 NR_IRQS defaults to 0 before init");
 
-	if (!valid)
-		return;
+	/* Too few SPIs */
+	nr_irqs = VGIC_V5_DEFAULT_NR_SPIS - 1;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS,
+				    0, &nr_irqs);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 NR_IRQS below minimum");
 
-	gsb_ack();
-	isb();
+	/* Not a multiple of 32 */
+	nr_irqs = VGIC_V5_DEFAULT_NR_SPIS + 1;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS,
+				    0, &nr_irqs);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 NR_IRQS not 32-aligned");
 
-	hwirq = FIELD_GET(GICV5_GICR_CDIA_INTID, ia);
+	/* Larger than KVM's supported VGICv5 SPI count */
+	nr_irqs = VGIC_V5_MAX_NR_SPIS + 32;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS,
+				    0, &nr_irqs);
+	TEST_ASSERT(ret && errno == EINVAL, "GICv5 NR_IRQS above maximum");
 
-	gic_insn(hwirq, CDDI);
-	gic_insn(0, CDEOI);
+	/* Valid custom SPI count */
+	nr_irqs = VGIC_V5_MAX_NR_SPIS;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS,
+				    0, &nr_irqs);
+	TEST_ASSERT(!ret, "GICv5 NR_IRQS accepts valid custom SPI count");
 
-	GUEST_SYNC(GUEST_CMD_IRQ_DIEOI);
+	nr_irqs = 0xbad;
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS,
+				    0, &nr_irqs);
+	TEST_ASSERT(!ret && nr_irqs == VGIC_V5_MAX_NR_SPIS,
+		    "GICv5 NR_IRQS returns SPI count only");
 
-	if (++count >= 2)
-		GUEST_DONE();
+	/* A second successful configuration attempt must be rejected. */
+	nr_irqs = VGIC_V5_DEFAULT_NR_SPIS;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS,
+				    0, &nr_irqs);
+	TEST_ASSERT(ret && errno == EBUSY, "GICv5 NR_IRQS set twice");
 
-	/* Ask for the next interrupt to be injected */
-	GUEST_SYNC(GUEST_CMD_IS_READY);
-}
+	/* The maximum supported count must also initialize successfully. */
+	vcpu = vm_vcpu_add(v.vm, 0, NULL);
+	TEST_ASSERT(vcpu, "Failed to create vCPU");
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
 
-static void guest_code(void)
-{
-	local_irq_disable();
+	vm_gic_destroy(&v);
 
-	gicv5_cpu_enable_interrupts();
-	local_irq_enable();
+	/* If userspace does not set NR_IRQS, init selects the default. */
+	v.vm = __vm_create(VM_SHAPE_DEFAULT, NR_VCPUS, 0);
+	v.gic_fd = kvm_create_device(v.vm, v.gic_dev_type);
+	vcpu = vm_vcpu_add(v.vm, 0, NULL);
+	TEST_ASSERT(vcpu, "Failed to create vCPU");
+	kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_CTRL,
+			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
 
-	/* Enable the SW_PPI (3) */
-	write_sysreg_s(BIT_ULL(3), SYS_ICC_PPI_ENABLER0_EL1);
+	nr_irqs = 0xbad;
+	ret = __kvm_device_attr_get(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS,
+				    0, &nr_irqs);
+	TEST_ASSERT(!ret && nr_irqs == VGIC_V5_DEFAULT_NR_SPIS,
+		    "GICv5 NR_IRQS defaults to 32 SPIs after init");
 
-	/* Ask for the first interrupt to be injected */
-	GUEST_SYNC(GUEST_CMD_IS_READY);
+	nr_irqs = VGIC_V5_DEFAULT_NR_SPIS * 2;
+	ret = __kvm_device_attr_set(v.gic_fd, KVM_DEV_ARM_VGIC_GRP_NR_IRQS,
+				    0, &nr_irqs);
+	TEST_ASSERT(ret && errno == EBUSY, "GICv5 NR_IRQS set after init");
 
-	/* Loop forever waiting for interrupts */
-	while (1);
+	vm_gic_destroy(&v);
+
 }
 
 static void test_vgic_v5_ppis(u32 gic_dev_type)
@@ -294,8 +384,11 @@ int test_kvm_device(u32 gic_dev_type)
 
 void run_tests(u32 gic_dev_type)
 {
-	pr_info("Test VGICv5 Creation & Setup\n");
-	test_vgic_v5_create();
+	pr_info("Test VGICv5 address attrs\n");
+	test_vgic_v5_addr_attrs();
+
+	pr_info("Test VGICv5 NR_IRQS attrs\n");
+	test_vgic_v5_nr_irqs_attrs();
 
 	pr_info("Test VGICv5 PPIs\n");
 	test_vgic_v5_ppis(gic_dev_type);
