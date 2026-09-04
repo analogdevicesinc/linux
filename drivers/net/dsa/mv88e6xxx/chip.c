@@ -7513,7 +7513,7 @@ static const struct of_device_id mv88e6xxx_of_match[] = {
 		.compatible = "marvell,mv88e6250",
 		.data = &mv88e6xxx_table[MV88E6250],
 	},
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 
 MODULE_DEVICE_TABLE(of, mv88e6xxx_of_match);
