@@ -160,4 +160,6 @@ struct sfdp_header {
 	struct sfdp_parameter_header	bfpt_header;
 };
 
+struct sfdp_header *spi_nor_sfdp_get_header(const struct spi_nor *nor);
+
 #endif /* __LINUX_MTD_SFDP_H */
