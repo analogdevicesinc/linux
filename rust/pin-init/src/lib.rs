@@ -648,6 +648,20 @@ macro_rules! stack_try_pin_init {
 /// # Box::pin_init(demo()).unwrap();
 /// ```
 ///
+/// A tuple struct whose fields are all set to a value can also be written like a call to its
+/// constructor:
+///
+/// ```rust
+/// # use pin_init::*;
+/// #[pin_data]
+/// struct Pair(usize, usize);
+///
+/// # fn demo() -> impl PinInit<Pair> {
+/// let initializer = pin_init!(Pair(42, 64));
+/// # initializer }
+/// # Box::pin_init(demo()).unwrap();
+/// ```
+///
 /// Arbitrary Rust expressions can be used to set the value of a variable.
 ///
 /// The fields are initialized in the order that they appear in the initializer. So it is possible
@@ -771,6 +785,8 @@ macro_rules! stack_try_pin_init {
 /// - Fields that you want to initialize in-place have to use `<-` instead of `:`.
 /// - Tuple struct fields are named by their index, as in `0: value` or `0 <- initializer`. They
 ///   are not exposed by a `let` binding, since they have no name to bind.
+/// - A tuple struct can also be initialized with constructor syntax, as in `Type(value, value)`.
+///   Since its arguments are not named, they cannot use `<-`; write them out by index instead.
 /// - You can use `_: { /* run any user-code here */ },` anywhere where you can place fields in
 ///   order to run arbitrary code.
 /// - In front of the initializer you can write `&this in` to have access to a [`NonNull<Self>`]

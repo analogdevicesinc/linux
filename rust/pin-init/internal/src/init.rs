@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens, TokenStreamExt};
 use syn::{
-    braced,
+    braced, parenthesized,
     parse::{End, Parse},
     parse_quote,
-    punctuated::Punctuated,
+    punctuated::{Pair, Punctuated},
     spanned::Spanned,
-    token, Attribute, Block, Expr, ExprCall, ExprPath, Ident, LitInt, Member, Path, Token, Type,
+    token, Attribute, Block, Expr, ExprCall, ExprPath, Ident, Index, LitInt, Member, Path, Token,
+    Type,
 };
 
 use crate::{
@@ -16,14 +17,87 @@ use crate::{
     util::*,
 };
 
-pub(crate) struct Initializer {
+pub(crate) struct Initializer<Kind = InitExprKind> {
     attrs: Vec<InitializerAttribute>,
     this: Option<This>,
+    kind: Kind,
+    error: Option<(Token![?], Type)>,
+}
+
+pub(crate) struct InitExprStruct {
     path: Path,
     brace_token: token::Brace,
     fields: Punctuated<InitializerField, Token![,]>,
     rest: Option<(Token![..], Expr)>,
-    error: Option<(Token![?], Type)>,
+}
+
+pub(crate) struct InitExprTuple {
+    path: Path,
+    paren_token: token::Paren,
+    fields: Punctuated<InitTupleField, Token![,]>,
+}
+
+pub(crate) enum InitExprKind {
+    Struct(InitExprStruct),
+    Tuple(InitExprTuple),
+}
+
+struct InitTupleField {
+    attrs: Vec<Attribute>,
+    /// `<-` is not valid in constructor syntax; it is parsed anyway so that it can be rejected
+    /// with a proper diagnostic instead of a parse error.
+    left_arrow_token: Option<Token![<-]>,
+    value: Expr,
+}
+
+impl InitExprTuple {
+    fn normalize(self) -> InitExprStruct {
+        let InitExprTuple {
+            path,
+            paren_token,
+            fields,
+        } = self;
+        InitExprStruct {
+            path,
+            brace_token: token::Brace {
+                span: paren_token.span,
+            },
+            fields: fields
+                .into_pairs()
+                .enumerate()
+                .map(|(index, pair)| {
+                    let (field, comma) = pair.into_tuple();
+                    let span = field.value.span();
+                    let field = InitializerField {
+                        attrs: field.attrs,
+                        kind: InitializerKind::Value {
+                            member: Member::Unnamed(Index {
+                                index: index.try_into().unwrap(),
+                                span,
+                            }),
+                            value: Some((Token![:](span), field.value)),
+                        },
+                    };
+                    Pair::new(field, comma)
+                })
+                .collect(),
+            rest: None,
+        }
+    }
+
+    fn validate(&self, dcx: &mut DiagCtxt) -> Result<(), ErrorGuaranteed> {
+        let mut result = Ok(());
+        for field in &self.fields {
+            if let Some(left_arrow_token) = &field.left_arrow_token {
+                result = Err(dcx.error(
+                    left_arrow_token,
+                    "`<-` is not supported in tuple constructor syntax; name the fields by index \
+                     instead, e.g. `Type { 0 <- initializer, 1: value }`",
+                ));
+            }
+        }
+        result
+    }
 }
 
 struct This {
@@ -71,16 +145,103 @@ struct DefaultErrorAttribute {
     ty: Box<Type>,
 }
 
-pub(crate) fn expand(
+pub(crate) fn expand_with_cfg(
+    initializer: Initializer,
+    default_error: Option<&'static str>,
+    pinned: bool,
+    dcx: &mut DiagCtxt,
+) -> Result<TokenStream, ErrorGuaranteed> {
+    let initializer = match initializer.kind {
+        InitExprKind::Tuple(expr) => {
+            expr.validate(dcx)?;
+
+            let mut initializer = Initializer {
+                attrs: initializer.attrs,
+                this: initializer.this,
+                kind: expr,
+                error: initializer.error,
+            };
+
+            // Removing a tuple field renumbers every field after it, which cannot be expressed with
+            // a `cfg` attribute on the initializer of a single field. Therefore, resolve tuple
+            // field cfgs before continuing. Struct expression syntax uses explicit numbers, so
+            // there is no need to pre-expand them and we only need to emit their cfgs on generated
+            // code.
+            for (field_idx, field) in initializer.kind.fields.iter_mut().enumerate() {
+                let cfg = field.attrs.extract_cfg_attrs();
+
+                if cfg.is_empty() {
+                    continue;
+                }
+
+                let true_initializer = initializer.to_token_stream();
+                initializer.kind.fields = initializer
+                    .kind
+                    .fields
+                    .into_pairs()
+                    .enumerate()
+                    .filter(|&(index, _)| index != field_idx)
+                    .map(|(_, pair)| pair)
+                    .collect();
+
+                let false_initializer = &initializer;
+
+                let macro_name = if pinned {
+                    quote!(::pin_init::pin_init)
+                } else {
+                    quote!(::pin_init::init)
+                };
+
+                // Resolve one field at a time until we've got no more tuple field cfgs.
+                //
+                // This is linear time because macro invocations with false cfg will not be
+                // expanded.
+                return Ok(quote! {
+                    {
+                        // Use `{}` delimiter here so semicolon is not required, otherwise the
+                        // expression becomes unit type.
+                        #[cfg(all(#(#cfg,)*))]
+                        #macro_name! { #true_initializer }
+
+                        #[cfg(not(all(#(#cfg,)*)))]
+                        #macro_name! { #false_initializer }
+                    }
+                });
+            }
+
+            // No cfgs left, we can normalize the initializer to the struct kind.
+            Initializer {
+                attrs: initializer.attrs,
+                this: initializer.this,
+                kind: initializer.kind.normalize(),
+                error: initializer.error,
+            }
+        }
+
+        InitExprKind::Struct(expr) => Initializer {
+            attrs: initializer.attrs,
+            this: initializer.this,
+            kind: expr,
+            error: initializer.error,
+        },
+    };
+
+    expand(initializer, default_error, pinned, dcx)
+}
+
+fn expand(
     Initializer {
         attrs,
         this,
-        path,
-        brace_token,
-        fields,
-        rest,
+        kind:
+            InitExprStruct {
+                path,
+                brace_token,
+                fields,
+                rest,
+            },
         error,
-    }: Initializer,
+    }: Initializer<InitExprStruct>,
     default_error: Option<&'static str>,
     pinned: bool,
     dcx: &mut DiagCtxt,
@@ -99,7 +260,10 @@ pub(crate) fn expand(
             } else if let Some(default_error) = default_error {
                 syn::parse_str(default_error).unwrap()
             } else {
-                dcx.error(brace_token.span.close(), "expected `? <type>` after `}`");
+                dcx.error(
+                    brace_token.span.close(),
+                    "expected `? <type>` after initializer",
+                );
                 parse_quote!(::core::convert::Infallible)
             }
         },
@@ -377,11 +541,8 @@ fn make_field_check(
     }
 }
 
-impl Parse for Initializer {
-    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
-        let attrs = input.call(Attribute::parse_outer)?;
-        let this = input.peek(Token![&]).then(|| input.parse()).transpose()?;
-        let path = input.parse()?;
+impl InitExprStruct {
+    fn parse_with_path(path: Path, input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
         let content;
         let brace_token = braced!(content in input);
         let mut fields = Punctuated::new();
@@ -408,6 +569,51 @@ impl Parse for Initializer {
             .peek(Token![..])
             .then(|| Ok::<_, syn::Error>((content.parse()?, content.parse()?)))
             .transpose()?;
+        Ok(Self {
+            path,
+            brace_token,
+            fields,
+            rest,
+        })
+    }
+}
+
+impl InitExprTuple {
+    fn parse_with_path(path: Path, input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
+        let content;
+        let paren_token = parenthesized!(content in input);
+        let mut fields = Punctuated::new();
+        while !content.is_empty() {
+            fields.push_value(InitTupleField {
+                attrs: content.call(Attribute::parse_outer)?,
+                left_arrow_token: content.parse()?,
+                value: content.parse()?,
+            });
+            if content.is_empty() {
+                break;
+            }
+            fields.push_punct(content.parse()?);
+        }
+        Ok(InitExprTuple {
+            path,
+            paren_token,
+            fields,
+        })
+    }
+}
+
+impl Parse for Initializer {
+    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
+        let attrs = input.call(Attribute::parse_outer)?;
+        let this = input.peek(Token![&]).then(|| input.parse()).transpose()?;
+        let path = input.parse()?;
+        let kind = if input.peek(token::Brace) {
+            InitExprKind::Struct(InitExprStruct::parse_with_path(path, input)?)
+        } else if input.peek(token::Paren) {
+            InitExprKind::Tuple(InitExprTuple::parse_with_path(path, input)?)
+        } else {
+            return Err(input.error("expected curly braces or parentheses"));
+        };
         let error = input
             .peek(Token![?])
             .then(|| Ok::<_, syn::Error>((input.parse()?, input.parse()?)))
@@ -426,10 +632,7 @@ impl Parse for Initializer {
         Ok(Self {
             attrs,
             this,
-            path,
-            brace_token,
-            fields,
-            rest,
+            kind,
             error,
         })
     }
@@ -496,6 +699,140 @@ impl Parse for InitializerKind {
             })
         } else {
             Err(lh.error())
+        }
+    }
+}
+
+impl<Kind: ToTokens> ToTokens for Initializer<Kind> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            attrs,
+            this,
+            kind,
+            error,
+        } = self;
+        tokens.append_all(attrs);
+        this.to_tokens(tokens);
+        kind.to_tokens(tokens);
+        if let Some((question, ty)) = error {
+            question.to_tokens(tokens);
+            ty.to_tokens(tokens);
+        }
+    }
+}
+
+impl ToTokens for InitExprKind {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Self::Struct(init) => init.to_tokens(tokens),
+            Self::Tuple(init) => init.to_tokens(tokens),
+        }
+    }
+}
+
+impl ToTokens for InitExprStruct {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            path,
+            brace_token,
+            fields,
+            rest,
+        } = self;
+        path.to_tokens(tokens);
+        brace_token.surround(tokens, |tokens| {
+            fields.to_tokens(tokens);
+            if let Some((dotdot, expr)) = rest {
+                dotdot.to_tokens(tokens);
+                expr.to_tokens(tokens);
+            }
+        });
+    }
+}
+
+impl ToTokens for InitExprTuple {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            path,
+            paren_token,
+            fields,
+        } = self;
+        path.to_tokens(tokens);
+        paren_token.surround(tokens, |tokens| fields.to_tokens(tokens));
+    }
+}
+
+impl ToTokens for InitTupleField {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            attrs,
+            left_arrow_token,
+            value,
+        } = self;
+        tokens.append_all(attrs);
+        left_arrow_token.to_tokens(tokens);
+        value.to_tokens(tokens);
+    }
+}
+
+impl ToTokens for InitializerAttribute {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Self::DefaultError(DefaultErrorAttribute { ty }) => {
+                quote!(#[default_error(#ty)]).to_tokens(tokens);
+            }
+        }
+    }
+}
+
+impl ToTokens for This {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self {
+            _and_token,
+            ident,
+            _in_token,
+        } = self;
+        _and_token.to_tokens(tokens);
+        ident.to_tokens(tokens);
+        _in_token.to_tokens(tokens);
+    }
+}
+
+impl ToTokens for InitializerField {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self { attrs, kind } = self;
+        tokens.append_all(attrs);
+        kind.to_tokens(tokens);
+    }
+}
+
+impl ToTokens for InitializerKind {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Self::Value { member, value } => {
+                member.to_tokens(tokens);
+                if let Some((colon, expr)) = value {
+                    colon.to_tokens(tokens);
+                    expr.to_tokens(tokens);
+                }
+            }
+            Self::Init {
+                member,
+                _left_arrow_token,
+                value,
+            } => {
+                member.to_tokens(tokens);
+                _left_arrow_token.to_tokens(tokens);
+                value.to_tokens(tokens);
+            }
+            Self::Code {
+                _underscore_token,
+                _colon_token,
+                block,
+            } => {
+                _underscore_token.to_tokens(tokens);
+                _colon_token.to_tokens(tokens);
+                block.to_tokens(tokens);
+            }
         }
     }
 }

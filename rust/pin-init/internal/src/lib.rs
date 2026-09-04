@@ -49,12 +49,17 @@ pub fn maybe_derive_zeroable(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn init(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
-    DiagCtxt::with(|dcx| init::expand(input, Some("::core::convert::Infallible"), false, dcx))
-        .into()
+    DiagCtxt::with(|dcx| {
+        init::expand_with_cfg(input, Some("::core::convert::Infallible"), false, dcx)
+    })
+    .into()
 }
 
 #[proc_macro]
 pub fn pin_init(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
-    DiagCtxt::with(|dcx| init::expand(input, Some("::core::convert::Infallible"), true, dcx)).into()
+    DiagCtxt::with(|dcx| {
+        init::expand_with_cfg(input, Some("::core::convert::Infallible"), true, dcx)
+    })
+    .into()
 }
