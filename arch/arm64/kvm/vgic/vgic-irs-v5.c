@@ -748,8 +748,8 @@ int kvm_vgic_v5_irs_init(struct kvm *kvm, unsigned int nr_spis)
 	 * capability.
 	 */
 	if (vgic_v5_irs_ist_id_bits(&irs_caps) < 16)
-		pr_warn("Host IRS supports fewer than 16 ID bits for ISTs (%u)\n",
-			vgic_v5_irs_ist_id_bits(&irs_caps));
+		pr_warn_ratelimited("Host IRS supports fewer than 16 ID bits for ISTs (%u)\n",
+				    vgic_v5_irs_ist_id_bits(&irs_caps));
 
 	irs->idr2.id_bits = min(16, vgic_v5_irs_ist_id_bits(&irs_caps));
 	irs->idr2.min_lpi_id_bits = vgic_v5_irs_min_lpi_id_bits(&irs_caps);
