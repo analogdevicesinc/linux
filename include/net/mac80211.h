@@ -2919,8 +2919,8 @@ struct ieee80211_txq {
  *	autonomously manages the PS status of connected stations. When
  *	this flag is set mac80211 will not trigger PS mode for connected
  *	stations based on the PM bit of incoming frames.
- *	Use ieee80211_start_ps()/ieee8021_end_ps() to manually configure
- *	the PS mode of connected stations.
+ *	Use ieee80211_sta_ps_transition() to manually toggle the PS mode
+ *	of connected stations.
  *
  * @IEEE80211_HW_TX_AMPDU_SETUP_IN_HW: The device handles TX A-MPDU session
  *	setup strictly in HW. mac80211 should not attempt to do this in
@@ -5499,10 +5499,8 @@ static inline void ieee80211_rx_ni(struct ieee80211_hw *hw,
  *
  * @sta: currently connected sta
  * @start: start or stop PS
- *
- * Return: 0 on success. -EINVAL when the requested PS mode is already set.
  */
-int ieee80211_sta_ps_transition(struct ieee80211_sta *sta, bool start);
+void ieee80211_sta_ps_transition(struct ieee80211_sta *sta, bool start);
 
 /**
  * ieee80211_sta_ps_transition_ni - PS transition for connected sta
@@ -5514,19 +5512,13 @@ int ieee80211_sta_ps_transition(struct ieee80211_sta *sta, bool start);
  *
  * @sta: currently connected sta
  * @start: start or stop PS
- *
- * Return: Like ieee80211_sta_ps_transition().
  */
-static inline int ieee80211_sta_ps_transition_ni(struct ieee80211_sta *sta,
+static inline void ieee80211_sta_ps_transition_ni(struct ieee80211_sta *sta,
 						  bool start)
 {
-	int ret;
-
 	local_bh_disable();
-	ret = ieee80211_sta_ps_transition(sta, start);
+	ieee80211_sta_ps_transition(sta, start);
 	local_bh_enable();
-
-	return ret;
 }
 
 /**
@@ -7638,11 +7630,12 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
  *
  * @skb: packet injected by userspace
  * @dev: the &struct device of this 802.11 device
+ * @trim_fcs: trim the FCS trailer when present; validate it otherwise
  *
  * Return: %true if the radiotap header was parsed, %false otherwise
  */
 bool ieee80211_parse_tx_radiotap(struct sk_buff *skb,
-				 struct net_device *dev);
+				 struct net_device *dev, bool trim_fcs);
 
 /**
  * struct ieee80211_noa_data - holds temporary data for tracking P2P NoA state
@@ -8057,25 +8050,6 @@ ieee80211_get_unsol_bcast_probe_resp_tmpl(struct ieee80211_hw *hw,
 void
 ieee80211_obss_color_collision_notify(struct ieee80211_vif *vif,
 				      u64 color_bitmap, u8 link_id);
-
-/**
- * ieee80211_is_tx_data - check if frame is a data frame
- *
- * The function is used to check if a frame is a data frame. Frames with
- * hardware encapsulation enabled are data frames.
- *
- * @skb: the frame to be transmitted.
- *
- * Return: %true if @skb is a data frame, %false otherwise
- */
-static inline bool ieee80211_is_tx_data(struct sk_buff *skb)
-{
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_hdr *hdr = (void *) skb->data;
-
-	return info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP ||
-	       ieee80211_is_data(hdr->frame_control);
-}
 
 /**
  * ieee80211_set_active_links - set active links in client mode

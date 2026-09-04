@@ -569,6 +569,7 @@ static const struct nla_policy nl80211_txattr_policy[NL80211_TXRATE_MAX + 1] = {
 	[NL80211_TXRATE_EHT_LTF] = NLA_POLICY_RANGE(NLA_U8,
 						   NL80211_RATE_INFO_EHT_1XLTF,
 						   NL80211_RATE_INFO_EHT_8XLTF),
+	[NL80211_TXRATE_6GHZ_NON_HT_DUP] = { .type = NLA_FLAG },
 
 };
 
@@ -6303,6 +6304,14 @@ static int nl80211_parse_tx_bitrate_mask(struct genl_info *info,
 			mask->control[band].eht_ltf =
 				nla_get_u8(tb[NL80211_TXRATE_EHT_LTF]);
 
+		if (tb[NL80211_TXRATE_6GHZ_NON_HT_DUP]) {
+			if (band != NL80211_BAND_6GHZ ||
+			    (wdev->iftype != NL80211_IFTYPE_AP &&
+			     wdev->iftype != NL80211_IFTYPE_P2P_GO))
+				return -EINVAL;
+			mask->control[band].nonht_dup_6ghz = true;
+		}
+
 		if (mask->control[band].legacy == 0) {
 			/* don't allow empty legacy rates if HT, VHT, HE or EHT
 			 * are not even supported.
@@ -6344,6 +6353,7 @@ static int validate_beacon_tx_rate(struct cfg80211_registered_device *rdev,
 {
 	u32 count_ht, count_vht, count_he, count_eht, i;
 	u32 rate = beacon_rate->control[band].legacy;
+	bool nonht_dup = beacon_rate->control[band].nonht_dup_6ghz;
 
 	/* Allow only one rate */
 	if (hweight32(rate) > 1)
@@ -6403,6 +6413,9 @@ static int validate_beacon_tx_rate(struct cfg80211_registered_device *rdev,
 
 	if ((count_ht && count_vht && count_he && count_eht) ||
 	    (!rate && !count_ht && !count_vht && !count_he && !count_eht))
+		return -EINVAL;
+
+	if (nonht_dup && !rate)
 		return -EINVAL;
 
 	if (rate &&
@@ -21523,7 +21536,6 @@ void nl80211_mlo_reconf_add_done(struct net_device *dev,
 
 	nl80211_send_mlme_event(rdev, dev, &event, GFP_KERNEL);
 }
-EXPORT_SYMBOL(nl80211_mlo_reconf_add_done);
 
 void nl80211_send_ibss_bssid(struct cfg80211_registered_device *rdev,
 			     struct net_device *netdev, const u8 *bssid,

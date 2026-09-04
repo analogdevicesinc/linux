@@ -1744,7 +1744,7 @@ static void sta_ps_end(struct sta_info *sta)
 	ieee80211_sta_ps_deliver_wakeup(sta);
 }
 
-int ieee80211_sta_ps_transition(struct ieee80211_sta *pubsta, bool start)
+void ieee80211_sta_ps_transition(struct ieee80211_sta *pubsta, bool start)
 {
 	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
 	bool in_ps;
@@ -1753,15 +1753,13 @@ int ieee80211_sta_ps_transition(struct ieee80211_sta *pubsta, bool start)
 
 	/* Don't let the same PS state be set twice */
 	in_ps = test_sta_flag(sta, WLAN_STA_PS_STA);
-	if ((start && in_ps) || (!start && !in_ps))
-		return -EINVAL;
+	if (start == in_ps)
+		return;
 
 	if (start)
 		sta_ps_start(sta);
 	else
 		sta_ps_end(sta);
-
-	return 0;
 }
 EXPORT_SYMBOL(ieee80211_sta_ps_transition);
 
