@@ -80,7 +80,8 @@ int vgic_v5_probe(const struct gic_kvm_info *info)
 	int ret;
 
 	kvm_vgic_global_state.type = VGIC_V5;
-	kvm_vgic_global_state.max_gic_vcpus = VGIC_V5_MAX_CPUS;
+	kvm_vgic_global_state.max_gic_vcpus = 0;
+	kvm_vgic_global_state.max_gicv5_vcpus = 0;
 
 	kvm_vgic_global_state.vcpu_base = 0;
 	kvm_vgic_global_state.vctrl_base = NULL;
@@ -105,8 +106,8 @@ int vgic_v5_probe(const struct gic_kvm_info *info)
 	 * Even if the HW supports more per-VM vCPUs, artificially cap as we
 	 * can't use them all.
 	 */
-	kvm_vgic_global_state.max_gic_vcpus = min(vgic_v5_irs_max_vpes(&irs_caps),
-						  VGIC_V5_MAX_CPUS);
+	kvm_vgic_global_state.max_gicv5_vcpus = min(vgic_v5_irs_max_vpes(&irs_caps),
+						    VGIC_V5_MAX_CPUS);
 
 	/*
 	 * GICv5 requires a set of tables to be allocated in order to manage
@@ -115,7 +116,7 @@ int vgic_v5_probe(const struct gic_kvm_info *info)
 	 * we want to run. For now, we match the maximum number offered by the
 	 * hardware, but this might not be a wise choice in the long term.
 	 */
-	ret = vgic_v5_vmt_allocate(kvm_vgic_global_state.max_gic_vcpus);
+	ret = vgic_v5_vmt_allocate(kvm_vgic_global_state.max_gicv5_vcpus);
 	if (ret) {
 		kvm_err("Failed to allocate the GICv5 VM tables; no GICv5 support\n");
 		return -ENODEV;
@@ -150,6 +151,8 @@ int vgic_v5_probe(const struct gic_kvm_info *info)
 	}
 
 	v5_registered = true;
+	kvm_vgic_global_state.max_gic_vcpus =
+		kvm_vgic_global_state.max_gicv5_vcpus;
 	kvm_info("GCIE system register CPU interface\n");
 
 skip_v5:
@@ -175,9 +178,8 @@ skip_v5:
 		return v5_registered ? 0 : ret;
 	}
 
-	/* We potentially limit the max VCPUs further than we need to here */
-	kvm_vgic_global_state.max_gic_vcpus = min(VGIC_V3_MAX_CPUS,
-						  kvm_vgic_global_state.max_gic_vcpus);
+	kvm_vgic_global_state.max_gic_vcpus = max(kvm_vgic_global_state.max_gic_vcpus,
+						  VGIC_V3_MAX_CPUS);
 
 	static_branch_enable(&kvm_vgic_global_state.gicv3_cpuif);
 	kvm_info("GCIE legacy system register CPU interface\n");

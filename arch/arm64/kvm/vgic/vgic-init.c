@@ -129,13 +129,30 @@ int kvm_vgic_create(struct kvm *kvm, u32 type)
 	}
 	ret = 0;
 
-	if (type == KVM_DEV_TYPE_ARM_VGIC_V2)
+	switch (type) {
+	case KVM_DEV_TYPE_ARM_VGIC_V2:
 		kvm->max_vcpus = VGIC_V2_MAX_CPUS;
-	else if (type == KVM_DEV_TYPE_ARM_VGIC_V3)
+		break;
+	case KVM_DEV_TYPE_ARM_VGIC_V3:
 		kvm->max_vcpus = VGIC_V3_MAX_CPUS;
-	else if (type == KVM_DEV_TYPE_ARM_VGIC_V5)
-		kvm->max_vcpus = min(VGIC_V5_MAX_CPUS,
-				     kvm_vgic_global_state.max_gic_vcpus);
+		break;
+	case KVM_DEV_TYPE_ARM_VGIC_V5:
+		kvm->max_vcpus = kvm_vgic_global_state.max_gicv5_vcpus;
+		break;
+	}
+
+	/*
+	 * KVM_CREATE_VCPU enforces the model-specific limit if the VGIC has
+	 * already been created. Apply the same limit to any existing vCPUs so
+	 * that the result does not depend on the order in which userspace
+	 * creates them.
+	 */
+	kvm_for_each_vcpu(i, vcpu, kvm) {
+		if (vcpu->vcpu_id >= kvm->max_vcpus) {
+			ret = -E2BIG;
+			goto out_unlock;
+		}
+	}
 
 	if (atomic_read(&kvm->online_vcpus) > kvm->max_vcpus) {
 		ret = -E2BIG;
@@ -399,15 +416,27 @@ int kvm_vgic_vcpu_init(struct kvm_vcpu *vcpu)
 	if (ret)
 		return ret;
 
-	/*
-	 * If we are creating a VCPU with a GICv3 we must also register the
-	 * KVM io device for the redistributor that belongs to this VCPU.
-	 */
-	if (dist->vgic_model == KVM_DEV_TYPE_ARM_VGIC_V3) {
+	switch (dist->vgic_model) {
+	case KVM_DEV_TYPE_ARM_VGIC_V3:
+		/*
+		 * If we are creating a VCPU with a GICv3 we must also register
+		 * the KVM io device for the redistributor that belongs to this
+		 * VCPU.
+		 */
 		mutex_lock(&vcpu->kvm->slots_lock);
 		ret = vgic_register_redist_iodev(vcpu);
 		mutex_unlock(&vcpu->kvm->slots_lock);
+		break;
+	case KVM_DEV_TYPE_ARM_VGIC_V5:
+		/*
+		 * Ensure that it is possible to represent the
+		 * userspace-allocated vcpu_id in the hardware-limited (or
+		 * KVM-capped) VPE table used by GICv5.
+		 */
+		if (vcpu->vcpu_id >= kvm_vgic_global_state.max_gicv5_vcpus)
+			return -EINVAL;
 	}
+
 	return ret;
 }
 
