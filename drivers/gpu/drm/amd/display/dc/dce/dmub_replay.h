@@ -13,6 +13,7 @@ struct dmub_replay_funcs;
 struct dmub_replay {
 	struct dc_context *ctx;
 	const struct dmub_replay_funcs *funcs;
+	uint32_t inst;
 };
 
 struct dmub_replay_funcs {
