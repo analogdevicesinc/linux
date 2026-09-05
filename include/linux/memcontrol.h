@@ -228,10 +228,36 @@ struct mem_cgroup {
 
 	__cacheline_group_end_aligned(memcg_write_hot);
 
+	/*
+	 * Off the charge and fault paths.  Not write free: cgwb_domain is
+	 * written on every writeout completion and mm_list on fork, exit and
+	 * MGLRU aging.  They are grouped here so those writes cannot land on
+	 * a line that the fast paths read.
+	 */
+	__cacheline_group_begin_aligned(memcg_cold);
 	/* registered local peak watchers */
 	struct list_head memory_peaks;
 	struct list_head swap_peaks;
 	spinlock_t	 peaks_lock;
+
+	/* memory.events and memory.events.local */
+	struct cgroup_file events_file;
+	struct cgroup_file events_local_file;
+
+	/* handle for "memory.swap.events" */
+	struct cgroup_file swap_events_file;
+
+#ifdef CONFIG_CGROUP_WRITEBACK
+	struct list_head cgwb_list;
+	struct wb_domain cgwb_domain;
+	struct memcg_cgwb_frn cgwb_frn[MEMCG_CGWB_FRN_CNT];
+#endif
+
+#ifdef CONFIG_LRU_GEN_WALKS_MMU
+	/* per-memcg mm_struct list */
+	struct lru_gen_mm_list mm_list;
+#endif
+	__cacheline_group_end_aligned(memcg_cold);
 
 #ifdef CONFIG_ZSWAP
 	unsigned long zswap_max;
@@ -248,37 +274,18 @@ struct mem_cgroup {
 	 */
 	bool oom_group;
 
-	/* memory.events and memory.events.local */
-	struct cgroup_file events_file;
-	struct cgroup_file events_local_file;
-
-	/* handle for "memory.swap.events" */
-	struct cgroup_file swap_events_file;
-
 	/* memory.stat */
 	struct memcg_vmstats	*vmstats;
 
 	int kmemcg_id;
 
-#ifdef CONFIG_CGROUP_WRITEBACK
-	struct list_head cgwb_list;
-#endif
-
 	/* Keep the hot per-CPU stats pointer away from memory event counters. */
 	struct memcg_vmstats_percpu __percpu *vmstats_percpu
 		____cacheline_aligned_in_smp;
 
-#ifdef CONFIG_CGROUP_WRITEBACK
-	struct wb_domain cgwb_domain;
-	struct memcg_cgwb_frn cgwb_frn[MEMCG_CGWB_FRN_CNT];
-#endif
-
-#ifdef CONFIG_LRU_GEN_WALKS_MMU
-	/* per-memcg mm_struct list */
-	struct lru_gen_mm_list mm_list;
-#endif
-
 #ifdef CONFIG_MEMCG_V1
+	/* v1 only. Not grouped: v1 is legacy, sorting it is not worth it. */
+
 	/* Legacy consumer-oriented counters */
 	struct page_counter kmem;		/* v1 only */
 	struct page_counter tcpmem;		/* v1 only */
