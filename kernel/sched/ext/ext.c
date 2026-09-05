@@ -2919,7 +2919,7 @@ static inline void maybe_queue_balance_callback(struct rq *rq)
 
 static enum scx_dsp_verdict dispatch_one(struct rq *rq, struct task_struct *prev)
 {
-	struct scx_sched *sch = scx_root_protected_live();
+	struct scx_sched *root_sch = scx_root_protected_live();
 	enum scx_dsp_verdict verdict;
 	s32 cpu = cpu_of(rq);
 
@@ -2928,7 +2928,7 @@ static enum scx_dsp_verdict dispatch_one(struct rq *rq, struct task_struct *prev
 
 	scx_process_sync_ecaps(rq, prev);
 
-	if ((sch->ops.flags & SCX_OPS_HAS_CPU_PREEMPT) &&
+	if ((root_sch->ops.flags & SCX_OPS_HAS_CPU_PREEMPT) &&
 	    unlikely(rq->scx.cpu_released)) {
 		/*
 		 * If the previous sched_class for the current CPU was not SCX,
@@ -2936,8 +2936,8 @@ static enum scx_dsp_verdict dispatch_one(struct rq *rq, struct task_struct *prev
 		 * core. This callback complements ->cpu_release(), which is
 		 * emitted in switch_class().
 		 */
-		if (sch->ops.cpu_acquire)
-			SCX_CALL_OP(sch, cpu_acquire, rq, cpu, NULL);
+		if (root_sch->ops.cpu_acquire)
+			SCX_CALL_OP(root_sch, cpu_acquire, rq, cpu, NULL);
 		rq->scx.cpu_released = false;
 	}
 
@@ -2955,7 +2955,7 @@ static enum scx_dsp_verdict dispatch_one(struct rq *rq, struct task_struct *prev
 		 * test.
 		 */
 		if ((prev->scx.flags & SCX_TASK_QUEUED) && prev->scx.slice &&
-		    !scx_bypassing(sch, cpu)) {
+		    !scx_bypassing(root_sch, cpu)) {
 			verdict = SCX_DSP_PREV;
 			goto has_tasks;
 		}
@@ -2967,7 +2967,7 @@ static enum scx_dsp_verdict dispatch_one(struct rq *rq, struct task_struct *prev
 		goto has_tasks;
 	}
 
-	verdict = scx_dispatch_sched(sch, rq, prev, false);
+	verdict = scx_dispatch_sched(root_sch, rq, prev, false);
 	if (verdict != SCX_DSP_NONE)
 		goto has_tasks;
 
@@ -2976,9 +2976,9 @@ static enum scx_dsp_verdict dispatch_one(struct rq *rq, struct task_struct *prev
 	 * %SCX_OPS_ENQ_LAST is in effect.
 	 */
 	if ((prev->scx.flags & SCX_TASK_QUEUED) &&
-	    (!(sch->ops.flags & SCX_OPS_ENQ_LAST) || scx_bypassing(sch, cpu)) &&
+	    (!(root_sch->ops.flags & SCX_OPS_ENQ_LAST) || scx_bypassing(root_sch, cpu)) &&
 	    scx_task_can_stay_on_cpu(rq, prev)) {
-		__scx_add_event(sch, SCX_EV_DISPATCH_KEEP_LAST, 1);
+		__scx_add_event(root_sch, SCX_EV_DISPATCH_KEEP_LAST, 1);
 		verdict = SCX_DSP_PREV;
 		goto has_tasks;
 	}
