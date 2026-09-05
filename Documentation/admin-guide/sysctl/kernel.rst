@@ -1334,19 +1334,6 @@ seccomp
 See Documentation/userspace-api/seccomp_filter.rst.
 
 
-sg-big-buff
-===========
-
-This file shows the size of the generic SCSI (sg) buffer.
-You can't tune it just yet, but you could change it on
-compile time by editing ``include/scsi/sg.h`` and changing
-the value of ``SG_BIG_BUFF``.
-
-There shouldn't be any reason to change this value. If
-you can come up with one, you probably know what you
-are doing anyway :)
-
-
 shmall
 ======
 
