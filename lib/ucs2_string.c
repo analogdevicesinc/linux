@@ -57,7 +57,7 @@ ssize_t ucs2_strscpy(ucs2_char_t *dst, const ucs2_char_t *src, size_t count)
 	 * Ensure that we have a valid amount of space. We need to store at
 	 * least one NUL-character.
 	 */
-	if (count == 0 || WARN_ON_ONCE(count > INT_MAX / sizeof(*dst)))
+	if (count == 0)
 		return -E2BIG;
 
 	/*
