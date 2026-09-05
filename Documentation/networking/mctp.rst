@@ -19,7 +19,7 @@ networks.
 
 An interface (or "link") is an instance of an MCTP physical transport binding
 (as defined by DSP0236, section 3.2.47), likely connected to a specific hardware
-device. This is represented as a ``struct netdevice``.
+device. This is represented as a ``struct net_device``.
 
 A network defines a unique address space for MCTP endpoints by endpoint-ID
 (described by DSP0236, section 3.2.31). A network has a user-visible identifier
