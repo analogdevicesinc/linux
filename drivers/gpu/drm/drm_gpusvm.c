@@ -1242,7 +1242,7 @@ static void __drm_gpusvm_unmap_pages(struct drm_gpusvm *gpusvm,
 			.__flags = svm_pages->flags.__flags,
 		};
 		const struct drm_pagemap_addr *addrs =
-			drm_gpusvm_pages_first_dma(svm_pages);
+			drm_gpusvm_pages_first_dma(svm_pages, NULL);
 		bool use_iova = dma_use_iova(&svm_pages->state);
 
 		/*
@@ -1259,7 +1259,15 @@ static void __drm_gpusvm_unmap_pages(struct drm_gpusvm *gpusvm,
 			dma_iova_free(dev, &svm_pages->state);
 		}
 
-		for (i = 0, j = 0; i < npages; j++) {
+		/*
+		 * With IOVA and no device page the unlink above tore every
+		 * entry down, and that is also when the range may be folded
+		 * to one entry, which must not be walked per entry. dpagemap
+		 * is set before the first device_map(), so it is also right
+		 * on the error path, where the flags are not published yet.
+		 */
+		for (i = 0, j = 0;
+		     (!use_iova || dpagemap) && i < npages; j++) {
 			const struct drm_pagemap_addr *addr = &addrs[j];
 
 			if (addr->proto == DRM_INTERCONNECT_SYSTEM) {
@@ -1491,17 +1499,32 @@ static bool drm_gpusvm_pages_valid_unlocked(struct drm_gpusvm *gpusvm,
 
 /**
  * drm_gpusvm_pages_inlinable() - Whether the dma address can be inlined
+ * @svm_pages: The SVM pages instance that was just mapped
  * @nentries: Number of entries the mapping loop produced
+ * @npages: Number of pages in the CPU range
  *
- * A THP maps as one huge page, so the whole range needs a single device
- * address: the dma_addr array can be freed and the address kept inline,
- * which is where the memory saving comes from.
+ * A THP maps as one huge page, and an IOVA reservation links every page of
+ * the range at the next offset, so the device addresses run contiguously from
+ * entry 0. Either way one entry describes the whole range, so the dma_addr
+ * array can be freed and the address kept inline.
+ *
+ * state_offset advances only on the IOVA branch, so reaching the full range
+ * length proves no device page was mapped in between. Only single page
+ * entries fold, so the order kept is 0 and describes the range truthfully.
+ * Larger chunks, several huge pages among them, stay an array that is
+ * already short and that a consumer places with one PTE each.
  *
  * Return: True if the mapping fits in a single drm_pagemap_addr.
  */
-static bool drm_gpusvm_pages_inlinable(unsigned long nentries)
+static bool drm_gpusvm_pages_inlinable(struct drm_gpusvm_pages *svm_pages,
+				       unsigned long nentries,
+				       unsigned long npages)
 {
-	return nentries == 1;
+	if (nentries == 1)
+		return true;
+
+	return nentries == npages && dma_use_iova(&svm_pages->state) &&
+	       svm_pages->state_offset == npages * PAGE_SIZE;
 }
 
 /**
@@ -1656,7 +1679,7 @@ static int drm_gpusvm_dma_map_pages(struct drm_gpusvm *gpusvm,
 	if (pagemap)
 		flags.has_devmem_pages = true;
 
-	if (drm_gpusvm_pages_inlinable(j)) {
+	if (drm_gpusvm_pages_inlinable(svm_pages, j, npages)) {
 		struct drm_pagemap_addr addr = svm_pages->dma_addr[0];
 
 		kvfree(svm_pages->dma_addr);
@@ -1772,7 +1795,7 @@ retry:
 
 	if (map_dma) {
 		for (p = 0; p < num_pages; ++p) {
-			if (drm_gpusvm_pages_first_dma(&svm_pages[p]))
+			if (drm_gpusvm_pages_first_dma(&svm_pages[p], NULL))
 				continue;
 			svm_pages[p].dma_addr =
 				kvzalloc_objs(*svm_pages[p].dma_addr, npages);

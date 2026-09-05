@@ -380,11 +380,18 @@ static inline void drm_gpusvm_init_pages(struct drm_gpusvm_pages *svm_pages,
 /**
  * drm_gpusvm_pages_first_dma() - Resolve the device address array
  * @svm_pages: Pointer to the drm_gpusvm_pages.
+ * @contiguous: Where to store whether one entry spans the whole range, or NULL
  *
  * drm_gpusvm_pages use unions to optimize the storage of DMA addresses,
  * this function abstracts the access to the first device address. The driver
  * should use this helper instead of reading dma_addr directly to prevent
  * array out of bounds access.
+ *
+ * @contiguous comes from the same read of the flags as the array itself, so a
+ * caller cannot see the two disagree and walk past that single entry into the
+ * fields behind it. When it is set the length comes from the range rather than
+ * from the order. The order still states what one PTE may cover: the range
+ * length for a huge page, PAGE_SIZE for an IOVA mapped range of single pages.
  *
  * Only get_pages() and the free path switch between the two union members.
  * Both hold the notifier lock for read, so taking that lock does not stop
@@ -396,12 +403,16 @@ static inline void drm_gpusvm_init_pages(struct drm_gpusvm_pages *svm_pages,
  * Return: Pointer to the first device address, NULL if none is populated.
  */
 static inline const struct drm_pagemap_addr *
-drm_gpusvm_pages_first_dma(const struct drm_gpusvm_pages *svm_pages)
+drm_gpusvm_pages_first_dma(const struct drm_gpusvm_pages *svm_pages,
+			   bool *contiguous)
 {
 	struct drm_gpusvm_pages_flags flags = {
 		/* READ_ONCE pairs with the WRITE_ONCE of the flag writers */
 		.__flags = READ_ONCE(svm_pages->flags.__flags),
 	};
+
+	if (contiguous)
+		*contiguous = flags.inline_dma_mapping;
 
 	if (flags.inline_dma_mapping)
 		return &svm_pages->inline_addr;
