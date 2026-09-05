@@ -1516,10 +1516,18 @@ retry:
 	if (err)
 		goto err_free;
 
+	if (!svm_pages->dma_addr) {
+		svm_pages->dma_addr =
+			kvzalloc_objs(*svm_pages->dma_addr, npages);
+		if (!svm_pages->dma_addr) {
+			err = -ENOMEM;
+			goto err_free;
+		}
+	}
+
 	*state = (struct dma_iova_state){};
 	svm_pages->state_offset = 0;
 
-map_pages:
 	/*
 	 * Perform all dma mappings under the notifier lock to not
 	 * access freed pages. A notifier will either block on
@@ -1538,18 +1546,6 @@ map_pages:
 		drm_gpusvm_notifier_unlock(gpusvm);
 		kvfree(pfns);
 		goto retry;
-	}
-
-	if (!svm_pages->dma_addr) {
-		/* Unlock and restart mapping to allocate memory. */
-		drm_gpusvm_notifier_unlock(gpusvm);
-		svm_pages->dma_addr =
-			kvzalloc_objs(*svm_pages->dma_addr, npages);
-		if (!svm_pages->dma_addr) {
-			err = -ENOMEM;
-			goto err_free;
-		}
-		goto map_pages;
 	}
 
 	zdd = NULL;
