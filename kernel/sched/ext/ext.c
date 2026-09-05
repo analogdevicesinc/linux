@@ -2955,7 +2955,7 @@ static enum scx_dsp_verdict dispatch_one(struct rq *rq, struct task_struct *prev
 		 * test.
 		 */
 		if ((prev->scx.flags & SCX_TASK_QUEUED) && prev->scx.slice &&
-		    !scx_bypassing(root_sch, cpu)) {
+		    !scx_bypassing(scx_task_sched(prev), cpu)) {
 			verdict = SCX_DSP_PREV;
 			goto has_tasks;
 		}
@@ -2972,15 +2972,20 @@ static enum scx_dsp_verdict dispatch_one(struct rq *rq, struct task_struct *prev
 		goto has_tasks;
 
 	/*
-	 * Didn't find another task to run. Keep running @prev unless
-	 * %SCX_OPS_ENQ_LAST is in effect.
+	 * Didn't find another task to run. Keep running @prev unless its own
+	 * scheduler set %SCX_OPS_ENQ_LAST and takes the enqueue instead, see
+	 * put_prev_task_scx(). Read the scheduler here as the dispatch above
+	 * may have dropped the rq lock while @prev changed class or scheduler.
 	 */
-	if ((prev->scx.flags & SCX_TASK_QUEUED) &&
-	    (!(root_sch->ops.flags & SCX_OPS_ENQ_LAST) || scx_bypassing(root_sch, cpu)) &&
-	    scx_task_can_stay_on_cpu(rq, prev)) {
-		__scx_add_event(root_sch, SCX_EV_DISPATCH_KEEP_LAST, 1);
-		verdict = SCX_DSP_PREV;
-		goto has_tasks;
+	if (prev->scx.flags & SCX_TASK_QUEUED) {
+		struct scx_sched *prev_sch = scx_task_sched(prev);
+
+		if ((!(prev_sch->ops.flags & SCX_OPS_ENQ_LAST) ||
+		     scx_bypassing(prev_sch, cpu)) && scx_task_can_stay_on_cpu(rq, prev)) {
+			__scx_add_event(prev_sch, SCX_EV_DISPATCH_KEEP_LAST, 1);
+			verdict = SCX_DSP_PREV;
+			goto has_tasks;
+		}
 	}
 	rq->scx.flags &= ~SCX_RQ_IN_DISPATCH;
 	return SCX_DSP_NONE;
