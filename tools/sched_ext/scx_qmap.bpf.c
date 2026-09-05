@@ -358,8 +358,8 @@ s32 BPF_STRUCT_OPS(qmap_select_cid, struct task_struct *p,
 }
 
 /*
- * A received time-shared cid is held ENQ_IMMED-only, so inserts must set
- * SCX_ENQ_IMMED.
+ * A received time-shared cid is held ENQ_IMMED-only, so inserts meant to run
+ * there must set SCX_ENQ_IMMED.
  */
 static u64 needs_immed(s32 cid)
 {
@@ -444,9 +444,11 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 	 * didn't grant them or we delegated them to children - would starve in
 	 * SHARED/FIFO since we only pull from those on self cids.
 	 *
-	 * Force it onto its first allowed cid's local DSQ. If we hold that cid
-	 * it runs. Otherwise the insert carries SCX_ENQ_RESCUE and the kernel
-	 * diverts the task to its rescue path.
+	 * Force it onto its first allowed cid's local DSQ with SCX_ENQ_RESCUE.
+	 * If we hold ENQ on that cid it runs. Otherwise the kernel diverts the
+	 * task to its rescue path. IMMED would turn the insert into a legal
+	 * placement on a time-shared cid and the kernel would bounce it back
+	 * here instead of rescuing it.
 	 */
 	if (!cmask_intersects(&taskc->cpus_allowed, &qa.self_cids.mask)) {
 		s32 c = cmask_next_set_wrap(&taskc->cpus_allowed, 0);
@@ -455,7 +457,7 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 			taskc->force_local = false;
 			__sync_fetch_and_add(&qa.nr_rescue_dsp, 1);
 			scx_bpf_dsq_insert(p, SCX_DSQ_LOCAL_ON | c, slice_ns,
-					   enq_flags | needs_immed(c) | SCX_ENQ_RESCUE);
+					   enq_flags | SCX_ENQ_RESCUE);
 			return;
 		}
 	}
@@ -618,7 +620,7 @@ static bool scan_shared_dsq(bool from_timer)
 			if (c >= 0 && c < scx_bpf_nr_cids()) {
 				__sync_fetch_and_add(&qa.nr_rescue_dsp, 1);
 				scx_bpf_dsq_move(BPF_FOR_EACH_ITER, p, SCX_DSQ_LOCAL_ON | c,
-						 needs_immed(c) | SCX_ENQ_RESCUE);
+						 SCX_ENQ_RESCUE);
 			}
 			continue;
 		}
@@ -659,7 +661,7 @@ static bool scan_shared_dsq(bool from_timer)
 			if (c >= 0 && c < nr_cids) {
 				__sync_fetch_and_add(&qa.nr_rescue_dsp, 1);
 				scx_bpf_dsq_move(BPF_FOR_EACH_ITER, p, SCX_DSQ_LOCAL_ON | c,
-						 needs_immed(c) | SCX_ENQ_RESCUE);
+						 SCX_ENQ_RESCUE);
 			}
 			continue;
 		}
