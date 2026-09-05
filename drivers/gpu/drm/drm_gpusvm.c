@@ -1663,6 +1663,12 @@ err_unmap:
  * On error the instances mapped before the failing one stay mapped, so the
  * caller must unmap and free every instance regardless of the return value.
  *
+ * With &drm_gpusvm_ctx.no_dma_map no mapping state is recorded, so
+ * drm_gpusvm_pages_valid() never returns true and success is only a snapshot:
+ * the caller must recheck mmu_interval_read_retry() against the recorded
+ * &drm_gpusvm_pages.notifier_seq under the notifier lock, and hold it until
+ * its work is visible to invalidation.
+ *
  * Return: 0 on success, negative error code on failure.
  */
 int drm_gpusvm_get_pages(struct drm_gpusvm *gpusvm,
@@ -1689,14 +1695,21 @@ int drm_gpusvm_get_pages(struct drm_gpusvm *gpusvm,
 	int err = 0;
 	enum dma_data_direction dma_dir = ctx->read_only ? DMA_TO_DEVICE :
 							   DMA_BIDIRECTIONAL;
+	const bool map_dma = !ctx->no_dma_map;
 	unsigned int p;
 
 	if (!num_pages)
 		return -EINVAL;
 
-	for (p = 0; p < num_pages; ++p)
-		if (!svm_pages[p].drm)
-			return -EINVAL;
+	if (ctx->no_dma_map && ctx->devmem_only)
+		return -EINVAL;
+
+	if (map_dma) {
+		for (p = 0; p < num_pages; ++p) {
+			if (!svm_pages[p].drm)
+				return -EINVAL;
+		}
+	}
 
 retry:
 	remaining = timeout - jiffies;
@@ -1706,7 +1719,8 @@ retry:
 
 	hmm_range.notifier_seq = mmu_interval_read_begin(notifier);
 
-	if (drm_gpusvm_pages_valid_unlocked(gpusvm, svm_pages, num_pages))
+	if (map_dma &&
+	    drm_gpusvm_pages_valid_unlocked(gpusvm, svm_pages, num_pages))
 		goto set_seqno;
 
 	pfns = kvmalloc_array(npages, sizeof(*pfns), GFP_KERNEL);
@@ -1724,14 +1738,16 @@ retry:
 	if (err)
 		goto err_free;
 
-	for (p = 0; p < num_pages; ++p) {
-		if (svm_pages[p].dma_addr)
-			continue;
-		svm_pages[p].dma_addr =
-			kvzalloc_objs(*svm_pages[p].dma_addr, npages);
-		if (!svm_pages[p].dma_addr) {
-			err = -ENOMEM;
-			goto err_free;
+	if (map_dma) {
+		for (p = 0; p < num_pages; ++p) {
+			if (svm_pages[p].dma_addr)
+				continue;
+			svm_pages[p].dma_addr =
+				kvzalloc_objs(*svm_pages[p].dma_addr, npages);
+			if (!svm_pages[p].dma_addr) {
+				err = -ENOMEM;
+				goto err_free;
+			}
 		}
 	}
 
@@ -1758,6 +1774,9 @@ retry:
 		goto retry;
 	}
 
+	if (!map_dma)
+		goto done_mapping;
+
 	for (p = 0; p < num_pages; ++p) {
 		if (drm_gpusvm_pages_valid(gpusvm, &svm_pages[p]))
 			continue;
@@ -1776,6 +1795,7 @@ retry:
 		}
 	}
 
+done_mapping:
 	drm_gpusvm_notifier_unlock(gpusvm);
 	kvfree(pfns);
 set_seqno:
