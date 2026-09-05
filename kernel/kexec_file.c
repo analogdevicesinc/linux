@@ -802,7 +802,7 @@ int kexec_add_buffer(struct kexec_buf *kbuf)
 	kbuf->cma = NULL;
 
 	/* Walk the RAM ranges and allocate a suitable range for the buffer */
-	ret = arch_kexec_locate_mem_hole(kbuf);
+	ret = kexec_locate_mem_hole(kbuf);
 	if (ret)
 		return ret;
 
