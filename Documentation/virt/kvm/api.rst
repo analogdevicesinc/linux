@@ -3676,7 +3676,7 @@ type KVM_X86_REG_TYPE_MSR, but are NOT enumerated via KVM_GET_REG_LIST.
 :Capability: KVM_CAP_ARM_SET_DEVICE_ADDR
 :Architectures: arm64
 :Type: vm ioctl
-:Parameters: struct kvm_arm_device_address (in)
+:Parameters: struct kvm_arm_device_addr (in)
 :Returns: 0 on success, -1 on error
 
 Errors:
