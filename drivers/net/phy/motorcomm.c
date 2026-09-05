@@ -144,6 +144,11 @@
 #define YT8521_CLOCK_GATING_REG			0xC
 #define YT8521_CGR_RX_CLK_EN			BIT(12)
 
+/* Analog front-end control register 3 */
+#define YT8531S_EXT_AFE_CTRL3			0x12
+/* Analog front-end DAC clock enable */
+#define YT8531S_AFE_CTRL3_CLKDAC_AON		BIT(13)
+
 #define YT8521_EXTREG_SLEEP_CONTROL1_REG	0x27
 #define YT8521_ESC1R_SLEEP_SW			BIT(15)
 #define YT8521_ESC1R_PLLON_SLP			BIT(14)
@@ -1740,8 +1745,15 @@ static int yt8531s_config_init(struct phy_device *phydev)
 	if (ret)
 		goto err_restore_page;
 
-	if (phy_interface_is_rgmii(phydev))
+	if (phy_interface_is_rgmii(phydev)) {
 		ret = yt8531_set_ds(phydev);
+		if (ret)
+			goto err_restore_page;
+	}
+
+	if (phydev->interface == PHY_INTERFACE_MODE_GMII)
+		ret = ytphy_modify_ext(phydev, YT8531S_EXT_AFE_CTRL3,
+				       0, YT8531S_AFE_CTRL3_CLKDAC_AON);
 
 err_restore_page:
 	return phy_restore_page(phydev, old_page, ret);
