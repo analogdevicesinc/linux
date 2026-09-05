@@ -1241,6 +1241,8 @@ static void __drm_gpusvm_unmap_pages(struct drm_gpusvm *gpusvm,
 		struct drm_gpusvm_pages_flags flags = {
 			.__flags = svm_pages->flags.__flags,
 		};
+		const struct drm_pagemap_addr *addrs =
+			drm_gpusvm_pages_first_dma(svm_pages);
 		bool use_iova = dma_use_iova(&svm_pages->state);
 
 		/*
@@ -1253,12 +1255,12 @@ static void __drm_gpusvm_unmap_pages(struct drm_gpusvm *gpusvm,
 			if (svm_pages->state_offset)
 				dma_iova_unlink(dev, &svm_pages->state, 0,
 						svm_pages->state_offset,
-						svm_pages->dma_addr[0].dir, 0);
+						addrs[0].dir, 0);
 			dma_iova_free(dev, &svm_pages->state);
 		}
 
 		for (i = 0, j = 0; i < npages; j++) {
-			struct drm_pagemap_addr *addr = &svm_pages->dma_addr[j];
+			const struct drm_pagemap_addr *addr = &addrs[j];
 
 			if (addr->proto == DRM_INTERCONNECT_SYSTEM) {
 				/*
@@ -1298,6 +1300,18 @@ static void __drm_gpusvm_free_pages(struct drm_gpusvm *gpusvm,
 				    struct drm_gpusvm_pages *svm_pages)
 {
 	lockdep_assert_held(&gpusvm->notifier_lock);
+
+	if (svm_pages->flags.inline_dma_mapping) {
+		struct drm_gpusvm_pages_flags flags = {
+			.__flags = svm_pages->flags.__flags,
+		};
+
+		svm_pages->inline_addr = (struct drm_pagemap_addr){};
+		flags.inline_dma_mapping = false;
+		/* WRITE_ONCE pairs with READ_ONCE for opportunistic checks */
+		WRITE_ONCE(svm_pages->flags.__flags, flags.__flags);
+		return;
+	}
 
 	if (svm_pages->dma_addr) {
 		kvfree(svm_pages->dma_addr);
@@ -1463,11 +1477,6 @@ static bool drm_gpusvm_pages_valid_unlocked(struct drm_gpusvm *gpusvm,
 	bool pages_valid = true;
 	unsigned int p;
 
-	for (p = 0; p < num_pages; ++p) {
-		if (!svm_pages[p].dma_addr)
-			return false;
-	}
-
 	drm_gpusvm_notifier_lock(gpusvm);
 	for (p = 0; p < num_pages; ++p) {
 		if (drm_gpusvm_pages_valid(gpusvm, &svm_pages[p]))
@@ -1478,6 +1487,21 @@ static bool drm_gpusvm_pages_valid_unlocked(struct drm_gpusvm *gpusvm,
 	drm_gpusvm_notifier_unlock(gpusvm);
 
 	return pages_valid;
+}
+
+/**
+ * drm_gpusvm_pages_inlinable() - Whether the dma address can be inlined
+ * @nentries: Number of entries the mapping loop produced
+ *
+ * A THP maps as one huge page, so the whole range needs a single device
+ * address: the dma_addr array can be freed and the address kept inline,
+ * which is where the memory saving comes from.
+ *
+ * Return: True if the mapping fits in a single drm_pagemap_addr.
+ */
+static bool drm_gpusvm_pages_inlinable(unsigned long nentries)
+{
+	return nentries == 1;
 }
 
 /**
@@ -1632,6 +1656,14 @@ static int drm_gpusvm_dma_map_pages(struct drm_gpusvm *gpusvm,
 	if (pagemap)
 		flags.has_devmem_pages = true;
 
+	if (drm_gpusvm_pages_inlinable(j)) {
+		struct drm_pagemap_addr addr = svm_pages->dma_addr[0];
+
+		kvfree(svm_pages->dma_addr);
+		svm_pages->inline_addr = addr;
+		flags.inline_dma_mapping = true;
+	}
+
 	/* WRITE_ONCE pairs with READ_ONCE for opportunistic checks */
 	WRITE_ONCE(svm_pages->flags.__flags, flags.__flags);
 
@@ -1740,7 +1772,7 @@ retry:
 
 	if (map_dma) {
 		for (p = 0; p < num_pages; ++p) {
-			if (svm_pages[p].dma_addr)
+			if (drm_gpusvm_pages_first_dma(&svm_pages[p]))
 				continue;
 			svm_pages[p].dma_addr =
 				kvzalloc_objs(*svm_pages[p].dma_addr, npages);

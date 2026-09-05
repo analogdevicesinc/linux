@@ -10,6 +10,7 @@
 #include <linux/kref.h>
 #include <linux/interval_tree.h>
 #include <linux/mmu_notifier.h>
+#include <drm/drm_pagemap.h>
 
 struct dev_pagemap_ops;
 struct drm_device;
@@ -18,7 +19,6 @@ struct drm_gpusvm_notifier;
 struct drm_gpusvm_ops;
 struct drm_gpusvm_range;
 struct drm_pagemap;
-struct drm_pagemap_addr;
 
 /**
  * struct drm_gpusvm_ops - Operations structure for GPU SVM
@@ -112,6 +112,7 @@ struct drm_gpusvm_notifier {
  * @unmapped: Flag indicating if the pages has been unmapped
  * @has_devmem_pages: Flag indicating if the pages has devmem pages
  * @has_dma_mapping: Flag indicating if the pages has a DMA mapping
+ * @inline_dma_mapping: Flag indicating if the pages have an inline DMA mapping
  * @__flags: Flags for pages in u16 form (used for READ_ONCE)
  */
 struct drm_gpusvm_pages_flags {
@@ -121,6 +122,7 @@ struct drm_gpusvm_pages_flags {
 			u16 unmapped : 1;
 			u16 has_devmem_pages : 1;
 			u16 has_dma_mapping : 1;
+			u16 inline_dma_mapping : 1;
 		};
 		u16 __flags;
 	};
@@ -130,17 +132,27 @@ struct drm_gpusvm_pages_flags {
  * struct drm_gpusvm_pages - Structure representing a GPU SVM mapped pages
  *
  * @drm: The DRM device that owns the dma mappings
- * @dma_addr: Device address array
+ * @dma_addr: Device address array, valid while @flags.inline_dma_mapping is
+ *            not set
+ * @inline_addr: Device address inline address, valid while
+ *               @flags.inline_dma_mapping is set
  * @dpagemap: The struct drm_pagemap of the device pages we're dma-mapping.
  *            Note this is assuming only one drm_pagemap per range is allowed.
  * @state: DMA IOVA state for mapping.
  * @state_offset: DMA IOVA offset for mapping.
  * @notifier_seq: Notifier sequence number of the range's pages
  * @flags: Flags for the range; see &struct drm_gpusvm_pages_flags
+ *
+ * @dma_addr and @inline_addr share storage, discriminated by
+ * @flags.inline_dma_mapping. Driver should use drm_gpusvm_pages_first_dma()
+ * to access the correct DMA address.
  */
 struct drm_gpusvm_pages {
 	struct drm_device *drm;
-	struct drm_pagemap_addr *dma_addr;
+	union {
+		struct drm_pagemap_addr *dma_addr;
+		struct drm_pagemap_addr inline_addr;
+	};
 	struct drm_pagemap *dpagemap;
 	struct dma_iova_state state;
 	unsigned long state_offset;
@@ -363,6 +375,38 @@ static inline void drm_gpusvm_init_pages(struct drm_gpusvm_pages *svm_pages,
 	memset(svm_pages, 0, sizeof(*svm_pages));
 	svm_pages->drm = drm;
 	svm_pages->notifier_seq = LONG_MAX;
+}
+
+/**
+ * drm_gpusvm_pages_first_dma() - Resolve the device address array
+ * @svm_pages: Pointer to the drm_gpusvm_pages.
+ *
+ * drm_gpusvm_pages use unions to optimize the storage of DMA addresses,
+ * this function abstracts the access to the first device address. The driver
+ * should use this helper instead of reading dma_addr directly to prevent
+ * array out of bounds access.
+ *
+ * Only get_pages() and the free path switch between the two union members.
+ * Both hold the notifier lock for read, so taking that lock does not stop
+ * them; callers need the driver lock that does, which every reader of the
+ * addresses holds anyway. The notifier never touches the union, so the
+ * pointer returned here stays good and can then be used under the notifier
+ * lock.
+ *
+ * Return: Pointer to the first device address, NULL if none is populated.
+ */
+static inline const struct drm_pagemap_addr *
+drm_gpusvm_pages_first_dma(const struct drm_gpusvm_pages *svm_pages)
+{
+	struct drm_gpusvm_pages_flags flags = {
+		/* READ_ONCE pairs with the WRITE_ONCE of the flag writers */
+		.__flags = READ_ONCE(svm_pages->flags.__flags),
+	};
+
+	if (flags.inline_dma_mapping)
+		return &svm_pages->inline_addr;
+
+	return READ_ONCE(svm_pages->dma_addr);
 }
 
 /**
