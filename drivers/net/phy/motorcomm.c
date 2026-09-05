@@ -1700,19 +1700,12 @@ static int __yt8521_config_init(struct phy_device *phydev)
 			return ret;
 	}
 
-	if (device_property_read_bool(dev, "motorcomm,keep-pll-enabled")) {
+	if (device_property_read_bool(dev, "motorcomm,keep-pll-enabled"))
 		/* enable RXC clock when no wire plug */
-		ret = ytphy_modify_ext(phydev, YT8521_CLOCK_GATING_REG,
-				       YT8521_CGR_RX_CLK_EN, 0);
-		if (ret < 0)
-			return ret;
-	}
+		return ytphy_modify_ext(phydev, YT8521_CLOCK_GATING_REG,
+					YT8521_CGR_RX_CLK_EN, 0);
 
-	if (phy_interface_is_rgmii(phydev) &&
-	    phydev_id_compare(phydev, PHY_ID_YT8531S))
-		ret = yt8531_set_ds(phydev);
-
-	return ret;
+	return 0;
 }
 
 /**
@@ -1730,6 +1723,25 @@ static int yt8521_config_init(struct phy_device *phydev)
 		goto err_restore_page;
 
 	ret = __yt8521_config_init(phydev);
+
+err_restore_page:
+	return phy_restore_page(phydev, old_page, ret);
+}
+
+static int yt8531s_config_init(struct phy_device *phydev)
+{
+	int old_page, ret = 0;
+
+	old_page = phy_select_page(phydev, YT8521_RSSR_UTP_SPACE);
+	if (old_page < 0)
+		goto err_restore_page;
+
+	ret = __yt8521_config_init(phydev);
+	if (ret)
+		goto err_restore_page;
+
+	if (phy_interface_is_rgmii(phydev))
+		ret = yt8531_set_ds(phydev);
 
 err_restore_page:
 	return phy_restore_page(phydev, old_page, ret);
@@ -3143,7 +3155,7 @@ static struct phy_driver motorcomm_phy_drvs[] = {
 		.set_wol	= ytphy_set_wol,
 		.config_aneg	= yt8521_config_aneg,
 		.aneg_done	= yt8521_aneg_done,
-		.config_init	= yt8521_config_init,
+		.config_init	= yt8531s_config_init,
 		.read_status	= yt8521_read_status,
 		.soft_reset	= yt8521_soft_reset,
 		.suspend	= yt8521_suspend,
