@@ -161,6 +161,8 @@ const struct arch *arch__find(uint16_t e_machine, uint32_t e_flags, const char *
 		.e_flags = e_flags,
 	};
 	const struct arch *result = NULL, **tmp;
+	const struct arch *(*new_fn)(const struct e_machine_and_e_flags *id,
+				     const char *cpuid) = NULL;
 
 	if (num_archs > 0) {
 		tmp = bsearch(&key, archs, num_archs, sizeof(*archs), arch__key_cmp);
@@ -171,7 +173,16 @@ const struct arch *arch__find(uint16_t e_machine, uint32_t e_flags, const char *
 	if (result)
 		return result;
 
-	if (e_machine >= ARRAY_SIZE(arch_new_fn) || arch_new_fn[e_machine] == NULL) {
+	/*
+	 * EM_ALPHA (0x9026) is far too large to index arch_new_fn[], so it is
+	 * selected explicitly; everything else uses the e_machine-indexed table.
+	 */
+	if (e_machine == EM_ALPHA)
+		new_fn = arch__new_alpha;
+	else if (e_machine < ARRAY_SIZE(arch_new_fn))
+		new_fn = arch_new_fn[e_machine];
+
+	if (new_fn == NULL) {
 		errno = ENOTSUP;
 		return NULL;
 	}
@@ -182,7 +193,7 @@ const struct arch *arch__find(uint16_t e_machine, uint32_t e_flags, const char *
 
 	archs = tmp;
 
-	result = arch_new_fn[e_machine](&key, cpuid);
+	result = new_fn(&key, cpuid);
 	if (!result) {
 		pr_err("%s: failed to initialize %u arch priv area\n",
 			__func__, e_machine);
