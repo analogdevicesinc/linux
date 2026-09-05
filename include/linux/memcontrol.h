@@ -94,6 +94,7 @@ struct mem_cgroup_per_node {
 	struct lruvec_stats_percpu __percpu	*lruvec_stats_percpu;
 	struct lruvec_stats			*lruvec_stats;
 	struct shrinker_info __rcu	*shrinker_info;
+	struct obj_cgroup __rcu		*objcg;
 
 	CACHELINE_PADDING(_pad1_);
 
@@ -104,11 +105,9 @@ struct mem_cgroup_per_node {
 	struct mem_cgroup_reclaim_iter	iter;
 
 	/*
-	 * objcg is wiped out as a part of the objcg repaprenting process.
 	 * orig_objcg preserves a pointer (and a reference) to the original
-	 * objcg until the end of live of memcg.
+	 * objcg until the end of life of memcg.
 	 */
-	struct obj_cgroup __rcu	*objcg;
 	struct obj_cgroup	*orig_objcg;
 	/* list of inherited objcgs, protected by objcg_lock */
 	struct list_head objcg_list;
