@@ -185,7 +185,6 @@ struct mem_cgroup {
 
 	/* Private memcg ID. Used to ID objects that outlive the cgroup */
 	int private_id;
-	refcount_t private_id_ref;
 
 	/* Accounted resources */
 	struct page_counter memory;		/* Both v1 & v2 */
@@ -195,13 +194,44 @@ struct mem_cgroup {
 		struct page_counter memsw;	/* v1 only */
 	};
 
+	/* Written on the charge, reclaim and socket paths. */
+	__cacheline_group_begin_aligned(memcg_write_hot);
+	/*
+	 * Hint of reclaim pressure for socket memory management. Note
+	 * that this indicator should NOT be used in legacy cgroup mode
+	 * where socket memory is accounted/charged separately.
+	 */
+	u64			socket_pressure;
+#if BITS_PER_LONG < 64
+	seqlock_t		socket_pressure_seqlock;
+#endif
+	/*
+	 * memory.events is bumped for this memcg and all its ancestors, so a
+	 * busy child dirties every ancestor.
+	 */
+	atomic_long_t		memory_events[MEMCG_NR_MEMORY_EVENTS];
+	atomic_long_t		memory_events_local[MEMCG_NR_MEMORY_EVENTS];
+
+	/* vmpressure notifications. Written on every reclaim iteration. */
+	struct vmpressure vmpressure;
+
+	/* Written on every swap charge and uncharge. */
+	refcount_t private_id_ref;
+
+#ifdef CONFIG_MEMCG_NMI_SAFETY_REQUIRES_ATOMIC
+	/* MEMCG_KMEM for nmi context */
+	atomic_t		kmem_stat;
+#endif
+
+	/* Range enforcement for interrupt charges */
+	struct work_struct high_work;
+
+	__cacheline_group_end_aligned(memcg_write_hot);
+
 	/* registered local peak watchers */
 	struct list_head memory_peaks;
 	struct list_head swap_peaks;
 	spinlock_t	 peaks_lock;
-
-	/* Range enforcement for interrupt charges */
-	struct work_struct high_work;
 
 #ifdef CONFIG_ZSWAP
 	unsigned long zswap_max;
@@ -212,9 +242,6 @@ struct mem_cgroup {
 	 */
 	bool zswap_writeback;
 #endif
-
-	/* vmpressure notifications */
-	struct vmpressure vmpressure;
 
 	/*
 	 * Should the OOM killer kill all belonging tasks, had it kill one?
@@ -231,23 +258,6 @@ struct mem_cgroup {
 	/* memory.stat */
 	struct memcg_vmstats	*vmstats;
 
-	/* memory.events */
-	atomic_long_t		memory_events[MEMCG_NR_MEMORY_EVENTS];
-	atomic_long_t		memory_events_local[MEMCG_NR_MEMORY_EVENTS];
-
-#ifdef CONFIG_MEMCG_NMI_SAFETY_REQUIRES_ATOMIC
-	/* MEMCG_KMEM for nmi context */
-	atomic_t		kmem_stat;
-#endif
-	/*
-	 * Hint of reclaim pressure for socket memroy management. Note
-	 * that this indicator should NOT be used in legacy cgroup mode
-	 * where socket memory is accounted/charged separately.
-	 */
-	u64			socket_pressure;
-#if BITS_PER_LONG < 64
-	seqlock_t		socket_pressure_seqlock;
-#endif
 	int kmemcg_id;
 
 #ifdef CONFIG_CGROUP_WRITEBACK
