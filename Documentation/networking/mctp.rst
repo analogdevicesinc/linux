@@ -296,7 +296,7 @@ There are a few possible packet flows in the MCTP stack:
 	: route lookup
 	-> rt->output() (== mctp_route_input)
 	   : sk_key lookup
-	   : stores skb in struct sk_key->reasm_head
+	   : stores skb in struct mctp_sk_key->reasm_head
 
 	mctp_pkttype_receive()
 	: route lookup
