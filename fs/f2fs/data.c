@@ -3695,10 +3695,11 @@ static int prepare_write_begin(struct f2fs_sb_info *sbi,
 
 	/* f2fs_lock_op avoids race between write CP and convert_inline_page */
 	if (f2fs_has_inline_data(inode)) {
-		if (pos + len > MAX_INLINE_DATA(inode))
+		if (pos + len > MAX_INLINE_DATA(inode)) {
 			flag = F2FS_GET_BLOCK_DEFAULT;
-		f2fs_map_lock(sbi, &lc, flag);
-		locked = true;
+			f2fs_map_lock(sbi, &lc, flag);
+			locked = true;
+		}
 	} else if ((pos & PAGE_MASK) >= i_size_read(inode)) {
 		f2fs_map_lock(sbi, &lc, flag);
 		locked = true;
