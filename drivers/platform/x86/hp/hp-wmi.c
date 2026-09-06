@@ -209,7 +209,6 @@ static const char * const omen_thermal_profile_boards[] = {
 	"8900", "8901", "8902", "8912", "8917", "8918", "8949", "894A", "89EB",
 	"8A15", "8A18", "8A42", "8A43",
 	"8BAD",
-	"8C58",
 	"8E41",
 };
 
@@ -298,6 +297,10 @@ static const struct dmi_system_id hp_wmi_feature_boards[] __initconst = {
 	{
 		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8BD5") },
 		.driver_data = (void *)&victus_s_board_params,
+	},
+	{
+		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8C58") },
+		.driver_data = (void *)&omen_v1_legacy_board_params,
 	},
 	{
 		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8C76") },
