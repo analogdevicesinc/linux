@@ -10,9 +10,13 @@ use super::{
     Chipset, //
 };
 
+use crate::driver::NovaRegisters;
+
 // PMC
 
 register! {
+    base: NovaRegisters;
+
     /// Basic revision information about the GPU.
     pub(super) NV_PMC_BOOT_0(u32) @ 0x00000000 {
         /// Lower bits of the architecture.
