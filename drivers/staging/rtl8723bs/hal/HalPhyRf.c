@@ -225,8 +225,6 @@ void ODM_TXPowerTrackingCallback_ThermalMeter(struct adapter *Adapter)
 		}
 		if (pDM_Odm->RFCalibrateInfo.CCK_index > c.SwingTableSize_CCK - 1)
 			pDM_Odm->RFCalibrateInfo.CCK_index = c.SwingTableSize_CCK - 1;
-		/* else if (pDM_Odm->RFCalibrateInfo.CCK_index < 0) */
-			/* pDM_Odm->RFCalibrateInfo.CCK_index = 0; */
 	} else {
 			for (p = RF_PATH_A; p < c.RfPathCount; p++)
 				pDM_Odm->RFCalibrateInfo.PowerIndexOffset[p] = 0;
