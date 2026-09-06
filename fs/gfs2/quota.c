@@ -1101,6 +1101,9 @@ int gfs2_quota_lock(struct gfs2_inode *ip, kuid_t uid, kgid_t gid)
 	error = gfs2_quota_hold(ip, uid, gid);
 	if (error)
 		return error;
+	/* Meta inodes never get quota data (see gfs2_qa_get()); nothing to lock. */
+	if (!ip->i_qadata)
+		return 0;
 
 	sort(ip->i_qadata->qa_qd, ip->i_qadata->qa_qd_num,
 	     sizeof(struct gfs2_quota_data *), sort_qd, NULL);
