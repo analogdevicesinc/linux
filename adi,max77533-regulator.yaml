@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright (c) 2025 Analog Devices, Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/regulator/adi,max77533-regulator.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX77533 Buck Converter
+
+maintainers:
+  - Joan Na <joan.na@analog.com>
+
+description: |
+  The Analog Devices MAX77533 is a single channel 14V input, 1.5A
+  high-efficiency buck converter with 9µA quiescent current.
+  This converter has 94% efficiency for 2-Cell/3-Cell battery applications.
+  It supports both SKIP mode for high efficiency at light loads and
+  forced-PWM mode for better load transient response.
+
+allOf:
+  - $ref: regulator.yaml#
+
+properties:
+  compatible:
+    enum:
+      - adi,max77533
+      - maxim,max77533
+      - maxim,max77533a
+      - maxim,max77533b-12
+      - maxim,max77533b-18
+      - maxim,max77533b-33
+      - maxim,max77533q
+
+  reg:
+    description: I2C address of the device
+    items:
+      - enum: [0x1e, 0x24, 0x37, 0x77]
+
+  pok-gpios:
+    maxItems: 1
+    description:
+      GPIO connected to the POK (Power-OK) output pin.
+      This open-drain output indicates when the output voltage
+      is above 92% of the target regulation voltage.
+
+  adi,peak-current-limit-microamp:
+    enum: [500000, 2000000]
+    default: 2000000
+    description:
+      Peak inductor current limit in microamps.
+      500000 for 500mA, 2000000 for 2000mA (default).
+
+  adi,soft-start-us:
+    enum: [1000, 2000, 4000, 8000]
+    default: 1000
+    description:
+      Soft-start ramp time in microseconds.
+
+  adi,fpwm-mode:
+    type: boolean
+    description:
+      Enable forced PWM mode for better load transient response.
+      If not set, SKIP mode is used (default) for lower quiescent current.
+
+  adi,en-logic-and:
+    type: boolean
+    description:
+      Use AND logic between EN pin and EN_BIT register bit.
+      If not set, OR logic is used (default).
+
+required:
+  - compatible
+  - reg
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        regulator@1e {
+            compatible = "adi,max77533";
+            reg = <0x1e>;
+
+            pok-gpios = <&gpio 27 GPIO_ACTIVE_HIGH>;
+
+            regulator-name = "vdd_buck";
+            regulator-min-microvolt = <800000>;
+            regulator-max-microvolt = <5000000>;
+            regulator-boot-on;
+
+            adi,peak-current-limit-microamp = <2000000>;
+            adi,soft-start-us = <1000>;
+        };
+    };
