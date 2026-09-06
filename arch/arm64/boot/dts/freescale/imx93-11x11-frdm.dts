@@ -45,6 +45,7 @@
 		#gpio-cells = <2>;
 		gpio-controller;
 		reset-gpios = <&pcal6524 20 GPIO_ACTIVE_LOW>;
+		vcc-supply = <&buck5>;
 	};
 };
 
