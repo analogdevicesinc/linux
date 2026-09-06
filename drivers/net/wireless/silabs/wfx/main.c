@@ -411,6 +411,7 @@ int wfx_probe(struct wfx_dev *wdev)
 
 	if (wdev->hw_caps.link_mode == SEC_LINK_ENFORCED) {
 		dev_err(wdev->dev, "chip require secure_link, but can't negotiate it\n");
+		err = -EOPNOTSUPP;
 		goto irq_unsubscribe;
 	}
 
