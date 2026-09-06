@@ -14,7 +14,6 @@
 #include <linux/stddef.h>
 
 #define SIZE_PTR __kernel_size_t
-#define SSIZE_PTR __kernel_ssize_t
 
 /* port from fw by thomas */
 /*  TODO: Belows are Sync from SD7-Driver. It is necessary to check correctness */
