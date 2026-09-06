@@ -62,12 +62,11 @@ impl FwsecUnloadFirmware {
     fn run(
         &self,
         dev: &device::Device<device::Bound>,
-        bar: Bar0<'_>,
         gsp_falcon: &Falcon<'_, GspEngine>,
     ) -> Result {
         match self {
             Self::WithoutBl(fw) => fw.run(dev, gsp_falcon),
-            Self::WithBl(fw) => fw.run(dev, gsp_falcon, bar),
+            Self::WithBl(fw) => fw.run(dev, gsp_falcon),
         }
     }
 }
@@ -88,7 +87,7 @@ impl UnloadBundle for Sec2UnloadBundle {
         // Log errors but keep going if it fails.
         let fwsec_sb_res = self
             .fwsec_sb
-            .run(dev, bar, ctx.gsp_falcon)
+            .run(dev, ctx.gsp_falcon)
             .inspect_err(|e| dev_err!(dev, "FWSEC-SB failed to run: {:?}\n", e));
 
         // Remove WPR2 region if set.
@@ -168,7 +167,7 @@ impl Tu102 {
         if self.needs_fwsec_bootloader {
             let fwsec_frts_bl = FwsecFirmwareWithBl::new(fwsec_frts, dev, chipset)?;
             // Load and run the bootloader, which will load FWSEC-FRTS and run it.
-            fwsec_frts_bl.run(dev, falcon, bar)?;
+            fwsec_frts_bl.run(dev, falcon)?;
         } else {
             // Load and run FWSEC-FRTS directly.
             fwsec_frts.run(dev, falcon)?;
