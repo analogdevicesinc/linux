@@ -1295,11 +1295,16 @@ struct {
 	__type(value, struct round_robin_timer);
 } round_robin_timer SEC(".maps");
 
+enum part_pending_flags {
+	PART_REFRESH = BIT_U64(0),
+	PART_REDISTRIBUTE = BIT_U64(1),
+};
+
 /*
  * Partition update synchronization. qa.part can be written from concurrent
  * contexts. This single-runner guard admits one writer at a time without
  * holding a lock across the grant/revoke kfuncs. part_pending coalesces
- * repartition requests that arrive while it is held.
+ * refresh and repartition requests that arrive while it is held.
  *
  * They live in .bss, not the arena: rr_advance() runs from a bpf_timer
  * callback, where the verifier rejects atomic ops on arena memory.
@@ -1668,33 +1673,46 @@ __noinline void apply_partition(void)
 	}
 }
 
-/*
- * Recompute the split off the node's held caps and apply it. The contexts this
- * runs from (the sub-sched and cgroup callbacks, the rr timer) are not
- * serialized by the kernel, so a single runner does the work. A caller that
- * finds the guard held leaves part_pending set; the holder drains it before
- * releasing, with the rr timer as a backstop.
+/**
+ * execute_partition - Run pending partition updates
+ *
+ * The rr timer is the backstop if the loop reaches its iteration limit.
  */
-static void redistribute(void)
+static void execute_partition(void)
 {
+	u64 pending;
 	s32 i;
 
-	__sync_fetch_and_or(&part_pending, 1);
-
-	if (!part_try_start())
-		return;
-
 	bpf_for(i, 0, 1024) {
-		__sync_fetch_and_and(&part_pending, 0);
-		/* charge elapsed time to the current partition before rebuilding it */
-		account_alloc();
-		compute_partition();
-		apply_partition();
+		if (!part_try_start())
+			break;
+
+		pending = __sync_fetch_and_and(&part_pending, 0);
+		if (pending & PART_REDISTRIBUTE) {
+			/* charge elapsed time before repartitioning */
+			account_alloc();
+			compute_partition();
+			apply_partition();
+		} else if (pending & PART_REFRESH) {
+			refresh_usable();
+		}
+
+		/*
+		 * Requests are published before trying the guard. Releasing it
+		 * before checking pending work ensures a racing request is
+		 * either observed here or handled by a caller that acquires the
+		 * guard.
+		 */
+		part_end();
 		if (!__sync_fetch_and_or(&part_pending, 0))
 			break;
 	}
+}
 
-	part_end();
+static void redistribute(void)
+{
+	__sync_fetch_and_or(&part_pending, PART_REDISTRIBUTE);
+	execute_partition();
 }
 
 /*
@@ -1708,6 +1726,7 @@ int flush_alloc(void *ctx)
 	if (part_try_start()) {
 		account_alloc();
 		part_end();
+		execute_partition();
 	}
 	return 0;
 }
@@ -1765,9 +1784,7 @@ static void rr_advance(void)
 
 	part_end();
 
-	/* a resplit queued while we held the guard supersedes this rotation */
-	if (__sync_fetch_and_or(&part_pending, 0))
-		redistribute();
+	execute_partition();
 }
 
 /* advance the time-shared cid pool every round_robin_ns */
@@ -2041,20 +2058,8 @@ void BPF_STRUCT_OPS(qmap_sub_ecaps_updated, s32 cid, u64 before, u64 after)
 		cmask_clear(cid, &qa.avail_cids.mask);
 	}
 
-	/*
-	 * When another runner holds the partition guard, set part_pending:
-	 * redistribute() drains it before releasing and rr_advance() checks it
-	 * after, so the deferred refresh lands by the next rr tick. A
-	 * repartition that lost the guard to us runs here.
-	 */
-	if (part_try_start()) {
-		refresh_usable();
-		part_end();
-		if (__sync_fetch_and_or(&part_pending, 0))
-			redistribute();
-	} else {
-		__sync_fetch_and_or(&part_pending, 1);
-	}
+	__sync_fetch_and_or(&part_pending, PART_REFRESH);
+	execute_partition();
 }
 
 SCX_OPS_CID_DEFINE(qmap_ops,
