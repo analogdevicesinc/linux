@@ -1078,9 +1078,10 @@ efi_status_t check_platform_features(void);
 
 void *get_efi_config_table(efi_guid_t guid);
 
-/* NOTE: These functions do not print a trailing newline after the string */
 void efi_char16_puts(efi_char16_t *);
-void efi_puts(const char *str);
+
+int efi_vsnprintf(efi_char16_t *buf, size_t size, const char *fmt, va_list ap,
+		  bool crlf);
 
 __printf(1, 2) int efi_printk(char const *fmt, ...);
 

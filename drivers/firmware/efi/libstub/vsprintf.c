@@ -14,10 +14,14 @@
 
 #include <linux/compiler.h>
 #include <linux/ctype.h>
+#include <linux/efi.h>
 #include <linux/kernel.h>
 #include <linux/limits.h>
 #include <linux/string.h>
 #include <linux/types.h>
+#include <linux/ucs2_string.h>
+
+#include "efistub.h"
 
 static
 int skip_atoi(const char **s)
@@ -239,58 +243,6 @@ char get_sign(long long *num, int flags)
 	return 0;
 }
 
-static
-size_t utf16s_utf8nlen(const u16 *s16, size_t maxlen)
-{
-	size_t len, clen;
-
-	for (len = 0; len < maxlen && *s16; len += clen) {
-		u16 c0 = *s16++;
-
-		/* First, get the length for a BMP character */
-		clen = 1 + (c0 >= 0x80) + (c0 >= 0x800);
-		if (len + clen > maxlen)
-			break;
-		/*
-		 * If this is a high surrogate, and we're already at maxlen, we
-		 * can't include the character if it's a valid surrogate pair.
-		 * Avoid accessing one extra word just to check if it's valid
-		 * or not.
-		 */
-		if ((c0 & 0xfc00) == 0xd800) {
-			if (len + clen == maxlen)
-				break;
-			if ((*s16 & 0xfc00) == 0xdc00) {
-				++s16;
-				++clen;
-			}
-		}
-	}
-
-	return len;
-}
-
-static
-u32 utf16_to_utf32(const u16 **s16)
-{
-	u16 c0, c1;
-
-	c0 = *(*s16)++;
-	/* not a surrogate */
-	if ((c0 & 0xf800) != 0xd800)
-		return c0;
-	/* invalid: low surrogate instead of high */
-	if (c0 & 0x0400)
-		return 0xfffd;
-	c1 = **s16;
-	/* invalid: missing low surrogate */
-	if ((c1 & 0xfc00) != 0xdc00)
-		return 0xfffd;
-	/* valid surrogate pair */
-	++(*s16);
-	return (0x10000 - (0xd800 << 10) - 0xdc00) + (c0 << 10) + c1;
-}
-
 #define PUTC(c) \
 do {				\
 	if (pos < size)		\
@@ -298,7 +250,8 @@ do {				\
 	++pos;			\
 } while (0);
 
-int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
+int efi_vsnprintf(efi_char16_t *buf, size_t size, const char *fmt, va_list ap,
+		  bool crlf)
 {
 	/* The maximum space required is to print a 64-bit number in octal */
 	char tmp[(sizeof(unsigned long long) * 8 + 2) / 3];
@@ -336,6 +289,8 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
 
 	for (pos = 0; *fmt; ++fmt) {
 		if (*fmt != '%' || *++fmt == '%') {
+			if (crlf && *fmt == '\n')
+				PUTC('\r');
 			PUTC(*fmt);
 			continue;
 		}
@@ -400,7 +355,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
 			else if (qualifier == 'l') {
 		wstring:
 				flags |= WIDE;
-				precision = len = utf16s_utf8nlen((const u16 *)s, precision);
+				precision = len = ucs2_strnlen((const u16 *)s, precision);
 				goto output;
 			}
 			precision = len = strnlen(s, precision);
@@ -505,36 +460,9 @@ output:
 		if (flags & WIDE) {
 			const u16 *ws = (const u16 *)s;
 
-			while (len-- > 0) {
-				u32 c32 = utf16_to_utf32(&ws);
-				u8 *s8;
-				size_t clen;
-
-				if (c32 < 0x80) {
-					PUTC(c32);
-					continue;
-				}
-
-				/* Number of trailing octets */
-				clen = 1 + (c32 >= 0x800) + (c32 >= 0x10000);
-
-				len -= clen;
-				s8 = (u8 *)&buf[pos];
-
-				/* Avoid writing partial character */
-				PUTC('\0');
-				pos += clen;
-				if (pos >= size)
-					continue;
-
-				/* Set high bits of leading octet */
-				*s8 = (0xf00 >> 1) >> clen;
-				/* Write trailing octets in reverse order */
-				for (s8 += clen; clen; --clen, c32 >>= 6)
-					*s8-- = 0x80 | (c32 & 0x3f);
-				/* Set low bits of leading octet */
-				*s8 |= c32;
-			}
+			if (pos < size)
+				memcpy(&buf[pos], ws, min(len, size - pos) * sizeof(*ws));
+			pos += len;
 		} else {
 			while (len-- > 0)
 				PUTC(*s++);
