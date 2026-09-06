@@ -509,3 +509,14 @@ fail:
 
 	return pos;
 }
+
+int efi_snprintf(efi_char16_t *buf, size_t size, const char *fmt, ...)
+{
+	va_list args;
+	int i;
+
+	va_start(args, fmt);
+	i = efi_vsnprintf(buf, size, fmt, args, false);
+	va_end(args);
+	return i;
+}

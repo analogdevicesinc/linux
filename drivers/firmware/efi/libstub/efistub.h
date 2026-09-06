@@ -1084,6 +1084,7 @@ int efi_vsnprintf(efi_char16_t *buf, size_t size, const char *fmt, va_list ap,
 		  bool crlf);
 
 __printf(1, 2) int efi_printk(char const *fmt, ...);
+__printf(3, 4) int efi_snprintf(efi_char16_t *buf, size_t size, const char *fmt, ...);
 
 void efi_free(unsigned long size, unsigned long addr);
 DEFINE_FREE(efi_pool, void *, if (_T) efi_bs_call(free_pool, _T));
