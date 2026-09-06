@@ -3064,6 +3064,7 @@ int smb2_tree_disconnect(struct ksmbd_work *work)
 	}
 
 	rsp->StructureSize = cpu_to_le16(4);
+	rsp->Reserved = 0;
 	err = ksmbd_iov_pin_rsp(work, rsp,
 				sizeof(struct smb2_tree_disconnect_rsp));
 	if (err) {
@@ -3152,6 +3153,7 @@ int smb2_session_logoff(struct ksmbd_work *work)
 		return err;
 
 	rsp->StructureSize = cpu_to_le16(4);
+	rsp->Reserved = 0;
 	err = ksmbd_iov_pin_rsp(work, rsp, sizeof(struct smb2_logoff_rsp));
 	if (err) {
 		rsp->hdr.Status = STATUS_INSUFFICIENT_RESOURCES;
@@ -6313,6 +6315,7 @@ static void get_standard_info_pipe(struct smb2_query_info_rsp *rsp,
 	sinfo->NumberOfLinks = cpu_to_le32(1);
 	sinfo->DeletePending = 1;
 	sinfo->Directory = 0;
+	sinfo->Reserved = 0;
 	rsp->OutputBufferLength =
 		cpu_to_le32(sizeof(struct smb2_file_standard_info));
 }
@@ -6640,6 +6643,7 @@ static int get_file_standard_info(struct smb2_query_info_rsp *rsp,
 	sinfo->NumberOfLinks = cpu_to_le32(get_nlink(&stat) - delete_pending);
 	sinfo->DeletePending = delete_pending;
 	sinfo->Directory = S_ISDIR(stat.mode) ? 1 : 0;
+	sinfo->Reserved = 0;
 	rsp->OutputBufferLength =
 		cpu_to_le32(sizeof(struct smb2_file_standard_info));
 
@@ -7174,6 +7178,8 @@ static int find_file_posix_info(struct smb2_query_info_rsp *rsp,
 	}
 
 	file_info->DeviceId = cpu_to_le32(stat.rdev);
+	file_info->Zero = 0;
+	file_info->ReparseTag = 0;
 
 	/*
 	 * Sids(32) contain two sids(Domain sid(16), UNIX group sid(16)).
@@ -11287,6 +11293,7 @@ int smb2_ioctl(struct ksmbd_work *work)
 		reparse_ptr->ReparseTag =
 			smb2_get_reparse_tag_special_file(file_inode(fp->filp)->i_mode);
 		reparse_ptr->ReparseDataLength = 0;
+		reparse_ptr->Reserved = 0;
 		ksmbd_fd_put(work, fp);
 		nbytes = sizeof(struct reparse_data_buffer);
 		break;
