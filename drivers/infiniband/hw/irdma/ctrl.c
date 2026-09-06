@@ -1689,11 +1689,9 @@ static int irdma_sc_mw_alloc(struct irdma_sc_dev *dev,
  * irdma_sc_mr_fast_register - Posts RDMA fast register mr WR to iwarp qp
  * @qp: sc qp struct
  * @info: fast mr info
- * @post_sq: flag for cqp db to ring
  */
 int irdma_sc_mr_fast_register(struct irdma_sc_qp *qp,
-			      struct irdma_fast_reg_stag_info *info,
-			      bool post_sq)
+			      struct irdma_fast_reg_stag_info *info)
 {
 	u64 temp, hdr;
 	__le64 *wqe;
@@ -1753,8 +1751,7 @@ int irdma_sc_mr_fast_register(struct irdma_sc_qp *qp,
 	print_hex_dump_debug("WQE: FAST_REG WQE", DUMP_PREFIX_OFFSET, 16, 8,
 			     wqe, IRDMA_QP_WQE_MIN_SIZE, false);
 
-	if (post_sq)
-		irdma_uk_qp_post_wr(&qp->qp_uk);
+	irdma_uk_qp_post_wr(&qp->qp_uk);
 
 	return 0;
 }
@@ -2623,11 +2620,9 @@ static int irdma_sc_manage_ws_node(struct irdma_sc_cqp *cqp,
  * @qp: sc qp
  * @info: dlush information
  * @scratch: u64 saved to be used during cqp completion
- * @post_sq: flag for cqp db to ring
  */
 int irdma_sc_qp_flush_wqes(struct irdma_sc_qp *qp,
-			   struct irdma_qp_flush_info *info, u64 scratch,
-			   bool post_sq)
+			   struct irdma_qp_flush_info *info, u64 scratch)
 {
 	u64 temp = 0;
 	__le64 *wqe;
@@ -2695,8 +2690,7 @@ int irdma_sc_qp_flush_wqes(struct irdma_sc_qp *qp,
 
 	print_hex_dump_debug("WQE: QP_FLUSH WQE", DUMP_PREFIX_OFFSET, 16, 8,
 			     wqe, IRDMA_CQP_WQE_SIZE * 8, false);
-	if (post_sq)
-		irdma_sc_cqp_post_sq(cqp);
+	irdma_sc_cqp_post_sq(cqp);
 
 	return 0;
 }
@@ -6112,8 +6106,7 @@ static int irdma_exec_cqp_cmd(struct irdma_sc_dev *dev,
 	case IRDMA_OP_QP_FLUSH_WQES:
 		status = irdma_sc_qp_flush_wqes(pcmdinfo->in.u.qp_flush_wqes.qp,
 						&pcmdinfo->in.u.qp_flush_wqes.info,
-						pcmdinfo->in.u.qp_flush_wqes.scratch,
-						pcmdinfo->post_sq);
+						pcmdinfo->in.u.qp_flush_wqes.scratch);
 		break;
 	case IRDMA_OP_GEN_AE:
 		status = irdma_sc_gen_ae(pcmdinfo->in.u.gen_ae.qp,

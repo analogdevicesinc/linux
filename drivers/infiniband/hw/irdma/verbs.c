@@ -4283,8 +4283,8 @@ static int irdma_post_send(struct ib_qp *ibqp,
 			stag_info.local_fence = ib_wr->send_flags & IB_SEND_FENCE;
 			if (iwmr->npages > IRDMA_MIN_PAGES_PER_FMR)
 				stag_info.chunk_size = 1;
-			err = irdma_sc_mr_fast_register(&iwqp->sc_qp, &stag_info,
-							true);
+			err = irdma_sc_mr_fast_register(&iwqp->sc_qp,
+							&stag_info);
 			break;
 		}
 		default:
