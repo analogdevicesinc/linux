@@ -1072,6 +1072,8 @@ efi_status_t efi_random_alloc(unsigned long size, unsigned long align,
 			      int memory_type, unsigned long alloc_min,
 			      unsigned long alloc_max);
 
+void efi_bli_set_variables(const efi_loaded_image_t *image);
+
 efi_status_t efi_random_get_seed(void);
 
 efi_status_t check_platform_features(void);

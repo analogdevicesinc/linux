@@ -1014,6 +1014,7 @@ void __noreturn efi_stub_entry(efi_handle_t handle,
 	efi_random_get_seed();
 
 	efi_retrieve_eventlog();
+	efi_bli_set_variables(image);
 
 	setup_graphics(boot_params);
 
