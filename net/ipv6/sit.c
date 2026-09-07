@@ -1444,12 +1444,19 @@ ipip6_tunnel_siocdevprivate(struct net_device *dev, struct ifreq *ifr,
 	}
 }
 
+static int ipip6_get_iflink(const struct net_device *dev)
+{
+	struct ip_tunnel *tunnel = netdev_priv(dev);
+
+	return READ_ONCE(tunnel->parms.link);
+}
+
 static const struct net_device_ops ipip6_netdev_ops = {
 	.ndo_init	= ipip6_tunnel_init,
 	.ndo_uninit	= ipip6_tunnel_uninit,
 	.ndo_start_xmit	= sit_tunnel_xmit,
 	.ndo_siocdevprivate = ipip6_tunnel_siocdevprivate,
-	.ndo_get_iflink = ip_tunnel_get_iflink,
+	.ndo_get_iflink = ipip6_get_iflink,
 	.ndo_tunnel_ctl = ipip6_tunnel_ctl,
 };
 
