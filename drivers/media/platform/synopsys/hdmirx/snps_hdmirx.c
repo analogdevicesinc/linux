@@ -2621,10 +2621,8 @@ static int hdmirx_setup_irq(struct snps_hdmirx_dev *hdmirx_dev,
 	ret = devm_request_threaded_irq(dev, irq, NULL, hdmirx_dma_irq_handler,
 					IRQF_ONESHOT, "rk_hdmirx-dma",
 					hdmirx_dev);
-	if (ret) {
-		dev_err_probe(dev, ret, "failed to request dma irq\n");
+	if (ret)
 		return ret;
-	}
 
 	irq = gpiod_to_irq(hdmirx_dev->detect_5v_gpio);
 	if (irq < 0) {
