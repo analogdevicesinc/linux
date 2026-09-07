@@ -339,12 +339,13 @@ int pqm_create_queue(struct process_queue_manager *pqm,
 	unsigned int max_queues = 127; /* HWS limit */
 
 	/*
-	 * On GFX 9.4.3/9.5.0, increase the number of queues that
-	 * can be created to 255. No HWS limit on GFX 9.4.3/9.5.0.
+	 * On GFX 9.4.3/9.5.0/12.1.0, increase the number of queues that
+	 * can be created to 255. No HWS limit on GFX 9.4.3/9.5.0/12.1.0.
 	 */
 	if (KFD_GC_VERSION(dev) == IP_VERSION(9, 4, 3) ||
 	    KFD_GC_VERSION(dev) == IP_VERSION(9, 4, 4) ||
-	    KFD_GC_VERSION(dev) == IP_VERSION(9, 5, 0))
+	    KFD_GC_VERSION(dev) == IP_VERSION(9, 5, 0) ||
+	    KFD_GC_VERSION(dev) == IP_VERSION(12, 1, 0))
 		max_queues = 255;
 
 	q = NULL;
