@@ -172,7 +172,7 @@ bool spi_mem_default_supports_op(struct spi_mem *mem,
 		op->cmd.dtr || op->addr.dtr || op->dummy.dtr || op->data.dtr;
 
 	if (op_is_dtr) {
-		if (!spi_mem_controller_is_capable(ctlr, dtr))
+		if (!spi_mem_controller_is_capable(ctlr, dtr) && !ctlr->dtr_caps)
 			return false;
 
 		if (op->data.swap16 && !spi_mem_controller_is_capable(ctlr, swap16))
@@ -461,6 +461,7 @@ int spi_mem_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 	xfers[xferpos].len = op->cmd.nbytes;
 	xfers[xferpos].tx_nbits = op->cmd.buswidth;
 	xfers[xferpos].speed_hz = op->max_freq;
+	xfers[xferpos].dtr_mode = op->cmd.dtr;
 	spi_message_add_tail(&xfers[xferpos], &msg);
 	xferpos++;
 	totalxferlen++;
@@ -476,6 +477,7 @@ int spi_mem_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 		xfers[xferpos].len = op->addr.nbytes;
 		xfers[xferpos].tx_nbits = op->addr.buswidth;
 		xfers[xferpos].speed_hz = op->max_freq;
+		xfers[xferpos].dtr_mode = op->addr.dtr;
 		spi_message_add_tail(&xfers[xferpos], &msg);
 		xferpos++;
 		totalxferlen += op->addr.nbytes;
@@ -488,6 +490,7 @@ int spi_mem_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 		xfers[xferpos].tx_nbits = op->dummy.buswidth;
 		xfers[xferpos].dummy_data = 1;
 		xfers[xferpos].speed_hz = op->max_freq;
+		xfers[xferpos].dtr_mode = op->dummy.dtr;
 		spi_message_add_tail(&xfers[xferpos], &msg);
 		xferpos++;
 		totalxferlen += op->dummy.nbytes;
@@ -504,6 +507,7 @@ int spi_mem_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 
 		xfers[xferpos].len = op->data.nbytes;
 		xfers[xferpos].speed_hz = op->max_freq;
+		xfers[xferpos].dtr_mode = op->data.dtr;
 		spi_message_add_tail(&xfers[xferpos], &msg);
 		xferpos++;
 		totalxferlen += op->data.nbytes;
