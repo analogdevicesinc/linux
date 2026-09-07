@@ -183,21 +183,47 @@ static void ipip6_tunnel_link(struct sit_net *sitn, struct ip_tunnel *t)
 	rcu_assign_pointer(*tp, t);
 }
 
-static void ipip6_tunnel_clone_6rd(struct net_device *dev, struct sit_net *sitn)
+static int ipip6_tunnel_clone_6rd(struct net_device *dev, struct sit_net *sitn)
 {
 #ifdef CONFIG_IPV6_SIT_6RD
 	struct ip_tunnel *t = netdev_priv(dev);
+	struct ip_tunnel_6rd_parm *new_6rd, *old_6rd;
+
+	new_6rd = kmalloc_obj(*new_6rd);
+	if (!new_6rd)
+		return -ENOMEM;
 
 	if (dev == sitn->fb_tunnel_dev || !sitn->fb_tunnel_dev) {
-		ipv6_addr_set(&t->ip6rd.prefix, htonl(0x20020000), 0, 0, 0);
-		t->ip6rd.relay_prefix = 0;
-		t->ip6rd.prefixlen = 16;
-		t->ip6rd.relay_prefixlen = 0;
+		ipv6_addr_set(&new_6rd->prefix, htonl(0x20020000), 0, 0, 0);
+		new_6rd->relay_prefix = 0;
+		new_6rd->prefixlen = 16;
+		new_6rd->relay_prefixlen = 0;
 	} else {
 		struct ip_tunnel *t0 = netdev_priv(sitn->fb_tunnel_dev);
-		memcpy(&t->ip6rd, &t0->ip6rd, sizeof(t->ip6rd));
+		struct ip_tunnel_6rd_parm *t0_6rd;
+
+		t0_6rd = rtnl_dereference(t0->ip6rd);
+		if (t0_6rd) {
+			*new_6rd = *t0_6rd;
+		} else {
+			ipv6_addr_set(&new_6rd->prefix, htonl(0x20020000), 0, 0, 0);
+			new_6rd->relay_prefix = 0;
+			new_6rd->prefixlen = 16;
+			new_6rd->relay_prefixlen = 0;
+		}
+	}
+
+	old_6rd = rcu_dereference_protected(t->ip6rd,
+					    lockdep_rtnl_is_held() ||
+					    dev->reg_state == NETREG_UNINITIALIZED);
+	rcu_assign_pointer(t->ip6rd, new_6rd);
+	if (old_6rd) {
+		dst_cache_reset(&t->dst_cache);
+		netdev_state_change(t->dev);
+		kfree_rcu(old_6rd, rcu);
 	}
 #endif
+	return 0;
 }
 
 static int ipip6_tunnel_create(struct net_device *dev)
@@ -205,6 +231,10 @@ static int ipip6_tunnel_create(struct net_device *dev)
 	struct ip_tunnel *t = netdev_priv(dev);
 	struct sit_net *sitn = net_generic(t->net, sit_net_id);
 	int err;
+
+	err = ipip6_tunnel_clone_6rd(dev, sitn);
+	if (err < 0)
+		goto out;
 
 	__dev_addr_set(dev, &t->parms.iph.saddr, 4);
 	memcpy(dev->broadcast, &t->parms.iph.daddr, 4);
@@ -217,8 +247,6 @@ static int ipip6_tunnel_create(struct net_device *dev)
 	err = register_netdevice(dev);
 	if (err < 0)
 		goto out;
-
-	ipip6_tunnel_clone_6rd(dev, sitn);
 
 	ipip6_tunnel_link(sitn, t);
 	return 0;
@@ -281,6 +309,7 @@ static struct ip_tunnel *ipip6_tunnel_locate(struct net *net,
 	return nt;
 
 failed_free:
+	ipip6_dev_free(dev);
 	free_netdev(dev);
 failed:
 	return NULL;
@@ -631,8 +660,13 @@ static bool only_dnatted(const struct ip_tunnel *tunnel,
 	int prefix_len;
 
 #ifdef CONFIG_IPV6_SIT_6RD
-	prefix_len = tunnel->ip6rd.prefixlen + 32
-		- tunnel->ip6rd.relay_prefixlen;
+	const struct ip_tunnel_6rd_parm *ip6rd;
+
+	ip6rd = rcu_dereference(tunnel->ip6rd);
+	if (ip6rd)
+		prefix_len = ip6rd->prefixlen + 32 - ip6rd->relay_prefixlen;
+	else
+		prefix_len = 48;
 #else
 	prefix_len = 48;
 #endif
@@ -810,25 +844,28 @@ static bool check_6rd(struct ip_tunnel *tunnel, const struct in6_addr *v6dst,
 		      __be32 *v4dst)
 {
 #ifdef CONFIG_IPV6_SIT_6RD
-	if (ipv6_prefix_equal(v6dst, &tunnel->ip6rd.prefix,
-			      tunnel->ip6rd.prefixlen)) {
+	const struct ip_tunnel_6rd_parm *ip6rd;
+
+	ip6rd = rcu_dereference(tunnel->ip6rd);
+	if (ip6rd && ipv6_prefix_equal(v6dst, &ip6rd->prefix,
+				       ip6rd->prefixlen)) {
 		unsigned int pbw0, pbi0;
 		int pbi1;
 		u32 d;
 
-		pbw0 = tunnel->ip6rd.prefixlen >> 5;
-		pbi0 = tunnel->ip6rd.prefixlen & 0x1f;
+		pbw0 = ip6rd->prefixlen >> 5;
+		pbi0 = ip6rd->prefixlen & 0x1f;
 
-		d = tunnel->ip6rd.relay_prefixlen < 32 ?
+		d = ip6rd->relay_prefixlen < 32 ?
 			(ntohl(v6dst->s6_addr32[pbw0]) << pbi0) >>
-		    tunnel->ip6rd.relay_prefixlen : 0;
+		    ip6rd->relay_prefixlen : 0;
 
-		pbi1 = pbi0 - tunnel->ip6rd.relay_prefixlen;
+		pbi1 = pbi0 - ip6rd->relay_prefixlen;
 		if (pbi1 > 0)
 			d |= ntohl(v6dst->s6_addr32[pbw0 + 1]) >>
 			     (32 - pbi1);
 
-		*v4dst = tunnel->ip6rd.relay_prefix | htonl(d);
+		*v4dst = ip6rd->relay_prefix | htonl(d);
 		return true;
 	}
 #else
@@ -1164,6 +1201,7 @@ static void ipip6_tunnel_update(struct ip_tunnel *t,
 static int ipip6_tunnel_update_6rd(struct ip_tunnel *t,
 				   struct ip_tunnel_6rd *ip6rd)
 {
+	struct ip_tunnel_6rd_parm *new_6rd, *old_6rd;
 	struct in6_addr prefix;
 	__be32 relay_prefix;
 
@@ -1183,10 +1221,20 @@ static int ipip6_tunnel_update_6rd(struct ip_tunnel *t,
 	if (relay_prefix != ip6rd->relay_prefix)
 		return -EINVAL;
 
-	t->ip6rd.prefix = prefix;
-	t->ip6rd.relay_prefix = relay_prefix;
-	t->ip6rd.prefixlen = ip6rd->prefixlen;
-	t->ip6rd.relay_prefixlen = ip6rd->relay_prefixlen;
+	new_6rd = kmalloc_obj(*new_6rd);
+	if (!new_6rd)
+		return -ENOMEM;
+
+	new_6rd->prefix = prefix;
+	new_6rd->relay_prefix = relay_prefix;
+	new_6rd->prefixlen = ip6rd->prefixlen;
+	new_6rd->relay_prefixlen = ip6rd->relay_prefixlen;
+
+	old_6rd = rtnl_dereference(t->ip6rd);
+	rcu_assign_pointer(t->ip6rd, new_6rd);
+	if (old_6rd)
+		kfree_rcu(old_6rd, rcu);
+
 	dst_cache_reset(&t->dst_cache);
 	netdev_state_change(t->dev);
 	return 0;
@@ -1195,6 +1243,7 @@ static int ipip6_tunnel_update_6rd(struct ip_tunnel *t,
 static int
 ipip6_tunnel_get6rd(struct net_device *dev, struct ip_tunnel_parm __user *data)
 {
+	const struct ip_tunnel_6rd_parm *ip6rd_parm;
 	struct ip_tunnel *t = netdev_priv(dev);
 	struct ip_tunnel_parm_kern p;
 	struct ip_tunnel_6rd ip6rd;
@@ -1207,10 +1256,15 @@ ipip6_tunnel_get6rd(struct net_device *dev, struct ip_tunnel_parm __user *data)
 	if (!t)
 		t = netdev_priv(dev);
 
-	ip6rd.prefix = t->ip6rd.prefix;
-	ip6rd.relay_prefix = t->ip6rd.relay_prefix;
-	ip6rd.prefixlen = t->ip6rd.prefixlen;
-	ip6rd.relay_prefixlen = t->ip6rd.relay_prefixlen;
+	ip6rd_parm = rtnl_dereference(t->ip6rd);
+	if (ip6rd_parm) {
+		ip6rd.prefix = ip6rd_parm->prefix;
+		ip6rd.relay_prefix = ip6rd_parm->relay_prefix;
+		ip6rd.prefixlen = ip6rd_parm->prefixlen;
+		ip6rd.relay_prefixlen = ip6rd_parm->relay_prefixlen;
+	} else {
+		memset(&ip6rd, 0, sizeof(ip6rd));
+	}
 	if (copy_to_user(data, &ip6rd, sizeof(ip6rd)))
 		return -EFAULT;
 	return 0;
@@ -1222,20 +1276,16 @@ ipip6_tunnel_6rdctl(struct net_device *dev, struct ip_tunnel_6rd __user *data,
 {
 	struct ip_tunnel *t = netdev_priv(dev);
 	struct ip_tunnel_6rd ip6rd;
-	int err;
 
 	if (!ns_capable(t->net->user_ns, CAP_NET_ADMIN))
 		return -EPERM;
 	if (copy_from_user(&ip6rd, data, sizeof(ip6rd)))
 		return -EFAULT;
 
-	if (cmd != SIOCDEL6RD) {
-		err = ipip6_tunnel_update_6rd(t, &ip6rd);
-		if (err < 0)
-			return err;
-	} else
-		ipip6_tunnel_clone_6rd(dev, dev_to_sit_net(dev));
-	return 0;
+	if (cmd != SIOCDEL6RD)
+		return ipip6_tunnel_update_6rd(t, &ip6rd);
+
+	return ipip6_tunnel_clone_6rd(dev, dev_to_sit_net(dev));
 }
 
 #endif /* CONFIG_IPV6_SIT_6RD */
@@ -1406,8 +1456,17 @@ static const struct net_device_ops ipip6_netdev_ops = {
 static void ipip6_dev_free(struct net_device *dev)
 {
 	struct ip_tunnel *tunnel = netdev_priv(dev);
+#ifdef CONFIG_IPV6_SIT_6RD
+	struct ip_tunnel_6rd_parm *ip6rd;
 
-	dst_cache_destroy(&tunnel->dst_cache);
+	ip6rd = rcu_dereference_protected(tunnel->ip6rd, 1);
+	RCU_INIT_POINTER(tunnel->ip6rd, NULL);
+	kfree(ip6rd);
+#endif
+	if (tunnel->dst_cache.cache) {
+		dst_cache_destroy(&tunnel->dst_cache);
+		tunnel->dst_cache.cache = NULL;
+	}
 }
 
 #define SIT_FEATURES (NETIF_F_SG	   | \
@@ -1576,8 +1635,10 @@ static int ipip6_newlink(struct net_device *dev,
 		return -EEXIST;
 
 	err = ipip6_tunnel_create(dev);
-	if (err < 0)
+	if (err < 0) {
+		ipip6_dev_free(dev);
 		return err;
+	}
 
 	if (tb[IFLA_MTU]) {
 		u32 mtu = nla_get_u32(tb[IFLA_MTU]);
@@ -1695,6 +1756,9 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
 {
 	struct ip_tunnel *tunnel = netdev_priv(dev);
 	struct ip_tunnel_parm_kern *parm = &tunnel->parms;
+#ifdef CONFIG_IPV6_SIT_6RD
+	const struct ip_tunnel_6rd_parm *ip6rd;
+#endif
 
 	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
 	    nla_put_in_addr(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
@@ -1710,14 +1774,16 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
 		goto nla_put_failure;
 
 #ifdef CONFIG_IPV6_SIT_6RD
-	if (nla_put_in6_addr(skb, IFLA_IPTUN_6RD_PREFIX,
-			     &tunnel->ip6rd.prefix) ||
-	    nla_put_in_addr(skb, IFLA_IPTUN_6RD_RELAY_PREFIX,
-			    tunnel->ip6rd.relay_prefix) ||
-	    nla_put_u16(skb, IFLA_IPTUN_6RD_PREFIXLEN,
-			tunnel->ip6rd.prefixlen) ||
-	    nla_put_u16(skb, IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
-			tunnel->ip6rd.relay_prefixlen))
+	ip6rd = rcu_dereference_rtnl(tunnel->ip6rd);
+	if (ip6rd &&
+	    (nla_put_in6_addr(skb, IFLA_IPTUN_6RD_PREFIX,
+			      &ip6rd->prefix) ||
+	     nla_put_in_addr(skb, IFLA_IPTUN_6RD_RELAY_PREFIX,
+			     ip6rd->relay_prefix) ||
+	     nla_put_u16(skb, IFLA_IPTUN_6RD_PREFIXLEN,
+			 ip6rd->prefixlen) ||
+	     nla_put_u16(skb, IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
+			 ip6rd->relay_prefixlen)))
 		goto nla_put_failure;
 #endif
 
@@ -1863,17 +1929,21 @@ static int __net_init sit_init_net(struct net *net)
 	t = netdev_priv(sitn->fb_tunnel_dev);
 	t->net = net;
 
+	err = ipip6_tunnel_clone_6rd(sitn->fb_tunnel_dev, sitn);
+	if (err < 0)
+		goto err_reg_dev;
+
 	err = register_netdev(sitn->fb_tunnel_dev);
 	if (err)
 		goto err_reg_dev;
 
-	ipip6_tunnel_clone_6rd(sitn->fb_tunnel_dev, sitn);
 	ipip6_fb_tunnel_init(sitn->fb_tunnel_dev);
 
 	strscpy(t->parms.name, sitn->fb_tunnel_dev->name);
 	return 0;
 
 err_reg_dev:
+	ipip6_dev_free(sitn->fb_tunnel_dev);
 	free_netdev(sitn->fb_tunnel_dev);
 err_alloc_dev:
 	return err;
