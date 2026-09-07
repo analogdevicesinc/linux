@@ -1681,11 +1681,6 @@ static int ufshcd_devfreq_get_dev_status(struct device *dev,
 	if (!scaling->window_start_t)
 		goto start_window;
 
-	/*
-	 * If current frequency is 0, then the ondemand governor considers
-	 * there's no initial frequency set. And it always requests to set
-	 * to max. frequency.
-	 */
 	if (hba->use_pm_opp) {
 		stat->current_frequency = hba->clk_scaling.target_freq;
 	} else {
@@ -1727,11 +1722,20 @@ static int ufshcd_devfreq_init(struct ufs_hba *hba)
 	if (list_empty(clk_list))
 		return 0;
 
+	clki = list_first_entry(clk_list, struct ufs_clk_info, list);
+
 	if (!hba->use_pm_opp) {
-		clki = list_first_entry(clk_list, struct ufs_clk_info, list);
 		dev_pm_opp_add(hba->dev, clki->min_freq, 0);
 		dev_pm_opp_add(hba->dev, clki->max_freq, 0);
 	}
+
+	/*
+	 * ufshcd_init_clocks() has already set the clocks to the highest
+	 * frequency, and nothing has changed them since. Save that frequency,
+	 * so that devfreq and the clock scaling code know where we start.
+	 */
+	hba->clk_scaling.target_freq = clki->max_freq;
+	hba->vps->devfreq_profile.initial_freq = clki->max_freq;
 
 	ufshcd_vops_config_scaling_param(hba, &hba->vps->devfreq_profile,
 					 &hba->vps->ondemand_data);
