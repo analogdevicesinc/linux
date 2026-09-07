@@ -8258,7 +8258,7 @@ static void __init wq_cpu_intensive_thresh_init(void)
 	 * lot slower CPUs including microcontrollers where the threshold is way
 	 * too low.
 	 *
-	 * Let's scale up the threshold upto 1 second if BogoMips is below 4000.
+	 * Let's scale up the threshold up to 1 second if BogoMips is below 4000.
 	 * This is by no means accurate but it doesn't have to be. The mechanism
 	 * is still useful even when the threshold is fully scaled up. Also, as
 	 * the reports would usually be applicable to everyone, some machines
