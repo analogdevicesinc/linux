@@ -1846,10 +1846,17 @@ static size_t ipip6_get_size(const struct net_device *dev)
 static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
 {
 	struct ip_tunnel *tunnel = netdev_priv(dev);
-	const struct ip_tunnel_parm_kern *parm = rtnl_dereference(tunnel->sit_parms);
+	const struct ip_tunnel_parm_kern *parm;
 #ifdef CONFIG_IPV6_SIT_6RD
 	const struct ip_tunnel_6rd_parm *ip6rd;
 #endif
+
+	rcu_read_lock();
+	parm = rcu_dereference(tunnel->sit_parms);
+	if (!parm) {
+		rcu_read_unlock();
+		return -ENODEV;
+	}
 
 	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
 	    nla_put_in_addr(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
@@ -1865,7 +1872,7 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
 		goto nla_put_failure;
 
 #ifdef CONFIG_IPV6_SIT_6RD
-	ip6rd = rcu_dereference_rtnl(tunnel->ip6rd);
+	ip6rd = rcu_dereference(tunnel->ip6rd);
 	if (ip6rd &&
 	    (nla_put_in6_addr(skb, IFLA_IPTUN_6RD_PREFIX,
 			      &ip6rd->prefix) ||
@@ -1879,18 +1886,20 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
 #endif
 
 	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE,
-			tunnel->encap.type) ||
+			READ_ONCE(tunnel->encap.type)) ||
 	    nla_put_be16(skb, IFLA_IPTUN_ENCAP_SPORT,
-			tunnel->encap.sport) ||
+			 READ_ONCE(tunnel->encap.sport)) ||
 	    nla_put_be16(skb, IFLA_IPTUN_ENCAP_DPORT,
-			tunnel->encap.dport) ||
+			 READ_ONCE(tunnel->encap.dport)) ||
 	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS,
-			tunnel->encap.flags))
+			READ_ONCE(tunnel->encap.flags)))
 		goto nla_put_failure;
 
+	rcu_read_unlock();
 	return 0;
 
 nla_put_failure:
+	rcu_read_unlock();
 	return -EMSGSIZE;
 }
 
