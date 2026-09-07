@@ -1045,7 +1045,7 @@ void dcn401_disable_link_output(struct dc_link *link,
 	dc->link_srv->dp_trace_source_sequence(link, DPCD_SOURCE_SEQ_AFTER_DISABLE_LINK_PHY);
 }
 
-void dcn401_build_cursor_position(struct pipe_ctx *pipe_ctx,
+void dcn401_build_cursor_pos_update_params(const struct pipe_ctx *pipe_ctx,
 		struct dc_cursor_position *pos_out,
 		struct dc_cursor_mi_param *param_out)
 {

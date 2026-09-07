@@ -3729,7 +3729,7 @@ void dcn10_update_dchub(struct dce_hwseq *hws, struct dchub_init_data *dh_data)
 	hubbub->funcs->update_dchub(hubbub, dh_data);
 }
 
-void dcn10_build_cursor_position(struct pipe_ctx *pipe_ctx,
+void dcn10_build_cursor_pos_update_params(const struct pipe_ctx *pipe_ctx,
 		struct dc_cursor_position *pos_out,
 		struct dc_cursor_mi_param *param_out)
 {

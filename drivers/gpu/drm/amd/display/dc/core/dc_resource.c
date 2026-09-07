@@ -1049,7 +1049,7 @@ static struct rect calculate_mpc_slice_in_timing_active(
 	return mpc_rec;
 }
 
-static void calculate_adjust_recout_for_visual_confirm(struct pipe_ctx *pipe_ctx,
+static void calculate_adjust_recout_for_visual_confirm(const struct pipe_ctx *pipe_ctx,
 	unsigned int *base_offset, unsigned int *dpp_offset)
 {
 	struct dc *dc = pipe_ctx->stream->ctx->dc;
@@ -1070,7 +1070,7 @@ static void calculate_adjust_recout_for_visual_confirm(struct pipe_ctx *pipe_ctx
 }
 
 static void reverse_adjust_recout_for_visual_confirm(struct rect *recout,
-		struct pipe_ctx *pipe_ctx)
+		const struct pipe_ctx *pipe_ctx)
 {
 	unsigned int dpp_offset, base_offset;
 
@@ -1775,7 +1775,7 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 	return res;
 }
 
-bool resource_can_pipe_disable_cursor(struct pipe_ctx *pipe_ctx)
+bool resource_can_pipe_disable_cursor(const struct pipe_ctx *pipe_ctx)
 {
 	struct pipe_ctx *test_pipe, *split_pipe;
 	struct rect r1 = pipe_ctx->plane_res.scl_data.recout;

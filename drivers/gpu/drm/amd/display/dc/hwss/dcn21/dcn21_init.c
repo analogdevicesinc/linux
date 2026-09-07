@@ -110,7 +110,7 @@ static const struct hw_sequencer_funcs dcn21_funcs = {
 };
 
 static const struct hwseq_private_funcs dcn21_private_funcs = {
-	.build_cursor_position = dcn10_build_cursor_position,
+	.build_cursor_pos_update_params = dcn10_build_cursor_pos_update_params,
 	.init_pipes = dcn10_init_pipes,
 	.plane_atomic_disconnect = dcn10_plane_atomic_disconnect,
 	.update_mpcc = dcn20_update_mpcc,

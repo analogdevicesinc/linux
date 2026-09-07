@@ -177,7 +177,7 @@ void dce110_edp_power_control(
 void dce110_edp_wait_for_hpd_ready(
 		struct dc_link *link,
 		bool power_up);
-void dcn10_build_cursor_position(struct pipe_ctx *pipe_ctx,
+void dcn10_build_cursor_pos_update_params(const struct pipe_ctx *pipe_ctx,
 		struct dc_cursor_position *pos,
 		struct dc_cursor_mi_param *param);
 void dcn10_set_cursor_position(struct hubp *hubp, struct dpp *dpp,

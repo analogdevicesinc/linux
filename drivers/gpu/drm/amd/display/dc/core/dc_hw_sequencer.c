@@ -1301,12 +1301,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 	}
 
 	/* Track cursor lock state - separate locks for attribute and position updates */
-	bool enable_cursor_offload = false;
-
-	if ((dc->hwss.set_cursor_attribute && stream->update_flags.bits.cursor_attr) ||
-		(dc->hwseq && dc->hwseq->funcs.build_cursor_position &&
-			dc->hwss.set_cursor_position && stream->update_flags.bits.cursor_pos))
-		enable_cursor_offload = dc_dmub_srv_is_cursor_offload_enabled(dc);
+	bool enable_cursor_offload = dc_dmub_srv_is_cursor_offload_enabled(dc);
 
 	/* Cursor attribute updates - separate lock/iterate/unlock */
 	if (dc->hwss.set_cursor_attribute && stream->update_flags.bits.cursor_attr) {
@@ -1391,7 +1386,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 	}
 
 	/* Cursor position updates */
-	if (dc->hwseq && dc->hwseq->funcs.build_cursor_position &&
+	if (dc->hwseq && dc->hwseq->funcs.build_cursor_pos_update_params &&
 			dc->hwss.set_cursor_position && stream->update_flags.bits.cursor_pos) {
 		struct pipe_ctx *cursor_pipe_to_program = NULL;
 
@@ -1422,7 +1417,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 				}
 			}
 
-			dc->hwseq->funcs.build_cursor_position(current_pipe, &pos, &param);
+			dc->hwseq->funcs.build_cursor_pos_update_params(current_pipe, &pos, &param);
 
 			block_sequence[*num_steps].params.set_cursor_position_params.dc = dc;
 			block_sequence[*num_steps].params.set_cursor_position_params.hubp = current_pipe->plane_res.hubp;
@@ -4379,11 +4374,11 @@ void hwss_set_cursor_position(union block_sequence_params *params)
 
 void hwss_program_cursor_position(struct dc *dc, struct pipe_ctx *pipe_ctx)
 {
-	if (dc->hwseq && dc->hwseq->funcs.build_cursor_position && dc->hwss.set_cursor_position) {
+	if (dc->hwseq && dc->hwseq->funcs.build_cursor_pos_update_params && dc->hwss.set_cursor_position) {
 		struct dc_cursor_position pos;
 		struct dc_cursor_mi_param param;
 
-		dc->hwseq->funcs.build_cursor_position(pipe_ctx, &pos, &param);
+		dc->hwseq->funcs.build_cursor_pos_update_params(pipe_ctx, &pos, &param);
 		dc->hwss.set_cursor_position(pipe_ctx->plane_res.hubp,
 				pipe_ctx->plane_res.dpp, &pos, &param);
 	} else if (dc->hwss.set_cursor_position_legacy) {
@@ -5812,12 +5807,12 @@ void hwss_add_set_cursor_position(struct block_sequence_state *seq_state,
 		struct pipe_ctx *pipe_ctx)
 {
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE &&
-			dc->hwseq && dc->hwseq->funcs.build_cursor_position &&
+			dc->hwseq && dc->hwseq->funcs.build_cursor_pos_update_params &&
 			dc->hwss.set_cursor_position) {
 		struct dc_cursor_position pos;
 		struct dc_cursor_mi_param param;
 
-		dc->hwseq->funcs.build_cursor_position(pipe_ctx, &pos, &param);
+		dc->hwseq->funcs.build_cursor_pos_update_params(pipe_ctx, &pos, &param);
 
 		seq_state->steps[*seq_state->num_steps].func = SET_CURSOR_POSITION;
 		seq_state->steps[*seq_state->num_steps].params.set_cursor_position_params.dc = dc;
