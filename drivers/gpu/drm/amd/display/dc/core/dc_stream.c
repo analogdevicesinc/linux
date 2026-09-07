@@ -34,6 +34,7 @@
 #include "dc_dmub_srv.h"
 #include "dc_state_priv.h"
 #include "dc_stream_priv.h"
+#include "dce/dmub_hw_lock_mgr.h"
 
 #define DC_LOGGER dc->ctx->logger
 #ifndef MIN
@@ -307,6 +308,7 @@ void program_cursor_attributes(
 	struct resource_context *res_ctx;
 	struct pipe_ctx *pipe_to_program = NULL;
 	bool enable_cursor_offload = dc_dmub_srv_is_cursor_offload_enabled(dc);
+	bool unlock_dmub = false;
 
 	if (!stream)
 		return;
@@ -330,6 +332,12 @@ void program_cursor_attributes(
 						pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp,
 						top_pipe->pipe_idx);
 			} else {
+				if (dc->hwss.dmub_hw_control_lock && pipe_ctx->stream &&
+				    should_use_dmub_inbox0_lock_for_link(dc, pipe_ctx->stream->link)) {
+					dc->hwss.dmub_hw_control_lock(dc, dc->current_state, true);
+					unlock_dmub = true;
+				}
+
 				dc->hwss.cursor_lock(dc, pipe_to_program, true);
 				if (pipe_to_program->next_odm_pipe)
 					dc->hwss.cursor_lock(dc, pipe_to_program->next_odm_pipe, true);
@@ -362,6 +370,9 @@ void program_cursor_attributes(
 			dc->hwss.cursor_lock(dc, pipe_to_program, false);
 			if (pipe_to_program->next_odm_pipe)
 				dc->hwss.cursor_lock(dc, pipe_to_program->next_odm_pipe, false);
+
+			if (unlock_dmub)
+				dc->hwss.dmub_hw_control_lock(dc, dc->current_state, false);
 		}
 	}
 }
@@ -481,6 +492,7 @@ void program_cursor_position(
 	struct resource_context *res_ctx;
 	struct pipe_ctx *pipe_to_program = NULL;
 	bool enable_cursor_offload = dc_dmub_srv_is_cursor_offload_enabled(dc);
+	bool unlock_dmub = false;
 
 	if (!stream)
 		return;
@@ -508,6 +520,12 @@ void program_cursor_position(
 						pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp,
 						top_pipe->pipe_idx);
 			} else {
+				if (dc->hwss.dmub_hw_control_lock && pipe_ctx->stream &&
+				    should_use_dmub_inbox0_lock_for_link(dc, pipe_ctx->stream->link)) {
+					dc->hwss.dmub_hw_control_lock(dc, dc->current_state, true);
+					unlock_dmub = true;
+				}
+
 				dc->hwss.cursor_lock(dc, pipe_to_program, true);
 			}
 		}
@@ -535,6 +553,9 @@ void program_cursor_position(
 					top_pipe->pipe_idx);
 		} else {
 			dc->hwss.cursor_lock(dc, pipe_to_program, false);
+
+			if (unlock_dmub)
+				dc->hwss.dmub_hw_control_lock(dc, dc->current_state, false);
 		}
 	}
 }

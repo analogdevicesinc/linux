@@ -1004,7 +1004,8 @@ union dmub_fw_meta_feature_bits {
 		uint32_t shared_state_link_detection : 1; /**< 1 supports link detection via shared state */
 		uint32_t cursor_offload_v1_support: 1; /**< 1 supports cursor offload */
 		uint32_t inbox0_lock_support: 1; /**< 1 supports inbox0 lock mechanism */
-		uint32_t reserved : 29;
+		uint32_t inbox0_lock_split: 1; /**< 1 supports inbox0 lock acquire/release split mechanism */
+		uint32_t reserved : 28;
 	} bits; /**< status bits */
 	uint32_t all; /**< 32-bit access to status bits */
 };
