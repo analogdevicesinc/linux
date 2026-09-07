@@ -122,7 +122,6 @@ struct netdevsim {
 		struct dentry *rereg;
 		struct mutex rereg_lock;
 		u32 spi;
-		u32 assoc_cnt;
 	} psp;
 
 	struct nsim_bus_dev *nsim_bus_dev;
