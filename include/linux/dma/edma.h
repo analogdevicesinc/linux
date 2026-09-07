@@ -147,6 +147,7 @@ struct dw_edma_chip {
 
 	struct dw_edma		*dw;
 	bool			cfg_non_ll;
+	u32			ch_space_sz;
 };
 
 /* Export to the platform drivers */
