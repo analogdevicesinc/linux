@@ -33,6 +33,8 @@
 #define DW_PCIE_XILINX_MDB_VSEC_ID		0x20
 #define DW_PCIE_XILINX_MDB_VSEC_DMA_BAR		GENMASK(10, 8)
 #define DW_PCIE_XILINX_MDB_VSEC_DMA_MAP		GENMASK(2, 0)
+/* AMD CPM6 (Xilinx) supported cap */
+#define DW_PCIE_XILINX_CPM6_VSEC_CH_SEP		GENMASK(18, 16)
 #define DW_PCIE_XILINX_MDB_VSEC_DMA_WR_CH	GENMASK(9, 0)
 #define DW_PCIE_XILINX_MDB_VSEC_DMA_RD_CH	GENMASK(25, 16)
 
@@ -76,6 +78,7 @@ struct dw_edma_pcie_data {
 	u16				rd_ch_cnt;
 	u64				devmem_phys_off;
 	bool				cfg_non_ll;
+	u32				ch_space_sz;
 };
 
 struct dw_edma_pcie_match_data {
@@ -208,6 +211,13 @@ static int dw_edma_pcie_irq_vector(struct device *dev, unsigned int nr)
 	return pci_irq_vector(to_pci_dev(dev), nr);
 }
 
+static u32 dw_edma_get_ch_space_sz(u32 val)
+{
+	if (val > 0 && val <= 7)
+		return 256 << val;
+	return 256;
+}
+
 static u64 dw_edma_pcie_address(struct device *dev, phys_addr_t cpu_addr)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
@@ -297,6 +307,10 @@ static void dw_edma_pcie_get_xilinx_dma_data(struct pci_dev *pdev,
 
 	pdata->mf = map;
 	pdata->rg.bar = FIELD_GET(DW_PCIE_XILINX_MDB_VSEC_DMA_BAR, val);
+
+	if (pdev->device == PCI_DEVICE_ID_XILINX_B00F)
+		pdata->ch_space_sz = dw_edma_get_ch_space_sz
+					(FIELD_GET(DW_PCIE_XILINX_CPM6_VSEC_CH_SEP, val));
 
 	pci_read_config_dword(pdev, vsec + 0xc, &val);
 	pdata->wr_ch_cnt = min(pdata->wr_ch_cnt,
