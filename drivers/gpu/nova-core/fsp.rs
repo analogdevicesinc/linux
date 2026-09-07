@@ -270,7 +270,7 @@ impl FspCotMessage {
     /// Returns an in-place initializer for [`FspCotMessage`].
     fn new<'a>(
         fb_info: &FbSizes,
-        fmc_fw: &'a GspFmcFirmware,
+        fmc_fw: &'a GspFmcFirmware<'_>,
         args: &'a FmcBootArgs<'_>,
     ) -> Result<impl Init<Self> + 'a> {
         let hal = hal::fsp_hal(args.chipset).ok_or(ENOTSUPP)?;
@@ -348,28 +348,28 @@ impl MessageToFsp for FspPrcMessage {
 /// Bundled arguments for FMC boot via FSP Chain of Trust.
 pub(crate) struct FmcBootArgs<'a> {
     chipset: Chipset,
-    fmc_boot_params: Coherent<GspFmcBootParams>,
+    fmc_boot_params: Coherent<'a, GspFmcBootParams>,
     resume: bool,
     // Additional dependencies required to be kept alive for FMC boot.
-    _wpr_meta: Coherent<GspFwWprMeta>,
-    _libos: &'a Coherent<[LibosMemoryRegionInitArgument]>,
+    _wpr_meta: Coherent<'a, GspFwWprMeta>,
+    _libos: &'a Coherent<'a, [LibosMemoryRegionInitArgument]>,
 }
 
 impl<'a> FmcBootArgs<'a> {
     /// Builds FMC boot arguments, allocating the DMA-coherent boot parameter
     /// structure that FSP will read.
     pub(crate) fn new(
-        dev: &device::Device<device::Bound>,
+        dev: &'a device::Device<device::Bound>,
         chipset: Chipset,
-        wpr_meta: Coherent<GspFwWprMeta>,
-        libos: &'a Coherent<[LibosMemoryRegionInitArgument]>,
+        wpr_meta: Coherent<'a, GspFwWprMeta>,
+        libos: &'a Coherent<'a, [LibosMemoryRegionInitArgument]>,
         resume: bool,
     ) -> Result<Self> {
         let init = GspFmcBootParams::new(wpr_meta.dma_address(), libos.dma_address());
 
         Ok(Self {
             chipset,
-            fmc_boot_params: Coherent::<GspFmcBootParams>::init(dev, GFP_KERNEL, init)?,
+            fmc_boot_params: Coherent::init(dev, GFP_KERNEL, init)?,
             resume,
             _wpr_meta: wpr_meta,
             _libos: libos,
@@ -377,7 +377,7 @@ impl<'a> FmcBootArgs<'a> {
     }
 
     /// Returns the FMC boot parameters allocation.
-    pub(crate) fn boot_params(&self) -> &Coherent<GspFmcBootParams> {
+    pub(crate) fn boot_params(&self) -> &Coherent<'_, GspFmcBootParams> {
         &self.fmc_boot_params
     }
 }
@@ -389,7 +389,7 @@ impl<'a> FmcBootArgs<'a> {
 /// Chain of Trust boot.
 pub(crate) struct Fsp<'a> {
     falcon: Falcon<'a, FspEngine>,
-    fmc_fw: GspFmcFirmware,
+    fmc_fw: GspFmcFirmware<'a>,
 }
 
 impl<'a> Fsp<'a> {
