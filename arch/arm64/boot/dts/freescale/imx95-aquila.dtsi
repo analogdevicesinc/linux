@@ -16,6 +16,7 @@
 		can3 = &flexcan4;
 		eeprom0 = &som_eeprom;
 		ethernet0 = &enetc_port0;
+		ethernet1 = &enetc_port2;
 		i2c0 = &lpi2c3;
 		i2c1 = &lpi2c2;
 		i2c2 = &i3c2;
@@ -207,6 +208,12 @@
 	pinctrl-0 = <&pinctrl_enetc0>;
 	phy-handle = <&ethphy1>;
 	phy-mode = "rgmii-id";
+};
+
+/* Aquila ETH_2_XGMII */
+&enetc_port2 {
+	clocks = <&clk_serdes_eth_ref>;
+	clock-names = "ref";
 };
 
 /* Aquila CAN_1 */
