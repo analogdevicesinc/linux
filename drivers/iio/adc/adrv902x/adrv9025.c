@@ -1088,7 +1088,7 @@ static const char * const adrv9025_obs2_rx_port[] = {
 	"ORX3_ON_ORX4_OFF", "ORX3_OFF_ORX4_ON",
 };
 
-static const u8 ad9371_obs_rx_port_lut[] = {
+static const u8 adrv9025_obs_rx_port_lut[] = {
 	BIT(4), BIT(5)
 };
 
@@ -1180,7 +1180,7 @@ static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 		if (ret)
 			return adrv9025_dev_err(phy);
 
-		val = ad9371_obs_rx_port_lut[mode];
+		val = adrv9025_obs_rx_port_lut[mode];
 		if (chan->channel > CHAN_OBS_RX1) {
 			mask = mask << 2 | 0xF;
 			val <<= 2;
