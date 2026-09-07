@@ -13,11 +13,11 @@
  */
 
 struct optimistic_spin_node {
-	struct optimistic_spin_node *next;
+	int next_cpu; /* CPU number offset by 1 */
 	int prev_cpu; /* CPU number offset by 1 */
-};
+} __aligned(8);
 
-static DEFINE_PER_CPU_SHARED_ALIGNED(struct optimistic_spin_node, osq_node);
+static DEFINE_PER_CPU(struct optimistic_spin_node, osq_node);
 
 /*
  * We use the value 0 to represent "no CPU", thus the encoded value
@@ -44,22 +44,21 @@ static inline struct optimistic_spin_node *decode_cpu(int encoded_cpu_val)
  * For osq_unlock() there is never a previous node and old_cpu is
  * set to OSQ_UNLOCKED_VAL.
  */
-static inline struct optimistic_spin_node *
-osq_wait_unlink_next(struct optimistic_spin_queue *lock,
-		     int old_cpu)
+static inline int
+osq_wait_unlink_next(struct optimistic_spin_queue *lock, int old_cpu)
 {
 	struct optimistic_spin_node *next, *node = this_cpu_ptr(&osq_node);
-	int curr = encode_cpu(smp_processor_id());
+	int next_cpu, node_cpu = encode_cpu(smp_processor_id());
 
 	for (;;) {
-		if (atomic_read(&lock->tail) == curr &&
-		    atomic_cmpxchg_release(&lock->tail, curr, old_cpu) == curr) {
+		if (atomic_read(&lock->tail) == node_cpu &&
+		    atomic_cmpxchg_release(&lock->tail, node_cpu, old_cpu) == node_cpu) {
 			/*
 			 * We were the last queued, we moved @lock back. @prev
 			 * will now observe @lock and will complete its
 			 * unlock()/unqueue().
 			 */
-			return NULL;
+			return 0;
 		}
 
 		/*
@@ -72,9 +71,9 @@ osq_wait_unlink_next(struct optimistic_spin_queue *lock,
 		 * wait for either @lock to point to us, through its Step-B, or
 		 * wait for a new @node->next from its Step-C.
 		 */
-		if (node->next) {
-			next = xchg(&node->next, NULL);
-			if (next)
+		if (node->next_cpu) {
+			next_cpu = xchg(&node->next_cpu, 0);
+			if (next_cpu)
 				break;
 		}
 
@@ -84,16 +83,16 @@ osq_wait_unlink_next(struct optimistic_spin_queue *lock,
 	/*
 	 * Unlink @node from @next.
 	 */
+	next = decode_cpu(next_cpu);
 	WRITE_ONCE(next->prev_cpu, old_cpu);
-	return next;
+	return next_cpu;
 }
 
 /*
  * Set prev->next; this is the counterpart of osq_wait_unlink_next() in that
  * by setting ->next the wait is terminated and progress is resumed.
  */
-static inline void osq_link_next(struct optimistic_spin_node *prev,
-				 struct optimistic_spin_node *next)
+static inline void osq_link_next(struct optimistic_spin_node *prev, int next_cpu)
 {
 	/*
 	 * Suppose:
@@ -128,17 +127,17 @@ static inline void osq_link_next(struct optimistic_spin_node *prev,
 	 *
 	 * Which would result in list corruption.
 	 */
-	smp_store_release(&prev->next, next);
+	smp_store_release(&prev->next_cpu, next_cpu);
 }
 
 bool osq_lock(struct optimistic_spin_queue *lock)
 {
 	struct optimistic_spin_node *node = this_cpu_ptr(&osq_node);
-	struct optimistic_spin_node *prev, *next;
-	int curr = encode_cpu(smp_processor_id());
-	int prev_cpu;
+	int node_cpu = encode_cpu(smp_processor_id());
+	struct optimistic_spin_node *prev;
+	int prev_cpu, next_cpu;
 
-	node->next = NULL;
+	node->next_cpu = 0;
 
 	/*
 	 * We need both ACQUIRE (pairs with corresponding RELEASE in
@@ -146,13 +145,13 @@ bool osq_lock(struct optimistic_spin_queue *lock)
 	 * the node fields we just initialised) semantics when updating
 	 * the lock tail.
 	 */
-	prev_cpu = atomic_xchg(&lock->tail, curr);
+	prev_cpu = atomic_xchg(&lock->tail, node_cpu);
 	if (prev_cpu == OSQ_UNLOCKED_VAL)
 		return true;
 
 	prev = decode_cpu(prev_cpu);
 	node->prev_cpu = prev_cpu;
-	osq_link_next(prev, node);
+	osq_link_next(prev, node_cpu);
 
 	/*
 	 * Normally @prev is untouchable after the above store; because at that
@@ -191,8 +190,8 @@ bool osq_lock(struct optimistic_spin_queue *lock)
 
 		prev = decode_cpu(prev_cpu);
 
-		if (data_race(prev->next) == node &&
-		    cmpxchg(&prev->next, node, NULL) == node)
+		if (data_race(prev->next_cpu) == node_cpu &&
+		    cmpxchg(&prev->next_cpu, node_cpu, 0) == node_cpu)
 			break;
 
 		/*
