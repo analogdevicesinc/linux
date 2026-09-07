@@ -2304,7 +2304,7 @@ int perf_event__synthesize_extra_attr(const struct perf_tool *tool, struct evlis
 		if (has_scale(evsel)) {
 			err = perf_event__synthesize_event_update_scale(tool, evsel, process);
 			if (err < 0) {
-				pr_err("Couldn't synthesize evsel evsel.\n");
+				pr_err("Couldn't synthesize evsel.\n");
 				return err;
 			}
 		}
