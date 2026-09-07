@@ -971,8 +971,6 @@
 };
 
 &mdss_dp0 {
-	sound-name-prefix = "DisplayPort0";
-
 	status = "okay";
 };
 
@@ -981,8 +979,6 @@
 };
 
 &mdss_dp2 {
-	sound-name-prefix = "DisplayPort2";
-
 	status = "okay";
 };
 
