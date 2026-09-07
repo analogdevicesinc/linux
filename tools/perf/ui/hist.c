@@ -552,7 +552,7 @@ static int hpp__header_mem_stat_fn(struct perf_hpp_fmt *fmt, struct perf_hpp *hp
 		int left, right;
 
 		len = 0;
-		/* update fmt->len for acutally used columns only */
+		/* update fmt->len for actually used columns only */
 		for (int i = 0; i < MEM_STAT_LEN; i++) {
 			if (hists->mem_stat_total[mem_stat_idx].entries[i])
 				len += MEM_STAT_PRINT_LEN;

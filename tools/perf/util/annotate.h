@@ -290,7 +290,7 @@ struct cyc_hist {
 /**
  * struct annotated_source - symbols with hits have this attached as in annotation
  *
- * @source: List head for annotated_line (embeded in disasm_line).
+ * @source: List head for annotated_line (embedded in disasm_line).
  * @histograms: Array of symbol histograms per event to maintain the total number
  * 		of samples and period.
  * @nr_histograms: This may not be the same as evsel->evlist->core.nr_entries if

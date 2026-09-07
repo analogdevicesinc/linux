@@ -104,7 +104,7 @@
 /*
  * strtoul: Go from a string to a value, i.e. for msr: MSR_FS_BASE to 0xc0000100
  *
- * We have to explicitely mark the direction of the flow of data, if from the
+ * We have to explicitly mark the direction of the flow of data, if from the
  * kernel to user space or the other way around, since the BPF collector we
  * have so far copies only from user to kernel space, mark the arguments that
  * go that direction, so that we don´t end up collecting the previous contents
