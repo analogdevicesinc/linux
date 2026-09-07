@@ -439,6 +439,13 @@ struct ring_frame *tb_ring_poll(struct tb_ring *ring)
 		}
 
 		ring->tail = (ring->tail + 1) % ring->size;
+
+		/*
+		 * There is one more slot available so we can push next
+		 * descriptor to the ring. This is needed when the ring
+		 * is created with %RING_FLAG_NO_INTERRUPT.
+		 */
+		ring_write_descriptors(ring, true);
 	}
 
 unlock:
