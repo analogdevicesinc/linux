@@ -1971,25 +1971,15 @@ static int __init docg3_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtd_info *mtd;
-	struct resource *ress;
 	void __iomem *base;
 	int ret, floor;
 	struct docg3_cascade *cascade;
 
-	ret = -ENXIO;
-	ress = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!ress) {
-		dev_err(dev, "No I/O memory resource defined\n");
-		return ret;
-	}
+	base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
 
 	ret = -ENOMEM;
-	base = devm_ioremap(dev, ress->start, DOC_IOSPACE_SIZE);
-	if (!base) {
-		dev_err(dev, "devm_ioremap dev failed\n");
-		return ret;
-	}
-
 	cascade = devm_kcalloc(dev, DOC_MAX_NBFLOORS, sizeof(*cascade),
 			       GFP_KERNEL);
 	if (!cascade)
