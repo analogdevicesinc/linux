@@ -918,7 +918,7 @@ static const struct of_device_id gsw1xx_of_match[] = {
 	{ .compatible = "maxlinear,gsw140", .data = &gsw140_data },
 	{ .compatible = "maxlinear,gsw141", .data = &gsw141_data },
 	{ .compatible = "maxlinear,gsw145", .data = &gsw140_data },
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 
 MODULE_DEVICE_TABLE(of, gsw1xx_of_match);
