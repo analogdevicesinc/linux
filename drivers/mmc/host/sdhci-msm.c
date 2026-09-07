@@ -1770,7 +1770,7 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 
 	/*
 	 * The driver has to acknowledge the interrupt, switch voltages and
-	 * report back if it succeded or not to this register. The voltage
+	 * report back if it succeeded or not to this register. The voltage
 	 * switches are handled by the sdhci core, so just report success.
 	 */
 	msm_host_writel(msm_host, irq_ack, host,

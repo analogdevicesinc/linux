@@ -69,7 +69,7 @@ struct dw_mci_dma_slave {
  * @cmd: The command currently being sent to the card, or NULL.
  * @data: The data currently being transferred, or NULL if no data
  *	transfer is in progress.
- * @stop_abort: The command currently prepared for stoping transfer.
+ * @stop_abort: The command currently prepared for stopping transfer.
  * @prev_blksz: The former transfer blksz record.
  * @timing: Record of current ios timing.
  * @use_dma: Which DMA channel is in use for the current transfer, zero
