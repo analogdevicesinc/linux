@@ -905,4 +905,6 @@ int kvm_emulate_hypercall(struct kvm_vcpu *vcpu);
 /* PML is written backwards: this is the first entry written by the CPU */
 #define PML_HEAD_INDEX		(PML_LOG_NR_ENTRIES-1)
 
+void kvm_flush_pml_buffer(struct kvm_vcpu *vcpu, u16 pml_idx);
+
 #endif
