@@ -906,6 +906,13 @@ static void nested_vmcb02_prepare_control(struct vcpu_svm *svm)
 	vmcb_mark_dirty(vmcb02, VMCB_PERM_MAP);
 
 	/*
+	 * PML is never enabled in hardware for L2.  Make sure that an
+	 * unexpected PML write would trigger a PML_FULL VM-Exit.
+	 */
+	if (pml)
+		vmcb02->control.pml_index = -1;
+
+	/*
 	 * Stash vmcb02's counter if the guest hasn't moved past the guilty
 	 * instruction; otherwise, reset the counter to '0'.
 	 *
@@ -1824,6 +1831,13 @@ int nested_svm_exit_special(struct vcpu_svm *svm)
 		if (nested_svm_is_l2_tlb_flush_hcall(vcpu))
 			return NESTED_EXIT_HOST;
 		break;
+	case SVM_EXIT_PML_FULL:
+		/*
+		 * All PML full exits are handled by KVM.  KVM emulates PML in
+		 * software for L1, but never enables PML in hardware on behalf
+		 * of L1.
+		 */
+		return NESTED_EXIT_HOST;
 	default:
 		break;
 	}
