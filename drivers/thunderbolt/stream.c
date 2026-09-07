@@ -801,6 +801,7 @@ tbstream_dev_fops_read_iter(struct kiocb *kiocb, struct iov_iter *to)
 		} else {
 			ret = wait_event_interruptible(sdev->wait,
 					READ_ONCE(sdev->rx_pending) ||
+					tb_ring_poll_pending(sdev->rx_ring.ring) ||
 					tbstream_ring_available(&sdev->rx_ring) ||
 					tbstream_dev_valid(sdev) != 0 ||
 					tbstream_dev_closed(sdev) ||
@@ -979,10 +980,13 @@ tbstream_dev_fops_poll(struct file *file, struct poll_table_struct *wait)
 
 	if (tbstream_ring_available(&sdev->tx_ring))
 		mask |= EPOLLOUT | EPOLLWRNORM;
-	if (tbstream_ring_available(&sdev->rx_ring))
+	if (tbstream_ring_available(&sdev->rx_ring)) {
 		mask |= EPOLLIN | EPOLLRDNORM;
-	else
+	} else {
 		tbstream_dev_complete_rx(sdev);
+		if (tb_ring_poll_pending(sdev->rx_ring.ring))
+			mask |= EPOLLIN | EPOLLRDNORM;
+	}
 
 	return mask;
 }
