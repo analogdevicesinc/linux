@@ -94,7 +94,7 @@ static int duration_set(const char *arg, const struct kernel_param *kp)
 	}
 
 	mutex_lock(&powerclamp_lock);
-	duration = clamp(new_duration, 6ul, 25ul) * 1000;
+	duration = new_duration * 1000;
 	mutex_unlock(&powerclamp_lock);
 exit:
 
@@ -143,12 +143,9 @@ copy_mask:
 }
 
 /* Return true if the cpumask and idle percent combination is invalid */
-static bool check_invalid(cpumask_var_t mask, u8 idle)
+static bool check_invalid(const struct cpumask *mask, u8 idle)
 {
-	if (cpumask_equal(cpu_present_mask, mask) && idle > MAX_ALL_CPU_IDLE)
-		return true;
-
-	return false;
+	return cpumask_equal(cpu_present_mask, mask) && idle > MAX_ALL_CPU_IDLE;
 }
 
 static int cpumask_set(const char *arg, const struct kernel_param *kp)
@@ -289,9 +286,10 @@ static int window_size_set(const char *arg, const struct kernel_param *kp)
 		pr_err("Out of recommended window size %lu, between 2-10\n",
 			new_window_size);
 		ret = -EINVAL;
+		goto exit_win;
 	}
 
-	window_size = clamp(new_window_size, 2ul, 10ul);
+	window_size = new_window_size;
 	smp_mb();
 
 exit_win:
@@ -536,23 +534,17 @@ static struct idle_inject_device *ii_dev;
  */
 static bool idle_inject_update(void)
 {
-	bool update = false;
-
 	/* We can't sleep in this callback */
 	if (!mutex_trylock(&powerclamp_lock))
 		return true;
 
 	if (!(powerclamp_data.count % powerclamp_data.window_size_now)) {
+		unsigned int runtime;
 
 		should_skip = powerclamp_adjust_controls(powerclamp_data.target_ratio,
 							 powerclamp_data.guard,
 							 powerclamp_data.window_size_now);
-		update = true;
-	}
-
-	if (update) {
-		unsigned int runtime = get_run_time();
-
+		runtime = get_run_time();
 		idle_inject_set_duration(ii_dev, runtime, duration);
 	}
 
@@ -560,10 +552,7 @@ static bool idle_inject_update(void)
 
 	mutex_unlock(&powerclamp_lock);
 
-	if (should_skip)
-		return false;
-
-	return true;
+	return !should_skip;
 }
 
 /* This function starts idle injection by calling idle_inject_start() */
