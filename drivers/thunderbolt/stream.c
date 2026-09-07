@@ -736,6 +736,22 @@ static int tbstream_dev_lock(struct tbstream_dev *sdev, bool nowait)
 	return 0;
 }
 
+/* Must not be called with @sdev->lock held */
+static int tbstream_dev_busy_poll_wait(struct tbstream_dev *sdev,
+				       struct tbstream_ring *ring)
+{
+	for (;;) {
+		if (signal_pending(current))
+			return -ERESTARTSYS;
+		if (tb_ring_poll_pending(ring->ring))
+			return 0;
+		if (tbstream_dev_valid(sdev) != 0 ||
+		    tbstream_dev_closed(sdev) || tbstream_dev_removed(sdev))
+			return 0;
+		cond_resched();
+	}
+}
+
 static ssize_t
 tbstream_dev_fops_read_iter(struct kiocb *kiocb, struct iov_iter *to)
 {
@@ -779,9 +795,9 @@ tbstream_dev_fops_read_iter(struct kiocb *kiocb, struct iov_iter *to)
 			return -EAGAIN;
 
 		if (sdev->busy_poll) {
-			if (signal_pending(current))
-				return -ERESTARTSYS;
-			cond_resched();
+			ret = tbstream_dev_busy_poll_wait(sdev, &sdev->rx_ring);
+			if (ret)
+				return ret;
 		} else {
 			ret = wait_event_interruptible(sdev->wait,
 					READ_ONCE(sdev->rx_pending) ||
@@ -893,9 +909,9 @@ tbstream_dev_fops_write_iter(struct kiocb *kiocb, struct iov_iter *from)
 			return -EAGAIN;
 
 		if (sdev->busy_poll) {
-			if (signal_pending(current))
-				return -ERESTARTSYS;
-			cond_resched();
+			ret = tbstream_dev_busy_poll_wait(sdev, &sdev->tx_ring);
+			if (ret)
+				return ret;
 		} else {
 			ret = wait_event_interruptible(sdev->wait,
 					tbstream_ring_available(&sdev->tx_ring) ||
