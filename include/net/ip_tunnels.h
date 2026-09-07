@@ -149,6 +149,7 @@ struct ip_tunnel_parm_kern {
 	__be32			o_key;
 	int			link;
 	struct iphdr		iph;
+	struct rcu_head		rcu;
 };
 
 struct ip_tunnel {
@@ -190,7 +191,7 @@ struct ip_tunnel {
 #endif
 	struct ip_tunnel_prl_entry __rcu *prl;	/* potential router list */
 	unsigned int		prl_count;	/* # of entries in PRL */
-	struct ip_tunnel_parm_kern *sit_parms;
+	struct ip_tunnel_parm_kern __rcu *sit_parms;
 	unsigned int		ip_tnl_net_id;
 	struct gro_cells	gro_cells;
 	__u32			fwmark;
