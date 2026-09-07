@@ -754,6 +754,7 @@ static inline int tb_ring_tx_more(struct tb_ring *ring, struct ring_frame *frame
 
 /* Used only when the ring is in polling mode */
 struct ring_frame *tb_ring_poll(struct tb_ring *ring);
+bool tb_ring_poll_pending(struct tb_ring *ring);
 void tb_ring_poll_complete(struct tb_ring *ring);
 
 int tb_ring_throttling(struct tb_ring *ring, unsigned int interval_nsec);
