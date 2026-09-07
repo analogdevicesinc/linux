@@ -3,6 +3,7 @@ CFLAGS += $(KHDR_INCLUDES)
 
 TEST_INCLUDES := $(wildcard lib/py/*.py) \
 		 $(wildcard lib/sh/*.sh) \
+		 $(wildcard ../../net/lib/sh/*.sh) \
 		 ../../net/lib.sh \
 
 TEST_GEN_FILES := \

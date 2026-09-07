@@ -69,10 +69,11 @@ TEST_FILES := \
 
 TEST_INCLUDES := \
 	$(wildcard lib/py/*.py ../lib/py/*.py) \
-	../../../net/lib.sh \
+	$(wildcard ../../../net/lib/sh/*.sh) \
 	../../../net/forwarding/ipip_lib.sh \
 	../../../net/forwarding/lib.sh \
 	../../../net/forwarding/tc_common.sh \
+	../../../net/lib.sh \
 	#
 
 # YNL files, must be before "include ..lib.mk"
