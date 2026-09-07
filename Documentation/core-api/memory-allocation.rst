@@ -23,11 +23,13 @@ answer, although very likely you should use
 
   kzalloc_obj(<VAR_OR_TYPE>);
 
-or
+if you need memory for an object and
 
 ::
 
   kzalloc(<size>, GFP_KERNEL);
+
+if you need memory for a buffer.
 
 Of course there are cases when other allocation APIs and different GFP
 flags must be used.
