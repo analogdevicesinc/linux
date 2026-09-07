@@ -898,9 +898,7 @@ int gpu_buddy_init(struct gpu_buddy *mm, u64 size, u64 chunk_size)
 
 	mm->n_roots = hweight64(size);
 
-	mm->roots = kmalloc_array(mm->n_roots,
-				  sizeof(struct gpu_buddy_block *),
-				  GFP_KERNEL);
+	mm->roots = kmalloc_objs(struct gpu_buddy_block *, mm->n_roots);
 	if (!mm->roots)
 		goto out_free_tree;
 
