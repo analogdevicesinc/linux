@@ -102,6 +102,14 @@
 
 #define ADA4355_MAX_RUNS        (IDELAY_ENTRIES / 2)
 
+/*
+ * The whole sweep is repeated because a plateau that confirms clean can still
+ * fail once the final taps are re-applied: writing the frame delay restarts the
+ * 0xF0 hunt, and the byte phase it settles on is not guaranteed to be the one
+ * observed during the trial.
+ */
+#define ADA4355_CAL_ATTEMPTS    3
+
 /* Frame lane sits above the data lanes in the up_delay_cntrl address space */
 #define ADA4355_FRAME_DELAY_LANE            2
 
@@ -393,49 +401,33 @@ static void ada4355_log_sweep(struct device *dev, const char *what, const u8 *fi
 	dev_info(dev, "  %-10s taps 0-%u |%s|\n", what, IDELAY_ENTRIES - 1, buf);
 }
 
-static int ada4355_post_setup(struct iio_dev *indio_dev)
+static bool ada4355_lanes_overlap(const struct ada4355_run *win, unsigned int n)
 {
-	struct axiadc_state *axi_adc_st = iio_priv(indio_dev);
-	struct ada4355_state *st = ada4355_get_data(indio_dev);
-	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct device *dev = &conv->spi->dev;
+	unsigned int lo = 0, hi = UINT_MAX, i;
+
+	for (i = 0; i < n; i++) {
+		lo = max(lo, win[i].start);
+		hi = min(hi, win[i].start + win[i].len);
+	}
+
+	return lo < hi;
+}
+
+/*
+ * One full pass: sweep the frame lane, then sweep both data lanes inside every
+ * frame plateau and keep the candidate whose confirmed windows are widest.
+ */
+static bool ada4355_calibrate(struct device *dev, struct axiadc_state *axi_adc_st,
+			      unsigned int num_lanes, unsigned int all_mask,
+			      unsigned int *best_frame, unsigned int *best_delay)
+{
 	u8 frame_map[IDELAY_ENTRIES];
 	u8 lane_map[ADA4355_FRAME_DELAY_LANE][IDELAY_ENTRIES];
 	struct ada4355_run plateau[ADA4355_MAX_RUNS], run[ADA4355_MAX_RUNS];
-	unsigned int best_delay[ADA4355_FRAME_DELAY_LANE] = {};
-	unsigned int best_frame = 0, best_score = 0;
-	unsigned int all_mask, nplateau, p;
-	int ret;
-	unsigned int reg_cntrl, ver, cfg;
-	unsigned int i;
+	struct ada4355_run win[ADA4355_FRAME_DELAY_LANE];
+	unsigned int best_score = 0;
+	unsigned int nplateau, p, i;
 	bool cal_ok = false;
-
-	ver = axiadc_read(axi_adc_st, ADI_AXI_REG_VERSION);
-	cfg = axiadc_read(axi_adc_st, ADI_REG_CONFIG);
-
-	dev_info(dev, "==== ada4355_post_setup: AXI core state ====\n");
-	dev_info(dev, "  VERSION %u.%u.%u  ID 0x%08X  CONFIG 0x%08X%s\n",
-		 ADI_AXI_PCORE_VER_MAJOR(ver), ADI_AXI_PCORE_VER_MINOR(ver),
-		 ADI_AXI_PCORE_VER_PATCH(ver),
-		 axiadc_read(axi_adc_st, ADI_AXI_REG_ID), cfg,
-		 (cfg & ADI_DELAY_CONTROL_DISABLE) ? " [IDELAY CONTROL DISABLED]" : "");
-	ada4355_log_clk_mon(dev, axi_adc_st);
-	dev_info(dev, "  RSTN 0x%08X  CNTRL 0x%08X  STATUS 0x%08X\n",
-		 axiadc_read(axi_adc_st, ADI_REG_RSTN),
-		 axiadc_read(axi_adc_st, ADI_REG_CNTRL),
-		 axiadc_read(axi_adc_st, ADI_REG_STATUS));
-
-	/* Set number of lanes and assert sync */
-	reg_cntrl = axiadc_read(axi_adc_st, ADI_REG_CNTRL);
-	reg_cntrl |= ADI_NUM_LANES(st->num_lanes);
-	reg_cntrl |= ADI_SYNC;
-	axiadc_write(axi_adc_st, ADI_REG_CNTRL, reg_cntrl);
-	dev_info(dev, "  CNTRL <= 0x%08X (num_lanes=%u, SYNC), RB 0x%08X\n",
-		 reg_cntrl, st->num_lanes, axiadc_read(axi_adc_st, ADI_REG_CNTRL));
-
-	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);
-
-	all_mask = BIT(2) | GENMASK(st->num_lanes - 1, 0);
 
 	/*
 	 * The frame delay is not an independent lane. axi_ada4355_if.v shifts the
@@ -469,8 +461,8 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 			 plateau[p].start, plateau[p].start + plateau[p].len - 1,
 			 frame_delay);
 
-		for (i = 0; i < st->num_lanes; i++) {
-			const struct ada4355_run *win;
+		for (i = 0; i < num_lanes; i++) {
+			const struct ada4355_run *w;
 			unsigned int nrun;
 			char name[8];
 
@@ -479,25 +471,38 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 			ada4355_log_sweep(dev, name, lane_map[i]);
 
 			nrun = ada4355_find_runs(lane_map[i], IDELAY_ENTRIES, run);
-			win = ada4355_best_run(run, nrun, IDELAY_ENTRIES);
-			if (!win) {
+			w = ada4355_best_run(run, nrun, IDELAY_ENTRIES);
+			if (!w) {
 				dev_info(dev, "    lane %u has no window here\n", i);
 				usable = false;
 				break;
 			}
 
-			try_delay[i] = win->start + win->len / 2;
-			worst = min(worst, win->len);
-			unclipped &= !ada4355_run_clipped(win, IDELAY_ENTRIES);
+			win[i] = *w;
+			try_delay[i] = w->start + w->len / 2;
+			worst = min(worst, w->len);
+			unclipped &= !ada4355_run_clipped(w, IDELAY_ENTRIES);
 			dev_info(dev, "    lane %u window [%u..%u] %u wide -> delay %u\n",
-				 i, win->start, win->start + win->len - 1, win->len,
+				 i, w->start, w->start + w->len - 1, w->len,
 				 try_delay[i]);
 		}
 
 		if (!usable)
 			continue;
 
-		for (i = 0; i < st->num_lanes; i++)
+		/*
+		 * Both data lanes leave the same die on length-matched traces, so
+		 * their eyes cannot sit a whole unit interval apart. Disjoint
+		 * windows mean the lanes locked onto different bit periods, which
+		 * the pattern check cannot see because 0xFFFC deinterleaves to the
+		 * same byte on either lane — but real samples come out mangled.
+		 */
+		if (!ada4355_lanes_overlap(win, num_lanes)) {
+			dev_info(dev, "    rejected: lane windows do not overlap, so they are different unit intervals\n");
+			continue;
+		}
+
+		for (i = 0; i < num_lanes; i++)
 			axiadc_write(axi_adc_st, ADI_REG_DELAY(i), try_delay[i]);
 
 		if (!ada4355_link_clean(axi_adc_st, all_mask)) {
@@ -509,20 +514,85 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 		score = worst + (unclipped ? IDELAY_ENTRIES : 0);
 		if (score > best_score) {
 			best_score = score;
-			best_frame = frame_delay;
-			for (i = 0; i < st->num_lanes; i++)
+			*best_frame = frame_delay;
+			for (i = 0; i < num_lanes; i++)
 				best_delay[i] = try_delay[i];
 			cal_ok = true;
 		}
 	}
 
-	if (cal_ok) {
+	return cal_ok;
+}
+
+static int ada4355_post_setup(struct iio_dev *indio_dev)
+{
+	struct axiadc_state *axi_adc_st = iio_priv(indio_dev);
+	struct ada4355_state *st = ada4355_get_data(indio_dev);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct device *dev = &conv->spi->dev;
+	unsigned int best_delay[ADA4355_FRAME_DELAY_LANE] = {};
+	unsigned int best_frame = 0;
+	unsigned int all_mask, attempt;
+	int ret;
+	unsigned int reg_cntrl, ver, cfg;
+	unsigned int i;
+	bool cal_ok = false;
+
+	ver = axiadc_read(axi_adc_st, ADI_AXI_REG_VERSION);
+	cfg = axiadc_read(axi_adc_st, ADI_REG_CONFIG);
+
+	dev_info(dev, "==== ada4355_post_setup: AXI core state ====\n");
+	dev_info(dev, "  VERSION %u.%u.%u  ID 0x%08X  CONFIG 0x%08X%s\n",
+		 ADI_AXI_PCORE_VER_MAJOR(ver), ADI_AXI_PCORE_VER_MINOR(ver),
+		 ADI_AXI_PCORE_VER_PATCH(ver),
+		 axiadc_read(axi_adc_st, ADI_AXI_REG_ID), cfg,
+		 (cfg & ADI_DELAY_CONTROL_DISABLE) ? " [IDELAY CONTROL DISABLED]" : "");
+	ada4355_log_clk_mon(dev, axi_adc_st);
+	dev_info(dev, "  RSTN 0x%08X  CNTRL 0x%08X  STATUS 0x%08X\n",
+		 axiadc_read(axi_adc_st, ADI_REG_RSTN),
+		 axiadc_read(axi_adc_st, ADI_REG_CNTRL),
+		 axiadc_read(axi_adc_st, ADI_REG_STATUS));
+
+	/* Set number of lanes and assert sync */
+	reg_cntrl = axiadc_read(axi_adc_st, ADI_REG_CNTRL);
+	reg_cntrl |= ADI_NUM_LANES(st->num_lanes);
+	reg_cntrl |= ADI_SYNC;
+	axiadc_write(axi_adc_st, ADI_REG_CNTRL, reg_cntrl);
+	dev_info(dev, "  CNTRL <= 0x%08X (num_lanes=%u, SYNC), RB 0x%08X\n",
+		 reg_cntrl, st->num_lanes, axiadc_read(axi_adc_st, ADI_REG_CNTRL));
+
+	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);
+
+	all_mask = BIT(2) | GENMASK(st->num_lanes - 1, 0);
+
+	for (attempt = 1; attempt <= ADA4355_CAL_ATTEMPTS; attempt++) {
+		cal_ok = ada4355_calibrate(dev, axi_adc_st, st->num_lanes,
+					   all_mask, &best_frame, best_delay);
+		if (!cal_ok)
+			continue;
+
 		axiadc_write(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE),
 			     best_frame);
 		for (i = 0; i < st->num_lanes; i++)
 			axiadc_write(axi_adc_st, ADI_REG_DELAY(i), best_delay[i]);
 
-		dev_info(dev, "==== IDELAY calibration complete ====\n");
+		/*
+		 * Re-applying the frame delay restarts the 0xF0 hunt, so the byte
+		 * phase that confirmed clean during the trial is not necessarily
+		 * the one now loaded. Without this the driver reports success on
+		 * a configuration the core is already flagging as PN_ERR.
+		 */
+		if (ada4355_link_clean(axi_adc_st, all_mask))
+			break;
+
+		dev_warn(dev, "attempt %u: chosen taps did not hold once re-applied, sweeping again\n",
+			 attempt);
+		cal_ok = false;
+	}
+
+	if (cal_ok) {
+		dev_info(dev, "==== IDELAY calibration complete (attempt %u) ====\n",
+			 attempt);
 		dev_info(dev, "  frame delay %u (RB %u)\n", best_frame,
 			 axiadc_read(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE)));
 		for (i = 0; i < st->num_lanes; i++)
@@ -676,8 +746,17 @@ static int ada4355_setup(struct ada4355_state *st)
 				   ADA4355_125_RATE, true, "RESOLUTION_SMP_RATE");
 	if (ret)
 		return ret;
-	dev_warn(dev, "  NOTE: 0x100 written without a following TRANSFER (0xFF=0x01), so the "
-		      "125 MSPS override is NOT latched yet\n");
+
+	/*
+	 * TEST_MODE, USER_PATT1/2, OUTPUT_MODE and 0x100 are all shadowed
+	 * registers: they do not take effect until TRANSFER is written. The only
+	 * TRANSFER above precedes them, so without this second one the IDELAY
+	 * sweep looks for a 0xFFFC pattern the part was never told to emit.
+	 */
+	ret = ada4355_write_verify(st, ADA4355_REG_TRANFER,
+				   ADA4355_OVERRIDE, false, "TRANSFER/patt");
+	if (ret)
+		return ret;
 
 	dev_info(dev, "==== transcript end: %u readbacks, %u mismatched, %u read 0xFF ====\n",
 		 st->rb_total, st->rb_mismatch, st->rb_ff);

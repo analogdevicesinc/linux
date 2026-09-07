@@ -293,6 +293,24 @@
 
 		spi-max-frequency = <1000000>;
 
+		/*
+		 * The bus is 4-wire only as far as the FMC. U19 (NC7WZ07P6X,
+		 * sheet 6) turns it into 3-wire at the chip: SDI drives SDIO
+		 * through a 1K series R, and a second open-drain buffer copies
+		 * SDIO back out onto SDO. So the AD9517 must talk on SDIO, not
+		 * on its own SDO pin -- the 1K is there precisely so the chip
+		 * can override the master's still-driven MOSI during the read
+		 * phase. Leaving SDO_ACTIVE set (the default here) makes the
+		 * AD9517 drive SDO at the same time as U19 does, and they share
+		 * the net with no series resistance between them.
+		 *
+		 * NOTE: this is not the whole readback fix. The FXL4TD245
+		 * shifters have every T/R pin strapped to AGND, which forces
+		 * the SDO channel FMC->board, so SDO_FMC is never driven at all.
+		 * See the board-rework task.
+		 */
+		adi,spi-3wire-enable;
+
 		clocks = <&ad9517_ref_clk>, <&ad9517_ref_clk>;
 		clock-names = "refclk", "clkin";
 
