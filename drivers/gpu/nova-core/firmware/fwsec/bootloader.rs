@@ -100,9 +100,9 @@ unsafe impl AsBytes for BootloaderDmemDescV2 {}
 
 /// Wrapper for [`FwsecFirmware`] that includes the bootloader performing the actual load
 /// operation.
-pub(crate) struct FwsecFirmwareWithBl {
+pub(crate) struct FwsecFirmwareWithBl<'a> {
     /// DMA object the bootloader will copy the firmware from.
-    _firmware_dma: Coherent<[u8]>,
+    _firmware_dma: Coherent<'a, [u8]>,
     /// Code of the bootloader to be loaded into non-secure IMEM.
     ucode: KVec<u8>,
     /// Descriptor to be loaded into DMEM for the bootloader to read.
@@ -115,12 +115,12 @@ pub(crate) struct FwsecFirmwareWithBl {
     start_tag: u16,
 }
 
-impl FwsecFirmwareWithBl {
+impl<'a> FwsecFirmwareWithBl<'a> {
     /// Loads the bootloader firmware for `dev` and `chipset`, and wrap `firmware` so it can be
     /// loaded using it.
     pub(crate) fn new(
         firmware: FwsecFirmware,
-        dev: &Device<device::Bound>,
+        dev: &'a Device<device::Bound>,
         chipset: Chipset,
     ) -> Result<Self> {
         let fw = request_tlv(dev, chipset, "gen_bootloader")?;
@@ -268,7 +268,7 @@ impl FwsecFirmwareWithBl {
     }
 }
 
-impl FalconFirmware for FwsecFirmwareWithBl {
+impl FalconFirmware for FwsecFirmwareWithBl<'_> {
     type Target = Gsp;
 
     fn brom_params(&self) -> FalconBromParams {
@@ -282,7 +282,7 @@ impl FalconFirmware for FwsecFirmwareWithBl {
     }
 }
 
-impl FalconPioLoadable for FwsecFirmwareWithBl {
+impl FalconPioLoadable for FwsecFirmwareWithBl<'_> {
     fn imem_sec_load_params(&self) -> Option<FalconPioImemLoadTarget<'_>> {
         None
     }
