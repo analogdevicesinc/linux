@@ -289,6 +289,11 @@
 };
 
 /* Page 27 / DSI to Display */
+&dsc {
+	status = "okay";
+};
+
+/* Page 27 / DSI to Display */
 &dsi1 {
 	status = "okay";
 
