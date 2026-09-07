@@ -1493,6 +1493,11 @@ int adxl367_probe(struct device *dev, const struct adxl367_ops *ops,
 	indio_dev->info = &adxl367_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
+	ret = adxl367_set_int_map_reg(st, irq);
+	if (ret < 0)
+		return dev_err_probe(st->dev, ret, "Failed to get interrupt\n");
+	irq = ret;
+
 	ret = devm_regulator_bulk_get_enable(st->dev,
 					     ARRAY_SIZE(regulator_names),
 					     regulator_names);
@@ -1519,11 +1524,6 @@ int adxl367_probe(struct device *dev, const struct adxl367_ops *ops,
 					      adxl367_fifo_attributes);
 	if (ret)
 		return ret;
-
-	ret = adxl367_set_int_map_reg(st, irq);
-	if (ret < 0)
-		return dev_err_probe(st->dev, ret, "Failed to get interrupt\n");
-	irq = ret;
 
 	ret = devm_request_threaded_irq(st->dev, irq, NULL,
 					adxl367_irq_handler, IRQF_ONESHOT,
