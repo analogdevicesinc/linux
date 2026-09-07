@@ -243,6 +243,14 @@ config PINCTRL_MSM8917
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm TLMM block found on the Qualcomm MSM8917, MSM8937 platform.
 
+config PINCTRL_MSM8952
+	tristate "Qualcomm 8952 pin controller driver"
+	depends on ARM64 || COMPILE_TEST
+	default ARCH_QCOM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  Qualcomm TLMM block found on the Qualcomm MSM8952 platform.
+
 config PINCTRL_MSM8953
 	tristate "Qualcomm 8953 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
