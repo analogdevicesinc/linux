@@ -929,7 +929,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
 	if (!dst && !ipip6_tunnel_dst_find(skb, &dst, false))
 		goto tx_error;
 
-	flowi4_init_output(&fl4, tunnel->parms.link, tunnel->fwmark,
+	flowi4_init_output(&fl4, tunnel->parms.link, READ_ONCE(tunnel->fwmark),
 			   tos & INET_DSCP_MASK, RT_SCOPE_UNIVERSE,
 			   IPPROTO_IPV6, 0, dst, tiph->saddr, 0, 0,
 			   sock_net_uid(tunnel->net, NULL));
@@ -1153,7 +1153,7 @@ static void ipip6_tunnel_update(struct ip_tunnel *t,
 	t->parms.iph.frag_off = p->iph.frag_off;
 	if (t->parms.link != p->link || t->fwmark != fwmark) {
 		t->parms.link = p->link;
-		t->fwmark = fwmark;
+		WRITE_ONCE(t->fwmark, fwmark);
 		ipip6_tunnel_bind_dev(t->dev);
 	}
 	dst_cache_reset(&t->dst_cache);
@@ -1706,7 +1706,7 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
 	    nla_put_u8(skb, IFLA_IPTUN_PROTO, parm->iph.protocol) ||
 	    nla_put_be16(skb, IFLA_IPTUN_FLAGS,
 			 ip_tunnel_flags_to_be16(parm->i_flags)) ||
-	    nla_put_u32(skb, IFLA_IPTUN_FWMARK, tunnel->fwmark))
+	    nla_put_u32(skb, IFLA_IPTUN_FWMARK, READ_ONCE(tunnel->fwmark)))
 		goto nla_put_failure;
 
 #ifdef CONFIG_IPV6_SIT_6RD
