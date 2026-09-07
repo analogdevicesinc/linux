@@ -3569,30 +3569,33 @@ FIXTURE_VARIANT(trace_net_connect) {
 	bool deny_connect;
 };
 
-/* clang-format off */
-
 /* Denied connect(): sport=0, dport=<denied port>. */
+/* clang-format off */
 FIXTURE_VARIANT_ADD(trace_net_connect, connect_denied) {
+	/* clang-format on */
 	.handled = LANDLOCK_ACCESS_NET_CONNECT_TCP,
 	.bind_base_first = false,
 	.deny_connect = true,
 };
 
 /* Denied bind(): sport=<denied port>, dport=0. */
+/* clang-format off */
 FIXTURE_VARIANT_ADD(trace_net_connect, bind_fields) {
+	/* clang-format on */
 	.handled = LANDLOCK_ACCESS_NET_BIND_TCP,
 	.bind_base_first = false,
 	.deny_connect = false,
 };
 
 /* Denied connect() after an allowed bind(): the connect fields (sport=0). */
+/* clang-format off */
 FIXTURE_VARIANT_ADD(trace_net_connect, connect_after_bind) {
-	.handled = LANDLOCK_ACCESS_NET_BIND_TCP | LANDLOCK_ACCESS_NET_CONNECT_TCP,
+	/* clang-format on */
+	.handled = LANDLOCK_ACCESS_NET_BIND_TCP |
+		   LANDLOCK_ACCESS_NET_CONNECT_TCP,
 	.bind_base_first = true,
 	.deny_connect = true,
 };
-
-/* clang-format on */
 
 /*
  * A denied TCP bind(2) or connect(2) emits one deny_access_net event.  The port

@@ -1243,45 +1243,77 @@ FIXTURE_VARIANT(trace_enforce) {
 	int no_new_privs;
 };
 
-/* clang-format off */
-
 /* Single thread, no flags: prctl-backed no_new_privs. */
+/* clang-format off */
 FIXTURE_VARIANT_ADD(trace_enforce, single) {
-	.nthreads = 0, .flags = 0,
-	.total = 1, .complete = 1, .process_wide = 1, .no_new_privs = 1,
+	.nthreads = 0,
+	.flags = 0,
+	.total = 1,
+	.complete = 1,
+	.process_wide = 1,
+	.no_new_privs = 1,
 };
+/* clang-format on */
 
 /* Single thread: the NO_NEW_PRIVS flag sets no_new_privs (no prctl). */
+/* clang-format off */
 FIXTURE_VARIANT_ADD(trace_enforce, no_new_privs) {
-	.nthreads = 0, .flags = LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS,
-	.total = 1, .complete = 1, .process_wide = 1, .no_new_privs = 1,
+	.nthreads = 0,
+	.flags = LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS,
+	.total = 1,
+	.complete = 1,
+	.process_wide = 1,
+	.no_new_privs = 1,
 };
+/* clang-format on */
 
 /* TSYNC on a lone thread still concludes, process-wide. */
+/* clang-format off */
 FIXTURE_VARIANT_ADD(trace_enforce, tsync_single) {
-	.nthreads = 0, .flags = LANDLOCK_RESTRICT_SELF_TSYNC,
-	.total = 1, .complete = 1, .process_wide = 1, .no_new_privs = 1,
+	.nthreads = 0,
+	.flags = LANDLOCK_RESTRICT_SELF_TSYNC,
+	.total = 1,
+	.complete = 1,
+	.process_wide = 1,
+	.no_new_privs = 1,
 };
+/* clang-format on */
 
 /* TSYNC sweeps N siblings; the caller's prctl-backed nnp propagates to all. */
+/* clang-format off */
 FIXTURE_VARIANT_ADD(trace_enforce, tsync_multithread) {
-	.nthreads = 3, .flags = LANDLOCK_RESTRICT_SELF_TSYNC,
-	.total = 4, .complete = 1, .process_wide = 4, .no_new_privs = 4,
+	.nthreads = 3,
+	.flags = LANDLOCK_RESTRICT_SELF_TSYNC,
+	.total = 4,
+	.complete = 1,
+	.process_wide = 4,
+	.no_new_privs = 4,
 };
+/* clang-format on */
 
 /* TSYNC + NO_NEW_PRIVS flag sets nnp on the caller and every swept sibling. */
+/* clang-format off */
 FIXTURE_VARIANT_ADD(trace_enforce, tsync_no_new_privs) {
+	/* clang-format on */
 	.nthreads = 3,
-	.flags = LANDLOCK_RESTRICT_SELF_TSYNC | LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS,
-	.total = 4, .complete = 1, .process_wide = 4, .no_new_privs = 4,
+	.flags = LANDLOCK_RESTRICT_SELF_TSYNC |
+		 LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS,
+	.total = 4,
+	.complete = 1,
+	.process_wide = 4,
+	.no_new_privs = 4,
 };
 
 /* Non-TSYNC on a multi-threaded process enforces only the caller. */
+/* clang-format off */
 FIXTURE_VARIANT_ADD(trace_enforce, multithread_non_tsync) {
-	.nthreads = 3, .flags = 0,
-	.total = 1, .complete = 1, .process_wide = 0, .no_new_privs = 1,
+	.nthreads = 3,
+	.flags = 0,
+	.total = 1,
+	.complete = 1,
+	.process_wide = 0,
+	.no_new_privs = 1,
 };
-
 /* clang-format on */
 
 /*
