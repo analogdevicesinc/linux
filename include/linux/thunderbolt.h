@@ -369,7 +369,7 @@ int tb_xdomain_request(struct tb_xdomain *xd, const void *request,
  * @uuid: XDomain messages with this UUID are dispatched to this handler
  * @callback: Callback called with the XDomain message. Returning %1
  *	      here tells the XDomain core that the message was handled
- *	      by this handler and should not be forwared to other
+ *	      by this handler and should not be forwarded to other
  *	      handlers.
  * @data: Data passed with the callback
  * @list: Handlers are linked using this
