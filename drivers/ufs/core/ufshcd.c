@@ -1711,6 +1711,26 @@ start_window:
 	return 0;
 }
 
+static int ufshcd_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	if (!ufshcd_is_clkscaling_supported(hba))
+		return -EINVAL;
+
+	if (hba->use_pm_opp) {
+		*freq = hba->clk_scaling.target_freq;
+	} else {
+		struct ufs_clk_info *clki;
+
+		clki = list_first_entry(&hba->clk_list_head,
+					struct ufs_clk_info, list);
+		*freq = clki->curr_freq;
+	}
+
+	return 0;
+}
+
 static int ufshcd_devfreq_init(struct ufs_hba *hba)
 {
 	struct list_head *clk_list = &hba->clk_list_head;
@@ -9616,6 +9636,7 @@ static struct ufs_hba_variant_params ufs_hba_vps = {
 	.devfreq_profile.polling_ms	= 100,
 	.devfreq_profile.target		= ufshcd_devfreq_target,
 	.devfreq_profile.get_dev_status	= ufshcd_devfreq_get_dev_status,
+	.devfreq_profile.get_cur_freq	= ufshcd_devfreq_get_cur_freq,
 	.ondemand_data.upthreshold	= 70,
 	.ondemand_data.downdifferential	= 5,
 };
