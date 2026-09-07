@@ -5332,7 +5332,7 @@ static int hns_roce_v2_set_path(struct ib_qp *ibqp,
 	hr_reg_clear(qpc_mask, QPC_VLAN_ID);
 
 	if (grh->sgid_index >= hr_dev->caps.gid_table_len[hr_port]) {
-		ibdev_err(ibdev, "sgid_index(%u) too large. max is %d\n",
+		ibdev_err(ibdev, "sgid_index(%u) too large. max is %u\n",
 			  grh->sgid_index, hr_dev->caps.gid_table_len[hr_port]);
 		return -EINVAL;
 	}
