@@ -169,11 +169,13 @@ struct ipu_bridge {
 };
 
 #if IS_ENABLED(CONFIG_IPU_BRIDGE)
+struct pci_dev *ipu_bridge_get_ipu6(void);
 int ipu_bridge_init(struct device *dev,
 		    ipu_parse_sensor_fwnode_t parse_sensor_fwnode);
 int ipu_bridge_parse_ssdb(struct acpi_device *adev, struct ipu_sensor *sensor);
 int ipu_bridge_instantiate_vcm(struct device *sensor);
 #else
+static inline struct pci_dev *ipu_bridge_get_ipu6(void) { return NULL; }
 /* Use a define to avoid the @parse_sensor_fwnode argument getting evaluated */
 #define ipu_bridge_init(dev, parse_sensor_fwnode)	(0)
 static inline int ipu_bridge_instantiate_vcm(struct device *s) { return 0; }

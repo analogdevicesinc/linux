@@ -15,6 +15,7 @@
 #include <linux/workqueue.h>
 
 #include <media/ipu-bridge.h>
+#include <media/ipu6-pci-table.h>
 #include <media/v4l2-fwnode.h>
 
 #define ADEV_DEV(adev) ACPI_PTR(&((adev)->dev))
@@ -949,6 +950,18 @@ static int ipu_bridge_check_fwnode_graph(struct fwnode_handle *fwnode)
 
 	return ipu_bridge_check_fwnode_graph(fwnode->secondary);
 }
+
+struct pci_dev *ipu_bridge_get_ipu6(void)
+{
+	struct pci_dev *ipu = NULL;
+
+	for (unsigned int i = 0; !ipu && ipu6_pci_tbl[i].vendor; i++)
+		ipu = pci_get_device(ipu6_pci_tbl[i].vendor,
+				     ipu6_pci_tbl[i].device, NULL);
+
+	return ipu;
+}
+EXPORT_SYMBOL_NS_GPL(ipu_bridge_get_ipu6, "INTEL_IPU_BRIDGE");
 
 static DEFINE_MUTEX(ipu_bridge_mutex);
 
