@@ -245,6 +245,25 @@ void amdgpu_amdkfd_device_fini_sw(struct amdgpu_device *adev)
 	}
 }
 
+int amdgpu_amdkfd_prepare_partition_switch(struct amdgpu_device *adev)
+{
+	struct kfd_dev *kfd = adev->kfd.dev;
+	int r;
+
+	if (!kfd)
+		return 0;
+	r = kgd2kfd_check_and_lock_kfd(kfd);
+	if (r)
+		return r;
+
+	adev->kfd.init_complete = false;
+	kgd2kfd_device_fini(kfd);
+	adev->kfd.dev = NULL;
+	amdgpu_amdkfd_total_mem_size -= adev->gmc.real_vram_size;
+
+	return 0;
+}
+
 void amdgpu_amdkfd_interrupt(struct amdgpu_device *adev,
 		const void *ih_ring_entry)
 {

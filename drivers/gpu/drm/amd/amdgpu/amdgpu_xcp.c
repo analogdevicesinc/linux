@@ -694,14 +694,16 @@ void amdgpu_xcp_update_supported_modes(struct amdgpu_xcp_mgr *xcp_mgr)
 
 int amdgpu_xcp_pre_partition_switch(struct amdgpu_xcp_mgr *xcp_mgr, u32 flags)
 {
+	int ret = 0;
+
 	/* TODO:
 	 * Stop user queues and threads, and make sure GPU is empty of work.
 	 */
 
 	if (flags & AMDGPU_XCP_OPS_KFD)
-		amdgpu_amdkfd_device_fini_sw(xcp_mgr->adev);
+		ret = amdgpu_amdkfd_prepare_partition_switch(xcp_mgr->adev);
 
-	return 0;
+	return ret;
 }
 
 int amdgpu_xcp_post_partition_switch(struct amdgpu_xcp_mgr *xcp_mgr, u32 flags)

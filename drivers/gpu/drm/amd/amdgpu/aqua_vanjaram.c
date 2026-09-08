@@ -392,15 +392,9 @@ static int aqua_vanjaram_switch_partition_mode(struct amdgpu_xcp_mgr *xcp_mgr,
 		!adev->in_suspend)
 		flags |= AMDGPU_XCP_OPS_KFD;
 
-	if (flags & AMDGPU_XCP_OPS_KFD) {
-		ret = amdgpu_amdkfd_check_and_lock_kfd(adev);
-		if (ret)
-			goto out;
-	}
-
 	ret = amdgpu_xcp_pre_partition_switch(xcp_mgr, flags);
 	if (ret)
-		goto unlock;
+		goto out;
 
 	num_xcc_per_xcp = __aqua_vanjaram_get_xcc_per_xcp(xcp_mgr, mode);
 	if (adev->gfx.funcs->switch_partition_mode)
@@ -414,9 +408,6 @@ static int aqua_vanjaram_switch_partition_mode(struct amdgpu_xcp_mgr *xcp_mgr,
 	ret = amdgpu_xcp_post_partition_switch(xcp_mgr, flags);
 	if (!ret)
 		__aqua_vanjaram_update_available_partition_mode(xcp_mgr);
-unlock:
-	if (flags & AMDGPU_XCP_OPS_KFD)
-		amdgpu_amdkfd_unlock_kfd(adev);
 out:
 	return ret;
 }
