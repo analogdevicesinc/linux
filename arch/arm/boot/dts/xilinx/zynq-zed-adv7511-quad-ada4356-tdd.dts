@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Quad ADA4356 with AXI TDD controller
+ *
+ * hdl_project: <quad_ada4356/zed>
+ * board_revision: <>
+ *
+ * Extends zynq-zed-adv7511-quad-ada4356.dts with the axi_tdd_0 node.
+ * The TDD controller is already present in the bitstream at 0x44A80000;
+ * this file adds the Linux driver binding and IIO fake-device wrapper.
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+
+#include "zynq-zed-adv7511-quad-ada4356.dts"
+
+/ {
+	clocks {
+		/*
+		 * axi_tdd_0 intf_clk = adc_clk of axi_ada4355_adc_0: 125 MHz
+		 * derived from the ADA4356-A DCO via IBUFGDS -> BUFIO -> BUFR/2.
+		 * FPGA fabric clock with no PS PLL origin, so represented here
+		 * as a fixed-clock.
+		 */
+		tdd_intf_clk: clock@1 {
+			compatible = "fixed-clock";
+
+			clock-frequency = <125000000>;
+			clock-output-names = "tdd_intf_clk";
+			#clock-cells = <0>;
+		};
+	};
+};
+
+&fpga_axi {
+	/*
+	 * AXI TDD controller. Channels:
+	 *   0: trig_fmc_out (FMC_LA04_N, pin M22) — laser/external trigger output
+	 *   1-4: per-DMA sync inputs (connected once SYNC_TRANSFER_START=1 is
+	 *        restored in the block design and the bitstream is rebuilt).
+	 * sync_in: trig_fmc_in (FMC_LA04_P, pin M21) — external sync input.
+	 */
+	tdd: tdd@44a80000 {
+		compatible = "adi,axi-tdd";
+		reg = <0x44a80000 0x10000>;
+		clocks = <&tdd_intf_clk>, <&clkc 15>;
+		clock-names = "intf_clk", "s_axi_aclk";
+	};
+
+	iio_axi_tdd@0 {
+		compatible = "adi,iio-fake-platform-device";
+		adi,faked-dev = <&tdd>;
+		adi,attribute-names =
+			"version", "core_id", "scratch", "magic",
+			"sync_soft", "sync_external", "sync_internal", "sync_reset",
+			"enable", "startup_delay_raw", "startup_delay_ms",
+			"burst_count", "frame_length_raw", "frame_length_ms",
+			"state", "internal_sync_period_raw", "internal_sync_period_ms",
+			"out_channel0_enable", "out_channel0_polarity",
+			"out_channel0_on_raw", "out_channel0_on_ms",
+			"out_channel0_off_raw", "out_channel0_off_ms",
+			"out_channel1_enable", "out_channel1_polarity",
+			"out_channel1_on_raw", "out_channel1_on_ms",
+			"out_channel1_off_raw", "out_channel1_off_ms",
+			"out_channel2_enable", "out_channel2_polarity",
+			"out_channel2_on_raw", "out_channel2_on_ms",
+			"out_channel2_off_raw", "out_channel2_off_ms",
+			"out_channel3_enable", "out_channel3_polarity",
+			"out_channel3_on_raw", "out_channel3_on_ms",
+			"out_channel3_off_raw", "out_channel3_off_ms",
+			"out_channel4_enable", "out_channel4_polarity",
+			"out_channel4_on_raw", "out_channel4_on_ms",
+			"out_channel4_off_raw", "out_channel4_off_ms";
+		label = "axi-core-tdd";
+	};
+};
