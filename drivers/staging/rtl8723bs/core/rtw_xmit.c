@@ -7,6 +7,7 @@
 #include <drv_types.h>
 #include <linux/delay.h>
 #include <linux/if_ether.h>
+#include <linux/align.h>
 
 static u8 P802_1H_OUI[P80211_OUI_LEN] = { 0x00, 0x00, 0xf8 };
 static u8 RFC1042_OUI[P80211_OUI_LEN] = { 0x00, 0x00, 0x00 };
@@ -80,7 +81,7 @@ static int rtw_os_xmit_resource_alloc(struct adapter *padapter, struct xmit_buf 
 		if (!pxmitbuf->pallocated_buf)
 			return -ENOMEM;
 
-		pxmitbuf->pbuf = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(pxmitbuf->pallocated_buf), XMITBUF_ALIGN_SZ);
+		pxmitbuf->pbuf = PTR_ALIGN(pxmitbuf->pallocated_buf, XMITBUF_ALIGN_SZ);
 	}
 
 	return 0;
@@ -126,7 +127,7 @@ s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
 		pxmitpriv->pxmit_frame_buf = NULL;
 		return -ENOMEM;
 	}
-	pxmitpriv->pxmit_frame_buf = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(pxmitpriv->pallocated_frame_buf), 4);
+	pxmitpriv->pxmit_frame_buf = PTR_ALIGN(pxmitpriv->pallocated_frame_buf, 4);
 
 	pxframe = (struct xmit_frame *)pxmitpriv->pxmit_frame_buf;
 
@@ -162,7 +163,7 @@ s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
 	if (!pxmitpriv->pallocated_xmitbuf)
 		return -ENOMEM;
 
-	pxmitpriv->pxmitbuf = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(pxmitpriv->pallocated_xmitbuf), 4);
+	pxmitpriv->pxmitbuf = PTR_ALIGN(pxmitpriv->pallocated_xmitbuf, 4);
 
 	pxmitbuf = (struct xmit_buf *)pxmitpriv->pxmitbuf;
 
@@ -207,7 +208,7 @@ s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
 		pxmitpriv->xframe_ext = NULL;
 		return -ENOMEM;
 	}
-	pxmitpriv->xframe_ext = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(pxmitpriv->xframe_ext_alloc_addr), 4);
+	pxmitpriv->xframe_ext = PTR_ALIGN(pxmitpriv->xframe_ext_alloc_addr, 4);
 	pxframe = (struct xmit_frame *)pxmitpriv->xframe_ext;
 
 	for (i = 0; i < NR_XMIT_EXTBUFF; i++) {
@@ -239,7 +240,7 @@ s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
 	if (!pxmitpriv->pallocated_xmit_extbuf)
 		return -ENOMEM;
 
-	pxmitpriv->pxmit_extbuf = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(pxmitpriv->pallocated_xmit_extbuf), 4);
+	pxmitpriv->pxmit_extbuf = PTR_ALIGN(pxmitpriv->pallocated_xmit_extbuf, 4);
 
 	pxmitbuf = (struct xmit_buf *)pxmitpriv->pxmit_extbuf;
 
@@ -1188,7 +1189,7 @@ int rtw_xmitframe_coalesce(struct adapter *padapter, struct sk_buff *pkt, struct
 }
 
 /* broadcast or multicast management pkt use BIP, unicast management pkt use CCMP encryption */
-s32 rtw_mgmt_xmitframe_coalesce(struct adapter *padapter, struct sk_buff *pkt, struct xmit_frame *pxmitframe)
+int rtw_mgmt_xmitframe_coalesce(struct adapter *padapter, struct sk_buff *pkt, struct xmit_frame *pxmitframe)
 {
 	u8 *pframe, *mem_start = NULL, *tmp_buf = NULL;
 	u8 subtype;
@@ -1211,7 +1212,7 @@ s32 rtw_mgmt_xmitframe_coalesce(struct adapter *padapter, struct sk_buff *pkt, s
 	BIP_AAD = kzalloc(ori_len, GFP_ATOMIC);
 
 	if (!BIP_AAD)
-		return _FAIL;
+		return -ENOMEM;
 
 	tmp_buf = BIP_AAD;
 	subtype = GetFrameSubType(pframe); /* bit(7)~bit(2) */
@@ -1342,12 +1343,12 @@ s32 rtw_mgmt_xmitframe_coalesce(struct adapter *padapter, struct sk_buff *pkt, s
 xmitframe_coalesce_success:
 	spin_unlock_bh(&padapter->security_key_mutex);
 	kfree(BIP_AAD);
-	return _SUCCESS;
+	return 0;
 
 xmitframe_coalesce_fail:
 	spin_unlock_bh(&padapter->security_key_mutex);
 	kfree(BIP_AAD);
-	return _FAIL;
+	return -EINVAL;
 }
 
 /* Logical Link Control(LLC) SubNetwork Attachment Point(SNAP) header
@@ -1534,13 +1535,13 @@ struct xmit_buf *rtw_alloc_xmitbuf_ext(struct xmit_priv *pxmitpriv)
 	return pxmitbuf;
 }
 
-s32 rtw_free_xmitbuf_ext(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf)
+void rtw_free_xmitbuf_ext(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf)
 {
 	unsigned long irqL;
 	struct __queue *pfree_queue = &pxmitpriv->free_xmit_extbuf_queue;
 
 	if (!pxmitbuf)
-		return _FAIL;
+		return;
 
 	spin_lock_irqsave(&pfree_queue->lock, irqL);
 
@@ -1550,8 +1551,6 @@ s32 rtw_free_xmitbuf_ext(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf)
 	pxmitpriv->free_xmit_extbuf_cnt++;
 
 	spin_unlock_irqrestore(&pfree_queue->lock, irqL);
-
-	return _SUCCESS;
 }
 
 struct xmit_buf *rtw_alloc_xmitbuf(struct xmit_priv *pxmitpriv)
@@ -1595,13 +1594,13 @@ struct xmit_buf *rtw_alloc_xmitbuf(struct xmit_priv *pxmitpriv)
 	return pxmitbuf;
 }
 
-s32 rtw_free_xmitbuf(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf)
+void rtw_free_xmitbuf(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf)
 {
 	unsigned long irqL;
 	struct __queue *pfree_xmitbuf_queue = &pxmitpriv->free_xmitbuf_queue;
 
 	if (!pxmitbuf)
-		return _FAIL;
+		return;
 
 	if (pxmitbuf->sctx)
 		rtw_sctx_done_err(&pxmitbuf->sctx, RTW_SCTX_DONE_BUF_FREE);
@@ -1620,7 +1619,6 @@ s32 rtw_free_xmitbuf(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf)
 		pxmitpriv->free_xmitbuf_cnt++;
 		spin_unlock_irqrestore(&pfree_xmitbuf_queue->lock, irqL);
 	}
-	return _SUCCESS;
 }
 
 static void rtw_init_xmitframe(struct xmit_frame *pxframe)
@@ -1717,7 +1715,7 @@ struct xmit_frame *rtw_alloc_xmitframe_once(struct xmit_priv *pxmitpriv)
 	if (!alloc_addr)
 		goto exit;
 
-	pxframe = (struct xmit_frame *)N_BYTE_ALIGMENT((SIZE_PTR)(alloc_addr), 4);
+	pxframe = (struct xmit_frame *)PTR_ALIGN(alloc_addr, 4);
 	pxframe->alloc_addr = alloc_addr;
 
 	pxframe->padapter = pxmitpriv->adapter;
@@ -1734,14 +1732,14 @@ exit:
 	return pxframe;
 }
 
-s32 rtw_free_xmitframe(struct xmit_priv *pxmitpriv, struct xmit_frame *pxmitframe)
+void rtw_free_xmitframe(struct xmit_priv *pxmitpriv, struct xmit_frame *pxmitframe)
 {
 	struct __queue *queue = NULL;
 	struct adapter *padapter = pxmitpriv->adapter;
 	struct sk_buff *pndis_pkt = NULL;
 
 	if (!pxmitframe)
-		return _SUCCESS;
+		return;
 
 	if (pxmitframe->pkt) {
 		pndis_pkt = pxmitframe->pkt;
@@ -1750,7 +1748,11 @@ s32 rtw_free_xmitframe(struct xmit_priv *pxmitpriv, struct xmit_frame *pxmitfram
 
 	if (pxmitframe->alloc_addr) {
 		kfree(pxmitframe->alloc_addr);
-		goto check_pkt_complete;
+
+		if (pndis_pkt)
+			rtw_os_pkt_complete(padapter, pndis_pkt);
+
+		return;
 	}
 
 	if (pxmitframe->ext_tag == 0)
@@ -1769,12 +1771,8 @@ s32 rtw_free_xmitframe(struct xmit_priv *pxmitpriv, struct xmit_frame *pxmitfram
 
 	spin_unlock_bh(&queue->lock);
 
-check_pkt_complete:
-
 	if (pndis_pkt)
 		rtw_os_pkt_complete(padapter, pndis_pkt);
-
-	return _SUCCESS;
 }
 
 void rtw_free_xmitframe_queue(struct xmit_priv *pxmitpriv, struct __queue *pframequeue)
@@ -2150,7 +2148,7 @@ static void dequeue_xmitframes_to_sleeping_queue(struct adapter *padapter,
 
 		ret = xmitframe_enqueue_for_sleeping_sta(padapter, pxmitframe);
 
-		if (true == ret) {
+		if (ret) {
 			ptxservq = rtw_get_sta_pending(padapter, psta, pattrib->priority, (u8 *)(&ac_index));
 
 			ptxservq->qcnt--;

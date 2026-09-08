@@ -538,26 +538,6 @@ static void _RfPowerSave(struct adapter *padapter)
 /* YJ, TODO */
 }
 
-/*  */
-/*  2010/08/09 MH Add for power down check. */
-/*  */
-static bool HalDetectPwrDownMode(struct adapter *Adapter)
-{
-	u8 tmpvalue;
-	struct hal_com_data *pHalData = GET_HAL_DATA(Adapter);
-	struct pwrctrl_priv *pwrctrlpriv = adapter_to_pwrctl(Adapter);
-
-	rtw_efuse_shadow_read(Adapter, 1, 0x7B/*EEPROM_RF_OPT3_92C*/, (u32 *)&tmpvalue);
-
-	/*  2010/08/25 MH INF priority > PDN Efuse value. */
-	if (tmpvalue & BIT(4) && pwrctrlpriv->reg_pdnmode)
-		pHalData->pwrdown = true;
-	else
-		pHalData->pwrdown = false;
-
-	return pHalData->pwrdown;
-}	/*  HalDetectPwrDownMode */
-
 u32 rtl8723bs_hal_init(struct adapter *padapter)
 {
 	s32 ret;
@@ -631,10 +611,6 @@ u32 rtl8723bs_hal_init(struct adapter *padapter)
 
 	if (pwrctrlpriv->reg_rfoff)
 		pwrctrlpriv->rf_pwrstate = rf_off;
-
-	/*  2010/08/09 MH We need to check if we need to turnon or off RF after detecting */
-	/*  HW GPIO pin. Before PHY_RFConfig8192C. */
-	HalDetectPwrDownMode(padapter);
 
 	/*  Save target channel */
 	/*  <Roger_Notes> Current Channel will be updated again later. */

@@ -28,50 +28,50 @@ struct wlan_acl_pool {
 	int mode;
 	int num;
 	struct rtw_wlan_acl_node aclnode[NUM_ACL];
-	struct __queue	acl_node_q;
+	struct __queue acl_node_q;
 };
 
 struct rssi_sta {
-	s32	UndecoratedSmoothedPWDB;
-	s32	UndecoratedSmoothedCCK;
-	s32	UndecoratedSmoothedOFDM;
-	u64	PacketMap;
+	s32 UndecoratedSmoothedPWDB;
+	s32 UndecoratedSmoothedCCK;
+	s32 UndecoratedSmoothedOFDM;
+	u64 PacketMap;
 	u8 ValidBit;
 };
 
-struct	stainfo_stats	{
+struct stainfo_stats {
 
 	u64 rx_mgnt_pkts;
-		u64 rx_beacon_pkts;
-		u64 rx_probereq_pkts;
-		u64 rx_probersp_pkts;
-		u64 rx_probersp_bm_pkts;
-		u64 rx_probersp_uo_pkts;
+	u64 rx_beacon_pkts;
+	u64 rx_probereq_pkts;
+	u64 rx_probersp_pkts;
+	u64 rx_probersp_bm_pkts;
+	u64 rx_probersp_uo_pkts;
 	u64 rx_ctrl_pkts;
 	u64 rx_data_pkts;
 
-	u64	last_rx_mgnt_pkts;
-		u64 last_rx_beacon_pkts;
-		u64 last_rx_probereq_pkts;
-		u64 last_rx_probersp_pkts;
-		u64 last_rx_probersp_bm_pkts;
-		u64 last_rx_probersp_uo_pkts;
-	u64	last_rx_ctrl_pkts;
-	u64	last_rx_data_pkts;
+	u64 last_rx_mgnt_pkts;
+	u64 last_rx_beacon_pkts;
+	u64 last_rx_probereq_pkts;
+	u64 last_rx_probersp_pkts;
+	u64 last_rx_probersp_bm_pkts;
+	u64 last_rx_probersp_uo_pkts;
+	u64 last_rx_ctrl_pkts;
+	u64 last_rx_data_pkts;
 
-	u64	rx_bytes;
-	u64	rx_drops;
+	u64 rx_bytes;
+	u64 rx_drops;
 
-	u64	tx_pkts;
-	u64	tx_bytes;
-	u64  tx_drops;
+	u64 tx_pkts;
+	u64 tx_bytes;
+	u64 tx_drops;
 };
 
 struct sta_info {
 
-	spinlock_t	lock;
-	struct list_head	list; /* free_sta_queue */
-	struct list_head	hash_list; /* sta_hash */
+	spinlock_t lock;
+	struct list_head list; /* free_sta_queue */
+	struct list_head hash_list; /* sta_hash */
 	struct adapter *padapter;
 
 	struct sta_xmit_priv sta_xmitpriv;
@@ -87,19 +87,18 @@ struct sta_info {
 	u8 hwaddr[ETH_ALEN];
 
 	bool ieee8021x_blocked;
-	uint	dot118021XPrivacy; /* aes, tkip... */
-	union Keytype	dot11tkiptxmickey;
-	union Keytype	dot11tkiprxmickey;
-	union Keytype	dot118021x_UncstKey;
-	union pn48		dot11txpn;			/*  PN48 used for Unicast xmit */
-	union pn48		dot11wtxpn;			/*  PN48 used for Unicast mgmt xmit. */
-	union pn48		dot11rxpn;			/*  PN48 used for Unicast recv. */
-
+	uint dot118021XPrivacy; /* aes, tkip... */
+	union Keytype dot11tkiptxmickey;
+	union Keytype dot11tkiprxmickey;
+	union Keytype dot118021x_UncstKey;
+	union pn48 dot11txpn;			/*  PN48 used for Unicast xmit */
+	union pn48 dot11wtxpn;			/*  PN48 used for Unicast mgmt xmit. */
+	union pn48 dot11rxpn;			/*  PN48 used for Unicast recv. */
 
 	u8 bssrateset[16];
 	u32 bssratelen;
-	s32  rssi;
-	s32	signal_quality;
+	s32 rssi;
+	s32 signal_quality;
 
 	u8 cts2self;
 	u8 rtsen;
@@ -124,7 +123,6 @@ struct sta_info {
 	/* for A-MPDU Tx */
 	/* unsigned char 	ampdu_txen_bitmap; */
 	u16 BA_starting_seqctrl[16];
-
 
 	struct ht_priv htpriv;
 
@@ -186,7 +184,7 @@ struct sta_info {
 	u32 assoc_req_len;
 
 	/* for DM */
-	struct rssi_sta	 rssi_stat;
+	struct rssi_sta	rssi_stat;
 
 	/* ODM_STA_INFO_T */
 	/*  ================ODM Relative Info ======================= */
@@ -254,14 +252,14 @@ struct sta_info {
 
 #define STA_PKTS_FMT "(m:%llu, c:%llu, d:%llu)"
 
-struct	sta_priv {
+struct sta_priv {
 
 	u8 *pallocated_stainfo_buf;
 	u8 *pstainfo_buf;
-	struct __queue	free_sta_queue;
+	struct __queue free_sta_queue;
 
 	spinlock_t sta_hash_lock;
-	struct list_head   sta_hash[NUM_STA];
+	struct list_head sta_hash[NUM_STA];
 	int asoc_sta_count;
 	struct __queue sleep_q;
 	struct __queue wakeup_q;
@@ -319,7 +317,7 @@ extern u32 _rtw_free_sta_priv(struct sta_priv *pstapriv);
 int rtw_stainfo_offset(struct sta_priv *stapriv, struct sta_info *sta);
 struct sta_info *rtw_get_stainfo_by_offset(struct sta_priv *stapriv, int offset);
 
-extern struct sta_info *rtw_alloc_stainfo(struct	sta_priv *pstapriv, u8 *hwaddr);
+extern struct sta_info *rtw_alloc_stainfo(struct sta_priv *pstapriv, u8 *hwaddr);
 extern u32 rtw_free_stainfo(struct adapter *padapter, struct sta_info *psta);
 extern void rtw_free_all_stainfo(struct adapter *padapter);
 extern struct sta_info *rtw_get_stainfo(struct sta_priv *pstapriv, u8 *hwaddr);
