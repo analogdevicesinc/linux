@@ -2043,8 +2043,6 @@ static int cgx_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	}
 
 	list_add(&cgx->cgx_list, &cgx_list);
-
-
 	cgx_populate_features(cgx);
 
 	mutex_init(&cgx->lock);
