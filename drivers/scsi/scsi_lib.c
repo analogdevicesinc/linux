@@ -252,14 +252,14 @@ static int scsi_check_passthrough(struct scsi_cmnd *scmd,
 		if (failure->sense_key != sshdr.sense_key)
 			continue;
 
-		if (failure->asc == SCMD_FAILURE_ASC_ANY)
+		if (scsi_failure_asc(failure) == SCMD_FAILURE_ASC_ANY)
 			goto maybe_retry;
 
-		if (failure->asc != sshdr.asc)
+		if (scsi_failure_asc(failure) != scsi_sense_asc(&sshdr))
 			continue;
 
-		if (failure->ascq == SCMD_FAILURE_ASCQ_ANY ||
-		    failure->ascq == sshdr.ascq)
+		if (scsi_failure_ascq(failure) == SCMD_FAILURE_ASCQ_ANY ||
+		    scsi_failure_ascq(failure) == scsi_sense_ascq(&sshdr))
 			goto maybe_retry;
 	}
 
@@ -839,6 +839,8 @@ static void scsi_io_completion_action(struct scsi_cmnd *cmd, int result)
 		 */
 		action = ACTION_RETRY;
 	} else if (sense_valid && sense_current) {
+		u8 asc = scsi_sense_asc(&sshdr);
+
 		switch (sshdr.sense_key) {
 		case UNIT_ATTENTION:
 			if (cmd->device->removable) {
@@ -865,64 +867,72 @@ static void scsi_io_completion_action(struct scsi_cmnd *cmd, int result)
 			 * where READ CAPACITY failed, we may have
 			 * read past the end of the disk.
 			 */
-			if ((cmd->device->use_10_for_rw &&
-			    sshdr.asc == 0x20 && sshdr.ascq == 0x00) &&
+			if (cmd->device->use_10_for_rw &&
+			    sshdr.sense_code == INVALID_COMMAND_OP_CODE &&
 			    (cmd->cmnd[0] == READ_10 ||
 			     cmd->cmnd[0] == WRITE_10)) {
 				/* This will issue a new 6-byte command. */
 				cmd->device->use_10_for_rw = 0;
 				action = ACTION_REPREP;
-			} else if (sshdr.asc == 0x10) /* DIX */ {
+				break;
+			}
+			if (asc == ASC_ID_CRC_OR_ECC_ERROR) {
+				/* DIX */
 				action = ACTION_FAIL;
 				blk_stat = BLK_STS_PROTECTION;
-			/* INVALID COMMAND OPCODE or INVALID FIELD IN CDB */
-			} else if (sshdr.asc == 0x20 || sshdr.asc == 0x24) {
+				break;
+			}
+			if (asc == ASC_INVALID_COMMAND_OP_CODE ||
+			    asc == ASC_INVALID_FIELD_IN_CDB) {
 				action = ACTION_FAIL;
 				blk_stat = BLK_STS_TARGET;
-			} else
-				action = ACTION_FAIL;
+				break;
+			}
+			action = ACTION_FAIL;
 			break;
 		case ABORTED_COMMAND:
 			action = ACTION_FAIL;
-			if (sshdr.asc == 0x10) /* DIF */
+			if (asc == ASC_ID_CRC_OR_ECC_ERROR) /* DIF */
 				blk_stat = BLK_STS_PROTECTION;
 			break;
 		case NOT_READY:
 			/* If the device is in the process of becoming
 			 * ready, or has a temporary blockage, retry.
 			 */
-			if (sshdr.asc == 0x04) {
-				switch (sshdr.ascq) {
-				case 0x01: /* becoming ready */
-				case 0x04: /* format in progress */
-				case 0x05: /* rebuild in progress */
-				case 0x06: /* recalculation in progress */
-				case 0x07: /* operation in progress */
-				case 0x08: /* Long write in progress */
-				case 0x09: /* self test in progress */
-				case 0x11: /* notify (enable spinup) required */
-				case 0x14: /* space allocation in progress */
-				case 0x1a: /* start stop unit in progress */
-				case 0x1b: /* sanitize in progress */
-				case 0x1d: /* configuration in progress */
-					action = ACTION_DELAYED_RETRY;
-					break;
-				case 0x0a: /* ALUA state transition */
-					action = ACTION_DELAYED_REPREP;
-					break;
-				/*
-				 * Depopulation might take many hours,
-				 * thus it is not worthwhile to retry.
-				 */
-				case 0x24: /* depopulation in progress */
-				case 0x25: /* depopulation restore in progress */
-					fallthrough;
-				default:
-					action = ACTION_FAIL;
-					break;
-				}
-			} else
+			if (asc != ASC_LU_NOT_READY) {
 				action = ACTION_FAIL;
+				break;
+			}
+
+			switch (sshdr.sense_code) {
+			case LU_IS_IN_PROCESS_OF_BECOMING_READY:
+			case LU_NOT_READY_FORMAT_IN_PROGRESS:
+			case LU_NOT_READY_REBUILD_IN_PROGRESS:
+			case LU_NOT_READY_RECALCULATION_IN_PROGRESS:
+			case LU_NOT_READY_OP_IN_PROGRESS:
+			case LU_NOT_READY_LONG_WRITE_IN_PROGRESS:
+			case LU_NOT_READY_SELFTEST_IN_PROGRESS:
+			case LU_NOT_READY_NOTIFY_REQUIRED:
+			case LU_NOT_READY_SPACE_ALLOCATION_IN_PROGRESS:
+			case LU_NOT_READY_START_STOP_UNIT_COMMAND_IN_PROGRESS:
+			case LU_NOT_READY_SANITIZE_IN_PROGRESS:
+			case LU_NOT_READY_CONFIG_IN_PROGRESS:
+				action = ACTION_DELAYED_RETRY;
+				break;
+			case LU_NOT_ACCESSIBLE_ASYMMETRIC_ACCESS_STATE_TRANSITION:
+				action = ACTION_DELAYED_REPREP;
+				break;
+			/*
+			 * Depopulation might take many hours, thus it is not
+			 * worthwhile to retry.
+			 */
+			case DEPOPULATION_IN_PROGRESS:
+			case DEPOPULATION_RESTORATION_IN_PROGRESS:
+				fallthrough;
+			default:
+				action = ACTION_FAIL;
+				break;
+			}
 			break;
 		case VOLUME_OVERFLOW:
 			/* See SSC3rXX or current. */
@@ -930,11 +940,14 @@ static void scsi_io_completion_action(struct scsi_cmnd *cmd, int result)
 			break;
 		case DATA_PROTECT:
 			action = ACTION_FAIL;
-			if ((sshdr.asc == 0x0C && sshdr.ascq == 0x12) ||
-			    (sshdr.asc == 0x55 &&
-			     (sshdr.ascq == 0x0E || sshdr.ascq == 0x0F))) {
-				/* Insufficient zone resources */
+			switch (sshdr.sense_code) {
+			case WRITE_ERROR_INSUFFICIENT_ZONE_RESOURCES:
+			case INSUFFICIENT_ZONE_RESOURCES:
+			case INSUFFICIENT_ZONE_RESOURCES_TO_COMPLETE_WRITE:
 				blk_stat = BLK_STS_ZONE_OPEN_RESOURCE;
+				break;
+			default:
+				break;
 			}
 			break;
 		case COMPLETED:
@@ -1041,7 +1054,7 @@ static int scsi_io_completion_nz_result(struct scsi_cmnd *cmd, int result,
 		 * skip print since caller wants ATA registers. Only occurs
 		 * on SCSI ATA PASS_THROUGH commands when CK_COND=1
 		 */
-		if ((sshdr.asc == 0x0) && (sshdr.ascq == 0x1d))
+		if (sshdr.sense_code == ATA_PASS_THROUGH_INFORMATION_AVAILABLE)
 			do_print = false;
 		else if (req->rq_flags & RQF_QUIET)
 			do_print = false;
@@ -2373,8 +2386,7 @@ scsi_mode_sense(struct scsi_device *sdev, int dbd, int modepage, int subpage,
 	struct scsi_failure failure_defs[] = {
 		{
 			.sense_key = UNIT_ATTENTION,
-			.asc = SCMD_FAILURE_ASC_ANY,
-			.ascq = SCMD_FAILURE_ASCQ_ANY,
+			.sense_code = SCMD_FAILURE_SENSE_CODE_ANY,
 			.allowed = retries,
 			.result = SAM_STAT_CHECK_CONDITION,
 		},
@@ -2432,8 +2444,8 @@ scsi_mode_sense(struct scsi_device *sdev, int dbd, int modepage, int subpage,
 
 	if (!scsi_status_is_good(result)) {
 		if (scsi_sense_valid(sshdr)) {
-			if ((sshdr->sense_key == ILLEGAL_REQUEST) &&
-			    (sshdr->asc == 0x20) && (sshdr->ascq == 0)) {
+			if (sshdr->sense_key == ILLEGAL_REQUEST &&
+			    sshdr->sense_code == INVALID_COMMAND_OP_CODE) {
 				/*
 				 * Invalid command operation code: retry using
 				 * MODE SENSE(6) if this was a MODE SENSE(10)

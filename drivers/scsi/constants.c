@@ -327,13 +327,37 @@ struct error_info2 {
 
 static const struct error_info2 additional2[] =
 {
-	{0x40, 0x00, 0x7f, "Ram failure", ""},
-	{0x40, 0x80, 0xff, "Diagnostic failure on component", ""},
-	{0x41, 0x00, 0xff, "Data path failure", ""},
-	{0x42, 0x00, 0xff, "Power-on or self-test failure", ""},
-	{0x4D, 0x00, 0xff, "Tagged overlapped commands", "task tag "},
-	{0x70, 0x00, 0xff, "Decompression exception", "short algorithm id of "},
-	{0, 0, 0, NULL, NULL}
+	{
+		ASC_RAM_FAILURE,
+		0x00, 0x7f,
+		"Ram failure", ""
+	},
+	{
+		ASC_RAM_FAILURE,
+		0x80, 0xff,
+		"Diagnostic failure on component", ""
+	},
+	{
+		ASC_DATA_PATH_FAILURE,
+		0x00, 0xff,
+		"Data path failure", ""
+	},
+	{
+		ASC_POWER_ON_OR_SELFTEST_FAILURE,
+		0x00, 0xff,
+		"Power-on or self-test failure", ""
+	},
+	{
+		ASC_TAGGED_OVERLAPPED_COMMANDS,
+		0x00, 0xff,
+		"Tagged overlapped commands", "task tag "
+	},
+	{
+		ASC_DECOMPRESSION_EXCEPTION_SHORT_ALGORITHM_ID,
+		0x00, 0xff,
+		"Decompression exception", "short algorithm id of "
+	},
+	{ 0, 0, 0, NULL, NULL }
 };
 
 /* description of the sense key values */

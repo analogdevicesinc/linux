@@ -191,6 +191,8 @@ EXPORT_SYMBOL(int_to_scsilun);
 bool scsi_normalize_sense(const u8 *sense_buffer, int sb_len,
 			  struct scsi_sense_hdr *sshdr)
 {
+	u8 asc = 0, ascq = 0;
+
 	memset(sshdr, 0, sizeof(struct scsi_sense_hdr));
 
 	if (!sense_buffer || !sb_len)
@@ -208,9 +210,9 @@ bool scsi_normalize_sense(const u8 *sense_buffer, int sb_len,
 		if (sb_len > 1)
 			sshdr->sense_key = (sense_buffer[1] & 0xf);
 		if (sb_len > 2)
-			sshdr->asc = sense_buffer[2];
+			asc = sense_buffer[2];
 		if (sb_len > 3)
-			sshdr->ascq = sense_buffer[3];
+			ascq = sense_buffer[3];
 		if (sb_len > 7)
 			sshdr->additional_length = sense_buffer[7];
 	} else {
@@ -222,11 +224,13 @@ bool scsi_normalize_sense(const u8 *sense_buffer, int sb_len,
 		if (sb_len > 7) {
 			sb_len = min(sb_len, sense_buffer[7] + 8);
 			if (sb_len > 12)
-				sshdr->asc = sense_buffer[12];
+				asc = sense_buffer[12];
 			if (sb_len > 13)
-				sshdr->ascq = sense_buffer[13];
+				ascq = sense_buffer[13];
 		}
 	}
+
+	sshdr->sense_code = scsi_sense_code(asc, ascq);
 
 	return true;
 }

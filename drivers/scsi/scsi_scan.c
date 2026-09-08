@@ -652,19 +652,18 @@ static int scsi_probe_lun(struct scsi_device *sdev, unsigned char *inq_result,
 	int pass, count, result, resid;
 	struct scsi_failure failure_defs[] = {
 		/*
-		 * not-ready to ready transition [asc/ascq=0x28/0x0] or
-		 * power-on, reset [asc/ascq=0x29/0x0], continue. INQUIRY
-		 * should not yield UNIT_ATTENTION but many buggy devices do
-		 * so anyway.
+		 * not-ready to ready transition or power-on, reset, continue.
+		 * INQUIRY should not yield UNIT_ATTENTION but many buggy
+		 * devices do so anyway.
 		 */
 		{
 			.sense_key = UNIT_ATTENTION,
-			.asc = 0x28,
+			.sense_code = NOT_READY_TO_READY_CHANGE_MEDIUM_MAY_HAVE_CHANGED,
 			.result = SAM_STAT_CHECK_CONDITION,
 		},
 		{
 			.sense_key = UNIT_ATTENTION,
-			.asc = 0x29,
+			.sense_code = POWER_ON_RESET_OR_BUS_DEVICE_RESET_OCCURRED,
 			.result = SAM_STAT_CHECK_CONDITION,
 		},
 		{
@@ -1458,8 +1457,7 @@ static int scsi_report_lun_scan(struct Scsi_Host *shost,
 	struct scsi_failure failure_defs[] = {
 		{
 			.sense_key = UNIT_ATTENTION,
-			.asc = SCMD_FAILURE_ASC_ANY,
-			.ascq = SCMD_FAILURE_ASCQ_ANY,
+			.sense_code = SCMD_FAILURE_SENSE_CODE_ANY,
 			.result = SAM_STAT_CHECK_CONDITION,
 		},
 		/* Fail all CCs except the UA above */
