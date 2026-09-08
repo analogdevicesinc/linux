@@ -1467,17 +1467,7 @@ static struct platform_driver gcc_kuno_driver = {
 	},
 };
 
-static int __init gcc_kuno_init(void)
-{
-	return platform_driver_register(&gcc_kuno_driver);
-}
-subsys_initcall(gcc_kuno_init);
-
-static void __exit gcc_kuno_exit(void)
-{
-	platform_driver_unregister(&gcc_kuno_driver);
-}
-module_exit(gcc_kuno_exit);
+subsys_platform_driver(gcc_kuno_driver);
 
 MODULE_DESCRIPTION("QTI GCC Kuno Driver");
 MODULE_LICENSE("GPL");

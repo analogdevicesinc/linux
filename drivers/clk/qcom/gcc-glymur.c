@@ -8571,17 +8571,7 @@ static struct platform_driver gcc_glymur_driver = {
 	},
 };
 
-static int __init gcc_glymur_init(void)
-{
-	return platform_driver_register(&gcc_glymur_driver);
-}
-subsys_initcall(gcc_glymur_init);
-
-static void __exit gcc_glymur_exit(void)
-{
-	platform_driver_unregister(&gcc_glymur_driver);
-}
-module_exit(gcc_glymur_exit);
+subsys_platform_driver(gcc_glymur_driver);
 
 MODULE_DESCRIPTION("QTI GCC Glymur Driver");
 MODULE_LICENSE("GPL");

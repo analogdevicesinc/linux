@@ -3726,17 +3726,7 @@ static struct platform_driver gcc_qcs8300_driver = {
 	},
 };
 
-static int __init gcc_qcs8300_init(void)
-{
-	return platform_driver_register(&gcc_qcs8300_driver);
-}
-subsys_initcall(gcc_qcs8300_init);
-
-static void __exit gcc_qcs8300_exit(void)
-{
-	platform_driver_unregister(&gcc_qcs8300_driver);
-}
-module_exit(gcc_qcs8300_exit);
+subsys_platform_driver(gcc_qcs8300_driver);
 
 MODULE_DESCRIPTION("QTI GCC QCS8300 Driver");
 MODULE_LICENSE("GPL");
