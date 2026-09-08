@@ -114,6 +114,7 @@
 		reg = <0x1e1f0000 0x00010000>;
 
 		et0macaddr: et0macaddr {
+			#nvmem-cell-cells = <1>;
 		};
 	};
 };
@@ -125,7 +126,7 @@
 	 * actually in use on the platform, we use this et0 MAC
 	 * address for et2.
 	 */
-	nvmem-cells = <&et0macaddr>;
+	nvmem-cells = <&et0macaddr 0>;
 	nvmem-cell-names = "mac-address";
 };
 
@@ -190,6 +191,9 @@
 
 		port@4 {
 			label = "wan";
+
+			nvmem-cells = <&et0macaddr 1>;
+			nvmem-cell-names = "mac-address";
 		};
 
 		port@5 {
