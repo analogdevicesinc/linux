@@ -1025,6 +1025,7 @@ int blkdev_get_zone_info(struct block_device *bdev, sector_t sector,
 {
 	struct gendisk *disk = bdev->bd_disk;
 	sector_t zone_sectors = bdev_zone_sectors(bdev);
+	unsigned int zno = disk_zone_no(disk, sector);
 	struct blk_zone_wplug *zwplug;
 	unsigned long flags;
 	u8 *zones_state, zs;
@@ -1032,23 +1033,23 @@ int blkdev_get_zone_info(struct block_device *bdev, sector_t sector,
 	if (!bdev_is_zoned(bdev))
 		return -EOPNOTSUPP;
 
-	if (sector >= get_capacity(disk))
+	if (sector >= get_capacity(disk) || zno >= disk->nr_zones)
 		return -EINVAL;
 
 	memset(zone, 0, sizeof(*zone));
 	sector = bdev_zone_start(bdev, sector);
 
 	if (!blkdev_has_cached_report_zones(bdev))
-		return blkdev_report_zone_fallback(bdev, sector, zone);
+		goto fallback;
 
 	rcu_read_lock();
 	zones_state = rcu_dereference(disk->zones_state);
 	if (!disk->zone_wplugs_hash || !zones_state) {
 		rcu_read_unlock();
-		return blkdev_report_zone_fallback(bdev, sector, zone);
+		goto fallback;
 	}
 
-	zs = zones_state[disk_zone_no(disk, sector)];
+	zs = zones_state[zno];
 	zone->cond = blk_zstate_to_zone_cond(zs);
 	if (blk_zstate_is_conv(zs))
 		zone->type = BLK_ZONE_TYPE_CONVENTIONAL;
@@ -1113,6 +1114,9 @@ int blkdev_get_zone_info(struct block_device *bdev, sector_t sector,
 	disk_put_zone_wplug(zwplug);
 
 	return 0;
+
+fallback:
+	return blkdev_report_zone_fallback(bdev, sector, zone);
 }
 EXPORT_SYMBOL_GPL(blkdev_get_zone_info);
 
