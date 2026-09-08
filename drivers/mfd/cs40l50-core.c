@@ -8,6 +8,7 @@
  * Author: James Ogletree <james.ogletree@cirrus.com>
  */
 
+#include <linux/interrupt.h>
 #include <linux/firmware/cirrus/cs_dsp.h>
 #include <linux/firmware/cirrus/wmfw.h>
 #include <linux/mfd/core.h>

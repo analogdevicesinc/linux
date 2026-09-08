@@ -14,7 +14,6 @@
 #include <linux/mmc/host.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/pagemap.h>
 #include <linux/platform_data/tmio.h>
 #include <linux/platform_device.h>
 #include <linux/scatterlist.h>

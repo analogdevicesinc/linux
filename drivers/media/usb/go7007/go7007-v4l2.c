@@ -12,7 +12,6 @@
 #include <linux/unistd.h>
 #include <linux/time.h>
 #include <linux/vmalloc.h>
-#include <linux/pagemap.h>
 #include <linux/i2c.h>
 #include <linux/mutex.h>
 #include <linux/uaccess.h>

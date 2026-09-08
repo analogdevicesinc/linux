@@ -32,6 +32,7 @@
 #include <linux/idr.h>
 #include <linux/vmalloc.h>
 #include <asm/page.h>
+#include <asm/cacheflush.h>
 #include <asm/special_insns.h>
 #include <asm/msr-index.h>
 #include <asm/msr.h>

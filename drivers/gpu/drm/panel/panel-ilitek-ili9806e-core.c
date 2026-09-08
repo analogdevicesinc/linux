@@ -8,6 +8,7 @@
 #include <drm/drm_panel.h>
 
 #include <linux/delay.h>
+#include <linux/device.h>
 #include <linux/export.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
