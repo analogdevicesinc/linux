@@ -522,6 +522,8 @@ struct io_ring_ctx {
 
 	/* protected by ->completion_lock */
 	unsigned			nr_req_allocated;
+	/* pending SEND_ZC notifications, protected by ->uring_lock */
+	unsigned			nr_notifs;
 
 #ifdef CONFIG_NET_RX_BUSY_POLL
 	struct list_head	napi_list;	/* track busy poll napi_id */
