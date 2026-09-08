@@ -439,8 +439,15 @@ static int dw8250_handle_irq(struct uart_port *p)
 	if (!up->dma && rx_timeout) {
 		status = serial_lsr_in(up);
 
+		/*
+		 * Do the bogus read from Shadow RBR (SRBR) if provided.
+		 * Both RBR and SRBR are supported ways to workaround
+		 * this problem. But read RBR can cause hardware error
+		 * (PSLVERR) if hardware choose to implement in this way
+		 * (implement REG_TIMEOUT_WIDTH to 0), whereas SRBR won't.
+		 */
 		if (!(status & (UART_LSR_DR | UART_LSR_BI)))
-			serial_port_in(p, UART_RX);
+			serial_port_in(p, d->data.srbr);
 	}
 
 	/* Manually stop the Rx DMA transfer when acting as flow controller */
