@@ -490,19 +490,63 @@ PERCPU_CMPXCHG_OP(x,  , 64)
 
 #define this_cpu_cmpxchg64(pcp, o, n)	this_cpu_cmpxchg_8(pcp, o, n)
 
-#define this_cpu_cmpxchg128(pcp, o, n)					\
-({									\
-	typedef typeof(pcp) pcp_op_T__;					\
-	u128 old__, new__, ret__;					\
-	pcp_op_T__ *ptr__;						\
-	old__ = o;							\
-	new__ = n;							\
-	preempt_disable_notrace();					\
-	ptr__ = raw_cpu_ptr(&(pcp));					\
-	ret__ = cmpxchg128_local((void *)ptr__, old__, new__);		\
-	preempt_enable_notrace();					\
-	ret__;								\
-})
+static inline u128
+__percpu_cmpxchg_128(void __percpu *pcp, u128 old, u128 new)
+{
+	u16 *gprs = &current_thread_info()->pcpu_gprs;
+	unsigned long addr;
+	unsigned long off;
+	union __u128_halves r, o = { .full = (old) },
+			       n = { .full = (new) };
+	register unsigned long ol asm ("x0") = o.low;
+	register unsigned long oh asm ("x1") = o.high;
+	register unsigned long nl asm ("x2") = n.low;
+	register unsigned long nh asm ("x3") = n.high;
+	unsigned long rl, rh;
+	unsigned long tmp;
+
+	asm volatile (
+	__PCPU_GPRS_BEGIN("%[gprs]", "%[pcp]", "%[off]", "%[addr]")
+	ARM64_LSE_ATOMIC_INSN(
+	/* LL/SC */
+       "       prfm    pstl1strm, [%[addr]]\n"
+       "1:     ldxp    %[rl], %[rh], [%[addr]]\n"
+       "       cmp     %[rl], %[ol]\n"
+       "       ccmp    %[rh], %[oh], 0, eq\n"
+       "       b.ne    2f\n"
+       "       stxp    %w[tmp], %[nl], %[nh], [%[addr]]\n"
+       "       cbnz    %w[tmp], 1b\n"
+       "2:\n"
+	,
+	/* LSE atomics */
+	"	casp	%[ol], %[oh], %[nl], %[nh], [%[addr]]\n"
+	"	mov	%[rl], %[ol]\n"
+	"	mov	%[rh], %[oh]\n"
+	__nops(4)
+	)
+	__PCPU_GPRS_END("%[gprs]")
+	: [gprs] "=Qo" (*gprs),
+	  [addr] "=&r" (addr),
+	  [off] "=&r" (off),
+	  [tmp] "=&r" (tmp),
+	  [ol] "+&r" (ol),
+	  [oh] "+&r" (oh),
+	  [rl] "=&r" (rl),
+	  [rh] "=&r" (rh)
+	: [pcp] "r" (pcp),
+	  [nl] "r" (nl),
+	  [nh] "r" (nh)
+	: "memory", "cc"
+	);
+
+	r.low = rl;
+	r.high = rh;
+
+	return r.full;
+}
+
+#define this_cpu_cmpxchg128(pcp, o, n)	\
+	_pcp_wrap_return(__percpu_cmpxchg_128, pcp, o, n)
 
 #ifdef __KVM_NVHE_HYPERVISOR__
 extern unsigned long __hyp_per_cpu_offset(unsigned int cpu);
