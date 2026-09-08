@@ -23,6 +23,7 @@ struct mmc_ios {
 	unsigned int	clock;			/* clock rate */
 	unsigned short	vdd;
 	unsigned int	power_delay_ms;		/* waiting for stable power */
+	unsigned int	power_off_delay_us;	/* waiting for power discharge */
 
 /* vdd stores the bit number of the selected voltage range from below. */
 
