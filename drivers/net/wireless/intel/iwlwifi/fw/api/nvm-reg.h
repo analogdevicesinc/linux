@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
- * Copyright (C) 2012-2014, 2018-2025 Intel Corporation
+ * Copyright (C) 2012-2014, 2018-2026 Intel Corporation
  * Copyright (C) 2013-2015 Intel Mobile Communications GmbH
  * Copyright (C) 2016-2017 Intel Deutschland GmbH
  */
@@ -45,6 +45,11 @@ enum iwl_regulatory_and_nvm_subcmd_ids {
 	 * @MCC_ALLOWED_AP_TYPE_CMD: &struct iwl_mcc_allowed_ap_type_cmd
 	 */
 	MCC_ALLOWED_AP_TYPE_CMD = 0x5,
+
+	/**
+	 * @LARI_CONFIG_EXTENSION: &struct iwl_lari_config_extension_cmd
+	 */
+	LARI_CONFIG_EXTENSION = 0x8,
 
 	/**
 	 * @PNVM_INIT_COMPLETE_NTFY: &struct iwl_pnvm_init_complete_ntfy
@@ -205,6 +210,7 @@ struct iwl_nvm_get_info_phy {
 
 #define IWL_NUM_CHANNELS_V1	51
 #define IWL_NUM_CHANNELS_V2	110
+#define IWL_NUM_CHANNELS_V3	115
 
 /**
  * struct iwl_nvm_get_info_regulatory_v1 - regulatory information
@@ -219,12 +225,12 @@ struct iwl_nvm_get_info_regulatory_v1 {
 } __packed; /* REGULATORY_NVM_GET_INFO_REGULATORY_S_VER_1 */
 
 /**
- * struct iwl_nvm_get_info_regulatory - regulatory information
+ * struct iwl_nvm_get_info_regulatory_v2 - regulatory information
  * @lar_enabled: is LAR enabled
  * @n_channels: number of valid channels in the array
  * @channel_profile: regulatory data of this channel
  */
-struct iwl_nvm_get_info_regulatory {
+struct iwl_nvm_get_info_regulatory_v2 {
 	__le32 lar_enabled;
 	__le32 n_channels;
 	__le32 channel_profile[IWL_NUM_CHANNELS_V2];
@@ -245,6 +251,32 @@ struct iwl_nvm_get_info_rsp_v3 {
 } __packed; /* REGULATORY_NVM_GET_INFO_RSP_API_S_VER_3 */
 
 /**
+ * struct iwl_nvm_get_info_rsp_v4 - response to get NVM data
+ * @general: general NVM data
+ * @mac_sku: data relating to MAC sku
+ * @phy_sku: data relating to PHY sku
+ * @regulatory: regulatory data
+ */
+struct iwl_nvm_get_info_rsp_v4 {
+	struct iwl_nvm_get_info_general general;
+	struct iwl_nvm_get_info_sku mac_sku;
+	struct iwl_nvm_get_info_phy phy_sku;
+	struct iwl_nvm_get_info_regulatory_v2 regulatory;
+} __packed; /* REGULATORY_NVM_GET_INFO_RSP_API_S_VER_4 */
+
+/**
+ * struct iwl_nvm_get_info_regulatory - regulatory information
+ * @lar_enabled: is LAR enabled
+ * @n_channels: number of valid channels in the array
+ * @channel_profile: regulatory data of this channel
+ */
+struct iwl_nvm_get_info_regulatory {
+	__le32 lar_enabled;
+	__le32 n_channels;
+	__le32 channel_profile[IWL_NUM_CHANNELS_V3];
+} __packed; /* REGULATORY_NVM_GET_INFO_REGULATORY_S_VER_3 */
+
+/**
  * struct iwl_nvm_get_info_rsp - response to get NVM data
  * @general: general NVM data
  * @mac_sku: data relating to MAC sku
@@ -256,7 +288,7 @@ struct iwl_nvm_get_info_rsp {
 	struct iwl_nvm_get_info_sku mac_sku;
 	struct iwl_nvm_get_info_phy phy_sku;
 	struct iwl_nvm_get_info_regulatory regulatory;
-} __packed; /* REGULATORY_NVM_GET_INFO_RSP_API_S_VER_4 */
+} __packed; /* REGULATORY_NVM_GET_INFO_RSP_API_S_VER_5 */
 
 /**
  * struct iwl_nvm_access_complete_cmd - NVM_ACCESS commands are completed
@@ -406,7 +438,10 @@ struct iwl_mcc_chub_notif {
 	__le16 mcc;
 	u8 source_id;
 	u8 reserved1;
-} __packed; /* LAR_MCC_NOTIFY_S */
+} __packed;
+/* LAR_MCC_NOTIFY_S_VER_1
+ * LAR_MCC_NOTIFY_S_VER_2
+ */
 
 enum iwl_mcc_update_status {
 	MCC_RESP_NEW_CHAN_PROFILE,
@@ -513,6 +548,27 @@ struct iwl_bios_config_hdr {
 	u8 table_revision;
 	u8 reserved[2];
 } __packed; /* BIOS_CONFIG_HDR_API_S_VER_1 */
+
+/**
+ * struct iwl_lari_config_extension_cmd - extend LARI configuration
+ *
+ * LARI_CONFIG_CHANGE's version must remain stable for frozen firmware.
+ * Because the driver might not know this version but still load that
+ * frozen FW and then send some default old version of LARI, causing the FW to
+ * assert about the bad size of it. To handle this, we do the following:
+ * 1. For newer firmware: increase the LARI_CONFIG_CHANGE version to support the
+ *	new firmware API with extra UHB bits.
+ * 2. For frozen firmware: add a special alternative API that doesn't require
+ *	modifying the frozen LARI_CONFIG_CHANGE's version.
+ * @dsm_table_hdr: BIOS DSM table source and revision
+ * @oem_uhb_allow_extension_bitmap: extension bitmap for OEM UHB config
+ * @reserved: reserved
+ */
+struct iwl_lari_config_extension_cmd {
+	struct iwl_bios_config_hdr dsm_table_hdr;
+	__le32 oem_uhb_allow_extension_bitmap;
+	__le32 reserved[10];
+} __packed; /* LARI_CONFIG_EXTENSION_CMD_API_S_VER_1 */
 
 /**
  * struct bios_value_u32 - BIOS configuration.
@@ -662,6 +718,14 @@ struct iwl_lari_config_change_cmd_v8 {
  *	get the data from the BIOS.
  * @oem_unii9_enable: UNII-9 enablement as read from the BIOS
  * @bios_hdr: bios config header
+ * @oem_uhb_allow_extension_bitmap: DSM Function 4 data as an extension of UHB
+ *	enabled MCC sets
+ * @bios_wcpe_hdr: puncturing config header
+ * @wcpe_bitmap: bitmap of puncturing enablement per MCC
+ * @bios_wbem_hdr: 320 MHz per-MCC WBEM config header
+ * @reserved: reserved
+ * @oem_supported_dsm_bitmap: DSM function 0 bitmap describing supported
+ *	DSM function indices
  */
 struct iwl_lari_config_change_cmd {
 	__le32 config_bitmap;
@@ -679,9 +743,19 @@ struct iwl_lari_config_change_cmd {
 	__le32 oem_unii9_enable;
 	/* since version 13 */
 	struct iwl_bios_config_hdr bios_hdr;
+	/* All the below are since version 14 */
+	__le32 oem_uhb_allow_extension_bitmap;
+	struct iwl_bios_config_hdr bios_wcpe_hdr;
+	__le32 wcpe_bitmap;
+	struct iwl_bios_config_hdr bios_wbem_hdr;
+	__le32 reserved[10];
+	/* since version 15 */
+	__le32 oem_supported_dsm_bitmap;
 } __packed;
 /* LARI_CHANGE_CONF_CMD_S_VER_12
  * LARI_CHANGE_CONF_CMD_S_VER_13
+ * LARI_CHANGE_CONF_CMD_S_VER_14
+ * LARI_CHANGE_CONF_CMD_S_VER_15
  */
 
 /* Activate UNII-1 (5.2GHz) for World Wide */

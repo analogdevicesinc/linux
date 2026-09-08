@@ -55,6 +55,8 @@ static unsigned char *pep_get_sb(struct sk_buff *skb, u8 *ptype, u8 *plen,
 	ph = skb_header_pointer(skb, 0, 2, &h);
 	if (ph == NULL || ph->sb_len < 2 || !pskb_may_pull(skb, ph->sb_len))
 		return NULL;
+	/* pskb_may_pull() may have reallocated the head; refetch ph. */
+	ph = skb_header_pointer(skb, 0, 2, &h);
 	ph->sb_len -= 2;
 	*ptype = ph->sb_type;
 	*plen = ph->sb_len;
@@ -1078,16 +1080,10 @@ out_norel:
 	return err;
 }
 
-static int pep_getsockopt(struct sock *sk, int level, int optname,
-				char __user *optval, int __user *optlen)
+static int do_pep_getsockopt(struct sock *sk, int optname, sockopt_t *opt)
 {
 	struct pep_sock *pn = pep_sk(sk);
 	int len, val;
-
-	if (level != SOL_PNPIPE)
-		return -ENOPROTOOPT;
-	if (get_user(len, optlen))
-		return -EFAULT;
 
 	switch (optname) {
 	case PNPIPE_ENCAP:
@@ -1112,11 +1108,33 @@ static int pep_getsockopt(struct sock *sk, int level, int optname,
 		return -ENOPROTOOPT;
 	}
 
-	len = min_t(unsigned int, sizeof(int), len);
-	if (put_user(len, optlen))
+	len = umin(sizeof(int), opt->optlen);
+	opt->optlen = len;
+	if (copy_to_iter(&val, len, &opt->iter_out) != len)
 		return -EFAULT;
-	if (put_user(val, (int __user *) optval))
+	return 0;
+}
+
+static int pep_getsockopt(struct sock *sk, int level, int optname,
+			  char __user *optval, int __user *optlen)
+{
+	sockopt_t opt;
+	int err;
+
+	if (level != SOL_PNPIPE)
+		return -ENOPROTOOPT;
+
+	err = sockopt_init_user(&opt, optval, optlen);
+	if (err)
+		return err;
+
+	err = do_pep_getsockopt(sk, optname, &opt);
+	if (err)
+		return err;
+
+	if (put_user(opt.optlen, optlen))
 		return -EFAULT;
+
 	return 0;
 }
 

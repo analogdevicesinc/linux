@@ -6,8 +6,8 @@
 #ifndef INV_ICM42600_BUFFER_H_
 #define INV_ICM42600_BUFFER_H_
 
-#include <linux/kernel.h>
 #include <linux/bits.h>
+#include <linux/kernel.h>
 
 struct inv_icm42600_state;
 
@@ -34,6 +34,7 @@ struct inv_icm42600_fifo {
 		unsigned int accel;
 		unsigned int eff_gyro;
 		unsigned int eff_accel;
+		unsigned int value;
 	} watermark;
 	size_t count;
 	struct {
@@ -79,6 +80,7 @@ ssize_t inv_icm42600_fifo_decode_packet(const void *packet, const void **accel,
 					const void **timestamp, unsigned int *odr);
 
 extern const struct iio_buffer_setup_ops inv_icm42600_buffer_ops;
+extern const struct iio_dev_attr *inv_icm42600_buffer_attrs[];
 
 int inv_icm42600_buffer_init(struct inv_icm42600_state *st);
 

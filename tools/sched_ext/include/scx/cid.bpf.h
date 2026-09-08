@@ -391,42 +391,14 @@ static __always_inline bool cmask_equal(const struct scx_cmask __arena *a,
 
 	if (a->base != b->base || a->nr_cids != b->nr_cids)
 		return false;
-	nr_words = CMASK_NR_WORDS(a->nr_cids);
+	if (a->nr_cids == 0)
+		return true;
+	nr_words = (a->base + a->nr_cids - 1) / 64 - a->base / 64 + 1;
 
 	bpf_for(i, 0, CMASK_MAX_WORDS) {
 		if (i >= nr_words)
 			break;
 		if (a->bits[i] != b->bits[i])
-			return false;
-	}
-	return true;
-}
-
-/*
- * True iff every bit set in @a is also set in @b over the intersection of
- * their ranges. Bits of @a outside @b's range fail the test.
- */
-static __always_inline bool cmask_subset(const struct scx_cmask __arena *a,
-					 const struct scx_cmask __arena *b)
-{
-	u32 a_end = a->base + a->nr_cids;
-	u32 b_end = b->base + b->nr_cids;
-	u32 a_wbase = a->base / 64;
-	u32 b_wbase = b->base / 64;
-	u32 nr_words, i;
-
-	/* any bit of @a outside @b's range is a subset violation */
-	if (a->base < b->base || a_end > b_end)
-		return false;
-
-	nr_words = CMASK_NR_WORDS(a->nr_cids);
-	bpf_for(i, 0, CMASK_MAX_WORDS) {
-		u32 wi_b;
-
-		if (i >= nr_words)
-			break;
-		wi_b = a_wbase + i - b_wbase;
-		if (a->bits[i] & ~b->bits[wi_b])
 			return false;
 	}
 	return true;
@@ -489,14 +461,64 @@ static __always_inline u32 cmask_first_set(const struct scx_cmask __arena *m)
 	     (cid) = cmask_next_set((m), (cid) + 1))
 
 /*
+ * True iff every bit set in @a is also set in @b. Matches the kernel-side
+ * scx_cmask_subset(): ranges don't need to nest, and set bits of @a outside
+ * @b's range fail the test.
+ */
+static __always_inline bool cmask_subset(const struct scx_cmask __arena *a,
+					 const struct scx_cmask __arena *b)
+{
+	u32 a_end = a->base + a->nr_cids;
+	u32 b_end = b->base + b->nr_cids;
+	u32 a_wbase = a->base / 64;
+	u32 b_wbase = b->base / 64;
+	u32 lo = a->base > b->base ? a->base : b->base;
+	u32 hi = a_end < b_end ? a_end : b_end;
+	u32 lo_word, hi_word, i;
+
+	/* set bits of @a outside @b's range can't be in @b */
+	if (a->base < b->base &&
+	    cmask_next_set(a, a->base) < (b->base < a_end ? b->base : a_end))
+		return false;
+	if (a_end > b_end &&
+	    cmask_next_set(a, a->base > b_end ? a->base : b_end) < a_end)
+		return false;
+
+	if (lo >= hi)
+		return true;
+
+	/*
+	 * Walk the words the range intersection spans. Plain word tests
+	 * suffice: the scans above guarantee @a has no set bit outside @b's
+	 * range and padding bits are kept clear by all cmask helpers.
+	 */
+	lo_word = lo / 64;
+	hi_word = (hi - 1) / 64;
+
+	bpf_for(i, 0, CMASK_MAX_WORDS) {
+		u32 w = lo_word + i;
+
+		if (w > hi_word)
+			break;
+		if (a->bits[w - a_wbase] & ~b->bits[w - b_wbase])
+			return false;
+	}
+	return true;
+}
+
+/*
  * Population count over [base, base + nr_cids). Padding bits in the head/tail
  * words are guaranteed zero by the mutating helpers, so a flat popcount over
- * all words is correct.
+ * the words the range spans is correct.
  */
 static __always_inline u32 cmask_weight(const struct scx_cmask __arena *m)
 {
-	u32 nr_words = CMASK_NR_WORDS(m->nr_cids), i;
+	u32 nr_words, i;
 	u32 count = 0;
+
+	if (!m->nr_cids)
+		return 0;
+	nr_words = (m->base + m->nr_cids - 1) / 64 - m->base / 64 + 1;
 
 	bpf_for(i, 0, CMASK_MAX_WORDS) {
 		if (i >= nr_words)
@@ -643,6 +665,83 @@ static __always_inline u32 cmask_next_and_set_wrap(const struct scx_cmask __aren
 		return found;
 
 	found = cmask_next_and_set(a, b, a->base);
+	return found < start ? found : a_end;
+}
+
+/*
+ * Like cmask_next_and_set() but over the intersection of THREE masks. Return
+ * a->base + a->nr_cids if no cid is set in all three at or after @start.
+ */
+static __always_inline u32 cmask_next_and2_set(const struct scx_cmask __arena *a,
+					       const struct scx_cmask __arena *b,
+					       const struct scx_cmask __arena *c,
+					       u32 start)
+{
+	u32 a_end = a->base + a->nr_cids;
+	u32 b_end = b->base + b->nr_cids;
+	u32 c_end = c->base + c->nr_cids;
+	u32 a_wbase = a->base / 64;
+	u32 b_wbase = b->base / 64;
+	u32 c_wbase = c->base / 64;
+	u32 lo = a->base > b->base ? a->base : b->base;
+	u32 hi = a_end < b_end ? a_end : b_end;
+	u32 last_wi, start_wi, start_bit, i;
+
+	lo = lo > c->base ? lo : c->base;
+	hi = hi < c_end ? hi : c_end;
+
+	if (lo >= hi)
+		return a_end;
+	if (start < lo)
+		start = lo;
+	if (start >= hi)
+		return a_end;
+
+	last_wi = (hi - 1) / 64;
+	start_wi = start / 64;
+	start_bit = start & 63;
+
+	bpf_for(i, 0, CMASK_MAX_WORDS) {
+		u32 abs_wi = start_wi + i;
+		u64 word;
+		u32 found;
+
+		if (abs_wi > last_wi)
+			break;
+
+		word = a->bits[abs_wi - a_wbase] & b->bits[abs_wi - b_wbase] &
+		       c->bits[abs_wi - c_wbase];
+		if (i == 0)
+			word &= GENMASK_U64(63, start_bit);
+		if (!word)
+			continue;
+
+		found = abs_wi * 64 + ctzll(word);
+		if (found >= hi)
+			return a_end;
+		return found;
+	}
+	return a_end;
+}
+
+/*
+ * Round-robin variant of cmask_next_and2_set(): wrap to @a->base if the
+ * three-way intersection has no cid in the forward half. Return a->base +
+ * a->nr_cids if empty.
+ */
+static __always_inline u32 cmask_next_and2_set_wrap(const struct scx_cmask __arena *a,
+						    const struct scx_cmask __arena *b,
+						    const struct scx_cmask __arena *c,
+						    u32 start)
+{
+	u32 a_end = a->base + a->nr_cids;
+	u32 found;
+
+	found = cmask_next_and2_set(a, b, c, start);
+	if (found < a_end || start <= a->base)
+		return found;
+
+	found = cmask_next_and2_set(a, b, c, a->base);
 	return found < start ? found : a_end;
 }
 

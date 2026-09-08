@@ -271,11 +271,9 @@ retry:
 		esi_buf_size = ESI_HDR_SIZE + (CURR_MAX_ESI_ATTRS * max_esi_attrs);
 
 		temp_esi_buf = krealloc(esi_buf, esi_buf_size, GFP_KERNEL);
-		if (temp_esi_buf)
-			esi_buf = temp_esi_buf;
-		else
-			return -ENOMEM;
-
+		if (!temp_esi_buf)
+			goto out_free_esi_buf;
+		esi_buf = temp_esi_buf;
 		goto retry;
 	}
 
@@ -325,12 +323,8 @@ retry:
 	}
 
 	for (idx = 0; idx < num_attrs; idx++) {
-		bool show_val_desc = true;
-
 		/* Do not add the value desc attr if it does not exist */
-		if (strnlen(esi_attrs[idx].value_desc,
-			    sizeof(esi_attrs[idx].value_desc)) == 0)
-			show_val_desc = false;
+		bool show_val_desc = *esi_attrs[idx].value_desc != '\0';
 
 		if (add_attr_group(be64_to_cpu(esi_attrs[idx].id),
 				   &papr_groups[idx],

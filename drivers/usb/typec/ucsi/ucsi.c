@@ -91,7 +91,8 @@ int ucsi_sync_control_common(struct ucsi *ucsi, u64 command, u32 *cci,
 	if (ret)
 		goto out_clear_bit;
 
-	if (!wait_for_completion_timeout(&ucsi->complete, 5 * HZ))
+	if (!wait_for_completion_timeout(&ucsi->complete,
+					 msecs_to_jiffies(UCSI_TIMEOUT_MS)))
 		ret = -ETIMEDOUT;
 
 out_clear_bit:
@@ -529,6 +530,129 @@ err:
 	return ret;
 }
 
+static void ucsi_dump_duplicate_altmode(struct ucsi_connector *con,
+					u8 recipient, u16 svid,
+					u32 existing_vdo, u32 new_vdo,
+					int offset)
+{
+	static const char * const recipient_names[] = {
+		[UCSI_RECIPIENT_CON]    = "port",
+		[UCSI_RECIPIENT_SOP]    = "partner",
+		[UCSI_RECIPIENT_SOP_P]  = "plug",
+		[UCSI_RECIPIENT_SOP_PP] = "cable plug prime",
+	};
+
+	dev_warn(con->ucsi->dev,
+		 "con%d: Firmware bug: duplicate %s altmode SVID 0x%04x at offset %d, ignoring but please contact the BIOS vendor to fix this issue.\n",
+		 con->num, recipient_names[recipient], svid, offset);
+
+	if (existing_vdo != new_vdo)
+		dev_warn(con->ucsi->dev,
+			 "con%d: VDO mismatch: 0x%08x vs 0x%08x\n",
+			 con->num, existing_vdo, new_vdo);
+}
+
+/* Count altmodes in @altmodes that advertise @svid. */
+static int ucsi_altmode_count_svid(struct typec_altmode **altmodes, u16 svid)
+{
+	int count = 0;
+	int k;
+
+	for (k = 0; k < UCSI_MAX_ALTMODES; k++) {
+		if (!altmodes[k])
+			break;
+		if (altmodes[k]->svid == svid)
+			count++;
+	}
+
+	return count;
+}
+
+/*
+ * Check if an altmode is a duplicate. Some firmware implementations
+ * incorrectly return the same altmode multiple times, causing sysfs errors.
+ * Returns true if the altmode should be skipped.
+ *
+ * The matching rules differ by recipient:
+ *
+ *   - UCSI_RECIPIENT_CON (port) and UCSI_RECIPIENT_SOP_P (plug):
+ *     Two altmodes with identical SVID and VDO are byte-for-byte duplicates
+ *     and the second has no observable function. Drop them.
+ *
+ *   - UCSI_RECIPIENT_SOP (partner):
+ *     The typec class binds each partner altmode to a port altmode of the
+ *     same SVID via altmode_match()/device_find_child(), which returns the
+ *     first port altmode with a matching SVID. If the partner advertises
+ *     more altmodes for SVID X than the port advertises, the surplus
+ *     partner altmode(s) collapse onto an already-paired port altmode and
+ *     trigger a "duplicate filename .../partner" sysfs error during
+ *     typec_altmode_create_links(). Use the port-side altmode count for
+ *     SVID X as the authoritative cap and reject any partner altmode that
+ *     would exceed it. This preserves legitimate multi-Mode partner
+ *     altmodes (e.g. vendor SVIDs that the port really does advertise
+ *     twice) while filtering the firmware-generated duplicates that have
+ *     no port counterpart.
+ */
+static bool ucsi_altmode_is_duplicate(struct ucsi_connector *con, u8 recipient,
+				      const struct ucsi_altmode *alt_batch, int batch_idx,
+				      u16 svid, u32 vdo, int offset)
+{
+	struct typec_altmode **altmodes;
+	int port_count, partner_count;
+	int k;
+
+	/* Check for duplicates within the current batch first */
+	for (k = 0; k < batch_idx; k++) {
+		if (alt_batch[k].svid == svid && alt_batch[k].mid == vdo) {
+			ucsi_dump_duplicate_altmode(con, recipient, svid,
+						    vdo, vdo, offset);
+			return true;
+		}
+	}
+
+	switch (recipient) {
+	case UCSI_RECIPIENT_SOP:
+		/*
+		 * Cap partner altmodes per SVID by the port-side count:
+		 * any further partner altmode for that SVID would alias an
+		 * already-paired port altmode and break typec sysfs.
+		 */
+		port_count = ucsi_altmode_count_svid(con->port_altmode, svid);
+		partner_count = ucsi_altmode_count_svid(con->partner_altmode,
+							svid);
+		if (port_count && partner_count >= port_count) {
+			ucsi_dump_duplicate_altmode(con, recipient, svid,
+						    con->partner_altmode[partner_count - 1]->vdo,
+						    vdo, offset);
+			return true;
+		}
+		return false;
+	case UCSI_RECIPIENT_CON:
+		altmodes = con->port_altmode;
+		break;
+	case UCSI_RECIPIENT_SOP_P:
+		altmodes = con->plug_altmode;
+		break;
+	default:
+		return false;
+	}
+
+	/* CON and SOP_P: drop only exact SVID+VDO duplicates. */
+	for (k = 0; k < UCSI_MAX_ALTMODES; k++) {
+		if (!altmodes[k])
+			break;
+
+		if (altmodes[k]->svid != svid || altmodes[k]->vdo != vdo)
+			continue;
+
+		ucsi_dump_duplicate_altmode(con, recipient, svid,
+					    altmodes[k]->vdo, vdo, offset);
+		return true;
+	}
+
+	return false;
+}
+
 static int
 ucsi_register_altmodes_nvidia(struct ucsi_connector *con, u8 recipient)
 {
@@ -583,18 +707,24 @@ ucsi_register_altmodes_nvidia(struct ucsi_connector *con, u8 recipient)
 
 	/* now register altmodes */
 	for (i = 0; i < max_altmodes; i++) {
-		memset(&desc, 0, sizeof(desc));
-		if (multi_dp) {
-			desc.svid = updated[i].svid;
-			desc.vdo = updated[i].mid;
-		} else {
-			desc.svid = orig[i].svid;
-			desc.vdo = orig[i].mid;
-		}
-		desc.roles = TYPEC_PORT_DRD;
+		struct ucsi_altmode *altmode_array = multi_dp ? updated : orig;
 
-		if (!desc.svid)
+		if (!altmode_array[i].svid)
 			return 0;
+
+		/*
+		 * Check for duplicates in current array and already
+		 * registered altmodes. Skip if duplicate found.
+		 */
+		if (ucsi_altmode_is_duplicate(con, recipient, altmode_array, i,
+					      altmode_array[i].svid,
+					      altmode_array[i].mid, i))
+			continue;
+
+		memset(&desc, 0, sizeof(desc));
+		desc.svid = altmode_array[i].svid;
+		desc.vdo = altmode_array[i].mid;
+		desc.roles = TYPEC_PORT_DRD;
 
 		ret = ucsi_register_altmode(con, &desc, recipient);
 		if (ret)
@@ -652,6 +782,15 @@ static int ucsi_register_altmodes(struct ucsi_connector *con, u8 recipient)
 		for (j = 0; j < num; j++) {
 			if (!alt[j].svid)
 				return 0;
+
+			/*
+			 * Check for duplicates in current batch and already
+			 * registered altmodes. Skip if duplicate found.
+			 */
+			if (ucsi_altmode_is_duplicate(con, recipient, alt, j,
+						      alt[j].svid, alt[j].mid,
+						      i - num + j))
+				continue;
 
 			memset(&desc, 0, sizeof(desc));
 			desc.vdo = alt[j].mid;
@@ -963,8 +1102,8 @@ static int ucsi_register_plug(struct ucsi_connector *con)
 	plug = typec_register_plug(con->cable, &desc);
 	if (IS_ERR(plug)) {
 		dev_err(con->ucsi->dev,
-			"con%d: failed to register plug (%ld)\n", con->num,
-			PTR_ERR(plug));
+			"con%d: failed to register plug (%pe)\n", con->num,
+			plug);
 		return PTR_ERR(plug);
 	}
 
@@ -1022,8 +1161,8 @@ static int ucsi_register_cable(struct ucsi_connector *con)
 	cable = typec_register_cable(con->port, &desc);
 	if (IS_ERR(cable)) {
 		dev_err(con->ucsi->dev,
-			"con%d: failed to register cable (%ld)\n", con->num,
-			PTR_ERR(cable));
+			"con%d: failed to register cable (%pe)\n", con->num,
+			cable);
 		return PTR_ERR(cable);
 	}
 
@@ -1152,8 +1291,8 @@ static int ucsi_register_partner(struct ucsi_connector *con)
 	partner = typec_register_partner(con->port, &desc);
 	if (IS_ERR(partner)) {
 		dev_err(con->ucsi->dev,
-			"con%d: failed to register partner (%ld)\n", con->num,
-			PTR_ERR(partner));
+			"con%d: failed to register partner (%pe)\n", con->num,
+			partner);
 		return PTR_ERR(partner);
 	}
 
@@ -1845,6 +1984,42 @@ out_unlock:
 	return ret;
 }
 
+static void ucsi_unregister_port(struct ucsi_connector *con)
+{
+	struct ucsi_work *uwork;
+
+	if (con->wq) {
+		mutex_lock(&con->lock);
+		ucsi_unregister_partner(con);
+		/*
+		 * queue delayed items immediately so they can execute
+		 * and free themselves before the wq is destroyed
+		 */
+		list_for_each_entry(uwork, &con->partner_tasks, node) {
+			if (cancel_delayed_work(&uwork->work))
+				queue_delayed_work(con->wq, &uwork->work, 0);
+		}
+		mutex_unlock(&con->lock);
+
+		destroy_workqueue(con->wq);
+		con->wq = NULL;
+	} else {
+		ucsi_unregister_partner(con);
+	}
+
+	ucsi_unregister_altmodes(con, UCSI_RECIPIENT_CON);
+	ucsi_unregister_port_psy(con);
+
+	usb_power_delivery_unregister_capabilities(con->port_sink_caps);
+	con->port_sink_caps = NULL;
+	usb_power_delivery_unregister_capabilities(con->port_source_caps);
+	con->port_source_caps = NULL;
+	usb_power_delivery_unregister(con->pd);
+	con->pd = NULL;
+	typec_unregister_port(con->port);
+	con->port = NULL;
+}
+
 static u64 ucsi_get_supported_notifications(struct ucsi *ucsi)
 {
 	u16 features = ucsi->cap.features;
@@ -1968,25 +2143,11 @@ static int ucsi_init(struct ucsi *ucsi)
 	return 0;
 
 err_unregister:
+	for (con = connector; con->port; con++)
+		ucsi_unregister_port(con);
 	for (i = 0; i < ucsi->cap.num_connectors; i++)
 		lockdep_unregister_key(&connector[i].lock_key);
 
-	for (con = connector; con->port; con++) {
-		if (con->wq)
-			destroy_workqueue(con->wq);
-		ucsi_unregister_partner(con);
-		ucsi_unregister_altmodes(con, UCSI_RECIPIENT_CON);
-		ucsi_unregister_port_psy(con);
-
-		usb_power_delivery_unregister_capabilities(con->port_sink_caps);
-		con->port_sink_caps = NULL;
-		usb_power_delivery_unregister_capabilities(con->port_source_caps);
-		con->port_source_caps = NULL;
-		usb_power_delivery_unregister(con->pd);
-		con->pd = NULL;
-		typec_unregister_port(con->port);
-		con->port = NULL;
-	}
 	kfree(connector);
 err_reset:
 	memset(&ucsi->cap, 0, sizeof(ucsi->cap));
@@ -2017,6 +2178,26 @@ static void ucsi_resume_work(struct work_struct *work)
 	}
 }
 
+int ucsi_suspend(struct ucsi *ucsi)
+{
+	int i;
+
+	/*
+	 * Cancel pending work so it cannot access the firmware after the ACPI
+	 * EC is stopped for suspend; state is re-read on resume.
+	 */
+	cancel_delayed_work_sync(&ucsi->work);
+
+	if (!ucsi->connector)
+		return 0;
+
+	for (i = 0; i < ucsi->cap.num_connectors; i++)
+		cancel_work_sync(&ucsi->connector[i].work);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(ucsi_suspend);
+
 int ucsi_resume(struct ucsi *ucsi)
 {
 	if (ucsi->connector)
@@ -2040,7 +2221,7 @@ static void ucsi_init_work(struct work_struct *work)
 			return;
 		}
 
-		queue_delayed_work(system_long_wq, &ucsi->work,
+		queue_delayed_work(system_dfl_long_wq, &ucsi->work,
 				   UCSI_ROLE_SWITCH_INTERVAL);
 	}
 }
@@ -2164,7 +2345,7 @@ int ucsi_register(struct ucsi *ucsi)
 		UCSI_BCD_GET_MINOR(ucsi->version),
 		UCSI_BCD_GET_SUBMINOR(ucsi->version));
 
-	queue_delayed_work(system_long_wq, &ucsi->work, 0);
+	queue_delayed_work(system_dfl_long_wq, &ucsi->work, 0);
 
 	ucsi_debugfs_register(ucsi);
 	return 0;
@@ -2186,6 +2367,8 @@ void ucsi_unregister(struct ucsi *ucsi)
 	cancel_delayed_work_sync(&ucsi->work);
 	cancel_work_sync(&ucsi->resume_work);
 
+	ucsi_debugfs_unregister(ucsi);
+
 	/* Disable notifications */
 	ucsi->ops->async_control(ucsi, cmd);
 
@@ -2194,33 +2377,7 @@ void ucsi_unregister(struct ucsi *ucsi)
 
 	for (i = 0; i < ucsi->cap.num_connectors; i++) {
 		cancel_work_sync(&ucsi->connector[i].work);
-
-		if (ucsi->connector[i].wq) {
-			struct ucsi_work *uwork;
-
-			mutex_lock(&ucsi->connector[i].lock);
-			/*
-			 * queue delayed items immediately so they can execute
-			 * and free themselves before the wq is destroyed
-			 */
-			list_for_each_entry(uwork, &ucsi->connector[i].partner_tasks, node)
-				mod_delayed_work(ucsi->connector[i].wq, &uwork->work, 0);
-			mutex_unlock(&ucsi->connector[i].lock);
-			destroy_workqueue(ucsi->connector[i].wq);
-		}
-
-		ucsi_unregister_partner(&ucsi->connector[i]);
-		ucsi_unregister_altmodes(&ucsi->connector[i],
-					 UCSI_RECIPIENT_CON);
-		ucsi_unregister_port_psy(&ucsi->connector[i]);
-
-		usb_power_delivery_unregister_capabilities(ucsi->connector[i].port_sink_caps);
-		ucsi->connector[i].port_sink_caps = NULL;
-		usb_power_delivery_unregister_capabilities(ucsi->connector[i].port_source_caps);
-		ucsi->connector[i].port_source_caps = NULL;
-		usb_power_delivery_unregister(ucsi->connector[i].pd);
-		ucsi->connector[i].pd = NULL;
-		typec_unregister_port(ucsi->connector[i].port);
+		ucsi_unregister_port(&ucsi->connector[i]);
 		lockdep_unregister_key(&ucsi->connector[i].lock_key);
 	}
 

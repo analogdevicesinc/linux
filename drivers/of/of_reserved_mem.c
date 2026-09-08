@@ -359,6 +359,7 @@ int __init fdt_scan_reserved_mem(void)
 		err = __reserved_mem_reserve_reg(child, uname);
 		if (!err)
 			count++;
+
 		/*
 		 * Save the nodes for the dynamically-placed regions
 		 * into an array which will be used for allocation right
@@ -366,10 +367,17 @@ int __init fdt_scan_reserved_mem(void)
 		 * or marked as no-map. This is done to avoid dynamically
 		 * allocating from one of the statically-placed regions.
 		 */
-		if (err == -ENOENT && of_get_flat_dt_prop(child, "size", NULL)) {
-			dynamic_nodes[dynamic_nodes_cnt] = child;
-			dynamic_nodes_cnt++;
+		if (err != -ENOENT || !of_get_flat_dt_prop(child, "size", NULL))
+			continue;
+
+		if (dynamic_nodes_cnt == MAX_RESERVED_REGIONS) {
+			pr_err("too many defined dynamic regions, skip '%s'\n",
+			       uname);
+			continue;
 		}
+
+		dynamic_nodes[dynamic_nodes_cnt] = child;
+		dynamic_nodes_cnt++;
 	}
 	for (int i = 0; i < dynamic_nodes_cnt; i++) {
 		const char *uname;
@@ -633,7 +641,8 @@ static void __init fdt_init_reserved_mem_node(unsigned long node, const char *un
 	struct reserved_mem *rmem = &reserved_mem[reserved_mem_count];
 
 	if (reserved_mem_count == total_reserved_mem_cnt) {
-		pr_err("not enough space for all defined regions.\n");
+		pr_err("not enough space for all defined regions, skip '%s'\n",
+		       uname);
 		return;
 	}
 
@@ -786,6 +795,50 @@ void of_reserved_mem_device_release(struct device *dev)
 	}
 }
 EXPORT_SYMBOL_GPL(of_reserved_mem_device_release);
+
+static void devm_of_reserved_mem_device_release(struct device *dev, void *res)
+{
+	of_reserved_mem_device_release(*(struct device **)res);
+}
+
+static int devm_of_reserved_mem_device_init_by_idx(struct device *dev,
+						   struct device_node *np, int idx)
+{
+	struct device **ptr;
+	int ret;
+
+	ptr = devres_alloc(devm_of_reserved_mem_device_release, sizeof(*ptr),
+			   GFP_KERNEL);
+	if (!ptr)
+		return -ENOMEM;
+
+	ret = of_reserved_mem_device_init_by_idx(dev, np, idx);
+	if (ret) {
+		devres_free(ptr);
+		return ret;
+	}
+
+	*ptr = dev;
+	devres_add(dev, ptr);
+
+	return 0;
+}
+
+/**
+ * devm_of_reserved_mem_device_init() - Resource managed of_reserved_mem_device_init()
+ * @dev: Pointer to the device to configure
+ *
+ * This is a resource managed version of of_reserved_mem_device_init().
+ * The reserved memory region will be released automatically when the device
+ * is unbound.
+ *
+ * Returns: Negative errno on failure or zero on success.
+ */
+int devm_of_reserved_mem_device_init(struct device *dev)
+{
+	return devm_of_reserved_mem_device_init_by_idx(dev, dev->of_node, 0);
+}
+EXPORT_SYMBOL_GPL(devm_of_reserved_mem_device_init);
 
 /**
  * of_reserved_mem_lookup() - acquire reserved_mem from a device node

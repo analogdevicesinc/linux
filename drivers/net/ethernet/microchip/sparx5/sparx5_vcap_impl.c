@@ -1930,7 +1930,6 @@ static void sparx5_vcap_admin_free(struct vcap_admin *admin)
 {
 	if (!admin)
 		return;
-	mutex_destroy(&admin->lock);
 	kfree(admin->cache.keystream);
 	kfree(admin->cache.maskstream);
 	kfree(admin->cache.actionstream);
@@ -1950,7 +1949,7 @@ sparx5_vcap_admin_alloc(struct sparx5 *sparx5, struct vcap_control *ctrl,
 	INIT_LIST_HEAD(&admin->list);
 	INIT_LIST_HEAD(&admin->rules);
 	INIT_LIST_HEAD(&admin->enabled);
-	mutex_init(&admin->lock);
+	admin->vctrl = ctrl;
 	admin->vtype = cfg->vtype;
 	admin->vinst = cfg->vinst;
 	admin->ingress = cfg->ingress;
@@ -2059,6 +2058,7 @@ int sparx5_vcap_init(struct sparx5 *sparx5)
 	ctrl->ops = &sparx5_vcap_ops;
 
 	INIT_LIST_HEAD(&ctrl->list);
+	mutex_init(&ctrl->lock);
 	for (idx = 0; idx < ARRAY_SIZE(sparx5_vcap_inst_cfg); ++idx) {
 		cfg = &consts->vcaps_cfg[idx];
 		admin = sparx5_vcap_admin_alloc(sparx5, ctrl, cfg);
@@ -2077,8 +2077,9 @@ int sparx5_vcap_init(struct sparx5 *sparx5)
 	dir = vcap_debugfs(sparx5->dev, sparx5->debugfs_root, ctrl);
 	for (idx = 0; idx < consts->n_ports; ++idx)
 		if (sparx5->ports[idx])
-			vcap_port_debugfs(sparx5->dev, dir, ctrl,
-					  sparx5->ports[idx]->ndev);
+			vcap_port_debugfs_portno(sparx5->dev, dir, ctrl,
+						 sparx5->ports[idx]->ndev,
+						 sparx5->ports[idx]->portno);
 
 	return err;
 }
@@ -2097,5 +2098,6 @@ void sparx5_vcap_deinit(struct sparx5 *sparx5)
 		list_del(&admin->list);
 		sparx5_vcap_admin_free(admin);
 	}
+	mutex_destroy(&ctrl->lock);
 	kfree(ctrl);
 }

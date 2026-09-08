@@ -195,8 +195,8 @@ static int batadv_mcast_forw_push_dests_list(struct batadv_priv *bat_priv,
 					     unsigned short *num_dests,
 					     unsigned short *tvlv_len)
 {
-	struct hlist_node *node;
 	struct batadv_orig_node *orig_node;
+	struct hlist_node *node;
 
 	rcu_read_lock();
 	__hlist_for_each_rcu(node, head) {
@@ -232,12 +232,9 @@ batadv_mcast_forw_push_tt(struct batadv_priv *bat_priv, struct sk_buff *skb,
 			  unsigned short *tvlv_len)
 {
 	struct batadv_tt_orig_list_entry *orig_entry;
-
 	struct batadv_tt_global_entry *tt_global;
 	const u8 *addr = eth_hdr(skb)->h_dest;
-
-	/* ok */
-	int ret = true;
+	int ret = true; /* ok */
 
 	tt_global = batadv_tt_global_hash_find(bat_priv, addr, vid);
 	if (!tt_global)
@@ -368,7 +365,8 @@ static void batadv_mcast_forw_scrape(struct sk_buff *skb,
 				     unsigned short offset,
 				     unsigned short len)
 {
-	char *to, *from;
+	char *from;
+	char *to;
 
 	SKB_LINEAR_ASSERT(skb);
 
@@ -411,7 +409,8 @@ static bool batadv_mcast_forw_push_insert_padding(struct sk_buff *skb,
 						  unsigned short *tvlv_len)
 {
 	unsigned short offset =	*tvlv_len;
-	char *to, *from = skb->data;
+	char *from = skb->data;
+	char *to;
 
 	to = batadv_mcast_forw_push_padding(skb, tvlv_len);
 	if (!to)
@@ -927,22 +926,22 @@ static int batadv_mcast_forw_packet(struct batadv_priv *bat_priv,
 {
 	struct batadv_tvlv_mcast_tracker *mcast_tracker;
 	struct batadv_neigh_node *neigh_node;
-	unsigned long offset, num_dests_off;
 	struct sk_buff *nexthop_skb;
 	unsigned char *skb_net_hdr;
 	bool local_recv = false;
 	unsigned int tvlv_len;
+	unsigned long offset;
 	bool xmitted = false;
-	u8 *dest, *next_dest;
+	u8 *next_dest;
 	u16 num_dests;
+	u8 *dest;
 	int ret;
 
 	/* (at least) TVLV part needs to be linearized */
 	SKB_LINEAR_ASSERT(skb);
 
-	/* check if num_dests is within skb length */
-	num_dests_off = offsetof(struct batadv_tvlv_mcast_tracker, num_dests);
-	if (num_dests_off > skb_network_header_len(skb))
+	/* check if batadv_tvlv_mcast_tracker header is within skb length */
+	if (sizeof(*mcast_tracker) > skb_network_header_len(skb))
 		return -EINVAL;
 
 	skb_net_hdr = skb_network_header(skb);
@@ -1081,6 +1080,11 @@ unsigned int batadv_mcast_forw_packet_hdrlen(unsigned int num_dests)
  * Tries to expand an skb's headroom so that its head to tail is 1298
  * bytes (minimum IPv6 MTU + vlan ethernet header size) large.
  *
+ * Warning: This function may reallocate the skb data buffer via
+ * skb_cow()/skb_linearize()/... Any pointer into the skb data (e.g.
+ * obtained from skb->data or eth_hdr()) before this call must be
+ * considered invalid afterwards and has to be reacquired.
+ *
  * Return: -EINVAL if the given skb's length is too large or -ENOMEM on memory
  * allocation failure. Otherwise, on success, zero is returned.
  */
@@ -1101,8 +1105,11 @@ static int batadv_mcast_forw_expand_head(struct batadv_priv *bat_priv,
 		return -EINVAL;
 	}
 
-	if (skb_headroom(skb) < hdr_size &&
-	    pskb_expand_head(skb, hdr_size, 0, GFP_ATOMIC) < 0)
+	if (skb_cow(skb, hdr_size) < 0)
+		return -ENOMEM;
+
+	/* batadv_mcast_forw_scrape() + batadv_mcast_forw_packet() require linearized skb */
+	if (skb_linearize(skb) < 0)
 		return -ENOMEM;
 
 	return 0;
@@ -1120,6 +1127,11 @@ static int batadv_mcast_forw_expand_head(struct batadv_priv *bat_priv,
  * A multicast tracker TVLV with destination originator addresses for any node
  * that signaled interest in it, that is either via the translation table or the
  * according want-all flags, is attached accordingly.
+ *
+ * Warning: This function may reallocate the skb data buffer via
+ * batadv_mcast_forw_expand_head()/... Any pointer into the skb data (e.g.
+ * obtained from skb->data or eth_hdr()) before this call must be
+ * considered invalid afterwards and has to be reacquired.
  *
  * Return: true on success, false otherwise.
  */

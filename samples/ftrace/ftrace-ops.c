@@ -223,7 +223,7 @@ static int __init ftrace_ops_sample_init(void)
 
 	pr_info("Attempted %u calls to %ps in %lluns (%lluns / call)\n",
 		nr_function_calls, tracee_relevant,
-		period, div_u64(period, nr_function_calls));
+		period, nr_function_calls ? div_u64(period, nr_function_calls) : -1LL);
 
 	if (persist)
 		return 0;
@@ -232,8 +232,8 @@ static int __init ftrace_ops_sample_init(void)
 	ops_destroy(ops_irrelevant, nr_ops_irrelevant);
 
 	/*
-	 * The benchmark completed sucessfully, but there's no reason to keep
-	 * the module around. Return an error do the user doesn't have to
+	 * The benchmark completed successfully, but there's no reason to keep
+	 * the module around. Return an error so the user doesn't have to
 	 * manually unload the module.
 	 */
 	return -EINVAL;

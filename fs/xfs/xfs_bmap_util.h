@@ -55,8 +55,13 @@ int	xfs_bmap_last_extent(struct xfs_trans *tp, struct xfs_inode *ip,
 			     int *is_empty);
 
 /* preallocation and hole punch interface */
+enum xfs_alloc_file_space_mode {
+	XFS_ALLOC_FILE_SPACE_PREALLOC,
+	XFS_ALLOC_FILE_SPACE_WRITE_ZEROES,
+};
+
 int	xfs_alloc_file_space(struct xfs_inode *ip, xfs_off_t offset,
-		xfs_off_t len);
+		xfs_off_t len, enum xfs_alloc_file_space_mode mode);
 int	xfs_free_file_space(struct xfs_inode *ip, xfs_off_t offset,
 		xfs_off_t len, struct xfs_zone_alloc_ctx *ac);
 int	xfs_collapse_file_space(struct xfs_inode *, xfs_off_t offset,
@@ -80,5 +85,9 @@ int xfs_bmap_count_blocks(struct xfs_trans *tp, struct xfs_inode *ip,
 
 int	xfs_flush_unmap_range(struct xfs_inode *ip, xfs_off_t offset,
 			      xfs_off_t len);
+
+void xfs_bmap_replace_cow_mapping(struct xfs_inode *ip,
+		struct xfs_iext_cursor *icur, struct xfs_bmbt_irec *got,
+		struct xfs_bmbt_irec *rep);
 
 #endif	/* __XFS_BMAP_UTIL_H__ */

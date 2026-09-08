@@ -77,10 +77,6 @@ void test_vm_types(void)
 {
 	test_init2(KVM_X86_SEV_VM, &(struct kvm_sev_init){});
 
-	/*
-	 * TODO: check that unsupported types cannot be created.  Probably
-	 * a separate selftest.
-	 */
 	if (have_sev_es)
 		test_init2(KVM_X86_SEV_ES_VM, &(struct kvm_sev_init){});
 
@@ -130,12 +126,18 @@ int main(int argc, char *argv[])
 			    KVM_X86_SEV_VMSA_FEATURES,
 			    &supported_vmsa_features);
 
-	have_sev = kvm_cpu_has(X86_FEATURE_SEV);
-	TEST_ASSERT(have_sev == !!(kvm_check_cap(KVM_CAP_VM_TYPES) & BIT(KVM_X86_SEV_VM)),
-		    "sev: KVM_CAP_VM_TYPES (%x) does not match cpuid (checking %x)",
-		    kvm_check_cap(KVM_CAP_VM_TYPES), 1 << KVM_X86_SEV_VM);
+	/*
+	 * Whether a VM type is available depends on KVM, not just CPUID: e.g.
+	 * when all SEV ASIDs are assigned to SEV-SNP, KVM does not offer the
+	 * SEV VM type even though X86_FEATURE_SEV is set.  Derive availability
+	 * from KVM_CAP_VM_TYPES and only assert the one-way implication that a
+	 * type offered by KVM must also be reported in CPUID.
+	 */
+	have_sev = kvm_check_cap(KVM_CAP_VM_TYPES) & BIT(KVM_X86_SEV_VM);
+	TEST_ASSERT(!have_sev || kvm_cpu_has(X86_FEATURE_SEV),
+		    "sev: SEV_VM supported without SEV in CPUID");
 
-	TEST_REQUIRE(kvm_check_cap(KVM_CAP_VM_TYPES) & BIT(KVM_X86_SEV_VM));
+	TEST_REQUIRE(have_sev);
 	have_sev_es = kvm_check_cap(KVM_CAP_VM_TYPES) & BIT(KVM_X86_SEV_ES_VM);
 
 	TEST_ASSERT(!have_sev_es || kvm_cpu_has(X86_FEATURE_SEV_ES),

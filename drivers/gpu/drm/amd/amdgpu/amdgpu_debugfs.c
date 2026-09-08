@@ -26,6 +26,7 @@
 #include <linux/kthread.h>
 #include <linux/pci.h>
 #include <linux/uaccess.h>
+#include <linux/security.h>
 #include <linux/pm_runtime.h>
 
 #include "amdgpu.h"
@@ -42,6 +43,11 @@
 #include "amdgpu_userq.h"
 
 #if defined(CONFIG_DEBUG_FS)
+
+/* Encode milliwatts in the raw Q24.8 sensor report format used by UMR. */
+#define AMDGPU_DEBUGFS_PWR_MW_TO_Q24_8(power_mw) \
+	DIV_ROUND_CLOSEST_ULL((u64)(power_mw) * BIT(8), \
+			      MILLIWATT_PER_WATT)
 
 /**
  * amdgpu_debugfs_process_reg_op - Handle MMIO register reads/writes
@@ -1104,6 +1110,10 @@ static ssize_t amdgpu_debugfs_sensor_read(struct file *f, char __user *buf,
 		return r;
 	}
 
+	if (idx == AMDGPU_PP_SENSOR_GPU_AVG_POWER ||
+	    idx == AMDGPU_PP_SENSOR_GPU_INPUT_POWER)
+		values[0] = AMDGPU_DEBUGFS_PWR_MW_TO_Q24_8(values[0]);
+
 	if (size > valuesize) {
 		amdgpu_virt_disable_access_debugfs(adev);
 		return -EINVAL;
@@ -1319,8 +1329,8 @@ err:
  * @size: Number of bytes to read
  * @pos:  Offset to seek to
  *
- * Read the last residency value logged. It doesn't auto update, one needs to
- * stop logging before getting the current value.
+ * Read a live GFXOFF residency sample from firmware. One needs to start logging
+ * before getting the current value.
  */
 static ssize_t amdgpu_debugfs_gfxoff_residency_read(struct file *f, char __user *buf,
 						    size_t size, loff_t *pos)
@@ -1738,6 +1748,12 @@ int amdgpu_debugfs_regs_init(struct amdgpu_device *adev)
 	struct drm_minor *minor = adev_to_drm(adev)->primary;
 	struct dentry *ent, *root = minor->debugfs_root;
 	unsigned int i;
+
+	if (security_locked_down(LOCKDOWN_PCI_ACCESS)) {
+		drm_info(adev_to_drm(adev),
+			 "amdgpu: HW debugfs nodes disabled (kernel lockdown)\n");
+		return 0;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(debugfs_regs); i++) {
 		ent = debugfs_create_file(debugfs_regs_names[i],
@@ -2170,6 +2186,8 @@ int amdgpu_debugfs_init(struct amdgpu_device *adev)
 		struct amdgpu_ring *ring = adev->rings[i];
 
 		if (!ring)
+			continue;
+		if (ring == &adev->cper.ring_buf && !adev->cper.enabled)
 			continue;
 
 		amdgpu_debugfs_ring_init(adev, ring);

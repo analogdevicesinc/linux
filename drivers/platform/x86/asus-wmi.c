@@ -1618,6 +1618,8 @@ static DEVICE_ATTR_RW(charge_control_end_threshold);
 
 static int asus_wmi_battery_add(struct power_supply *battery, struct acpi_battery_hook *hook)
 {
+	int ret, rv;
+
 	/* The WMI method does not provide a way to specific a battery, so we
 	 * just assume it is the first battery.
 	 * Note: On some newer ASUS laptops (Zenbook UM431DA), the primary/first
@@ -1635,12 +1637,30 @@ static int asus_wmi_battery_add(struct power_supply *battery, struct acpi_batter
 
 	/* The charge threshold is only reset when the system is power cycled,
 	 * and we can't read the current threshold, however the majority of
-	 * platforms retains it, therefore signal the threshold as unknown
-	 * until user explicitly sets it to a new value.
+	 * platforms retains it.
+	 *
+	 * Setting a negative value would signal the threshold as unknown
+	 * until user explicitly sets it to a new value, however to avoid
+	 * regressing userspace, we initialize it to a value of 100.
 	 */
-	charge_end_threshold = -1;
+	charge_end_threshold = 100;
+	ret = asus_wmi_set_devstate(ASUS_WMI_DEVID_RSOC, charge_end_threshold, &rv);
+	if (ret) {
+		pr_err("Failed to reset battery charge threshold\n");
+		goto asus_wmi_battery_add_err;
+	}
+
+	if (rv != 1) {
+		pr_err("Error in battery charge threshold reset\n");
+		ret = -EIO;
+		goto asus_wmi_battery_add_err;
+	}
 
 	return 0;
+asus_wmi_battery_add_err:
+	device_remove_file(&battery->dev,
+			   &dev_attr_charge_control_end_threshold);
+	return ret;
 }
 
 static int asus_wmi_battery_remove(struct power_supply *battery, struct acpi_battery_hook *hook)
@@ -4053,6 +4073,30 @@ static int asus_wmi_custom_fan_curve_init(struct asus_wmi *asus)
 	return 0;
 }
 
+/*
+ * Returns true if at least one custom fan curve is active
+ *
+ * Used by asus-armoury to check if PPT writes will be accepted by the BIOS
+ * on models that require an active fan curve for TDP changes.
+ */
+bool asus_wmi_custom_fan_curve_is_enabled(void)
+{
+	struct fan_curve_data *curves;
+	struct asus_wmi *asus;
+
+	guard(spinlock_irqsave)(&asus_ref.lock);
+	asus = asus_ref.asus;
+	if (!asus)
+		return false;
+
+	curves = asus->custom_fan_curves;
+
+	return (asus->cpu_fan_curve_available && curves[FAN_CURVE_DEV_CPU].enabled) ||
+	       (asus->gpu_fan_curve_available && curves[FAN_CURVE_DEV_GPU].enabled) ||
+	       (asus->mid_fan_curve_available && curves[FAN_CURVE_DEV_MID].enabled);
+}
+EXPORT_SYMBOL_NS_GPL(asus_wmi_custom_fan_curve_is_enabled, "ASUS_WMI");
+
 /* Throttle thermal policy ****************************************************/
 static int throttle_thermal_policy_write(struct asus_wmi *asus)
 {
@@ -5224,20 +5268,20 @@ static int asus_wmi_add(struct platform_device *pdev)
 	return 0;
 
 fail_wmi_handler:
+	asus_screenpad_exit(asus);
+fail_screenpad:
 	asus_wmi_backlight_exit(asus);
 fail_backlight:
 	asus_wmi_rfkill_exit(asus);
-fail_screenpad:
-	asus_screenpad_exit(asus);
 fail_rfkill:
 	asus_wmi_led_exit(asus);
 fail_leds:
+fail_custom_fan_curve:
 fail_hwmon:
 	asus_wmi_input_exit(asus);
 fail_input:
 	asus_wmi_sysfs_exit(asus->platform_device);
 fail_sysfs:
-fail_custom_fan_curve:
 fail_platform_profile_setup:
 fail_fan_boost_mode:
 fail_platform:

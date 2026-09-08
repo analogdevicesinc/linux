@@ -3455,7 +3455,8 @@ static void bond_send_validate(struct bonding *bond, struct slave *slave)
 {
 	bond_arp_send_all(bond, slave);
 #if IS_ENABLED(CONFIG_IPV6)
-	bond_ns_send_all(bond, slave);
+	if (likely(ipv6_mod_enabled()))
+		bond_ns_send_all(bond, slave);
 #endif
 }
 
@@ -4857,12 +4858,6 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
 			  __func__, slave);
 		res = dev_set_mac_address(slave->dev, addr, NULL);
 		if (res) {
-			/* TODO: consider downing the slave
-			 * and retry ?
-			 * User should expect communications
-			 * breakage anyway until ARP finish
-			 * updating, so...
-			 */
 			slave_dbg(bond_dev, slave->dev, "%s: err %d\n",
 				  __func__, res);
 			goto unwind;
@@ -6643,7 +6638,9 @@ static int __init bonding_init(void)
 				flow_keys_bonding_keys,
 				ARRAY_SIZE(flow_keys_bonding_keys));
 
-	register_netdevice_notifier(&bond_netdev_notifier);
+	res = register_netdevice_notifier(&bond_netdev_notifier);
+	if (res)
+		goto err;
 out:
 	return res;
 err:

@@ -117,7 +117,7 @@ static ssize_t imc_pmu_cpumask_get_attr(struct device *dev,
 		return 0;
 	}
 
-	return cpumap_print_to_pagebuf(true, buf, active_mask);
+	return sysfs_emit(buf, "%*pbl\n", cpumask_pr_args(active_mask));
 }
 
 static DEVICE_ATTR(cpumask, S_IRUGO, imc_pmu_cpumask_get_attr, NULL);
@@ -1023,10 +1023,7 @@ static int thread_imc_event_init(struct perf_event *event)
 
 static bool is_thread_imc_pmu(struct perf_event *event)
 {
-	if (!strncmp(event->pmu->name, "thread_imc", strlen("thread_imc")))
-		return true;
-
-	return false;
+	return strstarts(event->pmu->name, "thread_imc");
 }
 
 static __be64 *get_event_base_addr(struct perf_event *event)

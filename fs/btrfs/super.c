@@ -22,6 +22,7 @@
 #include <linux/namei.h>
 #include <linux/miscdevice.h>
 #include <linux/magic.h>
+#include <linux/memcontrol.h>
 #include <linux/slab.h>
 #include <linux/ratelimit.h>
 #include <linux/crc32c.h>
@@ -128,7 +129,6 @@ enum {
 
 	/* Rescue options */
 	Opt_rescue,
-	Opt_usebackuproot,
 
 	/* Debugging options */
 	Opt_enospc_debug,
@@ -248,8 +248,6 @@ static const struct fs_parameter_spec btrfs_fs_parameters[] = {
 
 	/* Rescue options. */
 	fsparam_enum("rescue", Opt_rescue, btrfs_parameter_rescue),
-	/* Deprecated, with alias rescue=usebackuproot */
-	__fsparam(NULL, "usebackuproot", Opt_usebackuproot, fs_param_deprecated, NULL),
 	/* For compatibility only, alias for "rescue=nologreplay". */
 	fsparam_flag("norecovery", Opt_norecovery),
 
@@ -513,19 +511,20 @@ static int btrfs_parse_param(struct fs_context *fc, struct fs_parameter *param)
 		btrfs_clear_opt(ctx->mount_opt, NODISCARD);
 		break;
 	case Opt_space_cache:
-		if (result.negated) {
-			btrfs_set_opt(ctx->mount_opt, NOSPACECACHE);
-			btrfs_clear_opt(ctx->mount_opt, SPACE_CACHE);
-			btrfs_clear_opt(ctx->mount_opt, FREE_SPACE_TREE);
-		} else {
-			btrfs_clear_opt(ctx->mount_opt, FREE_SPACE_TREE);
-			btrfs_set_opt(ctx->mount_opt, SPACE_CACHE);
-		}
+		if (!result.negated)
+			btrfs_warn(NULL,
+			"v1 space cache is deprecated, falling back to no space cache");
+		btrfs_set_opt(ctx->mount_opt, NOSPACECACHE);
+		btrfs_clear_opt(ctx->mount_opt, SPACE_CACHE);
+		btrfs_clear_opt(ctx->mount_opt, FREE_SPACE_TREE);
 		break;
 	case Opt_space_cache_version:
 		switch (result.uint_32) {
 		case Opt_space_cache_v1:
-			btrfs_set_opt(ctx->mount_opt, SPACE_CACHE);
+			btrfs_warn(NULL,
+			"v1 space cache is deprecated, falling back to no space cache");
+			btrfs_set_opt(ctx->mount_opt, NOSPACECACHE);
+			btrfs_clear_opt(ctx->mount_opt, SPACE_CACHE);
 			btrfs_clear_opt(ctx->mount_opt, FREE_SPACE_TREE);
 			break;
 		case Opt_space_cache_v2:
@@ -558,14 +557,6 @@ static int btrfs_parse_param(struct fs_context *fc, struct fs_parameter *param)
 			btrfs_clear_opt(ctx->mount_opt, AUTO_DEFRAG);
 		else
 			btrfs_set_opt(ctx->mount_opt, AUTO_DEFRAG);
-		break;
-	case Opt_usebackuproot:
-		btrfs_warn(NULL,
-			   "'usebackuproot' is deprecated, use 'rescue=usebackuproot' instead");
-		btrfs_set_opt(ctx->mount_opt, USEBACKUPROOT);
-
-		/* If we're loading the backup roots we can't trust the space cache. */
-		btrfs_set_opt(ctx->mount_opt, CLEAR_CACHE);
 		break;
 	case Opt_skip_balance:
 		btrfs_set_opt(ctx->mount_opt, SKIP_BALANCE);
@@ -619,6 +610,7 @@ static int btrfs_parse_param(struct fs_context *fc, struct fs_parameter *param)
 			btrfs_set_opt(ctx->mount_opt, IGNORESUPERFLAGS);
 			btrfs_set_opt(ctx->mount_opt, IGNOREBADROOTS);
 			btrfs_set_opt(ctx->mount_opt, NOLOGREPLAY);
+			btrfs_set_opt(ctx->mount_opt, USEBACKUPROOT);
 			break;
 		default:
 			btrfs_info(NULL, "unrecognized rescue option '%s'",
@@ -667,7 +659,6 @@ static int btrfs_parse_param(struct fs_context *fc, struct fs_parameter *param)
  */
 static void btrfs_clear_oneshot_options(struct btrfs_fs_info *fs_info)
 {
-	btrfs_clear_opt(fs_info->mount_opt, USEBACKUPROOT);
 	btrfs_clear_opt(fs_info->mount_opt, CLEAR_CACHE);
 	btrfs_clear_opt(fs_info->mount_opt, NOSPACECACHE);
 }
@@ -691,7 +682,8 @@ bool btrfs_check_options(const struct btrfs_fs_info *info,
 	bool ret = true;
 
 	if (!(flags & SB_RDONLY) &&
-	    (check_ro_option(info, *mount_opt, BTRFS_MOUNT_NOLOGREPLAY, "nologreplay") ||
+	    (check_ro_option(info, *mount_opt, BTRFS_MOUNT_USEBACKUPROOT, "usebackuproot") ||
+	     check_ro_option(info, *mount_opt, BTRFS_MOUNT_NOLOGREPLAY, "nologreplay") ||
 	     check_ro_option(info, *mount_opt, BTRFS_MOUNT_IGNOREBADROOTS, "ignorebadroots") ||
 	     check_ro_option(info, *mount_opt, BTRFS_MOUNT_IGNOREDATACSUMS, "ignoredatacsums") ||
 	     check_ro_option(info, *mount_opt, BTRFS_MOUNT_IGNOREMETACSUMS, "ignoremetacsums") ||
@@ -981,7 +973,7 @@ static int btrfs_fill_super(struct super_block *sb,
 
 	ret = open_ctree(sb, fs_devices);
 	if (ret) {
-		btrfs_err(fs_info, "open_ctree failed: %d", ret);
+		btrfs_err(fs_info, "open_ctree failed: %pe", ERR_PTR(ret));
 		return ret;
 	}
 
@@ -1519,12 +1511,14 @@ static int btrfs_reconfigure(struct fs_context *fc)
 	sync_filesystem(sb);
 	set_bit(BTRFS_FS_STATE_REMOUNTING, &fs_info->fs_state);
 
-	if (!btrfs_check_options(fs_info, &ctx->mount_opt, fc->sb_flags))
-		return -EINVAL;
+	if (!btrfs_check_options(fs_info, &ctx->mount_opt, fc->sb_flags)) {
+		ret = -EINVAL;
+		goto restore;
+	}
 
 	ret = btrfs_check_features(fs_info, !(fc->sb_flags & SB_RDONLY));
 	if (ret < 0)
-		return ret;
+		goto restore;
 
 	btrfs_ctx_to_info(fs_info, ctx);
 	btrfs_remount_begin(fs_info, old_ctx.mount_opt, fc->sb_flags);
@@ -2433,6 +2427,15 @@ static long btrfs_nr_cached_objects(struct super_block *sb, struct shrink_contro
 {
 	struct btrfs_fs_info *fs_info = btrfs_sb(sb);
 	const s64 nr = percpu_counter_read_positive(&fs_info->evictable_extent_maps);
+
+	/*
+	 * The evictable extent map counter is filesystem-global and does not
+	 * honour sc->memcg, so it is only meaningful on the global (kswapd or
+	 * root direct reclaim) shrink path. Skip the per-memcg iterations of
+	 * shrink_slab_memcg() to avoid queueing duplicate global work.
+	 */
+	if (!mem_cgroup_shrink_is_root(sc))
+		return 0;
 
 	trace_btrfs_extent_map_shrinker_count(fs_info, nr);
 

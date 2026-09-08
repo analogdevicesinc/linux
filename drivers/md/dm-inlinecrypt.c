@@ -347,7 +347,7 @@ static int inlinecrypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	err = get_key_size(&argv[1]);
 	if (err < 0) {
 		ti->error = "Cannot parse key size";
-		return -EINVAL;
+		goto bad;
 	}
 	ctx->key_size = err;
 
@@ -398,6 +398,7 @@ static int inlinecrypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	if (ctx->iv_offset & ((ctx->sector_size >> SECTOR_SHIFT) - 1)) {
 		ti->error = "Wrong alignment of iv_offset sector";
 		err = -EINVAL;
+		goto bad;
 	}
 
 	ctx->max_dun = (ctx->iv_offset + ti->len - 1) >>
@@ -406,7 +407,8 @@ static int inlinecrypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 
 	err = blk_crypto_init_key(&ctx->key, key_bytes, ctx->key_size,
 				  ctx->key_type, cipher->mode_num,
-				  dun_bytes, ctx->sector_size);
+				  dun_bytes, ctx->sector_size,
+				  BLK_CRYPTO_CFG_ALLOW_HW);
 	if (err) {
 		ti->error = "Error initializing blk-crypto key";
 		goto bad;
