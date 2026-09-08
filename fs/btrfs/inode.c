@@ -7133,7 +7133,7 @@ static noinline int uncompress_inline(struct btrfs_path *path,
 	compress_type = btrfs_file_extent_compression(leaf, item);
 	max_size = btrfs_file_extent_ram_bytes(leaf, item);
 	inline_size = btrfs_file_extent_inline_item_len(leaf, path->slots[0]);
-	tmp = kmalloc(inline_size, GFP_NOFS);
+	tmp = kvmalloc(inline_size, GFP_NOFS);
 	if (!tmp)
 		return -ENOMEM;
 	ptr = btrfs_file_extent_inline_start(item);
@@ -7154,7 +7154,7 @@ static noinline int uncompress_inline(struct btrfs_path *path,
 
 	if (max_size < blocksize)
 		folio_zero_range(folio, max_size, blocksize - max_size);
-	kfree(tmp);
+	kvfree(tmp);
 	return ret;
 }
 
