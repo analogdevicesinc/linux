@@ -1831,6 +1831,8 @@ static int bpf_dummy_reg(void *kdata, struct bpf_link *link)
 	 */
 	if (ops->test_2)
 		ops->test_2(4, ops->data);
+	if (ops->test_trampoline_stack_args)
+		ops->test_trampoline_stack_args(1, 2, 3, 4, 5, 6, 7, 8, 9999);
 
 	return 0;
 }
@@ -1878,6 +1880,13 @@ bpf_testmod_ops__test_return_ref_kptr(int dummy, struct task_struct *task__ref,
 	return NULL;
 }
 
+static int bpf_testmod_ops__test_trampoline_stack_args(int arg1, int arg2, int arg3,
+						       int arg4, int arg5, int arg6,
+						       int arg7, int arg8, int arg9)
+{
+	return arg9;
+}
+
 static struct bpf_testmod_ops __bpf_testmod_ops = {
 	.test_1 = bpf_testmod_test_1,
 	.test_2 = bpf_testmod_test_2,
@@ -1885,6 +1894,7 @@ static struct bpf_testmod_ops __bpf_testmod_ops = {
 	.test_refcounted = bpf_testmod_ops__test_refcounted,
 	.test_refcounted_multi = bpf_testmod_ops__test_refcounted_multi,
 	.test_return_ref_kptr = bpf_testmod_ops__test_return_ref_kptr,
+	.test_trampoline_stack_args = bpf_testmod_ops__test_trampoline_stack_args,
 };
 
 struct bpf_struct_ops bpf_bpf_testmod_ops = {
