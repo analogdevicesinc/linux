@@ -347,8 +347,6 @@ int amdgpu_ring_init(struct amdgpu_device *adev, struct amdgpu_ring *ring,
 	ring->buf_mask = (ring->ring_size / 4) - 1;
 	ring->ptr_mask = ring->funcs->support_64bit_ptrs ?
 		0xffffffffffffffff : ring->buf_mask;
-	/*  Initialize cached_rptr to 0 */
-	ring->cached_rptr = 0;
 
 	if (!ring->ring_backup) {
 		ring->ring_backup = kvzalloc(ring->ring_size, GFP_KERNEL);

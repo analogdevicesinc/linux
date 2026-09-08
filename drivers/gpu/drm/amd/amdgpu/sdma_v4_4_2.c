@@ -660,12 +660,11 @@ static uint32_t sdma_v4_4_2_rb_cntl(struct amdgpu_ring *ring, uint32_t rb_cntl)
  *
  * @adev: amdgpu_device pointer
  * @i: instance to resume
- * @restore: used to restore wptr when restart
  *
  * Set up the gfx DMA ring buffers and enable them.
  * Returns 0 for success, error for failure.
  */
-static void sdma_v4_4_2_gfx_resume(struct amdgpu_device *adev, unsigned int i, bool restore)
+static void sdma_v4_4_2_gfx_resume(struct amdgpu_device *adev, unsigned int i)
 {
 	struct amdgpu_ring *ring = &adev->sdma.instance[i].ring;
 	u32 rb_cntl, ib_cntl, wptr_poll_cntl;
@@ -673,7 +672,6 @@ static void sdma_v4_4_2_gfx_resume(struct amdgpu_device *adev, unsigned int i, b
 	u32 doorbell;
 	u32 doorbell_offset;
 	u64 wptr_gpu_addr;
-	u64 rwptr;
 
 	wb_offset = (ring->rptr_offs * 4);
 
@@ -693,32 +691,16 @@ static void sdma_v4_4_2_gfx_resume(struct amdgpu_device *adev, unsigned int i, b
 	WREG32_SDMA(i, regSDMA_GFX_RB_BASE, ring->gpu_addr >> 8);
 	WREG32_SDMA(i, regSDMA_GFX_RB_BASE_HI, ring->gpu_addr >> 40);
 
-	if (!restore)
-		ring->wptr = 0;
+	ring->wptr = 0;
 
 	/* before programing wptr to a less value, need set minor_ptr_update first */
 	WREG32_SDMA(i, regSDMA_GFX_MINOR_PTR_UPDATE, 1);
 
-	/* For the guilty queue, set RPTR to the current wptr to skip bad commands,
-	 * It is not a guilty queue, restore cache_rptr and continue execution.
-	 */
-	if (adev->sdma.instance[i].gfx_guilty)
-		rwptr = ring->wptr;
-	else
-		rwptr = ring->cached_rptr;
-
 	/* Initialize the ring buffer's read and write pointers */
-	if (restore) {
-		WREG32_SDMA(i, regSDMA_GFX_RB_RPTR, lower_32_bits(rwptr << 2));
-		WREG32_SDMA(i, regSDMA_GFX_RB_RPTR_HI, upper_32_bits(rwptr << 2));
-		WREG32_SDMA(i, regSDMA_GFX_RB_WPTR, lower_32_bits(rwptr << 2));
-		WREG32_SDMA(i, regSDMA_GFX_RB_WPTR_HI, upper_32_bits(rwptr << 2));
-	} else {
-		WREG32_SDMA(i, regSDMA_GFX_RB_RPTR, 0);
-		WREG32_SDMA(i, regSDMA_GFX_RB_RPTR_HI, 0);
-		WREG32_SDMA(i, regSDMA_GFX_RB_WPTR, 0);
-		WREG32_SDMA(i, regSDMA_GFX_RB_WPTR_HI, 0);
-	}
+	WREG32_SDMA(i, regSDMA_GFX_RB_RPTR, 0);
+	WREG32_SDMA(i, regSDMA_GFX_RB_RPTR_HI, 0);
+	WREG32_SDMA(i, regSDMA_GFX_RB_WPTR, 0);
+	WREG32_SDMA(i, regSDMA_GFX_RB_WPTR_HI, 0);
 
 	doorbell = RREG32_SDMA(i, regSDMA_GFX_DOORBELL);
 	doorbell_offset = RREG32_SDMA(i, regSDMA_GFX_DOORBELL_OFFSET);
@@ -771,7 +753,7 @@ static void sdma_v4_4_2_gfx_resume(struct amdgpu_device *adev, unsigned int i, b
  * Set up the page DMA ring buffers and enable them.
  * Returns 0 for success, error for failure.
  */
-static void sdma_v4_4_2_page_resume(struct amdgpu_device *adev, unsigned int i, bool restore)
+static void sdma_v4_4_2_page_resume(struct amdgpu_device *adev, unsigned int i)
 {
 	struct amdgpu_ring *ring = &adev->sdma.instance[i].page;
 	u32 rb_cntl, ib_cntl, wptr_poll_cntl;
@@ -779,7 +761,6 @@ static void sdma_v4_4_2_page_resume(struct amdgpu_device *adev, unsigned int i, 
 	u32 doorbell;
 	u32 doorbell_offset;
 	u64 wptr_gpu_addr;
-	u64 rwptr;
 
 	wb_offset = (ring->rptr_offs * 4);
 
@@ -787,26 +768,11 @@ static void sdma_v4_4_2_page_resume(struct amdgpu_device *adev, unsigned int i, 
 	rb_cntl = sdma_v4_4_2_rb_cntl(ring, rb_cntl);
 	WREG32_SDMA(i, regSDMA_PAGE_RB_CNTL, rb_cntl);
 
-	/* For the guilty queue, set RPTR to the current wptr to skip bad commands,
-	 * It is not a guilty queue, restore cache_rptr and continue execution.
-	 */
-	if (adev->sdma.instance[i].page_guilty)
-		rwptr = ring->wptr;
-	else
-		rwptr = ring->cached_rptr;
-
 	/* Initialize the ring buffer's read and write pointers */
-	if (restore) {
-		WREG32_SDMA(i, regSDMA_PAGE_RB_RPTR, lower_32_bits(rwptr << 2));
-		WREG32_SDMA(i, regSDMA_PAGE_RB_RPTR_HI, upper_32_bits(rwptr << 2));
-		WREG32_SDMA(i, regSDMA_PAGE_RB_WPTR, lower_32_bits(rwptr << 2));
-		WREG32_SDMA(i, regSDMA_PAGE_RB_WPTR_HI, upper_32_bits(rwptr << 2));
-	} else {
-		WREG32_SDMA(i, regSDMA_PAGE_RB_RPTR, 0);
-		WREG32_SDMA(i, regSDMA_PAGE_RB_RPTR_HI, 0);
-		WREG32_SDMA(i, regSDMA_PAGE_RB_WPTR, 0);
-		WREG32_SDMA(i, regSDMA_PAGE_RB_WPTR_HI, 0);
-	}
+	WREG32_SDMA(i, regSDMA_PAGE_RB_RPTR, 0);
+	WREG32_SDMA(i, regSDMA_PAGE_RB_RPTR_HI, 0);
+	WREG32_SDMA(i, regSDMA_PAGE_RB_WPTR, 0);
+	WREG32_SDMA(i, regSDMA_PAGE_RB_WPTR_HI, 0);
 
 	/* set the wb address whether it's enabled or not */
 	WREG32_SDMA(i, regSDMA_PAGE_RB_RPTR_ADDR_HI,
@@ -820,8 +786,7 @@ static void sdma_v4_4_2_page_resume(struct amdgpu_device *adev, unsigned int i, 
 	WREG32_SDMA(i, regSDMA_PAGE_RB_BASE, ring->gpu_addr >> 8);
 	WREG32_SDMA(i, regSDMA_PAGE_RB_BASE_HI, ring->gpu_addr >> 40);
 
-	if (!restore)
-		ring->wptr = 0;
+	ring->wptr = 0;
 
 	/* before programing wptr to a less value, need set minor_ptr_update first */
 	WREG32_SDMA(i, regSDMA_PAGE_MINOR_PTR_UPDATE, 1);
@@ -959,9 +924,9 @@ static int sdma_v4_4_2_inst_start(struct amdgpu_device *adev,
 		uint32_t temp;
 
 		WREG32_SDMA(i, regSDMA_SEM_WAIT_FAIL_TIMER_CNTL, 0);
-		sdma_v4_4_2_gfx_resume(adev, i, restore);
+		sdma_v4_4_2_gfx_resume(adev, i);
 		if (adev->sdma.has_page_queue)
-			sdma_v4_4_2_page_resume(adev, i, restore);
+			sdma_v4_4_2_page_resume(adev, i);
 
 		/* set utc l1 enable flag always to 1 */
 		temp = RREG32_SDMA(i, regSDMA_CNTL);
@@ -1645,7 +1610,6 @@ static int sdma_v4_4_2_stop_queue(struct amdgpu_ring *ring)
 	struct amdgpu_device *adev = ring->adev;
 	u32 instance_id = ring->me;
 	u32 inst_mask;
-	uint64_t rptr;
 
 	if (amdgpu_sriov_vf(adev))
 		return -EINVAL;
@@ -1656,18 +1620,6 @@ static int sdma_v4_4_2_stop_queue(struct amdgpu_ring *ring)
 	if (adev->sdma.has_page_queue)
 		adev->sdma.instance[instance_id].page_guilty =
 			sdma_v4_4_2_is_queue_selected(adev, instance_id, true);
-
-	/* Cache the rptr before reset, after the reset,
-	* all of the registers will be reset to 0
-	*/
-	rptr = amdgpu_ring_get_rptr(ring);
-	ring->cached_rptr = rptr;
-	/* Cache the rptr for the page queue if it exists */
-	if (adev->sdma.has_page_queue) {
-		struct amdgpu_ring *page_ring = &adev->sdma.instance[instance_id].page;
-		rptr = amdgpu_ring_get_rptr(page_ring);
-		page_ring->cached_rptr = rptr;
-	}
 
 	/* stop queue */
 	inst_mask = 1 << ring->me;
