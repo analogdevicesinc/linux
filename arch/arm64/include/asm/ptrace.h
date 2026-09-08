@@ -167,6 +167,11 @@ struct pt_regs {
 
 	u64 sdei_ttbr1;
 	struct frame_record_meta stackframe;
+
+	u16	pcpu_gprs;
+	u16	__unused1;
+	u32	__unused2;
+	u64	__unused3;
 };
 
 /* For correct stack alignment, pt_regs has to be a multiple of 16 bytes. */

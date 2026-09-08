@@ -5,10 +5,13 @@
 #ifndef __ASM_PERCPU_H
 #define __ASM_PERCPU_H
 
+#include <linux/bits.h>
 #include <linux/preempt.h>
+#include <linux/stringify.h>
 
 #include <asm/alternative.h>
 #include <asm/cmpxchg.h>
+#include <asm/gpr-num.h>
 #include <asm/stack_pointer.h>
 #include <asm/sysreg.h>
 
@@ -50,6 +53,74 @@ static inline unsigned long __kern_my_cpu_offset(void)
 
 	return off;
 }
+
+#define PCPU_GPR_PCP_SHIFT		0
+#define PCPU_GPR_PCP			GENMASK(4, 0)
+#define PCPU_GPR_OFF_SHIFT		5
+#define PCPU_GPR_OFF			GENMASK(9, 5)
+#define PCPU_GPR_ADDR_SHIFT		10
+#define PCPU_GPR_ADDR			GENMASK(14, 10)
+
+#define __VAL_PCPU_GPRS(pcp, off, addr)							\
+	"("										\
+		"(" __GPR_NUM(pcp)  " << " __stringify(PCPU_GPR_PCP_SHIFT) ") | "	\
+		"(" __GPR_NUM(off)  " << " __stringify(PCPU_GPR_OFF_SHIFT) ") | "	\
+		"(" __GPR_NUM(addr) " << " __stringify(PCPU_GPR_ADDR_SHIFT) ")"		\
+	")"
+
+#define __ASSERT_PCPU_GPRS_DISTINCT(pcp, off, addr)			\
+	".if ("								\
+		"(" __GPR_NUM(pcp) " == " __GPR_NUM(off) ") || "	\
+		"(" __GPR_NUM(pcp) " == " __GPR_NUM(addr) ") || "	\
+		"(" __GPR_NUM(off) " == " __GPR_NUM(addr) ")"		\
+	"    )\n"							\
+	".error \"PCPU GPRS overlap: {" pcp "," off "," addr "}\"\n"	\
+	".endif\n"
+
+#define ____PCPU_GPRS_BEGIN(gprs, pcp, off, addr)			\
+	"// ____PCPU_GPRS_BEGIN(" gprs ", " pcp ", " off ", " addr")\n"	\
+	__DEFINE_ASM_GPR_NUMS						\
+	__DEFINE_ASM_GPR_ALIASES					\
+	__ASSERT_PCPU_GPRS_DISTINCT(pcp, off, addr)			\
+	"	mov w" off ", #" __VAL_PCPU_GPRS(pcp, off, addr) "\n"	\
+	"	strh	w" off ", " gprs "\n"				\
+	__KERN_ASM_CPU_OFFSET(off) "\n"
+
+/*
+ * Begin a PCPU GPR critical section which requires <addr> (and <off>).
+ *
+ * At the start of the critical section, and upon any (preemptible) exception
+ * until __PCPU_GPRS_END():
+ * - <off>  will be set to the current CPU's percpu offset.
+ * - <addr> will be set to <pcp> + <off>.
+ *
+ * The <pcp>, <off>, and <addr> registers must be distinct GPRs.
+ *
+ * <gprs> must be '&current_thread_info()->pcpu_gprs', as a memory operand
+ * which can be written both at the start and end of the critical section
+ * (e.g. using "=Qo" constraints).
+ */
+#define __PCPU_GPRS_BEGIN(gprs, pcp, off, addr)				\
+	____PCPU_GPRS_BEGIN(gprs, pcp, off, addr)			\
+	"	add	" addr ", " pcp ", " off "\n"
+
+/*
+ * Begin a PCPU GPR critical section which only requires <off> and does not
+ * require <addr>.
+ *
+ * This is only for operations that can use register-offset addressing,
+ * e.g. STR <Xt>, [<Xn>, <Xm>].
+ *
+ * All other details are the same as __PCPU_GPRS_BEGIN().
+ */
+#define __PCPU_GPRS_BEGIN_OFFSET(gprs, pcp, off)			\
+	____PCPU_GPRS_BEGIN(gprs, pcp, off, "xzr")
+
+/*
+ * End a PCPU GPR critical section.
+ */
+#define __PCPU_GPRS_END(gprs)						\
+	"	strh	wzr, " gprs "\n"
 
 #ifdef __KVM_NVHE_HYPERVISOR__
 #define __my_cpu_offset __hyp_my_cpu_offset()
