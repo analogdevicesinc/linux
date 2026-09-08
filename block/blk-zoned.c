@@ -1993,6 +1993,7 @@ void disk_release_zone_resources(struct gendisk *disk)
 
 struct blk_revalidate_zone_args {
 	struct gendisk	*disk;
+	sector_t	capacity;
 	u8		*zones_cond;
 	unsigned int	nr_zones;
 	unsigned int	nr_conv_zones;
@@ -2010,7 +2011,7 @@ static int disk_revalidate_zone_resources(struct gendisk *disk,
 
 	args->disk = disk;
 	args->nr_zones =
-		DIV_ROUND_UP_ULL(get_capacity(disk), lim->chunk_sectors);
+		DIV_ROUND_UP_ULL(args->capacity, lim->chunk_sectors);
 
 	/* Cached zone conditions: 1 byte per zone */
 	args->zones_cond = kzalloc(args->nr_zones, GFP_NOIO);
@@ -2231,7 +2232,7 @@ static int blk_revalidate_zone_cb(struct blk_zone *zone, unsigned int idx,
 		return -ENODEV;
 	}
 
-	if (zone->start >= get_capacity(disk) || !zone->len) {
+	if (zone->start >= args->capacity || !zone->len) {
 		pr_warn("%s: Invalid zone start %llu, length %llu\n",
 			disk->disk_name, zone->start, zone->len);
 		return -ENODEV;
@@ -2302,8 +2303,9 @@ int blk_revalidate_disk_zones(struct gendisk *disk)
 {
 	struct request_queue *q = disk->queue;
 	sector_t zone_sectors = q->limits.chunk_sectors;
-	sector_t capacity = get_capacity(disk);
-	struct blk_revalidate_zone_args args = { };
+	struct blk_revalidate_zone_args args = {
+		.capacity = get_capacity(disk),
+	};
 	struct blk_report_zones_args rep_args = {
 		.cb = blk_revalidate_zone_cb,
 		.data = &args,
@@ -2314,7 +2316,7 @@ int blk_revalidate_disk_zones(struct gendisk *disk)
 	if (WARN_ON_ONCE(!blk_queue_is_zoned(q)))
 		return -EIO;
 
-	if (!capacity)
+	if (!args.capacity)
 		return -ENODEV;
 
 	/*
@@ -2352,7 +2354,12 @@ int blk_revalidate_disk_zones(struct gendisk *disk)
 	 * If zones where reported, make sure that the entire disk capacity
 	 * has been checked.
 	 */
-	if (args.sector != capacity) {
+	if (args.capacity != get_capacity(disk)) {
+		pr_warn("%s: Capacity has changed\n", disk->disk_name);
+		ret = -ENODEV;
+		goto free_args;
+	}
+	if (args.sector != args.capacity) {
 		pr_warn("%s: Missing zones from sector %llu\n",
 			disk->disk_name, args.sector);
 		ret = -ENODEV;
