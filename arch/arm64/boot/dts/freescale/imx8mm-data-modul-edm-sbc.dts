@@ -431,7 +431,63 @@
 	eeprom: eeprom@50 {
 		compatible = "atmel,24c32";
 		reg = <0x50>;
+		label = "dmo-board-info";
 		pagesize = <32>;
+		wp-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
+
+		nvmem-layout {
+			compatible = "fixed-layout";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			company-name@24 {
+				reg = <0x24 0xd>;
+			};
+
+			product-name@32 {
+				reg = <0x32 0x13>;
+			};
+
+			board-revision@4b {
+				reg = <0x4b 0x3>;
+			};
+
+			serial-number@4f {
+				reg = <0x4f 0x8>;
+			};
+
+			manufacturing-date@70 {
+				reg = <0x70 0xa>;
+			};
+
+			test-date@7b {
+				reg = <0x7b 0xa>;
+			};
+
+			product-number@86 {
+				reg = <0x86 0x8>;
+			};
+
+			board-variant@9a {
+				reg = <0x9a 0x9>;
+			};
+
+			company-acronym@a4 {
+				reg = <0xa4 0x3>;
+			};
+
+			mac-address@b0 {
+				reg = <0xb0 0x6>;
+			};
+
+			board-id@100 {
+				reg = <0x100 0x4>;
+			};
+
+			wifi-id@120 {
+				reg = <0x120 0x4>;
+			};
+		};
 	};
 
 	rtc: rtc@68 {
