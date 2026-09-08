@@ -44,7 +44,7 @@ const char *progname;
 
 #define LEN(region)	((region.end - region.start)/page_size)
 
-static long pagemap_ioctl(void *start, int len, void *vec, int vec_len, int flag,
+static long pagemap_ioctl(void *start, size_t len, void *vec, size_t vec_len, int flag,
 			  int max_pages, long required_mask, long anyof_mask, long excluded_mask,
 			  long return_mask)
 {
@@ -65,7 +65,7 @@ static long pagemap_ioctl(void *start, int len, void *vec, int vec_len, int flag
 	return ioctl(pagemap_fd, PAGEMAP_SCAN, &arg);
 }
 
-static long pagemap_ioc(void *start, int len, void *vec, int vec_len, int flag,
+static long pagemap_ioc(void *start, size_t len, void *vec, size_t vec_len, int flag,
 			int max_pages, long required_mask, long anyof_mask, long excluded_mask,
 			long return_mask, long *walk_end)
 {
@@ -116,7 +116,7 @@ int init_uffd(void)
 	return 0;
 }
 
-int wp_init(void *addr, long size)
+int wp_init(void *addr, size_t size)
 {
 	struct uffdio_register uffdio_register;
 	struct uffdio_writeprotect wp;
@@ -140,7 +140,7 @@ int wp_init(void *addr, long size)
 	return 0;
 }
 
-int wp_free(void *addr, long size)
+int wp_free(void *addr, size_t size)
 {
 	struct uffdio_register uffdio_register;
 
@@ -152,7 +152,7 @@ int wp_free(void *addr, long size)
 	return 0;
 }
 
-int wp_addr_range(void *addr, int size)
+int wp_addr_range(void *addr, size_t size)
 {
 	if (pagemap_ioctl(addr, size, NULL, 0,
 			  PM_SCAN_WP_MATCHING | PM_SCAN_CHECK_WPASYNC,
@@ -162,7 +162,7 @@ int wp_addr_range(void *addr, int size)
 	return 0;
 }
 
-void *gethugetlb_mem(int size, int *shmid)
+void *gethugetlb_mem(size_t size, int *shmid)
 {
 	char *mem;
 
@@ -188,7 +188,8 @@ void *gethugetlb_mem(int size, int *shmid)
 
 int userfaultfd_tests(void)
 {
-	long mem_size, vec_size, written, num_pages = 16;
+	size_t mem_size, vec_size, num_pages = 16;
+	long written;
 	char *mem, *vec;
 
 	mem_size = num_pages * page_size;
@@ -229,9 +230,10 @@ int userfaultfd_tests(void)
 	return 0;
 }
 
-int get_reads(struct page_region *vec, int vec_size)
+int get_reads(struct page_region *vec, size_t vec_size)
 {
-	int i, sum = 0;
+	size_t i;
+	int sum = 0;
 
 	for (i = 0; i < vec_size; i++)
 		sum += LEN(vec[i]);
@@ -241,7 +243,7 @@ int get_reads(struct page_region *vec, int vec_size)
 
 int sanity_tests_sd(void)
 {
-	unsigned long long mem_size, vec_size, i, total_pages = 0;
+	size_t mem_size, vec_size, i, total_pages = 0;
 	long ret, ret2, ret3;
 	int num_pages = 1000;
 	int total_writes, total_reads, reads, count;
@@ -331,7 +333,7 @@ int sanity_tests_sd(void)
 	if (ret < 0)
 		ksft_exit_fail_msg("error %ld %d %s\n", ret, errno, strerror(errno));
 
-	ksft_test_result((unsigned long long)ret == mem_size/(page_size * 2),
+	ksft_test_result((size_t)ret == mem_size/(page_size * 2),
 			 "%s Repeated pattern of written and non-written pages\n", __func__);
 
 	/* 4. Repeated pattern of written and non-written pages in parts */
@@ -682,9 +684,9 @@ int sanity_tests_sd(void)
 	return 0;
 }
 
-int base_tests(char *prefix, char *mem, unsigned long long mem_size, int skip)
+int base_tests(char *prefix, char *mem, size_t mem_size, int skip)
 {
-	unsigned long long vec_size;
+	size_t vec_size;
 	int written;
 	struct page_region *vec, *vec2;
 
@@ -787,7 +789,7 @@ int base_tests(char *prefix, char *mem, unsigned long long mem_size, int skip)
 	return 0;
 }
 
-void *gethugepage(int map_size)
+void *gethugepage(size_t map_size)
 {
 	int ret;
 	char *map;
@@ -810,8 +812,8 @@ int hpage_unit_tests(void)
 	char *map;
 	int ret, ret2;
 	size_t num_pages = 10;
-	unsigned long long map_size = hpage_size * num_pages;
-	unsigned long long vec_size = map_size/page_size;
+	size_t map_size = hpage_size * num_pages;
+	size_t vec_size = map_size/page_size;
 	struct page_region *vec, *vec2;
 
 	vec = calloc(vec_size, sizeof(struct page_region));
@@ -1002,8 +1004,9 @@ int hpage_unit_tests(void)
 int unmapped_region_tests(void)
 {
 	void *start = (void *)0x10000000;
-	int written, len = 0x00040000;
-	long vec_size = len / page_size;
+	int written;
+	size_t len = 0x00040000;
+	size_t vec_size = len / page_size;
 	struct page_region *vec = calloc(vec_size, sizeof(struct page_region));
 	if (!vec)
 		ksft_exit_fail_msg("error nomem\n");
@@ -1072,7 +1075,7 @@ static void test_simple(void)
  * with no page table, exercising pagemap_scan_pte_hole(); a base-page range
  * leaves pte_none entries.
  */
-static void unpopulated_written_test(const char *name, char *mem, long size,
+static void unpopulated_written_test(const char *name, char *mem, size_t size,
 				     bool use_thp)
 {
 	long npages = size / page_size, fast = 0, slow = 0, ret;
@@ -1115,7 +1118,7 @@ out:
 
 static void unpopulated_scan_test(void)
 {
-	long mem_size = 16 * page_size;
+	size_t mem_size = 16 * page_size;
 	char *mem;
 
 	mem = mmap(NULL, mem_size, PROT_READ | PROT_WRITE,
@@ -1157,8 +1160,8 @@ static void unpopulated_thp_scan_test(void)
 
 int sanity_tests(void)
 {
-	unsigned long long mem_size, vec_size;
-	long ret, fd, i, buf_size, nr_pages;
+	size_t mem_size, vec_size, i, buf_size;
+	long ret, fd, nr_pages;
 	struct page_region *vec;
 	char *mem, *fmem;
 	struct stat sbuf;
@@ -1582,9 +1585,9 @@ static void transact_test(int page_size)
 
 void zeropfn_tests(void)
 {
-	unsigned long long mem_size;
+	size_t mem_size, i;
 	struct page_region vec;
-	int i, ret;
+	int ret;
 	char *mmap_mem, *mem;
 
 	/* Test with normal memory */
@@ -1642,8 +1645,8 @@ void zeropfn_tests(void)
 
 int main(int __attribute__((unused)) argc, char *argv[])
 {
-	int shmid, buf_size, fd, i, ret;
-	unsigned long long mem_size;
+	int shmid, fd, ret;
+	size_t mem_size, buf_size, i;
 	char *mem, *map, *fmem;
 	struct stat sbuf;
 
