@@ -269,6 +269,50 @@ PERCPU_RET_OP(add, add, ldadd)
 #undef PERCPU_OP
 #undef PERCPU_RET_OP
 
+#define PERCPU_XCHG_OP(w, sfx, sz)					\
+static inline unsigned long						\
+__percpu_xchg_case_##sz(void __percpu *pcp, u##sz val)			\
+{									\
+	u16 *gprs = &current_thread_info()->pcpu_gprs;			\
+	unsigned long addr;						\
+	unsigned long off;						\
+	unsigned int loop;						\
+	unsigned long ret;						\
+									\
+	asm volatile (							\
+	__PCPU_GPRS_BEGIN("%[gprs]", "%[pcp]", "%[off]", "%[addr]")	\
+	ARM64_LSE_ATOMIC_INSN(						\
+	/* LL/SC */							\
+	"	prfm	pstl1strm, [%[addr]]\n"				\
+	"1:	ldxr" #sfx "\t%" #w "[ret], [%[addr]]\n"		\
+	"	stxr" #sfx "\t%w[loop], %" #w "[val], [%[addr]]\n"	\
+	"	cbnz	%w[loop], 1b\n"					\
+	,								\
+	/* LSE atomics */						\
+	"	swp" #sfx "\t%" #w "[val], %" #w "[ret], [%[addr]]\n"	\
+		__nops(3)						\
+	)								\
+	__PCPU_GPRS_END("%[gprs]")					\
+	: [gprs] "=Qo" (*gprs),						\
+	  [addr] "=&r" (addr),						\
+	  [off] "=&r" (off),						\
+	  [loop] "=&r" (loop),						\
+	  [ret] "=&r" (ret)						\
+	: [pcp] "r" (pcp),						\
+	  [val] "r" (val)						\
+	: "memory"							\
+	);								\
+									\
+	return ret;							\
+}
+
+PERCPU_XCHG_OP(w, b, 8)
+PERCPU_XCHG_OP(w, h, 16)
+PERCPU_XCHG_OP(w,  , 32)
+PERCPU_XCHG_OP(x,  , 64)
+
+#undef PERCPU_XCHG_OP
+
 /*
  * It would be nice to avoid the conditional call into the scheduler when
  * re-enabling preemption for preemptible kernels, but doing that in a way
@@ -304,6 +348,11 @@ PERCPU_RET_OP(add, add, ldadd)
 #define _pcp_wrap_return(op, pcp, args...)				\
 ({									\
 	(typeof(pcp))op(&(pcp), ##args);				\
+})
+
+#define _pcp_wrap_xchg(op, pcp, val)					\
+({									\
+	(typeof(pcp))op(&(pcp), (unsigned long)(val));			\
 })
 
 #define this_cpu_read_1(pcp)		\
@@ -361,13 +410,13 @@ PERCPU_RET_OP(add, add, ldadd)
 	_pcp_wrap(__percpu_or_case_64, pcp, val)
 
 #define this_cpu_xchg_1(pcp, val)	\
-	_pcp_protect_return(xchg_relaxed, pcp, val)
+	_pcp_wrap_xchg(__percpu_xchg_case_8, pcp, val)
 #define this_cpu_xchg_2(pcp, val)	\
-	_pcp_protect_return(xchg_relaxed, pcp, val)
+	_pcp_wrap_xchg(__percpu_xchg_case_16, pcp, val)
 #define this_cpu_xchg_4(pcp, val)	\
-	_pcp_protect_return(xchg_relaxed, pcp, val)
+	_pcp_wrap_xchg(__percpu_xchg_case_32, pcp, val)
 #define this_cpu_xchg_8(pcp, val)	\
-	_pcp_protect_return(xchg_relaxed, pcp, val)
+	_pcp_wrap_xchg(__percpu_xchg_case_64, pcp, val)
 
 #define this_cpu_cmpxchg_1(pcp, o, n)	\
 	_pcp_protect_return(cmpxchg_relaxed, pcp, o, n)
