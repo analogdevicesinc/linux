@@ -2039,31 +2039,51 @@ static int disk_init_revalidate_args(struct gendisk *disk,
 }
 
 /*
- * Update the disk zone resources information and device queue limits.
- * The disk queue is frozen when this is executed.
+ * Revalidate and update the disk zone resources information and device queue
+ * limits.
  */
-static int disk_update_zone_resources(struct gendisk *disk,
-				      struct blk_revalidate_zone_args *args)
+static int disk_revalidate_zone_resources(struct gendisk *disk,
+					  struct blk_revalidate_zone_args *args)
 {
 	struct request_queue *q = disk->queue;
 	unsigned int nr_seq_zones;
 	unsigned int pool_size, memflags;
 	struct queue_limits lim;
+	sector_t capacity;
 	int ret = 0;
 
 	lim = queue_limits_start_update(q);
 
 	memflags = blk_mq_freeze_queue(q);
 
-	disk->nr_zones = args->nr_zones;
-	if (args->nr_conv_zones >= disk->nr_zones) {
-		queue_limits_cancel_update(q);
-		pr_warn("%s: Invalid number of conventional zones %u / %u\n",
-			disk->disk_name, args->nr_conv_zones, disk->nr_zones);
+	/*
+	 * Using the re-evaluated disk capacity, make sure that the entire disk
+	 * has been checked.
+	 */
+	capacity = get_capacity(disk);
+	if (args->capacity != capacity) {
+		pr_warn("%s: Capacity has changed (%llu -> %llu)\n",
+			disk->disk_name, args->capacity, capacity);
 		ret = -ENODEV;
 		goto unfreeze;
 	}
 
+	/* Make sure that all zones have been checked. */
+	if (args->sector != capacity) {
+		pr_warn("%s: last zone and capacity mismatch (%llu != %llu)\n",
+			disk->disk_name, args->sector, capacity);
+		ret = -ENODEV;
+		goto unfreeze;
+	}
+
+	if (args->nr_conv_zones >= args->nr_zones) {
+		pr_warn("%s: Invalid number of conventional zones %u / %u\n",
+			disk->disk_name, args->nr_conv_zones, args->nr_zones);
+		ret = -ENODEV;
+		goto unfreeze;
+	}
+
+	disk->nr_zones = args->nr_zones;
 	disk->zone_capacity = args->zone_capacity;
 	disk->last_zone_capacity = args->last_zone_capacity;
 	disk_set_zones_cond_array(disk, args->zones_cond);
@@ -2082,7 +2102,7 @@ static int disk_update_zone_resources(struct gendisk *disk,
 		lim.max_active_zones = 0;
 
 	if (!disk->zone_wplugs_pool)
-		goto commit;
+		goto unfreeze;
 
 	/*
 	 * If the device has no limit on the maximum number of open and active
@@ -2104,10 +2124,12 @@ static int disk_update_zone_resources(struct gendisk *disk,
 			lim.max_open_zones = 0;
 	}
 
-commit:
-	ret = queue_limits_commit_update(q, &lim);
-
 unfreeze:
+	if (ret)
+		queue_limits_cancel_update(q);
+	else
+		ret = queue_limits_commit_update(q, &lim);
+
 	blk_mq_unfreeze_queue(q, memflags);
 
 	return ret;
@@ -2359,23 +2381,7 @@ int blk_revalidate_disk_zones(struct gendisk *disk)
 	if (ret < 0)
 		goto free_args;
 
-	/*
-	 * If zones where reported, make sure that the entire disk capacity
-	 * has been checked.
-	 */
-	if (args.capacity != get_capacity(disk)) {
-		pr_warn("%s: Capacity has changed\n", disk->disk_name);
-		ret = -ENODEV;
-		goto free_args;
-	}
-	if (args.sector != args.capacity) {
-		pr_warn("%s: Missing zones from sector %llu\n",
-			disk->disk_name, args.sector);
-		ret = -ENODEV;
-		goto free_args;
-	}
-
-	ret = disk_update_zone_resources(disk, &args);
+	ret = disk_revalidate_zone_resources(disk, &args);
 	if (ret)
 		goto free_args;
 
