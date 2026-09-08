@@ -36,6 +36,7 @@
 #include <linux/mount.h>
 #include <linux/pseudo_fs.h>
 #include <linux/sched.h>
+#include <linux/seq_buf.h>
 #include <linux/slab.h>
 #include <linux/sprintf.h>
 #include <linux/srcu.h>
@@ -574,27 +575,31 @@ static const char *drm_get_wedge_recovery(unsigned int opt)
 int drm_dev_wedged_event(struct drm_device *dev, unsigned long method,
 			 struct drm_wedge_task_info *info)
 {
-	char event_string[WEDGE_STR_LEN], pid_string[PID_STR_LEN], comm_string[COMM_STR_LEN];
-	char *envp[] = { event_string, NULL, NULL, NULL };
-	const char *recovery = NULL;
-	unsigned int len, opt;
+	DECLARE_SEQ_BUF(event_string, WEDGE_STR_LEN);
+	char pid_string[PID_STR_LEN], comm_string[COMM_STR_LEN];
+	char *envp[4] = { };
+	unsigned int len = 0, opt;
 
-	len = scnprintf(event_string, sizeof(event_string), "%s", "WEDGED=");
+	seq_buf_puts(&event_string, "WEDGED=");
+	envp[0] = event_string.buffer;
 
 	for_each_set_bit(opt, &method, BITS_PER_TYPE(method)) {
-		recovery = drm_get_wedge_recovery(opt);
+		const char *recovery = drm_get_wedge_recovery(opt);
 		if (drm_WARN_ONCE(dev, !recovery, "invalid recovery method %u\n", opt))
 			break;
 
-		len += scnprintf(event_string + len, sizeof(event_string) - len, "%s,", recovery);
+		if (drm_WARN_ON_ONCE(dev, seq_buf_printf(&event_string, "%s,", recovery)))
+			break;
+
+		len = seq_buf_used(&event_string);
 	}
 
-	if (recovery)
-		/* Get rid of trailing comma */
-		event_string[len - 1] = '\0';
+	if (len)
+		/* Strip trailing comma; also discards any partial overflow entry */
+		event_string.buffer[len - 1] = '\0';
 	else
-		/* Caller is unsure about recovery, do the best we can at this point. */
-		snprintf(event_string, sizeof(event_string), "%s", "WEDGED=unknown");
+		/* No complete entry written, do the best we can at this point. */
+		snprintf(event_string.buffer, event_string.size, "%s", "WEDGED=unknown");
 
 	drm_info(dev, "device wedged, %s\n", method == DRM_WEDGE_RECOVERY_NONE ?
 		 "but no recovery needed" : "needs recovery");

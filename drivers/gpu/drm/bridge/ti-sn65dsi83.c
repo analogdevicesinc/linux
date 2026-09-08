@@ -825,48 +825,35 @@ static int sn65dsi83_select_lvds_vod_swing(struct device *dev,
 static int sn65dsi83_parse_lvds_endpoint(struct sn65dsi83 *ctx, int channel)
 {
 	struct device *dev = ctx->dev;
-	struct device_node *endpoint;
-	int endpoint_reg;
+	int endpoint_reg = (channel == CHANNEL_A) ? 2 : 3;
+	struct device_node *endpoint __free(device_node) =
+		of_graph_get_endpoint_by_regs(dev->of_node, endpoint_reg, -1);
 	/* Set so the property can be freely selected if not defined */
 	u32 lvds_vod_swing_data[2] = { 0, 1000000 };
 	u32 lvds_vod_swing_clk[2] = { 0, 1000000 };
 	/* Set default near end terminataion to 200 Ohm */
 	u32 lvds_term = 200;
 	int lvds_vod_swing_conf;
-	int ret = 0;
 	int ret_data;
 	int ret_clock;
-
-	if (channel == CHANNEL_A)
-		endpoint_reg = 2;
-	else
-		endpoint_reg = 3;
-
-	endpoint = of_graph_get_endpoint_by_regs(dev->of_node, endpoint_reg, -1);
 
 	of_property_read_u32(endpoint, "ti,lvds-termination-ohms", &lvds_term);
 	if (lvds_term == 100)
 		ctx->lvds_term_conf[channel] = OHM_100;
 	else if (lvds_term == 200)
 		ctx->lvds_term_conf[channel] = OHM_200;
-	else {
-		ret = -EINVAL;
-		goto exit;
-	}
+	else
+		return -EINVAL;
 
 	ret_data = of_property_read_u32_array(endpoint, "ti,lvds-vod-swing-data-microvolt",
 					lvds_vod_swing_data, ARRAY_SIZE(lvds_vod_swing_data));
-	if (ret_data != 0 && ret_data != -EINVAL) {
-		ret = ret_data;
-		goto exit;
-	}
+	if (ret_data != 0 && ret_data != -EINVAL)
+		return ret_data;
 
 	ret_clock = of_property_read_u32_array(endpoint, "ti,lvds-vod-swing-clock-microvolt",
 					lvds_vod_swing_clk, ARRAY_SIZE(lvds_vod_swing_clk));
-	if (ret_clock != 0 && ret_clock != -EINVAL) {
-		ret = ret_clock;
-		goto exit;
-	}
+	if (ret_clock != 0 && ret_clock != -EINVAL)
+		return ret_clock;
 
 	/* Use default value if both properties are NOT defined. */
 	if (ret_data == -EINVAL && ret_clock == -EINVAL)
@@ -876,17 +863,13 @@ static int sn65dsi83_parse_lvds_endpoint(struct sn65dsi83 *ctx, int channel)
 	if (!ret_data || !ret_clock) {
 		lvds_vod_swing_conf = sn65dsi83_select_lvds_vod_swing(dev, lvds_vod_swing_data,
 						lvds_vod_swing_clk, ctx->lvds_term_conf[channel]);
-		if (lvds_vod_swing_conf < 0) {
-			ret = lvds_vod_swing_conf;
-			goto exit;
-		}
+		if (lvds_vod_swing_conf < 0)
+			return lvds_vod_swing_conf;
 	}
 
 	ctx->lvds_vod_swing_conf[channel] = lvds_vod_swing_conf;
-	ret = 0;
-exit:
-	of_node_put(endpoint);
-	return ret;
+
+	return 0;
 }
 
 static int sn65dsi83_parse_dt(struct sn65dsi83 *ctx, enum sn65dsi83_model model)
@@ -1040,7 +1023,7 @@ static int sn65dsi83_probe(struct i2c_client *client)
 		ret = devm_request_threaded_irq(ctx->dev, ctx->irq, NULL, sn65dsi83_irq,
 						IRQF_ONESHOT, dev_name(ctx->dev), ctx);
 		if (ret)
-			return dev_err_probe(dev, ret, "failed to request irq\n");
+			return ret;
 	}
 
 	dev_set_drvdata(dev, ctx);
