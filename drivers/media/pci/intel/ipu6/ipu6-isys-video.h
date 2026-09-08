@@ -44,6 +44,7 @@ struct sequence_info {
 struct ipu6_isys_stream {
 	struct mutex mutex;
 	atomic_t sequence;
+	atomic_t buf_id;
 	unsigned int seq_index;
 	struct sequence_info seq[IPU6_ISYS_MAX_PARALLEL_SOF];
 	int stream_source;
