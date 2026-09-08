@@ -805,7 +805,7 @@ Retry_Sense:
 			     sshdr.response_code, sshdr.sense_key,
 			     sshdr.asc, sshdr.ascq);
 #ifdef CONFIG_USB_STORAGE_DEBUG
-		usb_stor_show_sense(us, sshdr.sense_key, sshdr.asc, sshdr.ascq);
+		usb_stor_show_sense(us, &sshdr);
 #endif
 
 		/* set the result so the higher layers expect this data */

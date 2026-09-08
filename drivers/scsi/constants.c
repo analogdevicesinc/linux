@@ -377,22 +377,21 @@ EXPORT_SYMBOL(scsi_sense_key_string);
  * This string may contain a "%x" and should be printed with ascq as arg.
  */
 const char *
-scsi_extd_sense_format(unsigned char asc, unsigned char ascq, const char **fmt)
+scsi_extd_sense_format(const struct scsi_sense_hdr *sshdr, const char **fmt)
 {
-	u16 code = scsi_sense_code(asc, ascq);
 	unsigned offset = 0;
 	int i;
 
 	*fmt = NULL;
 	for (i = 0; i < ARRAY_SIZE(additional); i++) {
-		if (additional[i].code == code)
+		if (additional[i].code == sshdr->sense_code)
 			return additional_text + offset;
 		offset += additional[i].size;
 	}
 	for (i = 0; additional2[i].fmt; i++) {
-		if (additional2[i].asc == asc &&
-		    ascq >= additional2[i].ascq_min &&
-		    ascq <= additional2[i].ascq_max) {
+		if (additional2[i].asc == scsi_sense_asc(sshdr) &&
+		    scsi_sense_ascq(sshdr) >= additional2[i].ascq_min &&
+		    scsi_sense_ascq(sshdr) <= additional2[i].ascq_max) {
 			*fmt = additional2[i].fmt;
 			return additional2[i].str;
 		}
