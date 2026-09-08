@@ -1024,7 +1024,13 @@ void ieee80211_debugfs_remove_netdev(struct ieee80211_sub_if_data *sdata)
 
 void ieee80211_debugfs_rename_netdev(struct ieee80211_sub_if_data *sdata)
 {
-	debugfs_change_name(sdata->vif.debugfs_dir, "netdev:%s", sdata->name);
+	struct dentry *dir;
+
+	wiphy_lock(sdata->local->hw.wiphy);
+	dir = sdata->vif.debugfs_dir;
+	if (dir)
+		debugfs_change_name(dir, "netdev:%s", sdata->name);
+	wiphy_unlock(sdata->local->hw.wiphy);
 }
 
 void ieee80211_debugfs_recreate_netdev(struct ieee80211_sub_if_data *sdata,
