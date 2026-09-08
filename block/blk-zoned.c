@@ -1963,6 +1963,7 @@ static int disk_zone_wplugs_worker(void *data)
 
 void disk_init_zone_resources(struct gendisk *disk)
 {
+	mutex_init(&disk->zone_revalidate_mutex);
 	atomic_set(&disk->nr_zone_wplugs, 0);
 	spin_lock_init(&disk->zone_wplugs_hash_lock);
 	spin_lock_init(&disk->zone_wplugs_list_lock);
@@ -2120,6 +2121,7 @@ void disk_release_zone_resources(struct gendisk *disk)
 	disk->zone_capacity = 0;
 	disk->last_zone_capacity = 0;
 	disk->nr_zones = 0;
+	mutex_destroy(&disk->zone_revalidate_mutex);
 }
 
 struct blk_revalidate_zone_args {
@@ -2462,6 +2464,12 @@ int blk_revalidate_disk_zones(struct gendisk *disk)
 	}
 
 	/*
+	 * Serialize calls to this function so that we can safely look at and
+	 * eventually change the disk zone information.
+	 */
+	mutex_lock(&disk->zone_revalidate_mutex);
+
+	/*
 	 * Allocate zone resources if they are needed and we have not done
 	 * so yet, and initialize the revalidation arguments passed to report
 	 * zones. Ensure that all memory allocations in this context are done as
@@ -2472,14 +2480,14 @@ int blk_revalidate_disk_zones(struct gendisk *disk)
 		ret = disk_alloc_zone_resources(disk, args.capacity);
 		if (ret) {
 			memalloc_noio_restore(noio_flag);
-			return ret;
+			goto unlock;
 		}
 	}
 
 	ret = disk_init_revalidate_args(disk, &args);
 	if (ret) {
 		memalloc_noio_restore(noio_flag);
-		return ret;
+		goto unlock;
 	}
 
 	ret = disk->fops->report_zones(disk, 0, UINT_MAX, &rep_args);
@@ -2496,12 +2504,17 @@ int blk_revalidate_disk_zones(struct gendisk *disk)
 	if (ret)
 		goto free_args;
 
+	mutex_unlock(&disk->zone_revalidate_mutex);
+
 	return 0;
 
 free_args:
 	pr_warn("%s: failed to revalidate zones\n", disk->disk_name);
 
 	kfree(args.zones_state);
+
+unlock:
+	mutex_unlock(&disk->zone_revalidate_mutex);
 
 	return ret;
 }
