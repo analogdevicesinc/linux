@@ -1884,7 +1884,7 @@ static void doc_release_device(struct mtd_info *mtd)
 
 /**
  * docg3_resume - Awakens docg3 floor
- * @pdev: platfrom device
+ * @pdev: platform device
  *
  * Returns 0 (always successful)
  */
@@ -1963,7 +1963,7 @@ static int docg3_suspend(struct platform_device *pdev, pm_message_t state)
  * @pdev: platform device
  *
  * Probes for a G3 chip at the specified IO space in the platform data
- * ressources. The floor 0 must be available.
+ * resources. The floor 0 must be available.
  *
  * Returns 0 on success, -ENOMEM, -ENXIO on error
  */
