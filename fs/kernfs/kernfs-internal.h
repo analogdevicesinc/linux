@@ -147,20 +147,19 @@ static inline struct kernfs_node *kernfs_dentry_node(struct dentry *dentry)
 static inline void kernfs_set_rev(struct kernfs_node *parent,
 				  struct dentry *dentry)
 {
-	dentry->d_time = parent->dir.rev;
+	WRITE_ONCE(dentry->d_time, READ_ONCE(parent->dir.rev));
 }
 
 static inline void kernfs_inc_rev(struct kernfs_node *parent)
 {
-	parent->dir.rev++;
+	lockdep_assert_held_write(&parent->dir.root->kernfs_rwsem);
+	WRITE_ONCE(parent->dir.rev, parent->dir.rev + 1);
 }
 
 static inline bool kernfs_dir_changed(struct kernfs_node *parent,
 				      struct dentry *dentry)
 {
-	if (parent->dir.rev != dentry->d_time)
-		return true;
-	return false;
+	return READ_ONCE(parent->dir.rev) != READ_ONCE(dentry->d_time);
 }
 
 extern const struct super_operations kernfs_sops;
