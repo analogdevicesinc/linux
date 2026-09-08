@@ -1409,9 +1409,6 @@ static int sdma_v4_4_2_sw_init(struct amdgpu_ip_block *ip_block)
 
 	for (i = 0; i < adev->sdma.num_instances; i++) {
 		mutex_init(&adev->sdma.instance[i].engine_reset_mutex);
-		/* Initialize guilty flags for GFX and PAGE queues */
-		adev->sdma.instance[i].gfx_guilty = false;
-		adev->sdma.instance[i].page_guilty = false;
 		adev->sdma.instance[i].funcs = &sdma_v4_4_2_sdma_funcs;
 
 		ring = &adev->sdma.instance[i].ring;
@@ -1582,15 +1579,6 @@ static int sdma_v4_4_2_wait_for_idle(struct amdgpu_ip_block *ip_block)
 	return -ETIMEDOUT;
 }
 
-static bool sdma_v4_4_2_is_queue_selected(struct amdgpu_device *adev, uint32_t instance_id, bool is_page_queue)
-{
-	uint32_t reg_offset = is_page_queue ? regSDMA_PAGE_CONTEXT_STATUS : regSDMA_GFX_CONTEXT_STATUS;
-	uint32_t context_status = RREG32(sdma_v4_4_2_get_reg_offset(adev, instance_id, reg_offset));
-
-	/* Check if the SELECTED bit is set */
-	return (context_status & SDMA_GFX_CONTEXT_STATUS__SELECTED_MASK) != 0;
-}
-
 static int sdma_v4_4_2_reset_queue(struct amdgpu_ring *ring,
 				   unsigned int vmid,
 				   struct amdgpu_fence *timedout_fence)
@@ -1608,18 +1596,10 @@ static int sdma_v4_4_2_reset_queue(struct amdgpu_ring *ring,
 static int sdma_v4_4_2_stop_queue(struct amdgpu_ring *ring)
 {
 	struct amdgpu_device *adev = ring->adev;
-	u32 instance_id = ring->me;
 	u32 inst_mask;
 
 	if (amdgpu_sriov_vf(adev))
 		return -EINVAL;
-
-	/* Check if this queue is the guilty one */
-	adev->sdma.instance[instance_id].gfx_guilty =
-		sdma_v4_4_2_is_queue_selected(adev, instance_id, false);
-	if (adev->sdma.has_page_queue)
-		adev->sdma.instance[instance_id].page_guilty =
-			sdma_v4_4_2_is_queue_selected(adev, instance_id, true);
 
 	/* stop queue */
 	inst_mask = 1 << ring->me;
