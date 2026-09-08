@@ -4,6 +4,7 @@
  */
 
 #include <linux/cleanup.h>
+#include <linux/cacheflush.h>
 
 #include "ipu6-bus.h"
 #include "ipu6-dma.h"
