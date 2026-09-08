@@ -628,3 +628,40 @@ unlock:
 
 	return ret;
 }
+
+/**
+ * amdgpu_sdma_reset_queue_legacy() - Reset legacy SDMA queue after timeout (without MES)
+ *
+ * @ring: Pointer to the ring of the SDMA queue
+ * @vmid: VMID of the timed out job
+ * @timedout_fence: Fence of the timed out job
+ *
+ * Common implementation for resetting SDMA queues without MES (legacy).
+ * This relies on the proper amdgpu_sdma_funcs to be set up
+ * for the given ring.
+ *
+ * Applicable to SDMA versions that don't rely on the MES yet,
+ * that is all versions up to SDMA v5.x and older.
+ */
+int amdgpu_sdma_reset_queue_legacy(struct amdgpu_ring *ring,
+				   unsigned int vmid,
+				   struct amdgpu_fence *timedout_fence)
+{
+	struct amdgpu_device *adev = ring->adev;
+	int r;
+
+	if (ring->me >= adev->sdma.num_instances) {
+		dev_err(adev->dev, "sdma instance not found\n");
+		return -EINVAL;
+	}
+
+	amdgpu_ring_reset_helper_begin(ring, timedout_fence);
+
+	amdgpu_amdkfd_suspend(adev, true);
+	r = amdgpu_sdma_reset_engine(adev, ring->me, true);
+	amdgpu_amdkfd_resume(adev, true);
+	if (r)
+		return r;
+
+	return amdgpu_ring_reset_helper_end(ring, timedout_fence);
+}
