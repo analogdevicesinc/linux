@@ -37,7 +37,7 @@
 
 #define DP_BRANCH_VENDOR_SPECIFIC_START 0x50C
 
-/**
+/*
  * Panamera MST Hub detection
  * Offset DPCD 050Eh == 0x5A indicates cascaded MST hub case
  * Check from beginning of branch device vendor specific field (050Ch)

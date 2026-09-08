@@ -593,6 +593,11 @@ struct amdgpu_display_manager {
 	struct amdgpu_dm_backlight_caps backlight_caps[AMDGPU_DM_MAX_NUM_EDP];
 
 	struct mod_freesync *freesync_module;
+	/**
+	 * @power_module:
+	 *
+	 * Power management module.
+	 */
 	struct mod_power *power_module;
 	struct hdcp_workqueue *hdcp_workqueue;
 
@@ -734,7 +739,7 @@ struct amdgpu_display_manager {
 	/**
 	 * @hdmi_frl_status_polling_wq:
 	 *
-	 * workqueue for 200ms frl status polling
+	 * Workqueue for HDMI FRL status polling.
 	 */
 	struct workqueue_struct *hdmi_frl_status_polling_wq;
 	/**
