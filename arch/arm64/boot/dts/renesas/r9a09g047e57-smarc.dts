@@ -147,6 +147,8 @@
 };
 
 &i2c1 {
+	clock-frequency = <1000000>;
+
 	da7212: codec@1a {
 		compatible = "dlg,da7212";
 		#sound-dai-cells = <0>;

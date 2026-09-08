@@ -64,6 +64,110 @@
 		};
 	};
 
+	gpu_opp_table: opp-table-1 {
+		compatible = "operating-points-v2";
+
+		opp-600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-533330000 {
+			opp-hz = /bits/ 64 <533330000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-266667000 {
+			opp-hz = /bits/ 64 <266667000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-250000000 {
+			opp-hz = /bits/ 64 <250000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-150000000 {
+			opp-hz = /bits/ 64 <150000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-133333000 {
+			opp-hz = /bits/ 64 <133333000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-125000000 {
+			opp-hz = /bits/ 64 <125000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-100000000 {
+			opp-hz = /bits/ 64 <100000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-75000000 {
+			opp-hz = /bits/ 64 <75000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-66667000 {
+			opp-hz = /bits/ 64 <66667000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-62500000 {
+			opp-hz = /bits/ 64 <62500000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-50000000 {
+			opp-hz = /bits/ 64 <50000000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-18750000 {
+			opp-hz = /bits/ 64 <18750000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-16667000 {
+			opp-hz = /bits/ 64 <16667000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-15625000 {
+			opp-hz = /bits/ 64 <15625000>;
+			opp-microvolt = <1000000>;
+		};
+
+		opp-12500000 {
+			opp-hz = /bits/ 64 <12500000>;
+			opp-microvolt = <1000000>;
+		};
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -589,6 +693,28 @@
 			dma-names = "tx", "rx";
 			power-domains = <&cpg>;
 			#sound-dai-cells = <0>;
+			status = "disabled";
+		};
+
+		gpu: gpu@108b0000 {
+			compatible = "renesas,r9a08g046-mali",
+				     "arm,mali-bifrost";
+			reg = <0x0 0x108b0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 179 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "job", "mmu", "gpu", "event";
+			clocks = <&cpg CPG_MOD R9A08G046_GE3D_CLK>,
+				 <&cpg CPG_MOD R9A08G046_GE3D_AXI_CLK>,
+				 <&cpg CPG_MOD R9A08G046_GE3D_ACE_CLK>;
+			clock-names = "gpu", "bus", "bus_ace";
+			power-domains = <&cpg>;
+			resets = <&cpg R9A08G046_GE3D_RESETN>,
+				 <&cpg R9A08G046_GE3D_AXI_RESETN>,
+				 <&cpg R9A08G046_GE3D_ACE_RESETN>;
+			reset-names = "rst", "axi_rst", "ace_rst";
+			operating-points-v2 = <&gpu_opp_table>;
 			status = "disabled";
 		};
 

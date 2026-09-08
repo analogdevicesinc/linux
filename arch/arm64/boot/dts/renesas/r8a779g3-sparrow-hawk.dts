@@ -498,6 +498,7 @@
 	#size-cells = <0>;
 	pinctrl-0 = <&i2c3_pins>;
 	pinctrl-names = "default";
+	status = "okay";
 };
 
 /* Page 31 / IO_CN */
@@ -506,6 +507,7 @@
 	#size-cells = <0>;
 	pinctrl-0 = <&i2c4_pins>;
 	pinctrl-names = "default";
+	status = "okay";
 };
 
 /* Page 18 / POWER_CORE and Page 19 / POWER_PMIC */
