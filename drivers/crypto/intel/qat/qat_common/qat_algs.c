@@ -388,7 +388,7 @@ static void qat_alg_skcipher_init_enc(struct qat_alg_skcipher_ctx *ctx,
 static void qat_alg_xts_reverse_key(const u8 *key_forward, unsigned int keylen,
 				    u8 *key_reverse)
 {
-	struct crypto_aes_ctx aes_expanded;
+	struct crypto_aes_ctx aes_expanded __cleanup(aes_zeroize_ctx);
 	int nrounds;
 	u8 *key;
 
@@ -405,7 +405,6 @@ static void qat_alg_xts_reverse_key(const u8 *key_forward, unsigned int keylen,
 		memcpy(key_reverse + AES_BLOCK_SIZE, key - AES_BLOCK_SIZE,
 		       AES_BLOCK_SIZE);
 	}
-	memzero_explicit(&aes_expanded, sizeof(aes_expanded));
 }
 
 static void qat_alg_skcipher_init_dec(struct qat_alg_skcipher_ctx *ctx,
