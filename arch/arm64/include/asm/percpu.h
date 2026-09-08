@@ -306,12 +306,67 @@ __percpu_xchg_case_##sz(void __percpu *pcp, u##sz val)			\
 	return ret;							\
 }
 
+#define PERCPU_CMPXCHG_OP(w, sfx, sz)					\
+static inline unsigned long						\
+__percpu_cmpxchg_case_##sz(void __percpu *pcp,				\
+			   u##sz old,					\
+			   u##sz new)					\
+{									\
+	/*                                                              \
+	 * Sub-word sizes require zero extension so that EOR+CBNZ don't	\
+	 * consume non-zero upper bits of the register containing "old".\
+	 */								\
+	xwreg_t(w) cmpval = xwreg_zero_extend(old, w, sz);		\
+	u16 *gprs = &current_thread_info()->pcpu_gprs;			\
+	unsigned long addr;						\
+	unsigned long off;						\
+	unsigned long tmp;						\
+	unsigned long oldval;						\
+									\
+	asm volatile (							\
+	__PCPU_GPRS_BEGIN("%[gprs]", "%[pcp]", "%[off]", "%[addr]")	\
+	ARM64_LSE_ATOMIC_INSN(						\
+	/* LL/SC */							\
+	"	prfm	pstl1strm, [%[addr]]\n"				\
+	"1:	ldxr" #sfx "\t%" #w "[oldval], [%[addr]]\n"		\
+	"	eor	%" #w "[tmp], %" #w "[oldval], %" #w "[old]\n"	\
+	"	cbnz	%" #w "[tmp], 2f\n"				\
+	"	stxr" #sfx "\t%w[tmp], %" #w "[new], [%[addr]]\n"	\
+	"	cbnz	%w[tmp], 1b\n"					\
+	"2:\n"								\
+	,								\
+	/* LSE atomics */						\
+	"	mov	%" #w "[oldval], %" #w "[old]\n"		\
+	"	cas" #sfx "\t%" #w "[oldval], %" #w "[new], [%[addr]]\n"\
+		__nops(4)						\
+	)								\
+	__PCPU_GPRS_END("%[gprs]")					\
+	: [gprs] "=Qo" (*gprs),						\
+	  [addr] "=&r" (addr),						\
+	  [off] "=&r" (off),						\
+	  [tmp] "=&r" (tmp),						\
+	  [oldval] "=&r" (oldval)					\
+	: [pcp] "r" (pcp),						\
+	  [old] "r" (cmpval),						\
+	  [new] "r" (new)						\
+	: "memory"							\
+	);								\
+									\
+	return oldval;							\
+}
+
 PERCPU_XCHG_OP(w, b, 8)
 PERCPU_XCHG_OP(w, h, 16)
 PERCPU_XCHG_OP(w,  , 32)
 PERCPU_XCHG_OP(x,  , 64)
 
+PERCPU_CMPXCHG_OP(w, b, 8)
+PERCPU_CMPXCHG_OP(w, h, 16)
+PERCPU_CMPXCHG_OP(w,  , 32)
+PERCPU_CMPXCHG_OP(x,  , 64)
+
 #undef PERCPU_XCHG_OP
+#undef PERCPU_CMPXCHG_OP
 
 /*
  * It would be nice to avoid the conditional call into the scheduler when
@@ -353,6 +408,12 @@ PERCPU_XCHG_OP(x,  , 64)
 #define _pcp_wrap_xchg(op, pcp, val)					\
 ({									\
 	(typeof(pcp))op(&(pcp), (unsigned long)(val));			\
+})
+
+#define _pcp_wrap_cmpxchg(op, pcp, old, new)				\
+({									\
+	(typeof(pcp))op(&(pcp), (unsigned long)(old),			\
+			(unsigned long)(new));				\
 })
 
 #define this_cpu_read_1(pcp)		\
@@ -419,13 +480,13 @@ PERCPU_XCHG_OP(x,  , 64)
 	_pcp_wrap_xchg(__percpu_xchg_case_64, pcp, val)
 
 #define this_cpu_cmpxchg_1(pcp, o, n)	\
-	_pcp_protect_return(cmpxchg_relaxed, pcp, o, n)
+	_pcp_wrap_cmpxchg(__percpu_cmpxchg_case_8, pcp, o, n)
 #define this_cpu_cmpxchg_2(pcp, o, n)	\
-	_pcp_protect_return(cmpxchg_relaxed, pcp, o, n)
+	_pcp_wrap_cmpxchg(__percpu_cmpxchg_case_16, pcp, o, n)
 #define this_cpu_cmpxchg_4(pcp, o, n)	\
-	_pcp_protect_return(cmpxchg_relaxed, pcp, o, n)
+	_pcp_wrap_cmpxchg(__percpu_cmpxchg_case_32, pcp, o, n)
 #define this_cpu_cmpxchg_8(pcp, o, n)	\
-	_pcp_protect_return(cmpxchg_relaxed, pcp, o, n)
+	_pcp_wrap_cmpxchg(__percpu_cmpxchg_case_64, pcp, o, n)
 
 #define this_cpu_cmpxchg64(pcp, o, n)	this_cpu_cmpxchg_8(pcp, o, n)
 
