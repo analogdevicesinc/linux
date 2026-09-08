@@ -106,7 +106,13 @@ static unsigned long __sgx_sanitize_pages(struct list_head *dirty_page_list)
 			left_dirty++;
 		}
 
-		cond_resched();
+		/*
+		 * cond_resched() only schedules when TIF_NEED_RESCHED is set.
+		 * During this boot-time loop that condition may not happen for a
+		 * long time, so report an RCU-Tasks quiescent state explicitly.
+		 * Therefore, change cond_resched() to cond_resched_tasks_rcu_qs().
+		 */
+		cond_resched_tasks_rcu_qs();
 	}
 
 	list_splice(&dirty, dirty_page_list);
