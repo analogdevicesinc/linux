@@ -255,7 +255,7 @@ void __account_forceidle_time(struct task_struct *p, u64 delta)
  * occasion account more time than the calling functions think elapsed.
  */
 #ifdef CONFIG_PARAVIRT
-struct static_key paravirt_steal_enabled;
+DEFINE_STATIC_KEY_FALSE(paravirt_steal_enabled);
 
 #ifdef CONFIG_HAVE_PV_STEAL_CLOCK_GEN
 static u64 native_steal_clock(int cpu)
@@ -270,7 +270,7 @@ DEFINE_STATIC_CALL(pv_steal_clock, native_steal_clock);
 static __always_inline u64 steal_account_process_time(u64 maxtime)
 {
 #ifdef CONFIG_PARAVIRT
-	if (static_key_false(&paravirt_steal_enabled)) {
+	if (static_branch_unlikely(&paravirt_steal_enabled)) {
 		u64 steal;
 
 		steal = paravirt_steal_clock(smp_processor_id());
