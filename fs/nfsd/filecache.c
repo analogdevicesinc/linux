@@ -43,6 +43,7 @@
 
 #include "vfs.h"
 #include "nfsd.h"
+#include "nfserr.h"
 #include "nfsfh.h"
 #include "netns.h"
 #include "filecache.h"

@@ -7,6 +7,14 @@
 
 #include <uapi/linux/nfs3.h>
 
+enum nfs3_stable_how {
+	NFS_UNSTABLE = 0,
+	NFS_DATA_SYNC = 1,
+	NFS_FILE_SYNC = 2,
+
+	/* used to mark verf as invalid */
+	NFS_INVALID_STABLE_HOW = -1
+};
 
 /* Number of 32bit words in post_op_attr */
 #define NFS3_POST_OP_ATTR_WORDS		22
