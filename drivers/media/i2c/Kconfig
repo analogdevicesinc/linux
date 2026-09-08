@@ -396,6 +396,16 @@ config VIDEO_OG0VE1B
 	  To compile this driver as a module, choose M here: the
 	  module will be called og0ve1b.
 
+config VIDEO_OS02G10
+	tristate "OmniVision OS02G10 sensor support"
+	select V4L2_CCI_I2C
+	help
+	  This is a Video4Linux2 sensor driver for Omnivision
+	  OS02G10 camera sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called os02g10.
+
 config VIDEO_OS05B10
         tristate "OmniVision OS05B10 sensor support"
         select V4L2_CCI_I2C
