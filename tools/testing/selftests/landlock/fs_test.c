@@ -5958,8 +5958,9 @@ FIXTURE_VARIANT_ADD(layout4_disconnected_leafs, s3d1_s4d1_new_parent_create) {
 	.expected_exchange_result = EXDEV,
 };
 
+/* clang-format off */
 FIXTURE_VARIANT_ADD(layout4_disconnected_leafs,
-		    s3d1_s4d1_disconnected_rename_even){
+		    s3d1_s4d1_disconnected_rename_even) {
 	/* clang-format on */
 	.allowed_s3d1 = LANDLOCK_ACCESS_FS_REFER | LANDLOCK_ACCESS_FS_MAKE_REG,
 	.allowed_s4d1 = LANDLOCK_ACCESS_FS_REFER | LANDLOCK_ACCESS_FS_MAKE_REG,
