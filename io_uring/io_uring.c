@@ -2345,6 +2345,45 @@ static __cold void io_tctx_exit_cb(struct callback_head *cb)
 	complete(&work->completion);
 }
 
+/*
+ * Cancel what can be canceled on a dying ring and reap what has completed.
+ * Only waits on polled I/O, never anything else.
+ */
+static __cold void io_ring_ctx_cancel(struct io_ring_ctx *ctx)
+{
+	struct io_sq_data *sqd = ctx->sq_data;
+
+	if (test_bit(IO_CHECK_CQ_OVERFLOW_BIT, &ctx->check_cq)) {
+		scoped_guard(mutex, &ctx->uring_lock)
+			io_cqring_overflow_kill(ctx);
+	}
+
+	/*
+	 * If we're doing polled IO and end up having requests being
+	 * submitted async (out-of-line), then completions can come in while
+	 * we're waiting for refs to drop. We need to reap these manually,
+	 * as nobody else will be looking for them.
+	 */
+	do {
+		if (ctx->flags & IORING_SETUP_DEFER_TASKRUN)
+			io_cancel_local_task_work(ctx);
+		cond_resched();
+	} while (io_uring_try_cancel_requests(ctx, NULL, IO_CANCEL_ALL));
+
+	if (sqd) {
+		struct task_struct *tsk;
+
+		io_sq_thread_park(sqd);
+		tsk = sqpoll_task_locked(sqd);
+		if (tsk && tsk->io_uring && tsk->io_uring->io_wq)
+			io_wq_cancel_cb(tsk->io_uring->io_wq,
+					io_cancel_ctx_cb, ctx, true);
+		io_sq_thread_unpark(sqd);
+	}
+
+	io_req_caches_free(ctx);
+}
+
 static __cold void io_ring_exit_work(struct work_struct *work)
 {
 	struct io_ring_ctx *ctx = container_of(work, struct io_ring_ctx, exit_work);
@@ -2354,43 +2393,8 @@ static __cold void io_ring_exit_work(struct work_struct *work)
 	struct io_tctx_node *node;
 	int ret;
 
-	mutex_lock(&ctx->uring_lock);
-	io_terminate_zcrx(ctx);
-	mutex_unlock(&ctx->uring_lock);
-
-	/*
-	 * If we're doing polled IO and end up having requests being
-	 * submitted async (out-of-line), then completions can come in while
-	 * we're waiting for refs to drop. We need to reap these manually,
-	 * as nobody else will be looking for them.
-	 */
 	do {
-		if (test_bit(IO_CHECK_CQ_OVERFLOW_BIT, &ctx->check_cq)) {
-			mutex_lock(&ctx->uring_lock);
-			io_cqring_overflow_kill(ctx);
-			mutex_unlock(&ctx->uring_lock);
-		}
-
-		/* The SQPOLL thread never reaches this path */
-		do {
-			if (ctx->flags & IORING_SETUP_DEFER_TASKRUN)
-				io_cancel_local_task_work(ctx);
-			cond_resched();
-		} while (io_uring_try_cancel_requests(ctx, NULL, IO_CANCEL_ALL));
-
-		if (ctx->sq_data) {
-			struct io_sq_data *sqd = ctx->sq_data;
-			struct task_struct *tsk;
-
-			io_sq_thread_park(sqd);
-			tsk = sqpoll_task_locked(sqd);
-			if (tsk && tsk->io_uring && tsk->io_uring->io_wq)
-				io_wq_cancel_cb(tsk->io_uring->io_wq,
-						io_cancel_ctx_cb, ctx, true);
-			io_sq_thread_unpark(sqd);
-		}
-
-		io_req_caches_free(ctx);
+		io_ring_ctx_cancel(ctx);
 
 		if (WARN_ON_ONCE(time_after(jiffies, timeout))) {
 			/* there is little hope left, don't run it too often */
@@ -2458,7 +2462,17 @@ static __cold void io_ring_ctx_wait_and_kill(struct io_ring_ctx *ctx)
 	percpu_ref_kill(&ctx->refs);
 	xa_for_each(&ctx->personalities, index, creds)
 		io_unregister_personality(ctx, index);
+	io_terminate_zcrx(ctx);
 	mutex_unlock(&ctx->uring_lock);
+
+	/*
+	 * Do the first round of cancelations upfront rather than leaving it
+	 * to to exit_work. Anything cancelable is then already on its way
+	 * out, and for requests owned by the task closing the ring, this
+	 * ensures any held files are put before close(2) returns.
+	 */
+	if (!(current->flags & PF_IO_WORKER))
+		io_ring_ctx_cancel(ctx);
 
 	INIT_WORK(&ctx->exit_work, io_ring_exit_work);
 	/*
