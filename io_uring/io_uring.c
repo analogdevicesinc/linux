@@ -2376,7 +2376,7 @@ static __cold void io_ring_exit_work(struct work_struct *work)
 			if (ctx->flags & IORING_SETUP_DEFER_TASKRUN)
 				io_cancel_local_task_work(ctx);
 			cond_resched();
-		} while (io_uring_try_cancel_requests(ctx, NULL, true, false));
+		} while (io_uring_try_cancel_requests(ctx, NULL, IO_CANCEL_ALL));
 
 		if (ctx->sq_data) {
 			struct io_sq_data *sqd = ctx->sq_data;
