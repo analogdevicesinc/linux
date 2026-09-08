@@ -36,7 +36,6 @@ MODULE_ALIAS("ip_set_hash:net,port,net");
 #define IP_SET_HASH_WITH_PROTO
 #define IP_SET_HASH_WITH_NETS
 #define IPSET_NET_COUNT 2
-#define IP_SET_HASH_WITH_NET0
 
 /* IPv4 variant */
 
@@ -157,8 +156,10 @@ hash_netportnet4_kadt(struct ip_set *set, const struct sk_buff *skb,
 	struct hash_netportnet4_elem e = { };
 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
 
-	e.cidr[0] = INIT_CIDR(h->nets[0].cidr[0], HOST_MASK);
-	e.cidr[1] = INIT_CIDR(h->nets[0].cidr[1], HOST_MASK);
+	rcu_read_lock_bh();
+	e.cidr[0] = INIT_CIDR(h->rnets[0], HOST_MASK);
+	e.cidr[1] = INIT_CIDR(h->rnets[1], HOST_MASK);
+	rcu_read_unlock_bh();
 	if (adt == IPSET_TEST)
 		e.ccmp = (HOST_MASK << (sizeof(e.cidr[0]) * 8)) | HOST_MASK;
 
@@ -452,8 +453,10 @@ hash_netportnet6_kadt(struct ip_set *set, const struct sk_buff *skb,
 	struct hash_netportnet6_elem e = { };
 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
 
-	e.cidr[0] = INIT_CIDR(h->nets[0].cidr[0], HOST_MASK);
-	e.cidr[1] = INIT_CIDR(h->nets[0].cidr[1], HOST_MASK);
+	rcu_read_lock_bh();
+	e.cidr[0] = INIT_CIDR(h->rnets[0], HOST_MASK);
+	e.cidr[1] = INIT_CIDR(h->rnets[1], HOST_MASK);
+	rcu_read_unlock_bh();
 	if (adt == IPSET_TEST)
 		e.ccmp = (HOST_MASK << (sizeof(u8) * 8)) | HOST_MASK;
 

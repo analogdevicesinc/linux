@@ -627,13 +627,6 @@ static inline bool id_aa64pfr1_mpamfrac(u64 pfr1)
 	return val > 0;
 }
 
-static inline bool id_aa64pfr1_mte(u64 pfr1)
-{
-	u32 val = cpuid_feature_extract_unsigned_field(pfr1, ID_AA64PFR1_EL1_MTE_SHIFT);
-
-	return val >= ID_AA64PFR1_EL1_MTE_MTE2;
-}
-
 void __init setup_boot_cpu_features(void);
 void __init setup_system_features(void);
 void __init setup_user_features(void);
@@ -878,11 +871,11 @@ static inline bool system_supports_pmuv3(void)
 	return cpus_have_final_cap(ARM64_HAS_PMUV3);
 }
 
-bool cpu_supports_bbml2_noabort(void);
+bool cpu_supports_bbml3(void);
 
-static inline bool system_supports_bbml2_noabort(void)
+static inline bool system_supports_bbml3(void)
 {
-	return alternative_has_cap_unlikely(ARM64_HAS_BBML2_NOABORT);
+	return alternative_has_cap_unlikely(ARM64_HAS_BBML3);
 }
 
 int do_emulate_mrs(struct pt_regs *regs, u32 sys_reg, u32 rt);
@@ -968,6 +961,7 @@ struct arm64_ftr_reg *get_arm64_ftr_reg(u32 sys_id);
 extern struct arm64_ftr_override id_aa64mmfr0_override;
 extern struct arm64_ftr_override id_aa64mmfr1_override;
 extern struct arm64_ftr_override id_aa64mmfr2_override;
+extern struct arm64_ftr_override id_aa64mmfr4_override;
 extern struct arm64_ftr_override id_aa64pfr0_override;
 extern struct arm64_ftr_override id_aa64pfr1_override;
 extern struct arm64_ftr_override id_aa64zfr0_override;

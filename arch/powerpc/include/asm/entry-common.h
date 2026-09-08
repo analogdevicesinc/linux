@@ -66,6 +66,13 @@ static inline void srr_regs_clobbered(void)
 static inline void nap_adjust_return(struct pt_regs *regs)
 {
 #ifdef CONFIG_PPC_970_NAP
+	/*
+	 * Adjust the nap return address before irq_exit_rcu(). irq_exit_rcu()
+	 * may invoke softirqs with interrupts re-enabled, allowing a nested
+	 * async interrupt to arrive. If _TLF_NAPPING is still set at that
+	 * point, the nested interrupt would erroneously redirect its own
+	 * return address to power4_idle_nap_return, corrupting the stack.
+	 */
 	if (unlikely(test_thread_local_flags(_TLF_NAPPING))) {
 		/* Can avoid a test-and-clear because NMIs do not call this */
 		clear_thread_local_flags(_TLF_NAPPING);
@@ -263,7 +270,7 @@ static inline void arch_interrupt_exit_prepare(struct pt_regs *regs)
 	}
 
 	/* irqentry_exit expects to be called with interrupts disabled */
-	local_irq_disable();
+	hard_irq_disable();
 }
 
 static inline void arch_interrupt_async_enter_prepare(struct pt_regs *regs)
@@ -286,14 +293,6 @@ static inline void arch_interrupt_async_enter_prepare(struct pt_regs *regs)
 
 static inline void arch_interrupt_async_exit_prepare(struct pt_regs *regs)
 {
-	/*
-	 * Adjust at exit so the main handler sees the true NIA. This must
-	 * come before irq_exit() because irq_exit can enable interrupts, and
-	 * if another interrupt is taken before nap_adjust_return has run
-	 * here, then that interrupt would return directly to idle nap return.
-	 */
-	nap_adjust_return(regs);
-
 	arch_interrupt_exit_prepare(regs);
 }
 
@@ -516,8 +515,14 @@ static inline void arch_exit_to_user_mode_prepare(struct pt_regs *regs,
 #ifdef CONFIG_PPC_TRANSACTIONAL_MEM
 	local_paca->tm_scratch = regs->msr;
 #endif
-	/* Restore user access locks last */
-	kuap_user_restore(regs);
+	/*
+	 * Do not restore KUAP here. Generic entry might treat this as the last
+	 * arch step before userspace but PowerPC still has kernel work after
+	 * irqentry_exit()/syscall_exit_to_user_mode() i.e. in
+	 * interrupt_exit_user_prepare() / syscall_exit_prepare() may enable
+	 * IRQs and retry. Those functions restore KUAP immediately before rfi,
+	 * which is where it should belong.
+	 */
 }
 
 #define arch_exit_to_user_mode_prepare arch_exit_to_user_mode_prepare

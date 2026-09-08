@@ -237,6 +237,7 @@ void cfg80211_stop_p2p_device(struct cfg80211_registered_device *rdev,
 	if (!wdev_running(wdev))
 		return;
 
+	cfg80211_pmsr_wdev_down(wdev);
 	rdev_stop_p2p_device(rdev, wdev);
 	wdev->is_running = false;
 
@@ -263,6 +264,8 @@ void cfg80211_stop_nan(struct cfg80211_registered_device *rdev,
 
 	if (!wdev_running(wdev))
 		return;
+
+	cfg80211_pmsr_wdev_down(wdev);
 
 	/*
 	 * If there is a scheduled update pending, mark it as canceled, so the
@@ -308,9 +311,8 @@ int cfg80211_nan_set_local_schedule(struct cfg80211_registered_device *rdev,
 	if (!sched->n_channels)
 		return 0;
 
-	wdev->u.nan.chandefs = kcalloc(sched->n_channels,
-				       sizeof(*wdev->u.nan.chandefs),
-				       GFP_KERNEL);
+	wdev->u.nan.chandefs = kzalloc_objs(*wdev->u.nan.chandefs,
+					    sched->n_channels);
 	if (!wdev->u.nan.chandefs)
 		return -ENOMEM;
 

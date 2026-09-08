@@ -14,6 +14,7 @@
 #include <linux/atomic.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/irq_work.h>
 #include <linux/log2.h>
 #include <linux/sched.h>
 #include <linux/rculist.h>
@@ -25,6 +26,7 @@
 #include <linux/rhashtable.h>
 #include <linux/err.h>
 #include <linux/export.h>
+#include <linux/workqueue.h>
 
 #define HASH_DEFAULT_SIZE	64UL
 #define HASH_MIN_SIZE		4U
@@ -1261,7 +1263,7 @@ static void rhashtable_free_one(struct rhashtable *ht, struct rhash_head *obj,
 	list = container_of(obj, struct rhlist_head, rhead);
 	do {
 		obj = &list->rhead;
-		list = rht_dereference(list->next, ht);
+		list = rcu_dereference_raw(list->next);
 		free_fn(rht_obj(ht, obj), arg);
 	} while (list);
 }

@@ -123,6 +123,8 @@ static void regcache_hw_exit(struct regmap *map)
 
 int regcache_init(struct regmap *map, const struct regmap_config *config)
 {
+	bool sort_defaults = false;
+	unsigned int reg_prev = 0;
 	int count = 0;
 	int ret;
 	int i;
@@ -149,9 +151,15 @@ int regcache_init(struct regmap *map, const struct regmap_config *config)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < config->num_reg_defaults; i++)
+	for (i = 0; i < config->num_reg_defaults; i++) {
 		if (config->reg_defaults[i].reg % map->reg_stride)
 			return -EINVAL;
+
+		if (reg_prev > config->reg_defaults[i].reg)
+			sort_defaults = true;
+
+		reg_prev = config->reg_defaults[i].reg;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(cache_types); i++)
 		if (cache_types[i]->type == map->cache_type)
@@ -186,6 +194,13 @@ int regcache_init(struct regmap *map, const struct regmap_config *config)
 					sizeof(*map->reg_defaults), GFP_KERNEL);
 		if (!tmp_buf)
 			return -ENOMEM;
+
+		/* regcache_lookup_reg() bsearch()es this array */
+		if (sort_defaults) {
+			dev_warn(map->dev,
+				 "Driver needs fixing: Unsorted reg_defaults, sorting the copy\n");
+			regcache_sort_defaults(tmp_buf, map->num_reg_defaults);
+		}
 		map->reg_defaults = tmp_buf;
 	} else if (map->num_reg_defaults_raw) {
 		count = regcache_count_cacheable_registers(map);
@@ -397,11 +412,16 @@ static int rbtree_all(const void *key, const struct rb_node *node)
  * volatile.  In general drivers can choose not to use the provided
  * syncing functionality if they so require.
  *
+ * This pushes cached changes made while cache_only (e.g. suspend) down
+ * to hardware. The caller must disable cache_only before calling this
+ * function.
+ *
  * Return a negative value on failure, 0 on success.
  */
 int regcache_sync(struct regmap *map)
 {
-	int ret = 0;
+	int sync_ret = 0;
+	int selector_ret = 0;
 	unsigned int i;
 	const char *name;
 	bool bypass;
@@ -413,6 +433,12 @@ int regcache_sync(struct regmap *map)
 	BUG_ON(!map->cache_ops);
 
 	map->lock(map->lock_arg);
+
+	if (WARN_ON(map->cache_only)) {
+		map->unlock(map->lock_arg);
+		return -EINVAL;
+	}
+
 	/* Remember the initial bypass state */
 	bypass = map->cache_bypass;
 	dev_dbg(map->dev, "Syncing %s cache\n",
@@ -426,21 +452,21 @@ int regcache_sync(struct regmap *map)
 	/* Apply any patch first */
 	map->cache_bypass = true;
 	for (i = 0; i < map->patch_regs; i++) {
-		ret = _regmap_write(map, map->patch[i].reg, map->patch[i].def);
-		if (ret != 0) {
+		sync_ret = _regmap_write(map, map->patch[i].reg, map->patch[i].def);
+		if (sync_ret != 0) {
 			dev_err(map->dev, "Failed to write %x = %x: %d\n",
-				map->patch[i].reg, map->patch[i].def, ret);
+				map->patch[i].reg, map->patch[i].def, sync_ret);
 			goto out;
 		}
 	}
 	map->cache_bypass = false;
 
 	if (map->cache_ops->sync)
-		ret = map->cache_ops->sync(map, 0, map->max_register);
+		sync_ret = map->cache_ops->sync(map, 0, map->max_register);
 	else
-		ret = regcache_default_sync(map, 0, map->max_register);
+		sync_ret = regcache_default_sync(map, 0, map->max_register);
 
-	if (ret == 0)
+	if (sync_ret == 0)
 		map->cache_dirty = false;
 
 out:
@@ -462,10 +488,11 @@ out:
 		if (regcache_read(map, this->selector_reg, &i) != 0)
 			continue;
 
-		ret = _regmap_write(map, this->selector_reg, i);
-		if (ret != 0) {
+		selector_ret = _regmap_write(map, this->selector_reg, i);
+		if (selector_ret != 0) {
+			map->cache_dirty = true;
 			dev_err(map->dev, "Failed to write %x = %x: %d\n",
-				this->selector_reg, i, ret);
+				this->selector_reg, i, selector_ret);
 			break;
 		}
 	}
@@ -476,7 +503,7 @@ out:
 
 	trace_regcache_sync(map, name, "stop");
 
-	return ret;
+	return sync_ret ? sync_ret : selector_ret;
 }
 EXPORT_SYMBOL_GPL(regcache_sync);
 
@@ -506,6 +533,10 @@ int regcache_sync_region(struct regmap *map, unsigned int min,
 
 	map->lock(map->lock_arg);
 
+	if (WARN_ON(map->cache_only)) {
+		map->unlock(map->lock_arg);
+		return -EINVAL;
+	}
 	/* Remember the initial bypass state */
 	bypass = map->cache_bypass;
 
@@ -727,14 +758,6 @@ unsigned int regcache_get_val(struct regmap *map, const void *base,
 	return -1;
 }
 
-static int regcache_default_cmp(const void *a, const void *b)
-{
-	const struct reg_default *_a = a;
-	const struct reg_default *_b = b;
-
-	return _a->reg - _b->reg;
-}
-
 int regcache_lookup_reg(struct regmap *map, unsigned int reg)
 {
 	struct reg_default key;
@@ -744,7 +767,7 @@ int regcache_lookup_reg(struct regmap *map, unsigned int reg)
 	key.def = 0;
 
 	r = bsearch(&key, map->reg_defaults, map->num_reg_defaults,
-		    sizeof(struct reg_default), regcache_default_cmp);
+		    sizeof(struct reg_default), regcache_defaults_cmp);
 
 	if (r)
 		return r - map->reg_defaults;

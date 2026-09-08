@@ -15,6 +15,7 @@
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/mm.h>
+#include <linux/once.h>
 #include <linux/radix-tree.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -168,7 +169,7 @@ static int qcom_tzmem_init_area(struct qcom_tzmem_area *area)
 {
 	int ret;
 
-	u64 *handle __free(kfree) = kzalloc(sizeof(*handle), GFP_KERNEL);
+	u64 *handle __free(kfree) = kzalloc_obj(*handle);
 	if (!handle)
 		return -ENOMEM;
 
@@ -196,8 +197,7 @@ static int qcom_tzmem_pool_add_memory(struct qcom_tzmem_pool *pool,
 {
 	int ret;
 
-	struct qcom_tzmem_area *area __free(kfree) = kzalloc(sizeof(*area),
-							     gfp);
+	struct qcom_tzmem_area *area __free(kfree) = kzalloc_obj(*area, gfp);
 	if (!area)
 		return -ENOMEM;
 
@@ -414,8 +414,7 @@ void *qcom_tzmem_alloc(struct qcom_tzmem_pool *pool, size_t size, gfp_t gfp)
 
 	size = PAGE_ALIGN(size);
 
-	struct qcom_tzmem_chunk *chunk __free(kfree) = kzalloc(sizeof(*chunk),
-							       gfp);
+	struct qcom_tzmem_chunk *chunk __free(kfree) = kzalloc_obj(*chunk, gfp);
 	if (!chunk)
 		return NULL;
 
@@ -507,14 +506,18 @@ phys_addr_t qcom_tzmem_to_phys(void *vaddr)
 }
 EXPORT_SYMBOL_GPL(qcom_tzmem_to_phys);
 
+static void qcom_tzmem_do_init(int *result)
+{
+	*result = qcom_tzmem_init();
+}
+
 int qcom_tzmem_enable(struct device *dev)
 {
-	if (qcom_tzmem_dev)
-		return -EBUSY;
+	static int result;
 
 	qcom_tzmem_dev = dev;
-
-	return qcom_tzmem_init();
+	DO_ONCE(qcom_tzmem_do_init, &result);
+	return result;
 }
 EXPORT_SYMBOL_GPL(qcom_tzmem_enable);
 

@@ -3,9 +3,19 @@
 CFLAGS += -Wall -O2 -g $(KHDR_INCLUDES)
 
 TEST_GEN_PROGS := fusectl_test
+TEST_GEN_PROGS += write_extend_eof_test
 TEST_GEN_FILES := fuse_mnt
 
+# fuse_acl_cache_test requires libfuse3; add it only when the library is present.
+ACL_CFLAGS := $(shell pkg-config fuse3 --cflags 2>/dev/null)
+ACL_LDLIBS := $(shell pkg-config fuse3 --libs 2>/dev/null)
+ifneq ($(ACL_CFLAGS),)
+TEST_GEN_PROGS += fuse_acl_cache_test
+endif
+
 include ../../lib.mk
+
+$(OUTPUT)/write_extend_eof_test: LDLIBS += -lpthread
 
 VAR_CFLAGS := $(shell pkg-config fuse --cflags 2>/dev/null)
 ifeq ($(VAR_CFLAGS),)
@@ -19,3 +29,6 @@ endif
 
 $(OUTPUT)/fuse_mnt: CFLAGS += $(VAR_CFLAGS)
 $(OUTPUT)/fuse_mnt: LDLIBS += $(VAR_LDLIBS)
+
+$(OUTPUT)/fuse_acl_cache_test: CFLAGS += $(ACL_CFLAGS)
+$(OUTPUT)/fuse_acl_cache_test: LDLIBS += $(ACL_LDLIBS)

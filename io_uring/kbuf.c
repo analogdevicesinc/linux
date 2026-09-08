@@ -7,6 +7,7 @@
 #include <linux/slab.h>
 #include <linux/namei.h>
 #include <linux/poll.h>
+#include <linux/uio.h>
 #include <linux/vmalloc.h>
 #include <linux/io_uring.h>
 
@@ -266,6 +267,9 @@ static int io_ring_buffers_peek(struct io_kiocb *req, struct buf_sel_arg *arg,
 	if (unlikely(!nr_avail))
 		return -ENOBUFS;
 
+	/* MAX_RW_COUNT is the universal Linux per-call IO maximum */
+	arg->max_len = min_t(size_t, arg->max_len, MAX_RW_COUNT);
+
 	buf = io_ring_head_to_buf(br, head, bl->mask);
 	if (arg->max_len) {
 		u32 len = READ_ONCE(buf->len);
@@ -295,7 +299,7 @@ static int io_ring_buffers_peek(struct io_kiocb *req, struct buf_sel_arg *arg,
 
 	/* set it to max, if not set, so we can use it unconditionally */
 	if (!arg->max_len)
-		arg->max_len = INT_MAX;
+		arg->max_len = MAX_RW_COUNT;
 
 	req->buf_index = READ_ONCE(buf->bid);
 	do {

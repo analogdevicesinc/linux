@@ -263,8 +263,9 @@ static int pmsr_parse_ftm(struct cfg80211_registered_device *rdev,
 				       "FTM: nominal time is required for PD NTB ranging");
 			return -EINVAL;
 		}
-		out->ftm.nominal_time =
-			nla_get_u32(tb[NL80211_PMSR_FTM_REQ_ATTR_NOMINAL_TIME]);
+		if (tb[NL80211_PMSR_FTM_REQ_ATTR_NOMINAL_TIME])
+			out->ftm.nominal_time =
+				nla_get_u32(tb[NL80211_PMSR_FTM_REQ_ATTR_NOMINAL_TIME]);
 
 		if (tb[NL80211_PMSR_FTM_REQ_ATTR_MIN_TIME_BETWEEN_MEASUREMENTS])
 			out->ftm.min_time_between_measurements =
@@ -419,6 +420,7 @@ int nl80211_pmsr_start(struct sk_buff *skb, struct genl_info *info)
 	const struct cfg80211_pmsr_capabilities *capa;
 	struct cfg80211_pmsr_request *req;
 	struct nlattr *peers, *peer;
+	u64 cookie;
 
 	capa = rdev->wiphy.pmsr_capa;
 
@@ -520,14 +522,27 @@ int nl80211_pmsr_start(struct sk_buff *skb, struct genl_info *info)
 	}
 	req->cookie = cfg80211_assign_cookie(rdev);
 	req->nl_portid = info->snd_portid;
+	cookie = req->cookie;
+
+	/*
+	 * Add to the list before the driver call; under races or broken
+	 * drivers, completion may free the request before rdev_start_pmsr()
+	 * returns. Use the saved cookie below.
+	 */
+	spin_lock_bh(&wdev->pmsr_lock);
+	list_add_tail(&req->list, &wdev->pmsr_list);
+	spin_unlock_bh(&wdev->pmsr_lock);
 
 	err = rdev_start_pmsr(rdev, wdev, req);
-	if (err)
+	if (err) {
+		/* An error return leaves the request owned by this path. */
+		spin_lock_bh(&wdev->pmsr_lock);
+		list_del(&req->list);
+		spin_unlock_bh(&wdev->pmsr_lock);
 		goto out_err;
+	}
 
-	list_add_tail(&req->list, &wdev->pmsr_list);
-
-	nl_set_extack_cookie_u64(info->extack, req->cookie);
+	nl_set_extack_cookie_u64(info->extack, cookie);
 	return 0;
 out_err:
 	kfree(req);

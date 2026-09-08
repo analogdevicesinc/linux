@@ -173,11 +173,11 @@ static void rds_ib_cm_fill_conn_param(struct rds_connection *conn,
 
 	memset(conn_param, 0, sizeof(struct rdma_conn_param));
 
-	conn_param->responder_resources =
-		min_t(u32, rds_ibdev->max_responder_resources, max_responder_resources);
-	conn_param->initiator_depth =
-		min_t(u32, rds_ibdev->max_initiator_depth, max_initiator_depth);
-	conn_param->retry_count = min_t(unsigned int, rds_ib_retry_count, 7);
+	conn_param->responder_resources = min3(rds_ibdev->max_responder_resources,
+					       max_responder_resources, U8_MAX);
+	conn_param->initiator_depth = min3(rds_ibdev->max_initiator_depth,
+					   max_initiator_depth, U8_MAX);
+	conn_param->retry_count = min(rds_ib_retry_count, 7U);
 	conn_param->rnr_retry_count = 7;
 
 	if (dp) {
@@ -810,6 +810,10 @@ int rds_ib_cm_handle_connect(struct rdma_cm_id *cm_id,
 	dp = event->param.conn.private_data;
 	if (isv6) {
 #if IS_ENABLED(CONFIG_IPV6)
+		if (!ipv6_mod_enabled()) {
+			err = -EOPNOTSUPP;
+			goto out;
+		}
 		dp_cmn = &dp->ricp_v6.dp_cmn;
 		saddr6 = &dp->ricp_v6.dp_saddr;
 		daddr6 = &dp->ricp_v6.dp_daddr;

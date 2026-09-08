@@ -499,8 +499,8 @@ int ntfs_sync_mft_mirror(struct ntfs_volume *vol, const u64 mft_no,
 
 	bio = bio_alloc(vol->sb->s_bdev, 1, REQ_OP_WRITE, GFP_NOIO);
 	bio->bi_iter.bi_sector =
-		NTFS_B_TO_SECTOR(vol, NTFS_CLU_TO_B(vol, vol->mftmirr_lcn) +
-				 lcn_folio_off + folio_ofs);
+		ntfs_bytes_to_bio_sector(NTFS_CLU_TO_B(vol, vol->mftmirr_lcn) +
+					 lcn_folio_off + folio_ofs);
 
 	if (bio_add_folio(bio, folio, vol->mft_record_size, folio_ofs))
 		err = submit_bio_wait(bio);
@@ -580,7 +580,7 @@ int write_mft_record_nolock(struct ntfs_inode *ni, struct mft_record *m, int syn
 	err = pre_write_mst_fixup((struct ntfs_record *)fixup_m, vol->mft_record_size);
 	if (err) {
 		ntfs_error(vol->sb, "Failed to apply mst fixups!");
-		goto err_out;
+		goto unmap_err_out;
 	}
 
 	folio_size = vol->mft_record_size / ni->mft_lcn_count;
@@ -592,8 +592,8 @@ int write_mft_record_nolock(struct ntfs_inode *ni, struct mft_record *m, int syn
 
 		bio = bio_alloc(vol->sb->s_bdev, 1, REQ_OP_WRITE, GFP_NOIO);
 		bio->bi_iter.bi_sector =
-			NTFS_B_TO_SECTOR(vol, NTFS_CLU_TO_B(vol, ni->mft_lcn[i]) +
-					 clu_off);
+			ntfs_bytes_to_bio_sector(NTFS_CLU_TO_B(vol, ni->mft_lcn[i]) +
+						 clu_off);
 
 		if (!bio_add_folio(bio, folio, folio_size,
 				   ni->folio_ofs + offset)) {
@@ -645,6 +645,8 @@ done:
 	return 0;
 put_bio_out:
 	bio_put(bio);
+unmap_err_out:
+	kunmap_local(kaddr);
 err_out:
 	/*
 	 * The caller should mark the base inode as bad so no more I/O
@@ -2333,7 +2335,17 @@ mft_rec_already_initialized:
 		 * wrong with the previous mft record.
 		 */
 		seq_no = m->sequence_number;
-		usn = *(__le16 *)((u8 *)m + le16_to_cpu(m->usa_ofs));
+		/*
+		 * The mft record still holds unvalidated, MST-protected on-disk
+		 * bytes, so m->usa_ofs is untrusted here.  Only preserve the old
+		 * update sequence number if that offset is in bounds; otherwise
+		 * leave usn zero so it is not restored below.
+		 */
+		if (!(le16_to_cpu(m->usa_ofs) & 1) &&
+		    le16_to_cpu(m->usa_ofs) + sizeof(usn) <= vol->mft_record_size)
+			usn = *(__le16 *)((u8 *)m + le16_to_cpu(m->usa_ofs));
+		else
+			usn = 0;
 		err = ntfs_mft_record_layout(vol, bit, m);
 		if (unlikely(err)) {
 			ntfs_error(vol->sb, "Failed to layout allocated mft record 0x%llx.",
@@ -2420,7 +2432,7 @@ mft_rec_already_initialized:
 		 * record.
 		 */
 
-		(*ni)->mrec = kmalloc(vol->mft_record_size, GFP_NOFS);
+		(*ni)->mrec = kmemdup(m, vol->mft_record_size, GFP_NOFS);
 		if (!(*ni)->mrec) {
 			folio_unlock(folio);
 			kunmap_local(m);
@@ -2429,7 +2441,6 @@ mft_rec_already_initialized:
 			goto undo_mftbmp_alloc;
 		}
 
-		memcpy((*ni)->mrec, m, vol->mft_record_size);
 		post_read_mst_fixup((struct ntfs_record *)(*ni)->mrec, vol->mft_record_size);
 		ntfs_mft_mark_dirty(folio);
 		folio_unlock(folio);
@@ -2624,11 +2635,13 @@ static int ntfs_write_mft_block(struct folio *folio, struct writeback_control *w
 	struct ntfs_inode *ni = NTFS_I(vi);
 	struct ntfs_volume *vol = ni->vol;
 	u8 *kaddr;
-	struct ntfs_inode **locked_nis __free(kfree) = kmalloc_array(PAGE_SIZE / NTFS_BLOCK_SIZE,
-							sizeof(struct ntfs_inode *), GFP_NOFS);
+	struct ntfs_inode **locked_nis __free(kfree) = kmalloc_objs(struct ntfs_inode *,
+								    PAGE_SIZE / NTFS_BLOCK_SIZE,
+								    GFP_NOFS);
 	int nr_locked_nis = 0, err = 0, mft_ofs, prev_mft_ofs;
-	struct inode **ref_inos __free(kfree) = kmalloc_array(PAGE_SIZE / NTFS_BLOCK_SIZE,
-							      sizeof(struct inode *), GFP_NOFS);
+	struct inode **ref_inos __free(kfree) = kmalloc_objs(struct inode *,
+							     PAGE_SIZE / NTFS_BLOCK_SIZE,
+							     GFP_NOFS);
 	int nr_ref_inos = 0;
 	struct bio *bio = NULL;
 	u64 mft_no;
@@ -2731,8 +2744,8 @@ flush_bio:
 				bio = bio_alloc(vol->sb->s_bdev, 1, REQ_OP_WRITE,
 						GFP_NOIO);
 				bio->bi_iter.bi_sector =
-					ntfs_bytes_to_sector(vol,
-							ntfs_cluster_to_bytes(vol, lcn) + off);
+					ntfs_bytes_to_bio_sector(
+						ntfs_cluster_to_bytes(vol, lcn) + off);
 			}
 
 			if (vol->cluster_size == NTFS_BLOCK_SIZE &&
