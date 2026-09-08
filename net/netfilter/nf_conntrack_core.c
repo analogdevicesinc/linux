@@ -1169,7 +1169,6 @@ nf_ct_resolve_clash(struct sk_buff *skb, struct nf_conntrack_tuple_hash *h,
 		return ret;
 
 drop:
-	NF_CT_STAT_INC(net, drop);
 	NF_CT_STAT_INC(net, insert_failed);
 	return NF_DROP;
 }
@@ -1259,7 +1258,6 @@ __nf_conntrack_confirm(struct sk_buff *skb)
 		if (chainlen++ > max_chainlen) {
 chaintoolong:
 			NF_CT_STAT_INC(net, chaintoolong);
-			NF_CT_STAT_INC(net, insert_failed);
 			ret = NF_DROP;
 			goto dying;
 		}
