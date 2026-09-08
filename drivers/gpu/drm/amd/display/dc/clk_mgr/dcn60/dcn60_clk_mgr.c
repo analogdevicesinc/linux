@@ -1297,7 +1297,8 @@ static unsigned int dcn60_build_bandwidth_clocks_block_sequence_with_action(
 				action->fams.enable
 				|| clk_mgr_base->clks.fw_based_mclk_switching;
 		block_sequence[num_steps].params.indicate_pstate_status_params.wait_resp =
-				action->fams.enable;
+				action->fams.enable
+				|| clk_mgr_base->clks.fw_based_mclk_switching;
 		block_sequence[num_steps].params.indicate_pstate_status_params.alt_ch_enable =
 				action->alt_ch.enable
 				|| clk_mgr_base->clks.alt_ch_pstate_switch;
