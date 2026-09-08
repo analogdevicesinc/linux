@@ -1367,7 +1367,8 @@ static int check_last_peer(struct cxl_endpoint_decoder *cxled,
 	/*
 	 * If this position wants to share a dport with the last endpoint mapped
 	 * then that endpoint, at index 'position - distance', must also be
-	 * mapped by this dport.
+	 * mapped by this dport. An endpoint that this port does not map at all
+	 * fails that requirement.
 	 */
 	if (pos < distance) {
 		dev_dbg(&cxlr->dev, "%s:%s: cannot host %s:%s at %d\n",
@@ -1378,7 +1379,7 @@ static int check_last_peer(struct cxl_endpoint_decoder *cxled,
 	cxled_peer = p->targets[pos - distance];
 	cxlmd_peer = cxled_to_memdev(cxled_peer);
 	ep_peer = cxl_ep_load(port, cxlmd_peer);
-	if (ep->dport != ep_peer->dport) {
+	if (!ep_peer || ep->dport != ep_peer->dport) {
 		dev_dbg(&cxlr->dev,
 			"%s:%s: %s:%s pos %d mismatched peer %s:%s\n",
 			dev_name(port->uport_dev), dev_name(&port->dev),
