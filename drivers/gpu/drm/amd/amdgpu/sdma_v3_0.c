@@ -1234,13 +1234,11 @@ static int sdma_v3_0_wait_for_idle(struct amdgpu_ip_block *ip_block)
 static int sdma_v3_0_soft_reset(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
-	u32 srbm_soft_reset = 0;
+	u32 srbm_soft_reset;
 	u32 tmp;
 
-	if (!adev->sdma.srbm_soft_reset)
-		return 0;
-
-	srbm_soft_reset = adev->sdma.srbm_soft_reset;
+	srbm_soft_reset = SRBM_SOFT_RESET__SOFT_RESET_SDMA_MASK |
+			  SRBM_SOFT_RESET__SOFT_RESET_SDMA1_MASK;
 
 	if (srbm_soft_reset) {
 		tmp = RREG32(mmSRBM_SOFT_RESET);

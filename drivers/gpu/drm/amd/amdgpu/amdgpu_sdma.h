@@ -110,7 +110,6 @@ struct amdgpu_sdma {
 	    int			num_inst_per_aid;
 	    int			num_inst_per_xcc;
 	};
-	uint32_t                    srbm_soft_reset;
 	bool			has_page_queue;
 	struct ras_common_if	*ras_if;
 	struct amdgpu_sdma_ras	*ras;

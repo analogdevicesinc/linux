@@ -600,12 +600,6 @@ static int si_dma_wait_for_idle(struct amdgpu_ip_block *ip_block)
 	return -ETIMEDOUT;
 }
 
-static int si_dma_soft_reset(struct amdgpu_ip_block *ip_block)
-{
-	drm_info(adev_to_drm(ip_block->adev), "si_dma_soft_reset --- not implemented !!!!!!!\n");
-	return 0;
-}
-
 static int si_dma_set_trap_irq_state(struct amdgpu_device *adev,
 					struct amdgpu_irq_src *src,
 					unsigned type,
@@ -732,7 +726,6 @@ static const struct amd_ip_funcs si_dma_ip_funcs = {
 	.suspend = si_dma_suspend,
 	.resume = si_dma_resume,
 	.wait_for_idle = si_dma_wait_for_idle,
-	.soft_reset = si_dma_soft_reset,
 	.set_clockgating_state = si_dma_set_clockgating_state,
 	.set_powergating_state = si_dma_set_powergating_state,
 };
