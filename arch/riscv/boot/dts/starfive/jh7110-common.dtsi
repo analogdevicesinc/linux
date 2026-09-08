@@ -438,6 +438,7 @@
 			input-disable;
 			input-schmitt-disable;
 			slew-rate = <0>;
+			bootph-pre-ram;
 		};
 
 		mmc-pins {
