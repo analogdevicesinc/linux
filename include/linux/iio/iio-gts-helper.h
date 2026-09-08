@@ -7,6 +7,7 @@
 #ifndef __IIO_GTS_HELPER__
 #define __IIO_GTS_HELPER__
 
+#include <linux/errno.h>
 #include <linux/types.h>
 
 struct device;
