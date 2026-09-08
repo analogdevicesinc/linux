@@ -202,13 +202,10 @@ static void
 twl4030_get_board_param_values(struct twl4030_board_params *board_params,
 			       struct device_node *node)
 {
-	int value;
-
 	of_property_read_u32(node, "ti,digimic_delay", &board_params->digimic_delay);
 	of_property_read_u32(node, "ti,ramp_delay_value", &board_params->ramp_delay_value);
 	of_property_read_u32(node, "ti,offset_cncl_path", &board_params->offset_cncl_path);
-	if (!of_property_read_u32(node, "ti,hs_extmute", &value))
-		board_params->hs_extmute = value;
+	board_params->hs_extmute = of_property_read_bool(node, "ti,hs_extmute");
 
 	if (of_property_present(node, "ti,hs_extmute_gpio"))
 		board_params->hs_extmute = 1;

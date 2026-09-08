@@ -1414,7 +1414,7 @@ static int va_macro_register_fsgen_output(struct va_macro *va)
 	struct device_node *np = dev->of_node;
 	const char *parent_clk_name;
 	const char *clk_name = "fsgen";
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	int ret;
 
 	if (va->has_npl_clk)

@@ -1035,7 +1035,7 @@ static int sta32x_probe_dt(struct device *dev, struct sta32x_priv *sta32x)
 {
 	struct device_node *np = dev->of_node;
 	struct sta32x_platform_data *pdata;
-	u16 tmp;
+	u32 tmp;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -1060,8 +1060,8 @@ static int sta32x_probe_dt(struct device *dev, struct sta32x_priv *sta32x)
 		of_property_read_bool(np, "st,needs_esd_watchdog");
 
 	tmp = 140;
-	of_property_read_u16(np, "st,drop-compensation-ns", &tmp);
-	pdata->drop_compensation_ns = clamp_t(u16, tmp, 0, 300) / 20;
+	of_property_read_u32(np, "st,drop-compensation-ns", &tmp);
+	pdata->drop_compensation_ns = clamp_t(u32, tmp, 0, 300) / 20;
 
 	/* CONFE */
 	pdata->max_power_use_mpcc =

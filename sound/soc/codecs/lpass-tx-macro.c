@@ -2210,8 +2210,8 @@ static int tx_macro_register_mclk_output(struct tx_macro *tx)
 	struct device *dev = tx->dev;
 	const char *parent_clk_name = NULL;
 	const char *clk_name = "lpass-tx-mclk";
+	struct clk_init_data init = {};
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	if (tx->npl)
