@@ -1087,7 +1087,7 @@ static int sta350_probe_dt(struct device *dev, struct sta350_priv *sta350)
 	struct device_node *np = dev->of_node;
 	struct sta350_platform_data *pdata;
 	const char *ffx_power_mode;
-	u16 tmp;
+	u32 tmp;
 	u8 tmp8;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
@@ -1127,8 +1127,8 @@ static int sta350_probe_dt(struct device *dev, struct sta350_priv *sta350)
 	}
 
 	tmp = 140;
-	of_property_read_u16(np, "st,drop-compensation-ns", &tmp);
-	pdata->drop_compensation_ns = clamp_t(u16, tmp, 0, 300) / 20;
+	of_property_read_u32(np, "st,drop-compensation-ns", &tmp);
+	pdata->drop_compensation_ns = clamp_t(u32, tmp, 0, 300) / 20;
 
 	pdata->oc_warning_adjustment =
 		of_property_read_bool(np, "st,overcurrent-warning-adjustment");

@@ -1859,7 +1859,7 @@ match:
 			}
 
 			dev_dbg(card->dev, "info: override BE DAI link %s\n",
-				card->dai_link[i].name);
+				dai_link->name);
 
 			/* override platform component */
 			if (!dai_link->platforms) {
