@@ -521,20 +521,6 @@ static void sdma_v4_4_2_inst_gfx_stop(struct amdgpu_device *adev,
 }
 
 /**
- * sdma_v4_4_2_inst_rlc_stop - stop the compute async dma engines
- *
- * @adev: amdgpu_device pointer
- * @inst_mask: mask of dma engine instances to be disabled
- *
- * Stop the compute async dma queues.
- */
-static void sdma_v4_4_2_inst_rlc_stop(struct amdgpu_device *adev,
-				      uint32_t inst_mask)
-{
-	/* XXX todo */
-}
-
-/**
  * sdma_v4_4_2_inst_page_stop - stop the page async dma engines
  *
  * @adev: amdgpu_device pointer
@@ -632,7 +618,6 @@ static void sdma_v4_4_2_inst_enable(struct amdgpu_device *adev, bool enable,
 
 	if (!enable) {
 		sdma_v4_4_2_inst_gfx_stop(adev, inst_mask);
-		sdma_v4_4_2_inst_rlc_stop(adev, inst_mask);
 		if (adev->sdma.has_page_queue)
 			sdma_v4_4_2_inst_page_stop(adev, inst_mask);
 
@@ -889,23 +874,6 @@ static void sdma_v4_4_2_init_pg(struct amdgpu_device *adev)
 }
 
 /**
- * sdma_v4_4_2_inst_rlc_resume - setup and start the async dma engines
- *
- * @adev: amdgpu_device pointer
- * @inst_mask: mask of dma engine instances to be enabled
- *
- * Set up the compute DMA queues and enable them.
- * Returns 0 for success, error for failure.
- */
-static int sdma_v4_4_2_inst_rlc_resume(struct amdgpu_device *adev,
-				       uint32_t inst_mask)
-{
-	sdma_v4_4_2_init_pg(adev);
-
-	return 0;
-}
-
-/**
  * sdma_v4_4_2_inst_load_microcode - load the sDMA ME ucode
  *
  * @adev: amdgpu_device pointer
@@ -1019,9 +987,7 @@ static int sdma_v4_4_2_inst_start(struct amdgpu_device *adev,
 		sdma_v4_4_2_inst_ctx_switch_enable(adev, true, inst_mask);
 		sdma_v4_4_2_inst_enable(adev, true, inst_mask);
 	} else {
-		r = sdma_v4_4_2_inst_rlc_resume(adev, inst_mask);
-		if (r)
-			return r;
+		sdma_v4_4_2_init_pg(adev);
 	}
 
 	tmp_mask = inst_mask;

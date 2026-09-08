@@ -350,18 +350,6 @@ static void sdma_v2_4_gfx_stop(struct amdgpu_device *adev)
 }
 
 /**
- * sdma_v2_4_rlc_stop - stop the compute async dma engines
- *
- * @adev: amdgpu_device pointer
- *
- * Stop the compute async dma queues (VI).
- */
-static void sdma_v2_4_rlc_stop(struct amdgpu_device *adev)
-{
-	/* XXX todo */
-}
-
-/**
  * sdma_v2_4_enable - stop the async dma engines
  *
  * @adev: amdgpu_device pointer
@@ -376,7 +364,6 @@ static void sdma_v2_4_enable(struct amdgpu_device *adev, bool enable)
 
 	if (!enable) {
 		sdma_v2_4_gfx_stop(adev);
-		sdma_v2_4_rlc_stop(adev);
 	}
 
 	for (i = 0; i < adev->sdma.num_instances; i++) {
@@ -477,20 +464,6 @@ static int sdma_v2_4_gfx_resume(struct amdgpu_device *adev)
 	return 0;
 }
 
-/**
- * sdma_v2_4_rlc_resume - setup and start the async dma engines
- *
- * @adev: amdgpu_device pointer
- *
- * Set up the compute DMA queues and enable them (VI).
- * Returns 0 for success, error for failure.
- */
-static int sdma_v2_4_rlc_resume(struct amdgpu_device *adev)
-{
-	/* XXX todo */
-	return 0;
-}
-
 
 /**
  * sdma_v2_4_start - setup and start the async dma engines
@@ -509,9 +482,6 @@ static int sdma_v2_4_start(struct amdgpu_device *adev)
 
 	/* start the gfx rings and rlc compute queues */
 	r = sdma_v2_4_gfx_resume(adev);
-	if (r)
-		return r;
-	r = sdma_v2_4_rlc_resume(adev);
 	if (r)
 		return r;
 

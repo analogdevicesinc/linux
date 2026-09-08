@@ -575,18 +575,6 @@ static void sdma_v5_0_gfx_stop(struct amdgpu_device *adev, uint32_t inst_mask)
 }
 
 /**
- * sdma_v5_0_rlc_stop - stop the compute async dma engines
- *
- * @adev: amdgpu_device pointer
- *
- * Stop the compute async dma queues (NAVI10).
- */
-static void sdma_v5_0_rlc_stop(struct amdgpu_device *adev)
-{
-	/* XXX todo */
-}
-
-/**
  * sdma_v5_0_ctx_switch_enable - stop the async dma engines context switch
  *
  * @adev: amdgpu_device pointer
@@ -661,7 +649,6 @@ static void sdma_v5_0_enable(struct amdgpu_device *adev, bool enable)
 	inst_mask = GENMASK(adev->sdma.num_instances - 1, 0);
 	if (!enable) {
 		sdma_v5_0_gfx_stop(adev, 1 << inst_mask);
-		sdma_v5_0_rlc_stop(adev);
 	}
 
 	if (amdgpu_sriov_vf(adev))
@@ -859,19 +846,6 @@ static int sdma_v5_0_gfx_resume(struct amdgpu_device *adev)
 }
 
 /**
- * sdma_v5_0_rlc_resume - setup and start the async dma engines
- *
- * @adev: amdgpu_device pointer
- *
- * Set up the compute DMA queues and enable them (NAVI10).
- * Returns 0 for success, error for failure.
- */
-static int sdma_v5_0_rlc_resume(struct amdgpu_device *adev)
-{
-	return 0;
-}
-
-/**
  * sdma_v5_0_load_microcode - load the sDMA ME ucode
  *
  * @adev: amdgpu_device pointer
@@ -951,7 +925,6 @@ static int sdma_v5_0_start(struct amdgpu_device *adev)
 	r = sdma_v5_0_gfx_resume(adev);
 	if (r)
 		return r;
-	r = sdma_v5_0_rlc_resume(adev);
 
 	return r;
 }

@@ -934,18 +934,6 @@ static void sdma_v4_0_gfx_enable(struct amdgpu_device *adev, bool enable)
 }
 
 /**
- * sdma_v4_0_rlc_stop - stop the compute async dma engines
- *
- * @adev: amdgpu_device pointer
- *
- * Stop the compute async dma queues (VEGA10).
- */
-static void sdma_v4_0_rlc_stop(struct amdgpu_device *adev)
-{
-	/* XXX todo */
-}
-
-/**
  * sdma_v4_0_page_stop - stop the page async dma engines
  *
  * @adev: amdgpu_device pointer
@@ -1047,7 +1035,6 @@ static void sdma_v4_0_enable(struct amdgpu_device *adev, bool enable)
 
 	if (!enable) {
 		sdma_v4_0_gfx_enable(adev, enable);
-		sdma_v4_0_rlc_stop(adev);
 		if (adev->sdma.has_page_queue)
 			sdma_v4_0_page_stop(adev);
 	}
@@ -1313,21 +1300,6 @@ static void sdma_v4_0_init_pg(struct amdgpu_device *adev)
 }
 
 /**
- * sdma_v4_0_rlc_resume - setup and start the async dma engines
- *
- * @adev: amdgpu_device pointer
- *
- * Set up the compute DMA queues and enable them (VEGA10).
- * Returns 0 for success, error for failure.
- */
-static int sdma_v4_0_rlc_resume(struct amdgpu_device *adev)
-{
-	sdma_v4_0_init_pg(adev);
-
-	return 0;
-}
-
-/**
  * sdma_v4_0_load_microcode - load the sDMA ME ucode
  *
  * @adev: amdgpu_device pointer
@@ -1426,9 +1398,7 @@ static int sdma_v4_0_start(struct amdgpu_device *adev)
 		sdma_v4_0_ctx_switch_enable(adev, true);
 		sdma_v4_0_enable(adev, true);
 	} else {
-		r = sdma_v4_0_rlc_resume(adev);
-		if (r)
-			return r;
+		sdma_v4_0_init_pg(adev);
 	}
 
 	for (i = 0; i < adev->sdma.num_instances; i++) {

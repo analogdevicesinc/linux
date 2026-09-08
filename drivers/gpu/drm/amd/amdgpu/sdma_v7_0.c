@@ -410,18 +410,6 @@ static void sdma_v7_0_gfx_stop(struct amdgpu_device *adev)
 }
 
 /**
- * sdma_v7_0_rlc_stop - stop the compute async dma engines
- *
- * @adev: amdgpu_device pointer
- *
- * Stop the compute async dma queues.
- */
-static void sdma_v7_0_rlc_stop(struct amdgpu_device *adev)
-{
-	/* XXX todo */
-}
-
-/**
  * sdma_v7_0_ctx_switch_enable - stop the async dma engines context switch
  *
  * @adev: amdgpu_device pointer
@@ -448,7 +436,6 @@ static void sdma_v7_0_enable(struct amdgpu_device *adev, bool enable)
 
 	if (!enable) {
 		sdma_v7_0_gfx_stop(adev);
-		sdma_v7_0_rlc_stop(adev);
 	}
 
 	if (amdgpu_sriov_vf(adev))
@@ -641,19 +628,6 @@ static int sdma_v7_0_gfx_resume(struct amdgpu_device *adev)
 
 	return 0;
 
-}
-
-/**
- * sdma_v7_0_rlc_resume - setup and start the async dma engines
- *
- * @adev: amdgpu_device pointer
- *
- * Set up the compute DMA queues and enable them.
- * Returns 0 for success, error for failure.
- */
-static int sdma_v7_0_rlc_resume(struct amdgpu_device *adev)
-{
-	return 0;
 }
 
 static void sdma_v12_0_free_ucode_buffer(struct amdgpu_device *adev)
@@ -878,7 +852,6 @@ static int sdma_v7_0_start(struct amdgpu_device *adev)
 	r = sdma_v7_0_gfx_resume(adev);
 	if (r)
 		return r;
-	r = sdma_v7_0_rlc_resume(adev);
 
 	return r;
 }
