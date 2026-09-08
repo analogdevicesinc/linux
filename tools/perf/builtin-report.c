@@ -1364,6 +1364,8 @@ int cmd_report(int argc, const char **argv)
 #endif
 	OPT_BOOLEAN(0, "stdio", &report.use_stdio,
 		    "Use the stdio interface"),
+	OPT_BOOLEAN(0, "weights", &symbol_conf.annotate_weight,
+			"Show or hide weight columns in annotation. Default show if non-zero."),
 	OPT_BOOLEAN(0, "header", &report.header, "Show data header."),
 	OPT_BOOLEAN(0, "header-only", &report.header_only,
 		    "Show only data header."),
@@ -1525,6 +1527,7 @@ int cmd_report(int argc, const char **argv)
 	 * reference exited threads.
 	 */
 	symbol_conf.keep_exited_threads = true;
+	symbol_conf.annotate_weight = true;
 
 	annotation_options__init();
 

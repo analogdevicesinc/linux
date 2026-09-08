@@ -64,6 +64,9 @@ OPTIONS
 --symbol-filter=::
 	Only show symbols that match (partially) with this filter.
 
+--weights:: Show or hide (with `--no-weights`) weight columns in annotation output.
+	    By default, weight columns are shown when samples contain non-zero weights.
+
 -U::
 --hide-unresolved::
         Only display entries resolved to a symbol.
@@ -352,6 +355,9 @@ OPTIONS
 	commands, the stdio interface is used.
 
 --gtk:: Use the GTK2 interface.
+
+--weights:: Show or hide (with `--no-weights`) weight columns in annotation output.
+           By default, weight columns are shown when samples contain non-zero weights.
 
 -k::
 --vmlinux=<file>::
