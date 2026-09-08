@@ -1,0 +1,175 @@
+soc/arm
+	arm/deprecation
+		https://git.kernel.org/pub/scm/linux/kernel/git/soc/soc tags/arm-feature-deprecation-for-7.3
+	patch
+		ARM: replace linux/gpio.h inclusions
+	renesas/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-soc-for-v7.3-tag1
+	ixp4xx/arm
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/ixp4xx-arm-v7.3
+	patch
+		gpio: sa1100: register software node for GPIO controller
+		ARM: sa1100: assabet: convert gpio-keys to use software nodes
+		ARM: sa1100: collie: convert gpio-keys to use software nodes
+		ARM: sa1100: h3xxx: convert gpio-keys to use software nodes
+	lpc32xx/soc
+		https://github.com/vzapolskiy/linux-lpc32xx tags/lpc32xx-arm-for-7.3
+	imx/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-soc-7.3
+	tegra/arm
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-arm-core
+	omap/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/soc-signed
+	samsung/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-soc-7.3
+
+soc/dt
+	patch
+		ARM: dts: st: spear: Correct indentation
+		ARM: dts: st: ste: Correct indentation
+		ARM: dts: st: spear13xx: Drop unused/incorrect usbh0_id and usbh1_id
+		ARM: dts: ixp4xx: Drop the reg-offset hack
+	canaan/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v7.3-early-k230
+	renesas/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.3-tag1
+	realtek/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/yu_chun/linux tags/realtek-dt-v7.3
+	exynos/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-7.3
+	thead/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/thead-dt-for-v7.3
+	rockchip/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.3-rockchip-dts32-1
+	socfpga/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_updates_for_v7.3
+	cix/dts
+		https://github.com/cixtech/linux-mainline tags/cix-dt-v7.3-rc1
+	imx/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-dt-7.3
+	mediatek/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts32-for-v7.3
+	mediatek/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts64-for-v7.3
+	hisilicon/dts
+		https://github.com/hisilicon/linux-hisi tags/hisi-arm64-dt-for-7.3
+	imx/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-dt64-7.3
+	qcom/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.3
+	amlogic/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-arm64-dt-for-v7.3
+	rockchip/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.3-rockchip-dts64-1
+	spacemit/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/spacemit/linux tags/spacemit-dt-for-7.3-1
+	omap/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/dt-signed
+	sunxi/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-7.3
+	nuvoton/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm-7.3-devicetree-0
+	nuvoton/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-7.3-devicetree-0
+	aspeed/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-arm-7.3-devicetree-0
+	tegra/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-dt-bindings
+	tegra/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-arm64-dt
+	patch
+		Documentation/process: maintainer-soc: Mention expectation about dt-check-style
+		Revert "riscv: dts: spacemit: k3: add i2s0-i2s5 nodes"
+	sophgo/dt
+		https://github.com/sophgo/linux tags/riscv-sophgo-dt-for-v7.3
+	sophgo/dt-arm
+		https://github.com/sophgo/linux tags/arm-sophgo-dt-for-v7.3
+	rockchip/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.3-rockchip-dts32-2
+	rockchip/dt64-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.3-rockchip-dts64-2
+	samsung/dt-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-7.3-2
+	samsung/dt32-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt-7.3
+	arm64/dt-cleanup
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt64-cleanup-7.3
+	arm/dt-cleanup
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt-cleanup-7.3
+	zynq/dt64
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-dt-for-7.3
+	ti/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-dts-for-v7.3
+	qcom/dt-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.3-2
+	qcom/dt32-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-7.3
+	apple/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-dt-7.3
+	microchip/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-dt64-7.3
+	marvell/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt-7.3-1
+	marvell/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-7.3-1
+
+soc/drivers
+	ixp4xx/soc-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/ixp4xx-soc-v7.3
+	firmware/scmi
+		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-7.3
+	rockchip/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.3-rockchip-drivers1
+	renesas/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.3-tag1
+	drivers/memory
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-mem-ctrl tags/memory-controller-drv-7.3
+	exynos/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-7.3
+	mediatek/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-soc-for-v7.3
+	amlogic/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-drivers-for-v7.3
+	tegra/soc-drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-soc
+	omap/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/drivers-signed
+	aspeed/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.3-drivers-0
+	qcom/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.3
+	ti/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-driver-soc-for-v7.3
+	qcomtee/driver
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/qcomtee-for-v7.3
+	qcom/drivers-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.3-2
+	apple/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-drivers-7.3
+	fsl/soc-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/chleroy/linux tags/soc_fsl-7.3-1
+	zynx/firmware
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-soc-for-7.3
+
+soc/defconfig
+	riscv/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/riscv-config-for-v7.3
+	qcom/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-7.3
+	omap/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/defconfig-signed
+	allwinner/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-config-for-7.3
+	k3/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-config-for-v7.3
+
+soc/late
+
+arm/fixes
+	optee-fix
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/optee-fix-for-v7.2
+	apple/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-fixes-7.2
+	tegra/fix
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.2-arm64-dt-fixes-v2
+
