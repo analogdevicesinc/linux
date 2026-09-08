@@ -305,7 +305,7 @@ static void vmw_sou_crtc_atomic_disable(struct drm_crtc *crtc,
 static const struct drm_crtc_funcs vmw_screen_object_crtc_funcs = {
 	.gamma_set = vmw_du_crtc_gamma_set,
 	.destroy = vmw_sou_crtc_destroy,
-	.reset = vmw_du_crtc_reset,
+	.atomic_create_state = vmw_du_crtc_create_state,
 	.atomic_duplicate_state = vmw_du_crtc_duplicate_state,
 	.atomic_destroy_state = vmw_du_crtc_destroy_state,
 	.set_config = drm_atomic_helper_set_config,

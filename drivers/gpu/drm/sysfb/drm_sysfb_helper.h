@@ -134,15 +134,15 @@ int drm_sysfb_plane_helper_get_scanout_buffer(struct drm_plane *plane,
 	.atomic_disable = drm_sysfb_plane_helper_atomic_disable, \
 	.get_scanout_buffer = drm_sysfb_plane_helper_get_scanout_buffer
 
-void drm_sysfb_plane_reset(struct drm_plane *plane);
+struct drm_plane_state *drm_sysfb_plane_atomic_create_state(struct drm_plane *plane);
 struct drm_plane_state *drm_sysfb_plane_atomic_duplicate_state(struct drm_plane *plane);
 void drm_sysfb_plane_atomic_destroy_state(struct drm_plane *plane,
 					  struct drm_plane_state *plane_state);
 
 #define DRM_SYSFB_PLANE_FUNCS \
-	.reset = drm_sysfb_plane_reset, \
 	.update_plane = drm_atomic_helper_update_plane, \
 	.disable_plane = drm_atomic_helper_disable_plane, \
+	.atomic_create_state = drm_sysfb_plane_atomic_create_state, \
 	.atomic_duplicate_state = drm_sysfb_plane_atomic_duplicate_state, \
 	.atomic_destroy_state = drm_sysfb_plane_atomic_destroy_state
 
@@ -171,12 +171,12 @@ int drm_sysfb_crtc_helper_atomic_check(struct drm_crtc *crtc, struct drm_atomic_
 	.mode_valid = drm_sysfb_crtc_helper_mode_valid, \
 	.atomic_check = drm_sysfb_crtc_helper_atomic_check
 
-void drm_sysfb_crtc_reset(struct drm_crtc *crtc);
+struct drm_crtc_state *drm_sysfb_crtc_create_state(struct drm_crtc *crtc);
 struct drm_crtc_state *drm_sysfb_crtc_atomic_duplicate_state(struct drm_crtc *crtc);
 void drm_sysfb_crtc_atomic_destroy_state(struct drm_crtc *crtc, struct drm_crtc_state *crtc_state);
 
 #define DRM_SYSFB_CRTC_FUNCS \
-	.reset = drm_sysfb_crtc_reset, \
+	.atomic_create_state = drm_sysfb_crtc_create_state, \
 	.set_config = drm_atomic_helper_set_config, \
 	.page_flip = drm_atomic_helper_page_flip, \
 	.atomic_duplicate_state = drm_sysfb_crtc_atomic_duplicate_state, \

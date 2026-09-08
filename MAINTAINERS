@@ -8340,6 +8340,13 @@ T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
 F:	Documentation/devicetree/bindings/display/panel/novatek,nt36523.yaml
 F:	drivers/gpu/drm/panel/panel-novatek-nt36523.c
 
+DRM DRIVER FOR NOVATEK NT36532 PANELS
+M:	Junjie Cao <junjie.cao@linux.dev>
+S:	Maintained
+T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
+F:	Documentation/devicetree/bindings/display/panel/novatek,nt36532.yaml
+F:	drivers/gpu/drm/panel/panel-novatek-nt36532.c
+
 DRM DRIVER FOR NOVATEK NT36672A PANELS
 M:	Sumit Semwal <sumit.semwal@linaro.org>
 S:	Maintained
@@ -9068,6 +9075,21 @@ F:	drivers/gpu/drm/drm_gpuvm.c
 F:	include/drm/drm_gpuvm.h
 F:	rust/helpers/drm_gpuvm.c
 F:	rust/kernel/drm/gpuvm/
+
+DRM GPUSVM
+M:	Matthew Brost <matthew.brost@intel.com>
+R:	Thomas Hellström <thomas.hellstrom@linux.intel.com>
+R:	Himal Prasad Ghimiray <himal.prasad.ghimiray@intel.com>
+R:	Honglei Huang <honghuan@amd.com>
+L:	dri-devel@lists.freedesktop.org
+S:	Supported
+T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
+F:	drivers/gpu/drm/drm_gpusvm.c
+F:	drivers/gpu/drm/drm_pagemap.c
+F:	drivers/gpu/drm/drm_pagemap_util.c
+F:	include/drm/drm_gpusvm.h
+F:	include/drm/drm_pagemap.h
+F:	include/drm/drm_pagemap_util.h
 
 DRM LOG
 M:	Jocelyn Falempe <jfalempe@redhat.com>

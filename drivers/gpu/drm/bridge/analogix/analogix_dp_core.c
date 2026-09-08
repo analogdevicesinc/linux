@@ -1414,10 +1414,8 @@ analogix_dp_probe(struct device *dev, struct analogix_dp_plat_data *plat_data)
 					analogix_dp_hardirq,
 					analogix_dp_irq_thread,
 					irq_flags, "analogix-dp", dp);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to request irq\n");
+	if (ret)
 		return ERR_PTR(ret);
-	}
 
 	dp->aux.name = "DP-AUX";
 	dp->aux.transfer = analogix_dpaux_transfer;

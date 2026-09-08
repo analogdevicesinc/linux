@@ -949,7 +949,7 @@ int vc4_crtc_atomic_check(struct drm_crtc *crtc,
 struct drm_crtc_state *vc4_crtc_duplicate_state(struct drm_crtc *crtc);
 void vc4_crtc_destroy_state(struct drm_crtc *crtc,
 			    struct drm_crtc_state *state);
-void vc4_crtc_reset(struct drm_crtc *crtc);
+struct drm_crtc_state *vc4_crtc_create_state(struct drm_crtc *crtc);
 void vc4_crtc_handle_vblank(struct vc4_crtc *crtc);
 void vc4_crtc_send_vblank(struct drm_crtc *crtc);
 int vc4_crtc_late_register(struct drm_crtc *crtc);

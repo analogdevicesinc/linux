@@ -2300,24 +2300,24 @@ static void vop2_crtc_destroy_state(struct drm_crtc *crtc,
 	kfree(vcstate);
 }
 
-static void vop2_crtc_reset(struct drm_crtc *crtc)
+static struct drm_crtc_state *vop2_crtc_create_state(struct drm_crtc *crtc)
 {
-	struct rockchip_crtc_state *vcstate = kzalloc_obj(*vcstate);
+	struct rockchip_crtc_state *vcstate;
 
-	if (crtc->state)
-		vop2_crtc_destroy_state(crtc, crtc->state);
+	vcstate = kzalloc_obj(*vcstate);
+	if (!vcstate)
+		return ERR_PTR(-ENOMEM);
 
-	if (vcstate)
-		__drm_atomic_helper_crtc_reset(crtc, &vcstate->base);
-	else
-		__drm_atomic_helper_crtc_reset(crtc, NULL);
+	__drm_atomic_helper_crtc_state_init(&vcstate->base, crtc);
+
+	return &vcstate->base;
 }
 
 static const struct drm_crtc_funcs vop2_crtc_funcs = {
 	.set_config = drm_atomic_helper_set_config,
 	.page_flip = drm_atomic_helper_page_flip,
 	.destroy = drm_crtc_cleanup,
-	.reset = vop2_crtc_reset,
+	.atomic_create_state = vop2_crtc_create_state,
 	.atomic_duplicate_state = vop2_crtc_duplicate_state,
 	.atomic_destroy_state = vop2_crtc_destroy_state,
 	.enable_vblank = vop2_crtc_enable_vblank,
