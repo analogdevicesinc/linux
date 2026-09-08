@@ -593,6 +593,11 @@ int amdgpu_sdma_reset_engine(struct amdgpu_device *adev, uint32_t instance_id,
 		goto exit;
 	}
 
+	amdgpu_ring_clear_ring_and_ptrs(gfx_ring);
+
+	if (adev->sdma.has_page_queue)
+		amdgpu_ring_clear_ring_and_ptrs(page_ring);
+
 	if (sdma_instance->funcs->start_kernel_queue) {
 		sdma_instance->funcs->start_kernel_queue(gfx_ring);
 		if (adev->sdma.has_page_queue)
