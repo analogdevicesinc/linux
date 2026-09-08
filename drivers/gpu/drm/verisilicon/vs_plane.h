@@ -79,7 +79,7 @@ int drm_format_to_vs_format(u32 drm_format, struct vs_format *vs_format);
 struct drm_plane_state *vs_plane_duplicate_state(struct drm_plane *plane);
 void vs_plane_destroy_state(struct drm_plane *plane,
 			    struct drm_plane_state *state);
-void vs_plane_reset(struct drm_plane *plane);
+struct drm_plane_state *vs_plane_create_state(struct drm_plane *plane);
 
 struct drm_plane *vs_primary_plane_init(struct drm_device *dev, struct vs_dc *dc);
 struct drm_plane *vs_cursor_plane_init(struct drm_device *dev, struct vs_dc *dc);
