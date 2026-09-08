@@ -2763,6 +2763,8 @@ static int wsa_macro_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	regcache_sort_defaults(reg_defaults, def_count);
+
 	struct regmap_config *reg_config __free(kfree) = kmemdup(&wsa_regmap_config,
 								 sizeof(*reg_config),
 								 GFP_KERNEL);
