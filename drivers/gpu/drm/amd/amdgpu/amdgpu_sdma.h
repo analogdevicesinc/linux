@@ -156,8 +156,7 @@ struct amdgpu_buffer_funcs {
 				 uint32_t byte_count);
 };
 
-int amdgpu_sdma_reset_engine(struct amdgpu_device *adev, uint32_t instance_id,
-			     bool caller_handles_kernel_queues);
+int amdgpu_sdma_reset_engine(struct amdgpu_device *adev, uint32_t instance_id);
 
 int amdgpu_sdma_reset_queue_legacy(struct amdgpu_ring *ring,
 				   unsigned int vmid,
