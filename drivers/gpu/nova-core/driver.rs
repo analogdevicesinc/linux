@@ -37,6 +37,7 @@ pub(crate) struct NovaCoreDriver;
 const BAR0_SIZE: usize = SZ_16M;
 
 pub(crate) type Bar0<'a> = &'a pci::Bar<'a, BAR0_SIZE>;
+pub(crate) type NovaRegisters = kernel::io::Region<BAR0_SIZE>;
 
 kernel::pci_device_table!(
     PCI_TABLE,
@@ -85,6 +86,9 @@ impl pci::Driver for NovaCoreDriver {
                 // (`try_pin_init!()` initializes fields in declaration order), lives at a pinned
                 // stable address, and is dropped after `gpu` (struct field drop order).
                 gpu <- Gpu::new(pdev, unsafe { &*core::ptr::from_ref(bar) }),
+                // Run optional GPU selftests.
+                #[cfg(CONFIG_NOVA_CORE_SELFTESTS)]
+                _: { gpu.run_selftests(pdev) },
                 _reg: auxiliary::Registration::new(
                     pdev.as_ref(),
                     c"nova-drm",
