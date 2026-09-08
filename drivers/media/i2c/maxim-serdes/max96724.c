@@ -9,11 +9,14 @@
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/of_graph.h>
 #include <linux/regmap.h>
 
 #include "max_des.h"
+
+#define MAX96724_XTAL_HZ			25000000
 
 #define MAX96724_REG0				0x0
 
@@ -78,6 +81,31 @@
 #define MAX96724_BACKTOP32_BPP10DBL0_MODE	BIT(5)
 #define MAX96724_BACKTOP32_BPP10DBL1		BIT(6)
 #define MAX96724_BACKTOP32_BPP10DBL1_MODE	BIT(7)
+
+#define MAX96724_FSYNC_0			0x4a0
+#define MAX96724_FSYNC_0_FSYNC_METH		GENMASK(1, 0)
+#define MAX96724_FSYNC_0_FSYNC_METH_MANUAL	0b00
+#define MAX96724_FSYNC_0_FSYNC_MODE		GENMASK(3, 2)
+#define MAX96724_FSYNC_0_FSYNC_MODE_INT		0b00
+#define MAX96724_FSYNC_0_FSYNC_MODE_INT_GPIO	0b01
+#define MAX96724_FSYNC_0_FSYNC_MODE_EXT		0b10
+#define MAX96724_FSYNC_0_FSYNC_MODE_OFF		0b11
+
+#define MAX96724_FSYNC_5			0x4a5
+#define MAX96724_FSYNC_6			0x4a6
+#define MAX96724_FSYNC_7			0x4a7
+#define MAX96724_FSYNC_PERIOD_MAX		GENMASK(23, 0)
+
+#define MAX96724_FSYNC_15			0x4af
+#define MAX96724_FSYNC_15_AUTO_FS_LINKS		BIT(4)
+#define MAX96724_FSYNC_15_FS_USE_XTAL		BIT(6)
+#define MAX96724_FSYNC_15_FS_GPIO_TYPE		BIT(7)
+
+#define MAX96724_FSYNC_17			0x4b1
+#define MAX96724_FSYNC_17_FSYNC_TX_ID		GENMASK(7, 3)
+
+#define MAX96724_FSYNC_22			0x4b6
+#define MAX96724_FSYNC_22_FSYNC_LOCKED		BIT(6)
 
 #define MAX96724_MIPI_PHY0			0x8a0
 #define MAX96724_MIPI_PHY0_PHY_CONFIG		GENMASK(4, 0)
@@ -308,6 +336,22 @@ static unsigned int max96724_phy_id(struct max_des *des, struct max_des_phy *phy
 		return 0;
 
 	return phy->index;
+}
+
+static int max96724_log_status(struct max_des *des)
+{
+	struct max96724_priv *priv = des_to_priv(des);
+	unsigned int val;
+	int ret;
+
+	ret = regmap_read(priv->regmap, MAX96724_FSYNC_22, &val);
+	if (ret)
+		return ret;
+
+	dev_info(priv->dev, "fsync_locked: %u\n",
+		 !!(val & MAX96724_FSYNC_22_FSYNC_LOCKED));
+
+	return 0;
 }
 
 static int max96724_log_pipe_status(struct max_des *des,
@@ -1015,6 +1059,73 @@ static int max96724_set_tpg(struct max_des *des,
 				  MAX96724_MIPI_PHY0_FORCE_CSI_OUT_EN, !!entry);
 }
 
+static int max96724_set_fsync(struct max_des *des, struct max_des_fsync *fsync)
+{
+	struct max96724_priv *priv = des_to_priv(des);
+	unsigned int mode;
+	u64 period;
+	int ret;
+
+	switch (fsync->mode) {
+	case MAX_DES_FSYNC_MODE_DISABLED:
+		mode = MAX96724_FSYNC_0_FSYNC_MODE_OFF;
+		break;
+	case MAX_DES_FSYNC_MODE_MANUAL:
+		mode = MAX96724_FSYNC_0_FSYNC_MODE_INT;
+		break;
+	case MAX_DES_FSYNC_MODE_MANUAL_GPIO_OUT:
+		mode = MAX96724_FSYNC_0_FSYNC_MODE_INT_GPIO;
+		break;
+	case MAX_DES_FSYNC_MODE_EXTERNAL:
+		mode = MAX96724_FSYNC_0_FSYNC_MODE_EXT;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (fsync->mode != MAX_DES_FSYNC_MODE_DISABLED) {
+		period = div_u64(mul_u32_u32(MAX96724_XTAL_HZ,
+					     fsync->interval.numerator),
+				 fsync->interval.denominator);
+		if (!period || period > MAX96724_FSYNC_PERIOD_MAX)
+			return -EINVAL;
+
+		ret = regmap_write(priv->regmap, MAX96724_FSYNC_15,
+				   MAX96724_FSYNC_15_FS_USE_XTAL |
+				   MAX96724_FSYNC_15_FS_GPIO_TYPE |
+				   MAX96724_FSYNC_15_AUTO_FS_LINKS);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(priv->regmap, MAX96724_FSYNC_17,
+				   FIELD_PREP(MAX96724_FSYNC_17_FSYNC_TX_ID,
+					      fsync->tx_id));
+		if (ret)
+			return ret;
+
+		ret = regmap_write(priv->regmap, MAX96724_FSYNC_7,
+				   (period >> 16) & 0xff);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(priv->regmap, MAX96724_FSYNC_6,
+				   (period >> 8) & 0xff);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(priv->regmap, MAX96724_FSYNC_5, period & 0xff);
+		if (ret)
+			return ret;
+	}
+
+	return regmap_update_bits(priv->regmap, MAX96724_FSYNC_0,
+				  MAX96724_FSYNC_0_FSYNC_METH |
+				  MAX96724_FSYNC_0_FSYNC_MODE,
+				  FIELD_PREP(MAX96724_FSYNC_0_FSYNC_METH,
+					     MAX96724_FSYNC_0_FSYNC_METH_MANUAL) |
+				  FIELD_PREP(MAX96724_FSYNC_0_FSYNC_MODE, mode));
+}
+
 static const struct max_serdes_tpg_entry max96724_tpg_entries[] = {
 	MAX_TPG_ENTRY_640X480P60_RGB888,
 	MAX_TPG_ENTRY_1920X1080P30_RGB888,
@@ -1041,6 +1152,7 @@ static const struct max_des_ops max96724_ops = {
 	.reg_read = max96724_reg_read,
 	.reg_write = max96724_reg_write,
 #endif
+	.log_status = max96724_log_status,
 	.log_pipe_status = max96724_log_pipe_status,
 	.log_phy_status = max96724_log_phy_status,
 	.set_enable = max96724_set_enable,
@@ -1055,6 +1167,7 @@ static const struct max_des_ops max96724_ops = {
 	.set_pipe_remaps_enable = max96724_set_pipe_remaps_enable,
 	.set_pipe_mode = max96724_set_pipe_mode,
 	.set_tpg = max96724_set_tpg,
+	.set_fsync = max96724_set_fsync,
 	.select_links = max96724_select_links,
 	.set_link_version = max96724_set_link_version,
 };

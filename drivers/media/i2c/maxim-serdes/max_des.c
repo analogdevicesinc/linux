@@ -28,6 +28,17 @@
 #define MAX_DES_NUM_LINKS			4
 #define MAX_DES_NUM_PIPES			8
 
+#define MAX_DES_CID_FSYNC_MODE			(V4L2_CID_USER_MAXIM_SERDES_BASE + 0)
+
+#define MAX_DES_FSYNC_FPS_DEFAULT		30
+
+static const char * const max_des_fsync_modes[] = {
+	[MAX_DES_FSYNC_MODE_DISABLED] = "Disabled",
+	[MAX_DES_FSYNC_MODE_MANUAL] = "Internal",
+	[MAX_DES_FSYNC_MODE_MANUAL_GPIO_OUT] = "Internal GPIO Output",
+	[MAX_DES_FSYNC_MODE_EXTERNAL] = "External",
+};
+
 struct max_des_priv {
 	struct max_des *des;
 
@@ -1923,6 +1934,14 @@ static int max_des_enum_frame_interval(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int max_des_update_fsync(struct max_des *des)
+{
+	if (des->active)
+		return 0;
+
+	return des->ops->set_fsync(des, &des->fsync);
+}
+
 static int max_des_set_frame_interval(struct v4l2_subdev *sd,
 				      struct v4l2_subdev_state *state,
 				      struct v4l2_subdev_frame_interval *fi)
@@ -1932,6 +1951,25 @@ static int max_des_set_frame_interval(struct v4l2_subdev *sd,
 	const struct max_serdes_tpg_entry *entry;
 	struct v4l2_mbus_framefmt *fmt;
 	struct v4l2_fract *in;
+	unsigned int i;
+
+	if (des->ops->set_fsync && max_des_pad_is_sink(des, fi->pad)) {
+		if (!fi->interval.numerator || !fi->interval.denominator)
+			return -EINVAL;
+
+		for (i = 0; i < des->ops->num_links; i++) {
+			in = v4l2_subdev_state_get_interval(state, i, fi->stream);
+			if (in)
+				*in = fi->interval;
+		}
+
+		if (fi->which != V4L2_SUBDEV_FORMAT_ACTIVE)
+			return 0;
+
+		des->fsync.interval = fi->interval;
+
+		return max_des_update_fsync(des);
+	}
 
 	if (!max_des_pad_is_tpg(des, fi->pad) ||
 	    fi->stream != MAX_SERDES_TPG_STREAM)
@@ -1981,6 +2019,13 @@ static int max_des_log_status(struct v4l2_subdev *sd)
 		} else {
 			v4l2_info(sd, "tpg: disabled\n");
 		}
+	}
+	if (des->ops->set_fsync) {
+		v4l2_info(sd, "fsync: %s@%u/%u, tx id: %u\n",
+			  max_des_fsync_modes[des->fsync.mode],
+			  des->fsync.interval.numerator,
+			  des->fsync.interval.denominator,
+			  des->fsync.tx_id);
 	}
 	if (des->ops->log_status) {
 		ret = des->ops->log_status(des);
@@ -2088,11 +2133,22 @@ static int max_des_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct max_des_priv *priv = ctrl_to_priv(ctrl->handler);
 	struct max_des *des = priv->des;
+	enum max_des_fsync_mode mode;
+	int ret;
 
 	switch (ctrl->id) {
 	case V4L2_CID_TEST_PATTERN:
 		des->tpg_pattern = ctrl->val;
 		return 0;
+	case MAX_DES_CID_FSYNC_MODE:
+		mode = des->fsync.mode;
+		des->fsync.mode = ctrl->val;
+
+		ret = max_des_update_fsync(des);
+		if (ret)
+			des->fsync.mode = mode;
+
+		return ret;
 	}
 
 	return -EINVAL;
@@ -2325,6 +2381,12 @@ static int max_des_update_active(struct max_des_priv *priv, u64 *streams_masks,
 	if (active != expected_active || des->active == active)
 		return 0;
 
+	if (des->ops->set_fsync) {
+		ret = des->ops->set_fsync(des, &des->fsync);
+		if (ret)
+			return ret;
+	}
+
 	if (des->ops->set_enable) {
 		ret = des->ops->set_enable(des, active);
 		if (ret)
@@ -2512,6 +2574,7 @@ static int max_des_init_state(struct v4l2_subdev *sd,
 	struct max_des_phy *phy = NULL;
 	unsigned int stream = 0;
 	unsigned int i;
+	int ret;
 
 	for (i = 0; i < des->ops->num_phys; i++) {
 		if (des->phys[i].enabled) {
@@ -2547,7 +2610,24 @@ static int max_des_init_state(struct v4l2_subdev *sd,
 		break;
 	}
 
-	return __max_des_set_routing(sd, state, &routing);
+	ret = __max_des_set_routing(sd, state, &routing);
+	if (ret)
+		return ret;
+
+	if (des->ops->set_fsync) {
+		struct v4l2_subdev_route *route;
+		struct v4l2_fract *interval;
+
+		for_each_active_route(&routing, route) {
+			interval = v4l2_subdev_state_get_interval(state,
+								  route->sink_pad,
+								  route->sink_stream);
+			if (interval)
+				*interval = des->fsync.interval;
+		}
+	}
+
+	return 0;
 }
 
 #ifdef CONFIG_VIDEO_ADV_DEBUG
@@ -2589,6 +2669,16 @@ static const struct v4l2_subdev_core_ops max_des_core_ops = {
 
 static const struct v4l2_ctrl_ops max_des_ctrl_ops = {
 	.s_ctrl = max_des_s_ctrl,
+};
+
+static const struct v4l2_ctrl_config max_des_fsync_mode_ctrl = {
+	.ops = &max_des_ctrl_ops,
+	.id = MAX_DES_CID_FSYNC_MODE,
+	.name = "Frame Sync Mode",
+	.type = V4L2_CTRL_TYPE_MENU,
+	.max = ARRAY_SIZE(max_des_fsync_modes) - 1,
+	.def = MAX_DES_FSYNC_MODE_DISABLED,
+	.qmenu = max_des_fsync_modes,
 };
 
 static const struct v4l2_subdev_pad_ops max_des_pad_ops = {
@@ -2757,10 +2847,10 @@ static int max_des_v4l2_register(struct max_des_priv *priv)
 
 	v4l2_set_subdevdata(sd, priv);
 
-	if (des->ops->tpg_patterns) {
-		v4l2_ctrl_handler_init(&priv->ctrl_handler, 1);
-		priv->sd.ctrl_handler = &priv->ctrl_handler;
+	v4l2_ctrl_handler_init(&priv->ctrl_handler, 2);
+	priv->sd.ctrl_handler = &priv->ctrl_handler;
 
+	if (des->ops->tpg_patterns)
 		v4l2_ctrl_new_std_menu_items(&priv->ctrl_handler,
 					     &max_des_ctrl_ops,
 					     V4L2_CID_TEST_PATTERN,
@@ -2768,10 +2858,14 @@ static int max_des_v4l2_register(struct max_des_priv *priv)
 					     ~des->ops->tpg_patterns,
 					     __ffs(des->ops->tpg_patterns),
 					     max_serdes_tpg_patterns);
-		if (priv->ctrl_handler.error) {
-			ret = priv->ctrl_handler.error;
-			goto err_free_ctrl;
-		}
+
+	if (des->ops->set_fsync)
+		v4l2_ctrl_new_custom(&priv->ctrl_handler,
+				     &max_des_fsync_mode_ctrl, NULL);
+
+	if (priv->ctrl_handler.error) {
+		ret = priv->ctrl_handler.error;
+		goto err_free_ctrl;
 	}
 
 	ret = media_entity_pads_init(&sd->entity, num_pads, priv->pads);
@@ -3029,6 +3123,14 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 	unsigned int num_enabled_links;
 	unsigned int i;
 	int ret;
+
+	if (des->ops->set_fsync) {
+		des->fsync.interval.numerator = 1;
+		des->fsync.interval.denominator = MAX_DES_FSYNC_FPS_DEFAULT;
+
+		fwnode_property_read_u32(fwnode, "maxim,fsync-tx-id",
+					 &des->fsync.tx_id);
+	}
 
 	for (i = 0; i < des->ops->num_phys; i++) {
 		phy = &des->phys[i];

@@ -64,6 +64,19 @@ struct max_des_phy {
 	bool enabled;
 };
 
+enum max_des_fsync_mode {
+	MAX_DES_FSYNC_MODE_DISABLED = 0,
+	MAX_DES_FSYNC_MODE_MANUAL,
+	MAX_DES_FSYNC_MODE_MANUAL_GPIO_OUT,
+	MAX_DES_FSYNC_MODE_EXTERNAL,
+};
+
+struct max_des_fsync {
+	enum max_des_fsync_mode mode;
+	struct v4l2_fract interval;
+	unsigned int tx_id;
+};
+
 struct max_des;
 
 struct max_des_ops {
@@ -92,6 +105,7 @@ struct max_des_ops {
 	int (*log_phy_status)(struct max_des *des, struct max_des_phy *phy);
 	int (*set_enable)(struct max_des *des, bool enable);
 	int (*set_tpg)(struct max_des *des, const struct max_serdes_tpg_entry *entry);
+	int (*set_fsync)(struct max_des *des, struct max_des_fsync *fsync);
 	int (*init)(struct max_des *des);
 	int (*init_phy)(struct max_des *des, struct max_des_phy *phy);
 	int (*set_phy_mode)(struct max_des *des, struct max_des_phy *phy,
@@ -138,6 +152,7 @@ struct max_des {
 	struct max_des_link *links;
 	const struct max_serdes_tpg_entry *tpg_entry;
 	enum max_serdes_tpg_pattern tpg_pattern;
+	struct max_des_fsync fsync;
 
 	unsigned int phys_config;
 	enum max_serdes_gmsl_mode mode;

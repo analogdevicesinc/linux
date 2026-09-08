@@ -42,6 +42,15 @@ properties:
 
   enable-gpios: true
 
+  maxim,fsync-tx-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    maximum: 31
+    default: 0
+    description:
+      GPIO ID used to forward the generated frame synchronization signal over
+      the GMSL links. Must match the maxim,rx-id of the serializer pin that
+      drives the sensor.
+
   i2c-alias-pool:
     maxItems: 4
 
