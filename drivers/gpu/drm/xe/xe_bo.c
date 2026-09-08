@@ -104,13 +104,16 @@ static bool resource_is_vram(struct ttm_resource *res)
 
 bool xe_bo_is_vram(struct xe_bo *bo)
 {
-	return resource_is_vram(bo->ttm.resource) ||
-		resource_is_stolen_vram(xe_bo_device(bo), bo->ttm.resource);
+	struct ttm_resource *res = bo->ttm.resource;
+
+	return  res && (resource_is_vram(res) || resource_is_stolen_vram(xe_bo_device(bo), res));
 }
 
 bool xe_bo_is_stolen(struct xe_bo *bo)
 {
-	return bo->ttm.resource->mem_type == XE_PL_STOLEN;
+	struct ttm_resource *res = bo->ttm.resource;
+
+	return res && res->mem_type == XE_PL_STOLEN;
 }
 
 /**
@@ -158,7 +161,13 @@ bool xe_bo_is_vm_bound(struct xe_bo *bo)
 	return !list_empty(&bo->ttm.base.gpuva.list);
 }
 
-static bool xe_bo_is_user(struct xe_bo *bo)
+/**
+ * xe_bo_is_user - Check if BO is user-created
+ * @bo: The BO
+ *
+ * Returns: true if @bo was created by userspace
+ */
+bool xe_bo_is_user(struct xe_bo *bo)
 {
 	return bo->flags & XE_BO_FLAG_USER;
 }
@@ -921,16 +930,13 @@ void xe_bo_set_purgeable_state(struct xe_bo *bo,
  *
  * Return: 0 on success, negative error code on failure
  */
-static int xe_ttm_bo_purge(struct ttm_buffer_object *ttm_bo, struct ttm_operation_ctx *ctx)
+int xe_ttm_bo_purge(struct ttm_buffer_object *ttm_bo, struct ttm_operation_ctx *ctx)
 {
 	struct xe_bo *bo = ttm_to_xe_bo(ttm_bo);
 	struct ttm_placement place = {};
 	int ret;
 
 	xe_bo_assert_held(bo);
-
-	if (!ttm_bo->ttm)
-		return 0;
 
 	if (!xe_bo_madv_is_dontneed(bo))
 		return 0;
@@ -3260,6 +3266,9 @@ void xe_bo_unpin(struct xe_bo *bo)
 {
 	struct ttm_place *place = &bo->placements[0];
 	struct xe_device *xe = xe_bo_device(bo);
+
+	if (xe_bo_is_purged(bo))
+		return;
 
 	xe_assert(xe, !bo->ttm.base.import_attach);
 	xe_assert(xe, xe_bo_is_pinned(bo));
