@@ -3882,6 +3882,79 @@ bool xe_guc_has_registered_mlrc_queues(struct xe_guc *guc)
 }
 
 /**
+ * xe_guc_submit_active_multi_queue_lrca() - Resolve the LRCA of the active
+ * queue in the multi-queue group currently running on an engine.
+ * @guc: the &xe_guc managing the exec queues
+ * @hwe: the &xe_hw_engine whose active queue is being resolved
+ * @cur_lrca: value read from RING_CURRENT_LRCA, identifies the running group
+ * @active_id: current Active Queue ID read from CSMQDEBUG (position in group)
+ *
+ * The running group is identified by matching @cur_lrca against the group's
+ * primary LRCA; @active_id then selects the active queue within that group.
+ *
+ * Return: the LRCA of the active queue, or 0 if no matching queue is found.
+ */
+u32 xe_guc_submit_active_multi_queue_lrca(struct xe_guc *guc,
+					  struct xe_hw_engine *hwe,
+					  u32 cur_lrca, u32 active_id)
+{
+	struct xe_exec_queue *q;
+	unsigned long index;
+	u32 lrca = 0;
+
+	/*
+	 * submission_state.lock also protects exec_queue teardown: an exec
+	 * queue is removed from exec_queue_lookup before its group/primary
+	 * are freed, so any q found in the xarray below has a live group
+	 * and primary for as long as we hold the lock.
+	 */
+	guard(mutex)(&guc->submission_state.lock);
+
+	xa_for_each(&guc->submission_state.exec_queue_lookup, index, q) {
+		struct xe_exec_queue_group *group = q->multi_queue.group;
+		struct xe_lrc *active_lrc;
+		struct xe_lrc *primary_lrc;
+
+		if (!q->multi_queue.valid || !group || !group->primary)
+			continue;
+		/*
+		 * Multi-queue exec queues are bound to a hw engine class;
+		 * GuC dynamically schedules them onto one of the class's
+		 * physical instances, so there is no fixed queue-to-instance
+		 * mapping to filter on here.
+		 */
+		if (q->class != hwe->class)
+			continue;
+		if (q->multi_queue.pos != active_id)
+			continue;
+		/*
+		 * LRCAs are page-aligned (4K) addresses in GGTT; the low
+		 * bits reported by RING_CURRENT_LRCA are not meaningful, so
+		 * only compare bits [31:12].
+		 */
+		primary_lrc = xe_exec_queue_get_lrc(group->primary, 0);
+		if (!primary_lrc)
+			continue;
+
+		if ((xe_lrc_ggtt_addr(primary_lrc) ^ cur_lrca) & GENMASK(31, 12)) {
+			xe_lrc_put(primary_lrc);
+			continue;
+		}
+
+		active_lrc = xe_exec_queue_get_lrc(q, 0);
+		xe_lrc_put(primary_lrc);
+		if (!active_lrc)
+			continue;
+
+		lrca = xe_lrc_ggtt_addr(active_lrc);
+		xe_lrc_put(active_lrc);
+		break;
+	}
+
+	return lrca;
+}
+
+/**
  * xe_guc_contexts_hwsp_rebase - Re-compute GGTT references within all
  * exec queues registered to given GuC.
  * @guc: the &xe_guc struct instance

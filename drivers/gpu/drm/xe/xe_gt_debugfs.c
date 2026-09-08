@@ -13,6 +13,7 @@
 #include <drm/drm_managed.h>
 #include <linux/math.h>
 
+#include "regs/xe_engine_regs.h"
 #include "regs/xe_gt_regs.h"
 #include "xe_device.h"
 #include "xe_force_wake.h"
@@ -25,6 +26,7 @@
 #include "xe_gt_stats.h"
 #include "xe_gt_topology.h"
 #include "xe_guc_hwconfig.h"
+#include "xe_guc_submit.h"
 #include "xe_hw_engine.h"
 #include "xe_lrc.h"
 #include "xe_mmio.h"
@@ -126,6 +128,48 @@ static int hw_engines(struct xe_gt *gt, struct drm_printer *p)
 
 	for_each_hw_engine(hwe, gt, id)
 		xe_hw_engine_print(hwe, p);
+
+	return 0;
+}
+
+static int multi_queue_active_lrca(struct xe_gt *gt, struct drm_printer *p)
+{
+	struct xe_guc *guc = &gt->uc.guc;
+	struct xe_hw_engine *hwe;
+	enum xe_hw_engine_id id;
+
+	for_each_hw_engine(hwe, gt, id) {
+		u32 cur_lrca, active_id, lrca;
+		unsigned int fw_ref;
+
+		if (!xe_gt_supports_multi_queue(gt, hwe->class))
+			continue;
+
+		/*
+		 * Forcewake is dropped before xe_guc_submit_active_multi_queue_lrca()
+		 * below, which takes guc->submission_state.lock, to avoid holding a
+		 * GT forcewake ref across a mutex acquired elsewhere in the opposite
+		 * order.
+		 */
+		fw_ref = xe_force_wake_get(gt_to_fw(gt), XE_FORCEWAKE_ALL);
+		if (!xe_force_wake_ref_has_domain(fw_ref, XE_FORCEWAKE_ALL)) {
+			drm_printf(p, "%s\tforcewake failed, skipping\n", hwe->name);
+			xe_force_wake_put(gt_to_fw(gt), fw_ref);
+			continue;
+		}
+
+		cur_lrca = xe_mmio_read32(&gt->mmio,
+					  RING_CURRENT_LRCA(hwe->mmio_base));
+		active_id = xe_lrc_get_multi_queue_active_queue_id(hwe);
+
+		xe_force_wake_put(gt_to_fw(gt), fw_ref);
+
+		lrca = xe_guc_submit_active_multi_queue_lrca(guc, hwe, cur_lrca,
+							     active_id);
+
+		drm_printf(p, "%s\tactive_queue_id %u\tcurrent_lrca 0x%08x\tactive_lrca 0x%08x\n",
+			   hwe->name, active_id, cur_lrca, lrca);
+	}
 
 	return 0;
 }
@@ -252,6 +296,11 @@ static const struct drm_info_list pf_only_debugfs_list[] = {
 	{ "pat", .show = xe_gt_debugfs_show_with_rpm, .data = xe_pat_dump },
 	{ "powergate_info", .show = xe_gt_debugfs_show_with_rpm, .data = xe_gt_idle_pg_print },
 	{ "steering", .show = xe_gt_debugfs_show_with_rpm, .data = steering },
+};
+
+static const struct drm_info_list multi_queue_debugfs_list[] = {
+	{ "multi_queue_active_lrca",
+		.show = xe_gt_debugfs_show_with_rpm, .data = multi_queue_active_lrca },
 };
 
 static ssize_t write_to_gt_call(const char __user *userbuf, size_t count, loff_t *ppos,
@@ -519,6 +568,11 @@ void xe_gt_debugfs_register(struct xe_gt *gt)
 	if (!IS_SRIOV_VF(xe))
 		drm_debugfs_create_files(pf_only_debugfs_list,
 					 ARRAY_SIZE(pf_only_debugfs_list),
+					 root, minor);
+
+	if (!IS_SRIOV_VF(xe) && xe_gt_has_multi_queue(gt))
+		drm_debugfs_create_files(multi_queue_debugfs_list,
+					 ARRAY_SIZE(multi_queue_debugfs_list),
 					 root, minor);
 
 	if (xe_gt_is_main_type(gt) && !IS_DGFX(xe) && !IS_SRIOV_VF(xe))
