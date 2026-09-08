@@ -36,11 +36,11 @@
 
 #define TEST_ITERATIONS 100
 #define PAGEMAP "/proc/self/pagemap"
-int pagemap_fd;
-int uffd;
-size_t page_size;
-size_t hpage_size;
-const char *progname;
+static int pagemap_fd;
+static int uffd;
+static size_t page_size;
+static size_t hpage_size;
+static const char *progname;
 
 #define LEN(region)	((region.end - region.start)/page_size)
 
@@ -92,8 +92,7 @@ static long pagemap_ioc(void *start, size_t len, void *vec, size_t vec_len, int 
 	return ret;
 }
 
-
-int init_uffd(void)
+static int init_uffd(void)
 {
 	struct uffdio_api uffdio_api;
 
@@ -116,7 +115,7 @@ int init_uffd(void)
 	return 0;
 }
 
-int wp_init(void *addr, size_t size)
+static int wp_init(void *addr, size_t size)
 {
 	struct uffdio_register uffdio_register;
 	struct uffdio_writeprotect wp;
@@ -140,7 +139,7 @@ int wp_init(void *addr, size_t size)
 	return 0;
 }
 
-int wp_free(void *addr, size_t size)
+static int wp_free(void *addr, size_t size)
 {
 	struct uffdio_register uffdio_register;
 
@@ -152,7 +151,7 @@ int wp_free(void *addr, size_t size)
 	return 0;
 }
 
-int wp_addr_range(void *addr, size_t size)
+static int wp_addr_range(void *addr, size_t size)
 {
 	if (pagemap_ioctl(addr, size, NULL, 0,
 			  PM_SCAN_WP_MATCHING | PM_SCAN_CHECK_WPASYNC,
@@ -162,7 +161,7 @@ int wp_addr_range(void *addr, size_t size)
 	return 0;
 }
 
-void *gethugetlb_mem(size_t size, int *shmid)
+static void *gethugetlb_mem(size_t size, int *shmid)
 {
 	char *mem;
 
@@ -186,7 +185,7 @@ void *gethugetlb_mem(size_t size, int *shmid)
 	return mem;
 }
 
-int userfaultfd_tests(void)
+static int userfaultfd_tests(void)
 {
 	size_t mem_size, vec_size, num_pages = 16;
 	long written;
@@ -230,7 +229,7 @@ int userfaultfd_tests(void)
 	return 0;
 }
 
-int get_reads(struct page_region *vec, size_t vec_size)
+static int get_reads(struct page_region *vec, size_t vec_size)
 {
 	size_t i;
 	int sum = 0;
@@ -241,7 +240,7 @@ int get_reads(struct page_region *vec, size_t vec_size)
 	return sum;
 }
 
-int sanity_tests_sd(void)
+static int sanity_tests_sd(void)
 {
 	size_t mem_size, vec_size, i, total_pages = 0;
 	long ret, ret2, ret3;
@@ -684,7 +683,7 @@ int sanity_tests_sd(void)
 	return 0;
 }
 
-int base_tests(char *prefix, char *mem, size_t mem_size, int skip)
+static int base_tests(char *prefix, char *mem, size_t mem_size, int skip)
 {
 	size_t vec_size;
 	int written;
@@ -789,7 +788,7 @@ int base_tests(char *prefix, char *mem, size_t mem_size, int skip)
 	return 0;
 }
 
-void *gethugepage(size_t map_size)
+static void *gethugepage(size_t map_size)
 {
 	int ret;
 	char *map;
@@ -807,7 +806,7 @@ void *gethugepage(size_t map_size)
 	return map;
 }
 
-int hpage_unit_tests(void)
+static int hpage_unit_tests(void)
 {
 	char *map;
 	int ret, ret2;
@@ -1001,7 +1000,7 @@ int hpage_unit_tests(void)
 	return 0;
 }
 
-int unmapped_region_tests(void)
+static int unmapped_region_tests(void)
 {
 	void *start = (void *)0x10000000;
 	int written;
@@ -1158,7 +1157,7 @@ static void unpopulated_thp_scan_test(void)
 	munmap(area, 2 * hpage_size);
 }
 
-int sanity_tests(void)
+static int sanity_tests(void)
 {
 	size_t mem_size, vec_size, i, buf_size;
 	long ret, fd, nr_pages;
@@ -1330,7 +1329,7 @@ int sanity_tests(void)
 	return 0;
 }
 
-int mprotect_tests(void)
+static int mprotect_tests(void)
 {
 	int ret;
 	char *mem, *mem2;
@@ -1450,7 +1449,7 @@ static ssize_t get_dirty_pages_reset(char *mem, unsigned int count,
 	return cnt;
 }
 
-void *thread_proc(void *mem)
+static void *thread_proc(void *mem)
 {
 	int *m = mem;
 	long curr_faults, faults;
@@ -1583,7 +1582,7 @@ static void transact_test(int page_size)
 			      extra_thread_faults);
 }
 
-void zeropfn_tests(void)
+static void zeropfn_tests(void)
 {
 	size_t mem_size, i;
 	struct page_region vec;
