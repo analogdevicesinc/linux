@@ -1485,7 +1485,7 @@ static int qcom_spi_io_op(struct qcom_nand_controller *snandc, const struct spi_
 
 	if (copy_ftr) {
 		qcom_nandc_dev_to_mem(snandc, true);
-		val = le32_to_cpu(*(__le32 *)snandc->reg_read_buf);
+		val = le32_to_cpu(*snandc->reg_read_buf);
 		val >>= 8;
 		memcpy(op->data.buf.in, &val, snandc->buf_count);
 
