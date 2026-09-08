@@ -322,6 +322,31 @@ bool bdev_zone_is_seq(struct block_device *bdev, sector_t sector)
 }
 EXPORT_SYMBOL_GPL(bdev_zone_is_seq);
 
+/**
+ * bdev_zone_mgmt_allowed - check if management operations are allowed on a zone
+ * @bdev:       block device to check
+ * @sector:     sector number
+ *
+ * Check if the zone containing @sector on @bdev can be a target for a zone
+ * management operation, that is, if the zone is a sequential write required
+ * zone that is not offline nor read-only.
+ */
+bool bdev_zone_mgmt_allowed(struct block_device *bdev, sector_t sector)
+{
+	enum blk_zone_cond cond;
+	u8 zs;
+
+	if (!bdev_is_zoned(bdev))
+		return false;
+
+	zs = disk_zone_get_state(bdev->bd_disk, sector);
+	if (blk_zstate_is_conv(zs))
+		return false;
+
+	cond = blk_zstate_to_zone_cond(zs);
+	return !disk_zone_cond_is_offline_or_readonly(cond);
+}
+
 /*
  * Zone report arguments for block device drivers report_zones operation.
  * @cb: report_zones_cb callback for each reported zone.
