@@ -2382,6 +2382,76 @@ static __cold void io_ring_ctx_cancel(struct io_ring_ctx *ctx)
 	io_req_caches_free(ctx);
 }
 
+/* Number of requests that should be waited for */
+static __cold unsigned int io_ring_ctx_inflight(struct io_ring_ctx *ctx)
+{
+	guard(mutex)(&ctx->uring_lock);
+	__io_req_caches_free(ctx);
+	return ctx->nr_req_allocated - ctx->nr_notifs;
+}
+
+/*
+ * Run task_work completions for current. Only do so if the io_uring callback
+ * itself can get pruned first, otherwise we risk recursing.
+ */
+static __cold bool io_ring_run_own_completions(struct io_uring_task *tctx)
+{
+	unsigned int count = 0;
+
+	if (!tctx || mpscq_empty(&tctx->task_list))
+		return true;
+	if (!task_work_cancel(current, &tctx->task_work))
+		return false;
+	tctx_task_work_run(tctx, UINT_MAX, &count);
+	return true;
+}
+
+/*
+ * Requests may remain after cancelations have been run, as not all requests
+ * are cancelable. Storage I/O is an example. Wait for those so that once
+ * close(2) returns, files pinned by these requests have been released.
+ */
+static __cold void io_ring_ctx_wait_inflight(struct io_ring_ctx *ctx)
+{
+	struct io_uring_task *tctx = current->io_uring;
+	bool ran_own = true;
+
+	if (current->flags & (PF_KTHREAD | PF_EXITING))
+		return;
+	if (tctx && atomic_read(&tctx->in_cancel))
+		return;
+
+	while (io_ring_ctx_inflight(ctx) && !fatal_signal_pending(current)) {
+		unsigned int state;
+
+		if (test_thread_flag(TIF_NOTIFY_SIGNAL)) {
+			clear_notify_signal();
+			if (task_work_pending(current))
+				set_notify_resume(current);
+		}
+		state = TASK_INTERRUPTIBLE;
+		if (signal_pending(current))
+			state = TASK_KILLABLE;
+		set_current_state(state | TASK_FREEZABLE);
+		/* don't sleep on work that's already there and that we can run */
+		if (ran_own && ((tctx && !mpscq_empty(&tctx->task_list)) ||
+		    io_local_work_pending(ctx)))
+			__set_current_state(TASK_RUNNING);
+		else
+			schedule_timeout(1);
+
+		/* completions may be queued behind us */
+		if (!io_ring_run_own_completions(tctx)) {
+			if (!ran_own)
+				break;
+			ran_own = false;
+		} else {
+			ran_own = true;
+		}
+		io_ring_ctx_cancel(ctx);
+	}
+}
+
 static __cold void io_ring_exit_work(struct work_struct *work)
 {
 	struct io_ring_ctx *ctx = container_of(work, struct io_ring_ctx, exit_work);
@@ -2472,8 +2542,10 @@ static __cold void io_ring_ctx_wait_and_kill(struct io_ring_ctx *ctx)
 	 * out, and for requests owned by the task closing the ring, this
 	 * ensures any held files are put before close(2) returns.
 	 */
-	if (!(current->flags & PF_IO_WORKER))
+	if (!(current->flags & PF_IO_WORKER)) {
 		io_ring_ctx_cancel(ctx);
+		io_ring_ctx_wait_inflight(ctx);
+	}
 
 	INIT_WORK(&ctx->exit_work, io_ring_exit_work);
 	/*
