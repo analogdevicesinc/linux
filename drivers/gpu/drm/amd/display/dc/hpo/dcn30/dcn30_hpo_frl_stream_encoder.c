@@ -1040,4 +1040,6 @@ void dcn30_hpo_frl_stream_encoder_construct(
 	enc3->hpo_se_shift = hpo_se_shift;
 	enc3->hpo_se_mask = hpo_se_mask;
 	enc3->base.stream_enc_inst = vpg->inst;
+	enc3->base.inst = enc3->base.stream_enc_inst;
+
 }
