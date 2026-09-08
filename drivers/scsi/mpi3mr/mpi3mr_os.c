@@ -3304,8 +3304,7 @@ static void mpi3mr_setup_eedp(struct mpi3mr_ioc *mrioc,
  * @desc: Sense type
  * @buf: Sense buffer to populate
  * @key: Sense key
- * @asc: Additional sense code
- * @ascq: Additional sense code qualifier
+ * @code: Additional sense code and its qualifier
  *
  * Maps the given sense information into either descriptor or
  * fixed format sense data.
@@ -3313,20 +3312,20 @@ static void mpi3mr_setup_eedp(struct mpi3mr_ioc *mrioc,
  * Return: Nothing
  */
 static inline void mpi3mr_build_sense_buffer(int desc, u8 *buf, u8 key,
-	u8 asc, u8 ascq)
+					     u16 code)
 {
 	if (desc) {
 		buf[0] = 0x72;	/* descriptor, current */
 		buf[1] = key;
-		buf[2] = asc;
-		buf[3] = ascq;
+		buf[2] = scsi_sense_code_asc(code);
+		buf[3] = scsi_sense_code_ascq(code);
 		buf[7] = 0;
 	} else {
 		buf[0] = 0x70;	/* fixed, current */
 		buf[2] = key;
 		buf[7] = 0xa;
-		buf[12] = asc;
-		buf[13] = ascq;
+		buf[12] = scsi_sense_code_asc(code);
+		buf[13] = scsi_sense_code_ascq(code);
 	}
 }
 
@@ -3343,25 +3342,25 @@ static inline void mpi3mr_build_sense_buffer(int desc, u8 *buf, u8 key,
 static void mpi3mr_map_eedp_error(struct scsi_cmnd *scmd,
 	u16 ioc_status)
 {
-	u8 ascq = 0;
+	u16 sense_code;
 
 	switch (ioc_status) {
 	case MPI3_IOCSTATUS_EEDP_GUARD_ERROR:
-		ascq = 0x01;
+		sense_code = LOGICAL_BLOCK_GUARD_CHECK_FAILED;
 		break;
 	case MPI3_IOCSTATUS_EEDP_APP_TAG_ERROR:
-		ascq = 0x02;
+		sense_code = LOGICAL_BLOCK_APPLICATION_TAG_CHECK_FAILED;
 		break;
 	case MPI3_IOCSTATUS_EEDP_REF_TAG_ERROR:
-		ascq = 0x03;
+		sense_code = LOGICAL_BLOCK_REFERENCE_TAG_CHECK_FAILED;
 		break;
 	default:
-		ascq = 0x00;
+		sense_code = ID_CRC_OR_ECC_ERROR;
 		break;
 	}
 
 	mpi3mr_build_sense_buffer(0, scmd->sense_buffer, ILLEGAL_REQUEST,
-	    0x10, ascq);
+				  sense_code);
 	scmd->result = (DID_ABORT << 16) | SAM_STAT_CHECK_CONDITION;
 }
 
@@ -3446,7 +3445,8 @@ void mpi3mr_process_op_reply_desc(struct mpi3mr_ioc *mrioc,
 		if (sense_buf) {
 			scsi_normalize_sense(sense_buf, sense_count, &sshdr);
 			mpi3mr_scsisense_trigger(mrioc, sshdr.sense_key,
-			    sshdr.asc, sshdr.ascq);
+						 scsi_sense_asc(&sshdr),
+						 scsi_sense_ascq(&sshdr));
 		}
 		mpi3mr_reply_trigger(mrioc, ioc_status, ioc_loginfo);
 		break;
@@ -3633,7 +3633,8 @@ void mpi3mr_process_op_reply_desc(struct mpi3mr_ioc *mrioc,
 			ioc_info(mrioc,
 			    "%s :sense_count 0x%x, sense_key 0x%x ASC 0x%x, ASCQ 0x%x\n",
 			    __func__, sense_count, sshdr.sense_key,
-			    sshdr.asc, sshdr.ascq);
+			    scsi_sense_asc(&sshdr),
+			    scsi_sense_ascq(&sshdr));
 		}
 	}
 out_success:
@@ -5040,8 +5041,8 @@ static bool mpi3mr_check_return_unmap(struct mpi3mr_ioc *mrioc,
 		    __func__, param_len);
 		scsi_print_command(scmd);
 		scmd->result = SAM_STAT_CHECK_CONDITION;
-		scsi_build_sense_buffer(0, scmd->sense_buffer, ILLEGAL_REQUEST,
-		    0x1A, 0);
+		scsi_set_sense_buffer(0, scmd->sense_buffer, ILLEGAL_REQUEST,
+				      PARAMETER_LIST_LENGTH_ERROR);
 		scsi_done(scmd);
 		return true;
 	}
@@ -5051,8 +5052,8 @@ static bool mpi3mr_check_return_unmap(struct mpi3mr_ioc *mrioc,
 		    __func__, param_len, scsi_bufflen(scmd));
 		scsi_print_command(scmd);
 		scmd->result = SAM_STAT_CHECK_CONDITION;
-		scsi_build_sense_buffer(0, scmd->sense_buffer, ILLEGAL_REQUEST,
-		    0x1A, 0);
+		scsi_set_sense_buffer(0, scmd->sense_buffer, ILLEGAL_REQUEST,
+				      PARAMETER_LIST_LENGTH_ERROR);
 		scsi_done(scmd);
 		return true;
 	}
@@ -5060,8 +5061,8 @@ static bool mpi3mr_check_return_unmap(struct mpi3mr_ioc *mrioc,
 	if (!buf) {
 		scsi_print_command(scmd);
 		scmd->result = SAM_STAT_CHECK_CONDITION;
-		scsi_build_sense_buffer(0, scmd->sense_buffer, ILLEGAL_REQUEST,
-		    0x55, 0x03);
+		scsi_set_sense_buffer(0, scmd->sense_buffer, ILLEGAL_REQUEST,
+				      INSUFFICIENT_RESOURCES);
 		scsi_done(scmd);
 		return true;
 	}
@@ -5074,8 +5075,8 @@ static bool mpi3mr_check_return_unmap(struct mpi3mr_ioc *mrioc,
 		    __func__, desc_len);
 		scsi_print_command(scmd);
 		scmd->result = SAM_STAT_CHECK_CONDITION;
-		scsi_build_sense_buffer(0, scmd->sense_buffer, ILLEGAL_REQUEST,
-		    0x26, 0);
+		scsi_set_sense_buffer(0, scmd->sense_buffer, ILLEGAL_REQUEST,
+				      INVALID_FIELD_IN_PARAMETER_LIST);
 		scsi_done(scmd);
 		kfree(buf);
 		return true;
@@ -5175,7 +5176,8 @@ static enum scsi_qc_status mpi3mr_qcmd(struct Scsi_Host *shost,
 	if (scsi_get_host_state(scmd->device->host) == SHOST_RECOVERY &&
 		scmd->cmnd[0] == TEST_UNIT_READY &&
 		(stgt_priv_data->dev_removed || (dev_handle == MPI3MR_INVALID_DEV_HANDLE))) {
-		scsi_build_sense(scmd, 0, UNIT_ATTENTION, 0x29, 0x07);
+		scsi_set_sense(scmd, 0, UNIT_ATTENTION,
+			       I_T_NEXUS_LOSS_OCCURRED);
 		scsi_done(scmd);
 		goto out;
 	}

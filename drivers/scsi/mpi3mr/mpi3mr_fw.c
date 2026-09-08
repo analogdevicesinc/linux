@@ -404,7 +404,8 @@ static void mpi3mr_process_admin_reply_desc(struct mpi3mr_ioc *mrioc,
 				scsi_normalize_sense(sense_buf, sense_count,
 				    &sshdr);
 				mpi3mr_scsisense_trigger(mrioc, sshdr.sense_key,
-				    sshdr.asc, sshdr.ascq);
+						scsi_sense_asc(&sshdr),
+						scsi_sense_ascq(&sshdr));
 			}
 		}
 		mpi3mr_reply_trigger(mrioc, masked_ioc_status, ioc_loginfo);
