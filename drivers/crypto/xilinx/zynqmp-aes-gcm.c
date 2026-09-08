@@ -230,10 +230,8 @@ static int zynqmp_aes_aead_cipher(struct aead_request *req)
 	}
 
 freemem:
-	memzero_explicit(kbuf, dma_size);
-	kfree(kbuf);
-	memzero_explicit(dmabuf, sizeof(struct zynqmp_aead_hw_req) + GCM_AES_IV_SIZE);
-	kfree(dmabuf);
+	kfree_sensitive(kbuf);
+	kfree_sensitive(dmabuf);
 
 	return ret;
 }
@@ -364,11 +362,9 @@ unmap:
 	if (unlikely(dma_addr_hw_req))
 		dma_unmap_single(dev, dma_addr_hw_req, dmabuf_size, DMA_BIDIRECTIONAL);
 buf2_free:
-	memzero_explicit(dmabuf, dmabuf_size);
-	kfree(dmabuf);
+	kfree_sensitive(dmabuf);
 buf1_free:
-	memzero_explicit(kbuf, kbuf_size);
-	kfree(kbuf);
+	kfree_sensitive(kbuf);
 err:
 	return ret;
 }
