@@ -2175,7 +2175,11 @@ static int disk_revalidate_zone_resources(struct gendisk *disk,
 	if (args->capacity != capacity) {
 		pr_warn("%s: Capacity has changed (%llu -> %llu)\n",
 			disk->disk_name, args->capacity, capacity);
-		ret = -ENODEV;
+		/* Force a retry if we have a valid (non-zero) capacity. */
+		if (capacity)
+			ret = -EAGAIN;
+		else
+			ret = -ENODEV;
 		goto unfreeze;
 	}
 
@@ -2491,6 +2495,7 @@ int blk_revalidate_disk_zones(struct gendisk *disk)
 		.data = &args,
 	};
 	unsigned int noio_flag;
+	int retries = 2;
 	int ret;
 
 	if (WARN_ON_ONCE(!blk_queue_is_zoned(disk->queue)))
@@ -2502,6 +2507,7 @@ int blk_revalidate_disk_zones(struct gendisk *disk)
 	 */
 	mutex_lock(&disk->zone_revalidate_mutex);
 
+again:
 	ret = disk_revalidate_capacity(disk, &args);
 	if (ret)
 		goto unlock;
@@ -2546,10 +2552,18 @@ int blk_revalidate_disk_zones(struct gendisk *disk)
 	return 0;
 
 free_args:
-	pr_warn("%s: failed to revalidate zones\n", disk->disk_name);
-
 	kfree(args.zones_state);
 
+	if (ret == -EAGAIN) {
+		if (retries) {
+			memset(&args, 0, sizeof(args));
+			retries--;
+			goto again;
+		}
+		ret = -ENODEV;
+	}
+
+	pr_warn("%s: failed to revalidate zones\n", disk->disk_name);
 unlock:
 	mutex_unlock(&disk->zone_revalidate_mutex);
 
