@@ -1167,26 +1167,20 @@ static void txx9dmac_chan_remove(struct platform_device *pdev)
 static int __init txx9dmac_probe(struct platform_device *pdev)
 {
 	struct txx9dmac_platform_data *pdata = dev_get_platdata(&pdev->dev);
-	struct resource *io;
 	struct txx9dmac_dev *ddev;
+	void __iomem *regs;
 	u32 mcr;
 	int err;
 
-	io = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!io)
-		return -EINVAL;
+	regs = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(regs))
+		return PTR_ERR(regs);
 
 	ddev = devm_kzalloc(&pdev->dev, sizeof(*ddev), GFP_KERNEL);
 	if (!ddev)
 		return -ENOMEM;
 
-	if (!devm_request_mem_region(&pdev->dev, io->start, resource_size(io),
-				     dev_name(&pdev->dev)))
-		return -EBUSY;
-
-	ddev->regs = devm_ioremap(&pdev->dev, io->start, resource_size(io));
-	if (!ddev->regs)
-		return -ENOMEM;
+	ddev->regs = regs;
 	ddev->have_64bit_regs = pdata->have_64bit_regs;
 	if (__is_dmac64(ddev))
 		ddev->descsize = sizeof(struct txx9dmac_hwdesc);
