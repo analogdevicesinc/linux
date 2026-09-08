@@ -3088,17 +3088,7 @@ static struct platform_driver gcc_eliza_driver = {
 	},
 };
 
-static int __init gcc_eliza_init(void)
-{
-	return platform_driver_register(&gcc_eliza_driver);
-}
-subsys_initcall(gcc_eliza_init);
-
-static void __exit gcc_eliza_exit(void)
-{
-	platform_driver_unregister(&gcc_eliza_driver);
-}
-module_exit(gcc_eliza_exit);
+subsys_platform_driver(gcc_eliza_driver);
 
 MODULE_DESCRIPTION("QTI GCC Eliza Driver");
 MODULE_LICENSE("GPL");

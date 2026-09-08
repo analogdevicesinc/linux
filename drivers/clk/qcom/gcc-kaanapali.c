@@ -3522,17 +3522,7 @@ static struct platform_driver gcc_kaanapali_driver = {
 	},
 };
 
-static int __init gcc_kaanapali_init(void)
-{
-	return platform_driver_register(&gcc_kaanapali_driver);
-}
-subsys_initcall(gcc_kaanapali_init);
-
-static void __exit gcc_kaanapali_exit(void)
-{
-	platform_driver_unregister(&gcc_kaanapali_driver);
-}
-module_exit(gcc_kaanapali_exit);
+subsys_platform_driver(gcc_kaanapali_driver);
 
 MODULE_DESCRIPTION("QTI GCC Kaanapali Driver");
 MODULE_LICENSE("GPL");
