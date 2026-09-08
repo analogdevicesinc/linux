@@ -160,10 +160,12 @@ void hazptr_detach(struct hazptr_ctx *ctx)
 	struct hazptr_slot *slot;
 
 	guard(preempt)();
+	slot = ctx->slot;
+	if (!slot->addr)
+		return;
 #ifdef CONFIG_HAZPTR_DEBUG
 	ctx->detach_task = ctx->detach_cpu = true;
 #endif
-	slot = ctx->slot;
 	if (unlikely(hazptr_slot_is_backup(ctx, slot)))
 		return;
 	hazptr_promote_to_backup_slot(ctx, slot);
