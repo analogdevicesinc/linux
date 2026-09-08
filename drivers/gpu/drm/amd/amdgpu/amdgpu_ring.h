@@ -488,6 +488,25 @@ static inline void amdgpu_ring_clear_ring(struct amdgpu_ring *ring)
 	memset32(ring->ring, ring->funcs->nop, ring->buf_mask + 1);
 }
 
+static inline void amdgpu_ring_clear_ring_and_ptrs(struct amdgpu_ring *ring)
+{
+	/* Clear the contents of the ring. */
+	amdgpu_ring_clear_ring(ring);
+
+	/* Clear the ring pointers on the CPU. */
+	ring->wptr = 0;
+
+	/*
+	 * Clear the ring pointers allocated in writeback.
+	 *
+	 * Note: we always allocate 64 bits for these pointers,
+	 * but older HW generations only use the lower 32 bits.
+	 * Use 64-bit atomics for simplicity.
+	 */
+	atomic64_set((atomic64_t *)ring->wptr_cpu_addr, 0);
+	atomic64_set((atomic64_t *)ring->rptr_cpu_addr, 0);
+}
+
 static inline void amdgpu_ring_write(struct amdgpu_ring *ring, uint32_t v)
 {
 	ring->ring[ring->wptr++ & ring->buf_mask] = v;
