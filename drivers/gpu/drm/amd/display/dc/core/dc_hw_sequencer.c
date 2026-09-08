@@ -754,6 +754,61 @@ static bool get_update_dchubp_dpp_flags_status(struct pipe_ctx *pipe)
 	return false;
 }
 
+static void calc_vline_position(
+		struct dc *dc,
+		struct pipe_ctx *pipe_ctx,
+		uint32_t *start_line,
+		uint32_t *end_line)
+{
+	if (!dc->hwss.get_vupdate_offset_from_vsync)
+		return;
+
+	const struct dc_crtc_timing *timing = &pipe_ctx->stream->timing;
+	int vline_pos = pipe_ctx->stream->periodic_interrupt.lines_offset;
+
+	if (pipe_ctx->stream->periodic_interrupt.ref_point == START_V_UPDATE) {
+		if (vline_pos > 0)
+			vline_pos--;
+		else if (vline_pos < 0)
+			vline_pos++;
+
+		vline_pos += dc->hwss.get_vupdate_offset_from_vsync(pipe_ctx);
+		if (vline_pos >= 0)
+			*start_line = vline_pos - ((vline_pos / timing->v_total) * timing->v_total);
+		else
+			*start_line = vline_pos + ((-vline_pos / timing->v_total) + 1) * timing->v_total - 1;
+		*end_line = (*start_line + 2) % timing->v_total;
+	} else if (pipe_ctx->stream->periodic_interrupt.ref_point == START_V_SYNC) {
+		// vsync is line 0 so start_line is just the requested line offset
+		*start_line = vline_pos;
+		*end_line = (*start_line + 2) % timing->v_total;
+	} else
+		ASSERT(0);
+}
+
+struct dpp_cursor_attributes calc_sdr_cursor_attributes(struct pipe_ctx *pipe_ctx)
+{
+	uint32_t sdr_white_level = pipe_ctx->stream->cursor_attributes.sdr_white_level;
+	struct fixed31_32 multiplier;
+	struct dpp_cursor_attributes opt_attr = { 0 };
+	uint32_t hw_scale = 0x3c00; // 1.0 default multiplier
+	struct custom_float_format fmt;
+
+	fmt.exponenta_bits = 5;
+	fmt.mantissa_bits = 10;
+	fmt.sign = true;
+
+	if (sdr_white_level > 80) {
+		multiplier = dc_fixpt_from_fraction(sdr_white_level, 80);
+		convert_to_custom_float_format(multiplier, &fmt, &hw_scale);
+	}
+
+	opt_attr.scale = hw_scale;
+	opt_attr.bias = 0;
+
+	return opt_attr;
+}
+
 // Function to check if any update flags are set
 static bool get_pipe_update_bits_status(struct pipe_ctx *pipe, struct dc_plane_state *plane, struct dc_stream_state *stream)
 {
@@ -1019,7 +1074,7 @@ void hwss_build_post_unlock_full_sequence(struct dc *dc,
 
 			unsigned int polling_interval_us;
 				polling_interval_us = 1;
-			hwss_add_hubp_wait_flip_pending(&seq_state, pipe->plane_res.hubp, 100000, polling_interval_us);
+			hwss_add_hubp_wait_flip_pending(&seq_state, pipe->plane_res.hubp, polling_interval_us);
 		}
 	}
 
@@ -1119,6 +1174,22 @@ void hwss_build_post_unlock_full_sequence(struct dc *dc,
 	}
 }
 
+static uint32_t get_dcc_meta_propagation_delay(struct dc *dc, struct pipe_ctx *pipe_ctx)
+{
+	/* check if any surfaces are updating address while using flip immediate and dcc */
+	while (pipe_ctx != NULL) {
+		if (pipe_ctx->plane_state &&
+				pipe_ctx->plane_state->dcc.enable &&
+				pipe_ctx->plane_state->flip_immediate &&
+				pipe_ctx->plane_state->update_bits.addr_update) {
+			return dc->debug.dcc_meta_propagation_delay_us;
+		}
+		/* check next pipe */
+		pipe_ctx = pipe_ctx->bottom_pipe;
+	}
+	return 0;
+}
+
 void hwss_build_fast_sequence(struct dc *dc,
 		struct dc_dmub_cmd *dc_dmub_cmd,
 		unsigned int dmub_cmd_count,
@@ -1135,6 +1206,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 	struct pipe_ctx *current_mpc_pipe = NULL;
 	bool is_dmub_lock_required = false;
 	unsigned int i = 0;
+	struct block_sequence_state seq_state = { .steps = block_sequence, .num_steps = num_steps };
 
 	*num_steps = 0; // Initialize to 0
 
@@ -1142,8 +1214,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 		return;
 
 	if (dc->hwss.wait_for_dcc_meta_propagation) {
-		block_sequence[*num_steps].params.wait_for_dcc_meta_propagation_params.dc = dc;
-		block_sequence[*num_steps].params.wait_for_dcc_meta_propagation_params.top_pipe_to_program = pipe_ctx;
+		block_sequence[*num_steps].params.wait_for_dcc_meta_propagation_params.delay = get_dcc_meta_propagation_delay(dc, pipe_ctx);
 		block_sequence[*num_steps].func = HUBP_WAIT_FOR_DCC_META_PROP;
 		(*num_steps)++;
 	}
@@ -1165,13 +1236,9 @@ void hwss_build_fast_sequence(struct dc *dc,
 		block_sequence[*num_steps].func = DMUB_HW_CONTROL_LOCK_FAST;
 		(*num_steps)++;
 	}
-	if (dc->hwss.pipe_control_lock) {
-		block_sequence[*num_steps].params.pipe_control_lock_params.dc = dc;
-		block_sequence[*num_steps].params.pipe_control_lock_params.lock = true;
-		block_sequence[*num_steps].params.pipe_control_lock_params.pipe_ctx = pipe_ctx;
-		block_sequence[*num_steps].func = OPTC_PIPE_CONTROL_LOCK;
-		(*num_steps)++;
-	}
+	hwss_add_optc_pipe_control_lock(
+			&(struct block_sequence_state){ block_sequence, num_steps },
+			dc, pipe_ctx, true);
 
 	for (i = 0; i < dmub_cmd_count; i++) {
 		block_sequence[*num_steps].params.send_dmcub_cmd_params.ctx = dc->ctx;
@@ -1182,8 +1249,16 @@ void hwss_build_fast_sequence(struct dc *dc,
 	}
 
 	if (dc->hwss.setup_periodic_interrupt && stream->update_flags.bits.periodic_interrupt) {
-		block_sequence[*num_steps].params.setup_periodic_interrupt_params.dc = dc;
-		block_sequence[*num_steps].params.setup_periodic_interrupt_params.pipe_ctx = pipe_ctx;
+		uint32_t start_line = 0;
+		uint32_t end_line = 0;
+
+		calc_vline_position(dc, pipe_ctx, &start_line, &end_line);
+		block_sequence[*num_steps].params.setup_periodic_interrupt_params.tg =
+				pipe_ctx->stream_res.tg;
+		block_sequence[*num_steps].params.setup_periodic_interrupt_params.start_line =
+				start_line;
+		block_sequence[*num_steps].params.setup_periodic_interrupt_params.end_line =
+				end_line;
 		block_sequence[*num_steps].func = HWSS_SETUP_PERIODIC_INTERRUPT;
 		(*num_steps)++;
 	}
@@ -1290,11 +1365,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 				(*num_steps)++;
 			}
 
-			block_sequence[*num_steps].params.set_cursor_sdr_white_level_params.dc = dc;
-			block_sequence[*num_steps].params.set_cursor_sdr_white_level_params.pipe_ctx =
-				current_pipe;
-			block_sequence[*num_steps].func = SET_CURSOR_SDR_WHITE_LEVEL;
-			(*num_steps)++;
+			hwss_add_set_cursor_sdr_white_level(&seq_state, current_pipe);
 
 			if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe) {
 				block_sequence[*num_steps].params.update_cursor_offload_pipe_params.dc = dc;
@@ -1459,9 +1530,22 @@ void hwss_build_fast_sequence(struct dc *dc,
 					(*num_steps)++;
 				}
 				if (hws->funcs.set_input_transfer_func && current_mpc_pipe->plane_state->update_bits.gamma_change) {
-					block_sequence[*num_steps].params.set_input_transfer_func_params.dc = dc;
-					block_sequence[*num_steps].params.set_input_transfer_func_params.pipe_ctx = current_mpc_pipe;
-					block_sequence[*num_steps].params.set_input_transfer_func_params.plane_state = current_mpc_pipe->plane_state;
+					struct pipe_ctx *primary_dpp_pipe =
+						resource_get_primary_dpp_pipe(current_mpc_pipe);
+
+					block_sequence[*num_steps].params.set_input_transfer_func_params =
+						(struct set_input_transfer_func_params) {
+						.dc = dc,
+						.dpp = current_mpc_pipe->plane_res.dpp,
+						.hubp = current_mpc_pipe->plane_res.hubp,
+						.primary_hubp = primary_dpp_pipe ?
+							primary_dpp_pipe->plane_res.hubp : current_mpc_pipe->plane_res.hubp,
+						.ipp = current_mpc_pipe->plane_res.ipp,
+						.mpc = dc->res_pool->mpc,
+						.mpcc_id = current_mpc_pipe->plane_res.mpcc_inst,
+						.stream = current_mpc_pipe->stream,
+						.plane_state = current_mpc_pipe->plane_state,
+					};
 					block_sequence[*num_steps].func = DPP_SET_INPUT_TRANSFER_FUNC;
 					(*num_steps)++;
 				}
@@ -1491,7 +1575,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 					params->dpp = current_mpc_pipe->plane_res.dpp;
 					params->mpc = dc->res_pool->mpc;
 					params->xfm = current_mpc_pipe->plane_res.xfm;
-					params->mpcc_id = current_mpc_pipe->plane_res.hubp->inst;
+					params->mpcc_id = current_mpc_pipe->plane_res.mpcc_inst;
 					params->plane = current_mpc_pipe->plane_state;
 					params->stream = current_mpc_pipe->stream;
 					params->is_top_pipe = current_mpc_pipe->top_pipe == NULL;
@@ -1536,7 +1620,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 				otf_params->dpp = current_mpc_pipe->plane_res.dpp;
 				otf_params->xfm = current_mpc_pipe->plane_res.xfm;
 				otf_params->mpc = dc->res_pool->mpc;
-				otf_params->mpcc_id = current_mpc_pipe->plane_res.hubp->inst;
+				otf_params->mpcc_id = current_mpc_pipe->plane_res.mpcc_inst;
 				otf_params->is_top_pipe = resource_is_pipe_type(current_mpc_pipe, OPP_HEAD);
 				otf_params->stream = current_mpc_pipe->stream;
 				block_sequence[*num_steps].func = DPP_SET_OUTPUT_TRANSFER_FUNC;
@@ -1544,15 +1628,15 @@ void hwss_build_fast_sequence(struct dc *dc,
 			}
 			if (dc->debug.visual_confirm != VISUAL_CONFIRM_DISABLE &&
 				dc->hwss.update_visual_confirm_color) {
-				block_sequence[*num_steps].params.update_visual_confirm_params.dc = dc;
-				block_sequence[*num_steps].params.update_visual_confirm_params.pipe_ctx = current_mpc_pipe;
-				block_sequence[*num_steps].params.update_visual_confirm_params.mpcc_id = current_mpc_pipe->plane_res.hubp->inst;
+				block_sequence[*num_steps].params.update_visual_confirm_params.mpc = dc->res_pool->mpc;
+				block_sequence[*num_steps].params.update_visual_confirm_params.color = &current_mpc_pipe->visual_confirm_color;
+				block_sequence[*num_steps].params.update_visual_confirm_params.mpcc_id = current_mpc_pipe->plane_res.mpcc_inst;
 				block_sequence[*num_steps].func = MPC_UPDATE_VISUAL_CONFIRM;
 				(*num_steps)++;
 			}
 			if (current_mpc_pipe->stream->update_flags.bits.out_csc) {
 				block_sequence[*num_steps].params.power_on_mpc_mem_pwr_params.mpc = dc->res_pool->mpc;
-				block_sequence[*num_steps].params.power_on_mpc_mem_pwr_params.mpcc_id = current_mpc_pipe->plane_res.hubp->inst;
+				block_sequence[*num_steps].params.power_on_mpc_mem_pwr_params.mpcc_id = current_mpc_pipe->plane_res.mpcc_inst;
 				block_sequence[*num_steps].params.power_on_mpc_mem_pwr_params.power_on = true;
 				block_sequence[*num_steps].func = MPC_POWER_ON_MPC_MEM_PWR;
 				(*num_steps)++;
@@ -1578,13 +1662,9 @@ void hwss_build_fast_sequence(struct dc *dc,
 		current_pipe = current_pipe->next_odm_pipe;
 	}
 
-	if (dc->hwss.pipe_control_lock) {
-		block_sequence[*num_steps].params.pipe_control_lock_params.dc = dc;
-		block_sequence[*num_steps].params.pipe_control_lock_params.lock = false;
-		block_sequence[*num_steps].params.pipe_control_lock_params.pipe_ctx = pipe_ctx;
-		block_sequence[*num_steps].func = OPTC_PIPE_CONTROL_LOCK;
-		(*num_steps)++;
-	}
+	hwss_add_optc_pipe_control_lock(
+			&(struct block_sequence_state){ block_sequence, num_steps },
+			dc, pipe_ctx, false);
 	if (dc->hwss.subvp_pipe_control_lock_fast) {
 		block_sequence[*num_steps].params.subvp_pipe_control_lock_fast_params.dc = dc;
 		block_sequence[*num_steps].params.subvp_pipe_control_lock_fast_params.lock = false;
@@ -1642,10 +1722,14 @@ void hwss_execute_sequence(struct dc *dc,
 		case DMUB_SUBVP_PIPE_CONTROL_LOCK_FAST:
 			dc->hwss.subvp_pipe_control_lock_fast(params);
 			break;
-		case OPTC_PIPE_CONTROL_LOCK:
-			dc->hwss.pipe_control_lock(params->pipe_control_lock_params.dc,
-					params->pipe_control_lock_params.pipe_ctx,
-					params->pipe_control_lock_params.lock);
+		case TG_LOCK:
+			dc->hwss.tg_lock(&params->tg_lock_params);
+			break;
+		case TG_3DLUT_WA_UNLOCK:
+			if (dc->hwseq->funcs.perform_3dlut_wa_unlock)
+				dc->hwseq->funcs.perform_3dlut_wa_unlock(
+						params->tg_3dlut_wa_unlock_params.tg,
+						params->tg_3dlut_wa_unlock_params.hubp);
 			break;
 		case HUBP_SET_FLIP_CONTROL_GSL:
 			params->set_flip_control_gsl_params.hubp->funcs->hubp_set_flip_control_surface_gsl(
@@ -1662,9 +1746,7 @@ void hwss_execute_sequence(struct dc *dc,
 					params->update_plane_addr_params.pipe_ctx);
 			break;
 		case DPP_SET_INPUT_TRANSFER_FUNC:
-			hws->funcs.set_input_transfer_func(params->set_input_transfer_func_params.dc,
-					params->set_input_transfer_func_params.pipe_ctx,
-					params->set_input_transfer_func_params.plane_state);
+			hws->funcs.set_input_transfer_func(&params->set_input_transfer_func_params);
 			break;
 		case DPP_PROGRAM_GAMUT_REMAP:
 			if (dc->hwss.program_gamut_remap)
@@ -1677,7 +1759,11 @@ void hwss_execute_sequence(struct dc *dc,
 			hwss_tg_setup_vertical_interrupt0(params);
 			break;
 		case HWSS_SETUP_PERIODIC_INTERRUPT:
-			hwss_setup_periodic_interrupt(dc, params);
+			if (dc->hwss.setup_periodic_interrupt)
+				dc->hwss.setup_periodic_interrupt(
+						params->setup_periodic_interrupt_params.tg,
+						params->setup_periodic_interrupt_params.start_line,
+						params->setup_periodic_interrupt_params.end_line);
 			break;
 		case HWSS_UPDATE_INFO_FRAME:
 			hwss_update_info_frame(dc, params);
@@ -1701,9 +1787,11 @@ void hwss_execute_sequence(struct dc *dc,
 			hwss_program_upsp(params);
 			break;
 		case MPC_UPDATE_VISUAL_CONFIRM:
-			dc->hwss.update_visual_confirm_color(params->update_visual_confirm_params.dc,
-					params->update_visual_confirm_params.pipe_ctx,
-					params->update_visual_confirm_params.mpcc_id);
+			if (params->update_visual_confirm_params.mpc->funcs->set_bg_color)
+				params->update_visual_confirm_params.mpc->funcs->set_bg_color(
+						params->update_visual_confirm_params.mpc,
+						params->update_visual_confirm_params.color,
+						params->update_visual_confirm_params.mpcc_id);
 			break;
 		case MPC_POWER_ON_MPC_MEM_PWR:
 			hwss_power_on_mpc_mem_pwr(params);
@@ -1721,9 +1809,7 @@ void hwss_execute_sequence(struct dc *dc,
 			hwss_subvp_save_surf_addr(params);
 			break;
 		case HUBP_WAIT_FOR_DCC_META_PROP:
-			dc->hwss.wait_for_dcc_meta_propagation(
-					params->wait_for_dcc_meta_propagation_params.dc,
-					params->wait_for_dcc_meta_propagation_params.top_pipe_to_program);
+			dc->hwss.wait_for_dcc_meta_propagation(params->wait_for_dcc_meta_propagation_params.delay);
 			break;
 		case DMUB_HW_CONTROL_LOCK_FAST:
 			dc->hwss.dmub_hw_control_lock_fast(params);
@@ -1857,7 +1943,8 @@ void hwss_execute_sequence(struct dc *dc,
 			hwss_tg_set_gsl_source_select(params);
 			break;
 		case HUBP_WAIT_FLIP_PENDING:
-			hwss_hubp_wait_flip_pending(params);
+			hwss_hubp_wait_flip_pending(params->hubp_wait_flip_pending_params.hubp,
+				params->hubp_wait_flip_pending_params.polling_interval_us);
 			break;
 		case TG_WAIT_DOUBLE_BUFFER_PENDING:
 			hwss_tg_wait_double_buffer_pending(params);
@@ -2166,21 +2253,83 @@ void hwss_execute_sequence(struct dc *dc,
 	}
 }
 
-/*
- * Helper function to add OPTC pipe control lock to block sequence
- */
 void hwss_add_optc_pipe_control_lock(struct block_sequence_state *seq_state,
 		struct dc *dc,
 		struct pipe_ctx *pipe_ctx,
 		bool lock)
 {
-	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.pipe_control_lock_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.pipe_control_lock_params.pipe_ctx = pipe_ctx;
-		seq_state->steps[*seq_state->num_steps].params.pipe_control_lock_params.lock = lock;
-		seq_state->steps[*seq_state->num_steps].func = OPTC_PIPE_CONTROL_LOCK;
-		(*seq_state->num_steps)++;
+	struct pipe_control_lock_params params = { 0 };
+	unsigned int hubp_idx;
+	unsigned int polling_interval_us = 1;
+
+	if (!dc->hwss.build_pipe_control_lock_sequence ||
+			!dc->hwss.build_pipe_control_lock_sequence(dc, pipe_ctx, lock, &params))
+		return;
+
+	for (hubp_idx = 0; hubp_idx < MAX_PIPES; hubp_idx++)
+		if (params.hubps_to_wait_for_flip[hubp_idx])
+			hwss_add_hubp_wait_flip_pending(seq_state, params.hubps_to_wait_for_flip[hubp_idx],
+				polling_interval_us);
+
+	if (params.gsl_lock) {
+		hwss_add_tg_set_gsl(seq_state, params.gsl.tg, params.gsl.gsl);
+		hwss_add_tg_set_gsl_source_select(seq_state, params.gsl_source_select.tg,
+			params.gsl_source_select.group_idx, params.gsl_source_select.gsl_ready_signal);
 	}
+
+	if (params.tg_3dlut_wa_unlock) {
+		if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+			seq_state->steps[*seq_state->num_steps].params.tg_3dlut_wa_unlock_params =
+					params.tg_3dlut_wa_unlock_params;
+			seq_state->steps[*seq_state->num_steps].func = TG_3DLUT_WA_UNLOCK;
+			(*seq_state->num_steps)++;
+		}
+	} else {
+		if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+			seq_state->steps[*seq_state->num_steps].params.tg_lock_params = params.tg_lock;
+			seq_state->steps[*seq_state->num_steps].func = TG_LOCK;
+			(*seq_state->num_steps)++;
+		}
+	}
+}
+
+void hwss_pipe_control_lock(struct dc *dc,
+		struct pipe_ctx *pipe_ctx,
+		bool lock)
+{
+	struct pipe_control_lock_params params = { 0 };
+	unsigned int hubp_idx;
+	unsigned int polling_interval_us = 1;
+
+	if (!dc->hwss.build_pipe_control_lock_sequence ||
+			!dc->hwss.build_pipe_control_lock_sequence(dc, pipe_ctx, lock, &params))
+		return;
+
+	for (hubp_idx = 0; hubp_idx < MAX_PIPES; hubp_idx++)
+		if (params.hubps_to_wait_for_flip[hubp_idx])
+			hwss_hubp_wait_flip_pending(
+					params.hubps_to_wait_for_flip[hubp_idx],
+					polling_interval_us);
+
+	if (params.gsl_lock) {
+		if (params.gsl.tg->funcs->set_gsl)
+			params.gsl.tg->funcs->set_gsl(params.gsl.tg, &params.gsl.gsl);
+		if (params.gsl_source_select.tg->funcs->set_gsl_source_select)
+			params.gsl_source_select.tg->funcs->set_gsl_source_select(
+					params.gsl_source_select.tg,
+					params.gsl_source_select.group_idx,
+					params.gsl_source_select.gsl_ready_signal);
+	}
+
+	if (params.tg_3dlut_wa_unlock) {
+		dc->hwseq->funcs.perform_3dlut_wa_unlock(
+				params.tg_3dlut_wa_unlock_params.tg,
+				params.tg_3dlut_wa_unlock_params.hubp);
+		return;
+	}
+
+	if (dc->hwss.tg_lock)
+		dc->hwss.tg_lock(&params.tg_lock);
 }
 
 /*
@@ -2233,15 +2382,25 @@ void hwss_add_hubp_update_plane_addr(struct block_sequence_state *seq_state,
 /*
  * Helper function to add DPP set input transfer function to block sequence
  */
-void hwss_add_dpp_set_input_transfer_func(struct block_sequence_state *seq_state,
-		struct dc *dc,
-		struct pipe_ctx *pipe_ctx,
-		struct dc_plane_state *plane_state)
+void hwss_add_dpp_set_input_transfer_func(struct block_sequence_state *seq_state, struct dc *dc,
+	struct pipe_ctx *pipe_ctx)
 {
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.set_input_transfer_func_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.set_input_transfer_func_params.pipe_ctx = pipe_ctx;
-		seq_state->steps[*seq_state->num_steps].params.set_input_transfer_func_params.plane_state = plane_state;
+		struct pipe_ctx *primary_dpp_pipe = resource_get_primary_dpp_pipe(pipe_ctx);
+
+		seq_state->steps[*seq_state->num_steps].params.set_input_transfer_func_params =
+			(struct set_input_transfer_func_params) {
+			.dc = dc,
+			.dpp = pipe_ctx->plane_res.dpp,
+			.hubp = pipe_ctx->plane_res.hubp,
+			.primary_hubp = primary_dpp_pipe ?
+				primary_dpp_pipe->plane_res.hubp : pipe_ctx->plane_res.hubp,
+			.ipp = pipe_ctx->plane_res.ipp,
+			.mpc = dc->res_pool->mpc,
+			.mpcc_id = pipe_ctx->plane_res.mpcc_inst,
+			.plane_state = pipe_ctx->plane_state,
+			.stream = pipe_ctx->stream,
+		};
 		seq_state->steps[*seq_state->num_steps].func = DPP_SET_INPUT_TRANSFER_FUNC;
 		(*seq_state->num_steps)++;
 	}
@@ -2258,7 +2417,7 @@ void hwss_add_dpp_program_gamut_remap(struct block_sequence_state *seq_state,
 		params->xfm = pipe_ctx->plane_res.xfm;
 		params->dpp = pipe_ctx->plane_res.dpp;
 		params->mpc = pipe_ctx->stream->ctx->dc->res_pool->mpc;
-		params->mpcc_id = pipe_ctx->plane_res.hubp->inst;
+		params->mpcc_id = pipe_ctx->plane_res.mpcc_inst;
 		params->plane = pipe_ctx->plane_state;
 		params->stream = pipe_ctx->stream;
 		params->is_top_pipe = pipe_ctx->top_pipe == NULL;
@@ -2304,7 +2463,7 @@ void hwss_add_dpp_set_output_transfer_func(struct block_sequence_state *seq_stat
 			.xfm = pipe_ctx->plane_res.xfm,
 			.dpp = pipe_ctx->plane_res.dpp,
 			.mpc = dc->res_pool->mpc,
-			.mpcc_id = pipe_ctx->plane_res.hubp->inst,
+			.mpcc_id = pipe_ctx->plane_res.mpcc_inst,
 			.is_top_pipe = resource_is_pipe_type(pipe_ctx, OPP_HEAD),
 			.stream = pipe_ctx->stream,
 		};
@@ -2321,8 +2480,7 @@ void hwss_set_output_transfer_func(struct dc *dc, struct pipe_ctx *pipe_ctx)
 				.xfm = pipe_ctx->plane_res.xfm,
 				.dpp = pipe_ctx->plane_res.dpp,
 				.mpc = dc->res_pool->mpc,
-				.mpcc_id = pipe_ctx->plane_res.hubp ?
-						pipe_ctx->plane_res.hubp->inst : 0,
+				.mpcc_id = pipe_ctx->plane_res.mpcc_inst,
 				.is_top_pipe = resource_is_pipe_type(pipe_ctx, OPP_HEAD),
 				.stream = pipe_ctx->stream,
 			}
@@ -2339,8 +2497,8 @@ void hwss_add_mpc_update_visual_confirm(struct block_sequence_state *seq_state,
 		int mpcc_id)
 {
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.update_visual_confirm_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.update_visual_confirm_params.pipe_ctx = pipe_ctx;
+		seq_state->steps[*seq_state->num_steps].params.update_visual_confirm_params.mpc = dc->res_pool->mpc;
+		seq_state->steps[*seq_state->num_steps].params.update_visual_confirm_params.color = &pipe_ctx->visual_confirm_color;
 		seq_state->steps[*seq_state->num_steps].params.update_visual_confirm_params.mpcc_id = mpcc_id;
 		seq_state->steps[*seq_state->num_steps].func = MPC_UPDATE_VISUAL_CONFIRM;
 		(*seq_state->num_steps)++;
@@ -2432,21 +2590,6 @@ void hwss_add_dmub_subvp_save_surf_addr(struct block_sequence_state *seq_state,
 		seq_state->steps[*seq_state->num_steps].params.subvp_save_surf_addr.addr = addr;
 		seq_state->steps[*seq_state->num_steps].params.subvp_save_surf_addr.subvp_index = subvp_index;
 		seq_state->steps[*seq_state->num_steps].func = DMUB_SUBVP_SAVE_SURF_ADDR;
-		(*seq_state->num_steps)++;
-	}
-}
-
-/*
- * Helper function to add HUBP wait for DCC meta propagation to block sequence
- */
-void hwss_add_hubp_wait_for_dcc_meta_prop(struct block_sequence_state *seq_state,
-		struct dc *dc,
-		struct pipe_ctx *top_pipe_to_program)
-{
-	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.wait_for_dcc_meta_propagation_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.wait_for_dcc_meta_propagation_params.top_pipe_to_program = top_pipe_to_program;
-		seq_state->steps[*seq_state->num_steps].func = HUBP_WAIT_FOR_DCC_META_PROP;
 		(*seq_state->num_steps)++;
 	}
 }
@@ -2791,12 +2934,10 @@ void hwss_add_tg_enable_crtc(struct block_sequence_state *seq_state,
  */
 void hwss_add_hubp_wait_flip_pending(struct block_sequence_state *seq_state,
 		struct hubp *hubp,
-		unsigned int timeout_us,
 		unsigned int polling_interval_us)
 {
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
 		seq_state->steps[*seq_state->num_steps].params.hubp_wait_flip_pending_params.hubp = hubp;
-		seq_state->steps[*seq_state->num_steps].params.hubp_wait_flip_pending_params.timeout_us = timeout_us;
 		seq_state->steps[*seq_state->num_steps].params.hubp_wait_flip_pending_params.polling_interval_us = polling_interval_us;
 		seq_state->steps[*seq_state->num_steps].func = HUBP_WAIT_FLIP_PENDING;
 		(*seq_state->num_steps)++;
@@ -3331,12 +3472,18 @@ void hwss_update_info_frame(struct dc *dc, union block_sequence_params *params)
 		dc->hwss.update_info_frame(pipe_ctx);
 }
 
-void hwss_setup_periodic_interrupt(struct dc *dc, union block_sequence_params *params)
+void hwss_setup_periodic_interrupt(struct dc *dc, struct pipe_ctx *pipe_ctx)
 {
-	struct pipe_ctx *pipe_ctx = params->setup_periodic_interrupt_params.pipe_ctx;
+	uint32_t start_line = 0;
+	uint32_t end_line = 0;
 
-	if (dc->hwss.setup_periodic_interrupt)
-		dc->hwss.setup_periodic_interrupt(dc, pipe_ctx);
+	if (dc->hwss.setup_periodic_interrupt) {
+		calc_vline_position(dc, pipe_ctx, &start_line, &end_line);
+		dc->hwss.setup_periodic_interrupt(
+				pipe_ctx->stream_res.tg,
+				start_line,
+				end_line);
+	}
 }
 
 void hwss_tg_setup_vertical_interrupt0(union block_sequence_params *params)
@@ -3543,11 +3690,9 @@ void hwss_tg_set_gsl_source_select(union block_sequence_params *params)
 		tg->funcs->set_gsl_source_select(tg, group_idx, gsl_ready_signal);
 }
 
-void hwss_hubp_wait_flip_pending(union block_sequence_params *params)
+void hwss_hubp_wait_flip_pending(struct hubp *hubp, unsigned int polling_interval_us)
 {
-	struct hubp *hubp = params->hubp_wait_flip_pending_params.hubp;
-	unsigned int timeout_us = params->hubp_wait_flip_pending_params.timeout_us;
-	unsigned int polling_interval_us = params->hubp_wait_flip_pending_params.polling_interval_us;
+	const unsigned int timeout_us = 100000U;
 	unsigned int j = 0;
 
 	for (j = 0; j < timeout_us / polling_interval_us
@@ -4262,11 +4407,10 @@ void hwss_set_cursor_position(union block_sequence_params *params)
 
 void hwss_set_cursor_sdr_white_level(union block_sequence_params *params)
 {
-	struct dc *dc = params->set_cursor_sdr_white_level_params.dc;
-	struct pipe_ctx *pipe_ctx = params->set_cursor_sdr_white_level_params.pipe_ctx;
+	struct dpp *dpp = params->set_cursor_sdr_white_level_params.dpp;
 
-	if (dc && dc->hwss.set_cursor_sdr_white_level)
-		dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
+	if (dpp->funcs->set_optional_cursor_attributes)
+		dpp->funcs->set_optional_cursor_attributes(dpp, &params->set_cursor_sdr_white_level_params.attr);
 }
 
 void hwss_program_gamut_remap(struct pipe_ctx *pipe_ctx)
@@ -4278,7 +4422,7 @@ void hwss_program_gamut_remap(struct pipe_ctx *pipe_ctx)
 			.xfm = pipe_ctx->plane_res.xfm,
 			.dpp = pipe_ctx->plane_res.dpp,
 			.mpc = dc->res_pool->mpc,
-			.mpcc_id = pipe_ctx->plane_res.hubp->inst,
+			.mpcc_id = pipe_ctx->plane_res.mpcc_inst,
 			.stream = pipe_ctx->stream,
 			.plane = pipe_ctx->plane_state,
 			.is_top_pipe = pipe_ctx->top_pipe == NULL,
@@ -4495,6 +4639,26 @@ void hwss_disable_audio_stream(struct dc *dc, union block_sequence_params *param
 	if (dc->hwss.disable_audio_stream)
 		dc->hwss.disable_audio_stream(
 			params->disable_audio_stream_params.pipe_ctx);
+}
+
+void hwss_set_input_transfer_func(struct dc *dc, struct pipe_ctx *pipe_ctx)
+{
+	if (dc->hwseq->funcs.set_input_transfer_func) {
+		struct pipe_ctx *primary_dpp_pipe = resource_get_primary_dpp_pipe(pipe_ctx);
+
+		dc->hwseq->funcs.set_input_transfer_func(&(struct set_input_transfer_func_params) {
+			.dc = dc,
+			.dpp = pipe_ctx->plane_res.dpp,
+			.hubp = pipe_ctx->plane_res.hubp,
+			.primary_hubp = primary_dpp_pipe ?
+				primary_dpp_pipe->plane_res.hubp : pipe_ctx->plane_res.hubp,
+			.ipp = pipe_ctx->plane_res.ipp,
+			.mpc = dc->res_pool->mpc,
+			.mpcc_id = pipe_ctx->plane_res.mpcc_inst,
+			.plane_state = pipe_ctx->plane_state,
+			.stream = pipe_ctx->stream,
+		});
+	}
 }
 
 void hwss_prepare_bandwidth(struct dc *dc, union block_sequence_params *params)
@@ -5628,15 +5792,19 @@ void hwss_add_set_cursor_position(struct block_sequence_state *seq_state,
 }
 
 void hwss_add_set_cursor_sdr_white_level(struct block_sequence_state *seq_state,
-		struct dc *dc,
 		struct pipe_ctx *pipe_ctx)
 {
-	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].func = SET_CURSOR_SDR_WHITE_LEVEL;
-		seq_state->steps[*seq_state->num_steps].params.set_cursor_sdr_white_level_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.set_cursor_sdr_white_level_params.pipe_ctx = pipe_ctx;
-		(*seq_state->num_steps)++;
-	}
+	struct dpp *dpp = pipe_ctx->plane_res.dpp;
+	struct dpp_cursor_attributes attr;
+
+	if (dpp && dpp->funcs->set_optional_cursor_attributes)
+		if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+			attr = calc_sdr_cursor_attributes(pipe_ctx);
+			seq_state->steps[*seq_state->num_steps].func = SET_CURSOR_SDR_WHITE_LEVEL;
+			seq_state->steps[*seq_state->num_steps].params.set_cursor_sdr_white_level_params.dpp = dpp;
+			seq_state->steps[*seq_state->num_steps].params.set_cursor_sdr_white_level_params.attr = attr;
+			(*seq_state->num_steps)++;
+		}
 }
 
 void hwss_add_program_output_csc(struct block_sequence_state *seq_state,
@@ -5943,9 +6111,17 @@ void hwss_add_setup_periodic_interrupt(struct block_sequence_state *seq_state,
 		struct pipe_ctx *pipe_ctx)
 {
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		uint32_t start_line = 0;
+		uint32_t end_line = 0;
+
+		calc_vline_position(dc, pipe_ctx, &start_line, &end_line);
 		seq_state->steps[*seq_state->num_steps].func = HWSS_SETUP_PERIODIC_INTERRUPT;
-		seq_state->steps[*seq_state->num_steps].params.setup_periodic_interrupt_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.setup_periodic_interrupt_params.pipe_ctx = pipe_ctx;
+		seq_state->steps[*seq_state->num_steps].params.setup_periodic_interrupt_params.tg =
+				pipe_ctx->stream_res.tg;
+		seq_state->steps[*seq_state->num_steps].params.setup_periodic_interrupt_params.start_line =
+				start_line;
+		seq_state->steps[*seq_state->num_steps].params.setup_periodic_interrupt_params.end_line =
+				end_line;
 		(*seq_state->num_steps)++;
 	}
 }
@@ -6138,5 +6314,13 @@ void get_refresh_rate_confirm_color(struct pipe_ctx *pipe_ctx, struct tg_color *
 		pipe_ctx->visual_confirm_color.color_r_cr = (uint16_t)color_value;
 		pipe_ctx->visual_confirm_color.color_g_y = (uint16_t)scaling_factor;
 		pipe_ctx->visual_confirm_color.color_b_cb = (uint16_t)color_value;
+	}
+}
+
+void hwss_hubp_wait_for_dcc_meta_prop(struct dc *dc, struct pipe_ctx *top_pipe_to_program)
+{
+	if (dc->hwss.wait_for_dcc_meta_propagation) {
+		uint32_t delay = get_dcc_meta_propagation_delay(dc, top_pipe_to_program);
+		dc->hwss.wait_for_dcc_meta_propagation(delay);
 	}
 }

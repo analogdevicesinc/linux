@@ -29,6 +29,7 @@
 #include "amdgpu_gfx.h"
 #include "amdgpu_doorbell.h"
 #include <linux/sched/mm.h>
+#include <linux/workqueue.h>
 
 #define AMDGPU_MES_MAX_COMPUTE_PIPES        8
 #define AMDGPU_MES_MAX_GFX_PIPES            2
@@ -89,6 +90,10 @@ struct amdgpu_mes {
 
 	uint32_t                        total_max_queue;
 	uint32_t                        max_doorbell_slices;
+
+	/* GFX11 usermode queue oversubscription notify timer */
+	atomic_t                        userq_hw_queue_count;
+	struct delayed_work             userq_notify_unmap_work;
 
 	uint64_t                        default_process_quantum;
 	uint64_t                        default_gang_quantum;
@@ -366,6 +371,7 @@ enum mes_misc_opcode {
 	MES_MISC_OP_WRM_REG_WR_WAIT,
 	MES_MISC_OP_SET_SHADER_DEBUGGER,
 	MES_MISC_OP_CHANGE_CONFIG,
+	MES_MISC_OP_NOTIFY_WORK_ON_UNMAPPED_QUEUE
 };
 
 struct mes_misc_op_input {
@@ -643,4 +649,9 @@ int amdgpu_mes_alloc_gang_ctx_index(struct amdgpu_mes *mes,
 				    uint32_t *index);
 void amdgpu_mes_free_gang_ctx_index(struct amdgpu_mes *mes,
 				    uint32_t index);
+
+int amdgpu_mes_notify_unmap_queue(struct amdgpu_device *adev);
+void amdgpu_mes_userq_queue_mapped(struct amdgpu_device *adev);
+void amdgpu_mes_userq_queue_unmapped(struct amdgpu_device *adev);
+
 #endif /* __AMDGPU_MES_H__ */

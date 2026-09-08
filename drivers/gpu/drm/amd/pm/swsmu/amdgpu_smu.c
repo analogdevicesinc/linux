@@ -69,6 +69,7 @@ static int smu_handle_task(struct smu_context *smu,
 			   enum amd_dpm_forced_level level,
 			   enum amd_pp_task task_id);
 static int smu_reset(struct smu_context *smu);
+static int smu_set_ac_dc(struct smu_context *smu, bool restore_ppt_policy);
 static int smu_set_fan_speed_pwm(void *handle, u32 speed);
 static int smu_set_fan_control_mode(void *handle, u32 value);
 static int smu_set_ppt_limit(void *handle, uint32_t limit_type, uint32_t limit);
@@ -641,7 +642,8 @@ bool is_support_cclk_dpm(struct amdgpu_device *adev)
 }
 
 int amdgpu_smu_ras_send_msg(struct amdgpu_device *adev, enum smu_message_type msg,
-			    uint32_t param, uint32_t *read_arg)
+			const uint32_t *params, size_t num_params,
+			uint32_t *read_args, size_t num_read_args)
 {
 	struct smu_context *smu = adev->powerplay.pp_handle;
 	int ret = -EOPNOTSUPP;
@@ -649,8 +651,19 @@ int amdgpu_smu_ras_send_msg(struct amdgpu_device *adev, enum smu_message_type ms
 	if (!smu)
 		return ret;
 
-	if (smu->ppt_funcs && smu->ppt_funcs->ras_send_msg)
-		ret = smu->ppt_funcs->ras_send_msg(smu, msg, param, read_arg);
+	if (smu->ppt_funcs && smu->ppt_funcs->ras_send_msg) {
+		if (num_params && !params)
+			return -EINVAL;
+
+		if (num_read_args && !read_args)
+			return -EINVAL;
+
+		if (num_params > SMU_MSG_MAX_ARGS || num_read_args > SMU_MSG_MAX_ARGS)
+			return -EINVAL;
+
+		ret = smu->ppt_funcs->ras_send_msg(smu, msg,
+				params, num_params, read_args, num_read_args);
+	}
 
 	return ret;
 }
@@ -2774,7 +2787,7 @@ static int smu_set_watermarks_for_clock_ranges(void *handle,
 	return smu_set_watermarks_table(smu, clock_ranges);
 }
 
-int smu_set_ac_dc(struct smu_context *smu, bool restore_ppt_policy)
+static int smu_set_ac_dc(struct smu_context *smu, bool restore_ppt_policy)
 {
 	int ret = 0;
 
@@ -2800,6 +2813,13 @@ int smu_set_ac_dc(struct smu_context *smu, bool restore_ppt_policy)
 	return 0;
 }
 
+static void smu_notify_ac_dc(void *handle)
+{
+	struct smu_context *smu = handle;
+
+	smu_set_ac_dc(smu, true);
+}
+
 const struct amd_ip_funcs smu_ip_funcs = {
 	.name = "smu",
 	.early_init = smu_early_init,
@@ -2811,7 +2831,6 @@ const struct amd_ip_funcs smu_ip_funcs = {
 	.late_fini = smu_late_fini,
 	.suspend = smu_suspend,
 	.resume = smu_resume,
-	.is_idle = NULL,
 	.wait_for_idle = NULL,
 	.soft_reset = NULL,
 	.set_clockgating_state = smu_set_clockgating_state,
@@ -4000,6 +4019,7 @@ static const struct amd_pm_funcs swsmu_pm_funcs = {
 	.set_pp_table            = smu_sys_set_pp_table,
 	.switch_power_profile    = smu_switch_power_profile,
 	.pause_power_profile     = smu_pause_power_profile,
+	.notify_ac_dc            = smu_notify_ac_dc,
 	/* export to amdgpu */
 	.dispatch_tasks          = smu_handle_dpm_task,
 	.load_firmware           = smu_load_microcode,

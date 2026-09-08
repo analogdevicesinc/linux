@@ -101,6 +101,8 @@ static inline u32 amdgpu_mes_get_hqd_mask(u32 num_pipe,
 	return (total_hqd_mask & ~reserved_hqd_mask);
 }
 
+static void amdgpu_mes_userq_notify_unmap_work_handler(struct work_struct *work);
+
 int amdgpu_mes_init(struct amdgpu_device *adev)
 {
 	int i, r, num_pipes, num_queues = 0;
@@ -123,6 +125,9 @@ int amdgpu_mes_init(struct amdgpu_device *adev)
 		spin_lock_init(&adev->mes.ring_lock[i]);
 
 	adev->mes.total_max_queue = AMDGPU_FENCE_MES_QUEUE_ID_MASK;
+	atomic_set(&adev->mes.userq_hw_queue_count, 0);
+	INIT_DELAYED_WORK(&adev->mes.userq_notify_unmap_work,
+			  amdgpu_mes_userq_notify_unmap_work_handler);
 	total_vmid_mask = (u32)((1UL << 16) - 1);
 	reserved_vmid_mask = (u32)((1UL << adev->vm_manager.first_kfd_vmid) - 1);
 
@@ -287,6 +292,8 @@ void amdgpu_mes_fini(struct amdgpu_device *adev)
 {
 	int i;
 	int num_xcc = adev->gfx.xcc_mask ? NUM_XCC(adev->gfx.xcc_mask) : 1;
+
+	cancel_delayed_work_sync(&adev->mes.userq_notify_unmap_work);
 
 	kfree(adev->gfx.mec.mes_hung_db_array);
 
@@ -1138,6 +1145,98 @@ void amdgpu_mes_free_gang_ctx_index(struct amdgpu_mes *mes,
 	amdgpu_mes_lock(mes);
 	clear_bit(index, mes->gang_ctx_bitmap);
 	amdgpu_mes_unlock(mes);
+}
+
+int amdgpu_mes_notify_unmap_queue(struct amdgpu_device *adev)
+{
+	struct mes_misc_op_input op_input = {0};
+	int r;
+
+	op_input.op = MES_MISC_OP_NOTIFY_WORK_ON_UNMAPPED_QUEUE;
+
+	if (!adev->mes.funcs->misc_op) {
+		dev_err(adev->dev, "mes notify unmap queue is not supported!\n");
+		r = -EINVAL;
+		goto error;
+	}
+
+	amdgpu_mes_lock(&adev->mes);
+	r = adev->mes.funcs->misc_op(&adev->mes, &op_input);
+	amdgpu_mes_unlock(&adev->mes);
+	if (r)
+		dev_err(adev->dev, "failed to notify unmap queue.\n");
+
+error:
+	return r;
+}
+
+/* Interval for notifying MES of work on unmapped queues during oversubscription */
+#define AMDGPU_USERQ_UNMAP_NOTIFY_DELAY_US 50
+
+static unsigned int amdgpu_mes_userq_hw_queue_num(struct amdgpu_device *adev)
+{
+	int num_xcc = adev->gfx.xcc_mask ? NUM_XCC(adev->gfx.xcc_mask) : 1;
+	unsigned int n = bitmap_weight(adev->gfx.me.queue_bitmap, AMDGPU_MAX_GFX_QUEUES);
+	int i;
+
+	for (i = 0; i < num_xcc; i++)
+		n += bitmap_weight(adev->gfx.mec_bitmap[i].queue_bitmap,
+				    AMDGPU_MAX_COMPUTE_QUEUES);
+
+	return n;
+}
+
+static void amdgpu_mes_userq_notify_unmap_work_handler(struct work_struct *work)
+{
+	struct amdgpu_mes *mes = container_of(work, struct amdgpu_mes,
+					       userq_notify_unmap_work.work);
+	struct amdgpu_device *adev = mes->adev;
+
+	amdgpu_mes_notify_unmap_queue(adev);
+
+	/* Re-arm if still oversubscribed */
+	if (atomic_read(&mes->userq_hw_queue_count) >
+	    amdgpu_mes_userq_hw_queue_num(adev))
+		queue_delayed_work(system_wq, &mes->userq_notify_unmap_work,
+				   usecs_to_jiffies(AMDGPU_USERQ_UNMAP_NOTIFY_DELAY_US));
+}
+
+/*
+ * Called after a GFX11 usermode queue is successfully mapped to MES.
+ * Starts the periodic unmap-notify timer if this pushed the device into
+ * HW queue oversubscription.
+ */
+void amdgpu_mes_userq_queue_mapped(struct amdgpu_device *adev)
+{
+	if (amdgpu_sriov_vf(adev))
+		return;
+
+	if (!(amdgpu_ip_version(adev, GC_HWIP, 0) >= IP_VERSION(11, 0, 0) &&
+	      amdgpu_ip_version(adev, GC_HWIP, 0) < IP_VERSION(12, 0, 0)))
+		return;
+
+	if (atomic_inc_return(&adev->mes.userq_hw_queue_count) >
+	    amdgpu_mes_userq_hw_queue_num(adev))
+		queue_delayed_work(system_wq, &adev->mes.userq_notify_unmap_work,
+				   usecs_to_jiffies(AMDGPU_USERQ_UNMAP_NOTIFY_DELAY_US));
+}
+
+/*
+ * Called after a GFX11 usermode queue is unmapped from MES. Stops the
+ * periodic unmap-notify timer once oversubscription clears.
+ */
+void amdgpu_mes_userq_queue_unmapped(struct amdgpu_device *adev)
+{
+	if (amdgpu_sriov_vf(adev))
+		return;
+
+	if (!(amdgpu_ip_version(adev, GC_HWIP, 0) >= IP_VERSION(11, 0, 0) &&
+	      amdgpu_ip_version(adev, GC_HWIP, 0) < IP_VERSION(12, 0, 0)))
+		return;
+
+	if (atomic_dec_return(&adev->mes.userq_hw_queue_count) <=
+	    amdgpu_mes_userq_hw_queue_num(adev))
+		cancel_delayed_work(&adev->mes.userq_notify_unmap_work);
 }
 
 #if defined(CONFIG_DEBUG_FS)

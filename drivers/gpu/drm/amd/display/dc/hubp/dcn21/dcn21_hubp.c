@@ -74,7 +74,7 @@
  * then update the regs with the new values.
  *
  */
-void apply_DEDCN21_142_wa_for_hostvm_deadline(
+void apply_hubp21_wa_for_hostvm_deadline(
 		struct hubp *hubp,
 		struct _vcs_dpi_display_dlg_regs_st *dlg_attr)
 {
@@ -131,7 +131,7 @@ void hubp21_program_deadline(
 {
 	hubp2_program_deadline(hubp, dlg_attr, ttu_attr);
 
-	apply_DEDCN21_142_wa_for_hostvm_deadline(hubp, dlg_attr);
+	apply_hubp21_wa_for_hostvm_deadline(hubp, dlg_attr);
 }
 
 void hubp21_program_requestor(
@@ -803,7 +803,7 @@ static bool hubp21_program_surface_flip_and_addr(
 
 static void hubp21_init(struct hubp *hubp)
 {
-	// DEDCN21-133: Inconsistent row starting line for flip between DPTE and Meta
+	// Inconsistent row starting line for flip between DPTE and Meta
 	// This is a chicken bit to enable the ECO fix.
 
 	struct dcn21_hubp *hubp21 = TO_DCN21_HUBP(hubp);

@@ -3215,7 +3215,9 @@ static int smu_v13_0_6_reset_vcn(struct smu_context *smu, uint32_t inst_mask)
 	return ret;
 }
 
-static int smu_v13_0_6_ras_send_msg(struct smu_context *smu, enum smu_message_type msg, uint32_t param, uint32_t *read_arg)
+static int smu_v13_0_6_ras_send_msg(struct smu_context *smu, enum smu_message_type msg,
+			const uint32_t *params, size_t num_params,
+			uint32_t *read_args, size_t num_read_args)
 {
 	struct amdgpu_device *adev = smu->adev;
 	int ret;
@@ -3236,7 +3238,8 @@ static int smu_v13_0_6_ras_send_msg(struct smu_context *smu, enum smu_message_ty
 	case SMU_MSG_GetTimestamp:
 	case SMU_MSG_GetBadPageIpid:
 	case SMU_MSG_EraseRasTable:
-		ret = smu_cmn_send_smc_msg_with_param(smu, msg, param, read_arg);
+		ret = smu_cmn_send_smc_msg_with_params(smu, msg,
+				params, num_params, read_args, num_read_args);
 		break;
 	default:
 		ret = -EPERM;

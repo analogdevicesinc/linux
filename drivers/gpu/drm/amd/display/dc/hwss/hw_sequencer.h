@@ -66,10 +66,17 @@ struct subvp_pipe_control_lock_fast_params {
 	bool subvp_immediate_flip;
 };
 
-struct pipe_control_lock_params {
+struct tg_lock_params {
 	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct timing_generator *tg;
 	bool lock;
+	bool use_dmub_inbox1;
+	bool triplebuffer_flips;
+};
+
+struct tg_3dlut_wa_unlock_params {
+	struct timing_generator *tg;
+	struct hubp *hubp;
 };
 
 struct set_flip_control_gsl_params {
@@ -90,7 +97,13 @@ struct update_plane_addr_params {
 
 struct set_input_transfer_func_params {
 	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct dpp *dpp;
+	struct hubp *hubp;
+	struct hubp *primary_hubp;
+	struct mpc *mpc;
+	int mpcc_id;
+	struct dc_stream_state *stream;
+	struct input_pixel_processor *ipp;
 	struct dc_plane_state *plane_state;
 };
 
@@ -150,8 +163,8 @@ struct program_upsp_params {
 };
 
 struct update_visual_confirm_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct mpc *mpc;
+	struct tg_color *color;
 	int mpcc_id;
 };
 
@@ -182,8 +195,7 @@ struct subvp_save_surf_addr {
 };
 
 struct wait_for_dcc_meta_propagation_params {
-	const struct dc *dc;
-	const struct pipe_ctx *top_pipe_to_program;
+	uint32_t delay;
 };
 
 struct dmub_hw_control_lock_fast_params {
@@ -337,6 +349,17 @@ struct tg_set_gsl_source_select_params {
 	uint32_t gsl_ready_signal;
 };
 
+struct pipe_control_lock_params {
+	bool lock;
+	struct hubp *hubps_to_wait_for_flip[MAX_PIPES];
+	bool gsl_lock;
+	struct tg_set_gsl_params gsl;
+	struct tg_set_gsl_source_select_params gsl_source_select;
+	struct tg_lock_params tg_lock;
+	bool tg_3dlut_wa_unlock;
+	struct tg_3dlut_wa_unlock_params tg_3dlut_wa_unlock_params;
+};
+
 struct setup_vupdate_interrupt_params {
 	struct dc *dc;
 	struct pipe_ctx *pipe_ctx;
@@ -482,7 +505,6 @@ struct tg_enable_crtc_params {
 
 struct hubp_wait_flip_pending_params {
 	struct hubp *hubp;
-	unsigned int timeout_us;
 	unsigned int polling_interval_us;
 };
 
@@ -819,8 +841,9 @@ struct cursor_lock_params {
 };
 
 struct setup_periodic_interrupt_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct timing_generator *tg;
+	uint32_t start_line;
+	uint32_t end_line;
 };
 
 struct send_cursor_info_to_dmu_params {
@@ -849,8 +872,8 @@ struct set_cursor_position_params {
 };
 
 struct set_cursor_sdr_white_level_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct dpp *dpp;
+	struct dpp_cursor_attributes attr;
 };
 
 struct program_output_csc_params {
@@ -1020,7 +1043,8 @@ struct link_set_dpms_on_params {
 union block_sequence_params {
 	struct update_plane_addr_params update_plane_addr_params;
 	struct subvp_pipe_control_lock_fast_params subvp_pipe_control_lock_fast_params;
-	struct pipe_control_lock_params pipe_control_lock_params;
+	struct tg_lock_params tg_lock_params;
+	struct tg_3dlut_wa_unlock_params tg_3dlut_wa_unlock_params;
 	struct set_flip_control_gsl_params set_flip_control_gsl_params;
 	struct program_triplebuffer_params program_triplebuffer_params;
 	struct set_input_transfer_func_params set_input_transfer_func_params;
@@ -1194,7 +1218,8 @@ union block_sequence_params {
 
 enum block_sequence_func {
 	DMUB_SUBVP_PIPE_CONTROL_LOCK_FAST = 0,
-	OPTC_PIPE_CONTROL_LOCK,
+	TG_LOCK,
+	TG_3DLUT_WA_UNLOCK,
 	HUBP_SET_FLIP_CONTROL_GSL,
 	HUBP_PROGRAM_TRIPLEBUFFER,
 	HUBP_UPDATE_PLANE_ADDR,
@@ -1426,8 +1451,10 @@ struct hw_sequencer_funcs {
 	void (*clear_surface_dcc_and_tiling)(struct pipe_ctx *pipe_ctx, struct dc_plane_state *plane_state, bool clear_tiling);
 
 	/* Pipe Lock Related */
-	void (*pipe_control_lock)(struct dc *dc,
-			struct pipe_ctx *pipe, bool lock);
+	bool (*build_pipe_control_lock_sequence)(struct dc *dc,
+			struct pipe_ctx *pipe, bool lock,
+			struct pipe_control_lock_params *params);
+	void (*tg_lock)(struct tg_lock_params *params);
 	void (*interdependent_update_lock)(struct dc *dc,
 			struct dc_state *context, bool lock);
 	void (*set_flip_control_gsl)(struct pipe_ctx *pipe_ctx,
@@ -1452,8 +1479,9 @@ struct hw_sequencer_funcs {
 	void (*enable_vblanks_synchronization)(struct dc *dc,
 			int group_index, int group_size,
 			struct pipe_ctx *grouped_pipes[]);
-	void (*setup_periodic_interrupt)(struct dc *dc,
-			struct pipe_ctx *pipe_ctx);
+	void (*setup_periodic_interrupt)(struct timing_generator *tg,
+			uint32_t start_line,
+			uint32_t end_line);
 	void (*set_drr)(struct pipe_ctx **pipe_ctx, int num_pipes,
 			struct dc_crtc_timing_adjust adjust);
 	void (*set_static_screen_control)(struct pipe_ctx **pipe_ctx,
@@ -1652,8 +1680,7 @@ struct hw_sequencer_funcs {
 	bool (*is_pipe_topology_transition_seamless)(struct dc *dc,
 			const struct dc_state *cur_ctx,
 			const struct dc_state *new_ctx);
-	void (*wait_for_dcc_meta_propagation)(const struct dc *dc,
-		const struct pipe_ctx *top_pipe_to_program);
+	void (*wait_for_dcc_meta_propagation)(uint32_t delay);
 	void (*dmub_hw_control_lock)(struct dc *dc,
 			struct dc_state *context,
 			bool lock);
@@ -1774,6 +1801,8 @@ void set_drr_and_clear_adjust_pending(
 		struct pipe_ctx *pipe_ctx,
 		struct dc_stream_state *stream,
 		struct drr_params *params);
+
+struct dpp_cursor_attributes calc_sdr_cursor_attributes(struct pipe_ctx *pipe_ctx);
 
 void hwss_execute_sequence(struct dc *dc,
 		struct block_sequence block_sequence[MAX_HWSS_BLOCK_SEQUENCE_SIZE],
@@ -1953,7 +1982,8 @@ void hwss_tg_set_gsl(union block_sequence_params *params);
 
 void hwss_tg_set_gsl_source_select(union block_sequence_params *params);
 
-void hwss_hubp_wait_flip_pending(union block_sequence_params *params);
+void hwss_hubp_wait_flip_pending(struct hubp *hubp,
+		unsigned int polling_interval_us);
 
 void hwss_tg_wait_double_buffer_pending(union block_sequence_params *params);
 
@@ -2113,12 +2143,19 @@ void hwss_commit_cursor_offload_update(union block_sequence_params *params);
 
 void hwss_update_cursor_offload_pipe(union block_sequence_params *params);
 
-void hwss_setup_periodic_interrupt(struct dc *dc, union block_sequence_params *params);
+void hwss_setup_periodic_interrupt(struct dc *dc, struct pipe_ctx *pipe_ctx);
 
 void hwss_disable_audio_stream(struct dc *dc, union block_sequence_params *params);
 
+void hwss_hubp_wait_for_dcc_meta_prop(struct dc *dc, struct pipe_ctx *top_pipe_to_program);
+
+void hwss_set_input_transfer_func(struct dc *dc, struct pipe_ctx *pipe_ctx);
+
 void hwss_add_optc_pipe_control_lock(struct block_sequence_state *seq_state,
 		struct dc *dc, struct pipe_ctx *pipe_ctx, bool lock);
+
+void hwss_pipe_control_lock(struct dc *dc,
+		struct pipe_ctx *pipe_ctx, bool lock);
 
 void hwss_add_hubp_set_flip_control_gsl(struct block_sequence_state *seq_state,
 		struct hubp *hubp, bool flip_immediate);
@@ -2130,7 +2167,7 @@ void hwss_add_hubp_update_plane_addr(struct block_sequence_state *seq_state,
 		struct dc *dc, struct pipe_ctx *pipe_ctx);
 
 void hwss_add_dpp_set_input_transfer_func(struct block_sequence_state *seq_state,
-		struct dc *dc, struct pipe_ctx *pipe_ctx, struct dc_plane_state *plane_state);
+		struct dc *dc, struct pipe_ctx *pipe_ctx);
 
 void hwss_add_dpp_program_gamut_remap(struct block_sequence_state *seq_state,
 		struct pipe_ctx *pipe_ctx);
@@ -2163,9 +2200,6 @@ void hwss_add_dmub_send_dmcub_cmd(struct block_sequence_state *seq_state,
 
 void hwss_add_dmub_subvp_save_surf_addr(struct block_sequence_state *seq_state,
 		struct dc_dmub_srv *dc_dmub_srv, struct dc_plane_address *addr, uint8_t subvp_index);
-
-void hwss_add_hubp_wait_for_dcc_meta_prop(struct block_sequence_state *seq_state,
-		struct dc *dc, struct pipe_ctx *top_pipe_to_program);
 
 void hwss_add_hubp_wait_pipe_read_start(struct block_sequence_state *seq_state,
 		struct hubp *hubp);
@@ -2236,7 +2270,7 @@ void hwss_add_tg_enable_crtc(struct block_sequence_state *seq_state,
 		struct timing_generator *tg);
 
 void hwss_add_hubp_wait_flip_pending(struct block_sequence_state *seq_state,
-		struct hubp *hubp, unsigned int timeout_us, unsigned int polling_interval_us);
+		struct hubp *hubp, unsigned int polling_interval_us);
 
 void hwss_add_tg_wait_double_buffer_pending(struct block_sequence_state *seq_state,
 		struct timing_generator *tg, unsigned int timeout_us, unsigned int polling_interval_us);
@@ -2578,7 +2612,6 @@ void hwss_add_set_cursor_position(struct block_sequence_state *seq_state,
 		struct pipe_ctx *pipe_ctx);
 
 void hwss_add_set_cursor_sdr_white_level(struct block_sequence_state *seq_state,
-		struct dc *dc,
 		struct pipe_ctx *pipe_ctx);
 
 void hwss_add_program_output_csc(struct block_sequence_state *seq_state,

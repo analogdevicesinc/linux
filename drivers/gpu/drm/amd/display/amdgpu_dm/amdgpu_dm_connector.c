@@ -170,6 +170,7 @@ const struct drm_encoder_helper_funcs amdgpu_dm_encoder_helper_funcs = {
 	.disable = dm_encoder_helper_disable,
 	.atomic_check = dm_encoder_helper_atomic_check
 };
+EXPORT_IF_KUNIT(amdgpu_dm_encoder_helper_funcs);
 
 int amdgpu_dm_get_encoder_crtc_mask(struct amdgpu_device *adev)
 {
@@ -214,6 +215,7 @@ int amdgpu_dm_encoder_init(struct drm_device *dev,
 
 	return res;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_encoder_init);
 
 STATIC_IFN_KUNIT enum drm_mode_subconnector get_subconnector_type(struct dc_link *link)
 {
@@ -253,7 +255,7 @@ STATIC_IFN_KUNIT void update_subconnector_property(struct amdgpu_dm_connector *a
 }
 EXPORT_IF_KUNIT(update_subconnector_property);
 
-static int amdgpu_dm_connector_get_modes(struct drm_connector *connector);
+STATIC_IFN_KUNIT int amdgpu_dm_connector_get_modes(struct drm_connector *connector);
 
 STATIC_IFN_KUNIT void amdgpu_dm_fbc_init(struct drm_connector *connector)
 {
@@ -2570,7 +2572,7 @@ int amdgpu_dm_fill_hdr_info_packet(const struct drm_connector_state *state,
 }
 EXPORT_IF_KUNIT(amdgpu_dm_fill_hdr_info_packet);
 
-static int
+STATIC_IFN_KUNIT int
 amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
 				 struct drm_atomic_commit *state)
 {
@@ -2651,6 +2653,7 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_atomic_check);
 
 static const struct drm_connector_helper_funcs
 amdgpu_dm_connector_helper_funcs = {
@@ -2887,6 +2890,7 @@ void amdgpu_set_panel_orientation(struct drm_connector *connector)
 						       native_mode->hdisplay,
 						       native_mode->vdisplay);
 }
+EXPORT_IF_KUNIT(amdgpu_set_panel_orientation);
 
 /*
  * The Apple Studio Display primary tile advertises both the full 5120x2880
@@ -2895,7 +2899,7 @@ void amdgpu_set_panel_orientation(struct drm_connector *connector)
  * per-tile timing from the primary connector so compositors only pick the full
  * 5K mode.
  */
-static void amdgpu_dm_prune_primary_tile_modes(struct drm_connector *connector)
+STATIC_IFN_KUNIT void amdgpu_dm_prune_primary_tile_modes(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
 	struct drm_display_mode *mode, *t;
@@ -2928,6 +2932,7 @@ static void amdgpu_dm_prune_primary_tile_modes(struct drm_connector *connector)
 		aconnector->num_modes--;
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_prune_primary_tile_modes);
 
 STATIC_IFN_KUNIT void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *connector,
 					      const struct drm_edid *drm_edid)
@@ -3081,7 +3086,7 @@ STATIC_IFN_KUNIT void amdgpu_dm_connector_add_freesync_modes(struct drm_connecto
 }
 EXPORT_IF_KUNIT(amdgpu_dm_connector_add_freesync_modes);
 
-static int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
+STATIC_IFN_KUNIT int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *amdgpu_dm_connector =
 			to_amdgpu_dm_connector(connector);
@@ -3120,6 +3125,7 @@ static int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
 
 	return amdgpu_dm_connector->num_modes;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_get_modes);
 
 static const u32 supported_colorspaces =
 	BIT(DRM_MODE_COLORIMETRY_BT709_YCC) |
@@ -3133,7 +3139,7 @@ static const u32 supported_colorformats =
 	BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422) |
 	BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
 
-static void hdmi_frl_status_polling_work(struct work_struct *work)
+void hdmi_frl_status_polling_work(struct work_struct *work)
 {
 	struct amdgpu_display_manager *dm =
 		container_of(to_delayed_work(work), struct amdgpu_display_manager,
@@ -3167,6 +3173,7 @@ static void hdmi_frl_status_polling_work(struct work_struct *work)
 			   &dm->hdmi_frl_status_polling_work,
 			   msecs_to_jiffies(dm->hdmi_frl_status_polling_delay_ms));
 }
+EXPORT_IF_KUNIT(hdmi_frl_status_polling_work);
 
 void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
 				     struct amdgpu_dm_connector *aconnector,
@@ -3392,6 +3399,7 @@ amdgpu_dm_create_i2c(struct ddc_service *ddc_service, bool oem)
 
 	return i2c;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_create_i2c);
 
 int amdgpu_dm_initialize_hdmi_connector(struct amdgpu_dm_connector *aconnector)
 {
@@ -3705,6 +3713,15 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 	if (!adev->dm.freesync_module || !dc_supports_vrr(sink->ctx->dce_version))
 		goto update;
 
+	drm_dbg_driver(adev_to_drm(adev),
+		       "VRR: enter signal=%d hdmi_vrr=%d mrange[%d-%d] hdmi.vrr_cap[sup=%d min=%d max=%d]\n",
+		       sink->sink_signal, connector->display_info.hdmi.vrr_cap.supported,
+		       connector->display_info.monitor_range.min_vfreq,
+		       connector->display_info.monitor_range.max_vfreq,
+		       connector->display_info.hdmi.vrr_cap.supported,
+		       connector->display_info.hdmi.vrr_cap.vrr_min,
+		       connector->display_info.hdmi.vrr_cap.vrr_max);
+
 	/* FIXME: Get rid of drm_edid_raw() */
 	edid = drm_edid_raw(drm_edid);
 
@@ -3747,9 +3764,55 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 	} else if (has_vsdb && sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A) {
 		sink->edid_caps.freesync_vcp_code = vsdb_info.freesync_mccs_vcp_code;
 
-		if (vsdb_info.freesync_supported &&
-		    amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
-			freesync_capable = true;
+	} else if (drm_edid &&
+		  (sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A ||
+		   sink->sink_signal == SIGNAL_TYPE_HDMI_FRL)) {
+		/*
+		 * If AMD VSDB didn't provide a valid FreeSync range, fall back to
+		 * the HDMI 2.1 VRR capability parsed from the HF-VSDB.
+		 */
+		if (!freesync_capable && connector->display_info.hdmi.vrr_cap.supported) {
+			struct drm_hdmi_vrr_cap *vrr_cap =
+				&connector->display_info.hdmi.vrr_cap;
+
+			drm_dbg_driver(adev_to_drm(adev),
+				       "VRR: HF-VSDB fallback: hdmi_vrr=1 vrr_cap[sup=%d min=%d max=%d] mrange_max=%d\n",
+				       vrr_cap->supported, vrr_cap->vrr_min, vrr_cap->vrr_max,
+				       connector->display_info.monitor_range.max_vfreq);
+
+			if (vrr_cap->supported && vrr_cap->vrr_min > 0) {
+				amdgpu_dm_connector->min_vfreq = vrr_cap->vrr_min;
+				amdgpu_dm_connector->max_vfreq = vrr_cap->vrr_max ?
+					vrr_cap->vrr_max :
+					connector->display_info.monitor_range.max_vfreq;
+
+				/*
+				 * VRRMAX = 0 in the HF-VSDB means "up to the Base
+				 * Refresh Rate". If the EDID also did not provide a
+				 * monitor range max, fall back to the Base Refresh
+				 * Rate (the highest refresh rate of the preferred
+				 * timing) so a valid VRR range is still reported to
+				 * userspace.
+				 */
+				if (!amdgpu_dm_connector->max_vfreq) {
+					struct drm_display_mode *brr_mode =
+						amdgpu_dm_get_highest_refresh_rate_mode(amdgpu_dm_connector, true);
+
+					if (brr_mode)
+						amdgpu_dm_connector->max_vfreq =
+							drm_mode_vrefresh(brr_mode);
+				}
+
+				if (amdgpu_dm_connector->max_vfreq -
+				    amdgpu_dm_connector->min_vfreq > 10)
+					freesync_capable = true;
+
+				connector->display_info.monitor_range.min_vfreq =
+					amdgpu_dm_connector->min_vfreq;
+				connector->display_info.monitor_range.max_vfreq =
+					amdgpu_dm_connector->max_vfreq;
+			}
+		}
 	}
 
 	if (amdgpu_dm_connector->dc_link)
@@ -3765,6 +3828,18 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 			if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
 				freesync_capable = true;
 		}
+	}
+
+	/*
+	 * Apply per-monitor FreeSync range quirks. Some panels report a
+	 * VRR minimum that does not operate reliably; force it when the
+	 * monitor is quirked (see apply_edid_quirks()).
+	 */
+	if (sink->edid_caps.panel_patch.force_freesync_min_hz && freesync_capable) {
+		amdgpu_dm_connector->min_vfreq =
+			sink->edid_caps.panel_patch.force_freesync_min_hz;
+		connector->display_info.monitor_range.min_vfreq =
+			amdgpu_dm_connector->min_vfreq;
 	}
 
 	/* Handle MCCS */
@@ -3783,6 +3858,11 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 update:
 	if (dm_con_state)
 		dm_con_state->freesync_capable = freesync_capable;
+
+	drm_dbg_driver(adev_to_drm(adev),
+		       "VRR: caps result: freesync_capable=%d min_vfreq=%d max_vfreq=%d\n",
+		       freesync_capable, amdgpu_dm_connector->min_vfreq,
+		       amdgpu_dm_connector->max_vfreq);
 
 	if (connector->state && amdgpu_dm_connector->dc_link && !freesync_capable &&
 	    amdgpu_dm_connector->dc_link->replay_settings.config.replay_supported) {

@@ -507,9 +507,6 @@ void amdgpu_pm_acpi_event_handler(struct amdgpu_device *adev)
 		    adev->powerplay.pp_funcs->notify_ac_dc)
 			amdgpu_dpm_notify_ac_dc(adev);
 
-		if (is_support_sw_smu(adev))
-			smu_set_ac_dc(adev->powerplay.pp_handle, true);
-
 		mutex_unlock(&adev->pm.mutex);
 	}
 }

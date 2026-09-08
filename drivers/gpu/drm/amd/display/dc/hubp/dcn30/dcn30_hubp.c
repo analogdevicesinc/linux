@@ -615,7 +615,7 @@ void hubp3_setup(
 
 void hubp3_init(struct hubp *hubp)
 {
-	// DEDCN21-133: Inconsistent row starting line for flip between DPTE and Meta
+	// Inconsistent row starting line for flip between DPTE and Meta
 	// This is a chicken bit to enable the ECO fix.
 
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);

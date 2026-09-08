@@ -23,6 +23,7 @@
  *
  */
 
+#include "dce/dce_hwseq.h"
 #include "dce110/dce110_hwseq.h"
 #include "dcn10/dcn10_hwseq.h"
 #include "dcn20/dcn20_hwseq.h"
@@ -55,7 +56,8 @@ static const struct hw_sequencer_funcs dcn201_funcs = {
 	.enable_audio_stream = dce110_enable_audio_stream,
 	.disable_audio_stream = dce110_disable_audio_stream,
 	.disable_plane = dcn10_disable_plane,
-	.pipe_control_lock = dcn201_pipe_control_lock,
+	.build_pipe_control_lock_sequence = dce_build_pipe_control_lock_sequence,
+	.tg_lock = dcn201_tg_lock,
 	.interdependent_update_lock = dcn10_lock_all_pipes,
 	.cursor_lock = dcn10_cursor_lock,
 	.prepare_bandwidth = dcn20_prepare_bandwidth,

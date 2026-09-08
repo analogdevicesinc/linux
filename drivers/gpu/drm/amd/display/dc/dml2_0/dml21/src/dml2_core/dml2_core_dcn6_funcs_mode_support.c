@@ -988,12 +988,16 @@ static void dcn6_ms_calculate_num_of_dpp_required(
 	for (k = 0; k < display_cfg->num_planes; k++) {
 		plane = &display_cfg->plane_descriptors[k];
 		outputs->NoOfDPP[k] = 1;
+		outputs->NoOfOPP[k] = 1;
 		if (inputs->ODMMode[k] == dml2_odm_mode_combine_4to1) {
 			outputs->NoOfDPP[k] = 4;
+			outputs->NoOfOPP[k] = 4;
 		} else if (inputs->ODMMode[k] == dml2_odm_mode_combine_3to1) {
 			outputs->NoOfDPP[k] = 3;
+			outputs->NoOfOPP[k] = 3;
 		} else if (inputs->ODMMode[k] == dml2_odm_mode_combine_2to1) {
 			outputs->NoOfDPP[k] = 2;
+			outputs->NoOfOPP[k] = 2;
 		} else if (plane->overrides.mpcc_combine_factor == 2) {
 			outputs->MPCCombine[k] = true;
 			outputs->NoOfDPP[k] = 2;
@@ -1027,12 +1031,28 @@ static bool dcn6_ms_check_total_available_pipes_support(
 	struct dml2_core_internal_mode_support *inputs = states;
 	struct dml2_core_internal_mode_support *outputs = states;
 	unsigned int totalNumOfActiveDPP = 0;
-	unsigned int k;
+	unsigned int k, m;
 
 	DML_LOG_FUNC_ENTER();
 	for (k = 0; k < display_cfg->num_planes; k++)
 		totalNumOfActiveDPP += inputs->NoOfDPP[k];
-	outputs->support.TotalAvailablePipesSupport = totalNumOfActiveDPP <= (unsigned int)ip->max_num_dpp;
+
+
+	// TotalNumberOfActiveOPP is the sum of the per stream max NoOfOPP of all planes driving that stream
+	outputs->TotalNumberOfActiveOPP = 0;
+	for (k = 0; k < display_cfg->num_streams; k++) {
+		unsigned int NoOfOppPerStream = 0;
+
+		for (m = 0; m < display_cfg->num_planes; m++) {
+			if (display_cfg->plane_descriptors[m].stream_index == k)
+				NoOfOppPerStream = NoOfOppPerStream < inputs->NoOfOPP[m] ? inputs->NoOfOPP[m] : NoOfOppPerStream;
+		}
+
+		outputs->TotalNumberOfActiveOPP += NoOfOppPerStream;
+	}
+
+	outputs->support.TotalAvailablePipesSupport = totalNumOfActiveDPP <= (unsigned int)ip->max_num_dpp
+			&& outputs->TotalNumberOfActiveOPP <= (unsigned int)ip->max_num_opp;
 
 	DML_LOG_DEBUG_BOOL(outputs->support.TotalAvailablePipesSupport);
 	DML_LOG_FUNC_EXIT();
@@ -1272,10 +1292,6 @@ static bool dcn6_ms_check_writeback_count_support(
 
 		totalNumberOfActiveWriteback +=
 				display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].writeback.active_writebacks_per_stream;
-
-		/* >1 writeback per stream is currently not supported */
-		if (display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].writeback.active_writebacks_per_stream > 1)
-			writeback_per_stream_supported = false;
 	}
 	outputs->support.EnoughWritebackUnits = writeback_per_stream_supported &&
 			totalNumberOfActiveWriteback <= ip->max_num_wb;
@@ -2246,6 +2262,8 @@ static void dcn6_ms_calculate_alternate_params(const struct dml2_core_calculate_
 	p->Read256BlockHeightC = inputs->Read256BlockHeightC;
 	p->MacroTileWidthY = inputs->MacroTileWidthY;
 	p->MacroTileWidthC = inputs->MacroTileWidthC;
+	p->MacroTileHeightY = inputs->MacroTileHeightY;
+	p->MacroTileHeightC = inputs->MacroTileHeightC;
 	p->VInitPrefillY = inputs->PrefillY;
 	p->VInitPrefillC = inputs->PrefillC;
 	p->VRatioPrefetchY = inputs->VRatioPreY;
@@ -2316,6 +2334,7 @@ static void dcn6_ms_calculate_alternate_svp_lines(const struct dml2_core_calcula
 	struct dml2_core_internal_mode_support *outputs = states;
 
 	DML_LOG_FUNC_ENTER();
+
 	p->display_cfg = ctx->display_cfg;
 	p->SwathHeightY = inputs->SwathHeightY;
 	p->SwathHeightC = inputs->SwathHeightC;
@@ -2380,6 +2399,13 @@ static void dcn6_ms_check_average_latency_supports(
 	DML_LOG_FUNC_ENTER();
 	outputs->support.OutstandingRequestsSupport = true;
 	outputs->support.OutstandingRequestsUrgencyAvoidance = true;
+	/* An SOP being capable of high bandwidth drives DCFCLK up, which shrinks the outstanding-request
+	 * buffer window below the request latency and (perversely) fails this check. For analysis of future
+	 * SoCs the ROB size / request limit is not yet fixed, so allow the check to be opted out. */
+	if (display_cfg->overrides.hw.outstanding_requests_check_disable) {
+		DML_LOG_FUNC_EXIT();
+		return;
+	}
 	for (k = 0; k < display_cfg->num_planes; k++) {
 		outstanding_latency_us = soc_bb->max_outstanding_reqs
 				* inputs->support.request_size_bytes_luma[k]

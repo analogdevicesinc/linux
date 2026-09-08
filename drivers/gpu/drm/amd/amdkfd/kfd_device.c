@@ -1512,8 +1512,11 @@ void kgd2kfd_smi_event_throttle(struct kfd_dev *kfd, uint64_t throttle_bitmask)
  */
 unsigned int kfd_get_num_sdma_engines(struct kfd_node *node)
 {
-	/* If XGMI is not supported, all SDMA engines are PCIe */
-	if (!node->adev->gmc.xgmi.supported)
+	/* If XGMI is not supported, all SDMA engines are PCIe.
+	 * Also, on GC 12.1, all SDMA engines are the same.
+	 */
+	if (!node->adev->gmc.xgmi.supported ||
+	    KFD_GC_VERSION(node->kfd) == IP_VERSION(12, 1, 0))
 		return node->adev->sdma.num_instances/(int)node->kfd->num_nodes;
 
 	return min(node->adev->sdma.num_instances/(int)node->kfd->num_nodes, 2);
