@@ -3585,21 +3585,20 @@ int scsi_vpd_tpg_id(struct scsi_device *sdev, int *rel_id)
 EXPORT_SYMBOL(scsi_vpd_tpg_id);
 
 /**
- * scsi_build_sense - build sense data for a command
+ * scsi_set_sense - build sense data for a command
  * @scmd:	scsi command for which the sense should be formatted
  * @desc:	Sense format (non-zero == descriptor format,
  *              0 == fixed format)
  * @key:	Sense key
- * @asc:	Additional sense code
- * @ascq:	Additional sense code qualifier
+ * @code:	Additional sense code and sense code qualifier
  *
  **/
-void scsi_build_sense(struct scsi_cmnd *scmd, int desc, u8 key, u8 asc, u8 ascq)
+void scsi_set_sense(struct scsi_cmnd *scmd, int desc, u8 key, u16 code)
 {
-	scsi_build_sense_buffer(desc, scmd->sense_buffer, key, asc, ascq);
+	scsi_set_sense_buffer(desc, scmd->sense_buffer, key, code);
 	scmd->result = SAM_STAT_CHECK_CONDITION;
 }
-EXPORT_SYMBOL_GPL(scsi_build_sense);
+EXPORT_SYMBOL_GPL(scsi_set_sense);
 
 #ifdef CONFIG_SCSI_LIB_KUNIT_TEST
 #include "scsi_lib_test.c"

@@ -391,15 +391,7 @@ static inline unsigned scsi_transfer_length(struct scsi_cmnd *scmd)
 	return xfer_len;
 }
 
-extern void scsi_build_sense(struct scsi_cmnd *scmd, int desc,
-			     u8 key, u8 asc, u8 ascq);
-
-static inline void scsi_set_sense(struct scsi_cmnd *scmd, int desc,
-				  u8 key, u16 code)
-{
-	scsi_build_sense(scmd, desc, key, scsi_sense_code_asc(code),
-			 scsi_sense_code_ascq(code));
-}
+void scsi_set_sense(struct scsi_cmnd *scmd, int desc, u8 key, u16 code);
 
 struct request *scsi_alloc_request(struct request_queue *q, blk_opf_t opf,
 				   blk_mq_req_flags_t flags);

@@ -99,13 +99,7 @@ static inline u8 scsi_sense_ascq(const struct scsi_sense_hdr *sshdr)
 extern bool scsi_normalize_sense(const u8 *sense_buffer, int sb_len,
 				 struct scsi_sense_hdr *sshdr);
 
-extern void scsi_build_sense_buffer(int desc, u8 *buf, u8 key, u8 asc, u8 ascq);
-
-static inline void scsi_set_sense_buffer(int desc, u8 *buf, u8 key, u16 code)
-{
-	scsi_build_sense_buffer(desc, buf, key, scsi_sense_code_asc(code),
-				scsi_sense_code_ascq(code));
-}
+void scsi_set_sense_buffer(int desc, u8 *buf, u8 key, u16 code);
 
 int scsi_set_sense_information(u8 *buf, int buf_len, u64 info);
 int scsi_set_sense_field_pointer(u8 *buf, int buf_len, u16 fp, u8 bp, bool cd);
