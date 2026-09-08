@@ -2196,8 +2196,6 @@ static __cold void io_ring_ctx_free(struct io_ring_ctx *ctx)
 	io_sq_thread_finish(ctx);
 
 	mutex_lock(&ctx->uring_lock);
-	io_sqe_buffers_unregister(ctx);
-	io_sqe_files_unregister(ctx);
 	io_unregister_zcrx(ctx);
 	io_cqring_overflow_kill(ctx);
 	io_eventfd_unregister(ctx);
@@ -2463,6 +2461,9 @@ static __cold void io_ring_ctx_wait_and_kill(struct io_ring_ctx *ctx)
 	xa_for_each(&ctx->personalities, index, creds)
 		io_unregister_personality(ctx, index);
 	io_terminate_zcrx(ctx);
+	/* Drop these now, rather than async, to unpin the files */
+	io_sqe_buffers_unregister(ctx);
+	io_sqe_files_unregister(ctx);
 	mutex_unlock(&ctx->uring_lock);
 
 	/*
