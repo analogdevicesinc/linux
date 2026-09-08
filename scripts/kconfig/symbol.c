@@ -1196,6 +1196,7 @@ static struct symbol *sym_check_expr_deps(const struct expr *e)
 	case E_GTH:
 	case E_LEQ:
 	case E_LTH:
+	case E_RANGE:
 	case E_UNEQUAL:
 		sym = sym_check_deps(e->left.sym);
 		if (sym)
@@ -1243,7 +1244,9 @@ static struct symbol *sym_check_sym_deps(struct symbol *sym)
 		sym2 = sym_check_expr_deps(prop->visible.expr);
 		if (sym2)
 			break;
-		if (prop->type != P_DEFAULT || sym_is_choice(sym))
+		if (sym_is_choice(sym))
+			continue;
+		if (prop->type != P_DEFAULT && prop->type != P_RANGE)
 			continue;
 		stack.expr = &prop->expr;
 		sym2 = sym_check_expr_deps(prop->expr);
