@@ -1516,11 +1516,13 @@ static bool ata_eh_request_sense(struct ata_queued_cmd *qc)
 	err_mask = ata_exec_internal(dev, &tf, NULL, DMA_NONE, NULL, 0, 0);
 	/* Ignore err_mask; ATA_ERR might be set */
 	if (tf.status & ATA_SENSE) {
-		if (ata_scsi_sense_is_valid(tf.lbah, tf.lbam, tf.lbal)) {
+		u16 sense_code = scsi_sense_code(tf.lbam, tf.lbal);
+
+		if (ata_scsi_sense_is_valid(tf.lbah, sense_code)) {
 			/* Set sense without also setting scsicmd->result */
-			scsi_build_sense_buffer(dev->flags & ATA_DFLAG_D_SENSE,
-						cmd->sense_buffer, tf.lbah,
-						tf.lbam, tf.lbal);
+			scsi_set_sense_buffer(dev->flags & ATA_DFLAG_D_SENSE,
+					      cmd->sense_buffer, tf.lbah,
+					      sense_code);
 			qc->flags |= ATA_QCFLAG_SENSE_VALID;
 			return true;
 		}
@@ -2094,7 +2096,8 @@ out:
 			continue;
 
 		/* This success command had sense data, but we failed to get. */
-		ata_scsi_set_sense(dev, qc->scsicmd, ABORTED_COMMAND, 0, 0);
+		ata_scsi_set_sense(dev, qc->scsicmd, ABORTED_COMMAND,
+				   NO_ADDITIONAL_SENSE_INFORMATION);
 		qc->flags |= ATA_QCFLAG_SENSE_VALID;
 	}
 	ata_eh_done(link, dev, ATA_EH_GET_SUCCESS_SENSE);
