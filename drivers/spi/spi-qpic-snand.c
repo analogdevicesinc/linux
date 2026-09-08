@@ -1585,7 +1585,6 @@ static int qcom_spi_probe(struct platform_device *pdev)
 	struct qpic_spi_nand *qspi;
 	struct qpic_ecc *ecc;
 	struct resource *res;
-	const void *dev_data;
 	int ret;
 
 	ecc = devm_kzalloc(dev, sizeof(*ecc), GFP_KERNEL);
@@ -1613,13 +1612,11 @@ static int qcom_spi_probe(struct platform_device *pdev)
 	snandc->qspi->ctlr = ctlr;
 	snandc->qspi->ecc = ecc;
 
-	dev_data = of_device_get_match_data(dev);
-	if (!dev_data) {
+	snandc->props = of_device_get_match_data(dev);
+	if (!snandc->props) {
 		dev_err(&pdev->dev, "failed to get device data\n");
 		return -ENODEV;
 	}
-
-	snandc->props = dev_data;
 
 	snandc->core_clk = devm_clk_get_enabled(dev, "core");
 	if (IS_ERR(snandc->core_clk))
