@@ -9,7 +9,9 @@
 #include <linux/clk/zynq.h>
 #include <linux/clk-provider.h>
 #include <linux/slab.h>
+#include <linux/bits.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 
 /**
  * struct zynq_pll - pll clock
@@ -40,6 +42,10 @@ struct zynq_pll {
 
 #define PLL_FBDIV_MIN	13
 #define PLL_FBDIV_MAX	66
+
+/* Software bound for a stuck PLL under spinlock; not from the TRM. */
+#define PLL_LOCK_POLL_DELAY_US	10
+#define PLL_LOCK_TIMEOUT_US	1000
 
 /**
  * zynq_pll_determine_rate() - Round a clock frequency
@@ -119,6 +125,7 @@ static int zynq_pll_enable(struct clk_hw *hw)
 	unsigned long flags = 0;
 	u32 reg;
 	struct zynq_pll *clk = to_zynq_pll(hw);
+	int ret;
 
 	if (zynq_pll_is_enabled(hw))
 		return 0;
@@ -131,12 +138,14 @@ static int zynq_pll_enable(struct clk_hw *hw)
 	reg = readl(clk->pll_ctrl);
 	reg &= ~(PLLCTRL_RESET_MASK | PLLCTRL_PWRDWN_MASK);
 	writel(reg, clk->pll_ctrl);
-	while (!(readl(clk->pll_status) & (1 << clk->lockbit)))
-		;
+	ret = readl_poll_timeout_atomic(clk->pll_status, reg,
+					reg & BIT(clk->lockbit),
+					PLL_LOCK_POLL_DELAY_US,
+					PLL_LOCK_TIMEOUT_US);
 
 	spin_unlock_irqrestore(clk->lock, flags);
 
-	return 0;
+	return ret;
 }
 
 /**
