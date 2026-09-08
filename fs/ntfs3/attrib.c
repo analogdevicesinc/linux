@@ -394,13 +394,15 @@ static int attr_set_size_res(struct ntfs_inode *ni, struct ATTRIB *attr,
 	char *next = Add2Ptr(attr, asize);
 	s64 dsize = ALIGN(new_size, 8) - ALIGN(rsize, 8);
 
+	if (new_size > sbi->record_size ||
+	    (dsize > 0 && used + dsize > sbi->max_bytes_per_attr)) {
+		return attr_make_nonresident(ni, attr, le, mi, new_size, run,
+					     ins_attr, NULL);
+	}
+
 	if (dsize < 0) {
 		memmove(next + dsize, next, tail);
 	} else if (dsize > 0) {
-		if (used + dsize > sbi->max_bytes_per_attr)
-			return attr_make_nonresident(ni, attr, le, mi, new_size,
-						     run, ins_attr, NULL);
-
 		memmove(next + dsize, next, tail);
 		memset(next, 0, dsize);
 	}

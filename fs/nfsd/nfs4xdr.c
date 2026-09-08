@@ -54,6 +54,7 @@
 #include "xdr4.h"
 #include "vfs.h"
 #include "state.h"
+#include "nfserr.h"
 #include "cache.h"
 #include "netns.h"
 #include "pnfs.h"
@@ -1606,7 +1607,7 @@ nfsd4_decode_write(struct nfsd4_compoundargs *argp, union nfsd4_op_u *u)
 		return nfserr_bad_xdr;
 	if (xdr_stream_decode_u32(argp->xdr, &write->wr_stable_how) < 0)
 		return nfserr_bad_xdr;
-	if (write->wr_stable_how > NFS_FILE_SYNC)
+	if (write->wr_stable_how > FILE_SYNC4)
 		return nfserr_bad_xdr;
 	if (xdr_stream_decode_u32(argp->xdr, &write->wr_buflen) < 0)
 		return nfserr_bad_xdr;
@@ -1919,6 +1920,17 @@ nfsd4_decode_get_dir_delegation(struct nfsd4_compoundargs *argp,
 }
 
 #ifdef CONFIG_NFSD_PNFS
+static __be32
+nfsd4_decode_deviceid4(struct xdr_stream *xdr, struct nfsd4_deviceid *devid)
+{
+	__be32 *p = xdr_inline_decode(xdr, NFS4_DEVICEID4_SIZE);
+
+	if (unlikely(!p))
+		return nfserr_bad_xdr;
+	svcxdr_decode_deviceid4(p, devid);
+	return nfs_ok;
+}
+
 static __be32
 nfsd4_decode_getdeviceinfo(struct nfsd4_compoundargs *argp,
 		union nfsd4_op_u *u)
@@ -2732,6 +2744,87 @@ nfsd4_decode_compound(struct nfsd4_compoundargs *argp)
 
 	return true;
 }
+
+static __always_inline __be32
+nfsd4_encode_bool(struct xdr_stream *xdr, bool val)
+{
+	__be32 *p = xdr_reserve_space(xdr, XDR_UNIT);
+
+	if (unlikely(p == NULL))
+		return nfserr_resource;
+	*p = val ? xdr_one : xdr_zero;
+	return nfs_ok;
+}
+
+static __always_inline __be32
+nfsd4_encode_uint32_t(struct xdr_stream *xdr, u32 val)
+{
+	__be32 *p = xdr_reserve_space(xdr, XDR_UNIT);
+
+	if (unlikely(p == NULL))
+		return nfserr_resource;
+	*p = cpu_to_be32(val);
+	return nfs_ok;
+}
+
+#define nfsd4_encode_aceflag4(x, v)	nfsd4_encode_uint32_t(x, v)
+#define nfsd4_encode_acemask4(x, v)	nfsd4_encode_uint32_t(x, v)
+#define nfsd4_encode_acetype4(x, v)	nfsd4_encode_uint32_t(x, v)
+#define nfsd4_encode_count4(x, v)	nfsd4_encode_uint32_t(x, v)
+#define nfsd4_encode_mode4(x, v)	nfsd4_encode_uint32_t(x, v)
+#define nfsd4_encode_nfs_lease4(x, v)	nfsd4_encode_uint32_t(x, v)
+#define nfsd4_encode_qop4(x, v)		nfsd4_encode_uint32_t(x, v)
+#define nfsd4_encode_sequenceid4(x, v)	nfsd4_encode_uint32_t(x, v)
+#define nfsd4_encode_slotid4(x, v)	nfsd4_encode_uint32_t(x, v)
+
+static __always_inline __be32
+nfsd4_encode_uint64_t(struct xdr_stream *xdr, u64 val)
+{
+	__be32 *p = xdr_reserve_space(xdr, XDR_UNIT * 2);
+
+	if (unlikely(p == NULL))
+		return nfserr_resource;
+	put_unaligned_be64(val, p);
+	return nfs_ok;
+}
+
+#define nfsd4_encode_changeid4(x, v)	nfsd4_encode_uint64_t(x, v)
+#define nfsd4_encode_nfs_cookie4(x, v)	nfsd4_encode_uint64_t(x, v)
+#define nfsd4_encode_length4(x, v)	nfsd4_encode_uint64_t(x, v)
+#define nfsd4_encode_offset4(x, v)	nfsd4_encode_uint64_t(x, v)
+
+static __always_inline __be32
+nfsd4_encode_opaque_fixed(struct xdr_stream *xdr, const void *data,
+			  size_t size)
+{
+	__be32 *p = xdr_reserve_space(xdr, xdr_align_size(size));
+	size_t pad = xdr_pad_size(size);
+
+	if (unlikely(p == NULL))
+		return nfserr_resource;
+	memcpy(p, data, size);
+	if (pad)
+		memset((char *)p + size, 0, pad);
+	return nfs_ok;
+}
+
+static __always_inline __be32
+nfsd4_encode_opaque(struct xdr_stream *xdr, const void *data, size_t size)
+{
+	size_t pad = xdr_pad_size(size);
+	__be32 *p;
+
+	p = xdr_reserve_space(xdr, XDR_UNIT + xdr_align_size(size));
+	if (unlikely(p == NULL))
+		return nfserr_resource;
+	*p++ = cpu_to_be32(size);
+	memcpy(p, data, size);
+	if (pad)
+		memset((char *)p + size, 0, pad);
+	return nfs_ok;
+}
+
+#define nfsd4_encode_component4(x, d, s)	nfsd4_encode_opaque(x, d, s)
 
 static __be32 nfsd4_encode_nfs_fh4(struct xdr_stream *xdr,
 				   const struct knfsd_fh *fh_handle)
@@ -4285,20 +4378,15 @@ out:
 static bool
 nfsd4_setup_notify_entry4(struct notify_entry4 *ne, struct xdr_stream *xdr,
 			  struct dentry *dentry, struct nfs4_delegation *dp,
-			  struct nfsd_file *nf, char *name, u32 namelen)
+			  struct nfsd_file *nf, char *name, u32 namelen,
+			  u32 *attrmask)
 {
 	struct path path = nf->nf_file->f_path;
 	struct nfsd4_fattr_args args = { };
 	const u32 *reqmask;
-	uint32_t *attrmask;
 	__be32 status;
 	bool parent;
 	int ret;
-
-	/* Reserve space for attrmask */
-	attrmask = xdr_reserve_space(xdr, 3 * sizeof(uint32_t));
-	if (!attrmask)
-		return false;
 
 	ne->ne_file.data = name;
 	ne->ne_file.len = namelen;
@@ -4383,6 +4471,7 @@ u8 *nfsd4_encode_notify_event(struct xdr_stream *xdr, struct nfsd_notify_event *
 			      struct nfs4_delegation *dp, struct nfsd_file *nf,
 			      u32 *notify_mask)
 {
+	u32 attrmask[3][3] = { };
 	u8 *p = NULL;
 
 	*notify_mask = 0;
@@ -4391,7 +4480,8 @@ u8 *nfsd4_encode_notify_event(struct xdr_stream *xdr, struct nfsd_notify_event *
 		struct notify_remove4 nr = { };
 
 		if (!nfsd4_setup_notify_entry4(&nr.nrm_old_entry, xdr, nne->ne_dentry, dp,
-					       nf, nne->ne_name, nne->ne_namelen))
+					       nf, nne->ne_name, nne->ne_namelen,
+					       attrmask[0]))
 			goto out_err;
 		p = (u8 *)xdr->p;
 		if (!xdrgen_encode_notify_remove4(xdr, &nr))
@@ -4402,14 +4492,16 @@ u8 *nfsd4_encode_notify_event(struct xdr_stream *xdr, struct nfsd_notify_event *
 		struct notify_remove4 old = { };
 
 		if (!nfsd4_setup_notify_entry4(&na.nad_new_entry, xdr, nne->ne_dentry, dp,
-					       nf, nne->ne_name, nne->ne_namelen))
+					       nf, nne->ne_name, nne->ne_namelen,
+					       attrmask[0]))
 			goto out_err;
 
 		/* If a file was overwritten, report it in nad_old_entry */
 		if (nne->ne_target) {
 			if (!nfsd4_setup_notify_entry4(&old.nrm_old_entry, xdr,
 						       NULL, dp, nf,
-						       nne->ne_name, nne->ne_namelen))
+						       nne->ne_name, nne->ne_namelen,
+						       attrmask[1]))
 				goto out_err;
 			na.nad_old_entry.count = 1;
 			na.nad_old_entry.element = &old;
@@ -4428,19 +4520,19 @@ u8 *nfsd4_encode_notify_event(struct xdr_stream *xdr, struct nfsd_notify_event *
 		/* Don't send any attributes in the old_entry since they're the same in new */
 		if (!nfsd4_setup_notify_entry4(&nr.nrn_old_entry.nrm_old_entry, xdr,
 					       NULL, dp, nf, nne->ne_name,
-					       nne->ne_namelen))
+					       nne->ne_namelen, attrmask[0]))
 			goto out_err;
 
 		if (!nfsd4_setup_notify_entry4(&nr.nrn_new_entry.nad_new_entry, xdr,
 					       nne->ne_dentry, dp, nf, newname,
-					       nne->ne_newnamelen))
+					       nne->ne_newnamelen, attrmask[1]))
 			goto out_err;
 
 		/* If a file was overwritten, report it in nad_old_entry */
 		if (nne->ne_target) {
 			if (!nfsd4_setup_notify_entry4(&old.nrm_old_entry, xdr,
 						       NULL, dp, nf, newname,
-						       nne->ne_newnamelen))
+						       nne->ne_newnamelen, attrmask[2]))
 				goto out_err;
 			nr.nrn_new_entry.nad_old_entry.count = 1;
 			nr.nrn_new_entry.nad_old_entry.element = &old;
@@ -4476,11 +4568,12 @@ u8 *nfsd4_encode_dir_attr_change(struct xdr_stream *xdr, struct nfs4_delegation 
 {
 	struct dentry *dentry = nf->nf_file->f_path.dentry;
 	struct notify_attr4 na = { };
+	u32 attrmask[3] = { };
 	u8 *p;
 
 	/* RFC 8881 s10.4.3: ne_file must be a zero-length string for dir attrs */
 	if (!nfsd4_setup_notify_entry4(&na.na_changed_entry, xdr,
-				       dentry, dp, nf, "", 0))
+				       dentry, dp, nf, "", 0, attrmask))
 		return ERR_PTR(-ENOBUFS);
 
 	/* No requested attributes to report; omit the event */
@@ -4574,8 +4667,6 @@ nfsd4_encode_entry4_fattr(struct nfsd4_readdir *cd, const char *name,
 	 * directly from the mountpoint dentry.
 	 */
 	if (nfsd_mountpoint(dentry, exp)) {
-		int err;
-
 		if (!(exp->ex_flags & NFSEXP_V4ROOT)
 				&& !attributes_need_mount(cd->rd_bmval)) {
 			ignore_crossmnt = 1;
@@ -4586,12 +4677,7 @@ nfsd4_encode_entry4_fattr(struct nfsd4_readdir *cd, const char *name,
 		 * Different "."/".." handling?  Something else?
 		 * At least, add a comment here to explain....
 		 */
-		err = nfsd_cross_mnt(cd->rd_rqstp, &dentry, &exp);
-		if (err) {
-			nfserr = nfserrno(err);
-			goto out_put;
-		}
-		nfserr = check_nfsd_access(exp, cd->rd_rqstp, false);
+		nfserr = nfsd_cross_mnt(cd->rd_rqstp, &dentry, &exp);
 		if (nfserr)
 			goto out_put;
 		crossed = true;

@@ -1556,7 +1556,7 @@ xlog_cil_push_work(
 			 * iclogs older than ic_prev. Hence we only need to wait
 			 * on the most recent older iclog here.
 			 */
-			xlog_wait_on_iclog(ctx->commit_iclog->ic_prev);
+			xlog_wait_on_iclog(log, ctx->commit_iclog->ic_prev);
 			spin_lock(&log->l_icloglock);
 		}
 
@@ -1627,6 +1627,7 @@ out_abort_free_ticket:
 static void
 xlog_cil_push_background(
 	struct xlog	*log)
+		__releases_shared(&log->l_cilp->xc_ctx_lock)
 {
 	struct xfs_cil	*cil = log->l_cilp;
 	int		space_used = atomic_read(&cil->xc_ctx->space_used);

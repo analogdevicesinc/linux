@@ -1235,11 +1235,8 @@ static bool load_and_init_attrdef(struct ntfs_volume *vol)
 	ntfs_debug("Entering.");
 	/* Read attrdef table and setup vol->attrdef and vol->attrdef_size. */
 	ino = ntfs_iget(sb, FILE_AttrDef);
-	if (IS_ERR(ino)) {
-		if (!IS_ERR(ino))
-			iput(ino);
+	if (IS_ERR(ino))
 		goto failed;
-	}
 	NInoSetSparseDisabled(NTFS_I(ino));
 	/* FILE_AttrDef must hold at least one entry and fit inside 31 bits. */
 	i_size = i_size_read(ino);
@@ -1301,11 +1298,8 @@ static bool load_and_init_upcase(struct ntfs_volume *vol)
 	ntfs_debug("Entering.");
 	/* Read upcase table and setup vol->upcase and vol->upcase_len. */
 	ino = ntfs_iget(sb, FILE_UpCase);
-	if (IS_ERR(ino)) {
-		if (!IS_ERR(ino))
-			iput(ino);
+	if (IS_ERR(ino))
 		goto upcase_failed;
-	}
 	/*
 	 * The upcase size must not be above 64k Unicode characters, must not
 	 * be zero and must be a multiple of sizeof(__le16).
@@ -1468,8 +1462,7 @@ bitmap_failed:
 	 */
 	vol->vol_ino = ntfs_iget(sb, FILE_Volume);
 	if (IS_ERR(vol->vol_ino)) {
-		if (!IS_ERR(vol->vol_ino))
-			iput(vol->vol_ino);
+		vol->vol_ino = NULL;
 volume_failed:
 		ntfs_error(sb, "Failed to load $Volume.");
 		goto iput_lcnbmp_err_out;
@@ -1478,6 +1471,7 @@ volume_failed:
 	if (IS_ERR(m)) {
 iput_volume_failed:
 		iput(vol->vol_ino);
+		vol->vol_ino = NULL;
 		goto volume_failed;
 	}
 
@@ -1638,6 +1632,8 @@ iput_logfile_err_out:
 	if (vol->logfile_ino)
 		iput(vol->logfile_ino);
 	iput(vol->vol_ino);
+	/* Do not leave a stale pointer behind for the rest of the teardown. */
+	vol->vol_ino = NULL;
 iput_lcnbmp_err_out:
 	iput(vol->lcnbmp_ino);
 iput_attrdef_err_out:
@@ -2064,8 +2060,7 @@ static unsigned long __get_nr_free_mft_records(struct ntfs_volume *vol,
 	/* If errors occurred we may well have gone below zero, fix this. */
 	if (nr_free < 0)
 		nr_free = 0;
-	else
-		atomic64_set(&vol->free_mft_records, nr_free);
+	atomic64_set(&vol->free_mft_records, nr_free);
 
 	ntfs_debug("Exiting.");
 	return nr_free;
@@ -2131,7 +2126,14 @@ static int ntfs_statfs(struct dentry *dentry, struct kstatfs *sfs)
 	read_unlock_irqrestore(&mft_ni->size_lock, flags);
 
 	/* Free inodes in fs (based on current total count). */
-	sfs->f_ffree = atomic64_read(&vol->free_mft_records);
+	size = atomic64_read(&vol->free_mft_records);
+	if (unlikely(size < 0 || size > (s64)sfs->f_files))
+		ntfs_warning(vol->sb, "Invalid free MFT record count %lld.", size);
+	if (size < 0)
+		size = 0;
+	else if (size > (s64)sfs->f_files)
+		size = sfs->f_files;
+	sfs->f_ffree = size;
 
 	/*
 	 * File system id. This is extremely *nix flavour dependent and even
