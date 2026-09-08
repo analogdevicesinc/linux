@@ -19,6 +19,7 @@
 #include <linux/iopoll.h>
 #include <linux/usb/hcd.h>
 #include <linux/usb.h>
+#include <linux/property.h>
 #include "core.h"
 #include "glue.h"
 
@@ -419,6 +420,16 @@ static irqreturn_t qcom_dwc3_resume_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int dwc3_qcom_set_swnode(struct device *dev)
+{
+	const struct property_entry props[] = {
+		PROPERTY_ENTRY_BOOL("xhci-skip-phy-init-quirk"),
+		{}
+	};
+
+	return device_create_managed_software_node(dev, props, NULL);
+}
+
 static void dwc3_qcom_select_utmi_clk(struct dwc3_qcom *qcom)
 {
 	/* Configure dwc3 to use UTMI clock as PIPE clock not present */
@@ -682,6 +693,10 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 				"qcom,select-utmi-as-pipe-clk");
 	if (ignore_pipe_clk)
 		dwc3_qcom_select_utmi_clk(qcom);
+
+	ret = dwc3_qcom_set_swnode(dev);
+	if (ret)
+		goto clk_disable;
 
 	qcom->mode = usb_get_dr_mode(dev);
 
