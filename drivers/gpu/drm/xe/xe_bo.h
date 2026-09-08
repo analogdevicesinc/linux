@@ -87,7 +87,6 @@
 
 #define XE_BO_PROPS_INVALID	(-1)
 
-#define XE_PCI_BARRIER_MMAP_OFFSET	(0x50 << XE_PTE_SHIFT)
 
 /**
  * enum xe_madv_purgeable_state - Buffer object purgeable state enumeration

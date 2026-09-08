@@ -28,6 +28,7 @@
 #include "xe_ggtt.h"
 #include "xe_map.h"
 #include "xe_migrate.h"
+#include "xe_mmio_gem.h"
 #include "xe_pat.h"
 #include "xe_pm.h"
 #include "xe_preempt_fence.h"
@@ -3664,6 +3665,39 @@ out_vm:
 	return err;
 }
 
+static int xe_gem_pci_barrier_mmap_offset(struct xe_device *xe, struct drm_file *file,
+					  struct drm_xe_gem_mmap_offset *args)
+{
+	struct xe_file *xef = file->driver_priv;
+	struct xe_mmio_gem **barrier = &xef->mmio_gem.pci_barrier;
+
+	if (XE_IOCTL_DBG(xe, !IS_DGFX(xe)))
+		return -EINVAL;
+
+	if (XE_IOCTL_DBG(xe, args->handle))
+		return -EINVAL;
+
+	scoped_guard(mutex, &xef->mmio_gem.lock) {
+		if (!*barrier) {
+			phys_addr_t phys_addr;
+
+#define LAST_DB_PAGE_OFFSET 0x7ff000
+			phys_addr = pci_resource_start(to_pci_dev(xe->drm.dev), 0) +
+				LAST_DB_PAGE_OFFSET;
+			*barrier = xe_mmio_gem_create(xe, file, phys_addr, SZ_4K);
+			if (IS_ERR(*barrier)) {
+				int err = PTR_ERR(*barrier);
+
+				*barrier = NULL;
+				return err;
+			}
+		}
+
+		args->offset = xe_mmio_gem_mmap_offset(*barrier);
+	}
+	return 0;
+}
+
 int xe_gem_mmap_offset_ioctl(struct drm_device *dev, void *data,
 			     struct drm_file *file)
 {
@@ -3679,21 +3713,8 @@ int xe_gem_mmap_offset_ioctl(struct drm_device *dev, void *data,
 			 ~DRM_XE_MMAP_OFFSET_FLAG_PCI_BARRIER))
 		return -EINVAL;
 
-	if (args->flags & DRM_XE_MMAP_OFFSET_FLAG_PCI_BARRIER) {
-		if (XE_IOCTL_DBG(xe, !IS_DGFX(xe)))
-			return -EINVAL;
-
-		if (XE_IOCTL_DBG(xe, args->handle))
-			return -EINVAL;
-
-		if (XE_IOCTL_DBG(xe, PAGE_SIZE > SZ_4K))
-			return -EINVAL;
-
-		BUILD_BUG_ON(((XE_PCI_BARRIER_MMAP_OFFSET >> XE_PTE_SHIFT) +
-			      SZ_4K) >= DRM_FILE_PAGE_OFFSET_START);
-		args->offset = XE_PCI_BARRIER_MMAP_OFFSET;
-		return 0;
-	}
+	if (args->flags & DRM_XE_MMAP_OFFSET_FLAG_PCI_BARRIER)
+		return xe_gem_pci_barrier_mmap_offset(xe, file, args);
 
 	gem_obj = drm_gem_object_lookup(file, args->handle);
 	if (XE_IOCTL_DBG(xe, !gem_obj))
