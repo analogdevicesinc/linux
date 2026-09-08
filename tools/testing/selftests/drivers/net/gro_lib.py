@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0
 
 """
@@ -7,6 +6,13 @@ GRO (Generic Receive Offload) conformance tests.
 Validates that GRO coalescing works correctly by running the gro
 binary in different configurations and checking for correct packet
 coalescing behavior.
+
+The same test cases are run against all three coalescing implementations,
+one mode per test program, because a full sweep takes too long to fit in
+a single test's timeout:
+  - gro_sw.py:  SW GRO (generic-receive-offload)
+  - gro_hw.py:  HW GRO (rx-gro-hw)
+  - gro_lro.py: LRO    (large-receive-offload)
 
 Test cases:
   - data_same: Same size data packets coalesce
@@ -323,32 +329,19 @@ def _gro_variants():
         "ip_frag6", "ip_v6ext_same", "ip_v6ext_diff",
     ]
 
-    # Tests specific to PPPoE
-    pppoe_tests = [
-        "data_same", "data_lrg_sml", "data_sml_lrg", "data_lrg_1byte",
-        "data_burst", "pppoe_sid",
-    ]
+    for protocol in ["ipv4", "ipv6", "ipip", "ip6ip6"]:
+        for test_name in common_tests:
+            yield protocol, test_name
 
-    for mode in ["sw", "hw", "lro"]:
-        for protocol in ["ipv4", "ipv6", "ipip", "ip6ip6"]:
-            for test_name in common_tests:
-                yield mode, protocol, test_name
-
-            if protocol in ["ipv4", "ipip"]:
-                for test_name in ipv4_tests:
-                    yield mode, protocol, test_name
-            elif protocol == "ipv6":
-                for test_name in ipv6_tests:
-                    yield mode, protocol, test_name
-
-    for mode in ["sw"]:
-        for protocol in ["pppoev4", "pppoev6"]:
-            for test_name in pppoe_tests:
-                yield mode, protocol, test_name
+        if protocol in ["ipv4", "ipip"]:
+            for test_name in ipv4_tests:
+                yield protocol, test_name
+        elif protocol == "ipv6":
+            for test_name in ipv6_tests:
+                yield protocol, test_name
 
 
-@ksft_variants(_gro_variants())
-def test(cfg, mode, protocol, test_name):
+def run_test(cfg, mode, protocol, test_name):
     """Run a single GRO test with retries."""
 
     ipver = "6" if protocol[-1] == "6" else "4"
@@ -383,16 +376,21 @@ def test(cfg, mode, protocol, test_name):
         ksft_pr(f"Attempt {attempt + 1}/{max_retries} failed, retrying...")
 
 
+@ksft_variants(_gro_variants())
+def test(cfg, mode, protocol, test_name):
+    """Run a single GRO test case."""
+    run_test(cfg, mode, protocol, test_name)
+
+
 def _capacity_variants():
-    """Generate variants for capacity test: mode x queue setup."""
+    """Generate variants for capacity test: queue setup."""
     setups = [
         ("isolated", _setup_isolated_queue),
         ("1q", lambda cfg: _setup_queue_count(cfg, 1)),
         ("8q", lambda cfg: _setup_queue_count(cfg, 8)),
     ]
-    for mode in ["sw", "hw", "lro"]:
-        for name, func in setups:
-            yield KsftNamedVariant(f"{mode}_{name}", mode, func)
+    for name, func in setups:
+        yield KsftNamedVariant(name, func)
 
 
 @ksft_variants(_capacity_variants())
@@ -403,7 +401,7 @@ def test_gro_capacity(cfg, mode, setup_func):
     Start with 8 flows and increase by 2x on each successful run.
     Retry up to 3 times on failure.
 
-    Variants combine mode (sw, hw, lro) with queue setup:
+    Queue setup variants:
       - isolated: Use a single queue isolated from RSS
       - 1q: Configure NIC to use 1 queue
       - 8q: Configure NIC to use 8 queues
@@ -459,15 +457,11 @@ def test_gro_capacity(cfg, mode, setup_func):
         num_flows *= 2
 
 
-def main() -> None:
-    """ Ksft boiler plate main """
+def gro_main(src_path, mode) -> None:
+    """ Ksft boiler plate main, run all the cases in the given mode """
 
-    with NetDrvEpEnv(__file__) as cfg:
+    with NetDrvEpEnv(src_path) as cfg:
         cfg.ethnl = EthtoolFamily()
         cfg.netnl = NetdevFamily()
-        ksft_run(cases=[test, test_gro_capacity], args=(cfg,))
+        ksft_run(cases=[test, test_gro_capacity], args=(cfg, mode))
     ksft_exit()
-
-
-if __name__ == "__main__":
-    main()

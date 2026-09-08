@@ -27,7 +27,7 @@ TEST_PROGS = \
 	ethtool_mm.sh \
 	ethtool_rmon.sh \
 	ethtool_std_stats.sh \
-	gro_hw.py \
+	gro_stats.py \
 	hw_stats_l3.sh \
 	hw_stats_l3_gre.sh \
 	iou-zcrx.py \

@@ -125,6 +125,7 @@ struct virtnet_rq_stats {
 	u64_stats_t packets;
 	u64_stats_t bytes;
 	u64_stats_t drops;
+	u64_stats_t alloc_fail;
 	u64_stats_t xdp_packets;
 	u64_stats_t xdp_tx;
 	u64_stats_t xdp_redirects;
@@ -173,8 +174,9 @@ static const struct virtnet_stat_desc virtnet_sq_stats_desc_qstat[] = {
 };
 
 static const struct virtnet_stat_desc virtnet_rq_stats_desc_qstat[] = {
-	VIRTNET_RQ_STAT_QSTAT("packets", packets),
-	VIRTNET_RQ_STAT_QSTAT("bytes",   bytes),
+	VIRTNET_RQ_STAT_QSTAT("packets",    packets),
+	VIRTNET_RQ_STAT_QSTAT("bytes",      bytes),
+	VIRTNET_RQ_STAT_QSTAT("alloc_fail", alloc_fail),
 };
 
 #define VIRTNET_STATS_DESC_CQ(name) \
@@ -1917,8 +1919,10 @@ static struct sk_buff *receive_small_xdp(struct net_device *dev,
 	}
 
 	skb = virtnet_build_skb(buf, buflen, xdp.data - buf, len);
-	if (unlikely(!skb))
+	if (unlikely(!skb)) {
+		u64_stats_inc(&stats->alloc_fail);
 		goto err;
+	}
 
 	if (metasize)
 		skb_metadata_set(skb, metasize);
@@ -1985,6 +1989,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
 		return skb;
 	}
 
+	u64_stats_inc(&stats->alloc_fail);
 err:
 	u64_stats_inc(&stats->drops);
 	page_pool_put_page(rq->page_pool, page, -1, true);
@@ -2016,8 +2021,10 @@ static struct sk_buff *receive_big(struct net_device *dev,
 
 	skb = page_to_skb(vi, rq, page, 0, len, PAGE_SIZE, 0);
 	u64_stats_add(&stats->bytes, len - vi->hdr_len);
-	if (unlikely(!skb))
+	if (unlikely(!skb)) {
+		u64_stats_inc(&stats->alloc_fail);
 		goto err;
+	}
 
 	return skb;
 
@@ -2298,8 +2305,10 @@ static struct sk_buff *receive_mergeable_xdp(struct net_device *dev,
 	switch (act) {
 	case XDP_PASS:
 		head_skb = build_skb_from_xdp_buff(dev, vi, &xdp, xdp_frags_truesz);
-		if (unlikely(!head_skb))
+		if (unlikely(!head_skb)) {
+			u64_stats_inc(&stats->alloc_fail);
 			break;
+		}
 
 		skb_mark_for_recycle(head_skb);
 		return head_skb;
@@ -2414,8 +2423,10 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
 	head_skb = page_to_skb(vi, rq, page, offset, len, truesize, headroom);
 	curr_skb = head_skb;
 
-	if (unlikely(!curr_skb))
+	if (unlikely(!curr_skb)) {
+		u64_stats_inc(&stats->alloc_fail);
 		goto err_skb;
+	}
 
 	skb_mark_for_recycle(head_skb);
 	while (--num_buf) {
@@ -2444,8 +2455,10 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
 		truesize = mergeable_ctx_to_truesize(ctx);
 		curr_skb  = virtnet_skb_append_frag(rq, head_skb, curr_skb, page,
 						    buf, len, truesize);
-		if (!curr_skb)
+		if (!curr_skb) {
+			u64_stats_inc(&stats->alloc_fail);
 			goto err_skb;
+		}
 	}
 
 	ewma_pkt_len_add(&rq->mrg_avg_pkt_len, head_skb->len);
@@ -2928,12 +2941,14 @@ static int virtnet_receive(struct receive_queue *rq, int budget,
 
 	u64_stats_set(&stats.packets, packets);
 	if (rq->vq->num_free > min((unsigned int)budget, virtqueue_get_vring_size(rq->vq)) / 2) {
-		if (!try_fill_recv(vi, rq, GFP_ATOMIC))
+		if (!try_fill_recv(vi, rq, GFP_ATOMIC)) {
 			/* We need to retry refilling in the next NAPI poll so
 			 * we must return budget to make sure the NAPI is
 			 * repolled.
 			 */
 			packets = budget;
+			u64_stats_inc(&stats.alloc_fail);
+		}
 	}
 
 	u64_stats_update_begin(&rq->stats.syncp);
@@ -2948,6 +2963,7 @@ static int virtnet_receive(struct receive_queue *rq, int budget,
 
 	u64_stats_add(&rq->stats.packets, u64_stats_read(&stats.packets));
 	u64_stats_add(&rq->stats.bytes, u64_stats_read(&stats.bytes));
+	u64_stats_add(&rq->stats.alloc_fail, u64_stats_read(&stats.alloc_fail));
 
 	u64_stats_update_end(&rq->stats.syncp);
 
@@ -5666,6 +5682,7 @@ static void virtnet_get_base_stats(struct net_device *dev,
 	 */
 	rx->bytes = 0;
 	rx->packets = 0;
+	rx->alloc_fail = 0;
 
 	if (vi->device_stats_cap & VIRTIO_NET_STATS_TYPE_RX_BASIC) {
 		rx->hw_drops = 0;
