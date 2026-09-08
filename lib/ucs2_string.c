@@ -165,5 +165,7 @@ ucs2_as_utf8(u8 *dest, const ucs2_char_t *src, unsigned long maxlength)
 }
 EXPORT_SYMBOL(ucs2_as_utf8);
 
+#ifndef __DISABLE_EXPORTS
 MODULE_DESCRIPTION("UCS2 string handling");
 MODULE_LICENSE("GPL v2");
+#endif
