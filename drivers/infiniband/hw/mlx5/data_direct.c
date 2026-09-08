@@ -65,13 +65,9 @@ static int mlx5_data_direct_set_dma_caps(struct pci_dev *pdev)
 
 	err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
 	if (err) {
-		dev_warn(&pdev->dev,
-			 "Warning: couldn't set 64-bit PCI DMA mask, err=%d\n", err);
-		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-		if (err) {
-			dev_err(&pdev->dev, "Can't set PCI DMA mask, err=%d\n", err);
-			return err;
-		}
+		dev_err(&pdev->dev,
+			"Can't set 64-bit PCI DMA mask, err=%d\n", err);
+		return err;
 	}
 
 	dma_set_max_seg_size(&pdev->dev, SZ_2G);
