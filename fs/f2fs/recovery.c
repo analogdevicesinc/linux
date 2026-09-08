@@ -256,7 +256,7 @@ out_put:
 out:
 	name = recover_printable_name(inode, raw_inode, &name_len);
 	f2fs_notice(F2FS_I_SB(inode), "%s: ino = %x, name = %.*s, dir = %llu, err = %d",
-		    __func__, ino_of_node(ifolio), name_len, name,
+		    __func__, ino_of_node(F2FS_I_SB(inode), ifolio), name_len, name,
 		    IS_ERR(dir) ? 0 : dir->i_ino, err);
 	return err;
 }
@@ -357,7 +357,7 @@ static int recover_inode(struct inode *inode, struct folio *folio)
 	name = recover_printable_name(inode, raw, &name_len);
 
 	f2fs_notice(F2FS_I_SB(inode), "%s: ino = %x, name = %.*s, inline = %x",
-		    __func__, ino_of_node(folio), name_len, name,
+		    __func__, ino_of_node(F2FS_I_SB(inode), folio), name_len, name,
 		    raw->i_inline);
 	return 0;
 }
@@ -397,16 +397,16 @@ static int sanity_check_node_chain(struct f2fs_sb_info *sbi, block_t blkaddr,
 		if (IS_ERR(folio))
 			return PTR_ERR(folio);
 
-		if (!is_recoverable_dnode(folio)) {
+		if (!is_recoverable_dnode(sbi, folio)) {
 			f2fs_folio_put(folio, true);
 			*is_detecting = false;
 			return 0;
 		}
 
 		ra_blocks = adjust_por_ra_blocks(sbi, ra_blocks, *blkaddr_fast,
-					next_blkaddr_of_node(folio));
+					next_blkaddr_of_node(sbi, folio));
 
-		*blkaddr_fast = next_blkaddr_of_node(folio);
+		*blkaddr_fast = next_blkaddr_of_node(sbi, folio);
 		f2fs_folio_put(folio, true);
 
 		f2fs_ra_meta_pages_cond(sbi, *blkaddr_fast, ra_blocks);
@@ -446,21 +446,21 @@ static int find_fsync_dnodes(struct f2fs_sb_info *sbi, struct list_head *head,
 			break;
 		}
 
-		if (!is_recoverable_dnode(folio)) {
+		if (!is_recoverable_dnode(sbi, folio)) {
 			f2fs_folio_put(folio, true);
 			break;
 		}
 
-		if (!is_fsync_dnode(folio))
+		if (!is_fsync_dnode(sbi, folio))
 			goto next;
 
-		entry = get_fsync_inode(head, ino_of_node(folio));
+		entry = get_fsync_inode(head, ino_of_node(sbi, folio));
 		if (!entry) {
 			bool quota_inode = false;
 
 			if (!check_only &&
-					IS_INODE(folio) &&
-					is_dent_dnode(folio)) {
+					IS_INODE(sbi, folio) &&
+					is_dent_dnode(sbi, folio)) {
 				err = f2fs_recover_inode_page(sbi, folio);
 				if (err) {
 					f2fs_folio_put(folio, true);
@@ -469,7 +469,7 @@ static int find_fsync_dnodes(struct f2fs_sb_info *sbi, struct list_head *head,
 				quota_inode = true;
 			}
 
-			entry = add_fsync_inode(sbi, head, ino_of_node(folio),
+			entry = add_fsync_inode(sbi, head, ino_of_node(sbi, folio),
 								quota_inode);
 			if (IS_ERR(entry)) {
 				err = PTR_ERR(entry);
@@ -488,11 +488,11 @@ static int find_fsync_dnodes(struct f2fs_sb_info *sbi, struct list_head *head,
 		}
 		entry->blkaddr = blkaddr;
 
-		if (IS_INODE(folio) && is_dent_dnode(folio))
+		if (IS_INODE(sbi, folio) && is_dent_dnode(sbi, folio))
 			entry->last_dentry = blkaddr;
 next:
 		/* check next segment */
-		blkaddr = next_blkaddr_of_node(folio);
+		blkaddr = next_blkaddr_of_node(sbi, folio);
 		f2fs_folio_put(folio, true);
 
 		err = sanity_check_node_chain(sbi, blkaddr, &blkaddr_fast,
@@ -577,8 +577,8 @@ got_it:
 	if (IS_ERR(node_folio))
 		return PTR_ERR(node_folio);
 
-	offset = ofs_of_node(node_folio);
-	ino = ino_of_node(node_folio);
+	offset = ofs_of_node(sbi, node_folio);
+	ino = ino_of_node(sbi, node_folio);
 	f2fs_folio_put(node_folio, true);
 
 	if (ino != dn->inode->i_ino) {
@@ -653,11 +653,11 @@ static int do_recover_data(struct f2fs_sb_info *sbi, struct inode *inode,
 	int err = 0, recovered = 0;
 
 	/* step 1: recover xattr */
-	if (IS_INODE(folio)) {
+	if (IS_INODE(sbi, folio)) {
 		err = f2fs_recover_inline_xattr(inode, folio);
 		if (err)
 			goto out;
-	} else if (f2fs_has_xattr_block(ofs_of_node(folio))) {
+	} else if (f2fs_has_xattr_block(ofs_of_node(sbi, folio))) {
 		err = f2fs_recover_xattr_data(inode, folio);
 		if (!err)
 			recovered++;
@@ -673,7 +673,7 @@ static int do_recover_data(struct f2fs_sb_info *sbi, struct inode *inode,
 	}
 
 	/* step 3: recover data indices */
-	start = f2fs_start_bidx_of_node(ofs_of_node(folio), inode);
+	start = f2fs_start_bidx_of_node(ofs_of_node(sbi, folio), inode);
 	end = start + ADDRS_PER_PAGE(folio, inode);
 
 	set_new_dnode(&dn, inode, NULL, NULL, 0);
@@ -693,12 +693,12 @@ retry_dn:
 	if (err)
 		goto err;
 
-	f2fs_bug_on(sbi, ni.ino != ino_of_node(folio));
+	f2fs_bug_on(sbi, ni.ino != ino_of_node(sbi, folio));
 
-	if (ofs_of_node(dn.node_folio) != ofs_of_node(folio)) {
+	if (ofs_of_node(sbi, dn.node_folio) != ofs_of_node(sbi, folio)) {
 		f2fs_warn(sbi, "Inconsistent ofs_of_node, ino:%llu, ofs:%u, %u",
-			  inode->i_ino, ofs_of_node(dn.node_folio),
-			  ofs_of_node(folio));
+			  inode->i_ino, ofs_of_node(sbi, dn.node_folio),
+			  ofs_of_node(sbi, folio));
 		err = -EFSCORRUPTED;
 		f2fs_handle_error(sbi, ERROR_INCONSISTENT_FOOTER);
 		fserror_report_file_metadata(dn.inode, err, GFP_NOFS);
@@ -784,16 +784,16 @@ retry_prev:
 		}
 	}
 
-	copy_node_footer(dn.node_folio, folio);
-	fill_node_footer(dn.node_folio, dn.nid, ni.ino,
-					ofs_of_node(folio), false);
+	copy_node_footer(sbi, dn.node_folio, folio);
+	fill_node_footer(sbi, dn.node_folio, dn.nid, ni.ino,
+					ofs_of_node(sbi, folio), false);
 	folio_mark_dirty(dn.node_folio);
 err:
 	f2fs_put_dnode(&dn);
 out:
 	f2fs_notice(sbi, "recover_data: ino = %llx, nid = %x (i_size: %s), "
 		    "range (%u, %u), recovered = %d, err = %d",
-		    inode->i_ino, nid_of_node(folio),
+		    inode->i_ino, nid_of_node(sbi, folio),
 		    file_keep_isize(inode) ? "keep" : "recover",
 		    start, end, recovered, err);
 	return err;
@@ -832,13 +832,13 @@ static int recover_data(struct f2fs_sb_info *sbi, struct list_head *inode_list,
 			break;
 		}
 
-		if (!is_recoverable_dnode(folio)) {
+		if (!is_recoverable_dnode(sbi, folio)) {
 			f2fs_folio_put(folio, true);
 			break;
 		}
 		recoverable_dnode++;
 
-		entry = get_fsync_inode(inode_list, ino_of_node(folio));
+		entry = get_fsync_inode(inode_list, ino_of_node(sbi, folio));
 		if (!entry)
 			goto next;
 		fsynced_dnode++;
@@ -847,7 +847,7 @@ static int recover_data(struct f2fs_sb_info *sbi, struct list_head *inode_list,
 		 * In this case, we can lose the latest inode(x).
 		 * So, call recover_inode for the inode update.
 		 */
-		if (IS_INODE(folio)) {
+		if (IS_INODE(sbi, folio)) {
 			err = recover_inode(entry->inode, folio);
 			if (err) {
 				f2fs_folio_put(folio, true);
@@ -874,10 +874,10 @@ static int recover_data(struct f2fs_sb_info *sbi, struct list_head *inode_list,
 			list_move_tail(&entry->list, tmp_inode_list);
 next:
 		ra_blocks = adjust_por_ra_blocks(sbi, ra_blocks, blkaddr,
-					next_blkaddr_of_node(folio));
+					next_blkaddr_of_node(sbi, folio));
 
 		/* check next segment */
-		blkaddr = next_blkaddr_of_node(folio);
+		blkaddr = next_blkaddr_of_node(sbi, folio);
 		f2fs_folio_put(folio, true);
 
 		f2fs_ra_meta_pages_cond(sbi, blkaddr, ra_blocks);

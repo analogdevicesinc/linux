@@ -42,7 +42,7 @@ static bool inode_has_blocks(struct inode *inode, struct folio *ifolio)
 		return true;
 
 	for (i = 0; i < DEF_NIDS_PER_INODE; i++) {
-		if (F2FS_INODE_NIDS(ifolio)[i])
+		if (F2FS_INODE_NIDS(F2FS_I_SB(inode), ifolio)[i])
 			return true;
 	}
 	return false;
@@ -307,7 +307,7 @@ int f2fs_recover_inline_data(struct inode *inode, struct folio *nfolio)
 	 *    x       o  -> remove data blocks, and then recover inline_data
 	 *    x       x  -> recover data blocks
 	 */
-	if (IS_INODE(nfolio))
+	if (IS_INODE(F2FS_I_SB(inode), nfolio))
 		ri = F2FS_INODE(nfolio);
 
 	if (f2fs_has_inline_data(inode) &&

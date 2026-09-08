@@ -957,8 +957,8 @@ static void __update_extent_cache(struct dnode_of_data *dn, enum extent_type typ
 	if (!__may_extent_tree(dn->inode, type))
 		return;
 
-	ei.fofs = f2fs_start_bidx_of_node(ofs_of_node(dn->node_folio), dn->inode) +
-								dn->ofs_in_node;
+	ei.fofs = f2fs_start_bidx_of_node(ofs_of_node(F2FS_I_SB(dn->inode),
+				dn->node_folio), dn->inode) + dn->ofs_in_node;
 	ei.len = 1;
 
 	if (type == EX_READ) {

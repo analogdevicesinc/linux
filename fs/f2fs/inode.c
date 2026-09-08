@@ -138,7 +138,7 @@ bool f2fs_enable_inode_chksum(struct f2fs_sb_info *sbi, struct folio *folio)
 	if (!f2fs_sb_has_inode_chksum(sbi))
 		return false;
 
-	if (!IS_INODE(folio) || !(ri->i_inline & F2FS_EXTRA_ATTR))
+	if (!IS_INODE(sbi, folio) || !(ri->i_inline & F2FS_EXTRA_ATTR))
 		return false;
 
 	if (!F2FS_FITS_IN_INODE(ri, le16_to_cpu(ri->i_extra_isize),
@@ -151,7 +151,7 @@ bool f2fs_enable_inode_chksum(struct f2fs_sb_info *sbi, struct folio *folio)
 static __u32 f2fs_inode_chksum(struct f2fs_sb_info *sbi, struct folio *folio)
 {
 	struct f2fs_inode *ri = F2FS_INODE(folio);
-	__le32 ino = F2FS_NODE_FOOTER(folio)->ino;
+	__le32 ino = F2FS_NODE_FOOTER(sbi, folio)->ino;
 	__le32 gen = ri->i_generation;
 	__u32 chksum, chksum_seed;
 	__u32 dummy_cs = 0;
@@ -192,7 +192,7 @@ bool f2fs_inode_chksum_verify(struct f2fs_sb_info *sbi, struct folio *folio)
 
 	if (provided != calculated)
 		f2fs_warn(sbi, "checksum invalid, nid = %lu, ino_of_node = %x, %x vs. %x",
-			  folio->index, ino_of_node(folio),
+			  folio->index, ino_of_node(sbi, folio),
 			  provided, calculated);
 
 	return provided == calculated;
@@ -294,14 +294,14 @@ static bool sanity_check_inode(struct inode *inode, struct folio *node_folio)
 		return false;
 	}
 
-	if (ino_of_node(node_folio) != nid_of_node(node_folio)) {
+	if (ino_of_node(sbi, node_folio) != nid_of_node(sbi, node_folio)) {
 		f2fs_warn(sbi, "%s: corrupted inode footer i_ino=%llx, ino,nid: [%u, %u] run fsck to fix.",
 			  __func__, inode->i_ino,
-			  ino_of_node(node_folio), nid_of_node(node_folio));
+			  ino_of_node(sbi, node_folio), nid_of_node(sbi, node_folio));
 		return false;
 	}
 
-	if (ino_of_node(node_folio) == fi->i_xattr_nid) {
+	if (ino_of_node(sbi, node_folio) == fi->i_xattr_nid) {
 		f2fs_warn(sbi, "%s: corrupted inode i_ino=%llx, xnid=%x, run fsck to fix.",
 			  __func__, inode->i_ino, fi->i_xattr_nid);
 		return false;
@@ -504,9 +504,9 @@ static int do_read_inode(struct inode *inode)
 		__recover_inline_status(inode, node_folio);
 
 	/* try to recover cold bit for non-dir inode */
-	if (!S_ISDIR(inode->i_mode) && !is_cold_node(node_folio)) {
+	if (!S_ISDIR(inode->i_mode) && !is_cold_node(sbi, node_folio)) {
 		f2fs_folio_wait_writeback(node_folio, NODE, true, true);
-		set_cold_node(node_folio, false);
+		set_cold_node(sbi, node_folio, false);
 		folio_mark_dirty(node_folio);
 	}
 

@@ -784,7 +784,7 @@ next:
 		 * once we invalidate valid blkaddr in range [ofs, ofs + count],
 		 * we will invalidate all blkaddr in the whole range.
 		 */
-		fofs = f2fs_start_bidx_of_node(ofs_of_node(dn->node_folio),
+		fofs = f2fs_start_bidx_of_node(ofs_of_node(sbi, dn->node_folio),
 							dn->inode) + ofs;
 		f2fs_update_read_extent_cache_range(dn, fofs, 0, len);
 		f2fs_update_age_extent_cache_range(dn, fofs, len);
@@ -903,7 +903,7 @@ int f2fs_do_truncate_blocks(struct inode *inode, u64 from, bool lock)
 	count -= dn.ofs_in_node;
 	f2fs_bug_on(sbi, count < 0);
 
-	if (dn.ofs_in_node || IS_INODE(dn.node_folio)) {
+	if (dn.ofs_in_node || IS_INODE(sbi, dn.node_folio)) {
 		f2fs_truncate_data_blocks_range(&dn, count);
 		free_from += count;
 	}

@@ -283,7 +283,7 @@ struct node_footer {
 #define ADDRS_PER_INODE(inode)	addrs_per_page(inode, true)
 /* Address Pointers in a Direct Block */
 #define ADDRS_PER_BLOCK(inode)	addrs_per_page(inode, false)
-#define ADDRS_PER_PAGE(folio, inode)	(addrs_per_page(inode, IS_INODE(folio)))
+#define ADDRS_PER_PAGE(folio, inode)	(addrs_per_page(inode, IS_INODE(F2FS_I_SB(inode), folio)))
 
 #define F2FS_INLINE_XATTR	0x01	/* file inline xattr flag */
 #define F2FS_INLINE_DATA	0x02	/* file inline data flag */

@@ -1176,7 +1176,7 @@ static bool is_alive(struct f2fs_sb_info *sbi, struct f2fs_summary *sum,
 		return false;
 	}
 
-	if (IS_INODE(node_folio)) {
+	if (IS_INODE(sbi, node_folio)) {
 		base = offset_in_addr(F2FS_INODE(node_folio));
 		max_addrs = DEF_ADDRS_PER_INODE(sbi);
 	} else {
@@ -1191,7 +1191,7 @@ static bool is_alive(struct f2fs_sb_info *sbi, struct f2fs_summary *sum,
 		return false;
 	}
 
-	*nofs = ofs_of_node(node_folio);
+	*nofs = ofs_of_node(sbi, node_folio);
 	source_blkaddr = data_blkaddr(NULL, node_folio, ofs_in_node);
 	f2fs_folio_put(node_folio, true);
 

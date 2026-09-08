@@ -362,7 +362,7 @@ static void f2fs_write_end_bio(struct bio *bio)
 		if (is_node_folio(folio)) {
 			f2fs_sanity_check_node_footer(sbi, folio,
 				folio->index, NODE_TYPE_REGULAR, true);
-			f2fs_bug_on(sbi, folio->index != nid_of_node(folio));
+			f2fs_bug_on(sbi, folio->index != nid_of_node(sbi, folio));
 		}
 		if (f2fs_in_warm_node_list(folio))
 			f2fs_del_fsync_node_entry(sbi, folio);
@@ -592,8 +592,8 @@ static void __submit_merged_bio(struct f2fs_bio_info *io)
 	io->bio = NULL;
 }
 
-static bool __has_merged_page(struct bio *bio, struct inode *inode,
-						struct folio *folio, nid_t ino)
+static bool __has_merged_page(struct f2fs_sb_info *sbi, struct bio *bio,
+			struct inode *inode, struct folio *folio, nid_t ino)
 {
 	struct folio_iter fi;
 
@@ -616,7 +616,7 @@ static bool __has_merged_page(struct bio *bio, struct inode *inode,
 			return true;
 		if (folio && folio == target)
 			return true;
-		if (ino && ino == ino_of_node(target))
+		if (ino && ino == ino_of_node(sbi, target))
 			return true;
 	}
 
@@ -699,7 +699,7 @@ static void __submit_merged_write_cond(struct f2fs_sb_info *sbi,
 			struct f2fs_lock_context lc;
 
 			f2fs_down_read_trace(&io->io_rwsem, &lc);
-			ret = __has_merged_page(io->bio, inode, folio, ino);
+			ret = __has_merged_page(io->sbi, io->bio, inode, folio, ino);
 			f2fs_up_read_trace(&io->io_rwsem, &lc);
 		}
 		if (ret) {
@@ -907,7 +907,7 @@ void f2fs_submit_merged_ipu_write(struct f2fs_sb_info *sbi,
 			if (target)
 				found = (target == be->bio);
 			else
-				found = __has_merged_page(be->bio, NULL,
+				found = __has_merged_page(sbi, be->bio, NULL,
 							folio, 0);
 			if (found)
 				break;
@@ -924,7 +924,7 @@ void f2fs_submit_merged_ipu_write(struct f2fs_sb_info *sbi,
 			if (target)
 				found = (target == be->bio);
 			else
-				found = __has_merged_page(be->bio, NULL,
+				found = __has_merged_page(sbi, be->bio, NULL,
 							folio, 0);
 			if (found) {
 				target = be->bio;
