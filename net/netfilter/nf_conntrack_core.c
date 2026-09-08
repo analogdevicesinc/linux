@@ -2065,9 +2065,10 @@ repeat:
 		if (ret == -NF_REPEAT)
 			goto repeat;
 
-		NF_CT_STAT_INC_ATOMIC(state->net, invalid);
 		if (ret == NF_DROP)
 			NF_CT_STAT_INC_ATOMIC(state->net, drop);
+		else
+			NF_CT_STAT_INC_ATOMIC(state->net, invalid);
 
 		ret = -ret;
 		goto out;
