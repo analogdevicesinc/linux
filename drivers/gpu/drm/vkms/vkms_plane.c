@@ -83,28 +83,25 @@ static void vkms_plane_destroy_state(struct drm_plane *plane,
 	kfree(vkms_state);
 }
 
-static void vkms_plane_reset(struct drm_plane *plane)
+static struct drm_plane_state *vkms_plane_create_state(struct drm_plane *plane)
 {
 	struct vkms_plane_state *vkms_state;
-
-	if (plane->state) {
-		vkms_plane_destroy_state(plane, plane->state);
-		plane->state = NULL; /* must be set to NULL here */
-	}
 
 	vkms_state = kzalloc_obj(*vkms_state);
 	if (!vkms_state) {
 		DRM_ERROR("Cannot allocate vkms_plane_state\n");
-		return;
+		return ERR_PTR(-ENOMEM);
 	}
 
-	__drm_gem_reset_shadow_plane(plane, &vkms_state->base);
+	__drm_gem_shadow_plane_state_init(plane, &vkms_state->base);
+
+	return &(&vkms_state->base)->base;
 }
 
 static const struct drm_plane_funcs vkms_plane_funcs = {
 	.update_plane		= drm_atomic_helper_update_plane,
 	.disable_plane		= drm_atomic_helper_disable_plane,
-	.reset			= vkms_plane_reset,
+	.atomic_create_state = vkms_plane_create_state,
 	.atomic_duplicate_state = vkms_plane_duplicate_state,
 	.atomic_destroy_state	= vkms_plane_destroy_state,
 };
