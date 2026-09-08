@@ -301,6 +301,26 @@ int xe_tlb_inval_all(struct xe_tlb_inval *tlb_inval,
 }
 
 /**
+ * xe_tlb_inval_issue_op_wait() - Issue a TLB invalidation and wait
+ * @tlb_inval: TLB invalidation client
+ * @op: backend invalidation hook to issue
+ *
+ * Return: 0 on success, negative error code on error
+ */
+static int xe_tlb_inval_issue_op_wait(struct xe_tlb_inval *tlb_inval,
+				      int (*op)(struct xe_tlb_inval *tlb_inval, u32 seqno))
+{
+	struct xe_tlb_inval_fence fence, *fence_ptr = &fence;
+	int ret;
+
+	xe_tlb_inval_fence_init(tlb_inval, fence_ptr, true);
+	ret = xe_tlb_inval_issue(tlb_inval, fence_ptr, op);
+	xe_tlb_inval_fence_wait(fence_ptr);
+
+	return ret;
+}
+
+/**
  * xe_tlb_inval_ggtt() - Issue a TLB invalidation for the GGTT
  * @tlb_inval: TLB invalidation client
  *
@@ -311,14 +331,24 @@ int xe_tlb_inval_all(struct xe_tlb_inval *tlb_inval,
  */
 int xe_tlb_inval_ggtt(struct xe_tlb_inval *tlb_inval)
 {
-	struct xe_tlb_inval_fence fence, *fence_ptr = &fence;
-	int ret;
+	return xe_tlb_inval_issue_op_wait(tlb_inval, tlb_inval->ops->ggtt);
+}
 
-	xe_tlb_inval_fence_init(tlb_inval, fence_ptr, true);
-	ret = xe_tlb_inval_issue(tlb_inval, fence_ptr, tlb_inval->ops->ggtt);
-	xe_tlb_inval_fence_wait(fence_ptr);
+/**
+ * xe_tlb_inval_ggtt_full() - Full engine TLB invalidation within a VF
+ * @tlb_inval: TLB invalidation client
+ *
+ * Issue INVAL_FULL (intra vf) to flush engine TLBs across all engines
+ * within the requesting VF.
+ *
+ * Return: 0 on success, negative error code on error
+ */
+int xe_tlb_inval_ggtt_full(struct xe_tlb_inval *tlb_inval)
+{
+	if (!tlb_inval->ops->ggtt_full)
+		return -EOPNOTSUPP;
 
-	return ret;
+	return xe_tlb_inval_issue_op_wait(tlb_inval, tlb_inval->ops->ggtt_full);
 }
 
 /**
