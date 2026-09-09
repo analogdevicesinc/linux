@@ -514,6 +514,96 @@ struct iomap_ioend *iomap_split_ioend(struct iomap_ioend *ioend,
 }
 EXPORT_SYMBOL_GPL(iomap_split_ioend);
 
+void iomap_bounce_read(struct iomap_ioend *orig_ioend, unsigned int minsize,
+		void (*submit_ioend)(struct iomap_ioend *ioend))
+{
+	struct inode *inode = orig_ioend->io_inode;
+	struct bio *orig_bio = &orig_ioend->io_bio;
+	loff_t file_offset = orig_ioend->io_offset;
+	sector_t sector = orig_ioend->io_sector;
+	size_t total_len = round_up(orig_ioend->io_size, minsize);
+
+	WARN_ON_ONCE(!(orig_ioend->io_flags & IOMAP_IOEND_DIRECT));
+
+	/* We can't poll a bio that is not passed on to hardware */
+	orig_bio->bi_opf &= ~REQ_POLLED;
+
+	do {
+		struct iomap_ioend *ioend;
+		struct bio *bio;
+		int error;
+
+		bio = bio_alloc_bioset(orig_bio->bi_bdev,
+				min(total_len / minsize, BIO_MAX_VECS),
+				orig_bio->bi_opf, GFP_KERNEL,
+				&iomap_ioend_split_bioset);
+		error = bio_alloc_bounce_folios(bio, total_len, minsize);
+		if (error) {
+			bio_put(bio);
+			orig_bio->bi_status = errno_to_blk_status(error);
+			break;
+		}
+		bio->bi_ioprio = orig_bio->bi_ioprio;
+		bio->bi_write_hint = orig_bio->bi_write_hint;
+		bio->bi_write_stream = orig_bio->bi_write_stream;
+		bio->bi_iter.bi_sector = sector;
+
+		ioend = iomap_init_ioend(inode, bio, file_offset,
+				orig_ioend->io_flags);
+
+		total_len -= bio->bi_iter.bi_size;
+		file_offset += bio->bi_iter.bi_size;
+		sector += (bio->bi_iter.bi_size >> SECTOR_SHIFT);
+
+		bio->bi_private = orig_bio;
+		bio_inc_remaining(orig_bio);
+		submit_ioend(ioend);
+	} while (total_len > 0);
+
+	bio_endio(&orig_ioend->io_bio);
+}
+EXPORT_SYMBOL_GPL(iomap_bounce_read);
+
+static void iomap_ioend_unbounce(struct iomap_ioend *orig_ioend,
+		struct iomap_ioend *ioend)
+{
+	struct bio *orig_bio = &orig_ioend->io_bio;
+	struct iov_iter to;
+	struct bio_vec *bv;
+	int i;
+
+	iov_iter_bvec(&to, ITER_DEST, orig_bio->bi_io_vec, orig_bio->bi_vcnt,
+			orig_ioend->io_size);
+	to.iov_offset = orig_ioend->io_bvec_offset;
+
+	if (ioend->io_offset != orig_ioend->io_offset) {
+		WARN_ON_ONCE(ioend->io_offset < orig_ioend->io_offset);
+		iov_iter_advance(&to, ioend->io_offset - orig_ioend->io_offset);
+	}
+
+	/* copying to pinned pages should always work */
+	bio_for_each_bvec_all(bv, &ioend->io_bio, i)
+		WARN_ON_ONCE(copy_to_iter(bvec_virt(bv), bv->bv_len, &to) !=
+				bv->bv_len);
+}
+
+void iomap_bounce_read_end_io(struct iomap_ioend *ioend, struct bio *orig_bio,
+		int error)
+{
+	if (error)
+		orig_bio->bi_status = errno_to_blk_status(error);
+	else
+		iomap_ioend_unbounce(iomap_ioend_from_bio(orig_bio), ioend);
+
+	bio_free_folios(&ioend->io_bio);
+	if (bio_integrity(&ioend->io_bio))
+		fs_bio_integrity_free(&ioend->io_bio);
+	bio_put(&ioend->io_bio);
+
+	bio_endio(orig_bio);
+}
+EXPORT_SYMBOL_GPL(iomap_bounce_read_end_io);
+
 static int __init iomap_ioend_init(void)
 {
 	const unsigned int nr_mempool_entries = 4 * (PAGE_SIZE / SECTOR_SIZE);
