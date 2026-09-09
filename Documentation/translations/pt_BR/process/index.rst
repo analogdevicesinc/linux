@@ -63,6 +63,7 @@ Estas são as regras pelas quais tentamos viver na comunidade do kernel
    Declaração sobre Drivers do Kernel <kernel-driver-statement>
    Estilo de gerenciamento do kernel Linux <management-style>
    Assistentes de código <coding-assistants>
+   O manual da árvore tip <maintainer-tip>
    Conclave (Continuidade do projeto) <conclave>
 
 Lidando com bugs
