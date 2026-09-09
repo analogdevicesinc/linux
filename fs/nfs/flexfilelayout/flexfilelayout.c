@@ -883,7 +883,7 @@ ff_layout_choose_ds_for_read(struct pnfs_layout_segment *lseg,
 		mirror_ds = ff_layout_get_mirror_ds(lseg->pls_layout, mirror,
 						    *dss_id);
 		ds = nfs4_ff_layout_prepare_ds(lseg, mirror, mirror_ds,
-					       *dss_id, false);
+					       *dss_id, OP_READ);
 		if (IS_ERR(ds)) {
 			nfs4_ff_layout_put_deviceid(mirror_ds);
 			ret = ERR_CAST(ds);
@@ -1132,7 +1132,7 @@ retry:
 		mirror_ds = ff_layout_get_mirror_ds(pgio->pg_lseg->pls_layout,
 						    mirror, dss_id);
 		ds = nfs4_ff_layout_prepare_ds(pgio->pg_lseg, mirror,
-					       mirror_ds, dss_id, true);
+					       mirror_ds, dss_id, OP_WRITE);
 		if (IS_ERR(ds)) {
 			nfs4_ff_layout_put_deviceid(mirror_ds);
 			if (!ff_layout_no_fallback_to_mds(pgio->pg_lseg))
@@ -2188,7 +2188,8 @@ ff_layout_read_pagelist(struct nfs_pgio_header *hdr)
 		mirror->dss_count,
 		offset);
 	mirror_ds = ff_layout_get_mirror_ds(lseg->pls_layout, mirror, dss_id);
-	ds = nfs4_ff_layout_prepare_ds(lseg, mirror, mirror_ds, dss_id, false);
+	ds = nfs4_ff_layout_prepare_ds(lseg, mirror, mirror_ds, dss_id,
+				       OP_READ);
 	if (IS_ERR(ds)) {
 		ds_fatal_error = nfs_error_is_fatal(PTR_ERR(ds));
 		goto out_failed;
@@ -2288,7 +2289,8 @@ ff_layout_write_pagelist(struct nfs_pgio_header *hdr, int sync)
 		mirror->dss_count,
 		offset);
 	mirror_ds = ff_layout_get_mirror_ds(lseg->pls_layout, mirror, dss_id);
-	ds = nfs4_ff_layout_prepare_ds(lseg, mirror, mirror_ds, dss_id, true);
+	ds = nfs4_ff_layout_prepare_ds(lseg, mirror, mirror_ds, dss_id,
+				       OP_WRITE);
 	if (IS_ERR(ds)) {
 		ds_fatal_error = nfs_error_is_fatal(PTR_ERR(ds));
 		goto out_failed;
@@ -2398,7 +2400,8 @@ static int ff_layout_initiate_commit(struct nfs_commit_data *data, int how)
 	mirror = FF_LAYOUT_COMP(lseg, idx);
 	dss_id = calc_dss_id_from_commit(lseg, data->ds_commit_index);
 	mirror_ds = ff_layout_get_mirror_ds(lseg->pls_layout, mirror, dss_id);
-	ds = nfs4_ff_layout_prepare_ds(lseg, mirror, mirror_ds, dss_id, true);
+	ds = nfs4_ff_layout_prepare_ds(lseg, mirror, mirror_ds, dss_id,
+				       OP_COMMIT);
 	if (IS_ERR(ds))
 		goto out_err;
 

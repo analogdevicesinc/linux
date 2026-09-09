@@ -379,7 +379,7 @@ retry:
  * @mirror_ds: referenced device node for the stripe, from
  *	ff_layout_get_mirror_ds() (may be an ERR_PTR)
  * @dss_id: DS stripe id to select stripe to use
- * @fail_return: return layout on connect failure?
+ * @opnum: operation this connection is being prepared for
  *
  * Try to prepare a DS connection to accept an RPC call. This involves
  * selecting a mirror to use and connecting the client to it if it's not
@@ -387,8 +387,10 @@ retry:
  *
  * Since we only need a single functioning mirror to satisfy a read, we don't
  * want to return the layout if there is one. For writes though, any down
- * mirror should result in a LAYOUTRETURN. @fail_return is how we distinguish
- * between the two cases.
+ * mirror should result in a LAYOUTRETURN. @opnum is how we distinguish
+ * between the two cases. On failure, @opnum is also reported in the tracked
+ * device error so that the server can tell which class of I/O the client
+ * was unable to send to the mirror.
  *
  * Returns a pointer to a connected DS object on success or NULL on failure.
  */
@@ -397,7 +399,7 @@ nfs4_ff_layout_prepare_ds(struct pnfs_layout_segment *lseg,
 			  struct nfs4_ff_layout_mirror *mirror,
 			  struct nfs4_ff_layout_ds *mirror_ds,
 			  u32 dss_id,
-			  bool fail_return)
+			  enum nfs_opnum4 opnum)
 {
 	struct nfs4_pnfs_ds *ds;
 	struct inode *ino = lseg->pls_layout->plh_inode;
@@ -448,9 +450,9 @@ noconnect:
 					NULL : &mirror_ds->id_node,
 				 dss_id, lseg->pls_range.offset,
 				 lseg->pls_range.length, NFS4ERR_NXIO,
-				 OP_ILLEGAL, GFP_NOIO);
+				 opnum, GFP_NOIO);
 	ff_layout_send_layouterror(lseg);
-	if (fail_return || !ff_layout_has_available_ds(lseg))
+	if (opnum != OP_READ || !ff_layout_has_available_ds(lseg))
 		pnfs_error_mark_layout_for_return(ino, lseg);
 	ds = ERR_PTR(status);
 out:
