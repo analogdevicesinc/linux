@@ -137,7 +137,7 @@ clear_maft_entries:
 static void enetc4_pf_set_uc_hash_filter(struct enetc_pf *pf,
 					 struct netdev_hw_addr_list *uc)
 {
-	struct enetc_mac_filter *mac_filter = &pf->mac_filter[UC];
+	struct enetc_mac_filter *mac_filter = &pf->si->mac_filter[UC];
 	struct netdev_hw_addr *ha;
 	u64 hash;
 
@@ -172,7 +172,7 @@ static int enetc4_pf_set_uc_exact_filter(struct enetc_pf *pf,
 
 	err = enetc4_pf_add_maft_entries(pf, uc);
 	if (!err) {
-		enetc_reset_mac_addr_filter(&pf->mac_filter[UC]);
+		enetc_reset_mac_addr_filter(&si->mac_filter[UC]);
 		enetc_set_si_uc_hash_filter(si, 0, 0);
 	}
 
@@ -182,7 +182,7 @@ static int enetc4_pf_set_uc_exact_filter(struct enetc_pf *pf,
 static void enetc4_pf_set_mc_hash_filter(struct enetc_pf *pf,
 					 struct netdev_hw_addr_list *mc)
 {
-	struct enetc_mac_filter *mac_filter = &pf->mac_filter[MC];
+	struct enetc_mac_filter *mac_filter = &pf->si->mac_filter[MC];
 	struct netdev_hw_addr *ha;
 	u64 hash;
 
