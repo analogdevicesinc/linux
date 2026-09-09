@@ -264,13 +264,21 @@ static void esb_initdevice(struct esb_dev *edev)
 	 */
 	pci_write_config_word(edev->pdev, ESB_CONFIG_REG, 0x0003);
 
-	/* Check that the WDT isn't already locked */
+	/* Check the current state of the WDT */
 	pci_read_config_byte(edev->pdev, ESB_LOCK_REG, &val1);
 	if (val1 & ESB_WDT_LOCK)
 		dev_warn(&edev->pdev->dev, "nowayout already set\n");
 
-	/* Set the timer to watchdog mode and disable it for now */
-	pci_write_config_byte(edev->pdev, ESB_LOCK_REG, 0x00);
+	if (val1 & ESB_WDT_ENABLE) {
+		/*
+		 * The watchdog is already running, e.g. enabled by
+		 * firmware. Do not stop it, just mark it as running.
+		 */
+		set_bit(WDOG_HW_RUNNING, &edev->wdd.status);
+	} else {
+		/* Set the timer to watchdog mode and disable it for now */
+		pci_write_config_byte(edev->pdev, ESB_LOCK_REG, 0x00);
+	}
 
 	/* Check if the watchdog was previously triggered */
 	esb_unlock_registers(edev);
@@ -301,7 +309,10 @@ static int esb_probe(struct pci_dev *pdev,
 	if (!esb_getdevice(edev))
 		return -ENODEV;
 
-	/* Initialize the watchdog and make sure it does not run */
+	/*
+	 * Initialize the watchdog, keeping it running if it was already
+	 * started, e.g. by firmware.
+	 */
 	edev->wdd.info = &esb_info;
 	edev->wdd.ops = &esb_ops;
 	edev->wdd.min_timeout = ESB_HEARTBEAT_MIN;
