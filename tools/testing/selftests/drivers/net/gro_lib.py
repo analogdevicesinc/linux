@@ -48,7 +48,7 @@ import re
 from lib.py import ksft_run, ksft_exit, ksft_pr
 from lib.py import NetDrvEpEnv, KsftFailEx, KsftXfailEx
 from lib.py import NetdevFamily, EthtoolFamily
-from lib.py import bkg, cmd, defer, ethtool, ip
+from lib.py import bkg, cmd, ctl_file_write, defer, ethtool, ip
 from lib.py import ksft_variants, KsftNamedVariant
 
 
@@ -83,17 +83,6 @@ def _resolve_dmac(cfg, ipver):
                json=True, host=cfg.remote)[0]
     setattr(cfg, attr, neigh['lladdr'])
     return getattr(cfg, attr)
-
-
-def _write_defer_restore(cfg, path, val, defer_undo=False):
-    with open(path, "r", encoding="utf-8") as fp:
-        orig_val = fp.read().strip()
-        if str(val) == orig_val:
-            return
-    with open(path, "w", encoding="utf-8") as fp:
-        fp.write(val)
-    if defer_undo:
-        defer(_write_defer_restore, cfg, path, orig_val)
 
 
 def _set_mtu_restore(dev, mtu, host):
@@ -250,8 +239,8 @@ def _setup(cfg, mode, test_name):
         flush_path = f"/sys/class/net/{cfg.ifname}/gro_flush_timeout"
         irq_path = f"/sys/class/net/{cfg.ifname}/napi_defer_hard_irqs"
 
-        _write_defer_restore(cfg, flush_path, "200000", defer_undo=True)
-        _write_defer_restore(cfg, irq_path, "10", defer_undo=True)
+        ctl_file_write(flush_path, "200000")
+        ctl_file_write(irq_path, "10")
 
         _set_ethtool_feat(cfg.ifname, cfg.feat,
                           {"generic-receive-offload": True,
