@@ -1402,6 +1402,7 @@ retry:
 		return 0;
 	}
 	fi = list_first_entry(head, struct f2fs_inode_info, dirty_list);
+	list_move_tail(&fi->dirty_list, head);
 	inode = igrab(&fi->vfs_inode);
 	spin_unlock(&sbi->inode_lock[type]);
 	if (inode) {
@@ -1424,11 +1425,6 @@ retry:
 		else
 			ino = cur_ino;
 	} else {
-		/*
-		 * We should submit bio, since it exists several
-		 * writebacking dentry pages in the freeing inode.
-		 */
-		f2fs_submit_merged_write(sbi, DATA);
 		cond_resched();
 	}
 	goto retry;
@@ -1452,6 +1448,7 @@ static int f2fs_sync_inode_meta(struct f2fs_sb_info *sbi)
 		}
 		fi = list_first_entry(head, struct f2fs_inode_info,
 							gdirty_list);
+		list_move_tail(&fi->gdirty_list, head);
 		inode = igrab(&fi->vfs_inode);
 		spin_unlock(&sbi->inode_lock[DIRTY_META]);
 		if (inode) {
@@ -1461,6 +1458,8 @@ static int f2fs_sync_inode_meta(struct f2fs_sb_info *sbi)
 			if (is_inode_flag_set(inode, FI_DIRTY_INODE))
 				f2fs_update_inode_page(inode);
 			iput(inode);
+		} else {
+			cond_resched();
 		}
 	}
 	return 0;
