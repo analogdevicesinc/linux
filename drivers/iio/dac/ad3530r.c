@@ -3,6 +3,7 @@
  * AD3530R/AD3530 8-channel, 16-bit Voltage Output DAC Driver
  * AD3531R/AD3531 4-channel, 16-bit Voltage Output DAC Driver
  * AD3532R/AD3532 16-channel, 16-bit Voltage Output DAC Driver
+ * AD3536R 16-channel, 12-bit Voltage Output DAC Driver
  * AD5710R 8-channel, 16-bit Configurable IDAC/VDAC Driver
  * AD5711R 8-channel, 12-bit Configurable IDAC/VDAC Driver
  *
@@ -750,6 +751,24 @@ static const struct ad3530r_chip_info ad3532r_chip = {
 	.configurable_ch_func = false,
 };
 
+static const struct ad3530r_chip_info ad3536r_chip = {
+	.name = "ad3536r",
+	.resolution = 12,
+	.channels = ad3532r_channels,
+	.regmap_config = &ad3532r_regmap_config,
+	.num_channels = ARRAY_SIZE(ad3532r_channels),
+	.sw_ldac_trig_reg = ad3532r_trigger_sw_ldac_reg,
+	.input_ch_reg = ad3532r_input_ch_reg,
+	.interface_config_a = ad3532r_if_config,
+	.output_control = ad3532r_out_ctrl,
+	.reference_control = ad3532r_ref_ctrl,
+	.op_mode = ad3532r_op_mode,
+	.num_banks = ARRAY_SIZE(ad3532r_if_config),
+	.num_op_mode_regs = ARRAY_SIZE(ad3532r_op_mode),
+	.internal_ref_support = true,
+	.configurable_ch_func = false,
+};
+
 static const struct ad3530r_chip_info ad5710r_chip = {
 	.name = "ad5710r",
 	.resolution = 16,
@@ -1046,6 +1065,7 @@ static const struct spi_device_id ad3530r_id[] = {
 	{ "ad3531r", (kernel_ulong_t)&ad3531r_chip },
 	{ "ad3532", (kernel_ulong_t)&ad3532_chip },
 	{ "ad3532r", (kernel_ulong_t)&ad3532r_chip },
+	{ "ad3536r", (kernel_ulong_t)&ad3536r_chip },
 	{ "ad5710r", (kernel_ulong_t)&ad5710r_chip },
 	{ "ad5711r", (kernel_ulong_t)&ad5711r_chip },
 	{ }
@@ -1059,6 +1079,7 @@ static const struct of_device_id ad3530r_of_match[] = {
 	{ .compatible = "adi,ad3531r", .data = &ad3531r_chip },
 	{ .compatible = "adi,ad3532", .data = &ad3532_chip },
 	{ .compatible = "adi,ad3532r", .data = &ad3532r_chip },
+	{ .compatible = "adi,ad3536r", .data = &ad3536r_chip },
 	{ .compatible = "adi,ad5710r", .data = &ad5710r_chip },
 	{ .compatible = "adi,ad5711r", .data = &ad5711r_chip },
 	{ }
