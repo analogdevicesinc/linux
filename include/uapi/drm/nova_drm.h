@@ -26,6 +26,18 @@ extern "C" {
 #define NOVA_GETPARAM_VRAM_BAR_SIZE	0x1
 
 /**
+ * enum drm_nova_architecture - GPU architecture identifier
+ */
+enum drm_nova_architecture {
+	NOVA_DRM_ARCHITECTURE_TURING		= 0x16,
+	NOVA_DRM_ARCHITECTURE_AMPERE		= 0x17,
+	NOVA_DRM_ARCHITECTURE_HOPPER		= 0x18,
+	NOVA_DRM_ARCHITECTURE_ADA		= 0x19,
+	NOVA_DRM_ARCHITECTURE_BLACKWELL_GB10X	= 0x1a,
+	NOVA_DRM_ARCHITECTURE_BLACKWELL_GB20X	= 0x1b,
+};
+
+/**
  * struct drm_nova_getparam - query GPU and driver metadata
  */
 struct drm_nova_getparam {

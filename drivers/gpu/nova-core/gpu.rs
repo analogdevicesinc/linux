@@ -16,6 +16,7 @@ use kernel::{
         SizeConstants,
         SZ_4K, //
     },
+    uapi, //
 };
 
 use crate::{
@@ -50,8 +51,9 @@ mod hal;
 mod regs;
 
 macro_rules! define_chipset {
-    ({ $($variant:ident = $value:expr),* $(,)* }) =>
+    ({ $($variant:ident = $value:literal),* $(,)* }) =>
     {
+        ::kernel::macros::paste!(
         /// Enum representation of the GPU chipset.
         #[derive(fmt::Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
         pub(crate) enum Chipset {
@@ -63,7 +65,6 @@ macro_rules! define_chipset {
                 $( Chipset::$variant, )*
             ];
 
-            ::kernel::macros::paste!(
             /// Returns the name of this chipset, in lowercase.
             ///
             /// # Examples
@@ -79,7 +80,6 @@ macro_rules! define_chipset {
                 )*
                 }
             }
-            );
         }
 
         // TODO[FPRI]: replace with something like derive(FromPrimitive)
@@ -88,11 +88,14 @@ macro_rules! define_chipset {
 
             fn try_from(value: u32) -> Result<Self, Self::Error> {
                 match value {
-                    $( $value => Ok(Chipset::$variant), )*
+                    $(
+                        $value => Ok(Chipset::$variant),
+                    )*
                     _ => Err(ENODEV),
                 }
             }
         }
+    );
     }
 }
 
@@ -177,13 +180,16 @@ impl fmt::Display for Chipset {
 bounded_enum! {
     /// Enum representation of the GPU generation.
     #[derive(fmt::Debug, Copy, Clone)]
+    #[repr(u32)]
     pub(crate) enum Architecture with TryFrom<Bounded<u32, 6>> {
-        Turing = 0x16,
-        Ampere = 0x17,
-        Hopper = 0x18,
-        Ada = 0x19,
-        BlackwellGB10x = 0x1a,
-        BlackwellGB20x = 0x1b,
+        Turing = uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_TURING,
+        Ampere = uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_AMPERE,
+        Hopper = uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_HOPPER,
+        Ada = uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_ADA,
+        BlackwellGB10x =
+            uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_BLACKWELL_GB10X,
+        BlackwellGB20x =
+            uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_BLACKWELL_GB20X,
     }
 }
 
