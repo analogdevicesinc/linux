@@ -98,6 +98,7 @@ usage () {
 
 while test $# -gt 0
 do
+	echo Argument: :$1:
 	case "$1" in
 	--allcpus)
 		cpus=$TORTURE_ALLOTED_CPUS
@@ -270,6 +271,9 @@ do
 		;;
 	--trust-make)
 		TORTURE_TRUST_MAKE="y"
+		;;
+	"")
+		# torture.sh can pass empty arguments.  Ignore them.
 		;;
 	*)
 		echo Unknown argument $1
