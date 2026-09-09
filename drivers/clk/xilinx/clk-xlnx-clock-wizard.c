@@ -881,10 +881,10 @@ static int clk_wzrd_dynamic_reconfig_f(struct clk_hw *hw, unsigned long rate,
 	struct clk_wzrd_divider *divider = to_clk_wzrd_divider(hw);
 	void __iomem *div_addr = divider->base + divider->offset;
 
-	rate_div = DIV_ROUND_DOWN_ULL(parent_rate * 1000, rate);
+	rate_div = DIV_ROUND_DOWN_ULL((u64)parent_rate * 1000, rate);
 	clockout0_div = rate_div / 1000;
 
-	pre = DIV_ROUND_CLOSEST((parent_rate * 1000), rate);
+	pre = DIV_ROUND_CLOSEST_ULL((u64)parent_rate * 1000, rate);
 	f = (u32)(pre - (clockout0_div * 1000));
 	f = f & WZRD_CLKOUT_FRAC_MASK;
 	f = f << WZRD_CLKOUT_DIVIDE_WIDTH;
