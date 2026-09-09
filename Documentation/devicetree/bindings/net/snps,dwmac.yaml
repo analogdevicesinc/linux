@@ -175,7 +175,7 @@ properties:
     minItems: 1
     items:
       - description: GMAC stmmaceth reset
-      - description: AHB reset
+      - description: AHB or OCP reset
 
   reset-names:
     oneOf:
@@ -183,7 +183,7 @@ properties:
           - enum: [stmmaceth, ahb]
       - items:
           - const: stmmaceth
-          - const: ahb
+          - enum: [ahb, stmmaceth-ocp]
 
   power-domains:
     maxItems: 1
