@@ -19,7 +19,7 @@
 #include "max_serdes.h"
 
 #define MAX_SER_NUM_LINKS	1
-#define MAX_SER_NUM_PHYS	1
+#define MAX_SER_NUM_PHYS	2
 
 struct max_ser_priv {
 	struct max_ser *ser;
@@ -1324,14 +1324,6 @@ static int max_ser_init_state(struct v4l2_subdev *sd,
 			.flags = V4L2_SUBDEV_ROUTE_FL_ACTIVE,
 		};
 		stream++;
-
-		/*
-		 * The Streams API is an experimental feature.
-		 * If multiple routes are provided here, userspace will not be
-		 * able to configure them unless the Streams API is enabled.
-		 * Provide a single route until it is enabled.
-		 */
-		break;
 	}
 
 	return __max_ser_set_routing(sd, state, &routing);

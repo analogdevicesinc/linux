@@ -168,6 +168,27 @@ max_des_find_link_pipe(struct max_des *des, struct max_des_link *link)
 	return NULL;
 }
 
+static struct max_des_pipe *
+max_des_find_link_pipe_by_index(struct max_des *des, struct max_des_link *link,
+				unsigned int pipe_index)
+{
+	unsigned int i, count = 0;
+
+	for (i = 0; i < des->ops->num_pipes; i++) {
+		struct max_des_pipe *pipe = &des->pipes[i];
+
+		if (pipe->link_id != link->index)
+			continue;
+
+		if (count == pipe_index)
+			return pipe;
+
+		count++;
+	}
+
+	return NULL;
+}
+
 static struct max_serdes_source *
 max_des_get_link_source(struct max_des_priv *priv, struct max_des_link *link)
 {
@@ -288,7 +309,7 @@ static int max_des_route_to_hw(struct max_des_priv *priv,
 	if (!hw->phy)
 		return -ENOENT;
 
-	hw->pipe = max_des_find_link_pipe(des, link);
+	hw->pipe = max_des_find_link_pipe_by_index(des, link, route->sink_stream);
 	if (!hw->pipe)
 		return -ENOENT;
 
@@ -322,14 +343,29 @@ static int max_des_link_to_hw(struct max_des_priv *priv,
 	memset(hw, 0, sizeof(*hw));
 
 	hw->link = link;
+	hw->source = max_des_get_link_source(priv, hw->link);
+	if (!link->enabled)
+		return 0;
 
 	hw->pipe = max_des_find_link_pipe(des, hw->link);
 	if (!hw->pipe)
 		return -ENOENT;
 
-	hw->source = max_des_get_link_source(priv, hw->link);
-
 	return 0;
+}
+
+static bool max_des_link_pipes_in_use(struct max_des *des,
+				      struct max_des_remap_context *context,
+				      struct max_des_link *link)
+{
+	unsigned int i;
+
+	for (i = 0; i < des->ops->num_pipes; i++)
+		if (des->pipes[i].link_id == link->index &&
+		    context->pipe_in_use[i])
+			return true;
+
+	return false;
 }
 
 static int max_des_link_index_to_hw(struct max_des_priv *priv, unsigned int i,
@@ -476,7 +512,7 @@ static int max_des_get_supported_modes(struct max_des_priv *priv,
 		if (!hw.source->sd)
 			continue;
 
-		if (!context->pipe_in_use[hw.pipe->index])
+		if (!max_des_link_pipes_in_use(des, context, hw.link))
 			continue;
 
 		*modes &= max_ser_get_supported_modes(hw.source->sd);
@@ -511,6 +547,7 @@ static int max_des_populate_remap_context_mode(struct max_des_priv *priv,
 
 	for (i = 0; i < des->ops->num_links; i++) {
 		struct max_des_link_hw hw;
+		unsigned int j;
 
 		ret = max_des_link_index_to_hw(priv, i, &hw);
 		if (ret)
@@ -522,16 +559,23 @@ static int max_des_populate_remap_context_mode(struct max_des_priv *priv,
 		if (!hw.source->sd)
 			continue;
 
-		if (!context->pipe_in_use[hw.pipe->index])
-			continue;
+		for (j = 0; j < des->ops->num_pipes; j++) {
+			struct max_des_pipe *pipe = &des->pipes[j];
 
-		if (hweight_long(context->pipe_phy_masks[hw.pipe->index]) == 1 &&
-		    (!context->vc_ids_remapped[hw.pipe->index] ||
-		     max_ser_supports_vc_remap(hw.source->sd) ||
-		     des->ops->set_pipe_vc_remap))
-			continue;
+			if (pipe->link_id != hw.link->index)
+				continue;
 
-		return 0;
+			if (!context->pipe_in_use[pipe->index])
+				continue;
+
+			if (hweight_long(context->pipe_phy_masks[pipe->index]) == 1 &&
+			    (!context->vc_ids_remapped[pipe->index] ||
+			     max_ser_supports_vc_remap(hw.source->sd) ||
+			     des->ops->set_pipe_vc_remap))
+				continue;
+
+			return 0;
+		}
 	}
 
 	context->mode = MAX_SERDES_GMSL_TUNNEL_MODE;
@@ -879,6 +923,7 @@ static int max_des_set_modes(struct max_des_priv *priv,
 	for (i = 0; i < des->ops->num_links; i++) {
 		struct max_des_link_hw hw;
 		u32 pipe_double_bpps = 0;
+		unsigned int j;
 
 		ret = max_des_link_index_to_hw(priv, i, &hw);
 		if (ret)
@@ -890,7 +935,10 @@ static int max_des_set_modes(struct max_des_priv *priv,
 		if (!hw.source->sd)
 			continue;
 
-		pipe_double_bpps = context->pipes_double_bpps[hw.pipe->index];
+		for (j = 0; j < des->ops->num_pipes; j++)
+			if (des->pipes[j].link_id == hw.link->index)
+				pipe_double_bpps |=
+					context->pipes_double_bpps[j];
 
 		ret = max_ser_set_double_bpps(hw.source->sd, pipe_double_bpps);
 		if (ret)
@@ -931,7 +979,7 @@ static int max_des_set_tunnel(struct max_des_priv *priv,
 		if (!hw.source->sd)
 			continue;
 
-		if (!context->pipe_in_use[hw.pipe->index])
+		if (!max_des_link_pipes_in_use(des, context, hw.link))
 			continue;
 
 		ret = max_ser_set_mode(hw.source->sd, context->mode);
@@ -2198,16 +2246,22 @@ static int max_des_update_link(struct max_des_priv *priv,
 			       u64 *streams_masks)
 {
 	struct max_des *des = priv->des;
-	struct max_des_pipe *pipe;
+	unsigned int i;
 	int ret;
 
-	pipe = max_des_find_link_pipe(des, link);
-	if (!pipe)
-		return -ENOENT;
+	if (!link->enabled)
+		return 0;
 
-	ret = max_des_update_pipe(priv, context, pipe, state, streams_masks);
-	if (ret)
-		return ret;
+	for (i = 0; i < des->ops->num_pipes; i++) {
+		struct max_des_pipe *pipe = &des->pipes[i];
+
+		if (pipe->link_id != link->index)
+			continue;
+
+		ret = max_des_update_pipe(priv, context, pipe, state, streams_masks);
+		if (ret)
+			return ret;
+	}
 
 	return 0;
 }
@@ -2449,7 +2503,7 @@ static int max_des_disable_streams(struct v4l2_subdev *sd,
 static int max_des_init_state(struct v4l2_subdev *sd,
 			      struct v4l2_subdev_state *state)
 {
-	struct v4l2_subdev_route routes[MAX_DES_NUM_LINKS] = { 0 };
+	struct v4l2_subdev_route routes[MAX_DES_NUM_PIPES] = { 0 };
 	struct v4l2_subdev_krouting routing = {
 		.routes = routes,
 	};
@@ -2972,6 +3026,7 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 	struct max_des_link *link;
 	struct max_des_pipe *pipe;
 	struct max_des_phy *phy;
+	unsigned int num_enabled_links;
 	unsigned int i;
 	int ret;
 
@@ -3039,6 +3094,46 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 		ret = max_des_parse_sink_dt_endpoint(priv, link, source, fwnode);
 		if (ret)
 			return ret;
+	}
+
+	/*
+	 * The mapping above points pipe[i] at link[i]. A serializer that sends
+	 * more than one stream over a single link (e.g. the max9295d driving
+	 * two cameras) needs every pipe for that link pointed at the one link
+	 * it uses, which the per-index mapping cannot express when some links
+	 * are disabled.
+	 *
+	 * Deserializers that can route a pipe to any link implement
+	 * set_pipe_link; for those, hand the pipes to the enabled links in
+	 * turn. For each pipe, walk the links, skip the disabled ones, and
+	 * bind the pipe to the (i % num_enabled_links)-th enabled link. With
+	 * every link enabled this is the pipe[i] <- link[i] default; with only
+	 * some enabled the pipes pack onto those, the lowest-numbered link
+	 * getting any extras. A serializer that puts several streams on one
+	 * link should therefore be wired to the lowest-numbered link in use,
+	 * so it is given the extra pipes it needs. Chips without set_pipe_link
+	 * are wired to pipe[i] <- link[i] and keep the default above.
+	 */
+	num_enabled_links = 0;
+	for (i = 0; i < des->ops->num_links; i++)
+		if (des->links[i].enabled)
+			num_enabled_links++;
+
+	if (des->ops->set_pipe_link && num_enabled_links) {
+		for (i = 0; i < des->ops->num_pipes; i++) {
+			unsigned int nth = i % num_enabled_links;
+			unsigned int link_idx, seen = 0;
+
+			for (link_idx = 0; link_idx < des->ops->num_links;
+			     link_idx++) {
+				if (!des->links[link_idx].enabled)
+					continue;
+				if (seen++ == nth)
+					break;
+			}
+
+			des->pipes[i].link_id = link_idx;
+		}
 	}
 
 	return 0;

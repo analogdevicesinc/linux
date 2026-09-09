@@ -1123,6 +1123,7 @@ static int max9296a_probe(struct i2c_client *client)
 	ops->phys_configs = priv->info->ops->phys_configs;
 	ops->set_pipe_enable = priv->info->ops->set_pipe_enable;
 	ops->set_pipe_stream_id = priv->info->ops->set_pipe_stream_id;
+	ops->set_pipe_link = priv->info->ops->set_pipe_link;
 	ops->set_pipe_tunnel_phy = priv->info->ops->set_pipe_tunnel_phy;
 	ops->set_pipe_tunnel_enable = priv->info->ops->set_pipe_tunnel_enable;
 	ops->use_atr = priv->info->ops->use_atr;
@@ -1263,6 +1264,7 @@ static const struct max_des_ops max96716a_ops = {
 	.set_pipe_enable = max96714_set_pipe_enable,
 	.set_pipe_tunnel_phy = max96716a_set_pipe_tunnel_phy,
 	.set_pipe_tunnel_enable = max96714_set_pipe_tunnel_enable,
+	.needs_unique_stream_id = true,
 	.use_atr = true,
 	.phys_configs = {
 		.num_configs = ARRAY_SIZE(max9296a_phys_configs),
