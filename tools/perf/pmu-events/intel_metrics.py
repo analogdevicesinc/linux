@@ -1099,7 +1099,8 @@ def UncoreMemSat() -> Optional[Metric]:
     try:
         clocks = Event("UNC_CHA_CLOCKTICKS", "UNC_C_CLOCKTICKS")
         sat = Event("UNC_CHA_DISTRESS_ASSERTED.VERT", "UNC_CHA_FAST_ASSERTED.VERT",
-                    "UNC_C_FAST_ASSERTED")
+                    "UNC_C_FAST_ASSERTED", "UNC_CHA_DISTRESS_ASSERTED.DPT_ANY",
+                    "UNC_CHA_DISTRESS_ASSERTED.DPT_NONLOCAL")
     except:
         return None
 
