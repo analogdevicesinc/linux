@@ -91,6 +91,7 @@ properties:
               - hp,elitebook-x-g2q
               - lenovo,yoga-slim7x-gen11
               - qcom,glymur-crd
+              - qcom,glymur-qcb
           - const: qcom,glymur
 
       - items:
