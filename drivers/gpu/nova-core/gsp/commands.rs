@@ -214,6 +214,7 @@ impl CommandToGsp for GetGspStaticInfo {
 /// The reply from the GSP to the [`GetGspStaticInfo`] command.
 pub struct GetGspStaticInfoReply {
     gpu_name: [u8; 64],
+    gpu_short_name: [u8; 64],
     /// BAR1 Page Directory Entry base address.
     pub(crate) bar1_pde_base: u64,
     /// Usable FB (VRAM) regions for driver memory allocation.
@@ -239,6 +240,7 @@ impl MessageFromGsp for GetGspStaticInfoReply {
 
         Ok(GetGspStaticInfoReply {
             gpu_name: msg.gpu_name_str(),
+            gpu_short_name: msg.gpu_short_name_str(),
             bar1_pde_base: msg.bar1_pde_base(),
             usable_fb_regions,
             total_fb_end,
@@ -263,6 +265,17 @@ impl GetGspStaticInfoReply {
     /// contains invalid UTF-8.
     pub fn gpu_name(&self) -> Result<&str, GpuNameError> {
         CStr::from_bytes_until_nul(&self.gpu_name)
+            .map_err(GpuNameError::NoNullTerminator)?
+            .to_str()
+            .map_err(GpuNameError::InvalidUtf8)
+    }
+
+    /// Returns the short name of the GPU as a string.
+    ///
+    /// Returns an error if the string given by the GSP does not contain a null terminator or
+    /// contains invalid UTF-8.
+    pub fn gpu_short_name(&self) -> core::result::Result<&str, GpuNameError> {
+        CStr::from_bytes_until_nul(&self.gpu_short_name)
             .map_err(GpuNameError::NoNullTerminator)?
             .to_str()
             .map_err(GpuNameError::InvalidUtf8)

@@ -68,6 +68,11 @@ impl GpuInfo {
             gsp_static_info.gpu_name().map_err(|_| EINVAL)?,
         )?;
 
+        copy_name(
+            &mut info.gpu_short_name,
+            gsp_static_info.gpu_short_name().map_err(|_| EINVAL)?,
+        )?;
+
         Ok(Self(info))
     }
 }

@@ -131,6 +131,11 @@ impl GspStaticConfigInfo {
         self.0.gpuNameString
     }
 
+    /// Returns a bytes array containing the (hopefully) zero-terminated short name of this GPU.
+    pub(crate) fn gpu_short_name_str(&self) -> [u8; 64] {
+        self.0.gpuShortNameString
+    }
+
     /// Returns the BAR1 Page Directory Entry base address.
     ///
     /// This is the root page table address for BAR1 virtual memory,

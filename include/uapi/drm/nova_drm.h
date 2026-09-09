@@ -193,6 +193,11 @@ struct drm_nova_info_gpu {
 	 * @gpu_name: NUL-terminated full GPU name.
 	 */
 	__u8 gpu_name[64];
+
+	/**
+	 * @gpu_short_name: NUL-terminated short GPU name.
+	 */
+	__u8 gpu_short_name[64];
 };
 
 #define DRM_NOVA_GETPARAM		0x00
