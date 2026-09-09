@@ -21,6 +21,13 @@ int scx_check_setscheduler(struct task_struct *p, int policy);
 bool task_should_scx(int policy);
 bool scx_allow_ttwu_queue(const struct task_struct *p);
 void init_sched_ext_class(void);
+void __scx_update_idle(struct rq *rq, bool idle, bool do_notify);
+
+static inline void scx_update_idle(struct rq *rq, bool idle, bool do_notify)
+{
+	if (scx_enabled())
+		__scx_update_idle(rq, idle, do_notify);
+}
 
 static inline u32 scx_cpuperf_target(s32 cpu)
 {
@@ -55,20 +62,9 @@ static inline int scx_check_setscheduler(struct task_struct *p, int policy) { re
 static inline bool task_on_scx(const struct task_struct *p) { return false; }
 static inline bool scx_allow_ttwu_queue(const struct task_struct *p) { return true; }
 static inline void init_sched_ext_class(void) {}
+static inline void scx_update_idle(struct rq *rq, bool idle, bool do_notify) {}
 
 #endif	/* CONFIG_SCHED_CLASS_EXT */
-
-#ifdef CONFIG_SCHED_CLASS_EXT
-void __scx_update_idle(struct rq *rq, bool idle, bool do_notify);
-
-static inline void scx_update_idle(struct rq *rq, bool idle, bool do_notify)
-{
-	if (scx_enabled())
-		__scx_update_idle(rq, idle, do_notify);
-}
-#else
-static inline void scx_update_idle(struct rq *rq, bool idle, bool do_notify) {}
-#endif
 
 #ifdef CONFIG_CGROUP_SCHED
 #ifdef CONFIG_EXT_GROUP_SCHED
