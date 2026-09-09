@@ -1286,21 +1286,8 @@ void io_req_task_complete(struct io_tw_req tw_req, io_tw_token_t tw)
 {
 	struct io_kiocb *req = tw_req.req;
 
-	/*
-	 * io-wq may still hold a reference if the issue completed async.
-	 * Defer completion to the last put, so that file drop and CQE
-	 * visibility are ordered. The last reference stays for the free
-	 * path to put, a linked timeout may still look at the request.
-	 */
-	if ((req->flags & REQ_F_REFCOUNT) && !(req->flags & REQ_F_REISSUE) &&
-	    atomic_read(&req->refs) != 1) {
-		if (!req_ref_put_and_test(req))
-			return;
-		/* the other put raced us, ours was the last after all */
-		atomic_set(&req->refs, 1);
-	}
-
-	io_req_complete_defer(req);
+	if (io_req_complete_ready(req))
+		io_req_complete_defer(req);
 }
 
 /*
