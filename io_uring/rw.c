@@ -16,6 +16,7 @@
 
 #include "filetable.h"
 #include "io_uring.h"
+#include "refs.h"
 #include "opdef.h"
 #include "kbuf.h"
 #include "alloc_cache.h"
@@ -1379,6 +1380,9 @@ int io_do_iopoll(struct io_ring_ctx *ctx, bool force_nonspin)
 	list_for_each_entry_safe(req, tmp, &ctx->iopoll_list, iopoll_node) {
 		/* order with io_complete_rw_iopoll(), e.g. ->result updates */
 		if (!smp_load_acquire(&req->iopoll_completed))
+			continue;
+		/* io-wq still has a reference, reap it on the next pass */
+		if (io_req_shared(req))
 			continue;
 		list_del(&req->iopoll_node);
 		wq_list_add_tail(&req->comp_list, &ctx->submit_state.compl_reqs);
