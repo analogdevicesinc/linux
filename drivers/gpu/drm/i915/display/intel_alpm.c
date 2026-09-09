@@ -392,10 +392,15 @@ static u32 get_pr_alpm_as_sdp_transmission_time(const struct intel_crtc_state *c
  */
 static u32 intel_pr_as_sdp_skip_frames(struct intel_dp *intel_dp)
 {
+	struct intel_display *display = to_intel_display(intel_dp);
 	const struct drm_display_info *info =
 		&intel_dp->attached_connector->base.display_info;
 	int max_vrefresh = info->monitor_range.max_vfreq;
 	int min_vrefresh = info->monitor_range.min_vfreq;
+
+	/* Off by default; gated by the enable_periodic_assdp debugfs knob. */
+	if (!display->params.enable_periodic_assdp)
+		return 0;
 
 	if (min_vrefresh <= 0 || max_vrefresh <= min_vrefresh)
 		return 0;
