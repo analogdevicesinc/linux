@@ -705,6 +705,12 @@
 		function = "intc_ex";
 	};
 
+	/* Page 30 / Audio_Codec */
+	msiof1_pins: msiof1 {
+		groups = "msiof1_clk", "msiof1_sync", "msiof1_txd", "msiof1_rxd";
+		function = "msiof1";
+	};
+
 	/* Page 31 / FAN */
 	pwm0_pins: pwm0 {
 		groups = "pwm0";
@@ -754,12 +760,6 @@
 		groups = "mmc_data4", "mmc_ctrl";
 		function = "mmc";
 		power-source = <1800>;
-	};
-
-	/* Page 30 / Audio_Codec */
-	msiof1_pins: sound {
-		groups = "msiof1_clk", "msiof1_sync", "msiof1_txd", "msiof1_rxd";
-		function = "msiof1";
 	};
 
 	/* Page 30 / Audio_Codec */
