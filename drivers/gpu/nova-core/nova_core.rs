@@ -10,6 +10,7 @@ use kernel::{
     InPlaceModule, //
 };
 
+pub mod api;
 mod driver;
 mod falcon;
 mod fb;
