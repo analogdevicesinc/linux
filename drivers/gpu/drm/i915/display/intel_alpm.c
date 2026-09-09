@@ -375,6 +375,35 @@ static u32 get_pr_alpm_as_sdp_transmission_time(const struct intel_crtc_state *c
 	}
 }
 
+/*
+ * Periodic Adaptive-Sync SDP skip frames.
+ *
+ * While Panel Replay is active the transcoder timing generator runs at the
+ * panel's maximum refresh rate. To drive the panel down to its minimum
+ * refresh rate the Adaptive-Sync SDP only needs to reach the panel once per
+ * minimum-rate frame, so transmitting it on every (maximum-rate) frame is
+ * unnecessary and shows up as repeated SDPs on the link. Program the HW skip
+ * counter so that a single AS SDP is followed by
+ * (max_vrefresh / min_vrefresh - 1) idle frames, i.e. one AS SDP per slowest
+ * panel frame.
+ *
+ * The maximum and minimum refresh rates come from the panel's adaptive-sync
+ * monitor range, so this is independent of the current content/flip rate.
+ */
+static u32 intel_pr_as_sdp_skip_frames(struct intel_dp *intel_dp)
+{
+	const struct drm_display_info *info =
+		&intel_dp->attached_connector->base.display_info;
+	int max_vrefresh = info->monitor_range.max_vfreq;
+	int min_vrefresh = info->monitor_range.min_vfreq;
+
+	if (min_vrefresh <= 0 || max_vrefresh <= min_vrefresh)
+		return 0;
+
+	return min_t(u32, max_vrefresh / min_vrefresh - 1,
+		     REG_FIELD_MAX(PR_ALPM_CTL_AS_SDP_SKIP_FRAMES_MASK));
+}
+
 static void lnl_alpm_configure(struct intel_dp *intel_dp,
 			       const struct intel_crtc_state *crtc_state)
 {
@@ -399,16 +428,38 @@ static void lnl_alpm_configure(struct intel_dp *intel_dp,
 
 		if (intel_dp->as_sdp_supported) {
 			u32 pr_alpm_ctl = get_pr_alpm_as_sdp_transmission_time(crtc_state);
+			u32 skip_frames = 0;
+
+			/*
+			 * AS SDP skip frames field only exists on Xe3p_LPD+, and
+			 * periodic AS SDP is a Panel Replay feature that is only
+			 * used when VRR is not actively driving the refresh rate.
+			 */
+			if (DISPLAY_VER(display) >= 35 && crtc_state->has_panel_replay &&
+			    !crtc_state->vrr.enable)
+				skip_frames = intel_pr_as_sdp_skip_frames(intel_dp);
 
 			if (crtc_state->link_off_after_as_sdp_when_pr_active)
 				pr_alpm_ctl |= PR_ALPM_CTL_ALLOW_LINK_OFF_BETWEEN_AS_SDP_AND_SU;
-			if (crtc_state->disable_as_sdp_when_pr_active)
-				pr_alpm_ctl |= PR_ALPM_CTL_AS_SDP_TRANSMISSION_IN_ACTIVE_DISABLE;
 
-			if (intel_display_power_dc3co_allowed(display))
-				pr_alpm_ctl |= PR_ALPM_CTL_USE_DC3CO_IDLE_PROTOCOL;
-			else
+			/*
+			 * Skip frames needs the AS SDP to keep flowing during PR
+			 * active, so it is mutually exclusive with disabling AS SDP
+			 * transmission in active and with the DC3CO idle protocol.
+			 */
+			if (skip_frames) {
+				pr_alpm_ctl |= PR_ALPM_CTL_AS_SDP_SKIP_FRAMES(skip_frames);
+				pr_alpm_ctl &= ~PR_ALPM_CTL_AS_SDP_TRANSMISSION_IN_ACTIVE_DISABLE;
 				pr_alpm_ctl &= ~PR_ALPM_CTL_USE_DC3CO_IDLE_PROTOCOL;
+			} else {
+				pr_alpm_ctl &= ~PR_ALPM_CTL_AS_SDP_SKIP_FRAMES_MASK;
+
+				if (crtc_state->disable_as_sdp_when_pr_active)
+					pr_alpm_ctl |= PR_ALPM_CTL_AS_SDP_TRANSMISSION_IN_ACTIVE_DISABLE;
+
+				if (intel_display_power_dc3co_allowed(display))
+					pr_alpm_ctl |= PR_ALPM_CTL_USE_DC3CO_IDLE_PROTOCOL;
+			}
 
 			intel_de_write(display, PR_ALPM_CTL(display, cpu_transcoder),
 				       pr_alpm_ctl);
