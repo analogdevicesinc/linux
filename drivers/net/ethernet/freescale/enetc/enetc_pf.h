@@ -13,6 +13,7 @@ enum enetc_vf_flags {
 	ENETC_VF_FLAG_TRUSTED		= BIT(1),
 	ENETC_VF_FLAG_UC_PROMISC	= BIT(2),
 	ENETC_VF_FLAG_MC_PROMISC	= BIT(3),
+	ENETC_VF_FLAG_SPOOFCHK		= BIT(4),
 };
 
 struct enetc_vf_state {
@@ -20,6 +21,9 @@ struct enetc_vf_state {
 	enum enetc_vf_flags flags;
 	/* Number of consecutive failures to send PF-to-VF messages */
 	int msg_fail_cnt;
+	u8 tpid; /* SI-based VLAN TPID (0: 0x8100, 1: 0x88a8) */
+	u8 qos; /* SI-based VLAN QOS (priority) bits */
+	u16 vid; /* SI-based VLAN ID */
 };
 
 struct enetc_port_caps {
