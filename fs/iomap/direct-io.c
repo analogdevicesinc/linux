@@ -336,6 +336,7 @@ static ssize_t iomap_dio_bio_iter_one(struct iomap_iter *iter,
 		struct iomap_dio *dio, loff_t pos, unsigned int alignment,
 		blk_opf_t op)
 {
+	unsigned int maxsize = iomap_max_bio_size(&iter->iomap);
 	unsigned int nr_vecs;
 	struct bio *bio;
 	ssize_t ret;
@@ -353,14 +354,12 @@ static ssize_t iomap_dio_bio_iter_one(struct iomap_iter *iter,
 	bio->bi_private = dio;
 	bio->bi_end_io = iomap_dio_bio_end_io;
 
-
 	if (dio->flags & IOMAP_DIO_BOUNCE)
-		ret = bio_iov_iter_bounce(bio, dio->submit.iter,
-				iomap_max_bio_size(&iter->iomap), alignment);
+		ret = bio_iov_iter_bounce(bio, dio->submit.iter, maxsize,
+				alignment);
 	else
-		ret = bio_iov_iter_get_pages(bio, dio->submit.iter,
-				BIO_MAX_SIZE, bdev_dma_alignment(bio->bi_bdev),
-				alignment - 1);
+		ret = bio_iov_iter_get_pages(bio, dio->submit.iter, maxsize,
+				bdev_dma_alignment(bio->bi_bdev), alignment - 1);
 	if (unlikely(ret))
 		goto out_put_bio;
 	ret = bio->bi_iter.bi_size;
