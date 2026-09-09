@@ -135,6 +135,37 @@ static int enetc_msg_vsi_send(struct enetc_si *si, struct enetc_msg_swbd *msg)
 	return err;
 }
 
+static int enetc_msg_link_status_notifier(struct enetc_si *si, bool reg)
+{
+	struct device *dev = &si->pdev->dev;
+	struct enetc_msg_swbd msg_swbd;
+	u8 cmd_id;
+
+	msg_swbd.size = ALIGN(sizeof(struct enetc_msg_generic),
+			      ENETC_MSG_ALIGN);
+	msg_swbd.vaddr = dma_alloc_coherent(dev, msg_swbd.size,
+					    &msg_swbd.dma, GFP_KERNEL);
+	if (!msg_swbd.vaddr)
+		return -ENOMEM;
+
+	cmd_id = reg ? ENETC_MSG_REGISTER_LINK_CHANGE_NOTIFIER :
+		       ENETC_MSG_UNREGISTER_LINK_CHANGE_NOTIFIER;
+	enetc_msg_fill_common_hdr(&msg_swbd, ENETC_MSG_CLASS_ID_LINK_STATUS,
+				  cmd_id, 0, 0);
+
+	return enetc_msg_vsi_send(si, &msg_swbd);
+}
+
+static int enetc_vf_reg_link_status_notifier(struct enetc_si *si)
+{
+	return enetc_msg_link_status_notifier(si, true);
+}
+
+static int enetc_vf_unreg_link_status_notifier(struct enetc_si *si)
+{
+	return enetc_msg_link_status_notifier(si, false);
+}
+
 static int enetc_msg_vsi_set_primary_mac_addr(struct enetc_ndev_priv *priv,
 					      struct sockaddr *saddr)
 {
@@ -499,6 +530,128 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 	enetc_load_primary_mac_addr(&si->hw, ndev);
 }
 
+static void enetc_vf_enable_mr_int(struct enetc_si *si)
+{
+	if (is_enetc_rev1(si))
+		return;
+
+	enetc_wr(&si->hw, ENETC_VSIIER, VSIIER_MRIE);
+}
+
+static void enetc_vf_disable_mr_int(struct enetc_si *si)
+{
+	if (is_enetc_rev1(si))
+		return;
+
+	enetc_wr(&si->hw, ENETC_VSIIER, 0);
+}
+
+static void enetc_vf_msg_handle_link_status(struct enetc_si *si, u8 status)
+{
+	bool tx_pause = !!(status & ENETC_CLASS_CODE_TX_PAUSE_EN);
+	bool link_down = !!(status & ENETC_CLASS_CODE_LINK_DOWN);
+	struct enetc_ndev_priv *priv = netdev_priv(si->ndev);
+	struct net_device *ndev = si->ndev;
+
+	rtnl_lock();
+	if (!netif_running(ndev))
+		goto unlock_rtnl;
+
+	if (link_down) {
+		if (netif_carrier_ok(ndev)) {
+			netif_carrier_off(ndev);
+			netdev_info(ndev, "Link is Down\n");
+		}
+
+		goto unlock_rtnl;
+	}
+
+	/* Link is up */
+	enetc_set_congestion_mode(priv, tx_pause);
+
+	if (!netif_carrier_ok(ndev)) {
+		netif_carrier_on(ndev);
+		netdev_info(ndev, "Link is Up, tx pause %s\n",
+			    tx_pause ? "on" : "off");
+	}
+
+unlock_rtnl:
+	rtnl_unlock();
+}
+
+static void enetc_vf_msg_task(struct work_struct *work)
+{
+	struct enetc_si *si = container_of(work, struct enetc_si, msg_task);
+	struct enetc_hw *hw = &si->hw;
+	u8 class_id, class_code;
+	u16 pf_msg;
+
+	/* W1C to clear the message received interrupt event */
+	enetc_wr(hw, ENETC_VSIIDR, VSIIDR_MR);
+
+	/* Reading VSIMSGRR retrieves the message data and acknowledges to
+	 * the PF that the message was received and another message can be
+	 * sent.
+	 */
+	pf_msg = FIELD_GET(VSIMSGRR_MC, enetc_rd(hw, ENETC_VSIMSGRR));
+	class_id = FIELD_GET(ENETC_PF_MSG_CLASS_ID, pf_msg);
+
+	switch (class_id) {
+	case ENETC_MSG_CLASS_ID_LINK_STATUS:
+		class_code = FIELD_GET(ENETC_PF_MSG_CLASS_CODE_U8, pf_msg);
+		enetc_vf_msg_handle_link_status(si, class_code);
+		break;
+	default:
+		dev_err(&si->pdev->dev,
+			"Unsupported Message Class ID (0x%02x) from PF\n",
+			class_id);
+	}
+
+	enetc_vf_enable_mr_int(si);
+}
+
+static irqreturn_t enetc_vf_msg_msix_handler(int irq, void *data)
+{
+	struct enetc_si *si = (struct enetc_si *)data;
+
+	enetc_vf_disable_mr_int(si);
+	queue_work(si->workqueue, &si->msg_task);
+
+	return IRQ_HANDLED;
+}
+
+static int enetc_vf_register_msg_msix(struct enetc_si *si)
+{
+	int irq, err;
+
+	if (is_enetc_rev1(si))
+		return 0;
+
+	snprintf(si->msg_int_name, sizeof(si->msg_int_name), "%s-pfmsg",
+		 pci_name(si->pdev));
+	irq = pci_irq_vector(si->pdev, ENETC_SI_INT_IDX);
+	err = request_irq(irq, enetc_vf_msg_msix_handler, 0,
+			  si->msg_int_name, si);
+	if (err) {
+		dev_err(&si->pdev->dev,
+			"VF messaging: request_irq() failed!\n");
+		return err;
+	}
+
+	/* set one IRQ entry for PSI-to-VSI messaging */
+	enetc_wr(&si->hw, ENETC_SIMSIVR, ENETC_SI_INT_IDX);
+
+	return 0;
+}
+
+static void enetc_vf_free_msg_msix(struct enetc_si *si)
+{
+	if (is_enetc_rev1(si))
+		return;
+
+	free_irq(pci_irq_vector(si->pdev, ENETC_SI_INT_IDX), si);
+}
+
 static const struct enetc_si_ops enetc_vsi_ops = {
 	.get_rss_table = enetc_get_rss_table,
 	.set_rss_table = enetc_set_rss_table,
@@ -511,7 +664,40 @@ static const struct enetc_si_ops enetc4_vsi_ops = {
 	.set_rss_table = enetc4_set_rss_table,
 	.setup_cbdr = enetc4_setup_cbdr,
 	.teardown_cbdr = enetc4_teardown_cbdr,
+	.vf_reg_link_status_notifier = enetc_vf_reg_link_status_notifier,
+	.vf_unreg_link_status_notifier = enetc_vf_unreg_link_status_notifier,
 };
+
+static int enetc_vf_wq_task_init(struct enetc_si *si)
+{
+	if (is_enetc_rev1(si))
+		return 0;
+
+	si->workqueue = alloc_ordered_workqueue("enetc-%s-wq", WQ_MEM_RECLAIM,
+						pci_name(si->pdev));
+	if (!si->workqueue)
+		return -ENOMEM;
+
+	INIT_WORK(&si->msg_task, enetc_vf_msg_task);
+
+	return 0;
+}
+
+static void enetc_vf_wq_task_destroy(struct enetc_si *si)
+{
+	if (!si->workqueue)
+		return;
+
+	disable_work_sync(&si->msg_task);
+
+	/* Disable the MR interrupt */
+	enetc_vf_disable_mr_int(si);
+	enetc_wr(&si->hw, ENETC_VSIIDR, VSIIDR_MR);
+	/* Reading VSIMSGRR to clear the MS bit on the PF's side */
+	enetc_rd(&si->hw, ENETC_VSIMSGRR);
+
+	destroy_workqueue(si->workqueue);
+}
 
 static int enetc_vf_probe(struct pci_dev *pdev,
 			  const struct pci_device_id *ent)
@@ -587,15 +773,32 @@ static int enetc_vf_probe(struct pci_dev *pdev,
 		goto err_alloc_msix;
 	}
 
+	err = enetc_vf_wq_task_init(si);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to init workqueue\n");
+		goto err_wq_init;
+	}
+
+	err = enetc_vf_register_msg_msix(si);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to register msg irq\n");
+		goto err_register_msg_msix;
+	}
+
+	netif_carrier_off(ndev);
+	/* Enable message received interrupt */
+	enetc_vf_enable_mr_int(si);
 	err = register_netdev(ndev);
 	if (err)
 		goto err_reg_netdev;
 
-	netif_carrier_off(ndev);
-
 	return 0;
 
 err_reg_netdev:
+	enetc_vf_free_msg_msix(si);
+err_register_msg_msix:
+	enetc_vf_wq_task_destroy(si);
+err_wq_init:
 	enetc_free_msix(priv);
 err_config_si:
 err_alloc_msix:
@@ -628,6 +831,8 @@ static void enetc_vf_remove(struct pci_dev *pdev)
 		enetc_vf_set_mac_promisc(si, ENETC_MAC_FILTER_TYPE_ALL,
 					 false, true);
 
+	enetc_vf_free_msg_msix(si);
+	enetc_vf_wq_task_destroy(si);
 	enetc_free_msix(priv);
 
 	enetc_free_si_resources(priv);
