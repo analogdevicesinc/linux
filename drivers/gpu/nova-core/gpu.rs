@@ -51,13 +51,14 @@ mod hal;
 mod regs;
 
 macro_rules! define_chipset {
-    ({ $($variant:ident = $value:literal),* $(,)* }) =>
+    ({ $($variant:ident),* $(,)* }) =>
     {
         ::kernel::macros::paste!(
         /// Enum representation of the GPU chipset.
         #[derive(fmt::Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
+        #[repr(u32)]
         pub(crate) enum Chipset {
-            $($variant = $value),*,
+            $($variant = uapi::[<drm_nova_chipid_NOVA_DRM_CHIPID_ $variant:upper>]),*,
         }
 
         impl Chipset {
@@ -89,7 +90,9 @@ macro_rules! define_chipset {
             fn try_from(value: u32) -> Result<Self, Self::Error> {
                 match value {
                     $(
-                        $value => Ok(Chipset::$variant),
+                        uapi::[<drm_nova_chipid_NOVA_DRM_CHIPID_ $variant:upper>] => {
+                            Ok(Chipset::$variant)
+                        }
                     )*
                     _ => Err(ENODEV),
                 }
@@ -101,35 +104,35 @@ macro_rules! define_chipset {
 
 define_chipset!({
     // Turing
-    TU102 = 0x162,
-    TU104 = 0x164,
-    TU106 = 0x166,
-    TU117 = 0x167,
-    TU116 = 0x168,
+    TU102,
+    TU104,
+    TU106,
+    TU117,
+    TU116,
     // Ampere
-    GA100 = 0x170,
-    GA102 = 0x172,
-    GA103 = 0x173,
-    GA104 = 0x174,
-    GA106 = 0x176,
-    GA107 = 0x177,
+    GA100,
+    GA102,
+    GA103,
+    GA104,
+    GA106,
+    GA107,
     // Hopper
-    GH100 = 0x180,
+    GH100,
     // Ada
-    AD102 = 0x192,
-    AD103 = 0x193,
-    AD104 = 0x194,
-    AD106 = 0x196,
-    AD107 = 0x197,
+    AD102,
+    AD103,
+    AD104,
+    AD106,
+    AD107,
     // Blackwell GB10x
-    GB100 = 0x1a0,
-    GB102 = 0x1a2,
+    GB100,
+    GB102,
     // Blackwell GB20x
-    GB202 = 0x1b2,
-    GB203 = 0x1b3,
-    GB205 = 0x1b5,
-    GB206 = 0x1b6,
-    GB207 = 0x1b7,
+    GB202,
+    GB203,
+    GB205,
+    GB206,
+    GB207,
 });
 
 impl Chipset {

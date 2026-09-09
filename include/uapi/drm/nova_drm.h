@@ -38,6 +38,46 @@ enum drm_nova_architecture {
 };
 
 /**
+ * enum drm_nova_chipid - opaque GPU chip identifier
+ *
+ * These values identify the chip a GPU is based on. They are otherwise
+ * opaque: userspace must not assume the values carry any particular meaning
+ * or encoding, only that they may be compared against this enum.
+ */
+enum drm_nova_chipid {
+	/* Turing */
+	NOVA_DRM_CHIPID_TU102			= 0x162,
+	NOVA_DRM_CHIPID_TU104			= 0x164,
+	NOVA_DRM_CHIPID_TU106			= 0x166,
+	NOVA_DRM_CHIPID_TU117			= 0x167,
+	NOVA_DRM_CHIPID_TU116			= 0x168,
+	/* Ampere */
+	NOVA_DRM_CHIPID_GA100			= 0x170,
+	NOVA_DRM_CHIPID_GA102			= 0x172,
+	NOVA_DRM_CHIPID_GA103			= 0x173,
+	NOVA_DRM_CHIPID_GA104			= 0x174,
+	NOVA_DRM_CHIPID_GA106			= 0x176,
+	NOVA_DRM_CHIPID_GA107			= 0x177,
+	/* Hopper */
+	NOVA_DRM_CHIPID_GH100			= 0x180,
+	/* Ada */
+	NOVA_DRM_CHIPID_AD102			= 0x192,
+	NOVA_DRM_CHIPID_AD103			= 0x193,
+	NOVA_DRM_CHIPID_AD104			= 0x194,
+	NOVA_DRM_CHIPID_AD106			= 0x196,
+	NOVA_DRM_CHIPID_AD107			= 0x197,
+	/* Blackwell GB10x */
+	NOVA_DRM_CHIPID_GB100			= 0x1a0,
+	NOVA_DRM_CHIPID_GB102			= 0x1a2,
+	/* Blackwell GB20x */
+	NOVA_DRM_CHIPID_GB202			= 0x1b2,
+	NOVA_DRM_CHIPID_GB203			= 0x1b3,
+	NOVA_DRM_CHIPID_GB205			= 0x1b5,
+	NOVA_DRM_CHIPID_GB206			= 0x1b6,
+	NOVA_DRM_CHIPID_GB207			= 0x1b7,
+};
+
+/**
  * struct drm_nova_getparam - query GPU and driver metadata
  */
 struct drm_nova_getparam {
