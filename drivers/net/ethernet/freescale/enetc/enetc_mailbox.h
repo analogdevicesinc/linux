@@ -96,6 +96,17 @@
 #define ENETC_PF_MSG_CLASS_CODE_U8		GENMASK(7, 0)
 #define ENETC_PF_MSG_CLASS_ID			GENMASK(15, 8)
 
+#define ENETC_MAC_HASH_TABLE_SIZE_64		0
+#define ENETC_MSG_MAC_HASH_SIZE			GENMASK(5, 0)
+#define ENETC_MSG_MAC_TYPE			GENMASK(7, 6)
+#define  ENETC_MAC_FILTER_TYPE_UC		BIT(0)
+#define  ENETC_MAC_FILTER_TYPE_MC		BIT(1)
+#define  ENETC_MAC_FILTER_TYPE_ALL		(ENETC_MAC_FILTER_TYPE_UC | \
+						 ENETC_MAC_FILTER_TYPE_MC)
+
+#define ENETC_MSG_MAC_FLUSH_MACS		BIT(0)
+#define ENETC_MSG_MAC_PROMISC_MODE		BIT(1)
+
 enum enetc_msg_class_id {
 	/* Class ID for PSI-to-VSI messages */
 	ENETC_MSG_CLASS_ID_CMD_SUCCESS		= 1,
@@ -119,6 +130,8 @@ enum enetc_msg_class_id {
 
 enum enetc_msg_mac_filter_cmd_id {
 	ENETC_MSG_SET_PRIMARY_MAC,
+	ENETC_MSG_SET_MAC_HASH_TABLE		= 3,
+	ENETC_MSG_SET_MAC_PROMISC_MODE		= 5,
 };
 
 enum enetc_msg_ip_revision_cmd_id {
@@ -141,6 +154,9 @@ enum enetc_msg_link_speed_cmd_id {
 /* Class-specific error return codes of MAC filter */
 enum enetc_mac_filter_class_code {
 	ENETC_MF_CLASS_CODE_INVALID_MAC,
+	ENETC_MF_CLASS_CODE_INVALID_TYPE	= 4,
+	/* Unicast Filter Is Denied */
+	ENETC_MF_CLASS_CODE_UCF_DENY		= 5,
 };
 
 /* Class-specific notifications/codes of link status */
@@ -202,6 +218,32 @@ struct enetc_msg_mac_exact_filter {
 	u8 mac_cnt; /* No need to set for cmd_id 0 */
 	u8 resv[3];
 	struct enetc_mac_addr mac[];
+};
+
+/* message format of class_id 0x20 for hash MAC filter.
+ * cmd_id 0x3: set MAC hash table
+ */
+struct enetc_msg_mac_hash_filter {
+	struct enetc_msg_header hdr;
+	/* bit 0 ~ 5: ENETC_MSG_MAC_HASH_SIZE
+	 * bit 6~7: ENETC_MSG_MAC_TYPE
+	 */
+	u8 sz_type;
+	u8 resv[3];
+	u32 hash_tbl[];
+};
+
+/* message format of class_id 0x20 for MAC promiscuous mode.
+ * cmd_id 0x5: set MAC promiscuous mode
+ */
+struct enetc_msg_mac_promisc_mode {
+	struct enetc_msg_header hdr;
+	/* bit 0: ENETC_MSG_MAC_FLUSH_MACS
+	 * bit 1: ENETC_MSG_MAC_PROMISC_MODE
+	 * bit 6~7: ENETC_MSG_MAC_TYPE
+	 */
+	u8 config;
+	u8 resv[15];
 };
 
 /* The generic message format applies to the following messages:

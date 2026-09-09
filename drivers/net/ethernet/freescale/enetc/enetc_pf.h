@@ -6,6 +6,7 @@
 
 #define ENETC_PF_NUM_RINGS	8
 #define ENETC_VLAN_HT_SIZE	64
+#define ENETC_VF_MC_HASH_BITS_MAX	8 /* For untrusted VFs */
 
 enum enetc_vf_flags {
 	ENETC_VF_FLAG_PF_SET_MAC	= BIT(0),

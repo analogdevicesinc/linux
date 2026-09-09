@@ -12,11 +12,6 @@
 
 #define ENETC_SI_MAX_RING_NUM	8
 
-#define ENETC_MAC_FILTER_TYPE_UC	BIT(0)
-#define ENETC_MAC_FILTER_TYPE_MC	BIT(1)
-#define ENETC_MAC_FILTER_TYPE_ALL	(ENETC_MAC_FILTER_TYPE_UC | \
-					 ENETC_MAC_FILTER_TYPE_MC)
-
 static void enetc4_get_port_caps(struct enetc_pf *pf)
 {
 	struct enetc_hw *hw = &pf->si->hw;
@@ -528,8 +523,10 @@ static int enetc4_pf_set_rx_mode(struct net_device *ndev,
 		type = ENETC_MAC_FILTER_TYPE_ALL;
 	}
 
+	spin_lock(&si->gen_lock);
 	enetc_set_si_uc_promisc(si, 0, uc_promisc);
 	enetc_set_si_mc_promisc(si, 0, mc_promisc);
+	spin_unlock(&si->gen_lock);
 
 	if (uc_promisc) {
 		enetc_set_si_uc_hash_filter(si, 0, 0);

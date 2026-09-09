@@ -107,8 +107,12 @@ static int enetc_msg_vsi_send(struct enetc_si *si, struct enetc_msg_swbd *msg)
 		case ENETC_MSG_CLASS_ID_CMD_TIMEOUT:
 			err = -ETIME;
 			break;
-		case ENETC_MSG_CLASS_ID_INVALID_MSG_LEN:
 		case ENETC_MSG_CLASS_ID_MAC_FILTER:
+			if (FIELD_GET(ENETC_PF_MSG_CLASS_CODE, pf_msg) ==
+			    ENETC_MF_CLASS_CODE_UCF_DENY)
+				return -EACCES;
+			fallthrough;
+		case ENETC_MSG_CLASS_ID_INVALID_MSG_LEN:
 			err = -EINVAL;
 			break;
 		case ENETC_MSG_CLASS_ID_CMD_NOT_PERMITTED:
