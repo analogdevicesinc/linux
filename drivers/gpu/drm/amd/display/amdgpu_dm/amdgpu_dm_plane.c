@@ -147,6 +147,7 @@ void amdgpu_dm_plane_fill_blending_from_plane_state(const struct drm_plane_state
 		 * 16-bit, so scale it down to the width the hardware expects.
 		 */
 		if (amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 2, 0)
+		    || amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 2, 1)
 		    || amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(6, 0, 0))
 			*global_alpha_value = plane_state->alpha >> 4;
 		else
