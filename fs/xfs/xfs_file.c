@@ -271,8 +271,7 @@ xfs_file_dio_read(
 		return ret;
 	if (mapping_stable_writes(iocb->ki_filp->f_mapping)) {
 		ret = iomap_dio_rw(iocb, to, &xfs_read_iomap_ops,
-				&xfs_dio_read_bounce_ops, IOMAP_DIO_BOUNCE,
-				NULL, 0);
+				&xfs_dio_read_bounce_ops, 0, NULL, 0);
 	} else {
 		ret = iomap_dio_read_simple(iocb, to, xfs_read_iomap_begin);
 		if (ret == -ENOTBLK)
