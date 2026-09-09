@@ -255,8 +255,7 @@ static void __iomap_dio_bio_end_io(struct bio *bio, bool inline_completion)
 		fs_bio_integrity_free(bio);
 
 	if (dio->flags & IOMAP_DIO_BOUNCE) {
-		bio_iov_iter_unbounce(bio, !!dio->error,
-				dio->flags & IOMAP_DIO_USER_BACKED);
+		bio_free_folios(bio);
 		bio_put(bio);
 	} else if (dio->flags & IOMAP_DIO_USER_BACKED) {
 		bio_check_pages_dirty(bio);
@@ -364,7 +363,7 @@ static ssize_t iomap_dio_bio_iter_one(struct iomap_iter *iter,
 	bio->bi_end_io = iomap_dio_bio_end_io;
 
 	if (dio->flags & IOMAP_DIO_BOUNCE)
-		ret = bio_iov_iter_bounce(bio, dio->submit.iter, maxsize,
+		ret = bio_iov_iter_bounce_write(bio, dio->submit.iter, maxsize,
 				alignment);
 	else
 		ret = bio_iov_iter_get_pages(bio, dio->submit.iter, maxsize,
@@ -398,7 +397,7 @@ static ssize_t iomap_dio_bio_iter_one(struct iomap_iter *iter,
 
 out_bio_release_pages:
 	if (dio->flags & IOMAP_DIO_BOUNCE)
-		bio_iov_iter_unbounce(bio, true, false);
+		bio_free_folios(bio);
 	else
 		bio_release_pages(bio, false);
 out_put_bio:

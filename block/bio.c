@@ -1223,8 +1223,9 @@ bool bio_iov_iter_set(struct bio *bio, const struct iov_iter *iter)
  * for the next iteration.
  */
 static int bio_iov_iter_align_down(struct bio *bio, struct iov_iter *iter,
-				   struct bio_vec *bv, unsigned len_align_mask)
+				   unsigned len_align_mask)
 {
+	struct bio_vec *bv = &bio->bi_io_vec[bio->bi_vcnt - 1];
 	size_t nbytes = bio->bi_iter.bi_size & len_align_mask;
 
 	if (!nbytes)
@@ -1354,8 +1355,7 @@ int bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter,
 
 	if (is_pci_p2pdma_page(bio->bi_io_vec->bv_page))
 		bio->bi_opf |= REQ_NOMERGE;
-	return bio_iov_iter_align_down(bio, iter,
-			&bio->bi_io_vec[bio->bi_vcnt - 1], len_align_mask);
+	return bio_iov_iter_align_down(bio, iter, len_align_mask);
 }
 
 static struct folio *folio_alloc_greedy(gfp_t gfp, size_t *size,
@@ -1426,7 +1426,20 @@ int bio_alloc_bounce_folios(struct bio *bio, size_t total_len, size_t minsize)
 	return 0;
 }
 
-static int bio_iov_iter_bounce_write(struct bio *bio, struct iov_iter *iter,
+/**
+ * bio_iov_iter_bounce_write - bounce buffer data from an iter into a bio
+ * @bio:	bio to send
+ * @iter:	iter to read from
+ * @maxlen:	maximum size to bounce
+ * @minsize:	minimum folio allocation size
+ *
+ * Helper for direct I/O write implementations that need to bounce buffer
+ * because they need need to checksum the data or perform other operations that
+ * require consistency.  Allocates folios to back the bounce buffer, and copies
+ * the data into it.  Needs to be paired with bio_free_folios() called on
+ * completion.
+ */
+int bio_iov_iter_bounce_write(struct bio *bio, struct iov_iter *iter,
 		size_t maxlen, size_t minsize)
 {
 	size_t total_len = min(maxlen, iov_iter_count(iter));
@@ -1458,134 +1471,7 @@ static int bio_iov_iter_bounce_write(struct bio *bio, struct iov_iter *iter,
 
 	return 0;
 }
-
-static int bio_iov_iter_bounce_read(struct bio *bio, struct iov_iter *iter,
-		size_t maxlen, size_t minsize)
-{
-	size_t len = min3(iov_iter_count(iter), maxlen, SZ_1M);
-	struct folio *folio;
-	ssize_t ret;
-
-	folio = folio_alloc_greedy(GFP_KERNEL, &len, minsize);
-	if (!folio)
-		return -ENOMEM;
-
-	do {
-		ret = iov_iter_extract_bvecs(iter, bio->bi_io_vec + 1, len,
-				&bio->bi_vcnt, bio->bi_max_vecs - 1, 0, 0);
-		if (ret <= 0) {
-			if (!bio->bi_vcnt)
-				goto out_folio_put;
-			break;
-		}
-		len -= ret;
-		bio->bi_iter.bi_size += ret;
-	} while (len && bio->bi_vcnt < bio->bi_max_vecs - 1);
-
-	/*
-	 * Set the folio directly here.  The above loop has already calculated
-	 * the correct bi_size, and we use bi_vcnt for the user buffers.  That
-	 * is safe as bi_vcnt is only used by the submitter and not the actual
-	 * I/O path.
-	 */
-	bvec_set_folio(&bio->bi_io_vec[0], folio, bio->bi_iter.bi_size, 0);
-	if (iov_iter_extract_will_pin(iter))
-		bio_set_flag(bio, BIO_PAGE_PINNED);
-
-	/* The first vec stores the bounce buffer, so do not subtract 1 here. */
-	ret = bio_iov_iter_align_down(bio, iter,
-			&bio->bi_io_vec[bio->bi_vcnt], minsize - 1);
-	if (ret)
-		goto out_folio_put;
-
-	/* Update the bounc buffer bv_len to the aligned down size. */
-	bio->bi_io_vec[0].bv_len = bio->bi_iter.bi_size;
-	return 0;
-
-out_folio_put:
-	folio_put(folio);
-	return ret;
-}
-
-/**
- * bio_iov_iter_bounce - bounce buffer data from an iter into a bio
- * @bio:	bio to send
- * @iter:	iter to read from / write into
- * @maxlen:	maximum size to bounce
- * @minsize:	minimum folio allocation size
- *
- * Helper for direct I/O implementations that need to bounce buffer because
- * we need to checksum the data or perform other operations that require
- * consistency.  Allocates folios to back the bounce buffer, and for writes
- * copies the data into it.  Needs to be paired with bio_iov_iter_unbounce()
- * called on completion.
- */
-int bio_iov_iter_bounce(struct bio *bio, struct iov_iter *iter, size_t maxlen,
-			size_t minsize)
-{
-	if (op_is_write(bio_op(bio)))
-		return bio_iov_iter_bounce_write(bio, iter, maxlen, minsize);
-	return bio_iov_iter_bounce_read(bio, iter, maxlen, minsize);
-}
-
-static void bvec_unpin(struct bio_vec *bv, bool mark_dirty)
-{
-	struct folio *folio = bvec_folio(bv);
-	size_t nr_pages = (bv->bv_offset + bv->bv_len - 1) / PAGE_SIZE -
-			bv->bv_offset / PAGE_SIZE + 1;
-
-	if (mark_dirty)
-		folio_mark_dirty_lock(folio);
-	unpin_user_folio(folio, nr_pages);
-}
-
-static void bio_iov_iter_unbounce_read(struct bio *bio, bool is_error,
-		bool mark_dirty)
-{
-	unsigned int len = bio->bi_io_vec[0].bv_len;
-
-	if (likely(!is_error)) {
-		void *buf = bvec_virt(&bio->bi_io_vec[0]);
-		struct iov_iter to;
-
-		iov_iter_bvec(&to, ITER_DEST, bio->bi_io_vec + 1, bio->bi_vcnt,
-				len);
-		/* copying to pinned pages should always work */
-		WARN_ON_ONCE(copy_to_iter(buf, len, &to) != len);
-	} else {
-		/* No need to mark folios dirty if never copied to them */
-		mark_dirty = false;
-	}
-
-	if (bio_flagged(bio, BIO_PAGE_PINNED)) {
-		int i;
-
-		for (i = 0; i < bio->bi_vcnt; i++)
-			bvec_unpin(&bio->bi_io_vec[1 + i], mark_dirty);
-	}
-
-	folio_put(bvec_folio(&bio->bi_io_vec[0]));
-}
-
-/**
- * bio_iov_iter_unbounce - finish a bounce buffer operation
- * @bio:	completed bio
- * @is_error:	%true if an I/O error occurred and data should not be copied
- * @mark_dirty:	If %true, folios will be marked dirty.
- *
- * Helper for direct I/O implementations that need to bounce buffer because
- * we need to checksum the data or perform other operations that require
- * consistency.  Called to complete a bio set up by bio_iov_iter_bounce().
- * Copies data back for reads, and marks the original folios dirty if
- * requested and then frees the bounce buffer.
- */
-void bio_iov_iter_unbounce(struct bio *bio, bool is_error, bool mark_dirty)
-{
-	if (op_is_write(bio_op(bio)))
-		bio_free_folios(bio);
-	else
-		bio_iov_iter_unbounce_read(bio, is_error, mark_dirty);
-}
+EXPORT_SYMBOL_GPL(bio_iov_iter_bounce_write);
 
 static void bio_wait_end_io(struct bio *bio)
 {
