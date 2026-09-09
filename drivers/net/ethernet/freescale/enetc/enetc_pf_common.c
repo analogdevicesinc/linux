@@ -609,5 +609,28 @@ int enetc_pf_set_vf_trust(struct net_device *ndev, int vf, bool setting)
 }
 EXPORT_SYMBOL_GPL(enetc_pf_set_vf_trust);
 
+int enetc_pf_set_vf_mac(struct net_device *ndev, int vf, u8 *mac)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	struct enetc_vf_state *vf_state;
+
+	if (vf >= pf->total_vfs)
+		return -EINVAL;
+
+	if (!is_valid_ether_addr(mac))
+		return -EADDRNOTAVAIL;
+
+	vf_state = &pf->vf_state[vf];
+
+	mutex_lock(&vf_state->lock);
+	vf_state->flags |= ENETC_VF_FLAG_PF_SET_MAC;
+	enetc_set_si_hw_addr(pf, vf + 1, mac);
+	mutex_unlock(&vf_state->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(enetc_pf_set_vf_mac);
+
 MODULE_DESCRIPTION("NXP ENETC PF common functionality driver");
 MODULE_LICENSE("Dual BSD/GPL");

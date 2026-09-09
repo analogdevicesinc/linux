@@ -191,28 +191,6 @@ static void enetc_set_loopback(struct net_device *ndev, bool en)
 	}
 }
 
-static int enetc_pf_set_vf_mac(struct net_device *ndev, int vf, u8 *mac)
-{
-	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	struct enetc_pf *pf = enetc_si_priv(priv->si);
-	struct enetc_vf_state *vf_state;
-
-	if (vf >= pf->total_vfs)
-		return -EINVAL;
-
-	if (!is_valid_ether_addr(mac))
-		return -EADDRNOTAVAIL;
-
-	vf_state = &pf->vf_state[vf];
-
-	mutex_lock(&vf_state->lock);
-	vf_state->flags |= ENETC_VF_FLAG_PF_SET_MAC;
-	enetc_set_si_hw_addr(pf, vf + 1, mac);
-	mutex_unlock(&vf_state->lock);
-
-	return 0;
-}
-
 static int enetc_pf_set_vf_vlan(struct net_device *ndev, int vf, u16 vlan,
 				u8 qos, __be16 proto)
 {
