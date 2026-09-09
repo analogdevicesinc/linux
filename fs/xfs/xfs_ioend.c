@@ -16,6 +16,8 @@
 #include "xfs_reflink.h"
 #include "xfs_zone_alloc.h"
 #include "xfs_ioend.h"
+#include "xfs_error.h"
+#include "xfs_errortag.h"
 #include <linux/bio-integrity.h>
 
 static void
@@ -107,7 +109,8 @@ xfs_end_io_read(
 			 * but right now we can't distinguish them from other
 			 * (i.e, reftag) errors.
 			 */
-			if (error) {
+			if (error ||
+			    XFS_TEST_ERROR(mp, XFS_ERRTAG_BOUNCE_REREAD)) {
 				xfs_read_bounce_and_resubmit(ioend);
 				return;
 			}
