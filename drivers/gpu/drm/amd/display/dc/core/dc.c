@@ -5139,7 +5139,7 @@ static void commit_planes_for_stream(struct dc *dc,
 		if (dc->hwss.program_triplebuffer != NULL && dc->debug.enable_tri_buf) {
 			/*turn off triple buffer for full update*/
 			dc->hwss.program_triplebuffer(
-				dc, pipe_ctx, pipe_ctx->plane_state->triplebuffer_flips);
+				pipe_ctx->plane_res.hubp, pipe_ctx->plane_state->triplebuffer_flips);
 		}
 	}
 
@@ -5214,7 +5214,7 @@ static void commit_planes_for_stream(struct dc *dc,
 				if (dc->hwss.program_triplebuffer != NULL && dc->debug.enable_tri_buf) {
 					/*only enable triplebuffer for fast_update*/
 					dc->hwss.program_triplebuffer(
-						dc, pipe_ctx, pipe_ctx->plane_state->triplebuffer_flips);
+						pipe_ctx->plane_res.hubp, pipe_ctx->plane_state->triplebuffer_flips);
 				}
 				if (pipe_ctx->plane_state->update_bits.addr_update)
 					dc->hwss.update_plane_addr(dc, pipe_ctx);

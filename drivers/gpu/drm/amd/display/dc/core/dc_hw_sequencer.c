@@ -855,7 +855,9 @@ void hwss_build_full_sequence(struct dc *dc,
 
 			if (pipe->plane_state) {
 				/* Turn off triple buffer for full update */
-				hwss_add_hubp_program_triplebuffer(&seq_state, dc, pipe, pipe->plane_state->triplebuffer_flips);
+				hwss_add_hubp_program_triplebuffer(&seq_state,
+					pipe->plane_res.hubp,
+					pipe->plane_state->triplebuffer_flips);
 			}
 		}
 	}
@@ -1465,11 +1467,9 @@ void hwss_build_fast_sequence(struct dc *dc,
 					(*num_steps)++;
 				}
 				if (dc->hwss.program_triplebuffer && dc->debug.enable_tri_buf && dc_pipe_update_bits_is_any_set(&current_mpc_pipe->plane_state->update_bits)) {
-					block_sequence[*num_steps].params.program_triplebuffer_params.dc = dc;
-					block_sequence[*num_steps].params.program_triplebuffer_params.pipe_ctx = current_mpc_pipe;
-					block_sequence[*num_steps].params.program_triplebuffer_params.enableTripleBuffer = current_mpc_pipe->plane_state->triplebuffer_flips;
-					block_sequence[*num_steps].func = HUBP_PROGRAM_TRIPLEBUFFER;
-					(*num_steps)++;
+					hwss_add_hubp_program_triplebuffer(&seq_state,
+							current_mpc_pipe->plane_res.hubp,
+							current_mpc_pipe->plane_state->triplebuffer_flips);
 				}
 				if (dc->hwss.prepare_plane_addr_update && current_mpc_pipe->plane_state->update_bits.addr_update) {
 					if (resource_is_pipe_type(current_mpc_pipe, OTG_MASTER) &&
@@ -1551,14 +1551,14 @@ void hwss_build_fast_sequence(struct dc *dc,
 					(*num_steps)++;
 				}
 				if (current_mpc_pipe->plane_state->update_bits.input_csc_change) {
-					block_sequence[*num_steps].params.setup_dpp_params.pipe_ctx = current_mpc_pipe;
-					block_sequence[*num_steps].func = DPP_SETUP_DPP;
-					(*num_steps)++;
+					hwss_add_dpp_setup_dpp(&seq_state,
+						current_mpc_pipe->plane_res.dpp,
+						current_mpc_pipe->plane_state);
 				}
 				if (current_mpc_pipe->plane_state->update_bits.coeff_reduction_change) {
-					block_sequence[*num_steps].params.program_bias_and_scale_params.pipe_ctx = current_mpc_pipe;
-					block_sequence[*num_steps].func = DPP_PROGRAM_BIAS_AND_SCALE;
-					(*num_steps)++;
+					hwss_add_dpp_program_bias_and_scale(&seq_state,
+						current_mpc_pipe->plane_res.dpp,
+						current_mpc_pipe->plane_state);
 				}
 				if (current_mpc_pipe->plane_state->update_bits.cm_hist_change) {
 					block_sequence[*num_steps].params.control_cm_hist_params.dpp
@@ -1665,9 +1665,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 					(*num_steps)++;
 				}
 
-				block_sequence[*num_steps].params.program_manual_trigger_params.pipe_ctx = current_mpc_pipe;
-				block_sequence[*num_steps].func = OPTC_PROGRAM_MANUAL_TRIGGER;
-				(*num_steps)++;
+				hwss_add_optc_program_manual_trigger(&seq_state, current_mpc_pipe->stream_res.tg);
 			}
 			current_mpc_pipe = current_mpc_pipe->bottom_pipe;
 		}
@@ -1705,9 +1703,7 @@ void hwss_execute_sequence(struct dc *dc,
 				params->set_flip_control_gsl_params.flip_immediate);
 			break;
 		case HUBP_PROGRAM_TRIPLEBUFFER:
-			dc->hwss.program_triplebuffer(params->program_triplebuffer_params.dc,
-					params->program_triplebuffer_params.pipe_ctx,
-					params->program_triplebuffer_params.enableTripleBuffer);
+			hwss_program_triplebuffer(params);
 			break;
 		case HUBP_UPDATE_PLANE_ADDR:
 			params->update_plane_addr_params.hubp->funcs->hubp_program_surface_flip_and_addr(
@@ -2317,13 +2313,14 @@ void hwss_add_hubp_set_flip_control_gsl(struct block_sequence_state *seq_state,
  * Helper function to add HUBP program triplebuffer to block sequence
  */
 void hwss_add_hubp_program_triplebuffer(struct block_sequence_state *seq_state,
-		struct dc *dc,
-		struct pipe_ctx *pipe_ctx,
+		struct hubp *hubp,
 		bool enableTripleBuffer)
 {
+	if (!hubp || !hubp->funcs->hubp_enable_tripleBuffer)
+		return;
+
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.program_triplebuffer_params.dc = dc;
-		seq_state->steps[*seq_state->num_steps].params.program_triplebuffer_params.pipe_ctx = pipe_ctx;
+		seq_state->steps[*seq_state->num_steps].params.program_triplebuffer_params.hubp = hubp;
 		seq_state->steps[*seq_state->num_steps].params.program_triplebuffer_params.enableTripleBuffer = enableTripleBuffer;
 		seq_state->steps[*seq_state->num_steps].func = HUBP_PROGRAM_TRIPLEBUFFER;
 		(*seq_state->num_steps)++;
@@ -2406,11 +2403,18 @@ void hwss_add_dpp_program_gamut_remap(struct block_sequence_state *seq_state,
 /*
  * Helper function to add DPP program bias and scale to block sequence
  */
-void hwss_add_dpp_program_bias_and_scale(struct block_sequence_state *seq_state, struct pipe_ctx *pipe_ctx)
+void hwss_add_dpp_program_bias_and_scale(struct block_sequence_state *seq_state,
+		struct dpp *dpp,
+		struct dc_plane_state *plane_state)
 {
+	if (!plane_state)
+		return;
+
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.program_bias_and_scale_params.pipe_ctx = pipe_ctx;
 		seq_state->steps[*seq_state->num_steps].func = DPP_PROGRAM_BIAS_AND_SCALE;
+		seq_state->steps[*seq_state->num_steps].params.program_bias_and_scale_params.dpp = dpp;
+		seq_state->steps[*seq_state->num_steps].params.program_bias_and_scale_params.bias_and_scale =
+			plane_state->bias_and_scale;
 		(*seq_state->num_steps)++;
 	}
 }
@@ -2419,10 +2423,13 @@ void hwss_add_dpp_program_bias_and_scale(struct block_sequence_state *seq_state,
  * Helper function to add OPTC program manual trigger to block sequence
  */
 void hwss_add_optc_program_manual_trigger(struct block_sequence_state *seq_state,
-		struct pipe_ctx *pipe_ctx)
+		struct timing_generator *tg)
 {
+	if (!tg)
+		return;
+
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].params.program_manual_trigger_params.pipe_ctx = pipe_ctx;
+		seq_state->steps[*seq_state->num_steps].params.program_manual_trigger_params.tg = tg;
 		seq_state->steps[*seq_state->num_steps].func = OPTC_PROGRAM_MANUAL_TRIGGER;
 		(*seq_state->num_steps)++;
 	}
@@ -2929,44 +2936,44 @@ void hwss_add_hubp_enable_3dlut_fl(struct block_sequence_state *seq_state,
 	}
 }
 
+void hwss_program_triplebuffer(union block_sequence_params *params)
+{
+	struct hubp *hubp = params->program_triplebuffer_params.hubp;
+
+	if (hubp && hubp->funcs->hubp_enable_tripleBuffer)
+		hubp->funcs->hubp_enable_tripleBuffer(hubp,
+				params->program_triplebuffer_params.enableTripleBuffer);
+}
+
 void hwss_program_manual_trigger(union block_sequence_params *params)
 {
-	struct pipe_ctx *pipe_ctx = params->program_manual_trigger_params.pipe_ctx;
+	struct timing_generator *tg = params->program_manual_trigger_params.tg;
 
-	if (pipe_ctx->stream_res.tg->funcs->program_manual_trigger)
-		pipe_ctx->stream_res.tg->funcs->program_manual_trigger(pipe_ctx->stream_res.tg);
+	if (tg && tg->funcs->program_manual_trigger)
+		tg->funcs->program_manual_trigger(tg);
 }
 
 void hwss_setup_dpp(union block_sequence_params *params)
 {
-	struct pipe_ctx *pipe_ctx = params->setup_dpp_params.pipe_ctx;
-	struct dpp *dpp = pipe_ctx->plane_res.dpp;
-	struct dc_plane_state *plane_state = pipe_ctx->plane_state;
+	struct setup_dpp_params *p = &params->setup_dpp_params;
 
-	if (!plane_state)
-		return;
-
-	if (dpp && dpp->funcs->dpp_setup) {
-		// program the input csc
-		dpp->funcs->dpp_setup(dpp,
-				plane_state->format,
+	if (p->dpp && p->dpp->funcs->dpp_setup) {
+		p->dpp->funcs->dpp_setup(p->dpp,
+				p->format,
 				EXPANSION_MODE_ZERO,
-				plane_state->input_csc_color_matrix,
-				plane_state->color_space,
+				p->input_csc_color_matrix,
+				p->color_space,
 				NULL);
 	}
 }
 
 void hwss_program_bias_and_scale(union block_sequence_params *params)
 {
-	struct pipe_ctx *pipe_ctx = params->program_bias_and_scale_params.pipe_ctx;
-	struct dpp *dpp = pipe_ctx->plane_res.dpp;
-	struct dc_plane_state *plane_state = pipe_ctx->plane_state;
-	struct dc_bias_and_scale bns_params = plane_state->bias_and_scale;
+	struct program_bias_and_scale_params *p = &params->program_bias_and_scale_params;
 
 	//TODO :for CNVC set scale and bias registers if necessary
-	if (dpp->funcs->dpp_program_bias_and_scale)
-		dpp->funcs->dpp_program_bias_and_scale(dpp, &bns_params);
+	if (p->dpp && p->dpp->funcs->dpp_program_bias_and_scale)
+		p->dpp->funcs->dpp_program_bias_and_scale(p->dpp, &p->bias_and_scale);
 }
 
 void hwss_program_upsp(union block_sequence_params *params)
@@ -3366,11 +3373,10 @@ void hwss_dsc_calculate_and_set_config(union block_sequence_params *params)
 
 void hwss_dsc_enable_with_opp(union block_sequence_params *params)
 {
-	struct pipe_ctx *pipe_ctx = params->dsc_enable_with_opp_params.pipe_ctx;
-	struct display_stream_compressor *dsc = pipe_ctx->stream_res.dsc;
+	struct display_stream_compressor *dsc = params->dsc_enable_with_opp_params.dsc;
 
 	if (dsc && dsc->funcs->dsc_enable)
-		dsc->funcs->dsc_enable(dsc, pipe_ctx->stream_res.opp->inst);
+		dsc->funcs->dsc_enable(dsc, params->dsc_enable_with_opp_params.opp_inst);
 }
 
 void hwss_tg_program_global_sync(union block_sequence_params *params)
@@ -3509,17 +3515,10 @@ void hwss_opp_program_fmt(union block_sequence_params *params)
 void hwss_opp_program_bit_depth_reduction(union block_sequence_params *params)
 {
 	struct output_pixel_processor *opp = params->opp_program_bit_depth_reduction_params.opp;
-	bool use_default_params = params->opp_program_bit_depth_reduction_params.use_default_params;
-	struct pipe_ctx *pipe_ctx = params->opp_program_bit_depth_reduction_params.pipe_ctx;
-	struct bit_depth_reduction_params bit_depth_params;
 
-	if (use_default_params)
-		memset(&bit_depth_params, 0, sizeof(bit_depth_params));
-	else
-		resource_build_bit_depth_reduction_params(pipe_ctx->stream, &bit_depth_params);
-
-	if (opp->funcs->opp_program_bit_depth_reduction)
-		opp->funcs->opp_program_bit_depth_reduction(opp, &bit_depth_params);
+	if (opp && opp->funcs->opp_program_bit_depth_reduction)
+		opp->funcs->opp_program_bit_depth_reduction(opp,
+			&params->opp_program_bit_depth_reduction_params.bit_depth_params);
 }
 
 void hwss_opp_set_disp_pattern_generator(union block_sequence_params *params)
@@ -4774,9 +4773,15 @@ void hwss_add_hubp_disconnect(struct block_sequence_state *seq_state,
 void hwss_add_dsc_enable_with_opp(struct block_sequence_state *seq_state,
 		struct pipe_ctx *pipe_ctx)
 {
+	if (!pipe_ctx || !pipe_ctx->stream_res.dsc || !pipe_ctx->stream_res.opp)
+		return;
+
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
 		seq_state->steps[*seq_state->num_steps].func = DSC_ENABLE_WITH_OPP;
-		seq_state->steps[*seq_state->num_steps].params.dsc_enable_with_opp_params.pipe_ctx = pipe_ctx;
+		seq_state->steps[*seq_state->num_steps].params.dsc_enable_with_opp_params.dsc =
+			pipe_ctx->stream_res.dsc;
+		seq_state->steps[*seq_state->num_steps].params.dsc_enable_with_opp_params.opp_inst =
+			pipe_ctx->stream_res.opp->inst;
 		(*seq_state->num_steps)++;
 	}
 }
@@ -4928,13 +4933,23 @@ void hwss_add_opp_program_bit_depth_reduction(struct block_sequence_state *seq_s
 		bool use_default_params,
 		struct pipe_ctx *pipe_ctx)
 {
-	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].func = OPP_PROGRAM_BIT_DEPTH_REDUCTION;
-		seq_state->steps[*seq_state->num_steps].params.opp_program_bit_depth_reduction_params.opp = opp;
-		seq_state->steps[*seq_state->num_steps].params.opp_program_bit_depth_reduction_params.use_default_params = use_default_params;
-		seq_state->steps[*seq_state->num_steps].params.opp_program_bit_depth_reduction_params.pipe_ctx = pipe_ctx;
-		(*seq_state->num_steps)++;
-	}
+	struct opp_program_bit_depth_reduction_params *bdr_params;
+
+	if (!opp)
+		return;
+
+	if (*seq_state->num_steps >= MAX_HWSS_BLOCK_SEQUENCE_SIZE)
+		return;
+
+	bdr_params = &seq_state->steps[*seq_state->num_steps].params.opp_program_bit_depth_reduction_params;
+	memset(bdr_params, 0, sizeof(*bdr_params));
+	bdr_params->opp = opp;
+
+	if (!use_default_params && pipe_ctx)
+		resource_build_bit_depth_reduction_params(pipe_ctx->stream, &bdr_params->bit_depth_params);
+
+	seq_state->steps[*seq_state->num_steps].func = OPP_PROGRAM_BIT_DEPTH_REDUCTION;
+	(*seq_state->num_steps)++;
 }
 
 void hwss_add_dpp_program_cm_hist(struct block_sequence_state *seq_state,
@@ -5657,11 +5672,21 @@ void hwss_add_hubp_program_surface_config(struct block_sequence_state *seq_state
 }
 
 void hwss_add_dpp_setup_dpp(struct block_sequence_state *seq_state,
-		struct pipe_ctx *pipe_ctx)
+		struct dpp *dpp,
+		struct dc_plane_state *plane_state)
 {
+	if (!plane_state)
+		return;
+
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		struct setup_dpp_params *p =
+			&seq_state->steps[*seq_state->num_steps].params.setup_dpp_params;
+
 		seq_state->steps[*seq_state->num_steps].func = DPP_SETUP_DPP;
-		seq_state->steps[*seq_state->num_steps].params.setup_dpp_params.pipe_ctx = pipe_ctx;
+		p->dpp = dpp;
+		p->format = plane_state->format;
+		p->input_csc_color_matrix = plane_state->input_csc_color_matrix;
+		p->color_space = plane_state->color_space;
 		(*seq_state->num_steps)++;
 	}
 }
