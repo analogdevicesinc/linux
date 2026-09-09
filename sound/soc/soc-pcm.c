@@ -26,6 +26,7 @@
 #include <sound/soc-dpcm.h>
 #include <sound/soc-link.h>
 #include <sound/initval.h>
+#include "soc-internal.h"
 
 
 DEFINE_GUARD(snd_soc_card_mutex, struct snd_soc_card *,
@@ -427,50 +428,6 @@ void dpcm_dapm_stream_event(struct snd_soc_pcm_runtime *fe, int dir, int event)
 	snd_soc_dapm_stream_event(fe, dir, event);
 }
 
-void soc_pcm_set_dai_params(struct snd_soc_dai *dai,
-			    struct snd_pcm_hw_params *params)
-{
-	if (params) {
-		dai->symmetric_rate	   = params_rate(params);
-		dai->symmetric_channels	   = params_channels(params);
-		dai->symmetric_sample_bits = snd_pcm_format_physical_width(params_format(params));
-	} else {
-		dai->symmetric_rate	   = 0;
-		dai->symmetric_channels	   = 0;
-		dai->symmetric_sample_bits = 0;
-	}
-}
-
-static int soc_pcm_apply_symmetry(struct snd_pcm_substream *substream,
-					struct snd_soc_dai *soc_dai)
-{
-	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
-	int ret;
-
-	if (!snd_soc_dai_active(soc_dai))
-		return 0;
-
-#define __soc_pcm_apply_symmetry(name, NAME)				\
-	if (soc_dai->symmetric_##name &&				\
-	    (soc_dai->driver->symmetric_##name || rtd->dai_link->symmetric_##name)) { \
-		dev_dbg(soc_dai->dev, "ASoC: Symmetry forces %s to %d\n",\
-			#name, soc_dai->symmetric_##name);		\
-									\
-		ret = snd_pcm_hw_constraint_single(substream->runtime,	\
-						   SNDRV_PCM_HW_PARAM_##NAME,\
-						   soc_dai->symmetric_##name);	\
-		if (ret < 0)							\
-			return snd_soc_ret(soc_dai->dev, ret,			\
-				"Unable to apply %s constraint\n", #name);	\
-	}
-
-	__soc_pcm_apply_symmetry(rate,		RATE);
-	__soc_pcm_apply_symmetry(channels,	CHANNELS);
-	__soc_pcm_apply_symmetry(sample_bits,	SAMPLE_BITS);
-
-	return 0;
-}
-
 /*
  * Shared BCLK constraint: when multiple DAIs share the same physical BCLK,
  * constrain hw_params so that the BCLK rate (rate * channels * sample_bits,
@@ -577,62 +534,6 @@ static int soc_pcm_apply_shared_bclk(struct snd_pcm_substream *substream,
 		SNDRV_PCM_HW_PARAM_CHANNELS,
 		SNDRV_PCM_HW_PARAM_SAMPLE_BITS,
 		-1);
-}
-
-static int soc_pcm_params_symmetry(struct snd_pcm_substream *substream,
-				struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
-	struct snd_soc_dai d;
-	struct snd_soc_dai *dai;
-	struct snd_soc_dai *cpu_dai;
-	unsigned int symmetry, i;
-
-	d.name = __func__;
-	soc_pcm_set_dai_params(&d, params);
-
-#define __soc_pcm_params_symmetry(xxx)					\
-	symmetry = rtd->dai_link->symmetric_##xxx;			\
-	for_each_rtd_dais(rtd, i, dai)					\
-		symmetry |= dai->driver->symmetric_##xxx;		\
-									\
-	if (symmetry)							\
-		for_each_rtd_cpu_dais(rtd, i, cpu_dai)			\
-			if (!snd_soc_dai_is_dummy(cpu_dai) &&		\
-			    cpu_dai->symmetric_##xxx &&			\
-			    cpu_dai->symmetric_##xxx != d.symmetric_##xxx) \
-				return snd_soc_ret(rtd->dev, -EINVAL,	\
-						   "unmatched %s symmetry: %s:%d - %s:%d\n", \
-						   #xxx, cpu_dai->name, cpu_dai->symmetric_##xxx, \
-						   d.name, d.symmetric_##xxx);
-
-	/* reject unmatched parameters when applying symmetry */
-	__soc_pcm_params_symmetry(rate);
-	__soc_pcm_params_symmetry(channels);
-	__soc_pcm_params_symmetry(sample_bits);
-
-	return 0;
-}
-
-static void soc_pcm_update_symmetry(struct snd_pcm_substream *substream)
-{
-	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
-	struct snd_soc_dai_link *link = rtd->dai_link;
-	struct snd_soc_dai *dai;
-	unsigned int symmetry, i;
-
-	symmetry = link->symmetric_rate ||
-		link->symmetric_channels ||
-		link->symmetric_sample_bits;
-
-	for_each_rtd_dais(rtd, i, dai)
-		symmetry = symmetry ||
-			dai->driver->symmetric_rate ||
-			dai->driver->symmetric_channels ||
-			dai->driver->symmetric_sample_bits;
-
-	if (symmetry)
-		substream->runtime->hw.info |= SNDRV_PCM_INFO_JOINT_DUPLEX;
 }
 
 static void soc_pcm_set_msb(struct snd_pcm_substream *substream, int bits)
@@ -879,7 +780,7 @@ static int soc_pcm_clean(struct snd_soc_pcm_runtime *rtd,
 		/* Make sure DAI parameters cleared if the DAI becomes inactive */
 		for_each_rtd_dais(rtd, i, dai) {
 			if (snd_soc_dai_active(dai) == 0)
-				soc_pcm_set_dai_params(dai, NULL);
+				snd_soc_dai_symmetric_set_params(dai, NULL);
 		}
 	}
 
@@ -1001,7 +902,7 @@ static int __soc_pcm_open(struct snd_soc_pcm_runtime *rtd,
 	/* Check that the codec and cpu DAIs are compatible */
 	soc_pcm_init_runtime_hw(substream);
 
-	soc_pcm_update_symmetry(substream);
+	snd_soc_dai_symmetric_update(substream);
 
 	ret = soc_hw_sanity_check(substream);
 	if (ret < 0)
@@ -1011,7 +912,7 @@ static int __soc_pcm_open(struct snd_soc_pcm_runtime *rtd,
 
 	/* Symmetry only applies if we've already got an active stream. */
 	for_each_rtd_dais(rtd, i, dai) {
-		ret = soc_pcm_apply_symmetry(substream, dai);
+		ret = snd_soc_dai_symmetric_apply(substream, dai);
 		if (ret != 0)
 			goto err;
 	}
@@ -1135,7 +1036,7 @@ static int soc_pcm_hw_clean(struct snd_soc_pcm_runtime *rtd,
 	/* clear the corresponding DAIs parameters when going to be inactive */
 	for_each_rtd_dais(rtd, i, dai) {
 		if (snd_soc_dai_active(dai) == 1)
-			soc_pcm_set_dai_params(dai, NULL);
+			snd_soc_dai_symmetric_set_params(dai, NULL);
 
 		if (snd_soc_dai_stream_active(dai, substream->stream) == 1) {
 			if (!snd_soc_dai_mute_is_ctrled_at_trigger(dai))
@@ -1197,7 +1098,7 @@ static int __soc_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	snd_soc_dpcm_mutex_assert_held(rtd);
 
-	ret = soc_pcm_params_symmetry(substream, params);
+	ret = snd_soc_dai_symmetric_params(substream, params);
 	if (ret)
 		goto out;
 
@@ -1237,7 +1138,7 @@ static int __soc_pcm_hw_params(struct snd_pcm_substream *substream,
 		if(ret < 0)
 			goto out;
 
-		soc_pcm_set_dai_params(codec_dai, &tmp_params);
+		snd_soc_dai_symmetric_set_params(codec_dai, &tmp_params);
 		snd_soc_dapm_update_dai(substream, &tmp_params, codec_dai);
 	}
 
@@ -1275,7 +1176,7 @@ static int __soc_pcm_hw_params(struct snd_pcm_substream *substream,
 			goto out;
 
 		/* store the parameters for each DAI */
-		soc_pcm_set_dai_params(cpu_dai, &tmp_params);
+		snd_soc_dai_symmetric_set_params(cpu_dai, &tmp_params);
 		snd_soc_dapm_update_dai(substream, &tmp_params, cpu_dai);
 	}
 
@@ -2024,11 +1925,11 @@ static int dpcm_apply_symmetry(struct snd_pcm_substream *fe_substream,
 	int i;
 
 	/* apply symmetry for FE */
-	soc_pcm_update_symmetry(fe_substream);
+	snd_soc_dai_symmetric_update(fe_substream);
 
 	for_each_rtd_cpu_dais (fe, i, fe_cpu_dai) {
 		/* Symmetry only applies if we've got an active stream. */
-		err = soc_pcm_apply_symmetry(fe_substream, fe_cpu_dai);
+		err = snd_soc_dai_symmetric_apply(fe_substream, fe_cpu_dai);
 		if (err < 0)
 			goto error;
 	}
@@ -2049,11 +1950,11 @@ static int dpcm_apply_symmetry(struct snd_pcm_substream *fe_substream,
 		if (rtd->dai_link->be_hw_params_fixup)
 			continue;
 
-		soc_pcm_update_symmetry(be_substream);
+		snd_soc_dai_symmetric_update(be_substream);
 
 		/* Symmetry only applies if we've got an active stream. */
 		for_each_rtd_dais(rtd, i, dai) {
-			err = soc_pcm_apply_symmetry(fe_substream, dai);
+			err = snd_soc_dai_symmetric_apply(fe_substream, dai);
 			if (err < 0)
 				goto error;
 		}
