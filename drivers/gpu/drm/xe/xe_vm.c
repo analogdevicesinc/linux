@@ -1876,6 +1876,8 @@ static void xe_vm_close(struct xe_vm *vm)
 	bound = drm_dev_enter(&xe->drm, &idx);
 
 	down_write(&vm->lock);
+	xe_vm_lock(vm, false);
+
 	if (xe_vm_in_fault_mode(vm))
 		xe_svm_notifier_lock(vm);
 
@@ -1903,6 +1905,8 @@ static void xe_vm_close(struct xe_vm *vm)
 
 	if (xe_vm_in_fault_mode(vm))
 		xe_svm_notifier_unlock(vm);
+
+	xe_vm_unlock(vm);
 	up_write(&vm->lock);
 
 	if (bound)

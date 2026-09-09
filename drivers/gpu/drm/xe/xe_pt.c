@@ -236,9 +236,11 @@ void xe_pt_destroy(struct xe_pt *pt, u32 flags, struct llist_head *deferred)
  */
 void xe_pt_clear(struct xe_device *xe, struct xe_pt *pt)
 {
-	struct iosys_map *map = &pt->bo->vmap;
+	struct xe_bo *bo = pt->bo;
 
-	xe_map_memset(xe, map, 0, 0, SZ_4K);
+	xe_bo_assert_held(bo);
+	if (!iosys_map_is_null(&bo->vmap))
+		xe_map_memset(xe, &bo->vmap, 0, 0, SZ_4K);
 }
 
 /**
