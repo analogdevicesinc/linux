@@ -1146,8 +1146,6 @@ static int amdgpu_cs_vm_handling(struct amdgpu_cs_parser *p)
 
 	if (fpriv->csa_va) {
 		bo_va = fpriv->csa_va;
-		if (!bo_va)
-			return -ENOMEM;
 		r = amdgpu_vm_bo_update(adev, bo_va, false);
 		if (r)
 			return r;
