@@ -453,7 +453,7 @@ noconnect:
 				 opnum, GFP_NOIO);
 	ff_layout_send_layouterror(lseg);
 	if (opnum != OP_READ || !ff_layout_has_available_ds(lseg))
-		pnfs_error_mark_layout_for_return(ino, lseg);
+		pnfs_error_mark_layout_for_return(ino, lseg, NULL);
 	ds = ERR_PTR(status);
 out:
 	return ds;

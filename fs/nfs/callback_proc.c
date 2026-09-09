@@ -292,7 +292,7 @@ static u32 initiate_file_draining(struct nfs_client *clp,
 	switch (pnfs_mark_matching_lsegs_return(lo, &free_me_list,
 				&args->cbl_range,
 				be32_to_cpu(args->cbl_stateid.seqid),
-				args->cbl_layoutchanged)) {
+				args->cbl_layoutchanged, NULL)) {
 	case 0:
 	case -EBUSY:
 		/* There are layout segments that need to be returned */
