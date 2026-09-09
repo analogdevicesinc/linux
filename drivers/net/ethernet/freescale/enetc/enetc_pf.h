@@ -40,10 +40,7 @@ struct enetc_pf {
 	struct enetc_vf_state *vf_state;
 
 	struct enetc_mac_filter mac_filter[MADDR_TYPE];
-
 	struct enetc_msg_swbd *rxmsg;
-	struct work_struct msg_task;
-	char msg_int_name[ENETC_INT_NAME_MAX];
 
 	DECLARE_BITMAP(vlan_ht_filter, ENETC_VLAN_HT_SIZE);
 	DECLARE_BITMAP(active_vlans, VLAN_N_VID);
