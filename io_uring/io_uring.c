@@ -959,9 +959,11 @@ defer_complete:
 		goto defer_complete;
 
 	/*
-	 * We don't free the request here because we know it's called from
-	 * io-wq only, which holds a reference, so it cannot be the last put.
+	 * Request not freed here because we know it's called from io-wq only,
+	 * which holds a reference. Hence it can't be the last put. The CQE
+	 * has been posted, last put frees it.
 	 */
+	req->flags |= REQ_F_CQE_SKIP;
 	req_ref_put(req);
 }
 
@@ -1015,8 +1017,6 @@ __cold void io_free_req(struct io_kiocb *req)
 {
 	/* refs were already put, restore them for io_req_task_complete() */
 	req->flags &= ~REQ_F_REFCOUNT;
-	/* we only want to free it, don't post CQEs */
-	req->flags |= REQ_F_CQE_SKIP;
 	req->io_task_work.func = io_req_task_complete;
 	io_req_task_work_add(req);
 }
@@ -1119,6 +1119,8 @@ static void io_free_batch_list(struct io_ring_ctx *ctx,
 			}
 			if (req->flags & REQ_F_REFCOUNT) {
 				node = req->comp_list.next;
+				/* CQE posted, the last put only frees */
+				req->flags |= REQ_F_CQE_SKIP;
 				if (!req_ref_put_and_test(req))
 					continue;
 			}
@@ -1282,7 +1284,23 @@ static int io_iopoll_check(struct io_ring_ctx *ctx, unsigned int min_events)
 
 void io_req_task_complete(struct io_tw_req tw_req, io_tw_token_t tw)
 {
-	io_req_complete_defer(tw_req.req);
+	struct io_kiocb *req = tw_req.req;
+
+	/*
+	 * io-wq may still hold a reference if the issue completed async.
+	 * Defer completion to the last put, so that file drop and CQE
+	 * visibility are ordered. The last reference stays for the free
+	 * path to put, a linked timeout may still look at the request.
+	 */
+	if ((req->flags & REQ_F_REFCOUNT) && !(req->flags & REQ_F_REISSUE) &&
+	    atomic_read(&req->refs) != 1) {
+		if (!req_ref_put_and_test(req))
+			return;
+		/* the other put raced us, ours was the last after all */
+		atomic_set(&req->refs, 1);
+	}
+
+	io_req_complete_defer(req);
 }
 
 /*
