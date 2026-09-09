@@ -1212,7 +1212,7 @@ static void geni_i2c_shutdown(struct platform_device *pdev)
 	i2c_mark_adapter_suspended(&gi2c->adap);
 }
 
-static int __maybe_unused geni_i2c_runtime_suspend(struct device *dev)
+static int geni_i2c_runtime_suspend(struct device *dev)
 {
 	int ret = 0;
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
@@ -1230,7 +1230,7 @@ static int __maybe_unused geni_i2c_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused geni_i2c_runtime_resume(struct device *dev)
+static int geni_i2c_runtime_resume(struct device *dev)
 {
 	int ret = 0;
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
@@ -1246,7 +1246,7 @@ static int __maybe_unused geni_i2c_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused geni_i2c_suspend_noirq(struct device *dev)
+static int geni_i2c_suspend_noirq(struct device *dev)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
 	int ret;
@@ -1260,7 +1260,7 @@ static int __maybe_unused geni_i2c_suspend_noirq(struct device *dev)
 	return ret;
 }
 
-static int __maybe_unused geni_i2c_resume_noirq(struct device *dev)
+static int geni_i2c_resume_noirq(struct device *dev)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
 	int ret;
@@ -1274,9 +1274,10 @@ static int __maybe_unused geni_i2c_resume_noirq(struct device *dev)
 }
 
 static const struct dev_pm_ops geni_i2c_pm_ops = {
-	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(geni_i2c_suspend_noirq, geni_i2c_resume_noirq)
-	SET_RUNTIME_PM_OPS(geni_i2c_runtime_suspend, geni_i2c_runtime_resume,
-									NULL)
+	NOIRQ_SYSTEM_SLEEP_PM_OPS(geni_i2c_suspend_noirq,
+				  geni_i2c_resume_noirq)
+	RUNTIME_PM_OPS(geni_i2c_runtime_suspend, geni_i2c_runtime_resume,
+		       NULL)
 };
 
 static const struct geni_i2c_desc geni_i2c = {
