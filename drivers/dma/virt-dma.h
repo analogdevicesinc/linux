@@ -210,6 +210,17 @@ static inline void vchan_free_chan_resources(struct virt_dma_chan *vc)
 }
 
 /**
+ * vchan_chan_name - Return vchan DMA channel device name
+ * @vc: virtual channel
+ *
+ * Return: The name of the DMA channel device
+ */
+static inline const char *vchan_chan_name(struct virt_dma_chan *vc)
+{
+	return dma_chan_name(&vc->chan);
+}
+
+/**
  * vchan_synchronize() - synchronize callback execution to the current context
  * @vc: virtual channel to synchronize
  *
