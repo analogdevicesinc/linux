@@ -15,6 +15,8 @@ enum enetc_vf_flags {
 struct enetc_vf_state {
 	struct mutex lock; /* Prevent concurrent access */
 	enum enetc_vf_flags flags;
+	/* Number of consecutive failures to send PF-to-VF messages */
+	int msg_fail_cnt;
 };
 
 struct enetc_port_caps {
@@ -54,6 +56,11 @@ struct enetc_pf {
 
 	struct enetc_port_caps caps;
 	const struct enetc_pf_ops *ops;
+
+	struct work_struct link_status_task;
+	bool sriov_enabled;
+	bool link_up;
+	u16 link_status_ms_mask;
 };
 
 #define phylink_to_enetc_pf(config) \

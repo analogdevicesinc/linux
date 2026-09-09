@@ -31,9 +31,24 @@ static inline u16 enetc_get_ip_revision(struct enetc_hw *hw)
 
 #if IS_ENABLED(CONFIG_PCI_IOV)
 int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs);
+void enetc_pf_send_link_status_msg(struct enetc_pf *pf);
+void enetc_pf_notify_vf_link_up(struct enetc_pf *pf);
+void enetc_pf_notify_vf_link_down(struct enetc_pf *pf);
 #else
 static inline int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs)
 {
 	return 0;
+}
+
+static inline void enetc_pf_send_link_status_msg(struct enetc_pf *pf)
+{
+}
+
+static inline void enetc_pf_notify_vf_link_up(struct enetc_pf *pf)
+{
+}
+
+static inline void enetc_pf_notify_vf_link_down(struct enetc_pf *pf)
+{
 }
 #endif

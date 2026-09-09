@@ -334,6 +334,7 @@ struct enetc_si {
 
 	struct dentry *debugfs_root;
 	struct enetc_msg_swbd msg; /* Only valid for VSI */
+	struct workqueue_struct *workqueue;
 	struct work_struct msg_task;
 	char msg_int_name[ENETC_INT_NAME_MAX];
 };
