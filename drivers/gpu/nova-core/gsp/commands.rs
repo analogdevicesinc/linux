@@ -215,6 +215,8 @@ impl CommandToGsp for GetGspStaticInfo {
 pub struct GetGspStaticInfoReply {
     gpu_name: [u8; 64],
     gpu_short_name: [u8; 64],
+    /// The 16-byte SHA-1 based GPU identifier (GID) reported by GSP-RM.
+    pub gpu_gid: [u8; 16],
     /// BAR1 Page Directory Entry base address.
     pub(crate) bar1_pde_base: u64,
     /// Usable FB (VRAM) regions for driver memory allocation.
@@ -241,6 +243,7 @@ impl MessageFromGsp for GetGspStaticInfoReply {
         Ok(GetGspStaticInfoReply {
             gpu_name: msg.gpu_name_str(),
             gpu_short_name: msg.gpu_short_name_str(),
+            gpu_gid: msg.gpu_gid(),
             bar1_pde_base: msg.bar1_pde_base(),
             usable_fb_regions,
             total_fb_end,

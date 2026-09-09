@@ -198,6 +198,11 @@ struct drm_nova_info_gpu {
 	 * @gpu_short_name: NUL-terminated short GPU name.
 	 */
 	__u8 gpu_short_name[64];
+
+	/**
+	 * @gpu_gid: 16-byte SHA-1 GPU identifier supplied by GSP-RM.
+	 */
+	__u8 gpu_gid[16];
 };
 
 #define DRM_NOVA_GETPARAM		0x00

@@ -60,6 +60,7 @@ impl GpuInfo {
             architecture: spec.chipset.arch().into(),
             chipid: spec.chipset.into(),
             vram_size: gsp_static_info.vram_size(),
+            gpu_gid: gsp_static_info.gpu_gid,
             ..pin_init::zeroed()
         };
 

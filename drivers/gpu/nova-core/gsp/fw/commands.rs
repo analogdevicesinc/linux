@@ -136,6 +136,16 @@ impl GspStaticConfigInfo {
         self.0.gpuShortNameString
     }
 
+    /// Returns the 16-byte SHA-1 GPU identifier supplied by GSP-RM.
+    ///
+    /// GSP-RM reports the GID in binary SHA-1 form, which occupies the first 16 bytes of the
+    /// GID info payload.
+    pub(crate) fn gpu_gid(&self) -> [u8; 16] {
+        let mut gid = [0u8; 16];
+        gid.copy_from_slice(&self.0.gidInfo.data[..16]);
+        gid
+    }
+
     /// Returns the BAR1 Page Directory Entry base address.
     ///
     /// This is the root page table address for BAR1 virtual memory,
