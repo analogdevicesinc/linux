@@ -7,6 +7,8 @@
 					   ENETC_MSG_CLASS_ID_CMD_SUCCESS)
 #define ENETC_PF_MSG_NOTSUPP	FIELD_PREP(ENETC_PF_MSG_CLASS_ID, \
 					   ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT)
+#define ENETC_PF_MSG_PERM_DENY	FIELD_PREP(ENETC_PF_MSG_CLASS_ID, \
+					   ENETC_MSG_CLASS_ID_PERMISSION_DENY)
 
 static void enetc_msg_disable_mr_int(struct enetc_pf *pf)
 {
@@ -61,31 +63,49 @@ static u16 enetc_msg_set_vf_primary_mac_addr(struct enetc_pf *pf, int vf_id,
 	struct enetc_vf_state *vf_state = &pf->vf_state[vf_id];
 	struct enetc_msg_mac_exact_filter *msg = vf_msg;
 	struct device *dev = &pf->si->pdev->dev;
+	u16 pf_msg = ENETC_PF_MSG_SUCCESS;
 	char *addr = msg->mac[0].addr;
+
+	mutex_lock(&vf_state->lock);
+
+	/* Untrusted VFs cannot set their MAC addresses by the mailbox
+	 * messages.
+	 */
+	if (!(vf_state->flags & ENETC_VF_FLAG_TRUSTED)) {
+		pf_msg = ENETC_PF_MSG_PERM_DENY;
+		goto vf_state_unlock;
+	}
 
 	if (!is_valid_ether_addr(addr)) {
 		dev_err_ratelimited(dev, "VF%d attempted to set invalid MAC\n",
 				    vf_id);
-		return (FIELD_PREP(ENETC_PF_MSG_CLASS_ID,
-				   ENETC_MSG_CLASS_ID_MAC_FILTER) |
-			FIELD_PREP(ENETC_PF_MSG_CLASS_CODE,
-				   ENETC_MF_CLASS_CODE_INVALID_MAC));
+		pf_msg = FIELD_PREP(ENETC_PF_MSG_CLASS_ID,
+				    ENETC_MSG_CLASS_ID_MAC_FILTER) |
+			 FIELD_PREP(ENETC_PF_MSG_CLASS_CODE,
+				    ENETC_MF_CLASS_CODE_INVALID_MAC);
+		goto vf_state_unlock;
 	}
 
-	mutex_lock(&vf_state->lock);
+	/* PF has higher privileges. If PF has already modified the MAC
+	 * address for VF through .ndo_set_vf_mac() interface, VF is not
+	 * allowed to set its MAC address via mailbox messages, even if
+	 * it is trusted.
+	 */
 	if (vf_state->flags & ENETC_VF_FLAG_PF_SET_MAC) {
-		mutex_unlock(&vf_state->lock);
 		dev_err_ratelimited(dev,
 				    "VF%d attempted to override PF set MAC\n",
 				    vf_id);
-		return FIELD_PREP(ENETC_PF_MSG_CLASS_ID,
-				  ENETC_MSG_CLASS_ID_CMD_NOT_PERMITTED);
+		pf_msg = FIELD_PREP(ENETC_PF_MSG_CLASS_ID,
+				    ENETC_MSG_CLASS_ID_CMD_NOT_PERMITTED);
+		goto vf_state_unlock;
 	}
 
 	enetc_set_si_hw_addr(pf, vf_id + 1, addr);
+
+vf_state_unlock:
 	mutex_unlock(&vf_state->lock);
 
-	return ENETC_PF_MSG_SUCCESS;
+	return pf_msg;
 }
 
 static u16 enetc_msg_handle_mac_filter(struct enetc_pf *pf, int vf_id,

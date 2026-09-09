@@ -9,6 +9,7 @@
 
 enum enetc_vf_flags {
 	ENETC_VF_FLAG_PF_SET_MAC	= BIT(0),
+	ENETC_VF_FLAG_TRUSTED		= BIT(1),
 };
 
 struct enetc_vf_state {

@@ -22,6 +22,7 @@ void enetc_set_si_mc_promisc(struct enetc_si *si, int si_id, bool promisc);
 void enetc_set_si_uc_hash_filter(struct enetc_si *si, int si_id, u64 hash);
 void enetc_set_si_mc_hash_filter(struct enetc_si *si, int si_id, u64 hash);
 void enetc_set_si_vlan_promisc(struct enetc_si *si, int si_id, bool promisc);
+int enetc_pf_set_vf_trust(struct net_device *ndev, int vf, bool setting);
 
 static inline u16 enetc_get_ip_revision(struct enetc_hw *hw)
 {
