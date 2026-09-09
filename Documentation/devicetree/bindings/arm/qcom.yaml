@@ -181,6 +181,11 @@ properties:
 
       - items:
           - enum:
+              - qcom,kalambo-crd
+          - const: qcom,kalambo
+
+      - items:
+          - enum:
               - qcom,kuno-idp
           - const: qcom,kuno
 
