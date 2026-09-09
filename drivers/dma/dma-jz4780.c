@@ -760,7 +760,7 @@ static int jz4780_dma_alloc_chan_resources(struct dma_chan *chan)
 {
 	struct jz4780_dma_chan *jzchan = to_jz4780_dma_chan(chan);
 
-	jzchan->desc_pool = dma_pool_create(dev_name(&chan->dev->device),
+	jzchan->desc_pool = dma_pool_create(dma_chan_name(chan),
 					    chan->device->dev,
 					    JZ_DMA_DESC_BLOCK_SIZE,
 					    PAGE_SIZE, 0);

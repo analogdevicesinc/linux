@@ -507,8 +507,7 @@ static int idma64_alloc_chan_resources(struct dma_chan *chan)
 	struct idma64_chan *idma64c = to_idma64_chan(chan);
 
 	/* Create a pool of consistent memory blocks for hardware descriptors */
-	idma64c->pool = dma_pool_create(dev_name(chan2dev(chan)),
-					chan->device->dev,
+	idma64c->pool = dma_pool_create(dma_chan_name(chan), chan->device->dev,
 					sizeof(struct idma64_lli), 8, 0);
 	if (!idma64c->pool) {
 		dev_err(chan2dev(chan), "No memory for descriptors\n");

@@ -534,8 +534,7 @@ static int dma_chan_alloc_chan_resources(struct dma_chan *dchan)
 	}
 
 	/* LLI address must be aligned to a 64-byte boundary */
-	chan->desc_pool = dma_pool_create(dev_name(chan2dev(chan)),
-					  chan->chip->dev,
+	chan->desc_pool = dma_pool_create(dma_chan_name(dchan), chan->chip->dev,
 					  sizeof(struct axi_dma_lli),
 					  64, 0);
 	if (!chan->desc_pool) {
