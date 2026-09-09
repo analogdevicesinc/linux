@@ -12,11 +12,12 @@ use kernel::{
     types::ForLt, //
 };
 
+pub use crate::gpu::Spec;
+
 use crate::gpu::Gpu;
 
 /// API handle for the auxiliary bus child drivers to interact with nova-core.
 pub struct NovaCoreApi<'bound> {
-    #[expect(unused)]
     pub(crate) gpu: Pin<&'bound Gpu<'bound>>,
 }
 
@@ -25,6 +26,11 @@ impl NovaCoreApi<'_> {
     /// by nova-core.
     pub fn of(adev: &auxiliary::Device<Bound>) -> Result<NovaCoreApiHandle<'_>> {
         NovaCoreApiHandle::of(adev)
+    }
+
+    /// Returns the GPU [`Spec`].
+    pub fn spec(&self) -> &Spec {
+        &self.gpu.spec
     }
 }
 

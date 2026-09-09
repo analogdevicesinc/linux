@@ -132,9 +132,62 @@ struct drm_nova_gem_info {
 	__u64 size;
 };
 
+/**
+ * struct drm_nova_info - query device information
+ */
+struct drm_nova_info {
+	/**
+	 * @id: The identifier of the information to query.
+	 */
+	__u32 id;
+
+	/**
+	 * @size: The amount of space allocated by userspace at @data. The kernel
+	 * will return the number of bytes it wrote, or the size of the queried
+	 * information structure if @data is NULL.
+	 */
+	__u32 size;
+
+	/**
+	 * @data: Pointer to the userspace buffer into which the queried
+	 * information will be written. May be NULL, in which case nothing is
+	 * written and @size is set to the size of the information structure so
+	 * userspace can allocate a suitably sized buffer.
+	 */
+	__u64 data;
+};
+
+/**
+ * DRM_NOVA_INFO_GPU
+ *
+ * Query GPU information. The result is returned in a
+ * &struct drm_nova_info_gpu.
+ */
+#define DRM_NOVA_INFO_GPU		0x00
+
+/**
+ * struct drm_nova_info_gpu - GPU information
+ */
+struct drm_nova_info_gpu {
+	/**
+	 * @architecture: GPU architecture identifier.
+	 *
+	 * See &enum drm_nova_architecture for currently known architectures.
+	 */
+	__u32 architecture;
+
+	/**
+	 * @chipid: Opaque GPU chip identifier.
+	 *
+	 * See &enum drm_nova_chipid for currently known chips.
+	 */
+	__u32 chipid;
+};
+
 #define DRM_NOVA_GETPARAM		0x00
 #define DRM_NOVA_GEM_CREATE		0x01
 #define DRM_NOVA_GEM_INFO		0x02
+#define DRM_NOVA_INFO			0x03
 
 /* Note: this is an enum so that it can be resolved by Rust bindgen. */
 enum {
@@ -144,6 +197,8 @@ enum {
 						   struct drm_nova_gem_create),
 	DRM_IOCTL_NOVA_GEM_INFO		= DRM_IOWR(DRM_COMMAND_BASE + DRM_NOVA_GEM_INFO,
 						   struct drm_nova_gem_info),
+	DRM_IOCTL_NOVA_INFO		= DRM_IOWR(DRM_COMMAND_BASE + DRM_NOVA_INFO,
+						   struct drm_nova_info),
 };
 
 #if defined(__cplusplus)

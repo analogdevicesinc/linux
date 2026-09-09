@@ -57,12 +57,14 @@ macro_rules! define_chipset {
         /// Enum representation of the GPU chipset.
         #[derive(fmt::Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
         #[repr(u32)]
-        pub(crate) enum Chipset {
+        #[allow(missing_docs)]
+        pub enum Chipset {
             $($variant = uapi::[<drm_nova_chipid_NOVA_DRM_CHIPID_ $variant:upper>]),*,
         }
 
         impl Chipset {
-            pub(crate) const ALL: &'static [Chipset] = &[
+            /// All chipsets known to the driver.
+            pub const ALL: &'static [Chipset] = &[
                 $( Chipset::$variant, )*
             ];
 
@@ -136,7 +138,8 @@ define_chipset!({
 });
 
 impl Chipset {
-    pub(crate) const fn arch(self) -> Architecture {
+    /// Returns the [`Architecture`] generation of this chipset.
+    pub const fn arch(self) -> Architecture {
         match self {
             Self::TU102 | Self::TU104 | Self::TU106 | Self::TU117 | Self::TU116 => {
                 Architecture::Turing
@@ -166,6 +169,14 @@ impl Chipset {
     }
 }
 
+impl From<Chipset> for u32 {
+    #[inline]
+    fn from(value: Chipset) -> Self {
+        // CAST: `Chipset` is `repr(u32)` and can thus be cast losslessly.
+        value as u32
+    }
+}
+
 // TODO
 //
 // The resulting strings are used to generate firmware paths, hence the
@@ -184,15 +195,29 @@ bounded_enum! {
     /// Enum representation of the GPU generation.
     #[derive(fmt::Debug, Copy, Clone)]
     #[repr(u32)]
-    pub(crate) enum Architecture with TryFrom<Bounded<u32, 6>> {
+    pub enum Architecture with TryFrom<Bounded<u32, 6>> {
+        /// Turing (TU1xx).
         Turing = uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_TURING,
+        /// Ampere (GA10x).
         Ampere = uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_AMPERE,
+        /// Hopper (GH100).
         Hopper = uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_HOPPER,
+        /// Ada Lovelace (AD10x).
         Ada = uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_ADA,
+        /// Blackwell (GB10x).
         BlackwellGB10x =
             uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_BLACKWELL_GB10X,
+        /// Blackwell (GB20x).
         BlackwellGB20x =
             uapi::drm_nova_architecture_NOVA_DRM_ARCHITECTURE_BLACKWELL_GB20X,
+    }
+}
+
+impl From<Architecture> for u32 {
+    #[inline]
+    fn from(value: Architecture) -> Self {
+        // CAST: `Architecture` is `repr(u32)` and can thus be cast losslessly.
+        value as u32
     }
 }
 
@@ -219,8 +244,9 @@ impl fmt::Display for Revision {
 
 /// Structure holding a basic description of the GPU: `Chipset` and `Revision`.
 #[derive(Clone, Copy)]
-pub(crate) struct Spec {
-    chipset: Chipset,
+pub struct Spec {
+    /// The GPU chipset.
+    pub chipset: Chipset,
     revision: Revision,
 }
 
@@ -308,7 +334,7 @@ struct GspResources<'gpu> {
 /// Structure holding the resources required to operate the GPU.
 #[pin_data]
 pub(crate) struct Gpu<'gpu> {
-    spec: Spec,
+    pub(crate) spec: Spec,
     /// Static GPU information as provided by the GSP.
     gsp_static_info: GetGspStaticInfoReply,
     /// GPU memory manager owning memory management resources.
