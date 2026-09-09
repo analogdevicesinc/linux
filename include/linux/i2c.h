@@ -919,8 +919,8 @@ static inline u32 i2c_get_functionality(struct i2c_adapter *adap)
 	return adap->algo->functionality(adap);
 }
 
-/* Return 1 if adapter supports everything we need, 0 if not. */
-static inline int i2c_check_functionality(struct i2c_adapter *adap, u32 func)
+/* Return true if adapter supports everything we need, false if not. */
+static inline bool i2c_check_functionality(struct i2c_adapter *adap, u32 func)
 {
 	return (func & i2c_get_functionality(adap)) == func;
 }
