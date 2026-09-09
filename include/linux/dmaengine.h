@@ -1803,10 +1803,15 @@ dmaengine_get_direction_text(enum dma_transfer_direction dir)
 	}
 }
 
+static inline struct device *dmaengine_chan_dev(struct dma_chan *chan)
+{
+	return &chan->dev->device;
+}
+
 static inline struct device *dmaengine_get_dma_device(struct dma_chan *chan)
 {
 	if (chan->dev->chan_dma_dev)
-		return &chan->dev->device;
+		return dmaengine_chan_dev(chan);
 
 	return chan->device->dev;
 }

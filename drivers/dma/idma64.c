@@ -25,11 +25,6 @@
 
 /* ---------------------------------------------------------------------- */
 
-static struct device *chan2dev(struct dma_chan *chan)
-{
-	return &chan->dev->device;
-}
-
 /* ---------------------------------------------------------------------- */
 
 static void idma64_off(struct idma64 *idma64)
@@ -510,7 +505,7 @@ static int idma64_alloc_chan_resources(struct dma_chan *chan)
 	idma64c->pool = dma_pool_create(dma_chan_name(chan), chan->device->dev,
 					sizeof(struct idma64_lli), 8, 0);
 	if (!idma64c->pool) {
-		dev_err(chan2dev(chan), "No memory for descriptors\n");
+		dev_err(dmaengine_chan_dev(chan), "No memory for descriptors\n");
 		return -ENOMEM;
 	}
 

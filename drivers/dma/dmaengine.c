@@ -868,10 +868,10 @@ found:
 		return chan;
 	chan->slave = dev;
 
-	if (sysfs_create_link(&chan->dev->device.kobj, &dev->kobj,
+	if (sysfs_create_link(&dmaengine_chan_dev(chan)->kobj, &dev->kobj,
 			      DMA_SLAVE_NAME))
 		dev_warn(dev, "Cannot create DMA %s symlink\n", DMA_SLAVE_NAME);
-	if (sysfs_create_link(&dev->kobj, &chan->dev->device.kobj, chan->name))
+	if (sysfs_create_link(&dev->kobj, &dmaengine_chan_dev(chan)->kobj, chan->name))
 		dev_warn(dev, "Cannot create DMA %s symlink\n", chan->name);
 
 	return chan;
@@ -917,7 +917,7 @@ void dma_release_channel(struct dma_chan *chan)
 	dma_chan_put(chan);
 
 	if (chan->slave) {
-		sysfs_remove_link(&chan->dev->device.kobj, DMA_SLAVE_NAME);
+		sysfs_remove_link(&dmaengine_chan_dev(chan)->kobj, DMA_SLAVE_NAME);
 		sysfs_remove_link(&chan->slave->kobj, chan->name);
 		kfree(chan->name);
 		chan->name = NULL;
@@ -1101,17 +1101,17 @@ static int __dma_async_device_channel_register(struct dma_device *device,
 		goto err_free_dev;
 	}
 
-	chan->dev->device.class = &dma_devclass;
-	chan->dev->device.parent = device->dev;
+	dmaengine_chan_dev(chan)->class = &dma_devclass;
+	dmaengine_chan_dev(chan)->parent = device->dev;
 	chan->dev->chan = chan;
 	chan->dev->dev_id = device->dev_id;
 	spin_lock_init(&chan->lock);
 
 	if (!name)
-		dev_set_name(&chan->dev->device, "dma%dchan%d", device->dev_id, chan->chan_id);
+		dev_set_name(dmaengine_chan_dev(chan), "dma%dchan%d", device->dev_id, chan->chan_id);
 	else
-		dev_set_name(&chan->dev->device, "%s", name);
-	rc = device_register(&chan->dev->device);
+		dev_set_name(dmaengine_chan_dev(chan), "%s", name);
+	rc = device_register(dmaengine_chan_dev(chan));
 	if (rc)
 		goto err_out_ida;
 	chan->client_count = 0;
@@ -1158,7 +1158,7 @@ static void __dma_async_device_channel_unregister(struct dma_device *device,
 	chan->dev->chan = NULL;
 	mutex_unlock(&dma_list_mutex);
 	ida_free(&device->chan_ida, chan->chan_id);
-	device_unregister(&chan->dev->device);
+	device_unregister(dmaengine_chan_dev(chan));
 	free_percpu(chan->local);
 }
 
@@ -1292,7 +1292,7 @@ err_out:
 		mutex_lock(&dma_list_mutex);
 		chan->dev->chan = NULL;
 		mutex_unlock(&dma_list_mutex);
-		device_unregister(&chan->dev->device);
+		device_unregister(dmaengine_chan_dev(chan));
 		free_percpu(chan->local);
 	}
 	return rc;

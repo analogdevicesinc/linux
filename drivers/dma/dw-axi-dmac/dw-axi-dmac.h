@@ -118,16 +118,6 @@ struct axi_dma_chan_config {
 	u8 hs_sel_src;
 };
 
-static inline struct device *dchan2dev(struct dma_chan *dchan)
-{
-	return &dchan->dev->device;
-}
-
-static inline struct device *chan2dev(struct axi_dma_chan *chan)
-{
-	return &chan->vc.chan.dev->device;
-}
-
 static inline struct axi_dma_desc *vd_to_axi_desc(struct virt_dma_desc *vd)
 {
 	return container_of(vd, struct axi_dma_desc, vd);

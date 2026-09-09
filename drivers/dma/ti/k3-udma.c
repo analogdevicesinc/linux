@@ -422,7 +422,7 @@ static int navss_psil_unpair(struct udma_dev *ud, u32 src_thread,
 
 static void k3_configure_chan_coherency(struct dma_chan *chan, u32 asel)
 {
-	struct device *chan_dev = &chan->dev->device;
+	struct device *chan_dev = dmaengine_chan_dev(chan);
 
 	if (asel == 0) {
 		/* No special handling for the channel */

@@ -319,7 +319,7 @@ static struct axi_dma_lli *axi_desc_get(struct axi_dma_chan *chan,
 
 	lli = dma_pool_zalloc(chan->desc_pool, GFP_NOWAIT, &phys);
 	if (unlikely(!lli)) {
-		dev_err(chan2dev(chan), "%s: not enough descriptors available\n",
+		dev_err(vchan_chan_dev(&chan->vc), "%s: not enough descriptors available\n",
 			axi_chan_name(chan));
 		return NULL;
 	}
@@ -345,7 +345,7 @@ static void axi_desc_put(struct axi_dma_desc *desc)
 	kfree(desc->hw_desc);
 	kfree(desc);
 	atomic_sub(descs_put, &chan->descs_allocated);
-	dev_vdbg(chan2dev(chan), "%s: %d descs put, %d still allocated\n",
+	dev_vdbg(vchan_chan_dev(&chan->vc), "%s: %d descs put, %d still allocated\n",
 		 axi_chan_name(chan), descs_put,
 		 atomic_read(&chan->descs_allocated));
 }
@@ -434,7 +434,7 @@ static void axi_chan_block_xfer_start(struct axi_dma_chan *chan,
 	u8 lms = 0; /* Select AXI0 master for LLI fetching */
 
 	if (unlikely(axi_chan_is_hw_enable(chan))) {
-		dev_err(chan2dev(chan), "%s is non-idle!\n",
+		dev_err(vchan_chan_dev(&chan->vc), "%s is non-idle!\n",
 			axi_chan_name(chan));
 
 		return;
@@ -493,7 +493,7 @@ static void axi_chan_start_first_queued(struct axi_dma_chan *chan)
 		return;
 
 	desc = vd_to_axi_desc(vd);
-	dev_vdbg(chan2dev(chan), "%s: started %u\n", axi_chan_name(chan),
+	dev_vdbg(vchan_chan_dev(&chan->vc), "%s: started %u\n", axi_chan_name(chan),
 		 vd->tx.cookie);
 	axi_chan_block_xfer_start(chan, desc);
 }
@@ -527,7 +527,7 @@ static int dma_chan_alloc_chan_resources(struct dma_chan *dchan)
 
 	/* ASSERT: channel is idle */
 	if (axi_chan_is_hw_enable(chan)) {
-		dev_err(chan2dev(chan), "%s is non-idle!\n",
+		dev_err(vchan_chan_dev(&chan->vc), "%s is non-idle!\n",
 			axi_chan_name(chan));
 		pm_runtime_put(chan->chip->dev);
 		return -EBUSY;
@@ -538,11 +538,11 @@ static int dma_chan_alloc_chan_resources(struct dma_chan *dchan)
 					  sizeof(struct axi_dma_lli),
 					  64, 0);
 	if (!chan->desc_pool) {
-		dev_err(chan2dev(chan), "No memory for descriptors\n");
+		dev_err(vchan_chan_dev(&chan->vc), "No memory for descriptors\n");
 		pm_runtime_put(chan->chip->dev);
 		return -ENOMEM;
 	}
-	dev_vdbg(dchan2dev(dchan), "%s: allocating\n", axi_chan_name(chan));
+	dev_vdbg(dmaengine_chan_dev(dchan), "%s: allocating\n", axi_chan_name(chan));
 
 	return 0;
 }
@@ -553,7 +553,7 @@ static void dma_chan_free_chan_resources(struct dma_chan *dchan)
 
 	/* ASSERT: channel is idle */
 	if (axi_chan_is_hw_enable(chan))
-		dev_err(dchan2dev(dchan), "%s is non-idle!\n",
+		dev_err(dmaengine_chan_dev(dchan), "%s is non-idle!\n",
 			axi_chan_name(chan));
 
 	axi_chan_disable(chan);
@@ -563,7 +563,7 @@ static void dma_chan_free_chan_resources(struct dma_chan *dchan)
 
 	dma_pool_destroy(chan->desc_pool);
 	chan->desc_pool = NULL;
-	dev_vdbg(dchan2dev(dchan),
+	dev_vdbg(dmaengine_chan_dev(dchan),
 		 "%s: free resources, descriptor still allocated: %u\n",
 		 axi_chan_name(chan), atomic_read(&chan->descs_allocated));
 
@@ -932,7 +932,7 @@ dma_chan_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst_adr,
 	u64 llp = 0;
 	u8 lms = 0; /* Select AXI0 master for LLI fetching */
 
-	dev_dbg(chan2dev(chan), "%s: memcpy: src: %pad dst: %pad length: %zd flags: %#lx",
+	dev_dbg(vchan_chan_dev(&chan->vc), "%s: memcpy: src: %pad dst: %pad length: %zd flags: %#lx",
 		axi_chan_name(chan), &src_adr, &dst_adr, len, flags);
 
 	max_block_ts = chan->chip->dw->hdata->block_size[chan->id];
@@ -1037,11 +1037,11 @@ static void axi_chan_dump_lli(struct axi_dma_chan *chan,
 			      struct axi_dma_hw_desc *desc)
 {
 	if (!desc->lli) {
-		dev_err(dchan2dev(&chan->vc.chan), "NULL LLI\n");
+		dev_err(vchan_chan_dev(&chan->vc), "NULL LLI\n");
 		return;
 	}
 
-	dev_err(dchan2dev(&chan->vc.chan),
+	dev_err(vchan_chan_dev(&chan->vc),
 		"SAR: 0x%llx DAR: 0x%llx LLP: 0x%llx BTS 0x%x CTL: 0x%x:%08x",
 		le64_to_cpu(desc->lli->sar),
 		le64_to_cpu(desc->lli->dar),
@@ -1070,7 +1070,7 @@ static noinline void axi_chan_handle_err(struct axi_dma_chan *chan, u32 status)
 	/* The bad descriptor currently is in the head of vc list */
 	vd = vchan_next_desc(&chan->vc);
 	if (!vd) {
-		dev_err(chan2dev(chan), "BUG: %s, IRQ with no descriptors\n",
+		dev_err(vchan_chan_dev(&chan->vc), "BUG: %s, IRQ with no descriptors\n",
 			axi_chan_name(chan));
 		goto out;
 	}
@@ -1078,7 +1078,7 @@ static noinline void axi_chan_handle_err(struct axi_dma_chan *chan, u32 status)
 	list_del(&vd->node);
 
 	/* WARN about bad descriptor */
-	dev_err(chan2dev(chan),
+	dev_err(vchan_chan_dev(&chan->vc),
 		"Bad descriptor submitted for %s, cookie: %d, irq: 0x%08x\n",
 		axi_chan_name(chan), vd->tx.cookie, status);
 	axi_chan_list_dump_lli(chan, vd_to_axi_desc(vd));
@@ -1104,7 +1104,7 @@ static void axi_chan_block_xfer_complete(struct axi_dma_chan *chan)
 
 	spin_lock_irqsave(&chan->vc.lock, flags);
 	if (unlikely(axi_chan_is_hw_enable(chan))) {
-		dev_err(chan2dev(chan), "BUG: %s caught DWAXIDMAC_IRQ_DMA_TRF, but channel not idle!\n",
+		dev_err(vchan_chan_dev(&chan->vc), "BUG: %s caught DWAXIDMAC_IRQ_DMA_TRF, but channel not idle!\n",
 			axi_chan_name(chan));
 		axi_chan_disable(chan);
 	}
@@ -1112,7 +1112,7 @@ static void axi_chan_block_xfer_complete(struct axi_dma_chan *chan)
 	/* The completed descriptor currently is in the head of vc list */
 	vd = vchan_next_desc(&chan->vc);
 	if (!vd) {
-		dev_err(chan2dev(chan), "BUG: %s, IRQ with no descriptors\n",
+		dev_err(vchan_chan_dev(&chan->vc), "BUG: %s, IRQ with no descriptors\n",
 			axi_chan_name(chan));
 		goto out;
 	}
@@ -1192,7 +1192,7 @@ static int dma_chan_terminate_all(struct dma_chan *dchan)
 	ret = readl_poll_timeout_atomic(chan->chip->regs + DMAC_CHEN, val,
 					!(val & chan_active), 1000, 50000);
 	if (ret == -ETIMEDOUT)
-		dev_warn(dchan2dev(dchan),
+		dev_warn(dmaengine_chan_dev(dchan),
 			 "%s failed to stop\n", axi_chan_name(chan));
 
 	if (chan->direction != DMA_MEM_TO_MEM)
@@ -1209,7 +1209,7 @@ static int dma_chan_terminate_all(struct dma_chan *dchan)
 
 	vchan_dma_desc_free_list(&chan->vc, &head);
 
-	dev_vdbg(dchan2dev(dchan), "terminated: %s\n", axi_chan_name(chan));
+	dev_vdbg(dmaengine_chan_dev(dchan), "terminated: %s\n", axi_chan_name(chan));
 
 	return 0;
 }

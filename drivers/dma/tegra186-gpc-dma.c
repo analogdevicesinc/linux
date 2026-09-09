@@ -1537,7 +1537,7 @@ static int tegra_dma_probe(struct platform_device *pdev)
 	 * the channels available and registered for the DMA device are used.
 	 */
 	list_for_each_entry(chan, &tdma->dma_dev.channels, device_node) {
-		chdev = &chan->dev->device;
+		chdev = dmaengine_chan_dev(chan);
 		tdc = to_tegra_dma_chan(chan);
 
 		if (use_iommu_map) {

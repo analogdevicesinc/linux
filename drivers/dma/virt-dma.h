@@ -41,6 +41,11 @@ static inline struct virt_dma_chan *to_virt_chan(struct dma_chan *chan)
 	return container_of(chan, struct virt_dma_chan, chan);
 }
 
+static inline struct device *vchan_chan_dev(struct virt_dma_chan *vc)
+{
+	return dmaengine_chan_dev(&vc->chan);
+}
+
 void vchan_dma_desc_free_list(struct virt_dma_chan *vc, struct list_head *head);
 void vchan_init(struct virt_dma_chan *vc, struct dma_device *dmadev);
 struct virt_dma_desc *vchan_find_desc(struct virt_dma_chan *, dma_cookie_t);

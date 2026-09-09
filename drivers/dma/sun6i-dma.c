@@ -213,11 +213,6 @@ struct sun6i_dma_dev {
 	u32			max_request;
 };
 
-static struct device *chan2dev(struct dma_chan *chan)
-{
-	return &chan->dev->device;
-}
-
 static inline struct sun6i_dma_dev *to_sun6i_dma_dev(struct dma_device *d)
 {
 	return container_of(d, struct sun6i_dma_dev, slave);
@@ -397,7 +392,7 @@ static inline void sun6i_dma_dump_lli(struct sun6i_vchan *vchan,
 				      struct sun6i_dma_lli *v_lli,
 				      dma_addr_t p_lli)
 {
-	dev_dbg(chan2dev(&vchan->vc.chan),
+	dev_dbg(vchan_chan_dev(&vchan->vc),
 		"\n\tdesc:\tp - %pad v - 0x%p\n"
 		"\t\tc - 0x%08x s - 0x%08x d - 0x%08x\n"
 		"\t\tl - 0x%08x p - 0x%08x n - 0x%08x\n",
@@ -678,7 +673,7 @@ static struct dma_async_tx_descriptor *sun6i_dma_prep_dma_memcpy(
 	dma_addr_t p_lli;
 	s8 burst, width;
 
-	dev_dbg(chan2dev(chan),
+	dev_dbg(dmaengine_chan_dev(chan),
 		"%s; chan: %d, dest: %pad, src: %pad, len: %zu. flags: 0x%08lx\n",
 		__func__, vchan->vc.chan.chan_id, &dest, &src, len, flags);
 
@@ -739,7 +734,7 @@ static struct dma_async_tx_descriptor *sun6i_dma_prep_slave_sg(
 
 	ret = set_config(sdev, sconfig, dir, &lli_cfg);
 	if (ret) {
-		dev_err(chan2dev(chan), "Invalid DMA configuration\n");
+		dev_err(dmaengine_chan_dev(chan), "Invalid DMA configuration\n");
 		return NULL;
 	}
 
@@ -763,7 +758,7 @@ static struct dma_async_tx_descriptor *sun6i_dma_prep_slave_sg(
 			sdev->cfg->set_drq(&v_lli->cfg, DRQ_SDRAM, vchan->port);
 			sdev->cfg->set_mode(&v_lli->cfg, LINEAR_MODE, IO_MODE);
 
-			dev_dbg(chan2dev(chan),
+			dev_dbg(dmaengine_chan_dev(chan),
 				"%s; chan: %d, dest: %pad, src: %pad, len: %u. flags: 0x%08lx\n",
 				__func__, vchan->vc.chan.chan_id,
 				&sconfig->dst_addr, &sg_dma_address(sg),
@@ -777,7 +772,7 @@ static struct dma_async_tx_descriptor *sun6i_dma_prep_slave_sg(
 			sdev->cfg->set_drq(&v_lli->cfg, vchan->port, DRQ_SDRAM);
 			sdev->cfg->set_mode(&v_lli->cfg, IO_MODE, LINEAR_MODE);
 
-			dev_dbg(chan2dev(chan),
+			dev_dbg(dmaengine_chan_dev(chan),
 				"%s; chan: %d, dest: %pad, src: %pad, len: %u. flags: 0x%08lx\n",
 				__func__, vchan->vc.chan.chan_id,
 				&sg_dma_address(sg), &sconfig->src_addr,
@@ -787,7 +782,7 @@ static struct dma_async_tx_descriptor *sun6i_dma_prep_slave_sg(
 		prev = sun6i_dma_lli_add(prev, v_lli, p_lli, txd);
 	}
 
-	dev_dbg(chan2dev(chan), "First: %pad\n", &txd->p_lli);
+	dev_dbg(dmaengine_chan_dev(chan), "First: %pad\n", &txd->p_lli);
 	for (p_lli = txd->p_lli, v_lli = txd->v_lli; v_lli;
 	     p_lli = v_lli->p_lli_next, v_lli = v_lli->v_lli_next)
 		sun6i_dma_dump_lli(vchan, v_lli, p_lli);
@@ -819,7 +814,7 @@ static struct dma_async_tx_descriptor *sun6i_dma_prep_dma_cyclic(
 
 	ret = set_config(sdev, sconfig, dir, &lli_cfg);
 	if (ret) {
-		dev_err(chan2dev(chan), "Invalid DMA configuration\n");
+		dev_err(dmaengine_chan_dev(chan), "Invalid DMA configuration\n");
 		return NULL;
 	}
 
@@ -844,7 +839,7 @@ static struct dma_async_tx_descriptor *sun6i_dma_prep_dma_cyclic(
 			v_lli->cfg = lli_cfg;
 			sdev->cfg->set_drq(&v_lli->cfg, DRQ_SDRAM, vchan->port);
 			sdev->cfg->set_mode(&v_lli->cfg, LINEAR_MODE, IO_MODE);
-			dev_dbg(chan2dev(chan),
+			dev_dbg(dmaengine_chan_dev(chan),
 				"%s; chan: %d, dest: %pad, src: %pad, len: %zu. flags: 0x%08lx\n",
 				__func__, vchan->vc.chan.chan_id,
 				&sconfig->dst_addr, &buf_addr,
@@ -856,7 +851,7 @@ static struct dma_async_tx_descriptor *sun6i_dma_prep_dma_cyclic(
 			v_lli->cfg = lli_cfg;
 			sdev->cfg->set_drq(&v_lli->cfg, vchan->port, DRQ_SDRAM);
 			sdev->cfg->set_mode(&v_lli->cfg, IO_MODE, LINEAR_MODE);
-			dev_dbg(chan2dev(chan),
+			dev_dbg(dmaengine_chan_dev(chan),
 				"%s; chan: %d, dest: %pad, src: %pad, len: %zu. flags: 0x%08lx\n",
 				__func__, vchan->vc.chan.chan_id,
 				&buf_addr, &sconfig->src_addr,
@@ -893,7 +888,7 @@ static int sun6i_dma_pause(struct dma_chan *chan)
 	struct sun6i_vchan *vchan = to_sun6i_vchan(chan);
 	struct sun6i_pchan *pchan = vchan->phy;
 
-	dev_dbg(chan2dev(chan), "vchan %p: pause\n", &vchan->vc);
+	dev_dbg(dmaengine_chan_dev(chan), "vchan %p: pause\n", &vchan->vc);
 
 	if (pchan) {
 		writel(DMA_CHAN_PAUSE_PAUSE,
@@ -914,7 +909,7 @@ static int sun6i_dma_resume(struct dma_chan *chan)
 	struct sun6i_pchan *pchan = vchan->phy;
 	unsigned long flags;
 
-	dev_dbg(chan2dev(chan), "vchan %p: resume\n", &vchan->vc);
+	dev_dbg(dmaengine_chan_dev(chan), "vchan %p: resume\n", &vchan->vc);
 
 	spin_lock_irqsave(&vchan->vc.lock, flags);
 
@@ -1024,13 +1019,13 @@ static void sun6i_dma_issue_pending(struct dma_chan *chan)
 		if (!vchan->phy && list_empty(&vchan->node)) {
 			list_add_tail(&vchan->node, &sdev->pending);
 			tasklet_schedule(&sdev->task);
-			dev_dbg(chan2dev(chan), "vchan %p: issued\n",
+			dev_dbg(dmaengine_chan_dev(chan), "vchan %p: issued\n",
 				&vchan->vc);
 		}
 
 		spin_unlock(&sdev->lock);
 	} else {
-		dev_dbg(chan2dev(chan), "vchan %p: nothing to issue\n",
+		dev_dbg(dmaengine_chan_dev(chan), "vchan %p: nothing to issue\n",
 			&vchan->vc);
 	}
 
