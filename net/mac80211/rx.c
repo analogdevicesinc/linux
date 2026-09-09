@@ -452,6 +452,8 @@ ieee80211_add_rx_radiotap_header(struct ieee80211_local *local,
 	if (status->band == NL80211_BAND_5GHZ ||
 	    status->band == NL80211_BAND_6GHZ)
 		channel_flags |= IEEE80211_CHAN_OFDM | IEEE80211_CHAN_5GHZ;
+	else if (status->band == NL80211_BAND_S1GHZ)
+		channel_flags |= IEEE80211_CHAN_OFDM | IEEE80211_CHAN_900MHZ;
 	else if (status->encoding != RX_ENC_LEGACY)
 		channel_flags |= IEEE80211_CHAN_DYN | IEEE80211_CHAN_2GHZ;
 	else if (rate && rate->flags & IEEE80211_RATE_ERP_G)
