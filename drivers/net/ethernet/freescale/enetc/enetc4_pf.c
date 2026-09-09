@@ -212,9 +212,29 @@ static void enetc4_pf_set_mac_filter(struct enetc_pf *pf, int type,
 		enetc4_pf_set_mc_hash_filter(pf, mc);
 }
 
+static void enetc4_pf_vf_flr_handler(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_vf_state *vf_state;
+	bool uc_promisc, mc_promisc;
+
+	vf_state = &pf->vf_state[vf_id];
+	mutex_lock(&vf_state->lock);
+
+	uc_promisc = !!(vf_state->flags & ENETC_VF_FLAG_UC_PROMISC);
+	mc_promisc = !!(vf_state->flags & ENETC_VF_FLAG_MC_PROMISC);
+
+	spin_lock(&pf->si->gen_lock);
+	enetc_set_si_uc_promisc(pf->si, vf_id + 1, uc_promisc);
+	enetc_set_si_mc_promisc(pf->si, vf_id + 1, mc_promisc);
+	spin_unlock(&pf->si->gen_lock);
+
+	mutex_unlock(&vf_state->lock);
+}
+
 static const struct enetc_pf_ops enetc4_pf_ops = {
 	.set_si_primary_mac = enetc4_pf_set_si_primary_mac,
 	.get_si_primary_mac = enetc4_pf_get_si_primary_mac,
+	.vf_flr_handler = enetc4_pf_vf_flr_handler,
 };
 
 static int enetc4_pf_struct_init(struct enetc_si *si)

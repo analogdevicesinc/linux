@@ -110,6 +110,18 @@ static inline u32 enetc_vsi_set_msize(u32 size)
 
 #define ENETC_PSIIER	0xa00
 #define ENETC_PSIIDR	0xa08
+
+/* VF FLR interrupt mask, n is the active number of VFs.
+ * It is available for ENETC_PSIIER and ENETC_PSIIDR registers.
+ */
+#define ENETC_VFFLR_MASK(n)	\
+	({ typeof(n) _n = (n); (_n) ? GENMASK(16 + (_n), 17) : 0; })
+
+/* VF FLR interrupt bit, n is VF index. It is available
+ * for ENETC_PSIIER and ENETC_PSIIDR registers.
+ */
+#define ENETC_VFFLR_BIT(n)	BIT(17 + (n))
+
 #define ENETC_SITXIDR	0xa18
 #define ENETC_SIRXIDR	0xa28
 #define ENETC_SIMSIVR	0xa30

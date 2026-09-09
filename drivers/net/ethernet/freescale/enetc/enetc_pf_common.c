@@ -623,7 +623,9 @@ int enetc_pf_set_vf_trust(struct net_device *ndev, int vf, bool setting)
 	} else {
 		u64 hash;
 
-		vf_state->flags &= ~ENETC_VF_FLAG_TRUSTED;
+		vf_state->flags &= ~(ENETC_VF_FLAG_TRUSTED |
+				     ENETC_VF_FLAG_UC_PROMISC |
+				     ENETC_VF_FLAG_MC_PROMISC);
 
 		/* For ENETC v1, we only support setting the VF's MAC address
 		 * via VSI-to-PSI messages. Unicast and multicast promiscuous

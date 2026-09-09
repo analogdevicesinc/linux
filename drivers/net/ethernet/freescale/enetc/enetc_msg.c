@@ -27,6 +27,9 @@ static void enetc_enable_psiier_interrupts(struct enetc_pf *pf)
 	u32 psiier = ENETC_PSIMR_MASK(pf->num_vfs);
 	struct enetc_hw *hw = &pf->si->hw;
 
+	if (pf->ops->vf_flr_handler)
+		psiier |= ENETC_VFFLR_MASK(pf->num_vfs);
+
 	enetc_wr(hw, ENETC_PSIIER, psiier);
 }
 
@@ -206,6 +209,20 @@ static u16 enetc_msg_set_vf_mac_promisc_mode(struct enetc_pf *pf, int vf_id,
 	if (promisc && !(vf_state->flags & ENETC_VF_FLAG_TRUSTED)) {
 		pf_msg = ENETC_PF_MSG_PERM_DENY;
 		goto vf_state_unlock;
+	}
+
+	if (type & ENETC_MAC_FILTER_TYPE_UC) {
+		if (promisc)
+			vf_state->flags |= ENETC_VF_FLAG_UC_PROMISC;
+		else
+			vf_state->flags &= ~ENETC_VF_FLAG_UC_PROMISC;
+	}
+
+	if (type & ENETC_MAC_FILTER_TYPE_MC) {
+		if (promisc)
+			vf_state->flags |= ENETC_VF_FLAG_MC_PROMISC;
+		else
+			vf_state->flags &= ~ENETC_VF_FLAG_MC_PROMISC;
 	}
 
 	spin_lock(&si->gen_lock);
@@ -542,6 +559,29 @@ free_msg:
 	kfree(msg);
 }
 
+static void enetc_vf_flr_handler(struct enetc_pf *pf)
+{
+	u32 flr_mask = ENETC_VFFLR_MASK(pf->num_vfs);
+	struct enetc_hw *hw = &pf->si->hw;
+	u32 flr_status;
+
+	if (!pf->ops->vf_flr_handler)
+		return;
+
+	flr_status = enetc_rd(hw, ENETC_PSIIDR) & flr_mask;
+	if (!flr_status)
+		return;
+
+	for (int i = 0; i < pf->num_vfs; i++) {
+		if (!(ENETC_VFFLR_BIT(i) & flr_status))
+			continue;
+
+		/* Clear FLR interrupt status, W1C */
+		enetc_wr(hw, ENETC_PSIIDR, ENETC_VFFLR_BIT(i));
+		pf->ops->vf_flr_handler(pf, i);
+	}
+}
+
 static void enetc_msg_task(struct work_struct *work)
 {
 	struct enetc_si *si = container_of(work, struct enetc_si, msg_task);
@@ -549,6 +589,8 @@ static void enetc_msg_task(struct work_struct *work)
 	struct enetc_hw *hw = &si->hw;
 	u32 mr_status, mr_mask;
 	int i;
+
+	enetc_vf_flr_handler(pf);
 
 	mr_mask = ENETC_PSIMR_MASK(pf->num_vfs);
 	mr_status = (enetc_rd(hw, ENETC_PSIMSGRR) & mr_mask) |
@@ -675,6 +717,14 @@ static void enetc_msg_clear_vf_config(struct enetc_pf *pf, int vf_id)
 		return;
 
 	mutex_lock(&vf_state->lock);
+
+	/* VF may set these flags by mailbox messages, so need to clear these
+	 * flags when enetc_msg_psi_free() is called. PF-set flags (TRUSTED,
+	 * PF_SET_MAC) are not cleared, because these flags are unrelated to
+	 * whether SR-IOV is enabled or disabled.
+	 */
+	vf_state->flags &= ~(ENETC_VF_FLAG_UC_PROMISC |
+			     ENETC_VF_FLAG_MC_PROMISC);
 
 	spin_lock(&si->gen_lock);
 	vf_state->msg_fail_cnt = 0;
