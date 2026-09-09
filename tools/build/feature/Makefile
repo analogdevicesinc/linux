@@ -265,17 +265,17 @@ $(OUTPUT)test-libpython.bin:
 	$(BUILD) $(FLAGS_PYTHON_EMBED)
 
 $(OUTPUT)test-libbfd.bin:
-	$(BUILD_BFD)
+	$(BUILD_BFD) || $(BUILD_BFD) -lzstd
 
 $(OUTPUT)test-libbfd-threadsafe.bin:
-	$(BUILD_BFD) || $(BUILD_BFD) -liberty || $(BUILD_BFD) -liberty -lz
+	$(BUILD_BFD) || $(BUILD_BFD) -lzstd || $(BUILD_BFD) -liberty || $(BUILD_BFD) -liberty -lz
 
 $(OUTPUT)test-disassembler-four-args.bin:
-	$(BUILD_BFD) -lopcodes || $(BUILD_BFD) -lopcodes -liberty || \
+	$(BUILD_BFD) -lopcodes || $(BUILD_BFD) -lopcodes -lzstd || $(BUILD_BFD) -lopcodes -liberty || \
 	$(BUILD_BFD) -lopcodes -liberty -lz
 
 $(OUTPUT)test-disassembler-init-styled.bin:
-	$(BUILD_BFD) -lopcodes || $(BUILD_BFD) -lopcodes -liberty || \
+	$(BUILD_BFD) -lopcodes ||  $(BUILD_BFD) -lopcodes -liberty || \
 	$(BUILD_BFD) -lopcodes -liberty -lz
 
 $(OUTPUT)test-reallocarray.bin:
