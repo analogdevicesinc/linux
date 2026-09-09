@@ -404,6 +404,29 @@ static u32 intel_pr_as_sdp_skip_frames(struct intel_dp *intel_dp)
 		     REG_FIELD_MAX(PR_ALPM_CTL_AS_SDP_SKIP_FRAMES_MASK));
 }
 
+/*
+ * Whether periodic AS SDP transmission (AS SDP skip frames) will be programmed
+ * for this Panel Replay config. The skip counter needs the AS SDP to keep
+ * flowing during PR active, which is incompatible with DC3co, so this is used
+ * to keep DC3co disabled while skip frames is enabled.
+ */
+bool intel_alpm_pr_as_sdp_skip_frames_enabled(struct intel_dp *intel_dp,
+					      const struct intel_crtc_state *crtc_state)
+{
+	struct intel_display *display = to_intel_display(intel_dp);
+
+	/*
+	 * The AS SDP skip frames field only exists on Xe3p_LPD+. Periodic AS SDP
+	 * drives the panel down to its minimum refresh rate on its own, so it is
+	 * only used when VRR is not actively driving the refresh rate.
+	 */
+	if (DISPLAY_VER(display) < 35 || !intel_dp->as_sdp_supported ||
+	    !crtc_state->has_panel_replay || crtc_state->vrr.enable)
+		return false;
+
+	return intel_pr_as_sdp_skip_frames(intel_dp) > 0;
+}
+
 static void lnl_alpm_configure(struct intel_dp *intel_dp,
 			       const struct intel_crtc_state *crtc_state)
 {
