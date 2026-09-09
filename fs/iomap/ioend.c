@@ -309,12 +309,15 @@ new_ioend:
 }
 EXPORT_SYMBOL_GPL(iomap_add_to_ioend);
 
-static int iomap_ioend_integrity_verify(struct iomap_ioend *ioend)
+#ifdef CONFIG_BLK_DEV_INTEGRITY
+int iomap_ioend_integrity_verify(struct iomap_ioend *ioend)
 {
 	struct bvec_iter data_iter = BVEC_ITER_IOEND(ioend);
 
 	return fs_bio_integrity_verify(&ioend->io_bio, &data_iter);
 }
+EXPORT_SYMBOL_GPL(iomap_ioend_integrity_verify);
+#endif /* CONFIG_BLK_DEV_INTEGRITY */
 
 static u32 iomap_finish_ioend(struct iomap_ioend *ioend, int error)
 {
@@ -330,11 +333,6 @@ static u32 iomap_finish_ioend(struct iomap_ioend *ioend, int error)
 
 	if (!atomic_dec_and_test(&ioend->io_remaining))
 		return 0;
-
-	if (!ioend->io_error &&
-	    bio_integrity(&ioend->io_bio) &&
-	    bio_op(&ioend->io_bio) == REQ_OP_READ)
-		ioend->io_error = iomap_ioend_integrity_verify(ioend);
 
 	if (ioend->io_flags & IOMAP_IOEND_DIRECT)
 		return iomap_finish_ioend_direct(ioend);

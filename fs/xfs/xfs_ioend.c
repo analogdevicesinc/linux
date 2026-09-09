@@ -25,6 +25,9 @@ xfs_end_io_read(
 	struct iomap_ioend	*ioend = iomap_ioend_from_bio(bio);
 	int			error = blk_status_to_errno(bio->bi_status);
 
+	if (!error && (ioend->io_flags & IOMAP_IOEND_INTEGRITY))
+		error = iomap_ioend_integrity_verify(ioend);
+
 	iomap_finish_ioends(ioend, error);
 }
 
