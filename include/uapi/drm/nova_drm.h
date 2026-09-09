@@ -182,6 +182,12 @@ struct drm_nova_info_gpu {
 	 * See &enum drm_nova_chipid for currently known chips.
 	 */
 	__u32 chipid;
+
+	/**
+	 * @vram_size: Amount of usable FB, excluding GSP carveouts and protected
+	 * regions.
+	 */
+	__u64 vram_size;
 };
 
 #define DRM_NOVA_GETPARAM		0x00

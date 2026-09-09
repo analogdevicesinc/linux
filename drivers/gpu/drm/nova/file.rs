@@ -42,10 +42,12 @@ impl GpuInfo {
     /// another documented default instead.
     fn new(reg_data: &DrmRegData<'_>) -> Result<Self> {
         let spec = reg_data.api.with(|api| api.get_ref().spec());
+        let gsp_static_info = reg_data.api.with(|api| api.get_ref().gsp_static_info());
 
         let info = uapi::drm_nova_info_gpu {
             architecture: spec.chipset.arch().into(),
             chipid: spec.chipset.into(),
+            vram_size: gsp_static_info.vram_size(),
         };
         Ok(Self(info))
     }

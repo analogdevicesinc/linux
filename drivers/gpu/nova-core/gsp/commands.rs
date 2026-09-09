@@ -212,7 +212,7 @@ impl CommandToGsp for GetGspStaticInfo {
 }
 
 /// The reply from the GSP to the [`GetGspStaticInfo`] command.
-pub(crate) struct GetGspStaticInfoReply {
+pub struct GetGspStaticInfoReply {
     gpu_name: [u8; 64],
     /// BAR1 Page Directory Entry base address.
     pub(crate) bar1_pde_base: u64,
@@ -267,6 +267,14 @@ impl GetGspStaticInfoReply {
             .map_err(GpuNameError::NoNullTerminator)?
             .to_str()
             .map_err(GpuNameError::InvalidUtf8)
+    }
+
+    /// Returns the total usable VRAM size in bytes, i.e. the summed lengths of all usable FB
+    /// regions.
+    pub fn vram_size(&self) -> u64 {
+        self.usable_fb_regions.iter().fold(0, |size, region| {
+            size.saturating_add(region.end - region.start)
+        })
     }
 }
 
