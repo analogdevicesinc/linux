@@ -1232,6 +1232,14 @@ static void intel_pre_plane_update(struct intel_atomic_state *state,
 		intel_vrr_disable(old_crtc_state);
 		intel_vrr_dcb_reset(old_crtc_state, crtc);
 		intel_crtc_update_active_timings(old_crtc_state, false);
+
+		/*
+		 * VRR is being disabled seamlessly (no modeset, Panel Replay
+		 * stays enabled), so re-apply the AS SDP skip-frame programming
+		 * for the new (VRR off) state.
+		 */
+		if (!intel_crtc_needs_modeset(new_crtc_state))
+			intel_alpm_pr_as_sdp_update(new_crtc_state);
 	}
 
 	if (audio_disabling(old_crtc_state, new_crtc_state))
@@ -6970,6 +6978,16 @@ static void intel_update_crtc(struct intel_atomic_state *state,
 	    new_crtc_state->update_m_n || new_crtc_state->update_lrr)
 		intel_crtc_update_active_timings(new_crtc_state,
 						 new_crtc_state->vrr.enable);
+
+	/*
+	 * VRR is being enabled seamlessly (no modeset, Panel Replay stays
+	 * enabled), so re-apply the AS SDP skip-frame programming for the new
+	 * (VRR on) state. Done here, outside the vblank-evasion critical section
+	 * (which runs with interrupts disabled), because it takes alpm.lock.
+	 */
+	if (intel_crtc_vrr_enabling(state, crtc) &&
+	    !intel_crtc_needs_modeset(new_crtc_state))
+		intel_alpm_pr_as_sdp_update(new_crtc_state);
 
 	if (new_crtc_state->vrr.dc_balance.enable)
 		intel_vrr_dcb_increment_flip_count(new_crtc_state, crtc);
