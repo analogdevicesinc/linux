@@ -91,6 +91,7 @@
  * The class code for the following messages is 8-bit.
  * 1. Get IP revision messages
  * 2. Link status messages
+ * 3. Link speed messages
  */
 #define ENETC_PF_MSG_CLASS_CODE_U8		GENMASK(7, 0)
 #define ENETC_PF_MSG_CLASS_ID			GENMASK(15, 8)
@@ -112,6 +113,7 @@ enum enetc_msg_class_id {
 	/* Common Class ID for PSI-to-VSI and VSI-to-PSI messages */
 	ENETC_MSG_CLASS_ID_MAC_FILTER		= 0x20,
 	ENETC_MSG_CLASS_ID_LINK_STATUS		= 0x80,
+	ENETC_MSG_CLASS_ID_LINK_SPEED		= 0x81,
 	ENETC_MSG_CLASS_ID_IP_REVISION		= 0xf0,
 };
 
@@ -129,6 +131,13 @@ enum enetc_msg_link_status_cmd_id {
 	ENETC_MSG_UNREGISTER_LINK_CHANGE_NOTIFIER,
 };
 
+enum enetc_msg_link_speed_cmd_id {
+	ENETC_MSG_GET_CURRENT_LINK_SPEED,
+	/* The following command IDs are not currently supported */
+	ENETC_MSG_REGISTER_SPEED_CHANGE_NOTIFIER,
+	ENETC_MSG_UNREGISTER_SPEED_CHANGE_NOTIFIER,
+};
+
 /* Class-specific error return codes of MAC filter */
 enum enetc_mac_filter_class_code {
 	ENETC_MF_CLASS_CODE_INVALID_MAC,
@@ -137,6 +146,28 @@ enum enetc_mac_filter_class_code {
 /* Class-specific notifications/codes of link status */
 #define ENETC_CLASS_CODE_LINK_DOWN		BIT(0)
 #define ENETC_CLASS_CODE_TX_PAUSE_EN		BIT(1)
+
+/* Class-specific notifications/codes of link speed */
+enum enetc_link_speed_class_code {
+	ENETC_MSG_SPEED_UNKNOWN,
+	ENETC_MSG_SPEED_10M_HD,
+	ENETC_MSG_SPEED_10M_FD,
+	ENETC_MSG_SPEED_100M_HD,
+	ENETC_MSG_SPEED_100M_FD,
+	ENETC_MSG_SPEED_1000M,
+	ENETC_MSG_SPEED_2500M,
+	ENETC_MSG_SPEED_5G,
+	/* Do not add enumeration values for any speed greater than
+	 * 5Gbps. For any speed greater than 5Gbps, its speed class
+	 * code should follow the formula below.
+	 *
+	 * SPEED = (link_speed - 5000) / 1000 + ENETC_MSG_SPEED_5G
+	 *
+	 * The unit of link_speed should be Mbps, the max SPEED
+	 * should <= ENETC_MSG_SPEED_MAX.
+	 */
+	ENETC_MSG_SPEED_MAX = 0xff,
+};
 
 struct enetc_msg_swbd {
 	void *vaddr;
@@ -181,6 +212,16 @@ struct enetc_msg_mac_exact_filter {
  * cmd_id 0x0: get the current link status
  * cmd_id 0x1: register link status change notification
  * cmd_id 0x2: unregister link status change notification
+ *
+ * Link speed message, class_id 0x81.
+ * cmd_id 0x0: get the current link speed. Unlike the link status
+ *   query (class 0x80), this query is only permitted for trusted VFs;
+ *   an untrusted VF receives a permission-deny response. This is
+ *   because the PF must take rtnl_lock() to read the link speed, so
+ *   restricting it to trusted VFs avoids rtnl_lock contention on the
+ *   host from a misbehaving VF.
+ * cmd_id 0x1: register link speed change notification, not supported yet
+ * cmd_id 0x2: unregister link speed change notification, not supported yet
  */
 struct enetc_msg_generic {
 	struct enetc_msg_header hdr;
