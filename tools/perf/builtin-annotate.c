@@ -61,7 +61,7 @@ struct perf_annotate {
 	bool	   use_tui;
 #endif
 	bool	   use_stdio, use_stdio2;
-#ifdef HAVE_GTK2_SUPPORT
+#ifdef HAVE_GTK4_SUPPORT
 	bool	   use_gtk;
 #endif
 	bool	   skip_missing;
@@ -721,7 +721,7 @@ int cmd_annotate(int argc, const char **argv)
 	OPT_BOOLEAN('q', "quiet", &quiet, "do now show any warnings or messages"),
 	OPT_BOOLEAN('D', "dump-raw-trace", &dump_trace,
 		    "dump raw trace in ASCII"),
-#ifdef HAVE_GTK2_SUPPORT
+#ifdef HAVE_GTK4_SUPPORT
 	OPT_BOOLEAN(0, "gtk", &annotate.use_gtk, "Use the GTK interface"),
 #endif
 #ifdef HAVE_SLANG_SUPPORT
@@ -840,7 +840,7 @@ int cmd_annotate(int argc, const char **argv)
 	if (annotate_check_args() < 0)
 		return -EINVAL;
 
-#ifdef HAVE_GTK2_SUPPORT
+#ifdef HAVE_GTK4_SUPPORT
 	if (symbol_conf.show_nr_samples && annotate.use_gtk) {
 		pr_err("--show-nr-samples is not available in --gtk mode at this time\n");
 		return ret;
@@ -910,7 +910,7 @@ int cmd_annotate(int argc, const char **argv)
 	else if (annotate.use_tui)
 		use_browser = 1;
 #endif
-#ifdef HAVE_GTK2_SUPPORT
+#ifdef HAVE_GTK4_SUPPORT
 	else if (annotate.use_gtk)
 		use_browser = 2;
 #endif
