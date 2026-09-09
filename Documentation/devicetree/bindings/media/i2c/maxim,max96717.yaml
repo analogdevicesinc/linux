@@ -37,6 +37,7 @@ properties:
     oneOf:
       - enum:
           - maxim,max9295a
+          - maxim,max9295d
           - maxim,max96717f
       - items:
           - enum:
