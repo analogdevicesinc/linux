@@ -15,23 +15,17 @@
 					    ENETC_MSG_CLASS_ID_MAC_FILTER) | \
 				 FIELD_PREP(ENETC_PF_MSG_CLASS_CODE, (code)))
 
-static void enetc_msg_disable_mr_int(struct enetc_pf *pf)
+static void enetc_disable_psiier_interrupts(struct enetc_pf *pf)
 {
 	struct enetc_hw *hw = &pf->si->hw;
-	u32 psiier;
 
-	psiier = enetc_rd(hw, ENETC_PSIIER) & ~ENETC_PSIMR_MASK(pf->num_vfs);
-
-	/* disable MR int source(s) */
-	enetc_wr(hw, ENETC_PSIIER, psiier);
+	enetc_wr(hw, ENETC_PSIIER, 0);
 }
 
-static void enetc_msg_enable_mr_int(struct enetc_pf *pf)
+static void enetc_enable_psiier_interrupts(struct enetc_pf *pf)
 {
+	u32 psiier = ENETC_PSIMR_MASK(pf->num_vfs);
 	struct enetc_hw *hw = &pf->si->hw;
-	u32 psiier;
-
-	psiier = enetc_rd(hw, ENETC_PSIIER) | ENETC_PSIMR_MASK(pf->num_vfs);
 
 	enetc_wr(hw, ENETC_PSIIER, psiier);
 }
@@ -41,7 +35,7 @@ static irqreturn_t enetc_msg_psi_msix(int irq, void *data)
 	struct enetc_si *si = (struct enetc_si *)data;
 	struct enetc_pf *pf = enetc_si_priv(si);
 
-	enetc_msg_disable_mr_int(pf);
+	enetc_disable_psiier_interrupts(pf);
 	schedule_work(&si->msg_task);
 
 	return IRQ_HANDLED;
@@ -581,7 +575,7 @@ static void enetc_msg_task(struct work_struct *work)
 	}
 
 out:
-	enetc_msg_enable_mr_int(pf);
+	enetc_enable_psiier_interrupts(pf);
 }
 
 /* Init */
@@ -656,8 +650,8 @@ static int enetc_msg_psi_init(struct enetc_pf *pf)
 	/* set one IRQ entry for PSI message receive notification (SI int) */
 	enetc_wr(&si->hw, ENETC_SIMSIVR, ENETC_SI_INT_IDX);
 
-	/* enable MR interrupts */
-	enetc_msg_enable_mr_int(pf);
+	/* enable PSIIER interrupts */
+	enetc_enable_psiier_interrupts(pf);
 
 	return 0;
 
@@ -699,16 +693,16 @@ static void enetc_msg_psi_free(struct enetc_pf *pf)
 	struct enetc_si *si = pf->si;
 	int i;
 
-	/* disable MR interrupts */
-	enetc_msg_disable_mr_int(pf);
+	/* disable PSIIER interrupts */
+	enetc_disable_psiier_interrupts(pf);
 
 	/* de-register message passing interrupt handler */
 	free_irq(pci_irq_vector(si->pdev, ENETC_SI_INT_IDX), si);
 
 	cancel_work_sync(&si->msg_task);
 
-	/* MR interrupts may be re-enabled by workqueue */
-	enetc_msg_disable_mr_int(pf);
+	/* PSIIER interrupts may be re-enabled by workqueue */
+	enetc_disable_psiier_interrupts(pf);
 
 	for (i = 0; i < pf->num_vfs; i++) {
 		enetc_msg_free_mbx(si, i);
