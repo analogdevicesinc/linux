@@ -26,6 +26,7 @@ sua entrada na comunidade do kernel.
 
    Como começar <howto>
    Guia do Processo de Desenvolvimento <development-process>
+   Enviando patches: o guia essencial para colocar o seu código no kernel <submitting-patches>
    Lista de verificação para submissão de patches do kernel Linux <submit-checklist>
 
 Ferramentas e guias técnicos para desenvolvedores do kernel

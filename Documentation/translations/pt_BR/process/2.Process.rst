@@ -455,7 +455,7 @@ Existem algumas dicas que podem ajudar na sobrevivência na lista linux-kernel:
 - Use respostas intercaladas, o que torna sua resposta mais fácil
   de ler. (ou seja, evite o "top-posting" — a prática de colocar sua resposta
   acima do texto citado ao qual você está respondendo). Para mais detalhes, veja
-  :ref:`Documentation/process/submitting-patches.rst <interleaved_replies>`.
+  :ref:`Documentation/process/submitting-patches.rst <pt_BR_interleaved_replies>`.
 
 - Pergunte na lista de discussão correta. A lista linux-kernel pode até ser o
   ponto de encontro geral, mas não é o melhor lugar para encontrar desenvolvedores
