@@ -296,19 +296,19 @@
 			cache-line-size = <64>;
 			cache-sets = <4096>;
 		};
+	};
 
-		idle-states {
-			entry-method = "psci";
+	idle-states {
+		entry-method = "psci";
 
-			cpu_sleep: cpu-sleep {
-				idle-state-name = "c2";
-				compatible = "arm,idle-state";
-				local-timer-stop;
-				arm,psci-suspend-param = <0x0010000>;
-				entry-latency-us = <30>;
-				exit-latency-us = <75>;
-				min-residency-us = <300>;
-			};
+		cpu_sleep: cpu-sleep {
+			compatible = "arm,idle-state";
+			idle-state-name = "c2";
+			local-timer-stop;
+			entry-latency-us = <30>;
+			exit-latency-us = <75>;
+			min-residency-us = <300>;
+			arm,psci-suspend-param = <0x0010000>;
 		};
 	};
 
