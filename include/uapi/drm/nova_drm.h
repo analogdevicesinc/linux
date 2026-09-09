@@ -188,6 +188,11 @@ struct drm_nova_info_gpu {
 	 * regions.
 	 */
 	__u64 vram_size;
+
+	/**
+	 * @gpu_name: NUL-terminated full GPU name.
+	 */
+	__u8 gpu_name[64];
 };
 
 #define DRM_NOVA_GETPARAM		0x00

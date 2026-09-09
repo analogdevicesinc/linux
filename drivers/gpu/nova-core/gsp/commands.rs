@@ -248,12 +248,11 @@ impl MessageFromGsp for GetGspStaticInfoReply {
 
 /// Error type for [`GetGspStaticInfoReply::gpu_name`].
 #[derive(Debug)]
-pub(crate) enum GpuNameError {
+pub enum GpuNameError {
     /// The GPU name string does not contain a null terminator.
     NoNullTerminator(FromBytesUntilNulError),
 
     /// The GPU name string contains invalid UTF-8.
-    #[expect(dead_code)]
     InvalidUtf8(Utf8Error),
 }
 
@@ -262,7 +261,7 @@ impl GetGspStaticInfoReply {
     ///
     /// Returns an error if the string given by the GSP does not contain a null terminator or
     /// contains invalid UTF-8.
-    pub(crate) fn gpu_name(&self) -> core::result::Result<&str, GpuNameError> {
+    pub fn gpu_name(&self) -> Result<&str, GpuNameError> {
         CStr::from_bytes_until_nul(&self.gpu_name)
             .map_err(GpuNameError::NoNullTerminator)?
             .to_str()

@@ -29,6 +29,21 @@ pub(crate) struct File;
 #[repr(transparent)]
 struct GpuInfo(uapi::drm_nova_info_gpu);
 
+/// Copies `name` into the zero initialised, fixed size uAPI buffer `dst`, keeping it
+/// NUL-terminated.
+///
+/// Fails with [`ENAMETOOLONG`] if `name` does not fit in `dst` with room for the terminator.
+fn copy_name(dst: &mut [u8], name: &str) -> Result {
+    let bytes = name.as_bytes();
+
+    if bytes.len() >= dst.len() {
+        return Err(ENAMETOOLONG);
+    }
+    dst[..bytes.len()].copy_from_slice(bytes);
+
+    Ok(())
+}
+
 impl GpuInfo {
     /// Collects the GPU information reported to userspace.
     ///
@@ -41,11 +56,18 @@ impl GpuInfo {
         let spec = reg_data.api.with(|api| api.get_ref().spec());
         let gsp_static_info = reg_data.api.with(|api| api.get_ref().gsp_static_info());
 
-        let info = uapi::drm_nova_info_gpu {
+        let mut info = uapi::drm_nova_info_gpu {
             architecture: spec.chipset.arch().into(),
             chipid: spec.chipset.into(),
             vram_size: gsp_static_info.vram_size(),
+            ..pin_init::zeroed()
         };
+
+        copy_name(
+            &mut info.gpu_name,
+            gsp_static_info.gpu_name().map_err(|_| EINVAL)?,
+        )?;
+
         Ok(Self(info))
     }
 }
