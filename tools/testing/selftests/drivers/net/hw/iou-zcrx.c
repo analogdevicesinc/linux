@@ -38,6 +38,8 @@
 #include <sys/wait.h>
 
 #include <liburing.h>
+#include <ynl.h>
+#include "netdev-user.h"
 
 #define SKIP_CODE	42
 
@@ -90,6 +92,8 @@ static int cfg_num_threads = 1;
 
 static char *payload;
 
+#define MAX_CONNS_PER_THREAD	64
+
 struct thread_ctx {
 	struct io_uring		ring;
 	void			*area_ptr;
@@ -97,9 +101,15 @@ struct thread_ctx {
 	size_t			ring_size;
 	struct io_uring_zcrx_rq	rq_ring;
 	unsigned long		area_token;
-	int			connfd;
-	bool			stop;
-	size_t			received;
+	int			queue_id;
+	int			napi_id;
+	pthread_barrier_t	*setup_done;
+	pthread_barrier_t	*dispatch_done;
+
+	int			connfds[MAX_CONNS_PER_THREAD];
+	size_t			received[MAX_CONNS_PER_THREAD];
+	int			oneshot_recvs[MAX_CONNS_PER_THREAD];
+	int			nr_conns;
 };
 
 static unsigned long gettimeofday_ms(void)
@@ -146,8 +156,8 @@ static inline size_t get_refill_ring_size(unsigned int rq_entries)
 
 static void setup_zcrx(struct thread_ctx *ctx)
 {
+	unsigned int rq_entries = AREA_SIZE / page_size;
 	unsigned int ifindex;
-	unsigned int rq_entries = 4096;
 	int ret;
 
 	ifindex = if_nametoindex(cfg_ifname);
@@ -199,7 +209,7 @@ static void setup_zcrx(struct thread_ctx *ctx)
 
 	struct t_io_uring_zcrx_ifq_reg reg = {
 		.if_idx = ifindex,
-		.if_rxq = cfg_queue_id,
+		.if_rxq = ctx->queue_id,
 		.rq_entries = rq_entries,
 		.area_ptr = (__u64)(unsigned long)&area_reg,
 		.region_ptr = (__u64)(unsigned long)&region_reg,
@@ -224,53 +234,32 @@ static void setup_zcrx(struct thread_ctx *ctx)
 	ctx->area_token = area_reg.rq_area_token;
 }
 
-static void add_accept(struct thread_ctx *ctx, int sockfd)
+static void add_recvzc(struct thread_ctx *ctx, int conn_idx)
 {
 	struct io_uring_sqe *sqe;
 
 	sqe = io_uring_get_sqe(&ctx->ring);
 
-	io_uring_prep_accept(sqe, sockfd, NULL, NULL, 0);
-	sqe->user_data = 1;
-}
-
-static void add_recvzc(struct thread_ctx *ctx, int sockfd)
-{
-	struct io_uring_sqe *sqe;
-
-	sqe = io_uring_get_sqe(&ctx->ring);
-
-	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, sockfd, NULL, 0, 0);
+	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, ctx->connfds[conn_idx],
+			 NULL, 0, 0);
 	sqe->ioprio |= IORING_RECV_MULTISHOT;
-	sqe->user_data = 2;
+	sqe->user_data = conn_idx;
 }
 
-static void add_recvzc_oneshot(struct thread_ctx *ctx, int sockfd, size_t len)
+static void add_recvzc_oneshot(struct thread_ctx *ctx, int conn_idx, size_t len)
 {
 	struct io_uring_sqe *sqe;
 
 	sqe = io_uring_get_sqe(&ctx->ring);
 
-	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, sockfd, NULL, len, 0);
+	io_uring_prep_rw(IORING_OP_RECV_ZC, sqe, ctx->connfds[conn_idx],
+			 NULL, len, 0);
 	sqe->ioprio |= IORING_RECV_MULTISHOT;
-	sqe->user_data = 2;
+	sqe->user_data = conn_idx;
 }
 
-static void process_accept(struct thread_ctx *ctx, struct io_uring_cqe *cqe)
-{
-	if (cqe->res < 0)
-		error(1, 0, "accept()");
-	if (ctx->connfd)
-		error(1, 0, "Unexpected second connection");
-
-	ctx->connfd = cqe->res;
-	if (cfg_oneshot)
-		add_recvzc_oneshot(ctx, ctx->connfd, page_size);
-	else
-		add_recvzc(ctx, ctx->connfd);
-}
-
-static void process_recvzc(struct thread_ctx *ctx, struct io_uring_cqe *cqe)
+static void process_recvzc(struct thread_ctx *ctx, struct io_uring_cqe *cqe,
+			   int conn_idx)
 {
 	unsigned int rq_mask = ctx->rq_ring.ring_entries - 1;
 	struct io_uring_zcrx_cqe *rcqe;
@@ -280,8 +269,9 @@ static void process_recvzc(struct thread_ctx *ctx, struct io_uring_cqe *cqe)
 	ssize_t n;
 	int i;
 
-	if (cqe->res == 0 && cqe->flags == 0 && cfg_oneshot_recvs == 0) {
-		ctx->stop = true;
+	if (cqe->res == 0 && cqe->flags == 0 &&
+	    ctx->oneshot_recvs[conn_idx] == 0) {
+		ctx->nr_conns--;
 		return;
 	}
 
@@ -289,12 +279,14 @@ static void process_recvzc(struct thread_ctx *ctx, struct io_uring_cqe *cqe)
 		error(1, 0, "recvzc(): %d", cqe->res);
 
 	if (cfg_oneshot) {
-		if (cqe->res == 0 && cqe->flags == 0 && cfg_oneshot_recvs) {
-			add_recvzc_oneshot(ctx, ctx->connfd, page_size);
-			cfg_oneshot_recvs--;
+		if (cqe->res == 0 && cqe->flags == 0 &&
+		    ctx->oneshot_recvs[conn_idx]) {
+			add_recvzc_oneshot(ctx, conn_idx, page_size);
+			ctx->oneshot_recvs[conn_idx]--;
+			return;
 		}
 	} else if (!(cqe->flags & IORING_CQE_F_MORE)) {
-		add_recvzc(ctx, ctx->connfd);
+		add_recvzc(ctx, conn_idx);
 	}
 
 	rcqe = (struct io_uring_zcrx_cqe *)(cqe + 1);
@@ -304,10 +296,10 @@ static void process_recvzc(struct thread_ctx *ctx, struct io_uring_cqe *cqe)
 	data = (char *)ctx->area_ptr + (rcqe->off & mask);
 
 	for (i = 0; i < n; i++) {
-		if (*(data + i) != payload[(ctx->received + i)])
+		if (*(data + i) != payload[(ctx->received[conn_idx] + i)])
 			error(1, 0, "payload mismatch at %d", i);
 	}
-	ctx->received += n;
+	ctx->received[conn_idx] += n;
 
 	rqe = &ctx->rq_ring.rqes[(ctx->rq_ring.rq_tail & rq_mask)];
 	rqe->off = (rcqe->off & ~IORING_ZCRX_AREA_MASK) | ctx->area_token;
@@ -320,28 +312,137 @@ static void server_loop(struct thread_ctx *ctx)
 	struct io_uring_cqe *cqe;
 	unsigned int count = 0;
 	unsigned int head;
-	int i, ret;
 
 	io_uring_submit_and_wait(&ctx->ring, 1);
 
 	io_uring_for_each_cqe(&ctx->ring, head, cqe) {
-		if (cqe->user_data == 1)
-			process_accept(ctx, cqe);
-		else if (cqe->user_data == 2)
-			process_recvzc(ctx, cqe);
-		else
-			error(1, 0, "unknown cqe");
+		process_recvzc(ctx, cqe, cqe->user_data);
 		count++;
 	}
 	io_uring_cq_advance(&ctx->ring, count);
 }
 
+static void *server_worker(void *arg)
+{
+	struct io_uring_params params = { };
+	struct thread_ctx *ctx = arg;
+	uint64_t tstop;
+	int nr_conns;
+	int i;
+
+	params.flags |= IORING_SETUP_COOP_TASKRUN;
+	params.flags |= IORING_SETUP_SINGLE_ISSUER;
+	params.flags |= IORING_SETUP_DEFER_TASKRUN;
+	params.flags |= IORING_SETUP_SUBMIT_ALL;
+	params.flags |= IORING_SETUP_CQE32;
+	params.flags |= IORING_SETUP_CQSIZE;
+	params.cq_entries = AREA_SIZE / page_size;
+
+	io_uring_queue_init_params(512, &ctx->ring, &params);
+	setup_zcrx(ctx);
+
+	if (cfg_dry_run)
+		return NULL;
+
+	pthread_barrier_wait(ctx->setup_done);
+	pthread_barrier_wait(ctx->dispatch_done);
+
+	nr_conns = ctx->nr_conns;
+
+	for (i = 0; i < ctx->nr_conns; i++) {
+		if (cfg_oneshot) {
+			ctx->oneshot_recvs[i] = cfg_oneshot_recvs;
+			add_recvzc_oneshot(ctx, i, page_size);
+		} else {
+			add_recvzc(ctx, i);
+		}
+	}
+
+	tstop = gettimeofday_ms() + 5000;
+	while (ctx->nr_conns > 0 && gettimeofday_ms() < tstop)
+		server_loop(ctx);
+
+	if (ctx->nr_conns != 0)
+		error(1, 0, "test failed: %d connections incomplete",
+		      ctx->nr_conns);
+
+	for (i = 0; i < nr_conns; i++) {
+		if (cfg_oneshot) {
+			if (!ctx->received[i])
+				error(1, 0, "connection %d received no data", i);
+		} else if (ctx->received[i] != (size_t)cfg_send_size) {
+			error(1, 0, "connection %d received %zu of %d bytes",
+			      i, ctx->received[i], cfg_send_size);
+		}
+	}
+
+	return NULL;
+}
+
+static int query_napi_id(unsigned int ifindex, int queue_id)
+{
+	struct netdev_queue_get_req *req;
+	struct netdev_queue_get_rsp *rsp;
+	struct ynl_error yerr;
+	struct ynl_sock *ys;
+	int napi_id;
+
+	ys = ynl_sock_create(&ynl_netdev_family, &yerr);
+	if (!ys)
+		error(1, 0, "ynl_sock_create: %s", yerr.msg);
+
+	req = netdev_queue_get_req_alloc();
+	netdev_queue_get_req_set_ifindex(req, ifindex);
+	netdev_queue_get_req_set_type(req, NETDEV_QUEUE_TYPE_RX);
+	netdev_queue_get_req_set_id(req, queue_id);
+
+	rsp = netdev_queue_get(ys, req);
+	if (!rsp)
+		error(1, 0, "netdev_queue_get(q=%d): %s", queue_id,
+		      ys->err.msg);
+	if (!rsp->_present.napi_id)
+		error(1, 0, "netdev_queue_get(q=%d): napi_id not present",
+		      queue_id);
+
+	napi_id = rsp->napi_id;
+
+	netdev_queue_get_req_free(req);
+	netdev_queue_get_rsp_free(rsp);
+	ynl_sock_destroy(ys);
+
+	return napi_id;
+}
+
+static int find_thread_by_conn(struct thread_ctx *ctxs, int connfd)
+{
+	socklen_t len = sizeof(int);
+	int napi_id, i;
+
+	if (getsockopt(connfd, SOL_SOCKET, SO_INCOMING_NAPI_ID, &napi_id, &len))
+		error(1, errno, "getsockopt(SO_INCOMING_NAPI_ID)");
+
+	for (i = 0; i < cfg_num_threads; i++) {
+		if (ctxs[i].napi_id == napi_id)
+			return i;
+	}
+
+	error(1, 0, "unknown NAPI ID: %d", napi_id);
+	return -1;
+}
+
 static void run_server(void)
 {
-	struct thread_ctx ctx = {};
-	unsigned int flags = 0;
-	int fd, enable, ret;
-	uint64_t tstop;
+	pthread_barrier_t setup_done, dispatch_done;
+	int total_conns, accepted = 0, connfd;
+	struct thread_ctx *ctxs;
+	int fd, ret, enable, i;
+	unsigned int ifindex;
+	pthread_t *threads;
+
+	ctxs = calloc(cfg_num_threads, sizeof(*ctxs));
+	threads = calloc(cfg_num_threads, sizeof(*threads));
+	if (!ctxs || !threads)
+		error(1, 0, "calloc()");
 
 	fd = socket(AF_INET6, SOCK_STREAM, 0);
 	if (fd == -1)
@@ -356,29 +457,68 @@ static void run_server(void)
 	if (ret < 0)
 		error(1, 0, "bind()");
 
-	flags |= IORING_SETUP_COOP_TASKRUN;
-	flags |= IORING_SETUP_SINGLE_ISSUER;
-	flags |= IORING_SETUP_DEFER_TASKRUN;
-	flags |= IORING_SETUP_SUBMIT_ALL;
-	flags |= IORING_SETUP_CQE32;
+	pthread_barrier_init(&setup_done, NULL, cfg_num_threads + 1);
+	pthread_barrier_init(&dispatch_done, NULL, cfg_num_threads + 1);
 
-	io_uring_queue_init(512, &ctx.ring, flags);
+	for (i = 0; i < cfg_num_threads; i++) {
+		ctxs[i].queue_id = cfg_queue_id + i;
+		ctxs[i].setup_done = &setup_done;
+		ctxs[i].dispatch_done = &dispatch_done;
+	}
 
-	setup_zcrx(&ctx);
+	for (i = 0; i < cfg_num_threads; i++) {
+		ret = pthread_create(&threads[i], NULL,
+				     server_worker, &ctxs[i]);
+		if (ret)
+			error(1, ret, "pthread_create()");
+	}
+
 	if (cfg_dry_run)
-		return;
+		goto join;
+
+	pthread_barrier_wait(&setup_done);
 
 	if (listen(fd, 1024) < 0)
 		error(1, 0, "listen()");
 
-	add_accept(&ctx, fd);
+	if (cfg_num_threads > 1) {
+		ifindex = if_nametoindex(cfg_ifname);
+		if (!ifindex)
+			error(1, 0, "bad interface name: %s", cfg_ifname);
+		for (i = 0; i < cfg_num_threads; i++)
+			ctxs[i].napi_id = query_napi_id(ifindex,
+							ctxs[i].queue_id);
+	}
 
-	tstop = gettimeofday_ms() + 5000;
-	while (!ctx.stop && gettimeofday_ms() < tstop)
-		server_loop(&ctx);
+	total_conns = cfg_num_threads * cfg_num_threads;
 
-	if (!ctx.stop)
-		error(1, 0, "test failed\n");
+	while (accepted < total_conns) {
+		int idx = 0;
+
+		connfd = accept(fd, NULL, NULL);
+		if (connfd < 0)
+			error(1, errno, "accept()");
+
+		if (cfg_num_threads > 1)
+			idx = find_thread_by_conn(ctxs, connfd);
+
+		if (ctxs[idx].nr_conns >= MAX_CONNS_PER_THREAD)
+			error(1, 0, "worker %d connection overflow", idx);
+		ctxs[idx].connfds[ctxs[idx].nr_conns++] = connfd;
+		accepted++;
+	}
+
+	pthread_barrier_wait(&dispatch_done);
+
+join:
+	for (i = 0; i < cfg_num_threads; i++)
+		pthread_join(threads[i], NULL);
+
+	pthread_barrier_destroy(&setup_done);
+	pthread_barrier_destroy(&dispatch_done);
+	close(fd);
+	free(threads);
+	free(ctxs);
 }
 
 static void *client_worker(void *arg)
