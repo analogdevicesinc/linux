@@ -8,6 +8,7 @@ use core::pin::Pin;
 use kernel::{
     auxiliary,
     device::Bound,
+    pci,
     prelude::*,
     types::ForLt, //
 };
@@ -20,6 +21,7 @@ use crate::gsp::commands::GetGspStaticInfoReply;
 /// API handle for the auxiliary bus child drivers to interact with nova-core.
 pub struct NovaCoreApi<'bound> {
     pub(crate) gpu: Pin<&'bound Gpu<'bound>>,
+    pub(crate) pdev: &'bound pci::Device<Bound>,
 }
 
 impl NovaCoreApi<'_> {
@@ -37,6 +39,12 @@ impl NovaCoreApi<'_> {
     /// Returns the GPU [`Spec`].
     pub fn spec(&self) -> &Spec {
         &self.gpu.spec
+    }
+
+    /// Returns the size of the PCIe BAR used for accessing VRAM, typically
+    /// BAR1.
+    pub fn bar1_size(&self) -> Result<u64> {
+        self.pdev.resource_len(1)
     }
 }
 
