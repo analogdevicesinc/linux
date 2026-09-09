@@ -125,18 +125,19 @@ ucs2_utf8size(const ucs2_char_t *src)
 EXPORT_SYMBOL(ucs2_utf8size);
 
 /*
- * copy at most maxlength bytes of whole utf8 characters to dest from the
- * ucs2 string src.
+ * Copy at most @limit whole utf8 characters to @dest from the ucs2 string
+ * @src, using no more than @maxlength bytes of buffer space.
  *
- * The return value is the number of characters copied, not including the
- * final NUL character.
+ * The return value is the number of bytes copied, not including the final NUL
+ * character. No NUL character will be appended if the output length equals
+ * @maxlength.
  */
 unsigned long
-ucs2_as_utf8(u8 *dest, const ucs2_char_t *src, unsigned long maxlength)
+ucs2_as_utf8_l(u8 *dest, const ucs2_char_t *src, unsigned long limit,
+	       unsigned long maxlength)
 {
 	unsigned int i;
 	unsigned long j = 0;
-	unsigned long limit = ucs2_strnlen(src, maxlength);
 
 	for (i = 0; maxlength && i < limit; i++) {
 		u16 c = src[i];
@@ -163,7 +164,7 @@ ucs2_as_utf8(u8 *dest, const ucs2_char_t *src, unsigned long maxlength)
 		dest[j] = '\0';
 	return j;
 }
-EXPORT_SYMBOL(ucs2_as_utf8);
+EXPORT_SYMBOL(ucs2_as_utf8_l);
 
 #ifndef __DISABLE_EXPORTS
 MODULE_DESCRIPTION("UCS2 string handling");
