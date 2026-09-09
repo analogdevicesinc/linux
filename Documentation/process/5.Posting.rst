@@ -233,7 +233,7 @@ the patch. Each of these uses this format::
 
 The tags in common use are:
 
- - Signed-off-by: this is a developer's certification that he or she has
+ - Signed-off-by: this is a developer's certification that they have
    the right to submit the patch for inclusion into the kernel.  It is an
    agreement to the Developer's Certificate of Origin, the full text of
    which can be found in :ref:`Documentation/process/submitting-patches.rst <submittingpatches>`

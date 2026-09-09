@@ -227,7 +227,7 @@ tree, usually (but certainly not always) using the Git source management
 tool.  Tools like Git (and related tools like Quilt or Mercurial) allow
 maintainers to track a list of patches, including authorship information
 and other metadata.  At any given time, the maintainer can identify which
-patches in his or her repository are not found in the mainline.
+patches in their repository are not found in the mainline.
 
 When the merge window opens, top-level maintainers will ask Linus to "pull"
 the patches they have selected for merging from their repositories.  If
