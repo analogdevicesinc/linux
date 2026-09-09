@@ -1,5 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0+ OR MIT
 
+# Set CC for the io_uring check
+ifeq ($(LLVM)$(CC),cc)
+CC := $(CROSS_COMPILE)gcc
+endif
+
 # Check if io_uring supports zero-copy receive
 HAS_IOURING_ZCRX := $(shell \
 	echo -e '#include <liburing.h>\n' \
