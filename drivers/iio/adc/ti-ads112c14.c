@@ -94,6 +94,14 @@
 #define   ADS112C14_DATA_RATE_CFG_DELAY			GENMASK(7, 4)
 #define   ADS112C14_DATA_RATE_CFG_GC_EN			BIT(3)
 #define   ADS112C14_DATA_RATE_CFG_FLTR_OSR		GENMASK(2, 0)
+#define     ADS112C14_DATA_RATE_CFG_FLTR_OSR_16		  0
+#define     ADS112C14_DATA_RATE_CFG_FLTR_OSR_32		  1
+#define     ADS112C14_DATA_RATE_CFG_FLTR_OSR_128	  2
+#define     ADS112C14_DATA_RATE_CFG_FLTR_OSR_256	  3
+#define     ADS112C14_DATA_RATE_CFG_FLTR_OSR_512	  4
+#define     ADS112C14_DATA_RATE_CFG_FLTR_OSR_1024	  5
+#define     ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS	  6
+#define     ADS112C14_DATA_RATE_CFG_FLTR_OSR_20SPS	  7
 
 #define ADS112C14_REG_MUX_CFG				0x07
 #define   ADS112C14_MUX_CFG_AINP			GENMASK(7, 4)
@@ -183,6 +191,43 @@ static const u32 ads112c14_pga_gains_x10[] = {
 
 #define ADS112C14_INTERNAL_CLK_Hz (4096 * HZ_PER_KHZ)
 
+/* Index corresponds to first 2 ADS112C14_DATA_RATE_CFG_FLTR_OSR values. */
+static const int ads112c14_sinc4_osr_available[] = {
+	16, 32
+};
+
+/* Index corresponds to next 4 ADS112C14_DATA_RATE_CFG_FLTR_OSR values. */
+static const int ads112c14_sinc4_sinc1_osr_available[] = {
+	128, 256, 512, 1024
+};
+
+/* Index corresponds to ADS112C14_DEVICE_CFG_SPEED_MODE value. */
+static const int ads112c14_sinc4_sinc1_pf1_20sps_osr_available[] = {
+	1600, 12800, 25600, 51200
+};
+
+/* Index corresponds to ADS112C14_DEVICE_CFG_SPEED_MODE value. */
+static const int ads112c14_sinc4_sinc1_pf1_25sps_osr_available[] = {
+	1280, 10240, 20480, 40960
+};
+
+/* Index corresponds to ADS112C14_DEVICE_CFG_SPEED_MODE value. */
+static const int ads112c14_fmod_div[] = {
+	128, 16, 8, 4
+};
+
+enum ads112c14_filter_type {
+	ADS112C14_FILTER_TYPE_SINC4,
+	ADS112C14_FILTER_TYPE_SINC4_SINC1,
+	ADS112C14_FILTER_TYPE_SINC4_SINC1_PF1,
+};
+
+static const char * const ads112c14_filter_type_names[] = {
+	[ADS112C14_FILTER_TYPE_SINC4] = "sinc4",
+	[ADS112C14_FILTER_TYPE_SINC4_SINC1] = "sinc4+sinc1",
+	[ADS112C14_FILTER_TYPE_SINC4_SINC1_PF1] = "sinc4+sinc1+pf1",
+};
+
 #define ADS112C14_I2C_CRC8_POLYNOMIAL 0x07
 DECLARE_CRC8_TABLE(ads112c14_crc8_table);
 
@@ -204,6 +249,8 @@ enum {
 	ADS112C14_SYS_MON_CHANNEL_SHORT,
 };
 
+static const struct iio_chan_spec_ext_info ads112c14_ext_info[];
+
 static const struct iio_chan_spec ads112c14_sys_mon_channels[] = {
 	{
 		.type = IIO_TEMP,
@@ -212,7 +259,12 @@ static const struct iio_chan_spec ads112c14_sys_mon_channels[] = {
 		.address = 2,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW)
 				    | BIT(IIO_CHAN_INFO_SCALE)
-				    | BIT(IIO_CHAN_INFO_OFFSET),
+				    | BIT(IIO_CHAN_INFO_OFFSET)
+				    | BIT(IIO_CHAN_INFO_SAMP_FREQ)
+				    | BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ)
+				    | BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		.ext_info = ads112c14_ext_info,
 	},
 	{
 		.type = IIO_VOLTAGE,
@@ -220,7 +272,12 @@ static const struct iio_chan_spec ads112c14_sys_mon_channels[] = {
 		.channel = ADS112C14_SYS_MON_CHANNEL_EXT_REF,
 		.address = 3,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW)
-				    | BIT(IIO_CHAN_INFO_SCALE),
+				    | BIT(IIO_CHAN_INFO_SCALE)
+				    | BIT(IIO_CHAN_INFO_SAMP_FREQ)
+				    | BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ)
+				    | BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		.ext_info = ads112c14_ext_info,
 	},
 	{
 		.type = IIO_VOLTAGE,
@@ -228,7 +285,12 @@ static const struct iio_chan_spec ads112c14_sys_mon_channels[] = {
 		.channel = ADS112C14_SYS_MON_CHANNEL_AVDD,
 		.address = 4,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW)
-				    | BIT(IIO_CHAN_INFO_SCALE),
+				    | BIT(IIO_CHAN_INFO_SCALE)
+				    | BIT(IIO_CHAN_INFO_SAMP_FREQ)
+				    | BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ)
+				    | BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		.ext_info = ads112c14_ext_info,
 	},
 	{
 		.type = IIO_VOLTAGE,
@@ -236,7 +298,12 @@ static const struct iio_chan_spec ads112c14_sys_mon_channels[] = {
 		.channel = ADS112C14_SYS_MON_CHANNEL_DVDD,
 		.address = 5,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW)
-				    | BIT(IIO_CHAN_INFO_SCALE),
+				    | BIT(IIO_CHAN_INFO_SCALE)
+				    | BIT(IIO_CHAN_INFO_SAMP_FREQ)
+				    | BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ)
+				    | BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		.ext_info = ads112c14_ext_info,
 	},
 	{
 		.type = IIO_VOLTAGE,
@@ -246,8 +313,13 @@ static const struct iio_chan_spec ads112c14_sys_mon_channels[] = {
 		.differential = 1,
 		.address = 1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW)
-				    | BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SCALE),
+				    | BIT(IIO_CHAN_INFO_SCALE)
+				    | BIT(IIO_CHAN_INFO_SAMP_FREQ)
+				    | BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SCALE)
+				    | BIT(IIO_CHAN_INFO_SAMP_FREQ)
+				    | BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO),
+		.ext_info = ads112c14_ext_info,
 	},
 };
 
@@ -267,6 +339,11 @@ struct ads112c14_measurement {
 	int scale_available[ARRAY_SIZE(ads112c14_pga_gains_x10)][2];
 };
 
+struct ads112c14_channel_state {
+	u8 speed_mode;
+	u8 filter_osr;
+};
+
 struct ads112c14_data {
 	const struct ads112c14_chip_info *chip_info;
 	struct regmap *regmap;
@@ -284,9 +361,13 @@ struct ads112c14_data {
 	bool refn_is_gnd;
 	u32 ext_ref_ohms;
 	struct ads112c14_measurement *measurements;
+	struct ads112c14_channel_state *channel_states;
 	u32 num_measurements;
 	u8 sys_mon_chan_short_gain_val;
 	int sys_mon_chan_short_scale_available[ARRAY_SIZE(ads112c14_pga_gains_x10)][2];
+	int sinc4_sample_rate_available[ARRAY_SIZE(ads112c14_sinc4_osr_available)][ARRAY_SIZE(ads112c14_fmod_div)][2];
+	int sinc4_sinc1_sample_rate_available[ARRAY_SIZE(ads112c14_sinc4_sinc1_osr_available)][ARRAY_SIZE(ads112c14_fmod_div)][2];
+	int sinc4_sinc1_pf1_sample_rate_available[2][2];
 	IIO_DECLARE_BUFFER_WITH_TS(__be32, scan, ADS112C14_MAX_MEASUREMENT_CHANNELS +
 						 ARRAY_SIZE(ads112c14_sys_mon_channels));
 };
@@ -472,13 +553,45 @@ static const struct regmap_config ads112c14_regmap_config = {
 	.cache_type = REGCACHE_MAPLE,
 };
 
+static int ads112c14_get_osr(struct ads112c14_channel_state *channel_state)
+{
+	u8 i;
+
+	switch (channel_state->filter_osr) {
+	case ADS112C14_DATA_RATE_CFG_FLTR_OSR_16...ADS112C14_DATA_RATE_CFG_FLTR_OSR_32:
+		i = channel_state->filter_osr;
+		return ads112c14_sinc4_osr_available[i];
+	case ADS112C14_DATA_RATE_CFG_FLTR_OSR_128...ADS112C14_DATA_RATE_CFG_FLTR_OSR_1024:
+		i = channel_state->filter_osr - ADS112C14_DATA_RATE_CFG_FLTR_OSR_128;
+		return ads112c14_sinc4_sinc1_osr_available[i];
+	case ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS:
+		i = channel_state->speed_mode;
+		return ads112c14_sinc4_sinc1_pf1_25sps_osr_available[i];
+	case ADS112C14_DATA_RATE_CFG_FLTR_OSR_20SPS:
+		i = channel_state->speed_mode;
+		return ads112c14_sinc4_sinc1_pf1_20sps_osr_available[i];
+	default:
+		return -EINVAL;
+	}
+}
+
 static int ads112c14_prepare_measurement_channel(struct ads112c14_data *data,
 						 const struct iio_chan_spec *chan,
 						 bool en_burnout)
 {
 	struct ads112c14_measurement *measurement = &data->measurements[chan->scan_index];
+	struct ads112c14_channel_state *channel_state;
 	u32 refp_buf_en, refn_buf_en, ref_val, ref_sel;
 	int ret;
+
+	channel_state = &data->channel_states[chan->scan_index];
+
+	ret = regmap_update_bits(data->regmap, ADS112C14_REG_DEVICE_CFG,
+				 ADS112C14_DEVICE_CFG_SPEED_MODE,
+				 FIELD_PREP(ADS112C14_DEVICE_CFG_SPEED_MODE,
+					    channel_state->speed_mode));
+	if (ret)
+		return ret;
 
 	ret = regmap_update_bits(data->regmap, ADS112C14_REG_MUX_CFG,
 				 ADS112C14_MUX_CFG_AINP | ADS112C14_MUX_CFG_AINN,
@@ -526,10 +639,13 @@ static int ads112c14_prepare_measurement_channel(struct ads112c14_data *data,
 		return ret;
 
 	ret = regmap_update_bits(data->regmap, ADS112C14_REG_DATA_RATE_CFG,
-				 ADS112C14_DATA_RATE_CFG_GC_EN,
+				 ADS112C14_DATA_RATE_CFG_GC_EN |
+				 ADS112C14_DATA_RATE_CFG_FLTR_OSR,
 				 FIELD_PREP(ADS112C14_DATA_RATE_CFG_GC_EN,
 					    (measurement->global_chop &&
-					     !en_burnout) ? 1 : 0));
+					     !en_burnout) ? 1 : 0) |
+				 FIELD_PREP(ADS112C14_DATA_RATE_CFG_FLTR_OSR,
+					    channel_state->filter_osr));
 	if (ret)
 		return ret;
 
@@ -572,8 +688,11 @@ static int ads112c14_prepare_measurement_channel(struct ads112c14_data *data,
 static int ads112c14_prepare_sys_mon_channel(struct ads112c14_data *data,
 					     const struct iio_chan_spec *chan)
 {
+	struct ads112c14_channel_state *channel_state;
 	u32 gain_val;
 	int ret;
+
+	channel_state = &data->channel_states[chan->scan_index];
 
 	/*
 	 * NB: IDAC registers are left as-is in case they are generating current
@@ -598,6 +717,22 @@ static int ads112c14_prepare_sys_mon_channel(struct ads112c14_data *data,
 	/* All SYS_MON channels use signed data to keep it simple. */
 	ret = regmap_clear_bits(data->regmap, ADS112C14_REG_DIGITAL_CFG,
 				ADS112C14_DIGITAL_CFG_CODING);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(data->regmap, ADS112C14_REG_DEVICE_CFG,
+				 ADS112C14_DEVICE_CFG_SPEED_MODE,
+				 FIELD_PREP(ADS112C14_DEVICE_CFG_SPEED_MODE,
+					    channel_state->speed_mode));
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(data->regmap, ADS112C14_REG_DATA_RATE_CFG,
+				 ADS112C14_DATA_RATE_CFG_GC_EN |
+				 ADS112C14_DATA_RATE_CFG_FLTR_OSR,
+				 FIELD_PREP(ADS112C14_DATA_RATE_CFG_GC_EN, 0) |
+				 FIELD_PREP(ADS112C14_DATA_RATE_CFG_FLTR_OSR,
+					    channel_state->filter_osr));
 	if (ret)
 		return ret;
 
@@ -835,6 +970,45 @@ static int ads112c14_read_raw(struct iio_dev *indio_dev,
 		 */
 		*val = div_s64((s64)(25 * 405 - 119500) * BIT(fsr_bits), vref_uV);
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		struct ads112c14_channel_state *channel_state;
+		const int (*available)[2];
+		u8 i, j;
+
+		guard(mutex)(&data->lock);
+
+		channel_state = &data->channel_states[chan->scan_index];
+
+		switch (channel_state->filter_osr) {
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_16...ADS112C14_DATA_RATE_CFG_FLTR_OSR_32:
+			j = channel_state->filter_osr;
+			available = data->sinc4_sample_rate_available[j];
+			i = channel_state->speed_mode;
+			break;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_128...ADS112C14_DATA_RATE_CFG_FLTR_OSR_1024:
+			j = channel_state->filter_osr - ADS112C14_DATA_RATE_CFG_FLTR_OSR_128;
+			available = data->sinc4_sinc1_sample_rate_available[j];
+			i = channel_state->speed_mode;
+			break;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS:
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_20SPS:
+			available = data->sinc4_sinc1_pf1_sample_rate_available;
+			i = channel_state->filter_osr - ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		*val = available[i][0];
+		*val2 = available[i][1];
+		return IIO_VAL_INT_PLUS_MICRO;
+	}
+	case IIO_CHAN_INFO_OVERSAMPLING_RATIO: {
+		guard(mutex)(&data->lock);
+
+		*val = ads112c14_get_osr(&data->channel_states[chan->scan_index]);
+		return IIO_VAL_INT;
+	}
 	default:
 		return -EINVAL;
 	}
@@ -845,6 +1019,9 @@ static int ads112c14_read_avail(struct iio_dev *indio_dev,
 				int *type, int *length, long mask)
 {
 	struct ads112c14_data *data = iio_priv(indio_dev);
+	struct ads112c14_channel_state *channel_state;
+
+	channel_state = &data->channel_states[chan->scan_index];
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
@@ -870,6 +1047,58 @@ static int ads112c14_read_avail(struct iio_dev *indio_dev,
 		}
 
 		return -EINVAL;
+
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		guard(mutex)(&data->lock);
+
+		switch (channel_state->filter_osr) {
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_16...ADS112C14_DATA_RATE_CFG_FLTR_OSR_32:
+			*vals = (const int *)data->sinc4_sample_rate_available[channel_state->filter_osr];
+			*length = 2 * ARRAY_SIZE(data->sinc4_sample_rate_available[0]);
+			*type = IIO_VAL_INT_PLUS_MICRO;
+			return IIO_AVAIL_LIST;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_128...ADS112C14_DATA_RATE_CFG_FLTR_OSR_1024:
+			*vals = (const int *)data->sinc4_sinc1_sample_rate_available[channel_state->filter_osr - ADS112C14_DATA_RATE_CFG_FLTR_OSR_128];
+			*length = 2 * ARRAY_SIZE(data->sinc4_sinc1_sample_rate_available[0]);
+			*type = IIO_VAL_INT_PLUS_MICRO;
+			return IIO_AVAIL_LIST;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS...ADS112C14_DATA_RATE_CFG_FLTR_OSR_20SPS:
+			*vals = (const int *)data->sinc4_sinc1_pf1_sample_rate_available;
+			*length = 2 * ARRAY_SIZE(data->sinc4_sinc1_pf1_sample_rate_available);
+			*type = IIO_VAL_INT_PLUS_MICRO;
+			return IIO_AVAIL_LIST;
+		default:
+			return -EINVAL;
+		}
+	}
+	case IIO_CHAN_INFO_OVERSAMPLING_RATIO: {
+		guard(mutex)(&data->lock);
+
+		switch (channel_state->filter_osr) {
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_16...ADS112C14_DATA_RATE_CFG_FLTR_OSR_32:
+			*vals = ads112c14_sinc4_osr_available;
+			*length = ARRAY_SIZE(ads112c14_sinc4_osr_available);
+			*type = IIO_VAL_INT;
+			return IIO_AVAIL_LIST;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_128...ADS112C14_DATA_RATE_CFG_FLTR_OSR_1024:
+			*vals = ads112c14_sinc4_sinc1_osr_available;
+			*length = ARRAY_SIZE(ads112c14_sinc4_sinc1_osr_available);
+			*type = IIO_VAL_INT;
+			return IIO_AVAIL_LIST;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS:
+			*vals = ads112c14_sinc4_sinc1_pf1_25sps_osr_available;
+			*length = ARRAY_SIZE(ads112c14_sinc4_sinc1_pf1_25sps_osr_available);
+			*type = IIO_VAL_INT;
+			return IIO_AVAIL_LIST;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_20SPS:
+			*vals = ads112c14_sinc4_sinc1_pf1_20sps_osr_available;
+			*length = ARRAY_SIZE(ads112c14_sinc4_sinc1_pf1_20sps_osr_available);
+			*type = IIO_VAL_INT;
+			return IIO_AVAIL_LIST;
+		default:
+			return -EINVAL;
+		}
+	}
 	default:
 		return -EINVAL;
 	}
@@ -913,6 +1142,99 @@ static int ads112c14_write_raw(struct iio_dev *indio_dev,
 		}
 
 		return -EINVAL;
+	}
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		struct ads112c14_channel_state *channel_state;
+		const int (*available)[2];
+
+		guard(mutex)(&data->lock);
+
+		channel_state = &data->channel_states[chan->scan_index];
+
+		switch (channel_state->filter_osr) {
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_16...ADS112C14_DATA_RATE_CFG_FLTR_OSR_1024:
+			if (channel_state->filter_osr < ADS112C14_DATA_RATE_CFG_FLTR_OSR_128) {
+				u8 idx = channel_state->filter_osr;
+
+				available = data->sinc4_sample_rate_available[idx];
+			} else {
+				u8 idx = channel_state->filter_osr - ADS112C14_DATA_RATE_CFG_FLTR_OSR_128;
+
+				available = data->sinc4_sinc1_sample_rate_available[idx];
+			}
+
+			for (unsigned int i = 0; i < ARRAY_SIZE(ads112c14_fmod_div); i++) {
+				if (val == available[i][0] && val2 == available[i][1]) {
+					channel_state->speed_mode = i;
+					return 0;
+				}
+			}
+
+			return -EINVAL;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS:
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_20SPS: {
+			available = data->sinc4_sinc1_pf1_sample_rate_available;
+
+			for (unsigned int i = 0; i < ARRAY_SIZE(data->sinc4_sinc1_pf1_sample_rate_available); i++) {
+				if (val == available[i][0] && val2 == available[i][1]) {
+					channel_state->filter_osr = i + ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS;
+					return 0;
+				}
+			}
+
+			return -EINVAL;
+		}
+		default:
+			return -EINVAL;
+		}
+	}
+	case IIO_CHAN_INFO_OVERSAMPLING_RATIO: {
+		struct ads112c14_channel_state *channel_state;
+
+		guard(mutex)(&data->lock);
+
+		channel_state = &data->channel_states[chan->scan_index];
+
+		switch (channel_state->filter_osr) {
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_16...ADS112C14_DATA_RATE_CFG_FLTR_OSR_32:
+			for (unsigned int i = 0; i < ARRAY_SIZE(ads112c14_sinc4_osr_available); i++) {
+				if (val == ads112c14_sinc4_osr_available[i]) {
+					channel_state->filter_osr = i;
+					return 0;
+				}
+			}
+
+			return -EINVAL;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_128...ADS112C14_DATA_RATE_CFG_FLTR_OSR_1024:
+			for (unsigned int i = 0; i < ARRAY_SIZE(ads112c14_sinc4_sinc1_osr_available); i++) {
+				if (val == ads112c14_sinc4_sinc1_osr_available[i]) {
+					channel_state->filter_osr = i + ADS112C14_DATA_RATE_CFG_FLTR_OSR_128;
+					return 0;
+				}
+			}
+
+			return -EINVAL;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS:
+			for (unsigned int i = 0; i < ARRAY_SIZE(ads112c14_sinc4_sinc1_pf1_25sps_osr_available); i++) {
+				if (val == ads112c14_sinc4_sinc1_pf1_25sps_osr_available[i]) {
+					channel_state->speed_mode = i;
+					return 0;
+				}
+			}
+
+			return -EINVAL;
+		case ADS112C14_DATA_RATE_CFG_FLTR_OSR_20SPS:
+			for (unsigned int i = 0; i < ARRAY_SIZE(ads112c14_sinc4_sinc1_pf1_20sps_osr_available); i++) {
+				if (val == ads112c14_sinc4_sinc1_pf1_20sps_osr_available[i]) {
+					channel_state->speed_mode = i;
+					return 0;
+				}
+			}
+
+			return -EINVAL;
+		default:
+			return -EINVAL;
+		}
 	}
 	default:
 		return -EINVAL;
@@ -1202,11 +1524,98 @@ static ssize_t ads112c14_read_burnout_raw(struct iio_dev *indio_dev,
 	return sysfs_emit(buf, "%d\n", val);
 }
 
+static int ads112c14_get_filter_type_from_state(struct ads112c14_channel_state *channel_state)
+{
+	switch (channel_state->filter_osr) {
+	case ADS112C14_DATA_RATE_CFG_FLTR_OSR_16...ADS112C14_DATA_RATE_CFG_FLTR_OSR_32:
+		return ADS112C14_FILTER_TYPE_SINC4;
+	case ADS112C14_DATA_RATE_CFG_FLTR_OSR_128...ADS112C14_DATA_RATE_CFG_FLTR_OSR_1024:
+		return ADS112C14_FILTER_TYPE_SINC4_SINC1;
+	case ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS...ADS112C14_DATA_RATE_CFG_FLTR_OSR_20SPS:
+		return ADS112C14_FILTER_TYPE_SINC4_SINC1_PF1;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int ads112c14_set_filter_type(struct iio_dev *indio_dev,
+				     struct iio_chan_spec const *chan,
+				     unsigned int val)
+{
+	struct ads112c14_data *data = iio_priv(indio_dev);
+	struct ads112c14_channel_state *channel_state;
+	int ret;
+
+	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+	if (IIO_DEV_ACQUIRE_FAILED(claim))
+		return -EBUSY;
+
+	guard(mutex)(&data->lock);
+
+	channel_state = &data->channel_states[chan->scan_index];
+
+	ret = ads112c14_get_filter_type_from_state(channel_state);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * channel_state->filter_osr affects multiple attributes, so don't modify
+	 * it if the filter type is already set to the requested value.
+	 */
+	if (ret == val)
+		return 0;
+
+	/* Otherwise, pick an arbitrary default for each type. */
+	switch (val) {
+	case ADS112C14_FILTER_TYPE_SINC4:
+		channel_state->filter_osr = ADS112C14_DATA_RATE_CFG_FLTR_OSR_16;
+		break;
+	case ADS112C14_FILTER_TYPE_SINC4_SINC1:
+		channel_state->filter_osr = ADS112C14_DATA_RATE_CFG_FLTR_OSR_128;
+		break;
+	case ADS112C14_FILTER_TYPE_SINC4_SINC1_PF1:
+		channel_state->filter_osr = ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int ads112c14_get_filter_type(struct iio_dev *indio_dev,
+				     struct iio_chan_spec const *chan)
+{
+	struct ads112c14_data *data = iio_priv(indio_dev);
+	struct ads112c14_channel_state *channel_state;
+
+	guard(mutex)(&data->lock);
+
+	channel_state = &data->channel_states[chan->scan_index];
+
+	return ads112c14_get_filter_type_from_state(channel_state);
+}
+
+static const struct iio_enum ads112c14_filter_type_enum = {
+	.items = ads112c14_filter_type_names,
+	.num_items = ARRAY_SIZE(ads112c14_filter_type_names),
+	.set = ads112c14_set_filter_type,
+	.get = ads112c14_get_filter_type,
+};
+
+static const struct iio_chan_spec_ext_info ads112c14_ext_info[] = {
+	IIO_ENUM("filter_type", IIO_SEPARATE, &ads112c14_filter_type_enum),
+	IIO_ENUM_AVAILABLE("filter_type", IIO_SEPARATE, &ads112c14_filter_type_enum),
+	{ }
+};
+
 static const struct iio_chan_spec_ext_info ads112c14_ext_info_burnout[] = {
 	{
 		.name = "burnoutraw",
 		.read = ads112c14_read_burnout_raw,
 	},
+	IIO_ENUM("filter_type", IIO_SEPARATE, &ads112c14_filter_type_enum),
+	IIO_ENUM_AVAILABLE("filter_type", IIO_SEPARATE, &ads112c14_filter_type_enum),
 	{ }
 };
 
@@ -1232,7 +1641,7 @@ static int ads112c14_parse_channels(struct iio_dev *indio_dev,
 	struct ads112c14_data *data = iio_priv(indio_dev);
 	struct device *dev = indio_dev->dev.parent;
 	struct iio_chan_spec *channels;
-	u32 num_child_nodes, i, pair[2];
+	u32 num_child_nodes, num_data_chans, i, pair[2];
 	int ret;
 
 	*need_avdd_ref = false;
@@ -1245,8 +1654,15 @@ static int ads112c14_parse_channels(struct iio_dev *indio_dev,
 	if (!data->measurements)
 		return -ENOMEM;
 
-	channels = devm_kcalloc(dev, num_child_nodes +
-				ARRAY_SIZE(ads112c14_sys_mon_channels) + 1,
+	num_data_chans = num_child_nodes + ARRAY_SIZE(ads112c14_sys_mon_channels);
+
+	data->channel_states = devm_kcalloc(dev, num_data_chans,
+					    sizeof(*data->channel_states),
+					    GFP_KERNEL);
+	if (!data->channel_states)
+		return -ENOMEM;
+
+	channels = devm_kcalloc(dev, num_data_chans + 1,
 				sizeof(*channels), GFP_KERNEL);
 	if (!channels)
 		return -ENOMEM;
@@ -1259,7 +1675,9 @@ static int ads112c14_parse_channels(struct iio_dev *indio_dev,
 
 		spec->indexed = 1;
 		spec->scan_index = i;
+		spec->ext_info = ads112c14_ext_info;
 		measurement->gain_val = 1;
+		data->channel_states[i].filter_osr = ADS112C14_DATA_RATE_CFG_FLTR_OSR_16;
 
 		if (fwnode_property_present(child, "label")) {
 			ret = fwnode_property_read_string(child, "label", &measurement->label);
@@ -1424,8 +1842,13 @@ static int ads112c14_parse_channels(struct iio_dev *indio_dev,
 		if (measurement->vref_source == ADS112C14_VREF_SOURCE_EXTERNAL)
 			*need_ext_ref = true;
 
-		spec->info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE);
-		spec->info_mask_separate_available = BIT(IIO_CHAN_INFO_SCALE);
+		spec->info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+					   BIT(IIO_CHAN_INFO_SCALE) |
+					   BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+					   BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO);
+		spec->info_mask_separate_available = BIT(IIO_CHAN_INFO_SCALE) |
+						     BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+						     BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO);
 
 		/*
 		 * If reference source is resistor rather than voltage supply,
@@ -1459,6 +1882,10 @@ static int ads112c14_parse_channels(struct iio_dev *indio_dev,
 
 	for (u32 j = 0; j < ARRAY_SIZE(ads112c14_sys_mon_channels); j++) {
 		struct iio_chan_spec *spec = &channels[i];
+		struct ads112c14_channel_state *channel_state;
+
+		channel_state = &data->channel_states[i];
+		channel_state->filter_osr = ADS112C14_DATA_RATE_CFG_FLTR_OSR_16;
 
 		/* Update the template that was already copied with dynamic values. */
 		spec->scan_index = i;
@@ -1495,6 +1922,48 @@ static void ads112c14_populate_scale_available(int (*scale_avail)[2],
 		iio_val_s64_decompose(scale, &scale_avail[i][0],
 				      &scale_avail[i][1]);
 	}
+}
+
+static void ads112c14_populate_odr_tables(struct ads112c14_data *data)
+{
+	int *available;
+	u32 osr, fmod_Hz;
+	u64 odr_uHz;
+	u32 rem;
+
+	for (unsigned int i = 0; i < ARRAY_SIZE(ads112c14_sinc4_osr_available); i++) {
+		osr = ads112c14_sinc4_osr_available[i];
+
+		for (unsigned int j = 0; j < ARRAY_SIZE(ads112c14_fmod_div); j++) {
+			fmod_Hz = data->fclk_Hz / ads112c14_fmod_div[j];
+			odr_uHz = div_u64((u64)fmod_Hz * MICRO, osr);
+			available = data->sinc4_sample_rate_available[i][j];
+			available[0] = div_u64_rem(odr_uHz, MICRO, &rem);
+			available[1] = rem;
+		}
+	}
+
+	for (unsigned int i = 0; i < ARRAY_SIZE(ads112c14_sinc4_sinc1_osr_available); i++) {
+		osr = ads112c14_sinc4_sinc1_osr_available[i];
+
+		for (unsigned int j = 0; j < ARRAY_SIZE(ads112c14_fmod_div); j++) {
+			fmod_Hz = data->fclk_Hz / ads112c14_fmod_div[j];
+			odr_uHz = div_u64((u64)fmod_Hz * MICRO, osr);
+			available = data->sinc4_sinc1_sample_rate_available[i][j];
+			available[0] = div_u64_rem(odr_uHz, MICRO, &rem);
+			available[1] = rem;
+		}
+	}
+
+	odr_uHz = div_u64((u64)25 * data->fclk_Hz * MICRO, ADS112C14_INTERNAL_CLK_Hz);
+	available = data->sinc4_sinc1_pf1_sample_rate_available[0];
+	available[0] = div_u64_rem(odr_uHz, MICRO, &rem);
+	available[1] = rem;
+
+	odr_uHz = div_u64((u64)20 * data->fclk_Hz * MICRO, ADS112C14_INTERNAL_CLK_Hz);
+	available = data->sinc4_sinc1_pf1_sample_rate_available[1];
+	available[0] = div_u64_rem(odr_uHz, MICRO, &rem);
+	available[1] = rem;
 }
 
 static void ads112c14_populate_tables(struct ads112c14_data *data)
@@ -1534,6 +2003,7 @@ static void ads112c14_populate_tables(struct ads112c14_data *data)
 
 	ads112c14_populate_scale_available(data->sys_mon_chan_short_scale_available,
 					   full_scale, fsr_bits);
+	ads112c14_populate_odr_tables(data);
 }
 
 static int ads112c14_probe(struct i2c_client *client)
