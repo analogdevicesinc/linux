@@ -39,6 +39,7 @@
 #include <linux/oom.h>
 #include <linux/compat.h>
 #include <linux/fs.h>
+#include <linux/wait_bit.h>
 #include <linux/path.h>
 #include <linux/timekeeping.h>
 #include <linux/sysctl.h>
@@ -514,7 +515,7 @@ static int zap_threads(struct task_struct *tsk,
 		nr = zap_process(signal, exit_code);
 		clear_tsk_thread_flag(tsk, TIF_SIGPENDING);
 		tsk->flags |= PF_DUMPCORE;
-		atomic_set(&core_state->nr_threads, nr);
+		atomic_set(&core_state->threads_remaining, nr);
 	}
 	spin_unlock_irq(&tsk->sighand->siglock);
 	return nr;
@@ -525,15 +526,15 @@ static int coredump_wait(int exit_code, struct core_state *core_state)
 	struct task_struct *tsk = current;
 	int core_waiters = -EBUSY;
 
-	init_completion(&core_state->startup);
 	core_state->tasks = NULL;
 
 	core_waiters = zap_threads(tsk, core_state, exit_code);
 	if (core_waiters > 0) {
 		struct core_thread *ptr;
 
-		wait_for_completion_state(&core_state->startup,
-					  TASK_UNINTERRUPTIBLE|TASK_FREEZABLE);
+		wait_var_event_state(&core_state->threads_remaining,
+				     !atomic_read_acquire(&core_state->threads_remaining),
+				     TASK_UNINTERRUPTIBLE|TASK_FREEZABLE);
 		/*
 		 * Wait for all the threads to become inactive, so that
 		 * all the thread context (extended register state, like

@@ -79,9 +79,9 @@ struct core_thread {
 };
 
 struct core_state {
-	atomic_t nr_threads;
+	/* Threads the dumper still waits for. */
+	atomic_t threads_remaining;
 	struct core_thread *tasks;
-	struct completion startup;
 };
 
 /*
