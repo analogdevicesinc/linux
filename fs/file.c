@@ -807,7 +807,7 @@ static inline void __range_close(struct files_struct *files, unsigned int fd,
 		file = file_close_fd_locked(files, fd);
 		if (file) {
 			spin_unlock(&files->file_lock);
-			filp_close(file, files);
+			filp_close_sync(file, files);
 			cond_resched();
 			spin_lock(&files->file_lock);
 			fdt = files_fdtable(files);
