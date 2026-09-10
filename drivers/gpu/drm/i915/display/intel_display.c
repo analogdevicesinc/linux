@@ -7290,6 +7290,7 @@ static void skl_commit_modeset_enables(struct intel_atomic_state *state)
 
 static void intel_atomic_commit_fence_wait(struct intel_atomic_state *state)
 {
+	struct intel_display *display = to_intel_display(state);
 	struct drm_plane *plane;
 	struct drm_plane_state *new_plane_state;
 	long ret;
@@ -7300,8 +7301,11 @@ static void intel_atomic_commit_fence_wait(struct intel_atomic_state *state)
 			continue;
 
 		ret = dma_fence_wait(new_plane_state->fence, false);
-		if (ret < 0)
+		if (ret < 0) {
+			drm_dbg_kms(display->drm, "[PLANE:%d:%s] fence wait failed (%pe)\n",
+				    plane->base.id, plane->name, ERR_PTR(ret));
 			break;
+		}
 
 		dma_fence_put(new_plane_state->fence);
 		new_plane_state->fence = NULL;
