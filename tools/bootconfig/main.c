@@ -134,8 +134,6 @@ static void xbc_show_list(void)
 	}
 }
 
-#define PAGE_SIZE	4096
-
 static int load_xbc_fd(int fd, char **buf, int size)
 {
 	int ret;
