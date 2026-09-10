@@ -53,6 +53,12 @@
 #define D1_DLEVEL_FIELD_WIDTH	4
 #define D1_PULL_REGS_OFFSET	0x24
 
+#define A733_BANK_MEM_SIZE	0x80
+#define A733_BANK_OFFSET	0x80
+#define A733_DLEVEL_REGS_OFFSET	0x20
+#define A733_PULL_REGS_OFFSET	0x30
+#define A733_IRQ_REGS_OFFSET	0x40
+
 #define PINS_PER_BANK		32
 
 #define IRQ_PER_BANK		32
@@ -94,7 +100,9 @@
 #define SUNXI_PINCTRL_NCAT2_REG_LAYOUT	BIT(8)
 #define SUNXI_PINCTRL_PORTF_SWITCH	BIT(9)
 #define SUNXI_PINCTRL_ELEVEN_BANKS	BIT(10)
+#define SUNXI_PINCTRL_NCAT3_REG_LAYOUT	BIT(11)
 
+#define PIO_NCAT3_POW_MOD_SEL_REG	0x040
 #define PIO_POW_MOD_SEL_REG		0x340
 #define PIO_11B_POW_MOD_SEL_REG		0x380
 #define PIO_POW_MOD_CTL_OFS		0x004
@@ -179,6 +187,8 @@ struct sunxi_pinctrl {
 	struct pinctrl_dev		*pctl_dev;
 	unsigned long			flags;
 	u32				bank_mem_size;
+	u32				bank_offset;
+	u32				drv_regs_offset;
 	u32				pull_regs_offset;
 	u32				dlevel_field_width;
 	u32				pow_mod_sel_offset;
@@ -238,6 +248,10 @@ static inline u32 sunxi_irq_hw_bank_num(const struct sunxi_pinctrl_desc *desc,
 
 static inline u32 sunxi_irq_base_reg(const struct sunxi_pinctrl *pctl, u16 bank)
 {
+	if (pctl->flags & SUNXI_PINCTRL_NCAT3_REG_LAYOUT)
+		return pctl->bank_offset + bank * pctl->bank_mem_size +
+		       A733_IRQ_REGS_OFFSET;
+
 	return IRQ_REGS_OFFSET +
 	       sunxi_irq_hw_bank_num(pctl->desc, bank) * IRQ_MEM_SIZE;
 }

@@ -65,7 +65,7 @@ static struct irq_chip sunxi_pinctrl_level_irq_chip;
  */
 static u32 sunxi_bank_offset(const struct sunxi_pinctrl *pctl, u32 pin)
 {
-	u32 offset = 0;
+	u32 offset = pctl->bank_offset;
 
 	if (pin >= PK_BASE && (pctl->flags & SUNXI_PINCTRL_ELEVEN_BANKS)) {
 		pin -= PK_BASE;
@@ -102,7 +102,7 @@ static void sunxi_dlevel_reg(const struct sunxi_pinctrl *pctl,
 {
 	u32 offset = pin % PINS_PER_BANK * pctl->dlevel_field_width;
 
-	*reg   = sunxi_bank_offset(pctl, pin) + DLEVEL_REGS_OFFSET +
+	*reg   = sunxi_bank_offset(pctl, pin) + pctl->drv_regs_offset +
 		 offset / BITS_PER_TYPE(u32) * sizeof(u32);
 	*shift = offset % BITS_PER_TYPE(u32);
 	*mask  = (BIT(pctl->dlevel_field_width) - 1) << *shift;
@@ -1592,15 +1592,25 @@ int sunxi_pinctrl_init_with_flags(struct platform_device *pdev,
 	pctl->flags = flags;
 	if (flags & SUNXI_PINCTRL_NCAT2_REG_LAYOUT) {
 		pctl->bank_mem_size = D1_BANK_MEM_SIZE;
+		pctl->drv_regs_offset = DLEVEL_REGS_OFFSET;
 		pctl->pull_regs_offset = D1_PULL_REGS_OFFSET;
+		pctl->dlevel_field_width = D1_DLEVEL_FIELD_WIDTH;
+	} else if (flags & SUNXI_PINCTRL_NCAT3_REG_LAYOUT) {
+		pctl->bank_mem_size = A733_BANK_MEM_SIZE;
+		pctl->bank_offset = A733_BANK_OFFSET;
+		pctl->drv_regs_offset = A733_DLEVEL_REGS_OFFSET;
+		pctl->pull_regs_offset = A733_PULL_REGS_OFFSET;
 		pctl->dlevel_field_width = D1_DLEVEL_FIELD_WIDTH;
 	} else {
 		pctl->bank_mem_size = BANK_MEM_SIZE;
+		pctl->drv_regs_offset = DLEVEL_REGS_OFFSET;
 		pctl->pull_regs_offset = PULL_REGS_OFFSET;
 		pctl->dlevel_field_width = DLEVEL_FIELD_WIDTH;
 	}
 	if (flags & SUNXI_PINCTRL_ELEVEN_BANKS)
 		pctl->pow_mod_sel_offset = PIO_11B_POW_MOD_SEL_REG;
+	else if (flags & SUNXI_PINCTRL_NCAT3_REG_LAYOUT)
+		pctl->pow_mod_sel_offset = PIO_NCAT3_POW_MOD_SEL_REG;
 	else
 		pctl->pow_mod_sel_offset = PIO_POW_MOD_SEL_REG;
 
