@@ -98,6 +98,7 @@ enum adrv9025_device_id {
 	ID_ADRV9025,
 	ID_ADRV9026,
 	ID_ADRV9029,
+	ID_ADRV9022,
 };
 
 struct adrv9025_rf_phy;
