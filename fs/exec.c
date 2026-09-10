@@ -1173,9 +1173,9 @@ int begin_new_exec(struct linux_binprm * bprm)
 	 * trying to access the should-be-closed file descriptors of a process
 	 * undergoing exec(2).
 	 *
-	 * This can block on filesystem ->flush() handlers, including waiting
-	 * for FUSE daemons, so do it before exec_mmap takes the
-	 * exec_update_lock.
+	 * This can block on filesystem ->flush() and ->release() handlers,
+	 * including waiting for FUSE daemons, so do it before exec_mmap
+	 * takes the exec_update_lock.
 	 * This must happen after the point of no return, and after unsharing
 	 * the FD table.
 	 */

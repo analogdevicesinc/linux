@@ -928,7 +928,7 @@ void close_cloexec_files(struct files_struct *files)
 			rcu_assign_pointer(fdt->fd[fd], NULL);
 			__put_unused_fd(files, fd);
 			spin_unlock(&files->file_lock);
-			filp_close(file, files);
+			filp_close_sync(file, files);
 			cond_resched();
 			spin_lock(&files->file_lock);
 		}
