@@ -435,12 +435,12 @@ static void coredump_task_exit(struct task_struct *tsk,
 
 	self.task = tsk;
 	if (self.task->flags & PF_SIGNALED)
-		self.next = xchg(&core_state->dumper.next, &self);
+		self.next = xchg(&core_state->tasks, &self);
 	else
 		self.task = NULL;
 	/*
 	 * Implies mb(), the result of xchg() must be visible
-	 * to core_state->dumper.
+	 * to the dumper.
 	 */
 	if (atomic_dec_and_test(&core_state->nr_threads))
 		complete(&core_state->startup);

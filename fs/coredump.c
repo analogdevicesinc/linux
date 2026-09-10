@@ -526,8 +526,7 @@ static int coredump_wait(int exit_code, struct core_state *core_state)
 	int core_waiters = -EBUSY;
 
 	init_completion(&core_state->startup);
-	core_state->dumper.task = tsk;
-	core_state->dumper.next = NULL;
+	core_state->tasks = NULL;
 
 	core_waiters = zap_threads(tsk, core_state, exit_code);
 	if (core_waiters > 0) {
@@ -540,7 +539,7 @@ static int coredump_wait(int exit_code, struct core_state *core_state)
 		 * all the thread context (extended register state, like
 		 * fpu etc) gets copied to the memory.
 		 */
-		ptr = core_state->dumper.next;
+		ptr = core_state->tasks;
 		while (ptr != NULL) {
 			wait_task_inactive(ptr->task, TASK_ANY);
 			ptr = ptr->next;
@@ -558,7 +557,7 @@ static void coredump_finish(bool core_dumped)
 	spin_lock_irq(&current->sighand->siglock);
 	if (core_dumped && !__fatal_signal_pending(current))
 		current->signal->group_exit_code |= 0x80;
-	next = current->signal->core_state->dumper.next;
+	next = current->signal->core_state->tasks;
 	current->signal->core_state = NULL;
 	spin_unlock_irq(&current->sighand->siglock);
 
