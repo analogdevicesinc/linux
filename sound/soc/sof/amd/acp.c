@@ -1365,6 +1365,9 @@ int amd_sof_acp7x_probe(struct snd_sof_dev *sdev)
 		dev_err(sdev->dev, "error: SoundWire probe error\n");
 		goto free_ipc_irq;
 	}
+	if (adata->info.link_mask)
+		adata->is_sdw_dev = true;
+
 skip_soundwire:
 	if (adev) {
 		/* DMIC ACPI child address is 2 on ACP7x platforms */
@@ -1434,6 +1437,44 @@ void amd_sof_acp7x_remove(struct snd_sof_dev *sdev)
 }
 EXPORT_SYMBOL_NS(amd_sof_acp7x_remove, "SND_SOC_SOF_AMD_COMMON");
 
+static void handle_amd_sof_acp7x_sdw_pme_event(struct snd_sof_dev *sdev)
+{
+	struct acp_dev_data *adata;
+	struct amd_sdw_manager *amd_manager;
+	u32 sdw_pme_stat;
+	u32 sdw_wake_en;
+	u32 pme_reg;
+	u32 wake_mask;
+	unsigned int instance;
+
+	adata = sdev->pdata->hw_pdata;
+	if (!adata->sdw)
+		return;
+
+	for (instance = 0; instance < ACP7X_SDW_MAX_MANAGER_COUNT; instance++) {
+		pme_reg = ACP7X_SW_PME_STS + (instance * 4);
+		wake_mask = ACP7X_SW_WAKE_EN_MASK << instance;
+
+		sdw_pme_stat = snd_sof_dsp_read(sdev, ACP_DSP_BAR, pme_reg);
+		if (!sdw_pme_stat)
+			continue;
+
+		mutex_lock(&adata->acp_lock);
+		sdw_wake_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP7X_SW_WAKE_EN);
+		sdw_wake_en &= ~wake_mask;
+		snd_sof_dsp_write(sdev, ACP_DSP_BAR, ACP7X_SW_WAKE_EN, sdw_wake_en);
+		mutex_unlock(&adata->acp_lock);
+		snd_sof_dsp_write(sdev, ACP_DSP_BAR, pme_reg, sdw_pme_stat);
+
+		if (!adata->sdw->pdev[instance])
+			continue;
+
+		amd_manager = dev_get_drvdata(&adata->sdw->pdev[instance]->dev);
+		if (amd_manager)
+			pm_request_resume(amd_manager->dev);
+	}
+}
+
 int amd_sof_acp7x_suspend(struct snd_sof_dev *sdev, u32 target_state)
 {
 	struct acp_dev_data *acp_data;
@@ -1441,6 +1482,11 @@ int amd_sof_acp7x_suspend(struct snd_sof_dev *sdev, u32 target_state)
 	bool enable = false;
 
 	acp_data = sdev->pdata->hw_pdata;
+
+	if (acp_data->is_sdw_dev && check_acp_sdw_enable_status(sdev)) {
+		snd_sof_dsp_write(sdev, ACP_DSP_BAR, ACP7X_ZSC_DSP_CTRL, 1);
+		return acp_dsp_reset(sdev);
+	}
 
 	ret = acp_reset(sdev);
 	if (ret) {
@@ -1463,12 +1509,24 @@ int amd_sof_acp7x_suspend(struct snd_sof_dev *sdev, u32 target_state)
 }
 EXPORT_SYMBOL_NS(amd_sof_acp7x_suspend, "SND_SOC_SOF_AMD_COMMON");
 
-int amd_sof_acp7x_resume(struct snd_sof_dev *sdev)
+int amd_sof_acp7x_suspend_runtime(struct snd_sof_dev *sdev)
+{
+	return amd_sof_acp7x_suspend(sdev, 0);
+}
+EXPORT_SYMBOL_NS(amd_sof_acp7x_suspend_runtime, "SND_SOC_SOF_AMD_COMMON");
+
+int amd_sof_acp7x_resume_runtime(struct snd_sof_dev *sdev)
 {
 	struct acp_dev_data *acp_data;
 	int ret;
 
 	acp_data = sdev->pdata->hw_pdata;
+
+	if (acp_data->sdw_en_stat) {
+		snd_sof_dsp_write(sdev, ACP_DSP_BAR, ACP7X_ZSC_DSP_CTRL, 0);
+		snd_sof_dsp_write(sdev, ACP_DSP_BAR, ACP7X_PME_EN, 1);
+		return acp_dsp_reset(sdev);
+	}
 
 	ret = acp_init(sdev);
 	if (ret) {
@@ -1481,30 +1539,40 @@ int amd_sof_acp7x_resume(struct snd_sof_dev *sdev)
 		return ret;
 	}
 
-	switch (acp_data->pci_rev) {
-	case ACP7B_PCI_ID:
-	case ACP7F_PCI_ID:
+	if (acp_data->is_sdw_dev)
+		handle_amd_sof_acp7x_sdw_pme_event(sdev);
+
+	return 0;
+}
+EXPORT_SYMBOL_NS(amd_sof_acp7x_resume_runtime, "SND_SOC_SOF_AMD_COMMON");
+
+int amd_sof_acp7x_resume(struct snd_sof_dev *sdev)
+{
+	struct acp_dev_data *acp_data;
+	int ret;
+
+	acp_data = sdev->pdata->hw_pdata;
+
+	if (acp_data->sdw_en_stat) {
+		snd_sof_dsp_write(sdev, ACP_DSP_BAR, ACP7X_ZSC_DSP_CTRL, 0);
 		snd_sof_dsp_write(sdev, ACP_DSP_BAR, ACP7X_PME_EN, 1);
-		break;
-	default:
-		break;
+		return acp_dsp_reset(sdev);
+	}
+
+	ret = acp_init(sdev);
+	if (ret) {
+		dev_err(sdev->dev, "ACP Init failed\n");
+		return ret;
+	}
+	ret = acp_memory_init(sdev);
+	if (ret) {
+		dev_err(sdev->dev, "ACP Memory init failed\n");
+		return ret;
 	}
 
 	return 0;
 }
 EXPORT_SYMBOL_NS(amd_sof_acp7x_resume, "SND_SOC_SOF_AMD_COMMON");
-
-int amd_sof_acp7x_suspend_runtime(struct snd_sof_dev *sdev)
-{
-	return amd_sof_acp7x_suspend(sdev, 0);
-}
-EXPORT_SYMBOL_NS(amd_sof_acp7x_suspend_runtime, "SND_SOC_SOF_AMD_COMMON");
-
-int amd_sof_acp7x_resume_runtime(struct snd_sof_dev *sdev)
-{
-	return amd_sof_acp7x_resume(sdev);
-}
-EXPORT_SYMBOL_NS(amd_sof_acp7x_resume_runtime, "SND_SOC_SOF_AMD_COMMON");
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("AMD ACP sof driver");

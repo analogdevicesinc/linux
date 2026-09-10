@@ -294,6 +294,7 @@ struct acp_dev_data {
 	bool acp7x_sdw_wake_event[ACP7X_SDW_MAX_MANAGER_COUNT];
 	/* PDM controller index selected from ACPI acp-audio-ep-port; passed to machine driver */
 	unsigned int pdm_sel;
+	bool is_sdw_dev;
 	unsigned int pci_rev;
 	int acp_sof_signed_firmware_image;
 };
