@@ -67,7 +67,7 @@ static u32 sunxi_bank_offset(const struct sunxi_pinctrl *pctl, u32 pin)
 {
 	u32 offset = 0;
 
-	if (pin >= PK_BASE) {
+	if (pin >= PK_BASE && (pctl->flags & SUNXI_PINCTRL_ELEVEN_BANKS)) {
 		pin -= PK_BASE;
 		offset = PIO_BANK_K_OFFSET;
 	}
