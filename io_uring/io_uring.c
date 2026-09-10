@@ -907,11 +907,8 @@ bool io_req_post_cqe32(struct io_kiocb *req, struct io_uring_cqe cqe[2])
 	return posted;
 }
 
-/*
- * Drop any io-wq request with a file upfront, otherwise it gets deferred to
- * much later post CQE posting.
- */
-static void io_req_put_file_iowq(struct io_kiocb *req, bool sync)
+/* drop the request file before the CQE is posted, not deferred after it */
+static void io_req_put_file(struct io_kiocb *req, bool sync)
 {
 	struct file *file = req->file;
 
@@ -919,7 +916,8 @@ static void io_req_put_file_iowq(struct io_kiocb *req, bool sync)
 		return;
 
 	WRITE_ONCE(req->file, NULL);
-	if (sync)
+	/* releasing a ring may wait on other rings, keep that deferred */
+	if (sync && !io_is_uring_fops(file))
 		__fput_sync(file);
 	else
 		fput(file);
@@ -937,7 +935,7 @@ static void io_req_complete_post(struct io_kiocb *req, unsigned issue_flags)
 	if (WARN_ON_ONCE(!(issue_flags & IO_URING_F_IOWQ)))
 		return;
 
-	io_req_put_file_iowq(req, true);
+	io_req_put_file(req, true);
 
 	/*
 	 * Handle special CQ sync cases via task_work. DEFER_TASKRUN requires
@@ -1151,6 +1149,19 @@ void __io_submit_flush_completions(struct io_ring_ctx *ctx)
 {
 	struct io_submit_state *state = &ctx->submit_state;
 	struct io_wq_work_node *node;
+
+	/*
+	 * Drop the files before the CQEs are posted, so they're released by
+	 * the time the completions are visible. Not for requests that are
+	 * requeued or still referenced, those aren't freed below.
+	 */
+	__wq_list_for_each(node, &state->compl_reqs) {
+		struct io_kiocb *req = container_of(node, struct io_kiocb,
+					    comp_list);
+
+		if (!io_req_shared(req))
+			io_req_put_file(req, true);
+	}
 
 	__io_cq_lock(ctx);
 	__wq_list_for_each(node, &state->compl_reqs) {
@@ -1505,7 +1516,7 @@ void io_wq_submit_work(struct io_wq_work *work)
 	/* either cancelled or io-wq is dying, so don't touch tctx->iowq */
 	if (atomic_read(&work->flags) & IO_WQ_WORK_CANCEL) {
 fail:
-		io_req_put_file_iowq(req, false);
+		io_req_put_file(req, false);
 		io_req_task_queue_fail(req, err);
 		return;
 	}
@@ -1582,7 +1593,7 @@ fail:
 
 	/* avoid locking problems by failing it from a clean context */
 	if (ret) {
-		io_req_put_file_iowq(req, true);
+		io_req_put_file(req, true);
 		io_req_task_queue_fail(req, ret);
 	}
 }
