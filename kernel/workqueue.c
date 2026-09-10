@@ -389,6 +389,7 @@ struct workqueue_struct {
 
 	/* See alloc_workqueue() function comment for info on min/max_active */
 	int			max_active;	/* WO: max active works */
+	int			percpu_max_active; /* WO: max active works per cpu */
 	int			min_active;	/* WO: min active works */
 	int			saved_max_active; /* WQ: saved max_active */
 	int			saved_min_active; /* WQ: saved min_active */
@@ -1855,10 +1856,10 @@ static bool pwq_tryinc_nr_active(struct pool_workqueue *pwq, bool fill)
 
 	/*
 	 * A concurrency-managed per-cpu pool accounts nr_active per pwq, so
-	 * pwq->nr_active against wq->max_active is sufficient.
+	 * pwq->nr_active against wq->percpu_max_active is sufficient.
 	 */
 	if (is_percpu_pool(pool)) {
-		obtained = pwq->nr_active < READ_ONCE(wq->max_active);
+		obtained = pwq->nr_active < READ_ONCE(wq->percpu_max_active);
 		goto out;
 	}
 
@@ -6016,9 +6017,9 @@ static int init_rescuer(struct workqueue_struct *wq)
  * wq_adjust_max_active - update a wq's max_active to the current setting
  * @wq: target workqueue
  *
- * If @wq isn't freezing, set @wq->max_active to the saved_max_active and
- * activate inactive work items accordingly. If @wq is freezing, clear
- * @wq->max_active to zero.
+ * If @wq isn't freezing, set the limit that applies to @wq's backing to the
+ * saved_max_active and activate inactive work items accordingly. If @wq is
+ * freezing, clear it to zero.
  */
 static void wq_adjust_max_active(struct workqueue_struct *wq)
 {
@@ -6035,20 +6036,25 @@ static void wq_adjust_max_active(struct workqueue_struct *wq)
 		new_min = wq->saved_min_active;
 	}
 
-	if (wq->max_active == new_max && wq->min_active == new_min)
-		return;
-
 	/*
-	 * Update @wq->max/min_active and then kick inactive work items if more
-	 * active work items are allowed. This doesn't break work item ordering
+	 * Update the limit and then kick inactive work items if more active
+	 * work items are allowed. This doesn't break work item ordering
 	 * because new work items are always queued behind existing inactive
 	 * work items if there are any.
 	 */
-	WRITE_ONCE(wq->max_active, new_max);
-	WRITE_ONCE(wq->min_active, new_min);
+	if (wq->flags & WQ_UNBOUND) {
+		if (wq->max_active == new_max && wq->min_active == new_min)
+			return;
 
-	if (wq->flags & WQ_UNBOUND)
+		WRITE_ONCE(wq->max_active, new_max);
+		WRITE_ONCE(wq->min_active, new_min);
 		wq_update_node_max_active(wq, -1);
+	} else {
+		if (wq->percpu_max_active == new_max)
+			return;
+
+		WRITE_ONCE(wq->percpu_max_active, new_max);
+	}
 
 	if (new_max == 0)
 		return;
@@ -6145,10 +6151,14 @@ static struct workqueue_struct *__alloc_workqueue(const char *fmt,
 
 	/* init wq */
 	wq->flags = flags;
-	wq->max_active = max_active;
-	wq->min_active = min(max_active, WQ_DFL_MIN_ACTIVE);
-	wq->saved_max_active = wq->max_active;
-	wq->saved_min_active = wq->min_active;
+	if (flags & WQ_UNBOUND) {
+		wq->max_active = max_active;
+		wq->min_active = min(max_active, WQ_DFL_MIN_ACTIVE);
+		wq->saved_min_active = wq->min_active;
+	} else {
+		wq->percpu_max_active = max_active;
+	}
+	wq->saved_max_active = max_active;
 	mutex_init(&wq->mutex);
 	atomic_set(&wq->nr_pwqs_to_flush, 0);
 	INIT_LIST_HEAD(&wq->pwqs);
