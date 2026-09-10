@@ -2333,6 +2333,7 @@ ARM MALI TYR DRM DRIVER
 M:	Daniel Almeida <daniel.almeida@collabora.com>
 M:	Alice Ryhl <aliceryhl@google.com>
 L:	dri-devel@lists.freedesktop.org
+L:	rust-for-linux@vger.kernel.org
 S:	Supported
 W:	https://rust-for-linux.com/tyr-gpu-driver
 W:	https://drm.pages.freedesktop.org/maintainer-tools/drm-rust.html
