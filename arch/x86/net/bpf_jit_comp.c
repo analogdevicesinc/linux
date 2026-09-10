@@ -9,6 +9,7 @@
 #include <linux/filter.h>
 #include <linux/if_vlan.h>
 #include <linux/bitfield.h>
+#include <linux/init.h>
 #include <linux/bpf.h>
 #include <linux/bpf_verifier.h>
 #include <linux/memory.h>
@@ -34,6 +35,21 @@ void __asan_store8(void *p);
 #endif
 
 static bool all_callee_regs_used[4] = {true, true, true, true};
+
+static void *trampoline_size_image;
+
+static int __init init_trampoline_size_image(void)
+{
+	/*
+	 * The generated trampoline contains calls and jumps with 32bit relative
+	 * offsets, so the scratch image must be in the execmem range.
+	 * On x86, module data and executable memory share the same address range,
+	 * so using EXECMEM_MODULE_DATA to get writable memory.
+	 */
+	trampoline_size_image = execmem_alloc(EXECMEM_MODULE_DATA, PAGE_SIZE);
+	return trampoline_size_image ? 0 : -ENOMEM;
+}
+late_initcall(init_trampoline_size_image);
 
 static u8 *emit_code(u8 *ptr, u32 bytes, unsigned int len)
 {
@@ -4067,24 +4083,14 @@ int arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
 			     struct bpf_tramp_nodes *tnodes, void *func_addr)
 {
 	struct bpf_tramp_image im;
-	void *image;
-	int ret;
 
-	/* Allocate a temporary buffer for __arch_prepare_bpf_trampoline().
-	 *
-	 * We cannot use kvmalloc here, because we need image to be in
-	 * module memory range.
-	 * Since it must be writable use execmem_alloc(EXECMEM_MODULE_DATA)
-	 * that returns writable memory in the module address space.
-	 */
-	image = execmem_alloc(EXECMEM_MODULE_DATA, PAGE_SIZE);
-	if (!image)
+	if (!trampoline_size_image)
 		return -ENOMEM;
 
-	ret = __arch_prepare_bpf_trampoline(&im, image, image + PAGE_SIZE, image,
-					    m, flags, tnodes, func_addr);
-	execmem_free(image);
-	return ret;
+	return __arch_prepare_bpf_trampoline(&im, trampoline_size_image,
+					     trampoline_size_image + PAGE_SIZE,
+					     trampoline_size_image, m, flags,
+					     tnodes, func_addr);
 }
 
 static int emit_bpf_dispatcher(u8 **pprog, int a, int b, s64 *progs, u8 *image, u8 *buf)
