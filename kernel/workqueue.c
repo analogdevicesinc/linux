@@ -533,15 +533,6 @@ static DEFINE_IDR(worker_pool_idr);	/* PR: idr of all pools */
 /* PL: hash of all unbound pools keyed by pool->attrs */
 static DEFINE_HASHTABLE(unbound_pool_hash, UNBOUND_POOL_HASH_ORDER);
 
-/* I: attributes used when instantiating standard unbound pools on demand */
-static struct workqueue_attrs *unbound_std_wq_attrs[NR_STD_WORKER_POOLS];
-
-/* I: attributes used when instantiating ordered pools on demand */
-static struct workqueue_attrs *ordered_wq_attrs[NR_STD_WORKER_POOLS];
-
-/* I: attributes of percpu workqueues, which are backed by the static pools */
-static struct workqueue_attrs *percpu_std_wq_attrs[NR_STD_WORKER_POOLS];
-
 /*
  * I: kthread_worker to release pwq's. pwq release needs to be bounced to a
  * process context while holding a pool lock. Bounce to a dedicated kthread
@@ -5920,9 +5911,27 @@ out_unlock:
 	put_pwq_unlocked(old_pwq);
 }
 
+/* the attrs @wq asked for, as spelled by its flags */
+static struct workqueue_attrs *alloc_wq_std_attrs(struct workqueue_struct *wq)
+{
+	struct workqueue_attrs *attrs;
+
+	attrs = alloc_workqueue_attrs();
+	if (!attrs)
+		return NULL;
+
+	if (wq->flags & WQ_HIGHPRI)
+		attrs->nice = HIGHPRI_NICE_LEVEL;
+
+	if (wq->flags & __WQ_ORDERED)
+		attrs->ordered = true;
+
+	return attrs;
+}
+
 static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 {
-	bool highpri = wq->flags & WQ_HIGHPRI;
+	struct workqueue_attrs *attrs;
 	int ret;
 
 	lockdep_assert_held(&wq_pool_mutex);
@@ -5931,23 +5940,24 @@ static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 	if (!wq->cpu_pwq)
 		goto enomem;
 
-	if (!(wq->flags & WQ_UNBOUND)) {
-		ret = apply_workqueue_attrs_locked(wq, percpu_std_wq_attrs[highpri]);
-	} else if (wq->flags & __WQ_ORDERED) {
-		struct pool_workqueue *dfl_pwq;
+	attrs = alloc_wq_std_attrs(wq);
+	if (!attrs)
+		goto enomem;
 
-		ret = apply_workqueue_attrs_locked(wq, ordered_wq_attrs[highpri]);
-		/* there should only be single pwq for ordering guarantee */
-		dfl_pwq = rcu_access_pointer(wq->dfl_pwq);
-		WARN(!ret && (wq->pwqs.next != &dfl_pwq->pwqs_node ||
-			      wq->pwqs.prev != &dfl_pwq->pwqs_node),
-		     "ordering guarantee broken for workqueue %s\n", wq->name);
-	} else {
-		ret = apply_workqueue_attrs_locked(wq, unbound_std_wq_attrs[highpri]);
-	}
-
+	ret = apply_workqueue_attrs_locked(wq, attrs);
+	free_workqueue_attrs(attrs);
 	if (ret)
 		goto enomem;
+
+	if (wq->flags & __WQ_ORDERED) {
+		struct pool_workqueue *dfl_pwq = rcu_access_pointer(wq->dfl_pwq);
+
+		/* there should only be single pwq for ordering guarantee */
+		WARN(wq->pwqs.next != &dfl_pwq->pwqs_node ||
+		     wq->pwqs.prev != &dfl_pwq->pwqs_node,
+		     "ordering guarantee broken for workqueue %s\n", wq->name);
+	}
+
 	return 0;
 
 enomem:
@@ -8376,28 +8386,6 @@ void __init workqueue_init_early(void)
 		i = 0;
 		for_each_cpu_worker_pool(pool, cpu)
 			init_cpu_worker_pool(pool, cpu, std_nice[i++]);
-	}
-
-	/* create default unbound, ordered and percpu wq attrs */
-	for (i = 0; i < NR_STD_WORKER_POOLS; i++) {
-		struct workqueue_attrs *attrs;
-
-		BUG_ON(!(attrs = alloc_workqueue_attrs()));
-		attrs->nice = std_nice[i];
-		unbound_std_wq_attrs[i] = attrs;
-
-		/*
-		 * An ordered wq should have only one pwq as ordering is
-		 * guaranteed by max_active which is enforced by pwqs.
-		 */
-		BUG_ON(!(attrs = alloc_workqueue_attrs()));
-		attrs->nice = std_nice[i];
-		attrs->ordered = true;
-		ordered_wq_attrs[i] = attrs;
-
-		BUG_ON(!(attrs = alloc_workqueue_attrs()));
-		attrs->nice = std_nice[i];
-		percpu_std_wq_attrs[i] = attrs;
 	}
 
 	system_wq = alloc_workqueue("events", WQ_PERCPU | __WQ_DEPRECATED, 0);
