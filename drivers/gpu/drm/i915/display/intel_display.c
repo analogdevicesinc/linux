@@ -7296,14 +7296,15 @@ static void intel_atomic_commit_fence_wait(struct intel_atomic_state *state)
 	int i;
 
 	for_each_new_plane_in_state(&state->base, plane, new_plane_state, i) {
-		if (new_plane_state->fence) {
-			ret = dma_fence_wait(new_plane_state->fence, false);
-			if (ret < 0)
-				break;
+		if (!new_plane_state->fence)
+			continue;
 
-			dma_fence_put(new_plane_state->fence);
-			new_plane_state->fence = NULL;
-		}
+		ret = dma_fence_wait(new_plane_state->fence, false);
+		if (ret < 0)
+			break;
+
+		dma_fence_put(new_plane_state->fence);
+		new_plane_state->fence = NULL;
 	}
 }
 
