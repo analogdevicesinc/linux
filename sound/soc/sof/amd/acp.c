@@ -903,6 +903,8 @@ static int acp_init(struct snd_sof_dev *sdev)
 	const struct sof_amd_acp_desc *desc = get_chip_info(sdev->pdata);
 	struct acp_dev_data *acp_data;
 	unsigned int sdw0_wake_en, sdw1_wake_en;
+	u32 sdw_wake_en, intr_mask;
+	unsigned int i;
 	int ret;
 
 	/* power on */
@@ -946,6 +948,20 @@ static int acp_init(struct snd_sof_dev *sdev)
 		snd_sof_dsp_write(sdev, ACP_DSP_BAR, ACP7X_PME_EN, 1);
 		snd_sof_dsp_write(sdev, ACP_DSP_BAR, ACP7X_DSP0_IDMA_ERROR_MASK,
 				  ACP7X_IDMA_ERROR_MASK);
+		/*
+		 * Enable host-wake interrupt per manager based on SW_WAKE_EN:
+		 * SW_WAKE_EN bit i enables ACP7X_SW_HOST_WAKE_MASK << i in INTR_CNTL1.
+		 */
+		sdw_wake_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP7X_SW_WAKE_EN);
+		intr_mask = 0;
+		for (i = 0; i < ACP7X_SDW_MAX_MANAGER_COUNT; i++) {
+			if (sdw_wake_en & BIT(i))
+				intr_mask |= ACP7X_SW_HOST_WAKE_MASK << i;
+		}
+		if (intr_mask)
+			snd_sof_dsp_update_bits(sdev, ACP_DSP_BAR,
+						ACP7X_EXTERNAL_INTR_CNTL1,
+						intr_mask, intr_mask);
 		break;
 	}
 	return 0;
