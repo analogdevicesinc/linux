@@ -1840,6 +1840,7 @@ enum netdev_reg_state {
  *			drivers. Mainly used by logical interfaces, such as
  *			bonding and tunnels
  *	@netmem_tx:	device netmem TX mode
+ *	@pacing_offload: enable EDT pacing offload.
  *
  *	@name:	This is the first field of the "visible" part of this structure
  *		(i.e. as seen by users in the "Space.c" file).  It is the name
@@ -2170,6 +2171,7 @@ struct net_device {
 		unsigned long		priv_flags:32;
 		unsigned long		lltx:1;
 		unsigned long		netmem_tx:2;
+		unsigned long		pacing_offload:1;
 	);
 	const struct net_device_ops *netdev_ops;
 	const struct header_ops *header_ops;
