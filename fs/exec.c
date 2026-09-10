@@ -1179,7 +1179,7 @@ int begin_new_exec(struct linux_binprm * bprm)
 	 * This must happen after the point of no return, and after unsharing
 	 * the FD table.
 	 */
-	do_close_on_exec(me->files);
+	close_cloexec_files(me->files);
 
 	/*
 	 * Must be called _before_ exec_mmap() as bprm->mm is
