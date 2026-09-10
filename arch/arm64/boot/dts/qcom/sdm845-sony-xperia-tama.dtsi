@@ -499,6 +499,11 @@
 	regulator-pull-down;
 };
 
+&ipa {
+	firmware-name = "qcom/sdm845/Sony/tama/ipa_fws.mbn";
+	status = "okay";
+};
+
 &lab {
 	regulator-min-microvolt = <5500000>;
 	regulator-max-microvolt = <5700000>;
@@ -547,6 +552,16 @@
 
 &mdss_dsi0_phy {
 	vdds-supply = <&vreg_l1a_0p9>;
+	status = "okay";
+};
+
+/*
+ * Modem requires ta-service for initialization:
+ * https://github.com/andersson/ta-service
+ */
+&mss_pil {
+	firmware-name = "qcom/sdm845/Sony/tama/mba.mbn",
+			"qcom/sdm845/Sony/tama/modem.mbn";
 	status = "okay";
 };
 
@@ -658,6 +673,11 @@
 	bus-width = <4>;
 	no-sdio;
 	no-mmc;
+};
+
+&slpi_pas {
+	firmware-name = "qcom/sdm845/Sony/tama/slpi.mbn";
+	status = "okay";
 };
 
 &tlmm {
