@@ -1311,6 +1311,13 @@ struct dm_mst_test_add_ctx {
 	struct dc_link *link;
 };
 
+static void dm_mst_test_cleanup_add_ctx(void *data)
+{
+	struct amdgpu_dm_connector *master = data;
+
+	drm_connector_cleanup(&master->base);
+}
+
 /*
  * Stand in for amdgpu_display_modeset_create_props(), which the test module
  * cannot link against. Only the properties amdgpu_dm_connector_init_helper()
@@ -1368,6 +1375,8 @@ static void dm_mst_test_init_add_ctx(struct kunit *test, struct dm_mst_test_add_
 	ret = drm_connector_init(drm, &ctx->master->base, &dm_mst_test_connector_funcs,
 				 DRM_MODE_CONNECTOR_DisplayPort);
 	KUNIT_ASSERT_EQ(test, ret, 0);
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_mst_test_cleanup_add_ctx, ctx->master), 0);
 
 	ctx->port = kunit_kzalloc(test, sizeof(*ctx->port), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, ctx->port);
