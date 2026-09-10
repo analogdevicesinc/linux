@@ -216,6 +216,24 @@ static const int ads112c14_fmod_div[] = {
 	128, 16, 8, 4
 };
 
+#define ADS112C14_DELAY_MAX FIELD_MAX(ADS112C14_DATA_RATE_CFG_DELAY)
+
+/* Table 7-6 latency in t_MOD for OSR [16, 32, 128, 256, 512, 1024]. */
+static const int ads112c14_sinc_latency_tmod[][ARRAY_SIZE(ads112c14_fmod_div)] = {
+	{ 80, 88, 88, 104 },
+	{ 144, 152, 152, 168 },
+	{ 240, 248, 248, 264 },
+	{ 368, 376, 376, 392 },
+	{ 624, 632, 632, 648 },
+	{ 1136, 1144, 1144, 1160 },
+};
+
+/* Table 7-7 latency in t_MOD for output data rates [25SPS, 20SPS]. */
+static const int ads112c14_fir_latency_tmod[][ARRAY_SIZE(ads112c14_fmod_div)] = {
+	{ 1416, 10384, 20624, 41120 },
+	{ 1736, 12944, 25744, 51360 },
+};
+
 enum ads112c14_filter_type {
 	ADS112C14_FILTER_TYPE_SINC4,
 	ADS112C14_FILTER_TYPE_SINC4_SINC1,
@@ -342,6 +360,7 @@ struct ads112c14_measurement {
 struct ads112c14_channel_state {
 	u8 speed_mode;
 	u8 filter_osr;
+	u8 delay;
 };
 
 struct ads112c14_data {
@@ -368,6 +387,8 @@ struct ads112c14_data {
 	int sinc4_sample_rate_available[ARRAY_SIZE(ads112c14_sinc4_osr_available)][ARRAY_SIZE(ads112c14_fmod_div)][2];
 	int sinc4_sinc1_sample_rate_available[ARRAY_SIZE(ads112c14_sinc4_sinc1_osr_available)][ARRAY_SIZE(ads112c14_fmod_div)][2];
 	int sinc4_sinc1_pf1_sample_rate_available[2][2];
+	int sinc_settling_time_range_available[ARRAY_SIZE(ads112c14_sinc_latency_tmod)][ARRAY_SIZE(ads112c14_fmod_div)][3][2];
+	int fir_settling_time_range_available[ARRAY_SIZE(ads112c14_fir_latency_tmod)][ARRAY_SIZE(ads112c14_fmod_div)][3][2];
 	IIO_DECLARE_BUFFER_WITH_TS(__be32, scan, ADS112C14_MAX_MEASUREMENT_CHANNELS +
 						 ARRAY_SIZE(ads112c14_sys_mon_channels));
 };
@@ -575,6 +596,210 @@ static int ads112c14_get_osr(struct ads112c14_channel_state *channel_state)
 	}
 }
 
+static int ads112c14_get_fmod_Hz(struct ads112c14_data *data,
+				 struct ads112c14_channel_state *channel_state)
+{
+	return data->fclk_Hz / ads112c14_fmod_div[channel_state->speed_mode];
+}
+
+static int ads112c14_delay_to_tmod(u8 delay)
+{
+	if (!delay)
+		return 0;
+
+	return BIT(delay - 1);
+}
+
+static int ads112c14_get_latency_tmod(struct ads112c14_channel_state *channel_state)
+{
+	u8 speed_mode = channel_state->speed_mode;
+	u8 filter_osr = channel_state->filter_osr;
+
+	if (speed_mode >= ARRAY_SIZE(ads112c14_fmod_div))
+		return -EINVAL;
+
+	if (filter_osr <= ADS112C14_DATA_RATE_CFG_FLTR_OSR_1024)
+		return ads112c14_sinc_latency_tmod[filter_osr][speed_mode];
+
+	if (filter_osr == ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS)
+		return ads112c14_fir_latency_tmod[0][speed_mode];
+
+	if (filter_osr == ADS112C14_DATA_RATE_CFG_FLTR_OSR_20SPS)
+		return ads112c14_fir_latency_tmod[1][speed_mode];
+
+	return -EINVAL;
+}
+
+static int ads112c14_get_settling_time_us(struct ads112c14_data *data,
+					  struct ads112c14_channel_state *channel_state,
+					  u8 delay, u32 *settling_time_us)
+{
+	int fmod_Hz, latency_tmod;
+	u64 total_tmod;
+
+	fmod_Hz = ads112c14_get_fmod_Hz(data, channel_state);
+	if (fmod_Hz <= 0)
+		return -EINVAL;
+
+	latency_tmod = ads112c14_get_latency_tmod(channel_state);
+	if (latency_tmod < 0)
+		return latency_tmod;
+
+	total_tmod = latency_tmod + ads112c14_delay_to_tmod(delay);
+	*settling_time_us = div64_u64(total_tmod * USEC_PER_SEC, fmod_Hz);
+
+	return 0;
+}
+
+static int ads112c14_find_delay_for_settling_time_us(struct ads112c14_data *data,
+						     struct ads112c14_channel_state *channel_state,
+						     s64 settling_time_us, u8 *delay)
+{
+	u64 delay_us, delay_tmod_needed;
+	u32 fixed_latency_us;
+	int ret, fmod_Hz;
+	u8 i;
+
+	ret = ads112c14_get_settling_time_us(data, channel_state, 0, &fixed_latency_us);
+	if (ret)
+		return ret;
+
+	if (settling_time_us <= fixed_latency_us) {
+		*delay = 0;
+		return 0;
+	}
+
+	fmod_Hz = ads112c14_get_fmod_Hz(data, channel_state);
+	if (fmod_Hz <= 0)
+		return -EINVAL;
+
+	delay_us = settling_time_us - fixed_latency_us;
+	delay_tmod_needed = DIV_ROUND_UP_ULL(delay_us * fmod_Hz, USEC_PER_SEC);
+
+	for (i = 1; i < ADS112C14_DELAY_MAX; i++) {
+		if (ads112c14_delay_to_tmod(i) >= delay_tmod_needed)
+			break;
+	}
+
+	*delay = i;
+
+	return 0;
+}
+
+static ssize_t ads112c14_read_settling_time(struct iio_dev *indio_dev,
+					    uintptr_t private,
+					    const struct iio_chan_spec *chan,
+					    char *buf)
+{
+	struct ads112c14_data *data = iio_priv(indio_dev);
+	struct ads112c14_channel_state *channel_state;
+	u32 settling_time_us;
+	int vals[2];
+	int ret;
+
+	guard(mutex)(&data->lock);
+
+	channel_state = &data->channel_states[chan->scan_index];
+
+	ret = ads112c14_get_settling_time_us(data, channel_state,
+					     channel_state->delay,
+					     &settling_time_us);
+	if (ret)
+		return ret;
+
+	iio_val_s64_decompose(settling_time_us, &vals[0], &vals[1]);
+
+	return iio_format_value(buf, IIO_VAL_DECIMAL64_MICRO, ARRAY_SIZE(vals), vals);
+}
+
+static ssize_t ads112c14_write_settling_time(struct iio_dev *indio_dev,
+					     uintptr_t private,
+					     const struct iio_chan_spec *chan,
+					     const char *buf, size_t len)
+{
+	struct ads112c14_data *data = iio_priv(indio_dev);
+	struct ads112c14_channel_state *channel_state;
+	s64 settling_time_us;
+	int integer;
+	int fract;
+	u8 delay;
+	int ret;
+
+	ret = iio_str_to_fixpoint(buf, 100000, &integer, &fract);
+	if (ret)
+		return ret;
+
+	settling_time_us = integer * MICRO + fract;
+	if (settling_time_us < 0)
+		return -EINVAL;
+
+	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+	if (IIO_DEV_ACQUIRE_FAILED(claim))
+		return -EBUSY;
+
+	guard(mutex)(&data->lock);
+
+	channel_state = &data->channel_states[chan->scan_index];
+
+	ret = ads112c14_find_delay_for_settling_time_us(data, channel_state,
+							settling_time_us, &delay);
+	if (ret)
+		return ret;
+
+	channel_state->delay = delay;
+
+	return len;
+}
+
+static ssize_t ads112c14_read_settling_time_available(struct iio_dev *indio_dev,
+						      uintptr_t private,
+						      const struct iio_chan_spec *chan,
+						      char *buf)
+{
+	struct ads112c14_data *data = iio_priv(indio_dev);
+	struct ads112c14_channel_state *channel_state;
+	u8 filter_osr, speed_mode;
+	const int (*range)[2];
+	size_t len = 0;
+	int i;
+
+	guard(mutex)(&data->lock);
+
+	channel_state = &data->channel_states[chan->scan_index];
+
+	filter_osr = channel_state->filter_osr;
+	speed_mode = channel_state->speed_mode;
+
+	if (speed_mode >= ARRAY_SIZE(ads112c14_fmod_div))
+		return -EINVAL;
+
+	if (filter_osr <= ADS112C14_DATA_RATE_CFG_FLTR_OSR_1024)
+		range = data->sinc_settling_time_range_available[filter_osr][speed_mode];
+	else if (filter_osr == ADS112C14_DATA_RATE_CFG_FLTR_OSR_25SPS)
+		range = data->fir_settling_time_range_available[0][speed_mode];
+	else if (filter_osr == ADS112C14_DATA_RATE_CFG_FLTR_OSR_20SPS)
+		range = data->fir_settling_time_range_available[1][speed_mode];
+	else
+		return -EINVAL;
+
+	len += sysfs_emit_at(buf, len, "[");
+	for (i = 0; i < 3; i++) {
+		s64 range_val;
+		s32 int_val, rem;
+
+		range_val = iio_val_s64_compose(range[i][0], range[i][1]);
+		int_val = div_s64_rem(range_val, MICRO, &rem);
+
+		if (i)
+			len += sysfs_emit_at(buf, len, " ");
+
+		len += sysfs_emit_at(buf, len, "%d.%06d", int_val, rem);
+	}
+	len += sysfs_emit_at(buf, len, "]\n");
+
+	return len;
+}
+
 static int ads112c14_prepare_measurement_channel(struct ads112c14_data *data,
 						 const struct iio_chan_spec *chan,
 						 bool en_burnout)
@@ -639,8 +864,11 @@ static int ads112c14_prepare_measurement_channel(struct ads112c14_data *data,
 		return ret;
 
 	ret = regmap_update_bits(data->regmap, ADS112C14_REG_DATA_RATE_CFG,
+				 ADS112C14_DATA_RATE_CFG_DELAY |
 				 ADS112C14_DATA_RATE_CFG_GC_EN |
 				 ADS112C14_DATA_RATE_CFG_FLTR_OSR,
+				 FIELD_PREP(ADS112C14_DATA_RATE_CFG_DELAY,
+					    channel_state->delay) |
 				 FIELD_PREP(ADS112C14_DATA_RATE_CFG_GC_EN,
 					    (measurement->global_chop &&
 					     !en_burnout) ? 1 : 0) |
@@ -728,8 +956,11 @@ static int ads112c14_prepare_sys_mon_channel(struct ads112c14_data *data,
 		return ret;
 
 	ret = regmap_update_bits(data->regmap, ADS112C14_REG_DATA_RATE_CFG,
+				 ADS112C14_DATA_RATE_CFG_DELAY |
 				 ADS112C14_DATA_RATE_CFG_GC_EN |
 				 ADS112C14_DATA_RATE_CFG_FLTR_OSR,
+				 FIELD_PREP(ADS112C14_DATA_RATE_CFG_DELAY,
+					    channel_state->delay) |
 				 FIELD_PREP(ADS112C14_DATA_RATE_CFG_GC_EN, 0) |
 				 FIELD_PREP(ADS112C14_DATA_RATE_CFG_FLTR_OSR,
 					    channel_state->filter_osr));
@@ -788,7 +1019,8 @@ static int ads112c14_scan_read(struct ads112c14_data *data, u8 *buf)
 	return 0;
 }
 
-static int ads112c14_wait_for_conversion_irq(struct ads112c14_data *data)
+static int ads112c14_wait_for_conversion_irq(struct ads112c14_data *data,
+					     u32 settle_time_us)
 {
 	unsigned long remaining;
 	int ret;
@@ -800,13 +1032,16 @@ static int ads112c14_wait_for_conversion_irq(struct ads112c14_data *data)
 	if (ret)
 		return ret;
 
+	/* Give it 1ms more than calculated settling time. */
 	remaining = wait_for_completion_timeout(&data->drdy_completion,
-						msecs_to_jiffies(100));
+						usecs_to_jiffies(settle_time_us +
+								 1 * USEC_PER_MSEC));
 
 	return remaining ? 0 : -ETIMEDOUT;
 }
 
-static int ads112c14_wait_for_conversion_poll(struct ads112c14_data *data)
+static int ads112c14_wait_for_conversion_poll(struct ads112c14_data *data,
+					      u32 settle_time_us)
 {
 	u32 reg_val;
 	int ret;
@@ -816,10 +1051,12 @@ static int ads112c14_wait_for_conversion_poll(struct ads112c14_data *data)
 	if (ret)
 		return ret;
 
+	/* Give it 1ms more than calculated settling time. */
 	return regmap_read_poll_timeout(data->regmap,
 					ADS112C14_REG_STATUS_MSB, reg_val,
 					FIELD_GET(ADS112C14_STATUS_MSB_DRDY, reg_val),
-					1 * USEC_PER_MSEC, 100 * USEC_PER_MSEC);
+					1 * USEC_PER_MSEC,
+					settle_time_us + 1 * USEC_PER_MSEC);
 }
 
 static int ads112c14_single_conversion(struct ads112c14_data *data,
@@ -827,6 +1064,8 @@ static int ads112c14_single_conversion(struct ads112c14_data *data,
 				       u8 *buf, bool en_burnout, bool for_scan)
 {
 	struct i2c_client *client = to_i2c_client(regmap_get_device(data->regmap));
+	struct ads112c14_channel_state *channel_state;
+	u32 settle_time_us;
 	int ret;
 
 	guard(mutex)(&data->lock);
@@ -835,10 +1074,26 @@ static int ads112c14_single_conversion(struct ads112c14_data *data,
 	if (ret)
 		return ret;
 
+	channel_state = &data->channel_states[chan->scan_index];
+	ret = ads112c14_get_settling_time_us(data, channel_state,
+					     channel_state->delay,
+					     &settle_time_us);
+	if (ret)
+		return ret;
+
+	ret = regmap_test_bits(data->regmap, ADS112C14_REG_DATA_RATE_CFG,
+			       ADS112C14_DATA_RATE_CFG_GC_EN);
+	if (ret < 0)
+		return ret;
+
+	/* Input chopping doubles the settling time. */
+	if (ret)
+		settle_time_us *= 2;
+
 	if (data->drdy_irq)
-		ret = ads112c14_wait_for_conversion_irq(data);
+		ret = ads112c14_wait_for_conversion_irq(data, settle_time_us);
 	else
-		ret = ads112c14_wait_for_conversion_poll(data);
+		ret = ads112c14_wait_for_conversion_poll(data, settle_time_us);
 	if (ret)
 		return ret;
 
@@ -1604,6 +1859,17 @@ static const struct iio_enum ads112c14_filter_type_enum = {
 };
 
 static const struct iio_chan_spec_ext_info ads112c14_ext_info[] = {
+	{
+		.name = "settlingtime",
+		.read = ads112c14_read_settling_time,
+		.write = ads112c14_write_settling_time,
+		.shared = IIO_SEPARATE,
+	},
+	{
+		.name = "settlingtime_available",
+		.read = ads112c14_read_settling_time_available,
+		.shared = IIO_SEPARATE,
+	},
 	IIO_ENUM("filter_type", IIO_SEPARATE, &ads112c14_filter_type_enum),
 	IIO_ENUM_AVAILABLE("filter_type", IIO_SEPARATE, &ads112c14_filter_type_enum),
 	{ }
@@ -1613,6 +1879,17 @@ static const struct iio_chan_spec_ext_info ads112c14_ext_info_burnout[] = {
 	{
 		.name = "burnoutraw",
 		.read = ads112c14_read_burnout_raw,
+	},
+	{
+		.name = "settlingtime",
+		.read = ads112c14_read_settling_time,
+		.write = ads112c14_write_settling_time,
+		.shared = IIO_SEPARATE,
+	},
+	{
+		.name = "settlingtime_available",
+		.read = ads112c14_read_settling_time_available,
+		.shared = IIO_SEPARATE,
 	},
 	IIO_ENUM("filter_type", IIO_SEPARATE, &ads112c14_filter_type_enum),
 	IIO_ENUM_AVAILABLE("filter_type", IIO_SEPARATE, &ads112c14_filter_type_enum),
@@ -1966,6 +2243,52 @@ static void ads112c14_populate_odr_tables(struct ads112c14_data *data)
 	available[1] = rem;
 }
 
+static void ads112c14_populate_settling_range_tables(struct ads112c14_data *data)
+{
+	s32 (*avail)[2];
+	u32 i, j;
+
+	for (i = 0; i < ARRAY_SIZE(ads112c14_sinc_latency_tmod); i++) {
+		for (j = 0; j < ARRAY_SIZE(ads112c14_fmod_div); j++) {
+			u64 fmod_Hz = data->fclk_Hz / ads112c14_fmod_div[j];
+			u64 start_tmod = ads112c14_sinc_latency_tmod[i][j];
+			u64 step_tmod = ads112c14_delay_to_tmod(1);
+			u64 stop_tmod = start_tmod + ads112c14_delay_to_tmod(ADS112C14_DELAY_MAX);
+			s64 start_us, step_us, stop_us;
+
+			start_us = DIV_ROUND_CLOSEST_ULL(start_tmod * USEC_PER_SEC, fmod_Hz);
+			step_us = DIV_ROUND_CLOSEST_ULL(step_tmod * USEC_PER_SEC, fmod_Hz);
+			stop_us = DIV_ROUND_CLOSEST_ULL(stop_tmod * USEC_PER_SEC, fmod_Hz);
+
+			avail = data->sinc_settling_time_range_available[i][j];
+
+			iio_val_s64_decompose(start_us, &avail[0][0], &avail[0][1]);
+			iio_val_s64_decompose(step_us, &avail[1][0], &avail[1][1]);
+			iio_val_s64_decompose(stop_us, &avail[2][0], &avail[2][1]);
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(ads112c14_fir_latency_tmod); i++) {
+		for (j = 0; j < ARRAY_SIZE(ads112c14_fmod_div); j++) {
+			u64 fmod_Hz = data->fclk_Hz / ads112c14_fmod_div[j];
+			u64 start_tmod = ads112c14_fir_latency_tmod[i][j];
+			u64 step_tmod = ads112c14_delay_to_tmod(1);
+			u64 stop_tmod = start_tmod + ads112c14_delay_to_tmod(ADS112C14_DELAY_MAX);
+			s64 start_us, step_us, stop_us;
+
+			start_us = DIV_ROUND_CLOSEST_ULL(start_tmod * USEC_PER_SEC, fmod_Hz);
+			step_us = DIV_ROUND_CLOSEST_ULL(step_tmod * USEC_PER_SEC, fmod_Hz);
+			stop_us = DIV_ROUND_CLOSEST_ULL(stop_tmod * USEC_PER_SEC, fmod_Hz);
+
+			avail = data->fir_settling_time_range_available[i][j];
+
+			iio_val_s64_decompose(start_us, &avail[0][0], &avail[0][1]);
+			iio_val_s64_decompose(step_us, &avail[1][0], &avail[1][1]);
+			iio_val_s64_decompose(stop_us, &avail[2][0], &avail[2][1]);
+		}
+	}
+}
+
 static void ads112c14_populate_tables(struct ads112c14_data *data)
 {
 	u32 full_scale, fsr_bits;
@@ -2004,6 +2327,7 @@ static void ads112c14_populate_tables(struct ads112c14_data *data)
 	ads112c14_populate_scale_available(data->sys_mon_chan_short_scale_available,
 					   full_scale, fsr_bits);
 	ads112c14_populate_odr_tables(data);
+	ads112c14_populate_settling_range_tables(data);
 }
 
 static int ads112c14_probe(struct i2c_client *client)
