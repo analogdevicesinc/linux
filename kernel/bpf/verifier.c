@@ -11356,6 +11356,11 @@ static bool is_kfunc_destructive(struct bpf_call_arg_meta *meta)
 	return meta->kfunc_flags & KF_DESTRUCTIVE;
 }
 
+static bool is_kfunc_perfmon(struct bpf_call_arg_meta *meta)
+{
+	return meta->kfunc_flags & KF_PERFMON;
+}
+
 static bool is_kfunc_rcu(struct bpf_call_arg_meta *meta)
 {
 	return meta->kfunc_flags & KF_RCU;
@@ -13832,6 +13837,15 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 			env, insn_idx, operation, "destructive kfuncs require CAP_SYS_BOOT",
 			"Load the program with CAP_SYS_BOOT, or avoid destructive kfuncs.");
 		return -EACCES;
+	}
+
+	if (is_kfunc_perfmon(&meta) && !env->allow_ptr_leaks) {
+		verbose(env, "%s is allowed only to CAP_PERFMON and CAP_SYS_ADMIN\n",
+			func_name);
+		operation = bpf_diag_fmt(env, "kfunc %s", func_name);
+		bpf_diag_policy(env, insn_idx, operation, "the kfunc requires CAP_PERFMON",
+				"Load the program with CAP_PERFMON, or avoid the kfunc.");
+		return -EPERM;
 	}
 
 	sleepable = bpf_is_kfunc_sleepable(&meta);
