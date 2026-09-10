@@ -836,7 +836,6 @@ static int __init xbc_parse_array(char **__v)
 			return -ENOMEM;
 		*__v = next;
 	} while (c == ',');
-	node->child = 0;
 
 	return c;
 }
