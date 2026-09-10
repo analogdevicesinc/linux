@@ -77,12 +77,14 @@
 		usb0_phy: usb-phy@0 {
 			compatible = "usb-nop-xceiv";
 			reg = <0>;
+			#phy-cells = <0>;
 			status = "disabled";
 		};
 
 		usb1_phy: usb-phy@1 {
 			compatible = "usb-nop-xceiv";
 			reg = <1>;
+			#phy-cells = <0>;
 			status = "disabled";
 		};
 	};
