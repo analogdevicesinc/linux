@@ -1671,6 +1671,17 @@ void dcn35_abort_cursor_offload_update(struct dmub_srv *dmub, struct dpp *dpp, s
 
 	if (dc->hwss.commit_cursor_offload_update)
 		dc->hwss.commit_cursor_offload_update(dmub, dpp, hubp, stream_idx);
+
+	/*
+	 * The aborted payload is dropped by firmware, so resync the SW cursor
+	 * cache from real hardware state. This lets the next direct
+	 * set_cursor_position re-program CURSOR_ENABLE instead of skipping it
+	 * because of a stale cache.
+	 */
+	if (dpp->funcs->refresh_cursor_state)
+		dpp->funcs->refresh_cursor_state(dpp);
+	if (hubp && hubp->funcs->refresh_cursor_state)
+		hubp->funcs->refresh_cursor_state(hubp);
 }
 
 void dcn35_begin_cursor_offload_update(struct dmub_srv *dmub, struct dpp *dpp, struct hubp *hubp, uint32_t stream_idx)

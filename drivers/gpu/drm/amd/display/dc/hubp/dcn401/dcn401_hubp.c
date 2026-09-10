@@ -862,6 +862,60 @@ void hubp401_cursor_set_position(
 	hubp->cur_rect.y = param->cur_rect_y;
 }
 
+void hubp401_cursor_refresh_state(struct hubp *hubp)
+{
+	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
+	uint32_t enable = 0, x_pos = 0, y_pos = 0, x_hot = 0, y_hot = 0, dst_x_offset = 0;
+	uint32_t addr_high = 0, addr_low = 0, width = 0, height = 0;
+	uint32_t mode = 0, magnify = 0, pitch = 0, lpc = 0;
+	uint32_t dst_y_offset = 0, chunk_hdl_adjust = 0;
+
+	/* Resync the SW cursor cache from real hardware state. */
+
+	/* Position */
+	REG_GET(CURSOR_CONTROL, CURSOR_ENABLE, &enable);
+	REG_GET_2(CURSOR_POSITION,
+		CURSOR_X_POSITION, &x_pos,
+		CURSOR_Y_POSITION, &y_pos);
+	REG_GET_2(CURSOR_HOT_SPOT,
+		CURSOR_HOT_SPOT_X, &x_hot,
+		CURSOR_HOT_SPOT_Y, &y_hot);
+	REG_GET(CURSOR_DST_OFFSET, CURSOR_DST_X_OFFSET, &dst_x_offset);
+
+	hubp->pos.cur_ctl.bits.cur_enable = enable;
+	hubp->pos.position.bits.x_pos = x_pos;
+	hubp->pos.position.bits.y_pos = y_pos;
+	hubp->pos.hot_spot.bits.x_hot = x_hot;
+	hubp->pos.hot_spot.bits.y_hot = y_hot;
+	hubp->pos.dst_offset.bits.dst_x_offset = dst_x_offset;
+
+	/* Attributes */
+	REG_GET(CURSOR_SURFACE_ADDRESS_HIGH, CURSOR_SURFACE_ADDRESS_HIGH, &addr_high);
+	REG_GET(CURSOR_SURFACE_ADDRESS, CURSOR_SURFACE_ADDRESS, &addr_low);
+	REG_GET_2(CURSOR_SIZE,
+		CURSOR_WIDTH, &width,
+		CURSOR_HEIGHT, &height);
+	REG_GET_4(CURSOR_CONTROL,
+		CURSOR_MODE, &mode,
+		CURSOR_2X_MAGNIFY, &magnify,
+		CURSOR_PITCH, &pitch,
+		CURSOR_LINES_PER_CHUNK, &lpc);
+	REG_GET_2(CURSOR_SETTINGS,
+		CURSOR0_DST_Y_OFFSET, &dst_y_offset,
+		CURSOR0_CHUNK_HDL_ADJUST, &chunk_hdl_adjust);
+
+	hubp->att.SURFACE_ADDR_HIGH = addr_high;
+	hubp->att.SURFACE_ADDR = addr_low;
+	hubp->att.size.bits.width = width;
+	hubp->att.size.bits.height = height;
+	hubp->att.cur_ctl.bits.mode = mode;
+	hubp->att.cur_ctl.bits.cur_2x_magnify = magnify;
+	hubp->att.cur_ctl.bits.pitch = pitch;
+	hubp->att.cur_ctl.bits.line_per_chunk = lpc;
+	hubp->att.settings.bits.dst_y_offset = dst_y_offset;
+	hubp->att.settings.bits.chunk_hdl_adjust = chunk_hdl_adjust;
+}
+
 void hubp401_read_state(struct hubp *hubp)
 {
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);

@@ -219,6 +219,8 @@ struct hubp_funcs {
 			const struct dc_cursor_position *pos,
 			const struct dc_cursor_mi_param *param);
 
+	void (*refresh_cursor_state)(struct hubp *hubp);
+
 	void (*hubp_disconnect)(struct hubp *hubp);
 
 	void (*hubp_clk_cntl)(struct hubp *hubp, bool enable);
