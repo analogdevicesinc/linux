@@ -597,7 +597,7 @@ static const char *intel_tpmi_name(enum intel_tpmi_id id)
 	}
 }
 
-/* String Length for tpmi-"feature_name(upto 8 bytes)" */
+/* String Length for tpmi-"feature_name(up to 8 bytes)" */
 #define TPMI_FEATURE_NAME_LEN	14
 
 static int tpmi_create_device(struct intel_tpmi_info *tpmi_info,
