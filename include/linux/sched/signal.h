@@ -80,7 +80,7 @@ struct core_thread {
 
 struct core_state {
 	atomic_t nr_threads;
-	struct core_thread dumper;
+	struct core_thread *tasks;
 	struct completion startup;
 };
 
