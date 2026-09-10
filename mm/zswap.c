@@ -1667,6 +1667,9 @@ void zswap_invalidate(int type, pgoff_t offset, unsigned long nr_entries)
 	struct xarray *tree;
 	unsigned long i;
 
+	if (zswap_never_enabled())
+		return;
+
 	for (i = 0; i < nr_entries; i++) {
 		tree = zswap_tree(type, offset + i);
 
