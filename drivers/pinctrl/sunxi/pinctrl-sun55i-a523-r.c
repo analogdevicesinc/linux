@@ -40,6 +40,7 @@ static int a523_r_pinctrl_probe(struct platform_device *pdev)
 
 static const struct of_device_id a523_r_pinctrl_match[] = {
 	{ .compatible = "allwinner,sun55i-a523-r-pinctrl", },
+	{ .compatible = "allwinner,sun60i-a733-r-pinctrl", },
 	{}
 };
 
