@@ -57,20 +57,21 @@
 
 #define IRQ_PER_BANK		32
 
-#define IRQ_CFG_REG		0x200
+#define IRQ_REGS_OFFSET		0x200
+#define IRQ_CFG_REG_OFFSET	0x00
 #define IRQ_CFG_IRQ_PER_REG		8
 #define IRQ_CFG_IRQ_BITS		4
 #define IRQ_CFG_IRQ_MASK		((1 << IRQ_CFG_IRQ_BITS) - 1)
-#define IRQ_CTRL_REG		0x210
+#define IRQ_CTRL_REG_OFFSET	0x10
 #define IRQ_CTRL_IRQ_PER_REG		32
 #define IRQ_CTRL_IRQ_BITS		1
 #define IRQ_CTRL_IRQ_MASK		((1 << IRQ_CTRL_IRQ_BITS) - 1)
-#define IRQ_STATUS_REG		0x214
+#define IRQ_STATUS_REG_OFFSET	0x14
 #define IRQ_STATUS_IRQ_PER_REG		32
 #define IRQ_STATUS_IRQ_BITS		1
 #define IRQ_STATUS_IRQ_MASK		((1 << IRQ_STATUS_IRQ_BITS) - 1)
 
-#define IRQ_DEBOUNCE_REG	0x218
+#define IRQ_DEBOUNCE_REG_OFFSET	0x18
 
 #define IRQ_MEM_SIZE		0x20
 
@@ -226,7 +227,8 @@ struct sunxi_pinctrl {
 		.irqnum = _irq,					\
 	}
 
-static inline u32 sunxi_irq_hw_bank_num(const struct sunxi_pinctrl_desc *desc, u8 bank)
+static inline u32 sunxi_irq_hw_bank_num(const struct sunxi_pinctrl_desc *desc,
+					u8 bank)
 {
 	if (!desc->irq_bank_map)
 		return bank;
@@ -234,68 +236,77 @@ static inline u32 sunxi_irq_hw_bank_num(const struct sunxi_pinctrl_desc *desc, u
 		return desc->irq_bank_map[bank];
 }
 
-static inline u32 sunxi_irq_cfg_reg(const struct sunxi_pinctrl_desc *desc,
+static inline u32 sunxi_irq_base_reg(const struct sunxi_pinctrl *pctl, u16 bank)
+{
+	return IRQ_REGS_OFFSET +
+	       sunxi_irq_hw_bank_num(pctl->desc, bank) * IRQ_MEM_SIZE;
+}
+
+static inline u32 sunxi_irq_cfg_reg(const struct sunxi_pinctrl *pctl,
 				    u16 irq)
 {
 	u8 bank = irq / IRQ_PER_BANK;
 	u8 reg = (irq % IRQ_PER_BANK) / IRQ_CFG_IRQ_PER_REG * 0x04;
 
-	return IRQ_CFG_REG +
-	       sunxi_irq_hw_bank_num(desc, bank) * IRQ_MEM_SIZE + reg;
+	return sunxi_irq_base_reg(pctl, bank) + IRQ_CFG_REG_OFFSET + reg;
 }
 
 static inline u32 sunxi_irq_cfg_offset(u16 irq)
 {
 	u32 irq_num = irq % IRQ_CFG_IRQ_PER_REG;
+
 	return irq_num * IRQ_CFG_IRQ_BITS;
 }
 
-static inline u32 sunxi_irq_ctrl_reg_from_bank(const struct sunxi_pinctrl_desc *desc, u8 bank)
+static inline u32 sunxi_irq_ctrl_reg_from_bank(const struct sunxi_pinctrl *pctl,
+					       u8 bank)
 {
-	return IRQ_CTRL_REG + sunxi_irq_hw_bank_num(desc, bank) * IRQ_MEM_SIZE;
+	return sunxi_irq_base_reg(pctl, bank) + IRQ_CTRL_REG_OFFSET;
 }
 
-static inline u32 sunxi_irq_ctrl_reg(const struct sunxi_pinctrl_desc *desc,
-				     u16 irq)
+static inline u32 sunxi_irq_ctrl_reg(const struct sunxi_pinctrl *pctl, u16 irq)
 {
 	u8 bank = irq / IRQ_PER_BANK;
 
-	return sunxi_irq_ctrl_reg_from_bank(desc, bank);
+	return sunxi_irq_ctrl_reg_from_bank(pctl, bank);
 }
 
 static inline u32 sunxi_irq_ctrl_offset(u16 irq)
 {
 	u32 irq_num = irq % IRQ_CTRL_IRQ_PER_REG;
+
 	return irq_num * IRQ_CTRL_IRQ_BITS;
 }
 
-static inline u32 sunxi_irq_debounce_reg_from_bank(const struct sunxi_pinctrl_desc *desc, u8 bank)
+static inline
+u32 sunxi_irq_debounce_reg_from_bank(const struct sunxi_pinctrl *pctl, u8 bank)
 {
-	return IRQ_DEBOUNCE_REG +
-	       sunxi_irq_hw_bank_num(desc, bank) * IRQ_MEM_SIZE;
+	return sunxi_irq_base_reg(pctl, bank) + IRQ_DEBOUNCE_REG_OFFSET;
 }
 
-static inline u32 sunxi_irq_status_reg_from_bank(const struct sunxi_pinctrl_desc *desc, u8 bank)
+static inline
+u32 sunxi_irq_status_reg_from_bank(const struct sunxi_pinctrl *pctl, u8 bank)
 {
-	return IRQ_STATUS_REG +
-	       sunxi_irq_hw_bank_num(desc, bank) * IRQ_MEM_SIZE;
+	return sunxi_irq_base_reg(pctl, bank) + IRQ_STATUS_REG_OFFSET;
 }
 
-static inline u32 sunxi_irq_status_reg(const struct sunxi_pinctrl_desc *desc,
+static inline u32 sunxi_irq_status_reg(const struct sunxi_pinctrl *pctl,
 				       u16 irq)
 {
 	u8 bank = irq / IRQ_PER_BANK;
 
-	return sunxi_irq_status_reg_from_bank(desc, bank);
+	return sunxi_irq_status_reg_from_bank(pctl, bank);
 }
 
 static inline u32 sunxi_irq_status_offset(u16 irq)
 {
 	u32 irq_num = irq % IRQ_STATUS_IRQ_PER_REG;
+
 	return irq_num * IRQ_STATUS_IRQ_BITS;
 }
 
-static inline u32 sunxi_grp_config_reg(u16 pin)
+static inline u32 sunxi_grp_config_reg(const struct sunxi_pinctrl *pctl,
+				       u16 pin)
 {
 	u8 bank = pin / PINS_PER_BANK;
 
