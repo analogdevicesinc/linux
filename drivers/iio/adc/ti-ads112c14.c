@@ -76,6 +76,11 @@
 #define   ADS112C14_DEVICE_CFG_PWDN			BIT(7)
 #define   ADS112C14_DEVICE_CFG_STBY_MODE		BIT(6)
 #define   ADS112C14_DEVICE_CFG_BOCS			GENMASK(5, 4)
+#define     ADS112C14_DEVICE_CFG_BOCS_DISABLED		  0
+#define     ADS112C14_DEVICE_CFG_BOCS_200_nA		  1
+#define     ADS112C14_DEVICE_CFG_BOCS_1_uA		  2
+#define     ADS112C14_DEVICE_CFG_BOCS_10_uA		  3
+
 #define   ADS112C14_DEVICE_CFG_CLK_SEL			BIT(3)
 #define   ADS112C14_DEVICE_CFG_CONV_MODE		BIT(2)
 #define     ADS112C14_DEVICE_CFG_CONV_MODE_CONTINUOUS	  0
@@ -251,6 +256,7 @@ struct ads112c14_measurement {
 	u8 idac2_mux;
 	u8 iadc_count;
 	u8 gain_val;
+	u8 burnout;
 	bool global_chop;
 	bool bipolar;
 	int scale_available[ARRAY_SIZE(ads112c14_pga_gains_x10)][2];
@@ -461,7 +467,8 @@ static const struct regmap_config ads112c14_regmap_config = {
 };
 
 static int ads112c14_prepare_measurement_channel(struct ads112c14_data *data,
-						 const struct iio_chan_spec *chan)
+						 const struct iio_chan_spec *chan,
+						 bool en_burnout)
 {
 	struct ads112c14_measurement *measurement = &data->measurements[chan->scan_index];
 	u32 refp_buf_en, refn_buf_en, ref_val, ref_sel;
@@ -515,7 +522,8 @@ static int ads112c14_prepare_measurement_channel(struct ads112c14_data *data,
 	ret = regmap_update_bits(data->regmap, ADS112C14_REG_DATA_RATE_CFG,
 				 ADS112C14_DATA_RATE_CFG_GC_EN,
 				 FIELD_PREP(ADS112C14_DATA_RATE_CFG_GC_EN,
-					    measurement->global_chop));
+					    (measurement->global_chop &&
+					     !en_burnout) ? 1 : 0));
 	if (ret)
 		return ret;
 
@@ -613,10 +621,11 @@ static int ads112c14_prepare_sys_mon_channel(struct ads112c14_data *data,
 }
 
 static int ads112c14_prepare_channel(struct ads112c14_data *data,
-				     const struct iio_chan_spec *chan)
+				     const struct iio_chan_spec *chan,
+				     bool en_burnout)
 {
 	if (chan->channel < ADS112C14_SYS_MON_CHANNEL_BASE)
-		return ads112c14_prepare_measurement_channel(data, chan);
+		return ads112c14_prepare_measurement_channel(data, chan, en_burnout);
 
 	return ads112c14_prepare_sys_mon_channel(data, chan);
 }
@@ -674,14 +683,14 @@ static int ads112c14_wait_for_conversion_poll(struct ads112c14_data *data)
 
 static int ads112c14_single_conversion(struct ads112c14_data *data,
 				       const struct iio_chan_spec *chan,
-				       u8 *buf, bool for_scan)
+				       u8 *buf, bool en_burnout, bool for_scan)
 {
 	struct i2c_client *client = to_i2c_client(regmap_get_device(data->regmap));
 	int ret;
 
 	guard(mutex)(&data->lock);
 
-	ret = ads112c14_prepare_channel(data, chan);
+	ret = ads112c14_prepare_channel(data, chan, en_burnout);
 	if (ret)
 		return ret;
 
@@ -742,7 +751,7 @@ static int ads112c14_read_raw(struct iio_dev *indio_dev,
 		if (IIO_DEV_ACQUIRE_FAILED(claim))
 			return -EBUSY;
 
-		ret = ads112c14_single_conversion(data, chan, buf, false);
+		ret = ads112c14_single_conversion(data, chan, buf, false, false);
 		if (ret)
 			return ret;
 
@@ -1030,7 +1039,7 @@ static irqreturn_t ads112c14_trigger_handler(int irq, void *private)
 
 		ret = ads112c14_single_conversion(data, chan,
 						  (u8 *)&data->scan[offset++],
-						  true);
+						  false, true);
 		if (ret) {
 			dev_err_once(indio_dev->dev.parent,
 				     "failed to read channel %d: %pe; additional errors will be suppressed\n",
@@ -1072,7 +1081,7 @@ static int ads112c14_buffer_postenable(struct iio_dev *indio_dev)
 
 	guard(mutex)(&data->lock);
 
-	ret = ads112c14_prepare_channel(data, chan);
+	ret = ads112c14_prepare_channel(data, chan, false);
 	if (ret)
 		return ret;
 
@@ -1127,6 +1136,74 @@ static const struct iio_buffer_setup_ops ads112c14_buffer_setup_ops = {
 	.predisable = ads112c14_buffer_predisable,
 };
 
+static ssize_t ads112c14_read_burnout_raw(struct iio_dev *indio_dev,
+					  uintptr_t private,
+					  struct iio_chan_spec const *chan,
+					  char *buf)
+{
+	struct ads112c14_data *data = iio_priv(indio_dev);
+	struct ads112c14_measurement *measurement;
+	int ret, ret2, val;
+	u8 raw_buf[3];
+
+	if (chan->channel >= ADS112C14_SYS_MON_CHANNEL_BASE)
+		return -EINVAL;
+
+	measurement = &data->measurements[chan->scan_index];
+	if (!measurement->burnout)
+		return -EINVAL;
+
+	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+	if (IIO_DEV_ACQUIRE_FAILED(claim))
+		return -EBUSY;
+
+	ret = regmap_update_bits(data->regmap, ADS112C14_REG_DEVICE_CFG,
+				 ADS112C14_DEVICE_CFG_BOCS,
+				 FIELD_PREP(ADS112C14_DEVICE_CFG_BOCS,
+					    measurement->burnout));
+	if (ret)
+		return ret;
+
+	ret = ads112c14_single_conversion(data, chan, raw_buf, true, false);
+
+	/*
+	 * Important to always turn off burnout current even if the conversion
+	 * fails so that it does not affect subsequent measurements.
+	 */
+	ret2 = regmap_update_bits(data->regmap, ADS112C14_REG_DEVICE_CFG,
+				  ADS112C14_DEVICE_CFG_BOCS,
+				  FIELD_PREP(ADS112C14_DEVICE_CFG_BOCS,
+					     ADS112C14_DEVICE_CFG_BOCS_DISABLED));
+	if (ret < 0)
+		return ret;
+	if (ret2)
+		return ret2;
+
+	switch (data->chip_info->resolution_bits) {
+	case 16:
+		val = get_unaligned_be16(raw_buf);
+		break;
+	case 24:
+		val = get_unaligned_be24(raw_buf);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (measurement->bipolar)
+		val = sign_extend32(val, data->chip_info->resolution_bits - 1);
+
+	return sysfs_emit(buf, "%d\n", val);
+}
+
+static const struct iio_chan_spec_ext_info ads112c14_ext_info_burnout[] = {
+	{
+		.name = "burnoutraw",
+		.read = ads112c14_read_burnout_raw,
+	},
+	{ }
+};
+
 static int ads112c14_populate_idac_mag(u32 current_nA, u8 *idac_mag)
 {
 	u32 current_uA = current_nA / (NANO / MICRO);
@@ -1172,6 +1249,7 @@ static int ads112c14_parse_channels(struct iio_dev *indio_dev,
 	device_for_each_named_child_node_scoped(dev, child, "channel") {
 		struct ads112c14_measurement *measurement = &data->measurements[i];
 		struct iio_chan_spec *spec = &channels[i];
+		const char *propname;
 
 		spec->indexed = 1;
 		spec->scan_index = i;
@@ -1294,6 +1372,35 @@ static int ads112c14_parse_channels(struct iio_dev *indio_dev,
 		measurement->bipolar = fwnode_property_read_bool(child, "bipolar");
 		measurement->global_chop = fwnode_property_read_bool(child,
 								     "input-chopping");
+
+		propname = "burn-out-current-nanoamp";
+		if (fwnode_property_present(child, propname)) {
+			u32 burnout_nA;
+
+			ret = fwnode_property_read_u32(child, propname, &burnout_nA);
+			if (ret)
+				return dev_err_probe(dev, ret,
+						     "failed to read %s property\n",
+						     propname);
+
+			switch (burnout_nA) {
+			case 200:
+				measurement->burnout = ADS112C14_DEVICE_CFG_BOCS_200_nA;
+				break;
+			case 1000:
+				measurement->burnout = ADS112C14_DEVICE_CFG_BOCS_1_uA;
+				break;
+			case 10000:
+				measurement->burnout = ADS112C14_DEVICE_CFG_BOCS_10_uA;
+				break;
+			default:
+				return dev_err_probe(dev, -EINVAL,
+						     "invalid %s value\n", propname);
+			}
+
+			if (measurement->burnout != ADS112C14_DEVICE_CFG_BOCS_DISABLED)
+				spec->ext_info = ads112c14_ext_info_burnout;
+		}
 
 		if (fwnode_property_present(child, "reference-sources")) {
 			ret = fwnode_property_match_property_string(child,
