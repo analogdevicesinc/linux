@@ -2451,7 +2451,7 @@ static int adv76xx_set_edid(struct v4l2_subdev *sd, struct v4l2_edid *edid)
 	cec_s_phys_addr(state->cec_adap, parent_pa, false);
 
 	/* enable hotplug after 143 ms */
-	schedule_delayed_work(&state->delayed_work_enable_hotplug, HZ / 7);
+	schedule_delayed_work(&state->delayed_work_enable_hotplug, V4L2_SET_EDID_HPD_LOW_JIFFIES);
 	return 0;
 }
 

@@ -760,7 +760,7 @@ static void it6625_disable_hpd(struct it6625 *it6625)
 
 static void it6625_enable_hpd(struct it6625 *it6625)
 {
-	schedule_delayed_work(&it6625->hpd_delayed_work, HZ / 7);
+	schedule_delayed_work(&it6625->hpd_delayed_work, V4L2_SET_EDID_HPD_LOW_JIFFIES);
 }
 
 static void it6625_hpd_delayed_work(struct work_struct *work)
