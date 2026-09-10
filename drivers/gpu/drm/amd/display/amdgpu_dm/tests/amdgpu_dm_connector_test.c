@@ -2735,7 +2735,7 @@ static void dm_test_update_subconnector_dp_with_sink(struct kunit *test)
 
 	update_subconnector_property(aconnector);
 
-	KUNIT_EXPECT_EQ(test, drm_object_property_get_value(&aconnector->base.base,
+	KUNIT_EXPECT_EQ(test, drm_object_property_get_default_value(&aconnector->base.base,
 				aconnector->base.dev->mode_config.dp_subconnector_property,
 				&val), 0);
 	KUNIT_EXPECT_EQ(test, (int)val, (int)DRM_MODE_SUBCONNECTOR_VGA);
@@ -2778,7 +2778,7 @@ static void dm_test_update_subconnector_dp_no_sink(struct kunit *test)
 
 	update_subconnector_property(aconnector);
 
-	KUNIT_EXPECT_EQ(test, drm_object_property_get_value(&aconnector->base.base,
+	KUNIT_EXPECT_EQ(test, drm_object_property_get_default_value(&aconnector->base.base,
 				aconnector->base.dev->mode_config.dp_subconnector_property,
 				&val), 0);
 	KUNIT_EXPECT_EQ(test, (int)val, (int)DRM_MODE_SUBCONNECTOR_Unknown);
@@ -2827,7 +2827,7 @@ static void dm_test_update_subconnector_non_dp_noop(struct kunit *test)
 	update_subconnector_property(aconnector);
 
 	/* Non-DP connector: value must remain what we seeded */
-	KUNIT_EXPECT_EQ(test, drm_object_property_get_value(&aconnector->base.base,
+	KUNIT_EXPECT_EQ(test, drm_object_property_get_default_value(&aconnector->base.base,
 				aconnector->base.dev->mode_config.dp_subconnector_property,
 				&val), 0);
 	KUNIT_EXPECT_EQ(test, (int)val, (int)DRM_MODE_SUBCONNECTOR_VGA);
@@ -3339,7 +3339,7 @@ static uint64_t dm_test_panel_prop_value(struct kunit *test,
 	uint64_t val = ~0ULL;
 
 	KUNIT_EXPECT_EQ(test,
-		drm_object_property_get_value(&ctx->aconnector->base.base,
+		drm_object_property_get_default_value(&ctx->aconnector->base.base,
 			ctx->drm->mode_config.panel_type_property, &val), 0);
 	return val;
 }
@@ -5733,9 +5733,11 @@ static void dm_test_native_mode_copies_preferred(struct kunit *test)
 	mode->clock = 148500;
 	mode->hdisplay = 1920;
 	mode->vdisplay = 1080;
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	drm_mode_probed_add(&ctx->aconnector->base, mode);
 
 	amdgpu_dm_get_native_mode(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	KUNIT_EXPECT_EQ(test, ctx->aenc->native_mode.hdisplay, 1920);
 	KUNIT_EXPECT_EQ(test, ctx->aenc->native_mode.vdisplay, 1080);
@@ -5788,8 +5790,10 @@ static void dm_test_add_common_modes_non_edp_noop(struct kunit *test)
 	ctx->aenc->native_mode.hdisplay = 1920;
 	ctx->aenc->native_mode.vdisplay = 1200;
 
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	amdgpu_dm_connector_add_common_modes(&ctx->aenc->base,
 					     &ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	KUNIT_EXPECT_EQ(test, ctx->aconnector->num_modes, 0);
 }
@@ -5809,8 +5813,10 @@ static void dm_test_add_common_modes_edp_adds(struct kunit *test)
 	ctx->aenc->native_mode.hdisplay = 1920;
 	ctx->aenc->native_mode.vdisplay = 1200;
 
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	amdgpu_dm_connector_add_common_modes(&ctx->aenc->base,
 					     &ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	KUNIT_EXPECT_EQ(test, ctx->aconnector->num_modes, 10);
 }
@@ -5887,12 +5893,18 @@ static struct amdgpu_dm_connector *dm_test_fs_setup(struct kunit *test)
 static void dm_test_add_fs_modes_generates(struct kunit *test)
 {
 	struct amdgpu_dm_connector *aconnector = dm_test_fs_setup(test);
+	unsigned int count, duplicate_count;
 
 	aconnector->min_vfreq = 20;
 	aconnector->max_vfreq = 60;
 
-	KUNIT_EXPECT_EQ(test, (int)add_fs_modes(aconnector), 8);
-	KUNIT_EXPECT_EQ(test, (int)add_fs_modes(aconnector), 0);
+	mutex_lock(&aconnector->base.dev->mode_config.mutex);
+	count = add_fs_modes(aconnector);
+	duplicate_count = add_fs_modes(aconnector);
+	mutex_unlock(&aconnector->base.dev->mode_config.mutex);
+
+	KUNIT_EXPECT_EQ(test, count, 8);
+	KUNIT_EXPECT_EQ(test, duplicate_count, 0);
 }
 
 /**
@@ -8010,9 +8022,13 @@ static void dm_test_get_modes_noedid_default(struct kunit *test)
 {
 	struct dm_test_gm_ctx *ctx =
 		dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	int count;
 
-	KUNIT_EXPECT_GT(test,
-			amdgpu_dm_connector_get_modes(&ctx->aconnector->base), 0);
+	mutex_lock(&ctx->drm->mode_config.mutex);
+	count = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
+
+	KUNIT_EXPECT_GT(test, count, 0);
 }
 
 /**
@@ -8028,10 +8044,12 @@ static void dm_test_get_modes_noedid_128b_adds_more(struct kunit *test)
 		dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
 	int n_8b, n_128b;
 
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	n_8b = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
 
 	ctx->link_srv->dp_get_encoding_format = dm_test_gm_enc_128b;
 	n_128b = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	KUNIT_EXPECT_GT(test, n_128b, n_8b);
 }
@@ -8050,7 +8068,9 @@ static void dm_test_get_modes_noedid_analog_adds_common(struct kunit *test)
 	struct dc_sink *sink;
 	int n_base, n_analog;
 
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	n_base = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	sink = kunit_kzalloc(test, sizeof(*sink), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, sink);
@@ -8058,7 +8078,9 @@ static void dm_test_get_modes_noedid_analog_adds_common(struct kunit *test)
 	ctx->aconnector->dc_sink = sink;
 	ctx->link->link_id.id = CONNECTOR_ID_VGA;
 
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	n_analog = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	KUNIT_EXPECT_GT(test, n_analog, n_base);
 }
@@ -8075,6 +8097,7 @@ static void dm_test_get_modes_with_edid(struct kunit *test)
 	struct dm_test_gm_ctx *ctx =
 		dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_eDP);
 	const struct drm_edid *drm_edid;
+	int count;
 
 	drm_edid = drm_edid_alloc(dm_test_uad_edid, sizeof(dm_test_uad_edid));
 	KUNIT_ASSERT_NOT_NULL(test, drm_edid);
@@ -8084,8 +8107,11 @@ static void dm_test_get_modes_with_edid(struct kunit *test)
 	ctx->aenc->native_mode.hdisplay = 1920;
 	ctx->aenc->native_mode.vdisplay = 1200;
 
-	KUNIT_EXPECT_GT(test,
-			amdgpu_dm_connector_get_modes(&ctx->aconnector->base), 0);
+	mutex_lock(&ctx->drm->mode_config.mutex);
+	count = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
+
+	KUNIT_EXPECT_GT(test, count, 0);
 
 	drm_edid_free(drm_edid);
 	ctx->aconnector->drm_edid = NULL;
@@ -9607,6 +9633,7 @@ static void dm_test_conn_init_get_modes_hook(struct kunit *test)
 		dm_test_conn_init_ctx_alloc(test, SIGNAL_TYPE_HDMI_TYPE_A);
 	const struct drm_connector_helper_funcs *helper;
 	struct drm_connector *connector = &ctx->aconnector->base;
+	int count;
 
 	KUNIT_ASSERT_EQ(test,
 			amdgpu_dm_connector_init(ctx->dm, ctx->aconnector, 0,
@@ -9616,7 +9643,11 @@ static void dm_test_conn_init_get_modes_hook(struct kunit *test)
 	KUNIT_ASSERT_NOT_NULL(test, helper);
 	KUNIT_ASSERT_NOT_NULL(test, helper->get_modes);
 
-	KUNIT_EXPECT_GT(test, helper->get_modes(connector), 0);
+	mutex_lock(&ctx->drm->mode_config.mutex);
+	count = helper->get_modes(connector);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
+
+	KUNIT_EXPECT_GT(test, count, 0);
 	KUNIT_EXPECT_GT(test, ctx->aconnector->num_modes, 0);
 }
 
