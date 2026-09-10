@@ -2,6 +2,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/cleanup.h>
+#include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
@@ -30,6 +31,18 @@
 #define RZT2H_ADANSA0_CH_MASK(x)	BIT(x)
 
 #define RZT2H_ADDR_REG(x)		(0x20 + 0x2 * (x))
+
+#define RZT2H_ADSSTRn(n)		(0xe0 + 0x1 * (n))
+
+/*
+ * Each A/D channel conversion takes a fixed base of 13 ADCLK cycles plus the
+ * sample time programmed in ADSSTRn, giving a conversion rate of
+ * ADCLK / (13 + ADSSTRn).
+ */
+#define RZT2H_ADC_CONV_CYCLES_BASE	13
+#define RZT2H_ADC_SST_MIN		0x7
+#define RZT2H_ADC_SST_MAX		0xff
+#define RZT2H_ADC_SST_DEFAULT		0xb
 
 #define RZT2H_ADCALCTL_REG		0x1f0
 #define RZT2H_ADCALCTL_CAL_MASK		BIT(0)
@@ -79,6 +92,10 @@ struct rzt2h_adc {
 	unsigned int num_channels;
 	u16 buf[RZT2H_ADC_MAX_CHANNELS];
 
+	unsigned long adclk_rate;
+	int samp_freq_avail[3];
+	u8 sst[RZT2H_ADC_MAX_CHANNELS];
+
 	int irq;
 };
 
@@ -109,6 +126,11 @@ static void rzt2h_adc_stop(struct rzt2h_adc *adc)
 	writew(reg, adc->base + RZT2H_ADCSR_REG);
 }
 
+static void rzt2h_adc_set_sst(struct rzt2h_adc *adc, unsigned int ch, u8 sst)
+{
+	writeb(sst, adc->base + RZT2H_ADSSTRn(ch));
+}
+
 static int rzt2h_adc_read_single(struct rzt2h_adc *adc, unsigned int ch, int *val)
 {
 	int ret;
@@ -124,13 +146,18 @@ static int rzt2h_adc_read_single(struct rzt2h_adc *adc, unsigned int ch, int *va
 	/* Enable a single channel */
 	writew(RZT2H_ADANSA0_CH_MASK(ch), adc->base + RZT2H_ADANSA0_REG);
 
+	rzt2h_adc_set_sst(adc, ch, adc->sst[ch]);
+
 	rzt2h_adc_start(adc, RZT2H_ADCSR_ADCS_SINGLE);
 
 	/*
-	 * Datasheet Page 2770, Table 41.1:
-	 * 0.32us per channel when sample-and-hold circuits are not in use.
+	 * Conversion can take up to ~4.3us at the maximum configurable ADSSTRn
+	 * (ADSSTRn + 13 cycles at 62.5 MHz), which rounds up to 1 jiffy. A bare
+	 * 1-jiffy timeout can expire almost immediately if it's armed right
+	 * before a tick, so add one more jiffy to guarantee the conversion time
+	 * actually elapses.
 	 */
-	ret = wait_for_completion_timeout(&adc->completion, usecs_to_jiffies(1));
+	ret = wait_for_completion_timeout(&adc->completion, usecs_to_jiffies(5) + 1);
 	if (!ret) {
 		ret = -ETIMEDOUT;
 		goto disable;
@@ -407,6 +434,7 @@ static int rzt2h_adc_buffer_postenable(struct iio_dev *indio_dev)
 	iio_for_each_active_channel(indio_dev, scan_index) {
 		chan = &indio_dev->channels[scan_index];
 		val |= RZT2H_ADANSA0_CH_MASK(chan->channel);
+		rzt2h_adc_set_sst(adc, chan->channel, adc->sst[chan->channel]);
 	}
 
 	writew(val, adc->base + RZT2H_ADANSA0_REG);
@@ -443,6 +471,23 @@ static int rzt2h_adc_buffer_predisable(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static int rzt2h_adc_sst_to_freq(struct rzt2h_adc *adc, u8 sst)
+{
+	return adc->adclk_rate / (RZT2H_ADC_CONV_CYCLES_BASE + sst);
+}
+
+static u8 rzt2h_adc_freq_to_sst(struct rzt2h_adc *adc, int freq)
+{
+	unsigned int cycles;
+
+	cycles = DIV_ROUND_CLOSEST(adc->adclk_rate, freq);
+	cycles = clamp_val(cycles,
+			   RZT2H_ADC_CONV_CYCLES_BASE + RZT2H_ADC_SST_MIN,
+			   RZT2H_ADC_CONV_CYCLES_BASE + RZT2H_ADC_SST_MAX);
+
+	return cycles - RZT2H_ADC_CONV_CYCLES_BASE;
+}
+
 static int rzt2h_adc_read_raw(struct iio_dev *indio_dev,
 			      struct iio_chan_spec const *chan,
 			      int *val, int *val2, long mask)
@@ -461,6 +506,51 @@ static int rzt2h_adc_read_raw(struct iio_dev *indio_dev,
 		*val = 1800;
 		*val2 = 12;
 		return IIO_VAL_FRACTIONAL_LOG2;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val = rzt2h_adc_sst_to_freq(adc, adc->sst[chan->channel]);
+		return IIO_VAL_INT;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int rzt2h_adc_write_raw(struct iio_dev *indio_dev,
+			       struct iio_chan_spec const *chan,
+			       int val, int val2, long mask)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		if (val <= 0)
+			return -EINVAL;
+
+		IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+		if (IIO_DEV_ACQUIRE_FAILED(claim))
+			return -EBUSY;
+
+		adc->sst[chan->channel] = rzt2h_adc_freq_to_sst(adc, val);
+
+		return 0;
+	}
+	default:
+		return -EINVAL;
+	}
+}
+
+static int rzt2h_adc_read_avail(struct iio_dev *indio_dev,
+				struct iio_chan_spec const *chan,
+				const int **vals, int *type, int *length,
+				long mask)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*vals = adc->samp_freq_avail;
+		*type = IIO_VAL_INT;
+		*length = ARRAY_SIZE(adc->samp_freq_avail);
+		return IIO_AVAIL_RANGE;
 	default:
 		return -EINVAL;
 	}
@@ -473,6 +563,8 @@ static const struct iio_buffer_setup_ops rzt2h_adc_buffer_setup_ops = {
 
 static const struct iio_info rzt2h_adc_iio_info = {
 	.read_raw = rzt2h_adc_read_raw,
+	.write_raw = rzt2h_adc_write_raw,
+	.read_avail = rzt2h_adc_read_avail,
 };
 
 static irqreturn_t rzt2h_adc_isr(int irq, void *private)
@@ -487,7 +579,9 @@ static irqreturn_t rzt2h_adc_isr(int irq, void *private)
 static const struct iio_chan_spec rzt2h_adc_chan_template = {
 	.indexed = 1,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-			      BIT(IIO_CHAN_INFO_SCALE),
+			      BIT(IIO_CHAN_INFO_SCALE) |
+			      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.type = IIO_VOLTAGE,
 	.scan_type = {
 		.sign = 'u',
@@ -512,8 +606,11 @@ static int rzt2h_adc_parse_properties(struct rzt2h_adc *adc)
 	adc->num_channels = ret;
 	adc->channels = chan_array;
 
-	for (unsigned int i = 0; i < adc->num_channels; i++)
+	for (unsigned int i = 0; i < adc->num_channels; i++) {
+		adc->sst[chan_array[i].channel] = RZT2H_ADC_SST_DEFAULT;
+
 		chan_array[i].scan_index = i;
+	}
 
 	return 0;
 }
@@ -565,6 +662,7 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	struct rzt2h_adc *adc;
 	struct resource *res;
+	struct clk *adclk;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*adc));
@@ -591,6 +689,18 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 		return PTR_ERR(adc->base);
 
 	adc->phys_base = res->start;
+
+	adclk = devm_clk_get(dev, "adclk");
+	if (IS_ERR(adclk))
+		return dev_err_probe(dev, PTR_ERR(adclk), "failed to get adclk\n");
+
+	adc->adclk_rate = clk_get_rate(adclk);
+	if (!adc->adclk_rate)
+		return dev_err_probe(dev, -EINVAL, "invalid adclk rate\n");
+
+	adc->samp_freq_avail[0] = rzt2h_adc_sst_to_freq(adc, RZT2H_ADC_SST_MAX);
+	adc->samp_freq_avail[1] = 1;
+	adc->samp_freq_avail[2] = rzt2h_adc_sst_to_freq(adc, RZT2H_ADC_SST_MIN);
 
 	pm_runtime_set_autosuspend_delay(dev, 300);
 	pm_runtime_use_autosuspend(dev);
