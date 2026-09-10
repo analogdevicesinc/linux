@@ -36,6 +36,7 @@ struct rzt2h_adc {
 	void __iomem *base;
 	struct device *dev;
 
+	phys_addr_t phys_base;
 	struct completion completion;
 	/* lock to protect against multiple access to the device */
 	struct mutex lock;
@@ -211,6 +212,7 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct iio_dev *indio_dev;
 	struct rzt2h_adc *adc;
+	struct resource *res;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*adc));
@@ -231,9 +233,11 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	adc->base = devm_platform_ioremap_resource(pdev, 0);
+	adc->base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
 	if (IS_ERR(adc->base))
 		return PTR_ERR(adc->base);
+
+	adc->phys_base = res->start;
 
 	pm_runtime_set_autosuspend_delay(dev, 300);
 	pm_runtime_use_autosuspend(dev);
