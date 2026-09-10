@@ -480,6 +480,9 @@ static void dm_test_crtc_list_del(void *data)
 {
 	struct amdgpu_crtc *acrtc = data;
 
+	if (acrtc->base.dev && drm_dev_has_vblank(acrtc->base.dev))
+		drm_crtc_vblank_off(&acrtc->base);
+
 	list_del_init(&acrtc->base.head);
 }
 
