@@ -42,6 +42,8 @@ struct rzt2h_adc {
 
 	const struct iio_chan_spec *channels;
 	unsigned int num_channels;
+
+	int irq;
 };
 
 static void rzt2h_adc_start(struct rzt2h_adc *adc, unsigned int conversion_type)
@@ -209,7 +211,7 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct iio_dev *indio_dev;
 	struct rzt2h_adc *adc;
-	int ret, irq;
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*adc));
 	if (!indio_dev)
@@ -239,11 +241,11 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	irq = platform_get_irq_byname(pdev, "adi");
-	if (irq < 0)
-		return irq;
+	adc->irq = platform_get_irq_byname(pdev, "adi");
+	if (adc->irq < 0)
+		return adc->irq;
 
-	ret = devm_request_irq(dev, irq, rzt2h_adc_isr, 0, dev_name(dev), adc);
+	ret = devm_request_irq(dev, adc->irq, rzt2h_adc_isr, 0, dev_name(dev), adc);
 	if (ret)
 		return ret;
 
