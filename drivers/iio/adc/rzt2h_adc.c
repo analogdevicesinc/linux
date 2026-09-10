@@ -158,8 +158,13 @@ static int rzt2h_adc_read_raw(struct iio_dev *indio_dev,
 	struct rzt2h_adc *adc = iio_priv(indio_dev);
 
 	switch (mask) {
-	case IIO_CHAN_INFO_RAW:
+	case IIO_CHAN_INFO_RAW: {
+		IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+		if (IIO_DEV_ACQUIRE_FAILED(claim))
+			return -EBUSY;
+
 		return rzt2h_adc_read_single(adc, chan->channel, val);
+	}
 	case IIO_CHAN_INFO_SCALE:
 		*val = 1800;
 		*val2 = 12;
