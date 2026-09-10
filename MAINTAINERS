@@ -18372,6 +18372,11 @@ F:	scripts/module*
 F:	tools/testing/selftests/kmod/
 F:	tools/testing/selftests/module/
 
+MONOLITHIC POWER SYSTEM MPQ4210 REGULATOR DRIVER
+M:	Tapio Reijonen <tapio.reijonen@vaisala.com>
+S:	Maintained
+F:	Documentation/devicetree/bindings/regulator/mps,mpq4210.yaml
+
 MONOLITHIC POWER SYSTEM PMIC DRIVER
 M:	Saravanan Sekar <sravanhome@gmail.com>
 S:	Maintained
