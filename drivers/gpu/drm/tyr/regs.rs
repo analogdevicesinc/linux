@@ -1802,7 +1802,10 @@ pub(crate) mod doorbell_block {
     use crate::driver::TyrRegisters;
 
     /// Number of doorbells available.
-    pub(crate) const NUM_DOORBELLS: usize = 64;
+    /// The architectural maximum is 64 but this full array does not
+    /// fit in the 2 MiB iomem region. Panthor currently uses a maximum of
+    /// 17 doorbells so do the same here.
+    pub(crate) const NUM_DOORBELLS: usize = 17;
 
     /// Doorbell block stride (64KiB).
     ///
