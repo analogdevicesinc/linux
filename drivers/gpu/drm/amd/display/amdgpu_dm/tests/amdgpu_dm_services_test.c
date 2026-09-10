@@ -337,7 +337,7 @@ static int dm_test_gpu_mem_init(struct kunit *test)
 {
 	void *cpu_ptr;
 
-	cpu_ptr = kunit_kzalloc(test, sizeof(*cpu_ptr), GFP_KERNEL);
+	cpu_ptr = kunit_kzalloc(test, sizeof(cpu_ptr), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, cpu_ptr);
 
 	dm_test_bo_ctx = (struct dm_test_bo_ops_ctx) {

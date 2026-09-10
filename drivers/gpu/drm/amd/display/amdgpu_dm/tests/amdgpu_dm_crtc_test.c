@@ -42,10 +42,10 @@ static void dm_test_crtc_modeset_required_active_mode_changed(struct kunit *test
 }
 
 /**
- * dm_test_crtc_modeset_required_active_active_changed - Test Crtc modeset required active active changed
+ * dm_test_crtc_modeset_required_active_state_changed - Test modeset required when the active state changes
  * @test: The KUnit test context
  */
-static void dm_test_crtc_modeset_required_active_active_changed(struct kunit *test)
+static void dm_test_crtc_modeset_required_active_state_changed(struct kunit *test)
 {
 	struct drm_crtc_state state = {};
 
@@ -2621,7 +2621,7 @@ static void dm_test_crtc_atomic_check_invalid_stream_fails(struct kunit *test)
 static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	/* amdgpu_dm_crtc_modeset_required */
 	KUNIT_CASE(dm_test_crtc_modeset_required_active_mode_changed),
-	KUNIT_CASE(dm_test_crtc_modeset_required_active_active_changed),
+	KUNIT_CASE(dm_test_crtc_modeset_required_active_state_changed),
 	KUNIT_CASE(dm_test_crtc_modeset_required_active_connectors_changed),
 	KUNIT_CASE(dm_test_crtc_modeset_required_inactive),
 	KUNIT_CASE(dm_test_crtc_modeset_required_no_changes),

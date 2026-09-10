@@ -2448,7 +2448,7 @@ static void dm_test_plane_destroy_state_releases_resources(struct kunit *test)
 	KUNIT_ASSERT_NOT_NULL(test, dc_plane_state);
 
 	/* destroy_state frees the state itself, so use a plain allocation. */
-	dm_plane_state = kzalloc(sizeof(*dm_plane_state), GFP_KERNEL);
+	dm_plane_state = kzalloc_obj(*dm_plane_state, GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, dm_plane_state);
 
 	/* Hold an extra reference so the release does not free KUnit memory. */
