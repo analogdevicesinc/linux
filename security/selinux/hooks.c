@@ -3866,7 +3866,7 @@ static int selinux_backing_file_alloc(struct file *backing_file,
  * operation to an inode.
  */
 static int ioctl_has_perm(const struct cred *cred, struct file *file,
-		u32 requested, u16 cmd)
+		u32 requested, unsigned int cmd)
 {
 	struct common_audit_data ad;
 	struct file_security_struct *fsec = selinux_file(file);
@@ -3937,14 +3937,14 @@ static int selinux_file_ioctl(struct file *file, unsigned int cmd,
 	case FIOCLEX:
 	case FIONCLEX:
 		if (!selinux_policycap_ioctl_skip_cloexec())
-			error = ioctl_has_perm(cred, file, FILE__IOCTL, (u16) cmd);
+			error = ioctl_has_perm(cred, file, FILE__IOCTL, cmd);
 		break;
 
 	/* default case assumes that the command will go
 	 * to the file's ioctl() function.
 	 */
 	default:
-		error = ioctl_has_perm(cred, file, FILE__IOCTL, (u16) cmd);
+		error = ioctl_has_perm(cred, file, FILE__IOCTL, cmd);
 	}
 	return error;
 }

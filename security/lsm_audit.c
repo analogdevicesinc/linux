@@ -231,7 +231,7 @@ void audit_log_lsm_data(struct audit_buffer *ab,
 			audit_log_format(ab, " ino=%llu", inode->i_ino);
 		}
 
-		audit_log_format(ab, " ioctlcmd=0x%hx", a->u.op->cmd);
+		audit_log_format(ab, " ioctlcmd=0x%x", a->u.op->cmd);
 		break;
 	}
 	case LSM_AUDIT_DATA_DENTRY: {
