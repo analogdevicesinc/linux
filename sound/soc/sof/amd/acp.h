@@ -128,6 +128,9 @@
 /* ACPI _DSD acp-audio-ep-port values for PDM controller selection */
 #define ACP_DEV_PORT_PDM			4
 #define ACP_DEV_PORT_PDM2			5
+#define SDW_ACPI_ADDR_ACP7X			SDW_ACPI_ADDR_ACP63
+#define ACP7X_SDW_MAX_MANAGER_COUNT		4
+
 /* ACPI child device address for the ACP7x PDM/DMIC device */
 #define ACP7X_DMIC_ADDR				2
 /* ACP7X PDM controller selection values for acp_dev_data.pdm_sel; 0 = not set */
