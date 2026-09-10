@@ -7288,14 +7288,14 @@ static void skl_commit_modeset_enables(struct intel_atomic_state *state)
 	drm_WARN_ON(display->drm, update_pipes);
 }
 
-static void intel_atomic_commit_fence_wait(struct intel_atomic_state *intel_state)
+static void intel_atomic_commit_fence_wait(struct intel_atomic_state *state)
 {
 	struct drm_plane *plane;
 	struct drm_plane_state *new_plane_state;
 	long ret;
 	int i;
 
-	for_each_new_plane_in_state(&intel_state->base, plane, new_plane_state, i) {
+	for_each_new_plane_in_state(&state->base, plane, new_plane_state, i) {
 		if (new_plane_state->fence) {
 			ret = dma_fence_wait(new_plane_state->fence, false);
 			if (ret < 0)
