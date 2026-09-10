@@ -50,7 +50,6 @@
 #include "g4x_dp.h"
 #include "g4x_hdmi.h"
 #include "hsw_ips.h"
-#include "i915_config.h"
 #include "i9xx_plane.h"
 #include "i9xx_plane_regs.h"
 #include "i9xx_wm.h"
@@ -7298,9 +7297,8 @@ static void intel_atomic_commit_fence_wait(struct intel_atomic_state *intel_stat
 
 	for_each_new_plane_in_state(&intel_state->base, plane, new_plane_state, i) {
 		if (new_plane_state->fence) {
-			ret = dma_fence_wait_timeout(new_plane_state->fence, false,
-						     i915_fence_timeout());
-			if (ret <= 0)
+			ret = dma_fence_wait(new_plane_state->fence, false);
+			if (ret < 0)
 				break;
 
 			dma_fence_put(new_plane_state->fence);
