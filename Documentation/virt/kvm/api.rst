@@ -117,7 +117,7 @@ description:
       x86 includes both i386 and x86_64.
 
   Type:
-      system, vm, or vcpu.
+      system, vm, vcpu or guest_memfd.
 
   Parameters:
       what parameters are accepted by the ioctl.
@@ -6385,7 +6385,9 @@ When mapping a gfn into the guest, guest faults are always serviced from
 guest_memfd regardless of whether memory is shared or private.  KVM determines
 shared vs. private based on the state in guest_memfd, which is the sole
 authority on private vs. shared memory.  See :ref:`KVM_CREATE_GUEST_MEMFD` to
-find out more about the creation-time shared/private status.
+find out more about the creation-time shared/private status.  Userspace can
+control whether memory is shared/private by toggling
+KVM_MEMORY_ATTRIBUTE_PRIVATE via :ref:`KVM_SET_MEMORY_ATTRIBUTES2` as needed.
 
 userspace_addr is expected to be the mmap()-ed address corresponding to the
 right offset within the guest_memfd. Any mismatch between userspace_addr and
@@ -6403,6 +6405,8 @@ S390:
 
 Returns -EINVAL if the VM has the KVM_VM_S390_UCONTROL flag set.
 Returns -EINVAL if called on a protected VM.
+
+.. _KVM_SET_MEMORY_ATTRIBUTES:
 
 4.141 KVM_SET_MEMORY_ATTRIBUTES
 -------------------------------
@@ -6439,6 +6443,8 @@ Note, there is no "get" API.  Userspace is responsible for explicitly tracking
 the state of a gfn/page as needed.
 
 The "flags" field is reserved for future extensions and must be '0'.
+
+See also: :ref:`KVM_SET_MEMORY_ATTRIBUTES2`.
 
 .. _KVM_CREATE_GUEST_MEMFD:
 
@@ -6675,6 +6681,67 @@ significant bit):
 
    Userspace should use the defined constants from ``<linux/kvm.h>`` rather
    than hardcoding bit positions.
+
+.. _KVM_SET_MEMORY_ATTRIBUTES2:
+
+4.146 KVM_SET_MEMORY_ATTRIBUTES2
+---------------------------------
+
+:Capability: KVM_CAP_GUEST_MEMFD_MEMORY_ATTRIBUTES
+:Architectures: all
+:Type: guest_memfd ioctl
+:Parameters: struct kvm_memory_attributes2 (in)
+:Returns: 0 on success, <0 on error
+
+Errors:
+
+  ========== ===============================================================
+  EINVAL     The specified `offset` or `size` was invalid (e.g. not
+             page aligned, causes an overflow, or size is zero).
+  EFAULT     The parameter address was invalid.
+  ENOMEM     Ran out of memory trying to track private/shared state
+  ========== ===============================================================
+
+KVM_SET_MEMORY_ATTRIBUTES2 is an extension to
+KVM_SET_MEMORY_ATTRIBUTES that supports returning (writing) values to
+userspace.  The original (pre-extension) fields are shared with
+KVM_SET_MEMORY_ATTRIBUTES identically.
+
+Attribute values are shared with KVM_SET_MEMORY_ATTRIBUTES.
+
+::
+
+  struct kvm_memory_attributes2 {
+	union {
+		__u64 address;
+		__u64 offset;
+	};
+	__u64 size;
+	__u64 attributes;
+	__u64 flags;
+	__u64 reserved[12];
+  };
+
+  #define KVM_MEMORY_ATTRIBUTE_PRIVATE           (1ULL << 3)
+
+Set attributes for a range of offsets within a guest_memfd to
+KVM_MEMORY_ATTRIBUTE_PRIVATE to limit the specified guest_memfd backed
+memory range for guest use. Even if KVM_CAP_GUEST_MEMFD_MMAP is
+supported, after a successful call to set
+KVM_MEMORY_ATTRIBUTE_PRIVATE, the requested range will not be mappable
+into host userspace and will only be mappable by the guest.
+
+To allow the range to be mappable into host userspace again, call
+KVM_SET_MEMORY_ATTRIBUTES2 on the guest_memfd again with
+KVM_MEMORY_ATTRIBUTE_PRIVATE unset.
+
+KVM does not directly manipulate the memory contents of pages during
+attribute updates. However, the process of setting these attributes,
+which includes operations such as unmapping pages from the host or
+stage-2 page tables, may result in side effects on memory contents
+that vary across different trusted firmware implementations.
+
+See also: :ref:`KVM_SET_MEMORY_ATTRIBUTES`.
 
 .. _kvm_run:
 
