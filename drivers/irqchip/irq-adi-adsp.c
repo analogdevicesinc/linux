@@ -242,7 +242,6 @@ static int adsp_pint_irq_set_type(struct irq_data *d, unsigned int type)
 static int adsp_pint_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
 	struct adsp_pint *pint;
 	struct resource *res;
 
@@ -266,8 +265,8 @@ static int adsp_pint_probe(struct platform_device *pdev)
 
 	// @todo determine if we actually need a raw spinlock
 
-	pint->domain = irq_domain_add_linear(np, ADSP_PINT_IRQS,
-		&adsp_irq_domain_ops, pint);
+	pint->domain = irq_domain_create_linear(dev_fwnode(&pdev->dev), ADSP_PINT_IRQS,
+						&adsp_irq_domain_ops, pint);
 	if (!pint->domain) {
 		dev_err(dev, "Could not create irq domain\n");
 		return -EINVAL;
