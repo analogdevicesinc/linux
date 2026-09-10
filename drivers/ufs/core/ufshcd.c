@@ -1681,11 +1681,6 @@ static int ufshcd_devfreq_get_dev_status(struct device *dev,
 	if (!scaling->window_start_t)
 		goto start_window;
 
-	/*
-	 * If current frequency is 0, then the ondemand governor considers
-	 * there's no initial frequency set. And it always requests to set
-	 * to max. frequency.
-	 */
 	if (hba->use_pm_opp) {
 		stat->current_frequency = hba->clk_scaling.target_freq;
 	} else {
@@ -1716,6 +1711,26 @@ start_window:
 	return 0;
 }
 
+static int ufshcd_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	if (!ufshcd_is_clkscaling_supported(hba))
+		return -EINVAL;
+
+	if (hba->use_pm_opp) {
+		*freq = hba->clk_scaling.target_freq;
+	} else {
+		struct ufs_clk_info *clki;
+
+		clki = list_first_entry(&hba->clk_list_head,
+					struct ufs_clk_info, list);
+		*freq = clki->curr_freq;
+	}
+
+	return 0;
+}
+
 static int ufshcd_devfreq_init(struct ufs_hba *hba)
 {
 	struct list_head *clk_list = &hba->clk_list_head;
@@ -1727,11 +1742,20 @@ static int ufshcd_devfreq_init(struct ufs_hba *hba)
 	if (list_empty(clk_list))
 		return 0;
 
+	clki = list_first_entry(clk_list, struct ufs_clk_info, list);
+
 	if (!hba->use_pm_opp) {
-		clki = list_first_entry(clk_list, struct ufs_clk_info, list);
 		dev_pm_opp_add(hba->dev, clki->min_freq, 0);
 		dev_pm_opp_add(hba->dev, clki->max_freq, 0);
 	}
+
+	/*
+	 * ufshcd_init_clocks() has already set the clocks to the highest
+	 * frequency, and nothing has changed them since. Save that frequency,
+	 * so that devfreq and the clock scaling code know where we start.
+	 */
+	hba->clk_scaling.target_freq = clki->max_freq;
+	hba->vps->devfreq_profile.initial_freq = clki->max_freq;
 
 	ufshcd_vops_config_scaling_param(hba, &hba->vps->devfreq_profile,
 					 &hba->vps->ondemand_data);
@@ -9612,6 +9636,7 @@ static struct ufs_hba_variant_params ufs_hba_vps = {
 	.devfreq_profile.polling_ms	= 100,
 	.devfreq_profile.target		= ufshcd_devfreq_target,
 	.devfreq_profile.get_dev_status	= ufshcd_devfreq_get_dev_status,
+	.devfreq_profile.get_cur_freq	= ufshcd_devfreq_get_cur_freq,
 	.ondemand_data.upthreshold	= 70,
 	.ondemand_data.downdifferential	= 5,
 };
