@@ -36,6 +36,7 @@ enum debugfs_cmd {
 	DBGFS_BIST_FRAMER_0_PRBS,
 	DBGFS_BIST_FRAMER_LOOPBACK,
 	DBGFS_BIST_TONE,
+	DBGFS_RX_DATA_CAPTURE,
 };
 
 enum adrv904x_rx_ext_info {
@@ -136,6 +137,10 @@ struct adrv904x_rf_phy {
 	u32 tracking_cal_mask;
 
 	bool is_initialized;
+
+	/* RX/ORx data capture storage */
+	u32 *rx_capture_data;
+	u32 rx_capture_len;
 };
 
 int __adrv904x_dev_err(struct adrv904x_rf_phy *phy, const char *function, int line);
@@ -157,5 +162,7 @@ void adrv904x_register_debugfs(struct iio_dev *indio_dev);
 #else
 static inline void adrv904x_register_debugfs(struct iio_dev *indio_dev) {}
 #endif
+
+int adrv904x_ramc_probe(struct adrv904x_rf_phy *phy);
 
 #endif

@@ -2116,6 +2116,13 @@ static const struct jesd204_dev_data jesd204_adrv904x_init = {
 	.sizeof_priv = sizeof(struct adrv904x_jesd204_priv),
 };
 
+static void adrv904x_free_capture_data(void *data)
+{
+	struct adrv904x_rf_phy *phy = data;
+
+	kfree(phy->rx_capture_data);
+}
+
 static int adrv904x_probe(struct spi_device *spi)
 {
 	adi_adrv904x_ExtractInitDataOutput_e checkExtractInitData =
@@ -2348,6 +2355,14 @@ static int adrv904x_probe(struct spi_device *spi)
 		return ret;
 
 	adrv904x_register_debugfs(indio_dev);
+
+	ret = devm_add_action_or_reset(&spi->dev, adrv904x_free_capture_data, phy);
+	if (ret)
+		return ret;
+
+	ret = adrv904x_ramc_probe(phy);
+	if (ret < 0)
+		return ret;
 
 	adi_adrv904x_HwClose(phy->kororDevice);
 
