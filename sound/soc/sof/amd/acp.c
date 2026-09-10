@@ -779,15 +779,30 @@ static int acp_init(struct snd_sof_dev *sdev)
 static bool check_acp_sdw_enable_status(struct snd_sof_dev *sdev)
 {
 	struct acp_dev_data *acp_data;
-	u32 sdw0_en, sdw1_en;
+	u32 sdw0_en, sdw1_en, sdw2_en, sdw3_en;
 
 	acp_data = sdev->pdata->hw_pdata;
 	if (!acp_data->sdw)
 		return false;
 
-	sdw0_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP_SW0_EN);
-	sdw1_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP_SW1_EN);
-	acp_data->sdw_en_stat = sdw0_en || sdw1_en;
+	switch (acp_data->pci_rev) {
+	case ACP63_PCI_ID:
+	case ACP70_PCI_ID:
+	case ACP71_PCI_ID:
+	case ACP72_PCI_ID:
+		sdw0_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP_SW0_EN);
+		sdw1_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP_SW1_EN);
+		acp_data->sdw_en_stat = sdw0_en || sdw1_en;
+		break;
+	case ACP7B_PCI_ID:
+	case ACP7F_PCI_ID:
+		sdw0_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP7X_SW_EN + (0 * 0x2000));
+		sdw1_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP7X_SW_EN + (1 * 0x2000));
+		sdw2_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP7X_SW_EN + (2 * 0x2000));
+		sdw3_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP7X_SW_EN + (3 * 0x2000));
+		acp_data->sdw_en_stat = sdw0_en || sdw1_en || sdw2_en || sdw3_en;
+		break;
+	}
 	return acp_data->sdw_en_stat;
 }
 

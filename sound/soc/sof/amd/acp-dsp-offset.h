@@ -156,5 +156,7 @@
 #define ACP7X_IDMA_ERROR_MASK			0x1FF9FF
 #define ACP7X_ZSC_DSP_CTRL			0x001014
 #define ACP7X_PME_EN				ACP70_PME_EN
+/* SW enable base for SDW0; manager N uses ACP7X_SW_EN + (N * 0x2000) */
+#define ACP7X_SW_EN				0x5200
 
 #endif
