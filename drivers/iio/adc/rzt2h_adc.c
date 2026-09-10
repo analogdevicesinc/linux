@@ -4,11 +4,16 @@
 #include <linux/cleanup.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmaengine.h>
 #include <linux/iio/adc-helpers.h>
+#include <linux/iio/buffer.h>
 #include <linux/iio/iio.h>
+#include <linux/iio/kfifo_buf.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -18,6 +23,7 @@
 #define RZT2H_ADCSR_ADIE_MASK		BIT(12)
 #define RZT2H_ADCSR_ADCS_MASK		GENMASK(14, 13)
 #define RZT2H_ADCSR_ADCS_SINGLE		0b00
+#define RZT2H_ADCSR_ADCS_CONTINUOUS	0b10
 #define RZT2H_ADCSR_ADST_MASK		BIT(15)
 
 #define RZT2H_ADANSA0_REG		0x04
@@ -31,18 +37,47 @@
 #define RZT2H_ADCALCTL_CAL_ERR_MASK	BIT(2)
 
 #define RZT2H_ADC_MAX_CHANNELS		16
+#define RZT2H_ADC_CHANNEL_BYTES		sizeof(u16)
+#define RZT2H_ADC_DMA_PERIOD_SAMPLES	128
+#define RZT2H_ADC_DMA_PERIODS		64
+#define RZT2H_ADC_DMA_BUFFER_SAMPLES	(RZT2H_ADC_DMA_PERIODS * \
+					 RZT2H_ADC_DMA_PERIOD_SAMPLES)
+#define RZT2H_ADC_DMA_BUFFER_SIZE	(RZT2H_ADC_DMA_BUFFER_SAMPLES * \
+					 RZT2H_ADC_MAX_CHANNELS * \
+					 RZT2H_ADC_CHANNEL_BYTES)
+
+struct rzt2h_adc_dma {
+	struct dma_chan *chan;
+	u16 *buf;
+	dma_addr_t addr;
+
+	unsigned int period_index;
+	unsigned int period_bytes;
+	unsigned int first_chan;
+	unsigned int sample_chans;
+
+	u8 gather[RZT2H_ADC_MAX_CHANNELS];
+	unsigned int gather_len;
+
+	atomic_t pending_periods;
+
+	wait_queue_head_t wq;
+	struct task_struct *thread;
+};
 
 struct rzt2h_adc {
 	void __iomem *base;
 	struct device *dev;
 
 	phys_addr_t phys_base;
+	struct rzt2h_adc_dma dma;
 	struct completion completion;
 	/* lock to protect against multiple access to the device */
 	struct mutex lock;
 
 	const struct iio_chan_spec *channels;
 	unsigned int num_channels;
+	u16 buf[RZT2H_ADC_MAX_CHANNELS];
 
 	int irq;
 };
@@ -151,6 +186,263 @@ static int rzt2h_adc_calibrate(struct rzt2h_adc *adc)
 	return 0;
 }
 
+static void rzt2h_adc_push_period(struct iio_dev *indio_dev, u16 *period,
+				  dma_addr_t addr)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+	u16 *dst = adc->buf;
+	u16 *src = period;
+
+	dma_sync_single_for_cpu(adc->dev, addr, adc->dma.period_bytes,
+				DMA_FROM_DEVICE);
+
+	for (unsigned int sample = 0; sample < RZT2H_ADC_DMA_PERIOD_SAMPLES; sample++) {
+		for (unsigned int i = 0; i < adc->dma.gather_len; i++)
+			dst[i] = src[adc->dma.gather[i]];
+
+		src += adc->dma.sample_chans;
+
+		iio_push_to_buffers(indio_dev, adc->buf);
+	}
+}
+
+static void rzt2h_adc_advance_period_index(struct rzt2h_adc *adc, unsigned int i)
+{
+	adc->dma.period_index += i;
+	adc->dma.period_index %= RZT2H_ADC_DMA_PERIODS;
+}
+
+static void rzt2h_adc_dma_thread_loop(struct iio_dev *indio_dev)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+	int pending, drop;
+	dma_addr_t addr;
+	u16 *period;
+
+	pending = atomic_xchg(&adc->dma.pending_periods, 0);
+
+	if (pending >= RZT2H_ADC_DMA_PERIODS) {
+		/*
+		 * The consumer fell a full buffer behind and the oldest periods
+		 * have already been overwritten by the cyclic DMA transfer.
+		 * Drop them and jump straight to the oldest period that has
+		 * not been overwritten.
+		 */
+		drop = pending - RZT2H_ADC_DMA_PERIODS + 1;
+
+		rzt2h_adc_advance_period_index(adc, drop);
+		pending -= drop;
+	}
+
+	for (unsigned int i = 0; i < pending; i++) {
+		unsigned int backlog = atomic_read(&adc->dma.pending_periods) +
+				       pending - i;
+
+		/*
+		 * Bail if enough new periods have completed since reading the
+		 * pending_periods that the next period about to be read is at
+		 * risk of being overwritten.
+		 */
+		if (backlog >= RZT2H_ADC_DMA_PERIODS) {
+			rzt2h_adc_advance_period_index(adc, pending - i);
+			break;
+		}
+
+		period = adc->dma.buf + adc->dma.period_index *
+			 RZT2H_ADC_DMA_PERIOD_SAMPLES * adc->dma.sample_chans;
+		addr = adc->dma.addr + adc->dma.period_index *
+		       adc->dma.period_bytes;
+
+		rzt2h_adc_push_period(indio_dev, period, addr);
+		rzt2h_adc_advance_period_index(adc, 1);
+	}
+}
+
+static int rzt2h_adc_dma_thread(void *data)
+{
+	struct iio_dev *indio_dev = data;
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+
+	while (!kthread_should_stop()) {
+		wait_event_interruptible(adc->dma.wq,
+					 atomic_read(&adc->dma.pending_periods) ||
+					 kthread_should_stop());
+
+		if (kthread_should_stop())
+			break;
+
+		rzt2h_adc_dma_thread_loop(indio_dev);
+	}
+
+	return 0;
+}
+
+static void rzt2h_adc_dma_callback(void *data)
+{
+	struct iio_dev *indio_dev = data;
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+
+	atomic_inc(&adc->dma.pending_periods);
+	wake_up(&adc->dma.wq);
+}
+
+static void rzt2h_adc_dma_calc_layout(struct iio_dev *indio_dev)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+	unsigned int hi = 0, lo = RZT2H_ADC_MAX_CHANNELS - 1;
+	const struct iio_chan_spec *chan;
+	unsigned int sample_chans;
+	unsigned int first_chan;
+	unsigned int scan_index;
+	unsigned int swap;
+	unsigned int idx;
+
+	/* Find the lowest and highest enabled channel. */
+	iio_for_each_active_channel(indio_dev, scan_index) {
+		chan = &indio_dev->channels[scan_index];
+
+		lo = min_t(unsigned int, lo, chan->channel);
+		hi = max_t(unsigned int, hi, chan->channel);
+	}
+
+	/*
+	 * The DMA has no scatter-gather and transfers must have a power-of-two
+	 * width, so pick the smallest power-of-two-aligned block of channels
+	 * that covers all enabled channels.
+	 */
+	for (sample_chans = 1; sample_chans < RZT2H_ADC_MAX_CHANNELS; sample_chans <<= 1) {
+		first_chan = round_down(lo, sample_chans);
+
+		if (first_chan + sample_chans > hi)
+			break;
+	}
+
+	/*
+	 * Build a table to map each enabled channel to its position in the
+	 * transferred block, it will be used later to extract only the enabled
+	 * channels out of it.
+	 * The DMA moves data in 32-bit words, which swaps each pair of adjacent
+	 * 16-bit channels. Undo it.
+	 */
+	adc->dma.gather_len = 0;
+	swap = sample_chans > 1;
+	iio_for_each_active_channel(indio_dev, scan_index) {
+		chan = &indio_dev->channels[scan_index];
+		idx = chan->channel - first_chan;
+
+		adc->dma.gather[adc->dma.gather_len++] = idx ^ swap;
+	}
+
+	adc->dma.first_chan = first_chan;
+	adc->dma.sample_chans = sample_chans;
+	adc->dma.period_bytes = RZT2H_ADC_DMA_PERIOD_SAMPLES * sample_chans *
+				RZT2H_ADC_CHANNEL_BYTES;
+}
+
+static int rzt2h_adc_start_dma(struct iio_dev *indio_dev)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+	struct dma_async_tx_descriptor *desc;
+	struct dma_slave_config config;
+	unsigned int buffer_bytes;
+	dma_cookie_t cookie;
+	int ret;
+
+	rzt2h_adc_dma_calc_layout(indio_dev);
+
+	config = (struct dma_slave_config) {
+		.src_addr = adc->phys_base + RZT2H_ADDR_REG(adc->dma.first_chan),
+		.src_addr_width = adc->dma.sample_chans * RZT2H_ADC_CHANNEL_BYTES,
+	};
+
+	buffer_bytes = RZT2H_ADC_DMA_PERIODS * adc->dma.period_bytes;
+
+	ret = dmaengine_slave_config(adc->dma.chan, &config);
+	if (ret)
+		return ret;
+
+	desc = dmaengine_prep_dma_cyclic(adc->dma.chan, adc->dma.addr,
+					 buffer_bytes, adc->dma.period_bytes,
+					 DMA_DEV_TO_MEM, DMA_PREP_INTERRUPT);
+	if (!desc)
+		return -EBUSY;
+
+	desc->callback = rzt2h_adc_dma_callback;
+	desc->callback_param = indio_dev;
+
+	cookie = dmaengine_submit(desc);
+	ret = dma_submit_error(cookie);
+	if (ret) {
+		dmaengine_terminate_sync(adc->dma.chan);
+		return ret;
+	}
+
+	adc->dma.thread = kthread_run(rzt2h_adc_dma_thread, indio_dev,
+				      "rzt2h-adc-dma");
+	if (IS_ERR(adc->dma.thread)) {
+		dmaengine_terminate_sync(adc->dma.chan);
+		return PTR_ERR(adc->dma.thread);
+	}
+
+	disable_irq(adc->irq);
+
+	dma_async_issue_pending(adc->dma.chan);
+
+	return 0;
+}
+
+static int rzt2h_adc_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+	const struct iio_chan_spec *chan;
+	struct device *dev = adc->dev;
+	unsigned int scan_index;
+	u16 val = 0;
+	int ret;
+
+	ret = pm_runtime_resume_and_get(dev);
+	if (ret)
+		return ret;
+
+	iio_for_each_active_channel(indio_dev, scan_index) {
+		chan = &indio_dev->channels[scan_index];
+		val |= RZT2H_ADANSA0_CH_MASK(chan->channel);
+	}
+
+	writew(val, adc->base + RZT2H_ADANSA0_REG);
+
+	adc->dma.period_index = 0;
+	atomic_set(&adc->dma.pending_periods, 0);
+
+	ret = rzt2h_adc_start_dma(indio_dev);
+	if (ret) {
+		pm_runtime_put_autosuspend(dev);
+		return ret;
+	}
+
+	rzt2h_adc_start(adc, RZT2H_ADCSR_ADCS_CONTINUOUS);
+
+	return 0;
+}
+
+static int rzt2h_adc_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+	struct device *dev = adc->dev;
+
+	rzt2h_adc_stop(adc);
+
+	dmaengine_terminate_sync(adc->dma.chan);
+
+	kthread_stop(adc->dma.thread);
+
+	enable_irq(adc->irq);
+
+	pm_runtime_put_autosuspend(dev);
+
+	return 0;
+}
+
 static int rzt2h_adc_read_raw(struct iio_dev *indio_dev,
 			      struct iio_chan_spec const *chan,
 			      int *val, int *val2, long mask)
@@ -174,6 +466,11 @@ static int rzt2h_adc_read_raw(struct iio_dev *indio_dev,
 	}
 }
 
+static const struct iio_buffer_setup_ops rzt2h_adc_buffer_setup_ops = {
+	.postenable = rzt2h_adc_buffer_postenable,
+	.predisable = rzt2h_adc_buffer_predisable,
+};
+
 static const struct iio_info rzt2h_adc_iio_info = {
 	.read_raw = rzt2h_adc_read_raw,
 };
@@ -192,6 +489,12 @@ static const struct iio_chan_spec rzt2h_adc_chan_template = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 			      BIT(IIO_CHAN_INFO_SCALE),
 	.type = IIO_VOLTAGE,
+	.scan_type = {
+		.sign = 'u',
+		.realbits = 12,
+		.storagebits = 16,
+		.endianness = IIO_CPU,
+	},
 };
 
 static int rzt2h_adc_parse_properties(struct rzt2h_adc *adc)
@@ -209,7 +512,51 @@ static int rzt2h_adc_parse_properties(struct rzt2h_adc *adc)
 	adc->num_channels = ret;
 	adc->channels = chan_array;
 
+	for (unsigned int i = 0; i < adc->num_channels; i++)
+		chan_array[i].scan_index = i;
+
 	return 0;
+}
+
+static void rzt2h_adc_free_dma_buf(void *p)
+{
+	struct rzt2h_adc *adc = p;
+
+	dma_free_noncoherent(adc->dev, RZT2H_ADC_DMA_BUFFER_SIZE,
+			     adc->dma.buf, adc->dma.addr, DMA_FROM_DEVICE);
+}
+
+static int rzt2h_adc_setup_dma(struct iio_dev *indio_dev)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+	struct device *dev = adc->dev;
+	int ret;
+
+	adc->dma.chan = devm_dma_request_chan(dev, "rx");
+	if (IS_ERR(adc->dma.chan)) {
+		ret = PTR_ERR(adc->dma.chan);
+		if (ret != -ENODEV)
+			return dev_err_probe(dev, ret, "DMA channel request failed\n");
+
+		adc->dma.chan = NULL;
+		return 0;
+	}
+
+	adc->dma.buf = dma_alloc_noncoherent(dev, RZT2H_ADC_DMA_BUFFER_SIZE,
+					     &adc->dma.addr, DMA_FROM_DEVICE,
+					     GFP_KERNEL);
+	if (!adc->dma.buf)
+		return -ENOMEM;
+
+	dma_sync_single_for_device(dev, adc->dma.addr, RZT2H_ADC_DMA_BUFFER_SIZE,
+				   DMA_FROM_DEVICE);
+
+	ret = devm_add_action_or_reset(dev, rzt2h_adc_free_dma_buf, adc);
+	if (ret)
+		return ret;
+
+	return devm_iio_kfifo_buffer_setup_ext(dev, indio_dev,
+					       &rzt2h_adc_buffer_setup_ops, NULL);
 }
 
 static int rzt2h_adc_probe(struct platform_device *pdev)
@@ -227,6 +574,7 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 	adc = iio_priv(indio_dev);
 	adc->dev = dev;
 	init_completion(&adc->completion);
+	init_waitqueue_head(&adc->dma.wq);
 
 	ret = devm_mutex_init(dev, &adc->lock);
 	if (ret)
@@ -263,6 +611,10 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = adc->channels;
 	indio_dev->num_channels = adc->num_channels;
+
+	ret = rzt2h_adc_setup_dma(indio_dev);
+	if (ret)
+		return ret;
 
 	return devm_iio_device_register(dev, indio_dev);
 }

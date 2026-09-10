@@ -1575,6 +1575,8 @@ config RZT2H_ADC
 	tristate "Renesas RZ/T2H / RZ/N2H ADC driver"
 	depends on ARCH_RENESAS || COMPILE_TEST
 	select IIO_ADC_HELPER
+	select IIO_BUFFER
+	select IIO_KFIFO_BUF
 	help
 	  Say yes here to build support for the ADC found in Renesas
 	  RZ/T2H / RZ/N2H SoCs.
