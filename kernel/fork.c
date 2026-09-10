@@ -3339,30 +3339,6 @@ SYSCALL_DEFINE1(unshare, unsigned long, unshare_flags)
 	return ksys_unshare(unshare_flags);
 }
 
-/*
- *	Helper to unshare the files of the current task.
- *	We don't want to expose copy_files internals to
- *	the exec layer of the kernel.
- */
-
-int unshare_files(void)
-{
-	struct task_struct *task = current;
-	struct files_struct *old, *copy = NULL;
-	int error;
-
-	error = unshare_fd(CLONE_FILES, &copy);
-	if (error || !copy)
-		return error;
-
-	old = task->files;
-	task_lock(task);
-	task->files = copy;
-	task_unlock(task);
-	put_files_struct(old);
-	return 0;
-}
-
 static int sysctl_max_threads(const struct ctl_table *table, int write,
 		       void *buffer, size_t *lenp, loff_t *ppos)
 {

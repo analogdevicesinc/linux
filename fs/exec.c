@@ -1124,6 +1124,7 @@ static struct file *bprm_identity_file(const struct linux_binprm *bprm)
 int begin_new_exec(struct linux_binprm * bprm)
 {
 	struct task_struct *me = current;
+	struct files_struct *files = NULL;
 	int retval;
 
 	/* A pending PT_INTERP substitution this format cannot consume. */
@@ -1160,9 +1161,11 @@ int begin_new_exec(struct linux_binprm * bprm)
 	io_uring_task_cancel();
 
 	/* Ensure the files table is not shared. */
-	retval = unshare_files();
+	retval = unshare_fd(CLONE_FILES, &files);
 	if (retval)
 		goto out;
+	if (files)
+		switch_files_struct(me, files);
 
 	/*
 	 * We have to apply CLOEXEC before we change whether the process is
