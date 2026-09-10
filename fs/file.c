@@ -732,16 +732,13 @@ struct file *file_close_fd_locked(struct files_struct *files, unsigned fd)
 
 int close_fd(unsigned fd)
 {
-	struct files_struct *files = current->files;
 	struct file *file;
 
-	spin_lock(&files->file_lock);
-	file = file_close_fd_locked(files, fd);
-	spin_unlock(&files->file_lock);
+	file = file_close_fd(fd);
 	if (!file)
 		return -EBADF;
 
-	return filp_close(file, files);
+	return filp_close(file, current->files);
 }
 EXPORT_SYMBOL(close_fd);
 
