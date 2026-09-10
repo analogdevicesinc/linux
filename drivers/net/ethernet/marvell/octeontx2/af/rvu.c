@@ -3468,8 +3468,6 @@ err:
 	return ret;
 }
 
-#define PCI_DEVID_OCTEONTX2_RVU_AFVF	0xA0F8
-
 static int rvu_enable_sriov(struct rvu *rvu)
 {
 	struct pci_dev *pdev = rvu->pdev;
