@@ -515,16 +515,18 @@ void put_files_struct(struct files_struct *files)
 	}
 }
 
+/* Install @files on @tsk, consuming the reference, and put the old table. */
+void switch_files_struct(struct task_struct *tsk, struct files_struct *files)
+{
+	scoped_guard(task_lock, tsk)
+		swap(tsk->files, files);
+	put_files_struct(files);
+}
+
 void exit_files(struct task_struct *tsk)
 {
-	struct files_struct * files = tsk->files;
-
-	if (files) {
-		task_lock(tsk);
-		tsk->files = NULL;
-		task_unlock(tsk);
-		put_files_struct(files);
-	}
+	if (tsk->files)
+		switch_files_struct(tsk, NULL);
 }
 
 struct files_struct init_files = {
@@ -855,10 +857,7 @@ SYSCALL_DEFINE3(close_range, unsigned int, fd, unsigned int, max_fd,
 		 * We're done closing the files we were supposed to. Time to install
 		 * the new file descriptor table and drop the old one.
 		 */
-		task_lock(me);
-		me->files = cur_fds;
-		task_unlock(me);
-		put_files_struct(fds);
+		switch_files_struct(me, cur_fds);
 	}
 
 	return 0;
