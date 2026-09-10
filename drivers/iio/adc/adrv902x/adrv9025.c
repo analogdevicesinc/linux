@@ -2368,7 +2368,9 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 	adrv9025_add_debugfs_entry(phy, "tx2_lol_status", DBGFS_TX2_LOL_STATUS);
 	adrv9025_add_debugfs_entry(phy, "tx3_lol_status", DBGFS_TX3_LOL_STATUS);
 
-	if (phy->spi_device_id == ID_ADRV9025 || phy->spi_device_id == ID_ADRV9029) {
+	if (phy->spi_device_id == ID_ADRV9022 ||
+	    phy->spi_device_id == ID_ADRV9025 ||
+	    phy->spi_device_id == ID_ADRV9029) {
 		adrv9025_add_debugfs_entry(phy, "tx0_dpd_status", DBGFS_TX0_DPD_STATUS);
 		adrv9025_add_debugfs_entry(phy, "tx1_dpd_status", DBGFS_TX1_DPD_STATUS);
 		adrv9025_add_debugfs_entry(phy, "tx2_dpd_status", DBGFS_TX2_DPD_STATUS);
@@ -2384,7 +2386,9 @@ static int adrv9025_register_debugfs(struct iio_dev *indio_dev)
 				    &adrv9025_debugfs_reg_fops);
 	}
 
-	if (phy->spi_device_id == ID_ADRV9025 || phy->spi_device_id == ID_ADRV9029) {
+	if (phy->spi_device_id == ID_ADRV9022 ||
+	    phy->spi_device_id == ID_ADRV9025 ||
+	    phy->spi_device_id == ID_ADRV9029) {
 		for (i = 0; i < ADRV9025_NUMBER_OF_TX_CHANNELS; i++) {
 			char attr[64];
 
@@ -3880,6 +3884,7 @@ static int adrv9025_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	switch (id) {
+	case ID_ADRV9022:
 	case ID_ADRV9025:
 	case ID_ADRV9029:
 		indio_dev->info = &adrv9029_phy_info;
@@ -3921,7 +3926,7 @@ static int adrv9025_probe(struct spi_device *spi)
 		}
 	}
 
-	if (id == ID_ADRV9025 || id == ID_ADRV9029) {
+	if (id == ID_ADRV9022 || id == ID_ADRV9025 || id == ID_ADRV9029) {
 		ret = adrv9025_bin_attr_add(&indio_dev->dev, adrv9025_bin_attributes);
 		if (ret)
 			goto out_iio_device_unregister;
@@ -3966,6 +3971,7 @@ static void adrv9025_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id adrv9025_id[] = {
+	{ "adrv9022", ID_ADRV9022 },
 	{ "adrv9025", ID_ADRV9025 },
 	{ "adrv9026", ID_ADRV9026 },
 	{ "adrv9029", ID_ADRV9029 },
@@ -3974,6 +3980,7 @@ static const struct spi_device_id adrv9025_id[] = {
 MODULE_DEVICE_TABLE(spi, adrv9025_id);
 
 static const struct of_device_id adrv9025_of_match[] = {
+	{ .compatible = "adi,adrv9022" },
 	{ .compatible = "adi,adrv9025" },
 	{ .compatible = "adi,adrv9026" },
 	{ .compatible = "adi,adrv9029" },
