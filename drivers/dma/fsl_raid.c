@@ -361,7 +361,7 @@ static struct dma_async_tx_descriptor *fsl_re_prep_dma_genq(
 	cdb |= FSL_RE_INTR_ON_ERROR << FSL_RE_CDB_ERROR_SHIFT;
 	cdb |= FSL_RE_DATA_DEP << FSL_RE_CDB_DEPEND_SHIFT;
 	xor = desc->cdb_addr;
-	xor->cdb32 = cdb;
+	xor->cdb32 = cpu_to_be32(cdb);
 
 	if (scf) {
 		/* compute q = src0*coef0^src1*coef1^..., * is GF(8) mult */
@@ -481,7 +481,7 @@ static struct dma_async_tx_descriptor *fsl_re_prep_dma_pq(
 	cdb |= FSL_RE_DATA_DEP << FSL_RE_CDB_DEPEND_SHIFT;
 
 	pq = desc->cdb_addr;
-	pq->cdb32 = cdb;
+	pq->cdb32 = cpu_to_be32(cdb);
 
 	p = pq->gfm_q1;
 	/* Init gfm_q1[] */
@@ -564,7 +564,7 @@ static struct dma_async_tx_descriptor *fsl_re_prep_dma_memcpy(
 	cdb |= FSL_RE_DATA_DEP << FSL_RE_CDB_DEPEND_SHIFT;
 
 	move = desc->cdb_addr;
-	move->cdb32 = cdb;
+	move->cdb32 = cpu_to_be32(cdb);
 
 	/* Filling frame 0 of CFD with move CDB */
 	cf = desc->cf_addr;
