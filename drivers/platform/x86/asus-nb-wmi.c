@@ -586,7 +586,7 @@ static void asus_nb_wmi_quirks(struct asus_wmi_driver *driver)
 	driver->quirks = quirks;
 	driver->panel_power = BACKLIGHT_POWER_ON;
 
-	/* overwrite the wapf setting if the wapf paramater is specified */
+	/* overwrite the wapf setting if the wapf parameter is specified */
 	if (wapf != -1)
 		quirks->wapf = wapf;
 	else
