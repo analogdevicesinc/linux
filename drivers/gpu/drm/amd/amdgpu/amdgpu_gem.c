@@ -566,6 +566,10 @@ int amdgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
 	if (!access_ok((void __user *)(uintptr_t)args->addr, args->size))
 		return -EFAULT;
 
+	/* Userptrs are for temporary uploads, not a general memory allocator */
+	if (args->size == 0 || args->size > SZ_1G)
+		return -EINVAL;
+
 	/* reject unknown flag values */
 	if (args->flags & ~(AMDGPU_GEM_USERPTR_READONLY |
 	    AMDGPU_GEM_USERPTR_ANONONLY | AMDGPU_GEM_USERPTR_VALIDATE |
