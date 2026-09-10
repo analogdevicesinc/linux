@@ -1431,7 +1431,7 @@ static int move_data_block(struct inode *inode, block_t bidx,
 						F2FS_BLKSIZE(fio.sbi));
 
 		folio_lock(mfolio);
-		if (unlikely(!is_meta_folio(mfolio) ||
+		if (unlikely(!is_meta_folio(fio.sbi, mfolio) ||
 			     !folio_test_uptodate(mfolio))) {
 			err = -EIO;
 			f2fs_folio_put(mfolio, true);
