@@ -525,18 +525,31 @@ out_unlock:
 static int kernfs_get_open_node(struct kernfs_node *kn,
 				struct kernfs_open_file *of)
 {
-	struct kernfs_open_node *on;
+	struct kernfs_open_node *on, *new_on = NULL;
 	struct mutex *mutex;
+
+	/*
+	 * Peek without the mutex: if nothing has this open, we will need a
+	 * node and can allocate before taking a mutex shared by every node
+	 * hashing to it.
+	 */
+	if (!rcu_access_pointer(kn->attr.open))
+		new_on = kzalloc_obj(*new_on);
 
 	mutex = kernfs_open_file_mutex_lock(kn);
 	on = kernfs_deref_open_node_locked(kn);
 
 	if (!on) {
 		/* not there, initialize a new one */
-		on = kzalloc_obj(*on);
+		on = new_on;
+		new_on = NULL;
 		if (!on) {
-			mutex_unlock(mutex);
-			return -ENOMEM;
+			/* the peek raced; rare, so allocate here */
+			on = kzalloc_obj(*on);
+			if (!on) {
+				mutex_unlock(mutex);
+				return -ENOMEM;
+			}
 		}
 		atomic_set(&on->event, 1);
 		init_waitqueue_head(&on->poll);
@@ -549,6 +562,7 @@ static int kernfs_get_open_node(struct kernfs_node *kn,
 		on->nr_to_release++;
 
 	mutex_unlock(mutex);
+	kfree(new_on);
 	return 0;
 }
 
