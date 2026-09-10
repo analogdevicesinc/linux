@@ -1148,6 +1148,18 @@ int amd_sof_acp7x_probe(struct snd_sof_dev *sdev)
 		goto unregister_dev;
 	}
 
+	/* scan SoundWire capabilities exposed by DSDT */
+	ret = acp_sof_scan_sdw_devices(sdev, chip->sdw_acpi_dev_addr);
+	if (ret < 0) {
+		dev_dbg(sdev->dev, "skipping SoundWire, not detected with ACPI scan\n");
+		goto skip_soundwire;
+	}
+	ret = amd_sof_sdw_probe(sdev);
+	if (ret < 0) {
+		dev_err(sdev->dev, "error: SoundWire probe error\n");
+		goto free_ipc_irq;
+	}
+skip_soundwire:
 	if (adev) {
 		/* DMIC ACPI child address is 2 on ACP7x platforms */
 		pdm_dev = acpi_find_child_device(adev, ACP7X_DMIC_ADDR, 0);
@@ -1191,6 +1203,8 @@ int amd_sof_acp7x_probe(struct snd_sof_dev *sdev)
 
 free_ipc_irq:
 	free_irq(sdev->ipc_irq, sdev);
+	if (adata->sdw)
+		amd_sof_sdw_exit(sdev);
 unregister_dev:
 	platform_device_unregister(adata->dmic_dev);
 	return ret;
@@ -1203,6 +1217,9 @@ void amd_sof_acp7x_remove(struct snd_sof_dev *sdev)
 
 	if (sdev->ipc_irq)
 		free_irq(sdev->ipc_irq, sdev);
+
+	if (adata->sdw)
+		amd_sof_sdw_exit(sdev);
 
 	if (adata->dmic_dev)
 		platform_device_unregister(adata->dmic_dev);
