@@ -1107,7 +1107,7 @@ static int sunxi_pinctrl_irq_request_resources(struct irq_data *d)
 	muxval = (readl(pctl->membase + reg) & mask) >> shift;
 
 	/* Change muxing to GPIO INPUT mode if at reset value */
-	if (pctl->flags & SUNXI_PINCTRL_NEW_REG_LAYOUT)
+	if (pctl->flags & SUNXI_PINCTRL_NCAT2_REG_LAYOUT)
 		disabled_mux = SUN4I_FUNC_DISABLED_NEW;
 	else
 		disabled_mux = SUN4I_FUNC_DISABLED_OLD;
@@ -1589,7 +1589,7 @@ int sunxi_pinctrl_init_with_flags(struct platform_device *pdev,
 	pctl->dev = &pdev->dev;
 	pctl->desc = desc;
 	pctl->flags = flags;
-	if (flags & SUNXI_PINCTRL_NEW_REG_LAYOUT) {
+	if (flags & SUNXI_PINCTRL_NCAT2_REG_LAYOUT) {
 		pctl->bank_mem_size = D1_BANK_MEM_SIZE;
 		pctl->pull_regs_offset = D1_PULL_REGS_OFFSET;
 		pctl->dlevel_field_width = D1_DLEVEL_FIELD_WIDTH;
