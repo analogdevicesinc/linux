@@ -728,22 +728,6 @@ static struct iommu_dev_data *iommu_init_device(struct amd_iommu *iommu,
 	return dev_data;
 }
 
-static void iommu_ignore_device(struct amd_iommu *iommu, struct device *dev)
-{
-	struct amd_iommu_pci_seg *pci_seg = iommu->pci_seg;
-	struct dev_table_entry *dev_table = get_dev_table(iommu);
-	int devid, sbdf;
-
-	sbdf = get_device_sbdf_id(dev);
-	if (sbdf < 0)
-		return;
-
-	devid = PCI_SBDF_TO_DEVID(sbdf);
-	pci_seg->rlookup_table[devid] = NULL;
-	memset(&dev_table[devid], 0, sizeof(struct dev_table_entry));
-
-	setup_aliases(iommu, dev);
-}
 
 
 /****************************************************************************
@@ -2525,9 +2509,7 @@ static struct iommu_device *amd_iommu_probe_device(struct device *dev)
 	dev_data = iommu_init_device(iommu, dev, devid);
 	if (IS_ERR(dev_data)) {
 		dev_err(dev, "Failed to initialize - trying to proceed anyway\n");
-		iommu_dev = ERR_CAST(dev_data);
-		iommu_ignore_device(iommu, dev);
-		goto out_err;
+		return ERR_CAST(dev_data);
 	}
 
 	iommu_init_device_caps(dev_data, dev, iommu);
@@ -2541,11 +2523,9 @@ static struct iommu_device *amd_iommu_probe_device(struct device *dev)
 	if (amd_iommu_pgtable == PD_MODE_NONE) {
 		pr_warn_once("%s: DMA translation not supported by iommu.\n",
 			     __func__);
-		iommu_dev = ERR_PTR(-ENODEV);
-		goto out_err;
+		return ERR_PTR(-ENODEV);
 	}
 
-out_err:
 	return iommu_dev;
 }
 
