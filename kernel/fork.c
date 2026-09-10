@@ -3323,10 +3323,8 @@ int ksys_unshare(unsigned long unshare_flags)
 		if (new_fs)
 			new_fs = switch_fs_struct(new_fs);
 
-		if (new_fd) {
-			guard(task_lock)(current);
-			swap(current->files, new_fd);
-		}
+		if (new_fd)
+			switch_files_struct(current, no_free_ptr(new_fd));
 
 		if (new_cred) {
 			/* Install the new user namespace */
