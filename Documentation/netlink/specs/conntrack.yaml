@@ -393,6 +393,12 @@ attribute-sets:
         name: reply-flags
         type: u32
         doc: bitmask of tuple fields to filter on, reply direction
+      -
+        name: zone
+        type: flag
+        doc: >-
+          Filter on conntrack zone id; requires the top-level zone
+          (``CTA_ZONE``) attribute.
   -
     name: conntrack-attrs
     attributes:
