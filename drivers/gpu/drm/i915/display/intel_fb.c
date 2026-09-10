@@ -596,7 +596,7 @@ u64 *intel_fb_plane_get_modifiers(struct intel_display *display,
 			count++;
 	}
 
-	list = kmalloc_array(count, sizeof(*list), GFP_KERNEL);
+	list = kmalloc_objs(*list, count);
 	if (drm_WARN_ON(display->drm, !list))
 		return NULL;
 
