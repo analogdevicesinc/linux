@@ -853,6 +853,31 @@ int amd_sof_acp_resume(struct snd_sof_dev *sdev)
 }
 EXPORT_SYMBOL_NS(amd_sof_acp_resume, "SND_SOC_SOF_AMD_COMMON");
 
+static void acp_sof_scan_pdm_devices(struct snd_sof_dev *sdev,
+				     struct acpi_device *pdm_dev)
+{
+	struct acp_dev_data *acp_data = sdev->pdata->hw_pdata;
+	struct fwnode_handle *fwnode, *child;
+	u32 ep_port_val;
+
+	fwnode = acpi_fwnode_handle(pdm_dev);
+	child = fwnode_get_next_child_node(fwnode, NULL);
+	if (!child)
+		return;
+
+	if (!fwnode_property_read_u32(child, "acp-audio-ep-port", &ep_port_val)) {
+		if (ep_port_val == ACP_DEV_PORT_PDM)
+			acp_data->pdm_sel = ACP7X_PDM_DMIC0;
+		else if (ep_port_val == ACP_DEV_PORT_PDM2)
+			acp_data->pdm_sel = ACP7X_PDM_DMIC1;
+		else
+			dev_warn(sdev->dev,
+				 "acp-audio-ep-port: unrecognized value %u\n",
+				 ep_port_val);
+	}
+	fwnode_handle_put(child);
+}
+
 #if IS_ENABLED(CONFIG_SND_SOC_SOF_AMD_SOUNDWIRE)
 static int acp_sof_scan_sdw_devices(struct snd_sof_dev *sdev, u64 addr)
 {
@@ -1070,6 +1095,7 @@ int amd_sof_acp7x_probe(struct snd_sof_dev *sdev)
 	const struct sof_amd_acp_desc *chip;
 	const union acpi_object *obj;
 	struct acpi_device *adev;
+	struct acpi_device *pdm_dev;
 	unsigned int addr;
 	unsigned int irqflags;
 	int ret;
@@ -1123,6 +1149,11 @@ int amd_sof_acp7x_probe(struct snd_sof_dev *sdev)
 	}
 
 	if (adev) {
+		/* DMIC ACPI child address is 2 on ACP7x platforms */
+		pdm_dev = acpi_find_child_device(adev, ACP7X_DMIC_ADDR, 0);
+		if (pdm_dev)
+			acp_sof_scan_pdm_devices(sdev, pdm_dev);
+
 		if (!acpi_dev_get_property(adev, "acp-sof-signed-firmware-image",
 					   ACPI_TYPE_INTEGER, &obj))
 			adata->acp_sof_signed_firmware_image = obj->integer.value;
