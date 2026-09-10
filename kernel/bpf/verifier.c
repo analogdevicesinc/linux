@@ -6453,6 +6453,15 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, struct b
 			return -EACCES;
 		}
 
+		if (rdonly_untrusted && !env->allow_ptr_leaks) {
+			verbose(env, "%s access is allowed only to CAP_PERFMON and CAP_SYS_ADMIN\n",
+				reg_type_str(env, reg->type));
+			bpf_diag_policy(env, insn_idx, "read from untrusted read-only memory",
+					"the access requires CAP_PERFMON",
+					"Load the program with CAP_PERFMON, or avoid dereferencing untrusted pointers.");
+			return -EPERM;
+		}
+
 		/*
 		 * Accesses to untrusted PTR_TO_MEM are done through probe
 		 * instructions, hence no need to check bounds in that case.
