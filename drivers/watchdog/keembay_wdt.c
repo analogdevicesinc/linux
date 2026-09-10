@@ -250,7 +250,7 @@ static int keembay_wdt_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __maybe_unused keembay_wdt_suspend(struct device *dev)
+static int keembay_wdt_suspend(struct device *dev)
 {
 	struct keembay_wdt *wdt = dev_get_drvdata(dev);
 
@@ -260,7 +260,7 @@ static int __maybe_unused keembay_wdt_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused keembay_wdt_resume(struct device *dev)
+static int keembay_wdt_resume(struct device *dev)
 {
 	struct keembay_wdt *wdt = dev_get_drvdata(dev);
 
@@ -270,7 +270,7 @@ static int __maybe_unused keembay_wdt_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(keembay_wdt_pm_ops, keembay_wdt_suspend,
+static DEFINE_SIMPLE_DEV_PM_OPS(keembay_wdt_pm_ops, keembay_wdt_suspend,
 			 keembay_wdt_resume);
 
 static const struct of_device_id keembay_wdt_match[] = {
@@ -284,7 +284,7 @@ static struct platform_driver keembay_wdt_driver = {
 	.driver	= {
 		.name		= "keembay_wdt",
 		.of_match_table	= keembay_wdt_match,
-		.pm		= &keembay_wdt_pm_ops,
+		.pm		= pm_sleep_ptr(&keembay_wdt_pm_ops),
 	},
 };
 

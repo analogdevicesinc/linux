@@ -359,7 +359,7 @@ static int cdns_wdt_probe(struct platform_device *pdev)
  * @dev: handle to the device structure.
  * Return: 0 always.
  */
-static int __maybe_unused cdns_wdt_suspend(struct device *dev)
+static int cdns_wdt_suspend(struct device *dev)
 {
 	struct cdns_wdt *wdt = dev_get_drvdata(dev);
 
@@ -377,7 +377,7 @@ static int __maybe_unused cdns_wdt_suspend(struct device *dev)
  * @dev: handle to the device structure.
  * Return: 0 on success, errno otherwise.
  */
-static int __maybe_unused cdns_wdt_resume(struct device *dev)
+static int cdns_wdt_resume(struct device *dev)
 {
 	int ret;
 	struct cdns_wdt *wdt = dev_get_drvdata(dev);
@@ -394,7 +394,7 @@ static int __maybe_unused cdns_wdt_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(cdns_wdt_pm_ops, cdns_wdt_suspend, cdns_wdt_resume);
+static DEFINE_SIMPLE_DEV_PM_OPS(cdns_wdt_pm_ops, cdns_wdt_suspend, cdns_wdt_resume);
 
 static const struct of_device_id cdns_wdt_of_match[] = {
 	{ .compatible = "cdns,wdt-r1p2", },
@@ -408,7 +408,7 @@ static struct platform_driver cdns_wdt_driver = {
 	.driver		= {
 		.name	= "cdns-wdt",
 		.of_match_table = cdns_wdt_of_match,
-		.pm	= &cdns_wdt_pm_ops,
+		.pm	= pm_sleep_ptr(&cdns_wdt_pm_ops),
 	},
 };
 
