@@ -325,7 +325,7 @@ static void fix_escape_fprintf(FILE *fp, struct strbuf *buf, const char *fmt, ..
 			case 'S': {
 				const char *s = va_arg(args, const char*);
 
-				for (size_t s_pos = 0; s_pos < strlen(s); s_pos++) {
+				for (size_t s_pos = 0; s[s_pos] != '\0'; s_pos++) {
 					switch (s[s_pos]) {
 					case '\n':
 						strbuf_addstr(buf, "\\n");
