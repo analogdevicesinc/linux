@@ -22,10 +22,19 @@
 #include "../ops.h"
 #include "acp.h"
 #include "acp-dsp-offset.h"
+#include "../../amd/acp/soc_amd_sdw_common.h"
+#include "acp7x.h"
 
 static bool enable_fw_debug;
 module_param(enable_fw_debug, bool, 0444);
 MODULE_PARM_DESC(enable_fw_debug, "Enable Firmware debug");
+
+static const u32 acp7x_sof_sdw_ext_stat[ACP7X_SDW_MAX_MANAGER_COUNT] = {
+	ACP7X_SDW_STAT << 0,
+	ACP7X_SDW_STAT << 1,
+	ACP7X_SDW_STAT << 2,
+	ACP7X_SDW_STAT << 3,
+};
 
 static struct acp_quirk_entry quirk_valve_galileo = {
 	.signed_fw_image = true,
@@ -581,30 +590,196 @@ static irqreturn_t acp_irq_handler(int irq, void *dev_id)
 		return IRQ_NONE;
 }
 
+/* ACP7X SoundWire IO data tables */
+
+const struct sof_amd_acp7x_sdw_err_regs acp7x_sdw_err_regs[ACP7X_SDW_MAX_MANAGER_COUNT] = {
+	{ ACP7X_SW_ERR_STAT_MASK << 0,
+	  ACP7X_SW_FIFO_ERROR_REASON + (0 * 0x2000),
+	  ACP7X_SW_ERROR_REASON1 + (0 * 0x2000),
+	  ACP7X_SW_ERROR_REASON2 + (0 * 0x2000) },
+	{ ACP7X_SW_ERR_STAT_MASK << 1,
+	  ACP7X_SW_FIFO_ERROR_REASON + (1 * 0x2000),
+	  ACP7X_SW_ERROR_REASON1 + (1 * 0x2000),
+	  ACP7X_SW_ERROR_REASON2 + (1 * 0x2000) },
+	{ ACP7X_SW_ERR_STAT_MASK << 2,
+	  ACP7X_SW_FIFO_ERROR_REASON + (2 * 0x2000),
+	  ACP7X_SW_ERROR_REASON1 + (2 * 0x2000),
+	  ACP7X_SW_ERROR_REASON2 + (2 * 0x2000) },
+	{ ACP7X_SW_ERR_STAT_MASK << 3,
+	  ACP7X_SW_FIFO_ERROR_REASON + (3 * 0x2000),
+	  ACP7X_SW_ERROR_REASON1 + (3 * 0x2000),
+	  ACP7X_SW_ERROR_REASON2 + (3 * 0x2000) },
+};
+
+const struct acp7x_sdw_wake_src acp7x_sdw_wake_sources[] = {
+	{ ACP7X_SDW_HOST_WAKE_STAT << 0, ACP7X_SW_PME_STS + (0 * 4),
+	  ACP7X_SW_WAKE_EN_MASK << 0, 0 },
+	{ ACP7X_SDW_HOST_WAKE_STAT << 1, ACP7X_SW_PME_STS + (1 * 4),
+	  ACP7X_SW_WAKE_EN_MASK << 1, 1 },
+	{ ACP7X_SDW_HOST_WAKE_STAT << 2, ACP7X_SW_PME_STS + (2 * 4),
+	  ACP7X_SW_WAKE_EN_MASK << 2, 2 },
+	{ ACP7X_SDW_HOST_WAKE_STAT << 3, ACP7X_SW_PME_STS + (3 * 4),
+	  ACP7X_SW_WAKE_EN_MASK << 3, 3 },
+};
+
+/* ACP7X SoundWire IO interrupt and wake helpers */
+
+static void sof_amd_acp7x_handle_one_sdw_err(struct snd_sof_dev *sdev, u32 *err_stat,
+					     u32 acp_error_stat_reg,
+					     const struct sof_amd_acp7x_sdw_err_regs *regs)
+{
+	if (!(*err_stat & regs->err_stat_mask))
+		return;
+
+	*err_stat &= ~regs->err_stat_mask;
+	snd_sof_dsp_write(sdev, ACP_DSP_BAR, acp_error_stat_reg, *err_stat);
+	snd_sof_dsp_write(sdev, ACP_DSP_BAR, regs->fifo_err_reason, 0);
+	snd_sof_dsp_write(sdev, ACP_DSP_BAR, regs->err_reason1, 0);
+	snd_sof_dsp_write(sdev, ACP_DSP_BAR, regs->err_reason2, 0);
+}
+
+/* Clears SoundWire error registers for all managers; runs in hard IRQ context. */
+static void sof_amd_acp7x_clear_sdw_err_regs(struct snd_sof_dev *sdev)
+{
+	const struct sof_amd_acp_desc *desc = get_chip_info(sdev->pdata);
+	u32 err_stat;
+	unsigned int instance;
+
+	err_stat = snd_sof_dsp_read(sdev, ACP_DSP_BAR, desc->acp_error_stat);
+
+	for (instance = 0; instance < ACP7X_SDW_MAX_MANAGER_COUNT; instance++)
+		sof_amd_acp7x_handle_one_sdw_err(sdev, &err_stat, desc->acp_error_stat,
+						 &acp7x_sdw_err_regs[instance]);
+}
+
+static void sof_amd_handle_acp7x_sdw_wake_event(struct acp_dev_data *adata)
+{
+	struct amd_sdw_manager *amd_manager;
+	unsigned int instance;
+
+	for (instance = 0; instance < ACP7X_SDW_MAX_MANAGER_COUNT; instance++) {
+		if (!adata->acp7x_sdw_wake_event[instance])
+			continue;
+		if (!adata->sdw->pdev[instance])
+			continue;
+
+		amd_manager = dev_get_drvdata(&adata->sdw->pdev[instance]->dev);
+		if (amd_manager)
+			pm_request_resume(amd_manager->dev);
+		adata->acp7x_sdw_wake_event[instance] = false;
+	}
+}
+
+static int sof_amd_check_and_handle_acp7x_sdw_wake_irq(struct snd_sof_dev *sdev)
+{
+	struct acp_dev_data *adata = sdev->pdata->hw_pdata;
+	const struct sof_amd_acp_desc *desc = get_chip_info(sdev->pdata);
+	unsigned int ext_intr_stat1;
+	unsigned int sdw_pme_stat, sdw_wake_en;
+	unsigned int i;
+	bool sdw_wake_irq = false;
+
+	ext_intr_stat1 = snd_sof_dsp_read(sdev, ACP_DSP_BAR, desc->ext_intr_stat1);
+
+	for (i = 0; i < ARRAY_SIZE(acp7x_sdw_wake_sources); i++) {
+		const struct acp7x_sdw_wake_src *src = &acp7x_sdw_wake_sources[i];
+
+		bool woke = false;
+
+		if (ext_intr_stat1 & src->host_stat_mask) {
+			snd_sof_dsp_write(sdev, ACP_DSP_BAR, desc->ext_intr_stat1,
+					  src->host_stat_mask);
+			woke = true;
+		}
+
+		sdw_pme_stat = snd_sof_dsp_read(sdev, ACP_DSP_BAR, src->pme_sts_reg);
+		if (sdw_pme_stat) {
+			sdw_wake_en = snd_sof_dsp_read(sdev, ACP_DSP_BAR, ACP7X_SW_WAKE_EN);
+			sdw_wake_en &= ~src->wake_en_mask;
+			snd_sof_dsp_write(sdev, ACP_DSP_BAR, ACP7X_SW_WAKE_EN, sdw_wake_en);
+			snd_sof_dsp_write(sdev, ACP_DSP_BAR, src->pme_sts_reg, sdw_pme_stat);
+			woke = true;
+		}
+
+		if (woke) {
+			adata->acp7x_sdw_wake_event[src->instance] = true;
+			sdw_wake_irq = true;
+		}
+	}
+
+	if (sdw_wake_irq) {
+		sof_amd_handle_acp7x_sdw_wake_event(adata);
+		return WAKE_IRQ_HANDLED;
+	}
+	return WAKE_IRQ_NONE;
+}
+
+static void sof_acp7x_handle_sdw_manager_irq(struct snd_sof_dev *sdev,
+					     struct acp_dev_data *adata,
+					     const struct sof_amd_acp_desc *desc,
+					     unsigned int instance,
+					     u32 ext_stat_mask)
+{
+	struct amd_sdw_manager *amd_manager;
+	unsigned int sdw_intr_stat;
+	u32 sw_intr_reg = ACP7X_EXTERNAL_SW_INTR_STAT + (instance * 4);
+
+	snd_sof_dsp_write(sdev, ACP_DSP_BAR, desc->ext_intr_stat, ext_stat_mask);
+	sdw_intr_stat = snd_sof_dsp_read(sdev, ACP_DSP_BAR, sw_intr_reg);
+	if (sdw_intr_stat & ACP7X_EXTERNAL_SDW_STAT) {
+		snd_sof_dsp_write(sdev, ACP_DSP_BAR, sw_intr_reg, ACP7X_EXTERNAL_SDW_STAT);
+		if (!adata->sdw->pdev[instance])
+			return;
+		amd_manager = dev_get_drvdata(&adata->sdw->pdev[instance]->dev);
+		if (amd_manager)
+			schedule_work(&amd_manager->amd_sdw_irq_thread);
+	}
+}
+
 static irqreturn_t acp7x_irq_handler(int irq, void *dev_id)
 {
 	struct snd_sof_dev *sdev = dev_id;
+	struct acp_dev_data *adata = sdev->pdata->hw_pdata;
 	const struct sof_amd_acp_desc *desc = get_chip_info(sdev->pdata);
 	unsigned int base = desc->dsp_intr_base;
 	unsigned int val;
 	unsigned int ext_intr_stat;
-	int irq_flag = 0;
+	unsigned int instance;
+	int irq_flag = 0, wake_irq_flag = 0;
+	bool dsp_irq = false;
 
 	val = snd_sof_dsp_read(sdev, ACP_DSP_BAR, base + DSP_SW_INTR_STAT_OFFSET);
 	if (val & ACP_DSP_TO_HOST_IRQ) {
 		snd_sof_dsp_write(sdev, ACP_DSP_BAR, base + DSP_SW_INTR_STAT_OFFSET,
 				  ACP_DSP_TO_HOST_IRQ);
-		return IRQ_WAKE_THREAD;
+		dsp_irq = true;
 	}
 
 	ext_intr_stat = snd_sof_dsp_read(sdev, ACP_DSP_BAR, desc->ext_intr_stat);
-	if (ext_intr_stat & ACP_ERROR_IRQ_MASK) {
-		snd_sof_dsp_write(sdev, ACP_DSP_BAR, desc->ext_intr_stat, ACP_ERROR_IRQ_MASK);
-		snd_sof_dsp_write(sdev, ACP_DSP_BAR, desc->acp_error_stat, 0);
+
+	if (adata->sdw) {
+		for (instance = 0; instance < ACP7X_SDW_MAX_MANAGER_COUNT; instance++) {
+			if (ext_intr_stat & acp7x_sof_sdw_ext_stat[instance]) {
+				sof_acp7x_handle_sdw_manager_irq(sdev, adata, desc, instance,
+								 acp7x_sof_sdw_ext_stat[instance]);
+				irq_flag = 1;
+			}
+		}
+	}
+
+	if (adata->sdw)
+		wake_irq_flag = sof_amd_check_and_handle_acp7x_sdw_wake_irq(sdev);
+
+	if (ext_intr_stat & ACP7X_ERROR_IRQ) {
+		snd_sof_dsp_write(sdev, ACP_DSP_BAR, desc->ext_intr_stat, ACP7X_ERROR_IRQ);
+		sof_amd_acp7x_clear_sdw_err_regs(sdev);
 		irq_flag = 1;
 	}
 
-	if (irq_flag)
+	if (dsp_irq)
+		return IRQ_WAKE_THREAD;
+
+	if (irq_flag || wake_irq_flag)
 		return IRQ_HANDLED;
 
 	return IRQ_NONE;

@@ -290,6 +290,8 @@ struct acp_dev_data {
 	bool acp70_sdw0_wake_event;
 	/* acp70_sdw1_wake_event flag set to true when wake irq asserted for SW1 instance */
 	bool acp70_sdw1_wake_event;
+	/* per-manager wake event flags; indexed by SoundWire manager instance (0-3) */
+	bool acp7x_sdw_wake_event[ACP7X_SDW_MAX_MANAGER_COUNT];
 	/* PDM controller index selected from ACPI acp-audio-ep-port; passed to machine driver */
 	unsigned int pdm_sel;
 	unsigned int pci_rev;
