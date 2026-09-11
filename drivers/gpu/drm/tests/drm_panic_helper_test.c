@@ -6,13 +6,17 @@
  * KUNIT tests for DRM panic helpers
  */
 
-#include <drm/drm_fourcc.h>
-#include <drm/drm_panic.h>
+#include <linux/highmem.h>
+#include <linux/units.h>
+#include <linux/vmalloc.h>
 
 #include <kunit/test.h>
 
-#include <linux/units.h>
-#include <linux/vmalloc.h>
+#include <drm/drm_fourcc.h>
+#include <drm/drm_panic.h>
+#include <drm/drm_panic_helper.h>
+
+MODULE_IMPORT_NS("EXPORTED_FOR_KUNIT_TESTING");
 
 static void drm_panic_check_color_byte(struct kunit *test, u8 b)
 {
@@ -84,6 +88,11 @@ static int drm_test_panic_init(struct kunit *test)
 	drm_panic_helper_set_description("Kunit testing");
 
 	return 0;
+}
+
+static void drm_test_panic_exit(struct kunit *test)
+{
+	drm_panic_helper_clear_description();
 }
 
 /*
@@ -229,7 +238,11 @@ static struct kunit_case drm_panic_screen_user_test[] = {
 static struct kunit_suite drm_panic_helper_suite = {
 	.name = "drm_panic_helper",
 	.init = drm_test_panic_init,
+	.exit = drm_test_panic_exit,
 	.test_cases = drm_panic_screen_user_test,
 };
 
 kunit_test_suite(drm_panic_helper_suite);
+
+MODULE_DESCRIPTION("KUnit test suite for DRM panic handling");
+MODULE_LICENSE("GPL");
