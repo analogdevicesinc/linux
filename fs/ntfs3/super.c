@@ -1210,7 +1210,7 @@ read_boot:
 
 #ifdef CONFIG_NTFS3_64BIT_CLUSTER
 	if (clusters >= (1ull << (64 - cluster_bits)))
-		sbi->maxbytes = -1;
+		sbi->maxbytes = MAX_LFS_FILESIZE;
 	sbi->maxbytes_sparse = MAX_LFS_FILESIZE;
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
 #else
