@@ -8,6 +8,7 @@
 #include <limits.h>
 #include <net/if.h>
 #include <sched.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,7 @@
 #include <sys/mount.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/xattr.h>
 
 #include "kselftest_harness.h"
@@ -470,6 +472,204 @@ TEST_F(kernfs_cgroup, readdir_no_duplicates)
 	for (i = 0; i < n; i++)
 		for (j = i + 1; j < n; j++)
 			EXPECT_STRNE(names[i], names[j]);
+}
+
+#define RESUME_DIRS	24
+
+/*
+ * Resuming at an entry that has gone must carry on after it, never before.
+ * Take a cookie for every entry, then remove each one, seek to its cookie
+ * and read the rest; nothing already reported may come back.
+ */
+TEST_F(kernfs_cgroup, readdir_resume_at_removed_entry)
+{
+	/* The cgroup's own control files are listed alongside ours. */
+	char names[128][NAME_MAX + 1];
+	long pos[128];
+	char path[PATH_MAX];
+	struct dirent *de;
+	int n = 0, i, j;
+	DIR *d;
+
+	for (i = 0; i < RESUME_DIRS; i++) {
+		snprintf(path, sizeof(path), "%s/e%02d", self->scratch, i);
+		ASSERT_EQ(mkdir(path, 0755), 0);
+	}
+
+	/* Record the cookie before reading each entry, with its name. */
+	d = opendir(self->scratch);
+	ASSERT_NE(d, NULL);
+	while (1) {
+		long here = telldir(d);
+
+		de = readdir(d);
+		if (!de)
+			break;
+		if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))
+			continue;
+		ASSERT_LT(n, (int)ARRAY_SIZE(pos));
+		pos[n] = here;
+		strncpy(names[n], de->d_name, NAME_MAX);
+		names[n][NAME_MAX] = '\0';
+		n++;
+	}
+	closedir(d);
+	ASSERT_GT(n, 1);
+
+	for (i = 0; i < n; i++) {
+		/* Only the directories we made can be removed and put back. */
+		if (strncmp(names[i], "e", 1))
+			continue;
+
+		snprintf(path, sizeof(path), "%s/%s", self->scratch, names[i]);
+		ASSERT_EQ(rmdir(path), 0);
+
+		/* Reopen so the seek has to reach the kernel. */
+		d = opendir(self->scratch);
+		ASSERT_NE(d, NULL);
+		seekdir(d, pos[i]);
+		while ((de = readdir(d))) {
+			if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))
+				continue;
+			for (j = 0; j < i; j++)
+				ASSERT_STRNE(de->d_name, names[j])
+					TH_LOG("resuming at %s (gone) went back to %s",
+					       names[i], names[j]);
+		}
+		closedir(d);
+
+		ASSERT_EQ(mkdir(path, 0755), 0);
+	}
+
+	for (i = 0; i < RESUME_DIRS; i++) {
+		snprintf(path, sizeof(path), "%s/e%02d", self->scratch, i);
+		EXPECT_EQ(rmdir(path), 0);
+	}
+}
+
+#define CHURN_ROUNDS	400
+#define CHURN_BUFSZ	512	/* small, so a listing takes several calls */
+
+/*
+ * The files appear at the end of the enabling write and go at the start of
+ * the disabling one, so the window where they exist is the short one.
+ */
+#define CHURN_DWELL_ON	2000
+#define CHURN_DWELL_OFF	200
+
+struct kernfs_dirent64 {
+	unsigned long long	d_ino;
+	long long		d_off;
+	unsigned short		d_reclen;
+	unsigned char		d_type;
+	char			d_name[];
+};
+
+/*
+ * The same resume, but inside one getdents(2) call.  rmdir(2) cannot reach
+ * that window because iterate_dir() holds the listed directory's i_rwsem
+ * for the whole listing; cgroup.subtree_control can, having no VFS
+ * operation on the names it adds and removes.  The files that are not the
+ * controller's stay throughout, so each must appear exactly once.
+ *
+ * A stress test: it has not been seen to catch the ordering bug, and is
+ * here to keep the unlocked window under load for lockdep and KASAN.
+ */
+TEST_F(kernfs_cgroup, readdir_resume_vs_internal_remove)
+{
+	char buf[CHURN_BUFSZ] __attribute__((aligned(8)));
+	char stable[128][NAME_MAX + 1];
+	int nstable = 0, i, r;
+	int withctl = 0, without = 0;
+	int seen[128], status;
+	pid_t churner;
+	DIR *d;
+
+	/* With the controller off, whatever is left is what must persist. */
+	ASSERT_EQ(write_file(self->scratch_sc, self->disable), 0);
+	d = opendir(self->child);
+	ASSERT_NE(d, NULL);
+	for (;;) {
+		struct dirent *de = readdir(d);
+
+		if (!de)
+			break;
+		if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))
+			continue;
+		ASSERT_LT(nstable, (int)ARRAY_SIZE(stable));
+		strncpy(stable[nstable], de->d_name, NAME_MAX);
+		stable[nstable][NAME_MAX] = '\0';
+		nstable++;
+	}
+	closedir(d);
+	ASSERT_GT(nstable, 0);
+
+	churner = fork();
+	ASSERT_GE(churner, 0);
+	if (churner == 0) {
+		for (;;) {
+			if (write_file(self->scratch_sc, self->enable))
+				_exit(10);
+			usleep(CHURN_DWELL_ON);
+			if (write_file(self->scratch_sc, self->disable))
+				_exit(11);
+			usleep(CHURN_DWELL_OFF);
+		}
+	}
+
+	for (r = 0; r < CHURN_ROUNDS; r++) {
+		int fd = open(self->child, O_RDONLY | O_DIRECTORY);
+		int extra = 0;
+		int n;
+
+		ASSERT_GE(fd, 0);
+		memset(seen, 0, sizeof(seen));
+
+		while ((n = syscall(SYS_getdents64, fd, buf, sizeof(buf))) > 0) {
+			int off = 0;
+
+			while (off < n) {
+				struct kernfs_dirent64 *de = (void *)(buf + off);
+				bool known = false;
+
+				off += de->d_reclen;
+				for (i = 0; i < nstable; i++)
+					if (!strcmp(de->d_name, stable[i])) {
+						seen[i]++;
+						known = true;
+					}
+				if (!known && strcmp(de->d_name, ".") &&
+				    strcmp(de->d_name, ".."))
+					extra++;
+			}
+		}
+		ASSERT_GE(n, 0);
+		EXPECT_EQ(close(fd), 0);
+
+		if (extra)
+			withctl++;
+		else
+			without++;
+
+		for (i = 0; i < nstable; i++)
+			ASSERT_EQ(seen[i], 1)
+				TH_LOG("round %d: %s seen %d times",
+				       r, stable[i], seen[i]);
+	}
+
+	/* The churn must have been running, or the listings prove nothing. */
+	EXPECT_EQ(kill(churner, SIGKILL), 0);
+	ASSERT_EQ(waitpid(churner, &status, 0), churner);
+	ASSERT_TRUE(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL)
+		TH_LOG("churner exited on its own: status %d", status);
+
+	/*
+	 * They also have to have overlapped it.  How much depends on the
+	 * machine, so say the race could not be arranged rather than fail.
+	 */
+	if (!withctl || !without)
+		SKIP(return, "listings did not span the churn: %d with, %d without",
+		     withctl, without);
 }
 
 /*
