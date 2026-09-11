@@ -1905,18 +1905,24 @@ static int kernfs_dir_fop_release(struct inode *inode, struct file *filp)
 
 /*
  * Find where a listing left off.  @resumed says whether @pos is still that
- * entry; if not, the first entry at or after @hash is returned instead.
+ * entry; if not, the search falls back to @hash, keyed by @name if given.
  */
 static struct kernfs_node *kernfs_dir_pos(const struct ns_common *ns,
 	struct kernfs_node *parent, loff_t hash, struct kernfs_node *pos,
-	bool *resumed)
+	const char *name, bool *resumed)
 {
 	if (resumed)
 		*resumed = false;
 	if (pos) {
+		/*
+		 * A rename keeps the hash if the new name hashes the same, so
+		 * check @name too.  Otherwise the caller would step over the
+		 * entry now sitting where @pos used to be.
+		 */
 		int valid = kernfs_active(pos) &&
 			rcu_access_pointer(pos->__parent) == parent &&
-			hash == pos->hash;
+			hash == pos->hash &&
+			(!name || !strcmp(name, kernfs_rcu_name(pos)));
 		kernfs_put(pos);
 		if (!valid)
 			pos = NULL;
@@ -1928,13 +1934,13 @@ static struct kernfs_node *kernfs_dir_pos(const struct ns_common *ns,
 
 		/*
 		 * Keep a node only on the way left, so the search ends on the
-		 * first entry at or after @hash.  The empty name sorts before
-		 * every entry sharing the hash, so it lands on the first.
+		 * first entry after the key.  An empty @name sorts before all
+		 * entries sharing the hash, so it lands on the first of them.
 		 */
 		while (node) {
 			struct kernfs_node *kn = rb_to_kn(node);
 
-			if (kernfs_name_compare(hash, "", ns, kn) < 0) {
+			if (kernfs_name_compare(hash, name ?: "", ns, kn) < 0) {
 				pos = kn;
 				node = node->rb_left;
 			} else {
@@ -1955,12 +1961,13 @@ static struct kernfs_node *kernfs_dir_pos(const struct ns_common *ns,
 }
 
 static struct kernfs_node *kernfs_dir_next_pos(const struct ns_common *ns,
-	struct kernfs_node *parent, loff_t hash, struct kernfs_node *pos)
+	struct kernfs_node *parent, loff_t hash, struct kernfs_node *pos,
+	const char *name)
 {
 	bool resumed;
 
-	pos = kernfs_dir_pos(ns, parent, hash, pos, &resumed);
-	/* Step over @pos only if it survived; two entries can share a hash. */
+	pos = kernfs_dir_pos(ns, parent, hash, pos, name, &resumed);
+	/* Step over @pos only if it survived; @name finds the spot if not. */
 	if (pos && resumed) {
 		do {
 			struct rb_node *node = rb_next(&pos->rb);
@@ -1979,11 +1986,20 @@ static int kernfs_fop_readdir(struct file *file, struct dir_context *ctx)
 	struct dentry *dentry = file->f_path.dentry;
 	struct kernfs_node *parent = kernfs_dentry_node(dentry);
 	struct kernfs_node *pos = file->private_data;
+	char *name __free(kfree) = NULL;
 	struct kernfs_root *root;
 	const struct ns_common *ns = NULL;
 
 	if (!dir_emit_dots(file, ctx))
 		return 0;
+
+	/*
+	 * One buffer for the call, holding the name of the entry the listing
+	 * is on.  PATH_MAX: kernfs bounds no single name.
+	 */
+	name = kmalloc(PATH_MAX, GFP_KERNEL);
+	if (!name)
+		return -ENOMEM;
 
 	root = kernfs_root(parent);
 	down_read(&root->kernfs_rwsem);
@@ -1991,13 +2007,21 @@ static int kernfs_fop_readdir(struct file *file, struct dir_context *ctx)
 	if (kernfs_ns_enabled(parent))
 		ns = kernfs_info(dentry->d_sb)->ns;
 
-	for (pos = kernfs_dir_pos(ns, parent, ctx->pos, pos, NULL);
+	for (pos = kernfs_dir_pos(ns, parent, ctx->pos, pos, NULL, NULL);
 	     pos;
-	     pos = kernfs_dir_next_pos(ns, parent, ctx->pos, pos)) {
-		const char *name = kernfs_rcu_name(pos);
+	     pos = kernfs_dir_next_pos(ns, parent, ctx->pos, pos, name)) {
 		unsigned int type = fs_umode_to_dtype(pos->mode);
-		int len = strlen(name);
 		ino_t ino = kernfs_ino(pos);
+		int len;
+
+		/*
+		 * The copy is also the resume key, so a truncated name would
+		 * resume here again.  getname() caps a path, so only an
+		 * in-kernel caller can get here; end the listing instead.
+		 */
+		len = strscpy(name, kernfs_rcu_name(pos), PATH_MAX);
+		if (WARN_ON_ONCE(len < 0))
+			break;
 
 		ctx->pos = pos->hash;
 		file->private_data = pos;
