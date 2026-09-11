@@ -83,7 +83,7 @@ static const struct ipu_sensor_config ipu_supported_sensors[] = {
 	/* Omnivision OV02E10 */
 	IPU_SENSOR_CONFIG("OVTI02E1", 1, 360000000),
 	/* Omnivision ov05c10 */
-	IPU_SENSOR_CONFIG("OVTI05C1", 1, 480000000),
+	IPU_SENSOR_CONFIG("OVTI05C1", 2, 480000000, 900000000),
 	/* Omnivision OV08A10 */
 	IPU_SENSOR_CONFIG("OVTI08A1", 1, 500000000),
 	/* Omnivision OV08x40 */
@@ -232,6 +232,19 @@ static const struct acpi_device_id ivsc_acpi_ids[] = {
 	{ "INTC10FA" }, /* NVL */
 };
 
+/*
+ * The subset of ivsc_acpi_ids[] which are IVSC, rather than CVS, devices. The
+ * CVS IDs are deliberately not listed here: new ones keep being added, whereas
+ * this list is complete.
+ */
+static const struct acpi_device_id ivsc_only_acpi_ids[] = {
+	{ "INTC1059" },
+	{ "INTC1095" },
+	{ "INTC100A" },
+	{ "INTC10CF" },
+	{ }
+};
+
 static struct acpi_device *ipu_bridge_get_ivsc_acpi_dev(struct acpi_device *adev)
 {
 	unsigned int i;
@@ -282,6 +295,17 @@ static struct device *ipu_bridge_get_ivsc_csi_dev(struct acpi_device *adev)
 
 		return csi_dev;
 	}
+
+	/*
+	 * The lookups below match on the ACPI companion alone. That is fine for
+	 * CVS, which binds a driver to that very device, but not for IVSC: there
+	 * the ACPI device also has a driverless platform device, which would be
+	 * returned instead of the mei-csi client. Return NULL for IVSC so that
+	 * the caller fails and the probe is retried once the IVSC device shows
+	 * up.
+	 */
+	if (!acpi_match_device_ids(adev, ivsc_only_acpi_ids))
+		return NULL;
 
 	/* Try to locate CVS device on the I2C bus */
 	csi_dev = bus_find_device_by_acpi_dev(&i2c_bus_type, adev);
@@ -412,6 +436,7 @@ static enum v4l2_fwnode_orientation ipu_bridge_parse_orientation(struct acpi_dev
 
 int ipu_bridge_parse_ssdb(struct acpi_device *adev, struct ipu_sensor *sensor)
 {
+	acpi_handle handle = acpi_device_handle(ACPI_PTR(adev));
 	struct ipu_sensor_ssdb ssdb = {};
 	int ret;
 
@@ -435,8 +460,15 @@ int ipu_bridge_parse_ssdb(struct acpi_device *adev, struct ipu_sensor *sensor)
 	sensor->rotation = ipu_bridge_parse_rotation(adev, &ssdb);
 	sensor->orientation = ipu_bridge_parse_orientation(adev);
 
-	if (ssdb.vcmtype)
+	acpi_handle_debug(handle,
+			  "CSI-2 port %u, lanes %u, mclkspeed %u, rotation %u (SSDB %u), orientation %u\n",
+			  sensor->link, sensor->lanes, sensor->mclkspeed,
+			  sensor->rotation, ssdb.degree, sensor->orientation);
+
+	if (ssdb.vcmtype) {
 		sensor->vcm_type = ipu_vcm_types[ssdb.vcmtype - 1];
+		acpi_handle_debug(handle, "VCM %s\n", sensor->vcm_type);
+	}
 
 	return 0;
 }
@@ -832,8 +864,8 @@ static int ipu_bridge_connect_sensor(const struct ipu_sensor_config *cfg,
 		if (ret)
 			goto err_free_swnodes;
 
-		dev_info(bridge->dev, "Found supported sensor %s\n",
-			 acpi_dev_name(adev));
+		dev_info(bridge->dev, "Found supported sensor %s (%pfw)\n",
+			 acpi_dev_name(adev), primary);
 
 		bridge->n_sensors++;
 	}

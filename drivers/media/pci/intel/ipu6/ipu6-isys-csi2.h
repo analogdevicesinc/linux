@@ -16,6 +16,9 @@ struct ipu6_isys_video;
 struct ipu6_isys;
 struct ipu6_isys_stream;
 
+#define PHY_MODE_DPHY		0
+#define PHY_MODE_CPHY		1
+
 #define NR_OF_CSI2_VC		16
 #define INVALID_VC_ID		-1
 #define NR_OF_CSI2_SINK_PADS	1
@@ -43,6 +46,8 @@ struct ipu6_isys_csi2 {
 	u32 receiver_errors;
 	unsigned int nlanes;
 	unsigned int port;
+	u32 legacy_irq_mask;
+	unsigned int phy_mode;
 };
 
 struct ipu6_isys_csi2_timing {
