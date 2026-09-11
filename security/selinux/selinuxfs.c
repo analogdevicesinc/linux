@@ -247,11 +247,6 @@ static int sel_mmap_handle_status(struct file *filp,
 	/* only allows one page from the head */
 	if (vma->vm_pgoff > 0 || size != PAGE_SIZE)
 		return -EIO;
-	/* disallow writable mapping */
-	if (vma->vm_flags & VM_WRITE)
-		return -EPERM;
-	/* disallow mprotect() turns it into writable */
-	vm_flags_clear(vma, VM_MAYWRITE);
 
 	return remap_pfn_range(vma, vma->vm_start,
 			       page_to_pfn(status),
@@ -1818,6 +1813,17 @@ static struct dentry *sel_make_swapover_dir(struct super_block *sb, u64 *ino)
 
 #define NULL_FILE_NAME "null"
 
+static void sel_mark_immutable(struct dentry *root, const char *name)
+{
+	struct qstr q = QSTR(name);
+	struct dentry *dentry = try_lookup_noperm(&q, root);
+
+	if (!IS_ERR_OR_NULL(dentry)) {
+		d_inode(dentry)->i_flags |= S_IMMUTABLE;
+		dput(dentry);
+	}
+}
+
 static int sel_fill_super(struct super_block *sb, struct fs_context *fc)
 {
 	struct selinux_fs_info *fsi;
@@ -1856,6 +1862,9 @@ static int sel_fill_super(struct super_block *sb, struct fs_context *fc)
 	ret = simple_fill_super(sb, SELINUX_MAGIC, selinux_files);
 	if (ret)
 		goto err;
+
+	sel_mark_immutable(sb->s_root, "status");
+	sel_mark_immutable(sb->s_root, "policy");
 
 	fsi = sb->s_fs_info;
 	fsi->bool_dir = sel_make_dir(sb->s_root, BOOL_DIR_NAME, &fsi->last_ino);
