@@ -10,6 +10,7 @@
 #include "cache.h"
 #include "xdr.h"
 #include "vfs.h"
+#include "nfserr.h"
 #include "trace.h"
 
 #define NFSDDBG_FACILITY		NFSDDBG_PROC
@@ -265,7 +266,7 @@ nfsd_proc_write(struct svc_rqst *rqstp)
 
 	fh_copy(&resp->fh, &argp->fh);
 	resp->status = nfsd_write(rqstp, &resp->fh, argp->offset,
-				  &argp->payload, &cnt, NFS_DATA_SYNC, NULL);
+				  &argp->payload, &cnt, IOCB_DSYNC, NULL);
 	if (resp->status == nfs_ok)
 		resp->status = fh_getattr(&resp->fh, &resp->stat);
 	else if (resp->status == nfserr_jukebox)
@@ -291,6 +292,7 @@ nfsd_proc_create(struct svc_rqst *rqstp)
 	struct nfsd_attrs attrs = {
 		.na_iattr	= attr,
 	};
+	struct svc_export *exp;
 	struct inode	*inode;
 	struct dentry	*dchild;
 	int		type, mode;
@@ -319,8 +321,22 @@ nfsd_proc_create(struct svc_rqst *rqstp)
 		resp->status = nfserrno(PTR_ERR(dchild));
 		goto out_write;
 	}
+	/*
+	 * If name exists we need to check for mountpoints
+	 */
+	exp = exp_get(dirfhp->fh_export);
+	if (d_is_reg(dchild) &&
+	    unlikely(nfsd_mountpoint(dchild, exp))) {
+		resp->status = nfsd_cross_mnt(rqstp, &dchild, &exp);
+		if (resp->status != nfs_ok) {
+			exp_put(exp);
+			goto out_unlock;
+		}
+	}
+
 	fh_init(newfhp, NFS_FHSIZE);
-	resp->status = fh_compose(newfhp, dirfhp->fh_export, dchild, dirfhp);
+	resp->status = fh_compose(newfhp, exp, dchild, dirfhp);
+	exp_put(exp);
 	if (!resp->status && d_really_is_negative(dchild))
 		resp->status = nfserr_noent;
 	if (resp->status) {
