@@ -2623,6 +2623,30 @@ static u32 pf_get_sched_priority(struct xe_gt *gt, unsigned int vfid)
 }
 
 /**
+ * xe_gt_sriov_pf_config_set_sched_priority_locked() - Configure scheduling priority.
+ * @gt: the &xe_gt
+ * @vfid: the VF identifier
+ * @priority: requested scheduling priority
+ *
+ * This function can only be called on PF with the master mutex hold.
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_gt_sriov_pf_config_set_sched_priority_locked(struct xe_gt *gt, unsigned int vfid,
+						    u32 priority)
+{
+	int err;
+
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
+
+	err = pf_provision_sched_priority(gt, vfid, priority);
+
+	return pf_config_set_u32_done(gt, vfid, priority,
+				      pf_get_sched_priority(gt, vfid),
+				      "scheduling priority", sched_priority_unit, err);
+}
+
+/**
  * xe_gt_sriov_pf_config_set_sched_priority() - Configure scheduling priority.
  * @gt: the &xe_gt
  * @vfid: the VF identifier
@@ -2634,15 +2658,9 @@ static u32 pf_get_sched_priority(struct xe_gt *gt, unsigned int vfid)
  */
 int xe_gt_sriov_pf_config_set_sched_priority(struct xe_gt *gt, unsigned int vfid, u32 priority)
 {
-	int err;
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
 
-	mutex_lock(xe_gt_sriov_pf_master_mutex(gt));
-	err = pf_provision_sched_priority(gt, vfid, priority);
-	mutex_unlock(xe_gt_sriov_pf_master_mutex(gt));
-
-	return pf_config_set_u32_done(gt, vfid, priority,
-				      xe_gt_sriov_pf_config_get_sched_priority(gt, vfid),
-				      "scheduling priority", sched_priority_unit, err);
+	return xe_gt_sriov_pf_config_set_sched_priority_locked(gt, vfid, priority);
 }
 
 /**
