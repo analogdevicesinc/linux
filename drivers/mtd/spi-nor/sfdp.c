@@ -34,17 +34,6 @@
 
 #define SFDP_SIGNATURE		0x50444653U
 
-struct sfdp_header {
-	u32		signature; /* Ox50444653U <=> "SFDP" */
-	u8		minor;
-	u8		major;
-	u8		nph; /* 0-base number of parameter headers */
-	u8		unused;
-
-	/* Basic Flash Parameter Table. */
-	struct sfdp_parameter_header	bfpt_header;
-};
-
 /* Fast Read settings. */
 struct sfdp_bfpt_read {
 	/* The Fast Read x-y-z hardware capability in params->hwcaps.mask. */
@@ -402,6 +391,42 @@ static void spi_nor_regions_sort_erase_types(struct spi_nor_erase_map *map)
 }
 
 /**
+ * spi_nor_post_bfpt_fixups() - Updates the flash's parameters and settings
+ * after BFPT has been parsed. Called only for flashes that define JESD216 SFDP
+ * tables.
+ * @nor:	pointer to a 'struct spi_nor'
+ * @bfpt_header:	pointer to the 'struct sfdp_parameter_header' describing
+ *			the Basic Flash Parameter Table length and version
+ *
+ * Used to tweak various flash parameters when information provided by the SFDP
+ * tables are wrong.
+ */
+static int spi_nor_post_bfpt_fixups(struct spi_nor *nor,
+				    const struct sfdp_parameter_header *bfpt_header,
+				    const struct sfdp_bfpt *bfpt)
+{
+	const struct spi_nor_fixup *fixups;
+	int ret;
+	unsigned int i;
+
+	if (!nor->manufacturer || !nor->manufacturer->fixups)
+		return 0;
+
+	fixups = nor->manufacturer->fixups;
+
+	for (i = 0; i < nor->manufacturer->nfixups; i++) {
+		if (fixups[i].fixups && fixups[i].fixups->post_bfpt &&
+		    spi_nor_fixup_match(nor, &fixups[i])) {
+			ret = fixups[i].fixups->post_bfpt(nor, bfpt_header, bfpt);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
+/**
  * spi_nor_parse_bfpt() - read and parse the Basic Flash Parameter Table.
  * @nor:		pointer to a 'struct spi_nor'
  * @bfpt_header:	pointer to the 'struct sfdp_parameter_header' describing
@@ -453,7 +478,7 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 		    bfpt_header->length * sizeof(u32));
 	addr = SFDP_PARAM_HEADER_PTP(bfpt_header);
 	memset(&bfpt, 0, sizeof(bfpt));
-	err = spi_nor_read_sfdp_dma_unsafe(nor,  addr, len, &bfpt);
+	err = spi_nor_read_sfdp_dma_unsafe(nor, addr, len, &bfpt);
 	if (err < 0)
 		return err;
 
@@ -561,34 +586,50 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 	val >>= BFPT_DWORD11_PAGE_SIZE_SHIFT;
 	params->page_size = 1U << val;
 
+	/*
+	 * The standard declares various read and write status methods, some of
+	 * them will be overloaded based on the QER field.
+	 */
+	params->opcodes.read_sr1 = SPINOR_OP_RDSR;
+	params->opcodes.read_sr2 = SPINOR_OP_RDCR;
+	params->opcodes.write_sr1 = SPINOR_OP_WRSR;
+	params->opcodes.write_sr1_and_sr2 = SPINOR_OP_WRSR;
+
+	params->qe_mask[0] = 0;
+	params->qe_mask[1] = 0;
+
 	/* Quad Enable Requirements. */
 	switch (bfpt.dwords[SFDP_DWORD(15)] & BFPT_DWORD15_QER_MASK) {
 	case BFPT_DWORD15_QER_NONE:
-		params->quad_enable = NULL;
 		break;
 
-	case BFPT_DWORD15_QER_SR2_BIT1_BUGGY:
+	case BFPT_DWORD15_QER_SR2_BIT1_NO_1B_WR:
 		/*
 		 * Writing only one byte to the Status Register has the
 		 * side-effect of clearing Status Register 2.
 		 */
+		fallthrough;
 	case BFPT_DWORD15_QER_SR2_BIT1_NO_RD:
 		/*
 		 * Read Configuration Register (35h) instruction is not
-		 * supported.
+		 * supported. 16-bit writes expected.
 		 */
-		nor->flags |= SNOR_F_HAS_16BIT_SR | SNOR_F_NO_READ_CR;
-		params->quad_enable = spi_nor_sr2_bit1_quad_enable;
+		params->opcodes.read_sr2 = 0;
+		params->opcodes.write_sr1 = 0;
+		params->qe_mask[1] = BIT(1);
 		break;
 
 	case BFPT_DWORD15_QER_SR1_BIT6:
-		nor->flags &= ~SNOR_F_HAS_16BIT_SR;
-		params->quad_enable = spi_nor_sr1_bit6_quad_enable;
+		params->opcodes.read_sr2 = 0;
+		params->opcodes.write_sr1_and_sr2 = 0;
+		params->qe_mask[0] = BIT(6);
 		break;
 
 	case BFPT_DWORD15_QER_SR2_BIT7:
-		nor->flags &= ~SNOR_F_HAS_16BIT_SR;
-		params->quad_enable = spi_nor_sr2_bit7_quad_enable;
+		params->opcodes.read_sr2 = SPINOR_OP_RDSR2;
+		params->opcodes.write_sr1_and_sr2 = 0;
+		params->opcodes.write_sr2 = SPINOR_OP_WRSR2;
+		params->qe_mask[1] = BIT(7);
 		break;
 
 	case BFPT_DWORD15_QER_SR2_BIT1:
@@ -598,15 +639,24 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 		 * Register 2, so let's be cautious and keep the default
 		 * assumption of a 16-bit Write Status (01h) command.
 		 */
-		nor->flags |= SNOR_F_HAS_16BIT_SR;
+		params->opcodes.write_sr1 = 0;
+		params->qe_mask[1] = BIT(1);
+		break;
 
-		params->quad_enable = spi_nor_sr2_bit1_quad_enable;
+	case BFPT_DWORD15_QER_SR2_BIT1_1B:
+		params->qe_mask[1] = BIT(1);
+		params->opcodes.write_sr1_and_sr2 = 0;
+		params->opcodes.write_sr2 = SPINOR_OP_WRSR2_ALT;
 		break;
 
 	default:
 		dev_dbg(nor->dev, "BFPT QER reserved value used\n");
 		break;
 	}
+
+	/* opcodes sanity check */
+	WARN_ON(!params->opcodes.read_sr1 ||
+		(!params->opcodes.write_sr1 && !params->opcodes.write_sr1_and_sr2));
 
 	dword = bfpt.dwords[SFDP_DWORD(16)] & BFPT_DWORD16_4B_ADDR_MODE_MASK;
 	if (SFDP_MASK_CHECK(dword, BFPT_DWORD16_4B_ADDR_MODE_BRWR))
@@ -620,7 +670,7 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 
 	/* Soft Reset support. */
 	if (bfpt.dwords[SFDP_DWORD(16)] & BFPT_DWORD16_SWRST_EN_RST)
-		nor->flags |= SNOR_F_SOFT_RESET;
+		params->flags |= SNOR_F_SOFT_RESET;
 
 	/* Stop here if not JESD216 rev C or later. */
 	if (bfpt_header->length == BFPT_DWORD_MAX_JESD216B)
@@ -655,11 +705,11 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 	/* 8D-8D-8D command extension. */
 	switch (bfpt.dwords[SFDP_DWORD(18)] & BFPT_DWORD18_CMD_EXT_MASK) {
 	case BFPT_DWORD18_CMD_EXT_REP:
-		nor->cmd_ext_type = SPI_NOR_EXT_REPEAT;
+		params->cmd_ext_type = SPI_NOR_EXT_REPEAT;
 		break;
 
 	case BFPT_DWORD18_CMD_EXT_INV:
-		nor->cmd_ext_type = SPI_NOR_EXT_INVERT;
+		params->cmd_ext_type = SPI_NOR_EXT_INVERT;
 		break;
 
 	case BFPT_DWORD18_CMD_EXT_RES:
@@ -673,7 +723,7 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 
 	/* Byte order in 8D-8D-8D mode */
 	if (bfpt.dwords[SFDP_DWORD(18)] & BFPT_DWORD18_BYTE_ORDER_SWAPPED)
-		nor->flags |= SNOR_F_SWAP16;
+		params->flags |= SNOR_F_SWAP16;
 
 	return spi_nor_post_bfpt_fixups(nor, bfpt_header, &bfpt);
 }
@@ -702,12 +752,19 @@ static u8 spi_nor_smpt_addr_nbytes(const struct spi_nor *nor, const u32 settings
 static void spi_nor_smpt_read_dummy_fixups(const struct spi_nor *nor,
 					   u8 *read_dummy)
 {
-	if (nor->manufacturer && nor->manufacturer->fixups &&
-	    nor->manufacturer->fixups->smpt_read_dummy)
-		nor->manufacturer->fixups->smpt_read_dummy(nor, read_dummy);
+	const struct spi_nor_fixup *fixups;
+	unsigned int i;
 
-	if (nor->info->fixups && nor->info->fixups->smpt_read_dummy)
-		nor->info->fixups->smpt_read_dummy(nor, read_dummy);
+	if (!nor->manufacturer || !nor->manufacturer->fixups)
+		return;
+
+	fixups = nor->manufacturer->fixups;
+
+	for (i = 0; i < nor->manufacturer->nfixups; i++) {
+		if (fixups[i].fixups && fixups[i].fixups->smpt_read_dummy &&
+		    spi_nor_fixup_match(nor, &fixups[i]))
+			fixups[i].fixups->smpt_read_dummy(nor, read_dummy);
+	}
 }
 
 /**
@@ -732,12 +789,19 @@ static u8 spi_nor_smpt_read_dummy(const struct spi_nor *nor, const u32 settings)
 
 static void spi_nor_smpt_map_id_fixups(const struct spi_nor *nor, u8 *map_id)
 {
-	if (nor->manufacturer && nor->manufacturer->fixups &&
-	    nor->manufacturer->fixups->smpt_map_id)
-		nor->manufacturer->fixups->smpt_map_id(nor, map_id);
+	const struct spi_nor_fixup *fixups;
+	unsigned int i;
 
-	if (nor->info->fixups && nor->info->fixups->smpt_map_id)
-		nor->info->fixups->smpt_map_id(nor, map_id);
+	if (!nor->manufacturer || !nor->manufacturer->fixups)
+		return;
+
+	fixups = nor->manufacturer->fixups;
+
+	for (i = 0; i < nor->manufacturer->nfixups; i++) {
+		if (fixups[i].fixups && fixups[i].fixups->smpt_map_id &&
+		    spi_nor_fixup_match(nor, &fixups[i]))
+			fixups[i].fixups->smpt_map_id(nor, map_id);
+	}
 }
 
 /**
@@ -1160,7 +1224,7 @@ static int spi_nor_parse_4bait(struct spi_nor *nor,
 	 * SFDP compliant memories.
 	 */
 	params->addr_nbytes = 4;
-	nor->flags |= SNOR_F_4B_OPCODES | SNOR_F_HAS_4BAIT;
+	params->flags |= SNOR_F_4B_OPCODES | SNOR_F_HAS_4BAIT;
 
 	/* fall through */
 out:
@@ -1175,6 +1239,7 @@ out:
 #define PROFILE1_DWORD5_DUMMY_166MHZ		GENMASK(31, 27)
 #define PROFILE1_DWORD5_DUMMY_133MHZ		GENMASK(21, 17)
 #define PROFILE1_DWORD5_DUMMY_100MHZ		GENMASK(11, 7)
+#define SFDP_PROFILE1_DWORD_MIN			5
 
 /**
  * spi_nor_parse_profile1() - parse the xSPI Profile 1.0 table
@@ -1191,6 +1256,9 @@ static int spi_nor_parse_profile1(struct spi_nor *nor,
 	size_t len;
 	int ret;
 	u8 dummy, opcode;
+
+	if (profile1_header->length < SFDP_PROFILE1_DWORD_MIN)
+		return -EINVAL;
 
 	len = profile1_header->length * sizeof(*dwords);
 	dwords = kmalloc(len, GFP_KERNEL);
@@ -1262,6 +1330,7 @@ out:
 }
 
 #define SCCR_DWORD22_OCTAL_DTR_EN_VOLATILE		BIT(31)
+#define SFDP_SCCR_DWORD_MIN				22
 
 /**
  * spi_nor_parse_sccr() - Parse the Status, Control and Configuration Register
@@ -1279,6 +1348,9 @@ static int spi_nor_parse_sccr(struct spi_nor *nor,
 	u32 *dwords, addr;
 	size_t len;
 	int ret;
+
+	if (sccr_header->length < SFDP_SCCR_DWORD_MIN)
+		return -EINVAL;
 
 	len = sccr_header->length * sizeof(*dwords);
 	dwords = kmalloc(len, GFP_KERNEL);
@@ -1306,7 +1378,7 @@ static int spi_nor_parse_sccr(struct spi_nor *nor,
 
 	if (FIELD_GET(SCCR_DWORD22_OCTAL_DTR_EN_VOLATILE,
 		      dwords[SFDP_DWORD(22)]))
-		nor->flags |= SNOR_F_IO_MODE_EN_VOLATILE;
+		params->flags |= SNOR_F_IO_MODE_EN_VOLATILE;
 
 out:
 	kfree(dwords);
@@ -1381,17 +1453,23 @@ out:
  */
 static int spi_nor_post_sfdp_fixups(struct spi_nor *nor)
 {
+	const struct spi_nor_fixup *fixups;
+	unsigned int i;
 	int ret;
 
-	if (nor->manufacturer && nor->manufacturer->fixups &&
-	    nor->manufacturer->fixups->post_sfdp) {
-		ret = nor->manufacturer->fixups->post_sfdp(nor);
-		if (ret)
-			return ret;
-	}
+	if (!nor->manufacturer || !nor->manufacturer->fixups)
+		return 0;
 
-	if (nor->info->fixups && nor->info->fixups->post_sfdp)
-		return nor->info->fixups->post_sfdp(nor);
+	fixups = nor->manufacturer->fixups;
+
+	for (i = 0; i < nor->manufacturer->nfixups; i++) {
+		if (fixups[i].fixups && fixups[i].fixups->post_sfdp &&
+		    spi_nor_fixup_match(nor, &fixups[i])) {
+			ret = fixups[i].fixups->post_sfdp(nor);
+			if (ret)
+				return ret;
+		}
+	}
 
 	return 0;
 }
@@ -1433,18 +1511,28 @@ int spi_nor_check_sfdp_signature(struct spi_nor *nor)
  * runtime the main parameters needed to perform basic SPI flash operations such
  * as Fast Read, Page Program or Sector Erase commands.
  *
+ * Because the parsing is optional, all the settings have to be reverted. IOW,
+ * nothing of struct spi_nor shall be changed.
+ *
  * Return: 0 on success, -errno otherwise.
  */
 int spi_nor_parse_sfdp(struct spi_nor *nor)
 {
 	const struct sfdp_parameter_header *param_header, *bfpt_header;
 	struct sfdp_parameter_header *param_headers = NULL;
+	struct spi_nor_flash_parameter params, params2;
 	struct sfdp_header header;
 	struct device *dev = nor->dev;
 	struct sfdp *sfdp;
 	size_t sfdp_size;
 	size_t psize;
 	int i, err;
+
+	/*
+	 * Get a backup of all the parameter to roll back to in case of an
+	 * error.
+	 */
+	memcpy(&params, nor->params, sizeof(params));
 
 	/* Get the SFDP header. */
 	err = spi_nor_read_sfdp_dma_unsafe(nor, 0, sizeof(header), &header);
@@ -1490,7 +1578,7 @@ int spi_nor_parse_sfdp(struct spi_nor *nor)
 					psize, param_headers);
 		if (err < 0) {
 			dev_dbg(dev, "failed to read SFDP parameter headers\n");
-			goto exit;
+			goto free_param_headers;
 		}
 	}
 
@@ -1518,7 +1606,7 @@ int spi_nor_parse_sfdp(struct spi_nor *nor)
 	sfdp = devm_kzalloc(dev, sizeof(*sfdp), GFP_KERNEL);
 	if (!sfdp) {
 		err = -ENOMEM;
-		goto exit;
+		goto free_param_headers;
 	}
 
 	/*
@@ -1532,16 +1620,13 @@ int spi_nor_parse_sfdp(struct spi_nor *nor)
 				    sizeof(*sfdp->dwords), GFP_KERNEL);
 	if (!sfdp->dwords) {
 		err = -ENOMEM;
-		devm_kfree(dev, sfdp);
-		goto exit;
+		goto free_sfdp;
 	}
 
 	err = spi_nor_read_sfdp(nor, 0, sfdp_size, sfdp->dwords);
 	if (err < 0) {
 		dev_dbg(dev, "failed to read SFDP data\n");
-		devm_kfree(dev, sfdp->dwords);
-		devm_kfree(dev, sfdp);
-		goto exit;
+		goto free_dwords;
 	}
 
 	nor->sfdp = sfdp;
@@ -1563,10 +1648,11 @@ int spi_nor_parse_sfdp(struct spi_nor *nor)
 
 	err = spi_nor_parse_bfpt(nor, bfpt_header);
 	if (err)
-		goto exit;
+		goto clear_sfdp_ptr;
 
 	/* Parse optional parameter tables. */
 	for (i = 0; i < header.nph; i++) {
+		memcpy(&params2, nor->params, sizeof(params2));
 		param_header = &param_headers[i];
 
 		switch (SFDP_PARAM_HEADER_ID(param_header)) {
@@ -1600,15 +1686,43 @@ int spi_nor_parse_sfdp(struct spi_nor *nor)
 			/*
 			 * Let's not drop all information we extracted so far
 			 * if optional table parsers fail. In case of failing,
-			 * each optional parser is responsible to roll back to
-			 * the previously known spi_nor data.
+			 * roll back to the previously known
+			 * spi_nor_flash_parameter data.
 			 */
 			err = 0;
+			memcpy(nor->params, &params2, sizeof(*nor->params));
 		}
 	}
 
 	err = spi_nor_post_sfdp_fixups(nor);
-exit:
+	if (err)
+		goto clear_sfdp_ptr;
+
 	kfree(param_headers);
+
+	return 0;
+
+clear_sfdp_ptr:
+	nor->sfdp = NULL;
+free_dwords:
+	devm_kfree(dev, sfdp->dwords);
+free_sfdp:
+	devm_kfree(dev, sfdp);
+free_param_headers:
+	kfree(param_headers);
+	if (err)
+		memcpy(nor->params, &params, sizeof(*nor->params));
+
 	return err;
+}
+
+/**
+ * spi_nor_sfdp_get_header() - retrieves the SFDP header
+ * @nor: pointer to a 'struct spi_nor' with a valid SFDP field
+ *
+ * Return: the cached SFDP header.
+ */
+struct sfdp_header *spi_nor_sfdp_get_header(const struct spi_nor *nor)
+{
+	return (struct sfdp_header *)nor->sfdp->dwords;
 }
