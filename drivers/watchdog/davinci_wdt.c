@@ -120,7 +120,7 @@ static unsigned int davinci_wdt_get_timeleft(struct watchdog_device *wdd)
 	u32 val;
 	struct davinci_wdt_device *davinci_wdt = watchdog_get_drvdata(wdd);
 
-	/* if timeout has occured then return 0 */
+	/* if timeout has occurred then return 0 */
 	val = ioread32(davinci_wdt->base + WDTCR);
 	if (val & WDFLAG)
 		return 0;

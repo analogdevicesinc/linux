@@ -64,7 +64,7 @@ struct max63xx_wdt {
  * delay (selected with the "nodelay" parameter).
  *
  * I also decided to remove from the tables any timeout smaller than a
- * second, as it looked completly overkill...
+ * second, as it looked completely overkill...
  */
 
 /* Timeouts in second */
