@@ -2932,7 +2932,38 @@ static void pf_release_vf_config(struct xe_gt *gt, unsigned int vfid)
 }
 
 /**
- * xe_gt_sriov_pf_config_release - Release and reset VF configuration.
+ * xe_gt_sriov_pf_config_release_locked() - Release and reset VF configuration.
+ * @gt: the &xe_gt
+ * @vfid: the VF identifier (can't be PF)
+ * @force: force configuration release
+ *
+ * Note: The caller must hold the master PF mutex.
+ * This function can only be called on PF.
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_gt_sriov_pf_config_release_locked(struct xe_gt *gt, unsigned int vfid, bool force)
+{
+	int err;
+
+	xe_gt_assert(gt, vfid);
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
+
+	err = pf_send_vf_cfg_reset(gt, vfid);
+	if (!err || force)
+		pf_release_vf_config(gt, vfid);
+
+	if (unlikely(err)) {
+		xe_gt_sriov_notice(gt, "VF%u unprovisioning failed with error (%pe)%s\n",
+				   vfid, ERR_PTR(err),
+				   force ? " but all resources were released anyway!" : "");
+	}
+
+	return force ? 0 : err;
+}
+
+/**
+ * xe_gt_sriov_pf_config_release() - Release and reset VF configuration.
  * @gt: the &xe_gt
  * @vfid: the VF identifier (can't be PF)
  * @force: force configuration release
@@ -2943,23 +2974,9 @@ static void pf_release_vf_config(struct xe_gt *gt, unsigned int vfid)
  */
 int xe_gt_sriov_pf_config_release(struct xe_gt *gt, unsigned int vfid, bool force)
 {
-	int err;
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
 
-	xe_gt_assert(gt, vfid);
-
-	mutex_lock(xe_gt_sriov_pf_master_mutex(gt));
-	err = pf_send_vf_cfg_reset(gt, vfid);
-	if (!err || force)
-		pf_release_vf_config(gt, vfid);
-	mutex_unlock(xe_gt_sriov_pf_master_mutex(gt));
-
-	if (unlikely(err)) {
-		xe_gt_sriov_notice(gt, "VF%u unprovisioning failed with error (%pe)%s\n",
-				   vfid, ERR_PTR(err),
-				   force ? " but all resources were released anyway!" : "");
-	}
-
-	return force ? 0 : err;
+	return xe_gt_sriov_pf_config_release_locked(gt, vfid, force);
 }
 
 static void pf_sanitize_ggtt(struct xe_ggtt_node *ggtt_region, unsigned int vfid)
