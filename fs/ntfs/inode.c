@@ -170,17 +170,19 @@ struct inode *ntfs_iget(struct super_block *sb, u64 mft_no)
 	/* If this is a freshly allocated inode, need to read it now. */
 	if (inode_state_read_once(vi) & I_NEW) {
 		err = ntfs_read_locked_inode(vi);
-		unlock_new_inode(vi);
+		if (err) {
+			remove_inode_hash(vi);
+			discard_new_inode(vi);
+		} else
+			unlock_new_inode(vi);
 	}
 	/*
 	 * There is no point in keeping bad inodes around. This also
 	 * simplifies things in that we never need to check for bad inodes
 	 * elsewhere.
 	 */
-	if (unlikely(err)) {
-		iput(vi);
+	if (unlikely(err))
 		vi = ERR_PTR(err);
-	}
 	return vi;
 }
 
@@ -231,17 +233,19 @@ struct inode *ntfs_attr_iget(struct inode *base_vi, __le32 type,
 	/* If this is a freshly allocated inode, need to read it now. */
 	if (inode_state_read_once(vi) & I_NEW) {
 		err = ntfs_read_locked_attr_inode(base_vi, vi);
-		unlock_new_inode(vi);
+		if (err) {
+			remove_inode_hash(vi);
+			discard_new_inode(vi);
+		} else
+			unlock_new_inode(vi);
 	}
 	/*
 	 * There is no point in keeping bad attribute inodes around. This also
 	 * simplifies things in that we never need to check for bad attribute
 	 * inodes elsewhere.
 	 */
-	if (unlikely(err)) {
-		iput(vi);
+	if (unlikely(err))
 		vi = ERR_PTR(err);
-	}
 	return vi;
 }
 
@@ -286,17 +290,19 @@ struct inode *ntfs_index_iget(struct inode *base_vi, __le16 *name,
 	/* If this is a freshly allocated inode, need to read it now. */
 	if (inode_state_read_once(vi) & I_NEW) {
 		err = ntfs_read_locked_index_inode(base_vi, vi);
-		unlock_new_inode(vi);
+		if (err) {
+			remove_inode_hash(vi);
+			discard_new_inode(vi);
+		} else
+			unlock_new_inode(vi);
 	}
 	/*
 	 * There is no point in keeping bad index inodes around.  This also
 	 * simplifies things in that we never need to check for bad index
 	 * inodes elsewhere.
 	 */
-	if (unlikely(err)) {
-		iput(vi);
+	if (unlikely(err))
 		vi = ERR_PTR(err);
-	}
 	return vi;
 }
 
@@ -1241,7 +1247,8 @@ unm_err_out:
 	if (m)
 		unmap_mft_record(ni);
 err_out:
-	if (err != -EOPNOTSUPP && err != -ENOMEM && vol_err == true) {
+	if (err != -EOPNOTSUPP && err != -ENOMEM &&
+	    err != -EINTR && err != -ERESTARTSYS && vol_err == true) {
 		ntfs_error(vol->sb,
 			"Failed with error code %i.  Marking corrupt inode 0x%llx as bad.  Run chkdsk.",
 			err, ni->mft_no);
@@ -1467,12 +1474,13 @@ unm_err_out:
 		ntfs_attr_put_search_ctx(ctx);
 	unmap_mft_record(base_ni);
 err_out:
-	if (err != -ENOENT)
+	if (err != -ENOENT && err != -EINTR && err != -ERESTARTSYS)
 		ntfs_error(vol->sb,
 			"Failed with error code %i while reading attribute inode (mft_no 0x%llx, type 0x%x, name_len %i).  Marking corrupt inode and base inode 0x%llx as bad.  Run chkdsk.",
 			err, ni->mft_no, ni->type, ni->name_len,
 			base_ni->mft_no);
-	if (err != -ENOENT && err != -ENOMEM)
+	if (err != -ENOENT && err != -ENOMEM &&
+	    err != -EINTR && err != -ERESTARTSYS)
 		NVolSetErrors(vol);
 	return err;
 }
@@ -1676,8 +1684,9 @@ static int ntfs_read_locked_index_inode(struct inode *base_vi, struct inode *vi)
 	/* Get the index bitmap attribute inode. */
 	bvi = ntfs_attr_iget(base_vi, AT_BITMAP, ni->name, ni->name_len);
 	if (IS_ERR(bvi)) {
-		ntfs_error(vi->i_sb, "Failed to get bitmap attribute.");
 		err = PTR_ERR(bvi);
+		if (err != -EINTR && err != -ERESTARTSYS)
+			ntfs_error(vi->i_sb, "Failed to get bitmap attribute.");
 		goto unm_err_out;
 	}
 	bni = NTFS_I(bvi);
@@ -1721,10 +1730,12 @@ unm_err_out:
 	if (m)
 		unmap_mft_record(base_ni);
 err_out:
-	ntfs_error(vi->i_sb,
-		"Failed with error code %i while reading index inode (mft_no 0x%llx, name_len %i.",
-		err, ni->mft_no, ni->name_len);
-	if (err != -EOPNOTSUPP && err != -ENOMEM)
+	if (err != -EINTR && err != -ERESTARTSYS)
+		ntfs_error(vi->i_sb,
+			"Failed with error code %i while reading index inode (mft_no 0x%llx, name_len %i.",
+			err, ni->mft_no, ni->name_len);
+	if (err != -EOPNOTSUPP && err != -ENOMEM &&
+	    err != -EINTR && err != -ERESTARTSYS)
 		NVolSetErrors(vol);
 	return err;
 }
@@ -2772,7 +2783,7 @@ int __ntfs_write_inode(struct inode *vi, int sync)
 
 	if (NInoNonResident(ni) && NInoRunlistDirty(ni)) {
 		down_write(&ni->runlist.lock);
-		err = ntfs_attr_update_mapping_pairs(ni, 0);
+		err = ntfs_attr_update_mapping_pairs_locked(ni, 0, ni);
 		if (!err)
 			NInoClearRunlistDirty(ni);
 		up_write(&ni->runlist.lock);
@@ -2904,8 +2915,7 @@ err_out:
  * abort if deprotection or checks fail.
  *
  * Finally attach the ntfs inode to its base inode @base_ni and return a
- * pointer to the ntfs_inode structure on success or NULL on error, with errno
- * set to the error code.
+ * pointer to the ntfs_inode structure on success or ERR_PTR() on error.
  *
  * Note, extent inodes are never closed directly. They are automatically
  * disposed off by the closing of the base inode.
@@ -2921,7 +2931,7 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 	struct super_block *sb;
 
 	if (!base_ni)
-		return NULL;
+		return ERR_PTR(-EINVAL);
 
 	sb = base_ni->vol->sb;
 	ntfs_debug("Opening extent inode %llu (base mft record %llu).\n",
@@ -2940,7 +2950,7 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 			if (IS_ERR(ni_mrec)) {
 				ntfs_error(sb, "failed to map mft record for %llu",
 						ni->mft_no);
-				goto out;
+				return ERR_CAST(ni_mrec);
 			}
 			/* Verify the sequence number if given. */
 			seq_no = MSEQNO_LE(mref);
@@ -2949,7 +2959,7 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 				ntfs_error(sb, "Found stale extent mft reference mft=%llu",
 						ni->mft_no);
 				unmap_mft_record(ni);
-				goto out;
+				return ERR_PTR(-EIO);
 			}
 			unmap_mft_record(ni);
 			goto out;
@@ -2958,7 +2968,7 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 	/* Wasn't there, we need to load the extent inode. */
 	ni = ntfs_new_extent_inode(base_ni->vol->sb, mft_no);
 	if (!ni)
-		goto out;
+		return ERR_PTR(-ENOMEM);
 
 	ni->seq_no = (u16)MSEQNO_LE(mref);
 	ni->nr_extents = -1;
@@ -2968,8 +2978,10 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 		i = (base_ni->nr_extents + 4) * sizeof(struct ntfs_inode *);
 
 		extent_nis = kvzalloc(i, GFP_NOFS);
-		if (!extent_nis)
-			goto err_out;
+		if (!extent_nis) {
+			ntfs_destroy_ext_inode(ni);
+			return ERR_PTR(-ENOMEM);
+		}
 		if (base_ni->nr_extents) {
 			memcpy(extent_nis, base_ni->ext.extent_ntfs_inos,
 					i - 4 * sizeof(struct ntfs_inode *));
@@ -2982,10 +2994,6 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 out:
 	ntfs_debug("\n");
 	return ni;
-err_out:
-	ntfs_destroy_ext_inode(ni);
-	ni = NULL;
-	goto out;
 }
 
 /*
@@ -3023,9 +3031,12 @@ int ntfs_inode_attach_all_extents(struct ntfs_inode *ni)
 	while ((u8 *)ale < ni->attr_list + ni->attr_list_size) {
 		if (ni->mft_no != MREF_LE(ale->mft_reference) &&
 				prev_attached != MREF_LE(ale->mft_reference)) {
-			if (!ntfs_extent_inode_open(ni, ale->mft_reference)) {
+			struct ntfs_inode *ext_ni;
+
+			ext_ni = ntfs_extent_inode_open(ni, ale->mft_reference);
+			if (IS_ERR(ext_ni)) {
 				ntfs_debug("Couldn't attach extent inode.\n");
-				return -1;
+				return PTR_ERR(ext_ni);
 			}
 			prev_attached = MREF_LE(ale->mft_reference);
 		}
@@ -3618,9 +3629,10 @@ static inline int ntfs_enlarge_attribute(struct inode *vi, s64 pos, s64 count,
 		return -EOPNOTSUPP;
 
 	if (pos + count > ni->data_size) {
-		if (ntfs_attr_truncate(ni, pos + count)) {
+		ret = ntfs_attr_truncate(ni, pos + count);
+		if (ret) {
 			ntfs_debug("Failed to truncate attribute");
-			return -1;
+			return ret;
 		}
 
 		ntfs_attr_reinit_search_ctx(ctx);
@@ -3713,7 +3725,7 @@ static s64 __ntfs_inode_non_resident_attr_pwrite(struct inode *vi,
 					FGP_CREAT | FGP_LOCK,
 					mapping_gfp_mask(mapping));
 			if (IS_ERR(folio)) {
-				ret = -ENOMEM;
+				ret = PTR_ERR(folio);
 				break;
 			}
 		} else {
@@ -3745,6 +3757,7 @@ static s64 __ntfs_inode_non_resident_attr_pwrite(struct inode *vi,
 			u64 rl_length = 0;
 			s64 vcn;
 			struct runlist_element *rl;
+			int bio_err;
 
 			lcn_count = max_t(s64, 1, ntfs_bytes_to_cluster(vol, attr_len));
 			vcn = ntfs_pidx_to_cluster(vol, folio->index);
@@ -3787,8 +3800,15 @@ static s64 __ntfs_inode_non_resident_attr_pwrite(struct inode *vi,
 					goto err_unlock_folio;
 				}
 
-				submit_bio_wait(bio);
+				bio_err = submit_bio_wait(bio);
 				bio_put(bio);
+				if (bio_err) {
+					ntfs_error(vi->i_sb,
+						   "Synchronous attribute write failed (%d)",
+						   bio_err);
+					ret = bio_err;
+					goto err_unlock_folio;
+				}
 				vcn += rl_length;
 				offset += length;
 			} while (lcn_count != 0);
