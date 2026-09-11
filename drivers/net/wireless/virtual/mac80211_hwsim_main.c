@@ -895,6 +895,7 @@ static const struct nla_policy hwsim_genl_policy[HWSIM_ATTR_MAX + 1] = {
 	[HWSIM_ATTR_MULTI_RADIO] = { .type = NLA_FLAG },
 	[HWSIM_ATTR_SUPPORT_NAN_DEVICE] = { .type = NLA_FLAG },
 	[HWSIM_ATTR_SUPPORT_BACKGROUND_RADAR] = { .type = NLA_FLAG },
+	[HWSIM_ATTR_NO_MONITOR] = { .type = NLA_FLAG },
 };
 
 #if IS_REACHABLE(CONFIG_VIRTIO)
@@ -6394,6 +6395,7 @@ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
 	int i;
 	unsigned long flags;
 	bool found = false;
+	bool no_monitor;
 	u32 freq;
 
 	if (!info->attrs[HWSIM_ATTR_ADDR_TRANSMITTER] ||
@@ -6406,6 +6408,7 @@ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
 	src = (void *)nla_data(info->attrs[HWSIM_ATTR_ADDR_TRANSMITTER]);
 	hwsim_flags = nla_get_u32(info->attrs[HWSIM_ATTR_FLAGS]);
 	ret_skb_cookie = nla_get_u64(info->attrs[HWSIM_ATTR_COOKIE]);
+	no_monitor = nla_get_flag(info->attrs[HWSIM_ATTR_NO_MONITOR]);
 
 	data2 = get_hwsim_data_ref_from_addr(src);
 	if (!data2)
@@ -6442,7 +6445,9 @@ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
 
 	txi = IEEE80211_SKB_CB(skb);
 	freq = (uintptr_t)txi->rate_driver_data[1];
-	mac80211_hwsim_monitor_rx(data2->hw, skb, freq);
+
+	if (!no_monitor)
+		mac80211_hwsim_monitor_rx(data2->hw, skb, freq);
 
 	/* Tx info received because the frame was broadcasted on user space,
 	 so we get all the necessary info: tx attempts and skb control buff */
@@ -6536,6 +6541,51 @@ static int hwsim_cloned_frame_received_nl(struct sk_buff *skb_2,
 
 		if (info->snd_portid != data2->wmediumd)
 			goto out;
+	}
+
+	/* look for the skb matching the cookie passed back from user */
+	if (info->attrs[HWSIM_ATTR_COOKIE] &&
+	    info->attrs[HWSIM_ATTR_ADDR_TRANSMITTER]) {
+		u64 cookie = nla_get_u64(info->attrs[HWSIM_ATTR_COOKIE]);
+		struct sk_buff *orig_skb, *found = NULL;
+		struct mac80211_hwsim_data *txdata;
+		struct ieee80211_tx_info *txi;
+		const u8 *transmitter;
+		unsigned long flags;
+
+		transmitter = nla_data(info->attrs[HWSIM_ATTR_ADDR_TRANSMITTER]);
+		txdata = get_hwsim_data_ref_from_addr(transmitter);
+		if (!txdata || txdata->netgroup != data2->netgroup)
+			goto out;
+
+		spin_lock_irqsave(&txdata->pending.lock, flags);
+		skb_queue_walk(&txdata->pending, orig_skb) {
+			uintptr_t skb_cookie;
+
+			txi = IEEE80211_SKB_CB(orig_skb);
+			skb_cookie = (uintptr_t)txi->rate_driver_data[0];
+
+			if (skb_cookie == cookie) {
+				found = orig_skb;
+				break;
+			}
+		}
+
+		/* that's weird */
+		if (!found) {
+			spin_unlock_irqrestore(&txdata->pending.lock, flags);
+			goto out;
+		}
+
+		if (frame_data_len > found->len &&
+		    pskb_expand_head(found, 0, frame_data_len - found->len,
+				     GFP_ATOMIC)) {
+			spin_unlock_irqrestore(&txdata->pending.lock, flags);
+			goto out;
+		}
+		skb_trim(found, 0);
+		skb_put_data(found, frame_data, frame_data_len);
+		spin_unlock_irqrestore(&txdata->pending.lock, flags);
 	}
 
 	/* check if radio is configured properly */
