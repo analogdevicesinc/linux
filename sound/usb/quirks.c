@@ -3,6 +3,7 @@
  */
 
 #include <linux/cleanup.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -1606,22 +1607,60 @@ static int s1810c_skip_setting_quirk(struct snd_usb_audio *chip,
 	return 0;
 }
 
+static int hp_elite_x3_lap_dock_skip_setting_quirk(struct snd_usb_audio *chip,
+						   int iface, int altno)
+{
+	/*
+	 * 1:1 - Capture, S16_LE, 8000/32000/44100/48000Hz
+	 * 2:1 - Playback, S16_LE, 48000Hz
+	 * 2:2 - Playback, S24_3LE, 48000Hz
+	 *
+	 * 2:2 is broken because:
+	 * - it doesn't accept SET_CUR(SAMPLE_RATE). QUIRK_FLAG_FIXED_RATE works
+	 *   around it, however...
+	 * - it constantly produces severe harmonic distortion once the capture
+	 *   stream is also opened. The interface 2 must be closed and reopened
+	 *   to make it recover. IOW, simply closing the capture stream makes no
+	 *   difference.
+	 *
+	 * Considering that S24_3LE offers no additional benefit on small
+	 * speakers compared to S16_LE, and 2:1 is always usable as an
+	 * alternative, skip 2:2 to get rid of the trouble.
+	 *
+	 * Setting chip->setup to any non-default value disables the fixup and
+	 * reenables 2:2 (in this case QUIRK_FLAG_FIXED_RATE is required).
+	 */
+	if (!chip->setup && iface == 2 && altno == 2) {
+		usb_audio_info(chip,
+			       "%d:%d: skipping broken altsetting on HP Elite x3 Lap Dock\n",
+			       iface, altno);
+		return 1;
+	}
+
+	return 0;
+}
+
 int snd_usb_apply_interface_quirk(struct snd_usb_audio *chip,
 				  int iface,
 				  int altno)
 {
-	/* audiophile usb: skip altsets incompatible with device_setup */
-	if (chip->usb_id == USB_ID(0x0763, 0x2003))
-		return audiophile_skip_setting_quirk(chip, iface, altno);
+	switch (chip->usb_id) {
+	/* HP Elite x3 Lap Dock: skip broken altsets */
+	case USB_ID(0x03f0, 0x0c56):
+		return hp_elite_x3_lap_dock_skip_setting_quirk(chip, iface, altno);
 	/* quattro usb: skip altsets incompatible with device_setup */
-	if (chip->usb_id == USB_ID(0x0763, 0x2001))
+	case USB_ID(0x0763, 0x2001):
 		return quattro_skip_setting_quirk(chip, iface, altno);
+	/* audiophile usb: skip altsets incompatible with device_setup */
+	case USB_ID(0x0763, 0x2003):
+		return audiophile_skip_setting_quirk(chip, iface, altno);
 	/* fasttrackpro usb: skip altsets incompatible with device_setup */
-	if (chip->usb_id == USB_ID(0x0763, 0x2012))
+	case USB_ID(0x0763, 0x2012):
 		return fasttrackpro_skip_setting_quirk(chip, iface, altno);
 	/* presonus studio 1810c: skip altsets incompatible with device_setup */
-	if (chip->usb_id == USB_ID(0x194f, 0x010c))
+	case USB_ID(0x194f, 0x010c):
 		return s1810c_skip_setting_quirk(chip, iface, altno);
+	}
 
 	return 0;
 }
@@ -1878,6 +1917,75 @@ static int rme_digiface_set_format_quirk(struct snd_usb_substream *subs)
 	return 0;
 }
 
+#define ROLAND_CAPTURE_RATE_REQUEST		3
+#define ROLAND_CAPTURE_RATE_READ_VALUE		0x0001
+#define ROLAND_CAPTURE_RATE_WRITE_VALUE		0x0008
+#define ROLAND_CAPTURE_RATE_WRITE_PREFIX	0x40
+#define ROLAND_CAPTURE_RATE_RETRIES		40
+#define ROLAND_CAPTURE_RATE_POLL_MS		25
+
+/*
+ * OCTA-CAPTURE and QUAD-CAPTURE use the same vendor request for their
+ * hardware clock.  A read returns the 24-bit little-endian rate followed by
+ * a transition-status byte.  A write carries 0x40 followed by the rate.
+ */
+static int roland_capture_read_rate(struct usb_device *dev, u32 *rate)
+{
+	u8 data[4];
+	int err;
+
+	err = snd_usb_ctl_msg(dev, usb_rcvctrlpipe(dev, 0),
+			      ROLAND_CAPTURE_RATE_REQUEST,
+			      USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+			      ROLAND_CAPTURE_RATE_READ_VALUE, 0,
+			      data, sizeof(data));
+	if (err != sizeof(data))
+		return err < 0 ? err : -EIO;
+
+	*rate = combine_triple(data);
+	return 0;
+}
+
+static void roland_capture_set_rate(struct snd_usb_substream *subs)
+{
+	struct snd_usb_audio *chip = subs->stream->chip;
+	struct usb_device *dev = chip->dev;
+	u32 rate = subs->data_endpoint->cur_rate;
+	u32 current_rate;
+	u8 data[4];
+	int err;
+	int i;
+
+	/* Serialize playback and capture endpoint starts during a clock change. */
+	guard(mutex)(&chip->mutex);
+	err = roland_capture_read_rate(dev, &current_rate);
+	if (!err && current_rate == rate)
+		return;
+
+	data[0] = ROLAND_CAPTURE_RATE_WRITE_PREFIX;
+	data[1] = rate;
+	data[2] = rate >> 8;
+	data[3] = rate >> 16;
+	err = snd_usb_ctl_msg(dev, usb_sndctrlpipe(dev, 0),
+			      ROLAND_CAPTURE_RATE_REQUEST,
+			      USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+			      ROLAND_CAPTURE_RATE_WRITE_VALUE, 0,
+			      data, sizeof(data));
+	if (err != sizeof(data)) {
+		usb_audio_warn(chip, "cannot set Roland sample rate to %u Hz: %d\n",
+			       rate, err < 0 ? err : -EIO);
+		return;
+	}
+
+	for (i = 0; i < ROLAND_CAPTURE_RATE_RETRIES; i++) {
+		err = roland_capture_read_rate(dev, &current_rate);
+		if (!err && current_rate == rate)
+			return;
+		msleep(ROLAND_CAPTURE_RATE_POLL_MS);
+	}
+	usb_audio_warn(chip, "Roland sample rate did not reach %u Hz\n", rate);
+}
+
 void snd_usb_set_format_quirk(struct snd_usb_substream *subs,
 			      const struct audioformat *fmt)
 {
@@ -1907,6 +2015,10 @@ void snd_usb_set_format_quirk(struct snd_usb_substream *subs,
 	case USB_ID(0x2a39, 0x3f8c): /* RME Digiface USB */
 	case USB_ID(0x2a39, 0x3fa0): /* RME Digiface USB (alternate) */
 		rme_digiface_set_format_quirk(subs);
+		break;
+	case USB_ID(0x0582, 0x0120): /* Roland OCTA-CAPTURE */
+	case USB_ID(0x0582, 0x012f): /* Roland QUAD-CAPTURE */
+		roland_capture_set_rate(subs);
 		break;
 	}
 }
@@ -2236,6 +2348,8 @@ static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
 		   QUIRK_FLAG_FORCE_IFACE_RESET | QUIRK_FLAG_IFACE_DELAY),
 	DEVICE_FLG(0x0124, 0x0c21, /* Generic USB Headphone */
 		   QUIRK_FLAG_FORCE_IFACE_RESET | QUIRK_FLAG_IFACE_DELAY),
+	DEVICE_FLG(0x03f0, 0x0c56, /* HP Elite x3 Lap Dock */
+		   QUIRK_FLAG_FIXED_RATE),
 	DEVICE_FLG(0x03f0, 0x654a, /* HP 320 FHD Webcam */
 		   QUIRK_FLAG_GET_SAMPLE_RATE | QUIRK_FLAG_MIC_RES_16),
 	DEVICE_FLG(0x041e, 0x3000, /* Creative SB Extigy */
