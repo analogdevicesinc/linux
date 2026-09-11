@@ -2742,7 +2742,6 @@ int irdma_hw_flush_wqes(struct irdma_pci_f *rf, struct irdma_sc_qp *qp,
 	hw_info = &cqp_request->info.in.u.qp_flush_wqes.info;
 	memcpy(hw_info, info, sizeof(*hw_info));
 	cqp_info->cqp_cmd = IRDMA_OP_QP_FLUSH_WQES;
-	cqp_info->post_sq = 1;
 	cqp_info->in.u.qp_flush_wqes.qp = qp;
 	cqp_info->in.u.qp_flush_wqes.scratch = (uintptr_t)cqp_request;
 	status = irdma_handle_cqp_op(rf, cqp_request);
@@ -2789,7 +2788,6 @@ int irdma_hw_flush_wqes(struct irdma_pci_f *rf, struct irdma_sc_qp *qp,
 				hw_info = &new_req->info.in.u.qp_flush_wqes.info;
 				memcpy(hw_info, info, sizeof(*hw_info));
 				cqp_info->cqp_cmd = IRDMA_OP_QP_FLUSH_WQES;
-				cqp_info->post_sq = 1;
 				cqp_info->in.u.qp_flush_wqes.qp = qp;
 				cqp_info->in.u.qp_flush_wqes.scratch = (uintptr_t)new_req;
 
