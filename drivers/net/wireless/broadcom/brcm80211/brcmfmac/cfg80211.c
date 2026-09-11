@@ -6466,6 +6466,47 @@ static s32 brcmf_get_assoc_ies(struct brcmf_cfg80211_info *cfg,
 	return err;
 }
 
+static bool brcmf_has_pmkid(const u8 *parse, u32 len)
+{
+	const struct brcmf_tlv *rsn_ie;
+	const u8 *ie;
+	u32 ie_len;
+	u32 offset;
+	u16 count;
+
+	if (!parse)
+		return false;
+
+	rsn_ie = brcmf_parse_tlvs(parse, len, WLAN_EID_RSN);
+	if (!rsn_ie)
+		return false;
+
+	ie = (const u8 *)rsn_ie;
+	ie_len = rsn_ie->len + TLV_HDR_LEN;
+
+	offset = TLV_HDR_LEN + WPA_IE_VERSION_LEN + WPA_IE_MIN_OUI_LEN;
+	if (offset + WPA_IE_SUITE_COUNT_LEN >= ie_len)
+		return false;
+
+	count = ie[offset] + (ie[offset + 1] << 8);
+	offset += WPA_IE_SUITE_COUNT_LEN + count * WPA_IE_MIN_OUI_LEN;
+	if (offset + WPA_IE_SUITE_COUNT_LEN >= ie_len)
+		return false;
+
+	count = ie[offset] + (ie[offset + 1] << 8);
+	offset += WPA_IE_SUITE_COUNT_LEN + count * WPA_IE_MIN_OUI_LEN;
+	if (offset + RSN_CAP_LEN >= ie_len)
+		return false;
+
+	offset += RSN_CAP_LEN;
+	if (offset + RSN_PMKID_COUNT_LEN > ie_len)
+		return false;
+
+	count = ie[offset] + (ie[offset + 1] << 8);
+
+	return count > 0;
+}
+
 static s32
 brcmf_bss_roaming_done(struct brcmf_cfg80211_info *cfg,
 		       struct net_device *ndev,
@@ -6480,6 +6521,7 @@ brcmf_bss_roaming_done(struct brcmf_cfg80211_info *cfg,
 	struct brcmf_bss_info_le *bi;
 	struct brcmu_chan ch;
 	struct cfg80211_roam_info roam_info = {};
+	bool authorized = false;
 	u32 freq;
 	s32 err = 0;
 	u8 *buf;
@@ -6526,13 +6568,17 @@ done:
 	roam_info.resp_ie = conn_info->resp_ie;
 	roam_info.resp_ie_len = conn_info->resp_ie_len;
 
-	cfg80211_roamed(ndev, &roam_info, GFP_KERNEL);
-	brcmf_dbg(CONN, "Report roaming result\n");
+	if ((profile->use_fwsup == BRCMF_PROFILE_FWSUP_1X ||
+	     profile->use_fwsup == BRCMF_PROFILE_FWSUP_ROAM) &&
+	    (brcmf_has_pmkid(roam_info.req_ie, roam_info.req_ie_len) ||
+	     profile->is_ft || profile->is_okc))
+		authorized = true;
 
-	if (profile->use_fwsup == BRCMF_PROFILE_FWSUP_1X && profile->is_ft) {
-		cfg80211_port_authorized(ndev, profile->bssid, NULL, 0, GFP_KERNEL);
-		brcmf_dbg(CONN, "Report port authorized\n");
-	}
+	cfg80211_roamed(ndev, &roam_info, GFP_KERNEL);
+	if (authorized)
+		cfg80211_port_authorized(ndev, profile->bssid, NULL, 0,
+					 GFP_KERNEL);
+	brcmf_dbg(CONN, "Report roaming result\n");
 
 	set_bit(BRCMF_VIF_STATUS_CONNECTED, &ifp->vif->sme_state);
 	brcmf_dbg(TRACE, "Exit\n");
@@ -6548,6 +6594,7 @@ brcmf_bss_connect_done(struct brcmf_cfg80211_info *cfg,
 	struct brcmf_cfg80211_profile *profile = &ifp->vif->profile;
 	struct brcmf_cfg80211_connect_info *conn_info = cfg_to_conn(cfg);
 	struct cfg80211_connect_resp_params conn_params;
+	bool authorized;
 
 	brcmf_dbg(TRACE, "Enter\n");
 
@@ -6572,7 +6619,15 @@ brcmf_bss_connect_done(struct brcmf_cfg80211_info *cfg,
 		conn_params.req_ie_len = conn_info->req_ie_len;
 		conn_params.resp_ie = conn_info->resp_ie;
 		conn_params.resp_ie_len = conn_info->resp_ie_len;
+		authorized = completed &&
+			     (profile->use_fwsup == BRCMF_PROFILE_FWSUP_1X ||
+			      profile->use_fwsup == BRCMF_PROFILE_FWSUP_ROAM) &&
+			     brcmf_has_pmkid(conn_params.req_ie,
+					     conn_params.req_ie_len);
 		cfg80211_connect_done(ndev, &conn_params, GFP_KERNEL);
+		if (authorized)
+			cfg80211_port_authorized(ndev, profile->bssid, NULL, 0,
+						 GFP_KERNEL);
 		brcmf_dbg(CONN, "Report connect result - connection %s\n",
 			  completed ? "succeeded" : "failed");
 	}
