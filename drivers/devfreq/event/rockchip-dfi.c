@@ -185,8 +185,10 @@ static int rockchip_dfi_enable(struct rockchip_dfi *dfi)
 	}
 
 	ret = rockchip_dfi_ddrtype_to_ctrl(dfi, &ctrl);
-	if (ret)
+	if (ret) {
+		clk_disable_unprepare(dfi->clk);
 		goto out;
+	}
 
 	for (i = 0; i < dfi->max_channels; i++) {
 
