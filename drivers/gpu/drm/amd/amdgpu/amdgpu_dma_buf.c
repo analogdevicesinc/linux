@@ -558,6 +558,11 @@ struct drm_gem_object *amdgpu_gem_prime_import(struct drm_device *dev,
 			 */
 			drm_gem_object_get(obj);
 			return obj;
+		} else {
+			struct ttm_resource *mem = gem_to_amdgpu_bo(obj)->tbo.resource;
+			/* NPA DMA-buf can only be imported on the same device. */
+			if (mem && mem->mem_type == AMDGPU_PL_NPA)
+				return ERR_PTR(-EPERM);
 		}
 	}
 

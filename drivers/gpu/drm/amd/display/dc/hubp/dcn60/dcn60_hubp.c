@@ -25,6 +25,9 @@ static void hubp60_program_deadline(
 {
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
 
+	/* Make sure DLG test mode is disabled */
+	REG_WRITE(HUBPREQ_DEBUG_DB, 0);
+
 	/* DLG - Per hubp */
 	REG_SET_2(BLANK_OFFSET_0, 0,
 		REFCYC_H_BLANK_END, dlg_attr->refcyc_h_blank_end,

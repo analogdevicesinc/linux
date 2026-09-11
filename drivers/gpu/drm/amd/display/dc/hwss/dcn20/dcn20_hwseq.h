@@ -31,9 +31,9 @@
 void dcn20_log_color_state(struct dc *dc,
 			   struct dc_log_buffer_ctx *log_ctx);
 bool dcn20_set_blend_lut(
-	struct pipe_ctx *pipe_ctx, const struct dc_plane_state *plane_state);
+	struct dpp *dpp, struct dc_plane_state *plane_state);
 bool dcn20_set_shaper_3dlut(
-	struct pipe_ctx *pipe_ctx, const struct dc_plane_state *plane_state);
+	struct dpp *dpp, struct dc_plane_state *plane_state);
 void dcn20_program_front_end_for_ctx(
 		struct dc *dc,
 		struct dc_state *context);
@@ -42,8 +42,7 @@ void dcn20_post_unlock_program_front_end(
 		struct dc_state *context);
 void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx);
 void dcn20_update_mpcc(struct dc *dc, struct pipe_ctx *pipe_ctx);
-bool dcn20_set_input_transfer_func(struct dc *dc, struct pipe_ctx *pipe_ctx,
-			const struct dc_plane_state *plane_state);
+bool dcn20_set_input_transfer_func(struct set_input_transfer_func_params *params);
 bool dcn20_set_output_transfer_func(struct set_output_transfer_func_params *params);
 void dcn20_program_output_csc(struct dc *dc,
 		struct pipe_ctx *pipe_ctx,
@@ -62,10 +61,16 @@ void dcn20_blank_pixel_data(
 		struct dc *dc,
 		struct pipe_ctx *pipe_ctx,
 		bool blank);
-void dcn20_pipe_control_lock(
-	struct dc *dc,
-	struct pipe_ctx *pipe,
-	bool lock);
+bool dcn20_build_pipe_control_lock_sequence(struct dc *dc,
+		struct pipe_ctx *pipe, bool lock,
+		struct pipe_control_lock_params *params);
+void dcn20_build_gsl_group_as_lock(
+		const struct dc *dc,
+		struct pipe_ctx *pipe_ctx,
+		bool enable,
+		struct tg_set_gsl_params *gsl_params,
+		struct tg_set_gsl_source_select_params *gsl_source_select_params);
+void dcn20_tg_lock(struct tg_lock_params *params);
 void dcn20_prepare_bandwidth(
 		struct dc *dc,
 		struct dc_state *context);

@@ -54,6 +54,7 @@
 #include "amdgpu_userq.h"
 #include "amdgpu_userq_fence.h"
 #include "../amdxcp/amdgpu_xcp_drv.h"
+#include "amdgpu_ualink.h"
 
 /*
  * KMS wrapper.
@@ -126,9 +127,10 @@
  * - 3.62.0 - Add AMDGPU_IDS_FLAGS_MODE_PF, AMDGPU_IDS_FLAGS_MODE_VF & AMDGPU_IDS_FLAGS_MODE_PT
  * - 3.63.0 - GFX12 display DCC supports 256B max compressed block size
  * - 3.64.0 - Userq IP support query
+ * - 3.65.0 - Add userq syncobj timeline signaling support
  */
 #define KMS_DRIVER_MAJOR	3
-#define KMS_DRIVER_MINOR	64
+#define KMS_DRIVER_MINOR	65
 #define KMS_DRIVER_PATCHLEVEL	0
 
 /*
@@ -147,6 +149,7 @@ enum AMDGPU_DEBUG_MASK {
 	AMDGPU_DEBUG_ENABLE_CE_CS = BIT(10),
 	AMDGPU_DEBUG_HIBERNATION_THAW_RESUME_GPU = BIT(11),
 	AMDGPU_DEBUG_DISABLE_IP_BLOCK_SOFT_RESET = BIT(12),
+	AMDGPU_DEBUG_SDMA_RB_CMD = BIT(13),
 };
 
 unsigned int amdgpu_vram_limit = UINT_MAX;
@@ -216,8 +219,9 @@ int amdgpu_smu_pptable_id = -1;
  * DISABLE_FRACTIONAL_PWM (bit 2) disabled by default
  * PSR (bit 3) disabled by default
  * EDP NO POWER SEQUENCING (bit 4) disabled by default
+ * FRL (bit 10) enabled by default
  */
-uint amdgpu_dc_feature_mask = 2;
+uint amdgpu_dc_feature_mask = DC_MULTI_MON_PP_MCLK_SWITCH_MASK | DC_FRL_MASK;
 uint amdgpu_dc_debug_mask;
 uint amdgpu_dc_visual_confirm;
 int amdgpu_async_gfx_ring = 1;
@@ -264,7 +268,7 @@ struct amdgpu_mgpu_info mgpu_info = {
 	.mutex = __MUTEX_INITIALIZER(mgpu_info.mutex),
 };
 int amdgpu_ras_enable = -1;
-uint amdgpu_ras_mask = 0xffffffff;
+u64 amdgpu_ras_mask = U64_MAX;
 int amdgpu_bad_page_threshold = -1;
 struct amdgpu_watchdog_timer amdgpu_watchdog_timer = {
 	.timeout_fatal_disable = false,
@@ -596,12 +600,12 @@ MODULE_PARM_DESC(ras_enable, "Enable RAS features on the GPU (0 = disable, 1 = e
 module_param_named(ras_enable, amdgpu_ras_enable, int, 0444);
 
 /**
- * DOC: ras_mask (uint)
- * Mask of RAS features to enable (default 0xffffffff), only valid when ras_enable == 1
+ * DOC: ras_mask (ullong)
+ * Mask of RAS features to enable (default 0xffffffffffffffff), only valid when ras_enable == 1
  * See the flags in drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
  */
-MODULE_PARM_DESC(ras_mask, "Mask of RAS features to enable (default 0xffffffff), only valid when ras_enable == 1");
-module_param_named(ras_mask, amdgpu_ras_mask, uint, 0444);
+MODULE_PARM_DESC(ras_mask, "Mask of RAS features to enable (default 0xffffffffffffffff), only valid when ras_enable == 1");
+module_param_named(ras_mask, amdgpu_ras_mask, ullong, 0444);
 
 /**
  * DOC: timeout_fatal_disable (bool)
@@ -841,6 +845,13 @@ module_param_named_unsafe(no_queue_eviction_on_vm_fault, amdgpu_no_queue_evictio
 int amdgpu_mtype_local = -1;
 MODULE_PARM_DESC(mtype_local, "MTYPE for local memory (default: ASIC dependent, 0 = MTYPE_RW, 1 = MTYPE_NC, 2 = MTYPE_CC)");
 module_param_named_unsafe(mtype_local, amdgpu_mtype_local, int, 0444);
+
+/**
+ * DOC: mtype_remote (int)
+ */
+int amdgpu_mtype_remote = -1;
+MODULE_PARM_DESC(mtype_remote, "MTYPE for remote memory (default: ASIC dependent, 0 = MTYPE_NC, 1 = MTYPE_UC)");
+module_param_named_unsafe(mtype_remote, amdgpu_mtype_remote, int, 0444);
 
 /**
  * DOC: pcie_p2p (bool)
@@ -2300,6 +2311,11 @@ static void amdgpu_init_debug_options(struct amdgpu_device *adev)
 		pr_info("debug: IP block soft reset disabled\n");
 		adev->debug_disable_ip_block_soft_reset = true;
 	}
+
+	if (amdgpu_debug_mask & AMDGPU_DEBUG_SDMA_RB_CMD) {
+		pr_info("debug: enable SDMA RB command switch\n");
+		adev->sdma.sdma_debug = true;
+	}
 }
 
 static unsigned long amdgpu_fix_asic_type(struct pci_dev *pdev, unsigned long flags)
@@ -3105,6 +3121,7 @@ const struct drm_ioctl_desc amdgpu_ioctls_kms[] = {
 	DRM_IOCTL_DEF_DRV(AMDGPU_USERQ_WAIT, amdgpu_userq_wait_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(AMDGPU_GEM_LIST_HANDLES, amdgpu_gem_list_handles_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(AMDGPU_PROC_OPTIONS, amdgpu_proc_options_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(AMDGPU_UALINK_HANDLE, amdgpu_gem_ualink_handle_ioctl, DRM_AUTH|DRM_RENDER_ALLOW)
 };
 
 static const struct drm_driver amdgpu_kms_driver = {

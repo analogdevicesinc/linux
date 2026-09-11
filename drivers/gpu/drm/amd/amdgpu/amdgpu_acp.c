@@ -588,11 +588,6 @@ static int acp_resume(struct amdgpu_ip_block *ip_block)
 	return 0;
 }
 
-static bool acp_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	return true;
-}
-
 static int acp_set_clockgating_state(struct amdgpu_ip_block *ip_block,
 				     enum amd_clockgating_state state)
 {
@@ -618,7 +613,6 @@ static const struct amd_ip_funcs acp_ip_funcs = {
 	.hw_fini = acp_hw_fini,
 	.suspend = acp_suspend,
 	.resume = acp_resume,
-	.is_idle = acp_is_idle,
 	.set_clockgating_state = acp_set_clockgating_state,
 	.set_powergating_state = acp_set_powergating_state,
 };

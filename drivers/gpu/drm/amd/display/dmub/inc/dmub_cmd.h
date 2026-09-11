@@ -1170,6 +1170,16 @@ enum dmub_ips_comand_type {
 };
 
 /**
+ * enum dmub_dc_bls_command_type - DC_BLS subcommands.
+ */
+enum dmub_dc_bls_command_type {
+	/**
+	 * Placeholder for block-level initialization of the DCHVM
+	 */
+	DMUB_CMD__DC_BLS_DCHVM_INIT = 0,
+};
+
+/**
  * enum dmub_cursor_offload_comand_type - Cursor offload subcommands.
  */
 enum dmub_cursor_offload_comand_type {
@@ -1749,6 +1759,30 @@ enum dmub_gpint_command {
 	 *       1 - Enable panel polarity
 	 */
 	DMUB_GPINT__PANEL_POLARITY_DEBUG_ENABLE = 140,
+	/**
+	 * DESC: Reset the boot-time cumulative PHY-off residency counter.
+	 * PARAMS: [7:0] panel_inst
+	 * RETURN: 0 (ACK)
+	 */
+	DMUB_GPINT__REPLAY_RESET_CUMULATIVE_RESIDENCY = 141,
+	/**
+	 * DESC: Query boot-time cumulative PHY-off residency, low 32 bits (microseconds).
+	 * PARAMS: [7:0] panel_inst
+	 * RETURN: Lower 32 bits of accumulated PHY-off time in microseconds.
+	 */
+	DMUB_GPINT__REPLAY_GET_CUMULATIVE_RESIDENCY_US_LO = 142,
+	/**
+	 * DESC: Query boot-time cumulative PHY-off residency, high 32 bits (microseconds).
+	 * PARAMS: [7:0] panel_inst
+	 * RETURN: Upper 32 bits of accumulated PHY-off time in microseconds.
+	 */
+	DMUB_GPINT__REPLAY_GET_CUMULATIVE_RESIDENCY_US_HI = 143,
+	/**
+	 * DESC: Compute + log cumulative PHY-off residency snapshot; return milli-percent.
+	 * PARAMS: [7:0] panel_inst
+	 * RETURN: Residency in milli-percent (0-100000). Also emits DMUB trace log.
+	 */
+	DMUB_GPINT__REPLAY_SNAPSHOT_CUMULATIVE_RESIDENCY = 144,
 };
 
 /**
@@ -2003,6 +2037,11 @@ enum dmub_cmd_type {
 	 * Command type use for all Panel Polarity commands.
 	 */
 	DMUB_CMD__PANEL_POLARITY = 97,
+
+	/**
+	 * Command type used for all DC_BLS commands.
+	 */
+	DMUB_CMD__DC_BLS = 98,
 
 	/**
 	 * Command type use for VBIOS shared commands.
@@ -2758,6 +2797,7 @@ struct dmub_fams2_stream_static_state {
 			uint8_t is_drr : 1; // stream is DRR enabled
 			uint8_t clamp_vtotal_min : 1; // clamp vtotal to min instead of nominal
 			uint8_t min_ttu_vblank_usable : 1; // if min ttu vblank is above wm, no force pstate is needed in blank
+			uint8_t imm_restore_drr : 1; // does not wait to latch DRR vtotal on restore
 		} bits;
 		uint8_t all;
 	} config;
@@ -2790,6 +2830,7 @@ struct dmub_fams2_cmd_stream_static_base_state {
 			uint8_t is_drr : 1; // stream is DRR enabled
 			uint8_t clamp_vtotal_min : 1; // clamp vtotal to min instead of nominal
 			uint8_t min_ttu_vblank_usable : 1; // if min ttu vblank is above wm, no force pstate is needed in blank
+			uint8_t imm_restore_drr : 1; // does not wait to latch DRR vtotal on restore
 		} bits;
 		uint8_t all;
 	} config;
@@ -2971,6 +3012,9 @@ struct dmub_clocks {
 	uint32_t dppclk_khz; /**< dppclk kHz */
 	uint32_t dcfclk_khz; /**< dcfclk kHz */
 	uint32_t dcfclk_deep_sleep_khz; /**< dcfclk deep sleep kHz */
+	uint32_t dpm0_dispclk_khz; /**< DPM0 (minimum) dispclk kHz from SMU DPM table, 0 if unknown */
+	uint32_t dpm0_dppclk_khz; /**< DPM0 (minimum) dppclk kHz from SMU DPM table, 0 if unknown */
+	uint32_t max_bypass_clk_khz; /**< max dispclk/dppclk achievable on a bypass source (no PLL) kHz, 0 if unknown */
 };
 
 /**
@@ -7122,6 +7166,25 @@ struct dmub_rb_cmd_ips_residency_cntl {
 };
 
 /**
+ * Data passed from driver to FW in a DMUB_CMD__DC_BLS_DCHVM_INIT command.
+ */
+struct dmub_cmd_dc_bls_dchvm_init_data {
+	/**
+	 * The value to program to rIOMMU PCTRL register. x86 cannot access this SMN
+	 * register, so the write is performed by DMCUB on the driver's behalf.
+	 */
+	uint32_t riommu_pctrl_val;
+};
+
+/**
+ * Definition of a DMUB_CMD__DC_BLS_DCHVM_INIT command.
+ */
+struct dmub_rb_cmd_dc_bls_dchvm_init {
+	struct dmub_cmd_header header;
+	struct dmub_cmd_dc_bls_dchvm_init_data data;
+};
+
+/**
  * Data passed from FW to driver in a DMUB_CMD__IPS_QUERY_RESIDENCY_INFO command.
  */
 struct dmub_cmd_ips_query_residency_info_data {
@@ -7917,6 +7980,8 @@ union dmub_rb_cmd {
 	struct dmub_rb_cmd_panel_polarity_enable panel_polarity_enable;
 	struct dmub_rb_cmd_panel_polarity_get_bias panel_polarity_get_bias;
 	struct dmub_rb_cmd_panel_polarity_reset panel_polarity_reset;
+
+	struct dmub_rb_cmd_dc_bls_dchvm_init dc_bls_dchvm_init;
 };
 
 /**

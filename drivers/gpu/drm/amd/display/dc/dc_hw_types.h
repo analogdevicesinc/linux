@@ -269,6 +269,14 @@ enum dc_pixel_format {
 	PIXEL_FORMAT_UNKNOWN
 };
 
+#define MAX_TG_COLOR_VALUE 0x3FF
+struct tg_color {
+	/* Maximum 10 bits color value */
+	uint16_t color_r_cr;
+	uint16_t color_g_y;
+	uint16_t color_b_cb;
+};
+
 /*
  * This structure holds a surface address.  There could be multiple addresses
  * in cases such as Stereo 3D, Planar YUV, etc.  Other per-flip attributes such
@@ -283,6 +291,7 @@ struct dc_flip_addrs {
 	bool triplebuffer_flips;
 	unsigned int dirty_rect_count;
 	struct rect dirty_rects[DC_MAX_DIRTY_RECTS];
+	struct tg_color visual_confirm_color; /* DM passthrough visual confirm color, applied in VISUAL_CONFIRM_DM_PASSTHROUGH mode */
 };
 
 enum tile_split_values {
@@ -1185,15 +1194,6 @@ struct mcif_buf_params {
 	unsigned int		swlock;
 	unsigned int		p_vmid;
 	uint8_t				tmz_id;
-};
-
-
-#define MAX_TG_COLOR_VALUE 0x3FF
-struct tg_color {
-	/* Maximum 10 bits color value */
-	uint16_t color_r_cr;
-	uint16_t color_g_y;
-	uint16_t color_b_cb;
 };
 
 struct fva_adj {

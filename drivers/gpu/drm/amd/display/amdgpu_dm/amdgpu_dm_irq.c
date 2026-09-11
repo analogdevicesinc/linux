@@ -618,6 +618,9 @@ STATIC_IFN_KUNIT void amdgpu_dm_irq_schedule_work(struct amdgpu_device *adev,
 
 	DM_IRQ_TABLE_LOCK(adev, irq_table_flags);
 
+	if (!adev->dm.irq_wq)
+		goto out_unlock;
+
 	if (list_empty(handler_list))
 		goto out_unlock;
 
@@ -709,6 +712,11 @@ STATIC_IFN_KUNIT int amdgpu_dm_irq_handler(struct amdgpu_device *adev,
 			adev->dm.dc,
 			entry->src_id,
 			entry->src_data[0]);
+
+	if (!DAL_VALID_IRQ_SRC_NUM(src)) {
+		DRM_ERROR("DM_IRQ: invalid irq_source:%d!\n", src);
+		return 0;
+	}
 
 	dc_interrupt_ack(adev->dm.dc, src);
 

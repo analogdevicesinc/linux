@@ -957,7 +957,15 @@ static int mes_v11_0_misc_op(struct amdgpu_mes *mes,
 		misc_pkt.change_config.option.bits.limit_single_process =
 				input->change_config.option.limit_single_process;
 		break;
-
+	case MES_MISC_OP_NOTIFY_WORK_ON_UNMAPPED_QUEUE:
+		if ((mes->adev->mes.sched_version & AMDGPU_MES_VERSION_MASK) < 0x70) {
+			dev_warn_once(mes->adev->dev,
+				      "MES FW version must be larger than 0x70 to support notify work on unmapped queue.\n");
+			return 0;
+		}
+		misc_pkt.opcode = MESAPI_MISC__NOTIFY_WORK_ON_UNMAPPED_QUEUE;
+		misc_pkt.queue_sch_level = AMD_PRIORITY_LEVEL_NORMAL;
+		break;
 	default:
 		drm_err(adev_to_drm(mes->adev), "unsupported misc op (%d)\n", input->op);
 		return -EINVAL;
@@ -1016,7 +1024,15 @@ static int mes_v11_0_set_hw_resources(struct amdgpu_mes *mes)
 	mes_set_hw_res_pkt.use_different_vmid_compute = 1;
 	mes_set_hw_res_pkt.enable_reg_active_poll = 1;
 	mes_set_hw_res_pkt.enable_level_process_quantum_check = 1;
-	mes_set_hw_res_pkt.oversubscription_timer = 50;
+	/*
+	 * Bare metal: disabled here, KFD arms a software replacement only
+	 * while oversubscribed (see kfd_device_queue_manager.c). SR-IOV
+	 * guests keep the firmware timer instead of the KFD-side one, since
+	 * the notify round-trip is much slower under SR-IOV and would
+	 * otherwise stall remapping queues.
+	 */
+	if (amdgpu_sriov_vf(adev))
+		mes_set_hw_res_pkt.oversubscription_timer = 50;
 	if (adev->mes.use_rs64mem)
 		mes_set_hw_res_pkt.use_rs64mem_for_proc_gang_ctx = 1;
 

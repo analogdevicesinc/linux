@@ -319,7 +319,8 @@ struct kfd2kgd_calls {
 			uint32_t sch_wave,
 			uint32_t que_sleep,
 			uint32_t *reg_offset,
-			uint32_t *reg_data);
+			uint32_t *reg_data,
+			uint32_t inst);
 	void (*get_cu_occupancy)(struct amdgpu_device *adev,
 				 struct kfd_cu_occupancy *cu_occupancy,
 				 int *max_waves_per_cu, uint32_t inst);
