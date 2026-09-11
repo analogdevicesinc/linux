@@ -557,8 +557,8 @@ static bool is_boot_sector_ntfs(const struct super_block *sb,
 	 * Check sectors per cluster value is valid and the cluster size
 	 * is not above the maximum (2MB).
 	 */
-	if (b->bpb.sectors_per_cluster > 0x80 &&
-	    b->bpb.sectors_per_cluster < 0xf4)
+	if (b->bpb.sectors_per_cluster < 0xf4 &&
+	    !is_power_of_2(b->bpb.sectors_per_cluster))
 		goto not_ntfs;
 
 	/* Check reserved/unused fields are really zero. */
@@ -645,7 +645,7 @@ static bool parse_ntfs_boot_sector(struct ntfs_volume *vol,
 {
 	unsigned int sectors_per_cluster, sectors_per_cluster_bits, nr_hidden_sects;
 	int clusters_per_mft_record, clusters_per_index_record;
-	s64 ll;
+	u64 ll;
 
 	vol->sector_size = le16_to_cpu(b->bpb.bytes_per_sector);
 	vol->sector_size_bits = ffs(vol->sector_size) - 1;
@@ -695,7 +695,7 @@ static bool parse_ntfs_boot_sector(struct ntfs_volume *vol,
 		 * = -log2(mft_record_size) bytes. mft_record_size normaly is
 		 * 1024 bytes, which is encoded as 0xF6 (-10 in decimal).
 		 */
-		vol->mft_record_size = 1 << -clusters_per_mft_record;
+		vol->mft_record_size = 1U << -clusters_per_mft_record;
 	vol->mft_record_size_mask = vol->mft_record_size - 1;
 	vol->mft_record_size_bits = ffs(vol->mft_record_size) - 1;
 	ntfs_debug("vol->mft_record_size = %i (0x%x)", vol->mft_record_size,
@@ -732,7 +732,7 @@ static bool parse_ntfs_boot_sector(struct ntfs_volume *vol,
 		 * index_record_size normaly equals 4096 bytes, which is
 		 * encoded as 0xF4 (-12 in decimal).
 		 */
-		vol->index_record_size = 1 << -clusters_per_index_record;
+		vol->index_record_size = 1U << -clusters_per_index_record;
 	vol->index_record_size_mask = vol->index_record_size - 1;
 	vol->index_record_size_bits = ffs(vol->index_record_size) - 1;
 	ntfs_debug("vol->index_record_size = %i (0x%x)",
@@ -755,23 +755,23 @@ static bool parse_ntfs_boot_sector(struct ntfs_volume *vol,
 	 * the same as it is much faster on 32-bit CPUs.
 	 */
 	ll = le64_to_cpu(b->number_of_sectors) >> sectors_per_cluster_bits;
-	if ((u64)ll >= 1ULL << 32) {
+	if (ll >= 1ULL << 32) {
 		ntfs_error(vol->sb, "Cannot handle 64-bit clusters.");
 		return false;
 	}
 	vol->nr_clusters = ll;
 	ntfs_debug("vol->nr_clusters = 0x%llx", vol->nr_clusters);
 	ll = le64_to_cpu(b->mft_lcn);
-	if (ll >= vol->nr_clusters) {
-		ntfs_error(vol->sb, "MFT LCN (%lli, 0x%llx) is beyond end of volume.  Weird.",
+	if (ll >= (u64)vol->nr_clusters) {
+		ntfs_error(vol->sb, "MFT LCN (%llu, 0x%llx) is beyond end of volume.  Weird.",
 				ll, ll);
 		return false;
 	}
 	vol->mft_lcn = ll;
 	ntfs_debug("vol->mft_lcn = 0x%llx", vol->mft_lcn);
 	ll = le64_to_cpu(b->mftmirr_lcn);
-	if (ll >= vol->nr_clusters) {
-		ntfs_error(vol->sb, "MFTMirr LCN (%lli, 0x%llx) is beyond end of volume.  Weird.",
+	if (ll >= (u64)vol->nr_clusters) {
+		ntfs_error(vol->sb, "MFTMirr LCN (%llu, 0x%llx) is beyond end of volume.  Weird.",
 				ll, ll);
 		return false;
 	}
@@ -1241,9 +1241,9 @@ static bool load_and_init_attrdef(struct ntfs_volume *vol)
 		goto failed;
 	}
 	NInoSetSparseDisabled(NTFS_I(ino));
-	/* The size of FILE_AttrDef must be above 0 and fit inside 31 bits. */
+	/* FILE_AttrDef must hold at least one entry and fit inside 31 bits. */
 	i_size = i_size_read(ino);
-	if (i_size <= 0 || i_size > 0x7fffffff)
+	if (i_size < (s64)sizeof(struct attr_def) || i_size > 0x7fffffff)
 		goto iput_failed;
 	vol->attrdef = kvzalloc(i_size, GFP_NOFS);
 	if (!vol->attrdef)
@@ -1862,7 +1862,8 @@ static int ntfs_sync_fs(struct super_block *sb, int wait)
 		return 0;
 
 	/* If there are some dirty buffers in the bdev inode */
-	if (ntfs_clear_volume_flags(vol, VOLUME_IS_DIRTY)) {
+	if (!NVolErrors(vol) &&
+	    ntfs_clear_volume_flags(vol, VOLUME_IS_DIRTY)) {
 		ntfs_warning(sb, "Failed to clear dirty bit in volume information flags.  Run chkdsk.");
 		err = -EIO;
 	}
@@ -2691,6 +2692,9 @@ static void __exit exit_ntfs_fs(void)
 	 * destroy cache.
 	 */
 	rcu_barrier();
+#ifdef CONFIG_NTFS_FS_WOF_COMPRESSION
+	ntfs_wof_free_workspaces();
+#endif
 	kmem_cache_destroy(ntfs_big_inode_cache);
 	kmem_cache_destroy(ntfs_inode_cache);
 	kmem_cache_destroy(ntfs_name_cache);

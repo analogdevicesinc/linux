@@ -7,6 +7,7 @@
  *
  * Author: Basavaraj Natikar <Basavaraj.Natikar@amd.com>
  */
+#include <linux/amd-pmf.h>
 #include <linux/amd-pmf-io.h>
 #include <linux/cleanup.h>
 #include <linux/io-64-nonatomic-lo-hi.h>
@@ -97,6 +98,25 @@ void sfh_interface_init(struct amd_mp2_dev *mp2)
 	emp2 = mp2;
 }
 
+static unsigned int amd_sfh_read_c2p3(struct amd_mp2_dev *mp2)
+{
+	struct sfh_accel_data accel_data;
+	void __iomem *sensoraddr;
+	u32 val;
+
+	if (mp2->mp2_ver >= MP2_VER_1_2) {
+		sensoraddr = mp2->vsbase +
+			(SRA_IDX * SENSOR_DATA_MEM_SIZE_DEFAULT) +
+			OFFSET_SENSOR_DATA_DEFAULT;
+		memcpy_fromio(&accel_data, sensoraddr, sizeof(struct sfh_accel_data));
+		val = accel_data.c2p3_data;
+	} else {
+		val = readl(mp2->mmio + amd_get_c2p_val(mp2, 3));
+	}
+
+	return val;
+}
+
 static int amd_sfh_op_mode_info(u32 *op_mode)
 {
 	struct sfh_op_mode mode;
@@ -113,7 +133,7 @@ static int amd_sfh_op_mode_info(u32 *op_mode)
 	if (!present)
 		return -ENODEV;
 
-	mode.val = readl(emp2->mmio + amd_get_c2p_val(emp2, 3));
+	mode.val = amd_sfh_read_c2p3(emp2);
 	dev_dbg(&emp2->pdev->dev, "op-mode: %s (mode=%u)\n",
 		mode.op_mode.mode == SFH_MODE_TABLET ? "tablet" : "laptop",
 		mode.op_mode.mode);
@@ -132,25 +152,25 @@ static int amd_sfh_mode_info(u32 *platform_type, u32 *laptop_placement)
 	if (!emp2 || !emp2->dev_en.is_sra_present)
 		return -ENODEV;
 
-	mode.val = readl(emp2->mmio + amd_get_c2p_val(emp2, 3));
+	mode.val = amd_sfh_read_c2p3(emp2);
 
 	*platform_type = mode.op_mode.devicemode;
 
 	if (mode.op_mode.ontablestate == 1) {
-		*laptop_placement = ON_TABLE;
+		*laptop_placement = AMD_PMF_ON_TABLE;
 	} else if (mode.op_mode.ontablestate == 2) {
-		*laptop_placement = ON_LAP_MOTION;
+		*laptop_placement = AMD_PMF_ON_LAP_MOTION;
 	} else if (mode.op_mode.inbagstate == 1) {
-		*laptop_placement = IN_BAG;
+		*laptop_placement = AMD_PMF_IN_BAG;
 	} else if (mode.op_mode.outbagstate == 1) {
-		*laptop_placement = OUT_OF_BAG;
+		*laptop_placement = AMD_PMF_OUT_OF_BAG;
 	} else if (mode.op_mode.ontablestate == 0 || mode.op_mode.inbagstate == 0 ||
 		 mode.op_mode.outbagstate == 0) {
-		*laptop_placement = LP_UNKNOWN;
+		*laptop_placement = AMD_PMF_LP_UNKNOWN;
 		pr_warn_once("Unknown laptop placement\n");
 	} else if (mode.op_mode.ontablestate == 3 || mode.op_mode.inbagstate == 3 ||
 		 mode.op_mode.outbagstate == 3) {
-		*laptop_placement = LP_UNDEFINED;
+		*laptop_placement = AMD_PMF_LP_UNDEFINED;
 		pr_warn_once("Undefined laptop placement\n");
 	}
 
@@ -159,7 +179,9 @@ static int amd_sfh_mode_info(u32 *platform_type, u32 *laptop_placement)
 
 static int amd_sfh_hpd_info(u8 *user_present)
 {
+	struct sfh_hpd_data hpd_data;
 	struct hpd_status hpdstatus;
+	void __iomem *sensoraddr;
 
 	if (!user_present)
 		return -EINVAL;
@@ -167,8 +189,16 @@ static int amd_sfh_hpd_info(u8 *user_present)
 	if (!emp2 || !emp2->dev_en.is_hpd_present || !emp2->dev_en.is_hpd_enabled)
 		return -ENODEV;
 
-	hpdstatus.val = readl(emp2->mmio + amd_get_c2p_val(emp2, 4));
-	*user_present = hpdstatus.shpd.presence;
+	if (emp2->mp2_ver >= MP2_VER_1_2) {
+		sensoraddr = emp2->vsbase +
+			(HPD_IDX * SENSOR_DATA_MEM_SIZE_DEFAULT) +
+			OFFSET_SENSOR_DATA_DEFAULT;
+		memcpy_fromio(&hpd_data, sensoraddr, sizeof(struct sfh_hpd_data));
+		*user_present = hpd_data.status.shpd.presence;
+	} else {
+		hpdstatus.val = readl(emp2->mmio + amd_get_c2p_val(emp2, 4));
+		*user_present = hpdstatus.shpd.presence;
+	}
 
 	return 0;
 }
