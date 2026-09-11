@@ -25,7 +25,7 @@
  * Read a security register by using the SPINOR_OP_RSECR commands.
  *
  * In Winbond/GigaDevice datasheets the term "security register" stands for
- * an one-time-programmable memory area, consisting of multiple bytes (usually
+ * a one-time-programmable memory area, consisting of multiple bytes (usually
  * 256). Thus one "security register" maps to one OTP region.
  *
  * This method is used on GigaDevice and Winbond flashes.
