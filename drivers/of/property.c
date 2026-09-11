@@ -74,7 +74,7 @@ bool of_graph_is_present(const struct device_node *node)
 
 	struct device_node *port __free(device_node) = of_get_child_by_name(node, "port");
 
-	return !!port;
+	return port;
 }
 EXPORT_SYMBOL(of_graph_is_present);
 
@@ -1659,12 +1659,12 @@ static bool of_is_fwnode_add_links_supported(void)
 		return true;
 
 	if (is_supported != -1)
-		return !!is_supported;
+		return is_supported;
 
 	is_supported = !((match_property_by_path("/soc", "compatible", "intel,ce4100-cp") >= 0) ||
 			 (match_property_by_path("/", "architecture", "OLPC") >= 0));
 
-	return !!is_supported;
+	return is_supported;
 }
 
 static int of_fwnode_add_links(struct fwnode_handle *fwnode)
