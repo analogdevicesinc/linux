@@ -1120,6 +1120,15 @@ void exit_itimers(struct task_struct *tsk)
 	}
 }
 
+void posixtimer_exec(void)
+{
+	scoped_guard(spinlock_irq, &current->sighand->siglock)
+		posix_cpu_timers_exit(current);
+
+	exit_itimers(current);
+	flush_itimer_signals();
+}
+
 SYSCALL_DEFINE2(clock_settime, const clockid_t, which_clock,
 		const struct __kernel_timespec __user *, tp)
 {

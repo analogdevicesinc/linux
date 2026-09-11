@@ -232,6 +232,8 @@ void set_process_cpu_timer(struct task_struct *task, unsigned int clock_idx,
 int update_rlimit_cpu(struct task_struct *task, unsigned long rlim_new);
 
 #ifdef CONFIG_POSIX_TIMERS
+void posixtimer_exec(void);
+
 static inline void posixtimer_putref(struct k_itimer *tmr)
 {
 	if (rcuref_put(&tmr->rcuref))
@@ -259,6 +261,7 @@ static inline bool posixtimer_valid(const struct k_itimer *timer)
 	return !(val & 0x1UL);
 }
 #else  /* CONFIG_POSIX_TIMERS */
+static inline void posixtimer_exec(void) { }
 static inline void posixtimer_sigqueue_getref(struct sigqueue *q) { }
 static inline void posixtimer_sigqueue_putref(struct sigqueue *q) { }
 #endif /* !CONFIG_POSIX_TIMERS */
