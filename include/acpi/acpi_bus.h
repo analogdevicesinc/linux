@@ -613,7 +613,6 @@ int acpi_bus_get_status(struct acpi_device *device);
 int acpi_bus_set_power(acpi_handle handle, int state);
 const char *acpi_power_state_string(int state);
 int acpi_device_set_power(struct acpi_device *device, int state);
-int acpi_bus_init_power(struct acpi_device *device);
 int acpi_device_fix_up_power(struct acpi_device *device);
 void acpi_device_fix_up_power_extended(struct acpi_device *adev);
 void acpi_device_fix_up_power_children(struct acpi_device *adev);
@@ -830,7 +829,15 @@ static inline bool acpi_str_uid_match(struct acpi_device *adev, const char *uid2
 {
 	const char *uid1 = acpi_device_uid(adev);
 
-	return uid1 && uid2 && !strcmp(uid1, uid2);
+	if (!uid1 || !uid2)
+		return false;
+
+	if (*uid1 == '\\' && uid1[1])
+		uid1++;
+	if (*uid2 == '\\' && uid2[1])
+		uid2++;
+
+	return !strcmp(uid1, uid2);
 }
 
 static inline bool acpi_int_uid_match(struct acpi_device *adev, u64 uid2)
@@ -856,6 +863,10 @@ static inline bool acpi_int_uid_match(struct acpi_device *adev, u64 uid2)
  * @uid2: Unique ID of the device.
  *
  * Matches UID in @adev with given @uid2.
+ *
+ * If both the UID in @adev and @uid2 are strings, they are compared
+ * after optionally skipping a leading backslash ('\') if the given
+ * string contains additional characters.
  *
  * Returns: %true if matches, %false otherwise.
  */
