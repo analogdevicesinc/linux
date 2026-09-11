@@ -3988,12 +3988,12 @@ EXPORT_SYMBOL_GPL(rcu_barrier);
 static unsigned long rcu_barrier_last_throttle;
 
 /**
- * rcu_barrier_throttled - Do rcu_barrier(), but limit to one per second
+ * rcu_barrier_throttled - Drain deferred RCU frees, but rate-limit starts
  *
- * This can be thought of as guard rails around rcu_barrier() that
- * permits unrestricted userspace use, at least assuming the hardware's
- * try_cmpxchg() is robust.  There will be at most one call per second to
- * rcu_barrier() system-wide from use of this function, which means that
+ * This can be thought of as guard rails around the deferred-free barriers
+ * that permit unrestricted userspace use, at least assuming the hardware's
+ * try_cmpxchg() is robust.  There will be at most one drain operation started
+ * per sixteenth of a second from use of this function, which means that
  * callers might needlessly wait a second or three.
  *
  * This is intended for use by test suites to avoid OOM by flushing RCU
@@ -4015,14 +4015,24 @@ static void rcu_barrier_throttled(void)
 	while (time_in_range(j, old, old + HZ / 16) ||
 	       !try_cmpxchg(&rcu_barrier_last_throttle, &old, j)) {
 		schedule_timeout_idle(HZ / 16);
-		if (rcu_seq_done(&rcu_state.barrier_sequence, s)) {
-			smp_mb(); /* caller's subsequent code after above check. */
-			return;
-		}
 		j = jiffies;
 		old = READ_ONCE(rcu_barrier_last_throttle);
 	}
-	rcu_barrier();
+	/*
+	 * kfree_rcu() can retain objects outside the ordinary callback lists in
+	 * per-CPU SLUB sheaves and kvfree_rcu batches.  Always drain those queues:
+	 * an ordinary barrier does not establish that this work was drained.
+	 */
+	kvfree_rcu_barrier();
+	/*
+	 * A completed barrier can still cover ordinary callbacks queued before
+	 * our entry snapshot.  Otherwise, retain an explicit ordinary barrier
+	 * without depending on the implementation of kvfree_rcu_barrier().
+	 */
+	if (rcu_seq_done(&rcu_state.barrier_sequence, s))
+		smp_mb(); /* caller's subsequent code after above check. */
+	else
+		rcu_barrier();
 }
 
 /*
