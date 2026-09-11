@@ -936,11 +936,39 @@ static void drm_panic_clear_description(void)
 	desc_line->txt = NULL;
 }
 
-static void draw_panic_plane(struct drm_plane *plane, const char *description)
+static void draw_panic_plane(struct drm_plane *plane, const char *description,
+			     enum drm_panic_type panic_type, u32 fg_color, u32 bg_color,
+			     unsigned int qr_version)
 {
 	struct drm_scanout_buffer sb = { };
 	int ret;
-	unsigned long flags;
+
+	ret = plane->helper_private->get_scanout_buffer(plane, &sb);
+
+	if (ret || !drm_panic_is_format_supported(sb.format))
+		return;
+
+	/* One of these should be set, or it can't draw pixels */
+	if (!sb.set_pixel && !sb.pages && iosys_map_is_null(&sb.map[0]))
+		return;
+
+	drm_panic_set_description(description);
+
+	ret = draw_panic_dispatch(&sb, panic_type, fg_color, bg_color, qr_version);
+	if (!ret) {
+		/*
+		 * Only flush if we have a panic screen to display. Otherwise
+		 * it's probably better to leave the display output as-is.
+		 */
+		if (plane->helper_private->panic_flush)
+			plane->helper_private->panic_flush(plane);
+	}
+
+	drm_panic_clear_description();
+}
+
+static void drm_panic_display_panic_screen(struct drm_plane *plane, const char *description)
+{
 #if defined(CONFIG_DRM_PANIC_FOREGROUND_COLOR)
 	u32 fg_color = CONFIG_DRM_PANIC_FOREGROUND_COLOR;
 #else
@@ -956,35 +984,14 @@ static void draw_panic_plane(struct drm_plane *plane, const char *description)
 #else
 	unsigned int qr_version = 0;
 #endif
+	struct drm_device *dev = plane->dev;
+	unsigned long flags;
 
-	if (!drm_panic_trylock(plane->dev, flags))
-		return;
-
-	ret = plane->helper_private->get_scanout_buffer(plane, &sb);
-
-	if (ret || !drm_panic_is_format_supported(sb.format))
-		goto unlock;
-
-	/* One of these should be set, or it can't draw pixels */
-	if (!sb.set_pixel && !sb.pages && iosys_map_is_null(&sb.map[0]))
-		goto unlock;
-
-	drm_panic_set_description(description);
-
-	ret = draw_panic_dispatch(&sb, drm_panic_type, fg_color, bg_color, qr_version);
-	if (!ret) {
-		/*
-		 * Only flush if we have a panic screen to display. Otherwise
-		 * it's probably better to leave the display output as-is.
-		 */
-		if (plane->helper_private->panic_flush)
-			plane->helper_private->panic_flush(plane);
+	if (drm_panic_trylock(dev, flags)) {
+		draw_panic_plane(plane, description, drm_panic_type,
+				 fg_color, bg_color, qr_version);
+		drm_panic_unlock(dev, flags);
 	}
-
-	drm_panic_clear_description();
-
-unlock:
-	drm_panic_unlock(plane->dev, flags);
 }
 
 static struct drm_plane *to_drm_plane(struct kmsg_dumper *kd)
@@ -997,9 +1004,8 @@ static void drm_panic(struct kmsg_dumper *dumper, struct kmsg_dump_detail *detai
 	struct drm_plane *plane = to_drm_plane(dumper);
 
 	if (detail->reason == KMSG_DUMP_PANIC)
-		draw_panic_plane(plane, detail->description);
+		drm_panic_display_panic_screen(plane, detail->description);
 }
-
 
 /*
  * DEBUG FS, This is currently unsafe.
@@ -1017,7 +1023,7 @@ static ssize_t debugfs_trigger_write(struct file *file, const char __user *user_
 	if (kstrtobool_from_user(user_buf, count, &run) == 0 && run) {
 		struct drm_plane *plane = file->private_data;
 
-		draw_panic_plane(plane, "Test from debugfs");
+		drm_panic_display_panic_screen(plane, "Test from debugfs");
 	}
 	return count;
 }
