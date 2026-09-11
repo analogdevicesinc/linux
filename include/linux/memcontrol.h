@@ -23,6 +23,7 @@
 #include <linux/writeback.h>
 #include <linux/page-flags.h>
 #include <linux/shrinker.h>
+#include <linux/irq_work_types.h>
 
 struct mem_cgroup;
 struct obj_cgroup;
@@ -66,11 +67,6 @@ struct mem_cgroup_reclaim_cookie {
 
 #define MEM_CGROUP_ID_SHIFT	16
 
-struct mem_cgroup_private_id {
-	int id;
-	refcount_t ref;
-};
-
 struct memcg_vmstats_percpu;
 struct memcg1_events_percpu;
 struct memcg_vmstats;
@@ -87,50 +83,48 @@ struct mem_cgroup_reclaim_iter {
  * per-node information in memory controller.
  */
 struct mem_cgroup_per_node {
-	/* Keep the read-only fields at the start */
+	/* Set when the memcg is created, then only read. */
+	__cacheline_group_begin_aligned(memcg_pn_read_mostly);
 	struct mem_cgroup	*memcg;		/* Back pointer, we cannot */
 						/* use container_of	   */
 
 	struct lruvec_stats_percpu __percpu	*lruvec_stats_percpu;
 	struct lruvec_stats			*lruvec_stats;
 	struct shrinker_info __rcu	*shrinker_info;
+	struct obj_cgroup __rcu		*objcg;
 
-#ifdef CONFIG_MEMCG_V1
+	__cacheline_group_end_aligned(memcg_pn_read_mostly);
+
 	/*
-	 * Memcg-v1 only stuff in middle as buffer between read mostly fields
-	 * and update often fields to avoid false sharing. If v1 stuff is
-	 * not present, an explicit padding is needed.
+	 * Keep lruvec on its own lines. Sharing them with lru_zone_size[]
+	 * regressed, see commit f59adcf59332 ("mm: memcg: add cacheline
+	 * padding after lruvec in mem_cgroup_per_node").
 	 */
-
-	struct rb_node		tree_node;	/* RB tree node */
-	unsigned long		usage_in_excess;/* Set to the value by which */
-						/* the soft limit is exceeded*/
-	bool			on_tree;
-#else
-	CACHELINE_PADDING(_pad1_);
-#endif
-
-	/* Fields which get updated often at the end. */
+	__cacheline_group_begin_aligned(memcg_pn_lruvec);
 	struct lruvec		lruvec;
-	CACHELINE_PADDING(_pad2_);
-	unsigned long		lru_zone_size[MAX_NR_ZONES][NR_LRU_LISTS];
+	__cacheline_group_end_aligned(memcg_pn_lruvec);
+
+	/* Written on every LRU update and on every reclaim iteration. */
+	__cacheline_group_begin_aligned(memcg_pn_write_hot);
+	long			lru_zone_size[MAX_NR_ZONES][NR_LRU_LISTS];
 	struct mem_cgroup_reclaim_iter	iter;
-
-	/*
-	 * objcg is wiped out as a part of the objcg repaprenting process.
-	 * orig_objcg preserves a pointer (and a reference) to the original
-	 * objcg until the end of live of memcg.
-	 */
-	struct obj_cgroup __rcu	*objcg;
-	struct obj_cgroup	*orig_objcg;
-	/* list of inherited objcgs, protected by objcg_lock */
-	struct list_head objcg_list;
-
 #ifdef CONFIG_MEMCG_NMI_SAFETY_REQUIRES_ATOMIC
 	/* slab stats for nmi context */
 	atomic_t		slab_reclaimable;
 	atomic_t		slab_unreclaimable;
 #endif
+	__cacheline_group_end_aligned(memcg_pn_write_hot);
+
+	/* Touched only when the memcg is reparented or freed. */
+	__cacheline_group_begin_aligned(memcg_pn_cold);
+	/*
+	 * orig_objcg preserves a pointer (and a reference) to the original
+	 * objcg until the end of life of memcg.
+	 */
+	struct obj_cgroup	*orig_objcg;
+	/* list of inherited objcgs, protected by objcg_lock */
+	struct list_head objcg_list;
+	__cacheline_group_end_aligned(memcg_pn_cold);
 };
 
 struct mem_cgroup_threshold {
@@ -202,9 +196,6 @@ struct obj_cgroup {
 struct mem_cgroup {
 	struct cgroup_subsys_state css;
 
-	/* Private memcg ID. Used to ID objects that outlive the cgroup */
-	struct mem_cgroup_private_id id;
-
 	/* Accounted resources */
 	struct page_counter memory;		/* Both v1 & v2 */
 
@@ -213,31 +204,52 @@ struct mem_cgroup {
 		struct page_counter memsw;	/* v1 only */
 	};
 
+	/* Written on the charge, reclaim and socket paths. */
+	__cacheline_group_begin_aligned(memcg_write_hot);
+	/*
+	 * Hint of reclaim pressure for socket memory management. Note
+	 * that this indicator should NOT be used in legacy cgroup mode
+	 * where socket memory is accounted/charged separately.
+	 */
+	u64			socket_pressure;
+#if BITS_PER_LONG < 64
+	seqlock_t		socket_pressure_seqlock;
+#endif
+	/*
+	 * memory.events is bumped for this memcg and all its ancestors, so a
+	 * busy child dirties every ancestor.
+	 */
+	atomic_long_t		memory_events[MEMCG_NR_MEMORY_EVENTS];
+	atomic_long_t		memory_events_local[MEMCG_NR_MEMORY_EVENTS];
+
+	/* vmpressure notifications. Written on every reclaim iteration. */
+	struct vmpressure vmpressure;
+
+	/* Written on every swap charge and uncharge. */
+	refcount_t private_id_ref;
+
+#ifdef CONFIG_MEMCG_NMI_SAFETY_REQUIRES_ATOMIC
+	/* MEMCG_KMEM for nmi context */
+	atomic_t		kmem_stat;
+#endif
+
+	/* Range enforcement for interrupt charges */
+	struct irq_work high_irq_work;
+	struct work_struct high_work;
+
+	__cacheline_group_end_aligned(memcg_write_hot);
+
+	/*
+	 * Off the charge and fault paths.  Not write free: cgwb_domain is
+	 * written on every writeout completion and mm_list on fork, exit and
+	 * MGLRU aging.  They are grouped here so those writes cannot land on
+	 * a line that the fast paths read.
+	 */
+	__cacheline_group_begin_aligned(memcg_cold);
 	/* registered local peak watchers */
 	struct list_head memory_peaks;
 	struct list_head swap_peaks;
 	spinlock_t	 peaks_lock;
-
-	/* Range enforcement for interrupt charges */
-	struct work_struct high_work;
-
-#ifdef CONFIG_ZSWAP
-	unsigned long zswap_max;
-
-	/*
-	 * Prevent pages from this memcg from being written back from zswap to
-	 * swap, and from being swapped out on zswap store failures.
-	 */
-	bool zswap_writeback;
-#endif
-
-	/* vmpressure notifications */
-	struct vmpressure vmpressure;
-
-	/*
-	 * Should the OOM killer kill all belonging tasks, had it kill one?
-	 */
-	bool oom_group;
 
 	/* memory.events and memory.events.local */
 	struct cgroup_file events_file;
@@ -246,37 +258,8 @@ struct mem_cgroup {
 	/* handle for "memory.swap.events" */
 	struct cgroup_file swap_events_file;
 
-	/* memory.stat */
-	struct memcg_vmstats	*vmstats;
-
-	/* memory.events */
-	atomic_long_t		memory_events[MEMCG_NR_MEMORY_EVENTS];
-	atomic_long_t		memory_events_local[MEMCG_NR_MEMORY_EVENTS];
-
-#ifdef CONFIG_MEMCG_NMI_SAFETY_REQUIRES_ATOMIC
-	/* MEMCG_KMEM for nmi context */
-	atomic_t		kmem_stat;
-#endif
-	/*
-	 * Hint of reclaim pressure for socket memroy management. Note
-	 * that this indicator should NOT be used in legacy cgroup mode
-	 * where socket memory is accounted/charged separately.
-	 */
-	u64			socket_pressure;
-#if BITS_PER_LONG < 64
-	seqlock_t		socket_pressure_seqlock;
-#endif
-	int kmemcg_id;
-
 #ifdef CONFIG_CGROUP_WRITEBACK
 	struct list_head cgwb_list;
-#endif
-
-	/* Keep the hot per-CPU stats pointer away from memory event counters. */
-	struct memcg_vmstats_percpu __percpu *vmstats_percpu
-		____cacheline_aligned_in_smp;
-
-#ifdef CONFIG_CGROUP_WRITEBACK
 	struct wb_domain cgwb_domain;
 	struct memcg_cgwb_frn cgwb_frn[MEMCG_CGWB_FRN_CNT];
 #endif
@@ -285,15 +268,16 @@ struct mem_cgroup {
 	/* per-memcg mm_struct list */
 	struct lru_gen_mm_list mm_list;
 #endif
+	__cacheline_group_end_aligned(memcg_cold);
 
 #ifdef CONFIG_MEMCG_V1
+	/* v1 only. Not grouped: v1 is legacy, sorting it is not worth it. */
+
 	/* Legacy consumer-oriented counters */
 	struct page_counter kmem;		/* v1 only */
 	struct page_counter tcpmem;		/* v1 only */
 
 	struct memcg1_events_percpu __percpu *events_percpu;
-
-	unsigned long soft_limit;
 
 	/* protected by memcg_oom_lock */
 	bool oom_lock;
@@ -324,6 +308,41 @@ struct mem_cgroup {
 
 	int swappiness;
 #endif /* CONFIG_MEMCG_V1 */
+
+	/*
+	 * Set when the memcg is created and cleared when it is offlined.
+	 * Never written on a hot path.
+	 */
+	__cacheline_group_begin_aligned(memcg_read_mostly);
+	/* Read on every stat update */
+	struct memcg_vmstats_percpu __percpu *vmstats_percpu;
+
+	/* memory.stat */
+	struct memcg_vmstats	*vmstats;
+
+#ifdef CONFIG_ZSWAP
+	unsigned long zswap_max;
+#endif
+
+	/* Private memcg ID. Used to ID objects that outlive the cgroup */
+	int private_id;
+
+	int kmemcg_id;
+
+	/*
+	 * Should the OOM killer kill all belonging tasks, had it kill one?
+	 */
+	bool oom_group;
+
+#ifdef CONFIG_ZSWAP
+	/*
+	 * Prevent pages from this memcg from being written back from zswap to
+	 * swap, and from being swapped out on zswap store failures.
+	 */
+	bool zswap_writeback;
+#endif
+	/* Not padded: nodeinfo[] is read-mostly too, let it share the line. */
+	__cacheline_group_end(memcg_read_mostly);
 
 	struct mem_cgroup_per_node *nodeinfo[];
 };
@@ -380,7 +399,7 @@ enum objext_flags {
 static inline struct mem_cgroup *obj_cgroup_memcg(struct obj_cgroup *objcg)
 {
 	lockdep_assert_once(rcu_read_lock_held() || lockdep_is_held(&cgroup_mutex));
-	return READ_ONCE(objcg->memcg);
+	return objcg ? READ_ONCE(objcg->memcg) : NULL;
 }
 
 /*
@@ -433,7 +452,7 @@ static inline struct mem_cgroup *folio_memcg(struct folio *folio)
 {
 	struct obj_cgroup *objcg = folio_objcg(folio);
 
-	return objcg ? obj_cgroup_memcg(objcg) : NULL;
+	return obj_cgroup_memcg(objcg);
 }
 
 /*
@@ -476,7 +495,7 @@ static inline struct mem_cgroup *folio_memcg_check(struct folio *folio)
 
 	objcg = (void *)(memcg_data & ~OBJEXTS_FLAGS_MASK);
 
-	return objcg ? obj_cgroup_memcg(objcg) : NULL;
+	return obj_cgroup_memcg(objcg);
 }
 
 static inline struct mem_cgroup *page_memcg_check(struct page *page)
@@ -662,7 +681,8 @@ static inline int mem_cgroup_charge(struct folio *folio, struct mm_struct *mm,
 	return __mem_cgroup_charge(folio, mm, gfp);
 }
 
-int mem_cgroup_charge_hugetlb(struct folio* folio, gfp_t gfp);
+int mem_cgroup_charge_hugetlb(struct folio *folio, struct mm_struct *mm,
+			      gfp_t gfp);
 
 int mem_cgroup_swapin_charge_folio(struct folio *folio, unsigned short id,
 				   struct mm_struct *mm, gfp_t gfp);
@@ -825,7 +845,7 @@ static inline unsigned short mem_cgroup_private_id(struct mem_cgroup *memcg)
 	if (mem_cgroup_disabled())
 		return 0;
 
-	return memcg->id.id;
+	return memcg->private_id;
 }
 struct mem_cgroup *mem_cgroup_from_private_id(unsigned short id);
 
@@ -902,10 +922,15 @@ static inline
 unsigned long mem_cgroup_get_zone_lru_size(struct lruvec *lruvec,
 		enum lru_list lru, int zone_idx)
 {
+	long val;
 	struct mem_cgroup_per_node *mz;
 
 	mz = container_of(lruvec, struct mem_cgroup_per_node, lruvec);
-	return READ_ONCE(mz->lru_zone_size[zone_idx][lru]);
+	val = READ_ONCE(mz->lru_zone_size[zone_idx][lru]);
+	if (WARN_ON_ONCE(val < 0))
+		return 0;
+
+	return val;
 }
 
 void __mem_cgroup_handle_over_high(gfp_t gfp_mask);
@@ -1050,6 +1075,11 @@ void mem_cgroup_flush_workqueue(void);
 extern int mem_cgroup_init(void);
 #else /* CONFIG_MEMCG */
 
+static inline struct mem_cgroup *obj_cgroup_memcg(struct obj_cgroup *objcg)
+{
+	return NULL;
+}
+
 #define MEM_CGROUP_ID_SHIFT	0
 
 #define root_mem_cgroup		(NULL)
@@ -1156,9 +1186,10 @@ static inline int mem_cgroup_charge(struct folio *folio,
 	return 0;
 }
 
-static inline int mem_cgroup_charge_hugetlb(struct folio* folio, gfp_t gfp)
+static inline int mem_cgroup_charge_hugetlb(struct folio *folio,
+					    struct mm_struct *mm, gfp_t gfp)
 {
-        return 0;
+	return 0;
 }
 
 static inline int mem_cgroup_swapin_charge_folio(struct folio *folio,
@@ -1919,10 +1950,6 @@ static inline bool mem_cgroup_zswap_writeback_enabled(struct mem_cgroup *memcg)
 /* Cgroup v1-related declarations */
 
 #ifdef CONFIG_MEMCG_V1
-unsigned long memcg1_soft_limit_reclaim(pg_data_t *pgdat, int order,
-					gfp_t gfp_mask,
-					unsigned long *total_scanned);
-
 bool mem_cgroup_oom_synchronize(bool wait);
 
 static inline bool task_in_memcg_oom(struct task_struct *p)
@@ -1943,14 +1970,6 @@ static inline void mem_cgroup_exit_user_fault(void)
 }
 
 #else /* CONFIG_MEMCG_V1 */
-static inline
-unsigned long memcg1_soft_limit_reclaim(pg_data_t *pgdat, int order,
-					gfp_t gfp_mask,
-					unsigned long *total_scanned)
-{
-	return 0;
-}
-
 static inline bool task_in_memcg_oom(struct task_struct *p)
 {
 	return false;
