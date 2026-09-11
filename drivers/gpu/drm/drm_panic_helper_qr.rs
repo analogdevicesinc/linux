@@ -938,7 +938,7 @@ impl QrImage<'_> {
 ///
 /// They must remain valid for the duration of the function call.
 #[export]
-pub unsafe extern "C" fn drm_panic_qr_generate(
+pub unsafe extern "C" fn drm_panic_helper_qr_generate(
     url: *const kernel::ffi::c_char,
     data: *mut u8,
     data_len: usize,
@@ -994,7 +994,7 @@ pub unsafe extern "C" fn drm_panic_qr_generate(
 /// Always safe to call.
 // Required to be unsafe due to the `#[export]` annotation.
 #[export]
-pub unsafe extern "C" fn drm_panic_qr_max_data_size(version: u8, url_len: usize) -> usize {
+pub unsafe extern "C" fn drm_panic_helper_qr_max_data_size(version: u8, url_len: usize) -> usize {
     #[expect(clippy::manual_range_contains)]
     if version < 1 || version > 40 {
         return 0;

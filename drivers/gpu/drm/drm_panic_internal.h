@@ -52,4 +52,18 @@ static inline void drm_panic_lock(struct drm_device *dev, unsigned long flags) {
 static inline void drm_panic_unlock(struct drm_device *dev, unsigned long flags) {}
 #endif
 
+#if IS_ENABLED(CONFIG_DRM_PANIC_HELPER)
+/* drm_panic_helper.c */
+int __init drm_panic_helper_init(void);
+void __exit drm_panic_helper_exit(void);
+#else
+static inline int __init drm_panic_helper_init(void)
+{
+	return 0;
+}
+
+static inline void __exit drm_panic_helper_exit(void)
+{ }
+#endif
+
 #endif /* __DRM_PANIC_INTERNAL_H__ */

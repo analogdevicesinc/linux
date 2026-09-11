@@ -27,6 +27,20 @@
 
 #include <linux/module.h>
 
+#include "drm_panic_internal.h"
+
+static int __init drm_kms_helper_init(void)
+{
+	return drm_panic_helper_init();
+}
+module_init(drm_kms_helper_init);
+
+static void __exit drm_kms_helper_exit(void)
+{
+	drm_panic_helper_exit();
+}
+module_exit(drm_kms_helper_exit);
+
 MODULE_AUTHOR("David Airlie, Jesse Barnes");
 MODULE_DESCRIPTION("DRM KMS helper");
 MODULE_LICENSE("GPL and additional rights");

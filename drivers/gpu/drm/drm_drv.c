@@ -1253,7 +1253,6 @@ static void drm_core_exit(void)
 {
 	drm_ras_genl_family_unregister();
 	drm_privacy_screen_lookup_exit();
-	drm_panic_exit();
 	accel_core_exit();
 	unregister_chrdev(DRM_MAJOR, "drm");
 	drm_debugfs_remove_root();

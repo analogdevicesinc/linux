@@ -3,7 +3,7 @@
  * Copyright (c) 2025 Red Hat.
  * Author: Jocelyn Falempe <jfalempe@redhat.com>
  *
- * KUNIT tests for drm panic
+ * KUNIT tests for DRM panic helpers
  */
 
 #include <drm/drm_fourcc.h>
@@ -41,24 +41,24 @@ struct drm_test_mode {
 	.width = w, \
 	.height = h, \
 	.format = f, \
-	.draw_screen = draw_panic_screen_ ## name ## _default, \
+	.draw_screen = drm_panic_helper_draw_screen_ ## name ## _default, \
 	.fname = #name, \
 	}, \
 
-static int draw_panic_screen_user_default(struct drm_scanout_buffer *sb)
+static int drm_panic_helper_draw_screen_user_default(struct drm_scanout_buffer *sb)
 {
-	return draw_panic_screen_user(sb, 0x00ffffff, 0x00000000);
+	return drm_panic_helper_draw_screen_user(sb, 0x00ffffff, 0x00000000);
 }
 
-static int draw_panic_screen_kmsg_default(struct drm_scanout_buffer *sb)
+static int drm_panic_helper_draw_screen_kmsg_default(struct drm_scanout_buffer *sb)
 {
-	return draw_panic_screen_kmsg(sb, 0x00ffffff, 0x00000000);
+	return drm_panic_helper_draw_screen_kmsg(sb, 0x00ffffff, 0x00000000);
 }
 
 #if IS_ENABLED(CONFIG_DRM_PANIC_SCREEN_QR_CODE)
-static int draw_panic_screen_qr_code_default(struct drm_scanout_buffer *sb)
+static int drm_panic_helper_draw_screen_qr_code_default(struct drm_scanout_buffer *sb)
 {
-	return draw_panic_screen_qr_code(sb, 0x00ffffff, 0x00000000, 40);
+	return drm_panic_helper_draw_screen_qr_code(sb, 0x00ffffff, 0x00000000, 40);
 }
 #endif
 
@@ -81,7 +81,7 @@ static int drm_test_panic_init(struct kunit *test)
 
 	test->priv = priv;
 
-	drm_panic_set_description("Kunit testing");
+	drm_panic_helper_set_description("Kunit testing");
 
 	return 0;
 }
@@ -226,10 +226,10 @@ static struct kunit_case drm_panic_screen_user_test[] = {
 	{ }
 };
 
-static struct kunit_suite drm_panic_suite = {
-	.name = "drm_panic",
+static struct kunit_suite drm_panic_helper_suite = {
+	.name = "drm_panic_helper",
 	.init = drm_test_panic_init,
 	.test_cases = drm_panic_screen_user_test,
 };
 
-kunit_test_suite(drm_panic_suite);
+kunit_test_suite(drm_panic_helper_suite);

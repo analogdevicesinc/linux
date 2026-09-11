@@ -118,10 +118,19 @@ fbdev Helper Functions Reference
 .. kernel-doc:: drivers/gpu/drm/drm_fb_helper.c
    :export:
 
-format Helper Functions Reference
+Draw Helper Functions Reference
 =================================
 
+Format-Conversion Helper Reference
+----------------------------------
+
 .. kernel-doc:: drivers/gpu/drm/drm_format_helper.c
+   :export:
+
+Panic Helper Reference
+----------------------
+
+.. kernel-doc:: drivers/gpu/drm/drm_panic_helper.c
    :export:
 
 Framebuffer DMA Helper Functions Reference
