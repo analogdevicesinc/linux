@@ -29,6 +29,29 @@ static const struct spi_nor_fixups is25lp256_fixups = {
 	.post_bfpt = is25lp256_post_bfpt_fixups,
 };
 
+static int is25wx01g_post_bfpt_fixups(struct spi_nor *nor,
+				      const struct sfdp_parameter_header *bfpt_header,
+				      const struct sfdp_bfpt *bfpt)
+{
+	/*
+	 * There is no Status Register 2 and no 35h command. And WRITE STATUS
+	 * REGISTER takes a single data byte.
+	 */
+	nor->flags &= ~SNOR_F_HAS_16BIT_SR;
+
+	/*
+	 * The BFPT Quad Enable Requirement field is set to a reserved value, so
+	 * spi_nor_parse_bfpt() leaves the quad enable method at its default.
+	 * Make sure we disable it as there is no quad mode anyway.
+	 */
+	nor->params->quad_enable = NULL;
+	return 0;
+}
+
+static const struct spi_nor_fixups is25wx01g_fixups = {
+	.post_bfpt = is25wx01g_post_bfpt_fixups,
+};
+
 static int pm25lv_nor_late_init(struct spi_nor *nor)
 {
 	struct spi_nor_erase_map *map = &nor->params->erase_map;
@@ -120,6 +143,10 @@ static const struct flash_info issi_nor_parts[] = {
 		.id = SNOR_ID(0x9d, 0x70, 0x19),
 		.name = "is25wp256",
 		.flags = SPI_NOR_QUAD_PP,
+	}, {
+		.id = SNOR_ID(0x9d, 0x5b, 0x1b),
+		.name = "is25wx01g",
+		.fixups = &is25wx01g_fixups,
 	}
 };
 
