@@ -628,6 +628,7 @@ static int posix_cpu_timer_del(struct k_itimer *timer)
 	}
 
 	if (!ret) {
+		WARN_ON_ONCE(cpu_timer_queued(&timer->it.cpu));
 		put_pid(timer->it.cpu.pid);
 		timer->it_status = POSIX_TIMER_DISARMED;
 	}
@@ -675,6 +676,27 @@ void posix_cpu_timers_exit_group(struct task_struct *tsk)
 }
 
 /*
+ * This function validates that POSIX CPU timers can be safely enqueued on the
+ * target task.
+ *
+ * Enqueue is allowed when PF_EXITING is not set. If set then it is only allowed
+ * for process shared timers (type = PIDTYPE_TGID) as long as tsk::signal::flags
+ * does not have SIGNAL_GROUP_EXIT set. PIDTYPE_PID targets are not allowed at
+ * all when the task has PF_EXITING set.
+ *
+ * This guarantees that after the POSIX timer cleanup in posixtimer_exit() no
+ * POSIX CPU timers are queued on the task or in case of a group exit on the
+ * process.
+ */
+static inline bool task_can_enqueue_timer(struct task_struct *tsk, enum pid_type type)
+{
+	if (likely(!(tsk->flags & PF_EXITING)))
+		return true;
+
+	return type == PIDTYPE_TGID && !(tsk->signal->flags & SIGNAL_GROUP_EXIT);
+}
+
+/*
  * Insert the timer on the appropriate list before any timers that
  * expire later.  This must be called with the sighand lock held.
  */
@@ -684,7 +706,13 @@ static void arm_timer(struct k_itimer *timer, struct task_struct *p)
 	struct cpu_timer *ctmr = &timer->it.cpu;
 	u64 newexp = cpu_timer_getexpires(ctmr);
 
+	lockdep_assert_held(&p->sighand->siglock);
+
 	timer->it_status = POSIX_TIMER_ARMED;
+
+	if (unlikely(!task_can_enqueue_timer(p, clock_pid_type(timer->it_clock))))
+		return;
+
 	if (!cpu_timer_enqueue(&base->tqhead, ctmr))
 		return;
 
