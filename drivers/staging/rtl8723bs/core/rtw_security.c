@@ -765,8 +765,8 @@ static void construct_ctr_preload(u8 *ctr_preload,
 	ctr_preload[15] = (unsigned char)(c % 256);
 }
 
-static signed int aes_cipher(u8 *key, uint	hdrlen,
-			u8 *pframe, uint plen)
+static signed int aes_cipher(u8 *key, uint hdrlen,
+			     u8 *pframe, uint plen)
 {
 	uint	qc_exists, a4_exists, i, j, payload_remainder,
 		num_blocks, payload_index;

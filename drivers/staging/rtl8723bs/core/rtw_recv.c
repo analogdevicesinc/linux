@@ -9,6 +9,7 @@
 #include <rtw_recv.h>
 #include <net/cfg80211.h>
 #include <linux/unaligned.h>
+#include <linux/align.h>
 
 static u8 SNAP_ETH_TYPE_IPX[2] = {0x81, 0x37};
 static u8 SNAP_ETH_TYPE_APPLETALK_AARP[2] = {0x80, 0xf3};
@@ -29,7 +30,7 @@ signed int _rtw_init_recv_priv(struct recv_priv *precvpriv, struct adapter *pada
 {
 	signed int i;
 	union recv_frame *precvframe;
-	signed int	res = _SUCCESS;
+	signed int res = _SUCCESS;
 
 	spin_lock_init(&precvpriv->lock);
 
@@ -52,7 +53,7 @@ signed int _rtw_init_recv_priv(struct recv_priv *precvpriv, struct adapter *pada
 		goto exit;
 	}
 
-	precvpriv->precv_frame_buf = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(precvpriv->pallocated_frame_buf), RXFRAME_ALIGN_SZ);
+	precvpriv->precv_frame_buf = PTR_ALIGN(precvpriv->pallocated_frame_buf, RXFRAME_ALIGN_SZ);
 	/* precvpriv->precv_frame_buf = precvpriv->pallocated_frame_buf + RXFRAME_ALIGN_SZ - */
 	/* ((SIZE_PTR) (precvpriv->pallocated_frame_buf) &(RXFRAME_ALIGN_SZ-1)); */
 
@@ -89,7 +90,7 @@ void _rtw_free_recv_priv(struct recv_priv *precvpriv)
 {
 	signed int i;
 	union recv_frame *precvframe;
-	struct adapter	*padapter = precvpriv->adapter;
+	struct adapter *padapter = precvpriv->adapter;
 
 	rtw_free_uc_swdec_pending_queue(padapter);
 
@@ -111,8 +112,8 @@ void _rtw_free_recv_priv(struct recv_priv *precvpriv)
 
 union recv_frame *_rtw_alloc_recvframe(struct __queue *pfree_recv_queue)
 {
-	union recv_frame  *precvframe;
-	struct list_head	*plist, *phead;
+	union recv_frame *precvframe;
+	struct list_head *plist, *phead;
 	struct adapter *padapter;
 	struct recv_priv *precvpriv;
 
@@ -138,7 +139,7 @@ union recv_frame *_rtw_alloc_recvframe(struct __queue *pfree_recv_queue)
 
 union recv_frame *rtw_alloc_recvframe(struct __queue *pfree_recv_queue)
 {
-	union recv_frame  *precvframe;
+	union recv_frame *precvframe;
 
 	spin_lock_bh(&pfree_recv_queue->lock);
 
@@ -213,10 +214,10 @@ signed int rtw_enqueue_recvframe(union recv_frame *precvframe, struct __queue *q
  *
  */
 
-void rtw_free_recvframe_queue(struct __queue *pframequeue,  struct __queue *pfree_recv_queue)
+void rtw_free_recvframe_queue(struct __queue *pframequeue, struct __queue *pfree_recv_queue)
 {
-	union	recv_frame	*precvframe;
-	struct list_head	*plist, *phead;
+	union recv_frame *precvframe;
+	struct list_head *plist, *phead;
 
 	spin_lock(&pframequeue->lock);
 
@@ -273,7 +274,7 @@ signed int rtw_enqueue_recvbuf(struct recv_buf *precvbuf, struct __queue *queue)
 struct recv_buf *rtw_dequeue_recvbuf(struct __queue *queue)
 {
 	struct recv_buf *precvbuf;
-	struct list_head	*plist, *phead;
+	struct list_head *plist, *phead;
 
 	spin_lock_bh(&queue->lock);
 
@@ -298,7 +299,7 @@ static void rtw_handle_tkip_mic_err(struct adapter *padapter, u8 bgroup)
 {
 	enum nl80211_key_type key_type = 0;
 	union iwreq_data wrqu;
-	struct iw_michaelmicfailure    ev;
+	struct iw_michaelmicfailure ev;
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	struct security_priv *psecuritypriv = &padapter->securitypriv;
 	unsigned long cur_time = 0;
@@ -340,7 +341,7 @@ static void rtw_handle_tkip_mic_err(struct adapter *padapter, u8 bgroup)
 
 static signed int recvframe_chkmic(struct adapter *adapter,  union recv_frame *precvframe)
 {
-	signed int	i, res = _SUCCESS;
+	signed int i, res = _SUCCESS;
 	u32 datalen;
 	u8 miccode[8];
 	u8 bmic_err = false, brpt_micerror = true;
@@ -977,7 +978,7 @@ static signed int validate_recv_ctrl_frame(struct adapter *padapter, union recv_
 		}
 
 		if ((psta->state & WIFI_SLEEP_STATE) && (pstapriv->sta_dz_bitmap & BIT(psta->aid))) {
-			struct list_head	*xmitframe_plist, *xmitframe_phead;
+			struct list_head *xmitframe_plist, *xmitframe_phead;
 			struct xmit_frame *pxmitframe = NULL;
 			struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
 
@@ -1045,12 +1046,12 @@ static signed int validate_recv_ctrl_frame(struct adapter *padapter, union recv_
 static union recv_frame *recvframe_defrag(struct adapter *adapter,
 					  struct __queue *defrag_q)
 {
-	struct list_head	 *plist, *phead;
-	u8  wlanhdr_offset;
+	struct list_head *plist, *phead;
+	u8 wlanhdr_offset;
 	u8 curfragnum;
 	struct recv_frame_hdr *pfhdr, *pnfhdr;
 	union recv_frame *prframe, *pnextrframe;
-	struct __queue	*pfree_recv_queue;
+	struct __queue *pfree_recv_queue;
 
 	curfragnum = 0;
 	pfree_recv_queue = &adapter->recvpriv.free_recv_queue;
@@ -1262,7 +1263,7 @@ static signed int validate_recv_data_frame(struct adapter *adapter, union recv_f
 	u8 *psa, *pda, *pbssid;
 	struct sta_info *psta = NULL;
 	u8 *ptr = precv_frame->u.hdr.rx_data;
-	struct rx_pkt_attrib	*pattrib = &precv_frame->u.hdr.attrib;
+	struct rx_pkt_attrib *pattrib = &precv_frame->u.hdr.attrib;
 	struct security_priv *psecuritypriv = &adapter->securitypriv;
 	signed int ret = _SUCCESS;
 
@@ -1509,13 +1510,13 @@ exit:
 /* remove the wlanhdr and add the eth_hdr */
 static signed int wlanhdr_to_ethhdr(union recv_frame *precvframe)
 {
-	signed int	rmv_len;
+	signed int rmv_len;
 	u16 eth_type, len;
 	u8 bsnaphdr;
 	u8 *psnap_type;
-	struct ieee80211_snap_hdr	*psnap;
+	struct ieee80211_snap_hdr *psnap;
 	__be16 be_tmp;
-	struct adapter			*adapter = precvframe->u.hdr.adapter;
+	struct adapter *adapter = precvframe->u.hdr.adapter;
 	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
 	u8 *ptr = precvframe->u.hdr.rx_data; /*  point to frame_ctrl field */
 	struct rx_pkt_attrib *pattrib = &precvframe->u.hdr.attrib;
@@ -1523,7 +1524,7 @@ static signed int wlanhdr_to_ethhdr(union recv_frame *precvframe)
 	if (pattrib->encrypt)
 		recvframe_pull_tail(precvframe, pattrib->icv_len);
 
-	psnap = (struct ieee80211_snap_hdr	*)(ptr + pattrib->hdrlen + pattrib->iv_len);
+	psnap = (struct ieee80211_snap_hdr *)(ptr + pattrib->hdrlen + pattrib->iv_len);
 	psnap_type = ptr + pattrib->hdrlen + pattrib->iv_len + SNAP_SIZE;
 	/* convert hdr + possible LLC headers into Ethernet header */
 	/* eth_type = (psnap_type[0] << 8) | psnap_type[1]; */
@@ -1664,7 +1665,7 @@ static void rtw_recv_indicate_pkt(struct adapter *padapter, struct sk_buff *pkt,
 
 static int amsdu_to_msdu(struct adapter *padapter, union recv_frame *prframe)
 {
-	int	a_len, padding_len;
+	int a_len, padding_len;
 	u16 subframe_len;
 	u8 nr_subframes, i;
 	u8 *pdata;
@@ -1844,7 +1845,7 @@ _recv_indicatepkt_drop:
 
 static int recv_indicatepkts_in_order(struct adapter *padapter, struct recv_reorder_ctrl *preorder_ctrl, int bforced)
 {
-	struct list_head	*phead, *plist;
+	struct list_head *phead, *plist;
 	union recv_frame *prframe;
 	struct rx_pkt_attrib *pattrib;
 	/* u8 index = 0; */
@@ -1855,7 +1856,7 @@ static int recv_indicatepkts_in_order(struct adapter *padapter, struct recv_reor
 	/* spin_lock_irqsave(&ppending_recvframe_queue->lock, irql); */
 	/* spin_lock(&ppending_recvframe_queue->lock); */
 
-	phead =		get_list_head(ppending_recvframe_queue);
+	phead =	get_list_head(ppending_recvframe_queue);
 	plist = get_next(phead);
 
 	/*  Handling some condition for forced indicate case. */

@@ -43,15 +43,15 @@ struct io_priv {
 
 };
 
-extern u8 rtw_read8(struct adapter *adapter, u32 addr);
-extern u16 rtw_read16(struct adapter *adapter, u32 addr);
-extern u32 rtw_read32(struct adapter *adapter, u32 addr);
+u8 rtw_read8(struct adapter *adapter, u32 addr);
+u16 rtw_read16(struct adapter *adapter, u32 addr);
+u32 rtw_read32(struct adapter *adapter, u32 addr);
 
-extern int rtw_write8(struct adapter *adapter, u32 addr, u8 val);
-extern int rtw_write16(struct adapter *adapter, u32 addr, u16 val);
-extern int rtw_write32(struct adapter *adapter, u32 addr, u32 val);
+int rtw_write8(struct adapter *adapter, u32 addr, u8 val);
+int rtw_write16(struct adapter *adapter, u32 addr, u16 val);
+int rtw_write32(struct adapter *adapter, u32 addr, u32 val);
 
-extern u32 rtw_write_port(struct adapter *adapter, u32 addr, u32 cnt, u8 *pmem);
+u32 rtw_write_port(struct adapter *adapter, u32 addr, u32 cnt, u8 *pmem);
 
 int rtw_init_io_priv(struct adapter *padapter, void (*set_intf_ops)(struct adapter *padapter, struct _io_ops *pops));
 

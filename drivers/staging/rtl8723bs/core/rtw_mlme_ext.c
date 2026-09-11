@@ -1971,9 +1971,8 @@ void dump_mgntframe(struct adapter *padapter, struct xmit_frame *pmgntframe)
 	rtw_hal_mgnt_xmit(padapter, pmgntframe);
 }
 
-s32 dump_mgntframe_and_wait(struct adapter *padapter, struct xmit_frame *pmgntframe, int timeout_ms)
+void dump_mgntframe_and_wait(struct adapter *padapter, struct xmit_frame *pmgntframe, int timeout_ms)
 {
-	s32 ret = _FAIL;
 	unsigned long irqL;
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
 	struct xmit_buf *pxmitbuf = pmgntframe->pxmitbuf;
@@ -1983,22 +1982,18 @@ s32 dump_mgntframe_and_wait(struct adapter *padapter, struct xmit_frame *pmgntfr
 		padapter->driver_stopped) {
 		rtw_free_xmitbuf(&padapter->xmitpriv, pmgntframe->pxmitbuf);
 		rtw_free_xmitframe(&padapter->xmitpriv, pmgntframe);
-		return ret;
+		return;
 	}
 
 	rtw_sctx_init(&sctx, timeout_ms);
 	pxmitbuf->sctx = &sctx;
 
-	ret = rtw_hal_mgnt_xmit(padapter, pmgntframe);
-
-	if (ret == _SUCCESS)
-		ret = rtw_sctx_wait(&sctx);
+	if (!rtw_hal_mgnt_xmit(padapter, pmgntframe))
+		rtw_sctx_wait(&sctx);
 
 	spin_lock_irqsave(&pxmitpriv->lock_sctx, irqL);
 	pxmitbuf->sctx = NULL;
 	spin_unlock_irqrestore(&pxmitpriv->lock_sctx, irqL);
-
-	return ret;
 }
 
 s32 dump_mgntframe_and_wait_ack(struct adapter *padapter, struct xmit_frame *pmgntframe)
@@ -2406,11 +2401,9 @@ void issue_probersp(struct adapter *padapter, unsigned char *da, u8 is_valid_p2p
 	dump_mgntframe(padapter, pmgntframe);
 }
 
-static int _issue_probereq(struct adapter *padapter,
-			   struct ndis_802_11_ssid *pssid,
-			   u8 *da, u8 ch, bool append_wps, bool wait_ack)
+static void issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da,
+			   bool append_wps)
 {
-	int ret = _FAIL;
 	struct xmit_frame		*pmgntframe;
 	struct pkt_attrib		*pattrib;
 	unsigned char *pframe;
@@ -2425,7 +2418,7 @@ static int _issue_probereq(struct adapter *padapter,
 
 	pmgntframe = alloc_mgtxmitframe(pxmitpriv);
 	if (!pmgntframe)
-		goto exit;
+		return;
 
 	/* update attribute */
 	pattrib = &pmgntframe->attrib;
@@ -2474,9 +2467,6 @@ static int _issue_probereq(struct adapter *padapter,
 		pframe = rtw_set_ie(pframe, WLAN_EID_SUPP_RATES, bssrate_len, bssrate, &(pattrib->pktlen));
 	}
 
-	if (ch)
-		pframe = rtw_set_ie(pframe, WLAN_EID_DS_PARAMS, 1, &ch, &pattrib->pktlen);
-
 	if (append_wps) {
 		/* add wps_ie for wps2.0 */
 		if (pmlmepriv->wps_probe_req_ie_len > 0 && pmlmepriv->wps_probe_req_ie) {
@@ -2488,51 +2478,7 @@ static int _issue_probereq(struct adapter *padapter,
 
 	pattrib->last_txcmdsz = pattrib->pktlen;
 
-	if (wait_ack) {
-		ret = dump_mgntframe_and_wait_ack(padapter, pmgntframe);
-	} else {
-		dump_mgntframe(padapter, pmgntframe);
-		ret = _SUCCESS;
-	}
-
-exit:
-	return ret;
-}
-
-inline void issue_probereq(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da)
-{
-	_issue_probereq(padapter, pssid, da, 0, 1, false);
-}
-
-int issue_probereq_ex(struct adapter *padapter, struct ndis_802_11_ssid *pssid, u8 *da, u8 ch, bool append_wps,
-	int try_cnt, int wait_ms)
-{
-	int ret;
-	int i = 0;
-
-	do {
-		ret = _issue_probereq(padapter, pssid, da, ch, append_wps,
-				      wait_ms > 0);
-
-		i++;
-
-		if (padapter->driver_stopped || padapter->bSurpriseRemoved)
-			break;
-
-		if (i < try_cnt && wait_ms > 0 && ret == _FAIL)
-			msleep(wait_ms);
-
-	} while ((i < try_cnt) && ((ret == _FAIL) || (wait_ms == 0)));
-
-	if (ret != _FAIL) {
-		ret = _SUCCESS;
-		#ifndef DBG_XMIT_ACK
-		goto exit;
-		#endif
-	}
-
-exit:
-	return ret;
+	dump_mgntframe(padapter, pmgntframe);
 }
 
 /*  if psta == NULL, indicate we are station(client) now... */
@@ -3771,20 +3717,25 @@ void site_survey(struct adapter *padapter)
 
 					/* IOT issue, When wifi_spec is not set, send one probe req without WPS IE. */
 					if (padapter->registrypriv.wifi_spec)
-						issue_probereq(padapter, &(pmlmeext->sitesurvey_res.ssid[i]), NULL);
+						issue_probereq(padapter,
+							       &pmlmeext->sitesurvey_res.ssid[i],
+							       NULL, true);
 					else
-						issue_probereq_ex(padapter, &(pmlmeext->sitesurvey_res.ssid[i]), NULL, 0, 0, 0, 0);
+						issue_probereq(padapter,
+							       &pmlmeext->sitesurvey_res.ssid[i],
+							       NULL, false);
 
-					issue_probereq(padapter, &(pmlmeext->sitesurvey_res.ssid[i]), NULL);
+					issue_probereq(padapter, &pmlmeext->sitesurvey_res.ssid[i],
+						       NULL, true);
 				}
 
 				if (pmlmeext->sitesurvey_res.scan_mode == SCAN_ACTIVE) {
 					/* IOT issue, When wifi_spec is not set, send one probe req without WPS IE. */
 					if (padapter->registrypriv.wifi_spec)
-						issue_probereq(padapter, NULL, NULL);
+						issue_probereq(padapter, NULL, NULL, true);
 					else
-						issue_probereq_ex(padapter, NULL, NULL, 0, 0, 0, 0);
-					issue_probereq(padapter, NULL, NULL);
+						issue_probereq(padapter, NULL, NULL, false);
+					issue_probereq(padapter, NULL, NULL, true);
 				}
 			}
 		}
@@ -4902,18 +4853,18 @@ void linked_status_chk(struct adapter *padapter)
 			{
 				if (rx_chk != _SUCCESS) {
 					if (pmlmeext->retry == 0) {
-						issue_probereq_ex(padapter,
-								  &pmlmeinfo->network.ssid,
-								  pmlmeinfo->network.mac_address,
-								  0, 0, 0, 0);
-						issue_probereq_ex(padapter,
-								  &pmlmeinfo->network.ssid,
-								  pmlmeinfo->network.mac_address,
-								  0, 0, 0, 0);
-						issue_probereq_ex(padapter,
-								  &pmlmeinfo->network.ssid,
-								  pmlmeinfo->network.mac_address,
-								  0, 0, 0, 0);
+						issue_probereq(padapter,
+							       &pmlmeinfo->network.ssid,
+							       pmlmeinfo->network.mac_address,
+							       false);
+						issue_probereq(padapter,
+							       &pmlmeinfo->network.ssid,
+							       pmlmeinfo->network.mac_address,
+							       false);
+						issue_probereq(padapter,
+							       &pmlmeinfo->network.ssid,
+							       pmlmeinfo->network.mac_address,
+							       false);
 					}
 				}
 
