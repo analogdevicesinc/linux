@@ -44,7 +44,6 @@ class LineType(Enum):
     NODE_OPEN = auto()       # something { (with optional label/name/addr)
     NODE_CLOSE = auto()      # };
     PROPERTY = auto()        # name = value; or name;
-    CONTINUATION = auto()    # continuation of a multi-line property
 
 
 re_cpp_directive = re.compile(
@@ -80,11 +79,12 @@ def is_preprocessor(stripped):
 
 class DtsLine:
     __slots__ = ('lineno', 'raw', 'code', 'linetype', 'indent_str', 'stripped', 'is_root',
-                 'prop_name', 'continuations',
+                 'prop_name', 'continuation', 'continuations',
                  'node_name', 'node_addr', 'label', 'ref_name', 'parent', 'depth',
                  'closures')
 
-    def __init__(self, lineno, raw, linetype, depth, indent_str, stripped, is_root = False):
+    def __init__(self, lineno, raw, linetype, depth, indent_str, stripped,
+                 continuation = False, is_root = False):
         self.lineno = lineno      # 1-based within the block
         self.raw = raw            # Entire raw line
         self.linetype = linetype
@@ -95,6 +95,7 @@ class DtsLine:
         self.code = _strip_strings_and_comments(stripped).rstrip()
         self.is_root = is_root
         self.prop_name = None
+        self.continuation = continuation    # Continuation of a multi-line property
         self.continuations = []
         self.node_name = None
         self.node_addr = None
@@ -175,7 +176,7 @@ def classify_lines(text):
             continue
 
         if not stripped:
-            dl = DtsLine(i, raw, LineType.BLANK, depth, '', '')
+            dl = DtsLine(i, raw, LineType.BLANK, depth, '', '', continuation=not prev_complete)
             out.append(dl)
             continue
 
@@ -184,7 +185,7 @@ def classify_lines(text):
                      else LineType.COMMENT_BODY)
             if ltype == LineType.COMMENT_END:
                 in_block_comment = False
-            dl = DtsLine(i, raw, ltype, depth, indent_str, stripped)
+            dl = DtsLine(i, raw, ltype, depth, indent_str, stripped, continuation=not prev_complete)
             out.append(dl)
             continue
 
@@ -202,20 +203,12 @@ def classify_lines(text):
         if opens_block:
             in_block_comment = True
 
-        if not prev_complete:
-            dl = DtsLine(i, raw, LineType.CONTINUATION, depth, indent_str, code)
-            out.append(dl)
-            prev_complete = (code.endswith(';') or
-                             code.endswith('{') or
-                             code.endswith('};'))
-            continue
-
         # Pure-comment line: nothing left after stripping. Classify as
         # COMMENT_START (carries to next line) or COMMENT, and skip the
         # structural classification entirely.
         if not code:
             ltype = LineType.COMMENT_START if opens_block else LineType.COMMENT
-            dl = DtsLine(i, raw, ltype, depth, indent_str, stripped)
+            dl = DtsLine(i, raw, ltype, depth, indent_str, stripped, continuation=not prev_complete)
             out.append(dl)
             continue
 
@@ -245,7 +238,8 @@ def classify_lines(text):
             continue
 
         # Property (or first line of a multi-line property).
-        dl = DtsLine(i, raw, LineType.PROPERTY, depth, indent_str, code)
+        dl = DtsLine(i, raw, LineType.PROPERTY, depth, indent_str, code,
+                     continuation=not prev_complete)
         parse_property_name(dl)
         out.append(dl)
         prev_complete = code.endswith(';')
@@ -254,7 +248,7 @@ def classify_lines(text):
     last_prop = None
     grouped = []
     for dl in out:
-        if dl.linetype == LineType.CONTINUATION and last_prop is not None:
+        if dl.continuation and last_prop is not None:
             last_prop.continuations.append(dl)
             continue
         if dl.linetype == LineType.PROPERTY:
@@ -535,6 +529,8 @@ def check_continuation_alignment(ctx):
         dl_value_complete = rest.endswith('",') or rest.endswith('>,')
         target_col = _display_col(_strip_strings_and_comments(dl.raw[:eq + 1 + m.start(1)]))
         for cont in dl.continuations:
+            if cont.linetype == LineType.BLANK:
+                continue
             target_offset = 0
             err_msg_explanation = 'to < or "'
             if not dl_value_complete:
@@ -582,10 +578,10 @@ def check_indent_consistent(ctx):
             return
 
     for dl in ctx.lines:
+        if dl.continuation:
+            continue   # continuations align to <, not to indent unit
         if dl.linetype in (LineType.BLANK, LineType.PREPROCESSOR):
             continue
-        if dl.linetype == LineType.CONTINUATION:
-            continue   # continuations align to <, not to indent unit
         if dl.linetype in (LineType.COMMENT_BODY, LineType.COMMENT_END):
             continue
         if not dl.indent_str:
@@ -890,6 +886,8 @@ def check_required_blank_lines(ctx):
             if d.linetype == LineType.NODE_CLOSE and \
                     d.depth == body_depth - 1 and depth_inside == 0:
                 break
+            if d.continuation:
+                continue
             # Track depth inside nested children so we only look at
             # immediate-body items.
             if d.linetype == LineType.NODE_OPEN and \
@@ -908,8 +906,6 @@ def check_required_blank_lines(ctx):
             if d.linetype in (LineType.COMMENT, LineType.COMMENT_START,
                               LineType.COMMENT_BODY, LineType.COMMENT_END,
                               LineType.PREPROCESSOR):
-                continue
-            if d.linetype == LineType.CONTINUATION:
                 continue
 
             needs_blank = False
