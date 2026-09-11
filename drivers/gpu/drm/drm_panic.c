@@ -35,6 +35,7 @@
 
 #include "drm_crtc_internal.h"
 #include "drm_draw_internal.h"
+#include "drm_panic_internal.h"
 
 MODULE_AUTHOR("Jocelyn Falempe");
 MODULE_DESCRIPTION("DRM panic handler");
@@ -974,6 +975,9 @@ int drm_plane_helper_display_panic_screen(struct drm_plane *plane, const char *d
 	return ret;
 }
 EXPORT_SYMBOL(drm_plane_helper_display_panic_screen);
+
+#define drm_panic_trylock(dev, flags) \
+	raw_spin_trylock_irqsave(&(dev)->mode_config.panic_lock, flags)
 
 static void drm_panic_display_panic_screen(struct drm_plane *plane, const char *description)
 {
