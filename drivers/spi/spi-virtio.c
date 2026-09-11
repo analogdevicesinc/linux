@@ -162,8 +162,6 @@ static int virtio_spi_transfer_one(struct spi_controller *ctrl,
 	if (!spi_req)
 		return -ENOMEM;
 
-	init_completion(&spi_req->completion);
-
 	th = &spi_req->transfer_head;
 
 	/* Fill struct spi_transfer_head */
