@@ -136,10 +136,10 @@ static void sc846_clock_probe(struct device_node *np)
 
 	/* CCLK2_0 and DCLK1_0 */
 	clks[ADSP_SC846_CLK_CGU0_CCLK2_0] =
-	    clk_register_fixed_factor(NULL, "cclk2_0", "cgu0_pllclk_half",
+	    clk_register_fixed_factor(NULL, "cclk2_0", "cgu0_vco",
 				      CLK_SET_RATE_PARENT, 1, 3);
 	clks[ADSP_SC846_CLK_CGU0_DCLK1_0] =
-	    clk_register_fixed_factor(NULL, "dclk1_0", "cgu0_pllclk_half",
+	    clk_register_fixed_factor(NULL, "dclk1_0", "cgu0_vco",
 				      CLK_SET_RATE_PARENT, 1, 5);
 
 	clks[ADSP_SC846_CLK_CGU1_CDIV] =
@@ -177,10 +177,10 @@ static void sc846_clock_probe(struct device_node *np)
 
 	/* CCLK2_1 and DCLK1_1 */
 	clks[ADSP_SC846_CLK_CGU1_CCLK2_1] =
-	    clk_register_fixed_factor(NULL, "cclk2_1", "cgu1_pllclk_half",
+	    clk_register_fixed_factor(NULL, "cclk2_1", "cgu1_vco",
 				      CLK_SET_RATE_PARENT, 1, 3);
 	clks[ADSP_SC846_CLK_CGU1_DCLK1_1] =
-	    clk_register_fixed_factor(NULL, "dclk1_1", "cgu1_pllclk_half",
+	    clk_register_fixed_factor(NULL, "dclk1_1", "cgu1_vco",
 				      CLK_SET_RATE_PARENT, 1, 5);
 
 	/* Gates to enable CGU outputs */
@@ -253,7 +253,7 @@ static void sc846_clock_probe(struct device_node *np)
 	clks[ADSP_SC846_CLK_ARM1] = cdu_gate("arm1", "arm1_sel", cdu + CDU_CFG2,
 					     CLK_IS_CRITICAL, &cdu_lock);
 	clks[ADSP_SC846_CLK_CDU_DDR] = cdu_gate("cdu_ddr", "ddr_sel",
-						cdu + CDU_CFG3, 0, &cdu_lock);
+						cdu + CDU_CFG3, CLK_IS_CRITICAL, &cdu_lock);
 	clks[ADSP_SC846_CLK_CAN] = cdu_gate("can", "can_sel", cdu + CDU_CFG4, 0,
 					    &cdu_lock);
 	clks[ADSP_SC846_CLK_SPDIF] = cdu_gate("spdif", "spdif_sel",
