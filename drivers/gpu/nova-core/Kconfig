@@ -15,3 +15,12 @@ config NOVA_CORE
 	  This driver is work in progress and may not be functional.
 
 	  If M is selected, the module will be called nova-core.
+
+config NOVA_CORE_SELFTESTS
+	bool "Nova Core driver self-tests"
+	depends on NOVA_CORE
+	default n
+	help
+	  Build the driver self-tests and run them when the GPU is probed.
+
+	  If unsure, say N.

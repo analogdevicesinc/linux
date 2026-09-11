@@ -165,6 +165,11 @@ impl GspStaticConfigInfo {
             }
         })
     }
+
+    /// Computes the exclusive end of the FB physical address space.
+    pub(crate) fn total_fb_end(&self) -> Option<u64> {
+        self.fb_regions().map(|reg| reg.limit).max()?.checked_add(1)
+    }
 }
 
 // SAFETY: Padding is explicit and will not contain uninitialized data.

@@ -2,13 +2,7 @@
 
 mod continuation;
 
-use core::{
-    mem,
-    sync::atomic::{
-        fence,
-        Ordering, //
-    },
-};
+use core::mem;
 
 use kernel::{
     device,
@@ -26,7 +20,12 @@ use kernel::{
     prelude::*,
     ptr,
     sync::{
-        aref::ARef,
+        barrier::{
+            dma_mb,
+            Full,
+            Read,
+            Write, //
+        },
         Mutex, //
     },
     time::Delta,
@@ -230,19 +229,19 @@ unsafe impl FromBytes for GspMem {}
 ///   pointer and the GSP read pointer. This region is returned by [`Self::driver_write_area`].
 /// * The driver owns (i.e. can read from) the part of the GSP message queue between the CPU read
 ///   pointer and the GSP write pointer. This region is returned by [`Self::driver_read_area`].
-struct DmaGspMem(Coherent<GspMem>);
+struct DmaGspMem<'a>(Coherent<'a, GspMem>);
 
-impl DmaGspMem {
+impl<'a> DmaGspMem<'a> {
     /// Allocate a new instance and map it for `dev`.
-    fn new(dev: &device::Device<device::Bound>) -> Result<Self> {
+    fn new(dev: &'a device::Device<device::Bound>) -> Result<Self> {
         const MSGQ_SIZE: u32 = num::usize_into_u32::<{ size_of::<Msgq>() }>();
         const RX_HDR_OFF: u32 = num::usize_into_u32::<{ mem::offset_of!(Msgq, rx) }>();
 
-        let mut gsp_mem = CoherentBox::<GspMem>::zeroed(dev, GFP_KERNEL)?;
+        let mut gsp_mem = CoherentBox::<'_, GspMem>::zeroed(dev, GFP_KERNEL)?;
         gsp_mem.cpuq.tx = MsgqTxHeader::new(MSGQ_SIZE, RX_HDR_OFF, MSGQ_NUM_PAGES);
         gsp_mem.cpuq.rx = MsgqRxHeader::new();
 
-        let gsp_mem: Coherent<_> = gsp_mem.into();
+        let gsp_mem: Coherent<'_, _> = gsp_mem.into();
         PteArray::init(io_project!(gsp_mem, .ptes), gsp_mem.dma_address())?;
 
         Ok(Self(gsp_mem))
@@ -404,7 +403,12 @@ impl DmaGspMem {
     //
     // - The returned value is within `0..MSGQ_NUM_PAGES`.
     fn gsp_write_ptr(&self) -> u32 {
-        MsgqTxHeader::write_ptr(io_project!(self.0, .gspq.tx)) % MSGQ_NUM_PAGES
+        let ptr = MsgqTxHeader::write_ptr(io_project!(self.0, .gspq.tx)) % MSGQ_NUM_PAGES;
+
+        // ORDERING: LOAD->LOAD ordering needed to order `gsp_write_ptr` read before data read.
+        dma_mb(Read);
+
+        ptr
     }
 
     // Returns the index of the memory page the GSP will read the next command from.
@@ -413,7 +417,12 @@ impl DmaGspMem {
     //
     // - The returned value is within `0..MSGQ_NUM_PAGES`.
     fn gsp_read_ptr(&self) -> u32 {
-        MsgqRxHeader::read_ptr(io_project!(self.0, .gspq.rx)) % MSGQ_NUM_PAGES
+        let ptr = MsgqRxHeader::read_ptr(io_project!(self.0, .gspq.rx)) % MSGQ_NUM_PAGES;
+
+        // ORDERING: LOAD->STORE ordering needed to order `gsp_read_ptr` read before data write.
+        dma_mb(Full);
+
+        ptr
     }
 
     // Returns the index of the memory page the CPU can read the next message from.
@@ -427,12 +436,11 @@ impl DmaGspMem {
 
     // Informs the GSP that it can send `elem_count` new pages into the message queue.
     fn advance_cpu_read_ptr(&mut self, elem_count: u32) {
+        // ORDERING: LOAD->STORE ordering needed to order `cpu_read_ptr` write after data read.
+        dma_mb(Full);
+
         let rx = io_project!(self.0, .cpuq.rx);
         let rptr = MsgqRxHeader::read_ptr(rx).wrapping_add(elem_count) % MSGQ_NUM_PAGES;
-
-        // Ensure read pointer is properly ordered.
-        fence(Ordering::SeqCst);
-
         MsgqRxHeader::set_read_ptr(rx, rptr)
     }
 
@@ -447,12 +455,12 @@ impl DmaGspMem {
 
     // Informs the GSP that it can process `elem_count` new pages from the command queue.
     fn advance_cpu_write_ptr(&mut self, elem_count: u32) {
+        // ORDERING: STORE->STORE ordering needed to order `cpu_write_ptr` write after data write.
+        dma_mb(Write);
+
         let tx = io_project!(self.0, .cpuq.tx);
         let wptr = MsgqTxHeader::write_ptr(tx).wrapping_add(elem_count) % MSGQ_NUM_PAGES;
         MsgqTxHeader::set_write_ptr(tx, wptr);
-
-        // Ensure all command data is visible before triggering the GSP read.
-        fence(Ordering::SeqCst);
     }
 }
 
@@ -469,7 +477,7 @@ struct GspCommand<'a> {
 
 /// A message ready to be processed from the message queue.
 ///
-/// This is the type returned by [`Cmdq::wait_for_msg`].
+/// This is the type returned by [`CmdqInner::wait_for_msg`].
 struct GspMessage<'a> {
     // Reference to the header of the message.
     header: &'a GspMsgElement,
@@ -483,15 +491,15 @@ struct GspMessage<'a> {
 /// Provides the ability to send commands and receive messages from the GSP using a shared memory
 /// area.
 #[pin_data]
-pub(crate) struct Cmdq {
+pub(crate) struct Cmdq<'cmdq> {
     /// Inner mutex-protected state.
     #[pin]
-    inner: Mutex<CmdqInner>,
+    inner: Mutex<CmdqInner<'cmdq>>,
     /// DMA address of the command queue's shared memory region.
     pub(super) dma_addr: DmaAddress,
 }
 
-impl Cmdq {
+impl<'cmdq> Cmdq<'cmdq> {
     /// Offset of the data after the PTEs.
     const POST_PTE_OFFSET: usize = core::mem::offset_of!(GspMem, cpuq);
 
@@ -512,14 +520,16 @@ impl Cmdq {
     pub(super) const RECEIVE_TIMEOUT: Delta = Delta::from_secs(5);
 
     /// Creates a new command queue for `dev`.
-    pub(crate) fn new(dev: &device::Device<device::Bound>) -> impl PinInit<Self, Error> + '_ {
+    pub(crate) fn new(
+        dev: &'cmdq device::Device<device::Bound>,
+    ) -> impl PinInit<Self, Error> + 'cmdq {
         pin_init_scope(move || {
             let gsp_mem = DmaGspMem::new(dev)?;
 
             Ok(try_pin_init!(Self {
                 dma_addr: gsp_mem.0.dma_address(),
                 inner <- new_mutex!(CmdqInner {
-                    dev: dev.into(),
+                    dev,
                     gsp_mem,
                     seq: 0,
                 }),
@@ -610,16 +620,16 @@ impl Cmdq {
 }
 
 /// Inner mutex protected state of [`Cmdq`].
-struct CmdqInner {
+struct CmdqInner<'a> {
     /// Device this command queue belongs to.
-    dev: ARef<device::Device>,
+    dev: &'a device::Device,
     /// Current command sequence number.
     seq: u32,
     /// Memory area shared with the GSP for communicating commands and messages.
-    gsp_mem: DmaGspMem,
+    gsp_mem: DmaGspMem<'a>,
 }
 
-impl CmdqInner {
+impl CmdqInner<'_> {
     /// Timeout for waiting for space on the command queue.
     const ALLOCATE_TIMEOUT: Delta = Delta::from_secs(1);
 
