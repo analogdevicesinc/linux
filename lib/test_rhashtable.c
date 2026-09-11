@@ -477,7 +477,7 @@ static unsigned int __init print_ht(struct rhltable *rhlt)
 
 	ht = &rhlt->ht;
 	/* Take the mutex to avoid RCU warning */
-	mutex_lock(&ht->mutex);
+	mutex_lock_nested(&ht->mutex, 1);
 	tbl = rht_dereference(ht->tbl, ht);
 	for (i = 0; i < tbl->size; i++) {
 		struct rhash_head *pos, *next;

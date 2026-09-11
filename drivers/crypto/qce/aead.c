@@ -769,14 +769,13 @@ static int qce_aead_register(struct qce_device *qce)
 
 	for (i = 0; i < ARRAY_SIZE(aead_def); i++) {
 		ret = qce_aead_register_one(&aead_def[i], qce);
-		if (ret)
-			goto err;
+		if (ret) {
+			qce_aead_unregister(qce);
+			return ret;
+		}
 	}
 
 	return 0;
-err:
-	qce_aead_unregister(qce);
-	return ret;
 }
 
 const struct qce_algo_ops aead_ops = {

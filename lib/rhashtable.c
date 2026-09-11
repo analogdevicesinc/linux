@@ -191,7 +191,6 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
 	struct bucket_table *tbl = NULL;
 	size_t size;
 	int i;
-	static struct lock_class_key __key;
 
 	tbl = alloc_hooks_tag(ht->alloc_tag,
 			kvmalloc_node_align_noprof(struct_size(tbl, buckets, nbuckets),
@@ -207,7 +206,10 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
 	if (tbl == NULL)
 		return NULL;
 
-	lockdep_init_map(&tbl->dep_map, "rhashtable_bucket", &__key, 0);
+#ifdef CONFIG_LOCKDEP
+	/* bitlocks must use nesting level 2 or more */
+	lockdep_init_map(&tbl->dep_map, "rhashtable_bucket", ht->lockdep_key, 0);
+#endif
 
 	tbl->size = size;
 
@@ -430,7 +432,7 @@ static void rht_deferred_worker(struct work_struct *work)
 	int err = 0;
 
 	ht = container_of(work, struct rhashtable, run_work);
-	mutex_lock(&ht->mutex);
+	mutex_lock_nested(&ht->mutex, 1);
 
 	tbl = rht_dereference(ht->tbl, ht);
 	tbl = rhashtable_last_table(ht, tbl);
@@ -1174,8 +1176,14 @@ int __rhashtable_init_noprof(struct rhashtable *ht,
 		return -EINVAL;
 
 	memset(ht, 0, sizeof(*ht));
+	/* mutex_lock must use nesting level 1 */
 	mutex_init_with_key(&ht->mutex, key);
 	spin_lock_init(&ht->lock);
+	/* spin_lock can use nesting level 0 */
+	lockdep_set_class(&ht->lock, key);
+#ifdef CONFIG_LOCKDEP
+	ht->lockdep_key = key;
+#endif
 	memcpy(&ht->p, params, sizeof(*params));
 
 	alloc_tag_record(ht->alloc_tag);
