@@ -1116,17 +1116,20 @@ static void posixtimer_delete_timers(void)
 	}
 }
 
-void posixtimer_exit(void)
+void posixtimer_exit(bool group_dead)
 {
-	hrtimer_cancel(&current->signal->real_timer);
-	posixtimer_delete_timers();
+	if (group_dead) {
+		hrtimer_cancel(&current->signal->real_timer);
+		posix_cpu_timers_exit_group();
+		posixtimer_delete_timers();
+	} else {
+		posix_cpu_timers_exit_task();
+	}
 }
 
 void posixtimer_exec(void)
 {
-	scoped_guard(spinlock_irq, &current->sighand->siglock)
-		posix_cpu_timers_exit(current);
-
+	posix_cpu_timers_exit_task();
 	posixtimer_delete_timers();
 	flush_itimer_signals();
 }

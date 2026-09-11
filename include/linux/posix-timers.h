@@ -192,8 +192,6 @@ struct k_itimer {
 } ____cacheline_aligned_in_smp;
 
 void run_posix_cpu_timers(void);
-void posix_cpu_timers_exit(struct task_struct *task);
-void posix_cpu_timers_exit_group(struct task_struct *task);
 void set_process_cpu_timer(struct task_struct *task, unsigned int clock_idx,
 			   u64 *newval, u64 *oldval);
 
@@ -201,7 +199,7 @@ int update_rlimit_cpu(struct task_struct *task, unsigned long rlim_new);
 
 #ifdef CONFIG_POSIX_TIMERS
 void posixtimer_exec(void);
-void posixtimer_exit(void);
+void posixtimer_exit(bool group_dead);
 
 static inline void posixtimer_putref(struct k_itimer *tmr)
 {
@@ -231,7 +229,7 @@ static inline bool posixtimer_valid(const struct k_itimer *timer)
 }
 #else  /* CONFIG_POSIX_TIMERS */
 static inline void posixtimer_exec(void) { }
-static inline void posixtimer_exit(void) { }
+static inline void posixtimer_exit(bool group_dead) { }
 static inline void posixtimer_sigqueue_getref(struct sigqueue *q) { }
 static inline void posixtimer_sigqueue_putref(struct sigqueue *q) { }
 #endif /* !CONFIG_POSIX_TIMERS */
