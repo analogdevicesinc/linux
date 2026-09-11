@@ -325,7 +325,8 @@ static int sp805_wdt_suspend(struct device *dev)
 {
 	struct sp805_wdt *wdt = dev_get_drvdata(dev);
 
-	if (watchdog_active(&wdt->wdd))
+	if (watchdog_active(&wdt->wdd) ||
+	    watchdog_hw_running(&wdt->wdd))
 		return wdt_disable(&wdt->wdd);
 
 	return 0;
@@ -335,7 +336,8 @@ static int sp805_wdt_resume(struct device *dev)
 {
 	struct sp805_wdt *wdt = dev_get_drvdata(dev);
 
-	if (watchdog_active(&wdt->wdd))
+	if (watchdog_active(&wdt->wdd) ||
+	    watchdog_hw_running(&wdt->wdd))
 		return wdt_enable(&wdt->wdd);
 
 	return 0;
