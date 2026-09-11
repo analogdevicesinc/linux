@@ -622,12 +622,25 @@ static int es8323_mute_stream(struct snd_soc_dai *dai, int mute, int stream)
 					     mute ? ES8323_DACCONTROL3_DACMUTE : 0);
 }
 
+static const u64 es8323_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF;
+
 static const struct snd_soc_dai_ops es8323_ops = {
 	.startup	= es8323_pcm_startup,
 	.hw_params	= es8323_pcm_hw_params,
 	.set_fmt	= es8323_set_dai_fmt,
 	.set_sysclk	= es8323_set_dai_sysclk,
 	.mute_stream	= es8323_mute_stream,
+	.auto_selectable_formats	= &es8323_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 #define ES8323_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
