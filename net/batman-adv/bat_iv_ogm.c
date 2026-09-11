@@ -2422,8 +2422,8 @@ static int batadv_iv_ogm_neigh_cmp(struct batadv_neigh_node *neigh1,
 }
 
 /**
- * batadv_iv_ogm_neigh_is_sob() - check if neigh1 is similarly good or better
- *  than neigh2 from the metric prospective
+ * batadv_iv_ogm_neigh_is_sob() - check if @candidate is similarly good or
+ *  better than @reference from the metric prospective
  * @candidate: the first neighbor object of the comparison
  * @if_outgoing_cand: outgoing interface for the @candidate neighbor
  * @reference: the second neighbor object of the comparison
