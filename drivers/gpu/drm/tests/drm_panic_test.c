@@ -14,17 +14,10 @@
 #include <linux/units.h>
 #include <linux/vmalloc.h>
 
-/* Check the framebuffer color only if the panic colors are the default */
-#if (CONFIG_DRM_PANIC_BACKGROUND_COLOR == 0 && \
-	CONFIG_DRM_PANIC_FOREGROUND_COLOR == 0xffffff)
-
 static void drm_panic_check_color_byte(struct kunit *test, u8 b)
 {
 	KUNIT_EXPECT_TRUE(test, (b == 0 || b == 0xff));
 }
-#else
-static void drm_panic_check_color_byte(struct kunit *test, u8 b) {}
-#endif
 
 struct drm_test_mode {
 	const int width;
@@ -48,9 +41,26 @@ struct drm_test_mode {
 	.width = w, \
 	.height = h, \
 	.format = f, \
-	.draw_screen = draw_panic_screen_##name, \
+	.draw_screen = draw_panic_screen_ ## name ## _default, \
 	.fname = #name, \
 	}, \
+
+static int draw_panic_screen_user_default(struct drm_scanout_buffer *sb)
+{
+	return draw_panic_screen_user(sb, 0x00ffffff, 0x00000000);
+}
+
+static int draw_panic_screen_kmsg_default(struct drm_scanout_buffer *sb)
+{
+	return draw_panic_screen_kmsg(sb, 0x00ffffff, 0x00000000);
+}
+
+#if IS_ENABLED(CONFIG_DRM_PANIC_SCREEN_QR_CODE)
+static int draw_panic_screen_qr_code_default(struct drm_scanout_buffer *sb)
+{
+	return draw_panic_screen_qr_code(sb, 0x00ffffff, 0x00000000);
+}
+#endif
 
 static const struct drm_test_mode drm_test_modes_cases[] = {
 	DRM_TEST_MODE_LIST(user)
