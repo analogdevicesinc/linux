@@ -2705,7 +2705,7 @@ static u64 get_queue_timestamp(struct xe_hw_engine *hwe)
 				   RING_QUEUE_TIMESTAMP(hwe->mmio_base));
 }
 
-static u32 get_multi_queue_active_queue_id(struct xe_hw_engine *hwe)
+u32 xe_lrc_get_multi_queue_active_queue_id(struct xe_hw_engine *hwe)
 {
 	u32 val = xe_mmio_read32(&hwe->gt->mmio,
 				 RING_CSMQDEBUG(hwe->mmio_base));
@@ -2739,14 +2739,14 @@ static u64 xe_lrc_multi_queue_timestamp(struct xe_lrc *lrc)
 	if (!hwe)
 		return xe_lrc_queue_timestamp(lrc);
 
-	if (get_multi_queue_active_queue_id(hwe) != lrc->multi_queue.pos)
+	if (xe_lrc_get_multi_queue_active_queue_id(hwe) != lrc->multi_queue.pos)
 		return xe_lrc_queue_timestamp(lrc);
 
 	/* queue is active, so store the queue timestamp register */
 	reg_queue_ts = get_queue_timestamp(hwe);
 
 	/* double check queue and primary queue are both still active */
-	if (get_multi_queue_active_queue_id(hwe) != lrc->multi_queue.pos ||
+	if (xe_lrc_get_multi_queue_active_queue_id(hwe) != lrc->multi_queue.pos ||
 	    !context_active(primary_lrc))
 		return xe_lrc_queue_timestamp(lrc);
 

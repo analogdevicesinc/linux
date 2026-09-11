@@ -40,6 +40,7 @@ struct intel_display;
 struct intel_dg_nvm_dev;
 struct xe_ggtt;
 struct xe_i2c;
+struct xe_mmio_gem;
 struct xe_pat_ops;
 struct xe_pxp;
 struct xe_ttm_stolen_mgr;
@@ -676,6 +677,18 @@ struct xe_file {
 
 	/** @refcount: ref count of this xe file */
 	struct kref refcount;
+
+	/** @mmio_gem: MMIO GEM objects for this xe file */
+	struct {
+		/**
+		 * @mmio_gem.lock: Protects allocation and attach of MMIO
+		 * GEM objects on first use (singleton). All MMIO GEM access
+		 * should be guarded by this lock. Prefer scoped_guard().
+		 */
+		struct mutex lock;
+		/** @mmio_gem.pci_barrier: MMIO GEM object for PCI barrier mmap. */
+		struct xe_mmio_gem *pci_barrier;
+	} mmio_gem;
 };
 
 #endif
