@@ -53,6 +53,24 @@ properties:
     maximum: 3
     default: 2
 
+  cirrus,sync-lsw-txid:
+    description:
+      Transmitter ID to use for long software (LSW) data packets
+      on the SYNC bus.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 7
+    default: 0
+
+  cirrus,sync-sw-txid:
+    description:
+      Transmitter ID to use for short software (SW) data packets
+      on the SYNC bus.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 7
+    default: 0
+
 patternProperties:
   "^cirrus,gpio-ctrl[1-3]$":
     description:
@@ -145,6 +163,8 @@ examples:
           reset-gpios = <&gpio 110 0>;
           cirrus,asp-sdout-hiz-ctrl = <(CS35L45_ASP_TX_HIZ_UNUSED |
                                         CS35L45_ASP_TX_HIZ_DISABLED)>;
+          cirrus,sync-lsw-txid = <0x1>;
+          cirrus,sync-sw-txid = <0x1>;
           cirrus,gpio-ctrl1 {
              gpio-ctrl = <0x2>;
           };

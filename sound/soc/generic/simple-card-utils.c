@@ -1116,7 +1116,7 @@ int graph_util_parse_dai(struct simple_util_priv *priv, struct device_node *ep,
 	args.np = ep;
 	dai = snd_soc_get_dai_via_args(&args);
 	if (dai) {
-		const char *dai_name = snd_soc_dai_name_get(dai);
+		const char *dai_name = snd_soc_dai_name(dai);
 		const struct of_phandle_args *dai_args = snd_soc_copy_dai_args(dev, &args);
 
 		ret = -ENOMEM;
