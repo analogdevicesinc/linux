@@ -1909,20 +1909,16 @@ static int tegra_xusb_probe(struct platform_device *pdev)
 					tegra_xusb_mbox_irq,
 					tegra_xusb_mbox_thread, 0,
 					dev_name(&pdev->dev), tegra);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to request IRQ: %d\n", err);
+	if (err < 0)
 		goto remove_usb3;
-	}
 
 	if (tegra->padctl_irq) {
 		err = devm_request_threaded_irq(&pdev->dev, tegra->padctl_irq,
 						NULL, tegra_xusb_padctl_irq,
 						IRQF_ONESHOT, dev_name(&pdev->dev),
 						tegra);
-		if (err < 0) {
-			dev_err(&pdev->dev, "failed to request padctl IRQ: %d\n", err);
+		if (err < 0)
 			goto remove_usb3;
-		}
 	}
 
 	err = tegra_xusb_enable_firmware_messages(tegra);

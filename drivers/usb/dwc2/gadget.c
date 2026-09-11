@@ -5053,10 +5053,8 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg)
 
 	ret = devm_request_irq(hsotg->dev, hsotg->irq, dwc2_hsotg_irq,
 			       IRQF_SHARED, dev_name(hsotg->dev), hsotg);
-	if (ret < 0) {
-		dev_err(dev, "cannot claim IRQ for gadget\n");
+	if (ret < 0)
 		return ret;
-	}
 
 	/* hsotg->num_of_eps holds number of EPs other than ep0 */
 
