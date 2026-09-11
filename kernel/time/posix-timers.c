@@ -1077,13 +1077,9 @@ SYSCALL_DEFINE1(timer_delete, timer_t, timer_id)
 	return 0;
 }
 
-/*
- * Invoked from do_exit() when the last thread of a thread group exits.
- * At that point no other task can access the timers of the dying
- * task anymore.
- */
-void exit_itimers(struct task_struct *tsk)
+static void posixtimer_delete_timers(void)
 {
+	struct task_struct *tsk = current;
 	struct hlist_head timers;
 	struct hlist_node *next;
 	struct k_itimer *timer;
@@ -1120,12 +1116,18 @@ void exit_itimers(struct task_struct *tsk)
 	}
 }
 
+void posixtimer_exit(void)
+{
+	hrtimer_cancel(&current->signal->real_timer);
+	posixtimer_delete_timers();
+}
+
 void posixtimer_exec(void)
 {
 	scoped_guard(spinlock_irq, &current->sighand->siglock)
 		posix_cpu_timers_exit(current);
 
-	exit_itimers(current);
+	posixtimer_delete_timers();
 	flush_itimer_signals();
 }
 
