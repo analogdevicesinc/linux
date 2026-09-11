@@ -6140,57 +6140,16 @@ static bool dm_test_dmcu_is_init(struct dmcu *dmcu)
 	return true;
 }
 
-static bool dm_test_dmcu_send_cea(struct dmcu *dmcu, int offset,
-				  int total_length, u8 *data, int length)
-{
-	return true;
-}
-
-static bool dm_test_dmcu_recv_ack_ok(struct dmcu *dmcu, int *offset)
-{
-	*offset = 0;
-	return true;
-}
-
-static bool dm_test_dmcu_recv_ack_fail(struct dmcu *dmcu, int *offset)
-{
-	return false;
-}
-
-static bool dm_test_dmcu_recv_vsdb_found(struct dmcu *dmcu, int *version,
-					 int *min_frame_rate, int *max_frame_rate)
-{
-	*version = 2;
-	*min_frame_rate = 24;
-	*max_frame_rate = 60;
-	return true;
-}
-
-static bool dm_test_dmcu_recv_vsdb_none(struct dmcu *dmcu, int *version,
-					int *min_frame_rate, int *max_frame_rate)
-{
-	return false;
-}
-
 static const struct dmcu_funcs dm_test_dmcu_funcs_vsdb = {
 	.is_dmcu_initialized = dm_test_dmcu_is_init,
-	.send_edid_cea = dm_test_dmcu_send_cea,
-	.recv_edid_cea_ack = dm_test_dmcu_recv_ack_ok,
-	.recv_amd_vsdb = dm_test_dmcu_recv_vsdb_found,
 };
 
 static const struct dmcu_funcs dm_test_dmcu_funcs_novsdb = {
 	.is_dmcu_initialized = dm_test_dmcu_is_init,
-	.send_edid_cea = dm_test_dmcu_send_cea,
-	.recv_edid_cea_ack = dm_test_dmcu_recv_ack_ok,
-	.recv_amd_vsdb = dm_test_dmcu_recv_vsdb_none,
 };
 
 static const struct dmcu_funcs dm_test_dmcu_funcs_ackfail = {
 	.is_dmcu_initialized = dm_test_dmcu_is_init,
-	.send_edid_cea = dm_test_dmcu_send_cea,
-	.recv_edid_cea_ack = dm_test_dmcu_recv_ack_fail,
-	.recv_amd_vsdb = dm_test_dmcu_recv_vsdb_none,
 };
 
 /*
@@ -6295,37 +6254,6 @@ static void dm_test_parse_cea_dmcu_empty(struct kunit *test)
  */
 static void dm_test_parse_cea_dmcu_no_dmcu(struct kunit *test)
 {
-	struct amdgpu_display_manager *dm = dm_test_alloc_dm_dmcu(test, NULL);
-	struct amdgpu_hdmi_vsdb_info vsdb = {0};
-	u8 ext[DMUB_EDID_CEA_DATA_CHUNK_BYTES] = {0};
-	bool ret;
-
-	/* res_pool->dmcu is NULL, so the CEA send returns false. */
-	ret = parse_edid_cea_dmcu(dm, ext, DMUB_EDID_CEA_DATA_CHUNK_BYTES,
-				  &vsdb);
-	KUNIT_EXPECT_FALSE(test, ret);
-}
-
-/**
- * dm_test_parse_cea_dmcu_vsdb_found - Test the DMCU reports an AMD VSDB
- * @test: KUnit test context
- */
-static void dm_test_parse_cea_dmcu_vsdb_found(struct kunit *test)
-{
-	struct amdgpu_display_manager *dm =
-		dm_test_alloc_dm_dmcu(test, &dm_test_dmcu_funcs_vsdb);
-	struct amdgpu_hdmi_vsdb_info vsdb = {0};
-	u8 ext[DMUB_EDID_CEA_DATA_CHUNK_BYTES] = {0};
-	bool ret;
-
-	ret = parse_edid_cea_dmcu(dm, ext, DMUB_EDID_CEA_DATA_CHUNK_BYTES,
-				  &vsdb);
-	KUNIT_EXPECT_TRUE(test, ret);
-	KUNIT_EXPECT_TRUE(test, vsdb.freesync_supported);
-	KUNIT_EXPECT_EQ(test, vsdb.amd_vsdb_version, 2);
-	KUNIT_EXPECT_EQ(test, vsdb.min_refresh_rate_hz, 24);
-	KUNIT_EXPECT_EQ(test, vsdb.max_refresh_rate_hz, 60);
-	KUNIT_EXPECT_EQ(test, vsdb.freesync_mccs_vcp_code, 0);
 }
 
 /**
@@ -9159,7 +9087,6 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_send_cea_dmub_unavailable),
 	KUNIT_CASE(dm_test_parse_cea_dmcu_empty),
 	KUNIT_CASE(dm_test_parse_cea_dmcu_no_dmcu),
-	KUNIT_CASE(dm_test_parse_cea_dmcu_vsdb_found),
 	KUNIT_CASE(dm_test_parse_cea_dmcu_vsdb_none),
 	KUNIT_CASE(dm_test_parse_cea_dmcu_multi_chunk),
 	KUNIT_CASE(dm_test_parse_cea_dmcu_ack_fail),

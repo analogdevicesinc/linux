@@ -1242,7 +1242,8 @@ bool update_planes_and_stream_adapter(struct dc *dc,
 				      struct dc_stream_state *stream,
 				      struct dc_stream_update *stream_update,
 				      struct dc_surface_update *array_of_surface_update);
-int fill_plane_color_attributes(const struct drm_plane_state *plane_state,
+int fill_plane_color_attributes(const struct drm_atomic_commit *state,
+				const struct drm_plane_state *plane_state,
 				const enum surface_pixel_format format,
 				enum dc_color_space *color_space);
 bool modereset_required(struct drm_crtc_state *crtc_state);

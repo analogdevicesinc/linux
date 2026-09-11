@@ -2941,7 +2941,7 @@ STATIC_IFN_KUNIT bool modereset_required(struct drm_crtc_state *crtc_state)
 EXPORT_IF_KUNIT(modereset_required);
 
 STATIC_IFN_KUNIT int
-fill_plane_color_attributes(struct drm_atomic_commit *state,
+fill_plane_color_attributes(const struct drm_atomic_commit *state,
 			    const struct drm_plane_state *plane_state,
 			    const enum surface_pixel_format format,
 			    enum dc_color_space *color_space)
