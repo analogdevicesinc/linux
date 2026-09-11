@@ -76,10 +76,6 @@ void adi_rcu_msg_clear(struct adi_rcu *rcu, u32 bits);
 /*
  * These are defined for use with SHARC cores not ARM cores
  */
-int adi_rcu_check_coreid_valid(struct adi_rcu *rcu, int coreid);
-int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid);
-int adi_rcu_start_core(struct adi_rcu *rcu, int coreid);
-int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq);
 int adi_rcu_is_core_idle(struct adi_rcu *rcu, int coreid);
 
 void adi_rcu_set_sec(struct adi_rcu *rcu, struct adi_sec *sec);
