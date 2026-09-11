@@ -440,6 +440,12 @@ def check_blank_lines(ctx):
         if lines[i].linetype == LineType.BLANK and \
                 lines[i - 1].linetype == LineType.BLANK:
             yield (lines[i].lineno, 'consecutive blank lines')
+        prev_is_blank = lines[i].linetype == LineType.BLANK
+        for cont in lines[i].continuations:
+            if cont.linetype == LineType.BLANK and prev_is_blank:
+                yield (cont.lineno, 'consecutive blank lines')
+            prev_is_blank = cont.linetype == LineType.BLANK
+
     # Blank right after { or right before }
     for i, dl in enumerate(lines):
         if dl.linetype != LineType.BLANK:
