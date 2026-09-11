@@ -9541,10 +9541,16 @@ F:	drivers/edac/ie31200_edac.c
 
 EDAC-IGEN6
 M:	Tony Luck <tony.luck@intel.com>
-R:	Qiuxu Zhuo <qiuxu.zhuo@intel.com>
+R:	Qiuxu Zhuo <qzhuo@nvidia.com>
 L:	linux-edac@vger.kernel.org
 S:	Maintained
 F:	drivers/edac/igen6_edac.c
+
+EDAC-INTEL-BFF-RESET
+M:	Tony Luck <tony.luck@intel.com>
+L:	linux-edac@vger.kernel.org
+S:	Maintained
+F:	drivers/edac/intel-bff.c
 
 EDAC-MPC85XX
 L:	linux-edac@vger.kernel.org
@@ -9580,7 +9586,7 @@ F:	drivers/edac/qcom_edac.c
 
 EDAC-SBRIDGE
 M:	Tony Luck <tony.luck@intel.com>
-R:	Qiuxu Zhuo <qiuxu.zhuo@intel.com>
+R:	Qiuxu Zhuo <qzhuo@nvidia.com>
 L:	linux-edac@vger.kernel.org
 S:	Maintained
 F:	drivers/edac/sb_edac.c
