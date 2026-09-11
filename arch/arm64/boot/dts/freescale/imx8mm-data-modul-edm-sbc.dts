@@ -30,11 +30,8 @@
 
 	backlight: backlight {
 		compatible = "pwm-backlight";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_panel_backlight>;
 		brightness-levels = <0 1 10 20 30 40 50 60 70 75 80 90 100>;
 		default-brightness-level = <7>;
-		enable-gpios = <&gpio3 0 GPIO_ACTIVE_HIGH>;
 		pwms = <&pwm1 0 5000000 0>;
 		/* Disabled by default, unless display board plugged in. */
 		status = "disabled";
@@ -66,7 +63,6 @@
 		regulator-name = "PANEL_VCC";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio3 6 0>;
 		enable-active-high;
 		/* Disabled by default, unless display board plugged in. */
 		status = "disabled";
@@ -454,7 +450,7 @@
 	};
 };
 
-&i2c3 {	/* Display connector I2C */
+i2c_display: &i2c3 {	/* Display connector I2C */
 	/* IMX8MM ERRATA e7805 -- I2C is limited to 384 kHz due to SoC bug */
 	clock-frequency = <320000>;
 	pinctrl-names = "default", "gpio";
@@ -465,7 +461,7 @@
 	status = "okay";
 };
 
-&i2c4 {	/* Feature connector I2C */
+i2c_feature: &i2c4 {	/* Feature connector I2C */
 	/* IMX8MM ERRATA e7805 -- I2C is limited to 384 kHz due to SoC bug */
 	clock-frequency = <320000>;
 	pinctrl-names = "default", "gpio";
