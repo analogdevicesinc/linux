@@ -30,6 +30,18 @@
 		pinctrl7 = &pinctrl_hsi2;
 	};
 
+	ext_24_5m: clock-1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-output-names = "oscclk";
+	};
+
+	ext_200m: clock-2 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-output-names = "ext-200m";
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -202,6 +214,19 @@
 				min-residency-us = <3500>;
 				arm,psci-suspend-param = <0x0010000>;
 			};
+		};
+	};
+
+	/* ect node is required to be present by bootloader */
+	ect {
+	};
+
+	firmware {
+		acpm_ipc: power-management {
+			compatible = "google,gs101-acpm-ipc";
+			#clock-cells = <1>;
+			mboxes = <&ap2apm_mailbox>;
+			shmem = <&apm_sram>;
 		};
 	};
 
@@ -469,31 +494,6 @@
 			opp-hz = /bits/ 64 <2802000000>;
 			opp-microvolt = <1056250>;
 			clock-latency-ns = <500000>;
-		};
-	};
-
-	/* ect node is required to be present by bootloader */
-	ect {
-	};
-
-	ext_24_5m: clock-1 {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-output-names = "oscclk";
-	};
-
-	ext_200m: clock-2 {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-output-names = "ext-200m";
-	};
-
-	firmware {
-		acpm_ipc: power-management {
-			compatible = "google,gs101-acpm-ipc";
-			#clock-cells = <1>;
-			mboxes = <&ap2apm_mailbox>;
-			shmem = <&apm_sram>;
 		};
 	};
 
@@ -1806,17 +1806,6 @@
 			reg = <0x17460000 0x10000>;
 			google,pmu-intr-gen-syscon = <&pmu_intr_gen>;
 
-			poweroff: syscon-poweroff {
-				compatible = "syscon-poweroff";
-				offset = <0x3e9c>; /* PAD_CTRL_PWR_HOLD */
-				mask = <0x00000100>;
-				value = <0x0>;
-			};
-
-			reboot: syscon-reboot {
-				compatible = "google,gs101-reboot";
-			};
-
 			reboot-mode {
 				compatible = "syscon-reboot-mode";
 				offset = <0x0810>; /* EXYNOS_PMU_SYSIP_DAT0 */
@@ -1829,6 +1818,17 @@
 				mode-rescue = <0xf9>;
 				mode-shutdown-thermal = <0x51>;
 				mode-shutdown-thermal-battery = <0x51>;
+			};
+
+			poweroff: syscon-poweroff {
+				compatible = "syscon-poweroff";
+				offset = <0x3e9c>; /* PAD_CTRL_PWR_HOLD */
+				mask = <0x00000100>;
+				value = <0x0>;
+			};
+
+			reboot: syscon-reboot {
+				compatible = "google,gs101-reboot";
 			};
 		};
 

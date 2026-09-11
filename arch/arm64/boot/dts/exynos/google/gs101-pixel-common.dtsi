@@ -42,6 +42,13 @@
 		pinctrl-0 = <&key_voldown>, <&key_volup>, <&key_power>;
 		pinctrl-names = "default";
 
+		button-power {
+			label = "KEY_POWER";
+			gpios = <&gpa10 1 GPIO_ACTIVE_LOW>;
+			wakeup-source;
+			linux,code = <KEY_POWER>;
+		};
+
 		button-vol-down {
 			label = "KEY_VOLUMEDOWN";
 			gpios = <&gpa7 3 GPIO_ACTIVE_LOW>;
@@ -54,13 +61,6 @@
 			gpios = <&gpa8 1 GPIO_ACTIVE_LOW>;
 			wakeup-source;
 			linux,code = <KEY_VOLUMEUP>;
-		};
-
-		button-power {
-			label = "KEY_POWER";
-			linux,code = <KEY_POWER>;
-			gpios = <&gpa10 1 GPIO_ACTIVE_LOW>;
-			wakeup-source;
 		};
 	};
 
@@ -527,15 +527,6 @@
 				regulator-always-on;
 			};
 
-			buckd {
-				regulator-name = "vcc_ufs";
-				regulator-min-microvolt = <2400000>;
-				regulator-max-microvolt = <3300000>;
-				regulator-ramp-delay = <6250>;
-				regulator-always-on;
-				samsung,ext-control = <S2MPG11_EXTCTRL_UFS_EN>;
-			};
-
 			s2mpg11_bucka: bucka {
 				/* lots, IO */
 				regulator-name = "bucka";
@@ -549,6 +540,15 @@
 				regulator-name = "buckboost";
 				regulator-min-microvolt = <3000000>;
 				regulator-max-microvolt = <3600000>;
+			};
+
+			buckd {
+				regulator-name = "vcc_ufs";
+				regulator-min-microvolt = <2400000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-ramp-delay = <6250>;
+				regulator-always-on;
+				samsung,ext-control = <S2MPG11_EXTCTRL_UFS_EN>;
 			};
 
 			ldo1s {
