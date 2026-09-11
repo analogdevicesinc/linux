@@ -402,7 +402,7 @@ static int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 		if (ret)
 			return ret;
 
-		/* Cache the rate after we've successfully commited it to RPM */
+		/* Cache the rate after we've successfully committed it to RPM */
 		qp->bus_clk_rate[QCOM_SMD_RPM_ACTIVE_STATE] = active_rate;
 	}
 
@@ -412,7 +412,7 @@ static int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
 		if (ret)
 			return ret;
 
-		/* Cache the rate after we've successfully commited it to RPM */
+		/* Cache the rate after we've successfully committed it to RPM */
 		qp->bus_clk_rate[QCOM_SMD_RPM_SLEEP_STATE] = sleep_rate;
 	}
 
