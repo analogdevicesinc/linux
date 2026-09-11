@@ -977,13 +977,13 @@ static inline bool sec_usage_check(struct f2fs_sb_info *sbi, unsigned int secno)
 }
 
 /*
- * It is very important to gather dirty pages and write at once, so that we can
+ * It is very important to gather dirty blocks and write at once, so that we can
  * submit a big bio without interfering other data writes.
- * By default, 512 pages for directory data,
- * 512 pages (2MB) * 8 for nodes, and
- * 256 pages * 8 for meta are set.
+ * By default, 512 blocks for directory data,
+ * 512 blocks (2MB) * 8 for nodes, and
+ * 256 blocks * 8 for meta are set.
  */
-static inline int nr_pages_to_skip(struct f2fs_sb_info *sbi, int type)
+static inline int nr_caches_to_skip(struct f2fs_sb_info *sbi, int type)
 {
 	if (bdi_wb_dirty_exceeded(sbi->sb->s_bdi))
 		return 0;

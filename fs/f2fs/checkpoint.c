@@ -591,7 +591,7 @@ void f2fs_write_meta_caches(struct f2fs_sb_info *sbi)
 
 	/* collect a number of dirty meta caches and write together */
 	if (get_nr_caches(sbi, F2FS_DIRTY_META) <
-			nr_pages_to_skip(sbi, META))
+	    nr_caches_to_skip(sbi, META))
 		return;
 
 	/* if locked failed, cp will flush dirty caches instead */

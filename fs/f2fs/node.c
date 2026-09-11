@@ -2274,7 +2274,7 @@ int f2fs_write_node_caches(struct f2fs_sb_info *sbi)
 
 	/* collect a number of dirty node caches and write together */
 	if (get_nr_caches(sbi, F2FS_DIRTY_NODES) <
-					nr_pages_to_skip(sbi, NODE))
+					nr_caches_to_skip(sbi, NODE))
 		return -EAGAIN;
 
 	if (atomic_read(&sbi->wb_sync_req[NODE])) {
