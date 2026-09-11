@@ -168,7 +168,7 @@ STATIC_IFN_KUNIT ssize_t dm_dp_aux_transfer(struct drm_dp_aux *aux,
 }
 EXPORT_IF_KUNIT(dm_dp_aux_transfer);
 
-static void
+STATIC_IFN_KUNIT void
 dm_dp_mst_connector_destroy(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *aconnector =
@@ -186,8 +186,9 @@ dm_dp_mst_connector_destroy(struct drm_connector *connector)
 	drm_dp_mst_put_port_malloc(aconnector->mst_output_port);
 	kfree(aconnector);
 }
+EXPORT_IF_KUNIT(dm_dp_mst_connector_destroy);
 
-static int
+STATIC_IFN_KUNIT int
 amdgpu_dm_mst_connector_late_register(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *amdgpu_dm_connector =
@@ -205,6 +206,7 @@ amdgpu_dm_mst_connector_late_register(struct drm_connector *connector)
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_mst_connector_late_register);
 
 
 STATIC_IFN_KUNIT void
@@ -218,7 +220,7 @@ amdgpu_dm_mst_reset_mst_connector_setting(struct amdgpu_dm_connector *aconnector
 }
 EXPORT_IF_KUNIT(amdgpu_dm_mst_reset_mst_connector_setting);
 
-static void
+STATIC_IFN_KUNIT void
 amdgpu_dm_mst_connector_early_unregister(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *aconnector =
@@ -251,6 +253,7 @@ amdgpu_dm_mst_connector_early_unregister(struct drm_connector *connector)
 	aconnector->mst_status = MST_STATUS_DEFAULT;
 	drm_modeset_unlock(&root->mst_mgr.base.lock);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_mst_connector_early_unregister);
 
 static const struct drm_connector_funcs dm_dp_mst_connector_funcs = {
 	.fill_modes = drm_helper_probe_single_connector_modes,
@@ -386,7 +389,7 @@ STATIC_IFN_KUNIT bool retrieve_branch_specific_data(struct amdgpu_dm_connector *
 }
 EXPORT_IF_KUNIT(retrieve_branch_specific_data);
 
-static int dm_dp_mst_get_modes(struct drm_connector *connector)
+STATIC_IFN_KUNIT int dm_dp_mst_get_modes(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
 	int ret = 0;
@@ -518,6 +521,7 @@ static int dm_dp_mst_get_modes(struct drm_connector *connector)
 
 	return ret;
 }
+EXPORT_IF_KUNIT(dm_dp_mst_get_modes);
 
 STATIC_IFN_KUNIT struct drm_encoder *
 dm_mst_atomic_best_encoder(struct drm_connector *connector,

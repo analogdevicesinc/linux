@@ -10,11 +10,14 @@
 #include <drm/drm_blend.h>
 #include "link_enc_cfg.h"
 #include "amdgpu_dm_plane.h"
+#include "amdgpu_dm_kunit_test_helpers.h"
 #include "amdgpu_rlc.h"
 #include "gc/gc_11_0_0_offset.h"
 #include "gc/gc_11_0_0_sh_mask.h"
 #include <drm/amdgpu_drm.h>
+#include <drm/drm_mode_config.h>
 #include <drm/drm_plane.h>
+#include <drm/drm_property.h>
 
 struct dm_test_dcc_cap_ctx {
 	bool callback_ret;
@@ -1188,29 +1191,39 @@ static void dm_test_fill_blending_global_alpha_dcn42(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, global_alpha_value, 0x800);
 }
 
+/* Modifier lists are terminated by DRM_FORMAT_MOD_INVALID, which is not counted. */
+static int dm_test_mods_count(const u64 *mods)
+{
+	int i = 0;
+
+	while (mods[i] != DRM_FORMAT_MOD_INVALID)
+		i++;
+
+	return i;
+}
+
 static void dm_test_expect_mods_terminated(struct kunit *test, struct amdgpu_device *adev)
 {
 	u64 *mods = NULL;
 	int ret;
-	int i;
+	int count;
 
 	ret = amdgpu_dm_plane_get_plane_modifiers(adev, DRM_PLANE_TYPE_PRIMARY, &mods);
 	KUNIT_ASSERT_EQ(test, ret, 0);
 	KUNIT_ASSERT_NOT_NULL(test, mods);
 
-	for (i = 0; mods[i] != DRM_FORMAT_MOD_INVALID; i++)
-		;
-
-	KUNIT_EXPECT_GT(test, i, 0);
-	KUNIT_EXPECT_EQ(test, mods[i - 1], DRM_FORMAT_MOD_LINEAR);
+	count = dm_test_mods_count(mods);
+	KUNIT_EXPECT_GT(test, count, 0);
+	KUNIT_EXPECT_EQ(test, mods[count - 1], DRM_FORMAT_MOD_LINEAR);
 	kfree(mods);
 }
 
 static bool dm_test_mods_contain(const u64 *mods, u64 expected)
 {
+	int count = dm_test_mods_count(mods);
 	int i;
 
-	for (i = 0; mods[i] != DRM_FORMAT_MOD_INVALID; i++) {
+	for (i = 0; i < count; i++) {
 		if (mods[i] == expected)
 			return true;
 	}
@@ -3001,6 +3014,78 @@ static void dm_test_plane_duplicate_state_copies_fields(struct kunit *test)
 	kfree(dup_state);
 }
 
+/*
+ * Attach a blob to every color property of @state. Each blob starts with a
+ * single reference that the tested function is expected to drop or share.
+ */
+static void dm_test_attach_color_blobs(struct kunit *test, struct drm_device *dev,
+				       struct dm_plane_state *state)
+{
+	struct drm_property_blob **blobs[] = {
+		&state->degamma_lut, &state->ctm, &state->lut3d,
+		&state->shaper_lut, &state->blend_lut,
+	};
+	u32 blob_data = 0;
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(blobs); i++) {
+		*blobs[i] = drm_property_create_blob(dev, sizeof(blob_data), &blob_data);
+		KUNIT_ASSERT_NOT_ERR_OR_NULL(test, *blobs[i]);
+	}
+}
+
+/**
+ * dm_test_plane_duplicate_state_copies_resources() - Verify blob and DC state sharing.
+ * @test: KUnit test context.
+ *
+ * Verify amdgpu_dm_plane_drm_plane_duplicate_state() shares the DC plane state
+ * and every color blob with the duplicate, taking an extra reference on each.
+ */
+static void dm_test_plane_duplicate_state_copies_resources(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dm_plane_state *old_state;
+	struct drm_plane_state *dup_base;
+	struct dm_plane_state *dup_state;
+	struct dc_plane_state *dc_plane_state;
+	struct drm_plane *plane;
+
+	KUNIT_ASSERT_EQ(test, drmm_mode_config_init(&adev->ddev), 0);
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	old_state = kunit_kzalloc(test, sizeof(*old_state), GFP_KERNEL);
+	dc_plane_state = kunit_kzalloc(test, sizeof(*dc_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	KUNIT_ASSERT_NOT_NULL(test, old_state);
+	KUNIT_ASSERT_NOT_NULL(test, dc_plane_state);
+
+	kref_init(&dc_plane_state->refcount);
+	old_state->dc_state = dc_plane_state;
+	dm_test_attach_color_blobs(test, &adev->ddev, old_state);
+	plane->state = &old_state->base;
+
+	dup_base = amdgpu_dm_plane_drm_plane_duplicate_state(plane);
+	KUNIT_ASSERT_NOT_NULL(test, dup_base);
+
+	dup_state = to_dm_plane_state(dup_base);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->dc_state, dc_plane_state);
+	KUNIT_EXPECT_EQ(test, kref_read(&dc_plane_state->refcount), 2U);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->degamma_lut, old_state->degamma_lut);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->ctm, old_state->ctm);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->shaper_lut, old_state->shaper_lut);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->lut3d, old_state->lut3d);
+	KUNIT_EXPECT_PTR_EQ(test, dup_state->blend_lut, old_state->blend_lut);
+
+	/* Drops the duplicate's references; the originals are released below. */
+	amdgpu_dm_plane_drm_plane_destroy_state(plane, dup_base);
+
+	drm_property_blob_put(old_state->degamma_lut);
+	drm_property_blob_put(old_state->ctm);
+	drm_property_blob_put(old_state->lut3d);
+	drm_property_blob_put(old_state->shaper_lut);
+	drm_property_blob_put(old_state->blend_lut);
+}
+
 /**
  * dm_test_plane_destroy_state_minimal() - Verify destroy of a minimal state.
  * @test: KUnit test context.
@@ -3024,6 +3109,578 @@ static void dm_test_plane_destroy_state_minimal(struct kunit *test)
 	amdgpu_dm_plane_drm_plane_destroy_state(plane, &dm_plane_state->base);
 }
 
+/**
+ * dm_test_plane_destroy_state_releases_resources() - Verify blob and DC state release.
+ * @test: KUnit test context.
+ *
+ * Verify amdgpu_dm_plane_drm_plane_destroy_state() drops a reference on every
+ * attached color blob and on the DC plane state.
+ */
+static void dm_test_plane_destroy_state_releases_resources(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dm_plane_state *dm_plane_state;
+	struct dc_plane_state *dc_plane_state;
+	struct drm_plane *plane;
+
+	KUNIT_ASSERT_EQ(test, drmm_mode_config_init(&adev->ddev), 0);
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	dc_plane_state = kunit_kzalloc(test, sizeof(*dc_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	KUNIT_ASSERT_NOT_NULL(test, dc_plane_state);
+
+	/* destroy_state frees the state itself, so use a plain allocation. */
+	dm_plane_state = kzalloc(sizeof(*dm_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dm_plane_state);
+
+	/* Hold an extra reference so the release does not free KUnit memory. */
+	kref_init(&dc_plane_state->refcount);
+	kref_get(&dc_plane_state->refcount);
+	dm_plane_state->dc_state = dc_plane_state;
+	dm_test_attach_color_blobs(test, &adev->ddev, dm_plane_state);
+
+	amdgpu_dm_plane_drm_plane_destroy_state(plane, &dm_plane_state->base);
+
+	KUNIT_EXPECT_EQ(test, kref_read(&dc_plane_state->refcount), 1U);
+}
+
+/**
+ * dm_test_add_modifier_dedup_skips_duplicate() - Verify duplicates are not appended.
+ * @test: KUnit test context.
+ *
+ * Verify if a modifier already present in the list is not appended a second
+ * time.
+ */
+static void dm_test_add_modifier_dedup_skips_duplicate(struct kunit *test)
+{
+	u64 size = 2;
+	u64 cap = 4;
+	u64 *mods = kmalloc_array(cap, sizeof(*mods), GFP_KERNEL);
+
+	KUNIT_ASSERT_NOT_NULL(test, mods);
+	mods[0] = 0xAAULL;
+	mods[1] = 0xBBULL;
+
+	amdgpu_dm_plane_add_modifier_dedup(&mods, &size, &cap, 0xAAULL);
+	KUNIT_EXPECT_EQ(test, size, 2ULL);
+
+	amdgpu_dm_plane_add_modifier_dedup(&mods, &size, &cap, 0xBBULL);
+	KUNIT_EXPECT_EQ(test, size, 2ULL);
+
+	amdgpu_dm_plane_add_modifier_dedup(&mods, &size, &cap, 0xCCULL);
+	KUNIT_ASSERT_EQ(test, size, 3ULL);
+	KUNIT_EXPECT_EQ(test, mods[2], 0xCCULL);
+
+	kfree(mods);
+}
+
+/**
+ * dm_test_add_modifier_dedup_noop_when_mods_null() - Verify NULL list is a no-op.
+ * @test: KUnit test context.
+ *
+ * Verify if the de-duplicating append does nothing when the modifier list is
+ * NULL after an earlier allocation failure.
+ */
+static void dm_test_add_modifier_dedup_noop_when_mods_null(struct kunit *test)
+{
+	u64 size = 3;
+	u64 cap = 7;
+	u64 *mods = NULL;
+
+	amdgpu_dm_plane_add_modifier_dedup(&mods, &size, &cap, 0x55ULL);
+
+	KUNIT_EXPECT_PTR_EQ(test, mods, NULL);
+	KUNIT_EXPECT_EQ(test, size, 3ULL);
+	KUNIT_EXPECT_EQ(test, cap, 7ULL);
+}
+
+static int dm_test_gfx6_tiling(struct dc_tiling_info *tiling_info, u64 modifier)
+{
+	return amdgpu_dm_plane_fill_gfx6_tiling_info_from_modifier(tiling_info, modifier);
+}
+
+/**
+ * dm_test_fill_gfx6_tiling_info_linear() - Verify linear modifier decoding.
+ * @test: KUnit test context.
+ *
+ * Verify if a linear modifier maps to the generic linear array mode.
+ */
+static void dm_test_fill_gfx6_tiling_info_linear(struct kunit *test)
+{
+	struct dc_tiling_info tiling_info = {0};
+
+	KUNIT_EXPECT_EQ(test, dm_test_gfx6_tiling(&tiling_info, DRM_FORMAT_MOD_LINEAR), 0);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfx8.array_mode, (int)DC_ARRAY_LINEAR_GENERAL);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfxversion, (int)DcGfxVersion8);
+}
+
+/**
+ * dm_test_fill_gfx6_tiling_info_rejects() - Verify unsupported modifiers fail.
+ * @test: KUnit test context.
+ *
+ * Verify if non-AMD modifiers and AMD modifiers from a newer tile version are
+ * rejected.
+ */
+static void dm_test_fill_gfx6_tiling_info_rejects(struct kunit *test)
+{
+	struct dc_tiling_info tiling_info = {0};
+	u64 not_amd_mod = DRM_FORMAT_MOD_VENDOR_AMD;
+	u64 gfx9_mod = AMD_FMT_MOD | AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX9);
+
+	KUNIT_EXPECT_EQ(test, dm_test_gfx6_tiling(&tiling_info, not_amd_mod), -EINVAL);
+	KUNIT_EXPECT_EQ(test, dm_test_gfx6_tiling(&tiling_info, gfx9_mod), -EINVAL);
+}
+
+/**
+ * dm_test_fill_gfx6_tiling_info_1d() - Verify micro tiled modifier decoding.
+ * @test: KUnit test context.
+ *
+ * Verify if a 1D tiled modifier stops before decoding the macro tiling fields.
+ */
+static void dm_test_fill_gfx6_tiling_info_1d(struct kunit *test)
+{
+	struct dc_tiling_info tiling_info = {0};
+	u64 modifier = AMD_FMT_MOD |
+		       AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX6) |
+		       AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX6_1D_TILED_THIN1) |
+		       AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_DISPLAY) |
+		       AMD_FMT_MOD_SET(NUM_BANKS, 3);
+
+	KUNIT_EXPECT_EQ(test, dm_test_gfx6_tiling(&tiling_info, modifier), 0);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfx8.array_mode,
+			(int)AMD_FMT_MOD_TILE_GFX6_1D_TILED_THIN1);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfxversion, (int)DcGfxVersion8);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.num_banks, 0U);
+}
+
+/**
+ * dm_test_fill_gfx6_tiling_info_2d() - Verify macro tiled modifier decoding.
+ * @test: KUnit test context.
+ *
+ * Verify if a 2D tiled modifier decodes the full set of macro tiling fields.
+ */
+static void dm_test_fill_gfx6_tiling_info_2d(struct kunit *test)
+{
+	struct dc_tiling_info tiling_info = {0};
+	u64 modifier = AMD_FMT_MOD |
+		       AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX6) |
+		       AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1) |
+		       AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_DISPLAY) |
+		       AMD_FMT_MOD_SET(PIPE_CONFIG, 5) |
+		       AMD_FMT_MOD_SET(TILE_SPLIT, 4) |
+		       AMD_FMT_MOD_SET(BANK_WIDTH, 1) |
+		       AMD_FMT_MOD_SET(BANK_HEIGHT, 2) |
+		       AMD_FMT_MOD_SET(MACRO_TILE_ASPECT, 3) |
+		       AMD_FMT_MOD_SET(NUM_BANKS, 2);
+
+	KUNIT_EXPECT_EQ(test, dm_test_gfx6_tiling(&tiling_info, modifier), 0);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfx8.array_mode,
+			(int)AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfx8.tile_mode,
+			(int)AMD_FMT_MOD_MICROTILE_DISPLAY);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.pipe_config, 5U);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.tile_split, 4U);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.bank_width, 1U);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.bank_height, 2U);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.tile_aspect, 3U);
+	KUNIT_EXPECT_EQ(test, tiling_info.gfx8.num_banks, 2U);
+}
+
+static u64 dm_test_gfx6_mod(u32 tile, u32 pipe_config, u32 tile_split, u32 bank_width,
+			    u32 bank_height, u32 aspect, u32 num_banks)
+{
+	return AMD_FMT_MOD |
+	       AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX6) |
+	       AMD_FMT_MOD_SET(TILE, tile) |
+	       AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_DISPLAY) |
+	       AMD_FMT_MOD_SET(PIPE_CONFIG, pipe_config) |
+	       AMD_FMT_MOD_SET(TILE_SPLIT, tile_split) |
+	       AMD_FMT_MOD_SET(BANK_WIDTH, bank_width) |
+	       AMD_FMT_MOD_SET(BANK_HEIGHT, bank_height) |
+	       AMD_FMT_MOD_SET(MACRO_TILE_ASPECT, aspect) |
+	       AMD_FMT_MOD_SET(NUM_BANKS, num_banks);
+}
+
+static struct amdgpu_device *dm_test_alloc_gfx7_device(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+
+	adev->family = AMDGPU_FAMILY_VI;
+	adev->gfx.config.mem_row_size_in_kb = 4;
+	/* 2D_TILED_THIN1 array mode (bits 5:2) and pipe config 2 (bits 10:6). */
+	adev->gfx.config.tile_mode_array[10] = (4u << 2) | (2u << 6);
+	/*
+	 * Bank width (bits 1:0), bank height (bits 3:2), macro tile aspect
+	 * (bits 5:4) and num banks (bits 7:6). Entries 1 and 2 are identical so
+	 * the 16 and 32 bpp modifiers collide and the dedup path is taken.
+	 */
+	adev->gfx.config.macrotile_mode_array[1] = 0xb9u;
+	adev->gfx.config.macrotile_mode_array[2] = 0xb9u;
+	adev->gfx.config.macrotile_mode_array[3] = 0x2au;
+
+	return adev;
+}
+
+/**
+ * dm_test_get_gfx6_tile_idx() - Verify GFX6-8 tile mode index selection.
+ * @test: KUnit test context.
+ *
+ * Verify if the micro tiled mode maps to a fixed index, GFX7+ uses a single
+ * macro tiled index, and GFX6 selects the index from the bits per pixel.
+ */
+static void dm_test_get_gfx6_tile_idx(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+
+	adev->family = AMDGPU_FAMILY_VI;
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_gfx6_tile_idx(adev, 32, DC_ARRAY_1D_TILED_THIN1),
+			9U);
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_gfx6_tile_idx(adev, 32, DC_ARRAY_2D_TILED_THIN1),
+			10U);
+
+	adev->family = AMDGPU_FAMILY_SI;
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_gfx6_tile_idx(adev, 8, DC_ARRAY_2D_TILED_THIN1),
+			10U);
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_gfx6_tile_idx(adev, 16, DC_ARRAY_2D_TILED_THIN1),
+			11U);
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_get_gfx6_tile_idx(adev, 32, DC_ARRAY_2D_TILED_THIN1),
+			12U);
+}
+
+/**
+ * dm_test_calc_gfx7_tile_split() - Verify GFX7-8 tile split calculation.
+ * @test: KUnit test context.
+ *
+ * Verify if the tile split is derived from the sample split factor and clamped
+ * to the 256 byte minimum and the memory row size maximum.
+ */
+static void dm_test_calc_gfx7_tile_split(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+
+	adev->gfx.config.mem_row_size_in_kb = 4;
+
+	/* 8 bpp gives 64 bytes, clamped up to the 256 byte minimum. */
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_calc_gfx7_tile_split(adev, 8, 0u << 25), 256U);
+	/* 32 bpp with a sample split factor of 2. */
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_calc_gfx7_tile_split(adev, 32, 1u << 25), 512U);
+
+	/* 64 bpp with a sample split factor of 8, clamped to the memory row size. */
+	adev->gfx.config.mem_row_size_in_kb = 1;
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_calc_gfx7_tile_split(adev, 64, 3u << 25), 1024U);
+}
+
+/**
+ * dm_test_get_gfx7_macro_tile_idx() - Verify GFX7-8 macro tile index selection.
+ * @test: KUnit test context.
+ *
+ * Verify if the macro tile index is the log2 of the tile size in 64 byte units,
+ * clamped to the tile split.
+ */
+static void dm_test_get_gfx7_macro_tile_idx(struct kunit *test)
+{
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_get_gfx7_macro_tile_idx(8, 1024), 0U);
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_get_gfx7_macro_tile_idx(32, 1024), 2U);
+	/* 64 bpp needs 512 bytes but the tile split caps it at 256. */
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_get_gfx7_macro_tile_idx(64, 256), 2U);
+}
+
+/**
+ * dm_test_calc_gfx6_mod_1d() - Verify the micro tiled GFX6-8 modifier.
+ * @test: KUnit test context.
+ *
+ * Verify if a micro tiled array mode returns early with only the base modifier
+ * fields set.
+ */
+static void dm_test_calc_gfx6_mod_1d(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_gfx7_device(test);
+	u64 expected = AMD_FMT_MOD |
+		       AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX6) |
+		       AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX6_1D_TILED_THIN1) |
+		       AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_DISPLAY);
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_calc_gfx6_mod(adev, 0, DC_ARRAY_1D_TILED_THIN1),
+			expected);
+}
+
+/**
+ * dm_test_calc_gfx6_mod_gfx7() - Verify the macro tiled GFX7-8 modifier.
+ * @test: KUnit test context.
+ *
+ * Verify if the modifier combines the tile mode pipe config and computed tile
+ * split with the bank fields taken from the macro tile mode table.
+ */
+static void dm_test_calc_gfx6_mod_gfx7(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_gfx7_device(test);
+
+	/* 32 bpp: 256 byte tile split (log2 of 4 units), macro tile mode 2. */
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_calc_gfx6_mod(adev, 32, DC_ARRAY_2D_TILED_THIN1),
+			dm_test_gfx6_mod(AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1, 2, 2, 1, 2, 3, 2));
+
+	/* 64 bpp: 512 byte tile split (log2 of 8 units), macro tile mode 3. */
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_calc_gfx6_mod(adev, 64, DC_ARRAY_2D_TILED_THIN1),
+			dm_test_gfx6_mod(AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1, 2, 3, 2, 2, 2, 0));
+}
+
+/**
+ * dm_test_calc_gfx6_mod_si() - Verify the macro tiled GFX6 modifier.
+ * @test: KUnit test context.
+ *
+ * Verify if GFX6 takes the tile split and bank fields directly from the tile
+ * mode register instead of the macro tile mode table.
+ */
+static void dm_test_calc_gfx6_mod_si(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+
+	adev->family = AMDGPU_FAMILY_SI;
+	/* 2D_TILED_THIN1, pipe config 3, 256 byte tile split, banks 1/2/3/1. */
+	adev->gfx.config.tile_mode_array[12] = (4u << 2) | (3u << 6) | (2u << 11) |
+					       (1u << 14) | (2u << 16) | (3u << 18) |
+					       (1u << 20);
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_plane_calc_gfx6_mod(adev, 32, DC_ARRAY_2D_TILED_THIN1),
+			dm_test_gfx6_mod(AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1, 3, 2, 1, 2, 3, 1));
+}
+
+/**
+ * dm_test_gfx6_format_mod_supported() - Verify GFX6-8 modifier support checks.
+ * @test: KUnit test context.
+ *
+ * Verify if only the canonical modifier for a given bits per pixel is accepted,
+ * and that non-AMD modifiers, newer tile versions, GFX9+ devices, DCC, and
+ * non-displayable tile modes are rejected.
+ */
+static void dm_test_gfx6_format_mod_supported(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_gfx7_device(test);
+	u64 modifier = amdgpu_dm_plane_calc_gfx6_mod(adev, 32, DC_ARRAY_2D_TILED_THIN1);
+	u64 gfx9_mod = AMD_FMT_MOD | AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX9);
+	/* Neither 1D nor 2D THIN array mode. */
+	u64 bad_tile_mod = AMD_FMT_MOD | AMD_FMT_MOD_SET(TILE, 3);
+	/* Non-displayable micro tile mode. */
+	u64 bad_micro_mod = AMD_FMT_MOD |
+			    AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1) |
+			    AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_THIN);
+	u64 not_amd_mod = DRM_FORMAT_MOD_VENDOR_AMD;
+	u64 dcc_mod = modifier | AMD_FMT_MOD_SET(DCC, 1);
+
+	KUNIT_EXPECT_TRUE(test, amdgpu_dm_plane_gfx6_format_mod_supported(adev, 32, modifier));
+
+	KUNIT_EXPECT_FALSE(test, amdgpu_dm_plane_gfx6_format_mod_supported(adev, 64, modifier));
+	KUNIT_EXPECT_FALSE(test, amdgpu_dm_plane_gfx6_format_mod_supported(adev, 32, not_amd_mod));
+	KUNIT_EXPECT_FALSE(test, amdgpu_dm_plane_gfx6_format_mod_supported(adev, 32, gfx9_mod));
+	KUNIT_EXPECT_FALSE(test, amdgpu_dm_plane_gfx6_format_mod_supported(adev, 32, dcc_mod));
+	KUNIT_EXPECT_FALSE(test, amdgpu_dm_plane_gfx6_format_mod_supported(adev, 32, bad_tile_mod));
+	KUNIT_EXPECT_FALSE(test, amdgpu_dm_plane_gfx6_format_mod_supported(adev, 32, bad_micro_mod));
+
+	adev->family = AMDGPU_FAMILY_AI;
+	KUNIT_EXPECT_FALSE(test, amdgpu_dm_plane_gfx6_format_mod_supported(adev, 32, modifier));
+}
+
+/**
+ * dm_test_get_plane_modifiers_gfx6() - Verify GFX6-8 modifier list generation.
+ * @test: KUnit test context.
+ *
+ * Verify if a GFX6-8 family device exposes one macro tiled modifier per
+ * distinct bits per pixel plus a micro tiled one, and that the duplicate 32 bpp
+ * modifier is de-duplicated.
+ */
+static void dm_test_get_plane_modifiers_gfx6(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_gfx7_device(test);
+	u64 *mods = dm_test_get_primary_mods(test, adev);
+	u64 mod_1d = AMD_FMT_MOD |
+		     AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX6) |
+		     AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX6_1D_TILED_THIN1) |
+		     AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_DISPLAY);
+
+	/* 16 bpp, 64 bpp, micro tiled and linear; the 32 bpp duplicate is dropped. */
+	KUNIT_EXPECT_EQ(test, dm_test_mods_count(mods), 4);
+	KUNIT_EXPECT_EQ(test, mods[0],
+			dm_test_gfx6_mod(AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1, 2, 2, 1, 2, 3, 2));
+	KUNIT_EXPECT_EQ(test, mods[1],
+			dm_test_gfx6_mod(AMD_FMT_MOD_TILE_GFX6_2D_TILED_THIN1, 2, 3, 2, 2, 2, 0));
+	KUNIT_EXPECT_EQ(test, mods[2], mod_1d);
+	KUNIT_EXPECT_EQ(test, mods[3], DRM_FORMAT_MOD_LINEAR);
+
+	kfree(mods);
+}
+
+/**
+ * dm_test_format_mod_supported_gfx6() - Verify dispatch to the GFX6-8 check.
+ * @test: KUnit test context.
+ *
+ * Verify if a listed GFX6 tile version modifier is validated through the
+ * GFX6-8 specific helper.
+ */
+static void dm_test_format_mod_supported_gfx6(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_test_alloc_gfx7_device(test);
+	struct drm_plane *plane;
+	u64 listed_mod = amdgpu_dm_plane_calc_gfx6_mod(adev, 32, DC_ARRAY_2D_TILED_THIN1);
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+
+	plane->dev = &adev->ddev;
+	plane->modifiers = &listed_mod;
+	plane->modifier_count = 1;
+
+	KUNIT_EXPECT_TRUE(test,
+			  amdgpu_dm_plane_format_mod_supported(plane, DRM_FORMAT_XRGB8888,
+							       listed_mod));
+	KUNIT_EXPECT_FALSE(test,
+			   amdgpu_dm_plane_format_mod_supported(plane, DRM_FORMAT_XRGB16161616,
+								listed_mod));
+}
+
+/**
+ * dm_test_helper_prepare_fb_no_fb() - Verify prepare_fb without a framebuffer.
+ * @test: KUnit test context.
+ *
+ * Verify if prepare_fb succeeds without touching any buffer object when the new
+ * plane state has no framebuffer bound.
+ */
+static void dm_test_helper_prepare_fb_no_fb(struct kunit *test)
+{
+	struct drm_plane_state state = {0};
+	struct drm_plane *plane;
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_helper_prepare_fb(plane, &state), 0);
+}
+
+/**
+ * dm_test_helper_cleanup_fb_no_fb() - Verify cleanup_fb without a framebuffer.
+ * @test: KUnit test context.
+ *
+ * Verify if cleanup_fb returns without unpinning anything when the old plane
+ * state has no framebuffer bound.
+ */
+static void dm_test_helper_cleanup_fb_no_fb(struct kunit *test)
+{
+	struct drm_plane_state state = {0};
+	struct drm_plane *plane;
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+
+	amdgpu_dm_plane_helper_cleanup_fb(plane, &state);
+}
+
+/**
+ * dm_test_handle_cursor_update_no_fb() - Verify cursor update without framebuffers.
+ * @test: KUnit test context.
+ *
+ * Verify if the cursor update returns early, without touching the CRTC, when
+ * neither the new nor the old plane state has a framebuffer bound.
+ */
+static void dm_test_handle_cursor_update_no_fb(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_plane_state old_state = {0};
+	struct drm_plane_state state = {0};
+	struct drm_plane *plane;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+
+	plane->dev = &adev->ddev;
+	plane->state = &state;
+
+	amdgpu_dm_plane_handle_cursor_update(plane, &old_state);
+}
+
+/**
+ * dm_test_atomic_async_update_copies_state() - Verify async cursor state copy.
+ * @test: KUnit test context.
+ *
+ * Verify if the async update swaps the framebuffer and copies the source and
+ * CRTC rectangles from the new state into the current plane state.
+ */
+static void dm_test_atomic_async_update_copies_state(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_atomic_commit *state;
+	struct __drm_planes_state *planes;
+	struct drm_plane_state *cur_state;
+	struct drm_plane_state *new_state;
+	struct drm_plane_state *old_state;
+	struct amdgpu_framebuffer *afb;
+	struct drm_plane *plane;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+	planes = kunit_kzalloc(test, sizeof(*planes), GFP_KERNEL);
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	cur_state = kunit_kzalloc(test, sizeof(*cur_state), GFP_KERNEL);
+	new_state = kunit_kzalloc(test, sizeof(*new_state), GFP_KERNEL);
+	old_state = kunit_kzalloc(test, sizeof(*old_state), GFP_KERNEL);
+	afb = kunit_kzalloc(test, sizeof(*afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, planes);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	KUNIT_ASSERT_NOT_NULL(test, cur_state);
+	KUNIT_ASSERT_NOT_NULL(test, new_state);
+	KUNIT_ASSERT_NOT_NULL(test, old_state);
+	KUNIT_ASSERT_NOT_NULL(test, afb);
+
+	plane->dev = &adev->ddev;
+	plane->index = 0;
+	plane->state = cur_state;
+	cur_state->fb = &afb->base;
+	new_state->src_x = 1 << 16;
+	new_state->src_y = 2 << 16;
+	new_state->src_w = 64 << 16;
+	new_state->src_h = 64 << 16;
+	new_state->crtc_x = 10;
+	new_state->crtc_y = 20;
+	new_state->crtc_w = 64;
+	new_state->crtc_h = 64;
+	state->planes = planes;
+	state->planes[0].new_state = new_state;
+	state->planes[0].old_state = old_state;
+
+	amdgpu_dm_plane_atomic_async_update(plane, state);
+
+	KUNIT_EXPECT_PTR_EQ(test, cur_state->fb, NULL);
+	KUNIT_EXPECT_PTR_EQ(test, new_state->fb, &afb->base);
+	KUNIT_EXPECT_EQ(test, cur_state->src_x, 1U << 16);
+	KUNIT_EXPECT_EQ(test, cur_state->src_h, 64U << 16);
+	KUNIT_EXPECT_EQ(test, cur_state->crtc_x, 10);
+	KUNIT_EXPECT_EQ(test, cur_state->crtc_h, 64U);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3043,6 +3700,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_get_plane_formats_overlay_universal_cap),
 	/* amdgpu_dm_plane_get_plane_modifiers() */
 	KUNIT_CASE(dm_test_get_plane_modifiers),
+	KUNIT_CASE(dm_test_get_plane_modifiers_gfx6),
 	KUNIT_CASE(dm_test_get_plane_modifiers_gfx9),
 	KUNIT_CASE(dm_test_get_plane_modifiers_rv),
 	KUNIT_CASE(dm_test_get_plane_modifiers_rv_constant_encode),
@@ -3067,6 +3725,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_format_mod_supported() */
 	KUNIT_CASE(dm_test_format_mod_supported),
 	KUNIT_CASE(dm_test_format_mod_supported_d_swizzle_reject),
+	KUNIT_CASE(dm_test_format_mod_supported_gfx6),
 	/* amdgpu_dm_plane_fill_gfx12_attrs_from_modifiers() */
 	KUNIT_CASE(dm_test_fill_gfx12_plane_attributes_from_modifiers),
 	KUNIT_CASE(dm_test_fill_gfx12_plane_attributes_block0),
@@ -3087,6 +3746,14 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_helper_check_state_small_viewport_height),
 	KUNIT_CASE(dm_test_helper_check_state_bottom_clipped_height),
 	KUNIT_CASE(dm_test_helper_check_state_scaling_caps),
+	/* amdgpu_dm_plane_helper_prepare_fb() */
+	KUNIT_CASE(dm_test_helper_prepare_fb_no_fb),
+	/* amdgpu_dm_plane_helper_cleanup_fb() */
+	KUNIT_CASE(dm_test_helper_cleanup_fb_no_fb),
+	/* amdgpu_dm_plane_handle_cursor_update() */
+	KUNIT_CASE(dm_test_handle_cursor_update_no_fb),
+	/* amdgpu_dm_plane_atomic_async_update() */
+	KUNIT_CASE(dm_test_atomic_async_update_copies_state),
 	/* amdgpu_dm_plane_atomic_async_check() */
 	KUNIT_CASE(dm_test_atomic_async_check_rejects),
 	KUNIT_CASE(dm_test_atomic_async_check_overlay_cursor),
@@ -3102,12 +3769,34 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_plane_reset_initializes_state),
 	/* amdgpu_dm_plane_drm_plane_duplicate_state() */
 	KUNIT_CASE(dm_test_plane_duplicate_state_copies_fields),
+	KUNIT_CASE(dm_test_plane_duplicate_state_copies_resources),
 	/* amdgpu_dm_plane_drm_plane_destroy_state() */
 	KUNIT_CASE(dm_test_plane_destroy_state_minimal),
+	KUNIT_CASE(dm_test_plane_destroy_state_releases_resources),
 	/* amdgpu_dm_plane_add_modifier() */
 	KUNIT_CASE(dm_test_add_modifier_appends_value),
 	KUNIT_CASE(dm_test_add_modifier_grows_capacity),
 	KUNIT_CASE(dm_test_add_modifier_noop_when_mods_null),
+	/* amdgpu_dm_plane_add_modifier_dedup() */
+	KUNIT_CASE(dm_test_add_modifier_dedup_skips_duplicate),
+	KUNIT_CASE(dm_test_add_modifier_dedup_noop_when_mods_null),
+	/* amdgpu_dm_plane_fill_gfx6_tiling_info_from_modifier() */
+	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_linear),
+	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_rejects),
+	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_1d),
+	KUNIT_CASE(dm_test_fill_gfx6_tiling_info_2d),
+	/* amdgpu_dm_plane_get_gfx6_tile_idx() */
+	KUNIT_CASE(dm_test_get_gfx6_tile_idx),
+	/* amdgpu_dm_plane_calc_gfx7_tile_split() */
+	KUNIT_CASE(dm_test_calc_gfx7_tile_split),
+	/* amdgpu_dm_plane_get_gfx7_macro_tile_idx() */
+	KUNIT_CASE(dm_test_get_gfx7_macro_tile_idx),
+	/* amdgpu_dm_plane_calc_gfx6_mod() */
+	KUNIT_CASE(dm_test_calc_gfx6_mod_1d),
+	KUNIT_CASE(dm_test_calc_gfx6_mod_gfx7),
+	KUNIT_CASE(dm_test_calc_gfx6_mod_si),
+	/* amdgpu_dm_plane_gfx6_format_mod_supported() */
+	KUNIT_CASE(dm_test_gfx6_format_mod_supported),
 	/* amdgpu_dm_plane_fill_gfx9_tiling_info_from_device() */
 	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device_pre_10_3),
 	KUNIT_CASE(dm_test_fill_gfx9_tiling_info_from_device_10_3_plus),

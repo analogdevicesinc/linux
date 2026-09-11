@@ -56,6 +56,7 @@
 #include "amdgpu_amdkfd.h"
 #include "amdgpu_sdma.h"
 #include "amdgpu_ras.h"
+#include "amdgpu_ras_mgr.h"
 #include "amdgpu_hmm.h"
 #include "amdgpu_atomfirmware.h"
 #include "amdgpu_res_cursor.h"
@@ -128,6 +129,7 @@ static void amdgpu_evict_flags(struct ttm_buffer_object *bo,
 	case AMDGPU_PL_OA:
 	case AMDGPU_PL_DOORBELL:
 	case AMDGPU_PL_MMIO_REMAP:
+	case AMDGPU_PL_NPA:
 		placement->num_placement = 0;
 		return;
 
@@ -191,6 +193,8 @@ amdgpu_ttm_job_submit(struct amdgpu_device *adev, struct amdgpu_ttm_buffer_entit
  * @tmz: if we should setup a TMZ enabled mapping
  * @size: in number of bytes to map, out number of bytes mapped
  * @addr: resulting address inside the MC address space
+ * @vm_needs_flush: out, set true if a GART window was programmed (VMID 0 flush
+ *		    needed) or false for a direct address
  *
  * Setup one of the GART windows to access a specific piece of memory or return
  * the physical address for local memory.
@@ -200,7 +204,9 @@ static int amdgpu_ttm_map_buffer(struct amdgpu_ttm_buffer_entity *entity,
 				 struct ttm_resource *mem,
 				 struct amdgpu_res_cursor *mm_cur,
 				 unsigned int window,
-				 bool tmz, uint64_t *size, uint64_t *addr)
+				 bool tmz, uint64_t *size, uint64_t *addr,
+				 bool *vm_needs_flush,
+				 bool readonly)
 {
 	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->bdev);
 	unsigned int offset, num_pages, num_dw, num_bytes;
@@ -221,9 +227,12 @@ static int amdgpu_ttm_map_buffer(struct amdgpu_ttm_buffer_entity *entity,
 	if (!tmz && mem->start != AMDGPU_BO_INVALID_OFFSET) {
 		*addr = amdgpu_ttm_domain_start(adev, mem->mem_type) +
 			mm_cur->start;
+		*vm_needs_flush = false;
 		return 0;
 	}
 
+	/* A GART window is programmed below, so its VMID 0 TLB needs a flush */
+	*vm_needs_flush = true;
 
 	/*
 	 * If start begins at an offset inside the page, then adjust the size
@@ -262,6 +271,8 @@ static int amdgpu_ttm_map_buffer(struct amdgpu_ttm_buffer_entity *entity,
 	flags = amdgpu_ttm_tt_pte_flags(adev, bo->ttm, mem);
 	if (tmz)
 		flags |= AMDGPU_PTE_TMZ;
+	if (readonly)
+		flags &= ~AMDGPU_PTE_WRITEABLE;
 
 	cpu_addr = &job->ibs[0].ptr[num_dw];
 
@@ -324,6 +335,7 @@ static int amdgpu_ttm_copy_mem_to_mem(struct amdgpu_device *adev,
 	while (src_mm.remaining) {
 		uint64_t from, to, cur_size, tiling_flags;
 		uint32_t num_type, data_format, max_com, write_compress_disable;
+		bool src_vm_flush, dst_vm_flush;
 		struct dma_fence *next;
 
 		/* Never copy more than 256MiB at once to avoid a timeout */
@@ -331,12 +343,12 @@ static int amdgpu_ttm_copy_mem_to_mem(struct amdgpu_device *adev,
 
 		/* Map src to window 0 and dst to window 1. */
 		r = amdgpu_ttm_map_buffer(entity, src->bo, src->mem, &src_mm,
-					  0, tmz, &cur_size, &from);
+					  0, tmz, &cur_size, &from, &src_vm_flush, true);
 		if (r)
 			goto error;
 
 		r = amdgpu_ttm_map_buffer(entity, dst->bo, dst->mem, &dst_mm,
-					  1, tmz, &cur_size, &to);
+					  1, tmz, &cur_size, &to, &dst_vm_flush, false);
 		if (r)
 			goto error;
 
@@ -364,7 +376,7 @@ static int amdgpu_ttm_copy_mem_to_mem(struct amdgpu_device *adev,
 		}
 
 		r = amdgpu_copy_buffer(adev, entity, from, to, cur_size, resv,
-				       &next, true, copy_flags);
+				       &next, src_vm_flush || dst_vm_flush, copy_flags);
 		if (r)
 			goto error;
 
@@ -576,11 +588,13 @@ static int amdgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
 	    old_mem->mem_type == AMDGPU_PL_OA ||
 	    old_mem->mem_type == AMDGPU_PL_DOORBELL ||
 	    old_mem->mem_type == AMDGPU_PL_MMIO_REMAP ||
+	    old_mem->mem_type == AMDGPU_PL_NPA ||
 	    new_mem->mem_type == AMDGPU_PL_GDS ||
 	    new_mem->mem_type == AMDGPU_PL_GWS ||
 	    new_mem->mem_type == AMDGPU_PL_OA ||
 	    new_mem->mem_type == AMDGPU_PL_DOORBELL ||
-	    new_mem->mem_type == AMDGPU_PL_MMIO_REMAP) {
+	    new_mem->mem_type == AMDGPU_PL_MMIO_REMAP ||
+	    new_mem->mem_type == AMDGPU_PL_NPA) {
 		/* Nothing to save here */
 		amdgpu_bo_move_notify(bo, evict, new_mem);
 		ttm_bo_move_null(bo, new_mem);
@@ -1733,7 +1747,7 @@ void amdgpu_ttm_init_vram_resv(struct amdgpu_device *adev,
 
 static void amdgpu_ttm_init_fw_resv_region(struct amdgpu_device *adev)
 {
-	uint32_t reserve_size = 0;
+	u64 reserve_size = 0, offset = 0;
 
 	if (!adev->discovery.reserve_tmr)
 		return;
@@ -1745,24 +1759,28 @@ static void amdgpu_ttm_init_fw_resv_region(struct amdgpu_device *adev)
 	 * Otherwise, fallback to legacy approach to check and reserve tmr block for ip
 	 * discovery data and G6 memory training data respectively
 	 */
-	if (adev->bios)
+	if (adev->bios) {
 		reserve_size =
 			amdgpu_atomfirmware_get_fw_reserved_fb_size(adev);
+		if (reserve_size)
+			offset = adev->gmc.real_vram_size - reserve_size;
+	}
 
 	if (!adev->bios &&
 	    (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 3) ||
 	     amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 4) ||
-	     amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 5, 0)))
-		reserve_size = max(reserve_size, (uint32_t)280 << 20);
-	else if (!adev->bios &&
-		 amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0)) {
-		reserve_size = max(reserve_size, (uint32_t)150 << 20);
-	} else if (!reserve_size)
+	     amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 5, 0))) {
+		reserve_size = (u64)280 << 20;
+		offset = adev->gmc.real_vram_size - reserve_size;
+	} else if (adev->asic_funcs && adev->asic_funcs->get_fw_reserved_info) {
+		dev_dbg(adev->dev, "Querying FW reserved region info through get_fw_reserved_info\n");
+		adev->asic_funcs->get_fw_reserved_info(adev, &reserve_size, &offset);
+	} else if (!reserve_size) {
 		reserve_size = DISCOVERY_TMR_OFFSET;
-
+		offset = adev->gmc.real_vram_size - reserve_size;
+	}
 	amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_FW,
-				  adev->gmc.real_vram_size - reserve_size,
-				  reserve_size, false);
+				offset,	reserve_size, false);
 }
 
 static void amdgpu_ttm_init_mem_train_resv_region(struct amdgpu_device *adev)
@@ -2161,6 +2179,9 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 	if (r)
 		return r;
 
+	/* RAS loads and reserves bad pages */
+	amdgpu_ras_mgr_early_init_service(adev);
+
 	if (adev->mman.resv_region[AMDGPU_RESV_MEM_TRAIN].size) {
 		struct psp_memory_training_context *ctx =
 					&adev->psp.mem_train_ctx;
@@ -2266,6 +2287,16 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 		dev_err(adev->dev, "Failed initializing oa heap.\n");
 		return r;
 	}
+
+	if (adev->ualink.npa_size) {
+		r = amdgpu_ttm_init_on_chip(adev, AMDGPU_PL_NPA,
+					    adev->ualink.npa_size);
+		if (r) {
+			dev_err(adev->dev, "Failed initializing NPA heap.\n");
+			return r;
+		}
+	}
+
 	if (amdgpu_bo_create_kernel(adev, PAGE_SIZE, PAGE_SIZE,
 				AMDGPU_GEM_DOMAIN_GTT,
 				&adev->mman.sdma_access_bo, NULL,
@@ -2319,6 +2350,7 @@ void amdgpu_ttm_fini(struct amdgpu_device *adev)
 	ttm_range_man_fini(&adev->mman.bdev, AMDGPU_PL_OA);
 	ttm_range_man_fini(&adev->mman.bdev, AMDGPU_PL_DOORBELL);
 	ttm_range_man_fini(&adev->mman.bdev, AMDGPU_PL_MMIO_REMAP);
+	ttm_range_man_fini(&adev->mman.bdev, AMDGPU_PL_NPA);
 	ttm_device_fini(&adev->mman.bdev);
 	adev->mman.initialized = false;
 	dev_info(adev->dev, " ttm finalized\n");
@@ -2624,6 +2656,7 @@ int amdgpu_ttm_clear_buffer(struct amdgpu_ttm_buffer_entity *entity,
 	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->tbo.bdev);
 	struct dma_fence *fence = NULL;
 	struct amdgpu_res_cursor dst;
+	bool vm_needs_flush = false;
 	int r;
 
 	if (!entity)
@@ -2645,13 +2678,13 @@ int amdgpu_ttm_clear_buffer(struct amdgpu_ttm_buffer_entity *entity,
 		cur_size = min(dst.size, 256ULL << 20);
 
 		r = amdgpu_ttm_map_buffer(entity, &bo->tbo, bo->tbo.resource, &dst,
-					  0, false, &cur_size, &to);
+					  0, false, &cur_size, &to, &vm_needs_flush, false);
 		if (r)
 			goto error;
 
 		r = amdgpu_ttm_fill_mem(adev, entity,
 					0, to, cur_size, resv,
-					&next, true, k_job_id);
+					&next, vm_needs_flush, k_job_id);
 		if (r)
 			goto error;
 
@@ -2700,6 +2733,7 @@ int amdgpu_ttm_evict_resources(struct amdgpu_device *adev, int mem_type)
 	case AMDGPU_PL_GWS:
 	case AMDGPU_PL_GDS:
 	case AMDGPU_PL_OA:
+	case AMDGPU_PL_NPA:
 		man = ttm_manager_type(&adev->mman.bdev, mem_type);
 		break;
 	default:

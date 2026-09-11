@@ -37,6 +37,7 @@ DC_LIBS += dcn301
 DC_LIBS += dcn31
 DC_LIBS += dml
 DC_LIBS += dml2_0
+DC_LIBS += dml2_wrapper
 DC_LIBS += soc_and_ip_translator
 endif
 

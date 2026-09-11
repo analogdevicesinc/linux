@@ -297,7 +297,6 @@ static const struct amd_ip_funcs si_ih_ip_funcs = {
 	.hw_fini = si_ih_hw_fini,
 	.suspend = si_ih_suspend,
 	.resume = si_ih_resume,
-	.is_idle = si_ih_is_idle,
 	.wait_for_idle = si_ih_wait_for_idle,
 	.soft_reset = si_ih_soft_reset,
 	.set_clockgating_state = si_ih_set_clockgating_state,
