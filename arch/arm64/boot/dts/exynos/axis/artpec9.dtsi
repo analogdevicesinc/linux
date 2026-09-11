@@ -98,11 +98,11 @@
 
 			cpu_sleep: cpu-sleep {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x0010000>;
 				local-timer-stop;
 				entry-latency-us = <300>;
 				exit-latency-us = <1200>;
 				min-residency-us = <2000>;
+				arm,psci-suspend-param = <0x0010000>;
 			};
 		};
 	};
@@ -261,8 +261,8 @@
 				 <&cmu_fsys1 CLK_GOUT_FSYS1_UART0_SCLK_UART>;
 			clock-names = "uart", "clk_uart_baud0";
 			interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
-			pinctrl-names = "default";
 			pinctrl-0 = <&serial0_bus>;
+			pinctrl-names = "default";
 			samsung,uart-fifosize = <64>;
 		};
 	};
