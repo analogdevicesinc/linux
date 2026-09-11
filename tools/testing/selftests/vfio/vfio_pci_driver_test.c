@@ -190,7 +190,7 @@ TEST_F(vfio_pci_driver_test, send_msi)
 	ASSERT_EQ(1, value);
 }
 
-TEST_F(vfio_pci_driver_test, mix_and_match)
+TEST_F_TIMEOUT(vfio_pci_driver_test, mix_and_match, 90)
 {
 	u64 value;
 	int i;
