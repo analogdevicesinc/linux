@@ -42,8 +42,8 @@
 struct nsim_sa {
 	struct xfrm_state *xs;
 	__be32 ipaddr[4];
-	u32 key[4];
-	u32 salt;
+	__be32 key[4];
+	__be32 salt;
 	bool used;
 	bool crypt;
 	bool rx;
@@ -122,7 +122,6 @@ struct netdevsim {
 		struct dentry *rereg;
 		struct mutex rereg_lock;
 		u32 spi;
-		u32 assoc_cnt;
 	} psp;
 
 	struct nsim_bus_dev *nsim_bus_dev;

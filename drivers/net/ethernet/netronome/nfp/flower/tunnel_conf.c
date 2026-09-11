@@ -209,6 +209,7 @@ void nfp_tunnel_keep_alive(struct nfp_app *app, struct sk_buff *skb)
 {
 	struct nfp_tun_active_tuns *payload;
 	struct net_device *netdev;
+	struct neigh_table *tbl;
 	int count, i, pay_len;
 	struct neighbour *n;
 	__be32 ipv4_addr;
@@ -235,7 +236,8 @@ void nfp_tunnel_keep_alive(struct nfp_app *app, struct sk_buff *skb)
 		if (!netdev)
 			continue;
 
-		n = neigh_lookup(&arp_tbl, &ipv4_addr, netdev);
+		tbl = arp_table(dev_net(netdev));
+		n = neigh_lookup(tbl, &ipv4_addr, netdev);
 		if (!n)
 			continue;
 
@@ -251,6 +253,7 @@ void nfp_tunnel_keep_alive_v6(struct nfp_app *app, struct sk_buff *skb)
 #if IS_ENABLED(CONFIG_IPV6)
 	struct nfp_tun_active_tuns_v6 *payload;
 	struct net_device *netdev;
+	struct neigh_table *tbl;
 	int count, i, pay_len;
 	struct neighbour *n;
 	void *ipv6_add;
@@ -277,7 +280,8 @@ void nfp_tunnel_keep_alive_v6(struct nfp_app *app, struct sk_buff *skb)
 		if (!netdev)
 			continue;
 
-		n = neigh_lookup(&nd_tbl, ipv6_add, netdev);
+		tbl = nd_table(dev_net(netdev));
+		n = neigh_lookup(tbl, ipv6_add, netdev);
 		if (!n)
 			continue;
 
@@ -729,12 +733,6 @@ nfp_tun_neigh_event_handler(struct notifier_block *nb, unsigned long event,
 	default:
 		return NOTIFY_DONE;
 	}
-#if IS_ENABLED(CONFIG_IPV6)
-	if (n->tbl != &nd_tbl && n->tbl != &arp_tbl)
-#else
-	if (n->tbl != &arp_tbl)
-#endif
-		return NOTIFY_DONE;
 
 	app_priv = container_of(nb, struct nfp_flower_priv, tun.neigh_nb);
 	app = app_priv->app;

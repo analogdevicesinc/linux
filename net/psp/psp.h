@@ -53,4 +53,16 @@ static inline bool psp_dev_is_registered(struct psp_dev *psd)
 	return !!psd->ops;
 }
 
+static inline bool psp_dev_has_sadb(struct psp_dev *psd)
+{
+	lockdep_assert_held(&psd->lock);
+	return !!psd->ops->tx_key_del;
+}
+
+static inline bool psp_assoc_needs_tx_key_del(struct psp_assoc *pas)
+{
+	lockdep_assert_held(&pas->psd->lock);
+	return psp_dev_has_sadb(pas->psd) && pas->tx.spi;
+}
+
 #endif /* __PSP_PSP_H */

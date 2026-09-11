@@ -193,7 +193,7 @@ void br_do_proxy_suppress_arp(struct sk_buff *skb, struct net_bridge *br,
 		return;
 	}
 
-	n = neigh_lookup(&arp_tbl, &tip, vlandev);
+	n = neigh_lookup(arp_table(dev_net(vlandev)), &tip, vlandev);
 	if (n) {
 		struct net_bridge_fdb_entry *f;
 		u8 ha[ETH_ALEN] __aligned(2);
@@ -470,7 +470,7 @@ void br_do_suppress_nd(struct sk_buff *skb, struct net_bridge *br,
 		return;
 	}
 
-	n = neigh_lookup(&nd_tbl, &msg->target, vlandev);
+	n = neigh_lookup(nd_table(dev_net(vlandev)), &msg->target, vlandev);
 	if (n) {
 		struct net_bridge_fdb_entry *f;
 		u8 ha[ETH_ALEN] __aligned(2);
@@ -521,7 +521,8 @@ bool br_is_neigh_suppress_enabled(const struct net_bridge_port *p, u16 vid)
 		v = br_vlan_find(vg, vid);
 		if (!v)
 			return false;
-		return !!(v->priv_flags & BR_VLFLAG_NEIGH_SUPPRESS_ENABLED);
+		return !!(READ_ONCE(v->priv_flags) &
+			  BR_VLFLAG_NEIGH_SUPPRESS_ENABLED);
 	}
 	return test_bit(BR_NEIGH_SUPPRESS_BIT, &p->flags);
 }
@@ -535,7 +536,8 @@ bool br_is_neigh_forward_grat_enabled(const struct net_bridge_port *p, u16 vid)
 		v = br_vlan_find(vg, vid);
 		if (!v)
 			return false;
-		return !!(v->priv_flags & BR_VLFLAG_NEIGH_FORWARD_GRAT_ENABLED);
+		return !!(READ_ONCE(v->priv_flags) &
+			  BR_VLFLAG_NEIGH_FORWARD_GRAT_ENABLED);
 	}
 	return test_bit(BR_NEIGH_FORWARD_GRAT_BIT, &p->flags);
 }

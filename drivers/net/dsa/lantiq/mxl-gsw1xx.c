@@ -352,8 +352,22 @@ static int gsw1xx_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 	/* mark PCS configuration as incomplete */
 	priv->tbi_interface = PHY_INTERFACE_MODE_NA;
 
-	if (!reconf)
+	if (!reconf) {
+		/* setup SerDes clock speed */
+		if (interface == PHY_INTERFACE_MODE_2500BASEX)
+			nco_ctrl = GSW1XX_SGMII_2G5 | GSW1XX_SGMII_2G5_NCO2;
+		else
+			nco_ctrl = GSW1XX_SGMII_1G | GSW1XX_SGMII_1G_NCO1;
+
+		ret = regmap_update_bits(priv->clk, GSW1XX_CLK_NCO_CTRL,
+					 GSW1XX_SGMII_HSP_MASK |
+					 GSW1XX_SGMII_SEL,
+					 nco_ctrl);
+		if (ret)
+			return ret;
+
 		ret = gsw1xx_pcs_reset(priv, interface);
+	}
 
 	if (ret)
 		return ret;
@@ -423,19 +437,6 @@ static int gsw1xx_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 		return ret;
 
 	if (!reconf) {
-		/* setup SerDes clock speed */
-		if (interface == PHY_INTERFACE_MODE_2500BASEX)
-			nco_ctrl = GSW1XX_SGMII_2G5 | GSW1XX_SGMII_2G5_NCO2;
-		else
-			nco_ctrl = GSW1XX_SGMII_1G | GSW1XX_SGMII_1G_NCO1;
-
-		ret = regmap_update_bits(priv->clk, GSW1XX_CLK_NCO_CTRL,
-					 GSW1XX_SGMII_HSP_MASK |
-					 GSW1XX_SGMII_SEL,
-					 nco_ctrl);
-		if (ret)
-			return ret;
-
 		ret = gsw1xx_pcs_phy_xaui_write(priv, 0x30, 0x80);
 		if (ret)
 			return ret;
@@ -918,7 +919,7 @@ static const struct of_device_id gsw1xx_of_match[] = {
 	{ .compatible = "maxlinear,gsw140", .data = &gsw140_data },
 	{ .compatible = "maxlinear,gsw141", .data = &gsw141_data },
 	{ .compatible = "maxlinear,gsw145", .data = &gsw140_data },
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 
 MODULE_DEVICE_TABLE(of, gsw1xx_of_match);

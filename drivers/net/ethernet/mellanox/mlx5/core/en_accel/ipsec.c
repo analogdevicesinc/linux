@@ -262,6 +262,7 @@ static void mlx5e_ipsec_init_macs(struct mlx5e_ipsec_sa_entry *sa_entry,
 	struct net_device *netdev = sa_entry->dev;
 	struct xfrm_state *x = sa_entry->x;
 	struct dst_entry *rt_dst_entry;
+	struct neigh_table *tbl;
 	struct flowi4 fl4 = {};
 	struct flowi6 fl6 = {};
 	struct neighbour *n;
@@ -364,9 +365,10 @@ static void mlx5e_ipsec_init_macs(struct mlx5e_ipsec_sa_entry *sa_entry,
 	return;
 
 neigh:
-	n = neigh_lookup(&arp_tbl, pkey, netdev);
+	tbl = arp_table(dev_net(netdev));
+	n = neigh_lookup(tbl, pkey, netdev);
 	if (!n) {
-		n = neigh_create(&arp_tbl, pkey, netdev);
+		n = neigh_create(tbl, pkey, netdev);
 		if (IS_ERR(n))
 			return;
 		neigh_event_send(n, NULL);

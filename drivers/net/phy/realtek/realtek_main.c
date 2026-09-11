@@ -19,7 +19,6 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/string_choices.h>
-#include <net/phy/realtek_phy.h>
 
 #include "../phylib.h"
 #include "realtek.h"
@@ -3044,45 +3043,6 @@ static irqreturn_t rtl8221b_handle_interrupt(struct phy_device *phydev)
 	return IRQ_HANDLED;
 }
 
-static int rtlgen_sfp_get_features(struct phy_device *phydev)
-{
-	linkmode_set_bit(ETHTOOL_LINK_MODE_10000baseT_Full_BIT,
-			 phydev->supported);
-
-	/* set default mode */
-	phydev->speed = SPEED_10000;
-	phydev->duplex = DUPLEX_FULL;
-
-	phydev->port = PORT_FIBRE;
-
-	return 0;
-}
-
-static int rtlgen_sfp_read_status(struct phy_device *phydev)
-{
-	int val, err;
-
-	err = genphy_update_link(phydev);
-	if (err)
-		return err;
-
-	if (!phydev->link)
-		return 0;
-
-	val = phy_read(phydev, RTL_PHYSR);
-	if (val < 0)
-		return val;
-
-	rtlgen_decode_physr(phydev, val);
-
-	return 0;
-}
-
-static int rtlgen_sfp_config_aneg(struct phy_device *phydev)
-{
-	return 0;
-}
-
 static struct phy_driver realtek_drvs[] = {
 	{
 		PHY_ID_MATCH_EXACT(0x00008201),
@@ -3326,20 +3286,6 @@ static struct phy_driver realtek_drvs[] = {
 		.get_features	= rtl822x_get_features,
 		.config_aneg	= rtl822x_config_aneg,
 		.read_status	= rtl822x_read_status,
-		.suspend	= genphy_suspend,
-		.resume		= rtlgen_resume,
-		.read_page	= rtl821x_read_page,
-		.write_page	= rtl821x_write_page,
-		.read_mmd	= rtl822x_read_mmd,
-		.write_mmd	= rtl822x_write_mmd,
-	}, {
-		PHY_ID_MATCH_EXACT(PHY_ID_RTL_DUMMY_SFP),
-		.name		= "Realtek SFP PHY Mode",
-		.flags		= PHY_IS_INTERNAL,
-		.probe		= rtl822x_probe,
-		.get_features	= rtlgen_sfp_get_features,
-		.config_aneg	= rtlgen_sfp_config_aneg,
-		.read_status	= rtlgen_sfp_read_status,
 		.suspend	= genphy_suspend,
 		.resume		= rtlgen_resume,
 		.read_page	= rtl821x_read_page,

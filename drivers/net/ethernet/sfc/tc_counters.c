@@ -91,6 +91,7 @@ static void efx_tc_counter_work(struct work_struct *work)
 	struct efx_tc_action_set *act;
 	unsigned long touched;
 	struct neighbour *n;
+	struct net *net;
 
 	spin_lock_bh(&cnt->lock);
 	touched = READ_ONCE(cnt->touched);
@@ -103,16 +104,19 @@ static void efx_tc_counter_work(struct work_struct *work)
 			continue;
 		if (time_after_eq(encap->neigh->used, touched))
 			continue;
+
 		encap->neigh->used = touched;
+		net = encap->neigh->net;
+
 		/* We have passed traffic using this ARP entry, so
 		 * indicate to the ARP cache that it's still active
 		 */
 		if (encap->neigh->dst_ip)
-			n = neigh_lookup(&arp_tbl, &encap->neigh->dst_ip,
+			n = neigh_lookup(arp_table(net), &encap->neigh->dst_ip,
 					 encap->neigh->egdev);
 		else
 #if IS_ENABLED(CONFIG_IPV6)
-			n = neigh_lookup(&nd_tbl,
+			n = neigh_lookup(nd_table(net),
 					 &encap->neigh->dst_ip6,
 					 encap->neigh->egdev);
 #else

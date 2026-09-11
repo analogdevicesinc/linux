@@ -166,6 +166,9 @@ struct realtek_variant {
 	u8 cmd_read;
 	u8 cmd_write;
 	size_t chip_data_sz;
+	/* Regulator supplies to enable at probe, or NULL */
+	const char *const *supplies;
+	int num_supplies;
 };
 
 /* RTL8366 library helpers */

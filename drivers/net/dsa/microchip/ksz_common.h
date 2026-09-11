@@ -284,6 +284,7 @@ enum ksz_model {
 	KSZ9477,
 	KSZ9896,
 	KSZ9897,
+	KSZ9897S,
 	KSZ9893,
 	KSZ9563,
 	KSZ9567,
@@ -873,6 +874,10 @@ static inline bool ksz_is_sgmii_port(struct ksz_device *dev, int port)
 #define REG_CHIP_ID4			0x0f
 #define SKU_ID_KSZ8563			0x3c
 #define SKU_ID_KSZ9563			0x1c
+
+/* KSZ9897 specific register: port 7 XMII control 0 */
+#define KSZ9897_REG_PORT7_XMII_CTRL_0	0x7300
+#define KSZ9897_PORT7_SGMII_SEL		BIT(7)
 
 /* Driver set switch broadcast storm protection at 10% rate. */
 #define BROADCAST_STORM_PROT_RATE	10
