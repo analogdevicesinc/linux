@@ -2784,15 +2784,16 @@ static bool pf_needs_provision_sched(struct xe_gt *gt, unsigned int num_vfs)
 #define XE_ADMIN_PF_SCHED_PRIORITY	GUC_SCHED_PRIORITY_HIGH
 
 /**
- * xe_gt_sriov_pf_config_set_fair_sched() - Provision PF and VFs with fair scheduling.
+ * xe_gt_sriov_pf_config_set_fair_sched_locked() - Provision PF and VFs with fair scheduling.
  * @gt: the &xe_gt
  * @num_vfs: number of VFs to provision (can't be 0)
  *
+ * The caller must hold the master PF mutex.
  * This function can only be called on PF.
  *
  * Return: 0 on success or a negative error code on failure.
  */
-int xe_gt_sriov_pf_config_set_fair_sched(struct xe_gt *gt, unsigned int num_vfs)
+int xe_gt_sriov_pf_config_set_fair_sched_locked(struct xe_gt *gt, unsigned int num_vfs)
 {
 	int result = 0;
 	int err;
@@ -2801,7 +2802,7 @@ int xe_gt_sriov_pf_config_set_fair_sched(struct xe_gt *gt, unsigned int num_vfs)
 	xe_gt_assert(gt, XE_FAIR_EXEC_QUANTUM_MS);
 	xe_gt_assert(gt, XE_FAIR_PREEMPT_TIMEOUT_US);
 
-	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
 
 	if (!pf_needs_provision_sched(gt, num_vfs))
 		return 0;
@@ -2820,6 +2821,22 @@ int xe_gt_sriov_pf_config_set_fair_sched(struct xe_gt *gt, unsigned int num_vfs)
 	}
 
 	return result;
+}
+
+/**
+ * xe_gt_sriov_pf_config_set_fair_sched() - Provision PF and VFs with fair scheduling.
+ * @gt: the &xe_gt
+ * @num_vfs: number of VFs to provision (can't be 0)
+ *
+ * This function can only be called on PF.
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_gt_sriov_pf_config_set_fair_sched(struct xe_gt *gt, unsigned int num_vfs)
+{
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
+
+	return xe_gt_sriov_pf_config_set_fair_sched_locked(gt, num_vfs);
 }
 
 static int pf_provision_threshold(struct xe_gt *gt, unsigned int vfid,
