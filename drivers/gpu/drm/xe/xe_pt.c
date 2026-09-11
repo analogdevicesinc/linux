@@ -2414,6 +2414,12 @@ static int op_prepare(struct xe_vm *vm,
 			xa_for_each(&op->prefetch_range.range, i, range) {
 				err = bind_range_prepare(vm, tile, pt_update_ops,
 							 vma, range);
+				/*
+				 * Don't tell user space to retry, rather let
+				 * page faults fixup the pages.
+				 */
+				if (err == -EAGAIN)
+					err = -ENODATA;
 				if (err)
 					return err;
 			}

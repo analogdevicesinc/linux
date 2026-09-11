@@ -505,17 +505,17 @@ static void appletbdrm_primary_plane_helper_atomic_disable(struct drm_plane *pla
 	drm_dev_exit(idx);
 }
 
-static void appletbdrm_primary_plane_reset(struct drm_plane *plane)
+static struct drm_plane_state *appletbdrm_primary_plane_create_state(struct drm_plane *plane)
 {
 	struct appletbdrm_plane_state *appletbdrm_state;
 
-	WARN_ON(plane->state);
-
 	appletbdrm_state = kzalloc_obj(*appletbdrm_state);
 	if (!appletbdrm_state)
-		return;
+		return ERR_PTR(-ENOMEM);
 
-	__drm_gem_reset_shadow_plane(plane, &appletbdrm_state->base);
+	__drm_gem_shadow_plane_state_init(plane, &appletbdrm_state->base);
+
+	return &(&appletbdrm_state->base)->base;
 }
 
 static struct drm_plane_state *appletbdrm_primary_plane_duplicate_state(struct drm_plane *plane)
@@ -568,7 +568,7 @@ static const struct drm_plane_helper_funcs appletbdrm_primary_plane_helper_funcs
 static const struct drm_plane_funcs appletbdrm_primary_plane_funcs = {
 	.update_plane = drm_atomic_helper_update_plane,
 	.disable_plane = drm_atomic_helper_disable_plane,
-	.reset = appletbdrm_primary_plane_reset,
+	.atomic_create_state = appletbdrm_primary_plane_create_state,
 	.atomic_duplicate_state = appletbdrm_primary_plane_duplicate_state,
 	.atomic_destroy_state = appletbdrm_primary_plane_destroy_state,
 	.destroy = drm_plane_cleanup,
@@ -605,7 +605,7 @@ static const struct drm_crtc_helper_funcs appletbdrm_crtc_helper_funcs = {
 };
 
 static const struct drm_crtc_funcs appletbdrm_crtc_funcs = {
-	.reset = drm_atomic_helper_crtc_reset,
+	.atomic_create_state = drm_atomic_helper_crtc_create_state,
 	.destroy = drm_crtc_cleanup,
 	.set_config = drm_atomic_helper_set_config,
 	.page_flip = drm_atomic_helper_page_flip,

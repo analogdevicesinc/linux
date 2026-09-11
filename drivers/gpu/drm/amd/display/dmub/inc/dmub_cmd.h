@@ -1924,10 +1924,6 @@ enum dmub_cmd_type {
 	 */
 	DMUB_CMD__DPIA = 77,
 	/**
-	 * Command type used for EDID CEA parsing
-	 */
-	DMUB_CMD__EDID_CEA = 79,
-	/**
 	 * Command type used for getting usbc cable ID
 	 */
 	DMUB_CMD_GET_USBC_CABLE_ID = 81,
@@ -6887,69 +6883,6 @@ struct dmub_rb_cmd_transmitter_set_phy_fsm {
 };
 
 /**
- * Maximum number of bytes a chunk sent to DMUB for parsing
- */
-#define DMUB_EDID_CEA_DATA_CHUNK_BYTES 8
-
-/**
- *  Represent a chunk of CEA blocks sent to DMUB for parsing
- */
-struct dmub_cmd_send_edid_cea {
-	uint16_t offset;	/**< offset into the CEA block */
-	uint8_t length;	/**< number of bytes in payload to copy as part of CEA block */
-	uint16_t cea_total_length;  /**< total length of the CEA block */
-	uint8_t payload[DMUB_EDID_CEA_DATA_CHUNK_BYTES]; /**< data chunk of the CEA block */
-	uint8_t pad[3]; /**< padding and for future expansion */
-};
-
-/**
- * Result of VSDB parsing from CEA block
- */
-struct dmub_cmd_edid_cea_amd_vsdb {
-	uint8_t vsdb_found;		/**< 1 if parsing has found valid AMD VSDB */
-	uint8_t freesync_supported;	/**< 1 if Freesync is supported */
-	uint16_t amd_vsdb_version;	/**< AMD VSDB version */
-	uint16_t min_frame_rate;	/**< Maximum frame rate */
-	uint16_t max_frame_rate;	/**< Minimum frame rate */
-	uint8_t freesync_mccs_vcp_code; /**< Freesync MCCS VCP code */
-};
-
-/**
- * Result of sending a CEA chunk
- */
-struct dmub_cmd_edid_cea_ack {
-	uint16_t offset;	/**< offset of the chunk into the CEA block */
-	uint8_t success;	/**< 1 if this sending of chunk succeeded */
-	uint8_t pad;		/**< padding and for future expansion */
-};
-
-/**
- * Specify whether the result is an ACK/NACK or the parsing has finished
- */
-enum dmub_cmd_edid_cea_reply_type {
-	DMUB_CMD__EDID_CEA_AMD_VSDB	= 1, /**< VSDB parsing has finished */
-	DMUB_CMD__EDID_CEA_ACK		= 2, /**< acknowledges the CEA sending is OK or failing */
-};
-
-/**
- * Definition of a DMUB_CMD__EDID_CEA command.
- */
-struct dmub_rb_cmd_edid_cea {
-	struct dmub_cmd_header header;	/**< Command header */
-	union dmub_cmd_edid_cea_data {
-		struct dmub_cmd_send_edid_cea input; /**< input to send CEA chunks */
-		struct dmub_cmd_edid_cea_output { /**< output with results */
-			uint8_t type;	/**< dmub_cmd_edid_cea_reply_type */
-			union {
-				struct dmub_cmd_edid_cea_amd_vsdb amd_vsdb;
-				struct dmub_cmd_edid_cea_ack ack;
-			};
-		} output;	/**< output to retrieve ACK/NACK or VSDB parsing results */
-	} data;	/**< Command data */
-
-};
-
-/**
  * struct dmub_cmd_cable_id_input - Defines the input of DMUB_CMD_GET_USBC_CABLE_ID command.
  */
 struct dmub_cmd_cable_id_input {
@@ -7801,10 +7734,6 @@ union dmub_rb_cmd {
 	 * Definition of a DMUB_CMD__DPIA_SET_TPS_NOTIFICATION command.
 	 */
 	struct dmub_rb_cmd_set_tps_notification set_tps_notification;
-	/**
-	 * Definition of a DMUB_CMD__EDID_CEA command.
-	 */
-	struct dmub_rb_cmd_edid_cea edid_cea;
 	/**
 	 * Definition of a DMUB_CMD_GET_USBC_CABLE_ID command.
 	 */

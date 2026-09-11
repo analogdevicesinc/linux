@@ -25,6 +25,7 @@
 #include "xe_gt_printk.h"
 #include "xe_gt_sriov_vf.h"
 #include "xe_guc.h"
+#include "xe_log.h"
 #include "xe_mmio.h"
 #include "xe_module.h"
 #include "xe_pci_error.h"
@@ -1145,16 +1146,11 @@ static void xe_pci_remove(struct pci_dev *pdev)
  * caller. Therefore there is no consequence on those specific callers when
  * function error injection skips the whole function.
  */
+static int __xe_pci_probe(struct pci_dev *pdev, const struct xe_device_desc *desc);
 static int xe_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
-	struct xe_probed_info probed_info = {};
 	const struct xe_device_desc *desc = (const void *)ent->driver_data;
-	const struct xe_subplatform_desc *subplatform_desc;
-	struct xe_device *xe;
-	void *group;
 	int err;
-
-	subplatform_desc = find_subplatform(desc, pdev->device);
 
 	xe_configfs_check_device(pdev);
 
@@ -1171,13 +1167,33 @@ static int xe_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 
 	if (id_blocked(pdev->device)) {
-		dev_info(&pdev->dev, "Probe blocked for device [%04x:%04x].\n",
-			 pdev->vendor, pdev->device);
+		xe_log_info(pdev, PROBE, "driver loading blocked for device '%04x'\n",
+			    pdev->device);
 		return -ENODEV;
 	}
 
 	if (xe_display_driver_probe_defer(pdev))
 		return -EPROBE_DEFER;
+
+	err = __xe_pci_probe(pdev, desc);
+	if (err) {
+		xe_log_err_fatal(pdev, PROBE, err, "driver loading failed for device '%04x'\n",
+				 pdev->device);
+		return err;
+	}
+
+	return 0;
+}
+
+static int __xe_pci_probe(struct pci_dev *pdev, const struct xe_device_desc *desc)
+{
+	const struct xe_subplatform_desc *subplatform_desc;
+	struct xe_probed_info probed_info = {};
+	struct xe_device *xe;
+	void *group;
+	int err;
+
+	subplatform_desc = find_subplatform(desc, pdev->device);
 
 	/* Group all devres so xe_pci_error_slot_reset() can release them as a unit. */
 	group = devres_open_group(&pdev->dev, NULL, GFP_KERNEL);

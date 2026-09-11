@@ -809,9 +809,7 @@ static int ili9882t_add(struct ili9882t *ili)
 	ili->base.funcs = &ili9882t_funcs;
 	ili->base.dev = &ili->dsi->dev;
 
-	drm_panel_add(&ili->base);
-
-	return 0;
+	return devm_drm_panel_add(dev, &ili->base);
 }
 
 static int ili9882t_probe(struct mipi_dsi_device *dsi)
@@ -844,24 +842,7 @@ static int ili9882t_probe(struct mipi_dsi_device *dsi)
 
 	mipi_dsi_set_drvdata(dsi, ili);
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret)
-		drm_panel_remove(&ili->base);
-
-	return ret;
-}
-
-static void ili9882t_remove(struct mipi_dsi_device *dsi)
-{
-	struct ili9882t *ili = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "failed to detach from DSI host: %d\n", ret);
-
-	if (ili->base.dev)
-		drm_panel_remove(&ili->base);
+	return devm_mipi_dsi_attach(&dsi->dev, dsi);
 }
 
 static const struct of_device_id ili9882t_of_match[] = {
@@ -881,7 +862,6 @@ static struct mipi_dsi_driver ili9882t_driver = {
 		.of_match_table = ili9882t_of_match,
 	},
 	.probe = ili9882t_probe,
-	.remove = ili9882t_remove,
 };
 module_mipi_dsi_driver(ili9882t_driver);
 

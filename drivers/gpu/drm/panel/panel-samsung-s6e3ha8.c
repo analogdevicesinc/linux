@@ -283,7 +283,9 @@ static int s6e3ha8_amb577px01_wqhd_probe(struct mipi_dsi_device *dsi)
 
 	priv->panel.prepare_prev_first = true;
 
-	drm_panel_add(&priv->panel);
+	ret = devm_drm_panel_add(dev, &priv->panel);
+	if (ret)
+		return ret;
 
 	/* This panel only supports DSC; unconditionally enable it */
 	dsi->dsc = &priv->dsc;
@@ -299,26 +301,13 @@ static int s6e3ha8_amb577px01_wqhd_probe(struct mipi_dsi_device *dsi)
 	priv->dsc.bits_per_pixel = 8 << 4; /* 4 fractional bits */
 	priv->dsc.block_pred_enable = true;
 
-	ret = mipi_dsi_attach(dsi);
+	ret = devm_mipi_dsi_attach(dev, dsi);
 	if (ret < 0) {
 		dev_err(dev, "Failed to attach to DSI host: %d\n", ret);
-		drm_panel_remove(&priv->panel);
 		return ret;
 	}
 
 	return 0;
-}
-
-static void s6e3ha8_amb577px01_wqhd_remove(struct mipi_dsi_device *dsi)
-{
-	struct s6e3ha8 *priv = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
-
-	drm_panel_remove(&priv->panel);
 }
 
 static const struct of_device_id s6e3ha8_amb577px01_wqhd_of_match[] = {
@@ -329,7 +318,6 @@ MODULE_DEVICE_TABLE(of, s6e3ha8_amb577px01_wqhd_of_match);
 
 static struct mipi_dsi_driver s6e3ha8_amb577px01_wqhd_driver = {
 	.probe = s6e3ha8_amb577px01_wqhd_probe,
-	.remove = s6e3ha8_amb577px01_wqhd_remove,
 	.driver = {
 		.name = "panel-s6e3ha8",
 		.of_match_table = s6e3ha8_amb577px01_wqhd_of_match,

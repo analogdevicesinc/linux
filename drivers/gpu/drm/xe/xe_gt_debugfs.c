@@ -6,15 +6,20 @@
 #include "xe_gt_debugfs.h"
 
 #include <linux/debugfs.h>
+#include <linux/panic.h>
+#include <linux/string.h>
 
 #include <drm/drm_debugfs.h>
 #include <drm/drm_managed.h>
+#include <linux/math.h>
 
+#include "regs/xe_gt_regs.h"
 #include "xe_device.h"
 #include "xe_force_wake.h"
 #include "xe_gt.h"
 #include "xe_gt_mcr.h"
 #include "xe_gt_idle.h"
+#include "xe_gt_printk.h"
 #include "xe_gt_sriov_pf_debugfs.h"
 #include "xe_gt_sriov_vf_debugfs.h"
 #include "xe_gt_stats.h"
@@ -22,6 +27,7 @@
 #include "xe_guc_hwconfig.h"
 #include "xe_hw_engine.h"
 #include "xe_lrc.h"
+#include "xe_mmio.h"
 #include "xe_mocs.h"
 #include "xe_pat.h"
 #include "xe_pm.h"
@@ -336,6 +342,139 @@ static int force_reset_sync_show(struct seq_file *s, void *unused)
 }
 DEFINE_SHOW_STORE_ATTRIBUTE(force_reset_sync);
 
+#define U1_15_ONE		0x8000
+#define U1_15_INT_BITS		GENMASK(15, 15)
+#define U1_15_FRACTION_BITS	GENMASK(14, 0)
+
+static void u1_15_decode(u16 num, u16 *i, u32 *frac)
+{
+	/*
+	 * In U1.15 format, uppermost bit is integer value and the
+	 * rest 15 are the fraction.
+	 */
+
+	*i = FIELD_GET(U1_15_INT_BITS, num);
+	*frac = FIELD_GET(U1_15_FRACTION_BITS, num);
+}
+
+static void u1_15_decode_decimal(u16 value, u16 *i, u32 *frac, int digits)
+{
+	u1_15_decode(value, i, frac);
+	*frac = (*frac * int_pow(10, digits)) / (FIELD_MAX(U1_15_FRACTION_BITS) + 1);
+}
+
+static int gt_ia_bias_show(struct seq_file *s, void *unused)
+{
+	struct xe_gt *gt = s->private;
+	struct xe_device *xe = gt_to_xe(gt);
+	u32 val;
+	u32 ia_frac, gt_frac;
+	u16 ia_raw, gt_raw;
+	u16 ia_int, gt_int;
+
+	guard(xe_pm_runtime)(xe);
+	val = xe_mmio_read32(&gt->mmio, GT_IA_PERF_BIAS_REG);
+
+	ia_raw = REG_FIELD_GET(IA_BIAS, val);
+	gt_raw = REG_FIELD_GET(GT_BIAS, val);
+
+	u1_15_decode_decimal(ia_raw, &ia_int, &ia_frac, 4);
+	u1_15_decode_decimal(gt_raw, &gt_int, &gt_frac, 4);
+
+	seq_printf(s, "0x%x (GT: %u.%04u, IA: %u.%04u)\n",
+		   val, gt_int, gt_frac, ia_int, ia_frac);
+
+	return 0;
+}
+
+static ssize_t gt_ia_bias_write(struct file *file,
+				const char __user *userbuf,
+				size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xe_gt *gt = s->private;
+	struct xe_device *xe = gt_to_xe(gt);
+	u32 val;
+	int ret;
+
+	ret = kstrtou32_from_user(userbuf, count, 0, &val);
+	if (ret)
+		return ret;
+
+	if (REG_FIELD_GET(IA_BIAS, val) > U1_15_ONE ||
+	    REG_FIELD_GET(GT_BIAS, val) > U1_15_ONE)
+		return -EINVAL;
+
+	if (REG_FIELD_GET(IA_BIAS, val) < IA_BIAS_DEFAULT ||
+	    REG_FIELD_GET(GT_BIAS, val) < GT_BIAS_DEFAULT)
+		return -EINVAL;
+
+	guard(xe_pm_runtime)(xe);
+	xe_mmio_write32(&gt->mmio, GT_IA_PERF_BIAS_REG, val);
+
+	return count;
+}
+DEFINE_SHOW_STORE_ATTRIBUTE(gt_ia_bias);
+
+static const char * const gpgpu_preemption_level_names[] = {
+	[XE_GPGPU_PREEMPT_DEFAULT]      = "default",
+	[XE_GPGPU_PREEMPT_MID_THREAD]   = "mid-thread",
+	[XE_GPGPU_PREEMPT_THREAD_GROUP] = "thread-group",
+	[XE_GPGPU_PREEMPT_COMMAND]      = "command",
+};
+
+static int gpgpu_preemption_level_show(struct seq_file *m, void *unused)
+{
+	struct xe_gt *gt = m->private;
+
+	seq_printf(m, "%s\n", gpgpu_preemption_level_names[gt->gpgpu_preemption_level]);
+
+	return 0;
+}
+
+static ssize_t gpgpu_preemption_level_write(struct file *file,
+					    const char __user *ubuf,
+					    size_t len, loff_t *offp)
+{
+	struct seq_file *m = file->private_data;
+	struct xe_gt *gt = m->private;
+	enum xe_gpgpu_preempt_level new_level;
+	char buf[16];
+	ssize_t copied;
+	int idx;
+
+	if (*offp)
+		return -EINVAL;
+
+	copied = simple_write_to_buffer(buf, sizeof(buf) - 1, offp, ubuf, len);
+	if (copied < 0)
+		return copied;
+
+	buf[copied] = '\0';
+	idx = sysfs_match_string(gpgpu_preemption_level_names, strim(buf));
+	if (idx < 0)
+		return idx;
+
+	new_level = (enum xe_gpgpu_preempt_level)idx;
+
+	if (new_level == XE_GPGPU_PREEMPT_MID_THREAD && gt->info.has_wmtp_disabled) {
+		xe_gt_warn(gt, "MTP fused off in hardware, cannot select mid-thread\n");
+		return -EINVAL;
+	}
+
+	if (new_level != XE_GPGPU_PREEMPT_DEFAULT) {
+		add_taint(TAINT_USER, LOCKDEP_STILL_OK);
+		xe_gt_notice(gt,
+			     "GPGPU preemption overridden to '%s' (applies to new LRCs only)\n",
+			     gpgpu_preemption_level_names[new_level]);
+	}
+
+	gt->gpgpu_preemption_level = new_level;
+
+	return copied;
+}
+DEFINE_SHOW_STORE_ATTRIBUTE(gpgpu_preemption_level);
+
 void xe_gt_debugfs_register(struct xe_gt *gt)
 {
 	struct xe_device *xe = gt_to_xe(gt);
@@ -369,6 +508,10 @@ void xe_gt_debugfs_register(struct xe_gt *gt)
 	debugfs_create_file("force_reset", 0600, root, gt, &force_reset_fops);
 	debugfs_create_file("force_reset_sync", 0600, root, gt, &force_reset_sync_fops);
 
+	if (GRAPHICS_VER(xe) >= 20 && (gt->info.engine_mask & XE_HW_ENGINE_RCS_MASK))
+		debugfs_create_file("gpgpu_preemption_level", 0600, root,
+				    gt, &gpgpu_preemption_level_fops);
+
 	drm_debugfs_create_files(vf_safe_debugfs_list,
 				 ARRAY_SIZE(vf_safe_debugfs_list),
 				 root, minor);
@@ -377,6 +520,9 @@ void xe_gt_debugfs_register(struct xe_gt *gt)
 		drm_debugfs_create_files(pf_only_debugfs_list,
 					 ARRAY_SIZE(pf_only_debugfs_list),
 					 root, minor);
+
+	if (xe_gt_is_main_type(gt) && !IS_DGFX(xe) && !IS_SRIOV_VF(xe))
+		debugfs_create_file("gt_ia_bias", 0600, root, gt, &gt_ia_bias_fops);
 
 	xe_uc_debugfs_register(&gt->uc, root);
 

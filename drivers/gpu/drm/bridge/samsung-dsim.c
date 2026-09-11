@@ -2184,10 +2184,8 @@ int samsung_dsim_probe(struct platform_device *pdev)
 					samsung_dsim_irq,
 					IRQF_ONESHOT | IRQF_NO_AUTOEN,
 					dev_name(dev), dsi);
-	if (ret) {
-		dev_err(dev, "failed to request dsi irq\n");
+	if (ret)
 		return ret;
-	}
 
 	ret = samsung_dsim_parse_dt(dsi);
 	if (ret)

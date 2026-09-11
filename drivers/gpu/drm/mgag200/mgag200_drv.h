@@ -407,15 +407,15 @@ void mgag200_crtc_helper_atomic_disable(struct drm_crtc *crtc, struct drm_atomic
 	.atomic_enable = mgag200_crtc_helper_atomic_enable, \
 	.atomic_disable = mgag200_crtc_helper_atomic_disable
 
-void mgag200_crtc_reset(struct drm_crtc *crtc);
+struct drm_crtc_state *mgag200_crtc_atomic_create_state(struct drm_crtc *crtc);
 struct drm_crtc_state *mgag200_crtc_atomic_duplicate_state(struct drm_crtc *crtc);
 void mgag200_crtc_atomic_destroy_state(struct drm_crtc *crtc, struct drm_crtc_state *crtc_state);
 
 #define MGAG200_CRTC_FUNCS \
-	.reset = mgag200_crtc_reset, \
 	.destroy = drm_crtc_cleanup, \
 	.set_config = drm_atomic_helper_set_config, \
 	.page_flip = drm_atomic_helper_page_flip, \
+	.atomic_create_state = mgag200_crtc_atomic_create_state, \
 	.atomic_duplicate_state = mgag200_crtc_atomic_duplicate_state, \
 	.atomic_destroy_state = mgag200_crtc_atomic_destroy_state
 
