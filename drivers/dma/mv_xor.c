@@ -583,8 +583,13 @@ mv_xor_prep_dma_xor(struct dma_chan *chan, dma_addr_t dest, dma_addr_t *src,
 		while (src_cnt--) {
 			/* Check if a new window needs to get added for 'src' */
 			ret = mv_xor_add_io_win(mv_chan, src[src_cnt]);
-			if (ret)
+			if (ret) {
+				spin_lock_bh(&mv_chan->lock);
+				list_move_tail(&sw_desc->node,
+					       &mv_chan->free_slots);
+				spin_unlock_bh(&mv_chan->lock);
 				return NULL;
+			}
 			mv_desc_set_src_addr(sw_desc, src_cnt, src[src_cnt]);
 		}
 	}
