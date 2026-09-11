@@ -18447,6 +18447,7 @@ static int nl80211_set_multicast_to_unicast(struct sk_buff *skb,
 static int nl80211_set_pmk(struct sk_buff *skb, struct genl_info *info)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct wiphy *wiphy = &rdev->wiphy;
 	struct net_device *dev = info->user_ptr[1];
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
 	struct cfg80211_pmk_conf pmk_conf = {};
@@ -18455,7 +18456,9 @@ static int nl80211_set_pmk(struct sk_buff *skb, struct genl_info *info)
 	    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
 		return -EOPNOTSUPP;
 
-	if (!wiphy_ext_feature_isset(&rdev->wiphy,
+	if (!wiphy_ext_feature_isset(wiphy,
+				     NL80211_EXT_FEATURE_FAST_ROAM_OFFLOAD) &&
+	    !wiphy_ext_feature_isset(wiphy,
 				     NL80211_EXT_FEATURE_4WAY_HANDSHAKE_STA_1X))
 		return -EOPNOTSUPP;
 
@@ -18485,6 +18488,7 @@ static int nl80211_set_pmk(struct sk_buff *skb, struct genl_info *info)
 static int nl80211_del_pmk(struct sk_buff *skb, struct genl_info *info)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct wiphy *wiphy = &rdev->wiphy;
 	struct net_device *dev = info->user_ptr[1];
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
 	const u8 *aa;
@@ -18493,7 +18497,9 @@ static int nl80211_del_pmk(struct sk_buff *skb, struct genl_info *info)
 	    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
 		return -EOPNOTSUPP;
 
-	if (!wiphy_ext_feature_isset(&rdev->wiphy,
+	if (!wiphy_ext_feature_isset(wiphy,
+				     NL80211_EXT_FEATURE_FAST_ROAM_OFFLOAD) &&
+	    !wiphy_ext_feature_isset(wiphy,
 				     NL80211_EXT_FEATURE_4WAY_HANDSHAKE_STA_1X))
 		return -EOPNOTSUPP;
 
