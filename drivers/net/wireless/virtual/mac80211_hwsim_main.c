@@ -1337,7 +1337,7 @@ mac80211_hwsim_get_tx_rate(struct ieee80211_hw *hw,
 
 static void mac80211_hwsim_monitor_rx(struct ieee80211_hw *hw,
 				      struct sk_buff *tx_skb,
-				      struct ieee80211_channel *chan)
+				      u32 freq)
 {
 	struct mac80211_hwsim_data *data = hw->priv;
 	struct sk_buff *skb;
@@ -1369,7 +1369,7 @@ static void mac80211_hwsim_monitor_rx(struct ieee80211_hw *hw,
 	hdr->rt_tsft = __mac80211_hwsim_get_tsf(data);
 	hdr->rt_flags = 0;
 	hdr->rt_rate = bitrate / 5;
-	hdr->rt_channel = cpu_to_le16(chan->center_freq);
+	hdr->rt_channel = cpu_to_le16(freq);
 	flags = IEEE80211_CHAN_2GHZ;
 	if (txrate && txrate->flags & IEEE80211_RATE_ERP_G)
 		flags |= IEEE80211_CHAN_OFDM;
@@ -1387,8 +1387,7 @@ static void mac80211_hwsim_monitor_rx(struct ieee80211_hw *hw,
 }
 
 
-static void mac80211_hwsim_monitor_ack(struct ieee80211_channel *chan,
-				       const u8 *addr)
+static void mac80211_hwsim_monitor_ack(u32 freq, const u8 *addr)
 {
 	struct sk_buff *skb;
 	struct hwsim_radiotap_ack_hdr *hdr;
@@ -1410,7 +1409,7 @@ static void mac80211_hwsim_monitor_ack(struct ieee80211_channel *chan,
 					  (1 << IEEE80211_RADIOTAP_CHANNEL));
 	hdr->rt_flags = 0;
 	hdr->pad = 0;
-	hdr->rt_channel = cpu_to_le16(chan->center_freq);
+	hdr->rt_channel = cpu_to_le16(freq);
 	flags = IEEE80211_CHAN_2GHZ;
 	hdr->rt_chbitmask = cpu_to_le16(flags);
 
@@ -1735,6 +1734,9 @@ static void mac80211_hwsim_tx_frame_nl(struct ieee80211_hw *hw,
 	if (nla_put_u64_64bit(skb, HWSIM_ATTR_COOKIE, cookie, HWSIM_ATTR_PAD))
 		goto nla_put_failure;
 
+	/* track the frequency */
+	info->rate_driver_data[1] = (void *)(uintptr_t)channel->center_freq;
+
 	genlmsg_end(skb, msg_head);
 
 	if (hwsim_virtio_enabled) {
@@ -1912,7 +1914,7 @@ static bool mac80211_hwsim_tx_frame_no_nl(struct ieee80211_hw *hw,
 
 	mac80211_hwsim_write_tsf(data, skb, sim_tsf);
 
-	mac80211_hwsim_monitor_rx(hw, skb, chan);
+	mac80211_hwsim_monitor_rx(hw, skb, chan->center_freq);
 
 	memset(&rx_status, 0, sizeof(rx_status));
 	rx_status.flag |= RX_FLAG_MACTIME_START;
@@ -2276,7 +2278,7 @@ static void mac80211_hwsim_tx(struct ieee80211_hw *hw,
 	ack = mac80211_hwsim_tx_frame_no_nl(hw, skb, channel);
 
 	if (ack && skb->len >= 16)
-		mac80211_hwsim_monitor_ack(channel, hdr->addr2);
+		mac80211_hwsim_monitor_ack(channel->center_freq, hdr->addr2);
 
 	ieee80211_tx_info_clear_status(txi);
 
@@ -6392,6 +6394,7 @@ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
 	int i;
 	unsigned long flags;
 	bool found = false;
+	u32 freq;
 
 	if (!info->attrs[HWSIM_ATTR_ADDR_TRANSMITTER] ||
 	    !info->attrs[HWSIM_ATTR_FLAGS] ||
@@ -6437,7 +6440,9 @@ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
 	if (!found)
 		goto out;
 
-	mac80211_hwsim_monitor_rx(data2->hw, skb, data2->channel);
+	txi = IEEE80211_SKB_CB(skb);
+	freq = (uintptr_t)txi->rate_driver_data[1];
+	mac80211_hwsim_monitor_rx(data2->hw, skb, freq);
 
 	/* Tx info received because the frame was broadcasted on user space,
 	 so we get all the necessary info: tx attempts and skb control buff */
@@ -6446,8 +6451,6 @@ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
 		       info->attrs[HWSIM_ATTR_TX_INFO]);
 
 	/* now send back TX status */
-	txi = IEEE80211_SKB_CB(skb);
-
 	ieee80211_tx_info_clear_status(txi);
 
 	for (i = 0; i < IEEE80211_TX_MAX_RATES; i++) {
@@ -6467,8 +6470,7 @@ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
 	if (!(hwsim_flags & HWSIM_TX_CTL_NO_ACK) &&
 	   (hwsim_flags & HWSIM_TX_STAT_ACK)) {
 		if (skb->len >= 16)
-			mac80211_hwsim_monitor_ack(data2->channel,
-						   hdr->addr2);
+			mac80211_hwsim_monitor_ack(freq, hdr->addr2);
 		txi->flags |= IEEE80211_TX_STAT_ACK;
 	}
 
