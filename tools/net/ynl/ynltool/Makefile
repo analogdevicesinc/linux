@@ -23,7 +23,7 @@ OBJS := $(patsubst %.c,$(OUTPUT)%.o,$(SRCS))
 
 YNLTOOL := $(OUTPUT)ynltool
 
-include $(wildcard *.d)
+include $(wildcard $(OUTPUT)*.d)
 
 all: $(YNLTOOL)
 
@@ -31,7 +31,7 @@ $(YNLTOOL): ../libynl.a $(OBJS)
 	$(Q)echo -e "\tLINK $@"
 	$(Q)$(CC) $(CFLAGS) -o $@ $(OBJS) ../libynl.a -lm
 
-%.o: %.c ../libynl.a
+$(OUTPUT)%.o: %.c ../libynl.a
 	$(Q)echo -e "\tCC $@"
 	$(Q)$(COMPILE.c) -MMD -c -o $@ $<
 
