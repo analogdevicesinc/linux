@@ -147,7 +147,7 @@
 	flash@1 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "issi,is25lp512", "jedec,spi-nor";
+		compatible = "jedec,spi-nor";
 		spi-max-frequency = <5000000>;
 		reg = <1>;
 		spi-cpol;
@@ -188,7 +188,7 @@
 	flash@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "issi,is25lx256", "jedec,spi-nor";
+		compatible = "jedec,spi-nor";
 		reg = <0>;
 
 		spi-tx-bus-width = <8>;
