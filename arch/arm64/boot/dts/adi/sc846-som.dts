@@ -70,7 +70,7 @@
 				<0x20000000 0x200000>;
 		core-id = <1>;
 		core-irq = <321>; /* SOFT1 */
-		firmware-name = "adi_adsp_core1_fw.ldr";
+		firmware-name = "adi/rpmsg_echo_sharc_core1.ldr";
 		interrupts = <GIC_SPI 352 IRQ_TYPE_EDGE_RISING>; /* TRU0_RCV3 */
 		adi,rcu = <&rcu>;
 		adi,l1-da = <0x240000 0x3a0000>;
