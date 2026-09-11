@@ -145,6 +145,10 @@
 #define AD4080_MAX_SAMP_FREQ					40000000
 #define AD4080_MIN_SAMP_FREQ					1250000
 
+/* debugfs direct_reg_access channel windowing: 0x0RR = ch0, 0x1RR = ch1 */
+#define AD4080_DEBUGFS_REG_CH_MSK				GENMASK(15, 8)
+#define AD4080_DEBUGFS_REG_OFFSET_MSK				GENMASK(7, 0)
+
 enum ad4080_filter_type {
 	FILTER_NONE,
 	SINC_1,
@@ -210,11 +214,16 @@ static int ad4080_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 			     unsigned int writeval, unsigned int *readval)
 {
 	struct ad4080_state *st = iio_priv(indio_dev);
+	unsigned int ch = FIELD_GET(AD4080_DEBUGFS_REG_CH_MSK, reg);
+	unsigned int offset = FIELD_GET(AD4080_DEBUGFS_REG_OFFSET_MSK, reg);
+
+	if (ch >= st->info->num_channels)
+		return -EINVAL;
 
 	if (readval)
-		return regmap_read(st->regmap[0], reg, readval);
+		return regmap_read(st->regmap[ch], offset, readval);
 
-	return regmap_write(st->regmap[0], reg, writeval);
+	return regmap_write(st->regmap[ch], offset, writeval);
 }
 
 static int ad4080_get_scale(struct ad4080_state *st, int *val, int *val2)

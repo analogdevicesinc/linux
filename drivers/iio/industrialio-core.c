@@ -341,7 +341,8 @@ s64 iio_get_time_ns(const struct iio_dev *indio_dev)
 	case CLOCK_TAI:
 		return ktime_get_clocktai_ns();
 	default:
-		BUG();
+		WARN_ON_ONCE(1);
+		return 0;
 	}
 }
 EXPORT_SYMBOL(iio_get_time_ns);
@@ -1518,7 +1519,8 @@ static ssize_t current_timestamp_clock_show(struct device *dev,
 	case CLOCK_TAI:
 		break;
 	default:
-		BUG();
+		WARN_ON_ONCE(1);
+		return -EINVAL;
 	}
 
 	return sysfs_emit(buf, "%s\n", clock_names[clk]);
