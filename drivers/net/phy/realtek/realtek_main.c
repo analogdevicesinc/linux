@@ -548,8 +548,12 @@ static int rtl8261x_fw_execute_entry(struct phy_device *phydev,
 
 	switch (entry->type) {
 	case OP_WRITE:
-		ret = phy_modify_mmd(phydev, dev, addr,
-				     GENMASK(msb, lsb), (value << lsb) & GENMASK(msb, lsb));
+		if (msb != 15 || lsb != 0)
+			ret = phy_modify_mmd(phydev, dev, addr, GENMASK(msb, lsb),
+					     (value << lsb) & GENMASK(msb, lsb));
+		else
+			ret = phy_write_mmd(phydev, dev, addr, value);
+
 		if (ret)
 			return ret;
 		break;
