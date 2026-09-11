@@ -558,6 +558,7 @@ static void kill_rules(struct audit_context *context, struct audit_tree *tree)
 			rule->tree = NULL;
 			list_del_rcu(&entry->list);
 			list_del(&entry->rule.list);
+			audit_rule_unaccount(rule);
 			call_rcu(&entry->rcu, audit_free_rule_rcu);
 		}
 	}
