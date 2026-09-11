@@ -464,6 +464,13 @@ static int dw_i2s_dai_probe(struct snd_soc_dai *dai)
 	return 0;
 }
 
+static const u64 dw_i2s_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B;
+
 static const struct snd_soc_dai_ops dw_i2s_dai_ops = {
 	.probe		= dw_i2s_dai_probe,
 	.startup	= dw_i2s_startup,
@@ -472,6 +479,8 @@ static const struct snd_soc_dai_ops dw_i2s_dai_ops = {
 	.trigger	= dw_i2s_trigger,
 	.set_fmt	= dw_i2s_set_fmt,
 	.set_tdm_slot	= dw_i2s_set_tdm_slot,
+	.auto_selectable_formats	= &dw_i2s_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 static int dw_i2s_runtime_suspend(struct device *dev)
