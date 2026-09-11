@@ -573,9 +573,9 @@ void ata_scsi_error(struct Scsi_Host *host)
 	int nr_timedout;
 	LIST_HEAD(eh_work_q);
 
-	spin_lock_irqsave(host->host_lock, flags);
+	spin_lock_irqsave(&host->host_lock, flags);
 	list_splice_init(&host->eh_cmd_q, &eh_work_q);
-	spin_unlock_irqrestore(host->host_lock, flags);
+	spin_unlock_irqrestore(&host->host_lock, flags);
 
 	/*
 	 * First check what errors we got with ata_scsi_cmd_error_handler().

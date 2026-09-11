@@ -388,10 +388,10 @@ static void scsi_dec_host_busy(struct Scsi_Host *shost, struct scsi_cmnd *cmd)
 
 		unsigned int busy = scsi_host_busy(shost);
 
-		spin_lock_irqsave(shost->host_lock, flags);
+		spin_lock_irqsave(&shost->host_lock, flags);
 		if (shost->host_failed || shost->host_eh_scheduled)
 			scsi_eh_wakeup(shost, busy);
-		spin_unlock_irqrestore(shost->host_lock, flags);
+		spin_unlock_irqrestore(&shost->host_lock, flags);
 	}
 	rcu_read_unlock();
 }
@@ -436,9 +436,9 @@ static void scsi_single_lun_run(struct scsi_device *current_sdev)
 	struct scsi_target *starget = scsi_target(current_sdev);
 	unsigned long flags;
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	starget->starget_sdev_user = NULL;
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 
 	/*
 	 * Call blk_run_queue for all LUNs on the target, starting with
@@ -449,11 +449,11 @@ static void scsi_single_lun_run(struct scsi_device *current_sdev)
 	blk_mq_run_hw_queues(current_sdev->request_queue,
 			     shost->queuecommand_may_block);
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	if (!starget->starget_sdev_user)
 		__starget_for_each_device(starget, current_sdev,
 					  scsi_kick_sdev_queue);
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 }
 
 static inline bool scsi_device_is_busy(struct scsi_device *sdev)
@@ -491,7 +491,7 @@ static void scsi_starved_list_run(struct Scsi_Host *shost)
 	struct scsi_device *sdev;
 	unsigned long flags;
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	list_splice_init(&shost->starved_list, &starved_list);
 
 	while (!list_empty(&starved_list)) {
@@ -532,16 +532,16 @@ static void scsi_starved_list_run(struct Scsi_Host *shost)
 		slq = sdev->request_queue;
 		if (!blk_get_queue(slq))
 			continue;
-		spin_unlock_irqrestore(shost->host_lock, flags);
+		spin_unlock_irqrestore(&shost->host_lock, flags);
 
 		blk_mq_run_hw_queues(slq, false);
 		blk_put_queue(slq);
 
-		spin_lock_irqsave(shost->host_lock, flags);
+		spin_lock_irqsave(&shost->host_lock, flags);
 	}
 	/* put any unprocessed entries back */
 	list_splice(&starved_list, &shost->starved_list);
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 }
 
 /**
@@ -578,7 +578,7 @@ void scsi_run_host_queues(struct Scsi_Host *shost)
 	struct scsi_device *sdev, *prev = NULL;
 	unsigned long flags;
 
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	__shost_for_each_device(sdev, shost) {
 		/*
 		 * Only skip devices so deep into removal they will never need
@@ -589,7 +589,7 @@ void scsi_run_host_queues(struct Scsi_Host *shost)
 		if (sdev->sdev_state == SDEV_DEL ||
 		    !get_device(&sdev->sdev_gendev))
 			continue;
-		spin_unlock_irqrestore(shost->host_lock, flags);
+		spin_unlock_irqrestore(&shost->host_lock, flags);
 
 		if (prev)
 			put_device(&prev->sdev_gendev);
@@ -597,9 +597,9 @@ void scsi_run_host_queues(struct Scsi_Host *shost)
 
 		prev = sdev;
 
-		spin_lock_irqsave(shost->host_lock, flags);
+		spin_lock_irqsave(&shost->host_lock, flags);
 	}
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 	if (prev)
 		put_device(&prev->sdev_gendev);
 }
@@ -1433,14 +1433,14 @@ static inline int scsi_target_queue_ready(struct Scsi_Host *shost,
 	unsigned int busy;
 
 	if (starget->single_lun) {
-		spin_lock_irq(shost->host_lock);
+		spin_lock_irq(&shost->host_lock);
 		if (starget->starget_sdev_user &&
 		    starget->starget_sdev_user != sdev) {
-			spin_unlock_irq(shost->host_lock);
+			spin_unlock_irq(&shost->host_lock);
 			return 0;
 		}
 		starget->starget_sdev_user = sdev;
-		spin_unlock_irq(shost->host_lock);
+		spin_unlock_irq(&shost->host_lock);
 	}
 
 	if (starget->can_queue <= 0)
@@ -1467,9 +1467,9 @@ static inline int scsi_target_queue_ready(struct Scsi_Host *shost,
 	return 1;
 
 starved:
-	spin_lock_irq(shost->host_lock);
+	spin_lock_irq(&shost->host_lock);
 	list_move_tail(&sdev->starved_entry, &shost->starved_list);
-	spin_unlock_irq(shost->host_lock);
+	spin_unlock_irq(&shost->host_lock);
 out_dec:
 	if (starget->can_queue > 0)
 		atomic_dec(&starget->target_busy);
@@ -1506,10 +1506,10 @@ static inline int scsi_host_queue_ready(struct request_queue *q,
 
 	/* We're OK to process the command, so we can't be starved */
 	if (!list_empty(&sdev->starved_entry)) {
-		spin_lock_irq(shost->host_lock);
+		spin_lock_irq(&shost->host_lock);
 		if (!list_empty(&sdev->starved_entry))
 			list_del_init(&sdev->starved_entry);
-		spin_unlock_irq(shost->host_lock);
+		spin_unlock_irq(&shost->host_lock);
 	}
 
 	__set_bit(SCMD_STATE_INFLIGHT, &cmd->state);
@@ -1517,10 +1517,10 @@ static inline int scsi_host_queue_ready(struct request_queue *q,
 	return 1;
 
 starved:
-	spin_lock_irq(shost->host_lock);
+	spin_lock_irq(&shost->host_lock);
 	if (list_empty(&sdev->starved_entry))
 		list_add_tail(&sdev->starved_entry, &shost->starved_list);
-	spin_unlock_irq(shost->host_lock);
+	spin_unlock_irq(&shost->host_lock);
 out_dec:
 	scsi_dec_host_busy(shost, cmd);
 	return 0;

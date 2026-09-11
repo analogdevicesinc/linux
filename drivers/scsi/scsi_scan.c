@@ -397,11 +397,11 @@ static void scsi_target_destroy(struct scsi_target *starget)
 	BUG_ON(starget->state == STARGET_DEL);
 	starget->state = STARGET_DEL;
 	transport_destroy_device(dev);
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	if (shost->hostt->target_destroy)
 		shost->hostt->target_destroy(starget);
 	list_del_init(&starget->siblings);
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 	put_device(dev);
 }
 
@@ -524,14 +524,14 @@ static struct scsi_target *scsi_alloc_target(struct device *parent,
 	starget->scsi_level = SCSI_2;
 	starget->max_target_blocked = SCSI_DEFAULT_TARGET_BLOCKED;
  retry:
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 
 	found_target = __scsi_find_target(parent, channel, id);
 	if (found_target)
 		goto found;
 
 	list_add_tail(&starget->siblings, &shost->__targets);
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 	/* allocate and add */
 	transport_setup_device(dev);
 	if (shost->hostt->target_alloc) {
@@ -558,7 +558,7 @@ static struct scsi_target *scsi_alloc_target(struct device *parent,
 	 */
 	ref_got = kref_get_unless_zero(&found_target->reap_ref);
 
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 	if (ref_got) {
 		put_device(dev);
 		return found_target;
@@ -2106,16 +2106,16 @@ void scsi_forget_host(struct Scsi_Host *shost)
 	unsigned long flags;
 
  restart:
-	spin_lock_irqsave(shost->host_lock, flags);
+	spin_lock_irqsave(&shost->host_lock, flags);
 	list_for_each_entry(sdev, &shost->__devices, siblings) {
 		if (scsi_device_is_pseudo_dev(sdev) ||
 		    sdev->sdev_state == SDEV_DEL)
 			continue;
-		spin_unlock_irqrestore(shost->host_lock, flags);
+		spin_unlock_irqrestore(&shost->host_lock, flags);
 		__scsi_remove_device(sdev);
 		goto restart;
 	}
-	spin_unlock_irqrestore(shost->host_lock, flags);
+	spin_unlock_irqrestore(&shost->host_lock, flags);
 
 	/*
 	 * Remove the pseudo device last since it may be needed during removal
