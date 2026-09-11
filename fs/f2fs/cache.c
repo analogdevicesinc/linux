@@ -78,7 +78,7 @@ bool f2fs_mark_cache_dirty(struct f2fs_cached_block *entry)
 				IS_META_CACHE(cache) ? META : NODE);
 		f2fs_cache_update_tag(entry, F2FS_CACHE_TAG_NONE,
 						F2FS_CACHE_TAG_DIRTY);
-		inc_page_count(cache->sbi, type);
+		inc_cache_count(cache->sbi, type);
 		return true;
 	}
 
@@ -99,7 +99,7 @@ void f2fs_drop_cache_dirty(struct f2fs_cached_block *entry)
 
 	f2fs_cache_update_tag(entry, F2FS_CACHE_TAG_DIRTY,
 					F2FS_CACHE_TAG_NONE);
-	dec_page_count(cache->sbi, type);
+	dec_cache_count(cache->sbi, type);
 }
 
 void f2fs_start_cache_writeback(struct f2fs_cached_block *entry)

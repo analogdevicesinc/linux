@@ -143,7 +143,7 @@ static void f2fs_finish_read_bio(struct bio *bio, bool in_task)
 		}
 
 		while (nr_pages--)
-			dec_page_count(F2FS_F_SB(folio), F2FS_RD_DATA);
+			dec_cache_count(F2FS_F_SB(folio), F2FS_RD_DATA);
 
 		if (finished)
 			folio_end_read(folio, bio->bi_status == BLK_STS_OK);
@@ -327,13 +327,13 @@ static void f2fs_write_end_bio(struct bio *bio)
 			}
 		}
 
-		dec_page_count(sbi, type);
+		dec_cache_count(sbi, type);
 
 		/*
 		 * we should access sbi before folio_end_writeback() to
 		 * avoid racing w/ kill_f2fs_super()
 		 */
-		if (type == F2FS_WB_CP_DATA && !get_pages(sbi, type) &&
+		if (type == F2FS_WB_CP_DATA && !get_nr_caches(sbi, type) &&
 				wq_has_sleeper(&sbi->cp_wait))
 			wake_up(&sbi->cp_wait);
 
@@ -396,7 +396,7 @@ static void f2fs_cache_read_end_io(struct bio *bio)
 		if (bio->bi_status == BLK_STS_OK)
 			f2fs_cache_set_uptodate(entry);
 
-		dec_page_count(sbi, io_type);
+		dec_cache_count(sbi, io_type);
 
 		f2fs_unlock_cache(entry);
 		entry = next;
@@ -431,9 +431,9 @@ static void f2fs_cache_write_end_io(struct bio *bio)
 		if (f2fs_in_warm_node_list(sbi, entry))
 			f2fs_del_fsync_node_entry(sbi, entry);
 
-		dec_page_count(sbi, F2FS_WB_CP_DATA);
+		dec_cache_count(sbi, F2FS_WB_CP_DATA);
 
-		if (!get_pages(sbi, F2FS_WB_CP_DATA) &&
+		if (!get_nr_caches(sbi, F2FS_WB_CP_DATA) &&
 				wq_has_sleeper(&sbi->cp_wait))
 			wake_up(&sbi->cp_wait);
 
@@ -874,7 +874,7 @@ int f2fs_submit_page_bio(struct f2fs_io_info *fio)
 	if (fio->io_wbc && !is_read_io(fio->op))
 		wbc_account_cgroup_owner(fio->io_wbc, fio_folio, PAGE_SIZE);
 
-	inc_page_count(fio->sbi, is_read_io(fio->op) ?
+	inc_cache_count(fio->sbi, is_read_io(fio->op) ?
 			F2FS_RD_DATA : WB_DATA_TYPE(fio->folio, false));
 
 	if (is_read_io(bio_op(bio)))
@@ -1107,7 +1107,7 @@ alloc_new:
 	if (fio->io_wbc)
 		wbc_account_cgroup_owner(fio->io_wbc, folio, folio_size(folio));
 
-	inc_page_count(fio->sbi, WB_DATA_TYPE(folio, false));
+	inc_cache_count(fio->sbi, WB_DATA_TYPE(folio, false));
 
 	*fio->last_block = fio->new_blkaddr;
 	*fio->bio = bio;
@@ -1205,7 +1205,7 @@ next:
 	fio->submitted = 1;
 
 	type = WB_DATA_TYPE(bio_folio, fio->compressed_page);
-	inc_page_count(sbi, type);
+	inc_cache_count(sbi, type);
 
 	if (io->bio &&
 	    (!io_is_mergeable(sbi, io->bio, io, fio, io->last_block_in_bio,
@@ -1273,7 +1273,7 @@ int f2fs_submit_cache_read(struct f2fs_io_info *fio)
 
 	bio_add_virt_nofail(bio, cache_address(entry), sbi->blocksize);
 	f2fs_bio_add_cache(fio, bio);
-	inc_page_count(sbi, io_type);
+	inc_cache_count(sbi, io_type);
 
 	f2fs_submit_read_bio(sbi, bio, fio->type);
 	return 0;
@@ -1309,7 +1309,7 @@ next:
 	verify_fio_blkaddr(fio);
 
 	fio->submitted = 1;
-	inc_page_count(sbi, F2FS_WB_CP_DATA);
+	inc_cache_count(sbi, F2FS_WB_CP_DATA);
 
 	if (io->bio &&
 	    (!io_is_mergeable(sbi, io->bio, io, fio, io->last_block_in_bio,
@@ -1409,7 +1409,7 @@ static void f2fs_submit_page_read(struct inode *inode, struct fsverity_info *vi,
 	if (!bio_add_folio(bio, folio, PAGE_SIZE, 0))
 		f2fs_bug_on(sbi, 1);
 
-	inc_page_count(sbi, F2FS_RD_DATA);
+	inc_cache_count(sbi, F2FS_RD_DATA);
 	f2fs_update_iostat(sbi, NULL, FS_DATA_READ_IO, F2FS_BLKSIZE(sbi));
 	f2fs_submit_read_bio(sbi, bio, DATA);
 }
@@ -2525,7 +2525,7 @@ submit_and_realloc:
 	if (!bio_add_folio(bio, folio, blocksize, 0))
 		goto submit_and_realloc;
 
-	inc_page_count(F2FS_I_SB(inode), F2FS_RD_DATA);
+	inc_cache_count(F2FS_I_SB(inode), F2FS_RD_DATA);
 	f2fs_update_iostat(F2FS_I_SB(inode), NULL, FS_DATA_READ_IO,
 					F2FS_BLKSIZE(F2FS_I_SB(inode)));
 	*last_block_in_bio = block_nr;
@@ -2677,7 +2677,7 @@ submit_and_realloc:
 		ctx->enabled_steps |= STEP_DECOMPRESS;
 		refcount_inc(&dic->refcnt);
 
-		inc_page_count(sbi, F2FS_RD_DATA);
+		inc_cache_count(sbi, F2FS_RD_DATA);
 		f2fs_update_iostat(sbi, inode, FS_DATA_READ_IO,
 				   F2FS_BLKSIZE(sbi));
 		*last_block_in_bio = blkaddr;
@@ -2858,7 +2858,7 @@ submit_and_realloc:
 			goto submit_and_realloc;
 
 		folio_in_bio = true;
-		inc_page_count(F2FS_I_SB(inode), F2FS_RD_DATA);
+		inc_cache_count(F2FS_I_SB(inode), F2FS_RD_DATA);
 		f2fs_update_iostat(F2FS_I_SB(inode), NULL, FS_DATA_READ_IO,
 				F2FS_BLKSIZE(F2FS_I_SB(inode)));
 		last_block_in_bio = block_nr;
@@ -3774,7 +3774,7 @@ static inline void update_skipped_write(struct f2fs_sb_info *sbi,
 
 	if (is_sbi_flag_set(sbi, SBI_ENABLE_CHECKPOINT) && skipped &&
 		wbc->sync_mode == WB_SYNC_ALL)
-		atomic_add(skipped, &sbi->nr_pages[F2FS_SKIPPED_WRITE]);
+		atomic_add(skipped, &sbi->nr_caches[F2FS_SKIPPED_WRITE]);
 }
 
 static int __f2fs_write_data_pages(struct address_space *mapping,

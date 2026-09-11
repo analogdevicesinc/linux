@@ -1473,7 +1473,7 @@ static int move_data_block(struct inode *inode, block_t bidx,
 
 	f2fs_mark_cache_dirty(tentry);
 	if (f2fs_cache_test_and_clear_dirty(tentry))
-		dec_page_count(fio.sbi, F2FS_DIRTY_META);
+		dec_cache_count(fio.sbi, F2FS_DIRTY_META);
 
 	f2fs_start_cache_writeback(tentry);
 
@@ -1979,9 +1979,9 @@ int f2fs_gc(struct f2fs_sb_info *sbi, struct f2fs_gc_control *gc_control)
 
 	trace_f2fs_gc_begin(sbi->sb, gc_type, gc_control->no_bg_gc,
 				gc_control->nr_free_secs,
-				get_pages(sbi, F2FS_DIRTY_NODES),
-				get_pages(sbi, F2FS_DIRTY_DENTS),
-				get_pages(sbi, F2FS_DIRTY_IMETA),
+				get_nr_caches(sbi, F2FS_DIRTY_NODES),
+				get_nr_caches(sbi, F2FS_DIRTY_DENTS),
+				get_nr_caches(sbi, F2FS_DIRTY_IMETA),
 				free_sections(sbi),
 				free_segments(sbi),
 				reserved_segments(sbi),
@@ -2105,9 +2105,9 @@ stop:
 		f2fs_unpin_all_sections(sbi, true);
 
 	trace_f2fs_gc_end(sbi->sb, ret, total_freed, total_sec_freed,
-				get_pages(sbi, F2FS_DIRTY_NODES),
-				get_pages(sbi, F2FS_DIRTY_DENTS),
-				get_pages(sbi, F2FS_DIRTY_IMETA),
+				get_nr_caches(sbi, F2FS_DIRTY_NODES),
+				get_nr_caches(sbi, F2FS_DIRTY_DENTS),
+				get_nr_caches(sbi, F2FS_DIRTY_IMETA),
 				free_sections(sbi),
 				free_segments(sbi),
 				reserved_segments(sbi),

@@ -479,11 +479,11 @@ void f2fs_balance_fs(struct f2fs_sb_info *sbi, bool need)
 static inline bool excess_dirty_threshold(struct f2fs_sb_info *sbi)
 {
 	int factor = f2fs_rwsem_is_locked(&sbi->cp_rwsem) ? 3 : 2;
-	unsigned int dents = get_pages(sbi, F2FS_DIRTY_DENTS);
-	unsigned int qdata = get_pages(sbi, F2FS_DIRTY_QDATA);
-	unsigned int nodes = get_pages(sbi, F2FS_DIRTY_NODES);
-	unsigned int meta = get_pages(sbi, F2FS_DIRTY_META);
-	unsigned int imeta = get_pages(sbi, F2FS_DIRTY_IMETA);
+	unsigned int dents = get_nr_caches(sbi, F2FS_DIRTY_DENTS);
+	unsigned int qdata = get_nr_caches(sbi, F2FS_DIRTY_QDATA);
+	unsigned int nodes = get_nr_caches(sbi, F2FS_DIRTY_NODES);
+	unsigned int meta = get_nr_caches(sbi, F2FS_DIRTY_META);
+	unsigned int imeta = get_nr_caches(sbi, F2FS_DIRTY_IMETA);
 	unsigned int threshold =
 		SEGS_TO_BLKS(sbi, (factor * DEFAULT_DIRTY_THRESHOLD));
 	unsigned int global_threshold = threshold * 3 / 2;

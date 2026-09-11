@@ -156,12 +156,12 @@ static void update_general_status(struct f2fs_sb_info *sbi)
 	si->allocated_data_blocks = atomic64_read(&sbi->allocated_data_blocks);
 
 	/* validation check of the segment numbers */
-	si->ndirty_node = get_pages(sbi, F2FS_DIRTY_NODES);
-	si->ndirty_dent = get_pages(sbi, F2FS_DIRTY_DENTS);
-	si->ndirty_meta = get_pages(sbi, F2FS_DIRTY_META);
-	si->ndirty_data = get_pages(sbi, F2FS_DIRTY_DATA);
-	si->ndirty_qdata = get_pages(sbi, F2FS_DIRTY_QDATA);
-	si->ndirty_imeta = get_pages(sbi, F2FS_DIRTY_IMETA);
+	si->ndirty_node = get_nr_caches(sbi, F2FS_DIRTY_NODES);
+	si->ndirty_dent = get_nr_caches(sbi, F2FS_DIRTY_DENTS);
+	si->ndirty_meta = get_nr_caches(sbi, F2FS_DIRTY_META);
+	si->ndirty_data = get_nr_caches(sbi, F2FS_DIRTY_DATA);
+	si->ndirty_qdata = get_nr_caches(sbi, F2FS_DIRTY_QDATA);
+	si->ndirty_imeta = get_nr_caches(sbi, F2FS_DIRTY_IMETA);
 	si->ndirty_dirs = sbi->ndirty_inode[DIR_INODE];
 	si->ndirty_files = sbi->ndirty_inode[FILE_INODE];
 	si->ndonate_files = sbi->donate_files;
@@ -169,13 +169,13 @@ static void update_general_status(struct f2fs_sb_info *sbi)
 	si->ndirty_all = sbi->ndirty_inode[DIRTY_META];
 	si->aw_cnt = atomic_read(&sbi->atomic_files);
 	si->max_aw_cnt = atomic_read(&sbi->max_aw_cnt);
-	si->nr_dio_read = get_pages(sbi, F2FS_DIO_READ);
-	si->nr_dio_write = get_pages(sbi, F2FS_DIO_WRITE);
-	si->nr_wb_cp_data = get_pages(sbi, F2FS_WB_CP_DATA);
-	si->nr_wb_data = get_pages(sbi, F2FS_WB_DATA);
-	si->nr_rd_data = get_pages(sbi, F2FS_RD_DATA);
-	si->nr_rd_node = get_pages(sbi, F2FS_RD_NODE);
-	si->nr_rd_meta = get_pages(sbi, F2FS_RD_META);
+	si->nr_dio_read = get_nr_caches(sbi, F2FS_DIO_READ);
+	si->nr_dio_write = get_nr_caches(sbi, F2FS_DIO_WRITE);
+	si->nr_wb_cp_data = get_nr_caches(sbi, F2FS_WB_CP_DATA);
+	si->nr_wb_data = get_nr_caches(sbi, F2FS_WB_DATA);
+	si->nr_rd_data = get_nr_caches(sbi, F2FS_RD_DATA);
+	si->nr_rd_node = get_nr_caches(sbi, F2FS_RD_NODE);
+	si->nr_rd_meta = get_nr_caches(sbi, F2FS_RD_META);
 	if (SM_I(sbi)->fcc_info) {
 		si->nr_flushed =
 			atomic_read(&SM_I(sbi)->fcc_info->issued_flush);

@@ -5177,7 +5177,7 @@ static int f2fs_dio_read_end_io(struct kiocb *iocb, ssize_t size, int error,
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(file_inode(iocb->ki_filp));
 
-	dec_page_count(sbi, F2FS_DIO_READ);
+	dec_cache_count(sbi, F2FS_DIO_READ);
 	if (error)
 		return error;
 	f2fs_update_iostat(sbi, NULL, APP_DIRECT_READ_IO, size);
@@ -5235,13 +5235,13 @@ static ssize_t f2fs_dio_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	 * the higher-level function iomap_dio_rw() in order to ensure that the
 	 * F2FS_DIO_READ counter will be decremented correctly in all cases.
 	 */
-	inc_page_count(sbi, F2FS_DIO_READ);
+	inc_cache_count(sbi, F2FS_DIO_READ);
 	dio = __iomap_dio_rw(iocb, to, &f2fs_iomap_ops,
 			     &f2fs_iomap_dio_read_ops, 0, NULL, 0);
 	if (IS_ERR_OR_NULL(dio)) {
 		ret = PTR_ERR_OR_ZERO(dio);
 		if (ret != -EIOCBQUEUED)
-			dec_page_count(sbi, F2FS_DIO_READ);
+			dec_cache_count(sbi, F2FS_DIO_READ);
 	} else {
 		ret = iomap_dio_complete(dio);
 	}
@@ -5294,7 +5294,7 @@ static ssize_t f2fs_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 
 	/* In LFS mode, if there is inflight dio, wait for its completion */
 	if (f2fs_lfs_mode(F2FS_I_SB(inode)) &&
-	    get_pages(F2FS_I_SB(inode), F2FS_DIO_WRITE) &&
+	    get_nr_caches(F2FS_I_SB(inode), F2FS_DIO_WRITE) &&
 		(!f2fs_is_pinned_file(inode) || !dio))
 		inode_dio_wait(inode);
 
@@ -5460,7 +5460,7 @@ static int f2fs_dio_write_end_io(struct kiocb *iocb, ssize_t size, int error,
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(file_inode(iocb->ki_filp));
 
-	dec_page_count(sbi, F2FS_DIO_WRITE);
+	dec_cache_count(sbi, F2FS_DIO_WRITE);
 	if (error)
 		return error;
 	f2fs_update_time(sbi, REQ_TIME);
@@ -5571,7 +5571,7 @@ static ssize_t f2fs_dio_write_iter(struct kiocb *iocb, struct iov_iter *from,
 	 * the higher-level function iomap_dio_rw() in order to ensure that the
 	 * F2FS_DIO_WRITE counter will be decremented correctly in all cases.
 	 */
-	inc_page_count(sbi, F2FS_DIO_WRITE);
+	inc_cache_count(sbi, F2FS_DIO_WRITE);
 	dio_flags = 0;
 	if (pos + count > inode->i_size)
 		dio_flags |= IOMAP_DIO_FORCE_WAIT;
@@ -5582,7 +5582,7 @@ static ssize_t f2fs_dio_write_iter(struct kiocb *iocb, struct iov_iter *from,
 		if (ret == -ENOTBLK)
 			ret = 0;
 		if (ret != -EIOCBQUEUED)
-			dec_page_count(sbi, F2FS_DIO_WRITE);
+			dec_cache_count(sbi, F2FS_DIO_WRITE);
 	} else {
 		ret = iomap_dio_complete(dio);
 	}

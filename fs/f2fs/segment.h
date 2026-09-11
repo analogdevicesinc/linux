@@ -656,15 +656,15 @@ static inline void get_additional_blocks_required(struct f2fs_sb_info *sbi,
  */
 static inline int __get_secs_required(struct f2fs_sb_info *sbi)
 {
-	unsigned int total_node_blocks = get_pages(sbi, F2FS_DIRTY_NODES) +
-					get_pages(sbi, F2FS_DIRTY_DENTS) +
-					get_pages(sbi, F2FS_DIRTY_IMETA);
-	unsigned int total_dent_blocks = get_pages(sbi, F2FS_DIRTY_DENTS);
+	unsigned int total_node_blocks = get_nr_caches(sbi, F2FS_DIRTY_NODES) +
+					get_nr_caches(sbi, F2FS_DIRTY_DENTS) +
+					get_nr_caches(sbi, F2FS_DIRTY_IMETA);
+	unsigned int total_dent_blocks = get_nr_caches(sbi, F2FS_DIRTY_DENTS);
 	unsigned int total_data_blocks = 0;
 	bool separate_dent = true;
 
 	if (f2fs_lfs_mode(sbi))
-		total_data_blocks = get_pages(sbi, F2FS_DIRTY_DATA);
+		total_data_blocks = get_nr_caches(sbi, F2FS_DIRTY_DATA);
 
 	/*
 	 * When active_logs != 4, dentry blocks and data blocks can be

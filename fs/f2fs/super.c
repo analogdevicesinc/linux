@@ -1930,7 +1930,7 @@ int f2fs_inode_dirtied(struct inode *inode, bool sync)
 	if (sync && list_empty(&F2FS_I(inode)->gdirty_list)) {
 		list_add_tail(&F2FS_I(inode)->gdirty_list,
 				&sbi->inode_list[DIRTY_META]);
-		inc_page_count(sbi, F2FS_DIRTY_IMETA);
+		inc_cache_count(sbi, F2FS_DIRTY_IMETA);
 	}
 	spin_unlock(&sbi->inode_lock[DIRTY_META]);
 
@@ -1953,7 +1953,7 @@ void f2fs_inode_synced(struct inode *inode)
 	}
 	if (!list_empty(&F2FS_I(inode)->gdirty_list)) {
 		list_del_init(&F2FS_I(inode)->gdirty_list);
-		dec_page_count(sbi, F2FS_DIRTY_IMETA);
+		dec_cache_count(sbi, F2FS_DIRTY_IMETA);
 	}
 	clear_inode_flag(inode, FI_DIRTY_INODE);
 	clear_inode_flag(inode, FI_AUTO_RECOVER);
@@ -2075,11 +2075,11 @@ static void f2fs_put_super(struct super_block *sb)
 
 	/* Should check the page counts after dropping all node/meta pages */
 	for (i = 0; i < NR_COUNT_TYPE; i++) {
-		if (!get_pages(sbi, i))
+		if (!get_nr_caches(sbi, i))
 			continue;
 		f2fs_err(sbi, "detect filesystem reference count leak during "
 			"umount, type: %d, count: %lld, err: %d, cp_err: %d",
-			i, get_pages(sbi, i), err, f2fs_cp_error(sbi));
+			i, get_nr_caches(sbi, i), err, f2fs_cp_error(sbi));
 		f2fs_bug_on(sbi, 1);
 	}
 
@@ -2693,9 +2693,9 @@ static int f2fs_disable_checkpoint(struct f2fs_sb_info *sbi)
 
 	f2fs_info(sbi, "%s: call sync_filesystem() to persist meta: %lld, node: %lld, data: %lld",
 			__func__,
-			get_pages(sbi, F2FS_DIRTY_META),
-			get_pages(sbi, F2FS_DIRTY_NODES),
-			get_pages(sbi, F2FS_DIRTY_DATA));
+			get_nr_caches(sbi, F2FS_DIRTY_META),
+			get_nr_caches(sbi, F2FS_DIRTY_NODES),
+			get_nr_caches(sbi, F2FS_DIRTY_DATA));
 
 	ret = sync_filesystem(sbi->sb);
 	if (ret || err) {
@@ -2712,9 +2712,9 @@ static int f2fs_disable_checkpoint(struct f2fs_sb_info *sbi)
 skip_gc:
 	f2fs_info(sbi, "%s: call f2fs_write_checkpoint(), meta: %lld, node: %lld, data: %lld",
 			__func__,
-			get_pages(sbi, F2FS_DIRTY_META),
-			get_pages(sbi, F2FS_DIRTY_NODES),
-			get_pages(sbi, F2FS_DIRTY_DATA));
+			get_nr_caches(sbi, F2FS_DIRTY_META),
+			get_nr_caches(sbi, F2FS_DIRTY_NODES),
+			get_nr_caches(sbi, F2FS_DIRTY_DATA));
 
 	f2fs_down_write_trace(&sbi->gc_lock, &lc);
 	cpc.reason = CP_PAUSE;
@@ -2746,9 +2746,9 @@ static int f2fs_enable_checkpoint(struct f2fs_sb_info *sbi)
 	long long skipped_write, dirty_data;
 
 	f2fs_info(sbi, "f2fs_enable_checkpoint() starts, meta: %lld, node: %lld, data: %lld",
-					get_pages(sbi, F2FS_DIRTY_META),
-					get_pages(sbi, F2FS_DIRTY_NODES),
-					get_pages(sbi, F2FS_DIRTY_DATA));
+					get_nr_caches(sbi, F2FS_DIRTY_META),
+					get_nr_caches(sbi, F2FS_DIRTY_NODES),
+					get_nr_caches(sbi, F2FS_DIRTY_DATA));
 
 	start = ktime_get();
 
@@ -2756,26 +2756,26 @@ static int f2fs_enable_checkpoint(struct f2fs_sb_info *sbi)
 
 	/* we should flush all the data to keep data consistency */
 	do {
-		skipped_write = get_pages(sbi, F2FS_SKIPPED_WRITE);
-		dirty_data = get_pages(sbi, F2FS_DIRTY_DATA);
+		skipped_write = get_nr_caches(sbi, F2FS_SKIPPED_WRITE);
+		dirty_data = get_nr_caches(sbi, F2FS_DIRTY_DATA);
 
 		sync_inodes_sb(sbi->sb);
 		f2fs_io_schedule_timeout(DEFAULT_SCHEDULE_TIMEOUT);
 
 		f2fs_info(sbi, "sync_inode_sb done, dirty_data: %lld, %lld, "
 				"skipped write: %lld, %lld, retry: %d",
-				get_pages(sbi, F2FS_DIRTY_DATA),
+				get_nr_caches(sbi, F2FS_DIRTY_DATA),
 				dirty_data,
-				get_pages(sbi, F2FS_SKIPPED_WRITE),
+				get_nr_caches(sbi, F2FS_SKIPPED_WRITE),
 				skipped_write, retry);
 
 		/*
 		 * sync_inodes_sb() has retry logic, so let's check dirty_data
 		 * in prior to skipped_write in case there is no dirty data.
 		 */
-		if (!get_pages(sbi, F2FS_DIRTY_DATA))
+		if (!get_nr_caches(sbi, F2FS_DIRTY_DATA))
 			break;
-		if (get_pages(sbi, F2FS_SKIPPED_WRITE) == skipped_write)
+		if (get_nr_caches(sbi, F2FS_SKIPPED_WRITE) == skipped_write)
 			break;
 	} while (retry--);
 
@@ -2783,14 +2783,14 @@ static int f2fs_enable_checkpoint(struct f2fs_sb_info *sbi)
 
 	writeback = ktime_get();
 
-	if (unlikely(get_pages(sbi, F2FS_DIRTY_DATA) ||
-			get_pages(sbi, F2FS_SKIPPED_WRITE)))
+	if (unlikely(get_nr_caches(sbi, F2FS_DIRTY_DATA) ||
+			get_nr_caches(sbi, F2FS_SKIPPED_WRITE)))
 		f2fs_warn(sbi, "checkpoint=enable unwritten data: %lld, skipped data: %lld, retry: %d",
-				get_pages(sbi, F2FS_DIRTY_DATA),
-				get_pages(sbi, F2FS_SKIPPED_WRITE), retry);
+				get_nr_caches(sbi, F2FS_DIRTY_DATA),
+				get_nr_caches(sbi, F2FS_SKIPPED_WRITE), retry);
 
-	if (get_pages(sbi, F2FS_SKIPPED_WRITE))
-		atomic_set(&sbi->nr_pages[F2FS_SKIPPED_WRITE], 0);
+	if (get_nr_caches(sbi, F2FS_SKIPPED_WRITE))
+		atomic_set(&sbi->nr_caches[F2FS_SKIPPED_WRITE], 0);
 
 	f2fs_down_write_trace(&sbi->gc_lock, &lc);
 	f2fs_dirty_to_prefree(sbi);
@@ -4465,7 +4465,7 @@ static void init_sb_info(struct f2fs_sb_info *sbi)
 	clear_sbi_flag(sbi, SBI_NEED_FSCK);
 
 	for (i = 0; i < NR_COUNT_TYPE; i++)
-		atomic_set(&sbi->nr_pages[i], 0);
+		atomic_set(&sbi->nr_caches[i], 0);
 
 	for (i = 0; i < META; i++)
 		atomic_set(&sbi->wb_sync_req[i], 0);
