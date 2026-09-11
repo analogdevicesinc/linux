@@ -1771,6 +1771,14 @@ static void put_pwq(struct pool_workqueue *pwq)
 	lockdep_assert_held(&pwq->pool->lock);
 	if (likely(--pwq->refcnt))
 		return;
+
+	/*
+	 * pwq_release_worker is only created in workqueue_init(). Getting
+	 * here before that means an early workqueue allocation failed, which
+	 * is fatal anyway.
+	 */
+	BUG_ON(!pwq_release_worker);
+
 	/*
 	 * @pwq can't be released under pool->lock, bounce to a dedicated
 	 * kthread_worker to avoid A-A deadlocks.
