@@ -122,9 +122,11 @@ struct dw_mci_dma_slave {
  * @irq_flags: The flags to be passed to request_irq.
  * @irq: The irq value to be passed to request_irq.
  * @sdio_irq: SDIO interrupt bit in interrupt registers.
- * @cmd11_timer: Timer for SD3.0 voltage switch over scheme.
- * @cto_timer: Timer for broken command transfer over scheme.
- * @dto_timer: Timer for broken data transfer over scheme.
+ * @wd_timer: Central watchdog guarding request legs against hardware going
+ *	silent; fires when an expected completion event fails to arrive in
+ *	time so that the state machine can synthesize an error.
+ * @wd_events: pending_events bits still awaited by the armed watch.
+ * @wd_states: host->state values for which the armed watch is valid.
  * @mmc: The mmc_host representing this dw_mci.
  * @flags: Random state bits associated with the host.
  * @ctype: Card type for this host.
@@ -235,9 +237,10 @@ struct dw_mci {
 
 	int			sdio_irq;
 
-	struct timer_list       cmd11_timer;
-	struct timer_list       cto_timer;
-	struct timer_list       dto_timer;
+	struct hrtimer		wd_timer;
+	unsigned long		wd_events;
+	unsigned long		wd_states;
+	u64			wd_deadline_ns;
 
 #ifdef CONFIG_FAULT_INJECTION
 	struct fault_attr	fail_data_crc;
