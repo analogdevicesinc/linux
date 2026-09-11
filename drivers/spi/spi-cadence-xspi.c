@@ -352,7 +352,7 @@ struct cdns_xspi_dev {
 	struct completion cmd_complete;
 	struct completion auto_cmd_complete;
 	struct completion sdma_complete;
-	bool sdma_error;
+	bool xfer_error;
 
 	void *in_buffer;
 	const void *out_buffer;
@@ -742,7 +742,7 @@ static int cdns_xspi_send_stig_command(struct cdns_xspi_dev *cdns_xspi,
 	       cdns_xspi->iobase + CDNS_XSPI_CTRL_CONFIG_REG);
 
 	cdns_xspi->set_interrupts_handler(cdns_xspi, true);
-	cdns_xspi->sdma_error = false;
+	cdns_xspi->xfer_error = false;
 
 	memset(cmd_regs, 0, sizeof(cmd_regs));
 	cmd_regs[1] = CDNS_XSPI_CMD_FLD_P1_INSTR_CMD_1(op, data_phase);
@@ -772,7 +772,7 @@ static int cdns_xspi_send_stig_command(struct cdns_xspi_dev *cdns_xspi,
 		cdns_xspi_trigger_command(cdns_xspi, cmd_regs);
 
 		wait_for_completion(&cdns_xspi->sdma_complete);
-		if (cdns_xspi->sdma_error) {
+		if (cdns_xspi->xfer_error) {
 			cdns_xspi->set_interrupts_handler(cdns_xspi, false);
 			return -EIO;
 		}
@@ -930,7 +930,7 @@ static irqreturn_t cdns_xspi_irq_handler(int this_irq, void *dev)
 		if (irq_status & CDNS_XSPI_SDMA_ERROR) {
 			dev_err(cdns_xspi->dev,
 				"Slave DMA transaction error\n");
-			cdns_xspi->sdma_error = true;
+			cdns_xspi->xfer_error = true;
 			complete(&cdns_xspi->sdma_complete);
 		}
 
