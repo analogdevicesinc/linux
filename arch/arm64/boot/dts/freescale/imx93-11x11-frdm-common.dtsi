@@ -13,6 +13,7 @@
 		mmc0 = &usdhc1; /* EMMC */
 		mmc1 = &usdhc2; /* uSD */
 		rtc0 = &pcf2131;
+		rtc1 = &bbnsm_rtc;
 		serial0 = &lpuart1;
 		serial4 = &lpuart5;
 	};
