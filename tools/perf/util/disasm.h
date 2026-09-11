@@ -122,6 +122,7 @@ extern const struct ins_ops ret_ops;
 
 int arch__associate_ins_ops(struct arch *arch, const char *name, const struct ins_ops *ops);
 
+const struct arch *arch__new_alpha(const struct e_machine_and_e_flags *id, const char *cpuid);
 const struct arch *arch__new_arc(const struct e_machine_and_e_flags *id, const char *cpuid);
 const struct arch *arch__new_arm(const struct e_machine_and_e_flags *id, const char *cpuid);
 const struct arch *arch__new_arm64(const struct e_machine_and_e_flags *id, const char *cpuid);

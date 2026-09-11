@@ -9,28 +9,34 @@
  * Copyright (C) Johannes Schindelin, 2005
  *
  */
-#include <errno.h>
-#include <sys/param.h>
-#include "cache.h"
-#include "callchain.h"
-#include "header.h"
-#include <subcmd/exec-cmd.h>
-#include "util/event.h"  /* proc_map_timeout */
-#include "util/hist.h"  /* perf_hist_config */
-#include "util/stat.h"  /* perf_stat__set_big_num */
-#include "util/evsel.h"  /* evsel__hw_names, evsel__use_bpf_counters */
-#include "srcline.h"
-#include "build-id.h"
-#include "debug.h"
 #include "config.h"
-#include "unwind.h"
-#include <sys/types.h>
-#include <sys/stat.h>
+
+#include <errno.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <string.h>
+
+#include <linux/ctype.h>
 #include <linux/string.h>
 #include <linux/zalloc.h>
-#include <linux/ctype.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <subcmd/exec-cmd.h>
+
+#include "build-id.h"
+#include "callchain.h"
+#include "debug.h"
+#include "header.h"
+#include "path.h"
+#include "srcline.h"
+#include "unwind.h"
+#include "util/event.h" /* proc_map_timeout */
+#include "util/evsel.h" /* evsel__hw_names, evsel__use_bpf_counters */
+#include "util/hist.h" /* perf_hist_config */
+#include "util/stat.h" /* perf_stat__set_big_num */
 
 #define MAXNAME (256)
 

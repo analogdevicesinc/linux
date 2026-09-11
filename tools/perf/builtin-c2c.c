@@ -49,6 +49,7 @@
 #include "thread.h"
 #include "tool.h"
 #include "ui/browsers/hists.h"
+#include "ui/keysyms.h"
 #include "ui/progress.h"
 #include "ui/ui.h"
 #include "util/annotate.h"

@@ -6,44 +6,53 @@
  * look up and read DSOs and symbol information and display
  * a histogram of results, along various sorting keys.
  */
-#include "builtin.h"
-#include "perf.h"
-
-#include "util/color.h"
-#include <linux/list.h>
-#include "util/cache.h"
-#include <linux/rbtree.h>
-#include "util/symbol.h"
-
-#include "util/debug.h"
-
-#include "util/evlist.h"
-#include "util/evsel.h"
-#include "util/annotate.h"
-#include "util/annotate-data.h"
-#include "util/event.h"
-#include <subcmd/parse-options.h>
-#include "util/parse-events.h"
-#include "util/sort.h"
-#include "util/hist.h"
-#include "util/dso.h"
-#include "util/machine.h"
-#include "util/map.h"
-#include "util/session.h"
-#include "util/tool.h"
-#include "util/data.h"
-#include "arch/common.h"
-#include "util/block-range.h"
-#include "util/map_symbol.h"
-#include "util/branch.h"
-#include "util/util.h"
-#include "ui/progress.h"
+#include <errno.h>
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <dlfcn.h>
-#include <errno.h>
 #include <linux/bitmap.h>
 #include <linux/err.h>
-#include <inttypes.h>
+#include <linux/list.h>
+#include <linux/rbtree.h>
+
+#include <subcmd/parse-options.h>
+
+#include "arch/common.h"
+#include "builtin.h"
+#include "perf.h"
+#include "ui/keysyms.h"
+#include "ui/progress.h"
+#include "ui/ui.h"
+#include "util/annotate-data.h"
+#include "util/annotate.h"
+#include "util/block-range.h"
+#include "util/branch.h"
+#include "util/data.h"
+#include "util/debug.h"
+#include "util/dso.h"
+#include "util/event.h"
+#include "util/evlist.h"
+#include "util/evsel.h"
+#include "util/hist.h"
+#include "util/machine.h"
+#include "util/map.h"
+#include "util/map_symbol.h"
+#include "util/session.h"
+#include "util/sort.h"
+#include "util/symbol.h"
+#include "util/tool.h"
+#include "util/util.h"
+
+#ifndef HAVE_SLANG_SUPPORT
+#undef K_LEFT
+#define K_LEFT  -1000
+#undef K_RIGHT
+#define K_RIGHT -2000
+#endif
 
 struct perf_annotate {
 	struct perf_tool tool;
@@ -719,6 +728,8 @@ int cmd_annotate(int argc, const char **argv)
 	OPT_BOOLEAN(0, "tui", &annotate.use_tui, "Use the TUI interface"),
 #endif
 	OPT_BOOLEAN(0, "stdio", &annotate.use_stdio, "Use the stdio interface"),
+	OPT_BOOLEAN(0, "weights", &symbol_conf.annotate_weight,
+		    "Show or hide weight columns in annotation. Default show if non zero."),
 	OPT_BOOLEAN(0, "stdio2", &annotate.use_stdio2, "Use the stdio interface"),
 	OPT_BOOLEAN(0, "ignore-vmlinux", &symbol_conf.ignore_vmlinux,
                     "don't load vmlinux even if found"),
@@ -788,6 +799,7 @@ int cmd_annotate(int argc, const char **argv)
 
 	set_option_flag(options, 0, "show-total-period", PARSE_OPT_EXCLUSIVE);
 	set_option_flag(options, 0, "show-nr-samples", PARSE_OPT_EXCLUSIVE);
+	symbol_conf.annotate_weight = true;
 
 	annotation_options__init();
 

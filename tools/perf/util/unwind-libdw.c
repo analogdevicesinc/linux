@@ -397,6 +397,11 @@ int libdw__get_entries(unwind_entry_cb_t cb, void *arg,
 		dwfl = dwfl_ui_ti->dwfl;
 	} else {
 		dwfl_ui_ti = zalloc(sizeof(*dwfl_ui_ti));
+		if (!dwfl_ui_ti) {
+			free(ui);
+			return -ENOMEM;
+		}
+
 		dwfl = dwfl_begin(&offline_callbacks);
 		if (!dwfl)
 			goto out;
