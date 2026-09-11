@@ -214,7 +214,6 @@ jobs:
 
   hardware-test:
     needs: [build_gcc_aarch64_sc598-som-ezkit_defconfig, build_gcc_aarch64_sc598-som-ezlite_defconfig, build_gcc_aarch64_sc846-som-ezkit_defconfig, compile_devicetrees]
-    if: ${{ vars.RUNNER_HW_TEST != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -222,10 +221,10 @@ jobs:
           - needs: '["sc598", "ezkit"]'
           - needs: '["sc598", "ezlite"]'
           - needs: '["sc846", "ezkit"]'
-    uses: analogdevicesinc/linux/.github/workflows/hw-test.yml@ci
+    uses: analogdevicesinc/hw-test/.github/workflows/run-test.yml@main
     with:
-      test-set: 'adsp/initramfs-boot'
-      needs: ${{ matrix.needs }}
+      set: >-
+        {"name":"adsp/initramfs-boot","needs":${{ matrix.needs }}}
     secrets: inherit
     permissions:
       actions: read
