@@ -32,7 +32,7 @@
 		};
 	};
 
-	mpcore@18310000 {
+	mpcore-bus@18310000 {
 		compatible = "simple-bus";
 		ranges = <0x00000000 0x18310000 0x00008000>;
 		#address-cells = <1>;
@@ -224,6 +224,7 @@
 
 						port@5 {
 							reg = <5>;
+							phy-mode = "internal";
 							ethernet = <&gmac1>;
 
 							fixed-link {
@@ -234,7 +235,13 @@
 
 						port@8 {
 							reg = <8>;
+							phy-mode = "internal";
 							ethernet = <&gmac0>;
+
+							fixed-link {
+								speed = <1000>;
+								full-duplex;
+							};
 						};
 					};
 				};
