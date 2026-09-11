@@ -208,6 +208,13 @@ properties:
               - st,stm32mp235f-dk
           - const: st,stm32mp235
 
+      - description: Engicam MicroGEA STM32MP257 SoM based Boards
+        items:
+          - enum:
+              - engicam,microgea-stm32mp257d-rmm
+          - const: engicam,microgea-stm32mp257
+          - const: st,stm32mp257
+
       - description: ST STM32MP257 based Boards
         items:
           - enum:
