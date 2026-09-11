@@ -480,7 +480,7 @@ static void drm_panic_logo_draw(struct drm_scanout_buffer *sb, struct drm_rect *
 				   fg_color);
 }
 
-static void draw_panic_screen_user(struct drm_scanout_buffer *sb)
+static int draw_panic_screen_user(struct drm_scanout_buffer *sb)
 {
 	u32 fg_color = drm_draw_color_from_xrgb8888(CONFIG_DRM_PANIC_FOREGROUND_COLOR,
 						    sb->format->format);
@@ -491,7 +491,7 @@ static void draw_panic_screen_user(struct drm_scanout_buffer *sb)
 	unsigned int msg_width, msg_height;
 
 	if (!font)
-		return;
+		return -EINVAL;
 
 	r_screen = DRM_RECT_INIT(0, 0, sb->width, sb->height);
 	drm_panic_logo_rect(&r_logo, font);
@@ -510,6 +510,8 @@ static void draw_panic_screen_user(struct drm_scanout_buffer *sb)
 		drm_panic_logo_draw(sb, &r_logo, font, fg_color);
 
 	draw_txt_rectangle(sb, font, panic_msg, panic_msg_lines, true, &r_msg, fg_color);
+
+	return 0;
 }
 
 /*
@@ -549,7 +551,7 @@ static int draw_line_with_wrap(struct drm_scanout_buffer *sb, const struct font_
  * Draw the kmsg buffer to the screen, starting from the youngest message at the bottom,
  * and going up until reaching the top of the screen.
  */
-static void draw_panic_screen_kmsg(struct drm_scanout_buffer *sb)
+static int draw_panic_screen_kmsg(struct drm_scanout_buffer *sb)
 {
 	u32 fg_color = drm_draw_color_from_xrgb8888(CONFIG_DRM_PANIC_FOREGROUND_COLOR,
 						    sb->format->format);
@@ -564,7 +566,7 @@ static void draw_panic_screen_kmsg(struct drm_scanout_buffer *sb)
 	int yoffset;
 
 	if (!font || font->width > sb->width)
-		return;
+		return -EINVAL;
 
 	yoffset = sb->height - font->height - (sb->height % font->height) / 2;
 
@@ -591,6 +593,8 @@ static void draw_panic_screen_kmsg(struct drm_scanout_buffer *sb)
 			start--;
 		}
 	}
+
+	return 0;
 }
 
 #if defined(CONFIG_DRM_PANIC_SCREEN_QR_CODE)
@@ -767,7 +771,9 @@ static int _draw_panic_screen_qr_code(struct drm_scanout_buffer *sb)
 	max_qr_size = min(3 * sb->width / 4, 3 * sb->height / 4);
 
 	qr_width = drm_panic_get_qr_code(&qr_image);
-	if (qr_width <= 0)
+	if (qr_width < 0)
+		return qr_width;
+	else if (!qr_width)
 		return -ENOSPC;
 
 	qr_canvas_width = qr_width + QR_MARGIN * 2;
@@ -808,10 +814,11 @@ static int _draw_panic_screen_qr_code(struct drm_scanout_buffer *sb)
 	return 0;
 }
 
-static void draw_panic_screen_qr_code(struct drm_scanout_buffer *sb)
+static int draw_panic_screen_qr_code(struct drm_scanout_buffer *sb)
 {
 	if (_draw_panic_screen_qr_code(sb))
-		draw_panic_screen_user(sb);
+		return draw_panic_screen_user(sb);
+	return 0;
 }
 #else
 static void drm_panic_qr_init(void) {};
@@ -882,23 +889,25 @@ static bool drm_panic_is_format_supported(const struct drm_format_info *format)
 	return drm_draw_can_convert_from_xrgb8888(format->format);
 }
 
-static void draw_panic_dispatch(struct drm_scanout_buffer *sb)
+static int draw_panic_dispatch(struct drm_scanout_buffer *sb)
 {
+	int ret;
+
 	switch (drm_panic_type) {
 	case DRM_PANIC_TYPE_KMSG:
-		draw_panic_screen_kmsg(sb);
+		ret = draw_panic_screen_kmsg(sb);
 		break;
-
 #if IS_ENABLED(CONFIG_DRM_PANIC_SCREEN_QR_CODE)
 	case DRM_PANIC_TYPE_QR:
-		draw_panic_screen_qr_code(sb);
+		ret = draw_panic_screen_qr_code(sb);
 		break;
 #endif
-
 	case DRM_PANIC_TYPE_USER:
 	default:
-		draw_panic_screen_user(sb);
+		ret = draw_panic_screen_user(sb);
 	}
+
+	return ret;
 }
 
 static void drm_panic_set_description(const char *description)
@@ -945,9 +954,15 @@ static void draw_panic_plane(struct drm_plane *plane, const char *description)
 
 	drm_panic_set_description(description);
 
-	draw_panic_dispatch(&sb);
-	if (plane->helper_private->panic_flush)
-		plane->helper_private->panic_flush(plane);
+	ret = draw_panic_dispatch(&sb);
+	if (!ret) {
+		/*
+		 * Only flush if we have a panic screen to display. Otherwise
+		 * it's probably better to leave the display output as-is.
+		 */
+		if (plane->helper_private->panic_flush)
+			plane->helper_private->panic_flush(plane);
+	}
 
 	drm_panic_clear_description();
 
