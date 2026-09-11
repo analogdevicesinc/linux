@@ -39,6 +39,7 @@
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_gem_atomic_helper.h>
 #include <drm/drm_panic.h>
+#include <drm/drm_panic_helper.h>
 #include <drm/ttm/ttm_bo.h>
 
 #include "nouveau_bo.h"
@@ -840,6 +841,7 @@ nv50_wndw = {
 	.atomic_duplicate_state = nv50_wndw_atomic_duplicate_state,
 	.atomic_destroy_state = nv50_wndw_atomic_destroy_state,
 	.format_mod_supported = nv50_plane_format_mod_supported,
+	DRM_PANIC_PLANE_FUNCS,
 };
 
 static const u64 nv50_cursor_format_modifiers[] = {

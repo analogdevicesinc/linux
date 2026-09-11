@@ -28,6 +28,7 @@
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_modeset_helper_vtables.h>
 #include <drm/drm_panic.h>
+#include <drm/drm_panic_helper.h>
 #include <drm/drm_plane.h>
 #include <drm/drm_print.h>
 #include <drm/drm_rect.h>
@@ -42,32 +43,17 @@ MODULE_LICENSE("GPL");
 /**
  * DOC: overview
  *
- * To enable DRM panic for a driver, the primary plane must implement a
- * &drm_plane_helper_funcs.get_scanout_buffer helper function. It is then
- * automatically registered to the drm panic handler.
- * When a panic occurs, the &drm_plane_helper_funcs.get_scanout_buffer will be
- * called, and the driver can provide a framebuffer so the panic handler can
- * draw the panic screen on it. Currently only linear buffer and a few color
- * formats are supported.
- * Optionally the driver can also provide a &drm_plane_helper_funcs.panic_flush
- * callback, that will be called after that, to send additional commands to the
- * hardware to make the scanout buffer visible.
- */
-
-/*
- * This module displays a user friendly message on screen when a kernel panic
- * occurs. This is conflicting with fbcon, so you can only enable it when fbcon
- * is disabled.
- * It's intended for end-user, so have minimal technical/debug information.
+ * This module displays a user friendly message on screen when a kernel
+ * panic occurs. It's intended for end users and therefore have minimal
+ * technical/debug information.
  *
- * Implementation details:
+ * To enable DRM panic for a driver, the at least one primary plane must
+ * implement struct &drm_plane_funcs.display_panic_screen. The plane is
+ * then automatically registered to the drm panic handler.
  *
- * It is a panic handler, so it can't take lock, allocate memory, run tasks/irq,
- * or attempt to sleep. It's a best effort, and it may not be able to display
- * the message in all situations (like if the panic occurs in the middle of a
- * modesetting).
- * It will display only one static frame, so performance optimizations are low
- * priority as the machine is already in an unusable state.
+ * When a panic occurs, the DRM panic handler calls struct
+ * &drm_plane_funcs.display_panic_screen. See
+ * drm_plane_helper_display_panic_screen() for a generic implementation.
  */
 
 struct drm_panic_line {
@@ -817,12 +803,6 @@ static void drm_panic_qr_init(void) {};
 static void drm_panic_qr_exit(void) {};
 #endif
 
-enum drm_panic_type {
-	DRM_PANIC_TYPE_KMSG,
-	DRM_PANIC_TYPE_USER,
-	DRM_PANIC_TYPE_QR,
-};
-
 static enum drm_panic_type drm_panic_type = -1;
 
 static const char *drm_panic_type_map[] = {
@@ -936,21 +916,46 @@ static void drm_panic_clear_description(void)
 	desc_line->txt = NULL;
 }
 
-static void draw_panic_plane(struct drm_plane *plane, const char *description,
-			     enum drm_panic_type panic_type, u32 fg_color, u32 bg_color,
-			     unsigned int qr_version)
+/**
+ * drm_plane_helper_display_panic_screen - Displays a panic screen according to the given settings
+ * @plane: the DRM plane to display to
+ * @description: error message to display
+ * @panic_type: type of panic screen
+ * @fg_color: text foreground color
+ * @bg_color: text background color
+ * @qr_version: version of the QR code, if any
+ *
+ * This helper display a panic screen on common primary planes. The panic
+ * screen can either display a kernel message, a user message or a QR code.
+ *
+ * The helper uses struct drm_plane_helper_funcs.get_scanout_buffer, where
+ * the plane can provide a scanout buffer that the panic handler can draw to.
+ * Currently only linear buffer and a few color formats are supported.
+ *
+ * Optionally the plane can also provide a &drm_plane_helper_funcs.panic_flush
+ * callback, which the DRM panic handler calls after drawing to send additional
+ * commands to the hardware to make the scanout buffer visible.
+ *
+ * Returns:
+ * 0 on success, or a negative errno code otherwise
+ */
+int drm_plane_helper_display_panic_screen(struct drm_plane *plane, const char *description,
+					  enum drm_panic_type panic_type,
+					  u32 fg_color, u32 bg_color, unsigned int qr_version)
 {
 	struct drm_scanout_buffer sb = { };
 	int ret;
 
 	ret = plane->helper_private->get_scanout_buffer(plane, &sb);
+	if (ret)
+		return ret;
 
-	if (ret || !drm_panic_is_format_supported(sb.format))
-		return;
+	if (!drm_panic_is_format_supported(sb.format))
+		return -EINVAL;
 
 	/* One of these should be set, or it can't draw pixels */
 	if (!sb.set_pixel && !sb.pages && iosys_map_is_null(&sb.map[0]))
-		return;
+		return -EINVAL;
 
 	drm_panic_set_description(description);
 
@@ -965,7 +970,10 @@ static void draw_panic_plane(struct drm_plane *plane, const char *description,
 	}
 
 	drm_panic_clear_description();
+
+	return ret;
 }
+EXPORT_SYMBOL(drm_plane_helper_display_panic_screen);
 
 static void drm_panic_display_panic_screen(struct drm_plane *plane, const char *description)
 {
@@ -988,8 +996,8 @@ static void drm_panic_display_panic_screen(struct drm_plane *plane, const char *
 	unsigned long flags;
 
 	if (drm_panic_trylock(dev, flags)) {
-		draw_panic_plane(plane, description, drm_panic_type,
-				 fg_color, bg_color, qr_version);
+		plane->funcs->display_panic_screen(plane, description, drm_panic_type,
+						   fg_color, bg_color, qr_version);
 		drm_panic_unlock(dev, flags);
 	}
 }
@@ -1062,7 +1070,7 @@ bool drm_panic_is_enabled(struct drm_device *dev)
 	drm_for_each_plane(plane, dev) {
 		if (plane->type != DRM_PLANE_TYPE_PRIMARY)
 			continue;
-		if (!plane->helper_private || !plane->helper_private->get_scanout_buffer)
+		if (!plane->funcs || !plane->funcs->display_panic_screen)
 			continue;
 		return true;
 	}
@@ -1085,7 +1093,7 @@ void drm_panic_register(struct drm_device *dev)
 	drm_for_each_plane(plane, dev) {
 		if (plane->type != DRM_PLANE_TYPE_PRIMARY)
 			continue;
-		if (!plane->helper_private || !plane->helper_private->get_scanout_buffer)
+		if (!plane->funcs || !plane->funcs->display_panic_screen)
 			continue;
 		plane->kmsg_panic.dump = drm_panic;
 		plane->kmsg_panic.max_reason = KMSG_DUMP_PANIC;
@@ -1114,7 +1122,7 @@ void drm_panic_unregister(struct drm_device *dev)
 	drm_for_each_plane(plane, dev) {
 		if (plane->type != DRM_PLANE_TYPE_PRIMARY)
 			continue;
-		if (!plane->helper_private || !plane->helper_private->get_scanout_buffer)
+		if (!plane->funcs || !plane->funcs->display_panic_screen)
 			continue;
 		kmsg_dump_unregister(&plane->kmsg_panic);
 	}

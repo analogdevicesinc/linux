@@ -14,6 +14,7 @@
 #include <drm/drm_gem_atomic_helper.h>
 #include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_managed.h>
+#include <drm/drm_panic_helper.h>
 #include <drm/drm_print.h>
 
 #include <video/imx-ipu-v3.h>
@@ -359,6 +360,7 @@ static const struct drm_plane_funcs ipu_plane_funcs = {
 	.atomic_duplicate_state	= ipu_plane_duplicate_state,
 	.atomic_destroy_state	= ipu_plane_destroy_state,
 	.format_mod_supported = ipu_plane_format_mod_supported,
+	DRM_PANIC_PLANE_FUNCS,
 };
 
 static int ipu_plane_atomic_check(struct drm_plane *plane,

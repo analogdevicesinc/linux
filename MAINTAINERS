@@ -9120,7 +9120,8 @@ F:	drivers/gpu/drm/drm_draw.c
 F:	drivers/gpu/drm/drm_draw_internal.h
 F:	drivers/gpu/drm/drm_panic*.c
 F:	drivers/gpu/drm/tests/drm_panic_test.c
-F:	include/drm/drm_panic*
+F:	include/drm/drm_panic.h
+F:	include/drm/drm_panic_helper.h
 
 DRM PANIC QR CODE
 M:	Jocelyn Falempe <jfalempe@redhat.com>

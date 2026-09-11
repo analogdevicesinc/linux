@@ -28,6 +28,7 @@
 #include <drm/drm_blend.h>
 #include "drm/drm_framebuffer.h"
 #include <drm/drm_gem_atomic_helper.h>
+#include <drm/drm_panic_helper.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_fourcc.h>
@@ -2176,6 +2177,7 @@ static const struct drm_plane_funcs dm_plane_funcs = {
 	.atomic_set_property = dm_atomic_plane_set_property,
 	.atomic_get_property = dm_atomic_plane_get_property,
 #endif
+	DRM_PANIC_PLANE_FUNCS,
 };
 
 int amdgpu_dm_plane_init(struct amdgpu_display_manager *dm,

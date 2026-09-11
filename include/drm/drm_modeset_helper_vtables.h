@@ -1456,17 +1456,20 @@ struct drm_plane_helper_funcs {
 	/**
 	 * @get_scanout_buffer:
 	 *
-	 * Get the current scanout buffer, to display a message with drm_panic.
+	 * Get the current scanout buffer to display a message with drm_panic.
 	 * The driver should do the minimum changes to provide a buffer,
 	 * that can be used to display the panic screen. Currently only linear
 	 * buffers are supported. Non-linear buffer support is on the TODO list.
 	 * The device &dev.mode_config.panic_lock is taken before calling this
 	 * function, so you can safely access the &plane.state
 	 * It is called from a panic callback, and must follow its restrictions.
-	 * Please look the documentation at drm_panic_trylock() for an in-depth
+	 * Please look the documentation on DRM panic handling for an in-depth
 	 * discussions of what's safe and what is not allowed.
+	 *
 	 * It's a best effort mode, so it's expected that in some complex cases
-	 * the panic screen won't be displayed.
+	 * the panic screen won't be displayed. Drivers must not make any
+	 * assumptions about the actual state of the hardware.
+	 *
 	 * The returned &drm_scanout_buffer.map must be valid if no error code is
 	 * returned.
 	 *
@@ -1486,7 +1489,7 @@ struct drm_plane_helper_funcs {
 	 * It is only called if get_scanout_buffer() returned successfully, and
 	 * the &dev.mode_config.panic_lock is held during the entire sequence.
 	 * It is called from a panic callback, and must follow its restrictions.
-	 * Please look the documentation at drm_panic_trylock() for an in-depth
+	 * Please look the documentation on DRM panic handling for an in-depth
 	 * discussions of what's safe and what is not allowed.
 	 */
 	void (*panic_flush)(struct drm_plane *plane);

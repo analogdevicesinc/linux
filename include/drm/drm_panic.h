@@ -15,6 +15,14 @@
 #include <drm/drm_device.h>
 #include <drm/drm_fourcc.h>
 
+struct page;
+
+enum drm_panic_type {
+	DRM_PANIC_TYPE_KMSG,
+	DRM_PANIC_TYPE_USER,
+	DRM_PANIC_TYPE_QR,
+};
+
 /**
  * struct drm_scanout_buffer - DRM scanout buffer
  *
@@ -87,45 +95,8 @@ struct drm_scanout_buffer {
  * @dev: struct drm_device
  * @flags: unsigned long irq flags you need to pass to the unlock() counterpart
  *
- * This function must be called by any panic printing code. The panic printing
- * attempt must be aborted if the trylock fails.
- *
- * Panic printing code can make the following assumptions while holding the
- * panic lock:
- *
- * - Anything protected by drm_panic_lock() and drm_panic_unlock() pairs is safe
- *   to access.
- *
- * - Furthermore the panic printing code only registers in drm_dev_unregister()
- *   and gets removed in drm_dev_unregister(). This allows the panic code to
- *   safely access any state which is invariant in between these two function
- *   calls, like the list of planes &drm_mode_config.plane_list or most of the
- *   struct drm_plane structure.
- *
- * Specifically thanks to the protection around plane updates in
- * drm_atomic_helper_swap_state() the following additional guarantees hold:
- *
- * - It is safe to deference the drm_plane.state pointer.
- *
- * - Anything in struct drm_plane_state or the driver's subclass thereof which
- *   stays invariant after the atomic check code has finished is safe to access.
- *   Specifically this includes the reference counted pointers to framebuffer
- *   and buffer objects.
- *
- * - Anything set up by &drm_plane_helper_funcs.fb_prepare and cleaned up
- *   &drm_plane_helper_funcs.fb_cleanup is safe to access, as long as it stays
- *   invariant between these two calls. This also means that for drivers using
- *   dynamic buffer management the framebuffer is pinned, and therefer all
- *   relevant datastructures can be accessed without taking any further locks
- *   (which would be impossible in panic context anyway).
- *
- * - Importantly, software and hardware state set up by
- *   &drm_plane_helper_funcs.begin_fb_access and
- *   &drm_plane_helper_funcs.end_fb_access is not safe to access.
- *
- * Drivers must not make any assumptions about the actual state of the hardware,
- * unless they explicitly protected these hardware access with drm_panic_lock()
- * and drm_panic_unlock().
+ * The panic-printing code calls this function. The panic printing attempt must
+ * be aborted if the trylock fails.
  *
  * Return:
  * %0 when failing to acquire the raw spinlock, nonzero on success.

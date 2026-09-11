@@ -16,6 +16,7 @@
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_gem_dma_helper.h>
+#include <drm/drm_panic_helper.h>
 
 #include "rcar_du_drv.h"
 #include "rcar_du_group.h"
@@ -770,6 +771,7 @@ static const struct drm_plane_funcs rcar_du_plane_funcs = {
 	.atomic_destroy_state = rcar_du_plane_atomic_destroy_state,
 	.atomic_set_property = rcar_du_plane_atomic_set_property,
 	.atomic_get_property = rcar_du_plane_atomic_get_property,
+	DRM_PANIC_PLANE_FUNCS,
 };
 
 static const uint32_t formats[] = {
