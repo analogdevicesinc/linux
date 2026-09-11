@@ -506,7 +506,7 @@ int ksmbd_smb2_check_message(struct ksmbd_work *work)
 
 	if (len != clc_len) {
 		/* client can return one byte more due to implied bcc[0] */
-		if (clc_len == len + 1)
+		if (command != SMB2_WRITE_HE && clc_len == len + 1)
 			goto validate_credit;
 
 		/*
