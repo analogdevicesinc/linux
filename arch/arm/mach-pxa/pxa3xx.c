@@ -17,6 +17,7 @@
 #include <linux/gpio-pxa.h>
 #include <linux/pm.h>
 #include <linux/platform_device.h>
+#include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqchip.h>
 #include <linux/io.h>

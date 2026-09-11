@@ -12,7 +12,6 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-#include <linux/pagemap.h>
 #include <linux/mount.h>
 #include <linux/fs_context.h>
 #include <linux/namei.h>

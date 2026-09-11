@@ -6,6 +6,7 @@
 // Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
 
 #include <linux/i2c.h>
+#include <linux/interrupt.h>
 #include <linux/reboot.h>
 #include <linux/regmap.h>
 
