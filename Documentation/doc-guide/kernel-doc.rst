@@ -422,7 +422,8 @@ Domain`_ references.
   Function reference.
 
 ``@parameter``
-  Name of a function parameter. (No cross-referencing, just formatting.)
+  Name of a function parameter, struct member, union member, or
+  enum value. (No cross-referencing, just formatting.)
 
 ``%CONST``
   Name of a constant. (No cross-referencing, just formatting.)
