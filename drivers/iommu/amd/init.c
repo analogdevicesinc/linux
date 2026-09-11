@@ -915,13 +915,13 @@ static void free_ga_log(struct amd_iommu *iommu)
 }
 
 #ifdef CONFIG_IRQ_REMAP
-static int iommu_ga_log_enable(struct amd_iommu *iommu)
+static bool iommu_ga_log_enable(struct amd_iommu *iommu)
 {
 	u32 status, i;
 	u64 entry;
 
 	if (!iommu->ga_log)
-		return -EINVAL;
+		return false;
 
 	entry = iommu_virt_to_phys(iommu->ga_log) | GA_LOG_SIZE_512;
 	memcpy_toio(iommu->mmio_base + MMIO_GA_LOG_BASE_OFFSET,
@@ -945,35 +945,31 @@ static int iommu_ga_log_enable(struct amd_iommu *iommu)
 	}
 
 	if (WARN_ON(i >= MMIO_STATUS_TIMEOUT))
-		return -EINVAL;
+		return false;
 
-	return 0;
+	return true;
 }
+#endif /* CONFIG_IRQ_REMAP */
 
-static int iommu_init_ga_log(struct amd_iommu *iommu)
+static int alloc_ga_log(struct amd_iommu *iommu)
 {
+#ifdef CONFIG_IRQ_REMAP
 	int nid = iommu->dev ? dev_to_node(&iommu->dev->dev) : NUMA_NO_NODE;
-
-	if (WARN_ON_ONCE(!AMD_IOMMU_GUEST_IR_VAPIC(amd_iommu_guest_ir)))
-		return -EINVAL;
-
-	if (iommu->ga_log && iommu->ga_log_tail)
-		return 0;
 
 	iommu->ga_log = iommu_alloc_pages_node_sz(nid, GFP_KERNEL, GA_LOG_SIZE);
 	if (!iommu->ga_log)
-		goto err_out;
+		return -ENOMEM;
 
 	iommu->ga_log_tail = iommu_alloc_pages_node_sz(nid, GFP_KERNEL, 8);
-	if (!iommu->ga_log_tail)
-		goto err_out;
+	if (!iommu->ga_log_tail) {
+		iommu_free_pages(iommu->ga_log);
+		iommu->ga_log = NULL;
+		return -ENOMEM;
+	}
+#endif
 
 	return 0;
-err_out:
-	free_ga_log(iommu);
-	return -EINVAL;
 }
-#endif /* CONFIG_IRQ_REMAP */
 
 static int __init alloc_cwwb_sem(struct amd_iommu *iommu)
 {
@@ -2151,6 +2147,27 @@ static void __init late_iommu_features_init(struct amd_iommu *iommu)
 	}
 }
 
+/* Must be called after SNP support check is complete (iommu_snp_enable()) */
+static bool check_vapic_support(void)
+{
+	if (!AMD_IOMMU_GUEST_IR_VAPIC(amd_iommu_guest_ir))
+		return false;
+
+	if (!check_feature(FEATURE_GAM_VAPIC)) {
+		amd_iommu_guest_ir = AMD_IOMMU_GUEST_IR_LEGACY_GA;
+		return false;
+	}
+
+	if (amd_iommu_snp_en &&
+	    !FEATURE_SNPAVICSUP_GAM(amd_iommu_efr2)) {
+		pr_warn("Force to disable Virtual APIC due to SNP\n");
+		amd_iommu_guest_ir = AMD_IOMMU_GUEST_IR_LEGACY_GA;
+		return false;
+	}
+
+	return true;
+}
+
 static int __init iommu_init_pci(struct amd_iommu *iommu)
 {
 	int cap_ptr = iommu->cap_ptr;
@@ -2194,6 +2211,12 @@ static int __init iommu_init_pci(struct amd_iommu *iommu)
 
 	if (check_feature(FEATURE_PPR) && amd_iommu_alloc_ppr_log(iommu))
 		return -ENOMEM;
+
+	if (check_vapic_support()) {
+		ret = alloc_ga_log(iommu);
+		if (ret)
+			return ret;
+	}
 
 	if (iommu->cap & (1UL << IOMMU_CAP_NPCACHE)) {
 		pr_info("Using strict mode due to virtualization\n");
@@ -3009,22 +3032,9 @@ static void enable_iommus_vapic(void)
 	if (!AMD_IOMMU_GUEST_IR_VAPIC(amd_iommu_guest_ir))
 		return;
 
-	if (!check_feature(FEATURE_GAM_VAPIC)) {
-		amd_iommu_guest_ir = AMD_IOMMU_GUEST_IR_LEGACY_GA;
-		return;
-	}
-
-	if (amd_iommu_snp_en &&
-	    !FEATURE_SNPAVICSUP_GAM(amd_iommu_efr2)) {
-		pr_warn("Force to disable Virtual APIC due to SNP\n");
-		amd_iommu_guest_ir = AMD_IOMMU_GUEST_IR_LEGACY_GA;
-		return;
-	}
-
 	/* Enabling GAM and SNPAVIC support */
 	for_each_iommu(iommu) {
-		if (iommu_init_ga_log(iommu) ||
-		    iommu_ga_log_enable(iommu))
+		if (!iommu_ga_log_enable(iommu))
 			return;
 
 		iommu_feature_enable(iommu, CONTROL_GAM_EN);
