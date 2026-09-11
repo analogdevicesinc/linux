@@ -2447,16 +2447,25 @@ extern __read_mostly unsigned int sysctl_sched_features;
 
 #ifdef CONFIG_JUMP_LABEL
 
-#define SCHED_FEAT(name, enabled)					\
-static __always_inline bool static_branch_##name(struct static_key *key) \
-{									\
-	return static_key_##enabled(key);				\
+union sched_feat_key {
+	struct static_key_true	key_true;
+	struct static_key_false	key_false;
+};
+
+#define sched_feat_branch_true(key)	static_branch_likely(&(key)->key_true)
+#define sched_feat_branch_false(key)	static_branch_unlikely(&(key)->key_false)
+
+#define SCHED_FEAT(name, enabled)			\
+static __always_inline bool				\
+static_branch_##name(union sched_feat_key *key) 	\
+{							\
+	return sched_feat_branch_##enabled(key);	\
 }
 
 #include "features.h"
 #undef SCHED_FEAT
 
-extern struct static_key sched_feat_keys[__SCHED_FEAT_NR];
+extern union sched_feat_key sched_feat_keys[__SCHED_FEAT_NR];
 #define sched_feat(x) (static_branch_##x(&sched_feat_keys[__SCHED_FEAT_##x]))
 
 #else /* !CONFIG_JUMP_LABEL: */
@@ -3137,6 +3146,25 @@ static inline void attach_one_task(struct rq *rq, struct task_struct *p)
 	guard(rq_lock)(rq);
 	update_rq_clock(rq);
 	attach_task(rq, p);
+}
+
+/*
+ * __attach_tasks() - attaches a list of tasks (using se.group_node) to
+ * the new rq
+ */
+static inline void __attach_tasks(struct rq *rq, struct list_head *tasks)
+{
+	guard(rq_lock)(rq);
+	update_rq_clock(rq);
+
+	while (!list_empty(tasks)) {
+		struct task_struct *p;
+
+		p = list_first_entry(tasks, struct task_struct, se.group_node);
+		list_del_init(&p->se.group_node);
+
+		attach_task(rq, p);
+	}
 }
 
 #ifdef CONFIG_PREEMPT_RT

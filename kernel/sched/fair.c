@@ -3522,7 +3522,7 @@ static void update_task_scan_period(struct task_struct *p,
 		p->mm->numa_next_scan = jiffies +
 			msecs_to_jiffies(p->numa_scan_period);
 
-		return;
+		goto out;
 	}
 
 	/*
@@ -3566,7 +3566,10 @@ static void update_task_scan_period(struct task_struct *p,
 
 	p->numa_scan_period = clamp(p->numa_scan_period + diff,
 			task_scan_min(p), task_scan_max(p));
-	memset(p->numa_faults_locality, 0, sizeof(p->numa_faults_locality));
+
+out:
+	memset(p->numa_faults_locality, 0,
+	       sizeof(p->numa_faults_locality));
 }
 
 /*
@@ -11202,21 +11205,7 @@ next:
  */
 static void attach_tasks(struct lb_env *env)
 {
-	struct list_head *tasks = &env->tasks;
-	struct task_struct *p;
-	struct rq_flags rf;
-
-	rq_lock(env->dst_rq, &rf);
-	update_rq_clock(env->dst_rq);
-
-	while (!list_empty(tasks)) {
-		p = list_first_entry(tasks, struct task_struct, se.group_node);
-		list_del_init(&p->se.group_node);
-
-		attach_task(env->dst_rq, p);
-	}
-
-	rq_unlock(env->dst_rq, &rf);
+	__attach_tasks(env->dst_rq, &env->tasks);
 }
 
 #ifdef CONFIG_NO_HZ_COMMON
