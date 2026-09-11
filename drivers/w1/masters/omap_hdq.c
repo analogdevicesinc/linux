@@ -282,7 +282,7 @@ static int omap_hdq_break(struct hdq_data *hdq_data)
 	}
 
 	/*
-	 * wait for both INIT and GO bits rerurn to zero.
+	 * wait for both INIT and GO bits return to zero.
 	 * zero wait time expected for interrupt mode.
 	 */
 	ret = hdq_wait_for_flag(hdq_data, OMAP_HDQ_CTRL_STATUS,
