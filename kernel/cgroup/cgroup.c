@@ -7212,15 +7212,19 @@ static void do_cgroup_task_dead(struct task_struct *tsk)
  * the cgroup and task_struct can be pinned indefinitely. Bounce through lazy
  * irq_work to allow batching while ensuring timely completion.
  */
-static DEFINE_PER_CPU(struct llist_head, cgrp_dead_tasks);
-static DEFINE_PER_CPU(struct irq_work, cgrp_dead_tasks_iwork);
+struct cgroup_dead {
+	struct irq_work		iwork;
+	struct llist_head	tasks;
+};
+static DEFINE_PER_CPU(struct cgroup_dead, cgroup_dead);
 
 static void cgrp_dead_tasks_iwork_fn(struct irq_work *iwork)
 {
+	struct cgroup_dead *cgrp_dead = container_of(iwork, struct cgroup_dead, iwork);
 	struct llist_node *lnode;
 	struct task_struct *task, *next;
 
-	lnode = llist_del_all(this_cpu_ptr(&cgrp_dead_tasks));
+	lnode = llist_del_all(&cgrp_dead->tasks);
 	llist_for_each_entry_safe(task, next, lnode, cg_dead_lnode) {
 		do_cgroup_task_dead(task);
 		put_task_struct(task);
@@ -7232,17 +7236,20 @@ static void __init cgroup_rt_init(void)
 	int cpu;
 
 	for_each_possible_cpu(cpu) {
-		init_llist_head(per_cpu_ptr(&cgrp_dead_tasks, cpu));
-		per_cpu(cgrp_dead_tasks_iwork, cpu) =
-			IRQ_WORK_INIT_LAZY(cgrp_dead_tasks_iwork_fn);
+		struct cgroup_dead *cgrp_dead = per_cpu_ptr(&cgroup_dead, cpu);
+
+		init_llist_head(&cgrp_dead->tasks);
+		cgrp_dead->iwork = IRQ_WORK_INIT_LAZY(cgrp_dead_tasks_iwork_fn);
 	}
 }
 
 void cgroup_task_dead(struct task_struct *task)
 {
+	struct cgroup_dead *cgrp_dead = this_cpu_ptr(&cgroup_dead);
+
 	get_task_struct(task);
-	llist_add(&task->cg_dead_lnode, this_cpu_ptr(&cgrp_dead_tasks));
-	irq_work_queue(this_cpu_ptr(&cgrp_dead_tasks_iwork));
+	llist_add(&task->cg_dead_lnode, &cgrp_dead->tasks);
+	irq_work_queue(&cgrp_dead->iwork);
 }
 #else	/* CONFIG_PREEMPT_RT */
 static void __init cgroup_rt_init(void) {}
