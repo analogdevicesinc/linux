@@ -798,25 +798,18 @@ def _dev_assoc_no_nsid(cfg):
     ksft_true(not found, "Device should not be in assoc-list after disassociation")
 
 
-def _psp_dev_assoc_cleanup_on_netkit_del(cfg):
-    """Test that assoc-list is cleared when associated netkit is deleted.
+def _add_netkit_guest(cfg, host_name, guest_name):
+    """Create a netkit pair and move its peer into the test namespace.
 
-    Creates a disposable netkit pair for this test to avoid destroying
-    the shared environment.
+    Returns the peer's ifindex there and the defer() deleting the pair.
     """
-    _init_psp_dev(cfg, True)
-    defer(delattr, cfg, 'psp_dev_id')
-    defer(delattr, cfg, 'psp_info')
+    existing = {link['ifindex'] for link in ip("-d link show", json=True)
+                if link.get('linkinfo', {}).get('info_kind') == 'netkit'}
 
-    existing = {cfg.nk_host_ifindex, cfg.nk_guest_ifindex}
-
-    # Create a temporary netkit pair
-    tmp_host_name = "tmp_nk_host"
-    tmp_guest_name = "tmp_nk_guest"
     rtnl = RtnlFamily()
     rtnl.newlink(
         {
-            "ifname": tmp_host_name,
+            "ifname": host_name,
             "linkinfo": {
                 "kind": "netkit",
                 "data": {
@@ -828,25 +821,38 @@ def _psp_dev_assoc_cleanup_on_netkit_del(cfg):
         },
         flags=[Netlink.NLM_F_CREATE, Netlink.NLM_F_EXCL],
     )
-    cleanup_netkit = defer(ip, f"link del {tmp_host_name}")
+    cleanup = defer(ip, f"link del {host_name}")
 
     # Find the peer by diffing against existing netkit ifindexes
     all_links = ip("-d link show", json=True)
-    tmp_peer = [link for link in all_links
-                if link.get('linkinfo', {}).get('info_kind') == 'netkit'
-                and link['ifindex'] not in existing
-                and link['ifname'] != tmp_host_name]
-    ksft_eq(len(tmp_peer), 1,
-            "Failed to find temporary netkit peer")
-    guest_name = tmp_peer[0]['ifname']
+    peer = [link for link in all_links
+            if link.get('linkinfo', {}).get('info_kind') == 'netkit'
+            and link['ifindex'] not in existing
+            and link['ifname'] != host_name]
+    ksft_eq(len(peer), 1, "Failed to find the new netkit peer")
 
     # Rename and move guest end into the test namespace
-    ip(f"link set dev {guest_name} name {tmp_guest_name}")
-    ip(f"link set dev {tmp_guest_name} netns {cfg.netns.name}")
-    tmp_guest_dev = ip(f"link show dev {tmp_guest_name}",
-                       json=True, ns=cfg.netns)[0]
-    tmp_guest_ifindex = tmp_guest_dev['ifindex']
-    ip(f"link set dev {tmp_guest_name} up", ns=cfg.netns)
+    ip(f"link set dev {peer[0]['ifname']} name {guest_name}")
+    ip(f"link set dev {guest_name} netns {cfg.netns.name}")
+    guest_dev = ip(f"link show dev {guest_name}", json=True, ns=cfg.netns)[0]
+    ip(f"link set dev {guest_name} up", ns=cfg.netns)
+
+    return guest_dev['ifindex'], cleanup
+
+
+def _psp_dev_assoc_cleanup_on_netkit_del(cfg):
+    """Test that assoc-list is cleared when associated netkit is deleted.
+
+    Creates a disposable netkit pair for this test to avoid destroying
+    the shared environment.
+    """
+    _init_psp_dev(cfg, True)
+    defer(delattr, cfg, 'psp_dev_id')
+    defer(delattr, cfg, 'psp_info')
+
+    tmp_host_name = "tmp_nk_host"
+    tmp_guest_ifindex, cleanup_netkit = _add_netkit_guest(cfg, tmp_host_name,
+                                                          "tmp_nk_guest")
 
     # Associate PSP device with the temporary guest interface
     cfg.pspnl.dev_assoc({'id': cfg.psp_dev_id,
