@@ -42,6 +42,16 @@ definitions:
       - bitfield32
       - sint
       - uint
+  -
+    name: policy-byte-order
+    doc: |
+      Byte order of an integer attribute. Zero is left unused so that it
+      can be taken to mean host byte order.
+    enum-name: netlink-policy-byte-order
+    type: enum
+    value-start: 1
+    entries:
+      - big-endian
 
 attribute-sets:
   -
@@ -152,6 +162,11 @@ attribute-sets:
       -
         name: pad
         type: pad
+      -
+        name: byte-order
+        doc: Byte order of the attribute, absent means host byte order.
+        type: u32
+        enum: policy-byte-order
   -
     name: op-policy-attrs
     name-prefix: ctrl-attr-policy-
