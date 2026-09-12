@@ -10,6 +10,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/clock/adi-sc5xx-clock.h>
+#include <dt-bindings/clock/adi,adsp-sc589-cdu.h>
 
 / {
 	model = "ADI sc58x";
@@ -55,7 +56,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a5";
 			reg = <0x0>;
-			clocks = <&clk ADSP_SC58X_CLK_ARM>;
+			clocks = <&cdu ADSP_SC589_CLK_CDU_ARM>;
 		};
 	};
 
@@ -112,12 +113,51 @@
 	clk: clocks@3108d000 {
 		compatible = "adi,sc58x-clocks";
 		reg = <0x3108d000 0x1000>,
-			<0x3108e000 0x1000>,
-			<0x3108f000 0x1000>;
+			<0x3108e000 0x1000>;
 		#clock-cells = <1>;
 		clocks = <&sys_clkin0>, <&sys_clkin1>;
 		clock-names = "sys_clkin0", "sys_clkin1";
 		status = "okay";
+	};
+
+	cdu: clock-controller@3108f000 {
+		compatible = "adi,adsp-sc589-cdu";
+		reg = <0x3108f000 0x100>;
+		#clock-cells = <1>;
+		clocks = <&sys_clkin0>,
+			 <&sys_clkin1>,
+			 <&clk ADSP_SC58X_CLK_CGU0_CCLK0>,
+			 <&clk ADSP_SC58X_CLK_CGU0_CCLK1>,
+			 <&clk ADSP_SC58X_CLK_CGU0_SYSCLK>,
+			 <&clk ADSP_SC58X_CLK_CGU0_SCLK0>,
+			 <&clk ADSP_SC58X_CLK_CGU0_SCLK1>,
+			 <&clk ADSP_SC58X_CLK_CGU0_DCLK>,
+			 <&clk ADSP_SC58X_CLK_CGU0_OCLK>,
+			 <&clk ADSP_SC58X_CLK_CGU1_CCLK0>,
+			 <&clk ADSP_SC58X_CLK_CGU1_CCLK1>,
+			 <&clk ADSP_SC58X_CLK_CGU1_SCLK0>,
+			 <&clk ADSP_SC58X_CLK_CGU1_SCLK1>,
+			 <&clk ADSP_SC58X_CLK_CGU1_DCLK>,
+			 <&clk ADSP_SC58X_CLK_CGU1_OCLK>,
+			 <&clk ADSP_SC58X_CLK_CGU0_OCLK_HALF>,
+			 <&clk ADSP_SC58X_CLK_CGU1_CCLK1_HALF>;
+		clock-names = "sys_clkin0",
+			      "sys_clkin1",
+			      "cclk0_0",
+			      "cclk1_0",
+			      "sysclk_0",
+			      "sclk0_0",
+			      "sclk1_0",
+			      "dclk_0",
+			      "oclk_0",
+			      "cclk0_1",
+			      "cclk1_1",
+			      "sclk0_1",
+			      "sclk1_1",
+			      "dclk_1",
+			      "oclk_1",
+			      "oclk_0/2",
+			      "cclk1_1/2";
 	};
 
 	gptimers: gptimers@31001000 {
@@ -463,7 +503,7 @@
 			snps,pbl = <8>;
 			snps,force_sf_dma_mode;
 			snps,perfect-filter-entries = <32>;
-			clocks = <&clk ADSP_SC58X_CLK_GIGE>;
+			clocks = <&cdu ADSP_SC589_CLK_CDU_GIGE>;
 			clock-names = "stmmaceth";
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
@@ -479,7 +519,7 @@
 			snps,burst_len = <0x4>;	/* BLEN8 */
 			snps,pbl = <1>;
 			snps,force_thresh_dma_mode;
-			clocks = <&clk ADSP_SC58X_CLK_GIGE>;
+			clocks = <&cdu ADSP_SC589_CLK_CDU_GIGE>;
 			clock-names = "stmmaceth";
 			status = "disabled";
 		};
@@ -537,7 +577,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			fifo-depth = <1024>;
-			clocks = <&clk ADSP_SC58X_CLK_SDIO>,
+			clocks = <&cdu ADSP_SC589_CLK_CDU_SDIO>,
 					<&clk ADSP_SC58X_CLK_CGU0_SCLK0>;
 			clock-names = "ciu", "biu";
 			status = "disabled";

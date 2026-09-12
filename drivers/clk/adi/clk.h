@@ -37,25 +37,7 @@
 #define CGU_DIVEX       0x40
 #define CGU_REVID       0x48
 
-#define CDU_CFG0     0x00
-#define CDU_CFG1     0x04
-#define CDU_CFG2     0x08
-#define CDU_CFG3     0x0C
-#define CDU_CFG4     0x10
-#define CDU_CFG5     0x14
-#define CDU_CFG6     0x18
-#define CDU_CFG7     0x1C
-#define CDU_CFG8     0x20
-#define CDU_CFG9     0x24
-#define CDU_CFG10    0x28
-#define CDU_CFG11    0x2C
-#define CDU_CFG12    0x30
-#define CDU_CFG13    0x34
-#define CDU_CFG14    0x38
-
 #define PLL3_OFFSET 0x2c
-
-#define CDU_CLKINSEL 0x44
 
 #define CGU_MSEL_SHIFT 8
 #define CGU_MSEL_WIDTH 7
@@ -63,28 +45,11 @@
 #define PLL3_MSEL_SHIFT 4
 #define PLL3_MSEL_WIDTH 7
 
-#define CDU_MUX_SIZE 4
-#define CDU_MUX_SHIFT 1
-#define CDU_MUX_WIDTH 2
-#define CDU_EN_BIT 0
-
 struct clk_sc5xx_cgu_pll *to_clk_sc5xx_cgu_pll(struct clk_hw *hw);
 
 struct clk *sc5xx_cgu_pll(const char *name, const char *parent_name,
 			  void __iomem *base, u8 shift, u8 width,
 			  u32 m_offset, bool half_m, spinlock_t *lock);
-
-/**
- * All CDU clock muxes are the same size
- */
-static inline struct clk *cdu_mux(const char *name, void __iomem *reg,
-				  const char *const *parents,
-				  spinlock_t *cdu_lock)
-{
-	return clk_register_mux(NULL, name, parents, CDU_MUX_SIZE,
-				CLK_SET_RATE_PARENT, reg, CDU_MUX_SHIFT,
-				CDU_MUX_WIDTH, 0, cdu_lock);
-}
 
 static inline struct clk *cgu_divider(const char *name, const char *parent,
 				      void __iomem *reg, u8 shift,
@@ -95,15 +60,6 @@ static inline struct clk *cgu_divider(const char *name, const char *parent,
 				    CLK_SET_RATE_PARENT, reg, shift, width,
 				    CLK_DIVIDER_MAX_AT_ZERO | extra_flags,
 				    cdu_lock);
-}
-
-static inline struct clk *cdu_gate(const char *name, const char *parent,
-				   void __iomem *reg, u32 flags,
-				   spinlock_t *cdu_lock)
-{
-	return clk_register_gate(NULL, name, parent,
-				 CLK_SET_RATE_PARENT | flags, reg,
-				 CDU_EN_BIT, 0, cdu_lock);
 }
 
 static inline struct clk *cgu_gate(const char *name, const char *parent,
