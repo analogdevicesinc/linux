@@ -81,7 +81,7 @@ mod binderfs {
 
 module! {
     type: BinderModule,
-    name: "rust_binder",
+    name: "binder",
     authors: ["Wedson Almeida Filho", "Alice Ryhl"],
     description: "Android Binder",
     license: "GPL",
