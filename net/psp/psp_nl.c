@@ -294,13 +294,16 @@ psp_nl_dev_fill(struct psp_dev *psd, struct sk_buff *rsp,
 		return -EMSGSIZE;
 
 	if (nla_put_u32(rsp, PSP_A_DEV_ID, psd->id) ||
-	    nla_put_u32(rsp, PSP_A_DEV_IFINDEX, psd->main_netdev->ifindex) ||
 	    nla_put_u32(rsp, PSP_A_DEV_PSP_VERSIONS_CAP, psd->caps->versions) ||
 	    nla_put_u32(rsp, PSP_A_DEV_PSP_VERSIONS_ENA, psd->config.versions))
 		goto err_cancel_msg;
 
 	if (cur_net == dev_net(psd->main_netdev)) {
-		/* Primary device - dump assoc list */
+		/* Primary device - report the netdev, dump assoc list. */
+		if (nla_put_u32(rsp, PSP_A_DEV_IFINDEX,
+				psd->main_netdev->ifindex))
+			goto err_cancel_msg;
+
 		err = psp_nl_fill_assoc_dev_list(psd, rsp, cur_net, NULL);
 		if (err)
 			goto err_cancel_msg;
