@@ -2357,7 +2357,7 @@ amdgpu_dm_create_validate_stream_for_sink(struct drm_connector *connector,
 	 * Since we check for it a few times below, cache the result.
 	 */
 	is_hdmi_ep = (signal == SIGNAL_TYPE_HDMI_TYPE_A ||
-		     signal == SIGNAL_TYPE_HDMI_FRL 	||
+		     signal == SIGNAL_TYPE_HDMI_FRL	||
 		     aconnector->dc_link->dpcd_caps.dongle_type ==
 			     DISPLAY_DONGLE_DP_HDMI_CONVERTER);
 	is_dp_or_hdmi = dc_is_hdmi_signal(signal) || dc_is_dp_signal(signal);

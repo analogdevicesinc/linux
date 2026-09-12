@@ -2756,6 +2756,7 @@ static int ips_residency_show(struct seq_file *m, void *unused)
 		seq_printf(m, "ISP query failed\n");
 	} else {
 		unsigned int pct, frac;
+
 		pct = info.residency_millipercent / 1000;
 		frac = info.residency_millipercent % 1000;
 

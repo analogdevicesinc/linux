@@ -1525,7 +1525,7 @@ __set_dm_plane_degamma(struct drm_plane_state *plane_state,
 				     degamma_lut, degamma_size);
 		if (ret)
 			return ret;
-       } else {
+	} else {
 	       /* Check if format requires post-scale color processing (subsampled formats) */
 		is_subsampled_format = (dc_plane_state->format >= SURFACE_PIXEL_FORMAT_VIDEO_BEGIN &&
 					dc_plane_state->format < SURFACE_PIXEL_FORMAT_SUBSAMPLE_END);

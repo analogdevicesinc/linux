@@ -2132,15 +2132,15 @@ dm_atomic_plane_get_property(struct drm_plane *plane,
 	} else if (property == adev->mode_info.plane_ctm_property) {
 		*val = (dm_plane_state->ctm) ?
 			dm_plane_state->ctm->base.id : 0;
-	} else 	if (property == adev->mode_info.plane_shaper_lut_property) {
+	} else if (property == adev->mode_info.plane_shaper_lut_property) {
 		*val = (dm_plane_state->shaper_lut) ?
 			dm_plane_state->shaper_lut->base.id : 0;
 	} else if (property == adev->mode_info.plane_shaper_tf_property) {
 		*val = dm_plane_state->shaper_tf;
-	} else 	if (property == adev->mode_info.plane_lut3d_property) {
+	} else if (property == adev->mode_info.plane_lut3d_property) {
 		*val = (dm_plane_state->lut3d) ?
 			dm_plane_state->lut3d->base.id : 0;
-	} else 	if (property == adev->mode_info.plane_blend_lut_property) {
+	} else if (property == adev->mode_info.plane_blend_lut_property) {
 		*val = (dm_plane_state->blend_lut) ?
 			dm_plane_state->blend_lut->base.id : 0;
 	} else if (property == adev->mode_info.plane_blend_tf_property) {
