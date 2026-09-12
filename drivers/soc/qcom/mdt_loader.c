@@ -77,6 +77,9 @@ static ssize_t mdt_load_split_segment(void *ptr, const struct elf32_phdr *phdrs,
 	if (strlen(fw_name) < 4)
 		return -EINVAL;
 
+	if (segment > 99)
+		return -EINVAL;
+
 	char *seg_name __free(kfree) = kstrdup(fw_name, GFP_KERNEL);
 	if (!seg_name)
 		return -ENOMEM;
