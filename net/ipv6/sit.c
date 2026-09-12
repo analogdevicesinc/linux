@@ -1853,9 +1853,10 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
 
 	rcu_read_lock();
 	parm = rcu_dereference(tunnel->sit_parms);
+	/* If the device is being dismantled, there is nothing to report. */
 	if (!parm) {
 		rcu_read_unlock();
-		return -ENODEV;
+		return 0;
 	}
 
 	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
