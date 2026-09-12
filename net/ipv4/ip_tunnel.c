@@ -1153,26 +1153,19 @@ void ip_tunnel_delete_net(struct net *net, unsigned int id,
 			  struct list_head *head)
 {
 	struct ip_tunnel_net *itn = net_generic(net, id);
-	struct net_device *dev, *aux;
 	int h;
 
 	ASSERT_RTNL_NET(net);
 
-	for_each_netdev_safe(net, dev, aux)
-		if (dev->rtnl_link_ops == ops)
-			unregister_netdevice_queue(dev, head);
+	WRITE_ONCE(itn->fb_tunnel_dev, NULL);
 
 	for (h = 0; h < IP_TNL_HASH_SIZE; h++) {
-		struct ip_tunnel *t;
-		struct hlist_node *n;
 		struct hlist_head *thead = &itn->tunnels[h];
+		struct hlist_node *n;
+		struct ip_tunnel *t;
 
 		hlist_for_each_entry_safe(t, n, thead, hash_node)
-			/* If dev is in the same netns, it has already
-			 * been added to the list by the previous loop.
-			 */
-			if (!net_eq(dev_net(t->dev), net))
-				unregister_netdevice_queue(t->dev, head);
+			unregister_netdevice_queue(t->dev, head);
 	}
 }
 EXPORT_SYMBOL_GPL(ip_tunnel_delete_net);
@@ -1308,8 +1301,6 @@ void ip_tunnel_uninit(struct net_device *dev)
 
 	itn = net_generic(net, tunnel->ip_tnl_net_id);
 	ip_tunnel_del(itn, netdev_priv(dev));
-	if (itn->fb_tunnel_dev == dev)
-		WRITE_ONCE(itn->fb_tunnel_dev, NULL);
 
 	dst_cache_reset(&tunnel->dst_cache);
 }
