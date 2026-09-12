@@ -424,13 +424,13 @@ void serial_test_kasan(void)
 		prog = bpf_object__find_program_by_name(skel->obj, prog_name);
 		if (!ASSERT_OK_PTR(prog, "find rnd_hi32 on_stack prog"))
 			goto destroy;
-		bpf_program__set_flags(prog, BPF_F_TEST_RND_HI32);
+		bpf_program__add_flags(prog, BPF_F_TEST_RND_HI32);
 		snprintf(prog_name, SUBTEST_NAME_MAX_LEN, "%s_%s",
 			 tests[i].prog_type, "not_on_stack");
 		prog = bpf_object__find_program_by_name(skel->obj, prog_name);
 		if (!ASSERT_OK_PTR(prog, "find rnd_hi32 not_on_stack prog"))
 			goto destroy;
-		bpf_program__set_flags(prog, BPF_F_TEST_RND_HI32);
+		bpf_program__add_flags(prog, BPF_F_TEST_RND_HI32);
 	}
 
 	if (!ASSERT_OK(kasan__load(skel), "load prog"))
