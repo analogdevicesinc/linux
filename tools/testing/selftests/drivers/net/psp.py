@@ -749,6 +749,10 @@ def _psp_dev_get_check_netkit_psp_assoc(cfg):
 
         ksft_not_none(peer_dev, "No PSP device found with by-association flag in guest netns")
 
+        # ifindex of the main netdevice means nothing in this namespace
+        ksft_true('ifindex' not in peer_dev,
+                  "ifindex reported to an associated namespace")
+
         # Verify assoc-list contains the nk_guest device
         ksft_true('assoc-list' in peer_dev and len(peer_dev['assoc-list']) > 0,
                   "Guest device should have assoc-list with local devices")
