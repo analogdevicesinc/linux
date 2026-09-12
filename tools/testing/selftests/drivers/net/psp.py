@@ -525,11 +525,11 @@ def data_stale_key(cfg):
 
 def __nsim_psp_rereg(cfg):
     # The PSP dev ID will change, remember what was there before
-    before = set([x['id'] for x in cfg.pspnl.dev_get({}, dump=True)])
+    before = {x['id'] for x in cfg.pspnl.dev_get({}, dump=True)}
 
     cfg._ns.nsims[0].dfs_write('psp_rereg', '1')
 
-    after = set([x['id'] for x in cfg.pspnl.dev_get({}, dump=True)])
+    after = {x['id'] for x in cfg.pspnl.dev_get({}, dump=True)}
 
     new_devs = list(after - before)
     ksft_eq(len(new_devs), 1)
