@@ -723,6 +723,111 @@ def _dev_change_notify_multi_ns_netkit(cfg):
                 f" in {label} namespace")
 
 
+def _subscribe_mgmt(cfg):
+    """Listen on the mgmt group in the guest and in the main namespace."""
+    # Listener in the guest namespace; socket stays bound to that ns
+    with NetNSEnter(cfg.netns.name):
+        peer_pspnl = PSPFamily()
+        peer_pspnl.ntf_subscribe('mgmt')
+
+    main_pspnl = PSPFamily()
+    main_pspnl.ntf_subscribe('mgmt')
+
+    return main_pspnl, peer_pspnl
+
+
+def _get_dev_ntf(cfg, pspnl, label):
+    """Wait for the next notification about the PSP device under test."""
+    for ntf in pspnl.poll_ntf(duration=10):
+        if ntf['msg'].get('id') == cfg.psp_dev_id:
+            return ntf
+    raise KsftFailEx(f"No notification received in the {label} namespace")
+
+
+def _check_disassoc_ntf(cfg, main_pspnl, peer_pspnl, ifindex):
+    """Check the notifications for a netns losing its last association."""
+    ntf = _get_dev_ntf(cfg, main_pspnl, "main")
+    ksft_eq(ntf['name'], 'dev-change-ntf')
+    for assoc in ntf['msg'].get('assoc-list', []):
+        if assoc['nsid'] != cfg.psp_dev_peer_nsid:
+            continue
+        ksft_ne(assoc['ifindex'], ifindex,
+                "Disassociated device still listed in the notification")
+
+    # The device is gone as far as the disassociated namespace is concerned
+    ntf = _get_dev_ntf(cfg, peer_pspnl, "guest")
+    ksft_eq(ntf['name'], 'dev-del-ntf')
+    ksft_true('ifindex' not in ntf['msg'],
+              "ifindex reported to an associated namespace")
+
+
+def _dev_disassoc_notify_multi_ns_netkit(cfg):
+    """ Test the notifications dev-disassoc generates in both namespaces """
+    _init_psp_dev(cfg, True)
+    defer(delattr, cfg, 'psp_dev_id')
+    defer(delattr, cfg, 'psp_info')
+
+    cfg.pspnl.dev_assoc({'id': cfg.psp_dev_id,
+                         'ifindex': cfg.nk_guest_ifindex,
+                         'nsid': cfg.psp_dev_peer_nsid})
+    defer(_try_disassoc, cfg, cfg.psp_dev_id, cfg.nk_guest_ifindex,
+          cfg.psp_dev_peer_nsid)
+
+    main_pspnl, peer_pspnl = _subscribe_mgmt(cfg)
+
+    cfg.pspnl.dev_disassoc({'id': cfg.psp_dev_id,
+                            'ifindex': cfg.nk_guest_ifindex,
+                            'nsid': cfg.psp_dev_peer_nsid})
+
+    _check_disassoc_ntf(cfg, main_pspnl, peer_pspnl, cfg.nk_guest_ifindex)
+
+
+def _dev_disassoc_notify_one_of_two_netkit(cfg):
+    """Test the notifications with two netkits associated in one netns.
+
+    Disassociating the first netkit leaves the PSP device visible in the
+    guest namespace, generates a dev-change-ntf.
+    Disassociating the second one takes the device out of its view,
+    generates 'dev-del-ntf'.
+    """
+    _init_psp_dev(cfg, True)
+    defer(delattr, cfg, 'psp_dev_id')
+    defer(delattr, cfg, 'psp_info')
+
+    tmp_ifindex, _ = _add_netkit_guest(cfg, "tmp_nk_host", "tmp_nk_guest")
+
+    for ifindex in [cfg.nk_guest_ifindex, tmp_ifindex]:
+        cfg.pspnl.dev_assoc({'id': cfg.psp_dev_id, 'ifindex': ifindex,
+                             'nsid': cfg.psp_dev_peer_nsid})
+        defer(_try_disassoc, cfg, cfg.psp_dev_id, ifindex,
+              cfg.psp_dev_peer_nsid)
+
+    main_pspnl, peer_pspnl = _subscribe_mgmt(cfg)
+
+    # One of the two goes away, the device stays visible in the guest netns
+    cfg.pspnl.dev_disassoc({'id': cfg.psp_dev_id, 'ifindex': tmp_ifindex,
+                            'nsid': cfg.psp_dev_peer_nsid})
+
+    ntf = _get_dev_ntf(cfg, main_pspnl, "main")
+    ksft_eq(ntf['name'], 'dev-change-ntf')
+
+    ntf = _get_dev_ntf(cfg, peer_pspnl, "guest")
+    ksft_eq(ntf['name'], 'dev-change-ntf')
+    found = False
+    for assoc in ntf['msg'].get('assoc-list', []):
+        ksft_ne(assoc['ifindex'], tmp_ifindex,
+                "Disassociated device still listed in the notification")
+        found |= assoc['ifindex'] == cfg.nk_guest_ifindex
+    ksft_true(found, "Remaining association missing from the notification")
+
+    # And now the last one, the device disappears from the guest netns
+    cfg.pspnl.dev_disassoc({'id': cfg.psp_dev_id,
+                            'ifindex': cfg.nk_guest_ifindex,
+                            'nsid': cfg.psp_dev_peer_nsid})
+
+    _check_disassoc_ntf(cfg, main_pspnl, peer_pspnl, cfg.nk_guest_ifindex)
+
+
 def _psp_dev_get_check_netkit_psp_assoc(cfg):
     """ Check psp dev-get output with netkit interface associated with PSP dev """
     _assoc_nk_guest(cfg)
@@ -863,6 +968,9 @@ def _psp_dev_assoc_cleanup_on_netkit_del(cfg):
     _check_assoc_list(cfg, cfg.psp_dev_id, tmp_guest_ifindex,
                       cfg.psp_dev_peer_nsid)
 
+    # Removing the netdevice is notified like a disassociation
+    main_pspnl, peer_pspnl = _subscribe_mgmt(cfg)
+
     # Delete the temporary netkit pair (deleting one end removes both)
     ip(f"link del {tmp_host_name}")
     cleanup_netkit.cancel()
@@ -872,6 +980,8 @@ def _psp_dev_assoc_cleanup_on_netkit_del(cfg):
     ksft_true('assoc-list' not in dev_info
               or len(dev_info['assoc-list']) == 0,
               "assoc-list should be empty after netkit deletion")
+
+    _check_disassoc_ntf(cfg, main_pspnl, peer_pspnl, tmp_guest_ifindex)
 
 
 def _try_disassoc(cfg, psp_dev_id, ifindex, nsid=None):
@@ -991,6 +1101,8 @@ def main() -> None:
                         data_basic_send_netkit_psp_assoc,
                         _key_rotation_notify_multi_ns_netkit,
                         _dev_change_notify_multi_ns_netkit,
+                        _dev_disassoc_notify_multi_ns_netkit,
+                        _dev_disassoc_notify_one_of_two_netkit,
                         _psp_dev_get_check_netkit_psp_assoc,
                         _dev_assoc_no_nsid,
                         _psp_dev_assoc_cleanup_on_netkit_del,
