@@ -32,7 +32,7 @@ attribute-sets:
         name: addr-ipv6
         type: binary
         checks:
-          min-len: 16
+          exact-len: 16
         byte-order: big-endian
         display-hint: ipv6
       -
@@ -63,7 +63,7 @@ attribute-sets:
         name: fopen-cookie
         type: binary
         checks:
-          min-len: tcp-fastopen-cookie-max
+          max-len: tcp-fastopen-cookie-max
       -
         name: saddr-ipv4
         type: u32
@@ -73,7 +73,7 @@ attribute-sets:
         name: saddr-ipv6
         type: binary
         checks:
-          min-len: 16
+          exact-len: 16
         byte-order: big-endian
         display-hint: ipv6
       -
