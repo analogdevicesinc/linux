@@ -1993,23 +1993,17 @@ static int wm8995_set_bias_level(struct snd_soc_component *component,
 	return 0;
 }
 
-static int wm8995_probe(struct snd_soc_component *component)
+static int wm8995_hw_init(struct device *dev, struct wm8995_priv *wm8995)
 {
-	struct wm8995_priv *wm8995;
-	int i;
-	int ret;
-
-	wm8995 = snd_soc_component_get_drvdata(component);
-	wm8995->component = component;
+	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(wm8995->supplies); i++)
 		wm8995->supplies[i].supply = wm8995_supply_names[i];
 
-	ret = devm_regulator_bulk_get(component->dev,
-				      ARRAY_SIZE(wm8995->supplies),
+	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(wm8995->supplies),
 				      wm8995->supplies);
 	if (ret) {
-		dev_err(component->dev, "Failed to request supplies: %d\n", ret);
+		dev_err(dev, "Failed to request supplies: %d\n", ret);
 		return ret;
 	}
 
@@ -2024,15 +2018,26 @@ static int wm8995_probe(struct snd_soc_component *component)
 
 	/* This should really be moved into the regulator core */
 	for (i = 0; i < ARRAY_SIZE(wm8995->supplies); i++) {
-		ret = devm_regulator_register_notifier(
-						wm8995->supplies[i].consumer,
-						&wm8995->disable_nb[i]);
+		ret = devm_regulator_register_notifier(wm8995->supplies[i].consumer,
+						       &wm8995->disable_nb[i]);
 		if (ret) {
-			dev_err(component->dev,
+			dev_err(dev,
 				"Failed to register regulator notifier: %d\n",
 				ret);
+			return ret;
 		}
 	}
+
+	return 0;
+}
+
+static int wm8995_probe(struct snd_soc_component *component)
+{
+	struct wm8995_priv *wm8995;
+	int ret;
+
+	wm8995 = snd_soc_component_get_drvdata(component);
+	wm8995->component = component;
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(wm8995->supplies),
 				    wm8995->supplies);
@@ -2216,6 +2221,10 @@ static int wm8995_spi_probe(struct spi_device *spi)
 		return ret;
 	}
 
+	ret = wm8995_hw_init(&spi->dev, wm8995);
+	if (ret)
+		return ret;
+
 	ret = devm_snd_soc_register_component(&spi->dev,
 				     &soc_component_dev_wm8995, wm8995_dai,
 				     ARRAY_SIZE(wm8995_dai));
@@ -2248,6 +2257,10 @@ static int wm8995_i2c_probe(struct i2c_client *i2c)
 		dev_err(&i2c->dev, "Failed to register regmap: %d\n", ret);
 		return ret;
 	}
+
+	ret = wm8995_hw_init(&i2c->dev, wm8995);
+	if (ret)
+		return ret;
 
 	ret = devm_snd_soc_register_component(&i2c->dev,
 				     &soc_component_dev_wm8995, wm8995_dai,
