@@ -1627,23 +1627,8 @@ static int aic3x_init(struct snd_soc_component *component)
 static int aic3x_component_probe(struct snd_soc_component *component)
 {
 	struct aic3x_priv *aic3x = snd_soc_component_get_drvdata(component);
-	int ret, i;
 
 	aic3x->component = component;
-
-	for (i = 0; i < ARRAY_SIZE(aic3x->supplies); i++) {
-		aic3x->disable_nb[i].nb.notifier_call = aic3x_regulator_event;
-		aic3x->disable_nb[i].aic3x = aic3x;
-		ret = devm_regulator_register_notifier(
-						aic3x->supplies[i].consumer,
-						&aic3x->disable_nb[i].nb);
-		if (ret) {
-			dev_err(component->dev,
-				"Failed to request regulator notifier: %d\n",
-				 ret);
-			return ret;
-		}
-	}
 
 	regcache_mark_dirty(aic3x->regmap);
 	aic3x_init(component);
@@ -1844,6 +1829,19 @@ int aic3x_probe(struct device *dev, struct regmap *regmap, kernel_ulong_t driver
 				      aic3x->supplies);
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to request supplies\n");
+
+	for (i = 0; i < ARRAY_SIZE(aic3x->supplies); i++) {
+		aic3x->disable_nb[i].nb.notifier_call = aic3x_regulator_event;
+		aic3x->disable_nb[i].aic3x = aic3x;
+		ret = devm_regulator_register_notifier(aic3x->supplies[i].consumer,
+						       &aic3x->disable_nb[i].nb);
+		if (ret) {
+			dev_err(dev,
+				"Failed to request regulator notifier: %d\n",
+				ret);
+			return ret;
+		}
+	}
 
 	aic3x_configure_ocmv(dev, aic3x);
 
