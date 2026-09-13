@@ -371,6 +371,13 @@ impl<'gpu> Gpu<'gpu> {
                 // still constructing it, so no concurrent DMA allocations can exist.
                 unsafe { pdev.dma_set_mask_and_coherent(dma_mask)? };
 
+                // Nova walks SG segments to build page tables, so their length is
+                // irrelevant to the device.
+                //
+                // SAFETY: `Gpu` owns all DMA allocations for this device, and we are
+                // still constructing it, so no concurrent DMA allocations can exist.
+                unsafe { pdev.dma_set_max_seg_size(u32::MAX) };
+
                 hal.wait_gfw_boot_completion(bar)
                     .inspect_err(|_| dev_err!(dev, "GFW boot did not complete\n"))?;
             },
