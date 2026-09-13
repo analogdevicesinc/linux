@@ -205,7 +205,7 @@ impl GspFwWprMeta {
             gspFwWprStart: ranges.wpr2.start,
             gspFwHeapOffset: ranges.wpr2_heap.start,
             gspFwHeapSize: ranges.wpr2_heap.len(),
-            gspFwOffset: ranges.elf.start,
+            gspFwOffset: ranges.fw_image.start,
             bootBinOffset: ranges.boot.start,
             frtsOffset: ranges.frts.start,
             frtsSize: ranges.frts.len(),
