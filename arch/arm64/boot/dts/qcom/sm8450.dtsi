@@ -3488,7 +3488,7 @@
 						mdss_dp0_out: endpoint {
 							remote-endpoint = <&usb_1_qmpphy_dp_in>;
 						};
-		};
+					};
 				};
 
 				dp_opp_table: opp-table {

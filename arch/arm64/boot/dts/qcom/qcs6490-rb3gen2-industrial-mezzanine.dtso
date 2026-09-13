@@ -33,7 +33,7 @@
 };
 
 &remoteproc_wpss {
-       status = "disabled";
+	status = "disabled";
 };
 
 &spi11 {
@@ -270,5 +270,5 @@
 };
 
 &wifi {
-       status = "disabled";
+	status = "disabled";
 };

@@ -4641,11 +4641,11 @@
 			};
 
 			qup_uart7_default: qup-uart7-state {
-				 /* TX, RX */
-				 pins = "gpio62", "gpio63";
-				 function = "qup1_se7";
-				 drive-strength = <2>;
-				 bias-disable;
+				/* TX, RX */
+				pins = "gpio62", "gpio63";
+				function = "qup1_se7";
+				drive-strength = <2>;
+				bias-disable;
 			};
 
 			qup_uart18_default: qup-uart18-default-state {

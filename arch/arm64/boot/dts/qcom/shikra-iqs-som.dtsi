@@ -218,7 +218,7 @@
 };
 
 &tlmm {
-	 gpio-reserved-ranges = <6 4>, /* Fingerprint SPI */
+	gpio-reserved-ranges = <6 4>, /* Fingerprint SPI */
 			       <30 2>, /* NFC SPI */
 			       <138 1>, /* NFC Secure IO */
 			       <155 11>; /* eMMC Boot */
