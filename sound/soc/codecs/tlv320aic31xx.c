@@ -1366,26 +1366,11 @@ static int aic31xx_set_jack(struct snd_soc_component *component,
 static int aic31xx_codec_probe(struct snd_soc_component *component)
 {
 	struct aic31xx_priv *aic31xx = snd_soc_component_get_drvdata(component);
-	int i, ret;
+	int ret;
 
 	dev_dbg(aic31xx->dev, "## %s\n", __func__);
 
 	aic31xx->component = component;
-
-	for (i = 0; i < ARRAY_SIZE(aic31xx->supplies); i++) {
-		aic31xx->disable_nb[i].nb.notifier_call =
-			aic31xx_regulator_event;
-		aic31xx->disable_nb[i].aic31xx = aic31xx;
-		ret = devm_regulator_register_notifier(
-						aic31xx->supplies[i].consumer,
-						&aic31xx->disable_nb[i].nb);
-		if (ret) {
-			dev_err(component->dev,
-				"Failed to request regulator notifier: %d\n",
-				ret);
-			return ret;
-		}
-	}
 
 	regcache_cache_only(aic31xx->regmap, true);
 	regcache_mark_dirty(aic31xx->regmap);
@@ -1790,6 +1775,19 @@ static int aic31xx_i2c_probe(struct i2c_client *i2c)
 				      aic31xx->supplies);
 	if (ret)
 		return dev_err_probe(aic31xx->dev, ret, "Failed to request supplies\n");
+
+	for (i = 0; i < ARRAY_SIZE(aic31xx->supplies); i++) {
+		aic31xx->disable_nb[i].nb.notifier_call = aic31xx_regulator_event;
+		aic31xx->disable_nb[i].aic31xx = aic31xx;
+		ret = devm_regulator_register_notifier(aic31xx->supplies[i].consumer,
+						       &aic31xx->disable_nb[i].nb);
+		if (ret) {
+			dev_err(aic31xx->dev,
+				"Failed to request regulator notifier: %d\n",
+				ret);
+			return ret;
+		}
+	}
 
 	aic31xx_configure_ocmv(aic31xx);
 
