@@ -169,7 +169,7 @@ void __attribute__((weak, noreturn)) __nolibc_entrypoint __nolibc_no_stack_prote
 	__asm__ volatile (
 		".import $global$\n"           /* Set up the dp register */
 		"ldil L%$global$, %dp\n"
-		"ldo R%$global$(%r27), %dp\n"
+		"ldo R%$global$(%dp), %dp\n"
 
 		"b _start_c\n"                 /* Call _start_c, the load below is executed first */
 
