@@ -760,9 +760,9 @@ static int mtk_dp_phy_probe(struct platform_device *pdev)
 
 static const struct mtk_dp_phy_pdata mt8195_dp_phy_data = {
 	.off_ana_glb = 0,
-	.off_ana_lane = (const u16[]) { 0x100, 0x200, 0x300, 0x400 },
+	.off_ana_lane = { 0x100, 0x200, 0x300, 0x400 },
 	.off_dig_glb = 0x1000,
-	.off_dig_lane = (const u16[]) { 0x1100, 0x1200, 0x1300, 0x1400 },
+	.off_dig_lane = { 0x1100, 0x1200, 0x1300, 0x1400 },
 	.regs_ana_glb = mt8195_phy_ana_glb_regs,
 	.regs_ana_lane = mt8195_phy_ana_lane_regs,
 	.regs_dig_glb = mt8195_phy_dig_glb_regs,
@@ -775,7 +775,7 @@ static const struct mtk_dp_phy_pdata mt8195_dp_phy_data = {
 		.pmos = 8,
 		.nmos = 8,
 	},
-	.driving_params = (const u32[]) {
+	.driving_params = {
 		[0] = 0,
 		[1] = 0,
 		[2] = 0,
@@ -790,9 +790,9 @@ static const struct mtk_dp_phy_pdata mt8195_dp_phy_data = {
 
 static const struct mtk_dp_phy_pdata mt8196_edp_phy_data = {
 	.off_ana_glb = 0x400,
-	.off_ana_lane = (const u16[]) { 0x0, 0x100, 0x200, 0x300 },
+	.off_ana_lane = { 0x0, 0x100, 0x200, 0x300 },
 	.off_dig_glb = 0x1400,
-	.off_dig_lane = (const u16[]) { 0x1000, 0x1100, 0x1200, 0x1300 },
+	.off_dig_lane = { 0x1000, 0x1100, 0x1200, 0x1300 },
 	.regs_ana_glb = mt8195_phy_ana_glb_regs,
 	.regs_ana_lane = mt8195_phy_ana_lane_regs,
 	.regs_dig_glb = mt8196_phy_dig_glb_regs,
@@ -805,7 +805,7 @@ static const struct mtk_dp_phy_pdata mt8196_edp_phy_data = {
 		.pmos = 8,
 		.nmos = 8,
 	},
-	.driving_params = (const u32[]) {
+	.driving_params = {
 		[0] = 0,
 		[1] = 0,
 		[2] = 0,
