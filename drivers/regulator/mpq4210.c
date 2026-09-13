@@ -144,11 +144,12 @@ static int mpq4210_i2c_probe(struct i2c_client *client)
 	u32 r[2];
 	int ret;
 
-	ret = of_property_read_u32_array(dev->of_node, "mps,fb-voltage-divider",
+	ret = of_property_read_u32_array(dev->of_node,
+					 "mps,fb-voltage-divider-ohms",
 					 r, ARRAY_SIZE(r));
 	if (ret)
 		return dev_err_probe(dev, ret,
-				     "failed to read mps,fb-voltage-divider\n");
+				     "failed to read mps,fb-voltage-divider-ohms\n");
 
 	if (!r[1])
 		return dev_err_probe(dev, -EINVAL,
