@@ -34,16 +34,15 @@ properties:
       be permanently asserted.
     maxItems: 1
 
-  mps,fb-voltage-divider:
+  mps,fb-voltage-divider-ohms:
     description: An array of two integers containing the resistor values R1
-      and R2 of the output feedback voltage divider in ohms.
-    $ref: /schemas/types.yaml#/definitions/uint32-array
+      and R2 of the output feedback voltage divider.
     maxItems: 2
 
 required:
   - compatible
   - reg
-  - mps,fb-voltage-divider
+  - mps,fb-voltage-divider-ohms
 
 unevaluatedProperties: false
 
@@ -62,7 +61,7 @@ examples:
             regulator-max-microvolt = <20000000>;
             enable-gpios = <&gpio0 2 GPIO_ACTIVE_LOW>;
             /* R1 = 82 kOhm, R2 = 9.1 kOhm */
-            mps,fb-voltage-divider = <82000 9100>;
+            mps,fb-voltage-divider-ohms = <82000 9100>;
             /* 50 mV/ms reference ramp x (82000 + 9100) / 9100 */
             regulator-ramp-delay = <500>;
         };
