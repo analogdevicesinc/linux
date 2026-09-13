@@ -75,7 +75,7 @@ impl<'a> GspFirmware<'a> {
         self.radix3.size()
     }
 
-    /// Returns the DMA address of the radix3 level 0 page table.
+    /// Returns the DMA address of the radix3 table that maps the firmware image.
     pub(crate) fn radix3_dma_address(&self) -> DmaAddress {
         self.radix3.dma_address()
     }

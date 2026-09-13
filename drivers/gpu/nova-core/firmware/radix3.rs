@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0
 // SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
+//! The radix3 page table, through which firmware running on the GPU reads a buffer in system
+//! memory. LibOS, the operating system of the GSP, defines the format: three levels of
+//! [`GSP_PAGE_SIZE`] pages, each entry the little-endian DMA address of one page.
+//!
+//! ```text
+//! Level 0:  one page, one entry  ->  the first level 1 page
+//! Level 1:  pages of entries     ->  each entry a level 2 page
+//! Level 2:  pages of entries     ->  each entry a page of the buffer
+//! ```
+
 use kernel::{
     device,
     dma::{
@@ -21,33 +31,21 @@ use crate::{
     num::FromSafeCast, //
 };
 
-/// GSP firmware with 3-level radix page tables for the GSP bootloader.
-///
-/// The bootloader expects firmware to be mapped starting at address 0 in GSP's virtual address
-/// space:
-///
-/// ```text
-/// Level 0:  1 page, 1 entry         -> points to first level 1 page
-/// Level 1:  Multiple pages/entries  -> each entry points to a level 2 page
-/// Level 2:  Multiple pages/entries  -> each entry points to a firmware page
-/// ```
-///
-/// Each page is 4KB, each entry is 8 bytes (64-bit DMA address).
-/// Also known as "Radix3" firmware.
+/// A radix3 page table and the data it maps.
 #[pin_data]
 pub(crate) struct Radix3<'a> {
-    /// The GSP firmware inside a [`VVec`], device-mapped via a SG table.
+    /// The mapped data.
     #[pin]
     data: SGTable<Owned<VVec<u8>>>,
-    /// Level 2 page table whose entries contain DMA addresses of firmware pages.
+    /// Level 2: one entry per page of `data`.
     #[pin]
     level2: SGTable<Owned<VVec<u8>>>,
-    /// Level 1 page table whose entries contain DMA addresses of level 2 pages.
+    /// Level 1: one entry per page of `level2`.
     #[pin]
     level1: SGTable<Owned<VVec<u8>>>,
-    /// Level 0 page table (single 4KB page) with one entry: DMA address of first level 1 page.
+    /// Level 0: one page, whose single entry is the DMA address of the first `level1` page.
     level0: Coherent<'a, [u64]>,
-    /// Size in bytes of the firmware contained in [`Self::data`].
+    /// Length of `data`, in bytes.
     size: usize,
 }
 
@@ -108,7 +106,7 @@ impl<'a> Radix3<'a> {
         })
     }
 
-    /// Returns the DMA address of the radix3 level 0 page table.
+    /// Returns the DMA address of the level 0 page, which is the address of the table.
     pub(crate) fn dma_address(&self) -> DmaAddress {
         self.level0.dma_address()
     }
@@ -119,14 +117,10 @@ impl<'a> Radix3<'a> {
     }
 }
 
-/// Build a page table from a scatter-gather list.
-///
-/// Takes each DMA-mapped region from `sg_table` and writes page table entries
-/// for all 4KB pages within that region. For example, a 16KB SG entry becomes
-/// 4 consecutive page table entries.
+/// Appends one level of the table to `dst`: one entry per [`GSP_PAGE_SIZE`] page of each
+/// DMA-mapped region of `sg_table`, in region order.
 fn map_into_lvl(sg_table: &SGTable<Owned<VVec<u8>>>, mut dst: VVec<u8>) -> Result<VVec<u8>> {
     for sg_entry in sg_table.iter() {
-        // Number of pages we need to map.
         let num_pages = usize::from_safe_cast(sg_entry.dma_len()).div_ceil(GSP_PAGE_SIZE);
 
         for i in 0..num_pages {
