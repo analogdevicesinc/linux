@@ -825,6 +825,16 @@ int simple_util_init_jack(struct snd_soc_card *card,
 }
 EXPORT_SYMBOL_GPL(simple_util_init_jack);
 
+void simple_util_remove_jack(struct simple_util_jack *sjack)
+{
+	if (!sjack->gpio.desc)
+		return;
+
+	snd_soc_jack_free_gpios(&sjack->jack, 1, &sjack->gpio);
+	sjack->gpio.desc = NULL;
+}
+EXPORT_SYMBOL_GPL(simple_util_remove_jack);
+
 int simple_util_init_aux_jacks(struct snd_soc_card *card, char *prefix)
 {
 	struct simple_util_priv *priv = snd_soc_card_get_drvdata(card);
