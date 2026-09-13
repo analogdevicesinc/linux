@@ -1077,7 +1077,7 @@ static void cs42l56_init_beep(struct snd_soc_component *component)
 	struct cs42l56_private *cs42l56 = snd_soc_component_get_drvdata(component);
 	int ret;
 
-	cs42l56->beep = devm_input_allocate_device(component->dev);
+	cs42l56->beep = input_allocate_device();
 	if (!cs42l56->beep) {
 		dev_err(component->dev, "Failed to allocate beep device\n");
 		return;
@@ -1098,8 +1098,10 @@ static void cs42l56_init_beep(struct snd_soc_component *component)
 
 	ret = input_register_device(cs42l56->beep);
 	if (ret != 0) {
+		input_free_device(cs42l56->beep);
 		cs42l56->beep = NULL;
 		dev_err(component->dev, "Failed to register beep device\n");
+		return;
 	}
 
 	ret = device_create_file(component->dev, &dev_attr_beep);
@@ -1115,7 +1117,10 @@ static void cs42l56_free_beep(struct snd_soc_component *component)
 
 	device_remove_file(component->dev, &dev_attr_beep);
 	cancel_work_sync(&cs42l56->beep_work);
-	cs42l56->beep = NULL;
+	if (cs42l56->beep) {
+		input_unregister_device(cs42l56->beep);
+		cs42l56->beep = NULL;
+	}
 
 	snd_soc_component_update_bits(component, CS42L56_BEEP_TONE_CFG,
 			    CS42L56_BEEP_EN_MASK, 0);
