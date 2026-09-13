@@ -236,7 +236,7 @@ impl FbRanges {
 
         let elf = {
             const ELF_DOWN_ALIGN: Alignment = Alignment::new::<SZ_64K>();
-            let elf_size = u64::from_safe_cast(gsp_fw.size);
+            let elf_size = u64::from_safe_cast(gsp_fw.size());
             let elf_addr = (boot.start - elf_size).align_down(ELF_DOWN_ALIGN);
 
             FbRange(elf_addr..elf_addr + elf_size)
