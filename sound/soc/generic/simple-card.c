@@ -666,6 +666,16 @@ end:
 	return simple_ret(priv, ret);
 }
 
+static int simple_soc_remove(struct snd_soc_card *card)
+{
+	struct simple_util_priv *priv = snd_soc_card_get_drvdata(card);
+
+	simple_util_remove_jack(&priv->hp_jack);
+	simple_util_remove_jack(&priv->mic_jack);
+
+	return 0;
+}
+
 static int simple_parse_of(struct simple_util_priv *priv)
 {
 	struct snd_soc_card *card = simple_priv_to_card(priv);
@@ -754,6 +764,7 @@ static int simple_probe(struct platform_device *pdev)
 	card->owner		= THIS_MODULE;
 	card->dev		= dev;
 	card->probe		= simple_soc_probe;
+	card->remove		= simple_soc_remove;
 	card->driver_name       = "simple-card";
 
 	return simple_parse_of(priv);
