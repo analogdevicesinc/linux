@@ -62,13 +62,13 @@ examples:
         #address-cells = <1>;
         #size-cells = <0>;
         regulator@62 {
-          compatible = "mps,mp8869";
-          regulator-name = "vcpu";
-          regulator-min-microvolt = <800000>;
-          regulator-max-microvolt = <1150000>;
-          enable-gpios = <&porta 1 GPIO_ACTIVE_LOW>;
-          mps,fb-voltage-divider = <80 240>;
-          reg = <0x62>;
+            compatible = "mps,mp8869";
+            regulator-name = "vcpu";
+            regulator-min-microvolt = <800000>;
+            regulator-max-microvolt = <1150000>;
+            enable-gpios = <&porta 1 GPIO_ACTIVE_LOW>;
+            mps,fb-voltage-divider = <80 240>;
+            reg = <0x62>;
         };
     };
 
