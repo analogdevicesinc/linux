@@ -53,11 +53,11 @@ examples:
         #size-cells = <0>;
 
         stk3310@48 {
-                compatible = "sensortek,stk3310";
-                reg = <0x48>;
-                proximity-near-level = <25>;
-                interrupt-parent = <&gpio1>;
-                interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
+            compatible = "sensortek,stk3310";
+            reg = <0x48>;
+            proximity-near-level = <25>;
+            interrupt-parent = <&gpio1>;
+            interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
         };
     };
 ...
