@@ -329,7 +329,7 @@ static void mtk_dp_phy_set_digital_drv_params(struct mtk_dp_phy *dp_phy)
 {
 	const struct mtk_dp_phy_pdata *pdata = dp_phy->pdata;
 	const u32 reg = pdata->regs_dig_lane[DP_PHYD_LAN_DRIVING_PARAM_0];
-	int i, ret;
+	int i;
 
 	/*
 	 * Assume that all lanes need the same driving parameters: this
@@ -345,7 +345,6 @@ static void mtk_dp_phy_set_digital_drv_params(struct mtk_dp_phy *dp_phy)
 static int mtk_dp_phy_init(struct phy *phy)
 {
 	struct mtk_dp_phy *dp_phy = phy_get_drvdata(phy);
-	struct device *dev = &phy->dev;
 
 	mtk_dp_phy_set_digital_drv_params(dp_phy);
 	mtk_dp_phy_set_analog_calibration_params(dp_phy);
@@ -454,7 +453,6 @@ static int mtk_dp_phy_disable_all_lanes(struct mtk_dp_phy *dp_phy)
 {
 	const struct mtk_dp_phy_pdata *pdata = dp_phy->pdata;
 	const u8 *regs = pdata->regs_dig_glb;
-	int ret;
 	u32 val;
 
 	/* Get mask of currently enabled lane */
