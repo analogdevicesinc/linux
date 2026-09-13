@@ -3355,7 +3355,7 @@ static void wm8962_init_beep(struct snd_soc_component *component)
 	struct wm8962_priv *wm8962 = snd_soc_component_get_drvdata(component);
 	int ret;
 
-	wm8962->beep = devm_input_allocate_device(component->dev);
+	wm8962->beep = input_allocate_device();
 	if (!wm8962->beep) {
 		dev_err(component->dev, "Failed to allocate beep device\n");
 		return;
@@ -3376,8 +3376,10 @@ static void wm8962_init_beep(struct snd_soc_component *component)
 
 	ret = input_register_device(wm8962->beep);
 	if (ret != 0) {
+		input_free_device(wm8962->beep);
 		wm8962->beep = NULL;
 		dev_err(component->dev, "Failed to register beep device\n");
+		return;
 	}
 
 	ret = device_create_file(component->dev, &dev_attr_beep);
@@ -3393,7 +3395,10 @@ static void wm8962_free_beep(struct snd_soc_component *component)
 
 	device_remove_file(component->dev, &dev_attr_beep);
 	cancel_work_sync(&wm8962->beep_work);
-	wm8962->beep = NULL;
+	if (wm8962->beep) {
+		input_unregister_device(wm8962->beep);
+		wm8962->beep = NULL;
+	}
 
 	snd_soc_component_update_bits(component, WM8962_BEEP_GENERATOR_1, WM8962_BEEP_ENA,0);
 }
@@ -3525,33 +3530,11 @@ static void wm8962_free_gpio(struct snd_soc_component *component)
 static int wm8962_probe(struct snd_soc_component *component)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
-	int ret;
 	struct wm8962_priv *wm8962 = snd_soc_component_get_drvdata(component);
 	int i;
 	bool dmicclk, dmicdat;
 
 	wm8962->component = component;
-
-	wm8962->disable_nb[0].notifier_call = wm8962_regulator_event_0;
-	wm8962->disable_nb[1].notifier_call = wm8962_regulator_event_1;
-	wm8962->disable_nb[2].notifier_call = wm8962_regulator_event_2;
-	wm8962->disable_nb[3].notifier_call = wm8962_regulator_event_3;
-	wm8962->disable_nb[4].notifier_call = wm8962_regulator_event_4;
-	wm8962->disable_nb[5].notifier_call = wm8962_regulator_event_5;
-	wm8962->disable_nb[6].notifier_call = wm8962_regulator_event_6;
-	wm8962->disable_nb[7].notifier_call = wm8962_regulator_event_7;
-
-	/* This should really be moved into the regulator core */
-	for (i = 0; i < ARRAY_SIZE(wm8962->supplies); i++) {
-		ret = devm_regulator_register_notifier(
-						wm8962->supplies[i].consumer,
-						&wm8962->disable_nb[i]);
-		if (ret != 0) {
-			dev_err(component->dev,
-				"Failed to register regulator notifier: %d\n",
-				ret);
-		}
-	}
 
 	wm8962_add_widgets(component);
 
@@ -3741,6 +3724,27 @@ static int wm8962_i2c_probe(struct i2c_client *i2c)
 		 + 'A');
 
 	regcache_cache_bypass(wm8962->regmap, false);
+
+	wm8962->disable_nb[0].notifier_call = wm8962_regulator_event_0;
+	wm8962->disable_nb[1].notifier_call = wm8962_regulator_event_1;
+	wm8962->disable_nb[2].notifier_call = wm8962_regulator_event_2;
+	wm8962->disable_nb[3].notifier_call = wm8962_regulator_event_3;
+	wm8962->disable_nb[4].notifier_call = wm8962_regulator_event_4;
+	wm8962->disable_nb[5].notifier_call = wm8962_regulator_event_5;
+	wm8962->disable_nb[6].notifier_call = wm8962_regulator_event_6;
+	wm8962->disable_nb[7].notifier_call = wm8962_regulator_event_7;
+
+	/* This should really be moved into the regulator core */
+	for (i = 0; i < ARRAY_SIZE(wm8962->supplies); i++) {
+		ret = devm_regulator_register_notifier(wm8962->supplies[i].consumer,
+						       &wm8962->disable_nb[i]);
+		if (ret != 0) {
+			dev_err(&i2c->dev,
+				"Failed to register regulator notifier: %d\n",
+				ret);
+			goto err_enable;
+		}
+	}
 
 	ret = wm8962_reset(wm8962);
 	if (ret < 0) {
