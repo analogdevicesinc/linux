@@ -226,6 +226,7 @@ int simple_util_init_priv(struct simple_util_priv *priv,
 void simple_util_remove(struct platform_device *pdev);
 
 int graph_util_card_probe(struct snd_soc_card *card);
+int graph_util_card_remove(struct snd_soc_card *card);
 int graph_util_is_ports0(struct device_node *port);
 int graph_util_parse_dai(struct simple_util_priv *priv, struct device_node *ep,
 			 struct snd_soc_dai_link_component *dlc, int *is_single_link);

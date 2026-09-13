@@ -1028,6 +1028,17 @@ end:
 }
 EXPORT_SYMBOL_GPL(graph_util_card_probe);
 
+int graph_util_card_remove(struct snd_soc_card *card)
+{
+	struct simple_util_priv *priv = snd_soc_card_get_drvdata(card);
+
+	simple_util_remove_jack(&priv->hp_jack);
+	simple_util_remove_jack(&priv->mic_jack);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(graph_util_card_remove);
+
 int graph_util_is_ports0(struct device_node *np)
 {
 	struct device_node *parent __free(device_node) = of_get_parent(np);
