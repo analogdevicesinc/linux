@@ -38,7 +38,7 @@ use crate::{
 pub(crate) struct Radix3<'a> {
     /// The GSP firmware inside a [`VVec`], device-mapped via a SG table.
     #[pin]
-    fw: SGTable<Owned<VVec<u8>>>,
+    data: SGTable<Owned<VVec<u8>>>,
     /// Level 2 page table whose entries contain DMA addresses of firmware pages.
     #[pin]
     level2: SGTable<Owned<VVec<u8>>>,
@@ -47,30 +47,30 @@ pub(crate) struct Radix3<'a> {
     level1: SGTable<Owned<VVec<u8>>>,
     /// Level 0 page table (single 4KB page) with one entry: DMA address of first level 1 page.
     level0: Coherent<'a, [u64]>,
-    /// Size in bytes of the firmware contained in [`Self::fw`].
+    /// Size in bytes of the firmware contained in [`Self::data`].
     size: usize,
 }
 
 impl<'a> Radix3<'a> {
-    /// Builds a radix3 page table over `fw_vvec`, mapped for `dev` to read. May sleep.
+    /// Builds a radix3 page table over `data`, mapped for `dev` to read. May sleep.
     pub(crate) fn new(
         dev: &'a device::Device<device::Bound>,
-        fw_vvec: VVec<u8>,
+        data: VVec<u8>,
     ) -> impl PinInit<Self, Error> + 'a {
-        let size = fw_vvec.len();
+        let size = data.len();
 
         pin_init::pin_init_scope(move || {
             Ok(try_pin_init!(Self {
-                fw <- SGTable::new(dev, fw_vvec, DataDirection::ToDevice, GFP_KERNEL),
+                data <- SGTable::new(dev, data, DataDirection::ToDevice, GFP_KERNEL),
                 level2 <- {
                     // Allocate the level 2 page table, map the firmware onto it, and map it into
                     // the device address space.
                     VVec::<u8>::with_capacity(
-                        fw.iter().count() * core::mem::size_of::<u64>(),
+                        data.iter().count() * core::mem::size_of::<u64>(),
                         GFP_KERNEL,
                     )
                     .map_err(|_| ENOMEM)
-                    .and_then(|level2| map_into_lvl(&fw, level2))
+                    .and_then(|level2| map_into_lvl(&data, level2))
                     .map(|level2| SGTable::new(dev, level2, DataDirection::ToDevice, GFP_KERNEL))?
                 },
                 level1 <- {
