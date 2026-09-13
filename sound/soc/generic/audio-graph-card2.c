@@ -1310,6 +1310,7 @@ int audio_graph2_parse_of(struct simple_util_priv *priv, struct device *dev,
 		goto end;
 
 	card->probe	= graph_util_card_probe;
+	card->remove	= graph_util_card_remove;
 	card->owner	= THIS_MODULE;
 	card->dev	= dev;
 
