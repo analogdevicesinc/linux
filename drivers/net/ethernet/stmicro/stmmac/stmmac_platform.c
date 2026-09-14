@@ -970,7 +970,8 @@ static int __maybe_unused stmmac_pltfr_noirq_suspend(struct device *dev)
 
 	if (!priv->wolopts) {
 		/* Disable clock in case of PWM is off */
-		clk_disable_unprepare(priv->plat->clk_ptp_ref);
+		if (priv->ptp_enabled)
+			clk_disable_unprepare(priv->plat->clk_ptp_ref);
 
 		ret = pm_runtime_force_suspend(dev);
 		if (ret)
@@ -994,6 +995,9 @@ static int __maybe_unused stmmac_pltfr_noirq_resume(struct device *dev)
 		ret = pm_runtime_force_resume(dev);
 		if (ret)
 			return ret;
+
+		if (!priv->ptp_enabled)
+			return 0;
 
 		ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
 		if (ret < 0) {
