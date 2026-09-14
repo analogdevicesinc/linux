@@ -235,26 +235,26 @@ int __perf_sdt_arg_parse_op_x86(char *old_op, char **new_op)
 	return SDT_ARG_VALID;
 }
 
-uint64_t __perf_reg_mask_x86(bool intr)
+static uint64_t __arch__reg_mask(u64 sample_type, u64 mask, bool has_simd_regs)
 {
 	struct perf_event_attr attr = {
-		.type			= PERF_TYPE_HARDWARE,
-		.config			= PERF_COUNT_HW_CPU_CYCLES,
-		.sample_type		= PERF_SAMPLE_REGS_INTR,
-		.sample_regs_intr	= PERF_REG_EXTENDED_MASK,
-		.precise_ip		= 1,
-		.disabled		= 1,
-		.exclude_kernel		= 1,
+		.type				= PERF_TYPE_HARDWARE,
+		.config				= PERF_COUNT_HW_CPU_CYCLES,
+		.sample_type			= sample_type,
+		.precise_ip			= 1,
+		.disabled			= 1,
+		.exclude_kernel			= 1,
+		.sample_simd_regs_enabled	= has_simd_regs,
 	};
 	int fd;
-
-	if (!intr)
-		return PERF_REGS_MASK;
-
 	/*
 	 * In an unnamed union, init it here to build on older gcc versions
 	 */
 	attr.sample_period = 1;
+	if (sample_type == PERF_SAMPLE_REGS_INTR)
+		attr.sample_regs_intr = mask;
+	else
+		attr.sample_regs_user = mask;
 
 	if (perf_pmus__num_core_pmus() > 1) {
 		struct perf_pmu *pmu = NULL;
@@ -276,13 +276,38 @@ uint64_t __perf_reg_mask_x86(bool intr)
 				 /*group_fd=*/-1, /*flags=*/0);
 	if (fd != -1) {
 		close(fd);
-		return (PERF_REG_EXTENDED_MASK | PERF_REGS_MASK);
+		return mask;
 	}
 
-	return PERF_REGS_MASK;
+	return 0;
 }
 
-const char *__perf_reg_name_x86(int id)
+uint64_t __perf_reg_mask_x86(bool intr, int *abi)
+{
+	u64 sample_type = intr ? PERF_SAMPLE_REGS_INTR : PERF_SAMPLE_REGS_USER;
+	uint64_t mask = PERF_REGS_MASK;
+
+	/* -1 indicates only basic GPRs are needed. */
+	if (*abi < 0)
+		return PERF_REGS_MASK;
+
+	*abi = 0;
+	mask |= __arch__reg_mask(sample_type,
+				 GENMASK_ULL(PERF_REG_X86_R31, PERF_REG_X86_R16),
+				 true);
+	mask |= __arch__reg_mask(sample_type, BIT_ULL(PERF_REG_X86_SSP), true);
+
+	if (mask != PERF_REGS_MASK) {
+		*abi |= PERF_SAMPLE_REGS_ABI_SIMD;
+	} else {
+		mask |= __arch__reg_mask(sample_type, PERF_REG_EXTENDED_MASK,
+					 false);
+	}
+
+	return mask;
+}
+
+static const char *__arch_reg_gpr_name(int id)
 {
 	switch (id) {
 	case PERF_REG_X86_AX:
@@ -333,7 +358,60 @@ const char *__perf_reg_name_x86(int id)
 		return "R14";
 	case PERF_REG_X86_R15:
 		return "R15";
+	default:
+		return NULL;
+	}
 
+	return NULL;
+}
+
+static const char *__arch_reg_egpr_name(int id)
+{
+	switch (id) {
+	case PERF_REG_X86_R16:
+		return "R16";
+	case PERF_REG_X86_R17:
+		return "R17";
+	case PERF_REG_X86_R18:
+		return "R18";
+	case PERF_REG_X86_R19:
+		return "R19";
+	case PERF_REG_X86_R20:
+		return "R20";
+	case PERF_REG_X86_R21:
+		return "R21";
+	case PERF_REG_X86_R22:
+		return "R22";
+	case PERF_REG_X86_R23:
+		return "R23";
+	case PERF_REG_X86_R24:
+		return "R24";
+	case PERF_REG_X86_R25:
+		return "R25";
+	case PERF_REG_X86_R26:
+		return "R26";
+	case PERF_REG_X86_R27:
+		return "R27";
+	case PERF_REG_X86_R28:
+		return "R28";
+	case PERF_REG_X86_R29:
+		return "R29";
+	case PERF_REG_X86_R30:
+		return "R30";
+	case PERF_REG_X86_R31:
+		return "R31";
+	case PERF_REG_X86_SSP:
+		return "SSP";
+	default:
+		return NULL;
+	}
+
+	return NULL;
+}
+
+static const char *__arch_reg_xmm_name(int id)
+{
+	switch (id) {
 #define XMM(x) \
 	case PERF_REG_X86_XMM ## x:	\
 	case PERF_REG_X86_XMM ## x + 1:	\
@@ -360,6 +438,22 @@ const char *__perf_reg_name_x86(int id)
 	}
 
 	return NULL;
+}
+
+const char *__perf_reg_name_x86(int id, int abi)
+{
+	const char *name;
+
+	name = __arch_reg_gpr_name(id);
+	if (name)
+		return name;
+
+	if (abi & PERF_SAMPLE_REGS_ABI_SIMD)
+		name = __arch_reg_egpr_name(id);
+	else
+		name = __arch_reg_xmm_name(id);
+
+	return name;
 }
 
 uint64_t __perf_reg_ip_x86(void)

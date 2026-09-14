@@ -734,7 +734,7 @@ static int perf_sample__fprintf_regs(struct regs_dump *regs, uint64_t mask,
 	for_each_set_bit(r, (unsigned long *) &mask, sizeof(mask) * 8) {
 		u64 val = regs->regs[i++];
 		printed += fprintf(fp, "%5s:0x%"PRIx64" ",
-				   perf_reg_name(r, e_machine, e_flags),
+				   perf_reg_name(r, e_machine, e_flags, regs->abi),
 				   val);
 	}
 

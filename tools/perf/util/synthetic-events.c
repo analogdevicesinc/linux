@@ -1644,6 +1644,8 @@ size_t perf_event__sample_event_size(const struct perf_sample *sample, u64 type,
 		if (sample->user_regs && sample->user_regs->abi) {
 			result += sizeof(u64);
 			sz = hweight64(sample->user_regs->mask) * sizeof(u64);
+			if (sample->user_regs->abi & PERF_SAMPLE_REGS_ABI_SIMD)
+				sz += 4 * sizeof(u64);
 			result += sz;
 		} else {
 			result += sizeof(u64);
@@ -1672,6 +1674,8 @@ size_t perf_event__sample_event_size(const struct perf_sample *sample, u64 type,
 		if (sample->intr_regs && sample->intr_regs->abi) {
 			result += sizeof(u64);
 			sz = hweight64(sample->intr_regs->mask) * sizeof(u64);
+			if (sample->intr_regs->abi & PERF_SAMPLE_REGS_ABI_SIMD)
+				sz += 4 * sizeof(u64);
 			result += sz;
 		} else {
 			result += sizeof(u64);

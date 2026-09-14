@@ -13,10 +13,10 @@ enum {
 };
 
 int perf_sdt_arg_parse_op(uint16_t e_machine, char *old_op, char **new_op);
-uint64_t perf_intr_reg_mask(uint16_t e_machine);
-uint64_t perf_user_reg_mask(uint16_t e_machine);
+uint64_t perf_intr_reg_mask(uint16_t e_machine, int *abi /*inout*/);
+uint64_t perf_user_reg_mask(uint16_t e_machine, int *abi /*inout*/);
 
-const char *perf_reg_name(int id, uint16_t e_machine, uint32_t e_flags);
+const char *perf_reg_name(int id, uint16_t e_machine, uint32_t e_flags, int abi);
 int perf_reg_value(u64 *valp, struct regs_dump *regs, int id);
 uint64_t perf_arch_reg_ip(uint16_t e_machine);
 uint64_t perf_arch_reg_sp(uint16_t e_machine);
@@ -66,8 +66,8 @@ uint64_t __perf_reg_sp_s390(void);
 int __perf_sdt_arg_parse_op_s390(char *old_op, char **new_op);
 
 int __perf_sdt_arg_parse_op_x86(char *old_op, char **new_op);
-uint64_t __perf_reg_mask_x86(bool intr);
-const char *__perf_reg_name_x86(int id);
+uint64_t __perf_reg_mask_x86(bool intr, int *abi);
+const char *__perf_reg_name_x86(int id, int abi);
 uint64_t __perf_reg_ip_x86(void);
 uint64_t __perf_reg_sp_x86(void);
 

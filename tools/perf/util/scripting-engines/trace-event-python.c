@@ -730,7 +730,7 @@ static void regs_map(struct regs_dump *regs, uint64_t mask, uint16_t e_machine, 
 
 		printed += scnprintf(bf + printed, size - printed,
 				     "%5s:0x%" PRIx64 " ",
-				     perf_reg_name(r, e_machine, e_flags), val);
+				     perf_reg_name(r, e_machine, e_flags, regs->abi), val);
 	}
 }
 
