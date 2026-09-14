@@ -948,8 +948,9 @@ unsigned long get_taint(void)
  * @flag: one of the TAINT_* constants.
  * @lockdep_ok: whether lock debugging is still OK.
  *
- * If something bad has gone wrong, you'll want @lockdebug_ok = false, but for
- * some notewortht-but-not-corrupting cases, it can be set to true.
+ * If something bad has gone wrong, you'll want
+ * @lockdep_ok = LOCKDEP_NOW_UNRELIABLE, but for some
+ * noteworthy-but-not-corrupting cases, it can be set to LOCKDEP_STILL_OK.
  */
 void add_taint(unsigned flag, enum lockdep_ok lockdep_ok)
 {

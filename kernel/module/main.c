@@ -197,8 +197,9 @@ static inline int strong_try_module_get(struct module *mod)
  * @flag: one of the TAINT_* constants.
  * @lockdep_ok: whether lock debugging is still OK.
  *
- * If something bad has gone wrong, you'll want @lockdebug_ok = false, but for
- * some noteworthy-but-not-corrupting cases, it can be set to true.
+ * If something bad has gone wrong, you'll want
+ * @lockdep_ok = LOCKDEP_NOW_UNRELIABLE, but for some
+ * noteworthy-but-not-corrupting cases, it can be set to LOCKDEP_STILL_OK.
  */
 void add_taint_module(struct module *mod, unsigned flag,
 		      enum lockdep_ok lockdep_ok)
