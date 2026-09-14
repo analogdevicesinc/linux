@@ -249,6 +249,143 @@ test_extd_register_capture() {
   echo "Extended register capture test [Success]"
 }
 
+extract_x86_advertised_simd_classes() {
+  local regs_output="$1"
+
+  echo "${regs_output}" \
+    | grep -oE '(ZMM|YMM|XMM|OPMASK)[0-9]+-[0-9]+' \
+    | sed -E 's/[0-9]+-[0-9]+$//' \
+    | tr '[:upper:]' '[:lower:]' \
+    | sort -u
+}
+
+ordered_x86_simd_classes() {
+  local advertised_classes="$1"
+  local simd_classes=""
+
+  if echo "${advertised_classes}" | grep -qw zmm
+  then
+    simd_classes="${simd_classes} zmm"
+  fi
+  if echo "${advertised_classes}" | grep -qw ymm
+  then
+    simd_classes="${simd_classes} ymm"
+  fi
+  if echo "${advertised_classes}" | grep -qw xmm
+  then
+    simd_classes="${simd_classes} xmm"
+  fi
+  if echo "${advertised_classes}" | grep -qw opmask
+  then
+    simd_classes="${simd_classes} opmask"
+  fi
+
+  echo "${simd_classes}" | xargs
+}
+
+check_simd_reg_capture() {
+  local script_field="$1"
+  local simd_reg="$2"
+
+  perf script -F ip,sym,"${script_field}" -i "${perfdata}" 2>/dev/null | \
+  grep -q -i "${simd_reg}\["
+}
+
+validate_simd_regs_sampling() {
+  local regs_opt="$1"
+  local simd_classes="$2"
+  local script_field="$3"
+  local simd_class
+  local ret=0
+
+  for simd_class in ${simd_classes}
+  do
+    perf_record_with_retry "${perfdata}" \
+      "check_simd_reg_capture ${script_field} ${simd_class}" "perf test -w thloop" \
+      -e br_inst_retired.near_call ${regs_opt}=${simd_class} -c 1000 \
+      --per-thread || ret=$?
+
+    if [ $ret -ne 0 ]
+    then
+      echo "SIMD register capture test [Failed record ${regs_opt}=${simd_class}]"
+      return 1
+    fi
+  done
+
+  return 0
+}
+
+test_simd_register_capture() {
+  local arch
+  local intr_regs
+  local user_regs
+  local simd_classes
+  local user_simd_classes
+  local advertised_intr_classes
+  local advertised_user_classes
+  local tested=0
+
+  echo "SIMD register capture test"
+  if ! perf list pmu | grep -q 'br_inst_retired.near_call'
+  then
+    echo "SIMD register capture test [Skipped missing event]"
+    return
+  fi
+
+  intr_regs=$(perf record --intr-regs=\? 2>&1 || true)
+  user_regs=$(perf record --user-regs=\? 2>&1 || true)
+
+  simd_classes=""
+  user_simd_classes=""
+
+  arch=$(uname -m)
+  case ${arch} in
+  x86_64|i386)
+    advertised_intr_classes=$(extract_x86_advertised_simd_classes "${intr_regs}")
+    advertised_user_classes=$(extract_x86_advertised_simd_classes "${user_regs}")
+
+    simd_classes=$(ordered_x86_simd_classes "${advertised_intr_classes}")
+    user_simd_classes=$(ordered_x86_simd_classes "${advertised_user_classes}")
+    ;;
+  *)
+    echo "SIMD register capture test [Skipped non-x86 platform]"
+    return
+    ;;
+  esac
+
+  if [ -z "${simd_classes}" ]
+  then
+    echo "SIMD register capture test [Skipped missing intr SIMD registers]"
+  elif ! validate_simd_regs_sampling "--intr-regs" "${simd_classes}" "iregs"
+  then
+    echo "SIMD register capture test [Failed intr SIMD register sampling]"
+    err=1
+    return
+  else
+    tested=1
+  fi
+
+  if [ -z "${user_simd_classes}" ]
+  then
+    echo "SIMD register capture test [Skipped missing user SIMD registers]"
+  elif ! validate_simd_regs_sampling "--user-regs" "${user_simd_classes}" "uregs"
+  then
+    echo "SIMD register capture test [Failed user SIMD register sampling]"
+    err=1
+    return
+  else
+    tested=1
+  fi
+
+  if [ ${tested} -eq 0 ]
+  then
+    echo "SIMD register capture test [Skipped missing SIMD registers]"
+    return
+  fi
+
+  echo "SIMD register capture test [Success]"
+}
+
 test_system_wide() {
   echo "Basic --system-wide mode test"
   local ret=0
@@ -610,6 +747,7 @@ fi
 test_per_thread
 test_register_capture
 test_extd_register_capture
+test_simd_register_capture
 test_system_wide
 test_workload
 test_branch_counter
