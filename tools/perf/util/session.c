@@ -629,6 +629,16 @@ do { 						\
 	bswap_field_32(aux_watermark);
 	bswap_field_16(sample_max_stack);
 	bswap_field_32(aux_sample_size);
+	/*
+	 * aux_action aliases bitfields (e.g. aux_start_paused) in a union.
+	 * Bitfields and plain u32 fields follow different endian rules, so
+	 * both views cannot be swapped correctly at the same time.
+	 * Leave aux_action unswapped until the ABI is represented in a
+	 * byte-order-safe form.
+	 */
+	bswap_field_64(sig_data);
+	bswap_field_64(config3);
+	bswap_field_64(config4);
 
 	/*
 	 * After read_format are bitfields. Check read_format because

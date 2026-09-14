@@ -405,6 +405,10 @@ int perf_event_attr__fprintf(FILE *fp, struct perf_event_attr *attr,
 		PRINT_ATTRf_bf(aux_pause, p_unsigned);
 		PRINT_ATTRf_bf(aux_resume, p_unsigned);
 	}
+	if (attr_size >= offsetof(struct perf_event_attr, config4))
+		PRINT_ATTRf(config3, p_hex);
+	if (attr_size > offsetof(struct perf_event_attr, config4))
+		PRINT_ATTRf(config4, p_hex);
 
 	return ret;
 }
