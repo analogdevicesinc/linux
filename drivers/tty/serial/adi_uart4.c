@@ -286,6 +286,12 @@ static void adi_uart4_serial_start_tx(struct uart_port *port)
 	if (tty->termios.c_line == N_IRDA)
 		adi_uart4_serial_reset_irda(port);
 
+	if (uart->port.x_char) {
+		UART_PUT_CHAR(uart, uart->port.x_char);
+		uart->port.icount.tx++;
+		uart->port.x_char = 0;
+	}
+
 	if (IS_ERR(uart->tx_dma_channel)) {
 		UART_SET_IER(uart, ETBEI);
 		adi_uart4_serial_tx_chars(uart);
@@ -372,12 +378,6 @@ static void adi_uart4_serial_tx_chars(struct adi_uart4_serial_port *uart)
 		return;
 	}
 
-	if (uart->port.x_char) {
-		UART_PUT_CHAR(uart, uart->port.x_char);
-		uart->port.icount.tx++;
-		uart->port.x_char = 0;
-	}
-
 	if (UART_GET_LSR(uart) & THRE) {
 		/* pop data from fifo */
 		if (!kfifo_get(&tport->xmit_fifo, &c))
@@ -426,12 +426,6 @@ static void adi_uart4_serial_dma_tx_chars(struct adi_uart4_serial_port *uart)
 		uart->tx_count = 0;
 		uart->tx_done = 1;
 		return;
-	}
-
-	if (uart->port.x_char) {
-		UART_PUT_CHAR(uart, uart->port.x_char);
-		uart->port.icount.tx++;
-		uart->port.x_char = 0;
 	}
 
 	/* Setup the scatterlist for DMA output with fifo */
