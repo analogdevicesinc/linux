@@ -62,7 +62,7 @@
 			reg = <0x100>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x0>; /* set by u-boot */
-			clocks = <&clk ADSP_SC846_CLK_ARM1>;
+			clocks = <&clk ADSP_SC846_CLK_ARM0>;
 		};
 	};
 
