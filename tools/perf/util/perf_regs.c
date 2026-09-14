@@ -252,3 +252,75 @@ uint64_t perf_arch_reg_sp(uint16_t e_machine)
 		return 0;
 	}
 }
+
+uint64_t perf_intr_simd_reg_class_mask(uint16_t e_machine, bool pred)
+{
+	switch (e_machine) {
+	case EM_386:
+	case EM_X86_64:
+		return __perf_simd_reg_class_mask_x86(/*intr=*/true, pred);
+	default:
+		return 0;
+	}
+}
+
+uint64_t perf_user_simd_reg_class_mask(uint16_t e_machine, bool pred)
+{
+	switch (e_machine) {
+	case EM_386:
+	case EM_X86_64:
+		return __perf_simd_reg_class_mask_x86(/*intr=*/false, pred);
+	default:
+		return 0;
+	}
+}
+
+uint64_t perf_intr_simd_reg_class_bitmap_qwords(uint16_t e_machine, int reg_c,
+						uint16_t *qwords, bool pred)
+{
+	switch (e_machine) {
+	case EM_386:
+	case EM_X86_64:
+		return __perf_simd_reg_class_bitmap_qwords_x86(reg_c, qwords,
+							       /*intr=*/true,
+							       pred);
+	default:
+		*qwords = 0;
+		return 0;
+	}
+}
+
+uint64_t perf_user_simd_reg_class_bitmap_qwords(uint16_t e_machine, int reg_c,
+						uint16_t *qwords, bool pred)
+{
+	switch (e_machine) {
+	case EM_386:
+	case EM_X86_64:
+		return __perf_simd_reg_class_bitmap_qwords_x86(reg_c, qwords,
+							       /*intr=*/false,
+							       pred);
+	default:
+		*qwords = 0;
+		return 0;
+	}
+}
+
+const char *perf_simd_reg_class_name(uint16_t e_machine, int id, bool pred)
+{
+	const char *name = NULL;
+
+	switch (e_machine) {
+	case EM_386:
+	case EM_X86_64:
+		name = __perf_simd_reg_class_name_x86(id, pred);
+		break;
+	default:
+		break;
+	}
+	if (name)
+		return name;
+
+	pr_debug("Failed to find %s register %d for ELF machine type %u\n",
+		 pred ? "PRED" : "SIMD", id, e_machine);
+	return "unknown";
+}

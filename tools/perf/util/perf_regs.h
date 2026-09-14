@@ -20,6 +20,13 @@ const char *perf_reg_name(int id, uint16_t e_machine, uint32_t e_flags, int abi)
 int perf_reg_value(u64 *valp, struct regs_dump *regs, int id);
 uint64_t perf_arch_reg_ip(uint16_t e_machine);
 uint64_t perf_arch_reg_sp(uint16_t e_machine);
+uint64_t perf_intr_simd_reg_class_mask(uint16_t e_machine, bool pred);
+uint64_t perf_user_simd_reg_class_mask(uint16_t e_machine, bool pred);
+uint64_t perf_intr_simd_reg_class_bitmap_qwords(uint16_t e_machine, int reg_c,
+						uint16_t *qwords, bool pred);
+uint64_t perf_user_simd_reg_class_bitmap_qwords(uint16_t e_machine, int reg_c,
+						uint16_t *qwords, bool pred);
+const char *perf_simd_reg_class_name(uint16_t e_machine, int id, bool pred);
 
 int __perf_sdt_arg_parse_op_arm64(char *old_op, char **new_op);
 uint64_t __perf_reg_mask_arm64(bool intr);
@@ -70,6 +77,10 @@ uint64_t __perf_reg_mask_x86(bool intr, int *abi);
 const char *__perf_reg_name_x86(int id, int abi);
 uint64_t __perf_reg_ip_x86(void);
 uint64_t __perf_reg_sp_x86(void);
+uint64_t __perf_simd_reg_class_mask_x86(bool intr, bool pred);
+uint64_t __perf_simd_reg_class_bitmap_qwords_x86(int reg_c, uint16_t *qwords,
+						 bool intr, bool pred);
+const char *__perf_simd_reg_class_name_x86(int id, bool pred);
 
 static inline uint64_t DWARF_MINIMAL_REGS(uint16_t e_machine)
 {
