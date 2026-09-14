@@ -471,7 +471,25 @@ struct files_struct *dup_fd(struct files_struct *oldf, struct fd_range *punch_ho
 	return newf;
 }
 
-static struct fdtable *close_files(struct files_struct * files)
+/*
+ * Unshare file descriptor table if it is being shared
+ */
+int unshare_fd(unsigned long unshare_flags, struct files_struct **new_fdp)
+{
+	struct files_struct *fd = current->files;
+
+	if ((unshare_flags & CLONE_FILES) &&
+	    (fd && atomic_read(&fd->count) > 1)) {
+		fd = dup_fd(fd, NULL);
+		if (IS_ERR(fd))
+			return PTR_ERR(fd);
+		*new_fdp = fd;
+	}
+
+	return 0;
+}
+
+static struct fdtable *close_files(struct files_struct *files)
 {
 	/*
 	 * It is safe to dereference the fd table without RCU or
@@ -491,7 +509,7 @@ static struct fdtable *close_files(struct files_struct * files)
 			if (set & 1) {
 				struct file *file = fdt->fd[i];
 				if (file) {
-					filp_close(file, files);
+					filp_close_sync(file, files);
 					cond_resched();
 				}
 			}
@@ -515,16 +533,18 @@ void put_files_struct(struct files_struct *files)
 	}
 }
 
+/* Install @files on @tsk, consuming the reference, and put the old table. */
+void switch_files_struct(struct task_struct *tsk, struct files_struct *files)
+{
+	scoped_guard(task_lock, tsk)
+		swap(tsk->files, files);
+	put_files_struct(files);
+}
+
 void exit_files(struct task_struct *tsk)
 {
-	struct files_struct * files = tsk->files;
-
-	if (files) {
-		task_lock(tsk);
-		tsk->files = NULL;
-		task_unlock(tsk);
-		put_files_struct(files);
-	}
+	if (tsk->files)
+		switch_files_struct(tsk, NULL);
 }
 
 struct files_struct init_files = {
@@ -732,16 +752,13 @@ struct file *file_close_fd_locked(struct files_struct *files, unsigned fd)
 
 int close_fd(unsigned fd)
 {
-	struct files_struct *files = current->files;
 	struct file *file;
 
-	spin_lock(&files->file_lock);
-	file = file_close_fd_locked(files, fd);
-	spin_unlock(&files->file_lock);
+	file = file_close_fd(fd);
 	if (!file)
 		return -EBADF;
 
-	return filp_close(file, files);
+	return filp_close(file, current->files);
 }
 EXPORT_SYMBOL(close_fd);
 
@@ -790,7 +807,7 @@ static inline void __range_close(struct files_struct *files, unsigned int fd,
 		file = file_close_fd_locked(files, fd);
 		if (file) {
 			spin_unlock(&files->file_lock);
-			filp_close(file, files);
+			filp_close_sync(file, files);
 			cond_resched();
 			spin_lock(&files->file_lock);
 			fdt = files_fdtable(files);
@@ -858,10 +875,7 @@ SYSCALL_DEFINE3(close_range, unsigned int, fd, unsigned int, max_fd,
 		 * We're done closing the files we were supposed to. Time to install
 		 * the new file descriptor table and drop the old one.
 		 */
-		task_lock(me);
-		me->files = cur_fds;
-		task_unlock(me);
-		put_files_struct(fds);
+		switch_files_struct(me, cur_fds);
 	}
 
 	return 0;
@@ -887,7 +901,7 @@ struct file *file_close_fd(unsigned int fd)
 	return file;
 }
 
-void do_close_on_exec(struct files_struct *files)
+void close_cloexec_files(struct files_struct *files)
 {
 	unsigned i;
 	struct fdtable *fdt;
@@ -914,7 +928,7 @@ void do_close_on_exec(struct files_struct *files)
 			rcu_assign_pointer(fdt->fd[fd], NULL);
 			__put_unused_fd(files, fd);
 			spin_unlock(&files->file_lock);
-			filp_close(file, files);
+			filp_close_sync(file, files);
 			cond_resched();
 			spin_lock(&files->file_lock);
 		}
