@@ -1750,42 +1750,45 @@ struct annotated_data_type *find_data_type(struct data_loc_info *dloc)
 	return dso__findnew_data_type(dso, &type_die);
 }
 
+static size_t data_type_hash(long key, void *ctx __maybe_unused)
+{
+	return key;
+}
+
+static bool data_type_equal(long key1, long key2, void *ctx __maybe_unused)
+{
+	return key1 == key2;
+}
+
 static int alloc_data_type_histograms(struct annotated_data_type *adt, int nr_entries)
 {
 	int i;
-	size_t sz = sizeof(struct type_hist);
 
-	sz += sizeof(struct type_hist_entry) * adt->self.size;
-
-	/* Allocate a table of pointers for each event */
+	/* Allocate a histogram for each event */
 	adt->histograms = calloc(nr_entries, sizeof(*adt->histograms));
 	if (adt->histograms == NULL)
 		return -ENOMEM;
 
-	/*
-	 * Each histogram is allocated for the whole size of the type.
-	 * TODO: Probably we can move the histogram to members.
-	 */
 	for (i = 0; i < nr_entries; i++) {
-		adt->histograms[i] = zalloc(sz);
-		if (adt->histograms[i] == NULL)
-			goto err;
+		hashmap__init(&adt->histograms[i].samples, data_type_hash,
+			      data_type_equal, /*ctx=*/NULL);
 	}
 
 	adt->nr_histograms = nr_entries;
 	return 0;
-
-err:
-	while (--i >= 0)
-		zfree(&(adt->histograms[i]));
-	zfree(&adt->histograms);
-	return -ENOMEM;
 }
 
 static void delete_data_type_histograms(struct annotated_data_type *adt)
 {
-	for (int i = 0; i < adt->nr_histograms; i++)
-		zfree(&(adt->histograms[i]));
+	for (int i = 0; i < adt->nr_histograms; i++) {
+		struct hashmap *map = &adt->histograms[i].samples;
+		struct hashmap_entry *pos, *tmp;
+		size_t bkt;
+
+		hashmap__for_each_entry_safe(map, pos, tmp, bkt)
+			free(pos->pvalue);
+		hashmap__clear(map);
+	}
 
 	zfree(&adt->histograms);
 	adt->nr_histograms = 0;
@@ -1824,6 +1827,7 @@ int annotated_data_type__update_samples(struct annotated_data_type *adt,
 					int nr_samples, u64 period)
 {
 	struct type_hist *h;
+	struct type_hist_entry *entry;
 
 	if (adt == NULL)
 		return 0;
@@ -1838,12 +1842,23 @@ int annotated_data_type__update_samples(struct annotated_data_type *adt,
 	if (offset < 0 || offset >= adt->self.size)
 		return -1;
 
-	h = adt->histograms[evsel->core.idx];
+	h = &adt->histograms[evsel->core.idx];
 
 	h->nr_samples += nr_samples;
-	h->addr[offset].nr_samples += nr_samples;
 	h->period += period;
-	h->addr[offset].period += period;
+
+	if (!hashmap__find(&h->samples, offset, &entry)) {
+		entry = zalloc(sizeof(*entry));
+		if (entry == NULL)
+			return -1;
+
+		if (hashmap__append(&h->samples, offset, entry) < 0) {
+			free(entry);
+			return -1;
+		}
+	}
+	entry->nr_samples += nr_samples;
+	entry->period += period;
 	return 0;
 }
 
@@ -1911,14 +1926,14 @@ static void print_annotated_data_type(struct annotated_data_type *mem_type,
 				      struct evsel *evsel, int indent)
 {
 	struct annotated_member *child;
-	struct type_hist *h = mem_type->histograms[evsel->core.idx];
+	struct type_hist *h;
 	int i, nr_events = 0, samples = 0;
 	u64 period = 0;
 	int width = symbol_conf.show_total_period ? 11 : 7;
 	struct evsel *pos;
 
 	for_each_group_evsel(pos, evsel) {
-		h = mem_type->histograms[pos->core.idx];
+		h = &mem_type->histograms[pos->core.idx];
 
 		if (symbol_conf.skip_empty &&
 		    evsel__hists(pos)->stats.nr_samples == 0)
@@ -1927,8 +1942,13 @@ static void print_annotated_data_type(struct annotated_data_type *mem_type,
 		samples = 0;
 		period = 0;
 		for (i = 0; i < member->size; i++) {
-			samples += h->addr[member->offset + i].nr_samples;
-			period += h->addr[member->offset + i].period;
+			struct type_hist_entry *entry;
+
+			if (!hashmap__find(&h->samples, member->offset + i, &entry))
+				continue;
+
+			samples += entry->nr_samples;
+			period += entry->period;
 		}
 		print_annotated_data_value(h, period, samples);
 		nr_events++;
