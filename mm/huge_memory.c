@@ -4833,8 +4833,9 @@ static int split_huge_pages_pid(int pid, unsigned long vaddr_start,
 		 * For folios with private, split_huge_page_to_list_to_order()
 		 * will try to drop it before split and then check if the folio
 		 * can be split or not. So skip the check here.
+		 * data_race() is used to read attached private locklessly.
 		 */
-		if (!folio_test_private(folio) &&
+		if (!data_race(folio_has_attached_private(folio)) &&
 		    folio_expected_ref_count(folio) != folio_ref_count(folio))
 			goto next;
 
