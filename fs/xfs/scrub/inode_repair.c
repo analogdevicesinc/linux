@@ -933,7 +933,7 @@ xrep_dinode_bad_bmbt_fork(
 
 		fkp = xfs_bmdr_key_addr(dfp, i);
 		fileoff = be64_to_cpu(fkp->br_startoff);
-		if (!xfs_verify_fileoff(sc->mp, fileoff))
+		if (!xfs_verify_fileoff(fileoff))
 			return true;
 
 		fpp = xfs_bmdr_ptr_addr(dfp, i, dmxr);

@@ -232,7 +232,6 @@ xfs_verify_dablk(
 /* Check that a file block offset does not exceed the maximum. */
 bool
 xfs_verify_fileoff(
-	struct xfs_mount	*mp,
 	xfs_fileoff_t		off)
 {
 	return off <= XFS_MAX_FILEOFF;
@@ -248,8 +247,8 @@ xfs_verify_fileext(
 	if (off + len <= off)
 		return false;
 
-	if (!xfs_verify_fileoff(mp, off))
+	if (!xfs_verify_fileoff(off))
 		return false;
 
-	return xfs_verify_fileoff(mp, off + len - 1);
+	return xfs_verify_fileoff(off + len - 1);
 }

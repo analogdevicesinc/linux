@@ -116,8 +116,8 @@ xrep_quota_item_bmap(
 	int			error;
 
 	/* The computed file offset should always be valid. */
-	if (!xfs_verify_fileoff(mp, offset)) {
-		ASSERT(xfs_verify_fileoff(mp, offset));
+	if (!xfs_verify_fileoff(offset)) {
+		ASSERT(xfs_verify_fileoff(offset));
 		return -EFSCORRUPTED;
 	}
 	dq->q_fileoffset = offset;
