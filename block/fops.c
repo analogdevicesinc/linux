@@ -26,12 +26,26 @@ static inline struct inode *bdev_file_inode(struct file *file)
 	return file->f_mapping->host;
 }
 
-static blk_opf_t dio_bio_write_op(struct kiocb *iocb)
+static bool blkdev_dio_fua(struct kiocb *iocb, struct block_device *bdev)
+{
+	if (!iocb_is_dsync(iocb))
+		return false;
+	/*
+	 * Async writes cannot fall back to generic_write_sync(), so they must
+	 * use FUA (emulated if needed); sync writes only need it when the
+	 * device supports FUA natively.
+	 */
+	if (!is_sync_kiocb(iocb))
+		return true;
+	return bdev_fua(bdev);
+}
+
+static blk_opf_t dio_bio_write_op(struct kiocb *iocb, struct block_device *bdev)
 {
 	blk_opf_t opf = REQ_OP_WRITE | REQ_SYNC | REQ_IDLE;
 
 	/* avoid the need for a I/O completion work item */
-	if (iocb_is_dsync(iocb))
+	if (blkdev_dio_fua(iocb, bdev))
 		opf |= REQ_FUA;
 	return opf;
 }
@@ -75,7 +89,8 @@ static ssize_t __blkdev_direct_IO_simple(struct kiocb *iocb,
 		if (user_backed_iter(iter))
 			should_dirty = true;
 	} else {
-		bio_init(&bio, bdev, vecs, nr_pages, dio_bio_write_op(iocb));
+		bio_init(&bio, bdev, vecs, nr_pages,
+			 dio_bio_write_op(iocb, bdev));
 	}
 	bio.bi_iter.bi_sector = pos >> SECTOR_SHIFT;
 	bio.bi_write_hint = file_inode(iocb->ki_filp)->i_write_hint;
@@ -179,7 +194,7 @@ static ssize_t __blkdev_direct_IO(struct kiocb *iocb, struct iov_iter *iter,
 	struct blkdev_dio *dio;
 	struct bio *bio;
 	bool is_read = (iov_iter_rw(iter) == READ), is_sync;
-	blk_opf_t opf = is_read ? REQ_OP_READ : dio_bio_write_op(iocb);
+	blk_opf_t opf = is_read ? REQ_OP_READ : dio_bio_write_op(iocb, bdev);
 	loff_t pos = iocb->ki_pos;
 	int ret = 0;
 
@@ -325,7 +340,7 @@ static ssize_t __blkdev_direct_IO_async(struct kiocb *iocb,
 					unsigned int nr_pages)
 {
 	bool is_read = iov_iter_rw(iter) == READ;
-	blk_opf_t opf = is_read ? REQ_OP_READ : dio_bio_write_op(iocb);
+	blk_opf_t opf = is_read ? REQ_OP_READ : dio_bio_write_op(iocb, bdev);
 	struct blkdev_dio *dio;
 	struct bio *bio;
 	loff_t pos = iocb->ki_pos;
@@ -728,6 +743,7 @@ static ssize_t blkdev_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	bool atomic = iocb->ki_flags & IOCB_ATOMIC;
 	loff_t size = bdev_nr_bytes(bdev);
 	size_t shorted = 0;
+	bool need_sync = false;
 	ssize_t ret;
 
 	if (bdev_read_only(bdev))
@@ -765,9 +781,18 @@ static ssize_t blkdev_write_iter(struct kiocb *iocb, struct iov_iter *from)
 
 	if (iocb->ki_flags & IOCB_DIRECT) {
 		ret = blkdev_direct_write(iocb, from);
-		if (ret >= 0 && iov_iter_count(from))
+		if (ret >= 0 && iov_iter_count(from)) {
 			ret = direct_write_fallback(iocb, from, ret,
 					blkdev_buffered_write(iocb, from));
+			need_sync = true;
+		} else if (ret > 0 && !blkdev_dio_fua(iocb, bdev)) {
+			/*
+			 * The device does not support FUA, so REQ_FUA was not
+			 * set and the O_DSYNC direct write still needs a flush
+			 * to be made durable.
+			 */
+			need_sync = true;
+		}
 	} else {
 		/*
 		 * Take i_rwsem and invalidate_lock to avoid racing with
@@ -777,9 +802,10 @@ static ssize_t blkdev_write_iter(struct kiocb *iocb, struct iov_iter *from)
 		inode_lock_shared(bd_inode);
 		ret = blkdev_buffered_write(iocb, from);
 		inode_unlock_shared(bd_inode);
+		need_sync = true;
 	}
 
-	if (ret > 0)
+	if (ret > 0 && need_sync)
 		ret = generic_write_sync(iocb, ret);
 	iov_iter_reexpand(from, iov_iter_count(from) + shorted);
 	return ret;
