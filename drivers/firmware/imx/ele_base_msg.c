@@ -15,13 +15,66 @@
 
 #define FW_DBG_DUMP_FIXED_STR		"ELE"
 
-static void ele_get_info_cleanup(struct se_if_priv *priv, u32 *buf, dma_addr_t d_addr,
-				 size_t size)
+int ele_uapi_allowed_base_cmd(struct se_if_device_ctx *dev_ctx,
+			      struct se_msg_hdr *header, u32 tx_msg_sz)
 {
-	if (priv->mem_pool)
-		gen_pool_free(priv->mem_pool, (unsigned long)buf, size);
-	else
-		dma_free_coherent(priv->dev, size, buf, d_addr);
+	struct se_api_msg *msg = container_of(header, struct se_api_msg, header);
+	const struct se_cmd_addr_field *fields;
+	size_t count;
+
+	/*
+	 * Identify the command first. Only commands in this allow-list may be
+	 * issued from userspace; everything else is rejected. Once a command is
+	 * known to be supported, decide whether it needs a DMA-address boundary
+	 * check and, if so, run it before returning.
+	 */
+	switch (header->command) {
+	case ELE_PING_REQ:
+	case ELE_DEBUG_DUMP_REQ:
+	case ELE_OEM_VERIFY_IMAGE_REQ:
+	case ELE_OEM_REL_CONTAINER_REQ:
+	case ELE_FW_LIFE_CYCLE_REQ:
+	case ELE_READ_FUSE_REQ:
+	case ELE_GET_FW_VERS_REQ:
+	case ELE_RETURN_LIFE_CYCLE_REQ:
+	case ELE_GET_EVENT_REQ:
+	case ELE_COMMIT_REQ:
+	case ELE_GET_FW_STATUS_REQ:
+	case ELE_WRITE_FUSE:
+	case ELE_WRITE_SHADOW_FUSE_REQ:
+	case ELE_READ_SHADOW_FUSE_REQ:
+		return 0;
+	default:
+		/* Base commands that embed DMA addresses. */
+		fields = ele_base_cmd_addr_fields(header->command, &count);
+		if (!count)
+			return -EOPNOTSUPP;
+		return se_val_cmd_addrs(dev_ctx, msg, tx_msg_sz, fields, count);
+	}
+}
+
+static void ele_get_info_cleanup(struct se_if_priv *priv)
+{
+	/* For the case when priv->mem_pool != NULL:
+	 *
+	 *   If this probe-time transaction timed out, the firmware may
+	 *   still write into the SRAM buffer after this function returns.
+	 *   Do not release it back to the pool while the firmware-busy
+	 *   circuit breaker still marks this context as owning an
+	 *   outstanding transaction. The buffer is reclaimed with the
+	 *   device on unbind; leaking this fixed-size probe buffer is
+	 *   preferable to letting the firmware corrupt reused pool memory.
+	 *   This mirrors the guard already applied on the shared-memory
+	 *   cleanup path below.
+	 */
+
+	if (priv->mem_pool) {
+		if (se_is_fw_busy_ctx(priv->priv_dev_ctx))
+			return;
+		se_cleanup_mem_pool_buf(priv->priv_dev_ctx, true);
+	} else {
+		se_dev_ctx_shared_mem_cleanup(priv->priv_dev_ctx);
+	}
 }
 
 /**
@@ -45,6 +98,7 @@ int ele_get_info(struct se_if_priv *priv, struct ele_dev_info *s_info)
 	if (!priv)
 		return -EINVAL;
 
+	guard(mutex)(&priv->priv_dev_ctx->fops_lock);
 	memset(s_info, 0x0, sizeof(*s_info));
 
 	struct se_api_msg *tx_msg __free(kfree) =
@@ -58,23 +112,22 @@ int ele_get_info(struct se_if_priv *priv, struct ele_dev_info *s_info)
 		return -ENOMEM;
 
 	get_info_len = ELE_GET_INFO_BUFF_SZ;
-	if (priv->mem_pool)
-		get_info_data = gen_pool_dma_alloc(priv->mem_pool,
-						   get_info_len,
-						   &get_info_addr);
-	else
-		get_info_data = dma_alloc_coherent(priv->dev,
-						   get_info_len,
-						   &get_info_addr,
-						   GFP_KERNEL);
-	if (!get_info_data) {
-		dev_err(priv->dev,
-			"%s: Failed to allocate get_info_addr.\n", __func__);
-		return -ENOMEM;
+	if (priv->mem_pool) {
+		ret = se_get_mem_pool_buf(priv->priv_dev_ctx, &get_info_data,
+					  &get_info_addr, get_info_len);
+		if (ret) {
+			dev_err(priv->dev, "Failed[0x%x] to alloc from gen_pool.\n", ret);
+			return -ENOMEM;
+		}
+	} else {
+		ret = get_shared_mem_slot(priv->priv_dev_ctx,
+					  &get_info_len, &get_info_addr,
+					  &get_info_data);
+		if (ret) {
+			dev_err(priv->dev, "Failed to allocate buffer.\n");
+			return -ENOMEM;
+		}
 	}
-
-	/* gen_pool_dma_alloc() does not zero the buffer. */
-	memset(get_info_data, 0, get_info_len);
 
 	se_fill_cmd_msg_hdr(priv, (struct se_msg_hdr *)&tx_msg->header,
 			    ELE_GET_INFO_REQ, ELE_GET_INFO_REQ_MSG_SZ, true);
@@ -84,9 +137,9 @@ int ele_get_info(struct se_if_priv *priv, struct ele_dev_info *s_info)
 	tx_msg->data[2] = sizeof(*s_info);
 
 	ret = ele_msg_send_rcv(priv->priv_dev_ctx, tx_msg, ELE_GET_INFO_REQ_MSG_SZ,
-			       rx_msg, ELE_GET_INFO_RSP_MSG_SZ);
+			       rx_msg, ELE_GET_INFO_RSP_MSG_SZ, NULL);
 	if (ret < 0) {
-		ele_get_info_cleanup(priv, get_info_data, get_info_addr, get_info_len);
+		ele_get_info_cleanup(priv);
 		return ret;
 	}
 
@@ -94,13 +147,13 @@ int ele_get_info(struct se_if_priv *priv, struct ele_dev_info *s_info)
 				      ELE_GET_INFO_RSP_MSG_SZ,
 				      priv->if_defs->base_api_ver);
 	if (ret < 0) {
-		ele_get_info_cleanup(priv, get_info_data, get_info_addr, get_info_len);
+		ele_get_info_cleanup(priv);
 		return ret;
 	}
 
 	memcpy(s_info, get_info_data, sizeof(*s_info));
 
-	ele_get_info_cleanup(priv, get_info_data, get_info_addr, get_info_len);
+	ele_get_info_cleanup(priv);
 
 	return ret;
 }
@@ -146,7 +199,7 @@ int ele_ping(struct se_if_priv *priv)
 			    ELE_PING_REQ, ELE_PING_REQ_SZ, true);
 
 	ret = ele_msg_send_rcv(priv->priv_dev_ctx, tx_msg, ELE_PING_REQ_SZ,
-			       rx_msg, ELE_PING_RSP_SZ);
+			       rx_msg, ELE_PING_RSP_SZ, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -205,7 +258,7 @@ int ele_service_swap(struct se_if_priv *priv,
 		return -EINVAL;
 
 	ret = ele_msg_send_rcv(priv->priv_dev_ctx, tx_msg, ELE_SERVICE_SWAP_REQ_MSG_SZ,
-			       rx_msg, ELE_SERVICE_SWAP_RSP_MSG_SZ);
+			       rx_msg, ELE_SERVICE_SWAP_RSP_MSG_SZ, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -262,7 +315,7 @@ int ele_fw_authenticate(struct se_if_priv *priv, dma_addr_t contnr_addr,
 	tx_msg->data[2] = lower_32_bits(img_addr);
 
 	ret = ele_msg_send_rcv(priv->priv_dev_ctx, tx_msg, ELE_FW_AUTH_REQ_SZ, rx_msg,
-			       ELE_FW_AUTH_RSP_MSG_SZ);
+			       ELE_FW_AUTH_RSP_MSG_SZ, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -311,7 +364,7 @@ int ele_debug_dump(struct se_if_priv *priv)
 		memset(rx_msg, 0x0, ELE_DEBUG_DUMP_RSP_SZ);
 
 		ret = ele_msg_send_rcv(priv->priv_dev_ctx, tx_msg, ELE_DEBUG_DUMP_REQ_SZ,
-				       rx_msg, ELE_DEBUG_DUMP_RSP_SZ);
+				       rx_msg, ELE_DEBUG_DUMP_RSP_SZ, NULL);
 		if (ret < 0)
 			return ret;
 
