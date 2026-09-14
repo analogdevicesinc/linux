@@ -250,6 +250,12 @@ static int ad9088_fft_sniffer_adc_select_write(struct iio_dev *indio_dev,
 		return ret;
 	}
 
+	/*
+	 * Keep the pgm config in sync, adi_apollo_sniffer_pgm() re-applies
+	 * the ADC mux from pgm.adc on every buffer enable.
+	 */
+	st->sniffer_config.pgm.adc = st->adc_select;
+
 	return 0;
 }
 
