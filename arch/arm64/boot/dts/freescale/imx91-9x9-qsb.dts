@@ -23,6 +23,7 @@
 		mmc0 = &usdhc1;
 		mmc1 = &usdhc2;
 		rtc0 = &bbnsm_rtc;
+		rtc1 = &pcf2131;
 		serial0 = &lpuart1;
 	};
 
