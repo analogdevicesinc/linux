@@ -728,7 +728,6 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 	if (ret)
 		return ret;
 
-	st->side_sel = side_sel;
 	st->irq = fwnode_irq_get_byname(dev_fwnode(dev), irq_name);
 
 	if (st->irq == -EPROBE_DEFER)
