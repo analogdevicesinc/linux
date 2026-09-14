@@ -73,22 +73,6 @@ static atomic_t ad4134_capture_active = ATOMIC_INIT(0);
 
 #define AD4134_NAME				"ad4134"
 
-/*
- * Read-only identification registers. None of them reads 0xff on a live part,
- * which is what makes them useful: a mute SPI bus reads 0xff everywhere and the
- * driver validates no other register value. INTERFACE_CONFIG_A resets to 0x18
- * (SDO_ACTIVE and its mirror bit both set) and nothing here ever writes it, so
- * it stays a valid fingerprint for the whole session.
- */
-#define AD4134_IF_CONFIG_A_REG			0x00
-#define AD4134_IF_CONFIG_A_RESET_VAL		0x18
-#define AD4134_CHIP_TYPE_REG			0x03
-#define AD4134_CHIP_TYPE_VAL			0x07
-#define AD4134_VENDOR_ID_L_REG			0x0c
-#define AD4134_VENDOR_ID_L_VAL			0x56
-#define AD4134_VENDOR_ID_H_REG			0x0d
-#define AD4134_VENDOR_ID_H_VAL			0x04
-
 #define AD4134_IF_CONFIG_B_REG				0x01
 #define AD4134_IF_CONFIG_B_SINGLE_INSTR			BIT(7)
 #define AD4134_IF_CONFIG_B_MASTER_SLAVE_RD_CTRL		BIT(5)
@@ -147,6 +131,9 @@ static atomic_t ad4134_capture_active = ATOMIC_INIT(0);
 #define AD4134_ODR_MAX				1496000
 
 #define AD4134_RESET_TIME_US			1000
+
+/* Empirical; see the §F.0 note in ad4134_clkin_change_power_mode(). */
+#define AD4134_XTAL_SETTLE_US			10000
 
 /* Datasheet Power Modes: 10 ms power-up time when leaving full power-down. */
 #define AD4134_PDN_TIME_US			10000
@@ -1436,6 +1423,7 @@ static int ad4134_clkin_startup(struct ad4134_state *st,
  * odr_sync so the first ODR lands on CLKin edge 146 — the edge the AD7134
  * datasheet guarantees coincides with the first dig_clk rising edge.
  *
+ *   0. fsleep — the clock must have been running a while before we stop it.
  *   1. ARM_STOP_AT_ALIGN  — FSM RUNNING→ARMED, waits for /32 negedge,
  *                            transitions to STOPPED_LOW. IRQ[1] fires.
  *   2. regmap_write(reg, val) over the independent 100 MHz SPI bus
@@ -1456,6 +1444,30 @@ static int ad4134_clkin_change_power_mode(struct ad4134_state *st,
 	struct device *dev = &st->spi->dev;
 	unsigned long timeout;
 	int ret;
+
+	/*
+	 * §F.0 — settle before stopping the clock. XTAL2_CLKIN must have been
+	 * running for AD4134_XTAL_SETTLE_US before ARM_STOP_AT_ALIGN takes it
+	 * away again. Entering §F within ~50 us of the §E.6 RESUME leaves both
+	 * dies mute (0xff everywhere, dead SPI) after a warm reboot; 5/5 clean
+	 * boots with this wait, pooled p ~ 0.006.
+	 *
+	 * Sequence.txt specifies no wait because it treats §E as one-time at
+	 * power-on and §F as "every time", implicitly assuming a long interval
+	 * between them. Calling them back-to-back at probe collapses it.
+	 *
+	 * Unconditional rather than conditional on elapsed time: today §F has a
+	 * single caller so there is nothing to measure against. If §F ever gains
+	 * a second caller, replace this with a guard against a timestamp taken
+	 * at the last RESUME — F.6 resumes and a re-arm could follow within
+	 * microseconds, which is the same hazard.
+	 *
+	 * Mechanism unidentified. NOT crystal start-up: in SDP-CLK mode the FPGA
+	 * drives XTAL2_CLKIN and no crystal is oscillating. Compare §F.4, where
+	 * NI added an equally unexplained 10 ms and asked in the spec whether it
+	 * was enough.
+	 */
+	fsleep(AD4134_XTAL_SETTLE_US);
 
 	/* §F.1 ARM_STOP_AT_ALIGN — wait /32 negedge. */
 	reinit_completion(&st->clkin_align_stopped);
@@ -1517,51 +1529,6 @@ static int ad4134_clkin_change_power_mode(struct ad4134_state *st,
 }
 
 /*
- * Report whether anything is actually answering on SDO. STAT_PLL_LOCK is the
- * only register value this driver ever tests, and 0xff satisfies it, so a board
- * that is not driving SDO probes cleanly and claims a locked PLL. Reporting
- * only: probe deliberately continues so iio_reg and debugfs stay usable for
- * bench work on a dead board.
- */
-static void ad4134_check_presence(struct device *dev, struct regmap *regmap,
-				  const char *who)
-{
-	unsigned int cfg_a, chip_type, vendor_l, vendor_h;
-	int ret;
-
-	ret = regmap_read(regmap, AD4134_IF_CONFIG_A_REG, &cfg_a);
-	if (!ret)
-		ret = regmap_read(regmap, AD4134_CHIP_TYPE_REG, &chip_type);
-	if (!ret)
-		ret = regmap_read(regmap, AD4134_VENDOR_ID_L_REG, &vendor_l);
-	if (!ret)
-		ret = regmap_read(regmap, AD4134_VENDOR_ID_H_REG, &vendor_h);
-	if (ret) {
-		dev_err(dev, "ad7134: %s ID read failed: %d\n", who, ret);
-		return;
-	}
-
-	dev_info(dev,
-		 "ad7134: %s ID: CFG_A=0x%02x CHIP_TYPE=0x%02x VENDOR=0x%02x%02x (expect 0x18 0x07 0x0456)\n",
-		 who, cfg_a, chip_type, vendor_h, vendor_l);
-
-	if (cfg_a == 0xff && chip_type == 0xff && vendor_l == 0xff &&
-	    vendor_h == 0xff) {
-		dev_err(dev,
-			"ad7134: %s IS MUTE - every register reads 0xff, nothing is driving SDO. Check IOVDD/VADJ = 1.8 V, PIN/SPI strap high (R131), and CS/SCLK/SDI at the die.\n",
-			who);
-		return;
-	}
-
-	if (cfg_a != AD4134_IF_CONFIG_A_RESET_VAL ||
-	    chip_type != AD4134_CHIP_TYPE_VAL ||
-	    vendor_l != AD4134_VENDOR_ID_L_VAL ||
-	    vendor_h != AD4134_VENDOR_ID_H_VAL)
-		dev_warn(dev, "ad7134: %s ID mismatch - SPI link is unreliable\n",
-			 who);
-}
-
-/*
  * Poll DEVICE_STATUS.STAT_PLL_LOCK until the ASRC PLL locks to the ODR input.
  * Replaces a blind settle delay: the datasheet requires confirming PLL lock
  * before capture, and the lock time varies with ODR. Each chip is read over its
@@ -1573,8 +1540,6 @@ static int ad4134_wait_pll_lock(struct device *dev, struct regmap *regmap,
 {
 	unsigned int status;
 	int ret;
-
-	ad4134_check_presence(dev, regmap, who);
 
 	ret = regmap_read_poll_timeout(regmap, AD4134_DEVICE_STATUS_REG,
 				       status, status & AD4134_STAT_PLL_LOCK,
@@ -1705,13 +1670,6 @@ static int ad4134_setup(struct ad4134_state *st)
 		if (ret)
 			return ret;
 	}
-
-	/*
-	 * Earliest point at which /RESETN is released, so the earliest the part
-	 * can answer. Sampled again before the PLL poll: alive here and mute
-	 * there would mean the configuration writes in between killed it.
-	 */
-	ad4134_check_presence(dev, st->regmap, "master after reset");
 
 	/*
 	 * Sequence.txt §F.1-7 — power-mode change to HIGH_PERF.  Stops the
