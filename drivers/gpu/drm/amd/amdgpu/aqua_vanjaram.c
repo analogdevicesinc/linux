@@ -30,6 +30,7 @@
 #include "gfxhub_v1_2.h"
 #include "sdma_v4_4_2.h"
 #include "amdgpu_ip.h"
+#include "amdgpu_sdma.h"
 
 void aqua_vanjaram_doorbell_index_init(struct amdgpu_device *adev)
 {

@@ -27,6 +27,7 @@
 
 #include "amdgpu.h"
 #include "amdgpu_ucode.h"
+#include "amdgpu_sdma.h"
 #include "amdgpu_trace.h"
 #include "cikd.h"
 #include "cik.h"

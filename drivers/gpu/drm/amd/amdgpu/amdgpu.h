@@ -79,7 +79,7 @@
 #include "amdgpu_umsch_mm.h"
 #include "amdgpu_gmc.h"
 #include "amdgpu_gfx.h"
-#include "amdgpu_sdma.h"
+#include "amdgpu_sdma_types.h"
 #include "amdgpu_lsdma.h"
 #include "amdgpu_nbio.h"
 #include "amdgpu_reg_access.h"

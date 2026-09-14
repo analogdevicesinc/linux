@@ -28,6 +28,7 @@
 
 #include "amdgpu.h"
 #include "amdgpu_ucode.h"
+#include "amdgpu_sdma.h"
 #include "amdgpu_trace.h"
 #include "vi.h"
 #include "vid.h"

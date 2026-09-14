@@ -23,138 +23,20 @@
 
 #ifndef __AMDGPU_SDMA_H__
 #define __AMDGPU_SDMA_H__
-#include "amdgpu_ras.h"
 
-/* max number of IP instances */
-#define AMDGPU_MAX_SDMA_INSTANCES		16
+#include "amdgpu_sdma_types.h"
+#include "amdgpu.h"
+#include "amdgpu_ring.h"
 
-enum amdgpu_sdma_irq {
-	AMDGPU_SDMA_IRQ_INSTANCE0  = 0,
-	AMDGPU_SDMA_IRQ_INSTANCE1,
-	AMDGPU_SDMA_IRQ_INSTANCE2,
-	AMDGPU_SDMA_IRQ_INSTANCE3,
-	AMDGPU_SDMA_IRQ_INSTANCE4,
-	AMDGPU_SDMA_IRQ_INSTANCE5,
-	AMDGPU_SDMA_IRQ_INSTANCE6,
-	AMDGPU_SDMA_IRQ_INSTANCE7,
-	AMDGPU_SDMA_IRQ_INSTANCE8,
-	AMDGPU_SDMA_IRQ_INSTANCE9,
-	AMDGPU_SDMA_IRQ_INSTANCE10,
-	AMDGPU_SDMA_IRQ_INSTANCE11,
-	AMDGPU_SDMA_IRQ_INSTANCE12,
-	AMDGPU_SDMA_IRQ_INSTANCE13,
-	AMDGPU_SDMA_IRQ_INSTANCE14,
-	AMDGPU_SDMA_IRQ_INSTANCE15,
-	AMDGPU_SDMA_IRQ_LAST
-};
+#include <linux/types.h>
+
+struct amdgpu_device;
+struct amdgpu_iv_entry;
+struct amdgpu_irq_src;
+struct amdgpu_ring;
+struct ras_common_if;
 
 #define NUM_SDMA(x) hweight32(x)
-
-struct amdgpu_sdma_csa_info {
-	u32 size;
-	u32 alignment;
-};
-
-struct amdgpu_sdma_funcs {
-	int (*stop_kernel_queue)(struct amdgpu_ring *ring);
-	int (*start_kernel_queue)(struct amdgpu_ring *ring);
-	int (*soft_reset_kernel_queue)(struct amdgpu_device *adev, u32 instance_id);
-	bool (*detect_hung_queue)(struct amdgpu_device *adev, u32 doorbell_index,
-				  u32 *instance_id, u32 *queue_id);
-};
-
-struct amdgpu_sdma_instance {
-	/* SDMA firmware */
-	const struct firmware	*fw;
-	uint32_t		fw_version;
-	uint32_t		feature_version;
-
-	struct amdgpu_ring	ring;
-	struct amdgpu_ring	page;
-	bool			burst_nop;
-	union {
-	    uint32_t		aid_id;
-	    uint32_t		xcc_id;
-	};
-
-	struct amdgpu_bo	*sdma_fw_obj;
-	uint64_t		sdma_fw_gpu_addr;
-	uint32_t		*sdma_fw_ptr;
-	struct mutex		engine_reset_mutex;
-	const struct amdgpu_sdma_funcs   *funcs;
-};
-
-struct amdgpu_sdma_ras {
-	struct amdgpu_ras_block_object ras_block;
-};
-
-struct amdgpu_sdma {
-	struct amdgpu_sdma_instance instance[AMDGPU_MAX_SDMA_INSTANCES];
-	struct amdgpu_irq_src	trap_irq;
-	struct amdgpu_irq_src	illegal_inst_irq;
-	struct amdgpu_irq_src	fence_irq;
-	struct amdgpu_irq_src	ecc_irq;
-	struct amdgpu_irq_src	vm_hole_irq;
-	struct amdgpu_irq_src	doorbell_invalid_irq;
-	struct amdgpu_irq_src	pool_timeout_irq;
-	struct amdgpu_irq_src	srbm_write_irq;
-	struct amdgpu_irq_src	ctxt_empty_irq;
-
-	int			num_instances;
-	uint32_t 		sdma_mask;
-	bool    		sdma_debug;
-	union {
-	    int			num_inst_per_aid;
-	    int			num_inst_per_xcc;
-	};
-	bool			has_page_queue;
-	struct ras_common_if	*ras_if;
-	struct amdgpu_sdma_ras	*ras;
-	uint32_t		*ip_dump;
-	uint32_t 		supported_reset;
-	struct list_head	reset_callback_list;
-	bool			no_user_submission;
-	bool			disable_uq;
-	void (*get_csa_info)(struct amdgpu_device *adev,
-			     struct amdgpu_sdma_csa_info *csa_info);
-};
-
-/*
- * Provided by hw blocks that can move/clear data.  e.g., gfx or sdma
- * But currently, we use sdma to move data.
- */
-struct amdgpu_buffer_funcs {
-	/* maximum bytes in a single operation */
-	uint32_t	copy_max_bytes;
-
-	/* number of dw to reserve per operation */
-	unsigned	copy_num_dw;
-
-	/* used for buffer migration */
-	void (*emit_copy_buffer)(struct amdgpu_ib *ib,
-				 /* src addr in bytes */
-				 uint64_t src_offset,
-				 /* dst addr in bytes */
-				 uint64_t dst_offset,
-				 /* number of byte to transfer */
-				 uint32_t byte_count,
-				 uint32_t copy_flags);
-
-	/* maximum bytes in a single operation */
-	uint32_t	fill_max_bytes;
-
-	/* number of dw to reserve per operation */
-	unsigned	fill_num_dw;
-
-	/* used for buffer clearing */
-	void (*emit_fill_buffer)(struct amdgpu_ib *ib,
-				 /* value to write to memory */
-				 uint32_t src_data,
-				 /* dst addr in bytes */
-				 uint64_t dst_offset,
-				 /* number of byte to fill */
-				 uint32_t byte_count);
-};
 
 int __printf(4, 5)
 amdgpu_sdma_ring_init(struct amdgpu_device *adev, struct amdgpu_ring *ring,

@@ -26,6 +26,7 @@
 #include <drm/drm_mm.h>
 #include <linux/random.h>
 #include "amdgpu.h"
+#include "amdgpu_sdma.h"
 #include "amdgpu_ualink.h"
 #include "amdgpu_xgmi.h"
 #include "amdgpu_dma_buf.h"

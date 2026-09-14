@@ -28,6 +28,7 @@
 
 #include "amdgpu.h"
 #include "amdgpu_ucode.h"
+#include "amdgpu_sdma.h"
 #include "amdgpu_trace.h"
 
 #include "sdma0/sdma0_4_2_offset.h"
