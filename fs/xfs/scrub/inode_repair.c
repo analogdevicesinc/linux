@@ -1949,7 +1949,7 @@ xrep_inode_pptr(
 		return 0;
 
 	return xfs_bmap_add_attrfork(sc->tp, ip,
-			sizeof(struct xfs_attr_sf_hdr), true);
+			sizeof(struct xfs_attr_sf_hdr));
 }
 
 /* Fix COW extent size hint problems. */

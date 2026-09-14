@@ -1013,7 +1013,7 @@ xfs_attr_add_fork(
 	if (xfs_inode_has_attr_fork(ip))
 		goto trans_cancel;
 
-	error = xfs_bmap_add_attrfork(tp, ip, size, rsvd);
+	error = xfs_bmap_add_attrfork(tp, ip, size);
 	if (error)
 		goto trans_cancel;
 
