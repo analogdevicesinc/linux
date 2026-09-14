@@ -564,17 +564,20 @@ static bool acpi_thermal_should_bind_cdev(struct thermal_zone_device *thermal,
 					  struct cooling_spec *c)
 {
 	struct acpi_thermal_trip *acpi_trip = trip->priv;
-	struct acpi_device *cdev_adev = cdev->devdata;
+	struct device *parent = cdev->device.parent;
+	acpi_handle parent_handle;
 	int i;
 
-	/* Skip critical and hot trips. */
-	if (!acpi_trip)
+	/* Skip critical and hot trips and parentless cooling devices. */
+	if (!acpi_trip || !parent)
+		return false;
+
+	parent_handle = ACPI_HANDLE(parent);
+	if (!parent_handle)
 		return false;
 
 	for (i = 0; i < acpi_trip->devices.count; i++) {
-		acpi_handle handle = acpi_trip->devices.handles[i];
-
-		if (acpi_fetch_acpi_dev(handle) == cdev_adev)
+		if (acpi_trip->devices.handles[i] == parent_handle)
 			return true;
 	}
 
