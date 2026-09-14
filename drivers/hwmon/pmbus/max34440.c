@@ -797,10 +797,12 @@ static int max34440_probe(struct i2c_client *client)
 	return pmbus_do_probe(client, &data->info);
 }
 
+/* ADPM12300 is just ADPM12250 with higher power capacity. Reuses driver data */
 static const struct i2c_device_id max34440_id[] = {
 	{"adpm12160", adpm12160},
 	{"adpm12200", adpm12200},
 	{"adpm12250", adpm12250},
+	{"adpm12300", adpm12250},
 	{"max34440", max34440},
 	{"max34441", max34441},
 	{"max34446", max34446},
