@@ -3186,7 +3186,7 @@ static int create_qp(struct mlx5_ib_dev *dev, struct ib_pd *pd,
 
 out:
 	if (err) {
-		mlx5_ib_err(dev, "Create QP type %d failed\n", qp->type);
+		mlx5_ib_err(dev, "Create QP type %d failed, err = %d\n", qp->type, err);
 		return err;
 	}
 
