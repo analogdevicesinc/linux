@@ -711,8 +711,8 @@ static void set_sample_datasrc_in_dict(PyObject *dict,
 			_PyUnicode_FromString(decode));
 }
 
-static void regs_map(struct regs_dump *regs, uint64_t mask, uint16_t e_machine, uint32_t e_flags,
-		     char *bf, int size)
+static int regs_map(struct regs_dump *regs, uint64_t mask, uint16_t e_machine,
+		    uint32_t e_flags, char *bf, int size)
 {
 	unsigned int i = 0, r;
 	int printed = 0;
@@ -720,10 +720,10 @@ static void regs_map(struct regs_dump *regs, uint64_t mask, uint16_t e_machine, 
 	bf[0] = 0;
 
 	if (size <= 0)
-		return;
+		return 0;
 
 	if (!regs || !regs->regs)
-		return;
+		return 0;
 
 	for_each_set_bit(r, (unsigned long *) &mask, sizeof(mask) * 8) {
 		u64 val = regs->regs[i++];
@@ -731,6 +731,90 @@ static void regs_map(struct regs_dump *regs, uint64_t mask, uint16_t e_machine, 
 		printed += scnprintf(bf + printed, size - printed,
 				     "%5s:0x%" PRIx64 " ",
 				     perf_reg_name(r, e_machine, e_flags, regs->abi), val);
+	}
+
+	return printed;
+}
+
+static void simd_regs_map(struct regs_dump *regs, struct perf_event_attr *attr,
+			  uint16_t e_machine, char *bf, int size, int printed, bool intr)
+{
+	const char *name = "unknown";
+	int reg_c, idx, pred_base;
+	unsigned int i = 0, j;
+	uint16_t qwords;
+
+	if (size <= 0 || printed >= size)
+		return;
+
+	if (!regs || !regs->simd_data)
+		return;
+
+	if (!regs->nr_vectors && !regs->nr_pred)
+		return;
+
+	for (reg_c = 0; reg_c < 64; reg_c++) {
+		if (!regs->nr_vectors)
+			break;
+		if (intr) {
+			perf_intr_simd_reg_class_bitmap_qwords(e_machine, reg_c,
+							       &qwords, /*pred=*/false);
+		} else {
+			perf_user_simd_reg_class_bitmap_qwords(e_machine, reg_c,
+							       &qwords, /*pred=*/false);
+		}
+		if (regs->vector_qwords == qwords) {
+			name = perf_simd_reg_class_name(e_machine, reg_c, /*pred=*/false);
+			break;
+		}
+	}
+
+	for (i = 0; i < regs->nr_vectors; i++) {
+		for (j = 0; j < regs->vector_qwords; j++) {
+			idx = i * regs->vector_qwords + j;
+			if (regs->vector_qwords > 1) {
+				printed += scnprintf(bf + printed, size - printed,
+						"%5s[%d][%d]:0x%" PRIx64 " ",
+						name, i, j, regs->simd_data[idx]);
+			} else {
+				printed += scnprintf(bf + printed, size - printed,
+						"%5s[%d]:0x%" PRIx64 " ",
+						name, i, regs->simd_data[idx]);
+			}
+		}
+	}
+
+	name = "unknown";
+	for (reg_c = 0; reg_c < 64; reg_c++) {
+		if (!regs->nr_pred)
+			break;
+		if (intr) {
+			perf_intr_simd_reg_class_bitmap_qwords(e_machine, reg_c,
+							       &qwords, /*pred=*/true);
+		} else {
+			perf_user_simd_reg_class_bitmap_qwords(e_machine, reg_c,
+							       &qwords, /*pred=*/true);
+		}
+		if (regs->pred_qwords == qwords) {
+			name = perf_simd_reg_class_name(e_machine, reg_c, /*pred=*/true);
+			break;
+		}
+	}
+
+	pred_base = regs->nr_vectors * regs->vector_qwords;
+	for (i = 0; i < regs->nr_pred; i++) {
+		for (j = 0; j < regs->pred_qwords; j++) {
+			idx = pred_base + i * regs->pred_qwords + j;
+			if (regs->pred_qwords > 1) {
+				printed += scnprintf(bf + printed, size - printed,
+						"%5s[%d][%d]:0x%" PRIx64 " ",
+						name, i, j, regs->simd_data[idx]);
+			} else {
+				printed += scnprintf(bf + printed, size - printed,
+						"%5s[%d]:0x%" PRIx64 " ",
+						name, i, regs->simd_data[idx]);
+			}
+		}
 	}
 }
 
@@ -742,16 +826,36 @@ static int set_regs_in_dict(PyObject *dict,
 			     uint32_t e_flags)
 {
 	struct perf_event_attr *attr = &sample->evsel->core.attr;
-
-	int size = (__sw_hweight64(attr->sample_regs_intr) * MAX_REG_SIZE) + 1;
+	int intr_size, user_size, size;
+	struct regs_dump *regs;
 	char *bf = NULL;
+	int printed;
+
+	intr_size = (__sw_hweight64(attr->sample_regs_intr) * MAX_REG_SIZE) + 1;
+	user_size = (__sw_hweight64(attr->sample_regs_user) * MAX_REG_SIZE) + 1;
+	if (sample->intr_regs && attr->sample_simd_regs_enabled) {
+		regs = sample->intr_regs;
+		intr_size += (regs->nr_vectors * regs->vector_qwords +
+			      regs->nr_pred * regs->pred_qwords) * MAX_REG_SIZE;
+	}
+	if (sample->user_regs && attr->sample_simd_regs_enabled) {
+		regs = sample->user_regs;
+		user_size += (regs->nr_vectors * regs->vector_qwords +
+			      regs->nr_pred * regs->pred_qwords) * MAX_REG_SIZE;
+	}
+	size = intr_size > user_size ? intr_size : user_size;
 
 	if (sample->intr_regs) {
 		bf = malloc(size);
 		if (!bf)
 			return -1;
 
-		regs_map(sample->intr_regs, attr->sample_regs_intr, e_machine, e_flags, bf, size);
+		printed = regs_map(sample->intr_regs, attr->sample_regs_intr,
+				   e_machine, e_flags, bf, size);
+		if (attr->sample_simd_regs_enabled) {
+			simd_regs_map(sample->intr_regs, attr, e_machine, bf,
+				      size, printed, true);
+		}
 
 		pydict_set_item_string_decref(dict, "iregs",
 					_PyUnicode_FromString(bf));
@@ -763,7 +867,12 @@ static int set_regs_in_dict(PyObject *dict,
 			if (!bf)
 				return -1;
 		}
-		regs_map(sample->user_regs, attr->sample_regs_user, e_machine, e_flags, bf, size);
+		printed = regs_map(sample->user_regs, attr->sample_regs_user,
+				   e_machine, e_flags, bf, size);
+		if (attr->sample_simd_regs_enabled) {
+			simd_regs_map(sample->user_regs, attr, e_machine, bf,
+				      size, printed, false);
+		}
 
 		pydict_set_item_string_decref(dict, "uregs",
 					_PyUnicode_FromString(bf));

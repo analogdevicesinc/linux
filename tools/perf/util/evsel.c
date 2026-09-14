@@ -3715,9 +3715,39 @@ int __evsel__parse_sample(struct evsel *evsel, union perf_event *event,
 			array = (void *)array + sz;
 
 			if (regs->abi & PERF_SAMPLE_REGS_ABI_SIMD) {
-				/* Skip SIMD-regs header. */
-				sz = 4 * sizeof(u64);
+				u64 attr_nr_vectors =
+					hweight64(evsel->core.attr.sample_simd_vec_reg_user);
+				u64 attr_vec_qwords =
+					evsel->core.attr.sample_simd_vec_reg_qwords;
+				u64 attr_nr_pred =
+					hweight32(evsel->core.attr.sample_simd_pred_reg_user);
+				u64 attr_pred_qwords =
+					 evsel->core.attr.sample_simd_pred_reg_qwords;
+
+				OVERFLOW_CHECK_u64(array);
+				regs->nr_vectors = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->vector_qwords = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->nr_pred = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->pred_qwords = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+
+				if (regs->nr_vectors > attr_nr_vectors ||
+				    regs->vector_qwords > attr_vec_qwords ||
+				    regs->nr_pred > attr_nr_pred ||
+				    regs->pred_qwords > attr_pred_qwords)
+					goto out_efault;
+
+				sz = (regs->nr_vectors * regs->vector_qwords +
+				      regs->nr_pred * regs->pred_qwords) * sizeof(u64);
 				OVERFLOW_CHECK(array, sz, max_size);
+
+				regs->simd_data = (u64 *)array;
 				array = (void *)array + sz;
 			}
 		}
@@ -3779,9 +3809,39 @@ int __evsel__parse_sample(struct evsel *evsel, union perf_event *event,
 			array = (void *)array + sz;
 
 			if (regs->abi & PERF_SAMPLE_REGS_ABI_SIMD) {
-				/* Skip SIMD-regs header. */
-				sz = 4 * sizeof(u64);
+				u64 attr_nr_vectors =
+					hweight64(evsel->core.attr.sample_simd_vec_reg_intr);
+				u64 attr_vec_qwords =
+					evsel->core.attr.sample_simd_vec_reg_qwords;
+				u64 attr_nr_pred =
+					hweight32(evsel->core.attr.sample_simd_pred_reg_intr);
+				u64 attr_pred_qwords =
+					 evsel->core.attr.sample_simd_pred_reg_qwords;
+
+				OVERFLOW_CHECK_u64(array);
+				regs->nr_vectors = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->vector_qwords = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->nr_pred = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->pred_qwords = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+
+				if (regs->nr_vectors > attr_nr_vectors ||
+				    regs->vector_qwords > attr_vec_qwords ||
+				    regs->nr_pred > attr_nr_pred ||
+				    regs->pred_qwords > attr_pred_qwords)
+					goto out_efault;
+
+				sz = (regs->nr_vectors * regs->vector_qwords +
+				      regs->nr_pred * regs->pred_qwords) * sizeof(u64);
 				OVERFLOW_CHECK(array, sz, max_size);
+
+				regs->simd_data = (u64 *)array;
 				array = (void *)array + sz;
 			}
 		}

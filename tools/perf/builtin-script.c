@@ -719,23 +719,96 @@ out:
 	return 0;
 }
 
-static int perf_sample__fprintf_regs(struct regs_dump *regs, uint64_t mask,
+static int perf_sample__fprintf_regs(struct regs_dump *regs,
+				     struct perf_event_attr *attr,
 				     uint16_t e_machine, uint32_t e_flags,
-				     FILE *fp)
+				     FILE *fp, bool intr)
 {
-	unsigned i = 0, r;
+	const char *name = "unknown";
+	int reg_c, idx, pred_base;
+	unsigned int i = 0, j, r;
+	uint16_t qwords;
 	int printed = 0;
+	uint64_t mask;
 
-	if (!regs || !regs->regs)
+	if (!regs || (!regs->regs && !regs->simd_data))
 		return 0;
 
 	printed += fprintf(fp, " ABI:%" PRIu64 " ", regs->abi);
 
+	mask = intr ? attr->sample_regs_intr : attr->sample_regs_user;
 	for_each_set_bit(r, (unsigned long *) &mask, sizeof(mask) * 8) {
-		u64 val = regs->regs[i++];
+		if (!regs->regs)
+			break;
 		printed += fprintf(fp, "%5s:0x%"PRIx64" ",
 				   perf_reg_name(r, e_machine, e_flags, regs->abi),
-				   val);
+				   regs->regs[i++]);
+	}
+
+	if (!regs->simd_data)
+		return printed;
+
+	if (!regs->nr_vectors && !regs->nr_pred)
+		return printed;
+
+	for (reg_c = 0; reg_c < 64; reg_c++) {
+		if (!regs->nr_vectors)
+			break;
+		if (intr) {
+			perf_intr_simd_reg_class_bitmap_qwords(e_machine, reg_c,
+							       &qwords, /*pred=*/false);
+		} else {
+			perf_user_simd_reg_class_bitmap_qwords(e_machine, reg_c,
+							       &qwords, /*pred=*/false);
+		}
+		if (regs->vector_qwords == qwords) {
+			name = perf_simd_reg_class_name(e_machine, reg_c, /*pred=*/false);
+			break;
+		}
+	}
+
+	for (i = 0; i < regs->nr_vectors; i++) {
+		for (j = 0; j < regs->vector_qwords; j++) {
+			idx = i * regs->vector_qwords + j;
+			if (regs->vector_qwords > 1) {
+				printed += fprintf(fp, "%5s[%d][%d]:0x%" PRIx64 " ",
+						   name, i, j, regs->simd_data[idx]);
+			} else {
+				printed += fprintf(fp, "%5s[%d]:0x%" PRIx64 " ",
+						   name, i, regs->simd_data[idx]);
+			}
+		}
+	}
+
+	name = "unknown";
+	for (reg_c = 0; reg_c < 64; reg_c++) {
+		if (!regs->nr_pred)
+			break;
+		if (intr) {
+			perf_intr_simd_reg_class_bitmap_qwords(e_machine, reg_c,
+							       &qwords, /*pred=*/true);
+		} else {
+			perf_user_simd_reg_class_bitmap_qwords(e_machine, reg_c,
+							       &qwords, /*pred=*/true);
+		}
+		if (regs->pred_qwords == qwords) {
+			name = perf_simd_reg_class_name(e_machine, reg_c, /*pred=*/true);
+			break;
+		}
+	}
+
+	pred_base = regs->nr_vectors * regs->vector_qwords;
+	for (i = 0; i < regs->nr_pred; i++) {
+		for (j = 0; j < regs->pred_qwords; j++) {
+			idx = pred_base + i * regs->pred_qwords + j;
+			if (regs->pred_qwords > 1) {
+				printed += fprintf(fp, "%5s[%d][%d]:0x%" PRIx64 " ",
+						   name, i, j, regs->simd_data[idx]);
+			} else {
+				printed += fprintf(fp, "%5s[%d]:0x%" PRIx64 " ",
+						   name, i, regs->simd_data[idx]);
+			}
+		}
 	}
 
 	return printed;
@@ -801,7 +874,8 @@ static int perf_sample__fprintf_iregs(struct perf_sample *sample,
 		return 0;
 
 	return perf_sample__fprintf_regs(perf_sample__intr_regs(sample),
-					 attr->sample_regs_intr, e_machine, e_flags, fp);
+					 attr, e_machine, e_flags, fp,
+					 /*intr=*/true);
 }
 
 static int perf_sample__fprintf_uregs(struct perf_sample *sample,
@@ -814,7 +888,8 @@ static int perf_sample__fprintf_uregs(struct perf_sample *sample,
 		return 0;
 
 	return perf_sample__fprintf_regs(perf_sample__user_regs(sample),
-					 attr->sample_regs_user, e_machine, e_flags, fp);
+					 attr, e_machine, e_flags, fp,
+					 /*intr=*/false);
 }
 
 static int perf_sample__fprintf_start(struct perf_script *script,
