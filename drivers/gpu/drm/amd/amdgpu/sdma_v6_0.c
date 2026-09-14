@@ -243,15 +243,14 @@ static void sdma_v6_0_ring_set_wptr(struct amdgpu_ring *ring)
 static void sdma_v6_0_ring_insert_nop(struct amdgpu_ring *ring, uint32_t count)
 {
 	struct amdgpu_sdma_instance *sdma = amdgpu_sdma_get_instance_from_ring(ring);
-	const bool burst_nop = sdma->burst_nop;
-	int i;
+	const u32 nop = ring->funcs->nop;
 
-	for (i = 0; i < count; i++)
-		if (i == 0 && burst_nop)
-			amdgpu_ring_write(ring, ring->funcs->nop |
-				SDMA_PKT_NOP_HEADER_COUNT(count - 1));
-		else
-			amdgpu_ring_write(ring, ring->funcs->nop);
+	if (count && sdma->burst_nop) {
+		--count;
+		amdgpu_ring_write(ring, nop | SDMA_PKT_NOP_HEADER_COUNT(count));
+	}
+
+	amdgpu_ring_fill(ring, nop, count);
 }
 
 /*
