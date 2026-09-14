@@ -69,7 +69,8 @@ static const char *workload_control;
  * dependent on the initialization, as such GCC with LTO complains of
  * conflicting definitions with a weak symbol.
  */
-#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__) || defined(__powerpc64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__) || \
+	defined(__powerpc64__) || defined(__riscv)
 extern struct test_suite *arch_tests[];
 #else
 static struct test_suite *arch_tests[] = {
