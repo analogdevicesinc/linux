@@ -602,7 +602,7 @@ xfs_rtrefcountbt_from_disk(
 	unsigned int			maxrecs;
 	unsigned int			rblocklen;
 
-	rblocklen = xfs_rtrefcount_broot_space(mp, dblock);
+	rblocklen = xfs_rtrefcount_broot_space(dblock);
 
 	xfs_btree_init_block(mp, rblock, &xfs_rtrefcountbt_ops, 0, 0,
 			I_INO(ip));

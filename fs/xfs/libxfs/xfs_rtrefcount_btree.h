@@ -145,7 +145,7 @@ xfs_rtrefcount_broot_space_calc(
  * btree root block.
  */
 static inline size_t
-xfs_rtrefcount_broot_space(struct xfs_mount *mp, struct xfs_rtrefcount_root *bb)
+xfs_rtrefcount_broot_space(struct xfs_rtrefcount_root *bb)
 {
 	return xfs_rtrefcount_broot_space_calc(be16_to_cpu(bb->bb_level),
 			be16_to_cpu(bb->bb_numrecs));
