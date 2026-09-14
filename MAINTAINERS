@@ -29303,11 +29303,6 @@ L:	linux-hwmon@vger.kernel.org
 S:	Maintained
 F:	drivers/hwmon/vt8231.c
 
-VUB300 USB to SDIO/SD/MMC bridge chip
-L:	linux-mmc@vger.kernel.org
-S:	Orphan
-F:	drivers/mmc/host/vub300.c
-
 W1 DALLAS'S 1-WIRE BUS
 M:	Krzysztof Kozlowski <krzk@kernel.org>
 S:	Maintained
