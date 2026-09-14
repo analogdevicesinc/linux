@@ -73,6 +73,22 @@ static atomic_t ad4134_capture_active = ATOMIC_INIT(0);
 
 #define AD4134_NAME				"ad4134"
 
+/*
+ * Read-only identification registers. None of them reads 0xff on a live part,
+ * which is what makes them useful: a mute SPI bus reads 0xff everywhere and the
+ * driver validates no other register value. INTERFACE_CONFIG_A resets to 0x18
+ * (SDO_ACTIVE and its mirror bit both set) and nothing here ever writes it, so
+ * it stays a valid fingerprint for the whole session.
+ */
+#define AD4134_IF_CONFIG_A_REG			0x00
+#define AD4134_IF_CONFIG_A_RESET_VAL		0x18
+#define AD4134_CHIP_TYPE_REG			0x03
+#define AD4134_CHIP_TYPE_VAL			0x07
+#define AD4134_VENDOR_ID_L_REG			0x0c
+#define AD4134_VENDOR_ID_L_VAL			0x56
+#define AD4134_VENDOR_ID_H_REG			0x0d
+#define AD4134_VENDOR_ID_H_VAL			0x04
+
 #define AD4134_IF_CONFIG_B_REG				0x01
 #define AD4134_IF_CONFIG_B_SINGLE_INSTR			BIT(7)
 #define AD4134_IF_CONFIG_B_MASTER_SLAVE_RD_CTRL		BIT(5)
@@ -131,6 +147,9 @@ static atomic_t ad4134_capture_active = ATOMIC_INIT(0);
 #define AD4134_ODR_MAX				1496000
 
 #define AD4134_RESET_TIME_US			1000
+
+/* Datasheet Power Modes: 10 ms power-up time when leaving full power-down. */
+#define AD4134_PDN_TIME_US			10000
 
 /*
  * clkin_aligner IP register map (HDL: hdl/library/clkin_aligner). The IP is a
@@ -313,6 +332,7 @@ struct ad4134_state {
 	struct spi_message		buf_read_msg;
 	struct gpio_desc		*cs_gpio;
 	struct gpio_desc		*reset_gpio;
+	struct gpio_desc		*pdn_gpio;
 	struct gpio_chip		gpiochip;
 
 	unsigned int			filter_type;
@@ -1497,6 +1517,51 @@ static int ad4134_clkin_change_power_mode(struct ad4134_state *st,
 }
 
 /*
+ * Report whether anything is actually answering on SDO. STAT_PLL_LOCK is the
+ * only register value this driver ever tests, and 0xff satisfies it, so a board
+ * that is not driving SDO probes cleanly and claims a locked PLL. Reporting
+ * only: probe deliberately continues so iio_reg and debugfs stay usable for
+ * bench work on a dead board.
+ */
+static void ad4134_check_presence(struct device *dev, struct regmap *regmap,
+				  const char *who)
+{
+	unsigned int cfg_a, chip_type, vendor_l, vendor_h;
+	int ret;
+
+	ret = regmap_read(regmap, AD4134_IF_CONFIG_A_REG, &cfg_a);
+	if (!ret)
+		ret = regmap_read(regmap, AD4134_CHIP_TYPE_REG, &chip_type);
+	if (!ret)
+		ret = regmap_read(regmap, AD4134_VENDOR_ID_L_REG, &vendor_l);
+	if (!ret)
+		ret = regmap_read(regmap, AD4134_VENDOR_ID_H_REG, &vendor_h);
+	if (ret) {
+		dev_err(dev, "ad7134: %s ID read failed: %d\n", who, ret);
+		return;
+	}
+
+	dev_info(dev,
+		 "ad7134: %s ID: CFG_A=0x%02x CHIP_TYPE=0x%02x VENDOR=0x%02x%02x (expect 0x18 0x07 0x0456)\n",
+		 who, cfg_a, chip_type, vendor_h, vendor_l);
+
+	if (cfg_a == 0xff && chip_type == 0xff && vendor_l == 0xff &&
+	    vendor_h == 0xff) {
+		dev_err(dev,
+			"ad7134: %s IS MUTE - every register reads 0xff, nothing is driving SDO. Check IOVDD/VADJ = 1.8 V, PIN/SPI strap high (R131), and CS/SCLK/SDI at the die.\n",
+			who);
+		return;
+	}
+
+	if (cfg_a != AD4134_IF_CONFIG_A_RESET_VAL ||
+	    chip_type != AD4134_CHIP_TYPE_VAL ||
+	    vendor_l != AD4134_VENDOR_ID_L_VAL ||
+	    vendor_h != AD4134_VENDOR_ID_H_VAL)
+		dev_warn(dev, "ad7134: %s ID mismatch - SPI link is unreliable\n",
+			 who);
+}
+
+/*
  * Poll DEVICE_STATUS.STAT_PLL_LOCK until the ASRC PLL locks to the ODR input.
  * Replaces a blind settle delay: the datasheet requires confirming PLL lock
  * before capture, and the lock time varies with ODR. Each chip is read over its
@@ -1509,6 +1574,8 @@ static int ad4134_wait_pll_lock(struct device *dev, struct regmap *regmap,
 	unsigned int status;
 	int ret;
 
+	ad4134_check_presence(dev, regmap, who);
+
 	ret = regmap_read_poll_timeout(regmap, AD4134_DEVICE_STATUS_REG,
 				       status, status & AD4134_STAT_PLL_LOCK,
 				       AD4134_PLL_LOCK_POLL_US,
@@ -1519,6 +1586,14 @@ static int ad4134_wait_pll_lock(struct device *dev, struct regmap *regmap,
 			who, status, ret);
 		return ret;
 	}
+
+	if (status == 0xff)
+		dev_err(dev,
+			"ad7134: %s DEVICE_STATUS=0xff - the PLL lock above is a false positive from a mute bus\n",
+			who);
+	else
+		dev_info(dev, "ad7134: %s DEVICE_STATUS=0x%02x, PLL locked\n",
+			 who, status);
 
 	return 0;
 }
@@ -1595,6 +1670,15 @@ static int ad4134_setup(struct ad4134_state *st)
 	/* Published so the master can reach the slave's reset for §E (§H). */
 	st->reset_gpio = reset_gpio;
 
+	/*
+	 * Only used by ad4134_shutdown(). Unlike /RESETN, which the fabric
+	 * broadcasts to both dies off one EMIO bit, PDN is wired per die.
+	 */
+	st->pdn_gpio = devm_gpiod_get_optional(dev, "pdn", GPIOD_OUT_LOW);
+	if (IS_ERR(st->pdn_gpio))
+		return dev_err_probe(dev, PTR_ERR(st->pdn_gpio),
+				     "Failed to find pdn GPIO\n");
+
 	st->cs_gpio = devm_gpiod_get_optional(dev, "cs", GPIOD_OUT_LOW);
 	if (IS_ERR(st->cs_gpio))
 		return dev_err_probe(dev, PTR_ERR(st->cs_gpio),
@@ -1621,6 +1705,13 @@ static int ad4134_setup(struct ad4134_state *st)
 		if (ret)
 			return ret;
 	}
+
+	/*
+	 * Earliest point at which /RESETN is released, so the earliest the part
+	 * can answer. Sampled again before the PLL poll: alive here and mute
+	 * there would mean the configuration writes in between killed it.
+	 */
+	ad4134_check_presence(dev, st->regmap, "master after reset");
 
 	/*
 	 * Sequence.txt §F.1-7 — power-mode change to HIGH_PERF.  Stops the
@@ -1961,6 +2052,33 @@ static void ad4134_remove(struct spi_device *spi)
 	component_master_del(&spi->dev, &ad4134_comp_ops);
 }
 
+/*
+ * Reboot calls .shutdown, never .remove. On Zynq the PL is reconfigured during
+ * a warm reboot, which tri-states every FMC pin the FPGA drives — CS, SCLK and
+ * SDI included. A still-powered ADC listening on floating lines can latch
+ * garbage into its SPI port and stop driving SDO; from then on every register
+ * reads 0xff and no /RESETN pulse recovers it, only a power cycle. PDN is the
+ * deeper quiesce: it collapses the internal power domains and restores the
+ * register defaults on exit, so drive it (plus /RESETN) before handing the pins
+ * back to the fabric. Sleeping is allowed here — device_shutdown() runs in
+ * process context.
+ */
+static void ad4134_shutdown(struct spi_device *spi)
+{
+	struct iio_dev *indio_dev = spi_get_drvdata(spi);
+	struct ad4134_state *st;
+
+	if (!indio_dev)
+		return;
+
+	st = iio_priv(indio_dev);
+
+	gpiod_set_value_cansleep(st->reset_gpio, 1);
+	gpiod_set_value_cansleep(st->pdn_gpio, 1);
+
+	fsleep(AD4134_PDN_TIME_US);
+}
+
 static const struct spi_device_id ad4134_id[] = {
 	{ "ad4134", 0 },
 	{ },
@@ -1982,6 +2100,7 @@ static struct spi_driver ad4134_driver = {
 	},
 	.probe = ad4134_probe,
 	.remove = ad4134_remove,
+	.shutdown = ad4134_shutdown,
 	.id_table = ad4134_id,
 };
 
