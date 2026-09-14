@@ -29,6 +29,19 @@
 #define ELE_DEBUG_DUMP_REQ_SZ		0x4
 #define ELE_DEBUG_DUMP_RSP_SZ		0x5c
 
+#define ELE_OEM_AUTH_CONTAINER_REQ	0x87
+#define ELE_OEM_VERIFY_IMAGE_REQ	0x88
+#define ELE_OEM_REL_CONTAINER_REQ	0x89
+#define ELE_FW_LIFE_CYCLE_REQ		0x95
+#define ELE_READ_FUSE_REQ		0x97
+#define ELE_GET_FW_VERS_REQ		0x9d
+#define ELE_RETURN_LIFE_CYCLE_REQ	0xa0
+#define ELE_GET_EVENT_REQ		0xa2
+#define ELE_COMMIT_REQ			0xa8
+#define ELE_GEN_KEY_BLOB_REQ		0xaf
+#define ELE_GET_FW_STATUS_REQ		0xc5
+#define ELE_WRITE_FUSE                  0xd6
+
 #define ELE_GET_INFO_REQ		0xda
 #define ELE_GET_INFO_REQ_MSG_SZ		0x10
 #define ELE_GET_INFO_RSP_MSG_SZ		0x08
@@ -71,6 +84,10 @@ struct ele_dev_info {
 #define ELE_GET_INFO_BUFF_SZ		(sizeof(struct ele_dev_info) \
 						+ ELE_DEV_INFO_EXTRA_SZ)
 
+#define ELE_DEV_ATTEST_REQ              0xdb
+#define ELE_WRITE_SHADOW_FUSE_REQ       0xf2
+#define ELE_READ_SHADOW_FUSE_REQ        0xf3
+
 #define ELE_SERVICE_SWAP_REQ		0xdf
 #define ELE_SERVICE_SWAP_REQ_MSG_SZ	0x18
 #define ELE_SERVICE_SWAP_RSP_MSG_SZ	0x0c
@@ -97,4 +114,6 @@ int ele_service_swap(struct se_if_priv *priv, dma_addr_t addr,
 int ele_fw_authenticate(struct se_if_priv *priv, dma_addr_t contnr_addr,
 			dma_addr_t img_addr);
 int ele_debug_dump(struct se_if_priv *priv);
+int ele_uapi_allowed_base_cmd(struct se_if_device_ctx *dev_ctx,
+			      struct se_msg_hdr *header, u32 tx_msg_sz);
 #endif
