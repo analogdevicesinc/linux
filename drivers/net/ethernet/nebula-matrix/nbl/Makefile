@@ -3,4 +3,5 @@
 
 obj-$(CONFIG_NBL) := nbl.o
 
-nbl-objs +=	nbl_main.o
+nbl-objs +=	nbl_hw/nbl_hw_leonis/nbl_hw_leonis.o \
+		nbl_main.o

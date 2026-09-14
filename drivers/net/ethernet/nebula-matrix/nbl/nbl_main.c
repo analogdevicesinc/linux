@@ -8,16 +8,108 @@
 #include <linux/module.h>
 #include <linux/bits.h>
 #include "nbl_include/nbl_include.h"
+#include "nbl_include/nbl_def_hw.h"
+#include "nbl_include/nbl_def_common.h"
 #include "nbl_core.h"
+
+struct nbl_adapter *nbl_core_init(struct pci_dev *pdev,
+				  struct nbl_init_param *param)
+{
+	struct nbl_common_info *common;
+	struct nbl_adapter *adapter;
+	int ret;
+
+	adapter = devm_kzalloc(&pdev->dev, sizeof(*adapter), GFP_KERNEL);
+	if (!adapter)
+		return ERR_PTR(-ENOMEM);
+
+	adapter->pdev = pdev;
+	common = &adapter->common;
+
+	common->pdev = pdev;
+	common->dev = &pdev->dev;
+	common->has_ctrl = param->caps.has_ctrl;
+	common->has_net = param->caps.has_net;
+	common->function = PCI_FUNC(pdev->devfn);
+	common->devid = PCI_SLOT(pdev->devfn);
+	common->bus = pdev->bus->number;
+
+	ret = nbl_hw_init_leonis(adapter);
+	if (ret)
+		goto hw_init_fail;
+
+	return adapter;
+hw_init_fail:
+	return ERR_PTR(ret);
+}
+
+void nbl_core_remove(struct nbl_adapter *adapter)
+{
+	nbl_hw_remove_leonis(adapter);
+}
+
+static void nbl_get_func_param(struct pci_dev *pdev, kernel_ulong_t driver_data,
+			       struct nbl_init_param *param)
+{
+	param->caps.has_net = !!(driver_data & BIT(NBL_CAP_HAS_NET_BIT));
+
+	/*
+	 * Hardware fixed rule: physical PF0 is the only management PF with
+	 * global ctrl capability. All PFs share identical PCI device ID, so
+	 * distinguish control PF via physical function ID.
+	 *
+	 * Hardware & firmware design FORBID passing any PF through to virtual
+	 * machines, there is no scenario where a non-management PF appears
+	 * as Func 0 inside guest. Thus using PCI_FUNC(pdev->devfn) to identify
+	 *  control PF is safe on our platform.
+	 */
+	if ((PCI_FUNC(pdev->devfn) == 0) && !pdev->is_virtfn)
+		param->caps.has_ctrl = 1;
+}
 
 static int nbl_probe(struct pci_dev *pdev,
 		     const struct pci_device_id *id)
 {
-	return -ENODEV;
+	struct nbl_init_param param = { { 0 } };
+	struct device *dev = &pdev->dev;
+	struct nbl_adapter *adapter;
+	int err;
+
+	err = pcim_enable_device(pdev);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to enable PCI dev, err=%d\n", err);
+		return err;
+	}
+
+	nbl_get_func_param(pdev, id->driver_data, &param);
+	/* never return fail when DMA_BIT_MASK(64) */
+	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+
+	pci_set_master(pdev);
+
+	adapter = nbl_core_init(pdev, &param);
+	if (IS_ERR(adapter)) {
+		dev_err(dev, "Nbl adapter init fail: %pe\n", adapter);
+		err = PTR_ERR(adapter);
+		goto adapter_init_err;
+	}
+	pci_set_drvdata(pdev, adapter);
+	return 0;
+adapter_init_err:
+	pci_clear_master(pdev);
+	return err;
 }
 
 static void nbl_remove(struct pci_dev *pdev)
 {
+	struct nbl_adapter *adapter = pci_get_drvdata(pdev);
+
+	if (!adapter)
+		return;
+	pci_set_drvdata(pdev, NULL);
+	nbl_core_remove(adapter);
+
+	pci_clear_master(pdev);
 }
 
 /*

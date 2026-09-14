@@ -10,5 +10,14 @@
 
 /*  ------  Basic definitions  -------  */
 #define NBL_DRIVER_NAME					"nbl"
+struct nbl_func_caps {
+	u32 has_ctrl:1;
+	u32 has_net:1;
+	u32 rsv:30;
+};
+
+struct nbl_init_param {
+	struct nbl_func_caps caps;
+};
 
 #endif
