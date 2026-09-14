@@ -1,0 +1,138 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/adi,ltc4284.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices LTC4284 High Power Negative Voltage Hot Swap Controller
+
+maintainers:
+  - Carlos Jones Jr <carlosjr.jones@analog.com>
+
+description: |
+  The LTC4284 is a high power negative voltage hot swap controller with an
+  integrated energy monitor. It provides voltage, current, power, and energy
+  monitoring with multiple auxiliary ADC channels.
+
+  Datasheet:
+    https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4284.pdf
+
+properties:
+  compatible:
+    const: adi,ltc4284
+
+  reg:
+    maxItems: 1
+
+  vin-supply:
+    description:
+      Power supply for the VIN pin (positive supply input).
+      VIN is internally regulated to 11.5V and must be bypassed with at least
+      0.1µF capacitor. For EEPROM fault logging during brown-out, use 68µF.
+
+  interrupts:
+    maxItems: 1
+    description:
+      Interrupt line connected to ALERT pin for fault notifications.
+
+  adi,rsense1-nano-ohms:
+    description:
+      Value of the primary current sense resistor in nano-ohms. This resistor
+      is used for the main SENSE and SENSE1 current measurements.
+
+  adi,rsense2-nano-ohms:
+    description:
+      Value of the secondary current sense resistor in nano-ohms. This resistor
+      is used for the SENSE2 current measurement. Optional.
+
+  adi,current-limit-sense-microvolt:
+    description:
+      Current limit voltage threshold across the sense resistor in microvolts.
+      Valid range is 15000-30000 µV (15mV to 30mV) in 1mV steps. Values rounded
+      down to the nearest 1mV. This sets the overcurrent protection threshold.
+      If not specified, the value programmed in EEPROM will be used.
+    minimum: 15000
+    maximum: 30000
+
+  adi,vpwr-millivolt:
+    description:
+      The actual system voltage being monitored, accounting for any external
+      resistor divider on the VPWR pin. The chip can measure up to 2.048V
+      directly, so higher voltages require a divider. Specify the actual
+      system voltage here (e.g., 48000 for a 48V system with divider).
+    default: 2048
+
+  adi,adin1-millivolt:
+    description:
+      Full-scale voltage for ADIN1 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
+
+  adi,adin2-millivolt:
+    description:
+      Full-scale voltage for ADIN2 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
+
+  adi,adin3-millivolt:
+    description:
+      Full-scale voltage for ADIN3 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
+
+  adi,adin4-millivolt:
+    description:
+      Full-scale voltage for ADIN4 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
+
+  adi,adio1-millivolt:
+    description:
+      Full-scale voltage for ADIO1 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
+
+  adi,adio2-millivolt:
+    description:
+      Full-scale voltage for ADIO2 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
+
+  adi,adio3-millivolt:
+    description:
+      Full-scale voltage for ADIO3 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
+
+  adi,adio4-millivolt:
+    description:
+      Full-scale voltage for ADIO4 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
+
+required:
+  - compatible
+  - reg
+  - adi,rsense1-nano-ohms
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        hotswap@15 {
+            compatible = "adi,ltc4284";
+            reg = <0x15>;
+            vin-supply = <&reg_12v>;
+            interrupts = <42 IRQ_TYPE_LEVEL_LOW>;
+            adi,rsense1-nano-ohms = <5000000>;  /* 5 mOhm */
+            adi,rsense2-nano-ohms = <330000>;   /* 0.33 mOhm */
+            adi,current-limit-sense-microvolt = <25000>;  /* 25mV */
+            adi,vpwr-millivolt = <48000>;  /* 48V system with divider */
+        };
+    };
+...

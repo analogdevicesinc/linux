@@ -424,18 +424,22 @@ static ssize_t hwmon_attr_show(struct device *dev,
 			       struct device_attribute *devattr, char *buf)
 {
 	struct hwmon_device_attribute *hattr = to_hwmon_attr(devattr);
+	s64 val64;
 	long val;
 	int ret;
 
 	ret = hattr->ops->read(dev, hattr->type, hattr->attr, hattr->index,
-			       &val);
+			       (hattr->type == hwmon_energy64) ? (long *)&val64 : &val);
 	if (ret < 0)
 		return ret;
 
-	trace_hwmon_attr_show(hattr->index + hwmon_attr_base(hattr->type),
-			      hattr->name, val);
+	if (hattr->type != hwmon_energy64)
+		val64 = val;
 
-	return sprintf(buf, "%ld\n", val);
+	trace_hwmon_attr_show(hattr->index + hwmon_attr_base(hattr->type),
+			      hattr->name, val64);
+
+	return sysfs_emit(buf, "%lld\n", val64);
 }
 
 static ssize_t hwmon_attr_show_string(struct device *dev,
