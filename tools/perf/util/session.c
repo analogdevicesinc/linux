@@ -639,6 +639,13 @@ do { 						\
 	bswap_field_64(sig_data);
 	bswap_field_64(config3);
 	bswap_field_64(config4);
+	bswap_field_16(sample_simd_regs_enabled);
+	bswap_field_16(sample_simd_pred_reg_qwords);
+	bswap_field_16(sample_simd_vec_reg_qwords);
+	bswap_field_32(sample_simd_pred_reg_intr);
+	bswap_field_32(sample_simd_pred_reg_user);
+	bswap_field_64(sample_simd_vec_reg_intr);
+	bswap_field_64(sample_simd_vec_reg_user);
 
 	/*
 	 * After read_format are bitfields. Check read_format because
