@@ -528,22 +528,25 @@ struct scmi_sensor_proto_ops {
 			  u32 sensor_id, u32 sensor_config);
 };
 
+struct scmi_reset_domain_info {
+	char name[SCMI_MAX_STR_SIZE];
+	u32 latency_us;
+};
+
 /**
  * struct scmi_reset_proto_ops - represents the various operations provided
  *	by SCMI Reset Protocol
  *
  * @num_domains_get: get the count of reset domains provided by SCMI
- * @name_get: gets the name of a reset domain
- * @latency_get: gets the reset latency for the specified reset domain
+ * @info_get: gets the information of the specified reset domain
  * @reset: resets the specified reset domain
  * @assert: explicitly assert reset signal of the specified reset domain
  * @deassert: explicitly deassert reset signal of the specified reset domain
  */
 struct scmi_reset_proto_ops {
 	int (*num_domains_get)(const struct scmi_protocol_handle *ph);
-	const char *(*name_get)(const struct scmi_protocol_handle *ph,
-				u32 domain);
-	int (*latency_get)(const struct scmi_protocol_handle *ph, u32 domain);
+	const struct scmi_reset_domain_info __must_check *(*info_get)
+		(const struct scmi_protocol_handle *ph, u32 domain);
 	int (*reset)(const struct scmi_protocol_handle *ph, u32 domain);
 	int (*assert)(const struct scmi_protocol_handle *ph, u32 domain);
 	int (*deassert)(const struct scmi_protocol_handle *ph, u32 domain);
