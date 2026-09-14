@@ -240,7 +240,6 @@ xfs_verify_fileoff(
 /* Check that a range of file block offsets do not exceed the maximum. */
 bool
 xfs_verify_fileext(
-	struct xfs_mount	*mp,
 	xfs_fileoff_t		off,
 	xfs_fileoff_t		len)
 {

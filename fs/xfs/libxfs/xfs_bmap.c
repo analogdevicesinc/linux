@@ -6087,7 +6087,7 @@ xfs_bmap_validate_extent_raw(
 	int			whichfork,
 	struct xfs_bmbt_irec	*irec)
 {
-	if (!xfs_verify_fileext(mp, irec->br_startoff, irec->br_blockcount))
+	if (!xfs_verify_fileext(irec->br_startoff, irec->br_blockcount))
 		return __this_address;
 
 	if (rtfile && whichfork == XFS_DATA_FORK) {

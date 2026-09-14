@@ -260,7 +260,7 @@ xfs_rmap_check_irec(
 
 	/* Check for a valid fork offset, if applicable. */
 	if (is_inode && !is_bmbt &&
-	    !xfs_verify_fileext(mp, irec->rm_offset, irec->rm_blockcount))
+	    !xfs_verify_fileext(irec->rm_offset, irec->rm_blockcount))
 		return __this_address;
 
 	return NULL;
@@ -310,7 +310,7 @@ xfs_rtrmap_check_inode_irec(
 		return __this_address;
 	if (!xfs_verify_rgbext(rtg, irec->rm_startblock, irec->rm_blockcount))
 		return __this_address;
-	if (!xfs_verify_fileext(mp, irec->rm_offset, irec->rm_blockcount))
+	if (!xfs_verify_fileext(irec->rm_offset, irec->rm_blockcount))
 		return __this_address;
 	return NULL;
 }

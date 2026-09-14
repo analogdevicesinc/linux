@@ -485,7 +485,7 @@ xchk_bmap_iextent(
 		xchk_fblock_set_corrupt(info->sc, info->whichfork,
 				irec->br_startoff);
 
-	if (!xfs_verify_fileext(mp, irec->br_startoff, irec->br_blockcount))
+	if (!xfs_verify_fileext(irec->br_startoff, irec->br_blockcount))
 		xchk_fblock_set_corrupt(info->sc, info->whichfork,
 				irec->br_startoff);
 
@@ -876,8 +876,6 @@ xchk_bmap_iextent_delalloc(
 	struct xchk_bmap_info	*info,
 	struct xfs_bmbt_irec	*irec)
 {
-	struct xfs_mount	*mp = info->sc->mp;
-
 	/*
 	 * Check for out-of-order extents.  This record could have come
 	 * from the incore list, for which there is no ordering check.
@@ -887,7 +885,7 @@ xchk_bmap_iextent_delalloc(
 		xchk_fblock_set_corrupt(info->sc, info->whichfork,
 				irec->br_startoff);
 
-	if (!xfs_verify_fileext(mp, irec->br_startoff, irec->br_blockcount))
+	if (!xfs_verify_fileext(irec->br_startoff, irec->br_blockcount))
 		xchk_fblock_set_corrupt(info->sc, info->whichfork,
 				irec->br_startoff);
 

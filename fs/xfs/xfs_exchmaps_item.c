@@ -341,10 +341,10 @@ xfs_xmi_validate(
 	    !xfs_verify_ino(mp, xlf->xmi_inode2))
 		return false;
 
-	if (!xfs_verify_fileext(mp, xlf->xmi_startoff1, xlf->xmi_blockcount))
+	if (!xfs_verify_fileext(xlf->xmi_startoff1, xlf->xmi_blockcount))
 		return false;
 
-	if (!xfs_verify_fileext(mp, xlf->xmi_startoff2, xlf->xmi_blockcount))
+	if (!xfs_verify_fileext(xlf->xmi_startoff2, xlf->xmi_blockcount))
 		return false;
 
 	if (xlf->xmi_flags & XFS_EXCHMAPS_SET_SIZES) {
