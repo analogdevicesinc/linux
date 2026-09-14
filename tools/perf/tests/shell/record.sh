@@ -131,6 +131,124 @@ check_system_wide() {
   perf report -i "${perfdata}" -q | grep -q "${testsym}"
 }
 
+check_ext_reg_capture() {
+  local script_field="$1"
+  local ext_reg="$2"
+
+  perf script -F ip,sym,"${script_field}" -i "${perfdata}" 2>/dev/null | \
+  grep -q -i "${ext_reg}:"
+}
+
+get_x86_extended_regs() {
+  local advertised_ext_regs="$1"
+  local ext_regs=""
+
+  if echo "${advertised_ext_regs}" | grep -q -i R16
+  then
+    ext_regs="${ext_regs} R16"
+  fi
+  if echo "${advertised_ext_regs}" | grep -q -i R31
+  then
+    ext_regs="${ext_regs} R31"
+  fi
+  if echo "${advertised_ext_regs}" | grep -q -i SSP
+  then
+    ext_regs="${ext_regs} SSP"
+  fi
+
+  echo "${ext_regs}" | xargs
+}
+
+validate_extd_regs_sampling() {
+  local regs_opt="$1"
+  local extd_regs="$2"
+  local script_field="$3"
+  local ret=0
+  local reg
+
+  for reg in ${extd_regs}
+  do
+    perf_record_with_retry "${perfdata}" \
+      "check_ext_reg_capture ${script_field} ${reg}" "perf test -w thloop" \
+      -e br_inst_retired.near_call ${regs_opt}=${reg} -c 1000 \
+      --per-thread || ret=$?
+
+    if [ $ret -ne 0 ]
+    then
+      echo "Extended register capture test [Failed record ${regs_opt}=${reg}]"
+      return 1
+    fi
+  done
+
+  return 0
+}
+
+test_extd_register_capture() {
+  local arch
+  local intr_regs
+  local user_regs
+  local intr_ext_regs
+  local user_ext_regs
+  local tested=0
+
+  echo "Extended register capture test"
+  if ! perf list pmu | grep -q 'br_inst_retired.near_call'
+  then
+    echo "Extended register capture test [Skipped missing event]"
+    return
+  fi
+
+  intr_regs=$(perf record --intr-regs=\? 2>&1 || true)
+  user_regs=$(perf record --user-regs=\? 2>&1 || true)
+
+  intr_ext_regs=""
+  user_ext_regs=""
+
+  arch=$(uname -m)
+  case ${arch} in
+  x86_64|i386)
+    intr_ext_regs=$(get_x86_extended_regs "${intr_regs}")
+    user_ext_regs=$(get_x86_extended_regs "${user_regs}")
+    ;;
+  *)
+    echo "Extended register capture test [Skipped non-x86 platform]"
+    return
+    ;;
+  esac
+
+  if [ -z "${intr_ext_regs}" ]
+  then
+    echo "Extended register capture test [Skipped missing intr extended registers]"
+  elif ! validate_extd_regs_sampling "--intr-regs" "${intr_ext_regs}" "iregs"
+  then
+    echo "Extended register capture test [Failed intr extended register sampling]"
+    err=1
+    return
+  else
+    tested=1
+  fi
+
+  if [ -z "${user_ext_regs}" ]
+  then
+    echo "Extended register capture test [Skipped missing user extended registers]"
+  elif ! validate_extd_regs_sampling "--user-regs" "${user_ext_regs}" "uregs"
+  then
+    echo "Extended register capture test [Failed user extended register sampling]"
+    err=1
+    return
+  else
+    tested=1
+  fi
+
+  if [ ${tested} -eq 0 ]
+  then
+    echo "Extended register capture test [Skipped missing extended registers]"
+    return
+  fi
+
+  echo "Extended register capture test [Success]"
+}
+
 test_system_wide() {
   echo "Basic --system-wide mode test"
   local ret=0
@@ -491,6 +609,7 @@ fi
 
 test_per_thread
 test_register_capture
+test_extd_register_capture
 test_system_wide
 test_workload
 test_branch_counter
