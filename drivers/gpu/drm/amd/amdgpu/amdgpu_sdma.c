@@ -42,7 +42,9 @@ int __printf(4, 5)
 amdgpu_sdma_ring_init(struct amdgpu_device *adev, struct amdgpu_ring *ring,
 		      unsigned int instance, const char *fmt, ...)
 {
+	struct amdgpu_sdma_instance *sdma;
 	va_list args;
+	int r;
 
 	ring->ring_obj = NULL;
 
@@ -50,25 +52,21 @@ amdgpu_sdma_ring_init(struct amdgpu_device *adev, struct amdgpu_ring *ring,
 	vsnprintf(ring->name, sizeof(ring->name), fmt, args);
 	va_end(args);
 
-	return amdgpu_ring_init(adev, ring, 1024, &adev->sdma.trap_irq,
-				AMDGPU_SDMA_IRQ_INSTANCE0 + instance,
-				AMDGPU_RING_PRIO_DEFAULT, NULL);
-}
+	r = amdgpu_ring_init(adev, ring, 1024, &adev->sdma.trap_irq,
+			     AMDGPU_SDMA_IRQ_INSTANCE0 + instance,
+			     AMDGPU_RING_PRIO_DEFAULT, NULL);
+	if (r)
+		return r;
 
-uint64_t amdgpu_sdma_get_csa_mc_addr(struct amdgpu_ring *ring,
-				     unsigned int vmid)
-{
-	struct amdgpu_device *adev = ring->adev;
+	sdma = amdgpu_sdma_get_instance_from_ring(ring);
+	if (amdgpu_sriov_vf(adev) || !adev->gfx.mcbp)
+		sdma->csa_addr = 0;
+	else
+		sdma->csa_addr = amdgpu_csa_vaddr(adev) +
+				 AMDGPU_CSA_SDMA_OFFSET +
+				 ring->me * AMDGPU_CSA_SDMA_SIZE;
 
-	/* don't enable OS preemption on SDMA under SRIOV */
-	if (amdgpu_sriov_vf(adev) || vmid == 0 || !adev->gfx.mcbp)
-		return 0;
-
-	if (ring->me > 31)
-		return 0;
-
-	return amdgpu_csa_vaddr(adev) + AMDGPU_CSA_SDMA_OFFSET +
-	       ring->me * AMDGPU_CSA_SDMA_SIZE;
+	return r;
 }
 
 int amdgpu_sdma_ras_late_init(struct amdgpu_device *adev,

@@ -75,6 +75,8 @@ struct amdgpu_sdma_instance {
 	    uint32_t		xcc_id;
 	};
 
+	uint64_t		csa_addr;
+
 	struct amdgpu_bo	*sdma_fw_obj;
 	uint64_t		sdma_fw_gpu_addr;
 	uint32_t		*sdma_fw_ptr;

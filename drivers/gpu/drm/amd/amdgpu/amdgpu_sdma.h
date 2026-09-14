@@ -57,7 +57,15 @@ amdgpu_sdma_get_instance_from_ring(struct amdgpu_ring *ring)
 	return &ring->adev->sdma.instance[ring->me];
 }
 
-uint64_t amdgpu_sdma_get_csa_mc_addr(struct amdgpu_ring *ring, unsigned vmid);
+static inline uint64_t
+amdgpu_sdma_get_csa_mc_addr(struct amdgpu_ring *ring, unsigned vmid)
+{
+	if (vmid == 0)
+		return 0;
+	else
+		return amdgpu_sdma_get_instance_from_ring(ring)->csa_addr;
+}
+
 int amdgpu_sdma_ras_late_init(struct amdgpu_device *adev,
 			      struct ras_common_if *ras_block);
 int amdgpu_sdma_process_ras_data_cb(struct amdgpu_device *adev,
