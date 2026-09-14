@@ -4215,7 +4215,9 @@ static void commit_planes_do_stream_update_sequence(struct dc *dc,
 				resource_build_info_frame(pipe_ctx);
 				add_update_info_frame_sequence(&seq_state, pipe_ctx);
 
-				if (dc_is_dp_signal(pipe_ctx->stream->signal))
+				/* The step only writes DPCD when the debug flag is set, so gate emission on it here. */
+				if (dc_is_dp_signal(pipe_ctx->stream->signal) &&
+						dc->debug.enable_driver_sequence_debug)
 					hwss_add_dp_trace_source_sequence(&seq_state,
 							pipe_ctx->stream->link,
 							DPCD_SOURCE_SEQ_AFTER_UPDATE_INFO_FRAME);

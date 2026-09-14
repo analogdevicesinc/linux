@@ -1292,12 +1292,10 @@ void hwss_build_fast_sequence(struct dc *dc,
 		block_sequence[*num_steps].func = HWSS_UPDATE_INFO_FRAME;
 		(*num_steps)++;
 
-		if (dc_is_dp_signal(pipe_ctx->stream->signal)) {
-			block_sequence[*num_steps].params.dp_trace_source_sequence_params.link = pipe_ctx->stream->link;
-			block_sequence[*num_steps].params.dp_trace_source_sequence_params.source = DPCD_SOURCE_SEQ_AFTER_UPDATE_INFO_FRAME;
-			block_sequence[*num_steps].func = DP_TRACE_SOURCE_SEQUENCE;
-			(*num_steps)++;
-		}
+		/* The step only writes DPCD when the debug flag is set, so gate emission on it here. */
+		if (dc_is_dp_signal(pipe_ctx->stream->signal) && dc->debug.enable_driver_sequence_debug)
+			hwss_add_dp_trace_source_sequence(&seq_state, pipe_ctx->stream->link,
+					DPCD_SOURCE_SEQ_AFTER_UPDATE_INFO_FRAME);
 	}
 
 	if (dc->hwss.set_dmdata_attributes && stream->update_flags.bits.dmdata &&
