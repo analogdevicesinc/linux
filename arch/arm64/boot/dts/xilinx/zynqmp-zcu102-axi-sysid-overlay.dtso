@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADI AXI SYSID overlay for the ZCU102 common carrier design.
+ *
+ * The common/zcu102 HDL project instantiates one axi_sysid core backed by
+ * a sysid ROM:
+ *
+ *   ad_ip_instance axi_sysid axi_sysid_0
+ *   ad_ip_instance sysid_rom rom_sys_0
+ *   ad_cpu_interconnect 0x45000000 axi_sysid_0
+ *
+ * ad_cpu_interconnect() offsets ZynqMP (sys_zynq == 2) peripherals in the
+ * 0x4000_0000-0x4fff_ffff window by +0x4000_0000, so the TCL address
+ * 0x45000000 is visible to the APU at 0x85000000. This matches the
+ * address every other ADI ZCU102 device tree uses for axi_sysid_0.
+ *
+ * Apply this overlay after the FPGA overlay has programmed the
+ * programmable logic. It deliberately targets the AMBA bus rather than
+ * /fpga-region: of_fpga_region_parse_ov() rejects a second overlay on a
+ * region that already has one applied ("Region already has overlay
+ * applied").
+ *
+ * hdl_project: <common/zcu102>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/axi} {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	axi_sysid_0: axi-sysid-0@85000000 {
+		compatible = "adi,axi-sysid-1.00.a";
+		reg = <0x0 0x85000000 0x0 0x10000>;
+	};
+};

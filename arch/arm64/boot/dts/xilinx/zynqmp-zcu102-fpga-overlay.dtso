@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Runtime FPGA bitstream loading overlay for the ZCU102 carrier.
+ *
+ * Applied through the configfs device tree overlay interface, this makes
+ * the ZynqMP FPGA Manager program the programmable logic with the
+ * bitstream named below, without rebooting and without the bitstream
+ * being part of BOOT.BIN.
+ *
+ * The bitstream must be reachable through the kernel firmware search
+ * path, e.g. /lib/firmware/system_top.bit.bin.
+ *
+ * hdl_project: <common/zcu102>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/*
+ * A path reference is used instead of the &fpga_full label so that this
+ * overlay also applies to a base device tree blob built without a
+ * __symbols__ node.
+ */
+&{/fpga-region} {
+	firmware-name = "system_top.bit.bin";
+};

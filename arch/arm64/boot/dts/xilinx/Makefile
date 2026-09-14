@@ -55,3 +55,16 @@ zynqmp-smk-k24-revA-sck-kr-g-revB-dtbs := zynqmp-smk-k24-revA.dtb zynqmp-sck-kr-
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-smk-k24-revA-sck-kr-g-revB.dtb
 
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-x-b2197-01-revA.dtb
+
+# ZCU102 runtime FPGA / device tree overlay support.
+#
+# These overlays are applied at runtime through the configfs device tree
+# interface, not folded into a base blob at build time, so they are listed
+# as standalone .dtbo targets.
+#
+# zynqmp-zcu102-rev1.1.dtb is built with -@ so that the running kernel can
+# resolve phandle references (the LED overlay needs &gpio).
+DTC_FLAGS_zynqmp-zcu102-rev1.1 := -@
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-fpga-overlay.dtbo
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-axi-sysid-overlay.dtbo
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu102-leds-overlay.dtbo

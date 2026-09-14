@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Programmable logic user LED overlay for the ZCU102 common carrier design.
+ *
+ * The common/zcu102 HDL project routes the eight ZCU102 user LEDs through
+ * PS EMIO GPIO rather than through a PL AXI GPIO core:
+ *
+ *   system_top.v:  assign gpio_bd_o = gpio_o[7:0];
+ *   zcu102_system_bd.tcl:  ad_connect gpio_o sys_ps8/emio_gpio_o
+ *   zcu102_system_constr.xdc:  gpio_bd_o[0..7] -> GPIO_LED_0..GPIO_LED_7
+ *
+ * The LEDs are therefore driven by the PS GPIO controller, but only reach
+ * the package pins once this bitstream is loaded, so they belong in a
+ * runtime overlay and not in the base ZCU102 device tree.
+ *
+ * gpio-zynq numbers ZynqMP MIO as 0-77 and EMIO as 78-173, so EMIO bit n
+ * is GPIO line 78 + n and the eight LEDs are lines 78 to 85.
+ *
+ * This overlay needs a base device tree blob built with __symbols__
+ * (DTC_FLAGS -@) because gpio-leds has to reference the GPIO controller
+ * by phandle.
+ *
+ * hdl_project: <common/zcu102>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&{/} {
+	zcu102-pl-leds {
+		compatible = "gpio-leds";
+
+		led-pl-0 {
+			label = "zcu102:pl:led0";
+			gpios = <&gpio 78 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led-pl-1 {
+			label = "zcu102:pl:led1";
+			gpios = <&gpio 79 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led-pl-2 {
+			label = "zcu102:pl:led2";
+			gpios = <&gpio 80 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led-pl-3 {
+			label = "zcu102:pl:led3";
+			gpios = <&gpio 81 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led-pl-4 {
+			label = "zcu102:pl:led4";
+			gpios = <&gpio 82 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led-pl-5 {
+			label = "zcu102:pl:led5";
+			gpios = <&gpio 83 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led-pl-6 {
+			label = "zcu102:pl:led6";
+			gpios = <&gpio 84 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led-pl-7 {
+			label = "zcu102:pl:led7";
+			gpios = <&gpio 85 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+};
