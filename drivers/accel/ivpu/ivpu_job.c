@@ -1301,8 +1301,11 @@ void ivpu_context_abort_work_fn(struct work_struct *work)
 	unsigned long ctx_id;
 	unsigned long id;
 
-	if (drm_WARN_ON(&vdev->drm, pm_runtime_get_if_active(vdev->drm.dev) <= 0))
+	if (!down_read_trylock(&vdev->pm->reset_lock))
 		return;
+
+	if (drm_WARN_ON(&vdev->drm, pm_runtime_get_if_active(vdev->drm.dev) <= 0))
+		goto unlock;
 
 	if (vdev->fw->sched_mode == VPU_SCHEDULING_MODE_HW)
 		if (reset_engine_and_mark_faulty_contexts(vdev))
@@ -1344,4 +1347,6 @@ void ivpu_context_abort_work_fn(struct work_struct *work)
 
 runtime_put:
 	pm_runtime_put_autosuspend(vdev->drm.dev);
+unlock:
+	up_read(&vdev->pm->reset_lock);
 }
