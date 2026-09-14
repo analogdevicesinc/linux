@@ -8,6 +8,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/leds/common.h>
+#include <dt-bindings/media/video-interfaces.h>
 #include <dt-bindings/regulator/st,stm32mp25-regulator.h>
 #include "stm32mp257.dtsi"
 #include "stm32mp25xf.dtsi"
@@ -161,7 +162,7 @@
 			csi_sink: endpoint {
 				remote-endpoint = <&imx335_ep>;
 				data-lanes = <1 2>;
-				bus-type = <4>;
+				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
 			};
 		};
 		port@1 {
@@ -178,7 +179,7 @@
 	port {
 		dcmipp_0: endpoint {
 			remote-endpoint = <&csi_source>;
-			bus-type = <4>;
+			bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
 		};
 	};
 };
