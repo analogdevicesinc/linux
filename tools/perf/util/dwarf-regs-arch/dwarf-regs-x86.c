@@ -197,7 +197,7 @@ int __get_dwarf_regnum_for_perf_regnum_i386(int perf_regnum)
 	if (perf_regnum == 0)
 		return 0;
 
-	if (perf_regnum <  0 || perf_regnum > (int)ARRAY_SIZE(dwarf_i386_regnums) ||
+	if (perf_regnum < 0 || perf_regnum >= (int)ARRAY_SIZE(dwarf_i386_regnums) ||
 	    dwarf_i386_regnums[perf_regnum] == 0)
 		return -ENOENT;
 
@@ -252,7 +252,7 @@ int __get_dwarf_regnum_for_perf_regnum_x86_64(int perf_regnum)
 	if (perf_regnum == 0)
 		return 0;
 
-	if (perf_regnum <  0 || perf_regnum > (int)ARRAY_SIZE(dwarf_x86_64_regnums) ||
+	if (perf_regnum < 0 || perf_regnum >= (int)ARRAY_SIZE(dwarf_x86_64_regnums) ||
 	    dwarf_x86_64_regnums[perf_regnum] == 0)
 		return -ENOENT;
 
