@@ -156,6 +156,10 @@ struct amdgpu_buffer_funcs {
 				 uint32_t byte_count);
 };
 
+int __printf(4, 5)
+amdgpu_sdma_ring_init(struct amdgpu_device *adev, struct amdgpu_ring *ring,
+		      unsigned int instance, const char *fmt, ...);
+
 int amdgpu_sdma_reset_engine(struct amdgpu_device *adev, uint32_t instance_id);
 
 int amdgpu_sdma_reset_queue_legacy(struct amdgpu_ring *ring,

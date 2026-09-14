@@ -22,6 +22,7 @@
  */
 
 #include <linux/firmware.h>
+#include <linux/stdarg.h>
 #include "amdgpu.h"
 #include "amdgpu_sdma.h"
 #include "amdgpu_ras.h"
@@ -36,6 +37,23 @@
 /*
  * GPU SDMA IP block helpers function.
  */
+
+int __printf(4, 5)
+amdgpu_sdma_ring_init(struct amdgpu_device *adev, struct amdgpu_ring *ring,
+		      unsigned int instance, const char *fmt, ...)
+{
+	va_list args;
+
+	ring->ring_obj = NULL;
+
+	va_start(args, fmt);
+	vsnprintf(ring->name, sizeof(ring->name), fmt, args);
+	va_end(args);
+
+	return amdgpu_ring_init(adev, ring, 1024, &adev->sdma.trap_irq,
+				AMDGPU_SDMA_IRQ_INSTANCE0 + instance,
+				AMDGPU_RING_PRIO_DEFAULT, NULL);
+}
 
 struct amdgpu_sdma_instance *amdgpu_sdma_get_instance_from_ring(struct amdgpu_ring *ring)
 {
