@@ -689,6 +689,8 @@ static void nau8360_dsp_switch(struct snd_soc_component *component, bool enable)
 	struct regmap *regmap = nau8360->regmap;
 	int value = NAU8360_PEQ_BAND_8;
 
+	mutex_lock(&nau8360->lock);
+
 	/* If DSP is enabled, unstall HW3 engine and DSP, loading DSP firmware,
 	 * and configure PEQ after dsp reset.
 	 */
@@ -702,6 +704,7 @@ static void nau8360_dsp_switch(struct snd_soc_component *component, bool enable)
 	regmap_update_bits(regmap, NAU8360_R9D_PEQ_CTL, NAU8360_PEQ_BAND_MASK,
 		value << NAU8360_PEQ_BAND_SFT);
 
+	mutex_unlock(&nau8360->lock);
 }
 
 static int nau8360_dac_mux_put_enum(struct snd_kcontrol *kcontrol,
@@ -714,26 +717,25 @@ static int nau8360_dac_mux_put_enum(struct snd_kcontrol *kcontrol,
 	unsigned int *item = ucontrol->value.enumerated.item;
 	int ret = 0;
 
+	snd_soc_dapm_mutex_lock(dapm);
 	if (snd_soc_dapm_get_bias_level(dapm) > SND_SOC_BIAS_STANDBY) {
 		dev_warn_ratelimited(nau8360->dev, "changing path is not allowed during playback");
+		snd_soc_dapm_mutex_unlock(dapm);
 		return -EBUSY;
 	}
 
 	if (item[0] == NAU8360_DAC_SRC_DSP && !nau8360->load_fw_done) {
 		dev_warn_ratelimited(nau8360->dev, "Cannot enable DSP: Firmware not ready or disabled\n");
+		snd_soc_dapm_mutex_unlock(dapm);
 		return -EBUSY;
 	}
-
-	mutex_lock(&nau8360->lock);
+	snd_soc_dapm_mutex_unlock(dapm);
 
 	ret = snd_soc_dapm_put_enum_double(kcontrol, ucontrol);
 	if (ret <= 0)
-		goto unlock;
+		return ret;
 
 	nau8360_dsp_switch(component, snd_soc_enum_item_to_val(e, item[0]));
-
-unlock:
-	mutex_unlock(&nau8360->lock);
 
 	return ret;
 }
