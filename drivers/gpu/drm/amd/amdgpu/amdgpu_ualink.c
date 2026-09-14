@@ -1822,7 +1822,7 @@ static void amdgpu_ualink_npa_mm_fini(struct amdgpu_device *adev)
 static void amdgpu_generate_ualink_handle(struct amdgpu_device *adev,
 				   struct amdgpu_ualink_handle *handle)
 {
-	bool unique;
+	bool unique = false;
 
 	do {
 		handle->handle_lo = get_random_u64();
