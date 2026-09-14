@@ -676,11 +676,20 @@ static int __cxl_endpoint_decoder_reset_detected(struct device *dev, void *data)
 	void __iomem *hdm;
 	u32 ctrl;
 
-	if (!is_endpoint_decoder(dev))
+	if (!is_endpoint_decoder(dev)) {
+		dev_warn(dev, "DVSEC emulated decode may have been cleared by reset\n");
 		return 0;
+	}
 
 	cxld = to_cxl_decoder(dev);
 	if ((cxld->flags & CXL_DECODER_F_ENABLE) == 0)
+		return 0;
+
+	/*
+	 * Decoders emulated from the DVSEC range registers have no commit
+	 * callback and no HDM decoder registers to consult.
+	 */
+	if (!cxld->commit)
 		return 0;
 
 	cxlhdm = dev_get_drvdata(&port->dev);
