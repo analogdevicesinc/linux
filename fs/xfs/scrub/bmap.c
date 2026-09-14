@@ -453,18 +453,17 @@ xchk_bmap_dirattr_extent(
 	struct xchk_bmap_info	*info,
 	struct xfs_bmbt_irec	*irec)
 {
-	struct xfs_mount	*mp = ip->i_mount;
 	xfs_fileoff_t		off;
 
 	if (!S_ISDIR(VFS_I(ip)->i_mode) && info->whichfork != XFS_ATTR_FORK)
 		return;
 
-	if (!xfs_verify_dablk(mp, irec->br_startoff))
+	if (!xfs_verify_dablk(irec->br_startoff))
 		xchk_fblock_set_corrupt(info->sc, info->whichfork,
 				irec->br_startoff);
 
 	off = irec->br_startoff + irec->br_blockcount - 1;
-	if (!xfs_verify_dablk(mp, off))
+	if (!xfs_verify_dablk(off))
 		xchk_fblock_set_corrupt(info->sc, info->whichfork, off);
 }
 

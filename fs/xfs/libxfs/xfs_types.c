@@ -222,7 +222,6 @@ xfs_verify_icount(
 /* Sanity-checking of dir/attr block offsets. */
 bool
 xfs_verify_dablk(
-	struct xfs_mount	*mp,
 	xfs_fileoff_t		dabno)
 {
 	xfs_dablk_t		max_dablk = -1U;
