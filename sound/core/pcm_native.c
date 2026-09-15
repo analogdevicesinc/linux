@@ -2930,7 +2930,7 @@ static int snd_pcm_open(struct file *file, struct snd_pcm *pcm, int stream)
 	mutex_lock(&pcm->open_mutex);
 	while (1) {
 		err = snd_pcm_open_file(file, pcm, stream);
-		if (err >= 0)
+		if (!err)
 			break;
 		if (err == -EAGAIN) {
 			if (file->f_flags & O_NONBLOCK) {
