@@ -992,6 +992,14 @@ attribute-sets:
         type: bitfield32
         enum: port-fn-attr-cap
         enum-as-flags: true
+      -
+        name: devlink
+        type: nest
+        nested-attributes: dl-nested-devlink
+        doc: Handle of the peer devlink instance instantiated for this function.
+      -
+        name: max-io-eqs
+        type: u32
 
   -
     name: dl-dpipe-tables
