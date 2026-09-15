@@ -10,7 +10,6 @@
 
 #include <linux/bitops.h>
 #include <linux/mm.h>
-#include <linux/pagemap.h>
 #include <linux/rmap.h>
 #include <linux/sched.h>
 

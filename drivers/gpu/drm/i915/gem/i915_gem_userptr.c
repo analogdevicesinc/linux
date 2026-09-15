@@ -35,6 +35,7 @@
 
 #include <linux/mmu_context.h>
 #include <linux/mempolicy.h>
+#include <linux/pagemap.h>
 #include <linux/swap.h>
 #include <linux/sched/mm.h>
 
