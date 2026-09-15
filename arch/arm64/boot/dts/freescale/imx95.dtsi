@@ -255,19 +255,16 @@
 
 		opp-500000000 {
 			opp-hz = /bits/ 64 <500000000>;
-			opp-hz-real = /bits/ 64 <500000000>;
 			opp-microvolt = <920000>;
 		};
 
 		opp-800000000 {
 			opp-hz = /bits/ 64 <800000000>;
-			opp-hz-real = /bits/ 64 <800000000>;
 			opp-microvolt = <920000>;
 		};
 
 		opp-1000000000 {
 			opp-hz = /bits/ 64 <1000000000>;
-			opp-hz-real = /bits/ 64 <1000000000>;
 			opp-microvolt = <920000>;
 		};
 	};
