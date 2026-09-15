@@ -1555,23 +1555,13 @@ static int lpi2c_imx_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	/*
-	 * Reset all internal controller registers to avoid effects of any
-	 * state left over from a previous stage (e.g. the bootloader).
-	 *
-	 * The Master block (MCR) is present on every controller, so reset it
-	 * unconditionally. VERID shows whether the target feature is supported.
-	 * Do not touch the Target block (SCR) on a master-only controller to
-	 * avoid an asynchronous SError.
+	 * Reset all internal controller registers of both Master and Target
+	 * to avoid effects of previous status.
 	 */
 	writel(MCR_RST, lpi2c_imx->base + LPI2C_MCR);
+	writel(SCR_RST, lpi2c_imx->base + LPI2C_SCR);
 	writel(0, lpi2c_imx->base + LPI2C_MCR);
-
-	lpi2c_imx->target_supported = !!(readl(lpi2c_imx->base + LPI2C_VERID) &
-					 VERID_FEATURE_TARGET_PRESENT);
-	if (lpi2c_imx->target_supported) {
-		writel(SCR_RST, lpi2c_imx->base + LPI2C_SCR);
-		writel(0, lpi2c_imx->base + LPI2C_SCR);
-	}
+	writel(0, lpi2c_imx->base + LPI2C_SCR);
 
 	ret = devm_request_irq(&pdev->dev, lpi2c_imx->irq, lpi2c_imx_isr, IRQF_NO_SUSPEND,
 			       pdev->name, lpi2c_imx);
