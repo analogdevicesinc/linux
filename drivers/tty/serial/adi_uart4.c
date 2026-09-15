@@ -746,6 +746,17 @@ static void adi_uart4_serial_shutdown(struct uart_port *port)
 	}
 }
 
+static void adi_uart4_serial_flush_buffer(struct uart_port *port)
+{
+	struct adi_uart4_serial_port *uart = to_adi_serial_port(port);
+
+	if (!IS_ERR(uart->tx_dma_channel)) {
+		dmaengine_terminate_async(uart->tx_dma_channel);
+		uart->tx_count = 0;
+		uart->tx_done = 1;
+	}
+}
+
 static void adi_uart4_serial_set_termios(struct uart_port *port,
 		struct ktermios *termios, const struct ktermios *old)
 {
@@ -973,6 +984,7 @@ static const struct uart_ops adi_uart4_serial_pops = {
 	.break_ctl	= adi_uart4_serial_break_ctl,
 	.startup	= adi_uart4_serial_startup,
 	.shutdown	= adi_uart4_serial_shutdown,
+	.flush_buffer	= adi_uart4_serial_flush_buffer,
 	.set_termios	= adi_uart4_serial_set_termios,
 	.set_ldisc	= adi_uart4_serial_set_ldisc,
 	.type		= adi_uart4_serial_type,
