@@ -1368,8 +1368,11 @@ static int adrv9025_gain_to_gainindex(struct adrv9025_rf_phy *phy, int channel,
 
 /*
  * Resolve an OBS channel to the physical ORx the gain attributes apply to.
- * In SPI mode the selection is derived from the 0x106 enable bits, which must
- * have exactly one ORx of the pair enabled.
+ * In dual-channel 4-pin mode the selection is held by the channel-select pin
+ * and is read back through adrv9025_get_obs_rx_path() (0 = lower ORx of the
+ * pair, 1 = upper). A gain access must never drive that pin, so the pin is
+ * only read here. In SPI mode the selection is derived from the 0x106 enable
+ * bits, which must have exactly one ORx of the pair enabled.
  *
  * Channels that are not OBS channels are passed through unchanged. On success
  * the physical channel is stored in @out_chan_no and 0 is returned, otherwise
@@ -1382,12 +1385,23 @@ static int adrv9025_resolve_obs_channel(struct iio_dev *indio_dev,
 	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
 	int chan_no = chan->channel;
 	u32 rxchan, txchan;
-	int ret;
+	int sel, ret;
 
 	if (chan_no <= CHAN_RX4)
 		goto done;
 
 	switch (adrv9025_orx_get_mode(phy)) {
+	case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE:
+		sel = adrv9025_get_obs_rx_path(indio_dev, chan);
+		if (sel < 0)
+			return sel;
+
+		if (chan_no == CHAN_OBS_RX1)
+			chan_no = sel ? CHAN_OBS_RX2 : CHAN_OBS_RX1;
+		else if (chan_no == CHAN_OBS_RX2)
+			chan_no = sel ? CHAN_OBS_RX4 : CHAN_OBS_RX3;
+		break;
+
 	case ADI_ADRV9025_ORX_EN_SPI_MODE:
 		ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
 						 &txchan);
