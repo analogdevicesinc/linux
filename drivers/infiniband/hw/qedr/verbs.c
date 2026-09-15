@@ -1075,7 +1075,7 @@ int qedr_destroy_cq(struct ib_cq *ibcq, struct ib_udata *udata)
 	/* We don't want the IRQ handler to handle a non-existing CQ so we
 	 * wait until all CNQ interrupts, if any, are received. This will always
 	 * happen and will always happen very fast. If not, then a serious error
-	 * has occured. That is why we can use a long delay.
+	 * has occurred. That is why we can use a long delay.
 	 * We spin for a short time so we don’t lose time on context switching
 	 * in case all the completions are handled in that span. Otherwise
 	 * we sleep for a while and check again. Since the CNQ may be

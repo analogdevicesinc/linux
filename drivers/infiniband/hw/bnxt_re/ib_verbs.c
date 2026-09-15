@@ -2903,7 +2903,7 @@ static int bnxt_re_build_qp1_send_v2(struct bnxt_re_qp *qp,
 	qp->send_psn &= BTH_PSN_MASK;
 	qp->qp1_hdr.bth.psn = cpu_to_be32(qp->send_psn);
 	/* DETH */
-	/* Use the priviledged Q_Key for QP1 */
+	/* Use the privileged Q_Key for QP1 */
 	qp->qp1_hdr.deth.qkey = cpu_to_be32(IB_QP1_QKEY);
 	qp->qp1_hdr.deth.source_qpn = IB_QP1;
 
