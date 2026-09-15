@@ -1401,7 +1401,6 @@ operations:
         request:
           attributes: *dev-id-attrs
         reply:
-          value: 3  # due to a bug, port dump returns DEVLINK_CMD_NEW
           attributes: *port-id-attrs
 
     -
