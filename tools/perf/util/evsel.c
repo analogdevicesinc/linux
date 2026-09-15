@@ -14,9 +14,12 @@
 #include "evsel.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <dirent.h>
 #include <linux/bitops.h>
@@ -4354,8 +4357,11 @@ static bool find_process(const char *name)
 	return ret ? false : true;
 }
 
-static int dump_perf_event_processes(char *msg, size_t size)
+static int dump_perf_event_processes(const struct evsel *evsel,
+				     char *msg, size_t size)
 {
+	const struct perf_event_attr *failed_attr = &evsel->core.attr;
+	u32 target_pmu_type = evsel->pmu ? evsel->pmu->type : UINT32_MAX;
 	DIR *proc_dir;
 	struct dirent *proc_entry;
 	int printed = 0;
@@ -4386,6 +4392,15 @@ static int dump_perf_event_processes(char *msg, size_t size)
 			continue;
 		}
 		while ((fd_entry = readdir(fd_dir)) != NULL) {
+			const char *target_lnk = "anon_inode:[perf_event]";
+			size_t target_lnk_len = sizeof("anon_inode:[perf_event]") - 1;
+			char fdinfo_buf[1024];
+			int fdinfo_fd;
+			ssize_t fdinfo_size;
+			char *line;
+			char *saveptr;
+			u32 perf_event_type = UINT32_MAX;
+			u32 pmu_type = UINT32_MAX;
 			ssize_t link_size;
 
 			if (fd_entry->d_type != DT_LNK)
@@ -4394,12 +4409,51 @@ static int dump_perf_event_processes(char *msg, size_t size)
 			if (link_size < 0)
 				continue;
 			/* Take care as readlink doesn't null terminate the string. */
-			if (!strncmp(buf, "anon_inode:[perf_event]", link_size)) {
+			if (link_size != (ssize_t)target_lnk_len ||
+			    strncmp(buf, target_lnk, target_lnk_len))
+				continue;
+
+			/* Let's check the PMU type reserved by this process */
+			scnprintf(buf, sizeof(buf), "%s/fdinfo/%s",
+				  proc_entry->d_name, fd_entry->d_name);
+			fdinfo_fd = openat(dirfd(proc_dir), buf, O_RDONLY | O_NONBLOCK);
+			if (fdinfo_fd == -1)
+				continue;
+			fdinfo_size = read(fdinfo_fd, fdinfo_buf, sizeof(fdinfo_buf) - 1);
+			close(fdinfo_fd);
+			if (fdinfo_size < 0)
+				continue;
+			fdinfo_buf[fdinfo_size] = '\0';
+
+			line = strtok_r(fdinfo_buf, "\n", &saveptr);
+			while (line) {
+				if (sscanf(line,
+					   "perf_event_attr.type:\t%u",
+					   &perf_event_type) == 1) {
+					/* continue parsing */
+				} else if (sscanf(line,
+						  "pmu_type:\t%u",
+						  &pmu_type) == 1) {
+					/* continue parsing */
+				}
+				line = strtok_r(NULL, "\n", &saveptr);
+			}
+
+			/* Report the process which reserves the conflicted PMU. */
+			/* If fdinfo does not contain PMU type, report it too. */
+			if (perf_event_type == failed_attr->type ||
+			    pmu_type == failed_attr->type ||
+			    (target_pmu_type != UINT32_MAX &&
+			     pmu_type == target_pmu_type) ||
+			    (perf_event_type == UINT32_MAX &&
+			     pmu_type == UINT32_MAX)) {
 				int cmdline_fd;
 				ssize_t cmdline_size;
 
-				scnprintf(buf, sizeof(buf), "%s/cmdline", proc_entry->d_name);
-				cmdline_fd = openat(dirfd(proc_dir), buf, O_RDONLY);
+				scnprintf(buf, sizeof(buf),
+					  "%s/cmdline",
+					  proc_entry->d_name);
+				cmdline_fd = openat(dirfd(proc_dir), buf, O_RDONLY | O_NONBLOCK);
 				if (cmdline_fd == -1)
 					continue;
 				cmdline_size = read(cmdline_fd, buf, sizeof(buf) - 1);
@@ -4410,10 +4464,12 @@ static int dump_perf_event_processes(char *msg, size_t size)
 				for (ssize_t i = 0; i < cmdline_size; i++) {
 					if (buf[i] == '\0')
 						buf[i] = ' ';
+					else if (!isprint((unsigned char)buf[i]))
+						buf[i] = '.';
 				}
-
 				if (printed == 0)
-					printed += scnprintf(msg, size, "Possible processes:\n");
+					printed += scnprintf(msg, size,
+							     "Possible processes:\n");
 
 				printed += scnprintf(msg + printed, size - printed,
 						"%s %s\n", proc_entry->d_name, buf);
@@ -4535,7 +4591,9 @@ int evsel__open_strerror(struct evsel *evsel, struct target *target,
 			msg, size,
 			"The PMU %s counters are busy and in use by another process.\n",
 			evsel->pmu ? evsel->pmu->name : "");
-		return printed + dump_perf_event_processes(msg + printed, size - printed);
+		return printed + dump_perf_event_processes(evsel,
+							   msg + printed,
+							   size - printed);
 		break;
 	case EINVAL:
 		if (evsel->core.attr.sample_type & PERF_SAMPLE_CODE_PAGE_SIZE && perf_missing_features.code_page_size)
