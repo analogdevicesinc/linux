@@ -1361,6 +1361,7 @@ static s32 scx_cgroup_claim_subtree(struct scx_sched *sch)
 			.bw_period_us = tg->scx.bw_period_us,
 			.bw_quota_us = tg->scx.bw_quota_us,
 			.bw_burst_us = tg->scx.bw_burst_us,
+			.sched_idle = tg->scx.sched_idle,
 		};
 
 		if (tg->scx.sched != parent ||
@@ -1464,6 +1465,7 @@ static void scx_cgroup_return_subtree(struct scx_sched *sch)
 			.bw_period_us = tg->scx.bw_period_us,
 			.bw_quota_us = tg->scx.bw_quota_us,
 			.bw_burst_us = tg->scx.bw_burst_us,
+			.sched_idle = tg->scx.sched_idle,
 		};
 
 		/* the first pass must have transferred everything */
@@ -2264,6 +2266,9 @@ static s32 sub_cap_preamble(u64 cgroup_id, u64 caps, const struct bpf_prog_aux *
 	parent = scx_prog_sched(aux);
 	if (unlikely(!parent))
 		return -ENODEV;
+
+	if (!scx_kf_allowed_ctx(parent))
+		return -EDEADLK;
 
 	if (!scx_is_cid_type()) {
 		scx_error(parent, "sub-cap kfuncs require a cid-form scheduler");

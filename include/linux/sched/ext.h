@@ -91,7 +91,7 @@ struct scx_dispatch_q {
 	struct rhash_head	hash_node;
 	struct llist_node	free_node;
 	struct scx_sched	*sched;
-	struct scx_dsq_pcpu __percpu *pcpu;
+	struct scx_dsq_pcpu __percpu *pcpu_user;
 	struct rcu_head		rcu;
 };
 
@@ -323,7 +323,7 @@ struct scx_task_group {
 	u64			bw_period_us;
 	u64			bw_quota_us;
 	u64			bw_burst_us;
-	bool			idle;
+	bool			sched_idle;
 #endif
 };
 

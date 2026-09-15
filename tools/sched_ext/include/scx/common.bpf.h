@@ -304,7 +304,7 @@ BPF_PROG(name, ##args)
  * Similar to MEMBER_VPTR() but is intended for use with arrays where the
  * element count needs to be explicit.
  * It can be used in cases where a global array is defined with an initial
- * size but is intended to be be resized before loading the BPF program.
+ * size but is intended to be resized before loading the BPF program.
  * Without this version of the macro, MEMBER_VPTR() will use the compile time
  * size of the array to compute the max, which will result in rejection by
  * the verifier.
