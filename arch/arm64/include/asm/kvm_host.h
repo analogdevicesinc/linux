@@ -340,7 +340,10 @@ struct kvm_arch {
 	size_t nested_mmus_size;
 	int nested_mmus_next;
 
-	/* Guest s2 tracking trees access serialization. */
+	/*
+	 * Serializes guest s2 tracking trees access when the mmu_lock
+	 * is only held for read.
+	 */
 	spinlock_t guest_s2_tracking_lock;
 
 	/* Interrupt controller */
