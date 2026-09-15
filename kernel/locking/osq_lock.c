@@ -216,24 +216,5 @@ bool osq_lock(struct optimistic_spin_queue *lock)
 
 void osq_unlock(struct optimistic_spin_queue *lock)
 {
-	struct optimistic_spin_node *node, *next;
-	int curr = encode_cpu(smp_processor_id());
-
-	/*
-	 * Fast path for the uncontended case.
-	 */
-	if (atomic_try_cmpxchg_release(&lock->tail, &curr, OSQ_UNLOCKED_VAL))
-		return;
-
-	/*
-	 * Second most likely case.
-	 */
-	node = this_cpu_ptr(&osq_node);
-	next = xchg(&node->next, NULL);
-	if (next) {
-		WRITE_ONCE(next->prev_cpu, 0);
-		return;
-	}
-
 	osq_wait_unlink_next(lock, OSQ_UNLOCKED_VAL);
 }
