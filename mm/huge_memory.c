@@ -2522,11 +2522,11 @@ static bool has_deposited_pgtable(struct vm_area_struct *vma, pmd_t pmdval,
 		return true;
 
 	/*
-	 * Huge zero always deposited except for DAX which handles itself, see
-	 * set_huge_zero_folio().
+	 * Huge zero PMDs have a deposited page table only for anonymous VMAs,
+	 * see set_huge_zero_folio().
 	 */
 	if (is_huge_zero_pmd(pmdval))
-		return !vma_is_dax(vma);
+		return vma_is_anonymous(vma);
 
 	/*
 	 * Otherwise, only anonymous folios are deposited, see
