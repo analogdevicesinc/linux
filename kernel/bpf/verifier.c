@@ -3042,6 +3042,8 @@ static int check_subprogs(struct bpf_verifier_env *env)
 			subprog[cur_subprog].exit_idx = i;
 			goto next;
 		}
+		if (insn_is_gotox(&insn[i]))
+			goto next;
 		off = i + bpf_jmp_offset(&insn[i]) + 1;
 		if (off < subprog_start || off >= subprog_end) {
 			verbose(env, "jump out of range from insn %d to %d\n", i, off);
@@ -3061,7 +3063,8 @@ next:
 			 */
 			if (code != (BPF_JMP | BPF_EXIT) &&
 			    code != (BPF_JMP32 | BPF_JA) &&
-			    code != (BPF_JMP | BPF_JA)) {
+			    code != (BPF_JMP | BPF_JA) &&
+			    !insn_is_gotox(&insn[i])) {
 				verbose(env, "last insn is not an exit or jmp\n");
 				bpf_diag_program_structure(
 					env, i, "subprogram can fall through",
@@ -3582,7 +3585,7 @@ static int check_stack_write_fixed_off(struct bpf_verifier_env *env,
 		save_register_state(env, state, spi, reg, size);
 		/* Break the relation on a narrowing spill. */
 		if (!reg_value_fits)
-			state->stack[spi].spilled_ptr.id = 0;
+			clear_scalar_id(&state->stack[spi].spilled_ptr);
 	} else if (!reg && !(off % BPF_REG_SIZE) && is_bpf_st_mem(insn) &&
 		   env->bpf_capable) {
 		struct bpf_reg_state *tmp_reg = &env->fake_reg[0];
@@ -6451,6 +6454,15 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, struct b
 		    is_pointer_value(env, value_regno)) {
 			verbose(env, "R%d leaks addr into mem\n", value_regno);
 			return -EACCES;
+		}
+
+		if (rdonly_untrusted && !env->allow_ptr_leaks) {
+			verbose(env, "%s access is allowed only to CAP_PERFMON and CAP_SYS_ADMIN\n",
+				reg_type_str(env, reg->type));
+			bpf_diag_policy(env, insn_idx, "read from untrusted read-only memory",
+					"the access requires CAP_PERFMON",
+					"Load the program with CAP_PERFMON, or avoid dereferencing untrusted pointers.");
+			return -EPERM;
 		}
 
 		/*
@@ -11356,6 +11368,11 @@ static bool is_kfunc_destructive(struct bpf_call_arg_meta *meta)
 	return meta->kfunc_flags & KF_DESTRUCTIVE;
 }
 
+static bool is_kfunc_perfmon(struct bpf_call_arg_meta *meta)
+{
+	return meta->kfunc_flags & KF_PERFMON;
+}
+
 static bool is_kfunc_rcu(struct bpf_call_arg_meta *meta)
 {
 	return meta->kfunc_flags & KF_RCU;
@@ -13832,6 +13849,15 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 			env, insn_idx, operation, "destructive kfuncs require CAP_SYS_BOOT",
 			"Load the program with CAP_SYS_BOOT, or avoid destructive kfuncs.");
 		return -EACCES;
+	}
+
+	if (is_kfunc_perfmon(&meta) && !env->allow_ptr_leaks) {
+		verbose(env, "%s is allowed only to CAP_PERFMON and CAP_SYS_ADMIN\n",
+			func_name);
+		operation = bpf_diag_fmt(env, "kfunc %s", func_name);
+		bpf_diag_policy(env, insn_idx, operation, "the kfunc requires CAP_PERFMON",
+				"Load the program with CAP_PERFMON, or avoid the kfunc.");
+		return -EPERM;
 	}
 
 	sleepable = bpf_is_kfunc_sleepable(&meta);
