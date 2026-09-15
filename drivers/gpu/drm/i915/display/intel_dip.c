@@ -26,14 +26,19 @@ void intel_dip_write_emp_as_sdp_tl(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
+	u32 transmission_line = 0;
 
 	if (!HAS_EMP_AS_SDP_TL(display))
 		return;
 	/*
-	 * Since currently we support VRR only for DP/eDP, so this is programmed
-	 * only for Adaptive Sync SDP to Vsync start.
+	 * Since we currently support VRR only for DP/eDP, program the register
+	 * for Adaptive Sync SDP using vsync start. For non-DP encoders,
+	 * the register is reset to 0.
 	 */
+	if (intel_crtc_has_dp_encoder(crtc_state))
+		transmission_line = crtc_state->vrr.vsync_start;
+
 	intel_de_write(display,
 		       EMP_AS_SDP_TL(display, cpu_transcoder),
-		       EMP_AS_SDP_DB_TL(crtc_state->vrr.vsync_start));
+		       EMP_AS_SDP_DB_TL(transmission_line));
 }
