@@ -78,6 +78,8 @@
 	#address-cells = <3>;
 	#size-cells = <2>;
 
+	wake-gpios = <&tlmm 89 GPIO_ACTIVE_LOW>;
+
 	pcie@0,0 {
 		compatible = "pci1179,0623";
 		reg = <0x10000 0x0 0x0 0x0 0x0>;
