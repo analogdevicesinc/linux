@@ -11827,12 +11827,10 @@ void ieee80211_sta_rx_queued_frame(struct ieee80211_sub_if_data *sdata,
 	rx_status = (struct ieee80211_rx_status *) skb->cb;
 	fc = le16_to_cpu(mgmt->frame_control);
 
-	if (rx_status->link_valid) {
-		link = sdata_dereference(sdata->link[rx_status->link_id],
-					 sdata);
-		if (!link)
-			return;
-	}
+	link = sdata_dereference(sdata->link[rx_status->link_id],
+				 sdata);
+	if (!link)
+		return;
 
 	switch (fc & IEEE80211_FCTL_STYPE) {
 	case IEEE80211_STYPE_BEACON:

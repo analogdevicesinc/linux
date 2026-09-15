@@ -1770,10 +1770,9 @@ enum mac80211_rx_encoding {
  * @ampdu_reference: A-MPDU reference number, must be a different value for
  *	each A-MPDU but the same for each subframe within one A-MPDU
  * @zero_length_psdu_type: radiotap type of the 0-length PSDU
- * @link_valid: if the link which is identified by @link_id is valid. This flag
- *	is set only when connection is MLO.
- * @link_id: id of the link used to receive the packet. This is used along with
- *	@link_valid.
+ * @link_id: id of the link used to receive the packet. Set and used by
+ *	mac80211 internally, it uses @freq set by the driver to identify the
+ *	correct link per vif.
  */
 struct ieee80211_rx_status {
 	u64 mactime;
@@ -1813,7 +1812,7 @@ struct ieee80211_rx_status {
 	u8 chains;
 	s8 chain_signal[IEEE80211_MAX_CHAINS];
 	u8 zero_length_psdu_type;
-	u8 link_valid:1, link_id:4;
+	u8 link_id:4;
 };
 
 static_assert(sizeof(struct ieee80211_rx_status) <= sizeof_field(struct sk_buff, cb));
