@@ -102,9 +102,9 @@ static int virtio_fs_enqueue_req(struct virtio_fs_vq *fsvq,
 				 gfp_t gfp);
 
 static const struct constant_table dax_param_enums[] = {
-	{"always",	FUSE_DAX_ALWAYS },
-	{"never",	FUSE_DAX_NEVER },
-	{"inode",	FUSE_DAX_INODE_USER },
+	{"always",	FUSE_VDAX_ALWAYS },
+	{"never",	FUSE_VDAX_NEVER },
+	{"inode",	FUSE_VDAX_INODE_USER },
 	{}
 };
 
@@ -132,10 +132,10 @@ static int virtio_fs_parse_param(struct fs_context *fsc,
 
 	switch (opt) {
 	case OPT_DAX:
-		ctx->dax_mode = FUSE_DAX_ALWAYS;
+		ctx->vdax_mode = FUSE_VDAX_ALWAYS;
 		break;
 	case OPT_DAX_ENUM:
-		ctx->dax_mode = result.uint_32;
+		ctx->vdax_mode = result.uint_32;
 		break;
 	default:
 		return -EINVAL;
@@ -1081,7 +1081,7 @@ static int virtio_fs_setup_dax(struct virtio_device *vdev, struct virtio_fs *fs)
 	struct dev_pagemap *pgmap;
 	bool have_cache;
 
-	if (!IS_ENABLED(CONFIG_FUSE_DAX))
+	if (!IS_ENABLED(CONFIG_FUSE_VDAX))
 		return 0;
 
 	dax_dev = alloc_dax(fs, &virtio_fs_dax_ops);
@@ -1594,14 +1594,14 @@ static int virtio_fs_fill_super(struct super_block *sb, struct fs_context *fsc)
 			goto err_free_fuse_devs;
 	}
 
-	if (ctx->dax_mode != FUSE_DAX_NEVER) {
-		if (ctx->dax_mode == FUSE_DAX_ALWAYS && !fs->dax_dev) {
+	if (ctx->vdax_mode != FUSE_VDAX_NEVER) {
+		if (ctx->vdax_mode == FUSE_VDAX_ALWAYS && !fs->dax_dev) {
 			err = -EINVAL;
 			pr_err("virtio-fs: dax can't be enabled as filesystem"
 			       " device does not support it.\n");
 			goto err_free_fuse_devs;
 		}
-		ctx->dax_dev = fs->dax_dev;
+		ctx->vdax_dev = fs->dax_dev;
 	}
 	err = fuse_fill_super_common(sb, ctx);
 	if (err < 0)
@@ -1635,8 +1635,8 @@ static void virtio_fs_conn_destroy(struct fuse_mount *fm)
 	/* Stop dax worker. Soon evict_inodes() will be called which
 	 * will free all memory ranges belonging to all inodes.
 	 */
-	if (IS_ENABLED(CONFIG_FUSE_DAX))
-		fuse_dax_cancel_work(fc);
+	if (IS_ENABLED(CONFIG_FUSE_VDAX))
+		fuse_vdax_cancel_work(fc);
 
 	/* Stop forget queue. Soon destroy will be sent */
 	spin_lock(&fsvq->lock);

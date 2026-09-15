@@ -119,7 +119,7 @@ static void fuse_file_put(struct fuse_file *ff, bool sync)
 			 * DAX inodes may need to issue a number of synchronous
 			 * request for clearing the mappings.
 			 */
-			if (ra && ra->inode && FUSE_IS_DAX(ra->inode))
+			if (ra && ra->inode && FUSE_IS_VDAX(ra->inode))
 				args->may_block = true;
 			args->end = fuse_release_end;
 			if (fuse_simple_background(ff->fm, args,
@@ -256,7 +256,7 @@ static int fuse_open(struct inode *inode, struct file *file)
 	int err;
 	bool is_truncate = (file->f_flags & O_TRUNC) && fc->atomic_o_trunc;
 	bool is_wb_truncate = is_truncate && fc->writeback_cache;
-	bool dax_truncate = is_truncate && FUSE_IS_DAX(inode);
+	bool vdax_truncate = is_truncate && FUSE_IS_VDAX(inode);
 
 	if (fuse_is_bad(inode))
 		return -EIO;
@@ -265,17 +265,17 @@ static int fuse_open(struct inode *inode, struct file *file)
 	if (err)
 		return err;
 
-	if (is_wb_truncate || dax_truncate)
+	if (is_wb_truncate || vdax_truncate)
 		inode_lock(inode);
 
-	if (dax_truncate) {
+	if (vdax_truncate) {
 		filemap_invalidate_lock(inode->i_mapping);
-		err = fuse_dax_break_layouts(inode, 0, -1);
+		err = fuse_vdax_break_layouts(inode, 0, -1);
 		if (err)
 			goto out_unlock;
 	}
 
-	if (is_wb_truncate || dax_truncate)
+	if (is_wb_truncate || vdax_truncate)
 		fuse_set_nowrite(inode);
 
 	err = fuse_do_open(fm, get_node_id(inode), file, false);
@@ -288,7 +288,7 @@ static int fuse_open(struct inode *inode, struct file *file)
 			fuse_truncate_update_attr(inode, file);
 	}
 
-	if (is_wb_truncate || dax_truncate)
+	if (is_wb_truncate || vdax_truncate)
 		fuse_release_nowrite(inode);
 	if (!err) {
 		if (is_truncate)
@@ -297,9 +297,9 @@ static int fuse_open(struct inode *inode, struct file *file)
 			invalidate_inode_pages2(inode->i_mapping);
 	}
 out_unlock:
-	if (dax_truncate)
+	if (vdax_truncate)
 		filemap_invalidate_unlock(inode->i_mapping);
-	if (is_wb_truncate || dax_truncate)
+	if (is_wb_truncate || vdax_truncate)
 		inode_unlock(inode);
 
 	return err;
@@ -1856,8 +1856,8 @@ static ssize_t fuse_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	if (fuse_is_bad(inode))
 		return -EIO;
 
-	if (FUSE_IS_DAX(inode))
-		return fuse_dax_read_iter(iocb, to);
+	if (FUSE_IS_VDAX(inode))
+		return fuse_vdax_read_iter(iocb, to);
 
 	/* FOPEN_DIRECT_IO overrides FOPEN_PASSTHROUGH */
 	if (ff->open_flags & FOPEN_DIRECT_IO)
@@ -1877,8 +1877,8 @@ static ssize_t fuse_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	if (fuse_is_bad(inode))
 		return -EIO;
 
-	if (FUSE_IS_DAX(inode))
-		return fuse_dax_write_iter(iocb, from);
+	if (FUSE_IS_VDAX(inode))
+		return fuse_vdax_write_iter(iocb, from);
 
 	/* FOPEN_DIRECT_IO overrides FOPEN_PASSTHROUGH */
 	if (ff->open_flags & FOPEN_DIRECT_IO)
@@ -2418,8 +2418,8 @@ static int fuse_file_mmap(struct file *file, struct vm_area_struct *vma)
 	int rc;
 
 	/* DAX mmap is superior to direct_io mmap */
-	if (FUSE_IS_DAX(inode))
-		return fuse_dax_mmap(file, vma);
+	if (FUSE_IS_VDAX(inode))
+		return fuse_vdax_mmap(file, vma);
 
 	/*
 	 * If inode is in passthrough io mode, because it has some file open
@@ -2868,7 +2868,7 @@ static long fuse_file_fallocate(struct file *file, int mode, loff_t offset,
 		.mode = mode
 	};
 	int err;
-	bool block_faults = FUSE_IS_DAX(inode) &&
+	bool block_faults = FUSE_IS_VDAX(inode) &&
 		(!(mode & FALLOC_FL_KEEP_SIZE) ||
 		 (mode & (FALLOC_FL_PUNCH_HOLE | FALLOC_FL_ZERO_RANGE)));
 
@@ -2882,7 +2882,7 @@ static long fuse_file_fallocate(struct file *file, int mode, loff_t offset,
 	inode_lock(inode);
 	if (block_faults) {
 		filemap_invalidate_lock(inode->i_mapping);
-		err = fuse_dax_break_layouts(inode, 0, -1);
+		err = fuse_vdax_break_layouts(inode, 0, -1);
 		if (err)
 			goto out;
 	}
@@ -3154,10 +3154,10 @@ void fuse_init_file_inode(struct inode *inode, unsigned int flags)
 	init_waitqueue_head(&fi->page_waitq);
 	init_waitqueue_head(&fi->direct_io_waitq);
 
-	if (IS_ENABLED(CONFIG_FUSE_DAX))
-		fuse_dax_inode_init(inode, flags);
+	if (IS_ENABLED(CONFIG_FUSE_VDAX))
+		fuse_vdax_inode_init(inode, flags);
 
-	if (FUSE_IS_DAX(inode))
+	if (FUSE_IS_VDAX(inode))
 		return;
 
 	/*

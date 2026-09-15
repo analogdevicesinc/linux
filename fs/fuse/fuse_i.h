@@ -218,11 +218,11 @@ struct fuse_inode {
 	/** @lock: Lock to protect write-related fields */
 	spinlock_t lock;
 
-#ifdef CONFIG_FUSE_DAX
+#ifdef CONFIG_FUSE_VDAX
 	/**
-	 * @dax: Dax specific inode data
+	 * @vdax: Virtiofs DAX specific inode data
 	 */
-	struct fuse_inode_dax *dax;
+	struct fuse_inode_vdax *vdax;
 #endif
 	/** @submount_lookup: Submount specific lookup tracking */
 	struct fuse_submount_lookup *submount_lookup;
@@ -364,16 +364,16 @@ struct fuse_io_priv {
 	.iocb = i,			\
 }
 
-enum fuse_dax_mode {
-	FUSE_DAX_INODE_DEFAULT,	/* default */
-	FUSE_DAX_ALWAYS,	/* "-o dax=always" */
-	FUSE_DAX_NEVER,		/* "-o dax=never" */
-	FUSE_DAX_INODE_USER,	/* "-o dax=inode" */
+enum fuse_vdax_mode {
+	FUSE_VDAX_INODE_DEFAULT,	/* default */
+	FUSE_VDAX_ALWAYS,		/* "-o dax=always" */
+	FUSE_VDAX_NEVER,		/* "-o dax=never" */
+	FUSE_VDAX_INODE_USER,		/* "-o dax=inode" */
 };
 
-static inline bool fuse_is_inode_dax_mode(enum fuse_dax_mode mode)
+static inline bool fuse_is_inode_vdax_mode(enum fuse_vdax_mode mode)
 {
-	return mode == FUSE_DAX_INODE_DEFAULT || mode == FUSE_DAX_INODE_USER;
+	return mode == FUSE_VDAX_INODE_DEFAULT || mode == FUSE_VDAX_INODE_USER;
 }
 
 struct fuse_fs_context {
@@ -392,13 +392,13 @@ struct fuse_fs_context {
 	bool no_force_umount:1;
 	bool legacy_opts_show:1;
 	bool syncfs_capable:1;
-	enum fuse_dax_mode dax_mode;
+	enum fuse_vdax_mode vdax_mode;
 	unsigned int max_read;
 	unsigned int blksize;
 	const char *subtype;
 
-	/* DAX device, may be NULL */
-	struct dax_device *dax_dev;
+	/* Virtiofs DAX device, may be NULL */
+	struct dax_device *vdax_dev;
 };
 
 struct fuse_sync_bucket {
@@ -693,8 +693,8 @@ struct fuse_conn {
 	 */
 	unsigned int create_supp_group:1;
 
-	/** @inode_dax: Does the filesystem support per inode DAX? */
-	unsigned int inode_dax:1;
+	/** @inode_vdax: Does the filesystem support per inode virtiofs DAX? */
+	unsigned int inode_vdax:1;
 
 	/** @no_tmpfile: Is tmpfile not implemented by fs? */
 	unsigned int no_tmpfile:1;
@@ -753,12 +753,12 @@ struct fuse_conn {
 	 */
 	struct rw_semaphore killsb;
 
-#ifdef CONFIG_FUSE_DAX
-	/** @dax_mode: Dax mode */
-	enum fuse_dax_mode dax_mode;
+#ifdef CONFIG_FUSE_VDAX
+	/** @vdax_mode: Virtiofs DAX mode */
+	enum fuse_vdax_mode vdax_mode;
 
-	/** @dax: Dax specific conn data, non-NULL if DAX is enabled */
-	struct fuse_conn_dax *dax;
+	/** @dax: Dax specific conn data, non-NULL if virtiofs DAX is enabled */
+	struct fuse_conn_vdax *vdax;
 #endif
 
 	/** @mounts: List of filesystems using this connection */
@@ -1226,21 +1226,21 @@ void fuse_free_conn(struct fuse_conn *fc);
 
 /* dax.c */
 
-#define FUSE_IS_DAX(inode) (IS_ENABLED(CONFIG_FUSE_DAX) && IS_DAX(inode))
+#define FUSE_IS_VDAX(inode) (IS_ENABLED(CONFIG_FUSE_VDAX) && IS_DAX(inode))
 
-ssize_t fuse_dax_read_iter(struct kiocb *iocb, struct iov_iter *to);
-ssize_t fuse_dax_write_iter(struct kiocb *iocb, struct iov_iter *from);
-int fuse_dax_mmap(struct file *file, struct vm_area_struct *vma);
-int fuse_dax_break_layouts(struct inode *inode, u64 dmap_start, u64 dmap_end);
-int fuse_dax_conn_alloc(struct fuse_conn *fc, enum fuse_dax_mode mode,
-			struct dax_device *dax_dev);
-void fuse_dax_conn_free(struct fuse_conn *fc);
-bool fuse_dax_inode_alloc(struct super_block *sb, struct fuse_inode *fi);
-void fuse_dax_inode_init(struct inode *inode, unsigned int flags);
-void fuse_dax_inode_cleanup(struct inode *inode);
-void fuse_dax_dontcache(struct inode *inode, unsigned int flags);
-bool fuse_dax_check_alignment(struct fuse_conn *fc, unsigned int map_alignment);
-void fuse_dax_cancel_work(struct fuse_conn *fc);
+ssize_t fuse_vdax_read_iter(struct kiocb *iocb, struct iov_iter *to);
+ssize_t fuse_vdax_write_iter(struct kiocb *iocb, struct iov_iter *from);
+int fuse_vdax_mmap(struct file *file, struct vm_area_struct *vma);
+int fuse_vdax_break_layouts(struct inode *inode, u64 dmap_start, u64 dmap_end);
+int fuse_vdax_conn_alloc(struct fuse_conn *fc, enum fuse_vdax_mode mode,
+			struct dax_device *vdax_dev);
+void fuse_vdax_conn_free(struct fuse_conn *fc);
+bool fuse_vdax_inode_alloc(struct super_block *sb, struct fuse_inode *fi);
+void fuse_vdax_inode_init(struct inode *inode, unsigned int flags);
+void fuse_vdax_inode_cleanup(struct inode *inode);
+void fuse_vdax_dontcache(struct inode *inode, unsigned int flags);
+bool fuse_vdax_check_alignment(struct fuse_conn *fc, unsigned int map_alignment);
+void fuse_vdax_cancel_work(struct fuse_conn *fc);
 
 /* ioctl.c */
 long fuse_file_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
