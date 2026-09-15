@@ -572,7 +572,7 @@ static inline void bpf_obj_memcpy(struct btf_record *rec,
 		if (long_memcpy)
 			bpf_long_memcpy(dst, src, size);
 		else
-			memcpy(dst, src, size);
+			data_race(memcpy(dst, src, size));
 		return;
 	}
 
@@ -580,10 +580,10 @@ static inline void bpf_obj_memcpy(struct btf_record *rec,
 		u32 next_off = rec->fields[i].offset;
 		u32 sz = next_off - curr_off;
 
-		memcpy(dst + curr_off, src + curr_off, sz);
+		data_race(memcpy(dst + curr_off, src + curr_off, sz));
 		curr_off += rec->fields[i].size + sz;
 	}
-	memcpy(dst + curr_off, src + curr_off, size - curr_off);
+	data_race(memcpy(dst + curr_off, src + curr_off, size - curr_off));
 }
 
 static inline void copy_map_value(struct bpf_map *map, void *dst, void *src)
@@ -874,7 +874,7 @@ enum bpf_type_flag {
 
 /* function argument constraints */
 enum bpf_arg_type {
-	ARG_DONTCARE = 0,	/* unused argument in helper function */
+	ARG_UNUSED = 0,		/* unused argument; terminates argument iteration */
 
 	/* the following constraints used to prototype
 	 * bpf_map_lookup/update/delete_elem() functions
@@ -909,6 +909,22 @@ enum bpf_arg_type {
 	ARG_PTR_TO_TIMER,	/* pointer to bpf_timer */
 	ARG_KPTR_XCHG_DEST,	/* pointer to destination that kptrs are bpf_kptr_xchg'd into */
 	ARG_PTR_TO_DYNPTR,      /* pointer to bpf_dynptr. See bpf_type_flag for dynptr type */
+
+	ARG_CONST_SCALAR,	/* scalar known at verification time */
+	ARG_CONST_MEM_SIZE,	/* ARG_MEM_SIZE that must be constant */
+	ARG_PTR_TO_ALLOC_BTF_ID,	/* pointer to an allocated object */
+	ARG_PTR_TO_REFCOUNTED_KPTR,	/* pointer to a refcounted local kptr */
+	ARG_PTR_TO_ITER,	/* pointer to an iterator */
+	ARG_PTR_TO_LIST_HEAD,	/* pointer to bpf_list_head */
+	ARG_PTR_TO_LIST_NODE,	/* pointer to bpf_list_node */
+	ARG_PTR_TO_RB_ROOT,	/* pointer to bpf_rb_root */
+	ARG_PTR_TO_RB_NODE,	/* pointer to bpf_rb_node */
+	ARG_PTR_TO_WORKQUEUE,	/* pointer to bpf_wq */
+	ARG_PTR_TO_TASK_WORK,	/* pointer to bpf_task_work */
+	ARG_PTR_TO_IRQ_FLAG,	/* pointer to saved IRQ flags on the stack */
+	ARG_PTR_TO_RES_SPIN_LOCK,	/* pointer to bpf_res_spin_lock */
+	ARG_PTR_TO_PROG_AUX,	/* pointer to the caller's bpf_prog_aux */
+	ARG_IGNORE,		/* argument the verifier does not check at all */
 	__BPF_ARG_TYPE_MAX,
 
 	/* Extended arg_types. */
@@ -977,6 +993,13 @@ static_assert(__BPF_RET_TYPE_MAX <= BPF_BASE_TYPE_LIMIT);
  */
 #define MAX_BPF_FUNC_REG_ARGS 5
 
+/* A by-value argument takes two eightbytes at most, so the maximum number of
+ * argument slots of any function is 2 * MAX_BPF_FUNC_ARGS. A local array may
+ * need that size for processing, although eventually the maximum slots will
+ * be capped at MAX_BPF_FUNC_ARGS.
+ */
+#define MAX_BPF_FUNC_ARG_SLOTS (2 * MAX_BPF_FUNC_ARGS)
+
 /* eBPF function prototype used by verifier to allow BPF_CALLs from eBPF programs
  * to in-kernel helper functions and for adjusting imm32 field in BPF_CALL
  * instructions after verifying
@@ -1005,13 +1028,13 @@ struct bpf_func_proto {
 	};
 	union {
 		struct {
-			u32 *arg1_btf_id;
-			u32 *arg2_btf_id;
-			u32 *arg3_btf_id;
-			u32 *arg4_btf_id;
-			u32 *arg5_btf_id;
+			const u32 *arg1_btf_id;
+			const u32 *arg2_btf_id;
+			const u32 *arg3_btf_id;
+			const u32 *arg4_btf_id;
+			const u32 *arg5_btf_id;
 		};
-		u32 *arg_btf_id[MAX_BPF_FUNC_ARGS];
+		const u32 *arg_btf_id[MAX_BPF_FUNC_ARGS];
 		struct {
 			size_t arg1_size;
 			size_t arg2_size;
@@ -1194,6 +1217,9 @@ struct bpf_prog_offload {
 	u32			jited_len;
 };
 
+/* The argument is aligned to 16 bytes. */
+#define BTF_FMODEL_ALIGN16_ARG		BIT(0)
+
 /* The argument is signed. */
 #define BTF_FMODEL_SIGNED_ARG		BIT(1)
 
@@ -1210,6 +1236,11 @@ struct btf_func_model {
 	u8 arg_size[MAX_BPF_FUNC_ARGS];
 	u8 arg_flags[MAX_BPF_FUNC_ARGS];
 };
+
+static inline u32 btf_func_model_arg_slots(const struct btf_func_model *m, u32 arg)
+{
+	return (m->arg_size[arg] + sizeof(u64) - 1) / sizeof(u64);
+}
 
 /* Restore arguments before returning from trampoline to let original function
  * continue executing. This flag is used for fentry progs when there are no
@@ -1736,6 +1767,7 @@ enum bpf_sig_keyring {
 	BPF_SIG_KEYRING_SECONDARY,
 	BPF_SIG_KEYRING_PLATFORM,
 	BPF_SIG_KEYRING_USER,
+	BPF_SIG_KEYRING_BPF,
 };
 
 struct bpf_prog_aux {
@@ -3820,6 +3852,8 @@ struct bpf_key {
 #if defined(CONFIG_KEYS) && defined(CONFIG_BPF_SYSCALL)
 struct bpf_key *bpf_lookup_user_key(s32 serial, u64 flags);
 struct bpf_key *bpf_lookup_system_key(u64 id);
+struct bpf_key *bpf_lookup_keyring(void);
+bool bpf_keyring_enforced(void);
 void bpf_key_put(struct bpf_key *bkey);
 int bpf_verify_pkcs7_signature(const struct bpf_dynptr *data_p,
 			       const struct bpf_dynptr *sig_p,
@@ -3838,6 +3872,16 @@ static inline struct bpf_key *bpf_lookup_user_key(u32 serial, u64 flags)
 static inline struct bpf_key *bpf_lookup_system_key(u64 id)
 {
 	return NULL;
+}
+
+static inline struct bpf_key *bpf_lookup_keyring(void)
+{
+	return NULL;
+}
+
+static inline bool bpf_keyring_enforced(void)
+{
+	return false;
 }
 
 static inline void bpf_key_put(struct bpf_key *bkey)
@@ -4102,7 +4146,7 @@ void bpf_put_buffers(void);
 
 void bpf_prog_stream_init(struct bpf_prog *prog);
 void bpf_prog_stream_free(struct bpf_prog *prog);
-int bpf_prog_stream_read(struct bpf_prog *prog, enum bpf_stream_id stream_id, void __user *buf, int len);
+int bpf_prog_stream_read(struct bpf_prog *prog, enum bpf_stream_id stream_id, void __user *buf, u32 len);
 void bpf_stream_stage_init(struct bpf_stream_stage *ss);
 void bpf_stream_stage_free(struct bpf_stream_stage *ss);
 __printf(2, 3)

@@ -1237,6 +1237,7 @@ bool bpf_jit_inlines_helper_call(s32 imm);
 bool bpf_jit_supports_subprog_tailcalls(void);
 bool bpf_jit_supports_percpu_insn(void);
 bool bpf_jit_supports_kfunc_call(void);
+bool bpf_jit_supports_kfunc_ret_reg_pair(void);
 bool bpf_jit_supports_stack_args(void);
 bool bpf_jit_supports_arena_args(void);
 bool bpf_jit_supports_far_kfunc_call(void);
@@ -1247,6 +1248,38 @@ bool bpf_jit_supports_insn(struct bpf_insn *insn, bool in_arena);
 bool bpf_jit_supports_private_stack(void);
 bool bpf_jit_supports_timed_may_goto(void);
 bool bpf_jit_supports_fsession(void);
+
+struct bpf_jit_arg_abi {
+	/* Argument registers of the kernel convention. */
+	u8 nr_arg_regs;
+	/* Round the register number up to an even one for 16-byte alignment. */
+	bool even_reg_align;
+	/* Round the stack slot up to an even one for 16-byte alignment. */
+	bool even_stack_align;
+	/* An argument may straddle the last register and the stack. */
+	bool split_at_boundary;
+	/* A later argument may reuse a register a stack-passed one skipped. */
+	bool backfill_after_stack;
+};
+
+const struct bpf_jit_arg_abi *bpf_jit_arg_abi(void);
+u32 bpf_jit_place_args(const struct bpf_jit_arg_abi *abi,
+		       const struct btf_func_model *fm, u8 *pos_of_slot);
+
+/* The JIT's scratch register, in place of an argument slot. */
+#define BPF_JIT_ARG_TMP		0xff
+
+/* Every argument slot moves at most once, and the scratch goes out and back. */
+#define BPF_JIT_MAX_ARG_MOVES	(MAX_BPF_FUNC_ARG_SLOTS + 2)
+
+struct bpf_jit_arg_move {
+	u8 dst;
+	u8 src;
+};
+
+u32 bpf_jit_plan_arg_moves(const struct bpf_jit_arg_abi *abi,
+			   const struct btf_func_model *fm,
+			   struct bpf_jit_arg_move *moves);
 u64 bpf_arch_uaddress_limit(void);
 void arch_bpf_stack_walk(bool (*consume_fn)(void *cookie, u64 ip, u64 sp, u64 bp), void *cookie);
 u64 arch_bpf_timed_may_goto(void);

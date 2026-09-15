@@ -621,7 +621,7 @@ l0_%=:	exit;						\
 
 SEC("tracepoint")
 __description("helper access to variable memory: size = 0 not allowed on NULL (!ARG_PTR_TO_MEM_OR_NULL)")
-__failure __msg("R1 type=scalar expected=fp")
+__failure __msg("Possibly NULL pointer passed to trusted R1")
 __naked void ptr_to_mem_or_null_8(void)
 {
 	asm volatile ("					\
@@ -637,7 +637,7 @@ __naked void ptr_to_mem_or_null_8(void)
 
 SEC("tracepoint")
 __description("helper access to variable memory: size > 0 not allowed on NULL (!ARG_PTR_TO_MEM_OR_NULL)")
-__failure __msg("R1 type=scalar expected=fp")
+__failure __msg("Possibly NULL pointer passed to trusted R1")
 __naked void ptr_to_mem_or_null_9(void)
 {
 	asm volatile ("					\
