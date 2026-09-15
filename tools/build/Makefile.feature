@@ -113,8 +113,7 @@ FEATURE_TESTS_EXTRA :=                  \
          compile-x32                    \
          cplus-demangle                 \
          cxa-demangle                   \
-         gtk2                           \
-         gtk2-infobar                   \
+         gtk4                           \
          hello                          \
          babeltrace2-ctf-writer         \
          libcapstone                    \

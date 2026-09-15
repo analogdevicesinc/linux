@@ -31,6 +31,7 @@
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/param.h>
 
 #include <api/fs/fs.h>
 #include <api/fs/tracing_path.h>
@@ -1125,19 +1126,22 @@ static void __evsel__config_callchain(struct evsel *evsel, const struct record_o
 	}
 
 	if (param->record_mode == CALLCHAIN_DWARF) {
+		int abi = -1; /* -1 indicates only basic GPRs are needed. */
+
 		if (!function) {
 			uint16_t e_machine = evsel__e_machine(evsel, /*e_flags=*/NULL);
 
 			evsel__set_sample_bit(evsel, REGS_USER);
 			evsel__set_sample_bit(evsel, STACK_USER);
 			if (opts->sample_user_regs &&
-			    DWARF_MINIMAL_REGS(e_machine) != perf_user_reg_mask(EM_HOST)) {
+			    DWARF_MINIMAL_REGS(e_machine) != perf_user_reg_mask(EM_HOST, &abi)) {
 				attr->sample_regs_user |= DWARF_MINIMAL_REGS(e_machine);
 				pr_warning("WARNING: The use of --call-graph=dwarf may require all the user registers, "
 					   "specifying a subset with --user-regs may render DWARF unwinding unreliable, "
 					   "so the minimal registers set (IP, SP) is explicitly forced.\n");
 			} else {
-				attr->sample_regs_user |= perf_user_reg_mask(EM_HOST);
+				abi = -1;
+				attr->sample_regs_user |= perf_user_reg_mask(EM_HOST, &abi);
 			}
 			attr->sample_stack_user = param->dump_size;
 			attr->exclude_callchain_user = 1;
@@ -1663,12 +1667,38 @@ void evsel__config(struct evsel *evsel, const struct record_opts *opts,
 	if (opts->sample_intr_regs && !evsel->no_aux_samples &&
 	    !evsel__is_dummy_event(evsel)) {
 		attr->sample_regs_intr = opts->sample_intr_regs;
+		attr->sample_simd_regs_enabled =
+			evsel__is_non_software_event(evsel) ?
+				!!opts->sample_simd_regs_enabled : 0;
+		evsel__set_sample_bit(evsel, REGS_INTR);
+	}
+
+	if ((opts->sample_intr_vec_regs || opts->sample_intr_pred_regs) &&
+	    !evsel->no_aux_samples && !evsel__is_dummy_event(evsel)) {
+		attr->sample_simd_regs_enabled = !!opts->sample_simd_regs_enabled;
+		attr->sample_simd_vec_reg_intr = opts->sample_intr_vec_regs;
+		attr->sample_simd_vec_reg_qwords = opts->sample_vec_reg_qwords;
+		attr->sample_simd_pred_reg_intr = opts->sample_intr_pred_regs;
+		attr->sample_simd_pred_reg_qwords = opts->sample_pred_reg_qwords;
 		evsel__set_sample_bit(evsel, REGS_INTR);
 	}
 
 	if (opts->sample_user_regs && !evsel->no_aux_samples &&
 	    !evsel__is_dummy_event(evsel)) {
 		attr->sample_regs_user |= opts->sample_user_regs;
+		attr->sample_simd_regs_enabled =
+			evsel__is_non_software_event(evsel) ?
+				!!opts->sample_simd_regs_enabled : 0;
+		evsel__set_sample_bit(evsel, REGS_USER);
+	}
+
+	if ((opts->sample_user_vec_regs || opts->sample_user_pred_regs) &&
+	    !evsel->no_aux_samples && !evsel__is_dummy_event(evsel)) {
+		attr->sample_simd_regs_enabled = !!opts->sample_simd_regs_enabled;
+		attr->sample_simd_vec_reg_user = opts->sample_user_vec_regs;
+		attr->sample_simd_vec_reg_qwords = opts->sample_vec_reg_qwords;
+		attr->sample_simd_pred_reg_user = opts->sample_user_pred_regs;
+		attr->sample_simd_pred_reg_qwords = opts->sample_pred_reg_qwords;
 		evsel__set_sample_bit(evsel, REGS_USER);
 	}
 
@@ -3584,7 +3614,10 @@ int __evsel__parse_sample(struct evsel *evsel, union perf_event *event,
 	}
 
 	if (type & PERF_SAMPLE_RAW) {
+		const __u64 *raw;
+
 		OVERFLOW_CHECK_u64(array);
+		raw = array;
 		u.val64 = *array;
 
 		/*
@@ -3600,16 +3633,14 @@ int __evsel__parse_sample(struct evsel *evsel, union perf_event *event,
 		}
 		data->raw_size = u.val32[0];
 
-		/*
-		 * The raw data is aligned on 64bits including the
-		 * u32 size, so it's safe to use mem_bswap_64.
-		 */
-		if (swapped)
-			mem_bswap_64((void *) array, data->raw_size);
-
 		array = (void *)array + sizeof(u32);
-
 		OVERFLOW_CHECK(array, data->raw_size, max_size);
+		if (swapped) {
+			/* mem_bswap_64() accesses complete 64-bit words. */
+			sz = roundup((u64)data->raw_size, sizeof(u64));
+			OVERFLOW_CHECK(raw, sz, max_size);
+			mem_bswap_64((void *)raw, data->raw_size);
+		}
 		data->raw_data = (void *)array;
 		array = (void *)array + data->raw_size;
 	}
@@ -3639,6 +3670,8 @@ int __evsel__parse_sample(struct evsel *evsel, union perf_event *event,
 			e = (struct branch_entry *)&data->branch_stack->hw_idx;
 		}
 
+		OVERFLOW_CHECK(array, sz, max_size);
+
 		if (swapped) {
 			/*
 			 * struct branch_flag does not have endian
@@ -3654,7 +3687,6 @@ int __evsel__parse_sample(struct evsel *evsel, union perf_event *event,
 				e->flags.value = evsel__bitfield_swap_branch_flags(e->flags.value);
 		}
 
-		OVERFLOW_CHECK(array, sz, max_size);
 		array = (void *)array + sz;
 
 		if (evsel__has_branch_counters(evsel)) {
@@ -3681,6 +3713,43 @@ int __evsel__parse_sample(struct evsel *evsel, union perf_event *event,
 			regs->mask = mask;
 			regs->regs = (u64 *)array;
 			array = (void *)array + sz;
+
+			if (regs->abi & PERF_SAMPLE_REGS_ABI_SIMD) {
+				u64 attr_nr_vectors =
+					hweight64(evsel->core.attr.sample_simd_vec_reg_user);
+				u64 attr_vec_qwords =
+					evsel->core.attr.sample_simd_vec_reg_qwords;
+				u64 attr_nr_pred =
+					hweight32(evsel->core.attr.sample_simd_pred_reg_user);
+				u64 attr_pred_qwords =
+					 evsel->core.attr.sample_simd_pred_reg_qwords;
+
+				OVERFLOW_CHECK_u64(array);
+				regs->nr_vectors = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->vector_qwords = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->nr_pred = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->pred_qwords = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+
+				if (regs->nr_vectors > attr_nr_vectors ||
+				    regs->vector_qwords > attr_vec_qwords ||
+				    regs->nr_pred > attr_nr_pred ||
+				    regs->pred_qwords > attr_pred_qwords)
+					goto out_efault;
+
+				sz = (regs->nr_vectors * regs->vector_qwords +
+				      regs->nr_pred * regs->pred_qwords) * sizeof(u64);
+				OVERFLOW_CHECK(array, sz, max_size);
+
+				regs->simd_data = (u64 *)array;
+				array = (void *)array + sz;
+			}
 		}
 	}
 
@@ -3738,6 +3807,43 @@ int __evsel__parse_sample(struct evsel *evsel, union perf_event *event,
 			regs->mask = mask;
 			regs->regs = (u64 *)array;
 			array = (void *)array + sz;
+
+			if (regs->abi & PERF_SAMPLE_REGS_ABI_SIMD) {
+				u64 attr_nr_vectors =
+					hweight64(evsel->core.attr.sample_simd_vec_reg_intr);
+				u64 attr_vec_qwords =
+					evsel->core.attr.sample_simd_vec_reg_qwords;
+				u64 attr_nr_pred =
+					hweight32(evsel->core.attr.sample_simd_pred_reg_intr);
+				u64 attr_pred_qwords =
+					 evsel->core.attr.sample_simd_pred_reg_qwords;
+
+				OVERFLOW_CHECK_u64(array);
+				regs->nr_vectors = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->vector_qwords = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->nr_pred = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+				OVERFLOW_CHECK_u64(array);
+				regs->pred_qwords = *(u64 *)array;
+				array = (void *)array + sizeof(u64);
+
+				if (regs->nr_vectors > attr_nr_vectors ||
+				    regs->vector_qwords > attr_vec_qwords ||
+				    regs->nr_pred > attr_nr_pred ||
+				    regs->pred_qwords > attr_pred_qwords)
+					goto out_efault;
+
+				sz = (regs->nr_vectors * regs->vector_qwords +
+				      regs->nr_pred * regs->pred_qwords) * sizeof(u64);
+				OVERFLOW_CHECK(array, sz, max_size);
+
+				regs->simd_data = (u64 *)array;
+				array = (void *)array + sz;
+			}
 		}
 	}
 

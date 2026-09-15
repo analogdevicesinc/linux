@@ -62,12 +62,16 @@ static int get_member_overhead(struct annotated_data_type *adt,
 
 		k = 0;
 		for_each_group_evsel(evsel, leader) {
+			struct type_hist_entry *hist;
+
 			if (symbol_conf.skip_empty &&
 			    evsel__hists(evsel)->stats.nr_samples == 0)
 				continue;
 
-			h = adt->histograms[evsel->core.idx];
-			update_hist_entry(&entry->hists[k++], &h->addr[offset]);
+			h = &adt->histograms[evsel->core.idx];
+			if (hashmap__find(&h->samples, offset, &hist))
+				update_hist_entry(&entry->hists[k], hist);
+			k++;
 		}
 	}
 	return 0;
@@ -416,7 +420,7 @@ static void browser__write(struct ui_browser *uib, void *entry, int row)
 
 	/* print the number */
 	for_each_group_evsel(evsel, leader) {
-		struct type_hist *h = adt->histograms[evsel->core.idx];
+		struct type_hist *h = &adt->histograms[evsel->core.idx];
 
 		if (symbol_conf.skip_empty &&
 		    evsel__hists(evsel)->stats.nr_samples == 0)

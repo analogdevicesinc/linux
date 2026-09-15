@@ -35,6 +35,7 @@
 
 #include "../browsers/hists.h"
 #include "../helpline.h"
+#include "../keysyms.h"
 #include "../util.h"
 #include "../ui.h"
 #include "map.h"

@@ -73,12 +73,12 @@ struct type_hist_entry {
  * struct type_hist - Type histogram for each event
  * @nr_samples: Total number of samples in this data type
  * @period: Total count of the event in this data type
- * @offset: Array of histogram entry
+ * @samples: Hashmap of (offset, type_hist_entry)
  */
 struct type_hist {
 	u64			nr_samples;
 	u64			period;
-	struct type_hist_entry	addr[];
+	struct hashmap		samples;
 };
 
 /**
@@ -86,7 +86,7 @@ struct type_hist {
  * @node: RB-tree node for dso->type_tree
  * @self: Actual type information
  * @nr_histogram: Number of histogram entries
- * @histograms: An array of pointers to histograms
+ * @histograms: An array of histograms
  *
  * This represents a data type accessed by samples in the profile data.
  */
@@ -94,7 +94,7 @@ struct annotated_data_type {
 	struct rb_node node;
 	struct annotated_member self;
 	int nr_histograms;
-	struct type_hist **histograms;
+	struct type_hist *histograms;
 };
 
 extern struct annotated_data_type unknown_type;
