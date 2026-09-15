@@ -1335,10 +1335,14 @@ void mlx5hws_send_stes_fw(struct mlx5hws_context *ctx,
 	pdn = ctx->pd_num;
 
 	/* Writing through FW can't HW fence, therefore we drain the queue */
-	if (send_attr->fence)
-		mlx5hws_send_queue_action(ctx,
-					  queue_id,
-					  MLX5HWS_SEND_QUEUE_ACTION_DRAIN_SYNC);
+	if (send_attr->fence) {
+		enum mlx5hws_send_queue_actions drain =
+			MLX5HWS_SEND_QUEUE_ACTION_DRAIN_SYNC;
+
+		ret = mlx5hws_send_queue_action(ctx, queue_id, drain);
+		if (ret)
+			goto fail_rule;
+	}
 
 	if (ste_attr->rtc_1) {
 		send_attr->id = ste_attr->rtc_1;
