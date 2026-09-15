@@ -732,7 +732,7 @@ static int hws_send_ring_alloc_sq(struct mlx5_core_dev *mdev,
 		goto destroy_wq_cyc;
 	}
 
-	sq->wr_priv = kzalloc(sizeof(*sq->wr_priv) * buf_sz, GFP_KERNEL);
+	sq->wr_priv = kzalloc_objs(*sq->wr_priv, buf_sz);
 	if (!sq->wr_priv) {
 		err = -ENOMEM;
 		goto free_dep_wqe;
