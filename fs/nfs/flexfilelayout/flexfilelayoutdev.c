@@ -243,6 +243,7 @@ ff_layout_add_ds_error_locked(struct nfs4_flexfile_layout *flo,
 
 int ff_layout_track_ds_error(struct nfs4_flexfile_layout *flo,
 			     struct nfs4_ff_layout_mirror *mirror,
+			     const struct nfs4_deviceid_node *devid,
 			     u32 dss_id, u64 offset, u64 length, int status,
 			     enum nfs_opnum4 opnum, gfp_t gfp_flags)
 {
@@ -251,7 +252,7 @@ int ff_layout_track_ds_error(struct nfs4_flexfile_layout *flo,
 	if (status == 0)
 		return 0;
 
-	if (IS_ERR_OR_NULL(mirror->dss[dss_id].mirror_ds))
+	if (devid == NULL)
 		return -EINVAL;
 
 	dserr = kmalloc_obj(*dserr, gfp_flags);
@@ -264,8 +265,7 @@ int ff_layout_track_ds_error(struct nfs4_flexfile_layout *flo,
 	dserr->status = status;
 	dserr->opnum = opnum;
 	nfs4_stateid_copy(&dserr->stateid, &mirror->dss[dss_id].stateid);
-	memcpy(&dserr->deviceid, &mirror->dss[dss_id].mirror_ds->id_node.deviceid,
-	       NFS4_DEVICEID4_SIZE);
+	memcpy(&dserr->deviceid, &devid->deviceid, NFS4_DEVICEID4_SIZE);
 
 	spin_lock(&flo->generic_hdr.plh_inode->i_lock);
 	ff_layout_add_ds_error_locked(flo, dserr);
@@ -422,7 +422,10 @@ nfs4_ff_layout_prepare_ds(struct pnfs_layout_segment *lseg,
 	}
 noconnect:
 	ff_layout_track_ds_error(FF_LAYOUT_FROM_HDR(lseg->pls_layout),
-				 mirror, dss_id, lseg->pls_range.offset,
+				 mirror,
+				 IS_ERR_OR_NULL(mirror_ds) ?
+					NULL : &mirror_ds->id_node,
+				 dss_id, lseg->pls_range.offset,
 				 lseg->pls_range.length, NFS4ERR_NXIO,
 				 OP_ILLEGAL, GFP_NOIO);
 	ff_layout_send_layouterror(lseg);

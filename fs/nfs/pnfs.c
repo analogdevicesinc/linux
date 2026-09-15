@@ -3145,6 +3145,7 @@ pnfs_do_write(struct nfs_pageio_descriptor *desc,
 
 static void pnfs_writehdr_free(struct nfs_pgio_header *hdr)
 {
+	pnfs_put_ds_dev(hdr->ds_dev);
 	pnfs_put_lseg(hdr->lseg);
 	nfs_pgio_header_free(hdr);
 }
@@ -3290,6 +3291,7 @@ pnfs_do_read(struct nfs_pageio_descriptor *desc, struct nfs_pgio_header *hdr)
 
 static void pnfs_readhdr_free(struct nfs_pgio_header *hdr)
 {
+	pnfs_put_ds_dev(hdr->ds_dev);
 	pnfs_put_lseg(hdr->lseg);
 	nfs_pgio_header_free(hdr);
 }

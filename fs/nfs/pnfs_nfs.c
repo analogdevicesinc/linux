@@ -55,6 +55,7 @@ void pnfs_generic_commit_release(void *calldata)
 	struct nfs_commit_data *data = calldata;
 
 	data->completion_ops->completion(data);
+	pnfs_put_ds_dev(data->ds_dev);
 	pnfs_put_lseg(data->lseg);
 	nfs_put_client(data->ds_clp);
 	nfs_commitdata_release(data);

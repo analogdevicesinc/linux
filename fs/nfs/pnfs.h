@@ -385,6 +385,14 @@ void nfs4_init_deviceid_node(struct nfs4_deviceid_node *, struct nfs_server *,
 			     const struct nfs4_deviceid *);
 bool nfs4_put_deviceid_node(struct nfs4_deviceid_node *);
 void nfs4_mark_deviceid_available(struct nfs4_deviceid_node *node);
+
+/* Put the device node reference carried by an in-flight I/O, if any */
+static inline void pnfs_put_ds_dev(struct nfs4_deviceid_node *dev)
+{
+	if (dev)
+		nfs4_put_deviceid_node(dev);
+}
+
 void nfs4_mark_deviceid_unavailable(struct nfs4_deviceid_node *node);
 bool nfs4_test_deviceid_unavailable(struct nfs4_deviceid_node *node);
 void nfs4_deviceid_purge_client(const struct nfs_client *);
