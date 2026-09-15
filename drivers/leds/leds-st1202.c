@@ -85,7 +85,7 @@ static int st1202_write_reg(struct st1202_chip *chip, int reg, uint8_t val)
 	return ret;
 }
 
-static uint8_t st1202_prescalar_to_miliseconds(unsigned int value)
+static uint8_t st1202_milliseconds_to_prescaler(unsigned int value)
 {
 	return value / ST1202_MILLIS_PATTERN_DUR_MIN;
 }
@@ -126,7 +126,7 @@ static int st1202_duration_pattern_write(struct st1202_chip *chip, int pattern,
 					unsigned int value)
 {
 	return st1202_write_reg(chip, (ST1202_PATTERN_DUR + pattern),
-				st1202_prescalar_to_miliseconds(value));
+				st1202_milliseconds_to_prescaler(value));
 }
 
 static int __st1202_channel_set(struct st1202_chip *chip, int led_num, bool active)
