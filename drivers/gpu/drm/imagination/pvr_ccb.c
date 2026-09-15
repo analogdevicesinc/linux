@@ -82,11 +82,6 @@ pvr_ccb_init(struct pvr_device *pvr_dev, struct pvr_ccb *pvr_ccb,
 	pvr_fw_object_get_fw_addr(pvr_ccb->ctrl_obj, &pvr_ccb->ctrl_fw_addr);
 	pvr_fw_object_get_fw_addr(pvr_ccb->ccb_obj, &pvr_ccb->ccb_fw_addr);
 
-	WRITE_ONCE(pvr_ccb->ctrl->write_offset, 0);
-	WRITE_ONCE(pvr_ccb->ctrl->read_offset, 0);
-	WRITE_ONCE(pvr_ccb->ctrl->wrap_mask, num_cmds - 1);
-	WRITE_ONCE(pvr_ccb->ctrl->cmd_size, cmd_size);
-
 	return 0;
 
 err_free_ctrl:
