@@ -42,6 +42,7 @@ devem estar familiarizados.
    Como aplicar patches <applying-patches>
    Backporting e resolução de conflitos <backporting>
    Adicionando uma nova chamada de Sistema <adding-syscalls>
+   Por que a classe de tipo "volatile" não deve ser usada <volatile-considered-harmful>
    Como não Deixar as ioctls malfeitas <botching-up-ioctls>
 
 Guias de políticas e declarações de desenvolvedores
@@ -59,6 +60,7 @@ Estas são as regras pelas quais tentamos viver na comunidade do kernel
    Modelos de Maturidade para Contribuição no Kernel Linux <contribution-maturity-model.rst>
    Declaração sobre Drivers do Kernel <kernel-driver-statement>
    Estilo de gerenciamento do kernel Linux <management-style>
+   Assistentes de código <coding-assistants>
    Conclave (Continuidade do projeto) <conclave>
 
 Lidando com bugs
@@ -72,6 +74,7 @@ gerenciamento de bugs e vulnerabilidades.
    :maxdepth: 1
 
    Falhas de segurança <security-bugs>
+   Problemas de hardware sob embargo <embargoed-hardware-issues>
    CVEs <cve>
 
 Informações para mantenedores
