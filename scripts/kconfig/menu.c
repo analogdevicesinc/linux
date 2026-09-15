@@ -4,6 +4,7 @@
  */
 
 #include <ctype.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -234,10 +235,46 @@ void menu_add_symbol(enum prop_type type, struct symbol *sym, struct expr *dep)
 	menu_add_prop(type, expr_alloc_symbol(sym), dep);
 }
 
-static int menu_validate_number(struct symbol *sym, struct symbol *sym2)
+/* Validate the sym2 value for numeric sym. */
+static int menu_validate_number(struct symbol *sym, struct symbol *sym2,
+				const struct property *prop)
 {
-	return sym2->type == S_INT || sym2->type == S_HEX ||
-	       (sym2->type == S_UNKNOWN && sym_string_valid(sym, sym2->name));
+	const char *type_bounds;
+
+	if (sym->type != S_INT && sym->type != S_HEX)
+		return 0;
+
+	if (sym2->type == S_INT || sym2->type == S_HEX)
+		return 0;
+
+	if (sym2->type != S_UNKNOWN ||
+		!sym_string_valid(sym, sym2->name)) {
+		fprintf(stderr, "%s:%d: error: '%s' is an invalid value for '%s'\n",
+			prop->filename, prop->lineno, sym2->name,
+			sym_type_name(sym->type));
+		return 1;
+	}
+
+	errno = 0;
+	if (sym->type == S_INT) {
+		type_bounds = "64-bit signed integer";
+		strtoll(sym2->name, NULL, 10);
+	} else {
+		/* hex */
+		type_bounds = "64-bit unsigned integer";
+		strtoull(sym2->name, NULL, 16);
+	}
+
+	if (errno == ERANGE) {
+		fprintf(stderr,
+			"%s:%d: error: %s constant '%s' is outside the %s bounds\n",
+			prop->filename, prop->lineno, sym_type_name(sym->type),
+			sym2->name, type_bounds);
+
+		return 1;
+	}
+
+	return 0;
 }
 
 static int sym_check_prop(struct symbol *sym)
@@ -259,13 +296,7 @@ static int sym_check_prop(struct symbol *sym)
 				break;
 			sym2 = prop_get_symbol(prop);
 			if (sym->type == S_HEX || sym->type == S_INT) {
-				if (!menu_validate_number(sym, sym2)) {
-					fprintf(stderr,
-						"%s:%d: error: '%s': number is invalid\n",
-						prop->filename, prop->lineno,
-						sym->name);
-					errors++;
-				}
+				errors += menu_validate_number(sym, sym2, prop);
 			}
 			if (sym_is_choice(sym)) {
 				struct menu *choice = sym_get_choice_menu(sym2);
@@ -296,13 +327,8 @@ static int sym_check_prop(struct symbol *sym)
 			if (sym->type != S_INT && sym->type != S_HEX)
 				prop_warn(prop, "range is only allowed "
 						"for int or hex symbols");
-			if (!menu_validate_number(sym, prop->expr->left.sym) ||
-			    !menu_validate_number(sym, prop->expr->right.sym)) {
-				fprintf(stderr,
-					"%s:%d: error: range is invalid\n",
-					prop->filename, prop->lineno);
-				errors++;
-			}
+			errors += menu_validate_number(sym, prop->expr->left.sym, prop);
+			errors += menu_validate_number(sym, prop->expr->right.sym, prop);
 			break;
 		default:
 			;
