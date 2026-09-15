@@ -391,7 +391,16 @@ __be32 nfs4_callback_devicenotify(void *argp, void *resp,
 			if (!ld)
 				continue;
 		}
+		/*
+		 * Unhash the cached device first so re-resolution cannot
+		 * re-pin the stale node, then re-point any references
+		 * pinned under live layouts (RFC 8881 Section 12.2.10).
+		 */
 		nfs4_delete_deviceid(ld, cps->clp, &dev->cbd_dev_id);
+		if (dev->cbd_notify_type == NOTIFY_DEVICEID4_CHANGE)
+			pnfs_layout_reresolve_deviceid_byclid(cps->clp, ld,
+							&dev->cbd_dev_id,
+							dev->cbd_immediate);
 	}
 	pnfs_put_layoutdriver(ld);
 out:
