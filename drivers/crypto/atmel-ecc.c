@@ -348,6 +348,7 @@ static void atmel_ecc_remove(struct i2c_client *client)
 
 static const struct of_device_id atmel_ecc_dt_ids[] = {
 	{ .compatible = "atmel,atecc508a", },
+	{ .compatible = "atmel,atecc608a", },
 	{ .compatible = "atmel,atecc608b", },
 	{ }
 };
@@ -355,6 +356,7 @@ MODULE_DEVICE_TABLE(of, atmel_ecc_dt_ids);
 
 static const struct i2c_device_id atmel_ecc_id[] = {
 	{ .name = "atecc508a" },
+	{ .name = "atecc608a" },
 	{ .name = "atecc608b" },
 	{ }
 };

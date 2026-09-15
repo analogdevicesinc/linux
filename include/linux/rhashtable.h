@@ -319,18 +319,6 @@ static inline struct rhash_lock_head __rcu **rht_bucket_insert(
  * When we write to a bucket without unlocking, we use rht_assign_locked().
  */
 
-static inline unsigned long rht_lock(struct bucket_table *tbl,
-				     struct rhash_lock_head __rcu **bkt)
-	__acquires(__bitlock(0, bkt))
-{
-	unsigned long flags;
-
-	local_irq_save(flags);
-	bit_spin_lock(0, (unsigned long *)bkt);
-	lock_map_acquire(&tbl->dep_map);
-	return flags;
-}
-
 static inline unsigned long rht_lock_nested(struct bucket_table *tbl,
 					struct rhash_lock_head __rcu **bucket,
 					unsigned int subclass)
@@ -340,8 +328,16 @@ static inline unsigned long rht_lock_nested(struct bucket_table *tbl,
 
 	local_irq_save(flags);
 	bit_spin_lock(0, (unsigned long *)bucket);
-	lock_acquire_exclusive(&tbl->dep_map, subclass, 0, NULL, _THIS_IP_);
+	/* subclass 0 is used for ->lock and 1 for ->mutex. 2+ for bitlocks */
+	lock_acquire_exclusive(&tbl->dep_map, subclass+2, 0, NULL, _THIS_IP_);
 	return flags;
+}
+
+static inline unsigned long rht_lock(struct bucket_table *tbl,
+				     struct rhash_lock_head __rcu **bkt)
+	__acquires(__bitlock(0, bkt))
+{
+	return rht_lock_nested(tbl, bkt, 0);
 }
 
 static inline void rht_unlock(struct bucket_table *tbl,
