@@ -43,6 +43,9 @@
 				     <4 5 6>,
 				     <7 8 9>;
 			compatible = "example,intc";
+			qcom,calibration-variant = "foo";
+			clocks = <6>;
+			qcom,opp-fuse-level = <1>;
 		};
 	};
 };

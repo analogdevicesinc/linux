@@ -41,7 +41,10 @@
 		interrupt-controller@10000 {
 			compatible = "example,intc";
 			reg = <0x10000 0x1000>;
+			clocks = <6>;
 			interrupts = <1 2 3>;
+			qcom,calibration-variant = "foo";
+			qcom,opp-fuse-level = <1>;
 		};
 	};
 };

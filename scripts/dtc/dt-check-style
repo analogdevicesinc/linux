@@ -714,65 +714,40 @@ def check_property_name(ctx):
                 yield (dl.lineno, f'property name "{dl.prop_name}" is using discouraged style')
 
 
-def _property_bucket(name):
-    """Return the canonical bucket index for a property:
-       0 device_type
+def _property_bucket(name, is_root=False):
+    """Return the canonical bucket (group) index for a property:
+       0 device_type ('model' in the root node)
        1 compatible
-       2 reg / reg-names
+       2 reg, reg-names
        3 ranges
        4 standard properties (no vendor comma in #-stripped name)
        5 vendor-specific properties
        6 status
-    Plus a sub-key inside the bucket for fixed slots (device_type, compatible,
-    reg, reg-names, ranges, status). 'standard' and 'vendor' return None for
-    the sub-key, signalling that the within-bucket key is computed by
-    the pairing rules."""
+    Properties sharing a bucket compare equal: their relative order
+    within the group is not checked, only the pairing rules below
+    apply."""
     stripped = name.lstrip('#')
-    if name == 'device_type':
-        return (0, 0)
+    if is_root:
+        if name == 'model':
+            return 0
+    elif name == 'device_type':
+        return 0
     if name == 'compatible':
-        return (1, 0)
-    if name == 'reg':
-        return (2, 0)
-    if name == 'reg-names':
-        return (2, 1)
+        return 1
+    if name in ('reg', 'reg-names'):
+        return 2
     if name == 'ranges':
-        return (3, 0)
+        return 3
     if name == 'status':
-        return (6, 0)
-    return (5 if ',' in stripped else 4, None)
-
-
-def _property_bucket_root(name):
-    """Return the canonical bucket index for a property:
-       0 model (for root nodes only)
-       1 compatible
-    Plus a sub-key inside the bucket for fixed slots (device_type, compatible,
-    reg, reg-names, ranges, status). 'standard' and 'vendor' return None for
-    the sub-key, signalling that the within-bucket key is computed by
-    the pairing rules."""
-    stripped = name.lstrip('#')
-    if name == 'model':
-        return (0, 0)
-    if name == 'compatible':
-        return (1, 0)
-    if name == 'reg':
-        return (2, 0)
-    if name == 'reg-names':
-        return (2, 1)
-    if name == 'ranges':
-        return (3, 0)
-    if name == 'status':
-        return (6, 0)
-    return (5 if ',' in stripped else 4, None)
+        return 6
+    return 5 if ',' in stripped else 4
 
 
 # Declarative pairing rules: each is a callable
 #   (name, all_names) -> anchor_name_or_None
-# If a rule returns an anchor, the property sorts immediately after the
+# If a rule returns an anchor, the property must be placed after the
 # anchor. Rules are tried in order; the first match wins. If none
-# matches, the within-bucket key falls back to natural sort by the
-# #-stripped name.
+# matches, the property can be placed anywhere within its bucket.
 
 def _pair_pinctrl_names(name, all_names):
     """pinctrl-names follows the highest pinctrl-N in the same node."""
@@ -787,8 +762,7 @@ def _pair_pinctrl_names(name, all_names):
 def _pair_x_names(name, all_names):
     """Generic <x>-names follows its owning property. The owner is
     usually plural (clocks/clock-names, dmas/dma-names,
-    resets/reset-names) but occasionally singular (reg/reg-names is
-    handled by the fixed slot above; this rule catches anything else)."""
+    resets/reset-names) but occasionally singular (reg/reg-names)."""
     if not name.endswith('-names'):
         return None
     base = name[:-len('-names')]
@@ -803,33 +777,27 @@ def _pair_x_names(name, all_names):
 PAIRING_RULES = (_pair_pinctrl_names, _pair_x_names)
 
 
-def _property_sort_key(dl, name, all_names):
-    """Sort key for a property among its node-body siblings.
-
-    Format: (bucket, within_key, tiebreak). 'within_key' for
-    standard/vendor buckets follows pairing rules: a property paired
-    with anchor X sorts as if it were X with a higher tiebreak."""
-    if dl.is_root:
-        bucket, fixed_sub = _property_bucket_root(name)
-    else:
-        bucket, fixed_sub = _property_bucket(name)
-    if fixed_sub is not None:
-        return (bucket, (), fixed_sub)
-
+def _property_anchor(name, all_names):
+    """Return the property this one must be placed after, or None."""
     for rule in PAIRING_RULES:
         anchor = rule(name, all_names)
         if anchor is not None:
-            return (bucket, _natural_sort_key(anchor.lstrip('#')), 1)
-
-    return (bucket, _natural_sort_key(name.lstrip('#')), 0)
+            return anchor
+    return None
 
 
 def check_property_order(ctx):
-    """Properties within a node body must appear in canonical order:
-    compatible, reg(/reg-names), ranges, then the standard group, then
-    the vendor-specific group, then status. Inside the standard and
-    vendor groups, pairing rules apply (e.g. <x>-names follows <x>);
-    everything else falls back to natural sort by the #-stripped name."""
+    """Properties within a node body must be grouped in canonical
+    order: device_type ('model' for the root node), compatible,
+    reg(/reg-names), ranges, then the standard group, then the
+    vendor-specific group, then status.
+
+    The order of properties within one group is free, e.g. it does not
+    matter whether '#address-cells' comes before or after 'clocks'.
+    Paired properties still keep their relative order: <x>-names
+    follows <x> (clocks/clock-names, reg/reg-names, ...), pinctrl-names
+    follows the pinctrl-N states and #size-cells follows
+    #address-cells."""
     lines = ctx.lines
     for i, dl in enumerate(lines):
         if dl.linetype != LineType.NODE_OPEN:
@@ -847,16 +815,26 @@ def check_property_order(ctx):
         if len(props) < 2:
             continue
         all_names = [p.prop_name for p in props]
-        keyed = [(p, _property_sort_key(dl, p.prop_name, all_names))
-                 for p in props]
-        for k in range(1, len(keyed)):
-            if keyed[k][1] < keyed[k - 1][1]:
-                p = keyed[k][0]
-                prev = keyed[k - 1][0]
-                yield (p.lineno,
-                       'property %r out of canonical order '
-                       '(should sort before %r)' %
-                       (p.prop_name, prev.prop_name))
+        buckets = [_property_bucket(p.prop_name, dl.is_root) for p in props]
+        findings = []
+        # Group (bucket) order
+        for k in range(1, len(props)):
+            if buckets[k] < buckets[k - 1]:
+                findings.append((props[k].lineno,
+                                 'property %r out of canonical order '
+                                 '(should sort before %r)' %
+                                 (props[k].prop_name,
+                                  props[k - 1].prop_name)))
+        # Pairing within a group: the anchor must come first
+        seen = set()
+        for p in props:
+            anchor = _property_anchor(p.prop_name, all_names)
+            if anchor is not None and anchor not in seen:
+                findings.append((p.lineno,
+                                 'property %r must be placed after %r' %
+                                 (p.prop_name, anchor)))
+            seen.add(p.prop_name)
+        yield from sorted(findings)
 
 
 def _check_redundant_whitespace(dl):
@@ -1152,7 +1130,8 @@ RULES = [
          'property names use only recommended characters (see DTS Coding Style)',
          check_property_name),
     Rule('property-order', 'strict',
-         'canonical bucket + pairing + natural-sort order of properties',
+         'canonical group + pairing order of properties (order within '
+         'a group is not checked)',
          check_property_order),
     # See also check_redundant_whitespace() and check_value_whitespace()
     Rule('redundant-whitespace-strict', 'strict',
