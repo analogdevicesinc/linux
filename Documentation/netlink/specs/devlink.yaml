@@ -1065,6 +1065,8 @@ attribute-sets:
         name: dpipe-table-resource-id
       -
         name: dpipe-table-resource-units
+      -
+        name: pad
 
   -
     name: dl-dpipe-table-matches
@@ -1099,6 +1101,8 @@ attribute-sets:
         name: dpipe-entry-action-values
       -
         name: dpipe-entry-counter
+      -
+        name: pad
 
   -
     name: dl-dpipe-entry-match-values
@@ -1237,6 +1241,8 @@ attribute-sets:
         name: resource-unit
       -
         name: resource-occ
+      -
+        name: pad
 
   -
     name: dl-resource-list
@@ -1289,6 +1295,8 @@ attribute-sets:
         name: region-chunk-data
       -
         name: region-chunk-addr
+      -
+        name: pad
 
   -
     name: dl-fmsg
@@ -1329,6 +1337,8 @@ attribute-sets:
         name: health-reporter-auto-dump
       -
         name: health-reporter-burst-period
+      -
+        name: pad
 
   -
     name: dl-attr-stats
@@ -1343,6 +1353,10 @@ attribute-sets:
       -
         name: stats-rx-dropped
         type: u64
+      -
+        name: pad
+        type: pad
+        value: 61
 
   -
     name: dl-trap-metadata
