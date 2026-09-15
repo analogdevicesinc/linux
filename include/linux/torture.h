@@ -98,6 +98,7 @@ void torture_shutdown_absorb(const char *title);
 int torture_shutdown_init(int ssecs, void (*cleanup)(void));
 
 /* Task stuttering, which forces load/no-load transitions. */
+bool stutter_will_wait(void);
 bool stutter_wait(const char *title);
 int torture_stutter_init(int s, int sgap);
 
@@ -131,8 +132,11 @@ void _torture_stop_kthread(char *m, struct task_struct **tp);
 #endif
 void torture_sched_set_normal(struct task_struct *t, int nice);
 
-#if IS_ENABLED(CONFIG_RCU_TORTURE_TEST) || IS_MODULE(CONFIG_RCU_TORTURE_TEST) || IS_ENABLED(CONFIG_LOCK_TORTURE_TEST) || IS_MODULE(CONFIG_LOCK_TORTURE_TEST)
+#if IS_ENABLED(CONFIG_RCU_TORTURE_TEST) || IS_ENABLED(CONFIG_LOCK_TORTURE_TEST) || IS_ENABLED(CONFIG_HAZPTR_TORTURE_TEST)
 long torture_sched_setaffinity(pid_t pid, const struct cpumask *in_mask, bool dowarn);
 #endif
+
+/* Atomic per-CPU counters. */
+s64 torture_sum_pcpu_atomic_long(atomic_long_t __percpu *pcp);
 
 #endif /* __LINUX_TORTURE_H */
