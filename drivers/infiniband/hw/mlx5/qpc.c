@@ -128,7 +128,7 @@ static int rsc_event_notifier(struct notifier_block *nb,
 	case MLX5_EVENT_TYPE_WQ_INVAL_REQ_ERROR:
 	case MLX5_EVENT_TYPE_WQ_ACCESS_ERROR:
 		rsn = be32_to_cpu(eqe->data.qp_srq.qp_srq_n) & 0xffffff;
-		rsn |= (eqe->data.qp_srq.type << MLX5_USER_INDEX_LEN);
+		rsn |= ((u32)eqe->data.qp_srq.type << MLX5_USER_INDEX_LEN);
 		break;
 	default:
 		return NOTIFY_DONE;
