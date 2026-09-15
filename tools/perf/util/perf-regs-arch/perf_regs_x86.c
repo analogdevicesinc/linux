@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <string.h>
 #include <regex.h>
+#include <unistd.h>
+#include <stdbool.h>
 #include <linux/kernel.h>
 #include <linux/zalloc.h>
 
