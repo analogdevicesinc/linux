@@ -10,9 +10,9 @@
 #include "internal.h"
 
 static void netfs_cache_expand_readahead(struct netfs_io_request *rreq,
-					 unsigned long long *_start,
-					 unsigned long long *_len,
-					 unsigned long long i_size)
+					 uoff_t *_start,
+					 uoff_t *_len,
+					 uoff_t i_size)
 {
 	struct netfs_cache_resources *cres = &rreq->cache_resources;
 
@@ -139,7 +139,7 @@ static ssize_t netfs_prepare_read_iterator(struct netfs_io_subrequest *subreq)
 
 static enum netfs_io_source netfs_cache_prepare_read(struct netfs_io_request *rreq,
 						     struct netfs_io_subrequest *subreq,
-						     loff_t i_size)
+						     uoff_t i_size)
 {
 	struct netfs_cache_resources *cres = &rreq->cache_resources;
 	enum netfs_io_source source;
@@ -242,7 +242,7 @@ static void netfs_mark_copy_to_cache(struct netfs_io_request *rreq,
 
 		if (overlap > 0 && copy) {
 			folio = folioq_folio(*fq, *slot);
-			if (unlikely(test_bit(NETFS_RREQ_USE_PGPRIV2, &rreq->flags))) {
+			if (netfs_using_pgpriv2(rreq)) {
 				if (!folio_test_private_2(folio))
 					folio_start_private_2(folio);
 			} else {
@@ -269,17 +269,17 @@ static void netfs_mark_copy_to_cache(struct netfs_io_request *rreq,
 static void netfs_read_to_pagecache(struct netfs_io_request *rreq)
 {
 	struct folio_queue *fq = rreq->buffer.tail;
-	unsigned long long start = rreq->start;
 	unsigned int offset = 0;
 	ssize_t size = rreq->len;
+	uoff_t start = rreq->start;
 	int ret = 0, slot = 0;
 
 	do {
 		struct netfs_io_subrequest *subreq;
-		enum netfs_io_source source = NETFS_SOURCE_UNKNOWN;
+		enum netfs_io_source source;
 		ssize_t slice;
 
-		subreq = netfs_alloc_subrequest(rreq);
+		subreq = netfs_alloc_subrequest(rreq, NETFS_SOURCE_UNKNOWN);
 		if (!subreq) {
 			ret = -ENOMEM;
 			break;
@@ -293,8 +293,8 @@ static void netfs_read_to_pagecache(struct netfs_io_request *rreq)
 		source = netfs_cache_prepare_read(rreq, subreq, rreq->i_size);
 		subreq->source = source;
 		if (source == NETFS_DOWNLOAD_FROM_SERVER) {
-			unsigned long long zero_point = netfs_read_zero_point(rreq->inode);
-			unsigned long long zp = umin(zero_point, rreq->i_size);
+			uoff_t zero_point = netfs_read_zero_point(rreq->inode);
+			uoff_t zp = umin(zero_point, rreq->i_size);
 			size_t len = subreq->len;
 
 			if (unlikely(rreq->origin == NETFS_READ_SINGLE))
@@ -355,10 +355,8 @@ static void netfs_read_to_pagecache(struct netfs_io_request *rreq)
 		}
 		start += slice;
 		size -= slice;
-		if (size <= 0) {
-			smp_wmb(); /* Write lists before ALL_QUEUED. */
-			set_bit(NETFS_RREQ_ALL_QUEUED, &rreq->flags);
-		}
+		if (size <= 0)
+			netfs_all_subreqs_queued(rreq);
 
 		if (fq) {
 			/* See if the cache indicated this should be cached. */
@@ -378,8 +376,7 @@ static void netfs_read_to_pagecache(struct netfs_io_request *rreq)
 	} while (size > 0);
 
 	if (unlikely(size > 0)) {
-		smp_wmb(); /* Write lists before ALL_QUEUED. */
-		set_bit(NETFS_RREQ_ALL_QUEUED, &rreq->flags);
+		netfs_all_subreqs_queued(rreq);
 		netfs_wake_collector(rreq);
 	}
 
@@ -642,11 +639,11 @@ EXPORT_SYMBOL(netfs_read_folio);
  * If any of these criteria are met, then zero out the unwritten parts
  * of the folio and return true. Otherwise, return false.
  */
-static bool netfs_skip_folio_read(struct folio *folio, loff_t pos, size_t len,
+static bool netfs_skip_folio_read(struct folio *folio, uoff_t pos, size_t len,
 				 bool always_fill)
 {
 	struct inode *inode = folio_inode(folio);
-	loff_t i_size = i_size_read(inode);
+	uoff_t i_size = i_size_read(inode);
 	size_t offset = offset_in_folio(folio, pos);
 	size_t plen = folio_size(folio);
 
@@ -711,7 +708,7 @@ zero_out:
  */
 int netfs_write_begin(struct netfs_inode *ctx,
 		      struct file *file, struct address_space *mapping,
-		      loff_t pos, unsigned int len, struct folio **_folio,
+		      uoff_t pos, unsigned int len, struct folio **_folio,
 		      void **_fsdata)
 {
 	struct netfs_io_request *rreq;
@@ -807,7 +804,7 @@ int netfs_prefetch_for_write(struct file *file, struct folio *folio,
 	struct netfs_io_request *rreq;
 	struct address_space *mapping = folio->mapping;
 	struct netfs_inode *ctx = netfs_inode(mapping->host);
-	unsigned long long start = folio_pos(folio);
+	uoff_t start = folio_pos(folio);
 	size_t flen = folio_size(folio);
 	int ret;
 

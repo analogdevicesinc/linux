@@ -1436,7 +1436,7 @@ static inline void i_gid_write(struct inode *inode, gid_t gid)
  * @idmap: idmap of the mount the inode was found from
  * @inode: inode to map
  *
- * Return: whe inode's i_uid mapped down according to @idmap.
+ * Return: the inode's i_uid mapped down according to @idmap.
  * If the inode's i_uid has no mapping INVALID_VFSUID is returned.
  */
 static inline vfsuid_t i_uid_into_vfsuid(struct mnt_idmap *idmap,

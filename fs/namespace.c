@@ -4115,7 +4115,7 @@ int path_mount(const char *dev_name, const struct path *path,
 	if (flags & SB_MANDLOCK)
 		warn_mandlock();
 
-	/* Default to relatime unless overriden */
+	/* Default to relatime unless overridden */
 	if (!(flags & MS_NOATIME))
 		mnt_flags |= MNT_RELATIME;
 
@@ -4246,8 +4246,6 @@ struct mnt_namespace *copy_mnt_ns(u64 flags, struct mnt_namespace *ns,
 	struct mount *old;
 	struct mount *new;
 	int copy_flags;
-
-	BUG_ON(!ns);
 
 	if (likely(!(flags & CLONE_NEWNS))) {
 		get_mnt_ns(ns);
