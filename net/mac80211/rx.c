@@ -452,6 +452,8 @@ ieee80211_add_rx_radiotap_header(struct ieee80211_local *local,
 	if (status->band == NL80211_BAND_5GHZ ||
 	    status->band == NL80211_BAND_6GHZ)
 		channel_flags |= IEEE80211_CHAN_OFDM | IEEE80211_CHAN_5GHZ;
+	else if (status->band == NL80211_BAND_S1GHZ)
+		channel_flags |= IEEE80211_CHAN_OFDM | IEEE80211_CHAN_900MHZ;
 	else if (status->encoding != RX_ENC_LEGACY)
 		channel_flags |= IEEE80211_CHAN_DYN | IEEE80211_CHAN_2GHZ;
 	else if (rate && rate->flags & IEEE80211_RATE_ERP_G)
@@ -1744,7 +1746,7 @@ static void sta_ps_end(struct sta_info *sta)
 	ieee80211_sta_ps_deliver_wakeup(sta);
 }
 
-int ieee80211_sta_ps_transition(struct ieee80211_sta *pubsta, bool start)
+void ieee80211_sta_ps_transition(struct ieee80211_sta *pubsta, bool start)
 {
 	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
 	bool in_ps;
@@ -1753,15 +1755,13 @@ int ieee80211_sta_ps_transition(struct ieee80211_sta *pubsta, bool start)
 
 	/* Don't let the same PS state be set twice */
 	in_ps = test_sta_flag(sta, WLAN_STA_PS_STA);
-	if ((start && in_ps) || (!start && !in_ps))
-		return -EINVAL;
+	if (start == in_ps)
+		return;
 
 	if (start)
 		sta_ps_start(sta);
 	else
 		sta_ps_end(sta);
-
-	return 0;
 }
 EXPORT_SYMBOL(ieee80211_sta_ps_transition);
 
