@@ -505,6 +505,34 @@ static int aqua_vanjaram_xcp_mgr_init(struct amdgpu_device *adev)
 	return ret;
 }
 
+static void amdgpu_populate_ip_map(struct amdgpu_device *adev,
+				   enum amd_hw_ip_block_type ip_block,
+				   uint32_t inst_mask)
+{
+	int l = 0, i;
+
+	while (inst_mask) {
+		i = ffs(inst_mask) - 1;
+		adev->ip_map.dev_inst[ip_block][l++] = i;
+		inst_mask &= ~(1 << i);
+	}
+	for (; l < HWIP_MAX_INSTANCE; l++)
+		adev->ip_map.dev_inst[ip_block][l] = -1;
+}
+
+static void amdgpu_ip_map_aqua_vanjaram_override(struct amdgpu_device *adev)
+{
+	u32 ip_map[][2] = {
+		{ GC_HWIP, adev->gfx.xcc_mask },
+		{ SDMA0_HWIP, adev->sdma.sdma_mask },
+		{ VCN_HWIP, adev->vcn.inst_mask },
+	};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ip_map); ++i)
+		amdgpu_populate_ip_map(adev, ip_map[i][0], ip_map[i][1]);
+}
+
 int aqua_vanjaram_init_soc_config(struct amdgpu_device *adev)
 {
 	u32 mask, avail_inst, inst_mask = adev->sdma.sdma_mask;
@@ -539,7 +567,7 @@ int aqua_vanjaram_init_soc_config(struct amdgpu_device *adev)
 	if (ret)
 		return ret;
 
-	amdgpu_ip_map_init(adev);
+	amdgpu_ip_map_aqua_vanjaram_override(adev);
 
 	return 0;
 }
