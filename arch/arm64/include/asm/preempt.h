@@ -104,19 +104,9 @@ static inline bool should_resched(int preempt_offset)
 void preempt_schedule(void);
 void preempt_schedule_notrace(void);
 
-#ifdef CONFIG_PREEMPT_DYNAMIC
-
-void dynamic_preempt_schedule(void);
-#define __preempt_schedule()		dynamic_preempt_schedule()
-void dynamic_preempt_schedule_notrace(void);
-#define __preempt_schedule_notrace()	dynamic_preempt_schedule_notrace()
-
-#else /* CONFIG_PREEMPT_DYNAMIC */
-
 #define __preempt_schedule()		preempt_schedule()
 #define __preempt_schedule_notrace()	preempt_schedule_notrace()
 
-#endif /* CONFIG_PREEMPT_DYNAMIC */
 #endif /* CONFIG_PREEMPTION */
 
 #endif /* __ASM_PREEMPT_H */
