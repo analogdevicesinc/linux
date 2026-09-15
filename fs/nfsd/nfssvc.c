@@ -25,7 +25,10 @@
 #include <net/addrconf.h>
 #include <net/ipv6.h>
 #include <net/net_namespace.h>
+
 #include "nfsd.h"
+#include "nfserr.h"
+#include "nfs4ctl.h"
 #include "cache.h"
 #include "vfs.h"
 #include "netns.h"
@@ -202,6 +205,11 @@ int nfsd_minorversion(struct nfsd_net *nn, u32 minorversion, enum vers_op change
 			nfsd_vers(nn, 4, NFSD_AVAIL);
 	}
 	return 0;
+}
+
+bool nfsd_v4client(struct svc_rqst *rqstp)
+{
+	return rqstp && rqstp->rq_prog == NFS_PROGRAM && rqstp->rq_vers == 4;
 }
 
 bool nfsd_net_try_get(struct net *net) __must_hold(rcu)

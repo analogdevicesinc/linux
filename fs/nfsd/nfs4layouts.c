@@ -9,6 +9,7 @@
 #include <linux/sched.h>
 #include <linux/sunrpc/addr.h>
 
+#include "nfserr.h"
 #include "pnfs.h"
 #include "netns.h"
 #include "trace.h"

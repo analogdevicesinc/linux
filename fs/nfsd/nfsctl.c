@@ -20,9 +20,12 @@
 #include <linux/module.h>
 #include <linux/fsnotify.h>
 #include <linux/nfslocalio.h>
+#include <linux/nfs3.h>
 
 #include "idmap.h"
 #include "nfsd.h"
+#include "nfserr.h"
+#include "nfs4ctl.h"
 #include "netns.h"
 #include "stats.h"
 #include "cache.h"
@@ -477,7 +480,7 @@ static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 	char *mesg = buf;
 	int i;
 	int rv;
-	int len;
+	size_t len;
 	int npools;
 	int *nthreads;
 	struct net *net = netns(file);
@@ -531,9 +534,13 @@ static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 
 	mesg = buf;
 	size = SIMPLE_TRANSACTION_LIMIT;
-	for (i = 0; i < npools && size > 0; i++) {
-		snprintf(mesg, size, "%d%c", nthreads[i], (i == npools-1 ? '\n' : ' '));
-		len = strlen(mesg);
+	for (i = 0; i < npools; i++) {
+		len = snprintf(mesg, size, "%d%c", nthreads[i],
+			       (i == npools - 1 ? '\n' : ' '));
+		if (len >= size) {
+			rv = -ENAMETOOLONG;
+			goto out_free;
+		}
 		size -= len;
 		mesg += len;
 	}
