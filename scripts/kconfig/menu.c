@@ -244,7 +244,7 @@ static int menu_validate_number(struct symbol *sym, struct symbol *sym2,
 	if (sym->type != S_INT && sym->type != S_HEX)
 		return 0;
 
-	if (sym2->type == S_INT || sym2->type == S_HEX)
+	if (sym2->type == sym->type)
 		return 0;
 
 	if (sym2->type != S_UNKNOWN ||
