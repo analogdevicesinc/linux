@@ -6237,9 +6237,9 @@ static void async_port_probe(void *data, async_cookie_t cookie)
  *	@sht: template for SCSI host
  *
  *	Register initialized ATA host.  @host is allocated using
- *	ata_host_alloc() and fully initialized by LLD.  This function
- *	starts ports, registers @host with ATA and SCSI layers and
- *	probe registered devices.
+ *	ata_host_alloc(), fully initialized by the LLD and started using
+ *	ata_host_start().  This function registers @host with the ATA and
+ *	SCSI layers and probes the registered devices.
  *
  *	On failure, the host remains started, i.e. the devres action
  *	registered by ata_host_start() is kept, so ->host_stop() is called by
