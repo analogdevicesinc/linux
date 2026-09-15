@@ -218,6 +218,7 @@ struct ip_tunnel_net {
 	struct net_device *fb_tunnel_dev;
 	struct rtnl_link_ops *rtnl_link_ops;
 	struct hlist_head tunnels[IP_TNL_HASH_SIZE];
+	struct mutex tunnels_lock;
 	struct ip_tunnel __rcu *collect_md_tun;
 	int type;
 };
@@ -401,7 +402,6 @@ int ip_tunnel_get_iflink(const struct net_device *dev);
 int ip_tunnel_init_net(struct net *net, unsigned int ip_tnl_net_id,
 		       struct rtnl_link_ops *ops, char *devname);
 void ip_tunnel_delete_net(struct net *net, unsigned int id,
-			  struct rtnl_link_ops *ops,
 			  struct list_head *dev_to_kill);
 
 void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
