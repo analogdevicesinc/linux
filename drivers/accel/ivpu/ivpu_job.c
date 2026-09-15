@@ -323,6 +323,11 @@ static inline u8 ivpu_job_to_jsm_priority(u8 priority)
 	return priority - 1;
 }
 
+static inline u8 ivpu_jsm_to_job_priority(u8 priority)
+{
+	return priority + 1;
+}
+
 static void ivpu_cmdq_destroy(struct ivpu_file_priv *file_priv, struct ivpu_cmdq *cmdq)
 {
 	lockdep_assert_held(&file_priv->lock);
@@ -1124,6 +1129,86 @@ int ivpu_cmdq_destroy_ioctl(struct drm_device *dev, void *data, struct drm_file 
 
 	ivpu_rpm_put(vdev);
 
+	return ret;
+}
+
+static int ivpu_cmdq_priority_args_check(struct ivpu_device *vdev, u32 cmdq_id, u64 priority)
+{
+	if (!ivpu_is_capable(vdev, DRM_IVPU_CAP_CMDQ_SET_PRIORITY)) {
+		ivpu_dbg(vdev, IOCTL, "Command queue priority not supported\n");
+		return -ENODEV;
+	}
+
+	if (cmdq_id < IVPU_CMDQ_MIN_ID || cmdq_id > IVPU_CMDQ_MAX_ID) {
+		ivpu_dbg(vdev, IOCTL, "Invalid command queue ID %u\n", cmdq_id);
+		return -EINVAL;
+	}
+
+	if (priority > DRM_IVPU_JOB_PRIORITY_REALTIME)
+		return -EINVAL;
+
+	return 0;
+}
+
+int ivpu_cmdq_get_priority(struct ivpu_file_priv *file_priv, u32 cmdq_id, u64 *priority)
+{
+	struct ivpu_device *vdev = file_priv->vdev;
+	struct ivpu_cmdq *cmdq;
+	int ret;
+
+	ret = ivpu_cmdq_priority_args_check(vdev, cmdq_id, DRM_IVPU_JOB_PRIORITY_NORMAL);
+	if (ret)
+		return ret;
+
+	guard(mutex)(&file_priv->lock);
+
+	cmdq = ivpu_cmdq_acquire(file_priv, cmdq_id);
+	if (!cmdq || cmdq->is_legacy)
+		return -EINVAL;
+
+	*priority = ivpu_jsm_to_job_priority(cmdq->priority);
+	return 0;
+}
+
+int ivpu_cmdq_set_priority(struct ivpu_file_priv *file_priv, u32 cmdq_id, u64 priority)
+{
+	struct ivpu_device *vdev = file_priv->vdev;
+	struct ivpu_cmdq *cmdq;
+	u8 jsm_priority;
+	int ret = 0;
+
+	ret = ivpu_cmdq_priority_args_check(vdev, cmdq_id, priority);
+	if (ret)
+		return ret;
+
+	ret = ivpu_rpm_get(vdev);
+	if (ret < 0)
+		return ret;
+
+	mutex_lock(&file_priv->lock);
+
+	cmdq = ivpu_cmdq_acquire(file_priv, cmdq_id);
+	if (!cmdq || cmdq->is_legacy) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	jsm_priority = ivpu_job_to_jsm_priority(priority);
+	if (cmdq->priority == jsm_priority)
+		goto out;
+
+	if (cmdq->db_id) {
+		ret = ivpu_jsm_hws_set_context_sched_properties(vdev, file_priv->ctx.id, cmdq_id,
+								jsm_priority);
+		if (ret)
+			goto out;
+	}
+
+	cmdq->priority = jsm_priority;
+
+out:
+	mutex_unlock(&file_priv->lock);
+	ivpu_rpm_put(vdev);
 	return ret;
 }
 

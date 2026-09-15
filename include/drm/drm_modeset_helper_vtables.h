@@ -282,6 +282,20 @@ struct drm_crtc_helper_funcs {
 	void (*disable)(struct drm_crtc *crtc);
 
 	/**
+	 * @hw_reset:
+	 *
+	 * Optional hook for CRTC hardware reset.
+	 *
+	 * Unlike @drm_crtc_funcs.reset, which both resets hardware and
+	 * creates new software state, this hook only resets the
+	 * hardware to a known good state without touching the software
+	 * state at all.
+	 *
+	 * This hook is called by drm_mode_config_reset().
+	 */
+	void (*hw_reset)(struct drm_crtc *crtc);
+
+	/**
 	 * @atomic_check:
 	 *
 	 * Drivers should check plane-update related CRTC constraints in this

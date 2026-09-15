@@ -117,7 +117,7 @@ int amdgpu_dm_plane_atomic_async_check(struct drm_plane *plane,
 int amdgpu_dm_plane_atomic_check(struct drm_plane *plane,
 				 struct drm_atomic_commit *state);
 void amdgpu_dm_plane_panic_flush(struct drm_plane *plane);
-void amdgpu_dm_plane_drm_plane_reset(struct drm_plane *plane);
+struct drm_plane_state *amdgpu_dm_plane_drm_plane_create_state(struct drm_plane *plane);
 struct drm_plane_state *amdgpu_dm_plane_drm_plane_duplicate_state(struct drm_plane *plane);
 void amdgpu_dm_plane_drm_plane_destroy_state(struct drm_plane *plane,
 					     struct drm_plane_state *state);

@@ -30,6 +30,7 @@
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_managed.h>
 #include <drm/drm_mode_config.h>
+#include <drm/drm_modeset_helper_vtables.h>
 #include <drm/drm_print.h>
 #include <drm/drm_colorop.h>
 #include <linux/dma-resv.h>
@@ -230,12 +231,22 @@ static int drm_mode_config_crtc_create_state(struct drm_crtc *crtc)
 
 static int drm_mode_config_crtc_reset_with_create_state(struct drm_crtc *crtc)
 {
+	const struct drm_crtc_helper_funcs *helper_funcs = crtc->helper_private;
+	int ret;
+
 	if (crtc->state) {
 		crtc->funcs->atomic_destroy_state(crtc, crtc->state);
 		crtc->state = NULL;
 	}
 
-	return drm_mode_config_crtc_create_state(crtc);
+	ret = drm_mode_config_crtc_create_state(crtc);
+	if (ret)
+		return ret;
+
+	if (helper_funcs && helper_funcs->hw_reset)
+		helper_funcs->hw_reset(crtc);
+
+	return 0;
 }
 
 static int drm_mode_config_connector_create_state(struct drm_connector *connector)

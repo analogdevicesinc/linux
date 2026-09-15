@@ -475,20 +475,19 @@ static void amdgpu_dm_crtc_destroy(struct drm_crtc *crtc)
 	kfree(crtc);
 }
 
-STATIC_IFN_KUNIT void amdgpu_dm_crtc_reset_state(struct drm_crtc *crtc)
+STATIC_IFN_KUNIT struct drm_crtc_state *amdgpu_dm_crtc_create_state(struct drm_crtc *crtc)
 {
 	struct dm_crtc_state *state;
 
 	state = kzalloc_obj(*state);
 	if (!state)
-		return;
+		return ERR_PTR(-ENOMEM);
 
-	if (crtc->state)
-		amdgpu_dm_crtc_destroy_state(crtc, crtc->state);
+	__drm_atomic_helper_crtc_state_init(&state->base, crtc);
 
-	__drm_atomic_helper_crtc_reset(crtc, &state->base);
+	return &state->base;
 }
-EXPORT_IF_KUNIT(amdgpu_dm_crtc_reset_state);
+EXPORT_IF_KUNIT(amdgpu_dm_crtc_create_state);
 
 #ifdef CONFIG_DEBUG_FS
 static int amdgpu_dm_crtc_late_register(struct drm_crtc *crtc)
@@ -565,7 +564,7 @@ amdgpu_dm_atomic_crtc_get_property(struct drm_crtc *crtc,
 
 /* Implemented only the options currently available for the driver */
 static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
-	.reset = amdgpu_dm_crtc_reset_state,
+	.atomic_create_state = amdgpu_dm_crtc_create_state,
 	.destroy = amdgpu_dm_crtc_destroy,
 	.set_config = drm_atomic_helper_set_config,
 	.page_flip = drm_atomic_helper_page_flip,
@@ -781,9 +780,18 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
 
 	drm_crtc_helper_add(&acrtc->base, &amdgpu_dm_crtc_helper_funcs);
 
-	/* Create (reset) the plane state */
-	if (acrtc->base.funcs->reset)
-		acrtc->base.funcs->reset(&acrtc->base);
+	/* Create the plane state */
+	if (acrtc->base.funcs->atomic_create_state) {
+		struct drm_crtc_state *crtc_state;
+
+		crtc_state = acrtc->base.funcs->atomic_create_state(&acrtc->base);
+		if (IS_ERR(crtc_state)) {
+			res = PTR_ERR(crtc_state);
+			goto error_ism_fini;
+		}
+
+		acrtc->base.state = crtc_state;
+	}
 
 	acrtc->max_cursor_width = dm->adev->dm.dc->caps.max_cursor_size;
 	acrtc->max_cursor_height = dm->adev->dm.dc->caps.max_cursor_size;
@@ -815,6 +823,9 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
 #endif
 	return 0;
 
+error_ism_fini:
+	amdgpu_dm_ism_fini(&acrtc->ism);
+	drm_crtc_cleanup(&acrtc->base);
 fail:
 	kfree(acrtc);
 	kfree(cursor_plane);

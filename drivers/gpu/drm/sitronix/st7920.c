@@ -575,17 +575,17 @@ static void st7920_crtc_atomic_disable(struct drm_crtc *crtc,
 }
 
 /* Called during init to allocate the CRTC's atomic state. */
-static void st7920_crtc_reset(struct drm_crtc *crtc)
+static struct drm_crtc_state *st7920_crtc_create_state(struct drm_crtc *crtc)
 {
 	struct st7920_crtc_state *st7920_state;
 
-	drm_WARN_ON_ONCE(crtc->dev, crtc->state);
-
 	st7920_state = kzalloc_obj(*st7920_state);
 	if (!st7920_state)
-		return;
+		return ERR_PTR(-ENOMEM);
 
-	__drm_atomic_helper_crtc_reset(crtc, &st7920_state->base);
+	__drm_atomic_helper_crtc_state_init(&st7920_state->base, crtc);
+
+	return &st7920_state->base;
 }
 
 static struct drm_crtc_state *st7920_crtc_duplicate_state(struct drm_crtc *crtc)
@@ -629,7 +629,7 @@ static const struct drm_crtc_helper_funcs st7920_crtc_helper_funcs = {
 };
 
 static const struct drm_crtc_funcs st7920_crtc_funcs = {
-	.reset = st7920_crtc_reset,
+	.atomic_create_state = st7920_crtc_create_state,
 	.destroy = drm_crtc_cleanup,
 	.set_config = drm_atomic_helper_set_config,
 	.page_flip = drm_atomic_helper_page_flip,
