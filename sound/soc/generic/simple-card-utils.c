@@ -825,6 +825,16 @@ int simple_util_init_jack(struct snd_soc_card *card,
 }
 EXPORT_SYMBOL_GPL(simple_util_init_jack);
 
+void simple_util_remove_jack(struct simple_util_jack *sjack)
+{
+	if (!sjack->gpio.desc)
+		return;
+
+	snd_soc_jack_free_gpios(&sjack->jack, 1, &sjack->gpio);
+	sjack->gpio.desc = NULL;
+}
+EXPORT_SYMBOL_GPL(simple_util_remove_jack);
+
 int simple_util_init_aux_jacks(struct snd_soc_card *card, char *prefix)
 {
 	struct simple_util_priv *priv = snd_soc_card_get_drvdata(card);
@@ -1017,6 +1027,17 @@ end:
 	return simple_ret(priv, ret);
 }
 EXPORT_SYMBOL_GPL(graph_util_card_probe);
+
+int graph_util_card_remove(struct snd_soc_card *card)
+{
+	struct simple_util_priv *priv = snd_soc_card_get_drvdata(card);
+
+	simple_util_remove_jack(&priv->hp_jack);
+	simple_util_remove_jack(&priv->mic_jack);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(graph_util_card_remove);
 
 int graph_util_is_ports0(struct device_node *np)
 {
