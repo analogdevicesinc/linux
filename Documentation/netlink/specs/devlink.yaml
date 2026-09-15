@@ -176,6 +176,18 @@ definitions:
         name: fw-activate
   -
     type: enum
+    name: reload-limit
+    entries:
+      -
+        name: unspec
+        doc: no constraints
+      -
+        name: no-reset
+        doc: >-
+          No reset allowed, no down time allowed, no link flap and no
+          configuration is lost.
+  -
+    type: enum
     name: param-cmode
     entries:
       -
@@ -775,7 +787,7 @@ attribute-sets:
       -
         name: reload-limits
         type: bitfield32
-        enum: reload-action
+        enum: reload-limit
         enum-as-flags: true
       -
         name: dev-stats
@@ -793,6 +805,7 @@ attribute-sets:
       -
         name: reload-stats-limit
         type: u8
+        enum: reload-limit
       -
         name: reload-stats-value
         type: u32
