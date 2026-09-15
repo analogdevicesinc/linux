@@ -7397,6 +7397,8 @@ int intel_dp_get_lines_for_sdp(const struct intel_crtc_state *crtc_state, u32 ty
 		return 8;
 	case DP_SDP_PPS:
 		return 7;
+	case DP_SDP_VSC:
+		return 3;
 	case DP_SDP_ADAPTIVE_SYNC:
 		return crtc_state->vrr.vsync_start + 1;
 	default:
@@ -7427,6 +7429,11 @@ int intel_dp_sdp_min_guardband(const struct intel_crtc_state *crtc_state,
 	    intel_hdmi_infoframe_enable(DP_SDP_ADAPTIVE_SYNC))
 		sdp_guardband = max(sdp_guardband,
 				    intel_dp_get_lines_for_sdp(crtc_state, DP_SDP_ADAPTIVE_SYNC));
+
+	if (crtc_state->infoframes.enable &
+	    intel_hdmi_infoframe_enable(DP_SDP_VSC))
+		sdp_guardband = max(sdp_guardband,
+				    intel_dp_get_lines_for_sdp(crtc_state, DP_SDP_VSC));
 
 	return sdp_guardband;
 }
