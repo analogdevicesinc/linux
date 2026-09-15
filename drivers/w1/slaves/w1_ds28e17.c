@@ -101,7 +101,7 @@ static int w1_f19_i2c_busy_wait(struct w1_slave *sl, size_t count)
 		timebases[data->speed] * (data->stretch) * count
 		+ W1_F19_BUSY_GRATUITY);
 
-	/* Now continusly check the busy flag sent by the DS28E17. */
+	/* Now continuously check the busy flag sent by the DS28E17. */
 	checks = W1_F19_BUSY_CHECKS;
 	while ((checks--) > 0) {
 		/* Return success if the busy flag is cleared. */
