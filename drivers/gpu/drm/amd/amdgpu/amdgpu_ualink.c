@@ -162,13 +162,15 @@ amdgpu_ualink_info_set_accel_state(struct amdgpu_device *adev,
 				   struct amdgpu_ualink_info *info,
 				   enum psp_gfx_ual_config_state cfg_state)
 {
-	enum amdgpu_ualink_accel_state cur = info->accel_state;
+	enum amdgpu_ualink_accel_state cur;
 	enum amdgpu_ualink_accel_state target;
 	bool ppod_validated;
 	bool vpod_validated;
 
 	if (!info)
 		return;
+
+	cur = info->accel_state;
 
 	ppod_validated = cur >= AMDGPU_UALINK_ACCEL_STATE_PPOD_CONFIGURED &&
 			 cur <= AMDGPU_UALINK_ACCEL_STATE_ACTIVE;
