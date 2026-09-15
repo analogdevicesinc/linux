@@ -773,7 +773,9 @@ int cvmx_l2c_get_set_bits(void)
 
 	if (OCTEON_IS_MODEL(OCTEON_CN56XX) || OCTEON_IS_MODEL(OCTEON_CN58XX))
 		l2_set_bits = 11;	/* 2048 sets */
-	else if (OCTEON_IS_MODEL(OCTEON_CN38XX) || OCTEON_IS_MODEL(OCTEON_CN63XX))
+	else if (OCTEON_IS_MODEL(OCTEON_CN38XX) ||
+		 OCTEON_IS_MODEL(OCTEON_CN63XX) ||
+		 OCTEON_IS_MODEL(OCTEON_CN66XX))
 		l2_set_bits = 10;	/* 1024 sets */
 	else if (OCTEON_IS_MODEL(OCTEON_CN31XX) || OCTEON_IS_MODEL(OCTEON_CN52XX))
 		l2_set_bits = 9;	/* 512 sets */
@@ -805,7 +807,8 @@ int cvmx_l2c_get_num_assoc(void)
 	    OCTEON_IS_MODEL(OCTEON_CN50XX) ||
 	    OCTEON_IS_MODEL(OCTEON_CN38XX))
 		l2_assoc = 8;
-	else if (OCTEON_IS_MODEL(OCTEON_CN63XX))
+	else if (OCTEON_IS_MODEL(OCTEON_CN63XX) ||
+		 OCTEON_IS_MODEL(OCTEON_CN66XX))
 		l2_assoc = 16;
 	else if (OCTEON_IS_MODEL(OCTEON_CN31XX) ||
 		 OCTEON_IS_MODEL(OCTEON_CN30XX))
@@ -816,7 +819,7 @@ int cvmx_l2c_get_num_assoc(void)
 	}
 
 	/* Check to see if part of the cache is disabled */
-	if (OCTEON_IS_MODEL(OCTEON_CN63XX)) {
+	if (OCTEON_IS_MODEL(OCTEON_CN63XX) || OCTEON_IS_MODEL(OCTEON_CN66XX)) {
 		union cvmx_mio_fus_dat3 mio_fus_dat3;
 
 		mio_fus_dat3.u64 = cvmx_read_csr(CVMX_MIO_FUS_DAT3);
