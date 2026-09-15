@@ -1148,12 +1148,8 @@ The scsi_cmnd structure is defined in include/scsi/scsi_cmnd.h
 Locks
 =====
 Each struct Scsi_Host instance has a spin_lock called struct
-Scsi_Host::default_lock which is initialized in scsi_host_alloc() [found in
-hosts.c]. Within the same function the struct Scsi_Host::host_lock pointer
-is initialized to point at default_lock.  Thereafter lock and unlock
-operations performed by the mid level use the struct Scsi_Host::host_lock
-pointer.  Previously drivers could override the host_lock pointer but
-this is not allowed anymore.
+Scsi_Host::host_lock which is initialized in scsi_host_alloc() [found in
+hosts.c].
 
 
 Autosense

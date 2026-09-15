@@ -44,6 +44,7 @@
 #include <linux/debugfs.h>
 #include <linux/async.h>
 #include <linux/cleanup.h>
+#include <linux/parser.h>
 
 #include <net/checksum.h>
 
@@ -79,7 +80,7 @@ static const char *sdebug_version_date = "20210520";
  */
 #define DEF_ATO 1
 #define DEF_CDB_LEN 10
-#define DEF_JDELAY   1		/* if > 0 unit is a jiffy */
+#define DEF_JDELAY   0		/* if > 0 unit is a jiffy */
 #define DEF_DEV_SIZE_PRE_INIT   0
 #define DEF_DEV_SIZE_MB   8
 #define DEF_ZBC_DEV_SIZE_MB   128
@@ -106,6 +107,7 @@ static const char *sdebug_version_date = "20210520";
 #define DEF_PTYPE   TYPE_DISK
 #define DEF_RANDOM false
 #define DEF_REMOVABLE false
+#define DEF_CLUSTERING true
 #define DEF_SCSI_LEVEL   7    /* INQUIRY, byte2 [6->SPC-4; 7->SPC-5] */
 #define DEF_SECTOR_SIZE 512
 #define DEF_UNMAP_ALIGNMENT 0
@@ -217,8 +219,7 @@ struct tape_block {
  * /sys/class/scsi_device/<h:c:t:l>/device/queue_depth
  * but cannot exceed SDEBUG_CANQUEUE .
  */
-#define SDEBUG_CANQUEUE_WORDS  3	/* a WORD is bits in a long */
-#define SDEBUG_CANQUEUE  (SDEBUG_CANQUEUE_WORDS * BITS_PER_LONG)
+#define SDEBUG_CANQUEUE  (4096)
 #define DEF_CMD_PER_LUN  SDEBUG_CANQUEUE
 
 /* UA - Unit Attention; SA - Service Action; SSU - Start Stop Unit */
@@ -850,7 +851,7 @@ static int sdebug_num_hosts;
 static int sdebug_add_host = DEF_NUM_HOST;  /* in sysfs this is relative */
 static int sdebug_ato = DEF_ATO;
 static int sdebug_cdb_len = DEF_CDB_LEN;
-static int sdebug_jdelay = DEF_JDELAY;	/* if > 0 then unit is jiffies */
+static int sdebug_jdelay = DEF_JDELAY;
 static int sdebug_dev_size_mb = DEF_DEV_SIZE_PRE_INIT;
 static int sdebug_dif = DEF_DIF;
 static int sdebug_dix = DEF_DIX;
@@ -899,7 +900,7 @@ static int sdebug_uuid_ctl = DEF_UUID_CTL;
 static bool sdebug_random = DEF_RANDOM;
 static bool sdebug_per_host_store = DEF_PER_HOST_STORE;
 static bool sdebug_removable = DEF_REMOVABLE;
-static bool sdebug_clustering;
+static bool sdebug_clustering = DEF_CLUSTERING;
 static bool sdebug_host_lock = DEF_HOST_LOCK;
 static bool sdebug_strict = DEF_STRICT;
 static bool sdebug_no_rwlock;
@@ -1166,6 +1167,95 @@ static const struct file_operations sdebug_error_fops = {
 	.read	= seq_read,
 	.write	= sdebug_error_write,
 	.release = single_release,
+};
+
+enum corrupt_options {
+	Opt_lba			= (1u << 0),
+	Opt_num			= (1u << 1),
+	Opt_bit_errors		= (1u << 2),
+	Opt_reftag_adjust	= (1u << 3),
+
+	Opt_invalid,
+};
+
+static const match_table_t corrupt_tokens = {
+	{ Opt_lba,			"lba=%u"		},
+	{ Opt_num,			"num=%u"		},
+	{ Opt_bit_errors,		"bit_errors=%u"		},
+	{ Opt_reftag_adjust,		"reftag_adjust=%d"	},
+	{ Opt_invalid,			NULL,			},
+};
+
+static int corrupt_lbas(struct sdebug_dev_info *devip, u64 lba, u32 num,
+		u32 nr_bit_errors, s32 reftag_adjust);
+static ssize_t sdebug_corrupt_write(struct file *file, const char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	struct scsi_device *sdev = file->f_inode->i_private;
+	struct sdebug_dev_info *devip = sdev->hostdata;
+	substring_t args[MAX_OPT_ARGS];
+	char *buf, *options, *p;
+	int error = 0;
+	u64 lba = 0;
+	u32 num = 1;
+	u32 nr_bit_errors = 0;
+	s32 reftag_adjust = 0;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+
+	options = buf;
+	while ((p = strsep(&options, ",\n")) != NULL) {
+		if (!*p)
+			continue;
+		switch (match_token(p, corrupt_tokens, args)) {
+		case Opt_lba:
+			error = match_u64(args, &lba);
+			break;
+		case Opt_num:
+			error = match_uint(args, &num);
+			break;
+		case Opt_bit_errors:
+			error = match_uint(args, &nr_bit_errors);
+			break;
+		case Opt_reftag_adjust:
+			error = match_int(args, &reftag_adjust);
+			break;
+		default:
+			pr_warn("unknown parameter or missing value '%s'\n", p);
+			error = -EINVAL;
+		}
+		if (error)
+			goto out_free_buf;
+	}
+
+	if (num == 0) {
+		pr_warn("invalid number of logical blocks: %u\n", num);
+		error = -EINVAL;
+		goto out_free_buf;
+	}
+
+	if (reftag_adjust &&
+	    (!sdebug_dix ||
+	     (sdebug_dif != T10_PI_TYPE1_PROTECTION &&
+	      sdebug_dif != T10_PI_TYPE2_PROTECTION))) {
+		pr_warn("reftag adjust requires type 1 or type 2 PI with DIX\n");
+		error = -EINVAL;
+		goto out_free_buf;
+	}
+
+	error = corrupt_lbas(devip, lba, num, nr_bit_errors, reftag_adjust);
+
+out_free_buf:
+	kfree(buf);
+	if (error)
+		return error;
+	return count;
+}
+
+static const struct file_operations sdebug_corrupt_fops = {
+	.write		= sdebug_corrupt_write,
 };
 
 static int sdebug_target_reset_fail_show(struct seq_file *m, void *p)
@@ -4862,6 +4952,82 @@ static int resp_write_tape(struct scsi_cmnd *scp, struct sdebug_dev_info *devip)
 	return 0;
 }
 
+static int corrupt_lbas(struct sdebug_dev_info *devip, u64 lba, u32 num,
+		u32 nr_bit_errors, s32 reftag_adjust)
+{
+	struct sdeb_store_info *sip = devip2sip(devip, false);
+	bool meta_data_locked = false;
+	u32 block, num_mapped, b, i;
+	int error = 0;
+
+	if (sdebug_dev_is_zoned(devip) ||
+	    sdebug_dix ||
+	    scsi_debug_lbp())  {
+		sdeb_meta_write_lock(sip);
+		meta_data_locked = true;
+	}
+
+	if (!sip) {
+		pr_err("can't corrupt with fake_rw\n");
+		error = -EINVAL;
+		goto out_unlock;
+	}
+
+	if (num > sdebug_capacity || lba > sdebug_capacity - num) {
+		pr_err("logical blocks out of bounds: %llu:%u", lba, num);
+		error = -EINVAL;
+		goto out_unlock;
+	}
+
+	if (scsi_debug_lbp() &&
+	    (!map_state(sip, lba, &num_mapped) || num > num_mapped)) {
+		pr_err("can't modify unmapped logical blocks: %llu:%u",
+			lba, num);
+		error = -EINVAL;
+		goto out_unlock;
+	}
+
+	/*
+	 * For each possible bit error, flip the same bit in each corrupted
+	 * block to simulate repeated patterns like errors in cables.
+	 */
+	sdeb_data_lock(sip, false);
+	for (b = 0; b < nr_bit_errors; b++) {
+		unsigned int bit;
+
+		bit = get_random_u32_below(sdebug_sector_size * BITS_PER_BYTE);
+		pr_info("flipping bit %u in LBAs %llu:%llu\n",
+				bit, lba, lba + num - 1);
+
+		div_u64_rem(lba, sdebug_store_sectors, &block);
+		for (i = 0; i < num; i++) {
+			u8 *p = sip->storep + (block * sdebug_sector_size);
+
+			sdeb_data_sector_lock(sip, true);
+			p[bit / BITS_PER_BYTE] ^= (1 << (bit % BITS_PER_BYTE));
+			sdeb_data_sector_unlock(sip, true);
+			if (++block >= sdebug_store_sectors)
+				block = 0;
+		}
+	}
+
+	if (reftag_adjust) {
+		pr_info("adjusting reftag by %d sectors for LBAs %llu:%llu\n",
+			reftag_adjust, lba, lba + num - 1);
+		for (i = 0; i < num; i++) {
+			struct t10_pi_tuple *sdt = dif_store(sip, lba + i);
+
+			be32_add_cpu(&sdt->ref_tag, reftag_adjust);
+		}
+	}
+	sdeb_data_unlock(sip, false);
+
+out_unlock:
+	if (meta_data_locked)
+		sdeb_meta_write_unlock(sip);
+	return error;
+}
+
 static int resp_write_dt0(struct scsi_cmnd *scp, struct sdebug_dev_info *devip)
 {
 	bool check_prot;
@@ -6628,6 +6794,8 @@ static int scsi_debug_sdev_configure(struct scsi_device *sdp,
 	if (IS_ERR_OR_NULL(dentry))
 		pr_info("failed to create error file for device %s\n",
 			dev_name(&sdp->sdev_gendev));
+	debugfs_create_file("corrupt", 0600, devip->debugfs_entry, sdp,
+				&sdebug_corrupt_fops);
 
 	return 0;
 }
@@ -7373,8 +7541,8 @@ MODULE_VERSION(SDEBUG_VERSION);
 MODULE_PARM_DESC(add_host, "add n hosts, in sysfs if negative remove host(s) (def=1)");
 MODULE_PARM_DESC(ato, "application tag ownership: 0=disk 1=host (def=1)");
 MODULE_PARM_DESC(cdb_len, "suggest CDB lengths to drivers (def=10)");
-MODULE_PARM_DESC(clustering, "when set enables larger transfers (def=0)");
-MODULE_PARM_DESC(delay, "response delay (def=1 jiffy); 0:imm, -1,-2:tiny");
+MODULE_PARM_DESC(clustering, "when set enables larger transfers (def=1)");
+MODULE_PARM_DESC(delay, "response delay (def=0 jiffy); 0:imm, -1,-2:tiny");
 MODULE_PARM_DESC(dev_size_mb, "size in MiB of ram shared by devs(def=8)");
 MODULE_PARM_DESC(dif, "data integrity field type: 0-3 (def=0)");
 MODULE_PARM_DESC(dix, "data integrity extensions mask (def=0)");
