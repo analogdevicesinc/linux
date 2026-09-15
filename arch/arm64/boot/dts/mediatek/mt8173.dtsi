@@ -1291,7 +1291,7 @@
 			clocks = <&mmsys CLK_MM_MUTEX_32K>;
 			mediatek,gce-client-reg = <&gce SUBSYS_1402XXXX 0 0x1000>;
 			mediatek,gce-events = <CMDQ_EVENT_MUTEX0_STREAM_EOF>,
-                                              <CMDQ_EVENT_MUTEX1_STREAM_EOF>;
+					      <CMDQ_EVENT_MUTEX1_STREAM_EOF>;
 		};
 
 		larb0: larb@14021000 {
