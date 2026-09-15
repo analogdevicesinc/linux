@@ -1461,7 +1461,7 @@
 			assigned-clock-rates = <81600000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x702d0000 0x702d0000 0x0000e400>;
+			ranges = <0x702d0000 0x702d0000 0x00010000>;
 			status = "disabled";
 
 			tegra_admaif: admaif@702d0000 {
@@ -2164,12 +2164,12 @@
 			};
 
 			cooling-maps {
-				dram-passive {
+				map-passive {
 					cooling-device = <&emc 0 0>;
 					trip = <&dram_nominal>;
 				};
 
-				dram-active {
+				map-active {
 					cooling-device = <&emc 1 1>;
 					trip = <&dram_throttle>;
 				};

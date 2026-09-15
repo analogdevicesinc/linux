@@ -39,4 +39,36 @@
 			status = "okay";
 		};
 	};
+
+	thermal-zones {
+		cpu-thermal {
+			polling-delay-passive = <40>;
+			polling-delay = <1000>;
+			status = "okay";
+		};
+
+		gpu-thermal {
+			polling-delay-passive = <40>;
+			polling-delay = <1000>;
+			status = "okay";
+		};
+
+		soc012-thermal {
+			polling-delay-passive = <40>;
+			polling-delay = <1000>;
+			status = "okay";
+		};
+
+		soc345-thermal {
+			polling-delay-passive = <40>;
+			polling-delay = <1000>;
+			status = "okay";
+		};
+
+		tj-thermal {
+			polling-delay-passive = <40>;
+			polling-delay = <1000>;
+			status = "okay";
+		};
+	};
 };
