@@ -171,7 +171,6 @@ static void qcom_geni_serial_cancel_tx_cmd(struct uart_port *uport);
 static int qcom_geni_serial_port_setup(struct uart_port *uport);
 static void qcom_geni_serial_start_tx_fifo(struct uart_port *uport);
 static void qcom_geni_serial_resume_tx(struct uart_port *uport);
-static void qcom_geni_serial_poll_rx_fifo_locked(struct uart_port *uport);
 
 static inline struct qcom_geni_serial_port *to_dev_port(struct uart_port *uport)
 {
@@ -467,6 +466,102 @@ static int qcom_geni_serial_poll_init(struct uart_port *uport)
 #endif
 
 #ifdef CONFIG_SERIAL_QCOM_GENI_CONSOLE
+static void handle_rx_console(struct uart_port *uport, u32 bytes, bool drop)
+{
+	u32 i;
+	unsigned char buf[sizeof(u32)];
+	struct tty_port *tport;
+	struct qcom_geni_serial_port *port = to_dev_port(uport);
+
+	tport = &uport->state->port;
+	for (i = 0; i < bytes; ) {
+		int c;
+		int chunk = min_t(int, bytes - i, BYTES_PER_FIFO_WORD);
+
+		ioread32_rep(uport->membase + SE_GENI_RX_FIFOn, buf, 1);
+		i += chunk;
+		if (drop)
+			continue;
+
+		for (c = 0; c < chunk; c++) {
+			int sysrq;
+
+			uport->icount.rx++;
+			if (port->brk && buf[c] == 0) {
+				port->brk = false;
+				if (uart_handle_break(uport))
+					continue;
+			}
+
+			sysrq = uart_prepare_sysrq_char(uport, buf[c]);
+
+			if (!sysrq)
+				tty_insert_flip_char(tport, buf[c], TTY_NORMAL);
+		}
+	}
+	if (!drop)
+		tty_flip_buffer_push(tport);
+}
+#else
+static void handle_rx_console(struct uart_port *uport, u32 bytes, bool drop)
+{
+
+}
+#endif
+
+static void qcom_geni_serial_handle_rx_fifo(struct uart_port *uport, bool drop)
+{
+	u32 status;
+	u32 word_cnt;
+	u32 last_word_byte_cnt;
+	u32 last_word_partial;
+	u32 total_bytes;
+
+	status = readl(uport->membase +	SE_GENI_RX_FIFO_STATUS);
+	word_cnt = status & RX_FIFO_WC_MSK;
+	last_word_partial = status & RX_LAST;
+	last_word_byte_cnt = (status & RX_LAST_BYTE_VALID_MSK) >>
+						RX_LAST_BYTE_VALID_SHFT;
+
+	if (!word_cnt)
+		return;
+	total_bytes = BYTES_PER_FIFO_WORD * (word_cnt - 1);
+	if (last_word_partial && last_word_byte_cnt)
+		total_bytes += last_word_byte_cnt;
+	else
+		total_bytes += BYTES_PER_FIFO_WORD;
+	handle_rx_console(uport, total_bytes, drop);
+}
+
+#ifdef CONFIG_SERIAL_QCOM_GENI_CONSOLE
+/* Caller holds the UART port lock. */
+static void qcom_geni_serial_poll_rx_fifo_locked(struct uart_port *uport)
+{
+	struct qcom_geni_serial_port *port = to_dev_port(uport);
+	struct tty_port *tport = &uport->state->port;
+	u32 s_irq_status;
+	bool drop_rx = false;
+
+	s_irq_status = readl(uport->membase + SE_GENI_S_IRQ_STATUS);
+	writel(s_irq_status, uport->membase + SE_GENI_S_IRQ_CLEAR);
+
+	if (s_irq_status & S_RX_FIFO_WR_ERR_EN) {
+		uport->icount.overrun++;
+		tty_insert_flip_char(tport, 0, TTY_OVERRUN);
+	}
+
+	if (s_irq_status & (S_GP_IRQ_0_EN | S_GP_IRQ_1_EN)) {
+		if (s_irq_status & S_GP_IRQ_0_EN)
+			uport->icount.parity++;
+		drop_rx = true;
+	} else if (s_irq_status & (S_GP_IRQ_2_EN | S_GP_IRQ_3_EN)) {
+		uport->icount.brk++;
+		port->brk = true;
+	}
+
+	qcom_geni_serial_handle_rx_fifo(uport, drop_rx);
+}
+
 static void qcom_geni_serial_drain_fifo(struct uart_port *uport)
 {
 	struct qcom_geni_serial_port *port = to_dev_port(uport);
@@ -676,47 +771,6 @@ static void qcom_geni_serial_console_device_unlock(struct console *co,
 #endif
 }
 
-static void handle_rx_console(struct uart_port *uport, u32 bytes, bool drop)
-{
-	u32 i;
-	unsigned char buf[sizeof(u32)];
-	struct tty_port *tport;
-	struct qcom_geni_serial_port *port = to_dev_port(uport);
-
-	tport = &uport->state->port;
-	for (i = 0; i < bytes; ) {
-		int c;
-		int chunk = min_t(int, bytes - i, BYTES_PER_FIFO_WORD);
-
-		ioread32_rep(uport->membase + SE_GENI_RX_FIFOn, buf, 1);
-		i += chunk;
-		if (drop)
-			continue;
-
-		for (c = 0; c < chunk; c++) {
-			int sysrq;
-
-			uport->icount.rx++;
-			if (port->brk && buf[c] == 0) {
-				port->brk = false;
-				if (uart_handle_break(uport))
-					continue;
-			}
-
-			sysrq = uart_prepare_sysrq_char(uport, buf[c]);
-
-			if (!sysrq)
-				tty_insert_flip_char(tport, buf[c], TTY_NORMAL);
-		}
-	}
-	if (!drop)
-		tty_flip_buffer_push(tport);
-}
-#else
-static void handle_rx_console(struct uart_port *uport, u32 bytes, bool drop)
-{
-
-}
 #endif /* CONFIG_SERIAL_QCOM_GENI_CONSOLE */
 
 static void handle_rx_uart(struct uart_port *uport, u32 bytes)
@@ -888,58 +942,6 @@ static void qcom_geni_serial_cancel_tx_cmd(struct uart_port *uport)
 
 	port->tx_remaining = 0;
 	port->tx_queued = 0;
-}
-
-static void qcom_geni_serial_handle_rx_fifo(struct uart_port *uport, bool drop)
-{
-	u32 status;
-	u32 word_cnt;
-	u32 last_word_byte_cnt;
-	u32 last_word_partial;
-	u32 total_bytes;
-
-	status = readl(uport->membase +	SE_GENI_RX_FIFO_STATUS);
-	word_cnt = status & RX_FIFO_WC_MSK;
-	last_word_partial = status & RX_LAST;
-	last_word_byte_cnt = (status & RX_LAST_BYTE_VALID_MSK) >>
-						RX_LAST_BYTE_VALID_SHFT;
-
-	if (!word_cnt)
-		return;
-	total_bytes = BYTES_PER_FIFO_WORD * (word_cnt - 1);
-	if (last_word_partial && last_word_byte_cnt)
-		total_bytes += last_word_byte_cnt;
-	else
-		total_bytes += BYTES_PER_FIFO_WORD;
-	handle_rx_console(uport, total_bytes, drop);
-}
-
-/* Caller holds the UART port lock. */
-static void qcom_geni_serial_poll_rx_fifo_locked(struct uart_port *uport)
-{
-	struct qcom_geni_serial_port *port = to_dev_port(uport);
-	struct tty_port *tport = &uport->state->port;
-	u32 s_irq_status;
-	bool drop_rx = false;
-
-	s_irq_status = readl(uport->membase + SE_GENI_S_IRQ_STATUS);
-	writel(s_irq_status, uport->membase + SE_GENI_S_IRQ_CLEAR);
-
-	if (s_irq_status & S_RX_FIFO_WR_ERR_EN) {
-		uport->icount.overrun++;
-		tty_insert_flip_char(tport, 0, TTY_OVERRUN);
-	}
-
-	if (s_irq_status & (S_GP_IRQ_0_EN | S_GP_IRQ_1_EN)) {
-		if (s_irq_status & S_GP_IRQ_0_EN)
-			uport->icount.parity++;
-		drop_rx = true;
-	} else if (s_irq_status & (S_GP_IRQ_2_EN | S_GP_IRQ_3_EN)) {
-		uport->icount.brk++;
-		port->brk = true;
-	}
-
-	qcom_geni_serial_handle_rx_fifo(uport, drop_rx);
 }
 
 static void qcom_geni_serial_stop_rx_fifo(struct uart_port *uport)
