@@ -53,7 +53,7 @@ const adi_apollo_gpio_hop_terminal_t ADI_APOLLO_GPIO_HOP_TERMINAL_6 = {{16, 17}}
 /*==================== P U B L I C   A P I   C O D E ====================*/
 int32_t adi_apollo_gpio_hop_profile_configure(adi_apollo_device_t *device, const adi_apollo_gpio_hop_profile_t *config)
 {
-    int32_t err;
+    int32_t err = API_CMS_ERROR_OK;
     uint8_t i;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -61,7 +61,7 @@ int32_t adi_apollo_gpio_hop_profile_configure(adi_apollo_device_t *device, const
     ADI_APOLLO_NULL_POINTER_RETURN(config);
 
     for (i = 0; i < ADI_APOLLO_GPIO_HOP_PROFILE_BIT_NUMBER; i++) {
-        if (config->index[i] != ADI_APOLLO_GPIO_HOP_IDX_NONE) {
+        if (config->index[i] != (uint8_t)ADI_APOLLO_GPIO_HOP_IDX_NONE) {
             err = adi_apollo_gpio_cmos_func_mode_set(device, config->index[i], calc_profile_func_mode(i));
             ADI_APOLLO_ERROR_RETURN(err);
         }
@@ -83,7 +83,7 @@ int32_t adi_apollo_gpio_hop_profile_calc(adi_apollo_device_t *device, const adi_
     *value = (uint64_t)0;
 
     for (i = 0; i < ADI_APOLLO_GPIO_HOP_PROFILE_BIT_NUMBER; i++) {
-        if (config->index[i] != ADI_APOLLO_GPIO_HOP_IDX_NONE) {
+        if (config->index[i] != (uint8_t)ADI_APOLLO_GPIO_HOP_IDX_NONE) {
             *mask |= ((uint64_t)1 << config->index[i]);
             if ((profile & (1 << i)) > 0) {
                 *value |= ((uint64_t)1 << config->index[i]);
@@ -110,7 +110,7 @@ int32_t adi_apollo_gpio_hop_profile_qc_calc(adi_apollo_device_t *device, adi_apo
 
 int32_t adi_apollo_gpio_hop_block_configure(adi_apollo_device_t *device, const adi_apollo_gpio_hop_block_t *config)
 {
-    int32_t err;
+    int32_t err = API_CMS_ERROR_OK;
     uint8_t i;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -118,7 +118,7 @@ int32_t adi_apollo_gpio_hop_block_configure(adi_apollo_device_t *device, const a
     ADI_APOLLO_NULL_POINTER_RETURN(config);
 
     for (i = 0; i < ADI_APOLLO_GPIO_HOP_BLOCK_BIT_NUMBER; i++) {
-        if (config->index[i] != ADI_APOLLO_GPIO_HOP_IDX_NONE) {
+        if (config->index[i] != (uint8_t)ADI_APOLLO_GPIO_HOP_IDX_NONE) {
             err = adi_apollo_gpio_cmos_func_mode_set(device, config->index[i], calc_block_func_mode(i));
             ADI_APOLLO_ERROR_RETURN(err);
         }
@@ -140,7 +140,7 @@ int32_t adi_apollo_gpio_hop_block_calc(adi_apollo_device_t *device, const adi_ap
     *value = (uint64_t)0;
 
     for (i = 0; i < ADI_APOLLO_GPIO_HOP_BLOCK_BIT_NUMBER; i++) {
-        if (config->index[i] != ADI_APOLLO_GPIO_HOP_IDX_NONE) {
+        if (config->index[i] != (uint8_t)ADI_APOLLO_GPIO_HOP_IDX_NONE) {
             *mask |= ((uint64_t)1 << config->index[i]);
             if ((block & (1 << i)) > 0) {
                 *value |= ((uint64_t)1 << config->index[i]);
@@ -192,7 +192,7 @@ int32_t adi_apollo_gpio_hop_side_calc(adi_apollo_device_t *device, const adi_apo
     *value = (uint64_t)0;
 
     for (i = 0; i < ADI_APOLLO_GPIO_HOP_SIDE_BIT_NUMBER; i++) {
-        if (config->index[i] != ADI_APOLLO_GPIO_HOP_IDX_NONE) {
+        if (config->index[i] != (uint8_t)ADI_APOLLO_GPIO_HOP_IDX_NONE) {
             *mask |= ((uint64_t)1 << config->index[i]);
             if (side == ADI_APOLLO_SIDE_B) {
                 *value |= ((uint64_t)1 << config->index[i]);
@@ -219,7 +219,7 @@ int32_t adi_apollo_gpio_hop_side_qc_calc(adi_apollo_device_t *device, adi_apollo
 
 int32_t adi_apollo_gpio_hop_slice_configure(adi_apollo_device_t *device, const adi_apollo_gpio_hop_slice_t *config)
 {
-    int32_t err;
+    int32_t err = API_CMS_ERROR_OK;
     uint8_t i;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -227,7 +227,7 @@ int32_t adi_apollo_gpio_hop_slice_configure(adi_apollo_device_t *device, const a
     ADI_APOLLO_NULL_POINTER_RETURN(config);
 
     for (i = 0; i < ADI_APOLLO_GPIO_HOP_SLICE_BIT_NUMBER; i++) {
-        if (config->index[i] != ADI_APOLLO_GPIO_HOP_IDX_NONE) {
+        if (config->index[i] != (uint8_t)ADI_APOLLO_GPIO_HOP_IDX_NONE) {
             err = adi_apollo_gpio_cmos_func_mode_set(device, config->index[i], calc_slice_func_mode(i));
             ADI_APOLLO_ERROR_RETURN(err);
         }
@@ -249,7 +249,7 @@ int32_t adi_apollo_gpio_hop_slice_calc(adi_apollo_device_t *device, const adi_ap
     *value = (uint64_t)0;
 
     for (i = 0; i < ADI_APOLLO_GPIO_HOP_SLICE_BIT_NUMBER; i++) {
-        if (config->index[i] != ADI_APOLLO_GPIO_HOP_IDX_NONE) {
+        if (config->index[i] != (uint8_t)ADI_APOLLO_GPIO_HOP_IDX_NONE) {
             *mask |= ((uint64_t)1 << config->index[i]);
             if ((slice & (1 << i)) > 0) {
                 *value |= ((uint64_t)1 << config->index[i]);
@@ -275,7 +275,7 @@ int32_t adi_apollo_gpio_hop_slice_qc_calc(adi_apollo_device_t *device, adi_apoll
 
 int32_t adi_apollo_gpio_hop_terminal_configure(adi_apollo_device_t *device, const adi_apollo_gpio_hop_terminal_t *config)
 {
-    int32_t err;
+    int32_t err = API_CMS_ERROR_OK;
     uint8_t i;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -283,7 +283,7 @@ int32_t adi_apollo_gpio_hop_terminal_configure(adi_apollo_device_t *device, cons
     ADI_APOLLO_NULL_POINTER_RETURN(config);
 
     for (i = 0; i < ADI_APOLLO_GPIO_HOP_TERMINAL_BIT_NUMBER; i++) {
-        if (config->index[i] != ADI_APOLLO_GPIO_HOP_IDX_NONE) {
+        if (config->index[i] != (uint8_t)ADI_APOLLO_GPIO_HOP_IDX_NONE) {
             err = adi_apollo_gpio_cmos_func_mode_set(device, config->index[i], calc_term_func_mode(i));
             ADI_APOLLO_ERROR_RETURN(err);
         }
@@ -305,7 +305,7 @@ int32_t adi_apollo_gpio_hop_terminal_calc(adi_apollo_device_t *device, const adi
     *value = (uint64_t)0;
 
     for (i = 0; i < ADI_APOLLO_GPIO_HOP_TERMINAL_BIT_NUMBER; i++) {
-        if (config->index[i] != ADI_APOLLO_GPIO_HOP_IDX_NONE) {
+        if (config->index[i] != (uint8_t)ADI_APOLLO_GPIO_HOP_IDX_NONE) {
             *mask |= ((uint64_t)1 << config->index[i]);
             if ((terminal & (1 << i)) > 0) {
                 *value |= ((uint64_t)1 << config->index[i]);

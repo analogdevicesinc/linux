@@ -548,7 +548,7 @@ static int32_t hsci_regio_poll_read(adi_apollo_hal_regio_hsci_desc_t *desc, uint
 
     *data = 0;
 
-    return hsci_poll_read(desc, reg, (uint32_t *)data, timeout_us, reg_expect, reg_mask, ADI_APOLLO_HAL_REGIO_HSCI_BUS_SIZE_D8);
+    return hsci_poll_read(desc, reg, (uint32_t *)data, ADI_APOLLO_HAL_REGIO_HSCI_BUS_SIZE_D8, timeout_us, reg_expect, reg_mask);
 }
 
 static int32_t hsci_regio_read_bf(adi_apollo_hal_regio_hsci_desc_t *desc, uint32_t reg, uint8_t *data, uint32_t data_len_bytes, uint64_t mask)

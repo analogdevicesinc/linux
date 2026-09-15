@@ -153,17 +153,17 @@ struct ad9088_clock {
 
 struct _ad9088_ffh {
 	struct {
-		u8 index[ADI_APOLLO_NUM_SIDES * ADI_APOLLO_FNCO_NUM];
-		u64 frequency[ADI_APOLLO_FNCO_PROFILE_NUM];
-		u8 select[ADI_APOLLO_NUM_SIDES * ADI_APOLLO_FNCO_NUM];
-		bool en[ADI_APOLLO_NUM_SIDES * ADI_APOLLO_FNCO_NUM];
-		u8 mode[ADI_APOLLO_FNCO_PROFILE_NUM];
+		u8 index[ADI_APOLLO_FNCO_NUM];
+		u64 frequency[ADI_APOLLO_FNCO_NUM][ADI_APOLLO_FNCO_PROFILE_NUM];
+		u8 select[ADI_APOLLO_FNCO_NUM];
+		bool en[ADI_APOLLO_FNCO_NUM];
+		u8 mode[ADI_APOLLO_FNCO_NUM];
 	} fnco;
 	struct {
-		u8 index[ADI_APOLLO_NUM_SIDES * ADI_APOLLO_CNCO_NUM];
-		u64 frequency[ADI_APOLLO_CNCO_PROFILE_NUM];
-		u8 select[ADI_APOLLO_NUM_SIDES * ADI_APOLLO_CNCO_NUM];
-		u8 mode[ADI_APOLLO_CNCO_PROFILE_NUM];
+		u8 index[ADI_APOLLO_CNCO_NUM];
+		u64 frequency[ADI_APOLLO_CNCO_NUM][ADI_APOLLO_CNCO_PROFILE_NUM];
+		u8 select[ADI_APOLLO_CNCO_NUM];
+		u8 mode[ADI_APOLLO_CNCO_NUM];
 	} cnco;
 };
 
@@ -385,6 +385,7 @@ int adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy, u64 freq, s64 nco_shift, u32
 const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
 						  const struct iio_chan_spec *chan);
 int ad9088_ffh_probe(struct ad9088_phy *phy);
+int ad9088_ffh_gpio_hop_pins_configure(struct ad9088_phy *phy, bool reapply);
 ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev, uintptr_t private,
 				 const struct iio_chan_spec *chan, char *buf);
 ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,

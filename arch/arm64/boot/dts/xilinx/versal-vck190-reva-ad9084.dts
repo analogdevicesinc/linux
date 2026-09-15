@@ -749,9 +749,13 @@
 
 		// adi,cddc-bmem-sample-delay-en;
 		// adi,fddc-bmem-sample-delay-en;
+		adi,gpio-quick-config = <1>; // ADI_APOLLO_QUICK_CFG_PROFILE_1
 
-		/* GPIO frequency hopping configuration (optional) */
-		//adi,gpio-hop-profile = <19 20 21 22 23>;
-		//adi,gpio-hop-block = <15 16 17 18>;
+		/* GPIO frequency hopping configuration (axi_gpio offset +15) */
+		adi,gpio-hop-terminal = <17 18>;
+		adi,gpio-hop-slice = <19 20 21>;
+		adi,gpio-hop-side = <22>;
+		adi,gpio-hop-block = <23 24 25 15>;
+		adi,gpio-hop-profile = <26 27 28 29 30>;
 	};
 };

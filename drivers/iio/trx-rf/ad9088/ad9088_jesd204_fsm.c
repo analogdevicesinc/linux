@@ -768,6 +768,12 @@ static int ad9088_jesd204_post_setup_stage1(struct jesd204_dev *jdev,
 		dev_info(dev, "MCS Initcal Status: %s\n", phy->dbuf);
 	}
 
+	ret = ad9088_ffh_gpio_hop_pins_configure(phy, true);
+	if (ret) {
+		dev_err(dev, "Failed to re-apply GPIO hop pin mapping after MCS\n");
+		return ret;
+	}
+
 	return JESD204_STATE_CHANGE_DONE;
 }
 
