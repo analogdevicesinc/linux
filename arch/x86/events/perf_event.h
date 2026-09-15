@@ -147,6 +147,199 @@ static inline bool is_acr_self_reload_event(struct perf_event *event)
 	return test_bit(hwc->idx, (unsigned long *)&hwc->config1);
 }
 
+static inline bool __event_needs_xmm(struct perf_event *event, u64 sample_type)
+{
+	if (event->attr.sample_simd_regs_enabled) {
+		if (event->attr.sample_simd_vec_reg_qwords < PERF_X86_XMM_QWORDS)
+			return false;
+
+		if ((sample_type & PERF_SAMPLE_REGS_USER) &&
+		    (event->attr.sample_type & PERF_SAMPLE_REGS_USER) &&
+		    (event->attr.sample_simd_vec_reg_user > 0))
+			return true;
+
+		if ((sample_type & PERF_SAMPLE_REGS_INTR) &&
+		    (event->attr.sample_type & PERF_SAMPLE_REGS_INTR) &&
+		    (event->attr.sample_simd_vec_reg_intr > 0))
+			return true;
+	} else {
+		if ((sample_type & PERF_SAMPLE_REGS_USER) &&
+		    (event->attr.sample_type & PERF_SAMPLE_REGS_USER) &&
+		    (event->attr.sample_regs_user & PERF_REG_EXTENDED_MASK))
+			return true;
+
+		if ((sample_type & PERF_SAMPLE_REGS_INTR) &&
+		    (event->attr.sample_type & PERF_SAMPLE_REGS_INTR) &&
+		    (event->attr.sample_regs_intr & PERF_REG_EXTENDED_MASK))
+			return true;
+	}
+
+	return false;
+}
+
+static inline bool event_needs_xmm(struct perf_event *event)
+{
+	return __event_needs_xmm(event,
+			PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER);
+}
+
+static inline bool __event_needs_ymm(struct perf_event *event, u64 sample_type)
+{
+	if (!event->attr.sample_simd_regs_enabled)
+		return false;
+	if (event->attr.sample_simd_vec_reg_qwords < PERF_X86_YMM_QWORDS)
+		return false;
+
+	if ((sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_simd_vec_reg_user > 0))
+		return true;
+
+	if ((sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_simd_vec_reg_intr > 0))
+		return true;
+
+	return false;
+}
+
+static inline bool event_needs_ymm(struct perf_event *event)
+{
+	return __event_needs_ymm(event,
+			PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER);
+}
+
+static inline bool __event_needs_low16_zmm(struct perf_event *event,
+					   u64 sample_type)
+{
+	if (!event->attr.sample_simd_regs_enabled)
+		return false;
+	if (event->attr.sample_simd_vec_reg_qwords < PERF_X86_ZMM_QWORDS)
+		return false;
+
+	if ((sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_simd_vec_reg_user > 0))
+		return true;
+
+	if ((sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_simd_vec_reg_intr > 0))
+		return true;
+
+	return false;
+}
+
+static inline bool event_needs_low16_zmm(struct perf_event *event)
+{
+	return __event_needs_low16_zmm(event,
+			PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER);
+}
+
+static inline bool __event_needs_high16_zmm(struct perf_event *event,
+					    u64 sample_type)
+{
+	if (!event->attr.sample_simd_regs_enabled)
+		return false;
+	if (event->attr.sample_simd_vec_reg_qwords < PERF_X86_ZMM_QWORDS)
+		return false;
+
+	if ((sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (fls64(event->attr.sample_simd_vec_reg_user) > PERF_X86_H16ZMM_BASE))
+		return true;
+
+	if ((sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (fls64(event->attr.sample_simd_vec_reg_intr) > PERF_X86_H16ZMM_BASE))
+		return true;
+
+	return false;
+}
+
+static inline bool event_needs_high16_zmm(struct perf_event *event)
+{
+	return __event_needs_high16_zmm(event,
+			PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER);
+}
+
+static inline bool __event_needs_opmask(struct perf_event *event,
+					u64 sample_type)
+{
+	if (!event->attr.sample_simd_regs_enabled)
+		return false;
+	if (event->attr.sample_simd_pred_reg_qwords != PERF_X86_OPMASK_QWORDS)
+		return false;
+
+	if ((sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_simd_pred_reg_user > 0))
+		return true;
+
+	if ((sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_simd_pred_reg_intr > 0))
+		return true;
+
+	return false;
+}
+
+static inline bool event_needs_opmask(struct perf_event *event)
+{
+	return __event_needs_opmask(event,
+			PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER);
+}
+
+static inline bool __event_needs_egprs(struct perf_event *event,
+				       u64 sample_type)
+{
+	if (!event->attr.sample_simd_regs_enabled)
+		return false;
+
+	if ((sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_regs_user & PERF_X86_EGPRS_MASK))
+		return true;
+
+	if ((sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_regs_intr & PERF_X86_EGPRS_MASK))
+		return true;
+
+	return false;
+}
+
+static inline bool event_needs_egprs(struct perf_event *event)
+{
+	return __event_needs_egprs(event,
+			PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER);
+}
+
+static inline bool __event_needs_ssp(struct perf_event *event,
+				     u64 sample_type)
+{
+	if (!event->attr.sample_simd_regs_enabled)
+		return false;
+
+	if ((sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_USER) &&
+	    (event->attr.sample_regs_user & BIT_ULL(PERF_REG_X86_SSP)))
+		return true;
+
+	if ((sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_type & PERF_SAMPLE_REGS_INTR) &&
+	    (event->attr.sample_regs_intr & BIT_ULL(PERF_REG_X86_SSP)))
+		return true;
+
+	return false;
+}
+
+static inline bool event_needs_ssp(struct perf_event *event)
+{
+	return __event_needs_ssp(event,
+			PERF_SAMPLE_REGS_INTR | PERF_SAMPLE_REGS_USER);
+}
+
 struct amd_nb {
 	int nb_id;  /* NorthBridge id */
 	int refcnt; /* reference count */
@@ -952,7 +1145,7 @@ struct x86_pmu {
 	int		pebs_record_size;
 	int		pebs_buffer_size;
 	u64		pebs_events_mask;
-	void		(*drain_pebs)(struct pt_regs *regs, struct perf_sample_data *data);
+	int		(*drain_pebs)(struct pt_regs *regs, struct perf_sample_data *data);
 	struct event_constraint *pebs_constraints;
 	void		(*pebs_aliases)(struct perf_event *event);
 	u64		(*pebs_latency_data)(struct perf_event *event, u64 status);
@@ -1027,6 +1220,12 @@ struct x86_pmu {
 	 */
 	struct extra_reg *extra_regs;
 	unsigned int flags;
+
+	/*
+	 * Extended regs, e.g., vector registers
+	 * Utilize the same format as the XFEATURE_MASK_*
+	 */
+	u64		ext_regs_mask;
 
 	/*
 	 * Intel host/guest support (KVM)
@@ -1314,6 +1513,13 @@ static inline void x86_pmu_disable_event(struct perf_event *event)
 void x86_pmu_enable_event(struct perf_event *event);
 
 int x86_pmu_handle_irq(struct pt_regs *regs);
+
+void x86_pmu_clear_perf_regs(struct pt_regs *regs);
+
+void x86_pmu_update_perf_regs(struct perf_event *event,
+			      struct perf_sample_data *data,
+			      struct pt_regs *regs,
+			      bool from_pebs);
 
 void x86_pmu_show_pmu_cap(struct pmu *pmu);
 
