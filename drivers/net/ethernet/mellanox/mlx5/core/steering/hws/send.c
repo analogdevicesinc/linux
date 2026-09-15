@@ -111,9 +111,6 @@ static void hws_send_engine_post_ring(struct mlx5hws_send_ring_sq *sq,
 	wmb();
 
 	mlx5_write64((__be32 *)doorbell_cseg, sq->uar_map);
-
-	/* Ensure doorbell is written on uar_page before poll_cq */
-	WRITE_ONCE(doorbell_cseg, NULL);
 }
 
 static void
