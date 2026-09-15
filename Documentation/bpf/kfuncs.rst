@@ -315,6 +315,29 @@ However, there is no obligation to prove to the verifier that such a pointer is
 non-NULL before use, in-line with existing semantics of arena pointers used in
 a program (or obtained from any other source).
 
+2.3.9 __ctx_out Annotation
+--------------------------
+
+This annotation is used to indicate that the argument is an output
+parameter of the attached hook, passed through from the program's
+context. The verifier requires the register to be a trusted read-only
+pointer to fixed-size memory, which can only be produced by loading an
+argument described by the program's ctx_arg_info from the context. The
+program itself cannot write through the pointer; the kfunc may.
+
+An example is given below::
+
+        __bpf_kfunc int bpf_inode_init_xattr(struct xattr *xattrs,
+                                             int *xattr_count__ctx_out,
+                                             ...)
+        {
+        ...
+        }
+
+In this case, a program attached to the ``inode_init_security`` LSM hook
+can pass the hook's own ``xattr_count`` argument through to the kfunc,
+which claims xattr slots by writing through it.
+
 .. _BPF_kfunc_nodef:
 
 2.4 Using an existing kernel function
