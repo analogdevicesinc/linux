@@ -186,6 +186,9 @@ struct ivpu_device {
 		int autosuspend;
 		int d0i3_entry_msg;
 		int state_dump_msg;
+		int mmu_reg;
+		int mmu_queue;
+		int pwr_island_status;
 	} timeout;
 };
 
