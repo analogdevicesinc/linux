@@ -2979,6 +2979,170 @@ pnfs_layout_reresolve_deviceid_byclid(struct nfs_client *clp,
 	}
 }
 
+struct pnfs_deviceid_ref_args {
+	const struct pnfs_layoutdriver_type *ld;
+	const struct nfs4_deviceid *devid;
+	struct list_head *result;
+	bool found;
+};
+
+static int pnfs_layout_deviceid_referenced_byserver(
+		struct nfs_server *server, void *data)
+{
+	struct pnfs_deviceid_ref_args *args = data;
+	struct pnfs_layout_hdr *lo;
+	struct inode *inode;
+
+	if (server->pnfs_curr_ld != args->ld)
+		return 0;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(lo, &server->layouts, plh_layouts) {
+		inode = lo->plh_inode;
+		if (!inode)
+			continue;
+		spin_lock(&inode->i_lock);
+		if (NFS_I(inode)->layout == lo && pnfs_layout_is_valid(lo) &&
+		    args->ld->layout_references_deviceid(lo, args->devid))
+			args->found = true;
+		spin_unlock(&inode->i_lock);
+		if (args->found)
+			break;
+	}
+	rcu_read_unlock();
+	return args->found;
+}
+
+/*
+ * pnfs_layout_deviceid_referenced_byclid - does any live layout of
+ * @clp's servers using @ld still reference deviceid @devid?
+ */
+bool
+pnfs_layout_deviceid_referenced_byclid(struct nfs_client *clp,
+				const struct pnfs_layoutdriver_type *ld,
+				const struct nfs4_deviceid *devid)
+{
+	struct pnfs_deviceid_ref_args args = {
+		.ld = ld,
+		.devid = devid,
+	};
+
+	if (!ld->layout_references_deviceid)
+		return false;
+
+	nfs_client_for_each_server(clp,
+			pnfs_layout_deviceid_referenced_byserver, &args);
+	return args.found;
+}
+
+static int pnfs_layout_collect_deviceid_refs_byserver(
+		struct nfs_server *server, void *data)
+{
+	struct pnfs_deviceid_ref_args *args = data;
+	struct nfs4_deviceid_ref *ref, *tmp;
+	struct pnfs_layout_hdr *lo;
+	struct inode *inode;
+	LIST_HEAD(putme);
+	bool matched;
+	int ret = 0;
+
+	if (server->pnfs_curr_ld != args->ld)
+		return 0;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(lo, &server->layouts, plh_layouts) {
+		inode = lo->plh_inode;
+		if (!inode)
+			continue;
+
+		spin_lock(&inode->i_lock);
+		matched = NFS_I(inode)->layout == lo &&
+			  pnfs_layout_is_valid(lo) &&
+			  args->ld->layout_references_deviceid(lo, args->devid);
+		if (!matched) {
+			spin_unlock(&inode->i_lock);
+			continue;
+		}
+		ref = kzalloc_obj(*ref, GFP_ATOMIC);
+		if (!ref) {
+			spin_unlock(&inode->i_lock);
+			ret = -ENOMEM;
+			break;
+		}
+		/* NFS_I()->layout == lo under i_lock means the refcount has
+		 * not reached zero: pnfs_put_layout_hdr() decrements to zero
+		 * and detaches in the same critical section.
+		 */
+		pnfs_get_layout_hdr(lo);
+		ref->lo = lo;
+		nfs4_stateid_copy(&ref->stateid, &lo->plh_stateid);
+		ref->cred = get_cred(lo->plh_lc_cred);
+		spin_unlock(&inode->i_lock);
+
+		/* the pinned hdr does not hold the inode: grab it (and
+		 * keep the superblock active) for use across RPCs
+		 */
+		ref->inode = nfs_igrab_and_active(inode);
+		if (!ref->inode) {
+			/* The layout may still name the deviceID, so report a
+			 * partial list rather than silently shortening it.
+			 * Defer the put: it can layoutreturn and sleep.
+			 */
+			list_add(&ref->node, &putme);
+			ret = -EAGAIN;
+			break;
+		}
+		list_add_tail(&ref->node, args->result);
+	}
+	rcu_read_unlock();
+
+	list_for_each_entry_safe(ref, tmp, &putme, node) {
+		list_del(&ref->node);
+		pnfs_put_layout_hdr(ref->lo);
+		put_cred(ref->cred);
+		kfree(ref);
+	}
+	return ret;
+}
+
+/*
+ * Collect @clp's layouts referencing @devid onto @result as entries usable
+ * across sleeping RPCs; release with pnfs_layout_put_deviceid_refs().
+ * A negative return means @result is only a partial set.
+ */
+int
+pnfs_layout_collect_deviceid_refs(struct nfs_client *clp,
+				const struct pnfs_layoutdriver_type *ld,
+				const struct nfs4_deviceid *devid,
+				struct list_head *result)
+{
+	struct pnfs_deviceid_ref_args args = {
+		.ld = ld,
+		.devid = devid,
+		.result = result,
+	};
+
+	if (!ld->layout_references_deviceid)
+		return 0;
+
+	return nfs_client_for_each_server(clp,
+			pnfs_layout_collect_deviceid_refs_byserver, &args);
+}
+
+void
+pnfs_layout_put_deviceid_refs(struct list_head *result)
+{
+	struct nfs4_deviceid_ref *ref, *tmp;
+
+	list_for_each_entry_safe(ref, tmp, result, node) {
+		list_del(&ref->node);
+		put_cred(ref->cred);
+		pnfs_put_layout_hdr(ref->lo);
+		nfs_iput_and_deactive(ref->inode);
+		kfree(ref);
+	}
+}
+
 /* Check if we have we have a valid layout but if there isn't an intersection
  * between the request and the pgio->pg_lseg, put this pgio->pg_lseg away.
  */
