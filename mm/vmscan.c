@@ -5840,6 +5840,9 @@ static int run_aging(struct lruvec *lruvec, unsigned long seq,
 {
 	DEFINE_MAX_SEQ(lruvec);
 
+	if (seq < max_seq)
+		return 0;
+
 	if (seq > max_seq)
 		return -EINVAL;
 
