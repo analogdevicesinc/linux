@@ -1999,6 +1999,7 @@ static int erdma_init_user_cq(struct erdma_ucontext *ctx, struct erdma_cq *cq,
 	attr.virt = ureq->qbuf_va;
 	attr.len = ureq->qbuf_len;
 	attr.req_page_size = SZ_64M - SZ_4K;
+	attr.access = IB_ACCESS_LOCAL_WRITE;
 	ret = erdma_mem_init(dev, &cq->user_cq.qbuf_mem, &attr);
 	if (ret)
 		return ret;
