@@ -517,9 +517,11 @@ void dcn314_disable_link_output(struct dc_link *link,
 		link->dc->hwss.edp_backlight_control(link, false);
 	else if (dmcu != NULL && dmcu->funcs->lock_phy)
 		dmcu->funcs->lock_phy(dmcu);
-
-	link_hwss->disable_link_output(link, link_res, signal);
-	link->phy_state.symclk_state = SYMCLK_OFF_TX_OFF;
+	if (!(signal == SIGNAL_TYPE_EDP &&
+		link->forced_psr_active)) {
+		link_hwss->disable_link_output(link, link_res, signal);
+		link->phy_state.symclk_state = SYMCLK_OFF_TX_OFF;
+	}
 	/*
 	 * Add the logic to extract BOTH power up and power down sequences
 	 * from enable/disable link output and only call edp panel control

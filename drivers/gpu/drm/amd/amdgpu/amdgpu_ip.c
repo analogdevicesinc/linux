@@ -198,6 +198,7 @@ static const char *const ip_block_names[] = {
 	[AMD_IP_BLOCK_TYPE_UMSCH_MM] = "umsch_mm",
 	[AMD_IP_BLOCK_TYPE_ISP] = "isp",
 	[AMD_IP_BLOCK_TYPE_RAS] = "ras",
+	[AMD_IP_BLOCK_TYPE_UALINK] = "ualink",
 };
 
 static const char *ip_block_name(struct amdgpu_device *adev,

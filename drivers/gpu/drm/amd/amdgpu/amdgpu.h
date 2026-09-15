@@ -116,6 +116,7 @@
 #include "amdgpu_mes.h"
 #include "amdgpu_sa.h"
 #include "amdgpu_acpi.h"
+#include "amdgpu_ualink.h"
 #if defined(CONFIG_DRM_AMD_ISP)
 #include "amdgpu_isp.h"
 #endif
@@ -208,7 +209,7 @@ extern int amdgpu_backlight;
 extern int amdgpu_damage_clips;
 extern struct amdgpu_mgpu_info mgpu_info;
 extern int amdgpu_ras_enable;
-extern uint amdgpu_ras_mask;
+extern u64 amdgpu_ras_mask;
 extern int amdgpu_bad_page_threshold;
 extern bool amdgpu_ignore_bad_page_threshold;
 extern struct amdgpu_watchdog_timer amdgpu_watchdog_timer;
@@ -222,6 +223,7 @@ extern int amdgpu_force_asic_type;
 extern int amdgpu_smartshift_bias;
 extern int amdgpu_use_xgmi_p2p;
 extern int amdgpu_mtype_local;
+extern int amdgpu_mtype_remote;
 extern int amdgpu_enforce_isolation;
 extern uint amdgpu_debug_mask;
 #ifdef CONFIG_HSA_AMD
@@ -482,6 +484,9 @@ struct amdgpu_asic_funcs {
 	ssize_t (*get_reg_state)(struct amdgpu_device *adev,
 				 enum amdgpu_reg_state reg_state, void *buf,
 				 size_t max_size);
+	/* query FW reserved region (size/offset) from discovery */
+	void (*get_fw_reserved_info)(struct amdgpu_device *adev,
+				     u64 *reserve_size, u64 *offset);
 };
 
 /*
@@ -795,6 +800,9 @@ struct amdgpu_device {
 
 	/* display related functionality */
 	struct amdgpu_display_manager dm;
+
+	/* UALink manager */
+	struct amdgpu_ualink_mgr	ualink;
 
 #if defined(CONFIG_DRM_AMD_ISP)
 	/* isp */

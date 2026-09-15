@@ -71,6 +71,8 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
 				     struct dc_link *link,
 				     int link_index);
 
+void hdmi_frl_status_polling_work(struct work_struct *work);
+
 enum drm_mode_status amdgpu_dm_connector_mode_valid(struct drm_connector *connector,
 						    const struct drm_display_mode *mode);
 
@@ -153,6 +155,19 @@ void parse_edid_displayid_vrr(struct drm_connector *connector,
 			      const struct edid *edid);
 int get_amd_vsdb(struct amdgpu_dm_connector *aconnector,
 		 struct amdgpu_hdmi_vsdb_info *vsdb_info);
+int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+			const struct edid *edid,
+			struct amdgpu_hdmi_vsdb_info *vsdb_info);
+bool dm_edid_parser_send_cea(struct amdgpu_display_manager *dm,
+			     unsigned int offset, unsigned int total_length,
+			     u8 *data, unsigned int length,
+			     struct amdgpu_hdmi_vsdb_info *vsdb);
+bool parse_edid_cea_dmcu(struct amdgpu_display_manager *dm, u8 *edid_ext,
+			 int len, struct amdgpu_hdmi_vsdb_info *vsdb_info);
+bool parse_edid_cea_dmub(struct amdgpu_display_manager *dm, u8 *edid_ext,
+			 int len, struct amdgpu_hdmi_vsdb_info *vsdb_info);
+bool parse_edid_cea(struct amdgpu_dm_connector *aconnector, u8 *edid_ext,
+		    int len, struct amdgpu_hdmi_vsdb_info *vsdb_info);
 void amdgpu_dm_connector_funcs_force(struct drm_connector *connector);
 enum dc_status dm_validate_stream_and_context(struct dc *dc,
 					      struct dc_stream_state *stream);
@@ -165,6 +180,8 @@ void amdgpu_dm_connector_add_common_modes(struct drm_encoder *encoder,
 					  struct drm_connector *connector);
 void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *connector,
 				       const struct drm_edid *drm_edid);
+int amdgpu_dm_connector_get_modes(struct drm_connector *connector);
+void amdgpu_dm_prune_primary_tile_modes(struct drm_connector *connector);
 uint add_fs_modes(struct amdgpu_dm_connector *aconnector);
 void amdgpu_dm_connector_add_freesync_modes(struct drm_connector *connector,
 					    const struct drm_edid *drm_edid);
@@ -219,5 +236,8 @@ void decide_crtc_timing_for_drm_display_mode(struct drm_display_mode *drm_mode,
 					     bool scale_enabled);
 void amdgpu_dm_set_panel_type(struct amdgpu_dm_connector *aconnector);
 void amdgpu_dm_update_cacp_caps(struct amdgpu_dm_connector *aconnector);
+struct drm_atomic_commit;
+int amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
+				     struct drm_atomic_commit *state);
 #endif
 #endif /* __AMDGPU_DM_CONNECTOR_H__ */

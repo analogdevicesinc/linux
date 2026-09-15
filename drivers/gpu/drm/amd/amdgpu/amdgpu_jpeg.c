@@ -607,3 +607,41 @@ int amdgpu_jpeg_dec_parse_cs(struct amdgpu_cs_parser *parser,
 
 	return 0;
 }
+
+/**
+ * amdgpu_jpeg_is_shared_inv_eng - Check if a ring is a JPEG ring that shares a VM invalidation
+ * engine
+ * @adev: Pointer to the AMDGPU device structure
+ * @ring: Pointer to the ring structure to check
+ *
+ * All decode rings within one JPEG instance share a single VM invalidation
+ * engine (see amdgpu_jpeg_set_shared_inv_eng()). This returns true for every
+ * ring in the instance except the first (ring->pipe == 0), which owns the
+ * engine allocated by amdgpu_gmc_allocate_vm_inv_eng().
+ */
+bool amdgpu_jpeg_is_shared_inv_eng(struct amdgpu_device *adev, struct amdgpu_ring *ring)
+{
+	return ring->funcs->type == AMDGPU_RING_TYPE_VCN_JPEG && ring->pipe != 0;
+}
+
+/**
+ * amdgpu_jpeg_set_shared_inv_eng - Propagate a VM invalidation engine to the rest of a JPEG
+ * instance
+ * @adev: Pointer to the AMDGPU device structure
+ * @ring: Pointer to the ring that just had a VM invalidation engine allocated
+ *
+ * No-op unless @ring is the owner (ring->pipe == 0) of a JPEG instance.
+ * When it is, mirrors its freshly allocated vm_inv_eng onto the rest of the
+ * rings in that instance, so the whole instance shares one engine instead of
+ * consuming one per ring.
+ */
+void amdgpu_jpeg_set_shared_inv_eng(struct amdgpu_device *adev, struct amdgpu_ring *ring)
+{
+	int j;
+
+	if (ring->funcs->type != AMDGPU_RING_TYPE_VCN_JPEG || ring->pipe != 0)
+		return;
+
+	for (j = 1; j < adev->jpeg.num_jpeg_rings; j++)
+		adev->jpeg.inst[ring->me].ring_dec[j].vm_inv_eng = ring->vm_inv_eng;
+}
