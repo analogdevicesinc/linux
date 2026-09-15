@@ -92,6 +92,12 @@ static u8 st1202_milliseconds_to_prescaler(unsigned int value)
 	return value / ST1202_MILLIS_PATTERN_DUR_MIN;
 }
 
+/* The channel current register is 8 bits wide, whatever max-brightness says */
+static u8 st1202_iled_max(struct led_classdev *led_cdev)
+{
+	return min_t(unsigned int, led_cdev->max_brightness, U8_MAX);
+}
+
 static u16 st1202_brightness_to_pwm(int brightness, unsigned int max_brightness)
 {
 	if (!max_brightness)
@@ -208,7 +214,7 @@ static int st1202_led_set(struct led_classdev *ldev, enum led_brightness value)
 	}
 
 	ret = st1202_write_reg(chip, ST1202_ILED_REG0 + led->led_num,
-				min_t(unsigned int, value, U8_MAX));
+				min_t(unsigned int, value, st1202_iled_max(ldev)));
 	if (ret)
 		return ret;
 
@@ -258,7 +264,7 @@ static int st1202_led_pattern_set(struct led_classdev *ldev,
 	unsigned int max_brightness;
 	int ret;
 
-	max_brightness = min_t(unsigned int, ldev->max_brightness, U8_MAX);
+	max_brightness = st1202_iled_max(ldev);
 
 	if (len > ST1202_MAX_PATTERNS)
 		return -EINVAL;
@@ -383,8 +389,7 @@ static int st1202_blink_set(struct led_classdev *led_cdev,
 	if (ret)
 		return ret;
 
-	ret = st1202_write_reg(chip, ST1202_ILED_REG0 + led->led_num,
-				min_t(unsigned int, led_cdev->max_brightness, U8_MAX));
+	ret = st1202_write_reg(chip, ST1202_ILED_REG0 + led->led_num, st1202_iled_max(led_cdev));
 	if (ret)
 		return ret;
 
