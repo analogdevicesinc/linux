@@ -490,6 +490,17 @@ struct scmi_transport_core_operations {
 	const struct scmi_message_operations *msg;
 };
 
+struct scmi_dsd_info {
+	u32 protocol_id;
+	const char *const property_name;
+};
+
+static const struct scmi_dsd_info scmi_dsd_info_list[] __maybe_unused = {
+	{ SCMI_PROTOCOL_BASE, "arm-arml0001-transport-pcc" },
+	{ SCMI_PROTOCOL_POWERCAP, "arm-arml0001-protocol-pcap" },
+	{ SCMI_PROTOCOL_TELEMETRY, "arm-arml0001-protocol-telemetry" },
+};
+
 /**
  * struct scmi_transport_handle  - Transport instance handle
  * @supplier_get: A helper to retrieve the device descriptor, identifying the
