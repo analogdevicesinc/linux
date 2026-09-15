@@ -918,7 +918,8 @@ The irq_type field has the following values:
 - KVM_ARM_IRQ_TYPE_SPI:
 	       in-kernel GICv2/GICv3: SPI, irq_id between 32 and 1019 (incl.)
                (the vcpu_index field is ignored)
-	       in-kernel GICv5: SPI, irq_id between 0 and 65535 (incl.)
+	       in-kernel GICv5: SPI, irq_id between 0 and the configured
+	       number of SPIs minus one (1023 maximum)
 - KVM_ARM_IRQ_TYPE_PPI:
 	       in-kernel GICv2/GICv3: PPI, irq_id between 16 and 31 (incl.)
 	       in-kernel GICv5: PPI, irq_id between 0 and 127 (incl.)
@@ -3600,20 +3601,14 @@ Possible features:
 :Parameters: struct kvm_vcpu_init (out)
 :Returns: 0 on success; -1 on error
 
-Errors:
-
-  ======     ==========================================
-  ENODEV     no preferred target available for the host
-  ======     ==========================================
-
 This queries KVM for preferred CPU target type which can be emulated
 by KVM on underlying host.
 
-The ioctl returns struct kvm_vcpu_init instance containing information
-about preferred CPU target type and recommended features for it.  The
-kvm_vcpu_init->features bitmap returned will have feature bits set if
-the preferred target recommends setting these features, but this is
-not mandatory.
+The ioctl returns a struct kvm_vcpu_init instance containing the
+preferred CPU target type. The kvm_vcpu_init->features bitmap is
+returned empty: userspace selects the vCPU features itself, and their
+availability is reported by the capabilities listed under
+KVM_ARM_VCPU_INIT.
 
 The information returned by this ioctl can be used to prepare an instance
 of struct kvm_vcpu_init for KVM_ARM_VCPU_INIT ioctl which will result in
@@ -3676,7 +3671,7 @@ type KVM_X86_REG_TYPE_MSR, but are NOT enumerated via KVM_GET_REG_LIST.
 :Capability: KVM_CAP_ARM_SET_DEVICE_ADDR
 :Architectures: arm64
 :Type: vm ioctl
-:Parameters: struct kvm_arm_device_address (in)
+:Parameters: struct kvm_arm_device_addr (in)
 :Returns: 0 on success, -1 on error
 
 Errors:
