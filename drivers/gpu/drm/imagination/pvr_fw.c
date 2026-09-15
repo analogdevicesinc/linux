@@ -1029,8 +1029,7 @@ err_fw_cleanup:
 err_mm_takedown:
 	drm_mm_takedown(&fw_dev->fw_mm);
 
-	if (fw_dev->defs->fini)
-		fw_dev->defs->fini(pvr_dev);
+	fw_dev->defs->fini(pvr_dev);
 
 	return err;
 }
@@ -1063,8 +1062,7 @@ pvr_fw_fini(struct pvr_device *pvr_dev)
 
 	drm_mm_takedown(&fw_dev->fw_mm);
 
-	if (fw_dev->defs->fini)
-		fw_dev->defs->fini(pvr_dev);
+	fw_dev->defs->fini(pvr_dev);
 }
 
 /**

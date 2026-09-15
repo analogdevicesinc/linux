@@ -109,7 +109,18 @@ pvr_riscv_init(struct pvr_device *pvr_dev)
 {
 	pvr_fw_heap_info_init(pvr_dev, ROGUE_FW_HEAP_RISCV_SHIFT, 0);
 
+	pvr_dev->kernel_vm_ctx = pvr_vm_create_context(pvr_dev, false);
+	if (IS_ERR(pvr_dev->kernel_vm_ctx))
+		return PTR_ERR(pvr_dev->kernel_vm_ctx);
+
 	return 0;
+}
+
+static void
+pvr_riscv_fini(struct pvr_device *pvr_dev)
+{
+	WARN_ON(!pvr_vm_context_put(pvr_dev->kernel_vm_ctx));
+	pvr_dev->kernel_vm_ctx = NULL;
 }
 
 static u32
@@ -160,6 +171,7 @@ pvr_riscv_irq_clear(struct pvr_device *pvr_dev)
 
 const struct pvr_fw_defs pvr_fw_defs_riscv = {
 	.init = pvr_riscv_init,
+	.fini = pvr_riscv_fini,
 	.fw_process = pvr_riscv_fw_process,
 	.vm_map = pvr_riscv_vm_map,
 	.vm_unmap = pvr_riscv_vm_unmap,
