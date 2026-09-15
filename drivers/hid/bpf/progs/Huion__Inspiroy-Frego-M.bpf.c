@@ -15,6 +15,12 @@
 #define PID_L610			0x2012
 
 #define PEN_RDESC_SIZE			125
+/*
+ * The L610 pen descriptor is also seen 2 bytes shorter (123 bytes); the
+ * anchor bytes checked below (offsets 0-3, 16-17) are the same in both
+ * variants, so accept either length.
+ */
+#define PEN_RDESC_SIZE_SHORT		123
 #define SECONDARY_SWITCH_OFFSET		17
 
 HID_BPF_CONFIG(
@@ -44,7 +50,7 @@ int BPF_PROG(fix_secondary_barrel_rdesc, struct hid_bpf_ctx *hctx)
 	if (!data)
 		return 0; /* EPERM check */
 
-	if (hctx->size != PEN_RDESC_SIZE)
+	if (hctx->size != PEN_RDESC_SIZE && hctx->size != PEN_RDESC_SIZE_SHORT)
 		return 0;
 
 	if (data[0] != 0x05 || data[1] != 0x0d || /* Usage Page (Digitizers) */
@@ -65,7 +71,8 @@ HID_BPF_OPS(fix_secondary_barrel) = {
 SEC("syscall")
 int probe(struct hid_bpf_probe_args *ctx)
 {
-	ctx->retval = ctx->rdesc_size != PEN_RDESC_SIZE;
+	ctx->retval = ctx->rdesc_size != PEN_RDESC_SIZE &&
+		      ctx->rdesc_size != PEN_RDESC_SIZE_SHORT;
 	if (ctx->retval) {
 		ctx->retval = -EINVAL;
 		return 0;
