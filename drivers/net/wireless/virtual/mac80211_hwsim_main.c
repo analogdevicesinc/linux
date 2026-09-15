@@ -1883,9 +1883,6 @@ static void mac80211_hwsim_rx(struct mac80211_hwsim_data *data,
 				sp->active_links_rx &= ~BIT(link_id);
 			else
 				sp->active_links_rx |= BIT(link_id);
-
-			rx_status->link_valid = true;
-			rx_status->link_id = link_id;
 		}
 		rcu_read_unlock();
 	}

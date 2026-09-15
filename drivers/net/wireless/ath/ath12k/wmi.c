@@ -7271,7 +7271,6 @@ static void ath12k_mgmt_rx_event(struct ath12k_base *ab, struct sk_buff *skb)
 	struct ath12k_wmi_mgmt_rx_arg rx_ev = {};
 	struct ath12k *ar;
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
-	struct ieee80211_sta *pubsta = NULL;
 	struct ath12k_dp_link_peer *peer;
 	struct ieee80211_hdr *hdr;
 	bool is_4addr_null_pkt;
@@ -7372,11 +7371,6 @@ static void ath12k_mgmt_rx_event(struct ath12k_base *ab, struct sk_buff *skb)
 			spin_unlock_bh(&dp->dp_lock);
 			dev_kfree_skb(skb);
 			goto exit;
-		}
-		pubsta = peer->sta;
-		if (pubsta && pubsta->valid_links) {
-			status->link_valid = 1;
-			status->link_id = peer->link_id;
 		}
 		spin_unlock_bh(&dp->dp_lock);
 		goto send_rx;

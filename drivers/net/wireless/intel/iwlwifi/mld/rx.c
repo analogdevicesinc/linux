@@ -130,7 +130,7 @@ void iwl_mld_pass_packet_to_mac80211(struct iwl_mld *mld,
 		return;
 	}
 
-	ieee80211_rx_napi(mld->hw, link_sta->sta, skb, napi);
+	ieee80211_rx_napi(mld->hw, link_sta, skb, napi);
 }
 EXPORT_SYMBOL_IF_IWLWIFI_KUNIT(iwl_mld_pass_packet_to_mac80211);
 
@@ -1764,11 +1764,6 @@ iwl_mld_rx_with_sta(struct iwl_mld *mld, struct ieee80211_hdr *hdr,
 		return NULL;
 
 	rx_status = IEEE80211_SKB_RXCB(skb);
-
-	if (link_sta && sta->valid_links) {
-		rx_status->link_valid = true;
-		rx_status->link_id = link_sta->link_id;
-	}
 
 	/* fill checksum */
 	if (ieee80211_is_data(hdr->frame_control) &&

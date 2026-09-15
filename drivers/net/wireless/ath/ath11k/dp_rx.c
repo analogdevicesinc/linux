@@ -2500,7 +2500,7 @@ static void ath11k_dp_rx_deliver_msdu(struct ath11k *ar, struct napi_struct *nap
 	    !(is_mcbc && rx_status->flag & RX_FLAG_DECRYPTED))
 		rx_status->flag |= RX_FLAG_8023;
 
-	ieee80211_rx_napi(ar->hw, pubsta, msdu, napi);
+	ieee80211_rx_napi(ar->hw, pubsta ? &pubsta->deflink : NULL, msdu, napi);
 }
 
 static bool ath11k_dp_rx_check_nwifi_hdr_len_valid(struct ath11k_base *ab,
