@@ -295,7 +295,7 @@ int mana_ib_create_kernel_queue(struct mana_ib_dev *mdev, u32 size, enum gdma_qu
 }
 
 int mana_ib_create_queue(struct mana_ib_dev *mdev, u64 addr, u32 size,
-			 struct mana_ib_queue *queue)
+			 struct mana_ib_queue *queue, bool is_cq)
 {
 	struct ib_umem *umem;
 	int err;
@@ -304,7 +304,12 @@ int mana_ib_create_queue(struct mana_ib_dev *mdev, u64 addr, u32 size,
 	queue->id = INVALID_QUEUE_ID;
 	queue->gdma_region = GDMA_INVALID_DMA_REGION;
 
-	umem = ib_umem_get_va(&mdev->ib_dev, addr, size, IB_ACCESS_LOCAL_WRITE);
+	if (is_cq)
+		umem = ib_umem_get_cq_buf_or_va(&mdev->ib_dev, NULL, addr,
+						size, IB_ACCESS_LOCAL_WRITE);
+	else
+		umem = ib_umem_get_va(&mdev->ib_dev, addr, size,
+				      IB_ACCESS_LOCAL_WRITE);
 	if (IS_ERR(umem)) {
 		ibdev_dbg(&mdev->ib_dev, "Failed to get umem, %pe\n", umem);
 		return PTR_ERR(umem);

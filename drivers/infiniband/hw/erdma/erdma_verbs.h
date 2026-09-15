@@ -128,6 +128,7 @@ struct erdma_kmem {
 
 enum erdma_mem_flags {
 	ERDMA_MEM_FLAG_MR_BUF = (1 << 0),
+	ERDMA_MEM_FLAG_CQ_BUF = (1 << 1),
 };
 
 struct erdma_mem_init_attr {

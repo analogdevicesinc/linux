@@ -788,8 +788,14 @@ static int erdma_mem_init(struct erdma_dev *dev, struct erdma_mem *mem,
 
 	switch (mem->type) {
 	case ERDMA_UMEM:
-		mem->umem = ib_umem_get_va(&dev->ibdev, attr->start, attr->len,
-					   attr->access);
+		if (attr->flags & ERDMA_MEM_FLAG_CQ_BUF)
+			mem->umem = ib_umem_get_cq_buf_or_va(&dev->ibdev, NULL,
+							     attr->start,
+							     attr->len,
+							     attr->access);
+		else
+			mem->umem = ib_umem_get_va(&dev->ibdev, attr->start,
+						   attr->len, attr->access);
 		if (IS_ERR(mem->umem)) {
 			ret = PTR_ERR(mem->umem);
 			return ret;
@@ -2000,6 +2006,7 @@ static int erdma_init_user_cq(struct erdma_ucontext *ctx, struct erdma_cq *cq,
 	attr.len = ureq->qbuf_len;
 	attr.req_page_size = SZ_64M - SZ_4K;
 	attr.access = IB_ACCESS_LOCAL_WRITE;
+	attr.flags = ERDMA_MEM_FLAG_CQ_BUF;
 	ret = erdma_mem_init(dev, &cq->user_cq.qbuf_mem, &attr);
 	if (ret)
 		return ret;

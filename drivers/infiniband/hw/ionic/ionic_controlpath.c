@@ -110,8 +110,9 @@ int ionic_create_cq_common(struct ionic_vcq *vcq,
 		if (rc)
 			goto err_qdesc;
 
-		cq->umem = ib_umem_get_va(&dev->ibdev, req_cq->addr,
-					  req_cq->size, IB_ACCESS_LOCAL_WRITE);
+		cq->umem = ib_umem_get_cq_buf_or_va(&dev->ibdev, NULL,
+						    req_cq->addr, req_cq->size,
+						    IB_ACCESS_LOCAL_WRITE);
 		if (IS_ERR(cq->umem)) {
 			rc = PTR_ERR(cq->umem);
 			goto err_qdesc;

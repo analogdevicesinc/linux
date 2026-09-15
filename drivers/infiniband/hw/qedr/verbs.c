@@ -775,16 +775,23 @@ static inline int qedr_init_user_queue(struct ib_udata *udata,
 				       struct qedr_userq *q, u64 buf_addr,
 				       size_t buf_len, bool requires_db_rec,
 				       int access,
-				       int alloc_and_init)
+				       int alloc_and_init, bool is_cq)
 {
 	u32 fw_pages;
 	int rc;
 
 	q->buf_addr = buf_addr;
 	q->buf_len = buf_len;
-	q->umem = ib_umem_get_va(&dev->ibdev, q->buf_addr, q->buf_len, access);
+	if (is_cq)
+		q->umem = ib_umem_get_cq_buf_or_va(&dev->ibdev, NULL,
+						   q->buf_addr, q->buf_len,
+						   access);
+	else
+		q->umem = ib_umem_get_va(&dev->ibdev, q->buf_addr, q->buf_len,
+					 access);
 	if (IS_ERR(q->umem)) {
-		DP_ERR(dev, "create user queue: failed ib_umem_get_va, got %ld\n",
+		DP_ERR(dev, "create user queue: failed %s, got %ld\n",
+		       is_cq ? "ib_umem_get_cq_buf_or_va" : "ib_umem_get_va",
 		       PTR_ERR(q->umem));
 		return PTR_ERR(q->umem);
 	}
@@ -946,7 +953,7 @@ int qedr_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 
 		rc = qedr_init_user_queue(udata, dev, &cq->q, ureq.addr,
 					  ureq.len, true, IB_ACCESS_LOCAL_WRITE,
-					  1);
+					  1, true);
 		if (rc)
 			goto err0;
 
@@ -1438,7 +1445,7 @@ static int qedr_init_srq_user_params(struct ib_udata *udata,
 	int rc;
 
 	rc = qedr_init_user_queue(udata, srq->dev, &srq->usrq, ureq->srq_addr,
-				  ureq->srq_len, false, access, 1);
+				  ureq->srq_len, false, access, 1, false);
 	if (rc)
 		return rc;
 
@@ -1831,7 +1838,8 @@ static int qedr_create_user_qp(struct qedr_dev *dev,
 	if (qedr_qp_has_sq(qp)) {
 		/* SQ - read access only (0) */
 		rc = qedr_init_user_queue(udata, dev, &qp->usq, ureq.sq_addr,
-					  ureq.sq_len, true, 0, alloc_and_init);
+					  ureq.sq_len, true, 0, alloc_and_init,
+					  false);
 		if (rc)
 			return rc;
 	}
@@ -1839,7 +1847,8 @@ static int qedr_create_user_qp(struct qedr_dev *dev,
 	if (qedr_qp_has_rq(qp)) {
 		/* RQ - read access only (0) */
 		rc = qedr_init_user_queue(udata, dev, &qp->urq, ureq.rq_addr,
-					  ureq.rq_len, true, 0, alloc_and_init);
+					  ureq.rq_len, true, 0, alloc_and_init,
+					  false);
 		if (rc) {
 			ib_umem_release(qp->usq.umem);
 			qp->usq.umem = NULL;
