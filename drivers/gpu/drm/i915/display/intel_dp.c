@@ -61,6 +61,7 @@
 #include "intel_cx0_phy.h"
 #include "intel_ddi.h"
 #include "intel_de.h"
+#include "intel_dip.h"
 #include "intel_display_driver.h"
 #include "intel_display_jiffies.h"
 #include "intel_display_utils.h"
@@ -7361,6 +7362,8 @@ int intel_dp_sdp_compute_config_late(struct intel_crtc_state *crtc_state)
 			    guardband, min_sdp_guardband);
 		return -EINVAL;
 	}
+
+	intel_dip_sdp_tl_compute_config_late(crtc_state);
 
 	return 0;
 }
