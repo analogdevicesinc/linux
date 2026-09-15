@@ -786,7 +786,7 @@ static int parse_term_uac2_iterm_unit(struct mixer_build *state,
 		return err;
 
 	/* save input term properties after recursion,
-	 * to ensure they are not overriden by the recursion calls
+	 * to ensure they are not overridden by the recursion calls
 	 */
 	term->id = id;
 	term->type = le16_to_cpu(d->wTerminalType);
@@ -809,7 +809,7 @@ static int parse_term_uac3_iterm_unit(struct mixer_build *state,
 		return err;
 
 	/* save input term properties after recursion,
-	 * to ensure they are not overriden by the recursion calls
+	 * to ensure they are not overridden by the recursion calls
 	 */
 	term->id = id;
 	term->type = le16_to_cpu(d->wTerminalType);
