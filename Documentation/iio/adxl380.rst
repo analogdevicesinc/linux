@@ -4,7 +4,7 @@
 ADXL380 driver
 ===============
 
-This driver supports Analog Device's ADXL380/382 on SPI/I2C bus.
+This driver supports Analog Devices' ADXL380/382 on SPI/I2C bus.
 
 1. Supported devices
 ====================

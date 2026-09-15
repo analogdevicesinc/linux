@@ -4,7 +4,7 @@
 ADE9000/ADE9078 driver
 ======================
 
-This driver supports Analog Device's ADE9000 and ADE9078 energy measurement
+This driver supports Analog Devices' ADE9000 and ADE9078 energy measurement
 ICs on SPI bus.
 
 1. Supported devices

@@ -105,7 +105,7 @@ config AD4080
 	  called ad4080.
 
 config AD4130
-	tristate "Analog Device AD4130 ADC Driver"
+	tristate "Analog Devices AD4130 ADC Driver"
 	depends on SPI
 	depends on GPIOLIB
 	select IIO_BUFFER
@@ -121,7 +121,7 @@ config AD4130
 	  called ad4130.
 
 config AD4134
-	tristate "Analog Device AD4134 ADC Driver"
+	tristate "Analog Devices AD4134 ADC Driver"
 	depends on SPI
 	select REGMAP_SPI
 	select CRC8
@@ -133,7 +133,7 @@ config AD4134
 	  called ad4134_spi.
 
 config AD4170_4
-	tristate "Analog Device AD4170-4 ADC Driver"
+	tristate "Analog Devices AD4170-4 ADC Driver"
 	depends on SPI
 	select REGMAP_SPI
 	select IIO_BUFFER
@@ -164,7 +164,7 @@ config AD4691
 	  called ad4691.
 
 config AD4695
-	tristate "Analog Device AD4695 ADC Driver"
+	tristate "Analog Devices AD4695 ADC Driver"
 	depends on SPI
 	select IIO_BUFFER
 	select IIO_BUFFER_DMAENGINE
@@ -179,7 +179,7 @@ config AD4695
 	  called ad4695.
 
 config AD4851
-	tristate "Analog Device AD4851 DAS Driver"
+	tristate "Analog Devices AD4851 DAS Driver"
 	depends on SPI
 	depends on PWM
 	select REGMAP_SPI
@@ -347,7 +347,7 @@ config AD7380
 	  called ad7380.
 
 config AD7405
-	tristate "Analog Device AD7405 ADC Driver"
+	tristate "Analog Devices AD7405 ADC Driver"
 	depends on IIO_BACKEND
 	help
 	  Say yes here to build support for Analog Devices AD7405, ADUM7701,
