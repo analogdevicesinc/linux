@@ -445,6 +445,7 @@ error_release:
 	release_mem_region(res_bcom.start, sizeof(struct mpc52xx_sdma));
 error_sramclean:
 	kfree(bcom_eng);
+	bcom_eng = NULL;
 	bcom_sram_cleanup();
 error_ofput:
 	of_node_put(op->dev.of_node);
