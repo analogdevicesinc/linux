@@ -1273,10 +1273,10 @@ static u32 ufshcd_pending_cmds(struct ufs_hba *hba)
 	unsigned long flags;
 	u32 pending = 0;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	__shost_for_each_device(sdev, hba->host)
 		pending += scsi_device_busy(sdev);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	return pending;
 }
@@ -2061,7 +2061,7 @@ static void ufshcd_gate_work(struct work_struct *work)
 			return;
 	}
 
-	scoped_guard(spinlock_irqsave, hba->host->host_lock) {
+	scoped_guard(spinlock_irqsave, &hba->host->host_lock) {
 		if (ufshcd_is_ufs_dev_busy(hba) ||
 		    hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)
 			return;
@@ -2118,7 +2118,7 @@ static void __ufshcd_release(struct ufs_hba *hba)
 	    hba->clk_gating.state == CLKS_OFF)
 		return;
 
-	scoped_guard(spinlock_irqsave, hba->host->host_lock) {
+	scoped_guard(spinlock_irqsave, &hba->host->host_lock) {
 		if (ufshcd_has_pending_tasks(hba) ||
 		    hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)
 			return;
@@ -2343,10 +2343,10 @@ static void ufshcd_start_monitor(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 	int dir = ufshcd_monitor_opcode2dir(cmd->cmnd[0]);
 	unsigned long flags;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	if (dir >= 0 && hba->monitor.nr_queued[dir]++ == 0)
 		hba->monitor.busy_start_ts[dir] = ktime_get();
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 }
 
 static void ufshcd_update_monitor(struct ufs_hba *hba, struct scsi_cmnd *cmd)
@@ -2356,7 +2356,7 @@ static void ufshcd_update_monitor(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 	int dir = ufshcd_monitor_opcode2dir(cmd->cmnd[0]);
 	unsigned long flags;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	if (dir >= 0 && hba->monitor.nr_queued[dir] > 0) {
 		struct ufs_hba_monitor *m = &hba->monitor;
 		ktime_t now, inc, lat;
@@ -2379,7 +2379,7 @@ static void ufshcd_update_monitor(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 		/* Push forward the busy start of monitor */
 		m->busy_start_ts[dir] = now;
 	}
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 }
 
 /* Returns %true for SCSI commands and %false for device management commands. */
@@ -2636,9 +2636,9 @@ ufshcd_wait_for_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 		}
 	}
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	hba->active_uic_cmd = NULL;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	return ret;
 }
@@ -2688,9 +2688,9 @@ int ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	mutex_lock(&hba->uic_cmd_mutex);
 	ufshcd_add_delay_before_dme_cmd(hba);
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	ufshcd_enable_intr(hba, UIC_COMMAND_COMPL);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	ret = __ufshcd_send_uic_cmd(hba, uic_cmd);
 	if (!ret)
@@ -3162,9 +3162,9 @@ out:
 	if (ufs_trigger_eh(hba)) {
 		unsigned long flags;
 
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 		ufshcd_schedule_eh_work(hba);
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 	}
 
 	return err;
@@ -4498,14 +4498,14 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	mutex_lock(&hba->uic_cmd_mutex);
 	ufshcd_add_delay_before_dme_cmd(hba);
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	if (ufshcd_is_link_broken(hba)) {
 		ret = -ENOLINK;
 		goto out_unlock;
 	}
 	hba->uic_async_done = &uic_async_done;
 	ufshcd_disable_intr(hba, UIC_COMMAND_COMPL);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 	ret = __ufshcd_send_uic_cmd(hba, cmd);
 	if (ret) {
 		dev_err(hba->dev,
@@ -4549,7 +4549,7 @@ out:
 		ufshcd_print_evt_hist(hba);
 	}
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	hba->active_uic_cmd = NULL;
 	hba->uic_async_done = NULL;
 	if (ret && !hba->pm_op_in_progress) {
@@ -4557,7 +4557,7 @@ out:
 		ufshcd_schedule_eh_work(hba);
 	}
 out_unlock:
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 	mutex_unlock(&hba->uic_cmd_mutex);
 
 	return ret;
@@ -4652,21 +4652,21 @@ int ufshcd_link_recovery(struct ufs_hba *hba)
 	int ret;
 	unsigned long flags;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	hba->ufshcd_state = UFSHCD_STATE_RESET;
 	ufshcd_set_eh_in_progress(hba);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	/* Reset the attached device */
 	ufshcd_device_reset(hba);
 
 	ret = ufshcd_host_reset_and_restore(hba);
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	if (ret)
 		hba->ufshcd_state = UFSHCD_STATE_ERROR;
 	ufshcd_clear_eh_in_progress(hba);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	if (ret)
 		dev_err(hba->dev, "%s: link recovery failed, err %d",
@@ -5667,19 +5667,19 @@ static void ufshcd_sdev_destroy(struct scsi_device *sdev)
 
 	/* Drop the reference as it won't be needed anymore */
 	if (ufshcd_scsi_to_upiu_lun(sdev->lun) == UFS_UPIU_UFS_DEVICE_WLUN) {
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 		hba->ufs_device_wlun = NULL;
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 	} else if (hba->ufs_device_wlun) {
 		struct device *supplier = NULL;
 
 		/* Ensure UFS Device WLUN exists and does not disappear */
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 		if (hba->ufs_device_wlun) {
 			supplier = &hba->ufs_device_wlun->sdev_gendev;
 			get_device(supplier);
 		}
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 		if (supplier) {
 			/*
@@ -5872,7 +5872,7 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 	irqreturn_t retval = IRQ_NONE;
 	struct uic_command *cmd;
 
-	guard(spinlock_irqsave)(hba->host->host_lock);
+	guard(spinlock_irqsave)(&hba->host->host_lock);
 	cmd = hba->active_uic_cmd;
 	if (!cmd) {
 		dev_err(hba->dev,
@@ -6669,7 +6669,7 @@ static bool ufshcd_quirk_dl_nac_errors(struct ufs_hba *hba)
 	unsigned long flags;
 	bool err_handling = true;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	/*
 	 * UFS_DEVICE_QUIRK_RECOVERY_FROM_DL_NAC_ERRORS only workaround the
 	 * device fatal error and/or DL NAC & REPLAY timeout errors.
@@ -6688,9 +6688,9 @@ static bool ufshcd_quirk_dl_nac_errors(struct ufs_hba *hba)
 		/*
 		 * wait for 50ms to see if we can get any other errors or not.
 		 */
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 		msleep(50);
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 
 		/*
 		 * now check if we have got any other severe errors other than
@@ -6708,9 +6708,9 @@ static bool ufshcd_quirk_dl_nac_errors(struct ufs_hba *hba)
 		 *   - If we get response then clear the DL NAC error bit.
 		 */
 
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 		err = ufshcd_verify_dev_init(hba);
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 
 		if (err)
 			goto out;
@@ -6724,7 +6724,7 @@ static bool ufshcd_quirk_dl_nac_errors(struct ufs_hba *hba)
 			err_handling = false;
 	}
 out:
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 	return err_handling;
 }
 
@@ -6737,7 +6737,7 @@ static inline bool ufshcd_is_saved_err_fatal(struct ufs_hba *hba)
 
 void ufshcd_schedule_eh_work(struct ufs_hba *hba)
 {
-	lockdep_assert_held(hba->host->host_lock);
+	lockdep_assert_held(&hba->host->host_lock);
 
 	/* handle fatal errors only when link is not in error state */
 	if (hba->ufshcd_state != UFSHCD_STATE_ERROR) {
@@ -6752,10 +6752,10 @@ void ufshcd_schedule_eh_work(struct ufs_hba *hba)
 
 void ufshcd_force_error_recovery(struct ufs_hba *hba)
 {
-	spin_lock_irq(hba->host->host_lock);
+	spin_lock_irq(&hba->host->host_lock);
 	hba->force_reset = true;
 	ufshcd_schedule_eh_work(hba);
-	spin_unlock_irq(hba->host->host_lock);
+	spin_unlock_irq(&hba->host->host_lock);
 }
 EXPORT_SYMBOL_GPL(ufshcd_force_error_recovery);
 
@@ -6996,25 +6996,25 @@ static void ufshcd_err_handler(struct work_struct *work)
 	}
 
 	down(&hba->host_sem);
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	if (ufshcd_err_handling_should_stop(hba)) {
 		if (hba->ufshcd_state != UFSHCD_STATE_ERROR)
 			hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 		up(&hba->host_sem);
 		return;
 	}
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	ufshcd_err_handling_prepare(hba);
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	ufshcd_set_eh_in_progress(hba);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	/* Complete requests that have door-bell cleared by h/w */
 	ufshcd_complete_requests(hba, false);
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 again:
 	needs_restore = false;
 	needs_reset = false;
@@ -7032,10 +7032,10 @@ again:
 	    !hba->force_reset) {
 		bool ret;
 
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 		/* release the lock as ufshcd_quirk_dl_nac_errors() may sleep */
 		ret = ufshcd_quirk_dl_nac_errors(hba);
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 		if (!ret && ufshcd_err_handling_should_stop(hba))
 			goto skip_err_handling;
 	}
@@ -7045,14 +7045,14 @@ again:
 	     (hba->saved_uic_err != UFSHCD_UIC_PA_GENERIC_ERROR))) {
 		bool pr_prdt = !!(hba->saved_err & SYSTEM_BUS_FATAL_ERROR);
 
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 		ufshcd_print_host_state(hba);
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_tx_eq_params(hba);
 		ufshcd_print_evt_hist(hba);
 		ufshcd_print_tmrs(hba, hba->outstanding_tasks);
 		ufshcd_print_trs_all(hba, pr_prdt);
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 	}
 
 	/*
@@ -7077,21 +7077,21 @@ again:
 		hba->saved_uic_err &= ~UFSHCD_UIC_PA_GENERIC_ERROR;
 		if (!hba->saved_uic_err)
 			hba->saved_err &= ~UIC_ERROR;
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 		if (ufshcd_is_pwr_mode_restore_needed(hba))
 			needs_restore = true;
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 		if (!hba->saved_err && !needs_restore)
 			goto skip_err_handling;
 	}
 
 	hba->silence_err_logs = true;
 	/* release lock as clear command might sleep */
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	needs_reset = ufshcd_abort_all(hba);
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	hba->silence_err_logs = false;
 	if (needs_reset)
 		goto do_reset;
@@ -7101,7 +7101,7 @@ again:
 	 * now it is safe to retore power mode.
 	 */
 	if (needs_restore) {
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 		/*
 		 * Hold the scaling lock just in case dev cmds
 		 * are sent via bsg and/or sysfs.
@@ -7116,7 +7116,7 @@ again:
 		}
 		ufshcd_print_pwr_info(hba);
 		up_write(&hba->clk_scaling_lock);
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 	}
 
 do_reset:
@@ -7125,14 +7125,14 @@ do_reset:
 		int err;
 
 		hba->force_reset = false;
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 		err = ufshcd_reset_and_restore(hba);
 		if (err)
 			dev_err(hba->dev, "%s: reset and restore failed with err %d\n",
 					__func__, err);
 		else
 			ufshcd_recover_pm_error(hba);
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 	}
 
 skip_err_handling:
@@ -7151,7 +7151,7 @@ skip_err_handling:
 		hba->ufshcd_state = UFSHCD_STATE_ERROR;
 	}
 	ufshcd_clear_eh_in_progress(hba);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 	ufshcd_err_handling_unprepare(hba);
 	up(&hba->host_sem);
 
@@ -7274,7 +7274,7 @@ static irqreturn_t ufshcd_check_errors(struct ufs_hba *hba, u32 intr_status)
 	bool queue_eh_work = false;
 	irqreturn_t retval = IRQ_NONE;
 
-	guard(spinlock_irqsave)(hba->host->host_lock);
+	guard(spinlock_irqsave)(&hba->host->host_lock);
 	hba->errors |= UFSHCD_ERROR_MASK & intr_status;
 
 	if (hba->errors & INT_FATAL_ERRORS) {
@@ -7352,7 +7352,7 @@ static irqreturn_t ufshcd_tmc_handler(struct ufs_hba *hba)
 	irqreturn_t ret = IRQ_NONE;
 	int tag;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	pending = ufshcd_readl(hba, REG_UTP_TASK_REQ_DOOR_BELL);
 	issued = hba->outstanding_tasks & ~pending;
 	for_each_set_bit(tag, &issued, hba->nutmrs) {
@@ -7362,7 +7362,7 @@ static irqreturn_t ufshcd_tmc_handler(struct ufs_hba *hba)
 		complete(c);
 		ret = IRQ_HANDLED;
 	}
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	return ret;
 }
@@ -7532,7 +7532,7 @@ static int __ufshcd_issue_tm_cmd(struct ufs_hba *hba,
 	req->end_io_data = &wait;
 	ufshcd_hold(hba);
 
-	spin_lock_irqsave(host->host_lock, flags);
+	spin_lock_irqsave(&host->host_lock, flags);
 
 	task_tag = req->tag;
 	hba->tmf_rqs[req->tag] = req;
@@ -7543,7 +7543,7 @@ static int __ufshcd_issue_tm_cmd(struct ufs_hba *hba,
 
 	__set_bit(task_tag, &hba->outstanding_tasks);
 
-	spin_unlock_irqrestore(host->host_lock, flags);
+	spin_unlock_irqrestore(&host->host_lock, flags);
 
 	/* send command to the controller */
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TASK_REQ_DOOR_BELL);
@@ -7568,10 +7568,10 @@ static int __ufshcd_issue_tm_cmd(struct ufs_hba *hba,
 		ufshcd_add_tm_upiu_trace(hba, task_tag, UFS_TM_COMP);
 	}
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	hba->tmf_rqs[req->tag] = NULL;
 	__clear_bit(task_tag, &hba->outstanding_tasks);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	ufshcd_release(hba);
 	blk_mq_free_request(req);
@@ -8119,10 +8119,10 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	if (lrbp->lun == UFS_UPIU_UFS_DEVICE_WLUN) {
 		ufshcd_update_evt_hist(hba, UFS_EVT_ABORT, lrbp->lun);
 
-		spin_lock_irqsave(host->host_lock, flags);
+		spin_lock_irqsave(&host->host_lock, flags);
 		hba->force_reset = true;
 		ufshcd_schedule_eh_work(hba);
-		spin_unlock_irqrestore(host->host_lock, flags);
+		spin_unlock_irqrestore(&host->host_lock, flags);
 		goto release;
 	}
 
@@ -8180,12 +8180,12 @@ static void ufshcd_process_probe_result(struct ufs_hba *hba,
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	if (ret)
 		hba->ufshcd_state = UFSHCD_STATE_ERROR;
 	else if (hba->ufshcd_state == UFSHCD_STATE_RESET)
 		hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	trace_ufshcd_init(hba, ret,
 			  ktime_to_us(ktime_sub(ktime_get(), probe_start)),
@@ -8254,7 +8254,7 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	unsigned long flags;
 	int retries = MAX_HOST_RESET_RETRIES;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	do {
 		/*
 		 * This is a fresh start, cache and clear saved error first,
@@ -8266,14 +8266,14 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 		hba->saved_uic_err = 0;
 		hba->force_reset = false;
 		hba->ufshcd_state = UFSHCD_STATE_RESET;
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 		/* Reset the attached device */
 		ufshcd_device_reset(hba);
 
 		err = ufshcd_host_reset_and_restore(hba);
 
-		spin_lock_irqsave(hba->host->host_lock, flags);
+		spin_lock_irqsave(&hba->host->host_lock, flags);
 		if (err)
 			continue;
 		/* Do not exit unless operational or dead */
@@ -8293,7 +8293,7 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 		hba->saved_err |= saved_err;
 		hba->saved_uic_err |= saved_uic_err;
 	}
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	return err;
 }
@@ -8325,18 +8325,18 @@ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd)
 		return err;
 	}
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	hba->force_reset = true;
 	ufshcd_schedule_eh_work(hba);
 	dev_err(hba->dev, "%s: reset in progress - 1\n", __func__);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	flush_work(&hba->eh_work);
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	if (hba->ufshcd_state == UFSHCD_STATE_ERROR)
 		err = FAILED;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	return err;
 }
@@ -10081,13 +10081,13 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
 	unsigned long flags;
 	int ret;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(&hba->host->host_lock, flags);
 	sdp = hba->ufs_device_wlun;
 	if (sdp && scsi_device_online(sdp))
 		ret = scsi_device_get(sdp);
 	else
 		ret = -ENODEV;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	spin_unlock_irqrestore(&hba->host->host_lock, flags);
 
 	if (ret)
 		return ret;
