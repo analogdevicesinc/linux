@@ -17,6 +17,7 @@
 #include "intel_cmtg.h"
 #include "intel_crtc.h"
 #include "intel_de.h"
+#include "intel_dip_regs.h"
 #include "intel_display_limits.h"
 #include "intel_display_regs.h"
 #include "intel_display_types.h"
