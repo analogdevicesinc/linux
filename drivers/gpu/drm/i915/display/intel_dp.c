@@ -62,6 +62,7 @@
 #include "intel_ddi.h"
 #include "intel_de.h"
 #include "intel_dip.h"
+#include "intel_dip_regs.h"
 #include "intel_display_driver.h"
 #include "intel_display_jiffies.h"
 #include "intel_display_utils.h"
@@ -7387,8 +7388,57 @@ int intel_dp_compute_config_late(struct intel_encoder *encoder,
 }
 
 static
+int intel_dp_get_lines_for_cmn_sdp_tl(u32 type)
+{
+	u32 stagger_val;
+
+	/*
+	 * Since we are using default stagger values similar to the case
+	 * where CMN SDP TL is not set, the different SDP transmission
+	 * lines are:
+	 * base : 2nd line of delayed vblank:
+	 * GMP : 2 + GMP_STAGGER
+	 * VSC_EXT: 2 + VSC_EXT_STAGGER
+	 * VSC : 2
+	 * PPS : 2 + PPS_STAGGER
+	 *
+	 * SDP Setup = 1 + MAX(GMP, VSC_EXT, VSC, PPS setup lines)
+	 *
+	 * For EMP_AS_SDP_TL guardband should be more than vrr.vsync_start.
+	 */
+
+	switch (type) {
+	case DP_SDP_VSC_EXT_VESA:
+	case DP_SDP_VSC_EXT_CEA:
+		stagger_val = VSC_EXT_STAGGER_DEFAULT;
+		break;
+	case HDMI_PACKET_TYPE_GAMUT_METADATA:
+		stagger_val = GMP_STAGGER_DEFAULT;
+		break;
+	case DP_SDP_PPS:
+		stagger_val = PPS_STAGGER_DEFAULT;
+		break;
+	case DP_SDP_VSC:
+		stagger_val = 0;
+		break;
+	default:
+		return 0;
+	}
+
+	return 1 + 2 + stagger_val;
+}
+
+static
 int intel_dp_get_lines_for_sdp(const struct intel_crtc_state *crtc_state, u32 type)
 {
+	struct intel_display *display = to_intel_display(crtc_state);
+
+	if (type == DP_SDP_ADAPTIVE_SYNC)
+		return crtc_state->vrr.vsync_start + 1;
+
+	if (HAS_COMMON_SDP_TL(display))
+		return intel_dp_get_lines_for_cmn_sdp_tl(type);
+
 	switch (type) {
 	case DP_SDP_VSC_EXT_VESA:
 	case DP_SDP_VSC_EXT_CEA:
@@ -7399,8 +7449,6 @@ int intel_dp_get_lines_for_sdp(const struct intel_crtc_state *crtc_state, u32 ty
 		return 7;
 	case DP_SDP_VSC:
 		return 3;
-	case DP_SDP_ADAPTIVE_SYNC:
-		return crtc_state->vrr.vsync_start + 1;
 	default:
 		break;
 	}
