@@ -683,7 +683,7 @@ __prestera_k_arb_n_offload_set(struct prestera_switch *sw,
 {
 	struct neighbour *n;
 
-	n = neigh_lookup(&arp_tbl, &nc->key.addr.u.ipv4,
+	n = neigh_lookup(arp_table(&init_net), &nc->key.addr.u.ipv4,
 			 nc->key.dev);
 	if (!n)
 		return;
@@ -790,7 +790,7 @@ __prestera_k_arb_nc_kern_n_fetch(struct prestera_switch *sw,
 	int err;
 
 	memset(&nc->nh_neigh_info, 0, sizeof(nc->nh_neigh_info));
-	n = neigh_lookup(&arp_tbl, &nc->key.addr.u.ipv4, nc->key.dev);
+	n = neigh_lookup(arp_table(&init_net), &nc->key.addr.u.ipv4, nc->key.dev);
 	if (!n)
 		goto out;
 
@@ -1052,10 +1052,12 @@ static void __prestera_k_arb_hw_state_upd(struct prestera_switch *sw,
 #endif /* PRESTERA_IMPLICITY_RESOLVE_DEAD_NEIGH */
 
 	if (nc->key.addr.v == PRESTERA_IPV4) {
-		n = neigh_lookup(&arp_tbl, &nc->key.addr.u.ipv4,
+		struct neigh_table *tbl = arp_table(&init_net);
+
+		n = neigh_lookup(tbl, &nc->key.addr.u.ipv4,
 				 nc->key.dev);
 		if (!n)
-			n = neigh_create(&arp_tbl, &nc->key.addr.u.ipv4,
+			n = neigh_create(tbl, &nc->key.addr.u.ipv4,
 					 nc->key.dev);
 	} else {
 		n = NULL;

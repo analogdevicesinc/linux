@@ -119,6 +119,7 @@ properties:
         - starfive,jh7110-dwmac
         - tesla,fsd-ethqos
         - thead,th1520-gmac
+        - ultrarisc,dp1000-gmac
 
   reg:
     minItems: 1

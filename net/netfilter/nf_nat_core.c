@@ -1204,14 +1204,15 @@ int nf_nat_register_fn(struct net *net, u8 pf, const struct nf_hook_ops *ops,
 	if (!nat_proto_net->nat_hook_ops) {
 		WARN_ON(nat_proto_net->users != 0);
 
-		nat_ops = kmemdup_array(orig_nat_ops, ops_count, sizeof(*orig_nat_ops), GFP_KERNEL);
+		nat_ops = kmemdup_array(orig_nat_ops, ops_count, sizeof(*orig_nat_ops),
+					GFP_KERNEL_ACCOUNT);
 		if (!nat_ops) {
 			mutex_unlock(&nf_nat_proto_mutex);
 			return -ENOMEM;
 		}
 
 		for (i = 0; i < ops_count; i++) {
-			priv = kzalloc_obj(*priv);
+			priv = kzalloc_obj(*priv, GFP_KERNEL_ACCOUNT);
 			if (priv) {
 				nat_ops[i].priv = priv;
 				continue;

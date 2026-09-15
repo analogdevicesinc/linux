@@ -57,6 +57,7 @@ struct fbnic_dev {
 	u64 dsn;
 	u32 mps;
 	u32 readrq;
+	u32 rx_cqe_nsecs;
 	u8 relaxed_ord;
 
 	/* Local copy of the devices TCAM */
@@ -250,6 +251,7 @@ int fbnic_csr_regs_len(struct fbnic_dev *fbd);
 
 void fbnic_config_txrx_usecs(struct fbnic_napi_vector *nv, u32 arm);
 void fbnic_config_rx_frames(struct fbnic_napi_vector *nv);
+void fbnic_config_rx_cqe_nsecs(struct fbnic_dev *fbd);
 
 enum fbnic_boards {
 	fbnic_board_asic

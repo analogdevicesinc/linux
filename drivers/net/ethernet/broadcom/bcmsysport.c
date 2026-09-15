@@ -2453,8 +2453,6 @@ static int bcm_sysport_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(40));
-	if (ret)
-		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
 	if (ret) {
 		dev_err(&pdev->dev, "unable to set DMA mask: %d\n", ret);
 		return ret;

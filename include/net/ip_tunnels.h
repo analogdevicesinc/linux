@@ -127,6 +127,7 @@ struct ip_tunnel_6rd_parm {
 	__be32			relay_prefix;
 	u16			prefixlen;
 	u16			relay_prefixlen;
+	struct rcu_head		rcu;
 };
 #endif
 
@@ -148,6 +149,7 @@ struct ip_tunnel_parm_kern {
 	__be32			o_key;
 	int			link;
 	struct iphdr		iph;
+	struct rcu_head		rcu;
 };
 
 struct ip_tunnel {
@@ -185,10 +187,11 @@ struct ip_tunnel {
 
 	/* for SIT */
 #ifdef CONFIG_IPV6_SIT_6RD
-	struct ip_tunnel_6rd_parm ip6rd;
+	struct ip_tunnel_6rd_parm __rcu *ip6rd;
 #endif
 	struct ip_tunnel_prl_entry __rcu *prl;	/* potential router list */
 	unsigned int		prl_count;	/* # of entries in PRL */
+	struct ip_tunnel_parm_kern __rcu *sit_parms;
 	unsigned int		ip_tnl_net_id;
 	struct gro_cells	gro_cells;
 	__u32			fwmark;

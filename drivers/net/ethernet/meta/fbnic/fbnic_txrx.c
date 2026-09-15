@@ -6,6 +6,7 @@
 #include <linux/bpf_trace.h>
 #include <linux/iopoll.h>
 #include <linux/pci.h>
+#include <linux/time64.h>
 #include <net/netdev_queues.h>
 #include <net/page_pool/helpers.h>
 #include <net/tcp.h>
@@ -2641,6 +2642,22 @@ static void fbnic_config_rim_threshold(struct fbnic_ring *rcq, u16 nv_idx, u32 r
 
 	fbnic_ring_wr32(rcq, FBNIC_QUEUE_RIM_CTL, nv_idx);
 	fbnic_ring_wr32(rcq, FBNIC_QUEUE_RIM_THRESHOLD, threshold);
+}
+
+void fbnic_config_rx_cqe_nsecs(struct fbnic_dev *fbd)
+{
+	u32 coal_wait;
+
+	coal_wait = DIV_ROUND_CLOSEST_ULL((u64)fbd->rx_cqe_nsecs *
+					  FBNIC_CLOCK_FREQ, NSEC_PER_SEC);
+
+	/* TICK_CYCLES controls the interrupt threshold timer. COAL_WAIT is
+	 * independent and measured in core clock cycles.
+	 */
+	wr32(fbd, FBNIC_QM_RCQ_CTL0,
+	     FIELD_PREP(FBNIC_QM_RCQ_CTL0_TICK_CYCLES,
+			FBNIC_CLOCK_FREQ / USEC_PER_SEC) |
+	     FIELD_PREP(FBNIC_QM_RCQ_CTL0_COAL_WAIT, coal_wait));
 }
 
 void fbnic_config_txrx_usecs(struct fbnic_napi_vector *nv, u32 arm)

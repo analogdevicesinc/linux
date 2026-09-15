@@ -1852,11 +1852,12 @@ static int vxlan_err_lookup(struct sock *sk, struct sk_buff *skb)
 
 static int arp_reduce(struct net_device *dev, struct sk_buff *skb, __be32 vni)
 {
+	struct neigh_table *tbl = arp_table(dev_net(dev));
 	struct vxlan_dev *vxlan = netdev_priv(dev);
+	struct neighbour *n;
 	struct arphdr *parp;
 	u8 *arpptr, *sha;
 	__be32 sip, tip;
-	struct neighbour *n;
 
 	if (dev->flags & IFF_NOARP)
 		goto out;
@@ -1888,7 +1889,7 @@ static int arp_reduce(struct net_device *dev, struct sk_buff *skb, __be32 vni)
 	    ipv4_is_multicast(tip))
 		goto out;
 
-	n = neigh_lookup(&arp_tbl, &tip, dev);
+	n = neigh_lookup(tbl, &tip, dev);
 
 	if (n) {
 		struct vxlan_rdst *rdst = NULL;
@@ -2062,7 +2063,7 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb, __be32 vni)
 	    ipv6_addr_is_multicast(&msg->target))
 		goto out;
 
-	n = neigh_lookup(&nd_tbl, &msg->target, dev);
+	n = neigh_lookup(nd_table(dev_net(dev)), &msg->target, dev);
 
 	if (n) {
 		struct vxlan_rdst *rdst = NULL;
@@ -2117,6 +2118,7 @@ out:
 static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
 {
 	struct vxlan_dev *vxlan = netdev_priv(dev);
+	struct neigh_table *tbl;
 	struct neighbour *n;
 
 	if (is_multicast_ether_addr(eth_hdr(skb)->h_dest))
@@ -2130,8 +2132,10 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
 
 		if (!pskb_network_may_pull(skb, sizeof(struct iphdr)))
 			return false;
+
+		tbl = arp_table(dev_net(dev));
 		pip = ip_hdr(skb);
-		n = neigh_lookup(&arp_tbl, &pip->daddr, dev);
+		n = neigh_lookup(tbl, &pip->daddr, dev);
 		if (!n && (vxlan->cfg.flags & VXLAN_F_L3MISS)) {
 			union vxlan_addr ipa = {
 				.sin.sin_addr.s_addr = pip->daddr,
@@ -2156,8 +2160,10 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
 			return false;
 		if (!pskb_network_may_pull(skb, sizeof(struct ipv6hdr)))
 			return false;
+
+		tbl = nd_table(dev_net(dev));
 		pip6 = ipv6_hdr(skb);
-		n = neigh_lookup(&nd_tbl, &pip6->daddr, dev);
+		n = neigh_lookup(tbl, &pip6->daddr, dev);
 		if (!n && (vxlan->cfg.flags & VXLAN_F_L3MISS)) {
 			union vxlan_addr ipa = {
 				.sin6.sin6_addr = pip6->daddr,

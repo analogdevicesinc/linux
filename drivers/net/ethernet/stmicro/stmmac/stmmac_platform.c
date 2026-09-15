@@ -16,6 +16,7 @@
 #include <linux/of.h>
 #include <linux/of_net.h>
 #include <linux/of_mdio.h>
+#include <linux/phy.h>
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
@@ -847,6 +848,16 @@ int stmmac_pltfr_probe(struct platform_device *pdev,
 		       struct plat_stmmacenet_data *plat,
 		       struct stmmac_resources *res)
 {
+	if (plat->has_internal_tx_delay || plat->has_internal_rx_delay) {
+		plat->phy_interface =
+			phy_fix_phy_mode_for_mac_delays(plat->phy_interface,
+							plat->has_internal_tx_delay,
+							plat->has_internal_rx_delay);
+		if (plat->phy_interface == PHY_INTERFACE_MODE_NA)
+			return dev_err_probe(&pdev->dev, -EINVAL,
+					     "unsupported phy interface mode\n");
+	}
+
 	if (!plat->suspend && plat->exit)
 		plat->suspend = stmmac_plat_suspend;
 	if (!plat->resume && plat->init)

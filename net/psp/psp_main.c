@@ -68,9 +68,9 @@ psp_dev_create(struct net_device *netdev,
 		    !psd_ops->set_config ||
 		    !psd_ops->key_rotate ||
 		    !psd_ops->rx_spi_alloc ||
-		    !psd_ops->tx_key_add ||
-		    !psd_ops->tx_key_del ||
-		    !psd_ops->get_stats))
+		    !psd_ops->get_stats ||
+		    (!psd_ops->tx_key_add != !psd_ops->tx_key_del) ||
+		    (psd_caps->assoc_drv_spc && !psd_ops->tx_key_add)))
 		return ERR_PTR(-EINVAL);
 
 	psd = kzalloc_obj(*psd);
@@ -147,8 +147,11 @@ void psp_dev_unregister(struct psp_dev *psd)
 
 	list_splice_init(&psd->active_assocs, &psd->prev_assocs);
 	list_splice_init(&psd->prev_assocs, &psd->stale_assocs);
-	list_for_each_entry_safe(pas, next, &psd->stale_assocs, assocs_list)
-		psp_dev_tx_key_del(psd, pas);
+	list_for_each_entry_safe(pas, next, &psd->stale_assocs, assocs_list) {
+		if (psp_assoc_needs_tx_key_del(pas))
+			psp_dev_tx_key_del(psd, pas);
+		list_del(&pas->assocs_list);
+	}
 
 	list_for_each_entry_safe(entry, entry_tmp, &psd->assoc_dev_list,
 				 dev_list) {
