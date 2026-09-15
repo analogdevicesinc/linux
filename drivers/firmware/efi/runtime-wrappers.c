@@ -652,3 +652,31 @@ void efi_runtime_assert_lock_held(void)
 {
 	WARN_ON(efi_runtime_lock_owner != current);
 }
+
+efi_status_t efi_runtime_set_enable_flag(bool enable)
+{
+	static bool runtime_disabled;
+	efi_status_t ret = EFI_NOT_READY;
+
+	if (down_interruptible(&efi_runtime_lock))
+		return EFI_ABORTED;
+
+	if (enable) {
+		/* It could be enabled only if it is disabled here */
+		if (runtime_disabled) {
+			set_bit(EFI_RUNTIME_SERVICES, &efi.flags);
+			runtime_disabled = false;
+			ret = EFI_SUCCESS;
+		}
+	} else {
+		if (efi_enabled(EFI_RUNTIME_SERVICES)) {
+			clear_bit(EFI_RUNTIME_SERVICES, &efi.flags);
+			runtime_disabled = true;
+			ret = EFI_SUCCESS;
+		}
+	}
+
+	up(&efi_runtime_lock);
+
+	return ret;
+}
