@@ -2560,6 +2560,13 @@ static void ff_layout_reresolve_deviceid(struct pnfs_layout_hdr *lo,
 				kfree(put);
 				continue;
 			}
+			/* A node still hashed was fetched after the unhash
+			 * and carries the new mapping; mark only the
+			 * superseded ones.
+			 */
+			if (immediate &&
+			    hlist_unhashed_lockless(&old->id_node.node))
+				nfs4_mark_deviceid_unavailable(&old->id_node);
 			put->dev = &old->id_node;
 			list_add(&put->node, head);
 		}
