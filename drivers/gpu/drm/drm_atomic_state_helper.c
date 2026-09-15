@@ -80,32 +80,6 @@ __drm_atomic_helper_crtc_state_init(struct drm_crtc_state *crtc_state,
 EXPORT_SYMBOL(__drm_atomic_helper_crtc_state_init);
 
 /**
- * __drm_atomic_helper_crtc_reset - reset state on CRTC
- * @crtc: drm CRTC
- * @crtc_state: CRTC state to assign
- *
- * Initializes the newly allocated @crtc_state and assigns it to
- * the &drm_crtc->state pointer of @crtc, usually required when
- * initializing the drivers or when called from the &drm_crtc_funcs.reset
- * hook.
- *
- * This is useful for drivers that subclass the CRTC state.
- */
-void
-__drm_atomic_helper_crtc_reset(struct drm_crtc *crtc,
-			       struct drm_crtc_state *crtc_state)
-{
-	if (crtc_state)
-		__drm_atomic_helper_crtc_state_init(crtc_state, crtc);
-
-	if (drm_dev_has_vblank(crtc->dev))
-		drm_crtc_vblank_reset(crtc);
-
-	crtc->state = crtc_state;
-}
-EXPORT_SYMBOL(__drm_atomic_helper_crtc_reset);
-
-/**
  * drm_atomic_helper_crtc_create_state - default &drm_crtc_funcs.atomic_create_state hook for crtcs
  * @crtc: crtc object
  *
