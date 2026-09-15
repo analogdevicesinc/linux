@@ -681,8 +681,8 @@ ifdef building_out_of_srctree
 # outputmakefile generates a Makefile in the output directory, if using a
 # separate output directory. This allows convenient use of make in the
 # output directory.
-# At the same time when output Makefile generated, generate .gitignore to
-# ignore whole output directory
+# At the same time as the output Makefile is generated, generate .gitignore to
+# ignore the whole output directory
 
 ifdef KBUILD_EXTMOD
 print_env_for_makefile = \
