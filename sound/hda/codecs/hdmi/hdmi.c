@@ -1671,7 +1671,7 @@ int snd_hda_hdmi_generic_pcm_prepare(struct hda_pcm_stream *hinfo,
 	 * After S3, the audio driver restores pin:cvt selections
 	 * but this can happen before gfx is ready and such selection
 	 * is overlooked by HW. Thus multiple pins can share a same
-	 * default convertor and mute control will affect each other,
+	 * default converter and mute control will affect each other,
 	 * which can cause a resumed audio playback become silent
 	 * after S3.
 	 */
