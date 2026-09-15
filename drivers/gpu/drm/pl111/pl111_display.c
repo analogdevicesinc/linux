@@ -470,7 +470,7 @@ static int pl111_crtc_helper_atomic_check(struct drm_crtc *crtc, struct drm_atom
 }
 
 static struct drm_crtc_funcs pl111_crtc_funcs = {
-	.reset			= drm_atomic_helper_crtc_reset,
+	.atomic_create_state	= drm_atomic_helper_crtc_create_state,
 	.destroy		= drm_crtc_cleanup,
 	.set_config		= drm_atomic_helper_set_config,
 	.page_flip		= drm_atomic_helper_page_flip,
