@@ -2935,11 +2935,31 @@ static void enetc_clear_interrupts(struct enetc_ndev_priv *priv)
 static int enetc_phylink_connect(struct net_device *ndev)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
 	struct ethtool_keee edata;
 	int err;
 
 	if (!priv->phylink) {
 		/* phy-less mode */
+		if (!si->ops->vf_reg_link_status_notifier)
+			goto carrier_on;
+
+		/* For phy-less VFs on ENETC v4, attempt to register a link
+		 * status notifier with the PF via the VSI-to-PSI messaging
+		 * channel. If registration succeeds, the PF will immediately
+		 * send the current link status and broadcast future link
+		 * transitions; carrier state is then managed in
+		 * enetc_vf_msg_handle_link_status(). If registration fails,
+		 * fall back to the LS1028A behaviour and assert carrier
+		 * unconditionally via netif_carrier_on().
+		 */
+		if (!si->ops->vf_reg_link_status_notifier(si))
+			return 0;
+
+		dev_warn(&ndev->dev,
+			 "Link status notifier registration failed\n");
+
+carrier_on:
 		netif_carrier_on(ndev);
 		return 0;
 	}
@@ -3024,10 +3044,6 @@ int enetc_open(struct net_device *ndev)
 	if (err)
 		goto err_setup_irqs;
 
-	err = enetc_phylink_connect(ndev);
-	if (err)
-		goto err_phy_connect;
-
 	tx_res = enetc_alloc_tx_resources(priv);
 	if (IS_ERR(tx_res)) {
 		err = PTR_ERR(tx_res);
@@ -3040,6 +3056,10 @@ int enetc_open(struct net_device *ndev)
 		goto err_alloc_rx;
 	}
 
+	err = enetc_phylink_connect(ndev);
+	if (err)
+		goto err_phy_connect;
+
 	enetc_tx_onestep_tstamp_init(priv);
 	enetc_assign_tx_resources(priv, tx_res);
 	enetc_assign_rx_resources(priv, rx_res);
@@ -3048,12 +3068,11 @@ int enetc_open(struct net_device *ndev)
 
 	return 0;
 
+err_phy_connect:
+	enetc_free_rx_resources(rx_res, priv->num_rx_rings);
 err_alloc_rx:
 	enetc_free_tx_resources(tx_res, priv->num_tx_rings);
 err_alloc_tx:
-	if (priv->phylink)
-		phylink_disconnect_phy(priv->phylink);
-err_phy_connect:
 	enetc_free_irqs(priv);
 err_setup_irqs:
 	clk_disable_unprepare(priv->ref_clk);
@@ -3093,6 +3112,7 @@ EXPORT_SYMBOL_GPL(enetc_stop);
 int enetc_close(struct net_device *ndev)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
 
 	enetc_stop(ndev);
 
@@ -3100,6 +3120,20 @@ int enetc_close(struct net_device *ndev)
 		phylink_stop(priv->phylink);
 		phylink_disconnect_phy(priv->phylink);
 	} else {
+		if (!si->ops->vf_unreg_link_status_notifier)
+			goto carrier_off;
+
+		/* No need to check whether the previous registration was
+		 * successful. Sending the deregistration message has no
+		 * impact; the PF side simply clears the corresponding bit
+		 * in link_status_ms_mask for the VF.
+		 */
+		if (!si->ops->vf_unreg_link_status_notifier(si))
+			goto carrier_off;
+
+		dev_warn(&ndev->dev,
+			 "Link status notifier unregistration failed\n");
+carrier_off:
 		netif_carrier_off(ndev);
 	}
 
@@ -3794,6 +3828,13 @@ static const struct enetc_drvdata enetc_vf_data = {
 	.eth_ops = &enetc_vf_ethtool_ops,
 };
 
+static const struct enetc_drvdata enetc4_vf_data = {
+	.sysclk_freq = ENETC_CLK_333M,
+	.tx_csum = true,
+	.max_frags = ENETC4_MAX_SKB_FRAGS,
+	.eth_ops = &enetc_vf_ethtool_ops,
+};
+
 static const struct enetc_platform_info enetc_info[] = {
 	{ .revision = ENETC_REV_1_0,
 	  .dev_id = ENETC_DEV_ID_PF,
@@ -3807,6 +3848,10 @@ static const struct enetc_platform_info enetc_info[] = {
 	  .dev_id = ENETC_DEV_ID_VF,
 	  .data = &enetc_vf_data,
 	},
+	{ .revision = ENETC_REV_4_1,
+	  .dev_id = NXP_ENETC_VF_DEV_ID,
+	  .data = &enetc4_vf_data,
+	},
 	{
 	  .revision = ENETC_REV_4_3,
 	  .dev_id = NXP_ENETC_PPM_DEV_ID,
@@ -3815,6 +3860,10 @@ static const struct enetc_platform_info enetc_info[] = {
 	{ .revision = ENETC_REV_4_3,
 	  .dev_id = NXP_ENETC_PF_DEV_ID,
 	  .data = &enetc4_pf_data,
+	},
+	{ .revision = ENETC_REV_4_3,
+	  .dev_id = NXP_ENETC_VF_DEV_ID,
+	  .data = &enetc4_vf_data,
 	},
 };
 
