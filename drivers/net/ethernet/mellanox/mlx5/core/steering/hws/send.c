@@ -1192,6 +1192,8 @@ int mlx5hws_send_queue_action(struct mlx5hws_context *ctx,
 			      u16 queue_id,
 			      u32 actions)
 {
+	unsigned long timeout = jiffies +
+				secs_to_jiffies(MLX5HWS_BWC_POLLING_TIMEOUT);
 	struct mlx5hws_send_ring_sq *send_sq;
 	struct mlx5hws_send_engine *queue;
 	bool wait_comp = false;
@@ -1213,8 +1215,17 @@ int mlx5hws_send_queue_action(struct mlx5hws_context *ctx,
 			mlx5hws_send_engine_flush_queue(queue);
 
 		/* Poll queue until empty */
-		while (wait_comp && !mlx5hws_send_engine_empty(queue))
+		while (wait_comp && !mlx5hws_send_engine_empty(queue)) {
 			hws_send_engine_poll_cq(queue, NULL, &polled, 0);
+
+			if (unlikely(time_after(jiffies, timeout))) {
+				mlx5hws_err(ctx,
+					    "Error draining send queue %d - TIMEOUT (%d sec)\n",
+					    queue_id,
+					    MLX5HWS_BWC_POLLING_TIMEOUT);
+				return -ETIMEDOUT;
+			}
+		}
 
 		break;
 	default:
