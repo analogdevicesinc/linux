@@ -2901,7 +2901,7 @@ scmi_txrx_setup(struct scmi_info *info, struct fwnode_handle *fwnode,
  */
 static int scmi_channels_setup(struct scmi_info *info)
 {
-	int ret;
+	int ret, idx;
 	struct fwnode_handle *fwnode = dev_fwnode(info->dev);
 
 	/* Initialize a common generic channel at first */
@@ -2909,21 +2909,34 @@ static int scmi_channels_setup(struct scmi_info *info)
 	if (ret)
 		return ret;
 
-	fwnode_for_each_available_child_node_scoped(fwnode, child) {
-		u32 prot_id;
+	if (!is_acpi_node(fwnode)) {
+		fwnode_for_each_available_child_node_scoped(fwnode, child) {
+			u32 prot_id;
 
-		if (fwnode_property_read_u32(child, "reg", &prot_id))
-			continue;
+			if (fwnode_property_read_u32(child, "reg", &prot_id))
+				continue;
 
-		if (!FIELD_FIT(MSG_PROTOCOL_ID_MASK, prot_id)) {
-			dev_err(info->dev,
-				"Out of range protocol %d\n", prot_id);
-			continue;
+			if (!FIELD_FIT(MSG_PROTOCOL_ID_MASK, prot_id)) {
+				dev_err(info->dev,
+					"Out of range protocol %d\n", prot_id);
+				continue;
+			}
+
+			ret = scmi_txrx_setup(info, child, prot_id);
+			if (ret)
+				return ret;
 		}
+	} else {
+		for (idx = 0; idx < ARRAY_SIZE(scmi_dsd_info_list); idx++) {
+			int prot_id = scmi_dsd_info_list[idx].protocol_id;
 
-		ret = scmi_txrx_setup(info, child, prot_id);
-		if (ret)
-			return ret;
+			if (prot_id == SCMI_PROTOCOL_BASE)
+				continue;
+
+			ret = scmi_txrx_setup(info, fwnode, prot_id);
+			if (ret)
+				return ret;
+		}
 	}
 
 	return 0;
@@ -3273,7 +3286,7 @@ static void scmi_enable_matching_quirks(struct scmi_info *info)
 }
 
 static void scmi_device_check_create(struct fwnode_handle *fwnode, int prot_id,
-				     struct scmi_info *info)
+				     struct scmi_info *info, bool report_missing)
 {
 	int ret;
 	struct device *dev = info->dev;
@@ -3285,6 +3298,9 @@ static void scmi_device_check_create(struct fwnode_handle *fwnode, int prot_id,
 	}
 
 	if (!scmi_is_protocol_implemented(handle, prot_id)) {
+		if (!report_missing)
+			return;
+
 		dev_err(dev, "SCMI protocol %d not implemented\n", prot_id);
 		return;
 	}
@@ -3307,7 +3323,7 @@ static void scmi_device_check_create(struct fwnode_handle *fwnode, int prot_id,
 
 static int scmi_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret, idx;
 	char *err_str = "probe failure\n";
 	struct scmi_handle *handle;
 	const struct scmi_desc *desc;
@@ -3428,13 +3444,25 @@ static int scmi_probe(struct platform_device *pdev)
 
 	scmi_enable_matching_quirks(info);
 
-	fwnode_for_each_available_child_node(dev_fwnode(dev), child) {
-		u32 prot_id;
+	if (!is_acpi_node(dev_fwnode(dev))) {
+		fwnode_for_each_available_child_node(dev_fwnode(dev), child) {
+			u32 prot_id;
 
-		if (fwnode_property_read_u32(child, "reg", &prot_id))
-			continue;
+			if (fwnode_property_read_u32(child, "reg", &prot_id))
+				continue;
 
-		scmi_device_check_create(child, prot_id, info);
+			scmi_device_check_create(child, prot_id, info, true);
+		}
+	} else {
+		for (idx = 0; idx < ARRAY_SIZE(scmi_dsd_info_list); idx++) {
+			int prot_id = scmi_dsd_info_list[idx].protocol_id;
+
+			if (prot_id == SCMI_PROTOCOL_BASE)
+				continue;
+
+			scmi_device_check_create(dev_fwnode(dev), prot_id,
+						 info, false);
+		}
 	}
 
 	return 0;
