@@ -1065,7 +1065,7 @@ finalize:
 	return 0;
 
 err_load_libs:
-	avs_remove_topology(component);
+	snd_soc_tplg_component_remove(component);
 	return ret;
 }
 
@@ -1083,7 +1083,7 @@ static void avs_component_remove(struct snd_soc_component *component)
 	mutex_unlock(&adev->comp_list_mutex);
 
 	if (mach->tplg_filename) {
-		ret = avs_remove_topology(component);
+		ret = snd_soc_tplg_component_remove(component);
 		if (ret < 0)
 			dev_err(component->dev, "unload topology failed: %d\n", ret);
 	}
