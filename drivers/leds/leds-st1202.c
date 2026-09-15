@@ -59,7 +59,7 @@ static struct st1202_led *cdev_to_st1202_led(struct led_classdev *cdev)
 	return container_of(cdev, struct st1202_led, led_cdev);
 }
 
-static int st1202_read_reg(struct st1202_chip *chip, int reg, uint8_t *val)
+static int st1202_read_reg(struct st1202_chip *chip, int reg, u8 *val)
 {
 	struct device *dev = &chip->client->dev;
 	int ret;
@@ -70,11 +70,11 @@ static int st1202_read_reg(struct st1202_chip *chip, int reg, uint8_t *val)
 		return ret;
 	}
 
-	*val = (uint8_t)ret;
+	*val = (u8)ret;
 	return 0;
 }
 
-static int st1202_write_reg(struct st1202_chip *chip, int reg, uint8_t val)
+static int st1202_write_reg(struct st1202_chip *chip, int reg, u8 val)
 {
 	struct device *dev = &chip->client->dev;
 	int ret;
@@ -86,7 +86,7 @@ static int st1202_write_reg(struct st1202_chip *chip, int reg, uint8_t val)
 	return ret;
 }
 
-static uint8_t st1202_milliseconds_to_prescaler(unsigned int value)
+static u8 st1202_milliseconds_to_prescaler(unsigned int value)
 {
 	return value / ST1202_MILLIS_PATTERN_DUR_MIN;
 }
