@@ -2447,6 +2447,7 @@ operations:
             - bus-name
             - dev-name
             - index
+            - port-index
             - rate-node-name
             - rate-tx-share
             - rate-tx-max
