@@ -752,7 +752,6 @@ struct xe_probed_info {
  * Probe from the hardware the info required by xe_info_init_early().
  */
 static int xe_probe_info_early(struct xe_device *xe,
-			       const struct xe_device_desc *desc,
 			       struct xe_probed_info *probed_info)
 {
 	struct pci_dev *pdev = to_pci_dev(xe->drm.dev);
@@ -760,7 +759,7 @@ static int xe_probe_info_early(struct xe_device *xe,
 	probed_info->devid = pdev->device;
 	probed_info->revid = pdev->revision;
 
-	xe_step_platform_get(desc->platform, probed_info->revid, &probed_info->step);
+	xe_step_platform_get(xe->desc->platform, probed_info->revid, &probed_info->step);
 
 	return 0;
 }
@@ -770,10 +769,10 @@ static int xe_probe_info_early(struct xe_device *xe,
  * passed to the driver at probe time from PCI ID table.
  */
 static int xe_info_init_early(struct xe_device *xe,
-			      const struct xe_device_desc *desc,
-			      const struct xe_subplatform_desc *subplatform_desc,
 			      struct xe_probed_info *probed_info)
 {
+	const struct xe_subplatform_desc *subplatform_desc = xe->subplatform_desc;
+	const struct xe_device_desc *desc = xe->desc;
 	int err;
 
 	xe->info.devid = probed_info->devid;
@@ -836,14 +835,13 @@ static int xe_info_init_early(struct xe_device *xe,
 }
 
 static void xe_probe_tile_count(struct xe_device *xe,
-				const struct xe_device_desc *desc,
 				struct xe_probed_info *probed_info)
 {
 	struct xe_mmio *mmio;
 	u8 tile_count;
 	u32 mtcfg;
 
-	probed_info->tile_count = 1 + desc->max_remote_tiles;
+	probed_info->tile_count = 1 + xe->desc->max_remote_tiles;
 
 	/*
 	 * Probe for tile count only for platforms that support multiple
@@ -946,9 +944,10 @@ static struct xe_gt *alloc_media_gt(struct xe_tile *tile,
 }
 
 static int xe_probe_ips(struct xe_device *xe,
-			const struct xe_device_desc *desc,
 			struct xe_probed_info *probed_info)
 {
+	const struct xe_device_desc *desc = xe->desc;
+
 	/*
 	 * If this platform supports GMD_ID, we'll detect the proper IP
 	 * descriptor to use from hardware registers.
@@ -989,14 +988,13 @@ static int xe_probe_ips(struct xe_device *xe,
  * Probe from the hardware the info required by xe_info_init().
  */
 static int xe_probe_info(struct xe_device *xe,
-			 const struct xe_device_desc *desc,
 			 struct xe_probed_info *probed_info)
 {
 	int err;
 
-	xe_probe_tile_count(xe, desc, probed_info);
+	xe_probe_tile_count(xe, probed_info);
 
-	err = xe_probe_ips(xe, desc, probed_info);
+	err = xe_probe_ips(xe, probed_info);
 	if (err)
 		return err;
 
@@ -1010,7 +1008,6 @@ static int xe_probe_info(struct xe_device *xe,
  * present in device info.
  */
 static int xe_info_init(struct xe_device *xe,
-			const struct xe_device_desc *desc,
 			struct xe_probed_info *probed_info)
 {
 	const struct xe_ip *graphics_ip;
@@ -1208,6 +1205,8 @@ static int __xe_pci_probe(struct pci_dev *pdev, const struct xe_device_desc *des
 	if (IS_ERR(xe))
 		return PTR_ERR(xe);
 
+	xe->desc = desc;
+	xe->subplatform_desc = subplatform_desc;
 	xe->devres_group = group;
 
 	pci_set_drvdata(pdev, &xe->drm);
@@ -1216,11 +1215,11 @@ static int __xe_pci_probe(struct pci_dev *pdev, const struct xe_device_desc *des
 
 	pci_set_master(pdev);
 
-	err = xe_probe_info_early(xe, desc, &probed_info);
+	err = xe_probe_info_early(xe, &probed_info);
 	if (err)
 		return err;
 
-	err = xe_info_init_early(xe, desc, subplatform_desc, &probed_info);
+	err = xe_info_init_early(xe, &probed_info);
 	if (err)
 		return err;
 
@@ -1239,11 +1238,11 @@ static int __xe_pci_probe(struct pci_dev *pdev, const struct xe_device_desc *des
 	if (err)
 		return err;
 
-	err = xe_probe_info(xe, desc, &probed_info);
+	err = xe_probe_info(xe, &probed_info);
 	if (err)
 		return err;
 
-	err = xe_info_init(xe, desc, &probed_info);
+	err = xe_info_init(xe, &probed_info);
 	if (err)
 		return err;
 

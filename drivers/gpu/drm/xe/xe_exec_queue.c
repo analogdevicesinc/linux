@@ -322,10 +322,66 @@ struct xe_lrc *xe_exec_queue_lrc(struct xe_exec_queue *q)
 	return q->lrc[0];
 }
 
+/*
+ * Publish the queue back-pointer in the LRC BOs.
+ *
+ * The BO holds no reference on the queue; the queue owns the LRCs, and
+ * therefore the BOs, instead. The back-pointer is made safe by two rules:
+ *
+ *  - It is published only once the queue is fully constructed and can no
+ *    longer be destroyed by an error path that bypasses the kref (see
+ *    xe_exec_queue_create()), so a reader that successfully takes a
+ *    reference can never be handed a queue that is freed without going
+ *    through xe_exec_queue_destroy().
+ *
+ *  - It is written and cleared under the BO dma_resv. Readers must hold
+ *    the same lock across both the read and
+ *    xe_exec_queue_get_unless_zero(), which serializes them against
+ *    xe_exec_queue_clear_lrc_bo_backpointer() below.
+ *
+ * For a multi-queue group the LRC BOs point at the primary queue, which is
+ * kept alive by the reference every secondary holds on it.
+ */
+static void xe_exec_queue_set_lrc_bo_backpointer(struct xe_exec_queue *q)
+{
+	struct xe_exec_queue *primary = xe_exec_queue_multi_queue_primary(q);
+	int i;
+
+	for (i = 0; i < q->width; ++i) {
+		struct xe_bo *bo = q->lrc[i]->bo;
+
+		xe_bo_lock(bo, false);
+		bo->q = primary;
+		xe_bo_unlock(bo);
+	}
+}
+
+/*
+ * Drop the queue back-pointer before anything belonging to the queue is
+ * torn down. This must happen before q->ops->fini(), otherwise a reader
+ * could take a reference and then operate on an already destroyed backend.
+ */
+static void xe_exec_queue_clear_lrc_bo_backpointer(struct xe_exec_queue *q)
+{
+	int i;
+
+	for (i = 0; i < q->width; ++i) {
+		struct xe_bo *bo = q->lrc[i] ? q->lrc[i]->bo : NULL;
+
+		if (!bo)
+			continue;
+
+		xe_bo_lock(bo, false);
+		bo->q = NULL;
+		xe_bo_unlock(bo);
+	}
+}
+
 static void __xe_exec_queue_fini(struct xe_exec_queue *q)
 {
 	int i;
 
+	xe_exec_queue_clear_lrc_bo_backpointer(q);
 	q->ops->fini(q);
 
 	for (i = 0; i < q->width; ++i)
@@ -449,6 +505,14 @@ struct xe_exec_queue *xe_exec_queue_create(struct xe_device *xe, struct xe_vm *v
 		if (err)
 			goto err_post_init;
 	}
+
+	/*
+	 * Publish the LRC BO back-pointers last: past this point the queue can
+	 * only be destroyed through xe_exec_queue_destroy(), so a concurrent
+	 * reader that takes a reference via bo->q cannot race with the
+	 * kref-bypassing error paths below.
+	 */
+	xe_exec_queue_set_lrc_bo_backpointer(q);
 
 	return q;
 
@@ -1566,8 +1630,12 @@ void xe_exec_queue_update_run_ticks(struct xe_exec_queue *q)
 	 * errors.
 	 */
 	lrc = q->lrc[0];
-	new_ts = xe_lrc_update_timestamp(lrc, &old_ts);
-	q->xef->run_ticks[q->class] += (new_ts - old_ts) * q->width;
+	xe_bo_lock(lrc->bo, false);
+	if (!xe_bo_is_purged(lrc->bo)) {
+		new_ts = xe_lrc_update_timestamp(lrc, &old_ts);
+		q->xef->run_ticks[q->class] += (new_ts - old_ts) * q->width;
+	}
+	xe_bo_unlock(lrc->bo);
 
 	drm_dev_exit(idx);
 }

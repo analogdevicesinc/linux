@@ -144,6 +144,7 @@ enum xe_log_location_bits {
 	define(DRIVER, 4, RTP, SW, "Register Table Processing")			\
 	define(DRIVER, 5, WA, SW, "Workarounds")				\
 	define(DRIVER, 6, PAGEFAULT, MEM_FAULT, "Page Fault")			\
+	define(DRIVER, 7, GUCSUBMIT, GT_TDR, "GuC Submission")			\
 	/* */									\
 	define(DRIVER_HARDWARE, 1, REGS, IO_BUS, "Registers")			\
 	define(DRIVER_HARDWARE, 2, GGTT, IO_BUS, "Global GTT")			\
