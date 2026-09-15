@@ -6,6 +6,7 @@
 - [Prerequisites](#prerequisites)
 - [JSON Configuration Parameters](#json-configuration-parameters)
 - [Example Configuration](#example-configuration)
+- [Frame Synchronization (FSYNC)](#frame-synchronization-fsync)
 - [Usage](#usage)
 - [Applying the Overlay](#applying-the-overlay)
 - [Capturing from Multiple Cameras on a Single GMSL Link](#capturing-from-multiple-cameras-on-a-single-gmsl-link)
@@ -34,6 +35,10 @@ The JSON configuration file defines the GMSL setup. Below are the primary parame
   - `"i2c_csi_dsi1"`: CAM1 on RPI5
   - `"i2c_csi_dsi"`: CAM port on RPI4
 
+- **`fsync_tx_id`** *(optional)*: GPIO ID (0-31) the deserializer uses to forward its
+  internally generated frame sync over the GMSL links. Emits `maxim,fsync-tx-id`.
+  See [Frame Synchronization (FSYNC)](#frame-synchronization-fsync).
+
 - **`platform_cfg`**: Platform (RPI) specific configurations:
   - `name`: RPI model (e.g., `"rpi-5-b"`, `"rpi-4-b"`)
   - `csi_idx`: CSI port (e.g., `1` for RPI4 | `0` or `1` for RPI5)
@@ -53,6 +58,17 @@ The JSON configuration file defines the GMSL setup. Below are the primary parame
     - `name`: Specifies the camera model. Can be one of:
         - `"imx219"`, `"ov5640"`, `"imx415"`, `"imx708"`, `"isx021"`
   - `"pool_addrs"`: is the range of addresses that the ATC and assign to the camera device
+  - `pins` *(optional)*: List of serializer pinctrl (MFP) configurations. Each entry emits a
+    `<name>-pins` subnode referenced from the serializer's `pinctrl-0`:
+    - `name`: Label for the subnode (e.g. `"fsync"`)
+    - `pins`: List of MFP pins (e.g. `["mfp3"]`, valid range `mfp0`-`mfp10`)
+    - `function`: Pin function, `"gpio"` (default) or `"rclkout"` (`mfp2`/`mfp4` only)
+    - `props` *(optional)*: List of boolean pinconf properties emitted verbatim
+      (e.g. `["output-enable", "bias-disable"]`)
+    - `rx_id` *(optional)*: GPIO ID (0-31) this pin listens to on the GMSL reverse
+      channel. Emits `maxim,rx-id`, which also enables the pin's GPIO RX.
+    - `tx_id` *(optional)*: GPIO ID (0-31) this pin transmits on the GMSL forward
+      channel. Emits `maxim,tx-id`, which also enables the pin's GPIO TX.
 
 ## Example Configuration
 
@@ -116,6 +132,31 @@ The JSON configuration file defines the GMSL setup. Below are the primary parame
     }
 ]
 ```
+
+## Frame Synchronization (FSYNC)
+
+Deserializers such as the `max96724` generate a frame sync pulse internally and forward it
+to the serializers over the GMSL control channel, as a virtual GPIO identified by a 5-bit
+ID. The serializer subscribes an MFP pin to that ID and drives it into the sensor's trigger
+input. The deserializer's `fsync_tx_id` and the serializer pin's `rx_id` must match,
+otherwise everything probes cleanly but no pulse arrives.
+
+See `max96724_1_max96717_imx219_fsync_rpi5.json` for a complete example using MFP3.
+
+The device tree only wires up the transport. Enable FSYNC at runtime on the deserializer
+subdevice, before streaming:
+
+```bash
+# 0 Disabled, 1 Internal, 2 Internal GPIO Output, 3 External
+v4l2-ctl -d /dev/v4l-subdev0 -c frame_sync_mode=1
+
+# Rate comes from the frame interval on a deserializer sink pad (default 30 fps)
+media-ctl -d /dev/media0 --set-v4l2 '"max96724 10-0027":0[fmt:UYVY8_1X16/1920x1080@1/30]'
+```
+
+Use `Internal` when the pulse travels over the link, as above. The other modes drive or
+read the deserializer's own FSYNC pin. Settings are latched while idle and rejected
+while streaming. Verify with `v4l2-ctl -d /dev/v4l-subdev0 --log-status`.
 
 ### **Note:** The following commands can be run either on the **host machine** or on the **Raspberry Pi**
 

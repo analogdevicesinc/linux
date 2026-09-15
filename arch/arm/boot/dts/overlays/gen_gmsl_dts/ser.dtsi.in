@@ -6,6 +6,7 @@
 {% set ser_out_remote_label = des_in_label_x(ser_idx) %}
 {% set i2c_label = des_i2c_label_x(ser_idx) %}
 {% set ser_out_port = ser_cfg.cameras | length %}
+{% set pins_cfgs = ser_cfg.pins | d([]) %}
 {% macro ser_in_label_x(x) -%}
 	{{ ser_label ~ '_in_' ~ x }}
 {%- endmacro %}
@@ -27,6 +28,27 @@
 
 		gpio-controller;
 		gpio-ranges = <&{{ser_label}} 0 0 11>;
+{% if pins_cfgs %}
+
+		pinctrl-names = "default";
+		pinctrl-0 = <{% for pin_cfg in pins_cfgs %}&{{ser_label}}_{{pin_cfg.name}}{{ ' ' if not loop.last }}{% endfor %}>;
+{% for pin_cfg in pins_cfgs %}
+
+		{{ser_label}}_{{pin_cfg.name}}: {{pin_cfg.name}}-pins {
+			pins = {% for pin in pin_cfg.pins %}{{pin | str_quote}}{{ ', ' if not loop.last }}{% endfor %};
+			function = {{ pin_cfg.function | d('gpio') | str_quote }};
+{% for prop in pin_cfg.props | d([]) %}
+			{{prop}};
+{% endfor %}
+{% if pin_cfg.tx_id is defined %}
+			maxim,tx-id = <{{pin_cfg.tx_id}}>;
+{% endif %}
+{% if pin_cfg.rx_id is defined %}
+			maxim,rx-id = <{{pin_cfg.rx_id}}>;
+{% endif %}
+		};
+{% endfor %}
+{% endif %}
 	};
 };
 

@@ -3,6 +3,7 @@
 {% set pool_addrs = des_cfg.pool_addrs | d(['0x40', '0x41', '0x42', '0x43']) | join(' ') %}
 {% set vpoc_cfg = des_cfg.vpoc_cfg %}
 {% set platform_cfg = des_cfg.platform_cfg %}
+{% set fsync_tx_id = des_cfg.fsync_tx_id | d(none) %}
 {% set des_label = 'max_des_' ~ des_idx %}
 {% macro des_in_label_x(x) -%}
 	{{ des_label ~ '_in_' ~ x }}
@@ -52,6 +53,10 @@
 		compatible = {{compatible}};
 		reg = <{{address}}>;
 
+{% if fsync_tx_id is not none %}
+		maxim,fsync-tx-id = <{{fsync_tx_id}}>;
+
+{% endif %}
 {% if vpoc_cfg %}
 {% for ser_cfg in des_cfg.links %}
 {% set ser_idx = loop.index0 %}
