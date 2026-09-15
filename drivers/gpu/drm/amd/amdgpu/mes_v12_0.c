@@ -1306,6 +1306,17 @@ static void mes_v12_0_enable(struct amdgpu_device *adev, bool enable)
 	uint32_t pipe, data = 0;
 
 	if (enable) {
+		/*
+		 * The event-log/MSCRATCH region is only zeroed once at sw_init.
+		 * On the resume path (hw_init without sw_init) it still holds the
+		 * previous session's data, so the MES firmware walks stale
+		 * pointers on activation and triggers a CPC page fault. Re-clear
+		 * it before unhalting MES.
+		 */
+		if (amdgpu_mes_log_enable && adev->mes.event_log_cpu_addr)
+			memset(adev->mes.event_log_cpu_addr, 0,
+			       adev->mes.event_log_size);
+
 		mutex_lock(&adev->srbm_mutex);
 		for (pipe = 0; pipe < AMDGPU_MAX_MES_PIPES; pipe++) {
 			soc24_grbm_select(adev, 3, pipe, 0, 0);
