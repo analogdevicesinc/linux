@@ -1305,7 +1305,7 @@ send_wqe:
 		goto send_wqe;
 	}
 
-	return -1;
+	return -EIO;
 }
 
 void mlx5hws_send_stes_fw(struct mlx5hws_context *ctx,
