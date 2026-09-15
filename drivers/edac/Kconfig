@@ -594,4 +594,13 @@ config EDAC_VERSALNET
 	  and other system errors from various IP subsystems like RPU, NOCs,
 	  HNICX, PL on the AMD Versal NET DDR memory controller.
 
+config EDAC_DUMMY
+	tristate "Dummy EDAC driver"
+	default n
+	help
+	  A dummy EDAC driver is useful for testing purposes in a VM when one
+	  doesn't have all the hardware needed to test aspects of the EDAC
+	  subsystem code.
+
+	  You definitely wanna say N here.
 endif # EDAC
