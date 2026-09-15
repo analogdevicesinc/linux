@@ -87,6 +87,8 @@ properties:
       - items:
           - enum:
               - asus,zenbook-a16-ux3607oa
+              - hp,elitebook-x-g2q
+              - lenovo,yoga-slim7x-gen11
               - qcom,glymur-crd
           - const: qcom,glymur
 
@@ -174,6 +176,11 @@ properties:
               - qcom,kaanapali-mtp
               - qcom,kaanapali-qrd
           - const: qcom,kaanapali
+
+      - items:
+          - enum:
+              - qcom,kuno-idp
+          - const: qcom,kuno
 
       - items:
           - enum:
@@ -433,6 +440,7 @@ properties:
       - items:
           - enum:
               - arduino,monza
+              - qcom,monaco-ac-evk
               - qcom,monaco-evk
               - qcom,qcs8300-ride
           - const: qcom,qcs8300
