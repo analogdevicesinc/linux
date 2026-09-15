@@ -604,7 +604,7 @@ _same_data_server_addrs_locked(const struct list_head *dsaddrs1,
 }
 
 /*
- * Lookup DS by addresses and NFS version.  nfs4_ds_cache_lock is held
+ * Lookup DS by addresses and NFS version.  nfs4_data_server_lock is held
  */
 static struct nfs4_pnfs_ds *
 _data_server_lookup_locked(const struct nfs_net *nn,
@@ -612,10 +612,13 @@ _data_server_lookup_locked(const struct nfs_net *nn,
 {
 	struct nfs4_pnfs_ds *ds;
 
-	list_for_each_entry(ds, &nn->nfs4_data_server_cache, ds_node)
-		if (ds->ds_version == version &&
-		    _same_data_server_addrs_locked(&ds->ds_addrs, dsaddrs))
-			return ds;
+	for (int i = 0; i < NFS4_DS_CACHE_HASH_SIZE; i++)
+		hlist_for_each_entry(ds, &nn->nfs4_data_server_cache[i],
+				     ds_node)
+			if (ds->ds_version == version &&
+			    _same_data_server_addrs_locked(&ds->ds_addrs,
+							   dsaddrs))
+				return ds;
 	return NULL;
 }
 
@@ -666,7 +669,7 @@ void nfs4_pnfs_ds_put(struct nfs4_pnfs_ds *ds)
 	struct nfs_net *nn = net_generic(ds->ds_net, nfs_net_id);
 
 	if (refcount_dec_and_lock(&ds->ds_count, &nn->nfs4_data_server_lock)) {
-		list_del_init(&ds->ds_node);
+		hlist_del_init(&ds->ds_node);
 		spin_unlock(&nn->nfs4_data_server_lock);
 		destroy_ds(ds);
 	}
@@ -753,11 +756,11 @@ nfs4_pnfs_ds_add(const struct net *net, struct list_head *dsaddrs, u32 version,
 		list_splice_init(dsaddrs, &ds->ds_addrs);
 		ds->ds_remotestr = remotestr;
 		refcount_set(&ds->ds_count, 1);
-		INIT_LIST_HEAD(&ds->ds_node);
+		INIT_HLIST_NODE(&ds->ds_node);
 		ds->ds_net = net;
 		ds->ds_clp = NULL;
 		ds->ds_version = version;
-		list_add(&ds->ds_node, &nn->nfs4_data_server_cache);
+		hlist_add_head(&ds->ds_node, &nn->nfs4_data_server_cache[0]);
 		dprintk("%s add new data server %s\n", __func__,
 			ds->ds_remotestr);
 	} else {
