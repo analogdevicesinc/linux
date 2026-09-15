@@ -4,7 +4,6 @@
  */
 
 #include <ctype.h>
-#include <errno.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -239,8 +238,6 @@ void menu_add_symbol(enum prop_type type, struct symbol *sym, struct expr *dep)
 static int menu_validate_number(struct symbol *sym, struct symbol *sym2,
 				const struct property *prop)
 {
-	const char *type_bounds;
-
 	if (sym->type != S_INT && sym->type != S_HEX)
 		return 0;
 
@@ -255,21 +252,11 @@ static int menu_validate_number(struct symbol *sym, struct symbol *sym2,
 		return 1;
 	}
 
-	errno = 0;
-	if (sym->type == S_INT) {
-		type_bounds = "64-bit signed integer";
-		strtoll(sym2->name, NULL, 10);
-	} else {
-		/* hex */
-		type_bounds = "64-bit unsigned integer";
-		strtoull(sym2->name, NULL, 16);
-	}
-
-	if (errno == ERANGE) {
+	if (!sym_string_check_bounds(sym, sym2->name)) {
 		fprintf(stderr,
-			"%s:%d: error: %s constant '%s' is outside the %s bounds\n",
+			"%s:%d: error: %s constant '%s' is outside the 64-bit %s bounds\n",
 			prop->filename, prop->lineno, sym_type_name(sym->type),
-			sym2->name, type_bounds);
+			sym2->name, sym->type == S_INT ? "signed" : "unsigned");
 
 		return 1;
 	}

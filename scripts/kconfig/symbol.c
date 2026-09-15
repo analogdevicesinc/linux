@@ -5,6 +5,7 @@
 
 #include <sys/types.h>
 #include <ctype.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <regex.h>
@@ -726,6 +727,21 @@ bool sym_string_valid(struct symbol *sym, const char *str)
 	}
 }
 
+bool sym_string_check_bounds(struct symbol *sym, const char *str)
+{
+	errno = 0;
+
+	if (sym->type == S_INT)
+		strtoll(str, NULL, 10);
+	else if (sym->type == S_HEX)
+		strtoull(str, NULL, 16);
+	else
+		/* string */
+		return true;
+
+	return errno != ERANGE;
+}
+
 bool sym_string_within_range(struct symbol *sym, const char *str)
 {
 	struct property *prop;
@@ -737,6 +753,8 @@ bool sym_string_within_range(struct symbol *sym, const char *str)
 	case S_INT:
 		if (!sym_string_valid(sym, str))
 			return false;
+		if (!sym_string_check_bounds(sym, str))
+			return false;
 		prop = sym_get_range_prop(sym);
 		if (!prop)
 			return true;
@@ -745,6 +763,8 @@ bool sym_string_within_range(struct symbol *sym, const char *str)
 		       val <= sym_get_range_val(prop->expr->right.sym, 10);
 	case S_HEX:
 		if (!sym_string_valid(sym, str))
+			return false;
+		if (!sym_string_check_bounds(sym, str))
 			return false;
 		prop = sym_get_range_prop(sym);
 		if (!prop)
