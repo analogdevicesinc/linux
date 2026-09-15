@@ -46,11 +46,10 @@ static inline struct optimistic_spin_node *decode_cpu(int encoded_cpu_val)
  */
 static inline struct optimistic_spin_node *
 osq_wait_unlink_next(struct optimistic_spin_queue *lock,
-		     struct optimistic_spin_node *node,
 		     int old_cpu)
 {
+	struct optimistic_spin_node *next, *node = this_cpu_ptr(&osq_node);
 	int curr = encode_cpu(smp_processor_id());
-	struct optimistic_spin_node *next;
 
 	for (;;) {
 		if (atomic_read(&lock->tail) == curr &&
@@ -208,7 +207,7 @@ bool osq_lock(struct optimistic_spin_queue *lock)
 	 * Similar to unlock(), wait for @node->next or move @lock from @node
 	 * back to @prev.
 	 */
-	next_cpu = osq_wait_unlink_next(lock, node, prev_cpu);
+	next_cpu = osq_wait_unlink_next(lock, prev_cpu);
 	if (next_cpu)
 		osq_link_next(prev, next_cpu);
 
@@ -236,5 +235,5 @@ void osq_unlock(struct optimistic_spin_queue *lock)
 		return;
 	}
 
-	osq_wait_unlink_next(lock, node, OSQ_UNLOCKED_VAL);
+	osq_wait_unlink_next(lock, OSQ_UNLOCKED_VAL);
 }
