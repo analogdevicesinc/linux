@@ -190,3 +190,8 @@
 		};
 	};
 };
+
+&gpa {
+	gpio-line-names =
+		"", "", "", "", "", "", "boot-trace";
+};
