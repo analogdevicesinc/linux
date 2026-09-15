@@ -16,6 +16,7 @@
 #include <linux/vmalloc.h>
 #include <linux/uaccess.h>
 #include <linux/sched/stat.h>
+#include <linux/units.h>
 
 #include <asm/processor.h>
 #include <asm/user.h>
@@ -481,20 +482,6 @@ int cpuid_query_maxphyaddr(struct kvm_vcpu *vcpu)
 		return best->eax & 0xff;
 not_found:
 	return 36;
-}
-
-int cpuid_query_maxguestphyaddr(struct kvm_vcpu *vcpu)
-{
-	struct kvm_cpuid_entry2 *best;
-
-	best = kvm_find_cpuid_entry(vcpu, 0x80000000);
-	if (!best || best->eax < 0x80000008)
-		goto not_found;
-	best = kvm_find_cpuid_entry(vcpu, 0x80000008);
-	if (best)
-		return (best->eax >> 16) & 0xff;
-not_found:
-	return 0;
 }
 
 /*
@@ -1095,7 +1082,7 @@ void kvm_initialize_cpu_caps(void)
 	);
 
 	kvm_cpu_cap_init(CPUID_24_1_ECX,
-		F(AVX10_VNNI_INT),
+		F(AVX10_V1_AUX),
 	);
 
 	kvm_cpu_cap_init(CPUID_8000_0001_ECX,
