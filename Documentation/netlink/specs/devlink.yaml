@@ -1002,6 +1002,41 @@ attribute-sets:
         type: u32
 
   -
+    name: dl-port-function-set
+    subset-of: dl-port-function
+    doc: |
+      Port function attributes that can be configured; opstate and the
+      devlink handle are read-only.
+    attributes:
+      -
+        name: hw-addr
+      -
+        name: state
+      -
+        name: caps
+      -
+        name: max-io-eqs
+
+  -
+    name: dl-port-set
+    subset-of: devlink
+    doc: Attributes accepted by the port-set request.
+    attributes:
+      -
+        name: bus-name
+      -
+        name: dev-name
+      -
+        name: index
+      -
+        name: port-index
+      -
+        name: port-type
+      -
+        name: port-function
+        nested-attributes: dl-port-function-set
+
+  -
     name: dl-dpipe-tables
     subset-of: devlink
     attributes:
@@ -1429,7 +1464,7 @@ operations:
     -
       name: port-set
       doc: Set devlink port instances.
-      attribute-set: devlink
+      attribute-set: dl-port-set
       dont-validate: [strict]
       flags: [admin-perm]
       do:
