@@ -45,11 +45,12 @@ struct vncr_tlb {
  * will invalidate them more often).
  */
 #define S2_MMU_PER_VCPU		2
+#define S2_MMU_PER_VM		(KVM_MAX_VCPUS * S2_MMU_PER_VCPU)
 
 int kvm_init_nested(struct kvm *kvm)
 {
 	kvm->arch.nested_mmus = kvmalloc_objs(struct kvm_s2_mmu *,
-					      KVM_MAX_VCPUS * S2_MMU_PER_VCPU,
+					      S2_MMU_PER_VM,
 					      GFP_KERNEL_ACCOUNT);
 	kvm->arch.nested_mmus_size = 0;
 	atomic_set(&kvm->arch.vncr_tlb_count, 0);
@@ -128,8 +129,10 @@ int kvm_vcpu_init_nested(struct kvm_vcpu *vcpu)
 
 		guard(write_lock)(&kvm->mmu_lock);
 
-		for (i = 0; i < S2_MMU_PER_VCPU; i++)
+		for (i = 0; i < S2_MMU_PER_VCPU; i++) {
+			tmp[i].s2_mmu_idx = i + kvm->arch.nested_mmus_size;
 			kvm->arch.nested_mmus[i + kvm->arch.nested_mmus_size] = &tmp[i];
+		}
 
 		kvm->arch.nested_mmus_size += S2_MMU_PER_VCPU;
 	}
@@ -873,6 +876,27 @@ out:
 	return s2_mmu;
 }
 
+#define S2_MMU_IDX_MASK	GENMASK_ULL(11, 0)
+
+static void tag_s2_mapping_mmu(struct kvm_guest_s2_mapping *mapping,
+			       struct kvm_s2_mmu *mmu)
+{
+	BUILD_BUG_ON(S2_MMU_PER_VM > SZ_4K);
+	mapping->nested.start &= ~S2_MMU_IDX_MASK;
+	mapping->nested.start |= mmu->s2_mmu_idx;
+}
+
+static struct kvm_s2_mmu *s2_mapping_to_mmu(struct kvm *kvm,
+					    struct kvm_guest_s2_mapping *mapping)
+{
+	return kvm->arch.nested_mmus[mapping->nested.start & S2_MMU_IDX_MASK];
+}
+
+static unsigned long s2_mapping_to_nested_start(struct kvm_guest_s2_mapping *mapping)
+{
+	return mapping->nested.start & ~S2_MMU_IDX_MASK;
+}
+
 void kvm_record_guest_s2_mapping(struct kvm_s2_mmu *mmu, gpa_t canonical_ipa,
 				 gpa_t nested_ipa, size_t map_size,
 				 struct kvm_guest_s2_mapping *mapping)
@@ -890,7 +914,7 @@ void kvm_record_guest_s2_mapping(struct kvm_s2_mmu *mmu, gpa_t canonical_ipa,
 	mapping->nested.start    = nested_ipa;
 	mapping->nested.last     = nested_ipa + map_size - 1;
 
-	mapping->nested_mmu      = mmu;
+	tag_s2_mapping_mmu(mapping, mmu);
 
 	guard(spinlock)(&kvm->arch.guest_s2_tracking_lock);
 	interval_tree_insert(&mapping->nested, &mmu->guest_s2_mappings);
@@ -913,6 +937,8 @@ void kvm_remove_guest_s2_mappings(struct kvm_s2_mmu *mmu, gpa_t nipa,
 
 	node = interval_tree_iter_first(&mmu->guest_s2_mappings, nipa, nipa_end);
 	while (node) {
+		unsigned long nested_start;
+
 		next = interval_tree_iter_next(node, nipa, nipa_end);
 		mapping = container_of(node, struct kvm_guest_s2_mapping,
 				       nested);
@@ -920,7 +946,8 @@ void kvm_remove_guest_s2_mappings(struct kvm_s2_mmu *mmu, gpa_t nipa,
 		 * Tracking must be conservative on removal, only remove
 		 * mappings that are within the unmap range.
 		 */
-		if (nipa <= mapping->nested.start && nipa_end >= mapping->nested.last) {
+		nested_start = s2_mapping_to_nested_start(mapping);
+		if (nipa <= nested_start && nipa_end >= mapping->nested.last) {
 			interval_tree_remove(&mapping->nested, &mmu->guest_s2_mappings);
 			interval_tree_remove(&mapping->canonical,
 					     &kvm->arch.mmu.guest_s2_mappings);
@@ -1374,18 +1401,23 @@ void kvm_nested_unmap_cipa_range(struct kvm *kvm, gpa_t cipa, size_t unmap_size,
 
 	while ((node = interval_tree_iter_first(&kvm->arch.mmu.guest_s2_mappings,
 						cipa, cipa_end))) {
-		mapping = container_of(node, struct kvm_guest_s2_mapping, canonical);
-		mapping_size = mapping->nested.last - mapping->nested.start + 1;
+		unsigned long nested_start;
+		struct kvm_s2_mmu *mmu;
+
+		mapping = container_of(node, struct kvm_guest_s2_mapping,
+				       canonical);
+		nested_start = s2_mapping_to_nested_start(mapping);
+		mmu = s2_mapping_to_mmu(kvm, mapping);
 
 		/* We could race against MMU teardown, which frees mmu->pgt. */
-		if (mapping->nested_mmu->pgt) {
-			if (WARN_ON_ONCE(kvm_pgtable_stage2_unmap(mapping->nested_mmu->pgt,
-								  mapping->nested.start,
+		if (mmu->pgt) {
+			mapping_size = mapping->nested.last - nested_start + 1;
+
+			if (WARN_ON_ONCE(kvm_pgtable_stage2_unmap(mmu->pgt, nested_start,
 								  mapping_size)))
 				return;
 
-			interval_tree_remove(&mapping->nested,
-					     &mapping->nested_mmu->guest_s2_mappings);
+			interval_tree_remove(&mapping->nested, &mmu->guest_s2_mappings);
 		}
 		interval_tree_remove(node, &kvm->arch.mmu.guest_s2_mappings);
 		kfree(mapping);
