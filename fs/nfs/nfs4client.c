@@ -794,7 +794,8 @@ static int nfs4_set_client(struct nfs_server *server,
 struct nfs_client *nfs4_set_ds_client(struct nfs_server *mds_srv,
 		const struct sockaddr_storage *ds_addr, int ds_addrlen,
 		int ds_proto, unsigned int ds_timeo, unsigned int ds_retrans,
-		u32 minor_version, bool tightly_coupled)
+		unsigned int ds_nconnect, u32 minor_version,
+		bool tightly_coupled)
 {
 	struct rpc_timeout ds_timeout;
 	struct nfs_client *mds_clp = mds_srv->nfs_client;
@@ -832,6 +833,9 @@ struct nfs_client *nfs4_set_ds_client(struct nfs_server *mds_srv,
 	case XPRT_TRANSPORT_TCP:
 		if (mds_clp->cl_nconnect > 1) {
 			cl_init.nconnect = mds_clp->cl_nconnect;
+			if (ds_nconnect)
+				cl_init.nconnect = min(cl_init.nconnect,
+						       ds_nconnect);
 			cl_init.max_connect = NFS_MAX_TRANSPORTS;
 		}
 	}
