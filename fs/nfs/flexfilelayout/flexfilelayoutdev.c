@@ -304,24 +304,33 @@ nfs4_ff_layout_select_ds_fh(struct nfs4_ff_layout_mirror *mirror, u32 dss_id)
 
 void
 nfs4_ff_layout_select_ds_stateid(const struct nfs4_ff_layout_mirror *mirror,
+				 const struct nfs4_ff_layout_ds *mirror_ds,
 				 u32 dss_id,
 				 nfs4_stateid *stateid)
 {
-	if (nfs4_ff_layout_ds_version(mirror, dss_id) == 4)
+	if (nfs4_ff_layout_ds_version(mirror_ds) == 4)
 		nfs4_stateid_copy(stateid, &mirror->dss[dss_id].stateid);
 }
 
-static bool
-ff_layout_init_mirror_ds(struct pnfs_layout_hdr *lo,
-			 struct nfs4_ff_layout_mirror *mirror,
-			 u32 dss_id)
+/*
+ * Resolve the stripe's deviceid on first use and pin the node on the
+ * mirror.  Returns a node the caller must put, or an ERR_PTR.
+ */
+struct nfs4_ff_layout_ds *
+ff_layout_get_mirror_ds(struct pnfs_layout_hdr *lo,
+			struct nfs4_ff_layout_mirror *mirror,
+			u32 dss_id)
 {
-	if (mirror == NULL)
-		goto outerr;
-	if (mirror->dss[dss_id].mirror_ds == NULL) {
-		struct nfs4_deviceid_node *node;
-		struct nfs4_ff_layout_ds *mirror_ds = ERR_PTR(-ENODEV);
+	struct nfs4_ff_layout_ds *mirror_ds;
 
+	if (mirror == NULL)
+		return ERR_PTR(-ENODEV);
+
+	mirror_ds = mirror->dss[dss_id].mirror_ds;
+	if (mirror_ds == NULL) {
+		struct nfs4_deviceid_node *node;
+
+		mirror_ds = ERR_PTR(-ENODEV);
 		node = nfs4_find_get_deviceid(NFS_SERVER(lo->plh_inode),
 				&mirror->dss[dss_id].devid, lo->plh_lc_cred,
 				GFP_KERNEL);
@@ -332,20 +341,23 @@ ff_layout_init_mirror_ds(struct pnfs_layout_hdr *lo,
 		if (cmpxchg(&mirror->dss[dss_id].mirror_ds, NULL, mirror_ds) &&
 		    mirror_ds != ERR_PTR(-ENODEV))
 			nfs4_put_deviceid_node(node);
+
+		mirror_ds = mirror->dss[dss_id].mirror_ds;
 	}
 
-	if (IS_ERR(mirror->dss[dss_id].mirror_ds))
-		goto outerr;
-
-	return true;
-outerr:
-	return false;
+	if (IS_ERR(mirror_ds))
+		return mirror_ds;
+	if (!atomic_inc_not_zero(&mirror_ds->id_node.ref))
+		return ERR_PTR(-ENODEV);
+	return mirror_ds;
 }
 
 /**
  * nfs4_ff_layout_prepare_ds - prepare a DS connection for an RPC call
  * @lseg: the layout segment we're operating on
  * @mirror: layout mirror describing the DS to use
+ * @mirror_ds: referenced device node for the stripe, from
+ *	ff_layout_get_mirror_ds() (may be an ERR_PTR)
  * @dss_id: DS stripe id to select stripe to use
  * @fail_return: return layout on connect failure?
  *
@@ -363,6 +375,7 @@ outerr:
 struct nfs4_pnfs_ds *
 nfs4_ff_layout_prepare_ds(struct pnfs_layout_segment *lseg,
 			  struct nfs4_ff_layout_mirror *mirror,
+			  struct nfs4_ff_layout_ds *mirror_ds,
 			  u32 dss_id,
 			  bool fail_return)
 {
@@ -372,10 +385,10 @@ nfs4_ff_layout_prepare_ds(struct pnfs_layout_segment *lseg,
 	unsigned int max_payload;
 	int status = -EAGAIN;
 
-	if (!ff_layout_init_mirror_ds(lseg->pls_layout, mirror, dss_id))
+	if (IS_ERR_OR_NULL(mirror_ds))
 		goto noconnect;
 
-	ds = mirror->dss[dss_id].mirror_ds->ds;
+	ds = mirror_ds->ds;
 	if (READ_ONCE(ds->ds_clp))
 		goto out;
 	/* matching smp_wmb() in _nfs4_pnfs_v3/4_ds_connect */
@@ -384,11 +397,11 @@ nfs4_ff_layout_prepare_ds(struct pnfs_layout_segment *lseg,
 	/* FIXME: For now we assume the server sent only one version of NFS
 	 * to use for the DS.
 	 */
-	status = nfs4_pnfs_ds_connect(s, ds, &mirror->dss[dss_id].mirror_ds->id_node,
+	status = nfs4_pnfs_ds_connect(s, ds, &mirror_ds->id_node,
 			     dataserver_timeo, dataserver_retrans,
-			     mirror->dss[dss_id].mirror_ds->ds_versions[0].version,
-			     mirror->dss[dss_id].mirror_ds->ds_versions[0].minor_version,
-			     mirror->dss[dss_id].mirror_ds->ds_versions[0].tightly_coupled);
+			     mirror_ds->ds_versions[0].version,
+			     mirror_ds->ds_versions[0].minor_version,
+			     mirror_ds->ds_versions[0].tightly_coupled);
 
 	/* connect success, check rsize/wsize limit */
 	if (!status) {
@@ -401,10 +414,10 @@ nfs4_ff_layout_prepare_ds(struct pnfs_layout_segment *lseg,
 		max_payload =
 			nfs_block_size(rpc_max_payload(ds->ds_clp->cl_rpcclient),
 				       NULL);
-		if (mirror->dss[dss_id].mirror_ds->ds_versions[0].rsize > max_payload)
-			mirror->dss[dss_id].mirror_ds->ds_versions[0].rsize = max_payload;
-		if (mirror->dss[dss_id].mirror_ds->ds_versions[0].wsize > max_payload)
-			mirror->dss[dss_id].mirror_ds->ds_versions[0].wsize = max_payload;
+		if (mirror_ds->ds_versions[0].rsize > max_payload)
+			mirror_ds->ds_versions[0].rsize = max_payload;
+		if (mirror_ds->ds_versions[0].wsize > max_payload)
+			mirror_ds->ds_versions[0].wsize = max_payload;
 		goto out;
 	}
 noconnect:
@@ -424,11 +437,12 @@ const struct cred *
 ff_layout_get_ds_cred(struct nfs4_ff_layout_mirror *mirror,
 		      const struct pnfs_layout_range *range,
 		      const struct cred *mdscred,
+		      const struct nfs4_ff_layout_ds *mirror_ds,
 		      u32 dss_id)
 {
 	const struct cred *cred;
 
-	if (mirror && !mirror->dss[dss_id].mirror_ds->ds_versions[0].tightly_coupled) {
+	if (mirror && !mirror_ds->ds_versions[0].tightly_coupled) {
 		cred = ff_layout_get_mirror_cred(mirror, range->iomode, dss_id);
 		if (!cred)
 			cred = get_cred(mdscred);
@@ -440,20 +454,18 @@ ff_layout_get_ds_cred(struct nfs4_ff_layout_mirror *mirror,
 
 /**
  * nfs4_ff_find_or_create_ds_client - Find or create a DS rpc client
- * @mirror: pointer to the mirror
+ * @mirror_ds: device node for the stripe
  * @ds_clp: nfs_client for the DS
  * @inode: pointer to inode
- * @dss_id: DS stripe id
  *
  * Find or create a DS rpc client with th MDS server rpc client auth flavor
  * in the nfs_client cl_ds_clients list.
  */
 struct rpc_clnt *
-nfs4_ff_find_or_create_ds_client(struct nfs4_ff_layout_mirror *mirror,
-				 struct nfs_client *ds_clp, struct inode *inode,
-				 u32 dss_id)
+nfs4_ff_find_or_create_ds_client(const struct nfs4_ff_layout_ds *mirror_ds,
+				 struct nfs_client *ds_clp, struct inode *inode)
 {
-	switch (mirror->dss[dss_id].mirror_ds->ds_versions[0].version) {
+	switch (mirror_ds->ds_versions[0].version) {
 	case 3:
 		/* For NFSv3 DS, flavor is set when creating DS connections */
 		return ds_clp->cl_rpcclient;

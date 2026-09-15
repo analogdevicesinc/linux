@@ -207,9 +207,9 @@ ff_layout_no_read_on_rw(struct pnfs_layout_segment *lseg)
 }
 
 static inline int
-nfs4_ff_layout_ds_version(const struct nfs4_ff_layout_mirror *mirror, u32 dss_id)
+nfs4_ff_layout_ds_version(const struct nfs4_ff_layout_ds *mirror_ds)
 {
-	return mirror->dss[dss_id].mirror_ds->ds_versions[0].version;
+	return mirror_ds->ds_versions[0].version;
 }
 
 static inline u32
@@ -245,23 +245,29 @@ struct nfs_fh *
 nfs4_ff_layout_select_ds_fh(struct nfs4_ff_layout_mirror *mirror, u32 dss_id);
 void
 nfs4_ff_layout_select_ds_stateid(const struct nfs4_ff_layout_mirror *mirror,
+				 const struct nfs4_ff_layout_ds *mirror_ds,
 				 u32 dss_id,
 				 nfs4_stateid *stateid);
 
+struct nfs4_ff_layout_ds *
+ff_layout_get_mirror_ds(struct pnfs_layout_hdr *lo,
+			struct nfs4_ff_layout_mirror *mirror,
+			u32 dss_id);
 struct nfs4_pnfs_ds *
 nfs4_ff_layout_prepare_ds(struct pnfs_layout_segment *lseg,
 			  struct nfs4_ff_layout_mirror *mirror,
+			  struct nfs4_ff_layout_ds *mirror_ds,
 			  u32 dss_id,
 			  bool fail_return);
 
 struct rpc_clnt *
-nfs4_ff_find_or_create_ds_client(struct nfs4_ff_layout_mirror *mirror,
+nfs4_ff_find_or_create_ds_client(const struct nfs4_ff_layout_ds *mirror_ds,
 				 struct nfs_client *ds_clp,
-				 struct inode *inode,
-				 u32 dss_id);
+				 struct inode *inode);
 const struct cred *ff_layout_get_ds_cred(struct nfs4_ff_layout_mirror *mirror,
 					 const struct pnfs_layout_range *range,
 					 const struct cred *mdscred,
+					 const struct nfs4_ff_layout_ds *mirror_ds,
 					 u32 dss_id);
 bool ff_layout_avoid_mds_available_ds(struct pnfs_layout_segment *lseg);
 bool ff_layout_avoid_read_on_rw(struct pnfs_layout_segment *lseg);
