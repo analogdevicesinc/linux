@@ -1331,6 +1331,7 @@ struct dc_debug_options {
 	uint8_t iommu_mismatch_temp_wka;
 	bool disable_dynamic_expansion_for_test_pattern;
 	bool psr_phy_force_phy_power_down_up_level_2;
+	bool dmub_send_az_pme_restore;
 	uint32_t dml21_custom_derate_num_dpms;
 	uint32_t dml21_custom_derate_at_dpm[DML2_MAX_NUM_DPM_LVL];
 	bool override_utm_client_qc_profile;

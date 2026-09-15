@@ -60,6 +60,7 @@
 #include "dpcd_defs.h"
 #include "dsc.h"
 #include "dc_dp_types.h"
+#include "dc_dmub_srv.h"
 /* include DCE11 register header files */
 #include "dce/dce_11_0_d.h"
 #include "dce/dce_11_0_sh_mask.h"
@@ -1146,7 +1147,10 @@ void dce110_enable_audio_stream(struct pipe_ctx *pipe_ctx)
 			if (dc->current_state->res_ctx.pipe_ctx[i].stream_res.audio != NULL)
 				num_audio++;
 		}
-		if (num_audio >= 1 && clk_mgr->funcs->enable_pme_wa) {
+		if (dc->debug.dmub_send_az_pme_restore) {
+			/*wake AZ from D3 first before access az endpoint*/
+			dc_dmub_srv_nbif_az_pme_restore(dc->ctx, pipe_ctx->stream_res.audio->inst);
+		} else if (num_audio >= 1 && clk_mgr->funcs->enable_pme_wa) {
 			/*wake AZ from D3 first before access az endpoint*/
 			clk_mgr->funcs->enable_pme_wa(clk_mgr);
 		}
@@ -1184,10 +1188,13 @@ void dce110_disable_audio_stream(struct pipe_ctx *pipe_ctx)
 	if (pipe_ctx->stream_res.audio) {
 		pipe_ctx->stream_res.audio->enabled = false;
 
-		if (clk_mgr->funcs->enable_pme_wa)
-			/*this is the first audio. apply the PME w/a in order to wake AZ from D3*/
+		if (dc->debug.dmub_send_az_pme_restore) {
+			/*wake AZ from D3 first before access az endpoint*/
+			dc_dmub_srv_nbif_az_pme_restore(dc->ctx, pipe_ctx->stream_res.audio->inst);
+		} else if (clk_mgr->funcs->enable_pme_wa) {
+			/*wake AZ from D3 first before access az endpoint*/
 			clk_mgr->funcs->enable_pme_wa(clk_mgr);
-
+		}
 		/* TODO: notify audio driver for if audio modes list changed
 		 * add audio mode list change flag */
 		/* dal_audio_disable_azalia_audio_jack_presence(stream->audio,
