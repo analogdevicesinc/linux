@@ -4725,6 +4725,14 @@ static void ice_init_features(struct ice_pf *pf)
 	if (ice_is_safe_mode(pf))
 		return;
 
+	/* pf->dplls.lock guards TSPLL/CGU access shared between the DPLL
+	 * subsystem callbacks and the PTP periodic worker's TSPLL monitor.
+	 * Initialize it before ice_ptp_init() so the PTP kworker never sees
+	 * an uninitialized mutex, and destroy it in ice_deinit_features()
+	 * only after ice_ptp_release() has drained the kworker.
+	 */
+	mutex_init(&pf->dplls.lock);
+
 	/* initialize DDP driven features */
 	if (test_bit(ICE_FLAG_PTP_SUPPORTED, pf->flags))
 		ice_ptp_init(pf);
@@ -4769,6 +4777,7 @@ static void ice_deinit_features(struct ice_pf *pf)
 		ice_ptp_release(pf);
 	if (test_bit(ICE_FLAG_DPLL, pf->flags))
 		ice_dpll_deinit(pf);
+	mutex_destroy(&pf->dplls.lock);
 	if (pf->eswitch_mode == DEVLINK_ESWITCH_MODE_SWITCHDEV)
 		xa_destroy(&pf->eswitch.reprs);
 	ice_hwmon_exit(pf);
