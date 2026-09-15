@@ -1983,7 +1983,6 @@ static int find_sdca_cluster_channels(struct device *dev,
 		char channel_property[SDCA_PROPERTY_LENGTH];
 		struct fwnode_handle *channel_node;
 
-		/* DisCo uses upper-case for hex numbers */
 		snprintf(channel_property, sizeof(channel_property),
 			 "mipi-sdca-channel-%d-subproperties", i + 1);
 

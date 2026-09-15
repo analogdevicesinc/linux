@@ -957,16 +957,29 @@ static int rockchip_sai_set_sysclk(struct snd_soc_dai *dai, int stream,
 	return 0;
 }
 
+static const u64 rockchip_sai_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF;
+
 static const struct snd_soc_dai_ops rockchip_sai_dai_ops = {
-	.probe = rockchip_sai_dai_probe,
-	.startup = rockchip_sai_startup,
-	.shutdown = rockchip_sai_shutdown,
-	.hw_params = rockchip_sai_hw_params,
-	.set_fmt = rockchip_sai_set_fmt,
-	.set_sysclk = rockchip_sai_set_sysclk,
-	.prepare = rockchip_sai_prepare,
-	.trigger = rockchip_sai_trigger,
-	.set_tdm_slot = rockchip_sai_set_tdm_slot,
+	.probe				= rockchip_sai_dai_probe,
+	.startup			= rockchip_sai_startup,
+	.shutdown			= rockchip_sai_shutdown,
+	.hw_params			= rockchip_sai_hw_params,
+	.set_fmt			= rockchip_sai_set_fmt,
+	.set_sysclk			= rockchip_sai_set_sysclk,
+	.prepare			= rockchip_sai_prepare,
+	.trigger			= rockchip_sai_trigger,
+	.set_tdm_slot			= rockchip_sai_set_tdm_slot,
+	.auto_selectable_formats	= &rockchip_sai_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 static const struct snd_soc_dai_driver rockchip_sai_dai = {
