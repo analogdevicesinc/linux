@@ -159,6 +159,11 @@ unsigned long ib_umem_find_best_pgsz(struct ib_umem *umem,
 }
 EXPORT_SYMBOL(ib_umem_find_best_pgsz);
 
+static inline enum dma_data_direction ib_access_dma_dir(int access)
+{
+	return ib_access_writable(access) ? DMA_BIDIRECTIONAL : DMA_TO_DEVICE;
+}
+
 static struct ib_umem *__ib_umem_get_va(struct ib_device *device,
 					unsigned long addr, size_t size,
 					int access,
@@ -329,7 +334,8 @@ struct ib_umem *ib_umem_get_desc(struct ib_device *device,
 				 const struct ib_uverbs_buffer_desc *desc,
 				 int access)
 {
-	return __ib_umem_get_desc_dir(device, desc, access, DMA_BIDIRECTIONAL);
+	return __ib_umem_get_desc_dir(device, desc, access,
+				      ib_access_dma_dir(access));
 }
 EXPORT_SYMBOL(ib_umem_get_desc);
 
@@ -482,7 +488,7 @@ struct ib_umem *ib_umem_get_attr(struct ib_device *device,
 				 u16 attr_id, size_t size, int access)
 {
 	return ib_umem_get_from_attrs(device, attrs, attr_id, NULL, size,
-				      access, DMA_BIDIRECTIONAL);
+				      access, ib_access_dma_dir(access));
 }
 EXPORT_SYMBOL(ib_umem_get_attr);
 
@@ -521,7 +527,8 @@ struct ib_umem *ib_umem_get_attr_or_va(struct ib_device *device,
 				       int access)
 {
 	return ib_umem_get_from_attrs_or_va(device, attrs, attr_id, NULL, addr,
-					    size, access, DMA_BIDIRECTIONAL);
+					    size, access,
+					    ib_access_dma_dir(access));
 }
 EXPORT_SYMBOL(ib_umem_get_attr_or_va);
 
