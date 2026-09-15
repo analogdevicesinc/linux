@@ -857,7 +857,7 @@ static void get_model_name(struct cpuinfo_x86 *c)
 
 void cpu_detect_cache_sizes(struct cpuinfo_x86 *c)
 {
-	unsigned int n, dummy, ebx, ecx, edx, l2size;
+	unsigned int n, dummy, ebx, ecx, edx, l2size, shift __maybe_unused;
 
 	n = c->extended_cpuid_level;
 
@@ -877,7 +877,9 @@ void cpu_detect_cache_sizes(struct cpuinfo_x86 *c)
 	l2size = ecx >> 16;
 
 #ifdef CONFIG_X86_64
+	shift = !!cpu_has(c, X86_FEATURE_L2_TLB_SIZE_X32) * 5;
 	c->x86_tlbsize += ((ebx >> 16) & 0xfff) + (ebx & 0xfff);
+	c->x86_tlbsize <<= shift;
 #else
 	/* do processor-specific cache resizing */
 	if (this_cpu->legacy_cache_size)
