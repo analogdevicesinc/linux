@@ -19,6 +19,7 @@
 #include <internal/lib.h>  /* page_size */
 #include <linux/compiler.h>
 #include <linux/zalloc.h>
+#include <linux/overflow.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <unistd.h>
@@ -992,6 +993,34 @@ static int aslr_tool__process_sample(const struct perf_tool *tool,
 				COPY_U64();
 		}
 	}
+
+#define CHECK_SIMD() \
+	do { \
+		if (abi & PERF_SAMPLE_REGS_ABI_SIMD) { \
+			u64 nr_vector, vec_qwords; \
+			u64 nr_pred, pred_qwords; \
+			u64 header_len, vec_len, pred_len, simd_len; \
+			if (CHECK_BOUNDS(nr + 4, nr + 4)) { \
+				ret = -EFAULT; \
+				goto out_put; \
+			} \
+			header_len = 4;	\
+			nr_vector = in_array[i + nr]; \
+			vec_qwords = in_array[i + nr + 1]; \
+			nr_pred = in_array[i + nr + 2]; \
+			pred_qwords = in_array[i + nr + 3]; \
+			if (check_mul_overflow(nr_vector, vec_qwords, &vec_len) || \
+			    check_mul_overflow(nr_pred, pred_qwords, &pred_len) || \
+			    check_add_overflow(vec_len, pred_len, &simd_len) || \
+			    check_add_overflow(header_len, simd_len, &simd_len) || \
+			    check_add_overflow(nr, simd_len, &nr) || \
+			    nr > max_i - i) { \
+				ret = -EFAULT; \
+				goto out_put; \
+			} \
+		} \
+	} while (0)
+
 	if (orig_sample_type & PERF_SAMPLE_REGS_USER) {
 		u64 abi;
 
@@ -1007,6 +1036,7 @@ static int aslr_tool__process_sample(const struct perf_tool *tool,
 				ret = -EFAULT;
 				goto out_put;
 			}
+			CHECK_SIMD();
 			i += nr;
 		}
 	}
@@ -1061,6 +1091,7 @@ static int aslr_tool__process_sample(const struct perf_tool *tool,
 				ret = -EFAULT;
 				goto out_put;
 			}
+			CHECK_SIMD();
 			i += nr;
 		}
 	}
