@@ -45,11 +45,12 @@ static inline struct optimistic_spin_node *decode_cpu(int encoded_cpu_val)
  * set to OSQ_UNLOCKED_VAL.
  */
 static inline struct optimistic_spin_node *
-osq_wait_next(struct optimistic_spin_queue *lock,
-	      struct optimistic_spin_node *node,
-	      int old_cpu)
+osq_wait_unlink_next(struct optimistic_spin_queue *lock,
+		     struct optimistic_spin_node *node,
+		     int old_cpu)
 {
 	int curr = encode_cpu(smp_processor_id());
+	struct optimistic_spin_node *next;
 
 	for (;;) {
 		if (atomic_read(&lock->tail) == curr &&
@@ -73,19 +74,23 @@ osq_wait_next(struct optimistic_spin_queue *lock,
 		 * wait for a new @node->next from its Step-C.
 		 */
 		if (node->next) {
-			struct optimistic_spin_node *next;
-
 			next = xchg(&node->next, NULL);
 			if (next)
-				return next;
+				break;
 		}
 
 		cpu_relax();
 	}
+
+	/*
+	 * Unlink @node from @next.
+	 */
+	WRITE_ONCE(next->prev_cpu, old_cpu);
+	return next;
 }
 
 /*
- * Set prev->next; this is the counterpart of osq_wait_next() in that
+ * Set prev->next; this is the counterpart of osq_wait_unlink_next() in that
  * by setting ->next the wait is terminated and progress is resumed.
  */
 static inline void osq_link_next(struct optimistic_spin_node *prev,
@@ -103,11 +108,12 @@ static inline void osq_link_next(struct optimistic_spin_node *prev,
 	 *
 	 * And this is CPU2 doing the self-unqueue concurrent against CPU1s
 	 * unlock()/unqueue(). Since 'prev->next == NULL' and CPU1 will be
-	 * stuck in osq_wait_next() until the below store of 'prev->next'.
+	 * stuck in osq_wait_unlink_next() until the below store of
+	 * 'prev->next'.
 	 *
 	 * CPU2				CPU1
 	 *
-	 * next->prev = prev;		osq_wait_next()
+	 * next->prev = prev;		osq_wait_unlink_next()
 	 * WMB				MB
 	 * prev->next = next;		next->prev = prev
 	 *
@@ -117,7 +123,7 @@ static inline void osq_link_next(struct optimistic_spin_node *prev,
 	 * CPU2				CPU1
 	 *
 	 * prev->next = next // CPU1.n = 3
-	 *				next = osq_wait_next() // = 3
+	 *				next = osq_wait_unlink_next() // = 3
 	 *				next->prev = prev // CPU3.p = nil
 	 * next->prev = prev // CPU3.p = 1
 	 *
@@ -168,9 +174,8 @@ bool osq_lock(struct optimistic_spin_queue *lock)
 					 vcpu_is_preempted(VAL - 1));
 
 	/* unqueue */
+
 	/*
-	 * Step - A  -- stabilize @prev
-	 *
 	 * Loop until either node->prev_cpu is zero (lock acquired) or we
 	 * atomically change prev->next from node to NULL (stopping prev
 	 * handing on the lock).
@@ -200,26 +205,12 @@ bool osq_lock(struct optimistic_spin_queue *lock)
 	}
 
 	/*
-	 * Step - B -- stabilize @next
-	 *
 	 * Similar to unlock(), wait for @node->next or move @lock from @node
 	 * back to @prev.
 	 */
-
-	next = osq_wait_next(lock, node, prev_cpu);
-	if (!next)
-		return false;
-
-	/*
-	 * Step - C -- unlink
-	 *
-	 * @prev is stable because its still waiting for a new @prev->next
-	 * pointer, @next is stable because our @node->next pointer is NULL and
-	 * it will wait in Step-A.
-	 */
-
-	WRITE_ONCE(next->prev_cpu, prev_cpu);
-	osq_link_next(prev, next);
+	next_cpu = osq_wait_unlink_next(lock, node, prev_cpu);
+	if (next_cpu)
+		osq_link_next(prev, next_cpu);
 
 	return false;
 }
@@ -245,7 +236,5 @@ void osq_unlock(struct optimistic_spin_queue *lock)
 		return;
 	}
 
-	next = osq_wait_next(lock, node, OSQ_UNLOCKED_VAL);
-	if (next)
-		WRITE_ONCE(next->prev_cpu, 0);
+	osq_wait_unlink_next(lock, node, OSQ_UNLOCKED_VAL);
 }
