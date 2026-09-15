@@ -1264,6 +1264,7 @@ attribute-sets:
     attributes:
       -
         name: region-snapshot
+        multi-attr: true
 
   -
     name: dl-region-snapshot
@@ -1278,6 +1279,7 @@ attribute-sets:
     attributes:
       -
         name: region-chunk
+        multi-attr: true
 
   -
     name: dl-region-chunk
@@ -1360,6 +1362,7 @@ attribute-sets:
     attributes:
       -
         name: linecard-type
+        multi-attr: true
 
   -
     name: dl-selftest-id
@@ -1971,7 +1974,7 @@ operations:
         post: devlink-nl-post-doit
         request:
           value: 42
-          attributes: &region-id-attrs
+          attributes:
             - bus-name
             - dev-name
             - index
@@ -1979,7 +1982,15 @@ operations:
             - region-name
         reply: &region-get-reply
           value: 42
-          attributes: *region-id-attrs
+          attributes:
+            - bus-name
+            - dev-name
+            - index
+            - port-index
+            - region-name
+            - region-size
+            - region-max-snapshots
+            - region-snapshots
       dump:
         request:
           attributes: *dev-id-attrs
@@ -2045,6 +2056,7 @@ operations:
             - index
             - port-index
             - region-name
+            - region-chunks
 
     -
       name: port-param-get
@@ -2444,14 +2456,22 @@ operations:
         post: devlink-nl-post-doit
         request:
           value: 78
-          attributes: &linecard-id-attrs
+          attributes:
             - bus-name
             - dev-name
             - index
             - linecard-index
         reply: &linecard-get-reply
           value: 80
-          attributes: *linecard-id-attrs
+          attributes:
+            - bus-name
+            - dev-name
+            - index
+            - linecard-index
+            - linecard-state
+            - linecard-type
+            - linecard-supported-types
+            - nested-devlink
       dump:
         request:
           attributes: *dev-id-attrs
