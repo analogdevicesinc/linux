@@ -1007,6 +1007,14 @@ struct intel_casf {
 	bool enable;
 };
 
+struct intel_dip {
+	/*
+	 * DIP Transmission line, relative to the Vtotal.
+	 * The programmed transmit line is (Vtotal - value)
+	 */
+	u16 emp_as_sdp_tl;
+};
+
 struct intel_crtc_state {
 	/*
 	 * uapi (drm) state. This is the software state shown to userspace.
@@ -1314,6 +1322,8 @@ struct intel_crtc_state {
 		struct drm_dp_vsc_sdp vsc;
 		struct drm_dp_as_sdp as_sdp;
 	} infoframes;
+
+	struct intel_dip dip;
 
 	u8 eld[MAX_ELD_BYTES];
 
