@@ -1287,7 +1287,7 @@ hws_send_wqe_fw(struct mlx5_core_dev *mdev,
 send_wqe:
 	ret = mlx5hws_cmd_generate_wqe(mdev, &attr, &cqe);
 	if (ret) {
-		mlx5_core_err(mdev, "Failed to write WQE using command");
+		mlx5_core_err(mdev, "Failed to write WQE using command\n");
 		return ret;
 	}
 
