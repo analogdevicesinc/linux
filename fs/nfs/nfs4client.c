@@ -217,6 +217,7 @@ struct nfs_client *nfs4_alloc_client(const struct nfs_client_initdata *cl_init)
 	clp->cl_last_renewal = jiffies;
 	init_waitqueue_head(&clp->cl_lock_waitq);
 	INIT_LIST_HEAD(&clp->pending_cb_stateids);
+	INIT_LIST_HEAD(&clp->cl_deviceid_deletes);
 
 	if (cl_init->minorversion != 0)
 		__set_bit(NFS_CS_INFINITE_SLOTS, &clp->cl_flags);
@@ -286,6 +287,7 @@ static void nfs4_shutdown_client(struct nfs_client *clp)
 		nfs4_kill_renewd(clp);
 	clp->cl_mvops->shutdown_client(clp);
 	nfs4_destroy_callback(clp);
+	pnfs_deviceid_delete_queue_free(clp);
 	if (__test_and_clear_bit(NFS_CS_IDMAP, &clp->cl_res_state))
 		nfs_idmap_delete(clp);
 

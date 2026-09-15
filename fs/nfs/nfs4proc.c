@@ -10506,6 +10506,89 @@ out_put_clp:
 	return ret;
 }
 
+/*
+ * A DELETE for a deviceID we still hold layouts on implies the server
+ * revoked them: run the RFC 8881 Section 18.40.4 recovery.
+ */
+static void nfs4_deviceid_delete_recover(struct nfs_client *clp,
+		const struct pnfs_layoutdriver_type *ld,
+		const struct nfs4_deviceid *id)
+{
+	LIST_HEAD(layouts);
+	struct nfs4_deviceid_ref *ref;
+	bool revoked = false;
+	bool referenced = false;
+	bool inconclusive = false;
+
+	if (pnfs_layout_collect_deviceid_refs(clp, ld, id, &layouts)) {
+		/* Only a partial list -- an allocation failed, or an inode is
+		 * being evicted.  Leave the device cached and recover on a
+		 * later notification.
+		 */
+		pnfs_layout_put_deviceid_refs(&layouts);
+		return;
+	}
+
+	if (list_empty(&layouts)) {
+		nfs4_delete_deviceid(ld, clp, id);
+		return;
+	}
+
+	list_for_each_entry(ref, &layouts, node) {
+		struct pnfs_layout_hdr *lo = ref->lo;
+		struct inode *inode = ref->inode;
+		bool invalidated = false;
+		LIST_HEAD(head);
+		int status;
+
+		status = nfs41_test_stateid(NFS_SERVER(inode), &ref->stateid,
+					    ref->cred);
+		switch (status) {
+		case NFS_OK:
+		case -NFS4ERR_OLD_STATEID:
+			referenced = true;
+			break;
+		case -NFS4ERR_ADMIN_REVOKED:
+		case -NFS4ERR_DELEG_REVOKED:
+		case -NFS4ERR_EXPIRED:
+		case -NFS4ERR_BAD_STATEID:
+			spin_lock(&inode->i_lock);
+			if (pnfs_layout_is_valid(lo) &&
+			    nfs4_stateid_match_other(&ref->stateid,
+						     &lo->plh_stateid)) {
+				pnfs_mark_layout_stateid_invalid(lo, &head);
+				revoked = true;
+				invalidated = true;
+			}
+			spin_unlock(&inode->i_lock);
+			pnfs_free_lseg_list(&head);
+			if (invalidated)
+				nfs_commit_inode(inode, 0);
+			nfs41_free_stateid(NFS_SERVER(inode), &ref->stateid,
+					   ref->cred, true);
+			break;
+		default:
+			inconclusive = true;
+			break;
+		}
+	}
+	pnfs_layout_put_deviceid_refs(&layouts);
+
+	if (revoked && !referenced && !inconclusive)
+		nfs4_delete_deviceid(ld, clp, id);
+}
+
+void nfs4_deviceid_delete_recover_run(struct nfs_client *clp)
+{
+	struct nfs4_deviceid_delete *dd;
+
+	while ((dd = pnfs_deviceid_delete_dequeue(clp)) != NULL) {
+		nfs4_deviceid_delete_recover(clp, dd->ld, &dd->id);
+		pnfs_put_layoutdriver(dd->ld);
+		kfree(dd);
+	}
+}
+
 static void
 nfs41_free_lock_state(struct nfs_server *server, struct nfs4_lock_state *lsp)
 {

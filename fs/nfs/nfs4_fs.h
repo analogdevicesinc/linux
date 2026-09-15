@@ -52,6 +52,7 @@ enum nfs4_client_state {
 	NFS4CLNT_RECALL_ANY_LAYOUT_READ,
 	NFS4CLNT_RECALL_ANY_LAYOUT_RW,
 	NFS4CLNT_DELEGRETURN_DELAYED,
+	NFS4CLNT_DEVICEID_DELETE,
 };
 
 #define NFS4_RENEW_TIMEOUT		0x01
@@ -493,6 +494,7 @@ int nfs41_discover_server_trunking(struct nfs_client *clp,
 			struct nfs_client **, const struct cred *);
 extern void nfs4_schedule_session_recovery(struct nfs4_session *, int);
 extern void nfs41_notify_server(struct nfs_client *);
+extern void nfs4_deviceid_delete_recover_run(struct nfs_client *clp);
 bool nfs4_check_serverowner_major_id(struct nfs41_server_owner *o1,
 			struct nfs41_server_owner *o2);
 

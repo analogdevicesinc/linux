@@ -103,6 +103,8 @@ struct nfs_client {
 	/* The flags used for obtaining the clientid during EXCHANGE_ID */
 	u32			cl_exchange_flags;
 	struct nfs4_session	*cl_session;	/* shared session */
+	/* CB_NOTIFY_DEVICEID DELETE suspects, protected by cl_lock */
+	struct list_head	cl_deviceid_deletes;
 	bool			cl_preserve_clid;
 	struct nfs41_server_owner *cl_serverowner;
 	struct nfs41_server_scope *cl_serverscope;

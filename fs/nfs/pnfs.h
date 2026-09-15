@@ -400,6 +400,25 @@ int pnfs_layout_collect_deviceid_refs(struct nfs_client *clp,
 				const struct nfs4_deviceid *devid,
 				struct list_head *result);
 void pnfs_layout_put_deviceid_refs(struct list_head *result);
+
+/*
+ * A CB_NOTIFY_DEVICEID DELETE naming a deviceID that live layouts
+ * still reference (RFC 8881 Section 18.40.4).  Queued on
+ * nfs_client.cl_deviceid_deletes under cl_lock for the state manager
+ * to resolve; holds a layoutdriver reference.
+ */
+struct nfs4_deviceid_delete {
+	struct list_head list;
+	const struct pnfs_layoutdriver_type *ld;
+	struct nfs4_deviceid id;
+};
+
+void pnfs_deviceid_delete_mark(struct nfs_client *clp,
+			       const struct pnfs_layoutdriver_type *ld,
+			       const struct nfs4_deviceid *id);
+struct nfs4_deviceid_delete *pnfs_deviceid_delete_dequeue(
+			       struct nfs_client *clp);
+void pnfs_deviceid_delete_queue_free(struct nfs_client *clp);
 int pnfs_layout_handle_reboot(struct nfs_client *clp);
 
 /* nfs4_deviceid_flags */

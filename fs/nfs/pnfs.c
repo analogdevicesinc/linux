@@ -3143,6 +3143,68 @@ pnfs_layout_put_deviceid_refs(struct list_head *result)
 	}
 }
 
+/*
+ * Queue @id for the state manager's Section 18.40.4 recovery,
+ * dropping duplicates of an already-queued suspect.
+ */
+void pnfs_deviceid_delete_mark(struct nfs_client *clp,
+			       const struct pnfs_layoutdriver_type *ld,
+			       const struct nfs4_deviceid *id)
+{
+	struct nfs4_deviceid_delete *dd, *new;
+
+	new = kzalloc_obj(*new, GFP_KERNEL);
+	if (!new)
+		return;	/* lost notification; recovery waits for the next */
+	new->ld = pnfs_find_layoutdriver(ld->id);
+	if (!new->ld) {
+		kfree(new);
+		return;
+	}
+	memcpy(&new->id, id, sizeof(new->id));
+
+	spin_lock(&clp->cl_lock);
+	list_for_each_entry(dd, &clp->cl_deviceid_deletes, list) {
+		if (dd->ld == new->ld &&
+		    !memcmp(&dd->id, &new->id, sizeof(dd->id))) {
+			spin_unlock(&clp->cl_lock);
+			pnfs_put_layoutdriver(new->ld);
+			kfree(new);
+			return;
+		}
+	}
+	list_add_tail(&new->list, &clp->cl_deviceid_deletes);
+	spin_unlock(&clp->cl_lock);
+
+	set_bit(NFS4CLNT_DEVICEID_DELETE, &clp->cl_state);
+	nfs4_schedule_state_manager(clp);
+}
+
+struct nfs4_deviceid_delete *pnfs_deviceid_delete_dequeue(
+			       struct nfs_client *clp)
+{
+	struct nfs4_deviceid_delete *dd = NULL;
+
+	spin_lock(&clp->cl_lock);
+	if (!list_empty(&clp->cl_deviceid_deletes)) {
+		dd = list_first_entry(&clp->cl_deviceid_deletes,
+				      struct nfs4_deviceid_delete, list);
+		list_del(&dd->list);
+	}
+	spin_unlock(&clp->cl_lock);
+	return dd;
+}
+
+void pnfs_deviceid_delete_queue_free(struct nfs_client *clp)
+{
+	struct nfs4_deviceid_delete *dd;
+
+	while ((dd = pnfs_deviceid_delete_dequeue(clp)) != NULL) {
+		pnfs_put_layoutdriver(dd->ld);
+		kfree(dd);
+	}
+}
+
 /* Check if we have we have a valid layout but if there isn't an intersection
  * between the request and the pgio->pg_lseg, put this pgio->pg_lseg away.
  */
