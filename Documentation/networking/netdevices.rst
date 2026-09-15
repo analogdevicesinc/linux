@@ -222,13 +222,6 @@ ndo_stop:
 	Context: process
 	Note: netif_running() is guaranteed false
 
-ndo_do_ioctl:
-	Synchronization: rtnl_lock() semaphore.
-
-	This is only called by network subsystems internally,
-	not by user space calling ioctl as it was in before
-	linux-5.14.
-
 ndo_siocbond:
 	Synchronization: rtnl_lock() semaphore. In addition, netdev instance
 	lock if the driver implements queue management or shaper API.
