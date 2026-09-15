@@ -1172,9 +1172,10 @@ struct dm_atomic_state *dm_atomic_get_new_state(struct drm_atomic_commit *state)
 void dm_atomic_destroy_state(struct drm_private_obj *obj,
 			     struct drm_private_state *state);
 int dm_plane_layer_index_cmp(const void *a, const void *b);
-int fill_plane_color_attributes(const struct drm_plane_state *plane_state,
-				const enum surface_pixel_format format,
-				enum dc_color_space *color_space);
+int fill_plane_color_attributes(struct drm_atomic_commit *state,
+			    const struct drm_plane_state *plane_state,
+			    const enum surface_pixel_format format,
+			    enum dc_color_space *color_space);
 bool modereset_required(struct drm_crtc_state *crtc_state);
 bool is_scaling_state_different(const struct dm_connector_state *dm_state,
 				const struct dm_connector_state *old_dm_state);

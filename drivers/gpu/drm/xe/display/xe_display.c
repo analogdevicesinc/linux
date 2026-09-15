@@ -18,7 +18,6 @@
 #include <uapi/drm/xe_drm.h>
 
 #include "intel_acpi.h"
-#include "intel_audio.h"
 #include "intel_display.h"
 #include "intel_display_core.h"
 #include "intel_display_device.h"
@@ -29,7 +28,6 @@
 #include "intel_dmc_wl.h"
 #include "intel_dp.h"
 #include "intel_fbdev.h"
-#include "intel_hdcp.h"
 #include "intel_hotplug.h"
 #include "intel_opregion.h"
 #include "skl_watermark.h"
@@ -37,6 +35,7 @@
 #include "xe_display_bo.h"
 #include "xe_display_pcode.h"
 #include "xe_display_rpm.h"
+#include "xe_display_wa.h"
 #include "xe_dsb_buffer.h"
 #include "xe_fb_pin.h"
 #include "xe_frontbuffer.h"
@@ -129,9 +128,6 @@ static void xe_display_fini(void *arg)
 	struct xe_device *xe = arg;
 	struct intel_display *display = xe->display;
 
-	intel_hpd_poll_fini(display);
-	intel_hdcp_component_fini(display);
-	intel_audio_deinit(display);
 	intel_display_driver_remove(display);
 }
 
@@ -446,6 +442,20 @@ static bool has_auxccs(struct drm_device *drm)
 	return xe->info.platform == XE_ALDERLAKE_P;
 }
 
+/*
+ * TDF (Transient-Data-Flush) is needed for Xe2+ where special L3:XD caching can
+ * be enabled through various PAT index modes. Idea is to use this caching mode
+ * when for example rendering onto the display surface, with the promise that
+ * KMD will ensure transient cache entries are always flushed by the time we do
+ * the display flip, since display engine is never coherent with CPU/GPU caches.
+ */
+static void transient_data_flush(struct drm_device *drm)
+{
+	struct xe_device *xe = to_xe_device(drm);
+
+	xe_device_td_flush(xe);
+}
+
 static const struct intel_display_parent_interface parent = {
 	.bo = &xe_display_bo_interface,
 	.dsb = &xe_display_dsb_interface,
@@ -458,7 +468,9 @@ static const struct intel_display_parent_interface parent = {
 	.pcode = &xe_display_pcode_interface,
 	.rpm = &xe_display_rpm_interface,
 	.stolen = &xe_display_stolen_interface,
+	.wa = &xe_display_wa_interface,
 	.has_auxccs = has_auxccs,
+	.transient_data_flush = transient_data_flush,
 };
 
 /**
