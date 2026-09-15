@@ -2187,7 +2187,7 @@ struct hi847 {
 	/* Current mode */
 	const struct hi847_mode *cur_mode;
 
-	/* To serialize asynchronus callbacks */
+	/* To serialize asynchronous callbacks */
 	struct mutex mutex;
 };
 

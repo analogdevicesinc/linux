@@ -21,7 +21,6 @@
 #include <linux/workqueue.h>
 
 #include <media/ipu-bridge.h>
-#include <media/ipu6-pci-table.h>
 
 #include "icvs.h"
 
@@ -656,14 +655,12 @@ static int cvs_configure_dev_caps(struct icvs *ctx)
  */
 static int cvs_core_probe(struct device *dev, struct i2c_client *i2c)
 {
-	struct pci_dev *ipu = NULL;
+	struct pci_dev *ipu;
 	struct icvs *ctx;
 	int ret;
 
 	/* Locate IPU device */
-	for (unsigned int i = 0; !ipu && ipu6_pci_tbl[i].vendor; i++)
-		ipu = pci_get_device(ipu6_pci_tbl[i].vendor,
-				     ipu6_pci_tbl[i].device, NULL);
+	ipu = ipu_bridge_get_ipu6();
 	for (unsigned int i = 0; !ipu && icvs_ipu7_tbl[i].vendor; i++)
 		ipu = pci_get_device(icvs_ipu7_tbl[i].vendor,
 				     icvs_ipu7_tbl[i].device, NULL);
