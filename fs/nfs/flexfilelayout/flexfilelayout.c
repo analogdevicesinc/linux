@@ -2527,6 +2527,45 @@ next:
 	}
 }
 
+/*
+ * Un-pin every stripe node resolved from @id: in-flight I/O drains on the
+ * old node through its own reference, the next I/O re-resolves.
+ */
+static void ff_layout_reresolve_deviceid(struct pnfs_layout_hdr *lo,
+					 const struct nfs4_deviceid *id,
+					 bool immediate,
+					 struct list_head *head)
+{
+	struct nfs4_flexfile_layout *flo = FF_LAYOUT_FROM_HDR(lo);
+	struct nfs4_ff_layout_mirror *mirror;
+	struct nfs4_ff_layout_ds *old;
+	struct nfs4_deviceid_put *put;
+	u32 dss_id;
+
+	list_for_each_entry(mirror, &flo->mirrors, mirrors) {
+		for (dss_id = 0; dss_id < mirror->dss_count; dss_id++) {
+			if (memcmp(&mirror->dss[dss_id].devid, id,
+				   sizeof(*id)) != 0)
+				continue;
+			/* Allocate before un-pinning: on failure the reference
+			 * stays put rather than being dropped here, where the
+			 * final put may not sleep.
+			 */
+			put = kzalloc_obj(*put, GFP_ATOMIC);
+			if (!put)
+				continue;
+			old = unrcu_pointer(
+				xchg(&mirror->dss[dss_id].mirror_ds, NULL));
+			if (IS_ERR_OR_NULL(old)) {
+				kfree(put);
+				continue;
+			}
+			put->dev = &old->id_node;
+			list_add(&put->node, head);
+		}
+	}
+}
+
 static struct pnfs_ds_commit_info *
 ff_layout_get_ds_info(struct inode *inode)
 {
@@ -3108,6 +3147,7 @@ static struct pnfs_layoutdriver_type flexfilelayout_type = {
 	.pg_write_ops		= &ff_layout_pg_write_ops,
 	.get_ds_info		= ff_layout_get_ds_info,
 	.free_deviceid_node	= ff_layout_free_deviceid_node,
+	.reresolve_deviceid	= ff_layout_reresolve_deviceid,
 	.read_pagelist		= ff_layout_read_pagelist,
 	.write_pagelist		= ff_layout_write_pagelist,
 	.alloc_deviceid_node    = ff_layout_alloc_deviceid_node,
