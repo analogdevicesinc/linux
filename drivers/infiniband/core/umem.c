@@ -587,6 +587,9 @@ static int uverbs_create_cq_get_buffer_desc(const struct uverbs_attr_bundle *att
  * must arrange its own backing (typically an in-kernel allocation)
  * when no source is available.
  *
+ * The buffer is mapped DMA_FROM_DEVICE: the NIC writes CQEs into it
+ * and the CPU only reads.
+ *
  * Return: caller-owned umem on success; NULL when no source supplied
  * a buffer; ERR_PTR(...) on error.
  */
@@ -597,7 +600,7 @@ struct ib_umem *ib_umem_get_cq_buf(struct ib_device *device,
 	return ib_umem_get_from_attrs(device, attrs,
 				      UVERBS_ATTR_CREATE_CQ_BUF_UMEM,
 				      uverbs_create_cq_get_buffer_desc,
-				      size, access, DMA_BIDIRECTIONAL);
+				      size, access, DMA_FROM_DEVICE);
 }
 EXPORT_SYMBOL(ib_umem_get_cq_buf);
 
@@ -613,6 +616,9 @@ EXPORT_SYMBOL(ib_umem_get_cq_buf);
  * Like ib_umem_get_cq_buf(), but pins @addr/@size when neither the
  * UMEM attribute nor the legacy CQ buffer attributes are supplied.
  *
+ * The buffer is mapped DMA_FROM_DEVICE: the NIC writes CQEs into it
+ * and the CPU only reads.
+ *
  * See ib_umem_get_attr_or_va() for the note on @size's dual role and
  * the migration path for drivers that would distinguish a user-supplied
  * length from a driver-computed minimum.
@@ -626,7 +632,7 @@ struct ib_umem *ib_umem_get_cq_buf_or_va(struct ib_device *device,
 	return ib_umem_get_from_attrs_or_va(device, attrs,
 					    UVERBS_ATTR_CREATE_CQ_BUF_UMEM,
 					    uverbs_create_cq_get_buffer_desc,
-					    addr, size, access, DMA_BIDIRECTIONAL);
+					    addr, size, access, DMA_FROM_DEVICE);
 }
 EXPORT_SYMBOL(ib_umem_get_cq_buf_or_va);
 
