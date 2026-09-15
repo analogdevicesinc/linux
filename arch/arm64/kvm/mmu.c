@@ -1645,6 +1645,7 @@ static int gmem_abort(const struct kvm_s2_fault_desc *s2fd)
 	enum kvm_pgtable_walk_flags flags = KVM_PGTABLE_WALK_SHARED;
 	enum kvm_pgtable_prot prot = KVM_PGTABLE_PROT_R;
 	struct kvm_pgtable *pgt = s2fd->vcpu->arch.hw_mmu->pgt;
+	struct kvm_guest_s2_mapping *mapping = NULL;
 	unsigned long mmu_seq;
 	struct page *page;
 	struct kvm *kvm = s2fd->vcpu->kvm;
@@ -1658,6 +1659,11 @@ static int gmem_abort(const struct kvm_s2_fault_desc *s2fd)
 		ret = topup_mmu_memcache(s2fd->vcpu, memcache);
 		if (ret)
 			return ret;
+		if (kvm_is_nested_s2_mmu(kvm, pgt->mmu)) {
+			mapping = kmalloc_obj(struct kvm_guest_s2_mapping, GFP_KERNEL_ACCOUNT);
+			if (!mapping)
+				return -ENOMEM;
+		}
 	}
 
 	if (s2fd->nested)
@@ -1678,6 +1684,7 @@ static int gmem_abort(const struct kvm_s2_fault_desc *s2fd)
 	if (ret) {
 		kvm_prepare_memory_fault_exit(s2fd->vcpu, s2fd->fault_ipa, PAGE_SIZE,
 					      write_fault, exec_fault, false);
+		kfree(mapping);
 		return ret;
 	}
 
@@ -1711,11 +1718,22 @@ static int gmem_abort(const struct kvm_s2_fault_desc *s2fd)
 		ret = KVM_PGT_FN(kvm_pgtable_stage2_map)(pgt, s2fd->fault_ipa, PAGE_SIZE,
 							 __pfn_to_phys(pfn), prot,
 							 memcache, flags);
+		/*
+		 * -EAGAIN from kvm_pgtable_stage2_map() can install mappings.
+		 * We don't know which subrange is installed, track the whole
+		 * thing.
+		 */
+		if ((ret == 0 || ret == -EAGAIN) && kvm_is_nested_s2_mmu(kvm, pgt->mmu)) {
+			kvm_record_guest_s2_mapping(pgt->mmu, gfn << PAGE_SHIFT,
+						    s2fd->fault_ipa, PAGE_SIZE, mapping);
+			mapping = NULL;
+		}
 	}
 
 out_unlock:
 	kvm_release_faultin_page(kvm, page, !!ret, prot & KVM_PGTABLE_PROT_W);
 	kvm_fault_unlock(kvm);
+	kfree(mapping);
 
 	if ((prot & KVM_PGTABLE_PROT_W) && !ret)
 		mark_page_dirty_in_slot(kvm, s2fd->memslot, gfn);
@@ -2052,6 +2070,7 @@ static int kvm_s2_fault_map(const struct kvm_s2_fault_desc *s2fd,
 			    void *memcache)
 {
 	enum kvm_pgtable_walk_flags flags = KVM_PGTABLE_WALK_SHARED;
+	struct kvm_guest_s2_mapping *mapping = NULL;
 	bool writable = prot & KVM_PGTABLE_PROT_W;
 	struct kvm *kvm = s2fd->vcpu->kvm;
 	phys_addr_t canonical_ipa;
@@ -2061,6 +2080,15 @@ static int kvm_s2_fault_map(const struct kvm_s2_fault_desc *s2fd,
 	kvm_pfn_t pfn;
 	gfn_t gfn;
 	int ret;
+
+	if (kvm_is_nested_s2_mmu(kvm, s2fd->vcpu->arch.hw_mmu)) {
+		mapping = kmalloc_obj(struct kvm_guest_s2_mapping,
+				      GFP_KERNEL_ACCOUNT);
+		if (!mapping) {
+			kvm_release_page_unused(s2vi->page);
+			return -ENOMEM;
+		}
+	}
 
 	kvm_fault_lock(kvm);
 	pgt = s2fd->vcpu->arch.hw_mmu->pgt;
@@ -2115,11 +2143,22 @@ static int kvm_s2_fault_map(const struct kvm_s2_fault_desc *s2fd,
 		ret = KVM_PGT_FN(kvm_pgtable_stage2_map)(pgt, gfn_to_gpa(gfn), mapping_size,
 							 __pfn_to_phys(pfn), prot,
 							 memcache, flags);
+		/*
+		 * -EAGAIN from kvm_pgtable_stage2_map() can install mappings.
+		 * We don't know which subrange is installed, track the whole
+		 * thing.
+		 */
+		if ((ret == 0 || ret == -EAGAIN) && kvm_is_nested_s2_mmu(kvm, pgt->mmu)) {
+			kvm_record_guest_s2_mapping(pgt->mmu, canonical_ipa,
+						    gfn_to_gpa(gfn), mapping_size, mapping);
+			mapping = NULL;
+		}
 	}
 
 out_unlock:
 	kvm_release_faultin_page(kvm, s2vi->page, !!ret, writable);
 	kvm_fault_unlock(kvm);
+	kfree(mapping);
 
 	/*
 	 * Mark the page dirty only if the fault is handled successfully,
