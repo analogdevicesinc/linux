@@ -52,6 +52,7 @@ int kvm_init_nested(struct kvm *kvm)
 					      GFP_KERNEL_ACCOUNT);
 	kvm->arch.nested_mmus_size = 0;
 	atomic_set(&kvm->arch.vncr_tlb_count, 0);
+	spin_lock_init(&kvm->arch.guest_s2_tracking_lock);
 
 	return kvm->arch.nested_mmus ? 0 : -ENOMEM;
 }

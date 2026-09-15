@@ -14,6 +14,7 @@
 #include <linux/arm-smccc.h>
 #include <linux/bitmap.h>
 #include <linux/types.h>
+#include <linux/interval_tree.h>
 #include <linux/jump_label.h>
 #include <linux/kvm_types.h>
 #include <linux/maple_tree.h>
@@ -150,6 +151,16 @@ struct kvm_vmid {
 	atomic64_t id;
 };
 
+/*
+ * Record of a guest stage-2 mapping, storing canonical and nested IPA
+ * ranges. Both ranges have the same size.
+ */
+struct kvm_guest_s2_mapping {
+	struct interval_tree_node canonical;
+	struct interval_tree_node nested;
+	struct kvm_s2_mmu *nested_mmu;
+};
+
 struct kvm_s2_mmu {
 	struct kvm_vmid vmid;
 
@@ -226,6 +237,9 @@ struct kvm_s2_mmu {
 	 * purpose.
 	 */
 	bool	pending_unmap;
+
+	/* Guest s2 mapping records indexed in this MMU's IPA space. */
+	struct rb_root_cached guest_s2_mappings;
 
 	/*
 	 *  0: Nobody is currently using this, check vttbr for validity
@@ -325,6 +339,9 @@ struct kvm_arch {
 	struct kvm_s2_mmu **nested_mmus;
 	size_t nested_mmus_size;
 	int nested_mmus_next;
+
+	/* Guest s2 tracking trees access serialization. */
+	spinlock_t guest_s2_tracking_lock;
 
 	/* Interrupt controller */
 	struct vgic_dist	vgic;
