@@ -2933,7 +2933,7 @@ static const struct drm_plane_funcs dm_test_plane_reset_funcs = {
  */
 static void dm_test_plane_create_state_initializes_state(struct kunit *test)
 {
-	struct dm_plane_state *old_state;
+	struct drm_plane_state *plane_state;
 	struct dm_plane_state *new_state;
 	struct drm_plane *plane;
 
