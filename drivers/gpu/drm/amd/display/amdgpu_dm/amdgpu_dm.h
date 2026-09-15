@@ -333,6 +333,7 @@ struct hpd_rx_irq_offload_work {
  * @backlight_link: Link on which to control backlight
  * @backlight_caps: Capabilities of the backlight device
  * @freesync_module: Module handling freesync calculations
+ * @power_module: Module handling power calculations
  * @hdcp_workqueue: AMDGPU content protection queue
  * @fw_dmcu: Reference to DMCU firmware
  * @dmcu_fw_version: Version of the DMCU firmware
@@ -731,16 +732,26 @@ struct amdgpu_display_manager {
 		char reply_data[0x40];  // Cannot include dmub_cmd here
 	} fused_io[8];
 	/**
-	 * @hdmi_frl_status_polling_work:
+	 * @hdmi_frl_status_polling_wq:
 	 *
 	 * workqueue for 200ms frl status polling
 	 */
 	struct workqueue_struct *hdmi_frl_status_polling_wq;
+	/**
+	 * @hdmi_frl_status_polling_work:
+	 *
+	 * Delayed work for 200ms HDMI FRL status polling.
+	 */
 	struct delayed_work hdmi_frl_status_polling_work;
+	/**
+	 * @hdmi_frl_status_polling_delay_ms:
+	 *
+	 * Delay, in milliseconds, between HDMI FRL status polls.
+	 */
 	unsigned int hdmi_frl_status_polling_delay_ms;
 
 	/**
-	 * @dm_boot_time_crc_info:
+	 * @boot_time_crc_info:
 	 *
 	 * Buffer info for the boot time crc.
 	 */
