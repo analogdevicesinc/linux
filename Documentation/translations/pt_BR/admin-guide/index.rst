@@ -25,10 +25,10 @@ etc.
    :maxdepth: 1
 
    README
+   devices
 
 Todolist:
 
-*   devices
 *   features
 
 Uma grande parte da interface administrativa do kernel são os sistemas de
