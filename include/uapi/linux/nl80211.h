@@ -937,8 +937,8 @@
  *	OLBC handling in hostapd. Beacons are reported in %NL80211_CMD_FRAME
  *	messages. Note that per PHY only one application may register.
  *
- * @NL80211_CMD_SET_NOACK_MAP: sets a bitmap for the individual TIDs whether
- *      No Acknowledgement Policy should be applied.
+ * @NL80211_CMD_SET_NOACK_MAP: sets a bitmap (%NL80211_ATTR_TID_BITMAP)
+ *	indicating for which TIDs No Acknowledgment Policy should be applied.
  *
  * @NL80211_CMD_CH_SWITCH_NOTIFY: An AP or GO may decide to switch channels
  *	independently of the userspace SME, send this event indicating
@@ -2288,8 +2288,8 @@ enum nl80211_commands {
  *    abides to when initiating radiation on DFS channels. A country maps
  *    to one DFS region.
  *
- * @NL80211_ATTR_NOACK_MAP: This u16 bitmap contains the No Ack Policy of
- *      up to 16 TIDs.
+ * @NL80211_ATTR_TID_BITMAP: A TID bitmap (u16) whose meaning depends
+ *	on the command.
  *
  * @NL80211_ATTR_INACTIVITY_TIMEOUT: timeout value in seconds, this can be
  *	used by the drivers which has MLME in firmware and does not have support
@@ -3434,7 +3434,7 @@ enum nl80211_attrs {
 	NL80211_ATTR_DISABLE_HT,
 	NL80211_ATTR_HT_CAPABILITY_MASK,
 
-	NL80211_ATTR_NOACK_MAP,
+	NL80211_ATTR_TID_BITMAP,
 
 	NL80211_ATTR_INACTIVITY_TIMEOUT,
 
@@ -3807,6 +3807,7 @@ enum nl80211_attrs {
 #define NL80211_ATTR_CSA_C_OFF_BEACON NL80211_ATTR_CNTDWN_OFFS_BEACON
 #define NL80211_ATTR_CSA_C_OFF_PRESP NL80211_ATTR_CNTDWN_OFFS_PRESP
 #define NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS NL80211_ATTR_EXT_MLD_CAPA_AND_OPS
+#define NL80211_ATTR_NOACK_MAP NL80211_ATTR_TID_BITMAP
 
 /*
  * Allow user space programs to use #ifdef on new attributes by defining them

@@ -877,7 +877,7 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 	[NL80211_ATTR_HT_CAPABILITY_MASK] = {
 		.len = NL80211_HT_CAPABILITY_LEN
 	},
-	[NL80211_ATTR_NOACK_MAP] = { .type = NLA_U16 },
+	[NL80211_ATTR_TID_BITMAP] = { .type = NLA_U16 },
 	[NL80211_ATTR_INACTIVITY_TIMEOUT] = { .type = NLA_U16 },
 	[NL80211_ATTR_BG_SCAN_PERIOD] = { .type = NLA_U16 },
 	[NL80211_ATTR_WDEV] = { .type = NLA_U64 },
@@ -5282,13 +5282,13 @@ static int nl80211_set_noack_map(struct sk_buff *skb, struct genl_info *info)
 	struct net_device *dev = info->user_ptr[1];
 	u16 noack_map;
 
-	if (!info->attrs[NL80211_ATTR_NOACK_MAP])
+	if (!info->attrs[NL80211_ATTR_TID_BITMAP])
 		return -EINVAL;
 
 	if (!rdev->ops->set_noack_map)
 		return -EOPNOTSUPP;
 
-	noack_map = nla_get_u16(info->attrs[NL80211_ATTR_NOACK_MAP]);
+	noack_map = nla_get_u16(info->attrs[NL80211_ATTR_TID_BITMAP]);
 
 	return rdev_set_noack_map(rdev, dev, noack_map);
 }
