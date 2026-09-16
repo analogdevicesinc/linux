@@ -3993,7 +3993,7 @@ inline void mpi3mr_poll_pend_io_completions(struct mpi3mr_ioc *mrioc)
 
 	for (i = mrioc->op_reply_q_offset; i < num_of_reply_queues; i++)
 		mpi3mr_process_op_reply_q(mrioc,
-		    mrioc->intr_info[i].op_reply_q);
+		    READ_ONCE(mrioc->intr_info[i].op_reply_q));
 }
 
 /**

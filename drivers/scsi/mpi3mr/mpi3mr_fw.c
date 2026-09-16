@@ -582,6 +582,9 @@ int mpi3mr_process_op_reply_q(struct mpi3mr_ioc *mrioc,
 	struct mpi3_default_reply_descriptor *reply_desc;
 	u16 req_q_idx = 0, reply_qidx, threshold_comps = 0;
 
+	if (!op_reply_q)
+		return 0;
+
 	reply_qidx = op_reply_q->qid - 1;
 
 	if (!atomic_add_unless(&op_reply_q->in_use, 1, 1))
@@ -714,6 +717,7 @@ static irqreturn_t mpi3mr_isr_primary(int irq, void *privdata)
 {
 	struct mpi3mr_intr_info *intr_info = privdata;
 	struct mpi3mr_ioc *mrioc;
+	struct op_reply_qinfo *op_reply_q;
 	u16 midx;
 	u32 num_admin_replies = 0, num_op_reply = 0;
 
@@ -729,9 +733,9 @@ static irqreturn_t mpi3mr_isr_primary(int irq, void *privdata)
 
 	if (!midx)
 		num_admin_replies = mpi3mr_process_admin_reply_q(mrioc);
-	if (intr_info->op_reply_q)
-		num_op_reply = mpi3mr_process_op_reply_q(mrioc,
-		    intr_info->op_reply_q);
+	op_reply_q = READ_ONCE(intr_info->op_reply_q);
+	if (op_reply_q)
+		num_op_reply = mpi3mr_process_op_reply_q(mrioc, op_reply_q);
 
 	if (num_admin_replies || num_op_reply)
 		return IRQ_HANDLED;
@@ -744,6 +748,7 @@ static irqreturn_t mpi3mr_isr_primary(int irq, void *privdata)
 static irqreturn_t mpi3mr_isr(int irq, void *privdata)
 {
 	struct mpi3mr_intr_info *intr_info = privdata;
+	struct op_reply_qinfo *op_reply_q;
 	int ret;
 
 	if (!intr_info)
@@ -756,11 +761,12 @@ static irqreturn_t mpi3mr_isr(int irq, void *privdata)
 	 * If more IOs are expected, schedule IRQ polling thread.
 	 * Otherwise exit from ISR.
 	 */
-	if ((threaded_isr_poll == false) || !intr_info->op_reply_q)
+	op_reply_q = READ_ONCE(intr_info->op_reply_q);
+	if ((threaded_isr_poll == false) || !op_reply_q)
 		return ret;
 
-	if (!intr_info->op_reply_q->enable_irq_poll ||
-	    !atomic_read(&intr_info->op_reply_q->pend_ios))
+	if (!op_reply_q->enable_irq_poll ||
+	    !atomic_read(&op_reply_q->pend_ios))
 		return ret;
 
 	disable_irq_nosync(intr_info->os_irq);
@@ -782,11 +788,18 @@ static irqreturn_t mpi3mr_isr_poll(int irq, void *privdata)
 {
 	struct mpi3mr_intr_info *intr_info = privdata;
 	struct mpi3mr_ioc *mrioc;
+	struct op_reply_qinfo *op_reply_q;
 	u16 midx;
 	u32 num_op_reply = 0;
 
-	if (!intr_info || !intr_info->op_reply_q)
+	if (!intr_info)
 		return IRQ_NONE;
+
+	op_reply_q = READ_ONCE(intr_info->op_reply_q);
+	if (!op_reply_q) {
+		enable_irq(intr_info->os_irq);
+		return IRQ_HANDLED;
+	}
 
 	mrioc = intr_info->mrioc;
 	midx = intr_info->msix_index;
@@ -796,20 +809,23 @@ static irqreturn_t mpi3mr_isr_poll(int irq, void *privdata)
 		if (!mrioc->intr_enabled || mrioc->unrecoverable)
 			break;
 
+		op_reply_q = READ_ONCE(intr_info->op_reply_q);
+		if (!op_reply_q)
+			break;
+
 		if (!midx)
 			mpi3mr_process_admin_reply_q(mrioc);
-		if (intr_info->op_reply_q)
-			num_op_reply +=
-			    mpi3mr_process_op_reply_q(mrioc,
-				intr_info->op_reply_q);
-		if (!atomic_read(&intr_info->op_reply_q->pend_ios))
+		num_op_reply +=
+		    mpi3mr_process_op_reply_q(mrioc, op_reply_q);
+		if (!atomic_read(&op_reply_q->pend_ios))
 			break;
 
 		usleep_range(MPI3MR_IRQ_POLL_SLEEP, 10 * MPI3MR_IRQ_POLL_SLEEP);
 
 	} while (num_op_reply < mrioc->max_host_ios);
 
-	intr_info->op_reply_q->enable_irq_poll = false;
+	if (op_reply_q)
+		op_reply_q->enable_irq_poll = false;
 	enable_irq(intr_info->os_irq);
 
 	return IRQ_HANDLED;
@@ -1993,10 +2009,6 @@ static void mpi3mr_free_op_req_q_segments(struct mpi3mr_ioc *mrioc, u16 q_idx)
 	int size;
 	struct segments *segments;
 
-	segments = mrioc->req_qinfo[q_idx].q_segments;
-	if (!segments)
-		return;
-
 	if (mrioc->enable_segqueue) {
 		size = MPI3MR_OP_REQ_Q_SEG_SIZE;
 		if (mrioc->req_qinfo[q_idx].q_segment_list) {
@@ -2009,6 +2021,10 @@ static void mpi3mr_free_op_req_q_segments(struct mpi3mr_ioc *mrioc, u16 q_idx)
 	} else
 		size = mrioc->req_qinfo[q_idx].segment_qd *
 		    mrioc->facts.op_req_sz;
+
+	segments = mrioc->req_qinfo[q_idx].q_segments;
+	if (!segments)
+		return;
 
 	for (j = 0; j < mrioc->req_qinfo[q_idx].num_segments; j++) {
 		if (!segments[j].segment)
@@ -2036,10 +2052,17 @@ static void mpi3mr_free_op_reply_q_segments(struct mpi3mr_ioc *mrioc, u16 q_idx)
 	u16 j;
 	int size;
 	struct segments *segments;
+	u16 midx = REPLY_QUEUE_IDX_TO_MSIX_IDX(q_idx, mrioc->op_reply_q_offset);
 
-	segments = mrioc->op_reply_qinfo[q_idx].q_segments;
-	if (!segments)
-		return;
+	/*
+	 * Stop the ISR/poll thread from picking up this queue before its
+	 * segments are freed below, and wait for any in-flight handler
+	 * that already has the old pointer to finish using it.
+	 */
+	if (midx < mrioc->intr_info_count) {
+		WRITE_ONCE(mrioc->intr_info[midx].op_reply_q, NULL);
+		synchronize_irq(pci_irq_vector(mrioc->pdev, midx));
+	}
 
 	if (mrioc->enable_segqueue) {
 		size = MPI3MR_OP_REP_Q_SEG_SIZE;
@@ -2053,6 +2076,10 @@ static void mpi3mr_free_op_reply_q_segments(struct mpi3mr_ioc *mrioc, u16 q_idx)
 	} else
 		size = mrioc->op_reply_qinfo[q_idx].segment_qd *
 		    mrioc->op_reply_desc_sz;
+
+	segments = mrioc->op_reply_qinfo[q_idx].q_segments;
+	if (!segments)
+		return;
 
 	for (j = 0; j < mrioc->op_reply_qinfo[q_idx].num_segments; j++) {
 		if (!segments[j].segment)
@@ -2520,7 +2547,7 @@ out:
 static int mpi3mr_create_op_queues(struct mpi3mr_ioc *mrioc)
 {
 	int retval = 0;
-	u16 num_queues = 0, i = 0, msix_count_op_q = 1;
+	u16 num_queues = 0, i = 0, j = 0, msix_count_op_q = 1;
 	u32 ioc_status;
 	enum mpi3mr_iocstate ioc_state;
 
@@ -2572,6 +2599,13 @@ static int mpi3mr_create_op_queues(struct mpi3mr_ioc *mrioc)
 		}
 	}
 
+	if (i < num_queues) {
+		for (j = i; j < num_queues; j++) {
+			mpi3mr_free_op_req_q_segments(mrioc, j);
+			mpi3mr_free_op_reply_q_segments(mrioc, j);
+		}
+	}
+
 	if (i == 0) {
 		/* Not even one queue is created successfully*/
 		retval = -1;
@@ -2593,11 +2627,19 @@ static int mpi3mr_create_op_queues(struct mpi3mr_ioc *mrioc)
 
 	return retval;
 out_failed:
-	kfree(mrioc->req_qinfo);
-	mrioc->req_qinfo = NULL;
+	if (mrioc->req_qinfo) {
+		for (j = 0; j < i; j++) {
+			mpi3mr_free_op_req_q_segments(mrioc, j);
+			mpi3mr_free_op_reply_q_segments(mrioc, j);
+		}
+		kfree(mrioc->req_qinfo);
+		mrioc->req_qinfo = NULL;
+	}
+	mrioc->num_op_req_q = 0;
 
 	kfree(mrioc->op_reply_qinfo);
 	mrioc->op_reply_qinfo = NULL;
+	mrioc->num_op_reply_q = 0;
 
 	return retval;
 }
@@ -2641,7 +2683,8 @@ int mpi3mr_op_request_post(struct mpi3mr_ioc *mrioc,
 	if (mpi3mr_check_req_qfull(op_req_q)) {
 		midx = REPLY_QUEUE_IDX_TO_MSIX_IDX(
 		    reply_qidx, mrioc->op_reply_q_offset);
-		mpi3mr_process_op_reply_q(mrioc, mrioc->intr_info[midx].op_reply_q);
+		mpi3mr_process_op_reply_q(mrioc,
+		    READ_ONCE(mrioc->intr_info[midx].op_reply_q));
 
 		if (mpi3mr_check_req_qfull(op_req_q)) {
 
