@@ -286,11 +286,15 @@
 
 #define FW_MAIN_MAGIC			0x52544C38
 #define FW_SUB_MAGIC_8261C		0x32363143
+#define FW_SUB_MAGIC_8261D		0x32363144
 #define RTL8261X_POLL_TIMEOUT_MS	100
 #define RTL8261X_MAX_MMD_DEV		31
 
 #define RTL8261C_CE_FW_NAME	"rtl_nic/rtl8261c.bin"
+#define RTL8261D_FW_NAME	"rtl_nic/rtl8261d.bin"
+
 MODULE_FIRMWARE(RTL8261C_CE_FW_NAME);
+MODULE_FIRMWARE(RTL8261D_FW_NAME);
 
 enum rtl8261x_fw_op {
 	OP_WRITE = 0x00,	/* Write */
@@ -342,6 +346,7 @@ struct rtl821x_priv {
 
 struct rtl8261x_priv {
 	const char *fw_name;
+	u32 fw_sub_magic;
 	bool fw_loaded;
 };
 
@@ -411,10 +416,13 @@ static int rtl8261x_probe(struct phy_device *phydev)
 	switch (sub_phy_id) {
 	case RTL8261C_CE_MODEL:
 		priv->fw_name = RTL8261C_CE_FW_NAME;
+		priv->fw_sub_magic = FW_SUB_MAGIC_8261C;
 		phydev_info(phydev, "RTL8261C detected (sub_id 0x%02x)\n", sub_phy_id);
 		break;
 
 	case RTL8261D_MODEL:
+		priv->fw_name = RTL8261D_FW_NAME;
+		priv->fw_sub_magic = FW_SUB_MAGIC_8261D;
 		phydev_info(phydev, "RTL8261D detected (sub_id 0x%02x)\n", sub_phy_id);
 		break;
 
@@ -473,6 +481,7 @@ static int rtl8261x_read_status(struct phy_device *phydev)
 
 static int rtl8261x_verify_firmware(struct phy_device *phydev, const struct firmware *fw)
 {
+	struct rtl8261x_priv *priv = phydev->priv;
 	const struct rtl8261x_fw_header *hdr;
 	u32 main_magic, sub_magic;
 	u32 calc_crc, file_crc;
@@ -493,7 +502,7 @@ static int rtl8261x_verify_firmware(struct phy_device *phydev, const struct firm
 	}
 
 	sub_magic = le32_to_cpu(hdr->sub_magic);
-	if (sub_magic != FW_SUB_MAGIC_8261C) {
+	if (sub_magic != priv->fw_sub_magic) {
 		phydev_err(phydev, "Invalid sub magic: 0x%08x\n", sub_magic);
 		return -EINVAL;
 	}
