@@ -129,8 +129,7 @@ static inline void osq_link_next(struct optimistic_spin_node *prev,
 	 *
 	 * Which would result in list corruption.
 	 */
-	smp_wmb();
-	WRITE_ONCE(prev->next, next);
+	smp_store_release(&prev->next, next);
 }
 
 bool osq_lock(struct optimistic_spin_queue *lock)
