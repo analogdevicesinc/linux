@@ -16,66 +16,26 @@
 	chosen {
 		stdout-path = &uart0;
 	};
-
-	memory@80000000 {
-		device_type = "memory";
-		reg = <0x80000000 0x20000000>;
-	};
-
-	memory@20040000 {
-		device_type = "memory";
-		reg = <0x20040000 0x40000>;
-	};
-
-	reserved-memory {
-		sram1_res: sram1-reserved@20040000 {
-			compatible = "adi,sram-access";
-			reg = <0x20040000 0x40000>;
-		};
-
-		vdev0vrings: vdev0vring0@20080000 {
-			reg = <0x20080000 0x4000>;
-			no-map;
-		};
-
-		vdev0buffer: vdev0buffer@20084000 {
-			compatible = "shared-dma-pool";
-			reg = <0x20084000 0x20000>;
-			no-map;
-		};
-
-		vdev1vrings: vdev1vring0@200a4000 {
-			reg = <0x200a4000 0x4000>;
-			no-map;
-		};
-
-		vdev1buffer: vdev1buffer@200a8000 {
-			compatible = "shared-dma-pool";
-			reg = <0x200a8000 0x20000>;
-			no-map;
-		};
-	};
-
-	sram1_mmap: sram-mmap {
-		compatible = "adi,sram-mmap";
-		memory-region = <&sram1_res>;
-		status = "okay";
-	};
 };
 
 &scb {
-	sharc0: core1-rproc@28240000 {
+	sharcfx: sharcfx@28240000 {
 		compatible = "adi,remoteproc";
-		reg = <0x28240000 0x160000>,
-				<0x20000000 0x200000>;
+		reg = <0x28240000 0x90000>,
+				<0x20400000 0x400000>;
 		core-id = <1>;
 		core-irq = <321>; /* SOFT1 */
 		firmware-name = "adi_adsp_core1_fw.ldr";
 		interrupts = <GIC_SPI 352 IRQ_TYPE_EDGE_RISING>; /* TRU0_RCV3 */
-		adi,rcu = <&rcu>;
-		adi,l1-da = <0x240000 0x3a0000>;
-		adi,l2-da = <0x20000000 0x20200000>;
+		adi,svect = <&rcu 0x30>;
+		resets = <&rcu 1 0>, <&rcu 1 1>;
+		reset-names = "crst", "start";
+		mboxes = <&tru 171>; /* trigger master SOFT4 */
+		mbox-names = "kick";
+		adi,l1-da = <0x2f780000 0x2f810000>;
+		adi,l2-da = <0x20400000 0x20800000>;
 		adi,rsc-table = <&rsc_tbl0>;
+		vdev-vring = <&vdev0vrings>;
 		adi,verify = <1>;
 		adi,tru = <&tru>;
 		adi,tru-master-id = <ADI_TRU_MST_SOFT(4)>;
