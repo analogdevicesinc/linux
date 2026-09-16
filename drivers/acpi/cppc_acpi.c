@@ -330,6 +330,68 @@ static unsigned int cpc_reg_access_width(const struct cpc_reg *reg)
 	return reg->bit_width;
 }
 
+enum cpc_platform_quirk {
+	CPC_QUIRK_PERF_LIMITED_OWNS_UNIT = BIT(0),
+};
+
+static const struct acpi_platform_list cpc_platform_quirk_list[] = {
+	{
+		.oem_id = "NVIDIA",
+		.oem_table_id = "T41",
+		.table = ACPI_SIG_DSDT,
+		.pred = all_versions,
+		.reason = "Performance Limited owns its access unit",
+		.data = CPC_QUIRK_PERF_LIMITED_OWNS_UNIT,
+	},
+	{ }
+};
+
+static DEFINE_MUTEX(cpc_platform_quirk_lock);
+static bool cpc_platform_quirks_initialized;
+static u32 cpc_platform_quirks;
+
+static int cpc_get_platform_quirks(u32 *quirks)
+{
+	int idx, ret = 0;
+
+	mutex_lock(&cpc_platform_quirk_lock);
+	if (!cpc_platform_quirks_initialized) {
+		idx = acpi_match_platform_list(cpc_platform_quirk_list);
+		if (idx < 0 && idx != -ENODEV) {
+			ret = idx;
+			goto out;
+		}
+		if (idx >= 0)
+			cpc_platform_quirks = cpc_platform_quirk_list[idx].data;
+		cpc_platform_quirks_initialized = true;
+	}
+	*quirks = cpc_platform_quirks;
+out:
+	mutex_unlock(&cpc_platform_quirk_lock);
+
+	return ret;
+}
+
+static void cpc_apply_platform_quirks(struct cpc_reg *reg,
+				      unsigned int reg_idx, u32 quirks)
+{
+	unsigned int access_width;
+
+	if (!(quirks & CPC_QUIRK_PERF_LIMITED_OWNS_UNIT) ||
+	    reg_idx != PERF_LIMITED ||
+	    reg->space_id != ACPI_ADR_SPACE_SYSTEM_MEMORY ||
+	    reg->bit_width != 2 || reg->bit_offset)
+		return;
+
+	access_width = cpc_reg_access_width(reg);
+	if (access_width != 32)
+		return;
+
+	reg->bit_width = access_width;
+	pr_info_once("firmware quirk: Performance Limited owns its access unit, using Bit Width %u\n",
+		     access_width);
+}
+
 static u64 cpc_sysmem_access_size(const struct cpc_register_resource *reg)
 {
 	unsigned int width = cpc_reg_access_width(&reg->cpc_entry.reg);
@@ -1857,6 +1919,7 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 	acpi_handle handle = pr->handle;
 	unsigned int num_ent, i, cpc_rev;
 	u32 unsupported_regs = 0;
+	u32 platform_quirks;
 	int pcc_subspace_id = -1;
 	bool pcc_data_ref = false;
 	bool cpc_present = false;
@@ -1866,6 +1929,12 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 
 	if (per_cpu(cpc_desc_ptr, pr->id))
 		return 0;
+	ret = cpc_get_platform_quirks(&platform_quirks);
+	if (ret) {
+		pr_err("CPU%d: failed to match CPPC platform quirks: %d\n",
+		       pr->id, ret);
+		return ret;
+	}
 	per_cpu(cpu_pcc_subspace_idx, pr->id) = -1;
 
 	if (!osc_sb_cppc2_support_acked) {
@@ -2002,6 +2071,9 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 			cpc_ptr->cpc_regs[i - 2].type = ACPI_TYPE_BUFFER;
 			memcpy(&cpc_ptr->cpc_regs[i - 2].cpc_entry.reg, gas_t,
 			       sizeof(*gas_t));
+			gas_t = &cpc_ptr->cpc_regs[i - 2].cpc_entry.reg;
+			cpc_apply_platform_quirks(gas_t, i - 2,
+						  platform_quirks);
 
 			/*
 			 * The PCC Subspace index is encoded inside
