@@ -41,6 +41,7 @@ MODULE_PARM_DESC(fie_disabled, "Disable Frequency Invariance Engine (FIE)");
 /* Frequency invariance support */
 struct cppc_freq_invariance {
 	int cpu;
+	bool pcc_work_initialized;
 	struct irq_work irq_work;
 	struct kthread_work work;
 	struct cppc_perf_fb_ctrs prev_perf_fb_ctrs;
@@ -163,6 +164,7 @@ static void cppc_cpufreq_cpu_fie_init(struct cpufreq_policy *policy)
 		if (cppc_perf_ctrs_in_pcc_cpu(cpu)) {
 			kthread_init_work(&cppc_fi->work, cppc_scale_freq_workfn);
 			init_irq_work(&cppc_fi->irq_work, cppc_irq_work);
+			cppc_fi->pcc_work_initialized = true;
 			sftd = &cppc_sftd_pcc;
 		}
 
@@ -184,12 +186,8 @@ static void cppc_cpufreq_cpu_fie_init(struct cpufreq_policy *policy)
 }
 
 /*
- * We free all the resources on policy's removal and not on CPU removal as the
- * irq-work are per-cpu and the hotplug core takes care of flushing the pending
- * irq-works (hint: smpcfd_dying_cpu()) on CPU hotplug. Even if the kthread-work
- * fires on another CPU after the concerned CPU is removed, it won't harm.
- *
- * We just need to make sure to remove them all on policy->exit().
+ * Drain work initialized by this policy even if processor removal has
+ * already unpublished the CPU's CPC descriptor.
  */
 static void cppc_cpufreq_cpu_fie_exit(struct cpufreq_policy *policy)
 {
@@ -203,11 +201,12 @@ static void cppc_cpufreq_cpu_fie_exit(struct cpufreq_policy *policy)
 	topology_clear_scale_freq_source(SCALE_FREQ_SOURCE_CPPC, policy->related_cpus);
 
 	for_each_cpu(cpu, policy->related_cpus) {
-		if (!cppc_perf_ctrs_in_pcc_cpu(cpu))
-			continue;
 		cppc_fi = &per_cpu(cppc_freq_inv, cpu);
+		if (!cppc_fi->pcc_work_initialized)
+			continue;
 		irq_work_sync(&cppc_fi->irq_work);
 		kthread_cancel_work_sync(&cppc_fi->work);
+		cppc_fi->pcc_work_initialized = false;
 	}
 }
 
