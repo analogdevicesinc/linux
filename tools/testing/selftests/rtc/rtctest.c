@@ -257,8 +257,7 @@ TEST_F(rtc, alarm_alm_set) {
 		 */
 		ASSERT_EQ(RTC_ALARM_UNKNOWN, alarm_state);
 		ASSERT_EQ(EINVAL, errno);
-		TH_LOG("skip alarms are not supported.");
-		return;
+		SKIP(return, "alarms are not supported.");
 	}
 
 	rc = ioctl(self->fd, RTC_ALM_READ, &tm);
@@ -329,8 +328,7 @@ TEST_F(rtc, alarm_wkalm_set) {
 		 */
 		ASSERT_EQ(RTC_ALARM_UNKNOWN, alarm_state);
 		ASSERT_EQ(EINVAL, errno);
-		TH_LOG("skip alarms are not supported.");
-		return;
+		SKIP(return, "alarms are not supported.");
 	}
 
 	rc = ioctl(self->fd, RTC_WKALM_RD, &alarm);
@@ -389,8 +387,7 @@ TEST_F_TIMEOUT(rtc, alarm_alm_set_minute, 65) {
 		 */
 		ASSERT_EQ(RTC_ALARM_UNKNOWN, alarm_state);
 		ASSERT_EQ(EINVAL, errno);
-		TH_LOG("skip alarms are not supported.");
-		return;
+		SKIP(return, "alarms are not supported.");
 	}
 
 	rc = ioctl(self->fd, RTC_ALM_READ, &tm);
@@ -459,8 +456,7 @@ TEST_F_TIMEOUT(rtc, alarm_wkalm_set_minute, 65) {
 		 */
 		ASSERT_EQ(RTC_ALARM_UNKNOWN, alarm_state);
 		ASSERT_EQ(EINVAL, errno);
-		TH_LOG("skip alarms are not supported.");
-		return;
+		SKIP(return, "alarms are not supported.");
 	}
 
 	rc = ioctl(self->fd, RTC_WKALM_RD, &alarm);
