@@ -207,7 +207,6 @@ static struct bucket_table *bucket_table_alloc(struct rhashtable *ht,
 		return NULL;
 
 #ifdef CONFIG_LOCKDEP
-	/* bitlocks must use nesting level 2 or more */
 	lockdep_init_map(&tbl->dep_map, "rhashtable_bucket", ht->lockdep_key, 0);
 #endif
 
@@ -432,7 +431,7 @@ static void rht_deferred_worker(struct work_struct *work)
 	int err = 0;
 
 	ht = container_of(work, struct rhashtable, run_work);
-	mutex_lock_nested(&ht->mutex, 1);
+	mutex_lock(&ht->mutex);
 
 	tbl = rht_dereference(ht->tbl, ht);
 	tbl = rhashtable_last_table(ht, tbl);
@@ -1122,51 +1121,9 @@ static u32 rhashtable_jhash2(const void *key, u32 length, u32 seed)
 	return jhash2(key, length, seed);
 }
 
-/**
- * rhashtable_init - initialize a new hash table
- * @ht:		hash table to be initialized
- * @params:	configuration parameters
- *
- * Initializes a new hash table based on the provided configuration
- * parameters. A table can be configured either with a variable or
- * fixed length key:
- *
- * Configuration Example 1: Fixed length keys
- * struct test_obj {
- *	int			key;
- *	void *			my_member;
- *	struct rhash_head	node;
- * };
- *
- * struct rhashtable_params params = {
- *	.head_offset = offsetof(struct test_obj, node),
- *	.key_offset = offsetof(struct test_obj, key),
- *	.key_len = sizeof(int),
- *	.hashfn = jhash,
- * };
- *
- * Configuration Example 2: Variable length keys
- * struct test_obj {
- *	[...]
- *	struct rhash_head	node;
- * };
- *
- * u32 my_hash_fn(const void *data, u32 len, u32 seed)
- * {
- *	struct test_obj *obj = data;
- *
- *	return [... hash ...];
- * }
- *
- * struct rhashtable_params params = {
- *	.head_offset = offsetof(struct test_obj, node),
- *	.hashfn = jhash,
- *	.obj_hashfn = my_hash_fn,
- * };
- */
 int __rhashtable_init_noprof(struct rhashtable *ht,
-		    const struct rhashtable_params *params,
-		    struct lock_class_key *key)
+			     const struct rhashtable_params *params,
+			     struct rhashtable_lockdep_keys *keys)
 {
 	struct bucket_table *tbl;
 	size_t size;
@@ -1176,13 +1133,11 @@ int __rhashtable_init_noprof(struct rhashtable *ht,
 		return -EINVAL;
 
 	memset(ht, 0, sizeof(*ht));
-	/* mutex_lock must use nesting level 1 */
-	mutex_init_with_key(&ht->mutex, key);
+	mutex_init_with_key(&ht->mutex, &keys->mutex_key);
 	spin_lock_init(&ht->lock);
-	/* spin_lock can use nesting level 0 */
-	lockdep_set_class(&ht->lock, key);
+	lockdep_set_class(&ht->lock, &keys->lock_key);
 #ifdef CONFIG_LOCKDEP
-	ht->lockdep_key = key;
+	ht->lockdep_key = &keys->bucket_key;
 #endif
 	memcpy(&ht->p, params, sizeof(*params));
 
@@ -1236,22 +1191,13 @@ int __rhashtable_init_noprof(struct rhashtable *ht,
 }
 EXPORT_SYMBOL_GPL(__rhashtable_init_noprof);
 
-/**
- * rhltable_init - initialize a new hash list table
- * @hlt:	hash list table to be initialized
- * @params:	configuration parameters
- *
- * Initializes a new hash list table.
- *
- * See documentation for rhashtable_init.
- */
 int __rhltable_init_noprof(struct rhltable *hlt,
 			   const struct rhashtable_params *params,
-			   struct lock_class_key *key)
+			   struct rhashtable_lockdep_keys *keys)
 {
 	int err;
 
-	err = __rhashtable_init_noprof(&hlt->ht, params, key);
+	err = __rhashtable_init_noprof(&hlt->ht, params, keys);
 	hlt->ht.rhlist = true;
 	return err;
 }

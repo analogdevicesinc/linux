@@ -328,8 +328,7 @@ static inline unsigned long rht_lock_nested(struct bucket_table *tbl,
 
 	local_irq_save(flags);
 	bit_spin_lock(0, (unsigned long *)bucket);
-	/* subclass 0 is used for ->lock and 1 for ->mutex. 2+ for bitlocks */
-	lock_acquire_exclusive(&tbl->dep_map, subclass+2, 0, NULL, _THIS_IP_);
+	lock_acquire_exclusive(&tbl->dep_map, subclass, 0, NULL, _THIS_IP_);
 	return flags;
 }
 
