@@ -377,32 +377,24 @@ static size_t rmnet_get_size(const struct net_device *dev)
 
 static int rmnet_fill_info(struct sk_buff *skb, const struct net_device *dev)
 {
-	struct rmnet_priv *priv = netdev_priv(dev);
-	struct net_device *real_dev;
+	const struct rmnet_priv *priv = netdev_priv(dev);
+	const struct rmnet_port *port;
 	struct ifla_rmnet_flags f;
-	struct rmnet_port *port;
 
-	real_dev = priv->real_dev;
+	if (nla_put_u16(skb, IFLA_RMNET_MUX_ID, READ_ONCE(priv->mux_id)))
+		return -EMSGSIZE;
 
-	if (nla_put_u16(skb, IFLA_RMNET_MUX_ID, priv->mux_id))
-		goto nla_put_failure;
-
-	if (rmnet_is_real_dev_registered(real_dev)) {
-		port = rmnet_get_port_rtnl(real_dev);
-		f.flags = port->data_format;
-	} else {
-		f.flags = 0;
-	}
+	rcu_read_lock();
+	port = rmnet_get_port_rcu(priv->real_dev);
+	f.flags = port ? READ_ONCE(port->data_format) : 0;
+	rcu_read_unlock();
 
 	f.mask  = ~0;
 
 	if (nla_put(skb, IFLA_RMNET_FLAGS, sizeof(f), &f))
-		goto nla_put_failure;
+		return -EMSGSIZE;
 
 	return 0;
-
-nla_put_failure:
-	return -EMSGSIZE;
 }
 
 struct rtnl_link_ops rmnet_link_ops __read_mostly = {
@@ -419,12 +411,16 @@ struct rtnl_link_ops rmnet_link_ops __read_mostly = {
 	.fill_info	= rmnet_fill_info,
 };
 
-struct rmnet_port *rmnet_get_port_rcu(struct net_device *real_dev)
+/* Can be called from a RCU read-side critical section, with or
+ * without BH disabled.
+ */
+struct rmnet_port *rmnet_get_port_rcu(const struct net_device *real_dev)
 {
-	if (rmnet_is_real_dev_registered(real_dev))
-		return rcu_dereference_bh(real_dev->rx_handler_data);
-	else
+	if (!rmnet_is_real_dev_registered(real_dev))
 		return NULL;
+
+	return rcu_dereference_check(real_dev->rx_handler_data,
+				     rcu_read_lock_bh_held());
 }
 
 struct rmnet_endpoint *rmnet_get_endpoint(struct rmnet_port *port, u8 mux_id)
