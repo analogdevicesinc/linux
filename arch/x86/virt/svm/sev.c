@@ -124,6 +124,8 @@ static void *rmp_bookkeeping __ro_after_init;
 
 static u64 probed_rmp_base, probed_rmp_size;
 
+static phys_addr_t rmpopt_pa_start;
+
 static LIST_HEAD(snp_leaked_pages_list);
 static DEFINE_SPINLOCK(snp_leaked_pages_list_lock);
 
@@ -575,6 +577,34 @@ void snp_shutdown(void)
 }
 EXPORT_SYMBOL_FOR_MODULES(snp_shutdown, "ccp");
 
+static bool rmpopt_capable(void)
+{
+	return cpu_feature_enabled(X86_FEATURE_RMPOPT) &&
+	       cc_platform_has(CC_ATTR_HOST_SEV_SNP);
+}
+
+void snp_enable_rmpopt(void)
+{
+	u64 base;
+	int cpu;
+
+	if (!rmpopt_capable())
+		return;
+
+	rmpopt_pa_start = ALIGN_DOWN(PFN_PHYS(min_low_pfn), SZ_1G);
+
+	/*
+	 * Per-CPU RMPOPT tables cover at most 2 TB.  Program each core's
+	 * RMPOPT_BASE with the start of RAM to optimize up to 2 TB.
+	 */
+	rdmsrq(MSR_AMD64_RMPOPT_BASE, base);
+	if (!(base & MSR_AMD64_RMPOPT_ENABLE))
+		for_each_cpu(cpu, cpu_primary_thread_mask)
+			wrmsrq_on_cpu(cpu, MSR_AMD64_RMPOPT_BASE,
+				      rmpopt_pa_start | MSR_AMD64_RMPOPT_ENABLE);
+}
+EXPORT_SYMBOL_FOR_MODULES(snp_enable_rmpopt, "ccp");
+
 /*
  * Do the necessary preparations which are verified by the firmware as
  * described in the SNP_INIT_EX firmware command description in the SNP
@@ -699,13 +729,21 @@ static bool probe_segmented_rmptable_info(void)
 
 bool snp_probe_rmptable_info(void)
 {
-	if (cpu_feature_enabled(X86_FEATURE_SEGMENTED_RMP))
+	if (cpu_feature_enabled(X86_FEATURE_SEGMENTED_RMP)) {
 		rdmsrq(MSR_AMD64_RMP_CFG, rmp_cfg);
 
-	if (rmp_cfg & MSR_AMD64_SEG_RMP_ENABLED)
-		return probe_segmented_rmptable_info();
-	else
-		return probe_contiguous_rmptable_info();
+		if (rmp_cfg & MSR_AMD64_SEG_RMP_ENABLED) {
+			if (probe_segmented_rmptable_info())
+				return true;
+
+			setup_clear_cpu_cap(X86_FEATURE_RMPOPT);
+			return false;
+		}
+	} else {
+		setup_clear_cpu_cap(X86_FEATURE_RMPOPT);
+	}
+
+	return probe_contiguous_rmptable_info();
 }
 
 /*
