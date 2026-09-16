@@ -243,7 +243,17 @@ setting a cross compiler cannot produce one the host is unable to run.  ARCH
 selects both the objtool target and the directory of tests to run.
 
 clang needs telling, since it defaults to the host triple however it is
-invoked.  The fixtures include no kernel headers, so no sysroot is needed:
+invoked.  LLVM=1 with CROSS_COMPILE does that for you -- the --target= it
+derives is forwarded to the tests -- and the fixtures include no kernel
+headers, so no sysroot is needed:
+
+::
+
+    ARCH=x86_64 CROSS_COMPILE=x86_64-linux-gnu- LLVM=1 \
+            make -C tools/objtool tests
+
+Naming the compiler by hand works too, and is what to reach for when the
+target triple is not the one CROSS_COMPILE implies:
 
 ::
 
