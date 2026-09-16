@@ -2029,7 +2029,10 @@ int arm_spe_process_auxtrace_info(union perf_event *event,
 	if (session->itrace_synth_opts && session->itrace_synth_opts->set) {
 		spe->synth_opts = *session->itrace_synth_opts;
 	} else {
-		itrace_synth_opts__set_default(&spe->synth_opts, false);
+		struct itrace_synth_opts *opts = session->itrace_synth_opts;
+		bool single_event_per_ip = opts ? opts->default_single_event_per_ip : false;
+
+		itrace_synth_opts__set_default(&spe->synth_opts, false, single_event_per_ip);
 		/* Default nanoseconds period not supported */
 		spe->synth_opts.period_type = PERF_ITRACE_PERIOD_INSTRUCTIONS;
 		spe->synth_opts.period = 1;

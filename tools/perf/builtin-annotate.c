@@ -885,6 +885,14 @@ int cmd_annotate(int argc, const char **argv)
 	annotate.session = perf_session__new(&data, &annotate.tool);
 	if (IS_ERR(annotate.session))
 		return PTR_ERR(annotate.session);
+	/*
+	 * Hardware tracing (e.g., ARM SPE) may synthesize multiple events per
+	 * instruction. When data type profiling is enabled, default to synthesizing
+	 * at most one event (equivalent to --itrace=i1i) to prevent skewed
+	 * statistics.
+	 */
+	if (annotate.data_type && !itrace_synth_opts.set)
+		itrace_synth_opts.default_single_event_per_ip = true;
 
 	annotate.session->itrace_synth_opts = &itrace_synth_opts;
 
