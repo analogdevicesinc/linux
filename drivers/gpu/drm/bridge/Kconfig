@@ -151,6 +151,7 @@ config DRM_LONTIUM_LT8912B
 config DRM_LONTIUM_LT9211
 	tristate "Lontium LT9211 DSI/LVDS/DPI bridge"
 	depends on OF
+	select DRM_PANEL
 	select DRM_PANEL_BRIDGE
 	select DRM_KMS_HELPER
 	select DRM_MIPI_DSI
@@ -498,6 +499,7 @@ config DRM_WAVESHARE_BRIDGE
 	tristate "Waveshare DSI bridge"
 	depends on OF
 	depends on BACKLIGHT_CLASS_DEVICE
+	select DRM_PANEL
 	select DRM_PANEL_BRIDGE
 	select DRM_KMS_HELPER
 	select DRM_MIPI_DSI
