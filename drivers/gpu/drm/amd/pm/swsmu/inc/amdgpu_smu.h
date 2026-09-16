@@ -486,7 +486,6 @@ struct smu_power_gate {
 
 struct smu_power_context {
 	void *power_context;
-	uint32_t power_context_size;
 	struct smu_power_gate power_gate;
 };
 
