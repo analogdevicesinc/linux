@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright (c) 2025 Analog Devices, Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/position/adi,admt4000.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADMT4000 True Power-On Multiturn Sensor
+maintainers:
+  - Celine Joy Capua <celinejoy.capua@analog.com>
+
+description: |
+  The ADMT4000 is a magnetic turn count sensor capable of recording the number
+  of rotations of a magnetic system even while the device is powered down. On
+  power-up, the device can be interrogated to report the absolute position of
+  the system. Datasheet can be found here:
+  https://www.analog.com/media/en/technical-documentation/data-sheets/admt4000.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,admt4000
+
+  reg:
+    maxItems: 1
+
+  spi-max-frequency:
+    maximum: 10000000
+
+  vdd-supply:
+    description: Power Supply Input.
+
+  acalc-gpios:
+    description:
+      Angle Calculation Status. Indicates when the angle is being calculated.
+    maxItems: 1
+
+  busy-gpios:
+    description:
+      Busy indicator gpio. Indicates when the part is performing measurement.
+    maxItems: 1
+
+  cnv-gpios:
+    description:
+      Conversion start gpio. Used when an external convert start
+      signal is desired. If not present, the conversion start is done via device
+      registers.
+    maxItems: 1
+
+  adi,one-shot-conversion:
+    description:
+      If present, this indicates that the device is operation at a one-shot
+      conversion mode.
+    type: boolean
+
+  adi,cnv-sync-mode:
+    description:
+      Convert start synchronization mode.
+    enum: [seq_ctrl, start_edge]
+    default: seq_ctrl
+
+required:
+  - compatible
+  - reg
+  - vdd-supply
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi {
+      #address-cells = <1>;
+      #size-cells = <0>;
+      pos@0 {
+        compatible = "adi,admt4000";
+        reg = <0>;
+        spi-max-frequency = <1000000>;
+
+        vdd-supply = <&vdd>;
+      };
+    };
+...
