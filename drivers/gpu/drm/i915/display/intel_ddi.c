@@ -2332,12 +2332,14 @@ static void intel_dp_sink_set_msa_timing_par_ignore_state(struct intel_dp *intel
 							  bool enable)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
+	int ret;
 
 	if (!crtc_state->vrr.enable)
 		return;
 
-	if (drm_dp_dpcd_writeb(&intel_dp->aux, DP_DOWNSPREAD_CTRL,
-			       enable ? DP_MSA_TIMING_PAR_IGNORE_EN : 0) <= 0)
+	ret = drm_dp_dpcd_write_byte(&intel_dp->aux, DP_DOWNSPREAD_CTRL,
+				     enable ? DP_MSA_TIMING_PAR_IGNORE_EN : 0);
+	if (ret < 0)
 		drm_dbg_kms(display->drm,
 			    "Failed to %s MSA_TIMING_PAR_IGNORE in the sink\n",
 			    str_enable_disable(enable));
@@ -2348,18 +2350,20 @@ static void intel_dp_sink_set_fec_ready(struct intel_dp *intel_dp,
 					bool enable)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
+	int ret;
 
 	if (!crtc_state->fec_enable)
 		return;
 
-	if (drm_dp_dpcd_writeb(&intel_dp->aux, DP_FEC_CONFIGURATION,
-			       enable ? DP_FEC_READY : 0) <= 0)
+	ret = drm_dp_dpcd_write_byte(&intel_dp->aux, DP_FEC_CONFIGURATION,
+				     enable ? DP_FEC_READY : 0);
+	if (ret < 0)
 		drm_dbg_kms(display->drm, "Failed to set FEC_READY to %s in the sink\n",
 			    str_enabled_disabled(enable));
 
 	if (enable &&
-	    drm_dp_dpcd_writeb(&intel_dp->aux, DP_FEC_STATUS,
-			       DP_FEC_DECODE_EN_DETECTED | DP_FEC_DECODE_DIS_DETECTED) <= 0)
+	    drm_dp_dpcd_write_byte(&intel_dp->aux, DP_FEC_STATUS,
+				   DP_FEC_DECODE_EN_DETECTED | DP_FEC_DECODE_DIS_DETECTED) < 0)
 		drm_dbg_kms(display->drm, "Failed to clear FEC detected flags\n");
 }
 
