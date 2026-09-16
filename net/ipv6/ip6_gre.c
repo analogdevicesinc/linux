@@ -64,7 +64,7 @@ MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
 
 static unsigned int ip6gre_net_id __read_mostly;
 struct ip6gre_net {
-	struct ip6_tnl __rcu *tunnels[4][IP6_GRE_HASH_SIZE];
+	struct hlist_head tunnels[4][IP6_GRE_HASH_SIZE];
 
 	struct ip6_tnl __rcu *collect_md_tun;
 	struct ip6_tnl __rcu *collect_md_tun_erspan;
@@ -141,20 +141,24 @@ static struct ip6_tnl *ip6gre_tunnel_lookup(struct net_device *dev,
 		const struct in6_addr *remote, const struct in6_addr *local,
 		__be32 key, __be16 gre_proto)
 {
-	struct net *net = dev_net(dev);
-	int link = dev->ifindex;
-	unsigned int h0 = HASH_ADDR(remote);
-	unsigned int h1 = HASH_KEY(key);
-	struct ip6_tnl *t, *cand = NULL;
-	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
 	int dev_type = (gre_proto == htons(ETH_P_TEB) ||
 			gre_proto == htons(ETH_P_ERSPAN) ||
 			gre_proto == htons(ETH_P_ERSPAN2)) ?
 		       ARPHRD_ETHER : ARPHRD_IP6GRE;
+	unsigned int h0 = HASH_ADDR(remote);
+	unsigned int h1 = HASH_KEY(key);
+	struct ip6_tnl *t, *cand = NULL;
+	struct net *net = dev_net(dev);
 	struct net_device *ndev;
+	struct hlist_head *head;
+	int link = dev->ifindex;
+	struct ip6gre_net *ign;
 	int cand_score = 4;
 
-	for_each_ip_tunnel_rcu(t, ign->tunnels_r_l[h0 ^ h1]) {
+	ign = net_generic(net, ip6gre_net_id);
+
+	head = &ign->tunnels_r_l[h0 ^ h1];
+	hlist_for_each_entry_rcu(t, head, hash_node) {
 		if (!ipv6_addr_equal(local, &t->parms.laddr) ||
 		    !ipv6_addr_equal(remote, &t->parms.raddr) ||
 		    key != t->parms.i_key ||
@@ -165,7 +169,8 @@ static struct ip6_tnl *ip6gre_tunnel_lookup(struct net_device *dev,
 			return cand;
 	}
 
-	for_each_ip_tunnel_rcu(t, ign->tunnels_r[h0 ^ h1]) {
+	head = &ign->tunnels_r[h0 ^ h1];
+	hlist_for_each_entry_rcu(t, head, hash_node) {
 		if (!ipv6_addr_equal(remote, &t->parms.raddr) ||
 		    key != t->parms.i_key ||
 		    !(t->dev->flags & IFF_UP))
@@ -175,7 +180,8 @@ static struct ip6_tnl *ip6gre_tunnel_lookup(struct net_device *dev,
 			return cand;
 	}
 
-	for_each_ip_tunnel_rcu(t, ign->tunnels_l[h1]) {
+	head = &ign->tunnels_l[h1];
+	hlist_for_each_entry_rcu(t, head, hash_node) {
 		if ((!ipv6_addr_equal(local, &t->parms.laddr) &&
 			  (!ipv6_addr_equal(local, &t->parms.raddr) ||
 				 !ipv6_addr_is_multicast(local))) ||
@@ -187,7 +193,8 @@ static struct ip6_tnl *ip6gre_tunnel_lookup(struct net_device *dev,
 			return cand;
 	}
 
-	for_each_ip_tunnel_rcu(t, ign->tunnels_wc[h1]) {
+	head = &ign->tunnels_wc[h1];
+	hlist_for_each_entry_rcu(t, head, hash_node) {
 		if (t->parms.i_key != key ||
 		    !(t->dev->flags & IFF_UP))
 			continue;
@@ -215,8 +222,8 @@ static struct ip6_tnl *ip6gre_tunnel_lookup(struct net_device *dev,
 	return NULL;
 }
 
-static struct ip6_tnl __rcu **__ip6gre_bucket(struct ip6gre_net *ign,
-		const struct __ip6_tnl_parm *p)
+static struct hlist_head *__ip6gre_bucket(struct ip6gre_net *ign,
+					  const struct __ip6_tnl_parm *p)
 {
 	const struct in6_addr *remote = &p->raddr;
 	const struct in6_addr *local = &p->laddr;
@@ -258,56 +265,46 @@ static void ip6erspan_tunnel_unlink_md(struct ip6gre_net *ign,
 		rcu_assign_pointer(ign->collect_md_tun_erspan, NULL);
 }
 
-static inline struct ip6_tnl __rcu **ip6gre_bucket(struct ip6gre_net *ign,
-		const struct ip6_tnl *t)
+static inline struct hlist_head *ip6gre_bucket(struct ip6gre_net *ign,
+					       const struct ip6_tnl *t)
 {
 	return __ip6gre_bucket(ign, &t->parms);
 }
 
 static void ip6gre_tunnel_link(struct ip6gre_net *ign, struct ip6_tnl *t)
 {
-	struct ip6_tnl __rcu **tp = ip6gre_bucket(ign, t);
+	struct hlist_head *head = ip6gre_bucket(ign, t);
 
-	rcu_assign_pointer(t->next, rtnl_dereference(*tp));
-	rcu_assign_pointer(*tp, t);
+	hlist_add_head_rcu(&t->hash_node, head);
 }
 
 static void ip6gre_tunnel_unlink(struct ip6gre_net *ign, struct ip6_tnl *t)
 {
-	struct ip6_tnl __rcu **tp;
-	struct ip6_tnl *iter;
-
-	for (tp = ip6gre_bucket(ign, t);
-	     (iter = rtnl_dereference(*tp)) != NULL;
-	     tp = &iter->next) {
-		if (t == iter) {
-			rcu_assign_pointer(*tp, t->next);
-			break;
-		}
-	}
+	hlist_del_init_rcu(&t->hash_node);
 }
 
 static struct ip6_tnl *ip6gre_tunnel_find(struct net *net,
 					   const struct __ip6_tnl_parm *parms,
 					   int type)
 {
+	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
 	const struct in6_addr *remote = &parms->raddr;
 	const struct in6_addr *local = &parms->laddr;
 	__be32 key = parms->i_key;
+	struct hlist_head *head;
 	int link = parms->link;
 	struct ip6_tnl *t;
-	struct ip6_tnl __rcu **tp;
-	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
 
-	for (tp = __ip6gre_bucket(ign, parms);
-	     (t = rtnl_dereference(*tp)) != NULL;
-	     tp = &t->next)
+	head = __ip6gre_bucket(ign, parms);
+
+	hlist_for_each_entry(t, head, hash_node) {
 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
 		    ipv6_addr_equal(remote, &t->parms.raddr) &&
 		    key == t->parms.i_key &&
 		    link == t->parms.link &&
 		    type == t->dev->type)
 			break;
+	}
 
 	return t;
 }
@@ -1551,7 +1548,8 @@ static struct inet6_protocol ip6gre_protocol __read_mostly = {
 	.flags       = INET6_PROTO_FINAL,
 };
 
-static void __net_exit ip6gre_exit_rtnl_net(struct net *net, struct list_head *head)
+static void __net_exit ip6gre_exit_rtnl_net(struct net *net,
+					    struct list_head *dev_kill_list)
 {
 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
 	struct net_device *dev, *aux;
@@ -1561,23 +1559,21 @@ static void __net_exit ip6gre_exit_rtnl_net(struct net *net, struct list_head *h
 		if (dev->rtnl_link_ops == &ip6gre_link_ops ||
 		    dev->rtnl_link_ops == &ip6gre_tap_ops ||
 		    dev->rtnl_link_ops == &ip6erspan_tap_ops)
-			unregister_netdevice_queue(dev, head);
+			unregister_netdevice_queue(dev, dev_kill_list);
 
 	for (prio = 0; prio < 4; prio++) {
 		int h;
+
 		for (h = 0; h < IP6_GRE_HASH_SIZE; h++) {
+			struct hlist_head *head = &ign->tunnels[prio][h];
 			struct ip6_tnl *t;
 
-			t = rtnl_net_dereference(net, ign->tunnels[prio][h]);
-
-			while (t) {
+			hlist_for_each_entry(t, head, hash_node) {
 				/* If dev is in the same netns, it has already
 				 * been added to the list by the previous loop.
 				 */
 				if (!net_eq(dev_net(t->dev), net))
-					unregister_netdevice_queue(t->dev, head);
-
-				t = rtnl_net_dereference(net, t->next);
+					unregister_netdevice_queue(t->dev, dev_kill_list);
 			}
 		}
 	}
@@ -1587,7 +1583,14 @@ static int __net_init ip6gre_init_net(struct net *net)
 {
 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
 	struct net_device *ndev;
+	struct ip6_tnl *t;
+	int prio, h;
 	int err;
+
+	for (prio = 0; prio < 4; prio++) {
+		for (h = 0; h < IP6_GRE_HASH_SIZE; h++)
+			INIT_HLIST_HEAD(&ign->tunnels[prio][h]);
+	}
 
 	if (!net_has_fallback_tunnels(net))
 		return 0;
@@ -1607,8 +1610,8 @@ static int __net_init ip6gre_init_net(struct net *net)
 	ip6gre_fb_tunnel_init(ign->fb_tunnel_dev);
 	ign->fb_tunnel_dev->rtnl_link_ops = &ip6gre_link_ops;
 
-	rcu_assign_pointer(ign->tunnels_wc[0],
-			   netdev_priv(ign->fb_tunnel_dev));
+	t = netdev_priv(ign->fb_tunnel_dev);
+	hlist_add_head_rcu(&t->hash_node, &ign->tunnels_wc[0]);
 
 	err = register_netdev(ign->fb_tunnel_dev);
 	if (err)
