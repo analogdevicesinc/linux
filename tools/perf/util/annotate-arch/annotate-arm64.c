@@ -316,6 +316,138 @@ static const struct ins_ops *arm64__associate_instruction_ops(struct arch *arch,
 	return ops;
 }
 
+static enum annotated_ext_type arm64__check_ext_type(const char *op)
+{
+	if (!strncmp(op, "uxtb", 4)) return PERF_EXT_UXTB;
+	if (!strncmp(op, "uxth", 4)) return PERF_EXT_UXTH;
+	if (!strncmp(op, "uxtw", 4)) return PERF_EXT_UXTW;
+	if (!strncmp(op, "uxtx", 4)) return PERF_EXT_UXTX;
+	if (!strncmp(op, "sxtb", 4)) return PERF_EXT_SXTB;
+	if (!strncmp(op, "sxth", 4)) return PERF_EXT_SXTH;
+	if (!strncmp(op, "sxtw", 4)) return PERF_EXT_SXTW;
+	if (!strncmp(op, "sxtx", 4)) return PERF_EXT_SXTX;
+
+	return PERF_EXT_NONE;
+}
+
+static enum annotated_shift_type arm64__check_shift_type(const char *op)
+{
+	if (!strncmp(op, "lsl", 3)) return PERF_SHIFT_LSL;
+	if (!strncmp(op, "lsr", 3)) return PERF_SHIFT_LSR;
+	if (!strncmp(op, "asr", 3)) return PERF_SHIFT_ASR;
+	if (!strncmp(op, "ror", 3)) return PERF_SHIFT_ROR;
+
+	return PERF_SHIFT_NONE;
+}
+
+static const char *next_operand_field(const char *s)
+{
+	s = strchr(s, ',');
+	return s ? skip_spaces(s + 1) : NULL;
+}
+
+static void extract_op_location_arm64(const struct arch *arch,
+				      struct disasm_line *dl __maybe_unused,
+				      const char *op_str, int op_idx __maybe_unused,
+				      struct annotated_op_loc *op_loc)
+{
+	const char *s = op_str;
+	char *p = NULL;
+
+	if (op_str == NULL)
+		return;
+
+	/*
+	 * Handle immediate operand.
+	 * e.g., "#0xc600" -> offset = 0xc600, imm = true
+	 *
+	 * After parsing, check for post-modifiers like "lsl #16", which
+	 * typically occur in instructions such as movk, movz, movn, etc.
+	 */
+	if (*s == arch->objdump.imm_char) {
+		op_loc->offset = strtol(s + 1, &p, 0);
+		if (p && p != s + 1) {
+			op_loc->imm = true;
+			s = p;
+		}
+		s = next_operand_field(s);
+		goto check_modifiers;
+	}
+
+	/*
+	 * Handle memory references, identify arm64 specific addressing modes.
+	 * Reference: Arm Architecture Reference Manual
+	 *            (DDI 0487), Chapter C1.3.3: Load/store addressing modes.
+	 */
+	if (*s == arch->objdump.memory_ref_char) {
+		op_loc->mem_ref = true;
+
+		p = (char *)strchr(s, ']');
+		if (p == NULL)
+			return;
+
+		/* Pre-index: [base, #imm]! */
+		if (p[1] == '!')
+			op_loc->addr_mode = PERF_AAM_PRE_INDEX;
+		/* Post-index: [base], #imm|reg */
+		else if (p[1] == ',' &&
+			 (strchr(p + 1, arch->objdump.imm_char) ||
+			  arm64__is_reg(skip_spaces(p + 2))))
+			op_loc->addr_mode = PERF_AAM_POST_INDEX;
+		/* Signed offset: [base{, #imm|reg}] */
+		else
+			op_loc->addr_mode = PERF_AAM_SIGNED_OFFSET;
+
+		s++;
+	}
+
+	/* Extract the primary register */
+	op_loc->reg1 = arch__dwarf_regnum(arch, s);
+	if (op_loc->reg1 == -1)
+		return;
+
+	s = next_operand_field(s);
+	if (s == NULL)
+		return;
+
+	/* Extract secondary register or immediate offset */
+	if (op_loc->multi_regs) {
+		op_loc->reg2 = arch__dwarf_regnum(arch, s);
+		s = next_operand_field(s);
+	} else if (*s == arch->objdump.imm_char) {
+		op_loc->offset = strtol(s + 1, NULL, 0);
+		s = next_operand_field(s);
+	}
+
+check_modifiers:
+	/*
+	 * Look for a following shift or extension modifier:
+	 *   "lsl #3"   -> extend_type = PERF_EXT_NONE,
+	 *                 shift_type = PERF_SHIFT_LSL, amount = 3
+	 *   "uxtw #3"  -> extend_type = PERF_EXT_UXTW,
+	 *                 shift_type = PERF_SHIFT_LSL, amount = 3
+	 *   "uxtw"     -> extend_type = PERF_EXT_UXTW,
+	 *                 shift_type = PERF_SHIFT_LSL, amount = 0
+	 */
+	if (s == NULL)
+		return;
+
+	op_loc->extend_type = arm64__check_ext_type(s);
+	op_loc->shift_type = arm64__check_shift_type(s);
+	/* ARM64 extended operands are implicitly shifted by LSL. */
+	if (op_loc->extend_type != PERF_EXT_NONE)
+		op_loc->shift_type = PERF_SHIFT_LSL;
+
+	/* Parse shift amount if present */
+	op_loc->amount = 0;
+	if (op_loc->extend_type != PERF_EXT_NONE ||
+	    op_loc->shift_type != PERF_SHIFT_NONE) {
+		s = strchr(s, arch->objdump.imm_char);
+		if (s)
+			op_loc->amount = (u8)strtol(s + 1, NULL, 0);
+	}
+}
+
 const struct arch *arch__new_arm64(const struct e_machine_and_e_flags *id,
 				   const char *cpuid __maybe_unused)
 {
@@ -334,6 +466,7 @@ const struct arch *arch__new_arm64(const struct e_machine_and_e_flags *id,
 	arch->objdump.memory_ref_char	  = '[';
 	arch->objdump.imm_char		  = '#';
 	arch->associate_instruction_ops   = arm64__associate_instruction_ops;
+	arch->extract_op_location	  = extract_op_location_arm64;
 
 	/* bl, blr */
 	err = regcomp(&arm->call_insn, "^blr?$", REG_EXTENDED);

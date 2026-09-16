@@ -532,6 +532,10 @@ int arch__dwarf_regnum(const struct arch *arch, const char *str);
  * @reg2: Second register in the operand
  * @offset: Memory access offset in the operand
  * @segment: Segment selector register
+ * @addr_mode: Addressing mode, only valid if @mem_ref is true
+ * @extend_type: Operand extension type (enum annotated_ext_type)
+ * @shift_type: Operand shift type (enum annotated_shift_type)
+ * @amount: Number of bits to shift
  * @mem_ref: Whether the operand accesses memory
  * @multi_regs: Whether the second register is used
  * @imm: Whether the operand is an immediate value (in offset)
@@ -541,6 +545,10 @@ struct annotated_op_loc {
 	int reg2;
 	int offset;
 	u8 segment;
+	u8 addr_mode;
+	u8 extend_type;
+	u8 shift_type;
+	u8 amount;
 	bool mem_ref;
 	bool multi_regs;
 	bool imm;
@@ -562,6 +570,59 @@ enum annotated_x86_segment {
 	INSN_SEG_X86_FS,
 	INSN_SEG_X86_GS,
 	INSN_SEG_X86_SS,
+};
+
+/*
+ * ARM64 addressing modes for memory operations.
+ *
+ * [Xn, #imm]  -> SIGNED_OFFSET  (base + offset, base unchanged)
+ * [Xn, #imm]! -> PRE_INDEX      (base += offset, then access)
+ * [Xn], #imm  -> POST_INDEX     (access, then base += offset)
+ */
+enum annotated_addr_mode {
+	PERF_AAM_NONE = 0,
+
+	PERF_AAM_SIGNED_OFFSET,
+	PERF_AAM_PRE_INDEX,
+	PERF_AAM_POST_INDEX,
+};
+
+/*
+ * ARM64 register extension types.
+ * UXT* = zero-extend, SXT* = sign-extend.
+ * B=8bit, H=16bit, W=32bit, X=64bit.
+ *
+ * Example: UXTW = zero-extend 32-bit Wn to 64-bit Xn
+ */
+enum annotated_ext_type {
+	PERF_EXT_NONE = 0,
+
+	PERF_EXT_UXTB,
+	PERF_EXT_UXTH,
+	PERF_EXT_UXTW,
+	PERF_EXT_UXTX,
+	PERF_EXT_SXTB,
+	PERF_EXT_SXTH,
+	PERF_EXT_SXTW,
+	PERF_EXT_SXTX,
+};
+
+/*
+ * ARM64 operand shift types.
+ * LSL = logical shift left.
+ * LSR = logical shift right.
+ * ASR = arithmetic shift right.
+ * ROR = rotate right.
+ *
+ * Example: LSL #3 = shift the operand left by 3 bits.
+ */
+enum annotated_shift_type {
+	PERF_SHIFT_NONE = 0,
+
+	PERF_SHIFT_LSL,
+	PERF_SHIFT_LSR,
+	PERF_SHIFT_ASR,
+	PERF_SHIFT_ROR,
 };
 
 /**
