@@ -41,6 +41,8 @@
 #define AD7768_REG_POWER_MODE				0x04
 #define   AD7768_SLEEP_MODE_MSK				BIT(7)
 #define   AD7768_POWER_MODE_POWER_MODE_MSK		GENMASK(5, 4)
+#define     AD7768_POWER_MODE_POWER_MODE_LOW		0x0
+#define     AD7768_POWER_MODE_POWER_MODE_MEDIAN		0x2
 #define     AD7768_POWER_MODE_POWER_MODE_FAST		0x3
 #define   AD7768_POWER_MODE_LVDS_ENABLE			BIT(3)
 #define   AD7768_POWER_MODE_MCLK_DIV_MSK		GENMASK(1, 0)
@@ -102,6 +104,17 @@ enum ad7768_clock_source {
 	AD7768_CLOCK_SOURCE_LVDS,
 };
 
+struct ad7768_power_mode_info {
+	unsigned int mode;
+	unsigned int mclk_div;
+};
+
+static const struct ad7768_power_mode_info ad7768_power_modes[] = {
+	{ .mode = AD7768_POWER_MODE_POWER_MODE_LOW, .mclk_div = 32 },
+	{ .mode = AD7768_POWER_MODE_POWER_MODE_MEDIAN, .mclk_div = 8 },
+	{ .mode = AD7768_POWER_MODE_POWER_MODE_FAST, .mclk_div = 4 },
+};
+
 struct ad7768_precharge_config {
 	bool prebufp_en;
 	bool prebufn_en;
@@ -127,6 +140,7 @@ struct ad7768_state {
 	const struct ad7768_chip_info *chip_info;
 	struct iio_backend *back;
 	unsigned int vref_uV[2];
+	unsigned int power_mode_idx;
 
 	/* Used only in regmap_read() callback, hence guarded by regmap lock. */
 	__be16 d16 __aligned(IIO_DMA_MINALIGN);
@@ -344,6 +358,32 @@ static int ad7768_sync(struct ad7768_state *st)
 			       AD7768_DATA_CONTROL_SPI_SYNC);
 }
 
+static int ad7768_set_power_mode(struct ad7768_state *st,
+				 unsigned int mode_idx)
+{
+	const struct ad7768_power_mode_info *mode_info;
+	int ret;
+
+	mode_info = &ad7768_power_modes[mode_idx];
+	ret = regmap_update_bits(st->regmap, AD7768_REG_POWER_MODE,
+				 AD7768_POWER_MODE_POWER_MODE_MSK |
+				 AD7768_POWER_MODE_MCLK_DIV_MSK,
+				 FIELD_PREP(AD7768_POWER_MODE_POWER_MODE_MSK,
+					    mode_info->mode) |
+				 FIELD_PREP(AD7768_POWER_MODE_MCLK_DIV_MSK,
+					    mode_info->mode));
+	if (ret)
+		return ret;
+
+	ret = ad7768_sync(st);
+	if (ret)
+		return ret;
+
+	st->power_mode_idx = mode_idx;
+
+	return 0;
+}
+
 static int ad7768_set_clk_divs(struct ad7768_state *st)
 {
 	unsigned int dclk_div_reg;
@@ -530,13 +570,7 @@ static int ad7768_configure_capture(struct ad7768_state *st)
 	unsigned int mode_config;
 	int ret;
 
-	ret = regmap_update_bits(st->regmap, AD7768_REG_POWER_MODE,
-				 AD7768_POWER_MODE_POWER_MODE_MSK |
-				 AD7768_POWER_MODE_MCLK_DIV_MSK,
-				 FIELD_PREP(AD7768_POWER_MODE_POWER_MODE_MSK,
-					    AD7768_POWER_MODE_POWER_MODE_FAST) |
-				 FIELD_PREP(AD7768_POWER_MODE_MCLK_DIV_MSK,
-					    AD7768_POWER_MODE_POWER_MODE_FAST));
+	ret = ad7768_set_power_mode(st, ARRAY_SIZE(ad7768_power_modes) - 1);
 	if (ret)
 		return ret;
 
