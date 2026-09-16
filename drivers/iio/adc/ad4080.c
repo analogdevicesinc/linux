@@ -334,6 +334,9 @@ static int ad4080_lvds_sync_write(struct ad4080_state *st, unsigned int ch)
 		return ret;
 
 	ret = iio_backend_interface_data_align(st->back[ch], 10000);
+	if (ret == -ETIMEDOUT)
+		return dev_err_probe(dev, -EPROBE_DEFER,
+				     "LVDS data alignment not ready, deferring\n");
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Data alignment process failed\n");
