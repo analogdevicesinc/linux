@@ -3493,8 +3493,12 @@ void mpi3mr_process_op_reply_desc(struct mpi3mr_ioc *mrioc,
 		scsi_reply = mpi3mr_get_reply_virt_addr(mrioc,
 		    *reply_dma);
 		if (!scsi_reply) {
-			panic("%s: scsi_reply is NULL, this shouldn't happen\n",
-			    mrioc->name);
+			ioc_err(mrioc, "scsi_reply is NULL, invalid reply_frame_address\n");
+			/*
+			 * Do not let the caller repost an address that
+			 * failed virt-addr lookup back to the hardware.
+			 */
+			*reply_dma = 0;
 			goto out;
 		}
 		host_tag = le16_to_cpu(scsi_reply->host_tag);
