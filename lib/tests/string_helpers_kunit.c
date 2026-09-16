@@ -18,7 +18,6 @@
 
 static void test_string_check_buf(struct kunit *test,
 				  const char *name, unsigned int flags,
-				  char *in, size_t p,
 				  char *out_real, size_t q_real,
 				  char *out_test, size_t q_test)
 {
@@ -101,8 +100,7 @@ static void test_string_unescape(struct kunit *test,
 		q_real = string_unescape(in, out_real, q_real, flags);
 	}
 
-	test_string_check_buf(test, name, flags, in, p - 1, out_real, q_real,
-			      out_test, q_test);
+	test_string_check_buf(test, name, flags, out_real, q_real, out_test, q_test);
 	KUNIT_EXPECT_EQ_MSG(test, out_real[q_real], '\0', "name:%s", name);
 }
 
@@ -457,8 +455,7 @@ static void test_string_escape(struct kunit *test, const char *name,
 
 	q_real = string_escape_mem(in, p, out_real, out_size, flags, esc);
 
-	test_string_check_buf(test, name, flags, in, p, out_real, q_real, out_test,
-			      q_test);
+	test_string_check_buf(test, name, flags, out_real, q_real, out_test, q_test);
 
 	test_string_escape_overflow(test, in, p, flags, esc, q_test, name);
 }
