@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0
 
+.. _pt_BR_applying_patches:
+
 Aplicando Patches ao Kernel Linux
 +++++++++++++++++++++++++++++++++
 
