@@ -80,6 +80,7 @@ struct cpc_register_resource {
 };
 
 struct cpc_sysmem_node;
+struct cpc_non_mmio_node;
 
 /* Container to hold the CPC details for each CPU */
 struct cpc_desc {
@@ -93,6 +94,7 @@ struct cpc_desc {
 	struct cpc_register_resource cpc_regs[MAX_CPC_REG_ENT];
 	struct acpi_psd_package domain_info;
 	struct cpc_sysmem_node *sysmem_nodes;
+	struct cpc_non_mmio_node *non_mmio_nodes;
 	struct kobject kobj;
 };
 

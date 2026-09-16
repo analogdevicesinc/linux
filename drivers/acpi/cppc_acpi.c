@@ -113,6 +113,18 @@ struct cpc_sysmem_node {
 	bool registered;
 };
 
+struct cpc_non_mmio_node {
+	struct rb_node rb;
+	u64 subtree_last;
+	u64 start;
+	u64 last;
+	struct cpc_desc *desc;
+	unsigned int reg_idx;
+	u8 space_id;
+	u8 pcc_ss_id;
+	bool registered;
+};
+
 #define CPC_SYSMEM_START(node) ((node)->start)
 #define CPC_SYSMEM_LAST(node) ((node)->last)
 
@@ -122,6 +134,16 @@ INTERVAL_TREE_DEFINE(struct cpc_sysmem_node, rb, u64, subtree_last,
 
 static struct rb_root_cached cpc_sysmem_tree = RB_ROOT_CACHED;
 static DEFINE_MUTEX(cpc_sysmem_lock);
+
+#define CPC_NON_MMIO_START(node) ((node)->start)
+#define CPC_NON_MMIO_LAST(node) ((node)->last)
+
+INTERVAL_TREE_DEFINE(struct cpc_non_mmio_node, rb, u64, subtree_last,
+		     CPC_NON_MMIO_START, CPC_NON_MMIO_LAST, static inline,
+		     cpc_non_mmio_itree)
+
+static struct rb_root_cached cpc_pcc_trees[MAX_PCC_SUBSPACES];
+static DEFINE_MUTEX(cpc_non_mmio_lock);
 
 static struct cpc_sysmem_node *cpc_sysmem_first(u64 start, u64 last)
 {
@@ -652,6 +674,150 @@ static int cpc_validate_non_mmio_overlaps(struct cpc_desc *cpc_desc,
 	return 0;
 }
 
+static struct rb_root_cached *cpc_non_mmio_tree(u8 space_id, u8 pcc_ss_id)
+{
+	if (space_id == ACPI_ADR_SPACE_PLATFORM_COMM)
+		return &cpc_pcc_trees[pcc_ss_id];
+	return NULL;
+}
+
+static int cpc_validate_non_mmio_pair(const struct cpc_non_mmio_node *a,
+				      const struct cpc_non_mmio_node *b)
+{
+	bool a_writable = cpc_reg_is_writable(a->reg_idx);
+	bool b_writable = cpc_reg_is_writable(b->reg_idx);
+	const char *name;
+
+	if (!a_writable && !b_writable)
+		return 0;
+
+	if (a->reg_idx == b->reg_idx && a->start == b->start &&
+	    a->last == b->last)
+		return 0;
+
+	name = "PCC";
+	pr_err("CPU%d: %s _CPC register %u conflicts with CPU%d register %u\n",
+	       a->desc->cpu_id, name, a->reg_idx, b->desc->cpu_id,
+	       b->reg_idx);
+	return -EINVAL;
+}
+
+static void cpc_unregister_non_mmio_desc_locked(struct cpc_desc *cpc_desc)
+{
+	unsigned int i;
+
+	if (!cpc_desc->non_mmio_nodes)
+		return;
+
+	for (i = 0; i < cpc_desc->num_entries - 2; i++) {
+		struct cpc_non_mmio_node *node = &cpc_desc->non_mmio_nodes[i];
+		struct rb_root_cached *tree;
+
+		if (!node->registered)
+			continue;
+
+		tree = cpc_non_mmio_tree(node->space_id, node->pcc_ss_id);
+		cpc_non_mmio_itree_remove(node, tree);
+	}
+
+	kfree(cpc_desc->non_mmio_nodes);
+	cpc_desc->non_mmio_nodes = NULL;
+}
+
+static int cpc_register_non_mmio_desc(struct cpc_desc *cpc_desc,
+				      int pcc_ss_id)
+{
+	unsigned int nr_regs = cpc_desc->num_entries - 2;
+	unsigned int i;
+	int ret = 0;
+	bool found = false;
+
+	for (i = 0; i < nr_regs; i++) {
+		struct cpc_register_resource *reg = &cpc_desc->cpc_regs[i];
+		u8 space_id;
+
+		if (!CPC_SUPPORTED(reg) || reg->type != ACPI_TYPE_BUFFER)
+			continue;
+		space_id = reg->cpc_entry.reg.space_id;
+		if (space_id == ACPI_ADR_SPACE_PLATFORM_COMM) {
+			found = true;
+			break;
+		}
+	}
+	if (!found)
+		return 0;
+
+	cpc_desc->non_mmio_nodes = kcalloc(nr_regs,
+					   sizeof(*cpc_desc->non_mmio_nodes),
+					   GFP_KERNEL);
+	if (!cpc_desc->non_mmio_nodes)
+		return -ENOMEM;
+
+	mutex_lock(&cpc_non_mmio_lock);
+
+	for (i = 0; i < nr_regs; i++) {
+		struct cpc_register_resource *reg = &cpc_desc->cpc_regs[i];
+		struct cpc_non_mmio_node *match, *node;
+		struct rb_root_cached *tree;
+		u8 space_id;
+		u64 size;
+
+		if (!CPC_SUPPORTED(reg) || reg->type != ACPI_TYPE_BUFFER)
+			continue;
+
+		space_id = reg->cpc_entry.reg.space_id;
+		if (space_id != ACPI_ADR_SPACE_PLATFORM_COMM)
+			continue;
+
+		if (pcc_ss_id < 0) {
+			ret = -EINVAL;
+			goto out_unregister;
+		}
+
+		node = &cpc_desc->non_mmio_nodes[i];
+		size = cpc_non_mmio_access_size(reg);
+		node->start = reg->cpc_entry.reg.address;
+		node->last = node->start + size - 1;
+		node->desc = cpc_desc;
+		node->reg_idx = i;
+		node->space_id = space_id;
+		node->pcc_ss_id = pcc_ss_id;
+		tree = cpc_non_mmio_tree(space_id, node->pcc_ss_id);
+
+		match = cpc_non_mmio_itree_iter_first(tree, node->start,
+						      node->last);
+		while (match) {
+			ret = cpc_validate_non_mmio_pair(node, match);
+			if (ret)
+				goto out_unregister;
+
+			match = cpc_non_mmio_itree_iter_next(match, node->start,
+							     node->last);
+		}
+
+		cpc_non_mmio_itree_insert(node, tree);
+		node->registered = true;
+	}
+
+	mutex_unlock(&cpc_non_mmio_lock);
+	return 0;
+
+out_unregister:
+	cpc_unregister_non_mmio_desc_locked(cpc_desc);
+	mutex_unlock(&cpc_non_mmio_lock);
+	return ret;
+}
+
+static void cpc_unregister_non_mmio_desc(struct cpc_desc *cpc_desc)
+{
+	if (!cpc_desc->non_mmio_nodes)
+		return;
+
+	mutex_lock(&cpc_non_mmio_lock);
+	cpc_unregister_non_mmio_desc_locked(cpc_desc);
+	mutex_unlock(&cpc_non_mmio_lock);
+}
+
 static void cpc_mark_rmw_lock_users(struct cpc_desc *cpc_desc)
 {
 	int i;
@@ -985,6 +1151,7 @@ static void cppc_free_desc(struct cpc_desc *cpc_ptr)
 {
 	unsigned int i;
 
+	cpc_unregister_non_mmio_desc(cpc_ptr);
 	cpc_unregister_sysmem_desc(cpc_ptr);
 
 	for (i = 2; i < cpc_ptr->num_entries; i++) {
@@ -1886,17 +2053,16 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 	}
 
 	ret = cpc_validate_non_mmio_overlaps(cpc_ptr,
-					     ACPI_ADR_SPACE_PLATFORM_COMM,
-					     "PCC");
-	if (ret)
-		goto out_free;
-	ret = cpc_validate_non_mmio_overlaps(cpc_ptr,
 					     ACPI_ADR_SPACE_SYSTEM_IO,
 					     "SystemIO");
 	if (ret)
 		goto out_free;
 
 	ret = cpc_validate_bound_controls(cpc_ptr);
+	if (ret)
+		goto out_free;
+
+	ret = cpc_register_non_mmio_desc(cpc_ptr, pcc_subspace_id);
 	if (ret)
 		goto out_free;
 
@@ -1917,6 +2083,7 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 			"acpi_cppc");
 	if (ret) {
 		per_cpu(cpc_desc_ptr, pr->id) = NULL;
+		cpc_unregister_non_mmio_desc(cpc_ptr);
 		cpc_unregister_sysmem_desc(cpc_ptr);
 		kobject_put(&cpc_ptr->kobj);
 		goto out_pcc_put;
@@ -1961,6 +2128,7 @@ void acpi_cppc_processor_exit(struct acpi_processor *pr)
 	pcc_ss_id = per_cpu(cpu_pcc_subspace_idx, pr->id);
 	per_cpu(cpc_desc_ptr, pr->id) = NULL;
 	kobject_del(&cpc_ptr->kobj);
+	cpc_unregister_non_mmio_desc(cpc_ptr);
 	cpc_unregister_sysmem_desc(cpc_ptr);
 
 	pcc_data_put(pcc_ss_id);
