@@ -45,9 +45,9 @@ static int ufs_sec_submit(struct ufs_hba *hba, u16 spsp, void *buffer, size_t le
 	struct scsi_device *sdev = hba->ufs_rpmb_wlun;
 	struct scsi_failure failure_defs[] = {
 		{
-			.sense = UNIT_ATTENTION,
-			.asc = 0x29,	/* power on, reset, or bus device reset occurred */
-			.ascq = SCMD_FAILURE_ASCQ_ANY,
+			.sense_key = UNIT_ATTENTION,
+			.sense_code =
+				POWER_ON_RESET_OR_BUS_DEVICE_RESET_OCCURRED,
 			.allowed = UFS_RPMB_UA_RETRIES,
 			.result = SAM_STAT_CHECK_CONDITION,
 		},
