@@ -143,6 +143,7 @@ INTERVAL_TREE_DEFINE(struct cpc_non_mmio_node, rb, u64, subtree_last,
 		     cpc_non_mmio_itree)
 
 static struct rb_root_cached cpc_pcc_trees[MAX_PCC_SUBSPACES];
+static struct rb_root_cached cpc_sysio_tree = RB_ROOT_CACHED;
 static DEFINE_MUTEX(cpc_non_mmio_lock);
 
 static struct cpc_sysmem_node *cpc_sysmem_first(u64 start, u64 last)
@@ -625,59 +626,12 @@ static bool cpc_non_mmio_overlap_conflicts(u8 space_id, bool a_writable,
 	return a_writable || b_writable;
 }
 
-static int cpc_validate_non_mmio_overlaps(struct cpc_desc *cpc_desc,
-					  u8 space_id, const char *name)
-{
-	unsigned int i, j;
-
-	for (i = 0; i < cpc_desc->num_entries - 2; i++) {
-		struct cpc_register_resource *a = &cpc_desc->cpc_regs[i];
-		const struct cpc_reg *a_gas;
-		u64 a_size;
-
-		if (!CPC_SUPPORTED(a) || a->type != ACPI_TYPE_BUFFER ||
-		    a->cpc_entry.reg.space_id != space_id)
-			continue;
-
-		a_gas = &a->cpc_entry.reg;
-		a_size = cpc_non_mmio_access_size(a);
-		for (j = i + 1; j < cpc_desc->num_entries - 2; j++) {
-			struct cpc_register_resource *b = &cpc_desc->cpc_regs[j];
-			const struct cpc_reg *b_gas;
-			bool a_writable, b_writable;
-			u64 b_size;
-
-			if (!CPC_SUPPORTED(b) || b->type != ACPI_TYPE_BUFFER ||
-			    b->cpc_entry.reg.space_id != space_id)
-				continue;
-
-			b_gas = &b->cpc_entry.reg;
-			b_size = cpc_non_mmio_access_size(b);
-			a_writable = cpc_reg_is_writable(i);
-			b_writable = cpc_reg_is_writable(j);
-			if (!cpc_non_mmio_overlap_conflicts(space_id,
-							    a_writable, b_writable,
-							    cpc_reg_is_write_only(cpc_desc, i),
-							    cpc_reg_is_write_only(cpc_desc, j)))
-				continue;
-			if (a_gas->address < b_gas->address ?
-			    b_gas->address - a_gas->address >= a_size :
-			    a_gas->address - b_gas->address >= b_size)
-				continue;
-
-			pr_err("CPU%d: overlapping writable %s _CPC registers %u and %u\n",
-			       cpc_desc->cpu_id, name, i, j);
-			return -EINVAL;
-		}
-	}
-
-	return 0;
-}
-
 static struct rb_root_cached *cpc_non_mmio_tree(u8 space_id, u8 pcc_ss_id)
 {
 	if (space_id == ACPI_ADR_SPACE_PLATFORM_COMM)
 		return &cpc_pcc_trees[pcc_ss_id];
+	if (space_id == ACPI_ADR_SPACE_SYSTEM_IO)
+		return &cpc_sysio_tree;
 	return NULL;
 }
 
@@ -688,14 +642,18 @@ static int cpc_validate_non_mmio_pair(const struct cpc_non_mmio_node *a,
 	bool b_writable = cpc_reg_is_writable(b->reg_idx);
 	const char *name;
 
-	if (!a_writable && !b_writable)
+	if (!cpc_non_mmio_overlap_conflicts(a->space_id, a_writable,
+					    b_writable,
+					    cpc_reg_is_write_only(a->desc, a->reg_idx),
+					    cpc_reg_is_write_only(b->desc, b->reg_idx)))
 		return 0;
 
 	if (a->reg_idx == b->reg_idx && a->start == b->start &&
 	    a->last == b->last)
 		return 0;
 
-	name = "PCC";
+	name = a->space_id == ACPI_ADR_SPACE_PLATFORM_COMM ?
+	       "PCC" : "SystemIO";
 	pr_err("CPU%d: %s _CPC register %u conflicts with CPU%d register %u\n",
 	       a->desc->cpu_id, name, a->reg_idx, b->desc->cpu_id,
 	       b->reg_idx);
@@ -739,7 +697,8 @@ static int cpc_register_non_mmio_desc(struct cpc_desc *cpc_desc,
 		if (!CPC_SUPPORTED(reg) || reg->type != ACPI_TYPE_BUFFER)
 			continue;
 		space_id = reg->cpc_entry.reg.space_id;
-		if (space_id == ACPI_ADR_SPACE_PLATFORM_COMM) {
+		if (space_id == ACPI_ADR_SPACE_PLATFORM_COMM ||
+		    space_id == ACPI_ADR_SPACE_SYSTEM_IO) {
 			found = true;
 			break;
 		}
@@ -766,10 +725,11 @@ static int cpc_register_non_mmio_desc(struct cpc_desc *cpc_desc,
 			continue;
 
 		space_id = reg->cpc_entry.reg.space_id;
-		if (space_id != ACPI_ADR_SPACE_PLATFORM_COMM)
+		if (space_id != ACPI_ADR_SPACE_PLATFORM_COMM &&
+		    space_id != ACPI_ADR_SPACE_SYSTEM_IO)
 			continue;
 
-		if (pcc_ss_id < 0) {
+		if (space_id == ACPI_ADR_SPACE_PLATFORM_COMM && pcc_ss_id < 0) {
 			ret = -EINVAL;
 			goto out_unregister;
 		}
@@ -781,7 +741,8 @@ static int cpc_register_non_mmio_desc(struct cpc_desc *cpc_desc,
 		node->desc = cpc_desc;
 		node->reg_idx = i;
 		node->space_id = space_id;
-		node->pcc_ss_id = pcc_ss_id;
+		node->pcc_ss_id = space_id == ACPI_ADR_SPACE_PLATFORM_COMM ?
+				      pcc_ss_id : 0;
 		tree = cpc_non_mmio_tree(space_id, node->pcc_ss_id);
 
 		match = cpc_non_mmio_itree_iter_first(tree, node->start,
@@ -2051,12 +2012,6 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 		if (ret)
 			goto out_free;
 	}
-
-	ret = cpc_validate_non_mmio_overlaps(cpc_ptr,
-					     ACPI_ADR_SPACE_SYSTEM_IO,
-					     "SystemIO");
-	if (ret)
-		goto out_free;
 
 	ret = cpc_validate_bound_controls(cpc_ptr);
 	if (ret)
