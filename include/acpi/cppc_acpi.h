@@ -72,6 +72,8 @@ struct cpc_register_resource {
 		struct {
 			struct cpc_reg reg;
 			bool use_rmw_lock;
+			bool read_unsupported;
+			bool write_unsupported;
 		};
 		u64 int_value;
 	} cpc_entry;
