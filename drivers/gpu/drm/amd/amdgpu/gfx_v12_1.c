@@ -3515,6 +3515,25 @@ static int gfx_v12_1_eop_irq(struct amdgpu_device *adev,
 
 	DRM_DEBUG("IH: CP EOP\n");
 
+	if (((entry->ring_id & 0x0c) >> 2) == 3) {
+		u32 type = amdgpu_mes_ih_int_type(doorbell_offset);
+
+		switch (type) {
+		case AMDGPU_MES_IH_INT_TYPE_DBGMSG:
+			/*
+			 * MES firmware debug-extension ("mes_dbgext") messages are
+			 * delivered as an EOP interrupt from the MES scheduler pipe
+			 * (me 3).  Type is in context dword bits 31:26 (MES_DBGMSG = 7).
+			 */
+			if (adev->mes.dbgext_active)
+				amdgpu_mes_dbgext_notify(adev, doorbell_offset);
+			break;
+		default:
+			break;
+		}
+		return 0;
+	}
+
 	if (adev->enable_mes && doorbell_offset) {
 		amdgpu_userq_process_fence_irq(adev, doorbell_offset);
 	} else {
