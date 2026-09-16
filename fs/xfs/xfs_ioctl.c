@@ -1035,6 +1035,46 @@ xfs_ioc_getlabel(
 	return 0;
 }
 
+/*
+ * Same behavior as xfs_sync_sb, except that it is always synchronous and it
+ * also writes the superblock buffer to disk sector 0 immediately.
+ */
+static int
+xfs_sync_sb_buf(
+	struct xfs_mount	*mp,
+	bool			update_rtsb)
+{
+	struct xfs_trans	*tp;
+	int			error;
+
+	error = xfs_trans_alloc(mp, &M_RES(mp)->tr_sb, 0, 0, 0, &tp);
+	if (error)
+		return error;
+
+	xfs_log_sb(tp);
+	if (update_rtsb)
+		xfs_log_rtsb(tp, xfs_trans_getsb(tp));
+	xfs_trans_set_sync(tp);
+	error = xfs_trans_commit(tp);
+	if (error)
+		return error;
+
+	/* Re-acquire and write the sb and rtsb to disk. */
+	xfs_buf_lock(mp->m_sb_bp);
+	error = xfs_bwrite(mp->m_sb_bp);
+	xfs_buf_unlock(mp->m_sb_bp);
+	if (error)
+		return error;
+
+	if (update_rtsb && mp->m_rtsb_bp) {
+		xfs_buf_lock(mp->m_rtsb_bp);
+		error = xfs_bwrite(mp->m_rtsb_bp);
+		xfs_buf_unlock(mp->m_rtsb_bp);
+	}
+
+	return error;
+}
+
 static int
 xfs_ioc_setlabel(
 	struct file		*filp,
