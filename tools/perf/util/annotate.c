@@ -2600,7 +2600,7 @@ static int arch__dwarf_regnum(const struct arch *arch, const char *str)
 
 	reg = get_dwarf_regnum(regname, arch->id.e_machine, arch->id.e_flags);
 	free(regname);
-	return reg;
+	return reg < 0 ? -1 : reg;
 }
 
 /*
