@@ -1379,7 +1379,7 @@ static int xe_pci_runtime_suspend(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct xe_device *xe = pdev_to_xe_device(pdev);
-	int err;
+	int err, ret;
 
 	/*
 	 * We hold an additional reference to the runtime PM to keep PF in D0
@@ -1393,6 +1393,17 @@ static int xe_pci_runtime_suspend(struct device *dev)
 	err = xe_pm_runtime_suspend(xe);
 	if (err)
 		return err;
+
+	err = xe_pm_wait_all_c6(xe);
+	if (err) {
+		drm_dbg(&xe->drm, "Resuming - GT C6 check failed!");
+		ret = xe_pm_runtime_resume(xe);
+		if (ret) {
+			drm_err(&xe->drm, "Resume failed after suspend was canceled");
+			return ret;
+		}
+		return err;
+	}
 
 	pci_save_state(pdev);
 
