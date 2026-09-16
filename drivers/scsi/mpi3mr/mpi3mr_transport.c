@@ -1337,6 +1337,7 @@ static struct mpi3mr_sas_port *mpi3mr_sas_port_add(struct mpi3mr_ioc *mrioc,
 	struct mpi3mr_sas_phy *mr_sas_phy, *next;
 	struct mpi3mr_sas_port *mr_sas_port;
 	unsigned long flags;
+	bool discard = false;
 	struct mpi3mr_sas_node *mr_sas_node;
 	struct sas_rphy *rphy;
 	struct mpi3mr_tgt_dev *tgtdev = NULL;
@@ -1464,8 +1465,10 @@ static struct mpi3mr_sas_port *mpi3mr_sas_port_add(struct mpi3mr_ioc *mrioc,
 	}
 	rphy->identify = mr_sas_port->remote_identify;
 
+	spin_lock_irqsave(&mrioc->fwevt_lock, flags);
 	if (mrioc->current_event)
 		mrioc->current_event->pending_at_sml = 1;
+	spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
 
 	if ((sas_rphy_add(rphy))) {
 		ioc_err(mrioc, "failure at %s:%d/%s()!\n",
@@ -1487,11 +1490,14 @@ static struct mpi3mr_sas_port *mpi3mr_sas_port_add(struct mpi3mr_ioc *mrioc,
 	list_add_tail(&mr_sas_port->port_list, &mr_sas_node->sas_port_list);
 	spin_unlock_irqrestore(&mrioc->sas_node_lock, flags);
 
+	spin_lock_irqsave(&mrioc->fwevt_lock, flags);
 	if (mrioc->current_event) {
 		mrioc->current_event->pending_at_sml = 0;
-		if (mrioc->current_event->discard)
-			mpi3mr_print_device_event_notice(mrioc, true);
+		discard = mrioc->current_event->discard;
 	}
+	spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
+	if (discard)
+		mpi3mr_print_device_event_notice(mrioc, true);
 
 	/* fill in report manufacture */
 	if (mr_sas_port->remote_identify.device_type ==
@@ -1529,6 +1535,7 @@ static void mpi3mr_sas_port_remove(struct mpi3mr_ioc *mrioc, u64 sas_address,
 {
 	int i;
 	unsigned long flags;
+	bool discard = false;
 	struct mpi3mr_sas_port *mr_sas_port, *next;
 	struct mpi3mr_sas_node *mr_sas_node;
 	u8 found = 0;
@@ -1585,8 +1592,10 @@ static void mpi3mr_sas_port_remove(struct mpi3mr_ioc *mrioc, u64 sas_address,
 
 	spin_unlock_irqrestore(&mrioc->sas_node_lock, flags);
 
+	spin_lock_irqsave(&mrioc->fwevt_lock, flags);
 	if (mrioc->current_event)
 		mrioc->current_event->pending_at_sml = 1;
+	spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
 
 	list_for_each_entry_safe(mr_sas_phy, next_phy,
 	    &mr_sas_port->phy_list, port_siblings) {
@@ -1608,11 +1617,14 @@ static void mpi3mr_sas_port_remove(struct mpi3mr_ioc *mrioc, u64 sas_address,
 	ioc_info(mrioc, "%s: removed sas_address(0x%016llx)\n",
 	    __func__, (unsigned long long)sas_address);
 
+	spin_lock_irqsave(&mrioc->fwevt_lock, flags);
 	if (mrioc->current_event) {
 		mrioc->current_event->pending_at_sml = 0;
-		if (mrioc->current_event->discard)
-			mpi3mr_print_device_event_notice(mrioc, false);
+		discard = mrioc->current_event->discard;
 	}
+	spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
+	if (discard)
+		mpi3mr_print_device_event_notice(mrioc, false);
 
 	kfree(mr_sas_port);
 }
