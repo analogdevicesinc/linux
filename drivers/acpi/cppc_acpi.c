@@ -244,7 +244,6 @@ static bool cpc_integer_entry_valid(unsigned int reg_idx, u64 value,
  */
 #define NUM_RETRIES 500ULL
 
-#define OVER_16BTS_MASK ~0xFFFFULL
 #define CPC_GENERIC_REGISTER_DESCRIPTOR 0x82
 #define CPC_GENERIC_REGISTER_LENGTH (sizeof(struct cpc_reg) - 3)
 
@@ -296,23 +295,6 @@ show_cppc_data(cppc_get_perf_ctrs, cppc_perf_fb_ctrs, wraparound_time);
 #define MASK_VAL_WRITE(reg, prev_val, val)						\
 	((((val) & GENMASK(((reg)->bit_width) - 1, 0)) << (reg)->bit_offset) |		\
 	((prev_val) & ~(GENMASK(((reg)->bit_width) - 1, 0) << (reg)->bit_offset)))	\
-
-static bool
-cpc_system_io_write_supported(const struct cpc_register_resource *reg)
-{
-	const struct cpc_reg *gas = &reg->cpc_entry.reg;
-	unsigned int access_width = GET_BIT_WIDTH(gas);
-	u64 access_size;
-
-	if (!IS_ENABLED(CONFIG_HAS_IOPORT) || !CPC_IN_SYSTEM_IO(reg) ||
-	    (access_width != 8 && access_width != 16 && access_width != 32))
-		return false;
-
-	access_size = access_width / 8;
-	return !gas->bit_offset && gas->bit_width == access_width &&
-	       gas->address <= U16_MAX - (access_size - 1) &&
-	       (IS_ENABLED(CONFIG_X86) || IS_ALIGNED(gas->address, access_size));
-}
 
 static unsigned int cpc_reg_access_width(const struct cpc_reg *reg)
 {
@@ -610,6 +592,17 @@ static u64 cpc_non_mmio_access_size(const struct cpc_register_resource *reg)
 	return cpc_reg_access_width(gas) / 8;
 }
 
+static bool cpc_non_mmio_overlap_conflicts(u8 space_id, bool a_writable,
+					   bool b_writable, bool a_write_only,
+					   bool b_write_only)
+{
+	/* Only a write-only control can use a separate read-side port alias. */
+	if (space_id == ACPI_ADR_SPACE_SYSTEM_IO && a_writable != b_writable)
+		return a_writable ? !a_write_only : !b_write_only;
+
+	return a_writable || b_writable;
+}
+
 static int cpc_validate_non_mmio_overlaps(struct cpc_desc *cpc_desc,
 					  u8 space_id, const char *name)
 {
@@ -629,6 +622,7 @@ static int cpc_validate_non_mmio_overlaps(struct cpc_desc *cpc_desc,
 		for (j = i + 1; j < cpc_desc->num_entries - 2; j++) {
 			struct cpc_register_resource *b = &cpc_desc->cpc_regs[j];
 			const struct cpc_reg *b_gas;
+			bool a_writable, b_writable;
 			u64 b_size;
 
 			if (!CPC_SUPPORTED(b) || b->type != ACPI_TYPE_BUFFER ||
@@ -637,7 +631,12 @@ static int cpc_validate_non_mmio_overlaps(struct cpc_desc *cpc_desc,
 
 			b_gas = &b->cpc_entry.reg;
 			b_size = cpc_non_mmio_access_size(b);
-			if (!cpc_reg_is_writable(i) && !cpc_reg_is_writable(j))
+			a_writable = cpc_reg_is_writable(i);
+			b_writable = cpc_reg_is_writable(j);
+			if (!cpc_non_mmio_overlap_conflicts(space_id,
+							    a_writable, b_writable,
+							    cpc_reg_is_write_only(cpc_desc, i),
+							    cpc_reg_is_write_only(cpc_desc, j)))
 				continue;
 			if (a_gas->address < b_gas->address ?
 			    b_gas->address - a_gas->address >= a_size :
@@ -1769,21 +1768,41 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 					cpc_ptr->cpc_regs[i - 2].sys_mem_vaddr = addr;
 				}
 			} else if (gas_t->space_id == ACPI_ADR_SPACE_SYSTEM_IO) {
-				if (gas_t->access_width < 1 || gas_t->access_width > 3) {
-					/*
-					 * 1 = 8-bit, 2 = 16-bit, and 3 = 32-bit.
-					 * SystemIO doesn't implement 64-bit
-					 * registers.
-					 */
-					pr_debug("Invalid access width %d for SystemIO register in _CPC\n",
-						 gas_t->access_width);
-					goto out_free;
+				u64 access_size;
+				const char *reason = "uses unsupported SystemIO geometry";
+				unsigned int access_width;
+				bool unsupported;
+
+				access_width = cpc_reg_access_width(gas_t);
+				unsupported = !IS_ENABLED(CONFIG_HAS_IOPORT);
+				if (unsupported)
+					reason = "requires unavailable SystemIO support";
+				else
+					unsupported = access_width != 8 &&
+					      access_width != 16 &&
+					      access_width != 32;
+				if (!unsupported) {
+					access_size = access_width / 8;
+					unsupported = !gas_t->bit_width ||
+						gas_t->bit_width > access_width ||
+						gas_t->bit_offset >= access_width ||
+						gas_t->bit_width > access_width -
+									   gas_t->bit_offset;
 				}
-				if (gas_t->address & OVER_16BTS_MASK) {
-					/* SystemIO registers use 16-bit integer addresses */
-					pr_debug("Invalid IO port %llu for SystemIO register in _CPC\n",
-						 gas_t->address);
-					goto out_free;
+				if (!unsupported) {
+					unsupported = (cpc_reg_is_writable(i - 2) &&
+						(gas_t->bit_offset ||
+						 gas_t->bit_width != access_width)) ||
+						!cpc_reg_access_aligned(gas_t,
+									access_size) ||
+						gas_t->address >
+						U16_MAX - (access_size - 1);
+				}
+				if (unsupported) {
+					pr_debug("CPU%d: _CPC register %u %s\n",
+						 pr->id, i - 2, reason);
+					unsupported_regs |= BIT(i - 2);
+					continue;
 				}
 				if (!osc_cpc_flexible_adr_space_confirmed) {
 					pr_debug("Flexible address space capability not supported\n");
@@ -1869,6 +1888,11 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 	ret = cpc_validate_non_mmio_overlaps(cpc_ptr,
 					     ACPI_ADR_SPACE_PLATFORM_COMM,
 					     "PCC");
+	if (ret)
+		goto out_free;
+	ret = cpc_validate_non_mmio_overlaps(cpc_ptr,
+					     ACPI_ADR_SPACE_SYSTEM_IO,
+					     "SystemIO");
 	if (ret)
 		goto out_free;
 
@@ -2016,10 +2040,12 @@ static int cpc_read(int cpu, struct cpc_register_resource *reg_res, u64 *val)
 	*val = 0;
 	size = GET_BIT_WIDTH(reg);
 
-	if (IS_ENABLED(CONFIG_HAS_IOPORT) &&
-	    reg->space_id == ACPI_ADR_SPACE_SYSTEM_IO) {
+	if (reg->space_id == ACPI_ADR_SPACE_SYSTEM_IO) {
 		u32 val_u32;
 		acpi_status status;
+
+		if (!IS_ENABLED(CONFIG_HAS_IOPORT))
+			return -EOPNOTSUPP;
 
 		status = acpi_os_read_port((acpi_io_address)reg->address,
 					   &val_u32, size);
@@ -2029,7 +2055,7 @@ static int cpc_read(int cpu, struct cpc_register_resource *reg_res, u64 *val)
 			return -EFAULT;
 		}
 
-		*val = val_u32;
+		*val = MASK_VAL_READ(reg, val_u32);
 		return 0;
 	} else if (reg->space_id == ACPI_ADR_SPACE_PLATFORM_COMM) {
 		if (pcc_ss_id < 0 || !pcc_data[pcc_ss_id])
@@ -2109,9 +2135,11 @@ static int cpc_write(int cpu, struct cpc_register_resource *reg_res, u64 val)
 
 	size = GET_BIT_WIDTH(reg);
 
-	if (IS_ENABLED(CONFIG_HAS_IOPORT) &&
-	    reg->space_id == ACPI_ADR_SPACE_SYSTEM_IO) {
+	if (reg->space_id == ACPI_ADR_SPACE_SYSTEM_IO) {
 		acpi_status status;
+
+		if (!IS_ENABLED(CONFIG_HAS_IOPORT))
+			return -EOPNOTSUPP;
 
 		status = acpi_os_write_port((acpi_io_address)reg->address,
 					    (u32)val, size);
@@ -2701,12 +2729,6 @@ int cppc_set_epp_perf(int cpu, struct cppc_perf_ctrls *perf_ctrls, bool enable)
 	auto_sel_pcc = cpc_is_writable(auto_sel_reg) &&
 		CPC_IN_PCC(auto_sel_reg);
 	epp_pcc = cpc_is_writable(epp_set_reg) && CPC_IN_PCC(epp_set_reg);
-	if ((cpc_is_writable(auto_sel_reg) &&
-	     CPC_IN_SYSTEM_IO(auto_sel_reg) &&
-	     !cpc_system_io_write_supported(auto_sel_reg)) ||
-	    (cpc_is_writable(epp_set_reg) && CPC_IN_SYSTEM_IO(epp_set_reg) &&
-	     !cpc_system_io_write_supported(epp_set_reg)))
-		return -EOPNOTSUPP;
 
 	auto_sel_non_pcc = cpc_is_writable(auto_sel_reg) && !auto_sel_pcc;
 	epp_non_pcc = cpc_is_writable(epp_set_reg) && !epp_pcc;
