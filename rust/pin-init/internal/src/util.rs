@@ -41,7 +41,7 @@ impl MemberExt for Member {
     fn as_ident(&self) -> Ident {
         match self {
             Member::Named(ident) => ident.clone(),
-            Member::Unnamed(Index { index, .. }) => format_ident!("_{index}"),
+            Member::Unnamed(Index { index, span }) => format_ident!("_{index}", span = *span),
         }
     }
 
