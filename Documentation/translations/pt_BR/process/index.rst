@@ -96,6 +96,7 @@ mantenedores de subsistemas.
    Processo do subsistema SoC <maintainer-soc>
    Conformidade de DTS para SoC <maintainer-soc-clean-dts>
    Processo do subsistema KVM x86 <maintainer-kvm-x86>
+   Subsistema de Devicetree e Open Firmware <maintainer-devicetree>
 
 Outros materiais
 ----------------
