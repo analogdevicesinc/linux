@@ -191,6 +191,7 @@ operations:
         request:
           value: 3
           attributes:
+            - family-id
             - family-name
         reply: &all-attrs
           value: 1
