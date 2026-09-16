@@ -798,9 +798,11 @@ static void virtio_fs_request_complete(struct fuse_req *req,
 		for (i = 0; i < ap->num_folios; i++) {
 			thislen = ap->descs[i].length;
 			if (len < thislen) {
-				WARN_ON(ap->descs[i].offset);
+				unsigned int offset = ap->descs[i].offset;
+
 				folio = ap->folios[i];
-				folio_zero_segment(folio, len, thislen);
+				folio_zero_segment(folio, offset + len,
+						   offset + thislen);
 				len = 0;
 			} else {
 				len -= thislen;
