@@ -258,6 +258,7 @@
 #define RTL_8261C				0x001cc890
 #define RTL_8261C_CG				0x001cc898
 #define RTL_8261CE_CG				0x001cc899
+#define RTL_8261D_VM				0x001cc89a
 
 #define RTL8261C_CE_MODEL		0x00
 #define RTL8261D_MODEL			0x81
@@ -3376,6 +3377,19 @@ static struct phy_driver realtek_drvs[] = {
 	}, {
 		PHY_ID_MATCH_EXACT(RTL_8261CE_CG),
 		.name			= "Realtek RTL8261CE 10Gbps PHY",
+		.probe			= rtl8261x_probe,
+		.config_init		= rtl8261x_config_init,
+		.get_features		= rtl8261x_get_features,
+		.config_aneg		= rtl8261x_config_aneg,
+		.read_status		= rtl8261x_read_status,
+		.config_intr		= rtl8261x_config_intr,
+		.handle_interrupt	= rtl8261x_handle_interrupt,
+		.soft_reset		= genphy_c45_pma_soft_reset,
+		.suspend		= genphy_c45_pma_suspend,
+		.resume			= genphy_c45_pma_resume,
+	}, {
+		PHY_ID_MATCH_EXACT(RTL_8261D_VM),
+		.name			= "Realtek RTL8261D_VM 10Gbps PHY",
 		.probe			= rtl8261x_probe,
 		.config_init		= rtl8261x_config_init,
 		.get_features		= rtl8261x_get_features,
