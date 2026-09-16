@@ -1327,6 +1327,7 @@ config VIDEO_IT6625
 	depends on VIDEO_DEV && I2C
 	depends on OF
 	select CEC_CORE
+	select HDMI
 	select MEDIA_CONTROLLER
 	select REGMAP_I2C
 	select V4L2_FWNODE
