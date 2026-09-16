@@ -14,8 +14,6 @@ struct component_match;
 struct device;
 struct drm_device;
 struct drm_encoder;
-struct drm_panel;
-struct drm_bridge;
 struct device_node;
 struct mipi_dsi_device_info;
 struct mipi_dsi_host;
