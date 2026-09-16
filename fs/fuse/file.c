@@ -3140,6 +3140,7 @@ void fuse_init_file_inode(struct inode *inode, unsigned int flags)
 {
 	struct fuse_inode *fi = get_fuse_inode(inode);
 	struct fuse_conn *fc = get_fuse_conn(inode);
+	unsigned int max_folio_pages;
 
 	inode->i_fop = &fuse_file_operations;
 	inode->i_data.a_ops = &fuse_file_aops;
@@ -3155,4 +3156,18 @@ void fuse_init_file_inode(struct inode *inode, unsigned int flags)
 
 	if (IS_ENABLED(CONFIG_FUSE_DAX))
 		fuse_dax_inode_init(inode, flags);
+
+	if (FUSE_IS_DAX(inode))
+		return;
+
+	/*
+	 * A folio is never split across requests so cap the order so that one
+	 * always fits in a single request.
+	 */
+	max_folio_pages = min3(fc->max_write >> PAGE_SHIFT,
+			       fc->max_read >> PAGE_SHIFT, fc->max_pages);
+
+	if (max_folio_pages)
+		mapping_set_folio_order_range(inode->i_mapping, 0,
+					      ilog2(max_folio_pages));
 }
