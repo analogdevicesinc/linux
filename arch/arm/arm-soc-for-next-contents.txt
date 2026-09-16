@@ -1,0 +1,22 @@
+soc/arm
+
+soc/dt
+
+soc/drivers
+
+soc/defconfig
+
+soc/late
+
+arm/fixes
+	<no branch> (cfc1e9a543e3589ba200795b6e7fd8ef4314efdf)
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_fix_for_v7.3
+	socfpga/fix
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_fix_for_v7.3
+	renesas/fixes
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-fixes-for-v7.3-tag1
+	scmi/fixes
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-ffa-fixes-7.3
+	<no branch> (406292fd75f95aa3010fec95b5beb5a8b7e3ba3a)
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-fixes-v7.3-rc
+
