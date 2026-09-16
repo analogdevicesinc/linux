@@ -262,7 +262,6 @@ static int rzg3e_thermal_get_temp(struct thermal_zone_device *tz, int *temp)
 		*temp, *temp / 1000, abs(*temp) % 1000, code);
 
 out:
-	pm_runtime_mark_last_busy(priv->dev);
 	pm_runtime_put_autosuspend(priv->dev);
 	return ret;
 }
@@ -313,7 +312,6 @@ static int rzg3e_thermal_set_trips(struct thermal_zone_device *tz,
 	/* Unmask compare IRQ */
 	writel(TSU_SIER_CMPIE, priv->base + TSU_SIER);
 
-	pm_runtime_mark_last_busy(priv->dev);
 	pm_runtime_put_autosuspend(priv->dev);
 
 	return 0;
@@ -485,7 +483,6 @@ static int rzg3e_thermal_probe(struct platform_device *pdev)
 	if (ret)
 		dev_warn(dev, "Failed to add hwmon sysfs attributes\n");
 
-	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_autosuspend(dev);
 
 	dev_info(dev, "RZ/G3E thermal sensor registered\n");
