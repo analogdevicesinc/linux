@@ -435,14 +435,14 @@ static bool _lspcon_write_avi_infoframe_parade(struct drm_dp_aux *aux,
 static bool _lspcon_write_avi_infoframe_mca(struct drm_dp_aux *aux,
 					    const u8 *buffer, ssize_t len)
 {
-	int ret;
-	u32 val = 0;
+	int ret, written = 0;
 	u32 retry;
 	u16 reg;
 	const u8 *data = buffer;
+	u8 val;
 
 	reg = LSPCON_MCA_AVI_IF_WRITE_OFFSET;
-	while (val < len) {
+	while (written < len) {
 		/* DPCD write for AVI IF can fail on a slow FW day, so retry */
 		for (retry = 0; retry < 5; retry++) {
 			ret = drm_dp_dpcd_write(aux, reg, (void *)data, 1);
@@ -456,7 +456,9 @@ static bool _lspcon_write_avi_infoframe_mca(struct drm_dp_aux *aux,
 				return false;
 			}
 		}
-		val++; reg++; data++;
+		written++;
+		reg++;
+		data++;
 	}
 
 	val = 0;
@@ -612,8 +614,8 @@ void lspcon_set_infoframes(struct intel_encoder *encoder,
 static bool _lspcon_read_avi_infoframe_enabled_mca(struct drm_dp_aux *aux)
 {
 	int ret;
-	u32 val = 0;
 	u16 reg = LSPCON_MCA_AVI_IF_CTRL;
+	u8 val;
 
 	ret = drm_dp_dpcd_read(aux, reg, &val, 1);
 	if (ret < 0) {
@@ -627,8 +629,8 @@ static bool _lspcon_read_avi_infoframe_enabled_mca(struct drm_dp_aux *aux)
 static bool _lspcon_read_avi_infoframe_enabled_parade(struct drm_dp_aux *aux)
 {
 	int ret;
-	u32 val = 0;
 	u16 reg = LSPCON_PARADE_AVI_IF_CTRL;
+	u8 val;
 
 	ret = drm_dp_dpcd_read(aux, reg, &val, 1);
 	if (ret < 0) {
