@@ -65,6 +65,7 @@ MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
 static unsigned int ip6gre_net_id __read_mostly;
 struct ip6gre_net {
 	struct hlist_head tunnels[4][IP6_GRE_HASH_SIZE];
+	struct mutex tunnels_lock;
 
 	struct ip6_tnl __rcu *collect_md_tun;
 	struct ip6_tnl __rcu *collect_md_tun_erspan;
@@ -1254,7 +1255,11 @@ static int ip6gre_tunnel_siocdevprivate(struct net_device *dev,
 	struct ip6gre_net *ign;
 	int err = 0;
 
+	DEBUG_NET_WARN_ON_ONCE(netdev_need_ops_lock(dev));
+
 	ign = net_generic(net, ip6gre_net_id);
+
+	mutex_lock(&ign->tunnels_lock);
 
 	switch (cmd) {
 	case SIOCGETTUNNEL:
@@ -1353,6 +1358,8 @@ static int ip6gre_tunnel_siocdevprivate(struct net_device *dev,
 	}
 
 done:
+	mutex_unlock(&ign->tunnels_lock);
+
 	unregister_netdevice_many(&dev_kill_list);
 	return err;
 }
@@ -1552,6 +1559,8 @@ static void __net_exit ip6gre_exit_rtnl_net(struct net *net,
 
 	WRITE_ONCE(ign->fb_tunnel_dev, NULL);
 
+	mutex_lock(&ign->tunnels_lock);
+
 	for (prio = 0; prio < 4; prio++) {
 		int h;
 
@@ -1564,6 +1573,8 @@ static void __net_exit ip6gre_exit_rtnl_net(struct net *net,
 				__ip6gre_dellink(t->dev, dev_kill_list);
 		}
 	}
+
+	mutex_unlock(&ign->tunnels_lock);
 }
 
 static int __net_init ip6gre_init_net(struct net *net)
@@ -1578,6 +1589,8 @@ static int __net_init ip6gre_init_net(struct net *net)
 		for (h = 0; h < IP6_GRE_HASH_SIZE; h++)
 			INIT_HLIST_HEAD(&ign->tunnels[prio][h]);
 	}
+
+	mutex_init(&ign->tunnels_lock);
 
 	if (!net_has_fallback_tunnels(net))
 		return 0;
@@ -1975,18 +1988,22 @@ static int ip6gre_newlink(struct net_device *dev,
 	struct nlattr **data = params->data;
 	struct nlattr **tb = params->tb;
 	struct ip6gre_net *ign;
-	int err;
+	int err = 0;
 
 	ip6gre_netlink_parms(data, &nt->parms);
 	ign = net_generic(net, ip6gre_net_id);
 
+	mutex_lock(&ign->tunnels_lock);
+
 	if (nt->parms.collect_md) {
 		if (rtnl_dereference(ign->collect_md_tun))
-			return -EEXIST;
+			err = -EEXIST;
 	} else {
 		if (ip6gre_tunnel_find(net, &nt->parms, dev->type))
-			return -EEXIST;
+			err = -EEXIST;
 	}
+	if (err)
+		goto unlock;
 
 	err = ip6gre_newlink_common(net, dev, tb, data, extack);
 	if (!err) {
@@ -1994,6 +2011,10 @@ static int ip6gre_newlink(struct net_device *dev,
 		ip6gre_tunnel_link_md(ign, nt);
 		ip6gre_tunnel_link(net_generic(net, ip6gre_net_id), nt);
 	}
+
+unlock:
+	mutex_unlock(&ign->tunnels_lock);
+
 	return err;
 }
 
@@ -2036,22 +2057,32 @@ static int ip6gre_changelink(struct net_device *dev, struct nlattr *tb[],
 			     struct netlink_ext_ack *extack)
 {
 	struct ip6_tnl *t = netdev_priv(dev);
-	struct ip6gre_net *ign = net_generic(t->net, ip6gre_net_id);
 	struct __ip6_tnl_parm p;
+	struct ip6gre_net *ign;
+	int err = 0;
+
+	ign = net_generic(t->net, ip6gre_net_id);
 
 	if (!rtnl_dev_link_net_capable(dev, t->net))
 		return -EPERM;
 
+	mutex_lock(&ign->tunnels_lock);
+
 	t = ip6gre_changelink_common(dev, tb, data, &p, extack);
-	if (IS_ERR(t))
-		return PTR_ERR(t);
+	if (IS_ERR(t)) {
+		err = PTR_ERR(t);
+		goto unlock;
+	}
 
 	ip6gre_tunnel_unlink_md(ign, t);
 	ip6gre_tunnel_unlink(ign, t);
 	ip6gre_tnl_change(t, &p, !tb[IFLA_MTU]);
 	ip6gre_tunnel_link_md(ign, t);
 	ip6gre_tunnel_link(ign, t);
-	return 0;
+unlock:
+	mutex_unlock(&ign->tunnels_lock);
+
+	return err;
 }
 
 static void __ip6gre_dellink(struct net_device *dev, struct list_head *head)
@@ -2077,8 +2108,12 @@ static void ip6gre_dellink(struct net_device *dev, struct list_head *head)
 
 	ign = net_generic(t->net, ip6gre_net_id);
 
+	mutex_lock(&ign->tunnels_lock);
+
 	if (dev != ign->fb_tunnel_dev)
 		__ip6gre_dellink(dev, head);
+
+	mutex_unlock(&ign->tunnels_lock);
 }
 
 static size_t ip6gre_get_size(const struct net_device *dev)
@@ -2234,19 +2269,23 @@ static int ip6erspan_newlink(struct net_device *dev,
 	struct nlattr **data = params->data;
 	struct nlattr **tb = params->tb;
 	struct ip6gre_net *ign;
-	int err;
+	int err = 0;
 
 	ip6gre_netlink_parms(data, &nt->parms);
 	ip6erspan_set_version(data, &nt->parms);
 	ign = net_generic(net, ip6gre_net_id);
 
+	mutex_lock(&ign->tunnels_lock);
+
 	if (nt->parms.collect_md) {
 		if (rtnl_dereference(ign->collect_md_tun_erspan))
-			return -EEXIST;
+			err = -EEXIST;
 	} else {
 		if (ip6gre_tunnel_find(net, &nt->parms, dev->type))
-			return -EEXIST;
+			err = -EEXIST;
 	}
+	if (err)
+		goto unlock;
 
 	err = ip6gre_newlink_common(net, dev, tb, data, extack);
 	if (!err) {
@@ -2254,6 +2293,10 @@ static int ip6erspan_newlink(struct net_device *dev,
 		ip6erspan_tunnel_link_md(ign, nt);
 		ip6gre_tunnel_link(net_generic(net, ip6gre_net_id), nt);
 	}
+
+unlock:
+	mutex_unlock(&ign->tunnels_lock);
+
 	return err;
 }
 
@@ -2278,14 +2321,20 @@ static int ip6erspan_changelink(struct net_device *dev, struct nlattr *tb[],
 	struct ip6_tnl *t = netdev_priv(dev);
 	struct __ip6_tnl_parm p;
 	struct ip6gre_net *ign;
+	int err = 0;
 
 	if (!rtnl_dev_link_net_capable(dev, t->net))
 		return -EPERM;
 
 	ign = net_generic(t->net, ip6gre_net_id);
+
+	mutex_lock(&ign->tunnels_lock);
+
 	t = ip6gre_changelink_common(dev, tb, data, &p, extack);
-	if (IS_ERR(t))
-		return PTR_ERR(t);
+	if (IS_ERR(t)) {
+		err = PTR_ERR(t);
+		goto unlock;
+	}
 
 	ip6erspan_set_version(data, &p);
 	ip6gre_tunnel_unlink_md(ign, t);
@@ -2293,7 +2342,10 @@ static int ip6erspan_changelink(struct net_device *dev, struct nlattr *tb[],
 	ip6erspan_tnl_change(t, &p, !tb[IFLA_MTU]);
 	ip6erspan_tunnel_link_md(ign, t);
 	ip6gre_tunnel_link(ign, t);
-	return 0;
+unlock:
+	mutex_unlock(&ign->tunnels_lock);
+
+	return err;
 }
 
 static struct rtnl_link_ops ip6gre_link_ops __read_mostly = {
