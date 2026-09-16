@@ -1670,7 +1670,7 @@ void aes_gcm_encrypt_final(struct aes_gcm_ctx *ctx, u8 *authtag)
 	ghash_final(&ctx->ghash, ctx->ctr); /* Use ctr as temp buffer */
 
 	crypto_xor_cpy(authtag, ctx->ctr, ctx->j0_enc, ctx->key->authtag_len);
-	memzero_explicit(ctx, sizeof(*ctx));
+	aes_gcm_zeroize_ctx(ctx);
 }
 EXPORT_SYMBOL_GPL(aes_gcm_encrypt_final);
 
@@ -1697,7 +1697,7 @@ int aes_gcm_decrypt_final(struct aes_gcm_ctx *ctx, const u8 *authtag)
 		      -EBADMSG :
 		      0;
 out:
-	memzero_explicit(ctx, sizeof(*ctx));
+	aes_gcm_zeroize_ctx(ctx);
 	return err;
 }
 EXPORT_SYMBOL_GPL(aes_gcm_decrypt_final);
@@ -1742,7 +1742,7 @@ static void __init aes_gcm_fips_test(void)
 {
 	const size_t data_len = sizeof(fips_test_data);
 	u8 buf[sizeof(fips_test_data) + AES_BLOCK_SIZE];
-	struct aes_gcm_key key;
+	struct aes_gcm_key key __cleanup(aes_gcm_zeroize_key);
 	int err;
 
 	if (aes_gcm_preparekey(&key, fips_test_key, sizeof(fips_test_key),
@@ -1760,8 +1760,6 @@ static void __init aes_gcm_fips_test(void)
 		panic("aes: GCM FIPS self-test failed (decryption failed)\n");
 	if (memcmp(fips_test_data, buf, data_len) != 0)
 		panic("aes: GCM FIPS self-test failed (wrong plaintext)\n");
-
-	memzero_explicit(&key, sizeof(key));
 }
 #else /* CONFIG_CRYPTO_LIB_AES_GCM */
 static inline void aes_gcm_fips_test(void)
