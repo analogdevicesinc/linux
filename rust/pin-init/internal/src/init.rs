@@ -269,7 +269,6 @@ fn expand(
         },
         |(_, err)| Box::new(err),
     );
-    let slot = Ident::new("slot", Span::mixed_site());
     let (has_data_trait, get_data, init_from_closure) = if pinned {
         (
             format_ident!("HasPinData"),
@@ -286,7 +285,7 @@ fn expand(
     let init_kind = get_init_kind(rest, dcx);
     let zeroable_check = match init_kind {
         InitKind::Normal => quote!(),
-        InitKind::Zeroing => quote! {
+        InitKind::Zeroing => quote_spanned! { Span::mixed_site() =>
             // The user specified `..Zeroable::zeroed()` at the end of the list of fields.
             // Therefore we check if the struct implements `Zeroable` and then zero the memory.
             // This allows us to also remove the check that all fields are present (since we
@@ -295,9 +294,9 @@ fn expand(
             where T: ::pin_init::Zeroable
             {}
             // Ensure that the struct is indeed `Zeroable`.
-            assert_zeroable(#slot);
+            assert_zeroable(slot);
             // SAFETY: The type implements `Zeroable` by the check above.
-            unsafe { ::core::ptr::write_bytes(#slot, 0, 1) };
+            unsafe { ::core::ptr::write_bytes(slot, 0, 1) };
         },
     };
     let this = match this {
@@ -309,20 +308,19 @@ fn expand(
         },
     };
     // `mixed_site` ensures that the data is not accessible to the user-controlled code.
-    let data = Ident::new("__data", Span::mixed_site());
-    let init_fields = init_fields(&fields, pinned, &data, &slot);
+    let init_fields = init_fields(&fields, pinned);
     let field_check = make_field_check(&fields, init_kind, &path);
     Ok(quote_spanned! { Span::mixed_site() => {
         // Get the data about fields from the supplied type.
         // SAFETY: TODO
-        let #data = unsafe {
+        let data = unsafe {
             use ::pin_init::__internal::#has_data_trait;
             // Can't use `<#path as #has_data_trait>::#get_data`, since the user is able to omit
             // generics (which need to be present with that syntax).
             #path::#get_data()
         };
-        // Ensure that `#data` really is of type `#data` and help with type inference:
-        let init = #data.__make_closure::<_, #error>(
+        // Ensure that `data` really is of type `data` and help with type inference:
+        let init = data.__make_closure::<_, #error>(
             move |slot| {
                 #zeroable_check
                 #this
@@ -380,12 +378,7 @@ fn get_init_kind(rest: Option<(Token![..], Expr)>, dcx: &mut DiagCtxt) -> InitKi
 }
 
 /// Generate the code that initializes the fields of the struct using the initializers in `field`.
-fn init_fields(
-    fields: &Punctuated<InitializerField, Token![,]>,
-    pinned: bool,
-    data: &Ident,
-    slot: &Ident,
-) -> TokenStream {
+fn init_fields(fields: &Punctuated<InitializerField, Token![,]>, pinned: bool) -> TokenStream {
     let mut guards = vec![];
     let mut guard_attrs = vec![];
     let mut res = TokenStream::new();
@@ -413,16 +406,16 @@ fn init_fields(
         let ident = member.as_ident();
 
         let slot = if pinned {
-            quote! {
+            quote_spanned! { Span::mixed_site() =>
                 // SAFETY:
                 // - `slot` is valid and properly aligned.
                 // - `make_field_check` checks that `&raw mut (*slot).#member` is properly aligned.
                 // - `make_field_check` prevents `#member` from being used twice, therefore
                 //   `(*slot).#member` is exclusively accessed and has not been initialized.
-                (unsafe { #data.#ident(#slot) })
+                (unsafe { data.#ident(slot) })
             }
         } else {
-            quote! {
+            quote_spanned! { Span::mixed_site() =>
                 // For `init!()` macro, everything is unpinned.
                 // SAFETY:
                 // - `&raw mut (*slot).#member` is valid.
@@ -431,7 +424,7 @@ fn init_fields(
                 //   `(*slot).#member` is exclusively accessed and has not been initialized.
                 (unsafe {
                     ::pin_init::__internal::Slot::<::pin_init::__internal::Unpinned, _>::new(
-                        &raw mut (*#slot).#member
+                        &raw mut (*slot).#member
                     )
                 })
             }
