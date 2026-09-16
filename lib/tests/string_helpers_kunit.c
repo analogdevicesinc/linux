@@ -22,7 +22,7 @@ static void test_string_check_buf(struct kunit *test,
 				  char *out_real, size_t q_real,
 				  char *out_test, size_t q_test)
 {
-	KUNIT_ASSERT_EQ_MSG(test, q_real, q_test, "name:%s", name);
+	KUNIT_EXPECT_EQ_MSG(test, q_real, q_test, "name:%s", name);
 	KUNIT_EXPECT_MEMEQ_MSG(test, out_test, out_real, q_test,
 			       "name:%s", name);
 }
@@ -103,6 +103,7 @@ static void test_string_unescape(struct kunit *test,
 
 	test_string_check_buf(test, name, flags, in, p - 1, out_real, q_real,
 			      out_test, q_test);
+	KUNIT_EXPECT_EQ_MSG(test, out_real[q_real], '\0', "name:%s", name);
 }
 
 struct test_string_1 {
