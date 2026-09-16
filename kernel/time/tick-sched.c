@@ -738,14 +738,11 @@ bool tick_nohz_tick_stopped_cpu(int cpu)
  */
 static void tick_nohz_update_jiffies(ktime_t now)
 {
-	unsigned long flags;
+	/* Reached only from irq_enter_rcu(), i.e. hard interrupt entry. */
+	lockdep_assert_irqs_disabled();
 
 	__this_cpu_write(tick_cpu_sched.idle_waketime, now);
-
-	local_irq_save(flags);
 	tick_do_update_jiffies64(now);
-	local_irq_restore(flags);
-
 	touch_softlockup_watchdog_sched();
 }
 
