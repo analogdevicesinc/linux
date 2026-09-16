@@ -141,6 +141,8 @@ struct cppc_perf_ctrls {
 	u32 desired_perf;
 	u32 energy_perf;
 	bool auto_sel;
+	/* Allow an explicit zero minimum; otherwise zero omits the update. */
+	bool min_perf_valid;
 };
 
 struct cppc_perf_fb_ctrs {

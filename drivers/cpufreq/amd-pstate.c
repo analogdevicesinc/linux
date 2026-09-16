@@ -544,7 +544,11 @@ static int shmem_update_perf(struct cpufreq_policy *policy, u8 min_perf,
 			     u8 des_perf, u8 max_perf, u8 epp, bool fast_switch)
 {
 	struct amd_cpudata *cpudata = policy->driver_data;
-	struct cppc_perf_ctrls perf_ctrls;
+	struct cppc_perf_ctrls perf_ctrls = {
+		.max_perf = max_perf,
+		.min_perf = min_perf,
+		.desired_perf = des_perf,
+	};
 	u64 value, prev;
 	int ret;
 
@@ -576,10 +580,6 @@ static int shmem_update_perf(struct cpufreq_policy *policy, u8 min_perf,
 
 	if (value == prev)
 		return 0;
-
-	perf_ctrls.max_perf = max_perf;
-	perf_ctrls.min_perf = min_perf;
-	perf_ctrls.desired_perf = des_perf;
 
 	ret = cppc_set_perf(cpudata->cpu, &perf_ctrls);
 	if (ret)
