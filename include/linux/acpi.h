@@ -27,6 +27,8 @@ struct irq_domain_ops;
 #include <acpi/acpi.h>
 #include <acpi/acpi_numa.h>
 
+DEFINE_FREE(acpi_object_free, union acpi_object *, if (_T) ACPI_FREE(_T));
+
 #ifdef	CONFIG_ACPI
 
 #include <linux/list.h>
