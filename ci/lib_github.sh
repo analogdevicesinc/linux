@@ -11,25 +11,70 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 #######################################
 # Get workflow artifacts metadata from GitHub API
-# Note: This only retrieves metadata (names, download URLs), not the artifact content
-# This is not used in the main workflow but can be useful in other flows from ci branch
+# Note: This only retrieves metadata (names, download URLs), not the artifact content.
+# The GitHub API paginates this endpoint (30 items/page by default, 100 max), while
+# .total_count reports the run total. This function walks every page and re-emits a
+# single, complete payload so callers never silently miss artifacts past the first page.
 # Arguments:
 #   $1 - GitHub token
 #   $2 - Repository (owner/repo)
 #   $3 - Workflow run ID
 # Outputs:
-#   JSON response with artifacts list
+#   JSON object {total_count, artifacts:[...]} with all pages merged
+# Returns:
+#   0 on success, 1 if any page fails to fetch
 #######################################
 gh_get_workflow_artifacts() {
     local token="$1"
     local repository="$2"
     local run_id="$3"
+    local per_page=100
 
-    curl -sfL \
-        -H "Accept: application/vnd.github+json" \
-        -H "Authorization: Bearer ${token}" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
-        "https://api.github.com/repos/${repository}/actions/runs/${run_id}/artifacts"
+    local page=1
+    local total_count=""
+    local collected=0
+    local all_artifacts="[]"
+
+    while :; do
+        local response
+        response=$(curl -sfL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${token}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${repository}/actions/runs/${run_id}/artifacts?per_page=${per_page}&page=${page}") \
+            || { echo "::error::Failed to fetch artifacts page ${page} for run ${run_id}" >&2; return 1; }
+
+        # total_count is identical on every page; capture it once.
+        if [[ -z "${total_count}" ]]; then
+            total_count=$(echo "${response}" | jq -r '.total_count // 0')
+        fi
+
+        local page_artifacts
+        page_artifacts=$(echo "${response}" | jq -c '.artifacts // []')
+
+        local page_len
+        page_len=$(echo "${page_artifacts}" | jq 'length')
+
+        all_artifacts=$(jq -c -n \
+            --argjson acc "${all_artifacts}" \
+            --argjson page "${page_artifacts}" \
+            '$acc + $page')
+        collected=$((collected + page_len))
+
+        # Stop once every artifact is collected, or a page comes back empty
+        # (guards against an over-reported total_count causing an infinite loop).
+        if [[ "${collected}" -ge "${total_count}" ]] || [[ "${page_len}" -eq 0 ]]; then
+            break
+        fi
+
+        page=$((page + 1))
+    done
+
+    # Re-emit one merged, complete payload compatible with existing consumers.
+    jq -c -n \
+        --argjson total_count "${total_count:-0}" \
+        --argjson artifacts "${all_artifacts}" \
+        '{total_count: $total_count, artifacts: $artifacts}'
 }
 
 #######################################
@@ -79,7 +124,21 @@ download_matching_artifacts() {
     local total_count
     total_count=$(echo "${artifacts}" | jq '.total_count' -r)
 
+    # When the caller asks for DTB artifacts (e.g. "dtb-*"), a run that yields
+    # none is a hard failure: publishing kernels/modules without device trees is
+    # worse than failing loudly.
+    local expects_dtb=0
+    for p in ${patterns}; do
+        case "${p}" in
+            *dtb*) expects_dtb=1; break ;;
+        esac
+    done
+
     if [[ "${total_count}" == "null" ]] || [[ "${total_count}" == "0" ]]; then
+        if [[ "${expects_dtb}" == "1" ]]; then
+            echo "::error::No artifacts found for run ${run_id}, but DTB artifacts were expected"
+            return 1
+        fi
         echo "::warning::No artifacts found for run ${run_id}"
         return 0
     fi
@@ -87,8 +146,12 @@ download_matching_artifacts() {
     local artifacts_list
     artifacts_list=$(echo "${artifacts}" | jq '[.artifacts[] | [.name, .archive_download_url]]' -r)
 
+    local reviewed=0
     local downloaded=0
+    local dtb_downloaded=0
     while IFS=$'\t' read -r name url; do
+        reviewed=$((reviewed + 1))
+
         # Check exclude patterns first
         local excluded=0
         for p in ${exclude_patterns}; do
@@ -115,12 +178,29 @@ download_matching_artifacts() {
             echo "  Downloading: ${name}"
             gh_download_artifact "${token}" "${output_dir}/${name}.zip" "${url}"
             downloaded=$((downloaded + 1))
+            case "${name}" in
+                dtb-*) dtb_downloaded=$((dtb_downloaded + 1)) ;;
+            esac
         else
             echo "  Skipped: ${name} (no pattern match)"
         fi
     done < <(echo "${artifacts_list}" | jq -r '.[] | @tsv')
 
-    echo "Downloaded ${downloaded} artifact(s) to ${output_dir}/"
+    echo "Reviewed ${reviewed} of ${total_count} artifact(s); downloaded ${downloaded} to ${output_dir}/"
+
+    # Every artifact the run reported must have been walked. A mismatch means the
+    # metadata was truncated (e.g. an un-paginated fetch) and some artifacts were
+    # never even considered for download.
+    if [[ "${reviewed}" -ne "${total_count}" ]]; then
+        echo "::error::Artifact count mismatch for run ${run_id}: reviewed ${reviewed} but the run reports ${total_count} (pagination/truncation?)"
+        return 1
+    fi
+
+    # Guard against silently publishing a release without device trees.
+    if [[ "${expects_dtb}" == "1" ]] && [[ "${dtb_downloaded}" -eq 0 ]]; then
+        echo "::error::No DTB artifacts (dtb-*) were downloaded for run ${run_id}, but they were expected"
+        return 1
+    fi
 }
 
 #######################################
