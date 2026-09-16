@@ -165,4 +165,5 @@ API documentation
    libcrypto-signature
    libcrypto-unauth-encryption
    libcrypto-utils
+   libcrypto-zeroization
    sha3
