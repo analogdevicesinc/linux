@@ -337,11 +337,11 @@ static int rmnet_changelink(struct net_device *dev, struct nlattr *tb[],
 			}
 
 			hlist_del_init_rcu(&ep->hlnode);
+			WRITE_ONCE(ep->mux_id, mux_id);
 			hlist_add_head_rcu(&ep->hlnode,
 					   &port->muxed_ep[mux_id]);
 
-			ep->mux_id = mux_id;
-			priv->mux_id = mux_id;
+			WRITE_ONCE(priv->mux_id, mux_id);
 		}
 	}
 
@@ -433,7 +433,7 @@ struct rmnet_endpoint *rmnet_get_endpoint(struct rmnet_port *port, u8 mux_id)
 
 	hlist_for_each_entry_rcu(ep, &port->muxed_ep[mux_id], hlnode,
 				 lockdep_rtnl_is_held()) {
-		if (ep->mux_id == mux_id)
+		if (READ_ONCE(ep->mux_id) == mux_id)
 			return ep;
 	}
 
