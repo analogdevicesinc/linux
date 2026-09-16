@@ -2580,7 +2580,7 @@ int annotate_check_args(void)
 	return 0;
 }
 
-static int arch__dwarf_regnum(const struct arch *arch, const char *str)
+int arch__dwarf_regnum(const struct arch *arch, const char *str)
 {
 	const char *p;
 	char *regname, *q;
@@ -2601,51 +2601,6 @@ static int arch__dwarf_regnum(const struct arch *arch, const char *str)
 	reg = get_dwarf_regnum(regname, arch->id.e_machine, arch->id.e_flags);
 	free(regname);
 	return reg < 0 ? -1 : reg;
-}
-
-/*
- * Get register number and access offset from the given instruction.
- * It assumes AT&T x86 asm format like OFFSET(REG).  Maybe it needs
- * to revisit the format when it handles different architecture.
- * Fills @reg and @offset when return 0.
- */
-static int extract_reg_offset(const struct arch *arch, const char *str,
-			      struct annotated_op_loc *op_loc)
-{
-	char *p;
-
-	if (arch->objdump.register_char == 0)
-		return -1;
-
-	/*
-	 * It should start from offset, but it's possible to skip 0
-	 * in the asm.  So 0(%rax) should be same as (%rax).
-	 *
-	 * However, it also start with a segment select register like
-	 * %gs:0x18(%rbx).  In that case it should skip the part.
-	 */
-	if (*str == arch->objdump.register_char) {
-		if (arch__is_x86(arch)) {
-			/* FIXME: Handle other segment registers */
-			if (!strncmp(str, "%gs:", 4))
-				op_loc->segment = INSN_SEG_X86_GS;
-		}
-
-		while (*str && !isdigit(*str) &&
-		       *str != arch->objdump.memory_ref_char)
-			str++;
-	}
-
-	op_loc->offset = strtol(str, &p, 0);
-	op_loc->reg1 = arch__dwarf_regnum(arch, p);
-	if (op_loc->reg1 == -1)
-		return -1;
-
-	/* Get the second register */
-	if (op_loc->multi_regs)
-		op_loc->reg2 = arch__dwarf_regnum(arch, p + 1);
-
-	return 0;
 }
 
 /**
@@ -2703,50 +2658,11 @@ int annotate_get_insn_location(const struct arch *arch, struct disasm_line *dl,
 		/* Invalidate the register by default */
 		op_loc->reg1 = -1;
 		op_loc->reg2 = -1;
+		op_loc->mem_ref = mem_ref;
+		op_loc->multi_regs = multi_regs;
 
-		if (insn_str == NULL) {
-			if (!arch__is_powerpc(arch))
-				continue;
-		}
-
-		/*
-		 * For powerpc, call get_powerpc_regs function which extracts the
-		 * required fields for op_loc, ie reg1, reg2, offset from the
-		 * raw instruction.
-		 */
-		if (arch__is_powerpc(arch)) {
-			op_loc->mem_ref = mem_ref;
-			op_loc->multi_regs = multi_regs;
-			get_powerpc_regs(dl->raw.raw_insn, !i, op_loc);
-		} else if (strchr(insn_str, arch->objdump.memory_ref_char)) {
-			op_loc->mem_ref = true;
-			op_loc->multi_regs = multi_regs;
-			extract_reg_offset(arch, insn_str, op_loc);
-		} else {
-			const char *s = insn_str;
-			char *p = NULL;
-
-			if (arch__is_x86(arch)) {
-				/* FIXME: Handle other segment registers */
-				if (!strncmp(insn_str, "%gs:", 4)) {
-					op_loc->segment = INSN_SEG_X86_GS;
-					op_loc->offset = strtol(insn_str + 4,
-								&p, 0);
-					if (p && p != insn_str + 4)
-						op_loc->imm = true;
-					continue;
-				}
-			}
-
-			if (*s == arch->objdump.register_char) {
-				op_loc->reg1 = arch__dwarf_regnum(arch, s);
-			}
-			else if (*s == arch->objdump.imm_char) {
-				op_loc->offset = strtol(s + 1, &p, 0);
-				if (p && p != s + 1)
-					op_loc->imm = true;
-			}
-		}
+		if (arch->extract_op_location)
+			arch->extract_op_location(arch, dl, insn_str, i, op_loc);
 	}
 
 	return 0;

@@ -524,6 +524,8 @@ int annotate_parse_percent_type(const struct option *opt, const char *_str,
 
 int annotate_check_args(void);
 
+int arch__dwarf_regnum(const struct arch *arch, const char *str);
+
 /**
  * struct annotated_op_loc - Location info of instruction operand
  * @reg1: First register in the operand

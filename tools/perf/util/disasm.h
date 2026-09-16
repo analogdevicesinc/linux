@@ -16,6 +16,7 @@ struct symbol;
 struct data_loc_info;
 struct type_state;
 struct disasm_line;
+struct annotated_op_loc;
 
 struct e_machine_and_e_flags {
 	uint32_t e_flags;
@@ -49,6 +50,9 @@ struct arch {
 				struct data_loc_info *dloc, Dwarf_Die *cu_die,
 				struct disasm_line *dl);
 #endif
+	void		(*extract_op_location)(const struct arch *arch, struct disasm_line *dl,
+					       const char *op_str, int op_idx,
+					       struct annotated_op_loc *op_loc);
 };
 
 struct ins {
