@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * ADIS16201 Dual-Axis Digital Inclinometer and Accelerometer
+ * ADIS16201 Digital Inclinometer and similar
  *
  * Copyright 2010 Analog Devices Inc.
  */
@@ -63,6 +63,7 @@
 #define ADIS16201_DIAG_STAT_REG				0x3C
 #define  ADIS16201_DIAG_STAT_ALARM2			BIT(9)
 #define  ADIS16201_DIAG_STAT_ALARM1			BIT(8)
+#define  ADIS16203_DIAG_STAT_SELFTEST_FAIL_BIT		5
 #define  ADIS16201_DIAG_STAT_SPI_FAIL_BIT		3
 #define  ADIS16201_DIAG_STAT_FLASH_UPT_FAIL_BIT		2
 /* Power supply above 3.625 V */
@@ -231,6 +232,15 @@ static const struct iio_chan_spec adis16201_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(7),
 };
 
+static const struct iio_chan_spec adis16203_channels[] = {
+	ADIS_INCLI_CHAN(X, ADIS16201_XINCL_OUT_REG, ADIS16201_SCAN_INCLI_X,
+			BIT(IIO_CHAN_INFO_CALIBBIAS), 0, 14),
+	ADIS_SUPPLY_CHAN(ADIS16201_SUPPLY_OUT_REG, ADIS16201_SCAN_SUPPLY, 0, 12),
+	ADIS_AUX_ADC_CHAN(ADIS16201_AUX_ADC_REG, ADIS16201_SCAN_AUX_ADC, 0, 12),
+	ADIS_TEMP_CHAN(ADIS16201_TEMP_OUT_REG, ADIS16201_SCAN_TEMP, 0, 12),
+	IIO_CHAN_SOFT_TIMESTAMP(7),
+};
+
 static const struct iio_info adis16201_info = {
 	.read_raw = adis16201_read_raw,
 	.write_raw = adis16201_write_raw,
@@ -238,6 +248,7 @@ static const struct iio_info adis16201_info = {
 };
 
 static const char * const adis16201_status_error_msgs[] = {
+	[ADIS16203_DIAG_STAT_SELFTEST_FAIL_BIT] = "Self test failure",
 	[ADIS16201_DIAG_STAT_SPI_FAIL_BIT] = "SPI failure",
 	[ADIS16201_DIAG_STAT_FLASH_UPT_FAIL_BIT] = "Flash update failed",
 	[ADIS16201_DIAG_STAT_POWER_HIGH_BIT] = "Power supply above 3.625V",
@@ -268,6 +279,25 @@ static const struct adis_data adis16201_data = {
 		BIT(ADIS16201_DIAG_STAT_POWER_LOW_BIT),
 };
 
+static const struct adis_data adis16203_data = {
+	.read_delay = 20,
+	.msc_ctrl_reg = ADIS16201_MSC_CTRL_REG,
+	.glob_cmd_reg = ADIS16201_GLOB_CMD_REG,
+	.diag_stat_reg = ADIS16201_DIAG_STAT_REG,
+
+	.self_test_mask = ADIS16201_MSC_CTRL_SELF_TEST_EN,
+	.self_test_reg = ADIS16201_MSC_CTRL_REG,
+	.self_test_no_autoclear = true,
+	.timeouts = &adis16201_timeouts,
+
+	.status_error_msgs = adis16201_status_error_msgs,
+	.status_error_mask = BIT(ADIS16203_DIAG_STAT_SELFTEST_FAIL_BIT) |
+		BIT(ADIS16201_DIAG_STAT_SPI_FAIL_BIT) |
+		BIT(ADIS16201_DIAG_STAT_FLASH_UPT_FAIL_BIT) |
+		BIT(ADIS16201_DIAG_STAT_POWER_HIGH_BIT) |
+		BIT(ADIS16201_DIAG_STAT_POWER_LOW_BIT),
+};
+
 static const struct adis16201_chip_info adis16201_chip_data = {
 	.arr_channels = adis16201_channels,
 	.incli_scale_val2 = 100000,
@@ -276,6 +306,16 @@ static const struct adis16201_chip_info adis16201_chip_data = {
 	.num_channels = ARRAY_SIZE(adis16201_channels),
 	.name = "adis16201",
 	.data = &adis16201_data,
+};
+
+static const struct adis16201_chip_info adis16203_chip_data = {
+	.arr_channels = adis16203_channels,
+	.incli_scale_val2 = 25000,
+	.write_mask_incli = GENMASK(13, 0),
+	.read_bits_incli = 14,
+	.num_channels = ARRAY_SIZE(adis16203_channels),
+	.name = "adis16203",
+	.data = &adis16203_data,
 };
 
 static int adis16201_probe(struct spi_device *spi)
@@ -318,12 +358,14 @@ static int adis16201_probe(struct spi_device *spi)
 
 static const struct of_device_id adis16201_of_match[] = {
 	{ .compatible = "adi,adis16201", .data = &adis16201_chip_data },
+	{ .compatible = "adi,adis16203", .data = &adis16203_chip_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adis16201_of_match);
 
 static const struct spi_device_id adis16201_ids[] = {
 	{ .name = "adis16201", .driver_data = (kernel_ulong_t)&adis16201_chip_data },
+	{ .name = "adis16203", .driver_data = (kernel_ulong_t)&adis16203_chip_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adis16201_ids);
@@ -339,6 +381,6 @@ static struct spi_driver adis16201_driver = {
 module_spi_driver(adis16201_driver);
 
 MODULE_AUTHOR("Barry Song <21cnbao@gmail.com>");
-MODULE_DESCRIPTION("Analog Devices ADIS16201 Dual-Axis Digital Inclinometer and Accelerometer");
+MODULE_DESCRIPTION("Analog Devices ADIS16201 Inclinometer and similar");
 MODULE_LICENSE("GPL v2");
 MODULE_IMPORT_NS("IIO_ADISLIB");
