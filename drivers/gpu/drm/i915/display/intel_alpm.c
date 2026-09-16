@@ -628,7 +628,7 @@ void intel_alpm_enable_sink(struct intel_dp *intel_dp,
 					     intel_alpm_aux_less_wake_supported(intel_dp)))
 		val |= DP_ALPM_MODE_AUX_LESS;
 
-	drm_dp_dpcd_writeb(&intel_dp->aux, DP_RECEIVER_ALPM_CONFIG, val);
+	drm_dp_dpcd_write_byte(&intel_dp->aux, DP_RECEIVER_ALPM_CONFIG, val);
 }
 
 void intel_alpm_lobf_enable(const struct intel_crtc_state *new_crtc_state)
@@ -751,11 +751,11 @@ bool intel_alpm_get_error(struct intel_dp *intel_dp)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
 	struct drm_dp_aux *aux = &intel_dp->aux;
+	int ret;
 	u8 val;
-	int r;
 
-	r = drm_dp_dpcd_readb(aux, DP_RECEIVER_ALPM_STATUS, &val);
-	if (r != 1) {
+	ret = drm_dp_dpcd_read_byte(aux, DP_RECEIVER_ALPM_STATUS, &val);
+	if (ret < 0) {
 		drm_err(display->drm, "Error reading ALPM status\n");
 		return true;
 	}
@@ -764,7 +764,7 @@ bool intel_alpm_get_error(struct intel_dp *intel_dp)
 		drm_dbg_kms(display->drm, "ALPM lock timeout error\n");
 
 		/* Clearing error */
-		drm_dp_dpcd_writeb(aux, DP_RECEIVER_ALPM_STATUS, val);
+		drm_dp_dpcd_write_byte(aux, DP_RECEIVER_ALPM_STATUS, val);
 		return true;
 	}
 
