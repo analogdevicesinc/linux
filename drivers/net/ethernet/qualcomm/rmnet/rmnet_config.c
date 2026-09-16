@@ -176,7 +176,7 @@ static int rmnet_newlink(struct net_device *dev,
 	}
 
 	netdev_dbg(dev, "data format [0x%08X]\n", data_format);
-	port->data_format = data_format;
+	WRITE_ONCE(port->data_format, data_format);
 
 	return 0;
 
@@ -348,14 +348,16 @@ static int rmnet_changelink(struct net_device *dev, struct nlattr *tb[],
 	if (data[IFLA_RMNET_FLAGS]) {
 		struct ifla_rmnet_flags *flags;
 		u32 old_data_format;
+		u32 data_format;
 
 		old_data_format = port->data_format;
 		flags = nla_data(data[IFLA_RMNET_FLAGS]);
-		port->data_format &= ~flags->mask;
-		port->data_format |= flags->flags & flags->mask;
+		data_format = old_data_format & ~flags->mask;
+		data_format |= flags->flags & flags->mask;
+		WRITE_ONCE(port->data_format, data_format);
 
 		if (rmnet_vnd_update_dev_mtu(port, real_dev)) {
-			port->data_format = old_data_format;
+			WRITE_ONCE(port->data_format, old_data_format);
 			NL_SET_ERR_MSG_MOD(extack, "Invalid MTU on real dev");
 			return -EINVAL;
 		}
