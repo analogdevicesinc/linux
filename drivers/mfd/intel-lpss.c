@@ -144,18 +144,14 @@ static void intel_lpss_cache_ltr(struct intel_lpss *lpss)
 
 static void intel_lpss_debugfs_add(struct intel_lpss *lpss)
 {
-	struct dentry *dir;
-
-	dir = debugfs_create_dir(dev_name(lpss->dev), intel_lpss_debugfs);
+	lpss->debugfs = debugfs_create_dir(dev_name(lpss->dev), intel_lpss_debugfs);
 
 	/* Cache the values into lpss structure */
 	intel_lpss_cache_ltr(lpss);
 
-	debugfs_create_x32("capabilities", 0444, dir, &lpss->caps);
-	debugfs_create_x32("active_ltr", 0444, dir, &lpss->active_ltr);
-	debugfs_create_x32("idle_ltr", 0444, dir, &lpss->idle_ltr);
-
-	lpss->debugfs = dir;
+	debugfs_create_x32("capabilities", 0444, lpss->debugfs, &lpss->caps);
+	debugfs_create_x32("active_ltr", 0444, lpss->debugfs, &lpss->active_ltr);
+	debugfs_create_x32("idle_ltr", 0444, lpss->debugfs, &lpss->idle_ltr);
 }
 
 static void intel_lpss_debugfs_remove(struct intel_lpss *lpss)
