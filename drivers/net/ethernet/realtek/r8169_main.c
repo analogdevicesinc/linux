@@ -5945,6 +5945,7 @@ static int rtl_init_phylink(struct rtl8169_private *tp)
 	tp->phylink_config.type = PHYLINK_NETDEV;
 	tp->phylink_config.mac_managed_pm = true;
 	tp->phylink_config.lpi_capabilities = rtl8169_get_lpi_caps(tp);
+	tp->phylink_config.eee_enabled_default = !!tp->phylink_config.lpi_capabilities;
 	tp->phylink_config.mac_capabilities |= MAC_ASYM_PAUSE | MAC_SYM_PAUSE;
 
 	switch (tp->sfp_mode) {
