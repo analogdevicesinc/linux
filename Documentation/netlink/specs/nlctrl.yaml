@@ -157,11 +157,11 @@ attribute-sets:
         name: bitfield32-mask
         type: u32
       -
-        name: mask
-        type: u64
-      -
         name: pad
         type: pad
+      -
+        name: mask
+        type: u64
       -
         name: byte-order
         doc: Byte order of the attribute, absent means host byte order.
