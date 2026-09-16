@@ -7,7 +7,7 @@ Adicionando uma Nova Chamada de Sistema
 Este documento descreve o que está envolvido na adição de uma nova chamada de
 sistema (system call) ao kernel Linux, indo além dos conselhos normais de
 submissão em
-:ref:`Documentation/process/submitting-patches.rst <submittingpatches>`.
+:ref:`Documentation/translations/pt_BR/process/submitting-patches.rst <pt_BR_submittingpatches>`.
 
 
 Alternativas às Chamadas de Sistema

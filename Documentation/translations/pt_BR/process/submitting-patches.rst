@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0
 
+.. _pt_BR_submittingpatches:
+
 Enviando patches: o guia essencial para colocar o seu código no kernel
 ======================================================================
 

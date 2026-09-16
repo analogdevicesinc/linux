@@ -431,5 +431,5 @@ Bugs que podem ser explorados pelo convidado (guest) para atacar o hospedeiro
 (host) (kernel ou espaço do usuário), ou que podem ser explorados por uma VM
 aninhada (nested) contra o *seu* próprio hospedeiro (L2 atacando L1), são de
 interesse particular para o KVM. Por favor, siga o protocolo em
-:ref:`securitybugs` se você suspeitar que um bug possa levar a um escape,
-vazamento de dados, etc.
+:ref:`pt_BR_securitybugs` se você suspeitar que um bug possa levar a um
+escape, vazamento de dados, etc.
