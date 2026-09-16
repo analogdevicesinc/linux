@@ -36,6 +36,7 @@
 #include <linux/delay.h>
 #include <linux/iopoll.h>
 #include <linux/ktime.h>
+#include <linux/mutex.h>
 #include <linux/rwsem.h>
 #include <linux/wait.h>
 #include <linux/topology.h>
@@ -81,6 +82,7 @@ struct cppc_pcc_data {
 
 /* Array to represent the PCC channel per subspace ID */
 static struct cppc_pcc_data *pcc_data[MAX_PCC_SUBSPACES];
+static DEFINE_MUTEX(pcc_data_lock);
 /* The cpu_pcc_subspace_idx contains per CPU subspace ID */
 static DEFINE_PER_CPU(int, cpu_pcc_subspace_idx);
 
@@ -760,35 +762,51 @@ EXPORT_SYMBOL_GPL(acpi_get_psd_map);
 
 static int register_pcc_channel(int pcc_ss_idx)
 {
+	struct cppc_pcc_data *data;
 	struct pcc_mbox_chan *pcc_chan;
 	u64 usecs_lat;
+	int ret = 0;
 
-	if (pcc_ss_idx >= 0) {
-		pcc_chan = pcc_mbox_request_channel(&cppc_mbox_cl, pcc_ss_idx);
+	if (pcc_ss_idx < 0 || pcc_ss_idx >= MAX_PCC_SUBSPACES)
+		return -EINVAL;
 
-		if (IS_ERR(pcc_chan)) {
-			pr_err("Failed to find PCC channel for subspace %d\n",
-			       pcc_ss_idx);
-			return -ENODEV;
-		}
+	mutex_lock(&pcc_data_lock);
+	data = pcc_data[pcc_ss_idx];
+	if (!data) {
+		ret = -ENODEV;
+		goto out_unlock;
+	}
+	if (data->pcc_channel_acquired)
+		goto out_unlock;
 
-		pcc_data[pcc_ss_idx]->pcc_channel = pcc_chan;
-		/*
-		 * cppc_ss->latency is just a Nominal value. In reality
-		 * the remote processor could be much slower to reply.
-		 * So add an arbitrary amount of wait on top of Nominal.
-		 */
-		usecs_lat = NUM_RETRIES * pcc_chan->latency;
-		pcc_data[pcc_ss_idx]->deadline_us = usecs_lat;
-		pcc_data[pcc_ss_idx]->pcc_mrtt = pcc_chan->min_turnaround_time;
-		pcc_data[pcc_ss_idx]->pcc_mpar = pcc_chan->max_access_rate;
-		pcc_data[pcc_ss_idx]->pcc_nominal = pcc_chan->latency;
-
-		/* Set flag so that we don't come here for each CPU. */
-		pcc_data[pcc_ss_idx]->pcc_channel_acquired = true;
+	pcc_chan = pcc_mbox_request_channel(&cppc_mbox_cl, pcc_ss_idx);
+	if (IS_ERR(pcc_chan)) {
+		pr_err("Failed to find PCC channel for subspace %d\n",
+		       pcc_ss_idx);
+		ret = -ENODEV;
+		goto out_unlock;
 	}
 
-	return 0;
+	data->pcc_channel = pcc_chan;
+	/*
+	 * cppc_ss->latency is just a Nominal value. In reality
+	 * the remote processor could be much slower to reply.
+	 * So add an arbitrary amount of wait on top of Nominal.
+	 */
+	usecs_lat = NUM_RETRIES * pcc_chan->latency;
+	data->deadline_us = usecs_lat;
+	data->pcc_mrtt = pcc_chan->min_turnaround_time;
+	data->pcc_mpar = pcc_chan->max_access_rate;
+	data->pcc_nominal = pcc_chan->latency;
+	init_rwsem(&data->pcc_lock);
+	init_waitqueue_head(&data->pcc_write_wait_q);
+
+	/* Reuse this channel when another CPU references the same subspace. */
+	data->pcc_channel_acquired = true;
+
+out_unlock:
+	mutex_unlock(&pcc_data_lock);
+	return ret;
 }
 
 /**
@@ -830,19 +848,49 @@ bool __weak cpc_supported_by_cpu(void)
  */
 static int pcc_data_alloc(int pcc_ss_id)
 {
+	struct cppc_pcc_data *data;
+	int ret = 0;
+
 	if (pcc_ss_id < 0 || pcc_ss_id >= MAX_PCC_SUBSPACES)
 		return -EINVAL;
 
-	if (pcc_data[pcc_ss_id]) {
-		pcc_data[pcc_ss_id]->refcount++;
-	} else {
-		pcc_data[pcc_ss_id] = kzalloc_obj(struct cppc_pcc_data);
-		if (!pcc_data[pcc_ss_id])
-			return -ENOMEM;
-		pcc_data[pcc_ss_id]->refcount++;
+	mutex_lock(&pcc_data_lock);
+	data = pcc_data[pcc_ss_id];
+	if (!data) {
+		data = kzalloc_obj(struct cppc_pcc_data);
+		if (!data) {
+			ret = -ENOMEM;
+			goto out_unlock;
+		}
+		pcc_data[pcc_ss_id] = data;
 	}
+	data->refcount++;
 
-	return 0;
+out_unlock:
+	mutex_unlock(&pcc_data_lock);
+	return ret;
+}
+
+static void pcc_data_put(int pcc_ss_id)
+{
+	struct cppc_pcc_data *data;
+
+	if (pcc_ss_id < 0 || pcc_ss_id >= MAX_PCC_SUBSPACES)
+		return;
+
+	mutex_lock(&pcc_data_lock);
+	data = pcc_data[pcc_ss_id];
+	if (!data || --data->refcount)
+		goto out_unlock;
+
+	pcc_data[pcc_ss_id] = NULL;
+	if (data->pcc_channel_acquired)
+		pcc_mbox_free_channel(data->pcc_channel);
+
+	kfree(data);
+
+out_unlock:
+	mutex_unlock(&pcc_data_lock);
 }
 
 /*
@@ -890,10 +938,16 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 	acpi_handle handle = pr->handle;
 	unsigned int num_ent, i, cpc_rev;
 	int pcc_subspace_id = -1;
+	bool pcc_data_ref = false;
 	bool cpc_present = false;
 	acpi_status status;
 	int ret = -ENODATA;
 	int err;
+
+	if (per_cpu(cpc_desc_ptr, pr->id))
+		return 0;
+
+	per_cpu(cpu_pcc_subspace_idx, pr->id) = -1;
 
 	if (!osc_sb_cppc2_support_acked) {
 		pr_debug("CPPC v2 _OSC not acked\n");
@@ -1039,6 +1093,7 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 						ret = err;
 						goto out_free;
 					}
+					pcc_data_ref = true;
 				} else if (pcc_subspace_id != gas_t->access_width) {
 					pr_debug("Mismatched PCC ids in _CPC for CPU:%d\n",
 						 pr->id);
@@ -1171,13 +1226,10 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 		goto out_free;
 
 	/* Register PCC channel once for all PCC subspace ID. */
-	if (pcc_subspace_id >= 0 && !pcc_data[pcc_subspace_id]->pcc_channel_acquired) {
+	if (pcc_subspace_id >= 0) {
 		ret = register_pcc_channel(pcc_subspace_id);
 		if (ret)
 			goto out_free;
-
-		init_rwsem(&pcc_data[pcc_subspace_id]->pcc_lock);
-		init_waitqueue_head(&pcc_data[pcc_subspace_id]->pcc_write_wait_q);
 	}
 
 	/* Everything looks okay */
@@ -1198,7 +1250,7 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 	if (ret) {
 		per_cpu(cpc_desc_ptr, pr->id) = NULL;
 		kobject_put(&cpc_ptr->kobj);
-		goto out_buf_free;
+		goto out_pcc_put;
 	}
 
 	kfree(output.pointer);
@@ -1206,6 +1258,11 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 
 out_free:
 	cppc_free_desc(cpc_ptr);
+
+out_pcc_put:
+	if (pcc_data_ref)
+		pcc_data_put(pcc_subspace_id);
+	per_cpu(cpu_pcc_subspace_idx, pr->id) = -1;
 
 out_buf_free:
 	if (cpc_present)
@@ -1224,28 +1281,20 @@ EXPORT_SYMBOL_GPL(acpi_cppc_processor_probe);
 void acpi_cppc_processor_exit(struct acpi_processor *pr)
 {
 	struct cpc_desc *cpc_ptr;
-	int pcc_ss_id = per_cpu(cpu_pcc_subspace_idx, pr->id);
+	int pcc_ss_id;
 
 	cpc_ptr = per_cpu(cpc_desc_ptr, pr->id);
-	if (cpc_ptr) {
-		per_cpu(cpc_desc_ptr, pr->id) = NULL;
-		kobject_del(&cpc_ptr->kobj);
-	}
-
-	if (pcc_ss_id >= 0 && pcc_data[pcc_ss_id]) {
-		if (pcc_data[pcc_ss_id]->pcc_channel_acquired) {
-			pcc_data[pcc_ss_id]->refcount--;
-			if (!pcc_data[pcc_ss_id]->refcount) {
-				pcc_mbox_free_channel(pcc_data[pcc_ss_id]->pcc_channel);
-				kfree(pcc_data[pcc_ss_id]);
-				pcc_data[pcc_ss_id] = NULL;
-			}
-		}
-	}
-	per_cpu(cpu_pcc_subspace_idx, pr->id) = -1;
-
-	if (!cpc_ptr)
+	if (!cpc_ptr) {
+		per_cpu(cpu_pcc_subspace_idx, pr->id) = -1;
 		return;
+	}
+
+	pcc_ss_id = per_cpu(cpu_pcc_subspace_idx, pr->id);
+	per_cpu(cpc_desc_ptr, pr->id) = NULL;
+	kobject_del(&cpc_ptr->kobj);
+
+	pcc_data_put(pcc_ss_id);
+	per_cpu(cpu_pcc_subspace_idx, pr->id) = -1;
 
 	kobject_put(&cpc_ptr->kobj);
 }
