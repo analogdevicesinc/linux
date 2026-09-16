@@ -21,9 +21,13 @@ Esta seção inicial contém informações gerais, incluindo o arquivo README qu
 descreve o kernel como um todo, documentação sobre os parâmetros do kernel,
 etc.
 
+.. toctree::
+   :maxdepth: 1
+
+   README
+
 Todolist:
 
-*   README
 *   devices
 *   features
 
