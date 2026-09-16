@@ -79,6 +79,7 @@ static void ip6gre_tunnel_setup(struct net_device *dev);
 static void ip6gre_tunnel_link(struct ip6gre_net *ign, struct ip6_tnl *t);
 static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu);
 static void ip6erspan_tnl_link_config(struct ip6_tnl *t, int set_mtu);
+static void __ip6gre_dellink(struct net_device *dev, struct list_head *head);
 
 /* Tunnel hash table */
 
@@ -359,10 +360,7 @@ failed_free:
 static void ip6erspan_tunnel_uninit(struct net_device *dev)
 {
 	struct ip6_tnl *t = netdev_priv(dev);
-	struct ip6gre_net *ign = net_generic(t->net, ip6gre_net_id);
 
-	ip6erspan_tunnel_unlink_md(ign, t);
-	ip6gre_tunnel_unlink(ign, t);
 	dst_cache_reset(&t->dst_cache);
 	netdev_put(dev, &t->dev_tracker);
 }
@@ -370,10 +368,7 @@ static void ip6erspan_tunnel_uninit(struct net_device *dev)
 static void ip6gre_tunnel_uninit(struct net_device *dev)
 {
 	struct ip6_tnl *t = netdev_priv(dev);
-	struct ip6gre_net *ign = net_generic(t->net, ip6gre_net_id);
 
-	ip6gre_tunnel_unlink_md(ign, t);
-	ip6gre_tunnel_unlink(ign, t);
 	dst_cache_reset(&t->dst_cache);
 	netdev_put(dev, &t->dev_tracker);
 }
@@ -1251,14 +1246,15 @@ static int ip6gre_tunnel_siocdevprivate(struct net_device *dev,
 					struct ifreq *ifr, void __user *data,
 					int cmd)
 {
-	int err = 0;
-	struct ip6_tnl_parm2 p;
-	struct __ip6_tnl_parm p1;
 	struct ip6_tnl *t = netdev_priv(dev);
+	struct __ip6_tnl_parm p1 = {};
+	LIST_HEAD(dev_kill_list);
 	struct net *net = t->net;
-	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
+	struct ip6_tnl_parm2 p;
+	struct ip6gre_net *ign;
+	int err = 0;
 
-	memset(&p1, 0, sizeof(p1));
+	ign = net_generic(net, ip6gre_net_id);
 
 	switch (cmd) {
 	case SIOCGETTUNNEL:
@@ -1347,7 +1343,8 @@ static int ip6gre_tunnel_siocdevprivate(struct net_device *dev,
 				goto done;
 			dev = t->dev;
 		}
-		unregister_netdevice(dev);
+
+		__ip6gre_dellink(dev, &dev_kill_list);
 		err = 0;
 		break;
 
@@ -1356,6 +1353,7 @@ static int ip6gre_tunnel_siocdevprivate(struct net_device *dev,
 	}
 
 done:
+	unregister_netdevice_many(&dev_kill_list);
 	return err;
 }
 
@@ -1563,7 +1561,7 @@ static void __net_exit ip6gre_exit_rtnl_net(struct net *net,
 			struct ip6_tnl *t;
 
 			hlist_for_each_entry_safe(t, tmp, head, hash_node)
-				unregister_netdevice_queue(t->dev, dev_kill_list);
+				__ip6gre_dellink(t->dev, dev_kill_list);
 		}
 	}
 }
@@ -2056,13 +2054,31 @@ static int ip6gre_changelink(struct net_device *dev, struct nlattr *tb[],
 	return 0;
 }
 
+static void __ip6gre_dellink(struct net_device *dev, struct list_head *head)
+{
+	struct ip6_tnl *t = netdev_priv(dev);
+	struct ip6gre_net *ign;
+
+	ign = net_generic(t->net, ip6gre_net_id);
+
+	if (dev->rtnl_link_ops == &ip6erspan_tap_ops)
+		ip6erspan_tunnel_unlink_md(ign, t);
+	else
+		ip6gre_tunnel_unlink_md(ign, t);
+
+	ip6gre_tunnel_unlink(ign, t);
+	unregister_netdevice_queue(dev, head);
+}
+
 static void ip6gre_dellink(struct net_device *dev, struct list_head *head)
 {
-	struct net *net = dev_net(dev);
-	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
+	struct ip6_tnl *t = netdev_priv(dev);
+	struct ip6gre_net *ign;
+
+	ign = net_generic(t->net, ip6gre_net_id);
 
 	if (dev != ign->fb_tunnel_dev)
-		unregister_netdevice_queue(dev, head);
+		__ip6gre_dellink(dev, head);
 }
 
 static size_t ip6gre_get_size(const struct net_device *dev)
@@ -2304,6 +2320,7 @@ static struct rtnl_link_ops ip6gre_tap_ops __read_mostly = {
 	.validate	= ip6gre_tap_validate,
 	.newlink	= ip6gre_newlink,
 	.changelink	= ip6gre_changelink,
+	.dellink	= ip6gre_dellink,
 	.get_size	= ip6gre_get_size,
 	.fill_info	= ip6gre_fill_info,
 	.get_link_net	= ip6_tnl_get_link_net,
@@ -2318,6 +2335,7 @@ static struct rtnl_link_ops ip6erspan_tap_ops __read_mostly = {
 	.validate	= ip6erspan_tap_validate,
 	.newlink	= ip6erspan_newlink,
 	.changelink	= ip6erspan_changelink,
+	.dellink	= ip6gre_dellink,
 	.get_size	= ip6gre_get_size,
 	.fill_info	= ip6gre_fill_info,
 	.get_link_net	= ip6_tnl_get_link_net,
