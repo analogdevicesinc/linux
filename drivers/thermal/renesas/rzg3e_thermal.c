@@ -275,10 +275,6 @@ static int rzg3e_thermal_set_trips(struct thermal_zone_device *tz,
 	u32 val;
 	int ret;
 
-	/* Hardware requires low < high */
-	if (low >= high)
-		return -EINVAL;
-
 	ret = pm_runtime_resume_and_get(priv->dev);
 	if (ret < 0)
 		return ret;
