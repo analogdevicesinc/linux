@@ -7,7 +7,9 @@
 
 #include <linux/array_size.h>
 #include <linux/bitfield.h>
+#include <linux/bitmap.h>
 #include <linux/bitops.h>
+#include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -16,6 +18,7 @@
 #include <linux/math.h>
 #include <linux/minmax.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/pm_runtime.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
@@ -33,7 +36,6 @@
 
 #define AD7768_REG_CH_MODE(x)				(0x01 + (x))
 #define   AD7768_CH_MODE_FILTER_TYPE_MSK		BIT(3)
-#define     AD7768_CH_MODE_FILTER_TYPE_WIDEBAND		0x0
 #define   AD7768_CH_MODE_DEC_RATE_MSK			GENMASK(2, 0)
 
 #define AD7768_REG_CH_MODE_SEL				0x03
@@ -100,6 +102,7 @@
 #define AD7768_MAX_MCLK_FREQ_HZ				(34 * HZ_PER_MHZ)
 #define AD7768_MAX_FREQ_PER_MODE			6
 #define AD7768_MAX_CHANNEL				8
+#define AD7768_NUM_CHANNEL_MODES			2
 
 enum ad7768_clock_source {
 	AD7768_CLOCK_SOURCE_MCLK,
@@ -147,6 +150,8 @@ struct ad7768_chip_info {
 
 struct ad7768_state {
 	struct regmap *regmap;
+	/* Protects device register access and configuration. */
+	struct mutex lock;
 	struct clk *mclk;
 	unsigned int datalines;
 	enum ad7768_clock_source clock_source;
@@ -199,6 +204,17 @@ static const char * const ad7768_clock_names[] = {
 static u8 ad7768_channel_mask(const struct ad7768_state *st, u8 ch)
 {
 	return BIT(st->chip_info->chan_map[ch]);
+}
+
+static u8 ad7768_channel_mode_mask(const struct ad7768_state *st, u8 ch)
+{
+	/*
+	 * AD7768-4 channels 2 and 3 use bits 4 and 5 for CH_x_MODE, while
+	 * their CH_x_MDE_EN fields are in bits 2 and 3 and must be programmed
+	 * to the same value. On AD7768, chan_map[] is an identity map, so the
+	 * OR produces a single bit.
+	 */
+	return BIT(ch) | ad7768_channel_mask(st, ch);
 }
 
 static u8 ad7768_all_standby_mask(const struct ad7768_state *st)
@@ -480,20 +496,128 @@ static int ad7768_set_mode_decimation(struct ad7768_state *st,
 					     freq_cfg->dec_rate));
 }
 
-static int ad7768_update_scan_mode(struct iio_dev *indio_dev,
-				   const unsigned long *scan_mask)
+static int ad7768_set_lowest_noise_mode(struct ad7768_state *st,
+					const unsigned long *scan_mask)
 {
+	unsigned int mode_idx = ARRAY_SIZE(ad7768_power_modes);
+
+	/*
+	 * The output data rate ranges overlap between the power modes. At a
+	 * common ODR, the faster mode has lower noise, so prefer the fastest
+	 * mode that supports every enabled channel.
+	 */
+	while (mode_idx--) {
+		unsigned int channel;
+
+		for_each_set_bit(channel, scan_mask, st->chip_info->num_channels) {
+			if (!ad7768_find_freq_config(st, mode_idx,
+						     st->ch_freq[channel]))
+				break;
+		}
+
+		/* All enabled channels support their requested frequency. */
+		if (channel == st->chip_info->num_channels)
+			return ad7768_set_power_mode(st, mode_idx);
+	}
+
+	return -EINVAL;
+}
+
+static int ad7768_find_matching_mode(const bool *mode_used,
+				     const unsigned int *mode_freq,
+				     unsigned int freq)
+{
+	for (unsigned int mode = 0; mode < AD7768_NUM_CHANNEL_MODES; mode++) {
+		if (!mode_used[mode] || mode_freq[mode] == freq)
+			return mode;
+	}
+
+	return -EINVAL;
+}
+
+static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
+				      const unsigned long *scan_mask)
+{
+	unsigned int mode_freq[AD7768_NUM_CHANNEL_MODES] = { };
+	bool mode_used[AD7768_NUM_CHANNEL_MODES] = { };
 	struct ad7768_state *st = iio_priv(indio_dev);
+	struct device *dev = indio_dev->dev.parent;
 	unsigned long channel_mask;
 	unsigned long standby_mask;
+	unsigned int max_freq;
+	unsigned int c;
 	int ret;
+
+	guard(mutex)(&st->lock);
+
+	ret = ad7768_set_lowest_noise_mode(st, scan_mask);
+	if (ret == -EINVAL)
+		return dev_err_probe(dev, ret,
+				     "No power mode supports all ODRs\n");
+	if (ret)
+		return ret;
 
 	channel_mask = ad7768_all_standby_mask(st);
 	standby_mask = channel_mask & ~*scan_mask;
 	ad7768_keep_xtal_channel_active(st, &standby_mask);
 
+	for_each_set_bit(c, scan_mask, st->chip_info->num_channels) {
+		unsigned int mask;
+		int mode;
+
+		mode = ad7768_find_matching_mode(mode_used, mode_freq,
+						 st->ch_freq[c]);
+		if (mode < 0)
+			return dev_err_probe(dev, -EINVAL,
+					     "Over %d channel modes required\n",
+					     AD7768_NUM_CHANNEL_MODES);
+
+		mode_freq[mode] = st->ch_freq[c];
+		mode_used[mode] = true;
+
+		mask = ad7768_channel_mode_mask(st, c);
+		ret = regmap_assign_bits(st->regmap, AD7768_REG_CH_MODE_SEL,
+					 mask, mode);
+		if (ret)
+			return ret;
+	}
+
 	ret = regmap_update_bits(st->regmap, AD7768_REG_CH_STANDBY,
 				 channel_mask, standby_mask);
+	if (ret)
+		return ret;
+
+	max_freq = 0;
+	for (unsigned int mode = 0; mode < AD7768_NUM_CHANNEL_MODES; mode++) {
+		if (!mode_used[mode])
+			continue;
+
+		ret = ad7768_set_mode_decimation(st, mode_freq[mode], mode);
+		if (ret)
+			return ret;
+
+		ret = regmap_clear_bits(st->regmap, AD7768_REG_CH_MODE(mode),
+					AD7768_CH_MODE_FILTER_TYPE_MSK);
+		if (ret)
+			return ret;
+
+		max_freq = max(max_freq, mode_freq[mode]);
+	}
+
+	ret = ad7768_set_clk_divs(st, max_freq);
+	if (ret)
+		return ret;
+
+	return ad7768_sync(st);
+}
+
+static int ad7768_update_scan_mode(struct iio_dev *indio_dev,
+				   const unsigned long *scan_mask)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+	int ret;
+
+	ret = ad7768_apply_channel_modes(indio_dev, scan_mask);
 	if (ret)
 		return ret;
 
@@ -654,11 +778,10 @@ static void ad7768_set_available_sampling_freqs(struct ad7768_state *st)
 		st->avail_freq[n_power_modes - 1].n_freqs--;
 }
 
-static int ad7768_configure_capture(struct ad7768_state *st)
+static int ad7768_init_sampling_freqs(struct ad7768_state *st)
 {
 	const struct ad7768_avail_freq *avail_freq;
 	unsigned int default_freq;
-	unsigned int mode_config;
 	int ret;
 
 	ret = ad7768_set_power_mode(st, ARRAY_SIZE(ad7768_power_modes) - 1);
@@ -671,27 +794,7 @@ static int ad7768_configure_capture(struct ad7768_state *st)
 	     channel < st->chip_info->num_channels; channel++)
 		st->ch_freq[channel] = default_freq;
 
-	ret = ad7768_set_mode_decimation(st, default_freq, 0);
-	if (ret)
-		return ret;
-
-	mode_config = FIELD_PREP(AD7768_CH_MODE_FILTER_TYPE_MSK,
-				 AD7768_CH_MODE_FILTER_TYPE_WIDEBAND);
-	ret = regmap_update_bits(st->regmap, AD7768_REG_CH_MODE(0),
-				 AD7768_CH_MODE_FILTER_TYPE_MSK,
-				 mode_config);
-	if (ret)
-		return ret;
-
-	ret = regmap_write(st->regmap, AD7768_REG_CH_MODE_SEL, 0);
-	if (ret)
-		return ret;
-
-	ret = ad7768_set_clk_divs(st, default_freq);
-	if (ret)
-		return ret;
-
-	return ad7768_sync(st);
+	return 0;
 }
 
 static int ad7768_parse_config(struct iio_dev *indio_dev,
@@ -801,7 +904,11 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 
 	ad7768_set_available_sampling_freqs(st);
 
-	return ad7768_configure_capture(st);
+	ret = ad7768_init_sampling_freqs(st);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to set power mode\n");
+
+	return 0;
 }
 
 static int ad7768_reset(struct ad7768_state *st)
@@ -973,6 +1080,10 @@ static int ad7768_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 	spi_set_drvdata(spi, st);
+
+	ret = devm_mutex_init(dev, &st->lock);
+	if (ret)
+		return ret;
 
 	st->chip_info = spi_get_device_match_data(spi);
 	if (!st->chip_info)
