@@ -360,15 +360,6 @@ struct drm_plane_funcs {
 	void (*destroy)(struct drm_plane *plane);
 
 	/**
-	 * @reset:
-	 *
-	 * Reset plane hardware and software state to off. This function isn't
-	 * called by the core directly, only through drm_mode_config_reset().
-	 * It's not a helper hook only for historical reasons.
-	 */
-	void (*reset)(struct drm_plane *plane);
-
-	/**
 	 * @set_property:
 	 *
 	 * This is the legacy entry point to update a property attached to the
