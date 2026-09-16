@@ -170,8 +170,7 @@ TEST_F_TIMEOUT(rtc, uie_read, NUM_UIE + 2) {
 	rc = ioctl(self->fd, RTC_UIE_ON, 0);
 	if (rc == -1) {
 		ASSERT_EQ(EINVAL, errno);
-		TH_LOG("skip update IRQs not supported.");
-		return;
+		SKIP(return, "update IRQs are not supported.");
 	}
 
 	for (i = 0; i < NUM_UIE; i++) {
@@ -199,8 +198,7 @@ TEST_F(rtc, uie_select) {
 	rc = ioctl(self->fd, RTC_UIE_ON, 0);
 	if (rc == -1) {
 		ASSERT_EQ(EINVAL, errno);
-		TH_LOG("skip update IRQs not supported.");
-		return;
+		SKIP(return, "update IRQs are not supported.");
 	}
 
 	for (i = 0; i < NUM_UIE; i++) {
