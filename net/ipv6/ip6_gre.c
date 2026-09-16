@@ -80,7 +80,8 @@ static void ip6gre_tunnel_setup(struct net_device *dev);
 static void ip6gre_tunnel_link(struct ip6gre_net *ign, struct ip6_tnl *t);
 static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu);
 static void ip6erspan_tnl_link_config(struct ip6_tnl *t, int set_mtu);
-static void __ip6gre_dellink(struct net_device *dev, struct list_head *head);
+static void __ip6gre_dellink(struct net *net, struct net_device *dev,
+			     struct list_head *head);
 
 /* Tunnel hash table */
 
@@ -283,6 +284,11 @@ static void ip6gre_tunnel_link(struct ip6gre_net *ign, struct ip6_tnl *t)
 static void ip6gre_tunnel_unlink(struct ip6gre_net *ign, struct ip6_tnl *t)
 {
 	hlist_del_init_rcu(&t->hash_node);
+}
+
+static bool ip6gre_tunnel_unregistering(struct ip6_tnl *t)
+{
+	return hlist_unhashed(&t->hash_node);
 }
 
 static struct ip6_tnl *ip6gre_tunnel_find(struct net *net,
@@ -1248,6 +1254,7 @@ static int ip6gre_tunnel_siocdevprivate(struct net_device *dev,
 					int cmd)
 {
 	struct ip6_tnl *t = netdev_priv(dev);
+	struct net *orig_net = dev_net(dev);
 	struct __ip6_tnl_parm p1 = {};
 	LIST_HEAD(dev_kill_list);
 	struct net *net = t->net;
@@ -1260,6 +1267,11 @@ static int ip6gre_tunnel_siocdevprivate(struct net_device *dev,
 	ign = net_generic(net, ip6gre_net_id);
 
 	mutex_lock(&ign->tunnels_lock);
+
+	if (!check_net(net)) {
+		err = -EBUSY;
+		goto done;
+	}
 
 	switch (cmd) {
 	case SIOCGETTUNNEL:
@@ -1302,7 +1314,7 @@ static int ip6gre_tunnel_siocdevprivate(struct net_device *dev,
 		t = ip6gre_tunnel_locate(net, &p1, cmd == SIOCADDTUNNEL);
 
 		if (dev != ign->fb_tunnel_dev && cmd == SIOCCHGTUNNEL) {
-			if (t) {
+			if (t && !ip6gre_tunnel_unregistering(t)) {
 				if (t->dev != dev) {
 					err = -EEXIST;
 					break;
@@ -1310,23 +1322,26 @@ static int ip6gre_tunnel_siocdevprivate(struct net_device *dev,
 			} else {
 				t = netdev_priv(dev);
 
-				ip6gre_tunnel_unlink(ign, t);
-				synchronize_net();
-				ip6gre_tnl_change(t, &p1, 1);
-				ip6gre_tunnel_link(ign, t);
-				netdev_state_change(dev);
+				if (!ip6gre_tunnel_unregistering(t)) {
+					ip6gre_tunnel_unlink(ign, t);
+					synchronize_net();
+					ip6gre_tnl_change(t, &p1, 1);
+					ip6gre_tunnel_link(ign, t);
+					netdev_state_change(dev);
+				}
 			}
 		}
 
-		if (t) {
+		if (t && !ip6gre_tunnel_unregistering(t)) {
 			err = 0;
 
 			memset(&p, 0, sizeof(p));
 			ip6gre_tnl_parm_to_user(&p, &t->parms);
 			if (copy_to_user(data, &p, sizeof(p)))
 				err = -EFAULT;
-		} else
+		} else {
 			err = (cmd == SIOCADDTUNNEL ? -ENOBUFS : -ENOENT);
+		}
 		break;
 
 	case SIOCDELTUNNEL:
@@ -1349,7 +1364,8 @@ static int ip6gre_tunnel_siocdevprivate(struct net_device *dev,
 			dev = t->dev;
 		}
 
-		__ip6gre_dellink(dev, &dev_kill_list);
+		if (!ip6gre_tunnel_unregistering(t))
+			__ip6gre_dellink(orig_net, dev, &dev_kill_list);
 		err = 0;
 		break;
 
@@ -1570,7 +1586,7 @@ static void __net_exit ip6gre_exit_rtnl_net(struct net *net,
 			struct ip6_tnl *t;
 
 			hlist_for_each_entry_safe(t, tmp, head, hash_node)
-				__ip6gre_dellink(t->dev, dev_kill_list);
+				__ip6gre_dellink(net, t->dev, dev_kill_list);
 		}
 	}
 
@@ -2049,6 +2065,9 @@ ip6gre_changelink_common(struct net_device *dev, struct nlattr *tb[],
 		t = nt;
 	}
 
+	if (ip6gre_tunnel_unregistering(t))
+		return ERR_PTR(-ENODEV);
+
 	return t;
 }
 
@@ -2085,7 +2104,8 @@ unlock:
 	return err;
 }
 
-static void __ip6gre_dellink(struct net_device *dev, struct list_head *head)
+static void __ip6gre_dellink(struct net *net, struct net_device *dev,
+			     struct list_head *head)
 {
 	struct ip6_tnl *t = netdev_priv(dev);
 	struct ip6gre_net *ign;
@@ -2098,7 +2118,7 @@ static void __ip6gre_dellink(struct net_device *dev, struct list_head *head)
 		ip6gre_tunnel_unlink_md(ign, t);
 
 	ip6gre_tunnel_unlink(ign, t);
-	unregister_netdevice_queue(dev, head);
+	unregister_netdevice_queue_net(net, dev, head);
 }
 
 static void ip6gre_dellink(struct net_device *dev, struct list_head *head)
@@ -2110,8 +2130,9 @@ static void ip6gre_dellink(struct net_device *dev, struct list_head *head)
 
 	mutex_lock(&ign->tunnels_lock);
 
-	if (dev != ign->fb_tunnel_dev)
-		__ip6gre_dellink(dev, head);
+	if (dev != ign->fb_tunnel_dev &&
+	    !ip6gre_tunnel_unregistering(t))
+		__ip6gre_dellink(dev_net(dev), dev, head);
 
 	mutex_unlock(&ign->tunnels_lock);
 }
