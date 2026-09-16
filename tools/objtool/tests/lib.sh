@@ -131,12 +131,34 @@ EOF
 
 [ -n "${KLP_TEST_PREFLIGHT:-}" ] || klp_preflight
 
-# klp-build compiles the kernel this way; klp diff needs per-symbol sections to
-# extract individual functions.
-FIXTURE_CFLAGS="-c -O2 -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables"
+# What every fixture is built with.  These describe the kernel a fixture stands
+# in for; -c is build_one's contract rather than a property of that kernel, so
+# it lives at the compile where an override cannot drop it.
+#
+#   -O2					the kernel's default
+#   -ffunction-sections -fdata-sections	klp-build passes these itself, through
+#					KCFLAGS, whatever the configuration
+#   -fno-asynchronous-unwind-tables	arch/x86/Makefile sets this always, so
+#					kernel objects carry no .eh_frame
+#   -fno-common				the kernel's Makefile sets it, so an
+#					uninitialised global there lands in
+#					.bss rather than being SHN_COMMON,
+#					which has no section and so no
+#					checksum
+#
+# A test overrides it; see tools/objtool/Documentation/klp-write-tests.txt.
+FIXTURE_CFLAGS="-O2 -ffunction-sections -fdata-sections -fno-common \
+		-fno-asynchronous-unwind-tables"
 
 test_name="$(basename "$0" .sh)"
 workdir=
+
+# The pair run_diff() and the checksum helpers work on.  build_pair() names
+# them again and make_vmlinux_pair() repoints orig_obj at the image it links,
+# but a test which builds its objects itself with build_one() sets neither, so
+# the default belongs here.
+orig_obj=orig.o
+patched_obj=patched.o
 
 pass() { echo "ok - $test_name${1:+: $1}"; exit 0; }
 fail() { echo "not ok - $test_name: $1"; exit 1; }
@@ -217,17 +239,78 @@ clang_only()
 	declared_skip "clang only${1:+: $1}"
 }
 
-# build_pair <fixture.c> [cflags...]
-build_pair()
+# build_one <fixture.c> <output object> [cflags...]
+build_one()
 {
-	local fixture="$FIXTURES_DIR/$1"; shift
+	local fixture out
+	fixture="$FIXTURES_DIR/$1"
+	out="$workdir/$2"
+	shift 2
 
 	[ -f "$fixture" ] || fail "missing fixture $fixture"
 
-	$CC $FIXTURE_CFLAGS "$@" -o "$workdir/orig.o" "$fixture" 2>"$workdir/cc.log" ||
-		probe_skip "fixture does not build here: $(tail -1 "$workdir/cc.log")"
-	$CC $FIXTURE_CFLAGS "$@" -DPATCHED -o "$workdir/patched.o" "$fixture" 2>"$workdir/cc.log" ||
-		probe_skip "fixture does not build here: $(tail -1 "$workdir/cc.log")"
+	# run_checksum only runs once per workdir.  A fresh object has no
+	# checksums in it, so anything built now needs that to happen again.
+	rm -f "$workdir/.checksummed"
+
+	$CC -c $FIXTURE_CFLAGS "$@" -o "$out" "$fixture" 2>"$workdir/cc.log" ||
+		fail "$(basename "$fixture") does not build: $(tail -1 "$workdir/cc.log")"
+}
+
+# build_pair <fixture.c> [cflags...]
+build_pair()
+{
+	local fixture="$1"; shift
+
+	# Name what this builds.  A test may run several segments, and
+	# make_vmlinux_pair() repoints orig_obj at the image it links, so
+	# without this the next run_diff() would still be reading that.
+	orig_obj=orig.o
+	patched_obj=patched.o
+
+	build_one "$fixture" orig.o "$@"
+	build_one "$fixture" patched.o "$@" -DPATCHED
+}
+
+# run_objtool_check <objtool arguments...>
+#
+# Run objtool's ordinary check pass over the pair, as the kernel build does.
+#
+# Some of what klp diff consumes is produced by this pass rather than by the
+# compiler: .static_call_sites, .mcount_loc, .ibt_endbr_seal, ORC.
+#
+# Only module objects see it before klp-build -- with CONFIG_KLP_BUILD the
+# per-object pass is deferred, so built-in objects reach klp diff exactly as
+# the compiler left them.
+run_objtool_check()
+{
+	local obj
+
+	# This rewrites both objects, so checksums taken before it describe
+	# something that no longer exists.  As in build_one(), drop the marker
+	# so run_checksum() takes them again.
+	rm -f "$workdir/.checksummed"
+
+	for obj in "$orig_obj" "$patched_obj"; do
+		"$OBJTOOL" "$@" "$workdir/$obj" ||
+			fail "objtool $* failed on $obj"
+	done
+}
+
+run_checksum()
+{
+	# Checksums live in the objects, and a test may ask for them more than
+	# once -- diffing the same pair again with a different Module.symvers,
+	# say.  objtool does the right thing when asked twice, leaving the
+	# object alone, but it says so, and that warning would be most of what
+	# a passing run prints.  Remember instead, and keep quiet.
+	[ -e "$workdir/.checksummed" ] && return 0
+
+	"$OBJTOOL" klp checksum "$workdir/$orig_obj" ||
+		fail "klp checksum $orig_obj failed"
+	"$OBJTOOL" klp checksum "$workdir/$patched_obj" ||
+		fail "klp checksum $patched_obj failed"
+	touch "$workdir/.checksummed"
 }
 
 # run_diff [expected exit status]
@@ -235,18 +318,10 @@ run_diff()
 {
 	local expect="${1:-0}" rc=0
 
-	# Checksums live in the objects, so only generate them once even when a
-	# test diffs the same pair again with a different Module.symvers.
-	if [ ! -e "$workdir/.checksummed" ]; then
-		"$OBJTOOL" klp checksum "$workdir/orig.o" ||
-			fail "klp checksum orig.o failed"
-		"$OBJTOOL" klp checksum "$workdir/patched.o" ||
-			fail "klp checksum patched.o failed"
-		touch "$workdir/.checksummed"
-	fi
+	run_checksum
 
 	# klp diff looks for Module.symvers relative to the working directory.
-	( cd "$workdir" && "$OBJTOOL" klp diff orig.o patched.o out.o ) \
+	( cd "$workdir" && "$OBJTOOL" klp diff "$orig_obj" "$patched_obj" out.o ) \
 		> "$workdir/diff.log" 2>&1 || rc=$?
 
 	[ "$rc" = "$expect" ] ||
@@ -267,8 +342,100 @@ partial_link()
 {
 	local out="$1"; shift
 
+	rm -f "$workdir/.checksummed"
+
 	$CC -r -nostdlib -o "$out" "$@" 2>/dev/null ||
 		$CC -r -nostdlib -fuse-ld=lld -o "$out" "$@" 2>/dev/null
+}
+
+# link_vmlinux <output> <object...>
+#
+# Link objects into an executable, the way the kernel's final link produces
+# vmlinux from vmlinux.o.  Entry point 0 and no libc: nothing runs it, it only
+# has to be a linked image with resolved addresses.
+#
+# The sub-sections have to come out in name order rather than object order,
+# the way the kernel's linker script gathers .text.unlikely and .data.. apart
+# from the rest.  That reordering is the entire reason .klp.symid exists: a
+# link which preserves order cannot tell a correct sympos from one that merely
+# counted, and the caller checks the two orders really did diverge.
+#
+# A linker script rather than --sort-section=name, because lld accepts that
+# option and ignores it -- so on a host where only lld can link the target, the
+# test would quietly stop testing the thing it is named for.
+#
+# Three attempts because a cross run has neither $LD nor the compiler's default
+# linker able to touch the target: on an arm64 host linking x86 objects, only
+# lld will do it.
+link_vmlinux()
+{
+	local out="$1" lds="$workdir/sort.lds"; shift
+
+	echo 'SECTIONS { .data : { *(SORT_BY_NAME(.data.*)) } }' > "$lds"
+
+	$LD -e 0 -T "$lds" -o "$out" "$@" 2>/dev/null ||
+		$CC -nostdlib -Wl,-e,0 -Wl,-T,"$lds" \
+			-o "$out" "$@" 2>/dev/null ||
+		$CC -nostdlib -fuse-ld=lld -Wl,-e,0 -Wl,-T,"$lds" \
+			-o "$out" "$@" 2>/dev/null
+}
+
+# make_vmlinux_pair <orig object...> -- <patched object...>
+#
+# Build the vmlinux.o / vmlinux pair klp diff needs to resolve sympos the way
+# it does for built-in code, and point the diff at it.
+#
+# For a module, sympos is a count in symbol table order, which klp diff can do
+# from the object alone.  vmlinux is different: the final link reorders
+# sub-sections, so the position comes from the linked image, bridged by
+# .klp.symid.  klp diff only looks for that when the object it was handed is
+# called vmlinux.o and a vmlinux sits beside it -- so both the name and the
+# linked image matter.
+make_vmlinux_pair()
+{
+	local orig=() patched=() seen= arg
+
+	for arg in "$@"; do
+		if [ "$arg" = -- ]; then seen=y; continue; fi
+		if [ -n "$seen" ]; then patched+=( "$arg" ); else orig+=( "$arg" ); fi
+	done
+
+	# Both sides have to have been named.  Without this, forgetting the --
+	# leaves one list empty, the link of nothing fails, and the test skips
+	# saying the toolchain cannot link -- which is a test bug wearing the
+	# costume of an environment one.
+	[ "${#orig[@]}" -gt 0 ] && [ "${#patched[@]}" -gt 0 ] ||
+		fail "make_vmlinux_pair needs objects either side of --"
+
+	partial_link "$workdir/vmlinux.o" "${orig[@]}" ||
+		probe_skip "partial link unavailable"
+	partial_link "$workdir/patched.o" "${patched[@]}" ||
+		probe_skip "partial link unavailable"
+
+	"$OBJTOOL" --klp-symids --link "$workdir/vmlinux.o" ||
+		fail "objtool --klp-symids failed"
+
+	link_vmlinux "$workdir/vmlinux" "$workdir/vmlinux.o" ||
+		probe_skip "cannot link a vmlinux here"
+
+	orig_obj=vmlinux.o
+}
+
+# build_module_pair <fixture.c> <module name> [cflags...]
+#
+# Build the pair as objects belonging to a module rather than to vmlinux.  klp
+# diff reads the object's module name from .modinfo, and that decides which
+# object a relocation is attributed to and whether a reference counts as
+# cross-module, so a good deal of the code has a module path the vmlinux
+# fixtures never reach.
+#
+# The fixture defines its .modinfo name from MODNAME.  Passing that through
+# -D needs two levels of quoting, which is easy to get wrong at the call site.
+build_module_pair()
+{
+	local fixture="$1" modname="$2"; shift 2
+
+	build_pair "$fixture" -DMODNAME="\"$modname\"" "$@"
 }
 
 # find_thinlto_toolchain
