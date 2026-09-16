@@ -9,7 +9,10 @@
 # of regressions.
 
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FIXTURES_DIR="$TESTS_DIR/fixtures"
+
+# Tests live in generic/ or in an architecture directory beside it, and each
+# carries its own fixtures.
+FIXTURES_DIR="$(cd "$(dirname "$0")/fixtures" 2>/dev/null && pwd)"
 
 # The kernel's convention: CROSS_COMPILE is the one knob, with per-tool
 # overrides for what it does not cover.  objtool itself is always a host binary
@@ -36,7 +39,7 @@ OBJTOOL="${OBJTOOL:-$TESTS_DIR/../objtool}"
 #
 klp_preflight()
 {
-	local tmp tool cc_version host cc_arch
+	local tmp tool cc_version arch host cc_arch
 
 	bail() { echo "Bail out! $*" >&2; exit 1; }
 
@@ -96,8 +99,26 @@ klp_preflight()
 	esac
 	rm -rf "$tmp"
 
+	# Normalize to the kernel's SRCARCH.
+	case "${ARCH:-$(uname -m)}" in
+	x86_64|i?86)	arch=x86 ;;
+	aarch64*)	arch=arm64 ;;
+	*)		arch="${ARCH:-$(uname -m)}" ;;
+	esac
+
+	case "$(uname -m)" in
+	x86_64|i?86)	host=x86 ;;
+	aarch64*)	host=arm64 ;;
+	*)		host="$(uname -m)" ;;
+	esac
+
+	[ -z "$cc_arch" ] || [ "$cc_arch" = "$arch" ] ||
+		bail "ARCH says $arch but '$CC' builds $cc_arch objects;" \
+		     "the $arch tests would run against the wrong architecture"
+
+	KLP_TEST_ARCH="$arch"
 	KLP_TEST_PREFLIGHT=done
-	export OBJTOOL CC KLP_TEST_PREFLIGHT
+	export OBJTOOL CC KLP_TEST_ARCH KLP_TEST_PREFLIGHT
 
 	cc_version="$($CC --version 2>/dev/null | head -1)"
 	cat <<EOF

@@ -3,7 +3,7 @@
 #
 # Only functions whose code changed get cloned into the patch.
 
-. "$(dirname "$0")/lib.sh"
+. "$(dirname "$0")/../lib.sh"
 
 setup
 build_pair basic.c
