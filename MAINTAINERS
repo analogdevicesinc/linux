@@ -9472,9 +9472,8 @@ S:	Maintained
 F:	drivers/edac/i7core_edac.c
 
 EDAC-I82975X
-M:	"Arvind R." <arvino55@gmail.com>
 L:	linux-edac@vger.kernel.org
-S:	Maintained
+S:	Orphan
 F:	drivers/edac/i82975x_edac.c
 
 EDAC-IE31200
