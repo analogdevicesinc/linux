@@ -1465,14 +1465,14 @@ int __spi_map_msg(struct spi_controller *ctlr, struct spi_message *msg)
 		return 0;
 
 	if (ctlr->dma_tx)
-		tx_dev = ctlr->dma_tx->device->dev;
+		tx_dev = dmaengine_get_dma_device(ctlr->dma_tx);
 	else if (ctlr->dma_map_dev)
 		tx_dev = ctlr->dma_map_dev;
 	else
 		tx_dev = ctlr->dev.parent;
 
 	if (ctlr->dma_rx)
-		rx_dev = ctlr->dma_rx->device->dev;
+		rx_dev = dmaengine_get_dma_device(ctlr->dma_rx);
 	else if (ctlr->dma_map_dev)
 		rx_dev = ctlr->dma_map_dev;
 	else

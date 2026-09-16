@@ -46,9 +46,9 @@ int spi_controller_dma_map_mem_op_data(struct spi_controller *ctlr,
 		return -EINVAL;
 
 	if (op->data.dir == SPI_MEM_DATA_OUT && ctlr->dma_tx)
-		dmadev = ctlr->dma_tx->device->dev;
+		dmadev = dmaengine_get_dma_device(ctlr->dma_tx);
 	else if (op->data.dir == SPI_MEM_DATA_IN && ctlr->dma_rx)
-		dmadev = ctlr->dma_rx->device->dev;
+		dmadev = dmaengine_get_dma_device(ctlr->dma_rx);
 	else
 		dmadev = ctlr->dev.parent;
 
@@ -92,9 +92,9 @@ void spi_controller_dma_unmap_mem_op_data(struct spi_controller *ctlr,
 		return;
 
 	if (op->data.dir == SPI_MEM_DATA_OUT && ctlr->dma_tx)
-		dmadev = ctlr->dma_tx->device->dev;
+		dmadev = dmaengine_get_dma_device(ctlr->dma_tx);
 	else if (op->data.dir == SPI_MEM_DATA_IN && ctlr->dma_rx)
-		dmadev = ctlr->dma_rx->device->dev;
+		dmadev = dmaengine_get_dma_device(ctlr->dma_rx);
 	else
 		dmadev = ctlr->dev.parent;
 
