@@ -329,7 +329,7 @@ int string_unescape(char *src, char *dst, size_t size, unsigned int flags)
 		size = SIZE_MAX;
 
 	while (*src && --size) {
-		if (src[0] == '\\' && src[1] != '\0' && size > 1) {
+		if (src[0] == '\\' && src[1] != '\0') {
 			src++;
 
 			if (flags & UNESCAPE_SPACE &&
@@ -349,7 +349,8 @@ int string_unescape(char *src, char *dst, size_t size, unsigned int flags)
 				continue;
 
 			*out++ = '\\';
-			size--;
+			if (!--size)
+				break;
 		}
 		*out++ = *src++;
 	}
