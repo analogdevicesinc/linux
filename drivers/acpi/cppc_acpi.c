@@ -393,8 +393,8 @@ static int check_pcc_chan(int pcc_ss_id, bool chk_err_bit)
 	return ret;
 }
 
-static void cppc_complete_pcc_write(struct cppc_pcc_data *pcc_ss_data,
-				    int ret)
+static void cppc_complete_pcc_write(int pcc_ss_id,
+				    struct cppc_pcc_data *pcc_ss_data, int ret)
 {
 	int i;
 
@@ -402,7 +402,8 @@ static void cppc_complete_pcc_write(struct cppc_pcc_data *pcc_ss_data,
 		for_each_possible_cpu(i) {
 			struct cpc_desc *desc = per_cpu(cpc_desc_ptr, i);
 
-			if (!desc)
+			if (!desc ||
+			    per_cpu(cpu_pcc_subspace_idx, i) != pcc_ss_id)
 				continue;
 
 			if (desc->write_cmd_id == pcc_ss_data->pcc_write_cnt)
@@ -412,6 +413,18 @@ static void cppc_complete_pcc_write(struct cppc_pcc_data *pcc_ss_data,
 
 	pcc_ss_data->pcc_write_cnt++;
 	wake_up_all(&pcc_ss_data->pcc_write_wait_q);
+}
+
+/* The caller must hold pcc_lock for write. */
+static void cppc_abort_pending_pcc_write(int pcc_ss_id,
+					 struct cppc_pcc_data *pcc_ss_data,
+					 int ret)
+{
+	if (!pcc_ss_data->pending_pcc_write_cmd)
+		return;
+
+	pcc_ss_data->pending_pcc_write_cmd = false;
+	cppc_complete_pcc_write(pcc_ss_id, pcc_ss_data, ret);
 }
 
 /*
@@ -513,7 +526,7 @@ static int send_pcc_cmd(int pcc_ss_id, u16 cmd)
 
 end:
 	if (cmd == CMD_WRITE)
-		cppc_complete_pcc_write(pcc_ss_data, ret);
+		cppc_complete_pcc_write(pcc_ss_id, pcc_ss_data, ret);
 
 	return ret;
 }
@@ -1520,23 +1533,36 @@ static int cppc_get_reg_val(int cpu, enum cppc_regs reg_idx, u64 *val)
 static int cppc_set_reg_val_in_pcc(int cpu, struct cpc_register_resource *reg, u64 val)
 {
 	int pcc_ss_id = per_cpu(cpu_pcc_subspace_idx, cpu);
-	struct cppc_pcc_data *pcc_ss_data = NULL;
+	struct cppc_pcc_data *pcc_ss_data;
 	int ret;
 
 	if (pcc_ss_id < 0) {
 		pr_debug("Invalid pcc_ss_id\n");
 		return -ENODEV;
 	}
+	if (!cpc_pcc_write_supported(reg))
+		return -EFAULT;
+
+	pcc_ss_data = pcc_data[pcc_ss_id];
+	if (!pcc_ss_data)
+		return -ENODEV;
+
+	down_write(&pcc_ss_data->pcc_lock);
+
+	ret = check_pcc_chan(pcc_ss_id, false);
+	if (ret)
+		goto out;
 
 	ret = cpc_write(cpu, reg, val);
 	if (ret)
-		return ret;
+		goto out;
 
-	pcc_ss_data = pcc_data[pcc_ss_id];
-
-	down_write(&pcc_ss_data->pcc_lock);
 	/* after writing CPC, transfer the ownership of PCC to platform */
 	ret = send_pcc_cmd(pcc_ss_id, CMD_WRITE);
+
+out:
+	if (ret)
+		cppc_abort_pending_pcc_write(pcc_ss_id, pcc_ss_data, ret);
 	up_write(&pcc_ss_data->pcc_lock);
 
 	return ret;
