@@ -7,6 +7,7 @@
 #if IS_ENABLED(CONFIG_OF) && IS_ENABLED(CONFIG_DRM_PANEL_BRIDGE)
 #include <linux/of.h>
 #include <drm/drm_bridge.h>
+#include <drm/drm_panel.h>
 #endif
 
 struct component_master_ops;
