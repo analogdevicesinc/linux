@@ -163,8 +163,8 @@ workdir=
 orig_obj=orig.o
 patched_obj=patched.o
 
-pass() { echo "ok - $test_name${1:+: $1}"; exit 0; }
-fail() { echo "not ok - $test_name: $1"; exit 1; }
+pass() { KLP_TEST_REPORTED=1; echo "ok - $test_name${1:+: $1}"; exit 0; }
+fail() { KLP_TEST_FAILED=1; echo "not ok - $test_name: $*"; exit 1; }
 
 # Two kinds of skip, and the runner tells them apart.
 #
@@ -177,8 +177,19 @@ fail() { echo "not ok - $test_name: $1"; exit 1; }
 #
 # A bare skip() is neither, and the runner counts it as a failure: a test which
 # gives up for a reason it never declared is a hole, not an outcome.
-declared_skip() { echo "ok - $test_name # SKIP (declared) $*"; exit 0; }
-probe_skip()    { echo "ok - $test_name # SKIP (probe) $*"; exit 0; }
+declared_skip()
+{
+	KLP_TEST_REPORTED=1
+	echo "ok - $test_name # SKIP (declared) $*"
+	exit 0
+}
+
+probe_skip()
+{
+	KLP_TEST_REPORTED=1
+	echo "ok - $test_name # SKIP (probe) $*"
+	exit 0
+}
 skip()          { echo "ok - $test_name # SKIP $*"; exit 0; }
 
 # TAP directives.  A test which is known to fail reports it rather than being
@@ -187,26 +198,55 @@ skip()          { echo "ok - $test_name # SKIP $*"; exit 0; }
 # which is the point.
 xfail()
 {
+	KLP_TEST_REPORTED=1
 	echo "not ok - $test_name${1:+: $1} # TODO known failure"
 	exit 0
 }
 
 xpass()
 {
+	KLP_TEST_FAILED=1
 	echo "ok - $test_name${1:+: $1} # TODO expected failure, but passed"
 	exit 1
 }
 
+# cleanup [exit]
+#
+# Called with "exit" from the trap, when the test is over and what it built may
+# be worth keeping.  Called bare by a test which has finished with one segment
+# and is about to setup() another: that one is done with, whatever the outcome
+# of the segments still to come, so it goes.
 cleanup()
 {
 	[ -n "$workdir" ] || return 0
 
-	if [ -n "${KLP_TEST_KEEP:-}" ]; then
-		[ -n "${KLP_TEST_WORKDIR:-}" ] || echo "# kept $workdir"
-		return 0
-	fi
-
-	rm -rf "$workdir"
+	# run-tests.sh exports KLP_TEST_KEEP, having validated it; a test run on
+	# its own reads KEEP itself, so the same setting means the same thing
+	# either way.
+	case "${KLP_TEST_KEEP:-${KEEP:-failed}}" in
+	all)	return 0 ;;
+	none)	rm -rf "$workdir" ;;
+	failed|*)
+		[ "${1:-}" = exit ] || {
+			rm -rf "$workdir"
+			return 0
+		}
+		# Keep what the runner is going to point at.  It counts as a
+		# failure anything which did not report an expected outcome --
+		# including a test which died before printing one, and an
+		# undeclared skip -- and none of those set KLP_TEST_FAILED, so
+		# the question to ask is whether a result was reported at all.
+		# An exit status cannot answer it: a test killed by a signal
+		# runs this trap with the status of whatever ran last.
+		[ -n "${KLP_TEST_REPORTED:-}" ] && [ -z "${KLP_TEST_FAILED:-}" ] && {
+			rm -rf "$workdir"
+			return 0
+		}
+		# run on its own there is no runner to say where it was kept
+		[ -n "${KLP_TEST_WORKDIR:-}" ] ||
+			echo "# kept $workdir"
+		;;
+	esac
 }
 
 # setup [exported symbol...]
@@ -218,7 +258,7 @@ setup()
 	else
 		workdir="$(mktemp -d)" || fail "mktemp failed"
 	fi
-	trap cleanup EXIT
+	trap 'cleanup exit' EXIT
 
 	export_syms "$@"
 }

@@ -31,13 +31,15 @@ A test may be named with or without its "test-" prefix and ".sh" suffix, and is
 looked for in both directories.
 
 Options:
-    -k, --keep    do not delete each test's working directory; print its path,
-                  so the objects a failing test built can be looked at
+    -k, --keep    same as KEEP=all (see below)
 
 Environment:
     OBJTOOL       objtool binary to test (default ../objtool)
     CC            compiler used to build fixtures (default gcc)
     ARCH          architecture the tests are for (default: uname -m)
+    KEEP          failed  keep only failing tests (default)
+                  all     keep every test's working directory
+                  none    remove all working directories
 
 A test which needs something of its own says so in its skip message.
 EOF
@@ -46,15 +48,27 @@ EOF
 
 cd "$(dirname "$0")" || exit 1
 
+keep_from_args=
 while [ $# -gt 0 ]; do
 	case "$1" in
 	-h|--help)	usage ;;
-	-k|--keep)	export KLP_TEST_KEEP=1; shift ;;
+	-k|--keep)	keep_from_args=all; shift ;;
 	--)		shift; break ;;
 	-*)		echo "unknown option: $1" >&2; usage 1 ;;
 	*)		break ;;
 	esac
 done
+
+KLP_TEST_KEEP="${KEEP:-failed}"
+[ -n "$keep_from_args" ] && KLP_TEST_KEEP="$keep_from_args"
+case "$KLP_TEST_KEEP" in
+all|none|failed) ;;
+*)
+	echo "invalid KEEP=$KLP_TEST_KEEP (want failed, all, or none)" >&2
+	exit 1
+	;;
+esac
+export KLP_TEST_KEEP
 
 echo "TAP version 13"
 
@@ -109,9 +123,33 @@ fi
 rundir="$(mktemp -d "${TMPDIR:-/tmp}/klp-tests.XXXXXXXX")" ||
 	{ echo "Bail out! cannot create a working directory" >&2; exit 1; }
 
+# The run's own two levels: each test's directory, and the one per source
+# directory holding them.  Take them away if the tests left them empty, and
+# say so if they did not.  Either rmdir may fail -- the glob stays unexpanded
+# when nothing was created -- so ask the directory itself rather than trusting
+# the status.  Never rm -rf: what to keep is the tests' decision, made in
+# cleanup() as each one exits, and this must not overrule it.
+reap_rundir()
+{
+	rmdir "$rundir"/*/ 2>/dev/null
+	rmdir "$rundir" 2>/dev/null
+	[ -d "$rundir" ]
+}
+
+# An interrupted run has the same directory to answer for, and the tests it
+# never reached will not clean up on their way out.  The one it was running
+# has, and under the default it kept what it had built, so say where.
+interrupted()
+{
+	reap_rundir && echo "# interrupted; what was built is in $rundir"
+	exit 130
+}
+trap interrupted INT TERM HUP
+
 echo "1..${#tests[@]}"
 
 pass=0 fail=0 static_skip=0 probe_skip=0 xfail=0 xpass=0
+failed_dirs=()
 
 for t in "${tests[@]}"; do
 	out="$(KLP_TEST_WORKDIR="$rundir/${t%.sh}" ./"$t" 2>&1)"
@@ -147,16 +185,16 @@ for t in "${tests[@]}"; do
 		rest="$rest${rest:+$'\n'}was: $result"
 		result="not ok - $(basename "$t" .sh): undeclared skip"
 		result="$result (use gcc_only/clang_only or require_input_*)"
-		fail=$((fail + 1)) ;;
+		fail=$((fail + 1)); failed_dirs+=( "$rundir/${t%.sh}" ) ;;
 	"not ok"*"# TODO"*)	xfail=$((xfail + 1)) ;;
-	"ok"*"# TODO"*)		xpass=$((xpass + 1)) ;;
-	"not ok"*)		fail=$((fail + 1)) ;;
+	"ok"*"# TODO"*)		xpass=$((xpass + 1)); failed_dirs+=( "$rundir/${t%.sh}" ) ;;
+	"not ok"*)		fail=$((fail + 1)); failed_dirs+=( "$rundir/${t%.sh}" ) ;;
 	"ok"*)			pass=$((pass + 1)) ;;
 	*)
 		# No result line at all: the test died before reporting.
 		rest="$rest${rest:+$'\n'}exited $rc without a result line"
 		result="not ok - $(basename "$t" .sh): no TAP result"
-		fail=$((fail + 1)) ;;
+		fail=$((fail + 1)); failed_dirs+=( "$rundir/${t%.sh}" ) ;;
 	esac
 
 	echo "$result"
@@ -167,15 +205,35 @@ done
 echo "# pass:$pass fail:$fail static-skip:$static_skip" \
      "probe-skip:$probe_skip xfail:$xfail xpass:$xpass"
 
-# A failure is the one time the objects matter, and by default they are
-# already gone.  Say so then rather than in the usage text nobody reads while
-# something is broken.
-if [ -n "${KLP_TEST_KEEP:-}" ]; then
-	echo "# working directories kept in $rundir -- inspect, then rm -rf it"
-elif ! rmdir "$rundir"/*/ "$rundir" 2>/dev/null; then
-	echo "# $rundir was not empty; a test did not clean up after itself"
-elif [ "$fail" != 0 ] || [ "$xpass" != 0 ]; then
-	echo "# re-run with --keep to hold on to what a failing test built"
-fi
+case "$KLP_TEST_KEEP" in
+all)
+	echo "# keep=all: workdirs kept in $rundir"
+	echo "# inspect: diff.log, readelf -S out.o under each test-* subdirectory"
+	echo "# cleanup: rm -rf $rundir"
+	;;
+failed)
+	if [ "${#failed_dirs[@]}" -gt 0 ]; then
+		echo "# keep=failed: ${#failed_dirs[@]} failing test(s) kept under $rundir:"
+		for d in "${failed_dirs[@]}"; do
+			echo "#   ${d#"$rundir"/}/"
+		done
+		echo "# inspect: diff.log  readelf -S out.o"
+		echo "# one test: $PWD/run-tests.sh <name>"
+		echo "# cleanup: rm -rf $rundir"
+	elif reap_rundir; then
+		echo "# $rundir was not empty;" \
+		     "a test did not clean up after itself"
+	fi
+	;;
+none)
+	if reap_rundir; then
+		echo "# $rundir was not empty;" \
+		     "a test did not clean up after itself"
+	elif [ "$fail" != 0 ] || [ "$xpass" != 0 ]; then
+		echo "# keep=none: artifacts were removed" \
+		     "(re-run with KEEP=failed or KEEP=all)"
+	fi
+	;;
+esac
 
 [ "$fail" = 0 ] && [ "$xpass" = 0 ]
