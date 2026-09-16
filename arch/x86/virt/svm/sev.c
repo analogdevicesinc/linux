@@ -691,7 +691,7 @@ void snp_enable_rmpopt(void)
 	mod_delayed_work(rmpopt_wq, &rmpopt_delayed_work,
 			 msecs_to_jiffies(RMPOPT_WORK_TIMEOUT));
 }
-EXPORT_SYMBOL_FOR_MODULES(snp_enable_rmpopt, "ccp");
+EXPORT_SYMBOL_FOR_MODULES(snp_enable_rmpopt, "ccp,kvm-amd");
 
 /*
  * Do the necessary preparations which are verified by the firmware as
