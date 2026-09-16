@@ -3103,7 +3103,7 @@ static const struct arm64_cpu_capabilities arm64_features[] = {
 		.matches = has_bbml3,
 	},
 	{
-		.desc = "52-bit Virtual Addressing for KVM (LPA2)",
+		.desc = "52-bit Virtual-Physical Addressing for S1 and S2 (LPA2)",
 		.capability = ARM64_HAS_LPA2,
 		.type = ARM64_CPUCAP_SYSTEM_FEATURE,
 		.matches = has_lpa2,
