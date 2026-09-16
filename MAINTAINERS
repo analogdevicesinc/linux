@@ -2076,8 +2076,7 @@ S:	Supported
 F:	arch/arm64/boot/dts/apm/
 
 APPLIED MICRO (APM) X-GENE SOC EDAC
-M:	Khuong Dinh <khuong@os.amperecomputing.com>
-S:	Supported
+S:	Orphan
 F:	Documentation/devicetree/bindings/edac/apm,xgene-edac.yaml
 F:	drivers/edac/xgene_edac.c
 
