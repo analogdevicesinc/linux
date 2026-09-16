@@ -6,6 +6,7 @@ on:
       - 'main'
       - 'xlnx/release/*'
       - 'rpi/release/*'
+      - 'test/artifacts-api-pagination-fix'
   pull_request:
 
 concurrency:
@@ -266,7 +267,7 @@ jobs:
   deploy_kuiper_binaries:
     needs: [assert_build]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
-    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@ci
+    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@fix/artifacts-api-pagination
     secrets: inherit
     permissions:
       id-token: write
@@ -275,6 +276,7 @@ jobs:
     with:
       pr-number: ${{ github.event.pull_request.number }}
       pr-target-branch: ${{ github.event.pull_request.base.ref }}
+      scripts-ref: fix/artifacts-api-pagination
       artifacts: >
         adi_versal_defconfig-*
         adi_zynqmp_defconfig-*
