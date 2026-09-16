@@ -250,6 +250,9 @@ EXPORT_SYMBOL(drm_bridge_is_panel);
  *
  * @panel: The drm_panel being wrapped.  Must be non-NULL.
  *
+ * This function is deprecated. A drm_bridge is embedded into every panel.
+ * Don't use it in new drivers and update your driver to stop using it.
+ *
  * For drivers converting from directly using drm_panel: The expected
  * usage pattern is that during either encoder module probe or DSI
  * host attach, a drm_panel will be looked up through
@@ -287,9 +290,8 @@ EXPORT_SYMBOL(drm_panel_bridge_add);
  * This is just like drm_panel_bridge_add(), but forces the connector type to
  * @connector_type instead of infering it from the panel.
  *
- * This function is deprecated and should not be used in new drivers. Use
- * drm_panel_bridge_add() instead, and fix panel drivers as necessary if they
- * don't report a connector type.
+ * This function is deprecated. A drm_bridge is embedded into every panel.
+ * Don't use it in new drivers and update your driver to stop using it.
  */
 struct drm_bridge *drm_panel_bridge_add_typed(struct drm_panel *panel,
 					      u32 connector_type)
@@ -306,6 +308,10 @@ EXPORT_SYMBOL(drm_panel_bridge_add_typed);
  * created by drm_panel_bridge_add().
  *
  * @bridge: The drm_bridge being freed.
+ *
+ * This function is deprecated. A drm_bridge is embedded into every panel
+ * and removed when the panel is removed.  Don't use it in new drivers and
+ * update your driver to stop using it.
  */
 void drm_panel_bridge_remove(struct drm_bridge *bridge)
 {
@@ -355,6 +361,9 @@ static void devm_drm_panel_bridge_release(struct device *dev, void *res)
  * @dev: device to tie the bridge lifetime to
  * @panel: The drm_panel being wrapped.  Must be non-NULL.
  *
+ * This function is deprecated. A drm_bridge is embedded into every panel.
+ * Don't use it in new drivers and update your driver to stop using it.
+ *
  * This is the managed version of drm_panel_bridge_add() which automatically
  * calls drm_panel_bridge_remove() when @dev is unbound.
  */
@@ -379,9 +388,8 @@ EXPORT_SYMBOL(devm_drm_panel_bridge_add);
  * This is just like devm_drm_panel_bridge_add(), but forces the connector type
  * to @connector_type instead of infering it from the panel.
  *
- * This function is deprecated and should not be used in new drivers. Use
- * devm_drm_panel_bridge_add() instead, and fix panel drivers as necessary if
- * they don't report a connector type.
+ * This function is deprecated. A drm_bridge is embedded into every panel.
+ * Don't use it in new drivers and update your driver to stop using it.
  */
 struct drm_bridge *devm_drm_panel_bridge_add_typed(struct device *dev,
 						   struct drm_panel *panel,
@@ -421,6 +429,9 @@ static void drmm_drm_panel_bridge_release(struct drm_device *drm, void *ptr)
  *
  * @drm: DRM device to tie the bridge lifetime to
  * @panel: The drm_panel being wrapped.  Must be non-NULL.
+ *
+ * This function is deprecated. A drm_bridge is embedded into every panel.
+ * Don't use it in new drivers and update your driver to stop using it.
  *
  * This is the DRM-managed version of drm_panel_bridge_add() which
  * automatically calls drm_panel_bridge_remove() when @dev is cleaned
@@ -472,6 +483,10 @@ EXPORT_SYMBOL(drm_panel_bridge_connector);
  * @port: port in the device tree node
  * @endpoint: endpoint in the device tree node
  *
+ * This function is deprecated. A drm_bridge is embedded into every panel.
+ * Don't use it in new drivers and convert your driver to
+ * of_drm_get_bridge_by_endpoint().
+ *
  * Given a DT node's port and endpoint number, finds the connected node
  * and returns the associated bridge if any, or creates and returns a
  * drm panel bridge instance if a panel is connected.
@@ -507,6 +522,10 @@ EXPORT_SYMBOL(devm_drm_of_get_bridge);
  * @np: device tree node containing encoder output ports
  * @port: port in the device tree node
  * @endpoint: endpoint in the device tree node
+ *
+ * This function is deprecated. A drm_bridge is embedded into every panel.
+ * Don't use it in new drivers and convert your driver to
+ * of_drm_get_bridge_by_endpoint().
  *
  * Given a DT node's port and endpoint number, finds the connected node
  * and returns the associated bridge if any, or creates and returns a
