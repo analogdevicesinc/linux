@@ -169,6 +169,7 @@ extern atomic64_t event_counter;
 
 #define MPI3MR_DEFAULT_MDTS	(128 * 1024)
 #define MPI3MR_DEFAULT_PGSZEXP         (12)
+#define MPI3MR_MAX_PGSZEXP             (27)
 
 /* Command retry count definitions */
 #define MPI3MR_DEV_RMHS_RETRY_COUNT 3

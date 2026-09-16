@@ -1350,24 +1350,32 @@ static void mpi3mr_update_tgtdev(struct mpi3mr_ioc *mrioc,
 		struct mpi3_device0_pcie_format *pcieinf =
 		    &dev_pg0->device_specific.pcie_format;
 		u16 dev_info = le16_to_cpu(pcieinf->device_info);
+		u8 pgsz = MPI3MR_DEFAULT_PGSZEXP;
+		u8 reset_to = MPI3MR_INTADMCMD_TIMEOUT;
+		u8 abort_to = MPI3MR_INTADMCMD_TIMEOUT;
+		u8 fw_pgsz = READ_ONCE(pcieinf->page_size);
 
 		tgtdev->dev_spec.pcie_inf.dev_info = dev_info;
 		tgtdev->dev_spec.pcie_inf.capb =
 		    le32_to_cpu(pcieinf->capabilities);
 		tgtdev->dev_spec.pcie_inf.mdts = MPI3MR_DEFAULT_MDTS;
-		/* 2^12 = 4096 */
-		tgtdev->dev_spec.pcie_inf.pgsz = 12;
+		/* Validate firmware page size to prevent undefined shift behavior */
+		if (fw_pgsz >= MPI3MR_DEFAULT_PGSZEXP && fw_pgsz <= MPI3MR_MAX_PGSZEXP)
+			pgsz = fw_pgsz;
+
 		if (dev_pg0->access_status == MPI3_DEVICE0_ASTATUS_NO_ERRORS) {
 			tgtdev->dev_spec.pcie_inf.mdts =
 			    le32_to_cpu(pcieinf->maximum_data_transfer_size);
-			tgtdev->dev_spec.pcie_inf.pgsz = pcieinf->page_size;
-			tgtdev->dev_spec.pcie_inf.reset_to =
-			    max_t(u8, pcieinf->controller_reset_to,
-			     MPI3MR_INTADMCMD_TIMEOUT);
-			tgtdev->dev_spec.pcie_inf.abort_to =
-			    max_t(u8, pcieinf->nvme_abort_to,
+			reset_to = max_t(u8, pcieinf->controller_reset_to,
+			    MPI3MR_INTADMCMD_TIMEOUT);
+			abort_to = max_t(u8, pcieinf->nvme_abort_to,
 			    MPI3MR_INTADMCMD_TIMEOUT);
 		}
+
+		tgtdev->dev_spec.pcie_inf.pgsz = pgsz;
+		tgtdev->dev_spec.pcie_inf.reset_to = reset_to;
+		tgtdev->dev_spec.pcie_inf.abort_to = abort_to;
+
 		if (tgtdev->dev_spec.pcie_inf.mdts > (1024 * 1024))
 			tgtdev->dev_spec.pcie_inf.mdts = (1024 * 1024);
 		if (((dev_info & MPI3_DEVICE0_PCIE_DEVICE_INFO_TYPE_MASK) !=
