@@ -1288,7 +1288,8 @@ int fuse_copy_folio(struct fuse_copy_state *cs, struct folio **foliop,
 			unsigned int copy = count;
 			unsigned int bytes_copied;
 
-			if (folio_test_highmem(folio) && count > PAGE_SIZE - offset_in_page(offset))
+			if (folio_test_partial_kmap(folio) &&
+			    count > PAGE_SIZE - offset_in_page(offset))
 				copy = PAGE_SIZE - offset_in_page(offset);
 
 			bytes_copied = fuse_copy_do(cs, &buf, &copy);
