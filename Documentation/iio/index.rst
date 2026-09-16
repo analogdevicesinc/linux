@@ -27,6 +27,7 @@ Industrial I/O Kernel Drivers
    ad7191
    ad7380
    ad7625
+   ad7768
    ad7944
    ad9910
    adf41513
