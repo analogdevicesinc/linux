@@ -348,7 +348,7 @@ yt921x_cled_blink_set(struct led_classdev *led_cdev, unsigned long *delay_on,
 	return res;
 }
 
-static struct device * __maybe_unused
+static struct device __maybe_unused *
 yt921x_cled_hw_control_get_device(struct led_classdev *led_cdev)
 {
 	struct yt921x_led *led = to_yt921x_led(led_cdev);
