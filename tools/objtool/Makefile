@@ -153,6 +153,9 @@ clean: $(LIBSUBCMD)-clean
 mrproper: clean
 	$(call QUIET_CLEAN, objtool) $(RM) $(OBJTOOL)
 
+tests: $(OBJTOOL)
+	$(Q)OBJTOOL=$(abspath $(OBJTOOL)) $(srctree)/tools/objtool/tests/run-tests.sh
+
 FORCE:
 
-.PHONY: clean mrproper FORCE
+.PHONY: clean mrproper tests FORCE
