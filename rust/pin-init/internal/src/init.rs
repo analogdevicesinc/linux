@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, ToTokens, TokenStreamExt};
+use quote::{format_ident, quote, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
     braced, parenthesized,
     parse::{End, Parse},
@@ -269,7 +269,7 @@ fn expand(
         },
         |(_, err)| Box::new(err),
     );
-    let slot = format_ident!("slot");
+    let slot = Ident::new("slot", Span::mixed_site());
     let (has_data_trait, get_data, init_from_closure) = if pinned {
         (
             format_ident!("HasPinData"),
@@ -302,7 +302,7 @@ fn expand(
     };
     let this = match this {
         None => quote!(),
-        Some(This { ident, .. }) => quote! {
+        Some(This { ident, .. }) => quote_spanned! { Span::mixed_site() =>
             // Create the `this` so it can be referenced by the user inside of the
             // expressions creating the individual fields.
             let #ident = unsafe { ::core::ptr::NonNull::new_unchecked(slot) };
@@ -312,7 +312,7 @@ fn expand(
     let data = Ident::new("__data", Span::mixed_site());
     let init_fields = init_fields(&fields, pinned, &data, &slot);
     let field_check = make_field_check(&fields, init_kind, &path);
-    Ok(quote! {{
+    Ok(quote_spanned! { Span::mixed_site() => {
         // Get the data about fields from the supplied type.
         // SAFETY: TODO
         let #data = unsafe {
@@ -512,7 +512,7 @@ fn make_field_check(
             ..::core::mem::zeroed()
         }),
     };
-    quote! {
+    quote_spanned! { Span::mixed_site() =>
         #[allow(unreachable_code)]
         // We use unreachable code to perform field checks. They're still checked by the compiler.
         // SAFETY: this code is never executed.
