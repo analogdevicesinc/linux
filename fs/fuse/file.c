@@ -3002,14 +3002,16 @@ static ssize_t __fuse_copy_file_range(struct file *file_in, loff_t pos_in,
 
 	/*
 	 * Write out dirty pages in the destination file before sending the COPY
-	 * request to userspace.  After the request is completed, truncate off
-	 * pages (including partial ones) from the cache that have been copied,
-	 * since these contain stale data at that point.
+	 * request to userspace.  After the request is completed, drop the
+	 * folios covering the copied range from the cache, since these contain
+	 * stale data at that point.
 	 *
-	 * This should be mostly correct, but if the COPY writes to partial
-	 * pages (at the start or end) and the parts not covered by the COPY are
+	 * This should be mostly correct, but if the COPY writes to a partial
+	 * folio (at the start or end) and the parts not covered by the COPY are
 	 * written through a memory map after calling fuse_writeback_range(),
-	 * then these partial page modifications will be lost on truncation.
+	 * then that folio is laundered before it is dropped, so the memory map
+	 * modifications are written back over the range the server just copied
+	 * into and the copied data is lost.
 	 *
 	 * It is unlikely that someone would rely on such mixed style
 	 * modifications.  Yet this does give less guarantees than if the
@@ -3063,10 +3065,9 @@ fallback:
 	}
 
 	if (bytes_copied)
-		truncate_inode_pages_range(inode_out->i_mapping,
-					   ALIGN_DOWN(pos_out, PAGE_SIZE),
-					   ALIGN(pos_out + bytes_copied,
-						 PAGE_SIZE) - 1);
+		invalidate_inode_pages2_range(inode_out->i_mapping,
+					      pos_out >> PAGE_SHIFT,
+					      (pos_out + bytes_copied - 1) >> PAGE_SHIFT);
 
 	file_update_time(file_out);
 	fuse_write_update_attr(inode_out, pos_out + bytes_copied, bytes_copied);
