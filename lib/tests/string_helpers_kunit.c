@@ -55,9 +55,9 @@ static const struct test_string strings[] = {
 	},
 };
 
-static void test_string_unescape(struct kunit *test,
-				 const char *name, unsigned int flags,
-				 bool inplace)
+static void test_string_unescape_combined(struct kunit *test,
+					  const char *name, unsigned int flags,
+					  bool inplace)
 {
 	int q_real = 256;
 	char *in = kunit_kzalloc(test, q_real, GFP_KERNEL);
@@ -596,14 +596,33 @@ static void test_upper_lower(struct kunit *test)
 	}
 }
 
+static void test_string_unescape_one(struct kunit *test,
+				     const char *name, unsigned int flags,
+				     char *src, size_t len,
+				     char *out_test, size_t q_test)
+{
+	char *out_real = kunit_kzalloc(test, len, GFP_KERNEL);
+	int q_real;
+
+	q_real = string_unescape(src, out_real, len, flags);
+	test_string_check_buf(test, name, flags, out_real, q_real, out_test, q_test);
+}
+
 static void test_unescape(struct kunit *test)
 {
 	unsigned int i;
 
 	for (i = 0; i < UNESCAPE_ALL_MASK + 1; i++)
-		test_string_unescape(test, "unescape", i, false);
-	test_string_unescape(test, "unescape inplace",
-			     get_random_u32_below(UNESCAPE_ALL_MASK + 1), true);
+		test_string_unescape_combined(test, "unescape", i, false);
+	test_string_unescape_combined(test, "unescape inplace",
+				      get_random_u32_below(UNESCAPE_ALL_MASK + 1), true);
+
+	test_string_unescape_one(test, "simple case", UNESCAPE_HEX | UNESCAPE_SPECIAL, "ABC", 6, "ABC", 3);
+	test_string_unescape_one(test, "single escape", UNESCAPE_HEX | UNESCAPE_SPECIAL, "A\\x42C", 6, "ABC", 3);
+	test_string_unescape_one(test, "escape before end", UNESCAPE_HEX, "B\\qX", 4, "B\\q", 3);
+	test_string_unescape_one(test, "escape at end", UNESCAPE_HEX, "a\\qX", 3, "a\\", 2);
+	test_string_unescape_one(test, "backslash before escape", UNESCAPE_HEX, "\\\\x41B", 12, "\\\\x41B", 6);
+	test_string_unescape_one(test, "backslash escape", UNESCAPE_HEX | UNESCAPE_SPECIAL, "\\\\x41B", 16, "\\x41B", 5);
 }
 
 static void test_escape(struct kunit *test)
