@@ -864,11 +864,12 @@ void untrack_possible_nx_huge_page(struct kvm *kvm, struct kvm_mmu_page *sp,
 	list_del_init(&sp->possible_nx_huge_page_link);
 }
 
-static void unaccount_nx_huge_page(struct kvm *kvm, struct kvm_mmu_page *sp)
+static void unaccount_nx_huge_page(struct kvm *kvm, struct kvm_mmu_page *sp,
+				    enum kvm_mmu_type mmu_type)
 {
 	sp->nx_huge_page_disallowed = false;
 
-	untrack_possible_nx_huge_page(kvm, sp, KVM_SHADOW_MMU);
+	untrack_possible_nx_huge_page(kvm, sp, mmu_type);
 }
 
 static struct kvm_memory_slot *gfn_to_memslot_dirty_bitmap(struct kvm_vcpu *vcpu,
@@ -2829,7 +2830,7 @@ static bool __kvm_mmu_prepare_zap_page(struct kvm *kvm,
 	}
 
 	if (sp->nx_huge_page_disallowed)
-		unaccount_nx_huge_page(kvm, sp);
+		unaccount_nx_huge_page(kvm, sp, KVM_SHADOW_MMU);
 
 	sp->role.invalid = 1;
 
@@ -8050,7 +8051,7 @@ static void kvm_recover_nx_huge_pages(struct kvm *kvm,
 		WARN_ON_ONCE(!sp->nx_huge_page_disallowed);
 		WARN_ON_ONCE(!sp->role.direct);
 
-		unaccount_nx_huge_page(kvm, sp);
+		unaccount_nx_huge_page(kvm, sp, mmu_type);
 
 		if (is_tdp_mmu)
 			spin_unlock(tdp_mmu_pages_lock);
