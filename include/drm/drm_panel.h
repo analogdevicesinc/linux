@@ -30,6 +30,8 @@
 #include <linux/mutex.h>
 #include <linux/kref.h>
 
+#include <drm/drm_bridge.h>
+
 struct backlight_device;
 struct dentry;
 struct device_node;
@@ -231,6 +233,22 @@ struct drm_panel {
 	const struct drm_panel_funcs *funcs;
 
 	/**
+	 * @bridge:
+	 *
+	 * Bridge to access the panel features through the drm_bridge API.
+	 */
+	struct drm_bridge bridge;
+
+	/**
+	 * @connector:
+	 *
+	 * Connector instantiated by the bridge (only for legacy code not
+	 * yet using the drm_bridge_connector and
+	 * DRM_BRIDGE_ATTACH_NO_CONNECTOR).
+	 */
+	struct drm_connector connector;
+
+	/**
 	 * @connector_type:
 	 *
 	 * Type of the panel as a DRM_MODE_CONNECTOR_* value. This is used to
@@ -283,17 +301,6 @@ struct drm_panel {
 	 * If true then the panel has been enabled.
 	 */
 	bool enabled;
-
-	/**
-	 * @container: Pointer to the private driver struct embedding this
-	 * @struct drm_panel.
-	 */
-	void *container;
-
-	/**
-	 * @refcount: reference count of users referencing this panel.
-	 */
-	struct kref refcount;
 };
 
 void *__devm_drm_panel_alloc(struct device *dev, size_t size, size_t offset,

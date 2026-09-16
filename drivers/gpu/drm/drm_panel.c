@@ -38,6 +38,18 @@ static LIST_HEAD(panel_list);
  * take look at drm_panel_bridge_add() and devm_drm_panel_bridge_add().
  */
 
+static inline struct drm_panel *
+drm_bridge_to_panel(const struct drm_bridge *bridge)
+{
+	return container_of(bridge, struct drm_panel, bridge);
+}
+
+static inline struct drm_panel *
+drm_connector_to_panel(const struct drm_connector *connector)
+{
+	return container_of(connector, struct drm_panel, connector);
+}
+
 struct panel_bridge {
 	struct drm_bridge bridge;
 	struct drm_connector connector;
@@ -45,24 +57,11 @@ struct panel_bridge {
 	u32 connector_type;
 };
 
-static inline struct panel_bridge *
-drm_bridge_to_panel_bridge(struct drm_bridge *bridge)
-{
-	return container_of(bridge, struct panel_bridge, bridge);
-}
-
-static inline struct panel_bridge *
-drm_connector_to_panel_bridge(struct drm_connector *connector)
-{
-	return container_of(connector, struct panel_bridge, connector);
-}
-
 static int panel_bridge_connector_get_modes(struct drm_connector *connector)
 {
-	struct panel_bridge *panel_bridge =
-		drm_connector_to_panel_bridge(connector);
+	struct drm_panel *panel = drm_connector_to_panel(connector);
 
-	return drm_panel_get_modes(panel_bridge->panel, connector);
+	return drm_panel_get_modes(panel, connector);
 }
 
 static const struct drm_connector_helper_funcs
@@ -82,8 +81,8 @@ static int panel_bridge_attach(struct drm_bridge *bridge,
 			       struct drm_encoder *encoder,
 			       enum drm_bridge_attach_flags flags)
 {
-	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
-	struct drm_connector *connector = &panel_bridge->connector;
+	struct drm_panel *panel = drm_bridge_to_panel(bridge);
+	struct drm_connector *connector = &panel->connector;
 	int ret;
 
 	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
@@ -94,7 +93,7 @@ static int panel_bridge_attach(struct drm_bridge *bridge,
 
 	ret = drm_connector_init(bridge->dev, connector,
 				 &panel_bridge_connector_funcs,
-				 panel_bridge->connector_type);
+				 panel->connector_type);
 	if (ret) {
 		DRM_ERROR("Failed to initialize connector\n");
 		return ret;
@@ -102,8 +101,7 @@ static int panel_bridge_attach(struct drm_bridge *bridge,
 
 	drm_panel_bridge_set_orientation(connector, bridge);
 
-	drm_connector_attach_encoder(&panel_bridge->connector,
-				     encoder);
+	drm_connector_attach_encoder(connector, encoder);
 
 	if (bridge->dev->registered) {
 		if (connector->funcs->reset)
@@ -116,16 +114,10 @@ static int panel_bridge_attach(struct drm_bridge *bridge,
 
 static void panel_bridge_detach(struct drm_bridge *bridge)
 {
-	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
-	struct drm_connector *connector = &panel_bridge->connector;
+	struct drm_panel *panel = drm_bridge_to_panel(bridge);
+	struct drm_connector *connector = &panel->connector;
 
-	/*
-	 * Cleanup the connector if we know it was initialized.
-	 *
-	 * FIXME: This wouldn't be needed if the panel_bridge structure was
-	 * allocated with drmm_kzalloc(). This might be tricky since the
-	 * drm_device pointer can only be retrieved when the bridge is attached.
-	 */
+	/* Cleanup the connector if we know it was initialized */
 	if (connector->dev)
 		drm_connector_cleanup(connector);
 }
@@ -133,7 +125,7 @@ static void panel_bridge_detach(struct drm_bridge *bridge)
 static void panel_bridge_atomic_pre_enable(struct drm_bridge *bridge,
 					   struct drm_atomic_commit *atomic_state)
 {
-	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
+	struct drm_panel *panel = drm_bridge_to_panel(bridge);
 	struct drm_encoder *encoder = bridge->encoder;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
@@ -146,13 +138,13 @@ static void panel_bridge_atomic_pre_enable(struct drm_bridge *bridge,
 	if (old_crtc_state && old_crtc_state->self_refresh_active)
 		return;
 
-	drm_panel_prepare(panel_bridge->panel);
+	drm_panel_prepare(panel);
 }
 
 static void panel_bridge_atomic_enable(struct drm_bridge *bridge,
 				       struct drm_atomic_commit *atomic_state)
 {
-	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
+	struct drm_panel *panel = drm_bridge_to_panel(bridge);
 	struct drm_encoder *encoder = bridge->encoder;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
@@ -165,13 +157,13 @@ static void panel_bridge_atomic_enable(struct drm_bridge *bridge,
 	if (old_crtc_state && old_crtc_state->self_refresh_active)
 		return;
 
-	drm_panel_enable(panel_bridge->panel);
+	drm_panel_enable(panel);
 }
 
 static void panel_bridge_atomic_disable(struct drm_bridge *bridge,
 					struct drm_atomic_commit *atomic_state)
 {
-	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
+	struct drm_panel *panel = drm_bridge_to_panel(bridge);
 	struct drm_encoder *encoder = bridge->encoder;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *new_crtc_state;
@@ -184,13 +176,13 @@ static void panel_bridge_atomic_disable(struct drm_bridge *bridge,
 	if (new_crtc_state && new_crtc_state->self_refresh_active)
 		return;
 
-	drm_panel_disable(panel_bridge->panel);
+	drm_panel_disable(panel);
 }
 
 static void panel_bridge_atomic_post_disable(struct drm_bridge *bridge,
 					     struct drm_atomic_commit *atomic_state)
 {
-	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
+	struct drm_panel *panel = drm_bridge_to_panel(bridge);
 	struct drm_encoder *encoder = bridge->encoder;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *new_crtc_state;
@@ -203,22 +195,21 @@ static void panel_bridge_atomic_post_disable(struct drm_bridge *bridge,
 	if (new_crtc_state && new_crtc_state->self_refresh_active)
 		return;
 
-	drm_panel_unprepare(panel_bridge->panel);
+	drm_panel_unprepare(panel);
 }
 
 static int panel_bridge_get_modes(struct drm_bridge *bridge,
 				  struct drm_connector *connector)
 {
-	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
+	struct drm_panel *panel = drm_bridge_to_panel(bridge);
 
-	return drm_panel_get_modes(panel_bridge->panel, connector);
+	return drm_panel_get_modes(panel, connector);
 }
 
 static void panel_bridge_debugfs_init(struct drm_bridge *bridge,
 				      struct dentry *root)
 {
-	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
-	struct drm_panel *panel = panel_bridge->panel;
+	struct drm_panel *panel = drm_bridge_to_panel(bridge);
 
 	root = debugfs_create_dir("panel", root);
 	if (panel->funcs->debugfs_init)
@@ -288,7 +279,7 @@ struct drm_bridge *drm_panel_bridge_add(struct drm_panel *panel)
 EXPORT_SYMBOL(drm_panel_bridge_add);
 
 /**
- * drm_panel_bridge_add_typed - Creates a &drm_bridge and &drm_connector with
+ * drm_panel_bridge_add_typed - Pretend to create a &drm_bridge and &drm_connector with
  * an explicit connector type.
  * @panel: The drm_panel being wrapped.  Must be non-NULL.
  * @connector_type: The connector type (DRM_MODE_CONNECTOR_*)
@@ -303,27 +294,10 @@ EXPORT_SYMBOL(drm_panel_bridge_add);
 struct drm_bridge *drm_panel_bridge_add_typed(struct drm_panel *panel,
 					      u32 connector_type)
 {
-	struct panel_bridge *panel_bridge;
-
 	if (!panel)
 		return ERR_PTR(-EINVAL);
 
-	panel_bridge = devm_drm_bridge_alloc(panel->dev, struct panel_bridge, bridge,
-					     &panel_bridge_bridge_funcs);
-	if (IS_ERR(panel_bridge))
-		return (void *)panel_bridge;
-
-	panel_bridge->connector_type = connector_type;
-	panel_bridge->panel = drm_panel_get(panel);
-
-	panel_bridge->bridge.of_node = panel->dev->of_node;
-	panel_bridge->bridge.ops = DRM_BRIDGE_OP_MODES;
-	panel_bridge->bridge.type = connector_type;
-	panel_bridge->bridge.pre_enable_prev_first = panel->prepare_prev_first;
-
-	drm_bridge_add(&panel_bridge->bridge);
-
-	return &panel_bridge->bridge;
+	return drm_bridge_get(&panel->bridge);
 }
 EXPORT_SYMBOL(drm_panel_bridge_add_typed);
 
@@ -335,9 +309,6 @@ EXPORT_SYMBOL(drm_panel_bridge_add_typed);
  */
 void drm_panel_bridge_remove(struct drm_bridge *bridge)
 {
-	struct panel_bridge *panel_bridge;
-	struct drm_panel *panel;
-
 	if (!bridge)
 		return;
 
@@ -346,13 +317,7 @@ void drm_panel_bridge_remove(struct drm_bridge *bridge)
 		return;
 	}
 
-	panel_bridge = drm_bridge_to_panel_bridge(bridge);
-	panel = panel_bridge->panel;
-
-	drm_bridge_remove(bridge);
-	/* TODO remove this after reworking panel_bridge lifetime */
-	devm_drm_put_bridge(panel->dev, bridge);
-	drm_panel_put(panel);
+	drm_bridge_put(bridge);
 }
 EXPORT_SYMBOL(drm_panel_bridge_remove);
 
@@ -361,35 +326,27 @@ EXPORT_SYMBOL(drm_panel_bridge_remove);
  * from the bridge that can be transformed to panel bridge.
  *
  * @connector: The connector to be set panel orientation.
- * @bridge: The drm_bridge to be transformed to panel bridge.
+ * @bridge: The drm_bridge whose orientation should be set.
  *
  * Returns 0 on success, negative errno on failure.
  */
 int drm_panel_bridge_set_orientation(struct drm_connector *connector,
 				     struct drm_bridge *bridge)
 {
-	struct panel_bridge *panel_bridge;
+	struct drm_panel *panel = drm_bridge_to_panel(bridge);
 
-	panel_bridge = drm_bridge_to_panel_bridge(bridge);
-
-	return drm_connector_set_orientation_from_panel(connector,
-							panel_bridge->panel);
+	return drm_connector_set_orientation_from_panel(connector, panel);
 }
 EXPORT_SYMBOL(drm_panel_bridge_set_orientation);
 
 static void devm_drm_panel_bridge_release(struct device *dev, void *res)
 {
 	struct drm_bridge *bridge = *(struct drm_bridge **)res;
-	struct panel_bridge *panel_bridge;
-	struct drm_panel *panel;
 
 	if (!bridge)
 		return;
 
-	panel_bridge = drm_bridge_to_panel_bridge(bridge);
-	panel = panel_bridge->panel;
-	drm_bridge_remove(bridge);
-	drm_panel_put(panel);
+	drm_bridge_put(bridge);
 }
 
 /**
@@ -446,7 +403,7 @@ struct drm_bridge *devm_drm_panel_bridge_add_typed(struct device *dev,
 	*ptr = bridge;
 	devres_add(dev, ptr);
 
-	return bridge;
+	return &panel->bridge;
 }
 EXPORT_SYMBOL(devm_drm_panel_bridge_add_typed);
 
@@ -489,21 +446,21 @@ struct drm_bridge *drmm_panel_bridge_add(struct drm_device *drm,
 EXPORT_SYMBOL(drmm_panel_bridge_add);
 
 /**
- * drm_panel_bridge_connector - return the connector for the panel bridge
+ * drm_panel_bridge_connector - return the connector for the panel (for
+ * legacy drivers not using DRM_BRIDGE_ATTACH_NO_CONNECTOR)
  * @bridge: The drm_bridge.
  *
- * drm_panel_bridge creates the connector.
  * This function gives external access to the connector.
  *
  * Returns: Pointer to drm_connector
  */
 struct drm_connector *drm_panel_bridge_connector(struct drm_bridge *bridge)
 {
-	struct panel_bridge *panel_bridge;
+	struct drm_panel *panel;
 
-	panel_bridge = drm_bridge_to_panel_bridge(bridge);
+	panel = drm_bridge_to_panel(bridge);
 
-	return &panel_bridge->connector;
+	return &panel->connector;
 }
 EXPORT_SYMBOL(drm_panel_bridge_connector);
 
@@ -622,6 +579,13 @@ void drm_panel_add(struct drm_panel *panel)
 	mutex_lock(&panel_lock);
 	list_add_tail(&panel->list, &panel_list);
 	mutex_unlock(&panel_lock);
+
+	panel->bridge.of_node = panel->dev->of_node;
+	panel->bridge.ops = DRM_BRIDGE_OP_MODES;
+	panel->bridge.type = panel->connector_type;
+	panel->bridge.pre_enable_prev_first = panel->prepare_prev_first;
+
+	drm_bridge_add(&panel->bridge);
 }
 EXPORT_SYMBOL(drm_panel_add);
 
@@ -633,6 +597,7 @@ EXPORT_SYMBOL(drm_panel_add);
  */
 void drm_panel_remove(struct drm_panel *panel)
 {
+	drm_bridge_remove(&panel->bridge);
 	mutex_lock(&panel_lock);
 	list_del_init(&panel->list);
 	mutex_unlock(&panel_lock);
@@ -906,13 +871,6 @@ int drm_panel_get_modes(struct drm_panel *panel,
 }
 EXPORT_SYMBOL(drm_panel_get_modes);
 
-static void __drm_panel_free(struct kref *kref)
-{
-	struct drm_panel *panel = container_of(kref, struct drm_panel, refcount);
-
-	kfree(panel->container);
-}
-
 /**
  * drm_panel_get - Acquire a panel reference
  * @panel: DRM panel
@@ -923,10 +881,8 @@ static void __drm_panel_free(struct kref *kref)
  */
 struct drm_panel *drm_panel_get(struct drm_panel *panel)
 {
-	if (!panel)
-		return panel;
-
-	kref_get(&panel->refcount);
+	if (panel)
+		drm_bridge_get(&panel->bridge);
 
 	return panel;
 }
@@ -942,7 +898,7 @@ EXPORT_SYMBOL(drm_panel_get);
 void drm_panel_put(struct drm_panel *panel)
 {
 	if (panel)
-		kref_put(&panel->refcount, __drm_panel_free);
+		drm_bridge_put(&panel->bridge);
 }
 EXPORT_SYMBOL(drm_panel_put);
 
@@ -965,8 +921,22 @@ void *__devm_drm_panel_alloc(struct device *dev, size_t size, size_t offset,
 			     const struct drm_panel_funcs *funcs,
 			     int connector_type)
 {
-	void *container;
+	/*
+	 * Struct embedding and offsets:
+	 *
+	 *    |--------------- user container struct ------------|
+	 *    :    |---------- struct drm_panel ------------|
+	 *    :    :    |----- struct drm_bridge ------|
+	 *    A    B    C
+	 *
+	 * B - A = offset (passed as argument)
+	 * C - B = panel_bridge_offset
+	 * C - A = alloc_bridge_offset
+	 */
+	const size_t panel_bridge_offset = offsetof(struct drm_panel, bridge);
+	const size_t alloc_bridge_offset = offset + panel_bridge_offset;
 	struct drm_panel *panel;
+	void *container;
 	int err;
 
 	if (!funcs) {
@@ -974,14 +944,16 @@ void *__devm_drm_panel_alloc(struct device *dev, size_t size, size_t offset,
 		return ERR_PTR(-EINVAL);
 	}
 
-	container = kzalloc(size, GFP_KERNEL);
-	if (!container)
-		return ERR_PTR(-ENOMEM);
+	container = __devm_drm_bridge_alloc(dev, size, alloc_bridge_offset,
+					    &panel_bridge_bridge_funcs);
+	if (IS_ERR(container))
+		return container;
 
 	panel = container + offset;
-	panel->container = container;
 	panel->funcs = funcs;
-	kref_init(&panel->refcount);
+	panel->bridge.of_node = dev->of_node;
+
+	drm_panel_get(panel);
 
 	err = devm_add_action_or_reset(dev, drm_panel_put_void, panel);
 	if (err)
