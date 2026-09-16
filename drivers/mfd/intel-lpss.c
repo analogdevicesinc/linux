@@ -151,9 +151,9 @@ static void intel_lpss_debugfs_add(struct intel_lpss *lpss)
 	/* Cache the values into lpss structure */
 	intel_lpss_cache_ltr(lpss);
 
-	debugfs_create_x32("capabilities", S_IRUGO, dir, &lpss->caps);
-	debugfs_create_x32("active_ltr", S_IRUGO, dir, &lpss->active_ltr);
-	debugfs_create_x32("idle_ltr", S_IRUGO, dir, &lpss->idle_ltr);
+	debugfs_create_x32("capabilities", 0444, dir, &lpss->caps);
+	debugfs_create_x32("active_ltr", 0444, dir, &lpss->active_ltr);
+	debugfs_create_x32("idle_ltr", 0444, dir, &lpss->idle_ltr);
 
 	lpss->debugfs = dir;
 }
