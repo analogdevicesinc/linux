@@ -404,9 +404,10 @@ fn init_fields(fields: &Punctuated<InitializerField, Token![,]>, pinned: bool) -
             }
         };
         let ident = member.as_ident();
+        let span = Span::mixed_site().located_at(ident.span());
 
         let slot = if pinned {
-            quote_spanned! { Span::mixed_site() =>
+            quote_spanned! { span =>
                 // SAFETY:
                 // - `slot` is valid and properly aligned.
                 // - `make_field_check` checks that `&raw mut (*slot).#member` is properly aligned.
@@ -415,7 +416,7 @@ fn init_fields(fields: &Punctuated<InitializerField, Token![,]>, pinned: bool) -
                 (unsafe { data.#ident(slot) })
             }
         } else {
-            quote_spanned! { Span::mixed_site() =>
+            quote_spanned! { span =>
                 // For `init!()` macro, everything is unpinned.
                 // SAFETY:
                 // - `&raw mut (*slot).#member` is valid.
@@ -432,6 +433,7 @@ fn init_fields(fields: &Punctuated<InitializerField, Token![,]>, pinned: bool) -
 
         // `mixed_site` ensures that the guard is not accessible to the user-controlled code.
         let guard = format_ident!("__{ident}_guard", span = Span::mixed_site());
+        let full_span = kind.span();
 
         let init = match kind {
             InitializerKind::Value { value, .. } => {
@@ -440,14 +442,13 @@ fn init_fields(fields: &Punctuated<InitializerField, Token![,]>, pinned: bool) -
                     .map(|(_, value)| quote!(#value))
                     .unwrap_or_else(|| quote!(#member));
 
-                quote! {
+                quote_spanned! { full_span =>
                     #(#attrs)*
                     let mut #guard = #slot.write(#value);
-
                 }
             }
             InitializerKind::Init { value, .. } => {
-                quote! {
+                quote_spanned! { full_span =>
                     #(#attrs)*
                     let mut #guard = #slot.init(#value)?;
                 }
@@ -458,7 +459,7 @@ fn init_fields(fields: &Punctuated<InitializerField, Token![,]>, pinned: bool) -
         // A tuple field has no name that could be bound here (the `_0` identifiers are considered
         // implementation detail and not user-facing).
         let binding = match member {
-            Member::Named(ident) => quote! {
+            Member::Named(ident) => quote_spanned! { span =>
                 #(#cfgs)*
                 // Allow `non_snake_case` since the same warning is going to be reported for the
                 // struct field.
