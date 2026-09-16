@@ -374,8 +374,6 @@ static void ip6gre_tunnel_uninit(struct net_device *dev)
 
 	ip6gre_tunnel_unlink_md(ign, t);
 	ip6gre_tunnel_unlink(ign, t);
-	if (ign->fb_tunnel_dev == dev)
-		WRITE_ONCE(ign->fb_tunnel_dev, NULL);
 	dst_cache_reset(&t->dst_cache);
 	netdev_put(dev, &t->dev_tracker);
 }
@@ -1552,29 +1550,20 @@ static void __net_exit ip6gre_exit_rtnl_net(struct net *net,
 					    struct list_head *dev_kill_list)
 {
 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
-	struct net_device *dev, *aux;
 	int prio;
 
-	for_each_netdev_safe(net, dev, aux)
-		if (dev->rtnl_link_ops == &ip6gre_link_ops ||
-		    dev->rtnl_link_ops == &ip6gre_tap_ops ||
-		    dev->rtnl_link_ops == &ip6erspan_tap_ops)
-			unregister_netdevice_queue(dev, dev_kill_list);
+	WRITE_ONCE(ign->fb_tunnel_dev, NULL);
 
 	for (prio = 0; prio < 4; prio++) {
 		int h;
 
 		for (h = 0; h < IP6_GRE_HASH_SIZE; h++) {
 			struct hlist_head *head = &ign->tunnels[prio][h];
+			struct hlist_node *tmp;
 			struct ip6_tnl *t;
 
-			hlist_for_each_entry(t, head, hash_node) {
-				/* If dev is in the same netns, it has already
-				 * been added to the list by the previous loop.
-				 */
-				if (!net_eq(dev_net(t->dev), net))
-					unregister_netdevice_queue(t->dev, dev_kill_list);
-			}
+			hlist_for_each_entry_safe(t, tmp, head, hash_node)
+				unregister_netdevice_queue(t->dev, dev_kill_list);
 		}
 	}
 }
