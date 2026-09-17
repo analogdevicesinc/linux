@@ -146,9 +146,6 @@ struct fd_prepare {
 	struct file *__file; /* do not access directly */
 };
 
-/* Typedef for fd_prepare cleanup guards. */
-typedef struct fd_prepare class_fd_prepare_t;
-
 /*
  * Accessors for fd_prepare class members.
  * _Generic() is used for zero-cost type safety.
@@ -160,7 +157,7 @@ typedef struct fd_prepare class_fd_prepare_t;
 	(_Generic((_fdf), struct fd_prepare: (_fdf).__file))
 
 /* Do not use directly. */
-static __always_inline void class_fd_prepare_destructor(const struct fd_prepare *fdf)
+static __always_inline void __fd_prepare_cleanup(const struct fd_prepare *fdf)
 {
 	if (unlikely(fdf->__fd >= 0)) {
 		put_unused_fd(fdf->__fd);
@@ -199,10 +196,10 @@ static __always_inline struct fd_prepare __fd_prepare(int fd, struct file *file)
  * @_file_owned: struct file to take ownership of (can be expression)
  */
 #define FD_PREPARE(_fdf, _fd_flags, _file_owned)			\
-	CLASS_INIT(fd_prepare, _fdf, ({					\
+	struct fd_prepare _fdf __cleanup(__fd_prepare_cleanup) = ({	\
 		int __fd = get_unused_fd_flags(_fd_flags);		\
 		__fd_prepare(__fd, __fd < 0 ? NULL : (_file_owned));	\
-	}))
+	})
 
 /* Do not use directly. */
 static __always_inline int __fd_publish(struct fd_prepare *fdf)
