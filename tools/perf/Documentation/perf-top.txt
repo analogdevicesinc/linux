@@ -49,6 +49,11 @@ Default is to monitor all CPUS.
 	encoding with the layout of the event control registers as described
 	by entries in /sys/bus/event_source/devices/cpu/format/*.
 
+--hybrid-merge::
+	Merge matching events from all hybrid core PMUs into one
+	display. For example, if a wildcard expands to run on both p-cores and
+	e-cores, this aggregates them into a single view.
+
 --filter=<filter>::
 	Event filter.  This option should follow an event selector (-e). For
 	syntax see linkperf:perf-record[1].

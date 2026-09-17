@@ -1114,6 +1114,17 @@ static int __cmd_report(struct report *rep)
 	evlist__for_each_entry(session->evlist, pos)
 		rep->nr_entries += evsel__hists(pos)->nr_entries;
 
+	if (symbol_conf.hybrid_merge) {
+		struct perf_env *env = perf_session__env(session);
+
+		if (evlist__can_merge_hybrid(session->evlist, env)) {
+			evlist__merge_hybrid(session->evlist, env);
+			evlist__merge_hists_hybrid(session->evlist, false);
+		} else {
+			ui__warning("--hybrid-merge: no events to merge across core PMUs\n");
+		}
+	}
+
 	if (use_browser == 0) {
 		if (verbose > 3)
 			perf_session__fprintf(session, stdout);
@@ -1449,6 +1460,8 @@ int cmd_report(int argc, const char **argv)
 		    parse_branch_mode),
 	OPT_BOOLEAN(0, "branch-history", &branch_call_mode,
 		    "add last branch records to call history"),
+	OPT_BOOLEAN(0, "hybrid-merge", &symbol_conf.hybrid_merge,
+		    "merge the same event across hybrid core PMUs"),
 	OPT_STRING(0, "objdump", &objdump_path, "path",
 		   "objdump binary to use for disassembly and annotations"),
 	OPT_STRING(0, "addr2line", &addr2line_path, "path",
@@ -1546,6 +1559,12 @@ int cmd_report(int argc, const char **argv)
 			usage_with_options(report_usage, options);
 
 		report.symbol_filter_str = argv[0];
+	}
+
+	if (symbol_conf.report_hierarchy && symbol_conf.hybrid_merge) {
+		pr_err("Error: --hierarchy and --hybrid-merge are mutually exclusive.\n");
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	if (disassembler_style) {

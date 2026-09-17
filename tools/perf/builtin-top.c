@@ -1336,6 +1336,15 @@ static int __cmd_top(struct perf_top *top)
         if (!target__none(&opts->target))
 		evlist__enable(top->evlist);
 
+	if (symbol_conf.hybrid_merge) {
+		if (evlist__can_merge_hybrid(top->evlist, /*env=*/NULL)) {
+			evlist__merge_hybrid(top->evlist, /*env=*/NULL);
+			evlist__merge_hists_hybrid(top->evlist, false);
+		} else {
+			ui__warning("--hybrid-merge: no events to merge across core PMUs\n");
+		}
+	}
+
 	ret = -1;
 	if (pthread_create(&thread_process, NULL, process_thread, top)) {
 		ui__error("Could not create process thread.\n");
@@ -1491,6 +1500,8 @@ int cmd_top(int argc, const char **argv)
 	OPT_CALLBACK('e', "event", &parse_events_option_args, "event",
 		     "event selector. use 'perf list' to list available events",
 		     parse_events_option),
+	OPT_BOOLEAN(0, "hybrid-merge", &symbol_conf.hybrid_merge,
+		    "merge the same event across hybrid core PMUs"),
 	OPT_CALLBACK(0, "filter", &top.evlist, "filter",
 		     "event filter", parse_filter),
 	OPT_U64('c', "count", &opts->user_interval, "event period to sample"),
@@ -1678,6 +1689,12 @@ int cmd_top(int argc, const char **argv)
 	argc = parse_options(argc, argv, options, top_usage, 0);
 	if (argc)
 		usage_with_options(top_usage, options);
+
+	if (symbol_conf.report_hierarchy && symbol_conf.hybrid_merge) {
+		pr_err("Error: --hierarchy and --hybrid-merge are mutually exclusive.\n");
+		status = -EINVAL;
+		goto out_put_evlist;
+	}
 
 	if (disassembler_style) {
 		annotate_opts.disassembler_style = strdup(disassembler_style);

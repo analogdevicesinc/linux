@@ -73,6 +73,7 @@ struct symbol_conf symbol_conf = {
 	.symfs			= "",
 	.symfs_layout_flat	= false,
 	.event_group		= true,
+	.hybrid_merge		= false,
 	.inline_name		= true,
 	.res_sample		= 0,
 	.addr2line_timeout_ms	= 5 * 1000,
