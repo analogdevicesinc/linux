@@ -40,6 +40,8 @@ struct  rt721_sdca_priv {
 	/* For DMIC */
 	bool fu1e_dapm_mute;
 	bool fu1e_mixer_mute[4];
+	int wf_id;
+	int hw_vid;
 };
 
 struct rt721_sdca_dmic_kctrl_priv {
@@ -271,6 +273,16 @@ enum {
 	RT721_AIF2, /* For speaker */
 	RT721_AIF3, /* For dmic */
 	RT721_AIFS,
+};
+
+enum rt721_wf_id {
+	RT721_S,
+	RT721_U,
+};
+
+enum rt721u_hw_ver {
+	RT721_U_VB = 1,
+	RT721_U_VD = 3,
 };
 
 int rt721_sdca_io_init(struct device *dev, struct sdw_slave *slave);

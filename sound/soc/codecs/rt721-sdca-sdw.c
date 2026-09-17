@@ -91,6 +91,7 @@ static bool rt721_sdca_mbq_readable_register(struct device *dev, unsigned int re
 	case 0x5810037:
 	case 0x5810038:
 	case 0x5810039:
+	case 0x5810100:
 	case 0x5b10018:
 	case 0x5b10019:
 	case 0x5f00045:
@@ -167,6 +168,7 @@ static bool rt721_sdca_mbq_volatile_register(struct device *dev, unsigned int re
 	case 0x5810037:
 	case 0x5810038:
 	case 0x5810039:
+	case 0x5810100:
 	case 0x5b10018:
 	case 0x5b10019:
 	case 0x6100006:
@@ -448,6 +450,7 @@ static void rt721_sdca_sdw_remove(struct sdw_slave *slave)
 
 static const struct sdw_device_id rt721_sdca_id[] = {
 	SDW_SLAVE_ENTRY_EXT(0x025d, 0x721, 0x3, 0x1, 0),
+	SDW_SLAVE_ENTRY_EXT(0x025d, 0x718, 0x3, 0x1, 0),
 	{},
 };
 MODULE_DEVICE_TABLE(sdw, rt721_sdca_id);
