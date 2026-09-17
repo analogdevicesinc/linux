@@ -1617,7 +1617,7 @@ static int try_to_merge_with_ksm_page(struct ksm_rmap_item *rmap_item,
 
 	/*
 	 * We can consider the VMA only while still holding the mmap lock,
-	 * so lock, so reference the anon rmap and calculate the linear
+	 * so reference the anon rmap and calculate the linear
 	 * page index early, before stable_tree_append(). If anything goes
 	 * wrong that prevents the rmap_item from being added to the
 	 * stable_tree, break_cow() will clean it up.
