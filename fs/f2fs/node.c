@@ -2110,6 +2110,8 @@ int f2fs_writeback_node_caches(struct f2fs_sb_info *sbi, long nr_to_write,
 	int ret = 0;
 	int nr, done = 0;
 
+	trace_f2fs_write_caches(sbi, nr_to_write, 0, NODE);
+
 next_step:
 	index = 0;
 
@@ -2216,6 +2218,8 @@ write_node:
 out:
 	if (nwritten)
 		f2fs_submit_merged_write(sbi, NODE);
+
+	trace_f2fs_write_caches(sbi, nr_to_write, nwritten, NODE);
 
 	if (unlikely(f2fs_cp_error(sbi)))
 		return -EIO;
