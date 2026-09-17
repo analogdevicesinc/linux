@@ -222,6 +222,8 @@ struct f2fs_rwsem {
 #endif
 };
 
+#include "cache.h"
+
 struct f2fs_mount_info {
 	unsigned long long opt;
 	block_t root_reserved_blocks;	/* root reserved blocks */
@@ -1362,8 +1364,10 @@ struct f2fs_io_info {
 	unsigned int in_list:1;		/* indicate fio is in io_list */
 	unsigned int is_por:1;		/* indicate IO is from recovery or not */
 	unsigned int meta_gc:1;		/* require meta inode GC */
+	unsigned int is_cache:1;	/* indicate IO is from internal cache */
 	enum iostat_type io_type;	/* io type */
 	struct writeback_control *io_wbc; /* writeback control */
+	struct f2fs_cached_block *cache_entry;
 	struct bio **bio;		/* bio for ipu */
 	sector_t *last_block;		/* last block number in bio */
 };
@@ -1771,6 +1775,12 @@ struct f2fs_gc_kthread {
 	unsigned int valid_thresh_ratio;
 	unsigned int boost_gc_multiple;
 	unsigned int boost_gc_greedy;
+};
+
+struct f2fs_bio {
+	struct work_struct work;
+	struct f2fs_cached_block *entry;
+	struct bio bio;
 };
 
 struct f2fs_sb_info {
@@ -2379,6 +2389,16 @@ static inline bool is_meta_folio(struct f2fs_sb_info *sbi, struct folio *folio)
 static inline bool is_node_folio(struct f2fs_sb_info *sbi, struct folio *folio)
 {
 	return folio->mapping == NODE_MAPPING(sbi);
+}
+
+static inline struct f2fs_bio *F2FS_BIO(struct bio *bio)
+{
+	return container_of(bio, struct f2fs_bio, bio);
+}
+
+static inline bool f2fs_is_cache_bio(struct bio *bio)
+{
+	return F2FS_BIO(bio)->entry != NULL;
 }
 
 static inline bool is_sbi_flag_set(struct f2fs_sb_info *sbi, unsigned int type)
@@ -4312,6 +4332,8 @@ void f2fs_submit_merged_write_cond(struct f2fs_sb_info *sbi,
 				nid_t ino, enum page_type type);
 void f2fs_submit_merged_write_folio(struct f2fs_sb_info *sbi,
 				struct folio *folio, enum page_type type);
+bool f2fs_submit_merged_write_cache(struct f2fs_cached_block *entry,
+				enum page_type type);
 void f2fs_submit_merged_ipu_write(struct f2fs_sb_info *sbi,
 					struct bio **bio, struct folio *folio);
 void f2fs_submit_all_merged_ipu_writes(struct f2fs_sb_info *sbi);
@@ -4319,6 +4341,8 @@ void f2fs_flush_merged_writes(struct f2fs_sb_info *sbi);
 int f2fs_submit_page_bio(struct f2fs_io_info *fio);
 int f2fs_merge_page_bio(struct f2fs_io_info *fio);
 void f2fs_submit_page_write(struct f2fs_io_info *fio);
+int f2fs_submit_cache_read(struct f2fs_io_info *fio);
+void f2fs_submit_cache_write(struct f2fs_io_info *fio);
 struct block_device *f2fs_target_device(struct f2fs_sb_info *sbi,
 		block_t blk_addr, sector_t *sector);
 int f2fs_target_device_index(struct f2fs_sb_info *sbi, block_t blkaddr);
