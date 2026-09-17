@@ -2844,7 +2844,8 @@ int policydb_read(struct policydb *p, struct policy_file *fp)
 		goto bad;
 	}
 
-	if ((le32_to_cpu(buf[1]) & POLICYDB_CONFIG_MLS)) {
+	val = le32_to_cpu(buf[1]);
+	if (val & POLICYDB_CONFIG_MLS) {
 		p->mls_enabled = 1;
 
 		rc = -EINVAL;
@@ -2855,8 +2856,13 @@ int policydb_read(struct policydb *p, struct policy_file *fp)
 			goto bad;
 		}
 	}
-	p->reject_unknown = !!(le32_to_cpu(buf[1]) & REJECT_UNKNOWN);
-	p->allow_unknown = !!(le32_to_cpu(buf[1]) & ALLOW_UNKNOWN);
+	rc = -EINVAL;
+	if ((val & (REJECT_UNKNOWN | ALLOW_UNKNOWN)) == (REJECT_UNKNOWN | ALLOW_UNKNOWN)) {
+		pr_err("SELinux:  policydb configuration both rejects and allows unknown classes and permissions\n");
+		goto bad;
+	}
+	p->reject_unknown = !!(val & REJECT_UNKNOWN);
+	p->allow_unknown = !!(val & ALLOW_UNKNOWN);
 
 	if (p->policyvers >= POLICYDB_VERSION_POLCAP) {
 		rc = ebitmap_read(&p->policycaps, fp);
