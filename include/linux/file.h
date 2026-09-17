@@ -130,38 +130,26 @@ extern unsigned int sysctl_nr_open_min, sysctl_nr_open_max;
 
 /*
  * fd_prepare: Combined fd + file allocation cleanup class.
- * @err: Error code to indicate if allocation succeeded.
- * @__fd: Allocated fd (may not be accessed directly)
- * @__file: Allocated struct file pointer (may not be accessed directly)
+ * @fd: Allocated fd
+ * @file: Allocated struct file pointer
  *
  * Allocates an fd and a file together. On error paths, automatically cleans
  * up whichever resource was successfully allocated. Allows flexible file
  * allocation with different functions per usage.
  *
- * Do not use directly.
+ * Do not declare directly, use FD_PREPARE().
  */
 struct fd_prepare {
-	s32 err;
-	s32 __fd; /* do not access directly */
-	struct file *__file; /* do not access directly */
+	int fd;
+	struct file *file;
 };
-
-/*
- * Accessors for fd_prepare class members.
- * _Generic() is used for zero-cost type safety.
- */
-#define fd_prepare_fd(_fdf) \
-	(_Generic((_fdf), struct fd_prepare: (_fdf).__fd))
-
-#define fd_prepare_file(_fdf) \
-	(_Generic((_fdf), struct fd_prepare: (_fdf).__file))
 
 /* Do not use directly. */
 static __always_inline void __fd_prepare_cleanup(const struct fd_prepare *fdf)
 {
-	if (unlikely(fdf->__fd >= 0)) {
-		put_unused_fd(fdf->__fd);
-		fput(fdf->__file);
+	if (unlikely(fdf->fd >= 0)) {
+		put_unused_fd(fdf->fd);
+		fput(fdf->file);
 	}
 }
 
@@ -175,11 +163,7 @@ static __always_inline struct fd_prepare __fd_prepare(int fd, struct file *file)
 		fd = err;
 		file = NULL;
 	}
-	return (struct fd_prepare){
-		.err = fd < 0 ? fd : 0,
-		.__fd = fd,
-		.__file = file,
-	};
+	return (struct fd_prepare){ .fd = fd, .file = file };
 }
 
 /*
@@ -191,35 +175,39 @@ static __always_inline struct fd_prepare __fd_prepare(int fd, struct file *file)
  * was allocated. If fd_publish() was called the fd and file are
  * published and cleanup becomes a nop.
  *
- * @_fdf: name of struct fd_prepare variable to define
+ * @_fdf: name of the const struct fd_prepare pointer to define
  * @_fd_flags: flags for get_unused_fd_flags()
  * @_file_owned: struct file to take ownership of (can be expression)
  */
-#define FD_PREPARE(_fdf, _fd_flags, _file_owned)			\
-	struct fd_prepare _fdf __cleanup(__fd_prepare_cleanup) = ({	\
+#define __FD_PREPARE(_guard, _fdf, _fd_flags, _file_owned)		\
+	struct fd_prepare _guard __cleanup(__fd_prepare_cleanup) = ({	\
 		int __fd = get_unused_fd_flags(_fd_flags);		\
 		__fd_prepare(__fd, __fd < 0 ? NULL : (_file_owned));	\
-	})
+	});								\
+	const struct fd_prepare *const _fdf = &_guard
 
-/* Do not use directly. */
-static __always_inline int __fd_publish(struct fd_prepare *fdf)
-{
-	VFS_WARN_ON_ONCE(fdf->__fd < 0);
-	fd_install(fdf->__fd, fdf->__file);
-	return take_fd(fdf->__fd);
-}
+#define FD_PREPARE(_fdf, _fd_flags, _file_owned) \
+	__FD_PREPARE(__UNIQUE_ID(fd_prepare), _fdf, _fd_flags, _file_owned)
 
 /*
  * fd_publish - Publish prepared fd and file to the fd table.
- * @_fdf: struct fd_prepare variable
+ * @fdf: struct fd_prepare pointer defined by FD_PREPARE()
  */
-#define fd_publish(_fdf) __fd_publish(&(_fdf))
+static __always_inline int fd_publish(const struct fd_prepare *fdf)
+{
+	/* Callers only get a const view, the guard itself is writable. */
+	struct fd_prepare *guard = (struct fd_prepare *)fdf;
+
+	VFS_WARN_ON_ONCE(guard->fd < 0);
+	fd_install(guard->fd, guard->file);
+	return take_fd(guard->fd);
+}
 
 /* Do not use directly. */
 #define __FD_ADD(_fdf, _fd_flags, _file_owned)			\
 	({							\
 		FD_PREPARE(_fdf, _fd_flags, _file_owned);	\
-		_fdf.err ?: fd_publish(_fdf);			\
+		_fdf->fd < 0 ? _fdf->fd : fd_publish(_fdf);	\
 	})
 
 /*
