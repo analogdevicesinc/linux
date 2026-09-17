@@ -687,7 +687,6 @@ static struct rpmsg_device_id sa_id_table[] = {
 };
 static struct rpmsg_driver sa_rpmsg_driver = {
 	.drv.name  = KBUILD_MODNAME,
-	.drv.owner = THIS_MODULE,
 	.id_table  = sa_id_table,
 	.probe     = sa_probe,
 	.callback  = sa_rpmsg_cb,
