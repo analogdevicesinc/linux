@@ -7530,6 +7530,7 @@ static struct attribute *adl_hybrid_tsx_attrs[] = {
 FORMAT_ATTR_HYBRID(in_tx,       hybrid_big);
 FORMAT_ATTR_HYBRID(in_tx_cp,    hybrid_big);
 FORMAT_ATTR_HYBRID(offcore_rsp, hybrid_big_small_tiny);
+FORMAT_ATTR_HYBRID(offmodule_rsp, hybrid_big_small_tiny);
 FORMAT_ATTR_HYBRID(ldlat,       hybrid_big_small_tiny);
 FORMAT_ATTR_HYBRID(frontend,    hybrid_big);
 
@@ -7564,6 +7565,23 @@ static struct attribute *mtl_hybrid_extra_attr_rtm[] = {
 
 static struct attribute *mtl_hybrid_extra_attr[] = {
 	ADL_HYBRID_FORMAT_ATTR,
+	FORMAT_HYBRID_PTR(snoop_rsp),
+	NULL
+};
+
+static struct attribute *nvl_hybrid_extra_attr_rtm[] = {
+	ADL_HYBRID_RTM_FORMAT_ATTR,
+	FORMAT_HYBRID_PTR(offmodule_rsp),
+	FORMAT_HYBRID_PTR(ldlat),
+	FORMAT_HYBRID_PTR(frontend),
+	FORMAT_HYBRID_PTR(snoop_rsp),
+	NULL
+};
+
+static struct attribute *nvl_hybrid_extra_attr[] = {
+	FORMAT_HYBRID_PTR(offmodule_rsp),
+	FORMAT_HYBRID_PTR(ldlat),
+	FORMAT_HYBRID_PTR(frontend),
 	FORMAT_HYBRID_PTR(snoop_rsp),
 	NULL
 };
@@ -8842,7 +8860,7 @@ __init int intel_pmu_init(void)
 		mem_attr = mtl_hybrid_mem_attrs;
 		tsx_attr = adl_hybrid_tsx_attrs;
 		extra_attr = boot_cpu_has(X86_FEATURE_RTM) ?
-			mtl_hybrid_extra_attr_rtm : mtl_hybrid_extra_attr;
+			nvl_hybrid_extra_attr_rtm : nvl_hybrid_extra_attr;
 
 		/* Initialize big core specific PerfMon capabilities.*/
 		pmu = &x86_pmu.hybrid_pmu[X86_HYBRID_PMU_CORE_IDX];
