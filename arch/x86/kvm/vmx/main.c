@@ -543,12 +543,12 @@ static void vt_flush_tlb_current(struct kvm_vcpu *vcpu)
 	vmx_flush_tlb_current(vcpu);
 }
 
-static void vt_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr, bool *full)
+static void vt_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr)
 {
 	if (is_td_vcpu(vcpu))
 		return;
 
-	vmx_flush_tlb_gva(vcpu, addr, full);
+	vmx_flush_tlb_gva(vcpu, addr);
 }
 
 static void vt_flush_tlb_guest(struct kvm_vcpu *vcpu)
