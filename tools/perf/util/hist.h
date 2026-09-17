@@ -130,6 +130,7 @@ struct hists {
 	struct hists_stats	stats;
 	u64			event_stream;
 	u16			col_len[HISTC_NR_COLS];
+	bool			merge_entries;
 	bool			has_callchains;
 	int			socket_filter;
 	struct perf_hpp_list	*hpp_list;

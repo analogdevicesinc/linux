@@ -1683,7 +1683,7 @@ int parse_events_multi_pmu_add(struct parse_events_state *parse_state,
 			strbuf_release(&sb);
 			ok++;
 		}
-		if (first_wildcard_match == NULL)
+		if (first_wildcard_match == NULL && !list_empty(list))
 			first_wildcard_match = container_of(list->prev, struct evsel, core.node);
 	}
 
@@ -1754,7 +1754,7 @@ int parse_events_multi_pmu_add_or_add_pmu(struct parse_events_state *parse_state
 			ok++;
 			parse_state->wild_card_pmus = true;
 		}
-		if (first_wildcard_match == NULL) {
+		if (first_wildcard_match == NULL && !list_empty(*listp)) {
 			first_wildcard_match =
 				container_of((*listp)->prev, struct evsel, core.node);
 		}

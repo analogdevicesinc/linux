@@ -38,6 +38,7 @@ enum symbol__weight_mode {
 	for ((_weight) = WEIGHT_WEIGHT; (_weight) <= WEIGHT_WEIGHT3; (_weight)++)
 
 struct symbol_conf {
+	bool		hybrid_merge;
 	bool		nanosecs;
 	unsigned short	priv_size;
 	bool		try_vmlinux_path,

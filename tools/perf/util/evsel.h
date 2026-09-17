@@ -53,6 +53,7 @@ struct evsel {
 	int			id_pos;
 	int			is_pos;
 	unsigned int		sample_size;
+	bool			merged_hybrid_group;
 
 	/*
 	 * These fields can be set in the parse-events code or similar.
