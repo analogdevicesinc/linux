@@ -2106,6 +2106,7 @@ struct f2fs_sb_info {
 	/* f2fs internal cache */
 	struct f2fs_cached_block_list meta_blocks;
 	struct f2fs_cached_block_list node_blocks;
+	struct f2fs_cached_block_list compress_blocks;
 
 	/* internal cache flush thread */
 	struct f2fs_cache_kthread cache_thread;
@@ -2382,6 +2383,11 @@ static inline bool f2fs_is_meta_cache(struct f2fs_cached_block *entry)
 static inline bool f2fs_is_node_cache(struct f2fs_cached_block *entry)
 {
 	return entry->cache && entry->cache == NODE_CACHE(entry->cache->sbi);
+}
+
+static inline bool f2fs_is_compress_cache(struct f2fs_cached_block *entry)
+{
+	return entry->cache && entry->cache == COMPRESS_CACHE(entry->cache->sbi);
 }
 
 static inline struct f2fs_bio *F2FS_BIO(struct bio *bio)
