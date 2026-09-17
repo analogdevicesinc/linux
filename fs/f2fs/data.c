@@ -63,8 +63,7 @@ bool f2fs_is_cp_guaranteed(const struct folio *folio)
 	inode = mapping->host;
 	sbi = F2FS_I_SB(inode);
 
-	if (inode->i_ino == F2FS_META_INO(sbi) ||
-			inode->i_ino == F2FS_NODE_INO(sbi) ||
+	if (inode->i_ino == F2FS_NODE_INO(sbi) ||
 			S_ISDIR(inode->i_mode))
 		return true;
 
@@ -81,9 +80,6 @@ static enum count_type __read_io_type(struct folio *folio)
 	if (mapping) {
 		struct inode *inode = mapping->host;
 		struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-
-		if (inode->i_ino == F2FS_META_INO(sbi))
-			return F2FS_RD_META;
 
 		if (inode->i_ino == F2FS_NODE_INO(sbi))
 			return F2FS_RD_NODE;
@@ -1418,7 +1414,7 @@ static void f2fs_submit_page_read(struct inode *inode, struct fsverity_info *vi,
 	bio = f2fs_grab_read_bio(inode, vi, blkaddr, 1, op_flags, folio->index,
 				 for_write);
 
-	/* wait for GCed page writeback via META_MAPPING */
+	/* wait for GCed page writeback via generic cache */
 	f2fs_wait_on_block_writeback(inode, blkaddr);
 
 	if (!bio_add_folio(bio, folio, PAGE_SIZE, 0))
@@ -3241,7 +3237,7 @@ got_it:
 		goto out_writepage;
 	}
 
-	/* wait for GCed page writeback via META_MAPPING */
+	/* wait for GCed page writeback via generic cache */
 	if (fio->meta_gc)
 		f2fs_wait_on_block_writeback(inode, fio->old_blkaddr);
 
@@ -4314,9 +4310,7 @@ void f2fs_invalidate_folio(struct folio *folio, size_t offset, size_t length)
 		return;
 
 	if (folio_test_dirty(folio)) {
-		if (inode->i_ino == F2FS_META_INO(sbi)) {
-			dec_page_count(sbi, F2FS_DIRTY_META);
-		} else if (inode->i_ino == F2FS_NODE_INO(sbi)) {
+		if (inode->i_ino == F2FS_NODE_INO(sbi)) {
 			dec_page_count(sbi, F2FS_DIRTY_NODES);
 		} else {
 			inode_dec_dirty_pages(inode);

@@ -1880,8 +1880,7 @@ static int f2fs_drop_inode(struct inode *inode)
 	 * drop useless meta/node dirty pages.
 	 */
 	if (unlikely(is_sbi_flag_set(sbi, SBI_CP_DISABLED))) {
-		if (inode->i_ino == F2FS_NODE_INO(sbi) ||
-			inode->i_ino == F2FS_META_INO(sbi)) {
+		if (inode->i_ino == F2FS_NODE_INO(sbi)) {
 			trace_f2fs_drop_inode(inode, 1);
 			return 1;
 		}
@@ -1983,8 +1982,7 @@ static void f2fs_dirty_inode(struct inode *inode, int flags)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 
-	if (inode->i_ino == F2FS_NODE_INO(sbi) ||
-			inode->i_ino == F2FS_META_INO(sbi))
+	if (inode->i_ino == F2FS_NODE_INO(sbi))
 		return;
 
 	if (is_inode_flag_set(inode, FI_AUTO_RECOVER))
@@ -2078,11 +2076,12 @@ static void f2fs_put_super(struct super_block *sb)
 	/* our cp_error case, we can wait for any writeback page */
 	f2fs_flush_merged_writes(sbi);
 
-	f2fs_wait_on_all_pages(sbi, F2FS_WB_CP_DATA);
+	f2fs_sync_dirty_data(sbi, F2FS_WB_CP_DATA);
 
-	if (err || f2fs_cp_error(sbi)) {
+	if (err || f2fs_cp_error(sbi) ||
+		unlikely(is_sbi_flag_set(sbi, SBI_CP_DISABLED))) {
 		truncate_inode_pages_final(NODE_MAPPING(sbi));
-		truncate_inode_pages_final(META_MAPPING(sbi));
+		f2fs_truncate_meta_caches(sbi, 0, ULONG_MAX);
 	}
 
 	f2fs_bug_on(sbi, sbi->fsync_node_num);
@@ -2091,9 +2090,6 @@ static void f2fs_put_super(struct super_block *sb)
 
 	iput(sbi->node_inode);
 	sbi->node_inode = NULL;
-
-	iput(sbi->meta_inode);
-	sbi->meta_inode = NULL;
 
 	f2fs_destroy_cache(META_CACHE(sbi));
 
@@ -4449,7 +4445,6 @@ static void init_sb_info(struct f2fs_sb_info *sbi)
 	sbi->allocate_section_policy = ALLOCATE_FORWARD_NOHINT;
 	F2FS_ROOT_INO(sbi) = le32_to_cpu(raw_super->root_ino);
 	F2FS_NODE_INO(sbi) = le32_to_cpu(raw_super->node_ino);
-	F2FS_META_INO(sbi) = le32_to_cpu(raw_super->meta_ino);
 	sbi->cur_victim_sec = NULL_SECNO;
 	sbi->gc_mode = GC_NORMAL;
 	sbi->next_victim_seg[BG_GC] = NULL_SEGNO;
@@ -5288,18 +5283,10 @@ try_onemore:
 
 	f2fs_init_cache(sbi, META_CACHE(sbi), F2FS_META_CACHE);
 
-	/* get an inode for meta space */
-	sbi->meta_inode = f2fs_iget(sb, F2FS_META_INO(sbi));
-	if (IS_ERR(sbi->meta_inode)) {
-		f2fs_err(sbi, "Failed to read F2FS meta data inode");
-		err = PTR_ERR(sbi->meta_inode);
-		goto free_meta_cache;
-	}
-
 	err = f2fs_get_valid_checkpoint(sbi);
 	if (err) {
 		f2fs_err(sbi, "Failed to get valid F2FS checkpoint");
-		goto free_meta_inode;
+		goto free_meta_cache;
 	}
 
 	if (__is_set_ckpt_flags(F2FS_CKPT(sbi), CP_QUOTA_NEED_FSCK_FLAG))
@@ -5595,7 +5582,7 @@ free_meta:
 	 * followed by f2fs_write_checkpoint() through f2fs_write_node_pages(), which
 	 * falls into an infinite loop in f2fs_sync_meta_pages().
 	 */
-	truncate_inode_pages_final(META_MAPPING(sbi));
+	f2fs_truncate_meta_caches(sbi, 0, ULONG_MAX);
 	/* evict some inodes being cached by GC */
 	evict_inodes(sb);
 	f2fs_unregister_sysfs(sbi);
@@ -5625,10 +5612,6 @@ stop_ckpt_thread:
 free_devices:
 	destroy_device_list(sbi);
 	kvfree(sbi->ckpt);
-free_meta_inode:
-	make_bad_inode(sbi->meta_inode);
-	iput(sbi->meta_inode);
-	sbi->meta_inode = NULL;
 free_meta_cache:
 	f2fs_destroy_cache(META_CACHE(sbi));
 	f2fs_destroy_page_array_cache(sbi);

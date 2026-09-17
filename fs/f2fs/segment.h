@@ -96,6 +96,8 @@ static inline void sanity_check_seg_type(struct f2fs_sb_info *sbi,
 #define GET_SUM_BLKOFF(sbi, segno) (segno % (sbi)->sums_per_block)
 #define SUM_BLK_PAGE_ADDR(sbi, folio, segno)	\
 	(folio_address(folio) + GET_SUM_BLKOFF(sbi, segno) * (sbi)->sum_blocksize)
+#define SUM_BLK_ENTRY_ADDR(sbi, entry, segno)	\
+	(cache_address(entry) + GET_SUM_BLKOFF(sbi, segno) * (sbi)->sum_blocksize)
 
 #define GET_SUM_TYPE(footer) ((footer)->entry_type)
 #define SET_SUM_TYPE(footer, type) ((footer)->entry_type = (type))
@@ -421,8 +423,8 @@ static inline void __seg_info_to_raw_sit(struct seg_entry *se,
 	rs->mtime = cpu_to_le64(se->mtime);
 }
 
-static inline void seg_info_to_sit_folio(struct f2fs_sb_info *sbi,
-				struct folio *folio, unsigned int start)
+static inline void seg_info_to_sit_block(struct f2fs_sb_info *sbi,
+			struct f2fs_cached_block *entry, unsigned int start)
 {
 	struct f2fs_sit_block *raw_sit;
 	struct seg_entry *se;
@@ -431,7 +433,7 @@ static inline void seg_info_to_sit_folio(struct f2fs_sb_info *sbi,
 					(unsigned long)MAIN_SEGS(sbi));
 	int i;
 
-	raw_sit = folio_address(folio);
+	raw_sit = cache_address(entry);
 	memset(raw_sit, 0, F2FS_BLKSIZE(sbi));
 	for (i = 0; i < end - start; i++) {
 		rs = &raw_sit->entries[i];
@@ -994,6 +996,27 @@ static inline int nr_pages_to_skip(struct f2fs_sb_info *sbi, int type)
 		return 8 * BIO_MAX_VECS;
 	else
 		return 0;
+}
+
+/*
+ * When writing cache asynchronously, align nr_to_write to BIO_MAX_VECS.
+ */
+static inline long adjust_flush_cache_number(struct f2fs_sb_info *sbi, int type)
+{
+	long nr_to_write;
+
+	switch (type) {
+	case META:
+		nr_to_write = BIO_MAX_VECS;
+		break;
+	case NODE:
+		nr_to_write = BIO_MAX_VECS << 1;
+		break;
+	default:
+		f2fs_bug_on(sbi, 1);
+		return 0;
+	}
+	return nr_to_write;
 }
 
 /*

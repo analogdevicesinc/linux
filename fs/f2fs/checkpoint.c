@@ -7,7 +7,6 @@
  */
 #include <linux/fs.h>
 #include <linux/bio.h>
-#include <linux/mpage.h>
 #include <linux/writeback.h>
 #include <linux/blkdev.h>
 #include <linux/f2fs_fs.h>
@@ -17,6 +16,7 @@
 #include <linux/delayacct.h>
 #include <linux/ioprio.h>
 #include <linux/math64.h>
+#include <linux/freezer.h>
 
 #include "f2fs.h"
 #include "node.h"
@@ -234,29 +234,29 @@ static struct kmem_cache *ino_entry_slab;
 struct kmem_cache *f2fs_inode_entry_slab;
 
 /*
- * We guarantee no failure on the returned page.
+ * We guarantee no failure on the returned cache.
  */
-struct folio *f2fs_grab_meta_folio(struct f2fs_sb_info *sbi, pgoff_t index)
+struct f2fs_cached_block *f2fs_grab_meta_cache(struct f2fs_sb_info *sbi,
+							pgoff_t index)
 {
-	struct address_space *mapping = META_MAPPING(sbi);
-	struct folio *folio;
+	struct f2fs_cached_block *entry;
 repeat:
-	folio = f2fs_grab_cache_folio(mapping, index, false);
-	if (IS_ERR(folio)) {
+	entry = f2fs_grab_cache(META_CACHE(sbi), index,
+					F2FS_CACHE_LOCK_CREATE);
+	if (IS_ERR(entry)) {
 		cond_resched();
 		goto repeat;
 	}
-	f2fs_folio_wait_writeback(folio, META, true, true);
-	if (!folio_test_uptodate(folio))
-		folio_mark_uptodate(folio);
-	return folio;
+	f2fs_cache_wait_writeback(entry);
+	if (!f2fs_cache_test_uptodate(entry))
+		f2fs_cache_set_uptodate(entry);
+	return entry;
 }
 
-static struct folio *__get_meta_folio(struct f2fs_sb_info *sbi, pgoff_t index,
-							bool is_meta)
+static struct f2fs_cached_block *__get_meta_cache(struct f2fs_sb_info *sbi,
+					pgoff_t index, bool is_meta)
 {
-	struct address_space *mapping = META_MAPPING(sbi);
-	struct folio *folio;
+	struct f2fs_cached_block *entry;
 	struct f2fs_io_info fio = {
 		.sbi = sbi,
 		.type = META,
@@ -266,70 +266,75 @@ static struct folio *__get_meta_folio(struct f2fs_sb_info *sbi, pgoff_t index,
 		.new_blkaddr = index,
 		.encrypted_page = NULL,
 		.is_por = !is_meta ? 1 : 0,
+		.is_cache = 1,
 	};
 	int err;
 
 	if (unlikely(!is_meta))
 		fio.op_flags &= ~REQ_META;
 repeat:
-	folio = f2fs_grab_cache_folio(mapping, index, false);
-	if (IS_ERR(folio)) {
+	entry = f2fs_grab_cache(META_CACHE(sbi), index,
+					F2FS_CACHE_LOCK_CREATE);
+	if (IS_ERR(entry)) {
 		cond_resched();
 		goto repeat;
 	}
-	if (folio_test_uptodate(folio))
+	if (f2fs_cache_test_uptodate(entry))
 		goto out;
 
-	fio.folio = folio;
+	fio.cache_entry = entry;
 
-	err = f2fs_submit_page_bio(&fio);
+	err = f2fs_submit_cache_read(&fio);
 	if (err) {
-		f2fs_folio_put(folio, true);
+		f2fs_put_cache(entry, true);
 		return ERR_PTR(err);
 	}
 
 	f2fs_update_iostat(sbi, NULL, FS_META_READ_IO, F2FS_BLKSIZE(sbi));
 
-	folio_lock(folio);
-	if (unlikely(!is_meta_folio(sbi, folio))) {
-		f2fs_folio_put(folio, true);
+	f2fs_lock_cache(entry);
+	if (unlikely(!f2fs_is_meta_cache(entry))) {
+		f2fs_put_cache(entry, true);
 		goto repeat;
 	}
 
-	if (unlikely(!folio_test_uptodate(folio))) {
-		f2fs_handle_page_eio(sbi, folio, META);
-		f2fs_folio_put(folio, true);
+	if (unlikely(!f2fs_cache_test_uptodate(entry))) {
+		f2fs_handle_page_eio(sbi, entry->index, META);
+		f2fs_put_cache(entry, true);
 		return ERR_PTR(-EIO);
 	}
 out:
-	return folio;
+	return entry;
 }
 
-struct folio *f2fs_get_meta_folio(struct f2fs_sb_info *sbi, pgoff_t index)
+struct f2fs_cached_block *f2fs_get_meta_cache(struct f2fs_sb_info *sbi,
+							pgoff_t index)
 {
-	return __get_meta_folio(sbi, index, true);
+	return __get_meta_cache(sbi, index, true);
 }
 
-struct folio *f2fs_get_meta_folio_retry(struct f2fs_sb_info *sbi, pgoff_t index)
+struct f2fs_cached_block *f2fs_get_meta_cache_retry(struct f2fs_sb_info *sbi,
+							pgoff_t index)
 {
-	struct folio *folio;
+	struct f2fs_cached_block *entry;
 	int count = 0;
 
 retry:
-	folio = __get_meta_folio(sbi, index, true);
-	if (IS_ERR(folio)) {
-		if (PTR_ERR(folio) == -EIO &&
+	entry = __get_meta_cache(sbi, index, true);
+	if (IS_ERR(entry)) {
+		if (PTR_ERR(entry) == -EIO &&
 				++count <= DEFAULT_RETRY_IO_COUNT)
 			goto retry;
 		f2fs_stop_checkpoint(sbi, false, STOP_CP_REASON_META_PAGE);
 	}
-	return folio;
+	return entry;
 }
 
 /* for POR only */
-struct folio *f2fs_get_tmp_folio(struct f2fs_sb_info *sbi, pgoff_t index)
+struct f2fs_cached_block *f2fs_get_tmp_cache(struct f2fs_sb_info *sbi,
+							pgoff_t index)
 {
-	return __get_meta_folio(sbi, index, false);
+	return __get_meta_cache(sbi, index, false);
 }
 
 static bool __is_bitmap_valid(struct f2fs_sb_info *sbi, block_t blkaddr,
@@ -445,11 +450,12 @@ bool f2fs_is_valid_blkaddr_raw(struct f2fs_sb_info *sbi,
 }
 
 /*
- * Readahead CP/NAT/SIT/SSA/POR pages
+ * Readahead CP/NAT/SIT/SSA/POR blocks
  */
-int f2fs_ra_meta_pages(struct f2fs_sb_info *sbi, block_t start, int nrpages,
-							int type, bool sync)
+int f2fs_ra_meta_caches(struct f2fs_sb_info *sbi, block_t start,
+				int nrblocks, int type, bool sync)
 {
+	struct f2fs_cached_block_list *cache = META_CACHE(sbi);
 	block_t blkno = start;
 	struct f2fs_io_info fio = {
 		.sbi = sbi,
@@ -459,6 +465,7 @@ int f2fs_ra_meta_pages(struct f2fs_sb_info *sbi, block_t start, int nrpages,
 		.encrypted_page = NULL,
 		.in_list = 0,
 		.is_por = (type == META_POR) ? 1 : 0,
+		.is_cache = 1,
 	};
 	struct blk_plug plug;
 	int err;
@@ -467,8 +474,8 @@ int f2fs_ra_meta_pages(struct f2fs_sb_info *sbi, block_t start, int nrpages,
 		fio.op_flags &= ~REQ_META;
 
 	blk_start_plug(&plug);
-	for (; nrpages-- > 0; blkno++) {
-		struct folio *folio;
+	for (; nrblocks-- > 0; blkno++) {
+		struct f2fs_cached_block *entry;
 
 		if (!f2fs_is_valid_blkaddr(sbi, blkno, type))
 			goto out;
@@ -495,21 +502,21 @@ int f2fs_ra_meta_pages(struct f2fs_sb_info *sbi, block_t start, int nrpages,
 			fio.new_blkaddr = blkno;
 			break;
 		default:
-			BUG();
+			f2fs_bug_on(sbi, 1);
 		}
 
-		folio = f2fs_grab_cache_folio(META_MAPPING(sbi),
-						fio.new_blkaddr, false);
-		if (IS_ERR(folio))
+		entry = f2fs_grab_cache(cache, fio.new_blkaddr,
+						F2FS_CACHE_LOCK_CREATE);
+		if (IS_ERR(entry))
 			continue;
-		if (folio_test_uptodate(folio)) {
-			f2fs_folio_put(folio, true);
+		if (f2fs_cache_test_uptodate(entry)) {
+			f2fs_put_cache(entry, true);
 			continue;
 		}
 
-		fio.folio = folio;
-		err = f2fs_submit_page_bio(&fio);
-		f2fs_folio_put(folio, err ? true : false);
+		fio.cache_entry = entry;
+		err = f2fs_submit_cache_read(&fio);
+		f2fs_put_cache(entry, err ? true : false);
 
 		if (!err)
 			f2fs_update_iostat(sbi, NULL, FS_META_READ_IO,
@@ -520,37 +527,36 @@ out:
 	return blkno - start;
 }
 
-void f2fs_ra_meta_pages_cond(struct f2fs_sb_info *sbi, pgoff_t index,
-							unsigned int ra_blocks)
+void f2fs_ra_meta_caches_cond(struct f2fs_sb_info *sbi, pgoff_t index,
+						unsigned int ra_blocks)
 {
-	struct folio *folio;
+	struct f2fs_cached_block *entry;
 	bool readahead = false;
 
 	if (ra_blocks == RECOVERY_MIN_RA_BLOCKS)
 		return;
 
-	folio = filemap_get_folio(META_MAPPING(sbi), index);
-	if (IS_ERR(folio) || !folio_test_uptodate(folio))
+	entry = f2fs_find_cache(META_CACHE(sbi), index, 0);
+	if (IS_ERR(entry) || !f2fs_cache_test_uptodate(entry))
 		readahead = true;
-	f2fs_folio_put(folio, false);
+	f2fs_put_cache(entry, false);
 
 	if (readahead)
-		f2fs_ra_meta_pages(sbi, index, ra_blocks, META_POR, true);
+		f2fs_ra_meta_caches(sbi, index, ra_blocks, META_POR, true);
 }
 
-static bool __f2fs_write_meta_folio(struct folio *folio,
-				struct writeback_control *wbc,
+static bool __f2fs_write_meta_cache(struct f2fs_cached_block *entry,
 				enum iostat_type io_type)
 {
-	struct f2fs_sb_info *sbi = F2FS_F_SB(folio);
-
-	trace_f2fs_writepage(folio, META);
+	struct f2fs_sb_info *sbi = entry->cache->sbi;
 
 	if (unlikely(f2fs_cp_error(sbi))) {
 		if (is_sbi_flag_set(sbi, SBI_IS_CLOSE)) {
-			folio_clear_uptodate(folio);
+			f2fs_cache_clear_uptodate(entry);
 			dec_page_count(sbi, F2FS_DIRTY_META);
-			folio_unlock(folio);
+			f2fs_cache_update_tag(entry, F2FS_CACHE_TAG_DIRTY,
+						F2FS_CACHE_TAG_NONE);
+			f2fs_unlock_cache(entry);
 			return true;
 		}
 		goto redirty_out;
@@ -558,10 +564,10 @@ static bool __f2fs_write_meta_folio(struct folio *folio,
 	if (unlikely(is_sbi_flag_set(sbi, SBI_POR_DOING)))
 		goto redirty_out;
 
-	f2fs_do_write_meta_page(sbi, folio, io_type);
+	f2fs_do_write_meta_cache(sbi, entry, io_type);
 	dec_page_count(sbi, F2FS_DIRTY_META);
 
-	folio_unlock(folio);
+	f2fs_unlock_cache(entry);
 
 	if (unlikely(f2fs_cp_error(sbi)))
 		f2fs_submit_merged_write(sbi, META);
@@ -569,101 +575,89 @@ static bool __f2fs_write_meta_folio(struct folio *folio,
 	return true;
 
 redirty_out:
-	folio_redirty_for_writepage(wbc, folio);
+	f2fs_cache_set_dirty(entry);
 	return false;
 }
 
-static int f2fs_write_meta_pages(struct address_space *mapping,
-				struct writeback_control *wbc)
+void f2fs_write_meta_caches(struct f2fs_sb_info *sbi)
 {
-	struct f2fs_sb_info *sbi = F2FS_M_SB(mapping);
 	struct f2fs_lock_context lc;
-	long diff, written;
+	long nr_to_write = LONG_MAX;
 
 	if (unlikely(is_sbi_flag_set(sbi, SBI_POR_DOING)))
-		goto skip_write;
+		return;
 
-	/* collect a number of dirty meta pages and write together */
-	if (wbc->sync_mode != WB_SYNC_ALL &&
-			get_pages(sbi, F2FS_DIRTY_META) <
-					nr_pages_to_skip(sbi, META))
-		goto skip_write;
+	/* collect a number of dirty meta caches and write together */
+	if (get_pages(sbi, F2FS_DIRTY_META) <
+			nr_pages_to_skip(sbi, META))
+		return;
 
-	/* if locked failed, cp will flush dirty pages instead */
+	/* if locked failed, cp will flush dirty caches instead */
 	if (!f2fs_down_write_trylock_trace(&sbi->cp_global_sem, &lc))
-		goto skip_write;
+		return;
 
-	trace_f2fs_writepages(mapping->host, wbc, META);
-	diff = nr_pages_to_write(sbi, META, wbc);
-	written = f2fs_sync_meta_pages(sbi, wbc->nr_to_write, FS_META_IO);
+	nr_to_write = adjust_flush_cache_number(sbi, META);
+	f2fs_sync_meta_caches(sbi, nr_to_write, false, FS_META_IO);
 	f2fs_up_write_trace(&sbi->cp_global_sem, &lc);
-	wbc->nr_to_write = max((long)0, wbc->nr_to_write - written - diff);
-	return 0;
-
-skip_write:
-	wbc->pages_skipped += get_pages(sbi, F2FS_DIRTY_META);
-	trace_f2fs_writepages(mapping->host, wbc, META);
-	return 0;
 }
 
-long f2fs_sync_meta_pages(struct f2fs_sb_info *sbi, long nr_to_write,
-				enum iostat_type io_type)
+long f2fs_sync_meta_caches(struct f2fs_sb_info *sbi, long nr_to_write,
+				bool sync, enum iostat_type io_type)
 {
-	struct address_space *mapping = META_MAPPING(sbi);
 	pgoff_t index = 0, prev = ULONG_MAX;
-	struct folio_batch fbatch;
+	struct f2fs_cached_block *entries[F2FS_ONSTACK_CACHES];
 	long nwritten = 0;
-	int nr_folios;
-	struct writeback_control wbc = {};
+	int nr;
 	struct blk_plug plug;
-
-	folio_batch_init(&fbatch);
+	bool background = nr_to_write != LONG_MAX;
 
 	blk_start_plug(&plug);
 
-	while ((nr_folios = filemap_get_folios_tag(mapping, &index,
-					(pgoff_t)-1,
-					PAGECACHE_TAG_DIRTY, &fbatch))) {
+	while ((nr = f2fs_cache_gang_lookup_tag(META_CACHE(sbi), entries,
+			&index, F2FS_ONSTACK_CACHES, F2FS_CACHE_TAG_DIRTY))) {
 		int i;
 
-		for (i = 0; i < nr_folios; i++) {
-			struct folio *folio = fbatch.folios[i];
+		for (i = 0; i < nr; i++) {
+			struct f2fs_cached_block *entry = entries[i];
 
-			if (nr_to_write != LONG_MAX && i != 0 &&
-					folio->index != prev +
-					folio_nr_pages(fbatch.folios[i-1])) {
-				folio_batch_release(&fbatch);
+			if (background && unlikely(freezing(current))) {
+				f2fs_cache_gang_release(entries, nr);
 				goto stop;
 			}
 
-			folio_lock(folio);
+			if (background && i != 0 &&
+					entry->index != prev + 1) {
+				f2fs_cache_gang_release(entries, nr);
+				goto stop;
+			}
 
-			if (unlikely(!is_meta_folio(sbi, folio))) {
+			f2fs_lock_cache(entry);
+
+			if (unlikely(!f2fs_is_meta_cache(entry))) {
 continue_unlock:
-				folio_unlock(folio);
+				f2fs_unlock_cache(entry);
 				continue;
 			}
-			if (!folio_test_dirty(folio)) {
+			if (!f2fs_cache_test_dirty(entry)) {
 				/* someone wrote it for us */
 				goto continue_unlock;
 			}
 
-			f2fs_folio_wait_writeback(folio, META, true, true);
+			f2fs_cache_wait_writeback(entry);
 
-			if (!folio_clear_dirty_for_io(folio))
+			if (!f2fs_cache_test_and_clear_dirty(entry))
 				goto continue_unlock;
 
-			if (!__f2fs_write_meta_folio(folio, &wbc,
-						io_type)) {
-				folio_unlock(folio);
+			if (!__f2fs_write_meta_cache(entry, io_type)) {
+				f2fs_unlock_cache(entry);
 				break;
 			}
-			nwritten += folio_nr_pages(folio);
-			prev = folio->index;
+			nwritten++;
+			prev = entry->index;
 			if (unlikely(nwritten >= nr_to_write))
 				break;
 		}
-		folio_batch_release(&fbatch);
+		f2fs_cache_gang_release(entries, nr);
 		cond_resched();
 	}
 stop:
@@ -674,29 +668,6 @@ stop:
 
 	return nwritten;
 }
-
-static bool f2fs_dirty_meta_folio(struct address_space *mapping,
-		struct folio *folio)
-{
-	trace_f2fs_set_page_dirty(folio, META);
-
-	if (!folio_test_uptodate(folio))
-		folio_mark_uptodate(folio);
-	if (filemap_dirty_folio(mapping, folio)) {
-		inc_page_count(F2FS_M_SB(mapping), F2FS_DIRTY_META);
-		folio_set_f2fs_reference(folio);
-		return true;
-	}
-	return false;
-}
-
-const struct address_space_operations f2fs_meta_aops = {
-	.writepages	= f2fs_write_meta_pages,
-	.dirty_folio	= f2fs_dirty_meta_folio,
-	.invalidate_folio = f2fs_invalidate_folio,
-	.release_folio	= f2fs_release_folio,
-	.migrate_folio	= filemap_migrate_folio,
-};
 
 static void __add_ino_entry(struct f2fs_sb_info *sbi, nid_t ino,
 						unsigned int devidx, int type)
@@ -1029,21 +1000,21 @@ int f2fs_recover_orphan_inodes(struct f2fs_sb_info *sbi)
 	start_blk = __start_cp_addr(sbi) + 1 + __cp_payload(sbi);
 	orphan_blocks = __start_sum_addr(sbi) - 1 - __cp_payload(sbi);
 
-	f2fs_ra_meta_pages(sbi, start_blk, orphan_blocks, META_CP, true);
+	f2fs_ra_meta_caches(sbi, start_blk, orphan_blocks, META_CP, true);
 
 	for (i = 0; i < orphan_blocks; i++) {
-		struct folio *folio;
+		struct f2fs_cached_block *entry;
 		struct f2fs_orphan_block *orphan_blk;
 		struct f2fs_orphan_footer *footer;
 		unsigned int entry_count;
 
-		folio = f2fs_get_meta_folio(sbi, start_blk + i);
-		if (IS_ERR(folio)) {
-			err = PTR_ERR(folio);
+		entry = f2fs_get_meta_cache(sbi, start_blk + i);
+		if (IS_ERR(entry)) {
+			err = PTR_ERR(entry);
 			goto out;
 		}
 
-		orphan_blk = folio_address(folio);
+		orphan_blk = cache_address(entry);
 		footer = f2fs_orphan_footer(orphan_blk, sbi);
 		entry_count = le32_to_cpu(footer->entry_count);
 		if (entry_count > F2FS_ORPHANS_PER_BLOCK(sbi)) {
@@ -1052,7 +1023,7 @@ int f2fs_recover_orphan_inodes(struct f2fs_sb_info *sbi)
 			set_sbi_flag(sbi, SBI_NEED_FSCK);
 			f2fs_handle_error(sbi, ERROR_INCONSISTENT_ORPHAN);
 			err = -EFSCORRUPTED;
-			f2fs_folio_put(folio, true);
+			f2fs_put_cache(entry, true);
 			goto out;
 		}
 
@@ -1061,11 +1032,11 @@ int f2fs_recover_orphan_inodes(struct f2fs_sb_info *sbi)
 
 			err = recover_orphan_inode(sbi, ino);
 			if (err) {
-				f2fs_folio_put(folio, true);
+				f2fs_put_cache(entry, true);
 				goto out;
 			}
 		}
-		f2fs_folio_put(folio, true);
+		f2fs_put_cache(entry, true);
 	}
 	/* clear Orphan Flag */
 	clear_ckpt_flags(sbi, CP_ORPHAN_PRESENT_FLAG);
@@ -1083,24 +1054,24 @@ static void write_orphan_inodes(struct f2fs_sb_info *sbi, block_t start_blk)
 	unsigned int nentries = 0;
 	unsigned short index = 1;
 	unsigned short orphan_blocks;
-	struct folio *folio = NULL;
 	struct ino_entry *orphan = NULL;
 	struct inode_management *im = &sbi->im[ORPHAN_INO];
+	struct f2fs_cached_block *entry = NULL;
 
 	orphan_blocks = GET_ORPHAN_BLOCKS(sbi, im->ino_num);
 
 	/*
 	 * we don't need to do spin_lock(&im->ino_lock) here, since all the
 	 * orphan inode operations are covered under f2fs_lock_op().
-	 * And, spin_lock should be avoided due to page operations below.
+	 * And, spin_lock should be avoided due to cache operations below.
 	 */
 	head = &im->ino_list;
 
 	/* loop for each orphan inode entry and write them in journal block */
 	list_for_each_entry(orphan, head, list) {
-		if (!folio) {
-			folio = f2fs_grab_meta_folio(sbi, start_blk++);
-			orphan_blk = folio_address(folio);
+		if (!entry) {
+			entry = f2fs_grab_meta_cache(sbi, start_blk++);
+			orphan_blk = cache_address(entry);
 			footer = f2fs_orphan_footer(orphan_blk, sbi);
 			memset(orphan_blk, 0, sbi->blocksize);
 		}
@@ -1116,20 +1087,20 @@ static void write_orphan_inodes(struct f2fs_sb_info *sbi, block_t start_blk)
 			footer->blk_addr = cpu_to_le16(index);
 			footer->blk_count = cpu_to_le16(orphan_blocks);
 			footer->entry_count = cpu_to_le32(nentries);
-			folio_mark_dirty(folio);
-			f2fs_folio_put(folio, true);
+			f2fs_mark_cache_dirty(entry);
+			f2fs_put_cache(entry, true);
 			index++;
 			nentries = 0;
-			folio = NULL;
+			entry = NULL;
 		}
 	}
 
-	if (folio) {
+	if (entry) {
 		footer->blk_addr = cpu_to_le16(index);
 		footer->blk_count = cpu_to_le16(orphan_blocks);
 		footer->entry_count = cpu_to_le32(nentries);
-		folio_mark_dirty(folio);
-		f2fs_folio_put(folio, true);
+		f2fs_mark_cache_dirty(entry);
+		f2fs_put_cache(entry, true);
 	}
 }
 
@@ -1149,29 +1120,29 @@ static __u32 f2fs_checkpoint_chksum(struct f2fs_sb_info *sbi,
 }
 
 static int get_checkpoint_version(struct f2fs_sb_info *sbi, block_t cp_addr,
-		struct f2fs_checkpoint **cp_block, struct folio **cp_folio,
+		struct f2fs_checkpoint **cp_block, struct f2fs_cached_block **cp_entry,
 		unsigned long long *version)
 {
 	size_t crc_offset = 0;
 	__u32 crc;
 
-	*cp_folio = f2fs_get_meta_folio(sbi, cp_addr);
-	if (IS_ERR(*cp_folio))
-		return PTR_ERR(*cp_folio);
+	*cp_entry = f2fs_get_meta_cache(sbi, cp_addr);
+	if (IS_ERR(*cp_entry))
+		return PTR_ERR(*cp_entry);
 
-	*cp_block = folio_address(*cp_folio);
+	*cp_block = cache_address(*cp_entry);
 
 	crc_offset = le32_to_cpu((*cp_block)->checksum_offset);
 	if (crc_offset < CP_MIN_CHKSUM_OFFSET ||
 			crc_offset > CP_CHKSUM_OFFSET(sbi)) {
-		f2fs_folio_put(*cp_folio, true);
+		f2fs_put_cache(*cp_entry, true);
 		f2fs_warn(sbi, "invalid crc_offset: %zu", crc_offset);
 		return -EINVAL;
 	}
 
 	crc = f2fs_checkpoint_chksum(sbi, *cp_block);
 	if (crc != cur_cp_crc(*cp_block)) {
-		f2fs_folio_put(*cp_folio, true);
+		f2fs_put_cache(*cp_entry, true);
 		f2fs_warn(sbi, "invalid crc value");
 		return -EINVAL;
 	}
@@ -1180,17 +1151,17 @@ static int get_checkpoint_version(struct f2fs_sb_info *sbi, block_t cp_addr,
 	return 0;
 }
 
-static struct folio *validate_checkpoint(struct f2fs_sb_info *sbi,
+static struct f2fs_cached_block *validate_checkpoint(struct f2fs_sb_info *sbi,
 				block_t cp_addr, unsigned long long *version)
 {
-	struct folio *cp_folio_1 = NULL, *cp_folio_2 = NULL;
+	struct f2fs_cached_block *cp_entry_1 = NULL, *cp_entry_2 = NULL;
 	struct f2fs_checkpoint *cp_block = NULL;
 	unsigned long long cur_version = 0, pre_version = 0;
 	unsigned int cp_blocks;
 	int err;
 
 	err = get_checkpoint_version(sbi, cp_addr, &cp_block,
-					&cp_folio_1, version);
+					&cp_entry_1, version);
 	if (err)
 		return NULL;
 
@@ -1205,19 +1176,19 @@ static struct folio *validate_checkpoint(struct f2fs_sb_info *sbi,
 
 	cp_addr += cp_blocks - 1;
 	err = get_checkpoint_version(sbi, cp_addr, &cp_block,
-					&cp_folio_2, version);
+					&cp_entry_2, version);
 	if (err)
 		goto invalid_cp;
 	cur_version = *version;
 
 	if (cur_version == pre_version) {
 		*version = cur_version;
-		f2fs_folio_put(cp_folio_2, true);
-		return cp_folio_1;
+		f2fs_put_cache(cp_entry_2, true);
+		return cp_entry_1;
 	}
-	f2fs_folio_put(cp_folio_2, true);
+	f2fs_put_cache(cp_entry_2, true);
 invalid_cp:
-	f2fs_folio_put(cp_folio_1, true);
+	f2fs_put_cache(cp_entry_1, true);
 	return NULL;
 }
 
@@ -1225,7 +1196,7 @@ int f2fs_get_valid_checkpoint(struct f2fs_sb_info *sbi)
 {
 	struct f2fs_checkpoint *cp_block;
 	struct f2fs_super_block *fsb = sbi->raw_super;
-	struct folio *cp1, *cp2, *cur_folio;
+	struct f2fs_cached_block *cp1 = NULL, *cp2 = NULL, *cur_entry;
 	unsigned long blk_size = sbi->blocksize;
 	unsigned long long cp1_version = 0, cp2_version = 0;
 	unsigned long long cp_start_blk_no;
@@ -1252,22 +1223,22 @@ int f2fs_get_valid_checkpoint(struct f2fs_sb_info *sbi)
 
 	if (cp1 && cp2) {
 		if (ver_after(cp2_version, cp1_version))
-			cur_folio = cp2;
+			cur_entry = cp2;
 		else
-			cur_folio = cp1;
+			cur_entry = cp1;
 	} else if (cp1) {
-		cur_folio = cp1;
+		cur_entry = cp1;
 	} else if (cp2) {
-		cur_folio = cp2;
+		cur_entry = cp2;
 	} else {
 		err = -EFSCORRUPTED;
 		goto fail_no_cp;
 	}
 
-	cp_block = folio_address(cur_folio);
+	cp_block = cache_address(cur_entry);
 	memcpy(sbi->ckpt, cp_block, blk_size);
 
-	if (cur_folio == cp1)
+	if (cur_entry == cp1)
 		sbi->cur_cp_pack = 1;
 	else
 		sbi->cur_cp_pack = 2;
@@ -1282,30 +1253,31 @@ int f2fs_get_valid_checkpoint(struct f2fs_sb_info *sbi)
 		goto done;
 
 	cp_blk_no = le32_to_cpu(fsb->cp_blkaddr);
-	if (cur_folio == cp2)
+	if (cur_entry == cp2)
 		cp_blk_no += BIT(le32_to_cpu(fsb->log_blocks_per_seg));
 
 	for (i = 1; i < cp_blks; i++) {
+		struct f2fs_cached_block *cur_entry_payload;
 		void *sit_bitmap_ptr;
 		unsigned char *ckpt = (unsigned char *)sbi->ckpt;
 
-		cur_folio = f2fs_get_meta_folio(sbi, cp_blk_no + i);
-		if (IS_ERR(cur_folio)) {
-			err = PTR_ERR(cur_folio);
+		cur_entry_payload = f2fs_get_meta_cache(sbi, cp_blk_no + i);
+		if (IS_ERR(cur_entry_payload)) {
+			err = PTR_ERR(cur_entry_payload);
 			goto free_fail_no_cp;
 		}
-		sit_bitmap_ptr = folio_address(cur_folio);
+		sit_bitmap_ptr = cache_address(cur_entry_payload);
 		memcpy(ckpt + i * blk_size, sit_bitmap_ptr, blk_size);
-		f2fs_folio_put(cur_folio, true);
+		f2fs_put_cache(cur_entry_payload, true);
 	}
 done:
-	f2fs_folio_put(cp1, true);
-	f2fs_folio_put(cp2, true);
+	f2fs_put_cache(cp1, true);
+	f2fs_put_cache(cp2, true);
 	return 0;
 
 free_fail_no_cp:
-	f2fs_folio_put(cp1, true);
-	f2fs_folio_put(cp2, true);
+	f2fs_put_cache(cp1, true);
+	f2fs_put_cache(cp2, true);
 fail_no_cp:
 	kvfree(sbi->ckpt);
 	return err;
@@ -1604,7 +1576,7 @@ static void unblock_operations(struct f2fs_sb_info *sbi)
 	f2fs_unlock_all(sbi);
 }
 
-void f2fs_wait_on_all_pages(struct f2fs_sb_info *sbi, int type)
+void f2fs_sync_dirty_data(struct f2fs_sb_info *sbi, int type)
 {
 	DEFINE_WAIT(wait);
 
@@ -1617,7 +1589,7 @@ void f2fs_wait_on_all_pages(struct f2fs_sb_info *sbi, int type)
 			break;
 
 		if (type == F2FS_DIRTY_META)
-			f2fs_sync_meta_pages(sbi, LONG_MAX, FS_CP_META_IO);
+			f2fs_sync_meta_caches(sbi, LONG_MAX, true, FS_META_IO);
 		else if (type == F2FS_WB_CP_DATA)
 			f2fs_submit_merged_write(sbi, DATA);
 
@@ -1696,31 +1668,24 @@ static void update_ckpt_flags(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 static void commit_checkpoint(struct f2fs_sb_info *sbi,
 	void *src, block_t blk_addr)
 {
-	struct writeback_control wbc = {};
+	struct f2fs_cached_block *entry = f2fs_grab_meta_cache(sbi, blk_addr);
 
-	/*
-	 * filemap_get_folios_tag and folio_lock again will take
-	 * some extra time. Therefore, f2fs_update_meta_pages and
-	 * f2fs_sync_meta_pages are combined in this function.
-	 */
-	struct folio *folio = f2fs_grab_meta_folio(sbi, blk_addr);
+	memcpy(cache_address(entry), src, F2FS_BLKSIZE(sbi));
 
-	memcpy(folio_address(folio), src, F2FS_BLKSIZE(sbi));
-
-	folio_mark_dirty(folio);
-	if (unlikely(!folio_clear_dirty_for_io(folio)))
+	f2fs_mark_cache_dirty(entry);
+	if (unlikely(!f2fs_cache_test_and_clear_dirty(entry)))
 		f2fs_bug_on(sbi, 1);
 
-	/* writeout cp pack 2 page */
-	if (unlikely(!__f2fs_write_meta_folio(folio, &wbc, FS_CP_META_IO))) {
+	/* writeout cp pack 2 cache */
+	if (unlikely(!__f2fs_write_meta_cache(entry, FS_CP_META_IO))) {
 		if (f2fs_cp_error(sbi)) {
-			f2fs_folio_put(folio, true);
+			f2fs_put_cache(entry, true);
 			return;
 		}
 		f2fs_bug_on(sbi, true);
 	}
 
-	f2fs_folio_put(folio, false);
+	f2fs_put_cache(entry, false);
 
 	/* submit checkpoint (with barrier if NOBARRIER is not set) */
 	f2fs_submit_merged_write(sbi, META_FLUSH);
@@ -1788,8 +1753,8 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	u64 kbytes_written;
 	int err;
 
-	/* Flush all the NAT/SIT pages */
-	f2fs_sync_meta_pages(sbi, LONG_MAX, FS_CP_META_IO);
+	/* Flush all the NAT/SIT caches */
+	f2fs_sync_meta_caches(sbi, LONG_MAX, true, FS_CP_META_IO);
 
 	stat_cp_time(cpc, CP_TIME_SYNC_META);
 
@@ -1812,7 +1777,7 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	}
 
 	/* 2 cp + n data seg summary + orphan inode blocks */
-	data_sum_blocks = f2fs_npages_for_summary_flush(sbi, false);
+	data_sum_blocks = f2fs_nblocks_for_summary_flush(sbi, false);
 	spin_lock_irqsave(&sbi->cp_lock, flags);
 	if (data_sum_blocks < NR_CURSEG_DATA_TYPE)
 		__set_ckpt_flags(ckpt, CP_COMPACT_SUM_FLAG);
@@ -1857,15 +1822,15 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 
 		blk = start_blk + BLKS_PER_SEG(sbi) - nm_i->nat_bits_blocks;
 		for (i = 0; i < nm_i->nat_bits_blocks; i++)
-			f2fs_update_meta_page(sbi, nm_i->nat_bits +
+			f2fs_update_meta_block(sbi, nm_i->nat_bits +
 					F2FS_BLK_TO_BYTES(sbi, i), blk + i);
 	}
 
 	/* write out checkpoint buffer at block 0 */
-	f2fs_update_meta_page(sbi, ckpt, start_blk++);
+	f2fs_update_meta_block(sbi, ckpt, start_blk++);
 
 	for (i = 1; i < 1 + cp_payload_blks; i++)
-		f2fs_update_meta_page(sbi, (char *)ckpt +
+		f2fs_update_meta_block(sbi, (char *)ckpt +
 				i * F2FS_BLKSIZE(sbi), start_blk++);
 
 	if (orphan_num) {
@@ -1887,16 +1852,16 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 		start_blk += NR_CURSEG_NODE_TYPE;
 	}
 
-	/* Here, we have one bio having CP pack except cp pack 2 page */
-	f2fs_sync_meta_pages(sbi, LONG_MAX, FS_CP_META_IO);
+	/* Here, we have one bio having CP pack except cp pack 2 blocks */
+	f2fs_sync_meta_caches(sbi, LONG_MAX, true, FS_CP_META_IO);
 	stat_cp_time(cpc, CP_TIME_SYNC_CP_META);
 
-	/* Wait for all dirty meta pages to be submitted for IO */
-	f2fs_wait_on_all_pages(sbi, F2FS_DIRTY_META);
+	/* Wait for all dirty meta blocks to be submitted for IO */
+	f2fs_sync_dirty_data(sbi, F2FS_DIRTY_META);
 	stat_cp_time(cpc, CP_TIME_WAIT_DIRTY_META);
 
-	/* wait for previous submitted meta pages writeback */
-	f2fs_wait_on_all_pages(sbi, F2FS_WB_CP_DATA);
+	/* wait for previous submitted meta blocks writeback */
+	f2fs_sync_dirty_data(sbi, F2FS_WB_CP_DATA);
 	stat_cp_time(cpc, CP_TIME_WAIT_CP_DATA);
 
 	/* flush all device cache */
@@ -1905,20 +1870,20 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 		return err;
 	stat_cp_time(cpc, CP_TIME_FLUSH_DEVICE);
 
-	/* barrier and flush checkpoint cp pack 2 page if it can */
+	/* barrier and flush checkpoint cp pack 2 blocks if it can */
 	commit_checkpoint(sbi, ckpt, start_blk);
-	f2fs_wait_on_all_pages(sbi, F2FS_WB_CP_DATA);
+	f2fs_sync_dirty_data(sbi, F2FS_WB_CP_DATA);
 	stat_cp_time(cpc, CP_TIME_WAIT_LAST_CP);
 
 	/*
-	 * invalidate intermediate page cache borrowed from meta inode which are
-	 * used for migration of encrypted, verity or compressed inode's blocks.
+	 * invalidate intermediate meta cache used for migration of
+	 * encrypted, verity or compressed inode's blocks.
 	 */
 	if (f2fs_sb_has_encrypt(sbi) || f2fs_sb_has_verity(sbi) ||
-		f2fs_sb_has_compression(sbi))
-		f2fs_bug_on(sbi,
-			invalidate_inode_pages2_range(META_MAPPING(sbi),
-				MAIN_BLKADDR(sbi), MAX_BLKADDR(sbi) - 1));
+		f2fs_sb_has_compression(sbi)) {
+		f2fs_truncate_meta_caches(sbi, MAIN_BLKADDR(sbi),
+				MAX_BLKADDR(sbi) - MAIN_BLKADDR(sbi));
+	}
 
 	f2fs_release_ino_entry(sbi, false);
 

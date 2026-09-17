@@ -2805,12 +2805,12 @@ static unsigned short f2fs_curseg_valid_blocks(struct f2fs_sb_info *sbi, int typ
 }
 
 /*
- * Calculate the number of current summary pages for writing
+ * Calculate the number of current summary blocks for writing
  */
-int f2fs_npages_for_summary_flush(struct f2fs_sb_info *sbi, bool for_ra)
+int f2fs_nblocks_for_summary_flush(struct f2fs_sb_info *sbi, bool for_ra)
 {
 	int valid_sum_count = 0;
-	int i, sum_in_page;
+	int i, sum_in_block;
 
 	for (i = CURSEG_HOT_DATA; i <= CURSEG_COLD_DATA; i++) {
 		if (sbi->ckpt->alloc_type[i] != SSR && for_ra)
@@ -2820,73 +2820,72 @@ int f2fs_npages_for_summary_flush(struct f2fs_sb_info *sbi, bool for_ra)
 			valid_sum_count += f2fs_curseg_valid_blocks(sbi, i);
 	}
 
-	sum_in_page = (sbi->blocksize - 2 * sbi->sum_journal_size -
+	sum_in_block = (sbi->blocksize - 2 * sbi->sum_journal_size -
 			SUM_FOOTER_SIZE) / SUMMARY_SIZE;
-	if (valid_sum_count <= sum_in_page)
+	if (valid_sum_count <= sum_in_block)
 		return 1;
-	else if ((valid_sum_count - sum_in_page) <=
+	else if ((valid_sum_count - sum_in_block) <=
 		(sbi->blocksize - SUM_FOOTER_SIZE) / SUMMARY_SIZE)
 		return 2;
 	return 3;
 }
 
-/*
- * Caller should put this summary folio
- */
-struct folio *f2fs_get_sum_folio(struct f2fs_sb_info *sbi, unsigned int segno)
+
+struct f2fs_cached_block *f2fs_get_sum_cache(struct f2fs_sb_info *sbi,
+		unsigned int segno)
 {
 	if (unlikely(f2fs_cp_error(sbi)))
 		return ERR_PTR(-EIO);
-	return f2fs_get_meta_folio_retry(sbi, GET_SUM_BLOCK(sbi, segno));
+	return f2fs_get_meta_cache_retry(sbi, GET_SUM_BLOCK(sbi, segno));
 }
 
-void f2fs_update_meta_page(struct f2fs_sb_info *sbi,
+void f2fs_update_meta_block(struct f2fs_sb_info *sbi,
 					void *src, block_t blk_addr)
 {
-	struct folio *folio;
+	struct f2fs_cached_block *entry;
 
 	if (!f2fs_sb_has_packed_ssa(sbi))
-		folio = f2fs_grab_meta_folio(sbi, blk_addr);
+		entry = f2fs_grab_meta_cache(sbi, blk_addr);
 	else
-		folio = f2fs_get_meta_folio_retry(sbi, blk_addr);
+		entry = f2fs_get_meta_cache_retry(sbi, blk_addr);
 
-	if (IS_ERR(folio))
+	if (IS_ERR(entry))
 		return;
 
-	memcpy(folio_address(folio), src, F2FS_BLKSIZE(sbi));
-	folio_mark_dirty(folio);
-	f2fs_folio_put(folio, true);
+	memcpy(cache_address(entry), src, F2FS_BLKSIZE(sbi));
+	f2fs_mark_cache_dirty(entry);
+	f2fs_put_cache(entry, true);
 }
 
-static void write_sum_page(struct f2fs_sb_info *sbi,
+static void write_sum_block(struct f2fs_sb_info *sbi,
 		struct f2fs_summary_block *sum_blk, unsigned int segno)
 {
-	struct folio *folio;
+	struct f2fs_cached_block *entry;
 
 	if (!f2fs_sb_has_packed_ssa(sbi))
-		return f2fs_update_meta_page(sbi, (void *)sum_blk,
+		return f2fs_update_meta_block(sbi, (void *)sum_blk,
 				GET_SUM_BLOCK(sbi, segno));
 
-	folio = f2fs_get_sum_folio(sbi, segno);
-	if (IS_ERR(folio))
+	entry = f2fs_get_sum_cache(sbi, segno);
+	if (IS_ERR(entry))
 		return;
 
-	memcpy(SUM_BLK_PAGE_ADDR(sbi, folio, segno), sum_blk,
+	memcpy(SUM_BLK_ENTRY_ADDR(sbi, entry, segno), sum_blk,
 			sbi->sum_blocksize);
-	folio_mark_dirty(folio);
-	f2fs_folio_put(folio, true);
+	f2fs_mark_cache_dirty(entry);
+	f2fs_put_cache(entry, true);
 }
 
-static void write_current_sum_page(struct f2fs_sb_info *sbi,
+static void write_current_sum_block(struct f2fs_sb_info *sbi,
 						int type, block_t blk_addr)
 {
 	struct curseg_info *curseg = CURSEG_I(sbi, type);
-	struct folio *folio = f2fs_grab_meta_folio(sbi, blk_addr);
+	struct f2fs_cached_block *entry = f2fs_grab_meta_cache(sbi, blk_addr);
 	struct f2fs_summary_block *src = curseg->sum_blk;
 	struct f2fs_summary_block *dst;
 
-	dst = folio_address(folio);
-	memset(dst, 0, PAGE_SIZE);
+	dst = cache_address(entry);
+	memset(dst, 0, sbi->blocksize);
 
 	mutex_lock(&curseg->curseg_mutex);
 
@@ -2899,8 +2898,8 @@ static void write_current_sum_page(struct f2fs_sb_info *sbi,
 
 	mutex_unlock(&curseg->curseg_mutex);
 
-	folio_mark_dirty(folio);
-	f2fs_folio_put(folio, true);
+	f2fs_mark_cache_dirty(entry);
+	f2fs_put_cache(entry, true);
 }
 
 static int is_next_segment_free(struct f2fs_sb_info *sbi,
@@ -3160,7 +3159,7 @@ static int new_curseg(struct f2fs_sb_info *sbi, int type, bool new_sec)
 	int ret;
 
 	if (curseg->inited)
-		write_sum_page(sbi, curseg->sum_blk, segno);
+		write_sum_block(sbi, curseg->sum_blk, segno);
 
 	segno = __get_next_segno(sbi, type);
 	ret = get_new_segment(sbi, &segno, new_sec, pinning);
@@ -3216,10 +3215,10 @@ static int change_curseg(struct f2fs_sb_info *sbi, int type)
 	struct curseg_info *curseg = CURSEG_I(sbi, type);
 	unsigned int new_segno = curseg->next_segno;
 	struct f2fs_summary_block *sum_node;
-	struct folio *sum_folio;
+	struct f2fs_cached_block *entry = NULL;
 
 	if (curseg->inited)
-		write_sum_page(sbi, curseg->sum_blk, curseg->segno);
+		write_sum_block(sbi, curseg->sum_blk, curseg->segno);
 
 	__set_test_and_inuse(sbi, new_segno);
 
@@ -3232,15 +3231,15 @@ static int change_curseg(struct f2fs_sb_info *sbi, int type)
 	curseg->alloc_type = SSR;
 	curseg->next_blkoff = __next_free_blkoff(sbi, curseg->segno, 0);
 
-	sum_folio = f2fs_get_sum_folio(sbi, new_segno);
-	if (IS_ERR(sum_folio)) {
-		/* GC won't be able to use stale summary pages by cp_error */
+	entry = f2fs_get_sum_cache(sbi, new_segno);
+	if (IS_ERR(entry)) {
+		/* GC won't be able to use stale summary blocks by cp_error */
 		memset(curseg->sum_blk, 0, sbi->sum_entry_size);
-		return PTR_ERR(sum_folio);
+		return PTR_ERR(entry);
 	}
-	sum_node = SUM_BLK_PAGE_ADDR(sbi, sum_folio, new_segno);
+	sum_node = SUM_BLK_ENTRY_ADDR(sbi, entry, new_segno);
 	memcpy(curseg->sum_blk, sum_node, sbi->sum_entry_size);
-	f2fs_folio_put(sum_folio, true);
+	f2fs_put_cache(entry, true);
 	return 0;
 }
 
@@ -3327,7 +3326,7 @@ static void __f2fs_save_inmem_curseg(struct f2fs_sb_info *sbi, int type)
 		goto out;
 
 	if (get_valid_blocks(sbi, curseg->segno, false)) {
-		write_sum_page(sbi, curseg->sum_blk, curseg->segno);
+		write_sum_block(sbi, curseg->sum_blk, curseg->segno);
 	} else {
 		mutex_lock(&DIRTY_I(sbi)->seglist_lock);
 		__set_test_and_free(sbi, curseg->segno, true);
@@ -4023,7 +4022,7 @@ int f2fs_allocate_data_block(struct f2fs_sb_info *sbi, struct folio *folio,
 	if (segment_full) {
 		if (type == CURSEG_COLD_DATA_PINNED &&
 		    !((curseg->segno + 1) % sbi->segs_per_sec)) {
-			write_sum_page(sbi, curseg->sum_blk, curseg->segno);
+			write_sum_block(sbi, curseg->sum_blk, curseg->segno);
 			reset_curseg_fields(curseg);
 			goto skip_new_segment;
 		}
@@ -4141,7 +4140,7 @@ static int log_type_to_seg_type(enum log_type type)
 	return seg_type;
 }
 
-static void do_write_page(struct f2fs_summary *sum, struct f2fs_io_info *fio)
+static void do_write_block(struct f2fs_summary *sum, struct f2fs_io_info *fio)
 {
 	struct folio *folio = fio->folio;
 	enum log_type type = __get_segment_type(fio);
@@ -4183,8 +4182,9 @@ out:
 		f2fs_up_read(&fio->sbi->io_order_lock);
 }
 
-void f2fs_do_write_meta_page(struct f2fs_sb_info *sbi, struct folio *folio,
-					enum iostat_type io_type)
+void f2fs_do_write_meta_cache(struct f2fs_sb_info *sbi,
+			struct f2fs_cached_block *entry,
+			enum iostat_type io_type)
 {
 	struct f2fs_io_info fio = {
 		.sbi = sbi,
@@ -4192,20 +4192,21 @@ void f2fs_do_write_meta_page(struct f2fs_sb_info *sbi, struct folio *folio,
 		.temp = HOT,
 		.op = REQ_OP_WRITE,
 		.op_flags = REQ_SYNC | REQ_META | REQ_PRIO,
-		.old_blkaddr = folio->index,
-		.new_blkaddr = folio->index,
-		.folio = folio,
+		.old_blkaddr = entry->index,
+		.new_blkaddr = entry->index,
 		.encrypted_page = NULL,
 		.in_list = 0,
+		.cache_entry = entry,
+		.is_cache = 1,
 	};
 
-	if (unlikely(folio->index >= MAIN_BLKADDR(sbi)))
+	if (unlikely(entry->index >= MAIN_BLKADDR(sbi)))
 		fio.op_flags &= ~REQ_META;
 
-	folio_start_writeback(folio);
-	f2fs_submit_page_write(&fio);
+	f2fs_start_cache_writeback(entry);
+	f2fs_submit_cache_write(&fio);
 
-	stat_inc_meta_count(sbi, folio->index);
+	stat_inc_meta_count(sbi, entry->index);
 	f2fs_update_iostat(sbi, NULL, io_type, F2FS_BLKSIZE(sbi));
 }
 
@@ -4214,7 +4215,7 @@ void f2fs_do_write_node_page(unsigned int nid, struct f2fs_io_info *fio)
 	struct f2fs_summary sum;
 
 	set_summary(&sum, nid, 0, 0);
-	do_write_page(&sum, fio);
+	do_write_block(&sum, fio);
 
 	f2fs_update_iostat(fio->sbi, NULL, fio->io_type,
 					F2FS_BLKSIZE(fio->sbi));
@@ -4230,7 +4231,7 @@ void f2fs_outplace_write_data(struct dnode_of_data *dn,
 	if (fio->io_type == FS_DATA_IO || fio->io_type == FS_CP_DATA_IO)
 		f2fs_update_age_extent_cache(dn);
 	set_summary(&sum, dn->nid, dn->ofs_in_node, fio->version);
-	do_write_page(&sum, fio);
+	do_write_block(&sum, fio);
 	f2fs_update_data_blkaddr(dn, fio->new_blkaddr);
 
 	f2fs_update_iostat(sbi, dn->inode, fio->io_type,
@@ -4264,7 +4265,7 @@ int f2fs_inplace_write_data(struct f2fs_io_info *fio)
 	}
 
 	if (fio->meta_gc)
-		f2fs_truncate_meta_inode_pages(sbi, fio->new_blkaddr, 1);
+		f2fs_truncate_meta_caches(sbi, fio->new_blkaddr, 1);
 
 	stat_inc_inplace_blocks(fio->sbi);
 
@@ -4430,7 +4431,7 @@ void f2fs_folio_wait_writeback(struct folio *folio, enum page_type type,
 void f2fs_wait_on_block_writeback(struct inode *inode, block_t blkaddr)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-	struct folio *cfolio;
+	struct f2fs_cached_block *entry;
 
 	if (!f2fs_meta_inode_gc_required(inode))
 		return;
@@ -4438,11 +4439,12 @@ void f2fs_wait_on_block_writeback(struct inode *inode, block_t blkaddr)
 	if (!__is_valid_data_blkaddr(blkaddr))
 		return;
 
-	cfolio = filemap_lock_folio(META_MAPPING(sbi), blkaddr);
-	if (!IS_ERR(cfolio)) {
-		f2fs_folio_wait_writeback(cfolio, DATA, true, true);
-		f2fs_folio_put(cfolio, true);
-	}
+	entry = f2fs_find_cache(META_CACHE(sbi), blkaddr, 0);
+	if (IS_ERR(entry))
+		return;
+	f2fs_lock_cache(entry);
+	f2fs_cache_wait_writeback_cond(entry, DATA);
+	f2fs_put_cache(entry, true);
 }
 
 void f2fs_wait_on_block_writeback_range(struct inode *inode, block_t blkaddr,
@@ -4457,7 +4459,7 @@ void f2fs_wait_on_block_writeback_range(struct inode *inode, block_t blkaddr,
 	for (i = 0; i < len; i++)
 		f2fs_wait_on_block_writeback(inode, blkaddr + i);
 
-	f2fs_truncate_meta_inode_pages(sbi, blkaddr, len);
+	f2fs_truncate_meta_caches(sbi, blkaddr, len);
 }
 
 static int read_compacted_summaries(struct f2fs_sb_info *sbi)
@@ -4465,16 +4467,16 @@ static int read_compacted_summaries(struct f2fs_sb_info *sbi)
 	struct f2fs_checkpoint *ckpt = F2FS_CKPT(sbi);
 	struct curseg_info *seg_i;
 	unsigned char *kaddr;
-	struct folio *folio;
+	struct f2fs_cached_block *entry;
 	block_t start;
 	int i, j, offset;
 
 	start = start_sum_block(sbi);
 
-	folio = f2fs_get_meta_folio(sbi, start++);
-	if (IS_ERR(folio))
-		return PTR_ERR(folio);
-	kaddr = folio_address(folio);
+	entry = f2fs_get_meta_cache(sbi, start++);
+	if (IS_ERR(entry))
+		return PTR_ERR(entry);
+	kaddr = cache_address(entry);
 
 	/* Step 1: restore nat cache */
 	seg_i = CURSEG_I(sbi, CURSEG_HOT_DATA);
@@ -4511,16 +4513,16 @@ static int read_compacted_summaries(struct f2fs_sb_info *sbi)
 						SUM_FOOTER_SIZE)
 				continue;
 
-			f2fs_folio_put(folio, true);
+			f2fs_put_cache(entry, true);
 
-			folio = f2fs_get_meta_folio(sbi, start++);
-			if (IS_ERR(folio))
-				return PTR_ERR(folio);
-			kaddr = folio_address(folio);
+			entry = f2fs_get_meta_cache(sbi, start++);
+			if (IS_ERR(entry))
+				return PTR_ERR(entry);
+			kaddr = cache_address(entry);
 			offset = 0;
 		}
 	}
-	f2fs_folio_put(folio, true);
+	f2fs_put_cache(entry, true);
 	return 0;
 }
 
@@ -4529,7 +4531,7 @@ static int read_normal_summaries(struct f2fs_sb_info *sbi, int type)
 	struct f2fs_checkpoint *ckpt = F2FS_CKPT(sbi);
 	struct f2fs_summary_block *sum;
 	struct curseg_info *curseg;
-	struct folio *new;
+	struct f2fs_cached_block *entry;
 	unsigned short blk_off;
 	unsigned int segno = 0;
 	block_t blk_addr = 0;
@@ -4556,10 +4558,10 @@ static int read_normal_summaries(struct f2fs_sb_info *sbi, int type)
 			blk_addr = GET_SUM_BLOCK(sbi, segno);
 	}
 
-	new = f2fs_get_meta_folio(sbi, blk_addr);
-	if (IS_ERR(new))
-		return PTR_ERR(new);
-	sum = folio_address(new);
+	entry = f2fs_get_meta_cache(sbi, blk_addr);
+	if (IS_ERR(entry))
+		return PTR_ERR(entry);
+	sum = cache_address(entry);
 
 	if (IS_NODESEG(type)) {
 		if (__exist_node_summaries(sbi)) {
@@ -4596,7 +4598,7 @@ static int read_normal_summaries(struct f2fs_sb_info *sbi, int type)
 	curseg->next_blkoff = blk_off;
 	mutex_unlock(&curseg->curseg_mutex);
 out:
-	f2fs_folio_put(new, true);
+	f2fs_put_cache(entry, true);
 	return err;
 }
 
@@ -4608,11 +4610,11 @@ static int restore_curseg_summaries(struct f2fs_sb_info *sbi)
 	int err;
 
 	if (is_set_ckpt_flags(sbi, CP_COMPACT_SUM_FLAG)) {
-		int npages = f2fs_npages_for_summary_flush(sbi, true);
+		int nblocks = f2fs_nblocks_for_summary_flush(sbi, true);
 
-		if (npages >= 2)
-			f2fs_ra_meta_pages(sbi, start_sum_block(sbi), npages,
-							META_CP, true);
+		if (nblocks >= 2)
+			f2fs_ra_meta_caches(sbi, start_sum_block(sbi),
+					nblocks, META_CP, true);
 
 		/* restore for compacted data summary */
 		err = read_compacted_summaries(sbi);
@@ -4622,7 +4624,7 @@ static int restore_curseg_summaries(struct f2fs_sb_info *sbi)
 	}
 
 	if (__exist_node_summaries(sbi))
-		f2fs_ra_meta_pages(sbi,
+		f2fs_ra_meta_caches(sbi,
 				sum_blk_addr(sbi, NR_CURSEG_PERSIST_TYPE, type),
 				NR_CURSEG_PERSIST_TYPE - type, META_CP, true);
 
@@ -4645,16 +4647,16 @@ static int restore_curseg_summaries(struct f2fs_sb_info *sbi)
 
 static void write_compacted_summaries(struct f2fs_sb_info *sbi, block_t blkaddr)
 {
-	struct folio *folio;
+	struct f2fs_cached_block *entry = NULL;
 	unsigned char *kaddr;
 	struct f2fs_summary *summary;
 	struct curseg_info *seg_i;
 	int written_size = 0;
 	int i, j;
 
-	folio = f2fs_grab_meta_folio(sbi, blkaddr++);
-	kaddr = folio_address(folio);
-	memset(kaddr, 0, PAGE_SIZE);
+	entry = f2fs_grab_meta_cache(sbi, blkaddr++);
+	kaddr = cache_address(entry);
+	memset(kaddr, 0, sbi->blocksize);
 
 	/* Step 1: write nat cache */
 	seg_i = CURSEG_I(sbi, CURSEG_HOT_DATA);
@@ -4670,10 +4672,10 @@ static void write_compacted_summaries(struct f2fs_sb_info *sbi, block_t blkaddr)
 	for (i = CURSEG_HOT_DATA; i <= CURSEG_COLD_DATA; i++) {
 		seg_i = CURSEG_I(sbi, i);
 		for (j = 0; j < f2fs_curseg_valid_blocks(sbi, i); j++) {
-			if (!folio) {
-				folio = f2fs_grab_meta_folio(sbi, blkaddr++);
-				kaddr = folio_address(folio);
-				memset(kaddr, 0, PAGE_SIZE);
+			if (!entry) {
+				entry = f2fs_grab_meta_cache(sbi, blkaddr++);
+				kaddr = cache_address(entry);
+				memset(kaddr, 0, sbi->blocksize);
 				written_size = 0;
 			}
 			summary = (struct f2fs_summary *)(kaddr + written_size);
@@ -4684,14 +4686,14 @@ static void write_compacted_summaries(struct f2fs_sb_info *sbi, block_t blkaddr)
 							SUM_FOOTER_SIZE)
 				continue;
 
-			folio_mark_dirty(folio);
-			f2fs_folio_put(folio, true);
-			folio = NULL;
+			f2fs_mark_cache_dirty(entry);
+			f2fs_put_cache(entry, true);
+			entry = NULL;
 		}
 	}
-	if (folio) {
-		folio_mark_dirty(folio);
-		f2fs_folio_put(folio, true);
+	if (entry) {
+		f2fs_mark_cache_dirty(entry);
+		f2fs_put_cache(entry, true);
 	}
 }
 
@@ -4706,7 +4708,7 @@ static void write_normal_summaries(struct f2fs_sb_info *sbi,
 		end = type + NR_CURSEG_NODE_TYPE;
 
 	for (i = type; i < end; i++)
-		write_current_sum_page(sbi, i, blkaddr + (i - type));
+		write_current_sum_block(sbi, i, blkaddr + (i - type));
 }
 
 void f2fs_write_data_summaries(struct f2fs_sb_info *sbi, block_t start_blk)
@@ -4745,29 +4747,29 @@ int f2fs_lookup_journal_in_cursum(struct f2fs_sb_info *sbi,
 	return -1;
 }
 
-static struct folio *get_current_sit_folio(struct f2fs_sb_info *sbi,
+static struct f2fs_cached_block *get_current_sit_cache(struct f2fs_sb_info *sbi,
 					unsigned int segno)
 {
-	return f2fs_get_meta_folio(sbi, current_sit_addr(sbi, segno));
+	return f2fs_get_meta_cache(sbi, current_sit_addr(sbi, segno));
 }
 
-static struct folio *get_next_sit_folio(struct f2fs_sb_info *sbi,
+static struct f2fs_cached_block *get_next_sit_cache(struct f2fs_sb_info *sbi,
 					unsigned int start)
 {
 	struct sit_info *sit_i = SIT_I(sbi);
-	struct folio *folio;
+	struct f2fs_cached_block *entry;
 	pgoff_t src_off, dst_off;
 
 	src_off = current_sit_addr(sbi, start);
 	dst_off = next_sit_addr(sbi, src_off);
 
-	folio = f2fs_grab_meta_folio(sbi, dst_off);
-	seg_info_to_sit_folio(sbi, folio, start);
+	entry = f2fs_grab_meta_cache(sbi, dst_off);
+	seg_info_to_sit_block(sbi, entry, start);
 
-	folio_mark_dirty(folio);
+	f2fs_mark_cache_dirty(entry);
 	set_to_next_sit(sbi, sit_i, start);
 
-	return folio;
+	return entry;
 }
 
 static struct sit_entry_set *grab_sit_entry_set(void)
@@ -4898,8 +4900,9 @@ void f2fs_flush_sit_entries(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	 * #2, flush sit entries to sit page.
 	 */
 	list_for_each_entry_safe(ses, tmp, head, set_list) {
-		struct folio *folio = NULL;
+		struct f2fs_cached_block *entry = NULL;
 		struct f2fs_sit_block *raw_sit = NULL;
+
 		unsigned int start_segno = ses->start_segno;
 		unsigned int end = min(start_segno + SIT_ENTRY_PER_BLOCK(sbi),
 						(unsigned long)MAIN_SEGS(sbi));
@@ -4913,8 +4916,8 @@ void f2fs_flush_sit_entries(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 		if (to_journal) {
 			down_write(&curseg->journal_rwsem);
 		} else {
-			folio = get_next_sit_folio(sbi, start_segno);
-			raw_sit = folio_address(folio);
+			entry = get_next_sit_cache(sbi, start_segno);
+			raw_sit = cache_address(entry);
 		}
 
 		/* flush dirty sit entries in region of current sit set */
@@ -4959,7 +4962,7 @@ void f2fs_flush_sit_entries(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 		if (to_journal)
 			up_write(&curseg->journal_rwsem);
 		else
-			f2fs_folio_put(folio, true);
+			f2fs_put_cache(entry, true);
 
 		f2fs_bug_on(sbi, ses->entry_cnt);
 		release_sit_entry_set(ses);
@@ -5150,7 +5153,7 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 	block_t sit_valid_blocks[2] = {0, 0};
 
 	do {
-		readed = f2fs_ra_meta_pages(sbi, start_blk, BIO_MAX_VECS,
+		readed = f2fs_ra_meta_caches(sbi, start_blk, BIO_MAX_VECS,
 							META_SIT, true);
 
 		start = start_blk * sit_i->sents_per_block;
@@ -5158,15 +5161,15 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 
 		for (; start < end && start < MAIN_SEGS(sbi); start++) {
 			struct f2fs_sit_block *sit_blk;
-			struct folio *folio;
+			struct f2fs_cached_block *entry;
 
 			se = &sit_i->sentries[start];
-			folio = get_current_sit_folio(sbi, start);
-			if (IS_ERR(folio))
-				return PTR_ERR(folio);
-			sit_blk = folio_address(folio);
+			entry = get_current_sit_cache(sbi, start);
+			if (IS_ERR(entry))
+				return PTR_ERR(entry);
+			sit_blk = cache_address(entry);
 			sit = sit_blk->entries[SIT_ENTRY_OFFSET(sit_i, start)];
-			f2fs_folio_put(folio, true);
+			f2fs_put_cache(entry, true);
 
 			err = check_block_count(sbi, start, &sit);
 			if (err)

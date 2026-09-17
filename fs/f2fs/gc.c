@@ -1066,7 +1066,7 @@ next_step:
 			continue;
 
 		if (phase == 0) {
-			f2fs_ra_meta_pages(sbi, NAT_BLOCK_OFFSET(sbi, nid), 1,
+			f2fs_ra_meta_caches(sbi, NAT_BLOCK_OFFSET(sbi, nid), 1,
 							META_NAT, true);
 			continue;
 		}
@@ -1219,7 +1219,8 @@ static int ra_data_block(struct inode *inode, pgoff_t index)
 	struct address_space *mapping = inode->i_mapping;
 	struct inode *atomic_inode = NULL;
 	struct dnode_of_data dn;
-	struct folio *folio, *efolio;
+	struct folio *folio;
+	struct f2fs_cached_block *entry;
 	struct f2fs_io_info fio = {
 		.sbi = sbi,
 		.ino = inode->i_ino,
@@ -1229,6 +1230,7 @@ static int ra_data_block(struct inode *inode, pgoff_t index)
 		.op_flags = 0,
 		.encrypted_page = NULL,
 		.in_list = 0,
+		.is_cache = 1,
 	};
 	int err = 0;
 
@@ -1287,22 +1289,21 @@ got_it:
 
 	f2fs_wait_on_block_writeback(inode, dn.data_blkaddr);
 
-	efolio = f2fs_filemap_get_folio(META_MAPPING(sbi), dn.data_blkaddr,
-					FGP_LOCK | FGP_CREAT, GFP_NOFS);
-	if (IS_ERR(efolio)) {
-		err = PTR_ERR(efolio);
+	entry = f2fs_grab_cache(META_CACHE(sbi), dn.data_blkaddr,
+						F2FS_CACHE_LOCK_CREATE);
+	if (IS_ERR(entry)) {
+		err = PTR_ERR(entry);
 		goto put_folio;
 	}
 
-	fio.encrypted_page = &efolio->page;
+	if (f2fs_cache_test_uptodate(entry))
+		goto put_cache;
 
-	if (folio_test_uptodate(efolio))
-		goto put_encrypted_page;
-
-	err = f2fs_submit_page_bio(&fio);
+	fio.cache_entry = entry;
+	err = f2fs_submit_cache_read(&fio);
 	if (err)
-		goto put_encrypted_page;
-	f2fs_put_page(fio.encrypted_page, false);
+		goto put_cache;
+	f2fs_put_cache(entry, false);
 	f2fs_folio_put(folio, true);
 
 	f2fs_update_iostat(sbi, inode, FS_DATA_READ_IO, F2FS_BLKSIZE(sbi));
@@ -1311,8 +1312,8 @@ got_it:
 	if (atomic_inode)
 		iput(atomic_inode);
 	return 0;
-put_encrypted_page:
-	f2fs_put_page(fio.encrypted_page, true);
+put_cache:
+	f2fs_put_cache(entry, true);
 put_folio:
 	f2fs_folio_put(folio, true);
 out_iput:
@@ -1322,7 +1323,7 @@ out_iput:
 }
 
 /*
- * Move data block via META_MAPPING while keeping locked data page.
+ * Move data block via meta cache while keeping locked data page.
  * This can be used to move blocks, aka LBAs, directly on disk.
  */
 static int move_data_block(struct inode *inode, block_t bidx,
@@ -1339,11 +1340,13 @@ static int move_data_block(struct inode *inode, block_t bidx,
 		.op_flags = 0,
 		.encrypted_page = NULL,
 		.in_list = 0,
+		.is_cache = 1,
 	};
 	struct dnode_of_data dn;
 	struct f2fs_summary sum;
 	struct node_info ni;
-	struct folio *folio, *mfolio, *efolio;
+	struct folio *folio;
+	struct f2fs_cached_block *sentry, *tentry;
 	block_t newaddr;
 	int err = 0;
 	bool lfs_mode = f2fs_lfs_mode(fio.sbi);
@@ -1408,20 +1411,20 @@ static int move_data_block(struct inode *inode, block_t bidx,
 	if (lfs_mode)
 		f2fs_down_write(&fio.sbi->io_order_lock);
 
-	mfolio = f2fs_grab_cache_folio(META_MAPPING(fio.sbi),
-					fio.old_blkaddr, false);
-	if (IS_ERR(mfolio)) {
-		err = PTR_ERR(mfolio);
+	sentry = f2fs_grab_cache(META_CACHE(fio.sbi), fio.old_blkaddr,
+						F2FS_CACHE_LOCK_CREATE);
+	if (IS_ERR(sentry)) {
+		err = PTR_ERR(sentry);
 		goto up_out;
 	}
 
-	fio.encrypted_page = folio_file_page(mfolio, fio.old_blkaddr);
+	fio.cache_entry = sentry;
 
-	/* read source block in mfolio */
-	if (!folio_test_uptodate(mfolio)) {
-		err = f2fs_submit_page_bio(&fio);
+	/* read source block in cache */
+	if (!f2fs_cache_test_uptodate(sentry)) {
+		err = f2fs_submit_cache_read(&fio);
 		if (err) {
-			f2fs_folio_put(mfolio, true);
+			f2fs_put_cache(sentry, true);
 			goto up_out;
 		}
 
@@ -1430,11 +1433,11 @@ static int move_data_block(struct inode *inode, block_t bidx,
 		f2fs_update_iostat(fio.sbi, NULL, FS_GDATA_READ_IO,
 						F2FS_BLKSIZE(fio.sbi));
 
-		folio_lock(mfolio);
-		if (unlikely(!is_meta_folio(fio.sbi, mfolio) ||
-			     !folio_test_uptodate(mfolio))) {
+		f2fs_lock_cache(sentry);
+		if (unlikely(!f2fs_is_meta_cache(sentry) ||
+				!f2fs_cache_test_uptodate(sentry))) {
 			err = -EIO;
-			f2fs_folio_put(mfolio, true);
+			f2fs_put_cache(sentry, true);
 			goto up_out;
 		}
 	}
@@ -1445,39 +1448,39 @@ static int move_data_block(struct inode *inode, block_t bidx,
 	err = f2fs_allocate_data_block(fio.sbi, NULL, fio.old_blkaddr, &newaddr,
 				&sum, type, NULL);
 	if (err) {
-		f2fs_folio_put(mfolio, true);
+		f2fs_put_cache(sentry, true);
 		/* filesystem should shutdown, no need to recovery block */
 		goto up_out;
 	}
 
-	efolio = f2fs_filemap_get_folio(META_MAPPING(fio.sbi), newaddr,
-					FGP_LOCK | FGP_CREAT, GFP_NOFS);
-	if (IS_ERR(efolio)) {
-		err = PTR_ERR(efolio);
-		f2fs_folio_put(mfolio, true);
+	tentry = f2fs_grab_cache(META_CACHE(fio.sbi), newaddr,
+					F2FS_CACHE_LOCK_CREATE);
+	if (IS_ERR(tentry)) {
+		err = PTR_ERR(tentry);
+		f2fs_put_cache(sentry, true);
 		goto recover_block;
 	}
 
-	fio.encrypted_page = &efolio->page;
+	fio.cache_entry = tentry;
 
 	/* write target block */
-	f2fs_wait_on_page_writeback(fio.encrypted_page, DATA, true, true);
-	memcpy(page_address(fio.encrypted_page),
-				folio_address(mfolio), PAGE_SIZE);
-	f2fs_folio_put(mfolio, true);
+	f2fs_cache_wait_writeback_cond(tentry, DATA);
+	memcpy(cache_address(tentry), cache_address(sentry),
+							fio.sbi->blocksize);
+	f2fs_put_cache(sentry, true);
 
 	f2fs_invalidate_internal_cache(fio.sbi, fio.old_blkaddr, 1);
 
-	set_page_dirty(fio.encrypted_page);
-	if (clear_page_dirty_for_io(fio.encrypted_page))
+	f2fs_mark_cache_dirty(tentry);
+	if (f2fs_cache_test_and_clear_dirty(tentry))
 		dec_page_count(fio.sbi, F2FS_DIRTY_META);
 
-	set_page_writeback(fio.encrypted_page);
+	f2fs_start_cache_writeback(tentry);
 
 	fio.op = REQ_OP_WRITE;
 	fio.op_flags = REQ_SYNC;
 	fio.new_blkaddr = newaddr;
-	f2fs_submit_page_write(&fio);
+	f2fs_submit_cache_write(&fio);
 
 	f2fs_update_iostat(fio.sbi, NULL, FS_GC_DATA_IO,
 					F2FS_BLKSIZE(fio.sbi));
@@ -1485,7 +1488,7 @@ static int move_data_block(struct inode *inode, block_t bidx,
 	f2fs_update_data_blkaddr(&dn, newaddr);
 	set_inode_flag(inode, FI_APPEND_WRITE);
 
-	f2fs_put_page(fio.encrypted_page, true);
+	f2fs_put_cache(tentry, true);
 recover_block:
 	if (err)
 		f2fs_do_replace_block(fio.sbi, &sum, newaddr, fio.old_blkaddr,
@@ -1617,7 +1620,7 @@ next_step:
 			continue;
 
 		if (phase == 0) {
-			f2fs_ra_meta_pages(sbi, NAT_BLOCK_OFFSET(sbi, nid), 1,
+			f2fs_ra_meta_caches(sbi, NAT_BLOCK_OFFSET(sbi, nid), 1,
 							META_NAT, true);
 			continue;
 		}
@@ -1821,28 +1824,31 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 	sum_blk_cnt = DIV_ROUND_UP(end_segno - segno, sbi->sums_per_block);
 	/* readahead multi ssa blocks those have contiguous address */
 	if (__is_large_section(sbi))
-		f2fs_ra_meta_pages(sbi, GET_SUM_BLOCK(sbi, segno),
+		f2fs_ra_meta_caches(sbi, GET_SUM_BLOCK(sbi, segno),
 					sum_blk_cnt, META_SSA, true);
 
 	/* reference all summary page */
 	while (segno < end_segno) {
-		struct folio *sum_folio = f2fs_get_sum_folio(sbi, segno);
+		struct f2fs_cached_block *sum_entry =
+				f2fs_get_sum_cache(sbi, segno);
 
 		segno += sbi->sums_per_block;
-		if (IS_ERR(sum_folio)) {
-			int err = PTR_ERR(sum_folio);
+		if (IS_ERR(sum_entry)) {
+			int err = PTR_ERR(sum_entry);
 
 			end_segno = segno - sbi->sums_per_block;
 			segno = rounddown(start_segno, sbi->sums_per_block);
 			while (segno < end_segno) {
-				sum_folio = filemap_get_folio(META_MAPPING(sbi),
+				sum_entry = f2fs_find_meta_cache(sbi,
 						GET_SUM_BLOCK(sbi, segno));
-				folio_put_refs(sum_folio, 2);
+				f2fs_put_cache(sum_entry, false);
+				f2fs_put_cache(sum_entry, false);
 				segno += sbi->sums_per_block;
 			}
 			return err;
 		}
-		folio_unlock(sum_folio);
+		f2fs_unlock_cache(sum_entry);
+
 	}
 
 	blk_start_plug(&plug);
@@ -1850,11 +1856,16 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 	segno = start_segno;
 	while (segno < end_segno) {
 		unsigned int cur_segno;
+		unsigned int block_end_segno;
 
 		/* find segment summary of victim */
-		struct folio *sum_folio = filemap_get_folio(META_MAPPING(sbi),
+		struct f2fs_cached_block *sum_entry =
+				f2fs_find_meta_cache(sbi,
 					GET_SUM_BLOCK(sbi, segno));
-		unsigned int block_end_segno = rounddown(segno, sbi->sums_per_block)
+
+		f2fs_bug_on(sbi, IS_ERR(sum_entry));
+
+		block_end_segno = rounddown(segno, sbi->sums_per_block)
 					+ sbi->sums_per_block;
 
 		if (block_end_segno > end_segno)
@@ -1867,8 +1878,8 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 			goto next_block;
 		}
 
-		if (!folio_test_uptodate(sum_folio) ||
-		    unlikely(f2fs_cp_error(sbi)))
+		if (!f2fs_cache_test_uptodate(sum_entry) ||
+			unlikely(f2fs_cp_error(sbi)))
 			goto next_block;
 
 		for (cur_segno = segno; cur_segno < block_end_segno;
@@ -1887,7 +1898,7 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 				data_type = (type == SUM_TYPE_DATA) ? DATA : NODE;
 			}
 
-			sum = SUM_BLK_PAGE_ADDR(sbi, sum_folio, cur_segno);
+			sum = SUM_BLK_ENTRY_ADDR(sbi, sum_entry, cur_segno);
 			if (type != GET_SUM_TYPE(sum_footer(sbi, sum))) {
 				f2fs_err(sbi, "Inconsistent segment (%u) type "
 						"[%d, %d] in SIT and SSA",
@@ -1929,12 +1940,14 @@ freed:
 					cur_segno + 1 : NULL_SEGNO;
 
 			if (unlikely(freezing(current))) {
-				folio_put_refs(sum_folio, 2);
+				f2fs_put_cache(sum_entry, false);
+				f2fs_put_cache(sum_entry, false);
 				goto stop;
 			}
 		}
 next_block:
-		folio_put_refs(sum_folio, 2);
+		f2fs_put_cache(sum_entry, false);
+		f2fs_put_cache(sum_entry, false);
 		segno = block_end_segno;
 	}
 

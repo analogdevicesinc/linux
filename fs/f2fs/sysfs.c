@@ -1268,7 +1268,7 @@ DCC_INFO_GENERAL_RW_ATTR(discard_io_aware);
 /* NM_INFO ATTR */
 NM_INFO_RW_ATTR(max_roll_forward_node_blocks, max_rf_node_blocks);
 NM_INFO_GENERAL_RW_ATTR(ram_thresh);
-NM_INFO_GENERAL_RW_ATTR(ra_nid_pages);
+NM_INFO_RW_ATTR(ra_nid_pages, ra_nid_blocks);
 NM_INFO_GENERAL_RW_ATTR(dirty_nats_ratio);
 
 /* F2FS_SBI ATTR */

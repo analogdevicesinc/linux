@@ -196,7 +196,7 @@ void f2fs_drop_cache_range(struct f2fs_cached_block_list *cache,
 #define META_CACHE(sbi)		(&(sbi)->meta_blocks)
 
 #define f2fs_find_meta_cache(sbi, blkaddr)		\
-	f2fs_find_cache(META_CACHE(sbi), blkaddr)
+	f2fs_find_cache(META_CACHE(sbi), blkaddr, 0)
 #define f2fs_invalidate_meta_caches(sbi, start, len)	\
 	f2fs_drop_cache_range(META_CACHE(sbi), start, len, false)
 #define f2fs_truncate_meta_caches(sbi, start, len)	\

@@ -659,6 +659,8 @@ static int f2fs_cache_writeback_kthread(void *data)
 		if (!sb_start_write_trylock(sbi->sb))
 			continue;
 
+		f2fs_write_meta_caches(sbi);
+
 		sb_end_write(sbi->sb);
 	}
 	return 0;

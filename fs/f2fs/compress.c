@@ -1150,7 +1150,7 @@ retry:
 		f2fs_compress_ctx_add_page(cc, folio);
 
 		if (!folio_test_uptodate(folio)) {
-			f2fs_handle_page_eio(sbi, folio, DATA);
+			f2fs_handle_page_eio(sbi, folio->index, DATA);
 release_and_retry:
 			f2fs_put_rpages(cc);
 			f2fs_unlock_rpages(cc, i + 1);
@@ -1357,7 +1357,7 @@ static int f2fs_write_compressed_pages(struct compress_ctx *cc,
 		fio.old_blkaddr = data_blkaddr(dn.inode, dn.node_folio,
 						dn.ofs_in_node + i + 1);
 
-		/* wait for GCed page writeback via META_MAPPING */
+		/* wait for GCed page writeback via generic cache */
 		f2fs_wait_on_block_writeback(inode, fio.old_blkaddr);
 	}
 

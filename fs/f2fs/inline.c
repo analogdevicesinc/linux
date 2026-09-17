@@ -293,7 +293,7 @@ int f2fs_write_inline_data(struct inode *inode, struct folio *folio)
 	return 0;
 }
 
-int f2fs_recover_inline_data(struct inode *inode, struct folio *nfolio)
+int f2fs_recover_inline_data(struct inode *inode, struct f2fs_cached_block *entry)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	struct f2fs_inode *ri = NULL;
@@ -307,12 +307,13 @@ int f2fs_recover_inline_data(struct inode *inode, struct folio *nfolio)
 	 *    x       o  -> remove data blocks, and then recover inline_data
 	 *    x       x  -> recover data blocks
 	 */
-	if (IS_INODE(F2FS_I_SB(inode), nfolio))
-		ri = F2FS_INODE(nfolio);
+	if (IS_INODE(sbi, cache_folio(entry)))
+		ri = &CACHED_NODE(entry)->i;
 
 	if (f2fs_has_inline_data(inode) &&
 			ri && (ri->i_inline & F2FS_INLINE_DATA)) {
 		struct folio *ifolio;
+
 process_inline:
 		ifolio = f2fs_get_inode_folio(sbi, inode->i_ino);
 		if (IS_ERR(ifolio))
@@ -320,7 +321,7 @@ process_inline:
 
 		f2fs_folio_wait_writeback(ifolio, NODE, true, true);
 
-		src_addr = inline_data_addr(inode, nfolio);
+		src_addr = inline_data_addr(inode, cache_folio(entry));
 		dst_addr = inline_data_addr(inode, ifolio);
 		memcpy(dst_addr, src_addr, MAX_INLINE_DATA(inode));
 

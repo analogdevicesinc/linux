@@ -17,15 +17,15 @@ static inline nid_t f2fs_start_nid(struct f2fs_sb_info *sbi, nid_t nid)
 #define	NAT_BLOCK_OFFSET(sbi, start_nid) \
 	((start_nid) / NAT_ENTRY_PER_BLOCK(sbi))
 
-/* # of pages to perform synchronous readahead before building free nids */
-#define FREE_NID_PAGES	8
+/* # of blocks to perform synchronous readahead before building free nids */
+#define FREE_NID_BLOCKS	8
 #define MAX_FREE_NIDS(sbi)	((unsigned long)NAT_ENTRY_PER_BLOCK(sbi) * \
-				 FREE_NID_PAGES)
+				 FREE_NID_BLOCKS)
 
 /* size of free nid batch when shrinking */
 #define SHRINK_NID_BATCH_SIZE	8
 
-#define DEF_RA_NID_PAGES	0	/* # of nid pages to be readaheaded */
+#define DEF_RA_NID_BLOCKS	0	/* # of nid blocks to be readaheaded */
 
 /* maximum readahead size for node during getting data blocks */
 #define MAX_RA_NODE		128

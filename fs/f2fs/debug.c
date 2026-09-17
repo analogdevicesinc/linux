@@ -224,8 +224,7 @@ static void update_general_status(struct f2fs_sb_info *sbi)
 	si->dirty_count = dirty_segments(sbi);
 	if (sbi->node_inode)
 		si->node_pages = NODE_MAPPING(sbi)->nrpages;
-	if (sbi->meta_inode)
-		si->meta_pages = META_MAPPING(sbi)->nrpages;
+	si->meta_caches = META_CACHE(sbi)->num_entries;
 #ifdef CONFIG_F2FS_FS_COMPRESSION
 	if (sbi->compress_inode) {
 		si->compress_pages = COMPRESS_MAPPING(sbi)->nrpages;
@@ -388,11 +387,8 @@ get_cache:
 
 		si->page_mem += (unsigned long long)npages << PAGE_SHIFT;
 	}
-	if (sbi->meta_inode) {
-		unsigned long npages = META_MAPPING(sbi)->nrpages;
-
-		si->page_mem += (unsigned long long)npages << PAGE_SHIFT;
-	}
+	si->page_mem += (unsigned long long)META_CACHE(sbi)->num_entries << PAGE_SHIFT;
+	si->cache_mem += META_CACHE(sbi)->num_entries * sizeof(struct f2fs_cached_block);
 #ifdef CONFIG_F2FS_FS_COMPRESSION
 	if (sbi->compress_inode) {
 		unsigned long npages = COMPRESS_MAPPING(sbi)->nrpages;
@@ -708,7 +704,7 @@ static int stat_show(struct seq_file *s, void *v)
 		seq_printf(s, "  - quota data: %4d in quota files:%4d\n",
 			   si->ndirty_qdata, si->nquota_files);
 		seq_printf(s, "  - meta: %4d in %4d\n",
-			   si->ndirty_meta, si->meta_pages);
+			   si->ndirty_meta, si->meta_caches);
 		seq_printf(s, "  - imeta: %4d\n",
 			   si->ndirty_imeta);
 		seq_printf(s, "  - fsync mark: %4lld\n",
