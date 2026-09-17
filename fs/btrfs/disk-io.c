@@ -125,15 +125,13 @@ int btrfs_buffer_uptodate(struct extent_buffer *eb, u64 parent_transid,
 		return 1;
 	}
 
-	if (btrfs_header_generation(eb) != parent_transid) {
-		btrfs_err_rl(eb->fs_info,
+	btrfs_err_rl(eb->fs_info,
 "parent transid verify failed on logical %llu mirror %u wanted %llu found %llu",
-			eb->start, eb->read_mirror,
-			parent_transid, btrfs_header_generation(eb));
-		clear_extent_buffer_uptodate(eb);
-		return 0;
-	}
-	return 1;
+		     eb->start, eb->read_mirror,
+		     parent_transid, btrfs_header_generation(eb));
+	clear_extent_buffer_uptodate(eb);
+
+	return 0;
 }
 
 static bool btrfs_supported_super_csum(u16 csum_type)
@@ -176,19 +174,24 @@ static int btrfs_repair_eb_io_failure(const struct extent_buffer *eb,
 				      int mirror_num)
 {
 	struct btrfs_fs_info *fs_info = eb->fs_info;
-	const u32 step = min(fs_info->nodesize, PAGE_SIZE);
-	const u32 nr_steps = eb->len / step;
-	phys_addr_t paddrs[BTRFS_MAX_BLOCKSIZE / PAGE_SIZE];
+	struct btrfs_bio *bbio;
+	int ret;
 
 	if (sb_rdonly(fs_info->sb))
 		return -EROFS;
 
+	/*
+	 * This bbio is only to queue all pages for btrfs_repair_bbio_failure().
+	 * Thus it will never get its endio called.
+	 */
+	bbio = btrfs_bio_alloc(max(1, fs_info->nodesize >> PAGE_SHIFT), REQ_OP_READ,
+			       BTRFS_I(fs_info->btree_inode), eb->start, NULL, NULL);
+	bbio->bio.bi_iter.bi_sector = eb->start >> SECTOR_SHIFT;
 	for (int i = 0; i < num_extent_pages(eb); i++) {
 		struct folio *folio = eb->folios[i];
 
 		/* No large folio support yet. */
 		ASSERT(folio_order(folio) == 0);
-		ASSERT(i < nr_steps);
 
 		/*
 		 * For nodesize < page size, there is just one paddr, with some
@@ -197,11 +200,17 @@ static int btrfs_repair_eb_io_failure(const struct extent_buffer *eb,
 		 * For nodesize >= page size, it's one or more paddrs, and eb->start
 		 * must be aligned to page boundary.
 		 */
-		paddrs[i] = page_to_phys(&folio->page) + offset_in_page(eb->start);
+		ret = bio_add_page(&bbio->bio, &folio->page, min(PAGE_SIZE, fs_info->nodesize),
+				   offset_in_page(eb->start));
+		ASSERT(ret == min(PAGE_SIZE, fs_info->nodesize));
 	}
+	/* Since the bbio is never submitted, we have to save the iter manually. */
+	bbio->saved_iter = bbio->bio.bi_iter;
 
-	return btrfs_repair_io_failure(fs_info, 0, eb->start, eb->len,
-				       eb->start, paddrs, step, mirror_num);
+	ret = btrfs_repair_bbio_failure(bbio, &bbio->saved_iter, fs_info->nodesize,
+					mirror_num);
+	bio_put(&bbio->bio);
+	return ret;
 }
 
 /*
@@ -1485,7 +1494,9 @@ static int cleaner_kthread(void *arg)
 
 		btrfs_run_delayed_iputs(fs_info);
 
+		set_bit(BTRFS_QGROUP_RUNTIME_BIT_REJECT_RESCAN, &fs_info->qgroup_flags);
 		again = btrfs_clean_one_deleted_snapshot(fs_info);
+		clear_bit(BTRFS_QGROUP_RUNTIME_BIT_REJECT_RESCAN, &fs_info->qgroup_flags);
 		mutex_unlock(&fs_info->cleaner_mutex);
 
 		/*
@@ -2357,6 +2368,10 @@ static int validate_sys_chunk_array(const struct btrfs_fs_info *fs_info,
 				  key.type, cur);
 			return -EUCLEAN;
 		}
+
+		if (unlikely(cur + sizeof(*chunk) > sys_array_size))
+			goto short_read;
+
 		chunk = (struct btrfs_chunk *)(sb->sys_chunk_array + cur);
 		num_stripes = btrfs_stack_chunk_num_stripes(chunk);
 		if (unlikely(cur + btrfs_chunk_item_size(num_stripes) > sys_array_size))
@@ -2370,7 +2385,7 @@ static int validate_sys_chunk_array(const struct btrfs_fs_info *fs_info,
 		}
 		ret = btrfs_check_chunk_valid(fs_info, NULL, chunk, key.offset,
 					      sectorsize);
-		if (ret < 0)
+		if (unlikely(ret < 0))
 			return ret;
 		cur += btrfs_chunk_item_size(num_stripes);
 	}
@@ -4213,8 +4228,6 @@ int write_all_supers(struct btrfs_trans_handle *trans)
 			total_errors++;
 	}
 	if (unlikely(total_errors > max_errors)) {
-		btrfs_err(fs_info, "%d errors while writing supers",
-			  total_errors);
 		mutex_unlock(&fs_info->fs_devices->device_list_mutex);
 
 		/* FUA is masked off if unsupported and can't be the reason */

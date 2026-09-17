@@ -1612,7 +1612,7 @@ void btrfs_delete_unused_bgs(struct btrfs_fs_info *fs_info)
 
 		space_info = block_group->space_info;
 
-		if (ret || btrfs_mixed_space_info(space_info)) {
+		if (btrfs_mixed_space_info(space_info)) {
 			btrfs_put_block_group(block_group);
 			continue;
 		}
@@ -1727,6 +1727,7 @@ void btrfs_delete_unused_bgs(struct btrfs_fs_info *fs_info)
 		ret = inc_block_group_ro(block_group, false);
 		up_write(&space_info->groups_sem);
 		if (ret < 0) {
+			btrfs_link_bg_list(block_group, &retry_list);
 			ret = 0;
 			goto next;
 		}
@@ -1749,6 +1750,7 @@ void btrfs_delete_unused_bgs(struct btrfs_fs_info *fs_info)
 						     block_group->start);
 		if (IS_ERR(trans)) {
 			btrfs_dec_block_group_ro(block_group);
+			btrfs_link_bg_list(block_group, &retry_list);
 			ret = PTR_ERR(trans);
 			goto next;
 		}
@@ -1759,6 +1761,7 @@ void btrfs_delete_unused_bgs(struct btrfs_fs_info *fs_info)
 		 */
 		if (!clean_pinned_extents(trans, block_group)) {
 			btrfs_dec_block_group_ro(block_group);
+			btrfs_link_bg_list(block_group, &retry_list);
 			goto end_trans;
 		}
 
@@ -1845,6 +1848,8 @@ end_trans:
 next:
 		btrfs_put_block_group(block_group);
 		spin_lock(&fs_info->unused_bgs_lock);
+		if (ret)
+			break;
 	}
 	list_splice_tail(&retry_list, &fs_info->unused_bgs);
 	spin_unlock(&fs_info->unused_bgs_lock);
@@ -3074,20 +3079,24 @@ struct btrfs_block_group *btrfs_make_block_group(struct btrfs_trans_handle *tran
 		return ERR_PTR(ret);
 	}
 
+	/*
+	 * Ensure the corresponding space_info object is created and
+	 * assigned to our block group. We want our bg to be added to the rbtree
+	 * with its ->space_info set.
+	 *
+	 * On a zoned filesystem btrfs_add_new_free_space() ends up in
+	 * __btrfs_add_free_space_zoned(), which dereferences
+	 * block_group->space_info, so it has to be set beforehand.
+	 */
+	cache->space_info = space_info;
+	ASSERT(cache->space_info);
+
 	ret = btrfs_add_new_free_space(cache, chunk_offset, chunk_offset + size, NULL);
 	btrfs_free_excluded_extents(cache);
 	if (ret) {
 		btrfs_put_block_group(cache);
 		return ERR_PTR(ret);
 	}
-
-	/*
-	 * Ensure the corresponding space_info object is created and
-	 * assigned to our block group. We want our bg to be added to the rbtree
-	 * with its ->space_info set.
-	 */
-	cache->space_info = space_info;
-	ASSERT(cache->space_info);
 
 	ret = btrfs_add_block_group_cache(cache);
 	if (ret) {
