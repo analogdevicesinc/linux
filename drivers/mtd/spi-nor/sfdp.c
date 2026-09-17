@@ -115,6 +115,12 @@ struct sfdp_bfpt_erase {
 
 #define SFDP_4BAIT_DWORD_MAX	2
 
+/*
+ * Limit the total size of SFDP to a reasonable value to avoid allocating too
+ * much memory just of because the flash returned some insane values.
+ */
+#define SFDP_MAX_SIZE	SZ_16K
+
 struct sfdp_4bait {
 	/* The hardware capability. */
 	u32		hwcaps;
@@ -1594,14 +1600,10 @@ int spi_nor_parse_sfdp(struct spi_nor *nor)
 				  SFDP_PARAM_HEADER_PARAM_LEN(param_header));
 	}
 
-	/*
-	 * Limit the total size to a reasonable value to avoid allocating too
-	 * much memory just of because the flash returned some insane values.
-	 */
-	if (sfdp_size > PAGE_SIZE) {
+	if (sfdp_size > SFDP_MAX_SIZE) {
 		dev_dbg(dev, "SFDP data (%zu) too big, truncating\n",
 			sfdp_size);
-		sfdp_size = PAGE_SIZE;
+		sfdp_size = SFDP_MAX_SIZE;
 	}
 
 	sfdp = devm_kzalloc(dev, sizeof(*sfdp), GFP_KERNEL);
