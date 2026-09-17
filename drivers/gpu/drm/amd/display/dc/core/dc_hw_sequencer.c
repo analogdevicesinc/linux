@@ -4041,12 +4041,12 @@ void hwss_dpp_reset(union block_sequence_params *params)
 
 void hwss_dpp_root_clock_control(union block_sequence_params *params)
 {
-	struct dce_hwseq *hws = params->dpp_root_clock_control_params.hws;
+	struct dccg *dccg = params->dpp_root_clock_control_params.dccg;
 	unsigned int dpp_inst = params->dpp_root_clock_control_params.dpp_inst;
 	bool clock_on = params->dpp_root_clock_control_params.clock_on;
+	bool root_clock_optimization_dpp = params->dpp_root_clock_control_params.root_clock_optimization_dpp;
 
-	if (hws->funcs.dpp_root_clock_control)
-		hws->funcs.dpp_root_clock_control(hws, dpp_inst, clock_on);
+	dccg->funcs->dpp_root_clock_control(dccg, dpp_inst, clock_on, root_clock_optimization_dpp);
 }
 
 void hwss_dc_ip_request_cntl(union block_sequence_params *params)
@@ -5433,18 +5433,59 @@ void hwss_add_dccg_set_ref_dscclk(struct block_sequence_state *seq_state,
 	}
 }
 
+bool hwss_is_dpp_root_clock_control_allowed(struct dce_hwseq *hws, bool clock_on)
+{
+	bool root_clock_optimization_dpp;
+
+	if (!hws || !hws->ctx || !hws->ctx->dc)
+		return false;
+
+	root_clock_optimization_dpp = hws->ctx->dc->debug.root_clock_optimization.bits.dpp;
+
+	if (hws->funcs.is_dpp_root_clock_control_supported)
+		return hws->funcs.is_dpp_root_clock_control_supported(
+				root_clock_optimization_dpp, clock_on);
+
+	/* Without ASIC policy only gating depends on the optimization */
+	return root_clock_optimization_dpp || clock_on;
+}
+
 void hwss_add_dpp_root_clock_control(struct block_sequence_state *seq_state,
 		struct dce_hwseq *hws,
 		unsigned int dpp_inst,
 		bool clock_on)
 {
-	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].func = DPP_ROOT_CLOCK_CONTROL;
-		seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.hws = hws;
-		seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.dpp_inst = dpp_inst;
-		seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.clock_on = clock_on;
-		(*seq_state->num_steps)++;
-	}
+	struct dc *dc;
+	struct dccg *dccg;
+
+	if (!seq_state || !seq_state->steps || !seq_state->num_steps ||
+			*seq_state->num_steps >= MAX_HWSS_BLOCK_SEQUENCE_SIZE)
+		return;
+
+	if (!hws || !hws->funcs.dpp_root_clock_control || !hws->ctx || !hws->ctx->dc)
+		return;
+
+	dc = hws->ctx->dc;
+
+	if (!dc->res_pool || !dc->res_pool->dccg)
+		return;
+
+	dccg = dc->res_pool->dccg;
+
+	if (!dccg->funcs || !dccg->funcs->dpp_root_clock_control ||
+			dpp_inst >= ARRAY_SIZE(dccg->dpp_clock_gated))
+		return;
+
+	if (!hwss_is_dpp_root_clock_control_allowed(hws, clock_on))
+		return;
+
+	seq_state->steps[*seq_state->num_steps].func = DPP_ROOT_CLOCK_CONTROL;
+	seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.dccg = dccg;
+	seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.dpp_inst = dpp_inst;
+	seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.clock_on = clock_on;
+	seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.root_clock_optimization_dpp =
+			dc->debug.root_clock_optimization.bits.dpp;
+	(*seq_state->num_steps)++;
 }
 
 void hwss_add_dpp_pg_control(struct block_sequence_state *seq_state,

@@ -1059,7 +1059,8 @@ static void power_on_plane_resources(
 {
 	DC_LOGGER_INIT(hws->ctx);
 
-	if (hws->funcs.dpp_root_clock_control)
+	if (hws->funcs.dpp_root_clock_control &&
+	    hwss_is_dpp_root_clock_control_allowed(hws, true))
 		hws->funcs.dpp_root_clock_control(hws, plane_id, true);
 
 	if (REG(DC_IP_REQUEST_CNTL)) {
@@ -1566,7 +1567,8 @@ void dcn10_plane_atomic_power_down(struct dc *dc,
 				"Power gated front end %d\n", hubp->inst);
 	}
 
-	if (hws->funcs.dpp_root_clock_control)
+	if (hws->funcs.dpp_root_clock_control &&
+	    hwss_is_dpp_root_clock_control_allowed(hws, false))
 		hws->funcs.dpp_root_clock_control(hws, dpp->inst, false);
 }
 

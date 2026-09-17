@@ -304,7 +304,7 @@ static void dccg42_init(struct dccg *dccg)
 
 	if (dccg->ctx->dc->debug.root_clock_optimization.bits.dpp) {
 		for (i = 0; i < res_pool->pipe_count; i++) {
-			dccg35_dpp_root_clock_control(dccg, i, true);
+			dccg35_dpp_root_clock_control(dccg, i, true, true);
 		}
 	}
 }

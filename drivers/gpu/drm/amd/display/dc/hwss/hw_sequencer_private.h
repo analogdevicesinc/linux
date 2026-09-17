@@ -135,6 +135,9 @@ struct hwseq_private_funcs {
 			struct dce_hwseq *hws,
 			unsigned int dpp_inst,
 			bool clock_on);
+	bool (*is_dpp_root_clock_control_supported)(
+			bool root_clock_optimization_dpp,
+			bool clock_on);
 	void (*dpstream_root_clock_control)(
 			struct dce_hwseq *hws,
 			unsigned int dpp_inst,

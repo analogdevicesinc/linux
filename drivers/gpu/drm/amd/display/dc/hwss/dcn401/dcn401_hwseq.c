@@ -3130,7 +3130,8 @@ void dcn401_plane_atomic_power_down(struct dc *dc,
 	DC_LOG_DEBUG(
 			"Power gated front end %d\n", hubp->inst);
 
-	if (hws->funcs.dpp_root_clock_control)
+	if (hws->funcs.dpp_root_clock_control &&
+	    hwss_is_dpp_root_clock_control_allowed(hws, false))
 		hws->funcs.dpp_root_clock_control(hws, dpp->inst, false);
 }
 

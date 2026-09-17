@@ -705,9 +705,10 @@ struct dpp_reset_params {
 };
 
 struct dpp_root_clock_control_params {
-	struct dce_hwseq *hws;
+	struct dccg *dccg;
 	unsigned int dpp_inst;
 	bool clock_on;
+	bool root_clock_optimization_dpp;
 };
 
 struct dc_ip_request_cntl_params {
@@ -2454,6 +2455,8 @@ void hwss_add_dccg_set_ref_dscclk(struct block_sequence_state *seq_state,
 		struct dccg *dccg,
 		int dsc_inst,
 		bool *is_ungated);
+
+bool hwss_is_dpp_root_clock_control_allowed(struct dce_hwseq *hws, bool clock_on);
 
 void hwss_add_dpp_root_clock_control(struct block_sequence_state *seq_state,
 		struct dce_hwseq *hws,
