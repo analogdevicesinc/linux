@@ -1304,16 +1304,20 @@ retry:
 
 	/* Always process UNMAPs first so view SVM ranges is current */
 	err = xe_svm_garbage_collector(vm);
-	if (err)
+	if (err) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_GARBAGE_COLLECTOR);
 		return err;
+	}
 
 	dpagemap = ctx.devmem_only ? xe_tile_local_pagemap(tile) :
 		xe_vma_resolve_pagemap(vma, tile);
 	ctx.device_private_page_owner = xe_svm_private_page_owner(vm, !dpagemap);
 	range = xe_svm_range_find_or_insert(vm, fault_addr, vma, &ctx);
 
-	if (IS_ERR(range))
+	if (IS_ERR(range)) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_RANGE_NOT_FOUND);
 		return PTR_ERR(range);
+	}
 
 	xe_svm_range_fault_count_stats_incr(gt, range);
 
@@ -1415,6 +1419,7 @@ get_pages:
 			err = PTR_ERR(fence);
 			xe_validation_retry_on_oom(&vctx, &err);
 			xe_svm_range_bind_us_stats_incr(gt, range, bind_start);
+			xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_REBIND);
 			break;
 		}
 	}
@@ -1437,6 +1442,7 @@ out:
 
 err_out:
 	if (err == -EAGAIN) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_NONE);
 		ctx.timeslice_ms <<= 1;	/* Double timeslice if we have to retry */
 		range_debug(range, "PAGE FAULT - RETRY BIND");
 		goto retry;
@@ -1469,8 +1475,10 @@ int xe_svm_handle_pagefault(struct xe_vm *vm, struct xe_vma *vma,
 	int need_vram, ret;
 retry:
 	need_vram = xe_vma_need_vram_for_atomic(vm->xe, vma, atomic);
-	if (need_vram < 0)
+	if (need_vram < 0) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_NEEDS_VRAM_CHECK);
 		return need_vram;
+	}
 
 	ret =  __xe_svm_handle_pagefault(vm, vma, pf, gt, fault_addr,
 					 need_vram ? true : false);
@@ -1480,11 +1488,16 @@ retry:
 		 * may have been split by xe_svm_range_set_default_attr.
 		 */
 		vma = xe_vm_find_vma_by_addr(vm, fault_addr);
-		if (!vma)
+		if (!vma) {
+			xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_VMA_NOT_FOUND);
 			return -EINVAL;
+		}
 
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_NONE);
 		goto retry;
 	}
+	if (ret && xe_pagefault_get_error(pf) == XE_PAGEFAULT_ERROR_NONE)
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_SERVICE_FAILED);
 	return ret;
 }
 
