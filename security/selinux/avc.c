@@ -389,6 +389,9 @@ static inline u32 avc_xperms_audit_required(u32 requested,
 {
 	u32 denied, audited;
 
+	if (avd->flags & AVD_FLAGS_NEVERAUDIT)
+		return 0;
+
 	denied = requested & ~avd->allowed;
 	if (unlikely(denied)) {
 		audited = denied & avd->auditdeny;
