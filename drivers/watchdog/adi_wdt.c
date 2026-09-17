@@ -260,7 +260,6 @@ static struct platform_driver adi_wdt_driver = {
 	.resume    = adi_wdt_resume,
 	.driver    = {
 		.name  = WATCHDOG_NAME,
-		.owner = THIS_MODULE,
 #if defined(CONFIG_OF)
 		.of_match_table = of_match_ptr(adi_wdt_dt_ids),
 #endif
