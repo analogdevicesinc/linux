@@ -574,15 +574,6 @@ static int do_read_inode(struct inode *inode)
 	return 0;
 }
 
-static bool is_meta_ino(struct f2fs_sb_info *sbi, unsigned int ino)
-{
-#ifdef CONFIG_F2FS_FS_COMPRESSION
-	if (test_opt(sbi, COMPRESS_CACHE) && ino == F2FS_COMPRESS_INO(sbi))
-		return true;
-#endif
-	return false;
-}
-
 struct inode *f2fs_iget(struct super_block *sb, unsigned long ino)
 {
 	struct f2fs_sb_info *sbi = F2FS_SB(sb);
@@ -594,42 +585,17 @@ struct inode *f2fs_iget(struct super_block *sb, unsigned long ino)
 		return ERR_PTR(-ENOMEM);
 
 	if (!(inode_state_read_once(inode) & I_NEW)) {
-		if (is_meta_ino(sbi, ino)) {
-			f2fs_err(sbi, "inaccessible inode: %lu, run fsck to repair", ino);
-			set_sbi_flag(sbi, SBI_NEED_FSCK);
-			ret = -EFSCORRUPTED;
-			trace_f2fs_iget_exit(inode, ret);
-			iput(inode);
-			f2fs_handle_error(sbi, ERROR_CORRUPTED_INODE);
-			fserror_report_file_metadata(inode, ret, GFP_NOFS);
-			return ERR_PTR(ret);
-		}
-
 		trace_f2fs_iget(inode);
 		return inode;
 	}
 
-	if (is_meta_ino(sbi, ino))
-		goto make_now;
-
 	ret = do_read_inode(inode);
 	if (ret)
 		goto bad_inode;
-make_now:
+
 	f2fs_set_inode_flags(inode);
 
-	if (ino == F2FS_COMPRESS_INO(sbi)) {
-#ifdef CONFIG_F2FS_FS_COMPRESSION
-		inode->i_mapping->a_ops = &f2fs_compress_aops;
-		/*
-		 * generic_error_remove_folio only truncates pages of regular
-		 * inode
-		 */
-		inode->i_mode |= S_IFREG;
-#endif
-		mapping_set_gfp_mask(inode->i_mapping,
-			GFP_NOFS | __GFP_HIGHMEM | __GFP_MOVABLE);
-	} else if (S_ISREG(inode->i_mode)) {
+	if (S_ISREG(inode->i_mode)) {
 		inode->i_op = &f2fs_file_inode_operations;
 		inode->i_fop = &f2fs_file_operations;
 		inode->i_mapping->a_ops = &f2fs_dblock_aops;
@@ -882,7 +848,7 @@ static void f2fs_evict_inode_work(struct work_struct *work)
 /*
  * Return true, if we shouldn't go through post_evict_inode.
  */
-static bool f2fs_pre_evict_inode(struct inode *inode)
+static void f2fs_pre_evict_inode(struct inode *inode)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	struct f2fs_inode_info *fi = F2FS_I(inode);
@@ -908,17 +874,12 @@ static bool f2fs_pre_evict_inode(struct inode *inode)
 	    test_opt(sbi, COMPRESS_CACHE) && f2fs_compressed_file(inode))
 		f2fs_invalidate_compress_pages(sbi, inode->i_ino);
 
-	if (inode->i_ino == F2FS_COMPRESS_INO(sbi))
-		return true;
-
 	f2fs_bug_on(sbi, get_dirty_pages(inode));
 	f2fs_remove_dirty_inode(inode);
 	f2fs_remove_donate_inode(inode);
 
 	if (!IS_DEVICE_ALIASING(inode))
 		f2fs_destroy_extent_tree(inode);
-
-	return false;
 }
 
 static void f2fs_delete_inode(struct inode *inode)
@@ -1080,15 +1041,13 @@ skip_record:
  */
 void f2fs_evict_inode(struct inode *inode)
 {
-	if (f2fs_pre_evict_inode(inode))
-		goto clear_out;
+	f2fs_pre_evict_inode(inode);
 
 	if (!inode->i_nlink && !is_bad_inode(inode))
 		f2fs_delete_inode(inode);
 
 	f2fs_post_evict_inode(inode);
 
-clear_out:
 	fscrypt_put_encryption_info(inode);
 	clear_inode(inode);
 }

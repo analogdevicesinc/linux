@@ -157,7 +157,7 @@ enum mem_type {
 	READ_EXTENT_CACHE,	/* indicates read extent cache */
 	AGE_EXTENT_CACHE,	/* indicates age extent cache */
 	DISCARD_CACHE,	/* indicates memory of cached discard cmds */
-	COMPRESS_PAGE,	/* indicates memory of cached compressed pages */
+	COMPRESS_BLOCK,	/* indicates memory of cached compressed blocks */
 	BASE_CHECK,	/* check kernel status */
 };
 

@@ -225,8 +225,8 @@ static void update_general_status(struct f2fs_sb_info *sbi)
 	si->node_caches = NODE_CACHE(sbi)->num_entries;
 	si->meta_caches = META_CACHE(sbi)->num_entries;
 #ifdef CONFIG_F2FS_FS_COMPRESSION
-	if (sbi->compress_inode) {
-		si->compress_pages = COMPRESS_MAPPING(sbi)->nrpages;
+	if (test_opt(sbi, COMPRESS_CACHE)) {
+		si->compress_pages = COMPRESS_CACHE(sbi)->num_entries;
 		si->compress_page_hit = atomic_read(&sbi->compress_page_hit);
 	}
 #endif
@@ -386,10 +386,11 @@ get_cache:
 	si->page_mem += (unsigned long long)NODE_CACHE(sbi)->num_entries << PAGE_SHIFT;
 	si->cache_mem += NODE_CACHE(sbi)->num_entries * sizeof(struct f2fs_cached_block);
 #ifdef CONFIG_F2FS_FS_COMPRESSION
-	if (sbi->compress_inode) {
-		unsigned long npages = COMPRESS_MAPPING(sbi)->nrpages;
+	if (test_opt(sbi, COMPRESS_CACHE)) {
+		unsigned long npages = COMPRESS_CACHE(sbi)->num_entries;
 
 		si->page_mem += (unsigned long long)npages << PAGE_SHIFT;
+		si->cache_mem += npages * sizeof(struct f2fs_cached_block);
 	}
 #endif
 }

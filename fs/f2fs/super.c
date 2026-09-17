@@ -2069,8 +2069,6 @@ static void f2fs_put_super(struct super_block *sb)
 
 	f2fs_bug_on(sbi, sbi->fsync_node_num);
 
-	f2fs_destroy_compress_inode(sbi);
-
 	f2fs_destroy_cache(COMPRESS_CACHE(sbi));
 	f2fs_destroy_cache(NODE_CACHE(sbi));
 	f2fs_destroy_cache(META_CACHE(sbi));
@@ -5315,6 +5313,8 @@ try_onemore:
 
 	f2fs_init_fsync_node_info(sbi);
 
+	f2fs_init_compress_cache_context(sbi);
+
 	/* setup checkpoint request control and start checkpoint issue thread */
 	f2fs_init_ckpt_req_control(sbi);
 	if (!f2fs_readonly(sb) && !test_opt(sbi, DISABLE_CHECKPOINT) &&
@@ -5387,13 +5387,9 @@ try_onemore:
 		goto free_ino_entry;
 	}
 
-	err = f2fs_init_compress_inode(sbi);
-	if (err)
-		goto free_root_inode;
-
 	err = f2fs_register_sysfs(sbi);
 	if (err)
-		goto free_compress_inode;
+		goto free_root_inode;
 
 	sbi->umount_lock_holder = current;
 #ifdef CONFIG_QUOTA
@@ -5561,8 +5557,6 @@ free_meta:
 	/* evict some inodes being cached by GC */
 	evict_inodes(sb);
 	f2fs_unregister_sysfs(sbi);
-free_compress_inode:
-	f2fs_destroy_compress_inode(sbi);
 free_root_inode:
 	dput(sb->s_root);
 	sb->s_root = NULL;
@@ -5676,7 +5670,8 @@ static void kill_f2fs_super(struct super_block *sb)
 		 * compress inode cache.
 		 */
 		if (test_opt(sbi, COMPRESS_CACHE))
-			truncate_inode_pages_final(COMPRESS_MAPPING(sbi));
+			f2fs_invalidate_compress_pages_range(sbi,
+					0, UINT_MAX);
 #endif
 
 		if (is_sbi_flag_set(sbi, SBI_IS_DIRTY) ||
