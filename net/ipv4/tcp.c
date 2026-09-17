@@ -2997,6 +2997,7 @@ void tcp_set_state(struct sock *sk, int state)
 
 	if (BPF_SOCK_OPS_TEST_FLAG(tcp_sk(sk), BPF_SOCK_OPS_STATE_CB_FLAG))
 		tcp_call_bpf_2arg(sk, BPF_SOCK_OPS_STATE_CB, oldstate, state);
+	bpf_tcp_ops_call(set_state, sk, state);
 
 	switch (state) {
 	case TCP_ESTABLISHED:

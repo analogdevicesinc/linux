@@ -2634,6 +2634,7 @@ struct bpf_trace_run_ctx {
 struct bpf_tramp_run_ctx {
 	struct bpf_run_ctx run_ctx;
 	u64 bpf_cookie;
+	int retval;
 	struct bpf_run_ctx *saved_run_ctx;
 };
 

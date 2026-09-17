@@ -2959,12 +2959,120 @@ static inline void tcp_clear_sock_ops_cb_flags(struct sock *sk)
 
 #endif
 
+#if defined(CONFIG_BPF_JIT) && defined(CONFIG_CGROUP_BPF)
+
+struct bpf_tcp_ops {
+	/* Should return the initial SYN (active open) or SYN-ACK (passive open)
+	 * retransmission timeout. Return the timeout in jiffies, or <= 0 for
+	 * the kernel default.
+	 *
+	 * @req: request_sock on the passive (synack) path; NULL otherwise.
+	 */
+	int (*timeout_init)(struct sock *sk, struct request_sock *req);
+
+	/* Should return the initial advertised receive window, in packets,
+	 * or < 0 for the kernel default. @req as in timeout_init().
+	 */
+	int (*rwnd_init)(struct sock *sk, struct request_sock *req);
+
+	/* Called when an active connection becomes established.
+	 * @skb is the SYNACK that completed the 3WHS, or NULL for a
+	 * TCP_REPAIR socket (tcp_finish_connect() with no skb).
+	 */
+	void (*active_established)(struct sock *sk, struct sk_buff *skb__nullable);
+
+	/* Called when a passive connection becomes established.
+	 * @skb is the ACK that completed the 3WHS.
+	 */
+	void (*passive_established)(struct sock *sk, struct sk_buff *skb);
+
+	/* Called when the retransmission timer fires. */
+	void (*rto)(struct sock *sk);
+
+	/* Called on every RTT sample.
+	 * @mrtt: the measured RTT, in microseconds.
+	 * @srtt: the updated smoothed RTT.
+	 */
+	void (*rtt)(struct sock *sk, long mrtt, u32 srtt);
+
+	/* Called when the connection changes TCP state.
+	 * @state: the new state (one of the TCP_* states).
+	 */
+	void (*set_state)(struct sock *sk, int state);
+
+	/* Called when an skb is retransmitted.
+	 * @skb: the retransmitted skb.
+	 * @err: tcp_transmit_skb() return value (0 on success).
+	 */
+	void (*retrans)(struct sock *sk, struct sk_buff *skb, int err);
+
+	/* Called right before an active connection is initialized. */
+	void (*connect)(struct sock *sk);
+
+	/* Called on listen(2), right after the socket enters TCP_LISTEN. */
+	void (*listen)(struct sock *sk);
+};
+
+#define bpf_tcp_ops_call(op, sk, ...)					\
+do {									\
+	if (cgroup_bpf_enabled(CGROUP_TCP_SOCK_OPS)) {			\
+		const struct bpf_prog_array_item *item;			\
+		const struct bpf_tcp_ops *tcp_ops;			\
+		struct cgroup *cgrp;					\
+									\
+		cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);		\
+		rcu_read_lock_dont_migrate();				\
+		bpf_cgroup_struct_ops_foreach(tcp_ops, item, cgrp,	\
+					      CGROUP_TCP_SOCK_OPS) {	\
+			if (tcp_ops->op)				\
+				tcp_ops->op(sk, ##__VA_ARGS__);		\
+		}							\
+		rcu_read_unlock_migrate();				\
+	}								\
+} while (0)
+
+#define bpf_tcp_ops_call_int(op, init_retval, sk, ...)			\
+({									\
+	int __retval = (init_retval);					\
+	if (cgroup_bpf_enabled(CGROUP_TCP_SOCK_OPS)) {			\
+		const struct bpf_prog_array_item *item;			\
+		const struct bpf_tcp_ops *tcp_ops;			\
+		struct bpf_tramp_run_ctx run_ctx;			\
+		struct bpf_run_ctx *old_run_ctx;			\
+		struct sock *__sk = sk_to_full_sk(sk);                  \
+		struct request_sock *req = NULL;			\
+		struct cgroup *cgrp;					\
+									\
+		if (__sk) {						\
+			run_ctx.retval = (init_retval);			\
+			cgrp = sock_cgroup_ptr(&__sk->sk_cgrp_data);	\
+			if (!sk_fullsock(sk))				\
+				req = (struct request_sock *)sk;	\
+			rcu_read_lock_dont_migrate();			\
+			old_run_ctx = bpf_set_run_ctx(&run_ctx.run_ctx);\
+			bpf_cgroup_struct_ops_foreach(tcp_ops, item, cgrp, \
+						      CGROUP_TCP_SOCK_OPS) { \
+				if (tcp_ops->op)			\
+					run_ctx.retval = tcp_ops->op(__sk, req, ##__VA_ARGS__); \
+			}						\
+			bpf_reset_run_ctx(old_run_ctx);			\
+			rcu_read_unlock_migrate();			\
+			__retval = run_ctx.retval;			\
+		}							\
+	}								\
+	__retval;							\
+})
+#else
+#define bpf_tcp_ops_call(op, sk, ...)		do { } while (0)
+#define bpf_tcp_ops_call_int(op, init_retval, sk, ...)	(init_retval)
+#endif
+
 static inline u32 tcp_timeout_init(struct sock *sk)
 {
 	int timeout;
 
 	timeout = tcp_call_bpf(sk, BPF_SOCK_OPS_TIMEOUT_INIT, 0, NULL);
-
+	timeout = bpf_tcp_ops_call_int(timeout_init, timeout, sk);
 	if (timeout <= 0)
 		timeout = TCP_TIMEOUT_INIT;
 	return min_t(int, timeout, TCP_RTO_MAX);
@@ -2975,7 +3083,7 @@ static inline u32 tcp_rwnd_init_bpf(struct sock *sk)
 	int rwnd;
 
 	rwnd = tcp_call_bpf(sk, BPF_SOCK_OPS_RWND_INIT, 0, NULL);
-
+	rwnd = bpf_tcp_ops_call_int(rwnd_init, rwnd, sk);
 	if (rwnd < 0)
 		rwnd = 0;
 	return rwnd;
@@ -2990,6 +3098,7 @@ static inline void tcp_bpf_rtt(struct sock *sk, long mrtt, u32 srtt)
 {
 	if (BPF_SOCK_OPS_TEST_FLAG(tcp_sk(sk), BPF_SOCK_OPS_RTT_CB_FLAG))
 		tcp_call_bpf_2arg(sk, BPF_SOCK_OPS_RTT_CB, mrtt, srtt);
+	bpf_tcp_ops_call(rtt, sk, mrtt, srtt);
 }
 
 #if IS_ENABLED(CONFIG_SMC)

@@ -227,6 +227,7 @@ int __inet_listen_sk(struct sock *sk, int backlog)
 			return err;
 
 		tcp_call_bpf(sk, BPF_SOCK_OPS_TCP_LISTEN_CB, 0, NULL);
+		bpf_tcp_ops_call(listen, sk);
 	}
 	return 0;
 }

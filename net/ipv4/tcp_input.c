@@ -6724,6 +6724,10 @@ void tcp_init_transfer(struct sock *sk, int bpf_op, struct sk_buff *skb)
 	tp->snd_cwnd_stamp = tcp_jiffies32;
 
 	bpf_skops_established(sk, bpf_op, skb);
+	if (bpf_op == BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB)
+		bpf_tcp_ops_call(active_established, sk, skb);
+	else
+		bpf_tcp_ops_call(passive_established, sk, skb);
 	/* Initialize congestion control unless BPF initialized it already: */
 	if (!icsk->icsk_ca_initialized)
 		tcp_init_congestion_control(sk);
