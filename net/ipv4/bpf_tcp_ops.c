@@ -4,6 +4,7 @@
 #include <linux/bpf.h>
 #include <linux/btf_ids.h>
 #include <linux/bpf_verifier.h>
+#include <linux/filter.h>
 #include <net/bpf_sk_storage.h>
 #include <net/tcp.h>
 
@@ -55,6 +56,26 @@ static void listen_stub(struct sock *sk)
 {
 }
 
+static void parse_hdr_stub(struct sock *sk, struct sk_buff *skb)
+{
+}
+
+static void hdr_opt_len_stub(struct sock *sk, struct sk_buff *skb__nullable,
+			     struct request_sock *req__nullable,
+			     struct sk_buff *syn_skb__nullable,
+			     enum tcp_synack_type synack_type,
+			     unsigned int *remaining)
+{
+}
+
+static void write_hdr_opt_stub(struct sock *sk, struct sk_buff *skb,
+			       struct request_sock *req__nullable,
+			       struct sk_buff *syn_skb__nullable,
+			       enum tcp_synack_type synack_type,
+			       u32 opt_off)
+{
+}
+
 static struct bpf_tcp_ops __bpf_tcp_ops = {
 	.timeout_init = timeout_init_stub,
 	.rwnd_init = rwnd_init_stub,
@@ -66,6 +87,104 @@ static struct bpf_tcp_ops __bpf_tcp_ops = {
 	.retrans = retrans_stub,
 	.connect = connect_stub,
 	.listen = listen_stub,
+	.parse_hdr = parse_hdr_stub,
+	.hdr_opt_len = hdr_opt_len_stub,
+	.write_hdr_opt = write_hdr_opt_stub,
+};
+
+BPF_CALL_4(bpf_tcp_ops_store_hdr_opt, void *, ctx, const void *, from,
+	   u32, len, u64, flags)
+{
+	u64 *args = ctx;
+	struct sk_buff *skb = (void *)(unsigned long)args[1];
+	struct bpf_sock_ops_kern sock_ops = {};
+	u32 opt_off = args[5];
+	u8 *op, *opend;
+
+	/*
+	 * bpf_tcp_ops does not keep track of the end of the written TCP header
+	 * options, so search for it every time the helper is called. The free
+	 * space is NOP-filled, so a TCPOPT_NOP ends the search rather than being
+	 * skipped as in a normal option walk in sockops.
+	 */
+	op = skb->data + opt_off;
+	opend = skb->data + tcp_hdrlen(skb);
+	while (op < opend && *op != TCPOPT_NOP) {
+		if (*op == TCPOPT_EOL || op + 1 >= opend || op[1] < 2)
+			break;
+		op += op[1];
+	}
+
+	sock_ops.skb = skb;
+	sock_ops.skb_data_end = op;
+	sock_ops.remaining_opt_len = opend - op;
+
+	return __bpf_sock_ops_store_hdr_opt(&sock_ops, from, len, flags);
+}
+
+static const struct bpf_func_proto bpf_tcp_ops_store_hdr_opt_proto = {
+	.func		= bpf_tcp_ops_store_hdr_opt,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_PTR_TO_MEM | MEM_RDONLY,
+	.arg3_type	= ARG_MEM_SIZE,
+	.arg4_type	= ARG_ANYTHING,
+};
+
+BPF_CALL_4(bpf_tcp_ops_load_hdr_opt, void *, ctx, void *, search_res,
+	   u32, len, u64, flags)
+{
+	u64 *args = ctx;
+	struct sk_buff *skb = (void *)(unsigned long)args[1];
+	struct bpf_sock_ops_kern sock_ops = {};
+
+	/*
+	 * No flags supported. In particular BPF_LOAD_HDR_OPT_TCP_SYN, which
+	 * loads from the saved SYN, is not available because bpf_tcp_ops has no
+	 * carrier to track the SYN source across the hooks.
+	 */
+	if (flags)
+		return -EINVAL;
+
+	sock_ops.skb = skb;
+	sock_ops.skb_data_end = skb->data + tcp_hdrlen(skb);
+
+	return __bpf_sock_ops_load_hdr_opt(&sock_ops, search_res, len, flags);
+}
+
+static const struct bpf_func_proto bpf_tcp_ops_load_hdr_opt_proto = {
+	.func		= bpf_tcp_ops_load_hdr_opt,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_PTR_TO_MEM | MEM_WRITE,
+	.arg3_type	= ARG_MEM_SIZE,
+	.arg4_type	= ARG_ANYTHING,
+};
+
+BPF_CALL_3(bpf_tcp_ops_reserve_hdr_opt, void *, ctx, u32, len, u64, flags)
+{
+	u64 *args = ctx;
+	unsigned int *remaining = (void *)(unsigned long)args[5];
+
+	if (flags || len < 2)
+		return -EINVAL;
+
+	if (len > *remaining)
+		return -ENOSPC;
+
+	*remaining -= len;
+	return 0;
+}
+
+static const struct bpf_func_proto bpf_tcp_ops_reserve_hdr_opt_proto = {
+	.func		= bpf_tcp_ops_reserve_hdr_opt,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_ANYTHING,
+	.arg3_type	= ARG_ANYTHING,
 };
 
 BPF_CALL_0(bpf_tcp_ops_get_retval)
@@ -102,20 +221,39 @@ get_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 	case BPF_FUNC_sk_storage_delete:
 		return &bpf_sk_storage_delete_proto;
 	case BPF_FUNC_setsockopt:
-		/* The listener is not locked. */
+		/* The sk may be an unlocked listener (synack path) or NULL
+		 * fullsock; disable for members that can run unlocked.
+		 */
 		if (moff == offsetof(struct bpf_tcp_ops, rwnd_init) ||
-		    moff == offsetof(struct bpf_tcp_ops, timeout_init))
+		    moff == offsetof(struct bpf_tcp_ops, timeout_init) ||
+		    moff == offsetof(struct bpf_tcp_ops, hdr_opt_len) ||
+		    moff == offsetof(struct bpf_tcp_ops, write_hdr_opt))
 			return NULL;
 		return &bpf_sk_setsockopt_proto;
 	case BPF_FUNC_getsockopt:
 		if (moff == offsetof(struct bpf_tcp_ops, rwnd_init) ||
-		    moff == offsetof(struct bpf_tcp_ops, timeout_init))
+		    moff == offsetof(struct bpf_tcp_ops, timeout_init) ||
+		    moff == offsetof(struct bpf_tcp_ops, hdr_opt_len) ||
+		    moff == offsetof(struct bpf_tcp_ops, write_hdr_opt))
 			return NULL;
 		return &bpf_sk_getsockopt_proto;
 	case BPF_FUNC_get_retval:
 		if (moff == offsetof(struct bpf_tcp_ops, timeout_init) ||
 		    moff == offsetof(struct bpf_tcp_ops, rwnd_init))
 			return &bpf_tcp_ops_get_retval_proto;
+		return NULL;
+	case BPF_FUNC_reserve_hdr_opt:
+		if (moff == offsetof(struct bpf_tcp_ops, hdr_opt_len))
+			return &bpf_tcp_ops_reserve_hdr_opt_proto;
+		return NULL;
+	case BPF_FUNC_load_hdr_opt:
+		if (moff == offsetof(struct bpf_tcp_ops, parse_hdr) ||
+		    moff == offsetof(struct bpf_tcp_ops, write_hdr_opt))
+			return &bpf_tcp_ops_load_hdr_opt_proto;
+		return NULL;
+	case BPF_FUNC_store_hdr_opt:
+		if (moff == offsetof(struct bpf_tcp_ops, write_hdr_opt))
+			return &bpf_tcp_ops_store_hdr_opt_proto;
 		return NULL;
 	default:
 		return bpf_base_func_proto(func_id, prog);

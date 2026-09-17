@@ -208,6 +208,18 @@ static void bpf_skops_established(struct sock *sk, int bpf_op,
 }
 #endif
 
+static void bpf_tcp_ops_parse_hdr(struct sock *sk, struct sk_buff *skb)
+{
+	switch (sk->sk_state) {
+	case TCP_SYN_RECV:
+	case TCP_SYN_SENT:
+	case TCP_LISTEN:
+		return;
+	}
+
+	bpf_tcp_ops_call(parse_hdr, sk, skb);
+}
+
 static __cold void tcp_gro_dev_warn(const struct sock *sk, const struct sk_buff *skb,
 				    unsigned int len)
 {
@@ -6461,6 +6473,7 @@ syn_challenge:
 
 pass:
 	bpf_skops_parse_hdr(sk, skb);
+	bpf_tcp_ops_parse_hdr(sk, skb);
 
 	return true;
 

@@ -536,43 +536,53 @@ static void bpf_skops_write_hdr_opt(struct sock *sk, struct sk_buff *skb,
 				    enum tcp_synack_type synack_type,
 				    struct tcp_out_options *opts)
 {
-	u8 first_opt_off, nr_written, max_opt_len = opts->bpf_opt_len;
-	struct bpf_sock_ops_kern sock_ops;
-	int err;
+	u8 first_opt_off, nr_written = 0, max_opt_len = opts->bpf_opt_len;
 
 	if (likely(!max_opt_len))
 		return;
 
-	memset(&sock_ops, 0, offsetof(struct bpf_sock_ops_kern, temp));
-
-	sock_ops.op = BPF_SOCK_OPS_WRITE_HDR_OPT_CB;
-
-	if (req) {
-		sock_ops.sk = (struct sock *)req;
-		sock_ops.syn_skb = syn_skb;
-	} else {
-		sock_owned_by_me(sk);
-
-		sock_ops.is_fullsock = 1;
-		sock_ops.is_locked_tcp_sock = 1;
-		sock_ops.sk = sk;
-	}
-
-	sock_ops.args[0] = bpf_skops_write_hdr_opt_arg0(skb, synack_type);
-	sock_ops.remaining_opt_len = max_opt_len;
 	first_opt_off = tcp_hdrlen(skb) - max_opt_len;
-	bpf_skops_init_skb(&sock_ops, skb, first_opt_off);
 
-	err = BPF_CGROUP_RUN_PROG_SOCK_OPS_SK(&sock_ops, sk);
+	if (BPF_SOCK_OPS_TEST_FLAG(tcp_sk(sk),
+				   BPF_SOCK_OPS_WRITE_HDR_OPT_CB_FLAG)) {
+		struct bpf_sock_ops_kern sock_ops;
+		int err;
 
-	if (err)
-		nr_written = 0;
-	else
-		nr_written = max_opt_len - sock_ops.remaining_opt_len;
+		memset(&sock_ops, 0, offsetof(struct bpf_sock_ops_kern, temp));
+
+		sock_ops.op = BPF_SOCK_OPS_WRITE_HDR_OPT_CB;
+
+		if (req) {
+			sock_ops.sk = (struct sock *)req;
+			sock_ops.syn_skb = syn_skb;
+		} else {
+			sock_owned_by_me(sk);
+
+			sock_ops.is_fullsock = 1;
+			sock_ops.is_locked_tcp_sock = 1;
+			sock_ops.sk = sk;
+		}
+
+		sock_ops.args[0] = bpf_skops_write_hdr_opt_arg0(skb, synack_type);
+		sock_ops.remaining_opt_len = max_opt_len;
+		bpf_skops_init_skb(&sock_ops, skb, first_opt_off);
+
+		err = BPF_CGROUP_RUN_PROG_SOCK_OPS_SK(&sock_ops, sk);
+		if (!err)
+			nr_written = max_opt_len - sock_ops.remaining_opt_len;
+	}
 
 	if (nr_written < max_opt_len)
 		memset(skb->data + first_opt_off + nr_written, TCPOPT_NOP,
 		       max_opt_len - nr_written);
+
+	/*
+	 * bpf_tcp_ops portion is NOP-filled (everything past the sockops
+	 * writer's bytes). The writer finds the append point by scanning from
+	 * first_opt_off + nr_written to the first NOP.
+	 */
+	bpf_tcp_ops_call(write_hdr_opt, sk, skb, req, syn_skb, synack_type,
+			 first_opt_off + nr_written);
 }
 #else
 static u32 bpf_skops_hdr_opt_len(struct sock *sk, struct sk_buff *skb,
@@ -593,6 +603,32 @@ static void bpf_skops_write_hdr_opt(struct sock *sk, struct sk_buff *skb,
 {
 }
 #endif
+
+static u32 bpf_tcp_ops_hdr_opt_len(struct sock *sk, struct sk_buff *skb,
+				   struct request_sock *req,
+				   struct sk_buff *syn_skb,
+				   enum tcp_synack_type synack_type,
+				   struct tcp_out_options *opts,
+				   u32 remaining)
+{
+	unsigned int remaining_out = remaining, reserved;
+
+	if (!remaining)
+		return 0;
+
+	/* bpf_tcp_ops_reserve_hdr_opt() reserves space via remaining_out */
+	bpf_tcp_ops_call(hdr_opt_len, sk, skb, req, syn_skb, synack_type, &remaining_out);
+
+	reserved = remaining - remaining_out;
+	if (!reserved)
+		return remaining;
+
+	/* round up to 4 bytes */
+	reserved = (reserved + 3) & ~3;
+
+	opts->bpf_opt_len += reserved;
+	return remaining - reserved;
+}
 
 static __be32 *process_tcp_ao_options(struct tcp_sock *tp,
 				      const struct tcp_request_sock *tcprsk,
@@ -1053,6 +1089,8 @@ static unsigned int tcp_syn_options(struct sock *sk, struct sk_buff *skb,
 
 	remaining = bpf_skops_hdr_opt_len(sk, skb, NULL, NULL, 0, opts,
 					  remaining);
+	remaining = bpf_tcp_ops_hdr_opt_len(sk, skb, NULL, NULL, 0, opts,
+					    remaining);
 
 	return MAX_TCP_OPTION_SPACE - remaining;
 }
@@ -1141,6 +1179,8 @@ static unsigned int tcp_synack_options(const struct sock *sk,
 
 	remaining = bpf_skops_hdr_opt_len((struct sock *)sk, skb, req, syn_skb,
 					  synack_type, opts, remaining);
+	remaining = bpf_tcp_ops_hdr_opt_len((struct sock *)sk, skb, req, syn_skb,
+					    synack_type, opts, remaining);
 
 	return MAX_TCP_OPTION_SPACE - remaining;
 }
@@ -1157,6 +1197,7 @@ static unsigned int tcp_established_options(struct sock *sk, struct sk_buff *skb
 	unsigned int eff_sacks;
 
 	opts->options = 0;
+	opts->bpf_opt_len = 0;
 
 	/* Better than switch (key.type) as it has static branches */
 	if (tcp_key_is_md5(key)) {
@@ -1240,6 +1281,15 @@ static unsigned int tcp_established_options(struct sock *sk, struct sk_buff *skb
 
 		remaining = bpf_skops_hdr_opt_len(sk, skb, NULL, NULL, 0, opts,
 						  remaining);
+
+		size = MAX_TCP_OPTION_SPACE - remaining;
+	}
+
+	if (cgroup_bpf_enabled(CGROUP_TCP_SOCK_OPS)) {
+		unsigned int remaining = MAX_TCP_OPTION_SPACE - size;
+
+		remaining = bpf_tcp_ops_hdr_opt_len(sk, skb, NULL, NULL, 0, opts,
+						    remaining);
 
 		size = MAX_TCP_OPTION_SPACE - remaining;
 	}
