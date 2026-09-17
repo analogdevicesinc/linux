@@ -3598,10 +3598,10 @@ void dcn401_post_unlock_reset_opp_sequence(
 	}
 }
 
-void dcn401_dc_ip_request_cntl(struct dc *dc, bool enable)
+void dcn401_dc_ip_request_cntl(struct dce_hwseq *hws, bool enable)
 {
-	struct dce_hwseq *hws = dc->hwseq;
-
+	if (!hws || !hws->ctx || !hws->regs || !hws->shifts || !hws->masks)
+		return;
 	if (REG(DC_IP_REQUEST_CNTL))
 		REG_SET(DC_IP_REQUEST_CNTL, 0, IP_REQUEST_EN, enable ? 1 : 0);
 }

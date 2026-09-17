@@ -4051,12 +4051,10 @@ void hwss_dpp_root_clock_control(union block_sequence_params *params)
 
 void hwss_dc_ip_request_cntl(union block_sequence_params *params)
 {
-	struct dc *dc = params->dc_ip_request_cntl_params.dc;
+	struct dce_hwseq *hws = params->dc_ip_request_cntl_params.hws;
 	bool enable = params->dc_ip_request_cntl_params.enable;
-	struct dce_hwseq *hws = dc->hwseq;
 
-	if (hws->funcs.dc_ip_request_cntl)
-		hws->funcs.dc_ip_request_cntl(dc, enable);
+	hws->funcs.dc_ip_request_cntl(hws, enable);
 }
 
 void hwss_dccg_update_dpp_dto(union block_sequence_params *params)
@@ -4964,9 +4962,13 @@ void hwss_add_dc_ip_request_cntl(struct block_sequence_state *seq_state,
 		struct dc *dc,
 		bool enable)
 {
+	if (!seq_state || !seq_state->steps || !seq_state->num_steps || !dc ||
+			!dc->hwseq || !dc->hwseq->funcs.dc_ip_request_cntl)
+		return;
+
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
 		seq_state->steps[*seq_state->num_steps].func = DC_IP_REQUEST_CNTL;
-		seq_state->steps[*seq_state->num_steps].params.dc_ip_request_cntl_params.dc = dc;
+		seq_state->steps[*seq_state->num_steps].params.dc_ip_request_cntl_params.hws = dc->hwseq;
 		seq_state->steps[*seq_state->num_steps].params.dc_ip_request_cntl_params.enable = enable;
 		(*seq_state->num_steps)++;
 	}

@@ -711,7 +711,7 @@ struct dpp_root_clock_control_params {
 };
 
 struct dc_ip_request_cntl_params {
-	struct dc *dc;
+	struct dce_hwseq *hws;
 	bool enable;
 };
 
