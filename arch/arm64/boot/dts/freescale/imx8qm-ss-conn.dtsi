@@ -9,6 +9,7 @@
 		compatible = "usb-nop-xceiv";
 		clocks = <&usb2_lpcg IMX_LPCG_CLK_7>;
 		clock-names = "main_clk";
+		#phy-cells = <0>;
 		power-domains = <&pd IMX_SC_R_USB_0_PHY>;
 		status = "disabled";
 	};
