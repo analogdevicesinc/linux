@@ -1120,7 +1120,13 @@ static int __cmd_report(struct report *rep)
 		if (evlist__can_merge_hybrid(session->evlist, env)) {
 			evlist__merge_hybrid(session->evlist, env);
 			evlist__merge_hists_hybrid(session->evlist, false);
-		} else {
+		} else if (symbol_conf.hybrid_merge_set) {
+			/*
+			 * Only an explicit --hybrid-merge warns. A
+			 * core.hybrid-merge default is silent, as most
+			 * machines aren't hybrid and there is nothing the
+			 * user needs to do about it.
+			 */
 			ui__warning("--hybrid-merge: no events to merge across core PMUs\n");
 		}
 	}
@@ -1460,8 +1466,9 @@ int cmd_report(int argc, const char **argv)
 		    parse_branch_mode),
 	OPT_BOOLEAN(0, "branch-history", &branch_call_mode,
 		    "add last branch records to call history"),
-	OPT_BOOLEAN(0, "hybrid-merge", &symbol_conf.hybrid_merge,
-		    "merge the same event across hybrid core PMUs"),
+	OPT_BOOLEAN_SET(0, "hybrid-merge", &symbol_conf.hybrid_merge,
+			&symbol_conf.hybrid_merge_set,
+			"merge the same event across hybrid core PMUs"),
 	OPT_STRING(0, "objdump", &objdump_path, "path",
 		   "objdump binary to use for disassembly and annotations"),
 	OPT_STRING(0, "addr2line", &addr2line_path, "path",
@@ -1562,9 +1569,14 @@ int cmd_report(int argc, const char **argv)
 	}
 
 	if (symbol_conf.report_hierarchy && symbol_conf.hybrid_merge) {
-		pr_err("Error: --hierarchy and --hybrid-merge are mutually exclusive.\n");
-		ret = -EINVAL;
-		goto exit;
+		if (symbol_conf.hybrid_merge_set) {
+			pr_err("Error: --hierarchy and --hybrid-merge are mutually exclusive.\n");
+			ret = -EINVAL;
+			goto exit;
+		}
+		/* A config file default shouldn't fail an explicit option. */
+		pr_warning("core.hybrid-merge ignored: --hierarchy cannot display merged hybrid events\n");
+		symbol_conf.hybrid_merge = false;
 	}
 
 	if (disassembler_style) {

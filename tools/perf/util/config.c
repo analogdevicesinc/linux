@@ -470,6 +470,16 @@ static int perf_default_core_config(const char *var, const char *value)
 	if (!strcmp(var, "core.addr2line-disable-warn"))
 		symbol_conf.addr2line_disable_warn = perf_config_bool(var, value);
 
+	if (!strcmp(var, "core.hybrid-merge")) {
+		/*
+		 * Note, this is for sampling tools like perf report and top.
+		 * perf stat has its own merging options and the
+		 * stat_config.hybrid_merge of "perf stat --hybrid-merge" is
+		 * deliberately not set here.
+		 */
+		symbol_conf.hybrid_merge = perf_config_bool(var, value);
+	}
+
 	/* Add other config variables here. */
 	return 0;
 }
