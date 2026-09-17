@@ -914,7 +914,7 @@ static int dac33_prepare_chip(struct snd_pcm_substream *substream,
 	/* OSC calibration time */
 	dac33_write(component, DAC33_CALIB_TIME, 96);
 
-	/* adjustment treshold & step */
+	/* adjustment threshold & step */
 	dac33_write(component, DAC33_INT_OSC_CTRL_B, DAC33_ADJTHRSHLD(2) |
 						 DAC33_ADJSTEP(1));
 

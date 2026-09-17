@@ -1158,7 +1158,7 @@ static int da7210_probe(struct snd_soc_component *component)
 	snd_soc_component_write(component, DA7210_PLL_DIV3, DA7210_MCLK_RANGE_10_20_MHZ |
 					      DA7210_PLL_BYP);
 
-	/* Diable PLL and bypass it */
+	/* Disable PLL and bypass it */
 	snd_soc_component_write(component, DA7210_PLL, DA7210_PLL_FS_48000);
 
 	/* Activate all enabled subsystem */

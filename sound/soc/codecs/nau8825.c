@@ -345,10 +345,10 @@ static u32 nau8825_intlog10_dec3(u32 value)
 /**
  * nau8825_xtalk_sidetone - computes cross talk suppression sidetone gain.
  *
- * @sig_org: orignal signal level
+ * @sig_org: original signal level
  * @sig_cros: cross talk signal level
  *
- * The orignal and cross talk signal vlues need to be characterized.
+ * The original and cross talk signal vlues need to be characterized.
  * Once these values have been characterized, this sidetone value
  * can be converted to decibel with the equation below.
  * sidetone = 20 * log (original signal level / crosstalk signal level)
@@ -671,11 +671,11 @@ static void nau8825_xtalk_imm_stop(struct nau8825 *nau8825)
  * Thus, the measurement function has four states to complete whole sequence.
  * 1. Prepare state : Prepare the resource for detection and transfer to HPR
  *     IMM stat to make JKR1(HPR) impedance measure.
- * 2. HPR IMM state : Read out orignal signal level of JKR1(HPR) and transfer
+ * 2. HPR IMM state : Read out original signal level of JKR1(HPR) and transfer
  *     to HPL IMM state to make JKTIP(HPL) impedance measure.
  * 3. HPL IMM state : Read out cross talk signal level of JKTIP(HPL) and
  *     transfer to IMM state to determine suppression sidetone gain.
- * 4. IMM state : Computes cross talk suppression sidetone gain with orignal
+ * 4. IMM state : Computes cross talk suppression sidetone gain with original
  *     and cross talk signal level. Apply this gain and then restore codec
  *     configuration. Then transfer to Done state for ending.
  */
@@ -724,7 +724,7 @@ static void nau8825_xtalk_measure(struct nau8825 *nau8825)
 		nau8825->xtalk_state = NAU8825_XTALK_IMM;
 		break;
 	case NAU8825_XTALK_IMM:
-		/* In impedance measure state, the orignal and cross talk
+		/* In impedance measure state, the original and cross talk
 		 * signal level vlues are ready. The side tone gain is deter-
 		 * mined with these signal level. After all, restore codec
 		 * configuration.

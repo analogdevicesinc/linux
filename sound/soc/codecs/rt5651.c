@@ -1024,7 +1024,7 @@ static const struct snd_soc_dapm_widget rt5651_dapm_widgets[] = {
 			   0, rt5651_out_l_mix, ARRAY_SIZE(rt5651_out_l_mix)),
 	SND_SOC_DAPM_MIXER("OUT MIXR", RT5651_PWR_MIXER, RT5651_PWR_OM_R_BIT,
 			   0, rt5651_out_r_mix, ARRAY_SIZE(rt5651_out_r_mix)),
-	/* Ouput Volume */
+	/* Output Volume */
 	SND_SOC_DAPM_SWITCH("OUTVOL L", RT5651_PWR_VOL,
 			    RT5651_PWR_OV_L_BIT, 0, &outvol_l_control),
 	SND_SOC_DAPM_SWITCH("OUTVOL R", RT5651_PWR_VOL,

@@ -1901,7 +1901,7 @@ static const struct snd_soc_dapm_widget rt5670_dapm_widgets[] = {
 			   0, rt5670_out_l_mix, ARRAY_SIZE(rt5670_out_l_mix)),
 	SND_SOC_DAPM_MIXER("OUT MIXR", RT5670_PWR_MIXER, RT5670_PWR_OM_R_BIT,
 			   0, rt5670_out_r_mix, ARRAY_SIZE(rt5670_out_r_mix)),
-	/* Ouput Volume */
+	/* Output Volume */
 	SND_SOC_DAPM_MIXER("HPOVOL MIXL", RT5670_PWR_VOL,
 			   RT5670_PWR_HV_L_BIT, 0,
 			   rt5670_hpvoll_mix, ARRAY_SIZE(rt5670_hpvoll_mix)),

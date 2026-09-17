@@ -1237,7 +1237,7 @@ static int omap_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 		break;
 	case OMAP_MCBSP_SYSCLK_CLKR_EXT:
 		regs->pcr0	|= SCLKME;
-		/* Disable ouput on CLKR pin in master mode */
+		/* Disable output on CLKR pin in master mode */
 		regs->pcr0	&= ~CLKRM;
 		break;
 	default:

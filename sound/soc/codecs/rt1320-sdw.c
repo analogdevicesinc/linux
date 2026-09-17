@@ -2084,7 +2084,7 @@ static int rt1320_rae_load(struct rt1320_sdw_priv *rt1320)
 		regmap_update_bits(rt1320->regmap, 0x20005818, 0x80, 0x80);
 		/* RAE run */
 		regmap_update_bits(rt1320->regmap, 0x2000301c, 0x01, 0x01);
-		/* Phase sync eanble */
+		/* Phase sync enable */
 		regmap_update_bits(rt1320->regmap, 0xc047, 0x80, 0x80);
 		break;
 	}

@@ -49,7 +49,7 @@
  *    incompatible with ASP and with either McBSP.
  *
  * In short:  this uses ASP to implement I2S, not McBSP.
- * And it won't be the only DaVinci implemention of I2S.
+ * And it won't be the only DaVinci implementation of I2S.
  */
 #define DAVINCI_MCBSP_DRR_REG	0x00
 #define DAVINCI_MCBSP_DXR_REG	0x04

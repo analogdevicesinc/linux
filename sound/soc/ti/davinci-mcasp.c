@@ -1818,7 +1818,7 @@ static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 	    !mcasp->async_mode)
 		max_channels = mcasp->channels;
 	/*
-	 * But we can always allow channels upto the amount of
+	 * But we can always allow channels up to the amount of
 	 * the available tdm_slots.
 	 */
 	if (max_channels < tdm_slots)
