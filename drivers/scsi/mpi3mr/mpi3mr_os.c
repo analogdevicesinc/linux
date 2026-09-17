@@ -284,32 +284,6 @@ void mpi3mr_hdb_trigger_data_event(struct mpi3mr_ioc *mrioc,
 }
 
 /**
- * mpi3mr_fwevt_del_from_list - Delete firmware event from list
- * @mrioc: Adapter instance reference
- * @fwevt: Firmware event reference
- *
- * Delete the given firmware event from the firmware event list.
- *
- * Return: Nothing.
- */
-static void mpi3mr_fwevt_del_from_list(struct mpi3mr_ioc *mrioc,
-	struct mpi3mr_fwevt *fwevt)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&mrioc->fwevt_lock, flags);
-	if (!list_empty(&fwevt->list)) {
-		list_del_init(&fwevt->list);
-		/*
-		 * Put fwevt reference count after
-		 * removing it from fwevt_list
-		 */
-		mpi3mr_fwevt_put(fwevt);
-	}
-	spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
-}
-
-/**
  * mpi3mr_dequeue_fwevt - Dequeue firmware event from the list
  * @mrioc: Adapter instance reference
  *
@@ -328,11 +302,7 @@ static struct mpi3mr_fwevt *mpi3mr_dequeue_fwevt(
 		fwevt = list_first_entry(&mrioc->fwevt_list,
 		    struct mpi3mr_fwevt, list);
 		list_del_init(&fwevt->list);
-		/*
-		 * Put fwevt reference count after
-		 * removing it from fwevt_list
-		 */
-		mpi3mr_fwevt_put(fwevt);
+
 	}
 	spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
 
@@ -366,6 +336,11 @@ static void mpi3mr_cancel_work(struct mpi3mr_fwevt *fwevt)
 		 */
 		mpi3mr_fwevt_put(fwevt);
 	}
+
+	/*
+	 * Drop the reference count that was acquired by the caller.
+	 */
+	mpi3mr_fwevt_put(fwevt);
 }
 
 /**
@@ -380,17 +355,44 @@ static void mpi3mr_cancel_work(struct mpi3mr_fwevt *fwevt)
 void mpi3mr_cleanup_fwevt_list(struct mpi3mr_ioc *mrioc)
 {
 	struct mpi3mr_fwevt *fwevt = NULL;
+	unsigned long flags;
 
+	/*
+	 * Safely read current_event under lock to prevent TOCTOU race
+	 * with the firmware event worker thread.
+	 */
+	spin_lock_irqsave(&mrioc->fwevt_lock, flags);
 	if ((list_empty(&mrioc->fwevt_list) && !mrioc->current_event) ||
-	    !mrioc->fwevt_worker_thread)
+	    !mrioc->fwevt_worker_thread) {
+		spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
 		return;
+	}
+	spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
 
 	while ((fwevt = mpi3mr_dequeue_fwevt(mrioc)))
 		mpi3mr_cancel_work(fwevt);
 
-	if (mrioc->current_event) {
-		fwevt = mrioc->current_event;
+	/*
+	 * Safely read current_event under lock to prevent TOCTOU race
+	 * with the firmware event worker thread.
+	 */
+	spin_lock_irqsave(&mrioc->fwevt_lock, flags);
+	fwevt = mrioc->current_event;
+	if (fwevt) {
 		/*
+		 * Take a reference to ensure the event is not freed by the
+		 * worker thread while we are evaluating or cancelling it.
+		 */
+		mpi3mr_fwevt_get(fwevt);
+	}
+	spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
+
+	if (fwevt) {
+		bool pending_at_sml;
+
+		/*
+		 * Read pending_at_sml under lock to avoid a stale value.
+		 *
 		 * Don't call cancel_work_sync() API for the
 		 * fwevt work if the controller reset is
 		 * get called as part of processing the
@@ -398,8 +400,13 @@ void mpi3mr_cleanup_fwevt_list(struct mpi3mr_ioc *mrioc)
 		 * waiting for device add/remove APIs to complete.
 		 * Otherwise we will see deadlock.
 		 */
-		if (current_work() == &fwevt->work || fwevt->pending_at_sml) {
+		spin_lock_irqsave(&mrioc->fwevt_lock, flags);
+		pending_at_sml = fwevt->pending_at_sml;
+		spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
+
+		if (current_work() == &fwevt->work || pending_at_sml) {
 			fwevt->discard = 1;
+			mpi3mr_fwevt_put(fwevt);
 			return;
 		}
 
@@ -913,6 +920,8 @@ void mpi3mr_remove_tgtdev_from_host(struct mpi3mr_ioc *mrioc,
 	struct mpi3mr_tgt_dev *tgtdev)
 {
 	struct mpi3mr_stgt_priv_data *tgt_priv;
+	unsigned long flags;
+	bool discard = false;
 
 	ioc_info(mrioc, "%s :Removing handle(0x%04x), wwid(0x%016llx)\n",
 	    __func__, tgtdev->dev_handle, (unsigned long long)tgtdev->wwid);
@@ -925,17 +934,27 @@ void mpi3mr_remove_tgtdev_from_host(struct mpi3mr_ioc *mrioc,
 	if (!mrioc->sas_transport_enabled || (tgtdev->dev_type !=
 	    MPI3_DEVICE_DEVFORM_SAS_SATA) || tgtdev->non_stl) {
 		if (tgtdev->starget) {
+			spin_lock_irqsave(&mrioc->fwevt_lock, flags);
+			if (mrioc->stop_drv_processing ||
+			    mrioc->reset_in_progress) {
+				spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
+				return;
+			}
 			if (mrioc->current_event)
 				mrioc->current_event->pending_at_sml = 1;
+			spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
 			scsi_remove_target(&tgtdev->starget->dev);
 			tgtdev->host_exposed = 0;
+			spin_lock_irqsave(&mrioc->fwevt_lock, flags);
 			if (mrioc->current_event) {
 				mrioc->current_event->pending_at_sml = 0;
-				if (mrioc->current_event->discard) {
-					mpi3mr_print_device_event_notice(mrioc,
-					    false);
-					return;
-				}
+				discard = mrioc->current_event->discard;
+			}
+			spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
+			if (discard) {
+				mpi3mr_print_device_event_notice(mrioc,
+				    false);
+				return;
 			}
 		}
 	} else
@@ -963,6 +982,8 @@ static int mpi3mr_report_tgtdev_to_host(struct mpi3mr_ioc *mrioc,
 {
 	int retval = 0;
 	struct mpi3mr_tgt_dev *tgtdev;
+	unsigned long flags;
+	bool discard = false;
 
 	if (mrioc->reset_in_progress || mrioc->pci_err_recovery)
 		return -1;
@@ -979,19 +1000,29 @@ static int mpi3mr_report_tgtdev_to_host(struct mpi3mr_ioc *mrioc,
 	if (!mrioc->sas_transport_enabled || (tgtdev->dev_type !=
 	    MPI3_DEVICE_DEVFORM_SAS_SATA) || tgtdev->non_stl){
 		tgtdev->host_exposed = 1;
+		spin_lock_irqsave(&mrioc->fwevt_lock, flags);
+		if (mrioc->stop_drv_processing || mrioc->reset_in_progress) {
+			spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
+			tgtdev->host_exposed = 0;
+			goto out;
+		}
 		if (mrioc->current_event)
 			mrioc->current_event->pending_at_sml = 1;
+		spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
 		scsi_scan_target(&mrioc->shost->shost_gendev,
 		    mrioc->scsi_device_channel, tgtdev->perst_id,
 		    SCAN_WILD_CARD, SCSI_SCAN_INITIAL);
 		if (!tgtdev->starget)
 			tgtdev->host_exposed = 0;
+		spin_lock_irqsave(&mrioc->fwevt_lock, flags);
 		if (mrioc->current_event) {
 			mrioc->current_event->pending_at_sml = 0;
-			if (mrioc->current_event->discard) {
-				mpi3mr_print_device_event_notice(mrioc, true);
-				goto out;
-			}
+			discard = mrioc->current_event->discard;
+		}
+		spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
+		if (discard) {
+			mpi3mr_print_device_event_notice(mrioc, true);
+			goto out;
 		}
 		dprint_event_bh(mrioc,
 		    "exposed target device with handle(0x%04x), perst_id(%d)\n",
@@ -1350,24 +1381,32 @@ static void mpi3mr_update_tgtdev(struct mpi3mr_ioc *mrioc,
 		struct mpi3_device0_pcie_format *pcieinf =
 		    &dev_pg0->device_specific.pcie_format;
 		u16 dev_info = le16_to_cpu(pcieinf->device_info);
+		u8 pgsz = MPI3MR_DEFAULT_PGSZEXP;
+		u8 reset_to = MPI3MR_INTADMCMD_TIMEOUT;
+		u8 abort_to = MPI3MR_INTADMCMD_TIMEOUT;
+		u8 fw_pgsz = READ_ONCE(pcieinf->page_size);
 
 		tgtdev->dev_spec.pcie_inf.dev_info = dev_info;
 		tgtdev->dev_spec.pcie_inf.capb =
 		    le32_to_cpu(pcieinf->capabilities);
 		tgtdev->dev_spec.pcie_inf.mdts = MPI3MR_DEFAULT_MDTS;
-		/* 2^12 = 4096 */
-		tgtdev->dev_spec.pcie_inf.pgsz = 12;
+		/* Validate firmware page size to prevent undefined shift behavior */
+		if (fw_pgsz >= MPI3MR_DEFAULT_PGSZEXP && fw_pgsz <= MPI3MR_MAX_PGSZEXP)
+			pgsz = fw_pgsz;
+
 		if (dev_pg0->access_status == MPI3_DEVICE0_ASTATUS_NO_ERRORS) {
 			tgtdev->dev_spec.pcie_inf.mdts =
 			    le32_to_cpu(pcieinf->maximum_data_transfer_size);
-			tgtdev->dev_spec.pcie_inf.pgsz = pcieinf->page_size;
-			tgtdev->dev_spec.pcie_inf.reset_to =
-			    max_t(u8, pcieinf->controller_reset_to,
-			     MPI3MR_INTADMCMD_TIMEOUT);
-			tgtdev->dev_spec.pcie_inf.abort_to =
-			    max_t(u8, pcieinf->nvme_abort_to,
+			reset_to = max_t(u8, pcieinf->controller_reset_to,
+			    MPI3MR_INTADMCMD_TIMEOUT);
+			abort_to = max_t(u8, pcieinf->nvme_abort_to,
 			    MPI3MR_INTADMCMD_TIMEOUT);
 		}
+
+		tgtdev->dev_spec.pcie_inf.pgsz = pgsz;
+		tgtdev->dev_spec.pcie_inf.reset_to = reset_to;
+		tgtdev->dev_spec.pcie_inf.abort_to = abort_to;
+
 		if (tgtdev->dev_spec.pcie_inf.mdts > (1024 * 1024))
 			tgtdev->dev_spec.pcie_inf.mdts = (1024 * 1024);
 		if (((dev_info & MPI3_DEVICE0_PCIE_DEVICE_INFO_TYPE_MASK) !=
@@ -2126,9 +2165,19 @@ static void mpi3mr_fwevt_bh(struct mpi3mr_ioc *mrioc,
 	u16 perst_id, handle, dev_info;
 	struct mpi3_device0_sas_sata_format *sasinf = NULL;
 	unsigned int timeout;
+	unsigned long flags;
 
-	mpi3mr_fwevt_del_from_list(mrioc, fwevt);
+	spin_lock_irqsave(&mrioc->fwevt_lock, flags);
+	if (!list_empty(&fwevt->list)) {
+		list_del_init(&fwevt->list);
+		/*
+		 * Put fwevt reference count after
+		 * removing it from fwevt_list
+		 */
+		mpi3mr_fwevt_put(fwevt);
+	}
 	mrioc->current_event = fwevt;
+	spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
 
 	if (mrioc->stop_drv_processing || mrioc->pci_err_recovery) {
 		dprint_event_bh(mrioc,
@@ -2263,9 +2312,12 @@ evt_ack:
 		mpi3mr_process_event_ack(mrioc, fwevt->event_id,
 		    fwevt->evt_ctx);
 out:
+	spin_lock_irqsave(&mrioc->fwevt_lock, flags);
+	mrioc->current_event = NULL;
+	spin_unlock_irqrestore(&mrioc->fwevt_lock, flags);
+
 	/* Put fwevt reference count to neutralize kref_init increment */
 	mpi3mr_fwevt_put(fwevt);
-	mrioc->current_event = NULL;
 }
 
 /**
@@ -3484,8 +3536,12 @@ void mpi3mr_process_op_reply_desc(struct mpi3mr_ioc *mrioc,
 		scsi_reply = mpi3mr_get_reply_virt_addr(mrioc,
 		    *reply_dma);
 		if (!scsi_reply) {
-			panic("%s: scsi_reply is NULL, this shouldn't happen\n",
-			    mrioc->name);
+			ioc_err(mrioc, "scsi_reply is NULL, invalid reply_frame_address\n");
+			/*
+			 * Do not let the caller repost an address that
+			 * failed virt-addr lookup back to the hardware.
+			 */
+			*reply_dma = 0;
 			goto out;
 		}
 		host_tag = le16_to_cpu(scsi_reply->host_tag);
@@ -3982,7 +4038,7 @@ inline void mpi3mr_poll_pend_io_completions(struct mpi3mr_ioc *mrioc)
 
 	for (i = mrioc->op_reply_q_offset; i < num_of_reply_queues; i++)
 		mpi3mr_process_op_reply_q(mrioc,
-		    mrioc->intr_info[i].op_reply_q);
+		    READ_ONCE(mrioc->intr_info[i].op_reply_q));
 }
 
 /**
@@ -5730,6 +5786,8 @@ static void mpi3mr_remove(struct pci_dev *pdev)
 		return;
 
 	mrioc = shost_priv(shost);
+	mrioc->is_unload = true;
+
 	while (mrioc->reset_in_progress || mrioc->is_driver_loading)
 		ssleep(1);
 
@@ -5862,6 +5920,9 @@ mpi3mr_suspend(struct device *dev)
 		ssleep(1);
 	mrioc->stop_drv_processing = 1;
 	mpi3mr_cleanup_fwevt_list(mrioc);
+	/* Flush any pending discarded event before unmapping PCI resources below. */
+	if (mrioc->fwevt_worker_thread)
+		flush_workqueue(mrioc->fwevt_worker_thread);
 	scsi_block_requests(shost);
 	mpi3mr_stop_watchdog(mrioc);
 	mpi3mr_cleanup_ioc(mrioc);
