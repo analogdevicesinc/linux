@@ -753,7 +753,9 @@ static bool evlist__is_enabled(struct evlist *evlist)
 	struct evsel *pos;
 
 	evlist__for_each_entry(evlist, pos) {
-		if (!evsel__is_group_leader(pos) || !pos->core.fd)
+		if (!pos->core.fd)
+			continue;
+		if (!evsel__is_group_leader(pos) && !pos->merged_hybrid_group)
 			continue;
 		/* If at least one event is enabled, evlist is enabled. */
 		if (!pos->disabled)
@@ -767,14 +769,19 @@ static void __evlist__disable(struct evlist *evlist, char *evsel_name, bool excl
 	struct evsel *pos, *member;
 	struct evlist_cpu_iterator evlist_cpu_itr;
 	bool has_imm = false;
+	bool match;
 
 	/* Disable 'immediate' events last */
 	for (int imm = 0; imm <= 1; imm++) {
 		evlist__for_each_cpu(evlist_cpu_itr, evlist) {
 			pos = evlist_cpu_itr.evsel;
-			if (evsel__strcmp(pos, evsel_name))
+			match = !evsel__strcmp(pos, evsel_name);
+			if (!match && pos->merged_hybrid_group && evsel__leader(pos))
+				match = !evsel__strcmp(evsel__leader(pos), evsel_name);
+			if (!match)
 				continue;
-			if (pos->disabled || !evsel__is_group_leader(pos) || !pos->core.fd)
+			if (pos->disabled || (!evsel__is_group_leader(pos) &&
+					      !pos->merged_hybrid_group) || !pos->core.fd)
 				continue;
 			if (excl_dummy && evsel__is_dummy_event(pos))
 				continue;
@@ -789,9 +796,12 @@ static void __evlist__disable(struct evlist *evlist, char *evsel_name, bool excl
 	}
 
 	evlist__for_each_entry(evlist, pos) {
-		if (evsel__strcmp(pos, evsel_name))
+		match = !evsel__strcmp(pos, evsel_name);
+		if (!match && pos->merged_hybrid_group && evsel__leader(pos))
+			match = !evsel__strcmp(evsel__leader(pos), evsel_name);
+		if (!match)
 			continue;
-		if (!evsel__is_group_leader(pos) || !pos->core.fd)
+		if ((!evsel__is_group_leader(pos) && !pos->merged_hybrid_group) || !pos->core.fd)
 			continue;
 		if (excl_dummy && evsel__is_dummy_event(pos))
 			continue;
@@ -827,21 +837,28 @@ static void __evlist__enable(struct evlist *evlist, char *evsel_name, bool excl_
 {
 	struct evsel *pos, *member;
 	struct evlist_cpu_iterator evlist_cpu_itr;
+	bool match;
 
 	evlist__for_each_cpu(evlist_cpu_itr, evlist) {
 		pos = evlist_cpu_itr.evsel;
-		if (evsel__strcmp(pos, evsel_name))
+		match = !evsel__strcmp(pos, evsel_name);
+		if (!match && pos->merged_hybrid_group && evsel__leader(pos))
+			match = !evsel__strcmp(evsel__leader(pos), evsel_name);
+		if (!match)
 			continue;
-		if (!evsel__is_group_leader(pos) || !pos->core.fd)
+		if ((!evsel__is_group_leader(pos) && !pos->merged_hybrid_group) || !pos->core.fd)
 			continue;
 		if (excl_dummy && evsel__is_dummy_event(pos))
 			continue;
 		evsel__enable_cpu(pos, evlist_cpu_itr.cpu_map_idx);
 	}
 	evlist__for_each_entry(evlist, pos) {
-		if (evsel__strcmp(pos, evsel_name))
+		match = !evsel__strcmp(pos, evsel_name);
+		if (!match && pos->merged_hybrid_group && evsel__leader(pos))
+			match = !evsel__strcmp(evsel__leader(pos), evsel_name);
+		if (!match)
 			continue;
-		if (!evsel__is_group_leader(pos) || !pos->core.fd)
+		if ((!evsel__is_group_leader(pos) && !pos->merged_hybrid_group) || !pos->core.fd)
 			continue;
 		if (excl_dummy && evsel__is_dummy_event(pos))
 			continue;
