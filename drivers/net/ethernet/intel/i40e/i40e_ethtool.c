@@ -5263,10 +5263,7 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
 		    test_bit(priv_flag->bitno, orig_flags) != new_val)
 			return -EOPNOTSUPP;
 
-		if (new_val)
-			set_bit(priv_flag->bitno, new_flags);
-		else
-			clear_bit(priv_flag->bitno, new_flags);
+		assign_bit(priv_flag->bitno, new_flags, new_val);
 	}
 
 	if (pf->hw.pf_id != 0)
@@ -5284,10 +5281,7 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
 		    test_bit(priv_flag->bitno, orig_flags) != new_val)
 			return -EOPNOTSUPP;
 
-		if (new_val)
-			set_bit(priv_flag->bitno, new_flags);
-		else
-			clear_bit(priv_flag->bitno, new_flags);
+		assign_bit(priv_flag->bitno, new_flags, new_val);
 	}
 
 flags_complete:

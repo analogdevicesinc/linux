@@ -1751,10 +1751,7 @@ static int ice_set_priv_flags(struct net_device *netdev, u32 flags)
 
 		priv_flag = &ice_gstrings_priv_flags[i];
 
-		if (flags & BIT(i))
-			set_bit(priv_flag->bitno, pf->flags);
-		else
-			clear_bit(priv_flag->bitno, pf->flags);
+		assign_bit(priv_flag->bitno, pf->flags, flags & BIT(i));
 	}
 
 	bitmap_xor(change_flags, pf->flags, orig_flags, ICE_PF_FLAGS_NBITS);

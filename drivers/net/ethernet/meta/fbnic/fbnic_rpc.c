@@ -126,12 +126,8 @@ void fbnic_bmc_rpc_all_multi_config(struct fbnic_dev *fbd,
 			set_bit(FBNIC_MAC_ADDR_T_BMC, mac_addr->act_tcam);
 			mac_addr->state = FBNIC_TCAM_S_ADD;
 		}
-		if (enable_host)
-			set_bit(FBNIC_MAC_ADDR_T_ALLMULTI,
-				mac_addr->act_tcam);
-		else
-			clear_bit(FBNIC_MAC_ADDR_T_ALLMULTI,
-				  mac_addr->act_tcam);
+		assign_bit(FBNIC_MAC_ADDR_T_ALLMULTI, mac_addr->act_tcam,
+			   enable_host);
 	} else {
 		__fbnic_xc_unsync(mac_addr, FBNIC_MAC_ADDR_T_BMC);
 		__fbnic_xc_unsync(mac_addr, FBNIC_MAC_ADDR_T_ALLMULTI);

@@ -7372,10 +7372,7 @@ void rtw89_core_rfkill_poll(struct rtw89_dev *rtwdev, bool force)
 	rtw89_info(rtwdev, "rfkill hardware state changed to %s\n",
 		   str_enable_disable(!blocked));
 
-	if (blocked)
-		set_bit(RTW89_FLAG_HW_RFKILL_STATE, rtwdev->flags);
-	else
-		clear_bit(RTW89_FLAG_HW_RFKILL_STATE, rtwdev->flags);
+	assign_bit(RTW89_FLAG_HW_RFKILL_STATE, rtwdev->flags, blocked);
 
 	wiphy_rfkill_set_hw_state(rtwdev->hw->wiphy, blocked);
 }

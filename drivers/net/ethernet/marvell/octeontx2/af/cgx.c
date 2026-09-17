@@ -981,15 +981,9 @@ int verify_lmac_fc_cfg(void *cgxd, int lmac_id, u8 tx_pause, u8 rx_pause,
 	if (!lmac)
 		return -ENODEV;
 
-	if (!rx_pause)
-		clear_bit(pfvf_idx, lmac->rx_fc_pfvf_bmap.bmap);
-	else
-		set_bit(pfvf_idx, lmac->rx_fc_pfvf_bmap.bmap);
+	assign_bit(pfvf_idx, lmac->rx_fc_pfvf_bmap.bmap, rx_pause);
 
-	if (!tx_pause)
-		clear_bit(pfvf_idx, lmac->tx_fc_pfvf_bmap.bmap);
-	else
-		set_bit(pfvf_idx, lmac->tx_fc_pfvf_bmap.bmap);
+	assign_bit(pfvf_idx, lmac->tx_fc_pfvf_bmap.bmap, tx_pause);
 
 	/* check if other pfvfs are using flow control */
 	if (!rx_pause && bitmap_weight(lmac->rx_fc_pfvf_bmap.bmap, lmac->rx_fc_pfvf_bmap.max)) {

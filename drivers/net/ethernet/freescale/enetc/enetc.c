@@ -88,10 +88,7 @@ void enetc_set_congestion_mode(struct enetc_ndev_priv *priv, bool enable)
 
 	spin_lock(&si->gen_lock);
 
-	if (enable)
-		set_bit(ENETC_RXBDR_CM, &priv->flags);
-	else
-		clear_bit(ENETC_RXBDR_CM, &priv->flags);
+	assign_bit(ENETC_RXBDR_CM, &priv->flags, enable);
 
 	for (int i = 0; i < priv->num_rx_rings; i++) {
 		u32 old_rbmr = enetc_rxbdr_rd(hw, i, ENETC_RBMR);
