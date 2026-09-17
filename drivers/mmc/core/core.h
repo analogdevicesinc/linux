@@ -170,7 +170,7 @@ int mmc_cqe_recovery(struct mmc_host *host);
  *	@host: MMC host to prepare command
  *	@mrq: MMC request to prepare for
  *
- *	mmc_pre_req() is called in prior to mmc_start_req() to let
+ *	mmc_pre_req() is called in prior to mmc_start_request() to let
  *	host prepare for the new request. Preparation of a request may be
  *	performed while another request is running on the host.
  */

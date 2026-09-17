@@ -589,8 +589,8 @@ EXPORT_SYMBOL(mmc_cqe_recovery);
  *	mmc_is_req_done() is used with requests that have
  *	mrq->cap_cmd_during_tfr = true. mmc_is_req_done() must be called after
  *	starting a request and before waiting for it to complete. That is,
- *	either in between calls to mmc_start_req(), or after mmc_wait_for_req()
- *	and before mmc_wait_for_req_done(). If it is called at other times the
+ *	after mmc_start_request() or mmc_wait_for_req() and before
+ *	mmc_wait_for_req_done(). If it is called at other times the
  *	result is not meaningful.
  */
 bool mmc_is_req_done(struct mmc_host *host, struct mmc_request *mrq)
