@@ -1064,7 +1064,8 @@ static struct emif_data *get_device_details(
 	}
 
 	if (pd->min_tck) {
-		temp = devm_kzalloc(dev, sizeof(*pd->min_tck), GFP_KERNEL);
+		temp = devm_kzalloc(dev, sizeof(struct lpddr2_min_tck),
+				    GFP_KERNEL);
 		if (temp) {
 			memcpy(temp, pd->min_tck, sizeof(*pd->min_tck));
 			pd->min_tck = temp;
