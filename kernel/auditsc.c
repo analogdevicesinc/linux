@@ -107,7 +107,7 @@ struct audit_aux_data_pids {
 
 struct audit_aux_data_bprm_fcaps {
 	struct audit_aux_data	d;
-	struct audit_cap_data	fcap;
+	struct audit_file_caps	fcap;
 	unsigned int		fcap_ver;
 	struct audit_cap_data	old_pcap;
 	struct audit_cap_data	new_pcap;

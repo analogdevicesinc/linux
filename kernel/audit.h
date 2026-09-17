@@ -53,15 +53,18 @@ struct audit_entry {
 	struct audit_krule	rule;
 };
 
+struct audit_file_caps {
+	kernel_cap_t		permitted;
+	kernel_cap_t		inheritable;
+	unsigned int		fE;		/* effective bit of file cap */
+	kuid_t			rootid;
+};
+
 struct audit_cap_data {
 	kernel_cap_t		permitted;
 	kernel_cap_t		inheritable;
-	union {
-		unsigned int	fE;		/* effective bit of file cap */
-		kernel_cap_t	effective;	/* effective set of process */
-	};
+	kernel_cap_t		effective;
 	kernel_cap_t		ambient;
-	kuid_t			rootid;
 };
 
 /* When fs/namei.c:getname() is called, we store the pointer in name and bump
@@ -83,7 +86,7 @@ struct audit_names {
 	kgid_t			gid;
 	dev_t			rdev;
 	struct lsm_prop		oprop;
-	struct audit_cap_data	fcap;
+	struct audit_file_caps	fcap;
 	unsigned int		fcap_ver;
 	unsigned char		type;		/* record type */
 	/*
