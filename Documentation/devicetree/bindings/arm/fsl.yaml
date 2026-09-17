@@ -1561,6 +1561,12 @@ properties:
           - const: toradex,aquila-imx95     # Aquila iMX95 Module
           - const: fsl,imx95
 
+      - description: Toradex Boards with OSM iMX95 Modules
+        items:
+          - const: toradex,osm-imx95-dev # Toradex OSM iMX95 Module on Toradex OSM Development Board
+          - const: toradex,osm-imx95     # Toradex OSM iMX95 Module
+          - const: fsl,imx95
+
       - description: Toradex Boards with SMARC iMX95 Modules
         items:
           - const: toradex,smarc-imx95-dev # Toradex SMARC iMX95 on Toradex SMARC Development Board
