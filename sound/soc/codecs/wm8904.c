@@ -2204,7 +2204,7 @@ static void wm8904_handle_pdata(struct snd_soc_component *component)
 
 		/* We need an array of texts for the enum API */
 		wm8904->drc_texts = kmalloc_array(pdata->num_drc_cfgs,
-						  sizeof(char *),
+						  sizeof(*wm8904->drc_texts),
 						  GFP_KERNEL);
 		if (!wm8904->drc_texts)
 			return;
