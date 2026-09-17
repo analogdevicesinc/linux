@@ -10,7 +10,7 @@
 		clocks = <&usb2_lpcg IMX_LPCG_CLK_7>;
 		clock-names = "main_clk";
 		#phy-cells = <0>;
-		power-domains = <&pd IMX_SC_R_USB_0_PHY>;
+		power-domains = <&pd IMX_SC_R_USB_1_PHY>;
 		status = "disabled";
 	};
 };
