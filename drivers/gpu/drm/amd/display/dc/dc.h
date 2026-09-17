@@ -636,6 +636,15 @@ struct dc_config {
 	struct spl_sharpness_range dcn_sharpness_range;
 	struct spl_sharpness_range dcn_override_sharpness_range;
 	bool no_native422_support;
+
+	// Pre-allocate dc_state buffers at dc_construct time so that a commit can
+	// run on a code path where allocation is not permitted.
+	bool preallocate_scratch_state;
+
+	// Build commits into the pre-allocated buffers instead of allocating.
+	// Set by the DM around a commit that runs where allocation is not
+	// permitted; requires preallocate_scratch_state.
+	bool use_preallocated_state;
 };
 
 enum visual_confirm {
@@ -2027,6 +2036,13 @@ struct dc {
 	struct link_service *link_srv;
 
 	struct dc_state *current_state;
+	/**
+	 * @scratch_dc_context: Pre-allocated states for the no-allocation update
+	 * path, created only when dc_config.preallocate_scratch_state is set.
+	 * Two are kept because the commit path installs the new context as
+	 * @current_state, so a single buffer would alias it and self-copy.
+	 */
+	struct dc_state *scratch_dc_context[2];
 	struct resource_pool *res_pool;
 
 	/**

@@ -959,6 +959,8 @@ static bool dc_construct_update_scratch_pool(struct dc *dc)
 
 static void dc_destruct(struct dc *dc)
 {
+	unsigned int i;
+
 	// reset link encoder assignment table on destruct
 	if (dc->res_pool && dc->res_pool->funcs->link_encs_assign &&
 			!dc->config.unify_link_enc_assignment)
@@ -969,6 +971,13 @@ static void dc_destruct(struct dc *dc)
 	if (dc->current_state) {
 		dc_state_release(dc->current_state);
 		dc->current_state = NULL;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(dc->scratch_dc_context); i++) {
+		if (dc->scratch_dc_context[i]) {
+			dc_state_release(dc->scratch_dc_context[i]);
+			dc->scratch_dc_context[i] = NULL;
+		}
 	}
 
 	destroy_links(dc);
@@ -1207,6 +1216,22 @@ static bool dc_construct(struct dc *dc,
 	if (!dc->current_state) {
 		dm_error("%s: failed to create validate ctx\n", __func__);
 		goto fail;
+	}
+
+	/* Pre-allocate the states used by the no-allocation update path, only
+	 * for DMs that ask for it.
+	 */
+	if (dc->config.preallocate_scratch_state) {
+		unsigned int scratch_idx;
+
+		for (scratch_idx = 0; scratch_idx < ARRAY_SIZE(dc->scratch_dc_context); scratch_idx++) {
+			dc->scratch_dc_context[scratch_idx] = dc_state_create(dc, NULL);
+
+			if (!dc->scratch_dc_context[scratch_idx]) {
+				dm_error("%s: failed to create scratch ctx\n", __func__);
+				goto fail;
+			}
+		}
 	}
 
 	if (!dc_construct_update_scratch_pool(dc)) {
@@ -3818,6 +3843,29 @@ static void restore_minimal_pipe_split_policy(struct dc *dc,
 }
 
 /**
+ * dc_state_acquire_scratch: Pick a pre-allocated state safe to build into.
+ * @dc: DC context
+ *
+ * Skips the buffer installed as @dc->current_state, since building into it
+ * would mean copying a state onto itself.
+ *
+ * Return: a usable scratch state, or NULL if none were pre-allocated.
+ */
+static struct dc_state *dc_state_acquire_scratch(struct dc *dc)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(dc->scratch_dc_context); i++) {
+		struct dc_state *scratch = dc->scratch_dc_context[i];
+
+		if (scratch && scratch != dc->current_state)
+			return scratch;
+	}
+
+	return NULL;
+}
+
+/**
  * update_planes_and_stream_state() - The function takes planes and stream
  * updates as inputs and determines the appropriate update type. If update type
  * is FULL, the function allocates a new context, populates and validates it.
@@ -3923,7 +3971,24 @@ static bool update_planes_and_stream_state(struct dc *dc,
 			new_planes[i] = srf_updates[i].surface;
 
 		/* initialize scratch memory for building context */
-		context = dc_state_create_copy(dc->current_state);
+		if (!dc->config.use_preallocated_state) {
+			context = dc_state_create_copy(dc->current_state);
+		} else {
+			context = dc_state_acquire_scratch(dc);
+
+			if (context) {
+				// Drop the references this buffer still holds from its
+				// previous use; dc_state_copy() overwrites the pointers
+				// without releasing them.
+				dc_state_destruct(context);
+				dc_state_copy(context, dc->current_state);
+
+				// Balance the reference that the commit path consumes
+				// when it installs this as current_state, so the buffer
+				// stays owned by dc->scratch_dc_context[] as well.
+				dc_state_retain(context);
+			}
+		}
 		if (context == NULL) {
 			DC_ERROR("Failed to allocate new validate context!\n");
 			return false;
@@ -4004,6 +4069,8 @@ static bool update_planes_and_stream_state(struct dc *dc,
 	return true;
 
 fail:
+	// For a scratch buffer this drops the reference taken above, leaving it
+	// owned by dc->scratch_dc_context[] rather than freeing it.
 	dc_state_release(context);
 
 	return false;
@@ -8091,6 +8158,16 @@ static bool update_planes_and_stream_prepare_v3(
 	}
 
 	ASSERT(scratch->update_type >= UPDATE_TYPE_FULL);
+
+	/* The minimal-transition fallbacks below allocate, so the scratch path
+	 * commits the new context directly - possibly a non-seamless pipe-topology
+	 * transition. Placed after the suspend above to keep the cleanup resume
+	 * balanced.
+	 */
+	if (scratch->dc->config.use_preallocated_state) {
+		scratch->flow = UPDATE_V3_FLOW_NEW_CONTEXT_SEAMLESS;
+		return true;
+	}
 
 	const bool seamless = scratch->dc->hwss.is_pipe_topology_transition_seamless(
 			scratch->dc,
