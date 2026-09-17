@@ -2824,6 +2824,15 @@ static int mmap_validate(unsigned long prev_start, unsigned long prev_end,
 int mmap_prepare_validate(const struct vm_area_desc *prev_desc,
 			  const struct vm_area_desc *desc)
 {
+	/*
+	 * It is not valid to execute mmap actions for VMAs which can be merged,
+	 * as any such merge would leave portions of the mapping incorrectly
+	 * unmapped.
+	 */
+	if (vma_flags_can_merge(&desc->vma_flags) &&
+	    WARN_ON_ONCE(desc->action.type != MMAP_NOTHING))
+		return -EINVAL;
+
 	return mmap_validate(prev_desc->start, prev_desc->end,
 			     desc->start, desc->end,
 			     &prev_desc->vma_flags, &desc->vma_flags);
