@@ -544,7 +544,6 @@ MODULE_DEVICE_TABLE(of, adi_rpmsg_dt_ids);
 
 static struct platform_driver adi_rpmsg_driver = {
 	.driver = {
-		.owner = THIS_MODULE,
 		.name = "adi-rpmsg",
 		.of_match_table = adi_rpmsg_dt_ids,
 	},
