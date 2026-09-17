@@ -248,6 +248,7 @@ static const struct iio_dev_attr *iio_dmaengine_buffer_attrs[] = {
  */
 static struct iio_buffer *iio_dmaengine_buffer_alloc(struct dma_chan *chan)
 {
+	struct device *dma_dev = dmaengine_get_dma_device(chan);
 	struct dmaengine_buffer *dmaengine_buffer;
 	unsigned int width, src_width, dest_width;
 	struct dma_slave_caps caps;
@@ -275,9 +276,9 @@ static struct iio_buffer *iio_dmaengine_buffer_alloc(struct dma_chan *chan)
 	INIT_LIST_HEAD(&dmaengine_buffer->active);
 	dmaengine_buffer->chan = chan;
 	dmaengine_buffer->align = width;
-	dmaengine_buffer->max_size = dma_get_max_seg_size(chan->device->dev);
+	dmaengine_buffer->max_size = dma_get_max_seg_size(dma_dev);
 
-	iio_dma_buffer_init(&dmaengine_buffer->queue, chan->device->dev,
+	iio_dma_buffer_init(&dmaengine_buffer->queue, dma_dev,
 			    &iio_dmaengine_default_ops);
 
 	dmaengine_buffer->queue.buffer.attrs = iio_dmaengine_buffer_attrs;
