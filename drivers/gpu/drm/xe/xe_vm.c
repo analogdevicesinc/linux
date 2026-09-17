@@ -29,6 +29,7 @@
 #include "xe_exec_queue.h"
 #include "xe_gt.h"
 #include "xe_migrate.h"
+#include "xe_pagefault.h"
 #include "xe_pat.h"
 #include "xe_pm.h"
 #include "xe_preempt_fence.h"
@@ -643,7 +644,7 @@ void xe_vm_add_fault_entry_pf(struct xe_vm *vm, struct xe_pagefault *pf)
 		return;
 	}
 
-	e->address = pf->consumer.page_addr;
+	e->address = xe_pagefault_addr(pf);
 	/*
 	 * TODO:
 	 * Address precision is currently always SZ_4K, but this may change
