@@ -951,8 +951,8 @@ EXPORT_SYMBOL_GPL(usb_wait_anchor_empty_timeout);
  * usb_get_from_anchor - get an anchor's oldest urb
  * @anchor: the anchor whose urb you want
  *
- * This will take the oldest urb from an anchor,
- * unanchor and return it
+ * This will take the oldest urb from an anchor, unanchor and return it with
+ * a reference held.
  *
  * Return: The oldest urb from @anchor, or %NULL if @anchor has no
  * urbs associated with it.
