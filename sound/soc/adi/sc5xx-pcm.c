@@ -214,7 +214,6 @@ static struct rpmsg_device_id rpmsg_icap_sport_id_table[] = {
 };
 static struct rpmsg_driver rpmsg_icap_sport = {
 	.drv.name  = KBUILD_MODNAME,
-	.drv.owner = THIS_MODULE,
 	.id_table  = rpmsg_icap_sport_id_table,
 	.probe     = rpmsg_icap_sport_probe,
 	.callback  = rpmsg_icap_sport_cb,
