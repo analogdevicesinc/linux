@@ -3881,7 +3881,7 @@ static long btrfs_ioctl_quota_rescan_status(struct btrfs_fs_info *fs_info,
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
-	if (fs_info->qgroup_flags & BTRFS_QGROUP_STATUS_FLAG_RESCAN) {
+	if (test_bit(BTRFS_QGROUP_STATUS_BIT_RESCAN, &fs_info->qgroup_flags)) {
 		qsa.flags = 1;
 		qsa.progress = fs_info->qgroup_rescan_progress.objectid;
 	}
@@ -4601,7 +4601,7 @@ static void btrfs_uring_read_finished(struct io_tw_req tw_req, io_tw_token_t tw)
 	size_t page_offset;
 	ssize_t ret;
 
-	/* The inode lock has already been acquired in btrfs_uring_read_extent.  */
+	/* The inode lock has already been acquired in btrfs_encoded_read(). */
 	btrfs_lockdep_inode_acquire(inode, i_rwsem);
 
 	if (priv->err) {
@@ -4667,7 +4667,6 @@ static int btrfs_uring_read_extent(struct kiocb *iocb, struct iov_iter *iter,
 				   struct iovec *iov, struct io_uring_cmd *cmd)
 {
 	struct btrfs_inode *inode = BTRFS_I(file_inode(iocb->ki_filp));
-	struct extent_io_tree *io_tree = &inode->io_tree;
 	struct page **pages = NULL;
 	struct btrfs_uring_priv *priv = NULL;
 	unsigned long nr_pages;
@@ -4723,8 +4722,6 @@ static int btrfs_uring_read_extent(struct kiocb *iocb, struct iov_iter *iter,
 	return -EIOCBQUEUED;
 
 out_fail:
-	btrfs_unlock_extent(io_tree, start, lockend, &cached_state);
-	btrfs_inode_unlock(inode, BTRFS_ILOCK_SHARED);
 	kfree(priv);
 	for (int i = 0; i < nr_pages; i++) {
 		if (pages[i])
@@ -4751,9 +4748,6 @@ static int btrfs_uring_encoded_read(struct io_uring_cmd *cmd, unsigned int issue
 	void __user *sqe_addr;
 	struct io_btrfs_cmd *bc = io_uring_cmd_to_pdu(cmd, struct io_btrfs_cmd);
 	struct btrfs_uring_encoded_data *data = NULL;
-
-	if (cmd->flags & IORING_URING_CMD_REISSUE)
-		data = bc->data;
 
 	if (!capable(CAP_SYS_ADMIN)) {
 		ret = -EPERM;
@@ -4836,8 +4830,6 @@ static int btrfs_uring_encoded_read(struct io_uring_cmd *cmd, unsigned int issue
 
 	ret = btrfs_encoded_read(&kiocb, &data->iter, &data->args, &cached_state,
 				 &disk_bytenr, &disk_io_size);
-	if (ret == -EAGAIN)
-		goto out_acct;
 	if (ret < 0 && ret != -EIOCBQUEUED)
 		goto out_free;
 
@@ -4865,8 +4857,10 @@ static int btrfs_uring_encoded_read(struct io_uring_cmd *cmd, unsigned int issue
 					      cached_state, disk_bytenr, disk_io_size,
 					      count, data->args.compression,
 					      data->iov, cmd);
-
-		goto out_acct;
+		if (ret == -EIOCBQUEUED)
+			goto out_acct;
+		btrfs_unlock_extent(io_tree, start, lockend, &cached_state);
+		btrfs_inode_unlock(inode, BTRFS_ILOCK_SHARED);
 	}
 
 out_free:
@@ -4877,8 +4871,10 @@ out_acct:
 		add_rchar(current, ret);
 	inc_syscr(current);
 
-	if (ret != -EIOCBQUEUED && ret != -EAGAIN)
+	if (ret != -EIOCBQUEUED) {
 		kfree(data);
+		bc->data = NULL;
+	}
 
 	return ret;
 }
@@ -4890,11 +4886,7 @@ static int btrfs_uring_encoded_write(struct io_uring_cmd *cmd, unsigned int issu
 	struct kiocb kiocb;
 	ssize_t ret;
 	void __user *sqe_addr;
-	struct io_btrfs_cmd *bc = io_uring_cmd_to_pdu(cmd, struct io_btrfs_cmd);
 	struct btrfs_uring_encoded_data *data = NULL;
-
-	if (cmd->flags & IORING_URING_CMD_REISSUE)
-		data = bc->data;
 
 	if (!capable(CAP_SYS_ADMIN)) {
 		ret = -EPERM;
@@ -4907,14 +4899,17 @@ static int btrfs_uring_encoded_write(struct io_uring_cmd *cmd, unsigned int issu
 		goto out_acct;
 	}
 
+	if (issue_flags & IO_URING_F_NONBLOCK) {
+		ret = -EAGAIN;
+		goto out_acct;
+	}
+
 	if (!data) {
 		data = kzalloc_obj(*data, GFP_NOFS);
 		if (!data) {
 			ret = -ENOMEM;
 			goto out_acct;
 		}
-
-		bc->data = data;
 
 		if (issue_flags & IO_URING_F_COMPAT) {
 #if defined(CONFIG_64BIT) && defined(CONFIG_COMPAT)
@@ -4975,11 +4970,6 @@ static int btrfs_uring_encoded_write(struct io_uring_cmd *cmd, unsigned int issu
 		}
 	}
 
-	if (issue_flags & IO_URING_F_NONBLOCK) {
-		ret = -EAGAIN;
-		goto out_acct;
-	}
-
 	pos = data->args.offset;
 	ret = rw_verify_area(WRITE, file, &pos, data->args.len);
 	if (ret < 0)
@@ -5005,8 +4995,7 @@ out_acct:
 		add_wchar(current, ret);
 	inc_syscw(current);
 
-	if (ret != -EAGAIN)
-		kfree(data);
+	kfree(data);
 	return ret;
 }
 
