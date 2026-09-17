@@ -236,16 +236,16 @@ static int mes_v12_1_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 	if (r < 1 || !*status_ptr) {
 		if (misc_op_str)
 			dev_err(adev->dev,
-				"MES(%d, %d) failed to respond to msg=%s (%s)\n",
-				xcc_id, pipe, op_str, misc_op_str);
+				"MES(%d, %d) failed to respond to msg=%s (%s) fence_wait_ret=%ld status=0x%x\n",
+				xcc_id, pipe, op_str, misc_op_str, r, *status_ptr);
 		else if (op_str)
 			dev_err(adev->dev,
-				"MES(%d, %d) failed to respond to msg=%s\n",
-				xcc_id, pipe, op_str);
+				"MES(%d, %d) failed to respond to msg=%s fence_wait_ret=%ld status=0x%x\n",
+				xcc_id, pipe, op_str, r, *status_ptr);
 		else
 			dev_err(adev->dev,
-				"MES(%d, %d) failed to respond to msg=%d\n",
-				xcc_id, pipe, x_pkt->header.opcode);
+				"MES(%d, %d) failed to respond to msg=%d fence_wait_ret=%ld status=0x%x\n",
+				xcc_id, pipe, x_pkt->header.opcode, r, *status_ptr);
 
 		while (halt_if_hws_hang)
 			schedule();
