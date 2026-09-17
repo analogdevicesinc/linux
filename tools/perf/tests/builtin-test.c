@@ -149,6 +149,7 @@ static struct test_suite *generic_tests[] = {
 	&suite__dlfilter,
 	&suite__sigtrap,
 	&suite__event_groups,
+	&suite__hybrid_merge,
 	&suite__symbols,
 	&suite__util,
 	&suite__subcmd_help,

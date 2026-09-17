@@ -65,6 +65,7 @@ perf-test-y += perf-time-to-tsc.o
 perf-test-y += dlfilter-test.o
 perf-test-y += sigtrap.o
 perf-test-y += event_groups.o
+perf-test-y += hybrid-merge.o
 perf-test-y += symbols.o
 perf-test-y += util.o
 perf-test-y += hwmon_pmu.o
