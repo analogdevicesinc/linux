@@ -242,6 +242,13 @@
 		clock-names = "adc_clk";
 
 		num_lanes = <2>;
+
+		/*
+		 * EMIO 38..41 (gpio0 92..95) restart the BUFR /4 divider through
+		 * BUFR.CLR, re-drawing the ISERDES word phase. system_top.v
+		 * inverts these into sync_n, so the reset is active high here.
+		 */
+		serdes-rst-gpios = <&gpio0 92 GPIO_ACTIVE_HIGH>;
 	};
 
 	adc_ada4356_1: adc@1 {
@@ -255,6 +262,7 @@
 		clock-names = "adc_clk";
 
 		num_lanes = <2>;
+		serdes-rst-gpios = <&gpio0 93 GPIO_ACTIVE_HIGH>;
 	};
 
 	adc_ada4356_2: adc@2 {
@@ -268,6 +276,7 @@
 		clock-names = "adc_clk";
 
 		num_lanes = <2>;
+		serdes-rst-gpios = <&gpio0 94 GPIO_ACTIVE_HIGH>;
 	};
 
 	adc_ada4356_3: adc@3 {
@@ -281,6 +290,7 @@
 		clock-names = "adc_clk";
 
 		num_lanes = <2>;
+		serdes-rst-gpios = <&gpio0 95 GPIO_ACTIVE_HIGH>;
 	};
 
 	/*

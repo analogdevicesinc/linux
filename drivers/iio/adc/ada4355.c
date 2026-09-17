@@ -108,7 +108,7 @@
  * 0xF0 hunt, and the byte phase it settles on is not guaranteed to be the one
  * observed during the trial.
  */
-#define ADA4355_CAL_ATTEMPTS    3
+#define ADA4355_CAL_ATTEMPTS    8
 
 /* Frame lane sits above the data lanes in the up_delay_cntrl address space */
 #define ADA4355_FRAME_DELAY_LANE            2
@@ -123,6 +123,7 @@ struct ada4355_state {
 	struct clk		*clk;
 	struct mutex		lock;
 	unsigned int		num_lanes;
+	struct gpio_desc	*gpio_serdes_rst;
 
 	/* Readback census for the setup transcript, see ada4355_write_verify() */
 	unsigned int		rb_total;
@@ -524,6 +525,27 @@ static bool ada4355_calibrate(struct device *dev, struct axiadc_state *axi_adc_s
 	return cal_ok;
 }
 
+/*
+ * Restart the BUFR /4 divider so the ISERDES word boundary is chosen again.
+ * The IDELAY sweep can only move data within a word and the frame FSM can only
+ * rotate bits inside one, so neither can recover a divider that latched its
+ * phase with no DCO present -- which is what happens when the FMC is cold and
+ * the AD9517 is still unprogrammed at PL configuration time.
+ *
+ * Asserting this stops adc_clk_div, so no AXI access may occur until it is
+ * released or the transaction will never complete.
+ */
+static void ada4355_redraw_word_phase(struct ada4355_state *st)
+{
+	if (!st->gpio_serdes_rst)
+		return;
+
+	gpiod_set_value_cansleep(st->gpio_serdes_rst, 1);
+	usleep_range(10, 20);
+	gpiod_set_value_cansleep(st->gpio_serdes_rst, 0);
+	usleep_range(100, 200);
+}
+
 static int ada4355_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *axi_adc_st = iio_priv(indio_dev);
@@ -566,6 +588,17 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 	all_mask = BIT(2) | GENMASK(st->num_lanes - 1, 0);
 
 	for (attempt = 1; attempt <= ADA4355_CAL_ATTEMPTS; attempt++) {
+		/*
+		 * Not on the first pass: when the clock was already running at
+		 * configuration time the phase is good, and redrawing it would
+		 * turn a deterministic success into a lottery.
+		 */
+		if (attempt > 1) {
+			ada4355_redraw_word_phase(st);
+			dev_info(dev, "attempt %u: redrew SERDES word phase\n",
+				 attempt);
+		}
+
 		cal_ok = ada4355_calibrate(dev, axi_adc_st, st->num_lanes,
 					   all_mask, &best_frame, best_delay);
 		if (!cal_ok)
@@ -855,6 +888,14 @@ static int ada4355_probe(struct spi_device *spi)
 
 	dev_info(&spi->dev, "ada4355_probe: num_lanes=%u, adc_clk=%lu Hz\n",
 		 st->num_lanes, clk_get_rate(st->clk));
+
+	st->gpio_serdes_rst = devm_gpiod_get_optional(&spi->dev, "serdes-rst",
+						      GPIOD_OUT_LOW);
+	if (IS_ERR(st->gpio_serdes_rst))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->gpio_serdes_rst),
+				     "Failed to get serdes-rst\n");
+	dev_info(&spi->dev, "ada4355_probe: serdes-rst gpio %s\n",
+		 st->gpio_serdes_rst ? "present" : "absent (word phase not re-drawable)");
 
 	ret = clk_prepare_enable(st->clk);
 	if (ret)
