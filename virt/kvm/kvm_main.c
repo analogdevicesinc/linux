@@ -3527,7 +3527,8 @@ void mark_page_dirty_in_slot(struct kvm *kvm,
 	if (WARN_ON_ONCE(vcpu && vcpu->kvm != kvm))
 		return;
 
-	WARN_ON_ONCE(!vcpu && !kvm_arch_allow_write_without_running_vcpu(kvm));
+	WARN_ON_ONCE(!vcpu && refcount_read(&kvm->users_count) &&
+		     !kvm_arch_allow_write_without_running_vcpu(kvm));
 #endif
 
 	if (memslot && kvm_slot_dirty_track_enabled(memslot)) {
@@ -5629,7 +5630,7 @@ static int kvm_offline_cpu(unsigned int cpu)
 	return 0;
 }
 
-static void kvm_shutdown(void)
+static void kvm_shutdown(void *data)
 {
 	/*
 	 * Disable hardware virtualization and set kvm_rebooting to indicate
@@ -5647,7 +5648,7 @@ static void kvm_shutdown(void)
 	on_each_cpu(kvm_disable_virtualization_cpu, NULL, 1);
 }
 
-static int kvm_suspend(void)
+static int kvm_suspend(void *data)
 {
 	/*
 	 * Secondary CPUs and CPU hotplug are disabled across the suspend/resume
@@ -5664,7 +5665,7 @@ static int kvm_suspend(void)
 	return 0;
 }
 
-static void kvm_resume(void)
+static void kvm_resume(void *data)
 {
 	lockdep_assert_not_held(&kvm_usage_lock);
 	lockdep_assert_irqs_disabled();
@@ -5672,10 +5673,14 @@ static void kvm_resume(void)
 	WARN_ON_ONCE(kvm_enable_virtualization_cpu());
 }
 
-static struct syscore_ops kvm_syscore_ops = {
+static const struct syscore_ops kvm_syscore_ops = {
 	.suspend = kvm_suspend,
 	.resume = kvm_resume,
 	.shutdown = kvm_shutdown,
+};
+
+static struct syscore kvm_syscore = {
+	.ops = &kvm_syscore_ops,
 };
 
 int kvm_enable_virtualization(void)
@@ -5694,7 +5699,7 @@ int kvm_enable_virtualization(void)
 	if (r)
 		goto err_cpuhp;
 
-	register_syscore_ops(&kvm_syscore_ops);
+	register_syscore(&kvm_syscore);
 
 	/*
 	 * Undo virtualization enabling and bail if the system is going down.
@@ -5716,7 +5721,7 @@ int kvm_enable_virtualization(void)
 	return 0;
 
 err_rebooting:
-	unregister_syscore_ops(&kvm_syscore_ops);
+	unregister_syscore(&kvm_syscore);
 	cpuhp_remove_state(CPUHP_AP_KVM_ONLINE);
 err_cpuhp:
 	kvm_arch_disable_virtualization();
@@ -5732,7 +5737,7 @@ void kvm_disable_virtualization(void)
 	if (--kvm_usage_count)
 		return;
 
-	unregister_syscore_ops(&kvm_syscore_ops);
+	unregister_syscore(&kvm_syscore);
 	cpuhp_remove_state(CPUHP_AP_KVM_ONLINE);
 	kvm_arch_disable_virtualization();
 }
@@ -6058,25 +6063,19 @@ struct kvm_io_device *kvm_io_bus_get_dev(struct kvm *kvm, enum kvm_bus bus_idx,
 					 gpa_t addr)
 {
 	struct kvm_io_bus *bus;
-	int dev_idx, srcu_idx;
-	struct kvm_io_device *iodev = NULL;
+	int dev_idx;
 
-	srcu_idx = srcu_read_lock(&kvm->srcu);
+	lockdep_assert_held(&kvm->srcu);
 
 	bus = kvm_get_bus_srcu(kvm, bus_idx);
 	if (!bus)
-		goto out_unlock;
+		return NULL;
 
 	dev_idx = kvm_io_bus_get_first_dev(bus, addr, 1);
 	if (dev_idx < 0)
-		goto out_unlock;
+		return NULL;
 
-	iodev = bus->range[dev_idx].dev;
-
-out_unlock:
-	srcu_read_unlock(&kvm->srcu, srcu_idx);
-
-	return iodev;
+	return bus->range[dev_idx].dev;
 }
 EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_io_bus_get_dev);
 

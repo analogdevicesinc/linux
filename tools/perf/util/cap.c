@@ -12,7 +12,7 @@
 
 #define MAX_LINUX_CAPABILITY_U32S _LINUX_CAPABILITY_U32S_3
 
-bool perf_cap__capable(int cap, bool *used_root)
+bool perf_cap__capable(int cap)
 {
 	struct __user_cap_header_struct header = {
 		.version = _LINUX_CAPABILITY_VERSION_3,
@@ -21,16 +21,13 @@ bool perf_cap__capable(int cap, bool *used_root)
 	struct __user_cap_data_struct data[MAX_LINUX_CAPABILITY_U32S] = {};
 	__u32 cap_val;
 
-	*used_root = false;
 	while (syscall(SYS_capget, &header, &data[0]) == -1) {
 		/* Retry, first attempt has set the header.version correctly. */
 		if (errno == EINVAL && header.version != _LINUX_CAPABILITY_VERSION_3 &&
 		    header.version == _LINUX_CAPABILITY_VERSION_1)
 			continue;
 
-		pr_debug2("capget syscall failed (%s - %d) fall back on root check\n",
-			  strerror(errno), errno);
-		*used_root = true;
+		pr_debug2("capget syscall failed (%m) fall back on root check\n");
 		return geteuid() == 0;
 	}
 

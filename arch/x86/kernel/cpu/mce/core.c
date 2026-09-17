@@ -89,7 +89,6 @@ struct mca_config mca_cfg __read_mostly = {
 };
 
 static DEFINE_PER_CPU(struct mce_hw_err, hw_errs_seen);
-static unsigned long mce_need_notify;
 
 /*
  * MCA banks polled by the period polling timer for corrected events.
@@ -151,8 +150,10 @@ EXPORT_PER_CPU_SYMBOL_GPL(injectm);
 
 void mce_log(struct mce_hw_err *err)
 {
-	if (mce_gen_pool_add(err))
+	if (mce_gen_pool_add(err)) {
+		pr_info(HW_ERR "Machine check events logged\n");
 		irq_work_queue(&mce_irq_work);
+	}
 }
 EXPORT_SYMBOL_GPL(mce_log);
 
@@ -584,28 +585,6 @@ bool mce_is_correctable(struct mce *m)
 }
 EXPORT_SYMBOL_GPL(mce_is_correctable);
 
-/*
- * Notify the user(s) about new machine check events.
- * Can be called from interrupt context, but not from machine check/NMI
- * context.
- */
-static bool mce_notify_irq(void)
-{
-	/* Not more than two messages every minute */
-	static DEFINE_RATELIMIT_STATE(ratelimit, 60*HZ, 2);
-
-	if (test_and_clear_bit(0, &mce_need_notify)) {
-		mce_work_trigger();
-
-		if (__ratelimit(&ratelimit))
-			pr_info(HW_ERR "Machine check events logged\n");
-
-		return true;
-	}
-
-	return false;
-}
-
 static int mce_early_notifier(struct notifier_block *nb, unsigned long val,
 			      void *data)
 {
@@ -617,9 +596,7 @@ static int mce_early_notifier(struct notifier_block *nb, unsigned long val,
 	/* Emit the trace record: */
 	trace_mce_record(err);
 
-	set_bit(0, &mce_need_notify);
-
-	mce_notify_irq();
+	mce_work_trigger();
 
 	return NOTIFY_DONE;
 }
@@ -1771,7 +1748,7 @@ static void mce_timer_fn(struct timer_list *t)
 	 * Alert userspace if needed. If we logged an MCE, reduce the polling
 	 * interval, otherwise increase the polling interval.
 	 */
-	if (mce_notify_irq())
+	if (!mce_gen_pool_empty())
 		iv = max(iv / 2, (unsigned long) HZ/100);
 	else
 		iv = min(iv * 2, round_jiffies_relative(check_interval * HZ));
@@ -2259,10 +2236,10 @@ void mcheck_cpu_init(struct cpuinfo_x86 *c)
 
 	mca_cfg.initialized = 1;
 
+	__mcheck_cpu_setup_timer();
 	__mcheck_cpu_init_generic();
 	__mcheck_cpu_init_vendor(c);
 	__mcheck_cpu_init_prepare_banks();
-	__mcheck_cpu_setup_timer();
 	cr4_set_bits(X86_CR4_MCE);
 }
 
@@ -2410,13 +2387,13 @@ static void vendor_disable_error_reporting(void)
 	mce_disable_error_reporting();
 }
 
-static int mce_syscore_suspend(void)
+static int mce_syscore_suspend(void *data)
 {
 	vendor_disable_error_reporting();
 	return 0;
 }
 
-static void mce_syscore_shutdown(void)
+static void mce_syscore_shutdown(void *data)
 {
 	vendor_disable_error_reporting();
 }
@@ -2426,7 +2403,7 @@ static void mce_syscore_shutdown(void)
  * Only one CPU is active at this time, the others get re-added later using
  * CPU hotplug:
  */
-static void mce_syscore_resume(void)
+static void mce_syscore_resume(void *data)
 {
 	__mcheck_cpu_init_generic();
 	__mcheck_cpu_init_vendor(raw_cpu_ptr(&cpu_info));
@@ -2434,10 +2411,14 @@ static void mce_syscore_resume(void)
 	cr4_set_bits(X86_CR4_MCE);
 }
 
-static struct syscore_ops mce_syscore_ops = {
+static const struct syscore_ops mce_syscore_ops = {
 	.suspend	= mce_syscore_suspend,
 	.shutdown	= mce_syscore_shutdown,
 	.resume		= mce_syscore_resume,
+};
+
+static struct syscore mce_syscore = {
+	.ops = &mce_syscore_ops,
 };
 
 /*
@@ -2840,7 +2821,7 @@ static __init int mcheck_init_device(void)
 	if (err < 0)
 		goto err_out_online;
 
-	register_syscore_ops(&mce_syscore_ops);
+	register_syscore(&mce_syscore);
 
 	return 0;
 

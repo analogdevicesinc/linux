@@ -1393,6 +1393,7 @@ static void _ipmi_destroy_user(struct ipmi_user *user)
 		}
 	}
 	mutex_unlock(&intf->cmd_rcvrs_mutex);
+	synchronize_rcu();
 	while (rcvrs) {
 		rcvr = rcvrs;
 		rcvrs = rcvr->next;
@@ -2349,6 +2350,10 @@ static int i_ipmi_request(struct ipmi_user     *user,
 		if (smi_msg == NULL) {
 			if (!supplied_recv)
 				ipmi_free_recv_msg(recv_msg);
+			else if (recv_msg->user) {
+				atomic_dec(&recv_msg->user->nr_msgs);
+				kref_put(&recv_msg->user->refcount, free_ipmi_user);
+			}
 			return -ENOMEM;
 		}
 	}
@@ -2422,6 +2427,10 @@ out_err:
 			ipmi_free_smi_msg(smi_msg);
 		if (!supplied_recv)
 			ipmi_free_recv_msg(recv_msg);
+		else if (recv_msg->user) {
+			atomic_dec(&recv_msg->user->nr_msgs);
+			kref_put(&recv_msg->user->refcount, free_ipmi_user);
+		}
 	}
 	return rv;
 }
@@ -3732,6 +3741,7 @@ int ipmi_add_smi(struct module         *owner,
 	sysfs_attr_init(&intf->maintenance_mode_devattr.attr);
 	rv = device_create_file(intf->si_dev, &intf->maintenance_mode_devattr);
 	if (rv) {
+		device_remove_file(intf->si_dev, &intf->nr_msgs_devattr);
 		device_remove_file(intf->si_dev, &intf->nr_users_devattr);
 		goto out_err_bmc_reg;
 	}
@@ -3749,12 +3759,14 @@ int ipmi_add_smi(struct module         *owner,
  out_err_bmc_reg:
 	ipmi_bmc_unregister(intf);
  out_err_started:
+	intf->in_shutdown = true;
 	if (intf->handlers->shutdown)
 		intf->handlers->shutdown(intf->send_info);
  out_err:
 	list_del(&intf->link);
 	mutex_unlock(&ipmi_interfaces_mutex);
 	mutex_unlock(&smi_watchers_mutex);
+	cancel_work_sync(&intf->smi_work);
 	kref_put(&intf->refcount, intf_free);
 
 	return rv;
@@ -4475,10 +4487,8 @@ static int handle_read_event_rsp(struct ipmi_smi *intf,
 			mutex_unlock(&intf->users_mutex);
 			list_for_each_entry_safe(recv_msg, recv_msg2, &msgs,
 						 link) {
-				user = recv_msg->user;
 				list_del(&recv_msg->link);
 				ipmi_free_recv_msg(recv_msg);
-				kref_put(&user->refcount, free_ipmi_user);
 			}
 			/*
 			 * We couldn't allocate memory for the

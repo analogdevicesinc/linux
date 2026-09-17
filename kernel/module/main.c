@@ -1408,7 +1408,7 @@ static void free_module(struct module *mod)
 	module_unload_free(mod);
 
 	/* Free any allocated parameters. */
-	destroy_params(mod->kp, mod->num_kp);
+	module_destroy_params(mod->kp, mod->num_kp);
 
 	if (is_livepatch_module(mod))
 		free_module_elf(mod);
@@ -1958,6 +1958,7 @@ static int elf_validity_cache_sechdrs(struct load_info *info)
  * Specifically checks:
  *
  * * Section name table index is inbounds of section headers
+ * * Section name table type is SHT_STRTAB
  * * Section name table is not empty
  * * Section name table is NUL terminated
  * * All section name offsets are inbounds of the section
@@ -1984,6 +1985,11 @@ static int elf_validity_cache_secstrings(struct load_info *info)
 	}
 
 	strhdr = &info->sechdrs[info->hdr->e_shstrndx];
+
+	if (strhdr->sh_type != SHT_STRTAB) {
+		pr_err("Invalid ELF section name table type: %u\n", strhdr->sh_type);
+		return -ENOEXEC;
+	}
 
 	/*
 	 * The section name table must be NUL-terminated, as required
@@ -2151,7 +2157,7 @@ static int elf_validity_cache_index_sym(struct load_info *info)
  *        Must have &load_info->index.sym populated.
  *
  * Looks at the symbol table's associated string table, makes sure it is
- * in-bounds, and caches it.
+ * in-bounds and of type SHT_STRTAB, and caches it.
  *
  * Return: %0 if valid, %-ENOEXEC on failure.
  */
@@ -2162,6 +2168,12 @@ static int elf_validity_cache_index_str(struct load_info *info)
 	if (str_idx == SHN_UNDEF || str_idx >= info->hdr->e_shnum) {
 		pr_err("Invalid ELF sh_link!=SHN_UNDEF(%d) or (sh_link(%d) >= hdr->e_shnum(%d)\n",
 		       str_idx, str_idx, info->hdr->e_shnum);
+		return -ENOEXEC;
+	}
+
+	if (info->sechdrs[str_idx].sh_type != SHT_STRTAB) {
+		pr_err("Invalid ELF symbol string table type: %u\n",
+		       info->sechdrs[str_idx].sh_type);
 		return -ENOEXEC;
 	}
 
@@ -3519,7 +3531,7 @@ static int load_module(struct load_info *info, const char __user *uargs,
 	mod_sysfs_teardown(mod);
  coming_cleanup:
 	mod->state = MODULE_STATE_GOING;
-	destroy_params(mod->kp, mod->num_kp);
+	module_destroy_params(mod->kp, mod->num_kp);
 	blocking_notifier_call_chain(&module_notify_list,
 				     MODULE_STATE_GOING, mod);
 	klp_module_going(mod);

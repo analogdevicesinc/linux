@@ -647,6 +647,8 @@ enum {
 #define HCI_LE_EXT_ADV			0x10
 #define HCI_LE_PERIODIC_ADV		0x20
 #define HCI_LE_CHAN_SEL_ALG2		0x40
+#define HCI_LE_PAST_SENDER		0x01
+#define HCI_LE_PAST_RECEIVER		0x02
 #define HCI_LE_CIS_CENTRAL		0x10
 #define HCI_LE_CIS_PERIPHERAL		0x20
 #define HCI_LE_ISO_BROADCASTER		0x40
@@ -2068,6 +2070,44 @@ struct hci_cp_le_set_privacy_mode {
 	__u8  mode;
 } __packed;
 
+#define HCI_OP_LE_PAST			0x205a
+struct hci_cp_le_past {
+	__le16 handle;
+	__le16 service_data;
+	__le16 sync_handle;
+} __packed;
+
+struct hci_rp_le_past {
+	__u8   status;
+	__le16 handle;
+} __packed;
+
+#define HCI_OP_LE_PAST_SET_INFO		0x205b
+struct hci_cp_le_past_set_info {
+	__le16 handle;
+	__le16 service_data;
+	__u8   adv_handle;
+} __packed;
+
+struct hci_rp_le_past_set_info {
+	__u8   status;
+	__le16 handle;
+} __packed;
+
+#define HCI_OP_LE_PAST_PARAMS		0x205c
+struct hci_cp_le_past_params {
+	__le16  handle;
+	__u8    mode;
+	__le16  skip;
+	__le16  sync_timeout;
+	__u8    cte_type;
+} __packed;
+
+struct hci_rp_le_past_params {
+	__u8   status;
+	__le16 handle;
+} __packed;
+
 #define HCI_OP_LE_READ_BUFFER_SIZE_V2	0x2060
 struct hci_rp_le_read_buffer_size_v2 {
 	__u8    status;
@@ -2800,6 +2840,20 @@ struct hci_evt_le_ext_adv_set_term {
 	__u8	num_evts;
 } __packed;
 
+#define HCI_EV_LE_PAST_RECEIVED		0x18
+struct hci_ev_le_past_received {
+	__u8   status;
+	__le16 handle;
+	__le16 service_data;
+	__le16 sync_handle;
+	__u8   sid;
+	__u8   bdaddr_type;
+	bdaddr_t  bdaddr;
+	__u8   phy;
+	__le16 interval;
+	__u8   clock_accuracy;
+} __packed;
+
 #define HCI_EVT_LE_CIS_ESTABLISHED	0x19
 struct hci_evt_le_cis_established {
 	__u8  status;
@@ -2993,8 +3047,9 @@ static inline struct hci_iso_hdr *hci_iso_hdr(const struct sk_buff *skb)
 #define hci_iso_flags_pack(pb, ts)	((pb & 0x03) | ((ts & 0x01) << 2))
 
 /* ISO data length and flags pack/unpack */
-#define hci_iso_data_len_pack(h, f)	((__u16) ((h) | ((f) << 14)))
-#define hci_iso_data_len(h)		((h) & 0x3fff)
+#define hci_iso_data_len_pack(h, f)	((__u16) (((h) & 0x0fff) | \
+						  (((f) & 0x3) << 14)))
+#define hci_iso_data_len(h)		((h) & 0x0fff)
 #define hci_iso_data_flags(h)		((h) >> 14)
 
 /* codec transport types */
