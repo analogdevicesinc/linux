@@ -222,8 +222,7 @@ static void update_general_status(struct f2fs_sb_info *sbi)
 	si->free_secs = free_sections(sbi);
 	si->prefree_count = prefree_segments(sbi);
 	si->dirty_count = dirty_segments(sbi);
-	if (sbi->node_inode)
-		si->node_pages = NODE_MAPPING(sbi)->nrpages;
+	si->node_caches = NODE_CACHE(sbi)->num_entries;
 	si->meta_caches = META_CACHE(sbi)->num_entries;
 #ifdef CONFIG_F2FS_FS_COMPRESSION
 	if (sbi->compress_inode) {
@@ -382,13 +381,10 @@ get_cache:
 	}
 
 	si->page_mem = 0;
-	if (sbi->node_inode) {
-		unsigned long npages = NODE_MAPPING(sbi)->nrpages;
-
-		si->page_mem += (unsigned long long)npages << PAGE_SHIFT;
-	}
 	si->page_mem += (unsigned long long)META_CACHE(sbi)->num_entries << PAGE_SHIFT;
 	si->cache_mem += META_CACHE(sbi)->num_entries * sizeof(struct f2fs_cached_block);
+	si->page_mem += (unsigned long long)NODE_CACHE(sbi)->num_entries << PAGE_SHIFT;
+	si->cache_mem += NODE_CACHE(sbi)->num_entries * sizeof(struct f2fs_cached_block);
 #ifdef CONFIG_F2FS_FS_COMPRESSION
 	if (sbi->compress_inode) {
 		unsigned long npages = COMPRESS_MAPPING(sbi)->nrpages;
@@ -696,7 +692,7 @@ static int stat_show(struct seq_file *s, void *v)
 			   si->aw_cnt, si->max_aw_cnt);
 		seq_printf(s, "  - compress: %4d, hit:%8d\n", si->compress_pages, si->compress_page_hit);
 		seq_printf(s, "  - nodes: %4d in %4d\n",
-			   si->ndirty_node, si->node_pages);
+			   si->ndirty_node, si->node_caches);
 		seq_printf(s, "  - dents: %4d in dirs:%4d (%4d)\n",
 			   si->ndirty_dent, si->ndirty_dirs, si->ndirty_all);
 		seq_printf(s, "  - data: %4d in files:%4d\n",

@@ -58,33 +58,16 @@ bool f2fs_is_cp_guaranteed(const struct folio *folio)
 {
 	struct address_space *mapping = folio->mapping;
 	struct inode *inode;
-	struct f2fs_sb_info *sbi;
 
 	inode = mapping->host;
-	sbi = F2FS_I_SB(inode);
 
-	if (inode->i_ino == F2FS_NODE_INO(sbi) ||
-			S_ISDIR(inode->i_mode))
+	if (S_ISDIR(inode->i_mode))
 		return true;
 
 	if ((S_ISREG(inode->i_mode) && IS_NOQUOTA(inode)) ||
 			folio_test_f2fs_gcing(folio))
 		return true;
 	return false;
-}
-
-static enum count_type __read_io_type(struct folio *folio)
-{
-	struct address_space *mapping = folio->mapping;
-
-	if (mapping) {
-		struct inode *inode = mapping->host;
-		struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-
-		if (inode->i_ino == F2FS_NODE_INO(sbi))
-			return F2FS_RD_NODE;
-	}
-	return F2FS_RD_DATA;
 }
 
 /* postprocessing steps for read bios */
@@ -160,14 +143,7 @@ static void f2fs_finish_read_bio(struct bio *bio, bool in_task)
 		}
 
 		while (nr_pages--)
-			dec_page_count(F2FS_F_SB(folio), __read_io_type(folio));
-
-		if (bio->bi_status == BLK_STS_OK &&
-			F2FS_F_SB(folio)->node_inode &&
-			is_node_folio(F2FS_F_SB(folio), folio) &&
-			f2fs_sanity_check_node_footer(F2FS_F_SB(folio),
-				folio, folio->index, NODE_TYPE_REGULAR, true))
-			bio->bi_status = BLK_STS_IOERR;
+			dec_page_count(F2FS_F_SB(folio), F2FS_RD_DATA);
 
 		if (finished)
 			folio_end_read(folio, bio->bi_status == BLK_STS_OK);
@@ -351,14 +327,6 @@ static void f2fs_write_end_bio(struct bio *bio)
 			}
 		}
 
-		if (is_node_folio(sbi, folio)) {
-			f2fs_sanity_check_node_footer(sbi, folio,
-				folio->index, NODE_TYPE_REGULAR, true);
-			f2fs_bug_on(sbi, folio->index != nid_of_node(sbi, folio));
-		}
-		if (f2fs_in_warm_node_list(sbi, folio))
-			f2fs_del_fsync_node_entry(sbi, folio);
-
 		dec_page_count(sbi, type);
 
 		/*
@@ -419,6 +387,12 @@ static void f2fs_cache_read_end_io(struct bio *bio)
 		next = entry->next_entry;
 		entry->next_entry = NULL;
 
+		if (bio->bi_status == BLK_STS_OK &&
+			f2fs_is_node_cache(entry) &&
+			f2fs_sanity_check_node_footer(sbi, entry,
+				entry->index, NODE_TYPE_REGULAR, true))
+			bio->bi_status = BLK_STS_IOERR;
+
 		if (bio->bi_status == BLK_STS_OK)
 			f2fs_cache_set_uptodate(entry);
 
@@ -448,6 +422,14 @@ static void f2fs_cache_write_end_io(struct bio *bio)
 	while (entry) {
 		next = entry->next_entry;
 		entry->next_entry = NULL;
+
+		if (f2fs_is_node_cache(entry)) {
+			f2fs_sanity_check_node_footer(sbi, entry,
+				entry->index, NODE_TYPE_REGULAR, true);
+			f2fs_bug_on(sbi, entry->index != nid_of_node(sbi, entry));
+		}
+		if (f2fs_in_warm_node_list(sbi, entry))
+			f2fs_del_fsync_node_entry(sbi, entry);
 
 		dec_page_count(sbi, F2FS_WB_CP_DATA);
 
@@ -655,15 +637,15 @@ static void __submit_merged_bio(struct f2fs_bio_info *io)
 	io->bio = NULL;
 }
 
-static bool __has_merged_page(struct f2fs_sb_info *sbi, struct bio *bio,
-			struct inode *inode, struct folio *folio, nid_t ino)
+static bool __has_merged_page(struct bio *bio, struct inode *inode,
+						struct folio *folio)
 {
 	struct folio_iter fi;
 
 	if (!bio)
 		return false;
 
-	if (!inode && !folio && !ino)
+	if (!inode && !folio)
 		return true;
 
 	if (f2fs_is_cache_bio(bio))
@@ -681,8 +663,6 @@ static bool __has_merged_page(struct f2fs_sb_info *sbi, struct bio *bio,
 		if (inode && inode == target->mapping->host)
 			return true;
 		if (folio && folio == target)
-			return true;
-		if (ino && ino == ino_of_node(sbi, target))
 			return true;
 	}
 
@@ -750,26 +730,25 @@ unlock_out:
 	f2fs_up_write_trace(&io->io_rwsem, &lc);
 }
 
-static void __submit_merged_write_cond(struct f2fs_sb_info *sbi,
+static void __submit_merged_data_write_cond(struct f2fs_sb_info *sbi,
 				struct inode *inode, struct folio *folio,
-				nid_t ino, enum page_type type, bool writeback)
+				bool writeback)
 {
 	enum temp_type temp;
 	bool ret = true;
-	bool force = !inode && !folio && !ino;
+	bool force = !inode && !folio;
 
 	for (temp = HOT; temp < NR_TEMP_TYPE; temp++) {
-		if (!force)	{
-			enum page_type btype = PAGE_TYPE_OF_BIO(type);
-			struct f2fs_bio_info *io = sbi->write_io[btype] + temp;
+		if (!force) {
+			struct f2fs_bio_info *io = sbi->write_io[DATA] + temp;
 			struct f2fs_lock_context lc;
 
 			f2fs_down_read_trace(&io->io_rwsem, &lc);
-			ret = __has_merged_page(io->sbi, io->bio, inode, folio, ino);
+			ret = __has_merged_page(io->bio, inode, folio);
 			f2fs_up_read_trace(&io->io_rwsem, &lc);
 		}
 		if (ret) {
-			__f2fs_submit_merged_write(sbi, type, temp);
+			__f2fs_submit_merged_write(sbi, DATA, temp);
 			/*
 			 * For waitting writebck case, if the bio owned by the
 			 * folio is already submitted, we do not need to submit
@@ -778,33 +757,23 @@ static void __submit_merged_write_cond(struct f2fs_sb_info *sbi,
 			if (writeback)
 				break;
 		}
-
-		/* TODO: use HOT temp only for meta pages now. */
-		if (type >= META)
-			break;
 	}
 }
 
-void f2fs_submit_merged_write(struct f2fs_sb_info *sbi, enum page_type type)
-{
-	__submit_merged_write_cond(sbi, NULL, NULL, 0, type, false);
-}
-
 void f2fs_submit_merged_write_cond(struct f2fs_sb_info *sbi,
-				struct inode *inode, struct folio *folio,
-				nid_t ino, enum page_type type)
+				struct inode *inode, struct folio *folio)
 {
-	__submit_merged_write_cond(sbi, inode, folio, ino, type, false);
+	__submit_merged_data_write_cond(sbi, inode, folio, false);
 }
 
 void f2fs_submit_merged_write_folio(struct f2fs_sb_info *sbi,
-				struct folio *folio, enum page_type type)
+				struct folio *folio)
 {
-	__submit_merged_write_cond(sbi, NULL, folio, 0, type, true);
+	__submit_merged_data_write_cond(sbi, NULL, folio, true);
 }
 
-static bool __has_merged_cache(struct bio *bio,
-		struct f2fs_cached_block *target)
+static bool __has_merged_cache(struct f2fs_sb_info *sbi, struct bio *bio,
+		struct f2fs_cached_block *target, nid_t ino)
 {
 	struct f2fs_cached_block *entry;
 
@@ -816,27 +785,39 @@ static bool __has_merged_cache(struct bio *bio,
 	while (entry) {
 		if (target && entry == target)
 			return true;
+
+		if (ino) {
+			if (likely(f2fs_is_node_cache(entry))) {
+				if (ino_of_node(sbi, entry) == ino)
+					return true;
+			} else {
+				WARN_ON_ONCE(1);
+			}
+		}
 		entry = entry->next_entry;
 	}
 	return false;
 }
 
-bool f2fs_submit_merged_write_cache(struct f2fs_cached_block *entry,
-				enum page_type type)
+bool f2fs_submit_merged_write_cache(struct f2fs_sb_info *sbi,
+				struct f2fs_cached_block *entry,
+				nid_t ino, enum page_type type)
 {
-	struct f2fs_sb_info *sbi = entry->cache->sbi;
 	enum temp_type temp;
 	bool ret = false;
+	bool force = !entry && !ino;
 
 	for (temp = HOT; temp < NR_TEMP_TYPE; temp++) {
 		enum page_type btype = PAGE_TYPE_OF_BIO(type);
 		struct f2fs_bio_info *io = sbi->write_io[btype] + temp;
 		struct f2fs_lock_context lc;
-		bool merged;
+		bool merged = true;
 
-		f2fs_down_read_trace(&io->io_rwsem, &lc);
-		merged = __has_merged_cache(io->bio, entry);
-		f2fs_up_read_trace(&io->io_rwsem, &lc);
+		if (!force) {
+			f2fs_down_read_trace(&io->io_rwsem, &lc);
+			merged = __has_merged_cache(sbi, io->bio, entry, ino);
+			f2fs_up_read_trace(&io->io_rwsem, &lc);
+		}
 
 		if (merged) {
 			__f2fs_submit_merged_write(sbi, type, temp);
@@ -848,6 +829,14 @@ bool f2fs_submit_merged_write_cache(struct f2fs_cached_block *entry,
 			break;
 	}
 	return ret;
+}
+
+void f2fs_submit_merged_write(struct f2fs_sb_info *sbi, enum page_type type)
+{
+	if (type == DATA)
+		__submit_merged_data_write_cond(sbi, NULL, NULL, false);
+	else
+		f2fs_submit_merged_write_cache(sbi, NULL, 0, type);
 }
 
 void f2fs_flush_merged_writes(struct f2fs_sb_info *sbi)
@@ -886,7 +875,7 @@ int f2fs_submit_page_bio(struct f2fs_io_info *fio)
 		wbc_account_cgroup_owner(fio->io_wbc, fio_folio, PAGE_SIZE);
 
 	inc_page_count(fio->sbi, is_read_io(fio->op) ?
-			__read_io_type(data_folio) : WB_DATA_TYPE(fio->folio, false));
+			F2FS_RD_DATA : WB_DATA_TYPE(fio->folio, false));
 
 	if (is_read_io(bio_op(bio)))
 		f2fs_submit_read_bio(fio->sbi, bio, fio->type);
@@ -1022,8 +1011,8 @@ void f2fs_submit_merged_ipu_write(struct f2fs_sb_info *sbi,
 			if (target)
 				found = (target == be->bio);
 			else
-				found = __has_merged_page(sbi, be->bio, NULL,
-							folio, 0);
+				found = __has_merged_page(be->bio,
+							NULL, folio);
 			if (found)
 				break;
 		}
@@ -1039,8 +1028,8 @@ void f2fs_submit_merged_ipu_write(struct f2fs_sb_info *sbi,
 			if (target)
 				found = (target == be->bio);
 			else
-				found = __has_merged_page(sbi, be->bio, NULL,
-							folio, 0);
+				found = __has_merged_page(be->bio,
+							NULL, folio);
 			if (found) {
 				target = be->bio;
 				del_bio_entry(be);
@@ -1427,7 +1416,7 @@ static void f2fs_submit_page_read(struct inode *inode, struct fsverity_info *vi,
 
 static void __set_data_blkaddr(struct dnode_of_data *dn, block_t blkaddr)
 {
-	__le32 *addr = get_dnode_addr(dn->inode, dn->node_folio);
+	__le32 *addr = get_dnode_addr(dn->inode, dn->node_entry);
 
 	dn->data_blkaddr = blkaddr;
 	addr[dn->ofs_in_node] = cpu_to_le32(dn->data_blkaddr);
@@ -1441,9 +1430,9 @@ static void __set_data_blkaddr(struct dnode_of_data *dn, block_t blkaddr)
  */
 void f2fs_set_data_blkaddr(struct dnode_of_data *dn, block_t blkaddr)
 {
-	f2fs_folio_wait_writeback(dn->node_folio, NODE, true, true);
+	f2fs_cache_wait_writeback(dn->node_entry);
 	__set_data_blkaddr(dn, blkaddr);
-	if (folio_mark_dirty(dn->node_folio))
+	if (f2fs_mark_cache_dirty(dn->node_entry))
 		dn->node_changed = true;
 }
 
@@ -1471,7 +1460,7 @@ int f2fs_reserve_new_blocks(struct dnode_of_data *dn, blkcnt_t count)
 	trace_f2fs_reserve_new_blocks(dn->inode, dn->nid,
 						dn->ofs_in_node, count);
 
-	f2fs_folio_wait_writeback(dn->node_folio, NODE, true, true);
+	f2fs_cache_wait_writeback(dn->node_entry);
 
 	for (; count > 0; dn->ofs_in_node++) {
 		block_t blkaddr = f2fs_data_blkaddr(dn);
@@ -1482,7 +1471,7 @@ int f2fs_reserve_new_blocks(struct dnode_of_data *dn, blkcnt_t count)
 		}
 	}
 
-	if (folio_mark_dirty(dn->node_folio))
+	if (f2fs_mark_cache_dirty(dn->node_entry))
 		dn->node_changed = true;
 	return 0;
 }
@@ -1500,7 +1489,7 @@ int f2fs_reserve_new_block(struct dnode_of_data *dn)
 
 int f2fs_reserve_block(struct dnode_of_data *dn, pgoff_t index)
 {
-	bool need_put = dn->inode_folio ? false : true;
+	bool need_put = dn->inode_entry ? false : true;
 	int err;
 
 	err = f2fs_get_dnode_of_data(dn, index, ALLOC_NODE);
@@ -1666,11 +1655,11 @@ struct folio *f2fs_get_lock_data_folio(struct inode *inode, pgoff_t index,
  *
  * Also, caller should grab and release a rwsem by calling f2fs_lock_op() and
  * f2fs_unlock_op().
- * Note that, ifolio is set only by make_empty_dir, and if any error occur,
- * ifolio should be released by this function.
+ * Note that, ientry is set only by make_empty_dir, and if any error occur,
+ * ientry should be released by this function.
  */
 struct folio *f2fs_get_new_data_folio(struct inode *inode,
-		struct folio *ifolio, pgoff_t index, bool new_i_size)
+		struct f2fs_cached_block *ientry, pgoff_t index, bool new_i_size)
 {
 	struct address_space *mapping = inode->i_mapping;
 	struct folio *folio;
@@ -1680,20 +1669,20 @@ struct folio *f2fs_get_new_data_folio(struct inode *inode,
 	folio = f2fs_grab_cache_folio(mapping, index, true);
 	if (IS_ERR(folio)) {
 		/*
-		 * before exiting, we should make sure ifolio will be released
+		 * before exiting, we should make sure ientry will be released
 		 * if any error occur.
 		 */
-		f2fs_folio_put(ifolio, true);
+		f2fs_put_cache(ientry, true);
 		return ERR_PTR(-ENOMEM);
 	}
 
-	set_new_dnode(&dn, inode, ifolio, NULL, 0);
+	set_new_dnode(&dn, inode, ientry, NULL, 0);
 	err = f2fs_reserve_block(&dn, index);
 	if (err) {
 		f2fs_folio_put(folio, true);
 		return ERR_PTR(err);
 	}
-	if (!ifolio)
+	if (!ientry)
 		f2fs_put_dnode(&dn);
 
 	if (folio_test_uptodate(folio))
@@ -1706,8 +1695,8 @@ struct folio *f2fs_get_new_data_folio(struct inode *inode,
 	} else {
 		f2fs_folio_put(folio, true);
 
-		/* if ifolio exists, blkaddr should be NEW_ADDR */
-		f2fs_bug_on(F2FS_I_SB(inode), ifolio);
+		/* if ientry exists, blkaddr should be NEW_ADDR */
+		f2fs_bug_on(F2FS_I_SB(inode), ientry);
 		folio = f2fs_get_lock_data_folio(inode, index, true);
 		if (IS_ERR(folio))
 			return folio;
@@ -1744,7 +1733,7 @@ static int __allocate_data_block(struct dnode_of_data *dn, int seg_type)
 
 	set_summary(&sum, dn->nid, dn->ofs_in_node, ni.version);
 	old_blkaddr = dn->data_blkaddr;
-	err = f2fs_allocate_data_block(sbi, NULL, old_blkaddr,
+	err = f2fs_allocate_data_block(sbi, old_blkaddr,
 				&dn->data_blkaddr, &sum, seg_type, NULL);
 	if (err) {
 		if (old_blkaddr == NULL_ADDR)
@@ -1956,7 +1945,7 @@ next_dnode:
 	start_pgofs = pgofs;
 	prealloc = 0;
 	last_ofs_in_node = ofs_in_node = dn.ofs_in_node;
-	end_offset = ADDRS_PER_PAGE(dn.node_folio, inode);
+	end_offset = ADDRS_PER_PAGE(dn.node_entry, inode);
 
 next_block:
 	blkaddr = f2fs_data_blkaddr(&dn);
@@ -2207,15 +2196,15 @@ static int f2fs_xattr_fiemap(struct inode *inode,
 
 	if (f2fs_has_inline_xattr(inode)) {
 		int offset;
-		struct folio *folio = f2fs_grab_cache_folio(NODE_MAPPING(sbi),
-				inode->i_ino, false);
+		struct f2fs_cached_block *entry =
+				f2fs_grab_node_cache(sbi, inode->i_ino);
 
-		if (IS_ERR(folio))
-			return PTR_ERR(folio);
+		if (IS_ERR(entry))
+			return PTR_ERR(entry);
 
 		err = f2fs_get_node_info(sbi, inode->i_ino, &ni, false);
 		if (err) {
-			f2fs_folio_put(folio, true);
+			f2fs_put_cache(entry, true);
 			return err;
 		}
 
@@ -2227,7 +2216,7 @@ static int f2fs_xattr_fiemap(struct inode *inode,
 		phys += offset;
 		len = inline_xattr_size(inode);
 
-		f2fs_folio_put(folio, true);
+		f2fs_put_cache(entry, true);
 
 		flags = FIEMAP_EXTENT_DATA_INLINE | FIEMAP_EXTENT_NOT_ALIGNED;
 
@@ -2241,22 +2230,22 @@ static int f2fs_xattr_fiemap(struct inode *inode,
 	}
 
 	if (xnid) {
-		struct folio *folio = f2fs_grab_cache_folio(NODE_MAPPING(sbi),
-				xnid, false);
+		struct f2fs_cached_block *entry =
+				f2fs_grab_node_cache(sbi, xnid);
 
-		if (IS_ERR(folio))
-			return PTR_ERR(folio);
+		if (IS_ERR(entry))
+			return PTR_ERR(entry);
 
 		err = f2fs_get_node_info(sbi, xnid, &ni, false);
 		if (err) {
-			f2fs_folio_put(folio, true);
+			f2fs_put_cache(entry, true);
 			return err;
 		}
 
 		phys = F2FS_BLK_TO_BYTES(sbi, ni.blk_addr);
 		len = inode->i_sb->s_blocksize;
 
-		f2fs_folio_put(folio, true);
+		f2fs_put_cache(entry, true);
 
 		flags = FIEMAP_EXTENT_LAST;
 	}
@@ -2619,7 +2608,7 @@ skip_reading_dnode:
 	for (i = 1; i < cc->cluster_size; i++) {
 		block_t blkaddr;
 
-		blkaddr = from_dnode ? data_blkaddr(dn.inode, dn.node_folio,
+		blkaddr = from_dnode ? data_blkaddr(dn.inode, dn.node_entry,
 					dn.ofs_in_node + i) :
 					ei.blk + i - 1;
 
@@ -2653,7 +2642,7 @@ skip_reading_dnode:
 		block_t blkaddr;
 		struct bio_post_read_ctx *ctx;
 
-		blkaddr = from_dnode ? data_blkaddr(dn.inode, dn.node_folio,
+		blkaddr = from_dnode ? data_blkaddr(dn.inode, dn.node_entry,
 					dn.ofs_in_node + i + 1) :
 					ei.blk + i;
 
@@ -3646,7 +3635,7 @@ continue_unlock:
 			if (folio_test_writeback(folio)) {
 				if (wbc->sync_mode == WB_SYNC_NONE)
 					goto continue_unlock;
-				f2fs_folio_wait_writeback(folio, DATA, true, true);
+				f2fs_folio_wait_writeback(folio, true, true);
 			}
 
 			if (!folio_clear_dirty_for_io(folio))
@@ -3728,8 +3717,8 @@ next:
 		mapping->writeback_index = done_index;
 
 	if (nwritten)
-		f2fs_submit_merged_write_cond(F2FS_M_SB(mapping), mapping->host,
-								NULL, 0, DATA);
+		f2fs_submit_merged_write_cond(F2FS_M_SB(mapping),
+					mapping->host, NULL);
 	/* submit cached bio of IPU write */
 	if (bio)
 		f2fs_submit_merged_ipu_write(sbi, &bio, NULL);
@@ -3907,7 +3896,7 @@ static int prepare_write_begin(struct f2fs_sb_info *sbi,
 	pgoff_t index = folio->index;
 	struct dnode_of_data dn;
 	struct f2fs_lock_context lc;
-	struct folio *ifolio;
+	struct f2fs_cached_block *ientry;
 	bool locked = false;
 	int flag = F2FS_GET_BLOCK_PRE_AIO;
 	int err = 0;
@@ -3938,20 +3927,20 @@ static int prepare_write_begin(struct f2fs_sb_info *sbi,
 
 restart:
 	/* check inline_data */
-	ifolio = f2fs_get_inode_folio(sbi, inode->i_ino);
-	if (IS_ERR(ifolio)) {
-		err = PTR_ERR(ifolio);
+	ientry = f2fs_get_inode_cache(sbi, inode->i_ino);
+	if (IS_ERR(ientry)) {
+		err = PTR_ERR(ientry);
 		goto unlock_out;
 	}
 
-	set_new_dnode(&dn, inode, ifolio, ifolio, 0);
+	set_new_dnode(&dn, inode, ientry, ientry, 0);
 
 	if (f2fs_has_inline_data(inode)) {
 		if (pos + len <= MAX_INLINE_DATA(inode)) {
-			f2fs_do_read_inline_data(folio, ifolio);
+			f2fs_do_read_inline_data(folio, ientry);
 			set_inode_flag(inode, FI_DATA_EXIST);
 			if (inode->i_nlink)
-				folio_set_f2fs_inline(ifolio);
+				f2fs_cache_set_inline(ientry);
 			goto out;
 		}
 		err = f2fs_convert_inline_folio(&dn, folio);
@@ -3998,14 +3987,14 @@ static int __find_data_block(struct inode *inode, pgoff_t index,
 				block_t *blk_addr)
 {
 	struct dnode_of_data dn;
-	struct folio *ifolio;
+	struct f2fs_cached_block *ientry;
 	int err = 0;
 
-	ifolio = f2fs_get_inode_folio(F2FS_I_SB(inode), inode->i_ino);
-	if (IS_ERR(ifolio))
-		return PTR_ERR(ifolio);
+	ientry = f2fs_get_inode_cache(F2FS_I_SB(inode), inode->i_ino);
+	if (IS_ERR(ientry))
+		return PTR_ERR(ientry);
 
-	set_new_dnode(&dn, inode, ifolio, ifolio, 0);
+	set_new_dnode(&dn, inode, ientry, ientry, 0);
 
 	if (!f2fs_lookup_read_extent_cache_block(inode, index,
 						 &dn.data_blkaddr)) {
@@ -4027,17 +4016,17 @@ static int __reserve_data_block(struct inode *inode, pgoff_t index,
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	struct dnode_of_data dn;
 	struct f2fs_lock_context lc;
-	struct folio *ifolio;
+	struct f2fs_cached_block *ientry;
 	int err = 0;
 
 	f2fs_map_lock(sbi, &lc, F2FS_GET_BLOCK_PRE_AIO);
 
-	ifolio = f2fs_get_inode_folio(sbi, inode->i_ino);
-	if (IS_ERR(ifolio)) {
-		err = PTR_ERR(ifolio);
+	ientry = f2fs_get_inode_cache(sbi, inode->i_ino);
+	if (IS_ERR(ientry)) {
+		err = PTR_ERR(ientry);
 		goto unlock_out;
 	}
-	set_new_dnode(&dn, inode, ifolio, ifolio, 0);
+	set_new_dnode(&dn, inode, ientry, ientry, 0);
 
 	if (!f2fs_lookup_read_extent_cache_block(dn.inode, index,
 						&dn.data_blkaddr))
@@ -4193,7 +4182,7 @@ repeat:
 		}
 	}
 
-	f2fs_folio_wait_writeback(folio, DATA, false, true);
+	f2fs_folio_wait_writeback(folio, false, true);
 
 	if (len == folio_size(folio) || folio_test_uptodate(folio))
 		return 0;
@@ -4310,12 +4299,8 @@ void f2fs_invalidate_folio(struct folio *folio, size_t offset, size_t length)
 		return;
 
 	if (folio_test_dirty(folio)) {
-		if (inode->i_ino == F2FS_NODE_INO(sbi)) {
-			dec_page_count(sbi, F2FS_DIRTY_NODES);
-		} else {
-			inode_dec_dirty_pages(inode);
-			f2fs_remove_dirty_inode(inode);
-		}
+		inode_dec_dirty_pages(inode);
+		f2fs_remove_dirty_inode(inode);
 	}
 
 	if (offset || length != folio_size(folio))

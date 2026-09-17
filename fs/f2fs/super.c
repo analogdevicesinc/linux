@@ -1872,19 +1872,7 @@ static struct inode *f2fs_alloc_inode(struct super_block *sb)
 
 static int f2fs_drop_inode(struct inode *inode)
 {
-	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	int ret;
-
-	/*
-	 * during filesystem shutdown, if checkpoint is disabled,
-	 * drop useless meta/node dirty pages.
-	 */
-	if (unlikely(is_sbi_flag_set(sbi, SBI_CP_DISABLED))) {
-		if (inode->i_ino == F2FS_NODE_INO(sbi)) {
-			trace_f2fs_drop_inode(inode, 1);
-			return 1;
-		}
-	}
 
 	/*
 	 * This is to avoid a deadlock condition like below.
@@ -1906,7 +1894,7 @@ static int f2fs_drop_inode(struct inode *inode)
 			f2fs_i_size_write(inode, 0);
 
 			f2fs_submit_merged_write_cond(F2FS_I_SB(inode),
-					inode, NULL, 0, DATA);
+							inode, NULL);
 			truncate_inode_pages_final(inode->i_mapping);
 
 			if (F2FS_HAS_BLOCKS(inode))
@@ -1980,11 +1968,6 @@ void f2fs_inode_synced(struct inode *inode)
  */
 static void f2fs_dirty_inode(struct inode *inode, int flags)
 {
-	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-
-	if (inode->i_ino == F2FS_NODE_INO(sbi))
-		return;
-
 	if (is_inode_flag_set(inode, FI_AUTO_RECOVER))
 		clear_inode_flag(inode, FI_AUTO_RECOVER);
 
@@ -2080,7 +2063,7 @@ static void f2fs_put_super(struct super_block *sb)
 
 	if (err || f2fs_cp_error(sbi) ||
 		unlikely(is_sbi_flag_set(sbi, SBI_CP_DISABLED))) {
-		truncate_inode_pages_final(NODE_MAPPING(sbi));
+		f2fs_truncate_node_caches(sbi, 0, ULONG_MAX);
 		f2fs_truncate_meta_caches(sbi, 0, ULONG_MAX);
 	}
 
@@ -2088,11 +2071,8 @@ static void f2fs_put_super(struct super_block *sb)
 
 	f2fs_destroy_compress_inode(sbi);
 
-	iput(sbi->node_inode);
-	sbi->node_inode = NULL;
-
-	f2fs_destroy_cache(META_CACHE(sbi));
 	f2fs_destroy_cache(NODE_CACHE(sbi));
+	f2fs_destroy_cache(META_CACHE(sbi));
 
 	/* Should check the page counts after dropping all node/meta pages */
 	for (i = 0; i < NR_COUNT_TYPE; i++) {
@@ -4445,7 +4425,6 @@ static void init_sb_info(struct f2fs_sb_info *sbi)
 	sbi->allocate_section_hint = le32_to_cpu(raw_super->section_count);
 	sbi->allocate_section_policy = ALLOCATE_FORWARD_NOHINT;
 	F2FS_ROOT_INO(sbi) = le32_to_cpu(raw_super->root_ino);
-	F2FS_NODE_INO(sbi) = le32_to_cpu(raw_super->node_ino);
 	sbi->cur_victim_sec = NULL_SECNO;
 	sbi->gc_mode = GC_NORMAL;
 	sbi->next_victim_seg[BG_GC] = NULL_SEGNO;
@@ -5096,7 +5075,7 @@ static void f2fs_restore_device_alias(struct f2fs_sb_info *sbi)
 {
 	struct inode *root = d_inode(sbi->sb->s_root);
 	struct f2fs_dir_entry *de;
-	struct folio *folio;
+	void *dentry_block = NULL;
 	int i;
 
 	if (!f2fs_sb_has_device_alias(sbi))
@@ -5111,7 +5090,7 @@ static void f2fs_restore_device_alias(struct f2fs_sb_info *sbi)
 		qstr.name = name;
 		qstr.len = strlen(name);
 
-		de = f2fs_find_entry(root, &qstr, &folio);
+		de = f2fs_find_entry(root, &qstr, &dentry_block);
 		if (!de)
 			continue;
 
@@ -5121,7 +5100,7 @@ static void f2fs_restore_device_alias(struct f2fs_sb_info *sbi)
 				FDEV(i).has_alias = true;
 			iput(inode);
 		}
-		f2fs_folio_put(folio, 0);
+		f2fs_put_dentry_block(dentry_block, false);
 	}
 }
 
@@ -5385,33 +5364,25 @@ try_onemore:
 	if (err)
 		goto free_nm;
 
-	/* get an inode for node space */
-	sbi->node_inode = f2fs_iget(sb, F2FS_NODE_INO(sbi));
-	if (IS_ERR(sbi->node_inode)) {
-		f2fs_err(sbi, "Failed to read node inode");
-		err = PTR_ERR(sbi->node_inode);
-		goto free_stats;
-	}
-
 	/* read root inode and dentry */
 	root = f2fs_iget(sb, F2FS_ROOT_INO(sbi));
 	if (IS_ERR(root)) {
 		f2fs_err(sbi, "Failed to read root inode");
 		err = PTR_ERR(root);
-		goto free_node_inode;
+		goto free_ino_entry;
 	}
 	if (!S_ISDIR(root->i_mode) || !root->i_blocks ||
 			!root->i_size || !root->i_nlink) {
 		iput(root);
 		err = -EINVAL;
-		goto free_node_inode;
+		goto free_ino_entry;
 	}
 
 	generic_set_sb_d_ops(sb);
 	sb->s_root = d_make_root(root); /* allocate root dentry */
 	if (!sb->s_root) {
 		err = -ENOMEM;
-		goto free_node_inode;
+		goto free_ino_entry;
 	}
 
 	err = f2fs_init_compress_inode(sbi);
@@ -5582,7 +5553,7 @@ free_meta:
 	 * Some dirty meta pages can be produced by f2fs_recover_orphan_inodes()
 	 * failed by EIO. Then, iput(node_inode) can trigger balance_fs_bg()
 	 * followed by f2fs_write_checkpoint() through f2fs_write_node_pages(), which
-	 * falls into an infinite loop in f2fs_sync_meta_pages().
+	 * falls into an infinite loop in f2fs_sync_meta_caches().
 	 */
 	f2fs_truncate_meta_caches(sbi, 0, ULONG_MAX);
 	/* evict some inodes being cached by GC */
@@ -5593,12 +5564,9 @@ free_compress_inode:
 free_root_inode:
 	dput(sb->s_root);
 	sb->s_root = NULL;
-free_node_inode:
+free_ino_entry:
 	f2fs_release_ino_entry(sbi, true);
-	truncate_inode_pages_final(NODE_MAPPING(sbi));
-	iput(sbi->node_inode);
-	sbi->node_inode = NULL;
-free_stats:
+	f2fs_truncate_node_caches(sbi, 0, ULONG_MAX);
 	f2fs_destroy_stats(sbi);
 free_nm:
 	/* stop discard thread before destroying node manager */

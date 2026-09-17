@@ -1054,7 +1054,7 @@ next_step:
 
 	for (off = 0; off < usable_blks_in_seg; off++, entry++) {
 		nid_t nid = le32_to_cpu(entry->nid);
-		struct folio *node_folio;
+		struct f2fs_cached_block *node_entry;
 		struct node_info ni;
 		int err;
 
@@ -1072,32 +1072,32 @@ next_step:
 		}
 
 		if (phase == 1) {
-			f2fs_ra_node_page(sbi, nid);
+			f2fs_ra_node_cache(sbi, nid);
 			continue;
 		}
 
 		/* phase == 2 */
-		node_folio = f2fs_get_node_folio(sbi, nid, NODE_TYPE_REGULAR);
-		if (IS_ERR(node_folio))
+		node_entry = f2fs_get_node_cache(sbi, nid, NODE_TYPE_REGULAR);
+		if (IS_ERR(node_entry))
 			continue;
 
 		/* block may become invalid during f2fs_get_node_folio */
 		if (check_valid_map(sbi, segno, off) == 0) {
-			f2fs_folio_put(node_folio, true);
+			f2fs_put_cache(node_entry, true);
 			continue;
 		}
 
 		if (f2fs_get_node_info(sbi, nid, &ni, false)) {
-			f2fs_folio_put(node_folio, true);
+			f2fs_put_cache(node_entry, true);
 			continue;
 		}
 
 		if (ni.blk_addr != start_addr + off) {
-			f2fs_folio_put(node_folio, true);
+			f2fs_put_cache(node_entry, true);
 			continue;
 		}
 
-		err = f2fs_move_node_folio(node_folio, gc_type);
+		err = f2fs_move_node_cache(node_entry, gc_type);
 		if (!err && gc_type == FG_GC)
 			submitted++;
 		stat_inc_node_blk_count(sbi, 1, gc_type);
@@ -1148,7 +1148,7 @@ block_t f2fs_start_bidx_of_node(unsigned int node_ofs, struct inode *inode)
 static bool is_alive(struct f2fs_sb_info *sbi, struct f2fs_summary *sum,
 		struct node_info *dni, block_t blkaddr, unsigned int *nofs)
 {
-	struct folio *node_folio;
+	struct f2fs_cached_block *node_entry;
 	nid_t nid;
 	unsigned int ofs_in_node, max_addrs, base;
 	block_t source_blkaddr;
@@ -1156,12 +1156,12 @@ static bool is_alive(struct f2fs_sb_info *sbi, struct f2fs_summary *sum,
 	nid = le32_to_cpu(sum->nid);
 	ofs_in_node = le16_to_cpu(sum->ofs_in_node);
 
-	node_folio = f2fs_get_node_folio(sbi, nid, NODE_TYPE_REGULAR);
-	if (IS_ERR(node_folio))
+	node_entry = f2fs_get_node_cache(sbi, nid, NODE_TYPE_REGULAR);
+	if (IS_ERR(node_entry))
 		return false;
 
 	if (f2fs_get_node_info(sbi, nid, dni, false)) {
-		f2fs_folio_put(node_folio, true);
+		f2fs_put_cache(node_entry, true);
 		return false;
 	}
 
@@ -1172,12 +1172,12 @@ static bool is_alive(struct f2fs_sb_info *sbi, struct f2fs_summary *sum,
 	}
 
 	if (f2fs_check_nid_range(sbi, dni->ino)) {
-		f2fs_folio_put(node_folio, true);
+		f2fs_put_cache(node_entry, true);
 		return false;
 	}
 
-	if (IS_INODE(sbi, node_folio)) {
-		base = offset_in_addr(F2FS_INODE(node_folio));
+	if (IS_INODE(sbi, node_entry)) {
+		base = offset_in_addr(F2FS_INODE(node_entry));
 		max_addrs = DEF_ADDRS_PER_INODE(sbi);
 	} else {
 		base = 0;
@@ -1187,13 +1187,13 @@ static bool is_alive(struct f2fs_sb_info *sbi, struct f2fs_summary *sum,
 	if (base + ofs_in_node >= max_addrs) {
 		f2fs_err(sbi, "Inconsistent blkaddr offset: base:%u, ofs_in_node:%u, max:%u, ino:%u, nid:%u",
 			base, ofs_in_node, max_addrs, dni->ino, dni->nid);
-		f2fs_folio_put(node_folio, true);
+		f2fs_put_cache(node_entry, true);
 		return false;
 	}
 
-	*nofs = ofs_of_node(sbi, node_folio);
-	source_blkaddr = data_blkaddr(NULL, node_folio, ofs_in_node);
-	f2fs_folio_put(node_folio, true);
+	*nofs = ofs_of_node(sbi, node_entry);
+	source_blkaddr = data_blkaddr(NULL, node_entry, ofs_in_node);
+	f2fs_put_cache(node_entry, true);
 
 	if (source_blkaddr != blkaddr) {
 #ifdef CONFIG_F2FS_CHECK_FS
@@ -1285,7 +1285,7 @@ got_it:
 	 * don't cache encrypted data into meta inode until previous dirty
 	 * data were writebacked to avoid racing between GC and flush.
 	 */
-	f2fs_folio_wait_writeback(folio, DATA, true, true);
+	f2fs_folio_wait_writeback(folio, true, true);
 
 	f2fs_wait_on_block_writeback(inode, dn.data_blkaddr);
 
@@ -1396,7 +1396,7 @@ static int move_data_block(struct inode *inode, block_t bidx,
 	 * don't cache encrypted data into meta inode until previous dirty
 	 * data were writebacked to avoid racing between GC and flush.
 	 */
-	f2fs_folio_wait_writeback(folio, DATA, true, true);
+	f2fs_folio_wait_writeback(folio, true, true);
 
 	f2fs_wait_on_block_writeback(inode, dn.data_blkaddr);
 
@@ -1445,7 +1445,7 @@ static int move_data_block(struct inode *inode, block_t bidx,
 	set_summary(&sum, dn.nid, dn.ofs_in_node, ni.version);
 
 	/* allocate block address */
-	err = f2fs_allocate_data_block(fio.sbi, NULL, fio.old_blkaddr, &newaddr,
+	err = f2fs_allocate_data_block(fio.sbi, fio.old_blkaddr, &newaddr,
 				&sum, type, NULL);
 	if (err) {
 		f2fs_put_cache(sentry, true);
@@ -1549,7 +1549,7 @@ static int move_data_page(struct inode *inode, block_t bidx, int gc_type,
 		bool is_dirty = folio_test_dirty(folio);
 
 retry:
-		f2fs_folio_wait_writeback(folio, DATA, true, true);
+		f2fs_folio_wait_writeback(folio, true, true);
 
 		folio_mark_dirty(folio);
 		if (folio_clear_dirty_for_io(folio)) {
@@ -1626,7 +1626,7 @@ next_step:
 		}
 
 		if (phase == 1) {
-			f2fs_ra_node_page(sbi, nid);
+			f2fs_ra_node_cache(sbi, nid);
 			continue;
 		}
 
@@ -1635,7 +1635,7 @@ next_step:
 			continue;
 
 		if (phase == 2) {
-			f2fs_ra_node_page(sbi, dni.ino);
+			f2fs_ra_node_cache(sbi, dni.ino);
 			continue;
 		}
 

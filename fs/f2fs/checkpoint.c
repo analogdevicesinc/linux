@@ -927,7 +927,7 @@ void f2fs_add_orphan_inode(struct inode *inode)
 {
 	/* add new orphan ino entry into list */
 	f2fs_add_ino_entry(F2FS_I_SB(inode), inode->i_ino, ORPHAN_INO);
-	f2fs_update_inode_page(inode);
+	f2fs_update_inode_cache(inode);
 }
 
 void f2fs_remove_orphan_inode(struct f2fs_sb_info *sbi, nid_t ino)
@@ -1428,7 +1428,7 @@ static int f2fs_sync_inode_meta(struct f2fs_sb_info *sbi)
 
 			/* it's on eviction */
 			if (is_inode_flag_set(inode, FI_DIRTY_INODE))
-				f2fs_update_inode_page(inode);
+				f2fs_update_inode_cache(inode);
 			iput(inode);
 		} else {
 			cond_resched();
@@ -1483,14 +1483,10 @@ static bool __need_flush_quota(struct f2fs_sb_info *sbi)
  */
 static int block_operations(struct f2fs_sb_info *sbi)
 {
-	struct writeback_control wbc = {
-		.sync_mode = WB_SYNC_ALL,
-		.nr_to_write = LONG_MAX,
-	};
 	int err = 0, cnt = 0;
 
 	/*
-	 * Let's flush inline_data in dirty node pages.
+	 * Let's flush inline_data in dirty node caches.
 	 */
 	f2fs_flush_inline_data(sbi);
 
@@ -1529,7 +1525,7 @@ retry_flush_dents:
 	}
 
 	/*
-	 * POR: we should ensure that there are no dirty node pages
+	 * POR: we should ensure that there are no dirty node caches
 	 * until finishing nat/sit flush. inode->i_blocks can be updated.
 	 */
 	f2fs_down_write(&sbi->node_change);
@@ -1550,7 +1546,8 @@ retry_flush_nodes:
 	if (get_pages(sbi, F2FS_DIRTY_NODES)) {
 		f2fs_up_write(&sbi->node_write);
 		atomic_inc(&sbi->wb_sync_req[NODE]);
-		err = f2fs_sync_node_pages(sbi, &wbc, false, FS_CP_NODE_IO);
+		err = f2fs_writeback_node_caches(sbi, LONG_MAX,
+			true, false, FS_CP_NODE_IO);
 		atomic_dec(&sbi->wb_sync_req[NODE]);
 		if (err) {
 			f2fs_up_write(&sbi->node_change);
@@ -1900,7 +1897,7 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	__set_cp_next_pack(sbi);
 
 	/*
-	 * redirty superblock if metadata like node page or inode cache is
+	 * redirty superblock if metadata like node caches or inode cache is
 	 * updated during writing checkpoint.
 	 */
 	if (get_pages(sbi, F2FS_DIRTY_NODES) ||

@@ -39,7 +39,8 @@ static unsigned long __count_extent_cache(struct f2fs_sb_info *sbi,
 
 static unsigned long __count_cache(struct f2fs_sb_info *sbi)
 {
-	return META_CACHE(sbi)->num_entries;
+	return META_CACHE(sbi)->num_entries +
+		NODE_CACHE(sbi)->num_entries;
 }
 
 unsigned long f2fs_shrink_count(struct shrinker *shrink,

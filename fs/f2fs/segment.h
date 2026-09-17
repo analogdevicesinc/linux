@@ -1019,26 +1019,6 @@ static inline long adjust_flush_cache_number(struct f2fs_sb_info *sbi, int type)
 	return nr_to_write;
 }
 
-/*
- * When writing pages, it'd better align nr_to_write for segment size.
- */
-static inline long nr_pages_to_write(struct f2fs_sb_info *sbi, int type,
-					struct writeback_control *wbc)
-{
-	long nr_to_write, desired;
-
-	if (wbc->sync_mode != WB_SYNC_NONE)
-		return 0;
-
-	nr_to_write = wbc->nr_to_write;
-	desired = BIO_MAX_VECS;
-	if (type == NODE)
-		desired <<= 1;
-
-	wbc->nr_to_write = desired;
-	return desired - nr_to_write;
-}
-
 static inline void wake_up_discard_thread(struct f2fs_sb_info *sbi, bool force)
 {
 	struct discard_cmd_control *dcc = SM_I(sbi)->dcc_info;

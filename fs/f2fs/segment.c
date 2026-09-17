@@ -335,8 +335,8 @@ static int __f2fs_commit_atomic_write(struct inode *inode)
 			goto next;
 		}
 
-		blen = min((pgoff_t)ADDRS_PER_PAGE(dn.node_folio, cow_inode),
-				len);
+		blen = min((pgoff_t)addrs_per_page(cow_inode,
+				IS_INODE(F2FS_I_SB(cow_inode), dn.node_entry)), len);
 		index = off;
 		for (i = 0; i < blen; i++, dn.ofs_in_node++, index++) {
 			blkaddr = f2fs_data_blkaddr(&dn);
@@ -3826,7 +3826,8 @@ static int __get_segment_type_4(struct f2fs_io_info *fio)
 		else
 			return CURSEG_COLD_DATA;
 	} else {
-		if (IS_DNODE(fio->sbi, fio->folio) && is_cold_node(fio->sbi, fio->folio))
+		f2fs_bug_on(fio->sbi, !fio->is_cache);
+		if (IS_DNODE(fio->sbi, fio->cache_entry) && is_cold_node(fio->sbi, fio->cache_entry))
 			return CURSEG_WARM_NODE;
 		else
 			return CURSEG_COLD_NODE;
@@ -3884,9 +3885,9 @@ static int __get_segment_type_6(struct f2fs_io_info *fio)
 		return f2fs_rw_hint_to_seg_type(F2FS_I_SB(inode),
 						inode->i_write_hint);
 	} else {
-		if (IS_DNODE(fio->sbi, fio->folio))
-			return is_cold_node(fio->sbi, fio->folio) ? CURSEG_WARM_NODE :
-						CURSEG_HOT_NODE;
+		f2fs_bug_on(fio->sbi, !fio->is_cache);
+		if (IS_DNODE(fio->sbi, fio->cache_entry))
+			return is_cold_node(fio->sbi, fio->cache_entry) ? CURSEG_WARM_NODE : CURSEG_HOT_NODE;
 		return CURSEG_COLD_NODE;
 	}
 }
@@ -3953,7 +3954,7 @@ static void f2fs_randomize_chunk(struct f2fs_sb_info *sbi,
 		get_random_u32_inclusive(1, sbi->max_fragment_hole);
 }
 
-int f2fs_allocate_data_block(struct f2fs_sb_info *sbi, struct folio *folio,
+int f2fs_allocate_data_block(struct f2fs_sb_info *sbi,
 		block_t old_blkaddr, block_t *new_blkaddr,
 		struct f2fs_summary *sum, int type,
 		struct f2fs_io_info *fio)
@@ -4061,10 +4062,10 @@ skip_new_segment:
 
 	up_write(&sit_i->sentry_lock);
 
-	if (folio && IS_NODESEG(curseg->seg_type)) {
-		fill_node_footer_blkaddr(sbi, folio, NEXT_FREE_BLKADDR(sbi, curseg));
-
-		f2fs_inode_chksum_set(sbi, folio);
+	if (fio && fio->is_cache && IS_NODESEG(curseg->seg_type)) {
+		fill_node_footer_blkaddr(sbi, fio->cache_entry,
+				NEXT_FREE_BLKADDR(sbi, curseg));
+		f2fs_inode_chksum_set(sbi, fio->cache_entry);
 	}
 
 	if (fio) {
@@ -4152,16 +4153,24 @@ static void do_write_block(struct f2fs_summary *sum, struct f2fs_io_info *fio)
 	if (keep_order)
 		f2fs_down_read(&fio->sbi->io_order_lock);
 
-	err = f2fs_allocate_data_block(fio->sbi, folio, fio->old_blkaddr,
+	err = f2fs_allocate_data_block(fio->sbi, fio->old_blkaddr,
 			&fio->new_blkaddr, sum, type, fio);
 	if (unlikely(err)) {
-		f2fs_err_ratelimited(fio->sbi,
-			"%s Failed to allocate data block, ino:%u, index:%lu, type:%d, old_blkaddr:0x%x, new_blkaddr:0x%x, err:%d",
-			__func__, fio->ino, folio->index, type,
-			fio->old_blkaddr, fio->new_blkaddr, err);
-		folio_end_writeback(folio);
-		if (f2fs_in_warm_node_list(fio->sbi, folio))
-			f2fs_del_fsync_node_entry(fio->sbi, folio);
+		if (fio->is_cache) {
+			f2fs_err_ratelimited(fio->sbi,
+				"%s Failed to allocate data block, ino:%u, index:%lu, type:%d, old_blkaddr:0x%x, new_blkaddr:0x%x, err:%d",
+				__func__, fio->ino, fio->cache_entry->index, type,
+				fio->old_blkaddr, fio->new_blkaddr, err);
+			if (f2fs_in_warm_node_list(fio->sbi, fio->cache_entry))
+				f2fs_del_fsync_node_entry(fio->sbi, fio->cache_entry);
+			f2fs_end_cache_writeback(fio->cache_entry);
+		} else {
+			f2fs_err_ratelimited(fio->sbi,
+				"%s Failed to allocate data block, ino:%u, index:%lu, type:%d, old_blkaddr:0x%x, new_blkaddr:0x%x, err:%d",
+				__func__, fio->ino, folio->index, type,
+				fio->old_blkaddr, fio->new_blkaddr, err);
+			folio_end_writeback(folio);
+		}
 		f2fs_bug_on(fio->sbi, !is_set_ckpt_flags(fio->sbi,
 							CP_ERROR_FLAG));
 		goto out;
@@ -4174,7 +4183,10 @@ static void do_write_block(struct f2fs_summary *sum, struct f2fs_io_info *fio)
 		f2fs_invalidate_internal_cache(fio->sbi, fio->old_blkaddr, 1);
 
 	/* writeout dirty page into bdev */
-	f2fs_submit_page_write(fio);
+	if (fio->is_cache)
+		f2fs_submit_cache_write(fio);
+	else
+		f2fs_submit_page_write(fio);
 
 	f2fs_update_device_state(fio->sbi, fio->ino, fio->new_blkaddr, 1);
 out:
@@ -4210,7 +4222,7 @@ void f2fs_do_write_meta_cache(struct f2fs_sb_info *sbi,
 	f2fs_update_iostat(sbi, NULL, io_type, F2FS_BLKSIZE(sbi));
 }
 
-void f2fs_do_write_node_page(unsigned int nid, struct f2fs_io_info *fio)
+void f2fs_do_write_node_cache(unsigned int nid, struct f2fs_io_info *fio)
 {
 	struct f2fs_summary sum;
 
@@ -4409,14 +4421,13 @@ void f2fs_replace_block(struct f2fs_sb_info *sbi, struct dnode_of_data *dn,
 	f2fs_update_data_blkaddr(dn, new_addr);
 }
 
-void f2fs_folio_wait_writeback(struct folio *folio, enum page_type type,
-		bool ordered, bool locked)
+void f2fs_folio_wait_writeback(struct folio *folio, bool ordered, bool locked)
 {
 	if (folio_test_writeback(folio)) {
 		struct f2fs_sb_info *sbi = F2FS_F_SB(folio);
 
 		/* submit cached LFS IO */
-		f2fs_submit_merged_write_folio(sbi, folio, type);
+		f2fs_submit_merged_write_folio(sbi, folio);
 		/* submit cached IPU IO */
 		f2fs_submit_merged_ipu_write(sbi, NULL, folio);
 		if (ordered) {
