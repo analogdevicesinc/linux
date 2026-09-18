@@ -1453,7 +1453,7 @@ static int oa_tc6_check_ctrl_protection(struct oa_tc6 *tc6)
  * @quirks: device specific modifiers for the OA TC6 protocol.
  *
  * Return: pointer reference to the oa_tc6 structure if the MAC-PHY
- * initialization is successful otherwise NULL.
+ * initialization is successful otherwise an ERR_PTR.
  */
 struct oa_tc6 *oa_tc6_init(struct spi_device *spi, struct net_device *netdev,
 			   struct oa_tc6_quirks *quirks)
@@ -1463,7 +1463,7 @@ struct oa_tc6 *oa_tc6_init(struct spi_device *spi, struct net_device *netdev,
 
 	tc6 = devm_kzalloc(&spi->dev, sizeof(*tc6), GFP_KERNEL);
 	if (!tc6)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	tc6->spi = spi;
 	tc6->netdev = netdev;
@@ -1476,60 +1476,61 @@ struct oa_tc6 *oa_tc6_init(struct spi_device *spi, struct net_device *netdev,
 
 	/* Set the SPI controller to pump at realtime priority */
 	tc6->spi->rt = true;
-	if (spi_setup(tc6->spi) < 0)
-		return NULL;
+	ret = spi_setup(tc6->spi);
+	if (ret < 0)
+		return ERR_PTR(ret);
 
 	tc6->spi_ctrl_tx_buf = devm_kzalloc(&tc6->spi->dev,
 					    OA_TC6_CTRL_SPI_BUF_SIZE,
 					    GFP_KERNEL);
 	if (!tc6->spi_ctrl_tx_buf)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	tc6->spi_ctrl_rx_buf = devm_kzalloc(&tc6->spi->dev,
 					    OA_TC6_CTRL_SPI_BUF_SIZE,
 					    GFP_KERNEL);
 	if (!tc6->spi_ctrl_rx_buf)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	tc6->spi_data_tx_buf = devm_kzalloc(&tc6->spi->dev,
 					    OA_TC6_SPI_DATA_BUF_SIZE,
 					    GFP_KERNEL);
 	if (!tc6->spi_data_tx_buf)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	tc6->spi_data_rx_buf = devm_kzalloc(&tc6->spi->dev,
 					    OA_TC6_SPI_DATA_BUF_SIZE,
 					    GFP_KERNEL);
 	if (!tc6->spi_data_rx_buf)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	/* Check the PROTE bit status so that we can reset the device */
 	ret = oa_tc6_check_ctrl_protection(tc6);
 	if (ret) {
 		dev_err(&tc6->spi->dev,
 			"Failed to check the protection mode: %d\n", ret);
-		return NULL;
+		return ERR_PTR(ret);
 	}
 
 	ret = oa_tc6_sw_reset_macphy(tc6);
 	if (ret) {
 		dev_err(&tc6->spi->dev,
 			"MAC-PHY software reset failed: %d\n", ret);
-		return NULL;
+		return ERR_PTR(ret);
 	}
 
 	ret = oa_tc6_unmask_macphy_error_interrupts(tc6);
 	if (ret) {
 		dev_err(&tc6->spi->dev,
 			"MAC-PHY error interrupts unmask failed: %d\n", ret);
-		return NULL;
+		return ERR_PTR(ret);
 	}
 
 	ret = oa_tc6_phy_init(tc6);
 	if (ret) {
 		dev_err(&tc6->spi->dev,
 			"MAC internal PHY initialization failed: %d\n", ret);
-		return NULL;
+		return ERR_PTR(ret);
 	}
 
 	ret = oa_tc6_enable_data_transfer(tc6);
@@ -1570,7 +1571,7 @@ struct oa_tc6 *oa_tc6_init(struct spi_device *spi, struct net_device *netdev,
 
 phy_exit:
 	oa_tc6_phy_exit(tc6);
-	return NULL;
+	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(oa_tc6_init);
 
