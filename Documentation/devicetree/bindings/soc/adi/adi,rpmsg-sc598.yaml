@@ -31,21 +31,22 @@ properties:
     $ref: /schemas/types.yaml#/definitions/phandle
     description: phandle to Remote Control Unit
 
+  mboxes:
+    description:
+      Specifies the tru mailbox used to communicate with SHARC CPU
+    minItems: 1
+
+  mbox-names:
+    items:
+      - const: tru
+
   adi,rsc-table:
     $ref: /schemas/types.yaml#/definitions/phandle
     description: phandle to resource table memory region shared with SHARC core
 
-  adi,tru:
-    $ref: /schemas/types.yaml#/definitions/phandle
-    description: phandle to Trigger Routing Unit for ICC interrupts
-
   interrupts:
     maxItems: 1
     description: ICC interrupt for rpmsg communication
-
-  adi,tru-master-id:
-    $ref: /schemas/types.yaml#/definitions/uint32
-    description: ICC interrupt number to notify remote core
 
   vdev-vring:
     $ref: /schemas/types.yaml#/definitions/phandle
@@ -65,9 +66,9 @@ required:
   - core-id
   - adi,rcu
   - adi,rsc-table
-  - adi,tru
   - interrupts
-  - adi,tru-master-id
+  - mboxes
+  - mbox-names
 
 additionalProperties: false
 
