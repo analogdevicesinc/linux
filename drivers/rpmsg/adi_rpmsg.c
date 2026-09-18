@@ -13,6 +13,7 @@
 #include <linux/of_device.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/dma-mapping.h>
+#include <linux/mailbox_client.h>
 #include <linux/remoteproc.h>
 #include <linux/interrupt.h>
 #include <linux/virtio_config.h>
@@ -65,7 +66,8 @@ struct adi_rpmsg_channel {
 	enum adi_rpmsg_soc soc;
 	struct adi_sharc_resource_table *adi_rsc_table;
 	struct adi_rcu *rcu;
-	struct adi_tru *tru;
+	struct mbox_client tru_client;
+	struct mbox_chan *tru_chan;
 	int icc_irq;
 	int icc_irq_flags;
 	int core_id;
@@ -137,8 +139,10 @@ static bool adi_rpmsg_notify(struct virtqueue *vq)
 		}
 	}
 
-	if (rpchan->rpmsg_state == ADI_RP_RPMSG_SYNCED)
-		adi_tru_trigger_device(rpchan->tru, rpchan->dev);
+	if (rpchan->rpmsg_state == ADI_RP_RPMSG_SYNCED) {
+		mbox_send_message(rpchan->tru_chan, NULL);
+		mbox_client_txdone(rpchan->tru_chan, 0);
+	}
 
 	return true;
 }
@@ -305,12 +309,22 @@ static irqreturn_t adi_rpmsg_virtio_irq_threaded_handler(int irq, void *p)
 	return IRQ_HANDLED;
 }
 
+/*
+ * Convert to devm_mbox_request_channel_byname() once this is available,
+ * see https://lore.kernel.org/all/cover.1786547950.git.u.kleine-koenig@baylibre.com/
+ */
+static void adi_rpmsg_mbox_free_channel(void *data)
+{
+	struct mbox_chan *channel = data;
+
+	mbox_free_channel(channel);
+}
+
 static int adi_rpmsg_probe(struct platform_device *pdev)
 {
 	struct adi_rpmsg_channel *rpchan;
 	struct device *dev = &pdev->dev;
 	struct adi_rcu *adi_rcu;
-	struct adi_tru *adi_tru;
 	struct device_node *dev_node = dev_of_node(&pdev->dev);
 	struct device_node *node;
 	struct reserved_mem *rmem;
@@ -322,21 +336,30 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 	if (!rpchan)
 		return -ENOMEM;
 
-	adi_tru = get_adi_tru_from_node(dev);
-	if (IS_ERR(adi_tru))
-		return PTR_ERR(adi_tru);
+	rpchan->tru_client = (typeof(rpchan->tru_client)) {
+		.dev = dev,
+		.tx_block = false,
+	};
+
+	rpchan->tru_chan = mbox_request_channel_byname(&rpchan->tru_client, "tru");
+	if (IS_ERR(rpchan->tru_chan)) {
+		return dev_err_probe(dev, PTR_ERR(rpchan->tru_chan),
+				     "Failed to get tru mailbox channel\n");
+	}
+
+	ret = devm_add_action_or_reset(dev, adi_rpmsg_mbox_free_channel, rpchan->tru_chan);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to register hook freeing tru mailbox\n");
 
 	adi_rcu = get_adi_rcu_from_node(dev);
-	if (IS_ERR(adi_rcu)) {
-		ret = PTR_ERR(adi_rcu);
-		goto free_adi_tru;
-	}
+	if (IS_ERR(adi_rcu))
+		return PTR_ERR(adi_rcu);
 
 	platform_set_drvdata(pdev, rpchan);
 	rpchan->pdev = pdev;
 	rpchan->dev = dev;
 	rpchan->soc = (enum adi_rpmsg_soc)of_device_get_match_data(dev);
-	rpchan->tru = adi_tru;
 	rpchan->rcu = adi_rcu;
 	rpchan->rpmsg_state = ADI_RP_RPMSG_WAITING;
 
@@ -513,8 +536,6 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 
 free_adi_rcu:
 	put_adi_rcu(adi_rcu);
-free_adi_tru:
-	put_adi_tru(adi_tru);
 
 	return ret;
 }
