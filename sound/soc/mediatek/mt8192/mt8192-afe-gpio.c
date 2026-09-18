@@ -132,12 +132,8 @@ int mt8192_afe_gpio_init(struct device *dev)
 	int i, ret;
 
 	aud_pinctrl = devm_pinctrl_get(dev);
-	if (IS_ERR(aud_pinctrl)) {
-		ret = PTR_ERR(aud_pinctrl);
-		dev_err(dev, "%s(), ret %d, cannot get aud_pinctrl!\n",
-			__func__, ret);
-		return ret;
-	}
+	if (IS_ERR(aud_pinctrl))
+		return dev_err_probe(dev, PTR_ERR(aud_pinctrl), "cannot get aud_pinctrl!\n");
 
 	for (i = 0; i < ARRAY_SIZE(aud_gpios); i++) {
 		aud_gpios[i].gpioctrl = pinctrl_lookup_state(aud_pinctrl,
