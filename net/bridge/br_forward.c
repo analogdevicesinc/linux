@@ -244,7 +244,6 @@ static int br_flood_port(struct br_fwd_dst *prev,
 			 enum br_pkt_type pkt_type, bool local_orig)
 {
 	const struct net_bridge_port *p = fwd->port;
-	u16 vid = fwd->vlan ? fwd->vlan->vid : 0;
 
 	/* Do not flood unicast traffic to ports that turn it off, nor
 	 * other traffic if flood off, except for traffic we originate
@@ -275,9 +274,9 @@ static int br_flood_port(struct br_fwd_dst *prev,
 		/* For gratuitous ARPs/NAs, check neigh_forward_grat.
 		 * For regular ARPs/NDs, check only neigh_suppress.
 		 */
-		if (br_is_neigh_suppress_enabled(p, vid) &&
+		if (br_is_neigh_suppress_enabled(p, fwd->vlan) &&
 		    (!BR_INPUT_SKB_CB(skb)->grat_arp ||
-		     !br_is_neigh_forward_grat_enabled(p, vid)))
+		     !br_is_neigh_forward_grat_enabled(p, fwd->vlan)))
 			return 0;
 	}
 
