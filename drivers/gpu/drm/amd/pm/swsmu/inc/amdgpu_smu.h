@@ -1620,6 +1620,13 @@ struct pptable_funcs {
 	ssize_t (*get_xcp_metrics)(struct smu_context *smu, int xcp_id,
 				   void *table);
 	/**
+	 * @get_npm_cap: Return NPM sysfs capability bitmap.
+	 *
+	 * Two bits per field (R then W). Both 0 means the field is
+	 * unsupported.
+	 */
+	u64 (*get_npm_cap)(struct smu_context *smu);
+	/**
 	 * @ras_send_msg: Send a message with a parameter from Ras
 	 * &msg: Type of message.
 	 * &param: Message parameter.

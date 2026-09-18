@@ -2102,6 +2102,29 @@ bool amdgpu_dpm_is_temp_metrics_supported(struct amdgpu_device *adev,
 }
 
 /**
+ * amdgpu_dpm_get_npm_cap - Return NPM sysfs capability bitmap
+ * @adev: Pointer to the device.
+ *
+ * Two bits per field (R then W). Both 0 means the field is unsupported.
+ *
+ * Return: Capability bitmap, or 0 if NPM is not supported.
+ */
+u64 amdgpu_dpm_get_npm_cap(struct amdgpu_device *adev)
+{
+	const struct amd_pm_funcs *pp_funcs = adev->powerplay.pp_funcs;
+	u64 cap = 0;
+
+	if (!pp_funcs || !pp_funcs->get_npm_cap)
+		return 0;
+
+	mutex_lock(&adev->pm.mutex);
+	cap = pp_funcs->get_npm_cap(adev->powerplay.pp_handle);
+	mutex_unlock(&adev->pm.mutex);
+
+	return cap;
+}
+
+/**
  * amdgpu_dpm_get_xcp_metrics - Retrieve metrics for a specific compute
  * partition
  * @adev: Pointer to the device.

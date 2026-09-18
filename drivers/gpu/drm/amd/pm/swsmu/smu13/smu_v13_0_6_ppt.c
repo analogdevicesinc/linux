@@ -3312,6 +3312,7 @@ static const struct pptable_funcs smu_v13_0_6_ppt_funcs = {
 	.get_gpu_metrics = smu_v13_0_6_get_gpu_metrics,
 	.get_pm_metrics = smu_v13_0_6_get_pm_metrics,
 	.get_xcp_metrics = smu_v13_0_6_get_xcp_metrics,
+	.get_npm_cap = smu_v13_0_12_get_npm_cap,
 	.get_thermal_temperature_range = smu_v13_0_6_get_thermal_temperature_range,
 	.mode1_reset_is_support = smu_v13_0_6_is_mode1_reset_supported,
 	.mode1_reset = smu_v13_0_6_mode1_reset,

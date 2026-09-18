@@ -695,6 +695,25 @@ int smu_v13_0_12_get_npm_data(struct smu_context *smu,
 	return ret;
 }
 
+u64 smu_v13_0_12_get_npm_cap(struct smu_context *smu)
+{
+	struct PPTable_t *pptable =
+		(struct PPTable_t *)smu->smu_table.driver_pptable;
+	u64 cap = 0;
+
+	if (!smu_v13_0_6_cap_supported(smu, SMU_CAP(NPM_METRICS)) ||
+	    !pptable->MaxNodePowerLimit)
+		return 0;
+
+	cap |= AMDGPU_NPM_CAP_R(AMDGPU_NPM_CAP_CUR_NODE_POWER_LIMIT);
+	cap |= AMDGPU_NPM_CAP_R(AMDGPU_NPM_CAP_NODE_POWER);
+	cap |= AMDGPU_NPM_CAP_R(AMDGPU_NPM_CAP_GLOBAL_PPT_RESID);
+	cap |= AMDGPU_NPM_CAP_R(AMDGPU_NPM_CAP_MAX_NODE_POWER_LIMIT);
+	cap |= AMDGPU_NPM_CAP_R(AMDGPU_NPM_CAP_NPM_STATUS);
+
+	return cap;
+}
+
 static ssize_t smu_v13_0_12_get_temp_metrics(struct smu_context *smu,
 					     enum smu_temp_metric_type type, void *table)
 {
