@@ -2266,16 +2266,15 @@ static ssize_t amdgpu_show_npm_status(struct device *dev,
 {
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct amdgpu_device *adev = drm_to_adev(ddev);
-	u32 npower;
+	u32 npm_status;
 	int r;
 
-	/* get the node power */
-	r = amdgpu_pm_get_sensor_generic(adev, AMDGPU_PP_SENSOR_NODEPOWER,
-					 (void *)&npower);
+	r = amdgpu_pm_get_sensor_generic(adev, AMDGPU_PP_SENSOR_NPMSTATUS,
+					 (void *)&npm_status);
 	if (r)
 		return r;
 
-	return sysfs_emit(buf, "%s\n", str_enabled_disabled(npower));
+	return sysfs_emit(buf, "%s\n", str_enabled_disabled(npm_status));
 }
 
 /**
