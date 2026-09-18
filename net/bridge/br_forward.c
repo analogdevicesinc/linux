@@ -197,12 +197,33 @@ out:
 	return p;
 }
 
+static void br_flood_finish(struct net_bridge_port *prev, struct sk_buff *skb,
+			    bool local_rcv, bool local_orig)
+{
+	enum skb_drop_reason reason = SKB_DROP_REASON_NO_TX_TARGET;
+
+	if (IS_ERR_OR_NULL(prev)) {
+		if (IS_ERR(prev)) {
+			reason = PTR_ERR(prev) == -ENOMEM ? SKB_DROP_REASON_NOMEM :
+				 SKB_DROP_REASON_NOT_SPECIFIED;
+		}
+
+		if (!local_rcv)
+			kfree_skb_reason(skb, reason);
+		return;
+	}
+
+	if (local_rcv)
+		deliver_clone(prev, skb, local_orig);
+	else
+		__br_forward(prev, skb, local_orig);
+}
+
 /* called under rcu_read_lock */
 void br_flood(struct net_bridge *br, struct sk_buff *skb,
 	      enum br_pkt_type pkt_type, bool local_rcv, bool local_orig,
 	      u16 vid)
 {
-	enum skb_drop_reason reason = SKB_DROP_REASON_NO_TX_TARGET;
 	struct net_bridge_port *prev = NULL;
 	struct net_bridge_port *p;
 
@@ -243,25 +264,11 @@ void br_flood(struct net_bridge *br, struct sk_buff *skb,
 		}
 
 		prev = maybe_deliver(prev, p, skb, local_orig);
-		if (IS_ERR(prev)) {
-			reason = PTR_ERR(prev) == -ENOMEM ? SKB_DROP_REASON_NOMEM :
-				 SKB_DROP_REASON_NOT_SPECIFIED;
-			goto out;
-		}
+		if (IS_ERR(prev))
+			break;
 	}
 
-	if (!prev)
-		goto out;
-
-	if (local_rcv)
-		deliver_clone(prev, skb, local_orig);
-	else
-		__br_forward(prev, skb, local_orig);
-	return;
-
-out:
-	if (!local_rcv)
-		kfree_skb_reason(skb, reason);
+	br_flood_finish(prev, skb, local_rcv, local_orig);
 }
 
 #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
@@ -301,7 +308,6 @@ void br_multicast_flood(struct net_bridge_mdb_entry *mdst,
 			struct net_bridge_mcast *brmctx,
 			bool local_rcv, bool local_orig)
 {
-	enum skb_drop_reason reason = SKB_DROP_REASON_NO_TX_TARGET;
 	struct net_bridge_port *prev = NULL;
 	struct net_bridge_port_group *p;
 	bool allow_mode_include = true;
@@ -343,11 +349,9 @@ void br_multicast_flood(struct net_bridge_mdb_entry *mdst,
 		}
 
 		prev = maybe_deliver(prev, port, skb, local_orig);
-		if (IS_ERR(prev)) {
-			reason = PTR_ERR(prev) == -ENOMEM ? SKB_DROP_REASON_NOMEM :
-				 SKB_DROP_REASON_NOT_SPECIFIED;
-			goto out;
-		}
+		if (IS_ERR(prev))
+			break;
+
 delivered:
 		if ((unsigned long)lport >= (unsigned long)port)
 			p = rcu_dereference(p->next);
@@ -355,17 +359,6 @@ delivered:
 			rp = rcu_dereference(hlist_next_rcu(rp));
 	}
 
-	if (!prev)
-		goto out;
-
-	if (local_rcv)
-		deliver_clone(prev, skb, local_orig);
-	else
-		__br_forward(prev, skb, local_orig);
-	return;
-
-out:
-	if (!local_rcv)
-		kfree_skb_reason(skb, reason);
+	br_flood_finish(prev, skb, local_rcv, local_orig);
 }
 #endif
