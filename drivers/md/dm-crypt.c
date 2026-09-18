@@ -513,7 +513,7 @@ static void crypt_iv_lmk_wipe(struct crypt_config *cc)
 	struct iv_lmk_private *lmk = &cc->iv_gen_private.lmk;
 
 	if (lmk->seed)
-		memset(lmk->seed, 0, LMK_SEED_SIZE);
+		memzero_explicit(lmk->seed, LMK_SEED_SIZE);
 }
 
 static void crypt_iv_lmk_one(struct crypt_config *cc, u8 *iv,
@@ -630,8 +630,8 @@ static void crypt_iv_tcw_wipe(struct crypt_config *cc)
 {
 	struct iv_tcw_private *tcw = &cc->iv_gen_private.tcw;
 
-	memset(tcw->iv_seed, 0, cc->iv_size);
-	memset(tcw->whitening, 0, TCW_WHITENING_SIZE);
+	memzero_explicit(tcw->iv_seed, cc->iv_size);
+	memzero_explicit(tcw->whitening, TCW_WHITENING_SIZE);
 }
 
 static void crypt_iv_tcw_whitening(struct crypt_config *cc,
@@ -2595,7 +2595,7 @@ static int get_key_size(char **key_string)
 static int crypt_set_key(struct crypt_config *cc, char *key)
 {
 	int r = -EINVAL;
-	int key_string_len = strlen(key);
+	size_t key_string_len = strlen(key);
 
 	/* Hyphen (which gives a key_size of zero) means there is no key. */
 	if (!cc->key_size && strcmp(key, "-"))
@@ -2614,6 +2614,9 @@ static int crypt_set_key(struct crypt_config *cc, char *key)
 	kfree_sensitive(cc->key_string);
 	cc->key_string = NULL;
 
+	if (cc->key_size && key_string_len != cc->key_size * 2)
+		goto out;
+
 	/* Decode key from its hex representation. */
 	if (cc->key_size && hex2bin(cc->key, key, cc->key_size) < 0)
 		goto out;
@@ -2624,7 +2627,7 @@ static int crypt_set_key(struct crypt_config *cc, char *key)
 
 out:
 	/* Hex key string not needed after here, so wipe it. */
-	memset(key, '0', key_string_len);
+	memzero_explicit(key, key_string_len);
 
 	return r;
 }
@@ -2643,7 +2646,7 @@ static int crypt_wipe_key(struct crypt_config *cc)
 	kfree_sensitive(cc->key_string);
 	cc->key_string = NULL;
 	r = crypt_setkey(cc);
-	memset(&cc->key, 0, cc->key_size * sizeof(u8));
+	memzero_explicit(cc->key, cc->key_size);
 
 	return r;
 }
@@ -3064,7 +3067,7 @@ static int crypt_ctr_cipher(struct dm_target *ti, char *cipher_in, char *key)
 
 	/* wipe the kernel key payload copy */
 	if (cc->key_string)
-		memset(cc->key, 0, cc->key_size * sizeof(u8));
+		memzero_explicit(cc->key, cc->key_size);
 
 	return ret;
 }
@@ -3643,7 +3646,7 @@ static int crypt_message(struct dm_target *ti, unsigned int argc, char **argv,
 			/* The key size may not be changed. */
 			key_size = get_key_size(&argv[2]);
 			if (key_size < 0 || cc->key_size != key_size) {
-				memset(argv[2], '0', strlen(argv[2]));
+				memzero_explicit(argv[2], strlen(argv[2]));
 				return -EINVAL;
 			}
 
@@ -3654,7 +3657,7 @@ static int crypt_message(struct dm_target *ti, unsigned int argc, char **argv,
 				ret = cc->iv_gen_ops->init(cc);
 			/* wipe the kernel key payload copy */
 			if (cc->key_string)
-				memset(cc->key, 0, cc->key_size * sizeof(u8));
+				memzero_explicit(cc->key, cc->key_size);
 			return ret;
 		}
 		if (argc == 2 && !strcasecmp(argv[1], "wipe"))
