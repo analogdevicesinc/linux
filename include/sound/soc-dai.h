@@ -283,6 +283,7 @@ int snd_soc_dai_matches_args(const struct snd_soc_dai *dai,
 int snd_soc_dai_matches_dlc(struct snd_soc_dai *dai,
 			    const struct snd_soc_dai_link_component *dlc);
 const char *snd_soc_dai_name(const struct snd_soc_dai *dai);
+int snd_soc_dai_id(const struct snd_soc_dai *dai);
 
 struct snd_soc_dai_ops {
 	/* DAI driver callbacks */

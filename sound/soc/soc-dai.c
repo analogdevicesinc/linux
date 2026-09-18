@@ -1073,6 +1073,12 @@ const char *snd_soc_dai_name(const struct snd_soc_dai *dai)
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_name);
 
+int snd_soc_dai_id(const struct snd_soc_dai *dai)
+{
+	return dai->id;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_id);
+
 const struct snd_soc_pcm_stream *
 snd_soc_dai_pcm_stream_get_i(const struct snd_soc_dai *dai, int stream)
 {
