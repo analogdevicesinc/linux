@@ -296,12 +296,12 @@ int thread__set_comm_from_proc(struct thread *thread)
 		       thread__pid(thread), thread__tid(thread)) >= (int)sizeof(path)) &&
 	    procfs__read_str(path, &comm, &sz) == 0) {
 		/* sz==0: read got nothing, e.g. race during exit teardown */
-		if (sz == 0) {
-			free(comm);
-			return -1;
+		if (sz > 0) {
+			comm[sz - 1] = '\0';
+			err = thread__set_comm(thread, comm, 0);
 		}
-		comm[sz - 1] = '\0';
-		err = thread__set_comm(thread, comm, 0);
+		/* thread__set_comm() copies the string, so release the buffer. */
+		free(comm);
 	}
 
 	return err;
