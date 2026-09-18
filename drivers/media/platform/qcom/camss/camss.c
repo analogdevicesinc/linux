@@ -4793,30 +4793,23 @@ static int camss_parse_endpoint_node(struct device *dev,
 static int camss_parse_ports(struct camss *camss)
 {
 	struct device *dev = camss->dev;
-	struct fwnode_handle *fwnode = dev_fwnode(dev), *ep;
+	struct fwnode_handle *fwnode = dev_fwnode(dev);
 	int ret;
 
-	fwnode_graph_for_each_endpoint(fwnode, ep) {
+	fwnode_graph_for_each_endpoint_scoped(fwnode, ep) {
 		struct camss_async_subdev *csd;
 
 		csd = v4l2_async_nf_add_fwnode_remote(&camss->notifier, ep,
 						      typeof(*csd));
-		if (IS_ERR(csd)) {
-			ret = PTR_ERR(csd);
-			goto err_cleanup;
-		}
+		if (IS_ERR(csd))
+			return PTR_ERR(csd);
 
 		ret = camss_parse_endpoint_node(dev, ep, csd);
 		if (ret < 0)
-			goto err_cleanup;
+			return ret;
 	}
 
 	return 0;
-
-err_cleanup:
-	fwnode_handle_put(ep);
-
-	return ret;
 }
 
 /*
