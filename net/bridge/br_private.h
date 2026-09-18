@@ -1606,6 +1606,7 @@ bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid);
 struct sk_buff *br_handle_vlan(struct net_bridge *br,
 			       const struct net_bridge_port *port,
 			       struct net_bridge_vlan_group *vg,
+			       struct net_bridge_vlan *vlan,
 			       struct sk_buff *skb);
 int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags,
 		bool *changed, struct netlink_ext_ack *extack);
@@ -1743,6 +1744,7 @@ static inline bool br_should_learn(struct net_bridge_port *p,
 static inline struct sk_buff *br_handle_vlan(struct net_bridge *br,
 					     const struct net_bridge_port *port,
 					     struct net_bridge_vlan_group *vg,
+					     struct net_bridge_vlan *vlan,
 					     struct sk_buff *skb)
 {
 	return skb;
@@ -1952,6 +1954,11 @@ static inline bool br_vlan_state_allowed(u8 state, bool learn_allow)
 	default:
 		return false;
 	}
+}
+#else
+static inline bool br_vlan_state_allowed(u8 state, bool learn_allow)
+{
+	return false;
 }
 #endif
 

@@ -520,10 +520,10 @@ static void __vlan_flush(const struct net_bridge *br,
 struct sk_buff *br_handle_vlan(struct net_bridge *br,
 			       const struct net_bridge_port *p,
 			       struct net_bridge_vlan_group *vg,
+			       struct net_bridge_vlan *v,
 			       struct sk_buff *skb)
 {
 	struct pcpu_sw_netstats *stats;
-	struct net_bridge_vlan *v;
 	u16 vid;
 
 	/* If this packet was not filtered at input, let it pass */
@@ -534,19 +534,22 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
 	 * a valid vlan id.  If the vlan id has untagged flag set,
 	 * send untagged; otherwise, send tagged.
 	 */
-	br_vlan_get_tag(skb, &vid);
-	v = br_vlan_find(vg, vid);
-	/* Vlan entry must be configured at this point.  The
-	 * only exception is the bridge is set in promisc mode and the
-	 * packet is destined for the bridge device.  In this case
-	 * pass the packet as is.
-	 */
-	if (!v || !br_vlan_should_use(v)) {
-		if ((br->dev->flags & IFF_PROMISC) && skb->dev == br->dev) {
-			goto out;
-		} else {
-			kfree_skb(skb);
-			return NULL;
+	if (!v) {
+		br_vlan_get_tag(skb, &vid);
+		v = br_vlan_find(vg, vid);
+		/* Vlan entry must be configured at this point.  The
+		 * only exception is the bridge is set in promisc mode and the
+		 * packet is destined for the bridge device.  In this case
+		 * pass the packet as is.
+		 */
+		if (!v || !br_vlan_should_use(v)) {
+			if ((br->dev->flags & IFF_PROMISC) &&
+			    skb->dev == br->dev) {
+				goto out;
+			} else {
+				kfree_skb(skb);
+				return NULL;
+			}
 		}
 	}
 	if (br_opt_get(br, BROPT_VLAN_STATS_ENABLED)) {

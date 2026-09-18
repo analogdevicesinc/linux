@@ -21,17 +21,26 @@ struct br_fwd_dst {
 	struct net_bridge_vlan *vlan;
 };
 
+static bool should_deliver_vlan(const struct br_fwd_dst *fwd,
+				const struct sk_buff *skb)
+{
+	if (fwd->vlan)
+		return br_vlan_state_allowed(br_vlan_get_state(fwd->vlan),
+					     false);
+
+	return br_allowed_egress(nbp_vlan_group_rcu(fwd->port), skb);
+}
+
 /* Don't forward packets to originating port or forwarding disabled */
-static inline int should_deliver(const struct br_fwd_dst *fwd,
-				 const struct sk_buff *skb)
+static __always_inline bool should_deliver(const struct br_fwd_dst *fwd,
+					   const struct sk_buff *skb)
 {
 	const struct net_bridge_port *p = fwd->port;
-	struct net_bridge_vlan_group *vg;
 
-	vg = nbp_vlan_group_rcu(p);
 	return (test_bit(BR_HAIRPIN_MODE_BIT, &p->flags) || skb->dev != p->dev) &&
 		(br_mst_is_enabled(p) || p->state == BR_STATE_FORWARDING) &&
-		br_allowed_egress(vg, skb) && nbp_switchdev_allowed_egress(p, skb) &&
+		should_deliver_vlan(fwd, skb) &&
+		nbp_switchdev_allowed_egress(p, skb) &&
 		!br_skb_isolated(p, skb);
 }
 
@@ -89,8 +98,8 @@ static void __br_forward(const struct br_fwd_dst *fwd,
 	 */
 	nbp_switchdev_frame_mark_tx_fwd_offload(to, skb);
 
-	vg = nbp_vlan_group_rcu(to);
-	skb = br_handle_vlan(to->br, to, vg, skb);
+	vg = fwd->vlan ? NULL : nbp_vlan_group_rcu(to);
+	skb = br_handle_vlan(to->br, to, vg, fwd->vlan, skb);
 	if (!skb)
 		return;
 
