@@ -219,6 +219,48 @@ static void br_flood_finish(struct net_bridge_port *prev, struct sk_buff *skb,
 		__br_forward(prev, skb, local_orig);
 }
 
+static void br_flood_port(struct net_bridge_port **prev,
+			  struct net_bridge_port *p, struct sk_buff *skb,
+			  enum br_pkt_type pkt_type, bool local_orig, u16 vid)
+{
+	/* Do not flood unicast traffic to ports that turn it off, nor
+	 * other traffic if flood off, except for traffic we originate
+	 */
+	switch (pkt_type) {
+	case BR_PKT_UNICAST:
+		if (!test_bit(BR_FLOOD_BIT, &p->flags))
+			return;
+		break;
+	case BR_PKT_MULTICAST:
+		if (!test_bit(BR_MCAST_FLOOD_BIT, &p->flags) &&
+		    skb->dev != p->br->dev)
+			return;
+		break;
+	case BR_PKT_BROADCAST:
+		if (!test_bit(BR_BCAST_FLOOD_BIT, &p->flags) &&
+		    skb->dev != p->br->dev)
+			return;
+		break;
+	}
+
+	/* Do not flood to ports that enable proxy ARP */
+	if (test_bit(BR_PROXYARP_BIT, &p->flags))
+		return;
+	if (BR_INPUT_SKB_CB(skb)->proxyarp_replied) {
+		if (test_bit(BR_PROXYARP_WIFI_BIT, &p->flags))
+			return;
+		/* For gratuitous ARPs/NAs, check neigh_forward_grat.
+		 * For regular ARPs/NDs, check only neigh_suppress.
+		 */
+		if (br_is_neigh_suppress_enabled(p, vid) &&
+		    (!BR_INPUT_SKB_CB(skb)->grat_arp ||
+		     !br_is_neigh_forward_grat_enabled(p, vid)))
+			return;
+	}
+
+	*prev = maybe_deliver(*prev, p, skb, local_orig);
+}
+
 /* called under rcu_read_lock */
 void br_flood(struct net_bridge *br, struct sk_buff *skb,
 	      enum br_pkt_type pkt_type, bool local_rcv, bool local_orig,
@@ -230,40 +272,7 @@ void br_flood(struct net_bridge *br, struct sk_buff *skb,
 	br_tc_skb_miss_set(skb, pkt_type != BR_PKT_BROADCAST);
 
 	list_for_each_entry_rcu(p, &br->port_list, list) {
-		/* Do not flood unicast traffic to ports that turn it off, nor
-		 * other traffic if flood off, except for traffic we originate
-		 */
-		switch (pkt_type) {
-		case BR_PKT_UNICAST:
-			if (!test_bit(BR_FLOOD_BIT, &p->flags))
-				continue;
-			break;
-		case BR_PKT_MULTICAST:
-			if (!test_bit(BR_MCAST_FLOOD_BIT, &p->flags) && skb->dev != br->dev)
-				continue;
-			break;
-		case BR_PKT_BROADCAST:
-			if (!test_bit(BR_BCAST_FLOOD_BIT, &p->flags) && skb->dev != br->dev)
-				continue;
-			break;
-		}
-
-		/* Do not flood to ports that enable proxy ARP */
-		if (test_bit(BR_PROXYARP_BIT, &p->flags))
-			continue;
-		if (BR_INPUT_SKB_CB(skb)->proxyarp_replied) {
-			if (test_bit(BR_PROXYARP_WIFI_BIT, &p->flags))
-				continue;
-			/* For gratuitous ARPs/NAs, check neigh_forward_grat.
-			 * For regular ARPs/NDs, check only neigh_suppress.
-			 */
-			if (br_is_neigh_suppress_enabled(p, vid) &&
-			    (!BR_INPUT_SKB_CB(skb)->grat_arp ||
-			     !br_is_neigh_forward_grat_enabled(p, vid)))
-				continue;
-		}
-
-		prev = maybe_deliver(prev, p, skb, local_orig);
+		br_flood_port(&prev, p, skb, pkt_type, local_orig, vid);
 		if (IS_ERR(prev))
 			break;
 	}
