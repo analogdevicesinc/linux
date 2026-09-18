@@ -56,9 +56,6 @@
 bool enable_tdx __ro_after_init;
 module_param_named(tdx, enable_tdx, bool, 0444);
 
-#define TDX_SHARED_BIT_PWL_5 gpa_to_gfn(BIT_ULL(51))
-#define TDX_SHARED_BIT_PWL_4 gpa_to_gfn(BIT_ULL(47))
-
 static const struct tdx_sys_info *tdx_sysinfo;
 
 void tdh_vp_rd_failed(struct vcpu_tdx *tdx, char *uclass, u32 field, u64 err)
@@ -718,7 +715,7 @@ void tdx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
 	struct vcpu_tdx *tdx = to_tdx(vcpu);
 
-	vmx_vcpu_pi_load(vcpu, cpu);
+	vt_vcpu_pi_load(vcpu, cpu);
 	if (vcpu->cpu == cpu || !is_hkid_assigned(to_kvm_tdx(vcpu->kvm)))
 		return;
 
@@ -743,7 +740,7 @@ bool tdx_interrupt_allowed(struct kvm_vcpu *vcpu)
 	 * interrupt is always allowed unless TDX guest calls TDVMCALL with HLT,
 	 * which passes the interrupt blocked flag.
 	 */
-	return vmx_get_exit_reason(vcpu).basic != EXIT_REASON_HLT ||
+	return vt_get_exit_reason(vcpu).basic != EXIT_REASON_HLT ||
 	       !to_tdx(vcpu)->vp_enter_args.r12;
 }
 
@@ -761,7 +758,7 @@ static bool tdx_protected_apic_has_interrupt(struct kvm_vcpu *vcpu)
 	 * otherwise the interrupt would have been serviced at the instruction
 	 * boundary.
 	 */
-	if (vmx_get_exit_reason(vcpu).basic != EXIT_REASON_HLT ||
+	if (vt_get_exit_reason(vcpu).basic != EXIT_REASON_HLT ||
 	    to_tdx(vcpu)->vp_enter_args.r12)
 		return false;
 
@@ -828,7 +825,7 @@ static void tdx_prepare_switch_to_host(struct kvm_vcpu *vcpu)
 
 void tdx_vcpu_put(struct kvm_vcpu *vcpu)
 {
-	vmx_vcpu_pi_put(vcpu);
+	vt_vcpu_pi_put(vcpu);
 	tdx_prepare_switch_to_host(vcpu);
 }
 
@@ -978,15 +975,15 @@ static noinstr void tdx_vcpu_enter_exit(struct kvm_vcpu *vcpu)
 	tdx->exit_gpa = tdx->vp_enter_args.r8;
 	vt->exit_intr_info = tdx->vp_enter_args.r9;
 
-	vmx_handle_nmi(vcpu);
+	vt_handle_nmi(vcpu);
 
 	guest_state_exit_irqoff();
 }
 
 static bool tdx_failed_vmentry(struct kvm_vcpu *vcpu)
 {
-	return vmx_get_exit_reason(vcpu).failed_vmentry &&
-	       vmx_get_exit_reason(vcpu).full != -1u;
+	return vt_get_exit_reason(vcpu).failed_vmentry &&
+	       vt_get_exit_reason(vcpu).full != -1u;
 }
 
 static fastpath_t tdx_exit_handlers_fastpath(struct kvm_vcpu *vcpu)
@@ -1135,7 +1132,7 @@ void tdx_inject_nmi(struct kvm_vcpu *vcpu)
 
 static int tdx_handle_exception_nmi(struct kvm_vcpu *vcpu)
 {
-	u32 intr_info = vmx_get_intr_info(vcpu);
+	u32 intr_info = vt_get_intr_info(vcpu);
 
 	/*
 	 * Machine checks are handled by handle_exception_irqoff(), or by
@@ -1613,10 +1610,7 @@ static int handle_tdvmcall(struct kvm_vcpu *vcpu)
 
 void tdx_load_mmu_pgd(struct kvm_vcpu *vcpu, hpa_t root_hpa, int pgd_level)
 {
-	u64 shared_bit = (pgd_level == 5) ? TDX_SHARED_BIT_PWL_5 :
-			  TDX_SHARED_BIT_PWL_4;
-
-	if (KVM_BUG_ON(shared_bit != kvm_gfn_direct_bits(vcpu->kvm), vcpu->kvm))
+	if (KVM_BUG_ON(pgd_level != vcpu->kvm->arch.mirror_root_level, vcpu->kvm))
 		return;
 
 	td_vmcs_write64(to_tdx(vcpu), SHARED_EPT_POINTER, root_hpa);
@@ -1939,7 +1933,7 @@ void tdx_deliver_interrupt(struct kvm_lapic *apic, int delivery_mode,
 	struct vcpu_tdx *tdx = to_tdx(vcpu);
 
 	/* TDX supports only posted interrupt.  No lapic emulation. */
-	__vmx_deliver_posted_interrupt(vcpu, &tdx->vt.pi_desc, vector);
+	__vt_deliver_posted_interrupt(vcpu, &tdx->vt.pi_desc, vector);
 
 	trace_kvm_apicv_accept_irq(vcpu->vcpu_id, delivery_mode, trig_mode, vector);
 }
@@ -1947,7 +1941,7 @@ void tdx_deliver_interrupt(struct kvm_lapic *apic, int delivery_mode,
 static inline bool tdx_is_sept_violation_unexpected_pending(struct kvm_vcpu *vcpu)
 {
 	u64 eeq_type = to_tdx(vcpu)->ext_exit_qualification & TDX_EXT_EXIT_QUAL_TYPE_MASK;
-	u64 eq = vmx_get_exit_qual(vcpu);
+	u64 eq = vt_get_exit_qual(vcpu);
 
 	if (eeq_type != TDX_EXT_EXIT_QUAL_TYPE_PENDING_EPT_VIOLATION)
 		return false;
@@ -1983,7 +1977,7 @@ static int tdx_handle_ept_violation(struct kvm_vcpu *vcpu)
 		/* Only private GPA triggers zero-step mitigation */
 		local_retry = true;
 	} else {
-		exit_qual = vmx_get_exit_qual(vcpu);
+		exit_qual = vt_get_exit_qual(vcpu);
 		/*
 		 * EPT violation due to instruction fetch should never be
 		 * triggered from shared memory in TDX guest.  If such EPT
@@ -2031,7 +2025,7 @@ static int tdx_handle_ept_violation(struct kvm_vcpu *vcpu)
 	while (1) {
 		struct kvm_memory_slot *slot;
 
-		ret = __vmx_handle_ept_violation(vcpu, gpa, exit_qual);
+		ret = __vt_handle_ept_violation(vcpu, gpa, exit_qual);
 
 		if (ret != RET_PF_RETRY || !local_retry)
 			break;
@@ -2039,7 +2033,7 @@ static int tdx_handle_ept_violation(struct kvm_vcpu *vcpu)
 		if (kvm_vcpu_has_events(vcpu) || signal_pending(current))
 			break;
 
-		if (kvm_check_request(KVM_REQ_VM_DEAD, vcpu)) {
+		if (kvm_test_request(KVM_REQ_VM_DEAD, vcpu)) {
 			ret = -EIO;
 			break;
 		}
@@ -2065,7 +2059,7 @@ int tdx_complete_emulated_msr(struct kvm_vcpu *vcpu, int err)
 		return 1;
 	}
 
-	if (vmx_get_exit_reason(vcpu).basic == EXIT_REASON_MSR_READ)
+	if (vt_get_exit_reason(vcpu).basic == EXIT_REASON_MSR_READ)
 		tdvmcall_set_return_val(vcpu, kvm_read_edx_eax(vcpu));
 
 	return 1;
@@ -2076,7 +2070,7 @@ int tdx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t fastpath)
 {
 	struct vcpu_tdx *tdx = to_tdx(vcpu);
 	u64 vp_enter_ret = tdx->vp_enter_ret;
-	union vmx_exit_reason exit_reason = vmx_get_exit_reason(vcpu);
+	union vmx_exit_reason exit_reason = vt_get_exit_reason(vcpu);
 
 	if (fastpath != EXIT_FASTPATH_NONE)
 		return 1;
@@ -2186,9 +2180,9 @@ void tdx_get_exit_info(struct kvm_vcpu *vcpu, u32 *reason,
 
 	*reason = tdx->vt.exit_reason.full;
 	if (*reason != -1u) {
-		*info1 = vmx_get_exit_qual(vcpu);
+		*info1 = vt_get_exit_qual(vcpu);
 		*info2 = tdx->ext_exit_qualification;
-		*intr_info = vmx_get_intr_info(vcpu);
+		*intr_info = vt_get_intr_info(vcpu);
 	} else {
 		*info1 = 0;
 		*info2 = 0;
@@ -2799,6 +2793,14 @@ DEFINE_CLASS(tdx_vm_state_guard, tdx_vm_state_guard_t,
 	     if (!IS_ERR(_T)) tdx_release_vm_state_locks(_T),
 	     tdx_acquire_vm_state_locks(kvm), struct kvm *kvm);
 
+static __always_inline void tdx_set_mirror_root_level(struct kvm *kvm, int level)
+{
+	BUILD_BUG_ON(level != 4 && level != 5);
+
+	kvm->arch.mirror_root_level = level;
+	kvm->arch.gfn_direct_bits = gpa_to_gfn(BIT_ULL(level == 4 ? 47 : 51));
+}
+
 static int tdx_td_init(struct kvm *kvm, struct kvm_tdx_cmd *cmd)
 {
 	struct kvm_tdx_init_vm __user *user_data = u64_to_user_ptr(cmd->data);
@@ -2862,9 +2864,9 @@ static int tdx_td_init(struct kvm *kvm, struct kvm_tdx_cmd *cmd)
 	kvm_tdx->xfam = td_params->xfam;
 
 	if (td_params->config_flags & TDX_CONFIG_FLAGS_MAX_GPAW)
-		kvm->arch.gfn_direct_bits = TDX_SHARED_BIT_PWL_5;
+		tdx_set_mirror_root_level(kvm, 5);
 	else
-		kvm->arch.gfn_direct_bits = TDX_SHARED_BIT_PWL_4;
+		tdx_set_mirror_root_level(kvm, 4);
 
 	kvm_tdx->state = TD_STATE_INITIALIZED;
 out:
@@ -3256,6 +3258,7 @@ static int tdx_vcpu_init_mem_region(struct kvm_vcpu *vcpu, struct kvm_tdx_cmd *c
 	struct kvm_tdx *kvm_tdx = to_kvm_tdx(kvm);
 	struct kvm_tdx_init_mem_region region;
 	struct tdx_gmem_post_populate_arg arg;
+	gpa_t nr_bytes, end_gpa;
 	long gmem_ret;
 	int ret;
 
@@ -3273,10 +3276,13 @@ static int tdx_vcpu_init_mem_region(struct kvm_vcpu *vcpu, struct kvm_tdx_cmd *c
 		return -EFAULT;
 
 	if (!PAGE_ALIGNED(region.source_addr) || !region.source_addr ||
-	    !PAGE_ALIGNED(region.gpa) || !region.nr_pages ||
-	    region.gpa + (region.nr_pages << PAGE_SHIFT) <= region.gpa ||
+	    !PAGE_ALIGNED(region.gpa) || !region.nr_pages)
+		return -EINVAL;
+
+	if (check_shl_overflow(region.nr_pages, PAGE_SHIFT, &nr_bytes) ||
+	    check_add_overflow(region.gpa, nr_bytes - 1, &end_gpa) ||
 	    !vt_is_tdx_private_gpa(kvm, region.gpa) ||
-	    !vt_is_tdx_private_gpa(kvm, region.gpa + (region.nr_pages << PAGE_SHIFT) - 1))
+	    !vt_is_tdx_private_gpa(kvm, end_gpa))
 		return -EINVAL;
 
 	ret = 0;
