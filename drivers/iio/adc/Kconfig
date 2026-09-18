@@ -602,6 +602,7 @@ config ADE9000
 	  integrated circuits:
 	    - ADE9000
 	    - ADE9078
+	    - ADE9430
 
 	  The devices feature high-precision analog-to-digital converters
 	  and digital signal processing to compute RMS values, power factor,
