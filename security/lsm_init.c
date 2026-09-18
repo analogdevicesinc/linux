@@ -7,6 +7,7 @@
 
 #include <linux/init.h>
 #include <linux/lsm_hooks.h>
+#include <linux/ns_common.h>
 
 #include "lsm.h"
 
@@ -488,6 +489,9 @@ int __init security_init(void)
 			continue;
 		lsm_init_single(*lsm);
 	}
+
+	if (ns_common_init_security())
+		panic("initial LSM ns alloc failed\n");
 
 	return 0;
 }
