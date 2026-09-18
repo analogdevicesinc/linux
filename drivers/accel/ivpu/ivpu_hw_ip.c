@@ -15,8 +15,6 @@
 #include "ivpu_mmu.h"
 #include "ivpu_pm.h"
 
-#define PWR_ISLAND_STATUS_TIMEOUT_US        (5 * USEC_PER_MSEC)
-
 #define TIM_SAFE_ENABLE		            0xf1d0dead
 #define TIM_WATCHDOG_RESET_VALUE            0xffffffff
 
@@ -350,10 +348,10 @@ static int wait_for_pwr_island_status(struct ivpu_device *vdev, u32 exp_val)
 
 	if (ivpu_hw_ip_gen(vdev) == IVPU_HW_IP_37XX)
 		return REGV_POLL_FLD(VPU_37XX_HOST_SS_AON_PWR_ISLAND_STATUS0, MSS_CPU, exp_val,
-				     PWR_ISLAND_STATUS_TIMEOUT_US);
+				     vdev->timeout.pwr_island_status);
 	else
 		return REGV_POLL_FLD(VPU_40XX_HOST_SS_AON_PWR_ISLAND_STATUS0, CSS_CPU, exp_val,
-				     PWR_ISLAND_STATUS_TIMEOUT_US);
+				     vdev->timeout.pwr_island_status);
 }
 
 static void pwr_island_isolation_drive_37xx(struct ivpu_device *vdev, bool enable)
