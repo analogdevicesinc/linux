@@ -57,6 +57,7 @@ config COMMON_CLK_ADI_SC846
 	bool "ADI SC846 clock driver"
 	depends on ARCH_SC84X || COMPILE_TEST
 	select COMMON_CLK_ADI_PLL
+	select COMMON_CLK_ADI_ADSP_CDU
 	help
 	  This enables the ADI SC846 clock driver. The driver provides
 	  support for the clock controller on the ADI SC846 SoC.
