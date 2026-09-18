@@ -4050,7 +4050,7 @@ static const struct ti_sci_desc ti_sci_pmmc_k2g_desc = {
 	.default_host_id = 2,
 	/* Conservative duration */
 	.max_rx_timeout_ms = 1000,
-	/* Limited by MBOX_TX_QUEUE_LEN. K2G can handle upto 128 messages! */
+	/* Limited by MBOX_TX_QUEUE_LEN. K2G can handle up to 128 messages! */
 	.max_msgs = 20,
 	.max_msg_size = 64,
 };
@@ -4060,7 +4060,7 @@ static const struct ti_sci_desc ti_sci_pmmc_am654_desc = {
 	.default_host_id = 12,
 	/* Conservative duration */
 	.max_rx_timeout_ms = 10000,
-	/* Limited by MBOX_TX_QUEUE_LEN. K2G can handle upto 128 messages! */
+	/* Limited by MBOX_TX_QUEUE_LEN. K2G can handle up to 128 messages! */
 	.max_msgs = 20,
 	.max_msg_size = 60,
 };
