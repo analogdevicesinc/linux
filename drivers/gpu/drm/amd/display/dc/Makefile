@@ -83,6 +83,9 @@ FILES += core/dc_surface.o
 FILES += core/dc_vm_helper.o
 FILES += core2/dc_core2.o
 FILES += core2/dc_core2_init.o
+FILES += bls_builder/bls_builder.o
+FILES += bls_builder/dcn401_init_builder.o
+FILES += bls_executor/bls_executor.o
 
 AMD_DISPLAY_FILES += $(addprefix $(AMDDALPATH)/dc/, $(FILES))
 

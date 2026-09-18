@@ -1003,6 +1003,10 @@ struct clk_mgr_update_clocks_params {
 	struct clk_mgr *clk_mgr;
 };
 
+struct dccg_initialize_clocks_params {
+	struct dccg *dccg;
+};
+
 struct hubbub_program_watermarks_params {
 	struct dc *dc;
 	struct hubbub *hubbub;
@@ -1198,6 +1202,7 @@ union block_sequence_params {
 	struct link_set_dpms_on_params link_set_dpms_on_params;
 	struct clk_mgr_set_max_memclk_params clk_mgr_set_max_memclk_params;
 	struct clk_mgr_update_clocks_params clk_mgr_update_clocks_params;
+	struct dccg_initialize_clocks_params dccg_initialize_clocks_params;
 	struct hubbub_program_watermarks_params hubbub_program_watermarks_params;
 	struct hubbub_program_arbiter_params hubbub_program_arbiter_params;
 	struct hubbub_program_compbuf_segments_params hubbub_program_compbuf_segments_params;
@@ -1368,6 +1373,7 @@ enum block_sequence_func {
 	HUBBUB_PERFMON_GET_URGENT_ASSERTION_COUNT,
 	HUBBUB_PERFMON_GET_PREFETCH_DATA_SIZE,
 	HUBBUB_PERFMON_GET_URGENT_RAMP_LATENCY,
+	DCCG_INITIALIZE_CLOCKS,
 	/* This must be the last value in this enum, add new ones above */
 	HWSS_BLOCK_SEQUENCE_FUNC_COUNT
 };

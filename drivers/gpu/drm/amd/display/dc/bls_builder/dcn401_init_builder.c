@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: MIT
+/*
+ * Copyright 2026 Advanced Micro Devices, Inc.
+ */
+
+#include "dm_services.h"
+#include "core_types.h"
+#include "resource.h"
+#include "bls_builder/bls_builder_internal.h"
+
+static bool bls_append(struct block_sequence_state *sequence,
+		enum block_sequence_func func,
+		const union block_sequence_params *params)
+{
+	struct block_sequence *entry;
+
+	if (!sequence || !sequence->steps || !sequence->num_steps ||
+			!params || *sequence->num_steps >=
+			DC2_BLS_MAX_STEPS)
+		return false;
+
+	entry = &sequence->steps[*sequence->num_steps];
+	entry->params = *params;
+	entry->func = func;
+	(*sequence->num_steps)++;
+	return true;
+}
+
+static enum bls_builder_result dcn401_check_initialization_support(
+		const struct bls_builder_check_capability_params *params)
+{
+	struct dc *dc;
+
+	if (!params || !params->dc)
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	dc = params->dc;
+	if (!dc->ctx || !dc->res_pool || !dc->res_pool->dccg)
+		return BLS_BUILD_ERROR_RESOURCE_MAPPING;
+	if (dc->config.seamless_boot_edp_requested)
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	return BLS_BUILD_SUCCESS;
+}
+
+static bool dcn401_initialization_check_capability(
+		const struct bls_builder_check_capability_params *params)
+{
+	return dcn401_check_initialization_support(params) ==
+			BLS_BUILD_SUCCESS;
+}
+
+static enum bls_builder_result dcn401_build_initialization(
+		struct bls_builder_declarative_params *params)
+{
+	struct bls_builder_check_capability_params check_params = {0};
+	enum bls_builder_result support_result;
+	struct block_sequence_state sequence;
+	union block_sequence_params bls_params = {0};
+	struct dc *dc;
+
+	if (!params)
+		return dcn401_check_initialization_support(NULL);
+
+	check_params.dc = params->dc;
+	check_params.current_state = params->current_state;
+	check_params.new_state = params->new_state;
+	support_result =
+			dcn401_check_initialization_support(&check_params);
+	if (support_result != BLS_BUILD_SUCCESS)
+		return support_result;
+
+	dc = params->dc;
+	params->head_num_steps = 0;
+	params->tail_num_steps = 0;
+	sequence.steps = params->head_sequence;
+	sequence.num_steps = &params->head_num_steps;
+
+	/*
+	 * Add only operations with explicit component dispatch today. Core will
+	 * not execute or commit ownership until the fixed four-entry DCN
+	 * initialization sequence is available.
+	 */
+	bls_params.dccg_initialize_clocks_params.dccg =
+			dc->res_pool->dccg;
+	if (!bls_append(&sequence, DCCG_INITIALIZE_CLOCKS,
+			&bls_params))
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+}
+
+const struct bls_builder *dcn401_bls_builder_create(
+		enum bls_builder_name name)
+{
+	static const struct bls_builder initialization_builder = {
+		.name = DCN_DECL_INITIALIZATION,
+		.kind = BLS_BUILDER_DECLARATIVE,
+		.check_capability = dcn401_initialization_check_capability,
+		.build.declarative = dcn401_build_initialization,
+	};
+
+	if (name != DCN_DECL_INITIALIZATION)
+		return NULL;
+
+	return &initialization_builder;
+}
