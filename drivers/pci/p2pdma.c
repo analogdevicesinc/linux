@@ -575,6 +575,8 @@ static const struct pci_p2pdma_whitelist_entry {
 	{PCI_VENDOR_ID_ZHAOXIN, 0x1006, REQ_SAME_HOST_BRIDGE},
 	{PCI_VENDOR_ID_ZHAOXIN, 0x1007, REQ_SAME_HOST_BRIDGE},
 	{PCI_VENDOR_ID_ZHAOXIN, 0x1008, 0},
+	/* Alibaba T-HEAD Yitian 710 CPU */
+	{PCI_VENDOR_ID_ALIBABA, 0x8000, 0},
 	{}
 };
 
