@@ -68,6 +68,9 @@ struct ksmbd_conn {
 		u8			inet6_addr[16];
 #endif
 	};
+#if IS_ENABLED(CONFIG_IPV6)
+	bool				is_ipv6;
+#endif
 	unsigned int			inet_hash;
 	char				*request_buf;
 	struct ksmbd_transport		*transport;
@@ -77,6 +80,7 @@ struct ksmbd_conn {
 	struct rw_semaphore		session_lock;
 	/* smb session 1 per user */
 	struct xarray			sessions;
+	unsigned long			creation_time;
 	unsigned long			last_active;
 	/* How many request are running currently */
 	atomic_t			req_running;
@@ -192,6 +196,8 @@ struct ksmbd_transport {
 
 #define KSMBD_TCP_RECV_TIMEOUT	(7 * HZ)
 #define KSMBD_TCP_SEND_TIMEOUT	(5 * HZ)
+#define KSMBD_SESSION_EXPIRATION_INTERVAL	(5 * HZ)
+#define KSMBD_UNAUTHENTICATED_CONN_TIMEOUT	(45 * HZ)
 #define KSMBD_TCP_PEER_SOCKADDR(c)	((struct sockaddr *)&((c)->peer_addr))
 
 #define CONN_HASH_BITS	12

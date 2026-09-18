@@ -5,6 +5,7 @@
  */
 
 #include <crypto/sha2.h>
+#include <kunit/visibility.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/fs_struct.h>
@@ -216,9 +217,9 @@ int ksmbd_vfs_mkdir(struct ksmbd_work *work, const char *name, umode_t mode)
 	return err;
 }
 
-static ssize_t ksmbd_vfs_getcasexattr(struct mnt_idmap *idmap,
-				      struct dentry *dentry, char *attr_name,
-				      int attr_name_len, char **attr_value)
+ssize_t ksmbd_vfs_getcasexattr(struct mnt_idmap *idmap,
+			       struct dentry *dentry, char *attr_name,
+			       int attr_name_len, char **attr_value)
 {
 	char *name, *xattr_list = NULL;
 	ssize_t value_len = -ENOENT, xattr_list_len;
@@ -841,8 +842,8 @@ ssize_t ksmbd_vfs_listxattr(struct dentry *dentry, char **list)
 	return size;
 }
 
-static ssize_t ksmbd_vfs_xattr_len(struct mnt_idmap *idmap,
-				   struct dentry *dentry, char *xattr_name)
+ssize_t ksmbd_vfs_xattr_len(struct mnt_idmap *idmap,
+			    struct dentry *dentry, char *xattr_name)
 {
 	return vfs_getxattr(idmap, dentry, xattr_name, NULL, 0);
 }
@@ -1671,6 +1672,7 @@ out:
 	kfree(def_smb_acl);
 	return rc;
 }
+EXPORT_SYMBOL_IF_KUNIT(ksmbd_vfs_set_sd_xattr);
 
 int ksmbd_vfs_get_sd_xattr(struct ksmbd_conn *conn,
 			   struct mnt_idmap *idmap,
