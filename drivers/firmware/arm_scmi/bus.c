@@ -9,7 +9,7 @@
 
 #include <linux/types.h>
 #include <linux/module.h>
-#include <linux/of.h>
+#include <linux/property.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/device.h>
@@ -429,17 +429,16 @@ static void scmi_device_release(struct device *dev)
 	struct scmi_device *scmi_dev = to_scmi_dev(dev);
 
 	scmi_device_release_resources(scmi_dev);
-	of_node_put(dev->of_node);
+	fwnode_handle_put(dev_fwnode(dev));
 	kfree_const(scmi_dev->name);
 	kfree(scmi_dev);
 }
 
 static void __scmi_device_destroy(struct scmi_device *scmi_dev)
 {
-	pr_debug("(%pOF) Destroying SCMI device '%s' for protocol 0x%x (%s)\n",
-		 scmi_dev->dev.parent->of_node,
-		 dev_name(&scmi_dev->dev), scmi_dev->protocol_id,
-		 scmi_dev->name);
+	pr_debug("(%pfwf) Destroying SCMI device '%s' for protocol 0x%x (%s)\n",
+		 dev_fwnode(&scmi_dev->dev), dev_name(&scmi_dev->dev),
+		 scmi_dev->protocol_id, scmi_dev->name);
 
 	device_del(&scmi_dev->dev);
 	scmi_device_release_resources(scmi_dev);
@@ -447,7 +446,7 @@ static void __scmi_device_destroy(struct scmi_device *scmi_dev)
 }
 
 static struct scmi_device *
-__scmi_device_create(struct device_node *np, struct device *parent,
+__scmi_device_create(struct fwnode_handle *fwnode, struct device *parent,
 		     int protocol, const char *name)
 {
 	int id, retval;
@@ -458,7 +457,7 @@ __scmi_device_create(struct device_node *np, struct device *parent,
 	 * If the same protocol/name device already exist under the same parent
 	 * (i.e. SCMI instance) just return the existent device.
 	 * This avoids any race between the SCMI driver, creating devices for
-	 * each DT defined protocol at probe time, and the concurrent
+	 * each fwnode defined protocol at probe time, and the concurrent
 	 * registration of SCMI drivers.
 	 */
 	scmi_dev = scmi_child_dev_find_get(parent, protocol, name);
@@ -495,7 +494,7 @@ __scmi_device_create(struct device_node *np, struct device *parent,
 
 	scmi_dev->id = id;
 	scmi_dev->dev.parent = parent;
-	device_set_node(&scmi_dev->dev, of_fwnode_handle(of_node_get(np)));
+	device_set_node(&scmi_dev->dev, fwnode_handle_get(fwnode));
 	scmi_dev->dev.bus = &scmi_bus_type;
 	scmi_dev->dev.release = scmi_device_release;
 	dev_set_name(&scmi_dev->dev, "scmi_dev.%d", id);
@@ -504,8 +503,8 @@ __scmi_device_create(struct device_node *np, struct device *parent,
 	if (retval)
 		goto put_dev;
 
-	pr_debug("(%pOF) Created SCMI device '%s' for protocol 0x%x (%s)\n",
-		 parent->of_node, dev_name(&scmi_dev->dev), protocol, name);
+	pr_debug("(%pfwf) Created SCMI device '%s' - protocol 0x%x (%s)\n",
+		 fwnode, dev_name(&scmi_dev->dev), protocol, name);
 
 	return scmi_dev;
 put_dev:
@@ -521,15 +520,15 @@ free_dev:
 }
 
 static struct scmi_device *
-_scmi_device_create(struct device_node *np, struct device *parent,
+_scmi_device_create(struct fwnode_handle *fwnode, struct device *parent,
 		    int protocol, const char *name)
 {
 	struct scmi_device *sdev;
 
-	sdev = __scmi_device_create(np, parent, protocol, name);
+	sdev = __scmi_device_create(fwnode, parent, protocol, name);
 	if (!sdev)
-		pr_err("(%pOF) Failed to create device for protocol 0x%x (%s)\n",
-		       parent->of_node, protocol, name);
+		pr_err("(%pfwf) Failed to create device - protocol 0x%x (%s)\n",
+		       fwnode, protocol, name);
 
 	return sdev;
 }
@@ -537,7 +536,7 @@ _scmi_device_create(struct device_node *np, struct device *parent,
 /**
  * scmi_device_create  - A method to create one or more SCMI devices
  *
- * @np: A reference to the device node to use for the new device(s)
+ * @fwnode: A reference to the device node to use for the new device(s)
  * @parent: The parent device to use identifying a specific SCMI instance
  * @protocol: The SCMI protocol to be associated with this device
  * @name: The requested-name of the device to be created; this is optional
@@ -557,7 +556,7 @@ _scmi_device_create(struct device_node *np, struct device *parent,
  *	   could have been potentially created for a whole protocol, unless no
  *	   device was found to have been requested for that specific protocol.
  */
-struct scmi_device *scmi_device_create(struct device_node *np,
+struct scmi_device *scmi_device_create(struct fwnode_handle *fwnode,
 				       struct device *parent, int protocol,
 				       const char *name)
 {
@@ -566,7 +565,7 @@ struct scmi_device *scmi_device_create(struct device_node *np,
 	struct scmi_device *scmi_dev = NULL;
 
 	if (name)
-		return _scmi_device_create(np, parent, protocol, name);
+		return _scmi_device_create(fwnode, parent, protocol, name);
 
 	mutex_lock(&scmi_requested_devices_mtx);
 	phead = idr_find(&scmi_requested_devices, protocol);
@@ -580,7 +579,7 @@ struct scmi_device *scmi_device_create(struct device_node *np,
 	list_for_each_entry(rdev, phead, node) {
 		struct scmi_device *sdev;
 
-		sdev = _scmi_device_create(np, parent,
+		sdev = _scmi_device_create(fwnode, parent,
 					   rdev->id_table->protocol_id,
 					   rdev->id_table->name);
 		if (sdev)
