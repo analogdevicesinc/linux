@@ -50,39 +50,6 @@ struct adi_tru {
 	struct mbox_chan chans[ADI_TRU_MAX_MBOX_CHANS];
 };
 
-/**
- * Device tree interface for other modules that need TRU access
- */
-struct adi_tru *get_adi_tru_from_node(struct device *dev)
-{
-	struct platform_device *tru_pdev;
-	struct device_node *tru_node __free(device_node);
-	struct adi_tru *ret = NULL;
-
-	tru_node = of_parse_phandle(dev->of_node, "adi,tru", 0);
-	if (!tru_node) {
-		dev_err(dev, "Missing adi,tru phandle in device tree\n");
-		return ERR_PTR(-ENODEV);
-	}
-
-	tru_pdev = of_find_device_by_node(tru_node);
-	if (!tru_pdev)
-		return ERR_PTR(-EPROBE_DEFER);
-
-	ret = dev_get_drvdata(&tru_pdev->dev);
-	if (!ret)
-		ret = ERR_PTR(-EPROBE_DEFER);
-
-	return ret;
-}
-EXPORT_SYMBOL(get_adi_tru_from_node);
-
-void put_adi_tru(struct adi_tru *tru)
-{
-	put_device(tru->dev);
-}
-EXPORT_SYMBOL(put_adi_tru);
-
 static int adi_tru_smc_trigger(struct adi_tru *tru, u32 master)
 {
 	struct arm_smccc_res res;
@@ -105,22 +72,6 @@ static int adi_tru_trigger(struct adi_tru *tru, u32 master)
 	writel(master, tru->ioaddr + ADI_TRU_REG_MTR);
 	return 0;
 }
-
-int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev)
-{
-	struct device_node *np = dev->of_node;
-	u32 master = 0;
-
-	if (of_property_read_u32(np, "adi,tru-master-id", &master)) {
-		dev_err(tru->dev,
-			"dts entry %s is missing a adi,tru-master-id",
-			np->full_name);
-		return -ENOENT;
-	}
-
-	return adi_tru_trigger(tru, master);
-}
-EXPORT_SYMBOL(adi_tru_trigger_device);
 
 /**
  * Configure the given slave (i.e. TRU_SSR[n]) to be triggered by the given
