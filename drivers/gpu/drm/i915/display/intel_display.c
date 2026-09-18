@@ -50,7 +50,6 @@
 #include "g4x_dp.h"
 #include "g4x_hdmi.h"
 #include "hsw_ips.h"
-#include "i915_config.h"
 #include "i9xx_plane.h"
 #include "i9xx_plane_regs.h"
 #include "i9xx_wm.h"
@@ -1232,6 +1231,14 @@ static void intel_pre_plane_update(struct intel_atomic_state *state,
 		intel_vrr_disable(old_crtc_state);
 		intel_vrr_dcb_reset(old_crtc_state, crtc);
 		intel_crtc_update_active_timings(old_crtc_state, false);
+
+		/*
+		 * VRR is being disabled seamlessly (no modeset, Panel Replay
+		 * stays enabled), so re-apply the AS SDP skip-frame programming
+		 * for the new (VRR off) state.
+		 */
+		if (!intel_crtc_needs_modeset(new_crtc_state))
+			intel_alpm_pr_as_sdp_update(new_crtc_state);
 	}
 
 	if (audio_disabling(old_crtc_state, new_crtc_state))
@@ -5594,6 +5601,12 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 		PIPE_CONF_CHECK_I(vrr.dc_balance.max_increase);
 		PIPE_CONF_CHECK_I(vrr.dc_balance.max_decrease);
 		PIPE_CONF_CHECK_I(vrr.dc_balance.vblank_target);
+		PIPE_CONF_CHECK_I(dip.emp_as_sdp_tl);
+		PIPE_CONF_CHECK_I(dip.gmp_sdp_tl);
+		PIPE_CONF_CHECK_I(dip.pps_sdp_tl);
+		PIPE_CONF_CHECK_I(dip.vsc_sdp_tl);
+		PIPE_CONF_CHECK_I(dip.vsc_ext_sdp_tl);
+		PIPE_CONF_CHECK_I(dip.cmn_sdp_tl);
 	}
 
 	if (!fastset || intel_vrr_always_use_vrr_tg(display)) {
@@ -6971,6 +6984,16 @@ static void intel_update_crtc(struct intel_atomic_state *state,
 		intel_crtc_update_active_timings(new_crtc_state,
 						 new_crtc_state->vrr.enable);
 
+	/*
+	 * VRR is being enabled seamlessly (no modeset, Panel Replay stays
+	 * enabled), so re-apply the AS SDP skip-frame programming for the new
+	 * (VRR on) state. Done here, outside the vblank-evasion critical section
+	 * (which runs with interrupts disabled), because it takes alpm.lock.
+	 */
+	if (intel_crtc_vrr_enabling(state, crtc) &&
+	    !intel_crtc_needs_modeset(new_crtc_state))
+		intel_alpm_pr_as_sdp_update(new_crtc_state);
+
 	if (new_crtc_state->vrr.dc_balance.enable)
 		intel_vrr_dcb_increment_flip_count(new_crtc_state, crtc);
 
@@ -7271,23 +7294,27 @@ static void skl_commit_modeset_enables(struct intel_atomic_state *state)
 	drm_WARN_ON(display->drm, update_pipes);
 }
 
-static void intel_atomic_commit_fence_wait(struct intel_atomic_state *intel_state)
+static void intel_atomic_commit_fence_wait(struct intel_atomic_state *state)
 {
+	struct intel_display *display = to_intel_display(state);
 	struct drm_plane *plane;
 	struct drm_plane_state *new_plane_state;
 	long ret;
 	int i;
 
-	for_each_new_plane_in_state(&intel_state->base, plane, new_plane_state, i) {
-		if (new_plane_state->fence) {
-			ret = dma_fence_wait_timeout(new_plane_state->fence, false,
-						     i915_fence_timeout());
-			if (ret <= 0)
-				break;
+	for_each_new_plane_in_state(&state->base, plane, new_plane_state, i) {
+		if (!new_plane_state->fence)
+			continue;
 
-			dma_fence_put(new_plane_state->fence);
-			new_plane_state->fence = NULL;
+		ret = dma_fence_wait(new_plane_state->fence, false);
+		if (ret < 0) {
+			drm_dbg_kms(display->drm, "[PLANE:%d:%s] fence wait failed (%pe)\n",
+				    plane->base.id, plane->name, ERR_PTR(ret));
+			break;
 		}
+
+		dma_fence_put(new_plane_state->fence);
+		new_plane_state->fence = NULL;
 	}
 }
 
