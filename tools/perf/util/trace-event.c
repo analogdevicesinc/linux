@@ -7,7 +7,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <linux/kernel.h>
-#include <linux/err.h>
 #include <event-parse.h>
 #include <api/fs/tracing_path.h>
 #include <api/fs/fs.h>
@@ -77,7 +76,7 @@ void trace_event__cleanup(struct trace_event *t)
 }
 
 /*
- * Returns pointer with encoded error via <linux/err.h> interface.
+ * Returns NULL and sets errno on failure.
  */
 static struct tep_event*
 tp_format(const char *sys, const char *name)
@@ -90,38 +89,65 @@ tp_format(const char *sys, const char *name)
 	char *data;
 	int err;
 
-	if (!tp_dir)
-		return ERR_PTR(-errno);
+	if (!tp_dir) {
+		errno = ENOMEM;
+		return NULL;
+	}
 
 	scnprintf(path, PATH_MAX, "%s/%s/format", tp_dir, name);
 	put_events_file(tp_dir);
 
 	err = filename__read_str(path, &data, &size);
-	if (err)
-		return ERR_PTR(err);
+	if (err) {
+		errno = -err;
+		return NULL;
+	}
 
-	tep_parse_format(pevent, &event, data, size, sys);
+	err = tep_parse_format(pevent, &event, data, size, sys);
 
 	free(data);
+
+	/*
+	 * A parse failure leaves no event behind, report it rather than
+	 * letting a NULL be mistaken for a successfully parsed format.
+	 */
+	if (err != TEP_ERRNO__SUCCESS || !event) {
+		errno = EINVAL;
+		return NULL;
+	}
+
 	return event;
 }
 
 /*
- * Returns pointer with encoded error via <linux/err.h> interface.
+ * Returns NULL and sets errno on failure.
  */
 struct tep_event*
 trace_event__tp_format(const char *sys, const char *name)
 {
-	if (!tevent_initialized && trace_event__init2())
-		return ERR_PTR(-ENOMEM);
+	if (!tevent_initialized && trace_event__init2()) {
+		errno = ENOMEM;
+		return NULL;
+	}
 
 	return tp_format(sys, name);
 }
 
+/*
+ * Returns NULL and sets errno on failure.
+ */
 struct tep_event *trace_event__tp_format_id(int id)
 {
-	if (!tevent_initialized && trace_event__init2())
-		return ERR_PTR(-ENOMEM);
+	struct tep_event *event;
 
-	return tep_find_event(tevent.pevent, id);
+	if (!tevent_initialized && trace_event__init2()) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	event = tep_find_event(tevent.pevent, id);
+	if (!event)
+		errno = ENOENT;
+
+	return event;
 }

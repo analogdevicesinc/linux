@@ -720,10 +720,7 @@ struct tep_event *evsel__tp_format(struct evsel *evsel)
 	else
 		tp_format = trace_event__tp_format(evsel->tp_sys, evsel->tp_name);
 
-	if (IS_ERR(tp_format)) {
-		int err = -PTR_ERR(tp_format);
-
-		errno = err;
+	if (!tp_format) {
 		pr_err("Error getting tracepoint format '%s': %m\n",
 			evsel__name(evsel));
 		return NULL;
