@@ -109,7 +109,4 @@ struct adi_resource_table_hdr {
 	u32 reserved[8];
 } __packed;
 
-int adi_tru_probe(struct platform_device *pdev);
-void adi_tru_remove(struct platform_device *pdev);
-
 #endif
