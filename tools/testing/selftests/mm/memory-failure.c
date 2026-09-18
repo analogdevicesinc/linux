@@ -165,7 +165,7 @@ static void check(struct __test_metadata *_metadata, FIXTURE_DATA(memory_failure
 	case MADV_SOFT_DIRTY_SHMEM:
 		/* The page content should remain unchanged. */
 		ASSERT_TRUE(check_memory(vaddr, self->page_size));
-		/* FALLTHORUGH */
+		/* FALLTHROUGH */
 	case MADV_HARD_CLEAN_SHMEM:
 	case MADV_SOFT_CLEAN_SHMEM:
 		/* It is not expected to receive a SIGBUS signal. */
