@@ -3538,6 +3538,22 @@ static int btf_type_tag_walk(const struct btf *btf,
 	return 0;
 }
 
+bool btf_type_is_arena_ptr(const struct btf *btf, const struct btf_type *t)
+{
+	if (!btf_type_is_ptr(t))
+		return false;
+
+	for (t = btf_type_by_id(btf, t->type); btf_type_is_modifier(t);
+	     t = btf_type_by_id(btf, t->type)) {
+		if (!btf_type_is_type_tag(t) || btf_type_kflag(t))
+			continue;
+		if (!strcmp(__btf_name_by_offset(btf, t->name_off), "arena"))
+			return true;
+	}
+
+	return false;
+}
+
 static int btf_find_kptr(const struct btf *btf, const struct btf_type *t,
 			 u32 off, int sz, struct btf_field_info *info, u32 field_mask)
 {
@@ -5781,7 +5797,7 @@ static int btf_parse_hdr(struct btf_verifier_env *env)
 	return btf_check_sec_info(env, btf_data_size);
 }
 
-static const char *alloc_obj_fields[] = {
+static const char * const alloc_obj_fields[] = {
 	"bpf_spin_lock",
 	"bpf_list_head",
 	"bpf_list_node",
@@ -7563,6 +7579,9 @@ static u8 __get_arg_fmodel_flags(const struct btf *btf,
 {
 	u8 flags = __get_type_fmodel_flags(t);
 
+	if (btf_func_arg_align(btf, t) > sizeof(u64))
+		flags |= BTF_FMODEL_ALIGN16_ARG;
+
 	if (btf_param_match_suffix(btf, arg, "__arena__nullable"))
 		flags |= BTF_FMODEL_ARENA_ARG | BTF_FMODEL_NULLABLE_ARG;
 	else if (btf_param_match_suffix(btf, arg, "__arena"))
@@ -7606,7 +7625,7 @@ int btf_distill_func_proto(struct bpf_verifier_log *log,
 		return -EINVAL;
 	}
 	ret = __get_type_size(btf, func->type, &t);
-	if (ret < 0 || btf_type_is_struct(t)) {
+	if (ret < 0 || ret > 16) {
 		bpf_log(log,
 			"The function %s return type %s is unsupported.\n",
 			tname, btf_type_str(t));
@@ -7697,6 +7716,12 @@ static int btf_check_func_type_match(struct bpf_verifier_log *log,
 			"Return type %s of %s() doesn't match type %s of %s()\n",
 			btf_type_str(t1), fn1,
 			btf_type_str(t2), fn2);
+		return -EINVAL;
+	}
+	if (btf_type_has_size(t1) && (t1->size > 8 || t2->size > 8)) {
+		bpf_log(log,
+			"Return type of %s() has size %u and of %s() size %u, and a size above 8 bytes cannot be replaced\n",
+			fn1, t1->size, fn2, t2->size);
 		return -EINVAL;
 	}
 
@@ -7943,51 +7968,19 @@ static int btf_scan_decl_tags(struct bpf_verifier_env *env,
 	return 0;
 }
 
-static int btf_scan_type_tags(struct bpf_verifier_env *env,
-			      const struct btf *btf, u32 type_id,
-			      u32 *tags)
+static void btf_scan_type_tags(const struct btf *btf, u32 type_id, u32 *tags)
 {
-	static const struct btf_type_tag_match func_type_tags[] = {
-		{ "arena", ARG_TAG_ARENA },
-	};
-	struct btf_type_tag_walk_ctx ctx;
-	const struct btf_type *t;
-	int err;
-
 	/* Find the first pointer type in the chain. */
-	t = btf_type_skip_modifiers(btf, type_id, NULL);
+	const struct btf_type *t = btf_type_skip_modifiers(btf, type_id, NULL);
 
-	/*
-	 * We currently reject type tags on non-pointer types,
-	 * which neither LLVM nor GCC support anyway.
-	 */
-	if (!t || !btf_type_is_ptr(t))
-		return 0;
-
-	ctx.t = t;
-	err = btf_type_tag_walk(btf, &ctx, func_type_tags,
-				ARRAY_SIZE(func_type_tags));
-	if (err) {
-		bpf_log(&env->log,
-			"function signature member has multiple type tags\n");
-		return err;
-	}
-	*tags |= ctx.res;
-
-	return 0;
+	if (btf_type_is_arena_ptr(btf, t))
+		*tags |= ARG_TAG_ARENA;
 }
 
 /* Check whether the type is a valid return type. */
 static int btf_validate_return_type(struct bpf_verifier_env *env, struct btf *btf,
-		const struct btf_type *t, int subprog)
+		const struct btf_type *t, int subprog, bool is_global)
 {
-	u32 tags = 0;
-	int err;
-
-	err = btf_scan_type_tags(env, btf, t->type, &tags);
-	if (err)
-		return err;
-
 	t = btf_type_skip_modifiers(btf, t->type, NULL);
 
 	/*
@@ -7995,14 +7988,60 @@ static int btf_validate_return_type(struct bpf_verifier_env *env, struct btf *bt
 	 * General arena variables are not allowed, since it makes no sense to return by value
 	 * a variable that's on the heap in the first place.
 	 */
-	if (subprog && (tags & ARG_TAG_ARENA) && btf_type_is_ptr(t))
+	if (subprog && btf_type_is_arena_ptr(btf, t))
 		return 0;
 
 	/* We always accept void or scalars. */
 	if (btf_type_is_void(t) || btf_type_is_int(t) || btf_is_any_enum(t))
 		return 0;
 
+	if (btf_type_is_struct(t) && t->size <= 16) {
+		/*
+		 * A global function's caller models the return as an opaque
+		 * scalar pair, so a pointer member would be laundered into a
+		 * scalar and escape provenance and reference tracking. Only
+		 * scalars and arena pointers are allowed: an arena pointer has
+		 * no provenance to lose, since a program may already derive one
+		 * from any scalar with addr_space_cast(), which confines the
+		 * result to the arena. The main program is the exception: it
+		 * returns to the kernel, which has no arena to cast the address
+		 * back into. A local function is verified inline, so its caller
+		 * receives the real register state and any member is fine.
+		 */
+		bool local_func = subprog && !is_global;
+		u32 member_kinds = BTF_MEMBER_SCALAR;
+
+		if (subprog)
+			member_kinds |= BTF_MEMBER_ARENA_PTR;
+
+		if (local_func || btf_struct_is_composed_of(env, btf, t, member_kinds))
+			return 0;
+	}
+
 	return -EOPNOTSUPP;
+}
+
+static int btf_check_arg_slots(struct bpf_verifier_log *log, const char *tname,
+			       bool is_global, u32 slot_cnt,
+			       struct bpf_subprog_info *sub)
+{
+	if (slot_cnt <= MAX_BPF_FUNC_REG_ARGS)
+		return 0;
+
+	if (is_global) {
+		bpf_log(log,
+			"global function %s() needs %d > %d argument slots, "
+			"stack args not supported\n",
+			tname, slot_cnt, MAX_BPF_FUNC_REG_ARGS);
+		return -EINVAL;
+	}
+	if (!bpf_jit_supports_stack_args()) {
+		bpf_log(log, "JIT does not support function %s() with %d argument slots\n",
+			tname, slot_cnt);
+		return -EFAULT;
+	}
+	sub->stack_arg_cnt = slot_cnt - MAX_BPF_FUNC_REG_ARGS;
+	return 0;
 }
 
 /* Process BTF of a function to produce high-level expectation of function
@@ -8024,7 +8063,7 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 	const struct btf_param *args;
 	const struct btf_type *t, *ref_t, *fn_t;
 	int err;
-	u32 i, nargs, btf_id;
+	u32 i, slots_used, nargs, btf_id;
 	const char *tname;
 
 	if (sub->args_cached)
@@ -8068,34 +8107,29 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 	}
 	args = (const struct btf_param *)(t + 1);
 	nargs = btf_type_vlen(t);
-	sub->arg_cnt = nargs;
+	sub->arg_slot_cnt = nargs;
 	if (nargs > MAX_BPF_FUNC_ARGS) {
 		bpf_log(log, "kernel supports at most %d parameters, function %s has %d\n",
 			MAX_BPF_FUNC_ARGS, tname, nargs);
 		return -EFAULT;
 	}
-	if (nargs > MAX_BPF_FUNC_REG_ARGS) {
-		if (!bpf_jit_supports_stack_args()) {
-			bpf_log(log, "JIT does not support function %s() with %d args\n",
-				tname, nargs);
-			return -EFAULT;
-		}
-		sub->stack_arg_cnt = nargs - MAX_BPF_FUNC_REG_ARGS;
-	}
+	err = btf_check_arg_slots(log, tname, is_global, nargs, sub);
+	if (err)
+		return err;
 
-	if (is_global && nargs > MAX_BPF_FUNC_REG_ARGS) {
-		bpf_log(log, "global function %s has %d > %d args, stack args not supported\n",
-			tname, nargs, MAX_BPF_FUNC_REG_ARGS);
-		return -EINVAL;
-	}
-
-	err = btf_validate_return_type(env, btf, t, subprog);
+	err = btf_validate_return_type(env, btf, t, subprog, is_global);
 	if (err) {
 		if (is_global) {
+			/* Only a subprogram may return arena pointers. */
+			const char *supported = subprog ?
+				"void, scalar, arena pointer, or a struct/union of "
+				"scalars and arena pointers" :
+				"void, scalar, or a scalar-only struct/union";
+
 			bpf_log(log,
-				"Global function %s() return value not void or scalar. "
-				"Only those are supported.\n",
-				tname);
+				"Global function %s() has unsupported return type. "
+				"Only %s up to 16 bytes is supported.\n",
+				tname, supported);
 		}
 		return err;
 	}
@@ -8103,15 +8137,17 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 	/* Convert BTF function arguments into verifier types.
 	 * Only PTR_TO_CTX and SCALAR are supported atm.
 	 */
-	for (i = 0; i < nargs; i++) {
+	for (i = 0, slots_used = 0; i < nargs; i++) {
 		u32 tags = 0;
+
+		if (slots_used >= MAX_BPF_FUNC_ARGS)
+			goto too_many_slots;
+
 		err = btf_scan_decl_tags(env, btf, fn_t, i, is_global, &tags);
 		if (err)
 			return err;
 
-		err = btf_scan_type_tags(env, btf, args[i].type, &tags);
-		if (err)
-			return err;
+		btf_scan_type_tags(btf, args[i].type, &tags);
 
 		t = btf_type_by_id(btf, args[i].type);
 		while (btf_type_is_modifier(t))
@@ -8128,7 +8164,7 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 			    btf_validate_prog_ctx_type(log, btf, t, i, prog_type,
 						       prog->expected_attach_type))
 				return -EINVAL;
-			sub->args[i].arg_type = ARG_PTR_TO_CTX;
+			sub->args[slots_used++].arg_type = ARG_PTR_TO_CTX;
 			continue;
 		}
 		if (btf_is_dynptr_ptr(btf, t)) {
@@ -8136,7 +8172,7 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 				bpf_log(log, "arg#%d has invalid combination of tags\n", i);
 				return -EINVAL;
 			}
-			sub->args[i].arg_type = ARG_PTR_TO_DYNPTR;
+			sub->args[slots_used++].arg_type = ARG_PTR_TO_DYNPTR;
 			continue;
 		}
 		if (tags & ARG_TAG_TRUSTED) {
@@ -8151,10 +8187,11 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 			if (kern_type_id < 0)
 				return kern_type_id;
 
-			sub->args[i].arg_type = ARG_PTR_TO_BTF_ID | PTR_TRUSTED;
+			sub->args[slots_used].arg_type = ARG_PTR_TO_BTF_ID | PTR_TRUSTED;
 			if (tags & ARG_TAG_NULLABLE)
-				sub->args[i].arg_type |= PTR_MAYBE_NULL;
-			sub->args[i].btf_id = kern_type_id;
+				sub->args[slots_used].arg_type |= PTR_MAYBE_NULL;
+			sub->args[slots_used].btf_id = kern_type_id;
+			slots_used++;
 			continue;
 		}
 		if (tags & ARG_TAG_UNTRUSTED) {
@@ -8168,8 +8205,10 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 
 			ref_t = btf_type_skip_modifiers(btf, t->type, NULL);
 			if (btf_type_is_void(ref_t) || btf_type_is_primitive(ref_t)) {
-				sub->args[i].arg_type = ARG_PTR_TO_MEM | MEM_RDONLY | PTR_UNTRUSTED;
-				sub->args[i].mem_size = 0;
+				sub->args[slots_used].arg_type = ARG_PTR_TO_MEM | MEM_RDONLY |
+								 PTR_UNTRUSTED;
+				sub->args[slots_used].mem_size = 0;
+				slots_used++;
 				continue;
 			}
 
@@ -8185,8 +8224,9 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 					i, btf_type_str(ref_t), tname);
 				return -EINVAL;
 			}
-			sub->args[i].arg_type = ARG_PTR_TO_BTF_ID | PTR_UNTRUSTED;
-			sub->args[i].btf_id = kern_type_id;
+			sub->args[slots_used].arg_type = ARG_PTR_TO_BTF_ID | PTR_UNTRUSTED;
+			sub->args[slots_used].btf_id = kern_type_id;
+			slots_used++;
 			continue;
 		}
 		if (tags & ARG_TAG_ARENA) {
@@ -8194,7 +8234,7 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 				bpf_log(log, "arg#%d arena cannot be combined with any other tags\n", i);
 				return -EINVAL;
 			}
-			sub->args[i].arg_type = ARG_PTR_TO_ARENA;
+			sub->args[slots_used++].arg_type = ARG_PTR_TO_ARENA;
 			continue;
 		}
 		if (is_global) { /* generic user data pointer */
@@ -8214,10 +8254,11 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 				return -EINVAL;
 			}
 
-			sub->args[i].arg_type = ARG_PTR_TO_MEM | PTR_MAYBE_NULL;
+			sub->args[slots_used].arg_type = ARG_PTR_TO_MEM | PTR_MAYBE_NULL;
 			if (tags & ARG_TAG_NONNULL)
-				sub->args[i].arg_type &= ~PTR_MAYBE_NULL;
-			sub->args[i].mem_size = mem_size;
+				sub->args[slots_used].arg_type &= ~PTR_MAYBE_NULL;
+			sub->args[slots_used].mem_size = mem_size;
+			slots_used++;
 			continue;
 		}
 
@@ -8226,8 +8267,32 @@ skip_pointer:
 			bpf_log(log, "arg#%d has pointer tag, but is not a pointer type\n", i);
 			return -EINVAL;
 		}
-		if (btf_type_is_int(t) || btf_is_any_enum(t)) {
-			sub->args[i].arg_type = ARG_ANYTHING;
+		if (btf_type_is_int(t) || btf_is_any_enum(t) || btf_type_is_struct(t)) {
+			u32 nslots;
+
+			if (!t->size || t->size > 2 * BPF_REG_SIZE) {
+				if (!is_global)
+					return -EINVAL;
+				bpf_log(log,
+					"Arg#%d type %s in %s() has size %u, only 1 to %d bytes "
+					"can be passed by value\n",
+					i, btf_type_str(t), tname, t->size, 2 * BPF_REG_SIZE);
+				return -EINVAL;
+			}
+			if (btf_type_is_struct(t) &&
+			    !btf_struct_is_composed_of(env, btf, t, BTF_MEMBER_SCALAR)) {
+				if (!is_global)
+					return -EINVAL;
+				bpf_log(log, "Arg#%d type %s in %s() is not composed of scalars\n",
+					i, btf_type_str(t), tname);
+				return -EINVAL;
+			}
+
+			nslots = (t->size + BPF_REG_SIZE - 1) / BPF_REG_SIZE;
+			if (slots_used + nslots > MAX_BPF_FUNC_ARGS)
+				goto too_many_slots;
+			while (nslots--)
+				sub->args[slots_used++].arg_type = ARG_SCALAR;
 			continue;
 		}
 		if (!is_global)
@@ -8237,9 +8302,21 @@ skip_pointer:
 		return -EINVAL;
 	}
 
+	err = btf_check_arg_slots(log, tname, is_global, slots_used, sub);
+	if (err)
+		return err;
+	sub->arg_slot_cnt = slots_used;
+
 	sub->args_cached = true;
 
 	return 0;
+
+too_many_slots:
+	if (!is_global)
+		return -EINVAL;
+	bpf_log(log, "Arguments of %s() need more than %d argument slots\n",
+		tname, MAX_BPF_FUNC_ARGS);
+	return -EINVAL;
 }
 
 static void btf_type_show(const struct btf *btf, u32 type_id, void *obj,

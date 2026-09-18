@@ -246,7 +246,7 @@ static __used __naked void read_first_param2(void)
 SEC("socket")
 __flag(BPF_F_TEST_STATE_FREQ)
 __failure
-__msg("R1 type=scalar expected=map_ptr")
+__msg("Possibly NULL pointer passed to trusted R1")
 __naked void caller_stack_pruning_callback(void)
 {
 	asm volatile (
