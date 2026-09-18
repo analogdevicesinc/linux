@@ -222,8 +222,10 @@ enum tpacpi_hkey_event_t {
 	TP_HKEY_EV_LID_OPEN		= 0x5002, /* laptop lid opened */
 	TP_HKEY_EV_TABLET_TABLET	= 0x5009, /* tablet swivel up */
 	TP_HKEY_EV_TABLET_NOTEBOOK	= 0x500a, /* tablet swivel down */
-	TP_HKEY_EV_TABLET_CHANGED	= 0x60c0, /* X1 Yoga (2016):
-						   * enter/leave tablet mode
+	TP_HKEY_EV_TABLET_CHANGED	= 0x60c0, /* posture change event:
+						   * X1 Yoga (2016): enter/leave tablet mode
+						   * X1 Fold 16 Gen 1: keyboard
+						   * attachment state changed
 						   */
 	TP_HKEY_EV_PEN_INSERTED		= 0x500b, /* tablet pen inserted */
 	TP_HKEY_EV_PEN_REMOVED		= 0x500c, /* tablet pen removed */
@@ -379,6 +381,7 @@ static struct {
 	u32 kbd_lang:1;
 	u32 trackpoint_doubletap_enable:1;
 	u32 usbc_security_supported:1;
+	u32 has_keyboard_attached_on_screen:1;
 	bool usbc_security_enabled;
 	struct quirk_entry *quirks;
 } tp_features;
@@ -2169,7 +2172,7 @@ static int tpacpi_hotkey_driver_mask_set(const u32 mask)
 		return 0;
 	}
 
-	mutex_lock(&hotkey_mutex);
+	guard(mutex)(&hotkey_mutex);
 
 	HOTKEY_CONFIG_CRITICAL_START
 	hotkey_driver_mask = mask;
@@ -2181,8 +2184,6 @@ static int tpacpi_hotkey_driver_mask_set(const u32 mask)
 	rc = hotkey_mask_set((hotkey_acpi_mask | hotkey_driver_mask) &
 							~hotkey_source_mask);
 	hotkey_poll_setup(true);
-
-	mutex_unlock(&hotkey_mutex);
 
 	return rc;
 }
@@ -2207,15 +2208,12 @@ static void tpacpi_input_send_tabletsw(void)
 {
 	int state;
 
-	if (tp_features.hotkey_tablet &&
-	    !hotkey_get_tablet_mode(&state)) {
-		mutex_lock(&tpacpi_inputdev_send_mutex);
+	if (tp_features.hotkey_tablet && !hotkey_get_tablet_mode(&state)) {
+		guard(mutex)(&tpacpi_inputdev_send_mutex);
 
 		input_report_switch(tpacpi_inputdev,
 				    SW_TABLET_MODE, !!state);
 		input_sync(tpacpi_inputdev);
-
-		mutex_unlock(&tpacpi_inputdev_send_mutex);
 	}
 }
 
@@ -2240,7 +2238,6 @@ static int get_camera_shutter(void)
 
 static bool tpacpi_input_send_key(const u32 hkey, bool *send_acpi_ev)
 {
-	bool known_ev;
 	u32 scancode;
 
 	if (tpacpi_driver_event(hkey))
@@ -2283,11 +2280,8 @@ static bool tpacpi_input_send_key(const u32 hkey, bool *send_acpi_ev)
 		scancode = hkey;
 	}
 
-	mutex_lock(&tpacpi_inputdev_send_mutex);
-	known_ev = sparse_keymap_report_event(tpacpi_inputdev, scancode, 1, true);
-	mutex_unlock(&tpacpi_inputdev_send_mutex);
-
-	return known_ev;
+	guard(mutex)(&tpacpi_inputdev_send_mutex);
+	return sparse_keymap_report_event(tpacpi_inputdev, scancode, 1, true);
 }
 
 #ifdef CONFIG_THINKPAD_ACPI_HOTKEY_POLL
@@ -2552,9 +2546,10 @@ static void hotkey_poll_setup(const bool may_warn)
 
 	lockdep_assert_held(&hotkey_mutex);
 
+	guard(mutex)(&tpacpi_inputdev->mutex);
 	if (hotkey_poll_freq > 0 &&
 	    (poll_driver_mask ||
-	     (poll_user_mask && tpacpi_inputdev->users > 0))) {
+	     (poll_user_mask && input_device_enabled(tpacpi_inputdev)))) {
 		if (!tpacpi_hotkey_task) {
 			tpacpi_hotkey_task = kthread_run(hotkey_kthread,
 					NULL, TPACPI_NVRAM_KTHREAD_NAME);
@@ -2575,9 +2570,8 @@ static void hotkey_poll_setup(const bool may_warn)
 
 static void hotkey_poll_setup_safe(const bool may_warn)
 {
-	mutex_lock(&hotkey_mutex);
+	guard(mutex)(&hotkey_mutex);
 	hotkey_poll_setup(may_warn);
-	mutex_unlock(&hotkey_mutex);
 }
 
 static void hotkey_poll_set_freq(unsigned int freq)
@@ -2893,6 +2887,63 @@ static void hotkey_tablet_mode_notify_change(void)
 			     "hotkey_tablet_mode");
 }
 
+static bool keyboard_attached_on_screen;
+static bool keyboard_attached_on_screen_initialized;
+
+static int x1_fold_keyboard_attached_on_screen_get(bool *attached)
+{
+	int state;
+
+	if (!tp_features.has_keyboard_attached_on_screen)
+		return -ENODEV;
+
+	if (!acpi_evalf(NULL, &state, "\\_SB.DEVD.GDST", "d"))
+		return -EIO;
+
+	*attached = state != 0;
+	return 0;
+}
+
+static ssize_t keyboard_attached_on_screen_show(struct device *dev,
+						struct device_attribute *attr,
+						char *buf)
+{
+	bool attached;
+	int res;
+
+	res = x1_fold_keyboard_attached_on_screen_get(&attached);
+	if (res)
+		return res;
+
+	return sysfs_emit(buf, "%d\n", attached);
+}
+
+static DEVICE_ATTR_RO(keyboard_attached_on_screen);
+
+static void keyboard_attached_on_screen_notify_change(void)
+{
+	if (tp_features.has_keyboard_attached_on_screen)
+		sysfs_notify(&tpacpi_pdev->dev.kobj, NULL,
+			     "keyboard_attached_on_screen");
+}
+
+static bool keyboard_attached_on_screen_update(void)
+{
+	bool attached;
+
+	if (x1_fold_keyboard_attached_on_screen_get(&attached))
+		return false;
+
+	if (keyboard_attached_on_screen_initialized &&
+	    keyboard_attached_on_screen == attached)
+		return false;
+
+	keyboard_attached_on_screen = attached;
+	keyboard_attached_on_screen_initialized = true;
+
+	return true;
+}
+
 /* sysfs wakeup reason (pollable) -------------------------------------- */
 static ssize_t hotkey_wakeup_reason_show(struct device *dev,
 			   struct device_attribute *attr,
@@ -3022,6 +3073,7 @@ static struct attribute *hotkey_attributes[] = {
 	&dev_attr_hotkey_adaptive_all_mask.attr,
 	&dev_attr_hotkey_recommended_mask.attr,
 	&dev_attr_hotkey_tablet_mode.attr,
+	&dev_attr_keyboard_attached_on_screen.attr,
 	&dev_attr_hotkey_radio_sw.attr,
 	&dev_attr_doubletap_enable.attr,
 #ifdef CONFIG_THINKPAD_ACPI_HOTKEY_POLL
@@ -3036,6 +3088,9 @@ static umode_t hotkey_attr_is_visible(struct kobject *kobj,
 {
 	if (attr == &dev_attr_hotkey_tablet_mode.attr) {
 		if (!tp_features.hotkey_tablet)
+			return 0;
+	} else if (attr == &dev_attr_keyboard_attached_on_screen.attr) {
+		if (!tp_features.has_keyboard_attached_on_screen)
 			return 0;
 	} else if (attr == &dev_attr_hotkey_radio_sw.attr) {
 		if (!tp_features.hotkey_wlsw)
@@ -3080,13 +3135,11 @@ static void tpacpi_send_radiosw_update(void)
 
 	/* Issue rfkill input event for WLSW switch */
 	if (!(wlsw < 0)) {
-		mutex_lock(&tpacpi_inputdev_send_mutex);
+		guard(mutex)(&tpacpi_inputdev_send_mutex);
 
 		input_report_switch(tpacpi_inputdev,
 				    SW_RFKILL_ALL, (wlsw > 0));
 		input_sync(tpacpi_inputdev);
-
-		mutex_unlock(&tpacpi_inputdev_send_mutex);
 	}
 
 	/*
@@ -3098,7 +3151,7 @@ static void tpacpi_send_radiosw_update(void)
 
 static void hotkey_exit(void)
 {
-	mutex_lock(&hotkey_mutex);
+	guard(mutex)(&hotkey_mutex);
 	hotkey_poll_stop_sync();
 	dbg_printk(TPACPI_DBG_EXIT | TPACPI_DBG_HKEY,
 		   "restoring original HKEY status and mask\n");
@@ -3108,8 +3161,6 @@ static void hotkey_exit(void)
 	      hotkey_mask_set(hotkey_orig_mask)) |
 	     hotkey_status_set(false)) != 0)
 		pr_err("failed to restore hot key mask to BIOS defaults\n");
-
-	mutex_unlock(&hotkey_mutex);
 }
 
 /*
@@ -3426,11 +3477,11 @@ static int __init hotkey_init(struct ibm_init_struct *iibm)
 	if (tp_features.hotkey_mask) {
 		/* hotkey_source_mask *must* be zero for
 		 * the first hotkey_mask_get to return hotkey_orig_mask */
-		mutex_lock(&hotkey_mutex);
-		res = hotkey_mask_get();
-		mutex_unlock(&hotkey_mutex);
-		if (res)
-			return res;
+		scoped_guard(mutex, &hotkey_mutex) {
+			res = hotkey_mask_get();
+			if (res)
+				return res;
+		}
 
 		hotkey_orig_mask = hotkey_acpi_mask;
 	} else {
@@ -3453,6 +3504,7 @@ static int __init hotkey_init(struct ibm_init_struct *iibm)
 	}
 
 	tabletsw_state = hotkey_init_tablet_mode();
+	keyboard_attached_on_screen_update();
 
 	/* Set up key map */
 	keymap_id = tpacpi_check_quirks(tpacpi_keymap_qtable,
@@ -3529,11 +3581,11 @@ static int __init hotkey_init(struct ibm_init_struct *iibm)
 		hotkey_exit();
 		return res;
 	}
-	mutex_lock(&hotkey_mutex);
-	res = hotkey_mask_set(((hotkey_all_mask & ~hotkey_reserved_mask)
-			       | hotkey_driver_mask)
-			      & ~hotkey_source_mask);
-	mutex_unlock(&hotkey_mutex);
+	scoped_guard(mutex, &hotkey_mutex) {
+		res = hotkey_mask_set(((hotkey_all_mask & ~hotkey_reserved_mask)
+				       | hotkey_driver_mask)
+				      & ~hotkey_source_mask);
+	}
 	if (res < 0 && res != -ENXIO) {
 		hotkey_exit();
 		return res;
@@ -3833,6 +3885,8 @@ static bool hotkey_notify_6xxx(const u32 hkey, bool *send_acpi_ev)
 	case TP_HKEY_EV_TABLET_CHANGED:
 		tpacpi_input_send_tabletsw();
 		hotkey_tablet_mode_notify_change();
+		if (keyboard_attached_on_screen_update())
+			keyboard_attached_on_screen_notify_change();
 		*send_acpi_ev = false;
 		return true;
 
@@ -3980,15 +4034,17 @@ static void hotkey_resume(void)
 {
 	tpacpi_disable_brightness_delay();
 
-	mutex_lock(&hotkey_mutex);
-	if (hotkey_status_set(true) < 0 ||
-	    hotkey_mask_set(hotkey_acpi_mask) < 0)
-		pr_err("error while attempting to reset the event firmware interface\n");
-	mutex_unlock(&hotkey_mutex);
+	scoped_guard(mutex, &hotkey_mutex) {
+		if (hotkey_status_set(true) < 0 ||
+		    hotkey_mask_set(hotkey_acpi_mask) < 0)
+			pr_err("error while attempting to reset the event firmware interface\n");
+	}
 
 	tpacpi_send_radiosw_update();
 	tpacpi_input_send_tabletsw();
 	hotkey_tablet_mode_notify_change();
+	keyboard_attached_on_screen_update();
+	keyboard_attached_on_screen_notify_change();
 	hotkey_wakeup_reason_notify_change();
 	hotkey_wakeup_hotunplug_complete_notify_change();
 	hotkey_poll_setup_safe(false);
@@ -4282,6 +4338,17 @@ static const struct dmi_system_id fwbug_list[] __initconst = {
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
 			DMI_MATCH(DMI_BOARD_NAME, "20MV"),
+		},
+	},
+	{}
+};
+
+static const struct dmi_system_id keyboard_attached_on_screen_list[] __initconst = {
+	{
+		.ident = "ThinkPad X1 Fold 16 Gen 1",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
+			DMI_MATCH(DMI_PRODUCT_FAMILY, "ThinkPad X1 Fold 16 Gen 1"),
 		},
 	},
 	{}
@@ -5037,21 +5104,16 @@ static DEFINE_MUTEX(kbdlight_mutex);
 
 static int kbdlight_set_level(int level)
 {
-	int ret = 0;
-
 	if (!hkey_handle)
 		return -ENXIO;
 
-	mutex_lock(&kbdlight_mutex);
+	guard(mutex)(&kbdlight_mutex);
 
 	if (!acpi_evalf(hkey_handle, NULL, "MLCS", "dd", level))
-		ret = -EIO;
-	else
-		kbdlight_brightness = level;
+		return -EIO;
 
-	mutex_unlock(&kbdlight_mutex);
-
-	return ret;
+	kbdlight_brightness = level;
+	return 0;
 }
 
 static int kbdlight_get_level(void)
@@ -10107,9 +10169,8 @@ static void lcdshadow_resume(void)
 	if (!lcdshadow_dev)
 		return;
 
-	mutex_lock(&lcdshadow_dev->lock);
+	guard(mutex)(&lcdshadow_dev->lock);
 	lcdshadow_set_sw_state(lcdshadow_dev, lcdshadow_dev->sw_state);
-	mutex_unlock(&lcdshadow_dev->lock);
 }
 
 static int lcdshadow_read(struct seq_file *m)
@@ -10141,9 +10202,8 @@ static int lcdshadow_write(char *buf)
 	if (state >= 2 || state < 0)
 		return -EINVAL;
 
-	mutex_lock(&lcdshadow_dev->lock);
-	res = lcdshadow_set_sw_state(lcdshadow_dev, state);
-	mutex_unlock(&lcdshadow_dev->lock);
+	scoped_guard(mutex, &lcdshadow_dev->lock)
+		res = lcdshadow_set_sw_state(lcdshadow_dev, state);
 
 	drm_privacy_screen_call_notifier_chain(lcdshadow_dev);
 
@@ -10607,26 +10667,26 @@ static const struct platform_profile_ops dytc_profile_ops = {
 static void dytc_profile_refresh(void)
 {
 	enum platform_profile_option profile;
-	int output = 0, err = 0;
+	int output = 0, err;
 	int perfmode, funcmode = 0;
 
-	mutex_lock(&dytc_mutex);
-	if (dytc_capabilities & BIT(DYTC_FC_MMC)) {
-		if (dytc_mmc_get_available)
-			err = dytc_command(DYTC_CMD_MMC_GET, &output);
-		else
-			err = dytc_cql_command(DYTC_CMD_GET, &output);
-		funcmode = DYTC_FUNCTION_MMC;
-	} else if (dytc_capabilities & BIT(DYTC_FC_PSC)) {
-		err = dytc_command(DYTC_CMD_GET, &output);
-		/* Check if we are PSC mode, or have AMT enabled */
-		funcmode = (output >> DYTC_GET_FUNCTION_BIT) & 0xF;
-	} else { /* Unknown profile mode */
-		err = -ENODEV;
+	scoped_guard(mutex, &dytc_mutex) {
+		if (dytc_capabilities & BIT(DYTC_FC_MMC)) {
+			if (dytc_mmc_get_available)
+				err = dytc_command(DYTC_CMD_MMC_GET, &output);
+			else
+				err = dytc_cql_command(DYTC_CMD_GET, &output);
+			funcmode = DYTC_FUNCTION_MMC;
+		} else if (dytc_capabilities & BIT(DYTC_FC_PSC)) {
+			err = dytc_command(DYTC_CMD_GET, &output);
+			/* Check if we are PSC mode, or have AMT enabled */
+			funcmode = (output >> DYTC_GET_FUNCTION_BIT) & 0xF;
+		} else { /* Unknown profile mode */
+			err = -ENODEV;
+		}
+		if (err)
+			return;
 	}
-	mutex_unlock(&dytc_mutex);
-	if (err)
-		return;
 
 	perfmode = (output >> DYTC_GET_MODE_BIT) & 0xF;
 	err = convert_dytc_to_profile(funcmode, perfmode, &profile);
@@ -11538,7 +11598,7 @@ static bool tpacpi_driver_event(const unsigned int hkey_event)
 		if (tp_features.kbdlight) {
 			enum led_brightness brightness;
 
-			mutex_lock(&kbdlight_mutex);
+			guard(mutex)(&kbdlight_mutex);
 
 			/*
 			 * Check the brightness actually changed, setting the brightness
@@ -11550,8 +11610,6 @@ static bool tpacpi_driver_event(const unsigned int hkey_event)
 				led_classdev_notify_brightness_hw_changed(
 					&tpacpi_led_kbdlight.led_classdev, brightness);
 			}
-
-			mutex_unlock(&kbdlight_mutex);
 		}
 		/* Key events are suppressed by default hotkey_user_mask */
 		return false;
@@ -11573,11 +11631,11 @@ static bool tpacpi_driver_event(const unsigned int hkey_event)
 			enum drm_privacy_screen_status old_hw_state;
 			bool changed;
 
-			mutex_lock(&lcdshadow_dev->lock);
-			old_hw_state = lcdshadow_dev->hw_state;
-			lcdshadow_get_hw_state(lcdshadow_dev);
-			changed = lcdshadow_dev->hw_state != old_hw_state;
-			mutex_unlock(&lcdshadow_dev->lock);
+			scoped_guard(mutex, &lcdshadow_dev->lock) {
+				old_hw_state = lcdshadow_dev->hw_state;
+				lcdshadow_get_hw_state(lcdshadow_dev);
+				changed = lcdshadow_dev->hw_state != old_hw_state;
+			}
 
 			if (changed)
 				drm_privacy_screen_call_notifier_chain(lcdshadow_dev);
@@ -11598,12 +11656,10 @@ static bool tpacpi_driver_event(const unsigned int hkey_event)
 			pr_err("Error retrieving camera shutter state after shutter event\n");
 			return true;
 		}
-		mutex_lock(&tpacpi_inputdev_send_mutex);
-
-		input_report_switch(tpacpi_inputdev, SW_CAMERA_LENS_COVER, camera_shutter_state);
-		input_sync(tpacpi_inputdev);
-
-		mutex_unlock(&tpacpi_inputdev_send_mutex);
+		scoped_guard(mutex, &tpacpi_inputdev_send_mutex) {
+			input_report_switch(tpacpi_inputdev, SW_CAMERA_LENS_COVER, camera_shutter_state);
+			input_sync(tpacpi_inputdev);
+		}
 		return true;
 	case TP_HKEY_EV_DOUBLETAP_TOGGLE:
 		/* Toggle kernel-level doubletap event filtering */
@@ -12360,6 +12416,8 @@ static int __init thinkpad_acpi_module_init(void)
 	dmi_id = dmi_first_match(fwbug_list);
 	if (dmi_id)
 		tp_features.quirks = dmi_id->driver_data;
+	tp_features.has_keyboard_attached_on_screen =
+		dmi_check_system(keyboard_attached_on_screen_list);
 
 	/* Device initialization */
 	tpacpi_pdev = platform_device_register_simple(TPACPI_DRVR_NAME, PLATFORM_DEVID_NONE,
