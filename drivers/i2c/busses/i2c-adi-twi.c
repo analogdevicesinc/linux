@@ -798,7 +798,6 @@ static SIMPLE_DEV_PM_OPS(i2c_adi_twi_pm,
 #define I2C_ADI_TWI_PM_OPS	NULL
 #endif
 
-#ifdef CONFIG_OF
 static const struct of_device_id adi_twi_of_match[] = {
 	{
 		.compatible = "adi,twi",
@@ -806,7 +805,6 @@ static const struct of_device_id adi_twi_of_match[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(of, adi_twi_of_match);
-#endif
 
 static int i2c_adi_twi_probe(struct platform_device *pdev)
 {
@@ -825,7 +823,7 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 
 	spin_lock_init(&(iface->lock));
 
-	match = of_match_device(of_match_ptr(adi_twi_of_match), &pdev->dev);
+	match = of_match_device(adi_twi_of_match, &pdev->dev);
 	if (match) {
 		if (of_property_read_u32(node, "clock-khz",
 			&iface->twi_clk))
@@ -934,7 +932,7 @@ static struct platform_driver i2c_adi_twi_driver = {
 	.driver		= {
 		.name	= "i2c-adi-twi",
 		.pm	= I2C_ADI_TWI_PM_OPS,
-		.of_match_table = of_match_ptr(adi_twi_of_match),
+		.of_match_table = adi_twi_of_match,
 	},
 };
 
