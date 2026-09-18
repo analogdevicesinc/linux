@@ -131,7 +131,7 @@ For compact form, ``ETHTOOL_A_BITSET_SIZE`` and ``ETHTOOL_A_BITSET_VALUE`` are
 mandatory. ``ETHTOOL_A_BITSET_MASK`` attribute is mandatory if
 ``ETHTOOL_A_BITSET_NOMASK`` is not set (bitset represents a value/mask pair);
 if ``ETHTOOL_A_BITSET_NOMASK`` is not set, ``ETHTOOL_A_BITSET_MASK`` is not
-allowed (bitset represents a single bitmap.
+allowed (bitset represents a single bitmap).
 
 Kernel bit set length may differ from userspace length if older application is
 used on newer kernel or vice versa. If userspace bitmap is longer, an error is

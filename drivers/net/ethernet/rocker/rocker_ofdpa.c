@@ -1336,7 +1336,7 @@ static int ofdpa_port_ipv4_resolve(struct ofdpa_port *ofdpa_port,
 	int err = 0;
 
 	if (!n) {
-		n = neigh_create(&arp_tbl, &ip_addr, dev);
+		n = neigh_create(arp_table(&init_net), &ip_addr, dev);
 		if (IS_ERR(n))
 			return PTR_ERR(n);
 	}

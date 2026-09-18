@@ -1851,10 +1851,7 @@ int __sys_socketpair(int family, int type, int protocol, int __user *usockvec)
 	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
 		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
 
-	/*
-	 * reserve descriptors and make sure we won't fail
-	 * to return them to userland.
-	 */
+	/* Reserve both descriptors before creating the sockets. */
 	fd1 = get_unused_fd_flags(flags);
 	if (unlikely(fd1 < 0))
 		return fd1;
@@ -1864,14 +1861,6 @@ int __sys_socketpair(int family, int type, int protocol, int __user *usockvec)
 		put_unused_fd(fd1);
 		return fd2;
 	}
-
-	err = put_user(fd1, &usockvec[0]);
-	if (err)
-		goto out;
-
-	err = put_user(fd2, &usockvec[1]);
-	if (err)
-		goto out;
 
 	/*
 	 * Obtain the first socket and check if the underlying protocol
@@ -1912,6 +1901,16 @@ int __sys_socketpair(int family, int type, int protocol, int __user *usockvec)
 	newfile2 = sock_alloc_file(sock2, flags, NULL);
 	if (IS_ERR(newfile2)) {
 		err = PTR_ERR(newfile2);
+		fput(newfile1);
+		goto out;
+	}
+
+	/* Publish the descriptors now that it shouldn't fail. */
+	err = put_user(fd1, &usockvec[0]);
+	if (!err)
+		err = put_user(fd2, &usockvec[1]);
+	if (err) {
+		fput(newfile2);
 		fput(newfile1);
 		goto out;
 	}

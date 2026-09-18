@@ -1339,6 +1339,7 @@ static void gswip_port_set_speed(struct gswip_priv *priv, int port, int speed,
 		break;
 
 	case SPEED_1000:
+	case SPEED_2500:
 		mdio_phy = GSWIP_MDIO_PHY_SPEED_G1;
 
 		mii_cfg = GSWIP_MII_CFG_RATE_M125;

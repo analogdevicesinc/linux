@@ -578,8 +578,13 @@ __poll_t tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
 	 * blocking on fresh not-connected or disconnected socket. --ANK
 	 */
 	shutdown = READ_ONCE(sk->sk_shutdown);
-	if (shutdown == SHUTDOWN_MASK || state == TCP_CLOSE)
+	if (shutdown == SHUTDOWN_MASK || state == TCP_CLOSE) {
 		mask |= EPOLLHUP;
+		/* Coupled with smp_wmb() in tcp_done_with_error() to ensure
+		 * sk->sk_err is visible if socket closure was observed.
+		 */
+		smp_rmb();
+	}
 	if (shutdown & RCV_SHUTDOWN)
 		mask |= EPOLLIN | EPOLLRDNORM | EPOLLRDHUP;
 
@@ -626,8 +631,6 @@ __poll_t tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
 		 */
 		mask |= EPOLLOUT | EPOLLWRNORM;
 	}
-	/* This barrier is coupled with smp_wmb() in tcp_done_with_error() */
-	smp_rmb();
 	if (READ_ONCE(sk->sk_err) ||
 	    !skb_queue_empty_lockless(&sk->sk_error_queue))
 		mask |= EPOLLERR;

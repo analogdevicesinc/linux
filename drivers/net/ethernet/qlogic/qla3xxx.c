@@ -3916,6 +3916,7 @@ static void ql3xxx_remove(struct pci_dev *pdev)
 	iounmap(qdev->mem_map_registers);
 	pci_release_regions(pdev);
 	free_netdev(ndev);
+	pci_disable_device(pdev);
 }
 
 static struct pci_driver ql3xxx_driver = {
