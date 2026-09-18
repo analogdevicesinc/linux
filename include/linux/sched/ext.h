@@ -278,6 +278,14 @@ struct sched_ext_entity {
 	 */
 	bool			disallow;	/* reject switching into SCX */
 
+	/*
+	 * If set, depletion of this task's slice at the scheduler tick requests
+	 * lazy instead of immediate rescheduling. Initialized from
+	 * %SCX_OPS_LAZY_RESCHED immediately before ops.enable() and may be
+	 * modified afterwards with scx_bpf_task_set_lazy_resched().
+	 */
+	bool			lazy_resched;
+
 	/* cold fields */
 #ifdef CONFIG_EXT_GROUP_SCHED
 	struct cgroup		*cgrp_moving_from;
