@@ -3667,17 +3667,7 @@ static struct platform_driver gcc_sm8250_driver = {
 	},
 };
 
-static int __init gcc_sm8250_init(void)
-{
-	return platform_driver_register(&gcc_sm8250_driver);
-}
-subsys_initcall(gcc_sm8250_init);
-
-static void __exit gcc_sm8250_exit(void)
-{
-	platform_driver_unregister(&gcc_sm8250_driver);
-}
-module_exit(gcc_sm8250_exit);
+subsys_platform_driver(gcc_sm8250_driver);
 
 MODULE_DESCRIPTION("QTI GCC SM8250 Driver");
 MODULE_LICENSE("GPL v2");

@@ -2871,17 +2871,7 @@ static struct platform_driver gcc_sm4450_driver = {
 	},
 };
 
-static int __init gcc_sm4450_init(void)
-{
-	return platform_driver_register(&gcc_sm4450_driver);
-}
-subsys_initcall(gcc_sm4450_init);
-
-static void __exit gcc_sm4450_exit(void)
-{
-	platform_driver_unregister(&gcc_sm4450_driver);
-}
-module_exit(gcc_sm4450_exit);
+subsys_platform_driver(gcc_sm4450_driver);
 
 MODULE_DESCRIPTION("QTI GCC SM4450 Driver");
 MODULE_LICENSE("GPL");

@@ -3479,17 +3479,7 @@ static struct platform_driver gcc_sm8450_driver = {
 	},
 };
 
-static int __init gcc_sm8450_init(void)
-{
-	return platform_driver_register(&gcc_sm8450_driver);
-}
-subsys_initcall(gcc_sm8450_init);
-
-static void __exit gcc_sm8450_exit(void)
-{
-	platform_driver_unregister(&gcc_sm8450_driver);
-}
-module_exit(gcc_sm8450_exit);
+subsys_platform_driver(gcc_sm8450_driver);
 
 MODULE_DESCRIPTION("QTI GCC SM8450 / SM8475 Driver");
 MODULE_LICENSE("GPL v2");
