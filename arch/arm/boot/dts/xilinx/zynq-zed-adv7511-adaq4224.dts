@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices ADAQ4220
+ * Analog Devices ADAQ4224
  *
  * hdl_project: <ad4630_fmc/zed>
  * board_revision: <B>
@@ -29,7 +29,7 @@
 
 		max31827: max31827@5f {
 			compatible = "adi,max31827";
-			label = "adaq4220-temp";
+			label = "adaq4224-temp";
 			reg = <0x5f>;
 			vref-supply = <&ad4630_vio>;
 			adi,comp-int;
@@ -46,7 +46,7 @@
 };
 
 &ad4630_adc {
-	compatible = "adi,adaq4220";
+	compatible = "adi,adaq4224";
 	adi,pga-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>,
 			<&gpio0 88 GPIO_ACTIVE_HIGH>;
 };
