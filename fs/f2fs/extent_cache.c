@@ -904,11 +904,12 @@ static int __get_new_block_age(struct inode *inode, struct extent_info *ei,
 	struct extent_info tei = *ei;	/* only fofs and len are valid */
 
 	/*
-	 * When I/O is not aligned to a PAGE_SIZE, update will happen to the last
-	 * file block even in seq write. So don't record age for newly last file
-	 * block here.
+	 * When I/O is not aligned to the filesystem block size, update will
+	 * happen to the last file block even in seq write. Do not record the age
+	 * of the new last file block here.
 	 */
-	if ((f_size >> PAGE_SHIFT) == ei->fofs && f_size & (PAGE_SIZE - 1) &&
+	if ((f_size >> sbi->log_blocksize) == ei->fofs &&
+	    f_size & F2FS_BLKSIZE_MASK(sbi) &&
 			blkaddr == NEW_ADDR)
 		return -EINVAL;
 
@@ -956,8 +957,8 @@ static void __update_extent_cache(struct dnode_of_data *dn, enum extent_type typ
 	if (!__may_extent_tree(dn->inode, type))
 		return;
 
-	ei.fofs = f2fs_start_bidx_of_node(ofs_of_node(dn->node_folio), dn->inode) +
-								dn->ofs_in_node;
+	ei.fofs = f2fs_start_bidx_of_node(ofs_of_node(F2FS_I_SB(dn->inode),
+				dn->node_folio), dn->inode) + dn->ofs_in_node;
 	ei.len = 1;
 
 	if (type == EX_READ) {
