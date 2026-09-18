@@ -2090,7 +2090,8 @@ static ssize_t smu_v13_0_7_get_gpu_metrics(struct smu_context *smu,
 					       metrics->Vcn1ActivityPercentage);
 
 	gpu_metrics->average_socket_power = metrics->AverageSocketPower;
-	if (smu->smc_fw_version <= 0x00521400)
+	if (smu->smc_fw_version <= 0x00521400 ||
+	    smu->smc_fw_version >= 0x00526200)
 		gpu_metrics->energy_accumulator = metrics->EnergyAccumulator;
 
 	if (metrics->AverageGfxActivity <= SMU_13_0_7_BUSY_THRESHOLD)
