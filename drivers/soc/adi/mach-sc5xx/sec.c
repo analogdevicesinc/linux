@@ -226,19 +226,18 @@ static void adi_sec_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id adi_sec_match[] = {
-	{.compatible = "adi,system-event-controller" },
+	{ .compatible = "adi,system-event-controller" },
 	{ }
 };
-
 MODULE_DEVICE_TABLE(of, adi_sec_match);
 
 static struct platform_driver adi_sec_driver = {
 	.probe = adi_sec_probe,
 	.remove = adi_sec_remove,
 	.driver = {
-		   .name = "adi-system-event-controller",
-		   .of_match_table = of_match_ptr(adi_sec_match)
-		    },
+		.name = "adi-system-event-controller",
+		.of_match_table = adi_sec_match,
+	},
 };
 
 module_platform_driver(adi_sec_driver);
