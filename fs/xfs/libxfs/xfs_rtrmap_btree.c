@@ -412,7 +412,7 @@ xfs_rtrmapbt_broot_realloc(
 	unsigned int		old_size = ifp->if_broot_bytes;
 	const unsigned int	level = cur->bc_nlevels - 1;
 
-	new_size = xfs_rtrmap_broot_space_calc(mp, level, new_numrecs);
+	new_size = xfs_rtrmap_broot_space_calc(level, new_numrecs);
 
 	/* Handle the nop case quietly. */
 	if (new_size == old_size)
@@ -895,7 +895,7 @@ xfs_iformat_rtrmap(
 	}
 
 	broot = xfs_broot_alloc(xfs_ifork_ptr(ip, XFS_DATA_FORK),
-			xfs_rtrmap_broot_space_calc(mp, level, numrecs));
+			xfs_rtrmap_broot_space_calc(level, numrecs));
 	if (broot)
 		xfs_rtrmapbt_from_disk(ip, dfp, dsize, broot);
 	return 0;
@@ -980,7 +980,7 @@ xfs_rtrmapbt_create(
 	ASSERT(ifp->if_bytes == 0);
 
 	/* Initialize the empty incore btree root. */
-	broot = xfs_broot_realloc(ifp, xfs_rtrmap_broot_space_calc(mp, 0, 0));
+	broot = xfs_broot_realloc(ifp, xfs_rtrmap_broot_space_calc(0, 0));
 	if (broot)
 		xfs_btree_init_block(mp, broot, &xfs_rtrmapbt_ops, 0, 0,
 				I_INO(ip));
