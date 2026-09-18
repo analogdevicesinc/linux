@@ -324,7 +324,7 @@ MODULE_PARM_DESC(dual_codec, "Secondary Codec ID (0 = disabled).");
 #define BA0_SSCR_XLPSRC		(1<<8)	/* External SRC Loopback Mode */
 #define BA0_SSCR_LPSRC		(1<<7)	/* SRC Loopback Mode */
 #define BA0_SSCR_CDTX		(1<<5)	/* CD Transfer Data */
-#define BA0_SSCR_HVC		(1<<3)	/* Harware Volume Control Enable */
+#define BA0_SSCR_HVC		(1<<3)	/* Hardware Volume Control Enable */
 
 #define BA0_FMLVC		0x0754	/* FM Synthesis Left Volume Control */
 #define BA0_FMRVC		0x0758	/* FM Synthesis Right Volume Control */

@@ -3664,7 +3664,7 @@ snd_hdsp_proc_read(struct snd_info_entry *entry, struct snd_info_buffer *buffer)
 
 	snd_iprintf(buffer, "\n");
 
-	/* Informations about H9632 specific controls */
+	/* Information about H9632 specific controls */
 	if (hdsp->io_type == H9632) {
 		char *tmp;
 
