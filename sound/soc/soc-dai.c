@@ -20,6 +20,12 @@ static inline int _soc_dai_ret(const struct snd_soc_dai *dai,
 			   "at %s() on %s\n", func, dai->name);
 }
 
+struct snd_soc_component *snd_soc_dai_to_component(const struct snd_soc_dai *dai)
+{
+	return dai->component;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_to_component);
+
 /*
  * We might want to check substream by using list.
  * In such case, we can update these macros.
