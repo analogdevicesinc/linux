@@ -587,7 +587,7 @@ void conf_parse(const char *name)
 		menu_add_prompt(P_MENU, "Main menu", NULL);
 	}
 
-	menu_finalize();
+	yynerrs += menu_finalize();
 
 	menu_for_each_entry(menu) {
 		struct menu *child;
