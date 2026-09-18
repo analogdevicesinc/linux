@@ -1385,7 +1385,7 @@ void dmub_srv_set_power_state(struct dmub_srv *dmub, enum dmub_srv_power_state_t
 	dmub->power_state = dmub_srv_power_state;
 }
 
-enum dmub_status dmub_srv_reg_cmd_execute(struct dmub_srv *dmub, union dmub_rb_cmd *cmd)
+enum dmub_status dmub_srv_reg_cmd_execute(struct dmub_srv *dmub, const union dmub_rb_cmd *cmd)
 {
 	uint64_t num_pending = 0;
 
@@ -1411,7 +1411,10 @@ enum dmub_status dmub_srv_reg_cmd_execute(struct dmub_srv *dmub, union dmub_rb_c
 
 	/* clear last rsp ack and send message */
 	dmub->hw_funcs.clear_reg_inbox0_rsp_int_ack(dmub);
-	dmub->hw_funcs.send_reg_inbox0_cmd_msg(dmub, cmd);
+	/* hw_funcs signature is not const as some ASIC variants may reuse the
+	 * buffer; send_reg_inbox0_cmd_msg implementations only read from cmd.
+	 */
+	dmub->hw_funcs.send_reg_inbox0_cmd_msg(dmub, (union dmub_rb_cmd *)cmd);
 
 	dmub->reg_inbox0.num_submitted++;
 	dmub->reg_inbox0.is_pending = true;

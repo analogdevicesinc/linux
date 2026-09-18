@@ -82,6 +82,7 @@ void dpp50_dpp_setup(
 void dpp50_set_pregam_state(
 	struct dpp *dpp_base,
 	enum dc_transfer_func_predefined tr,
-	enum dc_scaling_linearity scaling);
+	enum dc_scaling_linearity scaling,
+	bool source_is_linear);
 
 #endif /* __DCN50_DPP_H__ */

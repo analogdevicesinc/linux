@@ -27,6 +27,7 @@
 #include <drm/drm_drv.h>
 
 #include "amdgpu.h"
+#include "amdgpu_ip.h"
 #include "amdgpu_psp.h"
 #include "amdgpu_ucode.h"
 #include "amdgpu_xgmi.h"

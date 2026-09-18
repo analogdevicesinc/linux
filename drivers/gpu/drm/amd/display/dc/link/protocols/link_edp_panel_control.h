@@ -60,6 +60,8 @@ bool edp_send_replay_cmd(struct dc_link *link,
 bool edp_set_coasting_vtotal(struct dc_link *link, uint32_t coasting_vtotal, uint16_t frame_skip_number);
 bool edp_replay_residency(const struct dc_link *link,
 	unsigned int *residency, const bool is_start, const enum pr_residency_mode mode);
+bool edp_replay_get_cumulative_residency(const struct dc_link *link,
+	uint32_t *residency_milli_pct);
 bool edp_get_replay_state(const struct dc_link *link, uint64_t *state);
 bool edp_set_replay_power_opt_and_coasting_vtotal(struct dc_link *link,
 	const unsigned int *power_opts, uint32_t coasting_vtotal, uint16_t frame_skip_number);

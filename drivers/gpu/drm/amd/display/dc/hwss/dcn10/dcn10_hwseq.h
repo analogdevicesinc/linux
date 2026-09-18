@@ -73,6 +73,8 @@ void dcn10_program_output_csc(struct dc *dc,
 bool dcn10_set_output_transfer_func(struct set_output_transfer_func_params *params);
 bool dcn10_set_input_transfer_func(struct set_input_transfer_func_params *params);
 void dcn10_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx);
+void dcn10_prepare_plane_addr_update(const struct dc *dc, struct pipe_ctx *pipe_ctx,
+		struct dc_plane_address *addr_to_program, bool *flip_immediate);
 void dcn10_update_mpcc(struct dc *dc, struct pipe_ctx *pipe_ctx);
 void dcn10_reset_hw_ctx_wrap(
 		struct dc *dc,

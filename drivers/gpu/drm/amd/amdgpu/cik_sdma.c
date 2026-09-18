@@ -27,6 +27,7 @@
 
 #include "amdgpu.h"
 #include "amdgpu_ucode.h"
+#include "amdgpu_sdma.h"
 #include "amdgpu_trace.h"
 #include "cikd.h"
 #include "cik.h"
@@ -54,8 +55,6 @@ static void cik_sdma_set_ring_funcs(struct amdgpu_device *adev);
 static void cik_sdma_set_irq_funcs(struct amdgpu_device *adev);
 static void cik_sdma_set_buffer_funcs(struct amdgpu_device *adev);
 static int cik_sdma_soft_reset(struct amdgpu_ip_block *ip_block);
-
-u32 amdgpu_cik_gpu_check_soft_reset(struct amdgpu_device *adev);
 
 MODULE_FIRMWARE("amdgpu/bonaire_sdma.bin");
 MODULE_FIRMWARE("amdgpu/bonaire_sdma1.bin");
@@ -319,18 +318,6 @@ static void cik_sdma_gfx_stop(struct amdgpu_device *adev)
 }
 
 /**
- * cik_sdma_rlc_stop - stop the compute async dma engines
- *
- * @adev: amdgpu_device pointer
- *
- * Stop the compute async dma queues (CIK).
- */
-static void cik_sdma_rlc_stop(struct amdgpu_device *adev)
-{
-	/* XXX todo */
-}
-
-/**
  * cik_ctx_switch_enable - stop the async dma engines context switch
  *
  * @adev: amdgpu_device pointer
@@ -402,7 +389,6 @@ static void cik_sdma_enable(struct amdgpu_device *adev, bool enable)
 
 	if (!enable) {
 		cik_sdma_gfx_stop(adev);
-		cik_sdma_rlc_stop(adev);
 	}
 
 	for (i = 0; i < adev->sdma.num_instances; i++) {
@@ -504,20 +490,6 @@ static int cik_sdma_gfx_resume(struct amdgpu_device *adev)
 }
 
 /**
- * cik_sdma_rlc_resume - setup and start the async dma engines
- *
- * @adev: amdgpu_device pointer
- *
- * Set up the compute DMA queues and enable them (CIK).
- * Returns 0 for success, error for failure.
- */
-static int cik_sdma_rlc_resume(struct amdgpu_device *adev)
-{
-	/* XXX todo */
-	return 0;
-}
-
-/**
  * cik_sdma_load_microcode - load the sDMA ME ucode
  *
  * @adev: amdgpu_device pointer
@@ -579,9 +551,6 @@ static int cik_sdma_start(struct amdgpu_device *adev)
 
 	/* start the gfx rings and rlc compute queues */
 	r = cik_sdma_gfx_resume(adev);
-	if (r)
-		return r;
-	r = cik_sdma_rlc_resume(adev);
 	if (r)
 		return r;
 

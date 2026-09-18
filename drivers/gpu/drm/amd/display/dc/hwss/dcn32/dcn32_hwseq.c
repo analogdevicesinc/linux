@@ -528,6 +528,24 @@ bool dcn32_set_mcm_luts(struct dc *dc, struct dpp *dpp, struct hubp *hubp,
 	return result;
 }
 
+/*
+ * FP16 / 64bpp 16161616 surfaces store pixel data in linear light. These are
+ * the only source formats that must be de-linearized before scaling in
+ * source/non-linear space; every other format is already non-linear.
+ */
+static bool is_source_pixel_format_linear(enum surface_pixel_format format)
+{
+	switch (format) {
+	case SURFACE_PIXEL_FORMAT_GRPH_ARGB16161616:
+	case SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616:
+	case SURFACE_PIXEL_FORMAT_GRPH_ARGB16161616F:
+	case SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616F:
+		return true;
+	default:
+		return false;
+	}
+}
+
 bool dcn32_set_input_transfer_func(struct set_input_transfer_func_params *params)
 {
 	struct dce_hwseq *hws = params->dc->hwseq;
@@ -547,7 +565,8 @@ bool dcn32_set_input_transfer_func(struct set_input_transfer_func_params *params
 		tf = plane_state->in_transfer_func.tf;
 
 	if (dpp->funcs->dpp_set_pregam_state)
-		dpp->funcs->dpp_set_pregam_state(dpp, tf, plane_state->scaling_linearity);
+		dpp->funcs->dpp_set_pregam_state(dpp, tf, plane_state->scaling_linearity,
+				is_source_pixel_format_linear(plane_state->format));
 	else
 		dpp->funcs->dpp_set_pre_degam(dpp, tf);
 
@@ -560,10 +579,24 @@ bool dcn32_set_input_transfer_func(struct set_input_transfer_func_params *params
 
 	dpp->funcs->dpp_program_gamcor_lut(dpp, pwl_params);
 
-	if (hws->funcs.set_mcm_luts)
-		result = hws->funcs.set_mcm_luts(params->dc, dpp, params->hubp,
-			params->primary_hubp, params->mpc, params->mpcc_id,
-			params->stream, plane_state);
+	/* MCM and RMCM are mutually exclusive - tear the inactive one out before programming
+	 * the active one, which then owns the shared HUBP 3DLUT fast load.
+	 */
+	if (plane_state->cm.flags.bits.rmcm_enable && hws->funcs.set_rmcm_luts) {
+		if (hws->funcs.disable_mcm_luts)
+			hws->funcs.disable_mcm_luts(params->mpc, params->mpcc_id);
+
+		result = hws->funcs.set_rmcm_luts(params);
+	} else {
+		if (hws->funcs.disable_rmcm_luts)
+			hws->funcs.disable_rmcm_luts(params->dc, params->rmcm,
+					params->hubp, params->mpcc_id);
+
+		if (hws->funcs.set_mcm_luts)
+			result = hws->funcs.set_mcm_luts(params->dc, dpp, params->hubp,
+				params->primary_hubp, params->mpc, params->mpcc_id,
+				params->stream, plane_state);
+	}
 
 	return result;
 }

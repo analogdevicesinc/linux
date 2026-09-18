@@ -20,6 +20,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 #include "amdgpu.h"
+#include "amdgpu_ip.h"
 #include "amdgpu_amdkfd.h"
 #include "gc/gc_9_0_offset.h"
 #include "gc/gc_9_0_sh_mask.h"
@@ -37,6 +38,7 @@
 #include "soc15.h"
 #include "soc15d.h"
 #include "gfx_v9_0.h"
+#include "gfx_v9_4_2.h"
 #include "amdgpu_amdkfd_gfx_v9.h"
 #include <uapi/linux/kfd_ioctl.h>
 
@@ -1226,9 +1228,13 @@ unlock_out:
 
 uint32_t kgd_gfx_v9_hqd_sdma_get_doorbell(struct amdgpu_device *adev,
 					  int engine, int queue)
-
 {
 	return 0;
+}
+
+void kgd_gfx_v9_clean_fault(struct amdgpu_device *adev)
+{
+	gfx_v9_4_2_clean_fault(adev);
 }
 
 const struct kfd2kgd_calls gfx_v9_kfd2kgd = {
@@ -1261,5 +1267,6 @@ const struct kfd2kgd_calls gfx_v9_kfd2kgd = {
 	.program_trap_handler_settings = kgd_gfx_v9_program_trap_handler_settings,
 	.hqd_get_pq_addr = kgd_gfx_v9_hqd_get_pq_addr,
 	.hqd_reset = kgd_gfx_v9_hqd_reset,
-	.hqd_sdma_get_doorbell = kgd_gfx_v9_hqd_sdma_get_doorbell
+	.hqd_sdma_get_doorbell = kgd_gfx_v9_hqd_sdma_get_doorbell,
+	.hqd_gfx_clean_fault = kgd_gfx_v9_clean_fault
 };

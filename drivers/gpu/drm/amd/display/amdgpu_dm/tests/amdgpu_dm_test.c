@@ -413,7 +413,7 @@ static void dm_test_update_planes_adapter_sorts_and_forwards(struct kunit *test)
 	};
 	dm_test_install_dm_ops(test, &dm_test_plane_update_ops);
 
-	KUNIT_EXPECT_TRUE(test, update_planes_and_stream_adapter(dc, UPDATE_TYPE_FAST, 3,
+	KUNIT_EXPECT_TRUE(test, update_planes_and_stream_adapter(dc, 3,
 								 stream, stream_update, updates));
 	KUNIT_EXPECT_EQ(test, updates[0].surface->layer_index, 5);
 	KUNIT_EXPECT_EQ(test, updates[1].surface->layer_index, 3);
@@ -436,7 +436,7 @@ static void dm_test_update_planes_adapter_propagates_failure(struct kunit *test)
 	dm_test_plane_update_ctx = (struct dm_test_plane_update_ops_ctx) { 0 };
 	dm_test_install_dm_ops(test, &dm_test_plane_update_ops);
 
-	KUNIT_EXPECT_FALSE(test, update_planes_and_stream_adapter(NULL, UPDATE_TYPE_FAST, 0,
+	KUNIT_EXPECT_FALSE(test, update_planes_and_stream_adapter(NULL, 0,
 								  NULL, NULL, NULL));
 }
 
@@ -3839,7 +3839,8 @@ dm_test_plane_info_ctx_alloc(struct kunit *test, struct amdgpu_device *adev,
 
 static int dm_test_fill_plane_info(struct dm_test_plane_info_ctx *ctx)
 {
-	return fill_dc_plane_info_and_addr(ctx->adev, ctx->plane_state,
+	return fill_dc_plane_info_and_addr(ctx->adev, ctx->plane_state->state,
+					   ctx->plane_state,
 					   &ctx->plane_info, &ctx->address, false);
 }
 

@@ -506,6 +506,11 @@ static void dm_test_format_mod_supported(struct kunit *test)
 
 	KUNIT_EXPECT_FALSE(test,
 			   amdgpu_dm_plane_format_mod_supported(plane, DRM_FORMAT_NV12, listed_mod));
+
+	/* 4 bytes per pixel, but its extra plane collides with the DCC metadata plane. */
+	KUNIT_EXPECT_FALSE(test,
+			   amdgpu_dm_plane_format_mod_supported(plane, DRM_FORMAT_XRGB8888_A8,
+								listed_mod));
 }
 
 /**
@@ -2964,7 +2969,7 @@ static void dm_test_plane_create_state_initializes_state(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, new_state->shaper_tf, AMDGPU_TRANSFER_FUNCTION_DEFAULT);
 	KUNIT_EXPECT_EQ(test, new_state->blend_tf, AMDGPU_TRANSFER_FUNCTION_DEFAULT);
 
-	kfree(new_state);
+	amdgpu_dm_plane_drm_plane_destroy_state(plane, &new_state->base);
 }
 
 /**
@@ -2987,6 +2992,14 @@ static void dm_test_plane_duplicate_state_copies_fields(struct kunit *test)
 	KUNIT_ASSERT_NOT_NULL(test, plane);
 	KUNIT_ASSERT_NOT_NULL(test, old_state);
 
+	/* duplicate_state kmemdup()s these, so the source state must own them. */
+	old_state->flip_addr = kunit_kzalloc(test, sizeof(*old_state->flip_addr), GFP_KERNEL);
+	old_state->scaling_info = kunit_kzalloc(test, sizeof(*old_state->scaling_info), GFP_KERNEL);
+	old_state->plane_info = kunit_kzalloc(test, sizeof(*old_state->plane_info), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->flip_addr);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->scaling_info);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->plane_info);
+
 	old_state->degamma_tf = AMDGPU_TRANSFER_FUNCTION_PQ_EOTF;
 	old_state->hdr_mult = 0x123456789ULL;
 	old_state->shaper_tf = AMDGPU_TRANSFER_FUNCTION_IDENTITY;
@@ -3003,7 +3016,7 @@ static void dm_test_plane_duplicate_state_copies_fields(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dup_state->blend_tf, AMDGPU_TRANSFER_FUNCTION_SRGB_EOTF);
 	KUNIT_EXPECT_NULL(test, dup_state->dc_state);
 
-	kfree(dup_state);
+	amdgpu_dm_plane_drm_plane_destroy_state(plane, dup_base);
 }
 
 /*
@@ -3054,6 +3067,15 @@ static void dm_test_plane_duplicate_state_copies_resources(struct kunit *test)
 	kref_init(&dc_plane_state->refcount);
 	old_state->dc_state = dc_plane_state;
 	dm_test_attach_color_blobs(test, &adev->ddev, old_state);
+
+	/* duplicate_state kmemdup()s these, so the source state must own them. */
+	old_state->flip_addr = kunit_kzalloc(test, sizeof(*old_state->flip_addr), GFP_KERNEL);
+	old_state->scaling_info = kunit_kzalloc(test, sizeof(*old_state->scaling_info), GFP_KERNEL);
+	old_state->plane_info = kunit_kzalloc(test, sizeof(*old_state->plane_info), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->flip_addr);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->scaling_info);
+	KUNIT_ASSERT_NOT_NULL(test, old_state->plane_info);
+
 	plane->state = &old_state->base;
 
 	dup_base = amdgpu_dm_plane_drm_plane_duplicate_state(plane);
@@ -3673,6 +3695,328 @@ static void dm_test_atomic_async_update_copies_state(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, cur_state->crtc_h, 64U);
 }
 
+/**
+ * dm_test_add_modifier_alloc_failure() - Verify the growth allocation failure.
+ * @test: KUnit test context.
+ *
+ * Verify if a failed capacity growth releases and clears the modifier list so
+ * the caller can detect the allocation failure.
+ */
+static void dm_test_add_modifier_alloc_failure(struct kunit *test)
+{
+	/* Doubling this capacity overflows the kmalloc_array() size product. */
+	u64 cap = 1ULL << 62;
+	u64 size = cap;
+	u64 *mods = kmalloc_array(1, sizeof(*mods), GFP_KERNEL);
+
+	KUNIT_ASSERT_NOT_NULL(test, mods);
+
+	amdgpu_dm_plane_add_modifier(&mods, &size, &cap, 0x1234ULL);
+
+	KUNIT_EXPECT_PTR_EQ(test, mods, NULL);
+	KUNIT_EXPECT_EQ(test, size, 1ULL << 62);
+}
+
+/**
+ * dm_test_fill_plane_buffer_attributes_gfx6() - Verify the pre-GFX9 dispatch.
+ * @test: KUnit test context.
+ *
+ * Verify if a pre-Vega family decodes tiling from the GFX6 modifier instead of
+ * taking the GFX9 or GFX12 modifier paths, and propagates the decode error for
+ * a modifier the GFX6 decoder does not understand.
+ */
+static void dm_test_fill_plane_buffer_attributes_gfx6(struct kunit *test)
+{
+	struct dc_tiling_info tiling_info = {0};
+	struct dc_plane_dcc_param dcc = {0};
+	struct dc_plane_address address = {0};
+	struct plane_size plane_size = {0};
+	struct amdgpu_framebuffer *afb;
+	struct amdgpu_device *adev;
+
+	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
+	afb = kunit_kzalloc(test, sizeof(*afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, afb);
+
+	adev->family = AMDGPU_FAMILY_CZ;
+	afb->address = 0x80000000ULL;
+	afb->base.width = 1920;
+	afb->base.height = 1080;
+	afb->base.pitches[0] = 7680;
+	afb->base.format = drm_format_info(DRM_FORMAT_XRGB8888);
+	KUNIT_ASSERT_NOT_NULL(test, afb->base.format);
+	afb->base.modifier = AMD_FMT_MOD |
+			     AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX6) |
+			     AMD_FMT_MOD_SET(TILE, AMD_FMT_MOD_TILE_GFX6_1D_TILED_THIN1) |
+			     AMD_FMT_MOD_SET(MICROTILE, AMD_FMT_MOD_MICROTILE_DISPLAY);
+
+	KUNIT_EXPECT_EQ(test, dm_test_graphics_attrs(adev, afb, &tiling_info,
+						     &plane_size, &dcc, &address), 0);
+	KUNIT_EXPECT_EQ(test, address.type, (int)PLN_ADDR_TYPE_GRAPHICS);
+	KUNIT_EXPECT_EQ(test, (int)tiling_info.gfxversion, (int)DcGfxVersion8);
+
+	afb->base.modifier = AMD_FMT_MOD |
+			     AMD_FMT_MOD_SET(TILE_VERSION, AMD_FMT_MOD_TILE_VER_GFX9);
+
+	KUNIT_EXPECT_EQ(test, dm_test_graphics_attrs(adev, afb, &tiling_info,
+						     &plane_size, &dcc, &address), -EINVAL);
+}
+
+/**
+ * dm_test_atomic_check_success() - Verify a fully valid plane state is accepted.
+ * @test: KUnit test context.
+ *
+ * Verify if atomic_check reports success once DC validation accepts the plane.
+ * The resource pool exposes no validate_plane callback, so DC falls back to
+ * checking the source and destination rectangles only.
+ */
+static void dm_test_atomic_check_success(struct kunit *test)
+{
+	struct dm_plane_state *dm_plane_state;
+	struct drm_crtc_state *new_crtc_state;
+	struct drm_atomic_commit *state;
+	struct resource_pool *res_pool;
+	struct amdgpu_device *adev;
+	struct drm_framebuffer *fb;
+	struct drm_plane *plane;
+
+	adev = dm_test_init_atomic_check_state(test, &state, &plane, &dm_plane_state,
+					       &new_crtc_state, &fb);
+	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
+	res_pool->funcs = kunit_kzalloc(test, sizeof(*res_pool->funcs), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool->funcs);
+
+	adev->dm.dc->res_pool = res_pool;
+
+	dm_plane_state->dc_state->src_rect.width = 100;
+	dm_plane_state->dc_state->src_rect.height = 100;
+	dm_plane_state->dc_state->dst_rect.width = 100;
+	dm_plane_state->dc_state->dst_rect.height = 100;
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_plane_atomic_check(plane, state), 0);
+}
+
+struct dm_test_cursor_ctx {
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state *crtc_state;
+	struct drm_plane_state *state;
+	struct drm_plane_state old_state;
+	struct drm_plane *plane;
+};
+
+/*
+ * Build a 64x64 cursor plane bound to an amdgpu_crtc whose DM CRTC state
+ * carries no DC stream, so the cursor update stops before programming DC.
+ */
+static struct dm_test_cursor_ctx *dm_test_alloc_cursor_ctx(struct kunit *test)
+{
+	struct amdgpu_framebuffer *afb;
+	struct dm_test_cursor_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	afb = kunit_kzalloc(test, sizeof(*afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+	KUNIT_ASSERT_NOT_NULL(test, afb);
+
+	ctx->adev = dm_kunit_alloc_adev(test);
+	ctx->acrtc = kunit_kzalloc(test, sizeof(*ctx->acrtc), GFP_KERNEL);
+	ctx->crtc_state = kunit_kzalloc(test, sizeof(*ctx->crtc_state), GFP_KERNEL);
+	ctx->state = kunit_kzalloc(test, sizeof(*ctx->state), GFP_KERNEL);
+	ctx->plane = kunit_kzalloc(test, sizeof(*ctx->plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->plane);
+
+	ctx->adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	ctx->acrtc->base.dev = &ctx->adev->ddev;
+	ctx->acrtc->base.state = &ctx->crtc_state->base;
+	ctx->acrtc->max_cursor_width = 64;
+	ctx->acrtc->max_cursor_height = 64;
+
+	afb->address = 0x80000000ULL;
+	afb->base.pitches[0] = 256;
+	afb->base.format = drm_format_info(DRM_FORMAT_ARGB8888);
+	KUNIT_ASSERT_NOT_NULL(test, afb->base.format);
+
+	ctx->state->fb = &afb->base;
+	ctx->state->crtc = &ctx->acrtc->base;
+	ctx->state->crtc_w = 64;
+	ctx->state->crtc_h = 64;
+
+	ctx->plane->dev = &ctx->adev->ddev;
+	ctx->plane->state = ctx->state;
+
+	return ctx;
+}
+
+/**
+ * dm_test_handle_cursor_update_disabled() - Verify the cursor-off path.
+ * @test: KUnit test context.
+ *
+ * Verify if a cursor positioned fully off the left edge is treated as disabled
+ * and returns before the cursor geometry is latched on the CRTC.
+ */
+static void dm_test_handle_cursor_update_disabled(struct kunit *test)
+{
+	struct dm_test_cursor_ctx *ctx = dm_test_alloc_cursor_ctx(test);
+
+	ctx->state->crtc_x = -64;
+
+	amdgpu_dm_plane_handle_cursor_update(ctx->plane, &ctx->old_state);
+
+	KUNIT_EXPECT_EQ(test, ctx->acrtc->cursor_width, 0);
+	KUNIT_EXPECT_EQ(test, ctx->acrtc->cursor_height, 0);
+}
+
+/**
+ * dm_test_handle_cursor_update_no_stream() - Verify cursor attribute assembly.
+ * @test: KUnit test context.
+ *
+ * Verify if an enabled cursor latches its geometry on the CRTC and builds the
+ * DC cursor attributes, including the degamma ROM bit, before stopping at the
+ * missing DC stream.
+ */
+static void dm_test_handle_cursor_update_no_stream(struct kunit *test)
+{
+	struct dm_test_cursor_ctx *ctx = dm_test_alloc_cursor_ctx(test);
+
+	ctx->crtc_state->cm_is_degamma_srgb = true;
+	ctx->adev->dm.dc->caps.color.dpp.gamma_corr = true;
+
+	amdgpu_dm_plane_handle_cursor_update(ctx->plane, &ctx->old_state);
+
+	KUNIT_EXPECT_EQ(test, ctx->acrtc->cursor_width, 64);
+	KUNIT_EXPECT_EQ(test, ctx->acrtc->cursor_height, 64);
+}
+
+static int dm_test_clear_dcc_tiling_count;
+
+static void dm_test_clear_surface_dcc_and_tiling(struct pipe_ctx *pipe_ctx,
+						 struct dc_plane_state *plane_state,
+						 bool clear_tiling)
+{
+	if (clear_tiling)
+		dm_test_clear_dcc_tiling_count++;
+}
+
+/**
+ * dm_test_panic_flush_disables_dcc() - Verify panic flush disables DCC.
+ * @test: KUnit test context.
+ *
+ * Verify if panic_flush asks DC to clear DCC on the active pipe, and requests
+ * the tiling teardown as well when the framebuffer is not linear.
+ */
+static void dm_test_panic_flush_disables_dcc(struct kunit *test)
+{
+	struct dc_plane_state *dc_plane_state;
+	struct dm_plane_state *dm_plane_state;
+	struct resource_pool *res_pool;
+	struct drm_framebuffer *fb;
+	struct drm_plane *plane;
+	struct dc *dc;
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	dm_plane_state = kunit_kzalloc(test, sizeof(*dm_plane_state), GFP_KERNEL);
+	dc_plane_state = kunit_kzalloc(test, sizeof(*dc_plane_state), GFP_KERNEL);
+	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
+	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	KUNIT_ASSERT_NOT_NULL(test, dm_plane_state);
+	KUNIT_ASSERT_NOT_NULL(test, dc_plane_state);
+	KUNIT_ASSERT_NOT_NULL(test, fb);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
+
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	dc->current_state = dm_kunit_alloc_dc_state(test);
+	dc->hwss.clear_surface_dcc_and_tiling = dm_test_clear_surface_dcc_and_tiling;
+	res_pool->pipe_count = 1;
+	dc->res_pool = res_pool;
+	dc_plane_state->ctx = dc->ctx;
+
+	fb->modifier = AMD_FMT_MOD;
+	dm_plane_state->base.fb = fb;
+	dm_plane_state->dc_state = dc_plane_state;
+	plane->state = &dm_plane_state->base;
+
+	dm_test_clear_dcc_tiling_count = 0;
+
+	amdgpu_dm_plane_panic_flush(plane);
+
+	KUNIT_EXPECT_EQ(test, dm_test_clear_dcc_tiling_count, 1);
+}
+
+/*
+ * Build a DM ready to initialize planes on a real DRM device. The plane itself
+ * is plain kzalloc'd because DRM frees it through drm_plane_helper_destroy()
+ * when the mode config is torn down.
+ */
+static struct drm_plane *dm_test_alloc_init_plane(struct kunit *test,
+						  struct amdgpu_device **adev_out)
+{
+	struct amdgpu_device *adev;
+	struct drm_plane *plane;
+
+	adev = dm_kunit_alloc_adev(test);
+	adev->family = AMDGPU_FAMILY_NV;
+	adev->dm.adev = adev;
+	adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+
+	plane = kzalloc_obj(*plane, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	plane->type = DRM_PLANE_TYPE_OVERLAY;
+
+	*adev_out = adev;
+
+	return plane;
+}
+
+/**
+ * dm_test_plane_init_creates_optional_properties() - Verify optional properties.
+ * @test: KUnit test context.
+ *
+ * Verify if a Bonaire-or-newer non-cursor plane on a DCE version above 3.0.1
+ * gains the rotation property and framebuffer damage clips.
+ */
+static void dm_test_plane_init_creates_optional_properties(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_plane *plane;
+
+	plane = dm_test_alloc_init_plane(test, &adev);
+	adev->asic_type = CHIP_BONAIRE;
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(3, 1, 0);
+
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_plane_init(&adev->dm, plane, 1, NULL), 0);
+
+	KUNIT_EXPECT_NOT_NULL(test, plane->rotation_property);
+	KUNIT_EXPECT_NOT_NULL(test, adev->ddev.mode_config.prop_fb_damage_clips);
+}
+
+/**
+ * dm_test_plane_init_creates_color_pipeline() - Verify color pipeline creation.
+ * @test: KUnit test context.
+ *
+ * Verify if a non-cursor plane on DCN 3.0 or newer gets a default color
+ * pipeline exposed through the COLOR_PIPELINE property.
+ */
+static void dm_test_plane_init_creates_color_pipeline(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct drm_plane *plane;
+
+	plane = dm_test_alloc_init_plane(test, &adev);
+	adev->dm.dc->ctx->dce_version = DCN_VERSION_3_0;
+
+	KUNIT_ASSERT_EQ(test, amdgpu_dm_plane_init(&adev->dm, plane, 1, NULL), 0);
+
+	KUNIT_EXPECT_NOT_NULL(test, plane->color_pipeline_property);
+}
+
 static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_is_video_format() */
 	KUNIT_CASE(dm_test_plane_is_video_format_known_video),
@@ -3711,6 +4055,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	/* amdgpu_dm_plane_fill_plane_buffer_attributes() */
 	KUNIT_CASE(dm_test_fill_plane_buffer_attributes_video),
 	KUNIT_CASE(dm_test_fill_plane_buffer_attributes_gfx12),
+	KUNIT_CASE(dm_test_fill_plane_buffer_attributes_gfx6),
 	/* amdgpu_dm_plane_get_cursor_position() */
 	KUNIT_CASE(dm_test_get_cursor_position),
 	KUNIT_CASE(dm_test_get_cursor_position_bad_size),
@@ -3744,6 +4089,8 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_helper_cleanup_fb_no_fb),
 	/* amdgpu_dm_plane_handle_cursor_update() */
 	KUNIT_CASE(dm_test_handle_cursor_update_no_fb),
+	KUNIT_CASE(dm_test_handle_cursor_update_disabled),
+	KUNIT_CASE(dm_test_handle_cursor_update_no_stream),
 	/* amdgpu_dm_plane_atomic_async_update() */
 	KUNIT_CASE(dm_test_atomic_async_update_copies_state),
 	/* amdgpu_dm_plane_atomic_async_check() */
@@ -3755,8 +4102,10 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_atomic_check_helper_failure),
 	KUNIT_CASE(dm_test_atomic_check_color_pipeline_conflict),
 	KUNIT_CASE(dm_test_atomic_check_scaling_failure),
+	KUNIT_CASE(dm_test_atomic_check_success),
 	/* amdgpu_dm_plane_panic_flush() */
 	KUNIT_CASE(dm_test_panic_flush_no_dc_state),
+	KUNIT_CASE(dm_test_panic_flush_disables_dcc),
 	/* amdgpu_dm_plane_drm_plane_create_state() */
 	KUNIT_CASE(dm_test_plane_create_state_initializes_state),
 	/* amdgpu_dm_plane_drm_plane_duplicate_state() */
@@ -3769,6 +4118,7 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_add_modifier_appends_value),
 	KUNIT_CASE(dm_test_add_modifier_grows_capacity),
 	KUNIT_CASE(dm_test_add_modifier_noop_when_mods_null),
+	KUNIT_CASE(dm_test_add_modifier_alloc_failure),
 	/* amdgpu_dm_plane_add_modifier_dedup() */
 	KUNIT_CASE(dm_test_add_modifier_dedup_skips_duplicate),
 	KUNIT_CASE(dm_test_add_modifier_dedup_noop_when_mods_null),
@@ -3804,6 +4154,9 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_validate_dcc_not_capable_fails),
 	KUNIT_CASE(dm_test_validate_dcc_success_and_scan_mapping),
 	KUNIT_CASE(dm_test_validate_dcc_independent_64b_mismatch_fails),
+	/* amdgpu_dm_plane_init() */
+	KUNIT_CASE(dm_test_plane_init_creates_optional_properties),
+	KUNIT_CASE(dm_test_plane_init_creates_color_pipeline),
 	{}
 };
 

@@ -87,6 +87,7 @@ enum hubp_3dlut_fl_addressing_mode {
 };
 
 enum hubp_3dlut_fl_width {
+	hubp_3dlut_fl_width_9 = 9,
 	hubp_3dlut_fl_width_17 = 17,
 	hubp_3dlut_fl_width_33 = 33,
 	hubp_3dlut_fl_width_17_transformed    = 4916, //mpc default
@@ -175,7 +176,8 @@ struct hubp_funcs {
 	bool (*hubp_program_surface_flip_and_addr)(
 		struct hubp *hubp,
 		const struct dc_plane_address *address,
-		bool flip_immediate);
+		bool flip_immediate,
+		bool dcc);
 
 	void (*hubp_program_pte_vm)(
 		struct hubp *hubp,

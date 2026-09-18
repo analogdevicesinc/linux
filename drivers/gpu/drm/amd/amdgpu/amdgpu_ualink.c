@@ -26,6 +26,7 @@
 #include <drm/drm_mm.h>
 #include <linux/random.h>
 #include "amdgpu.h"
+#include "amdgpu_sdma.h"
 #include "amdgpu_ualink.h"
 #include "amdgpu_xgmi.h"
 #include "amdgpu_dma_buf.h"
@@ -2270,11 +2271,9 @@ static void amdgpu_ualink_process_hello_msg(struct amdgpu_device *adev,
 		/* otherwise, leave it IN_PROGRESS to signal the completion below */
 		mutex_unlock(&conn_state->lock);
 	} else {
-		/* Set the connection state back to In Progress and revoke
-		 * all exports and release all imports corresponding to the
-		 * sender GPU.
+		/* Leave state ESTABLISHED so handle_connection_reset()
+		 * performs the transition and imp/exp XA cleanup.
 		 */
-		conn_state->state = AMDGPU_UALINK_CONN_PENDING;
 		generation_count = conn_state->generation_count;
 		mutex_unlock(&conn_state->lock);
 

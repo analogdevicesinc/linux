@@ -439,7 +439,7 @@ static void dm_test_crtc_set_vupdate_irq_no_otg(struct kunit *test)
  * dm_test_crtc_set_vupdate_irq_dc_busy - Test vupdate irq when DC rejects request
  * @test: The KUnit test context
  *
- * With an OTG instance assigned but no DC attached, dc_interrupt_set() returns
+ * With an OTG instance assigned but no DC attached, amdgpu_dm_irq_set() returns
  * false and the function must report the request as busy (-EBUSY).
  */
 static void dm_test_crtc_set_vupdate_irq_dc_busy(struct kunit *test)
@@ -456,12 +456,12 @@ static void dm_test_crtc_set_vupdate_irq_dc_busy(struct kunit *test)
 	acrtc->base.dev = &adev->ddev;
 	acrtc->otg_inst = 0;
 
-	/* adev->dm.dc is NULL, so dc_interrupt_set() returns false. */
+	/* adev->dm.dc is NULL, so amdgpu_dm_irq_set() returns false. */
 	KUNIT_EXPECT_EQ(test,
 			amdgpu_dm_crtc_set_vupdate_irq(&acrtc->base, true), -EBUSY);
 }
 
-/* Per-source funcs let dc_interrupt_set() succeed without register access. */
+/* Per-source funcs let amdgpu_dm_irq_set() succeed without register access. */
 static bool dm_test_vupdate_irq_src_set(struct irq_service *irq_service,
 					const struct irq_source_info *info,
 					bool enable)
@@ -480,7 +480,7 @@ static struct irq_source_info_funcs dm_test_vupdate_irq_src_funcs = {
 	.ack = dm_test_vupdate_irq_src_ack,
 };
 
-/* A .set that fails so dc_interrupt_set() reports the source as busy. */
+/* A .set that fails so amdgpu_dm_irq_set() reports the source as busy. */
 static bool dm_test_vupdate_irq_src_set_busy(struct irq_service *irq_service,
 					     const struct irq_source_info *info,
 					     bool enable)
@@ -522,7 +522,9 @@ static void dm_test_crtc_set_vupdate_irq_enable(struct kunit *test)
 	irqs = kunit_kzalloc(test, sizeof(*irqs), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, irqs);
 
-	/* Populate the per-source info table so dc_interrupt_set() succeeds. */
+	/*
+	 * Populate the per-source info table so amdgpu_dm_irq_set() succeeds.
+	 */
 	info = kunit_kzalloc(test, sizeof(*info) * DAL_IRQ_SOURCES_NUMBER,
 			     GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, info);
@@ -1021,7 +1023,9 @@ static void dm_test_crtc_enable_vblank_vupdate_busy(struct kunit *test)
 	irqs = kunit_kzalloc(test, sizeof(*irqs), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, irqs);
 
-	/* Per-source .set fails so dc_interrupt_set() reports the source busy. */
+	/*
+	 * Per-source .set fails so amdgpu_dm_irq_set() reports the source busy.
+	 */
 	info = kunit_kzalloc(test, sizeof(*info) * DAL_IRQ_SOURCES_NUMBER,
 			     GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, info);
@@ -1662,7 +1666,7 @@ static void dm_test_crtc_reset_state_replaces_existing(struct kunit *test)
 	old->stream = stream;
 	crtc->state = &old->base;
 
-	amdgpu_dm_crtc_reset_state(crtc);
+	amdgpu_dm_crtc_create_state(crtc);
 
 	/* Old state was destroyed (stream ref dropped) and a new one installed. */
 	KUNIT_EXPECT_EQ(test, kref_read(&stream->refcount), 1);
@@ -2639,6 +2643,7 @@ static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	KUNIT_CASE(dm_test_crtc_destroy_cleans_up_and_frees),
 	/* amdgpu_dm_crtc_create_state */
 	KUNIT_CASE(dm_test_crtc_create_state_allocates_state),
+	KUNIT_CASE(dm_test_crtc_reset_state_replaces_existing),
 	/* amdgpu_dm_crtc_destroy_state */
 	KUNIT_CASE(dm_test_crtc_destroy_state_no_stream),
 	KUNIT_CASE(dm_test_crtc_destroy_state_releases_stream),

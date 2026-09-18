@@ -126,6 +126,10 @@ static enum hubp_3dlut_fl_width hubp401_get_3dlut_fl_width(
 	enum hubp_3dlut_fl_width width = 0;
 
 	switch (size) {
+	case CM_LUT_SIZE_999:
+		ASSERT(swizzle != CM_LUT_1D_PACKED_LINEAR);
+		width = hubp_3dlut_fl_width_9;
+		break;
 	case CM_LUT_SIZE_333333:
 		ASSERT(swizzle != CM_LUT_1D_PACKED_LINEAR);
 		width = hubp_3dlut_fl_width_33;
@@ -482,9 +486,12 @@ void hubp401_setup_interdependent(
 bool hubp401_program_surface_flip_and_addr(
 	struct hubp *hubp,
 	const struct dc_plane_address *address,
-	bool flip_immediate)
+	bool flip_immediate,
+	bool dcc)
 {
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
+
+	(void)dcc;
 
 	//program flip type
 	REG_UPDATE(DCSURF_FLIP_CONTROL,

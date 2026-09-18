@@ -31,6 +31,7 @@
 #include "amdgpu_dm_psr.h"
 #include "amdgpu_dm_replay.h"
 #include "amdgpu_dm_crtc.h"
+#include "amdgpu_dm_irq.h"
 #include "amdgpu_dm_plane.h"
 #include "amdgpu_dm_trace.h"
 #include "amdgpu_dm_debugfs.h"
@@ -91,7 +92,7 @@ int amdgpu_dm_crtc_set_vupdate_irq(struct drm_crtc *crtc, bool enable)
 
 	irq_source = IRQ_TYPE_VUPDATE + acrtc->otg_inst;
 
-	rc = dc_interrupt_set(adev->dm.dc, irq_source, enable) ? 0 : -EBUSY;
+	rc = amdgpu_dm_irq_set(adev, irq_source, enable) ? 0 : -EBUSY;
 
 	DRM_DEBUG_VBL("crtc %d - vupdate irq %sabling: r=%d\n",
 		      acrtc->crtc_id, enable ? "en" : "dis", rc);
@@ -480,9 +481,9 @@ EXPORT_IF_KUNIT(amdgpu_dm_crtc_duplicate_state);
 STATIC_IFN_KUNIT void amdgpu_dm_crtc_destroy(struct drm_crtc *crtc)
 {
 	/*
-	 * amdgpu_dm_ism_fini() is intentionally called in amdgpu_dm_fini().
-	 * It must be called before dc_destroy() in amdgpu_dm_fini()
-	 * to avoid ISM accessing an invalid dc handle once dc is released.
+	 * ISM workers are intentionally quiesced by amdgpu_dm_ism_disable()
+	 * in amdgpu_dm_fini(). That must happen before dc_destroy() so ISM
+	 * cannot access an invalid dc handle once dc is released.
 	 */
 
 	drm_crtc_cleanup(crtc);
@@ -841,7 +842,7 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
 	return 0;
 
 error_ism_fini:
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 	drm_crtc_cleanup(&acrtc->base);
 fail:
 	kfree(acrtc);

@@ -133,7 +133,8 @@ static void plane_address_in_gpu_space_to_uma(struct dce_hwseq *hwseq,
 	}
 }
 
-void dcn201_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
+void dcn201_prepare_plane_addr_update(const struct dc *dc, struct pipe_ctx *pipe_ctx,
+		struct dc_plane_address *addr_to_program, bool *flip_immediate)
 {
 	bool addr_patched = false;
 	PHYSICAL_ADDRESS_LOC addr;
@@ -149,10 +150,9 @@ void dcn201_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
 
 	plane_address_in_gpu_space_to_uma(hws, &uma);
 
-	pipe_ctx->plane_res.hubp->funcs->hubp_program_surface_flip_and_addr(
-			pipe_ctx->plane_res.hubp,
-			&uma,
-			plane_state->flip_immediate);
+	/* snapshot the UMA-converted address before the stereo patch is restored */
+	*addr_to_program = uma;
+	*flip_immediate = plane_state->flip_immediate;
 
 	plane_state->status.requested_address = plane_state->address;
 
@@ -161,6 +161,23 @@ void dcn201_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
 
 	if (addr_patched)
 		pipe_ctx->plane_state->address.grph_stereo.left_addr = addr;
+}
+
+void dcn201_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
+{
+	struct dc_plane_address address;
+	bool flip_immediate;
+
+	if (pipe_ctx->plane_state == NULL)
+		return;
+
+	dcn201_prepare_plane_addr_update(dc, pipe_ctx, &address, &flip_immediate);
+
+	pipe_ctx->plane_res.hubp->funcs->hubp_program_surface_flip_and_addr(
+			pipe_ctx->plane_res.hubp,
+			&address,
+			flip_immediate,
+			pipe_ctx->plane_state->dcc.enable);
 }
 
 /* Blank pixel data during initialization */

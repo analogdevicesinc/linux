@@ -201,6 +201,8 @@ struct device_queue_manager_ops {
 				  void *ctl_stack);
 	void	(*set_perfcount)(struct device_queue_manager *dqm,
 				  int enable);
+	int (*clean_process_queues_cpsch)(struct device_queue_manager *dqm,
+				    struct qcm_process_device *qpd);
 };
 
 struct device_queue_manager_asic_ops {

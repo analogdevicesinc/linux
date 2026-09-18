@@ -642,31 +642,6 @@ static void dm_test_ism_init_sets_initial_state(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, ism->config.sso_num_frames, config.sso_num_frames);
 }
 
-/* ===== Tests for amdgpu_dm_ism_fini ===== */
-
-/**
- * dm_test_ism_fini_after_init - fini cancels never-scheduled work without error
- * @test: KUnit test context
- */
-static void dm_test_ism_fini_after_init(struct kunit *test)
-{
-	struct amdgpu_dm_ism *ism = alloc_test_ism(test);
-	struct amdgpu_dm_ism_config config = {
-		.filter_num_frames = 5,
-		.filter_entry_count = 3,
-		.activation_num_delay_frames = 10,
-		.sso_num_frames = 2,
-	};
-
-	amdgpu_dm_ism_init(ism, &config);
-	/* Work was never scheduled; cancel_delayed_work_sync is a no-op. */
-	amdgpu_dm_ism_fini(ism);
-
-	/* FSM state is untouched by fini */
-	KUNIT_EXPECT_EQ(test, (int)ism->current_state,
-			(int)DM_ISM_STATE_FULL_POWER_RUNNING);
-}
-
 /* ===== Tests for dm_ism_set_last_idle_ts ===== */
 
 /**
@@ -897,6 +872,32 @@ static void register_test_acrtc(struct amdgpu_device *adev,
 	list_add_tail(&acrtc->base.head, &adev->ddev.mode_config.crtc_list);
 }
 
+/* ===== Tests for amdgpu_dm_ism_flush ===== */
+
+/**
+ * dm_test_ism_flush_after_init - flush cancels never-scheduled work without error
+ * @test: KUnit test context
+ */
+static void dm_test_ism_flush_after_init(struct kunit *test)
+{
+	struct amdgpu_crtc *acrtc = alloc_test_acrtc(test, NULL);
+	struct amdgpu_dm_ism *ism = &acrtc->ism;
+	struct amdgpu_dm_ism_config config = {
+		.filter_num_frames = 5,
+		.filter_entry_count = 3,
+		.activation_num_delay_frames = 10,
+		.sso_num_frames = 2,
+	};
+
+	amdgpu_dm_ism_init(ism, &config);
+	/* Work was never scheduled; cancel_delayed_work_sync is a no-op. */
+	amdgpu_dm_ism_flush(ism);
+
+	/* FSM state is untouched by flush */
+	KUNIT_EXPECT_EQ(test, (int)ism->current_state,
+			(int)DM_ISM_STATE_FULL_POWER_RUNNING);
+}
+
 /* ===== Tests for amdgpu_dm_ism_commit_event ===== */
 
 /**
@@ -922,7 +923,7 @@ static void dm_test_ism_commit_event_no_state(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)acrtc->ism.current_state,
 			(int)DM_ISM_STATE_FULL_POWER_RUNNING);
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /**
@@ -958,7 +959,7 @@ static void dm_test_ism_commit_event_cursor_transition(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)acrtc->ism.current_state,
 			(int)DM_ISM_STATE_FULL_POWER_RUNNING);
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /**
@@ -988,7 +989,7 @@ static void dm_test_ism_commit_event_invalid_event(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)acrtc->ism.current_state,
 			(int)DM_ISM_STATE_FULL_POWER_RUNNING);
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /* ===== Tests for amdgpu_dm_ism_force_full_power ===== */
@@ -1020,7 +1021,7 @@ static void dm_test_ism_force_full_power(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)acrtc->ism.current_state,
 			(int)DM_ISM_STATE_FULL_POWER_RUNNING);
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /* ===== Tests for amdgpu_dm_ism_disable / amdgpu_dm_ism_enable ===== */
@@ -1048,7 +1049,7 @@ static void dm_test_ism_disable_enable_cycle(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)acrtc->ism.current_state,
 			(int)DM_ISM_STATE_FULL_POWER_RUNNING);
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /* ===== Tests for dm_ism_dispatch_power_state (via commit_event) ===== */
@@ -1127,7 +1128,7 @@ static void dm_test_ism_dispatch_hysteresis_schedule_and_cancel(struct kunit *te
 				(int)DM_ISM_STATE_HYSTERESIS_BUSY);
 	}
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /**
@@ -1183,7 +1184,7 @@ static void dm_test_ism_dispatch_optimized_idle_defers_sso(struct kunit *test)
 		cancel_delayed_work(&acrtc->ism.sso_delayed_work);
 	}
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /*
@@ -1285,7 +1286,7 @@ static void dm_test_ism_commit_allows_idle_on_optimized_idle(struct kunit *test)
 		cancel_delayed_work(&acrtc->ism.sso_delayed_work);
 	}
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /**
@@ -1322,7 +1323,7 @@ static void dm_test_ism_commit_enables_sso_on_optimized_idle_sso(struct kunit *t
 		KUNIT_EXPECT_TRUE(test, adev->dm.dc->idle_optimizations_allowed);
 	}
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /**
@@ -1371,7 +1372,7 @@ static void dm_test_ism_commit_disallows_idle_on_timer_aborted(struct kunit *tes
 		KUNIT_EXPECT_FALSE(test, adev->dm.dc->idle_optimizations_allowed);
 	}
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /**
@@ -1413,7 +1414,7 @@ static void dm_test_ism_exit_from_optimized_idle_disallows_idle(struct kunit *te
 		KUNIT_EXPECT_EQ(test, acrtc->ism.next_record_idx, 1);
 	}
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /**
@@ -1452,7 +1453,7 @@ static void dm_test_ism_exit_from_sso_disallows_idle(struct kunit *test)
 		KUNIT_EXPECT_EQ(test, acrtc->ism.next_record_idx, 1);
 	}
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /**
@@ -1496,7 +1497,7 @@ static void dm_test_ism_delayed_work_runs_timer_elapsed(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dm_ism_test_idle.calls, 1);
 	KUNIT_EXPECT_TRUE(test, adev->dm.dc->idle_optimizations_allowed);
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 /**
@@ -1534,7 +1535,7 @@ static void dm_test_ism_sso_delayed_work_runs_sso_elapsed(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, dm_ism_test_idle.calls, 3);
 	KUNIT_EXPECT_TRUE(test, adev->dm.dc->idle_optimizations_allowed);
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 }
 
 static struct kunit_case dm_ism_test_cases[] = {
@@ -1582,8 +1583,8 @@ static struct kunit_case dm_ism_test_cases[] = {
 	KUNIT_CASE(dm_test_ism_idle_delay_entry_count_exceeds_history_size),
 	/* amdgpu_dm_ism_init */
 	KUNIT_CASE(dm_test_ism_init_sets_initial_state),
-	/* amdgpu_dm_ism_fini */
-	KUNIT_CASE(dm_test_ism_fini_after_init),
+	/* amdgpu_dm_ism_flush */
+	KUNIT_CASE(dm_test_ism_flush_after_init),
 	/* dm_ism_set_last_idle_ts */
 	KUNIT_CASE(dm_test_ism_set_last_idle_ts_updates_timestamp),
 	/* dm_ism_insert_record */

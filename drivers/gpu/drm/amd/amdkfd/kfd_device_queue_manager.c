@@ -797,10 +797,12 @@ static int create_queue_nocpsch(struct device_queue_manager *dqm,
 	mqd_mgr = dqm->mqd_mgrs[get_mqd_type_from_queue_type(
 			q->properties.type)];
 	if (qd && !mqd_mgr->restore_mqd) {
-		pr_debug("restore_mqd not implemented for this GPU\n");
+		pr_debug("restore_mqd not implemented for queue type %d\n",
+			 q->properties.type);
 		retval = -EOPNOTSUPP;
 		goto deallocate_vmid;
 	}
+
 	if (q->properties.type == KFD_QUEUE_TYPE_COMPUTE) {
 		retval = allocate_hqd(dqm, q);
 		if (retval)
@@ -1498,6 +1500,67 @@ static int evict_process_queues_cpsch(struct device_queue_manager *dqm,
 					      KFD_UNMAP_QUEUES_FILTER_DYNAMIC_QUEUES, 0,
 					      USE_DEFAULT_GRACE_PERIOD);
 	}
+
+out:
+	dqm_unlock(dqm);
+	return retval;
+}
+
+static int clean_process_queues_cpsch(struct device_queue_manager *dqm,
+				      struct qcm_process_device *qpd)
+{
+	struct queue *q;
+	struct kfd_process_device *pdd;
+	int retval = 0;
+
+	dqm_lock(dqm);
+	if (qpd->evicted++ > 0) /* already evicted, do nothing */
+		goto out;
+
+	pdd = qpd_to_pdd(qpd);
+
+	/* The debugger creates processes that temporarily have not acquired
+	 * all VMs for all devices and has no VMs itself.
+	 * Skip queue eviction on process eviction.
+	 */
+	if (!pdd->drm_priv)
+		goto out;
+
+	pr_debug_ratelimited("Evicting process pid %d queues\n",
+			    pdd->process->lead_thread->pid);
+
+	/* Mark all queues as evicted. Deactivate all active queues on
+	 * the qpd.
+	 */
+	list_for_each_entry(q, &qpd->queues_list, list) {
+		q->properties.is_evicted = true;
+		if (!q->properties.is_active)
+			continue;
+
+		q->properties.is_active = false;
+		decrement_queue_count(dqm, qpd, q);
+
+		dqm_evict_mqd_bo(dqm, q);
+	}
+
+	pdd->last_evict_timestamp = get_jiffies_64();
+
+	if (!down_read_trylock(&dqm->dev->adev->reset_domain->sem)) {
+		retval =  -EIO;
+		goto out;
+	}
+
+	retval = unmap_queues_cpsch(dqm,
+			    KFD_UNMAP_QUEUES_FILTER_DYNAMIC_QUEUES,
+			    0,
+			    USE_DEFAULT_GRACE_PERIOD,
+			    false);
+
+	if (!retval) {
+		dqm->dev->kfd2kgd->hqd_gfx_clean_fault(dqm->dev->adev);
+		retval = map_queues_cpsch(dqm);
+	}
+	up_read(&dqm->dev->adev->reset_domain->sem);
 
 out:
 	dqm_unlock(dqm);
@@ -2317,7 +2380,8 @@ static int create_queue_cpsch(struct device_queue_manager *dqm, struct queue *q,
 	mqd_mgr = dqm->mqd_mgrs[get_mqd_type_from_queue_type(
 			q->properties.type)];
 	if (qd && !mqd_mgr->restore_mqd) {
-		pr_debug("restore_mqd not implemented for this GPU\n");
+		pr_debug("restore_mqd not implemented for queue type %d\n",
+			 q->properties.type);
 		retval = -EOPNOTSUPP;
 		goto out_deallocate_doorbell;
 	}
@@ -2661,7 +2725,7 @@ static int reset_hung_queues_sdma(struct device_queue_manager *dqm)
 				continue;
 
 			/* Reset engine and check. */
-			if (amdgpu_sdma_reset_engine(dqm->dev->adev, i, false) ||
+			if (amdgpu_sdma_reset_engine(dqm->dev->adev, i) ||
 			    dqm->dev->kfd2kgd->hqd_sdma_get_doorbell(dqm->dev->adev, i, j) ||
 			    !set_sdma_queue_as_reset(dqm, doorbell_off)) {
 				r = -ENOTRECOVERABLE;
@@ -3347,6 +3411,7 @@ struct device_queue_manager *device_queue_manager_init(struct kfd_node *dev)
 		dqm->ops.get_queue_checkpoint_info = get_queue_checkpoint_info;
 		dqm->ops.checkpoint_mqd = checkpoint_mqd;
 		dqm->ops.set_perfcount = set_perfcount;
+		dqm->ops.clean_process_queues_cpsch = clean_process_queues_cpsch;
 		break;
 	case KFD_SCHED_POLICY_NO_HWS:
 		/* initialize dqm for no cp scheduling */
@@ -3368,6 +3433,7 @@ struct device_queue_manager *device_queue_manager_init(struct kfd_node *dev)
 		dqm->ops.get_queue_checkpoint_info = get_queue_checkpoint_info;
 		dqm->ops.checkpoint_mqd = checkpoint_mqd;
 		dqm->ops.set_perfcount = set_perfcount;
+		dqm->ops.clean_process_queues_cpsch = clean_process_queues_cpsch;
 		break;
 	default:
 		dev_err(dev->adev->dev, "Invalid scheduling policy %d\n", dqm->sched_policy);

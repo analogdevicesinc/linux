@@ -36,11 +36,16 @@ static void hpo_enc60_audio_mute_control(
 	struct hpo_frl_stream_encoder *enc,
 	bool mute)
 {
+	struct dcn401_hpo_frl_stream_encoder *enc401 = DCN401_HPO_FRL_STRENC_FROM_HPO_FRL_STRENC(enc);
 	ASSERT (enc->apg);
-	if (mute)
+
+	if (mute) {
 		enc->apg->funcs->disable_apg(enc->apg);
-	else
+		REG_UPDATE(HDMI_STREAM_ENC_AUDIO_CONTROL, HDMI_STREAM_ENC_APG_CLOCK_EN, 0);
+	} else {
+		REG_UPDATE(HDMI_STREAM_ENC_AUDIO_CONTROL, HDMI_STREAM_ENC_APG_CLOCK_EN, 1);
 		enc->apg->funcs->enable_apg(enc->apg);
+	}
 }
 
 //Covered both, rounding up or rounding down from FRL Link Rate /18.

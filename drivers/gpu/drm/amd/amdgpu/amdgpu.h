@@ -79,7 +79,7 @@
 #include "amdgpu_umsch_mm.h"
 #include "amdgpu_gmc.h"
 #include "amdgpu_gfx.h"
-#include "amdgpu_sdma.h"
+#include "amdgpu_sdma_types.h"
 #include "amdgpu_lsdma.h"
 #include "amdgpu_nbio.h"
 #include "amdgpu_reg_access.h"
@@ -626,6 +626,9 @@ enum amdgpu_enforce_isolation_mode {
 struct amdgpu_device {
 	struct device			*dev;
 	struct pci_dev			*pdev;
+	/* The two ends of the physical PCIe link outside the device. */
+	struct pci_dev			*link_dev;
+	struct pci_dev			*link_partner;
 	struct drm_device		ddev;
 
 #ifdef CONFIG_DRM_AMD_ACP

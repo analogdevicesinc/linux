@@ -33,6 +33,7 @@
 
 #include <drm/amdgpu_drm.h>
 #include <drm/drm_drv.h>
+#include <drm/drm_ioctl.h>
 #include <drm/ttm/ttm_tt.h>
 #include <drm/drm_exec.h>
 #include "amdgpu.h"
@@ -2563,6 +2564,12 @@ static int amdgpu_vm_create_task_info(struct amdgpu_vm *vm)
 	return 0;
 }
 
+static void amdgpu_vm_render_devt(struct amdgpu_device *adev, int *major, int *minor)
+{
+	*major = DRM_MAJOR;
+	*minor = adev_to_drm(adev)->render->index;
+}
+
 /**
  * amdgpu_vm_set_task_info - Sets VMs task info.
  *
@@ -2575,6 +2582,18 @@ void amdgpu_vm_set_task_info(struct amdgpu_vm *vm)
 
 	if (vm->task_info->task.pid == current->pid)
 		return;
+
+	if (vm->root.bo) {
+		struct amdgpu_device *adev = amdgpu_ttm_adev(vm->root.bo->tbo.bdev);
+		int major, minor;
+
+		amdgpu_vm_render_devt(adev, &major, &minor);
+
+		if (vm->task_info->task.pid)
+			trace_amdgpu_deregister_pid(vm->task_info->task.pid,
+						    major, minor);
+		trace_amdgpu_register_pid(current->pid, major, minor);
+	}
 
 	vm->task_info->task.pid = current->pid;
 	get_task_comm(vm->task_info->task.comm, current);
@@ -2874,6 +2893,13 @@ void amdgpu_vm_fini(struct amdgpu_device *adev, struct amdgpu_vm *vm)
 		dev_warn(adev->dev,
 			 "VM memory stats for proc %s(%d) task %s(%d) is non-zero when fini\n",
 			 ti->process_name, ti->task.pid, ti->task.comm, ti->tgid);
+	}
+
+	if (vm->task_info && vm->task_info->task.pid) {
+		int major, minor;
+
+		amdgpu_vm_render_devt(adev, &major, &minor);
+		trace_amdgpu_deregister_pid(vm->task_info->task.pid, major, minor);
 	}
 
 	amdgpu_vm_put_task_info(vm->task_info);

@@ -830,8 +830,9 @@ int amdgpu_ras_mgr_set_debug_mode(struct amdgpu_device *adev, bool enable)
 	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
 	int ret;
 
-	if (!ras_mgr || !ras_mgr->ras_core || !ras_mgr->ras_is_ready)
-		return false;
+	/* this only talks to PMFW, so it does not wait for the RAS block */
+	if (!ras_mgr || !ras_mgr->ras_core)
+		return -EINVAL;
 
 	ret = ras_core_set_debug_mode(ras_mgr->ras_core, enable);
 	if (!ret)

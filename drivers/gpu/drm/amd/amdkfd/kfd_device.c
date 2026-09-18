@@ -34,6 +34,7 @@
 #include "kfd_svm.h"
 #include "kfd_migrate.h"
 #include "amdgpu.h"
+#include "amdgpu_ip.h"
 #include "amdgpu_xcp.h"
 
 #define MQD_SIZE_ALIGNED 768
@@ -952,7 +953,8 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
 
 	svm_range_set_max_pages(kfd->adev);
 
-	kfd->init_complete = true;
+	/* Release pairs with the acquire in kfd_init_apertures(). */
+	smp_store_release(&kfd->init_complete, true);
 	dev_info(kfd_device, "added device %x:%x\n", kfd->adev->pdev->vendor,
 		 kfd->adev->pdev->device);
 
@@ -977,7 +979,7 @@ out:
 	return kfd->init_complete;
 }
 
-void kgd2kfd_device_exit(struct kfd_dev *kfd)
+void kgd2kfd_device_fini(struct kfd_dev *kfd)
 {
 	if (kfd->init_complete) {
 		/* Cleanup KFD nodes */
@@ -991,6 +993,11 @@ void kgd2kfd_device_exit(struct kfd_dev *kfd)
 	}
 
 	kfree(kfd);
+}
+
+void kgd2kfd_device_exit(struct kfd_dev *kfd)
+{
+	kgd2kfd_device_fini(kfd);
 
 	/* after remove a kfd device unlock kfd driver */
 	kgd2kfd_unlock_kfd(NULL);

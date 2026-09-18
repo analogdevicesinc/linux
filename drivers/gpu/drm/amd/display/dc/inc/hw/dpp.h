@@ -378,7 +378,8 @@ struct dpp_funcs {
 	void (*dpp_set_pregam_state)(
 			struct dpp *dpp_base,
 			enum dc_transfer_func_predefined tr,
-			enum dc_scaling_linearity scaling);
+			enum dc_scaling_linearity scaling,
+			bool source_is_linear);
 	void (*dpp_program_upsp)(
 			struct dpp *dpp_base,
 			const struct dscl_prog_data *dscl_prog_data);

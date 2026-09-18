@@ -179,6 +179,7 @@ struct dccg *dccg60_create(
 	base->ctx = ctx;
 	base->funcs = &dccg60_funcs;
 
+	base->inst = 0;
 	dccg_dcn->regs = regs;
 	dccg_dcn->dccg_shift = dccg_shift;
 	dccg_dcn->dccg_mask = dccg_mask;

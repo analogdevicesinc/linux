@@ -24,6 +24,8 @@
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
 #include <linux/migrate.h>
+#include "amdgpu.h"
+#include "amdgpu_sdma.h"
 #include "amdgpu_sync.h"
 #include "amdgpu_object.h"
 #include "amdgpu_vm.h"

@@ -67,7 +67,8 @@ static void dcn50_initialize_min_clocks(struct dc *dc)
 		 * audio corruption. Read current DISPCLK from DENTIST and request the same
 		 * freq to ensure that the timing is valid and unchanged.
 		 */
-		clocks->dispclk_khz = dc->clk_mgr->funcs->get_dispclk_from_dentist(dc->clk_mgr);
+		if (dc->clk_mgr->funcs->get_dispclk_from_dentist)
+			clocks->dispclk_khz = dc->clk_mgr->funcs->get_dispclk_from_dentist(dc->clk_mgr);
 	}
 	clocks->ref_dtbclk_khz = dc->clk_mgr->bw_params->clk_table.entries[0].dtbclk_mhz * 1000;
 	clocks->fclk_p_state_change_support = true;
@@ -201,8 +202,14 @@ void dcn50_update_dchubp_dpp(
 	if ((pipe_ctx->update_flags.bits.enable || pipe_ctx->update_flags.bits.opp_changed ||
 		pipe_ctx->update_flags.bits.scaler || viewport_changed == true) &&
 		pipe_ctx->stream->cursor_attributes.address.quad_part != 0) {
-		if (dc->hwss.abort_cursor_offload_update)
-			dc->hwss.abort_cursor_offload_update(dc, pipe_ctx);
+		if (dc_dmub_srv_is_cursor_offload_enabled(dc) && dc->hwss.abort_cursor_offload_update) {
+			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
+
+			if (top_pipe)
+				dc->hwss.abort_cursor_offload_update(dc->ctx->dmub_srv->dmub,
+					pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp,
+					top_pipe->pipe_idx);
+		}
 
 		dc->hwss.set_cursor_attribute(pipe_ctx);
 		dc->hwss.set_cursor_position(pipe_ctx);
@@ -638,7 +645,8 @@ void dcn50_init_hw(struct dc *dc)
 			dc->res_pool->hubbub->funcs->allow_self_refresh_control(dc->res_pool->hubbub,
 					!dc->res_pool->hubbub->ctx->dc->debug.disable_stutter);
 
-		dcn50_initialize_min_clocks(dc);
+		if (dc->clk_mgr && dc->clk_mgr->funcs)
+			dcn50_initialize_min_clocks(dc);
 
 		/* On HW init, allow idle optimizations after pipes have been turned off.
 		 *
