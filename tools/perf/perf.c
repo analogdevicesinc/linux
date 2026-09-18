@@ -32,6 +32,9 @@
 #include "util/build-id.h"
 #include "util/config.h"
 #include "util/debug.h"
+#ifdef HAVE_LIBTRACEEVENT
+#include "util/trace-event.h"
+#endif
 
 const char perf_usage_string[] =
 	"perf [--version] [--help] [OPTIONS] COMMAND [ARGS]";
@@ -379,6 +382,9 @@ static int run_builtin(const struct cmd_struct *p, int argc, const char **argv)
 
 	status = p->fn(argc, argv);
 	perf_config__exit();
+#ifdef HAVE_LIBTRACEEVENT
+	trace_event__exit();
+#endif
 	exit_browser(status);
 
 	if (status)

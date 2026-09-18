@@ -32,6 +32,7 @@ bool have_tracepoints(struct list_head *evlist);
 
 int trace_event__init(struct trace_event *t);
 void trace_event__cleanup(struct trace_event *t);
+void trace_event__exit(void);
 int trace_event__register_resolver(struct machine *machine,
 				   tep_func_resolver_t *func);
 struct tep_event*

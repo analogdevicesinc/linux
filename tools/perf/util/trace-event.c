@@ -14,11 +14,9 @@
 #include "machine.h"
 
 /*
- * global trace_event object used by trace_event__tp_format
- *
- * TODO There's no cleanup call for this. Add some sort of
- * __exit function support and call trace_event__cleanup
- * there.
+ * Global trace_event object used by trace_event__tp_format. It caches the
+ * tracepoint formats of the running kernel for the lifetime of the command
+ * and is released by trace_event__exit.
  */
 static struct trace_event tevent;
 static bool tevent_initialized;
@@ -73,6 +71,20 @@ void trace_event__cleanup(struct trace_event *t)
 	tep_free(t->pevent);
 	t->pevent = NULL;
 	t->plugin_list = NULL;
+}
+
+/*
+ * Release the global trace_event. Called once the command is done, when the
+ * tep_event pointers handed out by trace_event__tp_format are no longer in
+ * use.
+ */
+void trace_event__exit(void)
+{
+	if (!tevent_initialized)
+		return;
+
+	trace_event__cleanup(&tevent);
+	tevent_initialized = false;
 }
 
 /*
