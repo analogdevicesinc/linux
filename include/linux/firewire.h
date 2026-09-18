@@ -172,10 +172,10 @@ struct fw_attribute_group {
 };
 
 enum fw_device_quirk {
-	// See afa1282a35d3 ("firewire: core: check for 1394a compliant IRM, fix inaccessibility of Sony camcorder").
+	// See 10389536742c ("firewire: core: check for 1394a compliant IRM, fix inaccessibility of Sony camcorder").
 	FW_DEVICE_QUIRK_IRM_IS_1394_1995_ONLY = BIT(0),
 
-	// See a509e43ff338 ("firewire: core: fix unstable I/O with Canon camcorder").
+	// See 6044565af458 ("firewire: core: fix unstable I/O with Canon camcorder").
 	FW_DEVICE_QUIRK_IRM_IGNORES_BUS_MANAGER = BIT(1),
 
 	// MOTU Audio Express transfers acknowledge packet with 0x10 for pending state.
@@ -299,8 +299,9 @@ union fw_transaction_callback {
 };
 
 /*
- * This callback handles an inbound request subaction.  It is called in
- * RCU read-side context, therefore must not sleep.
+ * This callback handles an inbound request subaction. If the request subaction is initiated from
+ * the local node (e.g. by unit driver), the execution context depends on the initiator and is
+ * unspecified. Otherwise, it runs in workqueue context.
  *
  * The callback should not initiate outbound request subactions directly.
  * Otherwise there is a danger of recursion of inbound and outbound
@@ -337,7 +338,6 @@ struct fw_packet {
 	 */
 	fw_packet_callback_t callback;
 	int ack;
-	struct list_head link;
 	void *driver_data;
 };
 
