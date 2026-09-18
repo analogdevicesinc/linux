@@ -118,7 +118,7 @@ static const struct proc_ops adi_sram_ops = {
 
 static const struct of_device_id adi_sram_of_match[] = {
 	{ .compatible = "adi,sram-controller" },
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, adi_sram_of_match);
 
@@ -188,8 +188,8 @@ static struct platform_driver adi_sram_driver = {
 	.probe = adi_sram_probe,
 	.remove = adi_sram_remove,
 	.driver = {
-		.name	= "sram_controller",
-		.of_match_table = of_match_ptr(adi_sram_of_match),
+		.name = "sram_controller",
+		.of_match_table = adi_sram_of_match,
 	},
 };
 
