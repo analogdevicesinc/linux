@@ -456,7 +456,7 @@ When to use Acked-by:, Cc:, and Co-developed-by:
 ------------------------------------------------
 
 The Signed-off-by: tag indicates that the signer was involved in the
-development of the patch, or that he/she was in the patch's delivery path.
+development of the patch, or that they were in the patch's delivery path.
 
 If a person was not directly involved in the preparation or handling of a
 patch but wishes to signify and record their approval of it then they can

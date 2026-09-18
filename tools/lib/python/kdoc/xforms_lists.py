@@ -53,7 +53,7 @@ class CTransforms:
         (CMatch("__attribute__"), ""),
 
         #
-        # Macro __struct_group() creates an union with an anonymous
+        # Macro __struct_group() creates a union with an anonymous
         # and a non-anonymous struct, depending on the parameters. We only
         # need one of those at kernel-doc, as we won't be documenting the same
         # members twice.
