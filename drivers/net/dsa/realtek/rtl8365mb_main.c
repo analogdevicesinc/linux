@@ -199,6 +199,14 @@
 #define   RTL8365MB_GPHY_OCP_MSB_0_CFG_CPU_OCPADR_MASK	0x0FC0
 #define RTL8365MB_PHY_OCP_ADDR_PREFIX_MASK		0xFC00
 
+/* The full 16-bit OCP address is split across two registers: bits [15:10] are
+ * the prefix (RTL8365MB_PHY_OCP_ADDR_PREFIX_MASK above), and bits [9:1] go into
+ * the ADDRESS register as two fields, [5:1] and [9:6]. Bit 0 is always 0 - PHY
+ * OCP registers are 2-byte aligned.
+ */
+#define RTL8365MB_PHY_OCP_ADDR_5_1_MASK			GENMASK(5, 1)
+#define RTL8365MB_PHY_OCP_ADDR_9_6_MASK			GENMASK(9, 6)
+
 /* The PHY OCP addresses of PHY registers 0~31 start here */
 #define RTL8365MB_PHY_OCP_ADDR_PHYREG_BASE		0xA400
 
@@ -871,6 +879,8 @@ static int rtl8365mb_phy_poll_busy(struct realtek_priv *priv)
 static int rtl8365mb_phy_ocp_prepare(struct realtek_priv *priv, int phy,
 				     u32 ocp_addr)
 {
+	u16 ocp_addr_lo = FIELD_GET(RTL8365MB_PHY_OCP_ADDR_5_1_MASK, ocp_addr);
+	u16 ocp_addr_hi = FIELD_GET(RTL8365MB_PHY_OCP_ADDR_9_6_MASK, ocp_addr);
 	u32 val;
 	int ret;
 
@@ -887,9 +897,9 @@ static int rtl8365mb_phy_ocp_prepare(struct realtek_priv *priv, int phy,
 	val = RTL8365MB_PHY_BASE;
 	val |= FIELD_PREP(RTL8365MB_INDIRECT_ACCESS_ADDRESS_PHYNUM_MASK, phy);
 	val |= FIELD_PREP(RTL8365MB_INDIRECT_ACCESS_ADDRESS_OCPADR_5_1_MASK,
-			  ocp_addr >> 1);
+			  ocp_addr_lo);
 	val |= FIELD_PREP(RTL8365MB_INDIRECT_ACCESS_ADDRESS_OCPADR_9_6_MASK,
-			  ocp_addr >> 6);
+			  ocp_addr_hi);
 	ret = regmap_write(priv->map_nolock,
 			   RTL8365MB_INDIRECT_ACCESS_ADDRESS_REG, val);
 	if (ret)
