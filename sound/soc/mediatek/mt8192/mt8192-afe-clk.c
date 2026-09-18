@@ -680,27 +680,21 @@ int mt8192_init_clock(struct mtk_base_afe *afe)
 
 	afe_priv->apmixedsys = syscon_regmap_lookup_by_phandle(of_node,
 							       "mediatek,apmixedsys");
-	if (IS_ERR(afe_priv->apmixedsys)) {
-		dev_err(afe->dev, "%s() Cannot find apmixedsys controller: %ld\n",
-			__func__, PTR_ERR(afe_priv->apmixedsys));
-		return PTR_ERR(afe_priv->apmixedsys);
-	}
+	if (IS_ERR(afe_priv->apmixedsys))
+		return dev_err_probe(afe->dev, PTR_ERR(afe_priv->apmixedsys),
+				     "Cannot find apmixedsys controller\n");
 
 	afe_priv->topckgen = syscon_regmap_lookup_by_phandle(of_node,
 							     "mediatek,topckgen");
-	if (IS_ERR(afe_priv->topckgen)) {
-		dev_err(afe->dev, "%s() Cannot find topckgen controller: %ld\n",
-			__func__, PTR_ERR(afe_priv->topckgen));
-		return PTR_ERR(afe_priv->topckgen);
-	}
+	if (IS_ERR(afe_priv->topckgen))
+		return dev_err_probe(afe->dev, PTR_ERR(afe_priv->topckgen),
+				     "Cannot find topckgen controller\n");
 
 	afe_priv->infracfg = syscon_regmap_lookup_by_phandle(of_node,
 							     "mediatek,infracfg");
-	if (IS_ERR(afe_priv->infracfg)) {
-		dev_err(afe->dev, "%s() Cannot find infracfg: %ld\n",
-			__func__, PTR_ERR(afe_priv->infracfg));
-		return PTR_ERR(afe_priv->infracfg);
-	}
+	if (IS_ERR(afe_priv->infracfg))
+		return dev_err_probe(afe->dev, PTR_ERR(afe_priv->infracfg),
+				     "Cannot find infracfg\n");
 
 	return 0;
 }
