@@ -315,8 +315,12 @@ void snd_soc_component_suspend(struct snd_soc_component *component)
 
 void snd_soc_component_resume(struct snd_soc_component *component)
 {
-	if (component->driver->resume)
-		component->driver->resume(component);
+	int ret;
+
+	if (component->driver->resume) {
+		ret = component->driver->resume(component);
+		soc_component_ret(component, ret);
+	}
 	component->suspended = 0;
 }
 

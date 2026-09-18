@@ -214,6 +214,7 @@ struct rt721_sdca_dmic_kctrl_priv {
 #define RT721_SDCA_ENT_XU03			0x03
 #define RT721_SDCA_ENT_XU0D			0x0d
 #define RT721_SDCA_ENT_FU55			0x55
+#define RT721_SDCA_ENT0				0x00
 
 /* RT721 SDCA control */
 #define RT721_SDCA_CTL_SAMPLE_FREQ_INDEX		0x10
@@ -229,6 +230,7 @@ struct rt721_sdca_dmic_kctrl_priv {
 #define RT721_SDCA_CTL_VENDOR_DEF			0x30
 #define RT721_SDCA_CTL_XUV				0x34
 #define RT721_SDCA_CTL_FU_CH_GAIN			0x0b
+#define RT721_SDCA_CTL_FUNC_STATUS			0x10
 
 /* RT721 SDCA channel */
 #define CH_L	0x01
@@ -260,6 +262,9 @@ struct rt721_sdca_dmic_kctrl_priv {
 
 /* RT721 HID ID */
 #define RT721_SDCA_HID_ID		0x11
+
+/* Function_Status */
+#define FUNCTION_NEEDS_INITIALIZATION	BIT(5)
 
 enum {
 	RT721_AIF1, /* For headset mic and headphone */
