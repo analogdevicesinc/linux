@@ -880,8 +880,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&bt_en>, <&bt_res>, <&uart0_data>, <&uart0_fctl>;
 
+	uart-has-rtscts;
+
 	bluetooth {
 		compatible = "brcm,bcm4330-bt";
+
+		max-speed = <3000000>;
 
 		shutdown-gpios = <&gpl0 4 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&gpl1 0 GPIO_ACTIVE_LOW>;
