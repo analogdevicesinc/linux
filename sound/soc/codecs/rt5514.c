@@ -1332,7 +1332,7 @@ static int rt5514_i2c_probe(struct i2c_client *i2c)
 			rt5514_dai, ARRAY_SIZE(rt5514_dai));
 }
 
-static const struct dev_pm_ops rt5514_i2_pm_ops = {
+static const struct dev_pm_ops rt5514_i2c_pm_ops = {
 	SYSTEM_SLEEP_PM_OPS(NULL, rt5514_i2c_resume)
 };
 
@@ -1341,7 +1341,7 @@ static struct i2c_driver rt5514_i2c_driver = {
 		.name = "rt5514",
 		.acpi_match_table = ACPI_PTR(rt5514_acpi_match),
 		.of_match_table = of_match_ptr(rt5514_of_match),
-		.pm = pm_ptr(&rt5514_i2_pm_ops),
+		.pm = pm_ptr(&rt5514_i2c_pm_ops),
 	},
 	.probe = rt5514_i2c_probe,
 	.id_table = rt5514_i2c_id,
