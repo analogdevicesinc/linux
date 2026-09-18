@@ -32,6 +32,18 @@ struct snd_soc_dai_driver *snd_soc_dai_to_driver(const struct snd_soc_dai *dai)
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_to_driver);
 
+void snd_soc_dai_set_priv(struct snd_soc_dai *dai, void *priv)
+{
+	dai->priv = priv;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_set_priv);
+
+void *snd_soc_dai_to_priv(struct snd_soc_dai *dai)
+{
+	return dai->priv;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_to_priv);
+
 struct snd_soc_dai *snd_soc_dai_from_list(struct list_head *list)
 {
 	return list_entry(list, struct snd_soc_dai, list);
