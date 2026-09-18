@@ -262,19 +262,32 @@ static void br_flood_port(struct net_bridge_port **prev,
 }
 
 /* called under rcu_read_lock */
-void br_flood(struct net_bridge *br, struct sk_buff *skb,
-	      enum br_pkt_type pkt_type, bool local_rcv, bool local_orig,
-	      u16 vid)
+void br_flood(struct net_bridge *br, struct net_bridge_vlan *v,
+	      struct sk_buff *skb, enum br_pkt_type pkt_type,
+	      bool local_rcv, bool local_orig)
 {
 	struct net_bridge_port *prev = NULL;
-	struct net_bridge_port *p;
 
 	br_tc_skb_miss_set(skb, pkt_type != BR_PKT_BROADCAST);
 
-	list_for_each_entry_rcu(p, &br->port_list, list) {
-		br_flood_port(&prev, p, skb, pkt_type, local_orig, vid);
-		if (IS_ERR(prev))
-			break;
+	if (v) {
+		struct net_bridge_vlan *masterv, *pv;
+
+		masterv = br_vlan_is_master(v) ? v : v->brvlan;
+		list_for_each_entry_rcu(pv, &masterv->port_vlist, port_vlist) {
+			br_flood_port(&prev, pv->port, skb, pkt_type,
+				      local_orig, v->vid);
+			if (IS_ERR(prev))
+				break;
+		}
+	} else {
+		struct net_bridge_port *p;
+
+		list_for_each_entry_rcu(p, &br->port_list, list) {
+			br_flood_port(&prev, p, skb, pkt_type, local_orig, 0);
+			if (IS_ERR(prev))
+				break;
+		}
 	}
 
 	br_flood_finish(prev, skb, local_rcv, local_orig);
