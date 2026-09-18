@@ -381,6 +381,14 @@ static const char *hpre_channel_name[HPRE_MAX_CHANNEL_NUM] = {
 
 static const struct hisi_qm_err_ini hpre_err_ini;
 
+static inline u8 hpre_get_clusters_num(struct hisi_qm *qm)
+{
+	u32 cap = qm->cap_tables.dev_cap_table[HPRE_CORE_INFO].cap_val;
+
+	return (cap >> hpre_basic_info[HPRE_CLUSTER_NUM_CAP].shift) &
+		hpre_basic_info[HPRE_CLUSTER_NUM_CAP].mask;
+}
+
 bool hpre_check_alg_support(struct hisi_qm *qm, u32 alg)
 {
 	u32 cap_val;
@@ -557,15 +565,12 @@ static int hpre_set_cluster(struct hisi_qm *qm)
 	struct device *dev = &qm->pdev->dev;
 	u32 cluster_core_mask;
 	unsigned long offset;
-	u32 hpre_core_info;
 	u8 clusters_num;
 	u32 val = 0;
 	int ret, i;
 
 	cluster_core_mask = qm->cap_tables.dev_cap_table[HPRE_CORE_EN].cap_val;
-	hpre_core_info = qm->cap_tables.dev_cap_table[HPRE_CORE_INFO].cap_val;
-	clusters_num = (hpre_core_info >> hpre_basic_info[HPRE_CLUSTER_NUM_CAP].shift) &
-			hpre_basic_info[HPRE_CLUSTER_NUM_CAP].mask;
+	clusters_num = hpre_get_clusters_num(qm);
 	for (i = 0; i < clusters_num; i++) {
 		offset = i * HPRE_CLSTR_ADDR_INTRVL;
 
@@ -659,7 +664,6 @@ static void hpre_enable_clock_gate(struct hisi_qm *qm)
 {
 	unsigned long offset;
 	u8 clusters_num, i;
-	u32 hpre_core_info;
 	u32 val;
 
 	if (qm->ver < QM_HW_V3)
@@ -673,9 +677,7 @@ static void hpre_enable_clock_gate(struct hisi_qm *qm)
 	val |= HPRE_PEH_CFG_AUTO_GATE_EN;
 	writel(val, qm->io_base + HPRE_PEH_CFG_AUTO_GATE);
 
-	hpre_core_info = qm->cap_tables.dev_cap_table[HPRE_CORE_INFO].cap_val;
-	clusters_num = (hpre_core_info >> hpre_basic_info[HPRE_CLUSTER_NUM_CAP].shift) &
-			hpre_basic_info[HPRE_CLUSTER_NUM_CAP].mask;
+	clusters_num = hpre_get_clusters_num(qm);
 	for (i = 0; i < clusters_num; i++) {
 		offset = (unsigned long)i * HPRE_CLSTR_ADDR_INTRVL;
 		val = readl(qm->io_base + offset + HPRE_CLUSTER_DYN_CTL);
@@ -692,7 +694,6 @@ static void hpre_disable_clock_gate(struct hisi_qm *qm)
 {
 	unsigned long offset;
 	u8 clusters_num, i;
-	u32 hpre_core_info;
 	u32 val;
 
 	if (qm->ver < QM_HW_V3)
@@ -706,9 +707,7 @@ static void hpre_disable_clock_gate(struct hisi_qm *qm)
 	val &= ~HPRE_PEH_CFG_AUTO_GATE_EN;
 	writel(val, qm->io_base + HPRE_PEH_CFG_AUTO_GATE);
 
-	hpre_core_info = qm->cap_tables.dev_cap_table[HPRE_CORE_INFO].cap_val;
-	clusters_num = (hpre_core_info >> hpre_basic_info[HPRE_CLUSTER_NUM_CAP].shift) &
-			hpre_basic_info[HPRE_CLUSTER_NUM_CAP].mask;
+	clusters_num = hpre_get_clusters_num(qm);
 	for (i = 0; i < clusters_num; i++) {
 		offset = (unsigned long)i * HPRE_CLSTR_ADDR_INTRVL;
 		val = readl(qm->io_base + offset + HPRE_CLUSTER_DYN_CTL);
@@ -782,14 +781,11 @@ static int hpre_set_user_domain_and_cache(struct hisi_qm *qm)
 static void hpre_cnt_regs_clear(struct hisi_qm *qm)
 {
 	unsigned long offset;
-	u32 hpre_core_info;
 	u8 clusters_num;
 	int i;
 
 	/* clear clusterX/cluster_ctrl */
-	hpre_core_info = qm->cap_tables.dev_cap_table[HPRE_CORE_INFO].cap_val;
-	clusters_num = (hpre_core_info >> hpre_basic_info[HPRE_CLUSTER_NUM_CAP].shift) &
-			hpre_basic_info[HPRE_CLUSTER_NUM_CAP].mask;
+	clusters_num = hpre_get_clusters_num(qm);
 	for (i = 0; i < clusters_num; i++) {
 		offset = HPRE_CLSTR_BASE + i * HPRE_CLSTR_ADDR_INTRVL;
 		writel(0x0, qm->io_base + offset + HPRE_CLUSTER_INQURY);
@@ -1072,13 +1068,10 @@ static int hpre_cluster_debugfs_init(struct hisi_qm *qm)
 	char buf[HPRE_DBGFS_VAL_MAX_LEN];
 	struct debugfs_regset32 *regset;
 	struct dentry *tmp_d;
-	u32 hpre_core_info;
 	u8 clusters_num;
 	int i, ret;
 
-	hpre_core_info = qm->cap_tables.dev_cap_table[HPRE_CORE_INFO].cap_val;
-	clusters_num = (hpre_core_info >> hpre_basic_info[HPRE_CLUSTER_NUM_CAP].shift) &
-			hpre_basic_info[HPRE_CLUSTER_NUM_CAP].mask;
+	clusters_num = hpre_get_clusters_num(qm);
 	for (i = 0; i < clusters_num; i++) {
 		ret = snprintf(buf, HPRE_DBGFS_VAL_MAX_LEN, "cluster%d", i);
 		if (ret >= HPRE_DBGFS_VAL_MAX_LEN)
@@ -1308,13 +1301,10 @@ static int hpre_show_last_regs_init(struct hisi_qm *qm)
 	int com_dfx_regs_num = ARRAY_SIZE(hpre_com_dfx_regs);
 	struct qm_debug *debug = &qm->debug;
 	void __iomem *io_base;
-	u32 hpre_core_info;
 	u8 clusters_num;
 	int i, j, idx;
 
-	hpre_core_info = qm->cap_tables.dev_cap_table[HPRE_CORE_INFO].cap_val;
-	clusters_num = (hpre_core_info >> hpre_basic_info[HPRE_CLUSTER_NUM_CAP].shift) &
-			hpre_basic_info[HPRE_CLUSTER_NUM_CAP].mask;
+	clusters_num = hpre_get_clusters_num(qm);
 	debug->last_words = kcalloc(cluster_dfx_regs_num * clusters_num +
 			com_dfx_regs_num, sizeof(unsigned int), GFP_KERNEL);
 	if (!debug->last_words)
@@ -1354,7 +1344,6 @@ static void hpre_show_last_dfx_regs(struct hisi_qm *qm)
 	struct qm_debug *debug = &qm->debug;
 	struct pci_dev *pdev = qm->pdev;
 	void __iomem *io_base;
-	u32 hpre_core_info;
 	u8 clusters_num;
 	int i, j, idx;
 	u32 val;
@@ -1370,9 +1359,7 @@ static void hpre_show_last_dfx_regs(struct hisi_qm *qm)
 			  hpre_com_dfx_regs[i].name, debug->last_words[i], val);
 	}
 
-	hpre_core_info = qm->cap_tables.dev_cap_table[HPRE_CORE_INFO].cap_val;
-	clusters_num = (hpre_core_info >> hpre_basic_info[HPRE_CLUSTER_NUM_CAP].shift) &
-			hpre_basic_info[HPRE_CLUSTER_NUM_CAP].mask;
+	clusters_num = hpre_get_clusters_num(qm);
 	for (i = 0; i < clusters_num; i++) {
 		io_base = qm->io_base + hpre_cluster_offsets[i];
 		for (j = 0; j <  cluster_dfx_regs_num; j++) {
