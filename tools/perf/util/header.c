@@ -1,65 +1,68 @@
 // SPDX-License-Identifier: GPL-2.0
+#include "header.h"
+
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
-#include "string2.h"
-#include <sys/param.h>
-#include <sys/types.h>
-#include <byteswap.h>
-#include <unistd.h>
-#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <linux/compiler.h>
-#include <linux/list.h>
-#include <linux/kernel.h>
+#include <string.h>
+
+#include <byteswap.h>
+#include <dirent.h>
 #include <linux/bitops.h>
+#include <linux/compiler.h>
+#include <linux/ctype.h>
+#include <linux/kernel.h>
+#include <linux/list.h>
 #include <linux/string.h>
 #include <linux/stringify.h>
-#include <linux/zalloc.h>
-#include <sys/stat.h>
-#include <sys/utsname.h>
 #include <linux/time64.h>
-#include <dirent.h>
-#ifdef HAVE_LIBBPF_SUPPORT
-#include <bpf/libbpf.h>
-#endif
+#include <linux/zalloc.h>
+#include <regex.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/utsname.h>
+#include <unistd.h>
+
+#include <api/fs/fs.h>
+#include <api/io_dir.h>
+#include <internal/lib.h>
 #include <perf/cpumap.h>
 #include <tools/libc_compat.h> // reallocarray
 
+#include "../perf.h"
+#include "bpf-event.h"
+#include "bpf-utils.h"
+#include "build-id.h"
+#include "cacheline.h"
+#include "clockid.h"
+#include "cpumap.h"
+#include "cputopo.h"
+#include "data.h"
+#include "debug.h"
 #include "dso.h"
 #include "evlist.h"
 #include "evsel.h"
-#include "util/evsel_fprintf.h"
-#include "header.h"
+#include "evsel_fprintf.h"
 #include "memswap.h"
-#include "trace-event.h"
-#include "session.h"
-#include "symbol.h"
-#include "debug.h"
-#include "cpumap.h"
 #include "pmu.h"
 #include "pmus.h"
-#include "vdso.h"
+#include "session.h"
 #include "strbuf.h"
-#include "build-id.h"
-#include "data.h"
-#include <api/fs/fs.h>
-#include <api/io_dir.h>
-#include "asm/bug.h"
-#include "tool.h"
-#include "../perf.h"
+#include "string2.h"
+#include "symbol.h"
 #include "time-utils.h"
+#include "tool.h"
+#include "trace-event.h"
 #include "units.h"
-#include "util/util.h" // perf_exe()
-#include "cputopo.h"
-#include "bpf-event.h"
-#include "bpf-utils.h"
-#include "clockid.h"
-#include "cacheline.h"
+#include "util.h" // perf_exe()
+#include "vdso.h"
 
-#include <linux/ctype.h>
-#include <internal/lib.h>
+#ifdef HAVE_LIBBPF_SUPPORT
+#include <bpf/libbpf.h>
+#endif
 
 #ifdef HAVE_LIBTRACEEVENT
 #include <event-parse.h>
@@ -381,8 +384,10 @@ static int do_read_bitmap(struct feat_fd *ff, unsigned long **pset, u64 *psize)
 static int write_tracing_data(struct feat_fd *ff,
 			      struct evlist *evlist __maybe_unused)
 {
-	if (WARN(ff->buf, "Error: calling %s in pipe-mode.\n", __func__))
+	if (ff->buf) {
+		pr_warning("Error: calling %s in pipe-mode.\n", __func__);
 		return -1;
+	}
 
 #ifdef HAVE_LIBTRACEEVENT
 	return read_tracing_data(ff->fd, &evlist__core(evlist)->entries);
@@ -403,8 +408,10 @@ static int write_build_id(struct feat_fd *ff,
 	if (!perf_session__read_build_ids(session, true))
 		return -1;
 
-	if (WARN(ff->buf, "Error: calling %s in pipe-mode.\n", __func__))
+	if (ff->buf) {
+		pr_warning("Error: calling %s in pipe-mode.\n", __func__);
 		return -1;
+	}
 
 	err = perf_session__write_buildid_table(session, ff);
 	if (err < 0) {
@@ -1010,8 +1017,10 @@ static int write_auxtrace(struct feat_fd *ff,
 	struct perf_session *session;
 	int err;
 
-	if (WARN(ff->buf, "Error: calling %s in pipe-mode.\n", __func__))
+	if (ff->buf) {
+		pr_warning("Error: calling %s in pipe-mode.\n", __func__);
 		return -1;
+	}
 
 	session = container_of(ff->ph, struct perf_session, header);
 
@@ -1105,9 +1114,10 @@ static int write_dir_format(struct feat_fd *ff,
 	session = container_of(ff->ph, struct perf_session, header);
 	data = session->data;
 
-	if (WARN_ON(!perf_data__is_dir(data)))
+	if (!perf_data__is_dir(data)) {
+		pr_warning("Expected data to be a directory\n");
 		return -1;
-
+	}
 	return do_write(ff, &data->dir.version, sizeof(data->dir.version));
 }
 
@@ -1264,7 +1274,11 @@ static int cpu_cache_level__read(struct cpu_cache_level *cache, u32 cpu, u16 lev
 		return -1;
 
 	cache->type[len] = 0;
-	cache->type = strim(cache->type);
+	{
+		char *trimmed = strim(cache->type);
+
+		memmove(cache->type, trimmed, strlen(trimmed) + 1);
+	}
 
 	scnprintf(file, PATH_MAX, "%s/size", path);
 	if (sysfs__read_str(file, &cache->size, &len)) {
@@ -1273,7 +1287,11 @@ static int cpu_cache_level__read(struct cpu_cache_level *cache, u32 cpu, u16 lev
 	}
 
 	cache->size[len] = 0;
-	cache->size = strim(cache->size);
+	{
+		char *trimmed = strim(cache->size);
+
+		memmove(cache->size, trimmed, strlen(trimmed) + 1);
+	}
 
 	scnprintf(file, PATH_MAX, "%s/shared_cpu_list", path);
 	if (sysfs__read_str(file, &cache->map, &len)) {
@@ -1283,7 +1301,11 @@ static int cpu_cache_level__read(struct cpu_cache_level *cache, u32 cpu, u16 lev
 	}
 
 	cache->map[len] = 0;
-	cache->map = strim(cache->map);
+	{
+		char *trimmed = strim(cache->map);
+
+		memmove(cache->map, trimmed, strlen(trimmed) + 1);
+	}
 	return 0;
 }
 
@@ -2163,7 +2185,8 @@ static void free_event_desc(struct evsel *events)
 
 static bool perf_attr_check(struct perf_event_attr *attr)
 {
-	if (attr->__reserved_1 || attr->__reserved_2 || attr->__reserved_3) {
+	if (attr->__reserved_1 || attr->__reserved_2 ||
+	    attr->__reserved_3 || attr->__reserved_4) {
 		pr_warning("Reserved bits are set unexpectedly. "
 			   "Please update perf tool.\n");
 		return false;
@@ -3699,9 +3722,10 @@ static int process_dir_format(struct feat_fd *ff,
 	session = container_of(ff->ph, struct perf_session, header);
 	data = session->data;
 
-	if (WARN_ON(!perf_data__is_dir(data)))
+	if (!perf_data__is_dir(data)) {
+		pr_warning("Expected data to be a directory\n");
 		return -1;
-
+	}
 	return do_read_u64(ff, &data->dir.version);
 }
 
@@ -3903,7 +3927,8 @@ static int process_compressed(struct feat_fd *ff,
 	 * checks decomp_len + sizeof(struct decomp) against SIZE_MAX
 	 * before allocating, which handles 32-bit safety.
 	 */
-	if (env->comp_mmap_len < 4096 || env->comp_mmap_len % 4096) {
+	if (env->comp_mmap_len &&
+	    (env->comp_mmap_len < 4096 || env->comp_mmap_len % 4096)) {
 		pr_err("Invalid HEADER_COMPRESSED: comp_mmap_len (%u) must be a 4K-aligned value >= 4096\n",
 		       env->comp_mmap_len);
 		return -1;
@@ -4378,8 +4403,10 @@ static int do_write_feat(struct feat_fd *ff, int type,
 		if (!feat_ops[type].write)
 			return -1;
 
-		if (WARN(ff->buf, "Error: calling %s in pipe-mode.\n", __func__))
+		if (ff->buf) {
+			pr_warning("Error: calling %s in pipe-mode.\n", __func__);
 			return -1;
+		}
 
 		(*p)->offset = lseek(ff->fd, 0, SEEK_CUR);
 

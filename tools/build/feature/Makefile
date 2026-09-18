@@ -11,8 +11,7 @@ FILES=                                          \
          test-eventfd.bin                       \
          test-fortify-source.bin                \
          test-glibc.bin                         \
-         test-gtk2.bin                          \
-         test-gtk2-infobar.bin                  \
+         test-gtk4.bin                          \
          test-hello.bin                         \
          test-libbfd.bin                        \
 	 test-libbfd-threadsafe.bin      	\
@@ -240,11 +239,8 @@ $(OUTPUT)test-libcpupower.bin:
 $(OUTPUT)test-libtracefs.bin:
 	 $(BUILD) $(shell $(PKG_CONFIG) --cflags libtracefs 2>/dev/null) -ltracefs
 
-$(OUTPUT)test-gtk2.bin:
-	$(BUILD) $(shell $(PKG_CONFIG) --libs --cflags gtk+-2.0 2>/dev/null) -Wno-deprecated-declarations
-
-$(OUTPUT)test-gtk2-infobar.bin:
-	$(BUILD) $(shell $(PKG_CONFIG) --libs --cflags gtk+-2.0 2>/dev/null)
+$(OUTPUT)test-gtk4.bin:
+	$(BUILD) $(shell $(PKG_CONFIG) --libs --cflags gtk4 2>/dev/null)
 
 grep-libs  = $(filter -l%,$(1))
 strip-libs = $(filter-out -l%,$(1))
@@ -269,17 +265,17 @@ $(OUTPUT)test-libpython.bin:
 	$(BUILD) $(FLAGS_PYTHON_EMBED)
 
 $(OUTPUT)test-libbfd.bin:
-	$(BUILD_BFD)
+	$(BUILD_BFD) || $(BUILD_BFD) -lzstd
 
 $(OUTPUT)test-libbfd-threadsafe.bin:
-	$(BUILD_BFD) || $(BUILD_BFD) -liberty || $(BUILD_BFD) -liberty -lz
+	$(BUILD_BFD) || $(BUILD_BFD) -lzstd || $(BUILD_BFD) -liberty || $(BUILD_BFD) -liberty -lz
 
 $(OUTPUT)test-disassembler-four-args.bin:
-	$(BUILD_BFD) -lopcodes || $(BUILD_BFD) -lopcodes -liberty || \
+	$(BUILD_BFD) -lopcodes || $(BUILD_BFD) -lopcodes -lzstd || $(BUILD_BFD) -lopcodes -liberty || \
 	$(BUILD_BFD) -lopcodes -liberty -lz
 
 $(OUTPUT)test-disassembler-init-styled.bin:
-	$(BUILD_BFD) -lopcodes || $(BUILD_BFD) -lopcodes -liberty || \
+	$(BUILD_BFD) -lopcodes ||  $(BUILD_BFD) -lopcodes -liberty || \
 	$(BUILD_BFD) -lopcodes -liberty -lz
 
 $(OUTPUT)test-reallocarray.bin:

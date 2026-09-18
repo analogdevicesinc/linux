@@ -51,6 +51,7 @@
 #include "util/units.h"
 #include "util/unwind.h"
 #include "util/util.h" // perf_tip()
+#include "ui/keysyms.h"
 #include "ui/ui.h"
 #include "ui/progress.h"
 #include "util/block-info.h"
@@ -82,7 +83,7 @@ struct report {
 #ifdef HAVE_SLANG_SUPPORT
 	bool			use_tui;
 #endif
-#ifdef HAVE_GTK2_SUPPORT
+#ifdef HAVE_GTK4_SUPPORT
 	bool			use_gtk;
 #endif
 	bool			use_stdio;
@@ -1359,11 +1360,13 @@ int cmd_report(int argc, const char **argv)
 #ifdef HAVE_SLANG_SUPPORT
 	OPT_BOOLEAN(0, "tui", &report.use_tui, "Use the TUI interface"),
 #endif
-#ifdef HAVE_GTK2_SUPPORT
-	OPT_BOOLEAN(0, "gtk", &report.use_gtk, "Use the GTK2 interface"),
+#ifdef HAVE_GTK4_SUPPORT
+	OPT_BOOLEAN(0, "gtk", &report.use_gtk, "Use the GTK4 interface"),
 #endif
 	OPT_BOOLEAN(0, "stdio", &report.use_stdio,
 		    "Use the stdio interface"),
+	OPT_BOOLEAN(0, "weights", &symbol_conf.annotate_weight,
+			"Show or hide weight columns in annotation. Default show if non-zero."),
 	OPT_BOOLEAN(0, "header", &report.header, "Show data header."),
 	OPT_BOOLEAN(0, "header-only", &report.header_only,
 		    "Show only data header."),
@@ -1525,6 +1528,7 @@ int cmd_report(int argc, const char **argv)
 	 * reference exited threads.
 	 */
 	symbol_conf.keep_exited_threads = true;
+	symbol_conf.annotate_weight = true;
 
 	annotation_options__init();
 
@@ -1710,7 +1714,7 @@ repeat:
 	else if (report.use_tui)
 		use_browser = 1;
 #endif
-#ifdef HAVE_GTK2_SUPPORT
+#ifdef HAVE_GTK4_SUPPORT
 	else if (report.use_gtk)
 		use_browser = 2;
 #endif

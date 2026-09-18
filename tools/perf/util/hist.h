@@ -714,7 +714,6 @@ struct block_hist {
 #define NO_ADDR 0
 
 #ifdef HAVE_SLANG_SUPPORT
-#include "../ui/keysyms.h"
 void attr_to_script(char *buf, struct perf_event_attr *attr);
 
 int __hist_entry__tui_annotate(struct hist_entry *he, struct map_symbol *ms,
@@ -787,11 +786,6 @@ static inline int block_hists_tui_browse(struct block_hist *bh __maybe_unused,
 {
 	return 0;
 }
-
-#define K_LEFT  -1000
-#define K_RIGHT -2000
-#define K_SWITCH_INPUT_DATA -3000
-#define K_RELOAD -4000
 #endif
 
 unsigned int hists__sort_list_width(struct hists *hists);
