@@ -781,9 +781,6 @@ EXPORT_SYMBOL_GPL(snd_hdac_bus_free_stream_pages);
  */
 void snd_hdac_bus_link_power(struct hdac_device *codec, bool enable)
 {
-	if (enable)
-		set_bit(codec->addr, &codec->bus->codec_powered);
-	else
-		clear_bit(codec->addr, &codec->bus->codec_powered);
+	assign_bit(codec->addr, &codec->bus->codec_powered, enable);
 }
 EXPORT_SYMBOL_GPL(snd_hdac_bus_link_power);
