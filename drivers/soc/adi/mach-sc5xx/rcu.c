@@ -415,19 +415,18 @@ static void adi_rcu_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id adi_rcu_match[] = {
-	{.compatible = "adi,reset-controller" },
+	{ .compatible = "adi,reset-controller" },
 	{ }
 };
-
 MODULE_DEVICE_TABLE(of, adi_rcu_match);
 
 static struct platform_driver adi_rcu_driver = {
 	.probe = adi_rcu_probe,
 	.remove = adi_rcu_remove,
 	.driver = {
-		   .name = "ADI Reset Control Unit",
-		   .of_match_table = of_match_ptr(adi_rcu_match),
-		    },
+		.name = "ADI Reset Control Unit",
+		.of_match_table = adi_rcu_match,
+	},
 };
 
 module_platform_driver(adi_rcu_driver);
