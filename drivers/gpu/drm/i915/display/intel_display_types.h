@@ -1408,13 +1408,13 @@ struct intel_crtc_state {
 			u16 max_increase, max_decrease;
 			u16 vblank_target;
 		} dc_balance;
-	} vrr;
 
-	/* Content Match Refresh Rate state */
-	struct {
-		bool enable;
-		u64 cmrr_n, cmrr_m;
-	} cmrr;
+		/* Content Match Refresh Rate state */
+		struct {
+			bool enable;
+			u64 cmrr_n, cmrr_m;
+		} cmrr;
+	} vrr;
 
 	/* Stream Splitter for eDP MSO */
 	struct {
@@ -1552,6 +1552,11 @@ struct intel_crtc {
 	struct {
 		u64 flip_count;
 	} dc_balance;
+
+	struct {
+		u32 numerator;
+		u32 denominator;
+	} force_cmrr;
 
 	int scanline_offset;
 

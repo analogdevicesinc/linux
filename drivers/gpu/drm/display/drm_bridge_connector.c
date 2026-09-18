@@ -263,6 +263,9 @@ static void drm_bridge_connector_debugfs_init(struct drm_connector *connector,
 		if (bridge->funcs->debugfs_init)
 			bridge->funcs->debugfs_init(bridge, root);
 	}
+
+	if (bridge_connector->bridge_hdmi)
+		drm_hdmi_connector_debugfs_init(connector, root);
 }
 
 static struct drm_connector_state *

@@ -2530,10 +2530,8 @@ static int tc_probe(struct i2c_client *client)
 						NULL, tc_irq_handler,
 						IRQF_ONESHOT,
 						"tc358767-irq", tc);
-		if (ret) {
-			dev_err(dev, "failed to register dp interrupt\n");
+		if (ret)
 			return ret;
-		}
 
 		tc->have_irq = true;
 	}

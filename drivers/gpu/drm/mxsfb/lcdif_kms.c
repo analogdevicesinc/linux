@@ -596,18 +596,17 @@ static void lcdif_crtc_atomic_destroy_state(struct drm_crtc *crtc,
 	kfree(to_lcdif_crtc_state(state));
 }
 
-static void lcdif_crtc_reset(struct drm_crtc *crtc)
+static struct drm_crtc_state *lcdif_crtc_create_state(struct drm_crtc *crtc)
 {
 	struct lcdif_crtc_state *state;
 
-	if (crtc->state)
-		lcdif_crtc_atomic_destroy_state(crtc, crtc->state);
-
-	crtc->state = NULL;
-
 	state = kzalloc_obj(*state);
-	if (state)
-		__drm_atomic_helper_crtc_reset(crtc, &state->base);
+	if (!state)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_crtc_state_init(&state->base, crtc);
+
+	return &state->base;
 }
 
 static struct drm_crtc_state *
@@ -659,7 +658,7 @@ static const struct drm_crtc_helper_funcs lcdif_crtc_helper_funcs = {
 };
 
 static const struct drm_crtc_funcs lcdif_crtc_funcs = {
-	.reset = lcdif_crtc_reset,
+	.atomic_create_state = lcdif_crtc_create_state,
 	.destroy = drm_crtc_cleanup,
 	.set_config = drm_atomic_helper_set_config,
 	.page_flip = drm_atomic_helper_page_flip,

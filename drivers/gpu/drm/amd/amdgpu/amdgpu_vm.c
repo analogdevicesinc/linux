@@ -37,6 +37,7 @@
 #include <drm/drm_exec.h>
 #include "amdgpu.h"
 #include "amdgpu_vm.h"
+#include "amdgpu_vm_internal.h"
 #include "amdgpu_trace.h"
 #include "amdgpu_amdkfd.h"
 #include "amdgpu_gmc.h"
@@ -1195,7 +1196,9 @@ int amdgpu_vm_update_range(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 		uint64_t tmp, num_entries, addr;
 
 		num_entries = cursor.size >> AMDGPU_GPU_PAGE_SHIFT;
-		if (pages_addr) {
+		if (res && res->mem_type == AMDGPU_PL_NPA) {
+			addr = cursor.start;
+		} else if (pages_addr) {
 			bool contiguous = true;
 
 			if (num_entries > AMDGPU_GPU_PAGES_IN_CPU_PAGE) {
@@ -2165,6 +2168,7 @@ int amdgpu_vm_bo_clear_mappings(struct amdgpu_device *adev,
 struct amdgpu_bo_va_mapping *amdgpu_vm_bo_lookup_mapping(struct amdgpu_vm *vm,
 							 uint64_t addr)
 {
+	addr /= AMDGPU_GPU_PAGE_SIZE;
 	return amdgpu_vm_it_iter_first(&vm->va, addr, addr);
 }
 
@@ -2748,6 +2752,46 @@ unreserve_bo:
 	return r;
 }
 
+/**
+ * amdgpu_vm_make_npa - Turn a GFX VM into an NPA VM
+ *
+ * @adev: amdgpu_device pointer
+ * @vm: requested vm
+ *
+ * This only works on GFX VMs that don't have any BOs added and no
+ * page tables allocated yet.
+ *
+ * Changes the following VM parameters:
+ * - use_cpu_for_update
+ * - pins page tables
+ * - initializes PTEs to no-retry encoding
+ *
+ * Reinitializes the page directory to reflect the changed ATS
+ * setting.
+ *
+ * Returns:
+ * 0 for success, -errno for errors.
+ */
+int amdgpu_vm_make_npa(struct amdgpu_device *adev, struct amdgpu_vm *vm)
+{
+	int r = amdgpu_vm_make_compute(adev, vm);
+
+	if (r)
+		return r;
+	vm->is_npa = true;
+	r = amdgpu_bo_reserve(vm->root.bo, false);
+	if (r)
+		return r;
+	r = amdgpu_bo_pin(vm->root.bo, AMDGPU_GEM_DOMAIN_VRAM);
+	amdgpu_bo_unreserve(vm->root.bo);
+	if (r)
+		return r;
+
+	vm->is_npa = true;
+
+	return 0;
+}
+
 static int amdgpu_vm_stats_is_zero(struct amdgpu_vm *vm)
 {
 	for (int i = 0; i < __AMDGPU_PL_NUM; ++i) {
@@ -3052,7 +3096,8 @@ bool amdgpu_vm_handle_fault(struct amdgpu_device *adev, u32 pasid,
 	}
 
 	addr /= AMDGPU_GPU_PAGE_SIZE;
-	flags = AMDGPU_PTE_VALID | AMDGPU_PTE_SNOOPED |
+	flags = adev->gmc.init_pte_flags |
+		AMDGPU_PTE_VALID | AMDGPU_PTE_SNOOPED |
 		AMDGPU_PTE_SYSTEM;
 
 	if (is_compute_context) {
@@ -3065,8 +3110,7 @@ bool amdgpu_vm_handle_fault(struct amdgpu_device *adev, u32 pasid,
 		/* Redirect the access to the dummy page */
 		value = adev->dummy_page_addr;
 		flags |= AMDGPU_PTE_EXECUTABLE | AMDGPU_PTE_READABLE |
-			AMDGPU_PTE_WRITEABLE;
-
+			 AMDGPU_PTE_WRITEABLE;
 	} else {
 		/* Let the hw retry silently on the PTE */
 		value = 0;

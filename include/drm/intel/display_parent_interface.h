@@ -179,7 +179,7 @@ struct intel_display_pc8_interface {
 };
 
 struct intel_display_pcode_interface {
-	int (*read)(struct drm_device *drm, u32 mbox, u32 *val, u32 *val1);
+	int (*read)(struct drm_device *drm, u32 mbox, u32 *val0, u32 *val1);
 	int (*write)(struct drm_device *drm, u32 mbox, u32 val, int timeout_ms);
 	int (*request)(struct drm_device *drm, u32 mbox, u32 request,
 		       u32 reply_mask, u32 reply, int timeout_base_ms);
@@ -228,6 +228,10 @@ struct intel_display_vlv_iosf_interface {
 	void (*put)(struct drm_device *drm, unsigned long unit_mask);
 	u32 (*read)(struct drm_device *drm, enum vlv_iosf_sb_unit unit, u32 addr);
 	int (*write)(struct drm_device *drm, enum vlv_iosf_sb_unit unit, u32 addr, u32 val);
+};
+
+struct intel_display_wa_interface {
+	bool (*wa_16023588340)(struct drm_device *drm);
 };
 
 /**
@@ -291,6 +295,12 @@ struct intel_display_parent_interface {
 	/** @vlv_iosf: VLV IOSF sideband. Optional. */
 	const struct intel_display_vlv_iosf_interface *vlv_iosf;
 
+	/**
+	 * @wa: Display workarounds query. Use only for workarounds that require
+	 * information only available to the parent driver. Optional.
+	 */
+	const struct intel_display_wa_interface *wa;
+
 	/* Generic independent functions */
 	struct {
 		/** @fence_priority_display: Set display priority. Optional. */
@@ -301,6 +311,9 @@ struct intel_display_parent_interface {
 
 		/** @has_fenced_regions: Support legacy fencing? Optional. */
 		bool (*has_fenced_regions)(struct drm_device *drm);
+
+		/** @transient_data_flush: Transient data flush. Optional. */
+		void (*transient_data_flush)(struct drm_device *drm);
 
 		/** @vgpu_active: Is vGPU active? Optional. */
 		bool (*vgpu_active)(struct drm_device *drm);

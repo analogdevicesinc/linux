@@ -357,6 +357,8 @@ dml_get_var_func(svp_prefetch_urg_bw_available_sdp, double, mode_lib->mp.urg_ban
 dml_get_var_func(svp_prefetch_urg_bw_available_dram, double, mode_lib->mp.urg_bandwidth_available[dml2_core_internal_soc_state_svp_prefetch][dml2_core_internal_bw_dram]);
 dml_get_var_func(svp_prefetch_urg_bw_available_dram_vm_only, double, mode_lib->mp.urg_bandwidth_available_vm_only[dml2_core_internal_soc_state_svp_prefetch]);
 
+dml_get_var_func(sys_active_non_urg_bw_available_sdp, double, mode_lib->mp.non_urg_bandwidth_available[dml2_core_internal_soc_state_sys_active][dml2_core_internal_bw_sdp]);
+
 dml_get_var_func(urgent_latency, double, mode_lib->mp.UrgentLatency);
 dml_get_var_func(max_urgent_latency_us, double, mode_lib->ms.support.max_urgent_latency_us);
 dml_get_var_func(max_non_urgent_latency_us, double, mode_lib->ms.support.max_non_urgent_latency_us);
@@ -2739,16 +2741,15 @@ static double dml_get_return_bandwidth_available(
 			derate_fabric_factor = soc->qos_parameters.derate_table.dcn_mall_prefetch_average.fclk_derate_percent / 100.0;
 			derate_dram_factor = soc->qos_parameters.derate_table.dcn_mall_prefetch_average.dram_derate_percent_pixel / 100.0;
 		} else { // just assume sys_active
-			// use per dpm derates if the values are populated. Otherwise use global derates
-			derate_sdp_factor = soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.dcfclk_derate_percent[uclk_dpm_level] != 0 ?
-				soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.dcfclk_derate_percent[uclk_dpm_level] / 100.0 :
-				soc->qos_parameters.derate_table.system_active_average.dcfclk_derate_percent / 100.0;
-			derate_fabric_factor = soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.fclk_derate_percent[uclk_dpm_level] != 0 ?
-				soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.fclk_derate_percent[uclk_dpm_level] / 100.0 :
-				soc->qos_parameters.derate_table.system_active_average.fclk_derate_percent / 100.0;
-			derate_dram_factor = soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.dram_derate_percent_pixel[uclk_dpm_level] != 0 ?
-				soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.dram_derate_percent_pixel[uclk_dpm_level] / 100.0 :
-				soc->qos_parameters.derate_table.system_active_average.dram_derate_percent_pixel / 100.0;
+			derate_sdp_factor = (soc->qos_parameters.derate_table_per_dpm.dcfclk_per_dpm_derate[uclk_dpm_level].derate_percent != 0 ?
+				soc->qos_parameters.derate_table_per_dpm.dcfclk_per_dpm_derate[uclk_dpm_level].derate_percent :
+				soc->qos_parameters.derate_table_per_dpm.dcfclk_per_dpm_derate[0].derate_percent) / 100.0;
+			derate_fabric_factor = (soc->qos_parameters.derate_table_per_dpm.fclk_per_dpm_derate[uclk_dpm_level].derate_percent != 0 ?
+				soc->qos_parameters.derate_table_per_dpm.fclk_per_dpm_derate[uclk_dpm_level].derate_percent :
+				soc->qos_parameters.derate_table_per_dpm.fclk_per_dpm_derate[0].derate_percent) / 100.0;
+			derate_dram_factor = (soc->qos_parameters.derate_table_per_dpm.dram_per_dpm_derate_pixel[uclk_dpm_level].derate_percent != 0 ?
+				soc->qos_parameters.derate_table_per_dpm.dram_per_dpm_derate_pixel[uclk_dpm_level].derate_percent :
+				soc->qos_parameters.derate_table_per_dpm.dram_per_dpm_derate_pixel[0].derate_percent) / 100.0;
 		}
 	} else { // urgent bw
 		if (state_type == dml2_core_internal_soc_state_svp_prefetch) {
@@ -4117,9 +4118,7 @@ static bool ValidateODMMode(enum dml2_odm_mode ODMMode,
 	bool UseDSC,
 	unsigned int NumberOfDSCSlices,
 	unsigned int TotalNumberOfActiveDPP,
-	unsigned int TotalNumberOfActiveOPP,
 	unsigned int MaxNumDPP,
-	unsigned int MaxNumOPP,
 	double DISPCLKRequired,
 	unsigned int NumberOfDPPRequired,
 	unsigned int MaxHActiveForDSC,
@@ -4135,7 +4134,7 @@ static bool ValidateODMMode(enum dml2_odm_mode ODMMode,
 
 	if (DISPCLKRequired > MaxDispclk)
 		return false;
-	if ((TotalNumberOfActiveDPP + NumberOfDPPRequired) > MaxNumDPP || (TotalNumberOfActiveOPP + NumberOfDPPRequired) > MaxNumOPP)
+	if ((TotalNumberOfActiveDPP + NumberOfDPPRequired) > MaxNumDPP)
 		return false;
 	if (are_odm_segments_symmetrical) {
 		if (HActive % (NumberOfDPPRequired * pixels_per_clock_cycle))
@@ -4181,9 +4180,7 @@ static noinline_for_stack void CalculateODMMode(
 	double MaxDispclk,
 	bool DSCEnable,
 	unsigned int TotalNumberOfActiveDPP,
-	unsigned int TotalNumberOfActiveOPP,
 	unsigned int MaxNumDPP,
-	unsigned int MaxNumOPP,
 	double PixelClock,
 	unsigned int NumberOfDSCSlices,
 
@@ -4253,9 +4250,7 @@ static noinline_for_stack void CalculateODMMode(
 			UseDSC,
 			NumberOfDSCSlices,
 			TotalNumberOfActiveDPP,
-			TotalNumberOfActiveOPP,
 			MaxNumDPP,
-			MaxNumOPP,
 			DISPCLKRequired,
 			NumberOfDPPRequired,
 			MaxHActiveForDSC,
@@ -6876,6 +6871,8 @@ static void CalculateWatermarksMALLUseAndDRAMSpeedChangeSupport(
 
 	*p->global_fclk_change_supported = true;
 	*p->global_dram_clock_change_supported = true;
+	if (p->global_z8_stutter_supported)
+		*p->global_z8_stutter_supported = true;
 
 	for (unsigned int k = 0; k < p->NumberOfActiveSurfaces; ++k) {
 		double h_total = (double)p->display_cfg->stream_descriptors[p->display_cfg->plane_descriptors[k].stream_index].timing.h_total;
@@ -6989,6 +6986,12 @@ static void CalculateWatermarksMALLUseAndDRAMSpeedChangeSupport(
 
 		if (p->DRAMClockChangeSupport[k] == dml2_pstate_change_unsupported)
 			*p->global_dram_clock_change_supported = false;
+
+		if (p->global_z8_stutter_supported &&
+		    !dml_is_phantom_pipe(&p->display_cfg->plane_descriptors[k]) &&
+		    !(reserved_vblank_time_us > p->mmSOCParameters.SREnterPlusExitZ8Time) &&
+		    !((s->ActiveClockChangeLatencyHiding - p->Watermark->Z8StutterEnterPlusExitWatermark) > 0))
+			*p->global_z8_stutter_supported = false;
 
 		s->dst_y_pstate = (unsigned int)(math_ceil2((p->mmSOCParameters.DRAMClockChangeLatency + p->mmSOCParameters.UrgentLatency) / (h_total / pixel_clock_mhz), 1));
 		s->src_y_pstate_l = (unsigned int)(math_ceil2(s->dst_y_pstate * v_ratio, p->SwathHeightY[k]));
@@ -8027,6 +8030,7 @@ static noinline_for_stack void dml_core_ms_prefetch_check(struct dml2_core_inter
 	CalculateWatermarks_params->MaxActiveFCLKChangeLatencySupported = &s->dummy_single[0]; // double *MaxActiveFCLKChangeLatencySupported
 	CalculateWatermarks_params->USRRetrainingSupport = &mode_lib->ms.support.USRRetrainingSupport;
 	CalculateWatermarks_params->g6_temp_read_support = &mode_lib->ms.support.g6_temp_read_support;
+	CalculateWatermarks_params->global_z8_stutter_supported = NULL; // only consumed by mode programming
 	CalculateWatermarks_params->VActiveLatencyHidingMargin = mode_lib->ms.VActiveLatencyHidingMargin;
 	CalculateWatermarks_params->VActiveLatencyHidingUs = mode_lib->ms.VActiveLatencyHidingUs;
 
@@ -8483,7 +8487,6 @@ static bool dml_core_mode_support(struct dml2_core_calcs_mode_support_ex *in_out
 	CalculateSwathAndDETConfiguration(&mode_lib->scratch, CalculateSwathAndDETConfiguration_params);
 
 	mode_lib->ms.TotalNumberOfActiveDPP = 0;
-	mode_lib->ms.TotalNumberOfActiveOPP = 0;
 	mode_lib->ms.support.TotalAvailablePipesSupport = true;
 
 	for (k = 0; k < mode_lib->ms.num_active_planes; ++k) {
@@ -8519,9 +8522,7 @@ static bool dml_core_mode_support(struct dml2_core_calcs_mode_support_ex *in_out
 			mode_lib->ms.max_dispclk_freq_mhz,
 			false, // DSCEnable
 			mode_lib->ms.TotalNumberOfActiveDPP,
-			mode_lib->ms.TotalNumberOfActiveOPP,
 			mode_lib->ip.max_num_dpp,
-			mode_lib->ip.max_num_opp,
 			((double)display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].timing.pixel_clock_khz / 1000),
 			mode_lib->ms.support.NumberOfDSCSlices[k],
 
@@ -8540,9 +8541,7 @@ static bool dml_core_mode_support(struct dml2_core_calcs_mode_support_ex *in_out
 			mode_lib->ms.max_dispclk_freq_mhz,
 			true, // DSCEnable
 			mode_lib->ms.TotalNumberOfActiveDPP,
-			mode_lib->ms.TotalNumberOfActiveOPP,
 			mode_lib->ip.max_num_dpp,
-			mode_lib->ip.max_num_opp,
 			((double)display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].timing.pixel_clock_khz / 1000),
 			mode_lib->ms.support.NumberOfDSCSlices[k],
 
@@ -8680,12 +8679,25 @@ static bool dml_core_mode_support(struct dml2_core_calcs_mode_support_ex *in_out
 #endif
 	}
 
+	// TotalNumberOfActiveDPP is the sum of all planes
 	mode_lib->ms.TotalNumberOfActiveDPP = 0;
-	mode_lib->ms.TotalNumberOfActiveOPP = 0;
 	for (k = 0; k < mode_lib->ms.num_active_planes; ++k) {
 		mode_lib->ms.TotalNumberOfActiveDPP += mode_lib->ms.NoOfDPP[k];
-		mode_lib->ms.TotalNumberOfActiveOPP += mode_lib->ms.NoOfOPP[k];
 	}
+
+	// TotalNumberOfActiveOPP is the sum of the per stream max of all planes
+	mode_lib->ms.TotalNumberOfActiveOPP = 0;
+	for (k = 0; k < display_cfg->num_streams; ++k) {
+		unsigned int NoOfOppPerStream = 0;
+		for (m = 0; m < display_cfg->num_planes; ++m) {
+			if (display_cfg->plane_descriptors[m].stream_index == k) {
+				NoOfOppPerStream = NoOfOppPerStream < mode_lib->ms.NoOfOPP[m] ? mode_lib->ms.NoOfOPP[m] : NoOfOppPerStream;
+			}
+		}
+
+		mode_lib->ms.TotalNumberOfActiveOPP += NoOfOppPerStream;
+	}
+
 	if (mode_lib->ms.TotalNumberOfActiveDPP > (unsigned int)mode_lib->ip.max_num_dpp)
 		mode_lib->ms.support.TotalAvailablePipesSupport = false;
 	if (mode_lib->ms.TotalNumberOfActiveOPP > (unsigned int)mode_lib->ip.max_num_opp)
@@ -11883,6 +11895,7 @@ static bool dml_core_mode_programming(struct dml2_core_calcs_mode_programming_ex
 		CalculateWatermarks_params->MaxActiveFCLKChangeLatencySupported = &mode_lib->mp.MaxActiveFCLKChangeLatencySupported;
 		CalculateWatermarks_params->USRRetrainingSupport = &mode_lib->mp.USRRetrainingSupport;
 		CalculateWatermarks_params->g6_temp_read_support = &mode_lib->mp.g6_temp_read_support;
+		CalculateWatermarks_params->global_z8_stutter_supported = &mode_lib->mp.global_z8_stutter_supported;
 		CalculateWatermarks_params->VActiveLatencyHidingMargin = 0;
 		CalculateWatermarks_params->VActiveLatencyHidingUs = 0;
 
@@ -12909,6 +12922,11 @@ void dml2_core_calcs_get_mcif_arb_params(const struct dml2_core_internal_display
 	out->wm_regs[0].temp_read_or_ppt = (unsigned int)(mode_lib->mp.Watermark.writeback_temp_read_or_ppt_watermark_us * 1000.0);
 }
 
+void dml2_core_calcs_get_z8_stutter_support(const struct dml2_core_internal_display_mode_lib *mode_lib, bool *out)
+{
+	*out = mode_lib->mp.global_z8_stutter_supported;
+}
+
 void dml2_core_calcs_get_pipe_regs(const struct dml2_display_cfg *display_cfg,
 	struct dml2_core_internal_display_mode_lib *mode_lib,
 	struct dml2_dchub_per_pipe_register_set *out, int pipe_index)
@@ -13230,6 +13248,10 @@ void dml2_core_calcs_get_informative(const struct dml2_core_internal_display_mod
 	out->informative.mode_support_info.InvalidCombinationOfMALLUseForPState = mode_lib->ms.support.InvalidCombinationOfMALLUseForPState;
 	out->informative.mode_support_info.ExceededMALLSize = mode_lib->ms.support.ExceededMALLSize;
 	out->informative.mode_support_info.EnoughWritebackUnits = mode_lib->ms.support.EnoughWritebackUnits;
+	out->informative.mode_support_info.EnoughUrgentLatencyHidingSupport = mode_lib->ms.support.EnoughUrgentLatencyHidingSupport;
+	out->informative.mode_support_info.alternate_channel_size_support = mode_lib->ms.support.alternate_channel_size_support;
+	out->informative.mode_support_info.DSCSlicesODMModeSupported = mode_lib->ms.support.DSCSlicesODMModeSupported;
+	out->informative.mode_support_info.ODMSupport = mode_lib->ms.support.ODMSupport;
 	out->informative.mode_support_info.temp_read_or_ppt_support = mode_lib->ms.support.global_temp_read_or_ppt_supported;
 	out->informative.mode_support_info.g6_temp_read_support = mode_lib->ms.support.g6_temp_read_support;
 
@@ -13373,6 +13395,8 @@ void dml2_core_calcs_get_informative(const struct dml2_core_internal_display_mod
 	out->informative.qos.urg_bw_available.svp_prefetch.sdp_bw_mbps = dml_get_svp_prefetch_urg_bw_available_sdp(mode_lib);
 	out->informative.qos.urg_bw_available.svp_prefetch.dram_bw_mbps = dml_get_svp_prefetch_urg_bw_available_dram(mode_lib);
 	out->informative.qos.urg_bw_available.svp_prefetch.dram_vm_only_bw_mbps = dml_get_svp_prefetch_urg_bw_available_dram_vm_only(mode_lib);
+
+	out->informative.qos.non_urg_bw_available.sys_active.sdp_bw_mbps = dml_get_sys_active_non_urg_bw_available_sdp(mode_lib);
 
 	out->informative.qos.urg_bw_required.sys_active.sdp_bw_mbps = dml_get_sys_active_urg_bw_required_sdp(mode_lib);
 	out->informative.qos.urg_bw_required.sys_active.dram_bw_mbps = dml_get_sys_active_urg_bw_required_dram(mode_lib);

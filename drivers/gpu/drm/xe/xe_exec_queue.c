@@ -207,9 +207,6 @@ static struct xe_exec_queue *__xe_exec_queue_alloc(struct xe_device *xe,
 	struct xe_gt *gt = hwe->gt;
 	int err;
 
-	/* only kernel queues can be permanent */
-	XE_WARN_ON((flags & EXEC_QUEUE_FLAG_PERMANENT) && !(flags & EXEC_QUEUE_FLAG_KERNEL));
-
 	q = kzalloc_flex(*q, lrc, width);
 	if (!q)
 		return ERR_PTR(-ENOMEM);
@@ -1119,6 +1116,9 @@ static int exec_queue_user_ext_set_property(struct xe_device *xe,
 
 	idx = array_index_nospec(ext.property, ARRAY_SIZE(exec_queue_set_property_funcs));
 	if (!exec_queue_set_property_funcs[idx])
+		return -EINVAL;
+
+	if (XE_IOCTL_DBG(xe, *properties & BIT_ULL(idx)))
 		return -EINVAL;
 
 	*properties |= BIT_ULL(idx);

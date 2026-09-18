@@ -3,6 +3,7 @@
 // Copyright 2024 Advanced Micro Devices, Inc.
 
 #include "dm_services.h"
+#include "dm_helpers.h"
 #include "dc.h"
 
 #include "dcn32/dcn32_init.h"
@@ -81,8 +82,10 @@
 
 #include "dc_state_priv.h"
 
-#include "dml2_0/dml2_wrapper.h"
-#include "dml2_0/dml21/dml21_wrapper.h"
+#include "dml2_wrapper/dml2_wrapper.h"
+#include "dml2_wrapper/dml21_wrapper/dml21_wrapper.h"
+
+#define LSDMA_CONTENTION_BUFFER_SIZE (64 * 1024 * 1024)
 
 #define DC_LOGGER_INIT(logger)
 
@@ -286,7 +289,7 @@ static const struct dcn31_vpg_mask vpg_mask = {
 #define apg_regs_init(id)\
 	APG_DCN31_REG_LIST_RI(id)
 
-static struct dcn31_apg_registers apg_regs[4];
+static struct dcn31_apg_registers apg_regs[5];
 
 static const struct dcn31_apg_shift apg_shift = {
 	DCN31_APG_MASK_SH_LIST(__SHIFT)
@@ -372,11 +375,11 @@ static const struct dcn30_hpo_frl_link_encoder_mask hpo_le_mask = {
 static struct dcn31_hpo_dp_stream_encoder_registers hpo_dp_stream_enc_regs[4];
 
 static const struct dcn31_hpo_dp_stream_encoder_shift hpo_dp_se_shift = {
-	DCN3_1_HPO_DP_STREAM_ENC_MASK_SH_LIST(__SHIFT)
+	DCN4_2_HPO_DP_STREAM_ENC_MASK_SH_LIST(__SHIFT)
 };
 
 static const struct dcn31_hpo_dp_stream_encoder_mask hpo_dp_se_mask = {
-	DCN3_1_HPO_DP_STREAM_ENC_MASK_SH_LIST(_MASK)
+	DCN4_2_HPO_DP_STREAM_ENC_MASK_SH_LIST(_MASK)
 };
 
 #define hpo_dp_link_encoder_reg_init(id)\
@@ -671,6 +674,8 @@ static const struct dc_debug_options debug_defaults_drv = {
 		}
 	},
 	.force_cositing = CHROMA_COSITING_NONE + 1,
+	.dml21_disable_pstate_method_mask = 0x20, // disable alt-ch unconditionally until dependencies are ready
+
 };
 
 static const struct dc_check_config config_defaults = {
@@ -1386,7 +1391,8 @@ static struct apg *dcn60_apg_create(
 	apg_regs_init(0),
 	apg_regs_init(1),
 	apg_regs_init(2),
-	apg_regs_init(3);
+	apg_regs_init(3),
+	apg_regs_init(4);
 
 	apg31_construct(apg60, ctx, inst,
 			&apg_regs[inst],
@@ -1621,6 +1627,12 @@ static void dcn60_dsc_destroy(struct display_stream_compressor **dsc)
 static void dcn60_resource_destruct(struct dcn60_resource_pool *pool)
 {
 	unsigned int i;
+
+	if (pool->base.lsdma_scratch.buffer) {
+		dm_helpers_free_gpu_mem(pool->base.ctx,
+				DC_MEM_ALLOC_TYPE_GART, pool->base.lsdma_scratch.buffer);
+		pool->base.lsdma_scratch.buffer = NULL;
+	}
 
 	for (i = 0; i < pool->base.stream_enc_count; i++) {
 		if (pool->base.stream_enc[i] != NULL) {
@@ -1960,6 +1972,8 @@ static bool dcn60_resource_construct(
 	struct ddc_service_init_data ddc_init_data = {0};
 	uint32_t pipe_fuses = 0;
 	uint32_t num_pipes  = 4;
+	bool is_lite3 =
+		ASICREV_IS_DCN6_VARIANT_LITE3(ctx->asic_id.hw_internal_rev);
 
 #undef REG_STRUCT
 #define REG_STRUCT bios_regs
@@ -2033,7 +2047,18 @@ static bool dcn60_resource_construct(
 	dc->caps.edp_dsc_support = true;
 	dc->caps.extended_aux_timeout_support = true;
 	dc->caps.dmcub_support = true;
+	dc->caps.utm_support = true;
 	dc->caps.max_v_total = (1 << 15) - 1;
+
+	pool->base.ctx = ctx;
+
+	if (dc->config.lsdma_peak_bw_contention_support) {
+		pool->base.lsdma_scratch.buffer = dm_helpers_allocate_gpu_mem(ctx,
+				DC_MEM_ALLOC_TYPE_GART, LSDMA_CONTENTION_BUFFER_SIZE,
+				&pool->base.lsdma_scratch.pa);
+		if (pool->base.lsdma_scratch.buffer)
+			pool->base.lsdma_scratch.size = LSDMA_CONTENTION_BUFFER_SIZE;
+	}
 
 	if (ASICREV_IS_GC_12_0_1_A0(dc->ctx->asic_id.hw_internal_rev))
 		dc->caps.dcc_plane_width_limit = 7680;
@@ -2103,6 +2128,7 @@ static bool dcn60_resource_construct(
 	dc->config.enable_windowed_mpo_odm = true;
 	dc->config.set_pipe_unlock_order = true; /* Need to ensure DET gets freed before allocating */
 	dc->config.dp_connector_no_native_i2c = true;
+	dc->caps.fused_io_supported = true;
 	/* read VBIOS LTTPR caps */
 	{
 		if (ctx->dc_bios->funcs->get_lttpr_caps) {
@@ -2339,6 +2365,10 @@ static bool dcn60_resource_construct(
 
 	dc->dml2_options.max_segments_per_hubp = 20;
 	dc->dml2_options.det_segment_size = DCN6_0_CRB_SEGMENT_SIZE_KB;
+	if (is_lite3) {
+		dc->dml2_options.gpuvm_enable = true;
+		dc->dml2_options.hostvm_enable = true;
+	}
 
 	/* SPL */
 	dc->caps.scl_caps.sharpener_support = true;

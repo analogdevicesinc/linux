@@ -206,32 +206,24 @@ vmw_du_crtc_duplicate_state(struct drm_crtc *crtc)
 
 
 /**
- * vmw_du_crtc_reset - creates a blank vmw crtc state
+ * vmw_du_crtc_create_state - creates a blank vmw crtc state
  * @crtc: DRM crtc
  *
- * Resets the atomic state for @crtc by freeing the state pointer (which
- * might be NULL, e.g. at driver load time) and allocating a new empty state
- * object.
+ * Allocates a new empty state object for @crtc.
  */
-void vmw_du_crtc_reset(struct drm_crtc *crtc)
+struct drm_crtc_state *vmw_du_crtc_create_state(struct drm_crtc *crtc)
 {
 	struct vmw_crtc_state *vcs;
 
-
-	if (crtc->state) {
-		__drm_atomic_helper_crtc_destroy_state(crtc->state);
-
-		kfree(vmw_crtc_state_to_vcs(crtc->state));
-	}
-
 	vcs = kzalloc_obj(*vcs);
-
 	if (!vcs) {
 		DRM_ERROR("Cannot allocate vmw_crtc_state\n");
-		return;
+		return ERR_PTR(-ENOMEM);
 	}
 
-	__drm_atomic_helper_crtc_reset(crtc, &vcs->base);
+	__drm_atomic_helper_crtc_state_init(&vcs->base, crtc);
+
+	return &vcs->base;
 }
 
 
