@@ -1591,17 +1591,7 @@ static struct platform_driver gcc_sdx65_driver = {
 	},
 };
 
-static int __init gcc_sdx65_init(void)
-{
-	return platform_driver_register(&gcc_sdx65_driver);
-}
-subsys_initcall(gcc_sdx65_init);
-
-static void __exit gcc_sdx65_exit(void)
-{
-	platform_driver_unregister(&gcc_sdx65_driver);
-}
-module_exit(gcc_sdx65_exit);
+subsys_platform_driver(gcc_sdx65_driver);
 
 MODULE_DESCRIPTION("QTI GCC SDX65 Driver");
 MODULE_LICENSE("GPL v2");

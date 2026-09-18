@@ -7499,17 +7499,7 @@ static struct platform_driver gcc_x1e80100_driver = {
 	},
 };
 
-static int __init gcc_x1e80100_init(void)
-{
-	return platform_driver_register(&gcc_x1e80100_driver);
-}
-subsys_initcall(gcc_x1e80100_init);
-
-static void __exit gcc_x1e80100_exit(void)
-{
-	platform_driver_unregister(&gcc_x1e80100_driver);
-}
-module_exit(gcc_x1e80100_exit);
+subsys_platform_driver(gcc_x1e80100_driver);
 
 MODULE_DESCRIPTION("QTI GCC X1E80100 Driver");
 MODULE_LICENSE("GPL");
