@@ -1442,7 +1442,7 @@ periods:
    corresponding CPU's next scheduling-clock.
 #. CPUs mentioned in the ``nohz_full`` kernel boot parameter can run
    indefinitely in the kernel without scheduling-clock interrupts, which
-   defeats the above need_resched() strategem. RCU will therefore
+   defeats the above need_resched() stratagem. RCU will therefore
    invoke resched_cpu() on any ``nohz_full`` CPUs still holding out
    after 109 milliseconds.
 #. In kernels built with ``CONFIG_RCU_BOOST=y``, if a given task that
