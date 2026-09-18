@@ -26,6 +26,12 @@ struct snd_soc_component *snd_soc_dai_to_component(const struct snd_soc_dai *dai
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_to_component);
 
+struct snd_soc_dai_driver *snd_soc_dai_to_driver(const struct snd_soc_dai *dai)
+{
+	return dai->driver;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_to_driver);
+
 /*
  * We might want to check substream by using list.
  * In such case, we can update these macros.
