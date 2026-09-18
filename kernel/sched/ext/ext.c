@@ -1127,7 +1127,7 @@ void schedule_dsq_reenq(struct scx_sched *sch, struct scx_dispatch_q *dsq,
 	} else if (!(dsq->id & SCX_DSQ_FLAG_BUILTIN)) {
 		rq = this_rq();
 
-		struct scx_dsq_pcpu *dsq_pcpu = per_cpu_ptr(dsq->pcpu, cpu_of(rq));
+		struct scx_dsq_pcpu *dsq_pcpu = per_cpu_ptr(dsq->pcpu_user, cpu_of(rq));
 		struct scx_deferred_reenq_user *dru = &dsq_pcpu->deferred_reenq_user;
 
 		/*
@@ -1499,27 +1499,22 @@ static inline bool task_scx_migrating(struct task_struct *p)
 	return p->scx.sticky_cpu >= 0;
 }
 
-/*
- * Call ops.dequeue() if the task is in BPF custody and not migrating.
- * Clears %SCX_TASK_IN_CUSTODY when the callback is invoked.
- */
-static void call_task_dequeue(struct scx_sched *sch, struct rq *rq,
-			      struct task_struct *p, u64 deq_flags)
+/* Must be called under the lock serializing @p's custody transfers. */
+static bool task_leave_custody(struct task_struct *p)
 {
 	if (!(p->scx.flags & SCX_TASK_IN_CUSTODY) || task_scx_migrating(p))
-		return;
-
-	if (SCX_HAS_OP(sch, dequeue))
-		SCX_CALL_OP_TASK(sch, dequeue, rq, p, deq_flags);
+		return false;
 
 	p->scx.flags &= ~SCX_TASK_IN_CUSTODY;
+	return true;
 }
 
 static void rq_owned_post_enq(struct scx_sched *sch, struct rq *rq,
 			      struct scx_dispatch_q *dsq, struct task_struct *p,
 			      u64 enq_flags)
 {
-	call_task_dequeue(sch, rq, p, 0);
+	if (task_leave_custody(p) && SCX_HAS_OP(sch, dequeue))
+		SCX_CALL_OP_TASK(sch, dequeue, rq, p, 0);
 
 	/*
 	 * Only local inserts get the wakeup treatment below. Rejects kick the
@@ -1705,20 +1700,28 @@ static void scx_dispatch_enqueue(struct scx_sched *sch, struct rq *rq,
 	if (is_rq_owned) {
 		rq_owned_post_enq(sch, rq, dsq, p, enq_flags);
 	} else {
+		bool call_dequeue = false;
+
 		/*
 		 * Global and bypass DSQs are terminal - the task leaves the
-		 * scheduler's custody, so ops.dequeue() fires here. It can run
+		 * scheduler's custody, so ops.dequeue() fires. It can run
 		 * without @p's rq lock (finish_dispatch() passes the dispatch
 		 * rq); that's safe because dequeue_task_scx() waits on
 		 * SCX_OPSS_DISPATCHING (see the ops_state note above) and so
 		 * can't race it. A non-terminal DSQ keeps the task in custody.
+		 * The custody transfer happens under @dsq->lock so that later
+		 * consumers see the flag clear; the callback runs after
+		 * @dsq->lock is dropped because it may lock a DSQ itself.
 		 */
 		if (dsq->id == SCX_DSQ_GLOBAL || dsq->id == SCX_DSQ_BYPASS)
-			call_task_dequeue(sch, rq, p, 0);
+			call_dequeue = task_leave_custody(p);
 		else
 			p->scx.flags |= SCX_TASK_IN_CUSTODY;
 
 		raw_spin_unlock(&dsq->lock);
+
+		if (call_dequeue && SCX_HAS_OP(sch, dequeue))
+			SCX_CALL_OP_TASK(sch, dequeue, rq, p, 0);
 	}
 
 	/*
@@ -2141,7 +2144,12 @@ static void enqueue_task_scx(struct rq *rq, struct task_struct *p, int core_enq_
 	int sticky_cpu = p->scx.sticky_cpu;
 	u64 enq_flags = core_enq_flags | rq->scx.remote_activate_enq_flags;
 
-	if (enq_flags & ENQUEUE_WAKEUP)
+	/*
+	 * SCX_RQ_IN_WAKEUP promises a task_woken_scx() call once this enqueue
+	 * returns. Only the core's wakeup path delivers one. The flags stashed
+	 * for a remote activation may carry the wakeup bit without it.
+	 */
+	if (core_enq_flags & ENQUEUE_WAKEUP)
 		rq->scx.flags |= SCX_RQ_IN_WAKEUP;
 
 	/*
@@ -2210,7 +2218,7 @@ retry:
 		/*
 		 * A queued task must always be in BPF scheduler's custody. If
 		 * SCX_TASK_IN_CUSTODY is clear, finish_dispatch() on another
-		 * CPU has already passed call_task_dequeue() (which clears the
+		 * CPU has already passed task_leave_custody() (which clears the
 		 * flag), but has not yet written SCX_OPSS_NONE. That final
 		 * store does not require this rq's lock, so retrying with
 		 * cpu_relax() is bounded: we will observe NONE (or DISPATCHING,
@@ -2258,7 +2266,8 @@ retry:
 	 * NONE but the task may still have %SCX_TASK_IN_CUSTODY set until
 	 * it is enqueued on the destination.
 	 */
-	call_task_dequeue(sch, rq, p, deq_flags);
+	if (task_leave_custody(p) && SCX_HAS_OP(sch, dequeue))
+		SCX_CALL_OP_TASK(sch, dequeue, rq, p, deq_flags);
 }
 
 static bool dequeue_task_scx(struct rq *rq, struct task_struct *p, int core_deq_flags)
@@ -2374,14 +2383,10 @@ static void wakeup_preempt_scx(struct rq *rq, struct task_struct *p, int wake_fl
 }
 
 void scx_move_local_task_to_local_dsq(struct scx_sched *sch, struct task_struct *p,
-				      u64 enq_flags, struct scx_dispatch_q *src_dsq,
-				      struct rq *dst_rq)
+				      u64 enq_flags, struct rq *dst_rq)
 {
 	struct scx_dispatch_q *dst_dsq = scx_resolve_local_dsq(sch, dst_rq, p, &enq_flags);
 
-	/* @p is on @dst_rq, an rq-owned @src_dsq is covered by the rq lock */
-	if (!dsq_is_rq_owned(src_dsq))
-		lockdep_assert_held(&src_dsq->lock);
 	lockdep_assert_rq_held(dst_rq);
 
 	WARN_ON_ONCE(p->scx.holding_cpu >= 0);
@@ -2629,8 +2634,8 @@ static struct rq *move_task_between_dsqs(struct scx_sched *sch,
 		/* @p is going from a non-local DSQ to a local DSQ */
 		if (src_rq == dst_rq) {
 			scx_task_unlink_from_dsq(p, src_dsq);
-			scx_move_local_task_to_local_dsq(sch, p, enq_flags, src_dsq, dst_rq);
 			raw_spin_unlock(&src_dsq->lock);
+			scx_move_local_task_to_local_dsq(sch, p, enq_flags, dst_rq);
 		} else {
 			raw_spin_unlock(&src_dsq->lock);
 			move_remote_task_to_local_dsq(sch, p, enq_flags, src_rq, dst_rq);
@@ -2680,8 +2685,8 @@ retry:
 
 		if (rq == task_rq) {
 			scx_task_unlink_from_dsq(p, dsq);
-			scx_move_local_task_to_local_dsq(sch, p, enq_flags, dsq, rq);
 			raw_spin_unlock(&dsq->lock);
+			scx_move_local_task_to_local_dsq(sch, p, enq_flags, rq);
 			return true;
 		}
 
@@ -4404,6 +4409,17 @@ static bool local_task_should_reenq(struct rq *rq, struct task_struct *p,
 	return *reenq_flags & SCX_REENQ_ANY;
 }
 
+/*
+ * The dispatcher stores the final ops_state after dropping the DSQ lock, so @p
+ * can be found on a DSQ while still %SCX_OPSS_DISPATCHING. Reenqueueing @p
+ * before that store lands would have it clobber the new %SCX_OPSS_QUEUED.
+ */
+void scx_reenq_wait_dispatching(struct task_struct *p)
+{
+	if (unlikely(atomic_long_read_acquire(&p->scx.ops_state) == SCX_OPSS_DISPATCHING))
+		wait_ops_state(p, SCX_OPSS_DISPATCHING);
+}
+
 static u32 reenq_local(struct scx_sched *sch, struct rq *rq, u64 reenq_flags)
 {
 	LIST_HEAD(tasks);
@@ -4447,6 +4463,7 @@ static u32 reenq_local(struct scx_sched *sch, struct rq *rq, u64 reenq_flags)
 		if (!local_task_should_reenq(rq, p, &reenq_flags, &reason))
 			continue;
 
+		scx_reenq_wait_dispatching(p);
 		scx_dispatch_dequeue(rq, p);
 
 		if (WARN_ON_ONCE(p->scx.flags & SCX_TASK_REENQ_REASON_MASK))
@@ -4570,6 +4587,7 @@ static void reenq_user(struct rq *rq, struct scx_dispatch_q *dsq, u64 reenq_flag
 		}
 
 		/* @p is on @dsq, its rq and @dsq are locked */
+		scx_reenq_wait_dispatching(p);
 		dispatch_dequeue_locked(p, dsq);
 		raw_spin_unlock(&dsq->lock);
 
@@ -4701,7 +4719,7 @@ void scx_tg_init(struct task_group *tg)
 	tg->scx.weight = CGROUP_WEIGHT_DFL;
 	tg->scx.bw_period_us = default_bw_period_us();
 	tg->scx.bw_quota_us = RUNTIME_INF;
-	tg->scx.idle = false;
+	tg->scx.sched_idle = false;
 }
 
 /**
@@ -4784,7 +4802,7 @@ int scx_tg_online(struct task_group *tg)
 				  .bw_period_us = tg->scx.bw_period_us,
 				  .bw_quota_us = tg->scx.bw_quota_us,
 				  .bw_burst_us = tg->scx.bw_burst_us,
-				  .sched_idle = tg->scx.idle };
+				  .sched_idle = tg->scx.sched_idle };
 
 			ret = SCX_CALL_OP_RET(sch, cgroup_init,
 					      NULL, tg->css.cgroup, &args);
@@ -4951,11 +4969,11 @@ void scx_group_set_idle(struct task_group *tg, bool idle)
 	sch = scx_tg_knob_sched(tg);
 
 	if (scx_cgroup_enabled && sch && SCX_HAS_OP(sch, cgroup_set_idle) &&
-	    tg->scx.idle != idle)
+	    tg->scx.sched_idle != idle)
 		SCX_CALL_OP(sch, cgroup_set_idle, NULL, tg_cgrp(tg), idle);
 
 	/* Update the task group's idle state */
-	tg->scx.idle = idle;
+	tg->scx.sched_idle = idle;
 
 	percpu_up_read(&scx_cgroup_ops_rwsem);
 }
@@ -5069,12 +5087,16 @@ s32 scx_init_dsq(struct scx_dispatch_q *dsq, u64 dsq_id, struct scx_sched *sch)
 	dsq->id = dsq_id;
 	dsq->sched = sch;
 
-	dsq->pcpu = alloc_percpu(struct scx_dsq_pcpu);
-	if (!dsq->pcpu)
+	/* per-DSQ deferred reenq state is only needed for user DSQs */
+	if (dsq_id & SCX_DSQ_FLAG_BUILTIN)
+		return 0;
+
+	dsq->pcpu_user = alloc_percpu(struct scx_dsq_pcpu);
+	if (!dsq->pcpu_user)
 		return -ENOMEM;
 
 	for_each_possible_cpu(cpu) {
-		struct scx_dsq_pcpu *pcpu = per_cpu_ptr(dsq->pcpu, cpu);
+		struct scx_dsq_pcpu *pcpu = per_cpu_ptr(dsq->pcpu_user, cpu);
 
 		pcpu->dsq = dsq;
 		INIT_LIST_HEAD(&pcpu->deferred_reenq_user.node);
@@ -5087,8 +5109,11 @@ static void exit_dsq(struct scx_dispatch_q *dsq)
 {
 	s32 cpu;
 
+	if (!dsq->pcpu_user)
+		return;
+
 	for_each_possible_cpu(cpu) {
-		struct scx_dsq_pcpu *pcpu = per_cpu_ptr(dsq->pcpu, cpu);
+		struct scx_dsq_pcpu *pcpu = per_cpu_ptr(dsq->pcpu_user, cpu);
 		struct scx_deferred_reenq_user *dru = &pcpu->deferred_reenq_user;
 		struct rq *rq = cpu_rq(cpu);
 
@@ -5102,7 +5127,7 @@ static void exit_dsq(struct scx_dispatch_q *dsq)
 		}
 	}
 
-	free_percpu(dsq->pcpu);
+	free_percpu(dsq->pcpu_user);
 }
 
 static void free_dsq_rcufn(struct rcu_head *rcu)
@@ -5206,7 +5231,7 @@ static int scx_cgroup_init(struct scx_sched *sch)
 				.bw_period_us = tg->scx.bw_period_us,
 				.bw_quota_us = tg->scx.bw_quota_us,
 				.bw_burst_us = tg->scx.bw_burst_us,
-				.sched_idle = tg->scx.idle,
+				.sched_idle = tg->scx.sched_idle,
 			};
 
 			ret = SCX_CALL_OP_RET(sch, cgroup_init, NULL, css->cgroup, &args);
@@ -5878,7 +5903,7 @@ static void bypass_lb_node(struct scx_sched *sch, int node)
 
 	/*
 	 * We don't want CPUs to have more than $nr_donor_target tasks and
-	 * balancing to fill donee CPUs upto $nr_target. Once targets are
+	 * balancing to fill donee CPUs up to $nr_target. Once targets are
 	 * calculated, find the donee CPUs.
 	 */
 	nr_target = DIV_ROUND_UP(nr_tasks, nr_cpus);
@@ -8856,7 +8881,7 @@ __bpf_kfunc_start_defs();
  * task is inserted.
  *
  * When called from ops.dispatch(), there are no restrictions on @p or @dsq_id
- * and this function can be called upto ops.dispatch_max_batch times to insert
+ * and this function can be called up to ops.dispatch_max_batch times to insert
  * multiple tasks. scx_bpf_dispatch_nr_slots() returns the number of the
  * remaining slots. scx_bpf_dsq_move_to_local() flushes the batch and resets the
  * counter.
@@ -8941,7 +8966,9 @@ struct scx_bpf_dsq_insert_vtime_args {
  *
  * @args->vtime ordering is according to time_before64() which considers
  * wrapping. A numerically larger vtime may indicate an earlier position in the
- * ordering and vice-versa.
+ * ordering and vice-versa. vtime is a rolling cursor and values used for
+ * ordering within a given DSQ should stay less than 2^63 apart for
+ * time_before64() ordering to remain well-defined.
  *
  * A DSQ can only be used as a FIFO or priority queue at any given time and this
  * function must not be called on a DSQ which already has one or more FIFO tasks
@@ -9573,14 +9600,8 @@ void scx_kick_cpu(struct scx_sched *sch, s32 cpu, u64 flags)
 	struct rq *this_rq;
 	unsigned long irq_flags;
 
-	/*
-	 * The per-cpu kick list is guarded only by local_irq_save(), which does
-	 * not mask NMIs, so kicking from NMI could corrupt it and is unsupported.
-	 */
-	if (unlikely(in_nmi())) {
-		scx_error(sch, "scx_bpf_kick_cpu() called from NMI");
+	if (!scx_kf_allowed_ctx(sch))
 		return;
-	}
 
 	local_irq_save(irq_flags);
 
@@ -9748,8 +9769,13 @@ __bpf_kfunc void scx_bpf_destroy_dsq(u64 dsq_id, const struct bpf_prog_aux *aux)
 
 	guard(rcu)();
 	sch = scx_prog_sched(aux);
-	if (sch)
-		destroy_dsq(sch, dsq_id);
+	if (unlikely(!sch))
+		return;
+
+	if (!scx_kf_allowed_ctx(sch))
+		return;
+
+	destroy_dsq(sch, dsq_id);
 }
 
 /**
@@ -9785,6 +9811,9 @@ __bpf_kfunc int bpf_iter_scx_dsq_new(struct bpf_iter_scx_dsq *it, u64 dsq_id,
 	sch = scx_prog_sched(aux);
 	if (unlikely(!sch))
 		return -ENODEV;
+
+	if (!scx_kf_allowed_ctx(sch))
+		return -EDEADLK;
 
 	if (flags & ~__SCX_DSQ_ITER_USER_FLAGS)
 		return -EINVAL;
@@ -9911,6 +9940,9 @@ __bpf_kfunc void scx_bpf_dsq_reenq(u64 dsq_id, u64 reenq_flags,
 		scx_error(sch, "invalid SCX_REENQ flags 0x%llx", reenq_flags);
 		return;
 	}
+
+	if (!scx_kf_allowed_ctx(sch))
+		return;
 
 	/* not specifying any filter bits is the same as %SCX_REENQ_ANY */
 	if (!(reenq_flags & __SCX_REENQ_FILTER_MASK))
@@ -10299,6 +10331,9 @@ __bpf_kfunc void scx_bpf_cpuperf_set(s32 cpu, u32 perf, const struct bpf_prog_au
 	if (unlikely(!sch))
 		return;
 
+	if (!scx_kf_allowed_ctx(sch))
+		return;
+
 	scx_cpuperf_set(sch, cpu, perf);
 }
 
@@ -10324,6 +10359,10 @@ __bpf_kfunc s32 scx_bpf_cidperf_set(s32 cid, u32 perf,
 	sch = scx_prog_sched(aux);
 	if (unlikely(!sch))
 		return -ENODEV;
+
+	if (!scx_kf_allowed_ctx(sch))
+		return -EDEADLK;
+
 	cpu = scx_cid_to_cpu(sch, cid);
 	if (cpu < 0)
 		return cpu;

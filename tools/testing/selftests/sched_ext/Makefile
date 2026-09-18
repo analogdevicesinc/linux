@@ -53,7 +53,7 @@ ifneq ($(wildcard $(GENHDR)),)
   GENFLAGS := -DHAVE_GENHDR
 endif
 
-CFLAGS += -g -O2 -rdynamic -pthread -Wall -Werror $(GENFLAGS)			\
+CFLAGS += -g -O2 -pthread -Wall -Werror $(GENFLAGS)				\
 	  -I$(INCLUDE_DIR) -I$(GENDIR) -I$(LIBDIR)				\
 	  -I$(TOOLSINCDIR) -I$(APIDIR) -I$(CURDIR)/include -I$(SCXTOOLSINCDIR)
 
@@ -62,7 +62,7 @@ ifneq ($(LLVM),)
 CFLAGS += -Wno-unused-command-line-argument
 endif
 
-LDFLAGS = -lelf -lz -lpthread -lzstd
+LDFLAGS += -lelf -lz -lpthread -lzstd
 
 IS_LITTLE_ENDIAN = $(shell $(CC) -dM -E - </dev/null |				\
 			grep 'define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__')
@@ -164,6 +164,7 @@ all_test_bpfprogs := $(foreach prog,$(wildcard *.bpf.c),$(INCLUDE_DIR)/$(patsubs
 auto-test-targets :=			\
 	create_dsq			\
 	dequeue				\
+	dequeue_iter			\
 	enq_last_no_enq_fails		\
 	ddsp_bogus_dsq_fail		\
 	ddsp_vtimelocal_fail		\

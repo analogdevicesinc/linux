@@ -2065,8 +2065,7 @@ void scx_dispatch_dequeue(struct rq *rq, struct task_struct *p);
 void scx_do_enqueue_task(struct rq *rq, struct task_struct *p, u64 enq_flags,
 			 int sticky_cpu);
 void scx_move_local_task_to_local_dsq(struct scx_sched *sch, struct task_struct *p,
-				      u64 enq_flags, struct scx_dispatch_q *src_dsq,
-				      struct rq *dst_rq);
+				      u64 enq_flags, struct rq *dst_rq);
 bool scx_consume_dispatch_q(struct scx_sched *sch, struct rq *rq,
 			    struct scx_dispatch_q *dsq, u64 enq_flags);
 bool scx_consume_global_dsq(struct scx_sched *sch, struct rq *rq);
@@ -2078,6 +2077,7 @@ void scx_kick_cpu(struct scx_sched *sch, s32 cpu, u64 flags);
 u64 __scx_bpf_now(struct rq *rq);
 void schedule_dsq_reenq(struct scx_sched *sch, struct scx_dispatch_q *dsq,
 			u64 reenq_flags, struct rq *locked_rq);
+void scx_reenq_wait_dispatching(struct task_struct *p);
 int __scx_init_task(struct scx_sched *sch, struct task_struct *p,
 		    struct cgroup *cgrp, bool fork);
 void scx_enable_task(struct scx_sched *sch, struct task_struct *p);
@@ -2121,6 +2121,22 @@ extern struct scx_sched *scx_enabling_sub_sched;
 	__scx_exit(sch, kind, exit_code, raw_smp_processor_id(), fmt, ##args)
 #define scx_error(sch, fmt, args...)						\
 	scx_exit((sch), SCX_EXIT_ERROR, 0, fmt, ##args)
+
+/*
+ * Tracing progs can call kfuncs from NMI. Kfuncs that take scheduler locks or
+ * touch the kick lists, which are only protected by irq masking, can't run
+ * there, so abort the scheduler instead. scx_error() is NMI-safe.
+ */
+static __always_inline bool __scx_kf_allowed_ctx(struct scx_sched *sch, const char *who)
+{
+	if (unlikely(in_nmi())) {
+		scx_error(sch, "%s called from NMI", who);
+		return false;
+	}
+	return true;
+}
+
+#define scx_kf_allowed_ctx(sch)	__scx_kf_allowed_ctx((sch), __func__)
 
 /**
  * scx_root_protected_live - Root sched for paths that only run while live
@@ -2212,6 +2228,15 @@ static inline void scx_schedule_reenq_local(struct rq *rq, u64 reenq_flags)
  */
 static inline struct rq *scx_locked_rq(void)
 {
+	/*
+	 * Tracing progs can call kfuncs from NMI. scx_locked_rq_state tracks
+	 * the rq locked by the interrupted context, so a non-NULL read from
+	 * NMI would falsely claim its lock. Return NULL from NMI so that
+	 * callers take their unlocked paths.
+	 */
+	if (unlikely(in_nmi()))
+		return NULL;
+
 	return __this_cpu_read(scx_locked_rq_state);
 }
 
