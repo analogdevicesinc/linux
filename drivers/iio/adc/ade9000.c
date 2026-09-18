@@ -290,6 +290,7 @@ enum ade9000_wfb_cfg {
  * @rms_full_scale_codes: digital code produced at full-scale RMS input
  * @watt_full_scale_codes: digital code produced at full-scale power input
  * @pcf_full_scale_codes: digital code produced at full-scale xI_PCF/xV_PCF input
+ * @has_digital_integrator: part has an on-chip digital integrator (DICOEFF)
  *
  * The full-scale codes are taken from the respective datasheets and are used to
  * derive the IIO scale of the raw measurement channels.
@@ -301,6 +302,7 @@ struct ade9000_chip_info {
 	unsigned int rms_full_scale_codes;
 	unsigned int watt_full_scale_codes;
 	unsigned int pcf_full_scale_codes;
+	bool has_digital_integrator;
 };
 
 struct ade9000_state {
@@ -680,6 +682,7 @@ static const struct ade9000_chip_info ade9000_chip_info = {
 	.rms_full_scale_codes = 52702092,
 	.watt_full_scale_codes = 20694066,
 	.pcf_full_scale_codes = 74532013,
+	.has_digital_integrator = true,
 };
 
 static const struct ade9000_chip_info ade9078_chip_info = {
@@ -689,6 +692,7 @@ static const struct ade9000_chip_info ade9078_chip_info = {
 	.rms_full_scale_codes = 52866837,
 	.watt_full_scale_codes = 20823646,
 	.pcf_full_scale_codes = 74680000,
+	.has_digital_integrator = true,
 };
 
 static const struct reg_sequence ade9000_initialization_sequence[] = {
@@ -704,13 +708,11 @@ static const struct reg_sequence ade9000_initialization_sequence[] = {
 	{ ADE9000_REG_EVENT_MASK, ADE9000_EVENT_DISABLE },
 	{ ADE9000_REG_WFB_CFG, ADE9000_WFB_CFG },
 	{ ADE9000_REG_VLEVEL, ADE9000_VLEVEL },
-	{ ADE9000_REG_DICOEFF, ADE9000_DICOEFF },
 	{ ADE9000_REG_EGY_TIME, ADE9000_EGY_TIME },
 	{ ADE9000_REG_EP_CFG, ADE9000_EP_CFG },
 	/* Clear all pending status bits by writing 1s */
 	{ ADE9000_REG_STATUS0, GENMASK(31, 0) },
 	{ ADE9000_REG_STATUS1, GENMASK(31, 0) },
-	{ ADE9000_REG_RUN, ADE9000_RUN_ON }
 };
 
 static int ade9000_spi_write_reg(void *context, unsigned int reg,
@@ -1671,6 +1673,21 @@ static int ade9000_setup(struct ade9000_state *st)
 				     ARRAY_SIZE(ade9000_initialization_sequence));
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to write register sequence");
+
+	/*
+	 * DICOEFF must be configured before the DSP is started. Parts without
+	 * an on-chip digital integrator lack this register, so skip it there.
+	 */
+	if (st->info->has_digital_integrator) {
+		ret = regmap_write(st->regmap, ADE9000_REG_DICOEFF,
+				   ADE9000_DICOEFF);
+		if (ret)
+			return dev_err_probe(dev, ret, "Failed to set DICOEFF\n");
+	}
+
+	ret = regmap_write(st->regmap, ADE9000_REG_RUN, ADE9000_RUN_ON);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to start DSP\n");
 
 	fsleep(2000);
 
