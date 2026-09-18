@@ -37,13 +37,11 @@ static void adau1962_i2c_remove(struct i2c_client *client)
 	adau1962_remove(&client->dev);
 }
 
-#ifdef CONFIG_OF
 static const struct of_device_id adau1962_dt_ids[] = {
 	{ .compatible = "adi,adau1962", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adau1962_dt_ids);
-#endif
 
 static const struct i2c_device_id adau1962_i2c_ids[] = {
 	{"adau1962", 0},
@@ -54,7 +52,7 @@ MODULE_DEVICE_TABLE(i2c, adau1962_i2c_ids);
 static struct i2c_driver adau1962_i2c_driver = {
 	.driver = {
 		.name = "adau1962",
-		.of_match_table = of_match_ptr(adau1962_dt_ids),
+		.of_match_table = adau1962_dt_ids,
 	},
 	.probe = adau1962_i2c_probe,
 	.remove = adau1962_i2c_remove,
