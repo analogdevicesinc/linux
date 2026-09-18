@@ -368,7 +368,7 @@ void snd_soc_runtime_action(struct snd_soc_pcm_runtime *rtd,
 	snd_soc_dpcm_mutex_assert_held(rtd);
 
 	for_each_rtd_dais(rtd, i, dai)
-		snd_soc_dai_action(dai, stream, action);
+		snd_soc_dai_active_update(dai, stream, action);
 
 	/* Increments/Decrements the active count for components without DAIs */
 	for_each_rtd_components(rtd, i, component) {

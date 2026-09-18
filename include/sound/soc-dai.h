@@ -231,18 +231,7 @@ void snd_soc_dai_suspend(struct snd_soc_dai *dai);
 void snd_soc_dai_resume(struct snd_soc_dai *dai);
 int snd_soc_dai_compress_new(struct snd_soc_dai *dai, struct snd_soc_pcm_runtime *rtd);
 bool snd_soc_dai_stream_valid(const struct snd_soc_dai *dai, int stream);
-void snd_soc_dai_action(struct snd_soc_dai *dai,
-			int stream, int action);
-static inline void snd_soc_dai_activate(struct snd_soc_dai *dai,
-					int stream)
-{
-	snd_soc_dai_action(dai, stream,  1);
-}
-static inline void snd_soc_dai_deactivate(struct snd_soc_dai *dai,
-					  int stream)
-{
-	snd_soc_dai_action(dai, stream, -1);
-}
+
 int snd_soc_dai_active(const struct snd_soc_dai *dai);
 
 int snd_soc_pcm_dai_probe(struct snd_soc_pcm_runtime *rtd, int order);

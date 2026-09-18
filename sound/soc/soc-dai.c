@@ -707,8 +707,7 @@ bool snd_soc_dai_stream_valid(const struct snd_soc_dai *dai, int dir)
 	return stream->channels_min;
 }
 
-void snd_soc_dai_action(struct snd_soc_dai *dai,
-			int stream, int action)
+void snd_soc_dai_active_update(struct snd_soc_dai *dai, int stream, int action)
 {
 	/* see snd_soc_dai_stream_active() */
 	dai->stream[stream].active	+= action;
@@ -716,7 +715,6 @@ void snd_soc_dai_action(struct snd_soc_dai *dai,
 	/* see snd_soc_component_active() */
 	dai->component->active		+= action;
 }
-EXPORT_SYMBOL_GPL(snd_soc_dai_action);
 
 int snd_soc_dai_active(const struct snd_soc_dai *dai)
 {
@@ -1161,7 +1159,7 @@ EXPORT_SYMBOL_GPL(snd_soc_dai_stream_tdm_mask_set);
 
 unsigned int snd_soc_dai_stream_active(const struct snd_soc_dai *dai, int stream)
 {
-	/* see snd_soc_dai_action() for setup */
+	/* see snd_soc_dai_active_update() for setup */
 	return dai->stream[stream].active;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_stream_active);
