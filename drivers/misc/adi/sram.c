@@ -95,7 +95,7 @@ static int adi_sram_show(struct seq_file *s, void *data)
 		pool_size = gen_pool_size(sram_pool);
 		avail = gen_pool_avail(sram_pool);
 		used = pool_size - avail;
-		seq_printf(s, "\tTotal size: %lu B\n\tUsed sram: %lu B\n\tAvail sram: %lu B\n",
+		seq_printf(s, "\tTotal size: %zu B\n\tUsed sram: %zu B\n\tAvail sram: %zu B\n",
 			pool_size, used, avail);
 
 		of_node_put(sram_node);
