@@ -81,6 +81,9 @@ struct layer_mask {
 	 */
 	access_mask_t quiet : 1;
 #endif /* CONFIG_SECURITY_LANDLOCK_LOG */
+	access_mask_t __pad
+		: ((sizeof(access_mask_t) * 8) - LANDLOCK_NUM_ACCESS_MAX -
+		   IS_ENABLED(CONFIG_SECURITY_LANDLOCK_LOG));
 } __packed __aligned(sizeof(access_mask_t));
 
 /*
