@@ -677,9 +677,9 @@ static const struct ade9000_chip_info ade9000_chip_info = {
 	.name = "ade9000",
 	.channels = ade9000_channels,
 	.num_channels = ARRAY_SIZE(ade9000_channels),
-	.rms_full_scale_codes = 52866837,
+	.rms_full_scale_codes = 52702092,
 	.watt_full_scale_codes = 20694066,
-	.pcf_full_scale_codes = 74770000,
+	.pcf_full_scale_codes = 74532013,
 };
 
 static const struct ade9000_chip_info ade9078_chip_info = {
