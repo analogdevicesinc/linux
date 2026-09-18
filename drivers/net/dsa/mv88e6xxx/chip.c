@@ -2503,8 +2503,9 @@ static int mv88e6xxx_set_rxnfc(struct dsa_switch *ds, int port,
 		break;
 	case ETHTOOL_SRXCLSRLDEL:
 		err = -ENOENT;
-		policy = idr_remove(&chip->policies, fs->location);
-		if (policy) {
+		policy = idr_find(&chip->policies, fs->location);
+		if (policy && policy->port == port) {
+			idr_remove(&chip->policies, fs->location);
 			policy->action = MV88E6XXX_POLICY_ACTION_NORMAL;
 			err = mv88e6xxx_policy_apply(chip, port, policy);
 			devm_kfree(chip->dev, policy);
