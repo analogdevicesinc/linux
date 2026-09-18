@@ -244,14 +244,11 @@ static void adi_wdt_shutdown(struct platform_device *pdev)
 	adi_wdt_stop(&wdt->wdd);
 }
 
-#if defined(CONFIG_OF)
 static const struct of_device_id adi_wdt_dt_ids[] = {
 	{ .compatible = "adi,watchdog" },
 	{ /* sentinel */ }
 };
-
 MODULE_DEVICE_TABLE(of, adi_wdt_dt_ids);
-#endif
 
 static struct platform_driver adi_wdt_driver = {
 	.probe     = adi_wdt_probe,
@@ -260,12 +257,9 @@ static struct platform_driver adi_wdt_driver = {
 	.resume    = adi_wdt_resume,
 	.driver    = {
 		.name  = WATCHDOG_NAME,
-#if defined(CONFIG_OF)
-		.of_match_table = of_match_ptr(adi_wdt_dt_ids),
-#endif
+		.of_match_table = adi_wdt_dt_ids,
 	},
 };
-
 module_platform_driver(adi_wdt_driver);
 
 MODULE_LICENSE("GPL");
