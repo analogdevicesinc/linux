@@ -405,7 +405,7 @@ impl<'gpu> Gpu<'gpu> {
 
                 vgpu: VgpuManager::new(pdev, spec.chipset, fsp.as_mut()),
 
-                gsp <- Gsp::new(pdev),
+                gsp <- Gsp::new(pdev, bar),
 
                 // This member must be initialized last, so the `UnloadBundle` can never be dropped
                 // from outside of the constructed `GspResources`, ensuring that the unload sequence
@@ -423,7 +423,7 @@ impl<'gpu> Gpu<'gpu> {
 
             gsp_static_info: {
                 // Obtain and display basic GPU information.
-                let info = gsp_resources.gsp.get_static_info(bar)?;
+                let info = gsp_resources.gsp.get_static_info()?;
                 match info.gpu_name() {
                     Ok(name) => dev_info!(dev, "GPU name: {}\n", name),
                     Err(e) => dev_warn!(dev, "GPU name unavailable: {:?}\n", e),

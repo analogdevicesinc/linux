@@ -10,7 +10,6 @@ use kernel::{
 };
 
 use crate::{
-    driver::Bar0,
     falcon::{
         gsp::Gsp,
         Falcon, //
@@ -36,7 +35,6 @@ impl<'gsp> super::Gsp<'gsp> {
         mut ctx: super::GspBootContext<'_, 'gsp>,
     ) -> Result<Option<super::UnloadBundle<'gsp>>> {
         let pdev = ctx.pdev;
-        let bar = ctx.bar;
         let chipset = ctx.chipset;
         let gsp_falcon = ctx.gsp_falcon;
         let dev = pdev.as_ref();
@@ -45,9 +43,9 @@ impl<'gsp> super::Gsp<'gsp> {
         let gsp_fw = KBox::pin_init(GspFirmware::new(dev, chipset), GFP_KERNEL)?;
 
         self.cmdq
-            .send_command_no_wait(bar, commands::SetSystemInfo::new(pdev, chipset))?;
+            .send_command_no_wait(commands::SetSystemInfo::new(pdev, chipset))?;
         self.cmdq
-            .send_command_no_wait(bar, commands::SetRegistry::new(ctx.vgpu.state())?)?;
+            .send_command_no_wait(commands::SetRegistry::new(ctx.vgpu.state())?)?;
 
         // Perform the chipset-specific boot sequence, and retrieve the unload bundle.
         let unload_bundle = hal.boot(&self, &mut ctx, &gsp_fw)?.or_else(|| {
@@ -89,12 +87,11 @@ impl<'gsp> super::Gsp<'gsp> {
     /// Shut down the GSP and wait until it is offline.
     fn shutdown_gsp(
         cmdq: &Cmdq<'_>,
-        bar: Bar0<'_>,
         gsp_falcon: &Falcon<'_, Gsp>,
         mode: commands::PowerStateLevel,
     ) -> Result {
         // Command to shut the GSP down.
-        cmdq.send_command(bar, commands::UnloadingGuestDriver::new(mode))?;
+        cmdq.send_command(commands::UnloadingGuestDriver::new(mode))?;
 
         // Wait until GSP signals it is suspended.
         const LIBOS_INTERRUPT_PROCESSOR_SUSPENDED: u32 = bits::bit_u32(31);
@@ -120,7 +117,6 @@ impl<'gsp> super::Gsp<'gsp> {
         // Shut down the GSP. Keep going even in case of error.
         let mut res = Self::shutdown_gsp(
             &self.cmdq,
-            ctx.bar,
             ctx.gsp_falcon,
             commands::PowerStateLevel::Level0,
         )
