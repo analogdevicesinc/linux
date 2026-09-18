@@ -97,6 +97,9 @@ struct rhashtable {
 #ifdef CONFIG_MEM_ALLOC_PROFILING
 	struct alloc_tag		*alloc_tag;
 #endif
+#ifdef CONFIG_LOCKDEP
+	struct lock_class_key		*lockdep_key;
+#endif
 };
 
 /**
