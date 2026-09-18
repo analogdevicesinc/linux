@@ -391,6 +391,7 @@ struct fuse_fs_context {
 	bool no_control:1;
 	bool no_force_umount:1;
 	bool legacy_opts_show:1;
+	bool syncfs_capable:1;
 	enum fuse_dax_mode dax_mode;
 	unsigned int max_read;
 	unsigned int blksize;
@@ -674,6 +675,14 @@ struct fuse_conn {
 
 	/** @sync_fs: Propagate syncfs() to server */
 	unsigned int sync_fs:1;
+
+	/**
+	 * @syncfs_capable: the privilege required to honor FUSE_HAS_SYNCFS was
+	 * present when /dev/fuse was opened (CAP_SYS_ADMIN in the initial user
+	 * namespace), i.e. the same privilege that mounting virtiofs/fuseblk
+	 * requires.
+	 */
+	unsigned int syncfs_capable:1;
 
 	/** @init_security: Initialize security xattrs when creating a new inode */
 	unsigned int init_security:1;
