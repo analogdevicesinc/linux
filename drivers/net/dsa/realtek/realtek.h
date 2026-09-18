@@ -156,6 +156,10 @@ struct realtek_ops {
 	int	(*phy_read)(struct realtek_priv *priv, int phy, int regnum);
 	int	(*phy_write)(struct realtek_priv *priv, int phy, int regnum,
 			     u16 val);
+	int	(*phy_read_c45)(struct realtek_priv *priv, int phy, int devad,
+				int regnum);
+	int	(*phy_write_c45)(struct realtek_priv *priv, int phy, int devad,
+				 int regnum, u16 val);
 };
 
 struct realtek_variant {
