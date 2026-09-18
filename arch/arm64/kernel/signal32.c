@@ -334,9 +334,6 @@ static void compat_setup_return(struct pt_regs *regs, struct k_sigaction *ka,
 	/* The IT state must be cleared for both ARM and Thumb-2 */
 	spsr &= ~PSR_AA32_IT_MASK;
 
-	/* Restore the original endianness */
-	spsr |= PSR_AA32_ENDSTATE;
-
 	if (ka->sa.sa_flags & SA_RESTORER) {
 		retcode = ptr_to_compat(ka->sa.sa_restorer);
 	} else {
