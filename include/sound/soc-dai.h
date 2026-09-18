@@ -561,6 +561,8 @@ struct snd_soc_dai *snd_soc_dai_register(struct snd_soc_component *component,
 					 struct snd_soc_dai_driver *dai_drv,
 					 bool legacy_dai_naming);
 void snd_soc_dai_unregister(struct snd_soc_dai *dai);
+struct snd_soc_dai *snd_soc_dai_from_list(struct list_head *list);
+struct list_head *snd_soc_dai_to_list(struct snd_soc_dai *dai);
 
 /* REMOVE ME */
 #define snd_soc_dai_get_pcm_stream			snd_soc_dai_pcm_stream_get

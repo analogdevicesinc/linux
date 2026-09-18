@@ -32,6 +32,18 @@ struct snd_soc_dai_driver *snd_soc_dai_to_driver(const struct snd_soc_dai *dai)
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_to_driver);
 
+struct snd_soc_dai *snd_soc_dai_from_list(struct list_head *list)
+{
+	return list_entry(list, struct snd_soc_dai, list);
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_from_list);
+
+struct list_head *snd_soc_dai_to_list(struct snd_soc_dai *dai)
+{
+	return &dai->list;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_to_list);
+
 /*
  * We might want to check substream by using list.
  * In such case, we can update these macros.
