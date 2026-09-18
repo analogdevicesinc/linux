@@ -109,11 +109,6 @@ struct adi_resource_table_hdr {
 	u32 reserved[8];
 } __packed;
 
-struct adi_tru;
-
-struct adi_tru *get_adi_tru_from_node(struct device *dev);
-void put_adi_tru(struct adi_tru *tru);
-int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev);
 int adi_tru_probe(struct platform_device *pdev);
 void adi_tru_remove(struct platform_device *pdev);
 
