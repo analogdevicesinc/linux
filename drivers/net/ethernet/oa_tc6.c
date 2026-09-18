@@ -6,6 +6,8 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/iopoll.h>
 #include <linux/interrupt.h>
 #include <linux/mdio.h>
@@ -88,6 +90,7 @@ struct oa_tc6 {
 	bool disable_traffic;
 	bool prot_ctrl;
 	enum oa_tc6_quirk_flag quirk_flags;
+	struct gpio_desc *reset_gpio;
 };
 
 enum oa_tc6_header_type {
@@ -1503,6 +1506,22 @@ struct oa_tc6 *oa_tc6_init(struct spi_device *spi, struct net_device *netdev,
 					    GFP_KERNEL);
 	if (!tc6->spi_data_rx_buf)
 		return ERR_PTR(-ENOMEM);
+
+	tc6->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
+						  GPIOD_OUT_HIGH);
+	if (IS_ERR(tc6->reset_gpio))
+		return ERR_PTR(dev_err_probe(&spi->dev,
+					     PTR_ERR(tc6->reset_gpio),
+					     "failed to get reset gpio\n"));
+
+	if (tc6->reset_gpio) {
+		/* Keep the reset asserted for 10 us and then allow 1 ms of
+		 * settle time for the crystal oscillator startup.
+		 */
+		fsleep(10);
+		gpiod_set_value_cansleep(tc6->reset_gpio, 0);
+		fsleep(1000);
+	}
 
 	/* Check the PROTE bit status so that we can reset the device */
 	ret = oa_tc6_check_ctrl_protection(tc6);
