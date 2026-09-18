@@ -145,24 +145,6 @@ static void adf_cfg_keyval_add(struct adf_cfg_key_val *new,
 	list_add_tail(&new->list, &sec->param_head);
 }
 
-static void adf_cfg_keyval_remove(const char *key, struct adf_cfg_section *sec)
-{
-	struct list_head *head = &sec->param_head;
-	struct list_head *list_ptr, *tmp;
-
-	list_for_each_prev_safe(list_ptr, tmp, head) {
-		struct adf_cfg_key_val *ptr =
-			list_entry(list_ptr, struct adf_cfg_key_val, list);
-
-		if (strncmp(ptr->key, key, sizeof(ptr->key)))
-			continue;
-
-		list_del(list_ptr);
-		kfree(ptr);
-		break;
-	}
-}
-
 static void adf_cfg_keyval_del_all(struct list_head *head)
 {
 	struct list_head *list_ptr, *tmp;
@@ -271,9 +253,8 @@ int adf_cfg_add_key_value_param(struct adf_accel_dev *accel_dev,
 				enum adf_cfg_val_type type)
 {
 	struct adf_cfg_device_data *cfg = accel_dev->cfg;
+	struct adf_cfg_key_val *key_val, *existing;
 	struct adf_cfg_section *section;
-	struct adf_cfg_key_val *key_val;
-	char temp_val[ADF_CFG_MAX_VAL_LEN_IN_BYTES];
 	int ret = 0;
 
 	key_val = kzalloc_obj(*key_val);
@@ -295,14 +276,6 @@ int adf_cfg_add_key_value_param(struct adf_accel_dev *accel_dev,
 	}
 	key_val->type = type;
 
-	/* Add the key-value pair as below policy:
-	 * 1. if the key doesn't exist, add it;
-	 * 2. if the key already exists with a different value then update it
-	 *    to the new value (the key is deleted and the newly created
-	 *    key_val containing the new value is added to the database);
-	 * 3. if the key exists with the same value, then return without doing
-	 *    anything (the newly created key_val is freed).
-	 */
 	down_write(&cfg->lock);
 
 	section = adf_cfg_sec_find(accel_dev, section_name);
@@ -312,13 +285,23 @@ int adf_cfg_add_key_value_param(struct adf_accel_dev *accel_dev,
 		goto unlock;
 	}
 
-	if (!adf_cfg_key_val_get(accel_dev, section_name, key, temp_val)) {
-		if (strncmp(temp_val, key_val->val, sizeof(temp_val))) {
-			adf_cfg_keyval_remove(key, section);
-		} else {
+	/*
+	 * Add the key-value pair as below policy:
+	 * 1. if the key doesn't exist, add it;
+	 * 2. if the key already exists with a different value then update it
+	 *    to the new value (the key is deleted and the newly created
+	 *    key_val containing the new value is added to the database);
+	 * 3. if the key exists with the same value, then return without doing
+	 *    anything (the newly created key_val is freed).
+	 */
+	existing = adf_cfg_key_value_find(section, key);
+	if (existing) {
+		if (!strncmp(existing->val, key_val->val, sizeof(existing->val))) {
 			kfree(key_val);
 			goto unlock;
 		}
+		list_del(&existing->list);
+		kfree(existing);
 	}
 
 	adf_cfg_keyval_add(key_val, section);
