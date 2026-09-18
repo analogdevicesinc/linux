@@ -170,15 +170,16 @@ static int sprd_pcm_request_dma_channel(struct snd_soc_component *component,
 
 	for (i = 0; i < channels; i++) {
 		struct sprd_pcm_dma_data *data = &dma_private->data[i];
+		struct dma_chan *chan;
 
-		data->chan = dma_request_slave_channel(dev,
-						       dma_params->chan_name[i]);
-		if (!data->chan) {
+		chan = dma_request_chan(dev, dma_params->chan_name[i]);
+		if (IS_ERR(chan)) {
 			dev_err(dev, "failed to request dma channel:%s\n",
 				dma_params->chan_name[i]);
 			sprd_pcm_release_dma_channel(substream);
-			return -ENODEV;
+			return PTR_ERR(chan);
 		}
+		data->chan = chan;
 	}
 
 	return 0;
