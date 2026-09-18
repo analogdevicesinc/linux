@@ -893,7 +893,7 @@ static int setup_port_data(struct ib_device *device)
  * ib_port_immutable_read() - Read rdma port's immutable data
  * @dev: IB device
  * @port: port number whose immutable data to read. It starts with index 1 and
- *        valid upto including rdma_end_port().
+ *        valid up to including rdma_end_port().
  */
 const struct ib_port_immutable*
 ib_port_immutable_read(struct ib_device *dev, unsigned int port)
