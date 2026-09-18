@@ -35,21 +35,21 @@ static struct net_bridge_vlan *br_vlan_lookup(struct rhashtable *tbl, u16 vid)
 }
 
 static void __vlan_add_pvid(struct net_bridge_vlan_group *vg,
-			    const struct net_bridge_vlan *v)
+			    struct net_bridge_vlan *v)
 {
-	if (vg->pvid == v->vid)
+	if (rcu_access_pointer(vg->pvid) == v)
 		return;
 
-	br_vlan_set_pvid_state(vg, br_vlan_get_state(v));
-	WRITE_ONCE(vg->pvid, v->vid);
+	RCU_INIT_POINTER(vg->pvid, v);
 }
 
-static void __vlan_delete_pvid(struct net_bridge_vlan_group *vg, u16 vid)
+static void __vlan_delete_pvid(struct net_bridge_vlan_group *vg,
+			       struct net_bridge_vlan *v)
 {
-	if (vg->pvid != vid)
+	if (rcu_access_pointer(vg->pvid) != v)
 		return;
 
-	WRITE_ONCE(vg->pvid, 0);
+	RCU_INIT_POINTER(vg->pvid, NULL);
 }
 
 /* Update the BRIDGE_VLAN_INFO_PVID and BRIDGE_VLAN_INFO_UNTAGGED flags of @v.
@@ -60,6 +60,7 @@ static bool __vlan_flags_update(struct net_bridge_vlan *v, u16 flags,
 				bool commit)
 {
 	struct net_bridge_vlan_group *vg;
+	struct net_bridge_vlan *pvid;
 	u16 vlan_flags;
 	bool change;
 
@@ -70,7 +71,8 @@ static bool __vlan_flags_update(struct net_bridge_vlan *v, u16 flags,
 
 	/* check if anything would be changed on commit */
 	vlan_flags = v->flags;
-	change = !!(flags & BRIDGE_VLAN_INFO_PVID) == !!(vg->pvid != v->vid) ||
+	pvid = rtnl_dereference(vg->pvid);
+	change = !!(flags & BRIDGE_VLAN_INFO_PVID) == !!(pvid != v) ||
 		 ((flags ^ vlan_flags) & BRIDGE_VLAN_INFO_UNTAGGED);
 
 	if (!commit)
@@ -79,7 +81,7 @@ static bool __vlan_flags_update(struct net_bridge_vlan *v, u16 flags,
 	if (flags & BRIDGE_VLAN_INFO_PVID)
 		__vlan_add_pvid(vg, v);
 	else
-		__vlan_delete_pvid(vg, v->vid);
+		__vlan_delete_pvid(vg, v);
 
 	if (flags & BRIDGE_VLAN_INFO_UNTAGGED)
 		vlan_flags |= BRIDGE_VLAN_INFO_UNTAGGED;
@@ -403,7 +405,7 @@ static void __vlan_del(struct net_bridge_vlan *v)
 		masterv = v->brvlan;
 	}
 
-	__vlan_delete_pvid(vg, v->vid);
+	__vlan_delete_pvid(vg, v);
 	if (p) {
 		err = __vlan_vid_del(p->dev, p->br, v);
 		if (err)
@@ -453,7 +455,7 @@ static void __vlan_flush(const struct net_bridge *br,
 	struct net_bridge_vlan *vlan, *tmp;
 	u16 v_start = 0, v_end = 0;
 
-	__vlan_delete_pvid(vg, vg->pvid);
+	__vlan_delete_pvid(vg, rtnl_dereference(vg->pvid));
 	list_for_each_entry_safe(vlan, tmp, &vg->vlan_list, vlist) {
 		/* take care of disjoint ranges */
 		if (!v_start) {
@@ -579,42 +581,32 @@ static bool __allowed_ingress(const struct net_bridge *br,
 	}
 
 	if (!*vid) {
-		u16 pvid = br_get_pvid(vg);
-
+		v = vg ? rcu_dereference(vg->pvid) : NULL;
 		/* Frame had a tag with VID 0 or did not have a tag.
 		 * See if pvid is set on this port.  That tells us which
 		 * vlan untagged or priority-tagged traffic belongs to.
 		 */
-		if (!pvid)
+		if (!v)
 			goto drop;
 
 		/* PVID is set on this port.  Any untagged or priority-tagged
 		 * ingress frame is considered to belong to this vlan.
 		 */
-		*vid = pvid;
+		*vid = v->vid;
 		if (likely(!tagged))
 			/* Untagged Frame. */
-			__vlan_hwaccel_put_tag(skb, br->vlan_proto, pvid);
+			__vlan_hwaccel_put_tag(skb, br->vlan_proto, v->vid);
 		else
 			/* Priority-tagged Frame.
 			 * At this point, we know that skb->vlan_tci VID
 			 * field was 0.
 			 * We update only VID field and preserve PCP field.
 			 */
-			skb->vlan_tci |= pvid;
-
-		/* if snooping and stats are disabled we can avoid the lookup */
-		if (!br_opt_get(br, BROPT_MCAST_VLAN_SNOOPING_ENABLED) &&
-		    !br_opt_get(br, BROPT_VLAN_STATS_ENABLED)) {
-			if (*state == BR_STATE_FORWARDING) {
-				*state = br_vlan_get_pvid_state(vg);
-				if (!br_vlan_state_allowed(*state, true))
-					goto drop;
-			}
-			return true;
-		}
+			skb->vlan_tci |= v->vid;
+	} else {
+		v = br_vlan_find(vg, *vid);
 	}
-	v = br_vlan_find(vg, *vid);
+
 	if (!v || !br_vlan_should_use(v))
 		goto drop;
 
@@ -697,11 +689,10 @@ bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid)
 		*vid = 0;
 
 	if (!*vid) {
-		*vid = br_get_pvid(vg);
-		if (!*vid ||
-		    !br_vlan_state_allowed(br_vlan_get_pvid_state(vg), true))
+		v = rcu_dereference(vg->pvid);
+		if (!v || !br_vlan_state_allowed(br_vlan_get_state(v), true))
 			return false;
-
+		*vid = v->vid;
 		return true;
 	}
 
@@ -1061,17 +1052,10 @@ int br_vlan_set_stats_per_port(struct net_bridge *br, unsigned long val)
 
 static bool vlan_default_pvid(struct net_bridge_vlan_group *vg, u16 vid)
 {
-	struct net_bridge_vlan *v;
+	struct net_bridge_vlan *pvid = rtnl_dereference(vg->pvid);
 
-	if (vid != vg->pvid)
-		return false;
-
-	v = br_vlan_lookup(&vg->vlan_hash, vid);
-	if (v && br_vlan_should_use(v) &&
-	    (v->flags & BRIDGE_VLAN_INFO_UNTAGGED))
-		return true;
-
-	return false;
+	return pvid && pvid->vid == vid && br_vlan_should_use(pvid) &&
+	       (pvid->flags & BRIDGE_VLAN_INFO_UNTAGGED);
 }
 
 static void br_vlan_disable_default_pvid(struct net_bridge *br)
@@ -1524,7 +1508,7 @@ int br_vlan_get_info(const struct net_device *dev, u16 vid,
 
 	p_vinfo->vid = vid;
 	p_vinfo->flags = v->flags;
-	if (vid == br_get_pvid(vg))
+	if (v == rcu_access_pointer(vg->pvid))
 		p_vinfo->flags |= BRIDGE_VLAN_INFO_PVID;
 	return 0;
 }
@@ -1551,7 +1535,7 @@ int br_vlan_get_info_rcu(const struct net_device *dev, u16 vid,
 
 	p_vinfo->vid = vid;
 	p_vinfo->flags = READ_ONCE(v->flags);
-	if (vid == br_get_pvid(vg))
+	if (v == rcu_access_pointer(vg->pvid))
 		p_vinfo->flags |= BRIDGE_VLAN_INFO_PVID;
 	return 0;
 }
@@ -1956,7 +1940,7 @@ void br_vlan_notify(const struct net_bridge *br,
 			goto out_kfree;
 
 		flags = v->flags;
-		if (br_get_pvid(vg) == v->vid)
+		if (v == rcu_access_pointer(vg->pvid))
 			flags |= BRIDGE_VLAN_INFO_PVID;
 		break;
 	case RTM_DELVLAN:

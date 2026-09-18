@@ -256,8 +256,7 @@ struct net_bridge_vlan {
  * @tunnel_hash: Hash table to map from tunnel key ID (e.g. VXLAN VNI) to VLAN
  * @vlan_list: sorted VLAN entry list
  * @num_vlans: number of total VLAN entries
- * @pvid: PVID VLAN id
- * @pvid_state: PVID's STP state (e.g. forwarding, learning, blocking)
+ * @pvid: RCU-protected PVID VLAN entry
  *
  * IMPORTANT: Be careful when checking if there're VLAN entries using list
  *            primitives because the bridge can have entries in its list which
@@ -269,9 +268,8 @@ struct net_bridge_vlan_group {
 	struct rhashtable		vlan_hash;
 	struct rhashtable		tunnel_hash;
 	struct list_head		vlan_list;
+	struct net_bridge_vlan		__rcu *pvid;
 	u16				num_vlans;
-	u16				pvid;
-	u8				pvid_state;
 };
 
 /* bridge fdb flags */
@@ -1687,10 +1685,16 @@ static inline int br_vlan_get_tag(const struct sk_buff *skb, u16 *vid)
 
 static inline u16 br_get_pvid(const struct net_bridge_vlan_group *vg)
 {
+	struct net_bridge_vlan *pvid;
+
 	if (!vg)
 		return 0;
 
-	return READ_ONCE(vg->pvid);
+	pvid = rcu_dereference_rtnl(vg->pvid);
+	if (!pvid)
+		return 0;
+
+	return pvid->vid;
 }
 
 static inline u16 br_vlan_flags(const struct net_bridge_vlan *v, u16 pvid)
@@ -1920,17 +1924,6 @@ static inline void br_vlan_set_state(struct net_bridge_vlan *v, u8 state)
 {
 	WRITE_ONCE(v->state, state);
 	br_multicast_update_vlan_mcast_ctx(v, state);
-}
-
-static inline u8 br_vlan_get_pvid_state(const struct net_bridge_vlan_group *vg)
-{
-	return READ_ONCE(vg->pvid_state);
-}
-
-static inline void br_vlan_set_pvid_state(struct net_bridge_vlan_group *vg,
-					  u8 state)
-{
-	WRITE_ONCE(vg->pvid_state, state);
 }
 
 /* learn_allow is true at ingress and false at egress */
