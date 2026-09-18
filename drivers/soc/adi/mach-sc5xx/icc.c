@@ -183,7 +183,7 @@ static const struct mbox_chan_ops adi_tru_mbox_ops = {
 	.send_data = adi_tru_mbox_send_data,
 };
 
-int adi_tru_probe(struct platform_device *pdev)
+static int adi_tru_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct adi_tru *tru;
