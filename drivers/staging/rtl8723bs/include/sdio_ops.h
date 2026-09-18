@@ -7,27 +7,26 @@
 #ifndef __SDIO_OPS_H__
 #define __SDIO_OPS_H__
 
-
 #include <sdio_ops_linux.h>
 
-extern void sdio_set_intf_ops(struct adapter *padapter, struct _io_ops *pops);
+void sdio_set_intf_ops(struct adapter *padapter, struct _io_ops *pops);
 
 /* extern void sdio_func1cmd52_read(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, u8 *rmem); */
 /* extern void sdio_func1cmd52_write(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, u8 *wmem); */
-extern u8 SdioLocalCmd52Read1Byte(struct adapter *padapter, u32 addr);
-extern void SdioLocalCmd52Write1Byte(struct adapter *padapter, u32 addr, u8 v);
-extern s32 sdio_local_read(struct adapter *padapter, u32 addr, u32 cnt, u8 *pbuf);
-extern s32 sdio_local_write(struct adapter *padapter, u32 addr, u32 cnt, u8 *pbuf);
+u8 SdioLocalCmd52Read1Byte(struct adapter *padapter, u32 addr);
+void SdioLocalCmd52Write1Byte(struct adapter *padapter, u32 addr, u8 v);
+s32 sdio_local_read(struct adapter *padapter, u32 addr, u32 cnt, u8 *pbuf);
+s32 sdio_local_write(struct adapter *padapter, u32 addr, u32 cnt, u8 *pbuf);
 
 u32 _sdio_read32(struct adapter *padapter, u32 addr);
 s32 _sdio_write32(struct adapter *padapter, u32 addr, u32 val);
 
-extern void sd_int_hdl(struct adapter *padapter);
-extern u8 CheckIPSStatus(struct adapter *padapter);
+void sd_int_hdl(struct adapter *padapter);
+u8 CheckIPSStatus(struct adapter *padapter);
 
-extern void InitInterrupt8723BSdio(struct adapter *padapter);
+void InitInterrupt8723BSdio(struct adapter *padapter);
 void rtw_sdio_enable_interrupt(struct adapter *padapter);
 void rtw_sdio_disable_interrupt(struct adapter *padapter);
-extern u8 HalQueryTxBufferStatus8723BSdio(struct adapter *padapter);
-extern void HalQueryTxOQTBufferStatus8723BSdio(struct adapter *padapter);
+u8 HalQueryTxBufferStatus8723BSdio(struct adapter *padapter);
+void HalQueryTxOQTBufferStatus8723BSdio(struct adapter *padapter);
 #endif /*  !__SDIO_OPS_H__ */

@@ -112,7 +112,7 @@ u8 HwRateToMRate(u8 rate);
 
 void HalSetBrateCfg(
 	struct adapter *Adapter,
-	u8 *mBratesOS,
+	u8 *basic_rates,
 	u16	*pBrateCfg);
 
 bool

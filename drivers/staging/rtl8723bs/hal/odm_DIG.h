@@ -65,7 +65,6 @@ struct  false_ALARM_STATISTICS {
 	u32 Cnt_Crc8_fail;
 	u32 Cnt_Mcs_fail;
 	u32 Cnt_Ofdm_fail;
-	u32 Cnt_Ofdm_fail_pre; /* For RTL8881A */
 	u32 Cnt_Cck_fail;
 	u32 Cnt_all;
 	u32 Cnt_Fast_Fsync;
