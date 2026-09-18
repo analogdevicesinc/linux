@@ -163,7 +163,7 @@ xfs_metadir_teardown(
 	trace_xfs_metadir_teardown(upd, error);
 
 	if (upd->ppargs) {
-		xfs_parent_finish(upd->dp->i_mount, upd->ppargs);
+		xfs_parent_finish(upd->ppargs);
 		upd->ppargs = NULL;
 	}
 

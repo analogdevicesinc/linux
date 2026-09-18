@@ -615,7 +615,7 @@ xfs_inobt_insert_sprec(
 
 	trace_xfs_irec_merge_post(pag, nrec);
 
-	error = xfs_inobt_rec_check_count(mp, nrec);
+	error = xfs_inobt_rec_check_count(nrec);
 	if (error)
 		goto error;
 

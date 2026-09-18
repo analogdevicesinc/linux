@@ -311,7 +311,7 @@ xfs_rtrefcountbt_broot_realloc(
 	unsigned int		old_size = ifp->if_broot_bytes;
 	const unsigned int	level = cur->bc_nlevels - 1;
 
-	new_size = xfs_rtrefcount_broot_space_calc(mp, level, new_numrecs);
+	new_size = xfs_rtrefcount_broot_space_calc(level, new_numrecs);
 
 	/* Handle the nop case quietly. */
 	if (new_size == old_size)
@@ -602,7 +602,7 @@ xfs_rtrefcountbt_from_disk(
 	unsigned int			maxrecs;
 	unsigned int			rblocklen;
 
-	rblocklen = xfs_rtrefcount_broot_space(mp, dblock);
+	rblocklen = xfs_rtrefcount_broot_space(dblock);
 
 	xfs_btree_init_block(mp, rblock, &xfs_rtrefcountbt_ops, 0, 0,
 			I_INO(ip));
@@ -617,7 +617,7 @@ xfs_rtrefcountbt_from_disk(
 		fpp = xfs_rtrefcount_droot_ptr_addr(dblock, 1, maxrecs);
 		tpp = xfs_rtrefcount_broot_ptr_addr(mp, rblock, 1, rblocklen);
 		numrecs = be16_to_cpu(dblock->bb_numrecs);
-		memcpy(tkp, fkp, 2 * sizeof(*fkp) * numrecs);
+		memcpy(tkp, fkp, sizeof(*fkp) * numrecs);
 		memcpy(tpp, fpp, sizeof(*fpp) * numrecs);
 	} else {
 		frp = xfs_rtrefcount_droot_rec_addr(dblock, 1);
@@ -661,7 +661,7 @@ xfs_iformat_rtrefcount(
 	}
 
 	broot = xfs_broot_alloc(xfs_ifork_ptr(ip, XFS_DATA_FORK),
-			xfs_rtrefcount_broot_space_calc(mp, level, numrecs));
+			xfs_rtrefcount_broot_space_calc(level, numrecs));
 	if (broot)
 		xfs_rtrefcountbt_from_disk(ip, dfp, dsize, broot);
 	return 0;
@@ -703,7 +703,7 @@ xfs_rtrefcountbt_to_disk(
 		fpp = xfs_rtrefcount_broot_ptr_addr(mp, rblock, 1, rblocklen);
 		tpp = xfs_rtrefcount_droot_ptr_addr(dblock, 1, maxrecs);
 		numrecs = be16_to_cpu(rblock->bb_numrecs);
-		memcpy(tkp, fkp, 2 * sizeof(*fkp) * numrecs);
+		memcpy(tkp, fkp, sizeof(*fkp) * numrecs);
 		memcpy(tpp, fpp, sizeof(*fpp) * numrecs);
 	} else {
 		frp = xfs_rtrefcount_rec_addr(rblock, 1);
@@ -751,7 +751,7 @@ xfs_rtrefcountbt_create(
 
 	/* Initialize the empty incore btree root. */
 	broot = xfs_broot_realloc(ifp,
-			xfs_rtrefcount_broot_space_calc(mp, 0, 0));
+			xfs_rtrefcount_broot_space_calc(0, 0));
 	if (broot)
 		xfs_btree_init_block(mp, broot, &xfs_rtrefcountbt_ops, 0, 0,
 				I_INO(ip));

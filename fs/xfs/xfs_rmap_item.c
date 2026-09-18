@@ -494,7 +494,7 @@ xfs_rui_validate_map(
 	    !xfs_verify_ino(mp, map->me_owner))
 		return false;
 
-	if (!xfs_verify_fileext(mp, map->me_startoff, map->me_len))
+	if (!xfs_verify_fileext(map->me_startoff, map->me_len))
 		return false;
 
 	if (isrt)
@@ -573,6 +573,7 @@ xfs_rmap_recover_work(
 	struct xfs_rui_log_item		*ruip = RUI_ITEM(lip);
 	struct xfs_trans		*tp;
 	struct xfs_mount		*mp = lip->li_log->l_mp;
+	unsigned int			dblocks;
 	bool				isrt = xfs_rui_item_isrt(lip);
 	int				i;
 	int				error = 0;
@@ -596,8 +597,11 @@ xfs_rmap_recover_work(
 	}
 
 	resv = xlog_recover_resv(&M_RES(mp)->tr_itruncate);
-	error = xfs_trans_alloc(mp, &resv, mp->m_rmap_maxlevels, 0,
-			XFS_TRANS_RESERVE, &tp);
+	if (isrt)
+		dblocks = mp->m_rtrmap_maxlevels;
+	else
+		dblocks = mp->m_rmap_maxlevels;
+	error = xfs_trans_alloc(mp, &resv, dblocks, 0, XFS_TRANS_RESERVE, &tp);
 	if (error)
 		return error;
 
