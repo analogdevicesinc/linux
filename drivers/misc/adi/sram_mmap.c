@@ -131,7 +131,7 @@ static const struct file_operations sram_fops = {
 
 static const struct of_device_id adi_sram_mmap_of_match[] = {
 	{ .compatible = "adi,sram-mmap" },
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, adi_sram_mmap_of_match);
 
@@ -201,7 +201,7 @@ static struct platform_driver adi_sram_mmap_driver = {
 	.remove = adi_sram_mmap_remove,
 	.driver = {
 		.name = SRAM_MMAP_DRV_NAME,
-		.of_match_table = of_match_ptr(adi_sram_mmap_of_match),
+		.of_match_table = adi_sram_mmap_of_match,
 	},
 };
 
