@@ -7,6 +7,8 @@
 #include <linux/slab.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
+#include <linux/highmem.h>
+#include <linux/seq_file.h>
 
 #include <drm/panfrost_drm.h>
 #include <drm/drm_print.h>

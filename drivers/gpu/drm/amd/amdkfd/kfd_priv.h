@@ -45,7 +45,6 @@
 #include <drm/drm_device.h>
 #include <drm/drm_ioctl.h>
 #include <kgd_kfd_interface.h>
-#include <linux/swap.h>
 
 #include "amd_shared.h"
 #include "amdgpu.h"

@@ -8,9 +8,6 @@
 #ifndef __ASM_TLB_H
 #define __ASM_TLB_H
 
-#include <linux/pagemap.h>
-
-
 #define tlb_flush tlb_flush
 static void tlb_flush(struct mmu_gather *tlb);
 
