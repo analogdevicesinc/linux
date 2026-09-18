@@ -592,6 +592,7 @@ uint32_t amdgpu_mes_rreg(struct amdgpu_device *adev, uint32_t reg,
 	op_input.op = MES_MISC_OP_READ_REG;
 	op_input.read_reg.reg_offset = reg;
 	op_input.read_reg.buffer_addr = read_val_gpu_addr;
+	op_input.read_reg.read64_bits = false;
 
 	if (!adev->mes.funcs->misc_op) {
 		dev_err(adev->dev, "mes rreg is not supported!\n");
@@ -610,6 +611,46 @@ error:
 	if (addr_offset)
 		amdgpu_wb_free(adev, addr_offset);
 	return val;
+}
+
+int amdgpu_mes_rreg64(struct amdgpu_device *adev, uint32_t reg,
+		      uint32_t xcc_id, uint64_t *val)
+{
+	struct mes_misc_op_input op_input = { 0 };
+	uint32_t addr_offset;
+	uint64_t *read_val_ptr;
+	int r;
+
+	r = amdgpu_wb_get(adev, &addr_offset);
+	if (r) {
+		dev_err(adev->dev, "critical bug! too many mes readers\n");
+		return r;
+	}
+
+	read_val_ptr = (uint64_t *)&adev->wb.wb[addr_offset];
+	op_input.xcc_id = xcc_id;
+	op_input.op = MES_MISC_OP_READ_REG;
+	op_input.read_reg.reg_offset = reg;
+	op_input.read_reg.buffer_addr = adev->wb.gpu_addr + addr_offset * 4;
+	op_input.read_reg.read64_bits = true;
+
+	if (!adev->mes.funcs->misc_op) {
+		dev_err(adev->dev, "mes rreg is not supported!\n");
+		r = -EINVAL;
+		goto error;
+	}
+
+	amdgpu_mes_lock(&adev->mes);
+	r = adev->mes.funcs->misc_op(&adev->mes, &op_input);
+	amdgpu_mes_unlock(&adev->mes);
+	if (r)
+		dev_err(adev->dev, "failed to read reg (0x%x)\n", reg);
+	else
+		*val = READ_ONCE(*read_val_ptr);
+
+error:
+	amdgpu_wb_free(adev, addr_offset);
+	return r;
 }
 
 int amdgpu_mes_wreg(struct amdgpu_device *adev, uint32_t reg,

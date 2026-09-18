@@ -408,6 +408,7 @@ struct mes_misc_op_input {
 		struct {
 			uint32_t                  reg_offset;
 			uint64_t                  buffer_addr;
+			bool                      read64_bits;
 		} read_reg;
 
 		struct {
@@ -613,6 +614,8 @@ int amdgpu_mes_detect_and_reset_hung_queues(struct amdgpu_device *adev,
 
 uint32_t amdgpu_mes_rreg(struct amdgpu_device *adev, uint32_t reg,
 			 uint32_t xcc_id);
+int amdgpu_mes_rreg64(struct amdgpu_device *adev, uint32_t reg,
+		      uint32_t xcc_id, uint64_t *val);
 int amdgpu_mes_wreg(struct amdgpu_device *adev,
 		    uint32_t reg, uint32_t val, uint32_t xcc_id);
 int amdgpu_mes_reg_write_reg_wait(struct amdgpu_device *adev,

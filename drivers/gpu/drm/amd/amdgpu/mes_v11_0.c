@@ -992,9 +992,15 @@ static int mes_v11_0_misc_op(struct amdgpu_mes *mes,
 
 	switch (input->op) {
 	case MES_MISC_OP_READ_REG:
+		if (input->read_reg.read64_bits &&
+		    (mes->sched_version & AMDGPU_MES_VERSION_MASK) < 0x42)
+			return -EOPNOTSUPP;
+
 		misc_pkt.opcode = MESAPI_MISC__READ_REG;
 		misc_pkt.read_reg.reg_offset = input->read_reg.reg_offset;
 		misc_pkt.read_reg.buffer_addr = input->read_reg.buffer_addr;
+		misc_pkt.read_reg.option.bits.read64Bits =
+			input->read_reg.read64_bits;
 		break;
 	case MES_MISC_OP_WRITE_REG:
 		misc_pkt.opcode = MESAPI_MISC__WRITE_REG;
