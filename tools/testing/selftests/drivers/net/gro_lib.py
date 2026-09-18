@@ -263,7 +263,8 @@ def _setup(cfg, mode, test_name):
         set_ethtool_feat(cfg.ifname, cfg.feat,
                          {"generic-receive-offload": False,
                           "rx-gro-hw": True,
-                          "large-receive-offload": False})
+                          "large-receive-offload": False},
+                          check=False)
 
         # Some NICs treat HW GRO as a GRO sub-feature so disabling GRO
         # will also clear HW GRO. Use a hack of installing XDP generic
