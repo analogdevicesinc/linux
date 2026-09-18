@@ -37,6 +37,7 @@
 
 #include "gc/gc_12_1_0_offset.h"
 #include "gc/gc_12_1_0_sh_mask.h"
+#include "smuio/smuio_15_0_0_offset.h"
 #include "soc24_enum.h"
 #include "ivsrcid/gfx/irqsrcs_gfx_12_1_0.h"
 
@@ -2814,9 +2815,34 @@ static int gfx_v12_1_wait_for_idle(struct amdgpu_ip_block *ip_block)
 	return -ETIMEDOUT;
 }
 
+static uint64_t gfx_v12_1_get_smuio_gpu_clock_counter(struct amdgpu_device *adev)
+{
+	uint64_t clock = 0;
+	uint32_t reg;
+
+	if (!down_read_trylock(&adev->reset_domain->sem))
+		return 0;
+	if (amdgpu_device_skip_hw_access(adev) ||
+	    !adev->mes.ring[0].sched.ready)
+		goto unlock_reset;
+
+	reg = SOC15_REG_OFFSET(SMUIO, 0, regGOLDEN_TSC_COUNT_UPPER);
+	if (amdgpu_mes_rreg64(adev, reg, 0, &clock))
+		goto unlock_reset;
+
+	clock = (clock << 32) | (clock >> 32);
+
+unlock_reset:
+	up_read(&adev->reset_domain->sem);
+	return clock;
+}
+
 static uint64_t gfx_v12_1_get_gpu_clock_counter(struct amdgpu_device *adev)
 {
 	uint64_t clock = 0;
+
+	if (amdgpu_sriov_vf(adev))
+		return gfx_v12_1_get_smuio_gpu_clock_counter(adev);
 
 	if (adev->smuio.funcs &&
 	    adev->smuio.funcs->get_gpu_clock_counter)
