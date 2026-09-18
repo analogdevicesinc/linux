@@ -210,6 +210,7 @@ enum {
  * @port_mcast_ctx: if MASTER flag unset, this is the per-port/vlan multicast
  *                  context
  * @msti: if MASTER flag set, this holds the VLANs MST instance
+ * @port_vlist: if MASTER flag set, this is the port-VLAN list
  * @vlist: sorted list of VLAN entries
  * @rcu: used for entry destruction
  *
@@ -244,6 +245,7 @@ struct net_bridge_vlan {
 
 	u16				msti;
 
+	struct list_head		port_vlist;
 	struct list_head		vlist;
 
 	struct rcu_head			rcu;

@@ -130,10 +130,12 @@ static void __vlan_add_list(struct net_bridge_vlan *v)
 	struct list_head *headp, *hpos;
 	struct net_bridge_vlan *vent;
 
-	if (br_vlan_is_master(v))
+	if (br_vlan_is_master(v)) {
 		vg = br_vlan_group(v->br);
-	else
+	} else {
 		vg = nbp_vlan_group(v->port);
+		list_add_rcu(&v->port_vlist, &v->brvlan->port_vlist);
+	}
 
 	headp = &vg->vlan_list;
 	list_for_each_prev(hpos, headp) {
@@ -147,6 +149,10 @@ static void __vlan_add_list(struct net_bridge_vlan *v)
 static void __vlan_del_list(struct net_bridge_vlan *v)
 {
 	list_del_rcu(&v->vlist);
+	if (br_vlan_is_master(v))
+		WARN_ON(!list_empty(&v->port_vlist));
+	else
+		list_del_rcu(&v->port_vlist);
 }
 
 static int __vlan_vid_del(struct net_device *dev, struct net_bridge *br,
@@ -335,6 +341,7 @@ static int __vlan_add(struct net_bridge_vlan *v, u16 flags,
 		}
 		br_multicast_ctx_init(br, v, &v->br_mcast_ctx);
 		v->priv_flags |= BR_VLFLAG_GLOBAL_MCAST_ENABLED;
+		INIT_LIST_HEAD(&v->port_vlist);
 	}
 
 	/* Add the dev mac and count the vlan only if it's usable */
