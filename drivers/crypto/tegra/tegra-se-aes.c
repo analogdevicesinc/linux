@@ -4,6 +4,7 @@
  * Crypto driver to handle block cipher algorithms using NVIDIA Security Engine.
  */
 
+#include <linux/bottom_half.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
@@ -44,7 +45,6 @@ struct tegra_aes_reqctx {
 
 struct tegra_aead_ctx {
 	struct tegra_se *se;
-	unsigned int authsize;
 	u32 alg;
 	u32 key_id;
 	u32 keylen;
@@ -333,7 +333,9 @@ out:
 		tegra_key_invalidate_reserved(ctx->se, key2_id, ctx->alg);
 
 out_finalize:
+	local_bh_disable();
 	crypto_finalize_skcipher_request(se->engine, req, ret);
+	local_bh_enable();
 
 	return 0;
 }
@@ -1198,6 +1200,7 @@ static int tegra_ccm_do_one_req(struct crypto_engine *engine, void *areq)
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
 	struct tegra_aead_ctx *ctx = crypto_aead_ctx(tfm);
 	struct tegra_se *se = ctx->se;
+	unsigned int bufsize;
 	int ret;
 
 	ret = tegra_ccm_crypt_init(req, se, rctx);
@@ -1207,19 +1210,19 @@ static int tegra_ccm_do_one_req(struct crypto_engine *engine, void *areq)
 	rctx->key_id = ctx->key_id;
 
 	/* Allocate buffers required */
-	rctx->inbuf.size = rctx->assoclen + rctx->authsize + rctx->cryptlen + 100;
-	rctx->inbuf.buf = dma_alloc_coherent(ctx->se->dev, rctx->inbuf.size,
+	bufsize = rctx->assoclen + rctx->authsize + rctx->cryptlen + 100;
+	rctx->inbuf.size = bufsize;
+	rctx->inbuf.buf = dma_alloc_coherent(ctx->se->dev, bufsize,
 					     &rctx->inbuf.addr, GFP_KERNEL);
+	ret = -ENOMEM;
 	if (!rctx->inbuf.buf)
 		goto out_finalize;
 
-	rctx->outbuf.size = rctx->assoclen + rctx->authsize + rctx->cryptlen + 100;
-	rctx->outbuf.buf = dma_alloc_coherent(ctx->se->dev, rctx->outbuf.size,
+	rctx->outbuf.size = bufsize;
+	rctx->outbuf.buf = dma_alloc_coherent(ctx->se->dev, bufsize,
 					      &rctx->outbuf.addr, GFP_KERNEL);
-	if (!rctx->outbuf.buf) {
-		ret = -ENOMEM;
+	if (!rctx->outbuf.buf)
 		goto out_free_inbuf;
-	}
 
 	if (!ctx->key_id) {
 		ret = tegra_key_submit_reserved_aes(ctx->se, ctx->key,
@@ -1251,18 +1254,20 @@ static int tegra_ccm_do_one_req(struct crypto_engine *engine, void *areq)
 	}
 
 out:
-	dma_free_coherent(ctx->se->dev, rctx->inbuf.size,
+	dma_free_coherent(ctx->se->dev, bufsize,
 			  rctx->outbuf.buf, rctx->outbuf.addr);
 
 out_free_inbuf:
-	dma_free_coherent(ctx->se->dev, rctx->outbuf.size,
+	dma_free_coherent(ctx->se->dev, bufsize,
 			  rctx->inbuf.buf, rctx->inbuf.addr);
 
 	if (tegra_key_is_reserved(rctx->key_id))
 		tegra_key_invalidate_reserved(ctx->se, rctx->key_id, ctx->alg);
 
 out_finalize:
+	local_bh_disable();
 	crypto_finalize_aead_request(ctx->se->engine, req, ret);
+	local_bh_enable();
 
 	return 0;
 }
@@ -1273,6 +1278,7 @@ static int tegra_gcm_do_one_req(struct crypto_engine *engine, void *areq)
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
 	struct tegra_aead_ctx *ctx = crypto_aead_ctx(tfm);
 	struct tegra_aead_reqctx *rctx = aead_request_ctx(req);
+	unsigned int bufsize;
 	int ret;
 
 	rctx->src_sg = req->src;
@@ -1283,7 +1289,7 @@ static int tegra_gcm_do_one_req(struct crypto_engine *engine, void *areq)
 	if (rctx->encrypt)
 		rctx->cryptlen = req->cryptlen;
 	else
-		rctx->cryptlen = req->cryptlen - ctx->authsize;
+		rctx->cryptlen = req->cryptlen - rctx->authsize;
 
 	memcpy(rctx->iv, req->iv, GCM_AES_IV_SIZE);
 	rctx->iv[3] = (1 << 24);
@@ -1291,16 +1297,17 @@ static int tegra_gcm_do_one_req(struct crypto_engine *engine, void *areq)
 	rctx->key_id = ctx->key_id;
 
 	/* Allocate buffers required */
-	rctx->inbuf.size = rctx->assoclen + rctx->authsize + rctx->cryptlen;
-	rctx->inbuf.buf = dma_alloc_coherent(ctx->se->dev, rctx->inbuf.size,
+	bufsize = rctx->assoclen + rctx->authsize + rctx->cryptlen;
+	rctx->inbuf.size = bufsize;
+	rctx->inbuf.buf = dma_alloc_coherent(ctx->se->dev, bufsize,
 					     &rctx->inbuf.addr, GFP_KERNEL);
 	if (!rctx->inbuf.buf) {
 		ret = -ENOMEM;
 		goto out_finalize;
 	}
 
-	rctx->outbuf.size = rctx->assoclen + rctx->authsize + rctx->cryptlen;
-	rctx->outbuf.buf = dma_alloc_coherent(ctx->se->dev, rctx->outbuf.size,
+	rctx->outbuf.size = bufsize;
+	rctx->outbuf.buf = dma_alloc_coherent(ctx->se->dev, bufsize,
 					      &rctx->outbuf.addr, GFP_KERNEL);
 	if (!rctx->outbuf.buf) {
 		ret = -ENOMEM;
@@ -1337,18 +1344,20 @@ static int tegra_gcm_do_one_req(struct crypto_engine *engine, void *areq)
 		ret = tegra_gcm_do_verify(ctx->se, rctx);
 
 out:
-	dma_free_coherent(ctx->se->dev, rctx->outbuf.size,
+	dma_free_coherent(ctx->se->dev, bufsize,
 			  rctx->outbuf.buf, rctx->outbuf.addr);
 
 out_free_inbuf:
-	dma_free_coherent(ctx->se->dev, rctx->inbuf.size,
+	dma_free_coherent(ctx->se->dev, bufsize,
 			  rctx->inbuf.buf, rctx->inbuf.addr);
 
 	if (tegra_key_is_reserved(rctx->key_id))
 		tegra_key_invalidate_reserved(ctx->se, rctx->key_id, ctx->alg);
 
 out_finalize:
+	local_bh_disable();
 	crypto_finalize_aead_request(ctx->se->engine, req, ret);
+	local_bh_enable();
 
 	return 0;
 }
@@ -1384,8 +1393,6 @@ static int tegra_aead_cra_init(struct crypto_aead *tfm)
 
 static int tegra_ccm_setauthsize(struct crypto_aead *tfm,  unsigned int authsize)
 {
-	struct tegra_aead_ctx *ctx = crypto_aead_ctx(tfm);
-
 	switch (authsize) {
 	case 4:
 	case 6:
@@ -1394,28 +1401,15 @@ static int tegra_ccm_setauthsize(struct crypto_aead *tfm,  unsigned int authsize
 	case 12:
 	case 14:
 	case 16:
-		break;
+		return 0;
 	default:
 		return -EINVAL;
 	}
-
-	ctx->authsize = authsize;
-
-	return 0;
 }
 
 static int tegra_gcm_setauthsize(struct crypto_aead *tfm,  unsigned int authsize)
 {
-	struct tegra_aead_ctx *ctx = crypto_aead_ctx(tfm);
-	int ret;
-
-	ret = crypto_gcm_check_authsize(authsize);
-	if (ret)
-		return ret;
-
-	ctx->authsize = authsize;
-
-	return 0;
+	return crypto_gcm_check_authsize(authsize);
 }
 
 static void tegra_aead_cra_exit(struct crypto_aead *tfm)
@@ -1746,7 +1740,9 @@ out:
 	if (tegra_key_is_reserved(rctx->key_id))
 		tegra_key_invalidate_reserved(ctx->se, rctx->key_id, ctx->alg);
 
+	local_bh_disable();
 	crypto_finalize_hash_request(se->engine, req, ret);
+	local_bh_enable();
 
 	return 0;
 }

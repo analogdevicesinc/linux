@@ -496,6 +496,7 @@ static int __add_reloc_root(struct btrfs_root *root)
 		btrfs_err(fs_info,
 			    "Duplicate root found for start=%llu while inserting into relocation tree",
 			    node->bytenr);
+		kfree(node);
 		return -EEXIST;
 	}
 
@@ -615,8 +616,8 @@ static struct btrfs_root *create_reloc_root(struct btrfs_trans_handle *trans,
 
 			btrfs_disk_key_to_cpu(&cpu_key, &root->root_item.drop_progress);
 			btrfs_err(fs_info,
-	"cannot relocate partially dropped subvolume %llu, drop progress key (%llu %u %llu)",
-				  objectid, cpu_key.objectid, cpu_key.type, cpu_key.offset);
+	"cannot relocate partially dropped subvolume %llu, drop progress key " BTRFS_KEY_FMT,
+				  objectid, BTRFS_KEY_FMT_VALUE(&cpu_key));
 			ret = -EUCLEAN;
 			goto fail;
 		}
@@ -1857,6 +1858,7 @@ again:
 				 * corruption, e.g. bad reloc tree key offset.
 				 */
 				ret = -EINVAL;
+				btrfs_put_root(root);
 				goto out;
 			}
 			ret = merge_reloc_root(rc, root);
@@ -3175,8 +3177,8 @@ again:
 		key.offset = blocksize;
 	}
 
-	path->search_commit_root = 1;
-	path->skip_locking = 1;
+	path->search_commit_root = true;
+	path->skip_locking = true;
 	ret = btrfs_search_slot(NULL, rc->extent_root, &key, path, 0, 0);
 	if (ret < 0)
 		return ret;
@@ -3264,7 +3266,6 @@ static int delete_v1_space_cache(struct extent_buffer *leaf,
 	struct btrfs_key key;
 	bool found = false;
 	int i;
-	int ret;
 
 	if (btrfs_header_owner(leaf) != BTRFS_ROOT_TREE_OBJECTID)
 		return 0;
@@ -3288,8 +3289,8 @@ static int delete_v1_space_cache(struct extent_buffer *leaf,
 	}
 	if (!found)
 		return -ENOENT;
-	ret = delete_block_group_cache(block_group, NULL, space_cache_ino);
-	return ret;
+
+	return delete_block_group_cache(block_group, NULL, space_cache_ino);
 }
 
 /*
@@ -3368,8 +3369,8 @@ int find_next_extent(struct reloc_control *rc, struct btrfs_path *path,
 		key.type = BTRFS_EXTENT_ITEM_KEY;
 		key.offset = 0;
 
-		path->search_commit_root = 1;
-		path->skip_locking = 1;
+		path->search_commit_root = true;
+		path->skip_locking = true;
 		ret = btrfs_search_slot(NULL, rc->extent_root, &key, path,
 					0, 0);
 		if (ret < 0)
@@ -4054,6 +4055,24 @@ static noinline_for_stack int mark_garbage_root(struct btrfs_root *root)
 	return ret;
 }
 
+static void release_recovered_fs_roots(struct list_head *roots, bool drop_reloc_refs)
+{
+	struct btrfs_root *root;
+	struct btrfs_root *next;
+
+	list_for_each_entry_safe(root, next, roots, reloc_dirty_list) {
+		list_del_init(&root->reloc_dirty_list);
+		if (drop_reloc_refs) {
+			struct btrfs_root *reloc_root = root->reloc_root;
+
+			ASSERT(reloc_root);
+			root->reloc_root = NULL;
+			btrfs_put_root(reloc_root);
+		}
+		btrfs_put_root(root);
+	}
+}
+
 /*
  * recover relocation interrupted by system crash.
  *
@@ -4063,6 +4082,7 @@ static noinline_for_stack int mark_garbage_root(struct btrfs_root *root)
 int btrfs_recover_relocation(struct btrfs_fs_info *fs_info)
 {
 	LIST_HEAD(reloc_roots);
+	LIST_HEAD(recovered_roots);
 	struct btrfs_key key;
 	struct btrfs_root *fs_root;
 	struct btrfs_root *reloc_root;
@@ -4174,7 +4194,7 @@ int btrfs_recover_relocation(struct btrfs_fs_info *fs_info)
 			ret = PTR_ERR(fs_root);
 			list_add_tail(&reloc_root->root_list, &reloc_roots);
 			btrfs_end_transaction(trans);
-			goto out_unset;
+			goto out_drop_reloc_refs;
 		}
 
 		ret = __add_reloc_root(reloc_root);
@@ -4183,15 +4203,17 @@ int btrfs_recover_relocation(struct btrfs_fs_info *fs_info)
 			list_add_tail(&reloc_root->root_list, &reloc_roots);
 			btrfs_put_root(fs_root);
 			btrfs_end_transaction(trans);
-			goto out_unset;
+			goto out_drop_reloc_refs;
 		}
+		ASSERT(list_empty(&fs_root->reloc_dirty_list));
 		fs_root->reloc_root = btrfs_grab_root(reloc_root);
-		btrfs_put_root(fs_root);
+		list_add_tail(&fs_root->reloc_dirty_list, &recovered_roots);
 	}
 
 	ret = btrfs_commit_transaction(trans);
 	if (ret)
-		goto out_unset;
+		goto out_drop_reloc_refs;
+	release_recovered_fs_roots(&recovered_roots, false);
 
 	merge_reloc_roots(rc);
 
@@ -4207,6 +4229,8 @@ out_clean:
 	ret2 = clean_dirty_subvols(rc);
 	if (ret2 < 0 && !ret)
 		ret = ret2;
+out_drop_reloc_refs:
+	release_recovered_fs_roots(&recovered_roots, true);
 out_unset:
 	unset_reloc_control(rc);
 	reloc_chunk_end(fs_info);

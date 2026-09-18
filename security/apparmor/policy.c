@@ -698,7 +698,7 @@ struct aa_profile *aa_alloc_null(struct aa_profile *parent, const char *name,
 }
 
 /**
- * aa_new_learning_profile - create or find a null-X learning profile
+ * __aa_new_learning_profile - create or find a null-X learning profile
  * @parent: profile that caused this profile to be created (NOT NULL)
  * @hat: true if the null- learning profile is a hat
  * @base: name to base the null profile off of
@@ -715,14 +715,16 @@ struct aa_profile *aa_alloc_null(struct aa_profile *parent, const char *name,
  *
  * Returns: new refcounted profile else NULL on failure
  */
-struct aa_profile *aa_new_learning_profile(struct aa_profile *parent, bool hat,
-					   const char *base, gfp_t gfp)
+struct aa_profile *__aa_new_learning_profile(struct aa_profile *parent,
+					     bool hat, const char *base,
+					     gfp_t gfp)
 {
 	struct aa_profile *p, *profile;
 	const char *bname;
 	char *name = NULL;
 
 	AA_BUG(!parent);
+	AA_BUG(!mutex_is_locked(&parent->ns->lock));
 
 	if (base) {
 		name = kmalloc(strlen(parent->base.hname) + 8 + strlen(base),
@@ -754,7 +756,6 @@ name:
 	if (hat)
 		profile->label.flags |= FLAG_HAT;
 
-	mutex_lock_nested(&profile->ns->lock, profile->ns->level);
 	p = __find_child(&parent->base.profiles, bname);
 	if (p) {
 		aa_free_profile(profile);
@@ -762,7 +763,6 @@ name:
 	} else {
 		__add_profile(&parent->base.profiles, profile);
 	}
-	mutex_unlock(&profile->ns->lock);
 
 	/* refcount released by caller */
 out:
@@ -774,6 +774,18 @@ fail:
 	kfree(name);
 	aa_free_profile(profile);
 	return NULL;
+}
+
+struct aa_profile *aa_new_learning_profile(struct aa_profile *parent, bool hat,
+					   const char *base, gfp_t gfp)
+{
+	struct aa_profile *profile;
+
+	mutex_lock_nested(&parent->ns->lock, parent->ns->level);
+	profile = __aa_new_learning_profile(parent, hat, base, gfp);
+	mutex_unlock(&parent->ns->lock);
+
+	return profile;
 }
 
 /**
@@ -1206,8 +1218,12 @@ ssize_t aa_replace_profiles(struct aa_ns *policy_ns, struct aa_label *label,
 			if (aa_rawdata_eq(rawdata_ent, udata)) {
 				struct aa_loaddata *tmp;
 
-				tmp = aa_get_profile_loaddata(rawdata_ent);
-				/* check we didn't fail the race */
+				/*
+				 * Entries remain on rawdata_list with
+				 * pcount == 0 until do_ploaddata_rmfs()
+				 * runs; only take a live profile ref.
+				 */
+				tmp = aa_get_profile_loaddata_not0(rawdata_ent);
 				if (tmp) {
 					aa_put_profile_loaddata(udata);
 					udata = tmp;
@@ -1325,6 +1341,16 @@ ssize_t aa_replace_profiles(struct aa_ns *policy_ns, struct aa_label *label,
 			goto skip;
 		}
 
+		if (!aa_g_export_binary) {
+			if (ent->old && ent->old->rawdata &&
+			    ent->old->dents[AAFS_LOADDATA_DIR]) {
+				/* remove rawdata symlinks because the symlink
+				 * target will be removed
+				 */
+				__aa_remove_rawdata_symlink_dents(ent->old);
+			}
+		}
+
 		/*
 		 * TODO: finer dedup based on profile range in data. Load set
 		 * can differ but profile may remain unchanged
@@ -1335,6 +1361,11 @@ ssize_t aa_replace_profiles(struct aa_ns *policy_ns, struct aa_label *label,
 		if (ent->old) {
 			share_name(ent->old, ent->new);
 			__replace_profile(ent->old, ent->new);
+			if (aa_g_export_binary) {
+				/* recreate rawdata symlinks */
+				if (!ent->old->rawdata)
+					__aa_create_rawdata_symlink_dents(ent->new);
+			}
 		} else {
 			struct list_head *lh;
 
@@ -1355,12 +1386,15 @@ ssize_t aa_replace_profiles(struct aa_ns *policy_ns, struct aa_label *label,
 
 out:
 	aa_put_ns(ns);
+
+	ssize_t udata_sz = udata->size;
+
 	aa_put_profile_loaddata(udata);
 	kfree(ns_name);
 
 	if (error)
 		return error;
-	return udata->size;
+	return udata_sz;
 
 fail_lock:
 	mutex_unlock(&ns->lock);

@@ -633,9 +633,9 @@ static struct btrfs_path *alloc_path_for_send(void)
 	path = btrfs_alloc_path();
 	if (!path)
 		return NULL;
-	path->search_commit_root = 1;
-	path->skip_locking = 1;
-	path->need_commit_sem = 1;
+	path->search_commit_root = true;
+	path->skip_locking = true;
+	path->need_commit_sem = true;
 	return path;
 }
 
@@ -1053,10 +1053,8 @@ static int iterate_inode_ref(struct btrfs_root *root, struct btrfs_path *path,
 				}
 				if (unlikely(start < p->buf)) {
 					btrfs_err(root->fs_info,
-			"send: path ref buffer underflow for key (%llu %u %llu)",
-						  found_key->objectid,
-						  found_key->type,
-						  found_key->offset);
+			  "send: path ref buffer underflow for key " BTRFS_KEY_FMT,
+						  BTRFS_KEY_FMT_VALUE(found_key));
 					ret = -EINVAL;
 					goto out;
 				}
@@ -7276,8 +7274,8 @@ static int search_key_again(const struct send_ctx *sctx,
 	if (unlikely(ret > 0)) {
 		btrfs_print_tree(path->nodes[path->lowest_level], false);
 		btrfs_err(root->fs_info,
-"send: key (%llu %u %llu) not found in %s root %llu, lowest_level %d, slot %d",
-			  key->objectid, key->type, key->offset,
+"send: key " BTRFS_KEY_FMT" not found in %s root %llu, lowest_level %d, slot %d",
+			  BTRFS_KEY_FMT_VALUE(key),
 			  (root == sctx->parent_root ? "parent" : "send"),
 			  btrfs_root_id(root), path->lowest_level,
 			  path->slots[path->lowest_level]);
@@ -7645,10 +7643,10 @@ static int btrfs_compare_trees(struct btrfs_root *left_root,
 		goto out;
 	}
 
-	left_path->search_commit_root = 1;
-	left_path->skip_locking = 1;
-	right_path->search_commit_root = 1;
-	right_path->skip_locking = 1;
+	left_path->search_commit_root = true;
+	left_path->skip_locking = true;
+	right_path->search_commit_root = true;
+	right_path->skip_locking = true;
 
 	/*
 	 * Strategy: Go to the first items of both trees. Then do
