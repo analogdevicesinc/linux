@@ -81,14 +81,25 @@ void trace_event__cleanup(struct trace_event *t)
 static struct tep_event*
 tp_format(const char *sys, const char *name)
 {
-	char *tp_dir = get_events_file(sys);
 	struct tep_handle *pevent = tevent.pevent;
-	struct tep_event *event = NULL;
+	struct tep_event *event;
+	char *tp_dir;
 	char path[PATH_MAX];
 	size_t size;
 	char *data;
 	int err;
 
+	/*
+	 * Each parse adds an event to the tep handle that can only be freed
+	 * by freeing the whole handle, so re-reading a format file both
+	 * repeats the work and grows the handle with a duplicate. Reuse the
+	 * event if it was already parsed.
+	 */
+	event = tep_find_event_by_name(pevent, sys, name);
+	if (event)
+		return event;
+
+	tp_dir = get_events_file(sys);
 	if (!tp_dir) {
 		errno = ENOMEM;
 		return NULL;
@@ -103,6 +114,7 @@ tp_format(const char *sys, const char *name)
 		return NULL;
 	}
 
+	event = NULL;
 	err = tep_parse_format(pevent, &event, data, size, sys);
 
 	free(data);
