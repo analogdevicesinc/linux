@@ -517,19 +517,17 @@ static int sc5xx_snd_soc_probe(struct platform_device *pdev)
 	return ret;
 }
 
-#ifdef CONFIG_OF
 static const struct of_device_id sc5xx_snd_soc_of_match[] = {
 	{ .compatible = "adi,sc5xx-asoc-card" },
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, sc5xx_snd_soc_of_match);
-#endif
 
 static struct platform_driver sc5xx_snd_soc_driver = {
 	.driver = {
 		.name = "snd-sc5xx",
 		.pm = &snd_soc_pm_ops,
-		.of_match_table = of_match_ptr(sc5xx_snd_soc_of_match),
+		.of_match_table = sc5xx_snd_soc_of_match,
 	},
 	.probe = sc5xx_snd_soc_probe,
 };
