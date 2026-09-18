@@ -695,6 +695,16 @@ static const struct ade9000_chip_info ade9078_chip_info = {
 	.has_digital_integrator = true,
 };
 
+static const struct ade9000_chip_info ade9430_chip_info = {
+	.name = "ade9430",
+	.channels = ade9078_channels,
+	.num_channels = ARRAY_SIZE(ade9078_channels),
+	.rms_full_scale_codes = 52702092,
+	.watt_full_scale_codes = 20694066,
+	.pcf_full_scale_codes = 74532013,
+	.has_digital_integrator = false, /* no on-chip digital integrator */
+};
+
 static const struct reg_sequence ade9000_initialization_sequence[] = {
 	{ ADE9000_REG_PGA_GAIN, ADE9000_PGA_GAIN },
 	{ ADE9000_REG_CONFIG0, ADE9000_CONFIG0 },
@@ -1859,6 +1869,7 @@ static int ade9000_probe(struct spi_device *spi)
 static const struct spi_device_id ade9000_id[] = {
 	{ .name = "ade9000", .driver_data = (kernel_ulong_t)&ade9000_chip_info },
 	{ .name = "ade9078", .driver_data = (kernel_ulong_t)&ade9078_chip_info },
+	{ .name = "ade9430", .driver_data = (kernel_ulong_t)&ade9430_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ade9000_id);
@@ -1866,6 +1877,7 @@ MODULE_DEVICE_TABLE(spi, ade9000_id);
 static const struct of_device_id ade9000_of_match[] = {
 	{ .compatible = "adi,ade9000", .data = &ade9000_chip_info },
 	{ .compatible = "adi,ade9078", .data = &ade9078_chip_info },
+	{ .compatible = "adi,ade9430", .data = &ade9430_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ade9000_of_match);
