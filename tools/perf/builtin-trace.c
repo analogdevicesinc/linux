@@ -2138,7 +2138,7 @@ out:
 
 static void trace__symbols__exit(struct trace *trace)
 {
-	machine__exit(trace->host);
+	machine__delete(trace->host);
 	trace->host = NULL;
 
 	perf_env__exit(&trace->host_env);
