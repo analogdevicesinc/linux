@@ -57,6 +57,18 @@ properties:
       - const: adclk
       - const: pclk
 
+  dmas:
+    minItems: 1
+    maxItems: 3
+    description:
+      Must contain a list of references to DMA RX specifiers.
+
+  dma-names:
+    minItems: 1
+    maxItems: 3
+    items:
+      const: rx
+
   power-domains:
     maxItems: 1
 
