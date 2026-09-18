@@ -49,10 +49,6 @@ do {								\
 
 #define TEST_REQUIRE(f) __TEST_REQUIRE(f, "Requirement not met: %s", #f)
 
-ssize_t test_write(int fd, const void *buf, size_t count);
-ssize_t test_read(int fd, void *buf, size_t count);
-int test_seq_read(const char *path, char **bufp, size_t *sizep);
-
 void __printf(5, 6) test_assert(bool exp, const char *exp_str,
 				const char *file, unsigned int line,
 				const char *fmt, ...);
