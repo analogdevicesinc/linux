@@ -1872,7 +1872,7 @@ int evsel__set_filter(struct evsel *evsel, const char *filter)
 		return 0;
 	}
 
-	return -1;
+	return -ENOMEM;
 }
 
 static int evsel__append_filter(struct evsel *evsel, const char *fmt, const char *filter)
@@ -1888,7 +1888,7 @@ static int evsel__append_filter(struct evsel *evsel, const char *fmt, const char
 		return 0;
 	}
 
-	return -1;
+	return -ENOMEM;
 }
 
 int evsel__append_tp_filter(struct evsel *evsel, const char *filter)

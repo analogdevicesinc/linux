@@ -1432,8 +1432,12 @@ int evlist__set_tp_filter(struct evlist *evlist, const char *filter)
 	struct evsel *evsel;
 	int err = 0;
 
+	/*
+	 * The only caller that passes NULL is evlist__set_tp_filter_pids(),
+	 * where it means asprintf__tp_filter_pids() failed to allocate.
+	 */
 	if (filter == NULL)
-		return -1;
+		return -ENOMEM;
 
 	evlist__for_each_entry(evlist, evsel) {
 		if (evsel->core.attr.type != PERF_TYPE_TRACEPOINT)
@@ -1452,8 +1456,12 @@ int evlist__append_tp_filter(struct evlist *evlist, const char *filter)
 	struct evsel *evsel;
 	int err = 0;
 
+	/*
+	 * As above, a NULL filter is asprintf__tp_filter_pids() having failed
+	 * to allocate in evlist__append_tp_filter_pids().
+	 */
 	if (filter == NULL)
-		return -1;
+		return -ENOMEM;
 
 	evlist__for_each_entry(evlist, evsel) {
 		if (evsel->core.attr.type != PERF_TYPE_TRACEPOINT)
