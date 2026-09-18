@@ -560,6 +560,7 @@ static int __sev_guest_init(struct kvm *kvm, struct kvm_sev_cmd *argp,
 	INIT_LIST_HEAD(&sev->regions_list);
 	INIT_LIST_HEAD(&sev->mirror_vms);
 	sev->need_init = false;
+	kvm->arch.has_protected_page_tables = true;
 
 	kvm_set_apicv_inhibit(kvm, APICV_INHIBIT_REASON_SEV);
 
@@ -2041,12 +2042,14 @@ static void sev_migrate_from(struct kvm *dst_kvm, struct kvm *src_kvm)
 	dst->pages_locked = src->pages_locked;
 	dst->es_active = src->es_active;
 	dst->vmsa_features = src->vmsa_features;
+	dst_kvm->arch.has_protected_page_tables = true;
 
 	src->asid = 0;
 	src->active = false;
 	src->handle = 0;
 	src->pages_locked = 0;
 	src->es_active = false;
+	src_kvm->arch.has_protected_page_tables = false;
 
 	list_cut_before(&dst->regions_list, &src->regions_list, &src->regions_list);
 
@@ -2907,6 +2910,7 @@ int sev_vm_copy_enc_context_from(struct kvm *kvm, unsigned int source_fd)
 	mutex_unlock(&sev_mirror_lock);
 
 	mirror_sev->active = true;
+	kvm->arch.has_protected_page_tables = true;
 	mirror_sev->asid = source_sev->asid;
 	mirror_sev->fd = source_sev->fd;
 	mirror_sev->es_active = source_sev->es_active;
@@ -2965,6 +2969,7 @@ void sev_vm_init(struct kvm *kvm)
 		kvm->arch.has_protected_state = true;
 		fallthrough;
 	case KVM_X86_SEV_VM:
+		kvm->arch.has_protected_page_tables = true;
 		kvm->arch.pre_fault_allowed = !kvm->arch.has_private_mem;
 		to_kvm_sev_info(kvm)->need_init = true;
 		break;

@@ -1168,6 +1168,7 @@ struct kvm_arch {
 	u8 mmu_valid_gen;
 	u8 vm_type;
 	bool has_private_mem;
+	bool has_protected_page_tables;
 	bool has_protected_state;
 	bool has_protected_eoi;
 	bool has_protected_pmu;

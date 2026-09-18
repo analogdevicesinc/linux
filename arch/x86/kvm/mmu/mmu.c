@@ -6638,6 +6638,9 @@ int noinline kvm_mmu_page_fault(struct kvm_vcpu *vcpu, gpa_t cr2_or_gpa, u64 err
 		return r;
 
 emulate:
+	if (error_code & PFERR_WRITE_MASK)
+		emulation_type |= EMULTYPE_PF_WRITE;
+
 	return x86_emulate_instruction(vcpu, cr2_or_gpa, emulation_type, insn,
 				       insn_len);
 }
