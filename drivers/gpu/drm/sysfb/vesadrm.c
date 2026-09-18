@@ -24,6 +24,7 @@
 #include <drm/drm_managed.h>
 #include <drm/drm_modeset_helper.h>
 #include <drm/drm_modeset_helper_vtables.h>
+#include <drm/drm_panic_helper.h>
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 

@@ -86,7 +86,7 @@ struct pvr_fw_defs {
 	 * FW processor specific finalisation.
 	 * @pvr_dev: Target PowerVR device.
 	 *
-	 * This function is optional.
+	 * This function is mandatory.
 	 */
 	void (*fini)(struct pvr_device *pvr_dev);
 

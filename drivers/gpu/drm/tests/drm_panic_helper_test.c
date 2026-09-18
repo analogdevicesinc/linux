@@ -3,34 +3,31 @@
  * Copyright (c) 2025 Red Hat.
  * Author: Jocelyn Falempe <jfalempe@redhat.com>
  *
- * KUNIT tests for drm panic
+ * KUNIT tests for DRM panic helpers
  */
 
-#include <drm/drm_fourcc.h>
-#include <drm/drm_panic.h>
-
-#include <kunit/test.h>
-
+#include <linux/highmem.h>
 #include <linux/units.h>
 #include <linux/vmalloc.h>
 
-/* Check the framebuffer color only if the panic colors are the default */
-#if (CONFIG_DRM_PANIC_BACKGROUND_COLOR == 0 && \
-	CONFIG_DRM_PANIC_FOREGROUND_COLOR == 0xffffff)
+#include <kunit/test.h>
+
+#include <drm/drm_fourcc.h>
+#include <drm/drm_panic.h>
+#include <drm/drm_panic_helper.h>
+
+MODULE_IMPORT_NS("EXPORTED_FOR_KUNIT_TESTING");
 
 static void drm_panic_check_color_byte(struct kunit *test, u8 b)
 {
 	KUNIT_EXPECT_TRUE(test, (b == 0 || b == 0xff));
 }
-#else
-static void drm_panic_check_color_byte(struct kunit *test, u8 b) {}
-#endif
 
 struct drm_test_mode {
 	const int width;
 	const int height;
 	const u32 format;
-	void (*draw_screen)(struct drm_scanout_buffer *sb);
+	int (*draw_screen)(struct drm_scanout_buffer *sb);
 	const char *fname;
 };
 
@@ -39,7 +36,7 @@ struct drm_test_mode {
  */
 #define DRM_TEST_MODE_LIST(func) \
 	DRM_PANIC_TEST_MODE(1024, 768, DRM_FORMAT_XRGB8888, func) \
-	DRM_PANIC_TEST_MODE(300, 200, DRM_FORMAT_XRGB8888, func) \
+	DRM_PANIC_TEST_MODE(494, 494, DRM_FORMAT_XRGB8888, func) \
 	DRM_PANIC_TEST_MODE(1920, 1080, DRM_FORMAT_XRGB8888, func) \
 	DRM_PANIC_TEST_MODE(1024, 768, DRM_FORMAT_RGB565, func) \
 	DRM_PANIC_TEST_MODE(1024, 768, DRM_FORMAT_RGB888, func) \
@@ -48,9 +45,26 @@ struct drm_test_mode {
 	.width = w, \
 	.height = h, \
 	.format = f, \
-	.draw_screen = draw_panic_screen_##name, \
+	.draw_screen = drm_panic_helper_draw_screen_ ## name ## _default, \
 	.fname = #name, \
 	}, \
+
+static int drm_panic_helper_draw_screen_user_default(struct drm_scanout_buffer *sb)
+{
+	return drm_panic_helper_draw_screen_user(sb, 0x00ffffff, 0x00000000);
+}
+
+static int drm_panic_helper_draw_screen_kmsg_default(struct drm_scanout_buffer *sb)
+{
+	return drm_panic_helper_draw_screen_kmsg(sb, 0x00ffffff, 0x00000000);
+}
+
+#if IS_ENABLED(CONFIG_DRM_PANIC_SCREEN_QR_CODE)
+static int drm_panic_helper_draw_screen_qr_code_default(struct drm_scanout_buffer *sb)
+{
+	return drm_panic_helper_draw_screen_qr_code(sb, 0x00ffffff, 0x00000000, 40);
+}
+#endif
 
 static const struct drm_test_mode drm_test_modes_cases[] = {
 	DRM_TEST_MODE_LIST(user)
@@ -71,9 +85,14 @@ static int drm_test_panic_init(struct kunit *test)
 
 	test->priv = priv;
 
-	drm_panic_set_description("Kunit testing");
+	drm_panic_helper_set_description("Kunit testing");
 
 	return 0;
+}
+
+static void drm_test_panic_exit(struct kunit *test)
+{
+	drm_panic_helper_clear_description();
 }
 
 /*
@@ -87,7 +106,7 @@ static void drm_test_panic_screen_user_map(struct kunit *test)
 	const struct drm_test_mode *params = test->param_value;
 	char *fb;
 	int fb_size;
-	int i;
+	int i, ret;
 
 	sb->format = drm_format_info(params->format);
 	fb_size = params->width * params->height * sb->format->cpp[0];
@@ -102,7 +121,8 @@ static void drm_test_panic_screen_user_map(struct kunit *test)
 	sb->height = params->height;
 	sb->pitch[0] = params->width * sb->format->cpp[0];
 
-	params->draw_screen(sb);
+	ret = params->draw_screen(sb);
+	KUNIT_ASSERT_EQ(test, ret, 0);
 
 	for (i = 0; i < fb_size; i++)
 		drm_panic_check_color_byte(test, fb[i]);
@@ -119,7 +139,7 @@ static void drm_test_panic_screen_user_page(struct kunit *test)
 {
 	struct drm_scanout_buffer *sb = test->priv;
 	const struct drm_test_mode *params = test->param_value;
-	int fb_size, p, i, npages;
+	int fb_size, p, i, npages, ret;
 	struct page **pages;
 	u8 *vaddr;
 
@@ -146,7 +166,8 @@ static void drm_test_panic_screen_user_page(struct kunit *test)
 	sb->height = params->height;
 	sb->pitch[0] = params->width * sb->format->cpp[0];
 
-	params->draw_screen(sb);
+	ret = params->draw_screen(sb);
+	KUNIT_ASSERT_EQ(test, ret, 0);
 
 	for (p = 0; p < npages; p++) {
 		int bytes_in_page = (p == npages - 1) ? fb_size - p * PAGE_SIZE : PAGE_SIZE;
@@ -182,6 +203,7 @@ static void drm_test_panic_screen_user_set_pixel(struct kunit *test)
 {
 	struct drm_scanout_buffer *sb = test->priv;
 	const struct drm_test_mode *params = test->param_value;
+	int ret;
 
 	sb->format = drm_format_info(params->format);
 	sb->set_pixel = drm_test_panic_set_pixel;
@@ -189,7 +211,8 @@ static void drm_test_panic_screen_user_set_pixel(struct kunit *test)
 	sb->height = params->height;
 	sb->private = test;
 
-	params->draw_screen(sb);
+	ret = params->draw_screen(sb);
+	KUNIT_ASSERT_EQ(test, ret, 0);
 }
 
 static void drm_test_panic_desc(const struct drm_test_mode *t, char *desc)
@@ -212,10 +235,14 @@ static struct kunit_case drm_panic_screen_user_test[] = {
 	{ }
 };
 
-static struct kunit_suite drm_panic_suite = {
-	.name = "drm_panic",
+static struct kunit_suite drm_panic_helper_suite = {
+	.name = "drm_panic_helper",
 	.init = drm_test_panic_init,
+	.exit = drm_test_panic_exit,
 	.test_cases = drm_panic_screen_user_test,
 };
 
-kunit_test_suite(drm_panic_suite);
+kunit_test_suite(drm_panic_helper_suite);
+
+MODULE_DESCRIPTION("KUnit test suite for DRM panic handling");
+MODULE_LICENSE("GPL");
