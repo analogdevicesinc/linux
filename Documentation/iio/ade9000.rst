@@ -1,10 +1,11 @@
 .. SPDX-License-Identifier: GPL-2.0
 
-======================
-ADE9000/ADE9078 driver
-======================
+==============================
+ADE9000/ADE9078/ADE9430 driver
+==============================
 
-This driver supports Analog Devices' ADE9000 and ADE9078 energy measurement
++This driver supports Analog Devices' ADE9000, ADE9078 and ADE9430 energy
++measurement ICs on SPI bus.
 ICs on SPI bus.
 
 1. Supported devices
@@ -12,18 +13,20 @@ ICs on SPI bus.
 
 * `ADE9000 <https://www.analog.com/media/en/technical-documentation/data-sheets/ADE9000.pdf>`_
 * `ADE9078 <https://www.analog.com/media/en/technical-documentation/data-sheets/ADE9078.pdf>`_
+* `ADE9430 <https://www.analog.com/media/en/technical-documentation/data-sheets/ADE9430.pdf>`_
 
-The ADE9000 and ADE9078 are highly accurate, fully integrated, multiphase energy
-and power quality monitoring devices. Superior analog performance and a digital
-signal processing (DSP) core enable accurate energy monitoring over a wide
-dynamic range. An integrated high end reference ensures low drift over
-temperature with a combined drift of less than ±25 ppm/°C maximum for the entire
-channel including a programmable gain amplifier (PGA) and an analog-to-digital
-converter (ADC).
+The supported parts are highly accurate, fully integrated,
+multiphase energy and power quality monitoring devices. Superior analog
+performance and a digital signal processing (DSP) core enable accurate energy
+monitoring over a wide dynamic range. An integrated high end reference ensures
+low drift over temperature with a combined drift of less than ±25 ppm/°C maximum
+for the entire channel including a programmable gain amplifier (PGA) and an
+analog-to-digital converter (ADC).
 
-The ADE9078 does not provide the on-chip dip/swell (sag) detection available on
-the ADE9000, so the RMS voltage swell/dip events described below are only
-available on the ADE9000.
+The ADE9078 and ADE9430 do not provide the on-chip dip/swell (sag) detection
+available on the ADE9000, so the RMS voltage swell/dip events described below are
+only available on the ADE9000. The ADE9430 additionally has no on-chip digital
+integrator and instead uses an external analog integrator for Rogowski coils.
 
 2. Device attributes
 ====================
