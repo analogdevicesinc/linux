@@ -2457,7 +2457,7 @@ static int mv88e6xxx_get_rxnfc(struct dsa_switch *ds, int port,
 	case ETHTOOL_GRXCLSRULE:
 		err = -ENOENT;
 		policy = idr_find(&chip->policies, fs->location);
-		if (policy) {
+		if (policy && policy->port == port) {
 			memcpy(fs, &policy->fs, sizeof(*fs));
 			err = 0;
 		}
