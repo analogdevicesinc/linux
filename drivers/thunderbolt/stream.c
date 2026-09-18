@@ -375,6 +375,7 @@ tbstream_dev_rx_callback(struct tb_ring *ring, struct ring_frame *frame,
 {
 	struct tbstream_frame *sf = container_of(frame, typeof(*sf), frame);
 	struct tbstream_dev *sdev = sf->sdev;
+	__poll_t mask;
 
 	if (canceled)
 		return;
@@ -382,19 +383,17 @@ tbstream_dev_rx_callback(struct tb_ring *ring, struct ring_frame *frame,
 	sf->completed = true;
 	sdev->rx_ring.prod++;
 
-	if (sf->frame.flags & RING_DESC_CRC_ERROR) {
-		pr_warn("RX CRC error\n");
-	} else if (sf->frame.flags & RING_DESC_BUFFER_OVERRUN) {
-		pr_warn("RX buffer overrun\n");
-	} else {
-		__poll_t mask = EPOLLIN | EPOLLRDNORM;
-
-		if (sf->frame.eof == TBSTREAM_CLOSE) {
-			WRITE_ONCE(sdev->close_received, true);
-			mask |= EPOLLHUP;
-		}
-		wake_up_interruptible_poll(&sdev->wait, mask);
+	mask = EPOLLIN | EPOLLRDNORM;
+	/*
+	 * The CLOSE packet does not have a payload so the flags do not
+	 * matter. The read_iter() deals with the flags.
+	 */
+	if (sf->frame.eof == TBSTREAM_CLOSE) {
+		WRITE_ONCE(sdev->close_received, true);
+		mask |= EPOLLHUP;
 	}
+
+	wake_up_interruptible_poll(&sdev->wait, mask);
 }
 
 static struct tbstream_frame *
@@ -875,6 +874,19 @@ tbstream_dev_fops_read_iter(struct kiocb *kiocb, struct iov_iter *to)
 			if (!nbytes) {
 				tbstream_dev_consume_rx(sdev);
 				WRITE_ONCE(sdev->closed, true);
+			}
+			break;
+		} else if (sf->frame.flags &
+			   (RING_DESC_CRC_ERROR | RING_DESC_BUFFER_OVERRUN)) {
+			/*
+			 * If something was already read return that now
+			 * and next read will report the error.
+			 */
+			if (!nbytes) {
+				pr_warn("corrupted frame received, flags %#x\n",
+					sf->frame.flags);
+				tbstream_dev_consume_rx(sdev);
+				ret = -EIO;
 			}
 			break;
 		}
