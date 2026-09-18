@@ -145,7 +145,7 @@ static struct platform_driver dwmac_adi_driver = {
 	.driver = {
 		.name           = "adi-dwmac",
 		.pm		= &stmmac_pltfr_pm_ops,
-		.of_match_table = of_match_ptr(dwmac_adi_match),
+		.of_match_table = dwmac_adi_match,
 	},
 };
 module_platform_driver(dwmac_adi_driver);
