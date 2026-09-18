@@ -55,6 +55,8 @@ enum adrv9025_iio_dev_attr {
 	adrv9025_JESD204_FSM_STATE,
 	adrv9025_JESD204_FSM_RESUME,
 	adrv9025_JESD204_FSM_CTRL,
+	ADRV9025_INIT_CALS_COMPLETE_CHECK,
+	ADRV9025_INIT_STATUS_ALL,
 };
 
 static int __adrv9025_dev_err(struct adrv9025_rf_phy *phy, const char *function,
@@ -459,7 +461,9 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
 	struct jesd204_dev *jdev = phy->jdev;
 	struct jesd204_link *links[5];
+	adi_adrv9025_InitCalStatus_t initStatus;
 	int ret = 0, i, err, num_links;
+	uint8_t status, arm_flag;
 	bool paused;
 	u64 val;
 
@@ -561,6 +565,41 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 
 		ret = sysfs_emit(buf, "%d\n", phy->is_initialized);
 		break;
+
+	case ADRV9025_INIT_CALS_COMPLETE_CHECK:
+		ret = adi_adrv9025_InitCalsCheckCompleteGet(phy->madDevice,
+							   &status, &arm_flag);
+		if (ret) {
+			ret = adrv9025_dev_err(phy);
+			break;
+		}
+
+		ret = sysfs_emit(buf, "Status: %d, ARM is error?: %d\n",
+				 status, arm_flag);
+		break;
+	case ADRV9025_INIT_STATUS_ALL:
+		ret = adi_adrv9025_InitCalsDetailedStatusGet(phy->madDevice,
+							    &initStatus);
+		if (ret) {
+			ret = adrv9025_dev_err(phy);
+			break;
+		}
+
+		ret = sysfs_emit(buf,
+				 "initErrCode: 0x%08x (objId=0x%02x err=0x%02x)\n"
+				 "initErrCal: 0x%08x, durationUsec: %u\n"
+				 "calsSincePowerUp: [0x%08x 0x%08x 0x%08x 0x%08x]\n"
+				 "calsLastRun:      [0x%08x 0x%08x 0x%08x 0x%08x]\n",
+				 initStatus.initErrCode,
+				 (initStatus.initErrCode >> 8) & 0xFF,
+				 initStatus.initErrCode & 0xFF,
+				 initStatus.initErrCal, initStatus.calsDurationUsec,
+				 initStatus.calsSincePowerUp[0], initStatus.calsSincePowerUp[1],
+				 initStatus.calsSincePowerUp[2], initStatus.calsSincePowerUp[3],
+				 initStatus.calsLastRun[0], initStatus.calsLastRun[1],
+				 initStatus.calsLastRun[2], initStatus.calsLastRun[3]);
+		break;
+
 	default:
 		ret = -EINVAL;
 	}
@@ -585,6 +624,10 @@ static IIO_DEVICE_ATTR(calibrate_tx_lol_en, 0644,
 		       ADRV9025_INIT_CAL |
 			       (ADI_ADRV9025_TX_LO_LEAKAGE_INTERNAL << 8));
 
+static IIO_DEVICE_ATTR(init_cals_complete_check, 0444,
+			   adrv9025_phy_show, NULL,
+			   ADRV9025_INIT_CALS_COMPLETE_CHECK);
+
 static IIO_DEVICE_ATTR(calibrate_tx_lol_ext_en, 0644,
 		       adrv9025_phy_show, adrv9025_phy_store,
 		       ADRV9025_INIT_CAL |
@@ -596,6 +639,9 @@ static IIO_DEVICE_ATTR(calibrate_ext_path_delay_en, 0644,
 
 static IIO_DEVICE_ATTR(calibrate_mask, 0644, adrv9025_phy_show,
 		       adrv9025_phy_store, ADRV9025_CAL_MASK);
+
+static IIO_DEVICE_ATTR(init_cals_all_status, 0444, adrv9025_phy_show,
+		       NULL, ADRV9025_INIT_STATUS_ALL);
 
 static IIO_DEVICE_ATTR(dpd_tx_mask, 0644, adrv9025_phy_show,
 		       adrv9025_phy_store, ADRV9025_DPD_TX_MASK);
@@ -633,12 +679,14 @@ static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, 0644,
 
 static struct attribute *adrv9026_phy_attributes[] = {
 	&iio_dev_attr_calibrate.dev_attr.attr,
+	&iio_dev_attr_init_cals_complete_check.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_mask.dev_attr.attr,
+	&iio_dev_attr_init_cals_all_status.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
@@ -649,12 +697,14 @@ static struct attribute *adrv9026_phy_attributes[] = {
 
 static struct attribute *adrv9029_phy_attributes[] = {
 	&iio_dev_attr_calibrate.dev_attr.attr,
+	&iio_dev_attr_init_cals_complete_check.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_mask.dev_attr.attr,
+	&iio_dev_attr_init_cals_all_status.dev_attr.attr,
 	&iio_dev_attr_dpd_tx_mask.dev_attr.attr,
 	&iio_dev_attr_dpd_reset.dev_attr.attr,
 	&iio_dev_attr_dpd_tracking_config_set.dev_attr.attr,
@@ -1567,7 +1617,7 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 			ret = adi_adrv9025_TxAttenSet(phy->madDevice, &txAtten,
 						      1);
 			if (ret)
-				adrv9025_dev_err(phy);
+				ret = adrv9025_dev_err(phy);
 
 		} else {
 			adi_adrv9025_RxGain_t rxGain;
@@ -1613,7 +1663,7 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 			ret = adi_adrv9025_RxGainSet(phy->madDevice, &rxGain,
 						     1);
 			if (ret)
-				adrv9025_dev_err(phy);
+				ret = adrv9025_dev_err(phy);
 		}
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
