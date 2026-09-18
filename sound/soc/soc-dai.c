@@ -1391,3 +1391,13 @@ void snd_soc_dai_symmetric_update(struct snd_pcm_substream *substream)
 	if (symmetry)
 		substream->runtime->hw.info |= SNDRV_PCM_INFO_JOINT_DUPLEX;
 }
+
+struct clk *snd_soc_dai_get_bclk(struct snd_soc_dai *dai)
+{
+	return dai->bclk;
+}
+
+unsigned int snd_soc_dai_get_bclk_ratio(struct snd_soc_dai *dai)
+{
+	return dai->bclk_ratio;
+}

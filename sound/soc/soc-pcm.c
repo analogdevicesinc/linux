@@ -445,17 +445,24 @@ static int soc_pcm_shared_bclk_rule_rate(struct snd_pcm_hw_params *params,
 	struct snd_interval *rate = hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
 	struct snd_interval constraint = { .empty = 1 };
 	unsigned int target_rate;
+	struct clk *dai_bclk;
+	unsigned int dai_bclk_ratio;
 	int i;
 
 	/* Protect the rtd list traversal with the ASoC card mutex helper. */
 	guard(snd_soc_card_mutex)(card);
 
+	dai_bclk = snd_soc_dai_get_bclk(dai);
+	dai_bclk_ratio = snd_soc_dai_get_bclk_ratio(dai);
+
 	/* Scan all DAIs on the card for an active peer sharing the same BCLK */
 	for_each_card_rtds(card, rtd) {
 		for_each_rtd_cpu_dais(rtd, i, other_dai) {
+			struct clk *other_dai_bclk = snd_soc_dai_get_bclk(other_dai);
+
 			if (other_dai == dai)
 				continue;
-			if (!other_dai->bclk)
+			if (!other_dai_bclk)
 				continue;
 			if (!snd_soc_dai_active(other_dai))
 				continue;
@@ -467,10 +474,10 @@ static int soc_pcm_shared_bclk_rule_rate(struct snd_pcm_hw_params *params,
 			 */
 			if (!other_dai->symmetric_rate)
 				continue;
-			if (!clk_is_match(dai->bclk, other_dai->bclk))
+			if (!clk_is_match(dai_bclk, other_dai_bclk))
 				continue;
 
-			active_bclk_rate = clk_get_rate(other_dai->bclk);
+			active_bclk_rate = clk_get_rate(other_dai_bclk);
 			if (active_bclk_rate)
 				goto found;
 		}
@@ -479,13 +486,13 @@ static int soc_pcm_shared_bclk_rule_rate(struct snd_pcm_hw_params *params,
 	return 0;
 
 found:
-	if (dai->bclk_ratio) {
+	if (dai_bclk_ratio) {
 		/*
 		 * Driver has set an explicit BCLK ratio (e.g. for TDM where
 		 * BCLK = rate * slots * slot_width). The only valid rate is
 		 * active_bclk_rate / bclk_ratio.
 		 */
-		target_rate = active_bclk_rate / dai->bclk_ratio;
+		target_rate = active_bclk_rate / dai_bclk_ratio;
 
 		constraint.min = target_rate;
 		constraint.max = target_rate;
@@ -522,7 +529,7 @@ found:
 static int soc_pcm_apply_shared_bclk(struct snd_pcm_substream *substream,
 				     struct snd_soc_dai *dai)
 {
-	if (!dai->bclk)
+	if (!snd_soc_dai_get_bclk(dai))
 		return 0;
 
 	dev_dbg(dai->dev,
