@@ -211,15 +211,13 @@ static const struct snd_soc_component_driver sc5xx_dai_component = {
 	.resume = sc5xx_dai_resume,
 };
 
-#ifdef CONFIG_OF
 static const struct of_device_id sc5xx_audio_of_match[] = {
 	{
 		.compatible = "adi,sc5xx-i2s-dai",
 	},
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, sc5xx_audio_of_match);
-#endif
 
 static int sc5xx_dai_probe(struct platform_device *pdev)
 {
@@ -269,10 +267,9 @@ static struct platform_driver sc5xx_i2s_dai_driver = {
 	.remove = sc5xx_dai_remove,
 	.driver = {
 		.name = "sc5xx-i2s-dai",
-		.of_match_table = of_match_ptr(sc5xx_audio_of_match),
+		.of_match_table = sc5xx_audio_of_match,
 	},
 };
-
 module_platform_driver(sc5xx_i2s_dai_driver);
 
 MODULE_DESCRIPTION("Analog Devices SC5XX I2S DAI driver");
