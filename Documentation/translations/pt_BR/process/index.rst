@@ -78,6 +78,7 @@ gerenciamento de bugs e vulnerabilidades.
 .. toctree::
    :maxdepth: 1
 
+   Dicas de depuração para desenvolvedores do Kernel Linux <debugging/index>
    Falhas de segurança <security-bugs>
    Problemas de hardware sob embargo <embargoed-hardware-issues>
    CVEs <cve>
