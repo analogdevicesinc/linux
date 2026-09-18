@@ -190,6 +190,17 @@ enum {
 	BR_VLFLAG_NEIGH_FORWARD_GRAT_ENABLED = BIT(6),
 };
 
+/* start publishing arrays when there're > BR_VLAN_PORT_ARRAY_THRESHOLD
+ * port-VLANs
+ */
+#define BR_VLAN_PORT_ARRAY_THRESHOLD 8
+
+struct net_bridge_vlan_port_array {
+	struct rcu_head		rcu;
+	unsigned int		count;
+	struct net_bridge_vlan	*vlans[];
+};
+
 /**
  * struct net_bridge_vlan - per-vlan entry
  *
@@ -210,6 +221,7 @@ enum {
  * @port_mcast_ctx: if MASTER flag unset, this is the per-port/vlan multicast
  *                  context
  * @msti: if MASTER flag set, this holds the VLANs MST instance
+ * @port_array: if MASTER flag set, this is the port-VLAN array
  * @port_vlist: if MASTER flag set, this is the port-VLAN list
  * @vlist: sorted list of VLAN entries
  * @rcu: used for entry destruction
@@ -245,6 +257,7 @@ struct net_bridge_vlan {
 
 	u16				msti;
 
+	struct net_bridge_vlan_port_array __rcu *port_array;
 	struct list_head		port_vlist;
 	struct list_head		vlist;
 

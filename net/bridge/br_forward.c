@@ -261,6 +261,35 @@ static void br_flood_port(struct net_bridge_port **prev,
 	*prev = maybe_deliver(*prev, p, skb, local_orig);
 }
 
+static void br_flood_vlan(struct net_bridge_port **prev,
+			  struct net_bridge_vlan *v, struct sk_buff *skb,
+			  enum br_pkt_type pkt_type, bool local_orig)
+{
+	struct net_bridge_vlan_port_array *array;
+	struct net_bridge_vlan *masterv, *pv;
+
+	masterv = br_vlan_is_master(v) ? v : v->brvlan;
+	array = rcu_dereference(masterv->port_array);
+	if (array) {
+		unsigned int i;
+
+		for (i = 0; i < array->count; i++) {
+			pv = array->vlans[i];
+			br_flood_port(prev, pv->port, skb, pkt_type,
+				      local_orig, v->vid);
+			if (IS_ERR(*prev))
+				break;
+		}
+	} else {
+		list_for_each_entry_rcu(pv, &masterv->port_vlist, port_vlist) {
+			br_flood_port(prev, pv->port, skb, pkt_type,
+				      local_orig, v->vid);
+			if (IS_ERR(*prev))
+				break;
+		}
+	}
+}
+
 /* called under rcu_read_lock */
 void br_flood(struct net_bridge *br, struct net_bridge_vlan *v,
 	      struct sk_buff *skb, enum br_pkt_type pkt_type,
@@ -271,15 +300,7 @@ void br_flood(struct net_bridge *br, struct net_bridge_vlan *v,
 	br_tc_skb_miss_set(skb, pkt_type != BR_PKT_BROADCAST);
 
 	if (v) {
-		struct net_bridge_vlan *masterv, *pv;
-
-		masterv = br_vlan_is_master(v) ? v : v->brvlan;
-		list_for_each_entry_rcu(pv, &masterv->port_vlist, port_vlist) {
-			br_flood_port(&prev, pv->port, skb, pkt_type,
-				      local_orig, v->vid);
-			if (IS_ERR(prev))
-				break;
-		}
+		br_flood_vlan(&prev, v, skb, pkt_type, local_orig);
 	} else {
 		struct net_bridge_port *p;
 

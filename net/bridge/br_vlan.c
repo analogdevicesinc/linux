@@ -258,6 +258,36 @@ static void br_vlan_init_state(struct net_bridge_vlan *v)
 	v->msti = 0;
 }
 
+static unsigned int br_vlan_num_ports(const struct net_bridge_vlan *masterv)
+{
+	return refcount_read(&masterv->refcnt) - br_vlan_is_brentry(masterv);
+}
+
+static void br_vlan_rebuild_port_array(struct net_bridge_vlan *masterv,
+				       unsigned int count)
+{
+	struct net_bridge_vlan_port_array *array = NULL, *old;
+	unsigned int i = 0;
+
+	WARN_ON(!br_vlan_is_master(masterv));
+
+	if (count > BR_VLAN_PORT_ARRAY_THRESHOLD)
+		array = kvmalloc(struct_size(array, vlans, count), GFP_KERNEL);
+
+	if (array) {
+		struct net_bridge_vlan *pv;
+
+		array->count = count;
+		list_for_each_entry(pv, &masterv->port_vlist, port_vlist)
+			array->vlans[i++] = pv;
+	}
+
+	old = rtnl_dereference(masterv->port_array);
+	rcu_assign_pointer(masterv->port_array, array);
+	if (old)
+		kvfree_rcu(old, rcu);
+}
+
 /* This is the shared VLAN add function which works for both ports and bridge
  * devices. There are four possible calls to this function in terms of the
  * vlan entry type:
@@ -368,8 +398,10 @@ static int __vlan_add(struct net_bridge_vlan *v, u16 flags,
 	__vlan_flags_commit(v, flags);
 	br_multicast_toggle_one_vlan(v, true);
 
-	if (p)
+	if (p) {
+		br_vlan_rebuild_port_array(masterv, br_vlan_num_ports(masterv));
 		nbp_vlan_set_vlan_dev_state(p, v->vid);
+	}
 out:
 	return err;
 
@@ -438,6 +470,9 @@ static void __vlan_del(struct net_bridge_vlan *v)
 		rhashtable_remove_fast(&vg->vlan_hash, &v->vnode,
 				       br_vlan_rht_params);
 		__vlan_del_list(v);
+		/* -1 because br_vlan_put_master() is called later */
+		br_vlan_rebuild_port_array(masterv,
+					   br_vlan_num_ports(masterv) - 1);
 		nbp_vlan_set_vlan_dev_state(p, v->vid);
 		br_multicast_toggle_one_vlan(v, false);
 		br_multicast_port_ctx_deinit(&v->port_mcast_ctx);
