@@ -1490,7 +1490,6 @@ static int vgic_v5_save_two_level_ist(const struct vgic_v5_ist_desc *ist,
 	struct vgic_v5_two_level_ist_shape shape;
 	size_t h_l1_index, h_l2_index;
 	void *h_l2_ist_base;
-	__le32 h_iste;
 	int ret;
 
 	shape = vgic_v5_two_level_ist_shape(ist);
@@ -1517,10 +1516,10 @@ static int vgic_v5_save_two_level_ist(const struct vgic_v5_ist_desc *ist,
 				    shape.l2_entries * ist->iste_size);
 
 		for (h_l2_index = 0; h_l2_index < shape.l2_entries; h_l2_index++) {
-			h_iste = *(__le32 *)(h_l2_ist_base +
-					     h_l2_index * ist->iste_size);
+			void *h_iste_addr = h_l2_ist_base + h_l2_index * ist->iste_size;
+			u32 h_iste = le32_to_cpu(*(__le32 *)h_iste_addr);
 
-			ret = put_user(le32_to_cpu(h_iste), uaddr);
+			ret = put_user(h_iste, uaddr);
 			if (ret)
 				return ret;
 
