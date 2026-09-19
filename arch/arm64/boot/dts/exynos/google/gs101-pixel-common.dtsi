@@ -646,12 +646,13 @@
 	status = "okay";
 	/* TODO: add the devices once drivers exist */
 
-	usb-typec@25 {
+	maxtcpci: usb-typec@25 {
 		compatible = "maxim,max77759-tcpci", "maxim,max33359";
 		reg = <0x25>;
 		interrupts-extended = <&gpa8 2 IRQ_TYPE_LEVEL_LOW>;
 		pinctrl-0 = <&typec_int>;
 		pinctrl-names = "default";
+		vbus-supply = <&chgin_otg_reg>;
 
 		connector {
 			compatible = "usb-c-connector";
@@ -738,9 +739,10 @@
 		interrupts-extended = <&gpa9 3 IRQ_TYPE_LEVEL_LOW>;
 
 		shunt-resistor-micro-ohms = <5000>;
+		power-supplies = <&max77759_pmic>;
 	};
 
-	pmic@66 {
+	max77759_pmic: pmic@66 {
 		compatible = "maxim,max77759";
 		reg = <0x66>;
 
@@ -750,6 +752,11 @@
 
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		power-supplies = <&maxtcpci>;
+
+		chgin_otg_reg: chgin-otg-regulator {
+			regulator-name = "chgin-otg";
+		};
 
 		gpio {
 			compatible = "maxim,max77759-gpio";
