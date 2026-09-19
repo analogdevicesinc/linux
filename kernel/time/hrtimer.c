@@ -780,7 +780,8 @@ static void hrtimer_switch_to_hres(void)
 		return;
 	}
 	base->hres_active = true;
-	hrtimer_resolution = HIGH_RES_NSEC;
+	if (hrtimer_resolution != HIGH_RES_NSEC)
+		hrtimer_resolution = HIGH_RES_NSEC;
 
 	tick_setup_sched_timer(true);
 	/* "Retrigger" the interrupt to get things going */
