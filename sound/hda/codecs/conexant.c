@@ -312,6 +312,7 @@ enum {
 	CXT_FIXUP_HP_A_U,
 	CXT_FIXUP_ACER_SWIFT_HP,
 	CXT_FIXUP_HUAWEI_MATEBOOK_HP,
+	CXT_FIXUP_MATEBOOK14_SN6140,
 };
 
 /* for hda_fixup_thinkpad_acpi() */
@@ -817,6 +818,67 @@ static void cxt_fixup_hp_a_u(struct hda_codec *codec,
 		cxt_setup_gpio_unmute(codec, 0x2);
 }
 
+/* Huawei MateBook 14 (SN6140): the speaker output follows the headphone
+ * pin's connection select in hardware.  Both pins must be routed to the
+ * shared DAC 0x10, which carries the playback stream; the generic
+ * parser mutes that DAC when no headphone is plugged, silencing the
+ * speaker.  Suppress the auto-mute, bind the speaker pin to the shared
+ * DAC, remove its mute switch and keep it unmuted; the auto-mute hook
+ * re-applies the routing after every output update.
+ */
+static void cxt_mb14_route_unmute(struct hda_codec *codec)
+{
+	/* route both pins to the shared DAC 0x10, enable the speaker
+	 * EAPD and unmute the DAC at a moderate gain; the vmaster
+	 * volume takes over once userspace starts
+	 */
+	snd_hda_codec_write(codec, 0x16, 0, AC_VERB_SET_CONNECT_SEL, 0);
+	snd_hda_codec_write(codec, 0x17, 0, AC_VERB_SET_CONNECT_SEL, 0);
+	snd_hda_codec_write(codec, 0x17, 0, AC_VERB_SET_EAPD_BTLENABLE, 0x02);
+	snd_hda_codec_amp_stereo(codec, 0x10, HDA_OUTPUT, 0,
+				 HDA_AMP_VOLMASK | HDA_AMP_MUTE, 0x40);
+}
+
+static void cxt_mb14_automute(struct hda_codec *codec)
+{
+	snd_hda_gen_update_outputs(codec);
+	cxt_mb14_route_unmute(codec);
+}
+
+static void cxt_fixup_matebook14_sn6140(struct hda_codec *codec,
+					const struct hda_fixup *fix, int action)
+{
+	struct conexant_spec *spec = codec->spec;
+
+	if (action == HDA_FIXUP_ACT_PRE_PROBE) {
+		static const hda_nid_t dac_0x10[] = { 0x10 };
+
+		spec->gen.suppress_auto_mute = 1;
+		spec->gen.automute_hook = cxt_mb14_automute;
+		/* Bind the speaker pin to the shared DAC 0x10.
+		 */
+		snd_hda_override_conn_list(codec, 0x17, 1, dac_0x10);
+		return;
+	}
+	if (action == HDA_FIXUP_ACT_PROBE) {
+		unsigned int caps;
+
+		/* Remove the mute switch on the shared DAC so that
+		 * userspace (WirePlumber) cannot mute it when the
+		 * headphone route becomes unavailable (e.g. after
+		 * resume).  Must be done here: the codec regmap is not
+		 * available at pre-probe time.
+		 */
+		caps = query_amp_caps(codec, 0x10, HDA_OUTPUT);
+		snd_hda_override_amp_caps(codec, 0x10, HDA_OUTPUT,
+					  caps & ~AC_AMPCAP_MUTE);
+		return;
+	}
+	if (action != HDA_FIXUP_ACT_INIT)
+		return;
+	cxt_mb14_route_unmute(codec);
+}
+
 /* ThinkPad X200 & co with cxt5051 */
 static const struct hda_pintbl cxt_pincfg_lenovo_x200[] = {
 	{ 0x16, 0x042140ff }, /* HP (seq# overridden) */
@@ -1062,6 +1124,10 @@ static const struct hda_fixup cxt_fixups[] = {
 			{ }
 		},
 	},
+	[CXT_FIXUP_MATEBOOK14_SN6140] = {
+		.type = HDA_FIXUP_FUNC,
+		.v.func = cxt_fixup_matebook14_sn6140,
+	},
 };
 
 static const struct hda_quirk cxt5045_fixups[] = {
@@ -1164,6 +1230,7 @@ static const struct hda_quirk cxt5066_fixups[] = {
 	SND_PCI_QUIRK(0x17aa, 0x397b, "Lenovo S205", CXT_FIXUP_STEREO_DMIC),
 	SND_PCI_QUIRK_VENDOR(0x17aa, "Thinkpad/Ideapad", CXT_FIXUP_LENOVO_XPAD_ACPI),
 	SND_PCI_QUIRK(0x19e5, 0x3289, "Huawei Matebook", CXT_FIXUP_HUAWEI_MATEBOOK_HP),
+	SND_PCI_QUIRK(0x19e5, 0x329e, "Huawei MateBook 14", CXT_FIXUP_MATEBOOK14_SN6140),
 	SND_PCI_QUIRK(0x1c06, 0x2011, "Lemote A1004", CXT_PINCFG_LEMOTE_A1004),
 	SND_PCI_QUIRK(0x1c06, 0x2012, "Lemote A1205", CXT_PINCFG_LEMOTE_A1205),
 	SND_PCI_QUIRK(0x1d05, 0x3012, "MECHREVO Wujie 15X Pro", CXT_FIXUP_HEADSET_MIC),
