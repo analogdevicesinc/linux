@@ -189,11 +189,12 @@ static struct hid_sensor_hub_callbacks temperature_callbacks = {
 /* Function to initialize the processing for usage id */
 static int hid_temperature_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	struct hid_sensor_hub_device *hsdev = dev_get_platdata(dev);
 	static const char *name = "temperature";
 	struct iio_dev *indio_dev;
 	struct temperature_state *temp_st;
 	struct iio_chan_spec *temp_chans;
-	struct hid_sensor_hub_device *hsdev = dev_get_platdata(&pdev->dev);
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*temp_st));
@@ -230,42 +231,21 @@ static int hid_temperature_probe(struct platform_device *pdev)
 
 	atomic_set(&temp_st->common_attributes.data_ready, 0);
 
-	ret = hid_sensor_setup_trigger(indio_dev, name,
-				       &temp_st->common_attributes);
+	ret = devm_hid_sensor_setup_trigger(dev, indio_dev, name,
+					    &temp_st->common_attributes);
 	if (ret)
 		return ret;
 
 	platform_set_drvdata(pdev, indio_dev);
 
 	temperature_callbacks.pdev = pdev;
-	ret = sensor_hub_register_callback(hsdev, HID_USAGE_SENSOR_TEMPERATURE,
-					   &temperature_callbacks);
+	ret = devm_sensor_hub_register_callback(dev, hsdev,
+						HID_USAGE_SENSOR_TEMPERATURE,
+						&temperature_callbacks);
 	if (ret)
-		goto error_remove_trigger;
+		return ret;
 
-	ret = iio_device_register(indio_dev);
-	if (ret)
-		goto error_remove_callback;
-
-	return ret;
-
-error_remove_callback:
-	sensor_hub_remove_callback(hsdev, HID_USAGE_SENSOR_TEMPERATURE);
-error_remove_trigger:
-	hid_sensor_remove_trigger(&temp_st->common_attributes);
-	return ret;
-}
-
-/* Function to deinitialize the processing for usage id */
-static void hid_temperature_remove(struct platform_device *pdev)
-{
-	struct hid_sensor_hub_device *hsdev = dev_get_platdata(&pdev->dev);
-	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
-	struct temperature_state *temp_st = iio_priv(indio_dev);
-
-	iio_device_unregister(indio_dev);
-	sensor_hub_remove_callback(hsdev, HID_USAGE_SENSOR_TEMPERATURE);
-	hid_sensor_remove_trigger(&temp_st->common_attributes);
+	return devm_iio_device_register(dev, indio_dev);
 }
 
 static const struct platform_device_id hid_temperature_ids[] = {
@@ -284,7 +264,6 @@ static struct platform_driver hid_temperature_platform_driver = {
 		.pm	= &hid_sensor_pm_ops,
 	},
 	.probe		= hid_temperature_probe,
-	.remove		= hid_temperature_remove,
 };
 module_platform_driver(hid_temperature_platform_driver);
 
