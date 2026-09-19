@@ -1066,7 +1066,7 @@ static int vgic_v5_alloc_two_level_lpi_ist(struct kvm *kvm, unsigned int id_bits
 		/* Free the L1 IST again */
 		vmi = xa_load(&vm_info, vm_id);
 		kfree(vmi->h_lpi_ist);
-		vmi->h_lpi_ist = 0;
+		vmi->h_lpi_ist = NULL;
 
 		return ret;
 	}
