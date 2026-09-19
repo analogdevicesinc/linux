@@ -7,6 +7,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/clock/adi,adsp-sc846-cdu.h>
 #include <dt-bindings/clock/adi-sc5xx-clock.h>
 
 / {
@@ -53,7 +54,7 @@
 			reg = <0x0>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0xdeadbeef>;
-			clocks = <&clk ADSP_SC846_CLK_ARM0>;
+			clocks = <&cdu ADSP_SC846_CLK_CDU_ARM>;
 		};
 
 		cpu1: cpu@100 {
@@ -62,7 +63,7 @@
 			reg = <0x100>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x0>; /* set by u-boot */
-			clocks = <&clk ADSP_SC846_CLK_ARM0>;
+			clocks = <&cdu ADSP_SC846_CLK_CDU_ARM>;
 		};
 	};
 
@@ -152,12 +153,47 @@
 		compatible = "adi,sc846-clocks";
 		reg = <0x3108d000 0x1000>,
 			<0x3108e000 0x1000>,
-			<0x3108f000 0x1000>,
 			<0x310a9000 0x1000>;
 		#clock-cells = <1>;
 		clocks = <&sys_clkin0>;
 		clock-names = "sys_clkin0";
 		status = "okay";
+	};
+
+	cdu: clock-controller@3108f000 {
+		compatible = "adi,adsp-sc846-cdu";
+		reg = <0x3108f000 0x100>;
+		#clock-cells = <1>;
+		clocks = <&clk ADSP_SC846_CLK_CGU0_CCLK0>,
+			 <&clk ADSP_SC846_CLK_CGU0_CCLK2_0>,
+			 <&clk ADSP_SC846_CLK_CGU0_SYSCLK>,
+			 <&clk ADSP_SC846_CLK_CGU0_SCLK0>,
+			 <&clk ADSP_SC846_CLK_CGU0_SCLK1>,
+			 <&clk ADSP_SC846_CLK_CGU0_DCLK>,
+			 <&clk ADSP_SC846_CLK_CGU0_DCLK1_0>,
+			 <&clk ADSP_SC846_CLK_CGU0_OCLK>,
+			 <&clk ADSP_SC846_CLK_CGU1_CCLK0>,
+			 <&clk ADSP_SC846_CLK_CGU1_CCLK2_1>,
+			 <&clk ADSP_SC846_CLK_CGU1_SYSCLK>,
+			 <&clk ADSP_SC846_CLK_CGU1_SCLK0>,
+			 <&clk ADSP_SC846_CLK_CGU1_SCLK1>,
+			 <&clk ADSP_SC846_CLK_CGU1_DCLK>,
+			 <&clk ADSP_SC846_CLK_CGU1_OCLK>;
+		clock-names = "cclk0_0",
+			      "cclk2_0",
+			      "sysclk_0",
+			      "sclk0_0",
+			      "sclk1_0",
+			      "dclk_0",
+			      "dclk1_0",
+			      "oclk_0",
+			      "cclk0_1",
+			      "cclk2_1",
+			      "sysclk_1",
+			      "sclk0_1",
+			      "sclk1_1",
+			      "dclk_1",
+			      "oclk_1";
 	};
 
 	gptimers: gptimers@31018000 {
@@ -504,7 +540,7 @@
 			interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 22>, <&spi_cluster 23>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC846_CLK_SPI>;
+			clocks = <&cdu ADSP_SC846_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -517,7 +553,7 @@
 			interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 24>, <&spi_cluster 25>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC846_CLK_SPI>;
+			clocks = <&cdu ADSP_SC846_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -530,7 +566,7 @@
 			interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 26>, <&spi_cluster 27>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC846_CLK_SPI>;
+			clocks = <&cdu ADSP_SC846_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -543,7 +579,7 @@
 			interrupts = <GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 59>, <&spi_cluster 60>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC846_CLK_SPI>;
+			clocks = <&cdu ADSP_SC846_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -566,7 +602,7 @@
 			snps,force_sf_dma_mode;
 			snps,perfect-filter-entries = <32>;
 			snps,tso;
-			clocks = <&clk ADSP_SC846_CLK_GIGE>;
+			clocks = <&cdu ADSP_SC846_CLK_CDU_GIGE>;
 			clock-names = "stmmaceth";
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
@@ -637,7 +673,7 @@
 			reg = <0x31152000 0x1000>;
 			interrupts = <GIC_SPI 214 IRQ_TYPE_LEVEL_HIGH>; /* Status */
 				     /*<GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>;*/ /* Wakeup */
-			clocks = <&clk ADSP_SC846_CLK_MSHC>;
+			clocks = <&cdu ADSP_SC846_CLK_CDU_MSHC>;
 			clock-names = "core";
 			bus-width = <8>;
 			status = "disabled";
