@@ -4346,6 +4346,13 @@ F:	drivers/net/ieee802154/at86rf230.h
 F:	drivers/net/ieee802154/atusb.c
 F:	drivers/net/ieee802154/atusb.h
 
+AUDIENT EVO MIXER DRIVER
+M:	Christian Ruppert <arc@gmx.li>
+L:	linux-sound@vger.kernel.org
+S:	Maintained
+F:	sound/usb/mixer_evo.c
+F:	sound/usb/mixer_evo.h
+
 AUDIT SUBSYSTEM
 M:	Paul Moore <paul@paul-moore.com>
 M:	Eric Paris <eparis@redhat.com>
