@@ -285,10 +285,12 @@ cflags-y			+= -I$(srctree)/arch/mips/include/asm/mach-generic
 drivers-$(CONFIG_PCI)		+= arch/mips/pci/
 
 #
-# Automatically detect the build format. By default we choose
-# the elf format according to the load address.
-# We can always force a build with a 64-bits symbol format by
-# passing 'KBUILD_SYM32=no' option to the make's command line.
+# Automatically detect whether to build a 64-bit kernel using symbols
+# limited to 32-bit values, which produces more compact code.  This
+# relies on the kernel image being linked at a 32-bit load address,
+# which we use to infer whether to use this arrangement for symbols.
+# Use 'make KBUILD_SYM32=n' to override this default choice and force
+# 64-bit symbols to be used instead.
 #
 ifdef need-compiler
   ifdef CONFIG_64BIT
