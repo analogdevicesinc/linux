@@ -1457,7 +1457,6 @@ static int vgic_v5_get_lpi_ist_desc(struct kvm *kvm,
 static int vgic_v5_save_linear_ist(const struct vgic_v5_ist_desc *ist,
 				   u32 __user *uaddr, size_t nr_entries)
 {
-	__le32 h_iste;
 	size_t index;
 	int ret;
 
@@ -1466,8 +1465,9 @@ static int vgic_v5_save_linear_ist(const struct vgic_v5_ist_desc *ist,
 
 	for (index = 0; index < nr_entries; index++) {
 		__le32 *h_iste_addr = ist->base + index * ist->iste_size;
+		u32 h_iste;
 
-		h_iste = READ_ONCE(*h_iste_addr);
+		h_iste = le32_to_cpu(READ_ONCE(*h_iste_addr));
 		ret = put_user(h_iste, uaddr);
 		if (ret)
 			return ret;
@@ -1520,7 +1520,7 @@ static int vgic_v5_save_two_level_ist(const struct vgic_v5_ist_desc *ist,
 			h_iste = *(__le32 *)(h_l2_ist_base +
 					     h_l2_index * ist->iste_size);
 
-			ret = put_user(h_iste, uaddr);
+			ret = put_user(le32_to_cpu(h_iste), uaddr);
 			if (ret)
 				return ret;
 
@@ -1710,19 +1710,19 @@ static int vgic_v5_restore_linear_ist(struct kvm *kvm,
 				      u32 __user *uaddr, size_t nr_entries,
 				      u32 intid_type)
 {
-	__le32 h_iste;
 	size_t index;
 	int ret;
 
 	for (index = 0; index < nr_entries; index++) {
 		void *h_iste_addr = ist->base + index * ist->iste_size;
+		u32 h_iste;
 
 		ret = get_user(h_iste, uaddr);
 		if (ret)
 			return ret;
 
 		ret = vgic_v5_restore_ist_entry(kvm, ist, h_iste_addr,
-					h_iste, index, intid_type);
+						cpu_to_le32(h_iste), index, intid_type);
 		if (ret)
 			return ret;
 
@@ -1744,7 +1744,6 @@ static int vgic_v5_restore_two_level_ist(struct kvm *kvm,
 	struct vgic_v5_two_level_ist_shape shape;
 	size_t h_l1_index, h_l2_index;
 	void *h_l2_ist_base;
-	__le32 h_iste;
 	int ret;
 
 	shape = vgic_v5_two_level_ist_shape(ist);
@@ -1771,13 +1770,14 @@ static int vgic_v5_restore_two_level_ist(struct kvm *kvm,
 			void *h_iste_addr = h_l2_ist_base +
 					    h_l2_index * ist->iste_size;
 			u32 intid = h_l1_index * shape.l2_entries + h_l2_index;
+			u32 h_iste;
 
 			ret = get_user(h_iste, uaddr);
 			if (ret)
 				return ret;
 
 			ret = vgic_v5_restore_ist_entry(kvm, ist, h_iste_addr,
-							h_iste, intid,
+							cpu_to_le32(h_iste), intid,
 							intid_type);
 			if (ret)
 				return ret;
