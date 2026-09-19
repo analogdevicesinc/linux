@@ -15,23 +15,39 @@ Supported chips:
 
         https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4283.pdf
 
+  * Analog Devices LTC4284
+
+    Prefix: 'ltc4284'
+
+    Addresses scanned: -
+
+    Datasheet:
+
+        https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4284.pdf
+
 Author: Nuno Sá <nuno.sa@analog.com>
 
 Description
 ___________
 
-The LTC4283 negative voltage hot swap controller drives an external N-channel
-MOSFET to allow a board to be safely inserted and removed from a live backplane.
-The device features programmable current limit with foldback and independently
-adjustable inrush current to optimize the MOSFET safe operating area (SOA). The
-SOA timer limits MOSFET temperature rise for reliable protection against
-overstresses. An I2C interface and onboard gear-shift ADC allow monitoring of
-board current, voltage, power, energy, and fault status.  Additional features
-respond to input UV/OV, interrupt the host when a fault has occurred, notify
-when output power is good, detect insertion of a board, turn off the MOSFET
-if an external supply monitor fails to indicate power good within a timeout
-period, and auto-reboot after a programmable delay following a host commanded
-turn-off.
+The LTC4283 and LTC4284 are negative voltage hot swap controllers that drive
+external N-channel MOSFETs to allow a board to be safely inserted and removed
+from a live backplane. The devices feature programmable current limit with
+foldback and independently adjustable inrush current to optimize the MOSFET
+safe operating area (SOA). The SOA timer limits MOSFET temperature rise for
+reliable protection against overstresses. An I2C interface and onboard
+gear-shift ADC allow monitoring of board current, voltage, power, energy, and
+fault status. Additional features respond to input UV/OV, interrupt the host
+when a fault has occurred, notify when output power is good, detect insertion
+of a board, turn off the MOSFET if an external supply monitor fails to indicate
+power good within a timeout period, and auto-reboot after a programmable delay
+following a host commanded turn-off.
+
+The LTC4284 extends the LTC4283 with dual-gate drivers for parallel or staged
+start operation modes, configured via the MODE pin. It also provides additional
+current sense channels (SENSE1 and SENSE2) for monitoring multiple load paths.
+
+
 
 Sysfs entries
 _____________
@@ -40,6 +56,11 @@ The following attributes are supported. Limits are read-write and all the other
 attributes are read-only. Note that the VADIOx channels might not be available
 if the ADIO pins are used as GPIOs (naturally also affects the respective
 differential channels).
+
+.. note::
+   LTC4284 provides three current sense channels (curr1, curr2, curr3) for
+   monitoring the main sense input (ADC+/ADC-), SENSE1+/SENSE1-, and
+   SENSE2+/SENSE2- respectively. LTC4283 only provides curr1.
 
 ======================= ==========================================
 in0_lcrit_alarm         Critical Undervoltage alarm
@@ -224,6 +245,28 @@ curr1_min_alarm		Undercurrent alarm
 curr1_max_alarm		Overcurrent alarm
 curr1_crit_alarm        Critical Overcurrent alarm
 curr1_label		Channel label (ISENSE)
+
+curr2_input		Sense current (mA)
+curr2_min		Undercurrent threshold
+curr2_max		Overcurrent threshold
+curr2_lowest		Lowest measured current
+curr2_highest		Highest measured current
+curr2_reset_history	Write 1 to reset curr2 history.
+curr2_min_alarm		Undercurrent alarm
+curr2_max_alarm		Overcurrent alarm
+curr2_crit_alarm        Critical Overcurrent alarm
+curr2_label		Channel label (ISENSE1)
+
+curr3_input		Sense current (mA)
+curr3_min		Undercurrent threshold
+curr3_max		Overcurrent threshold
+curr3_lowest		Lowest measured current
+curr3_highest		Highest measured current
+curr3_reset_history	Write 1 to reset curr3 history.
+curr3_min_alarm		Undercurrent alarm
+curr3_max_alarm		Overcurrent alarm
+curr3_crit_alarm        Critical Overcurrent alarm
+curr3_label		Channel label (ISENSE2)
 
 power1_input		Power (in uW)
 power1_min		Low power threshold
