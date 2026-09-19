@@ -23,8 +23,8 @@ struct vmtl2_entry {
 typedef __le64 vpe_entry;
 
 struct vgic_v5_vm_info {
-	void __iomem		*vmd_base;
-	vpe_entry __iomem	*vpet_base;
+	void			*vmd_base;
+	vpe_entry		*vpet_base;
 	void			*vped_base;
 	u8			vpe_id_bits;
 
