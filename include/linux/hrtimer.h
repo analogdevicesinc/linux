@@ -320,6 +320,14 @@ extern int schedule_hrtimeout_range_clock(ktime_t *expires,
 					  const enum hrtimer_mode mode,
 					  clockid_t clock_id);
 extern int schedule_hrtimeout(ktime_t *expires, const enum hrtimer_mode mode);
+static inline struct task_struct *hrtimer_sleeper_task_get(struct hrtimer_sleeper *sl)
+{
+	return READ_ONCE(sl->task);
+}
+static inline void hrtimer_sleeper_task_set(struct hrtimer_sleeper *sl, struct task_struct *t)
+{
+	WRITE_ONCE(sl->task, t);
+}
 
 /* Soft interrupt function to run the hrtimer queues: */
 extern void hrtimer_run_queues(void);
