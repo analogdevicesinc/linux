@@ -226,7 +226,7 @@ static int __add_member_cb(Dwarf_Die *die, void *arg)
 {
 	struct annotated_member *parent = arg;
 	struct annotated_member *member;
-	Dwarf_Die member_type, die_mem;
+	Dwarf_Die die_mem;
 	Dwarf_Word size, loc, bit_size = 0;
 	Dwarf_Attribute attr;
 	struct strbuf sb;
@@ -239,14 +239,15 @@ static int __add_member_cb(Dwarf_Die *die, void *arg)
 	if (member == NULL)
 		return DIE_FIND_CB_END;
 
-	strbuf_init(&sb, 32);
-	die_get_typename(die, &sb);
+	if (strbuf_init(&sb, 32) < 0) {
+		free(member);
+		return DIE_FIND_CB_END;
+	}
 
-	__die_get_real_type(die, &member_type);
-	if (dwarf_tag(&member_type) == DW_TAG_typedef)
-		die_get_real_type(&member_type, &die_mem);
-	else
-		die_mem = member_type;
+	if (die_get_typename(die, &sb) < 0)
+		strbuf_add(&sb, "(unknown type)", 14);
+
+	die_get_real_type(die, &die_mem);
 
 	if (dwarf_aggregate_size(&die_mem, &size) < 0)
 		size = 0;
