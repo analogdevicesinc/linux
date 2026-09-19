@@ -37,9 +37,19 @@ cc-option = $(success,$(cc-probe,$(1)))
 # <fallback> defaults to an empty string and is returned untested.
 cc-option-str = $(if-success,$(cc-probe,$(1)),$(1),$(2))
 
+# $(ld-probe,<flag>)
+# The command $(ld-option) and $(ld-option-str) test <flag> with. Not meant
+# to be called directly; use one of those two instead.
+ld-probe = $(LD) -v $(1)
+
 # $(ld-option,<flag>)
 # Return y if the linker supports <flag>, n otherwise
-ld-option = $(success,$(LD) -v $(1))
+ld-option = $(success,$(ld-probe,$(1)))
+
+# $(ld-option-str,<flag>[,<fallback>])
+# Return <flag> if the linker supports it, <fallback> otherwise.
+# <fallback> defaults to an empty string and is returned untested.
+ld-option-str = $(if-success,$(ld-probe,$(1)),$(1),$(2))
 
 # $(as-instr,<instr>)
 # Return y if the assembler supports <instr>, n otherwise
