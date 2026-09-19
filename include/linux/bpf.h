@@ -90,6 +90,7 @@ struct bpf_map_ops {
 	struct bpf_map *(*map_alloc)(union bpf_attr *attr);
 	void (*map_release)(struct bpf_map *map, struct file *map_file);
 	void (*map_free)(struct bpf_map *map);
+	void (*map_free_pre_rcu)(struct bpf_map *map);
 	int (*map_get_next_key)(struct bpf_map *map, void *key, void *next_key);
 	void (*map_release_uref)(struct bpf_map *map);
 	void *(*map_lookup_elem_sys_only)(struct bpf_map *map, void *key);
@@ -2131,6 +2132,18 @@ struct btf_member;
  *	   unloaded while in use.
  * @name: The name of the struct bpf_struct_ops object.
  * @func_models: Func models
+ * @cgroup_atype: A value in enum cgroup_bpf_attach_type for cgroup attachment.
+ *		  0 means the struct_ops type does not support cgroup attachment.
+ *		  If cgroup_atype is non-zero, the @reg and @unreg must be NULL
+ *		  because the attachment/detachment will be handled by the bpf core.
+ * @free_after_tasks_rcu_gp: Set to true if it needs the bpf core to wait for
+ *                           a tasks_rcu gp before freeing the struct_ops map
+ *                           and its progs. It is unnecessary if the @unreg
+ *                           has waited for the correct rcu gp or the @unreg
+ *                           has ensured all struct_ops prog has finished running.
+ * @free_after_mult_rcu_gp: Same as @free_after_tasks_rcu_gp but waiting for
+ *                          both tasks_trace_rcu and regular rcu grace period.
+ *                          It is usually needed if the struct_ops has sleepable prog.
  */
 struct bpf_struct_ops {
 	const struct bpf_verifier_ops *verifier_ops;
@@ -2149,6 +2162,9 @@ struct bpf_struct_ops {
 	struct module *owner;
 	const char *name;
 	struct btf_func_model func_models[BPF_STRUCT_OPS_MAX_NR_MEMBERS];
+	int cgroup_atype;
+	bool free_after_tasks_rcu_gp;
+	bool free_after_mult_rcu_gp;
 };
 
 /* Every member of a struct_ops type has an instance even a member is not
@@ -2283,6 +2299,12 @@ u32 bpf_struct_ops_id(const void *kdata);
 int bpf_struct_ops_for_each_prog(const void *kdata,
 				 int (*cb)(struct bpf_prog *prog, void *data),
 				 void *data);
+void *bpf_struct_ops_map_kdata(struct bpf_map *map);
+void *bpf_struct_ops_map_cfi_stubs(struct bpf_map *map);
+bool bpf_struct_ops_valid_to_reg(struct bpf_map *map);
+int bpf_struct_ops_link_update_check(struct bpf_map *new_map, struct bpf_map *old_map,
+				     struct bpf_map *expected_old_map);
+int bpf_struct_ops_map_cgroup_atype(struct bpf_map *map);
 
 #ifdef CONFIG_NET
 /* Define it here to avoid the use of forward declaration */
@@ -2346,6 +2368,32 @@ static inline void bpf_map_struct_ops_info_fill(struct bpf_map_info *info, struc
 
 static inline void bpf_struct_ops_desc_release(struct bpf_struct_ops_desc *st_ops_desc)
 {
+}
+static inline u32 bpf_struct_ops_id(void *kdata)
+{
+	return 0;
+}
+static inline void *bpf_struct_ops_map_kdata(struct bpf_map *map)
+{
+	return NULL;
+}
+static inline int bpf_struct_ops_map_cgroup_atype(struct bpf_map *map)
+{
+	return 0;
+}
+static inline void *bpf_struct_ops_map_cfi_stubs(struct bpf_map *map)
+{
+	return NULL;
+}
+static inline bool bpf_struct_ops_valid_to_reg(struct bpf_map *map)
+{
+	return false;
+}
+static inline int bpf_struct_ops_link_update_check(struct bpf_map *new_map,
+						   struct bpf_map *old_map,
+						   struct bpf_map *expected_old_map)
+{
+	return -EOPNOTSUPP;
 }
 
 #endif
@@ -2522,7 +2570,10 @@ u64 bpf_event_output(struct bpf_map *map, u64 flags, void *meta, u64 meta_size,
  * since other cpus are walking the array of pointers in parallel.
  */
 struct bpf_prog_array_item {
-	struct bpf_prog *prog;
+	union {
+		struct bpf_prog *prog;
+		void *kdata;
+	};
 	union {
 		struct bpf_cgroup_storage *cgroup_storage[MAX_BPF_CGROUP_STORAGE_TYPE];
 		u64 bpf_cookie;
@@ -2564,6 +2615,7 @@ int bpf_prog_array_copy(struct bpf_prog_array *old_array,
 			struct bpf_prog *include_prog,
 			u64 bpf_cookie,
 			struct bpf_prog_array **new_array);
+struct bpf_prog *bpf_prog_dummy(void);
 
 struct bpf_run_ctx {};
 
@@ -2582,6 +2634,7 @@ struct bpf_trace_run_ctx {
 struct bpf_tramp_run_ctx {
 	struct bpf_run_ctx run_ctx;
 	u64 bpf_cookie;
+	int retval;
 	struct bpf_run_ctx *saved_run_ctx;
 };
 

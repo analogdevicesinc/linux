@@ -290,6 +290,7 @@ static int tcp_write_timeout(struct sock *sk)
 		tcp_call_bpf_3arg(sk, BPF_SOCK_OPS_RTO_CB,
 				  icsk->icsk_retransmits,
 				  icsk->icsk_rto, (int)expired);
+	bpf_tcp_ops_call(rto, sk);
 
 	if (expired) {
 		/* Has it gone just too far? */

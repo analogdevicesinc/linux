@@ -20,6 +20,7 @@
 #include <linux/btf.h>
 #include <linux/btf_ids.h>
 #include <linux/bpf.h>
+#include <linux/bpf-cgroup.h>
 #include <linux/bpf_lsm.h>
 #include <linux/skmsg.h>
 #include <linux/perf_event.h>
@@ -9992,6 +9993,7 @@ btf_add_struct_ops(struct btf *btf, struct bpf_struct_ops *st_ops,
 		   struct bpf_verifier_log *log)
 {
 	struct btf_struct_ops_tab *tab, *new_tab;
+	int cgroup_atype;
 	int i, err;
 
 	tab = btf->struct_ops_tab;
@@ -10003,8 +10005,10 @@ btf_add_struct_ops(struct btf *btf, struct bpf_struct_ops *st_ops,
 		btf->struct_ops_tab = tab;
 	}
 
+	cgroup_atype = st_ops->cgroup_atype;
 	for (i = 0; i < tab->cnt; i++)
-		if (tab->ops[i].st_ops == st_ops)
+		if (tab->ops[i].st_ops == st_ops ||
+		    (cgroup_atype && cgroup_atype == tab->ops[i].st_ops->cgroup_atype))
 			return -EEXIST;
 
 	if (tab->cnt == tab->capacity) {
@@ -10023,6 +10027,31 @@ btf_add_struct_ops(struct btf *btf, struct bpf_struct_ops *st_ops,
 	err = bpf_struct_ops_desc_init(&tab->ops[btf->struct_ops_tab->cnt], btf, log);
 	if (err)
 		return err;
+
+	if (cgroup_atype) {
+		/*
+		 * Cgroup struct_ops callers hold the RCU read lock around the
+		 * entire trampoline call, including its trailing instructions.
+		 * A regular RCU grace period therefore protects both the kdata
+		 * and the trampoline image, so a tasks RCU grace period is not
+		 * needed.
+		 */
+		if (!cgroup_bpf_is_struct_ops_atype(cgroup_atype) ||
+		    st_ops->reg || st_ops->unreg || st_ops->free_after_tasks_rcu_gp) {
+			bpf_struct_ops_desc_release(&tab->ops[btf->struct_ops_tab->cnt]);
+			return -EINVAL;
+		}
+
+		/*
+		 * There is no need to unregister from the cgroup when btf_free()
+		 * runs. No struct_ops map or cgroup link can be created once its
+		 * BTF is gone.
+		 */
+		cgroup_bpf_struct_ops_register(cgroup_atype,
+					       tab->ops[btf->struct_ops_tab->cnt].type_id,
+					       st_ops->cfi_stubs,
+					       st_ops->free_after_mult_rcu_gp);
+	}
 
 	btf->struct_ops_tab->cnt++;
 

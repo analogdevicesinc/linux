@@ -8053,16 +8053,13 @@ static const u8 *bpf_search_tcp_opt(const u8 *op, const u8 *opend,
 	return ERR_PTR(-ENOMSG);
 }
 
-BPF_CALL_4(bpf_sock_ops_load_hdr_opt, struct bpf_sock_ops_kern *, bpf_sock,
-	   void *, search_res, u32, len, u64, flags)
+int __bpf_sock_ops_load_hdr_opt(struct bpf_sock_ops_kern *bpf_sock,
+				void *search_res, u32 len, u64 flags)
 {
 	bool eol, load_syn = flags & BPF_LOAD_HDR_OPT_TCP_SYN;
 	const u8 *op, *opend, *magic, *search = search_res;
 	u8 search_kind, search_len, copy_len, magic_len;
 	int ret;
-
-	if (!is_locked_tcp_sock_ops(bpf_sock))
-		return -EOPNOTSUPP;
 
 	/* 2 byte is the minimal option len except TCPOPT_NOP and
 	 * TCPOPT_EOL which are useless for the bpf prog to learn
@@ -8124,6 +8121,15 @@ BPF_CALL_4(bpf_sock_ops_load_hdr_opt, struct bpf_sock_ops_kern *, bpf_sock,
 	return ret;
 }
 
+BPF_CALL_4(bpf_sock_ops_load_hdr_opt, struct bpf_sock_ops_kern *, bpf_sock,
+	   void *, search_res, u32, len, u64, flags)
+{
+	if (!is_locked_tcp_sock_ops(bpf_sock))
+		return -EOPNOTSUPP;
+
+	return __bpf_sock_ops_load_hdr_opt(bpf_sock, search_res, len, flags);
+}
+
 static const struct bpf_func_proto bpf_sock_ops_load_hdr_opt_proto = {
 	.func		= bpf_sock_ops_load_hdr_opt,
 	.gpl_only	= false,
@@ -8134,16 +8140,13 @@ static const struct bpf_func_proto bpf_sock_ops_load_hdr_opt_proto = {
 	.arg4_type	= ARG_ANYTHING,
 };
 
-BPF_CALL_4(bpf_sock_ops_store_hdr_opt, struct bpf_sock_ops_kern *, bpf_sock,
-	   const void *, from, u32, len, u64, flags)
+int __bpf_sock_ops_store_hdr_opt(struct bpf_sock_ops_kern *bpf_sock,
+				 const void *from, u32 len, u64 flags)
 {
 	u8 new_kind, new_kind_len, magic_len = 0, *opend;
 	const u8 *op, *new_op, *magic = NULL;
 	struct sk_buff *skb;
 	bool eol;
-
-	if (bpf_sock->op != BPF_SOCK_OPS_WRITE_HDR_OPT_CB)
-		return -EPERM;
 
 	if (len < 2 || flags)
 		return -EINVAL;
@@ -8200,6 +8203,15 @@ BPF_CALL_4(bpf_sock_ops_store_hdr_opt, struct bpf_sock_ops_kern *, bpf_sock,
 	bpf_sock->skb_data_end += new_kind_len;
 
 	return 0;
+}
+
+BPF_CALL_4(bpf_sock_ops_store_hdr_opt, struct bpf_sock_ops_kern *, bpf_sock,
+	   const void *, from, u32, len, u64, flags)
+{
+	if (bpf_sock->op != BPF_SOCK_OPS_WRITE_HDR_OPT_CB)
+		return -EPERM;
+
+	return __bpf_sock_ops_store_hdr_opt(bpf_sock, from, len, flags);
 }
 
 static const struct bpf_func_proto bpf_sock_ops_store_hdr_opt_proto = {
@@ -12887,6 +12899,7 @@ static int __init bpf_kfunc_init(void)
 	ret = ret ?: register_btf_kfunc_id_set(BPF_PROG_TYPE_LWT_SEG6LOCAL, &bpf_kfunc_set_skb);
 	ret = ret ?: register_btf_kfunc_id_set(BPF_PROG_TYPE_NETFILTER, &bpf_kfunc_set_skb);
 	ret = ret ?: register_btf_kfunc_id_set(BPF_PROG_TYPE_TRACING, &bpf_kfunc_set_skb);
+	ret = ret ?: register_btf_kfunc_id_set(BPF_PROG_TYPE_STRUCT_OPS, &bpf_kfunc_set_skb);
 	ret = ret ?: register_btf_kfunc_id_set(BPF_PROG_TYPE_SCHED_CLS, &bpf_kfunc_set_skb_meta);
 	ret = ret ?: register_btf_kfunc_id_set(BPF_PROG_TYPE_SCHED_ACT, &bpf_kfunc_set_skb_meta);
 	ret = ret ?: register_btf_kfunc_id_set(BPF_PROG_TYPE_XDP, &bpf_kfunc_set_xdp);
