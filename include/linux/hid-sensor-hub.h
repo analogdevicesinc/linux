@@ -80,6 +80,16 @@ struct hid_sensor_hub_device {
 };
 
 /**
+ * struct sensor_hub_cb_devres - devres data for sensor hub callbacks
+ * @hsdev:	Hub device instance.
+ * @usage_id:	Usage ID associated with registered callback
+ */
+struct sensor_hub_cb_devres {
+	struct hid_sensor_hub_device *hsdev;
+	u32 usage_id;
+};
+
+/**
  * struct hid_sensor_hub_callbacks - Client callback functions
  * @pdev:		Platform device instance of the client driver.
  * @suspend:		Suspend callback.
@@ -143,6 +153,22 @@ int sensor_hub_register_callback(struct hid_sensor_hub_device *hsdev,
 int sensor_hub_remove_callback(struct hid_sensor_hub_device *hsdev,
 			u32 usage_id);
 
+/**
+ * devm_sensor_hub_register_callback() - Managed register client callbacks
+ * @dev: Device for resource management
+ * @hsdev: Hub device instance
+ * @usage_id: Usage id of the client (e.g. 0x200076 for Gyro)
+ * @usage_callback: Callback function storage
+ *
+ * This is the devres (managed) version of sensor_hub_register_callback().
+ * The callback will be automatically unregistered when the device is detached.
+
+ * Return: 0 on success, negative error code on failure.
+ */
+int devm_sensor_hub_register_callback(struct device *dev,
+				      struct hid_sensor_hub_device *hsdev,
+				      u32 usage_id,
+				      struct hid_sensor_hub_callbacks *usage_callback);
 
 /* Hid sensor hub core interfaces */
 
