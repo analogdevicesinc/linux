@@ -226,7 +226,7 @@ static bool data_type_less(struct rb_node *node_a, const struct rb_node *node_b)
 static int __add_member_cb(Dwarf_Die *die, void *arg)
 {
 	struct annotated_member *parent = arg;
-	struct annotated_member *member;
+	struct annotated_member *member, *prev;
 	Dwarf_Die die_mem;
 	Dwarf_Word size, loc, bit_size = 0;
 	Dwarf_Attribute attr;
@@ -253,6 +253,7 @@ static int __add_member_cb(Dwarf_Die *die, void *arg)
 	if (dwarf_aggregate_size(&die_mem, &size) < 0 || size == 0) {
 		if (dwarf_tag(&die_mem) == DW_TAG_array_type) { /* flex-array? */
 			die_get_real_type(&die_mem, &die_mem);
+			member->is_flex_array = true;
 			if (dwarf_aggregate_size(&die_mem, &size) < 0)
 				size = 0;
 		} else {
@@ -299,12 +300,19 @@ static int __add_member_cb(Dwarf_Die *die, void *arg)
 	member->size = size;
 	member->offset = loc + parent->offset;
 	INIT_LIST_HEAD(&member->children);
-	list_add_tail(&member->node, &parent->children);
+
+	list_for_each_entry_reverse(prev, &parent->children, node) {
+		if (prev->offset <= member->offset)
+			break;
+	}
+	list_add(&member->node, &prev->node);
 
 	tag = dwarf_tag(&die_mem);
 	switch (tag) {
-	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
+		member->is_union = true;
+		/* fall through */
+	case DW_TAG_structure_type:
 		die_find_child(&die_mem, __add_member_cb, member, &die_mem);
 		break;
 	default:
@@ -333,20 +341,84 @@ static void delete_members(struct annotated_member *member)
 	}
 }
 
-static int fill_member_name(char *buf, size_t sz, struct annotated_member *m,
-			    int offset, bool first)
+static struct annotated_member *find_flex_array(struct annotated_member *m)
 {
 	struct annotated_member *child;
+
+	if (list_empty(&m->children))
+		return NULL;
+
+	if (m->is_union) {
+		list_for_each_entry(child, &m->children, node) {
+			if (child->is_flex_array)
+				return child;
+		}
+		list_for_each_entry(child, &m->children, node) {
+			struct annotated_member *grand_child;
+
+			grand_child = find_flex_array(child);
+			if (grand_child)
+				return grand_child;
+		}
+		return NULL;
+	}
+
+	child = list_last_entry(&m->children, struct annotated_member, node);
+	if (child->is_flex_array)
+		return child;
+
+	return find_flex_array(child);
+}
+
+static struct annotated_member *get_flex_array_member(struct annotated_data_type *adt)
+{
+	return find_flex_array(&adt->self);
+}
+
+static int fill_member_name(char *buf, size_t sz, struct annotated_member *m,
+			    int offset, bool first, bool has_flex_array)
+{
+	struct annotated_member *child;
+	bool found = false;
+	int len;
 
 	if (list_empty(&m->children))
 		return 0;
 
 	list_for_each_entry(child, &m->children, node) {
-		int len;
-
 		if (offset < child->offset || offset >= child->offset + child->size)
 			continue;
 
+		found = true;
+		break;
+	}
+
+	if (!found && has_flex_array) {
+		/*
+		 * It may have an intermediate struct that has another struct that
+		 * contains a flex array.  In that case, the outer struct itself is
+		 * has no array and the size is less than the offset so the above
+		 * logic won't find the outer struct at the offset.
+		 */
+		child = find_flex_array(m);
+		if (child == NULL || offset < child->offset)
+			return 0;
+
+		/* find the immediate child that includes a flex array */
+		if (m->is_union) {
+			list_for_each_entry(child, &m->children, node) {
+				if (child->is_flex_array || find_flex_array(child)) {
+					found = true;
+					break;
+				}
+			}
+		} else {
+			child = list_last_entry(&m->children, struct annotated_member, node);
+			found = true;
+		}
+	}
+
+	if (found) {
 		/* It can have anonymous struct/union members */
 		if (child->var_name) {
 			len = scnprintf(buf, sz, "%s%s",
@@ -356,15 +428,18 @@ static int fill_member_name(char *buf, size_t sz, struct annotated_member *m,
 			len = 0;
 		}
 
-		return fill_member_name(buf + len, sz - len, child, offset, first) + len;
+		return fill_member_name(buf + len, sz - len, child, offset, first,
+					has_flex_array) + len;
 	}
+
 	return 0;
 }
 
 int annotated_data_type__get_member_name(struct annotated_data_type *adt,
 					 char *buf, size_t sz, int member_offset)
 {
-	return fill_member_name(buf, sz, &adt->self, member_offset, /*first=*/true);
+	return fill_member_name(buf, sz, &adt->self, member_offset, /*first=*/true,
+				adt->flex_array);
 }
 
 static struct annotated_data_type *dso__findnew_data_type(struct dso *dso,
@@ -1741,6 +1816,7 @@ struct annotated_data_type *find_data_type(struct data_loc_info *dloc)
 {
 	struct dso *dso = map__dso(dloc->ms->map);
 	Dwarf_Die type_die;
+	struct annotated_data_type *result;
 
 	/*
 	 * The type offset is the same as instruction offset by default.
@@ -1753,7 +1829,25 @@ struct annotated_data_type *find_data_type(struct data_loc_info *dloc)
 	if (find_data_type_die(dloc, &type_die) < 0)
 		return NULL;
 
-	return dso__findnew_data_type(dso, &type_die);
+	result = dso__findnew_data_type(dso, &type_die);
+	if (result == NULL)
+		return NULL;
+
+	if (result->flex_array && dloc->type_offset > result->self.size) {
+		struct annotated_member *flex_array = get_flex_array_member(result);
+
+		if (flex_array && flex_array->size > 0) {
+			int offset = dloc->type_offset;
+
+			/* adjust offset in the flex array */
+			offset -= flex_array->offset;
+			offset %= flex_array->size;
+			offset += flex_array->offset;
+
+			dloc->type_offset = offset;
+		}
+	}
+	return result;
 }
 
 static size_t data_type_hash(long key, void *ctx __maybe_unused)
