@@ -492,6 +492,7 @@ struct spinand_user_otp {
  * @op_variants.read_cache: variants of the read-cache operation
  * @op_variants.write_cache: variants of the write-cache operation
  * @op_variants.update_cache: variants of the update-cache operation
+ * @op_variants.cont_read_cache: variants of the continuous read-cache operation
  * @select_target: function used to select a target/die. Required only for
  *		   multi-die chips
  * @configure_chip: Align the chip configuration with the core settings
@@ -515,6 +516,7 @@ struct spinand_info {
 		const struct spinand_op_variants *read_cache;
 		const struct spinand_op_variants *write_cache;
 		const struct spinand_op_variants *update_cache;
+		const struct spinand_op_variants *cont_read_cache;
 	} op_variants;
 	int (*select_target)(struct spinand_device *spinand,
 			     unsigned int target);
@@ -540,6 +542,15 @@ struct spinand_info {
 		.read_cache = __read,					\
 		.write_cache = __write,					\
 		.update_cache = __update,				\
+	}
+
+#define SPINAND_INFO_OP_VARIANTS_WITH_CONT(__read, __write, __update,	\
+					   __cont_read)			\
+	{								\
+		.read_cache = __read,					\
+		.write_cache = __write,					\
+		.update_cache = __update,				\
+		.cont_read_cache = __cont_read,				\
 	}
 
 #define SPINAND_ECCINFO(__ooblayout, __get_status)			\
@@ -609,6 +620,7 @@ struct spinand_dirmap {
  * @op_templates.read_cache: read cache op template
  * @op_templates.write_cache: write cache op template
  * @op_templates.update_cache: update cache op template
+ * @op_templates.cont_read_cache: continuous read cache op template (optional)
  * @select_target: select a specific target/die. Usually called before sending
  *		   a command addressing a page or an eraseblock embedded in
  *		   this die. Only required if your chip exposes several dies
@@ -646,6 +658,7 @@ struct spinand_device {
 		const struct spi_mem_op *read_cache;
 		const struct spi_mem_op *write_cache;
 		const struct spi_mem_op *update_cache;
+		const struct spi_mem_op *cont_read_cache;
 	} op_templates;
 
 	struct spinand_dirmap *dirmaps;

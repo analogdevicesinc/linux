@@ -193,6 +193,22 @@
 	};
 };
 
+&xspi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&xspi0_default>;
+	status = "okay";
+
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <125000000>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		m25p,fast-read;
+		label = "xspi0-nor";
+	};
+};
+
 &pinctrl0 {
 	status = "okay";
 	uart0_default: uart0_default_pins {
@@ -207,7 +223,7 @@
 				 <ADI_ADSP_PINMUX('A', 3, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
-	spi0_default: spi0_default_pins {
+	xspi0_default: xspi0-default-pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('E', 5,  ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('D', 14, ADI_ADSP_PINFUNC_ALT0)>,
@@ -215,13 +231,30 @@
 				 <ADI_ADSP_PINMUX('D', 15, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('E', 4,  ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('D', 11, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('D', 13, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('E', 0,  ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('E', 2,  ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('D', 10, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('D', 12, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 13, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 0,  ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('E', 1,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 2,  ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('E', 3,  ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	xspi1_default: xspi1-default-pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('F', 2,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 11, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('F', 3,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 12, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('F', 1,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 8,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 7,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 9,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 10, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 13, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 14, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 15, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('F', 0,  ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
 	spi1_default: spi1_default_pins {

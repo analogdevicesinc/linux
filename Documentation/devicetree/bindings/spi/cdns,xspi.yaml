@@ -20,6 +20,7 @@ properties:
     enum:
       - cdns,xspi-nor
       - marvell,cn10-xspi-nor
+      - adi,sc846-xspi-nor
 
   reg:
     items:
@@ -38,6 +39,9 @@ properties:
     minItems: 3
 
   interrupts:
+    maxItems: 1
+
+  resets:
     maxItems: 1
 
 required:
