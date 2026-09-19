@@ -29,25 +29,11 @@ static struct clk_onecell_data clk_data;
 static const char *const cgu0_s1sels[] = { "cgu0_s1seldiv", "cgu0_s1selexdiv" };
 static const char *const cgu1_s0sels[] = { "cgu1_s0seldiv", "cgu1_s0selexdiv" };
 static const char *const cgu1_s1sels[] = { "cgu1_s1seldiv", "cgu1_s1selexdiv" };
-static const char *const sharc0_sels[] = { "cclk0_0", "cclk0_1", "cclk2_0", "dummy" };
-static const char *const arm_sels[] = { "cclk0_0", "cclk0_1", "cclk2_0", "dummy" };
-static const char *const ddr_sels[] = { "dclk_0", "dclk_1", "dclk1_0", "dummy" };
-static const char *const can_sels[] = { "oclk_0", "oclk_1", "dummy", "dummy" };
-static const char *const spdif_sels[] = { "sclk1_0", "dummy", "dummy", "dummy" };
-static const char *const spi_sels[] = { "sclk0_0", "oclk_0", "dummy", "dummy" };
-static const char *const gige_sels[] = { "sclk0_0", "sclk0_1", "dummy", "dummy" };
-static const char *const xspi1_sels[] = { "sclk0_0", "oclk_0", "sclk1_1", "dummy" };
-static const char *const lp_sels[] = { "dclk_0", "cclk2_0", "dclk_1", "cclk2_1" };
-static const char *const xspi0_sels[] = { "sclk0_0", "oclk_0", "sclk1_1", "dummy" };
-static const char *const trace_sels[] = { "sclk0_0", "dummy", "dummy", "dummy" };
-static const char *const pwm_sels[] = { "sysclk_0", "clkpwm", "dummy", "dummy" };
-static const char *const mshc_sels[] = { "sclk0_0", "sysclk_1", "dummy", "dummy" };
 
 static void sc846_clock_probe(struct device_node *np)
 {
 	void __iomem *cgu0;
 	void __iomem *cgu1;
-	void __iomem *cdu;
 	int ret;
 	int i;
 
@@ -63,14 +49,7 @@ static void sc846_clock_probe(struct device_node *np)
 		return;
 	}
 
-	cdu = of_iomap(np, 2);
-	if (!cdu) {
-		pr_err("Unable to remap CDU address (resource 2)\n");
-		return;
-	}
-
 	/* Input clock configuration */
-	clks[ADSP_SC846_CLK_DUMMY] = clk_register_fixed_rate(NULL, "dummy", NULL, 0, 0);
 	clks[ADSP_SC846_CLK_SYS_CLKIN0] = of_clk_get_by_name(np, "sys_clkin0");
 
 	/* CGU configuration and internal clocks */
@@ -213,63 +192,6 @@ static void sc846_clock_probe(struct device_node *np)
 	clks[ADSP_SC846_CLK_CGU1_SCLK0] =
 	    cgu_gate("sclk0_1", "cgu1_sclk0sel", cgu1 + CGU_SCBF_DIS, 0,
 		     &cdu_lock);
-
-	/* CDU output muxes */
-	clks[ADSP_SC846_CLK_SHARC0_SEL] = cdu_mux("sharc0_sel", cdu + CDU_CFG0,
-						  sharc0_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_ARM0_SEL] = cdu_mux("arm0_sel", cdu + CDU_CFG1,
-						arm_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_CDU_DDR_SEL] = cdu_mux("ddr_sel", cdu + CDU_CFG3,
-						   ddr_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_CAN_SEL] = cdu_mux("can_sel", cdu + CDU_CFG4,
-					       can_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_SPDIF_SEL] = cdu_mux("spdif_sel", cdu + CDU_CFG5,
-						 spdif_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_SPI_SEL] = cdu_mux("spi_sel", cdu + CDU_CFG6,
-					       spi_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_GIGE_SEL] = cdu_mux("gige_sel", cdu + CDU_CFG7,
-						gige_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_XSPI1_SEL] = cdu_mux("xspi1_sel", cdu + CDU_CFG8,
-						 xspi1_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_LP_SEL] = cdu_mux("lp_sel", cdu + CDU_CFG9, lp_sels,
-					      &cdu_lock);
-	clks[ADSP_SC846_CLK_XSPI0_SEL] = cdu_mux("xspi0_sel", cdu + CDU_CFG10,
-						 xspi0_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_TRACE_SEL] = cdu_mux("trace_sel", cdu + CDU_CFG12,
-						 trace_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_PWM_SEL] = cdu_mux("pwm_sel", cdu + CDU_CFG13,
-					       pwm_sels, &cdu_lock);
-	clks[ADSP_SC846_CLK_MSHC_SEL] = cdu_mux("mshc_sel", cdu + CDU_CFG14,
-						mshc_sels, &cdu_lock);
-
-	/* CDU output enable gates */
-	clks[ADSP_SC846_CLK_SHARC0] = cdu_gate("sharc0", "sharc0_sel",
-						cdu + CDU_CFG0, CLK_IS_CRITICAL,
-						&cdu_lock);
-	clks[ADSP_SC846_CLK_ARM0] = cdu_gate("arm0", "arm0_sel", cdu + CDU_CFG1,
-					     CLK_IS_CRITICAL, &cdu_lock);
-	clks[ADSP_SC846_CLK_CDU_DDR] = cdu_gate("cdu_ddr", "ddr_sel",
-						cdu + CDU_CFG3, CLK_IS_CRITICAL, &cdu_lock);
-	clks[ADSP_SC846_CLK_CAN] = cdu_gate("can", "can_sel", cdu + CDU_CFG4, 0,
-					    &cdu_lock);
-	clks[ADSP_SC846_CLK_SPDIF] = cdu_gate("spdif", "spdif_sel",
-					      cdu + CDU_CFG5, 0, &cdu_lock);
-	clks[ADSP_SC846_CLK_SPI] = cdu_gate("spi", "spi_sel", cdu + CDU_CFG6, 0,
-					    &cdu_lock);
-	clks[ADSP_SC846_CLK_GIGE] = cdu_gate("gige", "gige_sel", cdu + CDU_CFG7,
-					     0, &cdu_lock);
-	clks[ADSP_SC846_CLK_XSPI1] = cdu_gate("xspi1", "xspi1_sel",
-					      cdu + CDU_CFG8, 0, &cdu_lock);
-	clks[ADSP_SC846_CLK_LP] = cdu_gate("lp", "lp_sel", cdu + CDU_CFG9, 0,
-					   &cdu_lock);
-	clks[ADSP_SC846_CLK_XSPI0] = cdu_gate("xspi0", "xspi0_sel",
-					      cdu + CDU_CFG10, 0, &cdu_lock);
-	clks[ADSP_SC846_CLK_TRACE] = cdu_gate("trace", "trace_sel",
-					      cdu + CDU_CFG12, 0, &cdu_lock);
-	clks[ADSP_SC846_CLK_PWM] = cdu_gate("pwm", "pwm_sel", cdu + CDU_CFG13,
-					    0, &cdu_lock);
-	clks[ADSP_SC846_CLK_MSHC] = cdu_gate("mshc", "mshc_sel",
-					     cdu + CDU_CFG14, 0, &cdu_lock);
 
 	ret = cdu_check_clocks(clks, ARRAY_SIZE(clks));
 	if (ret)
