@@ -984,6 +984,8 @@ const char *bpf_diag_arg_type_plain(enum bpf_arg_type type)
 		return "the address of a stack iterator object for iterator new, next, and destroy calls";
 	case ARG_PTR_TO_IRQ_FLAG:
 		return "the same stack slot used by bpf_local_irq_save() or bpf_res_spin_lock_irqsave()";
+	case ARG_PTR_TO_CTX_OUT:
+		return "the attach hook's own output argument, loaded directly from the program context";
 	default:
 		return "a value with one of the accepted pointer or scalar types for this call";
 	}

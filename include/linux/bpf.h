@@ -924,6 +924,7 @@ enum bpf_arg_type {
 	ARG_PTR_TO_TASK_WORK,	/* pointer to bpf_task_work */
 	ARG_PTR_TO_IRQ_FLAG,	/* pointer to saved IRQ flags on the stack */
 	ARG_PTR_TO_RES_SPIN_LOCK,	/* pointer to bpf_res_spin_lock */
+	ARG_PTR_TO_CTX_OUT,	/* hook output argument passed through from ctx */
 	ARG_PTR_TO_PROG_AUX,	/* pointer to the caller's bpf_prog_aux */
 	ARG_IGNORE,		/* argument the verifier does not check at all */
 	__BPF_ARG_TYPE_MAX,
@@ -1138,6 +1139,7 @@ struct bpf_insn_access_aux {
 			u32 ref_id;
 		};
 	};
+	u32 mem_size;
 	struct bpf_verifier_log *log; /* for verbose logs */
 	bool is_retval; /* is accessing function return value ? */
 };
@@ -1716,6 +1718,7 @@ struct bpf_ctx_arg_aux {
 	struct btf *btf;
 	u32 btf_id;
 	u32 ref_id;
+	u32 mem_size;
 	bool refcounted;
 };
 
