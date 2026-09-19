@@ -63,7 +63,6 @@ static DEFINE_XARRAY(vm_info);
 /* Virtual PE Table Entry */
 #define GICV5_VPE_VALID			BIT_ULL(0)
 /* Note that there is no shift for the address by design. */
-#define GICV5_VPED_ADDR_SHIFT		3ULL
 #define GICV5_VPED_ADDR			GENMASK_ULL(55, 3)
 
 /* L2 Interrupt State Table Entry */
@@ -725,7 +724,7 @@ int vgic_v5_vmte_alloc_vpe(struct kvm_vcpu *vcpu)
 	u32 vm_id = vgic_v5_vm_id(vcpu->kvm);
 	u16 vpe_id = vgic_v5_vpe_id(vcpu);
 	struct vgic_v5_vm_info *vmi;
-	vpe_entry tmp, *vpet_base;
+	vpe_entry *vpet_base;
 	void *vped;
 
 	/* Make sure we're not over what the hardware supports */
@@ -751,10 +750,9 @@ int vgic_v5_vmte_alloc_vpe(struct kvm_vcpu *vcpu)
 	vped = (u8 *)vmi->vped_base +
 		(size_t)vcpu->vcpu_idx * vmt_info->vped_size;
 
-	tmp = FIELD_PREP(GICV5_VPED_ADDR, virt_to_phys(vped) >> GICV5_VPED_ADDR_SHIFT);
-
 	scoped_guard(raw_spinlock_irqsave, &vgic_v5_irs_lock) {
-		WRITE_ONCE(vpet_base[vpe_id], cpu_to_le64(tmp));
+		phys_addr_t paddr = virt_to_phys(vped) & GICV5_VPED_ADDR;
+		WRITE_ONCE(vpet_base[vpe_id], cpu_to_le64(paddr));
 		vgic_v5_clean_inval(vpet_base + vpe_id, sizeof(vpe_entry));
 	}
 
