@@ -605,10 +605,7 @@ static u64 cgroup_read_notify_on_release(struct cgroup_subsys_state *css,
 static int cgroup_write_notify_on_release(struct cgroup_subsys_state *css,
 					  struct cftype *cft, u64 val)
 {
-	if (val)
-		set_bit(CGRP_NOTIFY_ON_RELEASE, &css->cgroup->flags);
-	else
-		clear_bit(CGRP_NOTIFY_ON_RELEASE, &css->cgroup->flags);
+	assign_bit(CGRP_NOTIFY_ON_RELEASE, &css->cgroup->flags, val);
 	return 0;
 }
 
@@ -621,10 +618,7 @@ static u64 cgroup_clone_children_read(struct cgroup_subsys_state *css,
 static int cgroup_clone_children_write(struct cgroup_subsys_state *css,
 				       struct cftype *cft, u64 val)
 {
-	if (val)
-		set_bit(CGRP_CPUSET_CLONE_CHILDREN, &css->cgroup->flags);
-	else
-		clear_bit(CGRP_CPUSET_CLONE_CHILDREN, &css->cgroup->flags);
+	assign_bit(CGRP_CPUSET_CLONE_CHILDREN, &css->cgroup->flags, val);
 	return 0;
 }
 
