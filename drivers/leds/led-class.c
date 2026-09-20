@@ -90,17 +90,6 @@ static ssize_t max_brightness_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(max_brightness);
 
-#ifdef CONFIG_LEDS_TRIGGERS
-static const BIN_ATTR(trigger, 0644, led_trigger_read, led_trigger_write, 0);
-static const struct bin_attribute *const led_trigger_bin_attrs[] = {
-	&bin_attr_trigger,
-	NULL,
-};
-static const struct attribute_group led_trigger_group = {
-	.bin_attrs = led_trigger_bin_attrs,
-};
-#endif
-
 static struct attribute *led_class_attrs[] = {
 	&dev_attr_brightness.attr,
 	&dev_attr_max_brightness.attr,

@@ -52,9 +52,9 @@ bool led_trigger_is_hw_controlled(struct led_classdev *led_cdev)
 }
 EXPORT_SYMBOL_GPL(led_trigger_is_hw_controlled);
 
-ssize_t led_trigger_write(struct file *filp, struct kobject *kobj,
-			  const struct bin_attribute *bin_attr, char *buf,
-			  loff_t pos, size_t count)
+static ssize_t trigger_write(struct file *filp, struct kobject *kobj,
+			     const struct bin_attribute *bin_attr, char *buf,
+			     loff_t pos, size_t count)
 {
 	struct device *dev = kobj_to_dev(kobj);
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
@@ -97,7 +97,6 @@ unlock:
 	mutex_unlock(&led_cdev->led_access);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(led_trigger_write);
 
 __printf(3, 4)
 static int led_trigger_snprintf(char *buf, ssize_t size, const char *fmt, ...)
@@ -149,9 +148,9 @@ static int led_trigger_format(char *buf, size_t size,
  * attribute, which is not limited by length. This is _not_ good design, do not
  * copy it.
  */
-ssize_t led_trigger_read(struct file *filp, struct kobject *kobj,
-			const struct bin_attribute *attr, char *buf,
-			loff_t pos, size_t count)
+static ssize_t trigger_read(struct file *filp, struct kobject *kobj,
+			    const struct bin_attribute *attr, char *buf,
+			    loff_t pos, size_t count)
 {
 	struct device *dev = kobj_to_dev(kobj);
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
@@ -179,7 +178,17 @@ ssize_t led_trigger_read(struct file *filp, struct kobject *kobj,
 
 	return len;
 }
-EXPORT_SYMBOL_GPL(led_trigger_read);
+static const BIN_ATTR_RW(trigger, 0);
+
+static const struct bin_attribute *const led_trigger_bin_attrs[] = {
+	&bin_attr_trigger,
+	NULL
+};
+
+const struct attribute_group led_trigger_group = {
+	.bin_attrs = led_trigger_bin_attrs,
+};
+EXPORT_SYMBOL_GPL(led_trigger_group);
 
 /* Caller must ensure led_cdev->trigger_lock held */
 int led_trigger_set(struct led_classdev *led_cdev, struct led_trigger *trig)
