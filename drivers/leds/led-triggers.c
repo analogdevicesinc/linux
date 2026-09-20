@@ -42,6 +42,10 @@ static bool __led_trigger_is_hw_controlled(struct led_classdev *led_cdev)
 	if (!led_cdev->trigger)
 		return false;
 
+	if (led_cdev->trigger->hw_offloaded)
+		return led_cdev->trigger->hw_offloaded(led_cdev);
+
+	/* Otherwise assume private triggers are always offloaded. */
 	return led_cdev->trigger->trigger_type;
 }
 
@@ -185,8 +189,40 @@ static const struct bin_attribute *const led_trigger_bin_attrs[] = {
 	NULL
 };
 
+static ssize_t trigger_may_offload_to_hw_show(struct device *dev,
+					      const struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	bool offloaded = led_trigger_is_hw_controlled(led_cdev);
+
+	return sysfs_emit(buf, "%s%s%s\n",
+			  offloaded ? "[" : "",
+			  led_cdev->hw_control_trigger,
+			  offloaded ? "]" : "");
+}
+static const DEVICE_ATTR_RO(trigger_may_offload_to_hw);
+
+static const struct attribute *const led_trigger_attrs[] = {
+	&dev_attr_trigger_may_offload_to_hw.attr,
+	NULL
+};
+
+static umode_t led_trigger_is_visible(struct kobject *kobj,
+				      const struct attribute *attr, int idx)
+{
+	struct device *dev = kobj_to_dev(kobj);
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	if (attr == &dev_attr_trigger_may_offload_to_hw.attr)
+		return led_cdev->hw_control_trigger ? attr->mode : 0;
+
+	return attr->mode;
+}
+
 const struct attribute_group led_trigger_group = {
 	.bin_attrs = led_trigger_bin_attrs,
+	.attrs_const = led_trigger_attrs,
+	.is_visible_const = led_trigger_is_visible,
 };
 EXPORT_SYMBOL_GPL(led_trigger_group);
 

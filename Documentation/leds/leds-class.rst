@@ -242,6 +242,9 @@ ops and needs to declare specific support for the supported triggers.
 
 With hw control we refer to the LED driven by hardware.
 
+A sysfs attribute `trigger_may_offload_to_hw` is provided for userspace
+to query supported triggers and their states.
+
 LED driver must define the following value to support hw control:
 
     - hw_control_trigger:
@@ -298,6 +301,15 @@ LED driver must implement the following API to support hw control:
                 Returns a pointer to a struct device or NULL if nothing
                 is currently attached.
 
+LED trigger should implement the following API to indicate hw control:
+    - hw_offloaded:
+                return a boolean indicating if the trigger is currently
+                offloaded to hardware.
+
+                If a trigger doesn't implement this callback, the default
+                value will be true for private triggers and false for generic
+                ones.
+
 LED driver can activate additional modes by default to workaround the
 impossibility of supporting each different mode on the supported trigger.
 Examples are hardcoding the blink speed to a set interval, enable special
@@ -310,6 +322,14 @@ the end use hw_control_set to activate hw control.
 
 A trigger can use hw_control_get to check if a LED is already in hw control
 and init their flags.
+
+Alternatively, a private trigger can be implemented along with the LED driver if
+the LED's hardware control doesn't fit any generic trigger. To associate the
+private trigger with the LED classdev, their `trigger_type` must be the same. To
+declare that the private trigger provides hardware control for the associated
+LED classdev, set the `hw_control_trigger` string to the trigger's name. Since
+both the LED classdev and the private trigger are in the same LED driver, it's
+not necessary for them to coordinate via `hw_control_*` callbacks.
 
 When the LED is in hw control, no software blink is possible and doing so
 will effectively disable hw control.
