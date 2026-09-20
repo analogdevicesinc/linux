@@ -3486,6 +3486,28 @@ static void alc287_fixup_legion_16ithg6_speakers(struct hda_codec *cdc, const st
 	comp_generic_fixup(cdc, action, "i2c", "CLSA0101", "-%s:00-cs35l41-hda.%d", 2);
 }
 
+static void alc287_fixup_yoga_slim7_carbon_speakers(struct hda_codec *cdc,
+						    const struct hda_fixup *fix, int action)
+{
+	/*
+	 * The bass speakers are driven by two CS35L41 amps fed over I2S. The codec only
+	 * clocks the I2S bus while pin 0x17 is enabled, but the BIOS marks it unconnected.
+	 * Keep the pin on DAC 0x02 with the other speakers: DAC 0x06 gets powered down
+	 * with stereo streams, which stops the clock and the amps fail to power up.
+	 */
+	static const struct hda_pintbl pincfgs[] = {
+		{ 0x17, 0x90170121 },
+		{ }
+	};
+	static const hda_nid_t conn[] = { 0x02 };
+
+	if (action == HDA_FIXUP_ACT_PRE_PROBE) {
+		snd_hda_apply_pincfgs(cdc, pincfgs);
+		snd_hda_override_conn_list(cdc, 0x17, ARRAY_SIZE(conn), conn);
+	}
+	comp_generic_fixup(cdc, action, "i2c", "CLSA0102", "-%s:00-cs35l41-hda.%d", 2);
+}
+
 static void alc285_fixup_asus_ga403u(struct hda_codec *cdc, const struct hda_fixup *fix, int action)
 {
 	/*
@@ -4390,6 +4412,7 @@ enum {
 	ALC295_FIXUP_FRAMEWORK_LAPTOP_MIC_NO_PRESENCE,
 	ALC295_FIXUP_FRAMEWORK_LAPTOP_LIMIT_INT_MIC_BOOST,
 	ALC287_FIXUP_LEGION_16ITHG6,
+	ALC287_FIXUP_YOGA_SLIM7_CARBON_SPEAKERS,
 	ALC287_FIXUP_YOGA9_14IAP7_BASS_SPK,
 	ALC287_FIXUP_YOGA9_14IAP7_BASS_SPK_PIN,
 	ALC287_FIXUP_YOGA9_14IMH9_BASS_SPK_PIN,
@@ -6778,6 +6801,10 @@ static const struct hda_fixup alc269_fixups[] = {
 		.type = HDA_FIXUP_FUNC,
 		.v.func = alc287_fixup_legion_16ithg6_speakers,
 	},
+	[ALC287_FIXUP_YOGA_SLIM7_CARBON_SPEAKERS] = {
+		.type = HDA_FIXUP_FUNC,
+		.v.func = alc287_fixup_yoga_slim7_carbon_speakers,
+	},
 	[ALC287_FIXUP_YOGA9_14IAP7_BASS_SPK] = {
 		.type = HDA_FIXUP_VERBS,
 		.v.verbs = (const struct hda_verb[]) {
@@ -8316,6 +8343,7 @@ static const struct hda_quirk alc269_fixup_tbl[] = {
 	SND_PCI_QUIRK(0x17aa, 0x3852, "Lenovo Yoga 7 14ITL5", ALC287_FIXUP_YOGA7_14ITL_SPEAKERS),
 	SND_PCI_QUIRK(0x17aa, 0x3853, "Lenovo Yoga 7 15ITL5", ALC287_FIXUP_YOGA7_14ITL_SPEAKERS),
 	SND_PCI_QUIRK(0x17aa, 0x3855, "Legion 7 16ITHG6", ALC287_FIXUP_LEGION_16ITHG6),
+	HDA_CODEC_QUIRK(0x17aa, 0x3856, "Lenovo Yoga Slim 7 Carbon 14ACN6", ALC287_FIXUP_YOGA_SLIM7_CARBON_SPEAKERS),
 	SND_PCI_QUIRK(0x17aa, 0x3862, "Lenovo IdeaPad Slim 3 15ABR8", ALC269_FIXUP_LIMIT_INT_MIC_BOOST),
 	SND_PCI_QUIRK(0x17aa, 0x3865, "Lenovo 13X", ALC287_FIXUP_CS35L41_I2C_2),
 	SND_PCI_QUIRK(0x17aa, 0x3866, "Lenovo 13X", ALC287_FIXUP_CS35L41_I2C_2),
