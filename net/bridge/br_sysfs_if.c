@@ -64,10 +64,7 @@ static int store_flag(struct net_bridge_port *p, unsigned long v,
 	int err;
 
 	oflags = flags;
-	if (v)
-		__set_bit(bitnr, &flags);
-	else
-		__clear_bit(bitnr, &flags);
+	__assign_bit(bitnr, &flags, v);
 
 	if (flags == oflags)
 		return 0;
@@ -77,10 +74,7 @@ static int store_flag(struct net_bridge_port *p, unsigned long v,
 		netdev_err(p->dev, "%s\n", extack._msg);
 		return err;
 	}
-	if (v)
-		set_bit(bitnr, &p->flags);
-	else
-		clear_bit(bitnr, &p->flags);
+	assign_bit(bitnr, &p->flags, v);
 	br_port_flags_change(p, BIT(bitnr));
 	return 0;
 }
