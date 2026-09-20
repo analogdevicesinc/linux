@@ -3036,8 +3036,6 @@ out:
 	update_partition_sd_lb(cs, old_prs);
 
 	notify_partition_change(cs, old_prs);
-	if (force_sd_rebuild)
-		rebuild_sched_domains_locked();
 	free_tmpmasks(&tmpmask);
 	return 0;
 }
