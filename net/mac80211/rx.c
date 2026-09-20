@@ -1692,10 +1692,7 @@ static void sta_ps_start(struct sta_info *sta)
 			list_del_init(&txqi->schedule_order);
 		spin_unlock(&local->active_txq_lock[txq->ac]);
 
-		if (txq_has_queue(txq))
-			set_bit(tid, &sta->txq_buffered_tids);
-		else
-			clear_bit(tid, &sta->txq_buffered_tids);
+		assign_bit(tid, &sta->txq_buffered_tids, txq_has_queue(txq));
 	}
 
 	sta_info_recalc_tim(sta);

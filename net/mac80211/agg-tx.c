@@ -212,10 +212,7 @@ ieee80211_agg_start_txq(struct sta_info *sta, int tid, bool enable)
 
 	txqi = to_txq_info(txq);
 
-	if (enable)
-		set_bit(IEEE80211_TXQ_AMPDU, &txqi->flags);
-	else
-		clear_bit(IEEE80211_TXQ_AMPDU, &txqi->flags);
+	assign_bit(IEEE80211_TXQ_AMPDU, &txqi->flags, enable);
 
 	clear_bit(IEEE80211_TXQ_STOP, &txqi->flags);
 	local_bh_disable();
