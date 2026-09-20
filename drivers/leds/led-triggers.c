@@ -7,7 +7,9 @@
  * Author: Richard Purdie <rpurdie@openedhand.com>
  */
 
+#include <linux/bug.h>
 #include <linux/cleanup.h>
+#include <linux/compiler.h>
 #include <linux/export.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
@@ -235,7 +237,8 @@ const struct attribute_group led_trigger_group = {
 EXPORT_SYMBOL_GPL(led_trigger_group);
 
 /* Caller must ensure led_cdev->trigger_lock held */
-int led_trigger_set(struct led_classdev *led_cdev, struct led_trigger *trig)
+static int __led_trigger_set(struct led_classdev *led_cdev, struct led_trigger *trig,
+			     bool hw_triggered)
 {
 	char *event = NULL;
 	char *envp[2];
@@ -266,7 +269,21 @@ int led_trigger_set(struct led_classdev *led_cdev, struct led_trigger *trig)
 		led_cdev->trigger_data = NULL;
 		led_cdev->activated = false;
 		led_cdev->flags &= ~LED_INIT_DEFAULT_TRIGGER;
-		led_set_brightness(led_cdev, LED_OFF);
+
+		/*
+		 * Hardware may have selected a new brightness level during its
+		 * hardware control transition, so only reset brightness if we
+		 * are switching to another trigger or if the switching is not
+		 * hardware triggered.
+		 *
+		 * Note that this does not apply to the error path, as running
+		 * into the error path implies a none => private trigger
+		 * transition. This hints that the LED driver and its private
+		 * trigger must have some fundamental bugs, so the error path
+		 * always turns off the LED to reset it to a certain state.
+		 */
+		if (trig || !hw_triggered)
+			led_set_brightness(led_cdev, LED_OFF);
 	}
 	if (trig) {
 		spin_lock(&trig->leddev_list_lock);
@@ -329,6 +346,11 @@ err_activate:
 	kfree(event);
 
 	return ret;
+}
+
+int led_trigger_set(struct led_classdev *led_cdev, struct led_trigger *trig)
+{
+	return __led_trigger_set(led_cdev, trig, false);
 }
 EXPORT_SYMBOL_GPL(led_trigger_set);
 
@@ -483,6 +505,60 @@ int devm_led_trigger_register(struct device *dev,
 	return rc;
 }
 EXPORT_SYMBOL_GPL(devm_led_trigger_register);
+
+#ifdef CONFIG_LEDS_TRIGGERS_HW_CHANGED
+
+static void led_trigger_do_hw_control_transition(struct led_classdev *led_cdev, bool activate,
+						 struct led_trigger *hc_trig)
+{
+	if (activate && !led_cdev->trigger) /* "none" => private trigger. */
+		__led_trigger_set(led_cdev, hc_trig, true);
+	else if (!activate && led_cdev->trigger == hc_trig) /* private trigger => "none". */
+		__led_trigger_set(led_cdev, NULL, true);
+
+	/* Already in the desired state, or another trigger is active, ignore. */
+}
+
+void led_trigger_hw_control_changed_worker(struct work_struct *work)
+{
+	struct led_classdev *led_cdev =
+		container_of(work, struct led_classdev, trigger_hw_changed_work);
+	bool activate = READ_ONCE(led_cdev->trigger_hw_changed);
+
+	scoped_guard(rwsem_read, &triggers_list_lock) {
+		struct led_trigger *trig;
+
+		list_for_each_entry(trig, &trigger_list, next_trig) {
+			if (trig->trigger_type == led_cdev->trigger_type &&
+			    !strcmp(trig->name, led_cdev->hw_control_trigger)) {
+				guard(rwsem_write)(&led_cdev->trigger_lock);
+
+				led_trigger_do_hw_control_transition(led_cdev, activate, trig);
+				return;
+			}
+		}
+	}
+
+	dev_warn(led_cdev->dev,
+		 "Private trigger %s is not registered, can't toggle hardware control\n",
+		 led_cdev->hw_control_trigger);
+}
+EXPORT_SYMBOL_GPL(led_trigger_hw_control_changed_worker);
+
+void led_trigger_notify_hw_control_changed(struct led_classdev *led_cdev, bool activate)
+{
+	/* Restricted to private triggers. */
+	if (WARN_ON(!(led_cdev->flags & LED_TRIG_HW_CHANGED) ||
+		    !led_cdev->hw_control_trigger || !led_cdev->trigger_type))
+		return;
+
+	WRITE_ONCE(led_cdev->trigger_hw_changed, activate);
+
+	schedule_work(&led_cdev->trigger_hw_changed_work);
+}
+EXPORT_SYMBOL_GPL(led_trigger_notify_hw_control_changed);
+
+#endif /* CONFIG_LEDS_TRIGGERS_HW_CHANGED */
 
 /* Simple LED Trigger Interface */
 
