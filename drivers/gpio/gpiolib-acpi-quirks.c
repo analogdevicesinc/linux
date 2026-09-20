@@ -392,6 +392,19 @@ static const struct dmi_system_id gpiolib_acpi_quirks[] __initconst = {
 			.ignore_wake = "VEN_0488:00@355",
 		},
 	},
+	{
+		/*
+		 * Lenovo IdeaPad Slim 3 15ABR8: the touchscreen wake IRQ fires as soon
+		 * as the system enters suspend, causing an immediate spurious resume.
+		 */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "82XM"),
+		},
+		.driver_data = &(struct acpi_gpiolib_dmi_quirk) {
+			.ignore_wake = "GTCH7503:00@10",
+		},
+	},
 	{} /* Terminating entry */
 };
 
