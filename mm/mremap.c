@@ -1037,6 +1037,7 @@ static void vrm_stat_account(struct vma_remap_struct *vrm,
 }
 
 static bool __check_map_count_against_split(struct mm_struct *mm,
+					    bool is_dontunmap,
 					    bool before_unmaps)
 {
 	const int sys_map_count = get_sysctl_max_map_count();
@@ -1088,26 +1089,38 @@ static bool __check_map_count_against_split(struct mm_struct *mm,
 	 * Therefore we must check to ensure we have headroom of 2 additional
 	 * VMAs.
 	 */
-	return map_count + 2 <= sys_map_count;
+	map_count += 2;
+
+	/*
+	 * If MREMAP_DONTUNMAP is set and a partial operation is performed,
+	 * the VMA is split ahead of time and the -1 observed above doesn't
+	 * apply.
+	 */
+	if (is_dontunmap)
+		map_count++;
+
+	return map_count <= sys_map_count;
 }
 
 /* Do we violate the map count limit if we split VMAs when moving the VMA? */
-static bool check_map_count_against_split(void)
+static bool check_map_count_against_split(struct vma_remap_struct *vrm)
 {
 	return __check_map_count_against_split(current->mm,
+					       vrm->flags & MREMAP_DONTUNMAP,
 					       /*before_unmaps=*/false);
 }
 
 /* Do we violate the map count limit if we split VMAs prior to early unmaps? */
-static bool check_map_count_against_split_early(void)
+static bool check_map_count_against_split_early(struct vma_remap_struct *vrm)
 {
 	return __check_map_count_against_split(current->mm,
+					       vrm->flags & MREMAP_DONTUNMAP,
 					       /*before_unmaps=*/true);
 }
 
 /*
- * Perform checks before attempting to write a VMA prior to it being
- * moved.
+ * Perform checks and preparation before attempting to write a VMA prior to it
+ * being moved.
  */
 static unsigned long prep_move_vma(struct vma_remap_struct *vrm)
 {
@@ -1116,19 +1129,17 @@ static unsigned long prep_move_vma(struct vma_remap_struct *vrm)
 	unsigned long old_addr = vrm->addr;
 	unsigned long old_len = vrm->old_len;
 	vm_flags_t dummy = vma->vm_flags;
+	const bool split_before = vma->vm_start != old_addr;
+	const bool split_after = vma->vm_end != old_addr + old_len;
 
-	/*
-	 * We'd prefer to avoid failure later on in do_munmap: we copy a VMA,
-	 * which may not merge, then (if MREMAP_DONTUNMAP is not set) unmap the
-	 * source, which may split, causing a net increase of 2 mappings.
-	 */
-	if (!check_map_count_against_split())
+	/* Avoid failure later on. */
+	if (!check_map_count_against_split(vrm))
 		return -ENOMEM;
 
 	if (vma->vm_ops && vma->vm_ops->may_split) {
-		if (vma->vm_start != old_addr)
+		if (split_before)
 			err = vma->vm_ops->may_split(vma, old_addr);
-		if (!err && vma->vm_end != old_addr + old_len)
+		if (!err && split_after)
 			err = vma->vm_ops->may_split(vma, old_addr + old_len);
 		if (err)
 			return err;
@@ -1145,6 +1156,21 @@ static unsigned long prep_move_vma(struct vma_remap_struct *vrm)
 			  MADV_UNMERGEABLE, &dummy);
 	if (err)
 		return err;
+
+	/*
+	 * To account mlock()'d pages correctly in the MREMAP_DONTUNMAP
+	 * case perform any split ahead of time.
+	 */
+	if (vrm->flags & MREMAP_DONTUNMAP) {
+		VMA_ITERATOR(vmi, vma->vm_mm, old_addr);
+
+		if (split_before)
+			err = split_vma(&vmi, vma, old_addr, 1);
+		if (!err && split_after)
+			err = split_vma(&vmi, vma, old_addr + old_len, 0);
+		vrm->vmi_needs_invalidate = true;
+		return err;
+	}
 
 	return 0;
 }
@@ -1330,11 +1356,8 @@ static int copy_vma_and_data(struct vma_remap_struct *vrm,
 static void dontunmap_complete(struct vma_remap_struct *vrm,
 			       struct vm_area_struct *new_vma)
 {
-	unsigned long start = vrm->addr;
-	unsigned long end = vrm->addr + vrm->old_len;
 	struct vm_area_struct *vma = vrm->vma;
-	unsigned long old_start = vma->vm_start;
-	unsigned long old_end = vma->vm_end;
+	const pgoff_t pgoff_unfaulted = vma->vm_start >> PAGE_SHIFT;
 
 	/* Self-merge is disallowed. */
 	VM_WARN_ON_ONCE(new_vma == vma);
@@ -1346,19 +1369,15 @@ static void dontunmap_complete(struct vma_remap_struct *vrm,
 	 * anon_vma links of the old vma is no longer needed after its page
 	 * table has been moved.
 	 */
-	if (start == old_start && end == old_end) {
-		const pgoff_t pgoff_unfaulted = vma->vm_start >> PAGE_SHIFT;
-
-		unlink_anon_vmas(vma);
-		/*
-		 * The VMA is now unfaulted and it is an invariant that
-		 * unfaulted anonymous VMAs have page offset equal to
-		 * vma->vm_start >> PAGE_SHIFT.
-		 */
-		vma_set_anon_pgoff(vma, pgoff_unfaulted);
-		if (vma_is_anonymous(vma) && !vma->vm_file)
-			vma_set_pgoff(vma, pgoff_unfaulted);
-	}
+	unlink_anon_vmas(vma);
+	/*
+	 * The VMA is now unfaulted and it is an invariant that
+	 * unfaulted anonymous VMAs have page offset equal to
+	 * vma->vm_start >> PAGE_SHIFT.
+	 */
+	vma_set_anon_pgoff(vma, pgoff_unfaulted);
+	if (vma_is_anonymous(vma) && !vma->vm_file)
+		vma_set_pgoff(vma, pgoff_unfaulted);
 }
 
 static unsigned long move_vma(struct vma_remap_struct *vrm)
@@ -2006,7 +2025,7 @@ static unsigned long do_mremap(struct vma_remap_struct *vrm)
 		return -EINTR;
 	vrm->mmap_locked = true;
 
-	if (!check_map_count_against_split_early()) {
+	if (!check_map_count_against_split_early(vrm)) {
 		mmap_write_unlock(mm);
 		return -ENOMEM;
 	}
