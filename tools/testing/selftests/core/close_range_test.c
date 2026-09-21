@@ -236,6 +236,50 @@ TEST(close_range_unshare_capped)
 	EXPECT_EQ(0, WEXITSTATUS(status));
 }
 
+TEST(close_range_unshare_hole)
+{
+	int i, status;
+	pid_t pid;
+	struct __clone_args args = {
+		.flags = CLONE_FILES,
+		.exit_signal = SIGCHLD,
+	};
+
+	/* Fill the first two words of the table. */
+	for (i = 3; i < 128; i++)
+		ASSERT_GE(dup2(0, i), 0);
+
+	pid = sys_clone3(&args, sizeof(args));
+	ASSERT_GE(pid, 0);
+
+	if (pid == 0) {
+		/* Punch a hole into the second word, behind a full first one. */
+		if (sys_close_range(70, 80, CLOSE_RANGE_UNSHARE))
+			exit(EXIT_FAILURE);
+
+		for (i = 3; i < 128; i++) {
+			bool closed = i >= 70 && i <= 80;
+
+			if (closed == (fcntl(i, F_GETFD) != -1))
+				exit(EXIT_FAILURE);
+		}
+
+		/* A stale full bit on word 1 would hand out 128, not 70. */
+		if (dup(0) != 70)
+			exit(EXIT_FAILURE);
+
+		exit(EXIT_SUCCESS);
+	}
+
+	EXPECT_EQ(waitpid(pid, &status, 0), pid);
+	EXPECT_EQ(true, WIFEXITED(status));
+	EXPECT_EQ(0, WEXITSTATUS(status));
+
+	/* The shared table the child unshared from is untouched. */
+	for (i = 3; i < 128; i++)
+		EXPECT_NE(-1, fcntl(i, F_GETFD));
+}
+
 TEST(close_range_cloexec)
 {
 	int i, ret;
