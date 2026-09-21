@@ -23,7 +23,6 @@ Description:
 		 BIOS Info
 		 Vendor                  : Kunlun
 		 Version                 : Kunlun-A1901-V4.1.3-20200414093938
-		 ROM Size                : 4 KB
 		 Release Date            : 2020-04-14
 
 		By the way, using dmidecode command can get the similar info if there
