@@ -3925,7 +3925,7 @@ intel_dp_init_source_oui(struct intel_dp *intel_dp)
 	 */
 	ret = drm_dp_dpcd_read_data(&intel_dp->aux, DP_SOURCE_OUI, buf, sizeof(buf));
 	if (ret < 0)
-		drm_dbg_kms(display->drm, "Failed to read source OUI\n");
+		drm_dbg_kms(display->drm, "Failed to read source OUI (%pe)\n", ERR_PTR(ret));
 
 	if (memcmp(oui, buf, sizeof(oui)) == 0) {
 		/* Assume the OUI was written now. */
@@ -3935,7 +3935,7 @@ intel_dp_init_source_oui(struct intel_dp *intel_dp)
 
 	ret = drm_dp_dpcd_write_data(&intel_dp->aux, DP_SOURCE_OUI, oui, sizeof(oui));
 	if (ret < 0) {
-		drm_dbg_kms(display->drm, "Failed to write source OUI\n");
+		drm_dbg_kms(display->drm, "Failed to write source OUI (%pe)\n", ERR_PTR(ret));
 		WRITE_ONCE(intel_dp->oui_valid, false);
 	}
 
@@ -4002,9 +4002,9 @@ void intel_dp_set_power(struct intel_dp *intel_dp, u8 mode)
 
 	if (ret < 0)
 		drm_dbg_kms(display->drm,
-			    "[ENCODER:%d:%s] Set power to %s failed\n",
+			    "[ENCODER:%d:%s] Set power to %s failed (%pe)\n",
 			    encoder->base.base.id, encoder->base.name,
-			    mode == DP_SET_POWER_D0 ? "D0" : "D3");
+			    mode == DP_SET_POWER_D0 ? "D0" : "D3", ERR_PTR(ret));
 }
 
 static bool
@@ -4104,8 +4104,8 @@ static void intel_dp_get_pcon_dsc_cap(struct intel_dp *intel_dp)
 				    intel_dp->pcon_dsc_dpcd,
 				    sizeof(intel_dp->pcon_dsc_dpcd));
 	if (ret < 0)
-		drm_err(display->drm, "Failed to read DPCD register 0x%x\n",
-			DP_PCON_DSC_ENCODER);
+		drm_err(display->drm, "Failed to read DPCD register 0x%x (%pe)\n",
+			DP_PCON_DSC_ENCODER, ERR_PTR(ret));
 
 	drm_dbg_kms(display->drm, "PCON ENCODER DSC DPCD: %*ph\n",
 		    (int)sizeof(intel_dp->pcon_dsc_dpcd), intel_dp->pcon_dsc_dpcd);
@@ -4428,8 +4428,9 @@ void intel_dp_configure_protocol_converter(struct intel_dp *intel_dp,
 				     DP_PROTOCOL_CONVERTER_CONTROL_0, tmp);
 	if (ret < 0)
 		drm_dbg_kms(display->drm,
-			    "Failed to %s protocol converter HDMI mode\n",
-			    str_enable_disable(intel_dp_has_hdmi_sink(intel_dp)));
+			    "Failed to %s protocol converter HDMI mode (%pe)\n",
+			    str_enable_disable(intel_dp_has_hdmi_sink(intel_dp)),
+			    ERR_PTR(ret));
 
 	if (crtc_state->sink_format == INTEL_OUTPUT_FORMAT_YCBCR420) {
 		switch (crtc_state->output_format) {
@@ -4465,16 +4466,17 @@ void intel_dp_configure_protocol_converter(struct intel_dp *intel_dp,
 				     DP_PROTOCOL_CONVERTER_CONTROL_1, tmp);
 	if (ret < 0)
 		drm_dbg_kms(display->drm,
-			    "Failed to %s protocol converter YCbCr 4:2:0 conversion mode\n",
-			    str_enable_disable(intel_dp->dfp.ycbcr_444_to_420));
+			    "Failed to %s protocol converter YCbCr 4:2:0 conversion mode (%pe)\n",
+			    str_enable_disable(intel_dp->dfp.ycbcr_444_to_420),
+			    ERR_PTR(ret));
 
 	tmp = rgb_to_ycbcr ? DP_CONVERSION_BT709_RGB_YCBCR_ENABLE : 0;
 
 	ret = drm_dp_pcon_convert_rgb_to_ycbcr(&intel_dp->aux, tmp);
 	if (ret < 0)
 		drm_dbg_kms(display->drm,
-			    "Failed to %s protocol converter RGB->YCbCr conversion mode\n",
-			    str_enable_disable(tmp));
+			    "Failed to %s protocol converter RGB->YCbCr conversion mode (%pe)\n",
+			    str_enable_disable(tmp), ERR_PTR(ret));
 }
 
 static u8 intel_dp_read_dprx_feature_enum(struct intel_dp *intel_dp)
@@ -4573,7 +4575,8 @@ void intel_dp_get_dsc_sink_cap(u8 dpcd_rev,
 	ret = drm_dp_dpcd_read_byte(connector->dp.dsc_decompression_aux, DP_FEC_CAPABILITY,
 				    &connector->dp.fec_capability);
 	if (ret < 0) {
-		drm_dbg_kms(display->drm, "Could not read FEC DPCD register\n");
+		drm_dbg_kms(display->drm, "Could not read FEC DPCD register (%pe)\n",
+			    ERR_PTR(ret));
 		return;
 	}
 
@@ -4690,7 +4693,7 @@ static void intel_edp_mso_init(struct intel_dp *intel_dp)
 
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_EDP_MSO_LINK_CAPABILITIES, &mso);
 	if (ret < 0) {
-		drm_err(display->drm, "Failed to read MSO cap\n");
+		drm_err(display->drm, "Failed to read MSO cap (%pe)\n", ERR_PTR(ret));
 		return;
 	}
 
