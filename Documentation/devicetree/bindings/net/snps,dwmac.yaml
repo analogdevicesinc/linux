@@ -196,18 +196,6 @@ properties:
       can be passive (no SW requirement), and requires that the MAC operate
       in a different mode than the PHY in order to function.
 
-  snps,axi-config:
-    $ref: /schemas/types.yaml#/definitions/phandle
-    description:
-      AXI BUS Mode parameters. Phandle to a node that can contain the
-      following properties
-        * snps,lpi_en, enable Low Power Interface
-        * snps,xit_frm, unlock on WoL
-        * snps,wr_osr_lmt, max write outstanding req. limit
-        * snps,rd_osr_lmt, max read outstanding req. limit
-        * snps,blen, this is a vector of supported burst length.
-        * snps,fb, fixed-burst
-
   snps,mtl-rx-config:
     $ref: /schemas/types.yaml#/definitions/phandle
     description:
@@ -559,45 +547,6 @@ properties:
     required:
       - compatible
 
-  stmmac-axi-config:
-    type: object
-    unevaluatedProperties: false
-    description:
-      AXI BUS Mode parameters.
-
-    properties:
-      snps,lpi_en:
-        $ref: /schemas/types.yaml#/definitions/flag
-        description:
-          enable Low Power Interface
-
-      snps,xit_frm:
-        $ref: /schemas/types.yaml#/definitions/flag
-        description:
-          unlock on WoL
-
-      snps,wr_osr_lmt:
-        $ref: /schemas/types.yaml#/definitions/uint32
-        description:
-          max write outstanding req. limit
-
-      snps,rd_osr_lmt:
-        $ref: /schemas/types.yaml#/definitions/uint32
-        description:
-          max read outstanding req. limit
-
-      snps,blen:
-        $ref: /schemas/types.yaml#/definitions/uint32-array
-        description:
-          this is a vector of supported burst length.
-        minItems: 7
-        maxItems: 7
-
-      snps,fb:
-        $ref: /schemas/types.yaml#/definitions/flag
-        description:
-          fixed-burst
-
 required:
   - compatible
   - reg
@@ -611,6 +560,7 @@ dependencies:
 
 allOf:
   - $ref: ethernet-controller.yaml#
+  - $ref: snps,dwmac-common.yaml#
   - if:
       properties:
         compatible:
