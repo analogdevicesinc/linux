@@ -111,9 +111,8 @@ static int get_mitigations_off(void)
 	return !enabled_in_config;
 }
 
-bool get_unpriv_disabled(void)
+bool get_unpriv_sysctl_disabled(void)
 {
-	int mitigations_off;
 	bool disabled;
 	char buf[2];
 	FILE *fd;
@@ -127,8 +126,12 @@ bool get_unpriv_disabled(void)
 		disabled = true;
 	}
 
-	if (disabled)
-		return true;
+	return disabled;
+}
+
+bool get_unpriv_mitigations_disabled(void)
+{
+	int mitigations_off;
 
 	/*
 	 * Some unpriv tests rely on spectre mitigations being on.
@@ -142,6 +145,11 @@ bool get_unpriv_disabled(void)
 		return true;
 	}
 	return mitigations_off;
+}
+
+bool get_unpriv_disabled(void)
+{
+	return get_unpriv_sysctl_disabled() || get_unpriv_mitigations_disabled();
 }
 
 bool get_kasan_jit_enabled(void)
