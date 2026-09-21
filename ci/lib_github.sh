@@ -18,18 +18,36 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   $2 - Repository (owner/repo)
 #   $3 - Workflow run ID
 # Outputs:
-#   JSON response with artifacts list
+#   JSON object {total_count, artifacts:[...]} with all pages merged
+# Returns:
+#   0 on success, 1 if any page fails to fetch
 #######################################
 gh_get_workflow_artifacts() {
     local token="$1"
     local repository="$2"
     local run_id="$3"
+    local per_page=100
 
-    curl -sfL \
-        -H "Accept: application/vnd.github+json" \
-        -H "Authorization: Bearer ${token}" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
-        "https://api.github.com/repos/${repository}/actions/runs/${run_id}/artifacts"
+    local page=1
+    local response
+    local artifacts='[]'
+
+    while :; do
+        response=$(curl -sfL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${token}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${repository}/actions/runs/${run_id}/artifacts?per_page=${per_page}&page=${page}") \
+            || { echo "::error::Failed to fetch artifacts page ${page} for run ${run_id}" >&2; return 1; }
+
+        artifacts=$(jq -c --argjson acc "${artifacts}" '$acc + .artifacts' <<< "${response}")
+
+        [[ $(jq '.artifacts | length' <<< "${response}") -lt ${per_page} ]] && break
+        page=$((page + 1))
+    done
+
+    jq -c -n --argjson artifacts "${artifacts}" \
+        '{total_count: ($artifacts | length), artifacts: $artifacts}'
 }
 
 #######################################
@@ -74,20 +92,21 @@ download_matching_artifacts() {
     mkdir -p "${output_dir}"
 
     local artifacts
-    artifacts=$(gh_get_workflow_artifacts "${token}" "${repository}" "${run_id}")
+    artifacts=$(gh_get_workflow_artifacts "${token}" "${repository}" "${run_id}") || return 1
 
     local total_count
     total_count=$(echo "${artifacts}" | jq '.total_count' -r)
 
     if [[ "${total_count}" == "null" ]] || [[ "${total_count}" == "0" ]]; then
-        echo "::warning::No artifacts found for run ${run_id}"
-        return 0
+        echo "::error::No artifacts found for run ${run_id}"
+        return 1
     fi
 
     local artifacts_list
     artifacts_list=$(echo "${artifacts}" | jq '[.artifacts[] | [.name, .archive_download_url]]' -r)
 
     local downloaded=0
+    local unmatched_patterns=" ${patterns} "
     while IFS=$'\t' read -r name url; do
         # Check exclude patterns first
         local excluded=0
@@ -107,7 +126,7 @@ download_matching_artifacts() {
         for p in ${patterns}; do
             if [[ "${name}" == ${p} ]]; then
                 matched=1
-                break
+                unmatched_patterns=" ${unmatched_patterns#* ${p} }"
             fi
         done
 
@@ -121,6 +140,11 @@ download_matching_artifacts() {
     done < <(echo "${artifacts_list}" | jq -r '.[] | @tsv')
 
     echo "Downloaded ${downloaded} artifact(s) to ${output_dir}/"
+
+    if [[ -n "${unmatched_patterns// /}" ]]; then
+        echo "::error::No artifacts matched required pattern(s):${unmatched_patterns}"
+        return 1
+    fi
 }
 
 #######################################
