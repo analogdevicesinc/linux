@@ -1267,23 +1267,12 @@ void fuse_file_release(struct inode *inode, struct fuse_file *ff,
 
 /* backing.c */
 #ifdef CONFIG_FUSE_PASSTHROUGH
-struct fuse_backing *fuse_backing_get(struct fuse_backing *fb);
 void fuse_backing_put(struct fuse_backing *fb);
 struct fuse_backing *fuse_backing_lookup(struct fuse_conn *fc, int backing_id);
 #else
 
-static inline struct fuse_backing *fuse_backing_get(struct fuse_backing *fb)
-{
-	return NULL;
-}
-
 static inline void fuse_backing_put(struct fuse_backing *fb)
 {
-}
-static inline struct fuse_backing *fuse_backing_lookup(struct fuse_conn *fc,
-						       int backing_id)
-{
-	return NULL;
 }
 #endif
 
