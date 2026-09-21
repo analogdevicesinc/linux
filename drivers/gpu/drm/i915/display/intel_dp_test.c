@@ -157,7 +157,7 @@ static u8 intel_dp_autotest_link_training(struct intel_dp *intel_dp)
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_TEST_LANE_COUNT,
 				    &test_lane_count);
 	if (ret < 0) {
-		drm_dbg_kms(display->drm, "Lane count read failed\n");
+		drm_dbg_kms(display->drm, "Lane count read failed (%pe)\n", ERR_PTR(ret));
 		return DP_TEST_NAK;
 	}
 	test_lane_count &= DP_MAX_LANE_COUNT_MASK;
@@ -165,7 +165,7 @@ static u8 intel_dp_autotest_link_training(struct intel_dp *intel_dp)
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_TEST_LINK_RATE,
 				    &test_link_bw);
 	if (ret < 0) {
-		drm_dbg_kms(display->drm, "Link Rate read failed\n");
+		drm_dbg_kms(display->drm, "Link Rate read failed (%pe)\n", ERR_PTR(ret));
 		return DP_TEST_NAK;
 	}
 	test_link_rate = drm_dp_bw_code_to_link_rate(test_link_bw);
@@ -193,7 +193,7 @@ static u8 intel_dp_autotest_video_pattern(struct intel_dp *intel_dp)
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_TEST_PATTERN,
 				    &test_pattern);
 	if (ret < 0) {
-		drm_dbg_kms(display->drm, "Test pattern read failed\n");
+		drm_dbg_kms(display->drm, "Test pattern read failed (%pe)\n", ERR_PTR(ret));
 		return DP_TEST_NAK;
 	}
 	if (test_pattern != DP_COLOR_RAMP)
@@ -201,20 +201,20 @@ static u8 intel_dp_autotest_video_pattern(struct intel_dp *intel_dp)
 
 	ret = drm_dp_dpcd_read_data(&intel_dp->aux, DP_TEST_H_WIDTH_HI, &h_width, 2);
 	if (ret < 0) {
-		drm_dbg_kms(display->drm, "H Width read failed\n");
+		drm_dbg_kms(display->drm, "H Width read failed (%pe)\n", ERR_PTR(ret));
 		return DP_TEST_NAK;
 	}
 
 	ret = drm_dp_dpcd_read_data(&intel_dp->aux, DP_TEST_V_HEIGHT_HI,
 				    &v_height, 2);
 	if (ret < 0) {
-		drm_dbg_kms(display->drm, "V Height read failed\n");
+		drm_dbg_kms(display->drm, "V Height read failed (%pe)\n", ERR_PTR(ret));
 		return DP_TEST_NAK;
 	}
 
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_TEST_MISC0, &test_misc);
 	if (ret < 0) {
-		drm_dbg_kms(display->drm, "TEST MISC read failed\n");
+		drm_dbg_kms(display->drm, "TEST MISC read failed (%pe)\n", ERR_PTR(ret));
 		return DP_TEST_NAK;
 	}
 	if ((test_misc & DP_TEST_COLOR_FORMAT_MASK) != DP_COLOR_FORMAT_RGB)
@@ -247,6 +247,7 @@ static u8 intel_dp_autotest_edid(struct intel_dp *intel_dp)
 	u8 test_result = DP_TEST_ACK;
 	struct intel_connector *intel_connector = intel_dp->attached_connector;
 	struct drm_connector *connector = &intel_connector->base;
+	int ret;
 
 	if (!intel_connector->detect_edid || connector->edid_corrupt ||
 	    intel_dp->aux.i2c_defer_count > 6) {
@@ -271,10 +272,11 @@ static u8 intel_dp_autotest_edid(struct intel_dp *intel_dp)
 		/* We have to write the checksum of the last block read */
 		block += block->extensions;
 
-		if (drm_dp_dpcd_write_byte(&intel_dp->aux, DP_TEST_EDID_CHECKSUM,
-					   block->checksum) < 0)
+		ret = drm_dp_dpcd_write_byte(&intel_dp->aux, DP_TEST_EDID_CHECKSUM,
+					     block->checksum);
+		if (ret < 0)
 			drm_dbg_kms(display->drm,
-				    "Failed to write EDID checksum\n");
+				    "Failed to write EDID checksum (%pe)\n", ERR_PTR(ret));
 
 		test_result = DP_TEST_ACK | DP_TEST_EDID_CHECKSUM_WRITE;
 		intel_dp->compliance.test_data.edid = INTEL_DP_RESOLUTION_PREFERRED;
@@ -429,7 +431,7 @@ void intel_dp_test_request(struct intel_dp *intel_dp)
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_TEST_REQUEST, &request);
 	if (ret < 0) {
 		drm_dbg_kms(display->drm,
-			    "Could not read test request from sink\n");
+			    "Could not read test request from sink (%pe)\n", ERR_PTR(ret));
 		goto update_status;
 	}
 
@@ -463,7 +465,7 @@ update_status:
 	ret = drm_dp_dpcd_write_byte(&intel_dp->aux, DP_TEST_RESPONSE, response);
 	if (ret < 0)
 		drm_dbg_kms(display->drm,
-			    "Could not write test response to sink\n");
+			    "Could not write test response to sink (%pe)\n", ERR_PTR(ret));
 }
 
 /* phy test */
