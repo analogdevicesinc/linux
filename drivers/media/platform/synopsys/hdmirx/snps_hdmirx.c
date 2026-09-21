@@ -511,12 +511,12 @@ static int hdmirx_query_dv_timings(struct file *file, void *priv,
 	int ret;
 
 	if (port_no_link(hdmirx_dev)) {
-		v4l2_err(v4l2_dev, "%s: port has no link\n", __func__);
+		v4l2_dbg(1, debug, v4l2_dev, "%s: port has no link\n", __func__);
 		return -ENOLINK;
 	}
 
 	if (signal_not_lock(hdmirx_dev)) {
-		v4l2_err(v4l2_dev, "%s: signal is not locked\n", __func__);
+		v4l2_dbg(1, debug, v4l2_dev, "%s: signal is not locked\n", __func__);
 		return -ENOLCK;
 	}
 
