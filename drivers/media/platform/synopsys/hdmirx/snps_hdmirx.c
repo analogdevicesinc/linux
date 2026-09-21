@@ -1208,6 +1208,9 @@ static void hdmirx_submodule_init(struct snps_hdmirx_dev *hdmirx_dev)
 static int hdmirx_enum_input(struct file *file, void *priv,
 			     struct v4l2_input *input)
 {
+	struct hdmirx_stream *stream = video_drvdata(file);
+	struct snps_hdmirx_dev *hdmirx_dev = stream->hdmirx_dev;
+
 	if (input->index > 0)
 		return -EINVAL;
 
@@ -1215,6 +1218,12 @@ static int hdmirx_enum_input(struct file *file, void *priv,
 	input->std = 0;
 	strscpy(input->name, "HDMI IN", sizeof(input->name));
 	input->capabilities = V4L2_IN_CAP_DV_TIMINGS;
+
+	input->status = 0;
+	if (port_no_link(hdmirx_dev))
+		input->status |= V4L2_IN_ST_NO_POWER;
+	if (signal_not_lock(hdmirx_dev))
+		input->status |= V4L2_IN_ST_NO_SIGNAL;
 
 	return 0;
 }
