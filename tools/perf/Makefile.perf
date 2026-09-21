@@ -442,7 +442,8 @@ PYTHON_EXTBUILD_LIB := $(PYTHON_EXTBUILD)lib/
 PYTHON_EXTBUILD_TMP := $(PYTHON_EXTBUILD)tmp/
 export PYTHON_EXTBUILD_LIB PYTHON_EXTBUILD_TMP
 
-python-clean := $(call QUIET_CLEAN, python) $(RM) -r $(PYTHON_EXTBUILD) $(OUTPUT)python/perf*.so
+# Put Python bytecode in output directory
+export PYTHONPYCACHEPREFIX := $(OUTPUT)/__pycache__
 
 ifneq ($(quiet),)
 python_setup_quiet=--quiet
@@ -952,7 +953,12 @@ $(INSTALL_DOC_TARGETS):
 ### Cleaning rules
 
 python-clean:
-	$(python-clean)
+	$(call QUIET_CLEAN, python) $(RM) -r $(PYTHON_EXTBUILD) $(OUTPUT)__pycache__ \
+		$(OUTPUT)python/perf*.so
+	@if [ "$(abspath python/perf.pyi)" != "$(abspath $(OUTPUT)python/perf.pyi)" ]; \
+	then \
+		$(RM) $(OUTPUT)python/perf.pyi; \
+	fi
 
 $(LIBAPI_OUTPUT) $(LIBBPF_OUTPUT) $(LIBPERF_OUTPUT) $(LIBSUBCMD_OUTPUT) $(LIBSYMBOL_OUTPUT):
 	$(Q)$(MKDIR) -p $@
