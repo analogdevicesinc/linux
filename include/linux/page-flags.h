@@ -575,9 +575,31 @@ FOLIO_FLAG(swapbacked, FOLIO_HEAD_PAGE)
 /*
  * Private page markings that may be used by the filesystem that owns the page
  * for its own purposes.
- * - PG_private and PG_private_2 cause release_folio() and co to be invoked
+ * - folio->private and PG_private_2 cause release_folio() and co to be invoked
  */
-PAGEFLAG(Private, private, PF_ANY)
+
+static __always_inline bool folio_test_private(const struct folio *folio)
+{
+	/*
+	 * data_race() is added for readers without holding the folio lock.
+	 * Only the NULL/non-NULL answer is used and both are valid while
+	 * private is being attached or detached, so the race is benign.
+	 */
+	return data_race(folio->private);
+}
+
+static __always_inline int PagePrivate(const struct page *page)
+{
+	/* See folio_test_private() for data_race() use */
+	return !!data_race(page->private);
+}
+
+/* no-ops during transition */
+static __always_inline void folio_set_private(struct folio *folio) { }
+static __always_inline void folio_clear_private(struct folio *folio) { }
+static __always_inline void SetPagePrivate(struct page *page) { }
+static __always_inline void ClearPagePrivate(struct page *page) { }
+
 FOLIO_FLAG(private_2, FOLIO_HEAD_PAGE)
 
 /* owner_2 can be set on tail pages for anon memory */
@@ -1169,7 +1191,7 @@ static __always_inline void __ClearPageAnonExclusive(struct page *page)
  */
 #define PAGE_FLAGS_CHECK_AT_FREE				\
 	(1UL << PG_lru		| 1UL << PG_locked	|	\
-	 1UL << PG_private	| 1UL << PG_private_2	|	\
+	 1UL << PG_private_2	|				\
 	 1UL << PG_writeback	| 1UL << PG_reserved	|	\
 	 1UL << PG_active 	|				\
 	 1UL << PG_unevictable	| __PG_MLOCKED | LRU_GEN_MASK)
@@ -1193,8 +1215,31 @@ static __always_inline void __ClearPageAnonExclusive(struct page *page)
 	(0xffUL /* order */		| 1UL << PG_has_hwpoisoned |	\
 	 1UL << PG_large_rmappable	| 1UL << PG_partially_mapped)
 
-#define PAGE_FLAGS_PRIVATE				\
-	(1UL << PG_private | 1UL << PG_private_2)
+/**
+ * folio_has_attached_private - check if the folio has private data attached
+ * @folio: The folio to check.
+ *
+ * Use this in code that may encounter swapcache or hugetlb folios but only
+ * wants to detect attached private data.
+ *
+ * Return: true if the folio has private data attached.
+ */
+static inline bool folio_has_attached_private(const struct folio *folio)
+{
+	/*
+	 * Swapcache stores swp_entry_t in folio->swap, a union with
+	 * folio->private, and hugetlb stores its own flags in folio->private;
+	 * both are excluded.
+	 *
+	 * NOTE: For swapcache, folio->swap.val PG_swapcache are not set as
+	 * a whole, so folio_test_swapcache() is not reliable to exclude
+	 * swapcache. Use folio_test_swapbacked() instead, since it remains set
+	 * when a folio is added to/removed from swapcache.
+	 */
+
+	return folio_test_private(folio) && !folio_test_swapbacked(folio) &&
+	       !folio_test_hugetlb(folio);
+}
 /**
  * folio_has_private - Determine if folio has private stuff
  * @folio: The folio to be checked
@@ -1204,7 +1249,7 @@ static __always_inline void __ClearPageAnonExclusive(struct page *page)
  */
 static inline int folio_has_private(const struct folio *folio)
 {
-	return !!(folio->flags.f & PAGE_FLAGS_PRIVATE);
+	return folio_has_attached_private(folio) || folio_test_private_2(folio);
 }
 
 #undef PF_ANY
