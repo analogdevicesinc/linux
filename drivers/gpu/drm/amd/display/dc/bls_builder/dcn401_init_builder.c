@@ -5,8 +5,16 @@
 
 #include "dm_services.h"
 #include "core_types.h"
+#include "clk_mgr.h"
+#include "dccg.h"
 #include "resource.h"
 #include "bls_builder/bls_builder_internal.h"
+
+static const enum block_sequence_func dcn401_dc1_init_sequence[] = {
+	LEGACY_CLK_MGR_INIT_CLOCKS,
+	LEGACY_CLK_MGR_IS_DC_MODE_PRESENT,
+	DCCG_INITIALIZE_CLOCKS,
+};
 
 static bool bls_append(struct block_sequence_state *sequence,
 		enum block_sequence_func func,
@@ -50,14 +58,111 @@ static bool dcn401_initialization_check_capability(
 			BLS_BUILD_SUCCESS;
 }
 
+static enum bls_builder_result dcn401_validate_initialization_step(
+		const struct bls_builder_declarative_params *params,
+		enum block_sequence_func func)
+{
+	struct bls_builder_output_init *out_init = NULL;
+	struct clk_mgr *clk_mgr = params->dc->clk_mgr;
+	struct dccg *dccg = params->dc->res_pool->dccg;
+
+	if (params->out_targets)
+		out_init = params->out_targets->DCN_DECL_INITIALIZATION;
+
+	switch (func) {
+	case LEGACY_CLK_MGR_INIT_CLOCKS:
+		if (!clk_mgr || !clk_mgr->funcs ||
+				!clk_mgr->funcs->init_clocks)
+			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
+		return BLS_BUILD_SUCCESS;
+	case LEGACY_CLK_MGR_IS_DC_MODE_PRESENT:
+		if (!clk_mgr || !clk_mgr->funcs ||
+				!clk_mgr->funcs->is_dc_mode_present ||
+				!out_init)
+			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
+		return BLS_BUILD_SUCCESS;
+	case DCCG_INITIALIZE_CLOCKS:
+		if (!dccg->funcs || !dccg->funcs->dccg_init)
+			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
+		return BLS_BUILD_SUCCESS;
+	default:
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+	}
+}
+
+static inline enum bls_builder_result dcn401_build_clk_mgr_init(
+		struct bls_builder_declarative_params *params,
+		struct block_sequence_state *sequence)
+{
+	union block_sequence_params bls_params = {0};
+
+	bls_params.legacy_clk_mgr_init_clocks_params.clk_mgr =
+			params->dc->clk_mgr;
+	if (!bls_append(sequence, LEGACY_CLK_MGR_INIT_CLOCKS, &bls_params))
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	return BLS_BUILD_SUCCESS;
+}
+
+static inline enum bls_builder_result dcn401_build_dc_mode_read(
+		struct bls_builder_declarative_params *params,
+		struct block_sequence_state *sequence)
+{
+	union block_sequence_params bls_params = {0};
+	struct bls_builder_output_init *out_init =
+			params->out_targets->DCN_DECL_INITIALIZATION;
+
+	bls_params.legacy_clk_mgr_is_dc_mode_present_params.clk_mgr =
+			params->dc->clk_mgr;
+	bls_params.legacy_clk_mgr_is_dc_mode_present_params
+			.out_dcmode_power_limits_present =
+			&out_init->dcmode_power_limits_present;
+	if (!bls_append(sequence, LEGACY_CLK_MGR_IS_DC_MODE_PRESENT,
+			&bls_params))
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	return BLS_BUILD_SUCCESS;
+}
+
+static inline enum bls_builder_result dcn401_build_dccg_init(
+		struct bls_builder_declarative_params *params,
+		struct block_sequence_state *sequence)
+{
+	union block_sequence_params bls_params = {0};
+
+	bls_params.dccg_initialize_clocks_params.dccg =
+			params->dc->res_pool->dccg;
+	if (!bls_append(sequence, DCCG_INITIALIZE_CLOCKS, &bls_params))
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	return BLS_BUILD_SUCCESS;
+}
+
+static enum bls_builder_result dcn401_build_initialization_step(
+		struct bls_builder_declarative_params *params,
+		struct block_sequence_state *sequence,
+		enum block_sequence_func func)
+{
+	switch (func) {
+	case LEGACY_CLK_MGR_INIT_CLOCKS:
+		return dcn401_build_clk_mgr_init(params, sequence);
+	case LEGACY_CLK_MGR_IS_DC_MODE_PRESENT:
+		return dcn401_build_dc_mode_read(params, sequence);
+	case DCCG_INITIALIZE_CLOCKS:
+		return dcn401_build_dccg_init(params, sequence);
+	default:
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+	}
+}
+
 static enum bls_builder_result dcn401_build_initialization(
 		struct bls_builder_declarative_params *params)
 {
 	struct bls_builder_check_capability_params check_params = {0};
-	enum bls_builder_result support_result;
+	enum bls_builder_result result;
 	struct block_sequence_state sequence;
-	union block_sequence_params bls_params = {0};
-	struct dc *dc;
+	struct bls_builder_output_init *out_init = NULL;
+	unsigned int i;
 
 	if (!params)
 		return dcn401_check_initialization_support(NULL);
@@ -65,27 +170,37 @@ static enum bls_builder_result dcn401_build_initialization(
 	check_params.dc = params->dc;
 	check_params.current_state = params->current_state;
 	check_params.new_state = params->new_state;
-	support_result =
+	result =
 			dcn401_check_initialization_support(&check_params);
-	if (support_result != BLS_BUILD_SUCCESS)
-		return support_result;
+	if (result != BLS_BUILD_SUCCESS)
+		return result;
 
-	dc = params->dc;
 	params->head_num_steps = 0;
 	params->tail_num_steps = 0;
+	for (i = 0; i < ARRAY_SIZE(dcn401_dc1_init_sequence); i++) {
+		result = dcn401_validate_initialization_step(params,
+				dcn401_dc1_init_sequence[i]);
+		if (result != BLS_BUILD_SUCCESS)
+			return result;
+	}
+
 	sequence.steps = params->head_sequence;
 	sequence.num_steps = &params->head_num_steps;
+	if (params->out_targets)
+		out_init = params->out_targets->DCN_DECL_INITIALIZATION;
+	if (out_init)
+		out_init->dcmode_power_limits_present = false;
 
 	/*
-	 * Add only operations with explicit component dispatch today. Core will
-	 * not execute or commit ownership until the fixed four-entry DCN
-	 * initialization sequence is available.
+	 * LEGACY/pmfw-msg: preserve the clock-manager entry points until
+	 * PMFW Messenger can express the same calls, order, and output.
 	 */
-	bls_params.dccg_initialize_clocks_params.dccg =
-			dc->res_pool->dccg;
-	if (!bls_append(&sequence, DCCG_INITIALIZE_CLOCKS,
-			&bls_params))
-		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+	for (i = 0; i < ARRAY_SIZE(dcn401_dc1_init_sequence); i++) {
+		result = dcn401_build_initialization_step(params, &sequence,
+				dcn401_dc1_init_sequence[i]);
+		if (result != BLS_BUILD_SUCCESS)
+			return result;
+	}
 
 	return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 }
