@@ -3,3 +3,4 @@ stackdump_test
 coredump_socket_test
 coredump_socket_protocol_test
 coredump_signal_test
+coredump_worker_test
