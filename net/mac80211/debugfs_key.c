@@ -65,6 +65,7 @@ KEY_CONF_FILE(keyidx, D);
 KEY_CONF_FILE(hw_key_idx, D);
 KEY_CONF_FILE_NAMED(conf_flags, flags, X);
 KEY_FILE(flags, X);
+KEY_CONF_FILE(link_id, D);
 KEY_READ(ifindex, sdata->name, "%s\n");
 KEY_OPS(ifindex);
 
@@ -362,6 +363,7 @@ void ieee80211_debugfs_key_add(struct ieee80211_key *key)
 	DEBUGFS_ADD(key);
 	DEBUGFS_ADD(ifindex);
 	DEBUGFS_ADD(conf_flags);
+	DEBUGFS_ADD(link_id);
 };
 
 void ieee80211_debugfs_key_remove(struct ieee80211_key *key)
