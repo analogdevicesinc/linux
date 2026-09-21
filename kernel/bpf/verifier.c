@@ -9190,7 +9190,8 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 			break;
 
 		access_type = arg_type & MEM_WRITE ? BPF_WRITE : BPF_READ;
-		if (meta->btf)
+		/* Ordinary kfunc buffers are input/output; __uninit buffers are outputs. */
+		if (meta->btf && !(arg_type & MEM_UNINIT))
 			access_type = BPF_READ | BPF_WRITE;
 
 		err = check_mem_reg(env, reg, argno, arg_size, access_type, meta, &known_memory);
@@ -9238,7 +9239,7 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 			break;
 
 		access_type = fn->arg_type[arg - 1] & MEM_WRITE ? BPF_WRITE : BPF_READ;
-		if (meta->btf)
+		if (meta->btf && !(fn->arg_type[arg - 1] & MEM_UNINIT))
 			access_type = BPF_READ | BPF_WRITE;
 
 		zero_size_allowed = meta->btf || base_type(arg_type) == ARG_MEM_SIZE_OR_ZERO;
@@ -12457,7 +12458,8 @@ static int resolve_func_arg_type(struct bpf_verifier_env *env,
 			PTR_ERR(resolve_ret));
 		return -EINVAL;
 	}
-	*arg_type = ARG_PTR_TO_MEM | MEM_FIXED_SIZE | (*arg_type & PTR_MAYBE_NULL);
+	*arg_type = ARG_PTR_TO_MEM | MEM_FIXED_SIZE | MEM_WRITE |
+		    (*arg_type & (PTR_MAYBE_NULL | MEM_UNINIT));
 
 	return 0;
 }
@@ -12970,7 +12972,7 @@ get_kfunc_arg_type(struct bpf_verifier_env *env, struct bpf_call_arg_meta *meta,
 				reg_arg_name(env, argno), btf_type_str(ref_t), ref_tname);
 			return -EINVAL;
 		}
-		arg_type = ARG_PTR_TO_MEM;
+		arg_type = ARG_PTR_TO_MEM | MEM_WRITE;
 	} else if (btf_type_is_struct(ref_t))
 		/* A pointer to a struct without a size argument is classified as ARG_PTR_TO_BTF_ID */
 		arg_type = ARG_PTR_TO_BTF_ID;
@@ -12995,7 +12997,7 @@ get_kfunc_arg_type(struct bpf_verifier_env *env, struct bpf_call_arg_meta *meta,
 			return -EINVAL;
 		}
 		proto->arg_size[arg] = type_size;
-		arg_type = ARG_PTR_TO_MEM | MEM_FIXED_SIZE;
+		arg_type = ARG_PTR_TO_MEM | MEM_FIXED_SIZE | MEM_WRITE;
 	}
 
 	if (is_kfunc_arg_uninit(meta->btf, &args[arg]))
