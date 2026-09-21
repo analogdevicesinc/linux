@@ -231,6 +231,7 @@ config ARCH_R8A774A3
 	bool "ARM64 Platform support for R8A774A3 (RZ/G2M v3.0)"
 	default y if ARCH_RENESAS
 	select ARCH_RCAR_GEN3
+	select SYSC_R8A774A3
 	help
 	  This enables support for the Renesas RZ/G2M SoC (version 3.0).
 
