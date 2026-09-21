@@ -183,8 +183,8 @@ intel_dp_aux_hdr_get_backlight(struct intel_connector *connector, enum pipe pipe
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, INTEL_EDP_HDR_GETSET_CTRL_PARAMS, &tmp);
 	if (ret < 0) {
 		drm_err(display->drm,
-			"[CONNECTOR:%d:%s] Failed to read current backlight mode from DPCD\n",
-			connector->base.base.id, connector->base.name);
+			"[CONNECTOR:%d:%s] Failed to read current backlight mode from DPCD (%pe)\n",
+			connector->base.base.id, connector->base.name, ERR_PTR(ret));
 		return 0;
 	}
 
@@ -203,8 +203,8 @@ intel_dp_aux_hdr_get_backlight(struct intel_connector *connector, enum pipe pipe
 				    sizeof(buf));
 	if (ret < 0) {
 		drm_err(display->drm,
-			"[CONNECTOR:%d:%s] Failed to read brightness from DPCD\n",
-			connector->base.base.id, connector->base.name);
+			"[CONNECTOR:%d:%s] Failed to read brightness from DPCD (%pe)\n",
+			connector->base.base.id, connector->base.name, ERR_PTR(ret));
 		return 0;
 	}
 
@@ -226,8 +226,8 @@ intel_dp_aux_hdr_set_aux_backlight(const struct drm_connector_state *conn_state,
 	ret = drm_dp_dpcd_write_data(&intel_dp->aux, INTEL_EDP_BRIGHTNESS_NITS_LSB, buf,
 				     sizeof(buf));
 	if (ret < 0)
-		drm_err(dev, "[CONNECTOR:%d:%s] Failed to write brightness level to DPCD\n",
-			connector->base.base.id, connector->base.name);
+		drm_err(dev, "[CONNECTOR:%d:%s] Failed to write brightness level to DPCD (%pe)\n",
+			connector->base.base.id, connector->base.name, ERR_PTR(ret));
 }
 
 static void
@@ -341,11 +341,14 @@ intel_dp_aux_hdr_enable_backlight(const struct intel_crtc_state *crtc_state,
 
 	intel_dp_aux_fill_hdr_tcon_params(conn_state, &ctrl);
 
-	if (ctrl != old_ctrl &&
-	    drm_dp_dpcd_write_byte(&intel_dp->aux, INTEL_EDP_HDR_GETSET_CTRL_PARAMS, ctrl) < 0)
-		drm_err(display->drm,
-			"[CONNECTOR:%d:%s] Failed to configure DPCD brightness controls\n",
-			connector->base.base.id, connector->base.name);
+	if (ctrl != old_ctrl) {
+		ret = drm_dp_dpcd_write_byte(&intel_dp->aux,
+					     INTEL_EDP_HDR_GETSET_CTRL_PARAMS, ctrl);
+		if (ret < 0)
+			drm_err(display->drm,
+				"[CONNECTOR:%d:%s] Failed to configure DPCD brightness controls (%pe)\n",
+				connector->base.base.id, connector->base.name, ERR_PTR(ret));
+	}
 
 	if (intel_dp_in_hdr_mode(conn_state)) {
 		hdr_metadata = conn_state->hdr_output_metadata->data;
@@ -463,8 +466,8 @@ static u32 intel_dp_aux_vesa_get_backlight(struct intel_connector *connector, en
 					    sizeof(buf));
 		if (ret < 0) {
 			drm_err(intel_dp->aux.drm_dev,
-				"[CONNECTOR:%d:%s] Failed to read Luminance from DPCD\n",
-				connector->base.base.id, connector->base.name);
+				"[CONNECTOR:%d:%s] Failed to read Luminance from DPCD (%pe)\n",
+				connector->base.base.id, connector->base.name, ERR_PTR(ret));
 			return 0;
 		}
 
