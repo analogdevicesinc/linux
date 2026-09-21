@@ -381,7 +381,7 @@ static const struct flash_info winbond_nor_parts[] = {
 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.otp = SNOR_OTP(256, 3, 0x1000, 0x1000),
 	}, {
-		/* W25Q64DW-P/G, W25Q64FW-G/Q, W25Q64JW-Q/N */
+		/* W25Q64DW-P/G, W25Q64FW-G/Q, W25Q64JW-Q/N, W25Q64PW-Q/N */
 		.id = SNOR_ID(0xef, 0x60, 0x17),
 		.name = "w25q64dw",
 		.size = SZ_8M,
