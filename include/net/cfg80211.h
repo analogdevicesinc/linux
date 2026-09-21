@@ -7371,6 +7371,8 @@ struct wireless_dev {
 		union {
 			struct {
 				unsigned int beacon_interval;
+				enum ieee80211_ap_reg_power reg_power;
+				enum ieee80211_ap_reg_power csa_reg_power;
 				struct cfg80211_chan_def chandef;
 			} ap;
 			struct {

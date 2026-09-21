@@ -4156,12 +4156,17 @@ static int __nl80211_set_channel(struct cfg80211_registered_device *rdev,
 	switch (iftype) {
 	case NL80211_IFTYPE_AP:
 	case NL80211_IFTYPE_P2P_GO:
-		if (!cfg80211_reg_can_beacon_relax(&rdev->wiphy, &chandef,
-						   iftype))
-			return -EINVAL;
 		if (wdev->links[link_id].ap.beacon_interval) {
 			struct ieee80211_channel *cur_chan;
+			struct cfg80211_beaconing_check_config config = {
+				.iftype = iftype,
+				.reg_power = wdev->links[link_id].ap.reg_power,
+				.relax = true,
+			};
 
+			if (!cfg80211_reg_check_beaconing(&rdev->wiphy,
+							  &chandef, &config))
+				return -EINVAL;
 			if (!dev || !rdev->ops->set_ap_chanwidth ||
 			    !(rdev->wiphy.features &
 			      NL80211_FEATURE_AP_MODE_CHAN_WIDTH_CHANGE))
@@ -7397,6 +7402,7 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 					     params->beacon.tail_len, 0);
 	if (!cfg80211_reg_check_beaconing(&rdev->wiphy, &params->chandef,
 					  &beacon_check)) {
+		GENL_SET_ERR_MSG(info, "Channel rejected by regulatory");
 		err = -EINVAL;
 		goto out;
 	}
@@ -7511,6 +7517,7 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 	err = rdev_start_ap(rdev, dev, params);
 	if (!err) {
 		wdev->links[link_id].ap.beacon_interval = params->beacon_interval;
+		wdev->links[link_id].ap.reg_power = beacon_check.reg_power;
 		wdev->links[link_id].ap.chandef = params->chandef;
 		wdev->u.ap.ssid_len = params->ssid_len;
 		memcpy(wdev->u.ap.ssid, params->ssid,
@@ -7603,6 +7610,8 @@ static int nl80211_set_beacon(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	err = rdev_change_beacon(rdev, dev, params);
+	if (!err)
+		wdev->links[link_id].ap.reg_power = beacon_check.reg_power;
 
 out:
 	kfree(params->beacon.mbssid_ies);
@@ -12314,6 +12323,7 @@ static int nl80211_parse_counter_offsets(struct cfg80211_registered_device *rdev
 static int nl80211_channel_switch(struct sk_buff *skb, struct genl_info *info)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct cfg80211_beaconing_check_config beacon_check = {};
 	unsigned int link_id = nl80211_link_id(info->attrs);
 	struct net_device *dev = info->user_ptr[1];
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
@@ -12438,8 +12448,13 @@ static int nl80211_channel_switch(struct sk_buff *skb, struct genl_info *info)
 		goto free;
 
 skip_beacons:
-	if (!cfg80211_reg_can_beacon_relax(&rdev->wiphy, &params.chandef,
-					   wdev->iftype)) {
+	beacon_check.iftype = wdev->iftype;
+	beacon_check.relax = true;
+	beacon_check.reg_power =
+		cfg80211_get_6ghz_power_type(params.beacon_after.tail,
+					     params.beacon_after.tail_len, 0);
+	if (!cfg80211_reg_check_beaconing(&rdev->wiphy, &params.chandef,
+					  &beacon_check)) {
 		err = -EINVAL;
 		goto free;
 	}
@@ -12474,6 +12489,10 @@ skip_beacons:
 
 	params.link_id = link_id;
 	err = rdev_channel_switch(rdev, dev, &params);
+
+	if (!err && (wdev->iftype == NL80211_IFTYPE_AP ||
+		     wdev->iftype == NL80211_IFTYPE_P2P_GO))
+		wdev->links[link_id].ap.csa_reg_power = beacon_check.reg_power;
 
 free:
 	kfree(params.beacon_after.mbssid_ies);
@@ -22747,6 +22766,8 @@ void cfg80211_ch_switch_notify(struct net_device *dev,
 	case NL80211_IFTYPE_AP:
 	case NL80211_IFTYPE_P2P_GO:
 		wdev->links[link_id].ap.chandef = *chandef;
+		wdev->links[link_id].ap.reg_power =
+			wdev->links[link_id].ap.csa_reg_power;
 		break;
 	case NL80211_IFTYPE_ADHOC:
 		wdev->u.ibss.chandef = *chandef;
