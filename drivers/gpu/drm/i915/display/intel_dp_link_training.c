@@ -1635,7 +1635,8 @@ intel_dp_128b132b_intra_hop(struct intel_dp *intel_dp,
 
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_SINK_STATUS, &sink_status);
 	if (ret < 0) {
-		lt_dbg(intel_dp, DP_PHY_DPRX, "Failed to read sink status\n");
+		lt_dbg(intel_dp, DP_PHY_DPRX, "Failed to read sink status (%pe)\n",
+		       ERR_PTR(ret));
 		return ret;
 	}
 
@@ -2180,7 +2181,8 @@ intel_dp_128b132b_lane_cds(struct intel_dp *intel_dp,
 	ret = drm_dp_dpcd_write_byte(&intel_dp->aux, DP_TRAINING_PATTERN_SET,
 				     DP_TRAINING_PATTERN_2_CDS);
 	if (ret < 0) {
-		lt_err(intel_dp, DP_PHY_DPRX, "Failed to start 128b/132b TPS2 CDS\n");
+		lt_err(intel_dp, DP_PHY_DPRX, "Failed to start 128b/132b TPS2 CDS (%pe)\n",
+		       ERR_PTR(ret));
 		return false;
 	}
 
