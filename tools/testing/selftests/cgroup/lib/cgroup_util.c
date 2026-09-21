@@ -302,6 +302,16 @@ static int cg_find_root(char *root, size_t len, const char *controller,
 		options = strtok(NULL, delim);
 		strtok(NULL, delim);
 		strtok(NULL, delim);
+
+		/*
+		 * A mount entry is "device mountpoint type options freq
+		 * passno".  A field can only be missing if the last entry was
+		 * cut short by the buffer being too small for the file, and
+		 * there is no complete entry left to look at.
+		 */
+		if (!mount || !type || !options)
+			break;
+
 		if (strcmp(type, "cgroup") == 0) {
 			if (!controller || !strstr(options, controller))
 				continue;
