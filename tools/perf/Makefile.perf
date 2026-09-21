@@ -255,7 +255,7 @@ ifneq ($(SHELLCHECK),)
         sed -e 's/.\+ \([0-9]\+\).\([0-9]\+\).\([0-9]\+\)/\1\2\3/g') \< 072), 1)
     SHELLCHECK :=
   else
-    SHELLCHECK := $(SHELLCHECK) -s bash -a -S warning
+    SHELLCHECK := $(SHELLCHECK) -s bash -a -S warning -x -P SCRIPTDIR
   endif
 endif
 
