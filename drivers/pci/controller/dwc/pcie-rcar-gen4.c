@@ -87,7 +87,7 @@ MODULE_FIRMWARE(RCAR_GEN4_PCIE_FIRMWARE_NAME);
 
 struct rcar_gen4_pcie;
 struct rcar_gen4_pcie_drvdata {
-	void (*additional_common_init)(struct rcar_gen4_pcie *rcar);
+	int (*init)(struct rcar_gen4_pcie *rcar);
 	int (*ltssm_control)(struct rcar_gen4_pcie *rcar, bool enable);
 	enum dw_pcie_device_mode mode;
 };
@@ -241,15 +241,37 @@ static int rcar_gen4_pcie_common_init(struct rcar_gen4_pcie *rcar)
 	reset_control_status(dw->core_rsts[DW_PCIE_PWR_RST].rstc);
 	fsleep(1000);
 
-	if (rcar->drvdata->additional_common_init)
-		rcar->drvdata->additional_common_init(rcar);
-
 	return 0;
 
 err_unprepare:
 	clk_bulk_disable_unprepare(DW_PCIE_NUM_CORE_CLKS, dw->core_clks);
 
 	return ret;
+}
+
+static int rcar_gen4_v4h_v4m_pcie_init(struct rcar_gen4_pcie *rcar)
+{
+	struct dw_pcie *dw = &rcar->dw;
+	u32 val;
+	int ret;
+
+	/* R-Car Gen4 common initialization. */
+	ret = rcar_gen4_pcie_common_init(rcar);
+	if (ret)
+		return ret;
+
+	/* R-Car V4H and V4M specific additional initialization. */
+	val = dw_pcie_readl_dbi(dw, PCIE_PORT_LANE_SKEW);
+	val &= ~PORT_LANE_SKEW_INSERT_MASK;
+	if (dw->num_lanes < 4)
+		val |= BIT(6);
+	dw_pcie_writel_dbi(dw, PCIE_PORT_LANE_SKEW, val);
+
+	val = readl(rcar->base + PCIEPWRMNGCTRL);
+	val |= APP_CLK_REQ_N | APP_CLK_PM_EN;
+	writel(val, rcar->base + PCIEPWRMNGCTRL);
+
+	return 0;
 }
 
 static void rcar_gen4_pcie_common_deinit(struct rcar_gen4_pcie *rcar)
@@ -474,7 +496,7 @@ static int rcar_gen4_pcie_host_init(struct dw_pcie_rp *pp)
 
 	gpiod_set_value_cansleep(dw->pe_rst, 1);
 
-	ret = rcar_gen4_pcie_common_init(rcar);
+	ret = rcar->drvdata->init(rcar);
 	if (ret)
 		return ret;
 
@@ -543,7 +565,7 @@ static int rcar_gen4_pcie_ep_pre_init(struct dw_pcie_ep *ep)
 
 	writel(0, rcar->base + PCIEDMAINTSTSEN);
 
-	ret = rcar_gen4_pcie_common_init(rcar);
+	ret = rcar->drvdata->init(rcar);
 	if (ret)
 		return ret;
 
@@ -739,22 +761,6 @@ static int r8a779f0_pcie_ltssm_control(struct rcar_gen4_pcie *rcar, bool enable)
 	return 0;
 }
 
-static void rcar_gen4_pcie_additional_common_init(struct rcar_gen4_pcie *rcar)
-{
-	struct dw_pcie *dw = &rcar->dw;
-	u32 val;
-
-	val = dw_pcie_readl_dbi(dw, PCIE_PORT_LANE_SKEW);
-	val &= ~PORT_LANE_SKEW_INSERT_MASK;
-	if (dw->num_lanes < 4)
-		val |= BIT(6);
-	dw_pcie_writel_dbi(dw, PCIE_PORT_LANE_SKEW, val);
-
-	val = readl(rcar->base + PCIEPWRMNGCTRL);
-	val |= APP_CLK_REQ_N | APP_CLK_PM_EN;
-	writel(val, rcar->base + PCIEPWRMNGCTRL);
-}
-
 static void rcar_gen4_pcie_phy_reg_update_bits(struct rcar_gen4_pcie *rcar,
 					       u32 offset, u32 mask, u32 val)
 {
@@ -906,23 +912,25 @@ static int rcar_gen4_pcie_ltssm_control(struct rcar_gen4_pcie *rcar, bool enable
 }
 
 static struct rcar_gen4_pcie_drvdata drvdata_r8a779f0_pcie = {
+	.init = rcar_gen4_pcie_common_init,
 	.ltssm_control = r8a779f0_pcie_ltssm_control,
 	.mode = DW_PCIE_RC_TYPE,
 };
 
 static struct rcar_gen4_pcie_drvdata drvdata_r8a779f0_pcie_ep = {
+	.init = rcar_gen4_pcie_common_init,
 	.ltssm_control = r8a779f0_pcie_ltssm_control,
 	.mode = DW_PCIE_EP_TYPE,
 };
 
 static struct rcar_gen4_pcie_drvdata drvdata_rcar_gen4_pcie = {
-	.additional_common_init = rcar_gen4_pcie_additional_common_init,
+	.init = rcar_gen4_v4h_v4m_pcie_init,
 	.ltssm_control = rcar_gen4_pcie_ltssm_control,
 	.mode = DW_PCIE_RC_TYPE,
 };
 
 static struct rcar_gen4_pcie_drvdata drvdata_rcar_gen4_pcie_ep = {
-	.additional_common_init = rcar_gen4_pcie_additional_common_init,
+	.init = rcar_gen4_v4h_v4m_pcie_init,
 	.ltssm_control = rcar_gen4_pcie_ltssm_control,
 	.mode = DW_PCIE_EP_TYPE,
 };
