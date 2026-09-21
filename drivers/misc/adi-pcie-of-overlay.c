@@ -8,6 +8,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
+#include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
@@ -21,6 +22,7 @@
 #include <linux/irqdomain.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/msi.h>
 #include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -55,6 +57,7 @@
 #define ADI_PCIE_INTC_SRC_CLAIM		0x050
 #define ADI_PCIE_INTC_VEC_CLAIM(v)	(0x200 + (v) * 0x20 + 0x1c)
 #define ADI_PCIE_INTC_SRC_ROUTE(s)	(0x400 + (s) * 4)
+#define ADI_PCIE_INTC_MSIX_TABLE	0x8000
 
 #define ADI_PCIE_INTC_READY_US		(100 * USEC_PER_MSEC)
 #define ADI_PCIE_INTC_POLL_US		(1 * USEC_PER_MSEC)
@@ -75,7 +78,7 @@ struct adi_pcie_vector {
  * @intc:		intc regs.
  * @vec:		@nvec per-vector entries.
  * @iommu_nb:		notifier joining children to the endpoint's IOMMU group.
- * @lock:		guards @irq_mask against the register it shadows.
+ * @lock:		guards @irq_mask and the MSI-X table against their writers.
  * @ovcs_id:		overlay changeset id, kept to remove what was applied.
  * @nsrc:		interrupt sources the controller samples.
  * @nvec:		irq vectors the controller implements.
@@ -98,6 +101,54 @@ struct adi_pcie_overlay {
 	u32			type;
 	u32			irq_mask;
 };
+
+static bool adi_pcie_has_msix_table(struct adi_pcie_overlay *apo)
+{
+	return apo->type == ADI_PCIE_INTC_TYPE_MSI;
+}
+
+static void __iomem *adi_pcie_msix_entry(struct adi_pcie_overlay *apo,
+					 unsigned int v)
+{
+	return apo->intc + ADI_PCIE_INTC_MSIX_TABLE +
+	       v * PCI_MSIX_ENTRY_SIZE;
+}
+
+/*
+ * Called by the PCI core after every message write, so the table follows an
+ * activate, an affinity move, a CPU going offline and a resume with nothing
+ * here to drive it. This function reconciles the endpoint with the interrupt
+ * controller when in plain MSI mode.
+ */
+static void adi_pcie_msi_write_msg(struct msi_desc *desc, void *data)
+{
+	struct adi_pcie_overlay *apo = data;
+	unsigned int v, end;
+	void __iomem *entry;
+	unsigned long flags;
+
+	/* the core skipped its own write too, and repeats it at resume */
+	if (apo->pdev->current_state != PCI_D0)
+		return;
+
+	end = min(desc->msi_index + desc->nvec_used, apo->nirq);
+
+	raw_spin_lock_irqsave(&apo->lock, flags);
+	for (v = desc->msi_index; v < end; v++) {
+		entry = adi_pcie_msix_entry(apo, v);
+
+		writel(PCI_MSIX_ENTRY_CTRL_MASKBIT,
+		       entry + PCI_MSIX_ENTRY_VECTOR_CTRL);
+		writel(desc->msg.address_lo, entry + PCI_MSIX_ENTRY_LOWER_ADDR);
+		writel(desc->msg.address_hi, entry + PCI_MSIX_ENTRY_UPPER_ADDR);
+		writel(desc->msg.data + v - desc->msi_index,
+		       entry + PCI_MSIX_ENTRY_DATA);
+
+		if (desc->msg.address_lo || desc->msg.address_hi)
+			writel(0, entry + PCI_MSIX_ENTRY_VECTOR_CTRL);
+	}
+	raw_spin_unlock_irqrestore(&apo->lock, flags);
+}
 
 static void adi_pcie_irq_enable_write(struct irq_data *d, bool on)
 {
@@ -222,6 +273,7 @@ static irqreturn_t adi_pcie_irq_dispatch(struct adi_pcie_overlay *apo, u32 set)
 static void adi_pcie_intc_reset(struct adi_pcie_overlay *apo)
 {
 	unsigned long flags;
+	unsigned int v;
 
 	raw_spin_lock_irqsave(&apo->lock, flags);
 	apo->irq_mask = 0;
@@ -231,6 +283,14 @@ static void adi_pcie_intc_reset(struct adi_pcie_overlay *apo)
 
 	if (apo->type == ADI_PCIE_INTC_TYPE_USR)
 		writel(~0U, apo->intc + ADI_PCIE_INTC_VEC_CLEAR);
+
+	if (!adi_pcie_has_msix_table(apo))
+		return;
+
+	/* whatever the last host left here is aimed at memory now reused */
+	for (v = 0; v < apo->nvec; v++)
+		writel(PCI_MSIX_ENTRY_CTRL_MASKBIT,
+		       adi_pcie_msix_entry(apo, v) + PCI_MSIX_ENTRY_VECTOR_CTRL);
 }
 
 static void adi_pcie_msi_chained_handler(struct irq_desc *desc)
@@ -309,6 +369,19 @@ static int adi_pcie_alloc_irq_vectors(struct adi_pcie_overlay *apo)
 	return devm_add_action_or_reset(dev, adi_pcie_free_irq_vectors, apo->pdev);
 }
 
+static void adi_pcie_msi_hook_install(struct adi_pcie_overlay *apo)
+{
+	struct device *dev = &apo->pdev->dev;
+	struct msi_desc *desc;
+
+	guard(msi_descs_lock)(dev);
+	msi_for_each_desc(desc, dev, MSI_DESC_ASSOCIATED) {
+		desc->write_msi_msg = adi_pcie_msi_write_msg;
+		desc->write_msi_msg_data = apo;
+		adi_pcie_msi_write_msg(desc, apo);
+	}
+}
+
 static int adi_pcie_irq_domain_setup(struct adi_pcie_overlay *apo)
 {
 	struct device *dev = &apo->pdev->dev;
@@ -347,7 +420,14 @@ static int adi_pcie_irq_domain_setup(struct adi_pcie_overlay *apo)
 							 adi_pcie_msi_chained_handler,
 							 &apo->vec[v]);
 
-		return devm_add_action_or_reset(dev, adi_pcie_msi_unchain, apo);
+		ret = devm_add_action_or_reset(dev, adi_pcie_msi_unchain, apo);
+		if (ret)
+			return ret;
+
+		if (apo->pdev->msi_enabled && adi_pcie_has_msix_table(apo))
+			adi_pcie_msi_hook_install(apo);
+
+		return 0;
 	}
 
 	irq = pci_irq_vector(apo->pdev, 0);
