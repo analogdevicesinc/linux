@@ -2140,12 +2140,9 @@ __latent_entropy struct task_struct *copy_process(
 	if (args->kthread)
 		p->flags |= PF_KTHREAD;
 	if (args->user_worker) {
-		/*
-		 * Mark us a user worker, and block any signal that isn't
-		 * fatal or STOP
-		 */
+		/* A user worker takes only the signals nobody can block. */
 		p->flags |= PF_USER_WORKER;
-		siginitsetinv(&p->blocked, sigmask(SIGKILL)|sigmask(SIGSTOP));
+		siginitsetinv(&p->blocked, SIG_KERNEL_ONLY_MASK);
 	}
 	if (args->io_thread)
 		p->flags |= PF_IO_WORKER;
