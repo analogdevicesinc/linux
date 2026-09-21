@@ -302,6 +302,12 @@ static int arg_idx_from_argno(argno_t a)
 	return arg_from_argno(a) - 1;
 }
 
+/* Normalize helper register numbers and kfunc argument numbers to ABI slots. */
+static u32 arg_slot_from_argno(argno_t a)
+{
+	return abs(a.argno) - 1;
+}
+
 static const char *btf_type_name(const struct btf *btf, u32 id)
 {
 	return btf_name_by_offset(btf, btf_type_by_id(btf, id)->name_off);
@@ -6987,8 +6993,11 @@ static int check_stack_range_initialized(
 	 * but BTF based global subprog validation isn't accurate enough.
 	 */
 	bool allow_poison = access_size < 0 || clobber;
-	/* The call will initialize the memory; uninitialized stack allowed */
-	bool raw_mode = meta && meta->arg_raw_mem.regno == reg_from_argno(argno);
+	u32 arg_slot = arg_slot_from_argno(argno);
+	bool uninit = clobber && meta && arg_slot < MAX_BPF_FUNC_ARGS &&
+		      (meta->arg_raw_mem.mask & BIT(arg_slot));
+	bool raw_mode = uninit && env->allow_uninit_stack &&
+			!(meta->arg_raw_mem.var_size_mask & BIT(arg_slot));
 
 	access_size = abs(access_size);
 
@@ -7017,11 +7026,9 @@ static int check_stack_range_initialized(
 				reg_arg_name(env, argno), tn_buf);
 			return -EACCES;
 		}
-		/* Only initialized buffer on stack is allowed to be accessed
-		 * with variable offset. With uninitialized buffer it's hard to
-		 * guarantee that whole memory is marked as initialized on
-		 * helper return since specific bounds are unknown what may
-		 * cause uninitialized stack leaking.
+		/*
+		 * The call may touch any byte in the possible range, but does not
+		 * definitely initialize all of it. Fall back to ordinary stack checks.
 		 */
 		raw_mode = false;
 
@@ -7029,8 +7036,9 @@ static int check_stack_range_initialized(
 		max_off = reg_smax(reg) + off;
 	}
 
+	/* Unprivileged outputs retain each byte's initialization state. */
 	if (raw_mode) {
-		meta->arg_raw_mem.size = access_size;
+		meta->arg_raw_mem.size[arg_slot] = access_size;
 		return 0;
 	}
 
@@ -7048,8 +7056,8 @@ static int check_stack_range_initialized(
 		if (*stype == STACK_MISC)
 			goto mark;
 		if ((*stype == STACK_ZERO) ||
-		    (*stype == STACK_INVALID && env->allow_uninit_stack)) {
-			if (clobber) {
+		    (*stype == STACK_INVALID && (uninit || env->allow_uninit_stack))) {
+			if (clobber && (*stype != STACK_INVALID || env->allow_uninit_stack)) {
 				/* helper can write anything into the stack */
 				*stype = STACK_MISC;
 			}
@@ -7068,8 +7076,11 @@ static int check_stack_range_initialized(
 		}
 
 		if (*stype == STACK_POISON) {
-			if (allow_poison)
+			if (allow_poison) {
+				if (uninit && env->allow_uninit_stack)
+					*stype = STACK_MISC;
 				goto mark;
+			}
 			verbose(env, "reading from stack %s off %d+%d size %d, slot poisoned by dead code elimination\n",
 				reg_arg_name(env, argno), min_off, i - min_off, access_size);
 		} else if (tnum_is_const(reg->var_off)) {
@@ -7217,13 +7228,13 @@ static int check_mem_size_reg(struct bpf_verifier_env *env,
 	 */
 	meta->msize_max_value = reg_umax(size_reg);
 
-	/* The register is SCALAR_VALUE; the access check happens using
-	 * its boundaries. For unprivileged variable accesses, disable
-	 * raw mode so that the program is required to initialize all
-	 * the memory that the helper could just partially fill up.
+	/*
+	 * Check variable ranges byte by byte instead of using raw mode. Keep the
+	 * MEM_UNINIT annotation so invalid bytes are accepted without marking them
+	 * initialized when the caller cannot read uninitialized stack memory.
 	 */
 	if (!tnum_is_const(size_reg->var_off))
-		meta->arg_raw_mem.regno = 0;
+		meta->arg_raw_mem.var_size_mask |= BIT(arg_slot_from_argno(mem_argno));
 
 	if (reg_smin(size_reg) < 0) {
 		verbose(env, "%s min value is negative, either use unsigned or 'var &= const'\n",
@@ -8896,6 +8907,19 @@ static int process_map_ptr_arg(struct bpf_verifier_env *env, struct bpf_reg_stat
 	return 0;
 }
 
+/*
+ * MEM_WRITE alone denotes an input/output buffer. MEM_UNINIT marks an output
+ * whose incoming contents are not read.
+ */
+static enum bpf_access_type func_arg_access_type(enum bpf_arg_type arg_type)
+{
+	if (!(arg_type & MEM_WRITE))
+		return BPF_READ;
+	if (arg_type & MEM_UNINIT)
+		return BPF_WRITE;
+	return BPF_READ | BPF_WRITE;
+}
+
 static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 prev_slot,
 			  struct bpf_call_arg_meta *meta,
 			  int insn_idx)
@@ -8939,6 +8963,9 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 	err = resolve_func_arg_type(env, reg, arg, argno, meta, &arg_type, &arg_size);
 	if (err)
 		return err;
+
+	if (arg_type_is_raw_mem(arg_type))
+		meta->arg_raw_mem.mask |= BIT(slot);
 
 	if (bpf_register_is_null(reg) && type_may_be_null(arg_type)) {
 		err = mark_arg_precision(env, argno);
@@ -9028,14 +9055,6 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 			verifier_bug(env, "invalid map_ptr to access map->value");
 			return -EFAULT;
 		}
-
-		/*
-		 * Disable raw mode for bpf_map_peek_elem() on a bloom filter. The helper reads
-		 * the value buffer as an input rather than filling it.
-		 */
-		if (is_helper_call(meta, BPF_FUNC_map_peek_elem) &&
-		    meta->map.ptr->map_type == BPF_MAP_TYPE_BLOOM_FILTER)
-			meta->arg_raw_mem.regno = 0;
 
 		err = check_helper_mem_access(env, reg, argno, meta->map.ptr->value_size,
 					      arg_type & MEM_WRITE ? BPF_WRITE : BPF_READ,
@@ -9193,9 +9212,7 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 		if (!(arg_type & MEM_FIXED_SIZE))
 			break;
 
-		access_type = arg_type & MEM_WRITE ? BPF_WRITE : BPF_READ;
-		if (meta->btf)
-			access_type = BPF_READ | BPF_WRITE;
+		access_type = func_arg_access_type(arg_type);
 
 		err = check_mem_reg(env, reg, argno, arg_size, access_type, meta, &known_memory);
 		if (err < 0) {
@@ -9241,9 +9258,7 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 		if (meta->btf && bpf_register_is_null(buff_reg))
 			break;
 
-		access_type = fn->arg_type[arg - 1] & MEM_WRITE ? BPF_WRITE : BPF_READ;
-		if (meta->btf)
-			access_type = BPF_READ | BPF_WRITE;
+		access_type = func_arg_access_type(fn->arg_type[arg - 1]);
 
 		zero_size_allowed = meta->btf || base_type(arg_type) == ARG_MEM_SIZE_OR_ZERO;
 
@@ -9568,6 +9583,37 @@ static int check_func_args(struct bpf_verifier_env *env, struct bpf_call_arg_met
 	return 0;
 }
 
+static int mark_raw_stack(struct bpf_verifier_env *env, struct bpf_call_arg_meta *meta,
+			  int insn_idx)
+{
+	struct bpf_func_state *caller = cur_func(env);
+	u32 slot;
+	int i, err;
+
+	/*
+	 * Validate every argument before initializing outputs: an input argument
+	 * may alias an output buffer. Use the normal stack-write checks to discard
+	 * stale spills and preserve the rules for special stack objects.
+	 */
+	for (slot = 0; slot < MAX_BPF_FUNC_ARGS; slot++) {
+		struct bpf_reg_state *reg;
+		argno_t argno = argno_from_arg(slot + 1);
+
+		if (!meta->arg_raw_mem.size[slot])
+			continue;
+		reg = get_func_arg_reg(caller, cur_regs(env), slot);
+
+		for (i = 0; i < meta->arg_raw_mem.size[slot]; i++) {
+			err = check_mem_access(env, insn_idx, reg, argno, i, BPF_B,
+					       BPF_WRITE, -1, false, false);
+			if (err)
+				return err;
+		}
+	}
+
+	return 0;
+}
+
 static bool may_update_sockmap(struct bpf_verifier_env *env, int func_id)
 {
 	enum bpf_attach_type eatype = env->prog->expected_attach_type;
@@ -9860,23 +9906,6 @@ error:
 	return -EINVAL;
 }
 
-static bool check_raw_mode_ok(const struct bpf_func_proto *fn, struct bpf_call_arg_meta *meta)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(fn->arg_type); i++) {
-		if (fn->arg_type[i] == ARG_UNUSED)
-			break;
-		if (!arg_type_is_raw_mem(fn->arg_type[i]))
-			continue;
-		if (meta->arg_raw_mem.regno)
-			return false;
-		meta->arg_raw_mem.regno = i + 1;
-	}
-
-	return true;
-}
-
 static bool check_args_pair_invalid(const struct bpf_func_proto *fn, int arg)
 {
 	bool is_fixed = fn->arg_type[arg] & MEM_FIXED_SIZE;
@@ -10003,7 +10032,6 @@ static int check_func_proto(struct bpf_verifier_env *env, const struct bpf_func_
 			    struct bpf_call_arg_meta *meta)
 {
 	return check_arg_prog_aux(env, fn) &&
-	       check_raw_mode_ok(fn, meta) &&
 	       check_arg_pair_ok(fn) &&
 	       check_mem_arg_rw_flag_ok(fn) &&
 	       check_proto_release_reg(fn, meta) &&
@@ -11590,16 +11618,9 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 
 	regs = cur_regs(env);
 
-	/* Mark slots with STACK_MISC in case of raw mode, stack offset
-	 * is inferred from register state.
-	 */
-	for (i = 0; i < meta.arg_raw_mem.size; i++) {
-		err = check_mem_access(env, insn_idx, regs + meta.arg_raw_mem.regno,
-				       argno_from_reg(meta.arg_raw_mem.regno), i, BPF_B,
-				       BPF_WRITE, -1, false, false);
-		if (err)
-			return err;
-	}
+	err = mark_raw_stack(env, &meta, insn_idx);
+	if (err)
+		return err;
 
 	if (meta.release_regno) {
 		struct bpf_reg_state *reg = &regs[meta.release_regno];
@@ -12460,7 +12481,8 @@ static int resolve_func_arg_type(struct bpf_verifier_env *env,
 			PTR_ERR(resolve_ret));
 		return -EINVAL;
 	}
-	*arg_type = ARG_PTR_TO_MEM | MEM_FIXED_SIZE | (*arg_type & PTR_MAYBE_NULL);
+	*arg_type = ARG_PTR_TO_MEM | MEM_FIXED_SIZE | MEM_WRITE |
+		    (*arg_type & (PTR_MAYBE_NULL | MEM_UNINIT));
 
 	return 0;
 }
@@ -12973,7 +12995,7 @@ get_kfunc_arg_type(struct bpf_verifier_env *env, struct bpf_call_arg_meta *meta,
 				reg_arg_name(env, argno), btf_type_str(ref_t), ref_tname);
 			return -EINVAL;
 		}
-		arg_type = ARG_PTR_TO_MEM;
+		arg_type = ARG_PTR_TO_MEM | MEM_WRITE;
 	} else if (btf_type_is_struct(ref_t))
 		/* A pointer to a struct without a size argument is classified as ARG_PTR_TO_BTF_ID */
 		arg_type = ARG_PTR_TO_BTF_ID;
@@ -12998,7 +13020,7 @@ get_kfunc_arg_type(struct bpf_verifier_env *env, struct bpf_call_arg_meta *meta,
 			return -EINVAL;
 		}
 		proto->arg_size[arg] = type_size;
-		arg_type = ARG_PTR_TO_MEM | MEM_FIXED_SIZE;
+		arg_type = ARG_PTR_TO_MEM | MEM_FIXED_SIZE | MEM_WRITE;
 	}
 
 	if (is_kfunc_arg_uninit(meta->btf, &args[arg]))
@@ -13721,12 +13743,20 @@ s64 bpf_helper_stack_access_bytes(struct bpf_verifier_env *env, struct bpf_insn 
 	struct bpf_insn_aux_data *aux = &env->insn_aux_data[insn_idx];
 	const struct bpf_func_proto *fn;
 	enum bpf_arg_type at;
+	bool full_write;
 	s64 size;
 
 	if (bpf_get_helper_proto(env, insn->imm, &fn) < 0)
 		return S64_MIN;
 
 	at = fn->arg_type[arg];
+	/*
+	 * Generic outputs may leave bytes untouched. Keep prior initialization
+	 * live when the caller cannot read uninitialized bytes. Constructors of
+	 * special objects, such as dynptrs, still define their storage.
+	 */
+	full_write = (at & MEM_UNINIT) &&
+		     (!arg_type_is_raw_mem(at) || env->allow_uninit_stack);
 
 	switch (base_type(at)) {
 	case ARG_PTR_TO_MAP_KEY:
@@ -13795,7 +13825,7 @@ scan_all_maps:
 			 * Size arg is const on each path but differs across merged
 			 * paths. MAX_BPF_STACK is a safe upper bound for reads.
 			 */
-			if (at & MEM_UNINIT)
+			if (full_write)
 				return 0;
 			return MAX_BPF_STACK;
 		}
@@ -13815,10 +13845,10 @@ scan_all_maps:
 	}
 out:
 	/*
-	 * MEM_UNINIT args are write-only: the helper initializes the
-	 * buffer without reading it.
+	 * Other accesses keep the previous state live, including untouched bytes
+	 * of an unprivileged generic output.
 	 */
-	if (at & MEM_UNINIT)
+	if (full_write)
 		return -size;
 	return size;
 }
@@ -13898,7 +13928,8 @@ out:
 	/* KF_ITER_NEW kfuncs initialize the iterator state at arg 0 */
 	if (arg == 0 && meta.kfunc_flags & KF_ITER_NEW)
 		return -size;
-	if (is_kfunc_arg_uninit(btf, &args[arg]))
+	if (is_kfunc_arg_uninit(btf, &args[i]) &&
+	    (is_kfunc_arg_dynptr(btf, &args[i]) || env->allow_uninit_stack))
 		return -size;
 	return size;
 }
@@ -14177,6 +14208,10 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	/* Check the arguments */
 	err = check_func_args(env, &meta, insn_idx);
 	if (err < 0)
+		return err;
+
+	err = mark_raw_stack(env, &meta, insn_idx);
+	if (err)
 		return err;
 
 	if ((is_bpf_obj_drop_kfunc(meta.func_id) ||

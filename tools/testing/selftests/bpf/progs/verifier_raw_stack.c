@@ -84,6 +84,8 @@ __naked void skb_load_bytes_zero_len(void)
 SEC("tc")
 __description("raw_stack: skb_load_bytes, no init")
 __success __retval(0)
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__failure_unpriv __msg_unpriv("invalid read from stack off -8+0 size 8")
 __naked void skb_load_bytes_no_init(void)
 {
 	asm volatile ("					\
@@ -103,6 +105,8 @@ __naked void skb_load_bytes_no_init(void)
 SEC("tc")
 __description("raw_stack: skb_load_bytes, init")
 __success __retval(0)
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__success_unpriv
 __naked void stack_skb_load_bytes_init(void)
 {
 	asm volatile ("					\

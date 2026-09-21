@@ -164,19 +164,32 @@ suffix should be used.
 2.3.3 __uninit Annotation
 -------------------------
 
-This annotation is used to indicate that the argument will be treated as
-uninitialized.
+Use ``__uninit`` on a pointer parameter for an output buffer whose incoming
+contents the kfunc does not read.
 
-An example is given below::
+For generic memory buffers, the kfunc may leave bytes untouched, including
+on error returns. The writable range is determined by the pointed-to type
+or the associated ``__sz`` or ``__szk`` size argument.
 
-        __bpf_kfunc int bpf_dynptr_from_skb(..., struct bpf_dynptr_kern *ptr__uninit)
+The annotation does not change the accepted pointer types. A stack-backed
+struct passed as a generic memory buffer must still be scalar-only.
+
+Generic stack buffers may be uninitialized before the call. The call does
+not make previously uninitialized bytes readable unless the program is
+allowed to read uninitialized stack memory (normally requiring
+``CAP_PERFMON``). Other callers must initialize those bytes themselves
+before reading them. Stack bounds and variable-offset restrictions still
+apply.
+
+For dynptr parameters, ``__uninit`` indicates that the kfunc constructs a
+dynptr in the supplied storage. For example::
+
+        __bpf_kfunc int bpf_dynptr_from_skb(..., struct bpf_dynptr *ptr__uninit)
         {
         ...
         }
 
-Here, the dynptr will be treated as an uninitialized dynptr. Without this
-annotation, the verifier will reject the program if the dynptr passed in is
-not initialized.
+Without this annotation, a dynptr argument must already be initialized.
 
 2.3.4 __nullable Annotation
 ---------------------------

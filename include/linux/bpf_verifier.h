@@ -1547,12 +1547,15 @@ struct ref_obj_desc {
 };
 
 /*
- * A memory argument a call fills in. The verifier allows the stack to be uninitialized if
- * the range is a known constant. Stack slots are marked as STACK_MISC by check_mem_access().
+ * Generic MEM_UNINIT arguments, indexed by ABI slot. var_size_mask excludes
+ * variable-sized buffers from raw mode without losing the output annotation.
+ * size records constant ranges to mark initialized after checking all arguments,
+ * only when the caller is allowed to read uninitialized stack memory.
  */
 struct arg_raw_mem_desc {
-	u8 regno;
-	int size;
+	u16 mask;
+	u16 var_size_mask;
+	int size[MAX_BPF_FUNC_ARGS];
 };
 
 /* Size of PTR_TO_MEM returned, taken from a constant allocation-size argument */
@@ -1579,6 +1582,7 @@ struct bpf_call_arg_meta {
 	struct bpf_dynptr_desc dynptr;
 	struct ref_obj_desc ref_obj;
 	struct ret_mem_desc ret_mem;
+	struct arg_raw_mem_desc arg_raw_mem;
 
 	/* Only set by kfunc */
 	bool r0_rdonly;
@@ -1617,7 +1621,6 @@ struct bpf_call_arg_meta {
 	s64 const_map_key;
 	struct btf *ret_btf;
 	struct btf_field *kptr_field;
-	struct arg_raw_mem_desc arg_raw_mem;
 };
 
 int bpf_get_helper_proto(struct bpf_verifier_env *env, int func_id,
