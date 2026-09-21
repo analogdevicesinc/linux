@@ -486,6 +486,7 @@ struct ieee80211_mgd_assoc_data {
 	bool comeback; /* whether the AP has requested association comeback */
 	bool s1g;
 	bool spp_amsdu;
+	bool cip;
 
 	s8 assoc_link_id;
 
@@ -1113,6 +1114,7 @@ struct ieee80211_link_data {
 	struct ieee80211_key __rcu *gtk[NUM_DEFAULT_KEYS +
 					NUM_DEFAULT_MGMT_KEYS +
 					NUM_DEFAULT_BEACON_KEYS];
+	struct ieee80211_key __rcu *cigtk[NUM_CTRL_KEYS];
 	struct ieee80211_key __rcu *default_multicast_key;
 	struct ieee80211_key __rcu *default_mgmt_key;
 	struct ieee80211_key __rcu *default_beacon_key;
