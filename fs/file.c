@@ -352,27 +352,51 @@ static inline bool fd_is_open(unsigned int fd, const struct fdtable *fdt)
 	return test_bit(fd, fdt->open_fds);
 }
 
+/* Bits of [range->from, range->to] that fall into word @i of a bitmap. */
+static unsigned long fd_range_word(struct fd_range *range, unsigned int i)
+{
+	unsigned int first = i * BITS_PER_LONG;
+	unsigned int last = first + BITS_PER_LONG - 1;
+
+	if (range->to < first || range->from > last)
+		return 0;
+	return GENMASK(min(range->to, last) - first,
+		       max(range->from, first) - first);
+}
+
+/* Bits of word @i that dup_fd() leaves behind. */
+static unsigned long dup_fd_dropped_word(unsigned int i, struct fd_range *punch_hole)
+{
+	if (!punch_hole)
+		return 0;
+	return fd_range_word(punch_hole, i);
+}
+
 /*
  * Note that a sane fdtable size always has to be a multiple of
  * BITS_PER_LONG, since we have bitmaps that are sized by this.
  *
  * punch_hole is optional - when close_range() is asked to unshare
- * and close, we don't need to copy descriptors in that range, so
- * a smaller cloned descriptor table might suffice if the last
- * currently opened descriptor falls into that range.
+ * and close, dup_fd() leaves the descriptors in that range behind,
+ * so the cloned table only has to reach the last open descriptor
+ * outside of it.
  */
 static unsigned int sane_fdtable_size(struct fdtable *fdt, struct fd_range *punch_hole)
 {
 	unsigned int last = find_last_bit(fdt->open_fds, fdt->max_fds);
+	unsigned int i;
 
 	if (last == fdt->max_fds)
 		return NR_OPEN_DEFAULT;
-	if (punch_hole && punch_hole->to >= last && punch_hole->from <= last) {
-		last = find_last_bit(fdt->open_fds, punch_hole->from);
-		if (last == punch_hole->from)
-			return NR_OPEN_DEFAULT;
+	/* Only words up to the last open descriptor can hold a kept one. */
+	i = last / BITS_PER_LONG + 1;
+	while (i--) {
+		unsigned long dropped = dup_fd_dropped_word(i, punch_hole);
+
+		if (fdt->open_fds[i] & ~dropped)
+			return (i + 1) * BITS_PER_LONG;
 	}
-	return ALIGN(last + 1, BITS_PER_LONG);
+	return NR_OPEN_DEFAULT;
 }
 
 /*
@@ -384,7 +408,8 @@ struct files_struct *dup_fd(struct files_struct *oldf, struct fd_range *punch_ho
 {
 	struct files_struct *newf;
 	struct file **old_fds, **new_fds;
-	unsigned int open_files, i;
+	unsigned int open_files, fd;
+	unsigned long dropped = 0;
 	struct fdtable *old_fdt, *new_fdt;
 
 	newf = kmem_cache_alloc(files_cachep, GFP_KERNEL);
@@ -451,13 +476,18 @@ struct files_struct *dup_fd(struct files_struct *oldf, struct fd_range *punch_ho
 	 *
 	 * Instead of trying to placate userspace racing with itself, we
 	 * ref the file if we see it and mark the fd slot as unused otherwise.
+	 * Descriptors dup_fd() is asked to leave behind get the same treatment.
 	 */
-	for (i = open_files; i != 0; i--) {
+	for (fd = 0; fd < open_files; fd++) {
 		struct file *f = rcu_dereference_raw(*old_fds++);
-		if (f) {
+
+		if (!(fd % BITS_PER_LONG))
+			dropped = dup_fd_dropped_word(fd / BITS_PER_LONG, punch_hole);
+		if (f && !(dropped & BIT_MASK(fd))) {
 			get_file(f);
 		} else {
-			__clear_open_fd(open_files - i, new_fdt);
+			f = NULL;
+			__clear_open_fd(fd, new_fdt);
 		}
 		rcu_assign_pointer(*new_fds++, f);
 	}
@@ -848,10 +878,12 @@ SYSCALL_DEFINE3(close_range, unsigned int, fd, unsigned int, max_fd,
 		swap(cur_fds, fds);
 	}
 
-	if (flags & CLOSE_RANGE_CLOEXEC)
+	if (flags & CLOSE_RANGE_CLOEXEC) {
 		__range_cloexec(cur_fds, fd, max_fd);
-	else
+	} else if (!fds) {
+		/* If we unshared, dup_fd() left the range behind already. */
 		__range_close(cur_fds, fd, max_fd);
+	}
 
 	if (fds) {
 		/*
