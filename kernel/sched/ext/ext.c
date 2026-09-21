@@ -41,10 +41,21 @@ struct scx_sched __rcu *scx_root;
 LIST_HEAD(scx_sched_all);
 
 #ifdef CONFIG_EXT_SUB_SCHED
+static __always_inline int scx_sched_cmpfn(struct rhashtable_compare_arg *arg,
+					   const void *ptr)
+{
+	const struct scx_sched *sch = ptr;
+
+	BUILD_BUG_ON(sizeof_field(struct scx_sched, ops.sub_cgroup_id) != sizeof(u64));
+
+	return sch->ops.sub_cgroup_id != *(const u64 *)arg->key;
+}
+
 const struct rhashtable_params scx_sched_hash_params = {
 	.key_len		= sizeof_field(struct scx_sched, ops.sub_cgroup_id),
 	.key_offset		= offsetof(struct scx_sched, ops.sub_cgroup_id),
 	.head_offset		= offsetof(struct scx_sched, hash_node),
+	.obj_cmpfn		= scx_sched_cmpfn,
 	.insecure_elasticity	= true,	/* inserted under scx_sched_lock */
 };
 
