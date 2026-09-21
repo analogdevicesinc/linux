@@ -794,34 +794,67 @@ static inline unsigned last_fd(struct fdtable *fdt)
 }
 
 static inline void __range_cloexec(struct files_struct *cur_fds,
-				   unsigned int fd, unsigned int max_fd)
+				   struct fd_range *range)
 {
 	struct fdtable *fdt;
+	unsigned int last;
 
-	/* make sure we're using the correct maximum value */
 	spin_lock(&cur_fds->file_lock);
 	fdt = files_fdtable(cur_fds);
-	max_fd = min(last_fd(fdt), max_fd);
-	if (fd <= max_fd)
-		bitmap_set(fdt->close_on_exec, fd, max_fd - fd + 1);
+	/* make sure we're using the correct maximum value */
+	last = last_fd(fdt);
+	if (!(range->flags & FD_RANGE_EXCEPT)) {
+		if (range->from <= last)
+			bitmap_set(fdt->close_on_exec, range->from,
+				   min(range->to, last) - range->from + 1);
+	} else {
+		if (range->from > 0)
+			bitmap_set(fdt->close_on_exec, 0,
+				   min(range->from - 1, last) + 1);
+		if (range->to < last)
+			bitmap_set(fdt->close_on_exec, range->to + 1,
+				   last - range->to);
+	}
 	spin_unlock(&cur_fds->file_lock);
 }
 
-static inline void __range_close(struct files_struct *files, unsigned int fd,
-				 unsigned int max_fd)
+/* Next open descriptor in [fd, max_fd] that @range selects. */
+static inline unsigned int next_fd_to_close(struct fdtable *fdt,
+					    unsigned int fd, unsigned int max_fd,
+					    struct fd_range *range)
+{
+	fd = find_next_bit(fdt->open_fds, max_fd + 1, fd);
+	/* Hop over the window the range keeps. */
+	if ((range->flags & FD_RANGE_EXCEPT) &&
+	    fd >= range->from && fd <= range->to) {
+		if (range->to >= max_fd)
+			return max_fd + 1;
+		fd = find_next_bit(fdt->open_fds, max_fd + 1, range->to + 1);
+	}
+	return fd;
+}
+
+static inline void __range_close(struct files_struct *files,
+				 struct fd_range *range)
 {
 	struct file *file;
 	struct fdtable *fdt;
-	unsigned n;
+	unsigned int fd, max_fd;
 
 	spin_lock(&files->file_lock);
 	fdt = files_fdtable(files);
-	n = last_fd(fdt);
-	max_fd = min(max_fd, n);
+	if (range->flags & FD_RANGE_EXCEPT) {
+		/* Outside of the range means the whole table. */
+		fd = 0;
+		max_fd = last_fd(fdt);
+	} else {
+		fd = range->from;
+		max_fd = min(range->to, last_fd(fdt));
+	}
 
-	for (fd = find_next_bit(fdt->open_fds, max_fd + 1, fd);
+	for (fd = next_fd_to_close(fdt, fd, max_fd, range);
 	     fd <= max_fd;
-	     fd = find_next_bit(fdt->open_fds, max_fd + 1, fd + 1)) {
+	     fd = next_fd_to_close(fdt, fd + 1, max_fd, range)) {
 		file = file_close_fd_locked(files, fd);
 		if (file) {
 			spin_unlock(&files->file_lock);
@@ -849,21 +882,30 @@ static inline void __range_close(struct files_struct *files, unsigned int fd,
  * This closes a range of file descriptors. All file descriptors
  * from @fd up to and including @max_fd are closed.
  * Currently, errors to close a given file descriptor are ignored.
+ *
+ * With CLOSE_RANGE_EXCEPT the range names what to leave alone instead:
+ * every open file descriptor outside of [@fd, @max_fd] is closed, or
+ * marked close-on-exec with CLOSE_RANGE_CLOEXEC.
  */
 SYSCALL_DEFINE3(close_range, unsigned int, fd, unsigned int, max_fd,
 		unsigned int, flags)
 {
 	struct task_struct *me = current;
 	struct files_struct *cur_fds = me->files, *fds = NULL;
+	struct fd_range range = {fd, max_fd};
 
-	if (flags & ~(CLOSE_RANGE_UNSHARE | CLOSE_RANGE_CLOEXEC))
+	if (flags & ~(CLOSE_RANGE_UNSHARE | CLOSE_RANGE_CLOEXEC |
+		      CLOSE_RANGE_EXCEPT))
 		return -EINVAL;
 
 	if (fd > max_fd)
 		return -EINVAL;
 
+	if (flags & CLOSE_RANGE_EXCEPT)
+		range.flags |= FD_RANGE_EXCEPT;
+
 	if ((flags & CLOSE_RANGE_UNSHARE) && atomic_read(&cur_fds->count) > 1) {
-		struct fd_range range = {fd, max_fd}, *drop = &range;
+		struct fd_range *drop = &range;
 
 		/*
 		 * If the caller requested all fds to be made cloexec we always
@@ -884,10 +926,10 @@ SYSCALL_DEFINE3(close_range, unsigned int, fd, unsigned int, max_fd,
 	}
 
 	if (flags & CLOSE_RANGE_CLOEXEC) {
-		__range_cloexec(cur_fds, fd, max_fd);
+		__range_cloexec(cur_fds, &range);
 	} else if (!fds) {
-		/* If we unshared, dup_fd() left the range behind already. */
-		__range_close(cur_fds, fd, max_fd);
+		/* If we unshared, dup_fd() already left behind what we'd close. */
+		__range_close(cur_fds, &range);
 	}
 
 	if (fds) {

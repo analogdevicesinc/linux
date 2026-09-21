@@ -8,6 +8,7 @@
  */
 #undef CLOSE_RANGE_UNSHARE
 #undef CLOSE_RANGE_CLOEXEC
+#undef CLOSE_RANGE_EXCEPT
 
 enum close_range_flags {
 	/* Unshare the file descriptor table before closing file descriptors. */
@@ -15,11 +16,15 @@ enum close_range_flags {
 
 	/* Set the FD_CLOEXEC bit instead of closing the file descriptor. */
 	CLOSE_RANGE_CLOEXEC	= (1U << 2),
+
+	/* Act on every file descriptor outside of the given range instead. */
+	CLOSE_RANGE_EXCEPT	= (1U << 3),
 };
 
 /* Keep #ifdef working and let glibc skip its own definitions. */
 #define CLOSE_RANGE_UNSHARE		CLOSE_RANGE_UNSHARE
 #define CLOSE_RANGE_CLOEXEC		CLOSE_RANGE_CLOEXEC
+#define CLOSE_RANGE_EXCEPT		CLOSE_RANGE_EXCEPT
 
 #endif /* _UAPI_LINUX_CLOSE_RANGE_H */
 
