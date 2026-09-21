@@ -130,6 +130,31 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 				return ret;
 			len = ret;
 			break;
+		case DBGFS_LO0_LOOP_BW:
+		case DBGFS_LO1_LOOP_BW:
+		case DBGFS_LO0_PHASE_MARGIN:
+		case DBGFS_LO1_PHASE_MARGIN: {
+			adi_adrv903x_LoLoopFilterCfg_t filterCfg = { 0 };
+			adi_adrv903x_LoName_e loName;
+
+			if (entry->cmd == DBGFS_LO0_LOOP_BW || entry->cmd == DBGFS_LO0_PHASE_MARGIN)
+				loName = ADI_ADRV903X_LO0;
+			else
+				loName = ADI_ADRV903X_LO1;
+
+			guard(mutex)(&phy->lock);
+
+			ret = adrv903x_api_call(phy, adi_adrv903x_LoLoopFilterGet,
+						loName, &filterCfg);
+			if (ret)
+				return ret;
+
+			if (entry->cmd == DBGFS_LO0_LOOP_BW || entry->cmd == DBGFS_LO1_LOOP_BW)
+				val = filterCfg.loopBandwidth_kHz;
+			else
+				val = filterCfg.phaseMargin_degrees;
+			break;
+		}
 		case DBGFS_TX_TO_ORX_MAPPING: {
 			adi_adrv903x_TxChannels_e tx_orx0 = ADI_ADRV903X_TXOFF;
 			adi_adrv903x_TxChannels_e tx_orx1 = ADI_ADRV903X_TXOFF;
@@ -253,6 +278,52 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 		entry->val = val;
 		return count;
 
+	case DBGFS_LO0_LOOP_BW:
+	case DBGFS_LO1_LOOP_BW:
+	case DBGFS_LO0_PHASE_MARGIN:
+	case DBGFS_LO1_PHASE_MARGIN: {
+		adi_adrv903x_LoLoopFilterCfg_t filterCfg = { 0 };
+		adi_adrv903x_LoName_e loName;
+
+		if (entry->cmd == DBGFS_LO0_LOOP_BW || entry->cmd == DBGFS_LO0_PHASE_MARGIN)
+			loName = ADI_ADRV903X_LO0;
+		else
+			loName = ADI_ADRV903X_LO1;
+
+		guard(mutex)(&phy->lock);
+
+		ret = adrv903x_api_call(phy, adi_adrv903x_LoLoopFilterGet,
+					loName, &filterCfg);
+		if (ret)
+			return ret;
+
+		if (entry->cmd == DBGFS_LO0_LOOP_BW || entry->cmd == DBGFS_LO1_LOOP_BW)
+			filterCfg.loopBandwidth_kHz = val;
+		else
+			filterCfg.phaseMargin_degrees = val;
+
+		ret = adrv903x_api_call(phy, adi_adrv903x_LoLoopFilterSet,
+					loName, &filterCfg);
+		if (ret)
+			return ret;
+
+		if (entry->cmd == DBGFS_LO0_LOOP_BW || entry->cmd == DBGFS_LO1_LOOP_BW) {
+			adi_adrv903x_LoConfigReadback_t loReadback = { 0 };
+			adi_adrv903x_LoConfig_t loConfig = { 0 };
+
+			loReadback.loName = loName;
+			ret = adrv903x_api_call(phy, adi_adrv903x_LoFrequencyGet, &loReadback);
+			if (ret)
+				return ret;
+			loConfig.loName = loName;
+			loConfig.loFrequency_Hz = loReadback.loFrequency_Hz;
+			ret = adrv903x_api_call(phy, adi_adrv903x_LoFrequencySet, &loConfig);
+			if (ret)
+				return ret;
+		}
+
+		return count;
+	}
 	case DBGFS_TX_TO_ORX_MAPPING:
 		if (ret != 1)
 			return -EINVAL;
@@ -354,6 +425,10 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 	adrv903x_add_debugfs_entry(phy, "orx0_adc_status", DBGFS_ORX0_ADC_STATUS);
 	adrv903x_add_debugfs_entry(phy, "orx1_adc_status", DBGFS_ORX1_ADC_STATUS);
 	adrv903x_add_debugfs_entry(phy, "tx_to_orx_mapping", DBGFS_TX_TO_ORX_MAPPING);
+	adrv903x_add_debugfs_entry(phy, "lo0_loop_bandwidth_khz", DBGFS_LO0_LOOP_BW);
+	adrv903x_add_debugfs_entry(phy, "lo1_loop_bandwidth_khz", DBGFS_LO1_LOOP_BW);
+	adrv903x_add_debugfs_entry(phy, "lo0_phase_margin_degrees", DBGFS_LO0_PHASE_MARGIN);
+	adrv903x_add_debugfs_entry(phy, "lo1_phase_margin_degrees", DBGFS_LO1_PHASE_MARGIN);
 
 	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++) {
 		switch (phy->debugfs_entry[i].cmd) {
@@ -363,6 +438,10 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 		case DBGFS_BIST_FRAMER_1_LOOPBACK:
 		case DBGFS_BIST_TONE:
 		case DBGFS_TX_TO_ORX_MAPPING:
+		case DBGFS_LO0_LOOP_BW:
+		case DBGFS_LO1_LOOP_BW:
+		case DBGFS_LO0_PHASE_MARGIN:
+		case DBGFS_LO1_PHASE_MARGIN:
 			mode = 0644;
 			break;
 		default:
