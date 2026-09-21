@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
+/* Copyright (c) 2026 Meta Platforms, Inc. and affiliates. */
 /* Converted from tools/testing/selftests/bpf/verifier/helper_access_var_len.c */
 
 #include <linux/bpf.h>
@@ -820,6 +821,148 @@ __naked void bytes_no_leak_init_memory(void)
 "	:
 	: __imm(bpf_probe_read_kernel)
 	: __clobber_all);
+}
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(max_entries, 1);
+	__uint(map_flags, BPF_F_WRONLY_PROG);
+	__type(key, __u32);
+	__type(value, struct bpf_fib_lookup);
+} map_fib_wo SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, __u32);
+	__type(value, struct bpf_fib_lookup);
+} map_fib_rw SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(max_entries, 1);
+	__uint(map_flags, BPF_F_RDONLY_PROG);
+	__type(key, __u32);
+	__type(value, struct bpf_fib_lookup);
+} map_fib_ro SEC(".maps");
+
+SEC("tc")
+__failure __msg("read from map forbidden")
+int writeonly_sized_input(struct __sk_buff *ctx)
+{
+	struct bpf_fib_lookup *params;
+	__u32 key = 0;
+
+	params = bpf_map_lookup_elem(&map_fib_wo, &key);
+	if (params)
+		bpf_fib_lookup(ctx, params, sizeof(*params), 0);
+	return 0;
+}
+
+SEC("tc")
+__success
+int readwrite_sized_input(struct __sk_buff *ctx)
+{
+	struct bpf_fib_lookup *params;
+	__u32 key = 0;
+
+	params = bpf_map_lookup_elem(&map_fib_rw, &key);
+	if (params)
+		bpf_fib_lookup(ctx, params, sizeof(*params), 0);
+	return 0;
+}
+
+SEC("tc")
+__failure __msg("write into map forbidden")
+int readonly_sized_output(struct __sk_buff *ctx)
+{
+	struct bpf_fib_lookup *params;
+	__u32 key = 0;
+
+	params = bpf_map_lookup_elem(&map_fib_ro, &key);
+	if (params)
+		bpf_fib_lookup(ctx, params, sizeof(*params), 0);
+	return 0;
+}
+
+SEC("xdp")
+__failure __msg("read from map forbidden")
+int xdp_writeonly_sized_input(struct xdp_md *ctx)
+{
+	struct bpf_fib_lookup *params;
+	__u32 key = 0;
+
+	params = bpf_map_lookup_elem(&map_fib_wo, &key);
+	if (params)
+		bpf_fib_lookup(ctx, params, sizeof(*params), 0);
+	return XDP_PASS;
+}
+
+SEC("sockops")
+__failure __msg("read from map forbidden")
+int writeonly_header_option(struct bpf_sock_ops *ctx)
+{
+	struct bpf_fib_lookup *buf;
+	__u32 key = 0;
+
+	buf = bpf_map_lookup_elem(&map_fib_wo, &key);
+	if (buf)
+		bpf_load_hdr_opt(ctx, buf, sizeof(*buf), 0);
+	return 0;
+}
+
+SEC("sockops")
+__success
+int readwrite_header_option(struct bpf_sock_ops *ctx)
+{
+	struct bpf_fib_lookup *buf;
+	__u32 key = 0;
+
+	buf = bpf_map_lookup_elem(&map_fib_rw, &key);
+	if (buf)
+		bpf_load_hdr_opt(ctx, buf, sizeof(*buf), 0);
+	return 0;
+}
+
+SEC("tc")
+__success
+int snprintf_writeonly_output(struct __sk_buff *ctx)
+{
+	void *buf;
+	__u32 key = 0;
+
+	buf = bpf_map_lookup_elem(&map_fib_wo, &key);
+	if (buf)
+		bpf_snprintf(buf, 16, "ok", NULL, 0);
+	return 0;
+}
+
+SEC("tc")
+__failure __msg("write into map forbidden")
+int snprintf_readonly_output(struct __sk_buff *ctx)
+{
+	void *buf;
+	__u32 key = 0;
+
+	buf = bpf_map_lookup_elem(&map_fib_ro, &key);
+	if (buf)
+		bpf_snprintf(buf, 16, "ok", NULL, 0);
+	return 0;
+}
+
+SEC("cgroup/sysctl")
+__success
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__success_unpriv
+int sysctl_writeonly_output(struct bpf_sysctl *ctx)
+{
+	void *buf;
+	__u32 key = 0;
+
+	buf = bpf_map_lookup_elem(&map_fib_wo, &key);
+	if (buf)
+		bpf_sysctl_get_name(ctx, buf, 16, 0);
+	return 0;
 }
 
 SEC("cgroup/sysctl")
