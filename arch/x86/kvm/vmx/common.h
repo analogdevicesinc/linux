@@ -56,6 +56,8 @@ struct vcpu_vt {
 #endif
 };
 
+noinstr void vt_handle_nmi(struct kvm_vcpu *vcpu);
+
 #ifdef CONFIG_KVM_INTEL_TDX
 
 static __always_inline bool is_td(struct kvm *kvm)
@@ -208,7 +210,6 @@ static inline int __vt_handle_notify(struct kvm_vcpu *vcpu,
 	return 1;
 }
 
-noinstr void vmx_handle_nmi(struct kvm_vcpu *vcpu);
 int vt_handle_bus_lock_vmexit(struct kvm_vcpu *vcpu);
 
 #endif /* __KVM_X86_VMX_COMMON_H */

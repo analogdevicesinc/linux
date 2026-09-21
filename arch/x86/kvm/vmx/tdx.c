@@ -989,7 +989,7 @@ static noinstr void tdx_vcpu_enter_exit(struct kvm_vcpu *vcpu)
 	tdx->exit_gpa = tdx->vp_enter_args.r8;
 	vt->exit_intr_info = tdx->vp_enter_args.r9;
 
-	vmx_handle_nmi(vcpu);
+	vt_handle_nmi(vcpu);
 
 	guest_state_exit_irqoff();
 }
