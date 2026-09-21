@@ -365,7 +365,8 @@ static unsigned long fd_range_word(struct fd_range *range, unsigned int i)
 }
 
 /* Bits of word @i that dup_fd() leaves behind. */
-static unsigned long dup_fd_dropped_word(unsigned int i, struct fd_range *range)
+static unsigned long dup_fd_dropped_word(struct fdtable *fdt, unsigned int i,
+					 struct fd_range *range)
 {
 	unsigned long dropped;
 
@@ -374,6 +375,8 @@ static unsigned long dup_fd_dropped_word(unsigned int i, struct fd_range *range)
 	dropped = fd_range_word(range, i);
 	if (range->flags & FD_RANGE_EXCEPT)
 		dropped = ~dropped;
+	if (range->flags & FD_RANGE_CLOEXEC_ONLY)
+		dropped &= fdt->close_on_exec[i];
 	return dropped;
 }
 
@@ -393,15 +396,37 @@ static unsigned int sane_fdtable_size(struct fdtable *fdt, struct fd_range *rang
 
 	if (last == fdt->max_fds)
 		return NR_OPEN_DEFAULT;
-	/* Only words up to the last open descriptor can hold a kept one. */
-	i = last / BITS_PER_LONG + 1;
-	while (i--) {
-		unsigned long dropped = dup_fd_dropped_word(i, range);
+	if (!range)
+		return ALIGN(last + 1, BITS_PER_LONG);
 
-		if (fdt->open_fds[i] & ~dropped)
-			return (i + 1) * BITS_PER_LONG;
+	if (range->flags & FD_RANGE_CLOEXEC_ONLY) {
+		/* The close-on-exec bits decide what is dropped, walk the words. */
+		i = last / BITS_PER_LONG + 1;
+		while (i--) {
+			unsigned long dropped = dup_fd_dropped_word(fdt, i, range);
+
+			if (fdt->open_fds[i] & ~dropped)
+				return (i + 1) * BITS_PER_LONG;
+		}
+		return NR_OPEN_DEFAULT;
 	}
-	return NR_OPEN_DEFAULT;
+
+	if (range->flags & FD_RANGE_EXCEPT) {
+		/* Only the range is carried over. */
+		if (last > range->to) {
+			last = find_last_bit(fdt->open_fds, range->to + 1);
+			if (last > range->to)
+				return NR_OPEN_DEFAULT;
+		}
+		if (last < range->from)
+			return NR_OPEN_DEFAULT;
+	} else if (last >= range->from && last <= range->to) {
+		/* The last open descriptor goes, the kept ones sit below the range. */
+		last = find_last_bit(fdt->open_fds, range->from);
+		if (last == range->from)
+			return NR_OPEN_DEFAULT;
+	}
+	return ALIGN(last + 1, BITS_PER_LONG);
 }
 
 /*
@@ -487,7 +512,7 @@ struct files_struct *dup_fd(struct files_struct *oldf, struct fd_range *range)
 		struct file *f = rcu_dereference_raw(*old_fds++);
 
 		if (!(fd % BITS_PER_LONG))
-			dropped = dup_fd_dropped_word(fd / BITS_PER_LONG, range);
+			dropped = dup_fd_dropped_word(old_fdt, fd / BITS_PER_LONG, range);
 		if (f && !(dropped & BIT_MASK(fd))) {
 			get_file(f);
 		} else {
