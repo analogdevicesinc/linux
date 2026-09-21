@@ -1366,7 +1366,7 @@ EXPORT_SYMBOL_GPL(ieee80211_set_key_rx_seq);
 struct ieee80211_key_conf *
 ieee80211_gtk_rekey_add(struct ieee80211_vif *vif,
 			u8 idx, u8 *key_data, u8 key_len,
-			int link_id)
+			int link_id, bool cigtk)
 {
 	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
 	struct ieee80211_local *local = sdata->local;

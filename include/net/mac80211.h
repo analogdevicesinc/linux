@@ -6278,6 +6278,7 @@ void ieee80211_set_key_rx_seq(struct ieee80211_key_conf *keyconf,
  * @key_len: the key data. Might be bigger than the actual key length,
  *	but not smaller (for the driver convinence)
  * @link_id: the link id of the key or -1 for non-MLO
+ * @cigtk: whether this is a CIGTK
  *
  * When GTK rekeying was done while the system was suspended, (a) new
  * key(s) will be available. These will be needed by mac80211 for proper
@@ -6304,7 +6305,7 @@ void ieee80211_set_key_rx_seq(struct ieee80211_key_conf *keyconf,
 struct ieee80211_key_conf *
 ieee80211_gtk_rekey_add(struct ieee80211_vif *vif,
 			u8 idx, u8 *key_data, u8 key_len,
-			int link_id);
+			int link_id, bool cigtk);
 
 /**
  * ieee80211_gtk_rekey_notify - notify userspace supplicant of rekeying
