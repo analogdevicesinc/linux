@@ -63,7 +63,7 @@
 /*
  * Macros to be used for percpu code section based on atomic instructions.
  *
- * Avoid the need to use preempt_disable() / preempt_disable() pairs and the
+ * Avoid the need to use preempt_disable() / preempt_enable() pairs and the
  * conditional preempt_schedule_notrace() function calls which come with
  * this. The idea is that this_cpu operations based on atomic instructions are
  * guarded with mviy instructions:
