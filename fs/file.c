@@ -843,18 +843,29 @@ static inline void __range_cloexec(struct files_struct *cur_fds,
 	spin_unlock(&cur_fds->file_lock);
 }
 
+/* Next open descriptor in [fd, max_fd], or the next close-on-exec one. */
+static inline unsigned int next_open_fd(struct fdtable *fdt, unsigned int fd,
+					unsigned int max_fd,
+					struct fd_range *range)
+{
+	if (range->flags & FD_RANGE_CLOEXEC_ONLY)
+		return find_next_and_bit(fdt->open_fds, fdt->close_on_exec,
+					 max_fd + 1, fd);
+	return find_next_bit(fdt->open_fds, max_fd + 1, fd);
+}
+
 /* Next open descriptor in [fd, max_fd] that @range selects. */
 static inline unsigned int next_fd_to_close(struct fdtable *fdt,
 					    unsigned int fd, unsigned int max_fd,
 					    struct fd_range *range)
 {
-	fd = find_next_bit(fdt->open_fds, max_fd + 1, fd);
+	fd = next_open_fd(fdt, fd, max_fd, range);
 	/* Hop over the window the range keeps. */
 	if ((range->flags & FD_RANGE_EXCEPT) &&
 	    fd >= range->from && fd <= range->to) {
 		if (range->to >= max_fd)
 			return max_fd + 1;
-		fd = find_next_bit(fdt->open_fds, max_fd + 1, range->to + 1);
+		fd = next_open_fd(fdt, range->to + 1, max_fd, range);
 	}
 	return fd;
 }
@@ -911,6 +922,12 @@ static inline void __range_close(struct files_struct *files,
  * With CLOSE_RANGE_EXCEPT the range names what to leave alone instead:
  * every open file descriptor outside of [@fd, @max_fd] is closed, or
  * marked close-on-exec with CLOSE_RANGE_CLOEXEC.
+ *
+ * With CLOSE_RANGE_CLOEXEC_ONLY only file descriptors that have
+ * close-on-exec set are closed. Together with CLOSE_RANGE_EXCEPT the
+ * range names the close-on-exec file descriptors to keep. To keep none
+ * of them, name a range that cannot hold an open file descriptor, e.g.
+ * close_range(~0U, ~0U, ...).
  */
 SYSCALL_DEFINE3(close_range, unsigned int, fd, unsigned int, max_fd,
 		unsigned int, flags)
@@ -920,7 +937,12 @@ SYSCALL_DEFINE3(close_range, unsigned int, fd, unsigned int, max_fd,
 	struct fd_range range = {fd, max_fd};
 
 	if (flags & ~(CLOSE_RANGE_UNSHARE | CLOSE_RANGE_CLOEXEC |
-		      CLOSE_RANGE_EXCEPT))
+		      CLOSE_RANGE_EXCEPT | CLOSE_RANGE_CLOEXEC_ONLY))
+		return -EINVAL;
+
+	/* One marks close-on-exec, the other closes what is marked. */
+	if (hweight32(flags & (CLOSE_RANGE_CLOEXEC |
+			       CLOSE_RANGE_CLOEXEC_ONLY)) > 1)
 		return -EINVAL;
 
 	if (fd > max_fd)
@@ -928,6 +950,8 @@ SYSCALL_DEFINE3(close_range, unsigned int, fd, unsigned int, max_fd,
 
 	if (flags & CLOSE_RANGE_EXCEPT)
 		range.flags |= FD_RANGE_EXCEPT;
+	if (flags & CLOSE_RANGE_CLOEXEC_ONLY)
+		range.flags |= FD_RANGE_CLOEXEC_ONLY;
 
 	if ((flags & CLOSE_RANGE_UNSHARE) && atomic_read(&cur_fds->count) > 1) {
 		struct fd_range *drop = &range;
