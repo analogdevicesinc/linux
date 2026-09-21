@@ -6993,10 +6993,11 @@ static int check_stack_range_initialized(
 	 * but BTF based global subprog validation isn't accurate enough.
 	 */
 	bool allow_poison = access_size < 0 || clobber;
-	/* The call will initialize the memory; uninitialized stack allowed */
 	u32 arg_slot = arg_slot_from_argno(argno);
-	bool raw_mode = meta && arg_slot < MAX_BPF_FUNC_ARGS &&
-		       (meta->arg_raw_mem.mask & BIT(arg_slot));
+	bool uninit = clobber && meta && arg_slot < MAX_BPF_FUNC_ARGS &&
+		      (meta->arg_raw_mem.mask & BIT(arg_slot));
+	bool raw_mode = uninit && env->allow_uninit_stack &&
+			!(meta->arg_raw_mem.var_size_mask & BIT(arg_slot));
 
 	access_size = abs(access_size);
 
@@ -7035,6 +7036,7 @@ static int check_stack_range_initialized(
 		max_off = reg_smax(reg) + off;
 	}
 
+	/* Unprivileged outputs retain each byte's initialization state. */
 	if (raw_mode) {
 		meta->arg_raw_mem.size[arg_slot] = access_size;
 		return 0;
@@ -7054,8 +7056,8 @@ static int check_stack_range_initialized(
 		if (*stype == STACK_MISC)
 			goto mark;
 		if ((*stype == STACK_ZERO) ||
-		    (*stype == STACK_INVALID && env->allow_uninit_stack)) {
-			if (clobber) {
+		    (*stype == STACK_INVALID && (uninit || env->allow_uninit_stack))) {
+			if (clobber && (*stype != STACK_INVALID || env->allow_uninit_stack)) {
 				/* helper can write anything into the stack */
 				*stype = STACK_MISC;
 			}
@@ -7074,8 +7076,11 @@ static int check_stack_range_initialized(
 		}
 
 		if (*stype == STACK_POISON) {
-			if (allow_poison)
+			if (allow_poison) {
+				if (uninit && env->allow_uninit_stack)
+					*stype = STACK_MISC;
 				goto mark;
+			}
 			verbose(env, "reading from stack %s off %d+%d size %d, slot poisoned by dead code elimination\n",
 				reg_arg_name(env, argno), min_off, i - min_off, access_size);
 		} else if (tnum_is_const(reg->var_off)) {
@@ -7224,12 +7229,12 @@ static int check_mem_size_reg(struct bpf_verifier_env *env,
 	meta->msize_max_value = reg_umax(size_reg);
 
 	/*
-	 * A variable size does not guarantee that the call initializes the whole
-	 * checked range. Disable raw mode for this output and apply the ordinary
-	 * stack initialization checks, including their privilege exceptions.
+	 * Check variable ranges byte by byte instead of using raw mode. Keep the
+	 * MEM_UNINIT annotation so invalid bytes are accepted without marking them
+	 * initialized when the caller cannot read uninitialized stack memory.
 	 */
 	if (!tnum_is_const(size_reg->var_off))
-		meta->arg_raw_mem.mask &= ~BIT(arg_slot_from_argno(mem_argno));
+		meta->arg_raw_mem.var_size_mask |= BIT(arg_slot_from_argno(mem_argno));
 
 	if (reg_smin(size_reg) < 0) {
 		verbose(env, "%s min value is negative, either use unsigned or 'var &= const'\n",
@@ -13730,12 +13735,20 @@ s64 bpf_helper_stack_access_bytes(struct bpf_verifier_env *env, struct bpf_insn 
 	struct bpf_insn_aux_data *aux = &env->insn_aux_data[insn_idx];
 	const struct bpf_func_proto *fn;
 	enum bpf_arg_type at;
+	bool full_write;
 	s64 size;
 
 	if (bpf_get_helper_proto(env, insn->imm, &fn) < 0)
 		return S64_MIN;
 
 	at = fn->arg_type[arg];
+	/*
+	 * Generic outputs may leave bytes untouched. Keep prior initialization
+	 * live when the caller cannot read uninitialized bytes. Constructors of
+	 * special objects, such as dynptrs, still define their storage.
+	 */
+	full_write = (at & MEM_UNINIT) &&
+		     (!arg_type_is_raw_mem(at) || env->allow_uninit_stack);
 
 	switch (base_type(at)) {
 	case ARG_PTR_TO_MAP_KEY:
@@ -13804,7 +13817,7 @@ scan_all_maps:
 			 * Size arg is const on each path but differs across merged
 			 * paths. MAX_BPF_STACK is a safe upper bound for reads.
 			 */
-			if (at & MEM_UNINIT)
+			if (full_write)
 				return 0;
 			return MAX_BPF_STACK;
 		}
@@ -13824,10 +13837,10 @@ scan_all_maps:
 	}
 out:
 	/*
-	 * MEM_UNINIT args are write-only: the helper initializes the
-	 * buffer without reading it.
+	 * Other accesses keep the previous state live, including untouched bytes
+	 * of an unprivileged generic output.
 	 */
-	if (at & MEM_UNINIT)
+	if (full_write)
 		return -size;
 	return size;
 }
@@ -13907,7 +13920,8 @@ out:
 	/* KF_ITER_NEW kfuncs initialize the iterator state at arg 0 */
 	if (arg == 0 && meta.kfunc_flags & KF_ITER_NEW)
 		return -size;
-	if (is_kfunc_arg_uninit(btf, &args[i]))
+	if (is_kfunc_arg_uninit(btf, &args[i]) &&
+	    (is_kfunc_arg_dynptr(btf, &args[i]) || env->allow_uninit_stack))
 		return -size;
 	return size;
 }

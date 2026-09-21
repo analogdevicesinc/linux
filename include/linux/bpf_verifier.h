@@ -1547,12 +1547,14 @@ struct ref_obj_desc {
 };
 
 /*
- * Memory arguments a call fills in, indexed by argument slot. The verifier allows the
- * stack to be uninitialized if the range is a known constant. Stack slots are marked as
- * STACK_MISC by check_mem_access() after all arguments have been checked.
+ * Generic MEM_UNINIT arguments, indexed by ABI slot. var_size_mask excludes
+ * variable-sized buffers from raw mode without losing the output annotation.
+ * size records constant ranges to mark initialized after checking all arguments,
+ * only when the caller is allowed to read uninitialized stack memory.
  */
 struct arg_raw_mem_desc {
 	u16 mask;
+	u16 var_size_mask;
 	int size[MAX_BPF_FUNC_ARGS];
 };
 

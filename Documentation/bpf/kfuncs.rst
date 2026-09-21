@@ -164,21 +164,22 @@ suffix should be used.
 2.3.3 __uninit Annotation
 -------------------------
 
-Use ``__uninit`` on a pointer parameter for an output that the kfunc
-initializes without reading its incoming contents.
+Use ``__uninit`` on a pointer parameter for an output buffer whose incoming
+contents the kfunc does not read.
 
-For generic memory buffers, the kfunc must initialize every byte in the
-declared range on every return path, including error returns and struct
-padding. The range is determined by the pointed-to type or the associated
-``__sz`` or ``__szk`` size argument.
+For generic memory buffers, the kfunc may leave bytes untouched, including
+on error returns. The writable range is determined by the pointed-to type
+or the associated ``__sz`` or ``__szk`` size argument.
 
 The annotation does not change the accepted pointer types. A stack-backed
 struct passed as a generic memory buffer must still be scalar-only.
 
-A stack buffer with a verifier-known constant offset and size may be
-uninitialized before the call and is considered initialized afterwards.
-For variable offsets or sizes, the usual stack-initialization and
-variable-offset restrictions still apply.
+Generic stack buffers may be uninitialized before the call. The call does
+not make previously uninitialized bytes readable unless the program is
+allowed to read uninitialized stack memory (normally requiring
+``CAP_PERFMON``). Other callers must initialize those bytes themselves
+before reading them. Stack bounds and variable-offset restrictions still
+apply.
 
 For dynptr parameters, ``__uninit`` indicates that the kfunc constructs a
 dynptr in the supplied storage. For example::

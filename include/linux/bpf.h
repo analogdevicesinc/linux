@@ -781,7 +781,10 @@ enum bpf_type_flag {
 	 */
 	PTR_UNTRUSTED		= BIT(6 + BPF_BASE_TYPE_BITS),
 
-	/* MEM can be uninitialized. */
+	/*
+	 * MEM can be uninitialized. Generic memory outputs need not be fully
+	 * initialized by the callee.
+	 */
 	MEM_UNINIT		= BIT(7 + BPF_BASE_TYPE_BITS),
 
 	/* DYNPTR points to memory local to the bpf program. */
