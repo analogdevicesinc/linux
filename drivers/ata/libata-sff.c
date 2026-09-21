@@ -580,9 +580,9 @@ static void ata_pio_xfer(struct ata_queued_cmd *qc, struct page *page,
 	bool do_write = (qc->tf.flags & ATA_TFLAG_WRITE);
 	unsigned char *buf;
 
-	buf = kmap_atomic(page);
+	buf = kmap_local_page(page);
 	qc->ap->ops->sff_data_xfer(qc, buf + offset, xfer_size, do_write);
-	kunmap_atomic(buf);
+	kunmap_local(buf);
 
 	if (!do_write && !PageSlab(page))
 		flush_dcache_page(page);
@@ -763,9 +763,9 @@ next_sg:
 	trace_atapi_pio_transfer_data(qc, offset, count);
 
 	/* do the actual data transfer */
-	buf = kmap_atomic(page);
+	buf = kmap_local_page(page);
 	consumed = ap->ops->sff_data_xfer(qc, buf + offset, count, rw);
-	kunmap_atomic(buf);
+	kunmap_local(buf);
 
 	bytes -= min(bytes, consumed);
 	qc->curbytes += count;
