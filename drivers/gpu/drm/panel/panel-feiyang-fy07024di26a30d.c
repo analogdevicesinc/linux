@@ -213,27 +213,19 @@ static int feiyang_dsi_probe(struct mipi_dsi_device *dsi)
 	if (ret)
 		return ret;
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(&dsi->dev, &ctx->panel);
+	if (ret)
+		return ret;
 
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO_BURST;
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->lanes = 4;
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret < 0) {
-		drm_panel_remove(&ctx->panel);
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
+	if (ret < 0)
 		return ret;
-	}
 
 	return 0;
-}
-
-static void feiyang_dsi_remove(struct mipi_dsi_device *dsi)
-{
-	struct feiyang *ctx = mipi_dsi_get_drvdata(dsi);
-
-	mipi_dsi_detach(dsi);
-	drm_panel_remove(&ctx->panel);
 }
 
 static const struct of_device_id feiyang_of_match[] = {
@@ -244,7 +236,6 @@ MODULE_DEVICE_TABLE(of, feiyang_of_match);
 
 static struct mipi_dsi_driver feiyang_driver = {
 	.probe = feiyang_dsi_probe,
-	.remove = feiyang_dsi_remove,
 	.driver = {
 		.name = "feiyang-fy07024di26a30d",
 		.of_match_table = feiyang_of_match,

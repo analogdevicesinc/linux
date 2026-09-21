@@ -286,7 +286,9 @@ static int stk_panel_add(struct stk_panel *stk)
 		return ret;
 	}
 
-	drm_panel_add(&stk->base);
+	ret = devm_drm_panel_add(dev, &stk->base);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -315,24 +317,7 @@ static int stk_panel_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0)
 		return ret;
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret < 0)
-		drm_panel_remove(&stk->base);
-
-	return 0;
-}
-
-static void stk_panel_remove(struct mipi_dsi_device *dsi)
-{
-	struct stk_panel *stk = mipi_dsi_get_drvdata(dsi);
-	int err;
-
-	err = mipi_dsi_detach(dsi);
-	if (err < 0)
-		dev_err(&dsi->dev, "failed to detach from DSI host: %d\n",
-			err);
-
-	drm_panel_remove(&stk->base);
+	return devm_mipi_dsi_attach(&dsi->dev, dsi);
 }
 
 static struct mipi_dsi_driver stk_panel_driver = {
@@ -341,7 +326,6 @@ static struct mipi_dsi_driver stk_panel_driver = {
 		.of_match_table = stk_of_match,
 	},
 	.probe = stk_panel_probe,
-	.remove = stk_panel_remove,
 };
 module_mipi_dsi_driver(stk_panel_driver);
 

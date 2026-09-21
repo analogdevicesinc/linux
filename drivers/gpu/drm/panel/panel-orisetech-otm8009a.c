@@ -432,24 +432,17 @@ static int otm8009a_probe(struct mipi_dsi_device *dsi)
 	ctx->bl_dev->props.power = BACKLIGHT_POWER_OFF;
 	ctx->bl_dev->props.type = BACKLIGHT_RAW;
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(dev, &ctx->panel);
+	if (ret)
+		return ret;
 
-	ret = mipi_dsi_attach(dsi);
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
 	if (ret < 0) {
 		dev_err(dev, "mipi_dsi_attach failed. Is host ready?\n");
-		drm_panel_remove(&ctx->panel);
 		return ret;
 	}
 
 	return 0;
-}
-
-static void otm8009a_remove(struct mipi_dsi_device *dsi)
-{
-	struct otm8009a *ctx = mipi_dsi_get_drvdata(dsi);
-
-	mipi_dsi_detach(dsi);
-	drm_panel_remove(&ctx->panel);
 }
 
 static const struct of_device_id orisetech_otm8009a_of_match[] = {
@@ -460,7 +453,6 @@ MODULE_DEVICE_TABLE(of, orisetech_otm8009a_of_match);
 
 static struct mipi_dsi_driver orisetech_otm8009a_driver = {
 	.probe  = otm8009a_probe,
-	.remove = otm8009a_remove,
 	.driver = {
 		.name = "panel-orisetech-otm8009a",
 		.of_match_table = orisetech_otm8009a_of_match,

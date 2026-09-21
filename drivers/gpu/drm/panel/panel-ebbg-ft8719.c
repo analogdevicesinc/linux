@@ -201,28 +201,17 @@ static int ebbg_ft8719_probe(struct mipi_dsi_device *dsi)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to get backlight\n");
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(dev, &ctx->panel);
+	if (ret)
+		return ret;
 
-	ret = mipi_dsi_attach(dsi);
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
 	if (ret < 0) {
 		dev_err(dev, "Failed to attach to DSI host: %d\n", ret);
-		drm_panel_remove(&ctx->panel);
 		return ret;
 	}
 
 	return 0;
-}
-
-static void ebbg_ft8719_remove(struct mipi_dsi_device *dsi)
-{
-	struct ebbg_ft8719 *ctx = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
-
-	drm_panel_remove(&ctx->panel);
 }
 
 static const struct of_device_id ebbg_ft8719_of_match[] = {
@@ -233,7 +222,6 @@ MODULE_DEVICE_TABLE(of, ebbg_ft8719_of_match);
 
 static struct mipi_dsi_driver ebbg_ft8719_driver = {
 	.probe = ebbg_ft8719_probe,
-	.remove = ebbg_ft8719_remove,
 	.driver = {
 		.name = "panel-ebbg-ft8719",
 		.of_match_table = ebbg_ft8719_of_match,

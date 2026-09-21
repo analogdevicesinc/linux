@@ -468,27 +468,19 @@ static int k101_im2ba02_dsi_probe(struct mipi_dsi_device *dsi)
 	if (ret)
 		return ret;
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(&dsi->dev, &ctx->panel);
+	if (ret)
+		return ret;
 
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO;
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->lanes = 4;
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret < 0) {
-		drm_panel_remove(&ctx->panel);
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
+	if (ret < 0)
 		return ret;
-	}
 
 	return 0;
-}
-
-static void k101_im2ba02_dsi_remove(struct mipi_dsi_device *dsi)
-{
-	struct k101_im2ba02 *ctx = mipi_dsi_get_drvdata(dsi);
-
-	mipi_dsi_detach(dsi);
-	drm_panel_remove(&ctx->panel);
 }
 
 static const struct of_device_id k101_im2ba02_of_match[] = {
@@ -499,7 +491,6 @@ MODULE_DEVICE_TABLE(of, k101_im2ba02_of_match);
 
 static struct mipi_dsi_driver k101_im2ba02_driver = {
 	.probe = k101_im2ba02_dsi_probe,
-	.remove = k101_im2ba02_dsi_remove,
 	.driver = {
 		.name = "feixin-k101-im2ba02",
 		.of_match_table = k101_im2ba02_of_match,

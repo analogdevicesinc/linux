@@ -397,12 +397,13 @@ static int panel_nv3051d_probe(struct mipi_dsi_device *dsi)
 	if (ret)
 		return ret;
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(dev, &ctx->panel);
+	if (ret)
+		return ret;
 
-	ret = mipi_dsi_attach(dsi);
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
 	if (ret < 0) {
 		dev_err(dev, "mipi_dsi_attach failed: %d\n", ret);
-		drm_panel_remove(&ctx->panel);
 		return ret;
 	}
 
@@ -416,20 +417,6 @@ static void panel_nv3051d_shutdown(struct mipi_dsi_device *dsi)
 	drm_panel_unprepare(&ctx->panel);
 
 	drm_panel_disable(&ctx->panel);
-}
-
-static void panel_nv3051d_remove(struct mipi_dsi_device *dsi)
-{
-	struct panel_nv3051d *ctx = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	panel_nv3051d_shutdown(dsi);
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
-
-	drm_panel_remove(&ctx->panel);
 }
 
 static const struct drm_display_mode nv3051d_rgxx3_modes[] = {
@@ -531,7 +518,6 @@ static struct mipi_dsi_driver newvision_nv3051d_driver = {
 		.of_match_table = newvision_nv3051d_of_match,
 	},
 	.probe	= panel_nv3051d_probe,
-	.remove = panel_nv3051d_remove,
 	.shutdown = panel_nv3051d_shutdown,
 };
 module_mipi_dsi_driver(newvision_nv3051d_driver);

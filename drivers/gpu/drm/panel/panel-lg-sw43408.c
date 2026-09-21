@@ -254,8 +254,11 @@ static int sw43408_add(struct sw43408_panel *ctx)
 
 	ctx->base.prepare_prev_first = true;
 
-	drm_panel_add(&ctx->base);
-	return ret;
+	ret = devm_drm_panel_add(dev, &ctx->base);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 static int sw43408_probe(struct mipi_dsi_device *dsi)
@@ -294,19 +297,7 @@ static int sw43408_probe(struct mipi_dsi_device *dsi)
 
 	dsi->dsc = &ctx->dsc;
 
-	return mipi_dsi_attach(dsi);
-}
-
-static void sw43408_remove(struct mipi_dsi_device *dsi)
-{
-	struct sw43408_panel *ctx = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "failed to detach from DSI host: %d\n", ret);
-
-	drm_panel_remove(&ctx->base);
+	return devm_mipi_dsi_attach(&dsi->dev, dsi);
 }
 
 static struct mipi_dsi_driver sw43408_driver = {
@@ -315,7 +306,6 @@ static struct mipi_dsi_driver sw43408_driver = {
 		.of_match_table = sw43408_of_match,
 	},
 	.probe = sw43408_probe,
-	.remove = sw43408_remove,
 };
 module_mipi_dsi_driver(sw43408_driver);
 

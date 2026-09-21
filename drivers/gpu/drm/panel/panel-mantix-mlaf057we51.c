@@ -278,12 +278,13 @@ static int mantix_probe(struct mipi_dsi_device *dsi)
 	if (ret)
 		return ret;
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(dev, &ctx->panel);
+	if (ret)
+		return ret;
 
-	ret = mipi_dsi_attach(dsi);
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
 	if (ret < 0) {
 		dev_err(dev, "mipi_dsi_attach failed (%d). Is host ready?\n", ret);
-		drm_panel_remove(&ctx->panel);
 		return ret;
 	}
 
@@ -295,14 +296,6 @@ static int mantix_probe(struct mipi_dsi_device *dsi)
 	return 0;
 }
 
-static void mantix_remove(struct mipi_dsi_device *dsi)
-{
-	struct mantix *ctx = mipi_dsi_get_drvdata(dsi);
-
-	mipi_dsi_detach(dsi);
-	drm_panel_remove(&ctx->panel);
-}
-
 static const struct of_device_id mantix_of_match[] = {
 	{ .compatible = "mantix,mlaf057we51-x", .data = &default_mode_mantix },
 	{ .compatible = "ys,ys57pss36bh5gq", .data = &default_mode_ys },
@@ -312,7 +305,6 @@ MODULE_DEVICE_TABLE(of, mantix_of_match);
 
 static struct mipi_dsi_driver mantix_driver = {
 	.probe	= mantix_probe,
-	.remove = mantix_remove,
 	.driver = {
 		.name = DRV_NAME,
 		.of_match_table = mantix_of_match,
