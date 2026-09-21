@@ -6994,7 +6994,9 @@ static int check_stack_range_initialized(
 	 */
 	bool allow_poison = access_size < 0 || clobber;
 	/* The call will initialize the memory; uninitialized stack allowed */
-	bool raw_mode = meta && meta->arg_raw_mem.argno == arg_slot_from_argno(argno) + 1;
+	u32 arg_slot = arg_slot_from_argno(argno);
+	bool raw_mode = meta && arg_slot < MAX_BPF_FUNC_ARGS &&
+		       (meta->arg_raw_mem.mask & BIT(arg_slot));
 
 	access_size = abs(access_size);
 
@@ -7034,7 +7036,7 @@ static int check_stack_range_initialized(
 	}
 
 	if (raw_mode) {
-		meta->arg_raw_mem.size = access_size;
+		meta->arg_raw_mem.size[arg_slot] = access_size;
 		return 0;
 	}
 
@@ -7226,9 +7228,8 @@ static int check_mem_size_reg(struct bpf_verifier_env *env,
 	 * checked range. Disable raw mode for this output and apply the ordinary
 	 * stack initialization checks, including their privilege exceptions.
 	 */
-	if (!tnum_is_const(size_reg->var_off) &&
-	    meta->arg_raw_mem.argno == arg_slot_from_argno(mem_argno) + 1)
-		meta->arg_raw_mem.argno = 0;
+	if (!tnum_is_const(size_reg->var_off))
+		meta->arg_raw_mem.mask &= ~BIT(arg_slot_from_argno(mem_argno));
 
 	if (reg_smin(size_reg) < 0) {
 		verbose(env, "%s min value is negative, either use unsigned or 'var &= const'\n",
@@ -8946,7 +8947,7 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 		return err;
 
 	if (arg_type_is_raw_mem(arg_type))
-		meta->arg_raw_mem.argno = slot + 1;
+		meta->arg_raw_mem.mask |= BIT(slot);
 
 	if (bpf_register_is_null(reg) && type_may_be_null(arg_type)) {
 		err = mark_arg_precision(env, argno);
@@ -9573,24 +9574,28 @@ static int mark_raw_stack(struct bpf_verifier_env *env, struct bpf_call_arg_meta
 			  int insn_idx)
 {
 	struct bpf_func_state *caller = cur_func(env);
-	struct bpf_reg_state *reg;
-	u32 slot = meta->arg_raw_mem.argno - 1;
+	u32 slot;
 	int i, err;
-
-	if (!meta->arg_raw_mem.size)
-		return 0;
-	reg = get_func_arg_reg(caller, cur_regs(env), slot);
 
 	/*
 	 * Validate every argument before initializing outputs: an input argument
 	 * may alias an output buffer. Use the normal stack-write checks to discard
 	 * stale spills and preserve the rules for special stack objects.
 	 */
-	for (i = 0; i < meta->arg_raw_mem.size; i++) {
-		err = check_mem_access(env, insn_idx, reg, argno_from_arg(slot + 1), i, BPF_B,
-				       BPF_WRITE, -1, false, false);
-		if (err)
-			return err;
+	for (slot = 0; slot < MAX_BPF_FUNC_ARGS; slot++) {
+		struct bpf_reg_state *reg;
+		argno_t argno = argno_from_arg(slot + 1);
+
+		if (!meta->arg_raw_mem.size[slot])
+			continue;
+		reg = get_func_arg_reg(caller, cur_regs(env), slot);
+
+		for (i = 0; i < meta->arg_raw_mem.size[slot]; i++) {
+			err = check_mem_access(env, insn_idx, reg, argno, i, BPF_B,
+					       BPF_WRITE, -1, false, false);
+			if (err)
+				return err;
+		}
 	}
 
 	return 0;
@@ -9888,28 +9893,6 @@ error:
 	return -EINVAL;
 }
 
-static bool check_raw_mode_ok(const struct bpf_func_proto *fn)
-{
-	bool seen = false;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(fn->arg_type); i++) {
-		enum bpf_arg_type type = fn->arg_type[i];
-
-		if (type == ARG_UNUSED)
-			break;
-		/* Struct pointers may resolve to generic memory during argument checking. */
-		if (!arg_type_is_raw_mem(type) &&
-		    !(base_type(type) == ARG_PTR_TO_BTF_ID && (type & MEM_UNINIT)))
-			continue;
-		if (seen)
-			return false;
-		seen = true;
-	}
-
-	return true;
-}
-
 static bool check_args_pair_invalid(const struct bpf_func_proto *fn, int arg)
 {
 	bool is_fixed = fn->arg_type[arg] & MEM_FIXED_SIZE;
@@ -10036,7 +10019,6 @@ static int check_func_proto(struct bpf_verifier_env *env, const struct bpf_func_
 			    struct bpf_call_arg_meta *meta)
 {
 	return check_arg_prog_aux(env, fn) &&
-	       check_raw_mode_ok(fn) &&
 	       check_arg_pair_ok(fn) &&
 	       check_mem_arg_rw_flag_ok(fn) &&
 	       check_proto_release_reg(fn, meta) &&
@@ -13129,10 +13111,6 @@ static int gen_kfunc_arg_proto(struct bpf_verifier_env *env, struct bpf_call_arg
 		return -ENOTSUPP;
 	}
 
-	if (!check_raw_mode_ok(proto)) {
-		verbose(env, "multiple __uninit buffers are not supported\n");
-		return -EINVAL;
-	}
 	return check_arg_prog_aux(env, proto) ? 0 : -EINVAL;
 }
 
@@ -13929,7 +13907,7 @@ out:
 	/* KF_ITER_NEW kfuncs initialize the iterator state at arg 0 */
 	if (arg == 0 && meta.kfunc_flags & KF_ITER_NEW)
 		return -size;
-	if (is_kfunc_arg_uninit(btf, &args[arg]))
+	if (is_kfunc_arg_uninit(btf, &args[i]))
 		return -size;
 	return size;
 }
