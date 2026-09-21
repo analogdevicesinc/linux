@@ -1878,6 +1878,7 @@ struct ieee802_11_elems {
 	const struct ieee80211_ttlm_elem *ttlm[IEEE80211_TTLM_MAX_CNT];
 	const struct ieee80211_uhr_cap *uhr_cap;
 	const struct ieee80211_uhr_operation *uhr_operation;
+	const struct ieee80211_cip_cap *cip_cap;
 
 	/* not the order in the psd values is per element, not per chandef */
 	struct ieee80211_parsed_tpe tpe;
@@ -2778,6 +2779,8 @@ int ieee80211_put_uhr_cap(struct sk_buff *skb,
 			  const struct ieee80211_supported_band *sband);
 void ieee80211_put_reg_conn(struct ieee80211_sub_if_data *sdata,
 			    struct sk_buff *skb);
+int ieee80211_put_cip_cap(struct sk_buff *skb,
+			  struct ieee80211_sub_if_data *sdata);
 
 /* channel management */
 bool ieee80211_chandef_ht_oper(const struct ieee80211_ht_operation *ht_oper,
