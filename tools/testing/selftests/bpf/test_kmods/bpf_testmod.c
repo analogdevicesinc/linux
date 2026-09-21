@@ -1330,6 +1330,12 @@ __bpf_kfunc void bpf_kfunc_test_uninit_mem(void *out__uninit, u32 out__sz)
 	memset(out__uninit, 0x2a, out__sz);
 }
 
+__bpf_kfunc void bpf_kfunc_test_uninit_partial(void *out__uninit, u32 out__sz)
+{
+	if (out__sz)
+		*(u8 *)out__uninit = 42;
+}
+
 __bpf_kfunc int bpf_kfunc_test_uninit_alias(int *out__uninit, const int *in)
 {
 	int value = get_unaligned(in);
@@ -1788,6 +1794,7 @@ BTF_ID_FLAGS(func, bpf_kfunc_call_test_pass1)
 BTF_ID_FLAGS(func, bpf_kfunc_call_test_pass2)
 BTF_ID_FLAGS(func, bpf_kfunc_test_uninit_struct)
 BTF_ID_FLAGS(func, bpf_kfunc_test_uninit_mem)
+BTF_ID_FLAGS(func, bpf_kfunc_test_uninit_partial)
 BTF_ID_FLAGS(func, bpf_kfunc_test_uninit_alias)
 BTF_ID_FLAGS(func, bpf_kfunc_test_uninit_multi)
 BTF_ID_FLAGS(func, bpf_kfunc_test_uninit_pair)

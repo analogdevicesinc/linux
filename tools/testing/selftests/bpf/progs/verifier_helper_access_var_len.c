@@ -822,4 +822,193 @@ __naked void bytes_no_leak_init_memory(void)
 	: __clobber_all);
 }
 
+SEC("cgroup/sysctl")
+__success
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__success_unpriv
+__naked void sysctl_initialized_stack(void)
+{
+	asm volatile (
+		"*(u64 *)(r10 - 16) = 0;"
+		"*(u64 *)(r10 - 8) = 0;"
+		"r2 = r10;"
+		"r2 += -16;"
+		"r3 = 16;"
+		"r4 = 0;"
+		"call %[bpf_sysctl_get_name];"
+		"r0 = *(u8 *)(r10 - 1);"
+		"r0 &= 1;"
+		"exit;"
+		: : __imm(bpf_sysctl_get_name) : __clobber_all);
+}
+
+SEC("cgroup/sysctl")
+__success
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__success_unpriv
+__naked void sysctl_uninitialized_stack(void)
+{
+	asm volatile (
+		"r2 = r10;"
+		"r2 += -16;"
+		"r3 = 16;"
+		"r4 = 0;"
+		"call %[bpf_sysctl_get_name];"
+		"r0 = 0;"
+		"exit;"
+		: : __imm(bpf_sysctl_get_name) : __clobber_all);
+}
+
+SEC("cgroup/sysctl")
+__success
+__flag(BPF_F_TEST_STATE_FREQ)
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__success_unpriv
+__naked void sysctl_partial_initialized_bytes(void)
+{
+	asm volatile (
+		"*(u32 *)(r10 - 16) = 0;"
+		"*(u8 *)(r10 - 1) = 1;"
+		"goto +0;"
+		"r2 = r10;"
+		"r2 += -16;"
+		"r3 = 16;"
+		"r4 = 0;"
+		"call %[bpf_sysctl_get_name];"
+		"r0 = *(u32 *)(r10 - 16);"
+		"r1 = *(u8 *)(r10 - 1);"
+		"r0 += r1;"
+		"r0 &= 1;"
+		"exit;"
+		: : __imm(bpf_sysctl_get_name) : __clobber_all);
+}
+
+SEC("cgroup/sysctl")
+__success
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__failure_unpriv __msg_unpriv("invalid read from stack off -1+0 size 1")
+__naked void sysctl_partial_invalid_bytes(void)
+{
+	asm volatile (
+		"*(u32 *)(r10 - 16) = 0;"
+		"r2 = r10;"
+		"r2 += -16;"
+		"r3 = 16;"
+		"r4 = 0;"
+		"call %[bpf_sysctl_get_name];"
+		"r0 = *(u8 *)(r10 - 1);"
+		"r0 &= 1;"
+		"exit;"
+		: : __imm(bpf_sysctl_get_name) : __clobber_all);
+}
+
+SEC("cgroup/sysctl")
+__success
+__flag(BPF_F_TEST_STATE_FREQ)
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__success_unpriv
+__naked void sysctl_partial_variable_size(void)
+{
+	asm volatile (
+		"r3 = *(u32 *)(r1 + 0);"
+		"r3 &= 15;"
+		"r3 += 1;"
+		"*(u8 *)(r10 - 1) = 1;"
+		"goto +0;"
+		"r2 = r10;"
+		"r2 += -16;"
+		"r4 = 0;"
+		"call %[bpf_sysctl_get_name];"
+		"r0 = *(u8 *)(r10 - 1);"
+		"r0 &= 1;"
+		"exit;"
+		: : __imm(bpf_sysctl_get_name) : __clobber_all);
+}
+
+SEC("cgroup/sysctl")
+__success
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__failure_unpriv __msg_unpriv("invalid read from stack off -1+0 size 1")
+__naked void sysctl_partial_variable_invalid(void)
+{
+	asm volatile (
+		"r3 = *(u32 *)(r1 + 0);"
+		"r3 &= 15;"
+		"r3 += 1;"
+		"r2 = r10;"
+		"r2 += -16;"
+		"r4 = 0;"
+		"call %[bpf_sysctl_get_name];"
+		"r0 = *(u8 *)(r10 - 1);"
+		"r0 &= 1;"
+		"exit;"
+		: : __imm(bpf_sysctl_get_name) : __clobber_all);
+}
+
+SEC("cgroup/sysctl")
+__success
+__flag(BPF_F_TEST_STATE_FREQ)
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__failure_unpriv __msg_unpriv("invalid read from stack R2")
+__naked void sysctl_partial_spilled_pointer(void)
+{
+	asm volatile (
+		"*(u64 *)(r10 - 8) = r1;"
+		"goto +0;"
+		"r2 = r10;"
+		"r2 += -8;"
+		"r3 = 8;"
+		"r4 = 0;"
+		"call %[bpf_sysctl_get_name];"
+		"r0 = 0;"
+		"exit;"
+		: : __imm(bpf_sysctl_get_name) : __clobber_all);
+}
+
+SEC("cgroup/sysctl")
+__success
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__failure_unpriv __msg_unpriv("invalid read from stack R2")
+int sysctl_partial_dynptr(struct bpf_sysctl *ctx)
+{
+	struct bpf_dynptr ptr;
+	long long key = 0, *data;
+
+	data = bpf_map_lookup_elem(&map_hash_8b, &key);
+	if (!data)
+		return 0;
+	bpf_dynptr_from_mem(data, sizeof(*data), 0, &ptr);
+	bpf_sysctl_get_name(ctx, (char *)&ptr, sizeof(ptr), 0);
+	return 0;
+}
+
+SEC("cgroup/sysctl")
+__success
+__naked void sysctl_partial_variable_offset(void)
+{
+	asm volatile (
+		"r2 = *(u32 *)(r1 + 0);"
+		"r2 &= 8;"
+		"r2 += r10;"
+		"r2 += -24;"
+		"r3 = 16;"
+		"r4 = 0;"
+		"call %[bpf_sysctl_get_name];"
+		"r0 = *(u8 *)(r10 - 16);"
+		"r0 &= 1;"
+		"exit;"
+		: : __imm(bpf_sysctl_get_name) : __clobber_all);
+}
+
+SEC("tc")
+__success __retval(42)
+int snprintf_partial_output_runtime(struct __sk_buff *ctx)
+{
+	char buf[16];
+
+	buf[15] = 42;
+	bpf_snprintf(buf, sizeof(buf), "ok", NULL, 0);
+	return buf[15];
+}
+
 char _license[] SEC("license") = "GPL";

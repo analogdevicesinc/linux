@@ -49,7 +49,7 @@ SEC("tc")
 __success __retval(42)
 __caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
 __prepare_priv
-__success_unpriv
+__failure_unpriv __msg_unpriv("invalid read from stack off -16+0 size 4")
 __naked void variable_size_preserves_other_output(void)
 {
 	asm volatile (
@@ -71,7 +71,7 @@ __arch_x86_64 __arch_arm64
 __success __retval(42)
 __caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
 __prepare_priv
-__success_unpriv
+__failure_unpriv __msg_unpriv("invalid read from stack off -8+0 size 4")
 __naked void output_after_by_value_argument(void)
 {
 	asm volatile (
@@ -91,7 +91,7 @@ __arch_x86_64 __arch_arm64 __arch_riscv64
 __success __retval(15)
 __caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
 __prepare_priv
-__success_unpriv
+__failure_unpriv __msg_unpriv("invalid read from stack off -8+0 size 4")
 __naked void output_passed_on_stack(void)
 {
 	asm volatile (
