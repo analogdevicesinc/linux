@@ -2802,7 +2802,8 @@ done:
 
 static s32
 brcmf_cfg80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-		       int link_id, u8 key_idx, bool pairwise,
+		       int link_id, u8 key_idx,
+		       enum nl80211_key_type type,
 		       const u8 *mac_addr)
 {
 	struct brcmf_if *ifp = netdev_priv(wdev->netdev);
@@ -2840,7 +2841,8 @@ brcmf_cfg80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 static s32
 brcmf_cfg80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-		       int link_id, u8 key_idx, bool pairwise,
+		       int link_id, u8 key_idx,
+		       enum nl80211_key_type type,
 		       const u8 *mac_addr, struct key_params *params)
 {
 	struct brcmf_cfg80211_info *cfg = wiphy_to_cfg(wiphy);
@@ -2866,7 +2868,7 @@ brcmf_cfg80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 	if (params->key_len == 0)
 		return brcmf_cfg80211_del_key(wiphy, wdev, -1, key_idx,
-					      pairwise, mac_addr);
+					      type, mac_addr);
 
 	if (params->key_len > sizeof(key->data)) {
 		bphy_err(drvr, "Too long key length (%u)\n", params->key_len);
@@ -2962,7 +2964,8 @@ done:
 
 static s32
 brcmf_cfg80211_get_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-		       int link_id, u8 key_idx, bool pairwise,
+		       int link_id, u8 key_idx,
+		       enum nl80211_key_type type,
 		       const u8 *mac_addr, void *cookie,
 		       void (*callback)(void *cookie,
 					struct key_params *params))

@@ -78,42 +78,43 @@ rdev_change_virtual_intf(struct cfg80211_registered_device *rdev,
 
 static inline int rdev_add_key(struct cfg80211_registered_device *rdev,
 			       struct wireless_dev *wdev, int link_id,
-			       u8 key_index, bool pairwise, const u8 *mac_addr,
-			       struct key_params *params)
+			       u8 key_index, enum nl80211_key_type type,
+			       const u8 *mac_addr, struct key_params *params)
 {
 	int ret;
-	trace_rdev_add_key(&rdev->wiphy, wdev, link_id, key_index, pairwise,
+	trace_rdev_add_key(&rdev->wiphy, wdev, link_id, key_index, type,
 			   mac_addr, params->mode);
 	ret = rdev->ops->add_key(&rdev->wiphy, wdev, link_id, key_index,
-				  pairwise, mac_addr, params);
+				  type, mac_addr, params);
 	trace_rdev_return_int(&rdev->wiphy, ret);
 	return ret;
 }
 
 static inline int
 rdev_get_key(struct cfg80211_registered_device *rdev, struct wireless_dev *wdev,
-	     int link_id, u8 key_index, bool pairwise, const u8 *mac_addr,
-	     void *cookie,
+	     int link_id, u8 key_index, enum nl80211_key_type type,
+	     const u8 *mac_addr, void *cookie,
 	     void (*callback)(void *cookie, struct key_params*))
 {
 	int ret;
-	trace_rdev_get_key(&rdev->wiphy, wdev, link_id, key_index, pairwise,
+	trace_rdev_get_key(&rdev->wiphy, wdev, link_id, key_index, type,
 			   mac_addr);
 	ret = rdev->ops->get_key(&rdev->wiphy, wdev, link_id, key_index,
-				  pairwise, mac_addr, cookie, callback);
+				 type, mac_addr, cookie, callback);
 	trace_rdev_return_int(&rdev->wiphy, ret);
 	return ret;
 }
 
 static inline int rdev_del_key(struct cfg80211_registered_device *rdev,
 			       struct wireless_dev *wdev, int link_id,
-			       u8 key_index, bool pairwise, const u8 *mac_addr)
+			       u8 key_index, enum nl80211_key_type type,
+			       const u8 *mac_addr)
 {
 	int ret;
-	trace_rdev_del_key(&rdev->wiphy, wdev, link_id, key_index, pairwise,
+	trace_rdev_del_key(&rdev->wiphy, wdev, link_id, key_index, type,
 			   mac_addr);
 	ret = rdev->ops->del_key(&rdev->wiphy, wdev, link_id, key_index,
-				  pairwise, mac_addr);
+				  type, mac_addr);
 	trace_rdev_return_int(&rdev->wiphy, ret);
 	return ret;
 }

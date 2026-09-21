@@ -615,12 +615,14 @@ static int ieee80211_set_tx(struct ieee80211_sub_if_data *sdata,
 }
 
 static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-			     int link_id, u8 key_idx, bool pairwise,
+			     int link_id, u8 key_idx,
+			     enum nl80211_key_type type,
 			     const u8 *mac_addr, struct key_params *params)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
 	struct ieee80211_link_data *link =
 		ieee80211_link_or_deflink(sdata, link_id, false);
+	bool pairwise = type == NL80211_KEYTYPE_PAIRWISE;
 	struct ieee80211_local *local = sdata->local;
 	struct sta_info *sta = NULL;
 	struct ieee80211_key *key;
@@ -741,10 +743,12 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 static struct ieee80211_key *
 ieee80211_lookup_key(struct ieee80211_sub_if_data *sdata, int link_id,
-		     u8 key_idx, bool pairwise, const u8 *mac_addr)
+		     u8 key_idx, enum nl80211_key_type type,
+		     const u8 *mac_addr)
 {
 	struct ieee80211_local *local __maybe_unused = sdata->local;
 	struct ieee80211_link_data *link = &sdata->deflink;
+	bool pairwise = type == NL80211_KEYTYPE_PAIRWISE;
 	struct ieee80211_key *key;
 
 	if (link_id >= 0) {
@@ -799,8 +803,8 @@ ieee80211_lookup_key(struct ieee80211_sub_if_data *sdata, int link_id,
 }
 
 static int ieee80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-			     int link_id, u8 key_idx, bool pairwise,
-			     const u8 *mac_addr)
+			     int link_id, u8 key_idx,
+			     enum nl80211_key_type type, const u8 *mac_addr)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
 	struct ieee80211_local *local = sdata->local;
@@ -808,7 +812,7 @@ static int ieee80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 	lockdep_assert_wiphy(local->hw.wiphy);
 
-	key = ieee80211_lookup_key(sdata, link_id, key_idx, pairwise, mac_addr);
+	key = ieee80211_lookup_key(sdata, link_id, key_idx, type, mac_addr);
 	if (!key)
 		return -ENOENT;
 
@@ -818,7 +822,8 @@ static int ieee80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 }
 
 static int ieee80211_get_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-			     int link_id, u8 key_idx, bool pairwise,
+			     int link_id, u8 key_idx,
+			     enum nl80211_key_type type,
 			     const u8 *mac_addr, void *cookie,
 			     void (*callback)(void *cookie,
 					      struct key_params *params))
@@ -837,7 +842,7 @@ static int ieee80211_get_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 	rcu_read_lock();
 
-	key = ieee80211_lookup_key(sdata, link_id, key_idx, pairwise, mac_addr);
+	key = ieee80211_lookup_key(sdata, link_id, key_idx, type, mac_addr);
 	if (!key)
 		goto out;
 

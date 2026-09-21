@@ -142,12 +142,14 @@ static void *mwifiex_cfg80211_get_adapter(struct wiphy *wiphy)
  */
 static int
 mwifiex_cfg80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-			 int link_id, u8 key_index, bool pairwise,
+			 int link_id, u8 key_index,
+			enum nl80211_key_type type,
 			 const u8 *mac_addr)
 {
 	struct mwifiex_private *priv = mwifiex_netdev_get_priv(wdev->netdev);
 	static const u8 bc_mac[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-	const u8 *peer_mac = pairwise ? mac_addr : bc_mac;
+	const u8 *peer_mac =
+		(type == NL80211_KEYTYPE_PAIRWISE) ? mac_addr : bc_mac;
 
 	if (mwifiex_set_encode(priv, NULL, NULL, 0, key_index, peer_mac, 1)) {
 		mwifiex_dbg(priv->adapter, ERROR, "deleting the crypto keys\n");
@@ -480,13 +482,15 @@ mwifiex_cfg80211_set_default_key(struct wiphy *wiphy, struct net_device *netdev,
  */
 static int
 mwifiex_cfg80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-			 int link_id, u8 key_index, bool pairwise,
+			 int link_id, u8 key_index,
+			 enum nl80211_key_type type,
 			 const u8 *mac_addr, struct key_params *params)
 {
 	struct mwifiex_private *priv = mwifiex_netdev_get_priv(wdev->netdev);
 	struct mwifiex_wep_key *wep_key;
 	static const u8 bc_mac[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-	const u8 *peer_mac = pairwise ? mac_addr : bc_mac;
+	const u8 *peer_mac =
+		(type == NL80211_KEYTYPE_PAIRWISE) ? mac_addr : bc_mac;
 
 	if (GET_BSS_ROLE(priv) == MWIFIEX_BSS_ROLE_UAP &&
 	    (params->cipher == WLAN_CIPHER_SUITE_WEP40 ||
