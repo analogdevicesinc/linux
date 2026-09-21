@@ -8,10 +8,8 @@ shelldir=$(dirname "$0")
 . "${shelldir}"/lib/perf_record.sh
 
 
-# shellcheck source=lib/waiting.sh
 . "${shelldir}"/lib/waiting.sh
 
-# shellcheck source=lib/perf_has_symbol.sh
 . "${shelldir}"/lib/perf_has_symbol.sh
 
 testsym="test_loop"
