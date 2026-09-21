@@ -36,6 +36,14 @@ static inline int sys_close_range(unsigned int fd, unsigned int max_fd,
 	return syscall(__NR_close_range, fd, max_fd, flags);
 }
 
+static void clear_cloexec(const int *fds, size_t n)
+{
+	size_t i;
+
+	for (i = 0; i < n; i++)
+		fcntl(fds[i], F_SETFD, 0);
+}
+
 TEST(core_close_range)
 {
 	int i, ret;
@@ -635,6 +643,424 @@ TEST(close_range_cloexec_unshare_syzbot)
 	EXPECT_EQ(close(fd1), 0);
 	EXPECT_EQ(close(fd2), 0);
 	EXPECT_EQ(close(fd3), 0);
+}
+
+TEST(close_range_except)
+{
+	int i, ret, status;
+	pid_t pid;
+	int open_fds[101];
+	struct __clone_args args = {
+		.exit_signal = SIGCHLD,
+	};
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++) {
+		int fd;
+
+		fd = open("/dev/null", O_RDONLY);
+		ASSERT_GE(fd, 0) {
+			if (errno == ENOENT)
+				SKIP(return, "Skipping test since /dev/null does not exist");
+		}
+
+		open_fds[i] = fd;
+	}
+
+	/* A range covering everything keeps everything. */
+	ret = sys_close_range(0, UINT_MAX, CLOSE_RANGE_EXCEPT);
+	if (ret < 0) {
+		if (errno == ENOSYS)
+			SKIP(return, "close_range() syscall not supported");
+		if (errno == EINVAL)
+			SKIP(return, "close_range() doesn't support CLOSE_RANGE_EXCEPT");
+	}
+	ASSERT_EQ(0, ret);
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++)
+		EXPECT_NE(-1, fcntl(open_fds[i], F_GETFD));
+
+	/* The bounds are checked before the range is turned around. */
+	EXPECT_EQ(-1, sys_close_range(open_fds[20], open_fds[10],
+				      CLOSE_RANGE_EXCEPT));
+	EXPECT_EQ(EINVAL, errno);
+
+	/* Everything above open_fds[50] goes. */
+	ASSERT_EQ(0, sys_close_range(0, open_fds[50], CLOSE_RANGE_EXCEPT));
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++)
+		EXPECT_EQ(i <= 50, fcntl(open_fds[i], F_GETFD) != -1);
+
+	/* A window in the middle takes stdio with it, so do that in a fork. */
+	pid = sys_clone3(&args, sizeof(args));
+	ASSERT_GE(pid, 0);
+
+	if (pid == 0) {
+		ret = sys_close_range(open_fds[10], open_fds[20],
+				      CLOSE_RANGE_EXCEPT);
+		if (ret)
+			exit(EXIT_FAILURE);
+
+		for (i = 0; i <= 50; i++) {
+			bool kept = i >= 10 && i <= 20;
+
+			if (kept != (fcntl(open_fds[i], F_GETFD) != -1))
+				exit(EXIT_FAILURE);
+		}
+
+		if (fcntl(STDERR_FILENO, F_GETFD) != -1)
+			exit(EXIT_FAILURE);
+
+		exit(EXIT_SUCCESS);
+	}
+
+	EXPECT_EQ(waitpid(pid, &status, 0), pid);
+	EXPECT_EQ(true, WIFEXITED(status));
+	EXPECT_EQ(0, WEXITSTATUS(status));
+
+	/* The fork had a table of its own. */
+	for (i = 0; i <= 50; i++)
+		EXPECT_NE(-1, fcntl(open_fds[i], F_GETFD));
+}
+
+TEST(close_range_except_cloexec)
+{
+	int i, ret;
+	int open_fds[101];
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++) {
+		int fd;
+
+		fd = open("/dev/null", O_RDONLY);
+		ASSERT_GE(fd, 0) {
+			if (errno == ENOENT)
+				SKIP(return, "Skipping test since /dev/null does not exist");
+		}
+
+		open_fds[i] = fd;
+	}
+
+	ret = sys_close_range(open_fds[10], open_fds[20],
+			      CLOSE_RANGE_CLOEXEC | CLOSE_RANGE_EXCEPT);
+	if (ret < 0) {
+		if (errno == ENOSYS)
+			SKIP(return, "close_range() syscall not supported");
+		if (errno == EINVAL)
+			SKIP(return, "close_range() doesn't support CLOSE_RANGE_EXCEPT");
+	}
+	ASSERT_EQ(0, ret);
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++) {
+		bool inside = i >= 10 && i <= 20;
+		int flags = fcntl(open_fds[i], F_GETFD);
+
+		EXPECT_NE(-1, flags);
+		EXPECT_EQ(inside ? 0 : FD_CLOEXEC, flags & FD_CLOEXEC);
+	}
+
+	/* stdio sits outside of the window too. */
+	EXPECT_EQ(FD_CLOEXEC, fcntl(STDERR_FILENO, F_GETFD) & FD_CLOEXEC);
+
+	/* A window that starts at 0 marks only what lies above it. */
+	clear_cloexec(open_fds, ARRAY_SIZE(open_fds));
+	ASSERT_EQ(0, fcntl(STDERR_FILENO, F_SETFD, 0));
+	ASSERT_EQ(0, sys_close_range(0, open_fds[20],
+				     CLOSE_RANGE_CLOEXEC | CLOSE_RANGE_EXCEPT));
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++)
+		EXPECT_EQ(i <= 20 ? 0 : FD_CLOEXEC,
+			  fcntl(open_fds[i], F_GETFD) & FD_CLOEXEC);
+	EXPECT_EQ(0, fcntl(STDERR_FILENO, F_GETFD) & FD_CLOEXEC);
+
+	/* One at the top marks only what lies below it, stdio included. */
+	clear_cloexec(open_fds, ARRAY_SIZE(open_fds));
+	ASSERT_EQ(0, sys_close_range(open_fds[80], UINT_MAX,
+				     CLOSE_RANGE_CLOEXEC | CLOSE_RANGE_EXCEPT));
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++)
+		EXPECT_EQ(i < 80 ? FD_CLOEXEC : 0,
+			  fcntl(open_fds[i], F_GETFD) & FD_CLOEXEC);
+	EXPECT_EQ(FD_CLOEXEC, fcntl(STDERR_FILENO, F_GETFD) & FD_CLOEXEC);
+
+	/* One that cannot hold a descriptor marks everything. */
+	clear_cloexec(open_fds, ARRAY_SIZE(open_fds));
+	ASSERT_EQ(0, fcntl(STDERR_FILENO, F_SETFD, 0));
+	ASSERT_EQ(0, sys_close_range(UINT_MAX, UINT_MAX,
+				     CLOSE_RANGE_CLOEXEC | CLOSE_RANGE_EXCEPT));
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++)
+		EXPECT_EQ(FD_CLOEXEC, fcntl(open_fds[i], F_GETFD) & FD_CLOEXEC);
+	EXPECT_EQ(FD_CLOEXEC, fcntl(STDERR_FILENO, F_GETFD) & FD_CLOEXEC);
+}
+
+TEST(close_range_except_cloexec_unshare)
+{
+	int i, ret, status;
+	pid_t pid;
+	int open_fds[101];
+	struct __clone_args args = {
+		.flags = CLONE_FILES,
+		.exit_signal = SIGCHLD,
+	};
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++) {
+		int fd;
+
+		fd = open("/dev/null", O_RDONLY);
+		ASSERT_GE(fd, 0) {
+			if (errno == ENOENT)
+				SKIP(return, "Skipping test since /dev/null does not exist");
+		}
+
+		open_fds[i] = fd;
+	}
+
+	/* A range covering everything marks nothing. */
+	ret = sys_close_range(0, UINT_MAX,
+			      CLOSE_RANGE_CLOEXEC | CLOSE_RANGE_EXCEPT);
+	if (ret < 0) {
+		if (errno == ENOSYS)
+			SKIP(return, "close_range() syscall not supported");
+		if (errno == EINVAL)
+			SKIP(return, "close_range() doesn't support CLOSE_RANGE_EXCEPT");
+	}
+	ASSERT_EQ(0, ret);
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++)
+		EXPECT_EQ(0, fcntl(open_fds[i], F_GETFD) & FD_CLOEXEC);
+
+	pid = sys_clone3(&args, sizeof(args));
+	ASSERT_GE(pid, 0);
+
+	if (pid == 0) {
+		ret = sys_close_range(open_fds[10], open_fds[20],
+				      CLOSE_RANGE_UNSHARE | CLOSE_RANGE_CLOEXEC |
+				      CLOSE_RANGE_EXCEPT);
+		if (ret)
+			exit(EXIT_FAILURE);
+
+		for (i = 0; i < ARRAY_SIZE(open_fds); i++) {
+			bool inside = i >= 10 && i <= 20;
+			int flags = fcntl(open_fds[i], F_GETFD);
+
+			if (flags == -1)
+				exit(EXIT_FAILURE);
+			if ((flags & FD_CLOEXEC) != (inside ? 0 : FD_CLOEXEC))
+				exit(EXIT_FAILURE);
+		}
+
+		exit(EXIT_SUCCESS);
+	}
+
+	EXPECT_EQ(waitpid(pid, &status, 0), pid);
+	EXPECT_EQ(true, WIFEXITED(status));
+	EXPECT_EQ(0, WEXITSTATUS(status));
+
+	/* The shared table the child unshared from is untouched. */
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++)
+		EXPECT_EQ(0, fcntl(open_fds[i], F_GETFD) & FD_CLOEXEC);
+}
+
+TEST(close_range_except_bounds)
+{
+	int i, c, ret, status;
+	pid_t pid;
+	int open_fds[101];
+	struct __clone_args args = {
+		.exit_signal = SIGCHLD,
+	};
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++) {
+		int fd;
+
+		fd = open("/dev/null", O_RDONLY);
+		ASSERT_GE(fd, 0) {
+			if (errno == ENOENT)
+				SKIP(return, "Skipping test since /dev/null does not exist");
+		}
+
+		open_fds[i] = fd;
+	}
+
+	/* A range covering everything keeps everything. */
+	ret = sys_close_range(0, UINT_MAX, CLOSE_RANGE_EXCEPT);
+	if (ret < 0) {
+		if (errno == ENOSYS)
+			SKIP(return, "close_range() syscall not supported");
+		if (errno == EINVAL)
+			SKIP(return, "close_range() doesn't support CLOSE_RANGE_EXCEPT");
+	}
+	ASSERT_EQ(0, ret);
+
+	struct {
+		unsigned int fd, max_fd, flags;
+	} cases[] = {
+		/* A window at the top drops everything below it. */
+		{ open_fds[50], UINT_MAX, CLOSE_RANGE_EXCEPT },
+		/* One that cannot hold a descriptor keeps nothing. */
+		{ UINT_MAX, UINT_MAX, CLOSE_RANGE_EXCEPT },
+		/* One of a single descriptor keeps just that. */
+		{ open_fds[30], open_fds[30], CLOSE_RANGE_EXCEPT },
+		/* The unshare form on a table that is not shared acts in place. */
+		{ open_fds[10], open_fds[20],
+		  CLOSE_RANGE_UNSHARE | CLOSE_RANGE_EXCEPT },
+	};
+
+	/* Each of them takes stdio with it, so do that in a fork. */
+	for (c = 0; c < ARRAY_SIZE(cases); c++) {
+		pid = sys_clone3(&args, sizeof(args));
+		ASSERT_GE(pid, 0);
+
+		if (pid == 0) {
+			ret = sys_close_range(cases[c].fd, cases[c].max_fd,
+					      cases[c].flags);
+			if (ret)
+				exit(EXIT_FAILURE);
+
+			for (i = 0; i < ARRAY_SIZE(open_fds); i++) {
+				unsigned int fd = open_fds[i];
+				bool kept = fd >= cases[c].fd &&
+					    fd <= cases[c].max_fd;
+
+				if (kept != (fcntl(fd, F_GETFD) != -1))
+					exit(EXIT_FAILURE);
+			}
+
+			if (fcntl(STDERR_FILENO, F_GETFD) != -1)
+				exit(EXIT_FAILURE);
+
+			exit(EXIT_SUCCESS);
+		}
+
+		EXPECT_EQ(waitpid(pid, &status, 0), pid);
+		EXPECT_EQ(true, WIFEXITED(status));
+		EXPECT_EQ(0, WEXITSTATUS(status));
+	}
+
+	/* Each fork had a table of its own. */
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++)
+		EXPECT_NE(-1, fcntl(open_fds[i], F_GETFD));
+}
+
+TEST(close_range_except_unshare)
+{
+	int i, ret, status;
+	pid_t pid;
+	int open_fds[200];
+	struct __clone_args args = {
+		.flags = CLONE_FILES,
+		.exit_signal = SIGCHLD,
+	};
+
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++) {
+		int fd;
+
+		/* Odd slots are close-on-exec, which makes no difference here. */
+		fd = open("/dev/null", O_RDONLY | (i % 2 ? O_CLOEXEC : 0));
+		ASSERT_GE(fd, 0) {
+			if (errno == ENOENT)
+				SKIP(return, "Skipping test since /dev/null does not exist");
+		}
+
+		open_fds[i] = fd;
+	}
+
+	/* A range covering everything keeps everything. */
+	ret = sys_close_range(0, UINT_MAX, CLOSE_RANGE_EXCEPT);
+	if (ret < 0) {
+		if (errno == ENOSYS)
+			SKIP(return, "close_range() syscall not supported");
+		if (errno == EINVAL)
+			SKIP(return, "close_range() doesn't support CLOSE_RANGE_EXCEPT");
+	}
+	ASSERT_EQ(0, ret);
+
+	pid = sys_clone3(&args, sizeof(args));
+	ASSERT_GE(pid, 0);
+
+	if (pid == 0) {
+		/* The window sits near the top, so the clone is sized off its end. */
+		ret = sys_close_range(open_fds[150], open_fds[160],
+				      CLOSE_RANGE_UNSHARE | CLOSE_RANGE_EXCEPT);
+		if (ret)
+			exit(EXIT_FAILURE);
+
+		for (i = 0; i < ARRAY_SIZE(open_fds); i++) {
+			bool kept = i >= 150 && i <= 160;
+
+			if (kept != (fcntl(open_fds[i], F_GETFD) != -1))
+				exit(EXIT_FAILURE);
+		}
+
+		if (fcntl(STDERR_FILENO, F_GETFD) != -1)
+			exit(EXIT_FAILURE);
+
+		/* What was left behind is handed out again, from the bottom. */
+		if (dup(open_fds[150]) != 0)
+			exit(EXIT_FAILURE);
+
+		exit(EXIT_SUCCESS);
+	}
+
+	EXPECT_EQ(waitpid(pid, &status, 0), pid);
+	EXPECT_EQ(true, WIFEXITED(status));
+	EXPECT_EQ(0, WEXITSTATUS(status));
+
+	/* A window at the bottom keeps just that, stdio included. */
+	pid = sys_clone3(&args, sizeof(args));
+	ASSERT_GE(pid, 0);
+
+	if (pid == 0) {
+		ret = sys_close_range(0, open_fds[10],
+				      CLOSE_RANGE_UNSHARE | CLOSE_RANGE_EXCEPT);
+		if (ret)
+			exit(EXIT_FAILURE);
+
+		for (i = 0; i < ARRAY_SIZE(open_fds); i++) {
+			if ((i <= 10) != (fcntl(open_fds[i], F_GETFD) != -1))
+				exit(EXIT_FAILURE);
+		}
+
+		if (fcntl(STDERR_FILENO, F_GETFD) == -1)
+			exit(EXIT_FAILURE);
+
+		/* The first slot left behind is the next one handed out. */
+		if (dup(0) != open_fds[10] + 1)
+			exit(EXIT_FAILURE);
+
+		exit(EXIT_SUCCESS);
+	}
+
+	EXPECT_EQ(waitpid(pid, &status, 0), pid);
+	EXPECT_EQ(true, WIFEXITED(status));
+	EXPECT_EQ(0, WEXITSTATUS(status));
+
+	/* A window that cannot hold a descriptor keeps nothing. */
+	pid = sys_clone3(&args, sizeof(args));
+	ASSERT_GE(pid, 0);
+
+	if (pid == 0) {
+		ret = sys_close_range(UINT_MAX, UINT_MAX,
+				      CLOSE_RANGE_UNSHARE | CLOSE_RANGE_EXCEPT);
+		if (ret)
+			exit(EXIT_FAILURE);
+
+		for (i = 0; i < ARRAY_SIZE(open_fds); i++)
+			if (fcntl(open_fds[i], F_GETFD) != -1)
+				exit(EXIT_FAILURE);
+
+		if (fcntl(STDERR_FILENO, F_GETFD) != -1)
+			exit(EXIT_FAILURE);
+
+		exit(EXIT_SUCCESS);
+	}
+
+	EXPECT_EQ(waitpid(pid, &status, 0), pid);
+	EXPECT_EQ(true, WIFEXITED(status));
+	EXPECT_EQ(0, WEXITSTATUS(status));
+
+	/* The shared table the child unshared from is untouched. */
+	for (i = 0; i < ARRAY_SIZE(open_fds); i++)
+		EXPECT_NE(-1, fcntl(open_fds[i], F_GETFD));
 }
 
 TEST(close_range_bitmap_corruption)
