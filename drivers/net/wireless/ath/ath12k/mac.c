@@ -1506,6 +1506,13 @@ static int ath12k_mac_monitor_start(struct ath12k *ar)
 		return ret;
 	}
 
+	/*
+	 * A previous monitor session may have stopped mid-PPDU, leaving
+	 * ppdu_continuation set. Clear it so the first status buffer of
+	 * this session is not merged with stale state from before.
+	 */
+	ar->dp.mon_data.mon_ppdu_info.ppdu_continuation = false;
+
 	ar->monitor_started = true;
 	ar->num_started_vdevs++;
 
@@ -3517,7 +3524,7 @@ static void ath12k_peer_assoc_h_eht(struct ath12k *ar,
 							   IEEE80211_EHT_MCS_NSS_RX));
 	}
 
-	max_nss = min(max_nss, (uint8_t)eht_nss);
+	max_nss = min(max_nss, (u8)eht_nss);
 
 	arg->peer_nss = min(link_sta->rx_nss, max_nss);
 
@@ -14294,6 +14301,7 @@ static int ath12k_mac_setup_channels_rates(struct ath12k *ar,
 					   sizeof(ath12k_6ghz_channels), GFP_KERNEL);
 			if (!channels) {
 				kfree(ar->mac.sbands[NL80211_BAND_2GHZ].channels);
+				ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
 				return -ENOMEM;
 			}
 
@@ -14344,7 +14352,9 @@ static int ath12k_mac_setup_channels_rates(struct ath12k *ar,
 					   GFP_KERNEL);
 			if (!channels) {
 				kfree(ar->mac.sbands[NL80211_BAND_2GHZ].channels);
+				ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
 				kfree(ar->mac.sbands[NL80211_BAND_6GHZ].channels);
+				ar->mac.sbands[NL80211_BAND_6GHZ].channels = NULL;
 				return -ENOMEM;
 			}
 
@@ -14384,7 +14394,7 @@ static int ath12k_mac_setup_channels_rates(struct ath12k *ar,
 					kfree(ar->mac.sbands[NL80211_BAND_2GHZ].channels);
 					ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
 					kfree(ar->mac.sbands[NL80211_BAND_6GHZ].channels);
-					ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
+					ar->mac.sbands[NL80211_BAND_6GHZ].channels = NULL;
 					kfree(channels);
 					band->channels = NULL;
 					return ret;
@@ -15043,28 +15053,49 @@ static int ath12k_mac_hw_register(struct ath12k_hw *ah)
 		wiphy->interface_modes &= ~BIT(NL80211_IFTYPE_MONITOR);
 
 	for_each_ar(ah, ar, i) {
+		struct ath12k_base *this_ab = ar->ab;
+
 		/* Apply the regd received during initialization */
 		ret = ath12k_regd_update(ar, true);
 		if (ret) {
-			ath12k_err(ar->ab, "ath12k regd update failed: %d\n", ret);
+			ath12k_err(this_ab, "ath12k regd update failed: %d\n", ret);
 			goto err_unregister_hw;
 		}
 
-		if (ar->ab->hw_params->current_cc_support && ab->new_alpha2[0]) {
+		if (this_ab->hw_params->current_cc_support) {
 			struct wmi_set_current_country_arg current_cc = {};
+			struct ieee80211_regdomain *default_regd;
+			bool same_cc = false;
 
-			memcpy(&current_cc.alpha2, ab->new_alpha2, 2);
-			memcpy(&ar->alpha2, ab->new_alpha2, 2);
+			spin_lock_bh(&this_ab->base_lock);
+			memcpy(&current_cc.alpha2, this_ab->new_alpha2, 2);
+			spin_unlock_bh(&this_ab->base_lock);
+
+			if (!current_cc.alpha2[0])
+				goto fw_stats_init;
+
+			memcpy(&ar->alpha2, current_cc.alpha2, 2);
+
+			spin_lock_bh(&this_ab->base_lock);
+			default_regd = this_ab->default_regd[ar->pdev_idx];
+			if (default_regd)
+				same_cc = !memcmp(default_regd->alpha2,
+						  current_cc.alpha2, 2);
+			spin_unlock_bh(&this_ab->base_lock);
+
+			if (same_cc)
+				goto fw_stats_init;
 
 			reinit_completion(&ar->regd_update_completed);
 
 			ret = ath12k_wmi_send_set_current_country_cmd(ar, &current_cc);
 			if (ret)
-				ath12k_warn(ar->ab,
+				ath12k_warn(this_ab,
 					    "failed set cc code for mac register: %d\n",
 					    ret);
 		}
 
+fw_stats_init:
 		ath12k_fw_stats_init(ar);
 		ath12k_debugfs_register(ar);
 	}
