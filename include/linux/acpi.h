@@ -25,6 +25,7 @@ struct irq_domain_ops;
 #define _LINUX
 #endif
 #include <acpi/acpi.h>
+#include <acpi/acpi_bus.h>
 #include <acpi/acpi_numa.h>
 
 #ifdef	CONFIG_ACPI
@@ -35,7 +36,6 @@ struct irq_domain_ops;
 #include <linux/mutex.h>
 #include <linux/fw_table.h>
 
-#include <acpi/acpi_bus.h>
 #include <acpi/acpi_drivers.h>
 #include <acpi/acpi_io.h>
 #include <asm/acpi.h>
