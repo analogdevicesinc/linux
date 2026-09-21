@@ -19085,6 +19085,7 @@ static int nl80211_color_change(struct sk_buff *skb, struct genl_info *info)
 	struct cfg80211_color_change_settings params = {};
 	struct net_device *dev = info->user_ptr[1];
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	enum ieee80211_ap_reg_power reg_power;
 	struct nlattr **tb;
 	u16 offset;
 	int err;
@@ -19184,6 +19185,15 @@ static int nl80211_color_change(struct sk_buff *skb, struct genl_info *info)
 			&params.unsol_bcast_probe_resp);
 		if (err)
 			goto out;
+	}
+
+	reg_power =
+		cfg80211_get_6ghz_power_type(params.beacon_color_change.tail,
+					     params.beacon_color_change.tail_len, 0);
+	if (wdev->links[params.link_id].ap.reg_power != reg_power) {
+		GENL_SET_ERR_MSG(info, "6 GHz power type change not allowed");
+		err = -EINVAL;
+		goto out;
 	}
 
 	err = rdev_color_change(rdev, dev, &params);
