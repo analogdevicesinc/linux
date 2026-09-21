@@ -219,20 +219,20 @@
 		clocks = <&dma_clk>;
 	};
 
-	// axi_data_offload_rx: axi-data-offload-0@60000 {
-	// 	compatible = "adi,axi-data-offload-1.0.a";
-	// 	reg = <0x00060000 0x10000>;
-	// };
+	axi_data_offload_rx: axi-data-offload-0@100000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x00100000 0x10000>;
+	};
 
-	// axi_data_offload_rx_os: axi-data-offload-1@70000 {
-	// 	compatible = "adi,axi-data-offload-1.0.a";
-	// 	reg = <0x00070000 0x10000>;
-	// };
+	axi_data_offload_tx: axi-data-offload-1@110000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x00110000 0x10000>;
+	};
 
-	// axi_data_offload_tx: axi-data-offload-2@80000 {
-	// 	compatible = "adi,axi-data-offload-1.0.a";
-	// 	reg = <0x00080000 0x10000>;
-	// };
+	axi_data_offload_rx_os: axi-data-offload-2@120000 {
+		compatible = "adi,axi-data-offload-1.0.a";
+		reg = <0x00120000 0x10000>;
+	};
 
 	axi_ad9081_core_rx: axi-ad9081-rx-hpc@D2000 {
 		compatible = "adi,axi-ad9081-rx-1.0";
@@ -269,8 +269,7 @@
 		clock-names = "sampl_clk";
 		spibus-connected = <&trx0_ad9081>;
 
-		plddrbypass-gpios = <&sys_gpio_out (fmc_gpio_base + 60) 0>;
-		// adi,axi-data-offload-connected = <&axi_data_offload_tx>;
+		adi,axi-data-offload-connected = <&axi_data_offload_tx>;
 		adi,axi-pl-fifo-enable;
 
 		jesd204-device;
