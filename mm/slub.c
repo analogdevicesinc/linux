@@ -453,6 +453,7 @@ struct node_barn {
 	spinlock_t lock;
 	struct list_head sheaves_full;
 	struct list_head sheaves_empty;
+	struct slab_sheaf *sheaf_partial;
 	unsigned int nr_full;
 	unsigned int nr_empty;
 };
@@ -3329,6 +3330,7 @@ static void barn_init(struct node_barn *barn)
 	spin_lock_init(&barn->lock);
 	INIT_LIST_HEAD(&barn->sheaves_full);
 	INIT_LIST_HEAD(&barn->sheaves_empty);
+	barn->sheaf_partial = NULL;
 	barn->nr_full = 0;
 	barn->nr_empty = 0;
 }
@@ -3346,6 +3348,10 @@ static void barn_shrink(struct kmem_cache *s, struct node_barn *barn)
 	barn->nr_full = 0;
 	list_splice_init(&barn->sheaves_empty, &empty_list);
 	barn->nr_empty = 0;
+	if (barn->sheaf_partial) {
+		list_add(&barn->sheaf_partial->barn_list, &full_list);
+		barn->sheaf_partial = NULL;
+	}
 
 	spin_unlock_irqrestore(&barn->lock, flags);
 
@@ -5104,11 +5110,86 @@ void *kmem_cache_alloc_node_noprof(struct kmem_cache *s, gfp_t gfpflags, int nod
 }
 EXPORT_SYMBOL(kmem_cache_alloc_node_noprof);
 
+/*
+ * Refill @sheaf from the barn: from its partial sheaf first, then from its full
+ * sheaves. A sheaf that objects were copied from stays in the barn as the
+ * partial sheaf if it still holds objects, or goes on the empty list if it is
+ * empty.
+ *
+ * Returns true if the sheaf is now full, at s->sheaf_capacity.
+ * Returns false if the sheaf is still not full.
+ */
+static bool refill_sheaf_from_barn(struct kmem_cache *s,
+				   struct slab_sheaf *sheaf)
+{
+	struct node_barn *barn = get_barn(s);
+	struct slab_sheaf *src;
+	unsigned int to_move;
+	unsigned long flags;
+
+	if (!barn)
+		return false;
+
+	if (!data_race(barn->nr_full) && !data_race(barn->sheaf_partial))
+		return false;
+
+	spin_lock_irqsave(&barn->lock, flags);
+
+	/*
+	 * The partial sheaf can hold fewer objects than @sheaf needs to
+	 * reach capacity, and a sheaf on the full list is not necessarily
+	 * full (see the comment in rcu_free_sheaf()), so keep taking from
+	 * the barn until @sheaf is full or nothing is left.
+	 */
+	while (sheaf->size < s->sheaf_capacity) {
+		src = barn->sheaf_partial;
+		barn->sheaf_partial = NULL;
+		if (!src) {
+			if (!barn->nr_full)
+				break;
+			src = list_first_entry(&barn->sheaves_full,
+					       struct slab_sheaf, barn_list);
+			list_del(&src->barn_list);
+			barn->nr_full--;
+		}
+
+		to_move = min(s->sheaf_capacity - sheaf->size, src->size);
+		src->size -= to_move;
+		memcpy(&sheaf->objects[sheaf->size], &src->objects[src->size],
+		       to_move * sizeof(void *));
+		sheaf->size += to_move;
+
+		if (src->size) {
+			barn->sheaf_partial = src;
+		} else {
+			/*
+			 * No empty-limit check: the sheaf put on the empty list
+			 * was already in the barn, so the barn holds no more
+			 * sheaves than before. barn_replace_empty_sheaf() skips
+			 * the check for the same reason.
+			 */
+			list_add(&src->barn_list, &barn->sheaves_empty);
+			barn->nr_empty++;
+		}
+	}
+
+	spin_unlock_irqrestore(&barn->lock, flags);
+
+	if (sheaf->size < s->sheaf_capacity)
+		return false;
+
+	stat(s, BARN_GET);
+	return true;
+}
+
 static int __prefill_sheaf_pfmemalloc(struct kmem_cache *s,
 				      struct slab_sheaf *sheaf, gfp_t gfp)
 {
 	gfp_t gfp_nomemalloc;
 	int ret;
+
+	if (refill_sheaf_from_barn(s, sheaf))
+		return 0;
 
 	gfp_nomemalloc = gfp | __GFP_NOMEMALLOC;
 	if (gfp_pfmemalloc_allowed(gfp))
