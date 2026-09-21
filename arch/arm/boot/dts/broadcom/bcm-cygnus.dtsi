@@ -331,7 +331,7 @@
 			};
 		};
 
-		dma0: dma@18018000 {
+		dma0: dma-controller@18018000 {
 			compatible = "arm,pl330", "arm,primecell";
 			reg = <0x18018000 0x1000>;
 			interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>,
