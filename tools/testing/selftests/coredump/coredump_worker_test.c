@@ -16,6 +16,7 @@
  * SIGKILL still works. A failure leaves the stuck process behind.
  */
 #include <ctype.h>
+#include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -255,24 +256,31 @@ static pid_t find_thread(pid_t pid, const char *prefix)
 
 /*
  * Attach, stop the thread with SIGSTOP, drop the signal mask that
- * copy_process() gave it and resume it with SIGSEGV instead.
+ * copy_process() gave it and resume it with SIGSEGV. Returns 1 when the
+ * mask was changed, 0 when PTRACE_SETSIGMASK was refused (a user worker
+ * keeps its mask and the SIGSEGV stays pending), -1 on any other failure.
  */
-static bool inject_coredump_signal(pid_t pid, pid_t tid)
+static int inject_coredump_signal(pid_t pid, pid_t tid)
 {
 	__u64 mask = 0;
-	int status;
+	int status, ret = 1;
 
 	if (ptrace(PTRACE_SEIZE, tid, NULL, NULL))
-		return false;
+		return -1;
 	if (syscall(SYS_tgkill, pid, tid, SIGSTOP))
-		return false;
+		return -1;
 	if (waitpid(tid, &status, __WALL) != tid)
-		return false;
+		return -1;
 	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGSTOP)
-		return false;
-	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(mask), &mask))
-		return false;
-	return !ptrace(PTRACE_DETACH, tid, NULL, (void *)(long)SIGSEGV);
+		return -1;
+	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(mask), &mask)) {
+		if (errno != EPERM)
+			return -1;
+		ret = 0;
+	}
+	if (ptrace(PTRACE_DETACH, tid, NULL, (void *)(long)SIGSEGV))
+		return -1;
+	return ret;
 }
 
 /* Reap @pid within @timeout_ms, -1 when it is still there. */
@@ -333,7 +341,7 @@ static void run_dumper(struct __test_metadata *const _metadata, bool sqpoll,
 {
 	bool killed = false;
 	char path[64], c;
-	int ipc[2], status, fd;
+	int ipc[2], status, fd, ret;
 	pid_t pid, tid;
 
 	ASSERT_TRUE(set_core_pattern("/tmp/coredump.file.%p"));
@@ -361,7 +369,19 @@ static void run_dumper(struct __test_metadata *const _metadata, bool sqpoll,
 		break;
 	}
 	ASSERT_GT(tid, 0);
-	ASSERT_TRUE(inject_coredump_signal(pid, tid));
+	ret = inject_coredump_signal(pid, tid);
+	ASSERT_GE(ret, 0);
+	if (!ret) {
+		/* The signal sits on the worker, the group must be untouched. */
+		ASSERT_NE(dumper, DUMPER_MAIN);
+		TH_LOG("PTRACE_SETSIGMASK refused for tid %d, the SIGSEGV stays pending", tid);
+		ASSERT_EQ(wait_exit(pid, &status, 1000), -1);
+		kill(pid, SIGKILL);
+		ASSERT_EQ(wait_exit(pid, &status, EXIT_TIMEOUT_MS), 0);
+		ASSERT_TRUE(WIFSIGNALED(status));
+		ASSERT_EQ(WTERMSIG(status), SIGKILL);
+		return;
+	}
 
 	if (wait_exit(pid, &status, EXIT_TIMEOUT_MS)) {
 		/* No dump. Whatever happened, SIGKILL must still work. */
