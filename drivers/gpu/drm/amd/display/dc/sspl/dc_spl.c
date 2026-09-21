@@ -487,15 +487,17 @@ static void spl_calculate_scaling_ratios(struct spl_in *spl_in,
 	spl_scratch->scl_data.ratios.horz_c = spl_scratch->scl_data.ratios.horz;
 	spl_scratch->scl_data.ratios.vert_c = spl_scratch->scl_data.ratios.vert;
 
-	if (spl_is_yuv420(spl_in->basic_in.format)) {
-		spl_scratch->scl_data.ratios.horz_c.value /= 2;
-		spl_scratch->scl_data.ratios.vert_c.value /= 2;
-	} else if (spl_is_yuv422(spl_in->basic_in.format)) {
-		if (spl_in->basic_in.rotation == SPL_ROTATION_ANGLE_90 ||
-			spl_in->basic_in.rotation == SPL_ROTATION_ANGLE_270)
-			spl_scratch->scl_data.ratios.vert_c.value /= 2;
-		else
+	if (!spl_in->upsp_mode) {
+		if (spl_is_yuv420(spl_in->basic_in.format)) {
 			spl_scratch->scl_data.ratios.horz_c.value /= 2;
+			spl_scratch->scl_data.ratios.vert_c.value /= 2;
+		} else if (spl_is_yuv422(spl_in->basic_in.format)) {
+			if (spl_in->basic_in.rotation == SPL_ROTATION_ANGLE_90 ||
+				spl_in->basic_in.rotation == SPL_ROTATION_ANGLE_270)
+				spl_scratch->scl_data.ratios.vert_c.value /= 2;
+			else
+				spl_scratch->scl_data.ratios.horz_c.value /= 2;
+		}
 	}
 	spl_scratch->scl_data.ratios.horz = spl_fixpt_truncate(
 			spl_scratch->scl_data.ratios.horz, 19);
@@ -669,7 +671,8 @@ static void spl_calculate_inits_and_viewports(struct spl_in *spl_in,
 			&flip_vert_scan_dir,
 			&flip_horz_scan_dir);
 
-	if (spl_is_subsampled_format(spl_in->basic_in.format)) {
+	if (spl_is_subsampled_format(spl_in->basic_in.format) &&
+			!spl_in->upsp_mode) {
 		/* this gives the direction of the cositing (negative will move
 		 * left, right otherwise)
 		 */
@@ -804,6 +807,9 @@ static enum scl_mode spl_get_dscl_mode(const struct spl_in *spl_in,
 			&& !enable_isharp)
 		return SCL_MODE_SCALING_444_BYPASS;
 
+	if (spl_in->upsp_mode)
+		return SCL_MODE_SCALING_444_RGB_ENABLE;
+
 	if (!spl_is_subsampled_format(pixel_format)) {
 		if (spl_is_video_format(pixel_format))
 			return SCL_MODE_SCALING_444_YCBCR_ENABLE;
@@ -824,9 +830,9 @@ static enum scl_mode spl_get_dscl_mode(const struct spl_in *spl_in,
 }
 
 static void spl_choose_lls_policy(enum spl_pixel_format format,
-	enum linear_light_scaling *lls_pref)
+	enum linear_light_scaling *lls_pref, enum upsp_mode upsp_mode)
 {
-	if (spl_is_subsampled_format(format))
+	if (spl_is_subsampled_format(format) && !upsp_mode)
 		*lls_pref = LLS_PREF_NO;
 	else /* RGB or YUV444 */
 		*lls_pref = LLS_PREF_YES;
@@ -858,7 +864,7 @@ static bool enable_easf(struct spl_in *spl_in, struct spl_scratch *spl_scratch)
 	 */
 	if (spl_in->lls_pref == LLS_PREF_DONT_CARE)
 		spl_choose_lls_policy(spl_in->basic_in.format,
-			&spl_in->lls_pref);
+			&spl_in->lls_pref, spl_in->upsp_mode);
 
 	/* Check for linear scaling or EASF preferred */
 	if (spl_in->lls_pref != LLS_PREF_YES && !spl_in->prefer_easf)
@@ -1009,8 +1015,8 @@ static bool spl_get_optimal_number_of_taps(
 	unsigned int min_taps_y, min_taps_c;
 	enum lb_memory_config lb_config;
 	bool skip_easf          = false;
-	bool is_horz_subsampled = spl_is_subsampled_format(spl_in->basic_in.format);
-	bool is_vert_subsampled = spl_is_yuv420(spl_in->basic_in.format);
+	bool is_horz_subsampled = (spl_is_subsampled_format(spl_in->basic_in.format) && !spl_in->upsp_mode);
+	bool is_vert_subsampled = (spl_is_yuv420(spl_in->basic_in.format) && !spl_in->upsp_mode);
 
 	if (spl_scratch->scl_data.viewport.width > spl_scratch->scl_data.h_active &&
 		max_downscale_src_width != 0 &&
@@ -1043,7 +1049,8 @@ static bool spl_get_optimal_number_of_taps(
 		spl_get_taps_non_adaptive_scaler(spl_scratch, in_taps, is_horz_subsampled, is_vert_subsampled);
 	}
 	else {
-		if (spl_is_subsampled_format(spl_in->basic_in.format)) {
+		if (spl_is_subsampled_format(spl_in->basic_in.format) &&
+				!spl_in->upsp_mode) {
 			spl_scratch->scl_data.taps.h_taps = 6;
 			spl_scratch->scl_data.taps.v_taps = 6;
 			spl_scratch->scl_data.taps.h_taps_c = 4;
@@ -1213,9 +1220,10 @@ static bool spl_get_optimal_number_of_taps(
 }
 
 static void spl_set_black_color_data(enum spl_pixel_format format,
-			struct scl_black_color *scl_black_color)
+		struct scl_black_color *scl_black_color,
+		enum upsp_mode upsp_mode)
 {
-	bool ycbcr = spl_is_video_format(format);
+	bool ycbcr = (spl_is_video_format(format) && !upsp_mode);
 	if (ycbcr)	{
 		scl_black_color->offset_rgb_y = BLACK_OFFSET_RGB_Y;
 		scl_black_color->offset_rgb_cbcr = BLACK_OFFSET_CBCR;
@@ -1298,8 +1306,8 @@ static void spl_set_dscl_prog_data(struct spl_in *spl_in, struct spl_scratch *sp
 		enable_easf);
 
 	// SCL_BLACK_COLOR
-	spl_set_black_color_data(spl_in->basic_in.format, scl_black_color);
-
+	spl_set_black_color_data(spl_in->basic_in.format, scl_black_color,
+			spl_in->upsp_mode);
 	/* Manually calculate scale ratio and init values */
 	spl_set_manual_ratio_init_data(dscl_prog_data, data);
 
@@ -1358,7 +1366,7 @@ static void spl_calculate_c0_c3_hdr(struct dscl_prog_data *dscl_prog_data, uint3
 static void spl_set_easf_data(struct spl_scratch *spl_scratch, struct spl_out *spl_out, bool enable_easf_v,
 	bool enable_easf_h, enum linear_light_scaling lls_pref,
 	enum spl_pixel_format format, enum system_setup setup,
-	uint32_t sdr_white_level_nits)
+	uint32_t sdr_white_level_nits, enum upsp_mode upsp_mode)
 {
 	struct dscl_prog_data *dscl_prog_data = spl_out->dscl_prog_data;
 	if (enable_easf_v) {
@@ -1689,7 +1697,7 @@ static void spl_set_easf_data(struct spl_scratch *spl_scratch, struct spl_out *s
 			0x0;	// fp1.5.10, C3 coefficient
 	}
 
-	if (spl_is_subsampled_format(format)) { /* TODO: 0 = RGB, 1 = YUV */
+	if (spl_is_subsampled_format(format) && !upsp_mode) { /* TODO: 0 = RGB, 1 = YU//V */
 		dscl_prog_data->easf_matrix_mode = 1;
 		/*
 		 * 2-bit, BF3 chroma mode correction calculation mode
@@ -2073,7 +2081,7 @@ bool SPL_NAMESPACE(spl_calculate_scaler_params(struct spl_in *spl_in, struct spl
 
 	// Set EASF
 	spl_set_easf_data(&spl_scratch, spl_out, enable_easf_v, enable_easf_h, spl_in->lls_pref,
-		spl_in->basic_in.format, setup, spl_in->sdr_white_level_nits);
+		spl_in->basic_in.format, setup, spl_in->sdr_white_level_nits, spl_in->upsp_mode);
 
 	// Set iSHARP
 	vratio = spl_fixpt_ceil(spl_scratch.scl_data.ratios.vert);
