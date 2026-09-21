@@ -478,7 +478,8 @@ static u8 intel_dp_get_sink_sync_latency(struct intel_dp *intel_dp)
 		val &= DP_MAX_RESYNC_FRAME_COUNT_MASK;
 	else
 		drm_dbg_kms(display->drm,
-			    "Unable to get sink synchronization latency, assuming 8 frames\n");
+			    "Unable to get sink synchronization latency, assuming 8 frames (%pe)\n",
+			    ERR_PTR(ret));
 	return val;
 }
 
@@ -504,7 +505,8 @@ static void _psr_compute_su_granularity(struct intel_dp *intel_dp,
 	ret = drm_dp_dpcd_read_data(&intel_dp->aux, DP_PSR2_SU_X_GRANULARITY, &w, sizeof(w));
 	if (ret < 0)
 		drm_dbg_kms(display->drm,
-			    "Unable to read selective update x granularity\n");
+			    "Unable to read selective update x granularity (%pe)\n",
+			    ERR_PTR(ret));
 	/*
 	 * Spec says that if the value read is 0 the default granularity should
 	 * be used instead.
@@ -515,7 +517,8 @@ static void _psr_compute_su_granularity(struct intel_dp *intel_dp,
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_PSR2_SU_Y_GRANULARITY, &y);
 	if (ret < 0) {
 		drm_dbg_kms(display->drm,
-			    "Unable to read selective update y granularity\n");
+			    "Unable to read selective update y granularity (%pe)\n",
+			    ERR_PTR(ret));
 		y = 4;
 	}
 	if (y == 0)
@@ -3835,7 +3838,7 @@ static void psr_capability_changed_check(struct intel_dp *intel_dp)
 
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_PSR_ESI, &val);
 	if (ret < 0) {
-		drm_err(display->drm, "Error reading DP_PSR_ESI\n");
+		drm_err(display->drm, "Error reading DP_PSR_ESI (%pe)\n", ERR_PTR(ret));
 		return;
 	}
 
