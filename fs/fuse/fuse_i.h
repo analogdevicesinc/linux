@@ -1313,13 +1313,9 @@ static inline struct fuse_backing *fuse_inode_backing_set(struct fuse_inode *fi,
 struct fuse_backing *fuse_passthrough_open(struct file *file, int backing_id);
 void fuse_passthrough_release(struct fuse_file *ff, struct fuse_backing *fb);
 
-static inline struct file *fuse_file_passthrough(struct fuse_file *ff)
+static inline bool fuse_is_passthrough(struct fuse_file *ff)
 {
-#ifdef CONFIG_FUSE_PASSTHROUGH
-	return ff->passthrough;
-#else
-	return NULL;
-#endif
+	return IS_ENABLED(CONFIG_FUSE_PASSTHROUGH) && (ff->open_flags & FOPEN_PASSTHROUGH);
 }
 
 ssize_t fuse_passthrough_read_iter(struct kiocb *iocb, struct iov_iter *iter);
