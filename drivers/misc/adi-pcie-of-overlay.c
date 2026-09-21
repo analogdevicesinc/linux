@@ -12,6 +12,8 @@
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/iommu.h>
+#include <linux/iommu-dma.h>
 #include <linux/iopoll.h>
 #include <linux/irq.h>
 #include <linux/irqchip/chained_irq.h>
@@ -19,11 +21,13 @@
 #include <linux/irqdomain.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_pci.h>
 #include <linux/of_platform.h>
 #include <linux/pci.h>
+#include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/time64.h>
@@ -70,6 +74,7 @@ struct adi_pcie_vector {
  * @pdev:		the endpoint being driven.
  * @intc:		intc regs.
  * @vec:		@nvec per-vector entries.
+ * @iommu_nb:		notifier joining children to the endpoint's IOMMU group.
  * @lock:		guards @irq_mask against the register it shadows.
  * @ovcs_id:		overlay changeset id, kept to remove what was applied.
  * @nsrc:		interrupt sources the controller samples.
@@ -83,6 +88,7 @@ struct adi_pcie_overlay {
 	struct pci_dev		*pdev;
 	void __iomem		*intc;
 	struct adi_pcie_vector	*vec;
+	struct notifier_block	iommu_nb;
 	raw_spinlock_t		lock;
 
 	int			ovcs_id;
@@ -321,6 +327,76 @@ static int adi_pcie_irq_domain_setup(struct adi_pcie_overlay *apo)
 	return devm_add_action_or_reset(dev, adi_pcie_intx_free, apo);
 }
 
+static int adi_pcie_iommu_join(struct adi_pcie_overlay *apo, struct device *dev)
+{
+	struct device *ep = &apo->pdev->dev;
+	struct iommu_group *group;
+	int ret;
+
+	/* NULL only if the IOMMU driver went away since setup */
+	group = iommu_group_get(ep);
+	if (!group)
+		return -ENODEV;
+
+	ret = iommu_group_add_device(group, dev);
+	iommu_group_put(group);
+	if (ret)
+		return ret;
+
+	dev_set_dma_iommu(dev);
+
+	return 0;
+}
+
+static int adi_pcie_iommu_notify(struct notifier_block *nb,
+				 unsigned long action, void *data)
+{
+	struct adi_pcie_overlay *apo = container_of(nb, struct adi_pcie_overlay,
+						    iommu_nb);
+	struct device *ep = &apo->pdev->dev;
+	struct device *dev = data;
+	struct device *d;
+	int ret;
+
+	if (action != BUS_NOTIFY_ADD_DEVICE)
+		return NOTIFY_DONE;
+
+	for (d = dev->parent; d && d != ep; d = d->parent)
+		;
+	if (!d)
+		return NOTIFY_DONE;
+
+	ret = adi_pcie_iommu_join(apo, dev);
+	if (ret)
+		dev_err(dev, "failed to join the endpoint IOMMU group: %d\n",
+			ret);
+
+	return NOTIFY_DONE;
+}
+
+static void adi_pcie_iommu_unregister(void *data)
+{
+	struct adi_pcie_overlay *apo = data;
+
+	bus_unregister_notifier(&platform_bus_type, &apo->iommu_nb);
+}
+
+static int adi_pcie_iommu_setup(struct adi_pcie_overlay *apo)
+{
+	struct device *dev = &apo->pdev->dev;
+	int ret;
+
+	if (!use_dma_iommu(dev))
+		return 0;
+
+	apo->iommu_nb.notifier_call = adi_pcie_iommu_notify;
+	ret = bus_register_notifier(&platform_bus_type, &apo->iommu_nb);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(dev, adi_pcie_iommu_unregister, apo);
+}
+
 static int adi_pcie_intc_probe(struct adi_pcie_overlay *apo)
 {
 	struct pci_dev *pdev = apo->pdev;
@@ -414,6 +490,10 @@ static int adi_pcie_overlay_setup(struct adi_pcie_overlay *apo, const void *fdt,
 		return ret;
 
 	ret = adi_pcie_intc_probe(apo);
+	if (ret)
+		return ret;
+
+	ret = adi_pcie_iommu_setup(apo);
 	if (ret)
 		return ret;
 
