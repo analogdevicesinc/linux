@@ -2008,6 +2008,13 @@ F:	drivers/iio/amplifiers/hmc425a.c
 F:	drivers/staging/iio/*/ad*
 X:	drivers/iio/*/adjd*
 
+ANALOG DEVICES INC PCIE OF OVERLAY DRIVER
+M:	Rodrigo Alencar <rodrigo.alencar@analog.com>
+L:	linux-pci@vger.kernel.org
+S:	Supported
+W:	https://ez.analog.com/linux-software-drivers
+F:	drivers/misc/adi-pcie-of-overlay.c
+
 ANALOGBITS PLL LIBRARIES
 M:	Paul Walmsley <pjw@kernel.org>
 M:	Samuel Holland <samuel.holland@sifive.com>
