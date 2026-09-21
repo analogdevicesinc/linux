@@ -131,11 +131,47 @@ static void adi_pcie_irq_eoi(struct irq_data *d)
 	writel(BIT(d->hwirq), apo->intc + ADI_PCIE_INTC_SRC_PENDING);
 }
 
+static int adi_pcie_irq_set_affinity(struct irq_data *d,
+				     const struct cpumask *mask, bool force)
+{
+	struct adi_pcie_overlay *apo = irq_data_get_irq_chip_data(d);
+	unsigned int cpu, i, v, current_v;
+	const struct cpumask *eff;
+
+	if (!pci_dev_msi_enabled(apo->pdev))
+		return -EINVAL;
+
+	current_v = readl(apo->intc + ADI_PCIE_INTC_SRC_ROUTE(d->hwirq));
+	if (current_v >= apo->nirq)
+		current_v = 0;
+
+	/* the vectors keep the cpus they were given, so route to one that fits */
+	for (i = 0; i < apo->nirq; i++) {
+		v = (current_v + i) % apo->nirq;
+		eff = irq_get_effective_affinity_mask(apo->vec[v].parent_irq);
+		if (eff && cpumask_intersects(eff, mask))
+			break;
+	}
+
+	/* no vector serves this mask */
+	if (i == apo->nirq)
+		return -EINVAL;
+
+	if (v != current_v)
+		writel(v, apo->intc + ADI_PCIE_INTC_SRC_ROUTE(d->hwirq));
+
+	cpu = cpumask_first_and(eff, mask);
+	irq_data_update_effective_affinity(d, cpumask_of(cpu));
+
+	return IRQ_SET_MASK_OK;
+}
+
 static struct irq_chip adi_pcie_irq_chip = {
 	.name			= "ADI-PCI-OVERLAY",
 	.irq_mask		= adi_pcie_irq_mask,
 	.irq_unmask		= adi_pcie_irq_unmask,
 	.irq_eoi		= adi_pcie_irq_eoi,
+	.irq_set_affinity	= adi_pcie_irq_set_affinity,
 };
 
 static int adi_pcie_irq_map(struct irq_domain *d, unsigned int virq,
