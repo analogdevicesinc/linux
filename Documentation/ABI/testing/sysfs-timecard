@@ -185,9 +185,11 @@ Description:	(RW) Used to start the signal generator, and summarize
 
 		    period [duty [phase [polarity]]]
 
-		echo 500000000 > signal       # 1/2 second period
-		echo 1000000 40 100 > signal
-		echo 0 > signal               # turn off generator
+		::
+
+		  echo 500000000 > signal       # 1/2 second period
+		  echo 1000000 40 100 > signal
+		  echo 0 > signal               # turn off generator
 
 		Period and phase are specified in nanoseconds.  Duty cycle is
 		a percentage from 1-99.  Polarity is 1 or 0.
