@@ -293,8 +293,6 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
 	if (!net_eq(dev_net(dev), sock_net(sk)))
 		return 0;
 
-	dev_hold(dev);
-
 	if (is_vmalloc_addr(skb->head))
 		nskb = netlink_to_full_skb(skb, GFP_ATOMIC);
 	else
@@ -310,7 +308,6 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
 			ret = net_xmit_errno(ret);
 	}
 
-	dev_put(dev);
 	return ret;
 }
 
