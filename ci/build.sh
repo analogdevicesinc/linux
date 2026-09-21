@@ -1022,6 +1022,23 @@ compile_clang_analyzer () {
 	return $fail
 }
 
+declare -A arch_file_exceptions=(
+	[arm]="drivers/iommu/dma-iommu.c" # def_bool ARM64 || X86 || S390
+)
+
+_filter_arch_file_exceptions() {
+	local files="$1"
+	local exceptions
+
+	if [[ -z "$ARCH" || -z "${arch_file_exceptions[$ARCH]:-}" ]]; then
+		printf '%s\n' "$files"
+		return
+	fi
+
+	exceptions=$(tr '[:space:]' '\n' <<< "${arch_file_exceptions[$ARCH]}" | grep -v '^$')
+	grep -vxFf <(printf '%s\n' "$exceptions") <<< "$files" || true
+}
+
 assert_compiled () {
 	export step_name="assert_compiled"
 	local exceptions_file="ci/travis/deadcode_exceptions"
@@ -1049,6 +1066,7 @@ assert_compiled () {
 	if [[ -f $exceptions_file ]]; then
 		files=$(comm -13 <(sort $exceptions_file) <(echo $files | tr ' ' '\n' | sort))
 	fi
+	files=$(_filter_arch_file_exceptions "$files")
 	[[ -z "$files" ]] && return 0
 	while read file; do
 		echo -e "\e[1m$file\e[0m"
@@ -1115,7 +1133,10 @@ auto_set_kconfig() {
 
 	echo "$step_name on range $base_sha..$head_sha"
 
+	c_files=$(_filter_arch_file_exceptions "$c_files")
+
 	while read file; do
+		[[ -z "$file" ]] && continue
 		o_files+=("$(echo $file | sed 's/c$/o/')")
 	done <<< "$c_files"
 
