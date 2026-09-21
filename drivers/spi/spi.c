@@ -930,6 +930,15 @@ static int __spi_add_device(struct spi_device *spi, struct spi_device *parent)
 	}
 
 	/*
+	 * Peripheral properties the core handles on behalf of controller
+	 * drivers are parsed here, rather than in the firmware specific
+	 * instantiation paths, so that device tree, ACPI and software nodes
+	 * are covered alike, and early enough for ->setup() to act on them.
+	 */
+	device_property_read_u32(&spi->dev, "rx-sample-delay-ns",
+				 &spi->rx_sample_delay_ns);
+
+	/*
 	 * Drivers may modify this initial i/o setup, but will
 	 * normally rely on the device being setup.  Devices
 	 * using SPI_CS_HIGH can't coexist well otherwise...
