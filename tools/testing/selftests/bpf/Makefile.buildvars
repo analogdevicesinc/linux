@@ -2,8 +2,9 @@
 #
 # Toolchain, path and flag definitions for the BPF selftests build,
 # kept apart from the rules so that more than one makefile can include
-# them. Included after ../lib.mk - the note above the Makefile's include
-# explains how the flags are ordered around it.
+# them. Included by the Makefile after ../lib.mk and by Makefile.runner
+# in its place - the note above the Makefile's include explains how the
+# flags are ordered around it.
 
 TOOLSDIR := $(abspath ../../..)
 LIBDIR := $(TOOLSDIR)/lib
@@ -148,3 +149,14 @@ ifneq ($(CLANG_HAS_ARENA_ASAN),)
 LIBARENA_ASAN_SKEL := libarena/libarena_asan.skel.h
 CFLAGS += -DHAS_BPF_ARENA_ASAN
 endif
+
+RUNNER_OBJS-test_progs := $(addprefix $(OUTPUT)/,			\
+	test_progs.o cgroup_helpers.o trace_helpers.o			\
+	network_helpers.o testing_helpers.o btf_helpers.o		\
+	cap_helpers.o unpriv_helpers.o sysctl_helpers.o			\
+	netlink_helpers.o jit_disasm_helpers.o io_helpers.o		\
+	test_loader.o xsk.o disasm.o disasm_helpers.o			\
+	json_writer.o bpftool_helpers.o usdt_1.o usdt_2.o		\
+	find_bit.o)
+RUNNER_OBJS-test_maps := $(addprefix $(OUTPUT)/,			\
+	test_maps.o testing_helpers.o)
