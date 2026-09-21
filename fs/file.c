@@ -367,19 +367,24 @@ static unsigned long fd_range_word(struct fd_range *range, unsigned int i)
 /* Bits of word @i that dup_fd() leaves behind. */
 static unsigned long dup_fd_dropped_word(unsigned int i, struct fd_range *range)
 {
+	unsigned long dropped;
+
 	if (!range)
 		return 0;
-	return fd_range_word(range, i);
+	dropped = fd_range_word(range, i);
+	if (range->flags & FD_RANGE_EXCEPT)
+		dropped = ~dropped;
+	return dropped;
 }
 
 /*
  * Note that a sane fdtable size always has to be a multiple of
  * BITS_PER_LONG, since we have bitmaps that are sized by this.
  *
- * range is optional - when close_range() is asked to unshare
- * and close, dup_fd() leaves the descriptors in that range behind,
- * so the cloned table only has to reach the last open descriptor
- * outside of it.
+ * range is optional. When close_range() is asked to unshare dup_fd()
+ * will leave any files behind according to the range and its flags. The
+ * cloned table only has to reach the last open descriptor that is
+ * carried over.
  */
 static unsigned int sane_fdtable_size(struct fdtable *fdt, struct fd_range *range)
 {

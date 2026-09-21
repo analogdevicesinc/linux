@@ -101,8 +101,14 @@ struct task_struct;
 
 void put_files_struct(struct files_struct *fs);
 int unshare_files(void);
+enum fd_range_flags {
+	/* Leave behind all descriptors outside of the specified range. */
+	FD_RANGE_EXCEPT		= (1U << 0),
+};
+
 struct fd_range {
 	unsigned int from, to;
+	enum fd_range_flags flags;
 };
 struct files_struct *dup_fd(struct files_struct *, struct fd_range *) __latent_entropy;
 void do_close_on_exec(struct files_struct *);
