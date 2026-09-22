@@ -389,10 +389,18 @@ static void svc_rdma_wc_read_done(struct ib_cq *cq, struct ib_wc *wc)
  * - If ib_post_send() succeeds, only one completion is expected,
  *   even if one or more WRs are flushed. This is true when posting
  *   an rdma_rw_ctx or when posting a single signaled WR.
+ *
+ * Return values:
+ *   %0: The chain was posted; svc_rdma_wc_read_done() releases
+ *       @head. Or a prefix of the chain was posted; no completion
+ *       follows, and the transport destructor releases @head.
+ *   %-ENOTCONN: No WR was posted; the caller still owns @head.
+ *   %-EINVAL: @head's Read chain needs more SQ entries than exist.
  */
 static int svc_rdma_post_chunk_ctxt(struct svcxprt_rdma *rdma,
-				    struct svc_rdma_chunk_ctxt *cc)
+				    struct svc_rdma_recv_ctxt *head)
 {
+	struct svc_rdma_chunk_ctxt *cc = &head->rc_cc;
 	struct ib_send_wr *first_wr;
 	const struct ib_send_wr *bad_wr;
 	struct list_head *tmp;
@@ -422,10 +430,18 @@ static int svc_rdma_post_chunk_ctxt(struct svcxprt_rdma *rdma,
 	cc->cc_posttime = ktime_get();
 	bad_wr = first_wr;
 	ret = ib_post_send(rdma->sc_qp, first_wr, &bad_wr);
-	if (ret)
-		return svc_rdma_post_send_err(rdma, &cc->cc_cid, bad_wr,
-					      first_wr, cc->cc_sqecount,
-					      ret);
+	if (ret) {
+		ret = svc_rdma_post_send_err(rdma, &cc->cc_cid, bad_wr,
+					     first_wr, cc->cc_sqecount,
+					     ret);
+		if (ret)
+			return ret;
+
+		/* The posted prefix still references @head. Only the
+		 * transport destructor may release it.
+		 */
+		llist_add(&head->rc_node, &rdma->sc_recv_stranded_ctxts);
+	}
 	return 0;
 }
 
@@ -1169,7 +1185,8 @@ static void svc_rdma_clear_rqst_pages(struct svc_rqst *rqstp,
  * RDMA Reads have completed.
  *
  * Return values:
- *   %1: all needed RDMA Reads were posted successfully,
+ *   %1: RDMA Reads were posted; the transport now owns @head, and
+ *       a Read completion or the transport destructor releases it,
  *   %-EINVAL: client provided too many chunks or segments,
  *   %-ENOMEM: rdma_rw context pool was exhausted,
  *   %-ENOTCONN: posting failed (connection is lost),
@@ -1200,6 +1217,6 @@ int svc_rdma_process_read_list(struct svcxprt_rdma *rdma,
 		return ret;
 
 	trace_svcrdma_post_read_chunk(&cc->cc_cid, cc->cc_sqecount);
-	ret = svc_rdma_post_chunk_ctxt(rdma, cc);
+	ret = svc_rdma_post_chunk_ctxt(rdma, head);
 	return ret < 0 ? ret : 1;
 }
