@@ -92,6 +92,11 @@ static bool mlxsw_sp_nve_vxlan_can_offload(const struct mlxsw_sp_nve *nve,
 		return false;
 	}
 
+	if (test_bit(VXLAN_DEV_F_MDB, &vxlan->flags)) {
+		NL_SET_ERR_MSG_MOD(extack, "VxLAN: MDB entries are not supported");
+		return false;
+	}
+
 	switch (cfg->saddr.sa.sa_family) {
 	case AF_INET:
 		if (!mlxsw_sp_nve_vxlan_ipv4_flags_check(cfg, extack))
