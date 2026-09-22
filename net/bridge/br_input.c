@@ -58,7 +58,7 @@ static int br_pass_frame_up(struct sk_buff *skb, bool promisc)
 
 	indev = skb->dev;
 	skb->dev = brdev;
-	skb = br_handle_vlan(br, NULL, vg, skb);
+	skb = br_handle_vlan(br, NULL, vg, NULL, skb);
 	if (!skb)
 		return NET_RX_DROP;
 	/* update the multicast stats if the packet is IGMP/MLD */
@@ -226,7 +226,7 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
 		br_forward(READ_ONCE(dst->dst), skb, local_rcv, false);
 	} else {
 		if (!mcast_hit)
-			br_flood(br, skb, pkt_type, local_rcv, false, vid);
+			br_flood(br, vlan, skb, pkt_type, local_rcv, false);
 		else
 			br_multicast_flood(mdst, skb, brmctx, local_rcv, false);
 	}
