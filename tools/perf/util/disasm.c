@@ -31,6 +31,7 @@
 #include "map.h"
 #include "maps.h"
 #include "namespaces.h"
+#include "path.h"
 #include "srcline.h"
 #include "symbol.h"
 #include "thread.h"
@@ -1189,7 +1190,12 @@ static int dso__disassemble_filename(struct dso *dso, char *filename, size_t fil
 
 	build_id_filename = dso__build_id_filename(dso, NULL, 0, false);
 	if (build_id_filename) {
-		__symbol__join_symfs(filename, filename_size, build_id_filename);
+		/*
+		 * This is a path in perf's own build id cache, not a path on
+		 * the profiled system, so the symfs layout does not apply.
+		 */
+		path__join(filename, filename_size, symbol_conf.symfs,
+			   build_id_filename);
 		free(build_id_filename);
 	} else {
 		if (dso__has_build_id(dso))

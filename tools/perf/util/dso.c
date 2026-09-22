@@ -121,6 +121,7 @@ int dso__read_binary_type_filename(const struct dso *dso,
 				   const char *root_dir, char *filename, size_t size)
 {
 	char build_id_hex[SBUILD_ID_SIZE];
+	char relative[PATH_MAX];
 	int ret = 0;
 	size_t len;
 
@@ -173,13 +174,15 @@ int dso__read_binary_type_filename(const struct dso *dso,
 		break;
 
 	case DSO_BINARY_TYPE__FEDORA_DEBUGINFO:
-		len = __symbol__join_symfs(filename, size, "/usr/lib/debug");
-		snprintf(filename + len, size - len, "%s.debug", dso__long_name(dso));
+		snprintf(relative, sizeof(relative), "/usr/lib/debug%s.debug",
+			 dso__long_name(dso));
+		__symbol__join_symfs(filename, size, relative);
 		break;
 
 	case DSO_BINARY_TYPE__UBUNTU_DEBUGINFO:
-		len = __symbol__join_symfs(filename, size, "/usr/lib/debug");
-		snprintf(filename + len, size - len, "%s", dso__long_name(dso));
+		snprintf(relative, sizeof(relative), "/usr/lib/debug%s",
+			 dso__long_name(dso));
+		__symbol__join_symfs(filename, size, relative);
 		break;
 
 	case DSO_BINARY_TYPE__MIXEDUP_UBUNTU_DEBUGINFO:
@@ -193,8 +196,9 @@ int dso__read_binary_type_filename(const struct dso *dso,
 			ret = -1;
 			break;
 		}
-		len = __symbol__join_symfs(filename, size, "/usr/lib/debug");
-		snprintf(filename + len, size - len, "%s", dso__long_name(dso) + 4);
+		snprintf(relative, sizeof(relative), "/usr/lib/debug%s",
+			 dso__long_name(dso) + 4);
+		__symbol__join_symfs(filename, size, relative);
 		break;
 
 	case DSO_BINARY_TYPE__OPENEMBEDDED_DEBUGINFO:
@@ -206,15 +210,15 @@ int dso__read_binary_type_filename(const struct dso *dso,
 		while (last_slash != dso__long_name(dso) && *last_slash != '/')
 			last_slash--;
 
-		len = __symbol__join_symfs(filename, size, "");
 		dir_size = last_slash - dso__long_name(dso) + 2;
-		if (dir_size > (size - len)) {
+		if (dir_size > sizeof(relative)) {
 			ret = -1;
 			break;
 		}
-		len += scnprintf(filename + len, dir_size, "%s",  dso__long_name(dso));
-		len += scnprintf(filename + len , size - len, ".debug%s",
-								last_slash);
+		len = scnprintf(relative, dir_size, "%s", dso__long_name(dso));
+		scnprintf(relative + len, sizeof(relative) - len, ".debug%s",
+			  last_slash);
+		__symbol__join_symfs(filename, size, relative);
 		break;
 	}
 
@@ -225,9 +229,20 @@ int dso__read_binary_type_filename(const struct dso *dso,
 		}
 
 		build_id__snprintf(dso__bid(dso), build_id_hex, sizeof(build_id_hex));
-		len = __symbol__join_symfs(filename, size, "/usr/lib/debug/.build-id/");
-		snprintf(filename + len, size - len, "%.2s/%s.debug",
-			 build_id_hex, build_id_hex + 2);
+		/*
+		 * The build id cache layout splits the first two characters off
+		 * into a directory name, so the basename of the hierarchy path
+		 * is only part of the build id. Name the flat file after the
+		 * whole build id instead.
+		 */
+		if (symbol_conf.symfs_layout_flat)
+			snprintf(relative, sizeof(relative), "/%s.debug",
+				 build_id_hex);
+		else
+			snprintf(relative, sizeof(relative),
+				 "/usr/lib/debug/.build-id/%.2s/%s.debug",
+				 build_id_hex, build_id_hex + 2);
+		__symbol__join_symfs(filename, size, relative);
 		break;
 
 	case DSO_BINARY_TYPE__VMLINUX:
