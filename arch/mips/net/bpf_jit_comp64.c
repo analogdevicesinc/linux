@@ -120,6 +120,58 @@ static void emit_zext_ver(struct jit_context *ctx, u8 dst)
 		emit_zext(ctx, dst);
 }
 
+/* Sign-extend an 8- or 16-bit field into a native register. */
+static void emit_movsx_r(struct jit_context *ctx, u8 dst, u8 src, s16 off)
+{
+	/* seb/seh would need a sign-extended 32-bit source first. */
+	int shift = 32 - off;
+
+	/* dsll32 and dsra32 add 32 to the shift argument. */
+	emit(ctx, dsll32, dst, src, shift);
+	emit(ctx, dsra32, dst, dst, shift);
+}
+
+/* Register move operation (32-bit), optionally with sign extension */
+static void emit_mov_r32(struct jit_context *ctx, u8 dst, u8 src, s16 off)
+{
+	switch (off) {
+	case 8:
+	case 16:
+		emit_movsx_r(ctx, dst, src, off);
+		break;
+	default:
+		/* off == 0 is MOV; the verifier rejects other offsets. */
+		emit_mov_r(ctx, dst, src);
+		break;
+	}
+	clobber_reg(ctx, dst);
+	emit_zext_ver(ctx, dst);
+}
+
+/* Register move operation (64-bit), optionally with sign extension */
+static void emit_mov_r64(struct jit_context *ctx, u8 dst, u8 src, s16 off)
+{
+	switch (off) {
+	case 8:
+	case 16:
+		emit_movsx_r(ctx, dst, src, off);
+		break;
+	case 32:
+		emit_sext(ctx, dst, src);
+		break;
+	default:
+		/*
+		 * off == 0 is ordinary MOV. The verifier rejects other
+		 * offsets; defined exceptions require
+		 * bpf_jit_supports_percpu_insn() or bpf_jit_supports_arena(),
+		 * neither implemented by MIPS.
+		 */
+		emit_mov_r(ctx, dst, src);
+		break;
+	}
+	clobber_reg(ctx, dst);
+}
+
 /* dst = imm (64-bit) */
 static void emit_mov_i64(struct jit_context *ctx, u8 dst, u64 imm64)
 {
@@ -681,8 +733,7 @@ int build_insn(const struct bpf_insn *insn, struct jit_context *ctx)
 			/* Special mov32 for zext */
 			emit_zext(ctx, dst);
 		} else {
-			emit_mov_r(ctx, dst, src);
-			emit_zext_ver(ctx, dst);
+			emit_mov_r32(ctx, dst, src, off);
 		}
 		break;
 	/* dst = -dst */
@@ -767,7 +818,7 @@ int build_insn(const struct bpf_insn *insn, struct jit_context *ctx)
 		break;
 	/* dst = src (64-bit) */
 	case BPF_ALU64 | BPF_MOV | BPF_X:
-		emit_mov_r(ctx, dst, src);
+		emit_mov_r64(ctx, dst, src, off);
 		break;
 	/* dst = -dst (64-bit) */
 	case BPF_ALU64 | BPF_NEG:
