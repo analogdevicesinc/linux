@@ -974,7 +974,7 @@ struct kvm_vcpu_arch {
 		bool pv_unhalted;
 	} pv;
 
-	int pending_ioapic_eoi;
+	u8 pending_ioapic_eoi;
 	int pending_external_vector;
 	int highest_stale_pending_ioapic_eoi;
 
@@ -1411,6 +1411,7 @@ struct kvm_arch {
 	struct kvm_mmu_memory_cache split_desc_cache;
 
 	gfn_t gfn_direct_bits;
+	int mirror_root_level;
 
 	/*
 	 * Size of the CPU's dirty log buffer, i.e. VMX's PML buffer. A Zero
