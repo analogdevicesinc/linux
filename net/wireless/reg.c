@@ -820,13 +820,13 @@ static bool valid_regdb(const u8 *data, unsigned int size)
 	country = &hdr->country[0];
 	while ((u8 *)(country + 1) <= data + size) {
 		if (!country->coll_ptr)
-			break;
+			return true;
 		if (!valid_country(data, size, country))
 			return false;
 		country++;
 	}
 
-	return true;
+	return false;
 }
 
 static void set_wmm_rule(const struct fwdb_header *db,
