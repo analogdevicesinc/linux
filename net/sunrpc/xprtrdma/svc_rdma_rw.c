@@ -420,6 +420,7 @@ static int svc_rdma_post_chunk_ctxt(struct svcxprt_rdma *rdma,
 		return ret;
 
 	cc->cc_posttime = ktime_get();
+	bad_wr = first_wr;
 	ret = ib_post_send(rdma->sc_qp, first_wr, &bad_wr);
 	if (ret)
 		return svc_rdma_post_send_err(rdma, &cc->cc_cid, bad_wr,

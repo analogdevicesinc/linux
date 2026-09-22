@@ -197,6 +197,7 @@ static struct svcxprt_rdma *svc_rdma_create_xprt(struct svc_serv *serv,
 	init_llist_head(&cma_xprt->sc_recv_ctxts);
 	init_llist_head(&cma_xprt->sc_rw_ctxts);
 	init_llist_head(&cma_xprt->sc_send_release_list);
+	init_llist_head(&cma_xprt->sc_send_stranded_ctxts);
 	init_waitqueue_head(&cma_xprt->sc_send_wait);
 	init_waitqueue_head(&cma_xprt->sc_sq_ticket_wait);
 
@@ -673,6 +674,7 @@ static void svc_rdma_free(struct svc_xprt *xprt)
 	if (rdma->sc_qp && !IS_ERR(rdma->sc_qp))
 		ib_drain_qp(rdma->sc_qp);
 	svc_rdma_send_ctxts_drain(rdma);
+	svc_rdma_send_ctxts_stranded_release(rdma);
 
 	svc_rdma_flush_recv_queues(rdma);
 
