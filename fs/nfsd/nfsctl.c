@@ -887,8 +887,6 @@ static ssize_t write_ports(struct file *file, char *buf, size_t size)
 }
 
 
-int nfsd_max_blksize;
-
 /*
  * write_maxblksize - Set or report the current NFS blksize
  *
@@ -933,12 +931,12 @@ static ssize_t write_maxblksize(struct file *file, char *buf, size_t size)
 			mutex_unlock(&nfsd_mutex);
 			return -EBUSY;
 		}
-		nfsd_max_blksize = bsize;
+		nn->max_blksize = bsize;
 		mutex_unlock(&nfsd_mutex);
 	}
 
-	return scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%d\n",
-							nfsd_max_blksize);
+	return scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%u\n",
+							nn->max_blksize);
 }
 
 #ifdef CONFIG_NFSD_V4

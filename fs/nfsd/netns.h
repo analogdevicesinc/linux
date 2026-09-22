@@ -154,6 +154,12 @@ struct nfsd_net {
 	 */
 	unsigned int min_threads;
 
+	/*
+	 * Maximum size of an NFS READ or WRITE payload.  Zero until the
+	 * first server start in this namespace picks a default.
+	 */
+	unsigned int max_blksize;
+
 	u32 clientid_base;
 	u32 clientid_counter;
 	u32 clverifier_counter;
