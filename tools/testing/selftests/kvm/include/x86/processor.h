@@ -23,6 +23,8 @@ extern bool host_cpu_is_intel;
 extern bool host_cpu_is_amd;
 extern bool host_cpu_is_hygon;
 extern bool host_cpu_is_amd_compatible;
+extern bool host_cpu_is_zhaoxin;
+extern bool host_cpu_is_intel_compatible;
 extern u64 guest_tsc_khz;
 extern struct kvm_mmu guest_mmu;
 
@@ -782,6 +784,12 @@ static inline bool this_cpu_is_hygon(void)
 	return this_cpu_vendor_string_is("HygonGenuine");
 }
 
+static inline bool this_cpu_is_zhaoxin(void)
+{
+	return this_cpu_vendor_string_is("CentaurHauls") ||
+	       this_cpu_vendor_string_is("  Shanghai  ");
+}
+
 static inline u32 __this_cpu_has(u32 function, u32 index, u8 reg, u8 lo, u8 hi)
 {
 	u32 gprs[4];
@@ -1318,7 +1326,7 @@ gva_t vm_alloc_stack(struct kvm_vm *vm, int nr_pages);
 	"lea 1f(%%rip), %%r10\n\t"				\
 	"lea 2f(%%rip), %%r11\n\t"				\
 	fep "1: " insn "\n\t"					\
-	"xor %%r9, %%r9\n\t"					\
+	"mov $0, %%r9d\n\t"					\
 	"2:\n\t"						\
 	"mov  %%r9b, %[vector]\n\t"				\
 	"mov  %%r10, %[error_code]\n\t"
@@ -1446,7 +1454,7 @@ static inline bool kvm_is_pmu_enabled(void)
 
 static inline bool kvm_is_mediated_pmu_enabled(void)
 {
-	if (host_cpu_is_intel)
+	if (host_cpu_is_intel_compatible)
 		return get_kvm_intel_param_bool("enable_mediated_pmu");
 
 	return get_kvm_amd_param_bool("enable_mediated_pmu");
