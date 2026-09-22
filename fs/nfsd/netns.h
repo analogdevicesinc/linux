@@ -164,6 +164,16 @@ struct nfsd_net {
 	u32 clientid_counter;
 	u32 clverifier_counter;
 
+	/*
+	 * Serializes this namespace's control plane: ->nfsd_serv and the
+	 * svc_serv members that hang off it (->sv_permsocks,
+	 * ->sv_temp_socks, thread counts), the NFSD_NET_* flags, and the
+	 * settables above that may only change while the server is down.
+	 *
+	 * Nests outside the global nfsd_mutex.
+	 */
+	struct mutex nfsd_mutex;
+
 	struct svc_info nfsd_info;
 #define nfsd_serv nfsd_info.serv
 
