@@ -433,9 +433,13 @@ static void nfsd_shutdown_net(struct net *net)
 
 	percpu_ref_exit(&nn->nfsd_net_ref);
 
-	if (test_bit(NFSD_NET_UP, &nn->flags))
+	/*
+	 * Clear NFSD_NET_UP before dropping this namespace's reference on
+	 * the generic (host-wide) resources, so that the bit never claims
+	 * they are available once they may already be gone.
+	 */
+	if (test_and_clear_bit(NFSD_NET_UP, &nn->flags))
 		nfsd_shutdown_generic();
-	clear_bit(NFSD_NET_UP, &nn->flags);
 }
 
 static DEFINE_SPINLOCK(nfsd_notifier_lock);
