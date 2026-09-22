@@ -143,9 +143,12 @@ int imx_scu_irq_group_enable(u8 group, u32 mask, u8 enable)
 {
 	struct imx_sc_msg_irq_enable msg;
 	struct imx_sc_rpc_msg *hdr = &msg.hdr;
+	struct imx_sc_ipc *ipc;
 	int ret;
 
-	if (!imx_sc_irq_ipc_handle)
+	/* Pairs with the smp_store_release() in imx_scu_enable_general_irq_channel(). */
+	ipc = smp_load_acquire(&imx_sc_irq_ipc_handle);
+	if (!ipc)
 		return -EPROBE_DEFER;
 
 	hdr->ver = IMX_SC_RPC_VERSION;
@@ -158,7 +161,7 @@ int imx_scu_irq_group_enable(u8 group, u32 mask, u8 enable)
 	msg.mask = mask;
 	msg.enable = enable;
 
-	ret = imx_scu_call_rpc(imx_sc_irq_ipc_handle, &msg, true);
+	ret = imx_scu_call_rpc(ipc, &msg, true);
 	if (ret)
 		pr_err("enable irq failed, group %d, mask %d, ret %d\n",
 			group, mask, ret);
@@ -201,6 +204,7 @@ int imx_scu_enable_general_irq_channel(struct device *dev)
 	struct of_phandle_args spec;
 	struct mbox_client *cl;
 	struct mbox_chan *ch;
+	struct imx_sc_ipc *ipc;
 	int ret = 0, i = 0;
 
 	if (!of_parse_phandle_with_args(dev->of_node, "mboxes",
@@ -215,9 +219,17 @@ int imx_scu_enable_general_irq_channel(struct device *dev)
 
 	mu_resource_id = IMX_SC_R_MU_0A + i;
 
-	ret = imx_scu_get_handle(&imx_sc_irq_ipc_handle);
+	ret = imx_scu_get_handle(&ipc);
 	if (ret)
 		return ret;
+
+	/*
+	 * imx_scu_irq_group_enable() tests imx_sc_irq_ipc_handle from other
+	 * drivers' probe paths and then passes it to imx_scu_call_rpc().
+	 * Publish it with release semantics so that the SCU state it points
+	 * to is visible to them.
+	 */
+	smp_store_release(&imx_sc_irq_ipc_handle, ipc);
 
 	cl = devm_kzalloc(dev, sizeof(*cl), GFP_KERNEL);
 	if (!cl)
