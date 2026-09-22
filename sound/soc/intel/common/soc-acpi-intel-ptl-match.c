@@ -51,12 +51,14 @@ struct snd_soc_acpi_mach snd_soc_acpi_intel_ptl_machines[] = {
 		.drv_name = "ptl_es83x6_c1_h02",
 		.machine_quirk = snd_soc_acpi_codec_list,
 		.quirk_data = &ptl_lt6911_hdmi,
+		.get_function_tplg_files = sof_i2s_get_tplg_files,
 		.sof_tplg_filename = "sof-ptl-es83x6-ssp1-hdmi-ssp02.tplg",
 	},
 	{
 		.comp_ids = &ptl_essx_83x6,
 		.drv_name = "sof-essx8336",
 		.sof_tplg_filename = "sof-ptl-es8336", /* the tplg suffix is added at run time */
+		.get_function_tplg_files = sof_i2s_get_tplg_files,
 		.tplg_quirk_mask = SND_SOC_ACPI_TPLG_INTEL_SSP_NUMBER |
 					SND_SOC_ACPI_TPLG_INTEL_SSP_MSB |
 					SND_SOC_ACPI_TPLG_INTEL_DMIC_NUMBER,
@@ -65,6 +67,7 @@ struct snd_soc_acpi_mach snd_soc_acpi_intel_ptl_machines[] = {
 	{
 		.id = "INTC10B0",
 		.drv_name = "ptl_lt6911_hdmi_ssp",
+		.get_function_tplg_files = sof_i2s_get_tplg_files,
 		.sof_tplg_filename = "sof-ptl-hdmi-ssp02.tplg",
 	},
 	{},
