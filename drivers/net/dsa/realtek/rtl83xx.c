@@ -62,6 +62,22 @@ static int rtl83xx_user_mdio_write(struct mii_bus *bus, int addr, int regnum,
 	return priv->ops->phy_write(priv, addr, regnum, val);
 }
 
+static int rtl83xx_user_mdio_read_c45(struct mii_bus *bus, int addr, int devad,
+				      int regnum)
+{
+	struct realtek_priv *priv = bus->priv;
+
+	return priv->ops->phy_read_c45(priv, addr, devad, regnum);
+}
+
+static int rtl83xx_user_mdio_write_c45(struct mii_bus *bus, int addr, int devad,
+				       int regnum, u16 val)
+{
+	struct realtek_priv *priv = bus->priv;
+
+	return priv->ops->phy_write_c45(priv, addr, devad, regnum, val);
+}
+
 /**
  * rtl83xx_setup_user_mdio() - register the user mii bus driver
  * @ds: DSA switch associated with this user_mii_bus
@@ -95,6 +111,10 @@ int rtl83xx_setup_user_mdio(struct dsa_switch *ds)
 	bus->name = "Realtek user MII";
 	bus->read = rtl83xx_user_mdio_read;
 	bus->write = rtl83xx_user_mdio_write;
+	if (priv->ops->phy_read_c45)
+		bus->read_c45 = rtl83xx_user_mdio_read_c45;
+	if (priv->ops->phy_write_c45)
+		bus->write_c45 = rtl83xx_user_mdio_write_c45;
 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s:user_mii", dev_name(priv->dev));
 	bus->parent = priv->dev;
 
