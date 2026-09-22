@@ -497,24 +497,21 @@ static struct fdtable *close_files(struct files_struct *files)
 	 * files structure.
 	 */
 	struct fdtable *fdt = rcu_dereference_raw(files->fdt);
-	unsigned int i, j = 0;
+	unsigned int j = fdt->max_fds / BITS_PER_LONG;
 
-	for (;;) {
-		unsigned long set;
-		i = j * BITS_PER_LONG;
-		if (i >= fdt->max_fds)
-			break;
-		set = fdt->open_fds[j++];
+	/* Highest fd first, the order the deferred puts ran in. */
+	while (j--) {
+		unsigned long set = fdt->open_fds[j];
+
 		while (set) {
-			if (set & 1) {
-				struct file *file = fdt->fd[i];
-				if (file) {
-					filp_close_sync(file, files);
-					cond_resched();
-				}
+			unsigned int bit = __fls(set);
+			struct file *file = fdt->fd[j * BITS_PER_LONG + bit];
+
+			set ^= 1UL << bit;
+			if (file) {
+				filp_close_sync(file, files);
+				cond_resched();
 			}
-			i++;
-			set >>= 1;
 		}
 	}
 
@@ -801,10 +798,14 @@ static inline void __range_close(struct files_struct *files, unsigned int fd,
 	n = last_fd(fdt);
 	max_fd = min(max_fd, n);
 
-	for (fd = find_next_bit(fdt->open_fds, max_fd + 1, fd);
-	     fd <= max_fd;
-	     fd = find_next_bit(fdt->open_fds, max_fd + 1, fd + 1)) {
-		file = file_close_fd_locked(files, fd);
+	/* Highest fd first, see close_files(). */
+	for (n = max_fd + 1; n > fd; ) {
+		unsigned int cur = find_last_bit(fdt->open_fds, n);
+
+		if (cur >= n || cur < fd)
+			break;
+		n = cur;
+		file = file_close_fd_locked(files, cur);
 		if (file) {
 			spin_unlock(&files->file_lock);
 			filp_close_sync(file, files);
@@ -908,20 +909,22 @@ void close_cloexec_files(struct files_struct *files)
 
 	/* exec unshares first */
 	spin_lock(&files->file_lock);
-	for (i = 0; ; i++) {
+	fdt = files_fdtable(files);
+	/* Highest fd first, see close_files(). */
+	for (i = fdt->max_fds / BITS_PER_LONG; i--; ) {
 		unsigned long set;
-		unsigned fd = i * BITS_PER_LONG;
+
 		fdt = files_fdtable(files);
-		if (fd >= fdt->max_fds)
-			break;
 		set = fdt->close_on_exec[i];
 		if (!set)
 			continue;
 		fdt->close_on_exec[i] = 0;
-		for ( ; set ; fd++, set >>= 1) {
+		while (set) {
+			unsigned int bit = __fls(set);
+			unsigned fd = i * BITS_PER_LONG + bit;
 			struct file *file;
-			if (!(set & 1))
-				continue;
+
+			set ^= 1UL << bit;
 			file = fdt->fd[fd];
 			if (!file)
 				continue;
