@@ -661,8 +661,6 @@ static struct request *blk_mq_alloc_cached_request(struct request_queue *q,
 
 		if (blk_mq_get_hctx_type(opf) != rq->mq_hctx->type)
 			return NULL;
-		if (op_is_flush(rq->cmd_flags) != op_is_flush(opf))
-			return NULL;
 
 		rq_list_pop(&plug->cached_rqs);
 		rq->cmd_flags = opf;
@@ -3074,8 +3072,6 @@ static struct request *blk_mq_get_cached_request(struct blk_plug *plug,
 		return NULL;
 	if (type != rq->mq_hctx->type &&
 	    (type != HCTX_TYPE_READ || rq->mq_hctx->type != HCTX_TYPE_DEFAULT))
-		return NULL;
-	if (op_is_flush(rq->cmd_flags) != op_is_flush(opf))
 		return NULL;
 	rq_list_pop(&plug->cached_rqs);
 	return rq;
