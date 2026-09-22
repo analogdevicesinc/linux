@@ -1011,13 +1011,16 @@ nfsd_file_cache_start_net(struct net *net)
  * nfsd_file_cache_purge - Remove all cache items associated with @net
  * @net: target net namespace
  *
+ * Takes nfsd_mutex so the cache cannot be torn down underneath the
+ * walk.  Callers must not already hold it.
  */
 void
 nfsd_file_cache_purge(struct net *net)
 {
-	lockdep_assert_held(&nfsd_mutex);
+	mutex_lock(&nfsd_mutex);
 	if (test_bit(NFSD_FILE_CACHE_UP, &nfsd_file_flags) == 1)
 		__nfsd_file_cache_purge(net);
+	mutex_unlock(&nfsd_mutex);
 }
 
 void

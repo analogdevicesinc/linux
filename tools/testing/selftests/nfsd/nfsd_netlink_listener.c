@@ -5,7 +5,7 @@
  *
  * Three groups:
  *   validation  - malformed/abusive LISTENER_SET requests are rejected by
- *                 nfsd_nl_validate_listeners(), before nfsd_mutex is taken.
+ *                 nfsd_nl_validate_listeners(), before nn->nfsd_mutex is taken.
  *   functional  - create/add/remove listeners and verify LISTENER_GET
  *                 reflects the set (round-trip of transport + addr:port).
  *   semantics   - once threads are running (THREADS_SET) a listener change
@@ -949,8 +949,8 @@ TEST_F(nfsd_listener, val_missing_transport)
 }
 
 /*
- * A name matching no transport class must be refused before nfsd_mutex is
- * taken, so it never reaches svc_xprt_create_from_sa() and its
+ * A name matching no transport class must be refused before nn->nfsd_mutex
+ * is taken, so it never reaches svc_xprt_create_from_sa() and its
  * request_module("svc%s", name) upcall.
  *
  * The errno cannot show that -- svc_xprt_create_from_sa() returns

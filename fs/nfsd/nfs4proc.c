@@ -1703,7 +1703,7 @@ static bool nfsd4_copy_on_sb(const struct nfsd4_copy *copy,
  * @net: net namespace containing the copy operations
  * @sb: targeted superblock
  *
- * Context: Caller must hold nfsd_mutex with NFSD_NET_UP set.  Outside
+ * Context: Caller must hold nn->nfsd_mutex with NFSD_NET_UP set.  Outside
  *          that window nn->conf_id_hashtbl is unallocated or freed,
  *          so the walk would dereference a NULL or dangling pointer.
  */
@@ -1715,7 +1715,7 @@ void nfsd4_cancel_copy_by_sb(struct net *net, struct super_block *sb)
 	unsigned int idhashval;
 	LIST_HEAD(to_cancel);
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nn->nfsd_mutex);
 	spin_lock(&nn->client_lock);
 	for (idhashval = 0; idhashval < CLIENT_HASH_SIZE; idhashval++) {
 		struct list_head *head = &nn->conf_id_hashtbl[idhashval];
