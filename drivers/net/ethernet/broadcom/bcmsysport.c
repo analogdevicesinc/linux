@@ -2650,7 +2650,7 @@ static int bcm_sysport_suspend_to_wol(struct bcm_sysport_priv *priv)
 {
 	struct net_device *ndev = priv->netdev;
 	unsigned int timeout = 1000;
-	unsigned int index, i = 0;
+	unsigned int index;
 	u32 reg;
 
 	reg = umac_readl(priv, UMAC_MPD_CTRL);
@@ -2680,10 +2680,8 @@ static int bcm_sysport_suspend_to_wol(struct bcm_sysport_priv *priv)
 		reg = rxchk_readl(priv, RXCHK_CONTROL);
 		reg &= ~(RXCHK_BRCM_TAG_MATCH_MASK <<
 			 RXCHK_BRCM_TAG_MATCH_SHIFT);
-		for_each_set_bit(index, priv->filters, RXCHK_BRCM_TAG_MAX) {
-			reg |= BIT(RXCHK_BRCM_TAG_MATCH_SHIFT + i);
-			i++;
-		}
+		for_each_set_bit(index, priv->filters, RXCHK_BRCM_TAG_MAX)
+			reg |= BIT(RXCHK_BRCM_TAG_MATCH_SHIFT + index);
 		reg |= RXCHK_EN | RXCHK_BRCM_TAG_EN;
 		rxchk_writel(priv, reg, RXCHK_CONTROL);
 	}
