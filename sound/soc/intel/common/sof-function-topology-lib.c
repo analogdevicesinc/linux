@@ -19,6 +19,10 @@ enum tplg_device_id {
 	TPLG_DEVICE_SDCA_MIC,
 	TPLG_DEVICE_INTEL_PCH_DMIC,
 	TPLG_DEVICE_HDMI,
+	TPLG_DEVICE_SSP_JACK,
+	TPLG_DEVICE_SSP_AMP,
+	TPLG_DEVICE_SSP_BT,
+	TPLG_DEVICE_SSP_HDMI_IN,
 	TPLG_DEVICE_LOOPBACK_VIRTUAL,
 	TPLG_DEVICE_MAX
 };
@@ -70,11 +74,15 @@ static char *get_tplg_filename(struct device *dev, const char *prefix,
 
 	/*
 	 * The tplg file naming rule is sof-<platform>-<function>-id<BE id number>.tplg
-	 * where <platform> is only required for the devices that need NHLT blob like DMIC
+	 * where <platform> is required for functions that depend on NHLT blobs (e.g. DMIC/SSP)
 	 * as the nhlt blob is platform dependent.
 	 */
 	switch (tplg_dev) {
 	case TPLG_DEVICE_INTEL_PCH_DMIC:
+	case TPLG_DEVICE_SSP_JACK:
+	case TPLG_DEVICE_SSP_AMP:
+	case TPLG_DEVICE_SSP_BT:
+	case TPLG_DEVICE_SSP_HDMI_IN:
 		filename = devm_kasprintf(dev, GFP_KERNEL, "%s/sof-%s-%s-id%d.tplg",
 					  prefix, platform, tplg_dev_name, dai_link_id);
 		break;
@@ -108,6 +116,53 @@ static int get_dmic_tplg_dev(struct device *dev, int dmic_num,
 	return 0;
 }
 
+static int get_ssp_tplg_dev(struct device *dev, struct snd_soc_dai_link *dai_link,
+			    u16 *hdmi_in_mask, int *tplg_dev, char **tplg_dev_name)
+{
+	unsigned int ssp_port;
+
+	if (sscanf(dai_link->name, "SSP%d", &ssp_port) != 1) {
+		dev_err(dev, "Can't get SSP port from dai_link->name %s\n", dai_link->name);
+		return -EINVAL;
+	}
+	if (strstr(dai_link->name, "Codec")) {
+		/*
+		 * Assume DAI link 0 is jack which is true in all existing
+		 * machine drivers
+		 */
+		if (dai_link->id == 0) {
+			*tplg_dev = TPLG_DEVICE_SSP_JACK;
+			*tplg_dev_name = devm_kasprintf(dev, GFP_KERNEL,
+							"ssp%d-jack", ssp_port);
+		} else {
+			*tplg_dev = TPLG_DEVICE_SSP_AMP;
+			*tplg_dev_name = devm_kasprintf(dev, GFP_KERNEL,
+							"ssp%d-amp", ssp_port);
+		}
+	} else if (strstr(dai_link->name, "BT")) {
+		*tplg_dev = TPLG_DEVICE_SSP_BT;
+		*tplg_dev_name = devm_kasprintf(dev, GFP_KERNEL,
+						"ssp%d-bt", ssp_port);
+	} else if (strstr(dai_link->name, "HDMI")) {
+		*hdmi_in_mask |= BIT(ssp_port);
+		/* The number of HDMI in dai link is always 2 right now */
+		if (hweight16(*hdmi_in_mask) != 2)
+			return -EINVAL;
+
+		*tplg_dev = TPLG_DEVICE_SSP_HDMI_IN;
+		*tplg_dev_name = devm_kasprintf(dev, GFP_KERNEL,
+						"ssp%x-hdmiin", *hdmi_in_mask);
+	} else {
+		dev_warn(dev,
+			 "unsupported SSP link %s\n", dai_link->name);
+		return -EINVAL;
+	}
+	if (!*tplg_dev_name)
+		return -ENOMEM;
+
+	return 0;
+}
+
 int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_mach *mach,
 			   const char *prefix, const char ***tplg_files, bool best_effort)
 {
@@ -120,6 +175,7 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 	struct snd_soc_dai_link *dai_link;
 	char platform[SOF_INTEL_PLATFORM_NAME_MAX];
 	unsigned long tplg_mask = 0;
+	u16 hdmi_in_mask = 0;
 	int tplg_num = 0;
 	char *tplg_file;
 	int tplg_dev;
@@ -153,6 +209,10 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 		} else if (strstr(dai_link->name, "iDisp")) {
 			tplg_dev = TPLG_DEVICE_HDMI;
 			tplg_dev_name = "hdmi-pcm5";
+		} else if (strstr(dai_link->name, "SSP")) {
+			if (get_ssp_tplg_dev(card->dev, dai_link, &hdmi_in_mask,
+					     &tplg_dev, &tplg_dev_name) < 0)
+				continue;
 		} else if (strstr(dai_link->name, "Loopback_Virtual")) {
 			tplg_dev = TPLG_DEVICE_LOOPBACK_VIRTUAL;
 			/*
