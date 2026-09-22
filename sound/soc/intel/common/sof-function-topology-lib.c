@@ -28,6 +28,86 @@ enum tplg_device_id {
 
 #define SOF_INTEL_PLATFORM_NAME_MAX 4
 
+static int get_platform_name(struct snd_soc_card *card,
+			     const struct snd_soc_acpi_mach *mach, char *platform)
+{
+	int ret;
+
+	ret = sscanf(mach->sof_tplg_filename, "sof-%3s-*.tplg", platform);
+	if (ret != 1) {
+		dev_err(card->dev, "Invalid platform name of tplg %s\n",
+			mach->sof_tplg_filename);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static bool tplg_files_exist(struct device *dev, const char *tplg_files)
+{
+	const struct firmware *fw;
+	int ret;
+
+	ret = firmware_request_nowarn(&fw, tplg_files, dev);
+	if (!ret) {
+		release_firmware(fw);
+		return true;
+	}
+
+	dev_warn(dev,
+		 "Failed to open topology file: %s, you might need to\n",
+		 tplg_files);
+	dev_warn(dev,
+		 "download it from https://github.com/thesofproject/sof-bin/\n");
+	return false;
+}
+
+static char *get_tplg_filename(struct device *dev, const char *prefix,
+			       const char *platform, const char *tplg_dev_name,
+			       int dai_link_id, int tplg_dev)
+{
+	char *filename = NULL;
+
+	/*
+	 * The tplg file naming rule is sof-<platform>-<function>-id<BE id number>.tplg
+	 * where <platform> is only required for the devices that need NHLT blob like DMIC
+	 * as the nhlt blob is platform dependent.
+	 */
+	switch (tplg_dev) {
+	case TPLG_DEVICE_INTEL_PCH_DMIC:
+		filename = devm_kasprintf(dev, GFP_KERNEL, "%s/sof-%s-%s-id%d.tplg",
+					  prefix, platform, tplg_dev_name, dai_link_id);
+		break;
+	default:
+		filename = devm_kasprintf(dev, GFP_KERNEL, "%s/sof-%s-id%d.tplg",
+					  prefix, tplg_dev_name, dai_link_id);
+		break;
+	}
+
+	return filename;
+}
+
+static int get_dmic_tplg_dev(struct device *dev, int dmic_num,
+			     int *tplg_dev, char **tplg_dev_name)
+{
+	switch (dmic_num) {
+	case 2:
+		*tplg_dev_name = "dmic-2ch";
+		break;
+	case 4:
+		*tplg_dev_name = "dmic-4ch";
+		break;
+	default:
+		dev_warn(dev,
+			 "unsupported number of dmics: %d\n",
+			 dmic_num);
+		return -EINVAL;
+	}
+	*tplg_dev = TPLG_DEVICE_INTEL_PCH_DMIC;
+
+	return 0;
+}
+
 int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_mach *mach,
 			   const char *prefix, const char ***tplg_files, bool best_effort)
 {
@@ -38,7 +118,6 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 	 */
 	struct snd_soc_acpi_mach_params mach_params = card_mach->mach_params;
 	struct snd_soc_dai_link *dai_link;
-	const struct firmware *fw;
 	char platform[SOF_INTEL_PLATFORM_NAME_MAX];
 	unsigned long tplg_mask = 0;
 	int tplg_num = 0;
@@ -46,12 +125,9 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 	int ret;
 	int i;
 
-	ret = sscanf(mach->sof_tplg_filename, "sof-%3s-*.tplg", platform);
-	if (ret != 1) {
-		dev_err(card->dev, "Invalid platform name %s of tplg %s\n",
-			platform, mach->sof_tplg_filename);
-		return -EINVAL;
-	}
+	ret = get_platform_name(card, mach, platform);
+	if (ret < 0)
+		return ret;
 
 	for_each_card_prelinks(card, i, dai_link) {
 		char *tplg_dev_name;
@@ -70,20 +146,9 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 			tplg_dev = TPLG_DEVICE_SDCA_MIC;
 			tplg_dev_name = "sdca-mic";
 		} else if (strstr(dai_link->name, "dmic")) {
-			switch (mach_params.dmic_num) {
-			case 2:
-				tplg_dev_name = "dmic-2ch";
-				break;
-			case 4:
-				tplg_dev_name = "dmic-4ch";
-				break;
-			default:
-				dev_warn(card->dev,
-					 "unsupported number of dmics: %d\n",
-					 mach_params.dmic_num);
+			if (get_dmic_tplg_dev(card->dev, mach_params.dmic_num,
+					      &tplg_dev, &tplg_dev_name) < 0)
 				continue;
-			}
-			tplg_dev = TPLG_DEVICE_INTEL_PCH_DMIC;
 		} else if (strstr(dai_link->name, "iDisp")) {
 			tplg_dev = TPLG_DEVICE_HDMI;
 			tplg_dev_name = "hdmi-pcm5";
@@ -111,25 +176,9 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 
 		tplg_mask |= BIT(tplg_dev);
 
-		/*
-		 * The tplg file naming rule is sof-<platform>-<function>-id<BE id number>.tplg
-		 * where <platform> is only required for the DMIC function as the nhlt blob
-		 * is platform dependent.
-		 */
-		switch (tplg_dev) {
-		case TPLG_DEVICE_INTEL_PCH_DMIC:
-			(*tplg_files)[tplg_num] = devm_kasprintf(card->dev, GFP_KERNEL,
-								 "%s/sof-%s-%s-id%d.tplg",
-								 prefix, platform,
-								 tplg_dev_name, dai_link->id);
-			break;
-		default:
-			(*tplg_files)[tplg_num] = devm_kasprintf(card->dev, GFP_KERNEL,
-								 "%s/sof-%s-id%d.tplg",
-								 prefix, tplg_dev_name,
-								 dai_link->id);
-			break;
-		}
+		(*tplg_files)[tplg_num] = get_tplg_filename(card->dev, prefix, platform,
+							    tplg_dev_name, dai_link->id,
+							    tplg_dev);
 		if (!(*tplg_files)[tplg_num])
 			return -ENOMEM;
 		tplg_num++;
@@ -139,17 +188,9 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 
 	/* Check presence of sub-topologies */
 	for (i = 0; i < tplg_num; i++) {
-		ret = firmware_request_nowarn(&fw, (*tplg_files)[i], card->dev);
-		if (!ret) {
-			release_firmware(fw);
-		} else {
-			dev_warn(card->dev,
-				 "Failed to open topology file: %s, you might need to\n",
-				 (*tplg_files)[i]);
-			dev_warn(card->dev,
-				 "download it from https://github.com/thesofproject/sof-bin/\n");
+		if (!tplg_files_exist(card->dev, (*tplg_files)[i]))
+			/* return 0 to use monolithic topology */
 			return 0;
-		}
 	}
 
 	return tplg_num;
