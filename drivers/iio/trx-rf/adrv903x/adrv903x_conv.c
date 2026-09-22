@@ -151,13 +151,28 @@ int adrv903x_register_axi_converter(struct adrv903x_rf_phy *phy)
 {
 	struct axiadc_converter *conv;
 	struct spi_device *spi = phy->spi;
+	const struct axiadc_chip_info *src;
+	struct axiadc_chip_info *ci;
+	u8 np;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (!conv)
 		return -ENOMEM;
 
-	conv->chip_info = phy->chip_info->is_adrv9032r ?
-			  &adrv9032r_axi_chip_info : &adrv9032_axi_chip_info;
+	src = phy->chip_info->is_adrv9032r ?
+	      &adrv9032r_axi_chip_info : &adrv9032_axi_chip_info;
+
+	ci = devm_kmemdup(&spi->dev, src, sizeof(*ci), GFP_KERNEL);
+	if (!ci)
+		return -ENOMEM;
+
+	np = phy->palauDevice->initExtract.jesdSetting.framerSetting[0].jesdNp;
+	for (unsigned int i = 0; i < ci->num_channels; i++) {
+		ci->channel[i].scan_type.realbits = np;
+		ci->channel[i].scan_type.storagebits = (np > 8) ? 16 : 8;
+	}
+
+	conv->chip_info = ci;
 	conv->write_raw = adrv903x_write_raw;
 	conv->read_raw = adrv903x_read_raw;
 	conv->post_setup = adrv903x_post_setup;
