@@ -3925,8 +3925,11 @@ static int irq_remapping_alloc(struct irq_domain *domain, unsigned int virq,
 out_free_data:
 	for (i--; i >= 0; i--) {
 		irq_data = irq_domain_get_irq_data(domain, virq + i);
-		if (irq_data)
-			kfree(irq_data->chip_data);
+		if (irq_data && irq_data->chip_data) {
+			data = irq_data->chip_data;
+			kfree(data->entry);
+			kfree(data);
+		}
 	}
 	for (i = 0; i < nr_irqs; i++)
 		free_irte(iommu, devid, index + i);
