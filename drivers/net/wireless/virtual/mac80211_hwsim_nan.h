@@ -59,6 +59,9 @@ struct mac80211_hwsim_nan_data {
 	 * available in that slot (except DW which is implicit).
 	 */
 	struct cfg80211_chan_def local_sched[CFG80211_NAN_SCHED_NUM_TIME_SLOTS];
+
+	/* Simulates the firmware completing a deferred schedule update */
+	struct wiphy_delayed_work sched_update_work;
 };
 
 enum hrtimer_restart

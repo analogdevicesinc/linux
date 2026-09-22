@@ -906,6 +906,18 @@ mac80211_hwsim_nan_discovery_beacon_timer(struct hrtimer *timer)
 	return HRTIMER_RESTART;
 }
 
+static void
+mac80211_hwsim_nan_sched_update_work(struct wiphy *wiphy,
+				     struct wiphy_work *work)
+{
+	struct mac80211_hwsim_data *data =
+		container_of(work, struct mac80211_hwsim_data,
+			     nan.sched_update_work.work);
+
+	if (data->nan.device_vif)
+		ieee80211_nan_sched_update_done(data->nan.device_vif);
+}
+
 int mac80211_hwsim_nan_start(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct cfg80211_nan_conf *conf)
@@ -921,6 +933,9 @@ int mac80211_hwsim_nan_start(struct ieee80211_hw *hw,
 	/* set this before starting the timer, as preemption might occur */
 	data->nan.device_vif = vif;
 	data->nan.bands = conf->bands;
+
+	wiphy_delayed_work_init(&data->nan.sched_update_work,
+				mac80211_hwsim_nan_sched_update_work);
 
 	scoped_guard(spinlock_bh, &data->nan.state_lock) {
 		/* Start in the "scan" phase and stay there for a little bit */
@@ -960,6 +975,7 @@ int mac80211_hwsim_nan_stop(struct ieee80211_hw *hw,
 	hrtimer_cancel(&data->nan.slot_timer);
 	hrtimer_cancel(&data->nan.resume_txqs_timer);
 	hrtimer_cancel(&data->nan.discovery_beacon_timer);
+	wiphy_delayed_work_cancel(hw->wiphy, &data->nan.sched_update_work);
 	data->nan.device_vif = NULL;
 
 	return 0;
@@ -1296,6 +1312,12 @@ void mac80211_hwsim_nan_local_sched_changed(struct ieee80211_hw *hw,
 	}
 
 	spin_unlock_bh(&data->nan.state_lock);
+
+	/* Simulate firmware completing a deferred schedule update */
+	if (vif->cfg.nan_sched.deferred)
+		wiphy_delayed_work_queue(hw->wiphy,
+					 &data->nan.sched_update_work,
+					 msecs_to_jiffies(10));
 }
 
 int mac80211_hwsim_nan_peer_sched_changed(struct ieee80211_hw *hw,
