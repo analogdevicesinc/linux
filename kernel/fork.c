@@ -2140,12 +2140,9 @@ __latent_entropy struct task_struct *copy_process(
 	if (args->kthread)
 		p->flags |= PF_KTHREAD;
 	if (args->user_worker) {
-		/*
-		 * Mark us a user worker, and block any signal that isn't
-		 * fatal or STOP
-		 */
+		/* A user worker takes only the signals nobody can block. */
 		p->flags |= PF_USER_WORKER;
-		siginitsetinv(&p->blocked, sigmask(SIGKILL)|sigmask(SIGSTOP));
+		siginitsetinv(&p->blocked, SIG_KERNEL_ONLY_MASK);
 	}
 	if (args->io_thread)
 		p->flags |= PF_IO_WORKER;
@@ -2699,6 +2696,10 @@ struct task_struct *create_io_thread(int (*fn)(void *), void *arg, int node)
 		.io_thread	= 1,
 		.user_worker	= 1,
 	};
+
+	/* A creator past its fatal signal or its coredump point gets no thread. */
+	if (current->flags & (PF_SIGNALED | PF_POSTCOREDUMP))
+		return ERR_PTR(-EINTR);
 
 	return copy_process(NULL, 0, node, &args);
 }
