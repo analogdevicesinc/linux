@@ -4454,6 +4454,7 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 	struct net_device *lowerdev;
 	struct vxlan_config conf;
 	struct vxlan_rdst *dst;
+	u32 new_ifindex;
 	int err;
 
 	if (!rtnl_dev_link_net_capable(dev, vxlan->net))
@@ -4477,13 +4478,16 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 	if (err)
 		return err;
 
+	/* vxlan_config_apply() only commits remote_ifindex if lowerdev is set */
+	new_ifindex = lowerdev ? conf.remote_ifindex : dst->remote_ifindex;
+
 	rem_ip_changed = !vxlan_addr_equal(&conf.remote_ip, &dst->remote_ip);
 	change_igmp = vxlan->dev->flags & IFF_UP &&
 		      (rem_ip_changed ||
-		       dst->remote_ifindex != conf.remote_ifindex);
+		       dst->remote_ifindex != new_ifindex);
 
 	/* handle default dst entry */
-	if (rem_ip_changed) {
+	if (rem_ip_changed || dst->remote_ifindex != new_ifindex) {
 		spin_lock_bh(&vxlan->hash_lock);
 		if (!vxlan_addr_any(&conf.remote_ip)) {
 			err = vxlan_fdb_update(vxlan, all_zeros_mac,
@@ -4492,7 +4496,7 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 					       NLM_F_APPEND | NLM_F_CREATE,
 					       vxlan->cfg.dst_port,
 					       conf.vni, conf.vni,
-					       conf.remote_ifindex,
+					       new_ifindex,
 					       NTF_SELF, 0, true, extack);
 			if (err) {
 				spin_unlock_bh(&vxlan->hash_lock);
@@ -4511,13 +4515,21 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 					   true);
 		spin_unlock_bh(&vxlan->hash_lock);
 
-		/* If vni filtering device, also update fdb entries of
-		 * all vnis that were using default remote ip
+		/* If vni filtering device, also update default fdb entries of
+		 * all vnis
 		 */
 		if (vxlan->cfg.flags & VXLAN_F_VNIFILTER) {
 			err = vxlan_vnilist_update_group(vxlan, &dst->remote_ip,
-							 &conf.remote_ip, extack);
+							 &conf.remote_ip,
+							 dst->remote_ifindex,
+							 new_ifindex, extack);
 			if (err) {
+				vxlan_update_default_fdb_entry(vxlan, conf.vni,
+							       &conf.remote_ip,
+							       &dst->remote_ip,
+							       new_ifindex,
+							       dst->remote_ifindex,
+							       NULL);
 				netdev_adjacent_change_abort(dst->remote_dev,
 							     lowerdev, dev);
 				return err;
@@ -4525,7 +4537,9 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 		}
 	}
 
-	if (change_igmp && vxlan_addr_multicast(&dst->remote_ip))
+	if (change_igmp &&
+	    (vxlan_addr_multicast(&dst->remote_ip) ||
+	     (vxlan->cfg.flags & VXLAN_F_VNIFILTER)))
 		err = vxlan_multicast_leave(vxlan);
 
 	if (netif_running(dev) && conf.age_interval != vxlan->cfg.age_interval)
@@ -4536,9 +4550,14 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 		dst->remote_dev = lowerdev;
 	vxlan_config_apply(dev, &conf, lowerdev, vxlan->net, true);
 
-	if (!err && change_igmp &&
-	    vxlan_addr_multicast(&dst->remote_ip))
-		err = vxlan_multicast_join(vxlan);
+	if (change_igmp &&
+	    (vxlan_addr_multicast(&dst->remote_ip) ||
+	     (vxlan->cfg.flags & VXLAN_F_VNIFILTER))) {
+		int join_err = vxlan_multicast_join(vxlan);
+
+		if (join_err)
+			err = join_err;
+	}
 
 	return err;
 }

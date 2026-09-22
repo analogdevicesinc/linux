@@ -219,10 +219,17 @@ static int vxlan_multicast_leave_vnigrp(struct vxlan_dev *vxlan)
 	int last_err = 0, ret;
 
 	list_for_each_entry_safe(v, tmp, &vg->vni_list, vlist) {
-		if (vxlan_addr_multicast(&v->remote_ip) &&
-		    !vxlan_group_used(vn, vxlan, v->vni, &v->remote_ip,
+		if (!vxlan_addr_multicast(&v->remote_ip))
+			continue;
+		/* skip if address is same as default address */
+		if (vxlan_addr_equal(&v->remote_ip,
+				     &vxlan->default_dst.remote_ip))
+			continue;
+		if (!vxlan_group_used(vn, vxlan, v->vni, &v->remote_ip,
 				      0)) {
 			ret = vxlan_igmp_leave(vxlan, &v->remote_ip, 0);
+			if (ret == -EADDRNOTAVAIL)
+				ret = 0;
 			if (ret)
 				last_err = ret;
 		}
@@ -259,6 +266,8 @@ int vxlan_multicast_leave(struct vxlan_dev *vxlan)
 	    !vxlan_group_used(vn, vxlan, 0, NULL, 0)) {
 		ret = vxlan_igmp_leave(vxlan, &vxlan->default_dst.remote_ip,
 				       vxlan->default_dst.remote_ifindex);
+		if (ret == -EADDRNOTAVAIL)
+			ret = 0;
 		if (ret)
 			return ret;
 	}

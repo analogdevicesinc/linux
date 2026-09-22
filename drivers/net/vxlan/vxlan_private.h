@@ -213,9 +213,15 @@ void vxlan_vs_add_vnigrp(struct vxlan_dev *vxlan,
 			 struct vxlan_sock *vs,
 			 bool ipv6);
 void vxlan_vs_del_vnigrp(struct vxlan_dev *vxlan);
+int vxlan_update_default_fdb_entry(struct vxlan_dev *vxlan, __be32 vni,
+				   union vxlan_addr *old_remote_ip,
+				   union vxlan_addr *remote_ip,
+				   u32 old_ifindex, u32 new_ifindex,
+				   struct netlink_ext_ack *extack);
 int vxlan_vnilist_update_group(struct vxlan_dev *vxlan,
 			       union vxlan_addr *old_remote_ip,
 			       union vxlan_addr *new_remote_ip,
+			       u32 old_ifindex, u32 new_ifindex,
 			       struct netlink_ext_ack *extack);
 
 
