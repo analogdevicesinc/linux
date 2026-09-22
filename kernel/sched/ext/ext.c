@@ -24,18 +24,24 @@
 
 DEFINE_RAW_SPINLOCK(scx_sched_lock);
 
-bool scx_allow_proxy_exec(const struct task_struct *p)
+bool __scx_allow_proxy_exec(const struct task_struct *p)
 {
-	return p->sched_class != &ext_sched_class;
+	struct scx_sched *sch;
+
+	if (p->sched_class != &ext_sched_class)
+		return true;
+
+	sch = scx_task_sched(p);
+	return !sch || (sch->ops.flags & SCX_OPS_ENQ_BLOCKED);
 }
 
 /*
- * End retained proxy execution before sched_ext takes ownership of @p.
+ * End retained proxy execution before changing @p's BPF scheduler ownership.
  * Called with @p's pi and rq locks held immediately before
  * sched_change_begin(). The caller must pass DEQUEUE_NOCLOCK so the rq clock
  * is updated only once.
  */
-static void scx_prepare_task_sched_change(struct task_struct *p)
+void scx_prepare_task_sched_change(struct task_struct *p)
 {
 	lockdep_assert_held(&p->pi_lock);
 	lockdep_assert_rq_held(task_rq(p));
@@ -2178,19 +2184,28 @@ void scx_do_enqueue_task(struct rq *rq, struct task_struct *p, u64 enq_flags,
 	if (p->scx.ddsp_dsq_id != SCX_DSQ_INVALID)
 		goto direct;
 
-	/* see %SCX_OPS_ENQ_EXITING */
-	if (!(sch->ops.flags & SCX_OPS_ENQ_EXITING) &&
-	    unlikely(p->flags & PF_EXITING)) {
-		__scx_add_event(sch, SCX_EV_ENQ_SKIP_EXITING, 1);
-		enq_flags |= SCX_ENQ_RESCUE;	/* avoid looping on cap rejection */
-		goto local;
-	}
+	/*
+	 * A full wakeup enqueue happens before is_blocked is cleared. Don't
+	 * report it as another blocked-donor admission.
+	 */
+	if ((sch->ops.flags & SCX_OPS_ENQ_BLOCKED) && p->is_blocked &&
+	    !(enq_flags & SCX_ENQ_WAKEUP)) {
+		enq_flags |= SCX_ENQ_BLOCKED;
+	} else {
+		/* see %SCX_OPS_ENQ_EXITING */
+		if (unlikely(p->flags & PF_EXITING) &&
+		    !(sch->ops.flags & SCX_OPS_ENQ_EXITING)) {
+			__scx_add_event(sch, SCX_EV_ENQ_SKIP_EXITING, 1);
+			enq_flags |= SCX_ENQ_RESCUE;	/* avoid looping on cap rejection */
+			goto local;
+		}
 
-	/* see %SCX_OPS_ENQ_MIGRATION_DISABLED */
-	if (!(sch->ops.flags & SCX_OPS_ENQ_MIGRATION_DISABLED) &&
-	    is_migration_disabled(p)) {
-		__scx_add_event(sch, SCX_EV_ENQ_SKIP_MIGRATION_DISABLED, 1);
-		goto local;
+		/* see %SCX_OPS_ENQ_MIGRATION_DISABLED */
+		if (!(sch->ops.flags & SCX_OPS_ENQ_MIGRATION_DISABLED) &&
+		    is_migration_disabled(p)) {
+			__scx_add_event(sch, SCX_EV_ENQ_SKIP_MIGRATION_DISABLED, 1);
+			goto local;
+		}
 	}
 
 	if (unlikely(!SCX_HAS_OP(sch, enqueue)))
@@ -2532,10 +2547,23 @@ static void wakeup_preempt_scx(struct rq *rq, struct task_struct *p, int wake_fl
 	/*
 	 * Preemption between SCX tasks is implemented by resetting the victim
 	 * task's slice to 0 and triggering reschedule on the target CPU.
-	 * Nothing to do.
+	 *
+	 * A retained proxy donor can wake through ttwu_runnable() without another
+	 * ops.enqueue(). WF_TTWU_RQ identifies this path. Request rescheduling so
+	 * that ops.dispatch() can reconsider the task after ttwu_runnable() clears
+	 * is_blocked. A full wakeup activation has already enqueued the task and
+	 * doesn't need the additional reschedule.
 	 */
-	if (p->sched_class == &ext_sched_class)
+	if (p->sched_class == &ext_sched_class) {
+		if (sched_proxy_exec() && (wake_flags & WF_TTWU_RQ) &&
+		    p->is_blocked) {
+			struct scx_sched *sch = scx_task_sched(p);
+
+			if (sch && (sch->ops.flags & SCX_OPS_ENQ_BLOCKED))
+				resched_curr(rq);
+		}
 		return;
+	}
 
 	/*
 	 * Getting preempted by a higher-priority class. Reenqueue IMMED tasks.
@@ -2645,6 +2673,21 @@ static bool task_can_run_on_remote_rq(struct scx_sched *sch,
 		lockdep_assert_rq_held(task_rq(p));
 
 	WARN_ON_ONCE(task_cpu(p) == cpu);
+
+	/*
+	 * proxy_set_task_cpu() preserves wake_cpu when moving a donor's scheduling
+	 * context to its lock owner's rq. For example, if BPF places donor D on
+	 * CPU0 while its lock owner runs on CPU1, proxy execution moves D to CPU1
+	 * but leaves D->wake_cpu pointing to CPU0. If D is later put on a shared
+	 * DSQ, CPU0 could otherwise consume it and move it back, only for proxy
+	 * execution to return it to CPU1 again.
+	 *
+	 * When task_cpu() == wake_cpu, the donor has not been proxy-migrated and
+	 * BPF may still choose its placement. An actively donating task is
+	 * rejected separately by task_proxy_running_or_donating().
+	 */
+	if (sched_proxy_exec() && p->is_blocked && task_cpu(p) != p->wake_cpu)
+		return false;
 
 	/*
 	 * If @p has migration disabled, @p->cpus_ptr is updated to contain only
@@ -3468,6 +3511,24 @@ static void put_prev_task_scx(struct rq *rq, struct task_struct *p,
 
 	if (p->scx.flags & SCX_TASK_QUEUED) {
 		set_task_runnable(rq, p);
+
+		/* Delegate retained donor admission to its owning BPF scheduler. */
+		if (p->is_blocked) {
+			/*
+			 * If the donor is the same and only the mutex owner
+			 * changes, avoid triggering another ops.enqueue(): the
+			 * BPF scheduler has already admitted the donor, so it
+			 * can continue running.
+			 */
+			if (next == p)
+				goto switch_class;
+
+			if (WARN_ON_ONCE(!sch))
+				goto switch_class;
+			WARN_ON_ONCE(!(sch->ops.flags & SCX_OPS_ENQ_BLOCKED));
+			scx_do_enqueue_task(rq, p, 0, -1);
+			goto switch_class;
+		}
 
 		/*
 		 * If @p has slice left and is being put, @p is getting
@@ -7901,6 +7962,11 @@ int scx_validate_ops(struct scx_sched *sch, const struct sched_ext_ops *ops)
 	 */
 	if ((ops->flags & SCX_OPS_ENQ_LAST) && !ops->enqueue) {
 		scx_error(sch, "SCX_OPS_ENQ_LAST requires ops.enqueue() to be implemented");
+		return -EINVAL;
+	}
+
+	if ((ops->flags & SCX_OPS_ENQ_BLOCKED) && !ops->enqueue) {
+		scx_error(sch, "SCX_OPS_ENQ_BLOCKED requires ops.enqueue() to be implemented");
 		return -EINVAL;
 	}
 
