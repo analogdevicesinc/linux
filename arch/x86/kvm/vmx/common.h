@@ -254,6 +254,15 @@ static inline int __vt_handle_notify(struct kvm_vcpu *vcpu,
 	return 1;
 }
 
-int vt_handle_bus_lock_vmexit(struct kvm_vcpu *vcpu);
+static inline int vt_handle_bus_lock_vmexit(struct kvm_vcpu *vcpu)
+{
+	/*
+	 * Hardware may or may not set the BUS_LOCK_DETECTED flag on BUS_LOCK
+	 * VM-Exits. Unconditionally set the flag here and leave the handling
+	 * to .handle_exit() callback.
+	 */
+	to_vt(vcpu)->exit_reason.bus_lock_detected = true;
+	return 1;
+}
 
 #endif /* __KVM_X86_VMX_COMMON_H */
