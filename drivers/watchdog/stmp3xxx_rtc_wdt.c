@@ -13,6 +13,7 @@
 #include <linux/stmp3xxx_rtc_wdt.h>
 #include <linux/notifier.h>
 #include <linux/reboot.h>
+#include <linux/stringify.h>
 
 #define WDOG_TICK_RATE 1000 /* 1 kHz clock */
 #define STMP3XXX_DEFAULT_TIMEOUT 19
@@ -21,8 +22,8 @@
 static int heartbeat = STMP3XXX_DEFAULT_TIMEOUT;
 module_param(heartbeat, uint, 0);
 MODULE_PARM_DESC(heartbeat, "Watchdog heartbeat period in seconds from 1 to "
-		 __MODULE_STRING(STMP3XXX_MAX_TIMEOUT) ", default "
-		 __MODULE_STRING(STMP3XXX_DEFAULT_TIMEOUT));
+		 __stringify(STMP3XXX_MAX_TIMEOUT) ", default "
+		 __stringify(STMP3XXX_DEFAULT_TIMEOUT));
 
 static int wdt_start(struct watchdog_device *wdd)
 {

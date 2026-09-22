@@ -30,6 +30,7 @@
 #include <linux/moduleparam.h>
 #include <linux/io.h>
 #include <linux/uaccess.h>
+#include <linux/stringify.h>
 
 
 /* #define DEBUG 1 */
@@ -577,15 +578,15 @@ MODULE_LICENSE("GPL");
 
 module_param_hw(io, int, ioport, 0);
 MODULE_PARM_DESC(io, MODNAME " I/O port (default: "
-					__MODULE_STRING(IO_DEFAULT) ").");
+					__stringify(IO_DEFAULT) ").");
 
 module_param(timeout, int, 0);
 MODULE_PARM_DESC(timeout,
 		"Watchdog timeout in minutes (default="
-				__MODULE_STRING(DEFAULT_TIMEOUT) ").");
+				__stringify(DEFAULT_TIMEOUT) ").");
 
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout,
 		"Watchdog cannot be stopped once started (default="
-				__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+				__stringify(WATCHDOG_NOWAYOUT) ")");
 

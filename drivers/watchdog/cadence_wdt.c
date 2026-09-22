@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/stringify.h>
 #include <linux/watchdog.h>
 
 #define CDNS_WDT_DEFAULT_TIMEOUT	10
@@ -52,12 +53,12 @@ static int nowayout = WATCHDOG_NOWAYOUT;
 module_param(wdt_timeout, int, 0644);
 MODULE_PARM_DESC(wdt_timeout,
 		 "Watchdog time in seconds. (default="
-		 __MODULE_STRING(CDNS_WDT_DEFAULT_TIMEOUT) ")");
+		 __stringify(CDNS_WDT_DEFAULT_TIMEOUT) ")");
 
 module_param(nowayout, int, 0644);
 MODULE_PARM_DESC(nowayout,
 		 "Watchdog cannot be stopped once started (default="
-		 __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		 __stringify(WATCHDOG_NOWAYOUT) ")");
 
 /**
  * struct cdns_wdt - Watchdog device structure

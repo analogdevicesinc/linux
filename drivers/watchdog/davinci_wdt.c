@@ -19,6 +19,7 @@
 #include <linux/device.h>
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <linux/stringify.h>
 
 #define MODULE_NAME "DAVINCI-WDT: "
 
@@ -250,8 +251,8 @@ MODULE_DESCRIPTION("DaVinci Watchdog Driver");
 module_param(heartbeat, int, 0);
 MODULE_PARM_DESC(heartbeat,
 		 "Watchdog heartbeat period in seconds from 1 to "
-		 __MODULE_STRING(MAX_HEARTBEAT) ", default "
-		 __MODULE_STRING(DEFAULT_HEARTBEAT));
+		 __stringify(MAX_HEARTBEAT) ", default "
+		 __stringify(DEFAULT_HEARTBEAT));
 
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:davinci-wdt");

@@ -37,6 +37,7 @@
 #include <linux/ioport.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
+#include <linux/stringify.h>
 
 /* Module and version information */
 #define ESB_MODULE_NAME "i6300ESB timer"
@@ -74,19 +75,19 @@
 #define ESB_HEARTBEAT_MIN	1
 #define ESB_HEARTBEAT_MAX	2046
 #define ESB_HEARTBEAT_DEFAULT	30
-#define ESB_HEARTBEAT_RANGE __MODULE_STRING(ESB_HEARTBEAT_MIN) \
-	"<heartbeat<" __MODULE_STRING(ESB_HEARTBEAT_MAX)
+#define ESB_HEARTBEAT_RANGE __stringify(ESB_HEARTBEAT_MIN) \
+	"<heartbeat<" __stringify(ESB_HEARTBEAT_MAX)
 static int heartbeat; /* in seconds */
 module_param(heartbeat, int, 0);
 MODULE_PARM_DESC(heartbeat,
 	"Watchdog heartbeat in seconds. (" ESB_HEARTBEAT_RANGE
-	", default=" __MODULE_STRING(ESB_HEARTBEAT_DEFAULT) ")");
+	", default=" __stringify(ESB_HEARTBEAT_DEFAULT) ")");
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout,
 		"Watchdog cannot be stopped once started (default="
-				__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+				__stringify(WATCHDOG_NOWAYOUT) ")");
 
 /* internal variables */
 struct esb_dev {

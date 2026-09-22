@@ -40,6 +40,7 @@
 #include <linux/moduleparam.h>
 #include <linux/pci.h>
 #include <linux/platform_device.h>
+#include <linux/stringify.h>
 #include <linux/types.h>
 #include <linux/watchdog.h>
 
@@ -70,18 +71,18 @@ static struct pci_dev *sp5100_tco_pci;
 static bool action = WATCHDOG_ACTION;
 module_param(action, bool, 0);
 MODULE_PARM_DESC(action, "Action taken when watchdog expires, 0 to reset, 1 to poweroff (default="
-		 __MODULE_STRING(WATCHDOG_ACTION) ")");
+		 __stringify(WATCHDOG_ACTION) ")");
 
 #define WATCHDOG_HEARTBEAT 60	/* 60 sec default heartbeat. */
 static int heartbeat = WATCHDOG_HEARTBEAT;  /* in seconds */
 module_param(heartbeat, int, 0);
 MODULE_PARM_DESC(heartbeat, "Watchdog heartbeat in seconds. (default="
-		 __MODULE_STRING(WATCHDOG_HEARTBEAT) ")");
+		 __stringify(WATCHDOG_HEARTBEAT) ")");
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started."
-		" (default=" __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		" (default=" __stringify(WATCHDOG_NOWAYOUT) ")");
 
 /*
  * Some TCO specific functions

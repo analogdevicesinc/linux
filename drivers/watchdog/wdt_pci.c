@@ -49,6 +49,7 @@
 #include <linux/pci.h>
 #include <linux/io.h>
 #include <linux/uaccess.h>
+#include <linux/stringify.h>
 
 
 #define WDT_IS_PCI
@@ -72,13 +73,13 @@ static int wd_heartbeat;
 module_param(heartbeat, int, 0);
 MODULE_PARM_DESC(heartbeat,
 		"Watchdog heartbeat in seconds. (0<heartbeat<65536, default="
-				__MODULE_STRING(WD_TIMO) ")");
+				__stringify(WD_TIMO) ")");
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout,
 		"Watchdog cannot be stopped once started (default="
-				__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+				__stringify(WATCHDOG_NOWAYOUT) ")");
 
 /* Support for the Fan Tachometer on the PCI-WDT501 */
 static int tachometer;

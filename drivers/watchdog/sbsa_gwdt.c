@@ -46,6 +46,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
+#include <linux/stringify.h>
 #include <linux/uaccess.h>
 #include <linux/watchdog.h>
 #include <asm/arch_timer.h>
@@ -103,7 +104,7 @@ static unsigned int timeout;
 module_param(timeout, uint, 0);
 MODULE_PARM_DESC(timeout,
 		 "Watchdog timeout in seconds. (>=0, default="
-		 __MODULE_STRING(DEFAULT_TIMEOUT) ")");
+		 __stringify(DEFAULT_TIMEOUT) ")");
 
 /*
  * action refers to action taken when watchdog gets WS0
@@ -120,7 +121,7 @@ static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, S_IRUGO);
 MODULE_PARM_DESC(nowayout,
 		 "Watchdog cannot be stopped once started (default="
-		 __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		 __stringify(WATCHDOG_NOWAYOUT) ")");
 
 static bool early_enable;
 module_param(early_enable, bool, 0);
