@@ -804,6 +804,7 @@ static int vxlan_fdb_nh_update(struct vxlan_dev *vxlan, struct vxlan_fdb *fdb,
 			       u32 nhid, struct netlink_ext_ack *extack)
 {
 	struct nexthop *old_nh = rtnl_dereference(fdb->nh);
+	const struct vxlan_config *cfg;
 	struct nexthop *nh;
 	int err = -EINVAL;
 
@@ -832,7 +833,8 @@ static int vxlan_fdb_nh_update(struct vxlan_dev *vxlan, struct vxlan_fdb *fdb,
 	}
 
 	/* check nexthop group family */
-	switch (vxlan->default_dst.remote_ip.sa.sa_family) {
+	cfg = rtnl_dereference(vxlan->cfg);
+	switch (cfg->remote_ip.sa.sa_family) {
 	case AF_INET:
 		if (!nexthop_has_v4(nh)) {
 			err = -EAFNOSUPPORT;
@@ -1249,6 +1251,7 @@ static int vxlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
 			 const unsigned char *addr, u16 vid, u16 flags,
 			 bool *notified, struct netlink_ext_ack *extack)
 {
+	const struct vxlan_config *cfg;
 	struct vxlan_dev *vxlan = netdev_priv(dev);
 	/* struct net *net = dev_net(vxlan->dev); */
 	union vxlan_addr ip;
@@ -1276,7 +1279,8 @@ static int vxlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
 		return -EINVAL;
 	}
 
-	if (vxlan->default_dst.remote_ip.sa.sa_family != ip.sa.sa_family)
+	cfg = rtnl_dereference(vxlan->cfg);
+	if (cfg->remote_ip.sa.sa_family != ip.sa.sa_family)
 		return -EAFNOSUPPORT;
 
 	spin_lock_bh(&vxlan->hash_lock);
@@ -2320,7 +2324,14 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
 	skb->dev = dev;
 	__skb_pull(skb, skb_network_offset(skb));
 
-	if (dst_vxlan->default_dst.remote_ip.sa.sa_family == AF_INET) {
+	rcu_read_lock();
+	dst_cfg = rcu_dereference(dst_vxlan->cfg);
+	if (unlikely(!(dev->flags & IFF_UP))) {
+		kfree_skb_reason(skb, SKB_DROP_REASON_DEV_READY);
+		goto drop;
+	}
+
+	if (dst_cfg->remote_ip.sa.sa_family == AF_INET) {
 		loopback.sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 		loopback.sa.sa_family =  AF_INET;
 #if IS_ENABLED(CONFIG_IPV6)
@@ -2328,13 +2339,6 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
 		loopback.sin6.sin6_addr = in6addr_loopback;
 		loopback.sa.sa_family =  AF_INET6;
 #endif
-	}
-
-	rcu_read_lock();
-	dst_cfg = rcu_dereference(dst_vxlan->cfg);
-	if (unlikely(!(dev->flags & IFF_UP))) {
-		kfree_skb_reason(skb, SKB_DROP_REASON_DEV_READY);
-		goto drop;
 	}
 
 	if ((dst_cfg->flags & VXLAN_F_LEARN) && snoop)
@@ -2975,9 +2979,13 @@ static void vxlan_vs_del_dev(struct vxlan_dev *vxlan)
 static void vxlan_vs_add_dev(struct vxlan_sock *vs, struct vxlan_dev *vxlan,
 			     struct vxlan_dev_node *node)
 {
-	__be32 vni = vxlan->default_dst.remote_vni;
+	const struct vxlan_config *cfg;
+	__be32 vni;
 
 	ASSERT_RTNL();
+
+	cfg = rtnl_dereference(vxlan->cfg);
+	vni = cfg->vni;
 
 	node->vxlan = vxlan;
 	hlist_add_head_rcu(&node->hlist, vni_head(vs, vni));
@@ -3300,13 +3308,12 @@ static void vxlan_set_multicast_list(struct net_device *dev)
 static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
 {
 	struct vxlan_dev *vxlan = netdev_priv(dev);
-	struct vxlan_rdst *dst = &vxlan->default_dst;
 	const struct vxlan_config *cfg;
 	struct net_device *lowerdev;
 
 	cfg = rtnl_dereference(vxlan->cfg);
 
-	lowerdev = __dev_get_by_index(vxlan->net, dst->remote_ifindex);
+	lowerdev = __dev_get_by_index(vxlan->net, cfg->remote_ifindex);
 
 	/* This check is different than dev->max_mtu, because it looks at
 	 * the lowerdev->mtu, rather than the static dev->max_mtu
@@ -3635,9 +3642,11 @@ static int vxlan_get_link_ksettings(struct net_device *dev,
 				    struct ethtool_link_ksettings *cmd)
 {
 	struct vxlan_dev *vxlan = netdev_priv(dev);
-	struct vxlan_rdst *dst = &vxlan->default_dst;
-	struct net_device *lowerdev = __dev_get_by_index(vxlan->net,
-							 dst->remote_ifindex);
+	const struct vxlan_config *cfg;
+	struct net_device *lowerdev;
+
+	cfg = rtnl_dereference(vxlan->cfg);
+	lowerdev = __dev_get_by_index(vxlan->net, cfg->remote_ifindex);
 
 	if (!lowerdev) {
 		cmd->base.duplex = DUPLEX_UNKNOWN;
@@ -3975,6 +3984,13 @@ static int vxlan_config_validate(struct net *src_net, struct vxlan_config *conf,
 			return -EINVAL;
 		}
 
+		if ((conf->flags & VXLAN_F_VNIFILTER) && old &&
+		    vxlan_vnifilter_has_multicast(old)) {
+			NL_SET_ERR_MSG(extack,
+				       "Local interface required for multicast remote group");
+			return -EINVAL;
+		}
+
 #if IS_ENABLED(CONFIG_IPV6)
 		if (conf->flags & VXLAN_F_IPV6_LINKLOCAL) {
 			NL_SET_ERR_MSG(extack,
@@ -4009,10 +4025,9 @@ static void vxlan_config_apply(struct net_device *dev,
 			       struct vxlan_config *new_cfg,
 			       struct net_device *lowerdev,
 			       struct net *src_net,
-			       bool changelink)
+			       bool changelink, bool lowerdev_changed)
 {
 	struct vxlan_dev *vxlan = netdev_priv(dev);
-	struct vxlan_rdst *dst = &vxlan->default_dst;
 	unsigned short needed_headroom = ETH_HLEN;
 	struct vxlan_config *old_cfg;
 	int max_mtu = ETH_MAX_MTU;
@@ -4025,18 +4040,13 @@ static void vxlan_config_apply(struct net_device *dev,
 			vxlan_ether_setup(dev);
 
 		if (new_cfg->mtu)
-			dev->mtu = new_cfg->mtu;
+			WRITE_ONCE(dev->mtu, new_cfg->mtu);
 
 		vxlan->net = src_net;
 	}
 
-	dst->remote_vni = new_cfg->vni;
-
-	memcpy(&dst->remote_ip, &new_cfg->remote_ip, sizeof(new_cfg->remote_ip));
-
+	dev->needed_tailroom = 0;
 	if (lowerdev) {
-		dst->remote_ifindex = new_cfg->remote_ifindex;
-
 		netif_inherit_tso_max(dev, lowerdev);
 
 		needed_headroom = lowerdev->hard_header_len;
@@ -4044,16 +4054,17 @@ static void vxlan_config_apply(struct net_device *dev,
 
 		dev->needed_tailroom = lowerdev->needed_tailroom;
 
-		max_mtu = lowerdev->mtu - vxlan_headroom(flags);
+		max_mtu = READ_ONCE(lowerdev->mtu) - vxlan_headroom(flags);
 		if (max_mtu < ETH_MIN_MTU)
 			max_mtu = ETH_MIN_MTU;
 
 		if (!changelink && !new_cfg->mtu)
-			dev->mtu = max_mtu;
+			WRITE_ONCE(dev->mtu, max_mtu);
 	}
 
-	if (dev->mtu > max_mtu)
-		dev->mtu = max_mtu;
+	/* A changelink leaving the lower device alone must not shrink the mtu */
+	if (lowerdev_changed && READ_ONCE(dev->mtu) > max_mtu)
+		WRITE_ONCE(dev->mtu, max_mtu);
 
 	if (flags & VXLAN_F_COLLECT_METADATA)
 		flags |= VXLAN_F_IPV6;
@@ -4083,7 +4094,7 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
 	if (!new_cfg)
 		return -ENOMEM;
 
-	vxlan_config_apply(dev, new_cfg, lowerdev, src_net, false);
+	vxlan_config_apply(dev, new_cfg, lowerdev, src_net, false, true);
 
 	return 0;
 }
@@ -4096,10 +4107,8 @@ static int vxlan_dev_create(struct net *net, struct net_device *dev,
 	struct vxlan_dev *vxlan = netdev_priv(dev);
 	struct net_device *remote_dev = NULL;
 	const struct vxlan_config *cfg;
-	struct vxlan_rdst *dst;
 	int err;
 
-	dst = &vxlan->default_dst;
 	err = vxlan_dev_configure(net, dev, conf, extack);
 	if (err)
 		return err;
@@ -4114,8 +4123,8 @@ static int vxlan_dev_create(struct net *net, struct net_device *dev,
 		return err;
 	}
 
-	if (dst->remote_ifindex) {
-		remote_dev = __dev_get_by_index(net, dst->remote_ifindex);
+	if (cfg->remote_ifindex) {
+		remote_dev = __dev_get_by_index(net, cfg->remote_ifindex);
 		if (!remote_dev) {
 			err = -ENODEV;
 			goto unregister;
@@ -4125,7 +4134,7 @@ static int vxlan_dev_create(struct net *net, struct net_device *dev,
 		if (err)
 			goto unregister;
 
-		dst->remote_dev = remote_dev;
+		vxlan->lowerdev = remote_dev;
 	}
 
 	err = rtnl_configure_link(dev, NULL, 0, NULL);
@@ -4133,16 +4142,18 @@ static int vxlan_dev_create(struct net *net, struct net_device *dev,
 		goto unlink;
 
 	/* create an fdb entry for a valid default destination */
-	if (!vxlan_addr_any(&dst->remote_ip)) {
+	if (!vxlan_addr_any(&cfg->remote_ip)) {
+		union vxlan_addr rip = cfg->remote_ip;
+
 		spin_lock_bh(&vxlan->hash_lock);
 		err = vxlan_fdb_update(vxlan, all_zeros_mac,
-				       &dst->remote_ip,
+				       &rip,
 				       NUD_REACHABLE | NUD_PERMANENT,
 				       NLM_F_EXCL | NLM_F_CREATE,
 				       cfg->dst_port,
-				       dst->remote_vni,
-				       dst->remote_vni,
-				       dst->remote_ifindex,
+				       cfg->vni,
+				       cfg->vni,
+				       cfg->remote_ifindex,
 				       NTF_SELF, 0, true, extack);
 		spin_unlock_bh(&vxlan->hash_lock);
 		if (err)
@@ -4554,20 +4565,19 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 			    struct nlattr *data[],
 			    struct netlink_ext_ack *extack)
 {
+	bool lowerdev_changed, rem_ip_changed, change_igmp;
 	struct vxlan_dev *vxlan = netdev_priv(dev);
-	const struct vxlan_config *cfg = rtnl_dereference(vxlan->cfg);
-	bool rem_ip_changed, change_igmp;
+	const struct vxlan_config *cfg;
+	struct vxlan_config *new_cfg;
 	struct net_device *lowerdev;
 	struct vxlan_config conf;
-	struct vxlan_config *new_cfg;
-	struct vxlan_rdst *dst;
-	u32 new_ifindex;
 	int err;
+
+	cfg = rtnl_dereference(vxlan->cfg);
 
 	if (!rtnl_dev_link_net_capable(dev, vxlan->net))
 		return -EPERM;
 
-	dst = &vxlan->default_dst;
 	err = vxlan_nl2conf(tb, data, dev, &conf, true, extack);
 	if (err)
 		return err;
@@ -4581,26 +4591,23 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 	if (!new_cfg)
 		return -ENOMEM;
 
-	if (dst->remote_dev == lowerdev)
-		lowerdev = NULL;
-
-	err = netdev_adjacent_change_prepare(dst->remote_dev, lowerdev, dev,
-					     extack);
-	if (err) {
-		kfree(new_cfg);
-		return err;
+	lowerdev_changed = vxlan->lowerdev != lowerdev;
+	if (lowerdev_changed) {
+		err = netdev_adjacent_change_prepare(vxlan->lowerdev, lowerdev,
+						     dev, extack);
+		if (err) {
+			kfree(new_cfg);
+			return err;
+		}
 	}
 
-	/* vxlan_config_apply() only commits remote_ifindex if lowerdev is set */
-	new_ifindex = lowerdev ? conf.remote_ifindex : dst->remote_ifindex;
-
-	rem_ip_changed = !vxlan_addr_equal(&conf.remote_ip, &dst->remote_ip);
+	rem_ip_changed = !vxlan_addr_equal(&conf.remote_ip, &cfg->remote_ip);
 	change_igmp = vxlan->dev->flags & IFF_UP &&
 		      (rem_ip_changed ||
-		       dst->remote_ifindex != new_ifindex);
+		       cfg->remote_ifindex != conf.remote_ifindex);
 
 	/* handle default dst entry */
-	if (rem_ip_changed || dst->remote_ifindex != new_ifindex) {
+	if (rem_ip_changed || cfg->remote_ifindex != conf.remote_ifindex) {
 		spin_lock_bh(&vxlan->hash_lock);
 		if (!vxlan_addr_any(&conf.remote_ip)) {
 			err = vxlan_fdb_update(vxlan, all_zeros_mac,
@@ -4609,23 +4616,24 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 					       NLM_F_APPEND | NLM_F_CREATE,
 					       cfg->dst_port,
 					       conf.vni, conf.vni,
-					       new_ifindex,
+					       conf.remote_ifindex,
 					       NTF_SELF, 0, true, extack);
 			if (err) {
 				spin_unlock_bh(&vxlan->hash_lock);
-				netdev_adjacent_change_abort(dst->remote_dev,
-							     lowerdev, dev);
+				if (lowerdev_changed)
+					netdev_adjacent_change_abort(vxlan->lowerdev,
+								     lowerdev, dev);
 				kfree(new_cfg);
 				return err;
 			}
 		}
-		if (!vxlan_addr_any(&dst->remote_ip))
+		if (!vxlan_addr_any(&cfg->remote_ip))
 			__vxlan_fdb_delete(vxlan, all_zeros_mac,
-					   dst->remote_ip,
+					   cfg->remote_ip,
 					   cfg->dst_port,
-					   dst->remote_vni,
-					   dst->remote_vni,
-					   dst->remote_ifindex,
+					   cfg->vni,
+					   cfg->vni,
+					   cfg->remote_ifindex,
 					   true);
 		spin_unlock_bh(&vxlan->hash_lock);
 
@@ -4633,19 +4641,21 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 		 * all vnis
 		 */
 		if (cfg->flags & VXLAN_F_VNIFILTER) {
-			err = vxlan_vnilist_update_group(vxlan, &dst->remote_ip,
+			err = vxlan_vnilist_update_group(vxlan, &cfg->remote_ip,
 							 &conf.remote_ip,
-							 dst->remote_ifindex,
-							 new_ifindex, extack);
+							 cfg->remote_ifindex,
+							 conf.remote_ifindex,
+							 extack);
 			if (err) {
 				vxlan_update_default_fdb_entry(vxlan, conf.vni,
 							       &conf.remote_ip,
-							       &dst->remote_ip,
-							       new_ifindex,
-							       dst->remote_ifindex,
+							       &cfg->remote_ip,
+							       conf.remote_ifindex,
+							       cfg->remote_ifindex,
 							       NULL);
-				netdev_adjacent_change_abort(dst->remote_dev,
-							     lowerdev, dev);
+				if (lowerdev_changed)
+					netdev_adjacent_change_abort(vxlan->lowerdev,
+								     lowerdev, dev);
 				kfree(new_cfg);
 				return err;
 			}
@@ -4653,20 +4663,26 @@ static int vxlan_changelink(struct net_device *dev, struct nlattr *tb[],
 	}
 
 	if (change_igmp &&
-	    (vxlan_addr_multicast(&dst->remote_ip) ||
+	    (vxlan_addr_multicast(&cfg->remote_ip) ||
 	     (cfg->flags & VXLAN_F_VNIFILTER)))
 		err = vxlan_multicast_leave(vxlan);
 
 	if (netif_running(dev) && conf.age_interval != cfg->age_interval)
 		mod_timer(&vxlan->age_timer, jiffies);
 
-	netdev_adjacent_change_commit(dst->remote_dev, lowerdev, dev);
-	if (lowerdev && lowerdev != dst->remote_dev)
-		dst->remote_dev = lowerdev;
-	vxlan_config_apply(dev, new_cfg, lowerdev, vxlan->net, true);
+	if (lowerdev_changed) {
+		if (lowerdev)
+			netdev_adjacent_change_commit(vxlan->lowerdev, lowerdev,
+						      dev);
+		else
+			netdev_upper_dev_unlink(vxlan->lowerdev, dev);
+		vxlan->lowerdev = lowerdev;
+	}
+	vxlan_config_apply(dev, new_cfg, lowerdev, vxlan->net, true,
+			   lowerdev_changed);
 
 	if (change_igmp &&
-	    (vxlan_addr_multicast(&dst->remote_ip) ||
+	    (vxlan_addr_multicast(&new_cfg->remote_ip) ||
 	     (new_cfg->flags & VXLAN_F_VNIFILTER))) {
 		int join_err = vxlan_multicast_join(vxlan);
 
@@ -4686,8 +4702,8 @@ static void vxlan_dellink(struct net_device *dev, struct list_head *head)
 
 	list_del(&vxlan->next);
 	unregister_netdevice_queue(dev, head);
-	if (vxlan->default_dst.remote_dev)
-		netdev_upper_dev_unlink(vxlan->default_dst.remote_dev, dev);
+	if (vxlan->lowerdev)
+		netdev_upper_dev_unlink(vxlan->lowerdev, dev);
 }
 
 static size_t vxlan_get_size(const struct net_device *dev)
@@ -4731,30 +4747,29 @@ static size_t vxlan_get_size(const struct net_device *dev)
 static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
 {
 	const struct vxlan_dev *vxlan = netdev_priv(dev);
-	const struct vxlan_rdst *dst = &vxlan->default_dst;
 	struct ifla_vxlan_port_range ports;
 	const struct vxlan_config *cfg;
 
 	cfg = rtnl_dereference(vxlan->cfg);
 
-	if (nla_put_u32(skb, IFLA_VXLAN_ID, be32_to_cpu(dst->remote_vni)))
+	if (nla_put_u32(skb, IFLA_VXLAN_ID, be32_to_cpu(cfg->vni)))
 		goto nla_put_failure;
 
-	if (!vxlan_addr_any(&dst->remote_ip)) {
-		if (dst->remote_ip.sa.sa_family == AF_INET) {
+	if (!vxlan_addr_any(&cfg->remote_ip)) {
+		if (cfg->remote_ip.sa.sa_family == AF_INET) {
 			if (nla_put_in_addr(skb, IFLA_VXLAN_GROUP,
-					    dst->remote_ip.sin.sin_addr.s_addr))
+					    cfg->remote_ip.sin.sin_addr.s_addr))
 				goto nla_put_failure;
 #if IS_ENABLED(CONFIG_IPV6)
 		} else {
 			if (nla_put_in6_addr(skb, IFLA_VXLAN_GROUP6,
-					     &dst->remote_ip.sin6.sin6_addr))
+					     &cfg->remote_ip.sin6.sin6_addr))
 				goto nla_put_failure;
 #endif
 		}
 	}
 
-	if (dst->remote_ifindex && nla_put_u32(skb, IFLA_VXLAN_LINK, dst->remote_ifindex))
+	if (cfg->remote_ifindex && nla_put_u32(skb, IFLA_VXLAN_LINK, cfg->remote_ifindex))
 		goto nla_put_failure;
 
 	if (!vxlan_addr_any(&cfg->saddr)) {
@@ -4869,7 +4884,7 @@ static void vxlan_handle_lowerdev_unregister(struct vxlan_net *vn,
 	LIST_HEAD(list_kill);
 
 	list_for_each_entry_safe(vxlan, next, &vn->vxlan_list, next) {
-		struct vxlan_rdst *dst = &vxlan->default_dst;
+		const struct vxlan_config *cfg = rtnl_dereference(vxlan->cfg);
 
 		/* In case we created vxlan device with carrier
 		 * and we loose the carrier due to module unload
@@ -4877,7 +4892,7 @@ static void vxlan_handle_lowerdev_unregister(struct vxlan_net *vn,
 		 * cases, it's not necessary and remote_ifindex
 		 * is 0 here, so no matches.
 		 */
-		if (dst->remote_ifindex == dev->ifindex)
+		if (cfg->remote_ifindex == dev->ifindex)
 			vxlan_dellink(vxlan->dev, &list_kill);
 	}
 

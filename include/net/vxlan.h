@@ -204,7 +204,6 @@ struct vxlan_rdst {
 	u8			 offloaded:1;
 	__be32			 remote_vni;
 	u32			 remote_ifindex;
-	struct net_device	 *remote_dev;
 	struct list_head	 list;
 	struct rcu_head		 rcu;
 	struct dst_cache	 dst_cache;
@@ -295,7 +294,7 @@ struct vxlan_dev {
 #endif
 	struct net_device *dev;
 	struct net	  *net;		/* netns for packet i/o */
-	struct vxlan_rdst default_dst;	/* default destination */
+	struct net_device *lowerdev;
 
 	struct timer_list age_timer;
 	spinlock_t	  hash_lock;

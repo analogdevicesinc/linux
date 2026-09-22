@@ -195,7 +195,7 @@ static int vxlan_mdb_entry_info_fill(const struct vxlan_dev *vxlan,
 			be16_to_cpu(rd->remote_port)))
 		goto nest_err;
 
-	if (rd->remote_vni != vxlan->default_dst.remote_vni &&
+	if (rd->remote_vni != cfg->vni &&
 	    nla_put_u32(skb, MDBA_MDB_EATTR_VNI, be32_to_cpu(rd->remote_vni)))
 		goto nest_err;
 
@@ -620,12 +620,12 @@ static int vxlan_mdb_config_init(struct vxlan_mdb_config *cfg,
 
 	memset(cfg, 0, sizeof(*cfg));
 	cfg->vxlan = vxlan;
-	cfg->group.vni = vxlan->default_dst.remote_vni;
+	cfg->group.vni = vcfg->vni;
 	INIT_LIST_HEAD(&cfg->src_list);
 	cfg->nlflags = nlmsg_flags;
 	cfg->filter_mode = MCAST_EXCLUDE;
 	cfg->rt_protocol = RTPROT_STATIC;
-	cfg->remote_vni = vxlan->default_dst.remote_vni;
+	cfg->remote_vni = vcfg->vni;
 	cfg->remote_port = vcfg->dst_port;
 
 	if (entry->ifindex != dev->ifindex) {
@@ -986,7 +986,7 @@ vxlan_mdb_nlmsg_remote_size(const struct vxlan_dev *vxlan,
 	if (rd->remote_port && rd->remote_port != cfg->dst_port)
 		nlmsg_size += nla_total_size(sizeof(u16));
 	/* MDBA_MDB_EATTR_VNI */
-	if (rd->remote_vni != vxlan->default_dst.remote_vni)
+	if (rd->remote_vni != cfg->vni)
 		nlmsg_size += nla_total_size(sizeof(u32));
 	/* MDBA_MDB_EATTR_IFINDEX */
 	if (rd->remote_ifindex)
@@ -1488,11 +1488,13 @@ static int vxlan_mdb_get_parse(struct net_device *dev, struct nlattr *tb[],
 {
 	struct br_mdb_entry *entry = nla_data(tb[MDBA_GET_ENTRY]);
 	struct nlattr *mdbe_attrs[MDBE_ATTR_MAX + 1];
+	const struct vxlan_config *cfg;
 	struct vxlan_dev *vxlan = netdev_priv(dev);
 	int err;
 
+	cfg = rtnl_dereference(vxlan->cfg);
 	memset(group, 0, sizeof(*group));
-	group->vni = vxlan->default_dst.remote_vni;
+	group->vni = cfg->vni;
 
 	if (!tb[MDBA_GET_ENTRY_ATTRS]) {
 		vxlan_mdb_group_set(group, entry, NULL);
@@ -1641,7 +1643,7 @@ struct vxlan_mdb_entry *vxlan_mdb_entry_skb_get(struct vxlan_dev *vxlan,
 	 * entries are stored with the VNI of the VXLAN device.
 	 */
 	if (!(cfg->flags & VXLAN_F_COLLECT_METADATA))
-		src_vni = vxlan->default_dst.remote_vni;
+		src_vni = cfg->vni;
 
 	memset(&group, 0, sizeof(group));
 	group.vni = src_vni;
