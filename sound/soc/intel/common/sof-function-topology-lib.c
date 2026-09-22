@@ -121,6 +121,7 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 	char platform[SOF_INTEL_PLATFORM_NAME_MAX];
 	unsigned long tplg_mask = 0;
 	int tplg_num = 0;
+	char *tplg_file;
 	int tplg_dev;
 	int ret;
 	int i;
@@ -174,24 +175,27 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 		if (tplg_mask & BIT(tplg_dev))
 			continue;
 
+		tplg_file = get_tplg_filename(card->dev, prefix, platform, tplg_dev_name,
+					      dai_link->id, tplg_dev);
+		if (!tplg_file)
+			return -ENOMEM;
+
+		/* Check presence of sub-topologies */
+		if (!tplg_files_exist(card->dev, tplg_file)) {
+			devm_kfree(card->dev, tplg_file);
+			if (best_effort)
+				continue;
+
+			return 0;
+		}
+
 		tplg_mask |= BIT(tplg_dev);
 
-		(*tplg_files)[tplg_num] = get_tplg_filename(card->dev, prefix, platform,
-							    tplg_dev_name, dai_link->id,
-							    tplg_dev);
-		if (!(*tplg_files)[tplg_num])
-			return -ENOMEM;
+		(*tplg_files)[tplg_num] = tplg_file;
 		tplg_num++;
 	}
 
 	dev_dbg(card->dev, "tplg_mask %#lx tplg_num %d\n", tplg_mask, tplg_num);
-
-	/* Check presence of sub-topologies */
-	for (i = 0; i < tplg_num; i++) {
-		if (!tplg_files_exist(card->dev, (*tplg_files)[i]))
-			/* return 0 to use monolithic topology */
-			return 0;
-	}
 
 	return tplg_num;
 }
