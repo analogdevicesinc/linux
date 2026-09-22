@@ -630,12 +630,12 @@ int nfsd_create_serv(struct net *net, bool no_rpcbind)
 	init_completion(&nn->nfsd_net_free_done);
 	init_completion(&nn->nfsd_net_confirm_done);
 
-	if (nfsd_max_blksize == 0)
-		nfsd_max_blksize = nfsd_get_default_max_blksize();
+	if (nn->max_blksize == 0)
+		nn->max_blksize = nfsd_get_default_max_blksize();
 	nfsd_reset_versions(nn);
 	serv = svc_create_pooled(nfsd_programs, ARRAY_SIZE(nfsd_programs),
 				 &nn->nfsd_svcstats,
-				 nfsd_max_blksize, nfsd);
+				 nn->max_blksize, nfsd);
 	if (serv == NULL) {
 		percpu_ref_exit(&nn->nfsd_net_ref);
 		return -ENOMEM;
