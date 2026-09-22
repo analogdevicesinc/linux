@@ -24,6 +24,20 @@ int i3c_dev_setdasa_locked(struct i3c_dev_desc *dev);
 int i3c_dev_do_xfers_locked(struct i3c_dev_desc *dev,
 			    struct i3c_xfer *xfers,
 			    int nxfers, enum i3c_xfer_mode mode);
+
+int i3c_master_attach_i3c_dev_controller_locked(struct i3c_dev_desc *dev);
+int i3c_master_reattach_i3c_dev_controller_locked(struct i3c_dev_desc *dev,
+						  u8 old_dyn_addr);
+void i3c_master_detach_i3c_dev_controller_locked(struct i3c_dev_desc *dev);
+
+int i3c_dev_disable_ibi_controller_locked(struct i3c_dev_desc *dev);
+int i3c_dev_enable_ibi_controller_locked(struct i3c_dev_desc *dev);
+int i3c_dev_request_ibi_controller_locked(struct i3c_dev_desc *dev,
+					  const struct i3c_ibi_setup *req);
+void i3c_dev_free_ibi_controller_locked(struct i3c_dev_desc *dev);
+void i3c_dev_recycle_ibi_slot_controller(struct i3c_dev_desc *dev,
+					 struct i3c_ibi_slot *slot);
+
 int i3c_dev_disable_ibi_locked(struct i3c_dev_desc *dev);
 int i3c_dev_enable_ibi_locked(struct i3c_dev_desc *dev);
 int i3c_dev_request_ibi_locked(struct i3c_dev_desc *dev,

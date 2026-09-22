@@ -1949,6 +1949,30 @@ err_release_static_addr:
 	return -EBUSY;
 }
 
+/**
+ * i3c_master_attach_i3c_dev_controller_locked() - Attach device state to
+ *						   controller
+ * @dev: I3C device descriptor
+ *
+ * Invoke the current controller's attach callback without changing address
+ * slot state or adding the device to the controller's device list.
+ *
+ * Context: The caller must hold the bus lock.
+ *
+ * Return: 0 on success, or a negative error code returned by the controller.
+ */
+int i3c_master_attach_i3c_dev_controller_locked(struct i3c_dev_desc *dev)
+{
+	struct i3c_master_controller *master = i3c_dev_get_master(dev);
+
+	/* Do not attach the master device itself. */
+	if (master->this != dev && master->ops->attach_i3c_dev)
+		return master->ops->attach_i3c_dev(dev);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(i3c_master_attach_i3c_dev_controller_locked);
+
 static int i3c_master_attach_i3c_dev(struct i3c_master_controller *master,
 				     struct i3c_dev_desc *dev)
 {
@@ -1966,18 +1990,41 @@ static int i3c_master_attach_i3c_dev(struct i3c_master_controller *master,
 		return ret;
 
 	/* Do not attach the master device itself. */
-	if (master->this != dev && master->ops->attach_i3c_dev) {
-		ret = master->ops->attach_i3c_dev(dev);
-		if (ret) {
-			i3c_master_put_i3c_addrs(dev);
-			return ret;
-		}
+	ret = i3c_master_attach_i3c_dev_controller_locked(dev);
+	if (ret) {
+		i3c_master_put_i3c_addrs(dev);
+		return ret;
 	}
 
 	list_add_tail(&dev->common.node, &master->bus.devs.i3c);
 
 	return 0;
 }
+
+/**
+ * i3c_master_reattach_i3c_dev_controller_locked() - Reattach controller
+ *						     device state
+ * @dev: I3C device descriptor
+ * @old_dyn_addr: Previous dynamic address
+ *
+ * Invoke the current controller's reattach callback without modifying the
+ * controller's address-slot state.
+ *
+ * Context: The caller must hold the bus lock.
+ *
+ * Return: 0 on success, or a negative error code returned by the controller.
+ */
+int i3c_master_reattach_i3c_dev_controller_locked(struct i3c_dev_desc *dev,
+						  u8 old_dyn_addr)
+{
+	struct i3c_master_controller *master = i3c_dev_get_master(dev);
+
+	if (master->ops->reattach_i3c_dev)
+		return master->ops->reattach_i3c_dev(dev, old_dyn_addr);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(i3c_master_reattach_i3c_dev_controller_locked);
 
 /**
  * i3c_master_reattach_i3c_dev_locked() - reattach an I3C device with a new address
@@ -2009,25 +2056,39 @@ int i3c_master_reattach_i3c_dev_locked(struct i3c_dev_desc *dev,
 						     I3C_ADDR_SLOT_FREE);
 	}
 
-	if (master->ops->reattach_i3c_dev) {
-		ret = master->ops->reattach_i3c_dev(dev, old_dyn_addr);
-		if (ret) {
-			i3c_master_put_i3c_addrs(dev);
-			return ret;
-		}
+	ret = i3c_master_reattach_i3c_dev_controller_locked(dev, old_dyn_addr);
+	if (ret) {
+		i3c_master_put_i3c_addrs(dev);
+		return ret;
 	}
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(i3c_master_reattach_i3c_dev_locked);
 
-static void i3c_master_detach_i3c_dev(struct i3c_dev_desc *dev)
+/**
+ * i3c_master_detach_i3c_dev_controller_locked() - Detach device state from
+ *						   controller
+ * @dev: I3C device descriptor
+ *
+ * Invoke the current controller's detach callback without releasing address
+ * slots or removing the device from the controller's device list.
+ *
+ * Context: The caller must hold the bus lock.
+ */
+void i3c_master_detach_i3c_dev_controller_locked(struct i3c_dev_desc *dev)
 {
 	struct i3c_master_controller *master = i3c_dev_get_master(dev);
 
 	/* Do not detach the master device itself. */
 	if (master->this != dev && master->ops->detach_i3c_dev)
 		master->ops->detach_i3c_dev(dev);
+}
+EXPORT_SYMBOL_GPL(i3c_master_detach_i3c_dev_controller_locked);
+
+static void i3c_master_detach_i3c_dev(struct i3c_dev_desc *dev)
+{
+	i3c_master_detach_i3c_dev_controller_locked(dev);
 
 	i3c_master_put_i3c_addrs(dev);
 	list_del(&dev->common.node);
@@ -3584,7 +3645,6 @@ static void i3c_master_handle_ibi(struct work_struct *work)
 	struct i3c_ibi_slot *slot = container_of(work, struct i3c_ibi_slot,
 						 work);
 	struct i3c_dev_desc *dev = slot->dev;
-	struct i3c_master_controller *master = i3c_dev_get_master(dev);
 	struct i3c_ibi_payload payload;
 
 	payload.data = slot->data;
@@ -3593,7 +3653,7 @@ static void i3c_master_handle_ibi(struct work_struct *work)
 	if (dev->dev)
 		dev->ibi->handler(dev->dev, &payload);
 
-	master->ops->recycle_ibi_slot(dev, slot);
+	i3c_dev_recycle_ibi_slot_controller(dev, slot);
 	if (atomic_dec_and_test(&dev->ibi->pending_ibis))
 		complete(&dev->ibi->all_ibis_handled);
 }
@@ -3703,6 +3763,29 @@ err_free_pool:
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(i3c_generic_ibi_alloc_pool);
+
+/**
+ * i3c_dev_recycle_ibi_slot_controller() - Recycle an IBI slot through
+ *					   the current controller
+ * @dev: I3C device descriptor
+ * @slot: IBI slot to recycle
+ *
+ * Invoke the current controller's IBI slot recycling callback.
+ *
+ * Context: Called from the generic IBI work handler in workqueue context.
+ * No bus lock is taken here: the controller owns its IBI pool and is
+ * responsible for synchronizing access to it. The generic pool
+ * implementation uses its own spinlock.
+ */
+void i3c_dev_recycle_ibi_slot_controller(struct i3c_dev_desc *dev,
+					 struct i3c_ibi_slot *slot)
+{
+	struct i3c_master_controller *master = i3c_dev_get_master(dev);
+
+	if (master->ops->recycle_ibi_slot)
+		master->ops->recycle_ibi_slot(dev, slot);
+}
+EXPORT_SYMBOL_GPL(i3c_dev_recycle_ibi_slot_controller);
 
 /**
  * i3c_generic_ibi_get_free_slot() - Get a free slot from a generic IBI pool
@@ -4016,6 +4099,32 @@ int i3c_dev_do_xfers_locked(struct i3c_dev_desc *dev, struct i3c_xfer *xfers,
 EXPORT_SYMBOL_GPL(i3c_dev_do_xfers_locked);
 
 /**
+ * i3c_dev_disable_ibi_controller_locked() - Disable IBI in the controller
+ * @dev: I3C device descriptor
+ *
+ * Invoke the current controller's IBI disable callback without waiting for
+ * pending IBIs or updating the generic IBI enabled state.
+ *
+ * Context: The caller must serialize access to @dev->ibi and the generic
+ * IBI lifecycle.
+ *
+ * Return: 0 on success, or a negative error code.
+ */
+int i3c_dev_disable_ibi_controller_locked(struct i3c_dev_desc *dev)
+{
+	struct i3c_master_controller *master = i3c_dev_get_master(dev);
+
+	if (!dev->ibi)
+		return -EINVAL;
+
+	if (!master->ops->disable_ibi)
+		return -EOPNOTSUPP;
+
+	return master->ops->disable_ibi(dev);
+}
+EXPORT_SYMBOL_GPL(i3c_dev_disable_ibi_controller_locked);
+
+/**
  * i3c_dev_disable_ibi_locked() - Disable IBIs coming from a specific device
  * @dev: device on which IBIs should be disabled
  *
@@ -4027,14 +4136,9 @@ EXPORT_SYMBOL_GPL(i3c_dev_do_xfers_locked);
  */
 int i3c_dev_disable_ibi_locked(struct i3c_dev_desc *dev)
 {
-	struct i3c_master_controller *master;
 	int ret;
 
-	if (!dev->ibi)
-		return -EINVAL;
-
-	master = i3c_dev_get_master(dev);
-	ret = master->ops->disable_ibi(dev);
+	ret = i3c_dev_disable_ibi_controller_locked(dev);
 	if (ret)
 		return ret;
 
@@ -4047,6 +4151,32 @@ int i3c_dev_disable_ibi_locked(struct i3c_dev_desc *dev)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(i3c_dev_disable_ibi_locked);
+
+/**
+ * i3c_dev_enable_ibi_controller_locked() - Enable controller IBI resources
+ * @dev: I3C device descriptor
+ *
+ * Invoke the current controller's IBI enable callback without updating the
+ * generic IBI enabled state.
+ *
+ * Context: The caller must serialize access to @dev->ibi and the generic
+ * IBI lifecycle.
+ *
+ * Return: 0 on success, or a negative error code.
+ */
+int i3c_dev_enable_ibi_controller_locked(struct i3c_dev_desc *dev)
+{
+	struct i3c_master_controller *master = i3c_dev_get_master(dev);
+
+	if (!dev->ibi)
+		return -EINVAL;
+
+	if (!master->ops->enable_ibi)
+		return -EOPNOTSUPP;
+
+	return master->ops->enable_ibi(dev);
+}
+EXPORT_SYMBOL_GPL(i3c_dev_enable_ibi_controller_locked);
 
 /**
  * i3c_dev_enable_ibi_locked() - Enable IBIs from a specific device (lock held)
@@ -4064,19 +4194,44 @@ EXPORT_SYMBOL_GPL(i3c_dev_disable_ibi_locked);
  */
 int i3c_dev_enable_ibi_locked(struct i3c_dev_desc *dev)
 {
-	struct i3c_master_controller *master = i3c_dev_get_master(dev);
 	int ret;
 
-	if (!dev->ibi)
-		return -EINVAL;
-
-	ret = master->ops->enable_ibi(dev);
+	ret = i3c_dev_enable_ibi_controller_locked(dev);
 	if (!ret)
 		dev->ibi->enabled = true;
 
 	return ret;
 }
 EXPORT_SYMBOL_GPL(i3c_dev_enable_ibi_locked);
+
+/**
+ * i3c_dev_request_ibi_controller_locked() - Request controller IBI resources
+ * @dev: I3C device descriptor
+ * @req: IBI setup request
+ *
+ * Invoke the current controller's IBI request callback without allocating the
+ * generic IBI object or workqueue. The caller must ensure that @dev->ibi has
+ * already been initialized.
+ *
+ * Context: The caller must serialize access to @dev->ibi and the generic
+ * IBI lifecycle.
+ *
+ * Return: 0 on success, or a negative error code.
+ */
+int i3c_dev_request_ibi_controller_locked(struct i3c_dev_desc *dev,
+					  const struct i3c_ibi_setup *req)
+{
+	struct i3c_master_controller *master = i3c_dev_get_master(dev);
+
+	if (!dev->ibi)
+		return -EINVAL;
+
+	if (!master->ops->request_ibi)
+		return -EOPNOTSUPP;
+
+	return master->ops->request_ibi(dev, req);
+}
+EXPORT_SYMBOL_GPL(i3c_dev_request_ibi_controller_locked);
 
 /**
  * i3c_dev_request_ibi_locked() - Request an IBI
@@ -4121,8 +4276,15 @@ int i3c_dev_request_ibi_locked(struct i3c_dev_desc *dev,
 	ibi->num_slots = req->num_slots;
 
 	dev->ibi = ibi;
-	ret = master->ops->request_ibi(dev, req);
+	ret = i3c_dev_request_ibi_controller_locked(dev, req);
 	if (ret) {
+		/*
+		 * The controller request callback failed, so tear down the
+		 * workqueue allocated above before freeing the IBI object.
+		 * This is the owner of the workqueue, so it must destroy it
+		 * here to avoid leaking it on the error path.
+		 */
+		destroy_workqueue(ibi->wq);
 		kfree(ibi);
 		dev->ibi = NULL;
 	}
@@ -4130,6 +4292,27 @@ int i3c_dev_request_ibi_locked(struct i3c_dev_desc *dev,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(i3c_dev_request_ibi_locked);
+
+/**
+ * i3c_dev_free_ibi_controller_locked() - Free controller IBI resources
+ * @dev: I3C device descriptor
+ *
+ * Invoke the current controller's IBI free callback without destroying the
+ * generic IBI workqueue or freeing @dev->ibi.
+ *
+ * Context: The caller must serialize access to @dev->ibi and the generic
+ * IBI lifecycle.
+ */
+void i3c_dev_free_ibi_controller_locked(struct i3c_dev_desc *dev)
+{
+	struct i3c_master_controller *master = i3c_dev_get_master(dev);
+
+	if (!dev->ibi)
+		return;
+
+	master->ops->free_ibi(dev);
+}
+EXPORT_SYMBOL_GPL(i3c_dev_free_ibi_controller_locked);
 
 /**
  * i3c_dev_free_ibi_locked() - Free all resources needed for IBI handling
@@ -4161,7 +4344,7 @@ void i3c_dev_free_ibi_locked(struct i3c_dev_desc *dev)
 			dev_err(&master->dev, "Failed to disable IBI before freeing\n");
 	}
 
-	master->ops->free_ibi(dev);
+	i3c_dev_free_ibi_controller_locked(dev);
 
 	if (dev->ibi->wq) {
 		destroy_workqueue(dev->ibi->wq);
