@@ -52,9 +52,11 @@ enum adaptive_sync_sdp_version {
 	AS_SDP_VER_0 = 0x0,
 	AS_SDP_VER_1 = 0x1,
 	AS_SDP_VER_2 = 0x2,
+	AS_SDP_VER_3 = 0x3,
 };
 
 #define AS_DP_SDP_LENGTH (9)
+#define AS_DP_SDP_V3_LENGTH (0xA)
 
 struct frame_duration_op {
 	bool          support;
@@ -76,6 +78,9 @@ void mod_build_adaptive_sync_infopacket(const struct dc_stream_state *stream,
 		struct dc_info_packet *info_packet);
 
 void mod_build_adaptive_sync_infopacket_v2(const struct dc_stream_state *stream,
+		const struct AS_Df_params *param, struct dc_info_packet *info_packet);
+
+void mod_build_adaptive_sync_infopacket_v3(const struct dc_stream_state *stream,
 		const struct AS_Df_params *param, struct dc_info_packet *info_packet);
 
 void mod_build_adaptive_sync_infopacket_v1(struct dc_info_packet *info_packet);
