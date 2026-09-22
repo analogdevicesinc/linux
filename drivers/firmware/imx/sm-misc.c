@@ -43,7 +43,8 @@ static const struct of_device_id allowlist[] = {
 
 int scmi_imx_misc_ctrl_set(u32 id, u32 val)
 {
-	if (!ph)
+	/* Pairs with the smp_store_release() in the probe function. */
+	if (!smp_load_acquire(&ph))
 		return -EPROBE_DEFER;
 
 	return imx_misc_ctrl_ops->misc_ctrl_set(ph, id, 1, &val);
@@ -52,7 +53,8 @@ EXPORT_SYMBOL(scmi_imx_misc_ctrl_set);
 
 int scmi_imx_misc_ctrl_get(u32 id, u32 *num, u32 *val)
 {
-	if (!ph)
+	/* Pairs with the smp_store_release() in the probe function. */
+	if (!smp_load_acquire(&ph))
 		return -EPROBE_DEFER;
 
 	return imx_misc_ctrl_ops->misc_ctrl_get(ph, id, num, val);
@@ -82,7 +84,8 @@ static int syslog_show(struct seq_file *file, void *priv)
 	if (!syslog)
 		return -ENOMEM;
 
-	if (!ph)
+	/* Pairs with the smp_store_release() in the probe function. */
+	if (!smp_load_acquire(&ph))
 		return -ENODEV;
 
 	ret = imx_misc_ctrl_ops->misc_syslog(ph, &size, syslog);
@@ -153,6 +156,8 @@ static int scmi_imx_misc_ctrl_probe(struct scmi_device *sdev)
 {
 	const struct scmi_handle *handle = sdev->handle;
 	struct device_node *np = sdev->dev.of_node;
+	const struct scmi_imx_misc_proto_ops *ops;
+	struct scmi_protocol_handle *misc_ph;
 	struct dentry *scmi_imx_dentry;
 	u32 src_id, flags;
 	int ret, i, num;
@@ -165,9 +170,16 @@ static int scmi_imx_misc_ctrl_probe(struct scmi_device *sdev)
 		return -EEXIST;
 	}
 
-	imx_misc_ctrl_ops = handle->devm_protocol_get(sdev, SCMI_PROTOCOL_IMX_MISC, &ph);
-	if (IS_ERR(imx_misc_ctrl_ops))
-		return PTR_ERR(imx_misc_ctrl_ops);
+	ops = handle->devm_protocol_get(sdev, SCMI_PROTOCOL_IMX_MISC, &misc_ph);
+	if (IS_ERR(ops))
+		return PTR_ERR(ops);
+
+	imx_misc_ctrl_ops = ops;
+	/*
+	 * ph is the gate the exported helpers test. Publish it only after
+	 * imx_misc_ctrl_ops is set, and pair with the smp_load_acquire() there.
+	 */
+	smp_store_release(&ph, misc_ph);
 
 	num = of_property_count_u32_elems(np, "nxp,ctrl-ids");
 	if (num % 2) {

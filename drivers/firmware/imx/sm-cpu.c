@@ -16,7 +16,8 @@ static struct scmi_protocol_handle *ph;
 int scmi_imx_cpu_reset_vector_set(u32 cpuid, u64 vector, bool start, bool boot,
 				  bool resume)
 {
-	if (!ph)
+	/* Pairs with the smp_store_release() in the probe function. */
+	if (!smp_load_acquire(&ph))
 		return -EPROBE_DEFER;
 
 	return imx_cpu_ops->cpu_reset_vector_set(ph, cpuid, vector, start,
@@ -26,7 +27,8 @@ EXPORT_SYMBOL(scmi_imx_cpu_reset_vector_set);
 
 int scmi_imx_cpu_start(u32 cpuid, bool start)
 {
-	if (!ph)
+	/* Pairs with the smp_store_release() in the probe function. */
+	if (!smp_load_acquire(&ph))
 		return -EPROBE_DEFER;
 
 	if (start)
@@ -38,7 +40,8 @@ EXPORT_SYMBOL(scmi_imx_cpu_start);
 
 int scmi_imx_cpu_started(u32 cpuid, bool *started)
 {
-	if (!ph)
+	/* Pairs with the smp_store_release() in the probe function. */
+	if (!smp_load_acquire(&ph))
 		return -EPROBE_DEFER;
 
 	if (!started)
@@ -51,6 +54,8 @@ EXPORT_SYMBOL(scmi_imx_cpu_started);
 static int scmi_imx_cpu_probe(struct scmi_device *sdev)
 {
 	const struct scmi_handle *handle = sdev->handle;
+	const struct scmi_imx_cpu_proto_ops *ops;
+	struct scmi_protocol_handle *cpu_ph;
 
 	if (!handle)
 		return -ENODEV;
@@ -60,9 +65,16 @@ static int scmi_imx_cpu_probe(struct scmi_device *sdev)
 		return -EEXIST;
 	}
 
-	imx_cpu_ops = handle->devm_protocol_get(sdev, SCMI_PROTOCOL_IMX_CPU, &ph);
-	if (IS_ERR(imx_cpu_ops))
-		return PTR_ERR(imx_cpu_ops);
+	ops = handle->devm_protocol_get(sdev, SCMI_PROTOCOL_IMX_CPU, &cpu_ph);
+	if (IS_ERR(ops))
+		return PTR_ERR(ops);
+
+	imx_cpu_ops = ops;
+	/*
+	 * ph is the gate the exported helpers test. Publish it only after
+	 * imx_cpu_ops is set, and pair with the smp_load_acquire() there.
+	 */
+	smp_store_release(&ph, cpu_ph);
 
 	return 0;
 }
