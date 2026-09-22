@@ -1,2 +1,3 @@
 nfsd_netlink_listener
 nfsd_netns_isolation
+nfsd_netns_stress
