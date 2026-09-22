@@ -138,6 +138,7 @@
 #define AD4883_CHIP_ID						0x005B
 #define AD4884_CHIP_ID						0x005C
 #define AD4885_CHIP_ID						0x005D
+#define AD4886_CHIP_ID						0x005E
 
 #define AD4080_MAX_CHANNELS					2
 
@@ -567,6 +568,11 @@ static const struct iio_chan_spec ad4885_channels[] = {
 	AD4880_CHANNEL_DEFINE(16, 16, 1),
 };
 
+static const struct iio_chan_spec ad4886_channels[] = {
+	AD4880_CHANNEL_DEFINE(14, 16, 0),
+	AD4880_CHANNEL_DEFINE(14, 16, 1),
+};
+
 static const struct ad4080_chip_info ad4080_chip_info = {
 	.name = "ad4080",
 	.product_id = AD4080_CHIP_ID,
@@ -695,6 +701,16 @@ static const struct ad4080_chip_info ad4885_chip_info = {
 	.num_channels = 2,
 	.channels = ad4885_channels,
 	.lvds_cnv_clk_cnt_max = 8,
+};
+
+static const struct ad4080_chip_info ad4886_chip_info = {
+	.name = "ad4886",
+	.product_id = AD4886_CHIP_ID,
+	.scale_table = ad4080_scale_table,
+	.num_scales = ARRAY_SIZE(ad4080_scale_table),
+	.num_channels = 2,
+	.channels = ad4886_channels,
+	.lvds_cnv_clk_cnt_max = 4,
 };
 
 static int ad4080_setup_channel(struct ad4080_state *st, unsigned int ch)
@@ -907,6 +923,7 @@ static const struct spi_device_id ad4080_id[] = {
 	{ .name = "ad4883", .driver_data = (kernel_ulong_t)&ad4883_chip_info },
 	{ .name = "ad4884", .driver_data = (kernel_ulong_t)&ad4884_chip_info },
 	{ .name = "ad4885", .driver_data = (kernel_ulong_t)&ad4885_chip_info },
+	{ .name = "ad4886", .driver_data = (kernel_ulong_t)&ad4886_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad4080_id);
@@ -925,6 +942,7 @@ static const struct of_device_id ad4080_of_match[] = {
 	{ .compatible = "adi,ad4883", &ad4883_chip_info },
 	{ .compatible = "adi,ad4884", &ad4884_chip_info },
 	{ .compatible = "adi,ad4885", &ad4885_chip_info },
+	{ .compatible = "adi,ad4886", &ad4886_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ad4080_of_match);
