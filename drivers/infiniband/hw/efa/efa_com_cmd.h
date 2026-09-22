@@ -209,6 +209,7 @@ struct efa_com_reg_mr_params {
 		u8 remote_write : 1;
 		u8 remote_read : 1;
 	} permissions;
+	u8 relaxed_ordering;
 	u8 inline_pbl;
 	u8 indirect;
 };

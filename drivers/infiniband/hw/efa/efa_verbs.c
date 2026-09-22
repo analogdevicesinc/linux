@@ -1679,6 +1679,7 @@ static int efa_register_mr(struct ib_pd *ibpd, struct efa_mr *mr, u64 start,
 	params.permissions.local_write = !!(access_flags & IB_ACCESS_LOCAL_WRITE);
 	params.permissions.remote_write = !!(access_flags & IB_ACCESS_REMOTE_WRITE);
 	params.permissions.remote_read = !!(access_flags & IB_ACCESS_REMOTE_READ);
+	params.relaxed_ordering = !!(access_flags & IB_ACCESS_RELAXED_ORDERING);
 
 	pg_sz = ib_umem_find_best_pgsz(mr->umem,
 				       dev->dev_attr.page_size_cap,
