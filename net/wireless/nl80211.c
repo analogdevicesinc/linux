@@ -17566,8 +17566,7 @@ nl80211_parse_nan_peer_map(struct genl_info *info, struct nlattr *map_attr,
 					  map->schedule, n_channels);
 }
 
-static int nl80211_nan_validate_map_pair(struct wiphy *wiphy,
-					 struct genl_info *info,
+static int nl80211_nan_validate_map_pair(struct genl_info *info,
 					 const struct cfg80211_nan_peer_map *map1,
 					 const struct cfg80211_nan_peer_map *map2,
 					 struct cfg80211_nan_channel *nan_channels)
@@ -17599,24 +17598,6 @@ static int nl80211_nan_validate_map_pair(struct wiphy *wiphy,
 						   ch1, ch2);
 				return -EINVAL;
 			}
-		}
-	}
-
-	/*
-	 * Check for conflicting time slots between maps.
-	 * Only check for single-radio devices (n_radio <= 1) which cannot
-	 * operate on multiple channels simultaneously.
-	 */
-	if (wiphy->n_radio > 1)
-		return 0;
-
-	for (int i = 0; i < ARRAY_SIZE(map1->schedule); i++) {
-		if (map1->schedule[i] != NL80211_NAN_SCHED_NOT_AVAIL_SLOT &&
-		    map2->schedule[i] != NL80211_NAN_SCHED_NOT_AVAIL_SLOT) {
-			NL_SET_ERR_MSG_FMT(info->extack,
-					   "Maps %u and %u both schedule slot %d",
-					   map1->map_id, map2->map_id, i);
-			return -EINVAL;
 		}
 	}
 
@@ -17736,7 +17717,7 @@ static int nl80211_nan_set_peer_sched(struct sk_buff *skb,
 
 			/* Validate against previous maps */
 			for (int j = 0; j < n_maps; j++) {
-				ret = nl80211_nan_validate_map_pair(&rdev->wiphy, info,
+				ret = nl80211_nan_validate_map_pair(info,
 								    &sched.maps[j],
 								    &sched.maps[n_maps],
 								    nan_channels);

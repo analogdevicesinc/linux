@@ -1406,10 +1406,12 @@
  *	be provided.
  *	Each peer channel must be compatible with at least one local channel
  *	set by %NL80211_CMD_SET_LOCAL_NAN_SCHED. Different maps must not
- *	contain compatible channels.
- *	For single-radio devices (n_radio <= 1), different maps must not
- *	schedule the same time slot, as the device cannot operate on multiple
- *	channels simultaneously.
+ *	contain compatible channels. Two maps may schedule the same time slot.
+ *	The device decides at runtime which of the channels to follow.
+ *	For example, the local schedule may place slot S on channel c1 while
+ *	the peer advertises slot S on both c1 and c2. If the device is anyway
+ *	on c2 during slot S (e.g. via the ULW mechanism for non-NAN activity),
+ *	it may use slot S on c2 to communicate with the peer.
  *	When updating an existing peer schedule, the full new schedule must be
  *	provided - partial updates are not supported. The new schedule will
  *	completely replace the previous one.
