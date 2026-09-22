@@ -740,7 +740,7 @@ static int gfs2_create_inode(struct inode *dir, struct dentry *dentry,
 	if (error)
 		goto fail_gunlock;
 
-	inode = gfs2_dir_search(dir, &dentry->d_name, !S_ISREG(mode) || excl);
+	inode = gfs2_dir_search(dir, &dentry->d_name, excl);
 	error = PTR_ERR(inode);
 	if (!IS_ERR(inode)) {
 		if (file && (file->f_flags & __O_REGULAR) &&
@@ -1338,7 +1338,7 @@ static int gfs2_symlink(struct mnt_idmap *idmap, struct inode *dir,
 	if (size >= gfs2_max_stuffed_size(GFS2_I(dir)))
 		return -ENAMETOOLONG;
 
-	return gfs2_create_inode(dir, dentry, NULL, S_IFLNK | S_IRWXUGO, 0, symname, size, 0);
+	return gfs2_create_inode(dir, dentry, NULL, S_IFLNK | S_IRWXUGO, 0, symname, size, 1);
 }
 
 /**
@@ -1356,7 +1356,7 @@ static struct dentry *gfs2_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 {
 	unsigned dsize = gfs2_max_stuffed_size(GFS2_I(dir));
 
-	return ERR_PTR(gfs2_create_inode(dir, dentry, NULL, mode, 0, NULL, dsize, 0));
+	return ERR_PTR(gfs2_create_inode(dir, dentry, NULL, mode, 0, NULL, dsize, 1));
 }
 
 /**
@@ -1372,7 +1372,7 @@ static struct dentry *gfs2_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 static int gfs2_mknod(struct mnt_idmap *idmap, struct inode *dir,
 		      struct dentry *dentry, umode_t mode, dev_t dev)
 {
-	return gfs2_create_inode(dir, dentry, NULL, mode, dev, NULL, 0, 0);
+	return gfs2_create_inode(dir, dentry, NULL, mode, dev, NULL, 0, 1);
 }
 
 /**
