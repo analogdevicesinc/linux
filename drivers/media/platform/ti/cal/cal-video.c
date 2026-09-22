@@ -130,8 +130,6 @@ static int cal_call_active_state_set_fmt(struct v4l2_subdev *source,
 	int ret;
 
 	source_state = v4l2_subdev_lock_and_get_active_state(source);
-	if (IS_ERR(source_state))
-		return PTR_ERR(source_state);
 
 	ret = v4l2_subdev_call(source, pad, set_fmt, NULL, source_state, fmt);
 	if (source_state)
