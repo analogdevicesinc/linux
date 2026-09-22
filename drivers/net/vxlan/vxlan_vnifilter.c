@@ -171,13 +171,14 @@ static void vxlan_vnifilter_stats_add(struct vxlan_vni_node *vninode,
 	u64_stats_update_end(&pstats->syncp);
 }
 
-void vxlan_vnifilter_count(struct vxlan_dev *vxlan, __be32 vni,
+void vxlan_vnifilter_count(struct vxlan_dev *vxlan,
+			   const struct vxlan_config *cfg, __be32 vni,
 			   struct vxlan_vni_node *vninode,
 			   int type, unsigned int len)
 {
 	struct vxlan_vni_node *vnode;
 
-	if (!(vxlan->cfg.flags & VXLAN_F_VNIFILTER))
+	if (!cfg || !(cfg->flags & VXLAN_F_VNIFILTER))
 		return;
 
 	if (vninode) {

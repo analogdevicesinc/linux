@@ -204,9 +204,10 @@ int vxlan_fdb_update(struct vxlan_dev *vxlan,
 		     __u32 ifindex, __u16 ndm_flags, u32 nhid,
 		     bool swdev_notify, struct netlink_ext_ack *extack);
 void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+		    const struct vxlan_config *cfg,
 		    __be32 default_vni, struct vxlan_rdst *rdst, bool did_rsc);
 int vxlan_vni_in_use(struct net *src_net, struct vxlan_dev *vxlan,
-		     struct vxlan_config *conf, __be32 vni);
+		     const struct vxlan_config *conf, __be32 vni);
 
 /* vxlan_vnifilter.c */
 int vxlan_vnigroup_init(struct vxlan_dev *vxlan);
@@ -214,7 +215,8 @@ void vxlan_vnigroup_uninit(struct vxlan_dev *vxlan);
 
 int vxlan_vnifilter_init(void);
 void vxlan_vnifilter_uninit(void);
-void vxlan_vnifilter_count(struct vxlan_dev *vxlan, __be32 vni,
+void vxlan_vnifilter_count(struct vxlan_dev *vxlan,
+			   const struct vxlan_config *cfg, __be32 vni,
 			   struct vxlan_vni_node *vninode,
 			   int type, unsigned int len);
 
@@ -256,9 +258,11 @@ int vxlan_mdb_del_bulk(struct net_device *dev, struct nlattr *tb[],
 int vxlan_mdb_get(struct net_device *dev, struct nlattr *tb[], u32 portid,
 		  u32 seq, struct netlink_ext_ack *extack);
 struct vxlan_mdb_entry *vxlan_mdb_entry_skb_get(struct vxlan_dev *vxlan,
+						const struct vxlan_config *cfg,
 						struct sk_buff *skb,
 						__be32 src_vni);
 netdev_tx_t vxlan_mdb_xmit(struct vxlan_dev *vxlan,
+			   const struct vxlan_config *cfg,
 			   const struct vxlan_mdb_entry *mdb_entry,
 			   struct sk_buff *skb);
 int vxlan_mdb_init(struct vxlan_dev *vxlan);
