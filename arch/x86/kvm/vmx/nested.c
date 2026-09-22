@@ -446,7 +446,7 @@ static void nested_ept_inject_page_fault(struct kvm_vcpu *vcpu,
 		 * "NMI unblocking due to IRET", i.e. the bit can be propagated
 		 * as-is from the original EXIT_QUALIFICATION.
 		 */
-		exit_qualification = vmx_get_exit_qual(vcpu) & INTR_INFO_UNBLOCK_NMI;
+		exit_qualification = vt_get_exit_qual(vcpu) & INTR_INFO_UNBLOCK_NMI;
 	} else {
 		if (fault->error_code & PFERR_RSVD_MASK) {
 			vm_exit_reason = EXIT_REASON_EPT_MISCONFIG;
@@ -472,7 +472,7 @@ static void nested_ept_inject_page_fault(struct kvm_vcpu *vcpu,
 			 * and walks the faulting GPA.
 			 */
 			if (from_hardware)
-				exit_qualification |= vmx_get_exit_qual(vcpu) & mask;
+				exit_qualification |= vt_get_exit_qual(vcpu) & mask;
 			else
 				exit_qualification |= fault->exit_qualification & mask;
 
@@ -4742,7 +4742,7 @@ static void prepare_vmcs12(struct kvm_vcpu *vcpu, struct vmcs12 *vmcs12,
 {
 	/* update exit information fields: */
 	vmcs12->vm_exit_reason = vm_exit_reason;
-	if (vmx_get_exit_reason(vcpu).enclave_mode)
+	if (vt_get_exit_reason(vcpu).enclave_mode)
 		vmcs12->vm_exit_reason |= VMX_EXIT_REASONS_SGX_ENCLAVE_MODE;
 	vmcs12->exit_qualification = exit_qualification;
 
@@ -5368,7 +5368,7 @@ static int nested_vmx_get_vmptr(struct kvm_vcpu *vcpu, gpa_t *vmpointer,
 	struct x86_exception e;
 	int r;
 
-	if (get_vmx_mem_address(vcpu, vmx_get_exit_qual(vcpu),
+	if (get_vmx_mem_address(vcpu, vt_get_exit_qual(vcpu),
 				vmcs_read32(VMX_INSTRUCTION_INFO), false,
 				sizeof(*vmpointer), &gva)) {
 		*ret = 1;
@@ -5660,7 +5660,7 @@ static int handle_vmread(struct kvm_vcpu *vcpu)
 {
 	struct vmcs12 *vmcs12 = is_guest_mode(vcpu) ? get_shadow_vmcs12(vcpu)
 						    : get_vmcs12(vcpu);
-	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+	unsigned long exit_qualification = vt_get_exit_qual(vcpu);
 	u32 instr_info = vmcs_read32(VMX_INSTRUCTION_INFO);
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	struct x86_exception e;
@@ -5766,7 +5766,7 @@ static int handle_vmwrite(struct kvm_vcpu *vcpu)
 {
 	struct vmcs12 *vmcs12 = is_guest_mode(vcpu) ? get_shadow_vmcs12(vcpu)
 						    : get_vmcs12(vcpu);
-	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+	unsigned long exit_qualification = vt_get_exit_qual(vcpu);
 	u32 instr_info = vmcs_read32(VMX_INSTRUCTION_INFO);
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	struct x86_exception e;
@@ -5957,7 +5957,7 @@ static int handle_vmptrld(struct kvm_vcpu *vcpu)
 /* Emulate the VMPTRST instruction */
 static int handle_vmptrst(struct kvm_vcpu *vcpu)
 {
-	unsigned long exit_qual = vmx_get_exit_qual(vcpu);
+	unsigned long exit_qual = vt_get_exit_qual(vcpu);
 	u32 instr_info = vmcs_read32(VMX_INSTRUCTION_INFO);
 	gpa_t current_vmptr;
 	struct x86_exception e;
@@ -6026,7 +6026,7 @@ static int handle_invept(struct kvm_vcpu *vcpu)
 	/* According to the Intel VMX instruction reference, the memory
 	 * operand is read even if it isn't needed (e.g., for type==global)
 	 */
-	if (get_vmx_mem_address(vcpu, vmx_get_exit_qual(vcpu),
+	if (get_vmx_mem_address(vcpu, vt_get_exit_qual(vcpu),
 			vmx_instruction_info, false, sizeof(operand), &gva))
 		return 1;
 	r = kvm_read_guest_virt(vcpu, gva, &operand, sizeof(operand), &e);
@@ -6109,7 +6109,7 @@ static int handle_invvpid(struct kvm_vcpu *vcpu)
 	/* according to the intel vmx instruction reference, the memory
 	 * operand is read even if it isn't needed (e.g., for type==global)
 	 */
-	if (get_vmx_mem_address(vcpu, vmx_get_exit_qual(vcpu),
+	if (get_vmx_mem_address(vcpu, vt_get_exit_qual(vcpu),
 			vmx_instruction_info, false, sizeof(operand), &gva))
 		return 1;
 	r = kvm_read_guest_virt(vcpu, gva, &operand, sizeof(operand), &e);
@@ -6241,8 +6241,8 @@ fail:
 	 * EXIT_REASON_VMFUNC as the exit reason.
 	 */
 	nested_vmx_vmexit(vcpu, vmx->vt.exit_reason.full,
-			  vmx_get_intr_info(vcpu),
-			  vmx_get_exit_qual(vcpu));
+			  vt_get_intr_info(vcpu),
+			  vt_get_exit_qual(vcpu));
 	return 1;
 }
 
@@ -6293,7 +6293,7 @@ static bool nested_vmx_exit_handled_io(struct kvm_vcpu *vcpu,
 	if (!nested_cpu_has(vmcs12, CPU_BASED_USE_IO_BITMAPS))
 		return nested_cpu_has(vmcs12, CPU_BASED_UNCOND_IO_EXITING);
 
-	exit_qualification = vmx_get_exit_qual(vcpu);
+	exit_qualification = vt_get_exit_qual(vcpu);
 
 	port = exit_qualification >> 16;
 	size = (exit_qualification & 7) + 1;
@@ -6319,7 +6319,7 @@ static bool nested_vmx_exit_handled_msr(struct kvm_vcpu *vcpu,
 
 	if (exit_reason.basic == EXIT_REASON_MSR_READ_IMM ||
 	    exit_reason.basic == EXIT_REASON_MSR_WRITE_IMM)
-		msr_index = vmx_get_exit_qual(vcpu);
+		msr_index = vt_get_exit_qual(vcpu);
 	else
 		msr_index = kvm_ecx_read(vcpu);
 
@@ -6355,7 +6355,7 @@ static bool nested_vmx_exit_handled_msr(struct kvm_vcpu *vcpu,
 static bool nested_vmx_exit_handled_cr(struct kvm_vcpu *vcpu,
 	struct vmcs12 *vmcs12)
 {
-	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+	unsigned long exit_qualification = vt_get_exit_qual(vcpu);
 	int cr = exit_qualification & 15;
 	int reg;
 	unsigned long val;
@@ -6489,7 +6489,7 @@ static bool nested_vmx_l0_wants_exit(struct kvm_vcpu *vcpu,
 
 	switch ((u16)exit_reason.basic) {
 	case EXIT_REASON_EXCEPTION_NMI:
-		intr_info = vmx_get_intr_info(vcpu);
+		intr_info = vt_get_intr_info(vcpu);
 		if (is_nmi(intr_info))
 			return true;
 		else if (is_page_fault(intr_info))
@@ -6572,7 +6572,7 @@ static bool nested_vmx_l1_wants_exit(struct kvm_vcpu *vcpu,
 
 	switch ((u16)exit_reason.basic) {
 	case EXIT_REASON_EXCEPTION_NMI:
-		intr_info = vmx_get_intr_info(vcpu);
+		intr_info = vt_get_intr_info(vcpu);
 		if (is_nmi(intr_info))
 			return true;
 		else if (is_page_fault(intr_info))
@@ -6742,14 +6742,14 @@ bool nested_vmx_reflect_vmexit(struct kvm_vcpu *vcpu)
 	 * need to be synthesized by querying the in-kernel LAPIC, but external
 	 * interrupts are never reflected to L1 so it's a non-issue.
 	 */
-	exit_intr_info = vmx_get_intr_info(vcpu);
+	exit_intr_info = vt_get_intr_info(vcpu);
 	if (is_exception_with_error_code(exit_intr_info)) {
 		struct vmcs12 *vmcs12 = get_vmcs12(vcpu);
 
 		vmcs12->vm_exit_intr_error_code =
 			vmcs_read32(VM_EXIT_INTR_ERROR_CODE);
 	}
-	exit_qual = vmx_get_exit_qual(vcpu);
+	exit_qual = vt_get_exit_qual(vcpu);
 
 reflect_vmexit:
 	nested_vmx_vmexit(vcpu, exit_reason.full, exit_intr_info, exit_qual);
