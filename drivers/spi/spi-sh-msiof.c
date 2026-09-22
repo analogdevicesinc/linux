@@ -1016,6 +1016,7 @@ static const struct of_device_id sh_msiof_match[] __maybe_unused = {
 	{ .compatible = "renesas,msiof-r8a779a0",  .data = &rcar_gen3_data },
 	{ .compatible = "renesas,msiof-r8a779f0",  .data = &rcar_gen3_data },
 	{ .compatible = "renesas,rcar-gen4-msiof", .data = &rcar_gen4_data },
+	{ .compatible = "renesas,rcar-gen5-msiof", .data = &rcar_gen4_data },
 	{ .compatible = "renesas,sh-msiof",        .data = &sh_data }, /* Deprecated */
 	{ /* sentinel */ }
 };
