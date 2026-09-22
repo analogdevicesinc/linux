@@ -1717,6 +1717,9 @@ static void bcm_sysport_fini_rx_ring(struct bcm_sysport_priv *priv)
 	if (!(reg & RDMA_DISABLED))
 		netdev_warn(priv->netdev, "RDMA not stopped!\n");
 
+	if (!priv->rx_cbs)
+		return;
+
 	for (i = 0; i < priv->num_rx_bds; i++) {
 		cb = &priv->rx_cbs[i];
 		if (dma_unmap_addr(cb, dma_addr))
