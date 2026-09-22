@@ -4768,6 +4768,22 @@
 				};
 			};
 
+			dmic45_default: dmic45-default-state {
+				clk-pins {
+					pins = "gpio17";
+					function = "dmic4_clk";
+					drive-strength = <8>;
+					output-high;
+				};
+
+				data-pins {
+					pins = "gpio18";
+					function = "dmic4_data";
+					drive-strength = <8>;
+					input-enable;
+				};
+			};
+
 			wsa_swr_active: wsa-swr-active-state {
 				clk-pins {
 					pins = "gpio10";
