@@ -93,7 +93,6 @@
 			adi,verify = <1>;
 			status = "okay";
 		};
-
 	};
 };
 
@@ -174,9 +173,7 @@
 			label = "rootfs";
 			reg = <0x1000000 0x3000000>;
 		};
-
 	};
-
 };
 
 &ospi {
@@ -319,6 +316,7 @@
 					 <ADI_ADSP_PINMUX('A', 7, ADI_ADSP_PINFUNC_ALT1)>;
 		};
 	};
+
 	uart0_hwflow: uart0_hwflow_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('A', 6, ADI_ADSP_PINFUNC_ALT1)>,
@@ -327,6 +325,7 @@
 					 <ADI_ADSP_PINMUX('A', 9, ADI_ADSP_PINFUNC_ALT1)>;
 		};
 	};
+
 	spi0_default: spi0_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('A', 6, ADI_ADSP_PINFUNC_ALT0)>,
@@ -334,6 +333,7 @@
 					 <ADI_ADSP_PINMUX('A', 8, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
+
 	spi1_default: spi1_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('A', 10, ADI_ADSP_PINFUNC_ALT1)>,
@@ -341,6 +341,7 @@
 					 <ADI_ADSP_PINMUX('A', 12, ADI_ADSP_PINFUNC_ALT1)>;
 		};
 	};
+
 	spi2_quad: spi2_quad_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('A', 0, ADI_ADSP_PINFUNC_ALT0)>,
@@ -351,6 +352,7 @@
 				 <ADI_ADSP_PINMUX('A', 5, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
+
 	ospi_default: ospi_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('C', 8, ADI_ADSP_PINFUNC_ALT0)>,
@@ -366,12 +368,14 @@
 				 <ADI_ADSP_PINMUX('D', 4, ADI_ADSP_PINFUNC_ALT2)>;
 		};
 	};
+
 	i2c2_pins: i2c2_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('A', 14, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('A', 15, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
+
 	eth0_default: eth0_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('H', 3, ADI_ADSP_PINFUNC_ALT0)>,
@@ -390,6 +394,7 @@
 				 <ADI_ADSP_PINMUX('I', 0, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
+
 	eth1_default: eth1_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('E', 11, ADI_ADSP_PINFUNC_ALT0)>,
@@ -403,6 +408,7 @@
 				 <ADI_ADSP_PINMUX('F', 3, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
+
 	usbc0_default: usbc0_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('F', 3, ADI_ADSP_PINFUNC_ALT2)>,
@@ -426,10 +432,12 @@
 		adi,tru-master-id = <139>; /* trigger master SOFT3 */
 		adi,tru-slave-id = <160>; /* TRU0_IRQ3 */
 	};
+
 	rpmsg_to_sharc0: channel@1 {
 		adi,tru-master-id = <140>; /* trigger master SOFT4 */
 		adi,tru-slave-id = <164>; /* TRU0_IRQ7 */
 	};
+
 	rpmsg_to_sharc1: channel@2 {
 		adi,tru-master-id = <141>; /* trigger master SOFT5 */
 		adi,tru-slave-id = <168>; /* TRU0_IRQ11 */

@@ -267,7 +267,6 @@
 			status = "disabled";
 		};
 
-
 		rcu: rcu@3108c000 {
 			compatible = "syscon", "adi,reset-controller";
 			reg = <0x3108c000 0x1000>;
@@ -942,7 +941,6 @@
 				interrupt-names = "complete", "error";
 				adi,src-offset = <0x580>;
 			};
-
 		};
 
 		crc_cluster: dma@310a7000 {
@@ -1087,6 +1085,5 @@
 			poll-data = <0>; /* Use IRQ for data */
 			status = "okay";
 		};
-
 	};
 };

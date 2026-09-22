@@ -112,7 +112,6 @@
 		clock-names = "mclk";
 		clocks = <&mclk>;
 	};
-
 };
 
 &emac0 {
@@ -180,4 +179,3 @@
 	pinctrl-0 = <&sru_dai0>;
 	status = "okay";
 };
-

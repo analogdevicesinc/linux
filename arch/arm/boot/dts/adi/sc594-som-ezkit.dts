@@ -123,7 +123,6 @@
 			output-high;
 			line-name = "gige-reset";
 		};
-
 	};
 
 	adau1979: adau1979@11 {
@@ -135,7 +134,6 @@
 		compatible = "adi,adau1962";
 		reg = <0x4>;
 	};
-
 };
 
 &can0 {

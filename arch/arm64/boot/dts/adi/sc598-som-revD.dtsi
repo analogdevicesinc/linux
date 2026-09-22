@@ -63,7 +63,6 @@
 			output-low;
 			line-name = "uart0-flow-en";
 		};
-
 	};
 };
 

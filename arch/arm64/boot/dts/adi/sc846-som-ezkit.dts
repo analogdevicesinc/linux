@@ -173,7 +173,6 @@
 	};
 };
 
-
 &emac0 {
 	phy-handle = <&adin1300>;
 	phy-mode = "rgmii-id";

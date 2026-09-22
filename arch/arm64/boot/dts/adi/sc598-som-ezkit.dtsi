@@ -257,7 +257,7 @@
 //	pinctrl-names = "default";
 //	pinctrl-0 = <&eth1_default>;
 //	status = "disabled";//
-
+//
 //	mdio1 {
 //		compatible = "snps,dwmac-mdio";
 //		#address-cells = <1>;
@@ -266,7 +266,6 @@
 //			reg = <1>;
 //		};
 //	};//
-
 //};
 
 &i2s4 {
