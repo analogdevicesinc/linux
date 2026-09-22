@@ -792,6 +792,7 @@ enum scx_rq_flags {
 	SCX_RQ_SUB_IDLE_RENOTIFY	= 1 << 7, /* sub-scheds are owed update_idle() */
 	SCX_RQ_ROOT_IDLE_RENOTIFY	= 1 << 8, /* the root is owed update_idle() */
 	SCX_RQ_PROXY_RETRY	= 1 << 9, /* proxy-rejected tasks need retry */
+	SCX_RQ_PROXY_TICK	= 1 << 10, /* proxy execution requires the tick */
 
 	SCX_RQ_IN_WAKEUP	= 1 << 16,
 	SCX_RQ_IN_DISPATCH	= 1 << 17,
@@ -846,6 +847,9 @@ struct scx_rq {
 	struct list_head	deferred_reenq_users;	/* user DSQs requesting reenq */
 	struct balance_callback	deferred_bal_cb;
 	struct balance_callback	kick_sync_bal_cb;
+#ifdef CONFIG_NO_HZ_FULL
+	struct balance_callback	proxy_tick_bal_cb;
+#endif
 	struct irq_work		deferred_irq_work;
 	struct irq_work		kick_cpus_irq_work;
 };

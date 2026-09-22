@@ -1138,12 +1138,50 @@ static void schedule_deferred_locked(struct rq *rq)
 	schedule_deferred(rq);
 }
 
+#ifdef CONFIG_NO_HZ_FULL
+static void scx_proxy_tick_bal_cb(struct rq *rq)
+{
+	sched_update_tick_dependency(rq);
+}
+
+static void scx_proxy_update_tick(struct rq *rq, struct task_struct *next)
+{
+	bool proxy = next != rq->donor;
+	bool was_proxy = rq->scx.flags & SCX_RQ_PROXY_TICK;
+
+	if (likely(proxy == was_proxy))
+		return;
+
+	if (proxy) {
+		/* Keep proxy execution tick-driven for now. */
+		rq->scx.flags |= SCX_RQ_PROXY_TICK;
+		tick_nohz_dep_set_cpu(cpu_of(rq), TICK_DEP_BIT_SCHED);
+	} else {
+		rq->scx.flags &= ~SCX_RQ_PROXY_TICK;
+		/*
+		 * The selected donor is already visible, but rq->curr still
+		 * identifies the outgoing execution context. Reevaluate after
+		 * context_switch() updates rq->curr so sched_can_stop_tick() sees
+		 * the complete selection.
+		 */
+		queue_balance_callback(rq, &rq->scx.proxy_tick_bal_cb,
+				       scx_proxy_tick_bal_cb);
+	}
+}
+#endif
+
 /*
- * Retry proxy-rejected tasks which couldn't be reenqueued by an earlier drain.
+ * Complete sched_ext bookkeeping after proxy resolution and retry tasks which
+ * couldn't be reenqueued by an earlier reject DSQ drain.
  */
 void scx_proxy_reenqueue_retry(struct rq *rq, struct task_struct *next)
 {
 	lockdep_assert_rq_held(rq);
+
+#ifdef CONFIG_NO_HZ_FULL
+	if (scx_enabled() && tick_nohz_full_cpu(cpu_of(rq)))
+		scx_proxy_update_tick(rq, next);
+#endif
 
 	if (rq->scx.flags & SCX_RQ_PROXY_RETRY) {
 		rq->scx.flags &= ~SCX_RQ_PROXY_RETRY;
@@ -5049,8 +5087,8 @@ bool scx_can_stop_tick(struct rq *rq)
 	struct task_struct *p = rq->donor;
 	struct scx_sched *sch = scx_task_sched(p);
 
-	/* Keep the tick running while a blocked proxy donor is selected. */
-	if (p->is_blocked)
+	/* Proxy execution is conservatively tick-driven for now. */
+	if (rq->scx.flags & SCX_RQ_PROXY_TICK)
 		return false;
 
 	if (p->sched_class != &ext_sched_class)
