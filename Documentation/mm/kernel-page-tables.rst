@@ -103,9 +103,9 @@ There are two families of functions for this, both declared in
 * `set_memory_*()` change permissions of an arbitrary kernel mapping. They
   take a kernel virtual address and the number of pages.
 
-* `set_direct_map_*()` change permissions of the direct mapping of the page
-  frame represented by a `struct page`. They take a `struct page` pointer and
-  the number of pages.
+* `set_direct_map_*()` change permissions of the direct mapping for the range
+  of page frames starting at the page represented by a `struct page`. They take
+  a `struct page` pointer and the number of pages.
 
 Architectures that implement `set_memory()` select `CONFIG_ARCH_HAS_SET_MEMORY`
 
