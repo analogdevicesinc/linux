@@ -1292,9 +1292,9 @@ static void svc_revisit(struct cache_deferred_req *dreq, int too_many)
 		return;
 	}
 	dr->xprt = NULL;
+	trace_svc_defer_queue(dr);
 	list_add(&dr->handle.recent, &xprt->xpt_deferred);
 	spin_unlock(&xprt->xpt_lock);
-	trace_svc_defer_queue(dr);
 	svc_xprt_enqueue(xprt);
 	svc_xprt_put(xprt);
 }
