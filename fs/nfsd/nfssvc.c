@@ -64,15 +64,15 @@ static __be32			nfsd_init_request(struct svc_rqst *,
  * that namespace's server is down (->nfsd_versions, ->nfsd4_lease,
  * ->nfsd4_grace, ->max_blksize, ...).
  *
- * The global nfsd_mutex covers only what is genuinely shared between
+ * nfsd_global_mutex covers only what is genuinely shared between
  * namespaces: the nfsd_users refcount and the host-wide resources it
  * brings up and tears down (the open file cache and the NFSv4 global
  * tables), the address-notifier registration, and user_recovery_dirname.
  *
- * Lock ordering is nn->nfsd_mutex outside the global nfsd_mutex.  Nothing
- * takes two namespaces' nfsd_mutexes.
+ * Lock ordering is nn->nfsd_mutex outside nfsd_global_mutex.  Nothing takes
+ * two namespaces' nfsd_mutexes.
  */
-DEFINE_MUTEX(nfsd_mutex);
+DEFINE_MUTEX(nfsd_global_mutex);
 
 #if IS_ENABLED(CONFIG_NFS_LOCALIO)
 static const struct svc_version *localio_versions[] = {
@@ -272,7 +272,7 @@ static int __nfsd_startup_generic(void)
 {
 	int ret;
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nfsd_global_mutex);
 
 	if (nfsd_users++)
 		return 0;
@@ -297,20 +297,20 @@ static int nfsd_startup_generic(void)
 {
 	int ret;
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nfsd_global_mutex);
 	ret = __nfsd_startup_generic();
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nfsd_global_mutex);
 	return ret;
 }
 
 static void nfsd_shutdown_generic(void)
 {
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nfsd_global_mutex);
 	if (!--nfsd_users) {
 		nfs4_state_shutdown();
 		nfsd_file_cache_shutdown();
 	}
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nfsd_global_mutex);
 }
 
 static bool nfsd_needs_lockd(struct nfsd_net *nn)
@@ -525,31 +525,31 @@ static struct notifier_block nfsd_inet6addr_notifier = {
 };
 #endif
 
-/* Number of namespaces with a serv, guarded by nfsd_mutex */
+/* Number of namespaces with a serv, guarded by nfsd_global_mutex */
 static int nfsd_notifier_users;
 
 static void nfsd_register_notifiers(void)
 {
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nfsd_global_mutex);
 	if (!nfsd_notifier_users++) {
 		register_inetaddr_notifier(&nfsd_inetaddr_notifier);
 #if IS_ENABLED(CONFIG_IPV6)
 		register_inet6addr_notifier(&nfsd_inet6addr_notifier);
 #endif
 	}
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nfsd_global_mutex);
 }
 
 static void nfsd_unregister_notifiers(void)
 {
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nfsd_global_mutex);
 	if (!--nfsd_notifier_users) {
 		unregister_inetaddr_notifier(&nfsd_inetaddr_notifier);
 #if IS_ENABLED(CONFIG_IPV6)
 		unregister_inet6addr_notifier(&nfsd_inet6addr_notifier);
 #endif
 	}
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nfsd_global_mutex);
 }
 
 /**
@@ -690,9 +690,9 @@ int nfsd_create_serv(struct net *net, bool no_rpcbind)
 	}
 	/*
 	 * Register before publishing nn->nfsd_serv.  Namespaces are only
-	 * serialized against each other by nfsd_mutex here, so
-	 * taking the reference first is what guarantees a visible
-	 * nn->nfsd_serv never coincides with an unregistered notifier.
+	 * serialized against each other by nfsd_global_mutex here, so taking
+	 * the reference first is what guarantees a visible nn->nfsd_serv
+	 * never coincides with an unregistered notifier.
 	 */
 	nfsd_register_notifiers();
 
