@@ -963,6 +963,11 @@ static inline const char *acpi_device_hid(struct acpi_device *device)
 	return "";
 }
 
+static inline char *acpi_device_uid(struct acpi_device *device)
+{
+	return NULL;
+}
+
 static inline bool
 acpi_get_physical_device_location(acpi_handle handle, struct acpi_pld_info **pld)
 {
