@@ -410,7 +410,20 @@ update_end:
 
 	nlmsg_end(skb, nlh);
 
+	nl_dump_check_consistent(cb, nlh);
+
 	return err;
+}
+
+static u32 vxlan_vnifilter_base_seq(const struct net *net)
+{
+	const struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+	u32 res = atomic_read(&vn->vnifilter_seq);
+
+	/* Must not return 0 (see nl_dump_check_consistent()) */
+	if (!res)
+		res = 0x80000000;
+	return res;
 }
 
 static int vxlan_vnifilter_dump(struct sk_buff *skb, struct netlink_callback *cb)
@@ -432,6 +445,9 @@ static int vxlan_vnifilter_dump(struct sk_buff *skb, struct netlink_callback *cb
 	}
 
 	rcu_read_lock();
+
+	cb->seq = vxlan_vnifilter_base_seq(net);
+
 	if (tmsg->ifindex) {
 		dev = dev_get_by_index_rcu(net, tmsg->ifindex);
 		if (!dev) {
@@ -571,8 +587,11 @@ static int vxlan_vni_update_group(struct vxlan_dev *vxlan,
 	if (ret)
 		goto out;
 
-	if (group)
+	if (group) {
 		memcpy(&vninode->remote_ip, group, sizeof(vninode->remote_ip));
+		if (!create)
+			vxlan_vnifilter_seq_inc(dev_net(vxlan->dev));
+	}
 
 	if (vxlan->dev->flags & IFF_UP) {
 		if (vxlan_addr_multicast(&old_remote_ip) &&
@@ -719,7 +738,8 @@ static int vxlan_vni_update(struct vxlan_dev *vxlan,
 	return 0;
 }
 
-static void __vxlan_vni_add_list(struct vxlan_vni_group *vg,
+static void __vxlan_vni_add_list(struct vxlan_dev *vxlan,
+				 struct vxlan_vni_group *vg,
 				 struct vxlan_vni_node *v)
 {
 	struct list_head *headp, *hpos;
@@ -735,13 +755,16 @@ static void __vxlan_vni_add_list(struct vxlan_vni_group *vg,
 	}
 	list_add_rcu(&v->vlist, hpos);
 	vg->num_vnis++;
+	vxlan_vnifilter_seq_inc(dev_net(vxlan->dev));
 }
 
-static void __vxlan_vni_del_list(struct vxlan_vni_group *vg,
+static void __vxlan_vni_del_list(struct vxlan_dev *vxlan,
+				 struct vxlan_vni_group *vg,
 				 struct vxlan_vni_node *v)
 {
 	list_del_rcu(&v->vlist);
 	vg->num_vnis--;
+	vxlan_vnifilter_seq_inc(dev_net(vxlan->dev));
 }
 
 static struct vxlan_vni_node *vxlan_vni_alloc(struct vxlan_dev *vxlan,
@@ -803,7 +826,7 @@ static int vxlan_vni_add(struct vxlan_dev *vxlan,
 		return err;
 	}
 
-	__vxlan_vni_add_list(vg, vninode);
+	__vxlan_vni_add_list(vxlan, vg, vninode);
 
 	if (vxlan->dev->flags & IFF_UP)
 		vxlan_vs_add_del_vninode(vxlan, vninode, false);
@@ -849,7 +872,7 @@ static int vxlan_vni_del(struct vxlan_dev *vxlan,
 	if (err)
 		goto out;
 
-	__vxlan_vni_del_list(vg, vninode);
+	__vxlan_vni_del_list(vxlan, vg, vninode);
 
 	vxlan_vnifilter_notify(vxlan, vninode, RTM_DELTUNNEL);
 
@@ -963,7 +986,7 @@ void vxlan_vnigroup_uninit(struct vxlan_dev *vxlan)
 #if IS_ENABLED(CONFIG_IPV6)
 		hlist_del_init_rcu(&v->hlist6.hlist);
 #endif
-		__vxlan_vni_del_list(vg, v);
+		__vxlan_vni_del_list(vxlan, vg, v);
 		vxlan_vnifilter_notify(vxlan, v, RTM_DELTUNNEL);
 		call_rcu(&v->rcu, vxlan_vni_node_rcu_free);
 	}

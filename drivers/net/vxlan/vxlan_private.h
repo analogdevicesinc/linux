@@ -22,6 +22,8 @@ struct vxlan_net {
 	/* sock_list is protected by rtnl lock */
 	struct hlist_head sock_list[PORT_HASH_SIZE];
 	struct notifier_block nexthop_notifier_block;
+	/* Generation counter for RTM_GETTUNNEL dumps */
+	atomic_t vnifilter_seq;
 };
 
 struct vxlan_fdb_key {
@@ -175,6 +177,13 @@ vxlan_vnifilter_lookup(struct vxlan_dev *vxlan, __be32 vni)
 
 	return rhashtable_lookup_fast(&vg->vni_hash, &vni,
 				      vxlan_vni_rht_params);
+}
+
+static inline void vxlan_vnifilter_seq_inc(const struct net *net)
+{
+	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+
+	atomic_inc(&vn->vnifilter_seq);
 }
 
 /* vxlan_core.c */

@@ -4773,6 +4773,10 @@ static int vxlan_netdevice_event(struct notifier_block *unused,
 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
 	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
 
+	if ((event == NETDEV_REGISTER || event == NETDEV_UNREGISTER) &&
+	    netif_is_vxlan(dev))
+		vxlan_vnifilter_seq_inc(dev_net(dev));
+
 	if (event == NETDEV_UNREGISTER)
 		vxlan_handle_lowerdev_unregister(vn, dev);
 	else if (event == NETDEV_UDP_TUNNEL_PUSH_INFO)
