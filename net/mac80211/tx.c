@@ -6552,7 +6552,7 @@ void ieee80211_tx_skb_tid(struct ieee80211_sub_if_data *sdata,
 			rcu_dereference(sdata->vif.bss_conf.chanctx_conf);
 		if (WARN_ON(!chanctx_conf)) {
 			rcu_read_unlock();
-			kfree_skb(skb);
+			ieee80211_free_txskb(&sdata->local->hw, skb);
 			return;
 		}
 		band = chanctx_conf->def.chan->band;
