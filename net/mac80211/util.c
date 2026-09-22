@@ -1283,6 +1283,28 @@ static int ieee80211_put_preq_ies_band(struct sk_buff *skb,
 	if (band == NL80211_BAND_S1GHZ)
 		return ieee80211_put_s1g_cap(skb, &sband->s1g_cap);
 
+	/*
+	 * For EPP minimal content probes, restrict supported rates:
+	 * - 2 GHz: only 1, 2, 5.5, 6, 11, 12, 24 Mb/s
+	 * - 5/6 GHz: only 6, 12, 24 Mb/s
+	 */
+	if (flags & IEEE80211_PROBE_FLAG_MIN_CONTENT) {
+		for (i = 0; i < sband->n_bitrates; i++) {
+			u16 rate = sband->bitrates[i].bitrate;
+
+			if (band == NL80211_BAND_2GHZ) {
+				if (rate != 10 && rate != 20 &&
+				    rate != 55 && rate != 60 &&
+				    rate != 110 && rate != 120 &&
+				    rate != 240)
+					rate_mask &= ~BIT(i);
+			} else {
+				if (rate != 60 && rate != 120 && rate != 240)
+					rate_mask &= ~BIT(i);
+			}
+		}
+	}
+
 	err = ieee80211_put_srates_elem(skb, sband, 0,
 					~rate_mask, WLAN_EID_SUPP_RATES);
 	if (err)
