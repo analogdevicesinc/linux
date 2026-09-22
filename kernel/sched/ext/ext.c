@@ -1138,8 +1138,17 @@ static void schedule_deferred_locked(struct rq *rq)
 	schedule_deferred(rq);
 }
 
+/*
+ * Retry proxy-rejected tasks which couldn't be reenqueued by an earlier drain.
+ */
 void scx_proxy_reenqueue_retry(struct rq *rq, struct task_struct *next)
 {
+	lockdep_assert_rq_held(rq);
+
+	if (rq->scx.flags & SCX_RQ_PROXY_RETRY) {
+		rq->scx.flags &= ~SCX_RQ_PROXY_RETRY;
+		schedule_deferred_locked(rq);
+	}
 }
 
 void schedule_dsq_reenq(struct scx_sched *sch, struct scx_dispatch_q *dsq,
@@ -1600,8 +1609,10 @@ static void rq_owned_post_enq(struct scx_sched *sch, struct rq *rq,
 		SCX_CALL_OP_TASK(sch, dequeue, rq, p, 0);
 
 	/*
-	 * Only local inserts get the wakeup treatment below. Rejects kick the
-	 * deferred reenq and rescue parks are paced by the rescue timer.
+	 * Only local inserts get the wakeup treatment below. Rejects kick a
+	 * deferred reenq and rescue parks are paced by the rescue timer. Proxy
+	 * rejects which aren't ready when drained request a later retry from
+	 * scx_proxy_reenqueue_retry().
 	 */
 	if (unlikely(dsq->id != SCX_DSQ_LOCAL)) {
 		if (dsq->id == SCX_DSQ_REJECT)
@@ -2573,8 +2584,10 @@ static void move_remote_task_to_local_dsq(struct scx_sched *sch,
  * - The BPF scheduler is bypassed while the rq is offline and we can always say
  *   no to the BPF scheduler initiated migrations while offline.
  *
- * The caller must ensure that @p and @rq are on different CPUs.
- * If enforce == true, caller must hold @p's rq lock.
+ * The caller must ensure that @p and @rq are on different CPUs. If @enforce is
+ * true, report violations attributable to BPF-directed migrations. The caller
+ * must hold @p's rq lock to avoid reporting a transient race as a scheduler
+ * error.
  */
 static bool task_can_run_on_remote_rq(struct scx_sched *sch,
 				      struct task_struct *p, struct rq *rq,
@@ -2582,11 +2595,6 @@ static bool task_can_run_on_remote_rq(struct scx_sched *sch,
 {
 	s32 cpu = cpu_of(rq);
 
-	/*
-	 * To prevent races with @p still running on its old CPU while switching
-	 * out, make sure we're holding @p's rq lock so as not to risk
-	 * erroneously killing the BPF scheduler.
-	 */
 	if (enforce)
 		lockdep_assert_rq_held(task_rq(p));
 
@@ -2631,6 +2639,64 @@ static bool task_can_run_on_remote_rq(struct scx_sched *sch,
 	}
 
 	return true;
+}
+
+/*
+ * Proxy execution can change @p's execution and migration-disabled state
+ * without touching its DSQ entry or clearing holding_cpu. Check those states
+ * with @p's rq locked. Without proxy execution, the holding_cpu handshake is
+ * sufficient and this must not affect the existing migration path.
+ *
+ * A BPF-directed transfer to a remote local DSQ performs a normal task
+ * migration and thus cannot move a migration-disabled task. In contrast,
+ * proxy_migrate_task() moves only a blocked donor's scheduling context towards
+ * the mutex owner and preserves its execution home in wake_cpu. The latter is
+ * therefore allowed even when the donor is migration-disabled.
+ */
+static bool task_proxy_running_or_donating(struct task_struct *p)
+{
+	struct rq *src_rq = task_rq(p);
+
+	lockdep_assert_rq_held(src_rq);
+
+	if (!sched_proxy_exec())
+		return false;
+
+	/* @p may be rq->curr under another task's scheduling context. */
+	if (task_on_cpu(src_rq, p))
+		return true;
+
+	/* Don't move an active scheduling context off its source rq. */
+	if (task_current_donor(src_rq, p))
+		return true;
+
+	return false;
+}
+
+static bool task_proxy_unsafe_to_move(struct task_struct *p)
+{
+	if (!sched_proxy_exec())
+		return false;
+
+	return task_proxy_running_or_donating(p) || is_migration_disabled(p);
+}
+
+/*
+ * Park a task whose remote transfer raced with proxy execution. Reenqueueing
+ * from the source rq makes the task's owning scheduler choose its placement
+ * again and preserves sub-scheduler containment.
+ */
+static void scx_proxy_reject_task(struct scx_sched *sch, struct rq *rq,
+				  struct task_struct *p, u64 enq_flags)
+{
+	lockdep_assert_rq_held(rq);
+	WARN_ON_ONCE(p->scx.flags & SCX_TASK_REENQ_REASON_MASK);
+
+	p->scx.holding_cpu = -1;
+	p->scx.flags |= SCX_TASK_REENQ_PROXY;
+	scx_divert_strip_flags(p, &enq_flags);
+
+	scx_dispatch_enqueue(sch, rq, &rq->scx.reject_dsq, p, 0, 0, enq_flags);
 }
 
 /**
@@ -2700,6 +2766,19 @@ static bool consume_remote_task(struct scx_sched *sch, struct rq *this_rq,
 				struct scx_dispatch_q *dsq, struct rq *src_rq)
 {
 	if (unlink_dsq_and_switch_rq_lock(p, dsq, this_rq, src_rq)) {
+		/*
+		 * Proxy execution may have changed @p's running or
+		 * migration-disabled state while switching rq locks without
+		 * clearing holding_cpu. Park it on the source rq and let its
+		 * owning scheduler choose its placement again.
+		 */
+		if (unlikely(task_proxy_unsafe_to_move(p))) {
+			p->scx.dsq = NULL;
+			scx_proxy_reject_task(sch, src_rq, p, enq_flags | SCX_ENQ_CLEAR_OPSS);
+			switch_rq_lock(src_rq, this_rq);
+			return false;
+		}
+
 		move_remote_task_to_local_dsq(sch, p, enq_flags, src_rq, this_rq);
 		return true;
 	} else {
@@ -2737,6 +2816,19 @@ static struct rq *move_task_between_dsqs(struct scx_sched *sch,
 
 	if (dst_dsq->id == SCX_DSQ_LOCAL) {
 		dst_rq = container_of(dst_dsq, struct rq, scx.local_dsq);
+		/*
+		 * Unlike the rq-lock handoff paths, @src_rq has been locked
+		 * throughout this operation. Only active proxy state can race the
+		 * move here; let the enforcing check below diagnose an ordinary
+		 * migration-disabled task.
+		 */
+		if (src_rq != dst_rq &&
+		    unlikely(task_proxy_running_or_donating(p))) {
+			dispatch_dequeue_locked(p, src_dsq);
+			raw_spin_unlock(&src_dsq->lock);
+			scx_proxy_reject_task(sch, src_rq, p, enq_flags);
+			return src_rq;
+		}
 		if (src_rq != dst_rq &&
 		    unlikely(!task_can_run_on_remote_rq(sch, p, dst_rq, true))) {
 			dst_dsq = find_global_dsq(sch, task_cpu(p));
@@ -2894,6 +2986,7 @@ static void dispatch_to_local_dsq(struct scx_sched *sch, struct rq *rq,
 	if (likely(p->scx.holding_cpu == raw_smp_processor_id()) &&
 	    !WARN_ON_ONCE(src_rq != task_rq(p))) {
 		bool fallback = false;
+
 		/*
 		 * If @p is staying on the same rq, there's no need to go
 		 * through the full deactivate/activate cycle. Optimize by
@@ -2903,6 +2996,9 @@ static void dispatch_to_local_dsq(struct scx_sched *sch, struct rq *rq,
 			p->scx.holding_cpu = -1;
 			scx_dispatch_enqueue(sch, dst_rq, &dst_rq->scx.local_dsq, p,
 					     slice, vtime, enq_flags | SCX_ENQ_APPLY_SLICE);
+		} else if (unlikely(task_proxy_unsafe_to_move(p))) {
+			fallback = true;
+			scx_proxy_reject_task(sch, src_rq, p, enq_flags);
 		} else if (unlikely(!task_can_run_on_remote_rq(sch, p, dst_rq, true))) {
 			p->scx.holding_cpu = -1;
 			fallback = true;
@@ -4868,13 +4964,13 @@ static void process_deferred_reenq_users(struct rq *rq)
 }
 
 /*
- * Drain @rq->scx.reject_dsq and reenqueue each task so that its owning BPF
- * scheduler chooses placement again.
+ * Drain ready tasks from @rq->scx.reject_dsq and reenqueue them so that their
+ * owning BPF schedulers choose placement again. Proxy-active tasks remain
+ * parked and rearm the retry notification for a later proxy resolution.
  *
  * A task can be re-rejected repeatedly. Reenqueues are bounded per task by
  * SCX_REENQ_MAX_REPEAT in scx_do_enqueue_task(), which ejects the owning
- * scheduler. The private list below prevents a task from being revisited in
- * the same round.
+ * scheduler.
  */
 static void scx_reenq_reject(struct rq *rq)
 {
@@ -4887,13 +4983,26 @@ static void scx_reenq_reject(struct rq *rq)
 		return;
 
 	/*
-	 * Move tasks to a private list so a task re-rejected by
+	 * Move ready tasks to a private list so a task re-rejected by
 	 * scx_do_enqueue_task() below isn't revisited this round.
 	 */
 	list_for_each_entry_safe(p, n, &rq->scx.reject_dsq.list, scx.dsq_list.node) {
-		/* migration_pending tasks should have bypassed to local DSQ */
-		WARN_ON_ONCE(p->migration_pending);
-		WARN_ON_ONCE(!(p->scx.flags & SCX_TASK_REENQ_REASON_MASK));
+		u32 reason = p->scx.flags & SCX_TASK_REENQ_REASON_MASK;
+
+		WARN_ON_ONCE(!reason);
+
+		if (sched_proxy_exec() && reason == SCX_TASK_REENQ_PROXY) {
+			/* Affinity machinery will dequeue and reactivate @p. */
+			if (p->migration_pending)
+				continue;
+
+			if (task_on_cpu(rq, p) || task_current_donor(rq, p)) {
+				rq->scx.flags |= SCX_RQ_PROXY_RETRY;
+				continue;
+			}
+		} else {
+			WARN_ON_ONCE(p->migration_pending);
+		}
 
 		scx_reenq_wait_dispatching(p);
 		scx_dispatch_dequeue(rq, p);

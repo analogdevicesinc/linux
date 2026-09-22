@@ -1824,6 +1824,15 @@ enum scx_enq_flags {
 	SCX_ENQ_SLICE_DFL	= 1LLU << 62,	/* carried slice is a default refill */
 };
 
+/* Strip priority and carried slice state when diverting from a local DSQ. */
+static inline void scx_divert_strip_flags(struct task_struct *p, u64 *enq_flags)
+{
+	*enq_flags &= ~(SCX_ENQ_IMMED | SCX_ENQ_PREEMPT |
+			SCX_ENQ_PREEMPT_LAZY | SCX_ENQ_HEAD |
+			SCX_ENQ_APPLY_SLICE | SCX_ENQ_SLICE_DFL);
+	p->scx.flags &= ~SCX_TASK_IMMED;
+}
+
 enum scx_deq_flags {
 	/* expose select DEQUEUE_* flags as enums */
 	SCX_DEQ_SLEEP		= DEQUEUE_SLEEP,
