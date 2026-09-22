@@ -1045,6 +1045,7 @@ static void fbnic_add_rx_frag(struct fbnic_napi_vector *nv, u64 rcd,
 		pkt->add_frag_failed = true;
 		netdev_err_once(nv->napi.dev,
 				"Failed to add fragment to xdp_buff\n");
+		page_pool_put_full_netmem(qt->sub1.page_pool, netmem, true);
 	}
 }
 
