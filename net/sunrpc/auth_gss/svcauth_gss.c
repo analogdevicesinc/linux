@@ -1835,6 +1835,9 @@ static int svcauth_gss_wrap_integ(struct svc_rqst *rqstp)
 		goto wrap_failed;
 	xdr_commit_encode(xdr);
 
+	if (xdr->page_ptr + 1 > rqstp->rq_next_page)
+		rqstp->rq_next_page = xdr->page_ptr + 1;
+
 out:
 	return 0;
 
