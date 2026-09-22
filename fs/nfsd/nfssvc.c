@@ -66,11 +66,12 @@ static __be32			nfsd_init_request(struct svc_rqst *,
  *
  * nfsd_global_mutex covers only what is genuinely shared between
  * namespaces: the nfsd_users refcount and the host-wide resources it
- * brings up and tears down (the open file cache and the NFSv4 global
- * tables), the address-notifier registration, and user_recovery_dirname.
+ * brings up and tears down (the NFSv4 global tables, and the open file
+ * cache -- which guards its own internals with nfsd_file_cache_mutex),
+ * and the address-notifier registration.
  *
- * Lock ordering is nn->nfsd_mutex outside nfsd_global_mutex.  Nothing takes
- * two namespaces' nfsd_mutexes.
+ * Lock ordering is nn->nfsd_mutex outside nfsd_global_mutex outside
+ * nfsd_file_cache_mutex.  Nothing takes two namespaces' nfsd_mutexes.
  */
 DEFINE_MUTEX(nfsd_global_mutex);
 
