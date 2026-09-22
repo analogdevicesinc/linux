@@ -127,8 +127,10 @@ static ssize_t __xe_devcoredump_read(char *buffer, ssize_t count,
 
 	drm_puts(&p, "\n**** HW Engines ****\n");
 	for (i = 0; i < XE_NUM_HW_ENGINES; i++)
-		if (ss->hwe[i])
+		if (ss->hwe[i]) {
 			xe_engine_snapshot_print(ss->hwe[i], &p);
+			drm_puts(&p, "\n");
+		}
 
 	drm_puts(&p, "\n**** VM state ****\n");
 	xe_vm_snapshot_print(ss->vm, &p);
