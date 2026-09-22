@@ -1225,6 +1225,5 @@
 			poll-data = <0>; /* Use IRQ for data */
 			status = "okay";
 		};
-
 	};
 };

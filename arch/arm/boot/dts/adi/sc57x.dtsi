@@ -706,7 +706,6 @@
 				interrupt-names = "complete", "error";
 				adi,src-offset = <0x380>;
 			};
-
 		};
 
 		spi_cluster: dma@3102B000 {
@@ -857,6 +856,5 @@
 			poll-data = <0>; /* Use IRQ for data */
 			status = "okay";
 		};
-
 	};
 };

@@ -195,18 +195,21 @@
 
 &pinctrl0 {
 	status = "okay";
+
 	uart0_default: uart0_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('A', 0, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('A', 1, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
+
 	uart0_hwflow: uart0_hwflow_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('A', 2, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('A', 3, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
+
 	spi0_default: spi0_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('E', 5,  ADI_ADSP_PINFUNC_ALT0)>,
@@ -224,6 +227,7 @@
 				 <ADI_ADSP_PINMUX('E', 3,  ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
+
 	spi1_default: spi1_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('D', 0, ADI_ADSP_PINFUNC_ALT0)>,
@@ -234,6 +238,7 @@
 				 <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
+
 	i2c5_pins: i2c5_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('B', 2, ADI_ADSP_PINFUNC_ALT0)>,

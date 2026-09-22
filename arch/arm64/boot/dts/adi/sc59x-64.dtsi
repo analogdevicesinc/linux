@@ -250,7 +250,6 @@
 			status = "disabled";
 		};
 
-
 		rcu: rcu@3108c000 {
 			compatible = "syscon", "adi,reset-controller";
 			reg = <0x3108c000 0x1000>;
@@ -657,7 +656,6 @@
 			status = "disabled";
 		};
 
-
 		mmc0: mmc@310c7000 {
 			compatible = "snps,dwcmshc-sdhci";
 			reg = <0x310c7000 0x1000>;
@@ -807,7 +805,6 @@
 			gpio-ranges = <&pinctrl0 0 128 7>;
 			adi,pint = <&pint7 1>;
 		};
-
 
 		usb0: usb@310c5000 {
 			compatible = "snps,dwc2";
@@ -1200,7 +1197,6 @@
 				interrupt-names = "complete", "error";
 				adi,src-offset = <0x380>;
 			};
-
 		};
 
 		crc_cluster: dma@310a7000 {
@@ -1363,6 +1359,5 @@
 			poll-data = <0>; /* Use IRQ for data */
 			status = "okay";
 		};
-
 	};
 };
