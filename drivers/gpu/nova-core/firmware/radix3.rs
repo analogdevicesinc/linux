@@ -61,26 +61,12 @@ impl<'a> Radix3<'a> {
             Ok(try_pin_init!(Self {
                 data <- SGTable::new(dev, data, DataDirection::ToDevice, GFP_KERNEL),
                 level2 <- {
-                    // Allocate the level 2 page table, map the firmware onto it, and map it into
-                    // the device address space.
-                    VVec::<u8>::with_capacity(
-                        data.iter().count() * core::mem::size_of::<u64>(),
-                        GFP_KERNEL,
-                    )
-                    .map_err(|_| ENOMEM)
-                    .and_then(|level2| map_into_lvl(&data, level2))
-                    .map(|level2| SGTable::new(dev, level2, DataDirection::ToDevice, GFP_KERNEL))?
+                    build_lvl(&data)
+                        .map(|l2| SGTable::new(dev, l2, DataDirection::ToDevice, GFP_KERNEL))?
                 },
                 level1 <- {
-                    // Allocate the level 1 page table, map the level 2 page table onto it, and map
-                    // it into the device address space.
-                    VVec::<u8>::with_capacity(
-                        level2.iter().count() * core::mem::size_of::<u64>(),
-                        GFP_KERNEL,
-                    )
-                    .map_err(|_| ENOMEM)
-                    .and_then(|level1| map_into_lvl(&level2, level1))
-                    .map(|level1| SGTable::new(dev, level1, DataDirection::ToDevice, GFP_KERNEL))?
+                    build_lvl(&level2)
+                        .map(|l1| SGTable::new(dev, l1, DataDirection::ToDevice, GFP_KERNEL))?
                 },
                 level0: {
                     // Allocate the level 0 page table as a device-visible DMA object, and map the
@@ -117,16 +103,40 @@ impl<'a> Radix3<'a> {
     }
 }
 
-/// Appends one level of the table to `dst`: one entry per [`GSP_PAGE_SIZE`] page of each
-/// DMA-mapped region of `sg_table`, in region order.
-fn map_into_lvl(sg_table: &SGTable<Owned<VVec<u8>>>, mut dst: VVec<u8>) -> Result<VVec<u8>> {
+/// Returns the size of the level that maps `sg_table`: one `u64` entry per [`GSP_PAGE_SIZE`]
+/// page of each DMA-mapped region, rounded up to whole pages.
+fn lvl_size(sg_table: &SGTable<Owned<VVec<u8>>>) -> usize {
+    let entries: usize = sg_table
+        .iter()
+        .map(|sg_entry| usize::from_safe_cast(sg_entry.dma_len()).div_ceil(GSP_PAGE_SIZE))
+        .sum();
+
+    (entries * size_of::<u64>()).next_multiple_of(GSP_PAGE_SIZE)
+}
+
+/// Builds one level of the table over `sg_table`: one entry per [`GSP_PAGE_SIZE`] page of each
+/// DMA-mapped region, in region order. The level is a whole number of pages and every byte past
+/// the last entry is zero, because the booter reads a level a whole page at a time.
+///
+/// # Errors
+///
+/// - `ENOMEM` if the level cannot be allocated.
+/// - `EINVAL` if `sg_table` yields more entries than [`lvl_size`] sized the level for.
+fn build_lvl(sg_table: &SGTable<Owned<VVec<u8>>>) -> Result<VVec<u8>> {
+    let mut dst = VVec::<u8>::zeroed(lvl_size(sg_table), GFP_KERNEL).map_err(|_| ENOMEM)?;
+    let mut entries = dst.chunks_exact_mut(size_of::<u64>());
+
     for sg_entry in sg_table.iter() {
         let num_pages = usize::from_safe_cast(sg_entry.dma_len()).div_ceil(GSP_PAGE_SIZE);
 
         for i in 0..num_pages {
             let entry = sg_entry.dma_address()
                 + (u64::from_safe_cast(i) * u64::from_safe_cast(GSP_PAGE_SIZE));
-            dst.extend_from_slice(&entry.to_le_bytes(), GFP_KERNEL)?;
+
+            entries
+                .next()
+                .ok_or(EINVAL)?
+                .copy_from_slice(&entry.to_le_bytes());
         }
     }
 
