@@ -7233,19 +7233,14 @@ tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
 				  FLAG_UPDATE_TS_RECENT |
 				  FLAG_NO_CHALLENGE_ACK);
 
-	if ((int)reason <= 0) {
-		if (sk->sk_state == TCP_SYN_RECV) {
+	/* accept old ack (reason == 0) during closing */
+	if ((int)reason < 0) {
+		reason = -reason;
+		if (sk->sk_state == TCP_SYN_RECV)
 			/* send one RST */
-			if (!reason)
-				return SKB_DROP_REASON_TCP_OLD_ACK;
-			return -reason;
-		}
-		/* accept old ack during closing */
-		if ((int)reason < 0) {
-			tcp_send_challenge_ack(sk, false);
-			reason = -reason;
-			goto discard;
-		}
+			return reason;
+		tcp_send_challenge_ack(sk, false);
+		goto discard;
 	}
 	SKB_DR_SET(reason, NOT_SPECIFIED);
 	switch (sk->sk_state) {
