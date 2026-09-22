@@ -237,7 +237,12 @@ int efa_com_register_mr(struct efa_com_dev *edev,
 	EFA_SET(&mr_cmd.flags, EFA_ADMIN_REG_MR_CMD_PHYS_PAGE_SIZE_SHIFT,
 		params->page_shift);
 	mr_cmd.iova = params->iova;
-	mr_cmd.permissions = params->permissions;
+	if (params->permissions.local_write)
+		EFA_SET(&mr_cmd.permissions, EFA_ADMIN_REG_MR_CMD_LOCAL_WRITE_ENABLE, 1);
+	if (params->permissions.remote_write)
+		EFA_SET(&mr_cmd.permissions, EFA_ADMIN_REG_MR_CMD_REMOTE_WRITE_ENABLE, 1);
+	if (params->permissions.remote_read)
+		EFA_SET(&mr_cmd.permissions, EFA_ADMIN_REG_MR_CMD_REMOTE_READ_ENABLE, 1);
 
 	if (params->inline_pbl) {
 		memcpy(mr_cmd.pbl.inline_pbl_array,
