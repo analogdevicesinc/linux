@@ -139,7 +139,8 @@ bool intel_lspcon_detect_hdr_capability(struct intel_digital_port *dig_port)
 
 	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, get_hdr_status_reg(lspcon), &hdr_caps);
 	if (ret < 0) {
-		drm_dbg_kms(display->drm, "HDR capability detection failed\n");
+		drm_dbg_kms(display->drm, "HDR capability detection failed (%pe)\n",
+			    ERR_PTR(ret));
 		lspcon->hdr_supported = false;
 	} else if (hdr_caps & 0x1) {
 		drm_dbg_kms(display->drm, "LSPCON capable of HDR\n");
@@ -247,7 +248,7 @@ static bool lspcon_wake_native_aux_ch(struct intel_lspcon *lspcon)
 
 	ret = drm_dp_dpcd_read_byte(&lspcon_to_intel_dp(lspcon)->aux, DP_DPCD_REV, &rev);
 	if (ret < 0) {
-		drm_dbg_kms(display->drm, "Native AUX CH down\n");
+		drm_dbg_kms(display->drm, "Native AUX CH down (%pe)\n", ERR_PTR(ret));
 		return false;
 	}
 
@@ -339,7 +340,8 @@ static bool lspcon_parade_fw_ready(struct drm_dp_aux *aux)
 
 		ret = drm_dp_dpcd_read_byte(aux, LSPCON_PARADE_AVI_IF_CTRL, &avi_if_ctrl);
 		if (ret < 0) {
-			drm_err(aux->drm_dev, "Failed to read AVI IF control\n");
+			drm_err(aux->drm_dev, "Failed to read AVI IF control (%pe)\n",
+				ERR_PTR(ret));
 			return false;
 		}
 
@@ -371,8 +373,8 @@ static bool _lspcon_parade_write_infoframe_blocks(struct drm_dp_aux *aux,
 		data = avi_buf + block_count * 8;
 		ret = drm_dp_dpcd_write_data(aux, reg, data, 8);
 		if (ret < 0) {
-			drm_err(aux->drm_dev, "Failed to write AVI IF block %d\n",
-				block_count);
+			drm_err(aux->drm_dev, "Failed to write AVI IF block %d (%pe)\n",
+				block_count, ERR_PTR(ret));
 			return false;
 		}
 
@@ -386,8 +388,8 @@ static bool _lspcon_parade_write_infoframe_blocks(struct drm_dp_aux *aux,
 		avi_if_ctrl = LSPCON_PARADE_AVI_IF_KICKOFF | block_count;
 		ret = drm_dp_dpcd_write_byte(aux, reg, avi_if_ctrl);
 		if (ret < 0) {
-			drm_err(aux->drm_dev, "Failed to update (0x%x), block %d\n",
-				reg, block_count);
+			drm_err(aux->drm_dev, "Failed to update (0x%x), block %d (%pe)\n",
+				reg, block_count, ERR_PTR(ret));
 			return false;
 		}
 
@@ -450,7 +452,8 @@ static bool _lspcon_write_avi_infoframe_mca(struct drm_dp_aux *aux,
 				mdelay(50);
 				continue;
 			} else {
-				drm_err(aux->drm_dev, "DPCD write failed at:0x%x\n", reg);
+				drm_err(aux->drm_dev, "DPCD write failed at:0x%x (%pe)\n",
+					reg, ERR_PTR(ret));
 				return false;
 			}
 		}
@@ -462,7 +465,8 @@ static bool _lspcon_write_avi_infoframe_mca(struct drm_dp_aux *aux,
 	reg = LSPCON_MCA_AVI_IF_CTRL;
 	ret = drm_dp_dpcd_read_byte(aux, reg, &val);
 	if (ret < 0) {
-		drm_err(aux->drm_dev, "DPCD read failed, address 0x%x\n", reg);
+		drm_err(aux->drm_dev, "DPCD read failed, address 0x%x (%pe)\n",
+			reg, ERR_PTR(ret));
 		return false;
 	}
 
@@ -472,13 +476,15 @@ static bool _lspcon_write_avi_infoframe_mca(struct drm_dp_aux *aux,
 
 	ret = drm_dp_dpcd_write_byte(aux, reg, val);
 	if (ret < 0) {
-		drm_err(aux->drm_dev, "DPCD read failed, address 0x%x\n", reg);
+		drm_err(aux->drm_dev, "DPCD write failed at:0x%x (%pe)\n",
+			reg, ERR_PTR(ret));
 		return false;
 	}
 
 	ret = drm_dp_dpcd_read_byte(aux, reg, &val);
 	if (ret < 0) {
-		drm_err(aux->drm_dev, "DPCD read failed, address 0x%x\n", reg);
+		drm_err(aux->drm_dev, "DPCD read failed, address 0x%x (%pe)\n",
+			reg, ERR_PTR(ret));
 		return false;
 	}
 
@@ -615,7 +621,8 @@ static bool _lspcon_read_avi_infoframe_enabled_mca(struct drm_dp_aux *aux)
 
 	ret = drm_dp_dpcd_read_byte(aux, reg, &val);
 	if (ret < 0) {
-		drm_err(aux->drm_dev, "DPCD read failed, address 0x%x\n", reg);
+		drm_err(aux->drm_dev, "DPCD read failed, address 0x%x (%pe)\n",
+			reg, ERR_PTR(ret));
 		return false;
 	}
 
@@ -630,7 +637,8 @@ static bool _lspcon_read_avi_infoframe_enabled_parade(struct drm_dp_aux *aux)
 
 	ret = drm_dp_dpcd_read_byte(aux, reg, &val);
 	if (ret < 0) {
-		drm_err(aux->drm_dev, "DPCD read failed, address 0x%x\n", reg);
+		drm_err(aux->drm_dev, "DPCD read failed, address 0x%x (%pe)\n",
+			reg, ERR_PTR(ret));
 		return false;
 	}
 
