@@ -170,7 +170,7 @@ struct nfsd_net {
 	 * ->sv_temp_socks, thread counts), the NFSD_NET_* flags, and the
 	 * settables above that may only change while the server is down.
 	 *
-	 * Nests outside the global nfsd_mutex.
+	 * Nests outside nfsd_global_mutex.
 	 */
 	struct mutex nfsd_mutex;
 

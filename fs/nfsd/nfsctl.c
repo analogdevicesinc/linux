@@ -1093,9 +1093,9 @@ static ssize_t write_recoverydir(struct file *file, char *buf, size_t size)
 	 * dirname itself is still shared between namespaces.
 	 */
 	mutex_lock(&nn->nfsd_mutex);
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nfsd_global_mutex);
 	rv = __write_recoverydir(file, buf, size, nn);
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nfsd_global_mutex);
 	mutex_unlock(&nn->nfsd_mutex);
 	return rv;
 }

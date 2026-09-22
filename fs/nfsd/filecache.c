@@ -869,7 +869,7 @@ nfsd_file_cache_init(void)
 {
 	int ret;
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nfsd_global_mutex);
 	if (test_and_set_bit(NFSD_FILE_CACHE_UP, &nfsd_file_flags) == 1)
 		return 0;
 
@@ -1011,16 +1011,16 @@ nfsd_file_cache_start_net(struct net *net)
  * nfsd_file_cache_purge - Remove all cache items associated with @net
  * @net: target net namespace
  *
- * Takes nfsd_mutex so the cache cannot be torn down underneath the
+ * Takes nfsd_global_mutex so the cache cannot be torn down underneath the
  * walk.  Callers must not already hold it.
  */
 void
 nfsd_file_cache_purge(struct net *net)
 {
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nfsd_global_mutex);
 	if (test_bit(NFSD_FILE_CACHE_UP, &nfsd_file_flags) == 1)
 		__nfsd_file_cache_purge(net);
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nfsd_global_mutex);
 }
 
 void
@@ -1045,7 +1045,7 @@ nfsd_file_cache_shutdown(void)
 {
 	int i;
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nfsd_global_mutex);
 	if (test_and_clear_bit(NFSD_FILE_CACHE_UP, &nfsd_file_flags) == 0)
 		return;
 
@@ -1477,7 +1477,7 @@ int nfsd_file_cache_stats_show(struct seq_file *m, void *v)
 	unsigned long lru = 0, total_age = 0;
 
 	/* Serialize with server shutdown */
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nfsd_global_mutex);
 	if (test_bit(NFSD_FILE_CACHE_UP, &nfsd_file_flags) == 1) {
 		struct bucket_table *tbl;
 		struct rhashtable *ht;
@@ -1491,7 +1491,7 @@ int nfsd_file_cache_stats_show(struct seq_file *m, void *v)
 		buckets = tbl->size;
 		rcu_read_unlock();
 	}
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nfsd_global_mutex);
 
 	for_each_possible_cpu(i) {
 		hits += per_cpu(nfsd_file_cache_hits, i);
