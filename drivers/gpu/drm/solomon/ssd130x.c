@@ -415,6 +415,20 @@ static int ssd130x_set_page_range(struct ssd130x_device *ssd130x,
 	return 0;
 }
 
+static int ssd132x_set_col_range(struct ssd130x_device *ssd130x,
+				 u8 col_start, u8 cols)
+{
+	return ssd130x_write_cmd(ssd130x, 3, SSD132X_SET_COL_RANGE,
+				 col_start, col_start + cols - 1);
+}
+
+static int ssd132x_set_row_range(struct ssd130x_device *ssd130x,
+				 u8 row_start, u8 rows)
+{
+	return ssd130x_write_cmd(ssd130x, 3, SSD132X_SET_ROW_RANGE,
+				 row_start, row_start + rows - 1);
+}
+
 /* Set page and column start address for page addressing mode */
 static int ssd130x_set_page_pos(struct ssd130x_device *ssd130x,
 				u8 page_start, u8 col_start)
@@ -896,13 +910,12 @@ static int ssd132x_update_rect(struct ssd130x_device *ssd130x,
 	 * the second byte are SEG2 (D1[3:0]) and SEG3 (D1[7:4]) and so on.
 	 */
 
-	/* Set column start and end */
-	ret = ssd130x_write_cmd(ssd130x, 3, SSD132X_SET_COL_RANGE, col, col + columns - 1);
+	/* Set address range for horizontal addressing mode */
+	ret = ssd132x_set_col_range(ssd130x, col, columns);
 	if (ret < 0)
 		return ret;
 
-	/* Set row start and end */
-	ret = ssd130x_write_cmd(ssd130x, 3, SSD132X_SET_ROW_RANGE, row, row + rows - 1);
+	ret = ssd132x_set_row_range(ssd130x, row, rows);
 	if (ret < 0)
 		return ret;
 
@@ -1052,8 +1065,17 @@ static void ssd132x_clear_screen(struct ssd130x_device *ssd130x, u8 *data_array)
 {
 	unsigned int columns = DIV_ROUND_UP(ssd130x->width, SSD132X_SEGMENT_WIDTH);
 	unsigned int height = ssd130x->height;
+	int ret;
 
 	memset(data_array, 0, columns * height);
+
+	ret = ssd132x_set_col_range(ssd130x, 0, columns);
+	if (ret < 0)
+		return;
+
+	ret = ssd132x_set_row_range(ssd130x, 0, height);
+	if (ret < 0)
+		return;
 
 	/* Write out update in one go since horizontal addressing mode is used */
 	ssd130x_write_data(ssd130x, data_array, columns * height);
