@@ -914,12 +914,15 @@ static ssize_t write_maxblksize(struct file *file, char *buf, size_t size)
 {
 	char *mesg = buf;
 	struct nfsd_net *nn = net_generic(netns(file), nfsd_net_id);
+	ssize_t rv;
 
+	mutex_lock(&nn->nfsd_mutex);
 	if (size > 0) {
 		int bsize;
-		int rv = get_int(&mesg, &bsize);
+
+		rv = get_int(&mesg, &bsize);
 		if (rv)
-			return rv;
+			goto out_unlock;
 		trace_nfsd_ctl_maxblksize(netns(file), bsize);
 
 		/* force bsize into allowed range and
@@ -928,17 +931,18 @@ static ssize_t write_maxblksize(struct file *file, char *buf, size_t size)
 		bsize = max_t(int, bsize, 1024);
 		bsize = min_t(int, bsize, NFSSVC_MAXBLKSIZE);
 		bsize &= ~(1024-1);
-		mutex_lock(&nn->nfsd_mutex);
 		if (nn->nfsd_serv) {
-			mutex_unlock(&nn->nfsd_mutex);
-			return -EBUSY;
+			rv = -EBUSY;
+			goto out_unlock;
 		}
 		nn->max_blksize = bsize;
-		mutex_unlock(&nn->nfsd_mutex);
 	}
 
-	return scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%u\n",
-							nn->max_blksize);
+	rv = scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%u\n",
+		       nn->max_blksize);
+out_unlock:
+	mutex_unlock(&nn->nfsd_mutex);
+	return rv;
 }
 
 #ifdef CONFIG_NFSD_V4
