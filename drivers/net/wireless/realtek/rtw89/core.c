@@ -3073,10 +3073,8 @@ static void rtw89_vif_rx_stats_iter(void *data, u8 *mac,
 	struct rtw89_vif *rtwvif = vif_to_rtwvif(vif);
 	struct rtw89_rx_desc_info *desc_info = iter_data->desc_info;
 	struct sk_buff *skb = iter_data->skb;
-	struct ieee80211_rx_status *rx_status = IEEE80211_SKB_RXCB(skb);
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct rtw89_rx_phy_ppdu *phy_ppdu = iter_data->phy_ppdu;
-	bool is_mld = ieee80211_vif_is_mld(vif);
 	struct ieee80211_bss_conf *bss_conf;
 	struct rtw89_vif_link *rtwvif_link;
 	const u8 *bssid = iter_data->bssid;
@@ -3109,11 +3107,6 @@ static void rtw89_vif_rx_stats_iter(void *data, u8 *mac,
 		       bss_conf->transmitter_bssid : bss_conf->bssid;
 	if (!ether_addr_equal(target_bssid, bssid))
 		goto out;
-
-	if (is_mld) {
-		rx_status->link_valid = true;
-		rx_status->link_id = rtwvif_link->link_id;
-	}
 
 	bb = rtw89_get_bb_ctx(rtwdev, rtwvif_link->phy_idx);
 	pkt_stat = &bb->cur_pkt_stat;

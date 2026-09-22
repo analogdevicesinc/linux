@@ -1322,12 +1322,13 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 					IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_80MHZ_IN_5G;
 
 			/* currently no support for HE client where HT has 40 MHz but not HT */
-			if (iftd->he_cap.has_he &&
-			    iftd->types_mask & (BIT(NL80211_IFTYPE_STATION) |
-						BIT(NL80211_IFTYPE_P2P_CLIENT)) &&
-			    sband->ht_cap.ht_supported &&
-			    sband->ht_cap.cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40 &&
-			    !(iftd->he_cap.he_cap_elem.phy_cap_info[0] & he_40_mhz_cap))
+			if (WARN_ON(iftd->he_cap.has_he &&
+				    iftd->types_mask & (BIT(NL80211_IFTYPE_STATION) |
+							BIT(NL80211_IFTYPE_P2P_CLIENT)) &&
+				    sband->ht_cap.ht_supported &&
+				    sband->ht_cap.cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40 &&
+				    !(iftd->he_cap.he_cap_elem.phy_cap_info[0] &
+				      he_40_mhz_cap)))
 				return -EINVAL;
 
 			/* no support for per-band vendor elems with MLO */

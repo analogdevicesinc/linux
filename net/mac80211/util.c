@@ -47,7 +47,7 @@ struct ieee80211_hw *wiphy_to_ieee80211_hw(struct wiphy *wiphy)
 EXPORT_SYMBOL(wiphy_to_ieee80211_hw);
 
 const struct ieee80211_conn_settings ieee80211_conn_settings_unlimited = {
-	.mode = IEEE80211_CONN_MODE_EHT,
+	.mode = IEEE80211_CONN_MODE_HIGHEST,
 	.bw_limit = IEEE80211_CONN_BW_LIMIT_320,
 };
 
