@@ -7,12 +7,16 @@
 #include "dm_services.h"
 #include "clk_mgr.h"
 #include "dccg.h"
+#include "core_types.h"
+#include "dc_dmub_srv.h"
 #include "bls_executor/bls_executor.h"
+#include "dmub_messenger/dmub_messenger.h"
 
 static bool dc2_bls_step_supported(const struct block_sequence *step)
 {
 	struct clk_mgr *clk_mgr;
 	struct dccg *dccg;
+	struct dc_context *ctx;
 
 	switch (step->func) {
 	case LEGACY_CLK_MGR_INIT_CLOCKS:
@@ -31,9 +35,38 @@ static bool dc2_bls_step_supported(const struct block_sequence *step)
 	case DCCG_INITIALIZE_CLOCKS:
 		dccg = step->params.dccg_initialize_clocks_params.dccg;
 		return dccg && dccg->funcs && dccg->funcs->dccg_init;
+	case DMUB_SEND_DMCUB_CMD:
+		ctx = step->params.send_dmcub_cmd_params.ctx;
+		if (!ctx || !ctx->dmub_srv || !ctx->dmub_srv->dmub ||
+				!step->params.send_dmcub_cmd_params.cmd ||
+				(ctx->dmub_srv->idle_allowed && !ctx->dc))
+			return false;
+		return true;
 	default:
 		return false;
 	}
+}
+
+static enum dc2_bls_exec_result dc2_bls_exec_dmub_send(
+		const struct block_sequence *entry)
+{
+	struct dmub_messenger messenger;
+	struct dmub_messenger_init_data init_data;
+	struct dmub_send_cmd_params params;
+	struct dc_context *ctx;
+
+	ctx = entry->params.send_dmcub_cmd_params.ctx;
+	init_data.ctx = ctx;
+	init_data.dc_dmub_srv = ctx->dmub_srv;
+	params.cmd = entry->params.send_dmcub_cmd_params.cmd;
+	params.wait_type = entry->params.send_dmcub_cmd_params.wait_type;
+
+	dmub_messenger_construct(&messenger, &init_data);
+	if (messenger.funcs->inbox_cmd_send_and_wait(&messenger, &params) !=
+			DMUB_MSG_OK)
+		return DC2_BLS_EXEC_ERROR;
+
+	return DC2_BLS_EXEC_OK;
 }
 
 enum dc2_bls_exec_result dc2_bls_execute(
@@ -77,6 +110,10 @@ enum dc2_bls_exec_result dc2_bls_execute(
 		case DCCG_INITIALIZE_CLOCKS:
 			entry->params.dccg_initialize_clocks_params.dccg->funcs->dccg_init(
 					entry->params.dccg_initialize_clocks_params.dccg);
+			break;
+		case DMUB_SEND_DMCUB_CMD:
+			if (dc2_bls_exec_dmub_send(entry) != DC2_BLS_EXEC_OK)
+				return DC2_BLS_EXEC_ERROR;
 			break;
 		default:
 			ASSERT(false);
