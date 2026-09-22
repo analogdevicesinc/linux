@@ -12,8 +12,11 @@
 #include "bls_executor/bls_executor.h"
 #include "dmub_messenger/dmub_messenger.h"
 
-static bool dc2_bls_step_supported(const struct block_sequence *step)
+static bool dc2_bls_step_supported(const struct dc2 *dc2,
+		const struct block_sequence *step)
 {
+	const struct dc *dc = dc2 ? &dc2->dc : NULL;
+	struct dmub_srv *dmub;
 	struct clk_mgr *clk_mgr;
 	struct dccg *dccg;
 	struct dc_context *ctx;
@@ -42,6 +45,17 @@ static bool dc2_bls_step_supported(const struct block_sequence *step)
 				(ctx->dmub_srv->idle_allowed && !ctx->dc))
 			return false;
 		return true;
+	case DMUB_GPINT_SEND_AND_WAIT:
+		if (!dc || !dc->ctx || !dc->ctx->dmub_srv ||
+				!dc->ctx->dmub_srv->dmub ||
+				(dc->ctx->dmub_srv->idle_allowed &&
+				!dc->ctx->dc))
+			return false;
+		dmub = dc->ctx->dmub_srv->dmub;
+		return dmub->sw_init && dmub->hw_funcs.set_gpint &&
+				dmub->hw_funcs.is_gpint_acked &&
+				dmub->hw_funcs.get_gpint_response &&
+				step->params.dmub_gpint_params.response;
 	default:
 		return false;
 	}
@@ -69,7 +83,24 @@ static enum dc2_bls_exec_result dc2_bls_exec_dmub_send(
 	return DC2_BLS_EXEC_OK;
 }
 
+static enum dc2_bls_exec_result dc2_bls_exec_dmub_gpint(
+		struct dc2 *dc2, const struct block_sequence *entry)
+{
+	struct dmub_messenger messenger;
+	struct dmub_messenger_init_data init_data;
+
+	init_data.ctx = dc2->dc.ctx;
+	init_data.dc_dmub_srv = dc2->dc.ctx->dmub_srv;
+	dmub_messenger_construct(&messenger, &init_data);
+	if (messenger.funcs->gpint_send_and_wait(&messenger,
+			&entry->params.dmub_gpint_params) != DMUB_MSG_OK)
+		return DC2_BLS_EXEC_ERROR;
+
+	return DC2_BLS_EXEC_OK;
+}
+
 enum dc2_bls_exec_result dc2_bls_execute(
+		struct dc2 *dc2,
 		const struct block_sequence *steps,
 		unsigned int num_steps)
 {
@@ -80,7 +111,7 @@ enum dc2_bls_exec_result dc2_bls_execute(
 		return DC2_BLS_EXEC_ERROR;
 
 	for (i = 0; i < num_steps; i++)
-		if (!dc2_bls_step_supported(&steps[i]))
+		if (!dc2_bls_step_supported(dc2, &steps[i]))
 			return DC2_BLS_EXEC_ERROR;
 
 	for (i = 0; i < num_steps; i++) {
@@ -113,6 +144,10 @@ enum dc2_bls_exec_result dc2_bls_execute(
 			break;
 		case DMUB_SEND_DMCUB_CMD:
 			if (dc2_bls_exec_dmub_send(entry) != DC2_BLS_EXEC_OK)
+				return DC2_BLS_EXEC_ERROR;
+			break;
+		case DMUB_GPINT_SEND_AND_WAIT:
+			if (dc2_bls_exec_dmub_gpint(dc2, entry) != DC2_BLS_EXEC_OK)
 				return DC2_BLS_EXEC_ERROR;
 			break;
 		default:

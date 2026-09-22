@@ -142,6 +142,12 @@ struct send_dmcub_cmd_params {
 	enum dm_dmub_wait_type wait_type;
 };
 
+struct dmub_gpint_params {
+	unsigned int command_code;
+	unsigned int param;
+	unsigned int *response;
+};
+
 struct lsdma_send_pio_copy_params {
 	struct dc_dmub_srv *dc_dmub_srv;
 	uint64_t src_addr;
@@ -1216,6 +1222,7 @@ union block_sequence_params {
 	struct legacy_clk_mgr_is_dc_mode_present_params
 			legacy_clk_mgr_is_dc_mode_present_params;
 	struct dccg_initialize_clocks_params dccg_initialize_clocks_params;
+	struct dmub_gpint_params dmub_gpint_params;
 	struct hubbub_program_watermarks_params hubbub_program_watermarks_params;
 	struct hubbub_program_arbiter_params hubbub_program_arbiter_params;
 	struct hubbub_program_compbuf_segments_params hubbub_program_compbuf_segments_params;
@@ -1389,6 +1396,7 @@ enum block_sequence_func {
 	LEGACY_CLK_MGR_INIT_CLOCKS,
 	LEGACY_CLK_MGR_IS_DC_MODE_PRESENT,
 	DCCG_INITIALIZE_CLOCKS,
+	DMUB_GPINT_SEND_AND_WAIT,
 	/* This must be the last value in this enum, add new ones above */
 	HWSS_BLOCK_SEQUENCE_FUNC_COUNT
 };

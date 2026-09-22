@@ -9,6 +9,7 @@
 
 struct dc_context;
 struct dc_dmub_srv;
+struct dmub_gpint_params;
 union dmub_rb_cmd;
 
 /*
@@ -39,6 +40,9 @@ struct dmub_messenger_funcs {
 	enum dmub_msg_result (*inbox_cmd_send_and_wait)(
 			struct dmub_messenger *messenger,
 			const struct dmub_send_cmd_params *params);
+	enum dmub_msg_result (*gpint_send_and_wait)(
+			struct dmub_messenger *messenger,
+			const struct dmub_gpint_params *params);
 };
 
 struct dmub_messenger {
