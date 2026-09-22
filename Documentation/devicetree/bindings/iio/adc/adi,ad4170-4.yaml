@@ -134,17 +134,54 @@ properties:
       maximum: 8
 
 allOf:
-  # Some devices don't have integrated DAC
+  # Only AD4170-4 has an integrated DAC. On the other devices, the DAC output is
+  # not routed to the multiplexer either, making mux input number 20 reserved.
   - if:
       properties:
         compatible:
-          contains:
-            enum:
-              - adi,ad4190-4
-              - adi,ad4195-4
+          not:
+            contains:
+              const: adi,ad4170-4
     then:
       properties:
         ldac-gpios: false
+      patternProperties:
+        "^channel@[0-9a-f]$":
+          properties:
+            diff-channels:
+              items:
+                anyOf:
+                  - maximum: 19
+                  - minimum: 21
+
+  # Only AD4170-4 can be clocked by an external crystal. The other devices
+  # have no XTAL1 and XTAL2 pins.
+  - if:
+      properties:
+        compatible:
+          not:
+            contains:
+              const: adi,ad4170-4
+    then:
+      properties:
+        clock-names:
+          const: ext-clk
+
+  # AD4170-4 has four excitation current sources. The other devices have two.
+  - if:
+      properties:
+        compatible:
+          not:
+            contains:
+              const: adi,ad4170-4
+    then:
+      patternProperties:
+        "^channel@[0-9a-f]$":
+          properties:
+            adi,excitation-pin-2: false
+            adi,excitation-pin-3: false
+            adi,excitation-current-2-microamp: false
+            adi,excitation-current-3-microamp: false
 
   # Require to specify the interrupt pin when using interrupts
   - if:
@@ -198,7 +235,7 @@ patternProperties:
           17: Internal temperature sensor
           18: (AVDD-AVSS)/5
           19: (IOVDD-DGND)/5
-          20: DAC output
+          20: DAC output (AD4170-4 only)
           21: ALDO
           22: DLDO
           23: AVSS
