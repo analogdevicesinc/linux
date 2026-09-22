@@ -73,23 +73,13 @@ static void sc846_clock_probe(struct device_node *np)
 	clks[ADSP_SC846_CLK_DUMMY] = clk_register_fixed_rate(NULL, "dummy", NULL, 0, 0);
 	clks[ADSP_SC846_CLK_SYS_CLKIN0] = of_clk_get_by_name(np, "sys_clkin0");
 
-	/* CGU configuration and internal clocks */
-	clks[ADSP_SC846_CLK_CGU0_PLL_IN] =
-	    clk_register_divider(NULL, "cgu0_df", "sys_clkin0",
-				 CLK_SET_RATE_PARENT, cgu0 + CGU_CTL, 0, 1,
-				 0, &cdu_lock);
-	clks[ADSP_SC846_CLK_CGU1_PLL_IN] =
-	    clk_register_divider(NULL, "cgu1_df", "sys_clkin0",
-				 CLK_SET_RATE_PARENT, cgu1 + CGU_CTL, 0, 1,
-				 0, &cdu_lock);
-
 	/* VCO output inside PLL */
 	clks[ADSP_SC846_CLK_CGU0_VCO_OUT] =
-	    sc5xx_cgu_pll("cgu0_vco", "cgu0_df", cgu0 + CGU_CTL,
+	    sc5xx_cgu_pll("cgu0_vco", "sys_clkin0", cgu0 + CGU_CTL,
 			  CGU_MSEL_SHIFT, CGU_MSEL_WIDTH, 0, true,
 			  &cdu_lock);
 	clks[ADSP_SC846_CLK_CGU1_VCO_OUT] =
-	    sc5xx_cgu_pll("cgu1_vco", "cgu1_df", cgu1 + CGU_CTL,
+	    sc5xx_cgu_pll("cgu1_vco", "sys_clkin0", cgu1 + CGU_CTL,
 			  CGU_MSEL_SHIFT, CGU_MSEL_WIDTH, 0, true,
 			  &cdu_lock);
 
