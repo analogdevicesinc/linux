@@ -152,28 +152,28 @@ Basic usage with default settings (sorts by CPU delay, shows top 20 tasks, refre
 	IRQ full:       0.0%/   0.0%/   0.0%/       0(ms)
 	[o]sort [M]memverbose [q]quit
 	Top 20 processes (sorted by cpu delay):
-		PID      TGID  COMMAND           CPU(ms)   IO(ms)  IRQ(ms)  MEM(ms)
+	PID      TGID  COMMAND           CPU(ms)   IO(ms)  IRQ(ms)  MEM(ms)
 	------------------------------------------------------------------------
-		110       110  kworker/15:0H-s   27.91     0.00     0.00     0.00
-		57        57  cpuhp/7            3.18     0.00     0.00     0.00
-		99        99  cpuhp/14           2.97     0.00     0.00     0.00
-		51        51  cpuhp/6            0.90     0.00     0.00     0.00
-		44        44  kworker/4:0H-sy    0.80     0.00     0.00     0.00
-		60        60  ksoftirqd/7        0.74     0.00     0.00     0.00
-		76        76  idle_inject/10     0.31     0.00     0.00     0.00
-		100       100  idle_inject/14     0.30     0.00     0.00     0.00
-		1309      1309  systemsettings     0.29     0.00     0.00     0.00
-		45        45  cpuhp/5            0.22     0.00     0.00     0.00
-		63        63  cpuhp/8            0.20     0.00     0.00     0.00
-		87        87  cpuhp/12           0.18     0.00     0.00     0.00
-		93        93  cpuhp/13           0.17     0.00     0.00     0.00
-		1265      1265  acpid              0.17     0.00     0.00     0.00
-		1552      1552  sshd               0.17     0.00     0.00     0.00
-		2584      2584  sddm-helper        0.16     0.00     0.00     0.00
-		1284      1284  rtkit-daemon       0.15     0.00     0.00     0.00
-		1326      1326  nde-netfilter      0.14     0.00     0.00     0.00
-		27        27  cpuhp/2            0.13     0.00     0.00     0.00
-		631       631  kworker/11:2-rc    0.11     0.00     0.00     0.00
+	110       110  kworker/15:0H-s   27.91     0.00     0.00     0.00
+	57        57  cpuhp/7            3.18     0.00     0.00     0.00
+	99        99  cpuhp/14           2.97     0.00     0.00     0.00
+	51        51  cpuhp/6            0.90     0.00     0.00     0.00
+	44        44  kworker/4:0H-sy    0.80     0.00     0.00     0.00
+	60        60  ksoftirqd/7        0.74     0.00     0.00     0.00
+	76        76  idle_inject/10     0.31     0.00     0.00     0.00
+	100       100  idle_inject/14     0.30     0.00     0.00     0.00
+	1309      1309  systemsettings     0.29     0.00     0.00     0.00
+	45        45  cpuhp/5            0.22     0.00     0.00     0.00
+	63        63  cpuhp/8            0.20     0.00     0.00     0.00
+	87        87  cpuhp/12           0.18     0.00     0.00     0.00
+	93        93  cpuhp/13           0.17     0.00     0.00     0.00
+	1265      1265  acpid              0.17     0.00     0.00     0.00
+	1552      1552  sshd               0.17     0.00     0.00     0.00
+	2584      2584  sddm-helper        0.16     0.00     0.00     0.00
+	1284      1284  rtkit-daemon       0.15     0.00     0.00     0.00
+	1326      1326  nde-netfilter      0.14     0.00     0.00     0.00
+	27        27  cpuhp/2            0.13     0.00     0.00     0.00
+	631       631  kworker/11:2-rc    0.11     0.00     0.00     0.00
 
 Interactive keyboard controls during runtime::
 
@@ -181,7 +181,7 @@ Interactive keyboard controls during runtime::
 	M - Toggle display mode (Default/Memory Verbose)
 	q - Quit
 
-Available sort fields(use -s/--sort or interactive command)::
+Available sort fields (use -s/--sort or interactive command)::
 
 	cpu(c)       - CPU delay
 	blkio(i)     - I/O delay
@@ -212,3 +212,46 @@ Advanced usage examples::
 
 	# ./delaytop -d secs
 	Specify refresh interval as secs
+
+	# ./delaytop -t type
+	Display only specified delay type with avg/max/timestamp
+	(rows sorted by MAX for that type, largest first)
+
+
+
+delaytop add delay_max fields to track the maximum delay value for each delay
+type (cpu, blkio, irq, swapin, freepages, thrashing, compact, wpcopy) per task::
+
+	bash# ./delaytop -t cpu
+	System Pressure Information: (avg10/avg60/avg300/total)
+	CPU some:       0.4%/   0.2%/   0.1%/     220(ms)
+	CPU full:       0.0%/   0.0%/   0.0%/       0(ms)
+	Memory full:    0.0%/   0.0%/   0.0%/       0(ms)
+	Memory some:    0.0%/   0.0%/   0.0%/       0(ms)
+	IO full:        0.0%/   0.0%/   0.0%/      12(ms)
+	IO some:        0.0%/   0.0%/   0.0%/      13(ms)
+	IRQ full:       0.0%/   0.0%/   0.0%/       0(ms)
+	[q]quit
+	Top 20 processes (sorted by cpu MAX delay, largest first):
+	PID      TGID  COMMAND          AVG(ms)  MAX(ms)   MAX_TIMESTAMP
+	------------------------------------------------------------------------
+	9         9   kworker/0:0-eve    0.59   16.87  2026-05-27T13:32:39
+	30        30  kworker/2:0H-kb   2.87   11.36  2026-05-27T13:32:36
+	27        27  migration/2       1.05    9.51  2026-05-27T13:32:37
+	50        50  kworker/2:1-eve   0.50    9.13  2026-05-27T13:32:37
+	15        15  rcu_preempt       0.11    8.98  2026-05-27T13:32:37
+	1         1   init              0.17    7.12  2026-05-27T13:32:38
+	67        67  scsi_eh_0         1.20    4.23  2026-05-27T13:32:37
+	23        23  ksoftirqd/1       1.12    3.77  2026-05-27T13:32:36
+	3          3  pool_workqueue    0.72    3.55  2026-05-27T13:32:38
+	62        62  kworker/u20:2-a   0.49    3.03  2026-05-27T13:32:37
+	2          2  kthreadd          0.18    2.82  2026-05-27T13:32:37
+	11        11  kworker/0:1       1.42    2.76  2026-05-27T13:32:36
+	39        39  kworker/u20:0-a   0.10    2.71  2026-05-27T13:32:38
+	17        17  rcu_exp_gp_kthr   0.25    2.65  2026-05-27T13:32:36
+	66        66  kworker/u20:3-e   0.38    2.55  2026-05-27T13:32:37
+	20        20  cpuhp/0           0.53    2.51  2026-05-27T13:32:38
+	28        28  ksoftirqd/2       0.59    2.48  2026-05-27T13:32:36
+	55        55  kworker/u19:1     0.88    2.42  2026-05-27T13:32:36
+	13        13  kworker/R-mm_pe   1.18    2.35  2026-05-27T13:32:36
+	54        54  kworker/3:1-eve   0.14    2.20  2026-05-27T13:32:38
