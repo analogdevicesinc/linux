@@ -829,14 +829,6 @@ static int es8328_component_probe(struct snd_soc_component *component)
 		return ret;
 	}
 
-	/* Setup clocks */
-	es8328->clk = devm_clk_get(component->dev, NULL);
-	if (IS_ERR(es8328->clk)) {
-		dev_err(component->dev, "codec clock missing or invalid\n");
-		ret = PTR_ERR(es8328->clk);
-		goto clk_fail;
-	}
-
 	ret = clk_prepare_enable(es8328->clk);
 	if (ret) {
 		dev_err(component->dev, "unable to prepare codec clk\n");
@@ -905,6 +897,11 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
 		return -ENOMEM;
 
 	es8328->regmap = regmap;
+
+	es8328->clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(es8328->clk))
+		return dev_err_probe(dev, PTR_ERR(es8328->clk),
+				     "codec clock missing or invalid\n");
 
 	for (i = 0; i < ARRAY_SIZE(es8328->supplies); i++)
 		es8328->supplies[i].supply = supply_names[i];
