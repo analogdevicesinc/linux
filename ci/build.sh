@@ -1023,7 +1023,9 @@ compile_clang_analyzer () {
 }
 
 declare -A arch_file_exceptions=(
-	[arm]="drivers/iommu/dma-iommu.c" # def_bool ARM64 || X86 || S390
+	# drivers/iommu/dma-iommu.c : def_bool ARM64 || X86 || S390
+	# drivers/spi/spi-cadence-xspi.c : depends on OF && HAS_IOMEM && 64BIT
+	[arm]="drivers/iommu/dma-iommu.c drivers/spi/spi-cadence-xspi.c"
 )
 
 _filter_arch_file_exceptions() {
