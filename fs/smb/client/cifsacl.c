@@ -1867,7 +1867,7 @@ id_mode_to_cifs_acl_exit:
 	return rc;
 }
 
-struct posix_acl *cifs_get_acl(struct mnt_idmap *idmap,
+struct posix_acl *cifs_get_acl(const struct mnt_idmap *idmap,
 			       struct dentry *dentry, int type)
 {
 #if defined(CONFIG_CIFS_ALLOW_INSECURE_LEGACY) && defined(CONFIG_CIFS_POSIX)
@@ -1931,7 +1931,7 @@ out:
 #endif
 }
 
-int cifs_set_acl(struct mnt_idmap *idmap, struct dentry *dentry,
+int cifs_set_acl(const struct mnt_idmap *idmap, struct dentry *dentry,
 		 struct posix_acl *acl, int type)
 {
 #if defined(CONFIG_CIFS_ALLOW_INSECURE_LEGACY) && defined(CONFIG_CIFS_POSIX)
