@@ -1039,7 +1039,7 @@
 	status = "okay";
 
 	aux-bus {
-		panel {
+		panel: panel {
 			compatible = "edp-panel";
 			enable-gpios = <&tlmm 74 GPIO_ACTIVE_HIGH>;
 			power-supply = <&vreg_edp_3p3>;
