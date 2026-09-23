@@ -24742,7 +24742,9 @@ M:	Sudeep Holla <sudeep.holla@kernel.org>
 L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
 S:	Maintained
 F:	drivers/firmware/smccc/
+F:	include/linux/arm-smccc-bus.h
 F:	include/linux/arm-smccc.h
+F:	include/linux/device-id/arm_smccc.h
 
 SECURITY CONTACT
 M:	Security Officers <security@kernel.org>
