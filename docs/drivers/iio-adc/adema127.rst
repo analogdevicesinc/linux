@@ -1,0 +1,769 @@
+.. _adema127:
+
+ADEMA124 / ADEMA127
+===================
+
+ADEMA124 / ADEMA127 IIO ADC Linux driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADEMA124`
+- :adi:`ADEMA127`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-ADEMA127KTZ`
+
+Description
+-----------
+
+The ADEMA124 and ADEMA127 are 4- and 7-channel simultaneous-sampling 24-bit
+sigma-delta ADCs intended for poly-phase electricity metering, current
+sensing and general high-accuracy waveform capture. Both parts share the
+same die, the same SPI command/response protocol and the same on-chip DSP
+datapath; only the number of active analog front-ends differs. The driver
+keys off the ``PRODUCT_ID`` register at probe time
+(``0x13`` = ADEMA124, ``0x16`` = ADEMA127) and picks the matching channel
+count and long-frame length automatically.
+
+Key features:
+
+- 24-bit signed output, ±1.2 V differential input full scale at 1× gain
+  (~4,772,275 codes/V), overrange status flag per channel.
+- Fully-simultaneous sampling on all channels — one 32-byte (ADEMA127) or
+  20-byte (ADEMA124) SPI response frame carries every channel plus status.
+- Programmable output data rate from 250 SPS to 64 kSPS, derived from a
+  16.384 MHz nominal ``XTALIN`` clock via the ``DATARATE`` register.
+- Per-channel DSP datapath: DC block (α), high-pass filter, low-pass
+  filter, sensor-compensation filter, compensation filter (with two
+  configurations), phase offset, crosstalk-compensation gain, sample
+  shift, all-pass and gain/offset compensation.
+- Hardware auto-CRC on both command (8-bit CRC-8, poly ``0x07``, XOR
+  ``0x55``) and response (16-bit CRC-CCITT-FALSE, poly ``0x1021``, seed
+  ``0xFFFF``, transmitted little-endian on the wire).
+- Dedicated ``DREADY`` output — falling edge on every new sample set —
+  shared with the ``CLKOUT`` pin (which the driver keeps disabled so the
+  pin carries the sample-ready pulse).
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`)
+subsystem driver. See :external+documentation:ref:`iio` for background on
+the framework.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+   * - :git+linux:`ADI tree <main:drivers/iio/adc/adema127-core.c>`
+     - No (submission in progress)
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - ``drivers/iio/adc/adema127-core.c`` and
+       ``drivers/iio/adc/adema127-spi-offload.c`` (SPI Offload streaming
+       backend, ``CONFIG_ADEMA127_SPI_OFFLOAD``)
+   * - devicetree bindings
+     - ``Documentation/devicetree/bindings/iio/adc/adi,adema127.yaml``
+   * - documentation
+     - ``docs/drivers/iio-adc/adema127.rst`` (this file)
+
+
+Hardware Overview
+-----------------
+
+Signal chain
+~~~~~~~~~~~~
+
+Each active channel goes through the following on-chip datapath, in order:
+
+1. Analog PGA (front-end gain 1× or 2×, per-channel).
+2. Analog inversion (optional, per-channel).
+3. 24-bit sigma-delta modulator + sinc3 decimator (governed by
+   ``DATARATE``).
+4. Optional compensation filter (``COMP_FILT``), configurable between two
+   coefficient sets (Sinc-Droop only, or Sinc-Droop plus external band-limit).
+5. Optional sensor compensation filter (``SCF``) — 1st-order IIR, per
+   channel.
+6. Optional high-pass filter (``HPF``) — 2nd-order biquad, shared by all
+   channels; the datasheet 3 dB corner is tunable in 4 preset bandwidths.
+7. Optional low-pass filter (``LPF``) — 17th-order FIR, shared across
+   channels.
+8. Optional all-pass filter for phase compensation (``ALLPASS``).
+9. Optional per-channel arithmetic shift (0..7 bits).
+10. Optional per-channel gain / offset / crosstalk-compensation stage
+    (``GAIN_OFFSET_XT``), where the crosstalk term subtracts a
+    programmable scale of an "aggressor" channel from this channel.
+11. Optional DC-block (single-pole HPF) with programmable α (0..15).
+
+Each of the filter stages is individually enabled through the
+per-channel ``in_voltageX_filter_*`` and ``in_voltageX_gain_offset_xt_en``
+attributes described below.
+
+SPI protocol
+~~~~~~~~~~~~
+
+Communication uses SPI mode 3 (``CPOL=1``, ``CPHA=1``), MSB-first, up to
+22 MHz SCLK. Every SPI transaction is 6 bytes on the wire for a *short*
+frame (register access) or 20/32 bytes for a *long* frame (waveform
+readout on ADEMA124/127 respectively). Because the ADEMA is a pipelined
+device, the response for command *N* is shifted in during transaction
+*N+1*.
+
+Short-frame TX layout (both host→ADC and the pipeline of ADC→host):
+
+.. code-block:: text
+
+    byte 0..1   dummy (host writes zeros; ADC returns the ECHO + STATUS0
+                of the previous command)
+    byte 2      RWB | LONG | ADDR[13:8]   (bit 7 = 1 for read, 0 for write)
+    byte 3      ADDR[7:0]
+    byte 4      DATA (write payload; ignored on reads)
+    byte 5      8-bit CRC-8 over bytes 2..4
+
+Short-frame RX layout (response of the *previous* command):
+
+.. code-block:: text
+
+    byte 0      ECHO      (RWB | LONG | MRID[2:0] | RSRVD | CMD_CRC_ERR | IRQ)
+    byte 1      STATUS0
+    byte 2      DATA[0]   (register at ADDR + 1)
+    byte 3      DATA[1]   (register at ADDR)
+    byte 4..5  CRC-CCITT (poly 0x1021, seed 0xFFFF), little-endian on wire
+
+Long-frame reads (used for buffered capture) place the command word in
+the last 4 bytes of the frame; every preceding byte transmits zeros. The
+response, occupying the whole frame, delivers ECHO, STATUS0/1, all
+channel samples (24 bits each, transmitted WAV_LO/WAV_MD/WAV_HI —
+little-endian in-frame), and the trailing CRC-CCITT.
+
+Devicetree
+----------
+
+The ADEMA is described as a child of the SPI controller it's wired to.
+A complete example board file, including the mandatory clock and
+interrupt providers, is provided in the ADI Linux source at
+``arch/arm64/boot/dts/adi/sc598-som-ezlite-adema127.dts``.
+
+SPI Bus
+~~~~~~~
+
+.. code-block:: text
+
+    &spi0 {
+        status = "okay";
+        cs-gpios = <&gpio 8 GPIO_ACTIVE_LOW>;
+
+        adema127: adc@0 {
+            compatible = "adi,adema127";
+            reg = <0>;
+
+            spi-max-frequency = <20000000>;
+            spi-cpol;
+            spi-cpha;
+
+            interrupt-parent = <&gpio>;
+            interrupts = <17 IRQ_TYPE_EDGE_FALLING>;
+            interrupt-names = "dready";
+
+            reset-gpios = <&gpio 22 GPIO_ACTIVE_LOW>;
+
+            clocks = <&adema127_xtal>;
+            clock-names = "xtal";
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+        };
+    };
+
+Required properties:
+
+- ``compatible``: ``"adi,adema124"`` or ``"adi,adema127"``.
+- ``reg``: SPI chip-select index.
+- ``spi-cpol; spi-cpha;``: SPI mode 3 is mandatory.
+- ``spi-max-frequency``: up to ``22000000``. Typical evaluation setups
+  use 20 MHz to leave signal-integrity margin.
+- ``clocks`` / ``clock-names = "xtal"``: 16.384 MHz nominal master clock
+  driving ``XTALIN``. See "Master clock" below.
+- ``interrupts`` (named ``dready``): GPIO line wired to the chip's
+  ``DREADY`` output, configured as ``IRQ_TYPE_EDGE_FALLING``.
+
+Optional properties:
+
+- ``reset-gpios``: active-low GPIO wired to the chip's ``/RESET`` pin.
+  When present the driver pulses ``/RESET`` at probe (~10 µs low); when
+  absent it falls back to a software reset via the ``SWRST`` register
+  (write ``0xD6``).
+- ``cs-gpios`` on the SPI controller node: use a GPIO for chip-select
+  rather than the controller's native CS. On the BCM2835 SPI controller
+  (Raspberry Pi 3) native CE0 mis-times the first SCLK edge in mode 3;
+  software CS avoids that. Not required on FPGA-based ADI reference
+  designs.
+
+Per-channel overrides
+~~~~~~~~~~~~~~~~~~~~~
+
+Child ``channel@N`` nodes may override the reset-default input gain and
+polarity of individual channels. Only channels that need a non-default
+setting need to appear; unlisted channels use ``adi,input-gain = <1>``
+and ``adi,input-invert`` off.
+
+.. code-block:: text
+
+    channel@0 {
+        reg = <0>;
+        adi,input-gain = <2>;      /* analog PGA on channel 0 = 2x */
+    };
+
+    channel@2 {
+        reg = <2>;
+        adi,input-invert;          /* invert polarity of channel 2 */
+    };
+
+- ``adi,input-gain``: analog PGA gain applied at the input, ``1`` or
+  ``2``. Written to ``ADC_GAIN`` (register ``0x006``) bit ``N``.
+- ``adi,input-invert``: boolean; when present inverts the polarity of the
+  analog input for that channel (bit ``N`` of ``ADC_INV`` at ``0x007``).
+
+Master clock
+~~~~~~~~~~~~
+
+The ADEMA needs a stable master clock on the ``XTALIN`` pin. The
+recommended source is a 16.384 MHz crystal or clock generator. The
+driver reads ``clk_get_rate()`` at probe and uses the result to derive
+``DATARATE`` register values; other integer multiples of 16.384 MHz work
+but the raw rate must land on one of the ratios in Table 16 of the
+datasheet.
+
+Represent the crystal as a fixed-clock:
+
+.. code-block:: text
+
+    adema127_xtal: adema127-xtal {
+        compatible = "fixed-clock";
+        #clock-cells = <0>;
+        clock-frequency = <16384000>;
+        clock-output-names = "adema127-xtal";
+    };
+
+DREADY pin
+~~~~~~~~~~
+
+The ``DREADY`` output and the optional ``CLKOUT`` output share the same
+physical pin. The driver keeps ``CLKOUT_EN`` cleared in ``CONFIG0`` so the
+pin carries a falling-edge pulse each time a new sample set is ready.
+Enabling ``CLKOUT_EN`` would replace the sample-ready pulse with the
+16 MHz internal clock, which would flood the host GPIO IRQ line and
+lock up the CPU; the driver deliberately does not expose that as a
+user-selectable option.
+
+SPI Offload (optional)
+~~~~~~~~~~~~~~~~~~~~~~
+
+When the underlying SPI controller advertises the SPI Offload framework
+capabilities ``SPI_OFFLOAD_CAP_TRIGGER``, ``SPI_OFFLOAD_CAP_RX_STREAM_DMA``
+and ``SPI_OFFLOAD_CAP_TX_STREAM_DMA``, the driver selects the offload
+path automatically and streams long-frame responses through a hardware
+descriptor-ring DMA into a kfifo IIO buffer with no CPU involvement per
+sample. The ADI SC5xx SPI3 controller (drivers/spi/spi-adi.c) together
+with the TRU data-ready trigger provider implements the required
+capabilities; controllers without them (RPi BCM2835) fall back to the
+per-DREADY software triggered buffer path described in "Trigger
+management" below.
+
+Refer to the SPI controller's own binding for how to describe the
+offload trigger source and the "offload-tx"/"offload-rx" DMA channels.
+
+
+Driver testing
+--------------
+
+After probe the device appears under ``/sys/bus/iio/devices/`` as
+``iio:deviceN``:
+
+.. code-block:: text
+
+    root@analog:~# ls /sys/bus/iio/devices/iio:device0
+    buffer            in_voltage3_calibbias   scan_elements
+    dev               in_voltage3_calibscale  sync_align
+    in_voltage0_raw   in_voltage3_phase       sampling_frequency
+    in_voltage0_scale in_voltage3_raw         sampling_frequency_available
+    in_voltage0_...   ...                     test_pattern
+    name              of_node                 test_pattern_available
+    ...
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+    root:/sys/bus/iio/devices/iio:device0> cat name
+    adema127          # or "adema124" for the 4-channel part
+
+Direct (unbuffered) read
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+    root:/> cat in_voltage0_raw
+    -2153
+    root:/> cat in_voltage0_scale
+    0.000209543
+
+Voltage on ``AIN0`` = raw × scale (in millivolts):
+
+.. math::
+
+    U = -2153 \times 0.000209543 \; \text{mV} \approx -0.451 \; \text{mV}
+
+At 1× gain the scale corresponds exactly to
+1 V / 4,772,275 codes ≈ 209.5 nV/LSB, as specified in Table 2 of the
+datasheet. Setting ``in_voltageN_input_gain = 2`` halves the scale for
+that channel.
+
+Sampling rate
+~~~~~~~~~~~~~
+
+.. code-block:: text
+
+    root:/> cat sampling_frequency
+    32000
+    root:/> cat sampling_frequency_available
+    250 500 1000 2000 4000 8000 16000 32000 64000
+    root:/> echo 250 > sampling_frequency
+
+Writing to ``sampling_frequency`` unlocks the ``DATAPATH_CONFIG_LOCK``,
+programs the ``DATARATE`` register (0x03C) and re-locks the datapath.
+The buffer must be disabled (``buffer/enable`` = 0) before changing the
+rate; the driver enforces this via ``iio_device_claim_direct``.
+
+Test-pattern debug modes
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The chip's ``CONFIG0.STREAM_DBG`` field selects what the SPI shift-out
+buffer contains:
+
+.. code-block:: text
+
+    root:/> cat test_pattern_available
+    normal static increment
+    root:/> echo static > test_pattern     # every sample = constant
+    root:/> echo increment > test_pattern  # sample = counter that steps
+                                           # once per ADC conversion
+    root:/> echo normal > test_pattern     # back to real ADC data
+
+``static`` mode confirms that the SPI-to-buffer pipeline is
+deterministic. ``increment`` mode is useful to check for dropped or
+duplicated samples in ``iio_readdev`` output — every channel should step
+by a fixed amount between consecutive sample records.
+
+Synchronising channels
+~~~~~~~~~~~~~~~~~~~~~~
+
+The ``sync_align`` write-only attribute writes ``ALIGN`` to
+``SYNC_SNAP`` (0x014). This forces the internal decimator to re-align
+all channels to a common sample instant — useful after changing filter
+enables or after startup.
+
+.. code-block:: text
+
+    root:/> echo 1 > sync_align
+
+Trigger management
+------------------
+
+The driver supports two capture paths, selected automatically at probe.
+
+Per-DREADY software triggered buffer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is the default whenever the SPI controller does not implement the
+SPI Offload framework (or the RX-stream DMA capability). On every
+``DREADY`` falling edge the driver's GPIO IRQ handler kicks the IIO
+trigger; the trigger's poll handler runs a single long-frame
+``spi_sync()`` to fetch one sample set, verifies the CRC-CCITT trailer,
+unpacks the channel data and pushes one record to the IIO buffer,
+including an ``s64`` timestamp read at IRQ time.
+
+CPU cost scales linearly with the sample rate. At 32 kSPS this is 32000
+``spi_sync`` calls per second — practical on a modern SoC but the SPI
+subsystem overhead dominates the cost. For bring-up and low-rate use
+(≤ 8 kSPS) this path is fine.
+
+The IRQ is registered with ``IRQF_NO_AUTOEN`` and enabled only inside
+the buffer's ``postenable`` hook; disabling the buffer disables the IRQ.
+No DREADY interrupts fire while the buffer is idle.
+
+.. code-block:: text
+
+    # enable all channels + timestamp
+    for f in scan_elements/in_voltage*_en scan_elements/in_timestamp_en; do
+        echo 1 > "$f"
+    done
+
+    # capture 128 samples at 250 SPS (~0.5 s)
+    echo 250 > sampling_frequency
+    iio_readdev -b 128 -s 128 adema127 > /tmp/samples.bin
+
+The captured record layout is:
+
+.. code-block:: text
+
+    struct sample {
+        s32 chan[7];        /* ADEMA127; 4 channels for ADEMA124        */
+        u32 pad;            /* alignment to 8 bytes                     */
+        s64 timestamp;      /* CLOCK_MONOTONIC or CLOCK_REALTIME, ns    */
+    };
+
+The ``chan[N]`` values are 24-bit signed samples sign-extended to
+``s32``.
+
+SPI Offload trigger
+~~~~~~~~~~~~~~~~~~~
+
+When the SPI controller supports the SPI Offload framework, the driver
+requests it via ``devm_spi_offload_get()`` and runs both stream DMA
+channels itself: a single self-looping TX descriptor re-sends the read
+command on every trigger, and the RX side is a ping-pong descriptor
+ring (one trigger-gated descriptor per long-frame) whose completion
+interrupt fires only once per bank. Triggering uses the standard
+``SPI_OFFLOAD_TRIGGER_DATA_READY`` type — one hardware trigger per
+DREADY pulse, so the capture is phase-locked to the chip's own sample
+cadence rather than a periodic timer. No per-sample CPU work is
+required.
+
+The RX bank size (frames accumulated per completion interrupt) follows
+the IIO buffer ``watermark`` set by userspace, so the interrupt rate is
+``sampling_frequency / watermark``. When userspace leaves the watermark
+at its default of 1, the board default from the optional
+``adi,offload-frames-per-interrupt`` DT property (128 when absent) is
+used instead.
+
+.. important::
+
+    In offload mode the scan layout is the chip's native long-frame:
+    each phase channel has ``scan_type`` ``le:s24/32>>8`` — the 24-bit
+    sample (transmitted LSByte first) in the upper bits of a
+    little-endian 32-bit slot whose low byte is the frame's
+    housekeeping (ECHO/STATUS) byte, shifted and sign-extended away by
+    the IIO core — plus one ``be:u32/32``
+    trailer channel carrying RDD1/RDD0 and the CRC. The available scan
+    mask is all-or-none because the on-wire frame is fixed; pass every
+    channel to ``iio_readdev``. This differs from the software path's
+    packed CPU-endian ``s32 chan[N]`` layout shown above.
+
+.. _adema127-attribute-reference:
+
+Attribute reference
+-------------------
+
+All per-channel attributes exist as ``in_voltageN_<attr>``. In the
+descriptions below ``N`` is the channel index: 0..6 for ADEMA127, 0..3
+for ADEMA124.
+
+Direct-read (``IIO_CHAN_INFO_*``) attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**in_voltageN_raw** *(int, read-only)*
+   Latest 24-bit signed sample read from the ``CHx_WAV`` registers of
+   this channel. The value is sign-extended to ``s32``. Multiply by
+   ``in_voltageN_scale`` to obtain millivolts at the input pins (after
+   the analog PGA, before any DSP transformation).
+
+**in_voltageN_scale** *(float, read-only)*
+   Millivolts per LSB. Computed from
+   ``1000 / (4,772,275 × input_gain)``. Changes automatically when
+   ``in_voltageN_input_gain`` is written.
+
+**in_voltageN_calibbias** *(s24, read/write)*
+   Per-channel offset compensation, stored in the DSP RAM
+   ``OFFSET`` field. Applied when the ``gain_offset_xt`` stage is
+   enabled. Range: ``-2^23 .. 2^23 - 1`` (24-bit two's complement,
+   ADC-code units). The offset is subtracted from the sample after
+   gain compensation has been applied (per the datasheet's Figure 60,
+   gain before offset).
+
+**in_voltageN_calibscale** *(fractional, read/write)*
+   Per-channel gain compensation, stored in the DSP RAM ``GAIN`` field.
+   Signed 2.22 fixed-point (nominal 1.0 = 0x400000). Read as the tuple
+   ``(raw, 22)`` in fractional-log2 form; write the raw 24-bit integer.
+   Applied together with ``calibbias`` when
+   ``gain_offset_xt_en`` = 1.
+
+**in_voltageN_phase** *(int, read/write)*
+   13-bit unsigned fractional-sample phase offset (``PHASE_OFFSET``
+   registers ``0x048 + 2N`` / ``0x049 + 2N``). One LSB = 1/8192 of a
+   sample period; range ``0..8191`` (up to one sample period of
+   delay).
+
+**in_voltage_sampling_frequency** *(int, read/write, shared)*
+   Output data rate in Hz. Writing selects the closest matching entry
+   in ``DATARATE`` Table 16 for the current ``XTALIN`` frequency; the
+   driver rejects values that cannot be reached exactly (``-EINVAL``).
+   Available values are listed in
+   ``in_voltage_sampling_frequency_available``.
+
+Extended per-channel calibration attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**in_voltageN_xt_gain** *(s24, read/write)*
+   Crosstalk-compensation gain, DSP RAM ``XT_GAIN``. Same signed 2.22
+   fixed-point format as ``calibscale``. When ``gain_offset_xt`` is
+   enabled, ``xt_gain × sample_of_aggressor`` (a signed product) is
+   added to this channel's output — use a negative ``xt_gain`` to
+   subtract the aggressor's contribution. Set together with
+   ``xt_aggressor``.
+
+**in_voltageN_xt_aggressor** *(int 0..6, read/write)*
+   Selects which other channel provides the "aggressor" waveform for
+   the crosstalk compensator on channel ``N``. Written to the
+   ``XT_AGGRESSOR`` byte in DSP RAM. Only 3 bits of the register are
+   meaningful; setting a value greater than the highest channel index
+   for the variant is rejected with ``-EINVAL``.
+
+**in_voltageN_shift** *(int 0..7, read/write)*
+   Post-gain arithmetic left-shift, DSP RAM ``SHIFT``. Increases the
+   effective gain by 2^shift *before* saturation; use with care as it
+   can push samples into the overrange region.
+
+**in_voltageN_dc_block_alpha** *(int 0..15, read/write)*
+   4-bit programmable α for the per-channel DC-block filter (register
+   ``DATAPATH_ALPHA_CHx_x+1`` at ``0x03D + N/2``, two channels per
+   register: even channel in bits [3:0], odd in [7:4]). Larger α =
+   lower corner
+   frequency = better DC rejection but longer settling.
+
+Filter enables
+~~~~~~~~~~~~~~
+
+All of the following are boolean (``0`` / ``1``) writes to
+``DATAPATH_CONFIG_CHx`` (register ``0x041 + N``). Enabling a stage that
+requires DSP coefficients also requires those coefficients to be loaded
+first (see Datasheet §Configuration Procedure and DSP RAM tables).
+
+**in_voltageN_filter_hpf_en**
+   High-pass filter enable. When set, the shared 2nd-order biquad HPF
+   filters this channel. The corner frequency is set by the HPF
+   coefficients in DSP RAM (see Datasheet Table 31; not directly exposed
+   by this driver — use debugfs register access to program if needed).
+
+**in_voltageN_filter_lpf_en**
+   17th-order FIR low-pass filter enable. Coefficients are shared
+   across all channels.
+
+**in_voltageN_filter_scf_en**
+   1st-order IIR sensor-compensation filter enable. Coefficients are
+   per-channel.
+
+**in_voltageN_filter_comp_en**
+   Compensation filter (droop / band-limit) enable. 6th-order FIR.
+
+**in_voltageN_filter_comp_cfg**
+   Selects the compensation filter coefficient set: ``0`` = Sinc-Droop
+   correction only; ``1`` = Sinc-Droop plus external band-limit filter
+   compensation.
+
+**in_voltageN_filter_allpass_en**
+   All-pass filter enable, used for phase compensation without altering
+   magnitude response.
+
+**in_voltageN_gain_offset_xt_en**
+   Master enable for the gain / offset / crosstalk stage. When cleared,
+   ``calibscale`` / ``calibbias`` / ``xt_gain`` have no effect on the
+   sample even if their DSP-RAM values are non-zero.
+
+Analog front-end attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**in_voltageN_input_gain** *(int 1 or 2, read/write)*
+   Analog PGA gain (``ADC_GAIN`` bit ``N``). Setting ``2`` doubles the
+   effective sensitivity; ``in_voltageN_scale`` is halved automatically.
+   Change while the buffer is stopped — the write bracket unlocks the
+   datapath.
+
+**in_voltageN_input_invert** *(int 0 or 1, read/write)*
+   Invert analog input polarity for channel ``N`` (``ADC_INV`` bit
+   ``N``).
+
+Device-level attributes
+~~~~~~~~~~~~~~~~~~~~~~~
+
+**sync_align** *(bool, write-only)*
+   Writing ``1`` sets the ``ALIGN`` bit in ``SYNC_SNAP`` (register
+   ``0x014``), causing the on-chip sinc decimator to re-align all
+   channels to a common sample instant. Useful after enabling filters
+   or after startup to ensure a synchronised sample edge. Writing ``0``
+   is a no-op.
+
+**test_pattern** / **test_pattern_available** *(string, read/write)*
+   Selects the ``CONFIG0.STREAM_DBG`` field:
+
+   - ``normal`` (0): real ADC samples.
+   - ``static`` (1): a fixed constant is returned in each channel slot.
+   - ``increment`` (2): a counter that steps once per ADC conversion is
+     returned in each channel slot. Every channel emits the same
+     counter value, so ``increment`` mode confirms both the framing and
+     the trigger cadence end-to-end.
+
+Debugfs
+~~~~~~~
+
+The driver exposes ``debugfs_reg_access`` so that any main-map register
+(``0x001``–``0x07E``) or DSP-RAM location (``≥ 0x400``) can be poked.
+For DSP RAM addresses the driver automatically wraps the access with
+the ``ACCESS_EXTENDED_MMAP`` / ``STATUS2.DSP_MEM_ACCESS_READY``
+handshake:
+
+.. code-block:: text
+
+    root:/> cd /sys/kernel/debug/iio/iio:device0
+    root:/> cat direct_reg_access 0x07E    # read PRODUCT_ID
+    0x16
+    root:/> echo "0x03C 0x38" > direct_reg_access   # DATARATE = 250 SPS
+
+The debugfs interface bypasses the ``iio_device_claim_direct`` gate but
+should not be used while the buffer is running.
+
+Module parameters
+~~~~~~~~~~~~~~~~~
+
+Two module parameters exist for bring-up on new boards. Both default to
+off in production.
+
+- ``debug_wire=1``: log every short-frame SPI transaction (TX + RX
+  bytes, address, direction, return code) at ``dev_err`` level.
+  Very verbose — expect several lines per register access.
+
+- ``ignore_crc=1``: log CRC-CCITT mismatches but do not fail the read.
+  Useful when validating a new SPI wiring against unknown-good
+  responses; the driver still returns the (potentially corrupted)
+  ``DATA[1]`` byte to the regmap consumer.
+
+.. code-block:: text
+
+    root:/> modprobe adema127 debug_wire=1 ignore_crc=1
+
+
+Programming notes
+-----------------
+
+Reset sequence
+~~~~~~~~~~~~~~
+
+At probe the driver pulses ``/RESET`` low (via ``reset-gpios`` if
+provided) for ~10 µs, then waits ~1 ms for the internal band-gap and
+sinc filters to settle before reading ``STATUS0.RESET_DONE`` and
+clearing it (write-1-to-clear). If ``reset-gpios`` is not provided, a
+software reset (writing ``0xD6`` to ``SWRST`` at ``0x001``) is used
+instead — the retained memory-mapped registers are returned to their
+reset defaults but any DSP-RAM configuration is preserved.
+
+Datapath lock/unlock
+~~~~~~~~~~~~~~~~~~~~
+
+The ADEMA has two lock bits guarding configuration:
+
+- ``WR_LOCK`` (``0x01F``, unlock key ``0x5E``, lock key ``0xD4``)
+  guards most of the retained-MMR and DSP-RAM address ranges.
+- ``DATAPATH_CONFIG_LOCK`` (``0x03B``) additionally guards the datapath
+  registers. Writing ``0`` unlocks; writing ``1`` re-arms the datapath.
+
+The driver wraps every configuration write path (``sampling_frequency``,
+``input_gain``, ``input_invert``, ``dc_block_alpha``, all filter
+enables) with an unlock/lock bracket and a mandatory settle of
+approximately 40 µs after the re-lock, per the datasheet's
+Configuration Procedure section (the driver waits a conservative
+1 ms).
+
+CRC handling
+~~~~~~~~~~~~
+
+The driver enables SPI command CRC (``CRC_EN_SPI_WRITE`` in
+``CONFIG0``) unconditionally at probe. Every command sent to the ADC
+includes the 8-bit CRC in byte 3 of the command word; the ADC responds
+with ``ECHO.CMD_CRC_ERR = 1`` if it disagrees. Every response includes a
+16-bit CRC-CCITT trailer that the driver validates before consuming the
+data; failures return ``-EBADMSG`` to the regmap layer.
+
+Long-frame CRC failures during buffered capture are rate-limited
+``dev_dbg_ratelimited`` events; individual bad samples are simply
+skipped for the current sample record and the trigger handler
+continues.
+
+Overrange detection
+~~~~~~~~~~~~~~~~~~~
+
+The per-channel overrange bits in ``STATUS1`` (register ``0x021``) are
+included in every long-frame response and are exposed indirectly via
+the ``debugfs_reg_access`` interface. They are also enabled to raise
+the shared ``IRQ`` bit via the ``MASK1`` register the driver programs
+at probe (all-enabled). A future revision of the driver may forward
+these as IIO events.
+
+
+Datasheet cross-reference
+-------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
+
+   * - Feature
+     - Register
+     - Datasheet section / notes
+   * - Product ID
+     - ``0x07E``
+     - Table 27 — ``0x13``/``0x16``
+   * - Sample rate select
+     - ``0x03C`` DATARATE
+     - Table 16 — ratio determined by prescaler + decimation
+   * - Analog input gain
+     - ``0x006`` ADC_GAIN
+     - one bit per channel; 1× or 2×
+   * - Channel offset
+     - DSP RAM ``OFFSET``
+     - Table 31 — 24-bit signed
+   * - Channel gain
+     - DSP RAM ``GAIN``
+     - Table 31 — signed 2.22
+   * - Crosstalk gain
+     - DSP RAM ``XT_GAIN``
+     - Table 31
+   * - Crosstalk aggressor
+     - DSP RAM ``XT_AGGRESSOR``
+     - Table 31 — 3-bit channel index
+   * - Phase offset
+     - ``0x048 + 2N``
+     - 13-bit signed
+   * - DC block α
+     - ``0x03D + N``
+     - 4-bit nibble
+   * - Filter enables
+     - ``0x041 + N``
+     - HPF/LPF/SCF/COMP/ALLPASS/GAIN_OFFSET_XT bits
+   * - Sync/align
+     - ``0x014`` SYNC_SNAP
+     - re-align all decimators
+   * - Test pattern
+     - ``0x002.STREAM_DBG``
+     - normal / static / increment
+   * - CRC on command
+     - ``0x002.CRC_EN_SPI_WRITE``
+     - 8-bit CRC-8, poly ``0x07``, XOR ``0x55``
+   * - Response CRC
+     - built-in
+     - 16-bit CRC-CCITT (poly ``0x1021``, init ``0xFFFF``, LE on wire)
