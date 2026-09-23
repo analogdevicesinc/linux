@@ -46,6 +46,7 @@ static bool dc2_bls_step_supported(const struct dc2 *dc2,
 			return false;
 		return true;
 	case DMUB_GPINT_SEND_AND_WAIT:
+	case DMUB_HALT_FW:
 		if (!dc || !dc->ctx || !dc->ctx->dmub_srv ||
 				!dc->ctx->dmub_srv->dmub ||
 				(dc->ctx->dmub_srv->idle_allowed &&
@@ -147,6 +148,7 @@ enum dc2_bls_exec_result dc2_bls_execute(
 				return DC2_BLS_EXEC_ERROR;
 			break;
 		case DMUB_GPINT_SEND_AND_WAIT:
+		case DMUB_HALT_FW:
 			if (dc2_bls_exec_dmub_gpint(dc2, entry) != DC2_BLS_EXEC_OK)
 				return DC2_BLS_EXEC_ERROR;
 			break;

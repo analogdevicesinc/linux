@@ -16,7 +16,7 @@ static const enum block_sequence_func dcn401_dc1_init_sequence[] = {
 	LEGACY_CLK_MGR_INIT_CLOCKS,
 	LEGACY_CLK_MGR_IS_DC_MODE_PRESENT,
 	DCCG_INITIALIZE_CLOCKS,
-	DMUB_GPINT_SEND_AND_WAIT,
+	DMUB_HALT_FW,
 };
 
 static bool bls_append(struct block_sequence_state *sequence,
@@ -88,7 +88,7 @@ static enum bls_builder_result dcn401_validate_initialization_step(
 		if (!dccg->funcs || !dccg->funcs->dccg_init)
 			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
 		return BLS_BUILD_SUCCESS;
-	case DMUB_GPINT_SEND_AND_WAIT: {
+	case DMUB_HALT_FW: {
 		struct dc_context *ctx = params->dc->ctx;
 		struct dmub_srv *dmub;
 
@@ -154,7 +154,7 @@ static inline enum bls_builder_result dcn401_build_dccg_init(
 	return BLS_BUILD_SUCCESS;
 }
 
-static inline enum bls_builder_result dcn401_build_dmub_stop_fw(
+static inline enum bls_builder_result dcn401_build_dmub_halt_fw(
 		struct bls_builder_declarative_params *params,
 		struct block_sequence_state *sequence)
 {
@@ -166,7 +166,7 @@ static inline enum bls_builder_result dcn401_build_dmub_stop_fw(
 	bls_params.dmub_gpint_params.param = 0;
 	bls_params.dmub_gpint_params.response =
 			&out_init->dmub_stop_fw_response;
-	if (!bls_append(sequence, DMUB_GPINT_SEND_AND_WAIT, &bls_params))
+	if (!bls_append(sequence, DMUB_HALT_FW, &bls_params))
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 
 	return BLS_BUILD_SUCCESS;
@@ -184,8 +184,8 @@ static enum bls_builder_result dcn401_build_initialization_step(
 		return dcn401_build_dc_mode_read(params, sequence);
 	case DCCG_INITIALIZE_CLOCKS:
 		return dcn401_build_dccg_init(params, sequence);
-	case DMUB_GPINT_SEND_AND_WAIT:
-		return dcn401_build_dmub_stop_fw(params, sequence);
+	case DMUB_HALT_FW:
+		return dcn401_build_dmub_halt_fw(params, sequence);
 	default:
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 	}

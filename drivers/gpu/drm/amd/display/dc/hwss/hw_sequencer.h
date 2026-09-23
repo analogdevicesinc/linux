@@ -1397,6 +1397,7 @@ enum block_sequence_func {
 	LEGACY_CLK_MGR_IS_DC_MODE_PRESENT,
 	DCCG_INITIALIZE_CLOCKS,
 	DMUB_GPINT_SEND_AND_WAIT,
+	DMUB_HALT_FW,
 	/* This must be the last value in this enum, add new ones above */
 	HWSS_BLOCK_SEQUENCE_FUNC_COUNT
 };
