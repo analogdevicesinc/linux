@@ -5,7 +5,12 @@
  * This software may be used and distributed according to the terms
  * of the GNU General Public License, incorporated herein by reference.
  *
- * Usage: kallsyms [--all-symbols] [--pc-relative] in.map out.bin > out.S
+ * Usage: kallsyms [--all-symbols] [--pc-relative] [--sysmap=out.map] in out.bin > out.S
+ *        kallsyms --sysmap=out.map in
+ *
+ *      in is vmlinux; an empty file stands for the first link, which has no
+ *  symbols yet, and gives an empty table. --sysmap also writes the symbols
+ *  in System.map format.
  *
  *      The byte tables go to out.bin and are pulled into out.S with .incbin;
  *  wider tables stay assembler source for endianness and relocations.
@@ -21,7 +26,6 @@
  *
  */
 
-#include <errno.h>
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -29,10 +33,10 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
-
+#include <sys/stat.h>
 #include <xalloc.h>
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+#include "kallsyms.h"
 
 #define KSYM_NAME_LEN		512
 
@@ -108,11 +112,13 @@ static void sym_arr_free(struct sym_arr *arr)
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: kallsyms [--all-symbols] [--pc-relative] in.map out.bin > out.S\n");
+	fprintf(stderr, "Usage: kallsyms [--all-symbols] [--pc-relative] [--sysmap=out.map]\n"
+			"                in out.bin > out.S\n"
+			"       kallsyms --sysmap=out.map vmlinux\n");
 	exit(1);
 }
 
-static char *sym_name(const struct sym_entry *s)
+static char *sym_entry_name(const struct sym_entry *s)
 {
 	return (char *)s->sym + 1;
 }
@@ -153,36 +159,11 @@ static void check_symbol_range(const char *sym, unsigned long long addr,
 	}
 }
 
-static struct sym_entry *read_symbol(FILE *in, char **buf, size_t *buf_len)
+static struct sym_entry *add_symbol(unsigned long long addr, char type,
+				    const char *name)
 {
-	char *name, type, *p;
-	unsigned long long addr;
-	size_t len;
-	ssize_t readlen;
+	size_t len = strlen(name);
 	struct sym_entry *sym;
-
-	errno = 0;
-	readlen = getline(buf, buf_len, in);
-	if (readlen < 0) {
-		if (errno) {
-			perror("read_symbol");
-			exit(EXIT_FAILURE);
-		}
-		return NULL;
-	}
-
-	if ((*buf)[readlen - 1] == '\n')
-		(*buf)[readlen - 1] = 0;
-
-	addr = strtoull(*buf, &p, 16);
-
-	if (*buf == p || *p++ != ' ' || !isascii((type = *p++)) || *p++ != ' ') {
-		fprintf(stderr, "line format error\n");
-		exit(EXIT_FAILURE);
-	}
-
-	name = p;
-	len = strlen(name);
 
 	if (len >= KSYM_NAME_LEN) {
 		fprintf(stderr, "Symbol %s too long for kallsyms (%zu >= %d).\n"
@@ -208,7 +189,7 @@ static struct sym_entry *read_symbol(FILE *in, char **buf, size_t *buf_len)
 	sym->addr = addr;
 	sym->len = len;
 	sym->sym[0] = type;
-	strcpy(sym_name(sym), name);
+	strcpy(sym_entry_name(sym), name);
 
 	return sym;
 }
@@ -229,14 +210,9 @@ static int symbol_in_range(const struct sym_entry *s,
 	return 0;
 }
 
-static bool string_starts_with(const char *s, const char *prefix)
-{
-	return strncmp(s, prefix, strlen(prefix)) == 0;
-}
-
 static int symbol_valid(const struct sym_entry *s)
 {
-	const char *name = sym_name(s);
+	const char *name = sym_entry_name(s);
 
 	/* if --all-symbols is not specified, then symbols outside the text
 	 * and inittext sections are discarded */
@@ -286,36 +262,55 @@ static void shrink_table(void)
 	table_cnt = pos;
 }
 
-static void read_map(const char *in)
+static void add_table_entry(struct sym_entry *sym)
 {
-	FILE *fp;
-	struct sym_entry *sym;
-	char *buf = NULL;
-	size_t buflen = 0;
+	sym->seq = table_cnt;
 
-	fp = fopen(in, "r");
-	if (!fp) {
-		perror(in);
-		exit(1);
+	if (table_cnt >= table_size) {
+		table_size = table_size ? table_size * 2 : 10000;
+		table = xrealloc(table, sizeof(*table) * table_size);
 	}
 
-	while (!feof(fp)) {
-		sym = read_symbol(fp, &buf, &buflen);
-		if (!sym)
-			continue;
+	table[table_cnt++] = sym;
+}
 
-		sym->seq = table_cnt;
+static bool file_is_empty(const char *path)
+{
+	struct stat st;
 
-		if (table_cnt >= table_size) {
-			table_size += 10000;
-			table = xrealloc(table, sizeof(*table) * table_size);
-		}
-
-		table[table_cnt++] = sym;
+	if (stat(path, &st)) {
+		perror(path);
+		exit(EXIT_FAILURE);
 	}
 
-	free(buf);
-	fclose(fp);
+	return st.st_size == 0;
+}
+
+/*
+ * Read the symbols from vmlinux, writing System.map if asked to. The first
+ * link has no symbols yet: an empty file gives an empty table.
+ */
+static void read_elf(const char *path, FILE *sysmap_out)
+{
+	struct sysmap *map;
+	size_t i;
+
+	if (file_is_empty(path))
+		return;
+
+	map = sysmap_read(path);
+	if (sysmap_out)
+		sysmap_write(map, sysmap_out);
+
+	for (i = 0; i < map->nr_syms; i++) {
+		const struct sysmap_symbol *s = &map->syms[i];
+		struct sym_entry *sym = add_symbol(s->addr, s->type, s->name);
+
+		if (sym)
+			add_table_entry(sym);
+	}
+
+	sysmap_free(map);
 }
 
 static void output_label(const char *label)
@@ -378,7 +373,7 @@ static int compare_names(const void *a, const void *b)
 	const struct sym_entry *sa = *(const struct sym_entry **)a;
 	const struct sym_entry *sb = *(const struct sym_entry **)b;
 
-	ret = strcmp(sym_name(sa), sym_name(sb));
+	ret = strcmp(sym_entry_name(sa), sym_entry_name(sb));
 	if (!ret) {
 		if (sa->addr > sb->addr)
 			return 1;
@@ -756,7 +751,7 @@ static void optimize_token_table(void)
 /* guess for "linker script provide" symbol */
 static int may_be_linker_script_provide_symbol(const struct sym_entry *se)
 {
-	const char *symbol = sym_name(se);
+	const char *symbol = sym_entry_name(se);
 	int len = se->len - 1;
 
 	if (len < 8)
@@ -813,8 +808,8 @@ static int compare_symbols(const void *a, const void *b)
 		return wa - wb;
 
 	/* sort by the number of prefix underscores */
-	wa = strspn(sym_name(sa), "_");
-	wb = strspn(sym_name(sb), "_");
+	wa = strspn(sym_entry_name(sa), "_");
+	wb = strspn(sym_entry_name(sb), "_");
 	if (wa != wb)
 		return wa - wb;
 
@@ -829,13 +824,14 @@ static void sort_symbols(void)
 
 int main(int argc, char **argv)
 {
-	const char *out_bin_name;
-	FILE *out_bin_file;
+	const char *in, *sysmap = NULL, *out_bin_name;
+	FILE *sysmap_out = NULL, *out_bin_file;
 
 	while (1) {
 		static const struct option long_options[] = {
 			{"all-symbols",     no_argument, &all_symbols,     1},
 			{"pc-relative",     no_argument, &pc_relative,     1},
+			{"sysmap",    required_argument, NULL,           's'},
 			{},
 		};
 
@@ -843,12 +839,32 @@ int main(int argc, char **argv)
 
 		if (c == -1)
 			break;
-		if (c != 0)
+		if (c == 's')
+			sysmap = optarg;
+		else if (c != 0)
 			usage();
 	}
 
-	if (optind + 2 != argc)
+	if (optind + 2 != argc && !(sysmap && optind + 1 == argc))
 		usage();
+
+	in = argv[optind];
+	if (sysmap) {
+		sysmap_out = fopen(sysmap, "w");
+		if (!sysmap_out) {
+			perror(sysmap);
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	if (optind + 1 == argc) {
+		read_elf(in, sysmap_out);
+		if (ferror(sysmap_out) || fclose(sysmap_out)) {
+			perror(sysmap);
+			exit(EXIT_FAILURE);
+		}
+		return 0;
+	}
 
 	out_bin_name = argv[optind + 1];
 	out_bin_file = fopen(out_bin_name, "w");
@@ -857,7 +873,11 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	read_map(argv[optind]);
+	read_elf(in, sysmap_out);
+	if (sysmap_out && (ferror(sysmap_out) || fclose(sysmap_out))) {
+		perror(sysmap);
+		exit(EXIT_FAILURE);
+	}
 	shrink_table();
 	sort_symbols();
 	optimize_token_table();

@@ -123,11 +123,15 @@ kallsymso_changed()
 	! cmp -s "${kallsymso_prev}.sym" "${kallsymso}.sym"
 }
 
-# Create ${2}.o file with all symbols from the ${1} object file
+# Create ${2}.o with the kallsyms tables for ${1} (the vmlinux, or an empty
+# listing for the first pass); list the symbols used in ${3} if given.
 kallsyms()
 {
 	local kallsymopt;
 
+	if [ -n "${3:-}" ]; then
+		kallsymopt="--sysmap=${3}"
+	fi
 	if is_enabled CONFIG_KALLSYMS_ALL; then
 		kallsymopt="${kallsymopt} --all-symbols"
 	fi
@@ -150,18 +154,15 @@ kallsyms()
 # Perform kallsyms for the given temporary vmlinux.
 sysmap_and_kallsyms()
 {
-	mksysmap "${1}" "${1}.syms"
-	kallsyms "${1}.syms" "${1}.kallsyms"
-
+	kallsyms "${1}" "${1}.kallsyms" "${1}.syms"
 	kallsyms_sysmap=${1}.syms
 }
 
 # Create map file with all symbols from ${1}
-# See mksymap for additional details
 mksysmap()
 {
-	info NM ${2}
-	${NM} -n "${1}" | sed -f "${srctree}/scripts/mksysmap" > "${2}"
+	info SYSMAP ${2}
+	scripts/kallsyms --sysmap="${2}" "${1}"
 }
 
 sorttable()
