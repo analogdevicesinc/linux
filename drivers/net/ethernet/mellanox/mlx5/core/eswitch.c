@@ -1241,6 +1241,11 @@ static int mlx5_esw_host_functions_enabled_query(struct mlx5_eswitch *esw)
 	struct mlx5_esw_pf_info host_pf_info;
 	const u32 *query_host_out;
 
+	if (!mlx5_core_is_pf(esw->dev)) {
+		esw->esw_funcs.host_funcs_disabled = true;
+		return 0;
+	}
+
 	if (!mlx5_core_is_ecpf_esw_manager(esw->dev))
 		return 0;
 
