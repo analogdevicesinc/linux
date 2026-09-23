@@ -4,7 +4,9 @@
  *
  * Header-only: every helper is static inline, so each test binary gets its
  * own copy and there is nothing extra to link. nfsd_family must be set by
- * calling genl_resolve_nfsd() before any of the request helpers are used.
+ * calling genl_resolve_nfsd() before any of the request helpers are used;
+ * the *_to() variants take a family id instead, for the other families in
+ * the NFS server stack.
  */
 #ifndef __SELFTESTS_NFSD_NETLINK_H__
 #define __SELFTESTS_NFSD_NETLINK_H__
@@ -100,6 +102,45 @@ static inline int put_attr(char *buf, int off, uint16_t type,
 	return off + NLA_ALIGN4(NLA_HDRLEN + len);
 }
 
+/* Payload accessors; the payload is only 4-byte aligned, so no direct load. */
+static inline uint32_t nla_u32(const struct nlattr *na)
+{
+	uint32_t v;
+
+	memcpy(&v, (const char *)na + NLA_HDRLEN, sizeof(v));
+	return v;
+}
+
+static inline uint16_t nla_u16(const struct nlattr *na)
+{
+	uint16_t v;
+
+	memcpy(&v, (const char *)na + NLA_HDRLEN, sizeof(v));
+	return v;
+}
+
+/* Find top-level attribute @type in a genl reply of @len bytes; NULL if absent. */
+static inline const struct nlattr *genl_find_attr(const char *rbuf, int len,
+						  uint16_t type)
+{
+	const struct nlmsghdr *nlh = (const void *)rbuf;
+	const struct nlattr *na;
+	int left;
+
+	if (len < (int)(NLMSG_HDRLEN + GENL_HDRLEN))
+		return NULL;
+	na = (const void *)(rbuf + NLMSG_HDRLEN + GENL_HDRLEN);
+	left = nlh->nlmsg_len - NLMSG_HDRLEN - GENL_HDRLEN;
+
+	while (left >= (int)NLA_HDRLEN) {
+		if ((na->nla_type & NLA_TYPE_MASK) == type)
+			return na;
+		left -= NLA_ALIGN4(na->nla_len);
+		na = (const void *)((const char *)na + NLA_ALIGN4(na->nla_len));
+	}
+	return NULL;
+}
+
 /* Build a genl message header into @buf; return the offset past it. */
 static inline int genl_hdr(char *buf, uint16_t type, uint16_t flags, uint8_t cmd)
 {
@@ -115,15 +156,16 @@ static inline int genl_hdr(char *buf, uint16_t type, uint16_t flags, uint8_t cmd
 	return NLMSG_HDRLEN + GENL_HDRLEN;
 }
 
-/* Send an nfsd command with an ACK; return the ACK errno (<= 0). */
-static inline int genl_request(uint8_t cmd, const char *attrs, int attrs_len)
+/* Send a command to @family with an ACK; return the ACK errno (<= 0). */
+static inline int genl_request_to(uint16_t family, uint8_t cmd,
+				  const char *attrs, int attrs_len)
 {
 	char buf[1 << 20], rbuf[4096];
 	struct nlmsghdr *nlh = (void *)buf;
 	int fd = genl_open();
 	int off, n, ret;
 
-	off = genl_hdr(buf, nfsd_family, NLM_F_REQUEST | NLM_F_ACK, cmd);
+	off = genl_hdr(buf, family, NLM_F_REQUEST | NLM_F_ACK, cmd);
 	if (attrs_len) {
 		memcpy(buf + off, attrs, attrs_len);
 		off += attrs_len;
@@ -147,21 +189,27 @@ static inline int genl_request(uint8_t cmd, const char *attrs, int attrs_len)
 	return ret;
 }
 
+static inline int genl_request(uint8_t cmd, const char *attrs, int attrs_len)
+{
+	return genl_request_to(nfsd_family, cmd, attrs, attrs_len);
+}
+
 /*
- * Send a command with attributes and return the full reply message; -errno
- * on failure. NLM_F_ACK is left off: the kernel reports an error either way,
- * so the first message back is the reply whenever there is one.
+ * Send a command to @family with attributes and return the full reply
+ * message; -errno on failure. NLM_F_ACK is left off: the kernel reports an
+ * error either way, so the first message back is the reply whenever there
+ * is one.
  */
-static inline int genl_request_reply_attrs(uint8_t cmd, const char *attrs,
-					   int attrs_len, char *rbuf,
-					   size_t rlen)
+static inline int genl_request_reply_attrs_to(uint16_t family, uint8_t cmd,
+					      const char *attrs, int attrs_len,
+					      char *rbuf, size_t rlen)
 {
 	char buf[1 << 20];
 	struct nlmsghdr *nlh = (void *)buf;
 	int fd = genl_open();
 	int off, n, ret;
 
-	off = genl_hdr(buf, nfsd_family, NLM_F_REQUEST, cmd);
+	off = genl_hdr(buf, family, NLM_F_REQUEST, cmd);
 	if (attrs_len) {
 		memcpy(buf + off, attrs, attrs_len);
 		off += attrs_len;
@@ -182,13 +230,21 @@ static inline int genl_request_reply_attrs(uint8_t cmd, const char *attrs,
 	return ret;
 }
 
+static inline int genl_request_reply_attrs(uint8_t cmd, const char *attrs,
+					   int attrs_len, char *rbuf,
+					   size_t rlen)
+{
+	return genl_request_reply_attrs_to(nfsd_family, cmd, attrs, attrs_len,
+					   rbuf, rlen);
+}
+
 static inline int genl_request_reply(uint8_t cmd, char *rbuf, size_t rlen)
 {
 	return genl_request_reply_attrs(cmd, NULL, 0, rbuf, rlen);
 }
 
-/* Resolve the "nfsd" genl family id; -1 if not registered. */
-static inline int genl_resolve_nfsd(void)
+/* Resolve a genl family id by name; -1 if not registered. */
+static inline int genl_resolve(const char *name, size_t namelen)
 {
 	char buf[1024], rbuf[4096];
 	struct nlmsghdr *nlh = (void *)buf;
@@ -198,8 +254,7 @@ static inline int genl_resolve_nfsd(void)
 
 	fd = genl_open();
 	off = genl_hdr(buf, GENL_ID_CTRL, NLM_F_REQUEST, CTRL_CMD_GETFAMILY);
-	off = put_attr(buf, off, CTRL_ATTR_FAMILY_NAME,
-		       NFSD_FAMILY_NAME, sizeof(NFSD_FAMILY_NAME));
+	off = put_attr(buf, off, CTRL_ATTR_FAMILY_NAME, name, namelen);
 	nlh->nlmsg_len = off;
 
 	if (send(fd, buf, off, 0) < 0)
@@ -222,6 +277,11 @@ static inline int genl_resolve_nfsd(void)
 		na = (void *)((char *)na + NLA_ALIGN4(na->nla_len));
 	}
 	return id;
+}
+
+static inline int genl_resolve_nfsd(void)
+{
+	return genl_resolve(NFSD_FAMILY_NAME, sizeof(NFSD_FAMILY_NAME));
 }
 
 /* ------------------- listener request builders ------------------- */
