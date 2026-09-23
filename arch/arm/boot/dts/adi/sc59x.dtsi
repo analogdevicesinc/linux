@@ -582,7 +582,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0x31004600 0x400>;
-			adi,port-sizes = <16 16 16 16 16 16 16 16 7>;
+			adi,npins = <135>;
 		};
 
 		sru_ctrl_dai0: sru-ctrl-dai0@310C9000 {
