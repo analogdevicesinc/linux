@@ -94,6 +94,12 @@ u16 be16_get_bits(__be16 v, u16 field)
 }
 
 static __always_inline __must_check
+__be16 be16_replace_bits(__be16 old, u16 val, u16 field)
+{
+	return (old & ~cpu_to_be16(field)) | be16_encode_bits(val, field);
+}
+
+static __always_inline __must_check
 __u16 u16_encode_bits(u16 v, u16 field)
 {
 	__assert_field(v, field);
