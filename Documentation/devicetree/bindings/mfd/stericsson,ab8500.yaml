@@ -312,6 +312,33 @@ properties:
         items:
           - const: audioclk
 
+      '#sound-dai-cells':
+        description: Selects one of the two digital audio interfaces
+        const: 1
+
+      ports:
+        $ref: /schemas/sound/audio-graph-port.yaml#/definitions/ports
+
+      stericsson,amic1-type-single-ended:
+        description: Configure analog microphone 1 as single-ended
+        type: boolean
+
+      stericsson,amic2-type-single-ended:
+        description: Configure analog microphone 2 as single-ended
+        type: boolean
+
+      stericsson,amic1a-bias-vamic2:
+        description: Supply analog microphone 1A from VAMIC2 instead of VAMIC1
+        type: boolean
+
+      stericsson,amic1b-bias-vamic2:
+        description: Supply analog microphone 1B from VAMIC2 instead of VAMIC1
+        type: boolean
+
+      stericsson,amic2-bias-vamic1:
+        description: Supply analog microphone 2 from VAMIC1 instead of VAMIC2
+        type: boolean
+
       stericsson,earpeice-cmv:
         description: Earpiece voltage
         $ref: /schemas/types.yaml#/definitions/uint32
@@ -319,6 +346,7 @@ properties:
 
     required:
       - compatible
+      - '#sound-dai-cells'
 
     additionalProperties: false
 
