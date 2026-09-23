@@ -274,6 +274,7 @@ jobs:
       contents: read
       actions: read
     with:
+      scripts-ref: ci-use-cloudsmith-helper-in-kuiper-flow
       pr-number: ${{ github.event.pull_request.number }}
       pr-target-branch: ${{ github.event.pull_request.base.ref }}
       artifacts: >
