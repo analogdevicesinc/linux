@@ -161,7 +161,7 @@ mksysmap()
 
 sorttable()
 {
-	${NM} -S ${1} > .tmp_vmlinux.nm-sort
+	${NM} -p -S ${1} > .tmp_vmlinux.nm-sort
 	${objtree}/scripts/sorttable -s .tmp_vmlinux.nm-sort ${1}
 }
 
