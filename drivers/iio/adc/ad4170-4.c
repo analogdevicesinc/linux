@@ -885,10 +885,12 @@ static int ad4170_set_filter_type(struct iio_dev *indio_dev,
 			return -EBUSY;
 
 		if (val == AD4170_SINC5_AVG || val == AD4170_SINC3)
-			setup->filter_fs = clamp(val, AD4170_SINC3_MIN_FS,
+			setup->filter_fs = clamp(setup->filter_fs,
+						 AD4170_SINC3_MIN_FS,
 						 AD4170_SINC3_MAX_FS);
 		else
-			setup->filter_fs = clamp(val, AD4170_SINC5_MIN_FS,
+			setup->filter_fs = clamp(setup->filter_fs,
+						 AD4170_SINC5_MIN_FS,
 						 AD4170_SINC5_MAX_FS);
 
 		setup->filter &= ~AD4170_FILTER_FILTER_TYPE_MSK;
