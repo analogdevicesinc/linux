@@ -682,6 +682,18 @@ xfarray_qsort_push(
 		return -EFSCORRUPTED;
 	}
 
+	/*
+	 * Avoid the integer underflow below in (lo - 1).  This shouldn't
+	 * be possible because the pivot is the median of nine distinct
+	 * filesystem metadata records, so at least four records will be less
+	 * than the pivot, which means the pivot will not be in the low end of
+	 * the range by the time we get here.
+	 */
+	if (lo == 0) {
+		ASSERT(lo != 0);
+		return -EFSCORRUPTED;
+	}
+
 	si->max_stack_used = max_t(uint8_t, si->max_stack_used,
 					    si->stack_depth + 2);
 
