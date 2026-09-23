@@ -212,21 +212,21 @@ twl4030_get_board_param_values(struct twl4030_board_params *board_params,
 }
 
 static struct twl4030_board_params*
-twl4030_get_board_params(struct snd_soc_component *component)
+twl4030_get_board_params(struct device *dev)
 {
 	struct twl4030_board_params *board_params = NULL;
 	struct device_node *twl4030_codec_node = NULL;
 
-	twl4030_codec_node = of_get_child_by_name(component->dev->parent->of_node,
+	twl4030_codec_node = of_get_child_by_name(dev->parent->of_node,
 						  "codec");
 
 	if (twl4030_codec_node) {
-		board_params = devm_kzalloc(component->dev,
+		board_params = devm_kzalloc(dev,
 					    sizeof(struct twl4030_board_params),
 					    GFP_KERNEL);
 		if (!board_params) {
 			of_node_put(twl4030_codec_node);
-			return NULL;
+			return ERR_PTR(-ENOMEM);
 		}
 		twl4030_get_board_param_values(board_params, twl4030_codec_node);
 		of_node_put(twl4030_codec_node);
@@ -235,21 +235,22 @@ twl4030_get_board_params(struct snd_soc_component *component)
 	return board_params;
 }
 
-static int twl4030_init_chip(struct snd_soc_component *component)
+static int twl4030_get_hw_params(struct device *dev,
+				 struct twl4030_priv *twl4030)
 {
 	struct twl4030_board_params *board_params;
-	struct twl4030_priv *twl4030 = snd_soc_component_get_drvdata(component);
-	u8 reg, byte;
-	int i = 0;
 
-	board_params = twl4030_get_board_params(component);
+	board_params = twl4030_get_board_params(dev);
+	if (IS_ERR(board_params))
+		return PTR_ERR(board_params);
 
 	if (board_params && board_params->hs_extmute) {
-		board_params->hs_extmute_gpio = devm_gpiod_get_optional(component->dev,
+		board_params->hs_extmute_gpio = devm_gpiod_get_optional(dev,
 									"ti,hs_extmute",
 									GPIOD_OUT_LOW);
 		if (IS_ERR(board_params->hs_extmute_gpio))
-			return dev_err_probe(component->dev, PTR_ERR(board_params->hs_extmute_gpio),
+			return dev_err_probe(dev,
+					     PTR_ERR(board_params->hs_extmute_gpio),
 					     "Failed to get hs_extmute GPIO\n");
 
 		if (board_params->hs_extmute_gpio) {
@@ -257,7 +258,7 @@ static int twl4030_init_chip(struct snd_soc_component *component)
 		} else {
 			u8 pin_mux;
 
-			dev_info(component->dev, "use TWL4030 GPIO6\n");
+			dev_info(dev, "use TWL4030 GPIO6\n");
 
 			/* Set TWL4030 GPIO6 as EXTMUTE signal */
 			twl_i2c_read_u8(TWL4030_MODULE_INTBR, &pin_mux,
@@ -268,6 +269,18 @@ static int twl4030_init_chip(struct snd_soc_component *component)
 					 TWL4030_PMBR1_REG);
 		}
 	}
+
+	twl4030->board_params = board_params;
+
+	return 0;
+}
+
+static int twl4030_init_chip(struct snd_soc_component *component)
+{
+	struct twl4030_priv *twl4030 = snd_soc_component_get_drvdata(component);
+	struct twl4030_board_params *board_params = twl4030->board_params;
+	u8 reg, byte;
+	int i = 0;
 
 	/* Initialize the local ctl register cache */
 	tw4030_init_ctl_cache(twl4030);
@@ -287,8 +300,6 @@ static int twl4030_init_chip(struct snd_soc_component *component)
 	/* Machine dependent setup */
 	if (!board_params)
 		return 0;
-
-	twl4030->board_params = board_params;
 
 	reg = twl4030_read(component, TWL4030_REG_HS_POPN_SET);
 	reg &= ~TWL4030_RAMP_DELAY;
@@ -2163,15 +2174,9 @@ static struct snd_soc_dai_driver twl4030_dai[] = {
 
 static int twl4030_soc_probe(struct snd_soc_component *component)
 {
-	struct twl4030_priv *twl4030;
+	struct twl4030_priv *twl4030 = dev_get_drvdata(component->dev);
 
-	twl4030 = devm_kzalloc(component->dev, sizeof(struct twl4030_priv),
-			       GFP_KERNEL);
-	if (!twl4030)
-		return -ENOMEM;
 	snd_soc_component_set_drvdata(component, twl4030);
-	/* Set the defaults, and power up the codec */
-	twl4030->sysclk = twl4030_audio_get_mclk() / 1000;
 
 	return twl4030_init_chip(component);
 }
@@ -2193,6 +2198,22 @@ static const struct snd_soc_component_driver soc_component_dev_twl4030 = {
 
 static int twl4030_codec_probe(struct platform_device *pdev)
 {
+	struct twl4030_priv *twl4030;
+	int ret;
+
+	twl4030 = devm_kzalloc(&pdev->dev, sizeof(*twl4030), GFP_KERNEL);
+	if (!twl4030)
+		return -ENOMEM;
+
+	/* Set the defaults, and power up the codec */
+	twl4030->sysclk = twl4030_audio_get_mclk() / 1000;
+
+	ret = twl4030_get_hw_params(&pdev->dev, twl4030);
+	if (ret)
+		return ret;
+
+	platform_set_drvdata(pdev, twl4030);
+
 	return devm_snd_soc_register_component(&pdev->dev,
 				      &soc_component_dev_twl4030,
 				      twl4030_dai, ARRAY_SIZE(twl4030_dai));
