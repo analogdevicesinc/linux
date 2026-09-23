@@ -81,6 +81,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				/* speaker */
 				.direction = {true, false},
 				.dai_name = "tac5xx2-aif1",
+				.component_name = "tac5572",
 				.dai_type = SOC_SDW_DAI_TYPE_AMP,
 				.dailink = {SOC_SDW_AMP_OUT_DAI_ID, SOC_SDW_UNUSED_DAI_ID},
 				.init = asoc_sdw_ti_amp_init,
@@ -94,6 +95,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				/* mic */
 				.direction = {false, true},
 				.dai_name = "tac5xx2-aif2",
+				.component_name = "tac5572",
 				.dai_type = SOC_SDW_DAI_TYPE_MIC,
 				.dailink = {SOC_SDW_UNUSED_DAI_ID, SOC_SDW_DMIC_DAI_ID},
 				.rtd_init = asoc_sdw_ti_dmic_rtd_init,
@@ -102,6 +104,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				/* UAJ */
 				.direction = {true, true},
 				.dai_name = "tac5xx2-aif3",
+				.component_name = "tac5572",
 				.dai_type = SOC_SDW_DAI_TYPE_JACK,
 				.dailink = {SOC_SDW_JACK_OUT_DAI_ID, SOC_SDW_JACK_IN_DAI_ID},
 				.controls = generic_jack_controls,
@@ -122,6 +125,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				/* speaker with IV sense feedback */
 				.direction = {true, true},
 				.dai_name = "tac5xx2-aif1",
+				.component_name = "tac5672",
 				.dai_type = SOC_SDW_DAI_TYPE_AMP,
 				.dailink = {SOC_SDW_AMP_OUT_DAI_ID, SOC_SDW_AMP_IN_DAI_ID},
 				.init = asoc_sdw_ti_amp_init,
@@ -135,6 +139,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				/* mic */
 				.direction = {false, true},
 				.dai_name = "tac5xx2-aif2",
+				.component_name = "tac5672",
 				.dai_type = SOC_SDW_DAI_TYPE_MIC,
 				.dailink = {SOC_SDW_UNUSED_DAI_ID, SOC_SDW_DMIC_DAI_ID},
 				.rtd_init = asoc_sdw_ti_dmic_rtd_init,
@@ -143,6 +148,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				/* UAJ */
 				.direction = {true, true},
 				.dai_name = "tac5xx2-aif3",
+				.component_name = "tac5672",
 				.dai_type = SOC_SDW_DAI_TYPE_JACK,
 				.dailink = {SOC_SDW_JACK_OUT_DAI_ID, SOC_SDW_JACK_IN_DAI_ID},
 				.controls = generic_jack_controls,
@@ -163,6 +169,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				/* speaker with echo reference feedback */
 				.direction = {true, true},
 				.dai_name = "tac5xx2-aif1",
+				.component_name = "tac5682",
 				.dai_type = SOC_SDW_DAI_TYPE_AMP,
 				.dailink = {SOC_SDW_AMP_OUT_DAI_ID, SOC_SDW_AMP_IN_DAI_ID},
 				.init = asoc_sdw_ti_amp_init,
@@ -176,6 +183,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				/* mic */
 				.direction = {false, true},
 				.dai_name = "tac5xx2-aif2",
+				.component_name = "tac5682",
 				.dai_type = SOC_SDW_DAI_TYPE_MIC,
 				.dailink = {SOC_SDW_UNUSED_DAI_ID, SOC_SDW_DMIC_DAI_ID},
 				.rtd_init = asoc_sdw_ti_dmic_rtd_init,
@@ -184,6 +192,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				/* UAJ */
 				.direction = {true, true},
 				.dai_name = "tac5xx2-aif3",
+				.component_name = "tac5682",
 				.dai_type = SOC_SDW_DAI_TYPE_JACK,
 				.dailink = {SOC_SDW_JACK_OUT_DAI_ID, SOC_SDW_JACK_IN_DAI_ID},
 				.controls = generic_jack_controls,
@@ -203,6 +212,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 			{
 				.direction = {true, false},
 				.dai_name = "tac5xx2-aif1",
+				.component_name = "tas2883",
 				.dai_type = SOC_SDW_DAI_TYPE_AMP,
 				.dailink = {SOC_SDW_AMP_OUT_DAI_ID, SOC_SDW_UNUSED_DAI_ID},
 				.init = asoc_sdw_ti_amp_init,
@@ -216,6 +226,7 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				/* mic */
 				.direction = {false, true},
 				.dai_name = "tac5xx2-aif2",
+				.component_name = "tas2883",
 				.dai_type = SOC_SDW_DAI_TYPE_MIC,
 				.dailink = {SOC_SDW_UNUSED_DAI_ID, SOC_SDW_DMIC_DAI_ID},
 				.rtd_init = asoc_sdw_ti_dmic_rtd_init,
@@ -800,7 +811,6 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				.dai_name = "cs35l56-sdw1c",
 				.dai_type = SOC_SDW_DAI_TYPE_AMP,
 				.dailink = {SOC_SDW_UNUSED_DAI_ID, SOC_SDW_AMP_IN_DAI_ID},
-				.rtd_init = asoc_sdw_cs_spk_feedback_rtd_init,
 			},
 		},
 		.dai_num = 2,
@@ -829,7 +839,6 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				.dai_name = "cs35l56-sdw1c",
 				.dai_type = SOC_SDW_DAI_TYPE_AMP,
 				.dailink = {SOC_SDW_UNUSED_DAI_ID, SOC_SDW_AMP_IN_DAI_ID},
-				.rtd_init = asoc_sdw_cs_spk_feedback_rtd_init,
 			},
 		},
 		.dai_num = 2,
@@ -858,7 +867,6 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				.dai_name = "cs35l56-sdw1c",
 				.dai_type = SOC_SDW_DAI_TYPE_AMP,
 				.dailink = {SOC_SDW_UNUSED_DAI_ID, SOC_SDW_AMP_IN_DAI_ID},
-				.rtd_init = asoc_sdw_cs_spk_feedback_rtd_init,
 			},
 		},
 		.dai_num = 2,
@@ -887,7 +895,6 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 				.dai_name = "cs35l56-sdw1c",
 				.dai_type = SOC_SDW_DAI_TYPE_AMP,
 				.dailink = {SOC_SDW_UNUSED_DAI_ID, SOC_SDW_AMP_IN_DAI_ID},
-				.rtd_init = asoc_sdw_cs_spk_feedback_rtd_init,
 			},
 		},
 		.dai_num = 2,
@@ -1510,9 +1517,24 @@ int asoc_sdw_trigger(struct snd_pcm_substream *substream, int cmd)
 	}
 
 	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_RESUME:
+		/*
+		 * The peripherals lose their port configuration when the
+		 * controller is power-gated during system suspend, and an
+		 * application that restarts the stream with
+		 * SNDRV_PCM_IOCTL_RESUME - which platforms advertising
+		 * SNDRV_PCM_INFO_RESUME allow - never goes through
+		 * .prepare() again.  Prepare the stream here so that the
+		 * ports are reprogrammed before they are enabled;
+		 * sdw_prepare_stream() reapplies the parameters without
+		 * recomputing them when the stream is disabled.
+		 */
+		ret = sdw_prepare_stream(sdw_stream);
+		if (ret)
+			break;
+		fallthrough;
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-	case SNDRV_PCM_TRIGGER_RESUME:
 		ret = sdw_enable_stream(sdw_stream);
 		break;
 
@@ -1539,7 +1561,7 @@ int asoc_sdw_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai_link_ch_map *ch_maps;
 	int ch = params_channels(params);
-	unsigned int ch_mask;
+	unsigned int cpu_ch_mask, codec_ch_mask;
 	int num_codecs;
 	int step;
 	int i;
@@ -1549,8 +1571,9 @@ int asoc_sdw_hw_params(struct snd_pcm_substream *substream,
 
 	/* Identical data will be sent to all codecs in playback */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		ch_mask = GENMASK(ch - 1, 0);
+		cpu_ch_mask = GENMASK(ch - 1, 0);
 		step = 0;
+		codec_ch_mask = 0;
 	} else {
 		num_codecs = rtd->dai_link->num_codecs;
 
@@ -1560,17 +1583,24 @@ int asoc_sdw_hw_params(struct snd_pcm_substream *substream,
 			return -EINVAL;
 		}
 
-		ch_mask = GENMASK(ch / num_codecs - 1, 0);
-		step = hweight_long(ch_mask);
+		cpu_ch_mask = GENMASK(ch / num_codecs - 1, 0);
+		step = hweight_long(cpu_ch_mask);
+		codec_ch_mask = cpu_ch_mask;
 	}
 
 	/*
 	 * The captured data will be combined from each cpu DAI if the dai
 	 * link has more than one codec DAIs. Set codec channel mask and
 	 * ASoC will set the corresponding channel numbers for each cpu dai.
+	 *
+	 * sdw_stream_add_slave() assigns different payload offsets to each
+	 * codec in a capture stream, so that the same channels on each
+	 * codec map to different channels on the CPU.
 	 */
-	for_each_link_ch_maps(rtd->dai_link, i, ch_maps)
-		ch_maps->ch_mask = ch_mask << (i * step);
+	for_each_link_ch_maps(rtd->dai_link, i, ch_maps) {
+		ch_maps->cpu_ch_mask = cpu_ch_mask << (i * step);
+		ch_maps->codec_ch_mask = codec_ch_mask;
+	}
 
 	return 0;
 }

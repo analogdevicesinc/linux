@@ -1307,8 +1307,19 @@ static int amdgpu_discovery_sysfs_ips(struct amdgpu_device *adev,
 					ip_hw_instance->num_instance);
 			ip_hw_instance->num_base_addresses = ip->num_base_address;
 
-			for (kk = 0; kk < ip_hw_instance->num_base_addresses; kk++)
-				ip_hw_instance->base_addr[kk] = ip->base_address[kk];
+			for (kk = 0; kk < ip_hw_instance->num_base_addresses; kk++) {
+				/*
+				 * Standalone mode uses a raw copy of the discovery
+				 * binary; decode 64-bit addresses here. The shared
+				 * bin is already collapsed to 32-bit in place.
+				 */
+				if (reg_base_64 && ip_top->standalone_mode)
+					ip_hw_instance->base_addr[kk] =
+						lower_32_bits(le64_to_cpu(ip->base_address_64[kk])) & 0x3FFFFFFF;
+				else
+					ip_hw_instance->base_addr[kk] =
+						le32_to_cpu(ip->base_address[kk]);
+			}
 
 			kobject_init(&ip_hw_instance->kobj, &ip_hw_instance_ktype);
 			ip_hw_instance->kobj.kset = &ip_hw_id->hw_id_kset;
@@ -1597,11 +1608,11 @@ int amdgpu_discovery_sysfs_early_init(struct amdgpu_device *adev, struct pci_dev
 
 	discovery_bin = adev->discovery.bin;
 
-	early_entry = kzalloc(sizeof(*early_entry), GFP_KERNEL);
+	early_entry = kzalloc_obj(*early_entry);
 	if (!early_entry)
 		return -ENOMEM;
 
-	ip_top = kzalloc(sizeof(*ip_top), GFP_KERNEL);
+	ip_top = kzalloc_obj(*ip_top);
 	if (!ip_top) {
 		kfree(early_entry);
 		return -ENOMEM;

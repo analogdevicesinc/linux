@@ -182,6 +182,7 @@ static int mana_gd_query_max_resources(struct pci_dev *pdev)
 	struct gdma_query_max_resources_resp resp = {};
 	struct gdma_general_req req = {};
 	unsigned int max_num_queues;
+	unsigned int msix_vec_count;
 	u8 bm_hostmode;
 	u16 num_ports;
 	int err;
@@ -216,6 +217,24 @@ static int mana_gd_query_max_resources(struct pci_dev *pdev)
 		 * (num_msix_usable - 1 HWC) <= num_online_cpus()
 		 */
 		gc->num_msix_usable = min(resp.max_msix, num_online_cpus() + 1);
+	}
+
+	/* MSI-X vectors are allocated by index into the device MSI-X table, so
+	 * never ask for more than the table holds. It can be smaller than both
+	 * resp.max_msix and the CPU count.
+	 */
+	err = pci_msix_vec_count(pdev);
+	if (err <= 0) {
+		dev_err(gc->dev, "Failed to query MSI-X table size: %d\n", err);
+		return err < 0 ? err : -ENOSPC;
+	}
+	msix_vec_count = err;
+
+	if (gc->num_msix_usable > msix_vec_count) {
+		dev_info(gc->dev,
+			 "Limiting MSI-X vectors from %u to table size %u\n",
+			 gc->num_msix_usable, msix_vec_count);
+		gc->num_msix_usable = msix_vec_count;
 	}
 
 	if (gc->num_msix_usable <= 1)
@@ -410,11 +429,11 @@ int mana_gd_alloc_memory(struct gdma_context *gc, unsigned int length,
 	/* length is a power of 2 above PAGE_SIZE, so this divides exactly. */
 	npages = length / PAGE_SIZE;
 
-	gmi->pages_va = kvcalloc(npages, sizeof(*gmi->pages_va), GFP_KERNEL);
+	gmi->pages_va = kvzalloc_objs(*gmi->pages_va, npages);
 	if (!gmi->pages_va)
 		return -ENOMEM;
 
-	gmi->pages_dma = kvcalloc(npages, sizeof(*gmi->pages_dma), GFP_KERNEL);
+	gmi->pages_dma = kvzalloc_objs(*gmi->pages_dma, npages);
 	if (!gmi->pages_dma)
 		goto free_va;
 
@@ -806,7 +825,7 @@ int mana_schedule_serv_work(struct gdma_context *gc, enum gdma_eqe_type type)
 		return -ENODEV;
 	}
 
-	mns_wk = kzalloc(sizeof(*mns_wk), GFP_ATOMIC);
+	mns_wk = kzalloc_obj(*mns_wk, GFP_ATOMIC);
 	if (!mns_wk) {
 		module_put(THIS_MODULE);
 		clear_bit(GC_IN_SERVICE, &gc->flags);
@@ -1972,7 +1991,7 @@ struct gdma_irq_context *mana_gd_get_gic(struct gdma_context *gc,
 		*msi_requested = msi;
 	}
 
-	gic = kzalloc(sizeof(*gic), GFP_KERNEL);
+	gic = kzalloc_obj(*gic);
 	if (!gic) {
 		gic = ERR_PTR(-ENOMEM);
 		if (irq_map.virq)

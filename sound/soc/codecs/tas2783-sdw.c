@@ -1001,6 +1001,31 @@ static s32 tas_sdw_hw_params(struct snd_pcm_substream *substream,
 	/* SoundWire specific configuration */
 	snd_sdw_params_to_config(substream, params,
 				 &stream_config, &port_config);
+
+	/*
+	 * The two mono amps each render one channel of the stereo stream:
+	 * snd_sdw_params_to_config() hands every codec the full mask for
+	 * playback, which leaves the pair in mirror mode and one channel
+	 * unreproduced.  Claim a single channel instead, keyed off the
+	 * machine-assigned component prefix rather than the SoundWire
+	 * address, which is board-specific: soc_sdw_ti_amp.c names the amps
+	 * tas2783-1..4.
+	 *
+	 * Which side an amp then renders does not follow from the bit that
+	 * is set - sdw_compute_slave_ports() advances the payload offset by
+	 * the popcount of ch_mask and never looks at which bit it is - but
+	 * from the amp's position in the codec order of the DAI link, which
+	 * on these boards matches the prefix numbering.
+	 */
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
+	    params_channels(params) == 2 && component->name_prefix) {
+		const char *idx_str = strrchr(component->name_prefix, '-');
+		unsigned long idx;
+
+		if (idx_str && !kstrtoul(idx_str + 1, 10, &idx) && idx)
+			port_config.ch_mask = (idx & 1) ? BIT(0) : BIT(1);
+	}
+
 	/* port 1 for playback */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		port_config.num = 1;
@@ -1310,6 +1335,7 @@ static int tas_port_prep(struct sdw_slave *slave, struct sdw_prepare_ch *prep_ch
 			 enum sdw_port_prep_ops pre_ops)
 {
 	struct device *dev = &slave->dev;
+	struct tas2783_prv *tas_dev = dev_get_drvdata(dev);
 	struct sdw_dpn_prop *dpn_prop;
 	u32 addr;
 	int ret;
@@ -1321,6 +1347,25 @@ static int tas_port_prep(struct sdw_slave *slave, struct sdw_prepare_ch *prep_ch
 	addr = SDW_DPN_PREPARECTRL(prep_ch->num);
 	switch (pre_ops) {
 	case SDW_OPS_PORT_PRE_PREP:
+		/*
+		 * The Function has to be powered before the port can complete
+		 * channel preparation.  hw_params() does that when a stream is
+		 * set up, but a stream that is only re-prepared - as it is
+		 * after the peripheral lost power in S0i3 - does not go
+		 * through hw_params() again, and the peripheral is back at its
+		 * PS3 reset default.  Power it up here, where it is needed.
+		 */
+		scoped_guard(mutex, &tas_dev->pde_lock)
+			ret = regmap_write(tas_dev->regmap,
+					   SDW_SDCA_CTL(1, TAS2783_SDCA_ENT_PDE23,
+							TAS2783_SDCA_CTL_REQ_POW_STATE, 0),
+					   TAS2783_SDCA_POW_STATE_ON);
+		if (ret) {
+			dev_err(dev, "power up failed for port %d, err=%d\n",
+				prep_ch->num, ret);
+			return ret;
+		}
+
 		ret = sdw_write_no_pm(slave, addr, prep_ch->ch_mask);
 		if (ret)
 			dev_err(dev, "prep failed for port %d, err=%d\n",
