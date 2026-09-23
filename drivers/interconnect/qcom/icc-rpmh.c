@@ -166,19 +166,19 @@ static int qcom_icc_get_bw(struct icc_node *node, u32 *avg, u32 *peak)
 				peak_max = INT_MAX;
 		} else {
 			if (x) {
-				x *= bcm->aux_data.unit;
+				x *= le32_to_cpu(bcm->aux_data.unit);
 				do_div(x, bcm->vote_scale);
 				x *= qn->buswidth * qn->channels;
-				do_div(x, bcm->aux_data.width);
+				do_div(x, le16_to_cpu(bcm->aux_data.width));
 
 				avg_max = max(avg_max, x);
 			}
 
 			if (y) {
-				y *= bcm->aux_data.unit;
+				y *= le32_to_cpu(bcm->aux_data.unit);
 				do_div(y, bcm->vote_scale);
 				y *= qn->buswidth;
-				do_div(y, bcm->aux_data.width);
+				do_div(y, le16_to_cpu(bcm->aux_data.width));
 
 				peak_max = max(peak_max, y);
 			}
@@ -228,10 +228,7 @@ int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev)
 		return -EINVAL;
 	}
 
-	bcm->aux_data.unit = le32_to_cpu(data->unit);
-	bcm->aux_data.width = le16_to_cpu(data->width);
-	bcm->aux_data.vcd = data->vcd;
-	bcm->aux_data.reserved = data->reserved;
+	bcm->aux_data = *data;
 	INIT_LIST_HEAD(&bcm->list);
 	INIT_LIST_HEAD(&bcm->ws_list);
 
