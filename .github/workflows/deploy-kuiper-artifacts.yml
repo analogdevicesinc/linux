@@ -90,8 +90,8 @@ jobs:
 
         chmod +x ci/*.sh
 
-        curl -sL -o upload_to_cloudsmith.py \
-          https://raw.githubusercontent.com/analogdevicesinc/wiki-scripts/main/utils/cloudsmith_utils/upload_to_cloudsmith.py
+        curl -sL -o cloudsmith_helper.py \
+          https://raw.githubusercontent.com/analogdevicesinc/wiki-scripts/main/utils/cloudsmith_utils/cloudsmith_helper.py
 
         echo "::debug::Scripts downloaded:"
         ls -la ci/
@@ -192,12 +192,12 @@ jobs:
         echo "Uploading from: ${UPLOAD_PATH}"
         ls -la "${UPLOAD_PATH}"
 
-        python3 upload_to_cloudsmith.py \
+        python3 cloudsmith_helper.py \
+          --method=upload_to_location \
           --repo="${{ env.CLOUDSMITH_REPO }}" \
-          --version="${VERSION_PATH}" \
+          --package_version="${VERSION_PATH}" \
           --local_path="${UPLOAD_PATH}" \
-          --token="${CLOUDSMITH_API_KEY}" \
-          --tags="commit_date-${TIMESTAMP},git_sha-${GIT_SHA}" \
+          --package_tags="commit_date-${TIMESTAMP},git_sha-${GIT_SHA}" \
           --max_workers=10
 
         echo "Upload complete: ${VERSION_PATH}."
