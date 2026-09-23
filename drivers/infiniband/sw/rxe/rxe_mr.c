@@ -795,6 +795,12 @@ int rxe_reg_fast_mr(struct rxe_qp *qp, struct rxe_send_wqe *wqe)
 		return -EINVAL;
 	}
 
+	/* an MR with no umem is never an ODP MR */
+	if (unlikely(access & IB_ACCESS_ON_DEMAND)) {
+		rxe_dbg_mr(mr, "access = 0x%x requests ODP\n", access);
+		return -EINVAL;
+	}
+
 	mr->access = access;
 	mr->lkey = key;
 	mr->rkey = key;
