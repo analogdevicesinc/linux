@@ -2448,11 +2448,6 @@ static int max98090_probe(struct snd_soc_component *component)
 
 	dev_dbg(component->dev, "max98090_probe\n");
 
-	max98090->mclk = devm_clk_get(component->dev, "mclk");
-	if (IS_ERR(max98090->mclk))
-		if (PTR_ERR(max98090->mclk) == -EPROBE_DEFER)
-			return -EPROBE_DEFER;
-
 	max98090->component = component;
 
 	/* Reset the codec, the DSP core, and disable all interrupts */
@@ -2632,6 +2627,11 @@ static int max98090_i2c_probe(struct i2c_client *i2c)
 		dev_err(&i2c->dev, "Failed to allocate regmap: %d\n", ret);
 		goto err_enable;
 	}
+
+	max98090->mclk = devm_clk_get(&i2c->dev, "mclk");
+	if (IS_ERR(max98090->mclk))
+		if (PTR_ERR(max98090->mclk) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
 
 	ret = devm_request_threaded_irq(&i2c->dev, i2c->irq, NULL,
 		max98090_interrupt, IRQF_TRIGGER_FALLING | IRQF_ONESHOT,

@@ -671,15 +671,6 @@ static int es8323_probe(struct snd_soc_component *component)
 	struct es8323_priv *es8323 = snd_soc_component_get_drvdata(component);
 	int ret;
 
-	es8323->mclk = devm_clk_get_optional(component->dev, "mclk");
-	if (IS_ERR(es8323->mclk)) {
-		dev_err(component->dev, "unable to get mclk\n");
-		return PTR_ERR(es8323->mclk);
-	}
-
-	if (!es8323->mclk)
-		dev_warn(component->dev, "assuming static mclk\n");
-
 	ret = clk_prepare_enable(es8323->mclk);
 	if (ret) {
 		dev_err(component->dev, "unable to enable mclk\n");
@@ -788,6 +779,12 @@ static int es8323_i2c_probe(struct i2c_client *i2c_client)
 		return -ENOMEM;
 
 	i2c_set_clientdata(i2c_client, es8323);
+
+	es8323->mclk = devm_clk_get_optional(dev, "mclk");
+	if (IS_ERR(es8323->mclk))
+		return dev_err_probe(dev, PTR_ERR(es8323->mclk), "unable to get mclk\n");
+	if (!es8323->mclk)
+		dev_warn(dev, "assuming static mclk\n");
 
 	es8323->regmap = devm_regmap_init_i2c(i2c_client, &es8323_regmap);
 	if (IS_ERR(es8323->regmap))

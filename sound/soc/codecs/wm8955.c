@@ -888,17 +888,7 @@ static int wm8955_probe(struct snd_soc_component *component)
 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 	struct wm8955_priv *wm8955 = snd_soc_component_get_drvdata(component);
 	struct wm8955_pdata *pdata = dev_get_platdata(component->dev);
-	int ret, i;
-
-	for (i = 0; i < ARRAY_SIZE(wm8955->supplies); i++)
-		wm8955->supplies[i].supply = wm8955_supply_names[i];
-
-	ret = devm_regulator_bulk_get(component->dev, ARRAY_SIZE(wm8955->supplies),
-				 wm8955->supplies);
-	if (ret != 0) {
-		dev_err(component->dev, "Failed to request supplies: %d\n", ret);
-		return ret;
-	}
+	int ret;
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(wm8955->supplies),
 				    wm8955->supplies);
@@ -990,7 +980,7 @@ static const struct regmap_config wm8955_regmap = {
 static int wm8955_i2c_probe(struct i2c_client *i2c)
 {
 	struct wm8955_priv *wm8955;
-	int ret;
+	int i, ret;
 
 	wm8955 = devm_kzalloc(&i2c->dev, sizeof(struct wm8955_priv),
 			      GFP_KERNEL);
@@ -1006,6 +996,16 @@ static int wm8955_i2c_probe(struct i2c_client *i2c)
 	}
 
 	i2c_set_clientdata(i2c, wm8955);
+
+	for (i = 0; i < ARRAY_SIZE(wm8955->supplies); i++)
+		wm8955->supplies[i].supply = wm8955_supply_names[i];
+
+	ret = devm_regulator_bulk_get(&i2c->dev, ARRAY_SIZE(wm8955->supplies),
+				      wm8955->supplies);
+	if (ret != 0) {
+		dev_err(&i2c->dev, "Failed to request supplies: %d\n", ret);
+		return ret;
+	}
 
 	ret = devm_snd_soc_register_component(&i2c->dev,
 			&soc_component_dev_wm8955, &wm8955_dai, 1);

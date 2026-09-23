@@ -771,14 +771,6 @@ static int es8316_probe(struct snd_soc_component *component)
 
 	es8316->component = component;
 
-	es8316->mclk = devm_clk_get_optional(component->dev, "mclk");
-	if (IS_ERR(es8316->mclk)) {
-		dev_err(component->dev, "unable to get mclk\n");
-		return PTR_ERR(es8316->mclk);
-	}
-	if (!es8316->mclk)
-		dev_warn(component->dev, "assuming static mclk\n");
-
 	ret = clk_prepare_enable(es8316->mclk);
 	if (ret) {
 		dev_err(component->dev, "unable to enable mclk\n");
@@ -882,6 +874,12 @@ static int es8316_i2c_probe(struct i2c_client *i2c_client)
 		return -ENOMEM;
 
 	i2c_set_clientdata(i2c_client, es8316);
+
+	es8316->mclk = devm_clk_get_optional(dev, "mclk");
+	if (IS_ERR(es8316->mclk))
+		return dev_err_probe(dev, PTR_ERR(es8316->mclk), "unable to get mclk\n");
+	if (!es8316->mclk)
+		dev_warn(dev, "assuming static mclk\n");
 
 	ret = devm_regulator_bulk_get_enable(dev, ARRAY_SIZE(es8316_supply_names),
 					     es8316_supply_names);

@@ -906,12 +906,6 @@ static int es8311_component_probe(struct snd_soc_component *component)
 
 	es8311 = snd_soc_component_get_drvdata(component);
 
-	es8311->mclk = devm_clk_get_optional(component->dev, "mclk");
-	if (IS_ERR(es8311->mclk)) {
-		dev_err(component->dev, "invalid mclk\n");
-		return PTR_ERR(es8311->mclk);
-	}
-
 	es8311->mclk_freq = clk_get_rate(es8311->mclk);
 	if (es8311->mclk_freq > 0 && es8311->mclk_freq < ES8311_MCLK_MAX_FREQ)
 		es8311_set_sysclk_constraints(es8311->mclk_freq, es8311);
@@ -959,6 +953,10 @@ static int es8311_i2c_probe(struct i2c_client *i2c_client)
 	es8311 = devm_kzalloc(dev, sizeof(*es8311), GFP_KERNEL);
 	if (es8311 == NULL)
 		return -ENOMEM;
+
+	es8311->mclk = devm_clk_get_optional(dev, "mclk");
+	if (IS_ERR(es8311->mclk))
+		return dev_err_probe(dev, PTR_ERR(es8311->mclk), "invalid mclk\n");
 
 	es8311->regmap =
 		devm_regmap_init_i2c(i2c_client, &es8311_regmap_config);

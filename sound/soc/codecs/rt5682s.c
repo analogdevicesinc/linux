@@ -2846,11 +2846,6 @@ static int rt5682s_dai_probe_clks(struct snd_soc_component *component)
 	struct rt5682s_priv *rt5682s = snd_soc_component_get_drvdata(component);
 	int ret;
 
-	/* Check if MCLK provided */
-	rt5682s->mclk = devm_clk_get_optional(component->dev, "mclk");
-	if (IS_ERR(rt5682s->mclk))
-		return PTR_ERR(rt5682s->mclk);
-
 	/* Register CCF DAI clock control */
 	ret = rt5682s_register_dai_clks(component);
 	if (ret)
@@ -3151,6 +3146,13 @@ static int rt5682s_i2c_probe(struct i2c_client *i2c)
 		dev_err(&i2c->dev, "Failed to allocate register map: %d\n", ret);
 		return ret;
 	}
+
+#ifdef CONFIG_COMMON_CLK
+	/* Check if MCLK provided */
+	rt5682s->mclk = devm_clk_get_optional(&i2c->dev, "mclk");
+	if (IS_ERR(rt5682s->mclk))
+		return PTR_ERR(rt5682s->mclk);
+#endif
 
 	for (i = 0; i < ARRAY_SIZE(rt5682s->supplies); i++)
 		rt5682s->supplies[i].supply = rt5682s_supply_names[i];
