@@ -108,9 +108,6 @@ struct xrep_abt {
 
 	struct xfs_scrub	*sc;
 
-	/* Number of non-null records in @free_records. */
-	uint64_t		nr_real_records;
-
 	/* get_records()'s position in the free space record array. */
 	xfarray_idx_t		array_cur;
 
@@ -403,7 +400,6 @@ xrep_abt_find_freespace(
 	if (error)
 		goto err_agfl;
 
-	ra->nr_real_records = xfarray_length(ra->free_records);
 err_agfl:
 	xfs_trans_brelse(sc->tp, agfl_bp);
 err:
@@ -446,15 +442,17 @@ xrep_abt_reserve_space(
 		uint64_t		required;
 		unsigned int		desired;
 		unsigned int		len;
+		const uint64_t		nr_records =
+			xfarray_length(ra->free_records);
 
 		/* Compute how many blocks we'll need. */
 		error = xfs_btree_bload_compute_geometry(cnt_cur,
-				&ra->new_cntbt.bload, ra->nr_real_records);
+				&ra->new_cntbt.bload, nr_records);
 		if (error)
 			break;
 
 		error = xfs_btree_bload_compute_geometry(bno_cur,
-				&ra->new_bnobt.bload, ra->nr_real_records);
+				&ra->new_bnobt.bload, nr_records);
 		if (error)
 			break;
 
@@ -470,7 +468,7 @@ xrep_abt_reserve_space(
 		desired = required - allocated;
 
 		/* We need space but there's none left; bye! */
-		if (ra->nr_real_records == 0) {
+		if (nr_records == 0) {
 			error = -ENOSPC;
 			break;
 		}
@@ -520,7 +518,6 @@ xrep_abt_reserve_space(
 		error = xfarray_trim(ra->free_records, 1);
 		if (error)
 			break;
-		ra->nr_real_records--;
 		record_nr--;
 	} while (1);
 
