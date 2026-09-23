@@ -295,6 +295,7 @@ static void usage(void)
 	"  -C, --container=PATH     Monitor the container at specified cgroup path\n"
 	"  -s, --sort=FIELD         Sort by delay field (default: cpu)\n"
 	"  -t, --type=FIELD         Display only specified delay type with avg/max/timestamp\n"
+	"                           (rows sorted by MAX for that type, largest first)\n"
 	"  -M, --memverbose         Display memory detailed information\n");
 	exit(0);
 }
@@ -838,6 +839,15 @@ static void get_task_delays(void)
 	closedir(dir);
 }
 
+static void field_delay_max_and_ts(const struct task_info *task,
+				     const struct field_desc *field,
+				     unsigned long long *max_ns,
+				     struct __kernel_timespec *max_ts);
+static void get_field_delay_values(const struct task_info *task,
+				   const struct field_desc *field,
+				   double *avg_ms, double *max_ms,
+				   struct __kernel_timespec *max_ts);
+
 /* Calculate average delay in milliseconds */
 static double average_ms(unsigned long long total, unsigned long long count)
 {
@@ -850,7 +860,7 @@ static double average_ms(unsigned long long total, unsigned long long count)
  * Format __kernel_timespec to human readable string (YYYY-MM-DDTHH:MM:SS)
  * Returns formatted string or "N/A" if timestamp is zero
  */
-static const char *format_timespec64(struct __kernel_timespec *ts)
+static const char *format_kernel_timespec(struct __kernel_timespec *ts)
 {
 	static char buffer[32];
 	time_t time_sec;
@@ -894,6 +904,16 @@ static int compare_tasks(const void *a, const void *b)
 	unsigned long long count1;
 	unsigned long long count2;
 	double avg1, avg2;
+	unsigned long long max1, max2;
+
+	/* -t/--type: default sort by MAX column for the selected type (descending) */
+	if (cfg.display_mode == MODE_TYPE && cfg.type_field) {
+		field_delay_max_and_ts(t1, cfg.type_field, &max1, NULL);
+		field_delay_max_and_ts(t2, cfg.type_field, &max2, NULL);
+		if (max1 != max2)
+			return max2 > max1 ? 1 : -1;
+		return 0;
+	}
 
 	total1 = *(unsigned long long *)((char *)t1 + cfg.sort_field->total_offset);
 	total2 = *(unsigned long long *)((char *)t2 + cfg.sort_field->total_offset);
@@ -906,6 +926,28 @@ static int compare_tasks(const void *a, const void *b)
 		return avg2 > avg1 ? 1 : -1;
 
 	return 0;
+}
+
+/* Max delay (ns) and timestamp for field (shared by display and sort) */
+static void field_delay_max_and_ts(const struct task_info *task, const struct field_desc *field,
+				     unsigned long long *max_ns, struct __kernel_timespec *max_ts)
+{
+	if (!field || !field->max_offset) {
+		*max_ns = 0;
+		if (max_ts)
+			memset(max_ts, 0, sizeof(*max_ts));
+		return;
+	}
+
+	*max_ns = *(unsigned long long *)((char *)task + field->max_offset);
+
+	if (max_ts) {
+		if (field->max_ts_offset)
+			*max_ts = *(struct __kernel_timespec *)((char *)task +
+							       field->max_ts_offset);
+		else
+			memset(max_ts, 0, sizeof(*max_ts));
+	}
 }
 
 /* Get delay values for a specific field */
@@ -926,13 +968,8 @@ static void get_field_delay_values(const struct task_info *task, const struct fi
 	count = *(unsigned long long *)((char *)task + field->count_offset);
 	*avg_ms = average_ms(total, count);
 
-	max = *(unsigned long long *)((char *)task + field->max_offset);
+	field_delay_max_and_ts(task, field, &max, max_ts);
 	*max_ms = (double)max / 1000000.0;  /* Convert nanoseconds to milliseconds */
-
-	if (field->max_ts_offset)
-		*max_ts = *(struct __kernel_timespec *)((char *)task + field->max_ts_offset);
-	else
-		memset(max_ts, 0, sizeof(*max_ts));
 }
 
 /* Sort tasks by selected field */
@@ -1082,7 +1119,10 @@ static void display_results(int psi_ret)
 	}
 
 	/* Interacive command */
-	suc &= BOOL_FPRINT(out, "[o]sort [M]memverbose [q]quit\n");
+	if (cfg.display_mode == MODE_TYPE && cfg.type_field)
+		suc &= BOOL_FPRINT(out, "[q]quit\n");
+	else
+		suc &= BOOL_FPRINT(out, "[o]sort [M]memverbose [q]quit\n");
 	if (sort_selected) {
 		if (cfg.display_mode == MODE_MEMVERBOSE)
 			suc &= BOOL_FPRINT(out,
@@ -1093,8 +1133,13 @@ static void display_results(int psi_ret)
 	}
 
 	/* Task delay output */
-	suc &= BOOL_FPRINT(out, "Top %d processes (sorted by %s delay):\n",
-			cfg.max_processes, get_name_by_field(cfg.sort_field));
+	if (cfg.display_mode == MODE_TYPE && cfg.type_field)
+		suc &= BOOL_FPRINT(out,
+			"Top %d processes (sorted by %s MAX delay, largest first):\n",
+			cfg.max_processes, get_name_by_field(cfg.type_field));
+	else
+		suc &= BOOL_FPRINT(out, "Top %d processes (sorted by %s delay):\n",
+				cfg.max_processes, get_name_by_field(cfg.sort_field));
 
 	if (cfg.display_mode == MODE_TYPE && cfg.type_field) {
 		/* Display mode for -t option: show only specified type with avg/max/timestamp */
@@ -1135,7 +1180,7 @@ static void display_results(int psi_ret)
 					&max_ms, &max_ts);
 
 			suc &= BOOL_FPRINT(out, " %12.2f %12.2f %20s\n",
-				avg_ms, max_ms, format_timespec64(&max_ts));
+				avg_ms, max_ms, format_kernel_timespec(&max_ts));
 		} else if (cfg.display_mode == MODE_MEMVERBOSE) {
 			suc &= BOOL_FPRINT(out, DELAY_FMT_MEMVERBOSE,
 				TASK_AVG(tasks[i], mem),
@@ -1204,9 +1249,13 @@ static void handle_keypress(char ch, int *running)
 	} else {
 		switch (ch) {
 		case 'o':
+			if (cfg.display_mode == MODE_TYPE)
+				break;
 			sort_selected = 1;
 			break;
 		case 'M':
+			if (cfg.display_mode == MODE_TYPE)
+				break;
 			toggle_display_mode();
 			for (field = sort_fields; field->name != NULL; field++) {
 				if (field->supported_modes & cfg.display_mode) {
