@@ -170,6 +170,7 @@ struct mana_ib_cq {
 	struct list_head list_recv_qp;
 	int cqe;
 	u32 comp_vector;
+	u32 poll_credit;
 	mana_handle_t  cq_handle;
 };
 

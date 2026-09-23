@@ -1068,6 +1068,8 @@ void mana_gd_free_res_map(struct gdma_resource *r);
 
 void mana_gd_wq_ring_doorbell(struct gdma_context *gc,
 			      struct gdma_queue *queue);
+void mana_gd_wq_ring_doorbell_ext(struct gdma_context *gc, struct gdma_queue *queue,
+				  u32 tail_ptr, u8 wqe_cnt, u8 client_offset);
 
 int mana_gd_alloc_memory(struct gdma_context *gc, unsigned int length,
 			 struct gdma_mem_info *gmi, bool allow_scatter);

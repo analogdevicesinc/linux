@@ -559,10 +559,12 @@ static int mana_gd_disable_queue(struct gdma_queue *queue)
 
 static void mana_gd_ring_doorbell(struct gdma_context *gc, u32 db_index,
 				  enum gdma_queue_type q_type, u32 qid,
-				  u32 tail_ptr, u8 num_req)
+				  u32 tail_ptr, u8 num_req, u8 client_offset)
 {
 	void __iomem *addr = gc->db_page_base + gc->db_page_size * db_index;
 	union gdma_doorbell_entry e = {};
+
+	addr += client_offset;
 
 	switch (q_type) {
 	case GDMA_EQ:
@@ -623,9 +625,17 @@ void mana_gd_wq_ring_doorbell(struct gdma_context *gc, struct gdma_queue *queue)
 	 * wqe_cnt for Receive Queues. This value is not used in Send Queues.
 	 */
 	mana_gd_ring_doorbell(gc, queue->gdma_dev->doorbell, queue->type,
-			      queue->id, queue->head * GDMA_WQE_BU_SIZE, 0);
+			      queue->id, queue->head * GDMA_WQE_BU_SIZE, 0, 0);
 }
 EXPORT_SYMBOL_NS(mana_gd_wq_ring_doorbell, "NET_MANA");
+
+void mana_gd_wq_ring_doorbell_ext(struct gdma_context *gc, struct gdma_queue *queue,
+				  u32 tail_ptr, u8 wqe_cnt, u8 client_offset)
+{
+	mana_gd_ring_doorbell(gc, queue->gdma_dev->doorbell, queue->type,
+			      queue->id, tail_ptr, wqe_cnt, client_offset);
+}
+EXPORT_SYMBOL_NS(mana_gd_wq_ring_doorbell_ext, "NET_MANA");
 
 void mana_gd_ring_cq(struct gdma_queue *cq, u8 arm_bit)
 {
@@ -636,7 +646,7 @@ void mana_gd_ring_cq(struct gdma_queue *cq, u8 arm_bit)
 	u32 head = cq->head % (num_cqe << GDMA_CQE_OWNER_BITS);
 
 	mana_gd_ring_doorbell(gc, cq->gdma_dev->doorbell, cq->type, cq->id,
-			      head, arm_bit);
+			      head, arm_bit, 0);
 }
 EXPORT_SYMBOL_NS(mana_gd_ring_cq, "NET_MANA");
 
@@ -653,7 +663,7 @@ void mana_gd_ring_dim(struct gdma_queue *cq, u32 mod_usec, bool mod_usec_vld,
 		dim_val |= MANA_INTR_MODR_USEC_VLD;
 
 	mana_gd_ring_doorbell(gc, cq->gdma_dev->doorbell, GDMA_DIM, cq->id,
-			      dim_val, mod_comps_vld);
+			      dim_val, mod_comps_vld, 0);
 }
 EXPORT_SYMBOL_NS(mana_gd_ring_dim, "NET_MANA");
 
@@ -1023,7 +1033,7 @@ static void mana_gd_process_eq_events(void *arg)
 	head = eq->head % (num_eqe << GDMA_EQE_OWNER_BITS);
 
 	mana_gd_ring_doorbell(gc, eq->gdma_dev->doorbell, eq->type, eq->id,
-			      head, SET_ARM_BIT);
+			      head, SET_ARM_BIT, 0);
 }
 
 static int mana_gd_register_irq(struct gdma_queue *queue,

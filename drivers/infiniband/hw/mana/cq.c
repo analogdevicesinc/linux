@@ -64,6 +64,9 @@ int mana_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		doorbell = mdev->gdma_dev->doorbell;
 	}
 
+	ibcq->cqe = cq->cqe;
+	cq->poll_credit = (cq->cqe << (GDMA_CQE_OWNER_BITS - 1)) - 1;
+
 	if (is_rnic_cq) {
 		err = mana_ib_gd_create_cq(mdev, cq, doorbell);
 		if (err) {
@@ -174,15 +177,62 @@ void mana_ib_remove_cq_cb(struct mana_ib_dev *mdev, struct mana_ib_cq *cq)
 	gc->cq_table[cq->queue.id] = NULL;
 }
 
+static inline bool gdma_cq_idx_produced(struct gdma_queue *gdma_cq, uint32_t idx)
+{
+	struct gdma_mem_info *gmi = &gdma_cq->mem_info;
+	u32 num_cqe = gdma_cq->queue_size / GDMA_CQE_SIZE;
+	u32 expected_bits = (idx / num_cqe) & GDMA_CQE_OWNER_MASK;
+	u32 offset = (idx % num_cqe) * GDMA_CQE_SIZE;
+	struct gdma_cqe *cqe;
+
+	if (gmi->nr_pages)
+		cqe = gmi->pages_va[offset / PAGE_SIZE] +
+		      (offset & (PAGE_SIZE - 1));
+	else
+		cqe = gdma_cq->queue_mem_ptr + offset;
+
+	return cqe->cqe_info.owner_bits == expected_bits;
+}
+
+static inline void mana_ib_cq_doorbell(struct mana_ib_cq *cq, uint8_t arm)
+{
+	struct mana_ib_dev *mdev = container_of(cq->ibcq.device, struct mana_ib_dev, ib_dev);
+	struct gdma_queue *gdma_cq = cq->queue.kmem;
+	u32 num_cqe, max_credit, idx;
+
+	num_cqe = gdma_cq->queue_size / GDMA_CQE_SIZE;
+	max_credit = num_cqe << (GDMA_CQE_OWNER_BITS - 1);
+	idx = gdma_cq->head;
+
+	if (cq->poll_credit >= max_credit) {
+		if (gdma_cq_idx_produced(gdma_cq, idx + cq->poll_credit - max_credit))
+			cq->poll_credit++;
+		else
+			return;
+	} else {
+		/* Set index of already polled CQE for unarm */
+		cq->poll_credit = max_credit - (arm ? 0 : 1);
+	}
+
+	idx += (cq->poll_credit - max_credit);
+	idx %= (num_cqe << GDMA_CQE_OWNER_BITS);
+
+	mana_gd_wq_ring_doorbell_ext(mdev_to_gc(mdev), gdma_cq, idx, arm, 0);
+}
+
 int mana_ib_arm_cq(struct ib_cq *ibcq, enum ib_cq_notify_flags flags)
 {
 	struct mana_ib_cq *cq = container_of(ibcq, struct mana_ib_cq, ibcq);
 	struct gdma_queue *gdma_cq = cq->queue.kmem;
+	unsigned long irq_flags;
 
 	if (!gdma_cq)
 		return -EINVAL;
 
-	mana_gd_ring_cq(gdma_cq, SET_ARM_BIT);
+	spin_lock_irqsave(&cq->cq_lock, irq_flags);
+	mana_ib_cq_doorbell(cq, SET_ARM_BIT);
+	spin_unlock_irqrestore(&cq->cq_lock, irq_flags);
+
 	return 0;
 }
 
@@ -343,6 +393,9 @@ int mana_ib_poll_cq(struct ib_cq *ibcq, int num_entries, struct ib_wc *wc)
 		comp_read = mana_gd_poll_cq(queue, &gdma_cqe, 1);
 		if (comp_read < 1)
 			break;
+		cq->poll_credit--;
+		if (!cq->poll_credit)
+			mana_ib_cq_doorbell(cq, 0);
 		mana_handle_cqe(mdev, &gdma_cqe);
 	}
 
