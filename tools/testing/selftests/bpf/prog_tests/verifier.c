@@ -5,6 +5,7 @@
 #include "arena_kfunc.skel.h"
 #include "arena_kfunc_jit.skel.h"
 #include "cap_helpers.h"
+#include "cb_refs.skel.h"
 #include "verifier_aggregate_arg.skel.h"
 #include "verifier_aggregate_ret.skel.h"
 #include "verifier_align.skel.h"
@@ -175,6 +176,8 @@ static void run_tests_aux(const char *skel_name,
 void test_arena_kfunc(void)                   { RUN_TESTS(arena_kfunc); }
 
 void test_arena_kfunc_jit(void)               { RUN_TESTS(arena_kfunc_jit); }
+
+void test_cb_refs(void)                       { RUN_TESTS(cb_refs); }
 
 void test_verifier_aggregate_arg(void)        { RUN_TESTS(verifier_aggregate_arg); }
 void test_verifier_aggregate_ret(void)        { RUN_TESTS(verifier_aggregate_ret); }
