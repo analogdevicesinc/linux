@@ -872,6 +872,49 @@ static int snd_usb_cm1a_boot_quirk(struct usb_device *dev)
 }
 
 /*
+ * The Xiaomi audio connector ignores UAC2 volume changes after reconnecting
+ * until the device and configuration descriptors have been read again.
+ */
+#define XIAOMI_AUDIO_MAX_CONFIG_SIZE 1024
+
+static void snd_usb_xiaomi_boot_quirk(struct usb_device *dev)
+{
+	u8 *buf __free(kfree) = kmalloc(XIAOMI_AUDIO_MAX_CONFIG_SIZE, GFP_KERNEL);
+	struct usb_config_descriptor *config;
+	unsigned int length;
+	int ret;
+
+	if (!buf)
+		return;
+
+	ret = usb_get_descriptor(dev, USB_DT_DEVICE, 0, buf,
+				 USB_DT_DEVICE_SIZE);
+	if (ret != USB_DT_DEVICE_SIZE) {
+		dev_warn(&dev->dev, "device descriptor re-read failed: %d\n", ret);
+		return;
+	}
+
+	ret = usb_get_descriptor(dev, USB_DT_CONFIG, 0, buf,
+				 USB_DT_CONFIG_SIZE);
+	if (ret != USB_DT_CONFIG_SIZE) {
+		dev_warn(&dev->dev, "configuration header re-read failed: %d\n", ret);
+		return;
+	}
+
+	config = (struct usb_config_descriptor *)buf;
+	length = le16_to_cpu(config->wTotalLength);
+	if (length < USB_DT_CONFIG_SIZE ||
+	    length > XIAOMI_AUDIO_MAX_CONFIG_SIZE) {
+		dev_warn(&dev->dev, "unexpected configuration length: %u\n", length);
+		return;
+	}
+
+	ret = usb_get_descriptor(dev, USB_DT_CONFIG, 0, buf, length);
+	if (ret != (int)length)
+		dev_warn(&dev->dev, "configuration descriptor re-read failed: %d\n", ret);
+}
+
+/*
  * Some sound cards from Native Instruments are in fact compliant to the USB
  * audio standard of version 2 and other approved USB standards, even though
  * they come up as vendor-specific device when first connected.
@@ -1743,6 +1786,9 @@ int snd_usb_apply_boot_quirk_once(struct usb_device *dev,
 		return snd_usb_motu_m_series_boot_quirk(dev);
 	case USB_ID(0x1397, 0x1234): /* Behringer CM1A */
 		return snd_usb_cm1a_boot_quirk(dev);
+	case USB_ID(0x2717, 0xd005): /* Xiaomi audio connector */
+		snd_usb_xiaomi_boot_quirk(dev);
+		return 0;
 	}
 
 	return 0;
