@@ -749,13 +749,13 @@ static int mana_ib_create_ud_qp(struct ib_qp *ibqp, struct ib_pd *ibpd,
 	doorbell = mdev->gdma_dev->doorbell;
 
 	err = create_shadow_queue(&qp->shadow_rq, attr->cap.max_recv_wr,
-				  sizeof(struct ud_rq_shadow_wqe));
+				  sizeof(struct shadow_wqe_header));
 	if (err) {
 		ibdev_err(&mdev->ib_dev, "Failed to create shadow rq err %d\n", err);
 		goto destroy_queues;
 	}
 	err = create_shadow_queue(&qp->shadow_sq, attr->cap.max_send_wr,
-				  sizeof(struct ud_sq_shadow_wqe));
+				  sizeof(struct shadow_wqe_header));
 	if (err) {
 		ibdev_err(&mdev->ib_dev, "Failed to create shadow sq err %d\n", err);
 		goto destroy_shadow_queues;

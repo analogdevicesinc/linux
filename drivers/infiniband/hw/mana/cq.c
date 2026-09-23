@@ -190,15 +190,15 @@ static inline void handle_ud_sq_cqe(struct mana_ib_qp *qp, struct gdma_comp *cqe
 {
 	struct mana_rdma_cqe *rdma_cqe = (struct mana_rdma_cqe *)cqe->cqe_data;
 	struct gdma_queue *wq = qp->ud_qp.queues[MANA_UD_SEND_QUEUE].kmem;
-	struct ud_sq_shadow_wqe *shadow_wqe;
+	struct shadow_wqe_header *shadow_wqe;
 
 	shadow_wqe = shadow_queue_get_next_to_complete(&qp->shadow_sq);
 	if (!shadow_wqe)
 		return;
 
-	shadow_wqe->header.error_code = rdma_cqe->ud_send.vendor_error;
+	shadow_wqe->error_code = rdma_cqe->ud_send.vendor_error;
 
-	wq->tail += shadow_wqe->header.posted_wqe_size;
+	wq->tail += shadow_wqe->wqe_size_in_bu;
 	shadow_queue_advance_next_to_complete(&qp->shadow_sq);
 }
 
@@ -206,7 +206,7 @@ static inline void handle_ud_rq_cqe(struct mana_ib_qp *qp, struct gdma_comp *cqe
 {
 	struct mana_rdma_cqe *rdma_cqe = (struct mana_rdma_cqe *)cqe->cqe_data;
 	struct gdma_queue *wq = qp->ud_qp.queues[MANA_UD_RECV_QUEUE].kmem;
-	struct ud_rq_shadow_wqe *shadow_wqe;
+	struct shadow_wqe_header *shadow_wqe;
 
 	shadow_wqe = shadow_queue_get_next_to_complete(&qp->shadow_rq);
 	if (!shadow_wqe)
@@ -214,9 +214,9 @@ static inline void handle_ud_rq_cqe(struct mana_ib_qp *qp, struct gdma_comp *cqe
 
 	shadow_wqe->byte_len = rdma_cqe->ud_recv.msg_len;
 	shadow_wqe->src_qpn = rdma_cqe->ud_recv.src_qpn;
-	shadow_wqe->header.error_code = IB_WC_SUCCESS;
+	shadow_wqe->error_code = IB_WC_SUCCESS;
 
-	wq->tail += shadow_wqe->header.posted_wqe_size;
+	wq->tail += shadow_wqe->wqe_size_in_bu;
 	shadow_queue_advance_next_to_complete(&qp->shadow_rq);
 }
 
@@ -238,21 +238,20 @@ static void mana_handle_cqe(struct mana_ib_dev *mdev, struct gdma_comp *cqe)
 }
 
 static void fill_verbs_from_shadow_wqe(struct mana_ib_qp *qp, struct ib_wc *wc,
-				       const struct shadow_wqe_header *shadow_wqe)
+				       const struct shadow_wqe_header *shadow_wqe,
+				       enum ib_wc_opcode opcode)
 {
-	const struct ud_rq_shadow_wqe *ud_wqe = (const struct ud_rq_shadow_wqe *)shadow_wqe;
-
 	wc->wr_id = shadow_wqe->wr_id;
 	wc->status = shadow_wqe->error_code;
-	wc->opcode = shadow_wqe->opcode;
+	wc->opcode = opcode;
 	wc->vendor_err = shadow_wqe->error_code;
 	wc->wc_flags = 0;
 	wc->qp = &qp->ibqp;
 	wc->pkey_index = 0;
 
-	if (shadow_wqe->opcode == IB_WC_RECV) {
-		wc->byte_len = ud_wqe->byte_len;
-		wc->src_qp = ud_wqe->src_qpn;
+	if (opcode == IB_WC_RECV) {
+		wc->byte_len = shadow_wqe->byte_len;
+		wc->src_qp = shadow_wqe->src_qpn;
 		wc->wc_flags |= IB_WC_GRH;
 	}
 }
@@ -270,7 +269,8 @@ static int mana_process_completions(struct mana_ib_cq *cq, int nwc, struct ib_wc
 			if (wc_index >= nwc)
 				goto out;
 
-			fill_verbs_from_shadow_wqe(qp, &wc[wc_index], shadow_wqe);
+			fill_verbs_from_shadow_wqe(qp, &wc[wc_index], shadow_wqe,
+						   shadow_wqe->send_opcode);
 			shadow_queue_advance_consumer(&qp->shadow_sq);
 			wc_index++;
 		}
@@ -283,7 +283,8 @@ static int mana_process_completions(struct mana_ib_cq *cq, int nwc, struct ib_wc
 			if (wc_index >= nwc)
 				goto out;
 
-			fill_verbs_from_shadow_wqe(qp, &wc[wc_index], shadow_wqe);
+			fill_verbs_from_shadow_wqe(qp, &wc[wc_index], shadow_wqe,
+						   IB_WC_RECV);
 			shadow_queue_advance_consumer(&qp->shadow_rq);
 			wc_index++;
 		}
@@ -296,13 +297,13 @@ out:
 static void mana_drain_gsi_sq(struct mana_ib_qp *qp)
 {
 	struct mana_ib_cq *cq = container_of(qp->ibqp.send_cq, struct mana_ib_cq, ibcq);
-	struct ud_sq_shadow_wqe *shadow_wqe;
+	struct shadow_wqe_header *shadow_wqe;
 	unsigned long flags;
 
 	spin_lock_irqsave(&cq->cq_lock, flags);
 	while ((shadow_wqe = shadow_queue_get_next_to_complete(&qp->shadow_sq))
 			!= NULL) {
-		shadow_wqe->header.error_code = IB_WC_GENERAL_ERR;
+		shadow_wqe->error_code = IB_WC_GENERAL_ERR;
 		shadow_queue_advance_next_to_complete(&qp->shadow_sq);
 	}
 	spin_unlock_irqrestore(&cq->cq_lock, flags);

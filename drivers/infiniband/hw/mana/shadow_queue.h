@@ -7,20 +7,12 @@
 #define _MANA_SHADOW_QUEUE_H_
 
 struct shadow_wqe_header {
-	u16 opcode;
-	u16 error_code;
-	u32 posted_wqe_size;
 	u64 wr_id;
-};
-
-struct ud_rq_shadow_wqe {
-	struct shadow_wqe_header header;
+	u64 wqe_size_in_bu : 8;
+	u64 send_opcode : 4;
+	u64 error_code : 16;
 	u32 byte_len;
 	u32 src_qpn;
-};
-
-struct ud_sq_shadow_wqe {
-	struct shadow_wqe_header header;
 };
 
 struct shadow_queue {
@@ -57,12 +49,14 @@ static inline void destroy_shadow_queue(struct shadow_queue *queue)
 
 static inline bool shadow_queue_full(struct shadow_queue *queue)
 {
-	return (queue->prod_idx - queue->cons_idx) >= queue->length;
+	/* Do not reuse an entry until the poller has finished reading it. */
+	return (queue->prod_idx - smp_load_acquire(&queue->cons_idx)) >= queue->length;
 }
 
 static inline bool shadow_queue_empty(struct shadow_queue *queue)
 {
-	return queue->prod_idx == queue->cons_idx;
+	/* Pair with posting's release of the initialized shadow WQE. */
+	return smp_load_acquire(&queue->prod_idx) == queue->cons_idx;
 }
 
 static inline void *
@@ -91,7 +85,8 @@ shadow_queue_get_next_to_consume(const struct shadow_queue *queue)
 static inline void *
 shadow_queue_get_next_to_complete(struct shadow_queue *queue)
 {
-	if (queue->next_to_complete_idx == queue->prod_idx)
+	/* Observe initialized WQE fields published by the posting CPU. */
+	if (queue->next_to_complete_idx == smp_load_acquire(&queue->prod_idx))
 		return NULL;
 
 	return shadow_queue_get_element(queue, queue->next_to_complete_idx);
@@ -99,12 +94,14 @@ shadow_queue_get_next_to_complete(struct shadow_queue *queue)
 
 static inline void shadow_queue_advance_producer(struct shadow_queue *queue)
 {
-	queue->prod_idx++;
+	/* Publish all WQE fields to CQ polling on another CPU. */
+	smp_store_release(&queue->prod_idx, queue->prod_idx + 1);
 }
 
 static inline void shadow_queue_advance_consumer(struct shadow_queue *queue)
 {
-	queue->cons_idx++;
+	/* Finish WC generation and queue-tail updates before allowing reuse. */
+	smp_store_release(&queue->cons_idx, queue->cons_idx + 1);
 }
 
 static inline void shadow_queue_advance_next_to_complete(struct shadow_queue *queue)

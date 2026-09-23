@@ -14,7 +14,7 @@ static int mana_ib_post_recv_ud(struct mana_ib_qp *qp, const struct ib_recv_wr *
 	struct gdma_posted_wqe_info wqe_info = {0};
 	struct gdma_sge gdma_sgl[MAX_WR_SGL_NUM];
 	struct gdma_wqe_request wqe_req = {0};
-	struct ud_rq_shadow_wqe *shadow_wqe;
+	struct shadow_wqe_header *shadow_wqe;
 	int err, i;
 
 	if (shadow_queue_full(&qp->shadow_rq))
@@ -37,9 +37,8 @@ static int mana_ib_post_recv_ud(struct mana_ib_qp *qp, const struct ib_recv_wr *
 
 	shadow_wqe = shadow_queue_producer_entry(&qp->shadow_rq);
 	memset(shadow_wqe, 0, sizeof(*shadow_wqe));
-	shadow_wqe->header.opcode = IB_WC_RECV;
-	shadow_wqe->header.wr_id = wr->wr_id;
-	shadow_wqe->header.posted_wqe_size = wqe_info.wqe_size_in_bu;
+	shadow_wqe->wr_id = wr->wr_id;
+	shadow_wqe->wqe_size_in_bu = wqe_info.wqe_size_in_bu;
 	shadow_queue_advance_producer(&qp->shadow_rq);
 
 	mana_gd_wq_ring_doorbell(mdev_to_gc(mdev), queue);
@@ -82,7 +81,7 @@ static int mana_ib_post_send_ud(struct mana_ib_qp *qp, const struct ib_ud_wr *wr
 	struct gdma_posted_wqe_info wqe_info = {0};
 	struct gdma_wqe_request wqe_req = {0};
 	struct rdma_send_oob send_oob = {0};
-	struct ud_sq_shadow_wqe *shadow_wqe;
+	struct shadow_wqe_header *shadow_wqe;
 	int err, i;
 
 	if (!ndev) {
@@ -132,9 +131,9 @@ static int mana_ib_post_send_ud(struct mana_ib_qp *qp, const struct ib_ud_wr *wr
 	qp->ud_qp.sq_psn++;
 	shadow_wqe = shadow_queue_producer_entry(&qp->shadow_sq);
 	memset(shadow_wqe, 0, sizeof(*shadow_wqe));
-	shadow_wqe->header.opcode = IB_WC_SEND;
-	shadow_wqe->header.wr_id = wr->wr.wr_id;
-	shadow_wqe->header.posted_wqe_size = wqe_info.wqe_size_in_bu;
+	shadow_wqe->send_opcode = IB_WC_SEND;
+	shadow_wqe->wr_id = wr->wr.wr_id;
+	shadow_wqe->wqe_size_in_bu = wqe_info.wqe_size_in_bu;
 	shadow_queue_advance_producer(&qp->shadow_sq);
 
 	mana_gd_wq_ring_doorbell(mdev_to_gc(mdev), queue);
