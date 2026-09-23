@@ -7,29 +7,30 @@
 
 #define MAX_WR_SGL_NUM (2)
 
-static int mana_ib_post_recv_ud(struct mana_ib_qp *qp, const struct ib_recv_wr *wr)
+static int mana_ib_post_rq(struct mana_ib_qp *qp, const struct ib_recv_wr *wr)
 {
-	struct mana_ib_dev *mdev = container_of(qp->ibqp.device, struct mana_ib_dev, ib_dev);
-	struct gdma_queue *queue = qp->ud_qp.queues[MANA_UD_RECV_QUEUE].kmem;
+	struct ib_sge mana_ib_dummy_sge = {.addr = 1, .length = 0, .lkey = 0};
+	struct mana_ib_queue *ib_rq = mana_qp_get_rq(qp);
 	struct gdma_posted_wqe_info wqe_info = {0};
-	struct gdma_sge gdma_sgl[MAX_WR_SGL_NUM];
+	struct gdma_queue *queue = ib_rq->kmem;
 	struct gdma_wqe_request wqe_req = {0};
 	struct shadow_wqe_header *shadow_wqe;
-	int err, i;
+	int err;
 
 	if (shadow_queue_full(&qp->shadow_rq))
 		return -EINVAL;
 
-	if (wr->num_sge > MAX_WR_SGL_NUM)
+	if (wr->num_sge > MAX_RX_WQE_SGL_ENTRIES)
 		return -EINVAL;
 
-	for (i = 0; i < wr->num_sge; ++i) {
-		gdma_sgl[i].address = wr->sg_list[i].addr;
-		gdma_sgl[i].mem_key = wr->sg_list[i].lkey;
-		gdma_sgl[i].size = wr->sg_list[i].length;
-	}
 	wqe_req.num_sge = wr->num_sge;
-	wqe_req.sgl = gdma_sgl;
+	wqe_req.ib_sgl = wr->sg_list;
+	wqe_req.flags = GDMA_WR_IB_SGL;
+
+	if (wr->num_sge == 0) {
+		wqe_req.ib_sgl = &mana_ib_dummy_sge;
+		wqe_req.num_sge = 1;
+	}
 
 	err = mana_gd_post_work_request(queue, &wqe_req, &wqe_info);
 	if (err)
@@ -41,34 +42,47 @@ static int mana_ib_post_recv_ud(struct mana_ib_qp *qp, const struct ib_recv_wr *
 	shadow_wqe->wqe_size_in_bu = wqe_info.wqe_size_in_bu;
 	shadow_queue_advance_producer(&qp->shadow_rq);
 
-	mana_gd_wq_ring_doorbell(mdev_to_gc(mdev), queue);
 	return 0;
+}
+
+static int mana_ib_post_recv_ud(struct mana_ib_qp *qp, const struct ib_recv_wr *wr,
+				const struct ib_recv_wr **bad_wr)
+{
+	struct mana_ib_dev *mdev = container_of(qp->ibqp.device, struct mana_ib_dev, ib_dev);
+	struct mana_ib_queue *ib_rq = mana_qp_get_rq(qp);
+	struct gdma_queue *rq = ib_rq->kmem;
+	bool ring_rq = false;
+	int err = 0;
+
+	for (; wr; wr = wr->next) {
+		err = mana_ib_post_rq(qp, wr);
+		if (unlikely(err)) {
+			*bad_wr = wr;
+			break;
+		}
+		ring_rq = true;
+	}
+
+	if (ring_rq)
+		mana_gd_wq_ring_doorbell(mdev_to_gc(mdev), rq);
+
+	return err;
 }
 
 int mana_ib_post_recv(struct ib_qp *ibqp, const struct ib_recv_wr *wr,
 		      const struct ib_recv_wr **bad_wr)
 {
 	struct mana_ib_qp *qp = container_of(ibqp, struct mana_ib_qp, ibqp);
-	int err = 0;
 
-	for (; wr; wr = wr->next) {
-		switch (ibqp->qp_type) {
-		case IB_QPT_UD:
-		case IB_QPT_GSI:
-			err = mana_ib_post_recv_ud(qp, wr);
-			if (unlikely(err)) {
-				*bad_wr = wr;
-				return err;
-			}
-			break;
-		default:
-			ibdev_dbg(ibqp->device, "Posting recv wr on qp type %u is not supported\n",
-				  ibqp->qp_type);
-			return -EINVAL;
-		}
+	switch (ibqp->qp_type) {
+	case IB_QPT_UD:
+	case IB_QPT_GSI:
+		return mana_ib_post_recv_ud(qp, wr, bad_wr);
+	default:
+		/* Unsupported QP type */
+		*bad_wr = wr;
+		return -EINVAL;
 	}
-
-	return err;
 }
 
 static int mana_ib_post_send_ud_one(struct mana_ib_qp *qp, const struct ib_ud_wr *wr)

@@ -6,6 +6,7 @@
 
 #include <linux/dma-mapping.h>
 #include <linux/netdevice.h>
+#include <rdma/ib_verbs.h>
 
 #include "shm_channel.h"
 
@@ -54,6 +55,7 @@ enum gdma_work_request_flags {
 	GDMA_WR_NONE			= 0,
 	GDMA_WR_OOB_IN_SGL		= BIT(0),
 	GDMA_WR_PAD_BY_SGE0		= BIT(1),
+	GDMA_WR_IB_SGL			= BIT(2),
 };
 
 enum gdma_eqe_type {
@@ -212,7 +214,10 @@ struct gdma_sge {
 }; /* HW DATA */
 
 struct gdma_wqe_request {
-	struct gdma_sge *sgl;
+	union {
+		struct gdma_sge *sgl;
+		struct ib_sge *ib_sgl;
+	};
 	u32 num_sge;
 
 	u32 inline_oob_size;

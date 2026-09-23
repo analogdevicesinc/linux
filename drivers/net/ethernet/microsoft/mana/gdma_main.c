@@ -1738,6 +1738,24 @@ static void mana_gd_write_sgl(struct gdma_queue *wq, u32 sgl_offset,
 	memcpy(mana_gd_ring_ptr(wq, sgl_offset), address, sgl_size);
 }
 
+static void mana_gd_write_ib_sgl(struct gdma_queue *wq, u32 sgl_offset,
+				 const struct gdma_wqe_request *wqe_req)
+{
+	const struct ib_sge *sge = wqe_req->ib_sgl;
+	struct gdma_sge *gdma_sgl;
+	u32 i;
+
+	for (i = 0; i < wqe_req->num_sge; ++i, ++sge) {
+		gdma_sgl = mana_gd_ring_ptr(wq, sgl_offset);
+		gdma_sgl->address = sge->addr;
+		gdma_sgl->size = sge->length;
+		gdma_sgl->mem_key = sge->lkey;
+		sgl_offset += sizeof(*gdma_sgl);
+		if (sgl_offset == wq->queue_size)
+			sgl_offset = 0;
+	}
+}
+
 int mana_gd_post_work_request(struct gdma_queue *wq,
 			      const struct gdma_wqe_request *wqe_req,
 			      struct gdma_posted_wqe_info *wqe_info)
@@ -1792,7 +1810,10 @@ int mana_gd_post_work_request(struct gdma_queue *wq,
 	if (sgl_offset >= wq->queue_size)
 		sgl_offset -= wq->queue_size;
 
-	mana_gd_write_sgl(wq, sgl_offset, wqe_req);
+	if (wqe_req->flags & GDMA_WR_IB_SGL)
+		mana_gd_write_ib_sgl(wq, sgl_offset, wqe_req);
+	else
+		mana_gd_write_sgl(wq, sgl_offset, wqe_req);
 
 	wq->head += wqe_size / GDMA_WQE_BU_SIZE;
 
