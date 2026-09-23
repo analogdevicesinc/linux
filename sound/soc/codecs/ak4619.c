@@ -799,7 +799,26 @@ static const struct snd_soc_dai_ops ak4619_dai_ops = {
 	.num_auto_selectable_formats	= ARRAY_SIZE(ak4619_dai_formats),
 };
 
+static int ak4619_suspend(struct snd_soc_component *component)
+{
+	struct regmap *regmap = dev_get_regmap(component->dev, NULL);
+
+	regcache_cache_only(regmap, true);
+	regcache_mark_dirty(regmap);
+	return 0;
+}
+
+static int ak4619_resume(struct snd_soc_component *component)
+{
+	struct regmap *regmap = dev_get_regmap(component->dev, NULL);
+
+	regcache_cache_only(regmap, false);
+	return regcache_sync(regmap);
+}
+
 static const struct snd_soc_component_driver soc_component_dev_ak4619 = {
+	.suspend		= ak4619_suspend,
+	.resume			= ak4619_resume,
 	.set_bias_level		= ak4619_set_bias_level,
 	.controls		= ak4619_snd_controls,
 	.num_controls		= ARRAY_SIZE(ak4619_snd_controls),
