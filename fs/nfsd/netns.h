@@ -137,7 +137,6 @@ struct nfsd_net {
 	/* protects blocked_locks_lru */
 	spinlock_t blocked_locks_lock;
 
-	struct file *rec_file;
 	const struct nfsd4_client_tracking_ops *client_tracking_ops;
 
 	time64_t nfsd4_lease;
