@@ -1275,8 +1275,10 @@ static const __maybe_unused struct of_device_id i3c_hci_of_match[] = {
 MODULE_DEVICE_TABLE(of, i3c_hci_of_match);
 
 static const struct acpi_device_id i3c_hci_acpi_match[] = {
-	{ "AMDI5017", HCI_QUIRK_PIO_MODE | HCI_QUIRK_OD_PP_TIMING | HCI_QUIRK_RESP_BUF_THLD },
-	{}
+	{ .id = "AMDI5017",
+	  .driver_data = HCI_QUIRK_PIO_MODE | HCI_QUIRK_OD_PP_TIMING |
+					 HCI_QUIRK_RESP_BUF_THLD },
+	{ }
 };
 MODULE_DEVICE_TABLE(acpi, i3c_hci_acpi_match);
 

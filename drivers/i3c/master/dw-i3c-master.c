@@ -1934,8 +1934,8 @@ static const struct of_device_id dw_i3c_master_of_match[] = {
 MODULE_DEVICE_TABLE(of, dw_i3c_master_of_match);
 
 static const struct acpi_device_id dw_i3c_master_acpi_match[] = {
-	{ "AMDI0015", AMD_I3C_OD_PP_TIMING },
-	{ "NVDA2018", DW_I3C_ACPI_SKIP_CLK_RST },
+	{ .id = "AMDI0015", .driver_data = AMD_I3C_OD_PP_TIMING },
+	{ .id = "NVDA2018", .driver_data = DW_I3C_ACPI_SKIP_CLK_RST },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, dw_i3c_master_acpi_match);
