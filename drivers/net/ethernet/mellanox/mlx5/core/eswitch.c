@@ -2958,7 +2958,7 @@ bool mlx5_esw_hold(struct mlx5_core_dev *mdev)
 {
 	struct mlx5_eswitch *esw = mdev->priv.eswitch;
 
-	/* e.g. VF doesn't have eswitch so nothing to do */
+	/* Not an eswitch manager, so there is no mode lock to take */
 	if (!mlx5_esw_allowed(esw))
 		return true;
 
@@ -3106,7 +3106,7 @@ void mlx5_eswitch_unblock_ipsec(struct mlx5_core_dev *dev)
 	struct mlx5_eswitch *esw = dev->priv.eswitch;
 
 	if (!mlx5_esw_allowed(esw))
-		/* Failure means no eswitch => core dev is not a PF */
+		/* Not an eswitch manager, so nothing was blocked */
 		return;
 
 	mutex_lock(&esw->state_lock);
