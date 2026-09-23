@@ -316,6 +316,7 @@ static bool hv_init_dev_msi_info(struct device *dev, struct irq_domain *domain,
 		return false;
 
 	chip->flags |= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_MOVE_DEFERRED;
+	chip->irq_retrigger = irq_chip_retrigger_hierarchy;
 
 	info->ops->msi_prepare = pci_msi_prepare;
 
