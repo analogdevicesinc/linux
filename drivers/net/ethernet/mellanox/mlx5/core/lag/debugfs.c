@@ -114,7 +114,8 @@ static int mapping_show(struct seq_file *file, void *priv)
 		return -ENOMEM;
 
 	mutex_lock(&ldev->lock);
-	lag_active = __mlx5_lag_is_active(ldev);
+	lag_active = __mlx5_lag_is_active(ldev) &&
+		ldev->mode != MLX5_LAG_MODE_MPESW;
 	if (lag_active) {
 		if (test_bit(MLX5_LAG_MODE_FLAG_HASH_BASED, &ldev->mode_flags)) {
 			mlx5_infer_tx_enabled(&ldev->tracker, ldev, ports,
