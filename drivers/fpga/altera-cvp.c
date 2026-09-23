@@ -318,7 +318,29 @@ static int altera_cvp_teardown(struct fpga_manager *mgr,
 	ret = altera_cvp_wait_status(conf, VSE_CVP_STATUS_CFG_RDY, 0,
 				     conf->priv->poll_time_us);
 	if (ret)
-		dev_err(&mgr->dev, "CFG_RDY == 0 timeout\n");
+		dev_warn(&mgr->dev, "CFG_RDY == 0 timeout\n");
+
+	return ret;
+}
+
+static int altera_cvp_recovery(struct fpga_manager *mgr,
+			       struct fpga_image_info *info)
+{
+	struct altera_cvp_conf *conf = mgr->priv;
+	int ret;
+
+	ret = altera_cvp_teardown(mgr, info);
+	if (ret) {
+		/*
+		 * CVP_STATUS may get stuck if the device left user mode
+		 * before the poll. Exit CvP mode to switch back the clock
+		 * feeding CVP_STATUS, then try the teardown again.
+		 */
+		altera_cvp_disable_cvp_mode(conf);
+		ret = altera_cvp_teardown(mgr, info);
+		if (ret)
+			dev_err(&mgr->dev, "Tear-down failed\n");
+	}
 
 	return ret;
 }
@@ -355,7 +377,7 @@ static int altera_cvp_write_init(struct fpga_manager *mgr,
 
 	if (val & VSE_CVP_STATUS_CFG_RDY) {
 		dev_warn(&mgr->dev, "CvP already started, tear down first\n");
-		ret = altera_cvp_teardown(mgr, info);
+		ret = altera_cvp_recovery(mgr, info);
 		if (ret)
 			return ret;
 	}
@@ -496,7 +518,7 @@ static int altera_cvp_write_complete(struct fpga_manager *mgr,
 	u32 mask, val;
 	int ret;
 
-	ret = altera_cvp_teardown(mgr, info);
+	ret = altera_cvp_recovery(mgr, info);
 	if (ret)
 		return ret;
 
