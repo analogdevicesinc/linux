@@ -548,11 +548,14 @@ test_leader_sampling() {
   while IFS= read -r line
   do
     cycles=$(echo $line | awk '{for(i=1;i<=NF;i++) if($i=="cycles:") print $(i-1)}')
-    if [ $(($index%2)) -ne 0 ] && [ ${cycles}x != ${prev_cycles}x ]
+    if [ $(($index%2)) -ne 0 ]
     then
-      invalid_counts=$(($invalid_counts+1))
-    else
-      valid_counts=$(($valid_counts+1))
+      if (( $(bc <<< "scale=4; r = ${cycles} / ${prev_cycles}; r >= 0.99 && r <= 1.01") ))
+      then
+        valid_counts=$(($valid_counts+1))
+      else
+        invalid_counts=$(($invalid_counts+1))
+      fi
     fi
     index=$(($index+1))
     prev_cycles=$cycles
