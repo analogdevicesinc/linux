@@ -1067,7 +1067,7 @@ disable_bypass:
 
 static int es8389_probe(struct snd_soc_component *component)
 {
-	int ret, i;
+	int ret;
 	struct es8389_private *es8389 = snd_soc_component_get_drvdata(component);
 
 	ret = device_property_read_u8(component->dev, "everest,mclk-src", &es8389->mclk_src);
@@ -1075,22 +1075,6 @@ static int es8389_probe(struct snd_soc_component *component)
 		dev_dbg(component->dev, "mclk-src return %d", ret);
 		es8389->mclk_src = ES8389_MCLK_SOURCE;
 	}
-
-	for (i = 0; i < ARRAY_SIZE(es8389_core_supplies); i++)
-		es8389->core_supply[i].supply = es8389_core_supplies[i];
-	ret = devm_regulator_bulk_get(component->dev, ARRAY_SIZE(es8389_core_supplies), es8389->core_supply);
-	if (ret) {
-		dev_err(component->dev, "Failed to request core supplies %d\n", ret);
-		return ret;
-	}
-
-	es8389->mclk = devm_clk_get_optional(component->dev, "mclk");
-	if (IS_ERR(es8389->mclk))
-		return dev_err_probe(component->dev, PTR_ERR(es8389->mclk),
-			"ES8389 is unable to get mclk\n");
-
-	if (!es8389->mclk)
-		dev_err(component->dev, "%s, assuming static mclk\n", __func__);
 
 	ret = clk_prepare_enable(es8389->mclk);
 	if (ret) {
@@ -1179,7 +1163,7 @@ static void es8389_i2c_shutdown(struct i2c_client *i2c)
 static int es8389_i2c_probe(struct i2c_client *i2c_client)
 {
 	struct es8389_private *es8389;
-	int ret;
+	int ret, i;
 
 	es8389 = devm_kzalloc(&i2c_client->dev, sizeof(*es8389), GFP_KERNEL);
 	if (es8389 == NULL)
@@ -1190,6 +1174,22 @@ static int es8389_i2c_probe(struct i2c_client *i2c_client)
 	if (IS_ERR(es8389->regmap))
 		return dev_err_probe(&i2c_client->dev, PTR_ERR(es8389->regmap),
 			"regmap_init() failed\n");
+
+	for (i = 0; i < ARRAY_SIZE(es8389_core_supplies); i++)
+		es8389->core_supply[i].supply = es8389_core_supplies[i];
+	ret = devm_regulator_bulk_get(&i2c_client->dev, ARRAY_SIZE(es8389_core_supplies),
+				      es8389->core_supply);
+	if (ret)
+		return dev_err_probe(&i2c_client->dev, ret,
+				     "Failed to request core supplies\n");
+
+	es8389->mclk = devm_clk_get_optional(&i2c_client->dev, "mclk");
+	if (IS_ERR(es8389->mclk))
+		return dev_err_probe(&i2c_client->dev, PTR_ERR(es8389->mclk),
+				     "ES8389 is unable to get mclk\n");
+
+	if (!es8389->mclk)
+		dev_err(&i2c_client->dev, "%s, assuming static mclk\n", __func__);
 
 	ret =  devm_snd_soc_register_component(&i2c_client->dev,
 			&soc_codec_dev_es8389,
