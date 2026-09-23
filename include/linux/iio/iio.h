@@ -660,7 +660,7 @@ struct iio_dev {
 	struct iio_poll_func		*pollfunc;
 	struct iio_poll_func		*pollfunc_event;
 
-	struct iio_chan_spec const	*channels;
+	struct iio_chan_spec const	*channels __counted_by_ptr(num_channels);
 	int				num_channels;
 
 	const char			*name;
