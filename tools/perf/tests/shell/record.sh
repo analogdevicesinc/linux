@@ -535,7 +535,7 @@ test_leader_sampling() {
     err=1
     return
   fi
-  perf script -i "${perfdata}" | grep brstack > $script_output
+  perf script -i "${perfdata}" -F period,ip,sym | grep brstack > $script_output
   # Check if the two instruction counts are equal in each record.
   # However, the throttling code doesn't consider event grouping. During throttling, only the
   # leader is stopped, causing the slave's counts significantly higher. To temporarily solve this,
@@ -547,7 +547,7 @@ test_leader_sampling() {
   tolerance_rate=0.8
   while IFS= read -r line
   do
-    cycles=$(echo $line | awk '{for(i=1;i<=NF;i++) if($i=="cycles:") print $(i-1)}')
+    cycles=$(echo $line | awk '{ print $1 }')
     if [ $(($index%2)) -ne 0 ]
     then
       if (( $(bc <<< "scale=4; r = ${cycles} / ${prev_cycles}; r >= 0.99 && r <= 1.01") ))
