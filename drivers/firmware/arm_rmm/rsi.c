@@ -9,6 +9,8 @@
 #include <linux/swiotlb.h>
 #include <linux/platform_device.h>
 #include <linux/arm-rsi-cmds.h>
+#include <linux/kobject.h>
+#include <linux/sysfs.h>
 
 #include <asm/io.h>
 #include <asm/mem_encrypt.h>
@@ -181,6 +183,39 @@ void __init arm64_rsi_init(void)
 
 	static_branch_enable(&rsi_present);
 }
+
+static ssize_t realm_guest_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return sysfs_emit(buf, "1\n");
+}
+
+static struct kobj_attribute cca_realm_guest = __ATTR_RO(realm_guest);
+static const struct attribute *cca_realm_attrs[] = {
+	&cca_realm_guest.attr,
+	NULL
+};
+
+static int __init realm_sysfs_init(void)
+{
+	int ret;
+	struct kobject *cca_kobj;
+
+	if (!is_realm_world())
+		return 0;
+
+	cca_kobj = kobject_create_and_add("cca", firmware_kobj);
+	if (!cca_kobj)
+		return -ENOMEM;
+
+	ret = sysfs_create_files(cca_kobj, cca_realm_attrs);
+	if (!ret)
+		return 0;
+
+	kobject_put(cca_kobj);
+	return ret;
+}
+device_initcall(realm_sysfs_init);
 
 static struct platform_device rsi_dev = {
 	.name = "arm-cca-dev",
