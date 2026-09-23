@@ -5479,7 +5479,7 @@ static int btrfs_setsize(struct inode *inode, struct iattr *attr)
 	return ret;
 }
 
-static int btrfs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+static int btrfs_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 			 struct iattr *attr)
 {
 	struct inode *inode = d_inode(dentry);
@@ -7004,7 +7004,7 @@ out_inode:
 	return ret;
 }
 
-static int btrfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
+static int btrfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, umode_t mode, dev_t rdev)
 {
 	struct inode *inode;
@@ -7018,7 +7018,7 @@ static int btrfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
 	return btrfs_create_common(dir, dentry, inode);
 }
 
-static int btrfs_create(struct mnt_idmap *idmap, struct inode *dir,
+static int btrfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 			struct dentry *dentry, umode_t mode)
 {
 	struct inode *inode;
@@ -7115,7 +7115,7 @@ fail:
 	return ret;
 }
 
-static struct dentry *btrfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *btrfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				  struct dentry *dentry, umode_t mode)
 {
 	struct inode *inode;
@@ -8022,7 +8022,7 @@ out:
 	return ret;
 }
 
-struct inode *btrfs_new_subvol_inode(struct mnt_idmap *idmap,
+struct inode *btrfs_new_subvol_inode(const struct mnt_idmap *idmap,
 				     struct inode *dir)
 {
 	struct inode *inode;
@@ -8224,7 +8224,7 @@ int __init btrfs_init_cachep(void)
 	return 0;
 }
 
-static int btrfs_getattr(struct mnt_idmap *idmap,
+static int btrfs_getattr(const struct mnt_idmap *idmap,
 			 const struct path *path, struct kstat *stat,
 			 u32 request_mask, unsigned int flags)
 {
@@ -8540,7 +8540,7 @@ out_notrans:
 	return ret;
 }
 
-static struct inode *new_whiteout_inode(struct mnt_idmap *idmap,
+static struct inode *new_whiteout_inode(const struct mnt_idmap *idmap,
 					struct inode *dir)
 {
 	struct inode *inode;
@@ -8555,7 +8555,7 @@ static struct inode *new_whiteout_inode(struct mnt_idmap *idmap,
 	return inode;
 }
 
-static int btrfs_rename(struct mnt_idmap *idmap,
+static int btrfs_rename(const struct mnt_idmap *idmap,
 			struct inode *old_dir, struct dentry *old_dentry,
 			struct inode *new_dir, struct dentry *new_dentry,
 			unsigned int flags)
@@ -8835,7 +8835,7 @@ out_fscrypt_names:
 	return ret;
 }
 
-static int btrfs_rename2(struct mnt_idmap *idmap, struct inode *old_dir,
+static int btrfs_rename2(const struct mnt_idmap *idmap, struct inode *old_dir,
 			 struct dentry *old_dentry, struct inode *new_dir,
 			 struct dentry *new_dentry, unsigned int flags)
 {
@@ -9023,7 +9023,7 @@ out:
 	return ret;
 }
 
-static int btrfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
+static int btrfs_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct dentry *dentry, const char *symname)
 {
 	struct btrfs_fs_info *fs_info = inode_to_fs_info(dir);
@@ -9375,7 +9375,7 @@ int btrfs_prealloc_file_range_trans(struct inode *inode,
  * we are marking them with IOP_FASTPERM_MAY_EXEC, allowing path lookup to
  * elide calls here.
  */
-static int btrfs_permission(struct mnt_idmap *idmap,
+static int btrfs_permission(const struct mnt_idmap *idmap,
 			    struct inode *inode, int mask)
 {
 	struct btrfs_root *root = BTRFS_I(inode)->root;
@@ -9391,7 +9391,7 @@ static int btrfs_permission(struct mnt_idmap *idmap,
 	return generic_permission(idmap, inode, mask);
 }
 
-static int btrfs_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+static int btrfs_tmpfile(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct file *file, umode_t mode)
 {
 	struct btrfs_fs_info *fs_info = inode_to_fs_info(dir);
