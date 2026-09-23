@@ -3,7 +3,7 @@
 use std::fmt::Display;
 
 use proc_macro2::TokenStream;
-use quote::quote_spanned;
+use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, Error};
 
 pub(crate) struct DiagCtxt(TokenStream);
@@ -29,16 +29,55 @@ impl DiagCtxt {
         ));
     }
 
-    pub(crate) fn with(
-        fun: impl FnOnce(&mut DiagCtxt) -> Result<TokenStream, ErrorGuaranteed>,
+    fn with(
+        f: impl FnOnce(&mut DiagCtxt) -> Result<TokenStream, ErrorGuaranteed>,
+        merge_diag: impl FnOnce(TokenStream, TokenStream) -> TokenStream,
+        convert_diag: impl FnOnce(TokenStream) -> TokenStream,
     ) -> TokenStream {
         let mut dcx = Self(TokenStream::new());
-        match fun(&mut dcx) {
-            Ok(mut stream) => {
-                stream.extend(dcx.0);
-                stream
+        match f(&mut dcx) {
+            Ok(stream) => {
+                if dcx.0.is_empty() {
+                    stream
+                } else {
+                    merge_diag(stream, dcx.0)
+                }
             }
-            Err(ErrorGuaranteed(())) => dcx.0,
+            Err(ErrorGuaranteed(())) => convert_diag(dcx.0),
         }
+    }
+
+    pub(crate) fn for_item(
+        f: impl FnOnce(&mut DiagCtxt) -> Result<TokenStream, ErrorGuaranteed>,
+    ) -> TokenStream {
+        Self::with(
+            f,
+            |mut out, diag| {
+                out.extend(diag);
+                out
+            },
+            std::convert::identity,
+        )
+    }
+
+    pub(crate) fn for_expr(
+        f: impl FnOnce(&mut DiagCtxt) -> Result<TokenStream, ErrorGuaranteed>,
+    ) -> TokenStream {
+        Self::with(
+            f,
+            |out, diag| {
+                // Diagnostics that we generate are always items.
+                // So for expressions create a block to place diagnostics in item position.
+                quote!({
+                    #diag
+                    #out
+                })
+            },
+            |diag| {
+                quote!({
+                    #diag
+                })
+            },
+        )
     }
 }

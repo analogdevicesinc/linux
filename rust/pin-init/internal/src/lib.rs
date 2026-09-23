@@ -25,31 +25,31 @@ mod zeroable;
 pub fn pin_data(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args);
     let input = parse_macro_input!(input);
-    DiagCtxt::with(|dcx| pin_data::pin_data(args, input, dcx)).into()
+    DiagCtxt::for_item(|dcx| pin_data::pin_data(args, input, dcx)).into()
 }
 
 #[proc_macro_attribute]
 pub fn pinned_drop(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args);
     let input = parse_macro_input!(input);
-    DiagCtxt::with(|dcx| pinned_drop::pinned_drop(args, input, dcx)).into()
+    DiagCtxt::for_item(|dcx| pinned_drop::pinned_drop(args, input, dcx)).into()
 }
 
 #[proc_macro_derive(Zeroable)]
 pub fn derive_zeroable(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
-    DiagCtxt::with(|dcx| zeroable::derive(input, dcx)).into()
+    DiagCtxt::for_item(|dcx| zeroable::derive(input, dcx)).into()
 }
 
 #[proc_macro_derive(MaybeZeroable)]
 pub fn maybe_derive_zeroable(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
-    DiagCtxt::with(|dcx| zeroable::maybe_derive(input, dcx)).into()
+    DiagCtxt::for_item(|dcx| zeroable::maybe_derive(input, dcx)).into()
 }
 #[proc_macro]
 pub fn init(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
-    DiagCtxt::with(|dcx| {
+    DiagCtxt::for_expr(|dcx| {
         init::expand_with_cfg(input, Some("::core::convert::Infallible"), false, dcx)
     })
     .into()
@@ -58,7 +58,7 @@ pub fn init(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn pin_init(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input);
-    DiagCtxt::with(|dcx| {
+    DiagCtxt::for_expr(|dcx| {
         init::expand_with_cfg(input, Some("::core::convert::Infallible"), true, dcx)
     })
     .into()
