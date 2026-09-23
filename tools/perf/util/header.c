@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include <byteswap.h>
 #include <dirent.h>
@@ -95,6 +96,7 @@
 #define MAX_PMU_CAPS		512
 #define MAX_PMU_MAPPINGS	4096
 #define MAX_SCHED_DOMAINS	64
+#define MAX_MEMORY_RANGES	256
 
 /*
  * magic2 = "PERFILE2"
@@ -1914,6 +1916,132 @@ out:
 	return ret;
 }
 
+static int memory_range__read(struct memory_range *range, const char *path)
+{
+	char buf[32];
+	ssize_t n;
+	int dfd, fd, tmp, ret = -1;
+
+	dfd = open(path, O_RDONLY | O_DIRECTORY);
+	if (dfd < 0)
+		return -1;
+
+#define _R(name, dst, conv)			\
+	fd = openat(dfd, name, O_RDONLY);	\
+	if (fd < 0)				\
+		goto out;			\
+	n = read(fd, buf, sizeof(buf) - 1);	\
+	close(fd);				\
+	if (n <= 0)				\
+		goto out;			\
+	buf[n] = '\0';				\
+	dst = conv(buf, NULL, 0);
+
+	_R("base", range->base, strtoull);
+	_R("length", range->length, strtoull);
+	_R("node", range->node, strtol);
+	_R("local_region_id", tmp, strtol);
+	if (tmp < 0 || tmp > UINT8_MAX)
+		goto out;
+	range->local_region_id = tmp;
+	_R("remote_region_id", tmp, strtol);
+	if (tmp < 0 || tmp > UINT8_MAX)
+		goto out;
+	range->remote_region_id = tmp;
+#undef _R
+
+	ret = 0;
+out:
+	close(dfd);
+	return ret;
+}
+
+static int memory_range__parse(struct memory_range **ranges)
+{
+	const char *sysfs = sysfs__mountpoint();
+	int i, err, nr_memory_ranges = 0;
+	char path[PATH_MAX];
+	struct stat st;
+
+	if (!sysfs)
+		return 0;
+
+	scnprintf(path, PATH_MAX, "%s/firmware/acpi/memory_ranges", sysfs);
+	if (stat(path, &st))
+		return 0;
+
+	while (1) {
+		scnprintf(path, PATH_MAX,
+			  "%s/firmware/acpi/memory_ranges/range%d",
+			  sysfs, nr_memory_ranges);
+		if (stat(path, &st))
+			break;
+
+		nr_memory_ranges++;
+	}
+
+	if (nr_memory_ranges == 0)
+		return 0;
+
+	*ranges = calloc(nr_memory_ranges, sizeof(struct memory_range));
+	if (!(*ranges))
+		return -ENOMEM;
+
+	for (i = 0; i < nr_memory_ranges; i++) {
+		struct memory_range range;
+
+		scnprintf(path, PATH_MAX,
+			  "%s/firmware/acpi/memory_ranges/range%d", sysfs, i);
+		err = memory_range__read(&range, path);
+		if (err < 0)
+			goto out_error;
+
+		(*ranges)[i] = range;
+	}
+
+	return nr_memory_ranges;
+
+out_error:
+	zfree(ranges);
+	return -1;
+}
+
+static int write_memory_ranges(struct feat_fd *ff,
+			 struct evlist *evlist __maybe_unused)
+{
+	struct memory_range *ranges = NULL;
+	int nr_memory_ranges = 0, ret;
+
+	nr_memory_ranges = memory_range__parse(&ranges);
+	if (nr_memory_ranges < 0)
+		return nr_memory_ranges;
+
+	ret = do_write(ff, &nr_memory_ranges, sizeof(nr_memory_ranges));
+	if (ret < 0)
+		goto out;
+
+	for (int i = 0; i < nr_memory_ranges; i++) {
+		ret = do_write(ff, &ranges[i].base, sizeof(u64));
+		if (ret < 0)
+			goto out;
+		ret = do_write(ff, &ranges[i].length, sizeof(u64));
+		if (ret < 0)
+			goto out;
+		ret = do_write(ff, &ranges[i].node, sizeof(u32));
+		if (ret < 0)
+			goto out;
+		ret = do_write(ff, &ranges[i].local_region_id, sizeof(u8));
+		if (ret < 0)
+			goto out;
+		ret = do_write(ff, &ranges[i].remote_region_id, sizeof(u8));
+		if (ret < 0)
+			goto out;
+	}
+out:
+	zfree(&ranges);
+	return ret;
+}
+
 static void print_hostname(struct feat_fd *ff, FILE *fp)
 {
 	fprintf(fp, "# hostname : %s\n", ff->ph->env.hostname);
@@ -2649,6 +2777,23 @@ static void print_cpu_domain_info(struct feat_fd *ff, FILE *fp)
 			fprintf(fp, "# Domain cpu map   : %s\n", d_info->cpumask);
 			fprintf(fp, "# Domain cpu list  : %s\n", d_info->cpulist);
 		}
+	}
+}
+
+static void print_memory_ranges(struct feat_fd *ff, FILE *fp)
+{
+	struct memory_range *ranges = ff->ph->env.memory_ranges;
+	int nr_memory_ranges = ff->ph->env.nr_memory_ranges;
+	int i;
+
+	fprintf(fp, "# memory ranges (nr %d):\n", nr_memory_ranges);
+
+	for (i = 0; i < nr_memory_ranges; i++) {
+		fprintf(fp, "# range%u: [0x%016" PRIx64 "-0x%016" PRIx64,
+			i, ranges[i].base, ranges[i].base + ranges[i].length - 1);
+		fprintf(fp, "], node = %d, local_region_id = %d, remote_region_id = %d\n",
+			ranges[i].node, ranges[i].local_region_id,
+			ranges[i].remote_region_id);
 	}
 }
 
@@ -4227,6 +4372,65 @@ static int process_cpu_domain_info(struct feat_fd *ff, void *data __maybe_unused
 	return ret;
 }
 
+static int process_memory_ranges(struct feat_fd *ff, void *data __maybe_unused)
+{
+	struct perf_env *env = &ff->ph->env;
+	struct memory_range *ranges, *r;
+	u32 nr_memory_ranges, i;
+
+	if (do_read_u32(ff, &nr_memory_ranges))
+		return -1;
+
+	if (!nr_memory_ranges) {
+		pr_debug("memory ranges not available\n");
+		return 0;
+	}
+
+	/*
+	 * According to version 1.1 of the ACPI MRRM table, the maximum
+	 * number of memory regions can be at most 255. Do a sanity check
+	 * here to guard against a malformed perf.data file.
+	 */
+	if (nr_memory_ranges > MAX_MEMORY_RANGES) {
+		pr_err("Invalid memory_ranges: nr_memory_ranges (%u) > %u\n",
+		       nr_memory_ranges, MAX_MEMORY_RANGES);
+		return -1;
+	}
+
+	if (ff->size < sizeof(u32) + nr_memory_ranges * (2 * sizeof(u64) + sizeof(u32) + 2 * sizeof(u8))) {
+		pr_err("Invalid HEADER_MEMORY_RANGES: section too small (%zu) for %u range entries\n",
+		       ff->size, nr_memory_ranges);
+		return -1;
+	}
+
+	ranges = calloc(nr_memory_ranges, sizeof(*ranges));
+	if (!ranges)
+		return -1;
+
+	for (i = 0; i < nr_memory_ranges; i++) {
+		r = &ranges[i];
+
+		if (do_read_u64(ff, &r->base))
+			goto error;
+		if (do_read_u64(ff, &r->length))
+			goto error;
+		if (do_read_u32(ff, (u32 *) &r->node))
+			goto error;
+		if (__do_read(ff, &r->local_region_id, sizeof(u8)))
+			goto error;
+		if (__do_read(ff, &r->remote_region_id, sizeof(u8)))
+			goto error;
+	}
+
+	env->memory_ranges = ranges;
+	env->nr_memory_ranges = nr_memory_ranges;
+
+	return 0;
+error:
+	zfree(&ranges);
+	return -1;
+}
+
 #define FEAT_OPR(n, func, __full_only) \
 	[HEADER_##n] = {					\
 		.name	    = __stringify(n),			\
@@ -4291,6 +4495,7 @@ const struct perf_header_feature_ops feat_ops[HEADER_LAST_FEATURE] = {
 	FEAT_OPR(CPU_DOMAIN_INFO,	cpu_domain_info,	true),
 	FEAT_OPR(E_MACHINE,	e_machine,	false),
 	FEAT_OPR(CLN_SIZE,	cln_size,	false),
+	FEAT_OPR(MEMORY_RANGES,	memory_ranges,	false),
 };
 
 struct header_print_data {
