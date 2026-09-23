@@ -2038,6 +2038,14 @@ int run_stdlib(int min, int max)
 		CASE_TEST(htole32);                 EXPECT_EQ(1, htole32(is_le ? 0x01234567 : 0x67452301), 0x01234567); break;
 		CASE_TEST(htobe64);                 EXPECT_EQ(1, htobe64(is_le ? 0x0123456789000000 : 0x8967452301), 0x8967452301); break;
 		CASE_TEST(htole64);                 EXPECT_EQ(1, htole64(is_le ? 0x0123456789 : 0x8967452301000000), 0x0123456789); break;
+		CASE_TEST(wexitstatus);             EXPECT_EQ(1, WEXITSTATUS(0x1200), 0x12); break;
+		CASE_TEST(wifexited_exit0);         EXPECT_EQ(1, WIFEXITED(0), 1); break;
+		CASE_TEST(wifexited_signal);        EXPECT_EQ(1, WIFEXITED(SIGKILL), 0); break;
+		CASE_TEST(wifsignaled_exit0);       EXPECT_EQ(1, WIFSIGNALED(0), 0); break;
+		CASE_TEST(wifsignaled_exit);        EXPECT_EQ(1, WIFSIGNALED(0x1200), 0); break;
+		CASE_TEST(wifsignaled_signal);      EXPECT_EQ(1, WIFSIGNALED(SIGKILL), 1); break;
+		CASE_TEST(wifsignaled_stopped);     EXPECT_EQ(1, WIFSIGNALED((SIGSTOP << 8) | 0x7f), 0); break;
+		CASE_TEST(wtermsig_core);           EXPECT_EQ(1, WTERMSIG(0x80 | SIGSEGV), SIGSEGV); break;
 
 		case __LINE__:
 			return ret; /* must be last */
