@@ -9959,19 +9959,6 @@ alloc_reclaim(void)
 	return kmalloc_obj(struct nfs4_client_reclaim);
 }
 
-bool
-nfs4_has_reclaimed_state(struct xdr_netobj name, struct nfsd_net *nn)
-{
-	struct nfs4_client_reclaim *crp;
-	bool found;
-
-	down_read(&nn->reclaim_str_hashtbl_lock);
-	crp = nfsd4_find_reclaim_client(name, nn);
-	found = (crp && crp->cr_clp);
-	up_read(&nn->reclaim_str_hashtbl_lock);
-	return found;
-}
-
 /*
  * failure => all reset bets are off, nfserr_no_grace...
  */
@@ -9985,12 +9972,12 @@ nfs4_client_to_reclaim(struct xdr_netobj name, struct xdr_netobj princhash,
 	down_write(&nn->reclaim_str_hashtbl_lock);
 
 	/*
-	 * A reclaim record for this client name may already exist (for
-	 * example, populated at boot from the recovery directory before
-	 * an in-grace RECLAIM_COMPLETE or an nfsdcld downcall delivers
-	 * the same name). Dedup here so reclaim_str_hashtbl_size stays
-	 * equal to the number of distinct client names; inc_reclaim_complete
-	 * relies on that equality to end the grace period via the fast path.
+	 * A reclaim record for this client name may already exist:
+	 * nfsdcld can deliver the same name more than once during the
+	 * boot-time downcall stream. Dedup here so reclaim_str_hashtbl_size
+	 * stays equal to the number of distinct client names;
+	 * inc_reclaim_complete relies on that equality to end the grace
+	 * period via the fast path.
 	 */
 	crp = nfsd4_find_reclaim_client(name, nn);
 	if (crp) {
