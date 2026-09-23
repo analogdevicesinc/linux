@@ -4889,28 +4889,6 @@ ata_scsi_get_phys_element_status_xlat(struct ata_queued_cmd *qc)
 	return 0;
 }
 
-static void ata_scsi_depop_ua_cap_changed_complete(struct ata_queued_cmd *qc)
-{
-	struct scsi_cmnd *scmd = qc->scsicmd;
-	u8 *cdb = scmd->cmnd;
-	bool is_ata_passthru = cdb[0] == ATA_16 || cdb[0] == ATA_12;
-	bool is_success = qc->err_mask == 0;
-
-	/*
-	 * For successful non-passthrough commands, raise a UNIT ATTENTION with
-	 * the additional sense code set to CAPACITY DATA HAS CHANGED to be
-	 * raised. Note that this should be done only if the capacity has
-	 * actually changed, which may not be the case if the element that was
-	 * specified for depopulation was already depopulated, or we did not
-	 * restore any removed element. But a capacity change unit attention is
-	 * harmless, so always raise the unit attention.
-	 */
-	if (is_success && !is_ata_passthru)
-		ata_scsi_set_sense(qc->dev, scmd, UNIT_ATTENTION,
-				   CAPACITY_DATA_HAS_CHANGED);
-	ata_scsi_qc_complete(qc);
-}
-
 static unsigned int
 ata_scsi_remove_element_and_truncate_xlat(struct ata_queued_cmd *qc)
 {
@@ -4951,7 +4929,6 @@ ata_scsi_remove_element_and_truncate_xlat(struct ata_queued_cmd *qc)
 	tf->flags |= ATA_TFLAG_ISADDR | ATA_TFLAG_DEVICE | ATA_TFLAG_LBA48;
 
 	qc->flags |= ATA_QCFLAG_RESULT_TF;
-	qc->complete_fn = ata_scsi_depop_ua_cap_changed_complete;
 
 	return 0;
 }
@@ -5006,7 +4983,6 @@ ata_scsi_restore_elements_and_rebuild_xlat(struct ata_queued_cmd *qc)
 	tf->flags |= ATA_TFLAG_ISADDR | ATA_TFLAG_DEVICE | ATA_TFLAG_LBA48;
 
 	qc->flags |= ATA_QCFLAG_RESULT_TF;
-	qc->complete_fn = ata_scsi_depop_ua_cap_changed_complete;
 
 	return 0;
 }
