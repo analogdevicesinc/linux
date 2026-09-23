@@ -89,9 +89,7 @@ enum xe_page_size_alloc_ctrl_mode {
 
 #define XE_VRAM_FLAGS_NEED64K		BIT(0)
 
-#define XE_GT0		0
-#define XE_GT1		1
-#define XE_MAX_TILES_PER_DEVICE	(XE_GT1 + 1)
+#define XE_MAX_TILES_PER_DEVICE 2
 
 /*
  * Highest GT/tile count for any platform.  Used only for memory allocation
