@@ -40,6 +40,7 @@ static int mana_ib_post_rq(struct mana_ib_qp *qp, const struct ib_recv_wr *wr)
 	memset(shadow_wqe, 0, sizeof(*shadow_wqe));
 	shadow_wqe->wr_id = wr->wr_id;
 	shadow_wqe->wqe_size_in_bu = wqe_info.wqe_size_in_bu;
+	shadow_wqe->wqe_offset_or_psn = wqe_info.wqe_offset;
 	shadow_queue_advance_producer(&qp->shadow_rq);
 
 	return 0;
@@ -96,6 +97,7 @@ static int mana_ib_post_send_ud_one(struct mana_ib_qp *qp, const struct ib_ud_wr
 	struct gdma_wqe_request wqe_req = {0};
 	struct rdma_send_oob send_oob = {0};
 	struct shadow_wqe_header *shadow_wqe;
+	bool signaled = qp->sq_sig_all || (wr->wr.send_flags & IB_SEND_SIGNALED);
 	int err, i;
 
 	if (!ndev)
@@ -128,7 +130,7 @@ static int mana_ib_post_send_ud_one(struct mana_ib_qp *qp, const struct ib_ud_wr
 
 	send_oob.wqe_type = WQE_TYPE_UD_SEND;
 	send_oob.fence = !!(wr->wr.send_flags & IB_SEND_FENCE);
-	send_oob.signaled = !!(wr->wr.send_flags & IB_SEND_SIGNALED);
+	send_oob.signaled = signaled;
 	send_oob.solicited = !!(wr->wr.send_flags & IB_SEND_SOLICITED);
 	send_oob.psn = qp->sq_psn;
 	send_oob.ssn_or_rqpn = wr->remote_qpn;
@@ -143,7 +145,9 @@ static int mana_ib_post_send_ud_one(struct mana_ib_qp *qp, const struct ib_ud_wr
 	shadow_wqe = shadow_queue_producer_entry(&qp->shadow_sq);
 	memset(shadow_wqe, 0, sizeof(*shadow_wqe));
 	shadow_wqe->wr_id = wr->wr.wr_id;
+	shadow_wqe->flags = signaled ? 0 : MANA_WQ_NO_SIGNAL_WC;
 	shadow_wqe->wqe_size_in_bu = wqe_info.wqe_size_in_bu;
+	shadow_wqe->wqe_offset_or_psn = wqe_info.wqe_offset;
 	shadow_queue_advance_producer(&qp->shadow_sq);
 
 	return 0;
@@ -153,8 +157,11 @@ static int mana_ib_post_send_ud(struct mana_ib_qp *qp, const struct ib_send_wr *
 				const struct ib_send_wr **bad_wr)
 {
 	struct mana_ib_dev *mdev = container_of(qp->ibqp.device, struct mana_ib_dev, ib_dev);
+	struct mana_ib_cq *cq = container_of(qp->ibqp.send_cq, struct mana_ib_cq, ibcq);
 	struct gdma_queue *queue = qp->ud_qp.queues[MANA_UD_SEND_QUEUE].kmem;
+	unsigned long flags;
 	bool ring_sq = false;
+	bool flush_send;
 	int err = 0;
 
 	for (; wr; wr = wr->next) {
@@ -166,8 +173,16 @@ static int mana_ib_post_send_ud(struct mana_ib_qp *qp, const struct ib_send_wr *
 		ring_sq = true;
 	}
 
-	if (ring_sq)
+	if (ring_sq) {
 		mana_gd_wq_ring_doorbell(mdev_to_gc(mdev), queue);
+
+		spin_lock_irqsave(&cq->cq_lock, flags);
+		flush_send = !list_empty(&qp->send_err_node);
+		spin_unlock_irqrestore(&cq->cq_lock, flags);
+
+		if (flush_send && cq->ibcq.comp_handler)
+			cq->ibcq.comp_handler(&cq->ibcq, cq->ibcq.cq_context);
+	}
 
 	return err;
 }

@@ -166,8 +166,10 @@ struct mana_ib_cq {
 	struct mana_ib_queue queue;
 	/* protects CQ polling */
 	spinlock_t cq_lock;
-	struct list_head list_send_qp;
-	struct list_head list_recv_qp;
+	struct list_head send_err_qp_list;
+	struct list_head recv_err_qp_list;
+	struct gdma_comp pending_cqe;
+	bool has_pending_cqe;
 	int cqe;
 	u32 comp_vector;
 	u32 poll_credit;
@@ -223,9 +225,13 @@ struct mana_ib_qp {
 	/* The port on the IB device, starting with 1 */
 	u32 port;
 	u32 sq_psn;
+	bool sq_sig_all;
 
-	struct list_head cq_send_list;
-	struct list_head cq_recv_list;
+	/* Serializes QP modification and error-list transitions. */
+	struct mutex modify_lock;
+
+	struct list_head send_err_node;
+	struct list_head recv_err_node;
 	struct shadow_queue shadow_rq;
 	struct shadow_queue shadow_sq;
 
@@ -586,6 +592,53 @@ struct rdma_recv_oob {
 	u32 reserved2   : 8;
 }; /* HW DATA */
 
+enum mana_ib_error_code {
+	VENDOR_ERR_OK					= 0x0,
+	VENDOR_ERR_RX_PKT_LEN                           = 0x05,
+	VENDOR_ERR_RX_MSG_LEN_OVFL                      = 0x102,
+	VENDOR_ERR_RX_MISBEHAVING_CLIENT                = 0x108,
+	VENDOR_ERR_RX_MALFORMED_WQE                     = 0x109,
+	VENDOR_ERR_RX_CLIENT_ID                         = 0x10a,
+	VENDOR_ERR_RX_GFID                              = 0x10b,
+	VENDOR_ERR_RX_PCIE                              = 0x10c,
+	VENDOR_ERR_RX_NO_AVAIL_WQE                      = 0x111,
+	VENDOR_ERR_RX_ATB_SGE_MISSCONFIG                = 0x143,
+	VENDOR_ERR_RX_ATB_WQE_MISCONFIG                 = 0x145,
+	VENDOR_ERR_RX_ATB_SGE_ADDR_RIGHT                = 0x183,
+	VENDOR_ERR_RX_ATB_WQE_ADDR_RIGHT                = 0x185,
+	VENDOR_ERR_RX_ATB_SGE_ADDR_RANGE                = 0x1c3,
+	VENDOR_ERR_RX_ATB_WQE_ADDR_RANGE                = 0x1c5,
+	VENDOR_ERR_RX_NOT_EMPTY_ON_DISABLE              = 0x1c7,
+	VENDOR_ERR_TX_GDMA_CORRUPTED_WQE                = 0x201,
+	VENDOR_ERR_TX_ATB_WQE_ACCESS_VIOLATION          = 0x202,
+	VENDOR_ERR_TX_ATB_WQE_ADDR_RANGE                = 0x203,
+	VENDOR_ERR_TX_ATB_WQE_CONFIG_ERR                = 0x204,
+	VENDOR_ERR_TX_PCIE_WQE                          = 0x205,
+	VENDOR_ERR_TX_ATB_MSG_ACCESS_VIOLATION          = 0x206,
+	VENDOR_ERR_TX_ATB_MSG_ADDR_RANGE                = 0x207,
+	VENDOR_ERR_TX_ATB_MSG_CONFIG_ERR                = 0x208,
+	VENDOR_ERR_TX_PCIE_MSG                          = 0x209,
+	VENDOR_ERR_TX_GDMA_INVALID_STATE                = 0x20a,
+	VENDOR_ERR_TX_MISBEHAVING_CLIENT                = 0x20b,
+	VENDOR_ERR_TX_RDMA_MALFORMED_WQE_SIZE           = 0x210,
+	VENDOR_ERR_TX_RDMA_MALFORMED_WQE_FIELD          = 0x211,
+	VENDOR_ERR_TX_RDMA_INVALID_STATE                = 0x212,
+	VENDOR_ERR_TX_RDMA_INVALID_NPT                  = 0x213,
+	VENDOR_ERR_TX_RDMA_INVALID_SGID                 = 0x214,
+	VENDOR_ERR_TX_RDMA_WQE_UNSUPPORTED              = 0x215,
+	VENDOR_ERR_TX_RDMA_WQE_LEN_ERR                  = 0x216,
+	VENDOR_ERR_TX_RDMA_MTU_ERR                      = 0x217,
+	VENDOR_ERR_TX_RDMA_VFID_MISMATCH                = 0x218,
+	VENDOR_ERR_HW_MAX                               = 0x3ff,
+	/* SW vendor errors */
+	VENDOR_ERR_SW_FLUSHED				= 0xfff,
+};
+
+enum mana_ib_cqe_type {
+	CQE_TYPE_UD_SEND = 1,
+	CQE_TYPE_UD_SEND_IMM = 2,
+}; /* HW DATA */
+
 struct mana_rdma_cqe {
 	union {
 		struct {
@@ -594,8 +647,7 @@ struct mana_rdma_cqe {
 		};
 		struct {
 			u32 cqe_type		: 8;
-			u32 vendor_error	: 9;
-			u32 reserved1		: 15;
+			u32 reserved1		: 24;
 			u32 sge_offset		: 5;
 			u32 tx_wqe_offset	: 27;
 		} ud_send;

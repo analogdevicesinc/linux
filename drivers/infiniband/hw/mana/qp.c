@@ -695,33 +695,23 @@ destroy_queues:
 	return err;
 }
 
-static void mana_add_qp_to_cqs(struct mana_ib_qp *qp)
+static void mana_remove_qp_from_cqs(struct mana_ib_qp *qp, bool reset)
 {
 	struct mana_ib_cq *send_cq = container_of(qp->ibqp.send_cq, struct mana_ib_cq, ibcq);
 	struct mana_ib_cq *recv_cq = container_of(qp->ibqp.recv_cq, struct mana_ib_cq, ibcq);
 	unsigned long flags;
 
 	spin_lock_irqsave(&send_cq->cq_lock, flags);
-	list_add_tail(&qp->cq_send_list, &send_cq->list_send_qp);
+	list_del_init(&qp->send_err_node);
+	/* Keep shadow reset serialized with hardware polling and SW flushing. */
+	if (reset)
+		reset_shadow_queue(&qp->shadow_sq);
 	spin_unlock_irqrestore(&send_cq->cq_lock, flags);
 
 	spin_lock_irqsave(&recv_cq->cq_lock, flags);
-	list_add_tail(&qp->cq_recv_list, &recv_cq->list_recv_qp);
-	spin_unlock_irqrestore(&recv_cq->cq_lock, flags);
-}
-
-static void mana_remove_qp_from_cqs(struct mana_ib_qp *qp)
-{
-	struct mana_ib_cq *send_cq = container_of(qp->ibqp.send_cq, struct mana_ib_cq, ibcq);
-	struct mana_ib_cq *recv_cq = container_of(qp->ibqp.recv_cq, struct mana_ib_cq, ibcq);
-	unsigned long flags;
-
-	spin_lock_irqsave(&send_cq->cq_lock, flags);
-	list_del(&qp->cq_send_list);
-	spin_unlock_irqrestore(&send_cq->cq_lock, flags);
-
-	spin_lock_irqsave(&recv_cq->cq_lock, flags);
-	list_del(&qp->cq_recv_list);
+	list_del_init(&qp->recv_err_node);
+	if (reset)
+		reset_shadow_queue(&qp->shadow_rq);
 	spin_unlock_irqrestore(&recv_cq->cq_lock, flags);
 }
 
@@ -777,8 +767,6 @@ static int mana_ib_create_ud_qp(struct ib_qp *ibqp, struct ib_pd *ibpd,
 	if (err)
 		goto destroy_qp;
 
-	mana_add_qp_to_cqs(qp);
-
 	return 0;
 
 destroy_qp:
@@ -795,6 +783,13 @@ destroy_queues:
 int mana_ib_create_qp(struct ib_qp *ibqp, struct ib_qp_init_attr *attr,
 		      struct ib_udata *udata)
 {
+	struct mana_ib_qp *qp = container_of(ibqp, struct mana_ib_qp, ibqp);
+
+	qp->sq_sig_all = attr->sq_sig_type == IB_SIGNAL_ALL_WR;
+	mutex_init(&qp->modify_lock);
+	INIT_LIST_HEAD(&qp->send_err_node);
+	INIT_LIST_HEAD(&qp->recv_err_node);
+
 	switch (attr->qp_type) {
 	case IB_QPT_RAW_PACKET:
 		/* When rwq_ind_tbl is used, it's for creating WQs for RSS */
@@ -892,19 +887,56 @@ static int mana_ib_gd_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	return 0;
 }
 
+static void mana_ib_modify_qp_state(struct ib_qp *ibqp, struct ib_qp_attr *attr,
+				    int attr_mask, struct ib_udata *udata)
+{
+	struct mana_ib_qp *qp = container_of(ibqp, struct mana_ib_qp, ibqp);
+
+	if (udata)
+		return;
+
+	if (attr_mask & IB_QP_STATE) {
+		switch (attr->qp_state) {
+		case IB_QPS_RESET:
+			mana_remove_qp_from_cqs(qp, true);
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (attr_mask & IB_QP_SQ_PSN)
+		qp->sq_psn = attr->sq_psn;
+}
+
 int mana_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 		      int attr_mask, struct ib_udata *udata)
 {
+	struct mana_ib_qp *qp = container_of(ibqp, struct mana_ib_qp, ibqp);
+	int ret;
+
+	mutex_lock(&qp->modify_lock);
+
 	switch (ibqp->qp_type) {
 	case IB_QPT_RC:
 	case IB_QPT_UC:
 	case IB_QPT_UD:
 	case IB_QPT_GSI:
-		return mana_ib_gd_modify_qp(ibqp, attr, attr_mask, udata);
+		ret = mana_ib_gd_modify_qp(ibqp, attr, attr_mask, udata);
+		if (ret)
+			goto out_unlock;
+		break;
 	default:
-		ibdev_dbg(ibqp->device, "Modify QP type %u not supported", ibqp->qp_type);
-		return -EOPNOTSUPP;
+		ret = -EOPNOTSUPP;
+		goto out_unlock;
 	}
+
+	mana_ib_modify_qp_state(ibqp, attr, attr_mask, udata);
+
+out_unlock:
+	mutex_unlock(&qp->modify_lock);
+
+	return ret;
 }
 
 static int mana_ib_destroy_qp_rss(struct mana_ib_qp *qp,
@@ -1041,8 +1073,8 @@ static int mana_ib_destroy_ud_qp(struct mana_ib_qp *qp, struct ib_udata *udata)
 	if (err)
 		return err;
 
-	mana_remove_qp_from_cqs(qp);
 	mana_table_remove_qp(mdev, qp);
+	mana_remove_qp_from_cqs(qp, false);
 
 	destroy_shadow_queue(&qp->shadow_rq);
 	destroy_shadow_queue(&qp->shadow_sq);

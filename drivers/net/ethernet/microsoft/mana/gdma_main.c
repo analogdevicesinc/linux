@@ -1807,10 +1807,12 @@ int mana_gd_post_work_request(struct gdma_queue *wq,
 	if (wq->monitor_avl_buf && wqe_size > mana_gd_wq_avail_space(wq))
 		return -ENOSPC;
 
-	if (wqe_info)
-		wqe_info->wqe_size_in_bu = wqe_size / GDMA_WQE_BU_SIZE;
-
 	head = wq->head;
+	if (wqe_info) {
+		wqe_info->wqe_size_in_bu = wqe_size / GDMA_WQE_BU_SIZE;
+		wqe_info->wqe_offset = head;
+	}
+
 	wqe_offset = (head * GDMA_WQE_BU_SIZE) & (wq->queue_size - 1);
 	wqe_ptr = mana_gd_get_wqe_ptr(wq, head);
 	oob_len = mana_gd_write_client_oob(wqe_req, wq->type, client_oob_size,

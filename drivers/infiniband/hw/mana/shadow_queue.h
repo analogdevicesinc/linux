@@ -6,13 +6,19 @@
 #ifndef _MANA_SHADOW_QUEUE_H_
 #define _MANA_SHADOW_QUEUE_H_
 
+#include <linux/build_bug.h>
+
+#define MANA_WQ_FENCE_WC		BIT(0)
+#define MANA_WQ_NO_SIGNAL_WC		BIT(1)
+#define MANA_WQE_OFFSET_MASK	GENMASK(23, 0)
+
 struct shadow_wqe_header {
 	u64 wr_id;
+	u64 wqe_offset_or_psn : 24;
 	u64 wqe_size_in_bu : 8;
+	u64 fsn : 24;
 	u64 send_opcode : 4;
-	u64 error_code : 16;
-	u32 byte_len;
-	u32 src_qpn;
+	u64 flags : 2;
 };
 
 struct shadow_queue {
@@ -20,8 +26,6 @@ struct shadow_queue {
 	u64 prod_idx;
 	/* Unmasked consumer index, Incremented on cq polling */
 	u64 cons_idx;
-	/* Unmasked index of next-to-complete (from HW) shadow WQE */
-	u64 next_to_complete_idx;
 	/* queue size in wqes */
 	u32 length;
 	/* distance between elements in bytes */
@@ -40,6 +44,12 @@ static inline int create_shadow_queue(struct shadow_queue *queue, uint32_t lengt
 	queue->stride = stride;
 
 	return 0;
+}
+
+static inline void reset_shadow_queue(struct shadow_queue *queue)
+{
+	queue->prod_idx = 0;
+	queue->cons_idx = 0;
 }
 
 static inline void destroy_shadow_queue(struct shadow_queue *queue)
@@ -76,20 +86,11 @@ shadow_queue_producer_entry(struct shadow_queue *queue)
 static inline void *
 shadow_queue_get_next_to_consume(const struct shadow_queue *queue)
 {
-	if (queue->cons_idx == queue->next_to_complete_idx)
+	/* The producer publishes the WQE before advancing prod_idx. */
+	if (queue->cons_idx == smp_load_acquire(&queue->prod_idx))
 		return NULL;
 
 	return shadow_queue_get_element(queue, queue->cons_idx);
-}
-
-static inline void *
-shadow_queue_get_next_to_complete(struct shadow_queue *queue)
-{
-	/* Observe initialized WQE fields published by the posting CPU. */
-	if (queue->next_to_complete_idx == smp_load_acquire(&queue->prod_idx))
-		return NULL;
-
-	return shadow_queue_get_element(queue, queue->next_to_complete_idx);
 }
 
 static inline void shadow_queue_advance_producer(struct shadow_queue *queue)
@@ -102,11 +103,6 @@ static inline void shadow_queue_advance_consumer(struct shadow_queue *queue)
 {
 	/* Finish WC generation and queue-tail updates before allowing reuse. */
 	smp_store_release(&queue->cons_idx, queue->cons_idx + 1);
-}
-
-static inline void shadow_queue_advance_next_to_complete(struct shadow_queue *queue)
-{
-	queue->next_to_complete_idx++;
 }
 
 #endif

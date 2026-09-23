@@ -630,6 +630,8 @@ struct gdma_eqe {
 
 struct gdma_posted_wqe_info {
 	u32 wqe_size_in_bu;
+	/* Unmasked WQE start offset in GDMA basic units. */
+	u32 wqe_offset;
 };
 
 /* GDMA_GENERATE_TEST_EQE */
