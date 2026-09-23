@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, Error};
 
@@ -77,7 +77,27 @@ impl DiagCtxt {
             });
         });
 
-        let result = f(&mut DiagCtxt(PhantomData));
+        let mut dcx = DiagCtxt(PhantomData);
+        let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(&mut dcx))) {
+            Ok(result) => result,
+            Err(payload) => {
+                // Robustness against panicking in macros.
+                //
+                // Ensure that any error messages are still emitted when this happens.
+                let message = if let Some(&s) = payload.downcast_ref::<&'static str>() {
+                    s
+                } else if let Some(s) = payload.downcast_ref::<String>() {
+                    s.as_str()
+                } else {
+                    "Box<dyn Any>"
+                };
+
+                Err(dcx.error(
+                    Span::mixed_site(),
+                    format!("proc macro panicked: {message}"),
+                ))
+            }
+        };
 
         let data = DIAGNOSTICS.with_borrow_mut(|data| data.take().unwrap());
 
