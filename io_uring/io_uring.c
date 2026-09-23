@@ -735,6 +735,9 @@ bool io_cqe_cache_refill(struct io_ring_ctx *ctx, bool overflow, bool cqe32)
 	 */
 	if (cqe32 && (ctx->flags & IORING_SETUP_CQE_MIXED) &&
 	    off + 1 == ctx->cq_entries) {
+		/* one for the dummy CQE, two for the 32b CQE itself */
+		if (ctx->cq_entries - io_cqring_queued(ctx) < 3)
+			return false;
 		if (!io_fill_nop_cqe(ctx, off))
 			return false;
 		off = 0;
