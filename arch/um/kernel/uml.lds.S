@@ -78,6 +78,7 @@ SECTIONS
   {
     INIT_TASK_DATA(KERNEL_STACK_SIZE)
     DATA_DATA
+    *(.ldata .ldata.[0-9a-zA-Z_]* .ldata..L*)
     *(.gnu.linkonce.d*)
     CONSTRUCTORS
   }
@@ -107,6 +108,7 @@ SECTIONS
   PROVIDE(_bss_start = .);
   SBSS(0)
   BSS(0)
+  *(.lbss .lbss.[0-9a-zA-Z_]* .lbss..L*)
    __bss_stop = .;
   _end = .;
   PROVIDE (end = .);

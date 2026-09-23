@@ -117,6 +117,7 @@ SECTIONS
   .data           : {
     INIT_TASK_DATA(KERNEL_STACK_SIZE)
     DATA_DATA
+    *(.ldata .ldata.[0-9a-zA-Z_]* .ldata..L*)
     *(.data.* .gnu.linkonce.d.*)
     SORT(CONSTRUCTORS)
   }
@@ -159,6 +160,7 @@ SECTIONS
    __bss_start = .;
    *(.dynbss)
    *(.bss .bss.* .gnu.linkonce.b.*)
+   *(.lbss .lbss.[0-9a-zA-Z_]* .lbss..L*)
    *(COMMON)
    /* Align here to ensure that the .bss section occupies space up to
       _end.  Align after .bss to ensure correct alignment even if the
