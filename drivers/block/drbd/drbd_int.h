@@ -449,6 +449,7 @@ enum {
 	RS_START,		/* tell worker to start resync/OV */
 	RS_PROGRESS,		/* tell worker that resync made significant progress */
 	RS_DONE,		/* tell worker that resync is done */
+	UNREGISTERED,		/* minor removed, device may still be referenced */
 };
 
 struct drbd_bitmap; /* opaque for drbd_device */
@@ -573,9 +574,20 @@ enum {
 	DISCONNECT_SENT,
 
 	DEVICE_WORK_PENDING,	/* tell worker that some device has pending work */
+	C_UNREGISTERED,		/* removed from the resource, may still be referenced */
 };
 
 enum which_state { NOW, OLD = NOW, NEW };
+
+/* flag bits per resource */
+enum {
+	R_UNREGISTERED,		/* removed from the resources list, may still be referenced */
+};
+
+enum drbd_per_resource_ratelimit {
+	D_RL_R_NOLIMIT = -1,
+	D_RL_R_GENERIC,
+};
 
 struct drbd_resource {
 	char *name;
@@ -587,6 +599,10 @@ struct drbd_resource {
 #endif
 	struct kref kref;
 	struct idr devices;		/* volume number to device mapping */
+
+	struct ratelimit_state ratelimit[1];
+
+	unsigned long flags;
 	struct list_head connections;
 	struct list_head resources;
 	struct res_opts res_opts;
@@ -612,6 +628,11 @@ struct drbd_thread_timing_details
 	unsigned int cb_nr;
 };
 
+enum drbd_per_connection_ratelimit {
+	D_RL_C_NOLIMIT = -1,
+	D_RL_C_GENERIC,
+};
+
 struct drbd_connection {
 	struct list_head connections;
 	struct drbd_resource *resource;
@@ -622,6 +643,9 @@ struct drbd_connection {
 #endif
 	struct kref kref;
 	struct idr peer_devices;	/* volume number to peer device mapping */
+
+	struct ratelimit_state ratelimit[1];
+
 	enum drbd_conns cstate;		/* Only C_STANDALONE to C_WF_REPORT_PARAMS */
 	struct mutex cstate_mutex;	/* Protects graceful disconnects */
 	unsigned int connect_cnt;	/* Inc each time a connection is established */
@@ -730,14 +754,30 @@ struct submit_worker {
 	struct list_head writes;
 };
 
+enum drbd_per_peer_device_ratelimit {
+	D_RL_PD_NOLIMIT = -1,
+	D_RL_PD_GENERIC,
+};
+
 struct drbd_peer_device {
 	struct list_head peer_devices;
 	struct drbd_device *device;
 	struct drbd_connection *connection;
 	struct work_struct send_acks_work;
+
+	struct ratelimit_state ratelimit[1];
+
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_peer_dev;
 #endif
+};
+
+enum drbd_per_device_ratelimit {
+	D_RL_D_NOLIMIT = -1,
+	D_RL_D_GENERIC,
+	D_RL_D_METADATA,
+	D_RL_D_BACKEND,
+	__D_RL_D_N
 };
 
 struct drbd_device {
@@ -755,6 +795,7 @@ struct drbd_device {
 	struct dentry *debugfs_vol_data_gen_id;
 	struct dentry *debugfs_vol_ed_gen_id;
 #endif
+	struct ratelimit_state ratelimit[__D_RL_D_N];
 
 	unsigned int vnr;	/* volume number within the connection */
 	unsigned int minor;	/* device minor number */
@@ -1622,7 +1663,7 @@ static inline void __drbd_chk_io_error_(struct drbd_device *device,
 	switch (ep) {
 	case EP_PASS_ON: /* FIXME would this be better named "Ignore"? */
 		if (df == DRBD_READ_ERROR || df == DRBD_WRITE_ERROR) {
-			if (drbd_ratelimit())
+			if (drbd_device_ratelimit(device, BACKEND))
 				drbd_err(device, "Local IO failed in %s.\n", where);
 			if (device->state.disk > D_INCONSISTENT)
 				_drbd_set_state(_NS(device, disk, D_INCONSISTENT), CS_HARD, NULL);

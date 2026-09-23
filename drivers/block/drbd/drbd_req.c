@@ -139,7 +139,7 @@ void drbd_req_destroy(struct kref *kref)
 			if (get_ldev_if_state(device, D_FAILED)) {
 				drbd_al_complete_io(device, &req->i);
 				put_ldev(device);
-			} else if (drbd_ratelimit()) {
+			} else if (drbd_device_ratelimit(device, BACKEND)) {
 				drbd_warn(device, "Should have called drbd_al_complete_io(, %llu, %u), "
 					 "but my Disk seems to have failed :(\n",
 					 (unsigned long long) req->i.sector, req->i.size);
@@ -513,7 +513,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 
 static void drbd_report_io_error(struct drbd_device *device, struct drbd_request *req)
 {
-	if (!drbd_ratelimit())
+	if (!drbd_device_ratelimit(device, BACKEND))
 		return;
 
 	drbd_warn(device, "local %s IO error sector %llu+%u on %pg\n",
@@ -1403,9 +1403,9 @@ static void drbd_send_and_submit(struct drbd_device *device, struct drbd_request
 		submit_private_bio = true;
 	} else if (no_remote) {
 nodata:
-		if (drbd_ratelimit())
-			drbd_err(device, "IO ERROR: neither local nor remote data, sector %llu+%u\n",
-					(unsigned long long)req->i.sector, req->i.size >> 9);
+		drbd_err_ratelimit(device,
+				   "IO ERROR: neither local nor remote data, sector %llu+%u\n",
+				   (unsigned long long)req->i.sector, req->i.size >> 9);
 		/* A write may have been queued for send_oos, however.
 		 * So we can not simply free it, we must go through drbd_req_put_completion_ref() */
 	}

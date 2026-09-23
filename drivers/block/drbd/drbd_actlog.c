@@ -1138,8 +1138,7 @@ void drbd_rs_complete_io(struct drbd_device *device, sector_t sector)
 	bm_ext = e ? lc_entry(e, struct bm_extent, lce) : NULL;
 	if (!bm_ext) {
 		spin_unlock_irqrestore(&device->al_lock, flags);
-		if (drbd_ratelimit())
-			drbd_err(device, "drbd_rs_complete_io() called, but extent not found\n");
+		drbd_err_ratelimit(device, "%s() called, but extent not found\n", __func__);
 		return;
 	}
 

@@ -1981,8 +1981,7 @@ static int receive_RSDataReply(struct drbd_connection *connection, struct packet
 		 * or in drbd_peer_request_endio. */
 		err = recv_resync_read(peer_device, sector, pi);
 	} else {
-		if (drbd_ratelimit())
-			drbd_err(device, "Can not write resync data to local disk.\n");
+		drbd_err_ratelimit(device, "Can not write resync data to local disk.\n");
 
 		err = drbd_drain_block(peer_device, pi->size);
 
@@ -2669,9 +2668,9 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 		default:
 			BUG();
 		}
-		if (verb && drbd_ratelimit())
-			drbd_err(device, "Can not satisfy peer's read request, "
-			    "no local data.\n");
+		if (verb)
+			drbd_err_ratelimit(device,
+					   "Can not satisfy peer's read request, no local data.\n");
 
 		/* drain possibly payload */
 		return drbd_drain_block(peer_device, pi->size);

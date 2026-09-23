@@ -2288,6 +2288,7 @@ void drbd_free_resource(struct drbd_resource *resource)
 	struct drbd_connection *connection, *tmp;
 
 	for_each_connection_safe(connection, tmp, resource) {
+		set_bit(C_UNREGISTERED, &connection->flags);
 		list_del(&connection->connections);
 		drbd_debugfs_connection_cleanup(connection);
 		kref_put(&connection->kref, drbd_destroy_connection);
@@ -2515,6 +2516,7 @@ struct drbd_resource *drbd_create_resource(const char *name)
 	if (!zalloc_cpumask_var(&resource->cpu_mask, GFP_KERNEL))
 		goto fail_free_name;
 	kref_init(&resource->kref);
+	ratelimit_state_init(&resource->ratelimit[D_RL_R_GENERIC], 5 * HZ, 10);
 	idr_init(&resource->devices);
 	INIT_LIST_HEAD(&resource->connections);
 	resource->write_ordering = WO_BDEV_FLUSH;
@@ -2583,6 +2585,7 @@ struct drbd_connection *conn_create(const char *name, struct res_opts *res_opts)
 	connection->ack_receiver.connection = connection;
 
 	kref_init(&connection->kref);
+	ratelimit_state_init(&connection->ratelimit[D_RL_C_GENERIC], 5 * HZ, /* no burst */ 1);
 
 	connection->resource = resource;
 
@@ -2667,6 +2670,10 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 		return ERR_NOMEM;
 	kref_init(&device->kref);
 
+	ratelimit_state_init(&device->ratelimit[D_RL_D_GENERIC], 5 * HZ, /* no burst */ 1);
+	ratelimit_state_init(&device->ratelimit[D_RL_D_METADATA], 5 * HZ, 10);
+	ratelimit_state_init(&device->ratelimit[D_RL_D_BACKEND], 5 * HZ, 10);
+
 	kref_get(&resource->kref);
 	device->resource = resource;
 	device->minor = minor;
@@ -2726,6 +2733,8 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 			goto out_idr_remove_from_resource;
 		peer_device->connection = connection;
 		peer_device->device = device;
+		ratelimit_state_init(&peer_device->ratelimit[D_RL_PD_GENERIC],
+				     5 * HZ, /* no burst */ 1);
 
 		list_add(&peer_device->peer_devices, &device->peer_devices);
 		kref_get(&device->kref);
@@ -3677,9 +3686,8 @@ _drbd_insert_fault(struct drbd_device *device, unsigned int type)
 	if (ret) {
 		drbd_fault_count++;
 
-		if (drbd_ratelimit())
-			drbd_warn(device, "***Simulating %s failure\n",
-				_drbd_fault_str(type));
+		drbd_warn_ratelimit(device, "***Simulating %s failure\n",
+				    _drbd_fault_str(type));
 	}
 
 	return ret;
