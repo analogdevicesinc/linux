@@ -17,6 +17,10 @@ static const enum block_sequence_func dcn401_dc1_init_sequence[] = {
 	LEGACY_CLK_MGR_IS_DC_MODE_PRESENT,
 	DCCG_INITIALIZE_CLOCKS,
 	DMUB_HALT_FW,
+	PSP_RELOAD_DMUB_FW,
+	DMUB_GPINT_SEND_AND_WAIT,
+	DMUB_SEND_DMCUB_CMD,
+	DMUB_INITIALIZE_DCN,
 };
 
 static bool bls_append(struct block_sequence_state *sequence,
@@ -88,6 +92,7 @@ static enum bls_builder_result dcn401_validate_initialization_step(
 		if (!dccg->funcs || !dccg->funcs->dccg_init)
 			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
 		return BLS_BUILD_SUCCESS;
+	case DMUB_GPINT_SEND_AND_WAIT:
 	case DMUB_HALT_FW: {
 		struct dc_context *ctx = params->dc->ctx;
 		struct dmub_srv *dmub;
@@ -101,6 +106,18 @@ static enum bls_builder_result dcn401_validate_initialization_step(
 			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
 		return BLS_BUILD_SUCCESS;
 	}
+	case PSP_RELOAD_DMUB_FW:
+		if (!params->dc->ctx || !params->dc->ctx->dmub_srv ||
+				!params->dc->ctx->dmub_srv->dmub ||
+				!params->dmub_hw_params)
+			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
+		return BLS_BUILD_SUCCESS;
+	case DMUB_SEND_DMCUB_CMD:
+	case DMUB_INITIALIZE_DCN:
+		if (!params->dc->ctx || !params->dc->ctx->dmub_srv ||
+				!params->dc->ctx->dmub_srv->dmub || !out_init)
+			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
+		return BLS_BUILD_SUCCESS;
 	default:
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 	}
@@ -172,6 +189,94 @@ static inline enum bls_builder_result dcn401_build_dmub_halt_fw(
 	return BLS_BUILD_SUCCESS;
 }
 
+static inline enum bls_builder_result dcn401_build_psp_reload(
+		struct bls_builder_declarative_params *params,
+		struct block_sequence_state *sequence)
+{
+	union block_sequence_params bls_params = {0};
+
+	bls_params.psp_reload_dmub_fw_params.dmub =
+			params->dc->ctx->dmub_srv->dmub;
+	bls_params.psp_reload_dmub_fw_params.hw_params =
+			params->dmub_hw_params;
+	if (!bls_append(sequence, PSP_RELOAD_DMUB_FW, &bls_params))
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	return BLS_BUILD_SUCCESS;
+}
+
+static inline enum bls_builder_result dcn401_build_dmub_fw_version(
+		struct bls_builder_declarative_params *params,
+		struct block_sequence_state *sequence)
+{
+	union block_sequence_params bls_params = {0};
+	struct bls_builder_output_init *out_init =
+			params->out_targets->DCN_DECL_INITIALIZATION;
+
+	bls_params.dmub_gpint_params.command_code =
+			DMUB_GPINT__GET_FW_VERSION;
+	bls_params.dmub_gpint_params.param = 0;
+	bls_params.dmub_gpint_params.response =
+			&out_init->dmub_abi.fw_version;
+	if (!bls_append(sequence, DMUB_GPINT_SEND_AND_WAIT, &bls_params))
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	return BLS_BUILD_SUCCESS;
+}
+
+static inline enum bls_builder_result dcn401_build_dmub_feature_caps(
+		struct bls_builder_declarative_params *params,
+		struct block_sequence_state *sequence)
+{
+	union block_sequence_params bls_params = {0};
+	struct bls_builder_output_init *out_init =
+			params->out_targets->DCN_DECL_INITIALIZATION;
+	union dmub_rb_cmd *cmd = &out_init->dmub_query_feature_caps_cmd;
+
+	memset(cmd, 0, sizeof(*cmd));
+	cmd->query_feature_caps.header.type = DMUB_CMD__QUERY_FEATURE_CAPS;
+	cmd->query_feature_caps.header.sub_type = 0;
+	cmd->query_feature_caps.header.ret_status = 1;
+	cmd->query_feature_caps.header.payload_bytes =
+			sizeof(struct dmub_cmd_query_feature_caps_data);
+	bls_params.send_dmcub_cmd_params.ctx = params->dc->ctx;
+	bls_params.send_dmcub_cmd_params.cmd = cmd;
+	bls_params.send_dmcub_cmd_params.wait_type =
+			DM_DMUB_WAIT_TYPE_WAIT_WITH_REPLY;
+	bls_params.send_dmcub_cmd_params.feature_caps =
+			&out_init->dmub_abi.feature_caps;
+	if (!bls_append(sequence, DMUB_SEND_DMCUB_CMD, &bls_params))
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	return BLS_BUILD_SUCCESS;
+}
+
+static inline enum bls_builder_result dcn401_build_dmub_initialize_dcn(
+		struct bls_builder_declarative_params *params,
+		struct block_sequence_state *sequence)
+{
+	union block_sequence_params bls_params = {0};
+	struct bls_builder_output_init *out_init =
+			params->out_targets->DCN_DECL_INITIALIZATION;
+	union dmub_rb_cmd *cmd = &out_init->dmub_initialize_dcn_cmd;
+
+	/*
+	 * No Initialize DCN opcode exists in dmub_cmd.h. A caller-supplied
+	 * non-zero type is preserved for tests; zero stays an undefined
+	 * command and cannot complete a successful build.
+	 */
+	if (!cmd->cmd_common.header.type)
+		memset(cmd, 0, sizeof(*cmd));
+	bls_params.send_dmcub_cmd_params.ctx = params->dc->ctx;
+	bls_params.send_dmcub_cmd_params.cmd = cmd;
+	bls_params.send_dmcub_cmd_params.wait_type =
+			DM_DMUB_WAIT_TYPE_WAIT_WITH_REPLY;
+	if (!bls_append(sequence, DMUB_INITIALIZE_DCN, &bls_params))
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	return BLS_BUILD_SUCCESS;
+}
+
 static enum bls_builder_result dcn401_build_initialization_step(
 		struct bls_builder_declarative_params *params,
 		struct block_sequence_state *sequence,
@@ -186,6 +291,14 @@ static enum bls_builder_result dcn401_build_initialization_step(
 		return dcn401_build_dccg_init(params, sequence);
 	case DMUB_HALT_FW:
 		return dcn401_build_dmub_halt_fw(params, sequence);
+	case PSP_RELOAD_DMUB_FW:
+		return dcn401_build_psp_reload(params, sequence);
+	case DMUB_GPINT_SEND_AND_WAIT:
+		return dcn401_build_dmub_fw_version(params, sequence);
+	case DMUB_SEND_DMCUB_CMD:
+		return dcn401_build_dmub_feature_caps(params, sequence);
+	case DMUB_INITIALIZE_DCN:
+		return dcn401_build_dmub_initialize_dcn(params, sequence);
 	default:
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 	}
@@ -227,6 +340,9 @@ static enum bls_builder_result dcn401_build_initialization(
 	if (out_init) {
 		out_init->dcmode_power_limits_present = false;
 		out_init->dmub_stop_fw_response = 0;
+		out_init->dmub_abi.fw_version = 0;
+		memset(&out_init->dmub_abi.feature_caps, 0,
+				sizeof(out_init->dmub_abi.feature_caps));
 	}
 
 	/*

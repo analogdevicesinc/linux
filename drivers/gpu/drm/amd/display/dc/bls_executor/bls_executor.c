@@ -9,6 +9,7 @@
 #include "dccg.h"
 #include "core_types.h"
 #include "dc_dmub_srv.h"
+#include "dmub_cmd.h"
 #include "bls_executor/bls_executor.h"
 #include "dmub_messenger/dmub_messenger.h"
 
@@ -57,6 +58,19 @@ static bool dc2_bls_step_supported(const struct dc2 *dc2,
 				dmub->hw_funcs.is_gpint_acked &&
 				dmub->hw_funcs.get_gpint_response &&
 				step->params.dmub_gpint_params.response;
+	case PSP_RELOAD_DMUB_FW:
+		return step->params.psp_reload_dmub_fw_params.dmub &&
+				step->params.psp_reload_dmub_fw_params.hw_params &&
+				step->params.psp_reload_dmub_fw_params.hw_params->fb_info;
+	case DMUB_INITIALIZE_DCN:
+		ctx = step->params.send_dmcub_cmd_params.ctx;
+		if (!ctx || !ctx->dmub_srv || !ctx->dmub_srv->dmub ||
+				!step->params.send_dmcub_cmd_params.cmd ||
+				!step->params.send_dmcub_cmd_params.cmd->cmd_common
+				.header.type ||
+				(ctx->dmub_srv->idle_allowed && !ctx->dc))
+			return false;
+		return true;
 	default:
 		return false;
 	}
@@ -80,6 +94,19 @@ static enum dc2_bls_exec_result dc2_bls_exec_dmub_send(
 	if (messenger.funcs->inbox_cmd_send_and_wait(&messenger, &params) !=
 			DMUB_MSG_OK)
 		return DC2_BLS_EXEC_ERROR;
+
+	/*
+	 * The messenger leaves the reply in the builder-owned command.
+	 * Deposit feature caps into the ABI slot the builder named.
+	 */
+	if (entry->params.send_dmcub_cmd_params.feature_caps &&
+			entry->params.send_dmcub_cmd_params.cmd->
+			query_feature_caps.header.ret_status == 0)
+		memcpy(entry->params.send_dmcub_cmd_params.feature_caps,
+				&entry->params.send_dmcub_cmd_params.cmd->
+				query_feature_caps.query_feature_caps_data,
+				sizeof(*entry->params.send_dmcub_cmd_params
+						.feature_caps));
 
 	return DC2_BLS_EXEC_OK;
 }
@@ -150,6 +177,17 @@ enum dc2_bls_exec_result dc2_bls_execute(
 		case DMUB_GPINT_SEND_AND_WAIT:
 		case DMUB_HALT_FW:
 			if (dc2_bls_exec_dmub_gpint(dc2, entry) != DC2_BLS_EXEC_OK)
+				return DC2_BLS_EXEC_ERROR;
+			break;
+		case PSP_RELOAD_DMUB_FW:
+			if (dmub_srv_hw_init(
+					entry->params.psp_reload_dmub_fw_params.dmub,
+					entry->params.psp_reload_dmub_fw_params.hw_params) !=
+					DMUB_STATUS_OK)
+				return DC2_BLS_EXEC_ERROR;
+			break;
+		case DMUB_INITIALIZE_DCN:
+			if (dc2_bls_exec_dmub_send(entry) != DC2_BLS_EXEC_OK)
 				return DC2_BLS_EXEC_ERROR;
 			break;
 		default:

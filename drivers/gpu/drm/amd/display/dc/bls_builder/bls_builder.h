@@ -6,6 +6,7 @@
 #pragma once
 
 #include "dc.h"
+#include "dmub_cmd.h"
 #include "hwss/hw_sequencer.h"
 
 #define DC2_BLS_MAX_STEPS 64
@@ -29,7 +30,7 @@ enum bls_builder_kind {
 
 struct dmub_abi {
 	unsigned int fw_version;
-	unsigned int feature_caps;
+	struct dmub_feature_caps feature_caps;
 };
 
 struct bls_builder_output_init {
@@ -41,6 +42,8 @@ struct bls_builder_output_init {
 	bool dcmode_power_limits_present;
 	unsigned int dmub_stop_fw_response;
 	struct dmub_abi dmub_abi;
+	union dmub_rb_cmd dmub_query_feature_caps_cmd;
+	union dmub_rb_cmd dmub_initialize_dcn_cmd;
 };
 
 struct bls_builder_output_targets {
@@ -60,6 +63,7 @@ struct bls_builder_declarative_params {
 	const struct dc_state *current_state;
 	const struct dc_state *new_state;
 	const struct dmub_abi *dmub_abi;
+	const struct dmub_srv_hw_params *dmub_hw_params;
 	struct bls_builder_output_targets *out_targets;
 	struct block_sequence head_sequence[DC2_BLS_MAX_STEPS];
 	unsigned int head_num_steps;

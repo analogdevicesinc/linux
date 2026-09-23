@@ -63,6 +63,8 @@ struct hpo_frl_stream_encoder;
 struct link_training_settings;
 struct dc_link;
 struct dc_crtc_timing;
+struct dmub_srv_hw_params;
+struct dmub_feature_caps;
 
 struct tg_lock_params {
 	struct dc *dc;
@@ -140,12 +142,18 @@ struct send_dmcub_cmd_params {
 	struct dc_context *ctx;
 	union dmub_rb_cmd *cmd;
 	enum dm_dmub_wait_type wait_type;
+	struct dmub_feature_caps *feature_caps;
 };
 
 struct dmub_gpint_params {
 	unsigned int command_code;
 	unsigned int param;
 	unsigned int *response;
+};
+
+struct psp_reload_dmub_fw_params {
+	struct dmub_srv *dmub;
+	const struct dmub_srv_hw_params *hw_params;
 };
 
 struct lsdma_send_pio_copy_params {
@@ -1223,6 +1231,7 @@ union block_sequence_params {
 			legacy_clk_mgr_is_dc_mode_present_params;
 	struct dccg_initialize_clocks_params dccg_initialize_clocks_params;
 	struct dmub_gpint_params dmub_gpint_params;
+	struct psp_reload_dmub_fw_params psp_reload_dmub_fw_params;
 	struct hubbub_program_watermarks_params hubbub_program_watermarks_params;
 	struct hubbub_program_arbiter_params hubbub_program_arbiter_params;
 	struct hubbub_program_compbuf_segments_params hubbub_program_compbuf_segments_params;
@@ -1398,6 +1407,8 @@ enum block_sequence_func {
 	DCCG_INITIALIZE_CLOCKS,
 	DMUB_GPINT_SEND_AND_WAIT,
 	DMUB_HALT_FW,
+	PSP_RELOAD_DMUB_FW,
+	DMUB_INITIALIZE_DCN,
 	/* This must be the last value in this enum, add new ones above */
 	HWSS_BLOCK_SEQUENCE_FUNC_COUNT
 };
