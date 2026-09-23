@@ -35,7 +35,6 @@
 #ifndef _NFSD4_STATE_H
 #define _NFSD4_STATE_H
 
-#include <crypto/md5.h>
 
 #include <linux/filelock.h>
 #include <linux/idr.h>
@@ -500,9 +499,6 @@ struct nfsd4_sessionid {
 	u32		reserved;
 };
 
-/* Length of MD5 digest as hex, plus terminating '\0' */
-#define HEXDIR_LEN	(2 * MD5_DIGEST_SIZE + 1)
-
 /*
  *       State                Meaning                  Where set
  * --------------------------------------------------------------------------
@@ -651,7 +647,7 @@ struct nfs4_client {
 struct nfs4_client_reclaim {
 	struct list_head	cr_strhash;	/* hash by cr_name */
 	struct nfs4_client	*cr_clp;	/* pointer to associated clp */
-	struct xdr_netobj	cr_name;	/* recovery dir name */
+	struct xdr_netobj	cr_name;	/* client name from nfsdcld */
 	struct xdr_netobj	cr_princhash;
 };
 
@@ -957,7 +953,6 @@ bool nfsd4_has_active_async_copies(struct nfs4_client *clp);
 void nfsd_update_cmtime_attr(struct file *f, unsigned int flags);
 extern struct nfs4_client_reclaim *nfs4_client_to_reclaim(struct xdr_netobj name,
 				struct xdr_netobj princhash, struct nfsd_net *nn);
-extern bool nfs4_has_reclaimed_state(struct xdr_netobj name, struct nfsd_net *nn);
 int nfsd_handle_dir_event(u32 mask, const struct inode *dir, const void *data,
 			  int data_type, const struct qstr *name);
 

@@ -57,7 +57,6 @@ enum {
 	NFSD_Filecache,
 	NFSD_Leasetime,
 	NFSD_Gracetime,
-	NFSD_RecoveryDir,
 	NFSD_V4EndGrace,
 	NFSD_MaxReserved
 };
@@ -76,9 +75,6 @@ static ssize_t write_maxblksize(struct file *file, char *buf, size_t size);
 #ifdef CONFIG_NFSD_V4
 static ssize_t write_leasetime(struct file *file, char *buf, size_t size);
 static ssize_t write_gracetime(struct file *file, char *buf, size_t size);
-#ifdef CONFIG_NFSD_LEGACY_CLIENT_TRACKING
-static ssize_t write_recoverydir(struct file *file, char *buf, size_t size);
-#endif
 static ssize_t write_v4_end_grace(struct file *file, char *buf, size_t size);
 #endif
 
@@ -94,9 +90,6 @@ static ssize_t (*const write_op[])(struct file *, char *, size_t) = {
 #ifdef CONFIG_NFSD_V4
 	[NFSD_Leasetime] = write_leasetime,
 	[NFSD_Gracetime] = write_gracetime,
-#ifdef CONFIG_NFSD_LEGACY_CLIENT_TRACKING
-	[NFSD_RecoveryDir] = write_recoverydir,
-#endif
 	[NFSD_V4EndGrace] = write_v4_end_grace,
 #endif
 };
@@ -1036,75 +1029,6 @@ static ssize_t write_gracetime(struct file *file, char *buf, size_t size)
 	return nfsd4_write_time(file, buf, size, &nn->nfsd4_grace, nn);
 }
 
-#ifdef CONFIG_NFSD_LEGACY_CLIENT_TRACKING
-static ssize_t __write_recoverydir(struct file *file, char *buf, size_t size,
-				   struct nfsd_net *nn)
-{
-	char *mesg = buf;
-	char *recdir;
-	int len, status;
-
-	if (size > 0) {
-		if (nn->nfsd_serv)
-			return -EBUSY;
-		if (size > PATH_MAX || buf[size-1] != '\n')
-			return -EINVAL;
-		buf[size-1] = 0;
-
-		recdir = mesg;
-		len = qword_get(&mesg, recdir, size);
-		if (len <= 0)
-			return -EINVAL;
-		trace_nfsd_ctl_recoverydir(netns(file), recdir);
-
-		status = nfs4_reset_recoverydir(recdir);
-		if (status)
-			return status;
-	}
-
-	return scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%s\n",
-							nfs4_recoverydir());
-}
-
-/*
- * write_recoverydir - Set or report the pathname of the recovery directory
- *
- * Input:
- *			buf:		ignored
- *			size:		zero
- *
- * OR
- *
- * Input:
- *			buf:		C string containing the pathname
- *					of the directory on a local file
- *					system containing permanent NFSv4
- *					recovery data
- *			size:		non-zero length of C string in @buf
- * Output:
- *	On success:	passed-in buffer filled with '\n'-terminated C string
- *			containing the current recovery pathname setting;
- *			return code is the size in bytes of the string
- *	On error:	return code is zero or a negative errno value
- */
-static ssize_t write_recoverydir(struct file *file, char *buf, size_t size)
-{
-	ssize_t rv;
-	struct nfsd_net *nn = net_generic(netns(file), nfsd_net_id);
-
-	/*
-	 * nn->nfsd_mutex guards the nn->nfsd_serv check; the recovery
-	 * dirname itself is still shared between namespaces.
-	 */
-	mutex_lock(&nn->nfsd_mutex);
-	mutex_lock(&nfsd_global_mutex);
-	rv = __write_recoverydir(file, buf, size, nn);
-	mutex_unlock(&nfsd_global_mutex);
-	mutex_unlock(&nn->nfsd_mutex);
-	return rv;
-}
-#endif
-
 /*
  * write_v4_end_grace - release grace period for nfsd's v4.x lock manager
  *
@@ -1347,9 +1271,6 @@ static int nfsd_fill_super(struct super_block *sb, struct fs_context *fc)
 #ifdef CONFIG_NFSD_V4
 		[NFSD_Leasetime] = {"nfsv4leasetime", &transaction_ops, S_IWUSR|S_IRUSR},
 		[NFSD_Gracetime] = {"nfsv4gracetime", &transaction_ops, S_IWUSR|S_IRUSR},
-#ifdef CONFIG_NFSD_LEGACY_CLIENT_TRACKING
-		[NFSD_RecoveryDir] = {"nfsv4recoverydir", &transaction_ops, S_IWUSR|S_IRUSR},
-#endif
 		[NFSD_V4EndGrace] = {"v4_end_grace", &transaction_ops, S_IWUSR|S_IRUGO},
 #endif
 		/* last one */ {""}
