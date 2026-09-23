@@ -356,6 +356,10 @@ static enum bls_builder_result dcn401_build_initialization(
 			return result;
 	}
 
+	if (out_init &&
+			out_init->dmub_initialize_dcn_cmd.cmd_common.header.type)
+		return BLS_BUILD_SUCCESS;
+
 	return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 }
 
