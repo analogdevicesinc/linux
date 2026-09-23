@@ -347,9 +347,9 @@
 				#clock-cells = <2>;
 
 				assigned-clocks = <&ad9545_clock AD9545_CLK_NCO AD9545_NCO0>,
-						  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL0>,
-						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q0A>;
-				assigned-clock-rates = <10000>, <1413120000>, <30720000>;
+						  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL1>,
+						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1B>;
+				assigned-clock-rates = <10000>, <1562500000>, <156250000>;
 				assigned-clock-phases = <0>, <0>, <0>, <180>;
 
 				aux-nco-clk@AD9545_NCO0 {
@@ -374,8 +374,8 @@
 					adi,phase-lock-drain-rate = <20>;
 				};
 
-				ad9545_apll0: pll-clk@AD9545_PLL0 {
-					reg = <AD9545_PLL0>;
+				ad9545_apll1: pll-clk@AD9545_PLL1 {
+					reg = <AD9545_PLL1>;
 
 					#address-cells = <1>;
 					#size-cells = <0>;
@@ -395,8 +395,8 @@
 					};
 				};
 
-				output-clk@AD9545_Q0A {
-					reg = <AD9545_Q0A>;
+				output-clk@AD9545_Q1B {
+					reg = <AD9545_Q1B>;
 					adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
 					adi,current-source-microamp = <15000>;
 				};
