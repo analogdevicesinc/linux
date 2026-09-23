@@ -1222,11 +1222,6 @@ static int rt5616_probe(struct snd_soc_component *component)
 {
 	struct rt5616_priv *rt5616 = snd_soc_component_get_drvdata(component);
 
-	/* Check if MCLK provided */
-	rt5616->mclk = devm_clk_get_optional(component->dev, "mclk");
-	if (IS_ERR(rt5616->mclk))
-		return PTR_ERR(rt5616->mclk);
-
 	rt5616->component = component;
 
 	return 0;
@@ -1356,6 +1351,11 @@ static int rt5616_i2c_probe(struct i2c_client *i2c)
 		return -ENOMEM;
 
 	i2c_set_clientdata(i2c, rt5616);
+
+	/* Check if MCLK provided */
+	rt5616->mclk = devm_clk_get_optional(&i2c->dev, "mclk");
+	if (IS_ERR(rt5616->mclk))
+		return PTR_ERR(rt5616->mclk);
 
 	rt5616->regmap = devm_regmap_init_i2c(i2c, &rt5616_regmap);
 	if (IS_ERR(rt5616->regmap)) {
