@@ -3,7 +3,8 @@
  * Copyright (C) 2023 ARM Ltd.
  */
 
-#include <linux/arm-smccc.h>
+#include <linux/arm-rsi-cmds.h>
+#include <linux/arm-smccc-rsi.h>
 #include <linux/cc_platform.h>
 #include <linux/kernel.h>
 #include <linux/device-id/platform.h>
@@ -11,8 +12,6 @@
 #include <linux/smp.h>
 #include <linux/tsm.h>
 #include <linux/types.h>
-
-#include <asm/rsi.h>
 
 /**
  * struct arm_cca_token_info - a descriptor for the token buffer.

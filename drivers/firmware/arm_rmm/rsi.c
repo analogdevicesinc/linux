@@ -8,11 +8,11 @@
 #include <linux/psci.h>
 #include <linux/swiotlb.h>
 #include <linux/platform_device.h>
+#include <linux/arm-rsi-cmds.h>
 
 #include <asm/io.h>
 #include <asm/mem_encrypt.h>
 #include <asm/pgtable.h>
-#include <asm/rsi.h>
 
 static struct realm_config config;
 

@@ -2,8 +2,8 @@
 #ifndef __ASM_MEM_ENCRYPT_H
 #define __ASM_MEM_ENCRYPT_H
 
+#include <linux/arm-rsi-cmds.h>
 #include <asm/hypervisor.h>
-#include <asm/rsi.h>
 
 struct device;
 

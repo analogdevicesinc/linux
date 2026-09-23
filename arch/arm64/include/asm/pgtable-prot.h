@@ -66,9 +66,9 @@
 
 #ifndef __ASSEMBLER__
 
+#include <linux/arm-rsi-cmds.h>
 #include <asm/cpufeature.h>
 #include <asm/pgtable-types.h>
-#include <asm/rsi.h>
 
 extern bool arm64_use_ng_mappings;
 extern unsigned long prot_ns_shared;
