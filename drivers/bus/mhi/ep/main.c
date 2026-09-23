@@ -1534,8 +1534,8 @@ int mhi_ep_register_controller(struct mhi_ep_cntrl *mhi_cntrl,
 
 	mhi_cntrl->index = ret;
 
-	irq_set_status_flags(mhi_cntrl->irq, IRQ_NOAUTOEN);
-	ret = request_irq(mhi_cntrl->irq, mhi_ep_irq, IRQF_TRIGGER_HIGH,
+	ret = request_irq(mhi_cntrl->irq, mhi_ep_irq,
+			  IRQF_TRIGGER_HIGH | IRQF_NO_AUTOEN,
 			  "doorbell_irq", mhi_cntrl);
 	if (ret) {
 		dev_err(mhi_cntrl->cntrl_dev, "Failed to request Doorbell IRQ\n");
