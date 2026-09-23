@@ -32,6 +32,9 @@ struct xfarray {
 
 	/* log2 of array element size, if possible. */
 	int		obj_size_log;
+
+	/* Might there be sparse holes in this array? */
+	bool		possibly_sparse;
 };
 
 int xfarray_create(const char *descr, unsigned long long required_capacity,
