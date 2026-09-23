@@ -3548,6 +3548,7 @@ err_out:
 void mlx5_esw_offloads_devcom_init(struct mlx5_eswitch *esw,
 				   const struct mlx5_devcom_match_attr *attr)
 {
+	int err;
 	int i;
 
 	for (i = 0; i < MLX5_MAX_PORTS; i++)
@@ -3572,10 +3573,12 @@ void mlx5_esw_offloads_devcom_init(struct mlx5_eswitch *esw,
 	if (!esw->devcom)
 		return;
 
-	mlx5_devcom_send_event(esw->devcom,
-			       ESW_OFFLOADS_DEVCOM_PAIR,
-			       ESW_OFFLOADS_DEVCOM_UNPAIR,
-			       esw);
+	err = mlx5_devcom_send_event(esw->devcom,
+				     ESW_OFFLOADS_DEVCOM_PAIR,
+				     ESW_OFFLOADS_DEVCOM_UNPAIR,
+				     esw);
+	if (err)
+		mlx5_esw_offloads_devcom_cleanup(esw);
 }
 
 void mlx5_esw_offloads_devcom_cleanup(struct mlx5_eswitch *esw)
