@@ -208,7 +208,6 @@
 /* Digital filter properties */
 #define AD4170_SINC3_MIN_FS				4
 #define AD4170_SINC3_MAX_FS				65532
-#define AD4170_SINC5_MIN_FS				1
 #define AD4170_SINC5_MAX_FS				256
 
 #define AD4170_GAIN_REG_DEFAULT				0x555555
@@ -337,6 +336,10 @@ static const unsigned int ad4170_sinc5_filt_fs_tbl[] = {
 	1, 2, 4, 8, 12, 16, 20, 40, 48, 80, 100, 256,
 };
 
+static const unsigned int ad4190_sinc5_filt_fs_tbl[] = {
+	4, 8, 12, 16, 20, 40, 48, 80, 100, 256,
+};
+
 static const unsigned int ad4170_iout_pin_tbl[] = {
 	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(0),
 	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(1),
@@ -374,21 +377,29 @@ static const char * const ad4170_sensor_type[] = {
 
 struct ad4170_chip_info {
 	const char *name;
+	const unsigned int *sinc5_filt_fs_tbl;
+	unsigned int sinc5_filt_fs_tbl_size;
 	unsigned int clock_div;
 };
 
 static const struct ad4170_chip_info ad4170_chip_info = {
 	.name = "ad4170-4",
+	.sinc5_filt_fs_tbl = ad4170_sinc5_filt_fs_tbl,
+	.sinc5_filt_fs_tbl_size = ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl),
 	.clock_div = 1,
 };
 
 static const struct ad4170_chip_info ad4190_chip_info = {
 	.name = "ad4190-4",
+	.sinc5_filt_fs_tbl = ad4190_sinc5_filt_fs_tbl,
+	.sinc5_filt_fs_tbl_size = ARRAY_SIZE(ad4190_sinc5_filt_fs_tbl),
 	.clock_div = 2,
 };
 
 static const struct ad4170_chip_info ad4195_chip_info = {
 	.name = "ad4195-4",
+	.sinc5_filt_fs_tbl = ad4190_sinc5_filt_fs_tbl,
+	.sinc5_filt_fs_tbl_size = ARRAY_SIZE(ad4190_sinc5_filt_fs_tbl),
 	.clock_div = 2,
 };
 
@@ -470,6 +481,7 @@ struct ad4170_state {
 
 static void ad4170_fill_sps_tbl(struct ad4170_state *st)
 {
+	const unsigned int *fs_tbl = st->chip->sinc5_filt_fs_tbl;
 	unsigned int tmp0, tmp1, i;
 
 	/*
@@ -490,10 +502,9 @@ static void ad4170_fill_sps_tbl(struct ad4170_state *st)
 		st->sps_tbl[AD4170_SINC3][i][1] = tmp1; /* Fractional part */
 	}
 	/* Sinc5 filter ODR doesn't use all FILTER_FS bits */
-	for (i = 0; i < ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl); i++) {
-		tmp0 = div_u64_rem(st->mclk_hz, 32 * ad4170_sinc5_filt_fs_tbl[i],
-				   &tmp1);
-		tmp1 = mult_frac(tmp1, MICRO, 32 * ad4170_sinc5_filt_fs_tbl[i]);
+	for (i = 0; i < st->chip->sinc5_filt_fs_tbl_size; i++) {
+		tmp0 = div_u64_rem(st->mclk_hz, 32 * fs_tbl[i], &tmp1);
+		tmp1 = mult_frac(tmp1, MICRO, 32 * fs_tbl[i]);
 		/* Fill sinc5 filter SPS table */
 		st->sps_tbl[AD4170_SINC5][i][0] = tmp0; /* Integer part */
 		st->sps_tbl[AD4170_SINC5][i][1] = tmp1; /* Fractional part */
@@ -890,7 +901,7 @@ static int ad4170_set_filter_type(struct iio_dev *indio_dev,
 						 AD4170_SINC3_MAX_FS);
 		else
 			setup->filter_fs = clamp(setup->filter_fs,
-						 AD4170_SINC5_MIN_FS,
+						 st->chip->sinc5_filt_fs_tbl[0],
 						 AD4170_SINC5_MAX_FS);
 
 		setup->filter &= ~AD4170_FILTER_FILTER_TYPE_MSK;
@@ -1285,7 +1296,7 @@ static int ad4170_read_raw(struct iio_dev *indio_dev,
 	struct ad4170_chan_info *chan_info = &st->chan_infos[chan->address];
 	struct ad4170_setup *setup = &chan_info->setup;
 	enum ad4170_filter_type f_type;
-	unsigned int pga, fs_idx;
+	unsigned int pga, fs_idx, fs_size;
 	int ret;
 
 	guard(mutex)(&st->lock);
@@ -1335,9 +1346,10 @@ static int ad4170_read_raw(struct iio_dev *indio_dev,
 			*val2 = st->sps_tbl[f_type][fs_idx][1];
 			return IIO_VAL_INT_PLUS_MICRO;
 		case AD4170_SINC5:
+			fs_size = st->chip->sinc5_filt_fs_tbl_size;
 			fs_idx = find_closest(setup->filter_fs,
-					      ad4170_sinc5_filt_fs_tbl,
-					      ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl));
+					      st->chip->sinc5_filt_fs_tbl,
+					      fs_size);
 			*val = st->sps_tbl[f_type][fs_idx][0];
 			*val2 = st->sps_tbl[f_type][fs_idx][1];
 			return IIO_VAL_INT_PLUS_MICRO;
@@ -1450,7 +1462,7 @@ static int ad4170_read_avail(struct iio_dev *indio_dev,
 		case AD4170_SINC5:
 			/* Read sps_tbl here to ensure in bounds array access */
 			*vals = (int *)st->sps_tbl[f_type];
-			*length = ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl) * 2;
+			*length = st->chip->sinc5_filt_fs_tbl_size * 2;
 			return IIO_AVAIL_LIST;
 		default:
 			return -EINVAL;
@@ -1498,7 +1510,7 @@ static int ad4170_set_channel_freq(struct ad4170_state *st,
 		filt_fs_tbl_size = ARRAY_SIZE(ad4170_sinc3_filt_fs_tbl);
 		break;
 	case AD4170_SINC5:
-		filt_fs_tbl_size = ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl);
+		filt_fs_tbl_size = st->chip->sinc5_filt_fs_tbl_size;
 		break;
 	}
 
@@ -1512,7 +1524,7 @@ static int ad4170_set_channel_freq(struct ad4170_state *st,
 
 	guard(mutex)(&st->lock);
 	if (f_type == AD4170_SINC5)
-		setup->filter_fs = ad4170_sinc5_filt_fs_tbl[i];
+		setup->filter_fs = st->chip->sinc5_filt_fs_tbl[i];
 	else
 		setup->filter_fs = ad4170_sinc3_filt_fs_tbl[i];
 
