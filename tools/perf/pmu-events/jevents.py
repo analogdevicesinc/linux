@@ -249,10 +249,10 @@ class JsonEvent:
           0x3F6: 'ldlat=',
           0x1A6: 'offcore_rsp=',
           0x1A7: 'offcore_rsp=',
-          0x3E0: 'offcore_rsp=',
-          0x3E1: 'offcore_rsp=',
-          0x3E2: 'offcore_rsp=',
-          0x3E3: 'offcore_rsp=',
+          0x3E0: 'offmodule_rsp=',
+          0x3E1: 'offmodule_rsp=',
+          0x3E2: 'offmodule_rsp=',
+          0x3E3: 'offmodule_rsp=',
           0x3F7: 'frontend=',
       }
       return msrmap[int(num.split(',', 1)[0], 0)]
