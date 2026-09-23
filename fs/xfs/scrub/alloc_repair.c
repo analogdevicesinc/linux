@@ -517,7 +517,7 @@ xrep_abt_reserve_space(
 		 * records (but doesn't break the sorting order), so we must
 		 * go around the loop once more to re-run _bload_init.
 		 */
-		error = xfarray_unset(ra->free_records, record_nr);
+		error = xfarray_trim(ra->free_records, 1);
 		if (error)
 			break;
 		ra->nr_real_records--;

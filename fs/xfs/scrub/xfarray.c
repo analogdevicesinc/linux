@@ -140,55 +140,20 @@ xfarray_load(
 			xfarray_pos(array, idx));
 }
 
-/* Is this array element potentially unset? */
-static inline bool
-xfarray_is_unset(
-	struct xfarray	*array,
-	loff_t		pos)
-{
-	void		*temp = xfarray_scratch(array);
-	int		error;
-
-	if (array->unset_slots == 0)
-		return false;
-
-	error = xfile_load(array->xfile, temp, array->obj_size, pos);
-	if (!error && xfarray_element_is_null(array, temp))
-		return true;
-
-	return false;
-}
-
-/*
- * Unset an array element.  If @idx is the last element in the array, the
- * array will be truncated.  Otherwise, the entry will be zeroed.
- */
+/* Remove the elements at the end of an array. */
 int
-xfarray_unset(
-	struct xfarray	*array,
-	xfarray_idx_t	idx)
+xfarray_trim(
+	struct xfarray		*array,
+	unsigned long long	nr)
 {
-	void		*temp = xfarray_scratch(array);
-	loff_t		pos = xfarray_pos(array, idx);
-	int		error;
+	loff_t			new_eof;
 
-	if (idx >= array->nr)
+	if (nr > array->nr)
 		return -ENODATA;
 
-	if (idx == array->nr - 1) {
-		array->nr--;
-		return 0;
-	}
-
-	if (xfarray_is_unset(array, pos))
-		return 0;
-
-	memset(temp, 0, array->obj_size);
-	error = xfile_store(array->xfile, temp, array->obj_size, pos);
-	if (error)
-		return error;
-
-	array->unset_slots++;
+	array->nr -= nr;
+	new_eof = xfarray_pos(array, array->nr);
+	xfile_discard(array->xfile, new_eof, MAX_LFS_FILESIZE - new_eof);
 	return 0;
 }
 
@@ -225,43 +190,6 @@ xfarray_element_is_null(
 	const void	*ptr)
 {
 	return !memchr_inv(ptr, 0, array->obj_size);
-}
-
-/*
- * Store an element anywhere in the array that is unset.  If there are no
- * unset slots, append the element to the array.
- */
-int
-xfarray_store_anywhere(
-	struct xfarray	*array,
-	const void	*ptr)
-{
-	void		*temp = xfarray_scratch(array);
-	loff_t		endpos = xfarray_pos(array, array->nr);
-	loff_t		pos;
-	int		error;
-
-	/* Find an unset slot to put it in. */
-	for (pos = 0;
-	     pos < endpos && array->unset_slots > 0;
-	     pos += array->obj_size) {
-		error = xfile_load(array->xfile, temp, array->obj_size,
-				pos);
-		if (error || !xfarray_element_is_null(array, temp))
-			continue;
-
-		error = xfile_store(array->xfile, ptr, array->obj_size,
-				pos);
-		if (error)
-			return error;
-
-		array->unset_slots--;
-		return 0;
-	}
-
-	/* No unset slots found; attach it on the end. */
-	array->unset_slots = 0;
-	return xfarray_append(array, ptr);
 }
 
 /* Return length of array. */
@@ -677,26 +605,10 @@ xfarray_qsort_pivot(
 
 	/* Load the selected xfarray records into the pivot array. */
 	for (i = 0; i < XFARRAY_QSORT_PIVOT_NR; i++) {
-		xfarray_idx_t	idx;
-
 		recp = xfarray_pivot_array_rec(parray, pivot_rec_sz, i);
 		idxp = xfarray_pivot_array_idx(parray, pivot_rec_sz, i);
 
-		/* No unset records; load directly into the array. */
-		if (likely(si->array->unset_slots == 0)) {
-			error = xfarray_sort_load(si, *idxp, recp);
-			if (error)
-				return error;
-			continue;
-		}
-
-		/*
-		 * Load non-null records into the scratchpad without changing
-		 * the xfarray_idx_t in the pivot array.
-		 */
-		idx = *idxp;
-		xfarray_sort_bump_loads(si);
-		error = xfarray_load_next(si->array, &idx, recp);
+		error = xfarray_sort_load(si, *idxp, recp);
 		if (error)
 			return error;
 	}
