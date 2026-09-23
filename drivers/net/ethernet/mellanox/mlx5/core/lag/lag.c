@@ -792,11 +792,8 @@ static void mlx5_lag_drop_rule_cleanup(struct mlx5_lag *ldev)
 static void mlx5_lag_drop_rule_setup(struct mlx5_lag *ldev,
 				     struct lag_tracker *tracker)
 {
-	u8 disabled_ports[MLX5_MAX_PORTS] = {};
 	struct mlx5_core_dev *dev;
 	struct lag_func *pf;
-	int disabled_index;
-	int num_disabled;
 	int err;
 	int i;
 
@@ -808,11 +805,11 @@ static void mlx5_lag_drop_rule_setup(struct mlx5_lag *ldev,
 	if (!ldev->tracker.has_inactive)
 		return;
 
-	mlx5_infer_tx_disabled(tracker, ldev, disabled_ports, &num_disabled);
-
-	for (i = 0; i < num_disabled; i++) {
-		disabled_index = disabled_ports[i];
-		pf = mlx5_lag_pf(ldev, disabled_index);
+	mlx5_ldev_for_each(i, 0, ldev) {
+		if (tracker->netdev_state[i].tx_enabled &&
+		    tracker->netdev_state[i].link_up)
+			continue;
+		pf = mlx5_lag_pf(ldev, i);
 		dev = pf->dev;
 		err = mlx5_esw_acl_ingress_vport_drop_rule_create(dev->priv.eswitch,
 								  MLX5_VPORT_UPLINK);
@@ -820,7 +817,8 @@ static void mlx5_lag_drop_rule_setup(struct mlx5_lag *ldev,
 			pf->has_drop = true;
 		else
 			mlx5_core_err(dev,
-				      "Failed to create lag drop rule, error: %d", err);
+				      "Failed to create lag drop rule, error: %d",
+				      err);
 	}
 }
 
