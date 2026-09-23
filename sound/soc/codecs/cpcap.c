@@ -1622,20 +1622,11 @@ static int cpcap_soc_probe(struct snd_soc_component *component)
 {
 	struct platform_device *pdev = to_platform_device(component->dev);
 	struct snd_soc_card *card = component->card;
-	struct cpcap_audio *cpcap;
+	struct cpcap_audio *cpcap = dev_get_drvdata(component->dev);
 	int err;
-
-	cpcap = devm_kzalloc(component->dev, sizeof(*cpcap), GFP_KERNEL);
-	if (!cpcap)
-		return -ENOMEM;
 
 	snd_soc_component_set_drvdata(component, cpcap);
 	cpcap->component = component;
-
-	cpcap->vaudio = devm_regulator_get(component->dev, "VAUDIO");
-	if (IS_ERR(cpcap->vaudio))
-		return dev_err_probe(component->dev, PTR_ERR(cpcap->vaudio),
-				     "Cannot get VAUDIO regulator\n");
 
 	err = snd_soc_card_jack_new(card, "Headphones",
 				    SND_JACK_HEADSET | SND_JACK_BTN_0,
@@ -1660,13 +1651,13 @@ static int cpcap_soc_probe(struct snd_soc_component *component)
 	if (cpcap->hsirq < 0)
 		return cpcap->hsirq;
 
-	err = devm_request_threaded_irq(component->dev, cpcap->hsirq, NULL,
-					cpcap_hs_irq_thread,
-					IRQF_TRIGGER_RISING |
-					IRQF_TRIGGER_FALLING |
-					IRQF_ONESHOT,
-					"cpcap-codec-hs",
-					component);
+	err = request_threaded_irq(cpcap->hsirq, NULL,
+				   cpcap_hs_irq_thread,
+				   IRQF_TRIGGER_RISING |
+				   IRQF_TRIGGER_FALLING |
+				   IRQF_ONESHOT,
+				   "cpcap-codec-hs",
+				   component);
 	if (err) {
 		dev_warn(component->dev, "no HS irq%i: %i\n",
 			 cpcap->hsirq, err);
@@ -1674,25 +1665,27 @@ static int cpcap_soc_probe(struct snd_soc_component *component)
 	}
 
 	cpcap->mb2irq = platform_get_irq_byname(pdev, "mb2");
-	if (cpcap->mb2irq < 0)
-		return cpcap->mb2irq;
+	if (cpcap->mb2irq < 0) {
+		err = cpcap->mb2irq;
+		goto err_free_hsirq;
+	}
 
-	err = devm_request_threaded_irq(component->dev, cpcap->mb2irq, NULL,
-					cpcap_mb2_irq_thread,
-					IRQF_TRIGGER_RISING |
-					IRQF_TRIGGER_FALLING |
-					IRQF_ONESHOT,
-					"cpcap-codec-mb2",
-					component);
+	err = request_threaded_irq(cpcap->mb2irq, NULL,
+				   cpcap_mb2_irq_thread,
+				   IRQF_TRIGGER_RISING |
+				   IRQF_TRIGGER_FALLING |
+				   IRQF_ONESHOT,
+				   "cpcap-codec-mb2",
+				   component);
 	if (err) {
 		dev_warn(component->dev, "no MB2 irq%i: %i\n",
 			 cpcap->mb2irq, err);
-		return err;
+		goto err_free_hsirq;
 	}
 
 	err = cpcap_audio_reset(component, false);
 	if (err)
-		return err;
+		goto err_free_mb2irq;
 
 	cpcap_hs_irq_thread(cpcap->hsirq, component);
 
@@ -1700,6 +1693,13 @@ static int cpcap_soc_probe(struct snd_soc_component *component)
 	enable_irq_wake(cpcap->mb2irq);
 
 	return 0;
+
+err_free_mb2irq:
+	free_irq(cpcap->mb2irq, component);
+err_free_hsirq:
+	free_irq(cpcap->hsirq, component);
+
+	return err;
 }
 
 static void cpcap_soc_remove(struct snd_soc_component *component)
@@ -1708,6 +1708,9 @@ static void cpcap_soc_remove(struct snd_soc_component *component)
 
 	disable_irq_wake(cpcap->hsirq);
 	disable_irq_wake(cpcap->mb2irq);
+
+	free_irq(cpcap->mb2irq, component);
+	free_irq(cpcap->hsirq, component);
 }
 
 static int cpcap_set_bias_level(struct snd_soc_component *component,
@@ -1754,10 +1757,23 @@ static int cpcap_codec_probe(struct platform_device *pdev)
 {
 	struct device_node *codec_node =
 		of_get_child_by_name(pdev->dev.parent->of_node, "audio-codec");
+	struct cpcap_audio *cpcap;
+
 	if (!codec_node)
 		return -ENODEV;
 
 	pdev->dev.of_node = codec_node;
+
+	cpcap = devm_kzalloc(&pdev->dev, sizeof(*cpcap), GFP_KERNEL);
+	if (!cpcap)
+		return -ENOMEM;
+
+	cpcap->vaudio = devm_regulator_get(&pdev->dev, "VAUDIO");
+	if (IS_ERR(cpcap->vaudio))
+		return dev_err_probe(&pdev->dev, PTR_ERR(cpcap->vaudio),
+				     "Cannot get VAUDIO regulator\n");
+
+	platform_set_drvdata(pdev, cpcap);
 
 	return devm_snd_soc_register_component(&pdev->dev, &soc_codec_dev_cpcap,
 				      cpcap_dai, ARRAY_SIZE(cpcap_dai));
