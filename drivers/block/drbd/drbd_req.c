@@ -35,8 +35,7 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 	drbd_clear_interval(&req->i);
 	req->i.sector     = bio_src->bi_iter.bi_sector;
 	req->i.size      = bio_src->bi_iter.bi_size;
-	req->i.local = true;
-	req->i.waiting = false;
+	req->i.type = bio_data_dir(bio_src) == WRITE ? INTERVAL_LOCAL_WRITE : INTERVAL_LOCAL_READ;
 
 	INIT_LIST_HEAD(&req->tl_requests);
 	INIT_LIST_HEAD(&req->w.list);
@@ -59,7 +58,7 @@ static void drbd_remove_request_interval(struct rb_root *root,
 	drbd_remove_interval(root, i);
 
 	/* Wake up any processes waiting for this request to complete.  */
-	if (i->waiting)
+	if (test_bit(INTERVAL_WAITING, &i->flags))
 		wake_up(&device->misc_wait);
 }
 
@@ -270,10 +269,10 @@ void drbd_req_complete(struct drbd_request *req, struct bio_and_error *m)
 		 * write-acks in protocol != C during resync.
 		 * But we mark it as "complete", so it won't be counted as
 		 * conflict in a multi-primary setup. */
-		req->i.completed = true;
+		set_bit(INTERVAL_COMPLETED, &req->i.flags);
 	}
 
-	if (req->i.waiting)
+	if (test_bit(INTERVAL_WAITING, &req->i.flags))
 		wake_up(&device->misc_wait);
 
 	/* Either we are about to complete to upper layers,
@@ -505,7 +504,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	/* potentially complete and destroy */
 
 	/* If we made progress, retry conflicting peer requests, if any. */
-	if (req->i.waiting)
+	if (test_bit(INTERVAL_WAITING, &req->i.flags))
 		wake_up(&device->misc_wait);
 
 	drbd_req_put_completion_ref(req, m, c_put);
@@ -786,7 +785,7 @@ int __req_mod(struct drbd_request *req, enum drbd_req_event what,
 		 */
 		D_ASSERT(device, req->rq_state & RQ_NET_PENDING);
 		req->rq_state |= RQ_POSTPONED;
-		if (req->i.waiting)
+		if (test_bit(INTERVAL_WAITING, &req->i.flags))
 			wake_up(&device->misc_wait);
 		/* Do not clear RQ_NET_PENDING. This request will make further
 		 * progress via restart_conflicting_writes() or
@@ -957,7 +956,7 @@ static void complete_conflicting_writes(struct drbd_request *req)
 	for (;;) {
 		drbd_for_each_overlap(i, &device->write_requests, sector, size) {
 			/* Ignore, if already completed to upper layers. */
-			if (i->completed)
+			if (test_bit(INTERVAL_COMPLETED, &i->flags))
 				continue;
 			/* Handle the first found overlap.  After the schedule
 			 * we have to restart the tree walk. */
@@ -968,7 +967,7 @@ static void complete_conflicting_writes(struct drbd_request *req)
 
 		/* Indicate to wake up device->misc_wait on progress.  */
 		prepare_to_wait(&device->misc_wait, &wait, TASK_UNINTERRUPTIBLE);
-		i->waiting = true;
+		set_bit(INTERVAL_WAITING, &i->flags);
 		spin_unlock_irq(&device->resource->req_lock);
 		schedule();
 		spin_lock_irq(&device->resource->req_lock);

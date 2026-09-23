@@ -1540,7 +1540,7 @@ static void drbd_remove_epoch_entry_interval(struct drbd_device *device,
 	drbd_clear_interval(i);
 
 	/* Wake up any processes waiting for this peer request to complete.  */
-	if (i->waiting)
+	if (test_bit(INTERVAL_WAITING, &i->flags))
 		wake_up(&device->misc_wait);
 }
 
@@ -1878,6 +1878,8 @@ static int recv_resync_read(struct drbd_peer_device *peer_device, sector_t secto
 	if (!peer_req)
 		goto fail;
 
+	peer_req->i.type = INTERVAL_RESYNC_WRITE;
+
 	dec_rs_pending(peer_device);
 
 	inc_unacked(device);
@@ -1916,7 +1918,7 @@ find_request(struct drbd_device *device, struct rb_root *root, u64 id,
 
 	/* Request object according to our peer */
 	req = (struct drbd_request *)(unsigned long)id;
-	if (drbd_contains_interval(root, sector, &req->i) && req->i.local)
+	if (drbd_contains_interval(root, sector, &req->i) && drbd_interval_is_local(&req->i))
 		return req;
 	if (!missing_ok) {
 		drbd_err(device, "%s: failed to find request 0x%lx, sector %llus\n", func,
@@ -1999,7 +2001,7 @@ static void restart_conflicting_writes(struct drbd_device *device,
 	struct drbd_request *req;
 
 	drbd_for_each_overlap(i, &device->write_requests, sector, size) {
-		if (!i->local)
+		if (!drbd_interval_is_local(i))
 			continue;
 		req = container_of(i, struct drbd_request, i);
 		if (req->rq_state & RQ_LOCAL_PENDING ||
@@ -2239,7 +2241,7 @@ static void fail_postponed_requests(struct drbd_device *device, sector_t sector,
 		struct drbd_request *req;
 		struct bio_and_error m;
 
-		if (!i->local)
+		if (!drbd_interval_is_local(i))
 			continue;
 		req = container_of(i, struct drbd_request, i);
 		if (!(req->rq_state & RQ_POSTPONED))
@@ -2275,10 +2277,10 @@ static int handle_write_conflicts(struct drbd_device *device,
 	drbd_for_each_overlap(i, &device->write_requests, sector, size) {
 		if (i == &peer_req->i)
 			continue;
-		if (i->completed)
+		if (test_bit(INTERVAL_COMPLETED, &i->flags))
 			continue;
 
-		if (!i->local) {
+		if (!drbd_interval_is_local(i)) {
 			/*
 			 * Our peer has sent a conflicting remote request; this
 			 * should not happen in a two-node setup.  Wait for the
@@ -2409,6 +2411,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 		return -EIO;
 	}
 
+	peer_req->i.type = INTERVAL_PEER_WRITE;
 	peer_req->w.cb = e_end_block;
 	peer_req->submit_jif = jiffies;
 	peer_req->flags |= EE_APPLICATION;
@@ -2687,6 +2690,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 
 	switch (pi->cmd) {
 	case P_DATA_REQUEST:
+		peer_req->i.type = INTERVAL_PEER_READ;
 		peer_req->w.cb = w_e_end_data_req;
 		/* application IO, don't drbd_rs_begin_io */
 		peer_req->flags |= EE_APPLICATION;
@@ -2700,6 +2704,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 		peer_req->flags |= EE_RS_THIN_REQ;
 		fallthrough;
 	case P_RS_DATA_REQUEST:
+		peer_req->i.type = INTERVAL_RESYNC_READ;
 		peer_req->w.cb = w_e_end_rsdata_req;
 		/* used in the sector offset progress display */
 		device->bm_resync_fo = BM_SECT_TO_BIT(sector);
@@ -2722,6 +2727,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 
 		if (pi->cmd == P_CSUM_RS_REQUEST) {
 			D_ASSERT(device, peer_device->connection->agreed_pro_version >= 89);
+			peer_req->i.type = INTERVAL_RESYNC_READ;
 			peer_req->w.cb = w_e_end_csum_rs_req;
 			/* used in the sector offset progress display */
 			device->bm_resync_fo = BM_SECT_TO_BIT(sector);
@@ -2730,6 +2736,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 		} else if (pi->cmd == P_OV_REPLY) {
 			/* track progress, we may need to throttle */
 			atomic_add(size >> 9, &device->rs_sect_in);
+			peer_req->i.type = INTERVAL_OV_READ_SOURCE;
 			peer_req->w.cb = w_e_end_ov_reply;
 			dec_rs_pending(peer_device);
 			/* drbd_rs_begin_io done when we sent this request,
@@ -2754,6 +2761,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 			drbd_info(device, "Online Verify start sector: %llu\n",
 					(unsigned long long)sector);
 		}
+		peer_req->i.type = INTERVAL_OV_READ_TARGET;
 		peer_req->w.cb = w_e_end_ov_req;
 		break;
 
@@ -4788,6 +4796,7 @@ static int receive_rs_deallocated(struct drbd_connection *connection, struct pac
 			return -ENOMEM;
 		}
 
+		peer_req->i.type = INTERVAL_RESYNC_WRITE;
 		peer_req->w.cb = e_end_resync_block;
 		peer_req->opf = REQ_OP_DISCARD;
 		peer_req->submit_jif = jiffies;

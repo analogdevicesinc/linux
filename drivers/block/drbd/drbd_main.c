@@ -3656,7 +3656,7 @@ int drbd_wait_misc(struct drbd_device *device, struct drbd_interval *i)
 	rcu_read_unlock();
 
 	/* Indicate to wake up device->misc_wait on progress.  */
-	i->waiting = true;
+	set_bit(INTERVAL_WAITING, &i->flags);
 	prepare_to_wait(&device->misc_wait, &wait, TASK_INTERRUPTIBLE);
 	spin_unlock_irq(&device->resource->req_lock);
 	timeout = schedule_timeout(timeout);

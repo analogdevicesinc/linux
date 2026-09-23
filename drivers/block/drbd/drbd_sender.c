@@ -394,6 +394,11 @@ static int read_for_csum(struct drbd_peer_device *peer_device, sector_t sector, 
 	if (!peer_req)
 		goto defer;
 
+	/*
+	 * This will be a resync write once we receive the data back from the
+	 * peer, assuming the checksums differ.
+	 */
+	peer_req->i.type = INTERVAL_RESYNC_WRITE;
 	peer_req->w.cb = w_e_send_csum;
 	peer_req->opf = REQ_OP_READ;
 	spin_lock_irq(&device->resource->req_lock);
