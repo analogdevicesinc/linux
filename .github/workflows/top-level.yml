@@ -6,6 +6,7 @@ on:
       - 'main'
       - 'xlnx/release/*'
       - 'rpi/release/*'
+      - 'test/cloudsmith-helper-for-kuiper-flow'
   pull_request:
 
 concurrency:
@@ -266,7 +267,7 @@ jobs:
   deploy_kuiper_binaries:
     needs: [assert_build]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
-    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@ci
+    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@ci-use-cloudsmith-helper-in-kuiper-flow
     secrets: inherit
     permissions:
       id-token: write
