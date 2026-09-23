@@ -1,32 +1,68 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use std::cell::RefCell;
 use std::fmt::Display;
+use std::marker::PhantomData;
 
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, Error};
 
-pub(crate) struct DiagCtxt(TokenStream);
+pub(crate) struct DiagCtxt(PhantomData<*mut ()>);
 pub(crate) struct ErrorGuaranteed(());
 
+struct DiagCtxtData {
+    diag: TokenStream,
+}
+
+thread_local! {
+    static DIAGNOSTICS: RefCell<Option<DiagCtxtData>> = const { RefCell::new(None) };
+}
+
+// Allows `syn::Error` to be emitted into the current diagnostic context with just `?`.
+impl From<syn::Error> for ErrorGuaranteed {
+    fn from(error: syn::Error) -> Self {
+        DIAGNOSTICS.with_borrow_mut(|data| {
+            data.as_mut()
+                .unwrap()
+                .diag
+                .extend(error.into_compile_error());
+        });
+        Self(())
+    }
+}
+
 impl DiagCtxt {
-    pub(crate) fn error(&mut self, span: impl Spanned, msg: impl Display) -> ErrorGuaranteed {
-        let error = Error::new(span.span(), msg);
-        self.0.extend(error.into_compile_error());
-        ErrorGuaranteed(())
+    pub(crate) fn error(&self, span: impl Spanned, msg: impl Display) -> ErrorGuaranteed {
+        Error::new(span.span(), msg).into()
     }
 
-    pub(crate) fn warn(&mut self, span: impl Spanned, msg: impl Display) {
+    pub(crate) fn warn(&self, span: impl Spanned, msg: impl Display) {
         // Have the message start on a new line for visual clarity.
         let msg = format!("\n{}", msg);
-        self.0.extend(quote_spanned!(span.span() =>
-            // Approximate using deprecated warning while `proc_macro_diagnostic` is unstable.
-            const _: () = {
-                #[deprecated = #msg]
-                const fn warn() {}
-                warn();
-            };
-        ));
+        DIAGNOSTICS.with_borrow_mut(|data| {
+            data.as_mut()
+                .unwrap()
+                .diag
+                .extend(quote_spanned!(span.span() =>
+                    // Approximate using deprecated warning while `proc_macro_diagnostic` is
+                    // unstable.
+                    const _: () = {
+                        #[deprecated = #msg]
+                        const fn warn() {}
+                        warn();
+                    };
+                ))
+        });
+    }
+
+    /// Execute the provided function with the current diagnostic context.
+    pub(crate) fn current<R>(f: impl FnOnce(&DiagCtxt) -> R) -> R {
+        DIAGNOSTICS.with_borrow(|data| {
+            assert!(data.is_some(), "No active `DiagCtxt`");
+        });
+
+        f(&DiagCtxt(PhantomData))
     }
 
     fn with(
@@ -34,16 +70,26 @@ impl DiagCtxt {
         merge_diag: impl FnOnce(TokenStream, TokenStream) -> TokenStream,
         convert_diag: impl FnOnce(TokenStream) -> TokenStream,
     ) -> TokenStream {
-        let mut dcx = Self(TokenStream::new());
-        match f(&mut dcx) {
+        DIAGNOSTICS.with_borrow_mut(|data| {
+            assert!(data.is_none(), "`DiagCtxt` cannot be nested");
+            *data = Some(DiagCtxtData {
+                diag: TokenStream::new(),
+            });
+        });
+
+        let result = f(&mut DiagCtxt(PhantomData));
+
+        let data = DIAGNOSTICS.with_borrow_mut(|data| data.take().unwrap());
+
+        match result {
             Ok(stream) => {
-                if dcx.0.is_empty() {
+                if data.diag.is_empty() {
                     stream
                 } else {
-                    merge_diag(stream, dcx.0)
+                    merge_diag(stream, data.diag)
                 }
             }
-            Err(ErrorGuaranteed(())) => convert_diag(dcx.0),
+            Err(ErrorGuaranteed(())) => convert_diag(data.diag),
         }
     }
 

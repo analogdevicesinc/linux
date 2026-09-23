@@ -44,9 +44,6 @@ pub(crate) enum InitExprKind {
 
 struct InitTupleField {
     attrs: Vec<Attribute>,
-    /// `<-` is not valid in constructor syntax; it is parsed anyway so that it can be rejected
-    /// with a proper diagnostic instead of a parse error.
-    left_arrow_token: Option<Token![<-]>,
     value: Expr,
 }
 
@@ -83,20 +80,6 @@ impl InitExprTuple {
                 .collect(),
             rest: None,
         }
-    }
-
-    fn validate(&self, dcx: &mut DiagCtxt) -> Result<(), ErrorGuaranteed> {
-        let mut result = Ok(());
-        for field in &self.fields {
-            if let Some(left_arrow_token) = &field.left_arrow_token {
-                result = Err(dcx.error(
-                    left_arrow_token,
-                    "`<-` is not supported in tuple constructor syntax; name the fields by index \
-                     instead, e.g. `Type { 0 <- initializer, 1: value }`",
-                ));
-            }
-        }
-        result
     }
 }
 
@@ -153,8 +136,6 @@ pub(crate) fn expand_with_cfg(
 ) -> Result<TokenStream, ErrorGuaranteed> {
     let initializer = match initializer.kind {
         InitExprKind::Tuple(expr) => {
-            expr.validate(dcx)?;
-
             let mut initializer = Initializer {
                 attrs: initializer.attrs,
                 this: initializer.this,
@@ -579,9 +560,20 @@ impl InitExprTuple {
         let paren_token = parenthesized!(content in input);
         let mut fields = Punctuated::new();
         while !content.is_empty() {
+            let attrs = content.call(Attribute::parse_outer)?;
+
+            if let Some(left_arrow_token) = content.parse::<Option<Token![<-]>>()? {
+                DiagCtxt::current(|dcx| {
+                    dcx.error(
+                        left_arrow_token,
+                        "`<-` is not supported in tuple constructor syntax; name the fields by \
+                        index instead, e.g. `Type { 0 <- initializer, 1: value }`",
+                    )
+                });
+            }
+
             fields.push_value(InitTupleField {
-                attrs: content.call(Attribute::parse_outer)?,
-                left_arrow_token: content.parse()?,
+                attrs,
                 value: content.parse()?,
             });
             if content.is_empty() {
@@ -758,13 +750,8 @@ impl ToTokens for InitExprTuple {
 
 impl ToTokens for InitTupleField {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let Self {
-            attrs,
-            left_arrow_token,
-            value,
-        } = self;
+        let Self { attrs, value } = self;
         tokens.append_all(attrs);
-        left_arrow_token.to_tokens(tokens);
         value.to_tokens(tokens);
     }
 }
