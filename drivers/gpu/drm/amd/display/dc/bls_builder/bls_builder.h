@@ -39,6 +39,7 @@ struct bls_builder_output_init {
 	unsigned int dchub_ref_clock_inKhz_before;
 	unsigned int backlight;
 	bool dcmode_power_limits_present;
+	unsigned int dmub_stop_fw_response;
 	struct dmub_abi dmub_abi;
 };
 

@@ -8,12 +8,15 @@
 #include "clk_mgr.h"
 #include "dccg.h"
 #include "resource.h"
+#include "dc_dmub_srv.h"
+#include "dmub_cmd.h"
 #include "bls_builder/bls_builder_internal.h"
 
 static const enum block_sequence_func dcn401_dc1_init_sequence[] = {
 	LEGACY_CLK_MGR_INIT_CLOCKS,
 	LEGACY_CLK_MGR_IS_DC_MODE_PRESENT,
 	DCCG_INITIALIZE_CLOCKS,
+	DMUB_GPINT_SEND_AND_WAIT,
 };
 
 static bool bls_append(struct block_sequence_state *sequence,
@@ -85,6 +88,19 @@ static enum bls_builder_result dcn401_validate_initialization_step(
 		if (!dccg->funcs || !dccg->funcs->dccg_init)
 			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
 		return BLS_BUILD_SUCCESS;
+	case DMUB_GPINT_SEND_AND_WAIT: {
+		struct dc_context *ctx = params->dc->ctx;
+		struct dmub_srv *dmub;
+
+		if (!ctx || !ctx->dmub_srv || !ctx->dmub_srv->dmub || !out_init)
+			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
+		dmub = ctx->dmub_srv->dmub;
+		if (!dmub->sw_init || !dmub->hw_funcs.set_gpint ||
+				!dmub->hw_funcs.is_gpint_acked ||
+				!dmub->hw_funcs.get_gpint_response)
+			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
+		return BLS_BUILD_SUCCESS;
+	}
 	default:
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 	}
@@ -138,6 +154,24 @@ static inline enum bls_builder_result dcn401_build_dccg_init(
 	return BLS_BUILD_SUCCESS;
 }
 
+static inline enum bls_builder_result dcn401_build_dmub_stop_fw(
+		struct bls_builder_declarative_params *params,
+		struct block_sequence_state *sequence)
+{
+	union block_sequence_params bls_params = {0};
+	struct bls_builder_output_init *out_init =
+			params->out_targets->DCN_DECL_INITIALIZATION;
+
+	bls_params.dmub_gpint_params.command_code = DMUB_GPINT__STOP_FW;
+	bls_params.dmub_gpint_params.param = 0;
+	bls_params.dmub_gpint_params.response =
+			&out_init->dmub_stop_fw_response;
+	if (!bls_append(sequence, DMUB_GPINT_SEND_AND_WAIT, &bls_params))
+		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
+
+	return BLS_BUILD_SUCCESS;
+}
+
 static enum bls_builder_result dcn401_build_initialization_step(
 		struct bls_builder_declarative_params *params,
 		struct block_sequence_state *sequence,
@@ -150,6 +184,8 @@ static enum bls_builder_result dcn401_build_initialization_step(
 		return dcn401_build_dc_mode_read(params, sequence);
 	case DCCG_INITIALIZE_CLOCKS:
 		return dcn401_build_dccg_init(params, sequence);
+	case DMUB_GPINT_SEND_AND_WAIT:
+		return dcn401_build_dmub_stop_fw(params, sequence);
 	default:
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 	}
@@ -188,8 +224,10 @@ static enum bls_builder_result dcn401_build_initialization(
 	sequence.num_steps = &params->head_num_steps;
 	if (params->out_targets)
 		out_init = params->out_targets->DCN_DECL_INITIALIZATION;
-	if (out_init)
+	if (out_init) {
 		out_init->dcmode_power_limits_present = false;
+		out_init->dmub_stop_fw_response = 0;
+	}
 
 	/*
 	 * LEGACY/pmfw-msg: preserve the clock-manager entry points until
