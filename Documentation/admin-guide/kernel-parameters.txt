@@ -5436,8 +5436,8 @@ Kernel parameters
 			lazy - Scheduler controlled. Similar to full but instead
 			       of preempting the task immediately, the task gets
 			       one HZ tick time to yield itself before the
-			       preemption will be forced. One preemption is when the
-			       task returns to user space.
+			       preemption will be forced. One such preemption
+			       point is when the task returns to user space.
 
 	print-fatal-signals=
 			[KNL] debug: print fatal signals
