@@ -4596,12 +4596,13 @@ static int mlx5e_tc_add_fdb_peer_flow(struct flow_cls_offload *f,
 				      unsigned long flow_flags,
 				      struct mlx5_eswitch *peer_esw)
 {
+	u16 peer_vhca_id = MLX5_CAP_GEN(peer_esw->dev, vhca_id);
 	struct mlx5e_priv *priv = flow->priv, *peer_priv;
 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
 	struct mlx5_esw_flow_attr *attr = flow->attr->esw_attr;
 	struct mlx5e_tc_flow_parse_attr *parse_attr;
-	int i = mlx5_lag_get_dev_seq(peer_esw->dev);
 	struct mlx5e_rep_priv *peer_urpriv;
+	struct list_head *dup_peer_flows;
 	struct mlx5e_tc_flow *peer_flow;
 	struct mlx5_core_dev *in_mdev;
 	int err = 0;
@@ -4634,8 +4635,11 @@ static int mlx5e_tc_add_fdb_peer_flow(struct flow_cls_offload *f,
 	peer_flow->peer_orig = flow;
 	list_add_tail(&peer_flow->peer_flows, &flow->peer_flows);
 	flow_flag_set(flow, DUP);
+	dup_peer_flows = xa_load(&esw->offloads.peer_flows, peer_vhca_id);
+	if (!dup_peer_flows)
+		return -ENODEV;
 	mutex_lock(&esw->offloads.peer_mutex);
-	list_add_tail(&peer_flow->peer, &esw->offloads.peer_flows[i]);
+	list_add_tail(&peer_flow->peer, dup_peer_flows);
 	mutex_unlock(&esw->offloads.peer_mutex);
 
 out:
@@ -5530,20 +5534,14 @@ int mlx5e_tc_num_filters(struct mlx5e_priv *priv, unsigned long flags)
 
 void mlx5e_tc_clean_fdb_peer_flows(struct mlx5_eswitch *esw)
 {
-	struct mlx5_devcom_comp_dev *devcom = esw->devcom, *pos;
 	struct mlx5e_tc_flow *peer_flow, *tmp_peer_flow;
-	struct mlx5_eswitch *peer_esw;
-	int i;
+	struct list_head *dup_peer_flows;
+	unsigned long index;
 
-	mlx5_devcom_for_each_peer_entry(devcom, peer_esw, pos) {
-		i = mlx5_lag_get_dev_seq(peer_esw->dev);
-		if (i < 0)
-			continue;
-
+	xa_for_each(&esw->offloads.peer_flows, index, dup_peer_flows)
 		list_for_each_entry_safe(peer_flow, tmp_peer_flow,
-					 &esw->offloads.peer_flows[i], peer)
+					 dup_peer_flows, peer)
 			mlx5e_tc_del_fdb_peer_flow(peer_flow);
-	}
 }
 
 void mlx5e_tc_reoffload_flows_work(struct work_struct *work)
