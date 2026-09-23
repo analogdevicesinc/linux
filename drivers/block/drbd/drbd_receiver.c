@@ -3655,7 +3655,7 @@ static int ignore_remaining_packet(struct drbd_connection *connection, struct pa
 static int config_unknown_volume(struct drbd_connection *connection, struct packet_info *pi)
 {
 	drbd_warn(connection, "%s packet received for volume %u, which is not configured locally\n",
-		  cmdname(pi->cmd), pi->vnr);
+		  drbd_packet_name(pi->cmd), pi->vnr);
 	return ignore_remaining_packet(connection, pi);
 }
 
@@ -4889,7 +4889,7 @@ static void drbdd(struct drbd_connection *connection)
 		cmd = &drbd_cmd_handler[pi.cmd];
 		if (unlikely(pi.cmd >= ARRAY_SIZE(drbd_cmd_handler) || !cmd->fn)) {
 			drbd_err(connection, "Unexpected data packet %s (0x%04x)",
-				 cmdname(pi.cmd), pi.cmd);
+				 drbd_packet_name(pi.cmd), pi.cmd);
 			goto err_out;
 		}
 
@@ -4898,12 +4898,12 @@ static void drbdd(struct drbd_connection *connection)
 			shs += sizeof(struct o_qlim);
 		if (pi.size > shs && !cmd->expect_payload) {
 			drbd_err(connection, "No payload expected %s l:%d\n",
-				 cmdname(pi.cmd), pi.size);
+				 drbd_packet_name(pi.cmd), pi.size);
 			goto err_out;
 		}
 		if (pi.size < shs) {
 			drbd_err(connection, "%s: unexpected packet size, expected:%d received:%d\n",
-				 cmdname(pi.cmd), (int)shs, pi.size);
+				 drbd_packet_name(pi.cmd), (int)shs, pi.size);
 			goto err_out;
 		}
 
@@ -4919,7 +4919,7 @@ static void drbdd(struct drbd_connection *connection)
 		err = cmd->fn(connection, &pi);
 		if (err) {
 			drbd_err(connection, "error receiving %s, e: %d l: %d!\n",
-				 cmdname(pi.cmd), err, pi.size);
+				 drbd_packet_name(pi.cmd), err, pi.size);
 			goto err_out;
 		}
 	}
@@ -5112,7 +5112,7 @@ static int drbd_do_features(struct drbd_connection *connection)
 
 	if (pi.cmd != P_CONNECTION_FEATURES) {
 		drbd_err(connection, "expected ConnectionFeatures packet, received: %s (0x%04x)\n",
-			 cmdname(pi.cmd), pi.cmd);
+			 drbd_packet_name(pi.cmd), pi.cmd);
 		return -1;
 	}
 
@@ -5235,7 +5235,7 @@ static int drbd_do_auth(struct drbd_connection *connection)
 
 	if (pi.cmd != P_AUTH_CHALLENGE) {
 		drbd_err(connection, "expected AuthChallenge packet, received: %s (0x%04x)\n",
-			 cmdname(pi.cmd), pi.cmd);
+			 drbd_packet_name(pi.cmd), pi.cmd);
 		rv = -1;
 		goto fail;
 	}
@@ -5301,7 +5301,7 @@ static int drbd_do_auth(struct drbd_connection *connection)
 
 	if (pi.cmd != P_AUTH_RESPONSE) {
 		drbd_err(connection, "expected AuthResponse packet, received: %s (0x%04x)\n",
-			 cmdname(pi.cmd), pi.cmd);
+			 drbd_packet_name(pi.cmd), pi.cmd);
 		rv = 0;
 		goto fail;
 	}
@@ -5861,7 +5861,7 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 			cmd = &ack_receiver_tbl[pi.cmd];
 			if (pi.cmd >= ARRAY_SIZE(ack_receiver_tbl) || !cmd->fn) {
 				drbd_err(connection, "Unexpected meta packet %s (0x%04x)\n",
-					 cmdname(pi.cmd), pi.cmd);
+					 drbd_packet_name(pi.cmd), pi.cmd);
 				goto disconnect;
 			}
 			expect = header_size + cmd->pkt_size;

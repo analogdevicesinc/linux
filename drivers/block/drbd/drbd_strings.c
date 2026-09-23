@@ -3,10 +3,12 @@
  * Copyright (C) 2014, LINBIT HA-Solutions GmbH.
  */
 
+#include <linux/kernel.h>
 #include <linux/drbd.h>
 #include "drbd_strings.h"
+#include "drbd_protocol.h"
 
-static const char * const drbd_conn_s_names[] = {
+static const char * const __conn_state_names[] = {
 	[C_STANDALONE]       = "StandAlone",
 	[C_DISCONNECTING]    = "Disconnecting",
 	[C_UNCONNECTED]      = "Unconnected",
@@ -33,13 +35,23 @@ static const char * const drbd_conn_s_names[] = {
 	[C_BEHIND]           = "Behind",
 };
 
-static const char * const drbd_role_s_names[] = {
-	[R_PRIMARY]   = "Primary",
-	[R_SECONDARY] = "Secondary",
-	[R_UNKNOWN]   = "Unknown"
+struct state_names drbd_conn_state_names = {
+	.names = __conn_state_names,
+	.size = ARRAY_SIZE(__conn_state_names),
 };
 
-static const char * const drbd_disk_s_names[] = {
+static const char * const __role_state_names[] = {
+	[R_UNKNOWN]   = "Unknown",
+	[R_PRIMARY]   = "Primary",
+	[R_SECONDARY] = "Secondary",
+};
+
+struct state_names drbd_role_state_names = {
+	.names = __role_state_names,
+	.size = ARRAY_SIZE(__role_state_names),
+};
+
+static const char * const __disk_state_names[] = {
 	[D_DISKLESS]     = "Diskless",
 	[D_ATTACHING]    = "Attaching",
 	[D_FAILED]       = "Failed",
@@ -51,7 +63,12 @@ static const char * const drbd_disk_s_names[] = {
 	[D_UP_TO_DATE]   = "UpToDate",
 };
 
-static const char * const drbd_state_sw_errors[] = {
+struct state_names drbd_disk_state_names = {
+	.names = __disk_state_names,
+	.size = ARRAY_SIZE(__disk_state_names),
+};
+
+static const char * const __error_messages[] = {
 	[-SS_TWO_PRIMARIES] = "Multiple primaries not allowed by config",
 	[-SS_NO_UP_TO_DATE_DISK] = "Need access to UpToDate data",
 	[-SS_NO_LOCAL_DISK] = "Can not resync without local disk",
@@ -74,25 +91,110 @@ static const char * const drbd_state_sw_errors[] = {
 	[-SS_O_VOL_PEER_PRI] = "Other vol primary on peer not allowed by config",
 };
 
+struct state_names drbd_error_messages = {
+	.names = __error_messages,
+	.size = ARRAY_SIZE(__error_messages),
+};
+
+static const char * const __packet_names[] = {
+	[P_DATA]	        = "P_DATA",
+	[P_WSAME]               = "P_WSAME",
+	[P_TRIM]                = "P_TRIM",
+	[P_DATA_REPLY]	        = "P_DATA_REPLY",
+	[P_RS_DATA_REPLY]	= "P_RS_DATA_REPLY",
+	[P_BARRIER]	        = "P_BARRIER",
+	[P_BITMAP]	        = "P_BITMAP",
+	[P_BECOME_SYNC_TARGET]  = "P_BECOME_SYNC_TARGET",
+	[P_BECOME_SYNC_SOURCE]  = "P_BECOME_SYNC_SOURCE",
+	[P_UNPLUG_REMOTE]	= "P_UNPLUG_REMOTE",
+	[P_DATA_REQUEST]	= "P_DATA_REQUEST",
+	[P_RS_DATA_REQUEST]     = "P_RS_DATA_REQUEST",
+	[P_SYNC_PARAM]	        = "P_SYNC_PARAM",
+	[P_SYNC_PARAM89]	= "P_SYNC_PARAM89",
+	[P_PROTOCOL]            = "P_PROTOCOL",
+	[P_UUIDS]	        = "P_UUIDS",
+	[P_SIZES]	        = "P_SIZES",
+	[P_STATE]	        = "P_STATE",
+	[P_SYNC_UUID]           = "P_SYNC_UUID",
+	[P_AUTH_CHALLENGE]      = "P_AUTH_CHALLENGE",
+	[P_AUTH_RESPONSE]	= "P_AUTH_RESPONSE",
+	[P_PING]		= "P_PING",
+	[P_PING_ACK]	        = "P_PING_ACK",
+	[P_RECV_ACK]	        = "P_RECV_ACK",
+	[P_WRITE_ACK]	        = "P_WRITE_ACK",
+	[P_RS_WRITE_ACK]	= "P_RS_WRITE_ACK",
+	[P_SUPERSEDED]		= "P_SUPERSEDED",
+	[P_NEG_ACK]	        = "P_NEG_ACK",
+	[P_NEG_DREPLY]	        = "P_NEG_DREPLY",
+	[P_NEG_RS_DREPLY]	= "P_NEG_RS_DREPLY",
+	[P_BARRIER_ACK]	        = "P_BARRIER_ACK",
+	[P_STATE_CHG_REQ]       = "P_STATE_CHG_REQ",
+	[P_STATE_CHG_REPLY]     = "P_STATE_CHG_REPLY",
+	[P_OV_REQUEST]          = "P_OV_REQUEST",
+	[P_OV_REPLY]            = "P_OV_REPLY",
+	[P_OV_RESULT]           = "P_OV_RESULT",
+	[P_CSUM_RS_REQUEST]     = "P_CSUM_RS_REQUEST",
+	[P_RS_IS_IN_SYNC]	= "P_RS_IS_IN_SYNC",
+	[P_COMPRESSED_BITMAP]   = "P_COMPRESSED_BITMAP",
+	[P_DELAY_PROBE]         = "P_DELAY_PROBE",
+	[P_OUT_OF_SYNC]		= "P_OUT_OF_SYNC",
+	[P_RETRY_WRITE]		= "P_RETRY_WRITE",
+	[P_RS_CANCEL]		= "P_RS_CANCEL",
+	[P_CONN_ST_CHG_REQ]	= "P_CONN_ST_CHG_REQ",
+	[P_CONN_ST_CHG_REPLY]	= "P_CONN_ST_CHG_REPLY",
+	[P_PROTOCOL_UPDATE]	= "P_PROTOCOL_UPDATE",
+	[P_RS_THIN_REQ]         = "P_RS_THIN_REQ",
+	[P_RS_DEALLOCATED]      = "P_RS_DEALLOCATED",
+	[P_ZEROES]              = "P_ZEROES",
+	/* enum drbd_packet, but not commands - obsoleted flags:
+	 *	P_MAY_IGNORE
+	 *	P_MAX_OPT_CMD
+	 */
+};
+
+struct state_names drbd_packet_names = {
+	.names = __packet_names,
+	.size = ARRAY_SIZE(__packet_names),
+};
+
 const char *drbd_conn_str(enum drbd_conns s)
 {
-	/* enums are unsigned... */
-	return s > C_BEHIND ? "TOO_LARGE" : drbd_conn_s_names[s];
+	return (s < 0 || s >= drbd_conn_state_names.size ||
+		!drbd_conn_state_names.names[s]) ?
+	       "?" : drbd_conn_state_names.names[s];
 }
 
 const char *drbd_role_str(enum drbd_role s)
 {
-	return s > R_SECONDARY   ? "TOO_LARGE" : drbd_role_s_names[s];
+	return (s < 0 || s >= drbd_role_state_names.size ||
+		!drbd_role_state_names.names[s]) ?
+	       "?" : drbd_role_state_names.names[s];
 }
 
 const char *drbd_disk_str(enum drbd_disk_state s)
 {
-	return s > D_UP_TO_DATE    ? "TOO_LARGE" : drbd_disk_s_names[s];
+	return (s < 0 || s >= drbd_disk_state_names.size ||
+		!drbd_disk_state_names.names[s]) ?
+	       "?" : drbd_disk_state_names.names[s];
 }
 
 const char *drbd_set_st_err_str(enum drbd_state_rv err)
 {
-	return err <= SS_AFTER_LAST_ERROR ? "TOO_SMALL" :
-	       err > SS_TWO_PRIMARIES ? "TOO_LARGE"
-			: drbd_state_sw_errors[-err];
+	return (-err < 0 || -err >= drbd_error_messages.size ||
+		!drbd_error_messages.names[-err]) ?
+	       "?" : drbd_error_messages.names[-err];
+}
+
+const char *drbd_packet_name(enum drbd_packet cmd)
+{
+	/* too big for the array: 0xfffX */
+	if (cmd == P_INITIAL_META)
+		return "InitialMeta";
+	if (cmd == P_INITIAL_DATA)
+		return "InitialData";
+	if (cmd == P_CONNECTION_FEATURES)
+		return "ConnectionFeatures";
+	return (cmd < 0 || cmd >= ARRAY_SIZE(__packet_names) ||
+		!__packet_names[cmd]) ?
+	       "?" : __packet_names[cmd];
 }
