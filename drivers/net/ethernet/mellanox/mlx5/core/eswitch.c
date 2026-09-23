@@ -2460,13 +2460,20 @@ static int mlx5_esw_vports_init(struct mlx5_eswitch *esw)
 		}
 	}
 
-	if (mlx5_ecpf_vport_exists(dev) ||
-	    mlx5_core_is_ecpf_esw_manager(dev)) {
+	if (mlx5_ecpf_vport_exists(dev)) {
 		err = mlx5_esw_vport_alloc(esw, idx, MLX5_VPORT_ECPF);
 		if (err)
 			goto err;
 		idx++;
 	}
+
+	if (!xa_load(&esw->vports, esw->manager_vport)) {
+		err = mlx5_esw_vport_alloc(esw, idx, esw->manager_vport);
+		if (err)
+			goto err;
+		idx++;
+	}
+
 	err = mlx5_esw_vport_alloc(esw, idx, MLX5_VPORT_UPLINK);
 	if (err)
 		goto err;
