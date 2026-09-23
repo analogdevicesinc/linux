@@ -2599,7 +2599,7 @@ static bool task_can_run_on_remote_rq(struct scx_sched *sch,
  * points to this CPU. See scx_dispatch_dequeue() for the counterpart.
  *
  * On return, @dsq is unlocked and @src_rq is locked. Returns %true if @p is
- * still valid. %false if lost to dequeue.
+ * still valid and detached from @dsq. %false if lost to dequeue.
  */
 static bool unlink_dsq_and_switch_rq_lock(struct task_struct *p,
 					  struct scx_dispatch_q *dsq,
@@ -2619,8 +2619,18 @@ static bool unlink_dsq_and_switch_rq_lock(struct task_struct *p,
 	switch_rq_lock(locked_rq, src_rq);
 
 	/* task_rq couldn't have changed if we're still the holding cpu */
-	return likely(p->scx.holding_cpu == cpu) &&
-		!WARN_ON_ONCE(src_rq != task_rq(p));
+	if (likely(p->scx.holding_cpu == cpu) && !WARN_ON_ONCE(src_rq != task_rq(p))) {
+		/*
+		 * Keep ->dsq set until we own @src_rq so that a racing dequeue
+		 * can find @dsq and clear holding_cpu. Once ownership is
+		 * confirmed, clear it under @src_rq so that deactivate_task()
+		 * takes the !dsq path instead of retaking @dsq->lock.
+		 */
+		p->scx.dsq = NULL;
+		return true;
+	}
+
+	return false;
 }
 
 static bool consume_remote_task(struct scx_sched *sch, struct rq *this_rq,
