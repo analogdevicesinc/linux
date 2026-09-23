@@ -1049,8 +1049,7 @@ static void __avic_vcpu_load(struct kvm_vcpu *vcpu, int cpu,
 	if (WARN_ON(h_physical_id & ~AVIC_PHYSICAL_ID_ENTRY_HOST_PHYSICAL_ID_MASK))
 		return;
 
-	if (WARN_ON_ONCE(vcpu->vcpu_id * sizeof(entry) >=
-			 PAGE_SIZE << avic_get_physical_id_table_order(vcpu->kvm)))
+	if (WARN_ON_ONCE(!avic_is_addressable_vcpu(vcpu)))
 		return;
 
 	/*
@@ -1112,8 +1111,7 @@ static void __avic_vcpu_put(struct kvm_vcpu *vcpu, enum avic_vcpu_action action)
 
 	lockdep_assert_preemption_disabled();
 
-	if (WARN_ON_ONCE(vcpu->vcpu_id * sizeof(entry) >=
-			 PAGE_SIZE << avic_get_physical_id_table_order(vcpu->kvm)))
+	if (WARN_ON_ONCE(!avic_is_addressable_vcpu(vcpu)))
 		return;
 
 	/*
