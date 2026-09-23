@@ -107,16 +107,14 @@ __must_check struct dc_memory_pool *dc_memory_pool_create(size_t size,
 
 	struct dc_memory_pool *pool = page_align_up(unaligned_pool);
 
-	*pool = (struct dc_memory_pool){
-		.size = size,
-		.capacity = capacity,
-		.unaligned_pool = unaligned_pool,
-		.unaligned_memory = kcalloc(lines + 1, PAGE_SIZE, GFP_KERNEL),
-		.free_list = kcalloc((uint32_t)capacity, sizeof(atomic_t),
-				     GFP_KERNEL),
-		.free_head = ATOMIC_INIT(0),
-	};
+	// Compound literals create temporary in debug driver, exceeding stack size
+	pool->size = size;
+	pool->capacity = capacity;
+	pool->unaligned_pool = unaligned_pool;
+	pool->unaligned_memory = kcalloc(lines + 1, PAGE_SIZE, GFP_KERNEL);
 	pool->memory = page_align_up(pool->unaligned_memory);
+	pool->free_list = kcalloc((uint32_t)capacity, sizeof(atomic_t), GFP_KERNEL);
+	pool->free_head = (atomic64_t)ATOMIC_INIT(0);
 
 	if (!pool->unaligned_memory || !pool->free_list) {
 		dc_memory_pool_destroy(pool);
