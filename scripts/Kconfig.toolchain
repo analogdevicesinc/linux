@@ -144,6 +144,80 @@ config CC_HAS_ASSUME
 config CC_HAS_NO_PROFILE_FN_ATTR
 	def_bool $(success,echo '__attribute__((no_profile_instrument_function)) int x();' | $(CC) -x c - -c -o /dev/null -Werror)
 
+config CC_OPT_ZERO_INIT_PADDING_BITS
+	def_string "$(cc-option-str,-fzero-init-padding-bits=all)"
+
+config CC_OPT_NO_ADDRSIG
+	def_string "$(cc-option-str,-fno-addrsig)"
+
+config CC_OPT_DIAGNOSTICS_SHOW_CONTEXT
+	def_string "$(cc-option-str,-fdiagnostics-show-context=2)"
+
+config CC_OPT_DIAGNOSTICS_SHOW_INLINING_CHAIN
+	def_string "$(cc-option-str,-fdiagnostics-show-inlining-chain)"
+
+config CC_OPT_STRICT_FLEX_ARRAYS
+	def_string "$(cc-option-str,-fstrict-flex-arrays=3)"
+
+# gcc-10 renamed --param=allow-store-data-races=0 to -fno-allow-store-data-races
+config CC_OPT_ALLOW_STORE_DATA_RACES_PARAM
+	def_string "$(cc-option-str,--param=allow-store-data-races=0)" if CC_IS_GCC
+
+config CC_OPT_NO_ALLOW_STORE_DATA_RACES
+	def_string "$(cc-option-str,-fno-allow-store-data-races)" if CC_IS_GCC
+
+config CC_HAS_MNOP_MCOUNT
+	def_bool $(cc-option,-mnop-mcount)
+
+# s390-linux-gnu-gcc did not support -mfentry until gcc-9.
+config CC_HAS_MFENTRY
+	def_bool $(cc-option,-mfentry)
+
+config LD_OPT_FORCE_GROUP_ALLOCATION
+	def_string "$(ld-option-str,--force-group-allocation)"
+
+config LD_OPT_NO_WARN_RWX_SEGMENTS
+	def_string "$(ld-option-str,--no-warn-rwx-segments)"
+
+config CC_OPT_WNO_ADDRESS_OF_PACKED_MEMBER
+	def_string "-Wno-address-of-packed-member" if $(cc-option,-Waddress-of-packed-member)
+
+config CC_OPT_WNO_FORMAT_OVERFLOW_NON_KPRINTF
+	def_string "-Wno-format-overflow-non-kprintf" if CC_IS_CLANG && $(cc-option,-Wformat-overflow-non-kprintf)
+
+config CC_OPT_WNO_FORMAT_TRUNCATION_NON_KPRINTF
+	def_string "-Wno-format-truncation-non-kprintf" if CC_IS_CLANG && $(cc-option,-Wformat-truncation-non-kprintf)
+
+config CC_OPT_WNO_DEFAULT_CONST_INIT_UNSAFE
+	def_string "-Wno-default-const-init-unsafe" if CC_IS_CLANG && $(cc-option,-Wdefault-const-init-unsafe)
+
+config CC_OPT_WNO_DANGLING_POINTER
+	def_string "-Wno-dangling-pointer" if $(cc-option,-Wdangling-pointer)
+
+config CC_OPT_WVLA_LARGER_THAN
+	def_string "$(cc-option-str,-Wvla-larger-than=1)"
+
+config CC_HAS_WSTRINGOP_OVERFLOW
+	def_bool $(cc-option,-Wstringop-overflow)
+
+config CC_OPT_WNO_UNTERMINATED_STRING_INITIALIZATION
+	def_string "-Wno-unterminated-string-initialization" if $(cc-option,-Wunterminated-string-initialization)
+
+config CC_OPT_WERROR_DESIGNATED_INIT
+	def_string "$(cc-option-str,-Werror=designated-init)"
+
+config CC_OPT_WENUM_CONVERSION
+	def_string "$(cc-option-str,-Wenum-conversion)"
+
+config CC_OPT_WNO_PACKED_NOT_ALIGNED
+	def_string "-Wno-packed-not-aligned" if $(cc-option,-Wpacked-not-aligned)
+
+config CC_OPT_WNO_FORMAT_OVERFLOW
+	def_string "-Wno-format-overflow" if $(cc-option,-Wformat-overflow)
+
+config CC_OPT_WNO_STRINGOP_TRUNCATION
+	def_string "-Wno-stringop-truncation" if $(cc-option,-Wstringop-truncation)
+
 config CC_HAS_COUNTED_BY
 	bool
 	# clang needs to be at least 20.1.0 to avoid potential crashes
