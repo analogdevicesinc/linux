@@ -2697,6 +2697,7 @@ static struct rq *move_task_between_dsqs(struct scx_sched *sch,
 			scx_move_local_task_to_local_dsq(sch, p, enq_flags, src_dsq, dst_rq);
 			raw_spin_unlock(&src_dsq->lock);
 		} else {
+			dispatch_dequeue_locked(p, src_dsq);
 			raw_spin_unlock(&src_dsq->lock);
 			move_remote_task_to_local_dsq(sch, p, enq_flags, src_rq, dst_rq);
 		}
