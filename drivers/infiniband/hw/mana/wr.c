@@ -71,7 +71,7 @@ int mana_ib_post_recv(struct ib_qp *ibqp, const struct ib_recv_wr *wr,
 	return err;
 }
 
-static int mana_ib_post_send_ud(struct mana_ib_qp *qp, const struct ib_ud_wr *wr)
+static int mana_ib_post_send_ud_one(struct mana_ib_qp *qp, const struct ib_ud_wr *wr)
 {
 	struct mana_ib_dev *mdev = container_of(qp->ibqp.device, struct mana_ib_dev, ib_dev);
 	struct mana_ib_ah *ah = container_of(wr->ah, struct mana_ib_ah, ibah);
@@ -84,11 +84,8 @@ static int mana_ib_post_send_ud(struct mana_ib_qp *qp, const struct ib_ud_wr *wr
 	struct shadow_wqe_header *shadow_wqe;
 	int err, i;
 
-	if (!ndev) {
-		ibdev_dbg(&mdev->ib_dev, "Invalid port %u in QP %u\n",
-			  qp->port, qp->ibqp.qp_num);
+	if (!ndev)
 		return -EINVAL;
-	}
 
 	if (wr->wr.opcode != IB_WR_SEND)
 		return -EINVAL;
@@ -110,7 +107,7 @@ static int mana_ib_post_send_ud(struct mana_ib_qp *qp, const struct ib_ud_wr *wr
 
 	wqe_req.num_sge = wr->wr.num_sge + 1;
 	wqe_req.sgl = gdma_sgl;
-	wqe_req.inline_oob_size = sizeof(struct rdma_send_oob);
+	wqe_req.inline_oob_size = INLINE_OOB_LARGE_SIZE;
 	wqe_req.inline_oob_data = &send_oob;
 	wqe_req.flags = GDMA_WR_OOB_IN_SGL;
 	wqe_req.client_data_unit = ib_mtu_enum_to_int(ib_mtu_int_to_enum(ndev->mtu));
@@ -119,7 +116,7 @@ static int mana_ib_post_send_ud(struct mana_ib_qp *qp, const struct ib_ud_wr *wr
 	send_oob.fence = !!(wr->wr.send_flags & IB_SEND_FENCE);
 	send_oob.signaled = !!(wr->wr.send_flags & IB_SEND_SIGNALED);
 	send_oob.solicited = !!(wr->wr.send_flags & IB_SEND_SOLICITED);
-	send_oob.psn = qp->ud_qp.sq_psn;
+	send_oob.psn = qp->sq_psn;
 	send_oob.ssn_or_rqpn = wr->remote_qpn;
 	send_oob.ud_send.remote_qkey =
 		qp->ibqp.qp_type == IB_QPT_GSI ? IB_QP1_QKEY : wr->remote_qkey;
@@ -128,40 +125,51 @@ static int mana_ib_post_send_ud(struct mana_ib_qp *qp, const struct ib_ud_wr *wr
 	if (err)
 		return err;
 
-	qp->ud_qp.sq_psn++;
+	qp->sq_psn++;
 	shadow_wqe = shadow_queue_producer_entry(&qp->shadow_sq);
 	memset(shadow_wqe, 0, sizeof(*shadow_wqe));
-	shadow_wqe->send_opcode = IB_WC_SEND;
 	shadow_wqe->wr_id = wr->wr.wr_id;
 	shadow_wqe->wqe_size_in_bu = wqe_info.wqe_size_in_bu;
 	shadow_queue_advance_producer(&qp->shadow_sq);
 
-	mana_gd_wq_ring_doorbell(mdev_to_gc(mdev), queue);
 	return 0;
+}
+
+static int mana_ib_post_send_ud(struct mana_ib_qp *qp, const struct ib_send_wr *wr,
+				const struct ib_send_wr **bad_wr)
+{
+	struct mana_ib_dev *mdev = container_of(qp->ibqp.device, struct mana_ib_dev, ib_dev);
+	struct gdma_queue *queue = qp->ud_qp.queues[MANA_UD_SEND_QUEUE].kmem;
+	bool ring_sq = false;
+	int err = 0;
+
+	for (; wr; wr = wr->next) {
+		err = mana_ib_post_send_ud_one(qp, ud_wr(wr));
+		if (unlikely(err)) {
+			*bad_wr = wr;
+			break;
+		}
+		ring_sq = true;
+	}
+
+	if (ring_sq)
+		mana_gd_wq_ring_doorbell(mdev_to_gc(mdev), queue);
+
+	return err;
 }
 
 int mana_ib_post_send(struct ib_qp *ibqp, const struct ib_send_wr *wr,
 		      const struct ib_send_wr **bad_wr)
 {
-	int err = 0;
 	struct mana_ib_qp *qp = container_of(ibqp, struct mana_ib_qp, ibqp);
 
-	for (; wr; wr = wr->next) {
-		switch (ibqp->qp_type) {
-		case IB_QPT_UD:
-		case IB_QPT_GSI:
-			err = mana_ib_post_send_ud(qp, ud_wr(wr));
-			if (unlikely(err)) {
-				*bad_wr = wr;
-				return err;
-			}
-			break;
-		default:
-			ibdev_dbg(ibqp->device, "Posting send wr on qp type %u is not supported\n",
-				  ibqp->qp_type);
-			return -EINVAL;
-		}
+	switch (ibqp->qp_type) {
+	case IB_QPT_UD:
+	case IB_QPT_GSI:
+		return mana_ib_post_send_ud(qp, wr, bad_wr);
+	default:
+		/* Unsupported QP type */
+		*bad_wr = wr;
+		return -EINVAL;
 	}
-
-	return err;
 }

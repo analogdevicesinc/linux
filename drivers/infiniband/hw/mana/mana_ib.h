@@ -206,7 +206,6 @@ enum mana_ud_queue_type {
 
 struct mana_ib_ud_qp {
 	struct mana_ib_queue queues[MANA_UD_QUEUE_TYPE_MAX];
-	u32 sq_psn;
 };
 
 struct mana_ib_qp {
@@ -222,6 +221,7 @@ struct mana_ib_qp {
 
 	/* The port on the IB device, starting with 1 */
 	u32 port;
+	u32 sq_psn;
 
 	struct list_head cq_send_list;
 	struct list_head cq_recv_list;
@@ -525,7 +525,16 @@ struct mana_rnic_set_qp_state_resp {
 
 enum WQE_OPCODE_TYPES {
 	WQE_TYPE_UD_SEND = 0,
+	WQE_TYPE_RC_SEND = 2,
+	WQE_TYPE_RC_SEND_IMM = 3,
+	WQE_TYPE_RC_SEND_INV = 4,
+	WQE_TYPE_WRITE = 5,
+	WQE_TYPE_WRITE_IMM = 6,
+	WQE_TYPE_READ = 7,
 	WQE_TYPE_UD_RECV = 8,
+	WQE_TYPE_RC_RECV = 9,
+	WQE_TYPE_REG_MR = 10,
+	WQE_TYPE_LOCAL_INV = 12,
 }; /* HW DATA */
 
 struct rdma_send_oob {
@@ -544,7 +553,36 @@ struct rdma_send_oob {
 			u32 reserved1;
 			u32 reserved2;
 		} ud_send;
+		union {
+			u32 immediate;
+			u32 invalidate_key;
+		} rc_send;
+		struct {
+			u32 address_hi;
+			u32 address_low;
+			u32 rkey;
+			u32 dma_len;
+		} rdma;
+		struct {
+			u32 mkey;
+		} mm;
 	};
+	union {
+		u32 immediate_ext;
+		struct {
+			u16 rsn;
+			u16 reserved;
+		} read;
+	};
+	u32 fsn : 24;
+	u32 reserved2   : 8;
+}; /* HW DATA */
+
+struct rdma_recv_oob {
+	u32 psn_start   : 24;
+	u32 reserved1   : 8;
+	u32 msn         : 24;
+	u32 reserved2   : 8;
 }; /* HW DATA */
 
 struct mana_rdma_cqe {
