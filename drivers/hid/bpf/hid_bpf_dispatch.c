@@ -28,16 +28,10 @@ dispatch_hid_bpf_device_event(struct hid_device *hdev, enum hid_report_type type
 			      size_t *buf_size, u32 *size, int interrupt, u64 source,
 			      bool from_bpf)
 {
-	struct hid_bpf_ctx_kern ctx_kern = {
-		.ctx = {
-			.hid = hdev,
-			.allocated_size = hdev->bpf.allocated_data,
-			.size = *size,
-		},
-		.data = hdev->bpf.device_data,
-		.from_bpf = from_bpf,
-	};
+	struct hid_bpf_ctx_kern ctx_kern;
 	struct hid_bpf_ops *e;
+	u8 *device_data;
+	u32 allocated_data;
 	int ret;
 
 	if (unlikely(hdev->bpf.destroyed))
@@ -46,11 +40,26 @@ dispatch_hid_bpf_device_event(struct hid_device *hdev, enum hid_report_type type
 	if (type >= HID_REPORT_TYPES)
 		return ERR_PTR(-EINVAL);
 
-	/* no program has been attached yet */
-	if (!hdev->bpf.device_data)
+	/*
+	 * No program has been attached yet. Pairs with smp_store_release()
+	 * in __hid_bpf_allocate_data().
+	 */
+	device_data = smp_load_acquire(&hdev->bpf.device_data);
+	if (!device_data)
 		return data;
 
-	memset(ctx_kern.data, 0, hdev->bpf.allocated_data);
+	allocated_data = READ_ONCE(hdev->bpf.allocated_data);
+	ctx_kern = (struct hid_bpf_ctx_kern){
+		.ctx = {
+			.hid = hdev,
+			.allocated_size = allocated_data,
+			.size = *size,
+		},
+		.data = device_data,
+		.from_bpf = from_bpf,
+	};
+
+	memset(ctx_kern.data, 0, allocated_data);
 	memcpy(ctx_kern.data, data, *size);
 
 	rcu_read_lock();
@@ -255,8 +264,9 @@ static int __hid_bpf_allocate_data(struct hid_device *hdev, u8 **data, u32 *size
 	if (!alloc_data)
 		return -ENOMEM;
 
-	*data = alloc_data;
-	*size = alloc_size;
+	WRITE_ONCE(*size, alloc_size);
+	/* Pairs with smp_load_acquire() in dispatch_hid_bpf_device_event() */
+	smp_store_release(data, alloc_data);
 
 	return 0;
 }
