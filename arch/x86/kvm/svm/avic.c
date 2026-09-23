@@ -889,6 +889,14 @@ int avic_init_vcpu(struct vcpu_svm *svm)
 	return ret;
 }
 
+void avic_vcpu_free(struct kvm_vcpu *vcpu)
+{
+	struct kvm_svm *kvm_svm = to_kvm_svm(vcpu->kvm);
+
+	if (kvm_svm->avic_physical_id_table && avic_is_addressable_vcpu(vcpu))
+		WRITE_ONCE(kvm_svm->avic_physical_id_table[vcpu->vcpu_id], 0);
+}
+
 void avic_apicv_post_state_restore(struct kvm_vcpu *vcpu)
 {
 	avic_handle_dfr_update(vcpu);
