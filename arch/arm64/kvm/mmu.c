@@ -1638,10 +1638,35 @@ struct kvm_s2_fault_desc {
 	unsigned long		hva;
 };
 
+static bool kvm_s2_fault_is_perm(const struct kvm_s2_fault_desc *s2fd)
+{
+	return esr_fsc_is_permission_fault(kvm_vcpu_get_esr(s2fd->vcpu));
+}
+
+static bool kvm_s2_fault_is_exec(const struct kvm_s2_fault_desc *s2fd)
+{
+	return esr_abt_is_exec_fault(kvm_vcpu_get_esr(s2fd->vcpu));
+}
+
+static bool kvm_s2_fault_is_write(const struct kvm_s2_fault_desc *s2fd)
+{
+	return esr_abt_is_write_fault(kvm_vcpu_get_esr(s2fd->vcpu));
+}
+
+static u64 kvm_s2_perm_fault_granule(const struct kvm_s2_fault_desc *s2fd)
+{
+	u64 level;
+
+	if (!kvm_s2_fault_is_perm(s2fd))
+		return 0;
+	level = kvm_vcpu_get_esr(s2fd->vcpu) & ESR_ELx_FSC_LEVEL;
+	return BIT(ARM64_HW_PGTABLE_LEVEL_SHIFT(level));
+}
+
 static int gmem_abort(const struct kvm_s2_fault_desc *s2fd)
 {
 	bool write_fault, exec_fault;
-	bool perm_fault = kvm_vcpu_trap_is_permission_fault(s2fd->vcpu);
+	bool perm_fault = kvm_s2_fault_is_perm(s2fd);
 	enum kvm_pgtable_walk_flags flags = KVM_PGTABLE_WALK_SHARED;
 	enum kvm_pgtable_prot prot = KVM_PGTABLE_PROT_R;
 	struct kvm_pgtable *pgt = s2fd->vcpu->arch.hw_mmu->pgt;
@@ -1671,8 +1696,8 @@ static int gmem_abort(const struct kvm_s2_fault_desc *s2fd)
 	else
 		gfn = s2fd->fault_ipa >> PAGE_SHIFT;
 
-	write_fault = kvm_is_write_fault(s2fd->vcpu);
-	exec_fault = kvm_vcpu_trap_is_exec_fault(s2fd->vcpu);
+	write_fault = kvm_s2_fault_is_write(s2fd);
+	exec_fault = kvm_s2_fault_is_exec(s2fd);
 
 	VM_WARN_ON_ONCE(write_fault && exec_fault);
 
@@ -1891,11 +1916,6 @@ static short kvm_s2_resolve_vma_size(const struct kvm_s2_fault_desc *s2fd,
 	return vma_shift;
 }
 
-static bool kvm_s2_fault_is_perm(const struct kvm_s2_fault_desc *s2fd)
-{
-	return kvm_vcpu_trap_is_permission_fault(s2fd->vcpu);
-}
-
 static int kvm_s2_fault_get_vma_info(const struct kvm_s2_fault_desc *s2fd,
 				     struct kvm_s2_fault_vma_info *s2vi)
 {
@@ -1961,7 +1981,7 @@ static int kvm_s2_fault_pin_pfn(const struct kvm_s2_fault_desc *s2fd,
 		return ret;
 
 	s2vi->pfn = __kvm_faultin_pfn(s2fd->memslot, get_canonical_gfn(s2fd, s2vi),
-				      kvm_is_write_fault(s2fd->vcpu) ? FOLL_WRITE : 0,
+				      kvm_s2_fault_is_write(s2fd) ? FOLL_WRITE : 0,
 				      &s2vi->map_writable, &s2vi->page);
 	if (unlikely(is_error_noslot_pfn(s2vi->pfn))) {
 		if (s2vi->pfn == KVM_PFN_ERR_HWPOISON) {
@@ -2019,7 +2039,7 @@ static int kvm_s2_fault_compute_prot(const struct kvm_s2_fault_desc *s2fd,
 {
 	struct kvm *kvm = s2fd->vcpu->kvm;
 
-	if (kvm_vcpu_trap_is_exec_fault(s2fd->vcpu) && s2vi->map_non_cacheable)
+	if (kvm_s2_fault_is_exec(s2fd) && s2vi->map_non_cacheable)
 		return -ENOEXEC;
 
 	/*
@@ -2037,13 +2057,13 @@ static int kvm_s2_fault_compute_prot(const struct kvm_s2_fault_desc *s2fd,
 
 	if (s2vi->map_writable && (s2vi->device ||
 				   !memslot_is_logging(s2fd->memslot) ||
-				   kvm_is_write_fault(s2fd->vcpu)))
+				   kvm_s2_fault_is_write(s2fd)))
 		*prot |= KVM_PGTABLE_PROT_W;
 
 	if (s2fd->nested)
 		*prot = adjust_nested_fault_perms(s2fd->nested, *prot);
 
-	if (kvm_vcpu_trap_is_exec_fault(s2fd->vcpu))
+	if (kvm_s2_fault_is_exec(s2fd))
 		*prot |= KVM_PGTABLE_PROT_X;
 
 	if (s2vi->map_non_cacheable)
@@ -2096,8 +2116,7 @@ static int kvm_s2_fault_map(const struct kvm_s2_fault_desc *s2fd,
 	if (mmu_invalidate_retry(kvm, s2vi->mmu_seq))
 		goto out_unlock;
 
-	perm_fault_granule = (kvm_s2_fault_is_perm(s2fd) ?
-			      kvm_vcpu_trap_get_perm_fault_granule(s2fd->vcpu) : 0);
+	perm_fault_granule = kvm_s2_perm_fault_granule(s2fd);
 	mapping_size = s2vi->vma_pagesize;
 	pfn = s2vi->pfn;
 	gfn = s2vi->gfn;
@@ -2176,7 +2195,7 @@ out_unlock:
 
 static int user_mem_abort(const struct kvm_s2_fault_desc *s2fd)
 {
-	bool perm_fault = kvm_vcpu_trap_is_permission_fault(s2fd->vcpu);
+	bool perm_fault = kvm_s2_fault_is_perm(s2fd);
 	struct kvm_s2_fault_vma_info s2vi = {};
 	enum kvm_pgtable_prot prot;
 	void *memcache;
@@ -2323,7 +2342,7 @@ int kvm_handle_guest_sea(struct kvm_vcpu *vcpu)
 int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 {
 	struct kvm_s2_trans nested_trans, *nested = NULL;
-	unsigned long esr;
+	unsigned long esr = kvm_vcpu_get_esr(vcpu);
 	phys_addr_t fault_ipa; /* The address we faulted on */
 	phys_addr_t ipa; /* Always the IPA in the L1 guest phys space */
 	struct kvm_memory_slot *memslot;
@@ -2332,10 +2351,8 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 	gfn_t gfn;
 	int ret, idx;
 
-	if (kvm_vcpu_abt_issea(vcpu))
+	if (esr_abt_is_sea(esr))
 		return kvm_handle_guest_sea(vcpu);
-
-	esr = kvm_vcpu_get_esr(vcpu);
 
 	/*
 	 * The fault IPA should be reliable at this point as we're not dealing
@@ -2345,7 +2362,7 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 	if (KVM_BUG_ON(ipa == INVALID_GPA, vcpu->kvm))
 		return -EFAULT;
 
-	is_iabt = kvm_vcpu_trap_is_iabt(vcpu);
+	is_iabt = esr_trap_is_iabt(esr);
 
 	if (esr_fsc_is_translation_fault(esr)) {
 		/* Beyond sanitised PARange (which is the IPA limit) */
@@ -2362,7 +2379,7 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 		}
 	}
 
-	trace_kvm_guest_fault(*vcpu_pc(vcpu), kvm_vcpu_get_esr(vcpu),
+	trace_kvm_guest_fault(*vcpu_pc(vcpu), esr,
 			      kvm_vcpu_get_hfar(vcpu), fault_ipa);
 
 	/* Check the stage-2 fault is trans. fault or write fault */
@@ -2370,10 +2387,10 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 	    !esr_fsc_is_permission_fault(esr) &&
 	    !esr_fsc_is_access_flag_fault(esr) &&
 	    !esr_fsc_is_excl_atomic_fault(esr)) {
-		kvm_err("Unsupported FSC: EC=%#x xFSC=%#lx ESR_EL2=%#lx\n",
-			kvm_vcpu_trap_get_class(vcpu),
-			(unsigned long)kvm_vcpu_trap_get_fault(vcpu),
-			(unsigned long)kvm_vcpu_get_esr(vcpu));
+		kvm_err("Unsupported FSC: EC=%#lx xFSC=%#lx ESR_EL2=%#lx\n",
+			ESR_ELx_EC(esr),
+			(unsigned long)(esr & ESR_ELx_FSC),
+			(unsigned long)esr);
 		return -EFAULT;
 	}
 
@@ -2422,7 +2439,7 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 	gfn = ipa >> PAGE_SHIFT;
 	memslot = gfn_to_memslot(vcpu->kvm, gfn);
 	hva = gfn_to_hva_memslot_prot(memslot, gfn, &writable);
-	write_fault = kvm_is_write_fault(vcpu);
+	write_fault = esr_abt_is_write_fault(esr);
 	if (kvm_is_error_hva(hva) || (write_fault && !writable)) {
 		/*
 		 * The guest has put either its instructions or its page-tables
@@ -2435,7 +2452,7 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 			goto out;
 		}
 
-		if (kvm_vcpu_abt_iss1tw(vcpu)) {
+		if (esr_abt_is_s1ptw(esr)) {
 			ret = kvm_inject_sea_dabt(vcpu, kvm_vcpu_get_hfar(vcpu));
 			goto out_unlock;
 		}
@@ -2450,7 +2467,7 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 		 * So let's assume that the guest is just being
 		 * cautious, and skip the instruction.
 		 */
-		if (kvm_is_error_hva(hva) && kvm_vcpu_dabt_is_cm(vcpu)) {
+		if (kvm_is_error_hva(hva) && esr_dabt_is_cm(esr)) {
 			kvm_incr_pc(vcpu);
 			ret = 1;
 			goto out_unlock;
@@ -2487,9 +2504,8 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 	if (kvm_vm_is_protected(vcpu->kvm)) {
 		ret = pkvm_mem_abort(&s2fd);
 	} else {
-		VM_WARN_ON_ONCE(kvm_vcpu_trap_is_permission_fault(vcpu) &&
-				!write_fault &&
-				!kvm_vcpu_trap_is_exec_fault(vcpu));
+		VM_WARN_ON_ONCE(kvm_s2_fault_is_perm(&s2fd) && !write_fault &&
+				!kvm_s2_fault_is_exec(&s2fd));
 
 		if (kvm_slot_has_gmem(memslot))
 			ret = gmem_abort(&s2fd);
