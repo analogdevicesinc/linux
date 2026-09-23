@@ -280,6 +280,16 @@ static int altera_cvp_send_block(struct altera_cvp_conf *conf,
 	return 0;
 }
 
+static void altera_cvp_disable_cvp_mode(struct altera_cvp_conf *conf)
+{
+	u32 val;
+
+	altera_read_config_dword(conf, VSE_CVP_MODE_CTRL, &val);
+	val &= ~VSE_CVP_MODE_CTRL_HIP_CLK_SEL;
+	val &= ~VSE_CVP_MODE_CTRL_CVP_MODE;
+	altera_write_config_dword(conf, VSE_CVP_MODE_CTRL, val);
+}
+
 static int altera_cvp_teardown(struct fpga_manager *mgr,
 			       struct fpga_image_info *info)
 {
@@ -498,10 +508,7 @@ static int altera_cvp_write_complete(struct fpga_manager *mgr,
 	}
 
 	/* STEP 17 - reset CVP_MODE and HIP_CLK_SEL bit */
-	altera_read_config_dword(conf, VSE_CVP_MODE_CTRL, &val);
-	val &= ~VSE_CVP_MODE_CTRL_HIP_CLK_SEL;
-	val &= ~VSE_CVP_MODE_CTRL_CVP_MODE;
-	altera_write_config_dword(conf, VSE_CVP_MODE_CTRL, val);
+	altera_cvp_disable_cvp_mode(conf);
 
 	/* STEP 18 - poll PLD_CLK_IN_USE and USER_MODE bits */
 	mask = VSE_CVP_STATUS_PLD_CLK_IN_USE | VSE_CVP_STATUS_USERMODE;
