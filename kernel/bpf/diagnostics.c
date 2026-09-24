@@ -1567,8 +1567,7 @@ static void diag_record_mod(struct bpf_verifier_env *env, u32 insn_idx,
 	} else if (diag_mod_insn_origin(env, insn_idx, &target, &event.mod.origin)) {
 		event.mod.origin_valid = true;
 	}
-	if (old_reg && new_reg &&
-	    (reason == BPF_DIAG_MOD_WRITE || reason == BPF_DIAG_MOD_SPILL) &&
+	if (old_reg && new_reg && reason == BPF_DIAG_MOD_WRITE &&
 	    !memcmp(&event.mod.old, &event.mod.new, sizeof(event.mod.old)) &&
 	    !event.mod.origin_valid &&
 	    diag_mod_keeps_lineage(env, &event))
