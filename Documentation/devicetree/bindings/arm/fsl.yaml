@@ -1520,6 +1520,12 @@ properties:
           - const: toradex,lino-imx91
           - const: fsl,imx91
 
+      - description: i.MX91 boards with Toradex OSM Modules
+        items:
+          - const: toradex,osm-imx91-dev # OSM iMX91 Module on OSM Dev Board
+          - const: toradex,osm-imx91
+          - const: fsl,imx91
+
       - description: i.MX93 based Boards
         items:
           - enum:
@@ -1538,6 +1544,12 @@ properties:
               - toradex,lino-imx93-verdin-dev    # Lino iMX93 Module on Verdin Dev Board
           - const: toradex,lino-imx93-verdin     # Lino iMX93 Module on Verdin Adapter
           - const: toradex,lino-imx93
+          - const: fsl,imx93
+
+      - description: i.MX93 boards with Toradex OSM Modules
+        items:
+          - const: toradex,osm-imx93-dev # OSM iMX93 Module on OSM Dev Board
+          - const: toradex,osm-imx93
           - const: fsl,imx93
 
       - description: i.MX94 based Boards
