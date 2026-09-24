@@ -1279,12 +1279,8 @@ static int gswip_port_change_mtu(struct dsa_switch *ds, int port, int new_mtu)
 	/* Enable MLEN for ports with non-standard MTUs, including the special
 	 * header on the CPU port added above.
 	 */
-	if (new_mtu != ETH_DATA_LEN)
-		regmap_set_bits(priv->gswip, GSWIP_MAC_CTRL_2p(port),
-				GSWIP_MAC_CTRL_2_MLEN);
-	else
-		regmap_clear_bits(priv->gswip, GSWIP_MAC_CTRL_2p(port),
-				  GSWIP_MAC_CTRL_2_MLEN);
+	regmap_assign_bits(priv->gswip, GSWIP_MAC_CTRL_2p(port),
+			   GSWIP_MAC_CTRL_2_MLEN, new_mtu != ETH_DATA_LEN);
 
 	return 0;
 }

@@ -2150,10 +2150,7 @@ mt7530_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
 	struct mt7530_priv *priv = gpiochip_get_data(gc);
 	u32 bit = mt7530_gpio_to_bit(offset);
 
-	if (value)
-		regmap_set_bits(priv->regmap, MT7530_LED_GPIO_DATA, bit);
-	else
-		regmap_clear_bits(priv->regmap, MT7530_LED_GPIO_DATA, bit);
+	regmap_assign_bits(priv->regmap, MT7530_LED_GPIO_DATA, bit, value);
 
 	return 0;
 }
@@ -2191,10 +2188,7 @@ mt7530_gpio_direction_output(struct gpio_chip *gc, unsigned int offset, int valu
 
 	regmap_set_bits(priv->regmap, MT7530_LED_GPIO_DIR, bit);
 
-	if (value)
-		regmap_set_bits(priv->regmap, MT7530_LED_GPIO_DATA, bit);
-	else
-		regmap_clear_bits(priv->regmap, MT7530_LED_GPIO_DATA, bit);
+	regmap_assign_bits(priv->regmap, MT7530_LED_GPIO_DATA, bit, value);
 
 	regmap_set_bits(priv->regmap, MT7530_LED_GPIO_OE, bit);
 
