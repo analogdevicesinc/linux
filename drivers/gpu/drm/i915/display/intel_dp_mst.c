@@ -2252,7 +2252,7 @@ bool intel_dp_mst_verify_dpcd_state(struct intel_dp *intel_dp)
 	if (!intel_dp->is_mst)
 		return true;
 
-	ret = drm_dp_dpcd_readb(intel_dp->mst.mgr.aux, DP_MSTM_CTRL, &val);
+	ret = drm_dp_dpcd_read_byte(intel_dp->mst.mgr.aux, DP_MSTM_CTRL, &val);
 
 	/* Adjust the expected register value for SST + SideBand. */
 	if (ret < 0 || val != (DP_MST_EN | DP_UP_REQ_EN | DP_UPSTREAM_IS_SRC)) {

@@ -49,6 +49,7 @@
 #include "intel_ddi.h"
 #include "intel_ddi_buf_trans.h"
 #include "intel_de.h"
+#include "intel_dip.h"
 #include "intel_display_power.h"
 #include "intel_display_regs.h"
 #include "intel_display_types.h"
@@ -2331,15 +2332,17 @@ static void intel_dp_sink_set_msa_timing_par_ignore_state(struct intel_dp *intel
 							  bool enable)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
+	int ret;
 
 	if (!crtc_state->vrr.enable)
 		return;
 
-	if (drm_dp_dpcd_writeb(&intel_dp->aux, DP_DOWNSPREAD_CTRL,
-			       enable ? DP_MSA_TIMING_PAR_IGNORE_EN : 0) <= 0)
+	ret = drm_dp_dpcd_write_byte(&intel_dp->aux, DP_DOWNSPREAD_CTRL,
+				     enable ? DP_MSA_TIMING_PAR_IGNORE_EN : 0);
+	if (ret < 0)
 		drm_dbg_kms(display->drm,
-			    "Failed to %s MSA_TIMING_PAR_IGNORE in the sink\n",
-			    str_enable_disable(enable));
+			    "Failed to %s MSA_TIMING_PAR_IGNORE in the sink (%pe)\n",
+			    str_enable_disable(enable), ERR_PTR(ret));
 }
 
 static void intel_dp_sink_set_fec_ready(struct intel_dp *intel_dp,
@@ -2347,19 +2350,25 @@ static void intel_dp_sink_set_fec_ready(struct intel_dp *intel_dp,
 					bool enable)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
+	int ret;
 
 	if (!crtc_state->fec_enable)
 		return;
 
-	if (drm_dp_dpcd_writeb(&intel_dp->aux, DP_FEC_CONFIGURATION,
-			       enable ? DP_FEC_READY : 0) <= 0)
-		drm_dbg_kms(display->drm, "Failed to set FEC_READY to %s in the sink\n",
-			    str_enabled_disabled(enable));
+	ret = drm_dp_dpcd_write_byte(&intel_dp->aux, DP_FEC_CONFIGURATION,
+				     enable ? DP_FEC_READY : 0);
+	if (ret < 0)
+		drm_dbg_kms(display->drm, "Failed to set FEC_READY to %s in the sink (%pe)\n",
+			    str_enabled_disabled(enable), ERR_PTR(ret));
 
-	if (enable &&
-	    drm_dp_dpcd_writeb(&intel_dp->aux, DP_FEC_STATUS,
-			       DP_FEC_DECODE_EN_DETECTED | DP_FEC_DECODE_DIS_DETECTED) <= 0)
-		drm_dbg_kms(display->drm, "Failed to clear FEC detected flags\n");
+	if (enable) {
+		ret = drm_dp_dpcd_write_byte(&intel_dp->aux, DP_FEC_STATUS,
+					     DP_FEC_DECODE_EN_DETECTED |
+					     DP_FEC_DECODE_DIS_DETECTED);
+		if (ret < 0)
+			drm_dbg_kms(display->drm, "Failed to clear FEC detected flags (%pe)\n",
+				    ERR_PTR(ret));
+	}
 }
 
 static int wait_for_fec_detected(struct drm_dp_aux *aux, bool enabled)
@@ -2735,6 +2744,8 @@ static void mtl_ddi_pre_enable_dp(struct intel_atomic_state *state,
 
 	/* 6.o Configure and enable FEC if needed */
 	intel_ddi_enable_fec(encoder, crtc_state);
+
+	intel_dip_cmn_sdp_transmission_line_enable(crtc_state);
 
 	/* 7.a 128b/132b SST. */
 	if (!is_mst && intel_dp_is_uhbr(crtc_state)) {
@@ -3123,6 +3134,7 @@ static void intel_ddi_buf_disable(struct intel_encoder *encoder,
 			     DP_TP_CTL_ENABLE, 0);
 	}
 
+	intel_dip_cmn_sdp_transmission_line_disable(crtc_state);
 	intel_ddi_disable_fec(encoder, crtc_state);
 
 	if (DISPLAY_VER(display) < 14)
@@ -4235,6 +4247,7 @@ static void intel_ddi_get_config(struct intel_encoder *encoder,
 	intel_read_dp_sdp(encoder, pipe_config, HDMI_PACKET_TYPE_GAMUT_METADATA);
 	intel_read_dp_sdp(encoder, pipe_config, DP_SDP_VSC);
 	intel_read_dp_sdp(encoder, pipe_config, DP_SDP_ADAPTIVE_SYNC);
+	intel_dip_sdp_transmission_line_get_config(pipe_config);
 
 	intel_audio_codec_get_config(encoder, pipe_config);
 }

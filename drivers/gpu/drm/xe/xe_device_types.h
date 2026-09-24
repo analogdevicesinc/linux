@@ -453,6 +453,19 @@ struct xe_device {
 		struct mutex lock;
 	} d3cold;
 
+	/** @pme: Encapsulate pme related stuff */
+	struct {
+		/** @pme.capable: Indicates if device is PME capable */
+		bool capable;
+
+		/** @pme.enabled:
+		 *
+		 * Indicates if PME is enabled - depends on user controllable
+		 * sysfs interface as well
+		 */
+		bool enabled;
+	} pme;
+
 	/** @pm_notifier: Our PM notifier to perform actions in response to various PM events. */
 	struct notifier_block pm_notifier;
 	/** @pm_block: Completion to block validating tasks on suspend / hibernate prepare */
