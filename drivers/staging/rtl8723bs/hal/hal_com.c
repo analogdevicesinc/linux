@@ -247,13 +247,13 @@ u8 HwRateToMRate(u8 rate)
 	return ret_rate;
 }
 
-void HalSetBrateCfg(struct adapter *Adapter, u8 *mBratesOS, u16 *pBrateCfg)
+void HalSetBrateCfg(struct adapter *Adapter, u8 *basic_rates, u16 *pBrateCfg)
 {
 	u8 i, is_brate, brate;
 
 	for (i = 0; i < NDIS_802_11_LENGTH_RATES_EX; i++) {
-		is_brate = mBratesOS[i] & IEEE80211_BASIC_RATE_MASK;
-		brate = mBratesOS[i] & 0x7f;
+		is_brate = basic_rates[i] & IEEE80211_BASIC_RATE_MASK;
+		brate = basic_rates[i] & 0x7f;
 
 		if (is_brate) {
 			switch (brate) {
