@@ -295,6 +295,9 @@ int ras_eeprom_mgr_check_and_report_status(struct ras_core_context *ras_core, bo
 				RAS_DEV_ERR(ras_core->dev, "RAS records:%d exceed threshold:%d",
 					valid_err_count, mgr->ras_err_threshold);
 
+			if (mgr->work_mode_over_thresh != RAS_WORK_MODE_OVER_THRESH_DEBUG)
+				ras_core->bad_page_over_threshold = true;
+
 			if (mgr->work_mode_over_thresh == RAS_WORK_MODE_OVER_THRESH_STRICT) {
 				RAS_DEV_WARN(ras_core->dev,
 				"Please consult AMD Service Action Guide (SAG) for appropriate service procedures\n");
@@ -316,6 +319,7 @@ int ras_eeprom_mgr_check_and_report_status(struct ras_core_context *ras_core, bo
 				RAS_DEV_ERR(ras_core->dev, "Failed to resize RAS table\n");
 			} else {
 				ras_core->is_rma = false;
+				ras_core->bad_page_over_threshold = false;
 				RAS_DEV_INFO(ras_core->dev,
 					"records:%d threshold:%d, resetting RAS table header signature",
 					valid_err_count, mgr->ras_err_threshold);

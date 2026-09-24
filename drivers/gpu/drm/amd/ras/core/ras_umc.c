@@ -705,7 +705,7 @@ void ras_umc_report_badpage_info(struct ras_core_context *ras_core)
 			&ras_umc->last_channel_bitmap);
 	}
 
-	if (ras_core->is_rma)
+	if (ras_core->is_rma || ras_core->bad_page_over_threshold)
 		ras_core_event_notify(ras_core, RAS_EVENT_ID__DEVICE_RMA, NULL);
 }
 

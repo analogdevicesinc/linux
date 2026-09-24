@@ -408,6 +408,7 @@ struct ras_core_context {
 	bool poison_supported;
 
 	bool is_rma;
+	bool bad_page_over_threshold;
 	bool is_initialized;
 	bool in_early_init;
 	bool early_init_service_enabled;
