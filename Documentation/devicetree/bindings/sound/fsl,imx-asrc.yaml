@@ -186,5 +186,5 @@ examples:
             asrc_endpoint: endpoint {
                 remote-endpoint = <&fe00_ep>;
             };
-       };
+        };
     };

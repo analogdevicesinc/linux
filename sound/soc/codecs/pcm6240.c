@@ -620,12 +620,12 @@ static int pcmdev_get_volsw(struct snd_kcontrol *kcontrol,
 		/* Set to wide-range mode, before using vol ctrl. */
 		if (!val && vol_ctrl_type == PCMDEV_PCM1690_VOL_CTRL) {
 			ucontrol->value.integer.value[0] = -25500;
-			return ret;
+			return 0;
 		}
 		/* Set to fine mode, before using fine vol ctrl. */
 		if (val && vol_ctrl_type == PCMDEV_PCM1690_FINE_VOL_CTRL) {
 			ucontrol->value.integer.value[0] = -12750;
-			return ret;
+			return 0;
 		}
 	}
 
@@ -641,7 +641,7 @@ static int pcmdev_get_volsw(struct snd_kcontrol *kcontrol,
 	val = mc->invert ? max - val : val;
 	ucontrol->value.integer.value[0] = val;
 
-	return ret;
+	return 0;
 }
 
 static int pcmdevice_get_volsw(struct snd_kcontrol *kcontrol,
