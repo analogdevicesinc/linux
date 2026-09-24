@@ -490,24 +490,27 @@ static void scsi_report_sense(struct scsi_device *sdev,
 	enum scsi_device_event evt_type = SDEV_EVT_MAXBITS;	/* i.e. none */
 
 	if (sshdr->sense_key == UNIT_ATTENTION) {
-		if (sshdr->asc == 0x3f && sshdr->ascq == 0x03) {
+		if (sshdr->sense_code == INQUIRY_DATA_HAS_CHANGED) {
 			evt_type = SDEV_EVT_INQUIRY_CHANGE_REPORTED;
 			sdev_printk(KERN_WARNING, sdev,
 				    "Inquiry data has changed");
-		} else if (sshdr->asc == 0x3f && sshdr->ascq == 0x0e) {
+		} else if (sshdr->sense_code == REPORTED_LUNS_DATA_HAS_CHANGED) {
 			evt_type = SDEV_EVT_LUN_CHANGE_REPORTED;
 			scsi_report_lun_change(sdev);
 			sdev_printk(KERN_WARNING, sdev,
 				    "LUN assignments on this target have "
 				    "changed. The Linux SCSI layer does not "
 				    "automatically remap LUN assignments.\n");
-		} else if (sshdr->asc == 0x3f)
+		} else if (scsi_sense_asc(sshdr) ==
+			   ASC_TARGET_OPERATING_CONDITIONS_HAVE_CHANGED) {
 			sdev_printk(KERN_WARNING, sdev,
 				    "Operating parameters on this target have "
 				    "changed. The Linux SCSI layer does not "
 				    "automatically adjust these parameters.\n");
+		}
 
-		if (sshdr->asc == 0x38 && sshdr->ascq == 0x07) {
+		if (sshdr->sense_code ==
+		    THIN_PROVISIONING_SOFT_THRESHOLD_REACHED) {
 			evt_type = SDEV_EVT_SOFT_THRESHOLD_REACHED_REPORTED;
 			sdev_printk(KERN_WARNING, sdev,
 				    "Warning! Received an indication that the "
@@ -515,7 +518,8 @@ static void scsi_report_sense(struct scsi_device *sdev,
 				    "threshold.\n");
 		}
 
-		if (sshdr->asc == 0x29) {
+		if (scsi_sense_asc(sshdr) ==
+		    ASC_POWER_ON_RESET_OR_BUS_DEVICE_RESET_OCCURRED) {
 			evt_type = SDEV_EVT_POWER_ON_RESET_OCCURRED;
 			/*
 			 * Do not print message if it is an expected side-effect
@@ -526,21 +530,22 @@ static void scsi_report_sense(struct scsi_device *sdev,
 					    "Power-on or device reset occurred\n");
 		}
 
-		if (sshdr->asc == 0x2a && sshdr->ascq == 0x01) {
+		if (sshdr->sense_code == MODE_PARAMETERS_CHANGED) {
 			evt_type = SDEV_EVT_MODE_PARAMETER_CHANGE_REPORTED;
 			sdev_printk(KERN_WARNING, sdev,
 				    "Mode parameters changed");
-		} else if (sshdr->asc == 0x2a && sshdr->ascq == 0x06) {
+		} else if (sshdr->sense_code == ASYMMETRIC_ACCESS_STATE_CHANGED) {
 			evt_type = SDEV_EVT_ALUA_STATE_CHANGE_REPORTED;
 			sdev_printk(KERN_WARNING, sdev,
 				    "Asymmetric access state changed");
-		} else if (sshdr->asc == 0x2a && sshdr->ascq == 0x09) {
+		} else if (sshdr->sense_code == CAPACITY_DATA_HAS_CHANGED) {
 			evt_type = SDEV_EVT_CAPACITY_CHANGE_REPORTED;
 			sdev_printk(KERN_WARNING, sdev,
 				    "Capacity data has changed");
-		} else if (sshdr->asc == 0x2a)
+		} else if (scsi_sense_asc(sshdr) == ASC_PARAMETERS_CHANGED) {
 			sdev_printk(KERN_WARNING, sdev,
 				    "Parameters changed");
+		}
 	}
 
 	if (evt_type != SDEV_EVT_MAXBITS) {
@@ -582,9 +587,11 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 		 * that all ULDs interested in these can see that those have
 		 * happened, even if someone else gets the sense data.
 		 */
-		if (sshdr.asc == 0x28)
+		if (scsi_sense_asc(&sshdr) ==
+		    ASC_NOT_READY_TO_READY_CHANGE_MEDIUM_MAY_HAVE_CHANGED)
 			atomic_inc(&sdev->ua_new_media_ctr);
-		else if (sshdr.asc == 0x29)
+		else if (scsi_sense_asc(&sshdr) ==
+			 ASC_POWER_ON_RESET_OR_BUS_DEVICE_RESET_OCCURRED)
 			atomic_inc(&sdev->ua_por_ctr);
 	}
 
@@ -636,7 +643,8 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 		return /* soft_error */ SUCCESS;
 
 	case ABORTED_COMMAND:
-		if (sshdr.asc == 0x10) /* DIF */
+		if (scsi_sense_asc(&sshdr) == ASC_ID_CRC_OR_ECC_ERROR)
+			/* DIF */
 			return SUCCESS;
 
 		/*
@@ -647,18 +655,20 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 		 * COMMAND TIMEOUT DURING PROCESSING DUE TO ERROR RECOVERY
 		 * additional sense code qualifiers.
 		 */
-		if (sshdr.asc == 0x2e &&
-		    sshdr.ascq >= 0x01 && sshdr.ascq <= 0x03) {
+		if (sshdr.sense_code >= COMMAND_TIMEOUT_BEFORE_PROCESSING &&
+		    sshdr.sense_code <=
+		    COMMAND_TIMEOUT_DURING_PROCESSING_DUE_TO_ERROR_RECOVERY) {
 			set_scsi_ml_byte(scmd, SCSIML_STAT_DL_TIMEOUT);
 			req->cmd_flags |= REQ_FAILFAST_DEV;
 			req->rq_flags |= RQF_QUIET;
 			return SUCCESS;
 		}
 
-		if (sshdr.asc == 0x44 && sdev->sdev_bflags & BLIST_RETRY_ITF)
+		if ((sdev->sdev_bflags & BLIST_RETRY_ITF) &&
+		    scsi_sense_asc(&sshdr) == ASC_INTERNAL_TARGET_FAILURE)
 			return ADD_TO_MLQUEUE;
-		if (sshdr.asc == 0xc1 && sshdr.ascq == 0x01 &&
-		    sdev->sdev_bflags & BLIST_RETRY_ASC_C1)
+		if ((sdev->sdev_bflags & BLIST_RETRY_ASC_C1) &&
+		    sshdr.sense_code == scsi_sense_code(0xc1, 0x01))
 			return ADD_TO_MLQUEUE;
 
 		return NEEDS_RETRY;
@@ -672,12 +682,13 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 		 */
 		if (scmd->device->expecting_cc_ua) {
 			/*
-			 * Because some device does not queue unit
-			 * attentions correctly, we carefully check
-			 * additional sense code and qualifier so as
-			 * not to squash media change unit attention.
+			 * Because some devices do not queue unit attentions
+			 * correctly, we carefully check additional sense code
+			 * and qualifier so as not to squash media change unit
+			 * attention.
 			 */
-			if (sshdr.asc != 0x28 || sshdr.ascq != 0x00) {
+			if (sshdr.sense_code !=
+			    NOT_READY_TO_READY_CHANGE_MEDIUM_MAY_HAVE_CHANGED) {
 				scmd->device->expecting_cc_ua = 0;
 				return NEEDS_RETRY;
 			}
@@ -688,21 +699,23 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 		 * REPORTED LUNS DATA HAS CHANGED.
 		 */
 		if (scmd->device->sdev_target->expecting_lun_change &&
-		    sshdr.asc == 0x3f && sshdr.ascq == 0x0e)
+		    sshdr.sense_code == REPORTED_LUNS_DATA_HAS_CHANGED)
 			return NEEDS_RETRY;
 		/*
 		 * if the device is in the process of becoming ready, we
 		 * should retry.
 		 */
-		if ((sshdr.asc == 0x04) &&
-		    (sshdr.ascq == 0x01 || sshdr.ascq == 0x0a))
+		if (sshdr.sense_code == LU_IS_IN_PROCESS_OF_BECOMING_READY ||
+		    sshdr.sense_code ==
+		    LU_NOT_ACCESSIBLE_ASYMMETRIC_ACCESS_STATE_TRANSITION)
 			return NEEDS_RETRY;
 		/*
 		 * if the device is not started, we need to wake
 		 * the error handler to start the motor
 		 */
 		if (scmd->device->allow_restart &&
-		    (sshdr.asc == 0x04) && (sshdr.ascq == 0x02))
+		    sshdr.sense_code ==
+		    LU_NOT_READY_INITIALIZING_COMMAND_REQUIRED)
 			return FAILED;
 		/*
 		 * Pass the UA upwards for a determination in the completion
@@ -712,7 +725,7 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 
 		/* these are not supported */
 	case DATA_PROTECT:
-		if (sshdr.asc == 0x27 && sshdr.ascq == 0x07) {
+		if (sshdr.sense_code == SPACE_ALLOCATION_FAILED_WRITE_PROTECT) {
 			/* Thin provisioning hard threshold reached */
 			set_scsi_ml_byte(scmd, SCSIML_STAT_NOSPC);
 			return SUCCESS;
@@ -726,11 +739,14 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 		return SUCCESS;
 
 	case MEDIUM_ERROR:
-		if (sshdr.asc == 0x11 || /* UNRECOVERED READ ERR */
-		    sshdr.asc == 0x13 || /* AMNF DATA FIELD */
-		    sshdr.asc == 0x14) { /* RECORD NOT FOUND */
+		switch (scsi_sense_asc(&sshdr)) {
+		case ASC_UNRECOVERED_READ_ERROR:
+		case ASC_ADDRESS_MARK_NOT_FOUND_FOR_DATA_FIELD:
+		case ASC_RECORDED_ENTITY_NOT_FOUND:
 			set_scsi_ml_byte(scmd, SCSIML_STAT_MED_ERROR);
 			return SUCCESS;
+		default:
+			break;
 		}
 		return NEEDS_RETRY;
 
@@ -742,13 +758,17 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 		fallthrough;
 
 	case ILLEGAL_REQUEST:
-		if (sshdr.asc == 0x20 || /* Invalid command operation code */
-		    sshdr.asc == 0x21 || /* Logical block address out of range */
-		    sshdr.asc == 0x22 || /* Invalid function */
-		    sshdr.asc == 0x24 || /* Invalid field in cdb */
-		    sshdr.asc == 0x26 || /* Parameter value invalid */
-		    sshdr.asc == 0x27) { /* Write protected */
+		switch (scsi_sense_asc(&sshdr)) {
+		case ASC_INVALID_COMMAND_OP_CODE:
+		case ASC_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE:
+		case ASC_ILLEGAL_FUNCTION:
+		case ASC_INVALID_FIELD_IN_CDB:
+		case ASC_INVALID_FIELD_IN_PARAMETER_LIST:
+		case ASC_WRITE_PROTECTED:
 			set_scsi_ml_byte(scmd, SCSIML_STAT_TGT_FAILURE);
+			break;
+		default:
+			break;
 		}
 		return SUCCESS;
 
@@ -760,7 +780,7 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 		 * that the command was in fact aborted because it exceeded its
 		 * duration limit. Never retry these commands.
 		 */
-		if (sshdr.asc == 0x55 && sshdr.ascq == 0x0a) {
+		if (sshdr.sense_code == DATA_CURRENTLY_UNAVAILABLE) {
 			set_scsi_ml_byte(scmd, SCSIML_STAT_DL_TIMEOUT);
 			req->cmd_flags |= REQ_FAILFAST_DEV;
 			req->rq_flags |= RQF_QUIET;
