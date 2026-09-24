@@ -619,11 +619,40 @@ void bpf_opt_hard_wire_dead_code_branches(struct bpf_verifier_env *env)
 	}
 }
 
+/*
+ * The address of a function might be taken by the code that is not dead,
+ * while the function itself is dead code, since nothing calls it. Keep the first
+ * instruction of such function, so that the address remains valid and differs
+ * from the addresses of other functions. Make it a trap like
+ * sanitize_dead_code() does.
+ */
+static void keep_funcs_with_addr_taken(struct bpf_verifier_env *env)
+{
+	struct bpf_insn_aux_data *aux_data = env->insn_aux_data;
+	struct bpf_insn trap = BPF_JMP_IMM(BPF_JA, 0, 0, -1);
+	struct bpf_insn *insn = env->prog->insnsi;
+	int insn_cnt = env->prog->len;
+	int i, t;
+
+	for (i = 0; i < insn_cnt; i++) {
+		if (!aux_data[i].seen || !bpf_pseudo_func(insn + i))
+			continue;
+		t = i + insn[i].imm + 1;
+		if (aux_data[t].seen)
+			continue;
+		memcpy(insn + t, &trap, sizeof(trap));
+		aux_data[t].zext_dst = false;
+		aux_data[t].seen = env->pass_cnt;
+	}
+}
+
 int bpf_opt_remove_dead_code(struct bpf_verifier_env *env)
 {
 	struct bpf_insn_aux_data *aux_data = env->insn_aux_data;
 	int insn_cnt = env->prog->len;
 	int i, err;
+
+	keep_funcs_with_addr_taken(env);
 
 	for (i = 0; i < insn_cnt; i++) {
 		int j;
