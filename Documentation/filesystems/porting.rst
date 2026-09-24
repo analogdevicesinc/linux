@@ -348,7 +348,7 @@ simply of return 1.  Note that all actual eviction work is done by caller after
 As before, clear_inode() must be called exactly once on each call of
 ->evict_inode() (as it used to be for each call of ->delete_inode()).  Unlike
 before, if you are using inode-associated metadata buffers (i.e.
-mark_buffer_dirty_inode()), it's your responsibility to call
+mmb_mark_buffer_dirty()), it's your responsibility to call
 invalidate_inode_buffers() before clear_inode().
 
 NOTE: checking i_nlink in the beginning of ->write_inode() and bailing out
@@ -1409,3 +1409,16 @@ use only if you have no alternative.
 The .create inode_operation no longer receives the 'excl' arg.  It must
 always assume the file does not already exist.  If the filesystem needs
 to be involved in non-exclusive create, it should provide atomic_open.
+
+---
+
+**mandatory**
+
+All struct mnt_idmap pointers handed to filesystems are const now.
+->create(), ->mkdir(), ->mknod(), ->symlink(), ->rename(), ->setattr(),
+->getattr(), ->permission(), ->tmpfile(), ->get_acl(), ->set_acl() and
+->fileattr_set() as well as the xattr ->set() handler and the vfs_*()
+helpers take a const struct mnt_idmap *. mnt_idmap() and file_mnt_idmap()
+return one. The idmapping is immutable so nothing should have modified it
+anyway. References are taken and dropped via mnt_idmap_get() and
+mnt_idmap_put() as before, both accept a const pointer.

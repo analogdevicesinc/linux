@@ -232,6 +232,7 @@ struct exfat_sb_info {
 	unsigned int num_FAT_sectors; /* num of FAT sectors */
 	unsigned int root_dir; /* root dir cluster */
 	unsigned int dentries_per_clu; /* num of dentries per cluster */
+	unsigned int dentries_per_clu_bits;
 	unsigned int vol_flags; /* volume flags */
 	unsigned int vol_flags_persistent; /* volume flags to retain */
 	struct buffer_head *boot_bh; /* buffer_head of BOOT sector */
@@ -555,9 +556,9 @@ int exfat_trim_fs(struct inode *inode, struct fstrim_range *range);
 /* file.c */
 extern const struct file_operations exfat_file_operations;
 int __exfat_truncate(struct inode *inode);
-int exfat_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int exfat_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		  struct iattr *attr);
-int exfat_getattr(struct mnt_idmap *idmap, const struct path *path,
+int exfat_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		  struct kstat *stat, unsigned int request_mask,
 		  unsigned int query_flags);
 struct file_kattr;
