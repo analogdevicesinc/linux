@@ -1216,10 +1216,7 @@ static void update_partition_sd_lb(struct cpuset *cs, int old_prs)
 	}
 	if (new_lb != !!is_sched_load_balance(cs)) {
 		rebuild_domains = true;
-		if (new_lb)
-			set_bit(CS_SCHED_LOAD_BALANCE, &cs->flags);
-		else
-			clear_bit(CS_SCHED_LOAD_BALANCE, &cs->flags);
+		assign_bit(CS_SCHED_LOAD_BALANCE, &cs->flags, new_lb);
 	}
 
 	if (rebuild_domains)
@@ -2308,10 +2305,8 @@ get_css:
 		 */
 		if (cpuset_v2() && !is_partition_valid(cp) &&
 		    (is_sched_load_balance(parent) != is_sched_load_balance(cp))) {
-			if (is_sched_load_balance(parent))
-				set_bit(CS_SCHED_LOAD_BALANCE, &cp->flags);
-			else
-				clear_bit(CS_SCHED_LOAD_BALANCE, &cp->flags);
+			assign_bit(CS_SCHED_LOAD_BALANCE, &cp->flags,
+				   is_sched_load_balance(parent));
 		}
 
 		/*
@@ -2890,10 +2885,7 @@ int cpuset_update_flag(cpuset_flagbits_t bit, struct cpuset *cs,
 	if (!trialcs)
 		return -ENOMEM;
 
-	if (turning_on)
-		set_bit(bit, &trialcs->flags);
-	else
-		clear_bit(bit, &trialcs->flags);
+	assign_bit(bit, &trialcs->flags, turning_on);
 
 	err = validate_change(cs, trialcs);
 	if (err < 0)
@@ -3044,8 +3036,6 @@ out:
 	update_partition_sd_lb(cs, old_prs);
 
 	notify_partition_change(cs, old_prs);
-	if (force_sd_rebuild)
-		rebuild_sched_domains_locked();
 	free_tmpmasks(&tmpmask);
 	return 0;
 }
