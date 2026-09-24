@@ -41,9 +41,10 @@ static uint32_t speed = 500000;
 static uint16_t delay;
 static uint16_t word_delay;
 static int verbose;
-static int transfer_size;
+static int transfer_size = -1;
 static int iterations;
 static int interval = 5; /* interval in seconds for showing transfer rate */
+static int random_input;
 static int input_choices;
 
 static uint8_t default_tx[] = {
@@ -319,6 +320,7 @@ static void parse_opts(int argc, char *argv[])
 			break;
 		case 'S':
 			transfer_size = atoi(optarg);
+			random_input = 1;
 			input_choices++;
 			break;
 		case 'I':
@@ -454,6 +456,9 @@ int main(int argc, char *argv[])
 		pabort("at most one of -S (--size), -p, -i (--input) may be selected, "
 		       "and each may be specified only once");
 
+	if (random_input && transfer_size < 0)
+		pabort("a size argument is mandatory for -S (--size)");
+
 	fd = open(device, O_RDWR);
 	if (fd < 0)
 		pabort("can't open device");
@@ -509,7 +514,7 @@ int main(int argc, char *argv[])
 		transfer_escaped_string(fd, input_tx);
 	else if (input_file)
 		transfer_file(fd, input_file);
-	else if (transfer_size) {
+	else if (transfer_size >= 0) {
 		struct timespec last_stat;
 
 		clock_gettime(CLOCK_MONOTONIC, &last_stat);
