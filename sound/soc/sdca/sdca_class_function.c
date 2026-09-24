@@ -490,14 +490,14 @@ static int class_function_suspend(struct device *dev)
 	struct class_function_drv *drv = auxiliary_get_drvdata(auxdev);
 	int ret;
 
-	drv->suspended = true;
-
 	/* Ensure runtime resume runs on resume */
 	ret = pm_runtime_resume_and_get(dev);
 	if (ret) {
 		dev_err(dev, "failed to resume for suspend: %d\n", ret);
 		return ret;
 	}
+
+	drv->suspended = true;
 
 	sdca_irq_disable(drv->function, drv->core->irq_info);
 
