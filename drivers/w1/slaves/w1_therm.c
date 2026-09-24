@@ -355,7 +355,7 @@ static DEVICE_ATTR_RW(alarms);
 static DEVICE_ATTR_RW(conv_time);
 static DEVICE_ATTR_RW(features);
 
-static DEVICE_ATTR_RW(therm_bulk_read); /* attribut at master level */
+static DEVICE_ATTR_RW(therm_bulk_read); /* attribute at master level */
 
 /* Interface Functions declaration */
 

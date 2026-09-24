@@ -1182,7 +1182,7 @@ int w1_process(void *data)
 
 		__set_current_state(TASK_INTERRUPTIBLE);
 
-		/* hold list_mutex until after interruptible to prevent loosing
+		/* hold list_mutex until after interruptible to prevent losing
 		 * the wakeup signal when async_cmd is added.
 		 */
 		mutex_unlock(&dev->list_mutex);
