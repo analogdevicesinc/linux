@@ -52,6 +52,7 @@
 #define VEML6031X00_CONF0_SD        BIT(0)
 #define VEML6031X00_CONF0_AF_TRIG   BIT(2)
 #define VEML6031X00_CONF0_AF        BIT(3)
+#define VEML6031X00_CONF1_ALS_CAL   BIT(0)
 #define VEML6031X00_CONF1_IR_SD     BIT(7)
 #define VEML6031X00_INT_TH_H        BIT(1)
 #define VEML6031X00_INT_TH_L        BIT(2)
@@ -1120,6 +1121,11 @@ static int veml6031x00_hw_init(struct veml6031x00_data *data)
 				 VEML6031X00_CONF0_AF | VEML6031X00_CONF0_AF_TRIG, 0);
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to disable trigger\n");
+
+	ret = regmap_set_bits(data->regmap, VEML6031X00_REG_CONF1,
+			      VEML6031X00_CONF1_ALS_CAL);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to enable internal calibration\n");
 
 	regval = 0;
 	ret = regmap_bulk_write(map, VEML6031X00_REG_WL_L, &regval, sizeof(regval));
