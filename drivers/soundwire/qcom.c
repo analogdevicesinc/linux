@@ -221,6 +221,9 @@ struct qcom_swrm_ctrl {
 	u32 slave_status;
 	u32 wr_fifo_depth;
 	bool clock_stop_not_supported;
+	/* Per-Slave SCP_ADDRPAGE1/2 shadow; -1 = unknown. */
+	s16 page1_cache[SDW_MAX_DEVICES + 1];
+	s16 page2_cache[SDW_MAX_DEVICES + 1];
 };
 
 struct qcom_swrm_data {
@@ -630,6 +633,10 @@ static void qcom_swrm_set_slave_dev_num(struct sdw_bus *bus,
 		mutex_lock(&bus->bus_lock);
 		set_bit(devnum, bus->assigned);
 		mutex_unlock(&bus->bus_lock);
+
+		/* Re-attach resets SCP_ADDRPAGE1/2 to defaults; invalidate. */
+		ctrl->page1_cache[devnum] = -1;
+		ctrl->page2_cache[devnum] = -1;
 	}
 }
 
@@ -976,17 +983,25 @@ static enum sdw_command_response qcom_swrm_xfer_msg(struct sdw_bus *bus,
 	int ret, i, len;
 
 	if (msg->page) {
-		ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page1,
-						msg->dev_num,
-						SDW_SCP_ADDRPAGE1);
-		if (ret)
-			return ret;
+		if (ctrl->page1_cache[msg->dev_num] != msg->addr_page1) {
+			ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page1,
+							msg->dev_num,
+							SDW_SCP_ADDRPAGE1);
+			if (ret)
+				return ret;
 
-		ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page2,
-						msg->dev_num,
-						SDW_SCP_ADDRPAGE2);
-		if (ret)
-			return ret;
+			ctrl->page1_cache[msg->dev_num] = msg->addr_page1;
+		}
+
+		if (ctrl->page2_cache[msg->dev_num] != msg->addr_page2) {
+			ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page2,
+							msg->dev_num,
+							SDW_SCP_ADDRPAGE2);
+			if (ret)
+				return ret;
+
+			ctrl->page2_cache[msg->dev_num] = msg->addr_page2;
+		}
 	}
 
 	if (msg->flags == SDW_MSG_FLAG_READ) {
@@ -1560,6 +1575,9 @@ static int qcom_swrm_probe(struct platform_device *pdev)
 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
 	if (!ctrl)
 		return -ENOMEM;
+
+	memset(ctrl->page1_cache, 0xff, sizeof(ctrl->page1_cache));
+	memset(ctrl->page2_cache, 0xff, sizeof(ctrl->page2_cache));
 
 	data = of_device_get_match_data(dev);
 	ctrl->max_reg = data->max_reg;
