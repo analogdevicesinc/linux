@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0+ OR MIT
 /*
- * Apple M3 MacBook Air/Pro and iMac (M3, 2023/2024)
+ * Apple M4 Mac mini, MacBook Air/Pro, iMac 24" (M4, 2024/2025)
  *
- * This file contains parts common to all Apple M3 devices using the t8122.
+ * This file contains parts common to all Apple M4 devices using the t8132.
  *
- * target-type: J433, J434, J504, J613, J615
+ * target-type: J604, J623, J624, J713, J715, J773g
  *
  * Copyright The Asahi Linux Contributors
  */
@@ -15,26 +15,25 @@
 	};
 
 	chosen {
-		ranges;
 		#address-cells = <2>;
 		#size-cells = <2>;
+		ranges;
 
 		stdout-path = "serial0";
 
 		framebuffer0: framebuffer@0 {
 			compatible = "apple,simple-framebuffer", "simple-framebuffer";
 			reg = <0 0 0 0>; /* To be filled by loader */
-			power-domains = <&ps_disp_cpu>, <&ps_dptx_ext_phy>;
+			power-domains = <&ps_disp_fe>, <&ps_dptx_phy>;
 			/* Format properties will be added by loader */
-
 			status = "disabled";
 		};
 	};
 
 	reserved-memory {
-		ranges;
 		#address-cells = <2>;
 		#size-cells = <2>;
+		ranges;
 		/* To be filled by loader */
 	};
 
