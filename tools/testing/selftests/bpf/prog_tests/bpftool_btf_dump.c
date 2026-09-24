@@ -57,6 +57,57 @@ static struct btf *mk_btf(void)
 	return btf;
 }
 
+static struct btf *mk_loc_btf(void)
+{
+	struct btf *btf;
+
+	btf = btf__new_empty();
+	if (!ASSERT_OK_PTR(btf, "new_empty"))
+		return NULL;
+
+	btf__add_int(btf, "int", 4, BTF_INT_SIGNED);
+	btf__add_func_proto(btf, 1);
+	btf__add_func_param(btf, "arg1", 1);
+	btf__add_func_param(btf, "arg2", 1);
+	btf__add_func_param(btf, "arg3", 1);
+	btf__add_func_param(btf, "arg4", 1);
+	btf__add_func_param(btf, "arg5", 1);
+	btf__add_func(btf, "foo", BTF_FUNC_STATIC, 2);
+
+	btf__add_loc_param(btf, 4, BTF_LOC_PARAM_REG);
+	btf__add_loc_param_value(btf, 1);
+	btf__add_loc_param(btf, 8, BTF_LOC_PARAM_REG |
+			    BTF_LOC_PARAM_DEREF | BTF_LOC_PARAM_OFFSET);
+	btf__add_loc_param_value(btf, 2);
+	btf__add_loc_param_value(btf, 0x10);
+	btf__add_loc_param(btf, 8, BTF_LOC_PARAM_REG |
+			   BTF_LOC_PARAM_OFFSET | BTF_LOC_PARAM_SIGNED);
+	btf__add_loc_param_value(btf, BTF_LOC_PARAM_FBREG);
+	btf__add_loc_param_value(btf, -0x10);
+	btf__add_loc_param(btf, 8, BTF_LOC_PARAM_ADDR | BTF_LOC_PARAM_CONST);
+	btf__add_loc_param_value(btf, 0x9abcdef0);
+	btf__add_loc_param_value(btf, 0x12345678);
+	btf__add_loc_param(btf, 8, BTF_LOC_PARAM_CONST);
+	btf__add_loc_param_value(btf, 0xfeedface);
+	btf__add_loc_param_value(btf, 0xdeadbeef);
+	btf__add_loc_param(btf, 8, BTF_LOC_PARAM_REG |
+			    BTF_LOC_PARAM_DEREF | BTF_LOC_PARAM_OFFSET |
+			    BTF_LOC_PARAM_SIGNED);
+	btf__add_loc_param_value(btf, BTF_LOC_PARAM_FBREG);
+	btf__add_loc_param_value(btf, -0x20);
+	btf__add_loc_proto(btf);
+	btf__add_loc_proto_param(btf, 4);
+	btf__add_loc_proto_param(btf, 5);
+	btf__add_loc_proto_param(btf, 6);
+	btf__add_loc_proto_param(btf, 7);
+	btf__add_loc_proto_param(btf, 8);
+	btf__add_loc_proto_param(btf, 9);
+	btf__add_locsec(btf, "inline.text");
+	btf__add_locsec_loc(btf, 3, 10, 64);
+
+	return btf;
+}
+
 static int btf_to_tmpfile(const struct btf *btf, char *path)
 {
 	ssize_t written;
@@ -98,6 +149,26 @@ static char *dump_c(const char *btf_path, bool sorted)
 
 	err = get_bpftool_command_output(args, buf, DUMP_BUF_SZ);
 	if (!ASSERT_OK(err, "btf_dump_format_c")) {
+		free(buf);
+		return NULL;
+	}
+
+	return buf;
+}
+
+static char *dump_raw(const char *btf_path)
+{
+	char args[MAX_BPFTOOL_CMD_LEN];
+	char *buf;
+	int err;
+
+	buf = malloc(DUMP_BUF_SZ);
+	if (!ASSERT_OK_PTR(buf, "alloc_dump"))
+		return NULL;
+
+	snprintf(args, sizeof(args), "btf dump file %s", btf_path);
+	err = get_bpftool_command_output(args, buf, DUMP_BUF_SZ);
+	if (!ASSERT_OK(err, "btf_dump_raw")) {
 		free(buf);
 		return NULL;
 	}
@@ -155,10 +226,46 @@ out_dump:
 	free(dump);
 }
 
+static void test_loc_dump(const char *btf_path)
+{
+	const char expected[] =
+		"[1] INT 'int' size=4 bits_offset=0 nr_bits=32 encoding=SIGNED\n"
+		"[2] FUNC_PROTO '(anon)' ret_type_id=1 vlen=5\n"
+		"\t'arg1' type_id=1\n"
+		"\t'arg2' type_id=1\n"
+		"\t'arg3' type_id=1\n"
+		"\t'arg4' type_id=1\n"
+		"\t'arg5' type_id=1\n"
+		"[3] FUNC 'foo' type_id=2 linkage=static\n"
+		"[4] LOC_PARAM '(anon)' size=4 flags=0x8 vlen=1 values='reg1'\n"
+		"[5] LOC_PARAM '(anon)' size=8 flags=0x38 vlen=2 values='*(reg2 + 0x10)'\n"
+		"[6] LOC_PARAM '(anon)' size=8 flags=0x29 vlen=2 values='fbreg - 0x10'\n"
+		"[7] LOC_PARAM '(anon)' size=8 flags=0x6 vlen=2 values='0x123456789abcdef0 (addr)'\n"
+		"[8] LOC_PARAM '(anon)' size=8 flags=0x2 vlen=2 values='0xdeadbeeffeedface'\n"
+		"[9] LOC_PARAM '(anon)' size=8 flags=0x39 vlen=2 values='*(fbreg - 0x20)'\n"
+		"[10] LOC_PROTO '(anon)' vlen=6\n"
+		"\ttype_id=4 value='reg1'\n"
+		"\ttype_id=5 value='*(reg2 + 0x10)'\n"
+		"\ttype_id=6 value='fbreg - 0x10'\n"
+		"\ttype_id=7 value='0x123456789abcdef0 (addr)'\n"
+		"\ttype_id=8 value='0xdeadbeeffeedface'\n"
+		"\ttype_id=9 value='*(fbreg - 0x20)'\n"
+		"[11] LOCSEC 'inline.text' vlen=1\n"
+		"\tname='foo' func_type_id=3 loc_proto_type_id=10 offset=64\n";
+	char *dump;
+
+	dump = dump_raw(btf_path);
+	if (!dump)
+		return;
+
+	ASSERT_OK(compare_text_to_expected(dump, expected), "cmp_loc_dump");
+	free(dump);
+}
+
 void test_bpftool_btf_dump(void)
 {
 	char path[PATH_MAX];
-	struct btf *btf;
+	struct btf *btf = NULL;
 
 	btf = mk_btf();
 	if (!btf)
@@ -171,7 +278,19 @@ void test_bpftool_btf_dump(void)
 		test_dump(path, true);
 	if (test__start_subtest("c_unsorted"))
 		test_dump(path, false);
+	unlink(path);
 
+	btf__free(btf);
+
+	btf = mk_loc_btf();
+	if (!btf)
+		return;
+
+	if (btf_to_tmpfile(btf, path))
+		goto out_btf;
+
+	if (test__start_subtest("loc_dump"))
+		test_loc_dump(path);
 	unlink(path);
 out_btf:
 	btf__free(btf);
