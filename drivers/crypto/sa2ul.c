@@ -466,7 +466,7 @@ static void sa_prepare_iopads(struct algo_data *data, const u8 *key,
 /* Derive the inverse key used in AES-CBC decryption operation */
 static inline int sa_aes_inv_key(u8 *inv_key, const u8 *key, u16 key_sz)
 {
-	struct crypto_aes_ctx ctx;
+	struct crypto_aes_ctx ctx __cleanup(aes_zeroize_ctx);
 	int key_pos;
 
 	if (aes_expandkey(&ctx, key, key_sz)) {
