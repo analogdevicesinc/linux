@@ -66,6 +66,7 @@ static struct {
 	const char *driver_name;
 	u8         hw_variant;
 	u32        fw_build_num;
+	u32        fw_sha;
 } coredump_info;
 
 const guid_t btintel_guid_dsm =
@@ -516,6 +517,7 @@ int btintel_version_info_tlv(struct hci_dev *hdev,
 	case 0x20:	/* Scorpious Peak2 */
 	case 0x21:	/* Scorpious Peak2 F */
 	case 0x22:	/* BlazarIW (BzrIW) */
+	case 0x23:	/* Draco */
 		break;
 	default:
 		bt_dev_err(hdev, "Unsupported Intel hardware variant (0x%x)",
@@ -569,6 +571,7 @@ int btintel_version_info_tlv(struct hci_dev *hdev,
 
 	coredump_info.hw_variant = INTEL_HW_VARIANT(version->cnvi_bt);
 	coredump_info.fw_build_num = version->build_num;
+	coredump_info.fw_sha = version->git_sha1;
 
 	bt_dev_info(hdev, "%s timestamp %u.%u buildtype %u build %u", variant,
 		    2000 + (version->timestamp >> 8), version->timestamp & 0xff,
@@ -969,6 +972,41 @@ int btintel_send_intel_reset(struct hci_dev *hdev, u32 boot_param)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(btintel_send_intel_reset);
+
+static void btintel_get_rom_debug_info(struct hci_dev *hdev)
+{
+	struct btintel_rp_get_rom_debug_info *rom_debug_info;
+	struct sk_buff *skb;
+
+	skb = __hci_cmd_sync(hdev, BTINTEL_GET_ROM_DEBUG_INFO, 0, NULL,
+			     HCI_CMD_TIMEOUT);
+	if (IS_ERR(skb)) {
+		bt_dev_err(hdev, "Failed to send Intel get rom debug info command (%ld)",
+			   PTR_ERR(skb));
+		return;
+	}
+
+	if (skb->len != sizeof(*rom_debug_info)) {
+		bt_dev_err(hdev,
+			   "Intel get rom debug info size mismatch (%u != %zu)",
+			   skb->len, sizeof(*rom_debug_info));
+		kfree_skb(skb);
+		return;
+	}
+
+	rom_debug_info = (struct btintel_rp_get_rom_debug_info *)skb->data;
+
+	/* A non-zero status here would have already been turned into an
+	 * error by the HCI core and reported via the IS_ERR(skb) check above.
+	 */
+	bt_dev_info(hdev, "Intel get rom debug info: dr0:0x%08x dr1:0x%08x dr2:0x%08x dr3:0x%08x",
+		    le32_to_cpu(rom_debug_info->debug_reg0),
+		    le32_to_cpu(rom_debug_info->debug_reg1),
+		    le32_to_cpu(rom_debug_info->debug_reg2),
+		    le32_to_cpu(rom_debug_info->debug_reg3));
+
+	kfree_skb(skb);
+}
 
 int btintel_read_boot_params(struct hci_dev *hdev,
 			     struct intel_boot_params *params)
@@ -2219,6 +2257,8 @@ download:
 			goto done;
 		}
 
+		btintel_get_rom_debug_info(hdev);
+
 		/* When FW download fails, send Intel Reset to retry
 		 * FW download.
 		 */
@@ -2238,8 +2278,10 @@ download:
 	 * of this device.
 	 */
 	err = btintel_download_wait(hdev, calltime, 5000);
-	if (err == -ETIMEDOUT)
+	if (err == -ETIMEDOUT) {
+		btintel_get_rom_debug_info(hdev);
 		btintel_reset_to_bootloader(hdev);
+	}
 
 done:
 	release_firmware(fw);
@@ -2382,6 +2424,7 @@ static int btintel_prepare_fw_download_tlv(struct hci_dev *hdev,
 					   struct intel_version_tlv *ver,
 					   u32 *boot_param)
 {
+	struct btintel_data *intel_data = hci_get_priv(hdev);
 	const struct firmware *fw;
 	char fwname[128];
 	int err;
@@ -2471,6 +2514,8 @@ static int btintel_prepare_fw_download_tlv(struct hci_dev *hdev,
 			goto done;
 		}
 
+		btintel_get_rom_debug_info(hdev);
+
 		/* When FW download fails, send Intel Reset to retry
 		 * FW download.
 		 */
@@ -2490,10 +2535,13 @@ static int btintel_prepare_fw_download_tlv(struct hci_dev *hdev,
 	 * of this device.
 	 */
 	err = btintel_download_wait(hdev, calltime, 5000);
-	if (err == -ETIMEDOUT)
+	if (err == -ETIMEDOUT) {
+		btintel_get_rom_debug_info(hdev);
 		btintel_reset_to_bootloader(hdev);
+	}
 
 done:
+	intel_data->cnvi_bt = ver->cnvi_bt;
 	release_firmware(fw);
 	return err;
 }
@@ -3531,6 +3579,9 @@ int btintel_bootloader_setup_tlv(struct hci_dev *hdev,
 
 	btintel_version_info_tlv(hdev, &new_ver);
 
+	/* Update ver with the operational firmware version */
+	*ver = new_ver;
+
 finish:
 	/* Set the event mask for Intel specific vendor events. This enables
 	 * a few extra events that are useful during general operation. It
@@ -3567,6 +3618,7 @@ void btintel_set_msft_opcode(struct hci_dev *hdev, u8 hw_variant)
 	case 0x20:
 	case 0x21:
 	case 0x22:
+	case 0x23:
 		hci_set_msft_opcode(hdev, 0xFC1E);
 		break;
 	default:
@@ -3910,6 +3962,7 @@ static int btintel_setup_combined(struct hci_dev *hdev)
 	case 0x20:
 	case 0x21:
 	case 0x22:
+	case 0x23:
 		/* Display version information of TLV type */
 		btintel_version_info_tlv(hdev, &ver_tlv);
 
