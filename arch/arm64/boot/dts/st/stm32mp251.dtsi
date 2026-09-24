@@ -1829,6 +1829,21 @@
 			};
 		};
 
+		dts: thermal-sensor@44070000 {
+			compatible = "moortec,mr75203";
+			reg = <0x44070000 0x80>,
+			      <0x44070080 0xc0>,
+			      <0x44070180 0x80>,
+			      <0x44070400 0x400>;
+			reg-names = "common", "ts", "pd", "vm";
+			clocks = <&rcc CK_KER_DTS>;
+			resets = <&rcc DTS_R>;
+			#thermal-sensor-cells = <1>;
+			moortec,ts-coeff-g = <58500>;
+			moortec,ts-coeff-h = <201200>;
+			moortec,ts-coeff-j = <0>;
+		};
+
 		hdp: pinctrl@44090000 {
 			compatible = "st,stm32mp251-hdp";
 			reg = <0x44090000 0x400>;
