@@ -753,6 +753,8 @@ static inline int mmc_card_uhs2_hd_mode(struct mmc_host *host)
 int mmc_sd_switch(struct mmc_card *card, bool mode, int group,
 		u8 value, u8 *resp);
 int mmc_send_status(struct mmc_card *card, u32 *status);
+int mmc_send_tuning_timeout(struct mmc_host *host, u32 opcode, int *cmd_error,
+			    u32 timeout_ms);
 int mmc_send_tuning(struct mmc_host *host, u32 opcode, int *cmd_error);
 int mmc_send_abort_tuning(struct mmc_host *host, u32 opcode);
 int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd);
