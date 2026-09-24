@@ -318,7 +318,7 @@ struct {
 } map_array SEC(".maps");
 
 SEC("socket")
-__failure __msg("invalid read from stack R2 off=-1024 size=8")
+__failure __msg("invalid read from stack R2 off=-4096 size=8")
 __flag(BPF_F_TEST_STATE_FREQ)
 __naked unsigned long caller_stack_write_tail_call(void)
 {
@@ -329,7 +329,7 @@ __naked unsigned long caller_stack_write_tail_call(void)
         "if r0 != 42 goto 1f;"
         "goto 2f;"
   "1:"
-        "*(u64 *)(r10 - 8) = -1024;"
+        "*(u64 *)(r10 - 8) = -4096;"
   "2:"
         "r1 = r6;"
         "r2 = r10;"
