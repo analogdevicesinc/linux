@@ -93,6 +93,7 @@
 	FN(IP_INVALID_SOURCE)		\
 	FN(IP_LOCALNET)			\
 	FN(IP_INVALID_DEST)		\
+	FN(IP_TTL_EXCEEDED)		\
 	FN(PKT_TOO_BIG)			\
 	FN(DUP_FRAG)			\
 	FN(FRAG_REASM_TIMEOUT)		\
@@ -474,6 +475,11 @@ enum skb_drop_reason {
 	 * 1) dest ip is 0
 	 */
 	SKB_DROP_REASON_IP_INVALID_DEST,
+	/**
+	 * @SKB_DROP_REASON_IP_TTL_EXCEEDED: IPv4 TTL or IPv6 hop limit <= 1
+	 * (see IPSTATS_MIB_INHDRERRORS)
+	 */
+	SKB_DROP_REASON_IP_TTL_EXCEEDED,
 	/**
 	 * @SKB_DROP_REASON_PKT_TOO_BIG: packet size is too big (maybe exceed the
 	 * MTU)

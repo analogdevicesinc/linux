@@ -19,6 +19,7 @@
 #include <net/gro_cells.h>
 #include <net/macsec.h>
 #include <net/dst_metadata.h>
+#include <net/rtnetlink.h>
 #include <net/netdev_lock.h>
 #include <linux/phy.h>
 #include <linux/byteorder/generic.h>
@@ -3945,6 +3946,33 @@ static int macsec_changelink_common(struct net_device *dev,
 	return 0;
 }
 
+/* Both a change of the offload state (mdo_add_secy()/mdo_del_secy()) and
+ * any request against an already offloaded device (mdo_upd_secy()) reach
+ * the driver of real_dev, which may live in a different network namespace
+ * from the macsec device. Require CAP_NET_ADMIN over real_dev's namespace
+ * for those; local attributes of a non-offloaded device are unaffected.
+ */
+static int macsec_changelink_check_netns(struct net_device *dev,
+					 struct nlattr *data[],
+					 struct netlink_ext_ack *extack)
+{
+	struct macsec_dev *macsec = macsec_priv(dev);
+	bool reaches_real_dev;
+
+	reaches_real_dev = macsec_is_offloaded(macsec);
+	if (data[IFLA_MACSEC_OFFLOAD] &&
+	    nla_get_u8(data[IFLA_MACSEC_OFFLOAD]) != macsec->offload)
+		reaches_real_dev = true;
+
+	if (!reaches_real_dev ||
+	    rtnl_dev_link_net_capable(dev, dev_net(macsec->real_dev)))
+		return 0;
+
+	NL_SET_ERR_MSG(extack,
+		       "Changing a MACsec device whose real device is in another network namespace requires CAP_NET_ADMIN in that namespace");
+	return -EPERM;
+}
+
 static int macsec_changelink(struct net_device *dev, struct nlattr *tb[],
 			     struct nlattr *data[],
 			     struct netlink_ext_ack *extack)
@@ -3958,6 +3986,10 @@ static int macsec_changelink(struct net_device *dev, struct nlattr *tb[],
 
 	if (!data)
 		return 0;
+
+	ret = macsec_changelink_check_netns(dev, data, extack);
+	if (ret)
+		return ret;
 
 	if (data[IFLA_MACSEC_CIPHER_SUITE] ||
 	    data[IFLA_MACSEC_ICV_LEN] ||

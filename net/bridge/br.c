@@ -396,10 +396,7 @@ void br_opt_toggle(struct net_bridge *br, enum net_bridge_opts opt, bool on)
 	if (cur == on)
 		return;
 
-	if (on)
-		set_bit(opt, &br->options);
-	else
-		clear_bit(opt, &br->options);
+	assign_bit(opt, &br->options, on);
 }
 
 static void __net_exit br_net_exit_rtnl(struct net *net,

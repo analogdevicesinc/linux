@@ -937,8 +937,8 @@
  *	OLBC handling in hostapd. Beacons are reported in %NL80211_CMD_FRAME
  *	messages. Note that per PHY only one application may register.
  *
- * @NL80211_CMD_SET_NOACK_MAP: sets a bitmap for the individual TIDs whether
- *      No Acknowledgement Policy should be applied.
+ * @NL80211_CMD_SET_NOACK_MAP: sets a bitmap (%NL80211_ATTR_TID_BITMAP)
+ *	indicating for which TIDs No Acknowledgment Policy should be applied.
  *
  * @NL80211_CMD_CH_SWITCH_NOTIFY: An AP or GO may decide to switch channels
  *	independently of the userspace SME, send this event indicating
@@ -2288,8 +2288,8 @@ enum nl80211_commands {
  *    abides to when initiating radiation on DFS channels. A country maps
  *    to one DFS region.
  *
- * @NL80211_ATTR_NOACK_MAP: This u16 bitmap contains the No Ack Policy of
- *      up to 16 TIDs.
+ * @NL80211_ATTR_TID_BITMAP: A TID bitmap (u16) whose meaning depends
+ *	on the command.
  *
  * @NL80211_ATTR_INACTIVITY_TIMEOUT: timeout value in seconds, this can be
  *	used by the drivers which has MLME in firmware and does not have support
@@ -3185,6 +3185,11 @@ enum nl80211_commands {
  *	The aggregated message always precedes the per-link messages for the
  *	same station within a dump sequence.
  *
+ * @NL80211_ATTR_FRAME_NO_STA: Valid for @NL80211_CMD_FRAME to denote that
+ *	the kernel had no station for a received frame or should not use a
+ *	known station to transmit a frame. This is relevant to know whether
+ *	MLD address translation happened or to disable it when sending a frame.
+ *
  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -3429,7 +3434,7 @@ enum nl80211_attrs {
 	NL80211_ATTR_DISABLE_HT,
 	NL80211_ATTR_HT_CAPABILITY_MASK,
 
-	NL80211_ATTR_NOACK_MAP,
+	NL80211_ATTR_TID_BITMAP,
 
 	NL80211_ATTR_INACTIVITY_TIMEOUT,
 
@@ -3785,6 +3790,8 @@ enum nl80211_attrs {
 
 	NL80211_ATTR_STA_DUMP_LINK_STATS,
 
+	NL80211_ATTR_FRAME_NO_STA,
+
 	/* add attributes here, update the policy in nl80211.c */
 
 	__NL80211_ATTR_AFTER_LAST,
@@ -3800,6 +3807,7 @@ enum nl80211_attrs {
 #define NL80211_ATTR_CSA_C_OFF_BEACON NL80211_ATTR_CNTDWN_OFFS_BEACON
 #define NL80211_ATTR_CSA_C_OFF_PRESP NL80211_ATTR_CNTDWN_OFFS_PRESP
 #define NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS NL80211_ATTR_EXT_MLD_CAPA_AND_OPS
+#define NL80211_ATTR_NOACK_MAP NL80211_ATTR_TID_BITMAP
 
 /*
  * Allow user space programs to use #ifdef on new attributes by defining them
@@ -5900,6 +5908,9 @@ enum nl80211_key_attributes {
  *	see &struct nl80211_txrate_eht
  * @NL80211_TXRATE_EHT_GI: configure EHT GI, (u8, see &enum nl80211_eht_gi)
  * @NL80211_TXRATE_EHT_LTF: configure EHT LTF, (u8, see &enum nl80211_eht_ltf)
+ * @NL80211_TXRATE_6GHZ_NON_HT_DUP: configure 6 GHz non-HT duplicate Beacon
+ *	transmission. This flag is applicable only in Beacon TX rate setting
+ *	and must be accompanied by a non-HT (legacy) Beacon rate.
  * @__NL80211_TXRATE_AFTER_LAST: internal
  * @NL80211_TXRATE_MAX: highest TX rate attribute
  */
@@ -5915,6 +5926,7 @@ enum nl80211_tx_rate_attributes {
 	NL80211_TXRATE_EHT,
 	NL80211_TXRATE_EHT_GI,
 	NL80211_TXRATE_EHT_LTF,
+	NL80211_TXRATE_6GHZ_NON_HT_DUP,
 
 	/* keep last */
 	__NL80211_TXRATE_AFTER_LAST,
@@ -7110,6 +7122,10 @@ enum nl80211_feature_flags {
  * @NL80211_EXT_FEATURE_PROBE_AP: Driver supports probing the associated AP
  *	in STA mode using @NL80211_CMD_PROBE_PEER.
  *
+ * @NL80211_EXT_FEATURE_FAST_ROAM_OFFLOAD: Driver supports fast roaming
+ *	offload in station mode, including Fast Transition or Opportunistic
+ *	Key Caching.
+ *
  * @NUM_NL80211_EXT_FEATURES: number of extended features.
  * @MAX_NL80211_EXT_FEATURES: highest extended feature index.
  */
@@ -7192,6 +7208,7 @@ enum nl80211_ext_feature_index {
 	NL80211_EXT_FEATURE_ROC_ADDR_FILTER,
 	NL80211_EXT_FEATURE_SET_KEY_LTF_SEED,
 	NL80211_EXT_FEATURE_PROBE_AP,
+	NL80211_EXT_FEATURE_FAST_ROAM_OFFLOAD,
 
 	/* add new features before the definition below */
 	NUM_NL80211_EXT_FEATURES,

@@ -2215,7 +2215,7 @@ static const struct of_device_id qca8k_of_match[] = {
 	{ .compatible = "qca,qca8328", .data = &qca8328 },
 	{ .compatible = "qca,qca8334", .data = &qca833x },
 	{ .compatible = "qca,qca8337", .data = &qca833x },
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 
 static struct mdio_driver qca8kmdio_driver = {

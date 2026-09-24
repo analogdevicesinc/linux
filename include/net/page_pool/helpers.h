@@ -417,7 +417,7 @@ static inline void page_pool_recycle_direct_netmem(struct page_pool *pool,
  * @va: va to be freed
  * @allow_direct: freed by the consumer, allow lockless caching
  *
- * Free a va allocated from page_pool_allo_va().
+ * Free a va allocated from page_pool_alloc_va().
  */
 static inline void page_pool_free_va(struct page_pool *pool, void *va,
 				     bool allow_direct)

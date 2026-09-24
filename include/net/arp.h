@@ -7,8 +7,10 @@
 #include <linux/hash.h>
 #include <net/neighbour.h>
 
-
-extern struct neigh_table arp_tbl;
+static inline struct neigh_table *arp_table(struct net *net)
+{
+	return net->neigh_tables[NEIGH_ARP_TABLE];
+}
 
 static inline u32 arp_hashfn(const void *pkey, const struct net_device *dev, u32 *hash_rnd)
 {
@@ -21,10 +23,12 @@ static inline u32 arp_hashfn(const void *pkey, const struct net_device *dev, u32
 #ifdef CONFIG_INET
 static inline struct neighbour *__ipv4_neigh_lookup_noref(struct net_device *dev, u32 key)
 {
+	struct neigh_table *tbl = arp_table(dev_net(dev));
+
 	if (dev->flags & (IFF_LOOPBACK | IFF_POINTOPOINT))
 		key = INADDR_ANY;
 
-	return ___neigh_lookup_noref(&arp_tbl, neigh_key_eq32, arp_hashfn, &key, dev);
+	return ___neigh_lookup_noref(tbl, neigh_key_eq32, arp_hashfn, &key, dev);
 }
 #else
 static inline

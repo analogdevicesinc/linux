@@ -6347,7 +6347,6 @@ out:
 }
 
 static int ieee80211_mgd_setup_link_sta(struct ieee80211_link_data *link,
-					struct sta_info *sta,
 					struct link_sta_info *link_sta,
 					struct cfg80211_bss *cbss)
 {
@@ -6362,11 +6361,9 @@ static int ieee80211_mgd_setup_link_sta(struct ieee80211_link_data *link,
 	memcpy(link_sta->addr, cbss->bssid, ETH_ALEN);
 	memcpy(link_sta->pub->addr, cbss->bssid, ETH_ALEN);
 
-	/* TODO: S1G Basic Rate Set is expressed elsewhere */
-	if (cbss->channel->band == NL80211_BAND_S1GHZ) {
-		ieee80211_s1g_sta_rate_init(sta);
+	/* S1G does not use basic rates */
+	if (cbss->channel->band == NL80211_BAND_S1GHZ)
 		return 0;
-	}
 
 	sband = local->hw.wiphy->bands[cbss->channel->band];
 
@@ -6516,7 +6513,7 @@ ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_sta_ht_cap sta_ht_cap = sband->ht_cap;
 	bool is_5ghz = sband->band == NL80211_BAND_5GHZ;
 	bool is_6ghz = sband->band == NL80211_BAND_6GHZ;
-	const struct ieee80211_sta_he_cap *he_cap;
+	const struct ieee80211_sta_he_cap *he_cap = NULL;
 	const struct ieee80211_sta_eht_cap *eht_cap;
 	const struct ieee80211_sta_uhr_cap *uhr_cap;
 	struct ieee80211_sta_vht_cap vht_cap;
@@ -6580,7 +6577,15 @@ ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 		goto out;
 	}
 
-	if (vht_cap.vht_supported && is_5ghz) {
+	if (req && req->flags & ASSOC_REQ_DISABLE_HE && !is_6ghz)
+		mlme_link_id_dbg(sdata, link_id,
+				 "HE disabled by flag, limiting to HT/VHT\n");
+	else
+		he_cap = ieee80211_get_he_iftype_cap_vif(sband, &sdata->vif);
+
+	if (vht_cap.vht_supported && is_5ghz && he_cap) {
+		/* nothing - since HE we can be 20 MHz-only non-AP STA */
+	} else if (vht_cap.vht_supported && is_5ghz) {
 		bool have_80mhz = false;
 		unsigned int i;
 
@@ -6626,17 +6631,11 @@ ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 				 "no VHT 160 MHz capability on 5 GHz, limiting to 80 MHz");
 	}
 
-	if (req && req->flags & ASSOC_REQ_DISABLE_HE) {
-		mlme_link_id_dbg(sdata, link_id,
-				 "HE disabled by flag, limiting to HT/VHT\n");
-		goto out;
-	}
-
-	he_cap = ieee80211_get_he_iftype_cap_vif(sband, &sdata->vif);
 	if (!he_cap) {
 		WARN_ON(is_6ghz);
-		mlme_link_id_dbg(sdata, link_id,
-				 "no HE support, limiting to HT/VHT\n");
+		if (!req || !(req->flags & ASSOC_REQ_DISABLE_HE))
+			mlme_link_id_dbg(sdata, link_id,
+					 "no HE support, limiting to HT/VHT\n");
 		goto out;
 	}
 
@@ -7107,7 +7106,7 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 			}
 		}
 
-		err = ieee80211_mgd_setup_link_sta(link, sta, link_sta,
+		err = ieee80211_mgd_setup_link_sta(link, link_sta,
 						   assoc_data->link[link_id].bss);
 		if (err)
 			goto out_err;
@@ -9699,8 +9698,7 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 			goto out_err;
 		}
 
-		err = ieee80211_mgd_setup_link_sta(link, new_sta,
-						   link_sta, cbss);
+		err = ieee80211_mgd_setup_link_sta(link, link_sta, cbss);
 		if (err) {
 			rcu_read_unlock();
 			sta_info_free(local, new_sta);
@@ -11090,7 +11088,7 @@ ieee80211_process_ml_reconf_resp(struct ieee80211_sub_if_data *sdata,
 			goto disconnect;
 		}
 
-		if (ieee80211_mgd_setup_link_sta(link, sta, link_sta,
+		if (ieee80211_mgd_setup_link_sta(link, link_sta,
 						 add_links_data->link[link_id].bss))
 			goto disconnect;
 
@@ -11831,12 +11829,10 @@ void ieee80211_sta_rx_queued_frame(struct ieee80211_sub_if_data *sdata,
 	rx_status = (struct ieee80211_rx_status *) skb->cb;
 	fc = le16_to_cpu(mgmt->frame_control);
 
-	if (rx_status->link_valid) {
-		link = sdata_dereference(sdata->link[rx_status->link_id],
-					 sdata);
-		if (!link)
-			return;
-	}
+	link = sdata_dereference(sdata->link[rx_status->link_id],
+				 sdata);
+	if (!link)
+		return;
 
 	switch (fc & IEEE80211_FCTL_STYPE) {
 	case IEEE80211_STYPE_BEACON:

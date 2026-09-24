@@ -783,18 +783,22 @@ static int get_ephy_nodes(struct stmmac_priv *priv)
 
 	/* Seek for internal PHY */
 	for_each_child_of_node_scoped(mdio_internal, iphynode) {
-		gmac->ephy_clk = of_clk_get(iphynode, 0);
-		if (IS_ERR(gmac->ephy_clk))
+		struct clk *ephy_clk;
+
+		ephy_clk = of_clk_get(iphynode, 0);
+		if (IS_ERR(ephy_clk))
 			continue;
 		gmac->rst_ephy = of_reset_control_get_exclusive(iphynode, NULL);
 		if (IS_ERR(gmac->rst_ephy)) {
 			ret = PTR_ERR(gmac->rst_ephy);
+			clk_put(ephy_clk);
 			if (ret == -EPROBE_DEFER) {
 				of_node_put(mdio_internal);
 				return ret;
 			}
 			continue;
 		}
+		gmac->ephy_clk = ephy_clk;
 		dev_info(priv->device, "Found internal PHY node\n");
 		of_node_put(mdio_internal);
 		return 0;

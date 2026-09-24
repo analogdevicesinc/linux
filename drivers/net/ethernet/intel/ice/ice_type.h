@@ -1019,8 +1019,8 @@ struct ice_hw {
 	struct mutex fl_profs_locks[ICE_BLK_COUNT];	/* lock fltr profiles */
 	struct list_head fl_profs[ICE_BLK_COUNT];
 
-	/* Flow Director filter info */
-	int fdir_active_fltr;
+	/* ntuple filter info */
+	int ntuple_active_fltr_cnt;
 
 	struct mutex fdir_fltr_lock;	/* protect Flow Director */
 	struct list_head fdir_list_head;

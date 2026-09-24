@@ -3467,10 +3467,7 @@ mt7925_mcu_sched_scan_enable(struct mt76_phy *phy,
 	req = (struct scan_sched_enable *)tlv;
 	req->active = !enable;
 
-	if (enable)
-		set_bit(MT76_HW_SCHED_SCANNING, &phy->state);
-	else
-		clear_bit(MT76_HW_SCHED_SCANNING, &phy->state);
+	assign_bit(MT76_HW_SCHED_SCANNING, &phy->state, enable);
 
 	return mt76_mcu_skb_send_msg(mdev, skb, MCU_UNI_CMD(SCAN_REQ),
 				     true);

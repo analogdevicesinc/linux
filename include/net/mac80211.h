@@ -1770,10 +1770,9 @@ enum mac80211_rx_encoding {
  * @ampdu_reference: A-MPDU reference number, must be a different value for
  *	each A-MPDU but the same for each subframe within one A-MPDU
  * @zero_length_psdu_type: radiotap type of the 0-length PSDU
- * @link_valid: if the link which is identified by @link_id is valid. This flag
- *	is set only when connection is MLO.
- * @link_id: id of the link used to receive the packet. This is used along with
- *	@link_valid.
+ * @link_id: id of the link used to receive the packet. Set and used by
+ *	mac80211 internally, it uses @freq set by the driver to identify the
+ *	correct link per vif.
  */
 struct ieee80211_rx_status {
 	u64 mactime;
@@ -1813,7 +1812,7 @@ struct ieee80211_rx_status {
 	u8 chains;
 	s8 chain_signal[IEEE80211_MAX_CHAINS];
 	u8 zero_length_psdu_type;
-	u8 link_valid:1, link_id:4;
+	u8 link_id:4;
 };
 
 static_assert(sizeof(struct ieee80211_rx_status) <= sizeof_field(struct sk_buff, cb));
@@ -2919,8 +2918,8 @@ struct ieee80211_txq {
  *	autonomously manages the PS status of connected stations. When
  *	this flag is set mac80211 will not trigger PS mode for connected
  *	stations based on the PM bit of incoming frames.
- *	Use ieee80211_start_ps()/ieee8021_end_ps() to manually configure
- *	the PS mode of connected stations.
+ *	Use ieee80211_sta_ps_transition() to manually toggle the PS mode
+ *	of connected stations.
  *
  * @IEEE80211_HW_TX_AMPDU_SETUP_IN_HW: The device handles TX A-MPDU session
  *	setup strictly in HW. mac80211 should not attempt to do this in
@@ -5389,14 +5388,18 @@ void ieee80211_restart_hw(struct ieee80211_hw *hw);
  * mixed for a single hardware. Must not run concurrently with
  * ieee80211_tx_status_skb() or ieee80211_tx_status_ni().
  *
+ * For data frames, when hardware has done address translation, a link station
+ * has to be provided and the frequency information may be skipped.
+ *
  * This function must be called with BHs disabled and RCU read lock
  *
  * @hw: the hardware this frame came in on
- * @sta: the station the frame was received from, or %NULL
+ * @link_sta: the link station the data frame was received from, or %NULL
  * @skb: the buffer to receive, owned by mac80211 after this call
  * @list: the destination list
  */
-void ieee80211_rx_list(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
+void ieee80211_rx_list(struct ieee80211_hw *hw,
+		       struct ieee80211_link_sta *link_sta,
 		       struct sk_buff *skb, struct list_head *list);
 
 /**
@@ -5414,14 +5417,18 @@ void ieee80211_rx_list(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
  * mixed for a single hardware. Must not run concurrently with
  * ieee80211_tx_status_skb() or ieee80211_tx_status_ni().
  *
+ * For data frames, when hardware has done address translation, a link station
+ * has to be provided and the frequency information may be skipped.
+ *
  * This function must be called with BHs disabled.
  *
  * @hw: the hardware this frame came in on
- * @sta: the station the frame was received from, or %NULL
+ * @link_sta: the link station the data frame was received from, or %NULL
  * @skb: the buffer to receive, owned by mac80211 after this call
  * @napi: the NAPI context
  */
-void ieee80211_rx_napi(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
+void ieee80211_rx_napi(struct ieee80211_hw *hw,
+		       struct ieee80211_link_sta *link_sta,
 		       struct sk_buff *skb, struct napi_struct *napi);
 
 /**
@@ -5499,10 +5506,8 @@ static inline void ieee80211_rx_ni(struct ieee80211_hw *hw,
  *
  * @sta: currently connected sta
  * @start: start or stop PS
- *
- * Return: 0 on success. -EINVAL when the requested PS mode is already set.
  */
-int ieee80211_sta_ps_transition(struct ieee80211_sta *sta, bool start);
+void ieee80211_sta_ps_transition(struct ieee80211_sta *sta, bool start);
 
 /**
  * ieee80211_sta_ps_transition_ni - PS transition for connected sta
@@ -5514,19 +5519,13 @@ int ieee80211_sta_ps_transition(struct ieee80211_sta *sta, bool start);
  *
  * @sta: currently connected sta
  * @start: start or stop PS
- *
- * Return: Like ieee80211_sta_ps_transition().
  */
-static inline int ieee80211_sta_ps_transition_ni(struct ieee80211_sta *sta,
+static inline void ieee80211_sta_ps_transition_ni(struct ieee80211_sta *sta,
 						  bool start)
 {
-	int ret;
-
 	local_bh_disable();
-	ret = ieee80211_sta_ps_transition(sta, start);
+	ieee80211_sta_ps_transition(sta, start);
 	local_bh_enable();
-
-	return ret;
 }
 
 /**
@@ -7640,12 +7639,14 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
  * @dev: the &struct device of this 802.11 device
  * @chandef: the channel definition the frame will be transmitted on, or
  *	%NULL to skip the bandwidth checks
+ * @trim_fcs: trim the FCS trailer when present; validate it otherwise
  *
  * Return: %true if the radiotap header was parsed, %false otherwise
  */
 bool ieee80211_parse_tx_radiotap(struct sk_buff *skb,
 				 struct net_device *dev,
-				 const struct cfg80211_chan_def *chandef);
+				 const struct cfg80211_chan_def *chandef,
+				 bool trim_fcs);
 
 /**
  * struct ieee80211_noa_data - holds temporary data for tracking P2P NoA state
@@ -8060,25 +8061,6 @@ ieee80211_get_unsol_bcast_probe_resp_tmpl(struct ieee80211_hw *hw,
 void
 ieee80211_obss_color_collision_notify(struct ieee80211_vif *vif,
 				      u64 color_bitmap, u8 link_id);
-
-/**
- * ieee80211_is_tx_data - check if frame is a data frame
- *
- * The function is used to check if a frame is a data frame. Frames with
- * hardware encapsulation enabled are data frames.
- *
- * @skb: the frame to be transmitted.
- *
- * Return: %true if @skb is a data frame, %false otherwise
- */
-static inline bool ieee80211_is_tx_data(struct sk_buff *skb)
-{
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_hdr *hdr = (void *) skb->data;
-
-	return info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP ||
-	       ieee80211_is_data(hdr->frame_control);
-}
 
 /**
  * ieee80211_set_active_links - set active links in client mode

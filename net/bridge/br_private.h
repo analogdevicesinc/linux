@@ -190,6 +190,17 @@ enum {
 	BR_VLFLAG_NEIGH_FORWARD_GRAT_ENABLED = BIT(6),
 };
 
+/* start publishing arrays when there're > BR_VLAN_PORT_ARRAY_THRESHOLD
+ * port-VLANs
+ */
+#define BR_VLAN_PORT_ARRAY_THRESHOLD 8
+
+struct net_bridge_vlan_port_array {
+	struct rcu_head		rcu;
+	unsigned int		count;
+	struct net_bridge_vlan	*vlans[];
+};
+
 /**
  * struct net_bridge_vlan - per-vlan entry
  *
@@ -210,6 +221,8 @@ enum {
  * @port_mcast_ctx: if MASTER flag unset, this is the per-port/vlan multicast
  *                  context
  * @msti: if MASTER flag set, this holds the VLANs MST instance
+ * @port_array: if MASTER flag set, this is the port-VLAN array
+ * @port_vlist: if MASTER flag set, this is the port-VLAN list
  * @vlist: sorted list of VLAN entries
  * @rcu: used for entry destruction
  *
@@ -244,6 +257,8 @@ struct net_bridge_vlan {
 
 	u16				msti;
 
+	struct net_bridge_vlan_port_array __rcu *port_array;
+	struct list_head		port_vlist;
 	struct list_head		vlist;
 
 	struct rcu_head			rcu;
@@ -256,8 +271,7 @@ struct net_bridge_vlan {
  * @tunnel_hash: Hash table to map from tunnel key ID (e.g. VXLAN VNI) to VLAN
  * @vlan_list: sorted VLAN entry list
  * @num_vlans: number of total VLAN entries
- * @pvid: PVID VLAN id
- * @pvid_state: PVID's STP state (e.g. forwarding, learning, blocking)
+ * @pvid: RCU-protected PVID VLAN entry
  *
  * IMPORTANT: Be careful when checking if there're VLAN entries using list
  *            primitives because the bridge can have entries in its list which
@@ -269,9 +283,8 @@ struct net_bridge_vlan_group {
 	struct rhashtable		vlan_hash;
 	struct rhashtable		tunnel_hash;
 	struct list_head		vlan_list;
+	struct net_bridge_vlan		__rcu *pvid;
 	u16				num_vlans;
-	u16				pvid;
-	u8				pvid_state;
 };
 
 /* bridge fdb flags */
@@ -666,13 +679,13 @@ static inline int br_is_root_bridge(const struct net_bridge *br)
 /* check if a VLAN entry is global */
 static inline bool br_vlan_is_master(const struct net_bridge_vlan *v)
 {
-	return v->flags & BRIDGE_VLAN_INFO_MASTER;
+	return READ_ONCE(v->flags) & BRIDGE_VLAN_INFO_MASTER;
 }
 
 /* check if a VLAN entry is used by the bridge */
 static inline bool br_vlan_is_brentry(const struct net_bridge_vlan *v)
 {
-	return v->flags & BRIDGE_VLAN_INFO_BRENTRY;
+	return READ_ONCE(v->flags) & BRIDGE_VLAN_INFO_BRENTRY;
 }
 
 /* check if we should use the vlan entry, returns false if it's only context */
@@ -686,6 +699,15 @@ static inline bool br_vlan_should_use(const struct net_bridge_vlan *v)
 	}
 
 	return true;
+}
+
+/* The vlan state can be changed with only rcu held by the mst code so
+ * annotate the lock-free read. br_vlan_set_state() is kept further down
+ * because it needs br_multicast_update_vlan_mcast_ctx().
+ */
+static inline u8 br_vlan_get_state(const struct net_bridge_vlan *v)
+{
+	return READ_ONCE(v->state);
 }
 
 static inline bool nbp_state_should_learn(const struct net_bridge_port *p)
@@ -903,9 +925,9 @@ int br_dev_queue_push_xmit(struct net *net, struct sock *sk, struct sk_buff *skb
 void br_forward(const struct net_bridge_port *to, struct sk_buff *skb,
 		bool local_rcv, bool local_orig);
 int br_forward_finish(struct net *net, struct sock *sk, struct sk_buff *skb);
-void br_flood(struct net_bridge *br, struct sk_buff *skb,
-	      enum br_pkt_type pkt_type, bool local_rcv, bool local_orig,
-	      u16 vid);
+void br_flood(struct net_bridge *br, struct net_bridge_vlan *v,
+	      struct sk_buff *skb, enum br_pkt_type pkt_type,
+	      bool local_rcv, bool local_orig);
 
 /* return true if both source port and dest port are isolated */
 static inline bool br_skb_isolated(const struct net_bridge_port *to,
@@ -1264,21 +1286,24 @@ br_multicast_ctx_vlan_global_disabled(const struct net_bridge_mcast *brmctx)
 {
 	return br_multicast_ctx_is_vlan(brmctx) &&
 	       (!br_opt_get(brmctx->br, BROPT_MCAST_VLAN_SNOOPING_ENABLED) ||
-		!(brmctx->vlan->priv_flags & BR_VLFLAG_GLOBAL_MCAST_ENABLED));
+		!(READ_ONCE(brmctx->vlan->priv_flags) &
+		  BR_VLFLAG_GLOBAL_MCAST_ENABLED));
 }
 
 static inline bool
 br_multicast_ctx_vlan_disabled(const struct net_bridge_mcast *brmctx)
 {
 	return br_multicast_ctx_is_vlan(brmctx) &&
-	       !(brmctx->vlan->priv_flags & BR_VLFLAG_MCAST_ENABLED);
+	       !(READ_ONCE(brmctx->vlan->priv_flags) &
+		 BR_VLFLAG_MCAST_ENABLED);
 }
 
 static inline bool
 br_multicast_port_ctx_vlan_disabled(const struct net_bridge_mcast_port *pmctx)
 {
 	return br_multicast_port_ctx_is_vlan(pmctx) &&
-	       !(pmctx->vlan->priv_flags & BR_VLFLAG_MCAST_ENABLED);
+	       !(READ_ONCE(pmctx->vlan->priv_flags) &
+		 BR_VLFLAG_MCAST_ENABLED);
 }
 
 static inline bool
@@ -1287,7 +1312,7 @@ br_multicast_port_ctx_state_disabled(const struct net_bridge_mcast_port *pmctx)
 	return pmctx->port->state == BR_STATE_DISABLED ||
 	       (br_multicast_port_ctx_is_vlan(pmctx) &&
 		(br_multicast_port_ctx_vlan_disabled(pmctx) ||
-		 pmctx->vlan->state == BR_STATE_DISABLED));
+		 br_vlan_get_state(pmctx->vlan) == BR_STATE_DISABLED));
 }
 
 static inline bool
@@ -1296,7 +1321,7 @@ br_multicast_port_ctx_state_stopped(const struct net_bridge_mcast_port *pmctx)
 	return br_multicast_port_ctx_state_disabled(pmctx) ||
 	       pmctx->port->state == BR_STATE_BLOCKING ||
 	       (br_multicast_port_ctx_is_vlan(pmctx) &&
-		pmctx->vlan->state == BR_STATE_BLOCKING);
+		br_vlan_get_state(pmctx->vlan) == BR_STATE_BLOCKING);
 }
 
 static inline bool
@@ -1581,6 +1606,7 @@ bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid);
 struct sk_buff *br_handle_vlan(struct net_bridge *br,
 			       const struct net_bridge_port *port,
 			       struct net_bridge_vlan_group *vg,
+			       struct net_bridge_vlan *vlan,
 			       struct sk_buff *skb);
 int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags,
 		bool *changed, struct netlink_ext_ack *extack);
@@ -1675,11 +1701,16 @@ static inline int br_vlan_get_tag(const struct sk_buff *skb, u16 *vid)
 
 static inline u16 br_get_pvid(const struct net_bridge_vlan_group *vg)
 {
+	struct net_bridge_vlan *pvid;
+
 	if (!vg)
 		return 0;
 
-	smp_rmb();
-	return vg->pvid;
+	pvid = rcu_dereference_rtnl(vg->pvid);
+	if (!pvid)
+		return 0;
+
+	return pvid->vid;
 }
 
 static inline u16 br_vlan_flags(const struct net_bridge_vlan *v, u16 pvid)
@@ -1713,6 +1744,7 @@ static inline bool br_should_learn(struct net_bridge_port *p,
 static inline struct sk_buff *br_handle_vlan(struct net_bridge *br,
 					     const struct net_bridge_port *port,
 					     struct net_bridge_vlan_group *vg,
+					     struct net_bridge_vlan *vlan,
 					     struct sk_buff *skb)
 {
 	return skb;
@@ -1905,29 +1937,10 @@ bool br_vlan_global_opts_can_enter_range(const struct net_bridge_vlan *v_curr,
 bool br_vlan_global_opts_fill(struct sk_buff *skb, u16 vid, u16 vid_range,
 			      const struct net_bridge_vlan *v_opts);
 
-/* vlan state manipulation helpers using *_ONCE to annotate lock-free access,
- * while br_vlan_set_state() may access data protected by multicast_lock.
- */
-static inline u8 br_vlan_get_state(const struct net_bridge_vlan *v)
-{
-	return READ_ONCE(v->state);
-}
-
 static inline void br_vlan_set_state(struct net_bridge_vlan *v, u8 state)
 {
 	WRITE_ONCE(v->state, state);
 	br_multicast_update_vlan_mcast_ctx(v, state);
-}
-
-static inline u8 br_vlan_get_pvid_state(const struct net_bridge_vlan_group *vg)
-{
-	return READ_ONCE(vg->pvid_state);
-}
-
-static inline void br_vlan_set_pvid_state(struct net_bridge_vlan_group *vg,
-					  u8 state)
-{
-	WRITE_ONCE(vg->pvid_state, state);
 }
 
 /* learn_allow is true at ingress and false at egress */
@@ -1941,6 +1954,11 @@ static inline bool br_vlan_state_allowed(u8 state, bool learn_allow)
 	default:
 		return false;
 	}
+}
+#else
+static inline bool br_vlan_state_allowed(u8 state, bool learn_allow)
+{
+	return false;
 }
 #endif
 
@@ -2372,6 +2390,8 @@ void br_do_proxy_suppress_arp(struct sk_buff *skb, struct net_bridge *br,
 void br_do_suppress_nd(struct sk_buff *skb, struct net_bridge *br,
 		       u16 vid, struct net_bridge_port *p, struct nd_msg *msg);
 struct nd_msg *br_is_nd_neigh_msg(struct sk_buff *skb);
-bool br_is_neigh_suppress_enabled(const struct net_bridge_port *p, u16 vid);
-bool br_is_neigh_forward_grat_enabled(const struct net_bridge_port *p, u16 vid);
+bool br_is_neigh_suppress_enabled(const struct net_bridge_port *p,
+				  const struct net_bridge_vlan *v);
+bool br_is_neigh_forward_grat_enabled(const struct net_bridge_port *p,
+				      const struct net_bridge_vlan *v);
 #endif

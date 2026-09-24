@@ -2034,10 +2034,7 @@ int mt76_connac_mcu_sched_scan_enable(struct mt76_phy *phy,
 		.active = !enable,
 	};
 
-	if (enable)
-		set_bit(MT76_HW_SCHED_SCANNING, &phy->state);
-	else
-		clear_bit(MT76_HW_SCHED_SCANNING, &phy->state);
+	assign_bit(MT76_HW_SCHED_SCANNING, &phy->state, enable);
 
 	return mt76_mcu_send_msg(phy->dev, MCU_CE_CMD(SCHED_SCAN_ENABLE),
 				 &req, sizeof(req), false);

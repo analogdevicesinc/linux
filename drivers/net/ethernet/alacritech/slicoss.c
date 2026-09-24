@@ -34,6 +34,7 @@ static const struct pci_device_id slic_id_tbl[] = {
 		     PCI_DEVICE_ID_ALACRITECH_OASIS) },
 	{ 0 }
 };
+MODULE_DEVICE_TABLE(pci, slic_id_tbl);
 
 static const char slic_stats_strings[][ETH_GSTRING_LEN] = {
 	"rx_packets",

@@ -632,8 +632,9 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata, bool going_do
 				hw_reconf_flags |= IEEE80211_CONF_CHANGE_MONITOR;
 			}
 
-			ieee80211_adjust_monitor_flags(sdata, -1);
 		}
+
+		ieee80211_adjust_monitor_flags(sdata, -1);
 		break;
 	case NL80211_IFTYPE_NAN:
 		/* Check if any open NAN_DATA interfaces */
@@ -993,7 +994,7 @@ static u16 ieee80211_monitor_select_queue(struct net_device *dev,
 	/* reset flags and info before parsing radiotap header */
 	memset(info, 0, sizeof(*info));
 
-	if (!ieee80211_parse_tx_radiotap(skb, dev, NULL))
+	if (!ieee80211_parse_tx_radiotap(skb, dev, NULL, false))
 		return 0; /* doesn't matter, frame will be dropped */
 
 	len_rthdr = ieee80211_get_radiotap_len(skb->data);
@@ -1706,11 +1707,8 @@ static void ieee80211_iface_process_skb(struct ieee80211_local *local,
 				break;
 
 			status = IEEE80211_SKB_RXCB(skb);
-			if (!status->link_valid)
-				link_sta = &sta->deflink;
-			else
-				link_sta = rcu_dereference_protected(sta->link[status->link_id],
-							lockdep_is_held(&local->hw.wiphy->mtx));
+			link_sta = wiphy_dereference(local->hw.wiphy,
+						     sta->link[status->link_id]);
 			if (link_sta)
 				ieee80211_ht_handle_chanwidth_notif(local, sdata, sta,
 								    link_sta, chanwidth,
