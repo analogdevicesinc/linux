@@ -749,6 +749,46 @@ static void emit_indirect_jump(u8 **pprog, int bpf_reg, u8 *ip)
 	*pprog = prog;
 }
 
+static void __emit_indirect_call(u8 **pprog, int reg, bool ereg)
+{
+	u8 *prog = *pprog;
+
+	if (ereg)
+		EMIT1(0x41);
+
+	EMIT2(0xFF, 0xD0 + reg);
+
+	*pprog = prog;
+}
+
+/* call *bpf_reg */
+static int emit_indirect_call(u8 **pprog, int bpf_reg, u8 *ip)
+{
+	u8 *prog = *pprog;
+	int reg = reg2hex[bpf_reg];
+	bool ereg = is_ereg(bpf_reg);
+	int err = 0;
+
+	if (cpu_feature_enabled(X86_FEATURE_INDIRECT_THUNK_ITS)) {
+		OPTIMIZER_HIDE_VAR(reg);
+		err = emit_call(&prog, its_static_thunk(reg + 8*ereg), ip);
+	} else if (cpu_feature_enabled(X86_FEATURE_RETPOLINE_LFENCE)) {
+		EMIT_LFENCE();
+		__emit_indirect_call(&prog, reg, ereg);
+	} else if (cpu_feature_enabled(X86_FEATURE_RETPOLINE)) {
+		OPTIMIZER_HIDE_VAR(reg);
+		if (cpu_feature_enabled(X86_FEATURE_CALL_DEPTH))
+			err = emit_call(&prog, &__x86_indirect_call_thunk_array[reg + 8*ereg], ip);
+		else
+			err = emit_call(&prog, &__x86_indirect_thunk_array[reg + 8*ereg], ip);
+	} else {
+		__emit_indirect_call(&prog, reg, ereg);
+	}
+
+	*pprog = prog;
+	return err;
+}
+
 static void emit_return(u8 **pprog, u8 *ip)
 {
 	u8 *prog = *pprog;
@@ -2941,6 +2981,24 @@ populate_extable:
 			break;
 		}
 
+			/* callx: call of a bpf subprog whose address is in dst_reg */
+		case BPF_JMP | BPF_CALL | BPF_X:
+			/*
+			 * The verifier makes sure that callees of callx are
+			 * not tail call reachable, hence unlike a direct call
+			 * of a subprog there is no need to pass
+			 * tail_call_cnt_ptr in rax.
+			 */
+			if (priv_frame_ptr) {
+				push_r9(&prog);
+				ip += 2;
+			}
+			if (emit_indirect_call(&prog, insn->dst_reg, ip))
+				return -EINVAL;
+			if (priv_frame_ptr)
+				pop_r9(&prog);
+			break;
+
 		case BPF_JMP | BPF_TAIL_CALL:
 			if (imm32)
 				emit_bpf_tail_call_direct(bpf_prog,
@@ -4412,6 +4470,16 @@ out_priv_stack:
 	}
 
 	return prog;
+}
+
+bool bpf_jit_supports_callx(void)
+{
+	/*
+	 * FineIBT poisons ENDBR at the entry of a JITed function and expects
+	 * indirect callers to go through the CFI preamble instead.
+	 * callx doesn't do that yet.
+	 */
+	return cfi_mode != CFI_FINEIBT;
 }
 
 bool bpf_jit_supports_kfunc_call(void)
