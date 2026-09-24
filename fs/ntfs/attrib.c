@@ -909,7 +909,7 @@ static int ntfs_attr_find(const __le32 type, const __le16 *name,
 
 				rc = ntfs_collate_names(name, name_len,
 						(__le16 *)((u8 *)a + le16_to_cpu(a->name_offset)),
-						a->name_length, 1, IGNORE_CASE,
+						a->name_length, true, IGNORE_CASE,
 						upcase, upcase_len);
 				/*
 				 * If @name collates before a->name, there is no
@@ -922,7 +922,7 @@ static int ntfs_attr_find(const __le32 type, const __le16 *name,
 					continue;
 				rc = ntfs_collate_names(name, name_len,
 						(__le16 *)((u8 *)a + le16_to_cpu(a->name_offset)),
-						a->name_length, 1, CASE_SENSITIVE,
+						a->name_length, true, CASE_SENSITIVE,
 						upcase, upcase_len);
 				if (rc == -1)
 					return -ENOENT;
@@ -1313,7 +1313,7 @@ find_attr_list_attr:
 			register int rc;
 
 			rc = ntfs_collate_names(name, name_len, al_name,
-					al_name_len, 1, IGNORE_CASE,
+					al_name_len, true, IGNORE_CASE,
 					vol->upcase, vol->upcase_len);
 			/*
 			 * If @name collates before al_name, there is no
@@ -1326,7 +1326,7 @@ find_attr_list_attr:
 				continue;
 
 			rc = ntfs_collate_names(name, name_len, al_name,
-					al_name_len, 1, CASE_SENSITIVE,
+					al_name_len, true, CASE_SENSITIVE,
 					vol->upcase, vol->upcase_len);
 			if (rc == -1)
 				goto not_found;
@@ -1775,7 +1775,7 @@ int ntfs_attr_size_bounds_check(const struct ntfs_volume *vol, const __le32 type
 	 * $ATTRIBUTE_LIST has a maximum size of 256kiB, but this is not
 	 * listed in $AttrDef.
 	 */
-	if (unlikely(type == AT_ATTRIBUTE_LIST && size > 256 * 1024))
+	if (unlikely(type == AT_ATTRIBUTE_LIST && size > NTFS_MAX_ATTR_LIST_SIZE))
 		return -ERANGE;
 	/* Get the $AttrDef entry for the attribute @type. */
 	ad = ntfs_attr_find_in_attrdef(vol, type);
@@ -4234,12 +4234,14 @@ static int ntfs_attr_make_resident(struct ntfs_inode *ni, struct ntfs_attr_searc
  * ntfs_non_resident_attr_shrink - shrink a non-resident, open ntfs attribute
  * @ni:		non-resident ntfs attribute to shrink
  * @newsize:	new size (in bytes) to which to shrink the attribute
+ * @pagecache_truncated: page cache was already truncated to @newsize
  *
  * Reduce the size of a non-resident, open ntfs attribute @na to @newsize bytes.
  */
 static int ntfs_non_resident_attr_shrink(struct ntfs_inode *ni,
 					 const s64 newsize,
-					struct ntfs_inode *locked_ni)
+					struct ntfs_inode *locked_ni,
+					bool pagecache_truncated)
 {
 	struct ntfs_volume *vol;
 	struct ntfs_attr_search_ctx *ctx;
@@ -4389,7 +4391,8 @@ static int ntfs_non_resident_attr_shrink(struct ntfs_inode *ni,
 	 * later writeback map a vcn past the new allocation, which fails with
 	 * -ENOENT and loses the write.
 	 */
-	truncate_inode_pages(VFS_I(ni)->i_mapping, newsize);
+	if (!pagecache_truncated)
+		truncate_inode_pages(VFS_I(ni)->i_mapping, newsize);
 
 	/* Update data size in the index. */
 	if (ni->type == AT_DATA && ni->name == AT_UNNAMED)
@@ -4991,7 +4994,7 @@ int __ntfs_attr_truncate_vfs(struct ntfs_inode *ni, const s64 newsize,
 			up_write(&ni->runlist.lock);
 		} else
 			err = ntfs_non_resident_attr_shrink(
-					ni, newsize, NULL);
+					ni, newsize, NULL, true);
 	} else
 		err = ntfs_resident_attr_resize(ni, newsize, 0,
 						NVolDisableSparse(ni->vol) ?
@@ -5104,7 +5107,7 @@ int ntfs_attr_truncate_i_locked(struct ntfs_inode *ni, const s64 newsize,
 					ni, newsize, 0, holes, locked_ni);
 		else
 			err = ntfs_non_resident_attr_shrink(
-					ni, newsize, locked_ni);
+					ni, newsize, locked_ni, false);
 	} else
 		err = ntfs_resident_attr_resize(ni, newsize, 0, holes);
 	ntfs_debug("Return status %d\n", err);
@@ -5855,7 +5858,7 @@ int ntfs_attr_fallocate(struct ntfs_inode *ni, loff_t start, loff_t byte_len, bo
 						goto out;
 				}
 
-				if (signal_pending(current))
+				if (fatal_signal_pending(current))
 					goto signal_out;
 
 				vcn += alloc_cnt;
@@ -5876,7 +5879,7 @@ int ntfs_attr_fallocate(struct ntfs_inode *ni, loff_t start, loff_t byte_len, bo
 					    try_alloc_cnt, &balloc, false, false);
 		up_write(&ni->runlist.lock);
 		mutex_unlock(&ni->mrec_lock);
-		if (err || signal_pending(current))
+		if (err || fatal_signal_pending(current))
 			goto signal_out;
 
 		vcn += alloc_cnt;
