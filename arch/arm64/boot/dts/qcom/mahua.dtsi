@@ -127,6 +127,14 @@
 		 <0>;				/* USB4 PHY 2 Max */
 };
 
+&gmu {
+	compatible = "qcom,adreno-gmu-x285.0", "qcom,adreno-gmu";
+};
+
+&gpu {
+	compatible = "qcom,adreno-44060000", "qcom,adreno";
+};
+
 &hsc_noc {
 	compatible = "qcom,mahua-hscnoc";
 };
