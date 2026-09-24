@@ -3492,17 +3492,7 @@ static struct platform_driver gcc_sc7280_driver = {
 	},
 };
 
-static int __init gcc_sc7280_init(void)
-{
-	return platform_driver_register(&gcc_sc7280_driver);
-}
-subsys_initcall(gcc_sc7280_init);
-
-static void __exit gcc_sc7280_exit(void)
-{
-	platform_driver_unregister(&gcc_sc7280_driver);
-}
-module_exit(gcc_sc7280_exit);
+subsys_platform_driver(gcc_sc7280_driver);
 
 MODULE_DESCRIPTION("QTI GCC SC7280 Driver");
 MODULE_LICENSE("GPL v2");

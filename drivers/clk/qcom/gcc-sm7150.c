@@ -3027,17 +3027,7 @@ static struct platform_driver gcc_sm7150_driver = {
 	},
 };
 
-static int __init gcc_sm7150_init(void)
-{
-	return platform_driver_register(&gcc_sm7150_driver);
-}
-subsys_initcall(gcc_sm7150_init);
-
-static void __exit gcc_sm7150_exit(void)
-{
-	platform_driver_unregister(&gcc_sm7150_driver);
-}
-module_exit(gcc_sm7150_exit);
+subsys_platform_driver(gcc_sm7150_driver);
 
 MODULE_DESCRIPTION("Qualcomm SM7150 Global Clock Controller");
 MODULE_LICENSE("GPL");
