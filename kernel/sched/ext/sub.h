@@ -28,16 +28,16 @@ bool scx_bpf_sub_dispatch(u64 cgroup_id, const struct bpf_prog_aux *aux);
 void scx_free_pshards(struct scx_sched *sch);
 s32 scx_alloc_pshards(struct scx_sched *sch);
 void scx_init_root_caps(struct scx_sched *sch);
-void scx_process_sync_ecaps(struct rq *rq, struct task_struct *prev);
+void __scx_process_sync_ecaps(struct rq *rq, struct task_struct *prev);
 void scx_unbypass_replay_ecaps(struct rq *rq, struct scx_sched *sch);
 void scx_online_ecaps(struct rq *rq);
 void scx_offline_ecaps(struct rq *rq);
 void scx_discard_ecaps_to_sync(s32 cpu, struct scx_sched_pcpu *pcpu);
 void scx_discard_stale_ecaps_syncs(void);
-struct scx_dispatch_q *scx_resolve_local_dsq(struct scx_sched *sch, struct rq *rq,
-					     struct task_struct *p, u64 *enq_flags);
+struct scx_dispatch_q *__scx_resolve_local_dsq(struct scx_sched *sch, struct rq *rq,
+					       struct task_struct *p, u64 *enq_flags);
 bool scx_task_reenq_on_cap_revoke(struct rq *rq, struct task_struct *p);
-void scx_reenq_reject(struct rq *rq);
+void __scx_reenq_reject(struct rq *rq);
 void scx_rescue_charge(struct rq *rq, s64 delta_exec);
 void scx_rescue_end(struct rq *rq);
 bool scx_rescue_keep(struct rq *rq, struct task_struct *p);
@@ -70,6 +70,33 @@ static inline void scx_dec_has_subs(struct scx_sched *sch)
 {
 	if (sch->level)
 		static_branch_dec(&__scx_has_subs);
+}
+
+/* hot-path hooks, gated inline so that a root-only system skips the calls */
+static inline void scx_process_sync_ecaps(struct rq *rq, struct task_struct *prev)
+{
+	lockdep_assert_rq_held(rq);
+
+	if (scx_has_subs())
+		__scx_process_sync_ecaps(rq, prev);
+}
+
+static inline struct scx_dispatch_q *scx_resolve_local_dsq(struct scx_sched *sch,
+							   struct rq *rq,
+							   struct task_struct *p,
+							   u64 *enq_flags)
+{
+	if (!scx_has_subs())
+		return &rq->scx.local_dsq;
+	return __scx_resolve_local_dsq(sch, rq, p, enq_flags);
+}
+
+static inline void scx_reenq_reject(struct rq *rq)
+{
+	lockdep_assert_rq_held(rq);
+
+	if (scx_has_subs())
+		__scx_reenq_reject(rq);
 }
 
 #else	/* CONFIG_EXT_SUB_SCHED */

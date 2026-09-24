@@ -675,7 +675,7 @@ void scx_rescue_init(struct rq *rq)
 }
 
 /**
- * scx_resolve_local_dsq - Pick the local, rescue or reject DSQ for an insert
+ * __scx_resolve_local_dsq - Pick the local, rescue or reject DSQ for an insert
  * @sch: enqueuing sub-sched
  * @rq: rq whose local DSQ @p targets
  * @p: task being inserted
@@ -695,12 +695,9 @@ void scx_rescue_init(struct rq *rq)
  * to and run by its nearest non-bypassing ancestor. If root is bypassing, it
  * always holds all caps.
  */
-struct scx_dispatch_q *scx_resolve_local_dsq(struct scx_sched *sch, struct rq *rq,
-					     struct task_struct *p, u64 *enq_flags)
+struct scx_dispatch_q *__scx_resolve_local_dsq(struct scx_sched *sch, struct rq *rq,
+					       struct task_struct *p, u64 *enq_flags)
 {
-	if (!scx_has_subs())
-		return &rq->scx.local_dsq;
-
 	s32 cid = __scx_cpu_to_cid(cpu_of(rq));
 	struct scx_sched *asch = rq->scx.remote_activate_sch ?: sch;
 	u64 needed = scx_caps_for_enq(*enq_flags);
@@ -783,14 +780,12 @@ bool scx_task_reenq_on_cap_revoke(struct rq *rq, struct task_struct *p)
  * scx_do_enqueue_task(), which ejects the owning sub past SCX_REENQ_MAX_REPEAT.
  * Rejection can't happen for root.
  */
-void scx_reenq_reject(struct rq *rq)
+void __scx_reenq_reject(struct rq *rq)
 {
 	LIST_HEAD(tasks);
 	struct task_struct *p, *n;
 
-	lockdep_assert_rq_held(rq);
-
-	if (!scx_has_subs() || list_empty(&rq->scx.reject_dsq.list))
+	if (list_empty(&rq->scx.reject_dsq.list))
 		return;
 
 	/*
@@ -926,7 +921,7 @@ static void queue_sync_ecaps(struct scx_sched *sch, s32 cid)
 	struct scx_sched_pcpu *pcpu = per_cpu_ptr(sch->pcpu, cpu);
 
 	/*
-	 * Pairs with smp_mb() in scx_process_sync_ecaps(). Either the check
+	 * Pairs with smp_mb() in __scx_process_sync_ecaps(). Either the check
 	 * below sees the node off the list and queues it, or the in-flight sync
 	 * sees the caps[] update made before this call.
 	 */
@@ -951,7 +946,7 @@ static void discard_queued_syncs(struct rq *rq)
 }
 
 /**
- * scx_process_sync_ecaps - Sync this cpu's ecaps to pshard->caps[]
+ * __scx_process_sync_ecaps - Sync this cpu's ecaps to pshard->caps[]
  * @rq: the cid's cpu rq
  * @prev: @rq's previous task from the in-progress dispatch
  *
@@ -963,16 +958,14 @@ static void discard_queued_syncs(struct rq *rq)
  * learns the cid's idle state. Such a gain arms the per-rq
  * %SCX_RQ_SUB_IDLE_RENOTIFY gate so the next idle pick delivers it.
  */
-void scx_process_sync_ecaps(struct rq *rq, struct task_struct *prev)
+void __scx_process_sync_ecaps(struct rq *rq, struct task_struct *prev)
 {
 	s32 cpu = cpu_of(rq);
 	s32 cid, shard;
 	struct llist_node *batch, *pos, *tmp;
 	u64 lost_all = 0;
 
-	lockdep_assert_rq_held(rq);
-
-	if (!scx_has_subs() || likely(llist_empty(&rq->scx.ecaps_to_sync)))
+	if (likely(llist_empty(&rq->scx.ecaps_to_sync)))
 		return;
 
 	/*
