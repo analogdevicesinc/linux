@@ -205,14 +205,9 @@ static int atlantis_clk_gate_endisable(struct clk_hw *hw, int enable)
 {
 	struct atlantis_clk_gate *gate = hw_to_atlantis_clk_gate(hw);
 
-	if (enable)
-		return regmap_set_bits(gate->common.regmap,
-				       gate->config.reg_offset,
-				       gate->config.enable);
-	else
-		return regmap_clear_bits(gate->common.regmap,
-					 gate->config.reg_offset,
-					 gate->config.enable);
+	return regmap_assign_bits(gate->common.regmap,
+				  gate->config.reg_offset,
+				  gate->config.enable, enable);
 }
 
 static int atlantis_clk_gate_enable(struct clk_hw *hw)
