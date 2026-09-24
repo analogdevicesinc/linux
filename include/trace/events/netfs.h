@@ -30,8 +30,7 @@
 	EM(netfs_write_trace_dio_write,		"DIO-WRITE")	\
 	EM(netfs_write_trace_unbuffered_write,	"UNB-WRITE")	\
 	EM(netfs_write_trace_writeback,		"WRITEBACK")	\
-	EM(netfs_write_trace_writeback_single,	"WB-SINGLE") \
-	E_(netfs_write_trace_writethrough,	"WRITETHRU")
+	E_(netfs_write_trace_writeback_single,	"WB-SINGLE")
 
 #define netfs_rreq_origins					\
 	EM(NETFS_READAHEAD,			"RA")		\
@@ -43,12 +42,12 @@
 	EM(NETFS_DIO_READ,			"DR")		\
 	EM(NETFS_WRITEBACK,			"WB")		\
 	EM(NETFS_WRITEBACK_SINGLE,		"W1")		\
-	EM(NETFS_WRITETHROUGH,			"WT")		\
 	EM(NETFS_UNBUFFERED_WRITE,		"UW")		\
 	EM(NETFS_DIO_WRITE,			"DW")		\
 	E_(NETFS_PGPRIV2_COPY_TO_CACHE,		"2C")
 
 #define netfs_rreq_traces					\
+	EM(netfs_rreq_trace_all_queued,		"ALL-Q  ")	\
 	EM(netfs_rreq_trace_assess,		"ASSESS ")	\
 	EM(netfs_rreq_trace_collect,		"COLLECT")	\
 	EM(netfs_rreq_trace_complete,		"COMPLET")	\
@@ -194,11 +193,11 @@
 	EM(netfs_folio_trace_alloc_buffer,	"alloc-buf")	\
 	EM(netfs_folio_trace_cancel_copy,	"cancel-copy")	\
 	EM(netfs_folio_trace_cancel_store,	"cancel-store")	\
-	EM(netfs_folio_trace_clear,		"clear")	\
-	EM(netfs_folio_trace_clear_cc,		"clear-cc")	\
-	EM(netfs_folio_trace_clear_g,		"clear-g")	\
-	EM(netfs_folio_trace_clear_s,		"clear-s")	\
 	EM(netfs_folio_trace_end_copy,		"end-copy")	\
+	EM(netfs_folio_trace_endwb,		"endwb")	\
+	EM(netfs_folio_trace_endwb_cc,		"endwb-cc")	\
+	EM(netfs_folio_trace_endwb_g,		"endwb-g")	\
+	EM(netfs_folio_trace_endwb_s,		"endwb-s")	\
 	EM(netfs_folio_trace_filled_gaps,	"filled-gaps")	\
 	EM(netfs_folio_trace_invalidate_all,	"inval-all")	\
 	EM(netfs_folio_trace_invalidate_front,	"inval-front")	\
@@ -223,9 +222,7 @@
 	EM(netfs_folio_trace_sched_copy,	"sched-copy")	\
 	EM(netfs_folio_trace_store,		"store")	\
 	EM(netfs_folio_trace_store_copy,	"store-copy")	\
-	EM(netfs_folio_trace_store_plus,	"store+")	\
-	EM(netfs_folio_trace_wthru,		"wthru")	\
-	E_(netfs_folio_trace_wthru_plus,	"wthru+")
+	E_(netfs_folio_trace_store_plus,	"store+")
 
 #define netfs_collect_contig_traces				\
 	EM(netfs_contig_trace_collect,		"Collect")	\
@@ -301,7 +298,7 @@ netfs_folioq_traces;
 
 TRACE_EVENT(netfs_read,
 	    TP_PROTO(struct netfs_io_request *rreq,
-		     loff_t start, size_t len,
+		     uoff_t start, size_t len,
 		     enum netfs_read_trace what),
 
 	    TP_ARGS(rreq, start, len, what),
@@ -309,8 +306,9 @@ TRACE_EVENT(netfs_read,
 	    TP_STRUCT__entry(
 		    __field(unsigned int,		rreq)
 		    __field(unsigned int,		cookie)
-		    __field(loff_t,			i_size)
-		    __field(loff_t,			start)
+		    __field(unsigned int,		object)
+		    __field(uoff_t,			i_size)
+		    __field(uoff_t,			start)
 		    __field(size_t,			len)
 		    __field(enum netfs_read_trace,	what)
 		    __field(u64,			netfs_inode)
@@ -318,7 +316,8 @@ TRACE_EVENT(netfs_read,
 
 	    TP_fast_assign(
 		    __entry->rreq	= rreq->debug_id;
-		    __entry->cookie	= rreq->cache_resources.debug_id;
+		    __entry->cookie	= rreq->cache_resources.cookie_id;
+		    __entry->object	= rreq->cache_resources.object_id;
 		    __entry->i_size	= rreq->i_size;
 		    __entry->start	= start;
 		    __entry->len	= len;
@@ -326,10 +325,10 @@ TRACE_EVENT(netfs_read,
 		    __entry->netfs_inode = rreq->inode->i_ino;
 			   ),
 
-	    TP_printk("R=%08x %s c=%08x ni=%llx s=%llx l=%zx sz=%llx",
+	    TP_printk("R=%08x %s c=%08x o=%08x ni=%llx s=%llx l=%zx sz=%llx",
 		      __entry->rreq,
 		      __print_symbolic(__entry->what, netfs_read_traces),
-		      __entry->cookie,
+		      __entry->cookie, __entry->object,
 		      __entry->netfs_inode,
 		      __entry->start, __entry->len, __entry->i_size)
 	    );
@@ -377,7 +376,7 @@ TRACE_EVENT(netfs_sreq,
 		    __field(u8,				slot)
 		    __field(size_t,			len)
 		    __field(size_t,			transferred)
-		    __field(loff_t,			start)
+		    __field(uoff_t,			start)
 			     ),
 
 	    TP_fast_assign(
@@ -418,7 +417,7 @@ TRACE_EVENT(netfs_failure,
 		    __field(enum netfs_failure,		what)
 		    __field(size_t,			len)
 		    __field(size_t,			transferred)
-		    __field(loff_t,			start)
+		    __field(uoff_t,			start)
 			     ),
 
 	    TP_fast_assign(
@@ -501,6 +500,7 @@ TRACE_EVENT(netfs_folio,
 	    TP_STRUCT__entry(
 		    __field(u64,			ino)
 		    __field(pgoff_t,			index)
+		    __field(unsigned long,		pfn)
 		    __field(unsigned int,		nr)
 		    __field(enum netfs_folio_trace,	why)
 			     ),
@@ -511,9 +511,11 @@ TRACE_EVENT(netfs_folio,
 		    __entry->why = why;
 		    __entry->index = folio->index;
 		    __entry->nr = folio_nr_pages(folio);
+		    __entry->pfn = folio_pfn(folio);
 			   ),
 
-	    TP_printk("i=%05llx ix=%05lx-%05lx %s",
+	    TP_printk("p=%lx i=%05llx ix=%05lx-%05lx %s",
+		      __entry->pfn,
 		      __entry->ino, __entry->index, __entry->index + __entry->nr - 1,
 		      __print_symbolic(__entry->why, netfs_folio_traces))
 	    );
@@ -524,10 +526,10 @@ TRACE_EVENT(netfs_write_iter,
 	    TP_ARGS(iocb, from),
 
 	    TP_STRUCT__entry(
-		    __field(unsigned long long,		start)
-		    __field(size_t,			len)
-		    __field(unsigned int,		flags)
-		    __field(unsigned int,		ino)
+		    __field(uoff_t,		start)
+		    __field(size_t,		len)
+		    __field(unsigned int,	flags)
+		    __field(unsigned int,	ino)
 			     ),
 
 	    TP_fast_assign(
@@ -550,27 +552,27 @@ TRACE_EVENT(netfs_write,
 	    TP_STRUCT__entry(
 		    __field(unsigned int,		wreq)
 		    __field(unsigned int,		cookie)
+		    __field(unsigned int,		object)
 		    __field(unsigned int,		ino)
 		    __field(enum netfs_write_trace,	what)
-		    __field(unsigned long long,		start)
-		    __field(unsigned long long,		len)
+		    __field(uoff_t,			start)
+		    __field(uoff_t,			len)
 			     ),
 
 	    TP_fast_assign(
-		    struct netfs_inode *__ctx = netfs_inode(wreq->inode);
-		    struct fscache_cookie *__cookie = netfs_i_cookie(__ctx);
 		    __entry->wreq	= wreq->debug_id;
-		    __entry->cookie	= __cookie ? __cookie->debug_id : 0;
+		    __entry->cookie	= wreq->cache_resources.cookie_id;
+		    __entry->object	= wreq->cache_resources.object_id;
 		    __entry->ino	= wreq->inode->i_ino;
 		    __entry->what	= what;
 		    __entry->start	= wreq->start;
 		    __entry->len	= wreq->len;
 			   ),
 
-	    TP_printk("R=%08x %s c=%08x i=%x by=%llx-%llx",
+	    TP_printk("R=%08x %s c=%08x o=%08x i=%x by=%llx-%llx",
 		      __entry->wreq,
 		      __print_symbolic(__entry->what, netfs_write_traces),
-		      __entry->cookie,
+		      __entry->cookie, __entry->object,
 		      __entry->ino,
 		      __entry->start, __entry->start + __entry->len - 1)
 	    );
@@ -582,25 +584,26 @@ TRACE_EVENT(netfs_copy2cache,
 	    TP_ARGS(rreq, creq),
 
 	    TP_STRUCT__entry(
-		    __field(unsigned int,		rreq)
-		    __field(unsigned int,		creq)
-		    __field(unsigned int,		cookie)
-		    __field(unsigned int,		ino)
+		    __field(unsigned int,	rreq)
+		    __field(unsigned int,	creq)
+		    __field(unsigned int,	cookie)
+		    __field(unsigned int,	object)
+		    __field(unsigned int,	ino)
 			     ),
 
 	    TP_fast_assign(
-		    struct netfs_inode *__ctx = netfs_inode(rreq->inode);
-		    struct fscache_cookie *__cookie = netfs_i_cookie(__ctx);
 		    __entry->rreq	= rreq->debug_id;
 		    __entry->creq	= creq->debug_id;
-		    __entry->cookie	= __cookie ? __cookie->debug_id : 0;
+		    __entry->cookie	= rreq->cache_resources.cookie_id;
+		    __entry->object	= rreq->cache_resources.object_id;
 		    __entry->ino	= rreq->inode->i_ino;
 			   ),
 
-	    TP_printk("R=%08x CR=%08x c=%08x i=%x ",
+	    TP_printk("R=%08x CR=%08x c=%08x o=%08x i=%x ",
 		      __entry->rreq,
 		      __entry->creq,
 		      __entry->cookie,
+		      __entry->object,
 		      __entry->ino)
 	    );
 
@@ -610,10 +613,10 @@ TRACE_EVENT(netfs_collect,
 	    TP_ARGS(wreq),
 
 	    TP_STRUCT__entry(
-		    __field(unsigned int,		wreq)
-		    __field(unsigned int,		len)
-		    __field(unsigned long long,		transferred)
-		    __field(unsigned long long,		start)
+		    __field(unsigned int,	wreq)
+		    __field(unsigned int,	len)
+		    __field(uoff_t,		transferred)
+		    __field(uoff_t,		start)
 			     ),
 
 	    TP_fast_assign(
@@ -636,12 +639,12 @@ TRACE_EVENT(netfs_collect_sreq,
 	    TP_ARGS(wreq, subreq),
 
 	    TP_STRUCT__entry(
-		    __field(unsigned int,		wreq)
-		    __field(unsigned int,		subreq)
-		    __field(unsigned int,		stream)
-		    __field(unsigned int,		len)
-		    __field(unsigned int,		transferred)
-		    __field(unsigned long long,		start)
+		    __field(unsigned int,	wreq)
+		    __field(unsigned int,	subreq)
+		    __field(unsigned int,	stream)
+		    __field(unsigned int,	len)
+		    __field(unsigned int,	transferred)
+		    __field(uoff_t,		start)
 			     ),
 
 	    TP_fast_assign(
@@ -660,37 +663,30 @@ TRACE_EVENT(netfs_collect_sreq,
 
 TRACE_EVENT(netfs_collect_folio,
 	    TP_PROTO(const struct netfs_io_request *wreq,
-		     const struct folio *folio,
-		     unsigned long long fend,
-		     unsigned long long collected_to),
+		     const struct folio *folio),
 
-	    TP_ARGS(wreq, folio, fend, collected_to),
+	    TP_ARGS(wreq, folio),
 
 	    TP_STRUCT__entry(
 		    __field(unsigned int,	wreq)
 		    __field(unsigned long,	index)
-		    __field(unsigned long long,	fend)
-		    __field(unsigned long long,	cleaned_to)
-		    __field(unsigned long long,	collected_to)
+		    __field(unsigned int,	nr)
 			     ),
 
 	    TP_fast_assign(
 		    __entry->wreq	= wreq->debug_id;
 		    __entry->index	= folio->index;
-		    __entry->fend	= fend;
-		    __entry->cleaned_to	= wreq->cleaned_to;
-		    __entry->collected_to = collected_to;
+		    __entry->nr		= folio_nr_pages(folio);
 			   ),
 
-	    TP_printk("R=%08x ix=%05lx r=%llx-%llx t=%llx/%llx",
+	    TP_printk("R=%08x ix=%05lx-%05lx",
 		      __entry->wreq, __entry->index,
-		      (unsigned long long)__entry->index * PAGE_SIZE, __entry->fend,
-		      __entry->cleaned_to, __entry->collected_to)
+		      __entry->index + __entry->nr - 1)
 	    );
 
 TRACE_EVENT(netfs_collect_state,
 	    TP_PROTO(const struct netfs_io_request *wreq,
-		     unsigned long long collected_to,
+		     uoff_t collected_to,
 		     unsigned int notes),
 
 	    TP_ARGS(wreq, collected_to, notes),
@@ -698,8 +694,8 @@ TRACE_EVENT(netfs_collect_state,
 	    TP_STRUCT__entry(
 		    __field(unsigned int,	wreq)
 		    __field(unsigned int,	notes)
-		    __field(unsigned long long,	collected_to)
-		    __field(unsigned long long,	cleaned_to)
+		    __field(uoff_t,		collected_to)
+		    __field(uoff_t,		cleaned_to)
 			     ),
 
 	    TP_fast_assign(
@@ -718,7 +714,7 @@ TRACE_EVENT(netfs_collect_state,
 TRACE_EVENT(netfs_collect_gap,
 	    TP_PROTO(const struct netfs_io_request *wreq,
 		     const struct netfs_io_stream *stream,
-		     unsigned long long jump_to, char type),
+		     uoff_t jump_to, char type),
 
 	    TP_ARGS(wreq, stream, jump_to, type),
 
@@ -726,8 +722,8 @@ TRACE_EVENT(netfs_collect_gap,
 		    __field(unsigned int,	wreq)
 		    __field(unsigned char,	stream)
 		    __field(unsigned char,	type)
-		    __field(unsigned long long,	from)
-		    __field(unsigned long long,	to)
+		    __field(uoff_t,		from)
+		    __field(uoff_t,		to)
 			     ),
 
 	    TP_fast_assign(
@@ -752,8 +748,8 @@ TRACE_EVENT(netfs_collect_stream,
 	    TP_STRUCT__entry(
 		    __field(unsigned int,	wreq)
 		    __field(unsigned char,	stream)
-		    __field(unsigned long long,	collected_to)
-		    __field(unsigned long long,	issued_to)
+		    __field(uoff_t,		collected_to)
+		    __field(uoff_t,		issued_to)
 			     ),
 
 	    TP_fast_assign(

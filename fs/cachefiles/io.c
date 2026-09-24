@@ -19,7 +19,7 @@
 struct cachefiles_kiocb {
 	struct kiocb		iocb;
 	refcount_t		ki_refcnt;
-	loff_t			start;
+	uoff_t			start;
 	union {
 		size_t		skipped;
 		size_t		len;
@@ -73,7 +73,7 @@ static void cachefiles_read_complete(struct kiocb *iocb, long ret)
  * Initiate a read from the cache.
  */
 static int cachefiles_read(struct netfs_cache_resources *cres,
-			   loff_t start_pos,
+			   uoff_t start_pos,
 			   struct iov_iter *iter,
 			   enum netfs_read_from_hole read_hole,
 			   netfs_io_terminated_t term_func,
@@ -197,8 +197,8 @@ presubmission_error:
  * of data starts and how long it is.
  */
 static int cachefiles_query_occupancy(struct netfs_cache_resources *cres,
-				      loff_t start, size_t len, size_t granularity,
-				      loff_t *_data_start, size_t *_data_len)
+				      uoff_t start, size_t len, size_t granularity,
+				      uoff_t *_data_start, size_t *_data_len)
 {
 	struct cachefiles_object *object;
 	struct file *file;
@@ -280,7 +280,7 @@ static void cachefiles_write_complete(struct kiocb *iocb, long ret)
  */
 int __cachefiles_write(struct cachefiles_object *object,
 		       struct file *file,
-		       loff_t start_pos,
+		       uoff_t start_pos,
 		       struct iov_iter *iter,
 		       netfs_io_terminated_t term_func,
 		       void *term_func_priv)
@@ -357,7 +357,7 @@ in_progress:
 }
 
 static int cachefiles_write(struct netfs_cache_resources *cres,
-			    loff_t start_pos,
+			    uoff_t start_pos,
 			    struct iov_iter *iter,
 			    netfs_io_terminated_t term_func,
 			    void *term_func_priv)
@@ -377,7 +377,7 @@ static int cachefiles_write(struct netfs_cache_resources *cres,
 
 static inline enum netfs_io_source
 cachefiles_do_prepare_read(struct netfs_cache_resources *cres,
-			   loff_t start, size_t *_len, loff_t i_size,
+			   uoff_t start, size_t *_len, loff_t i_size,
 			   unsigned long *_flags, ino_t netfs_ino)
 {
 	enum cachefiles_prepare_read_trace why;
@@ -483,7 +483,7 @@ out_no_object:
  * boundary as appropriate.
  */
 static enum netfs_io_source cachefiles_prepare_read(struct netfs_io_subrequest *subreq,
-						    unsigned long long i_size)
+						    uoff_t i_size)
 {
 	return cachefiles_do_prepare_read(&subreq->rreq->cache_resources,
 					  subreq->start, &subreq->len, i_size,
@@ -495,7 +495,7 @@ static enum netfs_io_source cachefiles_prepare_read(struct netfs_io_subrequest *
  */
 int __cachefiles_prepare_write(struct cachefiles_object *object,
 			       struct file *file,
-			       loff_t *_start, size_t *_len, size_t upper_len,
+			       uoff_t *_start, size_t *_len, size_t upper_len,
 			       bool no_space_allocated_yet)
 {
 	struct cachefiles_cache *cache = object->volume->cache;
@@ -577,8 +577,8 @@ check_space:
 }
 
 static int cachefiles_prepare_write(struct netfs_cache_resources *cres,
-				    loff_t *_start, size_t *_len, size_t upper_len,
-				    loff_t i_size, bool no_space_allocated_yet)
+				    uoff_t *_start, size_t *_len, size_t upper_len,
+				    uoff_t i_size, bool no_space_allocated_yet)
 {
 	struct cachefiles_object *object = cachefiles_cres_object(cres);
 	struct cachefiles_cache *cache = object->volume->cache;
@@ -628,7 +628,7 @@ static void cachefiles_issue_write(struct netfs_io_subrequest *subreq)
 	struct netfs_io_stream *stream = &wreq->io_streams[subreq->stream_nr];
 	const struct cred *saved_cred;
 	size_t off, pre, post, len = subreq->len;
-	loff_t start = subreq->start;
+	uoff_t start = subreq->start;
 	int ret;
 
 	_enter("W=%x[%x] %llx-%llx",
@@ -721,6 +721,7 @@ bool cachefiles_begin_operation(struct netfs_cache_resources *cres,
 
 	if (!cachefiles_cres_file(cres)) {
 		cres->ops = &cachefiles_netfs_cache_ops;
+		cres->object_id = object->debug_id;
 		if (object->file) {
 			spin_lock(&object->lock);
 			if (!cres->cache_priv2 && object->file)

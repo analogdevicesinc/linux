@@ -56,7 +56,7 @@ static void netfs_dump_request(const struct netfs_io_request *rreq)
  */
 int netfs_folio_written_back(struct folio *folio)
 {
-	enum netfs_folio_trace why = netfs_folio_trace_clear;
+	enum netfs_folio_trace why = netfs_folio_trace_endwb;
 	struct inode *inode = folio_inode(folio);
 	struct netfs_inode *ictx = netfs_inode(inode);
 	struct netfs_folio *finfo;
@@ -67,7 +67,7 @@ int netfs_folio_written_back(struct folio *folio)
 		/* Streaming writes cannot be redirtied whilst under writeback,
 		 * so discard the streaming record.
 		 */
-		unsigned long long fend;
+		uoff_t fend;
 
 		fend = folio_pos(folio) + finfo->dirty_offset + finfo->dirty_len;
 		spin_lock(&ictx->inode.i_lock);
@@ -79,13 +79,13 @@ int netfs_folio_written_back(struct folio *folio)
 		group = finfo->netfs_group;
 		gcount++;
 		kfree(finfo);
-		why = netfs_folio_trace_clear_s;
+		why = netfs_folio_trace_endwb_s;
 		goto end_wb;
 	}
 
 	if ((group = netfs_folio_group(folio))) {
 		if (group == NETFS_FOLIO_COPY_TO_CACHE) {
-			why = netfs_folio_trace_clear_cc;
+			why = netfs_folio_trace_endwb_cc;
 			folio_detach_private(folio);
 			goto end_wb;
 		}
@@ -98,7 +98,7 @@ int netfs_folio_written_back(struct folio *folio)
 		if (!folio_test_dirty(folio)) {
 			folio_detach_private(folio);
 			gcount++;
-			why = netfs_folio_trace_clear_g;
+			why = netfs_folio_trace_endwb_g;
 		}
 	}
 
@@ -115,8 +115,8 @@ static void netfs_writeback_unlock_folios(struct netfs_io_request *wreq,
 					  unsigned int *notes)
 {
 	struct folio_queue *folioq = wreq->buffer.tail;
-	unsigned long long collected_to = wreq->collected_to;
 	unsigned int slot = wreq->buffer.first_tail_slot;
+	uoff_t collected_to = wreq->collected_to;
 
 	if (WARN_ON_ONCE(!folioq)) {
 		pr_err("[!] Writeback unlock found empty rolling buffer!\n");
@@ -140,7 +140,7 @@ static void netfs_writeback_unlock_folios(struct netfs_io_request *wreq,
 	for (;;) {
 		struct folio *folio;
 		struct netfs_folio *finfo;
-		unsigned long long fpos, fend;
+		uoff_t fpos, fend;
 		size_t fsize, flen;
 
 		folio = folioq_folio(folioq, slot);
@@ -154,9 +154,9 @@ static void netfs_writeback_unlock_folios(struct netfs_io_request *wreq,
 		finfo = netfs_folio_info(folio);
 		flen = finfo ? finfo->dirty_offset + finfo->dirty_len : fsize;
 
-		fend = min_t(unsigned long long, fpos + flen, wreq->i_size);
+		fend = min_t(uoff_t, fpos + flen, wreq->i_size);
 
-		trace_netfs_collect_folio(wreq, folio, fend, collected_to);
+		trace_netfs_collect_folio(wreq, folio);
 
 		/* Unlock any folio we've transferred all of. */
 		if (collected_to < fend)
@@ -201,8 +201,8 @@ static void netfs_collect_write_results(struct netfs_io_request *wreq)
 {
 	struct netfs_io_subrequest *front, *remove;
 	struct netfs_io_stream *stream;
-	unsigned long long collected_to, issued_to;
 	unsigned int notes;
+	uoff_t collected_to, issued_to;
 	int s;
 
 	_enter("%llx-%llx", wreq->start, wreq->start + wreq->len);
@@ -214,7 +214,6 @@ reassess_streams:
 	smp_rmb();
 	collected_to = ULLONG_MAX;
 	if (wreq->origin == NETFS_WRITEBACK ||
-	    wreq->origin == NETFS_WRITETHROUGH ||
 	    wreq->origin == NETFS_PGPRIV2_COPY_TO_CACHE)
 		notes = NEED_UNLOCK;
 	else
@@ -372,9 +371,8 @@ bool netfs_write_collection(struct netfs_io_request *wreq)
 	/* We're done when the app thread has finished posting subreqs and all
 	 * the queues in all the streams are empty.
 	 */
-	if (!test_bit(NETFS_RREQ_ALL_QUEUED, &wreq->flags))
+	if (!netfs_are_all_subreqs_queued(wreq))
 		return false;
-	smp_rmb(); /* Read ALL_QUEUED before lists. */
 
 	transferred = LONG_MAX;
 	for (s = 0; s < NR_IO_STREAMS; s++) {
@@ -411,7 +409,6 @@ bool netfs_write_collection(struct netfs_io_request *wreq)
 	switch (wreq->origin) {
 	case NETFS_WRITEBACK:
 	case NETFS_WRITEBACK_SINGLE:
-	case NETFS_WRITETHROUGH:
 		netfs_wb_end(ictx);
 		break;
 	default:
