@@ -3150,11 +3150,49 @@ next:
 }
 
 /*
+ * The callee of callx is known to the main verification pass only, which
+ * records the 'caller' -> 'callee' edge of the call graph for the checks
+ * that follow it: absence of recursion and the maximum stack depth.
+ */
+static int record_callx_edge(struct bpf_verifier_env *env, int caller, int callee)
+{
+	u32 cnt = env->subprog_cnt;
+
+	if (!env->callx_edges) {
+		env->callx_edges = kvcalloc(BITS_TO_LONGS(cnt * cnt), sizeof(long),
+					    GFP_KERNEL_ACCOUNT);
+		if (!env->callx_edges)
+			return -ENOMEM;
+	}
+	__set_bit(caller * cnt + callee, env->callx_edges);
+	return 0;
+}
+
+/*
+ * Return the first subprog with the number >= 'from' that 'caller' calls
+ * via callx, or -1 when there is none.
+ */
+static int next_callx_callee(struct bpf_verifier_env *env, int caller, int from)
+{
+	u32 cnt = env->subprog_cnt;
+	unsigned long bit, end = (caller + 1) * cnt;
+
+	if (!env->callx_edges || from >= cnt)
+		return -1;
+	bit = find_next_bit(env->callx_edges, end, caller * cnt + from);
+	return bit < end ? bit - caller * cnt : -1;
+}
+
+/*
  * Sort subprogs in topological order so that leaf subprogs come first and
  * their callers come later. This is a DFS post-order traversal of the call
  * graph. Scan only reachable instructions (those in the computed postorder) of
  * the current subprog to discover callees (direct subprogs and sync
  * callbacks).
+ *
+ * The callees of callx are not known before the main verification pass.
+ * When callx is used the sort is repeated after it with the recorded callx
+ * edges added to the call graph to reject recursion through indirect calls.
  */
 static int sort_subprogs_topo(struct bpf_verifier_env *env)
 {
@@ -3195,12 +3233,22 @@ static int sort_subprogs_topo(struct bpf_verifier_env *env)
 				int idx = insn_postorder[j];
 				int callee;
 
-				if (!bpf_pseudo_call(&insn[idx]) && !bpf_pseudo_func(&insn[idx]))
+				if (bpf_is_callx(&insn[idx])) {
+					/* find a callee that is not explored yet */
+					callee = -1;
+					do {
+						callee = next_callx_callee(env, cur, callee + 1);
+					} while (callee >= 0 && color[callee] == 2);
+					if (callee < 0)
+						continue;
+				} else if (bpf_pseudo_call(&insn[idx]) || bpf_pseudo_func(&insn[idx])) {
+					callee = bpf_find_subprog(env, idx + insn[idx].imm + 1);
+					if (callee < 0) {
+						ret = -EFAULT;
+						goto out;
+					}
+				} else {
 					continue;
-				callee = bpf_find_subprog(env, idx + insn[idx].imm + 1);
-				if (callee < 0) {
-					ret = -EFAULT;
-					goto out;
 				}
 				if (color[callee] == 2)
 					continue;
@@ -5372,6 +5420,9 @@ struct bpf_subprog_call_depth_info {
 	int ret_insn; /* caller instruction where we return to. */
 	int caller; /* caller subprogram idx */
 	int frame; /* # of consecutive static call stack frames on top of stack */
+	int callx_insn; /* callx instruction whose callees are being walked */
+	int callx_next; /* next callee of callx_insn to walk */
+	bool via_callx; /* the subprogram is entered via callx */
 };
 
 /* starting from main bpf function walk all instructions of the function
@@ -5391,11 +5442,13 @@ static int check_max_stack_depth_subprog(struct bpf_verifier_env *env, int idx,
 
 	/* no caller idx */
 	dinfo[idx].caller = -1;
+	dinfo[idx].via_callx = false;
 
 	i = subprog[idx].start;
 	if (!priv_stack_supported)
 		subprog[idx].priv_stack_mode = NO_PRIV_STACK;
 process_func:
+	dinfo[idx].callx_insn = -1;
 	if (subprog[idx].has_ld_abs) {
 		for (tmp = idx; tmp >= 0; tmp = dinfo[tmp].caller) {
 			if (subprog[tmp].is_cb) {
@@ -5472,11 +5525,10 @@ continue_func:
 	for (; i < subprog_end; i++) {
 		int next_insn, sidx;
 
-		if (bpf_pseudo_kfunc_call(insn + i) && !insn[i].off) {
+		if (bpf_pseudo_kfunc_call(insn + i) && !insn[i].off &&
+		    bpf_is_throw_kfunc(insn + i)) {
 			bool err = false;
 
-			if (!bpf_is_throw_kfunc(insn + i))
-				continue;
 			for (tmp = idx; tmp >= 0 && !err; tmp = dinfo[tmp].caller) {
 				if (subprog[tmp].is_cb) {
 					err = true;
@@ -5491,23 +5543,41 @@ continue_func:
 			return -EINVAL;
 		}
 
-		if (!bpf_pseudo_call(insn + i) && !bpf_pseudo_func(insn + i))
-			continue;
-		/* remember insn and function to return to */
-
-		/* find the callee */
-		next_insn = i + insn[i].imm + 1;
-		sidx = bpf_find_subprog(env, next_insn);
-		if (verifier_bug_if(sidx < 0, env, "callee not found at insn %d", next_insn))
-			return -EFAULT;
-		if (subprog[sidx].is_async_cb) {
-			/* async callbacks don't increase bpf prog stack size unless called directly */
-			if (!bpf_pseudo_call(insn + i))
-				continue;
-			if (subprog[sidx].is_exception_cb) {
-				verbose(env, "insn %d cannot call exception cb directly", i);
-				return -EINVAL;
+		if (bpf_is_callx(insn + i) || bpf_calls_callback(env, i)) {
+			/*
+			 * Walk the callees and the callbacks recorded by
+			 * the main verification pass one by one, returning to
+			 * this insn after each.
+			 */
+			if (dinfo[idx].callx_insn != i) {
+				dinfo[idx].callx_insn = i;
+				dinfo[idx].callx_next = 0;
 			}
+			sidx = next_callx_callee(env, idx, dinfo[idx].callx_next);
+			if (sidx < 0)
+				continue;
+			dinfo[idx].callx_next = sidx + 1;
+			dinfo[idx].ret_insn = i;
+			next_insn = subprog[sidx].start;
+		} else if (bpf_pseudo_call(insn + i) || bpf_pseudo_func(insn + i)) {
+			/* find the callee */
+			next_insn = i + insn[i].imm + 1;
+			sidx = bpf_find_subprog(env, next_insn);
+			if (verifier_bug_if(sidx < 0, env, "callee not found at insn %d", next_insn))
+				return -EFAULT;
+			if (subprog[sidx].is_async_cb) {
+				/* async callbacks don't increase bpf prog stack size unless called directly */
+				if (!bpf_pseudo_call(insn + i))
+					continue;
+				if (subprog[sidx].is_exception_cb) {
+					verbose(env, "insn %d cannot call exception cb directly", i);
+					return -EINVAL;
+				}
+			}
+			/* remember insn to return to */
+			dinfo[idx].ret_insn = i + 1;
+		} else {
+			continue;
 		}
 
 		/*
@@ -5533,10 +5603,10 @@ continue_func:
 
 		/* store caller info for after we return from callee */
 		dinfo[idx].frame = frame;
-		dinfo[idx].ret_insn = i + 1;
 
 		/* push caller idx into callee's dinfo */
 		dinfo[sidx].caller = idx;
+		dinfo[sidx].via_callx = bpf_is_callx(insn + i);
 
 		i = next_insn;
 
@@ -5568,6 +5638,14 @@ continue_func:
 			}
 			if (subprog[tmp].stack_arg_cnt) {
 				verbose(env, "tail_calls are not allowed in programs with stack args\n");
+				return -EINVAL;
+			}
+			/*
+			 * JITs pass tail call counter in a register that is
+			 * not available when the callee is called via callx.
+			 */
+			if (dinfo[tmp].via_callx) {
+				verbose(env, "tail_calls are not allowed in functions called via callx\n");
 				return -EINVAL;
 			}
 			subprog[tmp].tail_call_reachable = true;
@@ -10615,6 +10693,15 @@ static int push_callback_call(struct bpf_verifier_env *env, struct bpf_insn *ins
 		return 0;
 	}
 
+	/*
+	 * The address of the callback might be taken in another function or
+	 * read from a map, see check_func_ptr_read(). Like with callx it's
+	 * known here what is called.
+	 */
+	err = record_callx_edge(env, caller->subprogno, subprog);
+	if (err)
+		return err;
+
 	/* for callback functions enqueue entry to callback and
 	 * proceed with next instruction within current frame.
 	 */
@@ -10833,6 +10920,10 @@ static int check_func_callx(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	subprog = reg->subprogno;
 	err = btf_check_subprog_call(env, subprog, caller->regs);
 	if (err == -EFAULT)
+		return err;
+
+	err = record_callx_edge(env, caller->subprogno, subprog);
+	if (err)
 		return err;
 
 	return check_static_func_call(env, subprog, insn_idx);
@@ -21978,6 +22069,10 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	ret = do_check_main(env);
 	ret = ret ?: do_check_subprogs(env);
 
+	/* reject recursion through the callx edges found by the main pass */
+	if (ret == 0 && env->callx_edges)
+		ret = sort_subprogs_topo(env);
+
 	if (ret == 0 && bpf_prog_is_offloaded(env->prog->aux))
 		ret = bpf_prog_offload_finalize(env);
 
@@ -22120,6 +22215,7 @@ err_free_env:
 	kvfree(env->scc_info);
 	kvfree(env->succ);
 	kvfree(env->gotox_tmp_buf);
+	kvfree(env->callx_edges);
 	bpf_diag_free(env);
 	kvfree(env);
 	return ret;

@@ -965,6 +965,13 @@ struct bpf_verifier_env {
 	struct bpf_subprog_info subprog_info[BPF_MAX_SUBPROGS + 2]; /* max + 2 for the fake and exception subprogs */
 	/* subprog indices sorted in topological order: leaves first, callers last */
 	int subprog_topo_order[BPF_MAX_SUBPROGS + 2];
+	/*
+	 * Call graph edges created by callx instructions. A bitmap of
+	 * subprog_cnt * subprog_cnt bits, where bit (caller * subprog_cnt + callee)
+	 * is set when the main verification pass sees 'caller' calling 'callee'
+	 * via callx. Allocated when the first such edge is recorded.
+	 */
+	unsigned long *callx_edges;
 	union {
 		struct bpf_idmap idmap_scratch;
 		struct bpf_idset idset_scratch;
