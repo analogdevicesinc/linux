@@ -980,5 +980,5 @@ int mcp47feb02_common_probe(const struct mcp47feb02_features *chip_features,
 EXPORT_SYMBOL_NS(mcp47feb02_common_probe, "IIO_MCP47FEB02");
 
 MODULE_AUTHOR("Ariana Lazar <ariana.lazar@microchip.com>");
-MODULE_DESCRIPTION("IIO driver for MCP47FEB02 Multi-Channel DAC with I2C interface");
+MODULE_DESCRIPTION("IIO driver for MCP47FEB02/MCP48FEB02 Multi-Channel DAC");
 MODULE_LICENSE("GPL");
