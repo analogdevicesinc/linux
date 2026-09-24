@@ -3023,6 +3023,22 @@ static int add_subprogs(struct bpf_verifier_env *env)
 			return ret;
 	}
 
+	/*
+	 * func_info describes all functions of the program. Those that are
+	 * referenced only from data, e.g. from a table of functions to be
+	 * called via callx, are not seen by the loop above. They are possible
+	 * callees that have to be known upfront as well.
+	 */
+	if (env->bpf_capable) {
+		struct bpf_prog_aux *aux = env->prog->aux;
+
+		for (i = 1; i < aux->func_info_cnt; i++) {
+			ret = add_subprog(env, aux->func_info[i].insn_off);
+			if (ret < 0)
+				return ret;
+		}
+	}
+
 	ret = bpf_find_exception_callback_insn_off(env);
 	if (ret < 0)
 		return ret;
