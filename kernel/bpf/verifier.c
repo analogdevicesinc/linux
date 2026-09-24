@@ -1041,7 +1041,7 @@ static int unmark_stack_slots_iter(struct bpf_verifier_env *env,
 				   struct bpf_reg_state *reg, int nr_slots)
 {
 	struct bpf_func_state *state = bpf_func(env, reg);
-	int spi, i, j;
+	int spi, i, j, err;
 
 	spi = iter_get_spi(env, reg, nr_slots);
 	if (spi < 0)
@@ -1051,8 +1051,12 @@ static int unmark_stack_slots_iter(struct bpf_verifier_env *env,
 		struct bpf_stack_state *slot = bpf_stack_slot(state, spi - i);
 		struct bpf_reg_state *st = &slot->spilled_ptr;
 
-		if (i == 0)
-			WARN_ON_ONCE(release_reference(env, st->id));
+		if (i == 0) {
+			err = release_reference(env, st->id);
+			if (err == -ENOMEM)
+				return err;
+			WARN_ON_ONCE(err);
+		}
 
 		bpf_mark_reg_not_init(env, st);
 
@@ -10525,8 +10529,9 @@ static int idstack_push(struct bpf_idmap *idmap, u32 id)
 		if (idmap->map[i].old == id)
 			return 0;
 
-	if (WARN_ON_ONCE(idmap->cnt >= BPF_ID_MAP_SIZE))
-		return -EFAULT;
+	if (!bpf_id_scratch_reserve((void **)&idmap->map, &idmap->cap, idmap->cnt,
+				    sizeof(*idmap->map)))
+		return -ENOMEM;
 
 	idmap->map[idmap->cnt++].old = id;
 	return 0;
@@ -18951,23 +18956,27 @@ static void adjust_btf_func(struct bpf_verifier_env *env)
 		aux->func_info[i].insn_off = env->subprog_info[i].start;
 }
 
-/* Find id in idset and increment its count, or add new entry */
-static void idset_cnt_inc(struct bpf_idset *idset, u32 id)
+/*
+ * Find id in idset and increment its count, or add new entry. Returns false
+ * when a new id could not be recorded, which leaves the counts incomplete.
+ */
+static bool idset_cnt_inc(struct bpf_idset *idset, u32 id)
 {
 	u32 i;
 
 	for (i = 0; i < idset->num_ids; i++) {
 		if (idset->entries[i].id == id) {
 			idset->entries[i].cnt++;
-			return;
+			return true;
 		}
 	}
-	/* New id */
-	if (idset->num_ids < BPF_ID_MAP_SIZE) {
-		idset->entries[idset->num_ids].id = id;
-		idset->entries[idset->num_ids].cnt = 1;
-		idset->num_ids++;
-	}
+	if (!bpf_id_scratch_reserve((void **)&idset->entries, &idset->cap, idset->num_ids,
+				    sizeof(*idset->entries)))
+		return false;
+	idset->entries[idset->num_ids].id = id;
+	idset->entries[idset->num_ids].cnt = 1;
+	idset->num_ids++;
+	return true;
 }
 
 /* Find id in idset and return its count, or 0 if not found */
@@ -18993,6 +19002,7 @@ void bpf_clear_singular_ids(struct bpf_verifier_env *env,
 	struct bpf_idset *idset = &env->idset_scratch;
 	struct bpf_func_state *func;
 	struct bpf_reg_state *reg;
+	bool complete = true;
 
 	idset->num_ids = 0;
 
@@ -19001,8 +19011,16 @@ void bpf_clear_singular_ids(struct bpf_verifier_env *env,
 			continue;
 		if (!reg->id)
 			continue;
-		idset_cnt_inc(idset, reg->id & ~BPF_ADD_CONST);
+		complete &= idset_cnt_inc(idset, reg->id & ~BPF_ADD_CONST);
 	}));
+
+	/*
+	 * An id that could not be recorded may be shared, and a later
+	 * occurrence of it may have been recorded with a count of one. Without
+	 * complete counts keep every id; clearing is only an optimization.
+	 */
+	if (!complete)
+		return;
 
 	bpf_for_each_reg_in_vstate(st, func, reg, ({
 		if (reg->type != SCALAR_VALUE)
@@ -22693,6 +22711,8 @@ err_free_env:
 	kvfree(env->gotox_tmp_buf);
 	kvfree(env->callx_edges);
 	kvfree(env->func_ptrs);
+	kfree(env->idmap_scratch.map);
+	kfree(env->idset_scratch.entries);
 	bpf_diag_free(env);
 	kvfree(env);
 	return ret;
