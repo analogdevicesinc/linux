@@ -548,7 +548,7 @@ impl Process {
     }
 
     #[inline(never)]
-    pub(crate) fn debug_print_stats(&self, m: &SeqFile, ctx: &Context) -> Result<()> {
+    pub(crate) fn debug_print_stats(&self, m: &SeqFile, ctx: &Context) -> Result {
         seq_print!(m, "proc {}\n", self.pid_in_current_ns());
         seq_print!(m, "context {}\n", &*ctx.name);
 
@@ -596,7 +596,7 @@ impl Process {
     }
 
     #[inline(never)]
-    pub(crate) fn debug_print(&self, m: &SeqFile, ctx: &Context, print_all: bool) -> Result<()> {
+    pub(crate) fn debug_print(&self, m: &SeqFile, ctx: &Context, print_all: bool) -> Result {
         seq_print!(m, "proc {}\n", self.pid_in_current_ns());
         seq_print!(m, "context {}\n", &*ctx.name);
 
@@ -686,8 +686,16 @@ impl Process {
     pub(crate) fn get_work_or_register<'a>(
         &'a self,
         thread: &'a Arc<Thread>,
+        thread_has_deferred_work: bool,
     ) -> GetWorkOrRegister<'a> {
         let mut inner = self.inner.lock();
+
+        if thread_has_deferred_work && !inner.work.is_empty() {
+            if let Some(work) = thread.pop_work_even_if_deferred() {
+                return GetWorkOrRegister::Work(work);
+            }
+        }
+
         // Try to get work from the process queue.
         if let Some(work) = inner.work.pop_front() {
             return GetWorkOrRegister::Work(work);
@@ -1208,11 +1216,10 @@ impl Process {
 
         {
             let inner = self.inner.lock();
-            for (node_ptr, node) in &inner.nodes {
-                if *node_ptr > ptr {
-                    node.populate_debug_info(&mut out, &inner);
-                    break;
-                }
+            // cursor_lower_bound retrieves the "key" passed or the next existing larger key
+            if let Some(cursor) = inner.nodes.cursor_lower_bound(&(ptr + 1)) {
+                let (_, node) = cursor.current();
+                node.populate_debug_info(&mut out, &inner);
             }
         }
 
