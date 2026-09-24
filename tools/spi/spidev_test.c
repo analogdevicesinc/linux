@@ -68,6 +68,10 @@ static void hex_dump(const void *src, size_t length, size_t line_size,
 	unsigned char c;
 
 	printf("%s | ", prefix);
+
+	if (length == 0)
+		printf("__ ||\n");
+
 	while (length-- > 0) {
 		printf("%02X ", *address++);
 		if (!(++i % line_size) || (length == 0 && i % line_size)) {
@@ -149,7 +153,7 @@ static void transfer(int fd, uint8_t const *tx, uint8_t const *rx, size_t len)
 	}
 
 	ret = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
-	if (ret < 1)
+	if (ret < 0)
 		pabort("can't send spi message");
 
 	if (verbose)
