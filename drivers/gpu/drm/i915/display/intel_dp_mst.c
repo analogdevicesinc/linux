@@ -766,6 +766,10 @@ static int mst_stream_compute_config(struct intel_atomic_state *state,
 		return ret;
 
 	for_each_joiner_candidate(connector, adjusted_mode, num_joined_pipes) {
+		/* If the pipe can't be a joiner primary, skip early. */
+		if (!(intel_joiner_valid_primary_pipe_mask(display, num_joined_pipes) & BIT(crtc->pipe)))
+			continue;
+
 		if (num_joined_pipes > 1)
 			pipe_config->joiner_pipes = GENMASK(crtc->pipe + num_joined_pipes - 1,
 							    crtc->pipe);

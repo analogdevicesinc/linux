@@ -287,13 +287,12 @@ int drm_of_find_panel_or_bridge(const struct device_node *np,
 				struct drm_panel **panel,
 				struct drm_bridge **bridge)
 {
-	int ret = -EPROBE_DEFER;
-	struct device_node *remote;
-
 	if (WARN_ON(!panel))
 		return -EINVAL;
 
 	*panel = NULL;
+	if (bridge)
+		*bridge = NULL;
 
 	/*
 	 * of_graph_get_remote_node() produces a noisy error message if port
@@ -304,30 +303,27 @@ int drm_of_find_panel_or_bridge(const struct device_node *np,
 	if (!of_graph_is_present(np))
 		return -ENODEV;
 
-	remote = of_graph_get_remote_node(np, port, endpoint);
+	struct device_node *remote __free(device_node) =
+		of_graph_get_remote_node(np, port, endpoint);
 	if (!remote)
 		return -ENODEV;
 
 	*panel = of_drm_find_panel(remote);
 	if (!IS_ERR(*panel))
-		ret = 0;
-	else
-		*panel = NULL;
+		return 0;
+
+	*panel = NULL;
 
 	if (bridge) {
-		if (ret) {
-			/* No panel found yet, check for a bridge next. */
-			*bridge = of_drm_find_bridge(remote);
-			if (*bridge)
-				ret = 0;
-		} else {
-			*bridge = NULL;
-		}
+		/* No panel found yet, check for a bridge next. */
+		*bridge = of_drm_find_bridge(remote);
+		if (*bridge)
+			return 0;
 
+		*bridge = NULL;
 	}
 
-	of_node_put(remote);
-	return ret;
+	return -EPROBE_DEFER;
 }
 EXPORT_SYMBOL_GPL(drm_of_find_panel_or_bridge);
 
@@ -550,8 +546,8 @@ EXPORT_SYMBOL_GPL(drm_of_lvds_get_data_mapping);
  *
  * Return:
  * * min..max - positive integer count of "data-lanes" elements
- * * -ve - the "data-lanes" property is missing or invalid
- * * -EINVAL - the "data-lanes" property is unsupported
+ * * -ENODATA - the property does not have a value.
+ * * -EINVAL - the "data-lanes" property is missing or invalid
  */
 int drm_of_get_data_lanes_count(const struct device_node *endpoint,
 				const unsigned int min, const unsigned int max)
@@ -582,8 +578,8 @@ EXPORT_SYMBOL_GPL(drm_of_get_data_lanes_count);
  *
  * Return:
  * * min..max - positive integer count of "data-lanes" elements
- * * -EINVAL - the "data-mapping" property is unsupported
- * * -ENODEV - the "data-mapping" property is missing
+ * * -ENODATA - the property does not have a value.
+ * * -EINVAL - the "data-lanes" property is missing or invalid
  */
 int drm_of_get_data_lanes_count_ep(const struct device_node *port,
 				   int port_reg, int reg,

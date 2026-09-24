@@ -281,9 +281,9 @@ void intel_parent_pc8_unblock(struct intel_display *display)
 }
 
 /* pcode */
-int intel_parent_pcode_read(struct intel_display *display, u32 mbox, u32 *val, u32 *val1)
+int intel_parent_pcode_read(struct intel_display *display, u32 mbox, u32 *val0, u32 *val1)
 {
-	return display->parent->pcode->read(display->drm, mbox, val, val1);
+	return display->parent->pcode->read(display->drm, mbox, val0, val1);
 }
 
 int intel_parent_pcode_write_timeout(struct intel_display *display, u32 mbox, u32 val, int timeout_ms)
@@ -449,6 +449,12 @@ bool intel_parent_has_auxccs(struct intel_display *display)
 bool intel_parent_has_fenced_regions(struct intel_display *display)
 {
 	return display->parent->has_fenced_regions && display->parent->has_fenced_regions(display->drm);
+}
+
+void intel_parent_transient_data_flush(struct intel_display *display)
+{
+	if (display->parent->transient_data_flush)
+		display->parent->transient_data_flush(display->drm);
 }
 
 bool intel_parent_vgpu_active(struct intel_display *display)

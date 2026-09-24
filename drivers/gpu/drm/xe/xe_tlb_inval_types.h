@@ -37,6 +37,16 @@ struct xe_tlb_inval_ops {
 	int (*ggtt)(struct xe_tlb_inval *tlb_inval, u32 seqno);
 
 	/**
+	 * @ggtt_full: Full engine TLB invalidation within a VF
+	 * @tlb_inval: TLB invalidation client
+	 * @seqno: Seqno of TLB invalidation
+	 *
+	 * Return 0 on success, -ECANCELED if backend is mid-reset, error on
+	 * failure
+	 */
+	int (*ggtt_full)(struct xe_tlb_inval *tlb_inval, u32 seqno);
+
+	/**
 	 * @ppgtt: Invalidate per-process translation TLBs
 	 * @tlb_inval: TLB invalidation client
 	 * @seqno: Seqno of TLB invalidation

@@ -37,6 +37,7 @@ DC_LIBS += dcn301
 DC_LIBS += dcn31
 DC_LIBS += dml
 DC_LIBS += dml2_0
+DC_LIBS += dml2_wrapper
 DC_LIBS += soc_and_ip_translator
 endif
 
@@ -63,7 +64,6 @@ include $(AMD_DC)
 
 FILES =
 FILES += dc_dmub_srv.o
-FILES += dc_edid_parser.o
 FILES += dc_fused_io.o
 FILES += dc_helper.o
 FILES += core/dc.o

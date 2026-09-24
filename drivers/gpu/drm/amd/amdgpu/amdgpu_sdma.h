@@ -59,6 +59,8 @@ struct amdgpu_sdma_funcs {
 	int (*stop_kernel_queue)(struct amdgpu_ring *ring);
 	int (*start_kernel_queue)(struct amdgpu_ring *ring);
 	int (*soft_reset_kernel_queue)(struct amdgpu_device *adev, u32 instance_id);
+	bool (*detect_hung_queue)(struct amdgpu_device *adev, u32 doorbell_index,
+				  u32 *instance_id, u32 *queue_id);
 };
 
 struct amdgpu_sdma_instance {
@@ -103,6 +105,7 @@ struct amdgpu_sdma {
 
 	int			num_instances;
 	uint32_t 		sdma_mask;
+	bool    		sdma_debug;
 	union {
 	    int			num_inst_per_aid;
 	    int			num_inst_per_xcc;
