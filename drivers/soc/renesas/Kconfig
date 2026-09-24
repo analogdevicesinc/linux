@@ -227,6 +227,13 @@ config ARCH_R8A774A1
 	help
 	  This enables support for the Renesas RZ/G2M SoC.
 
+config ARCH_R8A774A3
+	bool "ARM64 Platform support for R8A774A3 (RZ/G2M v3.0)"
+	default y if ARCH_RENESAS
+	select ARCH_RCAR_GEN3
+	help
+	  This enables support for the Renesas RZ/G2M SoC (version 3.0).
+
 config ARCH_R8A774B1
 	bool "ARM64 Platform support for R8A774B1 (RZ/G2N)"
 	default y if ARCH_RENESAS
@@ -468,11 +475,12 @@ endif # RISCV
 config RCAR_MFIS
 	tristate "Renesas R-Car MFIS driver"
 	depends on ARCH_RENESAS || COMPILE_TEST
-	depends on MAILBOX
+	depends on MAILBOX && HWSPINLOCK
 	help
-	  Select this option to enable the Renesas R-Car MFIS core driver for
-	  the MFIS device found on SoCs like R-Car. On families like Gen5, this
-	  is needed to communicate with the SCP.
+	  Select this option to enable support for the Renesas R-Car
+	  Multifunctional Interface (MFIS) device found on SoCs like R-Car.
+	  On families like R-Car Gen5, this is needed to communicate with the
+	  SCP.
 
 config PWC_RZV2M
 	bool "Renesas RZ/V2M PWC support" if COMPILE_TEST
@@ -486,6 +494,7 @@ config RZN1_IRQMUX
 config SYSC_RZ
 	bool "System controller for RZ SoCs" if COMPILE_TEST
 	select MFD_SYSCON
+	select AUXILIARY_BUS
 
 config SYSC_R9A08G045
 	bool "Renesas System controller support for R9A08G045 (RZ/G3S)" if COMPILE_TEST
@@ -494,6 +503,8 @@ config SYSC_R9A08G045
 config SYSC_R9A08G046
 	bool "Renesas System controller support for R9A08G046 (RZ/G3L)" if COMPILE_TEST
 	select SYSC_RZ
+	select POWER_SEQUENCING
+	select POWER_SEQUENCING_RENESAS_PWRRDY
 
 config SYS_R9A09G047
 	bool "Renesas System controller support for R9A09G047 (RZ/G3E)" if COMPILE_TEST
