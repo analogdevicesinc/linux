@@ -45,6 +45,7 @@ static int transfer_size = -1;
 static int iterations;
 static int interval = 5; /* interval in seconds for showing transfer rate */
 static int compare;
+static int do_tx = 1, do_rx = 1;
 static int random_input;
 static int input_choices;
 
@@ -157,7 +158,7 @@ static void transfer(int fd, uint8_t const *tx, uint8_t const *rx, size_t len)
 	if (ret < 0)
 		pabort("can't send spi message");
 
-	if (verbose)
+	if (verbose && tx)
 		hex_dump(tx, len, 32, "TX");
 
 	if (output_file) {
@@ -172,10 +173,10 @@ static void transfer(int fd, uint8_t const *tx, uint8_t const *rx, size_t len)
 		close(out_fd);
 	}
 
-	if (verbose)
+	if (verbose && rx)
 		hex_dump(rx, len, 32, "RX");
 
-	if (compare || mode & SPI_LOOP) {
+	if (tx && rx && (compare || mode & SPI_LOOP)) {
 		if (memcmp(tx, rx, len)) {
 			fprintf(stderr, "transfer error !\n");
 			hex_dump(tx, len, 32, "TX");
@@ -187,7 +188,7 @@ static void transfer(int fd, uint8_t const *tx, uint8_t const *rx, size_t len)
 
 static void print_usage(const char *prog)
 {
-	printf("Usage: %s [-2348CDFHILMNORSZbcdilopsvw]\n", prog);
+	printf("Usage: %s [-2348CDFHILMNORSZbcdiloprstvw]\n", prog);
 	puts("general device settings:\n"
 		 "  -D --device         device to use (default /dev/spidev1.1)\n"
 		 "  -s --speed          max speed (Hz)\n"
@@ -195,6 +196,8 @@ static void print_usage(const char *prog)
 		 "  -w --word-delay     word delay (usec)\n"
 		 "  -l --loop           loopback\n"
 		 "  -c --compare        compare RX'ed and TX'ed data\n"
+		 "  -t --no-tx          don't send data\n"
+		 "  -r --no-rx          don't receive data\n"
 		 "spi mode:\n"
 		 "  -H --cpha           clock phase\n"
 		 "  -O --cpol           clock polarity\n"
@@ -233,6 +236,8 @@ static void parse_opts(int argc, char *argv[])
 			{ "word-delay",    1, 0, 'w' },
 			{ "loop",          0, 0, 'l' },
 			{ "compare",       0, 0, 'c' },
+			{ "no-tx",         0, 0, 't' },
+			{ "no-rx",         0, 0, 'r' },
 			{ "cpha",          0, 0, 'H' },
 			{ "cpol",          0, 0, 'O' },
 			{ "rx-cpha-flip",  0, 0, 'F' },
@@ -256,7 +261,7 @@ static void parse_opts(int argc, char *argv[])
 		};
 		int c;
 
-		c = getopt_long(argc, argv, "D:s:d:w:b:i:o:lcHOLC3ZFMNR248p:vS:I:",
+		c = getopt_long(argc, argv, "D:s:d:w:b:i:o:lctrHOLC3ZFMNR248p:vS:I:",
 				lopts, NULL);
 
 		if (c == -1)
@@ -290,6 +295,12 @@ static void parse_opts(int argc, char *argv[])
 			break;
 		case 'c':
 			compare = 1;
+			break;
+		case 't':
+			do_tx = 0;
+			break;
+		case 'r':
+			do_rx = 0;
 			break;
 		case 'H':
 			mode |= SPI_CPHA;
@@ -363,15 +374,17 @@ static void transfer_escaped_string(int fd, char *str)
 {
 	size_t size = strlen(str);
 	uint8_t *tx;
-	uint8_t *rx;
+	uint8_t *rx = NULL;
 
 	tx = malloc(size);
 	if (!tx)
 		pabort("can't allocate tx buffer");
 
-	rx = malloc(size);
-	if (!rx)
-		pabort("can't allocate rx buffer");
+	if (do_rx) {
+		rx = malloc(size);
+		if (!rx)
+			pabort("can't allocate rx buffer");
+	}
 
 	size = unescape((char *)tx, str, size);
 	transfer(fd, tx, rx, size);
@@ -385,7 +398,7 @@ static void transfer_file(int fd, char *filename)
 	struct stat sb;
 	int tx_fd;
 	uint8_t *tx;
-	uint8_t *rx;
+	uint8_t *rx = NULL;
 
 	if (stat(filename, &sb) == -1)
 		pabort("can't stat input file");
@@ -398,9 +411,12 @@ static void transfer_file(int fd, char *filename)
 	if (!tx)
 		pabort("can't allocate tx buffer");
 
-	rx = malloc(sb.st_size);
-	if (!rx)
-		pabort("can't allocate rx buffer");
+
+	if (do_rx) {
+		rx = malloc(sb.st_size);
+		if (!rx)
+			pabort("can't allocate rx buffer");
+	}
 
 	bytes = read(tx_fd, tx, sb.st_size);
 	if (bytes != sb.st_size)
@@ -431,24 +447,29 @@ static void show_transfer_rate(void)
 
 static void transfer_buf(int fd, int len)
 {
-	uint8_t *tx;
-	uint8_t *rx;
+	uint8_t *tx = NULL;
+	uint8_t *rx = NULL;
 	int i;
 
-	tx = malloc(len);
-	if (!tx)
-		pabort("can't allocate tx buffer");
-	for (i = 0; i < len; i++)
-		tx[i] = random();
+	if (do_tx) {
+		tx = malloc(len);
+		if (!tx)
+			pabort("can't allocate tx buffer");
+		for (i = 0; i < len; i++)
+			tx[i] = random();
+	}
 
-	rx = malloc(len);
-	if (!rx)
-		pabort("can't allocate rx buffer");
+	if (do_rx) {
+		rx = malloc(len);
+		if (!rx)
+			pabort("can't allocate rx buffer");
+	}
 
 	transfer(fd, tx, rx, len);
-
-	_write_count += len;
-	_read_count += len;
+	if (do_tx)
+		_write_count += len;
+	if (do_rx)
+		_read_count += len;
 
 	free(rx);
 	free(tx);
@@ -471,6 +492,15 @@ int main(int argc, char *argv[])
 
 	if (iterations && transfer_size < 0)
 		pabort("-I (--iter) is only implemented for -S (--size)");
+
+	if (compare && (!do_tx || !do_rx))
+		pabort("-c (--compare) conflicts with -t (--no-tx) or -r (--no-rx)");
+
+	if (!do_rx && output_file)
+		pabort("-r (--no-rx) conflicts with -o (--output)");
+
+	if (!do_tx && transfer_size < 0)
+		pabort("-t (--no-tx) is only implemented for -S (--size)");
 
 	if (compare && mode & (SPI_TX_OCTAL | SPI_TX_QUAD | SPI_TX_DUAL))
 		pabort("-c (--compare) conflicts with -2 (--dual), -4 (--quad) or -8 (--octal)");
@@ -549,7 +579,7 @@ int main(int argc, char *argv[])
 		printf("total: tx %.1fKB, rx %.1fKB\n",
 		       _write_count/1024.0, _read_count/1024.0);
 	} else
-		transfer(fd, default_tx, default_rx, sizeof(default_tx));
+		transfer(fd, default_tx, do_rx ? default_rx : NULL, sizeof(default_tx));
 
 	close(fd);
 
