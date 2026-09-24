@@ -48,6 +48,7 @@ static int compare;
 static int nonzero;
 static int do_tx = 1, do_rx = 1;
 static int random_input;
+static int predictable;
 static int input_choices;
 
 static uint8_t default_tx[] = {
@@ -189,7 +190,7 @@ static void transfer(int fd, uint8_t const *tx, uint8_t const *rx, size_t len)
 
 static void print_usage(const char *prog)
 {
-	printf("Usage: %s [-2348CDFHILMNORSZbcdiloprstvwz]\n", prog);
+	printf("Usage: %s [-2348CDFHILMNOPRSZbcdiloprstvwz]\n", prog);
 	puts("general device settings:\n"
 		 "  -D --device         device to use (default /dev/spidev1.1)\n"
 		 "  -s --speed          max speed (Hz)\n"
@@ -214,6 +215,7 @@ static void print_usage(const char *prog)
 		 "  -o --output         output data to a file (e.g. \"results.bin\")\n"
 		 "  -p                  send data (e.g. \"1234\\xde\\xad\")\n"
 		 "  -z --nonzero        don't send 0x00 or 0xff bytes\n"
+		 "  -P --predictable    transfer the given number of sequential bytes\n"
 		 "  -S --size           transfer the given number of random bytes\n"
 		 "  -I --iter           iterations\n"
 		 "additional parameters:\n"
@@ -259,12 +261,13 @@ static void parse_opts(int argc, char *argv[])
 			{ "no-cs",         0, 0, 'N' },
 			{ "ready",         0, 0, 'R' },
 			{ "mosi-idle-low", 0, 0, 'M' },
+			{ "predictable",   1, 0, 'P' },
 			{ "verbose",       0, 0, 'v' },
 			{ NULL, 0, 0, 0 },
 		};
 		int c;
 
-		c = getopt_long(argc, argv, "D:s:d:w:b:i:o:lctrHOLC3ZFMNR248p:vS:zI:",
+		c = getopt_long(argc, argv, "D:s:d:w:b:i:o:lctrHOLC3ZFMNR248p:P:vS:zI:",
 				lopts, NULL);
 
 		if (c == -1)
@@ -340,6 +343,11 @@ static void parse_opts(int argc, char *argv[])
 			break;
 		case 'p':
 			input_tx = optarg;
+			input_choices++;
+			break;
+		case 'P':
+			transfer_size = atoi(optarg);
+			predictable = 1;
 			input_choices++;
 			break;
 		case '2':
@@ -462,9 +470,17 @@ static void transfer_buf(int fd, int len)
 		if (!tx)
 			pabort("can't allocate tx buffer");
 		for (i = 0; i < len; i++) {
-			do
-				tx[i] = random();
-			while (nonzero && (tx[i] == 0x0 || tx[i] == 0xff));
+			if (predictable) {
+				int v = i - iterations;
+
+				if (nonzero)
+					v = ((v % 254) + 254) % 254 + 1;
+				tx[i] = (char)v;
+			} else {
+				do {
+					tx[i] = random();
+				} while (nonzero && (tx[i] == 0x0 || tx[i] == 0xff));
+			}
 		}
 	}
 
@@ -493,17 +509,17 @@ int main(int argc, char *argv[])
 	parse_opts(argc, argv);
 
 	if (input_choices > 1)
-		pabort("at most one of -S (--size), -p, -i (--input) may be selected, "
+		pabort("at most one of -S (--size), -p, -i (--input), -P (--predictable) may be selected, "
 		       "and each may be specified only once");
 
-	if (random_input && transfer_size < 0)
-		pabort("a size argument is mandatory for -S (--size)");
+	if ((random_input || predictable) && transfer_size < 0)
+		pabort("a size argument is mandatory for -S (--size) and -P (--predictable)");
 
 	if (iterations && transfer_size < 0)
-		pabort("-I (--iter) is only implemented for -S (--size)");
+		pabort("-I (--iter) is only implemented for -S (--size) and -P (--predictable)");
 
 	if (nonzero && transfer_size < 0)
-		pabort("-z (--nonzero) is only implemented for -S (--size)");
+		pabort("-z (--nonzero) is only implemented for -S (--size) and -P (--predictable)");
 
 	if (compare && (!do_tx || !do_rx))
 		pabort("-c (--compare) conflicts with -t (--no-tx) or -r (--no-rx)");
@@ -512,7 +528,7 @@ int main(int argc, char *argv[])
 		pabort("-r (--no-rx) conflicts with -o (--output)");
 
 	if (!do_tx && transfer_size < 0)
-		pabort("-t (--no-tx) is only implemented for -S (--size)");
+		pabort("-t (--no-tx) is only implemented for -S (--size) and -P (--predictable)");
 
 	if (compare && mode & (SPI_TX_OCTAL | SPI_TX_QUAD | SPI_TX_DUAL))
 		pabort("-c (--compare) conflicts with -2 (--dual), -4 (--quad) or -8 (--octal)");
