@@ -71,6 +71,18 @@
 #endif
 };
 
+&ehci0 {
+	status = "disabled";
+};
+
+&ehci1 {
+	status = "disabled";
+};
+
+&hsusb0 {
+	status = "disabled";
+};
+
 &i2c2 {
 	pinctrl-0 = <&i2c2_pins>;
 	pinctrl-names = "default";
@@ -120,6 +132,14 @@
 #if SW_DPI_EN || PMOD_GPIO7
 	/delete-node/ key-3;
 #endif
+};
+
+&ohci0 {
+	status = "disabled";
+};
+
+&ohci1 {
+	status = "disabled";
 };
 
 &pcie {
