@@ -786,6 +786,21 @@ int bpf_log_attr_finalize(struct bpf_log_attr *attr, struct bpf_verifier_log *lo
 
 #define BPF_MAX_SUBPROGS 256
 
+/*
+ * A pointer to a static subprog in the value of a frozen read-only array map:
+ * a 64-bit value that is the offset in bytes of the first instruction of
+ * the subprog in the program.
+ */
+struct bpf_func_ptr {
+	struct bpf_map *map;
+	u32 map_off;		/* offset of the pointer in the value of the map */
+	u32 orig_off;		/* what the map has: the first instruction of the subprog */
+	u32 xlated_off;		/* the same after instructions were patched and removed */
+};
+
+/* the subprog that a bpf_func_ptr pointed to was removed as dead code */
+#define BPF_FUNC_PTR_DELETED ((u32)-1)
+
 struct bpf_subprog_arg_info {
 	enum bpf_arg_type arg_type;
 	union {
@@ -965,6 +980,13 @@ struct bpf_verifier_env {
 	struct bpf_subprog_info subprog_info[BPF_MAX_SUBPROGS + 2]; /* max + 2 for the fake and exception subprogs */
 	/* subprog indices sorted in topological order: leaves first, callers last */
 	int subprog_topo_order[BPF_MAX_SUBPROGS + 2];
+	/*
+	 * Pointers to static subprogs found in frozen read-only maps of the
+	 * program, see resolve_func_ptrs(). Sorted by map and map_off.
+	 */
+	struct bpf_func_ptr *func_ptrs;
+	u32 func_ptr_cnt;
+	bool has_callx;
 	/*
 	 * Call graph edges created by callx instructions. A bitmap of
 	 * subprog_cnt * subprog_cnt bits, where bit (caller * subprog_cnt + callee)
@@ -1324,6 +1346,13 @@ static inline bool bt_is_frame_slot_set(struct backtrack_state *bt, u32 frame, u
 }
 
 bool bpf_map_is_rdonly(const struct bpf_map *map);
+struct bpf_func_ptr *bpf_map_func_ptrs(struct bpf_verifier_env *env,
+				       const struct bpf_map *map, u32 *cnt);
+struct bpf_func_ptr *bpf_map_range_func_ptrs(struct bpf_verifier_env *env,
+					     const struct bpf_map *map,
+					     u64 off, u64 size, u32 *cnt);
+void bpf_adjust_func_ptrs(struct bpf_verifier_env *env, u32 off, u32 len);
+void bpf_adjust_func_ptrs_after_remove(struct bpf_verifier_env *env, u32 off, u32 len);
 int bpf_map_direct_read(struct bpf_map *map, int off, int size, u64 *val,
 			bool is_ldsx);
 

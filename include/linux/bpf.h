@@ -344,7 +344,17 @@ struct bpf_map {
 	s64 __percpu *elem_count;
 	u64 cookie; /* write-once */
 	char *excl_prog_sha;
+	/*
+	 * Which programs use the map, see bpf_map_claim(): 0 - none so far,
+	 * aux of the program - only that one, the same with BPF_MAP_USER_PATCHED
+	 * set - only that one and it stored the addresses of its functions into
+	 * the map, BPF_MAP_USER_MANY - more than one.
+	 */
+	unsigned long user;
 };
+
+#define BPF_MAP_USER_MANY	1UL
+#define BPF_MAP_USER_PATCHED	1UL
 
 static inline const char *btf_field_type_name(enum btf_field_type type)
 {
