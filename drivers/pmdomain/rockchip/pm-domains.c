@@ -809,7 +809,7 @@ static int rockchip_pm_add_one_domain(struct rockchip_pmu *pmu,
 		return 0;
 
 	pd_info = &pmu->info->domain_info[id];
-	if (!pd_info) {
+	if (!pd_info->pwr_mask && !pd_info->req_mask) {
 		dev_err(pmu->dev, "%pOFn: undefined domain id %d\n",
 			node, id);
 		return -EINVAL;
