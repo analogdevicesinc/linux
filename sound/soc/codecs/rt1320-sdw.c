@@ -890,8 +890,9 @@ static bool rt1320_readable_register(struct device *dev, unsigned int reg)
 	case 0xf01e:
 	case 0xf717 ... 0xf719:
 	case 0xf720 ... 0xf723:
-	case 0x1000cd91 ... 0x1000cd96:
-	case RT1321_PATCH_MAIN_VER ... RT1321_PATCH_BETA_VER:
+	case 0x10000000 ... 0x10008fff:
+	case 0x1000c000 ... 0x1000cfff:
+	case 0x1000d800 ... 0x1000dfff:
 	case 0x1000f008:
 	case 0x1000f021:
 	case 0x20003000 ... 0x2000300f:
@@ -996,7 +997,8 @@ static bool rt1320_volatile_register(struct device *dev, unsigned int reg)
 	case 0xf717 ... 0xf719:
 	case 0xf720 ... 0xf723:
 	case 0x10000000 ... 0x10008fff:
-	case 0x1000c000 ... 0x1000dfff:
+	case 0x1000c000 ... 0x1000cfff:
+	case 0x1000d800 ... 0x1000dfff:
 	case 0x1000f008:
 	case 0x1000f021:
 	case 0x2000300e ... 0x2000300f:
