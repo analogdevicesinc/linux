@@ -2912,3 +2912,26 @@ static __used __naked void merge_read_all_callee(void)
 	"exit;"
 	::: __clobber_all);
 }
+
+/*
+ * A frame pointer spilled below fp-512 is a spill like any other: the fill
+ * restores its identity, and a load through it reads only the slot it names
+ * instead of the whole frame.
+ */
+SEC("socket")
+__log_level(2)
+__load_if_large_stack()
+__msg("(79) r0 = *(u64 *)(r1 +0){{.*}}; use: fp0-8{{$}}")
+__naked void spill_below_512_stays_precise(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"r1 = r10;"
+	"r1 += -8;"
+	"*(u64 *)(r10 - 520) = r1;"
+	"r1 = *(u64 *)(r10 - 520);"
+	"r0 = *(u64 *)(r1 + 0);"
+	"exit;"
+	::: __clobber_all);
+}
