@@ -42,8 +42,10 @@ static int __find_debuginfo(Dwfl_Module *mod __maybe_unused, void **userdata,
 	const struct dso *dso = *userdata;
 
 	assert(dso);
+	mutex_lock(dso__lock((struct dso *)dso));
 	if (dso__symsrc_filename(dso) && strcmp(file_name, dso__symsrc_filename(dso)))
 		*debuginfo_file_name = strdup(dso__symsrc_filename(dso));
+	mutex_unlock(dso__lock((struct dso *)dso));
 	return -1;
 }
 
@@ -290,7 +292,8 @@ static bool libdw_set_initial_registers(Dwfl_Thread *thread, void *arg)
 			int dwarf_reg =
 				get_dwarf_regnum_for_perf_regnum(perf_reg, e_machine,
 								 e_flags,
-								 /*only_libdw_supported=*/true);
+								 /*only_libdw_supported=*/true,
+								 user_regs->abi);
 			if (dwarf_reg > max_dwarf_reg)
 				max_dwarf_reg = dwarf_reg;
 		}
@@ -305,7 +308,8 @@ static bool libdw_set_initial_registers(Dwfl_Thread *thread, void *arg)
 			int dwarf_reg =
 				get_dwarf_regnum_for_perf_regnum(perf_reg, e_machine,
 								 e_flags,
-								 /*only_libdw_supported=*/true);
+								 /*only_libdw_supported=*/true,
+								 user_regs->abi);
 			if (dwarf_reg >= 0) {
 				val = 0;
 				if (perf_reg_value(&val, user_regs, perf_reg) == 0)
@@ -397,6 +401,11 @@ int libdw__get_entries(unwind_entry_cb_t cb, void *arg,
 		dwfl = dwfl_ui_ti->dwfl;
 	} else {
 		dwfl_ui_ti = zalloc(sizeof(*dwfl_ui_ti));
+		if (!dwfl_ui_ti) {
+			free(ui);
+			return -ENOMEM;
+		}
+
 		dwfl = dwfl_begin(&offline_callbacks);
 		if (!dwfl)
 			goto out;

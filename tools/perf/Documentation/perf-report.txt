@@ -64,6 +64,9 @@ OPTIONS
 --symbol-filter=::
 	Only show symbols that match (partially) with this filter.
 
+--weights:: Show or hide (with `--no-weights`) weight columns in annotation output.
+	    By default, weight columns are shown when samples contain non-zero weights.
+
 -U::
 --hide-unresolved::
         Only display entries resolved to a symbol.
@@ -351,7 +354,10 @@ OPTIONS
 	requires a tty, if one is not present, as when piping to other
 	commands, the stdio interface is used.
 
---gtk:: Use the GTK2 interface.
+--gtk:: Use the GTK4 interface.
+
+--weights:: Show or hide (with `--no-weights`) weight columns in annotation output.
+           By default, weight columns are shown when samples contain non-zero weights.
 
 -k::
 --vmlinux=<file>::
@@ -571,6 +577,11 @@ include::itrace.txt[]
 
 --raw-trace::
 	When displaying traceevent output, do not use print fmt or plugins.
+
+--hybrid-merge::
+	Merge matching events from all hybrid core PMUs into one
+	display. For example, if a wildcard expands to run on both p-cores and
+	e-cores, this aggregates them into a single view.
 
 -H::
 --hierarchy::

@@ -47,6 +47,8 @@ enum type_state_kind {
  * @var_name: Name of the member variable
  * @offset: Offset from the outer data type
  * @size: Size of the member field
+ * @is_union: Whether it's an union type
+ * @is_flex_array: Whether it's a flex array
  *
  * This represents a member type in a data type.
  */
@@ -57,6 +59,8 @@ struct annotated_member {
 	char *var_name;
 	int offset;
 	int size;
+	bool is_union;
+	bool is_flex_array;
 };
 
 /**
@@ -73,28 +77,30 @@ struct type_hist_entry {
  * struct type_hist - Type histogram for each event
  * @nr_samples: Total number of samples in this data type
  * @period: Total count of the event in this data type
- * @offset: Array of histogram entry
+ * @samples: Hashmap of (offset, type_hist_entry)
  */
 struct type_hist {
 	u64			nr_samples;
 	u64			period;
-	struct type_hist_entry	addr[];
+	struct hashmap		samples;
 };
 
 /**
  * struct annotated_data_type - Data type to profile
  * @node: RB-tree node for dso->type_tree
  * @self: Actual type information
+ * @flex_array: Whether it has a flex array
  * @nr_histogram: Number of histogram entries
- * @histograms: An array of pointers to histograms
+ * @histograms: An array of histograms
  *
  * This represents a data type accessed by samples in the profile data.
  */
 struct annotated_data_type {
 	struct rb_node node;
 	struct annotated_member self;
+	bool flex_array;
 	int nr_histograms;
-	struct type_hist **histograms;
+	struct type_hist *histograms;
 };
 
 extern struct annotated_data_type unknown_type;
