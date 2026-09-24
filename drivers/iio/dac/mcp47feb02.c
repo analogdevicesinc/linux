@@ -36,7 +36,6 @@
 #define MCP47FEB02_DAC_CTRL_MASK			GENMASK(1, 0)
 
 #define MCP47FEB02_GAIN_CTRL_STATUS_REG_ADDR		0x50
-#define MCP47FEB02_GAIN_BIT_MASK			BIT(0)
 #define MCP47FEB02_GAIN_BIT_STATUS_EEWA_MASK		BIT(6)
 #define MCP47FEB02_GAIN_BITS_MASK			GENMASK(15, 8)
 
@@ -49,12 +48,10 @@
 #define MCP47FEB02_NV_I2C_SLAVE_ADDR_MASK		GENMASK(7, 0)
 
 /* Voltage reference, Power-Down control register and DAC Wiperlock status register fields */
-#define DAC_CTRL_MASK(ch)				(GENMASK(1, 0) << (2 * (ch)))
-#define DAC_CTRL_VAL(ch, val)				((val) << (2 * (ch)))
+#define MCP47FEB02_VREF_PD_MASK(ch)			(GENMASK(1, 0) << (2 * (ch)))
 
-/* Gain Control and I2C Slave Address Reguster fields */
+/* Gain Control and I2C Slave Address Register fields */
 #define DAC_GAIN_MASK(ch)				(BIT(0) << (8 + (ch)))
-#define DAC_GAIN_VAL(ch, val)				((val) << (8 + (ch)))
 
 #define REG_ADDR(reg)					((reg) << 3)
 #define NV_REG_ADDR(reg)				((NV_DAC_ADDR_OFFSET + (reg)) << 3)
@@ -448,7 +445,7 @@ static int mcp47feb02_write_to_eeprom(struct mcp47feb02_data *data, unsigned int
 	ret = regmap_read_poll_timeout(data->regmap, MCP47FEB02_GAIN_CTRL_STATUS_REG_ADDR,
 				       eewa_val,
 				       !(eewa_val & MCP47FEB02_GAIN_BIT_STATUS_EEWA_MASK),
-				       USEC_PER_MSEC, USEC_PER_MSEC * 5);
+				       1 * USEC_PER_MSEC, 150 * USEC_PER_MSEC);
 	if (ret)
 		return ret;
 
@@ -468,7 +465,7 @@ static ssize_t store_eeprom_store(struct device *dev, struct device_attribute *a
 		return ret;
 
 	if (!state)
-		return 0;
+		return len;
 
 	/*
 	 * Verify DAC Wiper and DAC Configuration are unlocked. If both are disabled,
@@ -508,7 +505,7 @@ static ssize_t store_eeprom_store(struct device *dev, struct device_attribute *a
 
 	ret = regmap_read_poll_timeout(data->regmap, MCP47FEB02_GAIN_CTRL_STATUS_REG_ADDR, eewa_val,
 				       !(eewa_val & MCP47FEB02_GAIN_BIT_STATUS_EEWA_MASK),
-				       USEC_PER_MSEC, USEC_PER_MSEC * 5);
+				       1 * USEC_PER_MSEC, 150 * USEC_PER_MSEC);
 	if (ret)
 		return ret;
 
@@ -551,11 +548,13 @@ static int mcp47feb02_suspend(struct device *dev)
 
 	for_each_set_bit(ch, &data->active_channels_mask, data->phys_channels) {
 		u8 pd_mode;
+		u32 mask;
 
 		data->chdata[ch].powerdown = true;
 		pd_mode = data->chdata[ch].powerdown_mode + 1;
+		mask = MCP47FEB02_VREF_PD_MASK(ch);
 		ret = regmap_update_bits(data->regmap, MCP47FEB02_POWER_DOWN_REG_ADDR,
-					 DAC_CTRL_MASK(ch), DAC_CTRL_VAL(ch, pd_mode));
+					 mask, field_prep(mask, pd_mode));
 		if (ret)
 			return ret;
 
@@ -577,6 +576,7 @@ static int mcp47feb02_resume(struct device *dev)
 
 	for_each_set_bit(ch, &data->active_channels_mask, data->phys_channels) {
 		u8 pd_mode;
+		u32 mask;
 		int ret;
 
 		data->chdata[ch].powerdown = false;
@@ -586,20 +586,21 @@ static int mcp47feb02_resume(struct device *dev)
 		if (ret)
 			return ret;
 
+		mask =  MCP47FEB02_VREF_PD_MASK(ch);
 		ret = regmap_update_bits(data->regmap, MCP47FEB02_VREF_REG_ADDR,
-					 DAC_CTRL_MASK(ch), DAC_CTRL_VAL(ch, pd_mode));
+					 mask, field_prep(mask, pd_mode));
 		if (ret)
 			return ret;
 
+		mask = DAC_GAIN_MASK(ch);
 		ret = regmap_update_bits(data->regmap, MCP47FEB02_GAIN_CTRL_STATUS_REG_ADDR,
-					 DAC_GAIN_MASK(ch),
-					 DAC_GAIN_VAL(ch, data->chdata[ch].use_2x_gain));
+					 mask, field_prep(mask, data->chdata[ch].use_2x_gain));
 		if (ret)
 			return ret;
 
+		mask = MCP47FEB02_VREF_PD_MASK(ch);
 		ret = regmap_update_bits(data->regmap, MCP47FEB02_POWER_DOWN_REG_ADDR,
-					 DAC_CTRL_MASK(ch),
-					 DAC_CTRL_VAL(ch, MCP47FEB02_NORMAL_OPERATION));
+					 mask, field_prep(mask, MCP47FEB02_NORMAL_OPERATION));
 		if (ret)
 			return ret;
 	}
@@ -642,6 +643,7 @@ static ssize_t mcp47feb02_write_powerdown(struct iio_dev *indio_dev, uintptr_t p
 	u32 reg = ch->address;
 	u8 tmp_pd_mode;
 	bool state;
+	u32 mask;
 	int ret;
 
 	guard(mutex)(&data->lock);
@@ -655,8 +657,9 @@ static ssize_t mcp47feb02_write_powerdown(struct iio_dev *indio_dev, uintptr_t p
 	 * requires writing normal operation mode (0) to the channel-specific register bits.
 	 */
 	tmp_pd_mode = state ? (data->chdata[reg].powerdown_mode + 1) : MCP47FEB02_NORMAL_OPERATION;
+	mask = MCP47FEB02_VREF_PD_MASK(reg);
 	ret = regmap_update_bits(data->regmap, MCP47FEB02_POWER_DOWN_REG_ADDR,
-				 DAC_CTRL_MASK(reg), DAC_CTRL_VAL(reg, tmp_pd_mode));
+				 mask, field_prep(mask, tmp_pd_mode));
 	if (ret)
 		return ret;
 
@@ -800,6 +803,7 @@ static int mcp47feb02_check_scale(struct mcp47feb02_data *data, int val, int val
 static int mcp47feb02_ch_scale(struct mcp47feb02_data *data, int ch, int scale)
 {
 	int tmp_val, ret;
+	u32 mask;
 
 	if (scale == MCP47FEB02_SCALE_VDD) {
 		tmp_val = MCP47FEB02_VREF_VDD;
@@ -821,8 +825,9 @@ static int mcp47feb02_ch_scale(struct mcp47feb02_data *data, int ch, int scale)
 		tmp_val = MCP47FEB02_INTERNAL_BAND_GAP;
 	}
 
+	mask = MCP47FEB02_VREF_PD_MASK(ch);
 	ret = regmap_update_bits(data->regmap, MCP47FEB02_VREF_REG_ADDR,
-				 DAC_CTRL_MASK(ch), DAC_CTRL_VAL(ch, tmp_val));
+				 mask, field_prep(mask, tmp_val));
 	if (ret)
 		return ret;
 
@@ -845,6 +850,7 @@ static int mcp47feb02_ch_scale(struct mcp47feb02_data *data, int ch, int scale)
 static int mcp47feb02_set_scale(struct mcp47feb02_data *data, int ch, int scale)
 {
 	int tmp_val, ret;
+	u32 mask;
 
 	ret = mcp47feb02_ch_scale(data, ch, scale);
 	if (ret)
@@ -855,8 +861,9 @@ static int mcp47feb02_set_scale(struct mcp47feb02_data *data, int ch, int scale)
 	else
 		tmp_val = MCP47FEB02_GAIN_BIT_X1;
 
+	mask = DAC_GAIN_MASK(ch);
 	ret = regmap_update_bits(data->regmap, MCP47FEB02_GAIN_CTRL_STATUS_REG_ADDR,
-				 DAC_GAIN_MASK(ch), DAC_GAIN_VAL(ch, tmp_val));
+				 mask, field_prep(mask, tmp_val));
 	if (ret)
 		return ret;
 
@@ -1016,13 +1023,17 @@ static int mcp47feb02_init_ctrl_regs(struct mcp47feb02_data *data)
 	if (ret)
 		return ret;
 
-	gain_ch = gain_ch & MCP47FEB02_GAIN_BITS_MASK;
 	for_each_set_bit(i, &data->active_channels_mask, data->phys_channels) {
 		struct device *dev = regmap_get_device(data->regmap);
-		unsigned int pd_tmp;
+		unsigned int pd_tmp, dac_val;
 
-		data->chdata[i].ref_mode = (vref_ch >> (2 * i)) & MCP47FEB02_DAC_CTRL_MASK;
-		data->chdata[i].use_2x_gain = (gain_ch >> i)  & MCP47FEB02_GAIN_BIT_MASK;
+		ret = regmap_read(data->regmap, REG_ADDR(i), &dac_val);
+		if (ret)
+			return ret;
+		data->chdata[i].dac_data = dac_val;
+
+		data->chdata[i].ref_mode = field_get(MCP47FEB02_VREF_PD_MASK(i), vref_ch);
+		data->chdata[i].use_2x_gain = field_get(DAC_GAIN_MASK(i), gain_ch);
 
 		/*
 		 * Inform the user that the current voltage reference read from the volatile
@@ -1065,7 +1076,7 @@ static int mcp47feb02_init_ctrl_regs(struct mcp47feb02_data *data)
 			break;
 		}
 
-		pd_tmp = (pd_ch >> (2 * i)) & MCP47FEB02_DAC_CTRL_MASK;
+		pd_tmp = field_get(MCP47FEB02_VREF_PD_MASK(i), pd_ch);
 		data->chdata[i].powerdown_mode = pd_tmp ? (pd_tmp - 1) : pd_tmp;
 		data->chdata[i].powerdown = !!(data->chdata[i].powerdown_mode);
 	}
