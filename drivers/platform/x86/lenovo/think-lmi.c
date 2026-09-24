@@ -249,7 +249,7 @@ static int tlmi_errstr_to_err(const char *errstr)
 {
 	int i;
 
-	for (i = 0; i < sizeof(tlmi_errs)/sizeof(struct tlmi_err_codes); i++) {
+	for (i = 0; i < ARRAY_SIZE(tlmi_errs); i++) {
 		if (!strcmp(tlmi_errs[i].err_str, errstr))
 			return tlmi_errs[i].err_code;
 	}

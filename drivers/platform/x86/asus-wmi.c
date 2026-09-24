@@ -127,7 +127,6 @@ module_param(fnlock_default, bool, 0444);
 #define NVIDIA_TEMP_MAX		87
 
 #define ASUS_SCREENPAD_BRIGHT_MAX 255
-#define ASUS_SCREENPAD_BRIGHT_DEFAULT 60
 
 #define ASUS_MINI_LED_MODE_MASK		0x03
 /* Standard modes for devices with only on/off */
@@ -262,6 +261,7 @@ struct asus_wmi {
 	struct led_classdev lightbar_led;
 	int lightbar_led_wk;
 	struct led_classdev micmute_led;
+	struct led_classdev mute_led;
 	struct led_classdev camera_led;
 	struct workqueue_struct *led_workqueue;
 	struct work_struct tpd_led_work;
@@ -2054,6 +2054,16 @@ static int micmute_led_set(struct led_classdev *led_cdev,
 	return err < 0 ? err : 0;
 }
 
+static int mute_led_set(struct led_classdev *led_cdev,
+			enum led_brightness brightness)
+{
+	int state = brightness != LED_OFF;
+	int err;
+
+	err = asus_wmi_set_devstate(ASUS_WMI_DEVID_MUTE_LED, state, NULL);
+	return err < 0 ? err : 0;
+}
+
 static enum led_brightness camera_led_get(struct led_classdev *led_cdev)
 {
 	struct asus_wmi *asus;
@@ -2084,10 +2094,23 @@ static void asus_wmi_led_exit(struct asus_wmi *asus)
 	led_classdev_unregister(&asus->wlan_led);
 	led_classdev_unregister(&asus->lightbar_led);
 	led_classdev_unregister(&asus->micmute_led);
+	led_classdev_unregister(&asus->mute_led);
 	led_classdev_unregister(&asus->camera_led);
 
 	if (asus->led_workqueue)
 		destroy_workqueue(asus->led_workqueue);
+
+	/*
+	 * kbd_led is registered lazily by kbd_led_work: now that the
+	 * workqueue is destroyed and asus_ref.asus is NULL, the work can
+	 * neither run nor be queued anymore, furthermore leaving it to
+	 * devres would run the unregister from devres_release_all(),
+	 * after .remove() returned and the struct asus_wmi embedding
+	 * kbd_led has been freed.
+	 */
+	if (asus->kbd_led_registered)
+		devm_led_classdev_unregister(&asus->platform_device->dev,
+					     &asus->kbd_led);
 }
 
 static int asus_wmi_led_init(struct asus_wmi *asus)
@@ -2176,7 +2199,19 @@ static int asus_wmi_led_init(struct asus_wmi *asus)
 		asus->micmute_led.default_trigger = "audio-micmute";
 
 		rv = led_classdev_register(&asus->platform_device->dev,
-						&asus->micmute_led);
+					   &asus->micmute_led);
+		if (rv)
+			goto error;
+	}
+
+	if (asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_MUTE_LED)) {
+		asus->mute_led.name = "platform::mute";
+		asus->mute_led.max_brightness = 1;
+		asus->mute_led.brightness_set_blocking = mute_led_set;
+		asus->mute_led.default_trigger = "audio-mute";
+
+		rv = led_classdev_register(&asus->platform_device->dev,
+					   &asus->mute_led);
 		if (rv)
 			goto error;
 	}
@@ -3610,7 +3645,7 @@ static int fan_curve_get_factory_default(struct asus_wmi *asus, u32 fan_dev)
 	err = asus_wmi_evaluate_method_buf(asus->dsts_id, fan_dev, mode, buf,
 					   FAN_CURVE_BUF_LEN);
 	if (err) {
-		pr_warn("%s (0x%08x) failed: %d\n", __func__, fan_dev, err);
+		pr_debug("%s (0x%08x) failed: %d\n", __func__, fan_dev, err);
 		return err;
 	}
 
@@ -4486,13 +4521,20 @@ static int is_display_toggle(int code)
 
 static int read_screenpad_backlight_power(struct asus_wmi *asus)
 {
-	int ret;
+	int ret, retval;
 
-	ret = asus_wmi_get_devstate_simple(asus, ASUS_WMI_DEVID_SCREENPAD_POWER);
+	ret = asus_wmi_get_devstate(asus, ASUS_WMI_DEVID_SCREENPAD_POWER, &retval);
 	if (ret < 0)
 		return ret;
-	/* 1 == powered */
-	return ret ? BACKLIGHT_POWER_ON : BACKLIGHT_POWER_OFF;
+
+	/*
+	 * The firmware reports the panel power in the low byte of the
+	 * devstate as a raw EC status byte that is non-zero when the
+	 * panel is powered; other models report it through
+	 * ASUS_WMI_DSTS_STATUS_BIT, which lies inside the same mask.
+	 */
+	return (retval & ASUS_WMI_DSTS_BRIGHTNESS_MASK) ?
+		BACKLIGHT_POWER_ON : BACKLIGHT_POWER_OFF;
 }
 
 static int read_screenpad_brightness(struct backlight_device *bd)
@@ -4517,26 +4559,18 @@ static int read_screenpad_brightness(struct backlight_device *bd)
 
 static int update_screenpad_bl_status(struct backlight_device *bd)
 {
-	u32 ctrl_param = bd->props.brightness;
-	int err = 0;
+	int err;
 
-	if (bd->props.power) {
-		err = asus_wmi_set_devstate(ASUS_WMI_DEVID_SCREENPAD_POWER, 1, NULL);
-		if (err < 0)
-			return err;
+	if (backlight_is_blank(bd))
+		return asus_wmi_set_devstate(ASUS_WMI_DEVID_SCREENPAD_POWER,
+					     0, NULL);
 
-		err = asus_wmi_set_devstate(ASUS_WMI_DEVID_SCREENPAD_LIGHT, ctrl_param, NULL);
-		if (err < 0)
-			return err;
-	}
+	err = asus_wmi_set_devstate(ASUS_WMI_DEVID_SCREENPAD_POWER, 1, NULL);
+	if (err < 0)
+		return err;
 
-	if (!bd->props.power) {
-		err = asus_wmi_set_devstate(ASUS_WMI_DEVID_SCREENPAD_POWER, 0, NULL);
-		if (err < 0)
-			return err;
-	}
-
-	return err;
+	return asus_wmi_set_devstate(ASUS_WMI_DEVID_SCREENPAD_LIGHT,
+				     backlight_get_brightness(bd), NULL);
 }
 
 static const struct backlight_ops asus_screenpad_bl_ops = {
@@ -4550,16 +4584,17 @@ static int asus_screenpad_init(struct asus_wmi *asus)
 	struct backlight_device *bd;
 	struct backlight_properties props;
 	int err, power;
-	int brightness = 0;
+	u32 brightness = 0;
 
-	power = asus_wmi_get_devstate_simple(asus, ASUS_WMI_DEVID_SCREENPAD_POWER);
+	power = read_screenpad_backlight_power(asus);
 	if (power < 0)
 		return power;
 
-	if (power) {
+	if (power == BACKLIGHT_POWER_ON) {
 		err = asus_wmi_get_devstate(asus, ASUS_WMI_DEVID_SCREENPAD_LIGHT, &brightness);
 		if (err < 0)
 			return err;
+		brightness &= ASUS_WMI_DSTS_BRIGHTNESS_MASK;
 	}
 
 	memset(&props, 0, sizeof(struct backlight_properties));
@@ -4574,7 +4609,6 @@ static int asus_screenpad_init(struct asus_wmi *asus)
 	}
 
 	asus->screenpad_backlight_device = bd;
-	asus->driver->screenpad_brightness = brightness;
 	bd->props.brightness = brightness;
 	bd->props.power = power;
 	backlight_update_status(bd);
@@ -5421,8 +5455,11 @@ static struct acpi_s2idle_dev_ops asus_ally_s2idle_dev_ops = {
 
 static void asus_s2idle_check_register(void)
 {
-	if (acpi_register_lps0_dev(&asus_ally_s2idle_dev_ops))
-		pr_warn("failed to register LPS0 sleep handler in asus-wmi\n");
+	int ret;
+
+	ret = acpi_register_lps0_dev(&asus_ally_s2idle_dev_ops);
+	if (ret && ret != -ENODEV)
+		pr_warn("failed to register LPS0 sleep handler: %d\n", ret);
 }
 
 static void asus_s2idle_check_unregister(void)
