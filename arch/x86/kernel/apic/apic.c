@@ -1869,7 +1869,7 @@ static __init void try_to_enable_x2apic(int remap_mode)
 	x2apic_enable();
 }
 
-void __init check_x2apic(void)
+static void __init check_x2apic(void)
 {
 	if (x2apic_enabled()) {
 		pr_info("x2apic: enabled by BIOS, switching to x2apic ops\n");
@@ -1884,7 +1884,7 @@ void __init check_x2apic(void)
 	}
 }
 #else /* CONFIG_X86_X2APIC */
-void __init check_x2apic(void)
+static void __init check_x2apic(void)
 {
 	if (!apic_is_x2apic_enabled())
 		return;
@@ -2063,6 +2063,18 @@ no_apic:
 	return false;
 }
 #endif
+
+void __init apic_early_init(void)
+{
+	if (acpi_mps_check()) {
+		apic_is_disabled = true;
+		setup_clear_cpu_cap(X86_FEATURE_APIC);
+	} else {
+		check_x2apic();
+	}
+
+	apic_setup_apic_calls();
+}
 
 void __init apic_finalize_early_init(void)
 {
