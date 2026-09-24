@@ -116,7 +116,7 @@ u32 x2apic_get_apic_id(u32 id)
 	return id;
 }
 
-static struct apic apic_x2apic_phys __ro_after_init = {
+struct apic apic_x2apic_phys __ro_after_init = {
 
 	.name				= "physical x2apic",
 	.probe				= x2apic_phys_probe,
