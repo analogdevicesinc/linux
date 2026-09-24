@@ -1186,6 +1186,17 @@ config SENSORS_MAX31730
 	  This driver can also be built as a module. If so, the module
 	  will be called max31730.
 
+config SENSORS_MAX31732
+	tristate "Analog Devices MAX31732"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Support for the Analog Devices MAX31732 4-Channel Remote
+	  Temperature Sensor.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called max31732.
+
 config SENSORS_MAX31760
 	tristate "MAX31760 fan speed controller"
 	depends on I2C
