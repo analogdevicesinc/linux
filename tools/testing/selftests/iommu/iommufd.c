@@ -3613,4 +3613,16 @@ TEST_F(iommufd_device_pasid, pasid_attach)
 	test_cmd_mock_domain_replace(self->stdev_id, self->ioas_id);
 }
 
-TEST_HARNESS_MAIN
+static bool iommufd_mock_available(void)
+{
+	return access("/sys/bus/iommufd_mock", F_OK) == 0;
+}
+
+int main(int argc, char **argv)
+{
+	if (!iommufd_mock_available())
+		ksft_exit_skip(
+			"no iommufd mock device, the tests need CONFIG_IOMMUFD_TEST=y and the iommufd module loaded\n");
+
+	return test_harness_run(argc, argv);
+}
