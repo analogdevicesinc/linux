@@ -69,6 +69,7 @@
 #include "intel_cx0_phy.h"
 #include "intel_ddi.h"
 #include "intel_de.h"
+#include "intel_dip.h"
 #include "intel_display_driver.h"
 #include "intel_display_power.h"
 #include "intel_display_regs.h"
@@ -997,6 +998,15 @@ static bool cmrr_params_changed(const struct intel_crtc_state *old_crtc_state,
 {
 	return old_crtc_state->vrr.cmrr.cmrr_m != new_crtc_state->vrr.cmrr.cmrr_m ||
 		old_crtc_state->vrr.cmrr.cmrr_n != new_crtc_state->vrr.cmrr.cmrr_n;
+}
+
+static bool cmn_sdp_changed(const struct intel_crtc_state *old_crtc_state,
+			    const struct intel_crtc_state *new_crtc_state)
+{
+	return old_crtc_state->dip.cmn_sdp_tl != new_crtc_state->dip.cmn_sdp_tl ||
+		old_crtc_state->dip.gmp_sdp_tl != new_crtc_state->dip.gmp_sdp_tl ||
+		old_crtc_state->dip.pps_sdp_tl != new_crtc_state->dip.pps_sdp_tl ||
+		old_crtc_state->dip.vsc_ext_sdp_tl != new_crtc_state->dip.vsc_ext_sdp_tl;
 }
 
 static bool intel_crtc_vrr_enabling(struct intel_atomic_state *state,
@@ -6924,6 +6934,9 @@ static void intel_pre_update_crtc(struct intel_atomic_state *state,
 		if (vrr_params_changed(old_crtc_state, new_crtc_state) ||
 		    cmrr_params_changed(old_crtc_state, new_crtc_state))
 			intel_vrr_set_transcoder_timings(new_crtc_state);
+
+		if (cmn_sdp_changed(old_crtc_state, new_crtc_state))
+			intel_dip_cmn_sdp_transmission_line_enable(new_crtc_state);
 	}
 
 	intel_fbc_update(state, crtc);
