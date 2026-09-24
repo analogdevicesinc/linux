@@ -333,6 +333,7 @@ static void uncore_cha_imc_adjust_cpumask_for_snc(struct perf_pmu *pmu, bool cha
 void perf_pmu__arch_init(struct perf_pmu *pmu)
 {
 	struct perf_pmu_caps *ldlat_cap;
+	bool swfilt_format;
 
 	if (!strcmp(pmu->name, INTEL_PT_PMU_NAME)) {
 		pmu->auxtrace = true;
@@ -348,7 +349,10 @@ void perf_pmu__arch_init(struct perf_pmu *pmu)
 		if (strcmp(pmu->name, "ibs_op"))
 			return;
 
-		pmu->mem_events = perf_mem_events_amd;
+		swfilt_format = perf_pmu__has_format(pmu, "swfilt");
+		pmu->mem_events = swfilt_format ?
+				  perf_mem_events_amd_swfilt :
+				  perf_mem_events_amd;
 
 		if (!perf_pmu__caps_parse(pmu))
 			return;
@@ -358,7 +362,9 @@ void perf_pmu__arch_init(struct perf_pmu *pmu)
 			return;
 
 		perf_mem_events__loads_ldlat = 0;
-		pmu->mem_events = perf_mem_events_amd_ldlat;
+		pmu->mem_events = swfilt_format ?
+				  perf_mem_events_amd_ldlat_swfilt :
+				  perf_mem_events_amd_ldlat;
 	} else {
 		if (pmu->is_core) {
 			if (perf_pmu__have_event(pmu, "mem-loads-aux"))
