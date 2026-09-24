@@ -100,7 +100,7 @@ static void run(int prog_fd, int expected, const char *name)
 		ASSERT_EQ(topts.retval, expected, name);
 }
 
-void test_callx_func_ptr_map(void)
+static void __test_callx_func_ptr_map(void)
 {
 	int int_id, proto_id, map_fd = -1, prog_fd = -1, reader_fd = -1, fd, zero = 0;
 	int main_id, add1_id;
@@ -194,9 +194,14 @@ out:
 
 #else
 
-void test_callx_func_ptr_map(void)
+static void __test_callx_func_ptr_map(void)
 {
 	test__skip();
 }
 
 #endif
+
+void test_callx_func_ptr_map(void)
+{
+	__test_callx_func_ptr_map();
+}
