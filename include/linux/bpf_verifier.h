@@ -411,7 +411,10 @@ struct bpf_jmp_history_entry {
 static_assert(MAX_CALL_FRAMES <= (1 << 4));
 static_assert(MAX_BPF_STACK_SLOTS <= (1 << 12));
 
+/* Maximum number of bpf_reg_state objects that can exist at once */
 #define MAX_STACK_ARG_SLOTS (MAX_BPF_FUNC_ARGS - MAX_BPF_FUNC_REG_ARGS)
+#define BPF_ID_MAP_SIZE ((MAX_BPF_REG + MAX_BPF_STACK_SLOTS + MAX_STACK_ARG_SLOTS) * \
+			 MAX_CALL_FRAMES)
 struct bpf_verifier_state {
 	/* call stack tracking */
 	struct bpf_func_state *frame[MAX_CALL_FRAMES];
@@ -866,27 +869,18 @@ struct bpf_id_pair {
 	u32 cur;
 };
 
-/*
- * Scratch map from the ids of one verifier state to those of another, also
- * used as a stack of ids. Grown on demand by bpf_id_scratch_reserve().
- */
 struct bpf_idmap {
 	u32 tmp_id_gen;
 	u32 cnt;
-	u32 cap;
-	struct bpf_id_pair *map;
+	struct bpf_id_pair map[BPF_ID_MAP_SIZE];
 };
 
-struct bpf_idset_entry {
-	u32 id;
-	u32 cnt;
-};
-
-/* Scratch set of ids with a use count each, grown on demand */
 struct bpf_idset {
 	u32 num_ids;
-	u32 cap;
-	struct bpf_idset_entry *entries;
+	struct {
+		u32 id;
+		u32 cnt;
+	} entries[BPF_ID_MAP_SIZE];
 };
 
 /* see verifier.c:compute_scc_callchain() */
@@ -995,8 +989,10 @@ struct bpf_verifier_env {
 	 * via callx. Allocated when the first such edge is recorded.
 	 */
 	unsigned long *callx_edges;
-	struct bpf_idmap idmap_scratch;
-	struct bpf_idset idset_scratch;
+	union {
+		struct bpf_idmap idmap_scratch;
+		struct bpf_idset idset_scratch;
+	};
 	struct {
 		int *insn_state;
 		int *insn_stack;
@@ -1264,7 +1260,6 @@ int bpf_copy_verifier_state(struct bpf_verifier_state *dst_state,
 struct list_head *bpf_explored_state(struct bpf_verifier_env *env, int idx);
 void bpf_free_verifier_state(struct bpf_verifier_state *state, bool free_self);
 void bpf_free_backedges(struct bpf_scc_visit *visit);
-bool bpf_id_scratch_reserve(void **arr, u32 *cap, u32 cnt, size_t elem_size);
 int bpf_push_jmp_history(struct bpf_verifier_env *env, struct bpf_verifier_state *cur,
 			 int insn_flags, int spi, int frame, const u16 *linked_regs,
 			 u8 linked_regs_cnt);

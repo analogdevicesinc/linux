@@ -335,18 +335,21 @@ static bool check_ids(u32 old_id, u32 cur_id, struct bpf_idmap *idmap)
 			return false;
 	}
 
+	/* Reached the end of known mappings; haven't seen this id before */
+	if (idmap->cnt < BPF_ID_MAP_SIZE) {
+		map[idmap->cnt].old = old_id;
+		map[idmap->cnt].cur = cur_id;
+		idmap->cnt++;
+		return true;
+	}
+
 	/*
-	 * Reached the end of known mappings; haven't seen this id before. If
-	 * the map cannot grow, treat the states as not equivalent, which only
-	 * costs pruning.
+	 * idmap slots are bounded by the number of registers and stack slots.
+	 * Since referenced dynptrs acquire intermediate references that do
+	 * not live in either, so the map can be exhausted. Since it is unlikely,
+	 * fail the verification by treating the states as not equivalent.
 	 */
-	if (!bpf_id_scratch_reserve((void **)&idmap->map, &idmap->cap, idmap->cnt, sizeof(*map)))
-		return false;
-	map = idmap->map;
-	map[idmap->cnt].old = old_id;
-	map[idmap->cnt].cur = cur_id;
-	idmap->cnt++;
-	return true;
+	return false;
 }
 
 /*
@@ -961,27 +964,6 @@ static bool func_states_equal(struct bpf_verifier_env *env, struct bpf_func_stat
 	if (!stack_arg_safe(env, old, cur, &env->idmap_scratch, exact))
 		return false;
 
-	return true;
-}
-
-/*
- * Make room for one more entry in an id scratch array, doubling it as needed.
- * Returns false if it could not grow; callers then treat the id as unknown
- * or the states as different, which is always safe.
- */
-bool bpf_id_scratch_reserve(void **arr, u32 *cap, u32 cnt, size_t elem_size)
-{
-	u32 new_cap;
-	void *p;
-
-	if (cnt < *cap)
-		return true;
-	new_cap = *cap ? *cap * 2 : 64;
-	p = krealloc_array(*arr, new_cap, elem_size, GFP_KERNEL_ACCOUNT | __GFP_NOWARN);
-	if (!p)
-		return false;
-	*arr = p;
-	*cap = new_cap;
 	return true;
 }
 
