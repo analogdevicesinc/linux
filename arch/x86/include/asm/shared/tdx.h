@@ -143,6 +143,11 @@ struct tdx_module_args {
 	u64 rbx;
 	u64 rdi;
 	u64 rsi;
+	/*
+	 * Leaf ABI version. Note that it gets encoded into RAX along with the
+	 * leaf number.
+	 */
+	u8  version;
 };
 
 /* Used to communicate with the TDX module */
