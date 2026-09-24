@@ -12,10 +12,6 @@ maintainers:
 description: |
   This is a standalone 10/100 MBit Ethernet controller with SPI interface.
 
-allOf:
-  - $ref: /schemas/net/ethernet-controller.yaml#
-  - $ref: /schemas/spi/spi-peripheral-props.yaml#
-
 properties:
   compatible:
     enum:
@@ -24,8 +20,16 @@ properties:
       - wiznet,w5500
 
   interrupts:
-    maxItems: 1
-    description: Main interrupt (INT pin on the device).
+    minItems: 1
+    description:
+      The main interrupt (INT pin) is mandatory on all devices. The w5500
+      additionally supports an optional second interrupt for link status changes
+      (LINKLED pin). If it is not specified, link state changes will not be
+      reported.
+    items:
+      - description: Main interrupt (INT pin on the device).
+      - description:
+          Optional interrupt for link status changes (LINKLED pin on w5500).
 
   reg:
     maxItems: 1
@@ -41,6 +45,21 @@ required:
   - compatible
   - reg
   - interrupts
+
+allOf:
+  - $ref: /schemas/net/ethernet-controller.yaml#
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+  - if:
+      not:
+        properties:
+          compatible:
+            contains:
+              enum:
+                - wiznet,w5500
+    then:
+      properties:
+        interrupts:
+          maxItems: 1
 
 unevaluatedProperties: false
 
@@ -58,7 +77,8 @@ examples:
             compatible = "wiznet,w5500";
             reg = <0>;
             interrupt-parent = <&gpio>;
-            interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+            interrupts = <25 IRQ_TYPE_LEVEL_LOW>,
+                         <24 IRQ_TYPE_EDGE_BOTH>;
             local-mac-address = [ a0 b0 c0 d0 e0 f0 ];
             pinctrl-0 = <&eth1_pins>;
             pinctrl-names = "default";
