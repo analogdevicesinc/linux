@@ -216,6 +216,13 @@ properties:
           - const: embedfire,lubancat-4
           - const: rockchip,rk3588s
 
+      - description: EmbedFire LubanCat 5IO
+        items:
+          - enum:
+              - embedfire,lubancat-5io
+          - const: embedfire,lubancat-5-btb
+          - const: rockchip,rk3588
+
       - description: Engicam PX30.Core C.TOUCH 2.0
         items:
           - const: engicam,px30-core-ctouch2
