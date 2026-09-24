@@ -17,6 +17,7 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
+#include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
@@ -89,29 +90,30 @@
 #define IDELAY_STEP     1
 #define IDELAY_ENTRIES  (IDELAY_NUM_TAPS / IDELAY_STEP)
 
-/*
- * A tap is only as trustworthy as the number of samples observed at it. 1 ms at
- * 125 MSPS is ~125k samples, which is short enough that a lane slipping once
- * every few hundred microseconds still reads as clean — that produced eye maps
- * showing a wide, inviting plateau that fails solidly under any longer look.
- * The sweep dwell is a compromise; the confirm dwell on the final candidate is
- * what actually gates acceptance.
- */
-#define ADA4355_TAP_DWELL_MS    10
-#define ADA4355_CONFIRM_MS      250
-
-#define ADA4355_MAX_RUNS        (IDELAY_ENTRIES / 2)
-
-/*
- * The whole sweep is repeated because a plateau that confirms clean can still
- * fail once the final taps are re-applied: writing the frame delay restarts the
- * 0xF0 hunt, and the byte phase it settles on is not guaranteed to be the one
- * observed during the trial.
- */
-#define ADA4355_CAL_ATTEMPTS    8
-
 /* Frame lane sits above the data lanes in the up_delay_cntrl address space */
 #define ADA4355_FRAME_DELAY_LANE            2
+
+/*
+ * adc_clk comes from an AD9517 output. That driver registers its clock
+ * provider as soon as its register writes are done, which only means the SPI
+ * traffic finished — the PLL may still be acquiring. The DT phandle therefore
+ * orders the probes but says nothing about the clock being stable, and every
+ * register we write below is latched against a clock that may still be moving.
+ *
+ * The AD9517 exposes a digital lock detect in its PLL readback register, so
+ * read it directly rather than sleeping a guessed interval. Only the two
+ * constants below are AD9517-specific; the framing is its standard 16-bit
+ * instruction word.
+ */
+#define AD9517_INSTR_READ		BIT(15)
+#define AD9517_INSTR_ADDR(x)		((x) & 0xFFF)
+#define AD9517_REG_PLL_READBACK		0x01F
+#define AD9517_PLL_RB_DLD		BIT(0)
+
+/* DLD can chatter over the first PFD cycles, so require it to stay asserted. */
+#define ADA4355_PLL_LOCK_STABLE		4
+#define ADA4355_PLL_LOCK_POLL_MS	5
+#define ADA4355_PLL_LOCK_TIMEOUT_MS	500
 
 static const int ada4355_scale_table[][2] = {
 	{2000, 0}, /* 2V differential range (±1V) for 1V reference */
@@ -123,7 +125,6 @@ struct ada4355_state {
 	struct clk		*clk;
 	struct mutex		lock;
 	unsigned int		num_lanes;
-	struct gpio_desc	*gpio_serdes_rst;
 
 	/* Readback census for the setup transcript, see ada4355_write_verify() */
 	unsigned int		rb_total;
@@ -145,10 +146,9 @@ static struct ada4355_state *ada4355_get_data(struct iio_dev *indio_dev)
 }
 
 /*
- * Write a register, read it straight back, and log both. On the Quad ADA4356
- * FMC the SDO return path is dead, so every readback comes back 0xFF; the
- * census kept here lets ada4355_setup() tell "the part is mute" apart from
- * "this particular write did not stick", which the bare error codes cannot.
+ * Write a register, read it straight back, and log both. The census kept here
+ * lets ada4355_setup() tell "the part is mute" apart from "this particular
+ * write did not stick", which the bare error codes cannot.
  * Self-clearing and write-only registers pass verify=false.
  */
 static int ada4355_write_verify(struct ada4355_state *st, unsigned int reg,
@@ -269,107 +269,33 @@ static void ada4355_clk_disable(void *data)
 	clk_disable_unprepare(conv->clk);
 }
 
-struct ada4355_run {
-	unsigned int start;
-	unsigned int len;
-};
-
-static unsigned int ada4355_find_runs(const u8 *field, unsigned int size,
-				      struct ada4355_run *runs)
+static int find_opt(u8 *field, u32 size, u32 *ret_start)
 {
-	unsigned int i, n = 0;
-	int start = -1;
+	int i, cnt = 0, max_cnt = 0, start, max_start = 0;
 
-	for (i = 0; i < size; i++) {
-		if (!field[i]) {
-			if (start < 0)
+	for (i = 0, start = -1; i < size; i++) {
+		if (field[i] == 0) {
+			if (start == -1)
 				start = i;
-			continue;
+			cnt++;
+		} else {
+			if (cnt > max_cnt) {
+				max_cnt = cnt;
+				max_start = start;
+			}
+			start = -1;
+			cnt = 0;
 		}
-		if (start >= 0 && n < ADA4355_MAX_RUNS) {
-			runs[n].start = start;
-			runs[n].len = i - start;
-			n++;
-		}
-		start = -1;
 	}
 
-	if (start >= 0 && n < ADA4355_MAX_RUNS) {
-		runs[n].start = start;
-		runs[n].len = size - start;
-		n++;
+	if (cnt > max_cnt) {
+		max_cnt = cnt;
+		max_start = start;
 	}
 
-	return n;
-}
+	*ret_start = max_start;
 
-static bool ada4355_run_clipped(const struct ada4355_run *run, unsigned int size)
-{
-	return run->start == 0 || run->start + run->len == size;
-}
-
-/*
- * A narrower window with both edges visible beats a wider one that runs off the
- * end of the tap range: the latter's true centre may lie outside anything
- * IDELAY can reach, so its apparent width says nothing about the real margin.
- */
-static const struct ada4355_run *ada4355_best_run(const struct ada4355_run *runs,
-						  unsigned int n, unsigned int size)
-{
-	const struct ada4355_run *best = NULL;
-	unsigned int i;
-
-	for (i = 0; i < n; i++) {
-		if (ada4355_run_clipped(&runs[i], size))
-			continue;
-		if (!best || runs[i].len > best->len)
-			best = &runs[i];
-	}
-	if (best)
-		return best;
-
-	for (i = 0; i < n; i++)
-		if (!best || runs[i].len > best->len)
-			best = &runs[i];
-
-	return best;
-}
-
-static void ada4355_sweep_lane(struct axiadc_state *axi_adc_st, unsigned int lane,
-			       unsigned int err_mask, u8 *field)
-{
-	unsigned int delay;
-
-	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, err_mask);
-
-	for (delay = 0; delay < IDELAY_ENTRIES; delay++) {
-		/*
-		 * Clear the sticky error after moving the delay, never before.
-		 * Changing any delay makes the frame FSM re-hunt for 0xF0, and a
-		 * re-search that wraps shift_cnt past 7 pulses frame_err. Clearing
-		 * first latches that pulse and smears passing taps into failures.
-		 */
-		axiadc_write(axi_adc_st, ADI_REG_DELAY(lane), delay);
-		axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), ADI_PN_ERR);
-		msleep(ADA4355_TAP_DWELL_MS);
-		field[delay] = (axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) &
-				ADI_PN_ERR) ? 1 : 0;
-	}
-
-	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, 0);
-}
-
-static bool ada4355_link_clean(struct axiadc_state *axi_adc_st, unsigned int err_mask)
-{
-	bool clean;
-
-	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, err_mask);
-	axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), ADI_PN_ERR);
-	msleep(ADA4355_CONFIRM_MS);
-	clean = !(axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) & ADI_PN_ERR);
-	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, 0);
-
-	return clean;
+	return max_cnt;
 }
 
 /*
@@ -402,163 +328,19 @@ static void ada4355_log_sweep(struct device *dev, const char *what, const u8 *fi
 	dev_info(dev, "  %-10s taps 0-%u |%s|\n", what, IDELAY_ENTRIES - 1, buf);
 }
 
-static bool ada4355_lanes_overlap(const struct ada4355_run *win, unsigned int n)
-{
-	unsigned int lo = 0, hi = UINT_MAX, i;
-
-	for (i = 0; i < n; i++) {
-		lo = max(lo, win[i].start);
-		hi = min(hi, win[i].start + win[i].len);
-	}
-
-	return lo < hi;
-}
-
-/*
- * One full pass: sweep the frame lane, then sweep both data lanes inside every
- * frame plateau and keep the candidate whose confirmed windows are widest.
- */
-static bool ada4355_calibrate(struct device *dev, struct axiadc_state *axi_adc_st,
-			      unsigned int num_lanes, unsigned int all_mask,
-			      unsigned int *best_frame, unsigned int *best_delay)
-{
-	u8 frame_map[IDELAY_ENTRIES];
-	u8 lane_map[ADA4355_FRAME_DELAY_LANE][IDELAY_ENTRIES];
-	struct ada4355_run plateau[ADA4355_MAX_RUNS], run[ADA4355_MAX_RUNS];
-	struct ada4355_run win[ADA4355_FRAME_DELAY_LANE];
-	unsigned int best_score = 0;
-	unsigned int nplateau, p, i;
-	bool cal_ok = false;
-
-	/*
-	 * The frame delay is not an independent lane. axi_ada4355_if.v shifts the
-	 * interleaved data word by 2*shift_cnt, and shift_cnt is produced solely by
-	 * the frame FSM hunting 0xF0 on FCO, so stepping the frame into a different
-	 * eye plateau rotates BOTH data lanes by exactly one UI. With 32 taps
-	 * covering ~2.7 UI and a correct byte phase recurring only once per 8 UI,
-	 * a data lane whose phase is a UI away from the frame's has no reachable
-	 * window at all — which is why picking the frame first and never revisiting
-	 * it left half the lanes uncalibrated. Sweep the data lanes inside each
-	 * frame plateau instead, and let a long confirm decide the winner.
-	 */
-	ada4355_sweep_lane(axi_adc_st, ADA4355_FRAME_DELAY_LANE, BIT(2), frame_map);
-
-	dev_info(dev, "---- IDELAY sweep ('-' = pass, 'X' = PN error) ----\n");
-	ada4355_log_sweep(dev, "frame", frame_map);
-
-	nplateau = ada4355_find_runs(frame_map, IDELAY_ENTRIES, plateau);
-	if (!nplateau)
-		dev_err(dev, "frame lane: no valid IDELAY window at any tap\n");
-
-	for (p = 0; p < nplateau; p++) {
-		unsigned int frame_delay = plateau[p].start + plateau[p].len / 2;
-		unsigned int try_delay[ADA4355_FRAME_DELAY_LANE];
-		unsigned int worst = IDELAY_ENTRIES, score;
-		bool unclipped = true, usable = true;
-
-		axiadc_write(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE),
-			     frame_delay);
-		dev_info(dev, "  frame plateau [%u..%u] -> frame delay %u\n",
-			 plateau[p].start, plateau[p].start + plateau[p].len - 1,
-			 frame_delay);
-
-		for (i = 0; i < num_lanes; i++) {
-			const struct ada4355_run *w;
-			unsigned int nrun;
-			char name[8];
-
-			ada4355_sweep_lane(axi_adc_st, i, BIT(i), lane_map[i]);
-			snprintf(name, sizeof(name), "lane %u", i);
-			ada4355_log_sweep(dev, name, lane_map[i]);
-
-			nrun = ada4355_find_runs(lane_map[i], IDELAY_ENTRIES, run);
-			w = ada4355_best_run(run, nrun, IDELAY_ENTRIES);
-			if (!w) {
-				dev_info(dev, "    lane %u has no window here\n", i);
-				usable = false;
-				break;
-			}
-
-			win[i] = *w;
-			try_delay[i] = w->start + w->len / 2;
-			worst = min(worst, w->len);
-			unclipped &= !ada4355_run_clipped(w, IDELAY_ENTRIES);
-			dev_info(dev, "    lane %u window [%u..%u] %u wide -> delay %u\n",
-				 i, w->start, w->start + w->len - 1, w->len,
-				 try_delay[i]);
-		}
-
-		if (!usable)
-			continue;
-
-		/*
-		 * Both data lanes leave the same die on length-matched traces, so
-		 * their eyes cannot sit a whole unit interval apart. Disjoint
-		 * windows mean the lanes locked onto different bit periods, which
-		 * the pattern check cannot see because 0xFFFC deinterleaves to the
-		 * same byte on either lane — but real samples come out mangled.
-		 */
-		if (!ada4355_lanes_overlap(win, num_lanes)) {
-			dev_info(dev, "    rejected: lane windows do not overlap, so they are different unit intervals\n");
-			continue;
-		}
-
-		for (i = 0; i < num_lanes; i++)
-			axiadc_write(axi_adc_st, ADI_REG_DELAY(i), try_delay[i]);
-
-		if (!ada4355_link_clean(axi_adc_st, all_mask)) {
-			dev_info(dev, "    rejected: link not stable over %u ms\n",
-				 ADA4355_CONFIRM_MS);
-			continue;
-		}
-
-		score = worst + (unclipped ? IDELAY_ENTRIES : 0);
-		if (score > best_score) {
-			best_score = score;
-			*best_frame = frame_delay;
-			for (i = 0; i < num_lanes; i++)
-				best_delay[i] = try_delay[i];
-			cal_ok = true;
-		}
-	}
-
-	return cal_ok;
-}
-
-/*
- * Restart the BUFR /4 divider so the ISERDES word boundary is chosen again.
- * The IDELAY sweep can only move data within a word and the frame FSM can only
- * rotate bits inside one, so neither can recover a divider that latched its
- * phase with no DCO present -- which is what happens when the FMC is cold and
- * the AD9517 is still unprogrammed at PL configuration time.
- *
- * Asserting this stops adc_clk_div, so no AXI access may occur until it is
- * released or the transaction will never complete.
- */
-static void ada4355_redraw_word_phase(struct ada4355_state *st)
-{
-	if (!st->gpio_serdes_rst)
-		return;
-
-	gpiod_set_value_cansleep(st->gpio_serdes_rst, 1);
-	usleep_range(10, 20);
-	gpiod_set_value_cansleep(st->gpio_serdes_rst, 0);
-	usleep_range(100, 200);
-}
-
 static int ada4355_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *axi_adc_st = iio_priv(indio_dev);
 	struct ada4355_state *st = ada4355_get_data(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct device *dev = &conv->spi->dev;
-	unsigned int best_delay[ADA4355_FRAME_DELAY_LANE] = {};
-	unsigned int best_frame = 0;
-	unsigned int all_mask, attempt;
+	u8 pn_status[3][IDELAY_ENTRIES];
+	int opt_delay, c;
+	u32 s;
 	int ret;
 	unsigned int reg_cntrl, ver, cfg;
-	unsigned int i;
-	bool cal_ok = false;
+	unsigned int i, delay, val, idx;
+	bool cal_ok = true;
 
 	ver = axiadc_read(axi_adc_st, ADI_AXI_REG_VERSION);
 	cfg = axiadc_read(axi_adc_st, ADI_REG_CONFIG);
@@ -585,58 +367,65 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 
 	axiadc_write(axi_adc_st, ADI_REG_CHAN_CNTRL(0), ADI_ENABLE);
 
-	all_mask = BIT(2) | GENMASK(st->num_lanes - 1, 0);
+	/* Frame lane IDELAY sweep: find widest passing window */
+	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, BIT(2));
+	for (idx = 0, delay = 0; delay < IDELAY_NUM_TAPS; delay += IDELAY_STEP, idx++) {
+		val = axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0));
+		axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), val);
+		axiadc_write(axi_adc_st, 0x808, delay);
+		mdelay(1);
+		pn_status[0][idx] =
+			(axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) & ADI_PN_ERR) ? 1 : 0;
+	}
+	axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, 0);
 
-	for (attempt = 1; attempt <= ADA4355_CAL_ATTEMPTS; attempt++) {
-		/*
-		 * Not on the first pass: when the clock was already running at
-		 * configuration time the phase is good, and redrawing it would
-		 * turn a deterministic success into a lottery.
-		 */
-		if (attempt > 1) {
-			ada4355_redraw_word_phase(st);
-			dev_info(dev, "attempt %u: redrew SERDES word phase\n",
-				 attempt);
-		}
+	ada4355_log_sweep(dev, "frame", pn_status[0]);
 
-		cal_ok = ada4355_calibrate(dev, axi_adc_st, st->num_lanes,
-					   all_mask, &best_frame, best_delay);
-		if (!cal_ok)
-			continue;
-
-		axiadc_write(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE),
-			     best_frame);
-		for (i = 0; i < st->num_lanes; i++)
-			axiadc_write(axi_adc_st, ADI_REG_DELAY(i), best_delay[i]);
-
-		/*
-		 * Re-applying the frame delay restarts the 0xF0 hunt, so the byte
-		 * phase that confirmed clean during the trial is not necessarily
-		 * the one now loaded. Without this the driver reports success on
-		 * a configuration the core is already flagging as PN_ERR.
-		 */
-		if (ada4355_link_clean(axi_adc_st, all_mask))
-			break;
-
-		dev_warn(dev, "attempt %u: chosen taps did not hold once re-applied, sweeping again\n",
-			 attempt);
+	c = find_opt(&pn_status[0][0], IDELAY_ENTRIES, &s);
+	if (c == 0) {
+		dev_err(dev, "frame lane: no valid IDELAY window found\n");
 		cal_ok = false;
 	}
+	opt_delay = (s + c / 2) * IDELAY_STEP;
+	axiadc_write(axi_adc_st, 0x808, opt_delay);
+	dev_info(dev, "frame lane: selected delay %d (window %d steps)\n",
+		 opt_delay, c);
 
-	if (cal_ok) {
-		dev_info(dev, "==== IDELAY calibration complete (attempt %u) ====\n",
-			 attempt);
-		dev_info(dev, "  frame delay %u (RB %u)\n", best_frame,
-			 axiadc_read(axi_adc_st, ADI_REG_DELAY(ADA4355_FRAME_DELAY_LANE)));
-		for (i = 0; i < st->num_lanes; i++)
-			dev_info(dev, "  lane %u delay %u (RB %u)\n", i, best_delay[i],
-				 axiadc_read(axi_adc_st, ADI_REG_DELAY(i)));
-	} else {
-		dev_err(dev, "==== IDELAY calibration FAILED ====\n");
-		dev_err(dev, "no frame plateau gave both lanes a stable window; if every "
-			     "tap failed then the DCO or the 0xFFFC pattern is missing "
-			     "rather than mistimed - check CLK_FREQ above\n");
+	/* Data lane IDELAY sweep: one lane at a time */
+	for (i = 0; i < st->num_lanes; i++) {
+		axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, BIT(i));
+		for (idx = 0, delay = 0; delay < IDELAY_NUM_TAPS; delay += IDELAY_STEP, idx++) {
+			val = axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0));
+			axiadc_write(axi_adc_st, ADI_REG_CHAN_STATUS(0), val);
+			axiadc_write(axi_adc_st, 0x800 + (i * 4), delay);
+			mdelay(1);
+			pn_status[i][idx] =
+				(axiadc_read(axi_adc_st, ADI_REG_CHAN_STATUS(0)) & ADI_PN_ERR) ? 1 : 0;
+		}
+		axiadc_write(axi_adc_st, ADA4355_ENABLE_ERROR_MASK, 0);
 	}
+
+	for (i = 0; i < st->num_lanes; i++) {
+		char name[8];
+
+		snprintf(name, sizeof(name), "lane %u", i);
+		ada4355_log_sweep(dev, name, pn_status[i]);
+
+		c = find_opt(&pn_status[i][0], IDELAY_ENTRIES, &s);
+		if (c == 0) {
+			dev_err(dev, "lane %u: no valid IDELAY window found\n", i);
+			cal_ok = false;
+		}
+		opt_delay = (s + c / 2) * IDELAY_STEP;
+		axiadc_write(axi_adc_st, 0x800 + (i * 4), opt_delay);
+		dev_info(dev, "lane %u: selected delay %d (window %d steps)\n",
+			 i, opt_delay, c);
+	}
+
+	if (cal_ok)
+		dev_info(dev, "IDELAY calibration complete\n");
+	else
+		dev_err(dev, "IDELAY calibration failed\n");
 
 	dev_info(dev, "  post-sweep STATUS 0x%08X  CHAN_STATUS(0) 0x%08X\n",
 		 axiadc_read(axi_adc_st, ADI_REG_STATUS),
@@ -723,8 +512,9 @@ static int ada4355_setup(struct ada4355_state *st)
 	dev_info(dev, "  R 0x%03X CHIP_ID             => 0x%02X (expect 0x%02X)\n",
 		 ADA4355_REG_CHIP_ID, id, ADA4355_CHIP_ID);
 
-	/* Quad ADA4356 FMC: SDO cannot return through the level shifter, so every
-	 * readback is 0xFF. Writes still reach the part, so configure it blind.
+	/*
+	 * Not fatal: writes reach the part over MOSI even when nothing comes back
+	 * on SDO, so an unreadable ID only costs the verification below.
 	 */
 	if (id != ADA4355_CHIP_ID)
 		dev_warn(dev, "Unrecognized CHIP_ID 0x%02X, configuring blind\n", id);
@@ -844,6 +634,84 @@ static int ada4355_properties_parse(struct ada4355_state *st)
 	return 0;
 }
 
+static int ada4355_read_pll_rb(struct spi_device *clkgen)
+{
+	u16 cmd = AD9517_INSTR_READ | AD9517_INSTR_ADDR(AD9517_REG_PLL_READBACK);
+	u8 tx[2] = { cmd >> 8, cmd & 0xFF };
+	u8 rx;
+	int ret;
+
+	ret = spi_write_then_read(clkgen, tx, sizeof(tx), &rx, 1);
+
+	return ret < 0 ? ret : rx;
+}
+
+/*
+ * Block until the clock generator feeding adc_clk reports a stable lock.
+ * Returns -EPROBE_DEFER on timeout so the ADA4356 is retried rather than
+ * abandoned — a PLL that has not locked yet at this point usually just needs
+ * the rest of the boot to settle.
+ *
+ * Absence of the clock generator, or a board where its SDO cannot return
+ * through the level shifter, is not treated as a failure: nothing can be
+ * concluded either way, so warn and let the configuration proceed.
+ */
+static int ada4355_wait_clkgen_lock(struct spi_device *spi)
+{
+	struct device *dev = &spi->dev;
+	struct device_node *np;
+	struct device *clkdev;
+	struct spi_device *clkgen;
+	int rb = 0, elapsed, stable = 0, ret = 0;
+
+	np = of_parse_phandle(dev->of_node, "clocks", 0);
+	if (!np) {
+		dev_warn(dev, "no clocks phandle, cannot verify PLL lock\n");
+		return 0;
+	}
+
+	clkdev = bus_find_device_by_of_node(&spi_bus_type, np);
+	of_node_put(np);
+	if (!clkdev) {
+		dev_warn(dev, "adc_clk provider is not an SPI device, cannot verify PLL lock\n");
+		return 0;
+	}
+	clkgen = to_spi_device(clkdev);
+
+	for (elapsed = 0; elapsed <= ADA4355_PLL_LOCK_TIMEOUT_MS;
+	     elapsed += ADA4355_PLL_LOCK_POLL_MS) {
+		rb = ada4355_read_pll_rb(clkgen);
+		if (rb < 0) {
+			dev_warn(dev, "PLL readback failed (%d), cannot verify lock\n", rb);
+			goto out;
+		}
+		if (rb == 0xFF) {
+			dev_warn(dev, "PLL readback is 0xFF — SDO not returning, lock state UNKNOWN\n");
+			goto out;
+		}
+
+		stable = (rb & AD9517_PLL_RB_DLD) ? stable + 1 : 0;
+		if (stable >= ADA4355_PLL_LOCK_STABLE)
+			break;
+
+		msleep(ADA4355_PLL_LOCK_POLL_MS);
+	}
+
+	if (stable >= ADA4355_PLL_LOCK_STABLE) {
+		dev_info(dev, "adc_clk PLL locked (PLL_RB 0x%02X) after %d ms\n", rb, elapsed);
+	} else {
+		dev_err(dev, "adc_clk PLL not locked after %d ms (PLL_RB 0x%02X): the VCO is "
+			     "free-running, so configuring the ADA4356 now would calibrate "
+			     "against the wrong clock — deferring\n",
+			ADA4355_PLL_LOCK_TIMEOUT_MS, rb);
+		ret = -EPROBE_DEFER;
+	}
+
+out:
+	put_device(clkdev);
+	return ret;
+}
+
 static int ada4355_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -889,19 +757,15 @@ static int ada4355_probe(struct spi_device *spi)
 	dev_info(&spi->dev, "ada4355_probe: num_lanes=%u, adc_clk=%lu Hz\n",
 		 st->num_lanes, clk_get_rate(st->clk));
 
-	st->gpio_serdes_rst = devm_gpiod_get_optional(&spi->dev, "serdes-rst",
-						      GPIOD_OUT_LOW);
-	if (IS_ERR(st->gpio_serdes_rst))
-		return dev_err_probe(&spi->dev, PTR_ERR(st->gpio_serdes_rst),
-				     "Failed to get serdes-rst\n");
-	dev_info(&spi->dev, "ada4355_probe: serdes-rst gpio %s\n",
-		 st->gpio_serdes_rst ? "present" : "absent (word phase not re-drawable)");
-
 	ret = clk_prepare_enable(st->clk);
 	if (ret)
 		return ret;
 
 	ret = devm_add_action_or_reset(&spi->dev, ada4355_clk_disable, conv);
+	if (ret)
+		return ret;
+
+	ret = ada4355_wait_clkgen_lock(spi);
 	if (ret)
 		return ret;
 
