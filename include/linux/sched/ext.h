@@ -197,9 +197,19 @@ struct sched_ext_entity {
 	u64			ddsp_slice;
 	u64			ddsp_vtime;
 	struct scx_dsq_list_node dsq_list;	/* dispatch order */
-	struct rb_node		dsq_priq;	/* p->scx.dsq_vtime order */
 	u32			dsq_seq;
 	u32			dsq_flags;	/* protected by DSQ lock */
+
+	/*
+	 * Used to order tasks when dispatching to the vtime-ordered priority
+	 * queue of a dsq. This is usually set through
+	 * scx_bpf_dsq_insert_vtime() but can also be modified directly by the
+	 * BPF scheduler. Modifying it while a task is queued on a dsq may
+	 * mangle the ordering and is not recommended. Kept next to @dsq_priq
+	 * as rbtree insertion reads both on every visited node.
+	 */
+	u64			dsq_vtime;
+	struct rb_node		dsq_priq;	/* p->scx.dsq_vtime order */
 	u32			flags;		/* protected by rq lock */
 	u32			weight;
 	u32			reenq_cnt;	/* reenqueues since last run */
@@ -225,7 +235,7 @@ struct sched_ext_entity {
 	u64			tid;
 	struct rhash_head	tid_hash_node;	/* see SCX_OPS_TID_TO_TASK */
 
-	/* BPF scheduler modifiable fields */
+	/* BPF scheduler modifiable fields, along with @dsq_vtime above */
 
 	/*
 	 * Runtime budget in nsecs - how long the task may hold its cpu. Owned
@@ -239,15 +249,6 @@ struct sched_ext_entity {
 	 * task ran. Use p->se.sum_exec_runtime instead.
 	 */
 	u64			slice;
-
-	/*
-	 * Used to order tasks when dispatching to the vtime-ordered priority
-	 * queue of a dsq. This is usually set through
-	 * scx_bpf_dsq_insert_vtime() but can also be modified directly by the
-	 * BPF scheduler. Modifying it while a task is queued on a dsq may
-	 * mangle the ordering and is not recommended.
-	 */
-	u64			dsq_vtime;
 
 	/*
 	 * Out-of-band slice request from scx_bpf_task_set_slice() when the
