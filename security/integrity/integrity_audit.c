@@ -27,10 +27,11 @@ __setup("integrity_audit=", integrity_audit_setup);
 
 void integrity_audit_msg(int audit_msgno, struct inode *inode,
 			 const unsigned char *fname, const char *op,
-			 const char *cause, int result, int audit_info)
+			 const char *cause, int result, int audit_info,
+			 int errno)
 {
 	integrity_audit_message(audit_msgno, inode, fname, op, cause,
-				result, audit_info, 0);
+				result, audit_info, errno);
 }
 
 void integrity_audit_message(int audit_msgno, struct inode *inode,
