@@ -222,6 +222,12 @@ static bool data_type_less(struct rb_node *node_a, const struct rb_node *node_b)
 	return strcmp(a->self.type_name, b->self.type_name) < 0;
 }
 
+/*
+ * A broken type can point back at one of its own ancestors: bound the
+ * nesting so it doesn't recurse until the stack is gone.
+ */
+#define MAX_MEMBER_DEPTH 32
+
 /* Recursively add new members for struct/union */
 static int __add_member_cb(Dwarf_Die *die, void *arg)
 {
@@ -236,6 +242,9 @@ static int __add_member_cb(Dwarf_Die *die, void *arg)
 	if (dwarf_tag(die) != DW_TAG_member)
 		return DIE_FIND_CB_SIBLING;
 
+	if (die_get_real_type(die, &die_mem) == NULL)
+		return DIE_FIND_CB_SIBLING;
+
 	member = zalloc(sizeof(*member));
 	if (member == NULL)
 		return DIE_FIND_CB_END;
@@ -247,8 +256,6 @@ static int __add_member_cb(Dwarf_Die *die, void *arg)
 
 	if (die_get_typename(die, &sb) < 0)
 		strbuf_add(&sb, "(unknown type)", 14);
-
-	die_get_real_type(die, &die_mem);
 
 	if (dwarf_aggregate_size(&die_mem, &size) < 0 || size == 0) {
 		if (dwarf_tag(&die_mem) == DW_TAG_array_type) { /* flex-array? */
@@ -299,6 +306,7 @@ static int __add_member_cb(Dwarf_Die *die, void *arg)
 	}
 	member->size = size;
 	member->offset = loc + parent->offset;
+	member->depth = parent->depth + 1;
 	INIT_LIST_HEAD(&member->children);
 
 	list_for_each_entry_reverse(prev, &parent->children, node) {
@@ -313,6 +321,14 @@ static int __add_member_cb(Dwarf_Die *die, void *arg)
 		member->is_union = true;
 		/* fall through */
 	case DW_TAG_structure_type:
+		/* Only aggregates have children to expand, so only they get truncated. */
+		if (member->depth >= MAX_MEMBER_DEPTH) {
+			/* Consumed by the JSON exporter added in a later series. */
+			member->truncated = true;
+			pr_debug_dtp("member nesting limit reached at %s\n",
+				     member->type_name ?: "(unknown type)");
+			break;
+		}
 		die_find_child(&die_mem, __add_member_cb, member, &die_mem);
 		break;
 	default:

@@ -61,6 +61,9 @@ struct annotated_member {
 	int size;
 	bool is_union;
 	bool is_flex_array;
+	/* Children not expanded because the nesting limit was reached */
+	bool truncated;
+	u8 depth;
 };
 
 /**
