@@ -32,6 +32,7 @@ SECTIONS
   INIT_TEXT_SECTION(0)
 
   init.data : { INIT_DATA }
+  . = ALIGN(PAGE_SIZE);
   __init_end = .;
 
   .text      :

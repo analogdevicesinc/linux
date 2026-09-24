@@ -24,9 +24,8 @@ SECTIONS
   INIT_TEXT_SECTION(PAGE_SIZE)
 
   init.data : { INIT_DATA }
-  __init_end = .;
-
   . = ALIGN(PAGE_SIZE);
+  __init_end = .;
 
   /* Read-only sections, merged into text segment: */
   .hash           : { *(.hash) }

@@ -83,12 +83,17 @@ void __init arch_zone_limits_init(unsigned long *max_zone_pfns)
 }
 
 /*
- * This can't do anything because nothing in the kernel image can be freed
- * since it's not in kernel physical memory.
+ * We could munmap() this instead, but then libc allocations could
+ * land in this area and stray initdata access could erroneously
+ * succeed - just mprotect() it to reliably catch bad accesses.
  */
-
 void free_initmem(void)
 {
+	unsigned long start = PAGE_ALIGN((unsigned long)__init_begin);
+	unsigned long end = round_down((unsigned long)__init_end, PAGE_SIZE);
+
+	if (end > start)
+		os_protect_memory((void *)start, end - start, 0, 0, 0);
 }
 
 void *uml_kmalloc(int size, int flags)
