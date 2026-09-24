@@ -35,6 +35,7 @@
 #include <linux/fs_struct.h>
 #include <linux/file.h>
 #include <linux/falloc.h>
+#include <linux/pagemap.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/namei.h>

@@ -13,7 +13,6 @@
 #include <linux/clk.h>
 #include <linux/mm.h>
 #include <linux/module.h>
-#include <linux/pagemap.h>
 #include <linux/scatterlist.h>
 #include <linux/sched.h>
 #include <linux/slab.h>

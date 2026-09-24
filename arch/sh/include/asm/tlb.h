@@ -3,7 +3,6 @@
 #define __ASM_SH_TLB_H
 
 #ifndef __ASSEMBLER__
-#include <linux/pagemap.h>
 #include <asm-generic/tlb.h>
 
 #ifdef CONFIG_MMU
