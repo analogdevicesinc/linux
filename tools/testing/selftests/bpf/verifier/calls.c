@@ -31,7 +31,7 @@
 	},
 	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
 	.result = REJECT,
-	.errstr = "R1 is fp expected STRUCT prog_test_fail1",
+	.errstr = "R1 type=fp expected=ptr_, trusted_ptr_, rcu_ptr_",
 	.fixup_kfunc_btf_id = {
 		{ "bpf_kfunc_call_test_fail1", 2 },
 	},
@@ -46,7 +46,7 @@
 	},
 	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
 	.result = REJECT,
-	.errstr = "max struct nesting depth exceeded\nR1 is fp expected STRUCT prog_test_fail2",
+	.errstr = "max struct nesting depth exceeded\nR1 type=fp expected=ptr_, trusted_ptr_, rcu_ptr_",
 	.fixup_kfunc_btf_id = {
 		{ "bpf_kfunc_call_test_fail2", 2 },
 	},
@@ -61,7 +61,7 @@
 	},
 	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
 	.result = REJECT,
-	.errstr = "R1 is fp expected STRUCT prog_test_fail3",
+	.errstr = "R1 type=fp expected=ptr_, trusted_ptr_, rcu_ptr_",
 	.fixup_kfunc_btf_id = {
 		{ "bpf_kfunc_call_test_fail3", 2 },
 	},
@@ -76,7 +76,7 @@
 	},
 	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
 	.result = REJECT,
-	.errstr = "R1 expected pointer to ctx, but got fp",
+	.errstr = "R1 type=fp expected=ctx",
 	.fixup_kfunc_btf_id = {
 		{ "bpf_kfunc_call_test_pass_ctx", 2 },
 	},
@@ -152,7 +152,7 @@
 	},
 	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
 	.result = REJECT,
-	.errstr = "kernel function bpf_kfunc_call_memb1_release R1 expected pointer",
+	.errstr = "bpf_kfunc_call_memb1_release R1 expected pointer",
 	.fixup_kfunc_btf_id = {
 		{ "bpf_kfunc_call_memb_acquire", 1 },
 		{ "bpf_kfunc_call_memb1_release", 5 },

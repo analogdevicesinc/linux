@@ -21,8 +21,6 @@ struct {
 	__type(value, __u64);
 } array_map_8b SEC(".maps");
 
-const char snprintf_u64_fmt[] = "%llu";
-
 SEC("socket")
 __log_level(2)
 __msg("0: (79) r1 = *(u64 *)(r10 -8)        ; use: fp0-8")
@@ -246,7 +244,7 @@ static __used __naked void read_first_param2(void)
 SEC("socket")
 __flag(BPF_F_TEST_STATE_FREQ)
 __failure
-__msg("R1 type=scalar expected=map_ptr")
+__msg("Possibly NULL pointer passed to trusted R1")
 __naked void caller_stack_pruning_callback(void)
 {
 	asm volatile (
@@ -1947,15 +1945,15 @@ static __used __naked void fwd_parent_key_to_helper(void)
 
 /*
  * Regression for keeping later helper args after a whole-stack fallback
- * on an earlier local arg.  The first bpf_snprintf() arg is a local
+ * on an earlier local arg.  The bpf_map_update_elem() key is a local
  * frame-derived pointer with offset-imprecise tracking (`fp1 ?`), which
- * conservatively marks the whole local stack live.  The fourth arg still
+ * conservatively marks the whole local stack live.  The value arg still
  * forwards &parent_fp-8 and must contribute nonlocal_use[0]=0:3.
  */
 SEC("socket")
 __log_level(2)
 __success
-__msg("call bpf_snprintf{{.*}}        ; use: fp1-8..-512 fp0-8")
+__msg("call bpf_map_update_elem{{.*}}; use: fp1-8..-512 fp0-8")
 __naked void helper_arg_fallback_keeps_scanning(void)
 {
 	asm volatile (
@@ -1963,32 +1961,33 @@ __naked void helper_arg_fallback_keeps_scanning(void)
 	"*(u64 *)(r10 - 8) = r1;"
 	"r1 = r10;"
 	"r1 += -8;"
-	"call helper_snprintf_parent_after_local_fallback;"
+	"call helper_update_parent_after_local_fallback;"
 	"r0 = 0;"
 	"exit;"
 	::: __clobber_all);
 }
 
-static __used __naked void helper_snprintf_parent_after_local_fallback(void)
+static __used __naked void helper_update_parent_after_local_fallback(void)
 {
 	asm volatile (
 	"r6 = r1;"				/* save &parent_fp-8 */
 	"call %[bpf_get_prandom_u32];"
 	"r0 &= 8;"
-	"r1 = r10;"
-	"r1 += -16;"
-	"r1 += r0;"				/* local fp, offset-imprecise */
-	"r2 = 8;"
-	"r3 = %[snprintf_u64_fmt] ll;"
-	"r4 = r6;"				/* later arg: parent fp-8 */
-	"r5 = 8;"
-	"call %[bpf_snprintf];"
+	"*(u64 *)(r10 - 16) = 0;"
+	"*(u64 *)(r10 - 8) = 0;"
+	"r2 = r10;"
+	"r2 += -16;"
+	"r2 += r0;"				/* local fp, offset-imprecise */
+	"r1 = %[array_map_8b] ll;"
+	"r3 = r6;"				/* later arg: parent fp-8 */
+	"r4 = 0;"
+	"call %[bpf_map_update_elem];"
 	"r0 = 0;"
 	"exit;"
 	:
 	: __imm(bpf_get_prandom_u32),
-	  __imm(bpf_snprintf),
-	  __imm_addr(snprintf_u64_fmt)
+	  __imm(bpf_map_update_elem),
+	  __imm_addr(array_map_8b)
 	: __clobber_all);
 }
 

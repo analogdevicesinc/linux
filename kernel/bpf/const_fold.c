@@ -180,9 +180,12 @@ static void const_reg_xfer(struct bpf_verifier_env *env, struct const_arg_info *
 		bool is_ldsx = mode == BPF_MEMSX;
 		int off = src->val + insn->off;
 		u64 val = 0;
+		u32 cnt;
 
 		if (!bpf_map_is_rdonly(map) || !map->ops->map_direct_value_addr ||
 		    off < 0 || off + size > map->value_size ||
+		    /* so are the addresses of functions that the map points to */
+		    bpf_map_range_func_ptrs(env, map, off, size, &cnt) ||
 		    bpf_map_direct_read(map, off, size, &val, is_ldsx)) {
 			*dst = unknown;
 			break;
@@ -191,7 +194,8 @@ static void const_reg_xfer(struct bpf_verifier_env *env, struct const_arg_info *
 		dst->val = val;
 		break;
 	case BPF_JMP:
-		if (opcode != BPF_CALL)
+		/* both 'call imm' and 'callx reg' clobber caller saved registers */
+		if (BPF_OP(insn->code) != BPF_CALL)
 			break;
 process_call:
 		for (r = BPF_REG_0; r <= BPF_REG_5; r++)

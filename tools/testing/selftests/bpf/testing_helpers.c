@@ -292,7 +292,6 @@ int bpf_prog_test_load(const char *file, enum bpf_prog_type type,
 	);
 	struct bpf_object *obj;
 	struct bpf_program *prog;
-	__u32 flags;
 	int err;
 
 	obj = bpf_object__open_file(file, &opts);
@@ -308,8 +307,7 @@ int bpf_prog_test_load(const char *file, enum bpf_prog_type type,
 	if (type != BPF_PROG_TYPE_UNSPEC && bpf_program__type(prog) != type)
 		bpf_program__set_type(prog, type);
 
-	flags = bpf_program__flags(prog) | testing_prog_flags();
-	bpf_program__set_flags(prog, flags);
+	bpf_program__add_flags(prog, testing_prog_flags());
 
 	err = bpf_object__load(obj);
 	if (err)
@@ -533,4 +531,47 @@ int stack_mprotect(void)
 	ret = mprotect((void *)(((unsigned long)(buf + sz)) & ~(sz - 1)), sz,
 		       PROT_READ | PROT_WRITE | PROT_EXEC);
 	return ret;
+}
+
+int compare_text_to_expected(const char *actual, const char *expected)
+{
+	char exp_path[] = "/tmp/selftest_expected.XXXXXX";
+	char act_path[] = "/tmp/selftest_actual.XXXXXX";
+	char buf[512], cmd[128];
+	int exp_fd, act_fd;
+	FILE *p;
+
+	if (!strcmp(actual, expected))
+		return 0;
+
+	exp_fd = mkstemp(exp_path);
+	act_fd = mkstemp(act_path);
+	if (exp_fd < 0 || act_fd < 0) {
+		fprintf(stdout, "output differs, no temp file for a diff\n");
+		goto out;
+	}
+
+	dprintf(exp_fd, "%s", expected);
+	dprintf(act_fd, "%s", actual);
+
+	snprintf(cmd, sizeof(cmd), "diff -u '%s' '%s'", exp_path, act_path);
+	p = popen(cmd, "r");
+	if (!p) {
+		fprintf(stdout, "output differs, '%s' did not run\n", cmd);
+		goto out;
+	}
+	while (fgets(buf, sizeof(buf), p))
+		fputs(buf, stdout);
+	pclose(p);
+
+out:
+	if (exp_fd >= 0) {
+		close(exp_fd);
+		unlink(exp_path);
+	}
+	if (act_fd >= 0) {
+		close(act_fd);
+		unlink(act_path);
+	}
+	return -1;
 }

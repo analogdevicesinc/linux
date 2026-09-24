@@ -356,12 +356,29 @@ int bpf_live_stack_query_init(struct bpf_verifier_env *env, struct bpf_verifier_
 	return 0;
 }
 
+/*
+ * Stack slots of outer frames that the callee may read are accounted as read
+ * by the @callsite insn itself, i.e. they are live before @callsite and may be
+ * dead after it, when:
+ * - @callsite calls a callback, which may be called several times;
+ * - @callsite is callx. Its callee is not known when stack liveness is
+ *   computed, so there is no func instance for it at @callsite. While
+ *   the verifier is in the callee lookup_instance() finds its standalone
+ *   instance that knows nothing about outer frames. What the callee may read
+ *   there is recorded by record_call_access().
+ */
+static bool callee_stack_access_at_callsite(struct bpf_verifier_env *env, u32 callsite)
+{
+	return bpf_calls_callback(env, callsite) ||
+	       bpf_is_callx(&env->prog->insnsi[callsite]);
+}
+
 bool bpf_stack_slot_alive(struct bpf_verifier_env *env, u32 frameno, u32 half_spi)
 {
 	/*
 	 * Slot is alive if it is read before q->insn_idx in current func instance,
 	 * or if for some outer func instance:
-	 * - alive before callsite if callsite calls callback, otherwise
+	 * - alive before callsite if callsite calls callback or is callx, otherwise
 	 * - alive after callsite
 	 */
 	struct live_stack_query *q = &env->liveness->live_stack_query;
@@ -394,7 +411,7 @@ bool bpf_stack_slot_alive(struct bpf_verifier_env *env, u32 frameno, u32 half_sp
 		/* Get callsite from verifier state, not from instance callchain */
 		callsite = q->callsites[i];
 
-		alive = bpf_calls_callback(env, callsite)
+		alive = callee_stack_access_at_callsite(env, callsite)
 			? is_live_before(instance, callsite, rel, half_spi)
 			: is_live_before(instance, callsite + 1, rel, half_spi);
 		if (alive)
@@ -1434,21 +1451,29 @@ static int record_call_access(struct bpf_verifier_env *env,
 {
 	struct bpf_insn *insn = &env->prog->insnsi[insn_idx];
 	struct bpf_call_summary cs;
-	int r, err, num_params = 5;
+	int r, err, arg_slot_cnt = 5;
 
 	if (bpf_pseudo_call(insn))
 		return 0;
 
-	if (bpf_get_call_summary(env, insn, &cs))
-		num_params = cs.num_params;
+	if (bpf_is_callx(insn))
+		/*
+		 * The callee is not known statically. Assume that all arg
+		 * slots are passed and let record_arg_access() conservatively
+		 * mark the stack of all frames as read if any of them is
+		 * derived from a frame pointer.
+		 */
+		arg_slot_cnt = MAX_BPF_FUNC_REG_ARGS + MAX_STACK_ARG_SLOTS;
+	else if (bpf_get_call_summary(env, insn, &cs))
+		arg_slot_cnt = cs.arg_slot_cnt;
 
-	for (r = BPF_REG_1; r < BPF_REG_1 + min(num_params, MAX_BPF_FUNC_REG_ARGS); r++) {
+	for (r = BPF_REG_1; r < BPF_REG_1 + min(arg_slot_cnt, MAX_BPF_FUNC_REG_ARGS); r++) {
 		err = record_arg_access(env, instance, insn, &at[r], r - 1, insn_idx);
 		if (err)
 			return err;
 	}
 
-	for (r = 0; r < MAX_STACK_ARG_SLOTS && r < num_params - MAX_BPF_FUNC_REG_ARGS; r++) {
+	for (r = 0; r < MAX_STACK_ARG_SLOTS && r < arg_slot_cnt - MAX_BPF_FUNC_REG_ARGS; r++) {
 		err = record_arg_access(env, instance, insn, &at[MAX_BPF_REG + r],
 					r + MAX_BPF_FUNC_REG_ARGS, insn_idx);
 		if (err)
@@ -1533,7 +1558,7 @@ static void print_subprog_arg_access(struct bpf_verifier_env *env,
 		bool has_extra = false;
 		u8 cls = BPF_CLASS(insns[idx].code);
 		bool is_ldx_stx_call = cls == BPF_LDX || cls == BPF_STX ||
-				       insns[idx].code == (BPF_JMP | BPF_CALL);
+				       (cls == BPF_JMP && BPF_OP(insns[idx].code) == BPF_CALL);
 
 		verbose(env, "%3d: ", idx);
 		bpf_verbose_insn(env, &insns[idx]);
@@ -1722,7 +1747,7 @@ redo:
 		if (err)
 			goto err_free;
 
-		if (insn->code == (BPF_JMP | BPF_CALL)) {
+		if (BPF_CLASS(insn->code) == BPF_JMP && BPF_OP(insn->code) == BPF_CALL) {
 			err = record_call_access(env, instance, at_in[i], idx);
 			if (err)
 				goto err_free;
@@ -2060,7 +2085,8 @@ static inline u16 mask_hi(u32 m) { return (u16)(m >> 16); }
 /* Compute info->{use,def} fields for the instruction */
 static void compute_insn_live_regs(struct bpf_verifier_env *env,
 				   struct bpf_insn *insn,
-				   struct insn_live_regs *info)
+				   struct insn_live_regs *info,
+				   bool ret_reg_pair)
 {
 	struct bpf_call_summary cs;
 	const u8 class = BPF_CLASS(insn->code);
@@ -2072,6 +2098,7 @@ static void compute_insn_live_regs(struct bpf_verifier_env *env,
 	const u32 src32 = mask_lo(src);
 	const u32 dst32 = mask_lo(dst);
 	const u32 r0  = reg64_mask(0);
+	const u32 r2  = reg64_mask(BPF_REG_2);
 	u32 def = 0;
 	u32 use = U32_MAX;
 
@@ -2191,15 +2218,18 @@ static void compute_insn_live_regs(struct bpf_verifier_env *env,
 			break;
 		case BPF_EXIT:
 			def = 0;
-			use = r0;
+			use = ret_reg_pair ? (r0 | r2) : r0;
 			break;
 		case BPF_CALL:
 			def = ALL_CALLER_SAVED_REGS;
 			use = def & ~BIT(BPF_REG_0);
 			if (bpf_get_call_summary(env, insn, &cs))
-				use = GENMASK(min_t(u8, cs.num_params, MAX_BPF_FUNC_REG_ARGS), 1);
+				use = GENMASK(min_t(u8, cs.arg_slot_cnt, MAX_BPF_FUNC_REG_ARGS), 1);
 			def = mask_widen(def);
 			use = mask_widen(use);
+			/* callx reads the address of the callee from dst_reg */
+			if (bpf_is_callx(insn))
+				use |= dst;
 			break;
 		default:
 			def = 0;
@@ -2228,8 +2258,8 @@ int bpf_compute_live_registers(struct bpf_verifier_env *env)
 	struct insn_live_regs *state;
 	int insn_cnt = env->prog->len;
 	u64 pos, insn_pos;
-	int err = 0, i, j;
-	bool changed;
+	int err = 0, i, j, subprog, start, end;
+	bool changed, ret_reg_pair;
 
 	/* Use the following algorithm:
 	 * - define the following:
@@ -2256,8 +2286,14 @@ int bpf_compute_live_registers(struct bpf_verifier_env *env)
 		goto out;
 	}
 
-	for (i = 0; i < insn_cnt; ++i)
-		compute_insn_live_regs(env, &insns[i], &state[i]);
+	for (subprog = 0; subprog < env->subprog_cnt; subprog++) {
+		start = env->subprog_info[subprog].start;
+		end = env->subprog_info[subprog + 1].start;
+		ret_reg_pair = bpf_ret_reg_pair(env, subprog);
+
+		for (i = start; i < end; ++i)
+			compute_insn_live_regs(env, &insns[i], &state[i], ret_reg_pair);
+	}
 
 	/* Forward pass: resolve stack access through FP-derived pointers */
 	err = bpf_compute_subprog_arg_access(env);

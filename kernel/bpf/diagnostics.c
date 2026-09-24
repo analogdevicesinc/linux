@@ -794,8 +794,9 @@ static void diag_print_insn_context(struct bpf_verifier_env *env, u32 insn_idx,
 	}
 }
 
-static void bpf_diag_source(struct bpf_verifier_env *env, u32 insn_idx, const char *label,
-			    const char *fmt, ...)
+static __printf(4, 5) void bpf_diag_source(struct bpf_verifier_env *env,
+					   u32 insn_idx, const char *label,
+					   const char *fmt, ...)
 {
 	struct bpf_diag_scratch *scratch;
 	struct bpf_linfo_source *source_lines;
@@ -957,6 +958,37 @@ const char *bpf_diag_reg_type_plain(struct bpf_verifier_env *env, enum bpf_reg_t
 		return "a kernel object pointer";
 	default:
 		return reg_type_str(env, type);
+	}
+}
+
+const char *bpf_diag_arg_type_plain(enum bpf_arg_type type)
+{
+	switch (base_type(type)) {
+	case ARG_MEM_SIZE:
+	case ARG_CONST_MEM_SIZE:
+		return "an integer scalar length for this memory argument";
+	case ARG_PTR_TO_CTX:
+		return "the original program context pointer or preserve it before modifying registers";
+	case ARG_SCALAR:
+	case ARG_CONST_SCALAR:
+	case ARG_CONST_ALLOC_SIZE_OR_ZERO:
+		return "an integer scalar value for this argument, not a pointer or resource object";
+	case ARG_PTR_TO_CONST_STR:
+		return "a constant string pointer that the verifier recognizes, such as a string stored in a read-only map value";
+	case ARG_PTR_TO_DYNPTR:
+		return "the address of a stack dynptr object, or use a const dynptr pointer returned by the verifier-supported path";
+	case ARG_PTR_TO_ALLOC_BTF_ID:
+		return "a pointer returned by the matching BPF object allocation path";
+	case ARG_PTR_TO_REFCOUNTED_KPTR:
+		return "an owning or non-owning pointer to a BPF-managed object containing a bpf_refcount field";
+	case ARG_PTR_TO_ITER:
+		return "the address of a stack iterator object for iterator new, next, and destroy calls";
+	case ARG_PTR_TO_IRQ_FLAG:
+		return "the same stack slot used by bpf_local_irq_save() or bpf_res_spin_lock_irqsave()";
+	case ARG_PTR_TO_CTX_OUT:
+		return "the attach hook's own output argument, loaded directly from the program context";
+	default:
+		return "a value with one of the accepted pointer or scalar types for this call";
 	}
 }
 
