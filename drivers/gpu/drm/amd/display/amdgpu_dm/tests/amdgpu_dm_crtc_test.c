@@ -1508,6 +1508,8 @@ static void dm_test_crtc_duplicate_state_copies_fields(struct kunit *test)
 	amdgpu_dm_crtc_destroy_state(crtc, dup);
 }
 
+/* Tests for amdgpu_dm_crtc_create_state() */
+
 /**
  * dm_test_crtc_duplicate_state_retains_stream - Test duplicate retains the stream
  * @test: The KUnit test context
@@ -1567,8 +1569,6 @@ static void dm_test_crtc_duplicate_state_null_state_returns_null(struct kunit *t
 	KUNIT_EXPECT_NULL(test, amdgpu_dm_crtc_duplicate_state(crtc));
 }
 
-/* Tests for amdgpu_dm_crtc_destroy() */
-
 /**
  * dm_test_crtc_destroy_cleans_up_and_frees - Test destroy tears down the CRTC
  * @test: The KUnit test context
@@ -1608,18 +1608,18 @@ static void dm_test_crtc_destroy_cleans_up_and_frees(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.num_crtc, 0);
 }
 
-/* Tests for amdgpu_dm_crtc_reset_state() */
+/* Tests for amdgpu_dm_crtc_destroy() */
 
 /**
- * dm_test_crtc_reset_state_allocates_state - Test reset installs a fresh state
+ * dm_test_crtc_create_state_allocates_state - Test create_state allocates a fresh state
  * @test: The KUnit test context
  *
- * Resetting a CRTC with no existing state must allocate and install a new
- * drm_crtc_state.
+ * Creating state for a CRTC must allocate a new drm_crtc_state.
  */
-static void dm_test_crtc_reset_state_allocates_state(struct kunit *test)
+static void dm_test_crtc_create_state_allocates_state(struct kunit *test)
 {
 	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_crtc_state *crtc_state;
 	struct drm_crtc *crtc;
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
@@ -1627,12 +1627,11 @@ static void dm_test_crtc_reset_state_allocates_state(struct kunit *test)
 	crtc->dev = &adev->ddev;
 	crtc->state = NULL;
 
-	amdgpu_dm_crtc_reset_state(crtc);
+	crtc_state = amdgpu_dm_crtc_create_state(crtc);
+	KUNIT_EXPECT_NOT_ERR_OR_NULL(test, crtc_state);
 
-	KUNIT_EXPECT_NOT_NULL(test, crtc->state);
-
-	if (crtc->state)
-		amdgpu_dm_crtc_destroy_state(crtc, crtc->state);
+	if (!IS_ERR(crtc_state))
+		amdgpu_dm_crtc_destroy_state(crtc, crtc_state);
 }
 
 /**
@@ -2638,13 +2637,12 @@ static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	KUNIT_CASE(dm_test_count_crtc_active_planes_mixed),
 	/* amdgpu_dm_crtc_duplicate_state */
 	KUNIT_CASE(dm_test_crtc_duplicate_state_copies_fields),
+	/* amdgpu_dm_crtc_create_state */
+	KUNIT_CASE(dm_test_crtc_create_state_allocates_state),
 	KUNIT_CASE(dm_test_crtc_duplicate_state_retains_stream),
 	KUNIT_CASE(dm_test_crtc_duplicate_state_null_state_returns_null),
 	/* amdgpu_dm_crtc_destroy */
 	KUNIT_CASE(dm_test_crtc_destroy_cleans_up_and_frees),
-	/* amdgpu_dm_crtc_reset_state */
-	KUNIT_CASE(dm_test_crtc_reset_state_allocates_state),
-	KUNIT_CASE(dm_test_crtc_reset_state_replaces_existing),
 	/* amdgpu_dm_crtc_destroy_state */
 	KUNIT_CASE(dm_test_crtc_destroy_state_no_stream),
 	KUNIT_CASE(dm_test_crtc_destroy_state_releases_stream),

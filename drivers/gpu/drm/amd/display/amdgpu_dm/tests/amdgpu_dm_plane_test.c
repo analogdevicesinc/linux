@@ -2937,36 +2937,28 @@ static const struct drm_plane_funcs dm_test_plane_reset_funcs = {
 };
 
 /**
- * dm_test_plane_reset_initializes_state() - Verify reset installs default state.
+ * dm_test_plane_create_state_initializes_state() - Verify create_state allocates default state.
  * @test: KUnit test context.
  *
- * Verify amdgpu_dm_plane_drm_plane_reset() destroys the existing plane state,
- * allocates a fresh dm_plane_state, and initializes the AMD-specific transfer
- * function and HDR multiplier defaults.
+ * Verify amdgpu_dm_plane_drm_plane_create_state() allocates a fresh
+ * dm_plane_state, and initializes the AMD-specific transfer function and HDR
+ * multiplier defaults.
  */
-static void dm_test_plane_reset_initializes_state(struct kunit *test)
+static void dm_test_plane_create_state_initializes_state(struct kunit *test)
 {
-	struct dm_plane_state *old_state;
+	struct drm_plane_state *plane_state;
 	struct dm_plane_state *new_state;
 	struct drm_plane *plane;
 
 	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, plane);
 
-	/*
-	 * Provide an existing state plus a funcs table so reset exercises the
-	 * destroy-existing-state path. The destroy hook frees this state, so it
-	 * must be a plain (non-KUnit-managed) allocation.
-	 */
-	old_state = kzalloc_obj(*old_state);
-	KUNIT_ASSERT_NOT_NULL(test, old_state);
 	plane->funcs = &dm_test_plane_reset_funcs;
-	plane->state = &old_state->base;
 
-	amdgpu_dm_plane_drm_plane_reset(plane);
+	plane_state = amdgpu_dm_plane_drm_plane_create_state(plane);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_state);
 
-	KUNIT_ASSERT_NOT_NULL(test, plane->state);
-	new_state = to_dm_plane_state(plane->state);
+	new_state = to_dm_plane_state(plane_state);
 	KUNIT_EXPECT_EQ(test, new_state->degamma_tf, AMDGPU_TRANSFER_FUNCTION_DEFAULT);
 	KUNIT_EXPECT_EQ(test, new_state->hdr_mult, AMDGPU_HDR_MULT_DEFAULT);
 	KUNIT_EXPECT_EQ(test, new_state->shaper_tf, AMDGPU_TRANSFER_FUNCTION_DEFAULT);
@@ -3765,8 +3757,8 @@ static struct kunit_case amdgpu_dm_plane_test_cases[] = {
 	KUNIT_CASE(dm_test_atomic_check_scaling_failure),
 	/* amdgpu_dm_plane_panic_flush() */
 	KUNIT_CASE(dm_test_panic_flush_no_dc_state),
-	/* amdgpu_dm_plane_drm_plane_reset() */
-	KUNIT_CASE(dm_test_plane_reset_initializes_state),
+	/* amdgpu_dm_plane_drm_plane_create_state() */
+	KUNIT_CASE(dm_test_plane_create_state_initializes_state),
 	/* amdgpu_dm_plane_drm_plane_duplicate_state() */
 	KUNIT_CASE(dm_test_plane_duplicate_state_copies_fields),
 	KUNIT_CASE(dm_test_plane_duplicate_state_copies_resources),

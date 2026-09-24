@@ -7,6 +7,7 @@
 #include <drm/drm_blend.h>
 #include <drm/drm_damage_helper.h>
 #include <drm/drm_fourcc.h>
+#include <drm/drm_panic_helper.h>
 #include <drm/drm_print.h>
 #include <drm/intel/step.h>
 
@@ -2706,6 +2707,7 @@ static const struct drm_plane_funcs skl_plane_funcs = {
 	.atomic_destroy_state = intel_plane_destroy_state,
 	.format_mod_supported = skl_plane_format_mod_supported,
 	.format_mod_supported_async = intel_plane_format_mod_supported_async,
+	DRM_PANIC_PLANE_FUNCS,
 };
 
 static const struct drm_plane_funcs icl_plane_funcs = {
@@ -2716,6 +2718,7 @@ static const struct drm_plane_funcs icl_plane_funcs = {
 	.atomic_destroy_state = intel_plane_destroy_state,
 	.format_mod_supported = icl_plane_format_mod_supported,
 	.format_mod_supported_async = intel_plane_format_mod_supported_async,
+	DRM_PANIC_PLANE_FUNCS,
 };
 
 static const struct drm_plane_funcs tgl_plane_funcs = {
@@ -2726,6 +2729,7 @@ static const struct drm_plane_funcs tgl_plane_funcs = {
 	.atomic_destroy_state = intel_plane_destroy_state,
 	.format_mod_supported = tgl_plane_format_mod_supported,
 	.format_mod_supported_async = intel_plane_format_mod_supported_async,
+	DRM_PANIC_PLANE_FUNCS,
 };
 
 static void

@@ -20,6 +20,7 @@
 #include <drm/drm_managed.h>
 #include <drm/drm_module.h>
 #include <drm/drm_panic.h>
+#include <drm/drm_panic_helper.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
@@ -501,7 +502,8 @@ static const struct drm_plane_funcs bochs_primary_plane_funcs = {
 	.update_plane = drm_atomic_helper_update_plane,
 	.disable_plane = drm_atomic_helper_disable_plane,
 	.destroy = drm_plane_cleanup,
-	DRM_GEM_SHADOW_PLANE_FUNCS
+	DRM_GEM_SHADOW_PLANE_FUNCS,
+	DRM_PANIC_PLANE_FUNCS,
 };
 
 static void bochs_crtc_helper_mode_set_nofb(struct drm_crtc *crtc)

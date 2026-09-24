@@ -320,26 +320,6 @@ void drm_gem_destroy_shadow_plane_state(struct drm_plane *plane,
 EXPORT_SYMBOL(drm_gem_destroy_shadow_plane_state);
 
 /**
- * __drm_gem_reset_shadow_plane - resets a shadow-buffered plane
- * @plane: the plane
- * @shadow_plane_state: the shadow-buffered plane state
- *
- * This function resets state for shadow-buffered planes. Helpful
- * for drivers that subclass struct drm_shadow_plane_state.
- */
-void __drm_gem_reset_shadow_plane(struct drm_plane *plane,
-				  struct drm_shadow_plane_state *shadow_plane_state)
-{
-	if (shadow_plane_state) {
-		__drm_atomic_helper_plane_reset(plane, &shadow_plane_state->base);
-		drm_format_conv_state_init(&shadow_plane_state->fmtcnv_state);
-	} else {
-		__drm_atomic_helper_plane_reset(plane, NULL);
-	}
-}
-EXPORT_SYMBOL(__drm_gem_reset_shadow_plane);
-
-/**
  * drm_gem_begin_shadow_fb_access - prepares shadow framebuffers for CPU access
  * @plane: the plane
  * @plane_state: the plane state of type struct drm_shadow_plane_state
