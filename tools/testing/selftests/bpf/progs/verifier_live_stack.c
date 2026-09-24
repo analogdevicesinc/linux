@@ -2839,3 +2839,25 @@ static __used __naked void imprecise_dst_spill_join_sub(void)
 	:: __imm(bpf_get_prandom_u32)
 	: __clobber_all);
 }
+
+/*
+ * A store that does not fully cover a 4-byte half-slot defines nothing, so a
+ * narrow store at the top of the frame must not turn any slot into a "def",
+ * least of all every slot of the frame: the earlier data at fp-8 stays live.
+ */
+SEC("socket")
+__log_level(2)
+__msg("0: (79) r0 = *(u64 *)(r10 -8)        ; use: fp0-8")
+__msg("1: (73) *(u8 *)(r10 -1) = r0{{$}}")
+__msg("2: (6b) *(u16 *)(r10 -4) = r0{{$}}")
+__msg("3: (79) r0 = *(u64 *)(r10 -8)        ; use: fp0-8")
+__naked void narrow_store_defines_nothing(void)
+{
+	asm volatile (
+	"r0 = *(u64 *)(r10 - 8);"
+	"*(u8 *)(r10 - 1) = r0;"
+	"*(u16 *)(r10 - 4) = r0;"
+	"r0 = *(u64 *)(r10 - 8);"
+	"exit;"
+	::: __clobber_all);
+}
