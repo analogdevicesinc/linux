@@ -13,6 +13,7 @@
 #include "xe_bo.h"
 #include "xe_exec_queue_types.h"
 #include "xe_gt_stats.h"
+#include "xe_log.h"
 #include "xe_migrate.h"
 #include "xe_module.h"
 #include "xe_pagefault.h"
@@ -1303,16 +1304,20 @@ retry:
 
 	/* Always process UNMAPs first so view SVM ranges is current */
 	err = xe_svm_garbage_collector(vm);
-	if (err)
+	if (err) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_GARBAGE_COLLECTOR);
 		return err;
+	}
 
 	dpagemap = ctx.devmem_only ? xe_tile_local_pagemap(tile) :
 		xe_vma_resolve_pagemap(vma, tile);
 	ctx.device_private_page_owner = xe_svm_private_page_owner(vm, !dpagemap);
 	range = xe_svm_range_find_or_insert(vm, fault_addr, vma, &ctx);
 
-	if (IS_ERR(range))
+	if (IS_ERR(range)) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_RANGE_NOT_FOUND);
 		return PTR_ERR(range);
+	}
 
 	xe_svm_range_fault_count_stats_incr(gt, range);
 
@@ -1361,9 +1366,9 @@ retry:
 				else
 					goto retry;
 			} else {
-				drm_err(&vm->xe->drm,
-					"VRAM allocation failed, retry count exceeded, asid=%u, errno=%pe\n",
-					vm->usm.asid, ERR_PTR(err));
+				xe_log_err(gt, PAGEFAULT, err,
+					   "VRAM allocation failed, retry count exceeded, ASID=%u\n",
+					   vm->usm.asid);
 				goto err_out;
 			}
 		}
@@ -1384,9 +1389,9 @@ get_pages:
 			range_debug(range, "PAGE FAULT - RETRY PAGES");
 			goto retry;
 		} else {
-			drm_err(&vm->xe->drm,
-				"Get pages failed, retry count exceeded, asid=%u, gpusvm=%p, errno=%pe\n",
-				vm->usm.asid, &vm->svm.gpusvm, ERR_PTR(err));
+			xe_log_err(gt, PAGEFAULT, err,
+				   "Get pages failed, retry count exceeded, ASID=%u, GPUVM=%s\n",
+				   vm->usm.asid, vm->svm.gpusvm.name);
 		}
 	}
 	if (err) {
@@ -1414,6 +1419,7 @@ get_pages:
 			err = PTR_ERR(fence);
 			xe_validation_retry_on_oom(&vctx, &err);
 			xe_svm_range_bind_us_stats_incr(gt, range, bind_start);
+			xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_REBIND);
 			break;
 		}
 	}
@@ -1436,6 +1442,7 @@ out:
 
 err_out:
 	if (err == -EAGAIN) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_NONE);
 		ctx.timeslice_ms <<= 1;	/* Double timeslice if we have to retry */
 		range_debug(range, "PAGE FAULT - RETRY BIND");
 		goto retry;
@@ -1468,8 +1475,10 @@ int xe_svm_handle_pagefault(struct xe_vm *vm, struct xe_vma *vma,
 	int need_vram, ret;
 retry:
 	need_vram = xe_vma_need_vram_for_atomic(vm->xe, vma, atomic);
-	if (need_vram < 0)
+	if (need_vram < 0) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_NEEDS_VRAM_CHECK);
 		return need_vram;
+	}
 
 	ret =  __xe_svm_handle_pagefault(vm, vma, pf, gt, fault_addr,
 					 need_vram ? true : false);
@@ -1479,11 +1488,16 @@ retry:
 		 * may have been split by xe_svm_range_set_default_attr.
 		 */
 		vma = xe_vm_find_vma_by_addr(vm, fault_addr);
-		if (!vma)
+		if (!vma) {
+			xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_VMA_NOT_FOUND);
 			return -EINVAL;
+		}
 
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_NONE);
 		goto retry;
 	}
+	if (ret && xe_pagefault_get_error(pf) == XE_PAGEFAULT_ERROR_NONE)
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_SVM_SERVICE_FAILED);
 	return ret;
 }
 
@@ -1598,7 +1612,7 @@ int xe_svm_range_get_pages(struct xe_vm *vm, struct xe_svm_range *range,
 
 	lockdep_assert_held(&range->lock);
 
-	err = drm_gpusvm_get_pages(&vm->svm.gpusvm, &range->pages,
+	err = drm_gpusvm_get_pages(&vm->svm.gpusvm, &range->pages, 1,
 				   vm->svm.gpusvm.mm,
 				   &range->base.notifier->notifier,
 				   drm_gpusvm_range_start(&range->base),
