@@ -6,7 +6,8 @@
 #include "bpf_misc.h"
 #include "../../../include/linux/filter.h"
 
-#if defined(__TARGET_ARCH_x86) || defined(__TARGET_ARCH_arm64)
+/* gcc doesn't support indirect calls */
+#if (defined(__TARGET_ARCH_x86) || defined(__TARGET_ARCH_arm64)) && defined(__clang__)
 
 /*
  * Read-only data with pointers to functions, where the compiler puts tables

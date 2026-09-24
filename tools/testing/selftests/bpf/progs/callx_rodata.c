@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: GPL-2.0
 /* callx through pointers to functions in .rodata, loaded by light skeleton */
 
+#include <stdbool.h>
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
-
-typedef int (*op_fn)(int);
 
 /* set by user space before the programs are loaded, it's in .rodata too */
 const volatile int bias = 1;
 
 int op_idx;
+
+#ifdef __clang__
+
+const volatile bool skip = false;
+
+typedef int (*op_fn)(int);
 
 static __noinline int add_bias(int x)
 {
@@ -40,6 +45,25 @@ int both_ops(void *ctx)
 {
 	return ops[1](ops[0](4));
 }
+
+#else
+
+/* gcc doesn't support indirect calls */
+const volatile bool skip = true;
+
+SEC("socket")
+int select_op(void *ctx)
+{
+	return 0;
+}
+
+SEC("socket")
+int both_ops(void *ctx)
+{
+	return 0;
+}
+
+#endif
 
 /* no callx here */
 SEC("socket")

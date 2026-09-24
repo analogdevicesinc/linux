@@ -35,6 +35,12 @@ void test_callx_rodata_lskel(void)
 	if (!ASSERT_OK_PTR(skel, "open"))
 		return;
 
+	/* gcc doesn't support indirect calls */
+	if (skel->rodata->skip) {
+		test__skip();
+		goto out;
+	}
+
 	skel->rodata->bias = 7;
 
 	if (!ASSERT_OK(callx_rodata_lskel__load(skel), "load"))
