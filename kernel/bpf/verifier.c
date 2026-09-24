@@ -5510,6 +5510,27 @@ continue_func:
 			}
 		}
 
+		/*
+		 * sort_subprogs_topo() tolerates cycles in the call graph that
+		 * go through the address of a function being taken, since it
+		 * doesn't know what it is taken for. Such cycle is a recursion
+		 * unless it's an async callback, which are skipped above.
+		 * The main verification pass limits the depth of the recursion,
+		 * but it doesn't follow calls of global functions.
+		 */
+		for (tmp = idx; tmp >= 0; tmp = dinfo[tmp].caller) {
+			if (tmp != sidx)
+				continue;
+			verbose(env, "recursive call from %s() to %s()\n",
+				bpf_subprog_name(env, idx), bpf_subprog_name(env, sidx));
+			bpf_diag_program_structure(
+				env, i, "recursive subprogram call",
+				"Rewrite the recursion as an explicit bounded loop, or split the logic so subprogram calls do not form a cycle.",
+				"This call or callback would make the subprogram call graph recursive. "
+				"The verifier requires a finite, acyclic call graph so it can bound stack depth and analysis.");
+			return -EINVAL;
+		}
+
 		/* store caller info for after we return from callee */
 		dinfo[idx].frame = frame;
 		dinfo[idx].ret_insn = i + 1;
