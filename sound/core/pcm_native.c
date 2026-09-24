@@ -2267,7 +2267,7 @@ static int snd_pcm_drain(struct snd_pcm_substream *substream,
 static int snd_pcm_drop(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime;
-	int result = 0;
+	int result;
 	
 	if (PCM_RUNTIME_CHECK(substream))
 		return -ENXIO;
@@ -2282,7 +2282,7 @@ static int snd_pcm_drop(struct snd_pcm_substream *substream)
 	if (runtime->state == SNDRV_PCM_STATE_PAUSED)
 		snd_pcm_pause(substream, false);
 
-	snd_pcm_stop(substream, SNDRV_PCM_STATE_SETUP);
+	result = snd_pcm_stop(substream, SNDRV_PCM_STATE_SETUP);
 	/* runtime->control->appl_ptr = runtime->status->hw_ptr; */
 
 	return result;
@@ -2930,7 +2930,7 @@ static int snd_pcm_open(struct file *file, struct snd_pcm *pcm, int stream)
 	mutex_lock(&pcm->open_mutex);
 	while (1) {
 		err = snd_pcm_open_file(file, pcm, stream);
-		if (err >= 0)
+		if (!err)
 			break;
 		if (err == -EAGAIN) {
 			if (file->f_flags & O_NONBLOCK) {

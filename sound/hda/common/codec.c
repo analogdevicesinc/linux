@@ -3774,7 +3774,7 @@ int snd_hda_multi_out_analog_open(struct hda_codec *codec,
 EXPORT_SYMBOL_GPL(snd_hda_multi_out_analog_open);
 
 /**
- * snd_hda_multi_out_analog_prepare - Preapre the analog outputs.
+ * snd_hda_multi_out_analog_prepare - Prepare the analog outputs.
  * @codec: the HDA codec
  * @mout: hda_multi_out object
  * @stream_tag: stream tag to assign
