@@ -286,7 +286,7 @@ static int ap_cpu_clock_probe(struct platform_device *pdev)
 
 	for_each_of_cpu_node(dn) {
 		char *clk_name = "cpu-cluster-0";
-		struct clk_init_data init;
+		struct clk_init_data init = {};
 		const char *parent_name;
 		struct clk *parent;
 		u64 cpu;

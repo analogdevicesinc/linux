@@ -16613,6 +16613,17 @@ M:	Sean Wang <sean.wang@mediatek.com>
 S:	Maintained
 F:	drivers/media/rc/mtk-cir.c
 
+MEDIATEK CLOCK DRIVERS
+M:	AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>
+L:	linux-clk@vger.kernel.org
+L:	linux-mediatek@lists.infradead.org (moderated for non-subscribers)
+S:	Maintained
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux.git
+F:	Documentation/devicetree/bindings/clock/mediatek,*
+F:	drivers/clk/mediatek/
+F:	include/dt-bindings/clock/mediatek,*.h
+F:	include/dt-bindings/clock/mt*-clk.h
+
 MEDIATEK DMA DRIVER
 M:	Sean Wang <sean.wang@mediatek.com>
 L:	dmaengine@vger.kernel.org

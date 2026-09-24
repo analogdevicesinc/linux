@@ -341,7 +341,7 @@ static int si521xx_probe(struct i2c_client *client)
 	return ret;
 }
 
-static int __maybe_unused si521xx_suspend(struct device *dev)
+static int si521xx_suspend(struct device *dev)
 {
 	struct si521xx *si = dev_get_drvdata(dev);
 
@@ -351,7 +351,7 @@ static int __maybe_unused si521xx_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused si521xx_resume(struct device *dev)
+static int si521xx_resume(struct device *dev)
 {
 	struct si521xx *si = dev_get_drvdata(dev);
 	int ret;
@@ -374,17 +374,17 @@ MODULE_DEVICE_TABLE(i2c, si521xx_id);
 static const struct of_device_id clk_si521xx_of_match[] = {
 	{ .compatible = "skyworks,si52144", .data = (void *)SI521XX_OE_MAP(0x5, 0xc0) },
 	{ .compatible = "skyworks,si52146", .data = (void *)SI521XX_OE_MAP(0x15, 0xe0) },
-	{ .compatible = "skyworks,si52147", .data = (void *)SI521XX_OE_MAP(0x15, 0xf8) },
+	{ .compatible = "skyworks,si52147", .data = (void *)SI521XX_OE_MAP(0x17, 0xf8) },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_si521xx_of_match);
 
-static SIMPLE_DEV_PM_OPS(si521xx_pm_ops, si521xx_suspend, si521xx_resume);
+static DEFINE_SIMPLE_DEV_PM_OPS(si521xx_pm_ops, si521xx_suspend, si521xx_resume);
 
 static struct i2c_driver si521xx_driver = {
 	.driver = {
 		.name = "clk-si521xx",
-		.pm	= &si521xx_pm_ops,
+		.pm	= pm_sleep_ptr(&si521xx_pm_ops),
 		.of_match_table = clk_si521xx_of_match,
 	},
 	.probe		= si521xx_probe,

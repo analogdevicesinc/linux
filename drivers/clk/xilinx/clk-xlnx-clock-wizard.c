@@ -936,9 +936,9 @@ static struct clk_hw *clk_wzrd_register_divf(struct device *dev,
 					  u32 div_type,
 					  spinlock_t *lock)
 {
+	struct clk_init_data init = {};
 	struct clk_wzrd_divider *div;
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	div = devm_kzalloc(dev, sizeof(*div), GFP_KERNEL);
@@ -980,9 +980,9 @@ static struct clk_hw *clk_wzrd_ver_register_divider(struct device *dev,
 						 u32 div_type,
 						 spinlock_t *lock)
 {
+	struct clk_init_data init = {};
 	struct clk_wzrd_divider *div;
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	div = devm_kzalloc(dev, sizeof(*div), GFP_KERNEL);
@@ -1026,9 +1026,9 @@ static struct clk_hw *clk_wzrd_register_divider(struct device *dev,
 					     u32 div_type,
 					     spinlock_t *lock)
 {
+	struct clk_init_data init = {};
 	struct clk_wzrd_divider *div;
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	div = devm_kzalloc(dev, sizeof(*div), GFP_KERNEL);
@@ -1091,7 +1091,7 @@ static int clk_wzrd_clk_notifier(struct notifier_block *nb, unsigned long event,
 	}
 }
 
-static int __maybe_unused clk_wzrd_suspend(struct device *dev)
+static int clk_wzrd_suspend(struct device *dev)
 {
 	struct clk_wzrd *clk_wzrd = dev_get_drvdata(dev);
 
@@ -1101,7 +1101,7 @@ static int __maybe_unused clk_wzrd_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused clk_wzrd_resume(struct device *dev)
+static int clk_wzrd_resume(struct device *dev)
 {
 	int ret;
 	struct clk_wzrd *clk_wzrd = dev_get_drvdata(dev);
@@ -1117,7 +1117,7 @@ static int __maybe_unused clk_wzrd_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(clk_wzrd_dev_pm_ops, clk_wzrd_suspend,
+static DEFINE_SIMPLE_DEV_PM_OPS(clk_wzrd_dev_pm_ops, clk_wzrd_suspend,
 			 clk_wzrd_resume);
 
 static const struct versal_clk_data versal_data = {
@@ -1378,7 +1378,7 @@ static struct platform_driver clk_wzrd_driver = {
 	.driver = {
 		.name = "clk-wizard",
 		.of_match_table = clk_wzrd_ids,
-		.pm = &clk_wzrd_dev_pm_ops,
+		.pm = pm_sleep_ptr(&clk_wzrd_dev_pm_ops),
 	},
 	.probe = clk_wzrd_probe,
 };
