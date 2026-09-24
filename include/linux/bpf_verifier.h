@@ -1092,7 +1092,7 @@ struct bpf_verifier_env {
 	 */
 	u32 scratched_regs;
 	/* Same as scratched_regs but for stack slots */
-	u64 scratched_stack_slots;
+	DECLARE_BITMAP(scratched_stack_slots, MAX_BPF_STACK_SLOTS);
 	u64 prev_log_pos, prev_insn_print_pos;
 	/* buffer used to temporary hold constants as scalar registers */
 	struct bpf_reg_state fake_reg[1];
@@ -1520,7 +1520,7 @@ static inline void mark_reg_scratched(struct bpf_verifier_env *env, u32 regno)
 
 static inline void mark_stack_slot_scratched(struct bpf_verifier_env *env, u32 spi)
 {
-	env->scratched_stack_slots |= 1ULL << spi;
+	__set_bit(spi, env->scratched_stack_slots);
 }
 
 static inline bool reg_scratched(const struct bpf_verifier_env *env, u32 regno)
@@ -1528,27 +1528,28 @@ static inline bool reg_scratched(const struct bpf_verifier_env *env, u32 regno)
 	return (env->scratched_regs >> regno) & 1;
 }
 
-static inline bool stack_slot_scratched(const struct bpf_verifier_env *env, u64 regno)
+static inline bool stack_slot_scratched(const struct bpf_verifier_env *env, u32 spi)
 {
-	return (env->scratched_stack_slots >> regno) & 1;
+	return test_bit(spi, env->scratched_stack_slots);
 }
 
 static inline bool verifier_state_scratched(const struct bpf_verifier_env *env)
 {
-	return env->scratched_regs || env->scratched_stack_slots;
+	return env->scratched_regs ||
+	       !bitmap_empty(env->scratched_stack_slots, MAX_BPF_STACK_SLOTS);
 }
 
 static inline void mark_verifier_state_clean(struct bpf_verifier_env *env)
 {
 	env->scratched_regs = 0U;
-	env->scratched_stack_slots = 0ULL;
+	bitmap_zero(env->scratched_stack_slots, MAX_BPF_STACK_SLOTS);
 }
 
 /* Used for printing the entire verifier state. */
 static inline void mark_verifier_state_scratched(struct bpf_verifier_env *env)
 {
 	env->scratched_regs = ~0U;
-	env->scratched_stack_slots = ~0ULL;
+	bitmap_fill(env->scratched_stack_slots, MAX_BPF_STACK_SLOTS);
 }
 
 static inline bool bpf_stack_narrow_access_ok(int off, int fill_size, int spill_size)
