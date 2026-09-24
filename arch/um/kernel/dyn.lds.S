@@ -20,7 +20,11 @@ SECTIONS
   __binary_start = .;
   . = ALIGN(4096);		/* Init code and data */
   _text = .;
+  __init_begin = .;
   INIT_TEXT_SECTION(PAGE_SIZE)
+
+  init.data : { INIT_DATA }
+  __init_end = .;
 
   . = ALIGN(PAGE_SIZE);
 
@@ -97,10 +101,6 @@ SECTIONS
   .kstrtab : { *(.kstrtab) }
 
   #include <asm/common.lds.S>
-
-  __init_begin = .;
-  init.data : { INIT_DATA }
-  __init_end = .;
 
   /* Ensure the __preinit_array_start label is properly aligned.  We
      could instead move the label definition inside the section, but

@@ -28,7 +28,11 @@ SECTIONS
   . = ALIGN(PAGE_SIZE);
 
   _text = .;
+  __init_begin = .;
   INIT_TEXT_SECTION(0)
+
+  init.data : { INIT_DATA }
+  __init_end = .;
 
   .text      :
   {
@@ -69,10 +73,6 @@ SECTIONS
   }
 
   #include <asm/common.lds.S>
-
-  __init_begin = .;
-  init.data : { INIT_DATA }
-  __init_end = .;
 
   .data    :
   {
