@@ -368,16 +368,10 @@ properties:
           - mps,mpq82d00
             # Murata D1U74T-W power supply unit
           - murata,d1u74t
-            # Temperature sensor with integrated fan control
-          - national,lm63
-            # Temperature sensor with integrated fan control
-          - national,lm64
             # Temperature sensor
           - national,lm95235
             # Temperature sensor
           - national,lm95245
-            # Temperature sensor with integrated fan control
-          - national,lm96163
             # Serial Interface ACPI-Compatible Microprocessor System Hardware Monitor
           - national,lm80
             # Serial Interface ACPI-Compatible Microprocessor System Hardware Monitor
@@ -427,6 +421,8 @@ properties:
           - sensirion,sht21
           - sensirion,sht25
           - sensirion,sht4x
+            # Sensirion temperature sensor with I2C interface
+          - sensirion,sts40
             # Sensortek 3 axis accelerometer
           - sensortek,stk8312
             # Sensortek 3 axis accelerometer
@@ -504,16 +500,18 @@ properties:
           - ti,lm74
             # Temperature sensor with integrated fan control
           - ti,lm96000
-            # Low Power Digital Temperature Sensor with SMBUS/Two Wire Serial Interface
-          - ti,tmp103
             # Thermometer with SPI interface
           - ti,tmp121
           - ti,tmp122
           - ti,tmp125
             # TI DC-DC converter on PMBus
           - ti,tps40400
+            # TI Dual channel DCAP+ multiphase controller TPS53622
+          - ti,tps53622
             # TI DCAP+ multiphase controller
           - ti,tps53647
+            # TI Dual channel DCAP+ multiphase controller TPS53659
+          - ti,tps53659
             # TI DCAP+ multiphase controller
           - ti,tps53667
             # TI Dual channel DCAP+ multiphase controller TPS53676 with AVSBus
@@ -526,6 +524,8 @@ properties:
           - ti,tps53685
             # TI Dual channel DCAP+ multiphase controller TPS53688
           - ti,tps53688
+            # TI Dual channel DCAP+ multiphase controller TPS536C7
+          - ti,tps536c7
             # TI DC-DC converters on PMBus
           - ti,tps544b20
           - ti,tps544b25
