@@ -1089,6 +1089,12 @@ static inline bool bpf_pseudo_kfunc_call(const struct bpf_insn *insn)
 	       insn->src_reg == BPF_PSEUDO_KFUNC_CALL;
 }
 
+/* callx: indirect call of a bpf subprog whose address is in insn->dst_reg */
+static inline bool bpf_is_callx(const struct bpf_insn *insn)
+{
+	return insn->code == (BPF_JMP | BPF_CALL | BPF_X);
+}
+
 __printf(2, 0) void bpf_verifier_vlog(struct bpf_verifier_log *log,
 				      const char *fmt, va_list args);
 __printf(2, 3) void bpf_verifier_log_write(struct bpf_verifier_env *env,

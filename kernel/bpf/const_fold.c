@@ -191,7 +191,8 @@ static void const_reg_xfer(struct bpf_verifier_env *env, struct const_arg_info *
 		dst->val = val;
 		break;
 	case BPF_JMP:
-		if (opcode != BPF_CALL)
+		/* both 'call imm' and 'callx reg' clobber caller saved registers */
+		if (BPF_OP(insn->code) != BPF_CALL)
 			break;
 process_call:
 		for (r = BPF_REG_0; r <= BPF_REG_5; r++)
