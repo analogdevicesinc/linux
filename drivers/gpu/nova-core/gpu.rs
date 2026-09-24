@@ -6,16 +6,25 @@ use kernel::{
     device,
     dma::Device,
     fmt,
+    gpu::buddy::GpuBuddyParams,
     io::Io,
     num::Bounded,
     pci,
     prelude::*,
-    sizes::SizeConstants, //
+    ptr::Alignment,
+    sizes::{
+        SizeConstants,
+        SZ_4K, //
+    },
+    sync::Arc,
 };
 
 use crate::{
     bounded_enum,
-    driver::Bar0,
+    driver::{
+        Bar0,
+        Bar1, //
+    },
     falcon::{
         gsp::Gsp as GspFalcon,
         sec2::Sec2 as Sec2Falcon,
@@ -29,11 +38,17 @@ use crate::{
         Gsp,
         GspBootContext, //
     },
-    regs,
+    mm::{
+        bar_user::BarUser,
+        pagetable::MmuVersion,
+        GpuMm,
+        VramAddress, //
+    },
     vgpu::VgpuManager, //
 };
 
 mod hal;
+mod regs;
 
 macro_rules! define_chipset {
     ({ $($variant:ident = $value:expr),* $(,)* }) =>
@@ -138,6 +153,11 @@ impl Chipset {
     /// Returns the address range of the PCI config mirror space.
     pub(crate) fn pci_config_mirror_range(self) -> Range<u32> {
         hal::gpu_hal(self).pci_config_mirror_range()
+    }
+
+    /// Returns the MMU version for this chipset.
+    pub(crate) fn mmu_version(self) -> MmuVersion {
+        MmuVersion::from(self.arch())
     }
 }
 
@@ -272,9 +292,9 @@ struct GspResources<'gpu> {
     vgpu: VgpuManager,
     /// GSP runtime data.
     #[pin]
-    gsp: Gsp,
+    gsp: Gsp<'gpu>,
     /// GSP unload firmware bundle, if any.
-    unload_bundle: Option<gsp::UnloadBundle>,
+    unload_bundle: Option<gsp::UnloadBundle<'gpu>>,
 }
 
 /// Structure holding the resources required to operate the GPU.
@@ -283,6 +303,13 @@ pub(crate) struct Gpu<'gpu> {
     spec: Spec,
     /// Static GPU information as provided by the GSP.
     gsp_static_info: GetGspStaticInfoReply,
+    /// GPU memory manager owning memory management resources.
+    ///
+    /// Must be kept declared *before* `gsp_resources`, so that its components are dropped while
+    /// the GSP is still operational.
+    mm: GpuMm<'gpu>,
+    /// BAR1 user interface for CPU access to GPU virtual memory.
+    bar_user: Arc<BarUser<'gpu>>,
     /// GSP and its resources.
     #[pin]
     gsp_resources: GspResources<'gpu>,
@@ -326,6 +353,7 @@ impl<'gpu> Gpu<'gpu> {
     pub(crate) fn new<'a>(
         pdev: &'gpu pci::Device<device::Core<'a>>,
         bar: Bar0<'gpu>,
+        bar1: &'gpu Bar1<'gpu>,
     ) -> impl PinInit<Self, Error> + use<'gpu, 'a> {
         let dev = pdev.as_ref();
 
@@ -342,6 +370,13 @@ impl<'gpu> Gpu<'gpu> {
                 // SAFETY: `Gpu` owns all DMA allocations for this device, and we are
                 // still constructing it, so no concurrent DMA allocations can exist.
                 unsafe { pdev.dma_set_mask_and_coherent(dma_mask)? };
+
+                // Nova walks SG segments to build page tables, so their length is
+                // irrelevant to the device.
+                //
+                // SAFETY: `Gpu` owns all DMA allocations for this device, and we are
+                // still constructing it, so no concurrent DMA allocations can exist.
+                unsafe { pdev.dma_set_max_seg_size(u32::MAX) };
 
                 hal.wait_gfw_boot_completion(bar)
                     .inspect_err(|_| dev_err!(dev, "GFW boot did not complete\n"))?;
@@ -370,7 +405,7 @@ impl<'gpu> Gpu<'gpu> {
 
                 vgpu: VgpuManager::new(pdev, spec.chipset, fsp.as_mut()),
 
-                gsp <- Gsp::new(pdev),
+                gsp <- Gsp::new(pdev, bar),
 
                 // This member must be initialized last, so the `UnloadBundle` can never be dropped
                 // from outside of the constructed `GspResources`, ensuring that the unload sequence
@@ -388,7 +423,7 @@ impl<'gpu> Gpu<'gpu> {
 
             gsp_static_info: {
                 // Obtain and display basic GPU information.
-                let info = gsp_resources.gsp.get_static_info(bar)?;
+                let info = gsp_resources.gsp.get_static_info()?;
                 match info.gpu_name() {
                     Ok(name) => dev_info!(dev, "GPU name: {}\n", name),
                     Err(e) => dev_warn!(dev, "GPU name unavailable: {:?}\n", e),
@@ -410,7 +445,64 @@ impl<'gpu> Gpu<'gpu> {
                 }
 
                 info
-            }
+            },
+
+            // Create GPU memory manager owning memory management resources.
+            mm: {
+                let usable_vram = gsp_static_info.usable_fb_regions.first().ok_or(ENODEV)?;
+                let buddy_params = GpuBuddyParams {
+                    base_offset: usable_vram.start,
+                    size: usable_vram.end - usable_vram.start,
+                    chunk_size: Alignment::new::<SZ_4K>(),
+                };
+
+                GpuMm::new(
+                    bar,
+                    gsp_resources.spec.chipset,
+                    buddy_params,
+                    VramAddress::from_raw(gsp_static_info.total_fb_end),
+                )?
+            },
+
+            // Create BAR1 user interface for CPU access to GPU virtual memory.
+            bar_user: {
+                let pdb_addr = VramAddress::from_raw(gsp_static_info.bar1_pde_base);
+                let bar1_idx = crate::driver::bar1_resource_index(pdev)?;
+                let bar1_size = pdev.resource_len(bar1_idx)?;
+                Arc::pin_init(
+                    BarUser::new(
+                        pdb_addr,
+                        gsp_resources.spec.chipset,
+                        bar1_size,
+                        bar1,
+                    )?,
+                    GFP_KERNEL,
+                )?
+            },
         })
     }
+
+    /// Runs self-tests on the constructed [`Gpu`], logging failures without failing probe.
+    #[cfg(CONFIG_NOVA_CORE_SELFTESTS)]
+    pub(crate) fn run_selftests(self: Pin<&mut Self>, pdev: &pci::Device<device::Bound>) {
+        let this = self.project();
+        let dev = pdev.as_ref();
+        let regions = &this.gsp_static_info.usable_fb_regions;
+
+        if let Err(err) = crate::mm::selftest::run(
+            dev,
+            this.mm,
+            regions,
+            this.bar_user,
+            this.gsp_static_info.bar1_pde_base,
+            this.spec.chipset,
+        ) {
+            dev_err!(dev, "self-tests failed: {:?}\n", err);
+        }
+    }
+}
+
+/// Reads the boot0 register and returns its raw value.
+pub(crate) fn boot_0_raw(bar: Bar0<'_>) -> u32 {
+    bar.read(regs::NV_PMC_BOOT_0).into_raw()
 }

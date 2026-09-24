@@ -2,7 +2,11 @@
 
 use kernel::{
     auxiliary,
-    device::Core,
+    device::{
+        Bound,
+        Core, //
+    },
+    io::resource,
     pci,
     pci::{
         Class,
@@ -28,6 +32,7 @@ pub(crate) struct NovaCore<'bound> {
     #[pin]
     pub(crate) gpu: Gpu<'bound>,
     bar: pci::Bar<'bound, BAR0_SIZE>,
+    bar1: Bar1<'bound>,
     #[allow(clippy::type_complexity)]
     _reg: auxiliary::Registration<'bound, CovariantForLt!(())>,
 }
@@ -37,6 +42,27 @@ pub(crate) struct NovaCoreDriver;
 const BAR0_SIZE: usize = SZ_16M;
 
 pub(crate) type Bar0<'a> = &'a pci::Bar<'a, BAR0_SIZE>;
+pub(crate) type NovaRegisters = kernel::io::Region<BAR0_SIZE>;
+pub(crate) type Bar1<'a> = pci::Bar<'a>;
+
+/// Returns the Linux PCI resource index that holds BAR1 for an NVIDIA GPU.
+///
+/// On Maxwell through Ada, BAR0 is a 32-bit memory BAR occupying a single
+/// Linux PCI resource slot, so BAR1 lives at index 1. Starting with Blackwell
+/// (and on some Ampere GA100 / Hopper SKUs) BAR0 is a 64-bit memory BAR that
+/// consumes two consecutive resource slots: index 0 holds the low 32 bits and
+/// index 1 holds the high 32 bits (with no `flags` / or size of its own),
+/// shifting BAR1 to index 2.
+pub(crate) fn bar1_resource_index(pdev: &pci::Device<Bound>) -> Result<u32> {
+    // Probe the `IORESOURCE_MEM_64` flag of BAR0 as a robust way of exposing
+    // if BAR0 and hence BAR1 is 64-bit.
+    let flags0 = pdev.resource_flags(0)?;
+    if flags0.contains(resource::Flags::IORESOURCE_MEM_64) {
+        Ok(2)
+    } else {
+        Ok(1)
+    }
+}
 
 kernel::pci_device_table!(
     PCI_TABLE,
@@ -79,12 +105,21 @@ impl pci::Driver for NovaCoreDriver {
 
             Ok(try_pin_init!(NovaCore {
                 bar: pdev.iomap_region_sized::<BAR0_SIZE>(0, c"nova-core/bar0")?,
-                // TODO: Use `&bar` self-referential pin-init syntax once available.
-                //
-                // SAFETY: `bar` is initialized before this expression is evaluated
-                // (`try_pin_init!()` initializes fields in declaration order), lives at a pinned
-                // stable address, and is dropped after `gpu` (struct field drop order).
-                gpu <- Gpu::new(pdev, unsafe { &*core::ptr::from_ref(bar) }),
+                bar1: {
+                    let bar1_idx = bar1_resource_index(pdev)?;
+                    pdev.iomap_region(bar1_idx, c"nova-core/bar1")?
+                },
+                // TODO: Use self-referential pin-init syntax once available.
+                gpu <- Gpu::new(
+                    pdev,
+                    // SAFETY: `bar` is initialized above, pinned, and outlives `gpu`.
+                    unsafe { &*core::ptr::from_ref(bar) },
+                    // SAFETY: `bar1` is initialized above, pinned, and outlives `gpu`.
+                    unsafe { &*core::ptr::from_ref(bar1) },
+                ),
+                // Run optional GPU selftests.
+                #[cfg(CONFIG_NOVA_CORE_SELFTESTS)]
+                _: { gpu.run_selftests(pdev) },
                 _reg: auxiliary::Registration::new(
                     pdev.as_ref(),
                     c"nova-drm",
