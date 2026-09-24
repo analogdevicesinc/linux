@@ -1277,6 +1277,8 @@ __description("stack_noperfmon: reject read of invalid slots")
 __success
 __caps_unpriv(CAP_BPF)
 __failure_unpriv __msg_unpriv("invalid read from stack off -8+1 size 8")
+__msg_unpriv("Verification failed: Memory Safety: Uninitialized stack read")
+__msg_unpriv("Initialize every byte in the stack range before reading it")
 __naked void stack_noperfmon_reject_invalid_read(void)
 {
 	asm volatile ("					\
