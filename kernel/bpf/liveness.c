@@ -15,7 +15,7 @@
  * Half-slot 0 covers [fp-4, fp), half-slot 1 covers [fp-8, fp-4), and so on,
  * hence FRAME_HALF_SPIS - 1 is the deepest half-slot a frame can have.
  */
-#define FRAME_HALF_SPIS		(MAX_BPF_STACK / BPF_HALF_REG_SIZE)
+#define FRAME_HALF_SPIS		(MAX_BPF_STACK_JIT / BPF_HALF_REG_SIZE)
 #define FRAME_MAX_WORDS		BITS_TO_LONGS(FRAME_HALF_SPIS)
 
 /* Masks tracked for each instruction of a frame */
@@ -1022,6 +1022,19 @@ static void arg_padd(struct arg_track *at, s64 delta)
 }
 
 /*
+ * Slots the spill tracker may follow for a subprog of @len instructions
+ * without its per-instruction tables costing more than they could for the
+ * largest program while every frame stayed within MAX_BPF_STACK: as many
+ * entries as 64 slots need for BPF_COMPLEXITY_LIMIT_INSNS instructions.
+ */
+static u32 spill_slots_affordable(int len)
+{
+	u32 base = MAX_BPF_STACK / BPF_REG_SIZE;
+
+	return max_t(u32, base, base * BPF_COMPLEXITY_LIMIT_INSNS / len);
+}
+
+/*
  * Number of 8-byte spill slots to track for the instructions in [@start, @end):
  * the 64 slots of a MAX_BPF_STACK frame, which the tracker has always
  * followed, or the deepest 8-byte stack access made directly through R10 when
@@ -1793,7 +1806,7 @@ static int compute_subprog_args(struct bpf_verifier_env *env,
 	int end = env->subprog_info[subprog + 1].start;
 	int po_end = env->subprog_info[subprog + 1].postorder_start;
 	int len = end - start;
-	u32 nslots = subprog_spill_slots(env, start, end);
+	u32 nslots = min(subprog_spill_slots(env, start, end), spill_slots_affordable(len));
 	struct arg_track (*at_in)[MAX_AT_TRACK_REGS] = NULL;
 	struct arg_track at_out[MAX_AT_TRACK_REGS];
 	struct arg_track *at_stack_in = NULL;
