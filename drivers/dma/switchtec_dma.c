@@ -406,7 +406,7 @@ static int disable_channel(struct switchtec_dma_chan *swdma_chan)
 static void
 switchtec_dma_cleanup_completed(struct switchtec_dma_chan *swdma_chan)
 {
-	struct device *chan_dev = &swdma_chan->dma_chan.dev->device;
+	struct device *chan_dev = dmaengine_chan_dev(&swdma_chan->dma_chan);
 	struct switchtec_dma_desc *desc;
 	struct switchtec_dma_hw_ce *ce;
 	struct dmaengine_result res;
@@ -851,7 +851,7 @@ static irqreturn_t switchtec_dma_chan_status_isr(int irq, void *dma)
 	list_for_each_entry(chan, &dma_dev->channels, device_node) {
 		swdma_chan = container_of(chan, struct switchtec_dma_chan,
 					  dma_chan);
-		chan_dev = &swdma_chan->dma_chan.dev->device;
+		chan_dev = dmaengine_chan_dev(&swdma_chan->dma_chan);
 		chan_hw = swdma_chan->mmio_chan_hw;
 
 		rcu_read_lock();
@@ -1009,19 +1009,19 @@ static int switchtec_dma_alloc_chan_resources(struct dma_chan *chan)
 	perf_cfg = readl(&swdma_chan->mmio_chan_fw->perf_cfg);
 	rcu_read_unlock();
 
-	dev_dbg(&chan->dev->device, "Burst Size:  0x%x\n",
+	dev_dbg(dmaengine_chan_dev(chan), "Burst Size:  0x%x\n",
 		FIELD_GET(PERF_BURST_SIZE_MASK, perf_cfg));
 
-	dev_dbg(&chan->dev->device, "Burst Scale: 0x%x\n",
+	dev_dbg(dmaengine_chan_dev(chan), "Burst Scale: 0x%x\n",
 		FIELD_GET(PERF_BURST_SCALE_MASK, perf_cfg));
 
-	dev_dbg(&chan->dev->device, "Interval:    0x%x\n",
+	dev_dbg(dmaengine_chan_dev(chan), "Interval:    0x%x\n",
 		FIELD_GET(PERF_INTERVAL_MASK, perf_cfg));
 
-	dev_dbg(&chan->dev->device, "Arb Weight:  0x%x\n",
+	dev_dbg(dmaengine_chan_dev(chan), "Arb Weight:  0x%x\n",
 		FIELD_GET(PERF_ARB_WEIGHT_MASK, perf_cfg));
 
-	dev_dbg(&chan->dev->device, "MRRS:        0x%x\n",
+	dev_dbg(dmaengine_chan_dev(chan), "MRRS:        0x%x\n",
 		FIELD_GET(PERF_MRRS_MASK, perf_cfg));
 
 	return SWITCHTEC_DMA_SQ_SIZE;
