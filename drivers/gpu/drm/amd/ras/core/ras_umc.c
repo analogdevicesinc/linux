@@ -852,6 +852,13 @@ static int ras_umc_save_bad_pages(struct ras_core_context *ras_core)
 		RAS_DEV_INFO(ras_core->dev, "Saved %d pages to EEPROM table.\n",
 			ras_umc_count_valid_pages(ras_core,
 				&data->bps[eeprom_record_num], save_count));
+
+		/* The table is only tagged as over threshold while the new
+		 * records are written out, so the status has to be
+		 * re-evaluated here.
+		 */
+		ras_eeprom_mgr_check_and_report_status(ras_core, true);
+		ras_umc_report_badpage_info(ras_core);
 	}
 
 exit:
