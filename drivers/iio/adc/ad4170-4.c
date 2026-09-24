@@ -2507,7 +2507,7 @@ static int ad4170_clock_select(struct iio_dev *indio_dev)
 		/* Use internal clock reference */
 		st->mclk_hz = AD4170_INT_CLOCK_16MHZ / st->chip->clock_div;
 		st->clock_ctrl |= FIELD_PREP(AD4170_CLOCK_CTRL_CLOCKSEL_MSK,
-					     AD4170_CLOCK_CTRL_CLOCKSEL_INT_OUT);
+					     AD4170_CLOCK_CTRL_CLOCKSEL_INT);
 
 		if (!device_property_present(&st->spi->dev, "#clock-cells"))
 			return 0;
