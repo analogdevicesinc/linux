@@ -261,6 +261,11 @@ const char *btf_type_str(const struct btf_type *t);
 	     i < btf_type_vlen(datasec_type);			\
 	     i++, member++)
 
+#define for_each_loc(i, locsec_type, member)			\
+	for (i = 0, member = btf_type_loc_secinfo(locsec_type);	\
+	     i < btf_type_vlen(locsec_type);			\
+	     i++, member++)
+
 static inline bool btf_type_is_ptr(const struct btf_type *t)
 {
 	return BTF_INFO_KIND(t->info) == BTF_KIND_PTR;
@@ -327,6 +332,21 @@ static inline bool btf_is_enum64(const struct btf_type *t)
 static inline u64 btf_enum64_value(const struct btf_enum64 *e)
 {
 	return ((u64)e->val_hi32 << 32) | e->val_lo32;
+}
+
+static inline struct btf_loc_param *btf_loc_param(const struct btf_type *t)
+{
+	return (struct btf_loc_param *)(t + 1);
+}
+
+static inline __u32 *btf_loc_proto_params(const struct btf_type *t)
+{
+	return (__u32 *)(t + 1);
+}
+
+static inline struct btf_loc *btf_type_loc_secinfo(const struct btf_type *t)
+{
+	return (struct btf_loc *)(t + 1);
 }
 
 static inline bool btf_is_composite(const struct btf_type *t)
@@ -559,7 +579,7 @@ struct btf_field_desc {
 	/* member struct size, or zero, if no members */
 	int m_sz;
 	/* repeated per-member offsets */
-	int m_off_cnt, m_offs[1];
+	int m_off_cnt, m_offs[2];
 };
 
 struct btf_field_iter {
