@@ -26,8 +26,9 @@ static inline unsigned int
 nfsacl_size(struct posix_acl *acl_access, struct posix_acl *acl_default)
 {
 	unsigned int w = 16;
-	w += max(acl_access ? (int)acl_access->a_count : 3, 4) * 12;
-	if (acl_default)
+	if (acl_access && acl_access->a_count >= 3)
+		w += max((int)acl_access->a_count, 4) * 12;
+	if (acl_default && acl_default->a_count >= 3)
 		w += max((int)acl_default->a_count, 4) * 12;
 	return w;
 }
