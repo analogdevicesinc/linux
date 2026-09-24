@@ -1212,14 +1212,10 @@ static struct ffa_driver optee_ffa_driver = {
 
 int optee_ffa_abi_register(void)
 {
-	if (IS_REACHABLE(CONFIG_ARM_FFA_TRANSPORT))
-		return ffa_register(&optee_ffa_driver);
-	else
-		return -EOPNOTSUPP;
+	return ffa_register(&optee_ffa_driver);
 }
 
 void optee_ffa_abi_unregister(void)
 {
-	if (IS_REACHABLE(CONFIG_ARM_FFA_TRANSPORT))
-		ffa_unregister(&optee_ffa_driver);
+	ffa_unregister(&optee_ffa_driver);
 }
