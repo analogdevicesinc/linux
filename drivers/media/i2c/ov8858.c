@@ -1409,6 +1409,7 @@ static const struct v4l2_subdev_video_ops ov8858_video_ops = {
  */
 
 static int ov8858_set_fmt(struct v4l2_subdev *sd,
+			  const struct v4l2_subdev_client_info *ci,
 			  struct v4l2_subdev_state *state,
 			  struct v4l2_subdev_format *fmt)
 {
@@ -1486,7 +1487,7 @@ static int ov8858_init_state(struct v4l2_subdev *sd,
 		},
 	};
 
-	ov8858_set_fmt(sd, sd_state, &fmt);
+	ov8858_set_fmt(sd, NULL, sd_state, &fmt);
 
 	return 0;
 }
