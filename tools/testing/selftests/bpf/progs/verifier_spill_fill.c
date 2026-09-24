@@ -1346,6 +1346,23 @@ __naked void old_imprecise_scalar32_vs_cur_stack_misc(void)
 	: __clobber_all);
 }
 
+SEC("socket")
+__description("stack_noperfmon: reject non-fetch atomic on narrow spill")
+__success
+__caps_unpriv(CAP_BPF)
+__failure_unpriv __msg_unpriv("invalid read from stack off -8+4 size 8")
+__naked void stack_noperfmon_reject_atomic_on_narrow_spill(void)
+{
+	asm volatile (
+	"r1 = 1;"
+	"*(u32 *)(r10 - 8) = r1;"
+	/* A non-fetch atomic reads all 8 bytes of the slot. */
+	"lock *(u64 *)(r10 - 8) += r1;"
+	"r0 = 0;"
+	"exit;"
+	::: __clobber_all);
+}
+
 SEC("raw_tp")
 __success
 __naked void var_off_write_over_scalar_spill(void)
