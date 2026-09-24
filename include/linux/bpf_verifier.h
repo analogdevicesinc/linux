@@ -1021,6 +1021,8 @@ struct bpf_verifier_env {
 	u32 prev_jmps_processed, jmps_processed;
 	/* maximum combined stack depth */
 	u32 max_stack_depth;
+	/* stack budget of the program, see bpf_prog_stack_limit() */
+	u32 stack_limit;
 	/* total verification time */
 	u64 verification_time;
 	/* maximum number of verifier states kept in 'branching' instructions */
@@ -1280,6 +1282,24 @@ int bpf_mark_chain_precision(struct bpf_verifier_env *env,
 static inline int bpf_get_spi(s32 off)
 {
 	return (-off - 1) / BPF_REG_SIZE;
+}
+
+/*
+ * Stack a program may use in total: combined over the frames of a call
+ * chain on the kernel stack, or per frame on a private stack. Any single
+ * frame may reach that deep. Only a JIT that lays out such frames may go
+ * beyond MAX_BPF_STACK, the interpreter's frame size, and only one whose
+ * tail calls let the target set up its own frame: without subprogram
+ * tail calls, do_misc_fixups() gives every program with tail calls a
+ * MAX_BPF_STACK frame, which a deeper frame would overrun.
+ */
+static inline u32 bpf_prog_stack_limit(const struct bpf_prog *prog)
+{
+	/* an offloaded program never runs on the host JIT, whatever it supports */
+	if (prog->jit_requested && !bpf_prog_is_offloaded(prog->aux) &&
+	    bpf_jit_supports_large_stack() && bpf_jit_supports_subprog_tailcalls())
+		return MAX_BPF_STACK_JIT;
+	return MAX_BPF_STACK;
 }
 
 /*

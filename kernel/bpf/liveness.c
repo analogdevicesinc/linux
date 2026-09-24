@@ -36,9 +36,9 @@ enum {
  * relative index @i is at &bits[(i * FM_MASK_CNT + kind) * words]. A
  * half-slot at or past @words * BITS_PER_LONG is never read by this frame,
  * hence never live. An instruction that may read the whole frame, such as a
- * call passing a frame pointer to another subprog, widens the array to
- * FRAME_MAX_WORDS, so that the read cannot lose half-slots to a later
- * widening.
+ * call passing a frame pointer to another subprog, widens the array to the
+ * program's stack budget, the deepest an accepted program can reach, so
+ * that the read cannot lose half-slots to a later widening.
  */
 struct frame_masks {
 	u32 words;
@@ -264,12 +264,17 @@ static int mark_stack_write(struct func_instance *instance, u32 frame, u32 insn_
 
 /*
  * Mark every half-slot of @frame as possibly read by @insn_idx. This widens
- * the masks to the maximum width: a full read recorded at a narrower width
- * would leave the bits added by a later widening clear and lose part of it.
+ * the masks to the program's stack budget: a full read recorded at a narrower
+ * width would leave the bits added by a later widening clear and lose part of
+ * it. No verifier state holds a slot past the budget, so no liveness query
+ * reaches beyond it; an access past the budget in unreachable code may still
+ * widen a frame's masks further, which is harmless.
  */
-static int mark_stack_read_all(struct func_instance *instance, u32 frame, u32 insn_idx)
+static int mark_stack_read_all(struct bpf_verifier_env *env, struct func_instance *instance,
+			       u32 frame, u32 insn_idx)
 {
-	return mark_stack_read(instance, frame, insn_idx, 0, FRAME_HALF_SPIS - 1);
+	return mark_stack_read(instance, frame, insn_idx, 0,
+			       env->stack_limit / BPF_HALF_REG_SIZE - 1);
 }
 
 /* Accumulate @src, a mask @src_words wide, into may_read of @frame at @insn_idx */
@@ -1038,10 +1043,10 @@ static u32 spill_slots_affordable(int len)
  * Number of 8-byte spill slots to track for the instructions in [@start, @end):
  * the 64 slots of a MAX_BPF_STACK frame, which the tracker has always
  * followed, or the deepest 8-byte stack access made directly through R10 when
- * that reaches further. Spills and fills are compiled as direct R10 accesses,
- * so the count covers them whatever the frame size; a fill through a derived
- * pointer that reaches past it is treated as imprecise, as one past the frame
- * always was.
+ * that reaches further, up to the program's stack budget. Spills and fills are
+ * compiled as direct R10 accesses, so the count covers them whatever the frame
+ * size; a fill through a derived pointer that reaches past it is treated as
+ * imprecise, as one past the frame always was.
  */
 static u32 subprog_spill_slots(struct bpf_verifier_env *env, int start, int end)
 {
@@ -1064,7 +1069,8 @@ static u32 subprog_spill_slots(struct bpf_verifier_env *env, int start, int end)
 		if (base == BPF_REG_FP && insn->off < 0)
 			deepest = max(deepest, -insn->off);
 	}
-	return clamp_t(u32, DIV_ROUND_UP(deepest, 8), MAX_BPF_STACK / BPF_REG_SIZE, MAX_BPF_STACK_SLOTS);
+	return clamp_t(u32, DIV_ROUND_UP(deepest, 8), MAX_BPF_STACK / BPF_REG_SIZE,
+		       env->stack_limit / BPF_REG_SIZE);
 }
 
 /*
@@ -1456,7 +1462,7 @@ static int record_stack_access_off(struct func_instance *instance, s64 fp_off,
  * 'arg' is FP-derived argument to helper/kfunc or load/store that
  * reads (positive) or writes (negative) 'access_bytes' into 'use' or 'def'.
  */
-static int record_stack_access(struct func_instance *instance,
+static int record_stack_access(struct bpf_verifier_env *env, struct func_instance *instance,
 			       const struct arg_track *arg,
 			       s64 access_bytes, u32 frame, u32 insn_idx)
 {
@@ -1466,7 +1472,7 @@ static int record_stack_access(struct func_instance *instance,
 		return 0;
 	if (arg->off_cnt == 0) {
 		if (access_bytes > 0 || access_bytes == S64_MIN)
-			return mark_stack_read_all(instance, frame, insn_idx);
+			return mark_stack_read_all(env, instance, frame, insn_idx);
 		return 0;
 	}
 	if (access_bytes != S64_MIN && access_bytes < 0 && arg->off_cnt != 1)
@@ -1485,7 +1491,8 @@ static int record_stack_access(struct func_instance *instance,
  * When a pointer is ARG_IMPRECISE, conservatively mark every frame in
  * the bitmask as fully used.
  */
-static int record_imprecise(struct func_instance *instance, u32 mask, u32 insn_idx)
+static int record_imprecise(struct bpf_verifier_env *env, struct func_instance *instance,
+			    u32 mask, u32 insn_idx)
 {
 	int depth = instance->depth;
 	int f, err;
@@ -1494,7 +1501,7 @@ static int record_imprecise(struct func_instance *instance, u32 mask, u32 insn_i
 		if (!(mask & 1))
 			continue;
 		if (f <= depth) {
-			err = mark_stack_read_all(instance, f, insn_idx);
+			err = mark_stack_read_all(env, instance, f, insn_idx);
 			if (err)
 				return err;
 		}
@@ -1563,9 +1570,9 @@ static int record_load_store_access(struct bpf_verifier_env *env,
 	}
 
 	if (ptr->frame >= 0 && ptr->frame <= depth)
-		return record_stack_access(instance, ptr, sz, ptr->frame, insn_idx);
+		return record_stack_access(env, instance, ptr, sz, ptr->frame, insn_idx);
 	if (ptr->frame == ARG_IMPRECISE)
-		return record_imprecise(instance, ptr->mask, insn_idx);
+		return record_imprecise(env, instance, ptr->mask, insn_idx);
 	/* ARG_NONE: not derived from any frame pointer, skip */
 	return 0;
 }
@@ -1590,7 +1597,7 @@ static int record_arg_access(struct bpf_verifier_env *env,
 		bytes = bpf_kfunc_stack_access_bytes(env, insn, arg_idx, insn_idx);
 	} else {
 		for (int f = 0; f <= depth; f++) {
-			err = mark_stack_read_all(instance, f, insn_idx);
+			err = mark_stack_read_all(env, instance, f, insn_idx);
 			if (err)
 				return err;
 		}
@@ -1600,9 +1607,9 @@ static int record_arg_access(struct bpf_verifier_env *env,
 		return 0;
 
 	if (frame >= 0 && frame <= depth)
-		err = record_stack_access(instance, at, bytes, frame, insn_idx);
+		err = record_stack_access(env, instance, at, bytes, frame, insn_idx);
 	else if (frame == ARG_IMPRECISE)
-		err = record_imprecise(instance, at->mask, insn_idx);
+		err = record_imprecise(env, instance, at->mask, insn_idx);
 	return err;
 }
 
@@ -2124,7 +2131,7 @@ static int analyze_subprog(struct bpf_verifier_env *env,
 				if (info[subprog].at_in[j][caller_reg].frame == ARG_NONE)
 					continue;
 				for (int f = 0; f <= depth; f++) {
-					err = mark_stack_read_all(instance, f, idx);
+					err = mark_stack_read_all(env, instance, f, idx);
 					if (err)
 						goto out_free;
 				}
