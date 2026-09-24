@@ -54,8 +54,7 @@ MODULE_DEVICE_TABLE(acpi, fan_device_ids);
 static int fan_get_max_state(struct thermal_cooling_device *cdev, unsigned long
 			     *state)
 {
-	struct acpi_device *device = cdev->devdata;
-	struct acpi_fan *fan = acpi_driver_data(device);
+	struct acpi_fan *fan = cdev->devdata;
 
 	if (fan->acpi4) {
 		if (fan->fif.fine_grain_ctrl)
@@ -105,9 +104,9 @@ err:
 	return ret;
 }
 
-static int fan_get_state_acpi4(struct acpi_device *device, unsigned long *state)
+static int fan_get_state_acpi4(struct acpi_fan *fan, unsigned long *state)
 {
-	struct acpi_fan *fan = acpi_driver_data(device);
+	struct acpi_device *device = fan->adev;
 	struct acpi_fan_fst fst;
 	int status, i;
 
@@ -159,13 +158,12 @@ static int fan_get_state(struct acpi_device *device, unsigned long *state)
 static int fan_get_cur_state(struct thermal_cooling_device *cdev, unsigned long
 			     *state)
 {
-	struct acpi_device *device = cdev->devdata;
-	struct acpi_fan *fan = acpi_driver_data(device);
+	struct acpi_fan *fan = cdev->devdata;
 
 	if (fan->acpi4)
-		return fan_get_state_acpi4(device, state);
+		return fan_get_state_acpi4(fan, state);
 	else
-		return fan_get_state(device, state);
+		return fan_get_state(fan->adev, state);
 }
 
 static int fan_set_state(struct acpi_device *device, unsigned long state)
@@ -177,9 +175,9 @@ static int fan_set_state(struct acpi_device *device, unsigned long state)
 				     state ? ACPI_STATE_D0 : ACPI_STATE_D3_COLD);
 }
 
-static int fan_set_state_acpi4(struct acpi_device *device, unsigned long state)
+static int fan_set_state_acpi4(struct acpi_fan *fan, unsigned long state)
 {
-	struct acpi_fan *fan = acpi_driver_data(device);
+	struct acpi_device *device = fan->adev;
 	acpi_status status;
 	u64 value = state;
 	int max_state;
@@ -213,13 +211,12 @@ static int fan_set_state_acpi4(struct acpi_device *device, unsigned long state)
 static int
 fan_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
-	struct acpi_device *device = cdev->devdata;
-	struct acpi_fan *fan = acpi_driver_data(device);
+	struct acpi_fan *fan = cdev->devdata;
 
 	if (fan->acpi4)
-		return fan_set_state_acpi4(device, state);
+		return fan_set_state_acpi4(fan, state);
 	else
-		return fan_set_state(device, state);
+		return fan_set_state(fan->adev, state);
 }
 
 static const struct thermal_cooling_device_ops fan_cooling_ops = {
@@ -284,7 +281,7 @@ static int acpi_fan_speed_cmp(const void *a, const void *b)
 	return fps1->speed - fps2->speed;
 }
 
-static int acpi_fan_get_fps(struct acpi_device *device)
+static int acpi_fan_get_fps(struct device *dev, struct acpi_device *device)
 {
 	struct acpi_fan *fan = acpi_driver_data(device);
 	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
@@ -304,11 +301,8 @@ static int acpi_fan_get_fps(struct acpi_device *device)
 	}
 
 	fan->fps_count = obj->package.count - 1; /* minus revision field */
-	fan->fps = devm_kcalloc(&device->dev,
-				fan->fps_count, sizeof(struct acpi_fan_fps),
-				GFP_KERNEL);
+	fan->fps = devm_kcalloc(dev, fan->fps_count, sizeof(*fan->fps), GFP_KERNEL);
 	if (!fan->fps) {
-		dev_err(&device->dev, "Not enough memory\n");
 		status = -ENOMEM;
 		goto err;
 	}
@@ -343,17 +337,18 @@ static int acpi_fan_dsm_init(struct device *dev)
 		},
 	};
 	struct acpi_fan *fan = dev_get_drvdata(dev);
+	acpi_handle fan_handle = fan->adev->handle;
 	union acpi_object *obj;
 	int ret = 0;
 
-	if (!acpi_check_dsm(fan->handle, &acpi_fan_microsoft_guid, 0,
+	if (!acpi_check_dsm(fan_handle, &acpi_fan_microsoft_guid, 0,
 			    BIT(ACPI_FAN_DSM_GET_TRIP_POINT_GRANULARITY) |
 			    BIT(ACPI_FAN_DSM_SET_TRIP_POINTS)))
 		return 0;
 
 	dev_info(dev, "Using Microsoft fan extensions\n");
 
-	obj = acpi_evaluate_dsm_typed(fan->handle, &acpi_fan_microsoft_guid, 0,
+	obj = acpi_evaluate_dsm_typed(fan_handle, &acpi_fan_microsoft_guid, 0,
 				      ACPI_FAN_DSM_GET_TRIP_POINT_GRANULARITY, &dummy,
 				      ACPI_TYPE_INTEGER);
 	if (!obj)
@@ -395,8 +390,8 @@ static int acpi_fan_dsm_set_trip_points(struct device *dev, u64 upper, u64 lower
 	};
 	union acpi_object *obj;
 
-	obj = acpi_evaluate_dsm(fan->handle, &acpi_fan_microsoft_guid, 0,
-				ACPI_FAN_DSM_SET_TRIP_POINTS, &in);
+	obj = acpi_evaluate_dsm(fan->adev->handle, &acpi_fan_microsoft_guid,
+				0, ACPI_FAN_DSM_SET_TRIP_POINTS, &in);
 	kfree(obj);
 
 	return 0;
@@ -506,7 +501,7 @@ static int acpi_fan_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	fan->handle = device->handle;
+	fan->adev = device;
 	device->driver_data = fan;
 	platform_set_drvdata(pdev, fan);
 
@@ -522,7 +517,7 @@ static int acpi_fan_probe(struct platform_device *pdev)
 		if (result)
 			return result;
 
-		result = acpi_fan_get_fps(device);
+		result = acpi_fan_get_fps(&pdev->dev, device);
 		if (result)
 			return result;
 	}
@@ -567,8 +562,7 @@ static int acpi_fan_probe(struct platform_device *pdev)
 	else
 		name = acpi_device_bid(device);
 
-	cdev = thermal_cooling_device_register(name, device,
-						&fan_cooling_ops);
+	cdev = thermal_cooling_device_create(&pdev->dev, name, fan, &fan_cooling_ops);
 	if (IS_ERR(cdev)) {
 		result = PTR_ERR(cdev);
 		goto err_end;
@@ -577,28 +571,9 @@ static int acpi_fan_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "registered as cooling_device%d\n", cdev->id);
 
 	fan->cdev = cdev;
-	result = sysfs_create_link(&pdev->dev.kobj,
-				   &cdev->device.kobj,
-				   "thermal_cooling");
-	if (result) {
-		dev_err(&pdev->dev, "Failed to create sysfs link 'thermal_cooling'\n");
-		goto err_unregister;
-	}
-
-	result = sysfs_create_link(&cdev->device.kobj,
-				   &pdev->dev.kobj,
-				   "device");
-	if (result) {
-		dev_err(&pdev->dev, "Failed to create sysfs link 'device'\n");
-		goto err_remove_link;
-	}
 
 	return 0;
 
-err_remove_link:
-	sysfs_remove_link(&pdev->dev.kobj, "thermal_cooling");
-err_unregister:
-	thermal_cooling_device_unregister(cdev);
 err_end:
 	if (fan->has_fst)
 		acpi_fan_delete_attributes(device);
@@ -615,8 +590,6 @@ static void acpi_fan_remove(struct platform_device *pdev)
 
 		acpi_fan_delete_attributes(device);
 	}
-	sysfs_remove_link(&pdev->dev.kobj, "thermal_cooling");
-	sysfs_remove_link(&fan->cdev->device.kobj, "device");
 	thermal_cooling_device_unregister(fan->cdev);
 }
 
