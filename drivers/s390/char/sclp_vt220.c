@@ -52,6 +52,12 @@ struct sclp_vt220_sccb {
 	struct evbuf_header evbuf;
 };
 
+struct sclp_vt220_evbuf {
+	struct evbuf_header header;
+	char type;
+	char data[];
+} __packed;
+
 #define SCLP_VT220_MAX_CHARS_PER_BUFFER	(PAGE_SIZE - \
 					 sizeof(struct sclp_vt220_request) - \
 					 sizeof(struct sclp_vt220_sccb))
@@ -519,25 +525,25 @@ static void sclp_vt220_handle_input(const char *buffer, unsigned int count)
 /*
  * Called by the SCLP to report incoming event buffers.
  */
-static void
-sclp_vt220_receiver_fn(struct evbuf_header *evbuf)
+static void sclp_vt220_receiver_fn(struct evbuf_header *evbuf)
 {
-	char *buffer;
+	struct sclp_vt220_evbuf *buffer;
 	unsigned int count;
 
-	buffer = (char *) ((addr_t) evbuf + sizeof(struct evbuf_header));
-	count = evbuf->length - sizeof(struct evbuf_header);
+	if (evbuf->length < offsetof(struct sclp_vt220_evbuf, data))
+		return;
 
-	switch (*buffer) {
+	buffer = (struct sclp_vt220_evbuf *)evbuf;
+	count = evbuf->length - offsetof(struct sclp_vt220_evbuf, data);
+
+	switch (buffer->type) {
 	case SCLP_VT220_SESSION_ENDED:
 	case SCLP_VT220_SESSION_STARTED:
 		sclp_vt220_reset_session();
 		break;
 	case SCLP_VT220_SESSION_DATA:
 		/* Send input to line discipline */
-		buffer++;
-		count--;
-		sclp_vt220_handle_input(buffer, count);
+		sclp_vt220_handle_input(buffer->data, count);
 		tty_flip_buffer_push(&sclp_vt220_port);
 		break;
 	}
