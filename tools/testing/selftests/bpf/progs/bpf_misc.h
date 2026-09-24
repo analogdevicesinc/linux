@@ -175,6 +175,9 @@
 #define __prepare_priv		__test_tag("test_prepare_priv")
 #define __load_if_JITed()	__test_tag("load_mode=jited")
 #define __load_if_no_JITed()	__test_tag("load_mode=no_jited")
+/* Whether programs may use more than 512 bytes of stack on this kernel and JIT */
+#define __load_if_large_stack()		__test_tag("stack_mode=large")
+#define __load_if_no_large_stack()	__test_tag("stack_mode=small")
 #define __stderr(msg)		__test_tag("test_expect_stderr=" msg)
 #define __stderr_unpriv(msg)	__test_tag("test_expect_stderr_unpriv=" msg)
 #define __stdout(msg)		__test_tag("test_expect_stdout=" msg)

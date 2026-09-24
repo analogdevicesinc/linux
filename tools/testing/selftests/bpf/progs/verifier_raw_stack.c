@@ -240,6 +240,7 @@ __naked void load_bytes_spilled_regs_data(void)
 
 SEC("tc")
 __description("raw_stack: skb_load_bytes, invalid access 1")
+__load_if_no_large_stack()
 __failure __msg("invalid write to stack R3 off=-513 size=8")
 __naked void load_bytes_invalid_access_1(void)
 {
@@ -247,6 +248,26 @@ __naked void load_bytes_invalid_access_1(void)
 	r2 = 4;						\
 	r6 = r10;					\
 	r6 += -513;					\
+	r3 = r6;					\
+	r4 = 8;						\
+	call %[bpf_skb_load_bytes];			\
+	r0 = *(u64*)(r6 + 0);				\
+	exit;						\
+"	:
+	: __imm(bpf_skb_load_bytes)
+	: __clobber_all);
+}
+
+SEC("tc")
+__description("raw_stack: skb_load_bytes, invalid access 1, large stack")
+__load_if_large_stack()
+__failure __msg("invalid write to stack R3 off=-2049 size=8")
+__naked void load_bytes_invalid_access_1_large(void)
+{
+	asm volatile ("					\
+	r2 = 4;						\
+	r6 = r10;					\
+	r6 += -2049;					\
 	r3 = r6;					\
 	r4 = 8;						\
 	call %[bpf_skb_load_bytes];			\

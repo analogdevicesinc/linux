@@ -626,19 +626,64 @@ static unsigned long use_stack_304(void)
 	);
 }
 
+
+/* Four 480-byte frames, deeper than any budget together with their caller */
+__naked __noinline __used
+static unsigned long use_stack_480_0(void)
+{
+	asm volatile (
+		"r0 = 0;"
+		"*(u64 *)(r10 - 480) = r0;"
+		"exit;"
+	);
+}
+
+__naked __noinline __used
+static unsigned long use_stack_480_1(void)
+{
+	asm volatile (
+		"r0 = 0;"
+		"*(u64 *)(r10 - 480) = r0;"
+		"call use_stack_480_0;"
+		"exit;"
+	);
+}
+
+__naked __noinline __used
+static unsigned long use_stack_480_2(void)
+{
+	asm volatile (
+		"r0 = 0;"
+		"*(u64 *)(r10 - 480) = r0;"
+		"call use_stack_480_1;"
+		"exit;"
+	);
+}
+
+__naked __noinline __used
+static unsigned long use_stack_480_3(void)
+{
+	asm volatile (
+		"r0 = 0;"
+		"*(u64 *)(r10 - 480) = r0;"
+		"call use_stack_480_2;"
+		"exit;"
+	);
+}
+
 /* stack of the callee of callx is accounted */
 SEC("socket")
-__failure __msg("combined stack size of 2 calls is")
+__failure __msg("combined stack size of {{[0-9]+}} calls is")
 __naked void callx_stack_depth(void)
 {
 	asm volatile (
 		"r0 = 0;"
-		"*(u64 *)(r10 - 304) = r0;"
-		"r2 = %[use_stack_304] ll;"
+		"*(u64 *)(r10 - 480) = r0;"
+		"r2 = %[use_stack_480_3] ll;"
 		"callx r2;"
 		"exit;"
 		:
-		: __imm_addr(use_stack_304)
+		: __imm_addr(use_stack_480_3)
 		: __clobber_all);
 }
 
@@ -655,19 +700,19 @@ static unsigned long apply_stack_304(void)
 }
 
 /*
- * The address of use_stack_304() is taken by the main prog that doesn't
+ * The address of use_stack_480_3() is taken by the main prog that doesn't
  * use stack, but it is called from apply_stack_304().
  */
 SEC("socket")
-__failure __msg("combined stack size of 3 calls is")
+__failure __msg("combined stack size of {{[0-9]+}} calls is")
 __naked void callx_stack_depth_nested(void)
 {
 	asm volatile (
-		"r1 = %[use_stack_304] ll;"
+		"r1 = %[use_stack_480_3] ll;"
 		"call apply_stack_304;"
 		"exit;"
 		:
-		: __imm_addr(use_stack_304)
+		: __imm_addr(use_stack_480_3)
 		: __clobber_all);
 }
 
