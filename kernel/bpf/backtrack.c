@@ -406,15 +406,18 @@ static int backtrack_insn(struct bpf_verifier_env *env, int idx, int subseq_idx,
 		if (class == BPF_STX)
 			bt_set_reg(bt, sreg);
 	} else if (class == BPF_JMP || class == BPF_JMP32) {
-		if (bpf_pseudo_call(insn)) {
-			int subprog_insn_idx, subprog;
+		if (bpf_pseudo_call(insn) || bpf_is_callx(insn)) {
+			int subprog_insn_idx, subprog = -1;
 
-			subprog_insn_idx = idx + insn->imm + 1;
-			subprog = bpf_find_subprog(env, subprog_insn_idx);
-			if (subprog < 0)
-				return -EFAULT;
+			if (bpf_pseudo_call(insn)) {
+				subprog_insn_idx = idx + insn->imm + 1;
+				subprog = bpf_find_subprog(env, subprog_insn_idx);
+				if (subprog < 0)
+					return -EFAULT;
+			}
 
-			if (bpf_subprog_is_global(env, subprog)) {
+			/* callx calls static subprogs only */
+			if (subprog >= 0 && bpf_subprog_is_global(env, subprog)) {
 				/* check that jump history doesn't have any
 				 * extra instructions from subprog; the next
 				 * instruction after call to global subprog
@@ -536,7 +539,8 @@ static int backtrack_insn(struct bpf_verifier_env *env, int idx, int subseq_idx,
 			 * never do that.
 			 */
 			from_subprog_call = subseq_idx - 1 >= 0 &&
-					    bpf_pseudo_call(&env->prog->insnsi[subseq_idx - 1]);
+					    (bpf_pseudo_call(&env->prog->insnsi[subseq_idx - 1]) ||
+					     bpf_is_callx(&env->prog->insnsi[subseq_idx - 1]));
 
 			r0_precise = from_subprog_call && bt_is_reg_set(bt, BPF_REG_0);
 			r2_precise = from_subprog_call && bt_is_reg_set(bt, BPF_REG_2);

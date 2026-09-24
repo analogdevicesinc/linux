@@ -422,6 +422,76 @@ static int visit_gotox_insn(int t, struct bpf_verifier_env *env)
 }
 
 /*
+ * Return pointers to functions in the read-only map that ld_imm64 instruction
+ * 't' loads the address of, or of its value, if there are any.
+ */
+static struct bpf_func_ptr *insn_func_ptrs(struct bpf_verifier_env *env, int t, u32 *cnt)
+{
+	struct bpf_insn *insn = &env->prog->insnsi[t];
+
+	*cnt = 0;
+	if (!env->func_ptr_cnt || !bpf_is_ldimm64(insn))
+		return NULL;
+	if (insn->src_reg != BPF_PSEUDO_MAP_VALUE &&
+	    insn->src_reg != BPF_PSEUDO_MAP_IDX_VALUE &&
+	    insn->src_reg != BPF_PSEUDO_MAP_FD &&
+	    insn->src_reg != BPF_PSEUDO_MAP_IDX)
+		return NULL;
+
+	return bpf_map_func_ptrs(env, env->used_maps[env->insn_aux_data[t].map_index], cnt);
+}
+
+/*
+ * ld_imm64 that loads the address of a map that has pointers to functions
+ * is similar to ld_imm64 with BPF_PSEUDO_FUNC that loads the address of one
+ * function: any of them may be read from the map and called via callx later.
+ * Treat it as a call of all of them.
+ */
+static int visit_func_ptrs_insn(int t, struct bpf_verifier_env *env,
+				struct bpf_func_ptr *ptrs, u32 cnt)
+{
+	int *insn_stack = env->cfg.insn_stack;
+	int *insn_state = env->cfg.insn_state;
+	int ret, w;
+	u32 i;
+
+	ret = push_insn(t, t + 2, FALLTHROUGH, env);
+	if (ret)
+		return ret;
+
+	/*
+	 * Explore one function at a time like push_insn() does, so that
+	 * DISCOVERED function is a caller of 't' and not the one that waits in
+	 * insn_stack[], which merge_callee_effects() relies on.
+	 */
+	for (i = 0; i < cnt; i++) {
+		w = ptrs[i].xlated_off;
+		if (insn_state[w])
+			continue;
+
+		if (env->cfg.cur_stack >= env->prog->len)
+			return -E2BIG;
+
+		insn_stack[env->cfg.cur_stack++] = w;
+		insn_state[w] = DISCOVERED;
+		return KEEP_EXPLORING;
+	}
+
+	/* all functions are explored, their effects are known */
+	mark_prune_point(env, t);
+	for (i = 0; i < cnt; i++) {
+		w = ptrs[i].xlated_off;
+		merge_callee_effects(env, t, w);
+
+		/* the same marks as push_insn() leaves on a branch target */
+		mark_prune_point(env, w);
+		mark_jmp_point(env, w);
+		mark_jump_target(env, w);
+	}
+	return DONE_EXPLORING;
+}
+
+/*
  * Instructions that can abnormally return from a subprog (tail_call
  * upon success, ld_{abs,ind} upon load failure) have a hidden exit
  * that the verifier must account for.
@@ -453,10 +523,16 @@ static int visit_abnormal_return_insn(struct bpf_verifier_env *env, int t)
 static int visit_insn(int t, struct bpf_verifier_env *env)
 {
 	struct bpf_insn *insns = env->prog->insnsi, *insn = &insns[t];
+	struct bpf_func_ptr *ptrs;
 	int ret, off, insn_sz;
+	u32 cnt;
 
 	if (bpf_pseudo_func(insn))
 		return visit_func_call_insn(t, insns, env, true);
+
+	ptrs = insn_func_ptrs(env, t, &cnt);
+	if (ptrs)
+		return visit_func_ptrs_insn(t, env, ptrs, cnt);
 
 	/* All non-branch instructions have a single fall-through edge. */
 	if (BPF_CLASS(insn->code) != BPF_JMP &&

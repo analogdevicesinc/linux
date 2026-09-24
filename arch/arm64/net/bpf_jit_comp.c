@@ -1789,6 +1789,17 @@ emit_cond_jmp:
 			emit(A64_MOV(1, r0, A64_R(0)), ctx);
 		break;
 	}
+	/* indirect call of a bpf subprog, dst holds its address */
+	case BPF_JMP | BPF_CALL | BPF_X:
+		/*
+		 * It's the same as a direct call of a subprog that is out of
+		 * range of BL: the subprog starts with BTI JC, the arguments
+		 * are in place, and the registers that hold the tail call
+		 * counter and the private stack are callee saved.
+		 */
+		emit(A64_BLR(dst), ctx);
+		emit(A64_MOV(1, bpf2a64[BPF_REG_0], A64_R(0)), ctx);
+		break;
 	/* tail call */
 	case BPF_JMP | BPF_TAIL_CALL:
 		if (emit_bpf_tail_call(ctx))
@@ -2481,6 +2492,11 @@ u64 bpf_jit_alloc_exec_limit(void)
 
 /* Indicate the JIT backend supports mixing bpf2bpf and tailcalls. */
 bool bpf_jit_supports_subprog_tailcalls(void)
+{
+	return true;
+}
+
+bool bpf_jit_supports_callx(void)
 {
 	return true;
 }
