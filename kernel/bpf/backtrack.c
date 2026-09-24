@@ -9,7 +9,8 @@
 
 /* for any branch, call, exit record the history of jmps in the given state */
 int bpf_push_jmp_history(struct bpf_verifier_env *env, struct bpf_verifier_state *cur,
-			 int insn_flags, int spi, int frame, u64 linked_regs)
+			 int insn_flags, int spi, int frame, const u16 *linked_regs,
+			 u8 linked_regs_cnt)
 {
 	u32 cnt = cur->jmp_history_cnt;
 	struct bpf_jmp_history_entry *p;
@@ -27,10 +28,13 @@ int bpf_push_jmp_history(struct bpf_verifier_env *env, struct bpf_verifier_state
 		env->cur_hist_ent->flags |= insn_flags;
 		env->cur_hist_ent->spi = spi;
 		env->cur_hist_ent->frame = frame;
-		verifier_bug_if(env->cur_hist_ent->linked_regs != 0, env,
-				"insn history: insn_idx %d linked_regs: %#llx",
-				env->insn_idx, env->cur_hist_ent->linked_regs);
-		env->cur_hist_ent->linked_regs = linked_regs;
+		verifier_bug_if(env->cur_hist_ent->linked_regs_cnt != 0, env,
+				"insn history: insn_idx %d has %u linked regs",
+				env->insn_idx, env->cur_hist_ent->linked_regs_cnt);
+		if (linked_regs_cnt)
+			memcpy(env->cur_hist_ent->linked_regs, linked_regs,
+			       linked_regs_cnt * sizeof(*linked_regs));
+		env->cur_hist_ent->linked_regs_cnt = linked_regs_cnt;
 		return 0;
 	}
 
@@ -47,7 +51,9 @@ int bpf_push_jmp_history(struct bpf_verifier_env *env, struct bpf_verifier_state
 	p->flags = insn_flags;
 	p->spi = spi;
 	p->frame = frame;
-	p->linked_regs = linked_regs;
+	if (linked_regs_cnt)
+		memcpy(p->linked_regs, linked_regs, linked_regs_cnt * sizeof(*linked_regs));
+	p->linked_regs_cnt = linked_regs_cnt;
 	cur->jmp_history_cnt = cnt;
 	env->cur_hist_ent = p;
 
