@@ -27,6 +27,7 @@
 #include <linux/init.h>
 #include <linux/reboot.h>
 #include <linux/slab.h>
+#include <linux/workqueue.h>
 
 #include <linux/uaccess.h>
 #include "sclp.h"
@@ -56,6 +57,11 @@ struct sclp_vt220_evbuf {
 	struct evbuf_header header;
 	char type;
 	char data[];
+} __packed;
+
+struct sclp_vt220_resize_data_t {
+	u16 rows;
+	u16 cols;
 } __packed;
 
 #define SCLP_VT220_MAX_CHARS_PER_BUFFER	(PAGE_SIZE - \
@@ -94,6 +100,15 @@ static int __initdata sclp_vt220_init_count;
  * have been already queued but wasn't because the SCLP was processing
  * another buffer */
 static int sclp_vt220_flush_later;
+
+/* Work struct required for scheduling resize */
+static struct work_struct sclp_vt220_resize_work;
+
+/* Current vt220 terminal winsize */
+static struct winsize sclp_vt220_winsize = {
+	.ws_row = 24,
+	.ws_col = 80,
+};
 
 static void sclp_vt220_receiver_fn(struct evbuf_header *evbuf);
 static int __sclp_vt220_emit(struct sclp_vt220_request *request);
@@ -474,6 +489,7 @@ sclp_vt220_write(struct tty_struct *tty, const u8 *buf, size_t count)
 #define SCLP_VT220_SESSION_ENDED	0x01
 #define	SCLP_VT220_SESSION_STARTED	0x80
 #define SCLP_VT220_SESSION_DATA		0x00
+#define SCLP_VT220_SESSION_RESIZE	0x08
 
 #ifdef CONFIG_MAGIC_SYSRQ
 
@@ -522,6 +538,38 @@ static void sclp_vt220_handle_input(const char *buffer, unsigned int count)
 
 #endif
 
+static void sclp_vt220_resize(struct work_struct *work)
+{
+	struct tty_struct *tty;
+	struct winsize ws;
+
+	spin_lock_irq(&sclp_vt220_lock);
+	ws = sclp_vt220_winsize;
+	spin_unlock_irq(&sclp_vt220_lock);
+
+	tty = tty_port_tty_get(&sclp_vt220_port);
+	if (!tty)
+		return;
+
+	tty_do_resize(tty, &ws);
+	tty_kref_put(tty);
+}
+
+static void sclp_vt220_resize_sched(void *buffer, unsigned int count)
+{
+	struct sclp_vt220_resize_data_t *data = buffer;
+	unsigned long flags;
+
+	if (count < sizeof(*data))
+		return;
+
+	spin_lock_irqsave(&sclp_vt220_lock, flags);
+	sclp_vt220_winsize.ws_row = data->rows;
+	sclp_vt220_winsize.ws_col = data->cols;
+	schedule_work(&sclp_vt220_resize_work);
+	spin_unlock_irqrestore(&sclp_vt220_lock, flags);
+}
+
 /*
  * Called by the SCLP to report incoming event buffers.
  */
@@ -546,6 +594,9 @@ static void sclp_vt220_receiver_fn(struct evbuf_header *evbuf)
 		sclp_vt220_handle_input(buffer->data, count);
 		tty_flip_buffer_push(&sclp_vt220_port);
 		break;
+	case SCLP_VT220_SESSION_RESIZE:
+		sclp_vt220_resize_sched(buffer->data, count);
+		break;
 	}
 }
 
@@ -557,10 +608,12 @@ sclp_vt220_open(struct tty_struct *tty, struct file *filp)
 {
 	if (tty->count == 1) {
 		tty_port_tty_set(&sclp_vt220_port, tty);
-		if (!tty->winsize.ws_row && !tty->winsize.ws_col) {
-			tty->winsize.ws_row = 24;
-			tty->winsize.ws_col = 80;
-		}
+
+		mutex_lock(&tty->winsize_mutex);
+		spin_lock_irq(&sclp_vt220_lock);
+		tty->winsize = sclp_vt220_winsize;
+		spin_unlock_irq(&sclp_vt220_lock);
+		mutex_unlock(&tty->winsize_mutex);
 	}
 	return 0;
 }
@@ -753,6 +806,8 @@ static int __init sclp_vt220_tty_init(void)
 	rc = tty_register_driver(driver);
 	if (rc)
 		goto out_init;
+
+	INIT_WORK(&sclp_vt220_resize_work, sclp_vt220_resize);
 	rc = sclp_register(&sclp_vt220_register_input);
 	if (rc)
 		goto out_reg;
