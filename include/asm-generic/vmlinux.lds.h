@@ -734,9 +734,7 @@
 	EARLYCON_TABLE()						\
 	LSM_TABLE()							\
 	EARLY_LSM_TABLE()						\
-	KUNIT_INIT_TABLE()						\
-	. = ALIGN(8);							\
-	BOUNDED_SECTION_BY(.initcall.modnames, _initcall_modnames)
+	KUNIT_INIT_TABLE()
 
 #define INIT_TEXT							\
 	*(.init.text .init.text.*)					\

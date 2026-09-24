@@ -87,7 +87,7 @@ extern void cleanup_module(void);
  * builtin) or at module insertion time (if a module).  There can only
  * be one per module.
  */
-#define module_init(x)	__builtin_module_initcall(x);
+#define module_init(x)	__initcall(x);
 
 /**
  * module_exit() - driver exit entry point
@@ -888,8 +888,6 @@ static inline void add_taint_module(struct module *mod, unsigned flag,
 	add_taint(flag, lockdep_ok);
 }
 #endif /* CONFIG_MODULES */
-
-bool module_is_blacklisted(const char *module_name);
 
 #ifdef CONFIG_SYSFS
 extern struct kset *module_kset;
