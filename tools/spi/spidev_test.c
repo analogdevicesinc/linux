@@ -44,6 +44,7 @@ static int verbose;
 static int transfer_size;
 static int iterations;
 static int interval = 5; /* interval in seconds for showing transfer rate */
+static int input_choices;
 
 static uint8_t default_tx[] = {
 	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -191,8 +192,8 @@ static void print_usage(const char *prog)
 		 "data:\n"
 		 "  -i --input          input data from a file (e.g. \"test.bin\")\n"
 		 "  -o --output         output data to a file (e.g. \"results.bin\")\n"
-		 "  -p                  Send data (e.g. \"1234\\xde\\xad\")\n"
-		 "  -S --size           transfer size\n"
+		 "  -p                  send data (e.g. \"1234\\xde\\xad\")\n"
+		 "  -S --size           transfer the given number of random bytes\n"
 		 "  -I --iter           iterations\n"
 		 "additional parameters:\n"
 		 "  -b --bpw            bits per word\n"
@@ -262,6 +263,7 @@ static void parse_opts(int argc, char *argv[])
 			break;
 		case 'i':
 			input_file = optarg;
+			input_choices++;
 			break;
 		case 'o':
 			output_file = optarg;
@@ -304,6 +306,7 @@ static void parse_opts(int argc, char *argv[])
 			break;
 		case 'p':
 			input_tx = optarg;
+			input_choices++;
 			break;
 		case '2':
 			mode |= SPI_TX_DUAL;
@@ -316,6 +319,7 @@ static void parse_opts(int argc, char *argv[])
 			break;
 		case 'S':
 			transfer_size = atoi(optarg);
+			input_choices++;
 			break;
 		case 'I':
 			iterations = atoi(optarg);
@@ -446,8 +450,9 @@ int main(int argc, char *argv[])
 
 	parse_opts(argc, argv);
 
-	if (input_tx && input_file)
-		pabort("only one of -p and --input may be selected");
+	if (input_choices > 1)
+		pabort("at most one of -S (--size), -p, -i (--input) may be selected, "
+		       "and each may be specified only once");
 
 	fd = open(device, O_RDWR);
 	if (fd < 0)
