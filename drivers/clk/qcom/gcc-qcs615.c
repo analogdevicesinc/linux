@@ -3017,17 +3017,7 @@ static struct platform_driver gcc_qcs615_driver = {
 	},
 };
 
-static int __init gcc_qcs615_init(void)
-{
-	return platform_driver_register(&gcc_qcs615_driver);
-}
-subsys_initcall(gcc_qcs615_init);
-
-static void __exit gcc_qcs615_exit(void)
-{
-	platform_driver_unregister(&gcc_qcs615_driver);
-}
-module_exit(gcc_qcs615_exit);
+subsys_platform_driver(gcc_qcs615_driver);
 
 MODULE_DESCRIPTION("QTI GCC QCS615 Driver");
 MODULE_LICENSE("GPL");

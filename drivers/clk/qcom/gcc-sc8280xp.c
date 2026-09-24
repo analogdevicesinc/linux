@@ -7581,17 +7581,7 @@ static struct platform_driver gcc_sc8280xp_driver = {
 	},
 };
 
-static int __init gcc_sc8280xp_init(void)
-{
-	return platform_driver_register(&gcc_sc8280xp_driver);
-}
-subsys_initcall(gcc_sc8280xp_init);
-
-static void __exit gcc_sc8280xp_exit(void)
-{
-	platform_driver_unregister(&gcc_sc8280xp_driver);
-}
-module_exit(gcc_sc8280xp_exit);
+subsys_platform_driver(gcc_sc8280xp_driver);
 
 MODULE_DESCRIPTION("Qualcomm SC8280XP GCC driver");
 MODULE_LICENSE("GPL");
