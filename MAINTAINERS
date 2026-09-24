@@ -18151,7 +18151,7 @@ F:	include/linux/cciss*.h
 F:	include/uapi/linux/cciss*.h
 
 MICROSOFT MANA RDMA DRIVER
-M:	Long Li <longli@microsoft.com>
+M:	Wei Hu <weh@microsoft.com>
 M:	Konstantin Taranov <kotaranov@microsoft.com>
 L:	linux-rdma@vger.kernel.org
 L:	linux-hyperv@vger.kernel.org
