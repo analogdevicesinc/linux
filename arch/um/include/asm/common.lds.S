@@ -91,6 +91,7 @@
   .fini_array : {
 	__fini_array_start = .;
 	*(.fini_array)
+	*(.fini_array.*)
 	__fini_array_end = .;
   }
 
