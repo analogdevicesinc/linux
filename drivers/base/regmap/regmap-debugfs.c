@@ -471,18 +471,16 @@ static ssize_t regmap_cache_only_write_file(struct file *file,
 	if (err)
 		return count;
 
-	map->lock(map->lock_arg);
-
-	if (new_val && !map->cache_only) {
-		dev_warn(map->dev, "debugfs cache_only=Y forced\n");
-		add_taint(TAINT_USER, LOCKDEP_STILL_OK);
-	} else if (!new_val && map->cache_only) {
-		dev_warn(map->dev, "debugfs cache_only=N forced: syncing cache\n");
-		require_sync = true;
+	scoped_guard(regmap, map) {
+		if (new_val && !map->cache_only) {
+			dev_warn(map->dev, "debugfs cache_only=Y forced\n");
+			add_taint(TAINT_USER, LOCKDEP_STILL_OK);
+		} else if (!new_val && map->cache_only) {
+			dev_warn(map->dev, "debugfs cache_only=N forced: syncing cache\n");
+			require_sync = true;
+		}
+		map->cache_only = new_val;
 	}
-	map->cache_only = new_val;
-
-	map->unlock(map->lock_arg);
 
 	if (require_sync) {
 		err = regcache_sync(map);
@@ -513,7 +511,7 @@ static ssize_t regmap_cache_bypass_write_file(struct file *file,
 	if (err)
 		return count;
 
-	map->lock(map->lock_arg);
+	guard(regmap)(map);
 
 	if (new_val && !map->cache_bypass) {
 		dev_warn(map->dev, "debugfs cache_bypass=Y forced\n");
@@ -522,8 +520,6 @@ static ssize_t regmap_cache_bypass_write_file(struct file *file,
 		dev_warn(map->dev, "debugfs cache_bypass=N forced\n");
 	}
 	map->cache_bypass = new_val;
-
-	map->unlock(map->lock_arg);
 
 	return count;
 }
