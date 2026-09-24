@@ -1869,7 +1869,7 @@ static __init void try_to_enable_x2apic(int remap_mode)
 	x2apic_enable();
 }
 
-static void __init check_x2apic(void)
+static __init struct apic *check_x2apic(void)
 {
 	if (x2apic_enabled()) {
 		pr_info("x2apic: enabled by BIOS, switching to x2apic ops\n");
@@ -1879,15 +1879,21 @@ static void __init check_x2apic(void)
 		else
 			x2apic_state = X2APIC_ON;
 		apic_read_boot_cpu_id(true);
+
+		/* Force the initial driver to X2APIC */
+		return &apic_x2apic_phys;
 	} else if (!boot_cpu_has(X86_FEATURE_X2APIC)) {
 		x2apic_state = X2APIC_DISABLED;
 	}
+
+	/* Keep the default driver */
+	return NULL;
 }
 #else /* CONFIG_X86_X2APIC */
-static void __init check_x2apic(void)
+static __init struct apic *check_x2apic(void)
 {
 	if (!apic_is_x2apic_enabled())
-		return;
+		return NULL;
 	/*
 	 * Checkme: Can we simply turn off x2APIC here instead of disabling the APIC?
 	 */
@@ -1896,6 +1902,7 @@ static void __init check_x2apic(void)
 
 	apic_is_disabled = true;
 	setup_clear_cpu_cap(X86_FEATURE_APIC);
+	return &apic_noop;
 }
 
 static inline void try_to_enable_x2apic(int remap_mode) { }
@@ -2066,14 +2073,17 @@ no_apic:
 
 void __init apic_early_init(void)
 {
-	if (acpi_mps_check()) {
+	struct apic *driver;
+
+	if (apic_is_disabled || acpi_mps_check()) {
 		apic_is_disabled = true;
 		setup_clear_cpu_cap(X86_FEATURE_APIC);
+		driver = &apic_noop;
 	} else {
-		check_x2apic();
+		driver = check_x2apic();
 	}
 
-	apic_setup_apic_calls();
+	apic_install_default_driver(driver);
 }
 
 void __init apic_finalize_early_init(void)
