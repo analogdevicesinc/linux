@@ -40,9 +40,9 @@ void core2_hardware_init(struct dc *dc)
 	out_targets.DCN_DECL_INITIALIZATION = out_init;
 	params->out_targets = &out_targets;
 	/*
-	 * DC does not carry DMUB framebuffer windows. Missing hw_params
-	 * fails the build closed. Execute only a successful build, and
-	 * do not fall back to legacy hwseq.
+	 * The builder copies DMUB windows retained on dmub_srv. Missing
+	 * windows fail the build closed. Execute only a successful build,
+	 * and do not fall back to legacy hwseq.
 	 */
 	result = builder->build.declarative(params);
 	if (result == BLS_BUILD_SUCCESS)

@@ -58,10 +58,14 @@ static bool dc2_bls_step_supported(const struct dc2 *dc2,
 				dmub->hw_funcs.is_gpint_acked &&
 				dmub->hw_funcs.get_gpint_response &&
 				step->params.dmub_gpint_params.response;
-	case PSP_RELOAD_DMUB_FW:
+	case PSP_RELOAD_DMUB_FW: {
+		const struct dmub_srv_hw_params *hw_params =
+				step->params.psp_reload_dmub_fw_params.hw_params;
+
 		return step->params.psp_reload_dmub_fw_params.dmub &&
-				step->params.psp_reload_dmub_fw_params.hw_params &&
-				step->params.psp_reload_dmub_fw_params.hw_params->fb_info;
+				hw_params && hw_params->fb_info &&
+				hw_params->fb_info->num_fb >= DMUB_WINDOW_TOTAL;
+	}
 	case DMUB_INITIALIZE_DCN:
 		ctx = step->params.send_dmcub_cmd_params.ctx;
 		if (!ctx || !ctx->dmub_srv || !ctx->dmub_srv->dmub ||

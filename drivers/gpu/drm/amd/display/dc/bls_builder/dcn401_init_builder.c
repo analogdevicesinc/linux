@@ -106,12 +106,25 @@ static enum bls_builder_result dcn401_validate_initialization_step(
 			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
 		return BLS_BUILD_SUCCESS;
 	}
-	case PSP_RELOAD_DMUB_FW:
+	case PSP_RELOAD_DMUB_FW: {
+		struct dmub_srv *dmub;
+
 		if (!params->dc->ctx || !params->dc->ctx->dmub_srv ||
-				!params->dc->ctx->dmub_srv->dmub ||
-				!params->dmub_hw_params)
+				!params->dc->ctx->dmub_srv->dmub)
+			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
+		/*
+		 * An explicit caller pointer wins, including a test double
+		 * whose fb_info is still empty. Otherwise use the windows
+		 * dmub_srv retained from the DM's earlier hw init.
+		 */
+		if (params->dmub_hw_params)
+			return BLS_BUILD_SUCCESS;
+		dmub = params->dc->ctx->dmub_srv->dmub;
+		if (!dmub->fb_info ||
+				dmub->fb_info->num_fb < DMUB_WINDOW_TOTAL)
 			return BLS_BUILD_ERROR_RESOURCE_MAPPING;
 		return BLS_BUILD_SUCCESS;
+	}
 	case DMUB_SEND_DMCUB_CMD:
 	case DMUB_INITIALIZE_DCN:
 		if (!params->dc->ctx || !params->dc->ctx->dmub_srv ||
@@ -189,6 +202,24 @@ static inline enum bls_builder_result dcn401_build_dmub_halt_fw(
 	return BLS_BUILD_SUCCESS;
 }
 
+static const struct dmub_srv_hw_params *dcn401_psp_hw_params(
+		struct bls_builder_declarative_params *params)
+{
+	struct dmub_srv *dmub;
+
+	if (params->dmub_hw_params)
+		return params->dmub_hw_params;
+
+	dmub = params->dc->ctx->dmub_srv->dmub;
+	params->owned_dmub_fb_info = *dmub->fb_info;
+	memset(&params->owned_dmub_hw_params, 0,
+			sizeof(params->owned_dmub_hw_params));
+	params->owned_dmub_hw_params.fb_info = &params->owned_dmub_fb_info;
+	params->owned_dmub_hw_params.soc_fb_info = dmub->soc_fb_info;
+	params->owned_dmub_hw_params.psp_version = dmub->psp_version;
+	return &params->owned_dmub_hw_params;
+}
+
 static inline enum bls_builder_result dcn401_build_psp_reload(
 		struct bls_builder_declarative_params *params,
 		struct block_sequence_state *sequence)
@@ -198,7 +229,7 @@ static inline enum bls_builder_result dcn401_build_psp_reload(
 	bls_params.psp_reload_dmub_fw_params.dmub =
 			params->dc->ctx->dmub_srv->dmub;
 	bls_params.psp_reload_dmub_fw_params.hw_params =
-			params->dmub_hw_params;
+			dcn401_psp_hw_params(params);
 	if (!bls_append(sequence, PSP_RELOAD_DMUB_FW, &bls_params))
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 

@@ -7,6 +7,7 @@
 
 #include "dc.h"
 #include "dmub_cmd.h"
+#include "dmub/dmub_srv.h"
 #include "hwss/hw_sequencer.h"
 
 #define DC2_BLS_MAX_STEPS 64
@@ -64,6 +65,14 @@ struct bls_builder_declarative_params {
 	const struct dc_state *new_state;
 	const struct dmub_abi *dmub_abi;
 	const struct dmub_srv_hw_params *dmub_hw_params;
+	/*
+	 * Filled when the caller does not pass dmub_hw_params and dmub_srv
+	 * already retained framebuffer windows. fb_info on dmub_srv is
+	 * const, so the window table is copied here before the PSP entry
+	 * points at owned_dmub_hw_params.
+	 */
+	struct dmub_srv_hw_params owned_dmub_hw_params;
+	struct dmub_srv_fb_info owned_dmub_fb_info;
 	struct bls_builder_output_targets *out_targets;
 	struct block_sequence head_sequence[DC2_BLS_MAX_STEPS];
 	unsigned int head_num_steps;
