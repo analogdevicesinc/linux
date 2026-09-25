@@ -115,14 +115,12 @@ jobs:
           You **must** check the appropriate datasheets for devices drivers.
           Pre-converted (with docling), are available at the git tree:
           ```
-          $ git clone --filter=blob:none --no-checkout --branch docling \
-              https://github.com/analogdevicesinc/doctools.git /tmp/docling ; cd $_
           # Search
-          $ git ls-tree -r --name-only @ | grep -i sc84
+          $ git -C "$docling_dir" ls-tree -r --name-only @ | grep -i sc84
              media/en/dsp-documentation/processor-manuals/adsp-2184x-adsp-sc84x-hrm.md
              media/en/technical-documentation/data-sheets/adsp-2184x-adsp-sc84x.md
           # View
-          $ git --no-pager show @:media/en/technical-documentation/data-sheets/adsp-2184x-adsp-sc84x.md
+          $ git -C "$docling_dir" --no-pager show @:media/en/technical-documentation/data-sheets/adsp-2184x-adsp-sc84x.md
           ```
           Do not try to fetch the from analog.com domain directly, due to bot protection
           guards in place.
@@ -166,6 +164,13 @@ jobs:
 
           echo "CI_WORKTREE=$ci_worktree" >> "$GITHUB_ENV"
           echo "sh_source=$ci_worktree/ci/build.sh" >> "$GITHUB_ENV"
+
+      - name: Setup docling
+        run: |
+          docling_dir="$(mktemp -dt docling.XXX)"
+          echo "docling_dir=$docling_dir" >> "$GITHUB_ENV"
+          git clone --filter=blob:none --no-checkout --branch docling \
+              https://github.com/analogdevicesinc/doctools.git "$docling_dir"
 
       - name: Setup skills
         run: |
@@ -225,6 +230,7 @@ jobs:
         run: |
           rm -f "$prompt_file"
           rm -rf "$prompt_dir"
+          rm -rf "$docling_dir"
           rm -rf "$py_venv"
           rm -rf "$CI_WORKTREE"
 
