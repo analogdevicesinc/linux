@@ -1653,6 +1653,36 @@ static void brcmf_link_down(struct brcmf_cfg80211_vif *vif, u16 reason,
 	brcmf_dbg(TRACE, "Exit\n");
 }
 
+static int brcmf_set_ssid(struct brcmf_if *ifp,
+			  const struct brcmf_join_params *legacy, size_t legacy_size)
+{
+	struct brcmf_join_params_v1_le *params;
+	u32 count = le32_to_cpu(legacy->params_le.chanspec_num);
+	size_t size;
+	int err;
+
+	if (!ifp->drvr->join_version)
+		return brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_SSID,
+					     (void *)legacy, legacy_size);
+	if (ifp->drvr->join_version != 1)
+		return -EOPNOTSUPP;
+
+	size = struct_size(params, assoc_le.chanspec_list, count);
+	params = kzalloc(size, GFP_KERNEL);
+	if (!params)
+		return -ENOMEM;
+
+	params->ssid_le = legacy->ssid_le;
+	params->assoc_le.version = cpu_to_le16(1);
+	ether_addr_copy(params->assoc_le.bssid, legacy->params_le.bssid);
+	params->assoc_le.chanspec_num = legacy->params_le.chanspec_num;
+	memcpy(params->assoc_le.chanspec_list, legacy->params_le.chanspec_list,
+	       count * sizeof(__le16));
+	err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_SSID, params, size);
+	kfree(params);
+	return err;
+}
+
 static s32
 brcmf_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *ndev,
 		      struct cfg80211_ibss_params *params)
@@ -1791,8 +1821,7 @@ brcmf_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *ndev,
 	cfg->ibss_starter = false;
 
 
-	err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_SSID,
-				     &join_params, join_params_size);
+	err = brcmf_set_ssid(ifp, &join_params, join_params_size);
 	if (err) {
 		bphy_err(drvr, "WLC_SET_SSID failed (%d)\n", err);
 		goto done;
@@ -2281,6 +2310,30 @@ static void brcmf_set_join_pref(struct brcmf_if *ifp,
 		bphy_err(drvr, "Set join_pref error (%d)\n", err);
 }
 
+static int brcmf_join_v1(struct brcmf_if *ifp,
+			 const struct brcmf_ext_join_params_le *legacy)
+{
+	struct brcmf_ext_join_params_v1_le *params;
+	u32 count = le32_to_cpu(legacy->assoc_le.chanspec_num);
+	size_t size = struct_size(params, assoc_le.chanspec_list, count);
+	int err;
+
+	params = kzalloc(size, GFP_KERNEL);
+	if (!params)
+		return -ENOMEM;
+	params->version = cpu_to_le16(1);
+	params->ssid_le = legacy->ssid_le;
+	params->scan_le = legacy->scan_le;
+	params->assoc_le.version = cpu_to_le16(1);
+	ether_addr_copy(params->assoc_le.bssid, legacy->assoc_le.bssid);
+	params->assoc_le.chanspec_num = legacy->assoc_le.chanspec_num;
+	memcpy(params->assoc_le.chanspec_list, legacy->assoc_le.chanspec_list,
+	       count * sizeof(__le16));
+	err = brcmf_fil_bsscfg_data_set(ifp, "join", params, size);
+	kfree(params);
+	return err;
+}
+
 static s32
 brcmf_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		       struct cfg80211_connect_params *sme)
@@ -2302,6 +2355,8 @@ brcmf_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	u32 ssid_len;
 
 	brcmf_dbg(TRACE, "Enter\n");
+	if (drvr->join_version > 1)
+		return -EOPNOTSUPP;
 	if (!check_vif_up(ifp->vif))
 		return -EIO;
 
@@ -2492,14 +2547,15 @@ brcmf_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 
 	brcmf_set_join_pref(ifp, &sme->bss_select);
 
-	err  = brcmf_fil_bsscfg_data_set(ifp, "join", ext_join_params,
-					 join_params_size);
+	if (ifp->drvr->join_version == 1)
+		err = brcmf_join_v1(ifp, ext_join_params);
+	else
+		err = brcmf_fil_bsscfg_data_set(ifp, "join", ext_join_params,
+						join_params_size);
 	kfree(ext_join_params);
-	if (!err)
-		/* This is it. join command worked, we are done */
+	if (err != -EBADE)
 		goto done;
 
-	/* join command failed, fallback to set ssid */
 	memset(&join_params, 0, sizeof(join_params));
 	join_params_size = sizeof(join_params.ssid_le);
 
@@ -2516,8 +2572,7 @@ brcmf_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		join_params.params_le.chanspec_num = cpu_to_le32(1);
 		join_params_size += sizeof(join_params.params_le);
 	}
-	err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_SSID,
-				     &join_params, join_params_size);
+	err = brcmf_set_ssid(ifp, &join_params, join_params_size);
 	if (err)
 		bphy_err(drvr, "BRCMF_C_SET_SSID failed (%d)\n", err);
 

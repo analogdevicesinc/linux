@@ -162,6 +162,7 @@ struct brcmf_pub {
 	const struct brcmf_fwvid_ops *vops;
 	void *vdata;
 	struct scan_param_struct_handler scan_param_handler;
+	u16 join_version;
 };
 
 /* forward declarations */

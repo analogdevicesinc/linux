@@ -160,6 +160,10 @@ static void brcmf_feat_wlc_version_overrides(struct brcmf_pub *drv)
 
 	brcmf_dbg(INFO, "WLC version: %d.%d\n", major, minor);
 
+	if (major >= 17 || (major == 16 && minor >= 1) ||
+	    (major == 14 && (minor == 2 || minor == 4)))
+		drv->join_version = 1;
+
 	for (i = 0; i < ARRAY_SIZE(brcmf_feat_wlcfeat_map); i++) {
 		e = &brcmf_feat_wlcfeat_map[i];
 		if (major > e->min_ver_major ||
@@ -297,6 +301,20 @@ static void brcmf_feat_firmware_capabilities(struct brcmf_if *ifp)
 	}
 }
 
+static void brcmf_feat_join_params(struct brcmf_if *ifp)
+{
+	struct brcmf_join_version_le version = {};
+	int err;
+
+	err = brcmf_fil_iovar_data_get(ifp, "join_ver", &version,
+				       sizeof(version));
+	if (!err)
+		ifp->drvr->join_version = le16_to_cpu(version.major);
+	if (ifp->drvr->join_version > 1)
+		bphy_err(ifp->drvr, "unsupported join params v%u\n",
+			 ifp->drvr->join_version);
+}
+
 static void brcmf_feat_scan_params(struct brcmf_if *ifp)
 {
 	struct brcmf_pub *drvr = ifp->drvr;
@@ -430,6 +448,7 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 	brcmf_feat_event_msgs_ext(ifp);
 
 	brcmf_feat_wlc_version_overrides(drvr);
+	brcmf_feat_join_params(ifp);
 	brcmf_feat_firmware_overrides(drvr);
 
 	brcmf_fwvid_feat_attach(ifp);
