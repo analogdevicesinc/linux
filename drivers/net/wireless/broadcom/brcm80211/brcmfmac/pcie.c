@@ -342,7 +342,6 @@ struct brcmf_pciedev_info {
 	u32 ram_base;
 	u32 ram_size;
 	struct brcmf_chip *ci;
-	u32 coreid;
 	struct brcmf_pcie_shared_info shared;
 	wait_queue_head_t mbdata_resp_wait;
 	bool mbdata_completed;
@@ -2518,7 +2517,7 @@ brcmf_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	bus->bus_priv.pcie = pcie_bus_dev;
 	bus->ops = &brcmf_pcie_bus_ops;
 	bus->proto_type = BRCMF_PROTO_MSGBUF;
-	bus->chip = devinfo->coreid;
+	bus->chip = devinfo->ci->chip;
 	bus->wowl_supported = pci_pme_capable(pdev, PCI_D3hot);
 	bus->fwvid = drvdata[id->driver_data].vendor;
 	devinfo->fwseed = drvdata[id->driver_data].fw_seed;
