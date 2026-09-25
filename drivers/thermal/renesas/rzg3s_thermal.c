@@ -265,8 +265,14 @@ static const struct rzg3s_thermal_info rzg3s_info = {
 	.calib1 = 751,
 };
 
+static const struct rzg3s_thermal_info rzg3l_info = {
+	.calib0 = 1322,
+	.calib1 = 772,
+};
+
 static const struct of_device_id rzg3s_thermal_dt_ids[] = {
 	{ .compatible = "renesas,r9a08g045-tsu", .data = &rzg3s_info },
+	{ .compatible = "renesas,r9a08g046-tsu", .data = &rzg3l_info },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, rzg3s_thermal_dt_ids);
