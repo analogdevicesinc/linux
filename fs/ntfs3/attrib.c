@@ -61,10 +61,15 @@ static int attr_load_runs(struct ATTRIB *attr, struct ntfs_inode *ni,
 			  struct runs_tree *run, const CLST *vcn)
 {
 	int err;
-	CLST svcn = le64_to_cpu(attr->nres.svcn);
-	CLST evcn = le64_to_cpu(attr->nres.evcn);
+	CLST svcn, evcn;
 	u32 asize;
 	u16 run_off;
+
+	if (!attr->non_res)
+		return -EIO;
+
+	svcn = le64_to_cpu(attr->nres.svcn);
+	evcn = le64_to_cpu(attr->nres.evcn);
 
 	if (svcn >= evcn + 1 || run_is_mapped_full(run, svcn, evcn))
 		return 0;
@@ -394,13 +399,15 @@ static int attr_set_size_res(struct ntfs_inode *ni, struct ATTRIB *attr,
 	char *next = Add2Ptr(attr, asize);
 	s64 dsize = ALIGN(new_size, 8) - ALIGN(rsize, 8);
 
+	if (new_size > sbi->record_size ||
+	    (dsize > 0 && used + dsize > sbi->max_bytes_per_attr)) {
+		return attr_make_nonresident(ni, attr, le, mi, new_size, run,
+					     ins_attr, NULL);
+	}
+
 	if (dsize < 0) {
 		memmove(next + dsize, next, tail);
 	} else if (dsize > 0) {
-		if (used + dsize > sbi->max_bytes_per_attr)
-			return attr_make_nonresident(ni, attr, le, mi, new_size,
-						     run, ins_attr, NULL);
-
 		memmove(next + dsize, next, tail);
 		memset(next, 0, dsize);
 	}
@@ -556,6 +563,10 @@ again_1:
 		}
 
 next_le_1:
+		if (!attr->non_res) {
+			err = -EIO;
+			goto out;
+		}
 		svcn = le64_to_cpu(attr->nres.svcn);
 		evcn = le64_to_cpu(attr->nres.evcn);
 	}
@@ -1456,6 +1467,9 @@ int attr_load_runs_vcn(struct ntfs_inode *ni, enum ATTR_TYPE type,
 		return -ENOENT;
 	}
 
+	if (!attr->non_res)
+		return -EIO;
+
 	svcn = le64_to_cpu(attr->nres.svcn);
 	evcn = le64_to_cpu(attr->nres.evcn);
 
@@ -1995,7 +2009,7 @@ out:
 
 		valid_size = le64_to_cpu(attr_b->nres.valid_size);
 		if (new_valid != valid_size) {
-			attr_b->nres.valid_size = cpu_to_le64(valid_size);
+			attr_b->nres.valid_size = cpu_to_le64(new_valid);
 			mi_b->dirty = true;
 		}
 	}
