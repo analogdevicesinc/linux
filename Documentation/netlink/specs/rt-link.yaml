@@ -532,11 +532,21 @@ definitions:
       -
         name: indelivers
       -
-        name: outforwdatagrams
+        name: noectpkts
+      -
+        name: ect1pkts
+      -
+        name: ect0pkts
+      -
+        name: cepkts
+      -
+        name: outrequests
       -
         name: outpkts
       -
         name: outoctets
+      -
+        name: outforwdatagrams
       -
         name: inhdrerrors
       -
@@ -587,14 +597,6 @@ definitions:
         name: outbcastoctets
       -
         name: csumerrors
-      -
-        name: noectpkts
-      -
-        name: ect1-pkts
-      -
-        name: ect0-pkts
-      -
-        name: cepkts
       -
         name: reasm-overlaps
   - name: br-boolopt-multi
