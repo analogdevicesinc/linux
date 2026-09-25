@@ -58,8 +58,8 @@ struct net_devmem_dmabuf_binding {
 	struct xarray bound_rxqs;
 
 	spinlock_t freelist_lock ____cacheline_aligned_in_smp;
-	size_t free_count;
-	struct net_iov **freelist;
+	u32 free_count;
+	u32 *freelist;
 
 	/* ID of this binding. Globally unique to all bindings currently
 	 * active.
