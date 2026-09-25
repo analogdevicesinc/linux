@@ -405,6 +405,34 @@ static void mpnic_fill_qt_bdqs(struct mpnic_q_triad *qt)
 	__mpnic_bdq_commit_tail(&qt->sub1, ppq_i);
 }
 
+/* Take one of the references batched on the page at @idx. If the device
+ * has moved on to a new page, first drop the unused references left on
+ * the previous one.
+ */
+static struct page *
+mpnic_page_pool_get(struct mpnic_pg_ctxt *pg_ctxt, struct mpnic_ring *ring,
+		    u32 idx)
+{
+	struct page *page = pg_ctxt->page;
+
+	if (unlikely(pg_ctxt->idx != idx)) {
+		if (pg_ctxt->pagecnt_bias &&
+		    !page_pool_unref_page(page, pg_ctxt->pagecnt_bias))
+			page_pool_put_unrefed_page(page->pp, page, -1, true);
+
+		page = ring->rx_buf[idx];
+		page_pool_fragment_page(page, MPNIC_PAGECNT_BIAS_MAX);
+
+		pg_ctxt->page = page;
+		pg_ctxt->pagecnt_bias = MPNIC_PAGECNT_BIAS_MAX;
+		pg_ctxt->idx = idx;
+	}
+
+	pg_ctxt->pagecnt_bias--;
+
+	return page;
+}
+
 static void mpnic_flush_pg_ctxt(struct mpnic_pg_ctxt *ctxt, bool napi)
 {
 	long pagecnt_bias = ctxt->pagecnt_bias;
@@ -414,6 +442,87 @@ static void mpnic_flush_pg_ctxt(struct mpnic_pg_ctxt *ctxt, bool napi)
 
 		if (!page_pool_unref_page(page, pagecnt_bias))
 			page_pool_put_unrefed_page(page->pp, page, -1, napi);
+	}
+}
+
+static unsigned int mpnic_hdr_pg_start(unsigned int pg_off)
+{
+	/* The headroom of the first header may be larger than
+	 * MPNIC_RX_HROOM due to alignment. So account for that by just
+	 * making the page offset 0 if we are starting at the first header.
+	 */
+	if (ALIGN(MPNIC_RX_HROOM, 128) > MPNIC_RX_HROOM &&
+	    pg_off == ALIGN(MPNIC_RX_HROOM, 128))
+		return 0;
+
+	return pg_off - MPNIC_RX_HROOM;
+}
+
+static unsigned int mpnic_hdr_pg_end(unsigned int pg_off, unsigned int len)
+{
+	/* Determine the end of the buffer by finding the start of the next
+	 * and then subtracting the headroom from that frame.
+	 */
+	pg_off += len + MPNIC_RX_TROOM + MPNIC_RX_HROOM;
+
+	return ALIGN(pg_off, 128) - MPNIC_RX_HROOM;
+}
+
+static void
+mpnic_pkt_prepare(u64 rcd, struct mpnic_rcq_state *state,
+		  struct mpnic_q_triad *qt)
+{
+	unsigned int pg_off = FIELD_GET(MPNIC_RCD_AL_BUFF_OFF, rcd);
+	unsigned int pg_idx = FIELD_GET(MPNIC_RCD_AL_BUFF_ID, rcd);
+	unsigned int len = FIELD_GET(MPNIC_RCD_AL_BUFF_LEN, rcd);
+	bool fin = FIELD_GET(MPNIC_RCD_AL_PAGE_FIN, rcd);
+	unsigned int frame_sz, pg_start, pg_end;
+	struct xdp_buff *buff = &state->pkt.buff;
+	struct page *page;
+
+	pg_start = mpnic_hdr_pg_start(pg_off);
+
+	page = mpnic_page_pool_get(&state->hdr, &qt->sub0, pg_idx);
+	qt->sub0.head = (pg_idx + 1) & qt->sub0.size_mask;
+
+	/* Short-cut the end calculation if the page is fully consumed */
+	pg_end = fin ? page_size(page) : mpnic_hdr_pg_end(pg_off, len);
+	frame_sz = pg_end - pg_start;
+
+	page_pool_dma_sync_for_cpu(qt->sub0.page_pool, page, pg_start,
+				   frame_sz);
+
+	xdp_init_buff(buff, frame_sz, &qt->xdp_rxq);
+	xdp_prepare_buff(buff, page_address(page) + pg_start,
+			 pg_off - pg_start, len, true);
+	net_prefetch(buff->data);
+
+	state->pkt.add_frag_failed = false;
+}
+
+static void
+mpnic_add_rx_frag(u64 rcd, struct mpnic_rcq_state *state,
+		  struct mpnic_q_triad *qt)
+{
+	unsigned int pg_off = FIELD_GET(MPNIC_RCD_AL_BUFF_OFF, rcd);
+	unsigned int pg_idx = FIELD_GET(MPNIC_RCD_AL_BUFF_ID, rcd);
+	unsigned int len = FIELD_GET(MPNIC_RCD_AL_BUFF_LEN, rcd);
+	bool fin = FIELD_GET(MPNIC_RCD_AL_PAGE_FIN, rcd);
+	struct xdp_buff *buff = &state->pkt.buff;
+	unsigned int truesz;
+	struct page *page;
+
+	page = mpnic_page_pool_get(&state->payld, &qt->sub1, pg_idx);
+	qt->sub1.head = (pg_idx + 1) & qt->sub1.size_mask;
+
+	truesz = (fin ? page_size(page) : ALIGN(pg_off + len, 128)) - pg_off;
+
+	page_pool_dma_sync_for_cpu(qt->sub1.page_pool, page, pg_off, truesz);
+
+	if (!xdp_buff_add_frag(buff, page_to_netmem(page), pg_off, len,
+			       truesz)) {
+		state->payld.pagecnt_bias++;
+		state->pkt.add_frag_failed = true;
 	}
 }
 
@@ -442,23 +551,99 @@ static void mpnic_put_pkt_buff(struct mpnic_pkt_ctxt *ctxt, bool napi)
 	page_pool_put_full_page(page->pp, page, napi);
 }
 
+static int mpnic_clean_rcq(struct mpnic_napi_vector *nv,
+			   struct mpnic_q_triad *qt, int budget)
+{
+	struct mpnic_ring *rcq = &qt->cmpl;
+	struct mpnic_rcq_state *state;
+	unsigned int packets = 0;
+	__le64 *raw_rcd, done;
+	u32 head = rcq->head;
+
+	done = (head & (rcq->size_mask + 1)) ? 0 : cpu_to_le64(MPNIC_RCD_DONE);
+	raw_rcd = &rcq->desc[head & rcq->size_mask];
+	state = rcq->state;
+
+	while (packets < budget) {
+		u64 rcd;
+
+		if ((*raw_rcd & cpu_to_le64(MPNIC_RCD_DONE)) != done)
+			break;
+
+		dma_rmb();
+
+		rcd = le64_to_cpu(*raw_rcd);
+
+		switch (FIELD_GET(MPNIC_RCD_TYPE, rcd)) {
+		case MPNIC_RCD_TYPE_HDR_AL:
+			if (FIELD_GET(MPNIC_RCD_HDR_SUBTYPE, rcd) ==
+			    MPNIC_RCD_HDR_SUBTYPE_HDR)
+				mpnic_pkt_prepare(rcd, state, qt);
+			break;
+		case MPNIC_RCD_TYPE_PAY_AL:
+			mpnic_add_rx_frag(rcd, state, qt);
+			break;
+		case MPNIC_RCD_TYPE_META: {
+			struct sk_buff *skb = NULL;
+
+			if (likely(!(rcd &
+				     MPNIC_RCD_META_UNCORRECTABLE_ERR_MASK) &&
+				   !state->pkt.add_frag_failed))
+				skb = xdp_build_skb_from_buff(&state->pkt.buff);
+
+			if (likely(skb))
+				napi_gro_receive(&nv->napi, skb);
+			else
+				mpnic_put_pkt_buff(&state->pkt, true);
+
+			state->pkt.buff.data_hard_start = NULL;
+			packets++;
+			break;
+		}
+		}
+
+		raw_rcd++;
+		head++;
+
+		if (unlikely(!(head & rcq->size_mask))) {
+			done ^= cpu_to_le64(MPNIC_RCD_DONE);
+			raw_rcd = &rcq->desc[0];
+		}
+	}
+
+	rcq->head = head;
+
+	/* Allocate buffers, force dma_wmb(), and then start writing tails */
+	mpnic_fill_qt_bdqs(qt);
+
+	return packets;
+}
+
 static int mpnic_poll(struct napi_struct *napi, int budget)
 {
 	struct mpnic_napi_vector *nv = container_of(napi,
 						    struct mpnic_napi_vector,
 						    napi);
-	int i;
+	int i, j, work_done = 0;
 
 	for (i = 0; i < nv->txt_count; i++)
 		mpnic_clean_tcq(nv, &nv->qt[i], budget);
 
+	if (likely(budget))
+		for (j = 0; j < nv->rxt_count; j++, i++)
+			work_done += mpnic_clean_rcq(nv, &nv->qt[i],
+						     budget - work_done);
+
 	for (i = 0; i < nv->txt_count; i++)
 		mpnic_commit_cq_head(&nv->qt[i].cmpl);
 
-	if (likely(napi_complete_done(napi, 0)))
+	if (work_done >= budget)
+		return budget;
+
+	if (likely(napi_complete_done(napi, work_done)))
 		mpnic_nv_irq_rearm(nv);
 
-	return 0;
+	return work_done;
 }
 
 static irqreturn_t mpnic_msix_clean_rings(int __always_unused irq, void *data)
@@ -941,7 +1126,9 @@ static void mpnic_set_rde_cfg(struct mpnic_dev *mpd, struct mpnic_ring *rcq)
 			      MPNIC_RX_MAX_HDR));
 }
 
-static void mpnic_enable_rcq(struct mpnic_dev *mpd, struct mpnic_ring *rcq)
+static void mpnic_enable_rcq(struct mpnic_dev *mpd,
+			     struct mpnic_napi_vector *nv,
+			     struct mpnic_ring *rcq)
 {
 	u32 log_size = fls(rcq->size_mask);
 	u32 i = rcq->q_idx;
@@ -956,6 +1143,10 @@ static void mpnic_enable_rcq(struct mpnic_dev *mpd, struct mpnic_ring *rcq)
 	/* Store descriptor ring address and size */
 	mpnic_wr64(mpd, MPNIC_RCQ_BASE_ADDR(i), rcq->dma);
 	mpnic_wr64(mpd, MPNIC_RCQ_SIZE(i), log_size & MPNIC_RCQ_SIZE_SIZE);
+
+	/* Store interrupt information for the completion queue */
+	mpnic_wr64(mpd, MPNIC_RIM_CTL(i), nv->v_idx);
+	mpnic_wr64(mpd, MPNIC_RIM_INTR_MASK(i), 0);
 
 	mpnic_wr64(mpd, MPNIC_RCQ_CTL(i), MPNIC_RCQ_CTL_ENABLE);
 }
@@ -975,7 +1166,7 @@ void mpnic_enable(struct mpnic_net *mpn)
 
 		for (j = 0; j < nv->rxt_count; j++, t++) {
 			mpnic_enable_bdq(mpd, &nv->qt[t].sub0, &nv->qt[t].sub1);
-			mpnic_enable_rcq(mpd, &nv->qt[t].cmpl);
+			mpnic_enable_rcq(mpd, nv, &nv->qt[t].cmpl);
 		}
 	}
 
@@ -1008,6 +1199,8 @@ static void mpnic_disable_bdq(struct mpnic_dev *mpd, struct mpnic_ring *hpq)
 static void mpnic_disable_rcq(struct mpnic_dev *mpd, struct mpnic_ring *rcq)
 {
 	mpnic_wr64(mpd, MPNIC_RCQ_CTL(rcq->q_idx), 0);
+	mpnic_wr64(mpd, MPNIC_RIM_INTR_MASK(rcq->q_idx),
+		   MPNIC_RIM_INTR_MASK_MASK);
 }
 
 void mpnic_disable(struct mpnic_net *mpn)

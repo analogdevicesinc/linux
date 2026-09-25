@@ -50,6 +50,12 @@ struct mpnic_net;
 /* Headers longer than this are split off into the payload queue */
 #define MPNIC_RX_MAX_HDR		1536
 
+/* A page is handed out to many packets, each of which takes one reference.
+ * Rather than a locked increment per packet the driver takes a batch of
+ * references up front and returns whatever is left when the page is done.
+ */
+#define MPNIC_PAGECNT_BIAS_MAX		(PAGE_SIZE + 1)
+
 #define MPNIC_MAX_JUMBO_FRAME_SIZE	9742
 
 /* The page a buffer descriptor queue is currently handing out. Records
@@ -63,6 +69,7 @@ struct mpnic_pg_ctxt {
 
 struct mpnic_pkt_ctxt {
 	struct xdp_buff buff;
+	bool add_frag_failed;
 };
 
 struct mpnic_rcq_state {

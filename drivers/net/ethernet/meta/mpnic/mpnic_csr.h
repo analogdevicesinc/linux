@@ -130,6 +130,10 @@ enum {
 #define MPNIC_RCQ_SIZE(i)		(0x294 + 1024 * (i))	/* 0xa50 */
 #define MPNIC_RCQ_SIZE_SIZE			CSR_GENMASK(4, 0)
 
+/* NIC_CORE_RIM */
+#define MPNIC_RIM_INTR_MASK(i)		(0x2c8 + 1024 * (i))	/* 0xb20 */
+#define MPNIC_RIM_INTR_MASK_MASK		CSR_BIT(0)
+
 /* NIC_CORE_TIM_PRV */
 #define MPNIC_TIM_CTL(i)		(0x100100 + 1024 * (i))	/* 0x400400 */
 
@@ -138,6 +142,9 @@ enum {
 #define MPNIC_RDE_CFG_MIN_TAIL_ROOM		CSR_GENMASK(9, 0)
 #define MPNIC_RDE_CFG_MIN_HEAD_ROOM		CSR_GENMASK(18, 10)
 #define MPNIC_RDE_CFG_MAX_HEADER_BYTES		CSR_GENMASK(45, 32)
+
+/* NIC_CORE_RIM_PRV */
+#define MPNIC_RIM_CTL(i)		(0x100280 + 1024 * (i))	/* 0x400a00 */
 
 /* NIC_CORE_RBP_HP_GLBL */
 #define MPNIC_HPQ_IDLE(i)		(0x420000 + 2 * (i))	/* 0x1080000 */
