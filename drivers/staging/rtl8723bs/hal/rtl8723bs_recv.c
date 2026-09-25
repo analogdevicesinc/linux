@@ -7,6 +7,7 @@
 
 #include <drv_types.h>
 #include <rtl8723b_hal.h>
+#include <linux/align.h>
 
 static void initrecvbuf(struct recv_buf *precvbuf, struct adapter *padapter)
 {
@@ -386,7 +387,7 @@ s32 rtl8723bs_init_recv_priv(struct adapter *padapter)
 		goto exit;
 	}
 
-	precvpriv->precv_buf = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(precvpriv->pallocated_recv_buf), 4);
+	precvpriv->precv_buf = PTR_ALIGN(precvpriv->pallocated_recv_buf, 4);
 
 	/*  init each recv buffer */
 	precvbuf = (struct recv_buf *)precvpriv->precv_buf;
