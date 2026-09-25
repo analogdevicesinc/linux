@@ -6,6 +6,7 @@
 #include <linux/device.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/nvmem-provider.h>
+#include <linux/srcu.h>
 
 /* Hold pointers to callbacks owned by the nvmem provider module. */
 struct nvmem_operations {
@@ -16,6 +17,7 @@ struct nvmem_operations {
 struct nvmem_device {
 	struct module		*owner;
 	struct device		dev;
+	struct srcu_struct	srcu;
 	int			stride;
 	int			word_size;
 	int			id;
@@ -33,7 +35,7 @@ struct nvmem_device {
 	unsigned int		nkeepout;
 	struct gpio_desc	*wp_gpio;
 	struct nvmem_layout	*layout;
-	struct nvmem_operations	*ops;
+	struct nvmem_operations __rcu *ops;
 	void *priv;
 	bool			sysfs_cells_populated;
 };

@@ -57,7 +57,12 @@ static BLOCKING_NOTIFIER_HEAD(nvmem_notifier);
 static int __nvmem_reg_read(struct nvmem_device *nvmem, unsigned int offset,
 			    void *val, size_t bytes)
 {
-	struct nvmem_operations *ops = nvmem->ops;
+	struct nvmem_operations *ops;
+
+	guard(srcu)(&nvmem->srcu);
+	ops = srcu_dereference(nvmem->ops, &nvmem->srcu);
+	if (!ops)
+		return -ENODEV;
 
 	if (!ops->reg_read)
 		return -EOPNOTSUPP;
@@ -68,8 +73,13 @@ static int __nvmem_reg_read(struct nvmem_device *nvmem, unsigned int offset,
 static int __nvmem_reg_write(struct nvmem_device *nvmem, unsigned int offset,
 			     void *val, size_t bytes)
 {
-	struct nvmem_operations *ops = nvmem->ops;
+	struct nvmem_operations *ops;
 	int ret, wr_ok;
+
+	guard(srcu)(&nvmem->srcu);
+	ops = srcu_dereference(nvmem->ops, &nvmem->srcu);
+	if (!ops)
+		return -ENODEV;
 
 	if (!ops->reg_write)
 		return -EOPNOTSUPP;
@@ -289,7 +299,7 @@ static ssize_t bin_attr_nvmem_write(struct file *filp, struct kobject *kobj,
 
 static umode_t nvmem_bin_attr_get_umode(struct nvmem_device *nvmem)
 {
-	struct nvmem_operations *ops = nvmem->ops;
+	struct nvmem_operations *ops = rcu_dereference_raw(nvmem->ops);
 
 	umode_t mode = 0400;
 
@@ -333,7 +343,7 @@ static umode_t nvmem_attr_is_visible(struct kobject *kobj,
 {
 	struct device *dev = kobj_to_dev(kobj);
 	struct nvmem_device *nvmem = to_nvmem_device(dev);
-	struct nvmem_operations *ops = nvmem->ops;
+	struct nvmem_operations *ops = rcu_dereference_raw(nvmem->ops);
 
 	/*
 	 * If the device has no .reg_write operation, do not allow
@@ -560,7 +570,7 @@ static void nvmem_release(struct device *dev)
 	gpiod_put(nvmem->wp_gpio);
 	nvmem_device_remove_all_cells(nvmem);
 	ida_free(&nvmem_ida, nvmem->id);
-	kfree(nvmem->ops);
+	cleanup_srcu_struct(&nvmem->srcu);
 	kfree(nvmem);
 }
 
@@ -920,7 +930,20 @@ struct nvmem_device *nvmem_register(const struct nvmem_config *config)
 	nvmem->dev.bus = &nvmem_bus_type;
 	nvmem->dev.parent = config->dev;
 	INIT_LIST_HEAD(&nvmem->cells);
-	nvmem->ops = ops;
+
+	/*
+	 * Must happen before we assign the release() callback in
+	 * device_initialize().
+	 */
+	rval = init_srcu_struct(&nvmem->srcu);
+	if (rval) {
+		ida_free(&nvmem_ida, nvmem->id);
+		kfree(ops);
+		kfree(nvmem);
+		return ERR_PTR(rval);
+	}
+
+	rcu_assign_pointer(nvmem->ops, ops);
 
 	device_initialize(&nvmem->dev);
 
@@ -1035,7 +1058,10 @@ err_remove_dev:
 err_remove_compat:
 	nvmem_sysfs_remove_compat(nvmem);
 err_put_device:
+	ops = rcu_replace_pointer(nvmem->ops, NULL, true);
+	synchronize_srcu(&nvmem->srcu);
 	put_device(&nvmem->dev);
+	kfree(ops);
 
 	return ERR_PTR(rval);
 }
@@ -1048,13 +1074,19 @@ EXPORT_SYMBOL_GPL(nvmem_register);
  */
 void nvmem_unregister(struct nvmem_device *nvmem)
 {
+	struct nvmem_operations *ops;
+
 	if (!nvmem)
 		return;
 
 	blocking_notifier_call_chain(&nvmem_notifier, NVMEM_REMOVE, nvmem);
 
+	ops = rcu_replace_pointer(nvmem->ops, NULL, true);
+	synchronize_srcu(&nvmem->srcu);
+
 	nvmem_sysfs_remove_compat(nvmem);
 	nvmem_destroy_layout(nvmem);
+	kfree(ops);
 
 	device_unregister(&nvmem->dev);
 }
