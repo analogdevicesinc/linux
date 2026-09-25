@@ -1363,6 +1363,30 @@ __naked void stack_noperfmon_reject_atomic_on_narrow_spill(void)
 	::: __clobber_all);
 }
 
+SEC("socket")
+__description("stack_noperfmon: reject helper read of narrow spill")
+__success
+__caps_unpriv(CAP_BPF)
+__failure_unpriv __msg_unpriv("invalid read from stack R2 off -8+4 size 8")
+__naked void stack_noperfmon_reject_helper_read_of_narrow_spill(void)
+{
+	asm volatile (
+	"r1 = 1;"
+	"*(u32 *)(r10 - 8) = r1;"
+	"r1 = %[map_ringbuf] ll;"
+	"r2 = r10;"
+	"r2 += -8;"
+	"r3 = 8;"
+	"r4 = 0;"
+	"call %[bpf_ringbuf_output];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_ringbuf_output),
+	  __imm_addr(map_ringbuf)
+	: __clobber_all);
+}
+
 SEC("raw_tp")
 __success
 __naked void var_off_write_over_scalar_spill(void)
