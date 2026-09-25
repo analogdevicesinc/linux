@@ -625,9 +625,24 @@ void amdgpu_vmid_reset_all(struct amdgpu_device *adev)
 	for (i = 0; i < AMDGPU_MAX_VMHUBS; ++i) {
 		struct amdgpu_vmid_mgr *id_mgr =
 			&adev->vm_manager.id_mgr[i];
-
-		for (j = 1; j < id_mgr->num_ids; ++j)
+		for_each_set_bit(j, id_mgr->vmid_mask, AMDGPU_NUM_VMID)
 			amdgpu_vmid_reset(adev, i, j);
+	}
+}
+
+void amdgpu_vmid_mgr_set_vmid_mask(struct amdgpu_device *adev,
+				   unsigned long vmid_mask, bool for_mmhub)
+{
+	unsigned int i;
+
+	BUILD_BUG_ON(AMDGPU_NUM_VMID > BITS_PER_LONG);
+
+	for (i = 0; i < AMDGPU_MAX_VMHUBS; i++) {
+		bool is_mmhub = AMDGPU_IS_MMHUB0(i) || AMDGPU_IS_MMHUB1(i);
+
+		if (is_mmhub == for_mmhub)
+			bitmap_copy(adev->vm_manager.id_mgr[i].vmid_mask,
+				    &vmid_mask, AMDGPU_NUM_VMID);
 	}
 }
 
@@ -649,19 +664,8 @@ void amdgpu_vmid_mgr_init(struct amdgpu_device *adev)
 		mutex_init(&id_mgr->lock);
 		INIT_LIST_HEAD(&id_mgr->ids_lru);
 
-		/* for GC <10, SDMA uses MMHUB so use first_kfd_vmid for both GC and MM */
-		if (amdgpu_ip_version(adev, GC_HWIP, 0) < IP_VERSION(10, 0, 0))
-			/* manage only VMIDs not used by KFD */
-			id_mgr->num_ids = adev->vm_manager.first_kfd_vmid;
-		else if (AMDGPU_IS_MMHUB0(i) ||
-			 AMDGPU_IS_MMHUB1(i))
-			id_mgr->num_ids = 16;
-		else
-			/* manage only VMIDs not used by KFD */
-			id_mgr->num_ids = adev->vm_manager.first_kfd_vmid;
-
 		/* skip over VMID 0, since it is the system VM */
-		for (j = 1; j < id_mgr->num_ids; ++j) {
+		for_each_set_bit(j, id_mgr->vmid_mask, AMDGPU_NUM_VMID) {
 			amdgpu_vmid_reset(adev, i, j);
 			amdgpu_sync_create(&id_mgr->ids[j].active);
 			list_add_tail(&id_mgr->ids[j].list, &id_mgr->ids_lru);
@@ -685,6 +689,7 @@ void amdgpu_vmid_mgr_fini(struct amdgpu_device *adev)
 			&adev->vm_manager.id_mgr[i];
 
 		mutex_destroy(&id_mgr->lock);
+
 		for (j = 0; j < AMDGPU_NUM_VMID; ++j) {
 			struct amdgpu_vmid *id = &id_mgr->ids[j];
 

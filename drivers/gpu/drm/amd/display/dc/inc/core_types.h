@@ -247,6 +247,8 @@ struct audio_support{
 #define NO_UNDERLAY_PIPE -1
 
 struct resource_pool {
+	struct dc_context *ctx;
+
 	struct mem_input *mis[MAX_PIPES];
 	struct hubp *hubps[MAX_PIPES];
 	struct input_pixel_processor *ipps[MAX_PIPES];
@@ -263,6 +265,13 @@ struct resource_pool {
 	struct dce_i2c_hw *hw_i2cs[MAX_PIPES];
 	struct dce_i2c_sw *sw_i2cs[MAX_PIPES];
 	bool i2c_hw_buffer_in_use;
+
+	/* LSDMA scratch memory. buffer is NULL when not allocated. */
+	struct {
+		void *buffer;
+		long long pa;
+		unsigned int size;
+	} lsdma_scratch;
 
 	struct dwbc *dwbc[MAX_DWB_PIPES];
 	struct mcif_wb *mcif_wb[MAX_DWB_PIPES];

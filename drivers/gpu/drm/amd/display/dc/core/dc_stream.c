@@ -284,6 +284,21 @@ struct dc_link *dc_stream_get_link(
 	return stream->link;
 }
 
+static void update_cursor_info_to_dmu(struct dc *dc, struct pipe_ctx *pipe_ctx)
+{
+	unsigned int panel_inst;
+
+	if (!dc->ctx->dmub_srv || !dc_dmub_should_update_cursor_data(pipe_ctx))
+		return;
+
+	if (!dc_get_edp_link_panel_inst(dc, pipe_ctx->stream->link, &panel_inst))
+		panel_inst = 0;
+
+	dc_send_update_cursor_info_to_dmu(pipe_ctx->stream->ctx, pipe_ctx->pipe_idx,
+			pipe_ctx->plane_res.hubp, pipe_ctx->plane_res.dpp,
+			(uint8_t)pipe_ctx->stream_res.tg->inst, (uint8_t)panel_inst);
+}
+
 void program_cursor_attributes(
 	struct dc *dc,
 	struct dc_stream_state *stream)
@@ -317,8 +332,7 @@ void program_cursor_attributes(
 		}
 
 		dc->hwss.set_cursor_attribute(pipe_ctx);
-		if (dc->ctx->dmub_srv)
-			dc_send_update_cursor_info_to_dmu(pipe_ctx, i);
+		update_cursor_info_to_dmu(dc, pipe_ctx);
 		if (dc->hwss.set_cursor_sdr_white_level)
 			dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
 		if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe)
@@ -480,8 +494,7 @@ void program_cursor_position(
 		if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe)
 			dc->hwss.update_cursor_offload_pipe(dc, pipe_ctx);
 
-		if (dc->ctx->dmub_srv)
-			dc_send_update_cursor_info_to_dmu(pipe_ctx, i);
+		update_cursor_info_to_dmu(dc, pipe_ctx);
 	}
 
 	if (pipe_to_program) {

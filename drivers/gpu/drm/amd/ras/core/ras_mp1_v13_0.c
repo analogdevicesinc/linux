@@ -75,10 +75,11 @@ static int mp1_v13_0_get_bank_count(struct ras_core_context *ras_core,
 }
 
 static int mp1_v13_0_dump_bank(struct ras_core_context *ras_core,
-			enum ras_err_type type, u32 idx, u32 reg_idx, u64 *val)
+			enum ras_err_type type, u32 idx, u64 *regs, u32 regs_sz)
 {
 	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
 	const struct ras_mp1_sys_func *sys_func = mp1->sys_func;
+	int i, ret, reg_cnt;
 	u32 msg;
 
 	if (!sys_func || !sys_func->mp1_dump_valid_bank)
@@ -96,7 +97,14 @@ static int mp1_v13_0_dump_bank(struct ras_core_context *ras_core,
 		return -EINVAL;
 	}
 
-	return sys_func->mp1_dump_valid_bank(ras_core, msg, idx, reg_idx, val);
+	reg_cnt = min_t(int, 16, regs_sz);
+	for (i = 0; i < reg_cnt; i++) {
+		ret = sys_func->mp1_dump_valid_bank(ras_core, msg, idx, i, &regs[i]);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 static int mp1_v13_0_set_debug_mode(struct ras_core_context *ras_core, bool enable)

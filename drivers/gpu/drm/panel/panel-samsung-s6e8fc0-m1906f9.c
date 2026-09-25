@@ -256,27 +256,15 @@ static int s6e8fc0_m1906f9_probe(struct mipi_dsi_device *dsi)
 		return dev_err_probe(dev, PTR_ERR(ctx->panel.backlight),
 				     "Failed to create backlight\n");
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(dev, &ctx->panel);
+	if (ret)
+		return ret;
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret < 0) {
-		drm_panel_remove(&ctx->panel);
+	ret = devm_mipi_dsi_attach(dev, dsi);
+	if (ret < 0)
 		return dev_err_probe(dev, ret, "Failed to attach to DSI host\n");
-	}
 
 	return 0;
-}
-
-static void s6e8fc0_remove(struct mipi_dsi_device *dsi)
-{
-	struct s6e8fc0_ctx *ctx = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
-
-	drm_panel_remove(&ctx->panel);
 }
 
 static const struct of_device_id samsung_s6e8fc0_of_match[] = {
@@ -287,7 +275,6 @@ MODULE_DEVICE_TABLE(of, samsung_s6e8fc0_of_match);
 
 static struct mipi_dsi_driver s6e8fc0_driver = {
 	.probe = s6e8fc0_m1906f9_probe,
-	.remove = s6e8fc0_remove,
 	.driver = {
 		.name = "panel-samsung-s6e8fc0-m1906f9",
 		.of_match_table = samsung_s6e8fc0_of_match,
