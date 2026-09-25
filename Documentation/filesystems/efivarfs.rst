@@ -37,6 +37,16 @@ accidentally.
           |4_bytes_of_attributes + efivar_data|
           +-----------------------------------+
 
+Mount options
+=============
+
+nostatfs
+      Do not report the variable-store used/available capacity in
+      ``statfs(2)``; report zero instead. Obtaining the capacity requires the
+      ``QueryVariableInfo()`` EFI runtime service, which on some firmware takes
+      tens of milliseconds and runs with preemption disabled, stalling the
+      calling CPU. This option is set by default on ``CONFIG_PREEMPT_RT``.
+
 *See also:*
 
 - Documentation/admin-guide/acpi/ssdt-overlays.rst
