@@ -1276,9 +1276,17 @@ void iwl_trans_pcie_txq_disable(struct iwl_trans *trans, int txq_id,
 				bool configure_scd)
 {
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
-	u32 stts_addr = trans_pcie->scd_base_addr +
-			SCD_TX_STTS_QUEUE_OFFSET(txq_id);
 	static const u32 zero_val[4] = {};
+	u32 stts_addr;
+
+	if (WARN_ON(txq_id < 0 ||
+		    txq_id >= trans->mac_cfg->base->num_of_queues ||
+		    txq_id == trans->conf.cmd_queue ||
+		    !trans_pcie->txqs.txq[txq_id]))
+		return;
+
+	stts_addr = trans_pcie->scd_base_addr +
+		    SCD_TX_STTS_QUEUE_OFFSET(txq_id);
 
 	trans_pcie->txqs.txq[txq_id]->frozen_expiry_remainder = 0;
 	trans_pcie->txqs.txq[txq_id]->frozen = false;
@@ -1894,18 +1902,27 @@ struct sg_table *iwl_pcie_prep_tso(struct iwl_trans *trans, struct sk_buff *skb,
 	/* Only map the data, not the header (it is copied to the TSO page) */
 	orig_nents = skb_to_sgvec(skb, sgt->sgl, offset, skb->len - offset);
 	if (WARN_ON_ONCE(orig_nents <= 0))
-		return NULL;
+		goto err_cleanup;
 
 	sgt->orig_nents = orig_nents;
 
 	/* And map the entire SKB */
 	if (dma_map_sgtable(trans->dev, sgt, DMA_TO_DEVICE, 0) < 0)
-		return NULL;
+		goto err_cleanup;
 
 	/* Store non-zero (i.e. valid) offset for unmapping */
 	cmd_meta->sg_offset = (unsigned long) sgt & ~PAGE_MASK;
 
 	return sgt;
+
+err_cleanup:
+	/*
+	 * Since cmd_meta->sg_offset is not set yet, iwl_pcie_free_tso_pages
+	 * will only free the page without unmapping the SG table (which hasn't
+	 * been successfully mapped yet anyway).
+	 */
+	iwl_pcie_free_tso_pages(trans, skb, cmd_meta);
+	return NULL;
 }
 
 static int iwl_fill_data_tbs_amsdu(struct iwl_trans *trans, struct sk_buff *skb,
@@ -2552,6 +2569,7 @@ next_queue:
 	}
 }
 
+#define HOST_COMPLETE_QUICK_TIMEOUT	msecs_to_jiffies(200)
 #define HOST_COMPLETE_TIMEOUT	(2 * HZ)
 
 static int iwl_trans_pcie_send_hcmd_sync(struct iwl_trans *trans,
@@ -2585,10 +2603,32 @@ static int iwl_trans_pcie_send_hcmd_sync(struct iwl_trans *trans,
 		return ret;
 	}
 
-	ret = wait_event_timeout(trans_pcie->wait_command_queue,
-				 !test_bit(STATUS_SYNC_HCMD_ACTIVE,
-					   &trans->status),
-				 HOST_COMPLETE_TIMEOUT);
+	/*
+	 * There is a race between the PCI link power save flows and the
+	 * notification / MSI-X interrupt in the firmware.
+	 * If we didn't get a response after 200ms, poke the config space
+	 * to force a wake-up of the PCI link.
+	 */
+	for (int i = 0; i < 2; i++) {
+		ret = wait_event_timeout(trans_pcie->wait_command_queue,
+					 !test_bit(STATUS_SYNC_HCMD_ACTIVE,
+						   &trans->status),
+					 i == 0 ? HOST_COMPLETE_QUICK_TIMEOUT :
+						  HOST_COMPLETE_TIMEOUT);
+		if (ret)
+			break;
+
+		if (i == 0) {
+			u32 val;
+
+			pci_read_config_dword(trans_pcie->pci_dev,
+					      PCI_VENDOR_ID, &val);
+			IWL_DEBUG_HC(trans,
+				     "write_ptr: %d: no response after %ums poking config space\n",
+				     txq->write_ptr,
+				     jiffies_to_msecs(HOST_COMPLETE_QUICK_TIMEOUT));
+		}
+	}
 	if (!ret) {
 		IWL_ERR(trans, "Error sending %s: time out after %dms.\n",
 			cmd_str, jiffies_to_msecs(HOST_COMPLETE_TIMEOUT));
