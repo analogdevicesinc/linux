@@ -4,11 +4,13 @@
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
 #include <linux/module.h>
+#include <linux/netdevice.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 
 #include "mpnic.h"
+#include "mpnic_netdev.h"
 
 #define PCI_DEVICE_ID_META_MPNIC	0x0014
 
@@ -20,6 +22,10 @@ static void mpnic_mmio_err(struct mpnic_dev *mpd, u32 reg)
 	dev_err(mpd->dev,
 		"Failed read (idx 0x%x AKA addr 0x%x), disabled CSR access, awaiting reset\n",
 		reg, reg << 2);
+
+	/* Tell the stack the device has lost its PCIe link */
+	if (mpd->netdev)
+		netif_device_detach(mpd->netdev);
 }
 
 u64 mpnic_rd64(struct mpnic_dev *mpd, u32 reg)
@@ -58,6 +64,7 @@ static struct mpnic_dev *mpnic_alloc(struct pci_dev *pdev)
 	pci_set_drvdata(pdev, mpd);
 	mpd->dev = &pdev->dev;
 
+	mpd->dsn = pci_get_dsn(pdev);
 	mpd->mps = pcie_get_mps(pdev);
 	mpd->readrq = pcie_get_readrq(pdev);
 	mpd->relaxed_ord = pcie_relaxed_ordering_enabled(pdev);
@@ -74,6 +81,7 @@ static struct mpnic_dev *mpnic_alloc(struct pci_dev *pdev)
  **/
 static int mpnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
+	struct net_device *netdev;
 	void __iomem *uc_addr0;
 	struct mpnic_dev *mpd;
 	int err;
@@ -120,8 +128,23 @@ static int mpnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (err)
 		goto err_free_irqs;
 
+	netdev = mpnic_netdev_alloc(mpd);
+	if (!netdev) {
+		dev_err(&pdev->dev, "Netdev allocation failed\n");
+		err = -ENOMEM;
+		goto err_free_irqs;
+	}
+
+	err = mpnic_netdev_register(netdev);
+	if (err) {
+		dev_err(&pdev->dev, "Netdev registration failed: %d\n", err);
+		goto err_free_netdev;
+	}
+
 	return 0;
 
+err_free_netdev:
+	mpnic_netdev_free(mpd);
 err_free_irqs:
 	mpnic_free_irqs(mpd);
 err_free_mpd:
@@ -138,6 +161,8 @@ static void mpnic_remove(struct pci_dev *pdev)
 {
 	struct mpnic_dev *mpd = pci_get_drvdata(pdev);
 
+	unregister_netdev(mpd->netdev);
+	mpnic_netdev_free(mpd);
 	mpnic_free_irqs(mpd);
 	kfree(mpd);
 }

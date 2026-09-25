@@ -23,11 +23,13 @@ enum {
 
 struct mpnic_dev {
 	struct device *dev;
+	struct net_device *netdev;
 
 	u32 __iomem *uc_addr0;
 
 	u16 num_irqs;
 
+	u64 dsn;
 	u32 mps;
 	u32 readrq;
 	u8 relaxed_ord;

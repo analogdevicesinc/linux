@@ -23,4 +23,8 @@ struct mpnic_net {
 	u16 num_tx_queues;
 };
 
+struct net_device *mpnic_netdev_alloc(struct mpnic_dev *mpd);
+void mpnic_netdev_free(struct mpnic_dev *mpd);
+int mpnic_netdev_register(struct net_device *netdev);
+
 #endif /* _MPNIC_NETDEV_H_ */

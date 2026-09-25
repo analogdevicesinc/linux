@@ -17,6 +17,8 @@ struct mpnic_xmit_cb {
 };
 
 #define MPNIC_XMIT_CB(__skb) ((struct mpnic_xmit_cb *)((__skb)->cb))
+#define MPNIC_TWD_TYPE_MASK(_type) \
+	cpu_to_le64(FIELD_PREP(MPNIC_TWD_TYPE, MPNIC_TWD_TYPE_##_type))
 
 /* Leave the interrupt moderation counters alone when arming or masking */
 #define MPNIC_TIM_PARAM_CFG_PRESERVE_MASK \
@@ -58,6 +60,29 @@ static struct netdev_queue *mpnic_txring_txq(const struct net_device *dev,
 	return netdev_get_tx_queue(dev, ring->q_idx);
 }
 
+static void mpnic_tx_doorbell(struct mpnic_ring *ring, __le64 *meta)
+{
+	*meta |= cpu_to_le64(MPNIC_TWD_FLAG_REQ_COMPLETION);
+	ring->deferred_meta = -1;
+
+	/* Force DMA writes to flush before writing to tail */
+	dma_wmb();
+
+	writeq(ring->tail, ring->doorbell);
+}
+
+/* Packets handed to us with xmit_more set are left in the ring without a
+ * doorbell, and without a completion request, in the expectation that the
+ * packet ending the burst will ring for all of them. If that packet gets
+ * dropped instead we have to ring here, otherwise the descriptors sit in
+ * the ring until the next transmit, which may never come.
+ */
+static void mpnic_tx_flush_doorbell(struct mpnic_ring *ring)
+{
+	if (ring->deferred_meta >= 0)
+		mpnic_tx_doorbell(ring, &ring->desc[ring->deferred_meta]);
+}
+
 static void mpnic_unmap_single_twd(struct device *dev, __le64 *twd)
 {
 	u64 raw_twd = le64_to_cpu(*twd);
@@ -72,6 +97,138 @@ static void mpnic_unmap_page_twd(struct device *dev, __le64 *twd)
 
 	dma_unmap_page(dev, FIELD_GET(MPNIC_TWD_ADDR, raw_twd),
 		       FIELD_GET(MPNIC_TWD_LEN, raw_twd), DMA_TO_DEVICE);
+}
+
+static bool
+mpnic_tx_map(struct mpnic_ring *ring, struct sk_buff *skb, __le64 *meta)
+{
+	struct device *dev = skb->dev->dev.parent;
+	unsigned int tail = ring->tail, first;
+	unsigned int size, data_len;
+	skb_frag_t *frag;
+	dma_addr_t dma;
+	__le64 *twd;
+
+	tail++;
+	tail &= ring->size_mask;
+	first = tail;
+
+	size = skb_headlen(skb);
+	data_len = skb->data_len;
+
+	if (size > FIELD_MAX(MPNIC_TWD_LEN))
+		goto err_dma;
+
+	dma = dma_map_single(dev, skb->data, size, DMA_TO_DEVICE);
+
+	for (frag = &skb_shinfo(skb)->frags[0];; frag++) {
+		twd = &ring->desc[tail];
+
+		if (dma_mapping_error(dev, dma))
+			goto err_dma;
+
+		*twd = cpu_to_le64(FIELD_PREP(MPNIC_TWD_ADDR, dma) |
+				   FIELD_PREP(MPNIC_TWD_LEN, size) |
+				   FIELD_PREP(MPNIC_TWD_TYPE,
+					      MPNIC_TWD_TYPE_AL));
+
+		tail++;
+		tail &= ring->size_mask;
+
+		if (!data_len)
+			break;
+
+		size = skb_frag_size(frag);
+		data_len -= size;
+
+		if (size > FIELD_MAX(MPNIC_TWD_LEN))
+			goto err_dma;
+
+		dma = skb_frag_dma_map(dev, frag, 0, size, DMA_TO_DEVICE);
+	}
+
+	*twd |= MPNIC_TWD_TYPE_MASK(LAST_AL);
+
+	MPNIC_XMIT_CB(skb)->desc_count = ((twd - meta) + 1) & ring->size_mask;
+
+	skb_tx_timestamp(skb);
+
+	ring->tail = tail;
+
+	/* Verify there is room for another packet */
+	netif_txq_maybe_stop(mpnic_txring_txq(skb->dev, ring),
+			     mpnic_desc_unused(ring), MPNIC_MAX_SKB_DESC,
+			     MPNIC_TX_DESC_WAKEUP);
+
+	if (__netdev_tx_sent_queue(mpnic_txring_txq(skb->dev, ring),
+				   MPNIC_XMIT_CB(skb)->bytecount,
+				   netdev_xmit_more()))
+		mpnic_tx_doorbell(ring, meta);
+	else
+		ring->deferred_meta = meta - ring->desc;
+
+	return false;
+err_dma:
+	if (net_ratelimit())
+		netdev_err(skb->dev, "TX DMA map failed\n");
+
+	while (tail != first) {
+		tail--;
+		tail &= ring->size_mask;
+		twd = &ring->desc[tail];
+		if (tail == first)
+			mpnic_unmap_single_twd(dev, twd);
+		else
+			mpnic_unmap_page_twd(dev, twd);
+	}
+
+	return true;
+}
+
+#define MPNIC_MIN_FRAME_LEN	60
+
+static netdev_tx_t mpnic_xmit_frame_ring(struct sk_buff *skb,
+					 struct mpnic_ring *ring)
+{
+	__le64 *meta = &ring->desc[ring->tail];
+	u32 tail = ring->tail;
+
+	if (skb_put_padto(skb, MPNIC_MIN_FRAME_LEN))
+		goto err_drop;
+
+	if (!netif_txq_maybe_stop(mpnic_txring_txq(skb->dev, ring),
+				  mpnic_desc_unused(ring), MPNIC_MAX_SKB_DESC,
+				  MPNIC_TX_DESC_WAKEUP)) {
+		mpnic_tx_flush_doorbell(ring);
+		return NETDEV_TX_BUSY;
+	}
+
+	ring->tx_buf[tail] = skb;
+	*meta = cpu_to_le64(MPNIC_TWD_FLAG_DEST_MAC);
+
+	MPNIC_XMIT_CB(skb)->bytecount = skb->len;
+	MPNIC_XMIT_CB(skb)->desc_count = 0;
+
+	if (mpnic_tx_map(ring, skb, meta))
+		goto err_free;
+
+	return NETDEV_TX_OK;
+
+err_free:
+	dev_kfree_skb_any(skb);
+	ring->tx_buf[tail] = NULL;
+	ring->tail = tail;
+err_drop:
+	mpnic_tx_flush_doorbell(ring);
+
+	return NETDEV_TX_OK;
+}
+
+netdev_tx_t mpnic_xmit_frame(struct sk_buff *skb, struct net_device *dev)
+{
+	struct mpnic_net *mpn = netdev_priv(dev);
+
+	return mpnic_xmit_frame_ring(skb, mpn->tx[skb_get_queue_mapping(skb)]);
 }
 
 static void mpnic_clean_twq0(struct mpnic_napi_vector *nv, int napi_budget,

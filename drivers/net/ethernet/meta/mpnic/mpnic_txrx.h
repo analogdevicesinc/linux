@@ -26,6 +26,10 @@ struct mpnic_net;
 
 #define MPNIC_MAX_NAPI_VECTORS		1024u
 
+#define MPNIC_TXQ_SIZE_DEFAULT		1024
+
+#define MPNIC_MAX_JUMBO_FRAME_SIZE	9742
+
 struct mpnic_ring {
 	void **tx_buf;			/* Packets outstanding in a TWQ */
 
@@ -68,6 +72,7 @@ struct mpnic_napi_vector {
 	struct mpnic_q_triad qt[];
 };
 
+netdev_tx_t mpnic_xmit_frame(struct sk_buff *skb, struct net_device *dev);
 int mpnic_alloc_napi_vectors(struct mpnic_net *mpn);
 void mpnic_free_napi_vectors(struct mpnic_net *mpn);
 int mpnic_alloc_resources(struct mpnic_net *mpn);
