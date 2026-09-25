@@ -1632,6 +1632,7 @@ struct clk_mgr_internal *dcn401_clk_mgr_construct(
 
 	clk_mgr = &clk_mgr401->base;
 	clk_mgr->base.ctx = ctx;
+	clk_mgr->base.inst = 0;
 	clk_mgr->base.funcs = &dcn401_funcs;
 	clk_mgr->regs = &clk_mgr_regs_dcn401;
 	clk_mgr->clk_mgr_shift = &clk_mgr_shift_dcn401;

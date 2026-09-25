@@ -67,7 +67,8 @@ config DRM_AMD_SECURE_DISPLAY
 
 config DRM_AMD_DC_KUNIT_TEST
 	tristate "KUnit tests for the AMD DC display driver" if !KUNIT_ALL_TESTS
-	depends on DRM_AMD_DC && KUNIT && DEBUG_FS && DRM_KUNIT_TEST_HELPERS
+	depends on DRM_AMD_DC && KUNIT && DEBUG_FS
+	select DRM_KUNIT_TEST_HELPERS
 	default KUNIT_ALL_TESTS
 	depends on BROKEN
 	help

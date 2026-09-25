@@ -1218,7 +1218,7 @@ AMD KFD
 M:	Felix Kuehling <Felix.Kuehling@amd.com>
 L:	amd-gfx@lists.freedesktop.org
 S:	Supported
-T:	git https://gitlab.freedesktop.org/agd5f/linux.git
+T:	git https://gitlab.freedesktop.org/drm/amdgpu/kernel.git
 F:	drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd*.[ch]
 F:	drivers/gpu/drm/amd/amdkfd/
 F:	drivers/gpu/drm/amd/include/cik_structs.h
@@ -22866,7 +22866,7 @@ L:	amd-gfx@lists.freedesktop.org
 S:	Supported
 B:	https://gitlab.freedesktop.org/drm/amd/-/issues
 C:	irc://irc.oftc.net/radeon
-T:	git https://gitlab.freedesktop.org/agd5f/linux.git
+T:	git https://gitlab.freedesktop.org/drm/amdgpu/kernel.git
 F:	Documentation/gpu/amdgpu/
 F:	drivers/gpu/drm/amd/
 F:	drivers/gpu/drm/ci/xfails/amd*

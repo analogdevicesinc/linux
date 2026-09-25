@@ -696,9 +696,12 @@ static void dmcub_PLAT_54186_wa(struct hubp *hubp,
 static bool hubp21_program_surface_flip_and_addr(
 		struct hubp *hubp,
 		const struct dc_plane_address *address,
-		bool flip_immediate)
+		bool flip_immediate,
+		bool dcc)
 {
 	struct surface_flip_registers flip_regs = { 0 };
+
+	(void)dcc;
 
 	flip_regs.vmid = address->vmid;
 

@@ -27,6 +27,7 @@
 
 #include "amdgpu.h"
 #include "amdgpu_atomfirmware.h"
+#include "amdgpu_ip.h"
 #include "gmc_v12_0.h"
 #include "gmc_v12_1.h"
 #include "athub/athub_4_1_0_sh_mask.h"

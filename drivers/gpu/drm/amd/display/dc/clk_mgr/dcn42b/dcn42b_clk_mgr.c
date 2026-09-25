@@ -228,7 +228,7 @@ void dcn42b_init_clocks(struct clk_mgr *clk_mgr_base)
 	struct clk_mgr_internal *clk_mgr_int = TO_CLK_MGR_INTERNAL(clk_mgr_base);
 	struct clk_mgr_dcn42 *clk_mgr = TO_CLK_MGR_DCN42B(clk_mgr_int);
 
-	DC_LOGGER_INIT(clk_mgr_base->ctx->logger);
+DC_LOGGER_INIT(clk_mgr_base->ctx->logger);
 	(void)dc_logger;
 
 	init_clk_states(clk_mgr_base);
@@ -619,6 +619,7 @@ void dcn42b_clk_mgr_construct(
 		struct dccg *dccg)
 {
 	clk_mgr->base.base.ctx = ctx;
+	clk_mgr->base.base.inst = 0;
 	clk_mgr->base.base.funcs = &dcn42b_funcs;
 	clk_mgr->base.regs = &clk_mgr_regs_dcn42b;
 	clk_mgr->base.clk_mgr_shift = &clk_mgr_shift_dcn42b;

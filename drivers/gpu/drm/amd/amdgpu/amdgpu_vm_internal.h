@@ -137,15 +137,6 @@ static inline void amdgpu_vm_eviction_lock(struct amdgpu_vm *vm)
 	vm->saved_flags = memalloc_noreclaim_save();
 }
 
-static inline bool amdgpu_vm_eviction_trylock(struct amdgpu_vm *vm)
-{
-	if (mutex_trylock(&vm->eviction_lock)) {
-		vm->saved_flags = memalloc_noreclaim_save();
-		return true;
-	}
-	return false;
-}
-
 static inline void amdgpu_vm_eviction_unlock(struct amdgpu_vm *vm)
 {
 	memalloc_noreclaim_restore(vm->saved_flags);

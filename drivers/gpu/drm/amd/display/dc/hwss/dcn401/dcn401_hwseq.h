@@ -55,7 +55,12 @@ void dcn401_disable_link_output(struct dc_link *link,
 		const struct link_resource *link_res,
 		enum signal_type signal);
 
-void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx);
+void dcn401_build_cursor_pos_update_params(const struct pipe_ctx *pipe_ctx,
+		struct dc_cursor_position *pos,
+		struct dc_cursor_mi_param *param);
+void dcn401_set_cursor_position(struct hubp *hubp, struct dpp *dpp,
+		const struct dc_cursor_position *pos,
+		const struct dc_cursor_mi_param *param);
 
 bool dcn401_apply_idle_power_optimizations(struct dc *dc, bool enable);
 
@@ -78,7 +83,7 @@ void dcn401_optimize_bandwidth_sequence(struct dc *dc,
 		struct dc_state *context,
 		struct block_sequence_state *seq_state);
 
-void dcn401_dmub_hw_control_lock(struct dc *dc,
+bool dcn401_dmub_hw_control_lock(struct dc *dc,
 		struct dc_state *context,
 		bool lock);
 void dcn401_fams2_update_config(struct dc *dc, struct dc_state *context, bool enable);
@@ -136,7 +141,8 @@ void dcn401_blank_pixel_data_sequence(
 	bool blank,
 	struct block_sequence_state *seq_state);
 void dcn401_initialize_min_clocks(struct dc *dc);
-void dcn401_update_cursor_offload_pipe(struct dc *dc, const struct pipe_ctx *pipe);
+void dcn401_update_cursor_offload_pipe(struct dmub_srv *dmub, uint32_t stream_idx,
+		uint8_t pipe_idx, const struct dpp *dpp, const struct hubp *hubp);
 
 void dcn401_program_all_writeback_pipes_in_tree_sequence(
 		struct dc *dc,

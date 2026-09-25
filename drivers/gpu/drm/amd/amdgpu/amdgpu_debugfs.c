@@ -36,6 +36,7 @@
 #include "amdgpu_rap.h"
 #include "amdgpu_securedisplay.h"
 #include "amdgpu_fw_attestation.h"
+#include "amdgpu_sdma.h"
 #include "amdgpu_umr.h"
 
 #include "amdgpu_reset.h"

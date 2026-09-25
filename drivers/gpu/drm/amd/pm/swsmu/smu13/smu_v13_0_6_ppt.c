@@ -25,6 +25,7 @@
 
 #include <linux/firmware.h>
 #include "amdgpu.h"
+#include "amdgpu_ip.h"
 #include "amdgpu_smu.h"
 #include "atomfirmware.h"
 #include "amdgpu_atomfirmware.h"
@@ -1677,6 +1678,7 @@ static int smu_v13_0_6_read_sensor(struct smu_context *smu,
 	case AMDGPU_PP_SENSOR_NODEPOWER:
 	case AMDGPU_PP_SENSOR_GPPTRESIDENCY:
 	case AMDGPU_PP_SENSOR_MAXNODEPOWERLIMIT:
+	case AMDGPU_PP_SENSOR_NPMSTATUS:
 		ret = smu_v13_0_12_get_npm_data(smu, sensor, (uint32_t *)data);
 		if (ret)
 			return ret;
@@ -3311,6 +3313,7 @@ static const struct pptable_funcs smu_v13_0_6_ppt_funcs = {
 	.get_gpu_metrics = smu_v13_0_6_get_gpu_metrics,
 	.get_pm_metrics = smu_v13_0_6_get_pm_metrics,
 	.get_xcp_metrics = smu_v13_0_6_get_xcp_metrics,
+	.get_npm_cap = smu_v13_0_12_get_npm_cap,
 	.get_thermal_temperature_range = smu_v13_0_6_get_thermal_temperature_range,
 	.mode1_reset_is_support = smu_v13_0_6_is_mode1_reset_supported,
 	.mode1_reset = smu_v13_0_6_mode1_reset,

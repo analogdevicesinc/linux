@@ -288,8 +288,6 @@ static void dcn6_copy_utm_qos_model(struct utm_qos_model *dest, struct utm_qos_m
 static void dcn6_initialize_from_soc_bb(struct dml2_utm_soc_bb *utm_soc_bb,
 		const struct dml2_soc_bb *soc_bb)
 {
-	DML_ASSERT_MSG(soc_bb->clk_table.dcfclk.num_clk_values == 2, "soc_bb must provide min and max dcfclk values!\n");
-
 	/* initialize based on soc bb */
 	utm_soc_bb->max_dispclk_khz = soc_bb->clk_table.dispclk.clk_values_khz[soc_bb->clk_table.dispclk.num_clk_values - 1];
 	utm_soc_bb->max_dppclk_khz = soc_bb->clk_table.dppclk.clk_values_khz[soc_bb->clk_table.dppclk.num_clk_values - 1];

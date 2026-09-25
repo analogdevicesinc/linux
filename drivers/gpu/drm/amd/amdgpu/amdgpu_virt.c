@@ -652,6 +652,9 @@ static int amdgpu_virt_read_pf2vf_data(struct amdgpu_device *adev)
 		adev->virt.ras_en_caps.all = pf2vf->pf2vf_ras_caps.ras_en_caps.all;
 		adev->virt.ras_telemetry_en_caps.all =
 			pf2vf->pf2vf_ras_caps.ras_telemetry_en_caps.all;
+
+		adev->have_atomics_support = pf2vf->pcie_atomic_ops_support_flags ==
+			(PCI_EXP_DEVCAP2_ATOMIC_COMP32 | PCI_EXP_DEVCAP2_ATOMIC_COMP64);
 		break;
 	default:
 		dev_err(adev->dev, "invalid pf2vf version: 0x%x\n", pf2vf_info->version);

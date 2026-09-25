@@ -1235,7 +1235,8 @@ uint32_t amdgpu_kiq_rreg(struct amdgpu_device *adev, uint32_t reg, uint32_t xcc_
 	if (adev->mes.ring[0].sched.ready)
 		return amdgpu_mes_rreg(adev, reg, xcc_id);
 
-	BUG_ON(!ring->funcs->emit_rreg);
+	if (!ring->funcs || !ring->funcs->emit_rreg)
+		goto failed_kiq_read;
 
 	spin_lock_irqsave(&kiq->ring_lock, flags);
 	if (amdgpu_wb_get(adev, &reg_val_offs)) {
@@ -1303,8 +1304,6 @@ void amdgpu_kiq_wreg(struct amdgpu_device *adev, uint32_t reg, uint32_t v, uint3
 	struct amdgpu_kiq *kiq = &adev->gfx.kiq[xcc_id];
 	struct amdgpu_ring *ring = &kiq->ring;
 
-	BUG_ON(!ring->funcs->emit_wreg);
-
 	if (amdgpu_device_skip_hw_access(adev))
 		return;
 
@@ -1312,6 +1311,9 @@ void amdgpu_kiq_wreg(struct amdgpu_device *adev, uint32_t reg, uint32_t v, uint3
 		amdgpu_mes_wreg(adev, reg, v, xcc_id);
 		return;
 	}
+
+	if (!ring->funcs || !ring->funcs->emit_wreg)
+		goto failed_kiq_write;
 
 	spin_lock_irqsave(&kiq->ring_lock, flags);
 	r = amdgpu_ring_alloc(ring, 32);
@@ -1409,9 +1411,8 @@ int amdgpu_kiq_hdp_flush(struct amdgpu_device *adev)
 	if (adev->enable_mes_kiq && adev->mes.ring[0].sched.ready)
 		return amdgpu_mes_hdp_flush(adev);
 
-	if (!ring->funcs->emit_hdp_flush) {
+	if (!ring->funcs || !ring->funcs->emit_hdp_flush)
 		return -EOPNOTSUPP;
-	}
 
 	spin_lock_irqsave(&kiq->ring_lock, flags);
 	r = amdgpu_ring_alloc(ring, 32);

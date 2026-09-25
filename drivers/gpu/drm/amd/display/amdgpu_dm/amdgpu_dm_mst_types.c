@@ -278,8 +278,8 @@ bool needs_dsc_aux_workaround(struct dc_link *link)
 }
 EXPORT_IF_KUNIT(needs_dsc_aux_workaround);
 
-#if defined(CONFIG_DRM_AMD_DC_FP)
-static bool is_synaptics_cascaded_panamera(struct dc_link *link, struct drm_dp_mst_port *port)
+#if defined(CONFIG_DRM_AMD_DC_FP) || IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
+STATIC_IFN_KUNIT bool is_synaptics_cascaded_panamera(struct dc_link *link, struct drm_dp_mst_port *port)
 {
 	u8 branch_vendor_data[4] = { 0 }; // Vendor data 0x50C ~ 0x50F
 
@@ -293,8 +293,9 @@ static bool is_synaptics_cascaded_panamera(struct dc_link *link, struct drm_dp_m
 
 	return false;
 }
+EXPORT_IF_KUNIT(is_synaptics_cascaded_panamera);
 
-static bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnector)
+STATIC_IFN_KUNIT bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnector)
 {
 	struct dc_sink *dc_sink = aconnector->dc_sink;
 	struct drm_dp_mst_port *port = aconnector->mst_output_port;
@@ -338,6 +339,7 @@ static bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnecto
 
 	return true;
 }
+EXPORT_IF_KUNIT(validate_dsc_caps_on_connector);
 #endif
 
 STATIC_IFN_KUNIT bool retrieve_downstream_port_device(struct amdgpu_dm_connector *aconnector)
@@ -504,8 +506,8 @@ STATIC_IFN_KUNIT int dm_dp_mst_get_modes(struct drm_connector *connector)
 		amdgpu_dm_update_freesync_caps(
 				connector, aconnector->drm_edid, true);
 
-#if defined(CONFIG_DRM_AMD_DC_FP)
-		if (!validate_dsc_caps_on_connector(aconnector))
+#if defined(CONFIG_DRM_AMD_DC_FP) || IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
+		if (IS_ENABLED(CONFIG_DRM_AMD_DC_FP) && !validate_dsc_caps_on_connector(aconnector))
 			memset(&aconnector->dc_sink->dsc_caps,
 			       0, sizeof(aconnector->dc_sink->dsc_caps));
 #endif
@@ -660,7 +662,7 @@ dm_dp_create_fake_mst_encoders(struct amdgpu_device *adev)
 }
 EXPORT_IF_KUNIT(dm_dp_create_fake_mst_encoders);
 
-static struct drm_connector *
+STATIC_IFN_KUNIT struct drm_connector *
 dm_dp_add_mst_connector(struct drm_dp_mst_topology_mgr *mgr,
 			struct drm_dp_mst_port *port,
 			const char *pathprop)
@@ -742,6 +744,7 @@ dm_dp_add_mst_connector(struct drm_dp_mst_topology_mgr *mgr,
 
 	return connector;
 }
+EXPORT_IF_KUNIT(dm_dp_add_mst_connector);
 
 /*
  * Select the ESI[1] mask used to filter the MST sideband ready bits for a
@@ -937,7 +940,7 @@ struct dsc_mst_fairness_params {
 	struct amdgpu_dm_connector *aconnector;
 };
 
-#if defined(CONFIG_DRM_AMD_DC_FP)
+#if defined(CONFIG_DRM_AMD_DC_FP) || IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
 static uint16_t get_fec_overhead_multiplier(struct dc_link *dc_link)
 {
 	u8 link_coding_cap;
@@ -1228,8 +1231,8 @@ static int try_disable_dsc(struct drm_atomic_commit *state,
 	return 0;
 }
 
-static bool get_conv_frl_bw(struct amdgpu_dm_connector *aconnector,
-							uint32_t *bw_in_kbps, uint32_t *dsc_bw_in_kbps)
+STATIC_IFN_KUNIT bool get_conv_frl_bw(struct amdgpu_dm_connector *aconnector,
+				      uint32_t *bw_in_kbps, uint32_t *dsc_bw_in_kbps)
 {
 	unsigned int max_conv_bw_in_kbps = 0;
 	unsigned int max_sink_bw_in_kbps = 0;
@@ -1255,6 +1258,7 @@ static bool get_conv_frl_bw(struct amdgpu_dm_connector *aconnector,
 
 	return *bw_in_kbps > 0; // Frl endpoint is detected
 }
+EXPORT_IF_KUNIT(get_conv_frl_bw);
 
 static void build_frl_mst_dsc_params(struct amdgpu_dm_connector *aconnector,
 								struct dc_stream_state *stream,
@@ -1299,7 +1303,7 @@ static void build_frl_mst_dsc_params(struct amdgpu_dm_connector *aconnector,
 	}
 }
 
-static void log_dsc_params(int count, struct dsc_mst_fairness_vars *vars, int k)
+STATIC_IFN_KUNIT void log_dsc_params(int count, struct dsc_mst_fairness_vars *vars, int k)
 {
 	int i;
 
@@ -1307,6 +1311,7 @@ static void log_dsc_params(int count, struct dsc_mst_fairness_vars *vars, int k)
 		DRM_DEBUG_DRIVER("MST_DSC DSC params: stream #%d --- dsc_enabled = %d, bpp_x16 = %d, pbn = %d\n",
 				 i, vars[i + k].dsc_enabled, vars[i + k].bpp_x16, vars[i + k].pbn);
 }
+EXPORT_IF_KUNIT(log_dsc_params);
 
 static int compute_mst_dsc_configs_for_link(struct drm_atomic_commit *state,
 					    struct dc_state *dc_state,
@@ -1370,6 +1375,10 @@ static int compute_mst_dsc_configs_for_link(struct drm_atomic_commit *state,
 		params[count].num_slices_v = aconnector->dsc_settings.dsc_num_slices_v;
 		params[count].bpp_overwrite = aconnector->dsc_settings.dsc_bits_per_pixel;
 		params[count].compression_possible = stream->sink->dsc_caps.dsc_dec_caps.is_dsc_supported;
+		if (params[count].compression_possible &&
+		    dc_link->ep_type == DISPLAY_ENDPOINT_USB4_DPIA &&
+		    dc_link->dpia_bw_alloc_config.bw_alloc_enabled)
+			params[count].clock_force_enable = DSC_CLK_FORCE_ENABLE;
 		dc_dsc_get_policy_for_timing(params[count].timing, 0, &dsc_policy, dc_link_get_highest_encoding_format(stream->link));
 		is_frl_endpoint_present = get_conv_frl_bw(aconnector, &frl_conv_bw_in_kbps, &frl_conv_dsc_bw_in_kbps);
 		if (stream->sink->dsc_caps.dsc_dec_caps.is_dsc_supported &&
@@ -1381,7 +1390,10 @@ static int compute_mst_dsc_configs_for_link(struct drm_atomic_commit *state,
 				stream->sink->ctx->dc->res_pool->dscs[0],
 				stream->sink->ctx->dc->debug.dsc_min_slice_height_override,
 				dsc_policy.min_target_bpp * 16,
-				dsc_policy.max_target_bpp * 16,
+				(dc_link->ep_type == DISPLAY_ENDPOINT_USB4_DPIA &&
+				 dc_link->dpia_bw_alloc_config.bw_alloc_enabled) ?
+					dsc_policy.min_target_bpp * 16 :
+					dsc_policy.max_target_bpp * 16,
 				&stream->sink->dsc_caps.dsc_dec_caps,
 				&stream->timing,
 				dc_link_get_highest_encoding_format(dc_link),
@@ -1480,7 +1492,7 @@ static int compute_mst_dsc_configs_for_link(struct drm_atomic_commit *state,
 	return 0;
 }
 
-static bool is_dsc_need_re_compute(
+STATIC_IFN_KUNIT bool is_dsc_need_re_compute(
 	struct drm_atomic_commit *state,
 	struct dc_state *dc_state,
 	struct dc_link *dc_link)
@@ -1611,6 +1623,7 @@ out:
 
 	return is_dsc_need_re_compute;
 }
+EXPORT_IF_KUNIT(is_dsc_need_re_compute);
 
 int compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state,
 				      struct dc_state *dc_state,
@@ -1681,10 +1694,11 @@ int compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state,
 
 	return ret;
 }
+EXPORT_IF_KUNIT(compute_mst_dsc_configs_for_state);
 
-static int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state,
-						 struct dc_state *dc_state,
-						 struct dsc_mst_fairness_vars *vars)
+STATIC_IFN_KUNIT int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state,
+							   struct dc_state *dc_state,
+							   struct dsc_mst_fairness_vars *vars)
 {
 	int i, j;
 	struct dc_stream_state *stream;
@@ -1734,9 +1748,10 @@ static int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state
 
 	return ret;
 }
+EXPORT_IF_KUNIT(pre_compute_mst_dsc_configs_for_state);
 
-static int find_crtc_index_in_state_by_stream(struct drm_atomic_commit *state,
-					      struct dc_stream_state *stream)
+STATIC_IFN_KUNIT int find_crtc_index_in_state_by_stream(struct drm_atomic_commit *state,
+							struct dc_stream_state *stream)
 {
 	int i;
 	struct drm_crtc *crtc;
@@ -1750,6 +1765,7 @@ static int find_crtc_index_in_state_by_stream(struct drm_atomic_commit *state,
 	}
 	return -1;
 }
+EXPORT_IF_KUNIT(find_crtc_index_in_state_by_stream);
 
 static bool is_link_to_dschub(struct dc_link *dc_link)
 {
@@ -1766,7 +1782,7 @@ static bool is_link_to_dschub(struct dc_link *dc_link)
 	return true;
 }
 
-static bool is_dsc_precompute_needed(struct drm_atomic_commit *state)
+STATIC_IFN_KUNIT bool is_dsc_precompute_needed(struct drm_atomic_commit *state)
 {
 	int i;
 	struct drm_crtc *crtc;
@@ -1786,6 +1802,7 @@ static bool is_dsc_precompute_needed(struct drm_atomic_commit *state)
 	}
 	return ret;
 }
+EXPORT_IF_KUNIT(is_dsc_precompute_needed);
 
 int pre_validate_dsc(struct drm_atomic_commit *state,
 		     struct dm_atomic_state **dm_state_ptr,
@@ -1897,6 +1914,7 @@ clean_exit:
 
 	return ret;
 }
+EXPORT_IF_KUNIT(pre_validate_dsc);
 
 static uint32_t kbps_from_pbn(unsigned int pbn)
 {
@@ -1928,8 +1946,8 @@ static bool is_dsc_common_config_possible(struct dc_stream_state *stream,
 }
 #endif
 
-#if defined(CONFIG_DRM_AMD_DC_FP)
-static bool dp_get_link_current_set_bw(struct drm_dp_aux *aux, uint32_t *cur_link_bw)
+#if defined(CONFIG_DRM_AMD_DC_FP) || IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
+STATIC_IFN_KUNIT bool dp_get_link_current_set_bw(struct drm_dp_aux *aux, uint32_t *cur_link_bw)
 {
 	uint32_t total_data_bw_efficiency_x10000 = 0;
 	uint32_t link_rate_per_lane_kbps = 0;
@@ -1984,13 +2002,14 @@ static bool dp_get_link_current_set_bw(struct drm_dp_aux *aux, uint32_t *cur_lin
 	*cur_link_bw = link_rate_per_lane_kbps * lane_count.bits.LANE_COUNT_SET / 10000 * total_data_bw_efficiency_x10000;
 	return true;
 }
+EXPORT_IF_KUNIT(dp_get_link_current_set_bw);
 #endif
 
 enum dc_status dm_dp_mst_is_port_support_mode(
 	struct amdgpu_dm_connector *aconnector,
 	struct dc_stream_state *stream)
 {
-#if defined(CONFIG_DRM_AMD_DC_FP)
+#if defined(CONFIG_DRM_AMD_DC_FP) || IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
 	int branch_max_throughput_mps = 0;
 	struct dc_link_settings cur_link_settings;
 	uint32_t end_to_end_bw_in_kbps = 0;

@@ -375,6 +375,9 @@ bool mod_power_replay_set_coasting_vtotal(struct mod_power *mod_power,
 void mod_power_replay_residency(const struct dc_stream_state *stream,
 	unsigned int *residency, const bool is_start, const bool is_alpm);
 
+bool mod_power_replay_get_cumulative_residency(const struct dc_stream_state *stream,
+	uint32_t *residency_milli_pct);
+
 bool mod_power_replay_set_power_opt_and_coasting_vtotal(struct mod_power *mod_power,
 	const struct dc_stream_state *stream, unsigned int active_replay_events, uint32_t coasting_vtotal,
 	bool is_ultra_sleep_mode, uint16_t frame_skip_number);

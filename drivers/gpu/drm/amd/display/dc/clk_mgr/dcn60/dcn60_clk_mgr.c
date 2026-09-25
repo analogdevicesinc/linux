@@ -1297,7 +1297,8 @@ static unsigned int dcn60_build_bandwidth_clocks_block_sequence_with_action(
 				action->fams.enable
 				|| clk_mgr_base->clks.fw_based_mclk_switching;
 		block_sequence[num_steps].params.indicate_pstate_status_params.wait_resp =
-				action->fams.enable;
+				action->fams.enable
+				|| clk_mgr_base->clks.fw_based_mclk_switching;
 		block_sequence[num_steps].params.indicate_pstate_status_params.alt_ch_enable =
 				action->alt_ch.enable
 				|| clk_mgr_base->clks.alt_ch_pstate_switch;
@@ -1709,6 +1710,7 @@ struct clk_mgr_internal *dcn60_clk_mgr_construct(
 
 	clk_mgr = &clk_mgr60->base;
 	clk_mgr->base.ctx = ctx;
+	clk_mgr->base.inst = 0;
 	clk_mgr->base.funcs = &dcn60_funcs;
 	clk_mgr->regs = &clk_mgr_regs_dcn60;
 	clk_mgr->clk_mgr_shift = &clk_mgr_shift_dcn60;

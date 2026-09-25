@@ -392,7 +392,7 @@ void dcn42_notify_cstate_disable(struct clk_mgr *clk_mgr_base, bool disable)
 	struct clk_mgr_internal *clk_mgr = TO_CLK_MGR_INTERNAL(clk_mgr_base);
 	bool target_allow = !disable;
 
-	DC_LOGGER_INIT(clk_mgr_base->ctx->logger);
+DC_LOGGER_INIT(clk_mgr_base->ctx->logger);
 
 	/* Idempotent: only send when the cached vote actually changes. */
 	if (clk_mgr_base->clks.cstate_allow == target_allow)
@@ -619,7 +619,7 @@ void dcn42_init_clocks(struct clk_mgr *clk_mgr_base)
 	struct clk_mgr_internal *clk_mgr_int = TO_CLK_MGR_INTERNAL(clk_mgr_base);
 	struct clk_mgr_dcn42 *clk_mgr = TO_CLK_MGR_DCN42(clk_mgr_int);
 
-	DC_LOGGER_INIT(clk_mgr_base->ctx->logger);
+DC_LOGGER_INIT(clk_mgr_base->ctx->logger);
 	(void)dc_logger;
 
 	init_clk_states(clk_mgr_base);
@@ -814,7 +814,7 @@ void dcn42_set_low_power_state(struct clk_mgr *clk_mgr_base)
 
 void dcn42_exit_low_power_state(struct clk_mgr *clk_mgr_base)
 {
-	(void)clk_mgr_base;
+(void)clk_mgr_base;
 
 }
 
@@ -1115,6 +1115,7 @@ void dcn42_clk_mgr_construct(
 		struct dccg *dccg)
 {
 	clk_mgr->base.base.ctx = ctx;
+	clk_mgr->base.base.inst = 0;
 	clk_mgr->base.base.funcs = &dcn42_funcs;
 	clk_mgr->base.regs = &clk_mgr_regs_dcn42;
 	clk_mgr->base.clk_mgr_shift = &clk_mgr_shift_dcn42;

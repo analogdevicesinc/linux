@@ -226,5 +226,6 @@ void amdgpu_dm_update_cacp_caps(struct amdgpu_dm_connector *aconnector);
 struct drm_atomic_commit;
 int amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
 				     struct drm_atomic_commit *state);
+int dm_force_atomic_commit(struct drm_connector *connector);
 #endif
 #endif /* __AMDGPU_DM_CONNECTOR_H__ */

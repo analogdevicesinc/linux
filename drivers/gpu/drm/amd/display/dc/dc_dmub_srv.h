@@ -29,6 +29,8 @@
 #include "dm_services_types.h"
 #include "dmub/dmub_srv.h"
 
+#define DMUB_CMD_DEFAULT_MAX_WAIT_US 500000
+
 struct dmub_srv;
 struct dc;
 struct dc_context;
@@ -59,11 +61,17 @@ bool dc_dmub_srv_optimized_init_done(struct dc_dmub_srv *dc_dmub_srv);
 
 bool dc_dmub_srv_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_srv,
 		unsigned int count,
-		union dmub_rb_cmd *cmd_list);
+		const union dmub_rb_cmd *cmd_list);
+
+bool dc_dmub_srv_cmd_list_queue_execute_timeout(struct dc_dmub_srv *dc_dmub_srv,
+		unsigned int count,
+		const union dmub_rb_cmd *cmd_list,
+		unsigned int timeout_us);
 
 bool dc_dmub_srv_wait_for_idle(struct dc_dmub_srv *dc_dmub_srv,
 		enum dm_dmub_wait_type wait_type,
-		union dmub_rb_cmd *cmd_list);
+		union dmub_rb_cmd *cmd_list,
+		unsigned int timeout_us);
 
 bool dc_dmub_srv_cmd_run(struct dc_dmub_srv *dc_dmub_srv, union dmub_rb_cmd *cmd, enum dm_dmub_wait_type wait_type);
 

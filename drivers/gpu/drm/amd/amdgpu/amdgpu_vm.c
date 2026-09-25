@@ -33,6 +33,7 @@
 
 #include <drm/amdgpu_drm.h>
 #include <drm/drm_drv.h>
+#include <drm/drm_ioctl.h>
 #include <drm/ttm/ttm_tt.h>
 #include <drm/drm_exec.h>
 #include "amdgpu.h"
@@ -616,9 +617,8 @@ int amdgpu_vm_validate(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 	 * As soon as all page tables are in place we can start updating them
 	 * again.
 	 */
-	amdgpu_vm_eviction_lock(vm);
-	vm->evicting = false;
-	amdgpu_vm_eviction_unlock(vm);
+	scoped_guard(mutex, &vm->eviction_lock)
+		vm->evicting = false;
 
 	list_for_each_entry_safe(bo_base, tmp, &vm->always_valid.evicted,
 				 vm_status) {
@@ -678,9 +678,8 @@ bool amdgpu_vm_ready(struct amdgpu_vm *vm)
 
 	amdgpu_vm_assert_locked(vm);
 
-	amdgpu_vm_eviction_lock(vm);
-	ret = !vm->evicting;
-	amdgpu_vm_eviction_unlock(vm);
+	scoped_guard(mutex, &vm->eviction_lock)
+		ret = !vm->evicting;
 
 	ret &= list_empty(&vm->kernel.evicted);
 
@@ -2274,6 +2273,7 @@ void amdgpu_vm_bo_del(struct amdgpu_device *adev,
 bool amdgpu_vm_evictable(struct amdgpu_bo *bo)
 {
 	struct amdgpu_vm_bo_base *bo_base = bo->vm_bo;
+	struct amdgpu_vm *vm;
 
 	/* Page tables of a destroyed VM can go away immediately */
 	if (!bo_base || !bo_base->vm)
@@ -2284,17 +2284,15 @@ bool amdgpu_vm_evictable(struct amdgpu_bo *bo)
 		return false;
 
 	/* Try to block ongoing updates */
-	if (!amdgpu_vm_eviction_trylock(bo_base->vm))
-		return false;
+	vm = bo_base->vm;
+	scoped_cond_guard(mutex_try, return false, &vm->eviction_lock) {
 
-	/* Don't evict VM page tables while they are updated */
-	if (!dma_fence_is_signaled(bo_base->vm->last_unlocked)) {
-		amdgpu_vm_eviction_unlock(bo_base->vm);
-		return false;
+		/* Don't evict VM page tables while they are updated */
+		if (!dma_fence_is_signaled(vm->last_unlocked))
+			return false;
+
+		vm->evicting = true;
 	}
-
-	bo_base->vm->evicting = true;
-	amdgpu_vm_eviction_unlock(bo_base->vm);
 	return true;
 }
 
@@ -2563,6 +2561,12 @@ static int amdgpu_vm_create_task_info(struct amdgpu_vm *vm)
 	return 0;
 }
 
+static void amdgpu_vm_render_devt(struct amdgpu_device *adev, int *major, int *minor)
+{
+	*major = DRM_MAJOR;
+	*minor = adev_to_drm(adev)->render->index;
+}
+
 /**
  * amdgpu_vm_set_task_info - Sets VMs task info.
  *
@@ -2575,6 +2579,18 @@ void amdgpu_vm_set_task_info(struct amdgpu_vm *vm)
 
 	if (vm->task_info->task.pid == current->pid)
 		return;
+
+	if (vm->root.bo) {
+		struct amdgpu_device *adev = amdgpu_ttm_adev(vm->root.bo->tbo.bdev);
+		int major, minor;
+
+		amdgpu_vm_render_devt(adev, &major, &minor);
+
+		if (vm->task_info->task.pid)
+			trace_amdgpu_deregister_pid(vm->task_info->task.pid,
+						    major, minor);
+		trace_amdgpu_register_pid(current->pid, major, minor);
+	}
 
 	vm->task_info->task.pid = current->pid;
 	get_task_comm(vm->task_info->task.comm, current);
@@ -2875,6 +2891,13 @@ void amdgpu_vm_fini(struct amdgpu_device *adev, struct amdgpu_vm *vm)
 		dev_warn(adev->dev,
 			 "VM memory stats for proc %s(%d) task %s(%d) is non-zero when fini\n",
 			 ti->process_name, ti->task.pid, ti->task.comm, ti->tgid);
+	}
+
+	if (vm->task_info && vm->task_info->task.pid) {
+		int major, minor;
+
+		amdgpu_vm_render_devt(adev, &major, &minor);
+		trace_amdgpu_deregister_pid(vm->task_info->task.pid, major, minor);
 	}
 
 	amdgpu_vm_put_task_info(vm->task_info);

@@ -23,6 +23,7 @@
 #include <linux/firmware.h>
 
 #include "amdgpu.h"
+#include "amdgpu_ip.h"
 #include "amdgpu_gfx.h"
 #include "soc15.h"
 #include "soc15d.h"
@@ -1646,10 +1647,9 @@ static bool gfx_v9_4_3_check_rlcg_range(struct amdgpu_device *adev,
 		const struct soc15_reg_rlcg *entry;
 
 		entry = &entries[i];
-		inst = adev->ip_map.logical_to_dev_inst ?
-			       adev->ip_map.logical_to_dev_inst(
-				       adev, entry->hwip, entry->instance) :
-			       entry->instance;
+		inst = amdgpu_ip_map_logical_to_dev_inst(&adev->ip_map,
+							 entry->hwip,
+							 entry->instance);
 		reg = adev->reg_offset[entry->hwip][inst][entry->segment] +
 		      entry->reg;
 		if (offset == reg)

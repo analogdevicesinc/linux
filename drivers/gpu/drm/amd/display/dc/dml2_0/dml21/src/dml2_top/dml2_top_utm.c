@@ -290,7 +290,7 @@ static bool dml2_top_utm_check_mode_supported(struct dml2_check_mode_supported_i
 	DML_LOG_INFO("%s exit with %s\n", __func__, dml2_status_str(status));
 	DML_LOG_TOP_IF_EXIT();
 
-	return true;
+	return status == DML2_STATUS_OK;
 }
 
 static bool dml2_top_utm_build_mode_programming(struct dml2_build_mode_programming_in_out *in_out)

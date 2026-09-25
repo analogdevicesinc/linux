@@ -394,14 +394,12 @@ void dcn20_disable_vga(
 }
 
 void dcn20_program_triple_buffer(
-	const struct dc *dc,
-	struct pipe_ctx *pipe_ctx,
+	struct hubp *hubp,
 	bool enable_triple_buffer)
 {
-	(void)dc;
-	if (pipe_ctx->plane_res.hubp && pipe_ctx->plane_res.hubp->funcs) {
-		pipe_ctx->plane_res.hubp->funcs->hubp_enable_tripleBuffer(
-			pipe_ctx->plane_res.hubp,
+	if (hubp && hubp->funcs) {
+		hubp->funcs->hubp_enable_tripleBuffer(
+			hubp,
 			enable_triple_buffer);
 	}
 }
@@ -718,6 +716,10 @@ void dcn20_plane_atomic_disable(struct dc *dc, struct pipe_ctx *pipe_ctx)
 	struct dce_hwseq *hws = dc->hwseq;
 	struct hubp *hubp = pipe_ctx->plane_res.hubp;
 	struct dpp *dpp = pipe_ctx->plane_res.dpp;
+
+	/* Clearing 3DLUT fast load writes to HUBP, so it must precede hubp_clk_cntl() below */
+	if (hws->funcs.disable_rmcm_luts)
+		hws->funcs.disable_rmcm_luts(dc, pipe_ctx->plane_res.rmcm, hubp, pipe_ctx->plane_res.mpcc_inst);
 
 	dc->hwss.wait_for_mpcc_disconnect(dc, dc->res_pool, pipe_ctx);
 
@@ -1834,11 +1836,17 @@ void dcn20_update_dchubp_dpp(
 	if ((pipe_ctx->update_flags.bits.enable || pipe_ctx->update_flags.bits.opp_changed ||
 			pipe_ctx->update_flags.bits.scaler || viewport_changed == true) &&
 			pipe_ctx->stream->cursor_attributes.address.quad_part != 0) {
-		if (dc->hwss.abort_cursor_offload_update)
-			dc->hwss.abort_cursor_offload_update(dc, pipe_ctx);
+		if (dc_dmub_srv_is_cursor_offload_enabled(dc) && dc->hwss.abort_cursor_offload_update) {
+			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
+
+			if (top_pipe)
+				dc->hwss.abort_cursor_offload_update(dc->ctx->dmub_srv->dmub,
+					pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp,
+					top_pipe->pipe_idx);
+		}
 
 		dc->hwss.set_cursor_attribute(pipe_ctx);
-		dc->hwss.set_cursor_position(pipe_ctx);
+		hwss_program_cursor_position(dc, pipe_ctx);
 
 		if (dc->hwss.set_cursor_sdr_white_level)
 			dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
@@ -2100,7 +2108,7 @@ void dcn20_program_front_end_for_ctx(
 				ASSERT(!pipe->plane_state->triplebuffer_flips);
 				/*turn off triple buffer for full update*/
 				dc->hwss.program_triplebuffer(
-					dc, pipe, pipe->plane_state->triplebuffer_flips);
+					pipe->plane_res.hubp, pipe->plane_state->triplebuffer_flips);
 			}
 		}
 	}
@@ -2767,7 +2775,8 @@ static bool patch_address_for_sbs_tb_stereo(
 	return false;
 }
 
-void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
+void dcn20_prepare_plane_addr_update(const struct dc *dc, struct pipe_ctx *pipe_ctx,
+		struct dc_plane_address *addr_to_program, bool *flip_immediate)
 {
 	bool addr_patched = false;
 	PHYSICAL_ADDRESS_LOC addr;
@@ -2782,10 +2791,8 @@ void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
 	vm_helper_mark_vmid_used(dc->vm_helper, plane_state->address.vmid,
 			(uint8_t)pipe_ctx->plane_res.hubp->inst);
 
-	pipe_ctx->plane_res.hubp->funcs->hubp_program_surface_flip_and_addr(
-			pipe_ctx->plane_res.hubp,
-			&plane_state->address,
-			plane_state->flip_immediate);
+	*addr_to_program = plane_state->address;
+	*flip_immediate = plane_state->flip_immediate;
 
 	plane_state->status.requested_address = plane_state->address;
 
@@ -2794,6 +2801,23 @@ void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
 
 	if (addr_patched)
 		pipe_ctx->plane_state->address.grph_stereo.left_addr = addr;
+}
+
+void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
+{
+	struct dc_plane_address address;
+	bool flip_immediate;
+
+	if (pipe_ctx->plane_state == NULL)
+		return;
+
+	dcn20_prepare_plane_addr_update(dc, pipe_ctx, &address, &flip_immediate);
+
+	pipe_ctx->plane_res.hubp->funcs->hubp_program_surface_flip_and_addr(
+			pipe_ctx->plane_res.hubp,
+			&address,
+			flip_immediate,
+			pipe_ctx->plane_state->dcc.enable);
 }
 
 void dcn20_unblank_stream(struct pipe_ctx *pipe_ctx,

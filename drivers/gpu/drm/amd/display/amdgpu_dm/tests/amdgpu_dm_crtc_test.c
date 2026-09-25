@@ -42,10 +42,10 @@ static void dm_test_crtc_modeset_required_active_mode_changed(struct kunit *test
 }
 
 /**
- * dm_test_crtc_modeset_required_active_active_changed - Test Crtc modeset required active active changed
+ * dm_test_crtc_modeset_required_active_state_changed - Test modeset required when the active state changes
  * @test: The KUnit test context
  */
-static void dm_test_crtc_modeset_required_active_active_changed(struct kunit *test)
+static void dm_test_crtc_modeset_required_active_state_changed(struct kunit *test)
 {
 	struct drm_crtc_state state = {};
 
@@ -877,9 +877,38 @@ static bool dm_test_crtc_get_vblank_timestamp(struct drm_crtc *crtc,
 	return false;
 }
 
+static int dm_test_crtc_enable_vblank(struct drm_crtc *crtc)
+{
+	return 0;
+}
+
+static void dm_test_crtc_disable_vblank(struct drm_crtc *crtc)
+{
+}
+
+static u32 dm_test_crtc_get_vblank_counter(struct drm_crtc *crtc)
+{
+	return 0;
+}
+
 static const struct drm_crtc_funcs dm_test_crtc_funcs = {
+	.destroy = amdgpu_dm_crtc_destroy,
+	.atomic_duplicate_state = amdgpu_dm_crtc_duplicate_state,
+	.atomic_destroy_state = amdgpu_dm_crtc_destroy_state,
+	.enable_vblank = dm_test_crtc_enable_vblank,
+	.disable_vblank = dm_test_crtc_disable_vblank,
+	.get_vblank_counter = dm_test_crtc_get_vblank_counter,
 	.get_vblank_timestamp = dm_test_crtc_get_vblank_timestamp,
 };
+
+static void dm_test_crtc_cleanup(void *data)
+{
+	struct amdgpu_crtc *acrtc = data;
+
+	if (acrtc->base.dev && drm_dev_has_vblank(acrtc->base.dev))
+		drm_crtc_vblank_off(&acrtc->base);
+	list_del_init(&acrtc->base.head);
+}
 
 /*
  * dm_test_crtc_arm_irq_src - Prime an IRQ source so get()/put() short-circuit.
@@ -947,8 +976,13 @@ dm_test_crtc_setup_enable(struct kunit *test, struct amdgpu_device **adev_out,
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
 	acrtc->base.dev = &adev->ddev;
+	acrtc->base.funcs = &dm_test_crtc_funcs;
 	acrtc->base.enabled = true;
 	acrtc->crtc_id = 0;
+	INIT_LIST_HEAD(&acrtc->base.head);
+	list_add_tail(&acrtc->base.head, &adev->ddev.mode_config.crtc_list);
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_crtc_cleanup, acrtc), 0);
 
 	link = dm_kunit_alloc_link(test);
 	stream = dm_kunit_alloc_stream(test, link);
@@ -1508,8 +1542,6 @@ static void dm_test_crtc_duplicate_state_copies_fields(struct kunit *test)
 	amdgpu_dm_crtc_destroy_state(crtc, dup);
 }
 
-/* Tests for amdgpu_dm_crtc_create_state() */
-
 /**
  * dm_test_crtc_duplicate_state_retains_stream - Test duplicate retains the stream
  * @test: The KUnit test context
@@ -1608,7 +1640,7 @@ static void dm_test_crtc_destroy_cleans_up_and_frees(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.num_crtc, 0);
 }
 
-/* Tests for amdgpu_dm_crtc_destroy() */
+/* Tests for amdgpu_dm_crtc_create_state() */
 
 /**
  * dm_test_crtc_create_state_allocates_state - Test create_state allocates a fresh state
@@ -1666,7 +1698,7 @@ static void dm_test_crtc_reset_state_replaces_existing(struct kunit *test)
 	old->stream = stream;
 	crtc->state = &old->base;
 
-	amdgpu_dm_crtc_reset_state(crtc);
+	amdgpu_dm_crtc_create_state(crtc);
 
 	/* Old state was destroyed (stream ref dropped) and a new one installed. */
 	KUNIT_EXPECT_EQ(test, kref_read(&stream->refcount), 1);
@@ -1782,6 +1814,11 @@ static void dm_test_crtc_handle_vblank_skips_when_flip_submitted(struct kunit *t
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, event);
 
 	acrtc->base.dev = &adev->ddev;
+	acrtc->base.funcs = &dm_test_crtc_funcs;
+	INIT_LIST_HEAD(&acrtc->base.head);
+	list_add_tail(&acrtc->base.head, &adev->ddev.mode_config.crtc_list);
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_crtc_cleanup, acrtc), 0);
 	acrtc->event = event;
 	acrtc->pflip_status = AMDGPU_FLIP_SUBMITTED;
 
@@ -1818,6 +1855,11 @@ static void dm_test_crtc_handle_vblank_completes_cursor_only(struct kunit *test)
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, event);
 
 	acrtc->base.dev = &adev->ddev;
+	acrtc->base.funcs = &dm_test_crtc_funcs;
+	INIT_LIST_HEAD(&acrtc->base.head);
+	list_add_tail(&acrtc->base.head, &adev->ddev.mode_config.crtc_list);
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_crtc_cleanup, acrtc), 0);
 	acrtc->event = event;
 	acrtc->pflip_status = AMDGPU_FLIP_NONE;
 
@@ -2577,7 +2619,7 @@ static void dm_test_crtc_atomic_check_invalid_stream_fails(struct kunit *test)
 static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	/* amdgpu_dm_crtc_modeset_required */
 	KUNIT_CASE(dm_test_crtc_modeset_required_active_mode_changed),
-	KUNIT_CASE(dm_test_crtc_modeset_required_active_active_changed),
+	KUNIT_CASE(dm_test_crtc_modeset_required_active_state_changed),
 	KUNIT_CASE(dm_test_crtc_modeset_required_active_connectors_changed),
 	KUNIT_CASE(dm_test_crtc_modeset_required_inactive),
 	KUNIT_CASE(dm_test_crtc_modeset_required_no_changes),
@@ -2637,12 +2679,13 @@ static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	KUNIT_CASE(dm_test_count_crtc_active_planes_mixed),
 	/* amdgpu_dm_crtc_duplicate_state */
 	KUNIT_CASE(dm_test_crtc_duplicate_state_copies_fields),
-	/* amdgpu_dm_crtc_create_state */
-	KUNIT_CASE(dm_test_crtc_create_state_allocates_state),
 	KUNIT_CASE(dm_test_crtc_duplicate_state_retains_stream),
 	KUNIT_CASE(dm_test_crtc_duplicate_state_null_state_returns_null),
 	/* amdgpu_dm_crtc_destroy */
 	KUNIT_CASE(dm_test_crtc_destroy_cleans_up_and_frees),
+	/* amdgpu_dm_crtc_create_state */
+	KUNIT_CASE(dm_test_crtc_create_state_allocates_state),
+	KUNIT_CASE(dm_test_crtc_reset_state_replaces_existing),
 	/* amdgpu_dm_crtc_destroy_state */
 	KUNIT_CASE(dm_test_crtc_destroy_state_no_stream),
 	KUNIT_CASE(dm_test_crtc_destroy_state_releases_stream),

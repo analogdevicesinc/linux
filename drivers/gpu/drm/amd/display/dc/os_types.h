@@ -27,6 +27,7 @@
 #ifndef _OS_TYPES_H_
 #define _OS_TYPES_H_
 
+#include <linux/compiler_attributes.h>
 #include <linux/slab.h>
 #include <linux/kgdb.h>
 #include <linux/delay.h>

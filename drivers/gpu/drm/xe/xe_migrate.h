@@ -182,4 +182,10 @@ static inline void xe_migrate_job_lock_assert(struct xe_exec_queue *q)
 void xe_migrate_job_lock(struct xe_migrate *m, struct xe_exec_queue *q);
 void xe_migrate_job_unlock(struct xe_migrate *m, struct xe_exec_queue *q);
 
+#if IS_ENABLED(CONFIG_DRM_XE_DEBUG_MEM)
+int xe_migrate_debug_ccs_overlap(struct xe_migrate *m,
+				 struct xe_bo *scratch_bo,
+				 bool write_to_ccs);
+#endif
+
 #endif

@@ -3985,6 +3985,16 @@ static bool smu_temp_metrics_is_supported(void *handle, enum smu_temp_metric_typ
 	return ret;
 }
 
+static u64 smu_get_npm_cap(void *handle)
+{
+	struct smu_context *smu = handle;
+
+	if (!smu->pm_enabled || !smu->ppt_funcs || !smu->ppt_funcs->get_npm_cap)
+		return 0;
+
+	return smu->ppt_funcs->get_npm_cap(smu);
+}
+
 static ssize_t smu_sys_get_xcp_metrics(void *handle, int xcp_id, void *table)
 {
 	struct smu_context *smu = handle;
@@ -4059,6 +4069,7 @@ static const struct amd_pm_funcs swsmu_pm_funcs = {
 	.get_xcp_metrics                  = smu_sys_get_xcp_metrics,
 	.get_temp_metrics             = smu_sys_get_temp_metrics,
 	.temp_metrics_is_supported      = smu_temp_metrics_is_supported,
+	.get_npm_cap                  = smu_get_npm_cap,
 };
 
 int smu_wait_for_event(struct smu_context *smu, enum smu_event_type event,

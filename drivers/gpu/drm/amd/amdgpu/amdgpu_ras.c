@@ -3894,6 +3894,8 @@ void amdgpu_ras_resume(struct amdgpu_device *adev)
 		return;
 	}
 
+	amdgpu_ras_mgr_set_debug_mode(adev, false);
+
 	if (con->flags & AMDGPU_RAS_FLAG_INIT_BY_VBIOS) {
 		/* Set up all other IPs which are not implemented. There is a
 		 * tricky thing that IP's actual ras error type should be
@@ -3953,9 +3955,6 @@ int amdgpu_ras_late_init(struct amdgpu_device *adev)
 	/* Guest side doesn't need init ras feature */
 	if (amdgpu_sriov_vf(adev) && !amdgpu_sriov_ras_telemetry_en(adev))
 		return 0;
-
-	if (amdgpu_uniras_enabled(adev))
-		amdgpu_ras_mgr_set_debug_mode(adev, false);
 
 	list_for_each_entry_safe(node, tmp, &adev->ras_list, node) {
 		obj = node->ras_obj;

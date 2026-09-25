@@ -21,6 +21,23 @@
 #include "amdgpu_dm_freesync.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
 
+static u32 dm_test_freesync_vblank_counter(struct drm_crtc *crtc)
+{
+	return 0;
+}
+
+static const struct drm_crtc_funcs dm_test_freesync_crtc_funcs = {
+	.get_vblank_counter = dm_test_freesync_vblank_counter,
+};
+
+static void dm_test_freesync_crtc_cleanup(void *data)
+{
+	struct amdgpu_crtc *acrtc = data;
+
+	drm_crtc_vblank_off(&acrtc->base);
+	list_del_init(&acrtc->base.head);
+}
+
 /* Tests for amdgpu_dm_is_timing_unchanged_for_freesync() */
 
 /**
@@ -782,6 +799,11 @@ static void dm_test_handle_vrr_transition_round_trip(struct kunit *test)
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 	acrtc->base.dev = &adev->ddev;
+	acrtc->base.funcs = &dm_test_freesync_crtc_funcs;
+	INIT_LIST_HEAD(&acrtc->base.head);
+	list_add_tail(&acrtc->base.head, &adev->ddev.mode_config.crtc_list);
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_freesync_crtc_cleanup, acrtc), 0);
 	acrtc->otg_inst = -1;
 	vblank = drm_crtc_vblank_crtc(&acrtc->base);
 	adev->ddev.vblank[0].enabled = true;

@@ -457,6 +457,9 @@ bool dcn401_set_mcm_luts(struct dc *dc, struct dpp *dpp, struct hubp *hubp,
 
 	/* 1D LUT */
 	lut_enable = cm->flags.bits.blend_enable != 0u;
+	if (cm->flags.bits.rmcm_enable)
+		lut_enable = false;
+
 	memset(&m_lut_params, 0, sizeof(m_lut_params));
 	if (lut_enable) {
 		if (cm->blend_func.type == TF_TYPE_HWPWL)
@@ -483,6 +486,9 @@ bool dcn401_set_mcm_luts(struct dc *dc, struct dpp *dpp, struct hubp *hubp,
 
 	/* Shaper */
 	lut_enable = cm->flags.bits.shaper_enable != 0u;
+	if (cm->flags.bits.rmcm_enable)
+		lut_enable = false;
+
 	if (lut_enable) {
 		memset(&m_lut_params, 0, sizeof(m_lut_params));
 		if (cm->shaper_func.type == TF_TYPE_HWPWL)
@@ -514,6 +520,9 @@ bool dcn401_set_mcm_luts(struct dc *dc, struct dpp *dpp, struct hubp *hubp,
 
 	/* 3DLUT */
 	lut_enable = cm->flags.bits.lut3d_enable != 0u;
+	if (cm->flags.bits.rmcm_enable)
+		lut_enable = false;
+
 	if (lut_enable && cm->flags.bits.lut3d_dma_enable) {
 		/* Fast (DMA) Load Mode */
 		/* MPC */
@@ -1036,11 +1045,12 @@ void dcn401_disable_link_output(struct dc_link *link,
 	dc->link_srv->dp_trace_source_sequence(link, DPCD_SOURCE_SEQ_AFTER_DISABLE_LINK_PHY);
 }
 
-void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx)
+void dcn401_build_cursor_pos_update_params(const struct pipe_ctx *pipe_ctx,
+		struct dc_cursor_position *pos_out,
+		struct dc_cursor_mi_param *param_out)
 {
 	struct dc_cursor_position pos_cpy = pipe_ctx->stream->cursor_position;
 	struct hubp *hubp = pipe_ctx->plane_res.hubp;
-	struct dpp *dpp = pipe_ctx->plane_res.dpp;
 	struct dc_cursor_mi_param param = {
 		.pixel_clk_khz = pipe_ctx->stream->timing.pix_clk_100hz / 10,
 		.ref_clk_khz = pipe_ctx->stream->ctx->dc->res_pool->ref_clocks.dchub_ref_clock_inKhz,
@@ -1064,6 +1074,11 @@ void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx)
 	int y_pos = pos_cpy.y;
 	int recout_x_pos = 0;
 	int recout_y_pos = 0;
+	int x_pos_viewport = 0;
+	int x_hot_viewport = 0;
+	int dst_x_offset = 0;
+	int rec_x_offset = 0;
+	int rec_y_offset = 0;
 
 	if ((pipe_ctx->top_pipe != NULL) || (pipe_ctx->bottom_pipe != NULL)) {
 		if ((pipe_ctx->plane_state->src_rect.width != pipe_ctx->plane_res.scl_data.viewport.width) ||
@@ -1206,8 +1221,59 @@ void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx)
 	pos_cpy.x = x_pos;
 	pos_cpy.y = y_pos;
 
-	hubp->funcs->set_cursor_position(hubp, &pos_cpy, &param);
-	dpp->funcs->set_cursor_position(dpp, &pos_cpy, &param, hubp->curs_attr.width, hubp->curs_attr.height);
+	/* Precompute the HW destination offset so the executor only programs
+	 * registers. Translate cursor x position from rect space into viewport
+	 * space; CURSOR_DST_X_OFFSET is relative to the viewport start position.
+	 */
+	if (param.recout.width) {
+		x_pos_viewport = pos_cpy.x * param.viewport.width / param.recout.width;
+		x_hot_viewport = pos_cpy.x_hotspot * param.viewport.width / param.recout.width;
+	} else {
+		ASSERT(!pos_cpy.enable || pos_cpy.x == 0);
+		ASSERT(!pos_cpy.enable || pos_cpy.x_hotspot == 0);
+	}
+
+	/* pixel_clk_khz is 0 when no timing is programmed on the stream */
+	if (param.pixel_clk_khz) {
+		dst_x_offset = x_pos_viewport - x_hot_viewport *
+				(1 + hubp->curs_attr.attribute_flags.bits.ENABLE_MAGNIFICATION);
+		dst_x_offset = (dst_x_offset >= 0) ? dst_x_offset : 0;
+		dst_x_offset *= param.ref_clk_khz;
+		dst_x_offset /= param.pixel_clk_khz;
+
+		ASSERT(param.h_scale_ratio.value);
+
+		if (param.h_scale_ratio.value)
+			dst_x_offset = dc_fixpt_floor(dc_fixpt_div(
+				dc_fixpt_from_int(dst_x_offset),
+				param.h_scale_ratio));
+
+		param.dst_x_offset = dst_x_offset;
+	}
+
+	/* Cursor rectangle cache origin: derived from the final cursor position
+	 * minus hotspot, clamped to 0, offset by the recout origin. Precompute
+	 * here so the executor only stores the value.
+	 */
+	rec_x_offset = pos_cpy.x - pos_cpy.x_hotspot;
+	rec_y_offset = pos_cpy.y - pos_cpy.y_hotspot;
+	if (rec_x_offset < 0)
+		rec_x_offset = 0;
+	if (rec_y_offset < 0)
+		rec_y_offset = 0;
+	param.cur_rect_x = rec_x_offset + param.recout.x;
+	param.cur_rect_y = rec_y_offset + param.recout.y;
+
+	*pos_out = pos_cpy;
+	*param_out = param;
+}
+
+void dcn401_set_cursor_position(struct hubp *hubp, struct dpp *dpp,
+		const struct dc_cursor_position *pos,
+		const struct dc_cursor_mi_param *param)
+{
+	hubp->funcs->set_cursor_position(hubp, pos, param);
+	dpp->funcs->set_cursor_position(dpp, pos, param, hubp->curs_attr.width, hubp->curs_attr.height);
 }
 
 static bool dcn401_check_no_memory_request_for_cab(struct dc *dc)
@@ -1547,25 +1613,27 @@ void dcn401_optimize_bandwidth_sequence(struct dc *dc,
 				dc->clk_mgr, context, true, seq_state);
 }
 
-void dcn401_dmub_hw_control_lock(struct dc *dc,
+bool dcn401_dmub_hw_control_lock(struct dc *dc,
 		struct dc_state *context,
 		bool lock)
 {
 	(void)context;
-	/* use always for now */
 	union dmub_inbox0_cmd_lock_hw hw_lock_cmd = { 0 };
 
 	if (!dc->ctx || !dc->ctx->dmub_srv)
-		return;
+		return false;
 
-	if (!dc->debug.fams2_config.bits.enable && !dc_dmub_srv_is_cursor_offload_enabled(dc))
-		return;
+	if (lock) {
+		if (!dc->debug.fams2_config.bits.enable && !dc_dmub_srv_is_cursor_offload_enabled(dc))
+			return false;
+	}
 
 	hw_lock_cmd.bits.command_code = DMUB_INBOX0_CMD__HW_LOCK;
 	hw_lock_cmd.bits.hw_lock_client = HW_LOCK_CLIENT_DRIVER;
 	hw_lock_cmd.bits.lock = lock;
 	hw_lock_cmd.bits.should_release = !lock;
 	dmub_hw_lock_mgr_inbox0_cmd(dc->ctx->dmub_srv, hw_lock_cmd);
+	return true;
 }
 
 void dcn401_dmub_hw_control_lock_fast(union block_sequence_params *params)
@@ -2522,7 +2590,7 @@ void dcn401_program_front_end_for_ctx(
 
 				/*turn off triple buffer for full update*/
 				dc->hwss.program_triplebuffer(
-					dc, pipe, pipe->plane_state->triplebuffer_flips);
+					pipe->plane_res.hubp, pipe->plane_state->triplebuffer_flips);
 			}
 		}
 	}
@@ -3089,23 +3157,17 @@ void dcn401_plane_atomic_power_down(struct dc *dc,
 		hws->funcs.dpp_root_clock_control(hws, dpp->inst, false);
 }
 
-void dcn401_update_cursor_offload_pipe(struct dc *dc, const struct pipe_ctx *pipe)
+void dcn401_update_cursor_offload_pipe(struct dmub_srv *dmub, uint32_t stream_idx,
+		uint8_t pipe_idx, const struct dpp *dpp, const struct hubp *hubp)
 {
-	volatile struct dmub_cursor_offload_v1 *cs = dc->ctx->dmub_srv->dmub->cursor_offload_v1;
-	const struct pipe_ctx *top_pipe = resource_get_otg_master(pipe);
-	const struct hubp *hubp = pipe->plane_res.hubp;
-	const struct dpp *dpp = pipe->plane_res.dpp;
+	volatile struct dmub_cursor_offload_v1 *cs = dmub->cursor_offload_v1;
 	volatile struct dmub_cursor_offload_pipe_data_dcn401_v1 *p;
-	uint32_t stream_idx, write_idx, payload_idx;
+	uint32_t write_idx, payload_idx;
 
-	if (!top_pipe || !hubp || !dpp)
-		return;
-
-	stream_idx = top_pipe->pipe_idx;
 	write_idx = cs->offload_streams[stream_idx].write_idx + 1; /*  new payload (+1) */
 	payload_idx = write_idx % ARRAY_SIZE(cs->offload_streams[stream_idx].payloads);
 
-	p = &cs->offload_streams[stream_idx].payloads[payload_idx].pipe_data[pipe->pipe_idx].dcn401;
+	p = &cs->offload_streams[stream_idx].payloads[payload_idx].pipe_data[pipe_idx].dcn401;
 
 	p->CURSOR0_0_CURSOR_SURFACE_ADDRESS = hubp->att.SURFACE_ADDR;
 	p->CURSOR0_0_CURSOR_SURFACE_ADDRESS_HIGH = hubp->att.SURFACE_ADDR_HIGH;
@@ -3142,7 +3204,7 @@ void dcn401_update_cursor_offload_pipe(struct dc *dc, const struct pipe_ctx *pip
 	p->HUBPREQ0_CURSOR_SETTINGS__CURSOR0_CHUNK_HDL_ADJUST = hubp->att.settings.bits.chunk_hdl_adjust;
 	p->HUBP0_DCHUBP_MALL_CONFIG__USE_MALL_FOR_CURSOR = hubp->use_mall_for_cursor;
 
-	cs->offload_streams[stream_idx].payloads[payload_idx].pipe_mask |= (1u << pipe->pipe_idx);
+	cs->offload_streams[stream_idx].payloads[payload_idx].pipe_mask |= (1u << pipe_idx);
 }
 
 void dcn401_plane_atomic_power_down_sequence(struct dc *dc,
@@ -3681,7 +3743,7 @@ void dcn401_update_dchubp_dpp_sequence(struct dc *dc,
 			plane_state->update_bits.input_csc_change ||
 			plane_state->update_bits.color_space_change ||
 			plane_state->update_bits.coeff_reduction_change) {
-		hwss_add_dpp_setup_dpp(seq_state, pipe_ctx);
+		hwss_add_dpp_setup_dpp(seq_state, dpp, plane_state);
 
 		/* Step 8: DPP cursor matrix setup */
 		if (dpp->funcs->set_cursor_matrix) {
@@ -3691,7 +3753,7 @@ void dcn401_update_dchubp_dpp_sequence(struct dc *dc,
 
 		/* Step 9: DPP program bias and scale */
 		if (dpp->funcs->dpp_program_bias_and_scale)
-			hwss_add_dpp_program_bias_and_scale(seq_state, pipe_ctx);
+			hwss_add_dpp_program_bias_and_scale(seq_state, dpp, plane_state);
 	}
 
 	/* Step 10: MPCC updates */

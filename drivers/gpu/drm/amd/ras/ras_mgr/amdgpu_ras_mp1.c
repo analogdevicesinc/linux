@@ -25,8 +25,18 @@
 #include "amdgpu_reset.h"
 #include "ras.h"
 
+static const enum smu_feature_mask ras_smu_feature_masks[RAS_MP1_FEATURE_MAX] = {
+	[RAS_MP1_FEATURE_PMFW_EEPROM] = SMU_FEATURE_HROM_EN_BIT,
+};
+
 static const enum smu_message_type ras_smu_msg_maps[RAS_MP1_MSG_MAX] = {
+	[RAS_MP1_MSG_QueryValidMcaCount] = SMU_MSG_QueryValidMcaCount,
+	[RAS_MP1_MSG_McaBankDumpDW] = SMU_MSG_McaBankDumpDW,
+	[RAS_MP1_MSG_ClearMcaOnRead] = SMU_MSG_ClearMcaOnRead,
+	[RAS_MP1_MSG_QueryValidMcaCeCount] = SMU_MSG_QueryValidMcaCeCount,
+	[RAS_MP1_MSG_McaBankCeDumpDW] = SMU_MSG_McaBankCeDumpDW,
 	[RAS_MP1_MSG_GetRasTableVersion] = SMU_MSG_GetRASTableVersion,
+	[RAS_MP1_MSG_GetRmaStatus] = SMU_MSG_GetRmaStatus,
 	[RAS_MP1_MSG_GetBadPageCount] = SMU_MSG_GetBadPageCount,
 	[RAS_MP1_MSG_GetBadPageMcaAddr] = SMU_MSG_GetBadPageMcaAddr,
 	[RAS_MP1_MSG_SetTimestamp] = SMU_MSG_SetTimestamp,
@@ -42,6 +52,29 @@ static enum smu_message_type
 		return 0;
 
 	return ras_smu_msg_maps[msg_id];
+}
+
+static int amdgpu_ras_check_ras_feature_status(struct ras_core_context *ras_core,
+		enum ras_mp1_feature_id feature_id, u32 *status)
+{
+	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
+	u32 res = 0;
+
+	if (!status || (feature_id >= RAS_MP1_FEATURE_MAX))
+		return -EINVAL;
+
+	if (down_read_trylock(&adev->reset_domain->sem)) {
+		if (amdgpu_smu_ras_feature_is_enabled(adev,
+				ras_smu_feature_masks[feature_id]))
+			res = 1;
+		up_read(&adev->reset_domain->sem);
+	} else {
+		return -RAS_CORE_GPU_IN_MODE1_RESET;
+	}
+
+	*status = res;
+
+	return 0;
 }
 
 static int amdgpu_ras_send_mp1_msg(struct ras_core_context *ras_core, u32 msg_id,
@@ -68,4 +101,5 @@ static int amdgpu_ras_send_mp1_msg(struct ras_core_context *ras_core, u32 msg_id
 
 const struct ras_mp1_sys_func amdgpu_ras_mp1_sys_func = {
 	.mp1_send_ras_msg = amdgpu_ras_send_mp1_msg,
+	.check_ras_feature_status = amdgpu_ras_check_ras_feature_status,
 };

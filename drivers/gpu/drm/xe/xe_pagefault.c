@@ -158,8 +158,14 @@ static int xe_pagefault_handle_vma(struct xe_gt *gt, struct xe_vma *vma,
 	lockdep_assert_held(&vm->lock);
 
 	needs_vram = xe_vma_need_vram_for_atomic(vm->xe, vma, atomic);
-	if (needs_vram < 0 || (needs_vram && xe_vma_is_userptr(vma)))
-		return needs_vram < 0 ? needs_vram : -EACCES;
+	if (needs_vram < 0) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_VMA_NEEDS_VRAM_CHECK);
+		return needs_vram;
+	}
+	if (needs_vram && xe_vma_is_userptr(vma)) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_VMA_ATOMIC_USERPTR);
+		return -EACCES;
+	}
 
 	xe_gt_stats_incr(gt, XE_GT_STATS_ID_VMA_PAGEFAULT_COUNT, 1);
 	xe_gt_stats_incr(gt, XE_GT_STATS_ID_VMA_PAGEFAULT_KB,
@@ -178,13 +184,17 @@ static int xe_pagefault_handle_vma(struct xe_gt *gt, struct xe_vma *vma,
 	}
 
 	do {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_NONE);
+
 		if (xe_vma_is_userptr(vma) &&
 		    xe_vma_userptr_check_repin(to_userptr_vma(vma))) {
 			struct xe_userptr_vma *uvma = to_userptr_vma(vma);
 
 			err = xe_vma_userptr_pin_pages(uvma);
-			if (err)
+			if (err) {
+				xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_VMA_USERPTR_PIN);
 				return err;
+			}
 		}
 
 		/* Lock VM and BOs dma-resv */
@@ -195,8 +205,10 @@ static int xe_pagefault_handle_vma(struct xe_gt *gt, struct xe_vma *vma,
 						 needs_vram == 1);
 			drm_exec_retry_on_contention(&exec);
 			xe_validation_retry_on_oom(&ctx, &err);
-			if (err)
+			if (err) {
+				xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_VMA_VALIDATE);
 				break;
+			}
 
 			/* Bind VMA only to the GT that has faulted */
 			trace_xe_vma_pf_bind(vma);
@@ -206,6 +218,7 @@ static int xe_pagefault_handle_vma(struct xe_gt *gt, struct xe_vma *vma,
 			if (IS_ERR(fence)) {
 				err = PTR_ERR(fence);
 				xe_validation_retry_on_oom(&ctx, &err);
+				xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_VMA_REBIND);
 				break;
 			}
 		}
@@ -230,16 +243,22 @@ xe_pagefault_access_is_atomic(enum xe_pagefault_access_type access_type)
 	return (access_type & XE_PAGEFAULT_ACCESS_TYPE_MASK) == XE_PAGEFAULT_ACCESS_TYPE_ATOMIC;
 }
 
-static struct xe_vm *xe_pagefault_asid_to_vm(struct xe_device *xe, u32 asid)
+static struct xe_vm *xe_pagefault_asid_to_vm(struct xe_pagefault *pf, u32 asid)
 {
+	struct xe_device *xe = gt_to_xe(pf->gt);
 	struct xe_vm *vm;
 
 	down_read(&xe->usm.lock);
 	vm = xa_load(&xe->usm.asid_to_vm, asid);
-	if (vm && xe_vm_in_fault_mode(vm))
-		xe_vm_get(vm);
-	else
+	if (!vm) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_VM_NOT_FOUND);
 		vm = ERR_PTR(-EINVAL);
+	} else if (!xe_vm_in_fault_mode(vm)) {
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_VM_NOT_IN_FAULT_MODE);
+		vm = ERR_PTR(-EINVAL);
+	} else {
+		xe_vm_get(vm);
+	}
 	up_read(&xe->usm.lock);
 
 	return vm;
@@ -248,17 +267,17 @@ static struct xe_vm *xe_pagefault_asid_to_vm(struct xe_device *xe, u32 asid)
 static int xe_pagefault_service(struct xe_pagefault *pf)
 {
 	struct xe_gt *gt = pf->gt;
-	struct xe_device *xe = gt_to_xe(gt);
 	struct xe_vm *vm;
 	struct xe_vma *vma = NULL;
 	int err;
 	bool atomic;
+	u32 asid = FIELD_GET(XE_PAGEFAULT_ASID_MASK, pf->consumer.id);
 
 	/* Producer flagged this fault to be nacked */
 	if (pf->consumer.fault_type_level == XE_PAGEFAULT_TYPE_LEVEL_NACK)
 		return -EFAULT;
 
-	vm = xe_pagefault_asid_to_vm(xe, pf->consumer.asid);
+	vm = xe_pagefault_asid_to_vm(pf, asid);
 	if (IS_ERR(vm))
 		return PTR_ERR(vm);
 
@@ -266,18 +285,21 @@ static int xe_pagefault_service(struct xe_pagefault *pf)
 
 	if (xe_vm_is_closed(vm)) {
 		err = -ENOENT;
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_VM_CLOSED);
 		goto unlock_vm;
 	}
 
-	vma = xe_vm_find_vma_by_addr(vm, pf->consumer.page_addr);
+	vma = xe_vm_find_vma_by_addr(vm, xe_pagefault_addr(pf));
 	if (!vma) {
 		err = -EINVAL;
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_VMA_NOT_FOUND);
 		goto unlock_vm;
 	}
 
 	if (xe_vma_read_only(vma) &&
 	    pf->consumer.access_type != XE_PAGEFAULT_ACCESS_TYPE_READ) {
 		err = -EPERM;
+		xe_pagefault_set_error(pf, XE_PAGEFAULT_ERROR_READ_ONLY_VIOLATION);
 		goto unlock_vm;
 	}
 
@@ -285,7 +307,7 @@ static int xe_pagefault_service(struct xe_pagefault *pf)
 
 	if (xe_vma_is_cpu_addr_mirror(vma))
 		err = xe_svm_handle_pagefault(vm, vma, pf, gt,
-					      pf->consumer.page_addr, atomic);
+					      xe_pagefault_addr(pf), atomic);
 	else
 		err = xe_pagefault_handle_vma(gt, vma, pf, atomic);
 
@@ -374,8 +396,8 @@ static bool xe_pagefault_match(struct xe_pagefault *pf, u64 start,
 			       u64 end, u64 cache_asid)
 {
 	struct xe_device *xe = gt_to_xe(pf->gt);
-	u64 page_addr = pf->consumer.page_addr;
-	u32 pf_asid = pf->consumer.asid;
+	u64 page_addr = xe_pagefault_addr(pf);
+	u32 pf_asid = FIELD_GET(XE_PAGEFAULT_ASID_MASK, pf->consumer.id);
 
 	xe_assert(xe, pf->consumer.alloc_state !=
 		  XE_PAGEFAULT_ALLOC_STATE_FREE);
@@ -498,9 +520,9 @@ static bool xe_pagefault_queue_pop(struct xe_pagefault_queue *pf_queue,
 	if (FIELD_GET(XE_PAGEFAULT_REQUEUE_MASK,
 		      lpf->consumer.fault_type_level))
 		align = SZ_4K;
-	pf_work->cache.start = ALIGN_DOWN(lpf->consumer.page_addr, align);
+	pf_work->cache.start = ALIGN_DOWN(xe_pagefault_addr(lpf), align);
 	pf_work->cache.end = pf_work->cache.start + align;
-	pf_work->cache.asid = lpf->consumer.asid;
+	pf_work->cache.asid = FIELD_GET(XE_PAGEFAULT_ASID_MASK, lpf->consumer.id);
 	pf_work->cache.pf = lpf;
 	lpf->consumer.alloc_state = XE_PAGEFAULT_ALLOC_STATE_ACTIVE;
 
@@ -541,21 +563,67 @@ static bool xe_pagefault_queue_pop(struct xe_pagefault_queue *pf_queue,
 	return true;
 }
 
+static const char *xe_pagefault_error_to_str(enum xe_pagefault_error error)
+{
+	switch (error) {
+	case XE_PAGEFAULT_ERROR_NONE:
+		return "NONE";
+	case XE_PAGEFAULT_ERROR_VM_NOT_FOUND:
+		return "VM_NOT_FOUND";
+	case XE_PAGEFAULT_ERROR_VM_NOT_IN_FAULT_MODE:
+		return "VM_NOT_IN_FAULT_MODE";
+	case XE_PAGEFAULT_ERROR_VM_CLOSED:
+		return "VM_CLOSED";
+	case XE_PAGEFAULT_ERROR_VMA_NOT_FOUND:
+		return "VMA_NOT_FOUND";
+	case XE_PAGEFAULT_ERROR_READ_ONLY_VIOLATION:
+		return "READ_ONLY_VIOLATION";
+	case XE_PAGEFAULT_ERROR_VMA_NEEDS_VRAM_CHECK:
+		return "VMA_NEEDS_VRAM_CHECK";
+	case XE_PAGEFAULT_ERROR_VMA_ATOMIC_USERPTR:
+		return "VMA_ATOMIC_USERPTR";
+	case XE_PAGEFAULT_ERROR_VMA_USERPTR_PIN:
+		return "VMA_USERPTR_PIN";
+	case XE_PAGEFAULT_ERROR_VMA_VALIDATE:
+		return "VMA_VALIDATE";
+	case XE_PAGEFAULT_ERROR_VMA_REBIND:
+		return "VMA_REBIND";
+	case XE_PAGEFAULT_ERROR_SVM_GARBAGE_COLLECTOR:
+		return "SVM_GARBAGE_COLLECTOR";
+	case XE_PAGEFAULT_ERROR_SVM_RANGE_NOT_FOUND:
+		return "SVM_RANGE_NOT_FOUND";
+	case XE_PAGEFAULT_ERROR_SVM_REBIND:
+		return "SVM_REBIND";
+	case XE_PAGEFAULT_ERROR_SVM_NEEDS_VRAM_CHECK:
+		return "SVM_NEEDS_VRAM_CHECK";
+	case XE_PAGEFAULT_ERROR_SVM_VMA_NOT_FOUND:
+		return "SVM_VMA_NOT_FOUND";
+	case XE_PAGEFAULT_ERROR_SVM_SERVICE_FAILED:
+		return "SVM_SERVICE_FAILED";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 static void xe_pagefault_print(struct xe_pagefault *pf)
 {
 	u8 engine_class = FIELD_GET(XE_PAGEFAULT_ENGINE_CLASS_MASK,
 				    pf->consumer.engine_class_instance);
+	u64 addr = xe_pagefault_addr(pf);
 
-	xe_gt_info(pf->gt, "\n\tASID: %d\n"
+	xe_gt_info(pf->gt, "\n\tASID: %lu\n"
 		   "\tFaulted Address: 0x%08x%08x\n"
 		   "\tFaultType: %lu\n"
 		   "\tAccessType: %lu\n"
 		   "\tFaultLevel: %lu\n"
 		   "\tEngineClass: %d %s\n"
-		   "\tEngineInstance: %lu\n",
-		   pf->consumer.asid,
-		   upper_32_bits(pf->consumer.page_addr),
-		   lower_32_bits(pf->consumer.page_addr),
+		   "\tEngineInstance: %lu\n"
+		   "\tSRCID: 0x%02lx\n"
+		   "\tError: %s\n",
+		   FIELD_GET(XE_PAGEFAULT_ASID_MASK,
+			     pf->consumer.id),
+		   upper_32_bits(addr),
+		   lower_32_bits(addr),
 		   FIELD_GET(XE_PAGEFAULT_TYPE_MASK,
 			     pf->consumer.fault_type_level),
 		   FIELD_GET(XE_PAGEFAULT_ACCESS_TYPE_MASK,
@@ -565,7 +633,10 @@ static void xe_pagefault_print(struct xe_pagefault *pf)
 		   engine_class,
 		   xe_hw_engine_class_to_str(engine_class),
 		   FIELD_GET(XE_PAGEFAULT_ENGINE_INSTANCE_MASK,
-			     pf->consumer.engine_class_instance));
+			     pf->consumer.engine_class_instance),
+		   FIELD_GET(XE_PAGEFAULT_SRCID_MASK,
+			     pf->consumer.id),
+		   xe_pagefault_error_to_str(xe_pagefault_get_error(pf)));
 }
 
 static void xe_pagefault_save_to_vm(struct xe_device *xe, struct xe_pagefault *pf)
@@ -578,7 +649,8 @@ static void xe_pagefault_save_to_vm(struct xe_device *xe, struct xe_pagefault *p
 	 * mode, return VM anyways.
 	 */
 	down_read(&xe->usm.lock);
-	vm = xa_load(&xe->usm.asid_to_vm, pf->consumer.asid);
+	vm = xa_load(&xe->usm.asid_to_vm,
+		     FIELD_GET(XE_PAGEFAULT_ASID_MASK, pf->consumer.id));
 	if (vm)
 		xe_vm_get(vm);
 	else
@@ -612,6 +684,13 @@ static void xe_pagefault_queue_work(struct work_struct *w)
 	 */
 	guard(xe_pm_runtime)(xe);
 
+	/*
+	 * A live VM holds a PM reference, but a torn-down VM does not.
+	 * Guard the entire worker loop to safely drain stale faults and
+	 * prevent autosuspends from desyncing batched CT flushes.
+	 */
+	guard(xe_pm_runtime)(xe);
+
 #define USM_QUEUE_MAX_RUNTIME_MS      20
 	threshold = jiffies + msecs_to_jiffies(USM_QUEUE_MAX_RUNTIME_MS);
 
@@ -619,7 +698,7 @@ static void xe_pagefault_queue_work(struct work_struct *w)
 		const struct xe_pagefault_ops *ops = pf->producer.ops;
 		void *private = pf->producer.private;
 		struct xe_gt *gt = pf->gt;
-		u32 asid = pf->consumer.asid;
+		u32 asid = FIELD_GET(XE_PAGEFAULT_ASID_MASK, pf->consumer.id);
 		int err = 0;
 		bool invalidated = false;
 

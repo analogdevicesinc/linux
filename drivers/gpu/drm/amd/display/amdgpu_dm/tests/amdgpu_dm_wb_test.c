@@ -418,7 +418,9 @@ static void dm_test_wb_get_modes_returns_modes(struct kunit *test)
 	drmm_connector_init(drm, connector, &dm_wb_test_connector_funcs,
 			    DRM_MODE_CONNECTOR_VIRTUAL, NULL);
 
+	mutex_lock(&drm->mode_config.mutex);
 	count = amdgpu_dm_wb_connector_get_modes(connector);
+	mutex_unlock(&drm->mode_config.mutex);
 
 	/* drm_add_modes_noedid should return at least one mode */
 	KUNIT_EXPECT_GT(test, count, 0);
@@ -453,7 +455,9 @@ static void dm_test_wb_get_modes_bounded_by_max(struct kunit *test)
 	drmm_connector_init(drm, connector, &dm_wb_test_connector_funcs,
 			    DRM_MODE_CONNECTOR_VIRTUAL, NULL);
 
+	mutex_lock(&drm->mode_config.mutex);
 	amdgpu_dm_wb_connector_get_modes(connector);
+	mutex_unlock(&drm->mode_config.mutex);
 
 	/* All modes must fit within 3840x2160 */
 	list_for_each_entry(mode, &connector->probed_modes, head) {

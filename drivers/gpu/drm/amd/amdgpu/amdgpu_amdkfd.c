@@ -245,6 +245,25 @@ void amdgpu_amdkfd_device_fini_sw(struct amdgpu_device *adev)
 	}
 }
 
+int amdgpu_amdkfd_prepare_partition_switch(struct amdgpu_device *adev)
+{
+	struct kfd_dev *kfd = adev->kfd.dev;
+	int r;
+
+	if (!kfd)
+		return 0;
+	r = kgd2kfd_check_and_lock_kfd(kfd);
+	if (r)
+		return r;
+
+	adev->kfd.init_complete = false;
+	kgd2kfd_device_fini(kfd);
+	adev->kfd.dev = NULL;
+	amdgpu_amdkfd_total_mem_size -= adev->gmc.real_vram_size;
+
+	return 0;
+}
+
 void amdgpu_amdkfd_interrupt(struct amdgpu_device *adev,
 		const void *ih_ring_entry)
 {
@@ -815,16 +834,6 @@ int amdgpu_amdkfd_send_close_event_drain_irq(struct amdgpu_device *adev,
 	amdgpu_amdkfd_interrupt(adev, payload);
 
 	return 0;
-}
-
-int amdgpu_amdkfd_check_and_lock_kfd(struct amdgpu_device *adev)
-{
-	return kgd2kfd_check_and_lock_kfd(adev->kfd.dev);
-}
-
-void amdgpu_amdkfd_unlock_kfd(struct amdgpu_device *adev)
-{
-	kgd2kfd_unlock_kfd(adev->kfd.dev);
 }
 
 

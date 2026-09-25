@@ -73,6 +73,8 @@ void dcn10_program_output_csc(struct dc *dc,
 bool dcn10_set_output_transfer_func(struct set_output_transfer_func_params *params);
 bool dcn10_set_input_transfer_func(struct set_input_transfer_func_params *params);
 void dcn10_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx);
+void dcn10_prepare_plane_addr_update(const struct dc *dc, struct pipe_ctx *pipe_ctx,
+		struct dc_plane_address *addr_to_program, bool *flip_immediate);
 void dcn10_update_mpcc(struct dc *dc, struct pipe_ctx *pipe_ctx);
 void dcn10_reset_hw_ctx_wrap(
 		struct dc *dc,
@@ -175,7 +177,12 @@ void dce110_edp_power_control(
 void dce110_edp_wait_for_hpd_ready(
 		struct dc_link *link,
 		bool power_up);
-void dcn10_set_cursor_position(struct pipe_ctx *pipe_ctx);
+void dcn10_build_cursor_pos_update_params(const struct pipe_ctx *pipe_ctx,
+		struct dc_cursor_position *pos,
+		struct dc_cursor_mi_param *param);
+void dcn10_set_cursor_position(struct hubp *hubp, struct dpp *dpp,
+		const struct dc_cursor_position *pos,
+		const struct dc_cursor_mi_param *param);
 void dcn10_set_cursor_attribute(struct pipe_ctx *pipe_ctx);
 void dcn10_set_cursor_sdr_white_level(struct pipe_ctx *pipe_ctx);
 void dcn10_setup_periodic_interrupt(

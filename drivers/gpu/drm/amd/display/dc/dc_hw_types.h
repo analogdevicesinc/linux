@@ -562,6 +562,9 @@ struct dc_cursor_mi_param {
 	enum dc_rotation_angle rotation;
 	bool mirror;
 	struct dc_stream_state *stream;
+	int dst_x_offset;
+	int cur_rect_x;
+	int cur_rect_y;
 };
 
 /* IPP related types */

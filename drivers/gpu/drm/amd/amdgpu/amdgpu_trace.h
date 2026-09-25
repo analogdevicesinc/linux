@@ -730,6 +730,39 @@ TRACE_EVENT(amdgpu_userq_state_changed,
 		      __entry->client_id, __entry->queue_type, __entry->doorbell_index, __entry->to)
 );
 
+TRACE_EVENT(amdgpu_register_pid,
+	    TP_PROTO(uint32_t pid, int major, int minor),
+	    TP_ARGS(pid, major, minor),
+	    TP_STRUCT__entry(
+			__field(u32, pid)
+			__field(int, major)
+			__field(int, minor)
+	    ),
+	    TP_fast_assign(
+			__entry->pid = pid;
+			__entry->major = major;
+			__entry->minor = minor;
+	    ),
+	    TP_printk("amdgpu register pid %d render %d:%d",
+		      __entry->pid, __entry->major, __entry->minor)
+);
+TRACE_EVENT(amdgpu_deregister_pid,
+	    TP_PROTO(uint32_t pid, int major, int minor),
+	    TP_ARGS(pid, major, minor),
+	    TP_STRUCT__entry(
+			__field(u32, pid)
+			__field(int, major)
+			__field(int, minor)
+	    ),
+	    TP_fast_assign(
+			__entry->pid = pid;
+			__entry->major = major;
+			__entry->minor = minor;
+	    ),
+	    TP_printk("amdgpu deregister pid %d render %d:%d",
+		      __entry->pid, __entry->major, __entry->minor)
+);
+
 #undef AMDGPU_JOB_GET_TIMELINE_NAME
 #endif
 

@@ -1154,6 +1154,28 @@ bool edp_replay_residency(const struct dc_link *link,
 	return true;
 }
 
+bool edp_replay_get_cumulative_residency(const struct dc_link *link,
+	uint32_t *residency_milli_pct)
+{
+	struct dc *dc = link->ctx->dc;
+	struct dmub_replay *replay = dc->res_pool->replay;
+	unsigned int panel_inst;
+
+	if (!dp_pr_get_pr_panel_inst(dc, link, &panel_inst))
+		return false;
+
+	if (replay && link->replay_settings.replay_feature_enabled &&
+	    replay->funcs->replay_get_cumulative_residency)
+		return replay->funcs->replay_get_cumulative_residency(replay,
+			(uint8_t)panel_inst, residency_milli_pct);
+
+	if (residency_milli_pct)
+		*residency_milli_pct = 0;
+
+	return true;
+}
+
+
 bool edp_set_replay_power_opt_and_coasting_vtotal(struct dc_link *link,
 	const unsigned int *power_opts, uint32_t coasting_vtotal, uint16_t frame_skip_number)
 {

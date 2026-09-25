@@ -333,6 +333,7 @@ struct hpd_rx_irq_offload_work {
  * @backlight_link: Link on which to control backlight
  * @backlight_caps: Capabilities of the backlight device
  * @freesync_module: Module handling freesync calculations
+ * @power_module: Module handling power calculations
  * @hdcp_workqueue: AMDGPU content protection queue
  * @fw_dmcu: Reference to DMCU firmware
  * @dmcu_fw_version: Version of the DMCU firmware
@@ -592,6 +593,11 @@ struct amdgpu_display_manager {
 	struct amdgpu_dm_backlight_caps backlight_caps[AMDGPU_DM_MAX_NUM_EDP];
 
 	struct mod_freesync *freesync_module;
+	/**
+	 * @power_module:
+	 *
+	 * Power management module.
+	 */
 	struct mod_power *power_module;
 	struct hdcp_workqueue *hdcp_workqueue;
 
@@ -731,16 +737,26 @@ struct amdgpu_display_manager {
 		char reply_data[0x40];  // Cannot include dmub_cmd here
 	} fused_io[8];
 	/**
-	 * @hdmi_frl_status_polling_work:
+	 * @hdmi_frl_status_polling_wq:
 	 *
-	 * workqueue for 200ms frl status polling
+	 * Workqueue for HDMI FRL status polling.
 	 */
 	struct workqueue_struct *hdmi_frl_status_polling_wq;
+	/**
+	 * @hdmi_frl_status_polling_work:
+	 *
+	 * Delayed work for 200ms HDMI FRL status polling.
+	 */
 	struct delayed_work hdmi_frl_status_polling_work;
+	/**
+	 * @hdmi_frl_status_polling_delay_ms:
+	 *
+	 * Delay, in milliseconds, between HDMI FRL status polls.
+	 */
 	unsigned int hdmi_frl_status_polling_delay_ms;
 
 	/**
-	 * @dm_boot_time_crc_info:
+	 * @boot_time_crc_info:
 	 *
 	 * Buffer info for the boot time crc.
 	 */
@@ -949,6 +965,10 @@ enum amdgpu_transfer_function {
 	AMDGPU_TRANSFER_FUNCTION_COUNT
 };
 
+struct dc_flip_addrs;
+struct dc_scaling_info;
+struct dc_plane_info;
+
 struct dm_plane_state {
 	struct drm_plane_state base;
 	struct dc_plane_state *dc_state;
@@ -1018,6 +1038,16 @@ struct dm_plane_state {
 	 * applying blend LUT.
 	 */
 	enum amdgpu_transfer_function blend_tf;
+
+	/* Cached per-plane surface descriptors kept in the DRM plane state.
+	 * The DRM atomic old/new state swap lets us compare the previous
+	 * commit's values (old) against the newly computed ones to detect a
+	 * real plane change (vs an address-only flip) so DC only gets a
+	 * scaling_info/plane_info surface update when it actually changed.
+	 */
+	struct dc_flip_addrs *flip_addr;
+	struct dc_scaling_info *scaling_info;
+	struct dc_plane_info *plane_info;
 };
 
 enum amdgpu_dm_cursor_mode {
@@ -1249,7 +1279,6 @@ void s3_handle_mst(struct drm_device *dev, bool suspend);
 void dm_gpureset_commit_state(struct dc_state *dc_state, struct amdgpu_display_manager *dm);
 int dm_plane_layer_index_cmp(const void *a, const void *b);
 bool update_planes_and_stream_adapter(struct dc *dc,
-				      int update_type,
 				      int planes_count,
 				      struct dc_stream_state *stream,
 				      struct dc_stream_update *stream_update,

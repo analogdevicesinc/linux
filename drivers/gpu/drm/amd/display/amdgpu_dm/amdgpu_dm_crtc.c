@@ -481,9 +481,9 @@ EXPORT_IF_KUNIT(amdgpu_dm_crtc_duplicate_state);
 STATIC_IFN_KUNIT void amdgpu_dm_crtc_destroy(struct drm_crtc *crtc)
 {
 	/*
-	 * amdgpu_dm_ism_fini() is intentionally called in amdgpu_dm_fini().
-	 * It must be called before dc_destroy() in amdgpu_dm_fini()
-	 * to avoid ISM accessing an invalid dc handle once dc is released.
+	 * ISM workers are intentionally quiesced by amdgpu_dm_ism_disable()
+	 * in amdgpu_dm_fini(). That must happen before dc_destroy() so ISM
+	 * cannot access an invalid dc handle once dc is released.
 	 */
 
 	drm_crtc_cleanup(crtc);
@@ -842,7 +842,7 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
 	return 0;
 
 error_ism_fini:
-	amdgpu_dm_ism_fini(&acrtc->ism);
+	amdgpu_dm_ism_flush(&acrtc->ism);
 	drm_crtc_cleanup(&acrtc->base);
 fail:
 	kfree(acrtc);

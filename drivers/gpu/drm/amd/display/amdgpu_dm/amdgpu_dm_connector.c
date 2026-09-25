@@ -1267,6 +1267,12 @@ static void apply_dsc_policy_for_stream(struct amdgpu_dm_connector *aconnector,
 	link_bandwidth_kbps = dc_link_bandwidth_kbps(aconnector->dc_link,
 							dc_link_get_link_cap(aconnector->dc_link));
 
+	if (aconnector->dc_link->ep_type == DISPLAY_ENDPOINT_USB4_DPIA &&
+	    aconnector->dc_link->dpia_bw_alloc_config.bw_alloc_enabled) {
+		dsc_options.max_target_bpp_limit_override_x16 = 8 * 16;
+		dsc_options.force_dsc_when_not_needed = true;
+	}
+
 	/* Set DSC policy according to dsc_clock_en */
 	dc_dsc_policy_set_enable_dsc_when_not_needed(
 		aconnector->dsc_settings.dsc_force_enable == DSC_CLK_FORCE_ENABLE);
@@ -2326,7 +2332,9 @@ amdgpu_dm_create_validate_stream_for_sink(struct drm_connector *connector,
 	 *    (drm_mode_is_420_also() clear), as required for HDMI compliance
 	 *    testing; dc_validate_stream() still rejects anything the link
 	 *    genuinely cannot carry. The YCbCr422/YCbCr444 forces stay gated on
-	 *    the sink's advertised caps.
+	 *    the sink's advertised caps. An RGB force pins to RGB alone and is
+	 *    always honoured, since RGB is the mandatory baseline every sink
+	 *    (DP or HDMI) supports.
 	 */
 	want_420 = (aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR420) ||
 		(drm_state && drm_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_YCBCR420);
@@ -2346,7 +2354,8 @@ amdgpu_dm_create_validate_stream_for_sink(struct drm_connector *connector,
 		   (info->color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444)) &&
 		   is_dp_or_hdmi) {
 		encoding_mask = BIT(PIXEL_ENCODING_YCBCR444);
-	} else if (drm_state && drm_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_RGB444) {
+	} else if ((aconnector->force_yuv_pixel_format == PIXEL_ENCODING_RGB) ||
+		   (drm_state && drm_state->color_format == DRM_CONNECTOR_COLOR_FORMAT_RGB444)) {
 		encoding_mask = BIT(PIXEL_ENCODING_RGB);
 	} else {
 		encoding_mask = BIT(PIXEL_ENCODING_RGB);
@@ -3322,6 +3331,7 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
 		}
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_init_helper);
 
 STATIC_IFN_KUNIT int amdgpu_dm_i2c_xfer(struct i2c_adapter *i2c_adap,
 			      struct i2c_msg *msgs, int num)
@@ -3426,6 +3436,7 @@ int amdgpu_dm_initialize_hdmi_connector(struct amdgpu_dm_connector *aconnector)
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_initialize_hdmi_connector);
 
 /*
  * Note: this function assumes that dc_link_detect() was called for the
@@ -3503,8 +3514,9 @@ out_free:
 	}
 	return res;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_init);
 
-static int dm_force_atomic_commit(struct drm_connector *connector)
+STATIC_IFN_KUNIT int dm_force_atomic_commit(struct drm_connector *connector)
 {
 	int ret = 0;
 	struct drm_device *ddev = connector->dev;
@@ -3564,6 +3576,7 @@ out:
 
 	return ret;
 }
+EXPORT_IF_KUNIT(dm_force_atomic_commit);
 
 /*
  * This function handles all cases when set mode does not come upon hotplug.
@@ -3862,6 +3875,12 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 			amdgpu_dm_connector->min_vfreq;
 	}
 
+	/* HDMI/PCON without an EDID FreeSync VCP code is not FreeSync-capable. */
+	if ((sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A ||
+	     as_type == FREESYNC_TYPE_PCON_IN_WHITELIST) &&
+	    !sink->edid_caps.freesync_vcp_code)
+		freesync_capable = false;
+
 	/* Handle MCCS */
 	if (do_mccs) {
 		dm_helpers_read_mccs_caps(adev->dm.dc->ctx, amdgpu_dm_connector->dc_link, sink);
@@ -3892,3 +3911,4 @@ update:
 		drm_connector_set_vrr_capable_property(connector,
 						       freesync_capable);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_update_freesync_caps);

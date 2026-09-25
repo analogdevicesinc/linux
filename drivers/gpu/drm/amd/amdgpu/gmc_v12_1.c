@@ -407,9 +407,8 @@ static void gmc_v12_1_flush_gpu_tlb(struct amdgpu_device *adev, uint32_t vmid,
 	/* This is necessary for SRIOV as well as for GFXOFF to function
 	 * properly under bare metal
 	 */
-	if (((adev->gfx.kiq[inst].ring.sched.ready ||
-	      adev->mes.ring[MES_PIPE_INST(inst, 0)].sched.ready) &&
-	    (amdgpu_sriov_runtime(adev) || !amdgpu_sriov_vf(adev)))) {
+	if (adev->mes.ring[MES_PIPE_INST(inst, 0)].sched.ready &&
+	    (amdgpu_sriov_runtime(adev) || !amdgpu_sriov_vf(adev))) {
 		struct amdgpu_vmhub *hub = &adev->vmhub[vmhub];
 		const unsigned eng = 17;
 		u32 inv_req = hub->vmhub_funcs->get_invalidate_req(vmid, flush_type);
@@ -432,7 +431,7 @@ static void gmc_v12_1_flush_gpu_tlb(struct amdgpu_device *adev, uint32_t vmid,
  * @pasid: pasid to be flush
  * @flush_type: the flush type
  * @all_hub: flush all hubs
- * @inst: is used to select which instance of KIQ to use for the invalidation
+ * @inst: XCC instance to use for the invalidation
  *
  * Flush the TLB for the requested pasid.
  */
@@ -443,7 +442,7 @@ static void gmc_v12_1_flush_gpu_tlb_pasid(struct amdgpu_device *adev,
 	uint16_t queried;
 	int vmid, i;
 
-	if (adev->enable_uni_mes && adev->mes.ring[0].sched.ready &&
+	if (adev->mes.ring[0].sched.ready &&
 	    (adev->mes.sched_version & AMDGPU_MES_VERSION_MASK) >= 0x6f) {
 		struct mes_inv_tlbs_pasid_input input = {0};
 		input.xcc_id = inst;

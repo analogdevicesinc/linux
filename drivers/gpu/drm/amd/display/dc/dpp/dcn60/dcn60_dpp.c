@@ -308,6 +308,7 @@ static struct dpp_funcs dcn60_dpp_funcs = {
 	.dpp_cnv_set_alpha_keyer	= dpp2_cnv_set_alpha_keyer,
 	.set_cursor_attributes		= dpp401_set_cursor_attributes,
 	.set_cursor_position		= dpp401_set_cursor_position,
+	.refresh_cursor_state		= dpp401_cursor_refresh_state,
 	.set_optional_cursor_attributes	= dpp401_set_optional_cursor_attributes,
 	.dpp_dppclk_control			= dpp1_dppclk_control,
 	.dpp_set_hdr_multiplier		= dpp3_set_hdr_multiplier,

@@ -41,6 +41,7 @@ static const struct hw_sequencer_funcs dcn201_funcs = {
 	.wait_for_pending_cleared = dcn10_wait_for_pending_cleared,
 	.post_unlock_program_front_end = dcn10_post_unlock_program_front_end,
 	.update_plane_addr = dcn201_update_plane_addr,
+	.prepare_plane_addr_update = dcn201_prepare_plane_addr_update,
 	.update_dchub = dcn10_update_dchub,
 	.update_pending_status = dcn10_update_pending_status,
 	.program_output_csc = dcn20_program_output_csc,
@@ -98,6 +99,7 @@ static const struct hw_sequencer_funcs dcn201_funcs = {
 };
 
 static const struct hwseq_private_funcs dcn201_private_funcs = {
+	.build_cursor_pos_update_params = dcn10_build_cursor_pos_update_params,
 	.init_pipes = NULL,
 	.plane_atomic_disconnect = dcn201_plane_atomic_disconnect,
 	.program_pipe = dcn10_program_pipe,

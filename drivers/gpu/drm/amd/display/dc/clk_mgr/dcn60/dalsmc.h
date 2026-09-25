@@ -170,7 +170,8 @@ typedef struct {
 #define DALSMC_MSG_ReturnHardMinStatus          0x19 ///< Return hard min status
 #define DALSMC_MSG_GetDispclkFreq               0x1A ///< Get display clock frequency. Return in MHZ
 #define DALSMC_MSG_GetDppclkFreq                0x1B ///< Get DPP clock frequency. Return in MHZ
-#define DALSMC_Message_Count                    0x1C ///< Total number of VBIS and DAL messages
+#define DALSMC_MSG_IndicatePstateStatus         0x1C ///< Set UCLK/FCLK related actions
+#define DALSMC_Message_Count                    0x1D ///< Total number of VBIS and DAL messages
 
 /** @}*/
 

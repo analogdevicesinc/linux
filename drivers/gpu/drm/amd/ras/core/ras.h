@@ -205,17 +205,10 @@ struct ras_psp;
 struct ras_eeprom_mgr;
 
 struct ras_mp1_sys_func {
-	int (*mp1_get_valid_bank_count)(struct ras_core_context *ras_core,
-			u32 msg, u32 *count);
-	int (*mp1_dump_valid_bank)(struct ras_core_context *ras_core,
-			u32 msg, u32 idx, u32 reg_idx, u64 *val);
-	int (*mp1_send_eeprom_msg)(struct ras_core_context *ras_core,
-			u32 msg_id, uint32_t param, uint32_t *read_arg);
-	int (*mp1_get_ras_enabled_mask)(struct ras_core_context *ras_core,
-			uint64_t *enabled_mask);
-	int (*mp1_set_debug_mode)(struct ras_core_context *ras_core, bool enable);
 	int (*mp1_send_ras_msg)(struct ras_core_context *ras_core, u32 msg_id,
 		u32 *params, u32 num_params, u32 *read_args, u32 num_read_args);
+	int (*check_ras_feature_status)(struct ras_core_context *ras_core,
+		enum ras_mp1_feature_id feature_id, u32 *status);
 };
 
 struct ras_eeprom_param_config {

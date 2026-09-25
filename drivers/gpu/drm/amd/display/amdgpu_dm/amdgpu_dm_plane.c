@@ -34,6 +34,7 @@
 #include <drm/drm_fourcc.h>
 
 #include "amdgpu.h"
+#include "dc.h"
 #include "dal_asic_id.h"
 #include "amdgpu_display.h"
 #include "amdgpu_dm_trace.h"
@@ -146,6 +147,7 @@ void amdgpu_dm_plane_fill_blending_from_plane_state(const struct drm_plane_state
 		 * 16-bit, so scale it down to the width the hardware expects.
 		 */
 		if (amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 2, 0)
+		    || amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(4, 2, 1)
 		    || amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(6, 0, 0))
 			*global_alpha_value = plane_state->alpha >> 4;
 		else
@@ -1807,6 +1809,21 @@ STATIC_IFN_KUNIT struct drm_plane_state *amdgpu_dm_plane_drm_plane_create_state(
 	if (!amdgpu_state)
 		return ERR_PTR(-ENOMEM);
 
+	amdgpu_state->flip_addr = kzalloc_obj(*amdgpu_state->flip_addr);
+	amdgpu_state->scaling_info = kzalloc_obj(*amdgpu_state->scaling_info);
+	amdgpu_state->plane_info = kzalloc_obj(*amdgpu_state->plane_info);
+	if (!amdgpu_state->flip_addr || !amdgpu_state->scaling_info ||
+	    !amdgpu_state->plane_info) {
+		kfree(amdgpu_state->flip_addr);
+		kfree(amdgpu_state->scaling_info);
+		kfree(amdgpu_state->plane_info);
+		kfree(amdgpu_state);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	if (plane->state)
+		plane->funcs->atomic_destroy_state(plane, plane->state);
+
 	__drm_atomic_helper_plane_state_init(&amdgpu_state->base, plane);
 	amdgpu_state->degamma_tf = AMDGPU_TRANSFER_FUNCTION_DEFAULT;
 	amdgpu_state->hdr_mult = AMDGPU_HDR_MULT_DEFAULT;
@@ -1826,6 +1843,21 @@ amdgpu_dm_plane_drm_plane_duplicate_state(struct drm_plane *plane)
 	dm_plane_state = kzalloc_obj(*dm_plane_state);
 	if (!dm_plane_state)
 		return NULL;
+
+	dm_plane_state->flip_addr = kmemdup(old_dm_plane_state->flip_addr,
+		sizeof(*old_dm_plane_state->flip_addr), GFP_KERNEL);
+	dm_plane_state->scaling_info = kmemdup(old_dm_plane_state->scaling_info,
+		sizeof(*old_dm_plane_state->scaling_info), GFP_KERNEL);
+	dm_plane_state->plane_info = kmemdup(old_dm_plane_state->plane_info,
+		sizeof(*old_dm_plane_state->plane_info), GFP_KERNEL);
+	if (!dm_plane_state->flip_addr || !dm_plane_state->scaling_info ||
+	    !dm_plane_state->plane_info) {
+		kfree(dm_plane_state->flip_addr);
+		kfree(dm_plane_state->scaling_info);
+		kfree(dm_plane_state->plane_info);
+		kfree(dm_plane_state);
+		return NULL;
+	}
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &dm_plane_state->base);
 
@@ -1945,6 +1977,10 @@ STATIC_IFN_KUNIT void amdgpu_dm_plane_drm_plane_destroy_state(struct drm_plane *
 		drm_property_blob_put(dm_plane_state->shaper_lut);
 	if (dm_plane_state->blend_lut)
 		drm_property_blob_put(dm_plane_state->blend_lut);
+
+	kfree(dm_plane_state->flip_addr);
+	kfree(dm_plane_state->scaling_info);
+	kfree(dm_plane_state->plane_info);
 
 	if (dm_plane_state->dc_state)
 		dc_plane_state_release(dm_plane_state->dc_state);
@@ -2327,6 +2363,7 @@ int amdgpu_dm_plane_init(struct amdgpu_display_manager *dm,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_plane_init);
 
 bool amdgpu_dm_plane_is_video_format(uint32_t format)
 {

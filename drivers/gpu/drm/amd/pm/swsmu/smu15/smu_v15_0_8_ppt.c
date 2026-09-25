@@ -126,6 +126,7 @@ static const struct cmn2asic_msg_mapping smu_v15_0_8_message_map[SMU_MSG_MAX_COU
 	MSG_MAP(GetTimestamp,                        PPSMC_MSG_GetTimestamp,                    0),
 	MSG_MAP(GetBadPageIpid,                      PPSMC_MSG_GetBadPageIpIdLoHi,              0),
 	MSG_MAP(EraseRasTable,                       PPSMC_MSG_EraseRasTable,                   0),
+	MSG_MAP(GetRmaStatus,                        PPSMC_MSG_GetRmaStatus,                    0),
 	MSG_MAP(GetStaticMetricsTable,               PPSMC_MSG_GetStaticMetricsTable,		1),
 	MSG_MAP(GetSystemMetricsTable,               PPSMC_MSG_GetSystemMetricsTable,           1),
 	MSG_MAP(GetSystemMetricsVersion,             PPSMC_MSG_GetSystemMetricsVersion,		0),
@@ -617,6 +618,9 @@ static int smu_v15_0_8_get_npm_data(struct smu_context *smu,
 	case AMDGPU_PP_SENSOR_NODEPOWER:
 		*value = SMUQ10_ROUND(metrics->NodePower);
 		break;
+	case AMDGPU_PP_SENSOR_NPMSTATUS:
+		*value = !!SMUQ10_ROUND(metrics->NodePower);
+		break;
 	case AMDGPU_PP_SENSOR_GPPTRESIDENCY:
 		*value = SMUQ10_ROUND(metrics->GlobalPPTResidencyAcc);
 		break;
@@ -680,6 +684,7 @@ static int smu_v15_0_8_read_sensor(struct smu_context *smu,
 	case AMDGPU_PP_SENSOR_NODEPOWER:
 	case AMDGPU_PP_SENSOR_GPPTRESIDENCY:
 	case AMDGPU_PP_SENSOR_MAXNODEPOWERLIMIT:
+	case AMDGPU_PP_SENSOR_NPMSTATUS:
 		ret = smu_v15_0_8_get_npm_data(smu, sensor, (uint32_t *)data);
 		if (ret)
 			return ret;

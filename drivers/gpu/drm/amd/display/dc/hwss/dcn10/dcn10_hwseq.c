@@ -41,6 +41,7 @@
 #include "opp.h"
 #include "ipp.h"
 #include "mpc.h"
+#include "rmcm.h"
 #include "reg_helper.h"
 #include "dcn10/dcn10_hubp.h"
 #include "dcn10/dcn10_hubbub.h"
@@ -565,31 +566,32 @@ static void dcn10_log_color_state(struct dc *dc,
 		"OUT_OFFSET", "OUT_SCALE", "FL_DONE", "SOFT_UNDERFLOW", "HARD_UNDERFLOW",
 		"MEM_PWR_ST", "FORCE", "DIS", "MODE"};
 
-	for (i = 0; i < pool->mpcc_count; i++) {
-		struct mpcc_state s = {0};
+	/* Read RMCM state separately - RMCM is a shared resource (only 2 instances) */
+	for (i = 0; i < MAX_RMCM_INST && i < pool->mpcc_count; i++) {
+		struct rmcm_state r = {0};
 
-		pool->mpc->funcs->read_mpcc_state(pool->mpc, i, &s);
-		if (s.opp_id != 0xf) {
+		if (pool->rmcm[i] && pool->rmcm[i]->funcs->read_rmcm_state) {
+			pool->rmcm[i]->funcs->read_rmcm_state(pool->rmcm[i], i, &r);
 			uint32_t values[] = {
 				i,
-				s.rmcm_regs.rmcm_3dlut_size,
-				s.rmcm_regs.rmcm_3dlut_mode,
-				s.rmcm_regs.rmcm_3dlut_mode_cur,
-				s.rmcm_regs.rmcm_3dlut_read_sel,
-				s.rmcm_regs.rmcm_3dlut_30bit_en,
-				s.rmcm_regs.rmcm_3dlut_wr_en_mask,
-				s.rmcm_regs.rmcm_3dlut_ram_sel,
-				s.rmcm_regs.rmcm_3dlut_out_norm_factor,
-				s.rmcm_regs.rmcm_3dlut_fl_sel,
-				s.rmcm_regs.rmcm_3dlut_out_offset_r,
-				s.rmcm_regs.rmcm_3dlut_out_scale_r,
-				s.rmcm_regs.rmcm_3dlut_fl_done,
-				s.rmcm_regs.rmcm_3dlut_fl_soft_underflow,
-				s.rmcm_regs.rmcm_3dlut_fl_hard_underflow,
-				s.rmcm_regs.rmcm_3dlut_mem_pwr_state,
-				s.rmcm_regs.rmcm_3dlut_mem_pwr_force,
-				s.rmcm_regs.rmcm_3dlut_mem_pwr_dis,
-				s.rmcm_regs.rmcm_3dlut_mem_pwr_mode};
+				r.regs.rmcm_3dlut_size,
+				r.regs.rmcm_3dlut_mode,
+				r.regs.rmcm_3dlut_mode_cur,
+				r.regs.rmcm_3dlut_read_sel,
+				r.regs.rmcm_3dlut_30bit_en,
+				r.regs.rmcm_3dlut_wr_en_mask,
+				r.regs.rmcm_3dlut_ram_sel,
+				r.regs.rmcm_3dlut_out_norm_factor,
+				r.regs.rmcm_3dlut_fl_sel,
+				r.regs.rmcm_3dlut_out_offset_r,
+				r.regs.rmcm_3dlut_out_scale_r,
+				r.regs.rmcm_3dlut_fl_done,
+				r.regs.rmcm_3dlut_fl_soft_underflow,
+				r.regs.rmcm_3dlut_fl_hard_underflow,
+				r.regs.rmcm_3dlut_mem_pwr_state,
+				r.regs.rmcm_3dlut_mem_pwr_force,
+				r.regs.rmcm_3dlut_mem_pwr_dis,
+				r.regs.rmcm_3dlut_mem_pwr_mode};
 
 			int num_elements = 19;
 
@@ -600,17 +602,18 @@ static void dcn10_log_color_state(struct dc *dc,
 	DTN_INFO("\n");
 	DTN_INFO("===== MPC RMCM Shaper =====\n");
 	DTN_INFO("MPCC:  CNTL  LUT_MODE  MODE_CUR  WR_EN_MASK  WR_SEL  OFFSET  SCALE  START_B	START_SEG_B	END_B	END_BASE_B	MEM_PWR_ST	FORCE	DIS	MODE\n");
-	for (i = 0; i < pool->mpcc_count; i++) {
-		struct mpcc_state s = {0};
+	for (i = 0; i < MAX_RMCM_INST && i < pool->mpcc_count; i++) {
+		struct rmcm_state r = {0};
 
-		pool->mpc->funcs->read_mpcc_state(pool->mpc, i, &s);
-		if (s.opp_id != 0xf)
+		if (pool->rmcm[i] && pool->rmcm[i]->funcs->read_rmcm_state) {
+			pool->rmcm[i]->funcs->read_rmcm_state(pool->rmcm[i], i, &r);
 			DTN_INFO("[%2d]:  %4xh  %4xh  %6xh  %4x  %4x  %4x  %4x  %4x %4xh  %4xh  %6xh  %4x  %4x  %4x  %4x\n",
-				i, s.rmcm_regs.rmcm_cntl, s.rmcm_regs.rmcm_shaper_lut_mode, s.rmcm_regs.rmcm_shaper_mode_cur,
-				s.rmcm_regs.rmcm_shaper_lut_write_en_mask, s.rmcm_regs.rmcm_shaper_lut_write_sel, s.rmcm_regs.rmcm_shaper_offset_b,
-				s.rmcm_regs.rmcm_shaper_scale_b, s.rmcm_regs.rmcm_shaper_rama_exp_region_start_b, s.rmcm_regs.rmcm_shaper_rama_exp_region_start_seg_b,
-				s.rmcm_regs.rmcm_shaper_rama_exp_region_end_b, s.rmcm_regs.rmcm_shaper_rama_exp_region_end_base_b, s.rmcm_regs.rmcm_shaper_mem_pwr_state,
-				s.rmcm_regs.rmcm_shaper_mem_pwr_force, s.rmcm_regs.rmcm_shaper_mem_pwr_dis, s.rmcm_regs.rmcm_shaper_mem_pwr_mode);
+				i, r.regs.rmcm_cntl, r.regs.rmcm_shaper_lut_mode, r.regs.rmcm_shaper_mode_cur,
+				r.regs.rmcm_shaper_lut_write_en_mask, r.regs.rmcm_shaper_lut_write_sel, r.regs.rmcm_shaper_offset_b,
+				r.regs.rmcm_shaper_scale_b, r.regs.rmcm_shaper_rama_exp_region_start_b, r.regs.rmcm_shaper_rama_exp_region_start_seg_b,
+				r.regs.rmcm_shaper_rama_exp_region_end_b, r.regs.rmcm_shaper_rama_exp_region_end_base_b, r.regs.rmcm_shaper_mem_pwr_state,
+				r.regs.rmcm_shaper_mem_pwr_force, r.regs.rmcm_shaper_mem_pwr_dis, r.regs.rmcm_shaper_mem_pwr_mode);
+		}
 	}
 }
 
@@ -1747,7 +1750,9 @@ void dcn10_init_pipes(struct dc *dc, struct dc_state *context)
 
 		if (tg->funcs->is_tg_enabled(tg)) {
 			if (tg->funcs->init_odm)
-				tg->funcs->init_odm(tg);
+				if (!tg->funcs->is_odm_enabled ||
+					!tg->funcs->is_odm_enabled(tg))
+						tg->funcs->init_odm(tg);
 		}
 
 		tg->funcs->tg_init(tg);
@@ -2057,7 +2062,8 @@ static bool patch_address_for_sbs_tb_stereo(
 	return false;
 }
 
-void dcn10_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
+void dcn10_prepare_plane_addr_update(const struct dc *dc, struct pipe_ctx *pipe_ctx,
+		struct dc_plane_address *addr_to_program, bool *flip_immediate)
 {
 	(void)dc;
 	bool addr_patched = false;
@@ -2069,10 +2075,8 @@ void dcn10_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
 
 	addr_patched = patch_address_for_sbs_tb_stereo(pipe_ctx, &addr);
 
-	pipe_ctx->plane_res.hubp->funcs->hubp_program_surface_flip_and_addr(
-			pipe_ctx->plane_res.hubp,
-			&plane_state->address,
-			plane_state->flip_immediate);
+	*addr_to_program = plane_state->address;
+	*flip_immediate = plane_state->flip_immediate;
 
 	plane_state->status.requested_address = plane_state->address;
 
@@ -2081,6 +2085,23 @@ void dcn10_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
 
 	if (addr_patched)
 		pipe_ctx->plane_state->address.grph_stereo.left_addr = addr;
+}
+
+void dcn10_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
+{
+	struct dc_plane_address address;
+	bool flip_immediate;
+
+	if (pipe_ctx->plane_state == NULL)
+		return;
+
+	dcn10_prepare_plane_addr_update(dc, pipe_ctx, &address, &flip_immediate);
+
+	pipe_ctx->plane_res.hubp->funcs->hubp_program_surface_flip_and_addr(
+			pipe_ctx->plane_res.hubp,
+			&address,
+			flip_immediate,
+			pipe_ctx->plane_state->dcc.enable);
 }
 
 bool dcn10_set_input_transfer_func(struct set_input_transfer_func_params *params)
@@ -3145,11 +3166,17 @@ static void dcn10_update_dchubp_dpp(
 	}
 
 	if (pipe_ctx->stream->cursor_attributes.address.quad_part != 0) {
-		if (dc->hwss.abort_cursor_offload_update)
-			dc->hwss.abort_cursor_offload_update(dc, pipe_ctx);
+		if (dc_dmub_srv_is_cursor_offload_enabled(dc) && dc->hwss.abort_cursor_offload_update) {
+			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
+
+			if (top_pipe)
+				dc->hwss.abort_cursor_offload_update(dc->ctx->dmub_srv->dmub,
+					pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp,
+					top_pipe->pipe_idx);
+		}
 
 		dc->hwss.set_cursor_attribute(pipe_ctx);
-		dc->hwss.set_cursor_position(pipe_ctx);
+		hwss_program_cursor_position(dc, pipe_ctx);
 
 		if (dc->hwss.set_cursor_sdr_white_level)
 			dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
@@ -3702,11 +3729,11 @@ void dcn10_update_dchub(struct dce_hwseq *hws, struct dchub_init_data *dh_data)
 	hubbub->funcs->update_dchub(hubbub, dh_data);
 }
 
-void dcn10_set_cursor_position(struct pipe_ctx *pipe_ctx)
+void dcn10_build_cursor_pos_update_params(const struct pipe_ctx *pipe_ctx,
+		struct dc_cursor_position *pos_out,
+		struct dc_cursor_mi_param *param_out)
 {
 	struct dc_cursor_position pos_cpy = pipe_ctx->stream->cursor_position;
-	struct hubp *hubp = pipe_ctx->plane_res.hubp;
-	struct dpp *dpp = pipe_ctx->plane_res.dpp;
 	struct dc_cursor_mi_param param = {
 		.pixel_clk_khz = pipe_ctx->stream->timing.pix_clk_100hz / 10,
 		.ref_clk_khz = pipe_ctx->stream->ctx->dc->res_pool->ref_clocks.dchub_ref_clock_inKhz,
@@ -3922,8 +3949,16 @@ void dcn10_set_cursor_position(struct pipe_ctx *pipe_ctx)
 			pipe_ctx->plane_res.scl_data.viewport.height - pos_cpy.y;
 	}
 
-	hubp->funcs->set_cursor_position(hubp, &pos_cpy, &param);
-	dpp->funcs->set_cursor_position(dpp, &pos_cpy, &param, hubp->curs_attr.width, hubp->curs_attr.height);
+	*pos_out = pos_cpy;
+	*param_out = param;
+}
+
+void dcn10_set_cursor_position(struct hubp *hubp, struct dpp *dpp,
+		const struct dc_cursor_position *pos,
+		const struct dc_cursor_mi_param *param)
+{
+	hubp->funcs->set_cursor_position(hubp, pos, param);
+	dpp->funcs->set_cursor_position(dpp, pos, param, hubp->curs_attr.width, hubp->curs_attr.height);
 }
 
 void dcn10_set_cursor_attribute(struct pipe_ctx *pipe_ctx)
@@ -4158,5 +4193,6 @@ void dcn10_reset_surface_dcc_and_tiling(struct pipe_ctx *pipe_ctx,
 	/* force page flip to see the new content of the framebuffer */
 	hubp->funcs->hubp_program_surface_flip_and_addr(hubp,
 							&plane_state->address,
-							true);
+							true,
+							plane_state->dcc.enable);
 }

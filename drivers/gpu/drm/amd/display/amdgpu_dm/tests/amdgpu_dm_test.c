@@ -413,7 +413,7 @@ static void dm_test_update_planes_adapter_sorts_and_forwards(struct kunit *test)
 	};
 	dm_test_install_dm_ops(test, &dm_test_plane_update_ops);
 
-	KUNIT_EXPECT_TRUE(test, update_planes_and_stream_adapter(dc, UPDATE_TYPE_FAST, 3,
+	KUNIT_EXPECT_TRUE(test, update_planes_and_stream_adapter(dc, 3,
 								 stream, stream_update, updates));
 	KUNIT_EXPECT_EQ(test, updates[0].surface->layer_index, 5);
 	KUNIT_EXPECT_EQ(test, updates[1].surface->layer_index, 3);
@@ -436,7 +436,7 @@ static void dm_test_update_planes_adapter_propagates_failure(struct kunit *test)
 	dm_test_plane_update_ctx = (struct dm_test_plane_update_ops_ctx) { 0 };
 	dm_test_install_dm_ops(test, &dm_test_plane_update_ops);
 
-	KUNIT_EXPECT_FALSE(test, update_planes_and_stream_adapter(NULL, UPDATE_TYPE_FAST, 0,
+	KUNIT_EXPECT_FALSE(test, update_planes_and_stream_adapter(NULL, 0,
 								  NULL, NULL, NULL));
 }
 
@@ -1681,6 +1681,35 @@ struct dm_test_vblank_ctx {
 	struct drm_pending_vblank_event *event;
 };
 
+static int dm_test_vblank_enable(struct drm_crtc *crtc)
+{
+	return 0;
+}
+
+static void dm_test_vblank_disable(struct drm_crtc *crtc)
+{
+}
+
+static u32 dm_test_vblank_counter(struct drm_crtc *crtc)
+{
+	return 0;
+}
+
+static const struct drm_crtc_funcs dm_test_vblank_crtc_funcs = {
+	.enable_vblank = dm_test_vblank_enable,
+	.disable_vblank = dm_test_vblank_disable,
+	.get_vblank_counter = dm_test_vblank_counter,
+};
+
+static void dm_test_vblank_ctx_cleanup(void *data)
+{
+	struct amdgpu_crtc *acrtc = data;
+
+	if (drm_dev_has_vblank(acrtc->base.dev))
+		drm_crtc_vblank_off(&acrtc->base);
+	list_del_init(&acrtc->base.head);
+}
+
 /*
  * A CRTC with one active plane and a pending vblank event. There is no
  * initialised vblank, so drm_crtc_vblank_get() fails, which the function under
@@ -1702,9 +1731,15 @@ static struct dm_test_vblank_ctx *dm_test_vblank_ctx_alloc(struct kunit *test)
 	KUNIT_ASSERT_NOT_NULL(test, ctx->event);
 
 	ctx->acrtc->base.dev = &ctx->adev->ddev;
+	ctx->acrtc->base.funcs = &dm_test_vblank_crtc_funcs;
+	INIT_LIST_HEAD(&ctx->acrtc->base.head);
+	list_add_tail(&ctx->acrtc->base.head,
+		      &ctx->adev->ddev.mode_config.crtc_list);
 	ctx->acrtc->base.state = &ctx->acrtc_state->base;
 	ctx->acrtc_state->base.event = ctx->event;
 	ctx->acrtc_state->active_planes = 1;
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_vblank_ctx_cleanup, ctx->acrtc), 0);
 
 	return ctx;
 }
@@ -3839,7 +3874,8 @@ dm_test_plane_info_ctx_alloc(struct kunit *test, struct amdgpu_device *adev,
 
 static int dm_test_fill_plane_info(struct dm_test_plane_info_ctx *ctx)
 {
-	return fill_dc_plane_info_and_addr(ctx->adev, ctx->plane_state,
+	return fill_dc_plane_info_and_addr(ctx->adev, ctx->plane_state->state,
+					   ctx->plane_state,
 					   &ctx->plane_info, &ctx->address, false);
 }
 
@@ -4185,7 +4221,13 @@ static struct dm_test_irq_mgmt_ctx *dm_test_irq_mgmt_ctx_alloc(struct kunit *tes
 
 	ctx->adev->mode_info.num_crtc = 1;
 	ctx->acrtc->base.dev = &ctx->adev->ddev;
+	ctx->acrtc->base.funcs = &dm_test_vblank_crtc_funcs;
+	INIT_LIST_HEAD(&ctx->acrtc->base.head);
+	list_add_tail(&ctx->acrtc->base.head,
+		      &ctx->adev->ddev.mode_config.crtc_list);
 	ctx->acrtc->crtc_id = 0;
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_vblank_ctx_cleanup, ctx->acrtc), 0);
 
 	ctx->acrtc_state->stream = dm_kunit_alloc_stream(test, NULL);
 	timing = &ctx->acrtc_state->stream->timing;

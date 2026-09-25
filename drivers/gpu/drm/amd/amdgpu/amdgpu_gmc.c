@@ -33,6 +33,8 @@
 #include "amdgpu_gmc.h"
 #include "amdgpu_ras.h"
 #include "amdgpu_reset.h"
+#include "amdgpu_ring.h"
+#include "amdgpu_sdma.h"
 #include "amdgpu_xgmi.h"
 #include "amdgpu_atomfirmware.h"
 

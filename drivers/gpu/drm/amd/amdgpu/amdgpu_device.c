@@ -68,6 +68,7 @@
 #include "amdgpu_vf_error.h"
 
 #include "amdgpu_amdkfd.h"
+#include "amdgpu_ip.h"
 #include "amdgpu_pm.h"
 
 #include "amdgpu_xgmi.h"
@@ -1353,31 +1354,6 @@ static bool amdgpu_device_aspm_support_quirk(struct amdgpu_device *adev)
 #endif
 }
 
-/*
- * Some dGPUs expose their display endpoint below an internal PCIe switch.
- * Use the switch upstream port to query the host-facing link.
- */
-static struct pci_dev *amdgpu_device_get_aspm_pdev(struct amdgpu_device *adev)
-{
-	struct pci_dev *swds, *swus;
-
-	swds = pci_upstream_bridge(adev->pdev);
-	if (!swds ||
-	    (swds->vendor != PCI_VENDOR_ID_ATI &&
-	     swds->vendor != PCI_VENDOR_ID_AMD) ||
-	    pci_pcie_type(swds) != PCI_EXP_TYPE_DOWNSTREAM)
-		return adev->pdev;
-
-	swus = pci_upstream_bridge(swds);
-	if (!swus ||
-	    (swus->vendor != PCI_VENDOR_ID_ATI &&
-	     swus->vendor != PCI_VENDOR_ID_AMD) ||
-	    pci_pcie_type(swus) != PCI_EXP_TYPE_UPSTREAM)
-		return adev->pdev;
-
-	return swus;
-}
-
 /**
  * amdgpu_device_should_use_aspm - check if the device should program ASPM
  *
@@ -1413,7 +1389,7 @@ bool amdgpu_device_should_use_aspm(struct amdgpu_device *adev)
 	 * the immediate upstream bridge. Use SWUS for dGPUs with an
 	 * internal switch so that this is the host-facing link.
 	 */
-	aspm_pdev = amdgpu_device_get_aspm_pdev(adev);
+	aspm_pdev = adev->link_dev;
 	parent = pci_upstream_bridge(aspm_pdev);
 	if (!parent) {
 		dev_dbg(adev->dev, "ASPM: no upstream PCIe link for %s\n",
@@ -1968,15 +1944,26 @@ static void amdgpu_uid_fini(struct amdgpu_device *adev)
 
 static void amdgpu_device_init_pcie_links(struct amdgpu_device *adev)
 {
+	struct pci_dev *swds, *swus;
+
 	adev->link_dev = adev->pdev;
 	adev->link_partner = pci_upstream_bridge(adev->link_dev);
 
-	/* Skip upstream/downstream switches internal to the dGPU. */
-	while (adev->link_partner &&
-	       adev->link_partner->vendor == PCI_VENDOR_ID_ATI) {
-		adev->link_dev = adev->link_partner;
-		adev->link_partner = pci_upstream_bridge(adev->link_dev);
-	}
+	/* Skip an upstream/downstream switch internal to the dGPU. */
+	swds = adev->link_partner;
+	if (!swds || swds->vendor != PCI_VENDOR_ID_ATI ||
+	    pci_pcie_type(swds) != PCI_EXP_TYPE_DOWNSTREAM)
+		return;
+
+	swus = pci_upstream_bridge(swds);
+	if (!swus ||
+	    (swus->vendor != PCI_VENDOR_ID_ATI &&
+	     swus->vendor != PCI_VENDOR_ID_AMD) ||
+	    pci_pcie_type(swus) != PCI_EXP_TYPE_UPSTREAM)
+		return;
+
+	adev->link_dev = swus;
+	adev->link_partner = pci_upstream_bridge(swus);
 }
 
 /**
@@ -3855,6 +3842,7 @@ int amdgpu_device_init(struct amdgpu_device *adev,
 
 	spin_lock_init(&adev->irq.lock);
 
+	amdgpu_ip_map_init(adev);
 	amdgpu_early_init_rlc_reg_funcs(adev);
 	amdgpu_device_init_apu_flags(adev);
 
@@ -4018,24 +4006,21 @@ int amdgpu_device_init(struct amdgpu_device *adev,
 	}
 
 	/* enable PCIE atomic ops */
-	if (amdgpu_sriov_vf(adev)) {
-		if (adev->virt.fw_reserve.p_pf2vf)
-			adev->have_atomics_support = ((struct amd_sriov_msg_pf2vf_info *)
-						      adev->virt.fw_reserve.p_pf2vf)->pcie_atomic_ops_support_flags ==
-				(PCI_EXP_DEVCAP2_ATOMIC_COMP32 | PCI_EXP_DEVCAP2_ATOMIC_COMP64);
-	/* APUs w/ gfx9 onwards doesn't reply on PCIe atomics, rather it is a
-	 * internal path natively support atomics, set have_atomics_support to true.
-	 */
-	} else if ((adev->flags & AMD_IS_APU &&
-		   amdgpu_ip_version(adev, GC_HWIP, 0) > IP_VERSION(9, 0, 0)) ||
-		   (adev->gmc.xgmi.connected_to_cpu &&
-		   amdgpu_ip_version(adev, GC_HWIP, 0) >= IP_VERSION(12, 1, 0))) {
-		adev->have_atomics_support = true;
-	} else {
-		adev->have_atomics_support =
-			!pci_enable_atomic_ops_to_root(adev->pdev,
-					  PCI_EXP_DEVCAP2_ATOMIC_COMP32 |
-					  PCI_EXP_DEVCAP2_ATOMIC_COMP64);
+	if (!amdgpu_sriov_vf(adev)) {
+		/* APUs w/ gfx9 onwards doesn't reply on PCIe atomics, rather it is a
+		 * internal path natively support atomics, set have_atomics_support to true.
+		 */
+		if ((adev->flags & AMD_IS_APU &&
+		     amdgpu_ip_version(adev, GC_HWIP, 0) > IP_VERSION(9, 0, 0)) ||
+		    (adev->gmc.xgmi.connected_to_cpu &&
+		     amdgpu_ip_version(adev, GC_HWIP, 0) >= IP_VERSION(12, 1, 0))) {
+			adev->have_atomics_support = true;
+		} else {
+			adev->have_atomics_support =
+				!pci_enable_atomic_ops_to_root(adev->pdev,
+						  PCI_EXP_DEVCAP2_ATOMIC_COMP32 |
+						  PCI_EXP_DEVCAP2_ATOMIC_COMP64);
+		}
 	}
 
 	if (!adev->have_atomics_support)
@@ -6434,16 +6419,10 @@ static void amdgpu_device_cache_switch_state(struct amdgpu_device *adev)
 	struct pci_dev *swus, *swds;
 	int r;
 
+	swus = adev->link_dev != adev->pdev ? adev->link_dev : NULL;
+	if (!swus)
+		return;
 	swds = pci_upstream_bridge(adev->pdev);
-	if (!swds || swds->vendor != PCI_VENDOR_ID_ATI ||
-	    pci_pcie_type(swds) != PCI_EXP_TYPE_DOWNSTREAM)
-		return;
-	swus = pci_upstream_bridge(swds);
-	if (!swus ||
-	    (swus->vendor != PCI_VENDOR_ID_ATI &&
-	     swus->vendor != PCI_VENDOR_ID_AMD) ||
-	    pci_pcie_type(swus) != PCI_EXP_TYPE_UPSTREAM)
-		return;
 
 	/* If already saved, return */
 	if (adev->pcie_reset_ctx.swus)

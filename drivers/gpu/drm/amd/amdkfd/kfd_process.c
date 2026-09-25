@@ -318,8 +318,10 @@ static int kfd_get_cu_occupancy(struct attribute *attr, char *buffer)
 	 * XCCs in the partition.
 	 * For PM4 queues, there is no cooperative dispatch so wave_cnt stay as it is.
 	 */
+	amdgpu_gfx_off_ctrl(dev->adev, false);
 	dev->kfd2kgd->get_cu_occupancy(dev->adev, cu_occupancy,
 			&max_waves_per_cu, ffs(dev->xcc_mask) - 1);
+	amdgpu_gfx_off_ctrl(dev->adev, true);
 
 	for (i = 0; i < AMDGPU_MAX_QUEUES; i++) {
 		if (cu_occupancy[i].wave_cnt != 0 &&

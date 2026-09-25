@@ -1,6 +1,5 @@
-/* SPDX-License-Identifier: MIT */
 /*
- * Copyright 2025 Advanced Micro Devices, Inc.
+ * Copyright 2026 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -19,12 +18,18 @@
  * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Authors: AMD
+ *
  */
 
-#ifndef __AMDGPU_RAS_MP1_V13_0_H__
-#define __AMDGPU_RAS_MP1_V13_0_H__
-#include "ras.h"
+#ifndef __DC_RMCM_DCN60_H__
+#define __DC_RMCM_DCN60_H__
 
-extern const struct ras_mp1_sys_func amdgpu_ras_mp1_sys_func_v13_0;
+#include "dcn42/dcn42_rmcm.h"
 
-#endif
+struct rmcm *dcn60_rmcm_create(struct dc_context *ctx, int inst);
+
+void dcn60_rmcm_destroy(struct rmcm **rmcm);
+
+#endif /* __DC_RMCM_DCN60_H__ */

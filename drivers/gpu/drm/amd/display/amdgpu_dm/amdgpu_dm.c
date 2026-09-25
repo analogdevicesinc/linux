@@ -274,7 +274,6 @@ static const struct amdgpu_dm_kunit_ops *amdgpu_dm_ops;
  * before passing control to DC.
  *
  * @dc: Display Core control structure
- * @update_type: specify whether it is FULL/MEDIUM/FAST update
  * @planes_count: planes count to update
  * @stream: stream state
  * @stream_update: stream update
@@ -283,7 +282,6 @@ static const struct amdgpu_dm_kunit_ops *amdgpu_dm_ops;
  */
 STATIC_IFN_KUNIT INLINE_IFN_KUNIT
 bool update_planes_and_stream_adapter(struct dc *dc,
-				      int update_type,
 				      int planes_count,
 				      struct dc_stream_state *stream,
 				      struct dc_stream_update *stream_update,
@@ -1796,7 +1794,6 @@ STATIC_IFN_KUNIT void dm_gpureset_commit_state(struct dc_state *dc_state,
 		}
 
 		update_planes_and_stream_adapter(dm->dc,
-					 UPDATE_TYPE_FULL,
 					 dc_state->stream_status[k].plane_count,
 					 dc_state->streams[k],
 					 &bundle->stream_update,
@@ -3876,6 +3873,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 	bool flip_latched_during_prog = false;
 	bool dirty_rects_changed = false;
 	bool updated_planes_and_streams = false;
+	bool stream_update_needed = false;
 	struct {
 		struct dc_surface_update surface_updates[MAX_SURFACES];
 		struct dc_plane_info plane_infos[MAX_SURFACES];
@@ -3909,6 +3907,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 
 		bundle->stream_update.cursor_position =
 				&acrtc_state->stream->cursor_position;
+		stream_update_needed = true;
 	}
 
 	if (acrtc_state->active_planes == 0 &&
@@ -3924,6 +3923,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 		bool plane_needs_flip;
 		struct dc_plane_state *dc_plane;
 		struct dm_plane_state *dm_new_plane_state = to_dm_plane_state(new_plane_state);
+		struct dm_plane_state *dm_old_plane_state = to_dm_plane_state(old_plane_state);
 
 		/* Cursor plane is handled after stream updates */
 		if (plane->type == DRM_PLANE_TYPE_CURSOR &&
@@ -3931,8 +3931,10 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 			if ((fb && crtc == pcrtc) ||
 			    (old_plane_state->fb && old_plane_state->crtc == pcrtc)) {
 				cursor_update = true;
-				if (amdgpu_ip_version(dm->adev, DCE_HWIP, 0) != 0)
+				if (amdgpu_ip_version(dm->adev, DCE_HWIP, 0) != 0) {
 					amdgpu_dm_update_cursor(plane, old_plane_state, &bundle->stream_update);
+					stream_update_needed = true;
+				}
 			}
 
 			continue;
@@ -3958,11 +3960,22 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 			bundle->surface_updates[planes_count].cm = &dc_plane->cm;
 		}
 
-		amdgpu_dm_plane_fill_dc_scaling_info(dm->adev, new_plane_state,
-				     &bundle->scaling_infos[planes_count]);
+		if (amdgpu_dm_plane_fill_dc_scaling_info(dm->adev, new_plane_state,
+							 &bundle->scaling_infos[planes_count])) {
+			planes_count += 1;
+			continue;
+		}
 
-		bundle->surface_updates[planes_count].scaling_info =
-			&bundle->scaling_infos[planes_count];
+		/* Cache the newly computed scaling_info in the plane state */
+		*dm_new_plane_state->scaling_info =
+			bundle->scaling_infos[planes_count];
+
+		/* Only send a scaling_info update if it changed vs the old state */
+		if (memcmp(dm_old_plane_state->scaling_info,
+			   dm_new_plane_state->scaling_info,
+			   sizeof(struct dc_scaling_info)))
+			bundle->surface_updates[planes_count].scaling_info =
+				&bundle->scaling_infos[planes_count];
 
 		plane_needs_flip = old_plane_state->fb && new_plane_state->fb;
 
@@ -3985,8 +3998,16 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 				 new_plane_state->plane->index,
 				 bundle->plane_infos[planes_count].dcc.enable);
 
-		bundle->surface_updates[planes_count].plane_info =
-			&bundle->plane_infos[planes_count];
+		/* Cache the newly computed plane_info in the plane state */
+		*dm_new_plane_state->plane_info =
+			bundle->plane_infos[planes_count];
+
+		/* Only send a plane_info update if it changed vs the old state */
+		if (memcmp(dm_old_plane_state->plane_info,
+			   dm_new_plane_state->plane_info,
+			   sizeof(struct dc_plane_info)))
+			bundle->surface_updates[planes_count].plane_info =
+				&bundle->plane_infos[planes_count];
 
 		if (acrtc_state->stream->link->psr_settings.psr_feature_enabled ||
 		    acrtc_state->stream->link->replay_settings.replay_feature_enabled) {
@@ -4041,7 +4062,16 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 
 		timestamp_ns = ktime_get_ns();
 		bundle->flip_addrs[planes_count].flip_timestamp_in_us = div_u64(timestamp_ns, 1000);
-		bundle->surface_updates[planes_count].flip_addr = &bundle->flip_addrs[planes_count];
+		/* Cache the newly computed flip_addr in the plane state */
+		*dm_new_plane_state->flip_addr =
+			bundle->flip_addrs[planes_count];
+
+		/* Only send a flip_addr update if it changed vs the old state */
+		if (memcmp(dm_old_plane_state->flip_addr,
+			   dm_new_plane_state->flip_addr,
+			   sizeof(struct dc_flip_addrs)))
+			bundle->surface_updates[planes_count].flip_addr =
+				&bundle->flip_addrs[planes_count];
 		bundle->surface_updates[planes_count].surface = dc_plane;
 
 		if (!bundle->surface_updates[planes_count].surface) {
@@ -4113,6 +4143,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 					&acrtc_state->stream->vrr_infopacket;
 				bundle->stream_update.vsp_infopacket =
 					&acrtc_state->stream->vsp_infopacket;
+				stream_update_needed = true;
 			}
 		}
 	}
@@ -4147,6 +4178,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 		if (new_pcrtc_state->mode_changed) {
 			bundle->stream_update.src = acrtc_state->stream->src;
 			bundle->stream_update.dst = acrtc_state->stream->dst;
+			stream_update_needed = true;
 		}
 
 		if (new_pcrtc_state->color_mgmt_changed) {
@@ -4164,11 +4196,14 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 				(struct dc_3dlut *) acrtc_state->stream->lut3d_func;
 			bundle->stream_update.func_shaper =
 				(struct dc_transfer_func *) acrtc_state->stream->func_shaper;
+			stream_update_needed = true;
 		}
 
 		acrtc_state->stream->abm_level = acrtc_state->abm_level;
-		if (acrtc_state->abm_level != dm_old_crtc_state->abm_level)
+		if (acrtc_state->abm_level != dm_old_crtc_state->abm_level) {
 			bundle->stream_update.abm_level = &acrtc_state->abm_level;
+			stream_update_needed = true;
+		}
 
 		/*
 		 * If FreeSync state on the stream has changed then we need to
@@ -4184,10 +4219,9 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 		}
 		mutex_lock(&dm->dc_lock);
 		update_planes_and_stream_adapter(dm->dc,
-					 acrtc_state->update_type,
 					 planes_count,
 					 acrtc_state->stream,
-					 &bundle->stream_update,
+					 stream_update_needed ? &bundle->stream_update : NULL,
 					 bundle->surface_updates);
 		updated_planes_and_streams = true;
 
@@ -4571,6 +4605,13 @@ static void amdgpu_dm_commit_streams(struct drm_atomic_commit *state,
 		    (!new_crtc_state->active ||
 		     drm_atomic_crtc_needs_modeset(new_crtc_state))) {
 			manage_dm_interrupts(adev, acrtc, NULL);
+			/*
+			 * ISM hysteresis lives on system_dfl_wq, not the
+			 * vblank workqueue. Wait it out so a timer armed while
+			 * the stream existed cannot allow idle after the
+			 * stream is released.
+			 */
+			amdgpu_dm_ism_flush(&acrtc->ism);
 			dc_stream_release(dm_old_crtc_state->stream);
 		}
 	}
@@ -5446,7 +5487,7 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
 					  struct drm_crtc_state *old_crtc_state,
 					  struct drm_crtc_state *new_crtc_state,
 					  bool enable,
-					  bool *lock_and_validation_needed)
+					  bool *needs_dc_state_realloc)
 {
 	struct dm_atomic_state *dm_state = NULL;
 	struct dm_crtc_state *dm_old_crtc_state, *dm_new_crtc_state;
@@ -5619,7 +5660,7 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
 
 		amdgpu_dm_reset_freesync_config_for_crtc(dm_new_crtc_state);
 
-		*lock_and_validation_needed = true;
+		*needs_dc_state_realloc = true;
 
 	} else {/* Add stream for any updated/enabled CRTC */
 		/*
@@ -5657,7 +5698,7 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
 				goto fail;
 			}
 
-			*lock_and_validation_needed = true;
+			*needs_dc_state_realloc = true;
 		}
 	}
 
@@ -5891,7 +5932,7 @@ dm_update_plane_state(struct dc *dc,
 		      struct drm_plane_state *old_plane_state,
 		      struct drm_plane_state *new_plane_state,
 		      bool enable,
-		      bool *lock_and_validation_needed,
+		      bool *needs_dc_state_realloc,
 		      bool *is_top_most_overlay)
 {
 
@@ -5962,7 +6003,7 @@ dm_update_plane_state(struct dc *dc,
 
 		dm_new_plane_state->dc_state = NULL;
 
-		*lock_and_validation_needed = true;
+		*needs_dc_state_realloc = true;
 
 	} else { /* Add new planes */
 		struct dc_plane_state *dc_new_plane_state;
@@ -6053,7 +6094,7 @@ dm_update_plane_state(struct dc *dc,
 		 */
 		dm_new_plane_state->dc_state->update_bits.full_update = 1;
 
-		*lock_and_validation_needed = true;
+		*needs_dc_state_realloc = true;
 	}
 
 out:
@@ -6210,7 +6251,7 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
 	struct drm_plane_state *old_plane_state, *new_plane_state, *new_cursor_state;
 	enum dc_status status;
 	int ret, i;
-	bool lock_and_validation_needed = false;
+	bool needs_dc_state_realloc = false;
 	bool is_top_most_overlay = true;
 	struct dm_crtc_state *dm_old_crtc_state, *dm_new_crtc_state;
 	struct drm_dp_mst_topology_mgr *mgr;
@@ -6384,7 +6425,7 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
 					    old_plane_state,
 					    new_plane_state,
 					    false,
-					    &lock_and_validation_needed,
+					    &needs_dc_state_realloc,
 					    &is_top_most_overlay);
 		if (ret) {
 			drm_dbg_atomic(dev, "dm_update_plane_state() failed: %pe\n", ERR_PTR(ret));
@@ -6398,7 +6439,7 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
 					   old_crtc_state,
 					   new_crtc_state,
 					   false,
-					   &lock_and_validation_needed);
+					   &needs_dc_state_realloc);
 		if (ret) {
 			drm_dbg_atomic(dev, "DISABLE: dm_update_crtc_state() failed: %pe\n", ERR_PTR(ret));
 			goto fail;
@@ -6411,7 +6452,7 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
 					   old_crtc_state,
 					   new_crtc_state,
 					   true,
-					   &lock_and_validation_needed);
+					   &needs_dc_state_realloc);
 		if (ret) {
 			drm_dbg_atomic(dev, "ENABLE: dm_update_crtc_state() failed: %pe\n", ERR_PTR(ret));
 			goto fail;
@@ -6424,7 +6465,7 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
 					    old_plane_state,
 					    new_plane_state,
 					    true,
-					    &lock_and_validation_needed,
+					    &needs_dc_state_realloc,
 					    &is_top_most_overlay);
 		if (ret) {
 			drm_dbg_atomic(dev, "dm_update_plane_state() failed: %pe\n", ERR_PTR(ret));
@@ -6539,7 +6580,7 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
 		if (!is_scaling_state_different(dm_new_con_state, dm_old_con_state))
 			continue;
 
-		lock_and_validation_needed = true;
+		needs_dc_state_realloc = true;
 	}
 
 	/* set the slot info for each mst_state based on the link encoding format */
@@ -6575,7 +6616,7 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
 	 *
 	 * TODO: Remove this stall and drop DM state private objects.
 	 */
-	if (lock_and_validation_needed) {
+	if (needs_dc_state_realloc) {
 		ret = dm_atomic_get_state(state, &dm_state);
 		if (ret) {
 			drm_dbg_atomic(dev, "dm_atomic_get_state() failed: %pe\n", ERR_PTR(ret));
@@ -6676,7 +6717,7 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
 		 * the FB pitch, the DCC state, rotation, mem_type, etc.
 		 */
 		if (new_crtc_state->async_flip &&
-		    (lock_and_validation_needed ||
+		    (needs_dc_state_realloc ||
 		     amdgpu_dm_crtc_mem_type_changed(dev, state, new_crtc_state))) {
 			drm_dbg_atomic(crtc->dev,
 				       "[CRTC:%d:%s] async flips are only supported for fast updates\n",
@@ -6685,7 +6726,7 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
 			goto fail;
 		}
 
-		dm_new_crtc_state->update_type = lock_and_validation_needed ?
+		dm_new_crtc_state->update_type = needs_dc_state_realloc ?
 			UPDATE_TYPE_FULL : UPDATE_TYPE_FAST;
 	}
 

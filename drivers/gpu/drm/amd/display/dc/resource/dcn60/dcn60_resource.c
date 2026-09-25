@@ -19,6 +19,7 @@
 #include "dcn321/dcn321_resource.h"
 #include "dcn401/dcn401_resource.h"
 #include "dcn42/dcn42_resource.h"
+#include "dcn60/dcn60_rmcm.h"
 #include "dcn60_resource.h"
 
 #include "dcn10/dcn10_ipp.h"
@@ -464,9 +465,7 @@ static struct dcn60_mpc_registers mpc_regs;
 	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(0),\
 	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(1),\
 	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(2),\
-	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(3),\
-	MPC_RMCM_REG_LIST_DCN42(0),\
-	MPC_RMCM_REG_LIST_DCN42(1)
+	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(3)
 
 static const struct dcn60_mpc_shift mpc_shift = {
 	MPC_COMMON_MASK_SH_LIST_DCN6_0(__SHIFT)
@@ -671,11 +670,10 @@ static const struct dc_debug_options debug_defaults_drv = {
 			.enable_ppt_check = true,
 			.enable_offload_flip = true,
 			.enable_stall_recovery = true,
+			.alternate_channel_workaround = true,
 		}
 	},
 	.force_cositing = CHROMA_COSITING_NONE + 1,
-	.dml21_disable_pstate_method_mask = 0x20, // disable alt-ch unconditionally until dependencies are ready
-
 };
 
 static const struct dc_check_config config_defaults = {
@@ -1695,6 +1693,8 @@ static void dcn60_resource_destruct(struct dcn60_resource_pool *pool)
 		kfree(TO_DCN20_MPC(pool->base.mpc));
 		pool->base.mpc = NULL;
 	}
+	for (i = 0; i < MAX_RMCM_INST; i++)
+		dcn60_rmcm_destroy(&pool->base.rmcm[i]);
 	if (pool->base.hubbub != NULL) {
 		kfree(TO_DCN20_HUBBUB(pool->base.hubbub));
 		pool->base.hubbub = NULL;
@@ -2036,9 +2036,9 @@ static bool dcn60_resource_construct(
 	dc->caps.cache_line_size = 64;
 	dc->caps.cache_num_ways = 16;
 
-	dc->caps.max_slave_planes = 2;
-	dc->caps.max_slave_yuv_planes = 2;
-	dc->caps.max_slave_rgb_planes = 2;
+	dc->caps.max_slave_planes = 3;
+	dc->caps.max_slave_yuv_planes = 3;
+	dc->caps.max_slave_rgb_planes = 3;
 	dc->caps.post_blend_color_processing = true;
 	dc->caps.force_dp_tps4_for_cp2520 = true;
 	dc->caps.hdmi_hpo = true;
@@ -2286,6 +2286,16 @@ static bool dcn60_resource_construct(
 		BREAK_TO_DEBUGGER();
 		dm_error("DC: failed to create mpc!\n");
 		goto create_fail;
+	}
+
+	/* RMCMs */
+	for (i = 0; i < pool->base.res_cap->num_rmcm && i < MAX_RMCM_INST; i++) {
+		pool->base.rmcm[i] = dcn60_rmcm_create(ctx, i);
+		if (pool->base.rmcm[i] == NULL) {
+			BREAK_TO_DEBUGGER();
+			dm_error("DC: failed to create rmcm%d!\n", i);
+			goto create_fail;
+		}
 	}
 
 	/* DSCs */

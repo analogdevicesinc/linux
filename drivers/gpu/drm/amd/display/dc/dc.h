@@ -37,6 +37,7 @@
 #include "link_service_types.h"
 #include "grph_object_ctrl_defs.h"
 #include <inc/hw/opp.h>
+#include <inc/hw/rmcm.h>
 
 #include "hwss/hw_sequencer.h"
 #include "inc/compressor.h"
@@ -66,7 +67,7 @@ struct dcn_dsc_reg_state;
 struct dcn_optc_reg_state;
 struct dcn_dccg_reg_state;
 
-#define DC_VER "3.2.397"
+#define DC_VER "3.2.399"
 
 /**
  * MAX_SURFACES - representative of the upper bound of surfaces that can be piped to a single CRTC
@@ -111,10 +112,10 @@ struct frl_cap_chk_params_fixed31_32 {
 	int      lanes;
 	struct fixed31_32   f_pixel_clock_nominal;   /* Pixel Clock rate (Hz)  */
 	struct fixed31_32   r_bit_nominal;           /* FRL bitrate (bps) */
-	int      audio_packet_type;
+	unsigned int audio_packet_type;
 	struct fixed31_32   f_audio;                 /* Audio rate (Hz) */
-	int      h_active;                /* Active pixels per line */
-	int      h_blank;                 /* Blanking pixels per line */
+	uint32_t h_active;                /* Active pixels per line */
+	uint32_t h_blank;                 /* Blanking pixels per line */
 	int      bpc;                     /* Bits per component */
 	int      vic;                     /* Video Identification Code */
 
@@ -1287,6 +1288,7 @@ struct dc_debug_options {
 	bool dml21_force_pstate_method;
 	uint32_t dml21_force_pstate_method_values[MAX_PIPES];
 	uint32_t dml21_disable_pstate_method_mask;
+	bool force_optional_uclk_pstate_support;
 	union fw_assisted_mclk_switch_version fams_version;
 	union dmub_fams2_global_feature_config fams2_config;
 	bool fams2_imm_restore_drr;
@@ -1512,11 +1514,6 @@ struct lut_mem_mapping {
 		uint16_t linear_rgb[(33*33*33*4/128+1)*128];
 	};
 	uint16_t size;
-};
-
-struct dc_rmcm_3dlut {
-	bool isInUse;
-	const struct dc_stream_state *stream;
 };
 
 struct dc_3dlut {
@@ -2094,32 +2091,6 @@ struct dc_scaling_info {
 	struct scaling_taps scaling_quality;
 };
 
-struct dc_fast_update {
-	const struct dc_flip_addrs *flip_addr;
-	const struct dc_gamma *gamma;
-	const struct colorspace_transform *gamut_remap_matrix;
-	const struct dc_csc_transform *input_csc_color_matrix;
-	const struct fixed31_32 *coeff_reduction_factor;
-	struct dc_transfer_func *out_transfer_func;
-	struct dc_csc_transform *output_csc_transform;
-	const struct dc_csc_transform *cursor_csc_color_matrix;
-	struct cm_hist_control *cm_hist_control;
-	/* stream-level fast updates */
-	const struct colorspace_transform *gamut_remap;
-	const struct dc_cursor_attributes *cursor_attributes;
-	const struct dc_cursor_position *cursor_position;
-	const struct periodic_interrupt_config *periodic_interrupt;
-	const enum dc_dither_option *dither_option;
-	struct dc_info_packet *vrr_infopacket;
-	struct dc_info_packet *vsc_infopacket;
-	struct dc_info_packet *vsp_infopacket;
-	struct dc_info_packet *hfvsif_infopacket;
-	struct dc_info_packet *vtem_infopacket;
-	struct dc_info_packet *adaptive_sync_infopacket;
-	struct dc_info_packet *avi_infopacket;
-	struct dc_info_packet *hdr_static_metadata;
-};
-
 struct dc_surface_update {
 	struct dc_plane_state *surface;
 
@@ -2227,6 +2198,7 @@ struct dc_probe_latencies {
 /**
  * struct dc_probe_status - results for a probe.
  * @valid: true if a measurement was latched.
+ * @measuring: true if the hardware counter is currently running.
  * @type: type of the probe that produced this result.
  * @u.bandwidth_mbps:         peak BW in Mbps (DC_PROBE_PEAK_MEM_BW).
  * @u.latency:                min/max/avg memory latency in ns (DC_PROBE_MEM_LATENCY),
@@ -2236,6 +2208,7 @@ struct dc_probe_latencies {
  */
 struct dc_probe_status {
 	bool                       valid;
+	bool                       measuring;
 	enum dc_probe_type         type;
 	union {
 		uint32_t bandwidth_mbps;
@@ -2423,11 +2396,6 @@ bool dc_resource_is_dsc_encoding_supported(const struct dc *dc);
 void get_audio_check(struct audio_info *aud_modes,
 	struct audio_check *aud_chk);
 
-bool fast_nonaddr_updates_exist(struct dc_fast_update *fast_update, int surface_count);
-void populate_fast_updates(struct dc_fast_update *fast_update,
-		struct dc_surface_update *srf_updates,
-		int surface_count,
-		struct dc_stream_update *stream_update);
 /*
  * Set up streams and links associated to drive sinks
  * The streams parameter is an absolute set of all active streams.

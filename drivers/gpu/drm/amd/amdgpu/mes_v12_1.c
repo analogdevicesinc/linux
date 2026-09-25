@@ -34,8 +34,6 @@
 #include "gfx_v12_1_pkt.h"
 #include "sdma_v7_1_0_pkt_open.h"
 
-MODULE_FIRMWARE("amdgpu/gc_12_1_0_mes.bin");
-MODULE_FIRMWARE("amdgpu/gc_12_1_0_mes1.bin");
 MODULE_FIRMWARE("amdgpu/gc_12_1_0_uni_mes.bin");
 
 static int mes_v12_1_hw_init(struct amdgpu_ip_block *ip_block);
@@ -238,16 +236,16 @@ static int mes_v12_1_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 	if (r < 1 || !*status_ptr) {
 		if (misc_op_str)
 			dev_err(adev->dev,
-				"MES(%d, %d) failed to respond to msg=%s (%s)\n",
-				xcc_id, pipe, op_str, misc_op_str);
+				"MES(%d, %d) failed to respond to msg=%s (%s) fence_wait_ret=%ld status=0x%x\n",
+				xcc_id, pipe, op_str, misc_op_str, r, *status_ptr);
 		else if (op_str)
 			dev_err(adev->dev,
-				"MES(%d, %d) failed to respond to msg=%s\n",
-				xcc_id, pipe, op_str);
+				"MES(%d, %d) failed to respond to msg=%s fence_wait_ret=%ld status=0x%x\n",
+				xcc_id, pipe, op_str, r, *status_ptr);
 		else
 			dev_err(adev->dev,
-				"MES(%d, %d) failed to respond to msg=%d\n",
-				xcc_id, pipe, x_pkt->header.opcode);
+				"MES(%d, %d) failed to respond to msg=%d fence_wait_ret=%ld status=0x%x\n",
+				xcc_id, pipe, x_pkt->header.opcode, r, *status_ptr);
 
 		while (halt_if_hws_hang)
 			schedule();
@@ -414,15 +412,11 @@ static int mes_v12_1_map_legacy_queue(struct amdgpu_mes *mes,
 		convert_to_mes_queue_type(input->queue_type);
 	mes_add_queue_pkt.map_legacy_kq = 1;
 
-	if (mes->adev->enable_uni_mes) {
-		/* Keep scheduler queue on KIQ pipe; map all other kernel queues on sched pipe. */
-		if (input->queue_type == AMDGPU_RING_TYPE_MES)
-			pipe = AMDGPU_MES_KIQ_PIPE;
-		else
-			pipe = AMDGPU_MES_SCHED_PIPE;
-	} else {
+	/* Keep scheduler queue on KIQ pipe; map all other kernel queues on sched pipe. */
+	if (input->queue_type == AMDGPU_RING_TYPE_MES)
+		pipe = AMDGPU_MES_KIQ_PIPE;
+	else
 		pipe = AMDGPU_MES_SCHED_PIPE;
-	}
 
 	return mes_v12_1_submit_pkt_and_poll_completion(mes,
 			input->xcc_id, pipe,
@@ -459,15 +453,11 @@ static int mes_v12_1_unmap_legacy_queue(struct amdgpu_mes *mes,
 			convert_to_mes_queue_type(input->queue_type);
 	}
 
-	if (mes->adev->enable_uni_mes) {
-		/* Keep scheduler queue on KIQ pipe; map all other kernel queues on sched pipe. */
-		if (input->queue_type == AMDGPU_RING_TYPE_MES)
-			pipe = AMDGPU_MES_KIQ_PIPE;
-		else
-			pipe = AMDGPU_MES_SCHED_PIPE;
-	} else {
+	/* Keep scheduler queue on KIQ pipe; map all other kernel queues on sched pipe. */
+	if (input->queue_type == AMDGPU_RING_TYPE_MES)
+		pipe = AMDGPU_MES_KIQ_PIPE;
+	else
 		pipe = AMDGPU_MES_SCHED_PIPE;
-	}
 
 	return mes_v12_1_submit_pkt_and_poll_completion(mes,
 			input->xcc_id, pipe,
@@ -567,7 +557,7 @@ static int mes_v12_1_misc_op(struct amdgpu_mes *mes,
 	int pipe;
 
 	/*OP_WRM_REG_WR_WAIT is used to do tlb invalidation which need to be handled in sched pipe for gfx_12_1.*/
-	if (mes->adev->enable_uni_mes && input->op != MES_MISC_OP_WRM_REG_WR_WAIT)
+	if (input->op != MES_MISC_OP_WRM_REG_WR_WAIT)
 		pipe = AMDGPU_MES_KIQ_PIPE;
 	else
 		pipe = AMDGPU_MES_SCHED_PIPE;
@@ -766,7 +756,7 @@ static int mes_v12_1_set_hw_resources(struct amdgpu_mes *mes,
 
 	if (pipe == AMDGPU_MES_SCHED_PIPE)
 		adev->mes.sched_version = RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_MES_GP3_LO);
-	else if (pipe == AMDGPU_MES_KIQ_PIPE && adev->enable_mes_kiq)
+	else if (pipe == AMDGPU_MES_KIQ_PIPE)
 		adev->mes.kiq_version = RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_MES_GP3_LO);
 
 	soc_v1_0_grbm_select(adev, 0, 0, 0, 0, GET_INST(GC, xcc_id));
@@ -880,10 +870,7 @@ static int mes_v12_1_reset_legacy_queue(struct amdgpu_mes *mes,
 		mes_reset_queue_pkt.doorbell_offset = input->doorbell_offset;
 	}
 
-	if (mes->adev->enable_uni_mes)
-		pipe = AMDGPU_MES_KIQ_PIPE;
-	else
-		pipe = AMDGPU_MES_SCHED_PIPE;
+	pipe = AMDGPU_MES_KIQ_PIPE;
 
 	return mes_v12_1_submit_pkt_and_poll_completion(mes,
 			input->xcc_id, pipe,
@@ -1100,10 +1087,8 @@ static void mes_v12_1_enable(struct amdgpu_device *adev,
 
 		if (amdgpu_emu_mode)
 			msleep(500);
-		else if (adev->enable_uni_mes)
-			udelay(500);
 		else
-			udelay(50);
+			udelay(500);
 	} else {
 		data = RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_MES_CNTL);
 		data = REG_SET_FIELD(data, CP_MES_CNTL, MES_PIPE0_ACTIVE, 0);
@@ -1317,6 +1302,7 @@ static int mes_v12_1_mqd_init(struct amdgpu_ring *ring)
 	tmp = REG_SET_FIELD(tmp, CP_HQD_PQ_CONTROL, RPTR_BLOCK_SIZE,
 			    ((order_base_2(AMDGPU_GPU_PAGE_SIZE / 4) - 1) << 8));
 	tmp = REG_SET_FIELD(tmp, CP_HQD_PQ_CONTROL, UNORD_DISPATCH, 1);
+	tmp = REG_SET_FIELD(tmp, CP_HQD_PQ_CONTROL, SCOPE, 3);
 	tmp = REG_SET_FIELD(tmp, CP_HQD_PQ_CONTROL, TUNNEL_DISPATCH, 0);
 	tmp = REG_SET_FIELD(tmp, CP_HQD_PQ_CONTROL, PRIV_STATE, 1);
 	tmp = REG_SET_FIELD(tmp, CP_HQD_PQ_CONTROL, KMD_QUEUE, 1);
@@ -1426,31 +1412,6 @@ static void mes_v12_1_queue_init_register(struct amdgpu_ring *ring,
 	mutex_unlock(&adev->srbm_mutex);
 }
 
-static int mes_v12_1_kiq_enable_queue(struct amdgpu_device *adev, int xcc_id)
-{
-	struct amdgpu_kiq *kiq = &adev->gfx.kiq[xcc_id];
-	struct amdgpu_ring *kiq_ring = &adev->gfx.kiq[xcc_id].ring;
-	int r, inst = MES_PIPE_INST(xcc_id, AMDGPU_MES_SCHED_PIPE);
-
-	if (!kiq->pmf || !kiq->pmf->kiq_map_queues)
-		return -EINVAL;
-
-	r = amdgpu_ring_alloc(kiq_ring, kiq->pmf->map_queues_size);
-	if (r) {
-		DRM_ERROR("Failed to lock KIQ (%d).\n", r);
-		return r;
-	}
-
-	kiq->pmf->kiq_map_queues(kiq_ring, &adev->mes.ring[inst]);
-
-	r = amdgpu_ring_test_ring(kiq_ring);
-	if (r) {
-		DRM_ERROR("kfq enable failed\n");
-		kiq_ring->sched.ready = false;
-	}
-	return r;
-}
-
 static int mes_v12_1_queue_init(struct amdgpu_device *adev,
 				  enum amdgpu_mes_pipe pipe,
 				  int xcc_id)
@@ -1458,13 +1419,9 @@ static int mes_v12_1_queue_init(struct amdgpu_device *adev,
 	struct amdgpu_ring *ring;
 	int r;
 
-	if (!adev->enable_uni_mes && pipe == AMDGPU_MES_KIQ_PIPE)
-		ring = &adev->gfx.kiq[xcc_id].ring;
-	else
-		ring = &adev->mes.ring[MES_PIPE_INST(xcc_id, pipe)];
+	ring = &adev->mes.ring[MES_PIPE_INST(xcc_id, pipe)];
 
-	if ((adev->enable_uni_mes || pipe == AMDGPU_MES_SCHED_PIPE) &&
-	    (amdgpu_in_reset(adev) || adev->in_suspend)) {
+	if (amdgpu_in_reset(adev) || adev->in_suspend) {
 		*(ring->wptr_cpu_addr) = 0;
 		*(ring->rptr_cpu_addr) = 0;
 		amdgpu_ring_clear_ring(ring);
@@ -1475,10 +1432,7 @@ static int mes_v12_1_queue_init(struct amdgpu_device *adev,
 		return r;
 
 	if (pipe == AMDGPU_MES_SCHED_PIPE) {
-		if (adev->enable_uni_mes)
-			r = amdgpu_mes_map_legacy_queue(adev, ring, xcc_id);
-		else
-			r = mes_v12_1_kiq_enable_queue(adev, xcc_id);
+		r = amdgpu_mes_map_legacy_queue(adev, ring, xcc_id);
 		if (r)
 			return r;
 	} else {
@@ -1527,39 +1481,6 @@ static int mes_v12_1_ring_init(struct amdgpu_device *adev,
 				AMDGPU_RING_PRIO_DEFAULT, NULL);
 }
 
-static int mes_v12_1_kiq_ring_init(struct amdgpu_device *adev, int xcc_id)
-{
-	struct amdgpu_ring *ring;
-	int inst = MES_PIPE_INST(xcc_id, AMDGPU_MES_KIQ_PIPE);
-
-	spin_lock_init(&adev->gfx.kiq[xcc_id].ring_lock);
-
-	ring = &adev->gfx.kiq[xcc_id].ring;
-
-	ring->me = 3;
-	ring->pipe = 1;
-	ring->queue = 0;
-	ring->xcc_id = xcc_id;
-	ring->vm_hub = AMDGPU_GFXHUB(xcc_id);
-
-	ring->adev = NULL;
-	ring->ring_obj = NULL;
-	ring->use_doorbell = true;
-	ring->eop_gpu_addr = adev->mes.eop_gpu_addr[inst];
-	ring->no_scheduler = true;
-	ring->doorbell_index =
-		(adev->doorbell_index.mes_ring1 +
-		 xcc_id * adev->doorbell_index.xcc_doorbell_range)
-		<< 1;
-
-	snprintf(ring->name, sizeof(ring->name), "mes_kiq_%hhu.%hhu.%hhu.%hhu",
-		 (unsigned char)xcc_id, (unsigned char)ring->me,
-		 (unsigned char)ring->pipe, (unsigned char)ring->queue);
-
-	return amdgpu_ring_init(adev, ring, 1024, NULL, 0,
-				AMDGPU_RING_PRIO_DEFAULT, NULL);
-}
-
 static int mes_v12_1_mqd_sw_init(struct amdgpu_device *adev,
 				   enum amdgpu_mes_pipe pipe,
 				   int xcc_id)
@@ -1568,10 +1489,7 @@ static int mes_v12_1_mqd_sw_init(struct amdgpu_device *adev,
 	struct amdgpu_ring *ring;
 	int inst = MES_PIPE_INST(xcc_id, pipe);
 
-	if (!adev->enable_uni_mes && pipe == AMDGPU_MES_KIQ_PIPE)
-		ring = &adev->gfx.kiq[xcc_id].ring;
-	else
-		ring = &adev->mes.ring[inst];
+	ring = &adev->mes.ring[inst];
 
 	if (ring->mqd_obj)
 		return 0;
@@ -1606,8 +1524,8 @@ static int mes_v12_1_sw_init(struct amdgpu_ip_block *ip_block)
 	adev->mes.kiq_hw_fini = &mes_v12_1_kiq_hw_fini;
 	adev->mes.enable_legacy_queue_map = true;
 
-	adev->mes.event_log_size =
-		adev->enable_uni_mes ? (AMDGPU_MAX_MES_PIPES * AMDGPU_MES_LOG_BUFFER_SIZE * num_xcc) : AMDGPU_MES_LOG_BUFFER_SIZE;
+	adev->mes.event_log_size = AMDGPU_MAX_MES_PIPES *
+				   AMDGPU_MES_LOG_BUFFER_SIZE * num_xcc;
 
 	r = amdgpu_mes_init(adev);
 	if (r)
@@ -1623,15 +1541,11 @@ static int mes_v12_1_sw_init(struct amdgpu_ip_block *ip_block)
 			if (r)
 				return r;
 
-			if (!adev->enable_uni_mes && pipe ==
-			    AMDGPU_MES_KIQ_PIPE)
-				r = mes_v12_1_kiq_ring_init(adev, xcc_id);
-			else
-				r = mes_v12_1_ring_init(adev, xcc_id, pipe);
+			r = mes_v12_1_ring_init(adev, xcc_id, pipe);
 			if (r)
 				return r;
 
-			if (adev->enable_uni_mes && num_xcc > 1) {
+			if (num_xcc > 1) {
 				r = mes_v12_1_allocate_shared_cmd_buf(adev,
 							      pipe, xcc_id);
 				if (r)
@@ -1662,12 +1576,10 @@ static int mes_v12_1_sw_fini(struct amdgpu_ip_block *ip_block)
 					      &adev->mes.eop_gpu_addr[inst],
 					      NULL);
 
-			if (adev->enable_uni_mes || pipe == AMDGPU_MES_SCHED_PIPE) {
-				amdgpu_bo_free_kernel(&adev->mes.ring[inst].mqd_obj,
-						      &adev->mes.ring[inst].mqd_gpu_addr,
-						      &adev->mes.ring[inst].mqd_ptr);
-				amdgpu_ring_fini(&adev->mes.ring[inst]);
-			}
+			amdgpu_bo_free_kernel(&adev->mes.ring[inst].mqd_obj,
+					      &adev->mes.ring[inst].mqd_gpu_addr,
+					      &adev->mes.ring[inst].mqd_ptr);
+			amdgpu_ring_fini(&adev->mes.ring[inst]);
 		}
 	}
 
@@ -1675,13 +1587,6 @@ static int mes_v12_1_sw_fini(struct amdgpu_ip_block *ip_block)
 		amdgpu_ucode_release(&adev->mes.fw[pipe]);
 
 	for (xcc_id = 0; xcc_id < num_xcc; xcc_id++) {
-		if (!adev->enable_uni_mes) {
-			amdgpu_bo_free_kernel(&adev->gfx.kiq[xcc_id].ring.mqd_obj,
-				      &adev->gfx.kiq[xcc_id].ring.mqd_gpu_addr,
-				      &adev->gfx.kiq[xcc_id].ring.mqd_ptr);
-			amdgpu_ring_fini(&adev->gfx.kiq[xcc_id].ring);
-		}
-
 		if (adev->firmware.load_type == AMDGPU_FW_LOAD_DIRECT) {
 			mes_v12_1_free_ucode_buffers(adev,
 				       AMDGPU_MES_KIQ_PIPE, xcc_id);
@@ -1692,44 +1597,6 @@ static int mes_v12_1_sw_fini(struct amdgpu_ip_block *ip_block)
 
 	amdgpu_mes_fini(adev);
 	return 0;
-}
-
-static void mes_v12_1_kiq_dequeue_sched(struct amdgpu_device *adev,
-					  int xcc_id)
-{
-	uint32_t data;
-	int i;
-
-	mutex_lock(&adev->srbm_mutex);
-	soc_v1_0_grbm_select(adev, 3, AMDGPU_MES_SCHED_PIPE, 0, 0,
-			     GET_INST(GC, xcc_id));
-
-	/* disable the queue if it's active */
-	if (RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_ACTIVE) & 1) {
-		WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_DEQUEUE_REQUEST, 1);
-		for (i = 0; i < adev->usec_timeout; i++) {
-			if (!(RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_ACTIVE) & 1))
-				break;
-			udelay(1);
-		}
-	}
-	data = RREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_DOORBELL_CONTROL);
-	data = REG_SET_FIELD(data, CP_HQD_PQ_DOORBELL_CONTROL,
-				DOORBELL_EN, 0);
-	data = REG_SET_FIELD(data, CP_HQD_PQ_DOORBELL_CONTROL,
-				DOORBELL_HIT, 1);
-	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_DOORBELL_CONTROL, data);
-
-	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_DOORBELL_CONTROL, 0);
-
-	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_WPTR_LO, 0);
-	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_WPTR_HI, 0);
-	WREG32_SOC15(GC, GET_INST(GC, xcc_id), regCP_HQD_PQ_RPTR, 0);
-
-	soc_v1_0_grbm_select(adev, 0, 0, 0, 0, GET_INST(GC, xcc_id));
-	mutex_unlock(&adev->srbm_mutex);
-
-	adev->mes.ring[MES_PIPE_INST(xcc_id, 0)].sched.ready = false;
 }
 
 static void mes_v12_1_kiq_dequeue(struct amdgpu_device *adev, int xcc_id)
@@ -1780,10 +1647,7 @@ static int mes_v12_1_kiq_hw_init(struct amdgpu_device *adev, uint32_t xcc_id)
 	int r = 0;
 	struct amdgpu_ip_block *ip_block;
 
-	if (adev->enable_uni_mes)
-		mes_v12_1_kiq_setting(&adev->mes.ring[inst], xcc_id);
-	else
-		mes_v12_1_kiq_setting(&adev->gfx.kiq[xcc_id].ring, xcc_id);
+	mes_v12_1_kiq_setting(&adev->mes.ring[inst], xcc_id);
 
 	if (adev->firmware.load_type == AMDGPU_FW_LOAD_DIRECT) {
 
@@ -1818,19 +1682,17 @@ static int mes_v12_1_kiq_hw_init(struct amdgpu_device *adev, uint32_t xcc_id)
 	if (r)
 		goto failure;
 
-	if (adev->enable_uni_mes) {
-		r = mes_v12_1_setup_coop_mode(adev, xcc_id);
-		if (r)
-			goto failure;
+	r = mes_v12_1_setup_coop_mode(adev, xcc_id);
+	if (r)
+		goto failure;
 
-		r = mes_v12_1_set_hw_resources(&adev->mes,
-						 AMDGPU_MES_KIQ_PIPE, xcc_id);
-		if (r)
-			goto failure;
+	r = mes_v12_1_set_hw_resources(&adev->mes,
+				       AMDGPU_MES_KIQ_PIPE, xcc_id);
+	if (r)
+		goto failure;
 
-		mes_v12_1_set_hw_resources_1(&adev->mes,
-					       AMDGPU_MES_KIQ_PIPE, xcc_id);
-	}
+	mes_v12_1_set_hw_resources_1(&adev->mes,
+				     AMDGPU_MES_KIQ_PIPE, xcc_id);
 
 	if (adev->mes.enable_legacy_queue_map) {
 		r = mes_v12_1_xcc_hw_init(ip_block, xcc_id);
@@ -1850,12 +1712,8 @@ static int mes_v12_1_kiq_hw_fini(struct amdgpu_device *adev, uint32_t xcc_id)
 	int inst = MES_PIPE_INST(xcc_id, AMDGPU_MES_SCHED_PIPE);
 
 	if (adev->mes.ring[inst].sched.ready) {
-		if (adev->enable_uni_mes)
-			amdgpu_mes_unmap_legacy_queue(adev,
-				      &adev->mes.ring[inst],
-				      RESET_QUEUES, 0, 0, xcc_id);
-		else
-			mes_v12_1_kiq_dequeue_sched(adev, xcc_id);
+		amdgpu_mes_unmap_legacy_queue(adev, &adev->mes.ring[inst],
+					      RESET_QUEUES, 0, 0, xcc_id);
 
 		adev->mes.ring[inst].sched.ready = false;
 	}
@@ -1916,26 +1774,6 @@ static int mes_v12_1_xcc_hw_init(struct amdgpu_ip_block *ip_block, int xcc_id)
 	if (adev->mes.ring[MES_PIPE_INST(xcc_id, 0)].sched.ready)
 		goto out;
 
-	if (!adev->enable_mes_kiq) {
-		if (adev->firmware.load_type == AMDGPU_FW_LOAD_DIRECT) {
-			r = mes_v12_1_load_microcode(adev,
-				       AMDGPU_MES_SCHED_PIPE, true, xcc_id);
-			if (r) {
-				DRM_ERROR("failed to MES fw, r=%d\n", r);
-				return r;
-			}
-
-			mes_v12_1_set_ucode_start_addr(adev, xcc_id);
-
-		} else if (adev->firmware.load_type ==
-			   AMDGPU_FW_LOAD_RLC_BACKDOOR_AUTO) {
-
-			mes_v12_1_set_ucode_start_addr(adev, xcc_id);
-		}
-
-		mes_v12_1_enable(adev, true, xcc_id);
-	}
-
 	/* Enable the MES to handle doorbell ring on unmapped queue */
 	mes_v12_1_enable_unmapped_doorbell_handling(&adev->mes, true, xcc_id);
 
@@ -1948,10 +1786,7 @@ static int mes_v12_1_xcc_hw_init(struct amdgpu_ip_block *ip_block, int xcc_id)
 	if (r)
 		goto failure;
 
-	if (adev->enable_uni_mes) {
-		mes_v12_1_set_hw_resources_1(&adev->mes,
-					       AMDGPU_MES_SCHED_PIPE, xcc_id);
-	}
+	mes_v12_1_set_hw_resources_1(&adev->mes, AMDGPU_MES_SCHED_PIPE, xcc_id);
 	mes_v12_1_init_aggregated_doorbell(&adev->mes, xcc_id);
 
 	r = mes_v12_1_query_sched_status(&adev->mes,
@@ -1963,12 +1798,6 @@ static int mes_v12_1_xcc_hw_init(struct amdgpu_ip_block *ip_block, int xcc_id)
 
 	amdgpu_mes_validate_fw_version(adev);
 out:
-	/*
-	 * Disable KIQ ring usage from the driver once MES is enabled.
-	 * MES uses KIQ ring exclusively so driver cannot access KIQ ring
-	 * with MES enabled.
-	 */
-	adev->gfx.kiq[xcc_id].ring.sched.ready = false;
 	adev->mes.ring[MES_PIPE_INST(xcc_id, 0)].sched.ready = true;
 
 	return 0;

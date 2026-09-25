@@ -193,6 +193,7 @@ struct dcn_dccg_reg_state {
 struct dccg {
 	struct dc_context *ctx;
 	const struct dccg_funcs *funcs;
+	int inst;
 	int pipe_dppclk_khz[MAX_PIPES];
 	int ref_dppclk;
 	bool dpp_clock_gated[MAX_PIPES];
