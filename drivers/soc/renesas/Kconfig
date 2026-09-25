@@ -418,6 +418,7 @@ config ARCH_R9A09G011
 config ARCH_R9A09G047
 	bool "ARM64 Platform support for R9A09G047 (RZ/G3E)"
 	default y if ARCH_RENESAS
+	select RENESAS_RZV2H_ICU
 	select SYS_R9A09G047
 	help
 	  This enables support for the Renesas RZ/G3E SoC variants.
@@ -425,6 +426,7 @@ config ARCH_R9A09G047
 config ARCH_R9A09G056
 	bool "ARM64 Platform support for R9A09G056 (RZ/V2N)"
 	default y if ARCH_RENESAS
+	select RENESAS_RZV2H_ICU
 	select SYS_R9A09G056
 	help
 	  This enables support for the Renesas RZ/V2N SoC variants.
