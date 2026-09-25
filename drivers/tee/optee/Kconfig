@@ -5,6 +5,7 @@ config OPTEE
 	depends on HAVE_ARM_SMCCC
 	depends on MMU
 	depends on RPMB || !RPMB
+	depends on ARM_FFA_TRANSPORT || !ARM_FFA_TRANSPORT
 	help
 	  This implements the OP-TEE Trusted Execution Environment (TEE)
 	  driver.
