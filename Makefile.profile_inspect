@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -I. -Idrivers/iio/adc/apollo/public/inc
+CFLAGS = -Wall -Wextra -I. -Idrivers/iio/trx-rf/ad9088/public/inc
 TARGET = profile_inspect
 SRC = profile_inspect.c
 
@@ -12,6 +12,6 @@ clean:
 	rm -f $(TARGET)
 
 run: $(TARGET)
-	./$(TARGET) firmware/204C_M4_L4_NP16_20p0_4x4.bin
+	./$(TARGET) firmware/204C_M4_L4_NP16_20p0_4x4_FSRC.bin
 
 .PHONY: all clean run
