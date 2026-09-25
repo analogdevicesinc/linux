@@ -65,15 +65,6 @@ _json_metric_attributes = [
 _json_enum_attributes = ['aggr_mode', 'deprecated', 'event_grouping', 'perpkg',
                          'default_show_events']
 
-def removesuffix(s: str, suffix: str) -> str:
-  """Remove the suffix from a string
-
-  The removesuffix function is added to str in Python 3.9. We aim for 3.6
-  compatibility and so provide our own function here.
-  """
-  return s[0:-len(suffix)] if s.endswith(suffix) else s
-
-
 def file_name_to_table_name(prefix: str, parents: Sequence[str],
                             dirname: str) -> str:
   """Generate a C table name from directory names."""
@@ -214,9 +205,8 @@ class JsonEvent:
       """Fix formatting issue for the desc string."""
       if s is None:
         return None
-      return removesuffix(removesuffix(removesuffix(s, '.  '),
-                                       '. '), '.').replace('\n', '\\n').replace(
-                                           '\"', '\\"').replace('\r', '\\r')
+      return s.removesuffix('.  ').removesuffix('. ').removesuffix('.').replace(
+          '\n', '\\n').replace('\"', '\\"').replace('\r', '\\r')
 
     def convert_aggr_mode(aggr_mode: Optional[str]) -> Optional[str]:
       """Returns the aggr_mode_class enum value associated with the JSON string."""
@@ -641,7 +631,7 @@ static const struct pmu_table_entry {_pending_metrics_tblname}[] = {{
 def get_topic(topic: str) -> str:
   if topic.endswith('metrics.json'):
     return 'metrics'
-  return removesuffix(topic, '.json').replace('-', ' ')
+  return topic.removesuffix('.json').replace('-', ' ')
 
 def preprocess_one_file(parents: Sequence[str], item: os.DirEntry) -> None:
   if item.is_dir():
