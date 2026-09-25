@@ -334,6 +334,8 @@ int sensor_hub_input_attr_read_values(struct hid_sensor_hub_device *hsdev,
 			ret = -ETIMEDOUT;
 		else if (cycles < 0)
 			ret = cycles;
+		else if (hsdev->pending.shutdown)
+			ret = -ENODEV;
 
 		hsdev->pending.status = false;
 	}
@@ -805,8 +807,10 @@ static int sensor_hub_finalize_pending_fn(struct device *dev, void *data)
 {
 	struct hid_sensor_hub_device *hsdev = dev->platform_data;
 
-	if (hsdev->pending.status)
+	if (hsdev->pending.status) {
+		hsdev->pending.shutdown = true;
 		complete(&hsdev->pending.ready);
+	}
 
 	return 0;
 }
