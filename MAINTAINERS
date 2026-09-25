@@ -6500,7 +6500,7 @@ M:	Jerome Brunet <jbrunet+clk@baylibre.com>
 L:	linux-clk@vger.kernel.org
 S:	Maintained
 Q:	http://patchwork.kernel.org/project/linux-clk/list/
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/clk/linux.git
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/clk/linux.git clk-next
 F:	Documentation/devicetree/bindings/clock/
 F:	drivers/clk/
 F:	include/dt-bindings/clock/
