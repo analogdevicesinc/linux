@@ -68,7 +68,6 @@ enum board_ids {
 	/* board IDs for specific chipsets in alphabetical order */
 	board_ahci_al,
 	board_ahci_avn,
-	board_ahci_jmb585,
 	board_ahci_mcp65,
 	board_ahci_mcp77,
 	board_ahci_mcp89,
@@ -212,15 +211,6 @@ static const struct ata_port_info ahci_port_info[] = {
 		.pio_mask	= ATA_PIO4,
 		.udma_mask	= ATA_UDMA6,
 		.port_ops	= &ahci_avn_ops,
-	},
-	/* JMicron JMB582/585: 64-bit DMA is broken, force 32-bit */
-	[board_ahci_jmb585] = {
-		AHCI_HFLAGS	(AHCI_HFLAG_IGN_IRQ_IF_ERR |
-				 AHCI_HFLAG_32BIT_ONLY),
-		.flags		= AHCI_FLAG_COMMON,
-		.pio_mask	= ATA_PIO4,
-		.udma_mask	= ATA_UDMA6,
-		.port_ops	= &ahci_ops,
 	},
 	[board_ahci_mcp65] = {
 		AHCI_HFLAGS	(AHCI_HFLAG_NO_FPDMA_AA | AHCI_HFLAG_NO_PMP |
@@ -954,14 +944,6 @@ static const struct pci_device_id ahci_pci_tbl[] = {
 		/* Elkhart Lake AHCI */
 		PCI_VDEVICE(INTEL, 0x4b63),
 		.driver_data = board_ahci_pcs_quirk,
-	}, {
-		/* JMicron JMB582/585: force 32-bit DMA (broken 64-bit implementation) */
-		PCI_VDEVICE(JMICRON, 0x0582),
-		.driver_data = board_ahci_jmb585,
-
-	}, {
-		PCI_VDEVICE(JMICRON, 0x0585),
-		.driver_data = board_ahci_jmb585,
 	}, {
 		/* JMicron 360/1/3/5/6, match class to avoid IDE function */
 		PCI_DEVICE(PCI_VENDOR_ID_JMICRON, PCI_ANY_ID),
