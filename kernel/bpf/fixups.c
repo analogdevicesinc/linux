@@ -219,7 +219,8 @@ static int get_callee_stack_depth(struct bpf_verifier_env *env,
  * [0, off) and [off, end) to new locations, so the patched range stays zero
  */
 static void adjust_insn_aux_data(struct bpf_verifier_env *env,
-				 struct bpf_prog *new_prog, u32 off, u32 cnt)
+				 struct bpf_prog *new_prog, u32 off, u32 cnt,
+				 struct bpf_insn *original_insn)
 {
 	struct bpf_insn_aux_data *data = env->insn_aux_data;
 	struct bpf_insn *insn = new_prog->insnsi;
@@ -233,8 +234,15 @@ static void adjust_insn_aux_data(struct bpf_verifier_env *env,
 	 */
 	data[off].zext_dst = bpf_insn_def32(new_prog, insn + off + cnt - 1) >= 0;
 
-	if (cnt == 1)
+	if (cnt == 1) {
+		/*
+		 * A non-memory accessing insn could have been replaced by a
+		 * memory accessing insn, systematically mark it for non-stack
+		 * access
+		 */
+		data[off].non_stack_access = bpf_is_mem_insn(insn + off);
 		return;
+	}
 	prog_len = new_prog->len;
 	env->insn_aux_data_len = prog_len;
 
@@ -245,7 +253,24 @@ static void adjust_insn_aux_data(struct bpf_verifier_env *env,
 		/* Expand insni[off]'s seen count to the patched range. */
 		data[i].seen = old_seen;
 		data[i].zext_dst = bpf_insn_def32(new_prog, insn + i) >= 0;
+		if (!memcmp(insn + i, original_insn, sizeof(struct bpf_insn))) {
+			data[i].non_stack_access =
+				data[off + cnt - 1].non_stack_access;
+			data[off + cnt - 1].non_stack_access = false;
+		} else if (bpf_is_mem_insn(insn + i)) {
+			data[i].non_stack_access = true;
+		}
 	}
+
+	/*
+	 * Last slot instruction could be a newly generated
+	 * BPF_ST/BPF_LDX/BPF_STX, systematically mark it for non-stack access
+	 * if it is not the original instruction, otherwise keep the
+	 * original marking
+	 */
+	if (bpf_is_mem_insn(insn + off + cnt - 1) &&
+	    memcmp(insn + off + cnt - 1, original_insn, sizeof(struct bpf_insn)))
+		data[off + cnt - 1].non_stack_access = true;
 
 	/*
 	 * The indirect_target flag of the original instruction was moved to the last of the
@@ -325,6 +350,7 @@ struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 off,
 {
 	struct bpf_prog *new_prog;
 	struct bpf_insn_aux_data *new_data = NULL;
+	struct bpf_insn original_insn;
 
 	if (bpf_rewrite_must_abort())
 		return NULL;
@@ -340,6 +366,7 @@ struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 off,
 		env->insn_aux_data = new_data;
 	}
 
+	memcpy(&original_insn, env->prog->insnsi + off, sizeof(struct bpf_insn));
 	new_prog = bpf_patch_insn_single(env->prog, off, patch, len);
 	if (IS_ERR(new_prog)) {
 		if (PTR_ERR(new_prog) == -ERANGE)
@@ -348,11 +375,50 @@ struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 off,
 				env->insn_aux_data[off].orig_idx);
 		return NULL;
 	}
-	adjust_insn_aux_data(env, new_prog, off, len);
+	adjust_insn_aux_data(env, new_prog, off, len, &original_insn);
 	adjust_subprog_starts(env, off, len);
 	adjust_insn_arrays(env, off, len);
+	bpf_adjust_func_ptrs(env, off, len);
 	adjust_poke_descs(new_prog, off, len);
 	return new_prog;
+}
+
+/*
+ * insn was moved down by delta insns inside its own patch. Operands relative
+ * to the pc that point in front of the old position did not move with it.
+ */
+static int bpf_adj_moved_insn(struct bpf_insn *insn, u32 delta)
+{
+	u8 class = BPF_CLASS(insn->code), op = BPF_OP(insn->code);
+	s64 off = insn->imm, off_min = S32_MIN;
+	bool is_imm = true;
+
+	if (bpf_pseudo_func(insn) || bpf_pseudo_call(insn)) {
+		/* subprog that started at the old position starts with the patch */
+		if (off >= 0)
+			return 0;
+	} else if ((class == BPF_JMP || class == BPF_JMP32) &&
+		   op != BPF_CALL && op != BPF_EXIT) {
+		if (insn->code != (BPF_JMP32 | BPF_JA)) {
+			off = insn->off;
+			off_min = S16_MIN;
+			is_imm = false;
+		}
+		/* jump to itself stays */
+		if (off >= -1)
+			return 0;
+	} else {
+		return 0;
+	}
+
+	off -= delta;
+	if (off < off_min)
+		return -ERANGE;
+	if (is_imm)
+		insn->imm = off;
+	else
+		insn->off = off;
+	return 0;
 }
 
 /*
@@ -552,6 +618,9 @@ static int verifier_remove_insns(struct bpf_verifier_env *env, u32 off, u32 cnt)
 	if (err)
 		return err;
 
+	/* before subprogs are adjusted, since it looks at them */
+	bpf_adjust_func_ptrs_after_remove(env, off, cnt);
+
 	err = adjust_subprog_starts_after_remove(env, off, cnt);
 	if (err)
 		return err;
@@ -612,11 +681,40 @@ void bpf_opt_hard_wire_dead_code_branches(struct bpf_verifier_env *env)
 	}
 }
 
+/*
+ * The address of a function might be taken by the code that is not dead,
+ * while the function itself is dead code, since nothing calls it. Keep the first
+ * instruction of such function, so that the address remains valid and differs
+ * from the addresses of other functions. Make it a trap like
+ * sanitize_dead_code() does.
+ */
+static void keep_funcs_with_addr_taken(struct bpf_verifier_env *env)
+{
+	struct bpf_insn_aux_data *aux_data = env->insn_aux_data;
+	struct bpf_insn trap = BPF_JMP_IMM(BPF_JA, 0, 0, -1);
+	struct bpf_insn *insn = env->prog->insnsi;
+	int insn_cnt = env->prog->len;
+	int i, t;
+
+	for (i = 0; i < insn_cnt; i++) {
+		if (!aux_data[i].seen || !bpf_pseudo_func(insn + i))
+			continue;
+		t = i + insn[i].imm + 1;
+		if (aux_data[t].seen)
+			continue;
+		memcpy(insn + t, &trap, sizeof(trap));
+		aux_data[t].zext_dst = false;
+		aux_data[t].seen = env->pass_cnt;
+	}
+}
+
 int bpf_opt_remove_dead_code(struct bpf_verifier_env *env)
 {
 	struct bpf_insn_aux_data *aux_data = env->insn_aux_data;
 	int insn_cnt = env->prog->len;
 	int i, err;
+
+	keep_funcs_with_addr_taken(env);
 
 	for (i = 0; i < insn_cnt; i++) {
 		int j;
@@ -845,7 +943,13 @@ int bpf_convert_ctx_accesses(struct bpf_verifier_env *env)
 			struct bpf_insn *patch = insn_buf;
 
 			*patch++ = BPF_ST_NOSPEC();
-			*patch++ = *insn;
+			*patch = *insn;
+			ret = bpf_adj_moved_insn(patch++, 1);
+			if (ret) {
+				verbose(env, "insn %d cannot be patched due to 16-bit range\n",
+					env->insn_aux_data[i + delta].orig_idx);
+				return ret;
+			}
 			cnt = patch - insn_buf;
 			new_prog = bpf_patch_insn_data(env, i + delta, insn_buf, cnt);
 			if (!new_prog)
@@ -1088,6 +1192,59 @@ static void bpf_restore_subprog_starts(struct bpf_verifier_env *env, u32 *orig_s
 	env->subprog_info[env->subprog_cnt].start = env->prog->len;
 }
 
+/*
+ * Replace the offsets of functions with their addresses in the maps of
+ * the program, see resolve_func_ptrs() in verifier.c. The program must be
+ * the only user of such map. From now on no other program can use it, see
+ * bpf_map_claim().
+ */
+static int resolve_func_ptrs(struct bpf_verifier_env *env, struct bpf_prog *prog,
+			     struct bpf_prog **func)
+{
+	unsigned long me = (unsigned long)prog->aux;
+	struct bpf_func_ptr *ptr;
+	int i, err, subprog;
+	u64 addr, new, *slot;
+
+	for (i = 0; i < env->func_ptr_cnt; i++) {
+		ptr = &env->func_ptrs[i];
+
+		/* pointers are sorted by map */
+		if ((!i || ptr->map != ptr[-1].map) &&
+		    cmpxchg(&ptr->map->user, me, me | BPF_MAP_USER_PATCHED) != me) {
+			verbose(env, "map '%s' is used by another program\n", ptr->map->name);
+			return -EBUSY;
+		}
+
+		/* it's the address of the value of the map whatever the offset is */
+		err = ptr->map->ops->map_direct_value_addr(ptr->map, &addr, 0);
+		if (verifier_bug_if(err, env, "no value of map '%s'", ptr->map->name))
+			return -EFAULT;
+		slot = (u64 *)(unsigned long)(addr + ptr->map_off);
+
+		/*
+		 * The function that is dead code is removed and the pointer is
+		 * NULL. The program may read it, but callx of it is dead code
+		 * too, see check_func_callx().
+		 */
+		new = 0;
+		if (ptr->xlated_off != BPF_FUNC_PTR_DELETED) {
+			subprog = bpf_find_subprog(env, ptr->xlated_off);
+			if (verifier_bug_if(!func || subprog <= 0, env, "no function at insn %u",
+					    ptr->xlated_off))
+				return -EFAULT;
+			new = (unsigned long)func[subprog]->bpf_func;
+		}
+
+		/* the map is frozen and nothing else uses it */
+		if (verifier_bug_if(*slot != (u64)ptr->orig_off * sizeof(struct bpf_insn), env,
+				    "map '%s' offset %u changed", ptr->map->name, ptr->map_off))
+			return -EFAULT;
+		WRITE_ONCE(*slot, new);
+	}
+	return 0;
+}
+
 static int jit_subprogs(struct bpf_verifier_env *env)
 {
 	struct bpf_prog *prog = env->prog, **func, *tmp;
@@ -1278,6 +1435,11 @@ static int jit_subprogs(struct bpf_verifier_env *env)
 		cond_resched();
 	}
 
+	/* the addresses of all functions are final */
+	err = resolve_func_ptrs(env, prog, func);
+	if (err)
+		goto out_free;
+
 	/*
 	 * Cleanup func[i]->aux fields which aren't required
 	 * or can become invalid in future
@@ -1364,8 +1526,9 @@ int bpf_jit_subprogs(struct bpf_verifier_env *env)
 	struct bpf_prog *prog, *orig_prog;
 	u32 *orig_subprog_starts;
 
+	/* all functions that the maps point to are removed as dead code */
 	if (env->subprog_cnt <= 1)
-		return 0;
+		return resolve_func_ptrs(env, env->prog, NULL);
 
 	prog = orig_prog = env->prog;
 	if (bpf_prog_need_blind(prog)) {
@@ -1525,6 +1688,30 @@ static int add_hidden_subprog(struct bpf_verifier_env *env, struct bpf_insn *pat
 	env->subprog_cnt++;
 	env->hidden_subprog_cnt++;
 	return 0;
+}
+
+/*
+ * Expand may_goto: load the count from the stack, jump to the target of
+ * may_goto when it is zero, then the tail that updates the count.
+ * Use gotol when the target is too far for 16-bit offset of a conditional jump.
+ */
+static int may_goto_expand(struct bpf_insn *insn_buf, int off, int stack_off,
+			   const struct bpf_insn *tail, int tail_cnt)
+{
+	int cnt = 0;
+
+	/* Forward jump has to step over the tail */
+	off = off >= 0 ? off + tail_cnt : off - 1;
+
+	insn_buf[cnt++] = BPF_LDX_MEM(BPF_DW, BPF_REG_AX, BPF_REG_10, stack_off);
+	if (off == (s16)off) {
+		insn_buf[cnt++] = BPF_JMP_IMM(BPF_JEQ, BPF_REG_AX, 0, off);
+	} else {
+		insn_buf[cnt++] = BPF_JMP_IMM(BPF_JNE, BPF_REG_AX, 0, 1);
+		insn_buf[cnt++] = BPF_JMP32_A(off >= 0 ? off : off - 1);
+	}
+	memcpy(insn_buf + cnt, tail, tail_cnt * sizeof(*tail));
+	return cnt + tail_cnt;
 }
 
 /* Do various post-verification rewrites in a single program pass.
@@ -1804,6 +1991,18 @@ int bpf_do_misc_fixups(struct bpf_verifier_env *env)
 
 		if (bpf_is_may_goto_insn(insn) && bpf_jit_supports_timed_may_goto()) {
 			int stack_off_cnt = -stack_depth - 16;
+			/*
+			 * AX is used as an argument to pass in stack_off_cnt
+			 * (to add to r10/fp), and also as the return value of
+			 * the call to arch_bpf_timed_may_goto.
+			 */
+			struct bpf_insn tail[] = {
+				BPF_ALU64_IMM(BPF_SUB, BPF_REG_AX, 1),
+				BPF_JMP_IMM(BPF_JNE, BPF_REG_AX, 0, 2),
+				BPF_MOV64_IMM(BPF_REG_AX, stack_off_cnt),
+				BPF_EMIT_CALL(arch_bpf_timed_may_goto),
+				BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_AX, stack_off_cnt),
+			};
 
 			/*
 			 * Two 8 byte slots, depth-16 stores the count, and
@@ -1820,22 +2019,8 @@ int bpf_do_misc_fixups(struct bpf_verifier_env *env)
 			 * after subtraction, rinse and repeat.
 			 */
 			stack_depth_extra = 16;
-			insn_buf[0] = BPF_LDX_MEM(BPF_DW, BPF_REG_AX, BPF_REG_10, stack_off_cnt);
-			if (insn->off >= 0)
-				insn_buf[1] = BPF_JMP_IMM(BPF_JEQ, BPF_REG_AX, 0, insn->off + 5);
-			else
-				insn_buf[1] = BPF_JMP_IMM(BPF_JEQ, BPF_REG_AX, 0, insn->off - 1);
-			insn_buf[2] = BPF_ALU64_IMM(BPF_SUB, BPF_REG_AX, 1);
-			insn_buf[3] = BPF_JMP_IMM(BPF_JNE, BPF_REG_AX, 0, 2);
-			/*
-			 * AX is used as an argument to pass in stack_off_cnt
-			 * (to add to r10/fp), and also as the return value of
-			 * the call to arch_bpf_timed_may_goto.
-			 */
-			insn_buf[4] = BPF_MOV64_IMM(BPF_REG_AX, stack_off_cnt);
-			insn_buf[5] = BPF_EMIT_CALL(arch_bpf_timed_may_goto);
-			insn_buf[6] = BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_AX, stack_off_cnt);
-			cnt = 7;
+			cnt = may_goto_expand(insn_buf, insn->off, stack_off_cnt,
+					      tail, ARRAY_SIZE(tail));
 
 			new_prog = bpf_patch_insn_data(env, i + delta, insn_buf, cnt);
 			if (!new_prog)
@@ -1847,16 +2032,14 @@ int bpf_do_misc_fixups(struct bpf_verifier_env *env)
 			goto next_insn;
 		} else if (bpf_is_may_goto_insn(insn)) {
 			int stack_off = -stack_depth - 8;
+			struct bpf_insn tail[] = {
+				BPF_ALU64_IMM(BPF_SUB, BPF_REG_AX, 1),
+				BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_AX, stack_off),
+			};
 
 			stack_depth_extra = 8;
-			insn_buf[0] = BPF_LDX_MEM(BPF_DW, BPF_REG_AX, BPF_REG_10, stack_off);
-			if (insn->off >= 0)
-				insn_buf[1] = BPF_JMP_IMM(BPF_JEQ, BPF_REG_AX, 0, insn->off + 2);
-			else
-				insn_buf[1] = BPF_JMP_IMM(BPF_JEQ, BPF_REG_AX, 0, insn->off - 1);
-			insn_buf[2] = BPF_ALU64_IMM(BPF_SUB, BPF_REG_AX, 1);
-			insn_buf[3] = BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_AX, stack_off);
-			cnt = 4;
+			cnt = may_goto_expand(insn_buf, insn->off, stack_off,
+					      tail, ARRAY_SIZE(tail));
 
 			new_prog = bpf_patch_insn_data(env, i + delta, insn_buf, cnt);
 			if (!new_prog)
@@ -2013,7 +2196,8 @@ int bpf_do_misc_fixups(struct bpf_verifier_env *env)
 			goto next_insn;
 		}
 
-		if (insn->imm == BPF_FUNC_timer_set_callback) {
+		aux = &env->insn_aux_data[i + delta];
+		if (aux->arg_prog) {
 			/* The verifier will process callback_fn as many times as necessary
 			 * with different maps and the register states prepared by
 			 * set_timer_callback_state will be accurate.
@@ -2028,7 +2212,7 @@ int bpf_do_misc_fixups(struct bpf_verifier_env *env)
 			 *     bpf_timer_set_callback-ed will return -EINVAL.
 			 */
 			struct bpf_insn ld_addrs[2] = {
-				BPF_LD_IMM64(BPF_REG_3, (long)prog->aux),
+				BPF_LD_IMM64(aux->arg_prog, (long)prog->aux),
 			};
 
 			insn_buf[0] = ld_addrs[0];
@@ -2477,7 +2661,14 @@ next_insn:
 						     BPF_MAX_LOOPS);
 		}
 		/* Copy first actual insn to preserve it */
-		insn_buf[cnt++] = env->prog->insnsi[subprog_start];
+		insn_buf[cnt] = env->prog->insnsi[subprog_start];
+		ret = bpf_adj_moved_insn(&insn_buf[cnt], cnt);
+		if (ret) {
+			verbose(env, "insn %d cannot be patched due to 16-bit range\n",
+				env->insn_aux_data[subprog_start].orig_idx);
+			return ret;
+		}
+		cnt++;
 
 		new_prog = bpf_patch_insn_data(env, subprog_start, insn_buf, cnt);
 		if (!new_prog)

@@ -117,6 +117,12 @@ static int bpf_iter_attach_map(struct bpf_prog *prog,
 		goto put_map;
 	}
 
+	/* The value ctx arg is writable and aliases the live element. */
+	if (btf_record_has_field(map->record, BPF_RCU_HEAD)) {
+		err = -EOPNOTSUPP;
+		goto put_map;
+	}
+
 	if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH ||
 	    map->map_type == BPF_MAP_TYPE_LRU_PERCPU_HASH ||
 	    map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY)

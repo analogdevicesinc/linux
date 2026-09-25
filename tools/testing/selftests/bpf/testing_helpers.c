@@ -292,7 +292,6 @@ int bpf_prog_test_load(const char *file, enum bpf_prog_type type,
 	);
 	struct bpf_object *obj;
 	struct bpf_program *prog;
-	__u32 flags;
 	int err;
 
 	obj = bpf_object__open_file(file, &opts);
@@ -308,8 +307,7 @@ int bpf_prog_test_load(const char *file, enum bpf_prog_type type,
 	if (type != BPF_PROG_TYPE_UNSPEC && bpf_program__type(prog) != type)
 		bpf_program__set_type(prog, type);
 
-	flags = bpf_program__flags(prog) | testing_prog_flags();
-	bpf_program__set_flags(prog, flags);
+	bpf_program__add_flags(prog, testing_prog_flags());
 
 	err = bpf_object__load(obj);
 	if (err)
@@ -519,6 +517,47 @@ bool is_jit_enabled(void)
 	return enabled;
 }
 
+/*
+ * Whether the kernel accepts a program using more than 512 bytes of stack,
+ * which depends on the JIT in use. Probed once with a program that stores
+ * at the 2 KiB depth. Only the verifier's verdict on that store is cached:
+ * a load that fails for another reason, such as a missing capability, is
+ * reported and probed again on the next call.
+ */
+bool is_large_stack_supported(void)
+{
+	static int supported = -1;
+	struct bpf_insn insns[] = {
+		BPF_ST_MEM(BPF_DW, BPF_REG_10, -2048, 0),
+		BPF_MOV64_IMM(BPF_REG_0, 0),
+		BPF_EXIT_INSN(),
+	};
+	char log[1024] = {};
+	LIBBPF_OPTS(bpf_prog_load_opts, opts,
+		.log_buf = log,
+		.log_size = sizeof(log),
+		.log_level = 1,
+	);
+	int fd;
+
+	if (supported >= 0)
+		return supported;
+
+	fd = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER, NULL, "GPL", insns, ARRAY_SIZE(insns),
+			   &opts);
+	if (fd >= 0) {
+		close(fd);
+		supported = 1;
+	} else if (strstr(log, "invalid write to stack")) {
+		supported = 0;
+	} else {
+		fprintf(stderr, "%s: probe failed with errno %d, assuming 512 bytes:\n%s",
+			__func__, errno, log);
+		return false;
+	}
+	return supported;
+}
+
 int stack_mprotect(void)
 {
 	void *buf;
@@ -533,4 +572,47 @@ int stack_mprotect(void)
 	ret = mprotect((void *)(((unsigned long)(buf + sz)) & ~(sz - 1)), sz,
 		       PROT_READ | PROT_WRITE | PROT_EXEC);
 	return ret;
+}
+
+int compare_text_to_expected(const char *actual, const char *expected)
+{
+	char exp_path[] = "/tmp/selftest_expected.XXXXXX";
+	char act_path[] = "/tmp/selftest_actual.XXXXXX";
+	char buf[512], cmd[128];
+	int exp_fd, act_fd;
+	FILE *p;
+
+	if (!strcmp(actual, expected))
+		return 0;
+
+	exp_fd = mkstemp(exp_path);
+	act_fd = mkstemp(act_path);
+	if (exp_fd < 0 || act_fd < 0) {
+		fprintf(stdout, "output differs, no temp file for a diff\n");
+		goto out;
+	}
+
+	dprintf(exp_fd, "%s", expected);
+	dprintf(act_fd, "%s", actual);
+
+	snprintf(cmd, sizeof(cmd), "diff -u '%s' '%s'", exp_path, act_path);
+	p = popen(cmd, "r");
+	if (!p) {
+		fprintf(stdout, "output differs, '%s' did not run\n", cmd);
+		goto out;
+	}
+	while (fgets(buf, sizeof(buf), p))
+		fputs(buf, stdout);
+	pclose(p);
+
+out:
+	if (exp_fd >= 0) {
+		close(exp_fd);
+		unlink(exp_path);
+	}
+	if (act_fd >= 0) {
+		close(act_fd);
+		unlink(act_path);
+	}
+	return -1;
 }

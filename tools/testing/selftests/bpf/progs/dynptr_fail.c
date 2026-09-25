@@ -560,6 +560,9 @@ int global(void *ctx)
 /* A direct read should fail */
 SEC("?raw_tp")
 __failure __msg("invalid read from stack")
+__msg("Verification failed: Memory Safety: Direct read of dynptr stack state")
+__msg("verifier-managed dynptr state")
+__msg("Use dynptr helpers or kfuncs")
 int invalid_read1(void *ctx)
 {
 	struct bpf_dynptr ptr;

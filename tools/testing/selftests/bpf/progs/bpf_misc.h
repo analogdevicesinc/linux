@@ -9,7 +9,8 @@
 #define QUOTE(str) #str
 #define EXPAND_QUOTE(str) QUOTE(str)
 
-/* This set of attributes controls behavior of the
+/*
+ * This set of attributes controls behavior of the
  * test_loader.c:test_loader__run_subtests().
  *
  * The test_loader sequentially loads each program in a skeleton.
@@ -106,6 +107,11 @@
  * __description     Text to be used for display and as an additional filter
  *                   alias, while the original program name stays matchable.
  *
+ * __skip            Report the test as SKIP with the given reason instead of
+ *                   running it. For placeholder programs that stand in for a
+ *                   feature the toolchain or JIT cannot provide, so a run does
+ *                   not report OK for coverage it never executed.
+ *
  * __log_level       Log level to use for the program, numeric value expected.
  *
  * __flag            Adds one flag use for the program, the following values are valid:
@@ -126,6 +132,11 @@
  *                   Several __arch_* annotations could be specified at once.
  *                   When test case is not run on current arch it is marked as skipped.
  * __caps_unpriv     Specify the capabilities that should be set when running the test.
+ * __prepare_priv    In unprivileged mode, prepare the object with the fixture's
+ *                   initial capabilities before dropping them for program loading.
+ *                   Preparation includes map creation and BTF/kfunc resolution;
+ *                   these operations are not tested at the reduced capabilities.
+ *                   Program loading uses the normal __caps_unpriv selection.
  *
  * __linear_size     Specify the size of the linear area of non-linear skbs, or
  *                   0 for linear skbs.
@@ -139,6 +150,7 @@
 #define __failure		__test_tag("test_expect_failure")
 #define __success		__test_tag("test_expect_success")
 #define __description(desc)	__test_tag("test_description=" desc)
+#define __skip(reason)		__test_tag("test_skip=" reason)
 #define __msg_unpriv(msg)	__test_tag("test_expect_msg_unpriv=" msg)
 #define __not_msg_unpriv(msg)	__test_tag("test_expect_not_msg_unpriv=" msg)
 #define __xlated_unpriv(msg)	__test_tag("test_expect_xlated_unpriv=" msg)
@@ -160,8 +172,12 @@
 #define __arch_s390x		__arch("s390x")
 #define __arch_loongarch	__arch("LOONGARCH")
 #define __caps_unpriv(caps)	__test_tag("test_caps_unpriv=" EXPAND_QUOTE(caps))
+#define __prepare_priv		__test_tag("test_prepare_priv")
 #define __load_if_JITed()	__test_tag("load_mode=jited")
 #define __load_if_no_JITed()	__test_tag("load_mode=no_jited")
+/* Whether programs may use more than 512 bytes of stack on this kernel and JIT */
+#define __load_if_large_stack()		__test_tag("stack_mode=large")
+#define __load_if_no_large_stack()	__test_tag("stack_mode=small")
 #define __stderr(msg)		__test_tag("test_expect_stderr=" msg)
 #define __stderr_unpriv(msg)	__test_tag("test_expect_stderr_unpriv=" msg)
 #define __stdout(msg)		__test_tag("test_expect_stdout=" msg)
@@ -255,11 +271,11 @@
      (defined(__TARGET_ARCH_riscv) && __riscv_xlen == 64) ||		\
      defined(__TARGET_ARCH_arm) || defined(__TARGET_ARCH_s390) ||	\
      defined(__TARGET_ARCH_loongarch)) &&				\
-	__clang_major__ >= 18
+	(__clang_major__ >= 18 || defined(__BPF_FEATURE_GOTOL))
 #define CAN_USE_GOTOL
 #endif
 
-#if __clang_major__ >= 18
+#if __clang_major__ >= 18 || defined(__BPF_FEATURE_ST)
 #define CAN_USE_BPF_ST
 #endif
 
