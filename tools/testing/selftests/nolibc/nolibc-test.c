@@ -1841,6 +1841,26 @@ int test_time_types(void)
 	return 0;
 }
 
+int test_fd_set(void)
+{
+	fd_set set, clr;
+	int fd, i;
+
+	/* FD_SET() and FD_CLR() must change exactly one fd */
+	for (fd = 0; fd < FD_SETSIZE; fd++) {
+		FD_ZERO(&set);
+		FD_SET(fd, &set);
+		memset(&clr, 0xff, sizeof(clr));
+		FD_CLR(fd, &clr);
+		for (i = 0; i < FD_SETSIZE; i++)
+			if (!!FD_ISSET(i, &set) != (i == fd) ||
+			    !!FD_ISSET(i, &clr) != (i != fd))
+				return 1;
+	}
+
+	return 0;
+}
+
 int test_malloc(void)
 {
 	size_t sz_array1, sz_array2, sz_array3;
@@ -2022,6 +2042,7 @@ int run_stdlib(int min, int max)
 		CASE_TEST(memchr_foobar6_o);        EXPECT_STREQ(1, memchr("foobar", 'o', 6), "oobar"); break;
 		CASE_TEST(memchr_foobar3_b);        EXPECT_STRZR(1, memchr("foobar", 'b', 3)); break;
 		CASE_TEST(time_types);              EXPECT_ZR(is_nolibc, test_time_types()); break;
+		CASE_TEST(fd_set);                  EXPECT_ZR(1, test_fd_set()); break;
 		CASE_TEST(makedev);                 EXPECT_EQ(1, makedev(0x12, 0x34), 0x1234); break;
 		CASE_TEST(major);                   EXPECT_EQ(1, major(0x1234), 0x12); break;
 		CASE_TEST(minor);                   EXPECT_EQ(1, minor(0x1234), 0x34); break;
