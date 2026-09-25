@@ -2,7 +2,7 @@
 # Copyright 2022 Analog Devices Inc.
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/bindings/iio/adc/ltc2387.yaml#
+$id: http://devicetree.org/schemas/iio/adc/lltc,ltc2387.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Linear Technology / Analog Devices LTC2387 ADC
@@ -50,9 +50,39 @@ properties:
       - const: cnv
       - const: clk_en
 
+  vref-supply:
+    description:
+      External voltage reference. When absent the device's internal 4.096 V
+      reference is assumed.
+
   adi,use-two-lanes:
     description: The device uses two lanes for data transfer
     type: boolean
+
+  adi,use-one-lane:
+    description: |
+      Configure the device for one-lane output mode. In one-lane mode a
+      single physical LVDS pair (DA) carries all 16/18 bits per conversion
+      via DDR, halving the achievable sample rate compared to two-lane
+      mode. Omit for the default two-lane behavior.
+    type: boolean
+
+  adi,gain-milli:
+    description: |
+      Front-end amplifier gain, expressed as gain * 1000. Only meaningful
+      for the ADAQ2387x modules, which integrate a fully-differential
+      amplifier ahead of the LTC2387 die; the value must match the board's
+      pin strapping.
+
+        ADAQ23875:           fixed gain = 2  (2000)
+        ADAQ23876/ADAQ23878: pin-selectable (370, 730, 870, 1380, 2250)
+
+      Used by the driver to compute in_voltage_scale referred to the SMA
+      input. When omitted the driver assumes a per-compatible default:
+      1000 (unity) for the bare ltc2387-* parts, which have no amplifier,
+      and 2000 for the adaq2387x parts.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [370, 730, 870, 1000, 1380, 2000, 2250]
 
 required:
   - compatible
@@ -62,16 +92,16 @@ required:
   - pwms
   - pwm-names
 
+additionalProperties: false
+
 examples:
   - |
-    ltc2387@0{
+    adc {
             compatible = "ltc2387-16";
             clocks = <&clk 0>;
             dmas = <&dma 0>;
             dma-names = "rx";
-            pwms = <&pwm 0 0
-                    &pwm 1 0>;
+            pwms = <&pwm 0 0>, <&pwm 1 0>;
             pwm-names = "cnv", "clk_en";
-
-            adi,use-two-lanes;
+            vref-supply = <&vref>;
     };
