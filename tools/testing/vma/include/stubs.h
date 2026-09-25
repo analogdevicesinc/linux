@@ -193,7 +193,7 @@ static inline bool mapping_can_writeback(struct address_space *mapping)
 	return true;
 }
 
-static inline bool is_vm_hugetlb_page(struct vm_area_struct *vma)
+static inline bool vma_is_hugetlb(struct vm_area_struct *vma)
 {
 	return false;
 }
@@ -299,6 +299,10 @@ static inline void anon_vma_lock_write(struct anon_vma *anon_vma)
 }
 
 static inline void vma_assert_write_locked(struct vm_area_struct *vma)
+{
+}
+
+static inline void vma_assert_stabilised(const struct vm_area_struct *vma)
 {
 }
 
