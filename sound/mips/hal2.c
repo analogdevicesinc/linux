@@ -375,7 +375,7 @@ static void hal2_setup_dac(struct snd_hal2 *hal2)
 	hal2_i_clearbit16(hal2, H2I_DMA_PORT_EN, H2I_DMA_PORT_EN_CODECTX);
 	/* Setup the HAL2 for playback */
 	hal2_set_dac_rate(hal2);
-	/* Set endianess */
+	/* Set endianness */
 	hal2_i_clearbit16(hal2, H2I_DMA_END, H2I_DMA_END_CODECTX);
 	/* Set DMA bus */
 	hal2_i_setbit16(hal2, H2I_DMA_DRV, (1 << pbus->pbusnr));
@@ -400,7 +400,7 @@ static void hal2_setup_adc(struct snd_hal2 *hal2)
 	hal2_i_clearbit16(hal2, H2I_DMA_PORT_EN, H2I_DMA_PORT_EN_CODECR);
 	/* Setup the HAL2 for record */
 	hal2_set_adc_rate(hal2);
-	/* Set endianess */
+	/* Set endianness */
 	hal2_i_clearbit16(hal2, H2I_DMA_END, H2I_DMA_END_CODECR);
 	/* Set DMA bus */
 	hal2_i_setbit16(hal2, H2I_DMA_DRV, (1 << pbus->pbusnr));
