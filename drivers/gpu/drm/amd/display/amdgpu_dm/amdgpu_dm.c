@@ -1775,7 +1775,7 @@ STATIC_IFN_KUNIT void dm_gpureset_commit_state(struct dc_state *dc_state,
 		struct dc_scaling_info scaling_infos[MAX_SURFACES];
 		struct dc_flip_addrs flip_addrs[MAX_SURFACES];
 		struct dc_stream_update stream_update;
-	} *bundle __free(kfree);
+	} *bundle __free(kfree) = NULL;
 	int k, m;
 
 	bundle = kzalloc_obj(*bundle);
@@ -5279,10 +5279,8 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_commit *state)
 		 * To fix this, DC should permit updating only stream properties.
 		 */
 		dummy_updates = kzalloc(sizeof(struct dc_surface_update) * MAX_SURFACES, GFP_KERNEL);
-		if (!dummy_updates) {
-			drm_err(adev_to_drm(adev), "Failed to allocate memory for dummy_updates.\n");
+		if (!dummy_updates)
 			continue;
-		}
 		for (j = 0; j < status->plane_count; j++)
 			dummy_updates[j].surface = status->plane_states[j];
 
