@@ -471,6 +471,7 @@
 				 <&xo_board_clk>,
 				 <&gcc GCC_SDCC1_ICE_CORE_CLK>;
 			clock-names = "iface", "core", "xo", "ice";
+			resets = <&gcc GCC_SDCC_BCR>;
 			non-removable;
 			supports-cqe;
 			pinctrl-0 = <&sdc_default_state>;
