@@ -1505,7 +1505,7 @@ static int macb_tx_complete(struct macb_queue *queue, int budget)
 	return packets;
 }
 
-static void gem_rx_refill(struct macb_queue *queue)
+static int gem_rx_refill(struct macb_queue *queue)
 {
 	struct macb *bp = queue->bp;
 	struct macb_dma_desc *desc;
@@ -1577,6 +1577,14 @@ static void gem_rx_refill(struct macb_queue *queue)
 
 	netdev_vdbg(bp->netdev, "rx ring: queue: %p, prepared head %d, tail %d\n",
 		    queue, queue->rx_prepared_head, queue->rx_tail);
+
+	/* Fail if queue has zero prepared descriptors. This is critical because
+	 * nothing will ever trigger a refill again.
+	 */
+	if (queue->rx_prepared_head == queue->rx_tail)
+		return -ENOMEM;
+
+	return 0;
 }
 
 /* Mark DMA descriptors from begin up to and not including end as unused */
@@ -2823,7 +2831,7 @@ out_err:
 	return -ENOMEM;
 }
 
-static void gem_init_rx_ring(struct macb_queue *queue)
+static int gem_init_rx_ring(struct macb_queue *queue)
 {
 	unsigned int i;
 
@@ -2833,14 +2841,16 @@ static void gem_init_rx_ring(struct macb_queue *queue)
 	for (i = 0; i < queue->bp->rx_ring_size; i++)
 		macb_rx_desc(queue, i)->addr |= MACB_BIT(RX_USED);
 
-	gem_rx_refill(queue);
+	return gem_rx_refill(queue);
 }
 
-static void gem_init_rings(struct macb *bp)
+static int gem_init_rings(struct macb *bp)
 {
 	struct macb_queue *queue;
 	struct macb_dma_desc *desc = NULL;
+	int last_err = 0;
 	unsigned int q;
+	int err;
 	int i;
 
 	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
@@ -2853,11 +2863,15 @@ static void gem_init_rings(struct macb *bp)
 		queue->tx_head = 0;
 		queue->tx_tail = 0;
 
-		gem_init_rx_ring(queue);
+		err = gem_init_rx_ring(queue);
+		if (err)
+			last_err = err;
 	}
+
+	return last_err;
 }
 
-static void macb_init_rings(struct macb *bp)
+static int macb_init_rings(struct macb *bp)
 {
 	int i;
 	struct macb_dma_desc *desc = NULL;
@@ -2872,6 +2886,8 @@ static void macb_init_rings(struct macb *bp)
 	bp->queues[0].tx_head = 0;
 	bp->queues[0].tx_tail = 0;
 	desc->ctrl |= MACB_BIT(TX_WRAP);
+
+	return 0;
 }
 
 static void macb_reset_hw(struct macb *bp)
@@ -3202,7 +3218,9 @@ static int macb_open(struct net_device *netdev)
 		goto pm_exit;
 	}
 
-	bp->macbgem_ops.mog_init_rings(bp);
+	err = bp->macbgem_ops.mog_init_rings(bp);
+	if (err)
+		goto free_rings;
 	macb_init_buffers(bp);
 
 	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
@@ -3240,6 +3258,7 @@ reset_hw:
 		napi_disable(&queue->napi_rx);
 		napi_disable(&queue->napi_tx);
 	}
+free_rings:
 	macb_free(bp);
 pm_exit:
 	pm_runtime_put_sync(&bp->pdev->dev);
