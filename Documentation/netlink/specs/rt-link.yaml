@@ -842,7 +842,7 @@ definitions:
   -
     name: ovpn-mode
     enum-name: ovpn-mode
-    name-prefix: ovpn-mode
+    name-prefix: ovpn-mode-
     type: enum
     entries:
       - p2p
