@@ -1121,6 +1121,19 @@ static const struct dmi_system_id dmi_leave_unused_power_resources_on[] = {
 		}
 
 	},
+	{
+		/*
+		 * Acer Swift 3 SF314-56G with NVIDIA MX250 suffers from the
+		 * same ACPI power resource regression as the Thunderobot ZERO.
+		 * The power resource controlling the dGPU is incorrectly turned off
+		 * during initialization, causing the GPU to fall off the bus (D3cold).
+		 */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Swift SF314-56G"),
+		}
+
+	},
 	{}
 };
 
