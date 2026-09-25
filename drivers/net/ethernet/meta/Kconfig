@@ -40,6 +40,7 @@ config MPNIC
 	depends on 64BIT || COMPILE_TEST
 	depends on !S390
 	depends on PCI_MSI
+	select PAGE_POOL
 	help
 	  This driver supports the Meta Platforms Network Interface
 	  Controller.

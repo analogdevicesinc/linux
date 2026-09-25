@@ -29,6 +29,7 @@ static int mpnic_open(struct net_device *netdev)
 		goto err_free_resources;
 
 	mpnic_enable(mpn);
+	mpnic_fill(mpn);
 	mpnic_napi_enable(mpn);
 
 	netif_tx_wake_all_queues(netdev);
@@ -107,10 +108,14 @@ struct net_device *mpnic_netdev_alloc(struct mpnic_dev *mpd)
 	mpn->mpd = mpd;
 
 	mpn->txq_size = MPNIC_TXQ_SIZE_DEFAULT;
+	mpn->hpq_size = MPNIC_HPQ_SIZE_DEFAULT;
+	mpn->ppq_size = MPNIC_PPQ_SIZE_DEFAULT;
+	mpn->rcq_size = MPNIC_RCQ_SIZE_DEFAULT;
 
 	queues = min(netif_get_num_default_rss_queues(),
 		     mpd->num_irqs - MPNIC_NON_NAPI_VECTORS);
 	mpn->num_tx_queues = queues;
+	mpn->num_rx_queues = queues;
 	mpn->num_napi = queues;
 
 	netdev->features |= NETIF_F_SG;
@@ -165,7 +170,8 @@ int mpnic_netdev_register(struct net_device *netdev)
 	ether_addr_copy(netdev->perm_addr, addr);
 	eth_hw_addr_set(netdev, addr);
 
-	err = netif_set_real_num_tx_queues(netdev, mpn->num_tx_queues);
+	err = netif_set_real_num_queues(netdev, mpn->num_tx_queues,
+					mpn->num_rx_queues);
 	if (err)
 		return err;
 

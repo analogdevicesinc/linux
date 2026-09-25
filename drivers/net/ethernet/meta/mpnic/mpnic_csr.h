@@ -29,6 +29,38 @@ enum {
 #define MPNIC_TCD_TYPE0_HEAD0		DESC_GENMASK(15, 0)
 #define MPNIC_TCD_DONE			DESC_BIT(63)
 
+/* Rx Buffer Descriptor Format */
+#define MPNIC_BD_DESC_ADDR		DESC_GENMASK(39, 2)
+#define MPNIC_BD_DESC_ID		DESC_GENMASK(57, 40)
+#define MPNIC_BD_DESC_BUF_SZ_LOG2	DESC_GENMASK(62, 58)
+
+/* Rx Completion Queue Descriptors */
+#define MPNIC_RCD_TYPE			DESC_GENMASK(62, 61)
+enum {
+	MPNIC_RCD_TYPE_HDR_AL	= 0,
+	MPNIC_RCD_TYPE_PAY_AL	= 1,
+	MPNIC_RCD_TYPE_META	= 3,
+};
+
+#define MPNIC_RCD_DONE			DESC_BIT(63)
+
+#define MPNIC_RCD_HDR_SUBTYPE		DESC_GENMASK(60, 59)
+enum {
+	MPNIC_RCD_HDR_SUBTYPE_HDR	= 2,
+};
+
+/* Address/Length Completion Descriptors */
+#define MPNIC_RCD_AL_BUFF_OFF		DESC_GENMASK(15, 0)
+#define MPNIC_RCD_AL_BUFF_ID		DESC_GENMASK(33, 16)
+#define MPNIC_RCD_AL_BUFF_LEN		DESC_GENMASK(47, 34)
+#define MPNIC_RCD_AL_PAGE_FIN		DESC_BIT(53)
+
+/* Metadata Completion Descriptors */
+#define MPNIC_RCD_META_ERR_MAC_EOP		DESC_BIT(53)
+#define MPNIC_RCD_META_ERR_TRUNCATED_FRAME	DESC_BIT(54)
+#define MPNIC_RCD_META_UNCORRECTABLE_ERR_MASK	\
+	(MPNIC_RCD_META_ERR_MAC_EOP | MPNIC_RCD_META_ERR_TRUNCATED_FRAME)
+
 /* Common fields for all DESC_CFG CSRs */
 #define MPNIC_DESC_CFG_NUM_DESCS	CSR_GENMASK(2, 0)
 #define MPNIC_DESC_CFG_START_ADDR	CSR_GENMASK(19, 8)
@@ -75,10 +107,43 @@ enum {
 #define MPNIC_TIM_INTR_MASK(i)		(0xc8 + 1024 * (i))	/* 0x320 */
 #define MPNIC_TIM_INTR_MASK_MASK		CSR_BIT(0)
 
+/* NIC_CORE_RBP */
+#define MPNIC_BDQ_CTL(i)		(0x200 + 1024 * (i))	/* 0x800 */
+#define MPNIC_BDQ_CTL_RESET			CSR_BIT(0)
+#define MPNIC_BDQ_CTL_ENABLE			CSR_BIT(1)
+#define MPNIC_BDQ_CTL_ENABLE_PPQ		CSR_BIT(3)
+#define MPNIC_HPQ_TAIL(i)		(0x202 + 1024 * (i))	/* 0x808 */
+#define MPNIC_PPQ_TAIL(i)		(0x204 + 1024 * (i))	/* 0x810 */
+#define MPNIC_HPQ_SIZE(i)		(0x20a + 1024 * (i))	/* 0x828 */
+#define MPNIC_HPQ_SIZE_SIZE			CSR_GENMASK(4, 0)
+#define MPNIC_PPQ_SIZE(i)		(0x20c + 1024 * (i))	/* 0x830 */
+#define MPNIC_PPQ_SIZE_SIZE			CSR_GENMASK(4, 0)
+#define MPNIC_HPQ_BASE_ADDR(i)		(0x216 + 1024 * (i))	/* 0x858 */
+#define MPNIC_PPQ_BASE_ADDR(i)		(0x218 + 1024 * (i))	/* 0x860 */
+
+/* NIC_CORE_RCM */
+#define MPNIC_RCQ_CTL(i)		(0x280 + 1024 * (i))	/* 0xa00 */
+#define MPNIC_RCQ_CTL_RESET			CSR_BIT(0)
+#define MPNIC_RCQ_CTL_ENABLE			CSR_BIT(1)
+#define MPNIC_RCQ_BASE_ADDR(i)		(0x286 + 1024 * (i))	/* 0xa18 */
+#define MPNIC_RCQ_HEAD(i)		(0x28e + 1024 * (i))	/* 0xa38 */
+#define MPNIC_RCQ_SIZE(i)		(0x294 + 1024 * (i))	/* 0xa50 */
+#define MPNIC_RCQ_SIZE_SIZE			CSR_GENMASK(4, 0)
+
 /* NIC_CORE_TIM_PRV */
 #define MPNIC_TIM_CTL(i)		(0x100100 + 1024 * (i))	/* 0x400400 */
 
+/* NIC_CORE_RDE */
+#define MPNIC_RDE_CFG(i)		(0x10021c + 1024 * (i))	/* 0x400870 */
+#define MPNIC_RDE_CFG_MIN_TAIL_ROOM		CSR_GENMASK(9, 0)
+#define MPNIC_RDE_CFG_MIN_HEAD_ROOM		CSR_GENMASK(18, 10)
+#define MPNIC_RDE_CFG_MAX_HEADER_BYTES		CSR_GENMASK(45, 32)
+
 /* NIC_CORE_RBP_HP_GLBL */
+#define MPNIC_HPQ_IDLE(i)		(0x420000 + 2 * (i))	/* 0x1080000 */
+#define MPNIC_HPQ_IDLE_CNT		16
+#define MPNIC_PPQ_IDLE(i)		(0x420060 + 2 * (i))	/* 0x1080180 */
+#define MPNIC_PPQ_IDLE_CNT		16
 #define MPNIC_BDQ_GLBL_CTL0		0x420080		/* 0x1080200 */
 #define MPNIC_BDQ_GLBL_CTL0_MAX_REQ_SIZE	CSR_GENMASK(26, 18)
 #define MPNIC_BDQ_GLBL_CTL0_PREFETCH_SPACE_THRESH \
@@ -99,6 +164,8 @@ enum {
 #define MPNIC_RDE_MEM_INIT_DONE		0x4240e8		/* 0x10903a0 */
 
 /* NIC_CORE_RCM_GLBL */
+#define MPNIC_RCQ_IDLE(i)		(0x42505e + 2 * (i))	/* 0x1094178 */
+#define MPNIC_RCQ_IDLE_CNT		16
 #define MPNIC_RCM_MEM_INIT_REQ		0x42507e		/* 0x10941f8 */
 #define MPNIC_RCM_MEM_INIT_DONE		0x425080		/* 0x1094200 */
 

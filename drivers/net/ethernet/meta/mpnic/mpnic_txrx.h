@@ -9,6 +9,7 @@
 #include <linux/skbuff.h>
 #include <linux/types.h>
 #include <net/netdev_queues.h>
+#include <net/xdp.h>
 
 #include "mpnic.h"
 
@@ -26,12 +27,57 @@ struct mpnic_net;
 
 #define MPNIC_MAX_NAPI_VECTORS		1024u
 
+/* Number of buffer descriptors the driver posts before ringing the
+ * doorbell. The device consumes whatever the doorbell points at, this is
+ * purely to keep the driver from writing the CSR for every descriptor.
+ */
+#define MPNIC_BDQ_BATCH_SIZE		64u
+
 #define MPNIC_TXQ_SIZE_DEFAULT		1024
+#define MPNIC_HPQ_SIZE_DEFAULT		256
+#define MPNIC_PPQ_SIZE_DEFAULT		256
+#define MPNIC_RCQ_SIZE_DEFAULT		1024
+
+/* Room the device has to leave in front of and behind every header so the
+ * driver can build an skb around it in place. The headroom is padded out
+ * so that consecutive headers in one page start 128 B aligned.
+ */
+#define MPNIC_RX_TROOM \
+	SKB_DATA_ALIGN(sizeof(struct skb_shared_info))
+#define MPNIC_RX_HROOM \
+	(ALIGN(MPNIC_RX_TROOM + XDP_PACKET_HEADROOM, 128) - MPNIC_RX_TROOM)
+
+/* Headers longer than this are split off into the payload queue */
+#define MPNIC_RX_MAX_HDR		1536
 
 #define MPNIC_MAX_JUMBO_FRAME_SIZE	9742
 
+/* The page a buffer descriptor queue is currently handing out. Records
+ * how many of the references taken on it are still unused.
+ */
+struct mpnic_pg_ctxt {
+	struct page	*page;
+	long		pagecnt_bias;
+	u32		idx;
+};
+
+struct mpnic_pkt_ctxt {
+	struct xdp_buff buff;
+};
+
+struct mpnic_rcq_state {
+	struct mpnic_pkt_ctxt pkt;
+	struct mpnic_pg_ctxt hdr;
+	struct mpnic_pg_ctxt payld;
+};
+
 struct mpnic_ring {
-	void **tx_buf;			/* Packets outstanding in a TWQ */
+	union {
+		struct mpnic_rcq_state *state;	/* RCQ */
+		struct page **rx_buf;		/* BDQ */
+		void **tx_buf;			/* TWQ */
+		void *buffer;			/* Generic pointer */
+	};
 
 	u32 __iomem *doorbell;		/* Pointer to CSR space for ring */
 	__le64 *desc;			/* Descriptor ring memory */
@@ -40,22 +86,29 @@ struct mpnic_ring {
 
 	u32 head, tail;			/* Head/Tail of ring */
 
-	/* TWQ only, index of the metadata descriptor of the last packet
-	 * placed in the ring without ringing the doorbell, -1 if the
-	 * doorbell is in sync with the tail.
-	 */
-	s32 deferred_meta;
+	union {
+		/* BDQ only */
+		struct page_pool *page_pool;
+
+		/* TWQ only, index of the metadata descriptor of the last
+		 * packet placed in the ring without ringing the doorbell,
+		 * -1 if the doorbell is in sync with the tail.
+		 */
+		s32 deferred_meta;
+	};
 
 	/* Slow path fields follow */
 	dma_addr_t dma;			/* Phys addr of descriptor memory */
 	size_t size;			/* Size of descriptor ring in memory */
 };
 
-/* The device pairs two work queues with one completion queue. On the Tx
- * side only the first work queue is used for now, the second one becomes
+/* The device pairs two work queues with one completion queue. On the Rx
+ * side they are the header and the payload buffer descriptor queues; on
+ * the Tx side only the first one is used for now, the second one becomes
  * the XDP ring.
  */
 struct mpnic_q_triad {
+	struct xdp_rxq_info xdp_rxq;
 	struct mpnic_ring sub0, sub1, cmpl;
 };
 
@@ -66,6 +119,7 @@ struct mpnic_napi_vector {
 
 	u16 v_idx;
 	u16 txt_count;
+	u16 rxt_count;
 
 	char name[IFNAMSIZ + 11];
 
@@ -85,5 +139,6 @@ void mpnic_enable(struct mpnic_net *mpn);
 void mpnic_disable(struct mpnic_net *mpn);
 void mpnic_wait_all_queues_idle(struct mpnic_dev *mpd);
 void mpnic_flush(struct mpnic_net *mpn);
+void mpnic_fill(struct mpnic_net *mpn);
 
 #endif /* _MPNIC_TXRX_H_ */

@@ -11,6 +11,7 @@
 
 struct mpnic_net {
 	struct mpnic_ring *tx[MPNIC_MAX_TXQS];
+	struct mpnic_ring *rx[MPNIC_MAX_RXQS];
 
 	struct mpnic_napi_vector *napi[MPNIC_MAX_NAPI_VECTORS];
 
@@ -18,9 +19,13 @@ struct mpnic_net {
 	struct mpnic_dev *mpd;
 
 	u32 txq_size;
+	u32 hpq_size;
+	u32 ppq_size;
+	u32 rcq_size;
 
 	u16 num_napi;
 	u16 num_tx_queues;
+	u16 num_rx_queues;
 };
 
 struct net_device *mpnic_netdev_alloc(struct mpnic_dev *mpd);
