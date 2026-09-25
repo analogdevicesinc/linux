@@ -62,6 +62,7 @@ class CTransforms:
         (CMatch("struct_group_attr"), r"struct { \3+ };"),
         (CMatch("struct_group_tagged"), r"struct { \3+ };"),
         (CMatch("__struct_group"), r"struct { \4+ };"),
+        (CMatch("context_lock_struct"), r"struct \1"),
     ]
 
     #: Transforms for function prototypes.
