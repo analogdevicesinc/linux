@@ -24,6 +24,7 @@
 #include <linux/timer.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
+#include <kunit/static_stub.h>
 
 #include <asm/byteorder.h>
 
@@ -39,7 +40,7 @@
 static int try_cancel_split_timeout(struct fw_transaction *t)
 {
 	if (t->is_split_transaction)
-		return timer_delete(&t->split_timeout_timer);
+		return timer_delete(&t->split_timeout_timer) || disable_work(&t->error_work);
 	else
 		return 1;
 }
@@ -49,6 +50,17 @@ static void remove_transaction_entry(struct fw_card *card, struct fw_transaction
 {
 	list_del_init(&entry->link);
 	card->transactions.tlabel_mask &= ~(1ULL << entry->tlabel);
+}
+
+static void invoke_callback(struct fw_transaction *t, int rcode, u32 response_tstamp, void *data,
+			    size_t data_length)
+{
+	if (!t->with_tstamp) {
+		t->callback.without_tstamp(t->card, rcode, data, data_length, t->callback_data);
+	} else {
+		t->callback.with_tstamp(t->card, rcode, t->packet.timestamp, response_tstamp,
+					data, data_length, t->callback_data);
+	}
 }
 
 // Must be called without holding card->transactions.lock.
@@ -68,14 +80,7 @@ void fw_cancel_pending_transactions(struct fw_card *card)
 
 	list_for_each_entry_safe(t, tmp, &pending_list, link) {
 		list_del(&t->link);
-
-		if (!t->with_tstamp) {
-			t->callback.without_tstamp(card, RCODE_CANCELLED, NULL, 0,
-						   t->callback_data);
-		} else {
-			t->callback.with_tstamp(card, RCODE_CANCELLED, t->packet.timestamp, 0,
-						NULL, 0, t->callback_data);
-		}
+		invoke_callback(t, RCODE_CANCELLED, 0, NULL, 0);
 	}
 }
 
@@ -107,12 +112,7 @@ static int close_transaction(struct fw_transaction *transaction, struct fw_card 
 			return -ENOENT;
 	}
 
-	if (!t->with_tstamp) {
-		t->callback.without_tstamp(card, rcode, NULL, 0, t->callback_data);
-	} else {
-		t->callback.with_tstamp(card, rcode, t->packet.timestamp, response_tstamp, NULL, 0,
-					t->callback_data);
-	}
+	invoke_callback(t, rcode, response_tstamp, NULL, 0);
 
 	return 0;
 }
@@ -154,6 +154,21 @@ int fw_cancel_transaction(struct fw_card *card,
 }
 EXPORT_SYMBOL(fw_cancel_transaction);
 
+static void error_callback_work(struct work_struct *work)
+{
+	struct fw_transaction *t = from_work(t, work, error_work);
+
+	invoke_callback(t, t->rcode, t->response_timestamp, NULL, 0);
+}
+
+static void schedule_error_callback(struct fw_transaction *t, int rcode, u32 response_timestamp)
+{
+	t->rcode = rcode;
+	t->response_timestamp = response_timestamp;
+
+	queue_work(t->card->async_wq, &t->error_work);
+}
+
 static void split_transaction_timeout_callback(struct timer_list *timer)
 {
 	struct fw_transaction *t = timer_container_of(t, timer, split_timeout_timer);
@@ -165,12 +180,7 @@ static void split_transaction_timeout_callback(struct timer_list *timer)
 		remove_transaction_entry(card, t);
 	}
 
-	if (!t->with_tstamp) {
-		t->callback.without_tstamp(card, RCODE_CANCELLED, NULL, 0, t->callback_data);
-	} else {
-		t->callback.with_tstamp(card, RCODE_CANCELLED, t->packet.timestamp,
-					t->split_timeout_cycle, NULL, 0, t->callback_data);
-	}
+	schedule_error_callback(t, RCODE_CANCELLED, t->split_timeout_cycle);
 }
 
 // card->transactions.lock should be acquired in advance for the linked list.
@@ -203,9 +213,7 @@ static void transmit_complete_callback(struct fw_packet *packet,
 	{
 		unsigned int delta;
 
-		// NOTE: This can be without irqsave when we can guarantee that __fw_send_request() for
-		// local destination never runs in any type of IRQ context.
-		scoped_guard(spinlock_irqsave, &card->split_timeout.lock) {
+		scoped_guard(spinlock, &card->split_timeout.lock) {
 			t->split_timeout_cycle =
 				compute_split_timeout_timestamp(card, packet->timestamp) & 0xffff;
 			delta = card->split_timeout.jiffies;
@@ -366,8 +374,8 @@ __must_hold(&card->transactions.lock)
  *
  * In case of request types without payload, @data is NULL and @length is 0.
  *
- * After the transaction is completed successfully or unsuccessfully, the
- * @callback will be called.  Among its parameters is the response code which
+ * After the transaction is completed successfully or unsuccessfully, the @callback will be called
+ * in process context.  Among its parameters is the response code which
  * is either one of the rcodes per IEEE 1394 or, in case of internal errors,
  * the firewire-core specific %RCODE_SEND_ERROR.  The other firewire-core
  * specific rcodes (%RCODE_CANCELLED, %RCODE_BUSY, %RCODE_GENERATION,
@@ -386,6 +394,12 @@ void __fw_send_request(struct fw_card *card, struct fw_transaction *t, int tcode
 {
 	int tlabel;
 
+	t->card = card;
+	t->callback = callback;
+	t->with_tstamp = with_tstamp;
+	t->callback_data = callback_data;
+	INIT_WORK(&t->error_work, error_callback_work);
+
 	/*
 	 * Allocate tlabel from the bitmap and put the transaction on
 	 * the list while holding the card spinlock.
@@ -396,30 +410,23 @@ void __fw_send_request(struct fw_card *card, struct fw_transaction *t, int tcode
 	scoped_guard(spinlock_irqsave, &card->transactions.lock)
 		tlabel = allocate_tlabel(card);
 	if (tlabel < 0) {
-		if (!with_tstamp) {
-			callback.without_tstamp(card, RCODE_SEND_ERROR, NULL, 0, callback_data);
-		} else {
-			// Timestamping on behalf of hardware.
-			u32 curr_cycle_time = 0;
-			u32 tstamp;
+		// Timestamping on behalf of hardware.
+		u32 curr_cycle_time = 0;
+		u32 tstamp;
 
-			(void)fw_card_read_cycle_time(card, &curr_cycle_time);
-			tstamp = cycle_time_to_ohci_tstamp(curr_cycle_time);
+		(void)fw_card_read_cycle_time(card, &curr_cycle_time);
+		tstamp = cycle_time_to_ohci_tstamp(curr_cycle_time);
 
-			callback.with_tstamp(card, RCODE_SEND_ERROR, tstamp, tstamp, NULL, 0,
-					     callback_data);
-		}
+		t->packet.timestamp = tstamp;
+		schedule_error_callback(t, RCODE_SEND_ERROR, tstamp);
+
 		return;
 	}
 
 	t->node_id = destination_id;
 	t->tlabel = tlabel;
-	t->card = card;
 	t->is_split_transaction = false;
 	timer_setup(&t->split_timeout_timer, split_transaction_timeout_callback, 0);
-	t->callback = callback;
-	t->with_tstamp = with_tstamp;
-	t->callback_data = callback_data;
 	t->packet.callback = transmit_complete_callback;
 
 	// NOTE: This can be without irqsave when we can guarantee that __fw_send_request() for
@@ -481,6 +488,9 @@ int fw_run_transaction(struct fw_card *card, int tcode, int destination_id,
 		       int generation, int speed, unsigned long long offset,
 		       void *payload, size_t length)
 {
+	KUNIT_STATIC_STUB_REDIRECT(fw_run_transaction, card, tcode, destination_id, generation,
+				   speed, offset, payload, length);
+
 	struct transaction_callback_data d;
 	struct fw_transaction t;
 
@@ -896,9 +906,7 @@ static struct fw_request *allocate_request(struct fw_card *card,
 		return NULL;
 	kref_init(&request->kref);
 
-	// NOTE: This can be without irqsave when we can guarantee that __fw_send_request() for
-	// local destination never runs in any type of IRQ context.
-	scoped_guard(spinlock_irqsave, &card->split_timeout.lock)
+	scoped_guard(spinlock, &card->split_timeout.lock)
 		request->response.timestamp = compute_split_timeout_timestamp(card, p->timestamp);
 
 	request->response.speed = p->speed;
@@ -1198,12 +1206,7 @@ void fw_core_handle_response(struct fw_card *card, struct fw_packet *p)
 	 */
 	card->driver->cancel_packet(card, &t->packet);
 
-	if (!t->with_tstamp) {
-		t->callback.without_tstamp(card, rcode, data, data_length, t->callback_data);
-	} else {
-		t->callback.with_tstamp(card, rcode, t->packet.timestamp, p->timestamp, data,
-					data_length, t->callback_data);
-	}
+	invoke_callback(t, rcode, p->timestamp, data, data_length);
 }
 EXPORT_SYMBOL(fw_core_handle_response);
 
@@ -1256,9 +1259,7 @@ static void handle_topology_map(struct fw_card *card, struct fw_request *request
 
 	start = (offset - topology_map_region.start) / 4;
 
-	// NOTE: This can be without irqsave when we can guarantee that fw_send_request() for local
-	// destination never runs in any type of IRQ context.
-	scoped_guard(spinlock_irqsave, &card->topology_map.lock)
+	scoped_guard(spinlock, &card->topology_map.lock)
 		memcpy(payload, &card->topology_map.buffer[start], length);
 
 	fw_send_response(card, request, RCODE_COMPLETE);
@@ -1336,10 +1337,7 @@ static void handle_registers(struct fw_card *card, struct fw_request *request,
 		if (tcode == TCODE_READ_QUADLET_REQUEST) {
 			*data = cpu_to_be32(card->split_timeout.hi);
 		} else if (tcode == TCODE_WRITE_QUADLET_REQUEST) {
-			// NOTE: This can be without irqsave when we can guarantee that
-			// __fw_send_request() for local destination never runs in any type of IRQ
-			// context.
-			scoped_guard(spinlock_irqsave, &card->split_timeout.lock) {
+			scoped_guard(spinlock, &card->split_timeout.lock) {
 				card->split_timeout.hi = be32_to_cpu(*data) & 7;
 				update_split_timeout(card);
 			}
@@ -1352,10 +1350,7 @@ static void handle_registers(struct fw_card *card, struct fw_request *request,
 		if (tcode == TCODE_READ_QUADLET_REQUEST) {
 			*data = cpu_to_be32(card->split_timeout.lo);
 		} else if (tcode == TCODE_WRITE_QUADLET_REQUEST) {
-			// NOTE: This can be without irqsave when we can guarantee that
-			// __fw_send_request() for local destination never runs in any type of IRQ
-			// context.
-			scoped_guard(spinlock_irqsave, &card->split_timeout.lock) {
+			scoped_guard(spinlock, &card->split_timeout.lock) {
 				card->split_timeout.lo = be32_to_cpu(*data) & 0xfff80000;
 				update_split_timeout(card);
 			}

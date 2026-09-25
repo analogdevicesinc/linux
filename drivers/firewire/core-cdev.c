@@ -356,19 +356,27 @@ static int dequeue_event(struct client *client,
 	size_t size, total;
 	int i, ret;
 
-	ret = wait_event_interruptible(client->wait,
-			!list_empty(&client->event_list) ||
-			fw_device_is_shutdown(client->device));
-	if (ret < 0)
-		return ret;
+	// After the following block, the event pointer above is guaranteed to have a correct value.
+	{
+		spin_lock_irq(&client->lock);
 
-	if (list_empty(&client->event_list) &&
-		       fw_device_is_shutdown(client->device))
-		return -ENODEV;
+		int ret = wait_event_interruptible_lock_irq(client->wait,
+			!list_empty(&client->event_list) || fw_device_is_shutdown(client->device),
+			client->lock);
+		if (ret < 0) {
+			spin_unlock_irq(&client->lock);
+			return ret;
+		}
 
-	scoped_guard(spinlock_irq, &client->lock) {
+		if (fw_device_is_shutdown(client->device)) {
+			spin_unlock_irq(&client->lock);
+			return -ENODEV;
+		}
+
 		event = list_first_entry(&client->event_list, struct event, link);
 		list_del(&event->link);
+
+		spin_unlock_irq(&client->lock);
 	}
 
 	total = 0;
@@ -398,19 +406,27 @@ static ssize_t fw_device_op_read(struct file *file, char __user *buffer,
 
 static void fill_bus_reset_event(struct fw_cdev_event_bus_reset *event,
 				 struct client *client)
+__must_hold(&client->device->client_list_mutex)
 {
-	struct fw_card *card = client->device->card;
+	lockdep_assert_held(&client->device->client_list_mutex);
 
-	guard(spinlock_irq)(&card->lock);
-
+	// This member is related to the above mutex. In detail, see 93b37905f70 ("firewire: cdev:
+	// prevent race between first get_info ioctl and bus reset event queuing").
 	event->closure	     = client->bus_reset_closure;
 	event->type          = FW_CDEV_EVENT_BUS_RESET;
+
 	event->generation    = client->device->generation;
+	smp_rmb();
 	event->node_id       = client->device->node_id;
-	event->local_node_id = card->local_node->node_id;
-	event->bm_node_id    = card->bm_node_id;
-	event->irm_node_id   = card->irm_node->node_id;
-	event->root_node_id  = card->root_node->node_id;
+
+	struct fw_card *card = client->device->card;
+
+	scoped_guard(spinlock_irq, &card->lock) {
+		event->local_node_id = card->local_node->node_id;
+		event->bm_node_id    = card->bm_node_id;
+		event->irm_node_id   = card->irm_node->node_id;
+		event->root_node_id  = card->root_node->node_id;
+	}
 }
 
 static void for_each_client(struct fw_device *device,
@@ -488,8 +504,6 @@ union ioctl_arg {
 static int ioctl_get_info(struct client *client, union ioctl_arg *arg)
 {
 	struct fw_cdev_get_info *a = &arg->get_info;
-	struct fw_cdev_event_bus_reset bus_reset;
-	unsigned long ret = 0;
 
 	client->version = a->version;
 	a->version = FW_CDEV_KERNEL_VERSION;
@@ -497,29 +511,40 @@ static int ioctl_get_info(struct client *client, union ioctl_arg *arg)
 
 	scoped_guard(rwsem_read, &fw_device_rwsem) {
 		if (a->rom != 0) {
-			size_t want = a->rom_length;
-			size_t have = client->device->config_rom_length * 4;
+			size_t length = min_t(size_t, a->rom_length,
+					      client->device->config_rom_length * 4);
 
-			ret = copy_to_user(u64_to_uptr(a->rom), client->device->config_rom,
-					   min(want, have));
-			if (ret != 0)
+			if (copy_to_user(u64_to_uptr(a->rom), client->device->config_rom, length))
 				return -EFAULT;
 		}
 		a->rom_length = client->device->config_rom_length * 4;
 	}
 
-	guard(mutex)(&client->device->client_list_mutex);
+	scoped_guard(mutex, &client->device->client_list_mutex) {
+		// Coordinate concurrent access to this member with bus reset event handling, see
+		// 93b37905f70 ("firewire: cdev: prevent race between first get_info ioctl and bus
+		// reset event queuing").
+		client->bus_reset_closure = a->bus_reset_closure;
 
-	client->bus_reset_closure = a->bus_reset_closure;
-	if (a->bus_reset != 0) {
-		fill_bus_reset_event(&bus_reset, client);
-		/* unaligned size of bus_reset is 36 bytes */
-		ret = copy_to_user(u64_to_uptr(a->bus_reset), &bus_reset, 36);
+		if (a->bus_reset != 0) {
+			struct fw_cdev_event_bus_reset bus_reset;
+
+			memset(&bus_reset, 0, sizeof(bus_reset));
+			fill_bus_reset_event(&bus_reset, client);
+
+			// This structure has 4 bytes of trailing padding under the System V ABI
+			// on most architectures (due to 8-byte alignment of the long long type),
+			// except for Intel386 (where long long type is aligned to 4 bytes). In
+			// either case, the effective length is 36 bytes.
+			if (copy_to_user(u64_to_uptr(a->bus_reset), &bus_reset, 36))
+				return -EFAULT;
+		}
+
+		if (list_empty(&client->link))
+			list_add_tail(&client->link, &client->device->client_list);
 	}
-	if (ret == 0 && list_empty(&client->link))
-		list_add_tail(&client->link, &client->device->client_list);
 
-	return ret ? -EFAULT : 0;
+	return 0;
 }
 
 static int add_client_resource(struct client *client, struct client_resource *resource,
