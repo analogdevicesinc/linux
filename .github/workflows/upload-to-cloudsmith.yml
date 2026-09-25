@@ -38,6 +38,8 @@ jobs:
 
     - name: Download artifacts
       if: ${{ env.CLOUDSMITH_API_KEY != '' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         gh-get-workflow-artifacts()
         {
@@ -49,16 +51,18 @@ jobs:
           echo "$artifacts"
         }
 
-        gh-download-artifact () {
+        gh-download-artifact() {
+          echo "$2"
           curl -sfL \
             -H "Authorization: Bearer $1" \
             -H "Accept: application/vnd.github+json" \
             -o "$2" \
             "$3"
         }
+        export -f gh-download-artifact
 
         artifacts=$(
-          gh-get-workflow-artifacts ${{ secrets.GITHUB_TOKEN }} \
+          gh-get-workflow-artifacts "$GITHUB_TOKEN" \
                                     ${{ github.repository }} \
                                     ${{ github.run_id }}
         )
@@ -71,7 +75,7 @@ jobs:
 
         artifacts_files=$(echo $artifacts | jq '[.artifacts[] | [.name, .archive_download_url]]' -r)
         patterns="${{ inputs.artifacts }}"
-        echo "$artifacts_files" | jq -r '.[] | @tsv' | while IFS=$'\t' read -r name url; do
+        tuples=$(echo "$artifacts_files" | jq -r '.[] | @tsv' | while IFS=$'\t' read -r name url; do
           matched=0
           while IFS= read -r p || [[ -n "$p" ]]; do
             [[ -z "$p" ]] && continue
@@ -82,14 +86,23 @@ jobs:
           done < <(printf '%s' "$patterns" | tr '[:space:]' '\n')
 
           if [[ "$matched" == "1" ]]; then
-            echo "$name"
-            gh-download-artifact ${{ secrets.GITHUB_TOKEN }} \
-                                 "dist/$name" \
-                                 "$url"
+            printf '%s\t%s\n' "$name" "$url"
           else
-            echo "$name no match, skipped"
+            echo "$name no match, skipped" >&2
           fi
-        done
+        done)
+
+        [[ -n "$tuples" ]] || exit
+        if command -v parallel &>/dev/null ; then
+          printf '%s\n' "$tuples" |
+            parallel --jobs 8 --colsep '\t' \
+              "gh-download-artifact \"$GITHUB_TOKEN\" \"dist/{1}\" {2}"
+        else
+          echo "Tip: install gnu_parallel to download in parallel."
+          while IFS=$'\t' read -r name url; do
+            gh-download-artifact "$GITHUB_TOKEN" "dist/$name" "$url"
+          done <<< "$tuples"
+        fi
 
     - name: Cloudsmith upload assets
       if: ${{ env.CLOUDSMITH_API_KEY != '' }}
