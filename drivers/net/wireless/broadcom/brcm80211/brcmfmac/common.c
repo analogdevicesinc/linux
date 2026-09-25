@@ -95,6 +95,10 @@ void brcmf_c_set_joinpref_default(struct brcmf_if *ifp)
 	join_pref_params[1].band = 0;
 	err = brcmf_fil_iovar_data_set(ifp, "join_pref", join_pref_params,
 				       sizeof(join_pref_params));
+	if (err == -EBADE)
+		err = brcmf_fil_iovar_data_set(ifp, "join_pref",
+					       &join_pref_params[1],
+					       sizeof(join_pref_params[1]));
 	if (err)
 		bphy_err(drvr, "Set join_pref error (%d)\n", err);
 }
