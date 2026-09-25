@@ -371,16 +371,16 @@ static ssize_t ad9088_fsrc_print_block(char *buf, size_t size, ssize_t offset,
 {
 	ssize_t len = offset;
 
-	len += snprintf(buf + len, size - len, "  %s:\n", name);
-	len += snprintf(buf + len, size - len, "    enable0:          %d\n", fsrc->dp_cfg.enable0);
-	len += snprintf(buf + len, size - len, "    enable1:          %d\n", fsrc->dp_cfg.enable1);
-	len += snprintf(buf + len, size - len, "    mode_1x:          %d\n", fsrc->dp_cfg.mode_1x);
-	len += snprintf(buf + len, size - len, "    fsrc_bypass:      %d\n", fsrc->fsrc_bypass);
-	len += snprintf(buf + len, size - len, "    fsrc_rate_int:    0x%llx\n", fsrc->dp_cfg.fsrc_rate_int);
-	len += snprintf(buf + len, size - len, "    fsrc_rate_frac_a: 0x%llx\n", fsrc->dp_cfg.fsrc_rate_frac_a);
-	len += snprintf(buf + len, size - len, "    fsrc_rate_frac_b: 0x%llx\n", fsrc->dp_cfg.fsrc_rate_frac_b);
-	len += snprintf(buf + len, size - len, "    gain_reduction:   0x%x\n", fsrc->dp_cfg.gain_reduction);
-	len += snprintf(buf + len, size - len, "    fsrc_delay:       0x%x\n", fsrc->dp_cfg.fsrc_delay);
+	len += scnprintf(buf + len, size - len, "  %s:\n", name);
+	len += scnprintf(buf + len, size - len, "    enable0:          %d\n", fsrc->dp_cfg.enable0);
+	len += scnprintf(buf + len, size - len, "    enable1:          %d\n", fsrc->dp_cfg.enable1);
+	len += scnprintf(buf + len, size - len, "    mode_1x:          %d\n", fsrc->dp_cfg.mode_1x);
+	len += scnprintf(buf + len, size - len, "    fsrc_bypass:      %d\n", fsrc->fsrc_bypass);
+	len += scnprintf(buf + len, size - len, "    fsrc_rate_int:    0x%llx\n", fsrc->dp_cfg.fsrc_rate_int);
+	len += scnprintf(buf + len, size - len, "    fsrc_rate_frac_a: 0x%llx\n", fsrc->dp_cfg.fsrc_rate_frac_a);
+	len += scnprintf(buf + len, size - len, "    fsrc_rate_frac_b: 0x%llx\n", fsrc->dp_cfg.fsrc_rate_frac_b);
+	len += scnprintf(buf + len, size - len, "    gain_reduction:   0x%x\n", fsrc->dp_cfg.gain_reduction);
+	len += scnprintf(buf + len, size - len, "    fsrc_delay:       0x%x\n", fsrc->dp_cfg.fsrc_delay);
 
 	return len;
 }
@@ -425,16 +425,16 @@ int ad9088_fsrc_inspect(struct ad9088_phy *phy)
 
 	/* Print tree-style output */
 	for (t = 0; t < ARRAY_SIZE(terminals); t++) {
-		len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+		len += scnprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
 				"%s FSRC:\n", terminals[t].name);
 		for (i = 0; i < ADI_APOLLO_FSRC_NUM; i++) {
 			len = ad9088_fsrc_print_block(phy->dbuf, sizeof(phy->dbuf),
 						      len, fsrc_names[i], &fsrc[t][i]);
 		}
-		len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "\n");
+		len += scnprintf(phy->dbuf + len, sizeof(phy->dbuf) - len, "\n");
 	}
 
-	len += snprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
+	len += scnprintf(phy->dbuf + len, sizeof(phy->dbuf) - len,
 			"  FSRC ratio (N/M) = 2^48 / (fsrc_rate_int + fsrc_rate_frac_a/fsrc_rate_frac_b)\n");
 
 	return len;

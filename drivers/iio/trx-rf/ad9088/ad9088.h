@@ -316,7 +316,7 @@ struct ad9088_phy {
 
 	u8 hsci_buf[ADI_APOLLO_HAL_REGIO_HSCI_STREAM_DEFAULT_SIZE];
 	u8 gpios_exported[ADI_APOLLO_NUM_GPIO];
-	char dbuf[1024];
+	char dbuf[4096];
 
 	u8 loopback_mode[ADI_APOLLO_NUM_SIDES];
 	u8 lb1_blend[ADI_APOLLO_NUM_SIDES];
