@@ -2950,17 +2950,7 @@ static struct platform_driver gcc_sdx75_driver = {
 	},
 };
 
-static int __init gcc_sdx75_init(void)
-{
-	return platform_driver_register(&gcc_sdx75_driver);
-}
-subsys_initcall(gcc_sdx75_init);
-
-static void __exit gcc_sdx75_exit(void)
-{
-	platform_driver_unregister(&gcc_sdx75_driver);
-}
-module_exit(gcc_sdx75_exit);
+subsys_platform_driver(gcc_sdx75_driver);
 
 MODULE_DESCRIPTION("QTI GCC SDX75 Driver");
 MODULE_LICENSE("GPL");

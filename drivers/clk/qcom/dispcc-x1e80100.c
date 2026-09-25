@@ -1704,17 +1704,7 @@ static struct platform_driver disp_cc_x1e80100_driver = {
 	},
 };
 
-static int __init disp_cc_x1e80100_init(void)
-{
-	return platform_driver_register(&disp_cc_x1e80100_driver);
-}
-subsys_initcall(disp_cc_x1e80100_init);
-
-static void __exit disp_cc_x1e80100_exit(void)
-{
-	platform_driver_unregister(&disp_cc_x1e80100_driver);
-}
-module_exit(disp_cc_x1e80100_exit);
+subsys_platform_driver(disp_cc_x1e80100_driver);
 
 MODULE_DESCRIPTION("QTI Display Clock Controller X1E80100 Driver");
 MODULE_LICENSE("GPL");
