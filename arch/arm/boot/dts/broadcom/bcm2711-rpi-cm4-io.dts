@@ -7,6 +7,10 @@
 
 / {
 	model = "Raspberry Pi Compute Module 4 IO Board";
+
+	aliases {
+		rtc0 = &pcf85063;
+	};
 };
 
 &ddc0 {
@@ -103,11 +107,12 @@
 };
 
 &i2c0_1 {
-	rtc@51 {
+	pcf85063: rtc@51 {
 		/* Attention: An alarm resets the machine */
 		compatible = "nxp,pcf85063a";
 		reg = <0x51>;
 		quartz-load-femtofarads = <7000>;
+		wakeup-source;
 	};
 };
 
