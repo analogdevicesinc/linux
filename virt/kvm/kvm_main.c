@@ -4363,7 +4363,7 @@ static int kvm_vcpu_ioctl_get_stats_fd(struct kvm_vcpu *vcpu)
 static int kvm_vcpu_pre_fault_memory(struct kvm_vcpu *vcpu,
 				     struct kvm_pre_fault_memory *range)
 {
-	int idx;
+	int idx, err;
 	long r;
 	u64 full_size;
 
@@ -4374,6 +4374,14 @@ static int kvm_vcpu_pre_fault_memory(struct kvm_vcpu *vcpu,
 	    !PAGE_ALIGNED(range->size) ||
 	    range->gpa + range->size <= range->gpa)
 		return -EINVAL;
+
+	/*
+	 * Certain architectures (e.g. arm64) need to reject the ioctl 'early'
+	 * before vcpu_load().
+	 */
+	err = kvm_arch_pre_fault_allowed(vcpu);
+	if (err)
+		return err;
 
 	vcpu_load(vcpu);
 	idx = srcu_read_lock(&vcpu->kvm->srcu);
