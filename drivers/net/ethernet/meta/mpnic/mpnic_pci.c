@@ -58,6 +58,10 @@ static struct mpnic_dev *mpnic_alloc(struct pci_dev *pdev)
 	pci_set_drvdata(pdev, mpd);
 	mpd->dev = &pdev->dev;
 
+	mpd->mps = pcie_get_mps(pdev);
+	mpd->readrq = pcie_get_readrq(pdev);
+	mpd->relaxed_ord = pcie_relaxed_ordering_enabled(pdev);
+
 	return mpd;
 }
 
@@ -107,6 +111,10 @@ static int mpnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	pci_set_master(pdev);
 	pci_save_state(pdev);
+
+	err = mpnic_dev_init(mpd);
+	if (err)
+		goto err_free_mpd;
 
 	return 0;
 

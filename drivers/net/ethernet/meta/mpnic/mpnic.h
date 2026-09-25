@@ -11,13 +11,22 @@
 
 #define MPNIC_DRV_NAME		"mpnic"
 
+#define MPNIC_MAX_TXQS		1024u
+#define MPNIC_MAX_RXQS		1024u
+
 struct mpnic_dev {
 	struct device *dev;
 
 	u32 __iomem *uc_addr0;
+
+	u32 mps;
+	u32 readrq;
+	u8 relaxed_ord;
 };
 
 u64 mpnic_rd64(struct mpnic_dev *mpd, u32 reg);
+
+int mpnic_dev_init(struct mpnic_dev *mpd);
 
 static inline void mpnic_wr64(struct mpnic_dev *mpd, u32 reg, u64 val)
 {
