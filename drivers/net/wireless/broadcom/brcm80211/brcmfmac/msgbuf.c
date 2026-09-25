@@ -12,6 +12,7 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 
+#include <brcm_hw_ids.h>
 #include <brcmu_utils.h>
 #include <brcmu_wifi.h>
 
@@ -51,7 +52,7 @@
 #define MSGBUF_TYPE_D2H_MAILBOX_DATA		0x24
 
 #define NR_TX_PKTIDS				2048
-#define NR_RX_PKTIDS				1024
+#define NR_RX_PKTIDS				2048
 
 #define BRCMF_IOCTL_REQ_PKTID			0xFFFE
 
@@ -329,7 +330,6 @@ brcmf_msgbuf_init_pktids(u32 nr_array_entries,
 
 	return pktids;
 }
-
 
 static int
 brcmf_msgbuf_alloc_pktid(struct device *dev,
@@ -1695,8 +1695,10 @@ int brcmf_proto_msgbuf_attach(struct brcmf_pub *drvr)
 						     DMA_TO_DEVICE);
 	if (!msgbuf->tx_pktids)
 		goto fail;
+	/* BCM4388 firmware also reads from posted RX buffers. */
 	msgbuf->rx_pktids = brcmf_msgbuf_init_pktids(NR_RX_PKTIDS,
-						     DMA_FROM_DEVICE);
+			drvr->bus_if->chip == BRCM_CC_4388_CHIP_ID ?
+			DMA_BIDIRECTIONAL : DMA_FROM_DEVICE);
 	if (!msgbuf->rx_pktids)
 		goto fail;
 
