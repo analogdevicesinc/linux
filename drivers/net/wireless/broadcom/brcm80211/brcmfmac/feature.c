@@ -5,6 +5,7 @@
 
 #include <linux/netdevice.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 
 #include <brcm_hw_ids.h>
 #include <brcmu_wifi.h>
@@ -226,6 +227,43 @@ static void brcmf_feat_iovar_data_set(struct brcmf_if *ifp,
 	ifp->fwil_fwerr = false;
 }
 
+static void brcmf_feat_event_msgs_ext(struct brcmf_if *ifp)
+{
+	struct brcmf_pub *drvr = ifp->drvr;
+	struct brcmf_fweh_info *fweh = drvr->fweh;
+	struct brcmf_eventmsgs_ext_le *eventmsgs;
+	size_t size;
+	int err;
+
+	if (!fweh || fweh->event_mask_len > 0xff)
+		return;
+
+	size = struct_size(eventmsgs, mask, fweh->event_mask_len);
+	eventmsgs = kzalloc(size, GFP_KERNEL);
+	if (!eventmsgs)
+		return;
+
+	eventmsgs->version = EVENTMSGS_VER;
+	eventmsgs->command = EVENTMSGS_NONE;
+	eventmsgs->len = fweh->event_mask_len;
+	eventmsgs->maxgetsize = fweh->event_mask_len;
+
+	ifp->fwil_fwerr = true;
+	err = brcmf_fil_iovar_data_get(ifp, "event_msgs_ext", eventmsgs, size);
+	ifp->fwil_fwerr = false;
+
+	if (!err) {
+		brcmf_dbg(INFO, "enabling feature: %s\n",
+			  brcmf_feat_names[BRCMF_FEAT_EVENT_MSGS_EXT]);
+		drvr->feat_flags |= BIT(BRCMF_FEAT_EVENT_MSGS_EXT);
+	} else {
+		brcmf_dbg(TRACE, "%s feature check failed: %d\n",
+			  brcmf_feat_names[BRCMF_FEAT_EVENT_MSGS_EXT], err);
+	}
+
+	kfree(eventmsgs);
+}
+
 #define MAX_CAPS_BUFFER_SIZE	768
 static void brcmf_feat_firmware_capabilities(struct brcmf_if *ifp)
 {
@@ -348,6 +386,7 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_FWSUP, "sup_wpa");
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_SCAN_V2, "scan_ver");
+	brcmf_feat_event_msgs_ext(ifp);
 
 	brcmf_feat_wlc_version_overrides(drvr);
 	brcmf_feat_firmware_overrides(drvr);

@@ -1260,6 +1260,10 @@ static int brcmf_bus_started(struct brcmf_pub *drvr, struct cfg80211_ops *ops)
 
 	brcmf_feat_attach(drvr);
 
+	ret = brcmf_fweh_init_events(ifp);
+	if (ret < 0)
+		goto fail;
+
 	ret = brcmf_proto_init_done(drvr);
 	if (ret < 0)
 		goto fail;
@@ -1636,4 +1640,3 @@ void __exit brcmf_core_exit(void)
 	brcmf_usb_exit();
 	brcmf_pcie_exit();
 }
-
