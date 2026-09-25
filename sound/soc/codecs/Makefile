@@ -369,6 +369,7 @@ snd-soc-wcd938x-y := wcd938x.o
 snd-soc-wcd938x-sdw-y := wcd938x-sdw.o
 snd-soc-wcd939x-y := wcd939x.o
 snd-soc-wcd939x-sdw-y := wcd939x-sdw.o
+snd-soc-wcd9378-y := wcd9378-sdw.o wcd9378-sdca.o
 snd-soc-wm-adsp-y := wm_adsp.o
 snd-soc-wm-adsp-test-y := wm_adsp_fw_find_test.o
 snd-soc-wm0010-y := wm0010.o
@@ -825,6 +826,7 @@ ifdef CONFIG_SND_SOC_WCD939X_SDW
 # avoid link failure by forcing sdw code built-in when needed
 obj-$(CONFIG_SND_SOC_WCD939X) += snd-soc-wcd939x-sdw.o
 endif
+obj-$(CONFIG_SND_SOC_WCD9378_SDCA) += snd-soc-wcd9378.o
 obj-$(CONFIG_SND_SOC_WM0010)	+= snd-soc-wm0010.o
 obj-$(CONFIG_SND_SOC_WM1250_EV1) += snd-soc-wm1250-ev1.o
 obj-$(CONFIG_SND_SOC_WM2000)	+= snd-soc-wm2000.o
