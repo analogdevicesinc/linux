@@ -45,6 +45,7 @@ config DRM_MIPI_DSI
 config DRM_KMS_HELPER
 	tristate
 	depends on DRM
+	select DRM_PANIC_HELPER if DRM_PANIC
 	select FB_CORE if DRM_FBDEV_EMULATION
 	help
 	  CRTC helpers for KMS drivers.
@@ -56,8 +57,6 @@ config DRM_DRAW
 config DRM_PANIC
 	bool "Display a user-friendly message when a kernel panic occurs"
 	depends on DRM && PRINTK
-	select FONT_SUPPORT
-	select DRM_DRAW
 	help
 	  Enable a drm panic handler, which will display a user-friendly message
 	  when a kernel panic occurs. It's useful when using a user-space
@@ -129,6 +128,12 @@ config DRM_PANIC_SCREEN_QR_VERSION
 	  version ranges from Version 1 (21x21) to Version 40 (177x177).
 	  Smaller QR code are easier to read, but will contain less debugging
 	  data. Default is 40.
+
+config DRM_PANIC_HELPER
+	bool
+	depends on DRM
+	select DRM_DRAW
+	select FONT_SUPPORT
 
 config DRM_RAS
 	bool "DRM RAS support"

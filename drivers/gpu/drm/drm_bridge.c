@@ -460,9 +460,13 @@ void drm_bridge_add(struct drm_bridge *bridge)
 	mutex_init(&bridge->hpd_state_mutex);
 	mutex_init(&bridge->hpd_mutex);
 
-	if (bridge->ops & DRM_BRIDGE_OP_HDMI)
+	if (bridge->ops & DRM_BRIDGE_OP_HDMI) {
+		if (bridge->supported_hdmi_ver == HDMI_VERSION_UNKNOWN)
+			DRM_WARN("HDMI bridge misses supported HDMI version\n");
+
 		bridge->ycbcr_420_allowed = !!(bridge->supported_formats &
 					       BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420));
+	}
 
 	mutex_lock(&bridge_lock);
 	list_add_tail(&bridge->list, &bridge_list);
@@ -549,10 +553,31 @@ drm_bridge_atomic_create_priv_state(struct drm_private_obj *obj)
 	return &state->base;
 }
 
+static void
+drm_bridge_atomic_print_priv_state(struct drm_printer *p,
+				   const struct drm_private_state *s)
+{
+	const struct drm_bridge_state *state = drm_priv_to_bridge_state(s);
+	struct drm_bridge *bridge = drm_priv_to_bridge(s->obj);
+
+	if (bridge->of_node)
+		drm_printf(p, "bridge: %ps (%pOFfc)\n", bridge->funcs, bridge->of_node);
+	else
+		drm_printf(p, "bridge: %ps\n", bridge->funcs);
+
+	drm_printf_indent(p, 1, "input bus configuration:");
+	drm_printf_indent(p, 2, "code: %04x", state->input_bus_cfg.format);
+	drm_printf_indent(p, 2, "flags: %08x", state->input_bus_cfg.flags);
+	drm_printf_indent(p, 1, "output bus configuration:");
+	drm_printf_indent(p, 2, "code: %04x", state->output_bus_cfg.format);
+	drm_printf_indent(p, 2, "flags: %08x", state->output_bus_cfg.flags);
+}
+
 static const struct drm_private_state_funcs drm_bridge_priv_state_funcs = {
 	.atomic_create_state = drm_bridge_atomic_create_priv_state,
 	.atomic_duplicate_state = drm_bridge_atomic_duplicate_priv_state,
 	.atomic_destroy_state = drm_bridge_atomic_destroy_priv_state,
+	.atomic_print_state = drm_bridge_atomic_print_priv_state,
 };
 
 /**

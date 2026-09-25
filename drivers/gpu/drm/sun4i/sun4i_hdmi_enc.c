@@ -654,7 +654,7 @@ static int sun4i_hdmi_bind(struct device *dev, struct device *master,
 
 	drm_connector_helper_add(&hdmi->connector,
 				 &sun4i_hdmi_connector_helper_funcs);
-	ret = drmm_connector_hdmi_init(drm, &hdmi->connector,
+	ret = drmm_connector_hdmi_ini2(drm, &hdmi->connector,
 				       /*
 					* NOTE: Those are likely to be
 					* wrong, but I couldn't find the

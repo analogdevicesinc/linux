@@ -321,10 +321,10 @@ static void function_name(const struct vkms_plane_state *plane, int x_start,			\
 			      struct pixel_argb_u16 out_pixel[])				\
 {												\
 	struct pixel_argb_u16 *end = out_pixel + count;						\
-	int step = get_block_step_bytes(plane->frame_info->fb, direction, 0);			\
+	int step = get_block_step_bytes(plane->frame_info.fb, direction, 0);			\
 	u8 *src_pixels;										\
 												\
-	packed_pixels_addr_1x1(plane->frame_info, x_start, y_start, 0, &src_pixels);		\
+	packed_pixels_addr_1x1(&plane->frame_info, x_start, y_start, 0, &src_pixels);		\
 												\
 	while (out_pixel < end) {								\
 		pixel_type *(pixel_name) = (pixel_type *)src_pixels;				\
@@ -379,16 +379,16 @@ static void Rx_read_line(const struct vkms_plane_state *plane, int x_start,
 			 struct pixel_argb_u16 out_pixel[])
 {
 	struct pixel_argb_u16 *end = out_pixel + count;
-	int bits_per_pixel = drm_format_info_bpp(plane->frame_info->fb->format, 0);
+	int bits_per_pixel = drm_format_info_bpp(plane->frame_info.fb->format, 0);
 	u8 *src_pixels;
 	int rem_x, rem_y;
 
-	WARN_ONCE(drm_format_info_block_height(plane->frame_info->fb->format, 0) != 1,
+	WARN_ONCE(drm_format_info_block_height(plane->frame_info.fb->format, 0) != 1,
 		  "%s() only support formats with block_h == 1", __func__);
 
-	packed_pixels_addr(plane->frame_info, x_start, y_start, 0, &src_pixels, &rem_x, &rem_y);
+	packed_pixels_addr(&plane->frame_info, x_start, y_start, 0, &src_pixels, &rem_x, &rem_y);
 	int bit_offset = (8 - bits_per_pixel) - rem_x * bits_per_pixel;
-	int step = get_block_step_bytes(plane->frame_info->fb, direction, 0);
+	int step = get_block_step_bytes(plane->frame_info.fb, direction, 0);
 	int mask = (0x1 << bits_per_pixel) - 1;
 	int lum_per_level = 0xFFFF / mask;
 
@@ -503,15 +503,15 @@ static void function_name(const struct vkms_plane_state *plane, int x_start,			\
 	u8 *plane_1;										\
 	u8 *plane_2;										\
 												\
-	packed_pixels_addr_1x1(plane->frame_info, x_start, y_start, 0,				\
+	packed_pixels_addr_1x1(&plane->frame_info, x_start, y_start, 0,				\
 			       &plane_1);							\
-	packed_pixels_addr_1x1(plane->frame_info,						\
-			       x_start / plane->frame_info->fb->format->hsub,			\
-			       y_start / plane->frame_info->fb->format->vsub, 1,		\
+	packed_pixels_addr_1x1(&plane->frame_info,						\
+			       x_start / plane->frame_info.fb->format->hsub,			\
+			       y_start / plane->frame_info.fb->format->vsub, 1,			\
 			       &plane_2);							\
-	int step_1 = get_block_step_bytes(plane->frame_info->fb, direction, 0);			\
-	int step_2 = get_block_step_bytes(plane->frame_info->fb, direction, 1);			\
-	int subsampling = get_subsampling(plane->frame_info->fb->format, direction);		\
+	int step_1 = get_block_step_bytes(plane->frame_info.fb, direction, 0);			\
+	int step_2 = get_block_step_bytes(plane->frame_info.fb, direction, 1);			\
+	int subsampling = get_subsampling(plane->frame_info.fb->format, direction);		\
 	int subsampling_offset = get_subsampling_offset(direction, x_start, y_start);		\
 	const struct conversion_matrix *conversion_matrix = &plane->conversion_matrix;		\
 												\
@@ -548,20 +548,20 @@ static void planar_yuv_read_line(const struct vkms_plane_state *plane, int x_sta
 	u8 *channel_1_plane;
 	u8 *channel_2_plane;
 
-	packed_pixels_addr_1x1(plane->frame_info, x_start, y_start, 0,
+	packed_pixels_addr_1x1(&plane->frame_info, x_start, y_start, 0,
 			       &y_plane);
-	packed_pixels_addr_1x1(plane->frame_info,
-			       x_start / plane->frame_info->fb->format->hsub,
-			       y_start / plane->frame_info->fb->format->vsub, 1,
+	packed_pixels_addr_1x1(&plane->frame_info,
+			       x_start / plane->frame_info.fb->format->hsub,
+			       y_start / plane->frame_info.fb->format->vsub, 1,
 			       &channel_1_plane);
-	packed_pixels_addr_1x1(plane->frame_info,
-			       x_start / plane->frame_info->fb->format->hsub,
-			       y_start / plane->frame_info->fb->format->vsub, 2,
+	packed_pixels_addr_1x1(&plane->frame_info,
+			       x_start / plane->frame_info.fb->format->hsub,
+			       y_start / plane->frame_info.fb->format->vsub, 2,
 			       &channel_2_plane);
-	int step_y = get_block_step_bytes(plane->frame_info->fb, direction, 0);
-	int step_channel_1 = get_block_step_bytes(plane->frame_info->fb, direction, 1);
-	int step_channel_2 = get_block_step_bytes(plane->frame_info->fb, direction, 2);
-	int subsampling = get_subsampling(plane->frame_info->fb->format, direction);
+	int step_y = get_block_step_bytes(plane->frame_info.fb, direction, 0);
+	int step_channel_1 = get_block_step_bytes(plane->frame_info.fb, direction, 1);
+	int step_channel_2 = get_block_step_bytes(plane->frame_info.fb, direction, 2);
+	int subsampling = get_subsampling(plane->frame_info.fb->format, direction);
 	int subsampling_offset = get_subsampling_offset(direction, x_start, y_start);
 	const struct conversion_matrix *conversion_matrix = &plane->conversion_matrix;
 

@@ -9138,9 +9138,12 @@ S:	Supported
 T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
 F:	drivers/gpu/drm/drm_draw.c
 F:	drivers/gpu/drm/drm_draw_internal.h
-F:	drivers/gpu/drm/drm_panic*.c
-F:	drivers/gpu/drm/tests/drm_panic_test.c
-F:	include/drm/drm_panic*
+F:	drivers/gpu/drm/drm_panic.c
+F:	drivers/gpu/drm/drm_panic_helper.c
+F:	drivers/gpu/drm/drm_panic_internal.h
+F:	drivers/gpu/drm/tests/drm_panic_helper_test.c
+F:	include/drm/drm_panic.h
+F:	include/drm/drm_panic_helper.h
 
 DRM PANIC QR CODE
 M:	Jocelyn Falempe <jfalempe@redhat.com>
@@ -9149,7 +9152,7 @@ L:	dri-devel@lists.freedesktop.org
 L:	rust-for-linux@vger.kernel.org
 S:	Supported
 T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
-F:	drivers/gpu/drm/drm_panic_qr.rs
+F:	drivers/gpu/drm/drm_panic_helper_qr.rs
 
 DRM PRIVACY-SCREEN CLASS
 M:	Hans de Goede <hansg@kernel.org>

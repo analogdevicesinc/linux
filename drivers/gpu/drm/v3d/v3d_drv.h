@@ -200,12 +200,6 @@ struct v3d_dev {
 	/* Protects bo_stats */
 	struct mutex bo_lock;
 
-	/* Lock taken when resetting the GPU, to keep multiple
-	 * processes from trying to park the scheduler threads and
-	 * reset at once.
-	 */
-	struct mutex reset_lock;
-
 	/* Ordered workqueue shared by every queue's scheduler timeout work.
 	 * V3D reset is global to all queues, so the timeout handlers must not
 	 * run concurrently.
