@@ -293,17 +293,11 @@ out:
 	return wc_index;
 }
 
-void mana_drain_gsi_sqs(struct mana_ib_dev *mdev)
+static void mana_drain_gsi_sq(struct mana_ib_qp *qp)
 {
-	struct mana_ib_qp *qp = mana_get_qp_ref(mdev, MANA_GSI_QPN, false);
+	struct mana_ib_cq *cq = container_of(qp->ibqp.send_cq, struct mana_ib_cq, ibcq);
 	struct ud_sq_shadow_wqe *shadow_wqe;
-	struct mana_ib_cq *cq;
 	unsigned long flags;
-
-	if (!qp)
-		return;
-
-	cq = container_of(qp->ibqp.send_cq, struct mana_ib_cq, ibcq);
 
 	spin_lock_irqsave(&cq->cq_lock, flags);
 	while ((shadow_wqe = shadow_queue_get_next_to_complete(&qp->shadow_sq))
@@ -315,8 +309,22 @@ void mana_drain_gsi_sqs(struct mana_ib_dev *mdev)
 
 	if (cq->ibcq.comp_handler)
 		cq->ibcq.comp_handler(&cq->ibcq, cq->ibcq.cq_context);
+}
 
-	mana_put_qp_ref(qp);
+void mana_drain_gsi_sqs(struct mana_ib_dev *mdev)
+{
+	struct mana_ib_qp *qp;
+	u32 port;
+
+	/* One GSI QP per port, indexed in the QP table by (port << 24 | MANA_GSI_QPN) */
+	for (port = 1; port <= mdev->ib_dev.phys_port_cnt; port++) {
+		qp = mana_get_qp_ref(mdev, (port << 24) | MANA_GSI_QPN, false);
+		if (!qp)
+			continue;
+
+		mana_drain_gsi_sq(qp);
+		mana_put_qp_ref(qp);
+	}
 }
 
 int mana_ib_poll_cq(struct ib_cq *ibcq, int num_entries, struct ib_wc *wc)

@@ -654,6 +654,7 @@ struct hns_roce_qp {
 	u8			priority;
 	spinlock_t flush_lock;
 	struct hns_roce_dip *dip;
+	bool ud_sl_set;
 };
 
 struct hns_roce_ib_iboe {
@@ -737,7 +738,7 @@ enum hns_roce_scc_algo {
 struct hns_roce_caps {
 	u64		fw_ver;
 	u8		num_ports;
-	int		gid_table_len[HNS_ROCE_MAX_PORTS];
+	u32		gid_table_len[HNS_ROCE_MAX_PORTS];
 	int		pkey_table_len[HNS_ROCE_MAX_PORTS];
 	int		local_ca_ack_delay;
 	int		num_uars;
@@ -1047,6 +1048,7 @@ struct hns_roce_dev {
 	struct hns_roce_dev_debugfs dbgfs;
 	atomic64_t *dfx_cnt;
 	struct hns_roce_scc_param *scc_param;
+	u8 gsi_sl;
 };
 
 enum hns_roce_trace_type {
