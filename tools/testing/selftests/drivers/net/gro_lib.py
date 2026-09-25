@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0
 
 """
@@ -7,6 +6,13 @@ GRO (Generic Receive Offload) conformance tests.
 Validates that GRO coalescing works correctly by running the gro
 binary in different configurations and checking for correct packet
 coalescing behavior.
+
+The same test cases are run against all three coalescing implementations,
+one mode per test program, because a full sweep takes too long to fit in
+a single test's timeout:
+  - gro_sw.py:  SW GRO (generic-receive-offload)
+  - gro_hw.py:  HW GRO (rx-gro-hw)
+  - gro_lro.py: LRO    (large-receive-offload)
 
 Test cases:
   - data_same: Same size data packets coalesce
@@ -34,20 +40,26 @@ Test cases:
   - ip_v6ext_diff: (IPv6) IPv6 ext header with different payload doesn't coalesce
   - large_max: Packets exceeding GRO_MAX_SIZE don't coalesce
   - large_rem: Large packet remainder handling
+  - big_tcp_data_same: Same size packets coalesce past IP_MAXPACKET
+  - big_tcp_data_lrg_sml: Smaller last packet coalesces past IP_MAXPACKET
+  - big_tcp_tcp_seq: Packets with 16-bit truncated seqno don't coalesce
+  - big_tcp_large_max: Packets exceeding the BIG TCP limit don't coalesce
 """
 
 import glob
 import os
 import re
-from lib.py import ksft_run, ksft_exit, ksft_pr
-from lib.py import NetDrvEpEnv, KsftFailEx, KsftXfailEx
+from lib.py import ksft_run, ksft_exit, ksft_pr, ksft_eq
+from lib.py import NetDrvEpEnv, KsftFailEx, KsftSkipEx, KsftXfailEx
 from lib.py import NetdevFamily, EthtoolFamily
-from lib.py import bkg, cmd, defer, ethtool, ip
+from lib.py import bkg, cmd, ctl_file_write, defer, ethtool, ip, set_ethtool_feat
 from lib.py import ksft_variants, KsftNamedVariant
 
 
 # gro.c uses hardcoded DPORT=8000
 GRO_DPORT = 8000
+
+BIG_TCP_GRO_MAX_SIZE = 128000
 
 
 def _resolve_dmac(cfg, ipver):
@@ -79,46 +91,38 @@ def _resolve_dmac(cfg, ipver):
     return getattr(cfg, attr)
 
 
-def _write_defer_restore(cfg, path, val, defer_undo=False):
-    with open(path, "r", encoding="utf-8") as fp:
-        orig_val = fp.read().strip()
-        if str(val) == orig_val:
-            return
-    with open(path, "w", encoding="utf-8") as fp:
-        fp.write(val)
-    if defer_undo:
-        defer(_write_defer_restore, cfg, path, orig_val)
-
-
 def _set_mtu_restore(dev, mtu, host):
     if dev['mtu'] < mtu:
         ip(f"link set dev {dev['ifname']} mtu {mtu}", host=host)
         defer(ip, f"link set dev {dev['ifname']} mtu {dev['mtu']}", host=host)
 
 
-def _set_ethtool_feat(dev, current, feats, host=None):
-    s2n = {True: "on", False: "off"}
+def _set_gro_size_restore(cfg, size):
+    """
+    Set the local device's GRO size limits, then confirm they stuck.
+    """
 
-    new = ["-K", dev]
-    old = ["-K", dev]
-    no_change = True
-    for name, state in feats.items():
-        new += [name, s2n[state]]
-        old += [name, s2n[current[name]["active"]]]
+    _set_mtu_restore(cfg.dev, 4096, None)
+    _set_mtu_restore(cfg.remote_dev, 4096, cfg.remote)
 
-        if current[name]["active"] != state:
-            no_change = False
-            if current[name]["fixed"]:
-                raise KsftXfailEx(f"Device does not support {name}")
-    if no_change:
+    if "gro_max_size" not in cfg.dev or "gro_ipv4_max_size" not in cfg.dev:
+        raise KsftSkipEx("iproute2 does not report the GRO size limits")
+
+    if (cfg.dev["gro_max_size"] == size and
+            cfg.dev["gro_ipv4_max_size"] == size):
         return
 
-    eth_cmd = ethtool(" ".join(new), host=host)
-    defer(ethtool, " ".join(old), host=host)
+    old = (f"gro_max_size {cfg.dev['gro_max_size']} "
+           f"gro_ipv4_max_size {cfg.dev['gro_ipv4_max_size']}")
+    new = f"gro_max_size {size} gro_ipv4_max_size {size}"
 
-    # If ethtool printed something kernel must have modified some features
-    if eth_cmd.stdout:
-        ksft_pr(eth_cmd)
+    ip(f"link set dev {cfg.ifname} {new}")
+    defer(ip, f"link set dev {cfg.ifname} {old}")
+
+    dev = ip("-d link show dev " + cfg.ifname, json=True)[0]
+    ksft_eq(dev["gro_max_size"], size, comment="gro_max_size not applied")
+    ksft_eq(dev["gro_ipv4_max_size"], size,
+            comment="gro_ipv4_max_size not applied")
 
 
 def _get_queue_stats(cfg, queue_id):
@@ -244,18 +248,23 @@ def _setup(cfg, mode, test_name):
         flush_path = f"/sys/class/net/{cfg.ifname}/gro_flush_timeout"
         irq_path = f"/sys/class/net/{cfg.ifname}/napi_defer_hard_irqs"
 
-        _write_defer_restore(cfg, flush_path, "200000", defer_undo=True)
-        _write_defer_restore(cfg, irq_path, "10", defer_undo=True)
+        # "big_tcp_*" tests need a longer timeout, use 2x the regular timeout
+        if test_name.startswith("big_tcp_"):
+            ctl_file_write(flush_path, "400000")
+        else:
+            ctl_file_write(flush_path, "200000")
+        ctl_file_write(irq_path, "10")
 
-        _set_ethtool_feat(cfg.ifname, cfg.feat,
-                          {"generic-receive-offload": True,
-                           "rx-gro-hw": False,
-                           "large-receive-offload": False})
+        set_ethtool_feat(cfg.ifname, cfg.feat,
+                         {"generic-receive-offload": True,
+                          "rx-gro-hw": False,
+                          "large-receive-offload": False})
     elif mode == "hw":
-        _set_ethtool_feat(cfg.ifname, cfg.feat,
-                          {"generic-receive-offload": False,
-                           "rx-gro-hw": True,
-                           "large-receive-offload": False})
+        set_ethtool_feat(cfg.ifname, cfg.feat,
+                         {"generic-receive-offload": False,
+                          "rx-gro-hw": True,
+                          "large-receive-offload": False},
+                          check=False)
 
         # Some NICs treat HW GRO as a GRO sub-feature so disabling GRO
         # will also clear HW GRO. Use a hack of installing XDP generic
@@ -270,29 +279,32 @@ def _setup(cfg, mode, test_name):
             # Attaching XDP may change features, fetch the latest state
             feat = ethtool(f"-k {cfg.ifname}", json=True)[0]
 
-            _set_ethtool_feat(cfg.ifname, feat,
-                              {"generic-receive-offload": True,
-                               "rx-gro-hw": True,
-                               "large-receive-offload": False})
+            set_ethtool_feat(cfg.ifname, feat,
+                             {"generic-receive-offload": True,
+                              "rx-gro-hw": True,
+                              "large-receive-offload": False})
     elif mode == "lro":
         # netdevsim advertises LRO for feature inheritance testing with
         # bonding/team tests but it doesn't actually perform the offload
         cfg.require_nsim(nsim_test=False)
 
-        _set_ethtool_feat(cfg.ifname, cfg.feat,
-                          {"generic-receive-offload": False,
-                           "rx-gro-hw": False,
-                           "large-receive-offload": True})
+        set_ethtool_feat(cfg.ifname, cfg.feat,
+                         {"generic-receive-offload": False,
+                          "rx-gro-hw": False,
+                          "large-receive-offload": True})
 
     try:
         # Disable TSO for local tests
         cfg.require_nsim()  # will raise KsftXfailEx if not running on nsim
 
-        _set_ethtool_feat(cfg.remote_ifname, cfg.remote_feat,
-                          {"tcp-segmentation-offload": False},
-                          host=cfg.remote)
+        set_ethtool_feat(cfg.remote_ifname, cfg.remote_feat,
+                         {"tcp-segmentation-offload": False},
+                         host=cfg.remote)
     except KsftXfailEx:
         pass
+
+    if test_name.startswith("big_tcp_"):
+        _set_gro_size_restore(cfg, BIG_TCP_GRO_MAX_SIZE)
 
 
 def _gro_variants():
@@ -309,6 +321,11 @@ def _gro_variants():
         "large_max", "large_rem",
     ]
 
+    big_tcp_tests = [
+        "big_tcp_data_same", "big_tcp_data_lrg_sml",
+        "big_tcp_tcp_seq", "big_tcp_large_max",
+    ]
+
     # Tests specific to IPv4
     ipv4_tests = [
         "ip_csum",
@@ -323,32 +340,23 @@ def _gro_variants():
         "ip_frag6", "ip_v6ext_same", "ip_v6ext_diff",
     ]
 
-    # Tests specific to PPPoE
-    pppoe_tests = [
-        "data_same", "data_lrg_sml", "data_sml_lrg", "data_lrg_1byte",
-        "data_burst", "pppoe_sid",
-    ]
+    for protocol in ["ipv4", "ipv6", "ipip", "ip6ip6"]:
+        for test_name in common_tests:
+            yield protocol, test_name
 
-    for mode in ["sw", "hw", "lro"]:
-        for protocol in ["ipv4", "ipv6", "ipip", "ip6ip6"]:
-            for test_name in common_tests:
-                yield mode, protocol, test_name
+        if protocol in ["ipv4", "ipv6"]:
+            for test_name in big_tcp_tests:
+                yield protocol, test_name
 
-            if protocol in ["ipv4", "ipip"]:
-                for test_name in ipv4_tests:
-                    yield mode, protocol, test_name
-            elif protocol == "ipv6":
-                for test_name in ipv6_tests:
-                    yield mode, protocol, test_name
-
-    for mode in ["sw"]:
-        for protocol in ["pppoev4", "pppoev6"]:
-            for test_name in pppoe_tests:
-                yield mode, protocol, test_name
+        if protocol in ["ipv4", "ipip"]:
+            for test_name in ipv4_tests:
+                yield protocol, test_name
+        elif protocol == "ipv6":
+            for test_name in ipv6_tests:
+                yield protocol, test_name
 
 
-@ksft_variants(_gro_variants())
-def test(cfg, mode, protocol, test_name):
+def run_test(cfg, mode, protocol, test_name):
     """Run a single GRO test with retries."""
 
     ipver = "6" if protocol[-1] == "6" else "4"
@@ -376,23 +384,29 @@ def test(cfg, mode, protocol, test_name):
         if rx_proc.ret == 42:
             raise KsftFailEx(f"GRO over-coalesced in {protocol}/{test_name}")
 
-        if test_name.startswith("large_") and os.environ.get("KSFT_MACHINE_SLOW"):
+        if (test_name.startswith(("large_", "big_tcp_")) and
+                os.environ.get("KSFT_MACHINE_SLOW")):
             ksft_pr(f"Ignoring {protocol}/{test_name} failure due to slow environment")
             return
 
         ksft_pr(f"Attempt {attempt + 1}/{max_retries} failed, retrying...")
 
 
+@ksft_variants(_gro_variants())
+def test(cfg, mode, protocol, test_name):
+    """Run a single GRO test case."""
+    run_test(cfg, mode, protocol, test_name)
+
+
 def _capacity_variants():
-    """Generate variants for capacity test: mode x queue setup."""
+    """Generate variants for capacity test: queue setup."""
     setups = [
         ("isolated", _setup_isolated_queue),
         ("1q", lambda cfg: _setup_queue_count(cfg, 1)),
         ("8q", lambda cfg: _setup_queue_count(cfg, 8)),
     ]
-    for mode in ["sw", "hw", "lro"]:
-        for name, func in setups:
-            yield KsftNamedVariant(f"{mode}_{name}", mode, func)
+    for name, func in setups:
+        yield KsftNamedVariant(name, func)
 
 
 @ksft_variants(_capacity_variants())
@@ -403,7 +417,7 @@ def test_gro_capacity(cfg, mode, setup_func):
     Start with 8 flows and increase by 2x on each successful run.
     Retry up to 3 times on failure.
 
-    Variants combine mode (sw, hw, lro) with queue setup:
+    Queue setup variants:
       - isolated: Use a single queue isolated from RSS
       - 1q: Configure NIC to use 1 queue
       - 8q: Configure NIC to use 8 queues
@@ -459,15 +473,11 @@ def test_gro_capacity(cfg, mode, setup_func):
         num_flows *= 2
 
 
-def main() -> None:
-    """ Ksft boiler plate main """
+def gro_main(src_path, mode) -> None:
+    """ Ksft boiler plate main, run all the cases in the given mode """
 
-    with NetDrvEpEnv(__file__) as cfg:
+    with NetDrvEpEnv(src_path) as cfg:
         cfg.ethnl = EthtoolFamily()
         cfg.netnl = NetdevFamily()
-        ksft_run(cases=[test, test_gro_capacity], args=(cfg,))
+        ksft_run(cases=[test, test_gro_capacity], args=(cfg, mode))
     ksft_exit()
-
-
-if __name__ == "__main__":
-    main()

@@ -325,7 +325,7 @@ static int nfnl_osf_add_callback(struct sk_buff *skb,
 	    !memchr(f->version, 0, MAXGENRELEN))
 		return -EINVAL;
 
-	kf = kmalloc_obj(struct nf_osf_finger);
+	kf = kmalloc_obj(struct nf_osf_finger, GFP_KERNEL_ACCOUNT);
 	if (!kf)
 		return -ENOMEM;
 

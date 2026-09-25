@@ -421,10 +421,7 @@ static void __rtw89_regd_setup_policy_6ghz(struct rtw89_dev *rtwdev, bool block,
 		return;
 	}
 
-	if (block)
-		set_bit(index, regulatory->block_6ghz);
-	else
-		clear_bit(index, regulatory->block_6ghz);
+	assign_bit(index, regulatory->block_6ghz, block);
 }
 
 static void rtw89_regd_setup_policy_6ghz(struct rtw89_dev *rtwdev)

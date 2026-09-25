@@ -6046,10 +6046,7 @@ rtw89_mac_c2h_pwr_int_notify(struct rtw89_dev *rtwdev, struct sk_buff *skb, u32 
 		goto out;
 
 	rtwsta = rtwsta_link->rtwsta;
-	if (ps)
-		set_bit(RTW89_REMOTE_STA_IN_PS, rtwsta->flags);
-	else
-		clear_bit(RTW89_REMOTE_STA_IN_PS, rtwsta->flags);
+	assign_bit(RTW89_REMOTE_STA_IN_PS, rtwsta->flags, ps);
 
 	sta = rtwsta_to_sta(rtwsta);
 	ieee80211_sta_ps_transition(sta, ps);
@@ -7004,10 +7001,7 @@ void rtw89_mac_bf_monitor_calc(struct rtw89_dev *rtwdev,
 					  &data);
 
 	rtw89_debug(rtwdev, RTW89_DBG_BF, "bfee STA count=%d\n", data.count);
-	if (data.count)
-		set_bit(RTW89_FLAG_BFEE_MON, rtwdev->flags);
-	else
-		clear_bit(RTW89_FLAG_BFEE_MON, rtwdev->flags);
+	assign_bit(RTW89_FLAG_BFEE_MON, rtwdev->flags, data.count);
 }
 
 void _rtw89_mac_bf_monitor_track(struct rtw89_dev *rtwdev)

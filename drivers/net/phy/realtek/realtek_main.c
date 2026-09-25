@@ -19,7 +19,6 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/string_choices.h>
-#include <net/phy/realtek_phy.h>
 
 #include "../phylib.h"
 #include "realtek.h"
@@ -258,6 +257,8 @@
 #define RTL_8251B				0x001cc862
 #define RTL_8261C				0x001cc890
 #define RTL_8261C_CG				0x001cc898
+#define RTL_8261CE_CG				0x001cc899
+#define RTL_8261D_VM				0x001cc89a
 
 #define RTL8261C_CE_MODEL		0x00
 #define RTL8261D_MODEL			0x81
@@ -286,11 +287,15 @@
 
 #define FW_MAIN_MAGIC			0x52544C38
 #define FW_SUB_MAGIC_8261C		0x32363143
+#define FW_SUB_MAGIC_8261D		0x32363144
 #define RTL8261X_POLL_TIMEOUT_MS	100
 #define RTL8261X_MAX_MMD_DEV		31
 
 #define RTL8261C_CE_FW_NAME	"rtl_nic/rtl8261c.bin"
+#define RTL8261D_FW_NAME	"rtl_nic/rtl8261d.bin"
+
 MODULE_FIRMWARE(RTL8261C_CE_FW_NAME);
+MODULE_FIRMWARE(RTL8261D_FW_NAME);
 
 enum rtl8261x_fw_op {
 	OP_WRITE = 0x00,	/* Write */
@@ -342,6 +347,7 @@ struct rtl821x_priv {
 
 struct rtl8261x_priv {
 	const char *fw_name;
+	u32 fw_sub_magic;
 	bool fw_loaded;
 };
 
@@ -411,10 +417,13 @@ static int rtl8261x_probe(struct phy_device *phydev)
 	switch (sub_phy_id) {
 	case RTL8261C_CE_MODEL:
 		priv->fw_name = RTL8261C_CE_FW_NAME;
+		priv->fw_sub_magic = FW_SUB_MAGIC_8261C;
 		phydev_info(phydev, "RTL8261C detected (sub_id 0x%02x)\n", sub_phy_id);
 		break;
 
 	case RTL8261D_MODEL:
+		priv->fw_name = RTL8261D_FW_NAME;
+		priv->fw_sub_magic = FW_SUB_MAGIC_8261D;
 		phydev_info(phydev, "RTL8261D detected (sub_id 0x%02x)\n", sub_phy_id);
 		break;
 
@@ -473,6 +482,7 @@ static int rtl8261x_read_status(struct phy_device *phydev)
 
 static int rtl8261x_verify_firmware(struct phy_device *phydev, const struct firmware *fw)
 {
+	struct rtl8261x_priv *priv = phydev->priv;
 	const struct rtl8261x_fw_header *hdr;
 	u32 main_magic, sub_magic;
 	u32 calc_crc, file_crc;
@@ -493,7 +503,7 @@ static int rtl8261x_verify_firmware(struct phy_device *phydev, const struct firm
 	}
 
 	sub_magic = le32_to_cpu(hdr->sub_magic);
-	if (sub_magic != FW_SUB_MAGIC_8261C) {
+	if (sub_magic != priv->fw_sub_magic) {
 		phydev_err(phydev, "Invalid sub magic: 0x%08x\n", sub_magic);
 		return -EINVAL;
 	}
@@ -549,8 +559,12 @@ static int rtl8261x_fw_execute_entry(struct phy_device *phydev,
 
 	switch (entry->type) {
 	case OP_WRITE:
-		ret = phy_modify_mmd(phydev, dev, addr,
-				     GENMASK(msb, lsb), (value << lsb) & GENMASK(msb, lsb));
+		if (msb != 15 || lsb != 0)
+			ret = phy_modify_mmd(phydev, dev, addr, GENMASK(msb, lsb),
+					     (value << lsb) & GENMASK(msb, lsb));
+		else
+			ret = phy_write_mmd(phydev, dev, addr, value);
+
 		if (ret)
 			return ret;
 		break;
@@ -3044,45 +3058,6 @@ static irqreturn_t rtl8221b_handle_interrupt(struct phy_device *phydev)
 	return IRQ_HANDLED;
 }
 
-static int rtlgen_sfp_get_features(struct phy_device *phydev)
-{
-	linkmode_set_bit(ETHTOOL_LINK_MODE_10000baseT_Full_BIT,
-			 phydev->supported);
-
-	/* set default mode */
-	phydev->speed = SPEED_10000;
-	phydev->duplex = DUPLEX_FULL;
-
-	phydev->port = PORT_FIBRE;
-
-	return 0;
-}
-
-static int rtlgen_sfp_read_status(struct phy_device *phydev)
-{
-	int val, err;
-
-	err = genphy_update_link(phydev);
-	if (err)
-		return err;
-
-	if (!phydev->link)
-		return 0;
-
-	val = phy_read(phydev, RTL_PHYSR);
-	if (val < 0)
-		return val;
-
-	rtlgen_decode_physr(phydev, val);
-
-	return 0;
-}
-
-static int rtlgen_sfp_config_aneg(struct phy_device *phydev)
-{
-	return 0;
-}
-
 static struct phy_driver realtek_drvs[] = {
 	{
 		PHY_ID_MATCH_EXACT(0x00008201),
@@ -3333,20 +3308,6 @@ static struct phy_driver realtek_drvs[] = {
 		.read_mmd	= rtl822x_read_mmd,
 		.write_mmd	= rtl822x_write_mmd,
 	}, {
-		PHY_ID_MATCH_EXACT(PHY_ID_RTL_DUMMY_SFP),
-		.name		= "Realtek SFP PHY Mode",
-		.flags		= PHY_IS_INTERNAL,
-		.probe		= rtl822x_probe,
-		.get_features	= rtlgen_sfp_get_features,
-		.config_aneg	= rtlgen_sfp_config_aneg,
-		.read_status	= rtlgen_sfp_read_status,
-		.suspend	= genphy_suspend,
-		.resume		= rtlgen_resume,
-		.read_page	= rtl821x_read_page,
-		.write_page	= rtl821x_write_page,
-		.read_mmd	= rtl822x_read_mmd,
-		.write_mmd	= rtl822x_write_mmd,
-	}, {
 		PHY_ID_MATCH_EXACT(0x001ccad0),
 		.name		= "RTL8224 2.5Gbps PHY",
 		.flags		= PHY_POLL_CABLE_TEST,
@@ -3388,6 +3349,8 @@ static struct phy_driver realtek_drvs[] = {
 	}, {
 		PHY_ID_MATCH_EXACT(0x001cc942),
 		.name		= "RTL8365MB-VC Gigabit Ethernet",
+		.read_mmd	= genphy_read_mmd_c45,
+		.write_mmd	= genphy_write_mmd_c45,
 		/* Interrupt handling analogous to RTL8366RB */
 		.config_intr	= genphy_no_config_intr,
 		.handle_interrupt = genphy_handle_interrupt_no_ack,
@@ -3403,6 +3366,32 @@ static struct phy_driver realtek_drvs[] = {
 	}, {
 		PHY_ID_MATCH_EXACT(RTL_8261C_CG),
 		.name			= "Realtek RTL8261C/D 10Gbps PHY",
+		.probe			= rtl8261x_probe,
+		.config_init		= rtl8261x_config_init,
+		.get_features		= rtl8261x_get_features,
+		.config_aneg		= rtl8261x_config_aneg,
+		.read_status		= rtl8261x_read_status,
+		.config_intr		= rtl8261x_config_intr,
+		.handle_interrupt	= rtl8261x_handle_interrupt,
+		.soft_reset		= genphy_c45_pma_soft_reset,
+		.suspend		= genphy_c45_pma_suspend,
+		.resume			= genphy_c45_pma_resume,
+	}, {
+		PHY_ID_MATCH_EXACT(RTL_8261CE_CG),
+		.name			= "Realtek RTL8261CE 10Gbps PHY",
+		.probe			= rtl8261x_probe,
+		.config_init		= rtl8261x_config_init,
+		.get_features		= rtl8261x_get_features,
+		.config_aneg		= rtl8261x_config_aneg,
+		.read_status		= rtl8261x_read_status,
+		.config_intr		= rtl8261x_config_intr,
+		.handle_interrupt	= rtl8261x_handle_interrupt,
+		.soft_reset		= genphy_c45_pma_soft_reset,
+		.suspend		= genphy_c45_pma_suspend,
+		.resume			= genphy_c45_pma_resume,
+	}, {
+		PHY_ID_MATCH_EXACT(RTL_8261D_VM),
+		.name			= "Realtek RTL8261D_VM 10Gbps PHY",
 		.probe			= rtl8261x_probe,
 		.config_init		= rtl8261x_config_init,
 		.get_features		= rtl8261x_get_features,

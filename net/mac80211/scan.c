@@ -9,7 +9,7 @@
  * Copyright 2007, Michael Wu <flamingice@sourmilk.net>
  * Copyright 2013-2015  Intel Mobile Communications GmbH
  * Copyright 2016-2017  Intel Deutschland GmbH
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  */
 
 #include <linux/if_arp.h>
@@ -204,12 +204,10 @@ ieee80211_bss_info_update(struct ieee80211_local *local,
 		 * an indication on which of the links the frame was received
 		 */
 		if (ieee80211_vif_is_mld(&scan_sdata->vif)) {
-			if (rx_status->link_valid) {
-				s8 link_id = rx_status->link_id;
+			s8 link_id = rx_status->link_id;
 
-				link_conf =
-					rcu_dereference(scan_sdata->vif.link_conf[link_id]);
-			}
+			link_conf =
+				rcu_dereference(scan_sdata->vif.link_conf[link_id]);
 		} else {
 			link_conf = &scan_sdata->vif.bss_conf;
 		}

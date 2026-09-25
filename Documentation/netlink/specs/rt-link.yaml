@@ -494,6 +494,10 @@ definitions:
         name: ndisc-evict-nocarrier
       -
         name: accept-untracked-na
+      -
+        name: accept-ra-min-lft
+      -
+        name: force-forwarding
   -
     name: ifla-icmp6-stats
     enum-name:
@@ -1087,6 +1091,10 @@ attribute-sets:
       -
         name: tailroom
         type: u16
+      -
+        name: pacing-offload
+        type: u32
+        doc: Enable EDT pacing offload (0 - disabled, 1 - enabled).
   -
     name: prop-list-link-attrs
     subset-of: link-attrs
@@ -2220,7 +2228,7 @@ attribute-sets:
         name: conf
         type: binary
         sub-type: u32
-        doc: u32 indexed by ipv6-devconf - 1 on output, on input it's a nest
+        doc: u32 indexed by ipv6-devconf on output, input is not yet implemented
       -
         name: stats
         type: binary
@@ -2555,6 +2563,7 @@ operations:
             - devlink-port
             - gso-ipv4-max-size
             - gro-ipv4-max-size
+            - pacing-offload
       dump:
         request:
           value: 18

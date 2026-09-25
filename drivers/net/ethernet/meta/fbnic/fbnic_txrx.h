@@ -4,11 +4,15 @@
 #ifndef _FBNIC_TXRX_H_
 #define _FBNIC_TXRX_H_
 
+#include <linux/bitfield.h>
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
+#include <linux/time64.h>
 #include <linux/types.h>
 #include <linux/u64_stats_sync.h>
 #include <net/xdp.h>
+
+#include "fbnic_csr.h"
 
 struct fbnic_net;
 
@@ -48,6 +52,12 @@ struct fbnic_net;
 #define FBNIC_TX_USECS_DEFAULT		35
 #define FBNIC_RX_USECS_DEFAULT		30
 #define FBNIC_RX_FRAMES_DEFAULT		0
+
+#define FBNIC_RX_CQE_NSECS_MIN		1000
+#define FBNIC_RX_CQE_NSECS_DEFAULT	2000
+#define FBNIC_RX_CQE_NSECS_MAX \
+	((u32)(((u64)FIELD_MAX(FBNIC_QM_RCQ_CTL0_COAL_WAIT) * NSEC_PER_SEC) / \
+	       FBNIC_CLOCK_FREQ))
 
 #define FBNIC_RX_TROOM \
 	SKB_DATA_ALIGN(sizeof(struct skb_shared_info))

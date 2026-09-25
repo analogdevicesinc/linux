@@ -2421,8 +2421,7 @@ static inline bool ieee80211_is_bufferable_mmpdu(struct sk_buff *skb)
 
 	/* action frame - additionally check for non-bufferable FTM */
 
-	if (mgmt->u.action.category != WLAN_CATEGORY_PUBLIC &&
-	    mgmt->u.action.category != WLAN_CATEGORY_PROTECTED_DUAL_OF_ACTION)
+	if (mgmt->u.action.category != WLAN_CATEGORY_PUBLIC)
 		return true;
 
 	if (mgmt->u.action.action_code == WLAN_PUB_ACTION_FTM_REQUEST ||
