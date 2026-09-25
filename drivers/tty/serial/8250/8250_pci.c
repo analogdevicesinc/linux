@@ -3894,7 +3894,7 @@ static const struct pci_device_id blacklist[] = {
 	{ PCI_VDEVICE(ACCESSIO, PCI_ANY_ID), .driver_data = REPORT_8250_CONFIG(PERICOM), },
 
 	/* Moxa devices */
-	{ PCI_VDEVICE(MOXA, PCI_ANY_ID), REPORT_8250_CONFIG(MOXA), },
+	{ PCI_VDEVICE(MOXA, PCI_ANY_ID), .driver_data = REPORT_8250_CONFIG(MOXA), },
 
 	/* End of the black list */
 	{ }
