@@ -1615,6 +1615,13 @@ static int gem_rx(struct macb_queue *queue, struct napi_struct *napi,
 		dma_addr_t addr;
 		bool rxused;
 
+		/* Only descriptors in [rx_tail, rx_prepared_head) were armed
+		 * for hardware. Outside, we might have RX_USED descriptors for
+		 * alloc failures.
+		 */
+		if (queue->rx_tail == queue->rx_prepared_head)
+			break;
+
 		entry = macb_rx_ring_wrap(bp, queue->rx_tail);
 		desc = macb_rx_desc(queue, entry);
 
@@ -1877,6 +1884,10 @@ static bool macb_rx_pending(struct macb_queue *queue)
 	struct macb *bp = queue->bp;
 	struct macb_dma_desc *desc;
 	unsigned int entry;
+
+	/* No armed descriptor left: nothing can be pending. */
+	if (macb_is_gem(bp) && queue->rx_tail == queue->rx_prepared_head)
+		return false;
 
 	entry = macb_rx_ring_wrap(bp, queue->rx_tail);
 	desc = macb_rx_desc(queue, entry);
@@ -2814,8 +2825,13 @@ out_err:
 
 static void gem_init_rx_ring(struct macb_queue *queue)
 {
+	unsigned int i;
+
 	queue->rx_tail = 0;
 	queue->rx_prepared_head = 0;
+
+	for (i = 0; i < queue->bp->rx_ring_size; i++)
+		macb_rx_desc(queue, i)->addr |= MACB_BIT(RX_USED);
 
 	gem_rx_refill(queue);
 }
