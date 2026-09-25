@@ -91,13 +91,14 @@ usage () {
 	echo "       --remote"
 	echo "       --results absolute-pathname"
 	echo "       --shutdown-grace seconds"
-	echo "       --torture lock|rcu|rcuscale|refscale|scf|X*"
+	echo "       --torture hazptr|lock|rcu|rcuscale|refscale|scf|X*"
 	echo "       --trust-make"
 	exit 1
 }
 
 while test $# -gt 0
 do
+	echo Argument: :$1:
 	case "$1" in
 	--allcpus)
 		cpus=$TORTURE_ALLOTED_CPUS
@@ -256,9 +257,9 @@ do
 		shift
 		;;
 	--torture)
-		checkarg --torture "(suite name)" "$#" "$2" '^\(lock\|rcu\|rcuscale\|refscale\|scf\|X.*\)$' '^--'
+		checkarg --torture "(suite name)" "$#" "$2" '^\(hazptr\|lock\|rcu\|rcuscale\|refscale\|scf\|X.*\)$' '^--'
 		TORTURE_SUITE=$2
-		TORTURE_MOD="`echo $TORTURE_SUITE | sed -e 's/^\(lock\|rcu\|scf\)$/\1torture/'`"
+		TORTURE_MOD="`echo $TORTURE_SUITE | sed -e 's/^\(hazptr\|lock\|rcu\|scf\)$/\1torture/'`"
 		shift
 		if test "$TORTURE_SUITE" = rcuscale || test "$TORTURE_SUITE" = refscale
 		then
@@ -270,6 +271,9 @@ do
 		;;
 	--trust-make)
 		TORTURE_TRUST_MAKE="y"
+		;;
+	"")
+		# torture.sh can pass empty arguments.  Ignore them.
 		;;
 	*)
 		echo Unknown argument $1
