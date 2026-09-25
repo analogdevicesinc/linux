@@ -946,8 +946,12 @@ static void tmigr_handle_remote_cpu(unsigned int cpu, u64 now,
 	/* Drop the lock to allow the remote CPU to exit idle */
 	raw_spin_unlock_irq(&tmc->lock);
 
-	if (cpu != smp_processor_id())
-		timer_expire_remote(cpu);
+	/*
+	 * This can't exclude the local CPU because jiffies might have advanced
+	 * after the timer softirq invoked run_timer_base(BASE_GLOBAL) and the
+	 * point where the jiffies snapshot @jif was taken in tmigr_handle_remote().
+	 */
+	timer_expire_remote(cpu);
 
 	/*
 	 * Lock ordering needs to be preserved - timer_base locks before tmigr
@@ -1663,8 +1667,10 @@ static int tmigr_setup_groups(unsigned int cpu, unsigned int node,
 	}
 
 	/* Assert single root without parent */
-	if (WARN_ON_ONCE(i >= tmigr_hierarchy_levels))
+	if (WARN_ON_ONCE(i >= tmigr_hierarchy_levels)) {
+		kfree(stack);
 		return -EINVAL;
+	}
 
 	for (; i >= start_lvl; i--) {
 		group = stack[i];

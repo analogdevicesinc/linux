@@ -85,7 +85,7 @@ int btrfs_setxattr(struct btrfs_trans_handle *trans, struct inode *inode,
 {
 	struct btrfs_dir_item *di = NULL;
 	struct btrfs_root *root = BTRFS_I(inode)->root;
-	struct btrfs_path *path;
+	BTRFS_PATH_AUTO_FREE(path);
 	size_t name_len = strlen(name);
 	int ret = 0;
 
@@ -97,7 +97,7 @@ int btrfs_setxattr(struct btrfs_trans_handle *trans, struct inode *inode,
 	path = btrfs_alloc_path();
 	if (!path)
 		return -ENOMEM;
-	path->skip_release_on_error = 1;
+	path->skip_release_on_error = true;
 
 	if (!value) {
 		di = btrfs_lookup_xattr(trans, root, path,
@@ -212,7 +212,6 @@ int btrfs_setxattr(struct btrfs_trans_handle *trans, struct inode *inode,
 		 */
 	}
 out:
-	btrfs_free_path(path);
 	if (!ret) {
 		set_bit(BTRFS_INODE_COPY_EVERYTHING,
 			&BTRFS_I(inode)->runtime_flags);
