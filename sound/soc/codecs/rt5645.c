@@ -2209,7 +2209,7 @@ static const struct snd_soc_dapm_widget rt5645_dapm_widgets[] = {
 		0, rt5645_out_l_mix, ARRAY_SIZE(rt5645_out_l_mix)),
 	SND_SOC_DAPM_MIXER("OUT MIXR", RT5645_PWR_MIXER, RT5645_PWR_OM_R_BIT,
 		0, rt5645_out_r_mix, ARRAY_SIZE(rt5645_out_r_mix)),
-	/* Ouput Volume */
+	/* Output Volume */
 	SND_SOC_DAPM_SWITCH("SPKVOL L", RT5645_PWR_VOL, RT5645_PWR_SV_L_BIT, 0,
 		&spk_l_vol_control),
 	SND_SOC_DAPM_SWITCH("SPKVOL R", RT5645_PWR_VOL, RT5645_PWR_SV_R_BIT, 0,
@@ -3487,10 +3487,8 @@ static int rt5645_probe(struct snd_soc_component *component)
 	if (rt5645->pdata.long_name)
 		component->card->long_name = rt5645->pdata.long_name;
 
-	rt5645->eq_param = devm_kcalloc(component->dev,
-		RT5645_HWEQ_NUM, sizeof(struct rt5645_eq_param_s),
-		GFP_KERNEL);
-
+	rt5645->eq_param = kcalloc(RT5645_HWEQ_NUM,
+				   sizeof(struct rt5645_eq_param_s), GFP_KERNEL);
 	if (!rt5645->eq_param)
 		return -ENOMEM;
 
@@ -3503,7 +3501,12 @@ static int rt5645_probe(struct snd_soc_component *component)
 
 static void rt5645_remove(struct snd_soc_component *component)
 {
+	struct rt5645_priv *rt5645 = snd_soc_component_get_drvdata(component);
+
 	rt5645_reset(component);
+
+	kfree(rt5645->eq_param);
+	rt5645->eq_param = NULL;
 }
 
 #ifdef CONFIG_PM
@@ -3541,12 +3544,22 @@ static int rt5645_resume(struct snd_soc_component *component)
 #define RT5645_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE | \
 			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S8)
 
+static const u64 rt5645_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF;
+
 static const struct snd_soc_dai_ops rt5645_aif_dai_ops = {
 	.hw_params = rt5645_hw_params,
 	.set_fmt = rt5645_set_dai_fmt,
 	.set_sysclk = rt5645_set_dai_sysclk,
 	.set_tdm_slot = rt5645_set_tdm_slot,
 	.set_pll = rt5645_set_dai_pll,
+	.auto_selectable_formats	= &rt5645_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 static struct snd_soc_dai_driver rt5645_dai[] = {

@@ -1065,7 +1065,7 @@ finalize:
 	return 0;
 
 err_load_libs:
-	avs_remove_topology(component);
+	snd_soc_tplg_component_remove(component);
 	return ret;
 }
 
@@ -1083,7 +1083,7 @@ static void avs_component_remove(struct snd_soc_component *component)
 	mutex_unlock(&adev->comp_list_mutex);
 
 	if (mach->tplg_filename) {
-		ret = avs_remove_topology(component);
+		ret = snd_soc_tplg_component_remove(component);
 		if (ret < 0)
 			dev_err(component->dev, "unload topology failed: %d\n", ret);
 	}
@@ -1614,7 +1614,7 @@ static int avs_component_hda_probe(struct snd_soc_component *component)
 	struct hda_codec *codec;
 	struct hda_pcm *pcm;
 	const char *cname;
-	int pcm_count = 0, ret, i;
+	int pcm_count, ret, i;
 
 	mach = dev_get_platdata(component->card->dev);
 	if (!mach)
@@ -1622,10 +1622,9 @@ static int avs_component_hda_probe(struct snd_soc_component *component)
 
 	pdata = mach->pdata;
 	codec = pdata->codec;
-	if (list_empty(&codec->pcm_list_head))
+	pcm_count = list_count_nodes(&codec->pcm_list_head);
+	if (!pcm_count)
 		return -EINVAL;
-	list_for_each_entry(pcm, &codec->pcm_list_head, list)
-		pcm_count++;
 
 	dais = devm_kcalloc(component->dev, pcm_count, sizeof(*dais),
 			    GFP_KERNEL);

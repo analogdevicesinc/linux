@@ -1844,12 +1844,13 @@ snd_sof_get_nhlt_endpoint_data(struct snd_sof_dev *sdev, struct snd_sof_dai *dai
 			       u32 linktype, u8 dir, u32 **dst, u32 *len)
 {
 	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
-	struct nhlt_specific_cfg *cfg;
+	struct nhlt_specific_cfg *cfg = NULL;
+	struct snd_ipc4_nhlt *entry = NULL;
 	int sample_rate, channel_count;
 	bool format_change = false;
 	int bit_depth, ret;
 	u32 nhlt_type;
-	int dev_type = 0;
+	int dev_type = -EINVAL;
 
 	/* convert to NHLT type */
 	switch (linktype) {
@@ -1880,10 +1881,17 @@ snd_sof_get_nhlt_endpoint_data(struct snd_sof_dev *sdev, struct snd_sof_dai *dai
 		 * Query the type for the port and then pass that information back
 		 * to the blob lookup function.
 		 */
-		dev_type = intel_nhlt_ssp_device_type(sdev->dev, ipc4_data->nhlt,
-						      dai_index);
-		if (dev_type < 0)
+		list_for_each_entry(entry, &ipc4_data->nhlt_list, list) {
+			dev_type = intel_nhlt_ssp_device_type(sdev->dev, entry->nhlt,
+							      dai_index);
+			if (dev_type >= 0)
+				break;
+		}
+		if (dev_type < 0) {
+			dev_err(sdev->dev, "%s: No match for SSP%d in NHLT table\n",
+				__func__, dai_index);
 			return dev_type;
+		}
 		break;
 	default:
 		return 0;
@@ -1893,9 +1901,14 @@ snd_sof_get_nhlt_endpoint_data(struct snd_sof_dev *sdev, struct snd_sof_dai *dai
 		dai_index, nhlt_type, dir, dev_type);
 
 	/* find NHLT blob with matching params */
-	cfg = intel_nhlt_get_endpoint_blob(sdev->dev, ipc4_data->nhlt, dai_index, nhlt_type,
-					   bit_depth, bit_depth, channel_count, sample_rate,
-					   dir, dev_type);
+	list_for_each_entry(entry, &ipc4_data->nhlt_list, list) {
+		cfg = intel_nhlt_get_endpoint_blob(sdev->dev, entry->nhlt, dai_index,
+						   nhlt_type, bit_depth, bit_depth,
+						   channel_count, sample_rate, dir,
+						   dev_type);
+		if (cfg)
+			break;
+	}
 
 	if (!cfg) {
 		bool get_new_blob = false;
@@ -1929,13 +1942,15 @@ snd_sof_get_nhlt_endpoint_data(struct snd_sof_dev *sdev, struct snd_sof_dai *dai
 		}
 
 		if (get_new_blob) {
-			cfg = intel_nhlt_get_endpoint_blob(sdev->dev, ipc4_data->nhlt,
-							   dai_index, nhlt_type,
-							   bit_depth, bit_depth,
-							   channel_count, sample_rate,
-							   dir, dev_type);
-			if (cfg)
-				goto out;
+			list_for_each_entry(entry, &ipc4_data->nhlt_list, list) {
+				cfg = intel_nhlt_get_endpoint_blob(sdev->dev, entry->nhlt,
+								   dai_index, nhlt_type,
+								   bit_depth, bit_depth,
+								   channel_count, sample_rate,
+								   dir, dev_type);
+				if (cfg)
+					goto out;
+			}
 		}
 
 		dev_err(sdev->dev,
@@ -4069,6 +4084,7 @@ static int sof_ipc4_parse_manifest(struct snd_soc_component *scomp, int index,
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
 	struct sof_manifest_tlv *manifest_tlv;
+	struct snd_ipc4_nhlt *tplg_nhlt;
 	struct sof_manifest *manifest;
 	u32 size = le32_to_cpu(man->priv.size);
 	u8 *man_ptr = man->priv.data;
@@ -4104,13 +4120,20 @@ static int sof_ipc4_parse_manifest(struct snd_soc_component *scomp, int index,
 
 		switch (le32_to_cpu(manifest_tlv->type)) {
 		case SOF_MANIFEST_DATA_TYPE_NHLT:
-			/* no NHLT in BIOS, so use the one from topology manifest */
-			if (ipc4_data->nhlt)
-				break;
-			ipc4_data->nhlt = devm_kmemdup(sdev->dev, manifest_tlv->data,
-						       le32_to_cpu(manifest_tlv->size), GFP_KERNEL);
-			if (!ipc4_data->nhlt)
+			/* Get the nhlt from topology manifest */
+			tplg_nhlt = devm_kzalloc(sdev->dev, sizeof(*tplg_nhlt), GFP_KERNEL);
+			if (!tplg_nhlt)
 				return -ENOMEM;
+
+			tplg_nhlt->nhlt = devm_kmemdup(sdev->dev, manifest_tlv->data,
+						       le32_to_cpu(manifest_tlv->size), GFP_KERNEL);
+			if (!tplg_nhlt->nhlt)
+				return -ENOMEM;
+
+			tplg_nhlt->from_acpi = false;
+
+			list_add(&tplg_nhlt->list, &ipc4_data->nhlt_list);
+
 			break;
 		default:
 			dev_warn(scomp->dev, "Skipping unknown manifest data type %d\n",
