@@ -39,6 +39,7 @@ kernel::impl_flags!(
         AcceptFds = TF_ACCEPT_FDS,
         ClearBuf = TF_CLEAR_BUF,
         UpdateTxn = TF_UPDATE_TXN,
+        DeferComplete = TF_DEFER_COMPLETE,
     }
 );
 
@@ -576,7 +577,7 @@ impl DeliverToRead for Transaction {
         !self.flags.is_oneway()
     }
 
-    fn debug_print(&self, m: &SeqFile, _prefix: &str, tprefix: &str) -> Result<()> {
+    fn debug_print(&self, m: &SeqFile, _prefix: &str, tprefix: &str) -> Result {
         self.debug_print_inner(m, tprefix);
         Ok(())
     }

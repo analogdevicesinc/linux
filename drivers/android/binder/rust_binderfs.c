@@ -49,7 +49,7 @@ DEFINE_SHOW_ATTRIBUTE(rust_binder_transactions);
 DEFINE_SHOW_ATTRIBUTE(rust_binder_proc);
 
 char *rust_binder_devices_param = CONFIG_ANDROID_BINDER_DEVICES;
-module_param_named(rust_devices, rust_binder_devices_param, charp, 0444);
+module_param_named(devices, rust_binder_devices_param, charp, 0444);
 
 extern u32 rust_binder_debug_mask;
 module_param_named(debug_mask, rust_binder_debug_mask, uint, 0644);
