@@ -374,18 +374,22 @@ static const char * const ad4170_sensor_type[] = {
 
 struct ad4170_chip_info {
 	const char *name;
+	unsigned int clock_div;
 };
 
 static const struct ad4170_chip_info ad4170_chip_info = {
 	.name = "ad4170-4",
+	.clock_div = 1,
 };
 
 static const struct ad4170_chip_info ad4190_chip_info = {
 	.name = "ad4190-4",
+	.clock_div = 2,
 };
 
 static const struct ad4170_chip_info ad4195_chip_info = {
 	.name = "ad4195-4",
+	.clock_div = 2,
 };
 
 /*
@@ -437,6 +441,7 @@ static const char * const ad4170_filt_names[] = {
 
 struct ad4170_state {
 	struct mutex lock; /* Protect read-modify-write and multi write sequences */
+	const struct ad4170_chip_info *chip;
 	int vrefs_uv[AD4170_MAX_SUP];
 	u32 mclk_hz;
 	struct ad4170_setup_info setup_infos[AD4170_MAX_SETUPS];
@@ -2486,7 +2491,7 @@ static int ad4170_clock_select(struct iio_dev *indio_dev)
 
 	if (!ext_clk) {
 		/* Use internal clock reference */
-		st->mclk_hz = AD4170_INT_CLOCK_16MHZ;
+		st->mclk_hz = AD4170_INT_CLOCK_16MHZ / st->chip->clock_div;
 		st->clock_ctrl |= FIELD_PREP(AD4170_CLOCK_CTRL_CLOCKSEL_MSK,
 					     AD4170_CLOCK_CTRL_CLOCKSEL_INT_OUT);
 
@@ -2512,6 +2517,8 @@ static int ad4170_clock_select(struct iio_dev *indio_dev)
 				     "Invalid external clock frequency %u\n",
 				     st->mclk_hz);
 	}
+
+	st->mclk_hz /= st->chip->clock_div;
 
 	return 0;
 }
@@ -2639,7 +2646,8 @@ static int ad4170_initial_config(struct iio_dev *indio_dev)
 					     "Failed to write CHAN_MAP_REG\n");
 
 		ret = ad4170_set_channel_freq(st, chan,
-					      AD4170_DEFAULT_SAMP_RATE, 0);
+					      AD4170_DEFAULT_SAMP_RATE /
+					      st->chip->clock_div, 0);
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "Failed to set channel freq\n");
@@ -2936,6 +2944,7 @@ static int ad4170_probe(struct spi_device *spi)
 	if (!chip)
 		return -EINVAL;
 
+	st->chip = chip;
 	indio_dev->name = chip->name;
 	indio_dev->info = &ad4170_info;
 
