@@ -105,6 +105,8 @@
 #define BRCMF_MAX_CHANSPEC_LIST \
 	(BRCMF_DCMD_MEDLEN / sizeof(__le32) - 1)
 
+#define BRCMF_MAX_BANDLIST_ENTRIES	16
+
 struct brcmf_dump_survey {
 	u32 obss;
 	u32 ibss;
@@ -3388,6 +3390,17 @@ done:
 	return err;
 }
 
+static bool brcmf_chanspec_supported(struct brcmf_cfg80211_info *cfg, u16 chanspec)
+{
+	u16 band = chanspec & BRCMU_CHSPEC_D11AC_BND_MASK;
+
+	if (cfg->d11inf.io_type != BRCMU_D11AC_IOTYPE)
+		return true;
+
+	return band == BRCMU_CHSPEC_D11AC_BND_2G ||
+	       band == BRCMU_CHSPEC_D11AC_BND_5G;
+}
+
 static s32 brcmf_inform_single_bss(struct brcmf_cfg80211_info *cfg,
 				   struct brcmf_bss_info_le *bi)
 {
@@ -3408,6 +3421,9 @@ static s32 brcmf_inform_single_bss(struct brcmf_cfg80211_info *cfg,
 		bphy_err(drvr, "Bss info is larger than buffer. Discarding\n");
 		return -EINVAL;
 	}
+
+	if (!brcmf_chanspec_supported(cfg, le16_to_cpu(bi->chanspec)))
+		return 0;
 
 	if (!bi->ctl_ch) {
 		ch.chspec = le16_to_cpu(bi->chanspec);
@@ -7255,6 +7271,8 @@ static int brcmf_construct_chaninfo(struct brcmf_cfg80211_info *cfg,
 
 	for (i = 0; i < total; i++) {
 		ch.chspec = (u16)le32_to_cpu(list->element[i]);
+		if (!brcmf_chanspec_supported(cfg, ch.chspec))
+			continue;
 		cfg->d11inf.decchspec(&ch);
 
 		if (ch.band == BRCMU_CHAN_BAND_2G) {
@@ -7856,7 +7874,7 @@ static int brcmf_setup_wiphy(struct wiphy *wiphy, struct brcmf_if *ifp)
 	struct ieee80211_supported_band *band;
 	u16 max_interfaces = 0;
 	bool gscan;
-	__le32 bandlist[3];
+	__le32 bandlist[BRCMF_MAX_BANDLIST_ENTRIES];
 	u32 n_bands;
 	int err, i;
 
@@ -7948,8 +7966,20 @@ static int brcmf_setup_wiphy(struct wiphy *wiphy, struct brcmf_if *ifp)
 	}
 	/* first entry in bandlist is number of bands */
 	n_bands = le32_to_cpu(bandlist[0]);
-	for (i = 1; i <= n_bands && i < ARRAY_SIZE(bandlist); i++) {
-		if (bandlist[i] == cpu_to_le32(WLC_BAND_2G)) {
+	if (n_bands >= ARRAY_SIZE(bandlist)) {
+		brcmf_dbg(INFO, "bandlist count %u exceeds buffer entries %zu\n",
+			  n_bands, ARRAY_SIZE(bandlist) - 1);
+		n_bands = ARRAY_SIZE(bandlist) - 1;
+	}
+
+	for (i = 1; i <= n_bands; i++) {
+		u32 band_id = le32_to_cpu(bandlist[i]);
+
+		switch (band_id) {
+		case WLC_BAND_2G:
+			if (wiphy->bands[NL80211_BAND_2GHZ])
+				break;
+
 			band = kmemdup(&__wl_band_2ghz, sizeof(__wl_band_2ghz),
 				       GFP_KERNEL);
 			if (!band)
@@ -7965,8 +7995,11 @@ static int brcmf_setup_wiphy(struct wiphy *wiphy, struct brcmf_if *ifp)
 
 			band->n_channels = ARRAY_SIZE(__wl_2ghz_channels);
 			wiphy->bands[NL80211_BAND_2GHZ] = band;
-		}
-		if (bandlist[i] == cpu_to_le32(WLC_BAND_5G)) {
+			break;
+		case WLC_BAND_5G:
+			if (wiphy->bands[NL80211_BAND_5GHZ])
+				break;
+
 			band = kmemdup(&__wl_band_5ghz, sizeof(__wl_band_5ghz),
 				       GFP_KERNEL);
 			if (!band)
@@ -7982,6 +8015,11 @@ static int brcmf_setup_wiphy(struct wiphy *wiphy, struct brcmf_if *ifp)
 
 			band->n_channels = ARRAY_SIZE(__wl_5ghz_channels);
 			wiphy->bands[NL80211_BAND_5GHZ] = band;
+			break;
+		default:
+			brcmf_dbg(INFO, "ignoring unsupported band %u\n",
+				  band_id);
+			break;
 		}
 	}
 
