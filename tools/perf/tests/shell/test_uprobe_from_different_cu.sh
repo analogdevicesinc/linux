@@ -4,7 +4,6 @@
 
 set -e
 
-# shellcheck source=lib/probe.sh
 . "$(dirname $0)"/lib/probe.sh
 
 skip_if_no_perf_probe || exit 2

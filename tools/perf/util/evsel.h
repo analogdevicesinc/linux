@@ -53,6 +53,7 @@ struct evsel {
 	int			id_pos;
 	int			is_pos;
 	unsigned int		sample_size;
+	bool			merged_hybrid_group;
 
 	/*
 	 * These fields can be set in the parse-events code or similar.
@@ -585,6 +586,13 @@ static inline bool evsel__is_dummy_event(struct evsel *evsel)
 {
 	return (evsel->core.attr.type == PERF_TYPE_SOFTWARE) &&
 	       (evsel->core.attr.config == PERF_COUNT_SW_DUMMY);
+}
+
+static inline bool evsel__is_non_software_event(struct evsel *evsel)
+{
+	return (evsel->core.attr.type != PERF_TYPE_SOFTWARE) &&
+	       (evsel->core.attr.type != PERF_TYPE_TRACEPOINT) &&
+	       (evsel->core.attr.type != PERF_TYPE_BREAKPOINT);
 }
 
 struct perf_session *evsel__session(struct evsel *evsel);

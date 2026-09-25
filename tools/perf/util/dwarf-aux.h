@@ -189,4 +189,7 @@ void die_collect_global_vars(Dwarf_Die *cu_die, struct die_var_type **var_types)
 /* Get the frame base information from CFA */
 int die_get_cfa(Dwarf *dwarf, u64 pc, int *preg, int *poffset);
 
+/* Check whether given type has a flex array */
+bool die_has_flex_array(Dwarf_Die *parent_die);
+
 #endif /* _DWARF_AUX_H */

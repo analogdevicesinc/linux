@@ -66,3 +66,5 @@ For latency profiling, try: perf record/report --latency
 For parallelism histogram, try: perf report --hierarchy --sort latency,parallelism,comm,symbol
 To analyze particular parallelism levels, try: perf report --latency --parallelism=32-64
 To see how parallelism changes over time, try: perf report -F time,latency,parallelism --time-quantum=1s
+When merging events like cycles, different core frequencies and instructions per cycle mean the counts may not fairly reflect time spent in a function.
+Use --hybrid-merge to merge matching events from hybrid cores into one view

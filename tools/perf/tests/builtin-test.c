@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "util/config.h"
+
 #include <dirent.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -67,7 +69,8 @@ static const char *workload_control;
  * dependent on the initialization, as such GCC with LTO complains of
  * conflicting definitions with a weak symbol.
  */
-#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__) || defined(__powerpc64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__) || \
+	defined(__powerpc64__) || defined(__riscv)
 extern struct test_suite *arch_tests[];
 #else
 static struct test_suite *arch_tests[] = {
@@ -149,6 +152,7 @@ static struct test_suite *generic_tests[] = {
 	&suite__dlfilter,
 	&suite__sigtrap,
 	&suite__event_groups,
+	&suite__hybrid_merge,
 	&suite__symbols,
 	&suite__util,
 	&suite__subcmd_help,
@@ -1654,11 +1658,30 @@ static int run_workload(const char *work, int argc, const char **argv)
 	return -1;
 }
 
+/*
+ * Owns the string test_objdump_path points at when it came from the config. It
+ * is reachable for the lifetime of the process so leak checking won't report
+ * it.
+ */
+static char *test_objdump_config_path;
+
 static int perf_test__config(const char *var, const char *value,
 			     void *data __maybe_unused)
 {
-	if (!strcmp(var, "annotate.objdump"))
-		test_objdump_path = value;
+	if (!strcmp(var, "annotate.objdump")) {
+		/*
+		 * The config, and so value, is freed by perf_config__exit()
+		 * below, take a copy that lives as long as the tests.
+		 */
+		char *dup = strdup(value);
+
+		if (!dup)
+			return -ENOMEM;
+
+		free(test_objdump_config_path);
+		test_objdump_config_path = dup;
+		test_objdump_path = dup;
+	}
 
 	return 0;
 }
@@ -1754,13 +1777,31 @@ int cmd_test(int argc, const char **argv)
 	};
 	const char * const test_subcommands[] = { "list", NULL };
 	struct intlist *skiplist = NULL;
-        int ret = hists__init();
 	struct test_suite **suites;
+	int ret;
 
-        if (ret < 0)
+	ret = hists__init();
+	if (ret < 0)
                 return ret;
 
-	perf_config(perf_test__config, NULL);
+	/* Read test related config, like annotate.objdump, before isolating. */
+	ret = perf_config(perf_test__config, NULL);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * Isolate the test suite from the user's ~/.perfconfig to ensure
+	 * behavior isn't impacted by custom variables (e.g. core.hybrid-merge).
+	 * Setting PERF_CONFIG isolates the perf commands run by the shell
+	 * tests, config_exclusive_filename does the same for this process.
+	 * Config values already read by main's perf_config are reset here, so
+	 * far only the hybrid-merge value is known to alter test output.
+	 */
+	if (setenv("PERF_CONFIG", "/dev/null", 1) < 0)
+		return -1;
+	config_exclusive_filename = "/dev/null";
+	perf_config__exit();
+	symbol_conf.hybrid_merge = false;
 
 	/* Unbuffered output */
 	setvbuf(stdout, NULL, _IONBF, 0);

@@ -6,7 +6,6 @@
 
 shelldir=$(dirname "$0")
 
-# shellcheck source=lib/perf_has_symbol.sh
 . "${shelldir}"/lib/perf_has_symbol.sh
 
 skip_if_no_mem_event() {
