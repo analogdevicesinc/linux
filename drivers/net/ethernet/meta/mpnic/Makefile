@@ -11,4 +11,5 @@ mpnic-y := \
 	mpnic_init.o \
 	mpnic_irq.o \
 	mpnic_pci.o \
+	mpnic_txrx.o \
 # End of mpnic-y

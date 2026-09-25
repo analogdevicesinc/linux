@@ -15,6 +15,13 @@
 /* Transmit Work Descriptor Format */
 #define MPNIC_TWD_FLAG_REQ_COMPLETION	DESC_BIT(37)
 
+#define MPNIC_TWD_ADDR			DESC_GENMASK(45, 0)
+#define MPNIC_TWD_LEN			DESC_GENMASK(63, 48)
+
+/* Tx Completion Descriptor Format */
+#define MPNIC_TCD_TYPE0_HEAD0		DESC_GENMASK(15, 0)
+#define MPNIC_TCD_DONE			DESC_BIT(63)
+
 /* Common fields for all DESC_CFG CSRs */
 #define MPNIC_DESC_CFG_NUM_DESCS	CSR_GENMASK(2, 0)
 #define MPNIC_DESC_CFG_START_ADDR	CSR_GENMASK(19, 8)
@@ -27,6 +34,22 @@
  *
  *	Name				Index			Address
  *****************************************************************************/
+
+/* NIC_CORE_TDF */
+#define MPNIC_TWQ_TAIL(i, j)		(0x4 + 1024 * (i) + 2 * (j))
+								/* 0x10 */
+
+/* NIC_CORE_TCM */
+#define MPNIC_TCQ_HEAD(i)		(0x8e + 1024 * (i))	/* 0x238 */
+
+/* NIC_CORE_TIM */
+#define MPNIC_TIM_CTL1(i)		(0xc0 + 1024 * (i))	/* 0x300 */
+#define MPNIC_TIM_CTL1_UPD_IGN_LONG_EVENT_CNT	CSR_BIT(48)
+#define MPNIC_TIM_CTL1_UPD_IGN_LONG_TIME_CNT	CSR_BIT(49)
+#define MPNIC_TIM_CTL1_UPD_IGN_SHORT_TIME_CNT	CSR_BIT(50)
+#define MPNIC_TIM_CTL1_MASK			CSR_BIT(51)
+#define MPNIC_TIM_CTL1_MASK_EN			CSR_BIT(52)
+#define MPNIC_TIM_CTL1_TRIGGER			CSR_BIT(53)
 
 /* NIC_CORE_RBP_HP_GLBL */
 #define MPNIC_BDQ_GLBL_CTL0		0x420080		/* 0x1080200 */
