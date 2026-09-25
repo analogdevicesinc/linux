@@ -17,6 +17,7 @@
 #include "fwvid.h"
 #include "feature.h"
 #include "common.h"
+#include "scan_param.h"
 
 #define BRCMF_FW_UNSUPPORTED	23
 
@@ -296,6 +297,46 @@ static void brcmf_feat_firmware_capabilities(struct brcmf_if *ifp)
 	}
 }
 
+static void brcmf_feat_scan_params(struct brcmf_if *ifp)
+{
+	struct brcmf_pub *drvr = ifp->drvr;
+	struct brcmf_scan_version_le scan_ver = {};
+	u32 version = 1;
+	u32 scalar_version;
+	int err;
+
+	err = brcmf_fil_iovar_data_get(ifp, "scan_ver", &scan_ver,
+				       sizeof(scan_ver));
+	if (!err) {
+		version = le16_to_cpu(scan_ver.scan_ver_major);
+		if (!version)
+			version = le16_to_cpu(scan_ver.version);
+		if (version >= BRCMF_SCAN_PARAMS_VERSION_V2)
+			drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_V2);
+	} else {
+		err = brcmf_fil_iovar_int_get(ifp, "scan_ver",
+					      &scalar_version);
+		if (!err) {
+			version = scalar_version;
+			if (version >= BRCMF_SCAN_PARAMS_VERSION_V2)
+				drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_V2);
+		} else {
+			brcmf_dbg(TRACE, "scan_ver unavailable (%d), using v1 scan params\n",
+				  err);
+		}
+	}
+
+	err = brcmf_scan_param_setup_for_version(drvr, version);
+	if (!err) {
+		brcmf_dbg(INFO, "using scan params v%u\n", version);
+		return;
+	}
+
+	bphy_err(drvr, "unsupported scan params v%u, using v1\n", version);
+	drvr->feat_flags &= ~BIT(BRCMF_FEAT_SCAN_V2);
+	brcmf_scan_param_setup_for_version(drvr, 1);
+}
+
 /**
  * brcmf_feat_fwcap_debugfs_read() - expose firmware capabilities to debugfs.
  *
@@ -385,7 +426,7 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 		ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_RANDOM_MAC);
 
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_FWSUP, "sup_wpa");
-	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_SCAN_V2, "scan_ver");
+	brcmf_feat_scan_params(ifp);
 	brcmf_feat_event_msgs_ext(ifp);
 
 	brcmf_feat_wlc_version_overrides(drvr);
@@ -399,6 +440,9 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 			  drvr->settings->feature_disable);
 		ifp->drvr->feat_flags &= ~drvr->settings->feature_disable;
 	}
+
+	if (!brcmf_feat_is_enabled(ifp, BRCMF_FEAT_SCAN_V2))
+		brcmf_scan_param_setup_for_version(drvr, 1);
 
 	/* set chip related quirks */
 	switch (drvr->bus_if->chip) {

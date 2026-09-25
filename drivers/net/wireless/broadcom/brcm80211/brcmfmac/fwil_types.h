@@ -53,6 +53,8 @@
 
 /* version of brcmf_scan_params structure */
 #define BRCMF_SCAN_PARAMS_VERSION_V2	2
+#define BRCMF_SCAN_PARAMS_VERSION_V3	3
+#define BRCMF_SCAN_PARAMS_VERSION_V4	4
 
 /* masks for channel and ssid count */
 #define BRCMF_SCAN_PARAMS_COUNT_MASK	0x0000ffff
@@ -62,6 +64,13 @@
 #define BRCMF_SCANTYPE_DEFAULT		0xFF
 #define BRCMF_SCANTYPE_ACTIVE		0
 #define BRCMF_SCANTYPE_PASSIVE		1
+
+#define BRCMF_SCANFLAGS_LOW_PRIO	BIT(1)
+#define BRCMF_SCANFLAGS_LOW_POWER	BIT(12)
+#define BRCMF_SCANFLAGS_HIGH_ACCURACY	BIT(13)
+#define BRCMF_SCANFLAGS_LOW_SPAN	BIT(14)
+
+#define BRCMF_SCANSSID_INC_RNR		BIT(1)
 
 #define BRCMF_WSEC_MAX_PSK_LEN		32
 #define	BRCMF_WSEC_PASSPHRASE		BIT(0)
@@ -451,6 +460,45 @@ struct brcmf_scan_params_v2_le {
 	};
 };
 
+struct brcmf_scan_params_v3_le {
+	__le16 version;
+	__le16 length;
+	struct brcmf_ssid_le ssid_le;
+	u8 bssid[ETH_ALEN];
+	s8 bss_type;
+	u8 ssid_type;
+	__le32 scan_type;
+	__le32 nprobes;
+	__le32 active_time;
+	__le32 passive_time;
+	__le32 home_time;
+	__le32 channel_num;
+	union {
+		__le16 padding;
+		DECLARE_FLEX_ARRAY(__le16, channel_list);
+	};
+};
+
+struct brcmf_scan_params_v4_le {
+	__le16 version;
+	__le16 length;
+	struct brcmf_ssid_le ssid_le;
+	u8 bssid[ETH_ALEN];
+	s8 bss_type;
+	u8 ssid_type;
+	__le32 scan_type;
+	__le32 scan_type_ext;
+	__le32 nprobes;
+	__le32 active_time;
+	__le32 passive_time;
+	__le32 home_time;
+	__le32 channel_num;
+	union {
+		__le16 padding;
+		DECLARE_FLEX_ARRAY(__le16, channel_list);
+	};
+};
+
 struct brcmf_scan_results {
 	u32 buflen;
 	u32 version;
@@ -465,6 +513,8 @@ struct brcmf_escan_params_le {
 	union {
 		struct brcmf_scan_params_le params_le;
 		struct brcmf_scan_params_v2_le params_v2_le;
+		struct brcmf_scan_params_v3_le params_v3_le;
+		struct brcmf_scan_params_v4_le params_v4_le;
 	};
 };
 
@@ -1082,6 +1132,21 @@ struct brcmf_pno_scanresults_v2_le {
 	__le32 count;
 	__le32 scan_ch_bucket;
 };
+
+/**
+ * struct brcmf_scan_version_le - scan interface version.
+ *
+ * @version: version of this structure.
+ * @length: length of this structure.
+ * @scan_ver_major: scan parameter version supported by firmware.
+ */
+struct brcmf_scan_version_le {
+	__le16 version;
+	__le16 length;
+	__le16 scan_ver_major;
+};
+
+#define BRCMF_SCAN_VERSION_VERSION	1
 
 /**
  * struct brcmf_pno_macaddr_le - to configure PNO macaddr randomization.
