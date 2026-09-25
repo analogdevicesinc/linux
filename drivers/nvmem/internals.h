@@ -19,7 +19,6 @@ struct nvmem_device {
 	int			stride;
 	int			word_size;
 	int			id;
-	struct kref		refcnt;
 	size_t			size;
 	bool			read_only;
 	bool			root_only;

@@ -535,24 +535,6 @@ static void nvmem_sysfs_remove_compat(struct nvmem_device *nvmem)
 
 #endif /* CONFIG_NVMEM_SYSFS */
 
-static void nvmem_release(struct device *dev)
-{
-	struct nvmem_device *nvmem = to_nvmem_device(dev);
-
-	ida_free(&nvmem_ida, nvmem->id);
-	gpiod_put(nvmem->wp_gpio);
-	kfree(nvmem->ops);
-	kfree(nvmem);
-}
-
-static const struct device_type nvmem_provider_type = {
-	.release	= nvmem_release,
-};
-
-static const struct bus_type nvmem_bus_type = {
-	.name		= "nvmem",
-};
-
 static void nvmem_cell_entry_drop(struct nvmem_cell_entry *cell)
 {
 	blocking_notifier_call_chain(&nvmem_notifier, NVMEM_CELL_REMOVE, cell);
@@ -570,6 +552,25 @@ static void nvmem_device_remove_all_cells(const struct nvmem_device *nvmem)
 	list_for_each_entry_safe(cell, p, &nvmem->cells, node)
 		nvmem_cell_entry_drop(cell);
 }
+
+static void nvmem_release(struct device *dev)
+{
+	struct nvmem_device *nvmem = to_nvmem_device(dev);
+
+	gpiod_put(nvmem->wp_gpio);
+	nvmem_device_remove_all_cells(nvmem);
+	ida_free(&nvmem_ida, nvmem->id);
+	kfree(nvmem->ops);
+	kfree(nvmem);
+}
+
+static const struct device_type nvmem_provider_type = {
+	.release	= nvmem_release,
+};
+
+static const struct bus_type nvmem_bus_type = {
+	.name		= "nvmem",
+};
 
 static void nvmem_cell_entry_add(struct nvmem_cell_entry *cell)
 {
@@ -918,6 +919,7 @@ struct nvmem_device *nvmem_register(const struct nvmem_config *config)
 	nvmem->dev.type = &nvmem_provider_type;
 	nvmem->dev.bus = &nvmem_bus_type;
 	nvmem->dev.parent = config->dev;
+	INIT_LIST_HEAD(&nvmem->cells);
 	nvmem->ops = ops;
 
 	device_initialize(&nvmem->dev);
@@ -931,8 +933,6 @@ struct nvmem_device *nvmem_register(const struct nvmem_config *config)
 		goto err_put_device;
 	}
 
-	kref_init(&nvmem->refcnt);
-	INIT_LIST_HEAD(&nvmem->cells);
 	nvmem->fixup_dt_cell_info = config->fixup_dt_cell_info;
 
 	ops->reg_read = config->reg_read;
@@ -993,20 +993,20 @@ struct nvmem_device *nvmem_register(const struct nvmem_config *config)
 	if (config->cells) {
 		rval = nvmem_add_cells(nvmem, config->cells, config->ncells);
 		if (rval)
-			goto err_remove_cells;
+			goto err_remove_compat;
 	}
 
 	if (config->add_legacy_fixed_of_cells) {
 		rval = nvmem_add_cells_from_legacy_of(nvmem);
 		if (rval)
-			goto err_remove_cells;
+			goto err_remove_compat;
 	}
 
 	dev_dbg(&nvmem->dev, "Registering nvmem device %s\n", config->name);
 
 	rval = device_add(&nvmem->dev);
 	if (rval)
-		goto err_remove_cells;
+		goto err_remove_compat;
 
 	rval = nvmem_populate_layout(nvmem);
 	if (rval)
@@ -1032,8 +1032,7 @@ err_destroy_layout:
 #endif
 err_remove_dev:
 	device_del(&nvmem->dev);
-err_remove_cells:
-	nvmem_device_remove_all_cells(nvmem);
+err_remove_compat:
 	nvmem_sysfs_remove_compat(nvmem);
 err_put_device:
 	put_device(&nvmem->dev);
@@ -1042,21 +1041,6 @@ err_put_device:
 }
 EXPORT_SYMBOL_GPL(nvmem_register);
 
-static void nvmem_device_release(struct kref *kref)
-{
-	struct nvmem_device *nvmem;
-
-	nvmem = container_of(kref, struct nvmem_device, refcnt);
-
-	blocking_notifier_call_chain(&nvmem_notifier, NVMEM_REMOVE, nvmem);
-
-	nvmem_sysfs_remove_compat(nvmem);
-
-	nvmem_device_remove_all_cells(nvmem);
-	nvmem_destroy_layout(nvmem);
-	device_unregister(&nvmem->dev);
-}
-
 /**
  * nvmem_unregister() - Unregister previously registered nvmem device
  *
@@ -1064,8 +1048,15 @@ static void nvmem_device_release(struct kref *kref)
  */
 void nvmem_unregister(struct nvmem_device *nvmem)
 {
-	if (nvmem)
-		kref_put(&nvmem->refcnt, nvmem_device_release);
+	if (!nvmem)
+		return;
+
+	blocking_notifier_call_chain(&nvmem_notifier, NVMEM_REMOVE, nvmem);
+
+	nvmem_sysfs_remove_compat(nvmem);
+	nvmem_destroy_layout(nvmem);
+
+	device_unregister(&nvmem->dev);
 }
 EXPORT_SYMBOL_GPL(nvmem_unregister);
 
@@ -1125,8 +1116,6 @@ static struct nvmem_device *nvmem_device_match(void *data,
 		put_device(&nvmem->dev);
 		return ERR_PTR(-EINVAL);
 	}
-
-	kref_get(&nvmem->refcnt);
 
 	return nvmem;
 }
@@ -1243,9 +1232,8 @@ EXPORT_SYMBOL_GPL(devm_nvmem_device_put);
  */
 void nvmem_device_put(struct nvmem_device *nvmem)
 {
-	put_device(&nvmem->dev);
 	module_put(nvmem->owner);
-	kref_put(&nvmem->refcnt, nvmem_device_release);
+	put_device(&nvmem->dev);
 }
 EXPORT_SYMBOL_GPL(nvmem_device_put);
 
