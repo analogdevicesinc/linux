@@ -1726,6 +1726,7 @@ static void __init _samsung_clk_register_pll(struct samsung_clk_provider *ctx,
 		else
 			init.ops = &samsung_pll2650xx_clk_ops;
 		break;
+	case pll_309:
 	case pll_531x:
 	case pll_4311:
 		init.ops = &samsung_pll531x_clk_ops;
