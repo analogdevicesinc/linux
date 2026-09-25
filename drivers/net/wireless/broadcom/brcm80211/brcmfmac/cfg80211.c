@@ -1584,28 +1584,45 @@ int brcmf_set_wsec(struct brcmf_if *ifp, const u8 *key, u16 key_len, u16 flags)
 {
 	struct brcmf_pub *drvr = ifp->drvr;
 	struct brcmf_wsec_pmk_le pmk;
+	struct brcmf_wsec_pmk_ext_le pmk_ext;
 	int err;
 
-	if (key_len > sizeof(pmk.key)) {
+	if (key_len > sizeof(pmk_ext.key)) {
 		bphy_err(drvr, "key must be less than %zu bytes\n",
-			 sizeof(pmk.key));
+			 sizeof(pmk_ext.key));
 		return -EINVAL;
 	}
 
-	memset(&pmk, 0, sizeof(pmk));
+	if (key_len <= sizeof(pmk.key)) {
+		memset(&pmk, 0, sizeof(pmk));
 
-	/* pass key material directly */
-	pmk.key_len = cpu_to_le16(key_len);
-	pmk.flags = cpu_to_le16(flags);
-	memcpy(pmk.key, key, key_len);
+		pmk.key_len = cpu_to_le16(key_len);
+		pmk.flags = cpu_to_le16(flags);
+		memcpy(pmk.key, key, key_len);
 
-	/* store key material in firmware */
+		err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_WSEC_PMK,
+					     &pmk, sizeof(pmk));
+		if (!err)
+			return 0;
+		if (err != -EBADE)
+			goto fail;
+	}
+
+	memset(&pmk_ext, 0, sizeof(pmk_ext));
+	pmk_ext.key_len = cpu_to_le16(key_len);
+	pmk_ext.flags = cpu_to_le16(flags);
+	memcpy(pmk_ext.key, key, key_len);
+
 	err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_WSEC_PMK,
-				     &pmk, sizeof(pmk));
+				     &pmk_ext, sizeof(pmk_ext));
 	if (err < 0)
-		bphy_err(drvr, "failed to change PSK in firmware (len=%u)\n",
-			 key_len);
+		goto fail;
 
+	return 0;
+
+fail:
+	bphy_err(drvr, "failed to change PSK in firmware (len=%u, err=%d)\n",
+		 key_len, err);
 	return err;
 }
 BRCMF_EXPORT_SYMBOL_GPL(brcmf_set_wsec);

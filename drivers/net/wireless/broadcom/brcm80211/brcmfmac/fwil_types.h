@@ -75,6 +75,7 @@
 #define BRCMF_WSEC_MAX_PSK_LEN		32
 #define	BRCMF_WSEC_PASSPHRASE		BIT(0)
 
+#define BRCMF_WSEC_MAX_PMK_LEN		256
 #define BRCMF_WSEC_MAX_SAE_PASSWORD_LEN 128
 
 /* primary (ie tx) key */
@@ -665,6 +666,23 @@ struct brcmf_wsec_pmk_le {
 	__le16  key_len;
 	__le16  flags;
 	u8 key[BRCMF_WSEC_MAX_SAE_PASSWORD_LEN];
+};
+
+/**
+ * struct brcmf_wsec_pmk_ext_le - extended firmware pmk material.
+ *
+ * @key_len: number of octets in key material.
+ * @flags: key handling qualifiers.
+ * @key: PMK key material.
+ * @opt_len: optional field length.
+ * @opt_tlvs: optional fields in TLV format.
+ */
+struct brcmf_wsec_pmk_ext_le {
+	__le16  key_len;
+	__le16  flags;
+	u8 key[BRCMF_WSEC_MAX_PMK_LEN];
+	__le16  opt_len;
+	u8 opt_tlvs[];
 };
 
 /**
