@@ -5345,38 +5345,38 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_commit *state)
 		amdgpu_dm_handle_vrr_transition(dm, dm_old_crtc_state, dm_new_crtc_state);
 
 #ifdef CONFIG_DEBUG_FS
-		if (new_crtc_state->active &&
-		    (!old_crtc_state->active ||
-		     drm_atomic_crtc_needs_modeset(new_crtc_state))) {
-			/**
-			 * Frontend may have changed so reapply the CRC capture
-			 * settings for the stream.
-			 */
-			if (amdgpu_dm_is_valid_crc_source(cur_crc_src)) {
+		if (!new_crtc_state->active ||
+		    (old_crtc_state->active && !drm_atomic_crtc_needs_modeset(new_crtc_state)))
+			continue;
+
+		/**
+		 * Frontend may have changed so reapply the CRC capture
+		 * settings for the stream.
+		 */
+		if (!amdgpu_dm_is_valid_crc_source(cur_crc_src))
+			continue;
+
 #if defined(CONFIG_DRM_AMD_SECURE_DISPLAY)
-				if (amdgpu_dm_crc_window_is_activated(crtc)) {
-					uint8_t cnt;
+		if (amdgpu_dm_crc_window_is_activated(crtc)) {
+			uint8_t cnt;
 
-					spin_lock_irqsave(&adev_to_drm(adev)->event_lock, flags);
-					for (cnt = 0; cnt < MAX_CRC_WINDOW_NUM; cnt++) {
-						if (acrtc->dm_irq_params.window_param[cnt].enable) {
-							acrtc->dm_irq_params.window_param[cnt].update_win = true;
+			spin_lock_irqsave(&adev_to_drm(adev)->event_lock, flags);
+			for (cnt = 0; cnt < MAX_CRC_WINDOW_NUM; cnt++) {
+				if (acrtc->dm_irq_params.window_param[cnt].enable) {
+					acrtc->dm_irq_params.window_param[cnt].update_win = true;
 
-							/**
-							 * It takes 2 frames for HW to stably generate CRC when
-							 * resuming from suspend, so we set skip_frame_cnt 2.
-							 */
-							acrtc->dm_irq_params.window_param[cnt].skip_frame_cnt = 2;
-						}
-					}
-					spin_unlock_irqrestore(&adev_to_drm(adev)->event_lock, flags);
+					/**
+					 * It takes 2 frames for HW to stably generate CRC when
+					 * resuming from suspend, so we set skip_frame_cnt 2.
+					 */
+					acrtc->dm_irq_params.window_param[cnt].skip_frame_cnt = 2;
 				}
-#endif
-				if (amdgpu_dm_crtc_configure_crc_source(
-					crtc, dm_new_crtc_state, cur_crc_src))
-					drm_dbg_atomic(dev, "Failed to configure crc source");
 			}
+			spin_unlock_irqrestore(&adev_to_drm(adev)->event_lock, flags);
 		}
+#endif
+		if (amdgpu_dm_crtc_configure_crc_source(crtc, dm_new_crtc_state, cur_crc_src))
+			drm_dbg_atomic(dev, "Failed to configure crc source");
 #endif
 	}
 
