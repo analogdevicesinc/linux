@@ -62,6 +62,7 @@ struct intel_tlv {
 #define BTINTEL_CNVI_SCP		0xA00	/* Scorpius Peak - Panther Lake */
 #define BTINTEL_CNVI_SCP2		0xA10	/* Scorpius Peak2 - Nova Lake */
 #define BTINTEL_CNVI_SCP2F		0xA20	/* Scorpius Peak2F - Nova Lake */
+#define BTINTEL_CNVI_DRACO		0xA30	/* Draco */
 
 /* CNVR */
 #define BTINTEL_CNVR_FMP2		0x910
@@ -178,6 +179,15 @@ struct hci_ppag_enable_cmd {
 	__le32	ppag_enable_flags;
 } __packed;
 
+#define BTINTEL_GET_ROM_DEBUG_INFO	0xfcde
+struct btintel_rp_get_rom_debug_info {
+	__u8	status;
+	__le32	debug_reg0;
+	__le32	debug_reg1;
+	__le32	debug_reg2;
+	__le32	debug_reg3;
+} __packed;
+
 #define INTEL_TLV_TYPE_ID		0x01
 
 #define INTEL_TLV_SYSTEM_EXCEPTION	0x00
@@ -225,7 +235,9 @@ struct btintel_sar_rev2 {
 #define INTEL_HW_PLATFORM(cnvx_bt)	((u8)(((cnvx_bt) & 0x0000ff00) >> 8))
 #define INTEL_HW_VARIANT(cnvx_bt)	((u8)(((cnvx_bt) & 0x003f0000) >> 16))
 #define INTEL_CNVX_TOP_TYPE(cnvx_top)	((cnvx_top) & 0x00000fff)
+#define INTEL_CNVX_TOP_DASH(cnvx_top)	(((cnvx_top) & 0x00f00000) >> 20)
 #define INTEL_CNVX_TOP_STEP(cnvx_top)	(((cnvx_top) & 0x0f000000) >> 24)
+#define INTEL_CNVX_TOP_FLAVOR(cnvx_top)	(((cnvx_top) & 0xf0000000) >> 28)
 #define INTEL_CNVX_TOP_PACK_SWAB(t, s)	__swab16(((__u16)(((t) << 4) | (s))))
 
 enum {
@@ -247,6 +259,7 @@ enum {
 struct btintel_data {
 	DECLARE_BITMAP(flags, __INTEL_NUM_FLAGS);
 	int (*acpi_reset_method)(struct hci_dev *hdev);
+	u32 cnvi_bt;
 };
 
 #define btintel_set_flag(hdev, nr)					\
