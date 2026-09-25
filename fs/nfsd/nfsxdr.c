@@ -8,6 +8,7 @@
 #include <linux/filelock.h>
 
 #include "vfs.h"
+#include "nfserr.h"
 #include "xdr.h"
 #include "auth.h"
 

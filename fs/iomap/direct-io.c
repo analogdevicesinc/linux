@@ -505,7 +505,7 @@ static int iomap_dio_bio_iter(struct iomap_iter *iter, struct iomap_dio *dio)
 		 * We can only do inline completion for pure overwrites that
 		 * don't require additional I/O at completion time.
 		 *
-		 * This rules out writes that need zeroing or metdata updates to
+		 * This rules out writes that need zeroing or metadata updates to
 		 * convert unwritten or shared extents.
 		 *
 		 * Writes that extend i_size are also not supported, but this is

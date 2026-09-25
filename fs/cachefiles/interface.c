@@ -111,7 +111,7 @@ static int cachefiles_adjust_size(struct cachefiles_object *object)
 	struct iattr newattrs;
 	struct file *file = object->file;
 	uint64_t ni_size;
-	loff_t oi_size;
+	uoff_t oi_size;
 	int ret;
 
 	ni_size = object->cookie->object_size;
@@ -225,11 +225,11 @@ fail:
  * any unused granules.
  */
 static bool cachefiles_shorten_object(struct cachefiles_object *object,
-				      struct file *file, loff_t new_size)
+				      struct file *file, uoff_t new_size)
 {
 	struct cachefiles_cache *cache = object->volume->cache;
 	struct inode *inode = file_inode(file);
-	loff_t i_size, dio_size;
+	uoff_t i_size, dio_size;
 	int ret;
 
 	dio_size = round_up(new_size, CACHEFILES_DIO_BLOCK_SIZE);
@@ -271,14 +271,14 @@ static bool cachefiles_shorten_object(struct cachefiles_object *object,
  * Resize the backing object.
  */
 static void cachefiles_resize_cookie(struct netfs_cache_resources *cres,
-				     loff_t new_size)
+				     uoff_t new_size)
 {
 	struct cachefiles_object *object = cachefiles_cres_object(cres);
 	struct cachefiles_cache *cache = object->volume->cache;
 	struct fscache_cookie *cookie = object->cookie;
 	const struct cred *saved_cred;
 	struct file *file = cachefiles_cres_file(cres);
-	loff_t old_size = cookie->object_size;
+	uoff_t old_size = cookie->object_size;
 
 	_enter("%llu->%llu", old_size, new_size);
 
