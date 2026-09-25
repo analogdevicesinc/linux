@@ -111,20 +111,19 @@ jobs:
 
           Do **not** review commits starting with "[TMP]", "[ADI]", "[CI]",
           they are not part of the series but to change the CI/CD or temporally change behaviour.
+
           You **must** check the appropriate datasheets for devices drivers.
-
-          A sitemap with all pdfs, including the datasheets, is available at:
-            https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling/en-pdf-sitemap.xml
-            (mirror of https://www.analog.com/media/en/en-pdf-sitemap.xml)
-
           Pre-converted (with docling), are available at the git tree:
-            https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling
-
-          for example:
-            https://www.analog.com/media/en/technical-documentation/data-sheets/max17335.pdf
-          can be fetched with:
-            https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling/media/en/technical-documentation/data-sheets/max17335.md
-
+          ```
+          $ git clone --filter=blob:none --no-checkout --branch docling \
+              https://github.com/analogdevicesinc/doctools.git /tmp/docling ; cd $_
+          # Search
+          $ git ls-tree -r --name-only @ | grep -i sc84
+             media/en/dsp-documentation/processor-manuals/adsp-2184x-adsp-sc84x-hrm.md
+             media/en/technical-documentation/data-sheets/adsp-2184x-adsp-sc84x.md
+          # View
+          $ git --no-pager show @:media/en/technical-documentation/data-sheets/adsp-2184x-adsp-sc84x.md
+          ```
           Do not try to fetch the from analog.com domain directly, due to bot protection
           guards in place.
 
