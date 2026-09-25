@@ -109,7 +109,7 @@ struct mount_kattr {
 	unsigned int lookup_flags;
 	enum mount_kattr_flags_t kflags;
 	struct user_namespace *mnt_userns;
-	struct mnt_idmap *mnt_idmap;
+	const struct mnt_idmap *mnt_idmap;
 };
 
 /* /sys/fs */
@@ -4115,7 +4115,7 @@ int path_mount(const char *dev_name, const struct path *path,
 	if (flags & SB_MANDLOCK)
 		warn_mandlock();
 
-	/* Default to relatime unless overriden */
+	/* Default to relatime unless overridden */
 	if (!(flags & MS_NOATIME))
 		mnt_flags |= MNT_RELATIME;
 
@@ -4246,8 +4246,6 @@ struct mnt_namespace *copy_mnt_ns(u64 flags, struct mnt_namespace *ns,
 	struct mount *old;
 	struct mount *new;
 	int copy_flags;
-
-	BUG_ON(!ns);
 
 	if (likely(!(flags & CLONE_NEWNS))) {
 		get_mnt_ns(ns);
@@ -4544,16 +4542,16 @@ SYSCALL_DEFINE3(fsmount, int, fs_fd, unsigned int, flags,
 
 	FD_PREPARE(fdf, (flags & FSMOUNT_CLOEXEC) ? O_CLOEXEC : 0,
 		   dentry_open(&new_path, O_PATH, fc->cred));
-	if (fdf.err) {
+	if (fdf->fd < 0) {
 		dissolve_on_fput(new_path.mnt);
-		return fdf.err;
+		return fdf->fd;
 	}
 
 	/*
 	 * Attach to an apparent O_PATH fd with a note that we
 	 * need to unmount it, not just simply put it.
 	 */
-	fd_prepare_file(fdf)->f_mode |= FMODE_NEED_UNMOUNT;
+	fdf->file->f_mode |= FMODE_NEED_UNMOUNT;
 	return fd_publish(fdf);
 }
 
@@ -4898,7 +4896,7 @@ static int mount_setattr_prepare(struct mount_kattr *kattr, struct mount *mnt)
 
 static void do_idmap_mount(const struct mount_kattr *kattr, struct mount *mnt)
 {
-	struct mnt_idmap *old_idmap;
+	const struct mnt_idmap *old_idmap;
 
 	if (!kattr->mnt_idmap)
 		return;
@@ -4941,7 +4939,7 @@ static int do_mount_setattr(const struct path *path, struct mount_kattr *kattr)
 		return -EINVAL;
 
 	if (kattr->mnt_userns) {
-		struct mnt_idmap *mnt_idmap;
+		const struct mnt_idmap *mnt_idmap;
 
 		mnt_idmap = alloc_mnt_idmap(kattr->mnt_userns);
 		if (IS_ERR(mnt_idmap))
@@ -5198,12 +5196,12 @@ SYSCALL_DEFINE5(open_tree_attr, int, dfd, const char __user *, filename,
 		return -EINVAL;
 
 	FD_PREPARE(fdf, flags, vfs_open_tree(dfd, filename, flags));
-	if (fdf.err)
-		return fdf.err;
+	if (fdf->fd < 0)
+		return fdf->fd;
 
 	if (uattr) {
 		struct mount_kattr kattr = {};
-		struct file *file = fd_prepare_file(fdf);
+		struct file *file = fdf->file;
 		int ret;
 
 		if (flags & OPEN_TREE_CLONE)
@@ -5246,7 +5244,7 @@ struct kstatmount {
 	struct statmount __user *buf;
 	size_t bufsize;
 	struct vfsmount *mnt;
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	u64 mask;
 	struct path root;
 	struct seq_file seq;

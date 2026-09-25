@@ -449,7 +449,7 @@ TRACE_EVENT(cachefiles_vol_coherency,
 
 TRACE_EVENT(cachefiles_prep_read,
 	    TP_PROTO(struct cachefiles_object *obj,
-		     loff_t start,
+		     uoff_t start,
 		     size_t len,
 		     unsigned short flags,
 		     enum netfs_io_source source,
@@ -464,7 +464,7 @@ TRACE_EVENT(cachefiles_prep_read,
 		    __field(enum netfs_io_source,	source)
 		    __field(enum cachefiles_prepare_read_trace,	why)
 		    __field(size_t,			len)
-		    __field(loff_t,			start)
+		    __field(uoff_t,			start)
 		    __field(unsigned int,		netfs_inode)
 		    __field(unsigned int,		cache_inode)
 			     ),
@@ -492,16 +492,16 @@ TRACE_EVENT(cachefiles_prep_read,
 TRACE_EVENT(cachefiles_read,
 	    TP_PROTO(struct cachefiles_object *obj,
 		     struct inode *backer,
-		     loff_t start,
+		     uoff_t start,
 		     size_t len),
 
 	    TP_ARGS(obj, backer, start, len),
 
 	    TP_STRUCT__entry(
-		    __field(unsigned int,			obj)
-		    __field(unsigned int,			backer)
-		    __field(size_t,				len)
-		    __field(loff_t,				start)
+		    __field(unsigned int,	obj)
+		    __field(unsigned int,	backer)
+		    __field(size_t,		len)
+		    __field(uoff_t,		start)
 			     ),
 
 	    TP_fast_assign(
@@ -521,16 +521,16 @@ TRACE_EVENT(cachefiles_read,
 TRACE_EVENT(cachefiles_write,
 	    TP_PROTO(struct cachefiles_object *obj,
 		     struct inode *backer,
-		     loff_t start,
+		     uoff_t start,
 		     size_t len),
 
 	    TP_ARGS(obj, backer, start, len),
 
 	    TP_STRUCT__entry(
-		    __field(unsigned int,			obj)
-		    __field(unsigned int,			backer)
-		    __field(size_t,				len)
-		    __field(loff_t,				start)
+		    __field(unsigned int,	obj)
+		    __field(unsigned int,	backer)
+		    __field(size_t,		len)
+		    __field(uoff_t,		start)
 			     ),
 
 	    TP_fast_assign(
@@ -549,7 +549,7 @@ TRACE_EVENT(cachefiles_write,
 
 TRACE_EVENT(cachefiles_trunc,
 	    TP_PROTO(struct cachefiles_object *obj, struct inode *backer,
-		     loff_t from, loff_t to, enum cachefiles_trunc_trace why),
+		     uoff_t from, uoff_t to, enum cachefiles_trunc_trace why),
 
 	    TP_ARGS(obj, backer, from, to, why),
 
@@ -557,8 +557,8 @@ TRACE_EVENT(cachefiles_trunc,
 		    __field(unsigned int,			obj)
 		    __field(unsigned int,			backer)
 		    __field(enum cachefiles_trunc_trace,	why)
-		    __field(loff_t,				from)
-		    __field(loff_t,				to)
+		    __field(uoff_t,				from)
+		    __field(uoff_t,				to)
 			     ),
 
 	    TP_fast_assign(
