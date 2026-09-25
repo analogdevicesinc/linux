@@ -580,9 +580,9 @@ static void ata_pio_xfer(struct ata_queued_cmd *qc, struct page *page,
 	bool do_write = (qc->tf.flags & ATA_TFLAG_WRITE);
 	unsigned char *buf;
 
-	buf = kmap_atomic(page);
+	buf = kmap_local_page(page);
 	qc->ap->ops->sff_data_xfer(qc, buf + offset, xfer_size, do_write);
-	kunmap_atomic(buf);
+	kunmap_local(buf);
 
 	if (!do_write && !PageSlab(page))
 		flush_dcache_page(page);
@@ -763,9 +763,9 @@ next_sg:
 	trace_atapi_pio_transfer_data(qc, offset, count);
 
 	/* do the actual data transfer */
-	buf = kmap_atomic(page);
+	buf = kmap_local_page(page);
 	consumed = ap->ops->sff_data_xfer(qc, buf + offset, count, rw);
-	kunmap_atomic(buf);
+	kunmap_local(buf);
 
 	bytes -= min(bytes, consumed);
 	qc->curbytes += count;
@@ -2266,6 +2266,11 @@ EXPORT_SYMBOL_GPL(ata_pci_sff_prepare_host);
  *	This is the counterpart of ata_host_activate() for SFF ATA
  *	hosts.  This separate helper is necessary because SFF hosts
  *	use two separate interrupts in legacy mode.
+ *
+ *	Note that, unlike ata_host_activate(), the devres action registered
+ *	by ata_host_start() is kept on failure, i.e. ->host_stop() is called
+ *	by the driver core when probe() fails.  All callers of this function
+ *	rely on that, none of them releases the host resources itself.
  *
  *	LOCKING:
  *	Inherited from calling layer (may sleep).
