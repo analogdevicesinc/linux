@@ -89,7 +89,7 @@ xchk_quota_item_bmap(
 	int			nmaps = 1;
 	int			error;
 
-	if (!xfs_verify_fileoff(mp, offset)) {
+	if (!xfs_verify_fileoff(offset)) {
 		xchk_fblock_set_corrupt(sc, XFS_DATA_FORK, offset);
 		return 0;
 	}
