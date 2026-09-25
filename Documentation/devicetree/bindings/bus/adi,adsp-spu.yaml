@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bus/adi,adsp-spu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADSP System Protection Unit
+
+maintainers:
+  - Ozan Durgut <ozan.durgut@analog.com>
+
+description: |
+  The System Protection Unit (SPU) is the peripheral firewall found on
+  several Analog Devices ADSP/SHARC-FX processors (SC59x, SC846, SC594).
+  It sits between the system crossbar and the peripheral MMR interface and
+  can write-protect a peripheral's registers from selected bus masters.
+  Register layout is identical across these chips; only the SEC interrupt
+  ID and the number of write-protectable peripherals differ.
+
+  The protection policy is programmed by secure firmware; this node only
+  describes the hardware so that the OS can report the protection and
+  security violations the SPU raises.
+
+properties:
+  compatible:
+    enum:
+      - adi,sc59x-spu
+      - adi,sc846-spu
+      - adi,sc594-spu
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+    description: SPU protection/security violation interrupt.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    spu@3108b000 {
+        compatible = "adi,sc59x-spu";
+        reg = <0x3108b000 0x1000>;
+        interrupts = <GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>;
+    };

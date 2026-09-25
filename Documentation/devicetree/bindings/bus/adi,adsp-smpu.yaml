@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bus/adi,adsp-smpu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADSP System Memory Protection Unit
+
+maintainers:
+  - Ozan Durgut <ozan.durgut@analog.com>
+
+description: |
+  The System Memory Protection Unit (SMPU) is the memory firewall found on
+  several Analog Devices ADSP/SHARC-FX processors (SC59x, SC846, SC594). It
+  restricts accesses to L2 SRAM, DDR and boot-ROM windows by bus-master
+  transaction ID. Register layout is identical across these chips; only the
+  SEC interrupt ID differs.
+
+  Each SMPU is a collection of protection-unit instances, one per crossbar
+  port, sharing a single violation interrupt. On SC59x, per HRM Table 12-1
+  the instances are:
+    - SMPU0  (0x31007000): system MMR access
+    - SMPU2  (0x31083000): L2-Core Port 0 (CL2_0), L2 SRAM banks 0-3
+    - SMPU3  (0x31084000): L2 DMA Port 0 (DL2_0)
+    - SMPU4  (0x31085000): L2-Core Port 1 (CL2_1), L2 SRAM banks 4-7
+    - SMPU5  (0x31086000): L2 DMA Port 1 (DL2_1)
+    - SMPU6  (0x31087000): L2-Core Port 2 (CL2_2), instruction port
+    - SMPU9  (0x310A0000): DDR memory controller
+    - SMPU11 (0x310A1000): SPI2/OSPI flash
+    - SMPU12 (0x31012000): OTP memory
+
+  The protection policy is programmed by secure firmware; this node only
+  describes the hardware so that the OS can report the violations the SMPU
+  raises.
+
+properties:
+  compatible:
+    enum:
+      - adi,sc59x-smpu
+      - adi,sc846-smpu
+      - adi,sc594-smpu
+
+  reg:
+    description: One entry per SMPU instance wired up on the board.
+    minItems: 1
+    maxItems: 9
+
+  interrupts:
+    maxItems: 1
+    description: Shared SMPU protection-violation interrupt.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    smpu@31083000 {
+        compatible = "adi,sc59x-smpu";
+        reg = <0x31083000 0x1000>,   /* SMPU2 */
+              <0x31084000 0x1000>,   /* SMPU3 */
+              <0x31085000 0x1000>,   /* SMPU4 */
+              <0x31086000 0x1000>,   /* SMPU5 */
+              <0x310A0000 0x1000>,   /* SMPU9 */
+              <0x310A1000 0x1000>;   /* SMPU11 */
+        interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
+    };
