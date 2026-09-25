@@ -679,6 +679,7 @@ int nfsd_create_serv(struct net *net, bool no_rpcbind)
 		percpu_ref_exit(&nn->nfsd_net_ref);
 		return -ENOMEM;
 	}
+	serv->sv_tls = true;
 
 	/* svc_bind() reads this, so set it first. */
 	serv->sv_no_rpcbind = no_rpcbind;

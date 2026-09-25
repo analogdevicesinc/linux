@@ -89,6 +89,8 @@ struct svc_serv {
 	bool			sv_is_pooled;	/* is this a pooled service? */
 	/* Caller registers with rpcbind itself. Set before svc_bind(). */
 	bool			sv_no_rpcbind;
+	/* Service implements RPC-with-TLS; offer STARTTLS to AUTH_TLS probes. */
+	bool			sv_tls;
 	struct svc_pool *	sv_pools;	/* array of thread pools */
 	int			(*sv_threadfn)(void *data);
 
