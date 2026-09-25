@@ -8,6 +8,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/clk.h>
+#include <linux/interrupt.h>
 #include <linux/mfd/syscon.h>
 #include <linux/platform_device.h>
 #include <linux/phy/phy.h>

@@ -15,6 +15,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/log2.h>
+#include <linux/interrupt.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/err.h>
