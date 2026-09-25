@@ -76,5 +76,9 @@ int mpnic_set_netif_queues(struct mpnic_net *mpn);
 void mpnic_reset_netif_queues(struct mpnic_net *mpn);
 void mpnic_napi_enable(struct mpnic_net *mpn);
 void mpnic_napi_disable(struct mpnic_net *mpn);
+void mpnic_enable(struct mpnic_net *mpn);
+void mpnic_disable(struct mpnic_net *mpn);
+void mpnic_wait_all_queues_idle(struct mpnic_dev *mpd);
+void mpnic_flush(struct mpnic_net *mpn);
 
 #endif /* _MPNIC_TXRX_H_ */

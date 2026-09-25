@@ -36,11 +36,26 @@
  *****************************************************************************/
 
 /* NIC_CORE_TDF */
+#define MPNIC_TWQ_CTL(i, j)		(0x0 + 1024 * (i) + 2 * (j))
+								/* 0x0 */
+#define MPNIC_TWQ_CTL_RESET			CSR_BIT(0)
+#define MPNIC_TWQ_CTL_ENABLE			CSR_BIT(1)
 #define MPNIC_TWQ_TAIL(i, j)		(0x4 + 1024 * (i) + 2 * (j))
 								/* 0x10 */
+#define MPNIC_TWQ_SIZE(i, j)		(0x10 + 1024 * (i) + 2 * (j))
+								/* 0x40 */
+#define MPNIC_TWQ_SIZE_SIZE			CSR_GENMASK(3, 0)
+#define MPNIC_TWQ_BASE_ADDR(i, j)	(0x1c + 1024 * (i) + 2 * (j))
+								/* 0x70 */
 
 /* NIC_CORE_TCM */
+#define MPNIC_TCQ_CTL(i)		(0x80 + 1024 * (i))	/* 0x200 */
+#define MPNIC_TCQ_CTL_RESET			CSR_BIT(0)
+#define MPNIC_TCQ_CTL_ENABLE			CSR_BIT(1)
+#define MPNIC_TCQ_BASE_ADDR(i)		(0x86 + 1024 * (i))	/* 0x218 */
 #define MPNIC_TCQ_HEAD(i)		(0x8e + 1024 * (i))	/* 0x238 */
+#define MPNIC_TCQ_SIZE(i)		(0x94 + 1024 * (i))	/* 0x250 */
+#define MPNIC_TCQ_SIZE_SIZE			CSR_GENMASK(4, 0)
 
 /* NIC_CORE_TIM */
 #define MPNIC_TIM_CTL1(i)		(0xc0 + 1024 * (i))	/* 0x300 */
@@ -50,6 +65,11 @@
 #define MPNIC_TIM_CTL1_MASK			CSR_BIT(51)
 #define MPNIC_TIM_CTL1_MASK_EN			CSR_BIT(52)
 #define MPNIC_TIM_CTL1_TRIGGER			CSR_BIT(53)
+#define MPNIC_TIM_INTR_MASK(i)		(0xc8 + 1024 * (i))	/* 0x320 */
+#define MPNIC_TIM_INTR_MASK_MASK		CSR_BIT(0)
+
+/* NIC_CORE_TIM_PRV */
+#define MPNIC_TIM_CTL(i)		(0x100100 + 1024 * (i))	/* 0x400400 */
 
 /* NIC_CORE_RBP_HP_GLBL */
 #define MPNIC_BDQ_GLBL_CTL0		0x420080		/* 0x1080200 */
@@ -83,6 +103,8 @@
 #define MPNIC_RNI_RCM_CTL		0x427004		/* 0x109c010 */
 
 /* NIC_CORE_TDF_GLBL */
+#define MPNIC_TWQ_IDLE(i)		(0x428042 + 2 * (i))	/* 0x10a0108 */
+#define MPNIC_TWQ_IDLE_CNT		32
 #define MPNIC_TWQ_DEF_PRI_TWD		0x428082		/* 0x10a0208 */
 #define MPNIC_TDF_MEM_INIT_REQ		0x42813a		/* 0x10a04e8 */
 #define MPNIC_TDF_MEM_INIT_DONE		0x42813c		/* 0x10a04f0 */
@@ -100,6 +122,8 @@
 #define MPNIC_TQS_SLOWDOWN_CTL_ENABLE		CSR_BIT(6)
 #define MPNIC_TQS_MTU_CTL0		0x42a030		/* 0x10a80c0 */
 #define MPNIC_TQS_MTU_CTL1		0x42a032		/* 0x10a80c8 */
+#define MPNIC_TQS_IDLE(i)		(0x42a040 + 2 * (i))	/* 0x10a8100 */
+#define MPNIC_TQS_IDLE_CNT		32
 #define MPNIC_TQS_SET_P0_MAP0(i)	(0x42a082 + 2 * (i))	/* 0x10a8208 */
 #define MPNIC_TQS_SET_P0_MAP1(i)	(0x42a092 + 2 * (i))	/* 0x10a8248 */
 #define MPNIC_TQS_GLBL_SHAPING		0x42a108		/* 0x10a8420 */
@@ -135,10 +159,14 @@
 #define MPNIC_TQS_PORT_CTL(i)		(0x42a1e4 + 2 * (i))	/* 0x10a8790 */
 
 /* NIC_CORE_TDE_GLBL */
+#define MPNIC_TDE_IDLE(i)		(0x42b000 + 2 * (i))	/* 0x10ac000 */
+#define MPNIC_TDE_IDLE_CNT		32
 #define MPNIC_TDE_MEM_INIT_REQ		0x42b1ee		/* 0x10ac7b8 */
 #define MPNIC_TDE_MEM_INIT_DONE		0x42b1f0		/* 0x10ac7c0 */
 
 /* NIC_CORE_TCM_GLBL */
+#define MPNIC_TCQ_IDLE(i)		(0x42c09e + 2 * (i))	/* 0x10b0278 */
+#define MPNIC_TCQ_IDLE_CNT		16
 #define MPNIC_TCM_MEM_INIT_REQ		0x42c0be		/* 0x10b02f8 */
 #define MPNIC_TCM_MEM_INIT_DONE		0x42c0c0		/* 0x10b0300 */
 

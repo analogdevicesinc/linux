@@ -3,6 +3,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/dma-mapping.h>
+#include <linux/iopoll.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
 
@@ -464,6 +465,180 @@ void mpnic_reset_netif_queues(struct mpnic_net *mpn)
 		for (j = 0; j < nv->txt_count; j++)
 			netif_queue_set_napi(mpn->netdev, nv->qt[j].sub0.q_idx,
 					     NETDEV_QUEUE_TYPE_TX, NULL);
+	}
+}
+
+static void mpnic_enable_twq(struct mpnic_dev *mpd, struct mpnic_ring *twq)
+{
+	u32 log_size = fls(twq->size_mask);
+	u32 i = twq->q_idx;
+
+	/* Reset head/tail */
+	mpnic_wr64(mpd, MPNIC_TWQ_CTL(i, 0), MPNIC_TWQ_CTL_RESET);
+	twq->tail = 0;
+	twq->head = 0;
+	twq->deferred_meta = -1;
+
+	/* Store descriptor ring address and size */
+	mpnic_wr64(mpd, MPNIC_TWQ_BASE_ADDR(i, 0), twq->dma);
+	mpnic_wr64(mpd, MPNIC_TWQ_SIZE(i, 0), log_size & MPNIC_TWQ_SIZE_SIZE);
+
+	mpnic_wr64(mpd, MPNIC_TWQ_CTL(i, 0), MPNIC_TWQ_CTL_ENABLE);
+}
+
+static void mpnic_enable_tcq(struct mpnic_dev *mpd,
+			     struct mpnic_napi_vector *nv,
+			     struct mpnic_ring *tcq)
+{
+	u32 log_size = fls(tcq->size_mask);
+	u32 i = tcq->q_idx;
+
+	/* Reset head/tail */
+	mpnic_wr64(mpd, MPNIC_TCQ_CTL(i), MPNIC_TCQ_CTL_RESET);
+	tcq->tail = 0;
+	tcq->head = 0;
+
+	/* Store descriptor ring address and size */
+	mpnic_wr64(mpd, MPNIC_TCQ_BASE_ADDR(i), tcq->dma);
+	mpnic_wr64(mpd, MPNIC_TCQ_SIZE(i), log_size & MPNIC_TCQ_SIZE_SIZE);
+
+	/* Store interrupt information for the completion queue */
+	mpnic_wr64(mpd, MPNIC_TIM_CTL(i), nv->v_idx);
+	mpnic_wr64(mpd, MPNIC_TIM_INTR_MASK(i), 0);
+
+	mpnic_wr64(mpd, MPNIC_TCQ_CTL(i), MPNIC_TCQ_CTL_ENABLE);
+}
+
+void mpnic_enable(struct mpnic_net *mpn)
+{
+	struct mpnic_dev *mpd = mpn->mpd;
+	int i, j;
+
+	for (i = 0; i < mpn->num_napi; i++) {
+		struct mpnic_napi_vector *nv = mpn->napi[i];
+
+		for (j = 0; j < nv->txt_count; j++) {
+			mpnic_enable_twq(mpd, &nv->qt[j].sub0);
+			mpnic_enable_tcq(mpd, nv, &nv->qt[j].cmpl);
+		}
+	}
+
+	mpnic_wrfl(mpd);
+}
+
+static void mpnic_disable_twq(struct mpnic_dev *mpd, struct mpnic_ring *txr)
+{
+	u64 twq_ctl = mpnic_rd64(mpd, MPNIC_TWQ_CTL(txr->q_idx, 0));
+
+	twq_ctl &= ~MPNIC_TWQ_CTL_ENABLE;
+	mpnic_wr64(mpd, MPNIC_TWQ_CTL(txr->q_idx, 0), twq_ctl);
+}
+
+static void mpnic_disable_tcq(struct mpnic_dev *mpd, struct mpnic_ring *txr)
+{
+	mpnic_wr64(mpd, MPNIC_TCQ_CTL(txr->q_idx), 0);
+	mpnic_wr64(mpd, MPNIC_TIM_INTR_MASK(txr->q_idx),
+		   MPNIC_TIM_INTR_MASK_MASK);
+}
+
+void mpnic_disable(struct mpnic_net *mpn)
+{
+	struct mpnic_dev *mpd = mpn->mpd;
+	int i, j;
+
+	for (i = 0; i < mpn->num_napi; i++) {
+		struct mpnic_napi_vector *nv = mpn->napi[i];
+
+		for (j = 0; j < nv->txt_count; j++) {
+			mpnic_disable_twq(mpd, &nv->qt[j].sub0);
+			mpnic_disable_tcq(mpd, &nv->qt[j].cmpl);
+		}
+	}
+
+	mpnic_wrfl(mpd);
+}
+
+struct mpnic_idle_regs {
+	u32 reg_base;
+	u8 reg_cnt;
+	char name[4];
+};
+
+static u32 mpnic_non_idle_queues(struct mpnic_dev *mpd,
+				 const struct mpnic_idle_regs *regs,
+				 unsigned int nregs)
+{
+	u32 non_idle_bitmap = 0;
+	unsigned int i, j;
+
+	for (i = 0; i < nregs; i++) {
+		for (j = 0; j < regs[i].reg_cnt; j++) {
+			if (mpnic_rd64(mpd, regs[i].reg_base + 2 * j) !=
+			    ~0ULL) {
+				non_idle_bitmap |= BIT(i);
+				break;
+			}
+		}
+	}
+
+	return non_idle_bitmap;
+}
+
+static void mpnic_idle_dump(struct mpnic_dev *mpd,
+			    const struct mpnic_idle_regs *regs,
+			    unsigned int nregs, u32 non_idle_bitmap, int err)
+{
+	unsigned int i, j;
+
+	dev_err(mpd->dev, "error waiting for queues idle %d\n", err);
+	for (i = 0; i < nregs; i++) {
+		if (!(non_idle_bitmap & BIT(i)))
+			continue;
+
+		dev_err(mpd->dev, "%s block not idle:\n", regs[i].name);
+		for (j = 0; j < regs[i].reg_cnt; j++)
+			dev_err(mpd->dev, "  0x%04x: %016llx\n",
+				regs[i].reg_base + 2 * j,
+				mpnic_rd64(mpd, regs[i].reg_base + 2 * j));
+	}
+}
+
+void mpnic_wait_all_queues_idle(struct mpnic_dev *mpd)
+{
+	static const struct mpnic_idle_regs queues[] = {
+		{ MPNIC_TWQ_IDLE(0), MPNIC_TWQ_IDLE_CNT, "TWQ" },
+		{ MPNIC_TQS_IDLE(0), MPNIC_TQS_IDLE_CNT, "TQS" },
+		{ MPNIC_TDE_IDLE(0), MPNIC_TDE_IDLE_CNT, "TDE" },
+		{ MPNIC_TCQ_IDLE(0), MPNIC_TCQ_IDLE_CNT, "TCQ" },
+	};
+	u32 non_idle_bitmap;
+	int err;
+
+	err = read_poll_timeout(mpnic_non_idle_queues, non_idle_bitmap,
+				!non_idle_bitmap, 20, 500000, false, mpd,
+				queues, ARRAY_SIZE(queues));
+	if (err)
+		mpnic_idle_dump(mpd, queues, ARRAY_SIZE(queues),
+				non_idle_bitmap, err);
+}
+
+void mpnic_flush(struct mpnic_net *mpn)
+{
+	int i, j;
+
+	for (i = 0; i < mpn->num_napi; i++) {
+		struct mpnic_napi_vector *nv = mpn->napi[i];
+
+		for (j = 0; j < nv->txt_count; j++) {
+			struct mpnic_q_triad *qt = &nv->qt[j];
+			struct netdev_queue *txq;
+
+			/* Clean the work queue of unprocessed work */
+			mpnic_clean_twq0(nv, 0, &qt->sub0, true, qt->sub0.tail);
+
+			txq = netdev_get_tx_queue(mpn->netdev, qt->sub0.q_idx);
+			netdev_tx_reset_queue(txq);
+		}
 	}
 }
 
