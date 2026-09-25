@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/reset/adi,sc846-miscreg-reset.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices SC84x MISCREG reset controller
+
+maintainers:
+  - Nuno Sá <nuno.sa@analog.com>
+
+description:
+  Reset lines provided by the MISCREG integration register file of the Analog
+  Devices ADSP-SC84x processors, covering the two xSPI controllers and the two
+  CAN-FD controllers.
+
+properties:
+  compatible:
+    const: adi,sc846-miscreg-reset
+
+  '#reset-cells':
+    const: 1
+
+required:
+  - compatible
+  - '#reset-cells'
+
+additionalProperties: false
+
+examples:
+  - |
+    reset-controller {
+        compatible = "adi,sc846-miscreg-reset";
+        #reset-cells = <1>;
+    };
