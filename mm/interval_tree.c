@@ -64,6 +64,21 @@ void mapping_rmap_tree_remove(struct vm_area_struct *vma,
 	__mapping_rmap_tree_remove(vma, &mapping->i_mmap);
 }
 
+/**
+ * mapping_rmap_tree_update_inplace() - Update file rmap tree to reflect an
+ * in-place change in a VMA's size.
+ * @vma: The VMA whose size has changed.
+ *
+ * The file rmap lock must be held.
+ *
+ * Invalid to do so if @vma->vm_pgoff has changed.
+ */
+void mapping_rmap_tree_update_inplace(struct vm_area_struct *vma)
+{
+	/* Propagate all the way up the tree. */
+	__mapping_rmap_tree_augment.propagate(&vma->shared.rb, NULL);
+}
+
 struct vm_area_struct *
 mapping_rmap_tree_iter_first(struct address_space *mapping,
 			     pgoff_t pgoff_start, pgoff_t pgoff_last)
@@ -109,6 +124,24 @@ void anon_rmap_tree_remove(struct anon_vma_chain *avc,
 			   struct anon_vma *anon_vma)
 {
 	__anon_rmap_tree_remove(avc, &anon_vma->rb_root);
+}
+
+/**
+ * anon_rmap_tree_update_inplace() - Update anon rmap tree to reflect an
+ * in-place change in the size of @avc's VMA.
+ * @avc: The anon_vma_chain whose VMA's size has changed.
+ *
+ * The anon rmap root lock must be held.
+ *
+ * Invalid to do so if the VMA's anonymous pgoff has changed.
+ */
+void anon_rmap_tree_update_inplace(struct anon_vma_chain *avc)
+{
+#ifdef CONFIG_DEBUG_VM_RB
+	avc->cached_vma_last = avc_last_pgoff(avc);
+#endif
+	/* Propagate all the way up the tree. */
+	__anon_rmap_tree_augment.propagate(&avc->rb, NULL);
 }
 
 struct anon_vma_chain *
