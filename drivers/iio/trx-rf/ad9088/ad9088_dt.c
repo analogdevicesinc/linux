@@ -114,7 +114,7 @@ static int ad9088_fsrc_setup(struct ad9088_phy *phy)
 
 	/**
 	 * At adi_apollo_*x_fsrc_configure:
-	 * adi_apollo_fsrc_pgm_t.fsrc_bypass = adi_apollo_fsrc_cfg_t.enable
+	 * adi_apollo_fsrc_pgm_t.fsrc_bypass = !(enable0 || enable1)
 	 */
 	for (u8 i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
 		for (u8 j = 0; j < ADI_APOLLO_JESD_LINKS; j++) {
@@ -122,12 +122,14 @@ static int ad9088_fsrc_setup(struct ad9088_phy *phy)
 			phy->profile.rx_path[i].rx_dformat[j].rm_fifo.invalid_en = true;
 			phy->profile.rx_path[i].rx_dformat[j].rm_fifo.sample_repeat_en = false;
 		}
-		for (u8 j = 0; j < ADI_APOLLO_FSRCS_PER_SIDE; j++) {
-			phy->profile.rx_path[i].rx_fsrc[j].mode_1x = true;
-			phy->profile.tx_path[i].tx_fsrc[j].mode_1x = true;
-			phy->profile.rx_path[i].rx_fsrc[j].enable = true;
-			phy->profile.tx_path[i].tx_fsrc[j].enable = true;
-		}
+		phy->profile.rx_path[i].rx_fsrc.mode_1x = true;
+		phy->profile.tx_path[i].tx_fsrc.mode_1x = true;
+		phy->profile.rx_path[i].rx_fsrc.enable0 = true;
+		phy->profile.rx_path[i].rx_fsrc.enable1 = true;
+		phy->profile.tx_path[i].tx_fsrc.enable0 = true;
+		phy->profile.tx_path[i].tx_fsrc.enable1 = true;
+		phy->profile.rx_path[i].rx_fsrc.bypass = false;
+		phy->profile.tx_path[i].tx_fsrc.bypass = false;
 	}
 
 	return 0;

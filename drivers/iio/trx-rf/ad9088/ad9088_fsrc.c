@@ -350,7 +350,8 @@ static ssize_t ad9088_fsrc_print_block(char *buf, size_t size, ssize_t offset,
 	ssize_t len = offset;
 
 	len += snprintf(buf + len, size - len, "  %s:\n", name);
-	len += snprintf(buf + len, size - len, "    enable:           %d\n", fsrc->dp_cfg.enable);
+	len += snprintf(buf + len, size - len, "    enable0:          %d\n", fsrc->dp_cfg.enable0);
+	len += snprintf(buf + len, size - len, "    enable1:          %d\n", fsrc->dp_cfg.enable1);
 	len += snprintf(buf + len, size - len, "    mode_1x:          %d\n", fsrc->dp_cfg.mode_1x);
 	len += snprintf(buf + len, size - len, "    fsrc_bypass:      %d\n", fsrc->fsrc_bypass);
 	len += snprintf(buf + len, size - len, "    fsrc_rate_int:    0x%llx\n", fsrc->dp_cfg.fsrc_rate_int);
