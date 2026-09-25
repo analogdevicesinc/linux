@@ -325,7 +325,7 @@ int aa_sk_perm(const char *op, u32 request, const struct sock *sk)
 
 
 int aa_sock_file_perm(const struct cred *subj_cred, struct aa_label *label,
-		      const char *op, u32 request, struct file *file)
+		      const char *op, u32 request, const struct file *file)
 {
 	struct socket *sock = (struct socket *) file->private_data;
 

@@ -112,7 +112,7 @@ int aa_label_sk_perm(const struct cred *subj_cred, struct aa_label *label,
 		     const char *op, u32 request, const struct sock *sk);
 int aa_sock_file_perm(const struct cred *subj_cred, struct aa_label *label,
 		      const char *op, u32 request,
-		      struct file *file);
+		      const struct file *file);
 
 int apparmor_secmark_check(struct aa_label *label, char *op, u32 request,
 			   u32 secid, const struct sock *sk);
