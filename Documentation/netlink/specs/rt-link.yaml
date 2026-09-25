@@ -25,17 +25,17 @@ definitions:
       -
         name: loopback
       -
-        name: point-to-point
+        name: pointopoint
       -
-        name: no-trailers
+        name: notrailers
       -
         name: running
       -
-        name: no-arp
+        name: noarp
       -
         name: promisc
       -
-        name: all-multi
+        name: allmulti
       -
         name: master
       -
@@ -45,7 +45,7 @@ definitions:
       -
         name: portsel
       -
-        name: auto-media
+        name: automedia
       -
         name: dynamic
       -
