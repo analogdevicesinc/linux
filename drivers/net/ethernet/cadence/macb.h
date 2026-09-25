@@ -1382,6 +1382,11 @@ struct macb {
 	struct delayed_work	tx_lpi_work;
 	u32			tx_lpi_timer;
 
+	/* ISR must not drive NAPI & BH mechanisms. True when the interface
+	 * is closed. Protected by bp->lock.
+	 */
+	bool			irq_quiesced;
+
 	int	rx_bd_rd_prefetch;
 	int	tx_bd_rd_prefetch;
 
