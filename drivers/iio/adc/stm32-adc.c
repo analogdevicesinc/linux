@@ -2465,6 +2465,7 @@ static int stm32_adc_dma_request(struct device *dev, struct iio_dev *indio_dev)
 {
 	struct stm32_adc *adc = iio_priv(indio_dev);
 	struct dma_slave_config config = { };
+	struct device *dma_dev;
 	int ret;
 
 	adc->dma_chan = dma_request_chan(dev, "rx");
@@ -2479,7 +2480,8 @@ static int stm32_adc_dma_request(struct device *dev, struct iio_dev *indio_dev)
 		return 0;
 	}
 
-	adc->rx_buf = dma_alloc_coherent(adc->dma_chan->device->dev,
+	dma_dev = dmaengine_get_dma_device(adc->dma_chan);
+	adc->rx_buf = dma_alloc_coherent(dma_dev,
 					 STM32_DMA_BUFFER_SIZE,
 					 &adc->rx_dma_buf, GFP_KERNEL);
 	if (!adc->rx_buf) {
@@ -2499,7 +2501,7 @@ static int stm32_adc_dma_request(struct device *dev, struct iio_dev *indio_dev)
 	return 0;
 
 err_free:
-	dma_free_coherent(adc->dma_chan->device->dev, STM32_DMA_BUFFER_SIZE,
+	dma_free_coherent(dma_dev, STM32_DMA_BUFFER_SIZE,
 			  adc->rx_buf, adc->rx_dma_buf);
 err_release:
 	dma_release_channel(adc->dma_chan);
@@ -2626,7 +2628,7 @@ err_buffer_cleanup:
 
 err_dma_disable:
 	if (adc->dma_chan) {
-		dma_free_coherent(adc->dma_chan->device->dev,
+		dma_free_coherent(dmaengine_get_dma_device(adc->dma_chan),
 				  STM32_DMA_BUFFER_SIZE,
 				  adc->rx_buf, adc->rx_dma_buf);
 		dma_release_channel(adc->dma_chan);
@@ -2649,7 +2651,7 @@ static void stm32_adc_remove(struct platform_device *pdev)
 	pm_runtime_put_noidle(&pdev->dev);
 	iio_triggered_buffer_cleanup(indio_dev);
 	if (adc->dma_chan) {
-		dma_free_coherent(adc->dma_chan->device->dev,
+		dma_free_coherent(dmaengine_get_dma_device(adc->dma_chan),
 				  STM32_DMA_BUFFER_SIZE,
 				  adc->rx_buf, adc->rx_dma_buf);
 		dma_release_channel(adc->dma_chan);
