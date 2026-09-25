@@ -824,8 +824,10 @@
 		adi,trigger-sync-en;
 #endif /* WITH_AXI_AION_TRIG && !WITH_FSRC */
 
+#if WITH_FSRC_TRIG
 		/* Indicate FPGA sequencer trig_out to Apollo GPIO trigger */
-		// adi,fsrc-gpio-trig;
+		adi,fsrc-gpio-trig;
+#endif /* WITH_FSRC_TRIG */
 
 #if WITH_AION
 #if WITH_FSRC

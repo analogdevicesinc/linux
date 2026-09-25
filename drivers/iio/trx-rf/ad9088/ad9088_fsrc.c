@@ -175,14 +175,13 @@ static int ad9088_fsrc_trigger_reconfig_sequence(struct ad9088_phy *phy)
 		ret = ad9088_iio_write_channel_ext_info(phy, phy->iio_axi_fsrc,
 							"seq_start", true);
 		if (ret < 0) {
-			dev_warn(&phy->spi->dev,
-				 "Failed to trigger sequencer via reg: %d. ", ret);
+			dev_err(&phy->spi->dev,
+				"Failed to trigger sequencer via reg: %d\n", ret);
+			return ret;
 		}
 
 		/*
-		 * Wait for sequencer to complete
-		 * Timing: first_trig_cnt (1002) + margin
-		 * SYSREF of 4MHz: 1050 * 250ns = 262.5us
+		 * Wait for sequencer to complete, at most 15 SYSREF periods
 		 */
 		usleep_range(500, 1000);
 
@@ -239,7 +238,14 @@ int ad9088_fsrc_rx_reconfig_sequence(struct ad9088_phy *phy, bool enable)
 	if (ret)
 		return ret;
 
-	ret = ad9088_fsrc_trigger_reconfig_sequence(phy);
+	/*
+	 * RX needs no alignment with the FPGA, which deletes the invalid
+	 * samples wherever they are, so reconfigure over SPI. Running the
+	 * sequencer here would also restart the TX hole pattern.
+	 */
+	ret = adi_apollo_clk_mcs_man_reconfig_sync(&phy->ad9088);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					"adi_apollo_clk_mcs_man_reconfig_sync");
 	if (ret)
 		return ret;
 
@@ -303,6 +309,20 @@ int ad9088_fsrc_tx_reconfig_sequence(struct ad9088_phy *phy, bool enable)
 
 		/* Wait for invalids to propagate through the system */
 		usleep_range(1000000, 1100000);  /* 1000ms */
+
+		/* The sequencer trigger reaches Apollo on trigger pin A0 */
+		ret = adi_apollo_clk_mcs_sync_trig_map(&phy->ad9088, ADI_APOLLO_RX_TX_ALL,
+						       ADI_APOLLO_TRIG_PIN_A0);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_clk_mcs_sync_trig_map");
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_clk_mcs_trig_reset_dsp_enable(&phy->ad9088);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_clk_mcs_trig_reset_dsp_enable");
+		if (ret)
+			return ret;
 
 		ret = adi_apollo_clk_mcs_trig_sync_enable(&phy->ad9088, 1);
 		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
