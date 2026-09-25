@@ -89,6 +89,7 @@ definitions:
       -
         name: power-not-available
         doc: Group of power_not_available states
+        value: 8
       -
         name: short-detected
         doc: Group of short_detected states
