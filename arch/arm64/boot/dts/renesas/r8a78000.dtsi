@@ -1215,6 +1215,110 @@
 			#reset-cells = <1>;
 			bootph-all;
 		};
+
+		msiof0: spi@c1700000 {
+			compatible = "renesas,msiof-r8a78000",
+				     "renesas,rcar-gen5-msiof";
+			reg = <0 0xc1700000 0 0x100>;
+			interrupts = <GIC_ESPI 744 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cpg R8A78000_CPG_MSO_SCP_MAIN>;
+			power-domains = <&mdlc_scp R8A78000_MDLC_PD_SCP 0x50>;
+			resets = <&mdlc_scp 0x50>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		msiof1: spi@c1710000 {
+			compatible = "renesas,msiof-r8a78000",
+				     "renesas,rcar-gen5-msiof";
+			reg = <0 0xc1710000 0 0x100>;
+			interrupts = <GIC_ESPI 745 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cpg R8A78000_CPG_MSO_SCP_MAIN>;
+			power-domains = <&mdlc_scp R8A78000_MDLC_PD_SCP 0x51>;
+			resets = <&mdlc_scp 0x51>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		msiof2: spi@c1720000 {
+			compatible = "renesas,msiof-r8a78000",
+				     "renesas,rcar-gen5-msiof";
+			reg = <0 0xc1720000 0 0x100>;
+			interrupts = <GIC_ESPI 746 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cpg R8A78000_CPG_MSO_SCP_MAIN>;
+			power-domains = <&mdlc_scp R8A78000_MDLC_PD_SCP 0x52>;
+			resets = <&mdlc_scp 0x52>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		msiof3: spi@c1730000 {
+			compatible = "renesas,msiof-r8a78000",
+				     "renesas,rcar-gen5-msiof";
+			reg = <0 0xc1730000 0 0x100>;
+			interrupts = <GIC_ESPI 747 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cpg R8A78000_CPG_MSO_SCP_MAIN>;
+			power-domains = <&mdlc_scp R8A78000_MDLC_PD_SCP 0x53>;
+			resets = <&mdlc_scp 0x53>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		msiof4: spi@c0600000 {
+			compatible = "renesas,msiof-r8a78000",
+				     "renesas,rcar-gen5-msiof";
+			reg = <0 0xc0600000 0 0x100>;
+			interrupts = <GIC_ESPI 18 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cpg R8A78000_CPG_MSOCK_PERW_BUS>;
+			power-domains = <&mdlc_perw R8A78000_MDLC_PD_APL 0x4f>;
+			resets = <&mdlc_perw 0x4f>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		msiof5: spi@c0608000 {
+			compatible = "renesas,msiof-r8a78000",
+				     "renesas,rcar-gen5-msiof";
+			reg = <0 0xc0608000 0 0x100>;
+			interrupts = <GIC_ESPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cpg R8A78000_CPG_MSOCK_PERW_BUS>;
+			power-domains = <&mdlc_perw R8A78000_MDLC_PD_APL 0x50>;
+			resets = <&mdlc_perw 0x50>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		msiof6: spi@c0610000 {
+			compatible = "renesas,msiof-r8a78000",
+				     "renesas,rcar-gen5-msiof";
+			reg = <0 0xc0610000 0 0x100>;
+			interrupts = <GIC_ESPI 20 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cpg R8A78000_CPG_MSOCK_PERW_BUS>;
+			power-domains = <&mdlc_perw R8A78000_MDLC_PD_APL 0x51>;
+			resets = <&mdlc_perw 0x51>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		msiof7: spi@c0618000 {
+			compatible = "renesas,msiof-r8a78000",
+				     "renesas,rcar-gen5-msiof";
+			reg = <0 0xc0618000 0 0x100>;
+			interrupts = <GIC_ESPI 21 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cpg R8A78000_CPG_MSOCK_PERW_BUS>;
+			power-domains = <&mdlc_perw R8A78000_MDLC_PD_APL 0x52>;
+			resets = <&mdlc_perw 0x52>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
 	};
 
 	timer {
