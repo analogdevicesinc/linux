@@ -9,8 +9,6 @@
 #include <linux/sched/task.h>
 #include <linux/smp-internal.h>
 
-#include <asm/tlbflush.h>
-
 #include <as-layout.h>
 #include <kern.h>
 #include <os.h>
@@ -40,30 +38,6 @@ int __init start_uml(void)
 	init_task.thread.request.thread.arg = NULL;
 	return start_idle_thread(task_stack_page(&init_task),
 				 &init_task.thread.switch_buf);
-}
-
-unsigned long current_stub_stack(void)
-{
-	if (current->mm == NULL)
-		return 0;
-
-	return current->mm->context.id.stack;
-}
-
-struct mm_id *current_mm_id(void)
-{
-	if (current->mm == NULL)
-		return NULL;
-
-	return &current->mm->context.id;
-}
-
-void current_mm_sync(void)
-{
-	if (current->mm == NULL)
-		return;
-
-	um_tlb_sync(current->mm);
 }
 
 static DEFINE_SPINLOCK(initial_jmpbuf_spinlock);
