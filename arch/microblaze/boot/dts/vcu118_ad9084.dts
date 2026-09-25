@@ -496,6 +496,26 @@
 		reg = <0x7c490000 0x10000>;
 	};
 #endif /* ASYNM_A_B_MODE */
+
+#if WITH_FSRC
+	axi_fsrc_sequencer: axi-fsrc-sequencer@44540000 {
+		compatible = "adi,axi-fsrc-sequencer";
+		reg = <0x44540000 0x10000>;
+
+		fsrc-topology = <&axi_fsrc_tx &axi_fsrc_rx>;
+		#io-channel-cells = <1>;
+	};
+
+	axi_fsrc_tx: axi-fsrc-tx@44510000 {
+		reg = <0x44510000 0x10000>;
+		adi,fsrc_tx;
+	};
+
+	axi_fsrc_rx: axi-fsrc-rx@44500000 {
+		reg = <0x44500000 0x10000>;
+		adi,fsrc_rx;
+	};
+#endif /* WITH_FSRC */
 };
 
 
@@ -799,14 +819,27 @@
 		reset-gpios = <&axi_gpio 62 0>;
 		adi,device-profile-fw-name = DEVICE_PROFILE_NAME;
 
-#if WITH_AXI_AION_TRIG
+#if WITH_AXI_AION_TRIG && !WITH_FSRC
 		trig-req-gpios = <&axi_gpio 48 GPIO_ACTIVE_HIGH>;
 		adi,trigger-sync-en;
-#endif /* WITH_AXI_AION_TRIG */
+#endif /* WITH_AXI_AION_TRIG && !WITH_FSRC */
+
+		/* Indicate FPGA sequencer trig_out to Apollo GPIO trigger */
+		// adi,fsrc-gpio-trig;
 
 #if WITH_AION
+#if WITH_FSRC
+		io-channels = <&adf4030 5>, <&adf4382 0>, <&axi_fsrc_sequencer 0>;
+		io-channel-names = "bsync", "clk", "fsrc";
+#else
 		io-channels = <&adf4030 5>, <&adf4382 0>;
 		io-channel-names = "bsync", "clk";
+#endif /* WITH_FSRC */
+#else
+#if WITH_FSRC
+		io-channels = <&axi_fsrc_sequencer 0>;
+		io-channel-names = "fsrc";
+#endif /* WITH_FSRC */
 #endif /* WITH_AION */
 
 		adi,nyquist-zone = <1>; /* 1 - 1st Nyquist zone, 2 - 2nd Nyquist zone */
