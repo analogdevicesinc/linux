@@ -219,9 +219,13 @@ static const struct brcmf_firmware_mapping brcmf_pcie_fwnames[] = {
 #define BRCMF_PCIE_SHARED_VERSION_MASK		0x00FF
 #define BRCMF_PCIE_SHARED_DMA_INDEX		0x10000
 #define BRCMF_PCIE_SHARED_DMA_2B_IDX		0x100000
+#define BRCMF_PCIE_SHARED_USE_MAILBOX		0x2000000
 #define BRCMF_PCIE_SHARED_HOSTRDY_DB1		0x10000000
 #define BRCMF_PCIE_SHARED_DAR			0x80000000
 
+#define BRCMF_HOSTCAP_H2D_ENABLE_HOSTRDY	0x400
+#define BRCMF_HOSTCAP_DS_NO_OOB_DW		0x1000
+#define BRCMF_HOSTCAP_H2D_DAR			0x10000
 
 #define BRCMF_PCIE_FLAGS_HTOD_SPLIT		0x4000
 #define BRCMF_PCIE_FLAGS_DTOH_SPLIT		0x8000
@@ -237,6 +241,8 @@ static const struct brcmf_firmware_mapping brcmf_pcie_fwnames[] = {
 #define BRCMF_SHARED_DMA_SCRATCH_ADDR_OFFSET	56
 #define BRCMF_SHARED_DMA_RINGUPD_LEN_OFFSET	64
 #define BRCMF_SHARED_DMA_RINGUPD_ADDR_OFFSET	68
+#define BRCMF_SHARED_HOST_CAP_OFFSET		84
+#define BRCMF_SHARED_HOST_CAP2_OFFSET		112
 
 #define BRCMF_RING_H2D_RING_COUNT_OFFSET	0
 #define BRCMF_RING_D2H_RING_COUNT_OFFSET	1
@@ -318,6 +324,7 @@ struct brcmf_pcie_shared_info {
 	void *ringupd;
 	dma_addr_t ringupd_dmahandle;
 	u8 version;
+	bool mb_via_ctl;
 };
 
 #define BRCMF_OTP_MAX_PARAM_LEN 16
@@ -843,6 +850,18 @@ brcmf_pcie_send_mb_data(struct brcmf_pciedev_info *devinfo, u32 htod_mb_data)
 	u32 i;
 
 	shared = &devinfo->shared;
+	if (shared->mb_via_ctl) {
+		struct pci_dev *pdev = devinfo->pdev;
+		struct brcmf_bus *bus = dev_get_drvdata(&pdev->dev);
+		int ret;
+
+		ret = brcmf_msgbuf_h2d_mb_write(bus->drvr, htod_mb_data);
+		if (ret < 0)
+			brcmf_err(bus, "Failed to send H2D mailbox data (%d)\n",
+				  ret);
+		return ret;
+	}
+
 	addr = shared->htod_mb_data_addr;
 	cur_htod_mb_data = brcmf_pcie_read_tcm32(devinfo, addr);
 
@@ -871,21 +890,9 @@ brcmf_pcie_send_mb_data(struct brcmf_pciedev_info *devinfo, u32 htod_mb_data)
 }
 
 
-static void brcmf_pcie_handle_mb_data(struct brcmf_pciedev_info *devinfo)
+static void brcmf_pcie_handle_mb_data(struct brcmf_pciedev_info *devinfo,
+				      u32 dtoh_mb_data)
 {
-	struct brcmf_pcie_shared_info *shared;
-	u32 addr;
-	u32 dtoh_mb_data;
-
-	shared = &devinfo->shared;
-	addr = shared->dtoh_mb_data_addr;
-	dtoh_mb_data = brcmf_pcie_read_tcm32(devinfo, addr);
-
-	if (!dtoh_mb_data)
-		return;
-
-	brcmf_pcie_write_tcm32(devinfo, addr, 0);
-
 	brcmf_dbg(PCIE, "D2H_MB_DATA: 0x%04x\n", dtoh_mb_data);
 	if (dtoh_mb_data & BRCMF_D2H_DEV_DS_ENTER_REQ)  {
 		brcmf_dbg(PCIE, "D2H_MB_DATA: DEEP SLEEP REQ\n");
@@ -905,6 +912,32 @@ static void brcmf_pcie_handle_mb_data(struct brcmf_pciedev_info *devinfo)
 	}
 }
 
+
+static void brcmf_pcie_poll_mb_data(struct brcmf_pciedev_info *devinfo)
+{
+	struct brcmf_pcie_shared_info *shared;
+	u32 addr;
+	u32 dtoh_mb_data;
+
+	shared = &devinfo->shared;
+	addr = shared->dtoh_mb_data_addr;
+	dtoh_mb_data = brcmf_pcie_read_tcm32(devinfo, addr);
+
+	if (!dtoh_mb_data)
+		return;
+
+	brcmf_pcie_write_tcm32(devinfo, addr, 0);
+
+	brcmf_pcie_handle_mb_data(devinfo, dtoh_mb_data);
+}
+
+static void brcmf_pcie_d2h_mb_rx(struct device *dev, u32 data)
+{
+	struct brcmf_bus *bus = dev_get_drvdata(dev);
+	struct brcmf_pciedev *buspub = bus->bus_priv.pcie;
+
+	brcmf_pcie_handle_mb_data(buspub->devinfo, data);
+}
 
 static void brcmf_pcie_bus_console_init(struct brcmf_pciedev_info *devinfo)
 {
@@ -1042,7 +1075,7 @@ static irqreturn_t brcmf_pcie_isr_thread(int irq, void *arg)
 	if (status) {
 		brcmf_pcie_write_pcie32(devinfo, devinfo->reginfo->mailboxint, status);
 		if (status & devinfo->reginfo->int_fn0)
-			brcmf_pcie_handle_mb_data(devinfo);
+			brcmf_pcie_poll_mb_data(devinfo);
 	}
 	if (devinfo->have_msi || status & devinfo->reginfo->int_d2h_db) {
 		if (devinfo->state == BRCMFMAC_PCIE_STATE_UP)
@@ -1695,6 +1728,7 @@ static const struct brcmf_bus_ops brcmf_pcie_bus_ops = {
 	.get_blob = brcmf_pcie_get_blob,
 	.reset = brcmf_pcie_reset,
 	.debugfs_create = brcmf_pcie_debugfs_create,
+	.d2h_mb_rx = brcmf_pcie_d2h_mb_rx,
 };
 
 
@@ -1726,6 +1760,7 @@ brcmf_pcie_init_share_ram_info(struct brcmf_pciedev_info *devinfo,
 {
 	struct brcmf_bus *bus = dev_get_drvdata(&devinfo->pdev->dev);
 	struct brcmf_pcie_shared_info *shared;
+	u32 host_cap;
 	u32 addr;
 
 	shared = &devinfo->shared;
@@ -1765,6 +1800,24 @@ brcmf_pcie_init_share_ram_info(struct brcmf_pciedev_info *devinfo,
 
 	addr = sharedram_addr + BRCMF_SHARED_RING_INFO_ADDR_OFFSET;
 	shared->ring_info_addr = brcmf_pcie_read_tcm32(devinfo, addr);
+
+	if (shared->version >= 6) {
+		shared->mb_via_ctl =
+			!(shared->flags & BRCMF_PCIE_SHARED_USE_MAILBOX);
+
+		host_cap = shared->version;
+		if (shared->flags & BRCMF_PCIE_SHARED_HOSTRDY_DB1)
+			host_cap |= BRCMF_HOSTCAP_H2D_ENABLE_HOSTRDY;
+		if (shared->flags & BRCMF_PCIE_SHARED_DAR)
+			host_cap |= BRCMF_HOSTCAP_H2D_DAR;
+		host_cap |= BRCMF_HOSTCAP_DS_NO_OOB_DW;
+
+		brcmf_pcie_write_tcm32(devinfo, sharedram_addr +
+				       BRCMF_SHARED_HOST_CAP_OFFSET,
+				       host_cap);
+		brcmf_pcie_write_tcm32(devinfo, sharedram_addr +
+				       BRCMF_SHARED_HOST_CAP2_OFFSET, 0);
+	}
 
 	brcmf_dbg(PCIE, "max rx buf post %d, rx dataoffset %d\n",
 		  shared->max_rxbufpost, shared->rx_dataoffset);
