@@ -1151,7 +1151,7 @@ svcauth_tls_accept(struct svc_rqst *rqstp)
 	if (cred->cr_group_info == NULL)
 		return SVC_CLOSE;
 
-	if (xprt->xpt_ops->xpo_handshake) {
+	if (xprt->xpt_ops->xpo_handshake && rqstp->rq_server->sv_tls) {
 		p = xdr_reserve_space(&rqstp->rq_res_stream, XDR_UNIT * 2 + 8);
 		if (!p)
 			return SVC_CLOSE;
