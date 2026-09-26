@@ -122,7 +122,9 @@ int ad9088_fsrc_tx_configure(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
 	}
 
 	if (fsrc_m != 0 && fsrc_n != 0) {
-		snprintf(ratio_str, sizeof(ratio_str), "%u %u", fsrc_n, fsrc_m);
+		/* The FPGA hole pattern follows the JRx samples per conv_clk */
+		snprintf(ratio_str, sizeof(ratio_str), "%u %u %u", fsrc_n, fsrc_m,
+			 phy->profile.jrx[0].rx_link_cfg[0].ns_minus1 + 1);
 		ret = iio_write_channel_ext_info(phy->iio_axi_fsrc, "tx_ratio_set",
 						  ratio_str, strlen(ratio_str) + 1);
 		if (ret < 0) {

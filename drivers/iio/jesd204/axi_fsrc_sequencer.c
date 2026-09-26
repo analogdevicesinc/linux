@@ -20,6 +20,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/math.h>
+#include <linux/math64.h>
 #include <linux/debugfs.h>
 
 #define REG_SCRATCH				0x08
@@ -68,6 +69,12 @@
 #define REG_ACCUM_SET_VAL_L			0x28
 #define REG_ACCUM_SET_VAL_H			0x2c
 #define REG_ACCUM_WIDTH				0x30
+#define REG_ACCUM_STEP_VAL_L			0x38
+#define REG_ACCUM_STEP_VAL_H			0x3c
+#define REG_NUM_SAMPLES				0x40
+#define ACCUM_MAX_SLOTS				64
+/* Keeps exact carries carrying despite rounding, far below one sample step */
+#define ACCUM_BIAS				BIT_ULL(20)
 
 // RX Register
 #define REG_RX_ENABLE				0x10
@@ -89,8 +96,10 @@ struct axi_fsrc {
 	bool tx_enable;
 	bool tx_active;
 	u8 accum_width;
+	u8 num_samples;
 	u32 m;
 	u32 n;
+	u32 ns;
 	u8 en_mask;
 };
 
@@ -172,30 +181,71 @@ static int axi_fsrc_tx_active(struct axi_fsrc *st, bool en)
 
 static int axi_fsrc_seq_start(struct axi_fsrc *st);
 
-static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u64 n, const u64 m)
+/*
+ * Apollo spaces its samples r/NS apart in phase, r = m/n, starting at 1 - r,
+ * and reads a sample when adding r carries. Slot i of an
+ * FPGA beat of num_samples slots is sample i, so seed it at 1 - r + r*i/NS,
+ * step it by r*num_samples/NS per beat and test the carry with r. Phases are
+ * multiples of 1/(n*NS), so work in that grid and round up, plus a bias that
+ * keeps exact carries carrying.
+ */
+static u64 axi_fsrc_grid_frac(u64 x, u64 grid, u64 one)
 {
-	u64 val;
-	const u64 one_fixed = 1ULL << st->accum_width;
-	const u64 ratio_fixed = mul_u64_u64_div_u64(one_fixed, m, n);
+	u64 rem;
 
-	if (m > U32_MAX || n > U32_MAX)
+	div64_u64_rem(x, grid, &rem);
+	return mul_u64_u64_div_u64(rem, one, grid);
+}
+
+static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u32 n, const u32 m,
+				 const u32 ns)
+{
+	void __iomem *base = st->addr[AXI_FSRC_TX];
+	const u64 one = BIT_ULL(st->accum_width);
+	const u64 mask = one - 1;
+	const u64 grid = (u64)n * ns;
+	u64 add, step, val;
+	int slots;
+
+	if (!base)
+		return -ENODEV;
+	if (!m || !ns || n < m || n / m != 1 || st->accum_width >= 64)
 		return -EINVAL;
 
-	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CONV_MASK, (u32)REG_CONV_MASK_MASK);
-	// max_num_samples = max((number of channels * samples per channel) - 1)
-	for (int i = 0; i < 64; i++) {
-		val = ((~ratio_fixed + 1) + (i * ratio_fixed));
-		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_L, val);
-		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_H, val >> 32);
-		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_SET_VAL_ADDR, REG_ACCUM_SET_VAL_ADDR_(i));
+	if (n == m) {
+		/* r = 1 does not fit the accumulator: every add has to carry */
+		add = mask;
+		step = 0;
+	} else {
+		add = mul_u64_u64_div_u64(one, m, n);
+		step = axi_fsrc_grid_frac((u64)m * st->num_samples, grid, one) + 1;
 	}
-	val = ratio_fixed;
-	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_ADD_VAL_L, val);
-	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_ACCUM_ADD_VAL_H, val >> 32);
-	axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CTRL_TRANSMIT, REG_CTRL_TRANSMIT_ACCUM_SET);
+
+	axi_fsrc_write(base, REG_CONV_MASK, (u32)REG_CONV_MASK_MASK);
+
+	slots = st->num_samples ? st->num_samples : ACCUM_MAX_SLOTS;
+	for (int i = 0; i < slots; i++) {
+		u64 s = i;
+
+		if (n == m)
+			val = ACCUM_BIAS;
+		else
+			val = axi_fsrc_grid_frac((u64)(n - m) * ns + m * s, grid, one) +
+			      1 + ACCUM_BIAS;
+		val &= mask;
+		axi_fsrc_write(base, REG_ACCUM_SET_VAL_L, val);
+		axi_fsrc_write(base, REG_ACCUM_SET_VAL_H, val >> 32);
+		axi_fsrc_write(base, REG_ACCUM_SET_VAL_ADDR, REG_ACCUM_SET_VAL_ADDR_(i));
+	}
+	axi_fsrc_write(base, REG_ACCUM_ADD_VAL_L, add);
+	axi_fsrc_write(base, REG_ACCUM_ADD_VAL_H, add >> 32);
+	axi_fsrc_write(base, REG_ACCUM_STEP_VAL_L, step);
+	axi_fsrc_write(base, REG_ACCUM_STEP_VAL_H, step >> 32);
+	axi_fsrc_write(base, REG_CTRL_TRANSMIT, REG_CTRL_TRANSMIT_ACCUM_SET);
 
 	st->n = n;
 	st->m = m;
+	st->ns = ns;
 
 	return 0;
 }
@@ -228,7 +278,7 @@ static ssize_t axi_fsrc_ext_read(struct iio_dev *indio_dev,
 			return sprintf(buf, "%x\n", st->tx_active);
 
 		case AXI_FSRC_TX_RATIO_SET:
-			return sprintf(buf, "%u %u\n", st->n, st->m);
+			return sprintf(buf, "%u %u %u\n", st->n, st->m, st->ns);
 		case AXI_FSRC_SEQ_START:
 			return sprintf(buf, "0\n");
 		default:
@@ -244,7 +294,7 @@ static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev,
 				  const char *buf, size_t len)
 {
 	struct axi_fsrc *st = iio_priv(indio_dev);
-	unsigned int n = 0, m = 0;
+	unsigned int n = 0, m = 0, ns = 1;
 	bool enable;
 	int size, ret = 0;
 
@@ -259,8 +309,8 @@ static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev,
 				return ret;
 			break;
 		case AXI_FSRC_TX_RATIO_SET:
-			size = sscanf(buf, "%u %u", &n, &m);
-			if (size != 2)
+			size = sscanf(buf, "%u %u %u", &n, &m, &ns);
+			if (size < 2)
 				return -EINVAL;
 			break;
 		}
@@ -276,9 +326,7 @@ static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev,
 			ret = axi_fsrc_tx_active(st, enable);
 			break;
 		case AXI_FSRC_TX_RATIO_SET:
-			if ((m == 0) || (n / m != 1))
-				return -EINVAL;
-			axi_fsrc_tx_set_ratio(st, n, m);
+			ret = axi_fsrc_tx_set_ratio(st, n, m, ns);
 			break;
 		case AXI_FSRC_SEQ_START:
 			if (enable)
@@ -470,9 +518,16 @@ static int axi_fsrc_seq_start(struct axi_fsrc *st)
 
 static int axi_fsrc_tx_configure(struct axi_fsrc *st)
 {
-	if (st->addr[AXI_FSRC_TX])
-		st->accum_width = axi_fsrc_read(st->addr[AXI_FSRC_TX], REG_ACCUM_WIDTH);
-	return axi_fsrc_tx_set_ratio(st, 1, 1);
+	if (!st->addr[AXI_FSRC_TX])
+		return 0;
+
+	st->accum_width = axi_fsrc_read(st->addr[AXI_FSRC_TX], REG_ACCUM_WIDTH);
+	st->num_samples = axi_fsrc_read(st->addr[AXI_FSRC_TX], REG_NUM_SAMPLES);
+	if (!st->num_samples || st->num_samples > ACCUM_MAX_SLOTS) {
+		dev_warn(&st->dev, "TX FSRC has no programmable step, hole pattern only valid for 1:1\n");
+		st->num_samples = 0;
+	}
+	return axi_fsrc_tx_set_ratio(st, 1, 1, 1);
 }
 
 static int axi_fsrc_rx_configure(struct axi_fsrc *st)
