@@ -126,6 +126,8 @@ include ../scripts/utilities.mak
 # Define GEN_VMLINUX_H to generate vmlinux.h from the BTF.
 #
 # Define NO_SHELLCHECK if you do not want to run shellcheck during build
+#
+# Define NO_MYPY if you do not want to run mypy during build
 
 # As per kernel Makefile, avoid funny character set dependencies
 unexport LC_ALL
@@ -259,9 +261,24 @@ ifneq ($(SHELLCHECK),)
   endif
 endif
 
-# Runs mypy on perf python files
-ifeq ($(MYPY),1)
-  MYPY := $(shell which mypy 2> /dev/null)
+# Runs mypy on perf python files.
+# Wait until after the fixdep bootstrap sub-make (force_fixdep != 1) so
+# command-line overrides (MYPY=1, MYPY=/custom/path, NO_MYPY=1) reach the
+# main Makefile.perf pass intact, then strip MYPY=% from MAKEOVERRIDES
+# (substituting escaped spaces so multi-word overrides like MYPY="mypy --strict"
+# are removed as a single token) so child Makefile.build sub-makes inherit the
+# MYPYPATH-wrapped export MYPY environment variable.
+ifneq ($(force_fixdep),1)
+  MAKEOVERRIDES := $(subst __SPACE__,\ ,$(filter-out MYPY=%,$(subst \ ,__SPACE__,$(MAKEOVERRIDES))))
+  ifeq ($(NO_MYPY),1)
+    override MYPY :=
+  else ifeq ($(filter-out 1,$(MYPY)),)
+    override MYPY := $(shell which mypy 2> /dev/null)
+  endif
+
+  ifneq ($(MYPY),)
+    override MYPY := MYPYPATH=$(srctree)/tools/perf/python $(MYPY) --ignore-missing-imports
+  endif
 endif
 
 # Runs pylint on perf python files
@@ -945,7 +962,8 @@ clean:: $(LIBAPI)-clean $(LIBBPF)-clean $(LIBSUBCMD)-clean $(LIBSYMBOL)-clean $(
 	$(call QUIET_CLEAN, core-objs)  $(RM) $(LIBPERF_A) $(OUTPUT)perf-archive \
 		$(OUTPUT)perf-iostat $(LANG_BINDINGS)
 	$(Q)find $(or $(OUTPUT),.) -name '*.o' -delete -o -name '*.a' -delete -o \
-		-name '\.*.cmd' -delete -o -name '\.*.d' -delete -o -name '*.shellcheck_log' -delete
+		-name '\.*.cmd' -delete -o -name '\.*.d' -delete -o -name '*.shellcheck_log' -delete -o \
+		-name '*.mypy_log' -delete
 	$(Q)$(RM) $(OUTPUT).config-detected
 	$(call QUIET_CLEAN, core-progs) $(RM) $(ALL_PROGRAMS) perf perf-read-vdso32 \
 		perf-read-vdsox32 $(OUTPUT)$(LIBJVMTI).so
