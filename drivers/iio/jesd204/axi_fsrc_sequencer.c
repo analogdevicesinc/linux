@@ -28,19 +28,24 @@
 #define REG_SEQ_CTRL_1				0x10
 #define   REG_SEQ_GPIO_CHANGE_CNT		GENMASK(15, 0)
 
+/* One 4-bit SYSREF count per trigger output, trigger n at bits [4n+3:4n] */
 #define REG_SEQ_CTRL_2				0x14
 #define   REG_SEQ_FIRST_TRIG_CNT		GENMASK(15, 0)
-#define   REG_SEQ_SECOND_TRIG_CNT		GENMASK(31, 16)
 
 #define REG_SEQ_CTRL_3				0x18
 #define   REG_SEQ_START				BIT(0)
 #define   REG_SEQ_EN				BIT(1)
-#define   REG_SEQ_TX_ACCUM_RST_CNT		GENMASK(31, 16)
+#define   REG_SEQ_TX_ACCUM_RST_CNT		GENMASK(19, 16)
 
 #define REG_SEQ_CTRL_4				0x1c
 #define   REG_SEQ_EXT_TRIG_EN			BIT(0)
 #define   REG_SEQ_DEBUG				BIT(12)
-#define   REG_SEQ_RX_DELAY			GENMASK(31, 16)
+#define   REG_SEQ_RX_DELAY			GENMASK(19, 16)
+
+#define REG_SEQ_CTRL_5				0x44
+#define   REG_SEQ_SECOND_TRIG_CNT		GENMASK(15, 0)
+
+#define SEQ_TRIG_CNT(x)				((x) * 0x1111)
 
 // TX Registers
 #define REG_TX_ENABLE				0x10
@@ -73,6 +78,7 @@ enum {
 	AXI_FSRC_TX_ENABLE,
 	AXI_FSRC_TX_ACTIVE,
 	AXI_FSRC_TX_RATIO_SET,
+	AXI_FSRC_SEQ_START,
 };
 
 struct axi_fsrc {
@@ -146,10 +152,16 @@ static int axi_fsrc_tx_active(struct axi_fsrc *st, bool en)
 	if (!st->tx_enable)
 		return -EINVAL;
 
-	if (en)
+	/*
+	 * A register start is ignored while armed for the sequencer. Once the
+	 * sequencer has started the data this start is a no-op.
+	 */
+	if (en) {
+		axi_fsrc_update(st->addr[AXI_FSRC_TX], REG_TX_ENABLE,
+				REG_TX_ENABLE_EXT_TRIG_EN, 0);
 		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CTRL_TRANSMIT,
 			       REG_CTRL_TRANSMIT_START);
-	else
+	} else
 		/* Send only invalid samples */
 		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CTRL_TRANSMIT,
 			       REG_CTRL_TRANSMIT_STOP);
@@ -157,6 +169,8 @@ static int axi_fsrc_tx_active(struct axi_fsrc *st, bool en)
 
 	return 0;
 }
+
+static int axi_fsrc_seq_start(struct axi_fsrc *st);
 
 static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u64 n, const u64 m)
 {
@@ -215,6 +229,8 @@ static ssize_t axi_fsrc_ext_read(struct iio_dev *indio_dev,
 
 		case AXI_FSRC_TX_RATIO_SET:
 			return sprintf(buf, "%u %u\n", st->n, st->m);
+		case AXI_FSRC_SEQ_START:
+			return sprintf(buf, "0\n");
 		default:
 			return -EINVAL;
 		}
@@ -237,6 +253,7 @@ static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev,
 		case AXI_FSRC_RX_ENABLE:
 		case AXI_FSRC_TX_ENABLE:
 		case AXI_FSRC_TX_ACTIVE:
+		case AXI_FSRC_SEQ_START:
 			ret = kstrtobool(buf, &enable);
 			if (ret)
 				return ret;
@@ -263,6 +280,10 @@ static ssize_t axi_fsrc_ext_write(struct iio_dev *indio_dev,
 				return -EINVAL;
 			axi_fsrc_tx_set_ratio(st, n, m);
 			break;
+		case AXI_FSRC_SEQ_START:
+			if (enable)
+				ret = axi_fsrc_seq_start(st);
+			break;
 		}
 
 		return ret ? ret : len;
@@ -282,6 +303,7 @@ static const struct iio_chan_spec_ext_info axi_fsrc_ext_info[] = {
 	AXI_FSRC_EXT_INFO("tx_enable", AXI_FSRC_TX_ENABLE),
 	AXI_FSRC_EXT_INFO("tx_active", AXI_FSRC_TX_ACTIVE),
 	AXI_FSRC_EXT_INFO("tx_ratio_set", AXI_FSRC_TX_RATIO_SET),
+	AXI_FSRC_EXT_INFO("seq_start", AXI_FSRC_SEQ_START),
 	{ },
 };
 
@@ -402,15 +424,46 @@ typedef struct {
     uint16_t rx_delay_cnt;                  /*!< Rx capture count */
 } adi_fpga_apollo_hw_fsrc_count_t;
 
+/*
+ * Every trigger output fires once, first and second count alike: a zero count
+ * would match the idle counter and fire on every SYSREF.
+ */
 static int axi_fsrc_seq_configure(struct axi_fsrc *st, adi_fpga_apollo_hw_fsrc_count_t *count)
 {
 	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_2, (u32)REG_SEQ_FIRST_TRIG_CNT,
-			FIELD_PREP(REG_SEQ_FIRST_TRIG_CNT, count->first_trig_cnt));
+			FIELD_PREP(REG_SEQ_FIRST_TRIG_CNT, SEQ_TRIG_CNT(count->first_trig_cnt)));
+	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_5, (u32)REG_SEQ_SECOND_TRIG_CNT,
+			FIELD_PREP(REG_SEQ_SECOND_TRIG_CNT, SEQ_TRIG_CNT(count->first_trig_cnt)));
 	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_3, (u32)REG_SEQ_TX_ACCUM_RST_CNT,
 			FIELD_PREP(REG_SEQ_TX_ACCUM_RST_CNT, count->fsrc_accum_reset_cnt));
 	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_4, (u32)REG_SEQ_RX_DELAY,
 			FIELD_PREP(REG_SEQ_RX_DELAY, count->rx_delay_cnt));
 	axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_3, REG_SEQ_EN, REG_SEQ_EN);
+
+	return 0;
+}
+
+/*
+ * Arm the TX FSRC to start on the sequencer's SYSREF aligned tx_data_start
+ * instead of a register write, reseed the hole pattern, then start the
+ * sequence. The HDL starts on the rising edge of the start bit.
+ */
+static int axi_fsrc_seq_start(struct axi_fsrc *st)
+{
+	void __iomem *base = st->addr[AXI_FSRC_CTRL];
+
+	if (st->addr[AXI_FSRC_TX]) {
+		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CTRL_TRANSMIT,
+			       REG_CTRL_TRANSMIT_STOP);
+		axi_fsrc_update(st->addr[AXI_FSRC_TX], REG_TX_ENABLE,
+				REG_TX_ENABLE_EXT_TRIG_EN, REG_TX_ENABLE_EXT_TRIG_EN);
+		axi_fsrc_write(st->addr[AXI_FSRC_TX], REG_CTRL_TRANSMIT,
+			       REG_CTRL_TRANSMIT_ACCUM_SET);
+		st->tx_active = true;
+	}
+
+	axi_fsrc_update(base, REG_SEQ_CTRL_3, REG_SEQ_START, 0);
+	axi_fsrc_update(base, REG_SEQ_CTRL_3, REG_SEQ_START, REG_SEQ_START);
 
 	return 0;
 }
@@ -430,11 +483,12 @@ static int axi_fsrc_rx_configure(struct axi_fsrc *st)
 static int axi_fsrc_init(struct axi_fsrc *st)
 {
 	int ret;
+	/* Counts are in SYSREF periods, 4 bits each in the HDL */
 	adi_fpga_apollo_hw_fsrc_count_t count = {
 		.gpio_change_cnt = 1,
-		.first_trig_cnt = 1002,
-		.fsrc_accum_reset_cnt = 1102,
-		.rx_delay_cnt = 2102
+		.first_trig_cnt = 2,
+		.fsrc_accum_reset_cnt = 4,
+		.rx_delay_cnt = 4
 	};
 
 	ret = axi_fsrc_seq_configure(st, &count);
@@ -592,10 +646,8 @@ static int axi_fsrc_seq_start_set(void *arg, u64 val)
 	if (!st->addr[AXI_FSRC_CTRL])
 		return -ENODEV;
 
-	if (val) {
-		axi_fsrc_update(st->addr[AXI_FSRC_CTRL], REG_SEQ_CTRL_3,
-				REG_SEQ_START, REG_SEQ_START);
-	}
+	if (val)
+		return axi_fsrc_seq_start(st);
 	return 0;
 }
 DEFINE_DEBUGFS_ATTRIBUTE(axi_fsrc_seq_start_fops, NULL,
