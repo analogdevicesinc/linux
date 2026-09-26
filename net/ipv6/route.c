@@ -1663,13 +1663,6 @@ static unsigned int fib6_mtu(const struct fib6_result *res)
 	return mtu - lwtunnel_headroom(nh->fib_nh_lws, mtu);
 }
 
-#define FIB6_EXCEPTION_BUCKET_FLUSHED  0x1UL
-
-/* used when the flushed bit is not relevant, only access to the bucket
- * (ie., all bucket users except rt6_insert_exception);
- *
- * called under rcu lock; sometimes called with rt6_exception_lock held
- */
 static
 struct rt6_exception_bucket *fib6_nh_get_excptn_bucket(const struct fib6_nh *nh,
 						       spinlock_t *lock)
@@ -1682,38 +1675,7 @@ struct rt6_exception_bucket *fib6_nh_get_excptn_bucket(const struct fib6_nh *nh,
 	else
 		bucket = rcu_dereference(nh->rt6i_exception_bucket);
 
-	/* remove bucket flushed bit if set */
-	if (bucket) {
-		unsigned long p = (unsigned long)bucket;
-
-		p &= ~FIB6_EXCEPTION_BUCKET_FLUSHED;
-		bucket = (struct rt6_exception_bucket *)p;
-	}
-
 	return bucket;
-}
-
-static bool fib6_nh_excptn_bucket_flushed(struct rt6_exception_bucket *bucket)
-{
-	unsigned long p = (unsigned long)bucket;
-
-	return !!(p & FIB6_EXCEPTION_BUCKET_FLUSHED);
-}
-
-/* called with rt6_exception_lock held */
-static void fib6_nh_excptn_bucket_set_flushed(struct fib6_nh *nh,
-					      spinlock_t *lock)
-{
-	struct rt6_exception_bucket *bucket;
-	unsigned long p;
-
-	bucket = rcu_dereference_protected(nh->rt6i_exception_bucket,
-					   lockdep_is_held(lock));
-
-	p = (unsigned long)bucket;
-	p |= FIB6_EXCEPTION_BUCKET_FLUSHED;
-	bucket = (struct rt6_exception_bucket *)p;
-	rcu_assign_pointer(nh->rt6i_exception_bucket, bucket);
 }
 
 static int rt6_insert_exception(struct rt6_info *nrt,
@@ -1745,9 +1707,6 @@ static int rt6_insert_exception(struct rt6_info *nrt,
 			goto out;
 		}
 		rcu_assign_pointer(nh->rt6i_exception_bucket, bucket);
-	} else if (fib6_nh_excptn_bucket_flushed(bucket)) {
-		err = -EINVAL;
-		goto out;
 	}
 
 #ifdef CONFIG_IPV6_SUBTREES
@@ -1817,10 +1776,6 @@ static void fib6_nh_flush_exceptions(struct fib6_nh *nh, struct fib6_info *from)
 	bucket = fib6_nh_get_excptn_bucket(nh, &rt6_exception_lock);
 	if (!bucket)
 		goto out;
-
-	/* Prevent rt6_insert_exception() to recreate the bucket list */
-	if (!from)
-		fib6_nh_excptn_bucket_set_flushed(nh, &rt6_exception_lock);
 
 	for (i = 0; i < FIB6_EXCEPTION_BUCKET_SIZE; i++) {
 		hlist_for_each_entry_safe(rt6_ex, tmp, &bucket->chain, hlist) {
