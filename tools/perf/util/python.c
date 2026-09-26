@@ -3,6 +3,8 @@
 #include <Python.h>
 
 #include <inttypes.h>
+#include <limits.h>
+#include <stdint.h>
 #include <string.h>
 
 #include <linux/err.h>
@@ -25,6 +27,7 @@
 #include "dso.h"
 #include "dwarf-regs.h"
 #include "event.h"
+#include "env.h"
 #include "branch.h"
 #include "evlist.h"
 #include "evsel.h"
@@ -4104,14 +4107,35 @@ static int pyrf_session__setup_types(void)
 	return PyType_Ready(&pyrf_session__type);
 }
 
+static int pyrf__parse_elf_machine(PyObject *obj, int *elf_machine)
+{
+	long val;
+
+	if (!obj || obj == Py_None) {
+		*elf_machine = EM_HOST;
+		return 0;
+	}
+	val = PyLong_AsLong(obj);
+	if (val == -1 && PyErr_Occurred())
+		return -1;
+	if (val <= 0 || val > UINT16_MAX)
+		*elf_machine = EM_HOST;
+	else
+		*elf_machine = (int)val;
+	return 0;
+}
+
 static PyObject *pyrf__syscall_name(PyObject *self, PyObject *args, PyObject *kwargs)
 {
 	const char *name;
 	int id;
 	int elf_machine = EM_HOST;
+	PyObject *elf_machine_obj = NULL;
 	static char *kwlist[] = { "id", "elf_machine", NULL };
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|$i", kwlist, &id, &elf_machine))
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|O", kwlist, &id, &elf_machine_obj))
+		return NULL;
+	if (pyrf__parse_elf_machine(elf_machine_obj, &elf_machine) < 0)
 		return NULL;
 
 	name = syscalltbl__name(elf_machine, id);
@@ -4125,9 +4149,12 @@ static PyObject *pyrf__syscall_id(PyObject *self, PyObject *args, PyObject *kwar
 	const char *name;
 	int id;
 	int elf_machine = EM_HOST;
+	PyObject *elf_machine_obj = NULL;
 	static char *kwlist[] = { "name", "elf_machine", NULL };
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$i", kwlist, &name, &elf_machine))
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|O", kwlist, &name, &elf_machine_obj))
+		return NULL;
+	if (pyrf__parse_elf_machine(elf_machine_obj, &elf_machine) < 0)
 		return NULL;
 
 	id = syscalltbl__id(elf_machine, name);
@@ -4136,6 +4163,30 @@ static PyObject *pyrf__syscall_id(PyObject *self, PyObject *args, PyObject *kwar
 		return NULL;
 	}
 	return PyLong_FromLong(id);
+}
+
+static PyObject *pyrf__arch_strerrno(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+	const char *name;
+	int err;
+	int elf_machine = EM_HOST;
+	PyObject *elf_machine_obj = NULL;
+	static char *kwlist[] = { "err", "elf_machine", NULL };
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|O", kwlist, &err, &elf_machine_obj))
+		return NULL;
+	if (pyrf__parse_elf_machine(elf_machine_obj, &elf_machine) < 0)
+		return NULL;
+
+	if (err == INT_MIN)
+		Py_RETURN_NONE;
+	if (err < 0)
+		err = -err;
+
+	name = perf_env__arch_strerrno((uint16_t)elf_machine, err);
+	if (!name || !strcmp(name, "(unknown)"))
+		Py_RETURN_NONE;
+	return PyUnicode_FromString(name);
 }
 
 static PyObject *pyrf__config_get(PyObject *self, PyObject *args)
@@ -4201,6 +4252,12 @@ static PyMethodDef perf__methods[] = {
 		.ml_meth  = (PyCFunction) pyrf__syscall_id,
 		.ml_flags = METH_VARARGS | METH_KEYWORDS,
 		.ml_doc	  = PyDoc_STR("Turns a syscall name to a number.")
+	},
+	{
+		.ml_name  = "arch_strerrno",
+		.ml_meth  = (PyCFunction) pyrf__arch_strerrno,
+		.ml_flags = METH_VARARGS | METH_KEYWORDS,
+		.ml_doc	  = PyDoc_STR("Turns an errno number to a string.")
 	},
 	{ .ml_name = NULL, }
 };
