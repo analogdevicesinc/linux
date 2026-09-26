@@ -35,20 +35,20 @@ use kernel::device;
 ///
 /// Owns the [`Vmm`] for the BAR1 address space.
 #[pin_data]
-pub(crate) struct BarUser<'gpu> {
+pub(crate) struct BarUser<'a> {
     #[pin]
     vmm: Mutex<Vmm>,
-    bar1: Bar1<'gpu>,
+    bar1: Bar1<'a>,
 }
 
-impl<'gpu> BarUser<'gpu> {
+impl<'a> BarUser<'a> {
     /// Create a pin-initializer for [`BarUser`].
     pub(crate) fn new(
         pdb_addr: VramAddress,
         chipset: Chipset,
         va_size: u64,
-        bar1: Bar1<'gpu>,
-    ) -> impl PinInit<Self, Error> + 'gpu {
+        bar1: Bar1<'a>,
+    ) -> impl PinInit<Self, Error> + 'a {
         try_pin_init!(Self {
             vmm <- new_mutex!(
                 Vmm::new(pdb_addr, chipset.mmu_version(), va_size)?,
