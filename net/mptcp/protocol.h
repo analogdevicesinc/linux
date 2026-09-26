@@ -146,7 +146,10 @@ static inline bool before64(__u64 seq1, __u64 seq2)
 
 struct mptcp_options_received {
 	u64	sndr_key;
-	u64	rcvr_key;
+	union {
+		u64	rcvr_key;
+		u64	fc_recv_key;
+	};
 	u64	data_ack;
 	u64	data_seq;
 	u32	subflow_seq;
