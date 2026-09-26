@@ -9110,6 +9110,57 @@ void ieee80211_mgd_conn_tx_status(struct ieee80211_sub_if_data *sdata,
 	wiphy_work_queue(local->hw.wiphy, &sdata->work);
 }
 
+static void
+ieee80211_assoc_timeout_teardown(struct ieee80211_sub_if_data *sdata)
+{
+	struct ieee80211_mgd_assoc_data *assoc_data = sdata->u.mgd.assoc_data;
+	struct ieee80211_local *local = sdata->local;
+	struct ieee80211_event event = {
+		.type = MLME_EVENT,
+		.u.mlme.data = ASSOC_EVENT,
+		.u.mlme.status = MLME_TIMEOUT,
+	};
+	struct sta_info *sta;
+
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+	/*
+	 * With an EPP station, the AP is already maintaining a state for the
+	 * station. Send a deauthentication frame, so that the AP clears its
+	 * state for this station (to allow additional connection attempts).
+	 * Note that this needs to be done before the station is removed
+	 * locally as the deauthentication frame needs to be sent encrypted.
+	 */
+	sta = sta_info_get_bss(sdata, assoc_data->ap_addr);
+	if (sta && sta->sta.epp_peer &&
+	    wiphy_dereference(local->hw.wiphy, sta->ptk[sta->ptk_idx])) {
+		u8 frame_buf[IEEE80211_DEAUTH_FRAME_LEN];
+		struct ieee80211_prep_tx_info info = {
+			.subtype = IEEE80211_STYPE_DEAUTH,
+			.link_id = assoc_data->assoc_link_id,
+		};
+
+		drv_mgd_prepare_tx(local, sdata, &info);
+
+		ieee80211_send_deauth_disassoc(sdata, assoc_data->ap_addr,
+					       assoc_data->ap_addr,
+					       IEEE80211_STYPE_DEAUTH,
+					       WLAN_REASON_DEAUTH_LEAVING,
+					       true, frame_buf);
+
+		/* make sure the deauth is out before the station is removed */
+		ieee80211_flush_queues(local, sdata, false);
+
+		drv_mgd_complete_tx(local, sdata, &info);
+
+		cfg80211_tx_mlme_mgmt(sdata->dev, frame_buf, sizeof(frame_buf),
+				      false);
+	}
+
+	ieee80211_destroy_assoc_data(sdata, ASSOC_TIMEOUT, NULL);
+	drv_event_callback(local, sdata, &event);
+}
+
 void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata)
 {
 	struct ieee80211_local *local = sdata->local;
@@ -9192,17 +9243,8 @@ void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata)
 	    time_after(jiffies, ifmgd->assoc_data->timeout)) {
 		if ((ifmgd->assoc_data->need_beacon &&
 		     !sdata->deflink.u.mgd.have_beacon) ||
-		    ieee80211_do_assoc(sdata)) {
-			struct ieee80211_event event = {
-				.type = MLME_EVENT,
-				.u.mlme.data = ASSOC_EVENT,
-				.u.mlme.status = MLME_TIMEOUT,
-			};
-
-			ieee80211_destroy_assoc_data(sdata, ASSOC_TIMEOUT,
-						     NULL);
-			drv_event_callback(sdata->local, sdata, &event);
-		}
+		    ieee80211_do_assoc(sdata))
+			ieee80211_assoc_timeout_teardown(sdata);
 	} else if (ifmgd->assoc_data && ifmgd->assoc_data->timeout_started)
 		run_again(sdata, ifmgd->assoc_data->timeout);
 
