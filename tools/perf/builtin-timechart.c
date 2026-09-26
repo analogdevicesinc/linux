@@ -351,10 +351,6 @@ static int process_exit_event(const struct perf_tool *tool,
 	return 0;
 }
 
-#ifdef SUPPORT_OLD_POWER_EVENTS
-static int use_old_power_events;
-#endif
-
 static void c_state_start(int cpu, u64 timestamp, int state)
 {
 	cpus_cstate_start_times[cpu] = timestamp;
@@ -1943,7 +1939,6 @@ static int timechart__record(struct timechart *tchart, int argc, const char **ar
 #ifdef SUPPORT_OLD_POWER_EVENTS
 	if (!is_valid_tracepoint("power:cpu_idle") &&
 	    is_valid_tracepoint("power:power_start")) {
-		use_old_power_events = 1;
 		power_args_nr = 0;
 	} else {
 		old_power_args_nr = 0;
