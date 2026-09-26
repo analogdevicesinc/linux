@@ -3,7 +3,6 @@
 """Convert directories of JSON events to C code."""
 import argparse
 import csv
-from functools import lru_cache
 import json
 import metric
 import os
@@ -22,7 +21,7 @@ _metric_tables: list[str] = []
 # List of metric tables generated from "/sys" directories.
 _sys_metric_tables: list[str] = []
 # Mapping between sys event table names and sys metric table names.
-_sys_event_table_to_metric_table_mapping = {}
+_sys_event_table_to_metric_table_mapping: Dict[str, str] = {}
 # Map from an event name to an architecture standard
 # JsonEvent. Architecture standard events are in json files in the top
 # f'{_args.starting_dir}/{_args.arch}' directory.
@@ -38,7 +37,7 @@ _pending_metrics_tblname: Optional[str] = None
 # Global BigCString shared by all structures.
 _bcs = None
 # Map from the name of a metric group to a description of the group.
-_metricgroups = {}
+_metricgroups: Dict[str, str] = {}
 # Order specific JsonEvent attributes will be visited.
 _json_event_attributes = [
     # cmp_sevent related attributes.
@@ -115,17 +114,17 @@ class BigCString:
 
   def __init__(self):
     self.strings = set()
-    self.insert_number = 0;
+    self.insert_number = 0
     self.insert_point = {}
     self.metrics = set()
 
-  def add(self, s: str, metric: bool) -> None:
+  def add(self, s: str, is_metric: bool) -> None:
     """Called to add to the big string."""
     if s not in self.strings:
       self.strings.add(s)
       self.insert_point[s] = self.insert_number
       self.insert_number += 1
-      if metric:
+      if is_metric:
         self.metrics.add(s)
 
   def compute(self) -> None:
@@ -303,7 +302,7 @@ class JsonEvent:
           return int(val, 16) == 0
         else:
           return int(val) == 0
-      except:
+      except ValueError:
         return False
 
     def canonicalize_value(val: str) -> str:
@@ -311,7 +310,7 @@ class JsonEvent:
         if val.startswith('0x'):
           return llx(int(val, 16))
         return str(int(val))
-      except:
+      except ValueError:
         return val
 
     eventcode = 0
@@ -426,15 +425,15 @@ class JsonEvent:
         s += f'\t{attr} = {value},\n'
     return s + '}'
 
-  def build_c_string(self, metric: bool) -> str:
+  def build_c_string(self, is_metric: bool) -> str:
     s = ''
-    for attr in _json_metric_attributes if metric else _json_event_attributes:
+    for attr in _json_metric_attributes if is_metric else _json_event_attributes:
       x = getattr(self, attr)
-      if metric and x and attr == 'metric_expr':
+      if is_metric and x and attr == 'metric_expr':
         # Convert parsed metric expressions into a string. Slashes
         # must be doubled in the file.
         x = x.ToPerfJson().replace('\\', '\\\\')
-      if metric and x and attr == 'metric_threshold':
+      if is_metric and x and attr == 'metric_threshold':
         x = x.replace('\\', '\\\\')
       if attr in _json_enum_attributes:
         s += x if x else '0'
@@ -442,24 +441,25 @@ class JsonEvent:
         s += f'{x}\\000' if x else '\\000'
     return s
 
-  def to_c_string(self, metric: bool) -> str:
+  def to_c_string(self, is_metric: bool) -> str:
     """Representation of the event as a C struct initializer."""
 
     def make_comment(s: str) -> str:
         s = s.replace('*/', r'\*\/')
         return f'\t/* {s} */\n' if len(s) < 80 else f'\t/* {s[0:80]}... */\n'
 
-    s = self.build_c_string(metric)
+    s = self.build_c_string(is_metric)
     assert _bcs is not None
     return f'{make_comment(s)}\t{{ { _bcs.offsets[s] } }},\n'
 
 
-_json_cache = {}
+_json_cache: Dict[Tuple[str, str], Sequence[JsonEvent]] = {}
 def _read_json_events_impl(path: str, topic: str) -> Sequence[JsonEvent]:
   """Read json events from the specified file."""
   try:
-    events = json.load(open(path), object_hook=JsonEvent)
-  except BaseException as err:
+    with open(path, encoding='utf-8') as f:
+      events = json.load(f, object_hook=JsonEvent)
+  except BaseException:
     print(f"Exception processing {path}")
     raise
   metrics: list[Tuple[str, str, metric.Expression]] = []
@@ -483,7 +483,6 @@ def read_json_events(path: str, topic: str) -> Sequence[JsonEvent]:
 
 def preprocess_arch_std_files(archpath: str) -> None:
   """Read in all architecture standard events."""
-  global _arch_std_events
   for item in os.scandir(archpath):
     if not item.is_file() or not item.name.endswith('.json'):
       continue
@@ -523,13 +522,10 @@ def print_pending_events() -> None:
   if not _pending_events:
     return
 
-  global _pending_events_tblname
   assert _pending_events_tblname is not None
   if _pending_events_tblname.endswith('_sys'):
-    global _sys_event_tables
     _sys_event_tables.append(_pending_events_tblname)
   else:
-    global event_tables
     _event_tables.append(_pending_events_tblname)
 
   first = True
@@ -550,7 +546,7 @@ def print_pending_events() -> None:
       last_pmu = event.pmu
       pmus.add((event.pmu, pmu_name))
 
-    _args.output_file.write(event.to_c_string(metric=False))
+    _args.output_file.write(event.to_c_string(is_metric=False))
     last_name = event.name
   _pending_events = []
 
@@ -586,31 +582,28 @@ def print_pending_metrics() -> None:
   if not _pending_metrics:
     return
 
-  global _pending_metrics_tblname
   assert _pending_metrics_tblname is not None
   if _pending_metrics_tblname.endswith('_sys'):
-    global _sys_metric_tables
     _sys_metric_tables.append(_pending_metrics_tblname)
   else:
-    global metric_tables
     _metric_tables.append(_pending_metrics_tblname)
 
   first = True
   last_pmu = None
   pmus: Set[Tuple[str, str]] = set()
   assert _args is not None
-  for metric in sorted(_pending_metrics, key=metric_cmp_key):
-    if metric.pmu != last_pmu:
+  for m in sorted(_pending_metrics, key=metric_cmp_key):
+    if m.pmu != last_pmu:
       if not first:
         _args.output_file.write('};\n')
-      pmu_name = metric.pmu.replace(',', '_')
+      pmu_name = m.pmu.replace(',', '_')
       _args.output_file.write(
           f'static const struct compact_pmu_event {_pending_metrics_tblname}_{pmu_name}[] = {{\n')
       first = False
-      last_pmu = metric.pmu
-      pmus.add((metric.pmu, pmu_name))
+      last_pmu = m.pmu
+      pmus.add((m.pmu, pmu_name))
 
-    _args.output_file.write(metric.to_c_string(metric=True))
+    _args.output_file.write(m.to_c_string(is_metric=True))
   _pending_metrics = []
 
   _args.output_file.write(f"""
@@ -649,13 +642,14 @@ def preprocess_one_file(parents: Sequence[str], item: os.DirEntry) -> None:
 
   assert _bcs is not None
   if item.name.endswith('metricgroups.json'):
-    metricgroup_descriptions = json.load(open(item.path))
+    with open(item.path, encoding='utf-8') as f:
+      metricgroup_descriptions = json.load(f)
     for mgroup in metricgroup_descriptions:
       assert len(mgroup) > 1, parents
       description = f"{metricgroup_descriptions[mgroup]}\\000"
       mgroup = f"{mgroup}\\000"
-      _bcs.add(mgroup, metric=True)
-      _bcs.add(description, metric=True)
+      _bcs.add(mgroup, is_metric=True)
+      _bcs.add(description, is_metric=True)
       _metricgroups[mgroup] = description
     return
 
@@ -663,11 +657,12 @@ def preprocess_one_file(parents: Sequence[str], item: os.DirEntry) -> None:
   for event in read_json_events(item.path, topic):
     pmu_name = f"{event.pmu}\\000"
     if event.name:
-      _bcs.add(pmu_name, metric=False)
-      _bcs.add(event.build_c_string(metric=False), metric=False)
+      _bcs.add(pmu_name, is_metric=False)
+      _bcs.add(event.build_c_string(is_metric=False), is_metric=False)
     if event.metric_name:
-      _bcs.add(pmu_name, metric=True)
-      _bcs.add(event.build_c_string(metric=True), metric=True)
+      pmu_name = f"{event.pmu}\\000"
+      _bcs.add(pmu_name, is_metric=True)
+      _bcs.add(event.build_c_string(is_metric=True), is_metric=True)
 
 def process_one_file(parents: Sequence[str], item: os.DirEntry) -> None:
   """Process a JSON file during the main walk."""
@@ -777,7 +772,7 @@ static const struct pmu_events_map pmu_events_map[] = {
 },
 """)
     else:
-      with open(f'{_args.starting_dir}/{arch}/mapfile.csv') as csvfile:
+      with open(f'{_args.starting_dir}/{arch}/mapfile.csv', encoding='utf-8') as csvfile:
         table = csv.reader(csvfile)
         first = True
         for row in table:
@@ -871,8 +866,8 @@ int pmu_metrics_table__iterate_tables(pmu_metrics_table_iter_t fn, void *data)
 
 
 def print_system_mapping_table() -> None:
-  assert _args is not None
   """C struct mapping table array for tables from /sys directories."""
+  assert _args is not None
   _args.output_file.write("""
 struct pmu_sys_events {
 \tconst char *name;
@@ -1481,7 +1476,7 @@ def main() -> None:
       except Exception as e:
         raise RuntimeError(f'Action failure for \'{item.name}\' in {parents}') from e
       if item.is_dir():
-        ftw(item.path, parents + [item.name], action)
+        ftw(item.path, list(parents) + [item.name], action)
 
   ap = argparse.ArgumentParser()
   ap.add_argument('arch', help='Architecture name like x86')
