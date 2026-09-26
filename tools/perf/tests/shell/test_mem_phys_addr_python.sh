@@ -87,7 +87,8 @@ test_file_mode() {
 	fi
 
 	# Run the script with custom --iomem
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" --iomem "${temp_iomem}" > "${temp_out}" || \
+	if ! perf script mem-phys-addr -i "${temp_data}" \
+		--iomem "${temp_iomem}" > "${temp_out}" || \
 	   [ ! -s "${temp_out}" ]; then
 		echo "File mode test failed."
 		err=1

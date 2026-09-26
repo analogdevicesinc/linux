@@ -63,7 +63,7 @@ if [ ! -s "${temp_data}" ]; then
 fi
 
 # Check that the script executes
-if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+if ! perf script failed-syscalls -i "${temp_data}" > "${temp_out}"; then
 	echo "failed-syscalls.py test failed"
 	err=1
 else

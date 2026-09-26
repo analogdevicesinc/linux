@@ -59,7 +59,7 @@ if [ ! -s "${temp_data}" ]; then
 fi
 
 # Check that the script executes and outputs table header
-if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+if ! perf script net_dropmonitor -i "${temp_data}" > "${temp_out}"; then
 	echo "net_dropmonitor.py test failed"
 	err=1
 else

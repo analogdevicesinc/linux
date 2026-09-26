@@ -101,7 +101,7 @@ test_file_mode() {
 		return
 	fi
 
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+	if ! perf script futex-contention -i "${temp_data}" > "${temp_out}"; then
 		echo "File mode test failed."
 		err=1
 	else

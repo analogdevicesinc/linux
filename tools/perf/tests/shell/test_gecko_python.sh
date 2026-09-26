@@ -45,7 +45,7 @@ test_file_mode() {
 	fi
 
 	# Run the script in save-only mode with custom product and category colors
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" \
+	if ! perf script gecko -i "${temp_data}" \
 		--product "perf-test-product" --user-color blue --kernel-color red \
 		--save-only "${temp_json}" >/dev/null; then
 		echo "File mode test failed."

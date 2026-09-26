@@ -54,7 +54,7 @@ test_file_mode() {
 		exit 2
 	fi
 
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+	if ! perf script syscall-counts -i "${temp_data}" > "${temp_out}"; then
 		echo "File mode test failed."
 		err=1
 	elif ! grep -E -q "^[a-zA-Z0-9_]+ +[0-9]+$" "${temp_out}"; then
@@ -65,7 +65,7 @@ test_file_mode() {
 	fi
 
 	# Test with a comm argument
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" "sleep" > "${temp_out}"; then
+	if ! perf script syscall-counts -i "${temp_data}" "sleep" > "${temp_out}"; then
 		echo "Comm filter test failed."
 		err=1
 	elif ! grep -E -q "^[a-zA-Z0-9_]+ +[0-9]+$" "${temp_out}"; then

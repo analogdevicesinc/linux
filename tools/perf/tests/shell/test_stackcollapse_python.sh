@@ -47,7 +47,7 @@ if [ ! -s "${temp_data}" ]; then
 fi
 
 # Check that the script executes with default options
-if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+if ! perf script stackcollapse -i "${temp_data}" > "${temp_out}"; then
 	echo "stackcollapse.py test failed"
 	err=1
 else
@@ -61,12 +61,12 @@ else
 fi
 
 # Test CLI flags (--include-pid, --include-tid, --tidy-java, --kernel) and BrokenPipeError
-if ! "$PYTHON" "$script_path" -i "${temp_data}" \
+if ! perf script stackcollapse -i "${temp_data}" \
 	--include-pid --include-tid --tidy-java --kernel | head -n 1 > "${temp_out}" || \
    [ ! -s "${temp_out}" ]; then
 	echo "stackcollapse.py options/pipe test failed"
 	err=1
-elif ! "$PYTHON" "$script_path" -i "${temp_data}" --no-comm > "${temp_out}" || \
+elif ! perf script stackcollapse -i "${temp_data}" --no-comm > "${temp_out}" || \
      [ ! -s "${temp_out}" ]; then
 	echo "stackcollapse.py --no-comm test failed"
 	err=1

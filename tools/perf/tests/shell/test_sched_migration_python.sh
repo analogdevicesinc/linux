@@ -58,7 +58,7 @@ if [ ! -s "${temp_data}" ]; then
 fi
 
 # Check that the script executes
-if ! "$PYTHON" "$script_path" -v --no-gui -i "${temp_data}" > "${temp_out}"; then
+if ! perf script sched-migration -v --no-gui -i "${temp_data}" > "${temp_out}"; then
 	echo "sched-migration.py test failed"
 	err=1
 elif [ "$has_sched" -eq 1 ] && ! grep -q "Timeslices:" "${temp_out}"; then

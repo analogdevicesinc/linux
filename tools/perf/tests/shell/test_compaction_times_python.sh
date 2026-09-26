@@ -58,7 +58,7 @@ test_file_mode() {
 	fi
 
 	# Run the script with some filters to validate filtering logic
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+	if ! perf script compaction-times -i "${temp_data}" > "${temp_out}"; then
 		echo "File mode default test failed."
 		err=1
 	elif ! grep -q "total:" "${temp_out}"; then
@@ -66,7 +66,7 @@ test_file_mode() {
 		err=1
 	fi
 
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" "0-0" > "${temp_out}"; then
+	if ! perf script compaction-times -i "${temp_data}" "0-0" > "${temp_out}"; then
 		echo "File mode strict PID filter test failed."
 		err=1
 	elif ! grep -q "total:" "${temp_out}"; then
@@ -74,7 +74,7 @@ test_file_mode() {
 		err=1
 	fi
 
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" "sleep" > "${temp_out}"; then
+	if ! perf script compaction-times -i "${temp_data}" "sleep" > "${temp_out}"; then
 		echo "File mode comm filter test failed."
 		err=1
 	elif ! grep -q "total:" "${temp_out}"; then

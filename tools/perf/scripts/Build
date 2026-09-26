@@ -1,3 +1,0 @@
-ifeq ($(CONFIG_LIBTRACEEVENT),y)
-  perf-util-$(CONFIG_LIBPERL)   += perl/Perf-Trace-Util/
-endif

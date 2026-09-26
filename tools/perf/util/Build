@@ -95,7 +95,6 @@ perf-util-y += tool_pmu.o
 perf-util-y += tp_pmu.o
 perf-util-y += svghelper.o
 perf-util-y += trace-event-info.o
-perf-util-y += trace-event-scripting.o
 perf-util-$(CONFIG_LIBTRACEEVENT) += trace-event.o
 perf-util-$(CONFIG_LIBTRACEEVENT) += trace-event-parse.o
 perf-util-$(CONFIG_LIBTRACEEVENT) += trace-event-read.o
@@ -235,8 +234,6 @@ ifeq ($(CONFIG_LIBTRACEEVENT),y)
 endif
 
 perf-util-y += data-convert-json.o
-
-perf-util-y += scripting-engines/
 
 perf-util-$(CONFIG_ZLIB) += zlib.o
 perf-util-$(CONFIG_LZMA) += lzma.o

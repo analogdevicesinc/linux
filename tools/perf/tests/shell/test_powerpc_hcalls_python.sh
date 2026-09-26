@@ -79,7 +79,7 @@ if [ ! -s "${temp_data}" ]; then
 fi
 
 # Check that the script executes on recorded perf.data
-if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+if ! perf script powerpc-hcalls -i "${temp_data}" > "${temp_out}"; then
 	echo "powerpc-hcalls.py test failed"
 	err=1
 else

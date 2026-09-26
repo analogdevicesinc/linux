@@ -54,7 +54,8 @@ test_file_mode() {
 	echo "Testing export-to-postgresql.py..."
 
 	# Verify that invalid URI / key-value database names are rejected
-	if "$PYTHON" "$script_path" -i /dev/null -o "dbname=foo host=evil" >/dev/null 2>&1; then
+	if perf script export-to-postgresql -i /dev/null \
+		-o "dbname=foo host=evil" >/dev/null 2>&1; then
 		echo "Connection parameter injection check failed."
 		err=1
 	fi
@@ -71,7 +72,7 @@ test_file_mode() {
 	psql -c "DROP DATABASE IF EXISTS ${temp_db}" postgres >/dev/null 2>&1 || true
 
 	# Run the script
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" -o "${temp_db}" >/dev/null; then
+	if ! perf script export-to-postgresql -i "${temp_data}" -o "${temp_db}" >/dev/null; then
 		echo "File mode test failed."
 		err=1
 	else
@@ -101,7 +102,8 @@ test_intel_pt() {
 	fi
 
 	# Run the script with --itrace cr to synthesize call_returns
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" -o "${temp_db}" --itrace cr >/dev/null; then
+	if ! perf script export-to-postgresql -i "${temp_data}" \
+		-o "${temp_db}" --itrace cr >/dev/null; then
 		echo "intel_pt file mode test failed."
 		err=1
 	else

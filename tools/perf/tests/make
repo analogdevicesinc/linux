@@ -79,7 +79,6 @@ make_no_jevents     := NO_JEVENTS=1
 make_jevents_all    := JEVENTS_ARCH=all
 make_no_bpf_skel    := BUILD_BPF_SKEL=0
 make_gen_vmlinux_h  := GEN_VMLINUX_H=1
-make_libperl        := LIBPERL=1
 make_no_python_module := NO_PYTHON_MODULE=1
 make_no_scripts     := NO_PYTHON_MODULE=1
 make_no_slang       := NO_SLANG=1
@@ -175,7 +174,6 @@ run += make_no_jevents
 run += make_jevents_all
 run += make_no_bpf_skel
 run += make_gen_vmlinux_h
-run += make_libperl
 run += make_no_python_module
 run += make_no_scripts
 run += make_no_slang

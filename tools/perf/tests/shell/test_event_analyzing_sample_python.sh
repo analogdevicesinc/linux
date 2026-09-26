@@ -45,7 +45,8 @@ test_file_mode() {
 	fi
 
 	# Run the script
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" -d "${temp_db}" > "${temp_dir}/perf.out" 2>&1; then
+	if ! perf script event_analyzing_sample -i "${temp_data}" \
+		-d "${temp_db}" > "${temp_dir}/perf.out" 2>&1; then
 		echo "File mode test failed."
 		err=1
 	elif ! grep -q "Statistics about the general events" "${temp_dir}/perf.out" || \

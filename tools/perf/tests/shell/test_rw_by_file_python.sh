@@ -52,7 +52,7 @@ if [ ! -s "${temp_data}" ]; then
 fi
 
 # Check that the script executes - filtering for "dd" since that's what we ran
-if ! "$PYTHON" "$script_path" -i "${temp_data}" "dd" > "${temp_out}"; then
+if ! perf script rw-by-file -i "${temp_data}" "dd" > "${temp_out}"; then
 	echo "rw-by-file.py test failed"
 	err=1
 else

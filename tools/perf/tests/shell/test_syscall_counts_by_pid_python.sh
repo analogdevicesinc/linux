@@ -53,7 +53,7 @@ test_file_mode() {
 		-- sleep 0.5 >/dev/null 2>&1 || \
 		{ echo "Skipping test, perf record failed"; exit 2; }
 
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+	if ! perf script syscall-counts-by-pid -i "${temp_data}" > "${temp_out}"; then
 		echo "File mode test failed."
 		err=1
 	elif ! grep -E -q "^  [a-zA-Z0-9_]+ +[0-9]+$" "${temp_out}"; then
@@ -64,7 +64,7 @@ test_file_mode() {
 	fi
 
 	# Test with a comm argument
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" "sleep" > "${temp_out}"; then
+	if ! perf script syscall-counts-by-pid -i "${temp_data}" "sleep" > "${temp_out}"; then
 		echo "Comm filter test failed."
 		err=1
 	elif ! grep -E -q "^  [a-zA-Z0-9_]+ +[0-9]+$" "${temp_out}"; then
@@ -76,7 +76,8 @@ test_file_mode() {
 
 	# Extract sleep PID from "sleep [<pid>]" header and test with a numeric PID filter argument
 	sleep_pid=$(sed -n 's/^sleep \[\([0-9]\+\)\]$/\1/p' "${temp_out}" | head -n 1)
-	if [ -z "${sleep_pid}" ] || ! "$PYTHON" "$script_path" -i "${temp_data}" "${sleep_pid}" > "${temp_out}"; then
+	if [ -z "${sleep_pid}" ] || \
+	   ! perf script syscall-counts-by-pid -i "${temp_data}" "${sleep_pid}" > "${temp_out}"; then
 		echo "PID filter test failed."
 		err=1
 	elif ! grep -E -q "^  [a-zA-Z0-9_]+ +[0-9]+$" "${temp_out}"; then

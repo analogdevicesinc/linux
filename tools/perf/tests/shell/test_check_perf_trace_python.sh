@@ -68,7 +68,7 @@ test_file_mode() {
 	fi
 
 	# Run the script
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+	if ! perf script check-perf-trace -i "${temp_data}" > "${temp_out}"; then
 		echo "File mode test failed."
 		err=1
 	elif ! grep -q "in trace_begin" "${temp_out}" || \

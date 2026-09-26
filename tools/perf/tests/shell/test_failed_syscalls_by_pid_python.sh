@@ -63,14 +63,14 @@ test_file_mode() {
 	fi
 
 	# Run the script and check output
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+	if ! perf script failed-syscalls-by-pid -i "${temp_data}" > "${temp_out}"; then
 		echo "failed-syscalls-by-pid test failed."
 		err=1
 	elif ! grep -n -q "err = ENOENT" "${temp_out}"; then
 		echo "Failed to find expected failed syscalls"
 		cat "${temp_out}"
 		err=1
-	elif ! "$PYTHON" "$script_path" -i "${temp_data}" "ls" > "${temp_out}.comm" || \
+	elif ! perf script failed-syscalls-by-pid -i "${temp_data}" "ls" > "${temp_out}.comm" || \
 	     ! grep -q "err = ENOENT" "${temp_out}.comm"; then
 		echo "failed-syscalls-by-pid comm filter test failed."
 		cat "${temp_out}.comm"
@@ -78,7 +78,8 @@ test_file_mode() {
 	else
 		ls_pid=$(sed -n 's/^ls \[\([0-9][0-9]*\)\].*/\1/p' "${temp_out}.comm" | head -n 1)
 		if [ -z "${ls_pid}" ] || \
-		   ! "$PYTHON" "$script_path" -i "${temp_data}" "${ls_pid}" > "${temp_out}.pid" || \
+		   ! perf script failed-syscalls-by-pid -i "${temp_data}" \
+			"${ls_pid}" > "${temp_out}.pid" || \
 		   ! grep -q "err = ENOENT" "${temp_out}.pid"; then
 			echo "failed-syscalls-by-pid PID filter test failed."
 			cat "${temp_out}.pid" 2>/dev/null || true

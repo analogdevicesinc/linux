@@ -61,7 +61,6 @@ perf-util-y += arch/
 perf-y += arch/
 perf-test-y += arch/
 perf-ui-y += ui/
-perf-util-y += scripts/
 
 gtk-y += ui/gtk/
 

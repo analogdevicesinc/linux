@@ -20,13 +20,6 @@ skip_if_no_cs_etm_event || exit 2
 set -e
 glb_err=1
 
-# Relative path works whether it's installed or running from repo
-if [ -n "$PERF_EXEC_PATH" ] && [ -e "$PERF_EXEC_PATH/python/arm-cs-trace-disasm.py" ]; then
-	script_path="$PERF_EXEC_PATH/python/arm-cs-trace-disasm.py"
-else
-	script_path=$(dirname "$0")/../../../python/arm-cs-trace-disasm.py
-fi
-
 # shellcheck source=lib/setup_python.sh
 . "$(dirname "$0")"/../lib/setup_python.sh
 $PYTHON -c "import perf" 2>/dev/null || {
@@ -56,8 +49,8 @@ branch_search='[[:space:]](bl|b(\.(eq|ne|cs|cc|mi|pl|vs|vc|hi|ls|ge|lt|gt|le|al)
 if [ "$(id -u)" == 0 ] && [ -e /proc/kcore ]; then
 	echo "Testing kernel disassembly"
 	perf record -o ${perfdata} -e cs_etm//k --kcore -Se -m,64K -- touch $file > /dev/null 2>&1
-	$PYTHON ${script_path} -i ${perfdata} -d --stop-sample=2 \
-		-k ${perfdata}/kcore_dir/kcore 2> /dev/null > ${file}
+	perf script -i ${perfdata} arm-cs-trace-disasm -- \
+		-d --stop-sample=2 -k ${perfdata}/kcore_dir/kcore 2> /dev/null > ${file}
 	grep -q -E ${branch_search} ${file}
 	echo "Found kernel branches"
 else
@@ -68,7 +61,8 @@ fi
 ## Test user ##
 echo "Testing userspace disassembly"
 perf record -o ${perfdata} -e cs_etm//u -Se -m,64K -- touch $file > /dev/null 2>&1
-$PYTHON ${script_path} -i ${perfdata} -d --stop-sample=2 2> /dev/null > ${file}
+perf script -i ${perfdata} arm-cs-trace-disasm -- \
+	-d --stop-sample=2 2> /dev/null > ${file}
 grep -q -E ${branch_search} ${file}
 echo "Found userspace branches"
 

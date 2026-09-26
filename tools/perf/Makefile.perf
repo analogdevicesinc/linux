@@ -17,7 +17,6 @@ include ../scripts/utilities.mak
 #
 # Define CROSS_COMPILE as prefix name of compiler if you want cross-builds.
 #
-# Define LIBPERL to enable perl script extension.
 #
 # Define NO_PYTHON_MODULE to disable python script extension.
 #
@@ -483,11 +482,6 @@ OTHER_PROGRAMS = $(OUTPUT)perf
 ifndef SHELL_PATH
   SHELL_PATH = /bin/sh
 endif
-ifndef PERL_PATH
-  PERL_PATH = /usr/bin/perl
-endif
-
-export PERL_PATH
 
 LIBPERF_BENCH_IN := $(OUTPUT)perf-bench-in.o
 LIBPERF_BENCH := $(OUTPUT)libperf-bench.a
@@ -892,14 +886,6 @@ endif
 		$(INSTALL) $(OUTPUT)perf-archive -t '$(DESTDIR_SQ)$(perfexec_instdir_SQ)'
 	$(call QUIET_INSTALL, perf-iostat) \
 		$(INSTALL) $(OUTPUT)perf-iostat -t '$(DESTDIR_SQ)$(perfexec_instdir_SQ)'
-ifdef LIBPERL
-	$(call QUIET_INSTALL, perl-scripts) \
-		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl/Perf-Trace-Util/lib/Perf/Trace'; \
-		$(INSTALL) scripts/perl/Perf-Trace-Util/lib/Perf/Trace/* -m 644 -t '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl/Perf-Trace-Util/lib/Perf/Trace'; \
-		$(INSTALL) scripts/perl/*.pl -m 644 -t '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl'; \
-		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl/bin'; \
-		$(INSTALL) scripts/perl/bin/* -t '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/scripts/perl/bin'
-endif
 ifndef NO_PYTHON_MODULE
 	$(call QUIET_INSTALL, python-scripts) \
 		$(INSTALL) -d -m 755 '$(DESTDIR_SQ)$(perfexec_instdir_SQ)/python' && \

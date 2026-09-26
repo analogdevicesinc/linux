@@ -55,7 +55,7 @@ test_file_mode() {
 	fi
 
 	# Run the script
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" -o "${temp_db}" >/dev/null; then
+	if ! perf script export-to-sqlite -i "${temp_data}" -o "${temp_db}" >/dev/null; then
 		echo "File mode test failed."
 		err=1
 	else
@@ -86,7 +86,7 @@ test_intel_pt() {
 	fi
 
 	# Run the script with --itrace cr to synthesize call_returns
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" -o "${temp_db}" --itrace cr; then
+	if ! perf script export-to-sqlite -i "${temp_data}" -o "${temp_db}" --itrace cr; then
 		echo "intel_pt file mode test failed."
 		err=1
 	else

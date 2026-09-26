@@ -56,13 +56,13 @@ if [ ! -s "${temp_data}" ]; then
 fi
 
 # Check that the script executes
-if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+if ! perf script sctop -i "${temp_data}" > "${temp_out}"; then
 	echo "sctop.py test failed"
 	err=1
 elif ! grep -E -q "[0-9]+$" "${temp_out}"; then
 	echo "Failed to find metric data rows in default run"
 	err=1
-elif ! "$PYTHON" "$script_path" -i "${temp_data}" sleep 1 > "${temp_out}"; then
+elif ! perf script sctop -i "${temp_data}" sleep 1 > "${temp_out}"; then
 	echo "sctop.py comm+interval test failed"
 	err=1
 else

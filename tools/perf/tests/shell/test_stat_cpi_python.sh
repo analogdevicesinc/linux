@@ -62,7 +62,7 @@ test_live_mode() {
 	ran=1
 
 	# Run live mode for 1 interval in the background, give it a tiny sleep, then interrupt
-	"$PYTHON" "$script_path" -I 0.1 -p "$workload_pid" > "${temp_out}" &
+	perf script stat-cpi -I 0.1 -p "$workload_pid" > "${temp_out}" &
 	pid=$!
 	sleep 0.5
 	kill -INT "$pid" 2>/dev/null || true
@@ -96,7 +96,7 @@ test_file_mode() {
 	fi
 	ran=1
 
-	out=$("$PYTHON" "$script_path" -i "${temp_data}")
+	out=$(perf script stat-cpi -i "${temp_data}")
 	if ! echo "$out" | grep -q "cpi"; then
 		echo "File mode test failed."
 		err=1

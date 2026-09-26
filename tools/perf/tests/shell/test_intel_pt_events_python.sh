@@ -49,7 +49,7 @@ test_intel_pt() {
 	fi
 
 	# Run the script and check output
-	if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+	if ! perf script intel-pt-events -i "${temp_data}" > "${temp_out}"; then
 		echo "intel-pt-events.py test failed."
 		err=1
 	else

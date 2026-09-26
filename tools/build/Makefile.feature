@@ -121,7 +121,6 @@ FEATURE_TESTS_EXTRA :=                  \
          libbfd-liberty                 \
          libbfd-liberty-z               \
          libopencsd                     \
-         libperl                        \
          llvm                           \
          libbpf                         \
          libpfm4                        \

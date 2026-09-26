@@ -93,7 +93,7 @@ if ! perf record -e skb:kfree_skb -a -o "${temp_data}" \
 fi
 
 # Check that the script executes
-if ! "$PYTHON" "$script_path" -i "${temp_data}" > "${temp_out}"; then
+if ! perf script netdev-times -i "${temp_data}" > "${temp_out}"; then
 	echo "netdev-times.py test failed"
 	err=1
 else
