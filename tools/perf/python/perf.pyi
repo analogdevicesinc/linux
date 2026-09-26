@@ -96,7 +96,7 @@ class data:
 
 class thread:
     """Represents a thread in the system."""
-    def comm(self) -> str:
+    def comm(self) -> Optional[str]:
         """Get the command name of the thread."""
         ...
     pid: int
@@ -165,7 +165,13 @@ class evsel:
     def __str__(self) -> str:
         """Return string representation of the event."""
         ...
-    def open(self) -> None:
+    def open(
+        self,
+        cpus: Optional['cpu_map'] = None,
+        threads: Optional[thread_map] = None,
+        group: bool = False,
+        inherit: bool = False,
+    ) -> None:
         """Open the event selector file descriptor table."""
         ...
     def read(self, cpu: int, thread: int) -> counts_values:
@@ -211,15 +217,15 @@ class sample_event(_sample_members):
     sample_cyc_count: int
     type: int
     raw_buf: bytes
-    dso: str
-    dso_long_name: str
-    dso_bid: Optional[bytes]
-    map_start: int
-    map_end: int
-    map_pgoff: int
-    symbol: str
-    sym_start: int
-    sym_end: int
+    dso: Optional[str]
+    dso_long_name: Optional[str]
+    dso_bid: Optional[str]
+    map_start: Optional[int]
+    map_end: Optional[int]
+    map_pgoff: Optional[int]
+    symbol: Optional[str]
+    sym_start: Optional[int]
+    sym_end: Optional[int]
     sym_offset: Optional[int]
     addr_dso: Optional[str]
     addr_symbol: Optional[str]
@@ -230,7 +236,7 @@ class sample_event(_sample_members):
     transaction: int
     brstack: Optional['branch_stack']
     callchain: Optional['callchain']
-    def srccode(self) -> Optional[tuple[Optional[str], int, Optional[str]]]: ...
+    def srccode(self, addr: int = ..., /) -> Optional[tuple[Optional[str], int, Optional[str]]]: ...
     def insn(self) -> Optional[bytes]: ...
     def __getattr__(self, name: str) -> Any: ...
 
@@ -339,6 +345,7 @@ class branch_stack:
     """Sequence of branch entries in the branch stack."""
     def __len__(self) -> int: ...
     def __getitem__(self, index: int) -> branch_entry: ...
+    def __iter__(self) -> Iterator[branch_entry]: ...
 
 class callchain_node:
     """Represents a frame in the callchain."""
@@ -387,10 +394,10 @@ class evlist:
     def close(self) -> None:
         """Close the events in the list."""
         ...
-    def mmap(self) -> None:
+    def mmap(self, pages: int = 128, overwrite: bool = False) -> None:
         """Memory map the event buffers."""
         ...
-    def poll(self, timeout: int) -> int:
+    def poll(self, timeout: int = -1) -> int:
         """Poll for events.
 
         Args:
@@ -400,7 +407,7 @@ class evlist:
             Number of events ready.
         """
         ...
-    def read_on_cpu(self, cpu: int) -> Optional[Any]:
+    def read_on_cpu(self, cpu: int, sample_id_all: bool = True) -> Optional[Any]:
         """Read a sample event from a specific CPU.
 
         Args:
@@ -437,15 +444,36 @@ class evlist:
     def enable(self) -> None:
         """Enable all events in the list."""
         ...
-    def get_pollfd(self) -> List[int]:
+    def get_pollfd(self) -> List[Any]:
         """Get a list of file descriptors for polling."""
         ...
-    def add(self, evsel: evsel) -> int:
+    def add(self, evsel: evsel, /) -> int:
         """Add an event to the list."""
         ...
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int) -> evsel: ...
     def __iter__(self) -> Iterator[evsel]:
         """Iterate over the events (evsel) in the list."""
         ...
+
+
+class call_return:
+    """Represents a call/return event from instruction trace decoding."""
+    db_id: int
+    parent_id: int
+    insn_count: int
+    cyc_count: int
+    comm: Optional[str]
+    machine_pid: int
+    pid: Optional[int]
+    tid: Optional[int]
+    call_time: int
+    return_time: int
+    branch_count: int
+    call_ref: int
+    return_ref: int
+    flags: int
+    call_path: Optional[callchain]
 
 
 class session:
@@ -455,6 +483,11 @@ class session:
         sample: Optional[Callable[[sample_event], None]] = None,
         stat: Optional[Callable[[Any, Optional[str]], None]] = None,
         context_switch: Optional[Callable[[switch_event], None]] = None,
+        call_return: Optional[Callable[[call_return], None]] = None,
+        itrace: Optional[str] = None,
+        vmlinux: Optional[str] = None,
+        kallsyms: Optional[str] = None,
+        symfs: Optional[str] = None
     ) -> None:
         """Initialize a perf session.
 
@@ -464,6 +497,8 @@ class session:
             stat: Callback for stat events.
         """
         ...
+    e_machine: int
+    is_64_bit: bool
     def process_events(self) -> None:
         """Process all events in the session."""
         ...
@@ -696,3 +731,12 @@ RECORD_STAT_ROUND: int
 
 RECORD_MISC_SWITCH_OUT: int
 """MISC_SWITCH_OUT record."""
+
+CALL_RETURN_NO_CALL: int
+"""'return' but no matching 'call'."""
+
+CALL_RETURN_NO_RETURN: int
+"""'call' but no matching 'return'."""
+
+CALL_RETURN_NON_CALL: int
+"""A branch but not a 'call' to the start of a different symbol."""
