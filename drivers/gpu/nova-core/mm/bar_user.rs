@@ -41,7 +41,7 @@ use kernel::device;
 pub(crate) struct BarUser<'gpu> {
     #[pin]
     vmm: Mutex<Vmm>,
-    bar1: &'gpu Bar1<'gpu>,
+    bar1: Bar1<'gpu>,
 }
 
 impl<'gpu> BarUser<'gpu> {
@@ -50,7 +50,7 @@ impl<'gpu> BarUser<'gpu> {
         pdb_addr: VramAddress,
         chipset: Chipset,
         va_size: u64,
-        bar1: &'gpu Bar1<'gpu>,
+        bar1: Bar1<'gpu>,
     ) -> Result<impl PinInit<Self> + 'gpu> {
         let vmm = Vmm::new(pdb_addr, chipset.mmu_version(), va_size)?;
         Ok(pin_init!(Self {

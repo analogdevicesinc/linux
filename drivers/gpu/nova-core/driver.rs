@@ -32,7 +32,7 @@ pub(crate) struct NovaCore<'bound> {
     #[pin]
     pub(crate) gpu: Gpu<'bound>,
     bar: pci::Bar<'bound, BAR0_SIZE>,
-    bar1: Bar1<'bound>,
+    bar1: pci::Bar<'bound>,
     #[allow(clippy::type_complexity)]
     _reg: auxiliary::Registration<'bound, CovariantForLt!(())>,
 }
@@ -43,7 +43,7 @@ const BAR0_SIZE: usize = SZ_16M;
 
 pub(crate) type Bar0<'a> = &'a pci::Bar<'a, BAR0_SIZE>;
 pub(crate) type NovaRegisters = kernel::io::Region<BAR0_SIZE>;
-pub(crate) type Bar1<'a> = pci::Bar<'a>;
+pub(crate) type Bar1<'a> = &'a pci::Bar<'a>;
 
 /// Returns the Linux PCI resource index that holds BAR1 for an NVIDIA GPU.
 ///
