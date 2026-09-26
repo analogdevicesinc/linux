@@ -72,6 +72,7 @@ static struct btf *mk_loc_btf(void)
 	btf__add_func_param(btf, "arg3", 1);
 	btf__add_func_param(btf, "arg4", 1);
 	btf__add_func_param(btf, "arg5", 1);
+	btf__add_func_param(btf, "arg6", 1);
 	btf__add_func(btf, "foo", BTF_FUNC_STATIC, 2);
 
 	btf__add_loc_param(btf, 4, BTF_LOC_PARAM_REG);
@@ -230,28 +231,29 @@ static void test_loc_dump(const char *btf_path)
 {
 	const char expected[] =
 		"[1] INT 'int' size=4 bits_offset=0 nr_bits=32 encoding=SIGNED\n"
-		"[2] FUNC_PROTO '(anon)' ret_type_id=1 vlen=5\n"
+		"[2] FUNC_PROTO '(anon)' ret_type_id=1 vlen=6\n"
 		"\t'arg1' type_id=1\n"
 		"\t'arg2' type_id=1\n"
 		"\t'arg3' type_id=1\n"
 		"\t'arg4' type_id=1\n"
 		"\t'arg5' type_id=1\n"
+		"\t'arg6' type_id=1\n"
 		"[3] FUNC 'foo' type_id=2 linkage=static\n"
 		"[4] LOC_PARAM '(anon)' size=4 flags=0x8 vlen=1 values='reg1'\n"
 		"[5] LOC_PARAM '(anon)' size=8 flags=0x38 vlen=2 values='*(reg2 + 0x10)'\n"
 		"[6] LOC_PARAM '(anon)' size=8 flags=0x29 vlen=2 values='fbreg - 0x10'\n"
-		"[7] LOC_PARAM '(anon)' size=8 flags=0x6 vlen=2 values='0x123456789abcdef0 (addr)'\n"
-		"[8] LOC_PARAM '(anon)' size=8 flags=0x2 vlen=2 values='0xdeadbeeffeedface'\n"
+		"[7] LOC_PARAM '(anon)' size=8 flags=0x6 vlen=2 values='address 0x123456789abcdef0'\n"
+		"[8] LOC_PARAM '(anon)' size=8 flags=0x2 vlen=2 values='const 0xdeadbeeffeedface'\n"
 		"[9] LOC_PARAM '(anon)' size=8 flags=0x39 vlen=2 values='*(fbreg - 0x20)'\n"
 		"[10] LOC_PROTO '(anon)' vlen=6\n"
 		"\ttype_id=4 value='reg1'\n"
 		"\ttype_id=5 value='*(reg2 + 0x10)'\n"
 		"\ttype_id=6 value='fbreg - 0x10'\n"
-		"\ttype_id=7 value='0x123456789abcdef0 (addr)'\n"
-		"\ttype_id=8 value='0xdeadbeeffeedface'\n"
+		"\ttype_id=7 value='address 0x123456789abcdef0'\n"
+		"\ttype_id=8 value='const 0xdeadbeeffeedface'\n"
 		"\ttype_id=9 value='*(fbreg - 0x20)'\n"
 		"[11] LOCSEC 'inline.text' vlen=1\n"
-		"\tname='foo' func_type_id=3 loc_proto_type_id=10 offset=64\n";
+		"\tfunc='foo(arg1 [reg1], arg2 [*(reg2 + 0x10)], arg3 [fbreg - 0x10], arg4 [address 0x123456789abcdef0], arg5 [const 0xdeadbeeffeedface], arg6 [*(fbreg - 0x20)])' func_type_id=3 loc_proto_type_id=10 offset=64\n";
 	char *dump;
 
 	dump = dump_raw(btf_path);
