@@ -72,6 +72,8 @@
 #define REG_ACCUM_STEP_VAL_L			0x38
 #define REG_ACCUM_STEP_VAL_H			0x3c
 #define REG_NUM_SAMPLES				0x40
+#define REG_GROUP				0x44
+#define   REG_GROUP_BEATS_M1			GENMASK(7, 0)
 #define ACCUM_MAX_SLOTS				64
 /* Keeps exact carries carrying despite rounding, far below one sample step */
 #define ACCUM_BIAS				BIT_ULL(20)
@@ -182,12 +184,14 @@ static int axi_fsrc_tx_active(struct axi_fsrc *st, bool en)
 static int axi_fsrc_seq_start(struct axi_fsrc *st);
 
 /*
- * Apollo spaces its samples r/NS apart in phase, r = m/n, starting at 1 - r,
- * and reads a sample when adding r carries. Slot i of an
- * FPGA beat of num_samples slots is sample i, so seed it at 1 - r + r*i/NS,
- * step it by r*num_samples/NS per beat and test the carry with r. Phases are
- * multiples of 1/(n*NS), so work in that grid and round up, plus a bias that
- * keeps exact carries carrying.
+ * Apollo's JRx rate match FIFO takes each conv_clk worth of samples, NS of
+ * them, as all valid or all invalid, so holes come in groups of NS samples.
+ * Group g is valid when adding r = m/n to its phase 1 - r + g*r carries.
+ * With NS <= num_samples a beat holds num_samples/NS groups: seed slot i with
+ * the phase of its group and step by the groups per beat. With NS >
+ * num_samples a group spans NS/num_samples beats and the HDL advances the
+ * accumulators once per group. Phases are multiples of 1/n: round up, plus a
+ * bias that keeps exact carries carrying.
  */
 static u64 axi_fsrc_grid_frac(u64 x, u64 grid, u64 one)
 {
@@ -203,7 +207,7 @@ static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u32 n, const u32 m,
 	void __iomem *base = st->addr[AXI_FSRC_TX];
 	const u64 one = BIT_ULL(st->accum_width);
 	const u64 mask = one - 1;
-	const u64 grid = (u64)n * ns;
+	u32 groups_per_beat = 1, group_beats = 1;
 	u64 add, step, val;
 	int slots;
 
@@ -212,26 +216,37 @@ static int axi_fsrc_tx_set_ratio(struct axi_fsrc *st, const u32 n, const u32 m,
 	if (!m || !ns || n < m || n / m != 1 || st->accum_width >= 64)
 		return -EINVAL;
 
+	if (st->num_samples) {
+		if (ns <= st->num_samples) {
+			if (st->num_samples % ns)
+				return -EINVAL;
+			groups_per_beat = st->num_samples / ns;
+		} else {
+			if (ns % st->num_samples || ns / st->num_samples > 256)
+				return -EINVAL;
+			group_beats = ns / st->num_samples;
+		}
+	}
 	if (n == m) {
 		/* r = 1 does not fit the accumulator: every add has to carry */
 		add = mask;
 		step = 0;
 	} else {
 		add = mul_u64_u64_div_u64(one, m, n);
-		step = axi_fsrc_grid_frac((u64)m * st->num_samples, grid, one) + 1;
+		step = axi_fsrc_grid_frac((u64)m * groups_per_beat, n, one) + 1;
 	}
 
 	axi_fsrc_write(base, REG_CONV_MASK, (u32)REG_CONV_MASK_MASK);
+	axi_fsrc_write(base, REG_GROUP, FIELD_PREP(REG_GROUP_BEATS_M1, group_beats - 1));
 
 	slots = st->num_samples ? st->num_samples : ACCUM_MAX_SLOTS;
 	for (int i = 0; i < slots; i++) {
-		u64 s = i;
+		u64 g = groups_per_beat > 1 ? i / ns : 0;
 
 		if (n == m)
 			val = ACCUM_BIAS;
 		else
-			val = axi_fsrc_grid_frac((u64)(n - m) * ns + m * s, grid, one) +
-			      1 + ACCUM_BIAS;
+			val = axi_fsrc_grid_frac((u64)(n - m) + m * g, n, one) + 1 + ACCUM_BIAS;
 		val &= mask;
 		axi_fsrc_write(base, REG_ACCUM_SET_VAL_L, val);
 		axi_fsrc_write(base, REG_ACCUM_SET_VAL_H, val >> 32);
