@@ -85,12 +85,7 @@ static inline int hibernate_map_page(struct page *page)
 	if (is_kfence_address(page_address(page)))
 		return kfence_force_mapping(page) ? 0 : -EFAULT;
 
-	if (IS_ENABLED(CONFIG_ARCH_HAS_SET_DIRECT_MAP)) {
-		return set_direct_map_default_noflush(page, 1);
-	} else {
-		debug_pagealloc_map_pages(page, 1);
-		return 0;
-	}
+	return 0;
 }
 
 static inline int hibernate_unmap_page(struct page *page)
@@ -98,17 +93,6 @@ static inline int hibernate_unmap_page(struct page *page)
 	if (is_kfence_address(page_address(page)))
 		return kfence_reset_mapping(page) ? 0 : -EFAULT;
 
-	if (IS_ENABLED(CONFIG_ARCH_HAS_SET_DIRECT_MAP)) {
-		unsigned long addr = (unsigned long)page_address(page);
-		int ret  = set_direct_map_invalid_noflush(page, 1);
-
-		if (ret)
-			return ret;
-
-		flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
-	} else {
-		debug_pagealloc_unmap_pages(page, 1);
-	}
 	return 0;
 }
 
@@ -1446,10 +1430,10 @@ static inline bool do_copy_page(long *dst, long *src)
 /*
  * safe_copy_page - Copy a page in a safe way.
  *
- * Check if the page we are going to copy is marked as present in the kernel
- * page tables. This always is the case if CONFIG_DEBUG_PAGEALLOC or
- * CONFIG_ARCH_HAS_SET_DIRECT_MAP is not set. In that case kernel_page_present()
- * always returns 'true'.
+ * Page could be not present in the kernel page tables. Try to map it before
+ * copiyng and unmap back as needed.
+ * If the kernel page table update fails, bail out with an error.
+ *
  * Sets @zeros_only to true if the page was entirely composed of zeros.
  *
  * Returns 0 on success, a negative error code on failure.
@@ -1457,11 +1441,6 @@ static inline bool do_copy_page(long *dst, long *src)
 static int safe_copy_page(void *dst, struct page *s_page, bool *zeros_only)
 {
 	int err;
-
-	if (kernel_page_present(s_page)) {
-		*zeros_only = do_copy_page(dst, page_address(s_page));
-		return 0;
-	}
 
 	err = hibernate_map_page(s_page);
 	if (err)
