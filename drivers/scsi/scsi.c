@@ -606,7 +606,8 @@ int scsi_report_opcode(struct scsi_device *sdev, unsigned char *buffer,
 		return result;
 	if (result && scsi_sense_valid(&sshdr) &&
 	    sshdr.sense_key == ILLEGAL_REQUEST &&
-	    (sshdr.asc == 0x20 || sshdr.asc == 0x24) && sshdr.ascq == 0x00)
+	    (sshdr.sense_code == INVALID_COMMAND_OP_CODE ||
+	     sshdr.sense_code == INVALID_FIELD_IN_CDB))
 		return -EINVAL;
 
 	if ((buffer[1] & 3) == 3) /* Command supported */
