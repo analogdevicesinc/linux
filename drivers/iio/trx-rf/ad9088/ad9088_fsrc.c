@@ -8,6 +8,7 @@
 #include <linux/string.h>
 
 #include "ad9088.h"
+#include "adi_apollo_bf_jrx_wrapper.h"
 
 static int ad9088_axi_fsrc_enable(struct ad9088_phy *phy, bool enable,
 				  adi_apollo_terminal_e terminal)
@@ -98,6 +99,41 @@ int ad9088_fsrc_rx_configure(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
 	return 0;
 }
 
+/*
+ * The API enables invalid sample handling in JRx rate match FIFO slice i only
+ * when JRx link i is in use, but FSRC i feeds slice i whatever the links: with
+ * one link per side and both FSRCs enabled, slice 1 takes the -FS holes as data.
+ */
+static int ad9088_fsrc_tx_invalid_enable(struct ad9088_phy *phy)
+{
+	static const u32 wrappers[ADI_APOLLO_NUM_SIDES] = {
+		JRX_WRAPPER_JRX_TX_DIGITAL0, JRX_WRAPPER_JRX_TX_DIGITAL1
+	};
+	int ret;
+
+	for (int side = 0; side < ADI_APOLLO_NUM_SIDES; side++) {
+		const adi_apollo_jesd_rx_link_cfg_t *link = &phy->profile.jrx[side].rx_link_cfg[0];
+
+		if (!link->link_in_use)
+			continue;
+
+		for (int slice = 0; slice < ADI_APOLLO_FSRC_PER_SIDE_NUM; slice++) {
+			ret = adi_apollo_hal_bf_set(&phy->ad9088,
+						    BF_INVALID_DATA_EN_INFO(wrappers[side], slice), 1);
+			if (!ret)
+				ret = adi_apollo_hal_bf_set(&phy->ad9088,
+							    BF_NUM_OF_INVALID_SAMPLE_INFO(wrappers[side], slice),
+							    link->ns_minus1);
+			ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+							"JRx invalid sample enable");
+			if (ret)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
 /**
  * ad9088_fsrc_tx_configure - Configure TX FSRC and data path
  * @phy: AD9088 device instance
@@ -133,6 +169,10 @@ int ad9088_fsrc_tx_configure(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m)
 			return ret;
 		}
 	}
+	ret = ad9088_fsrc_tx_invalid_enable(phy);
+	if (ret)
+		return ret;
+
 	/* Similar to public/inc/adi_apollo_fsrc.h@adi_apollo_fsrc_rate_set python example */
 	ret = adi_apollo_fsrc_mode_1x_enable_set(&phy->ad9088, ADI_APOLLO_TX, ADI_APOLLO_FSRC_ALL,
 						 fsrc_m == fsrc_n);
