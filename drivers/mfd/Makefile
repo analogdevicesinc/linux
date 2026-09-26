@@ -304,3 +304,9 @@ obj-$(CONFIG_MFD_RSMU_SPI)	+= rsmu_spi.o rsmu_core.o
 obj-$(CONFIG_MFD_UPBOARD_FPGA)	+= upboard-fpga.o
 
 obj-$(CONFIG_MFD_LOONGSON_SE)	+= loongson-se.o
+
+obj-$(CONFIG_MFD_MAX2035X)	+= mfd_max2035x.o
+mfd_max2035x-y			:= maxim/max2035x/max2035x.o \
+				   maxim/max2035x/max2035x_plc.o \
+				   maxim/max2035x/max2035x_fuelgauge.o
+mfd_max2035x-$(CONFIG_DEBUG_FS)	+= maxim/max2035x/max2035x_debugfs.o

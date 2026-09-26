@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/adi,max20355.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX20355/MAX20357 PMIC
+
+maintainers:
+  - Judy Na <judy.na@analog.com>
+
+description: |
+  The Analog Devices MAX20355 and MAX20357 are Power Management ICs that
+  provide PLC (Power Line Communication) based power management for TWS
+  headphones, AR glasses, and wearable devices.
+
+  MAX20355 is the master PMIC (charging case side) with buck-boost regulator,
+  fuel gauge, GPIO, and dual PLC channels. I2C address 0x28, fuel gauge at
+  0x36, RAM at 0x50.
+
+  MAX20357 is the slave PMIC (earbud side) with Li-ion charger, fuel gauge,
+  GPIO, and a single PLC channel. I2C address 0x15, fuel gauge at 0x36,
+  RAM at 0x55.
+
+  The MAX20355 supports two PLC operating modes determined by board wiring:
+  - Mono-slave mode: PLC1 and PLC2 pins tied together for a single slave
+    with doubled current capacity (400 mA).
+  - Dual-slave mode: PLC1 and PLC2 connected to separate slaves (200 mA each).
+
+  Note on RAM address: The MAX20355 datasheet lists RAM at 7-bit address 0x40,
+  but hardware I2C scans confirm the RAM block responds at 0x50. This is a
+  known datasheet errata.
+
+properties:
+  compatible:
+    enum:
+      - adi,max20355
+      - adi,max20357
+
+  reg:
+    items:
+      - description: PLC registers
+      - description: Fuel Gauge registers
+      - description: RAM registers
+
+  reg-names:
+    items:
+      - const: plc
+      - const: fuel-gauge
+      - const: ram
+
+  interrupts:
+    maxItems: 1
+
+  adi,plc-channel:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [1, 2]
+    description:
+      PLC channel number this slave is connected to on the master.
+      Required for MAX20357. Channel 1 corresponds to master PLC1,
+      channel 2 to master PLC2.
+
+  adi,mono-slave:
+    type: boolean
+    description:
+      Indicates the MAX20355 master operates in mono-slave mode where
+      PLC1 and PLC2 pins are strapped together for a single slave with
+      doubled output current. When absent, dual-slave mode is assumed.
+
+required:
+  - compatible
+  - reg
+  - reg-names
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          const: adi,max20357
+    then:
+      required:
+        - adi,plc-channel
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    /* Dual-slave master (charging case) */
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pmic@28 {
+            compatible = "adi,max20355";
+            reg = <0x28>, <0x36>, <0x50>;
+            reg-names = "plc", "fuel-gauge", "ram";
+            interrupt-parent = <&gpio>;
+            interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+        };
+    };
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    /* Earbud (slave on PLC channel 1) */
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pmic@15 {
+            compatible = "adi,max20357";
+            reg = <0x15>, <0x36>, <0x55>;
+            reg-names = "plc", "fuel-gauge", "ram";
+            interrupt-parent = <&gpio>;
+            interrupts = <22 IRQ_TYPE_LEVEL_LOW>;
+            adi,plc-channel = <1>;
+        };
+    };
