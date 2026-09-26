@@ -6004,7 +6004,8 @@ static int ath11k_pull_mgmt_rx_params_tlv(struct ath11k_base *ab,
 	hdr->tsf_delta =  ev->tsf_delta;
 	memcpy(hdr->rssi_ctl, ev->rssi_ctl, sizeof(hdr->rssi_ctl));
 
-	if (skb->len < (frame - skb->data) + hdr->buf_len) {
+	if (hdr->buf_len < sizeof(struct ieee80211_hdr_3addr) ||
+	    skb->len < (frame - skb->data) + hdr->buf_len) {
 		ath11k_warn(ab, "invalid length in mgmt rx hdr ev");
 		return -EPROTO;
 	}
