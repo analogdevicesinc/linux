@@ -189,19 +189,10 @@ static void register_python_scripting(struct scripting_ops *scripting_ops)
 	}
 }
 
-#ifndef HAVE_LIBPYTHON_SUPPORT
 void setup_python_scripting(void)
 {
 	register_python_scripting(&python_scripting_unsupported_ops);
 }
-#else
-extern struct scripting_ops python_scripting_ops;
-
-void setup_python_scripting(void)
-{
-	register_python_scripting(&python_scripting_ops);
-}
-#endif
 
 #ifdef HAVE_LIBTRACEEVENT
 static void print_perl_unsupported_msg(void)
