@@ -593,7 +593,6 @@ struct mptcp_subflow_context {
 	bool	fully_established;  /* path validated */
 	u32	lent_mem_frag;
 	u32	remote_nonce;
-	u64	thmac;
 	u32	local_nonce;
 	u32	remote_token;
 	union {
