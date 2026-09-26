@@ -7,10 +7,7 @@ use kernel::{
     io::Io,
     new_mutex,
     prelude::*,
-    sync::{
-        Arc,
-        Mutex, //
-    },
+    sync::Mutex, //
 };
 
 use crate::{
@@ -63,11 +60,11 @@ impl<'gpu> BarUser<'gpu> {
 
     /// Map physical pages to a contiguous BAR1 virtual range.
     pub(crate) fn map(
-        self: &Arc<Self>,
+        &self,
         mm: &mut GpuMm<'_>,
         pfns: &[Pfn],
         writable: bool,
-    ) -> Result<BarUserAccess<'gpu>> {
+    ) -> Result<BarUserAccess<'_>> {
         if pfns.is_empty() {
             return Err(EINVAL);
         }
@@ -75,15 +72,17 @@ impl<'gpu> BarUser<'gpu> {
         let mapped = vmm.map_pages(mm, pfns, None, writable)?;
 
         Ok(BarUserAccess {
-            bar_user: self.clone(),
+            bar_user: self,
             mapped: Some(mapped),
         })
     }
 }
 
 /// Access object for a mapped BAR1 region.
-pub(crate) struct BarUserAccess<'gpu> {
-    bar_user: Arc<BarUser<'gpu>>,
+///
+/// Borrows the [`BarUser`] managing the mapping for the lifetime of the access object.
+pub(crate) struct BarUserAccess<'a> {
+    bar_user: &'a BarUser<'a>,
     /// [`BarUserAccess::release`] [`Option::take`]s this; `Some` at
     /// drop time means `release()` was never called.
     mapped: Option<MappedRange>,
@@ -385,15 +384,10 @@ pub(crate) fn run_self_test(
         test3_passed = false;
     }
 
-    // Release Tests 1-3's Vmm before Test 4 constructs a fresh BarUser on
-    // the same PDB.
+    // Release Tests 1-3's Vmm before Test 4 uses the GPU's BarUser on the same PDB.
     drop(vmm);
 
     // Test 4: Exercise `BarUser::map()` end-to-end.
-    let bar_user = Arc::pin_init(
-        BarUser::new(pdb_addr, chipset, SZ_64K.into_safe_cast(), bar1),
-        GFP_KERNEL,
-    )?;
     let access = bar_user.map(mm, &[test_pfn], true)?;
 
     // Write pattern via PRAMIN, read via BarUserAccess.
