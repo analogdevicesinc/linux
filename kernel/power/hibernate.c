@@ -427,6 +427,11 @@ int hibernation_snapshot(int platform_mode)
 	if (error)
 		goto Cleanup;
 
+	if (!hibernation_available()) {
+		error = -EBUSY;
+		goto Thaw;
+	}
+
 	if (hibernation_test(TEST_FREEZER)) {
 
 		/*
