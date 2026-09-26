@@ -155,7 +155,7 @@ fedora_pkg_for() {
 	libcapstone)
 		echo "capstone-devel"
 		;;
-	libpython)
+	python-module)
 		echo "python3-devel"
 		;;
 	libtraceevent)
@@ -314,7 +314,7 @@ debian_pkg_for() {
 	libcapstone)
 		echo "libcapstone-dev"
 		;;
-	libpython)
+	python-module)
 		echo "python3-dev"
 		;;
 	libtraceevent)

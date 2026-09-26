@@ -1,4 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
+#include <dirent.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include "../../util/util.h" // perf_exe()
 #include "../util.h"
 #include "../../util/evlist.h"
@@ -14,7 +21,6 @@
 #include <linux/string.h>
 #include <linux/zalloc.h>
 #include <subcmd/exec-cmd.h>
-#include <stdlib.h>
 
 #define SCRIPT_NAMELEN	128
 #define SCRIPT_MAX_NO	64
@@ -128,7 +134,7 @@ static int check_ev_match(int dir_fd, const char *scriptname, struct perf_sessio
 			if (!len)
 				break;
 
-			snprintf(evname, len + 1, "%s", p);
+			snprintf(evname, sizeof(evname), "%.*s", (int)len, p);
 
 			match = 0;
 			evlist__for_each_entry(session->evlist, pos) {
@@ -159,6 +165,7 @@ static int check_ev_match(int dir_fd, const char *scriptname, struct perf_sessio
 static int find_scripts(char **scripts_array, char **scripts_path_array, int num,
 		 int pathlen)
 {
+	int namelen;
 	struct dirent *script_dirent, *lang_dirent;
 	int scripts_dir_fd, lang_dir_fd;
 	DIR *scripts_dir, *lang_dir;
@@ -180,73 +187,118 @@ static int find_scripts(char **scripts_array, char **scripts_path_array, int num
 
 		snprintf(scripts_path, sizeof(scripts_path), "%s/scripts", exec_path);
 		scripts_dir_fd = open(scripts_path, O_DIRECTORY);
-		pr_err("Failed to open directory '%s'", scripts_path);
-		if (scripts_dir_fd == -1) {
-			perf_session__delete(session);
-			return -1;
+	}
+	if (scripts_dir_fd != -1) {
+		scripts_dir = fdopendir(scripts_dir_fd);
+		if (scripts_dir) {
+			while ((lang_dirent = readdir(scripts_dir)) != NULL) {
+				if (lang_dirent->d_type != DT_DIR &&
+				    (lang_dirent->d_type == DT_UNKNOWN &&
+				     !is_directory_at(scripts_dir_fd, lang_dirent->d_name)))
+					continue;
+				if (!strcmp(lang_dirent->d_name, ".") ||
+				    !strcmp(lang_dirent->d_name, ".."))
+					continue;
+
+				if (strstr(lang_dirent->d_name, "python"))
+					continue;
+
+				lang_dir_fd = openat(scripts_dir_fd, lang_dirent->d_name,
+					     O_DIRECTORY);
+				if (lang_dir_fd == -1)
+					continue;
+				lang_dir = fdopendir(lang_dir_fd);
+				if (!lang_dir) {
+					close(lang_dir_fd);
+					continue;
+				}
+				while ((script_dirent = readdir(lang_dir)) != NULL) {
+					if (script_dirent->d_type == DT_DIR)
+						continue;
+					if (script_dirent->d_type == DT_UNKNOWN &&
+					    is_directory_at(lang_dir_fd, script_dirent->d_name))
+						continue;
+					/* Skip those real time scripts: xxxtop.p[yl] */
+					if (strstr(script_dirent->d_name, "top."))
+						continue;
+					if (i >= num)
+						break;
+					scnprintf(scripts_path_array[i], pathlen,
+						  "%s/scripts/%s/%s", exec_path,
+						  lang_dirent->d_name,
+						  script_dirent->d_name);
+					temp = strrchr(script_dirent->d_name, '.');
+					namelen = temp ? (int)(temp - script_dirent->d_name)
+							       : (int)strlen(script_dirent->d_name);
+
+					if (namelen >= SCRIPT_NAMELEN)
+						namelen = SCRIPT_NAMELEN - 1;
+					snprintf(scripts_array[i], namelen + 1, "%s",
+						 script_dirent->d_name);
+
+					if (check_ev_match(lang_dir_fd, scripts_array[i], session))
+						continue;
+
+					i++;
+				}
+				closedir(lang_dir);
+			}
+			closedir(scripts_dir);
+		} else {
+			close(scripts_dir_fd);
 		}
 	}
-	scripts_dir = fdopendir(scripts_dir_fd);
-	if (!scripts_dir) {
-		close(scripts_dir_fd);
-		perf_session__delete(session);
-		return -1;
+
+#ifdef HAVE_PYTHON_MODULE_SUPPORT
+	{
+		char py_scripts_path[PATH_MAX];
+		int py_scripts_dir_fd;
+		DIR *py_scripts_dir;
+		int len;
+
+		snprintf(py_scripts_path, sizeof(py_scripts_path), "%s/python", exec_path);
+		py_scripts_dir_fd = open(py_scripts_path, O_DIRECTORY);
+		if (py_scripts_dir_fd != -1) {
+			py_scripts_dir = fdopendir(py_scripts_dir_fd);
+			if (py_scripts_dir) {
+				while ((script_dirent = readdir(py_scripts_dir)) != NULL) {
+					if (script_dirent->d_type == DT_DIR)
+						continue;
+					if (script_dirent->d_type == DT_UNKNOWN &&
+					    is_directory_at(py_scripts_dir_fd,
+						    script_dirent->d_name))
+						continue;
+					/* Skip those real time scripts: xxxtop.p[yl] */
+					if (strstr(script_dirent->d_name, "top."))
+						continue;
+					if (i >= num)
+						break;
+					len = strlen(script_dirent->d_name);
+					if (len <= 3 ||
+					    strcmp(script_dirent->d_name + len - 3, ".py"))
+						continue;
+
+					scnprintf(scripts_path_array[i], pathlen, "%s/python/%s",
+						exec_path,
+						script_dirent->d_name);
+					temp = strrchr(script_dirent->d_name, '.');
+					namelen = temp ? (int)(temp - script_dirent->d_name)
+							       : (int)strlen(script_dirent->d_name);
+
+					if (namelen >= SCRIPT_NAMELEN)
+						namelen = SCRIPT_NAMELEN - 1;
+					snprintf(scripts_array[i], namelen + 1, "%s",
+						 script_dirent->d_name);
+
+					i++;
+				}
+				closedir(py_scripts_dir);
+			} else {
+				close(py_scripts_dir_fd);
+			}
+		}
 	}
-
-	while ((lang_dirent = readdir(scripts_dir)) != NULL) {
-		if (lang_dirent->d_type != DT_DIR &&
-		    (lang_dirent->d_type == DT_UNKNOWN &&
-		     !is_directory_at(scripts_dir_fd, lang_dirent->d_name)))
-			continue;
-		if (!strcmp(lang_dirent->d_name, ".") || !strcmp(lang_dirent->d_name, ".."))
-			continue;
-
-#ifndef HAVE_LIBPERL_SUPPORT
-		if (strstr(lang_dirent->d_name, "perl"))
-			continue;
 #endif
-#ifndef HAVE_LIBPYTHON_SUPPORT
-		if (strstr(lang_dirent->d_name, "python"))
-			continue;
-#endif
-
-		lang_dir_fd = openat(scripts_dir_fd, lang_dirent->d_name, O_DIRECTORY);
-		if (lang_dir_fd == -1)
-			continue;
-		lang_dir = fdopendir(lang_dir_fd);
-		if (!lang_dir) {
-			close(lang_dir_fd);
-			continue;
-		}
-		while ((script_dirent = readdir(lang_dir)) != NULL) {
-			if (script_dirent->d_type == DT_DIR)
-				continue;
-			if (script_dirent->d_type == DT_UNKNOWN &&
-			    is_directory_at(lang_dir_fd, script_dirent->d_name))
-				continue;
-			/* Skip those real time scripts: xxxtop.p[yl] */
-			if (strstr(script_dirent->d_name, "top."))
-				continue;
-			if (i >= num)
-				break;
-			scnprintf(scripts_path_array[i], pathlen, "%s/scripts/%s/%s",
-				exec_path,
-				lang_dirent->d_name,
-				script_dirent->d_name);
-			temp = strchr(script_dirent->d_name, '.');
-			snprintf(scripts_array[i],
-				(temp - script_dirent->d_name) + 1,
-				"%s", script_dirent->d_name);
-
-			if (check_ev_match(lang_dir_fd, scripts_array[i], session))
-				continue;
-
-			i++;
-		}
-		closedir(lang_dir);
-	}
-
-	closedir(scripts_dir);
 	perf_session__delete(session);
 	return i;
 }
@@ -264,7 +316,7 @@ static int list_scripts(char *script_name, bool *custom,
 	int ret = 0;
 	int max_std, custom_perf;
 	char pbuf[256];
-	const char *perf = perf_exe(pbuf, sizeof pbuf);
+	const char *perf = perf_exe(pbuf, sizeof(pbuf));
 	struct script_config scriptc = {
 		.names = (const char **)names,
 		.paths = paths,
@@ -354,7 +406,7 @@ int script_browse(const char *script_opt, struct evsel *evsel)
 		return -1;
 
 	if (asprintf(&cmd, "%s%s %s %s%s 2>&1 | less",
-			custom ? "perf script -s " : "",
+			custom ? "perf script " : "",
 			script_name,
 			script_opt ? script_opt : "",
 			input_name ? "-i " : "",
