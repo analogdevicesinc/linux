@@ -322,6 +322,17 @@ struct amd64_family_flags {
 	      __reserved	: 63;
 };
 
+/* per-node ECC settings descriptor */
+struct ecc_settings {
+	u32 old_nbctl;
+	bool nbctl_valid;
+
+	struct flags {
+		unsigned long nb_mce_enable:1;
+		unsigned long nb_ecc_prev:1;
+	} flags;
+};
+
 struct amd64_pvt {
 	struct low_ops *ops;
 
@@ -371,6 +382,8 @@ struct amd64_pvt {
 	struct amd64_family_flags flags;
 	/* place to store error injection parameters prior to issue */
 	struct error_injection injection;
+
+	struct ecc_settings ecc;
 
 	/*
 	 * cache the dram_type
@@ -441,18 +454,6 @@ static inline u8 dct_sel_interleave_addr(struct amd64_pvt *pvt)
 
 	return	((pvt)->dct_sel_lo >> 6) & 0x3;
 }
-/*
- * per-node ECC settings descriptor
- */
-struct ecc_settings {
-	u32 old_nbctl;
-	bool nbctl_valid;
-
-	struct flags {
-		unsigned long nb_mce_enable:1;
-		unsigned long nb_ecc_prev:1;
-	} flags;
-};
 
 /*
  * Each of the PCI Device IDs types have their own set of hardware accessor

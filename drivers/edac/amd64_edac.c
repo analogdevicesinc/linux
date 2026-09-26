@@ -30,9 +30,6 @@ static inline u32 get_umc_reg(struct amd64_pvt *pvt, u32 reg)
 	return 0;
 }
 
-/* Per-node stuff */
-static struct ecc_settings **ecc_stngs;
-
 /* Device for the PCI component */
 static struct device *pci_ctl_dev;
 
@@ -3999,19 +3996,11 @@ static int probe_one_instance(unsigned int nid)
 {
 	struct pci_dev *F3 = node_to_amd_nb(nid)->misc;
 	struct amd64_pvt *pvt = NULL;
-	struct ecc_settings *s;
 	int ret;
-
-	ret = -ENOMEM;
-	s = kzalloc_obj(struct ecc_settings);
-	if (!s)
-		goto err_out;
-
-	ecc_stngs[nid] = s;
 
 	pvt = kzalloc_obj(struct amd64_pvt);
 	if (!pvt)
-		goto err_settings;
+		return -ENOMEM;
 
 	pvt->mc_node_id	= nid;
 	pvt->F3 = F3;
@@ -4042,7 +4031,7 @@ static int probe_one_instance(unsigned int nid)
 		} else
 			amd64_warn("Forcing ECC on!\n");
 
-		if (!enable_ecc_error_reporting(s, nid, F3))
+		if (!enable_ecc_error_reporting(&pvt->ecc, nid, F3))
 			goto err_enable;
 	}
 
@@ -4051,7 +4040,7 @@ static int probe_one_instance(unsigned int nid)
 		amd64_err("Error probing instance: %d\n", nid);
 
 		if (boot_cpu_data.x86 < 0x17)
-			restore_ecc_error_reporting(s, nid, F3);
+			restore_ecc_error_reporting(&pvt->ecc, nid, F3);
 
 		goto err_enable;
 	}
@@ -4067,18 +4056,12 @@ err_enable:
 	hw_info_put(pvt);
 	kfree(pvt);
 
-err_settings:
-	kfree(s);
-	ecc_stngs[nid] = NULL;
-
-err_out:
 	return ret;
 }
 
 static void remove_one_instance(unsigned int nid)
 {
 	struct pci_dev *F3 = node_to_amd_nb(nid)->misc;
-	struct ecc_settings *s = ecc_stngs[nid];
 	struct mem_ctl_info *mci;
 	struct amd64_pvt *pvt;
 
@@ -4089,10 +4072,7 @@ static void remove_one_instance(unsigned int nid)
 
 	pvt = mci->pvt_info;
 
-	restore_ecc_error_reporting(s, nid, F3);
-
-	kfree(ecc_stngs[nid]);
-	ecc_stngs[nid] = NULL;
+	restore_ecc_error_reporting(&pvt->ecc, nid, F3);
 
 	/* Free the EDAC CORE resources */
 	mci->pvt_info = NULL;
@@ -4148,14 +4128,9 @@ static int __init amd64_edac_init(void)
 
 	opstate_init();
 
-	err = -ENOMEM;
-	ecc_stngs = kzalloc_objs(ecc_stngs[0], amd_nb_num());
-	if (!ecc_stngs)
-		goto err_free;
-
 	msrs = msrs_alloc();
 	if (!msrs)
-		goto err_free;
+		return -ENOMEM;
 
 	for (i = 0; i < amd_nb_num(); i++) {
 		err = probe_one_instance(i);
@@ -4195,10 +4170,6 @@ err_pci:
 	msrs_free(msrs);
 	msrs = NULL;
 
-err_free:
-	kfree(ecc_stngs);
-	ecc_stngs = NULL;
-
 	return err;
 }
 
@@ -4217,9 +4188,6 @@ static void __exit amd64_edac_exit(void)
 
 	for (i = 0; i < amd_nb_num(); i++)
 		remove_one_instance(i);
-
-	kfree(ecc_stngs);
-	ecc_stngs = NULL;
 
 	pci_ctl_dev = NULL;
 
