@@ -48,6 +48,10 @@ static void enetc_msg_dma_free(struct device *dev, struct enetc_msg_swbd *msg)
 	}
 }
 
+/*
+ * Returns: 0 on success, a negative errno on failure, or the positive IP
+ * minor revision for an ENETC_MSG_GET_IP_MN request.
+ */
 static int enetc_msg_vsi_send(struct enetc_si *si, struct enetc_msg_swbd *msg)
 {
 	struct device *dev = &si->pdev->dev;
