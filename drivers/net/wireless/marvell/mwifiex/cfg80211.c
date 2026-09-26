@@ -3566,6 +3566,14 @@ static int mwifiex_cfg80211_suspend(struct wiphy *wiphy,
 		mwifiex_dbg(adapter, ERROR, "Failed to set HS params\n");
 
 done:
+	if (ret) {
+		for (i = 0; i < adapter->priv_num; i++) {
+			priv = adapter->priv[i];
+			if (priv->netdev)
+				netif_device_attach(priv->netdev);
+		}
+	}
+
 	sta_priv->scan_aborting = false;
 	return ret;
 }
