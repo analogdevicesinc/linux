@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/usb/adi,max77978.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX77978 USB Type-C and Power Delivery Controller
+
+maintainers:
+  - Sean Park <sean.park@analog.com>
+
+description: |
+  The MAX77978 is a USB Type-C port controller with Power Delivery support.
+  It integrates BC1.2 charger detection and supports USB Type-C with Power
+  Delivery for both sink and source roles.
+
+properties:
+  compatible:
+    const: adi,max77978
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  interrupt-names:
+    const: intb
+
+  wakeup-source: true
+
+  connector:
+    type: object
+    $ref: /schemas/connector/usb-connector.yaml#
+    unevaluatedProperties: false
+    description:
+      Properties for usb c connector.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - connector
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/usb/pd.h>
+
+    i2c {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      max77978: usb-typec@25 {
+        compatible = "adi,max77978";
+        reg = <0x25>;
+        interrupt-parent = <&gpio>;
+        interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+        interrupt-names = "intb";
+        wakeup-source;
+
+        connector {
+          compatible = "usb-c-connector";
+          label = "USB-C";
+          data-role = "dual";
+          power-role = "dual";
+          try-power-role = "sink";
+          source-pdos = <PDO_FIXED(5000, 1500, PDO_FIXED_USB_COMM)>;
+          sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+          op-sink-microwatt = <15000000>;
+        };
+      };
+    };
+
+...
