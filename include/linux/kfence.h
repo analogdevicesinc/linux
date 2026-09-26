@@ -222,6 +222,32 @@ struct kmem_obj_info;
 bool __kfence_obj_info(struct kmem_obj_info *kpp, void *object, struct slab *slab);
 #endif
 
+/**
+ * kfence_force_mapping() - make sure a KFENCE page is mapped
+ * @page: page to map
+ *
+ * Check whether @page is protected and map it if needed.
+ *
+ * Requires: is_kfence_address(page_address(page))
+ *
+ * Return:
+ * * false - failed to map @page
+ * * true - @page is mapped
+ */
+bool kfence_force_mapping(struct page *page);
+
+/**
+ * kfence_reset_mapping() - reset a forced mapping of a KFENCE page
+ * @page: page to restore mapping
+ *
+ * Requires: is_kfence_address(page_address(page))
+ *
+ * Return:
+ * * false - failed to reset mapping of the @page
+ * * true - succeeded to reset mapping of the @page
+ */
+bool kfence_reset_mapping(struct page *page);
+
 #else /* CONFIG_KFENCE */
 
 #define kfence_sample_interval	(0)
@@ -240,6 +266,9 @@ static inline bool __must_check kfence_handle_page_fault(unsigned long addr, boo
 {
 	return false;
 }
+
+static inline bool kfence_force_mapping(struct page *page) { return true; }
+static inline bool kfence_reset_mapping(struct page *page) { return true; }
 
 #ifdef CONFIG_PRINTK
 struct kmem_obj_info;
