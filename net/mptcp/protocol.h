@@ -145,16 +145,13 @@ static inline bool before64(__u64 seq1, __u64 seq2)
 #define after64(seq2, seq1)	before64(seq1, seq2)
 
 struct mptcp_options_received {
-	u64	sndr_key;
-	union {
-		u64	rcvr_key;
-		u64	fc_recv_key;
+	struct { /* DSS, also used by MP_CAPABLE with data */
+		u64	data_ack;
+		u64	data_seq;
+		u32	subflow_seq;
+		u16	data_len;
+		__sum16	csum;
 	};
-	u64	data_ack;
-	u64	data_seq;
-	u32	subflow_seq;
-	u16	data_len;
-	__sum16	csum;
 	struct_group(status,
 		u16 suboptions;
 		u16 use_map:1,
@@ -170,15 +167,29 @@ struct mptcp_options_received {
 		    deny_join_id0:1,
 		    __unused:2;
 	);
-	u8	join_id;
-	u32	token;
-	u32	nonce;
-	u64	thmac;
-	u8	hmac[MPTCPOPT_HMAC_LEN];
-	struct mptcp_addr_info addr;
 	struct mptcp_rm_list rm_list;
-	u64	ahmac;
-	u64	fail_seq;
+	/* Options below are mutually exclusive, see mptcp_parse_option() */
+	union {
+		struct { /* MP_CAPABLE */
+			u64	sndr_key;
+			u64	rcvr_key;
+		};
+		struct { /* MP_JOIN */
+			u32	nonce;
+			u8	join_id;
+			union {
+				u32	token;			 /* SYN */
+				u64	thmac;			 /* SYN + ACK */
+				u8	hmac[MPTCPOPT_HMAC_LEN]; /* ACK */
+			};
+		};
+		struct { /* ADD_ADDR */
+			struct mptcp_addr_info addr;
+			u64	ahmac;
+		};
+		u64	fail_seq;	/* MP_FAIL */
+		u64	fc_recv_key;	/* MP_FASTCLOSE */
+	};
 };
 
 static inline __be32 mptcp_option(u8 subopt, u8 len, u8 nib, u8 field)
