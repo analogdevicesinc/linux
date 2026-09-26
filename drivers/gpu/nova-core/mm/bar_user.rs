@@ -51,12 +51,14 @@ impl<'gpu> BarUser<'gpu> {
         chipset: Chipset,
         va_size: u64,
         bar1: Bar1<'gpu>,
-    ) -> Result<impl PinInit<Self> + 'gpu> {
-        let vmm = Vmm::new(pdb_addr, chipset.mmu_version(), va_size)?;
-        Ok(pin_init!(Self {
-            vmm <- new_mutex!(vmm, "bar_user_vmm"),
+    ) -> impl PinInit<Self, Error> + 'gpu {
+        try_pin_init!(Self {
+            vmm <- new_mutex!(
+                Vmm::new(pdb_addr, chipset.mmu_version(), va_size)?,
+                "bar_user_vmm",
+            ),
             bar1,
-        }))
+        })
     }
 
     /// Map physical pages to a contiguous BAR1 virtual range.
@@ -183,7 +185,7 @@ impl Drop for BarUserAccess<'_> {
 pub(crate) fn run_self_test(
     dev: &device::Device<device::Bound>,
     mm: &mut GpuMm<'_>,
-    bar_user: &Arc<BarUser<'_>>,
+    bar_user: &BarUser<'_>,
     bar1_pdb: u64,
     chipset: Chipset,
 ) -> Result {
@@ -389,7 +391,7 @@ pub(crate) fn run_self_test(
 
     // Test 4: Exercise `BarUser::map()` end-to-end.
     let bar_user = Arc::pin_init(
-        BarUser::new(pdb_addr, chipset, SZ_64K.into_safe_cast(), bar1)?,
+        BarUser::new(pdb_addr, chipset, SZ_64K.into_safe_cast(), bar1),
         GFP_KERNEL,
     )?;
     let access = bar_user.map(mm, &[test_pfn], true)?;
