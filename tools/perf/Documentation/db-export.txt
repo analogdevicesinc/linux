@@ -8,7 +8,7 @@ perf tool's python scripting engine:
 supports scripts:
 
 	tools/perf/python/export-to-sqlite.py
-	tools/perf/scripts/python/export-to-postgresql.py
+	tools/perf/python/export-to-postgresql.py
 
 which export data to a SQLite3 or PostgreSQL database.
 
