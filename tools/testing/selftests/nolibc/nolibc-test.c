@@ -1525,12 +1525,6 @@ int test_large_file(void)
 	ssize_t written;
 	off_t off;
 
-#if defined(__mips__) && defined(_ABIN32)
-	/* https://lore.kernel.org/qemu-devel/fed03914-a95a-4522-a432-f129264cb2ac@t-8ch.de/ */
-	if (getpid() != 1)
-		return 0;
-#endif
-
 	if (large_seek < UINT32_MAX) {
 		errno = EOVERFLOW;
 		return -1;
@@ -1651,6 +1645,7 @@ int run_syscall(int min, int max)
 	void *p1, *p2;
 	int has_gettid = 1;
 	int has_brk;
+	int has_working_64bit_syscall_arg = 1;
 
 	/* <proc> indicates whether or not /proc is mounted */
 	proc = stat("/proc", &stat_buf) == 0;
@@ -1665,6 +1660,11 @@ int run_syscall(int min, int max)
 
 	/* on musl setting brk()/sbrk() always fails */
 	has_brk = brk(0) == 0;
+
+#if defined(__mips__) && defined(_ABIN32)
+	/* https://lore.kernel.org/qemu-devel/fed03914-a95a-4522-a432-f129264cb2ac@t-8ch.de/ */
+	has_working_64bit_syscall_arg = getpid() == 1;
+#endif
 
 	for (test = min; test >= 0 && test <= max; test++) {
 		int llen = 0; /* line length */
@@ -1781,7 +1781,7 @@ int run_syscall(int min, int max)
 		CASE_TEST(_syscall_noargs);   EXPECT_SYSEQ(is_nolibc, _syscall(__NR_getpid), getpid()); break;
 		CASE_TEST(_syscall_args);     EXPECT_SYSEQ(is_nolibc, _syscall(__NR_statx, 0, NULL, 0, 0, NULL), -EFAULT); break;
 		CASE_TEST(namespace);         EXPECT_SYSZR(euid0 && proc, test_namespace()); break;
-		CASE_TEST(largefile);         EXPECT_SYSZR(1, test_large_file()); break;
+		CASE_TEST(largefile);         EXPECT_SYSZR(has_working_64bit_syscall_arg, test_large_file()); break;
 		case __LINE__:
 			return ret; /* must be last */
 		/* note: do not set any defaults so as to permit holes above */
