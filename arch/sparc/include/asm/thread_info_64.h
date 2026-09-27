@@ -100,8 +100,8 @@ struct thread_info {
 #define	FAULT_CODE_BAD_RA	0x20	/* Bad RA for sun4v		   */
 
 #if PAGE_SHIFT == 13
-#define THREAD_SIZE (2*PAGE_SIZE)
-#define THREAD_SHIFT (PAGE_SHIFT + 1)
+#define THREAD_SIZE (4*PAGE_SIZE)
+#define THREAD_SHIFT (PAGE_SHIFT + 2)
 #else /* PAGE_SHIFT == 13 */
 #define THREAD_SIZE PAGE_SIZE
 #define THREAD_SHIFT PAGE_SHIFT
@@ -129,7 +129,7 @@ extern struct thread_info *current_thread_info(void);
 
 /* thread information allocation */
 #if PAGE_SHIFT == 13
-#define THREAD_SIZE_ORDER	1
+#define THREAD_SIZE_ORDER	2
 #else /* PAGE_SHIFT == 13 */
 #define THREAD_SIZE_ORDER	0
 #endif /* PAGE_SHIFT == 13 */
