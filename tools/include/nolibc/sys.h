@@ -71,16 +71,6 @@ static __inline__ int __nolibc_enosys(const char *syscall, ...)
 #endif
 
 
-/*
- * Helper for 32-bit machines where a 64-bit syscall arg needs to be split into
- * two 32-bit parts while making sure the order of the low/high parts are correct
- * for the endianness:
- * __NOLIBC_LLARGPART(x, 0), __NOLIBC_LLARGPART(x, 1)
- */
-#define __NOLIBC_LLARGPART(_arg, _part) \
-	(((union { long long ll; long l[2]; }) { .ll = _arg }).l[_part])
-
-
 /* Functions in this file only describe syscalls. They're declared static so
  * that the compiler usually decides to inline them while still being allowed
  * to pass a pointer to one of their instances. Each syscall exists in two
