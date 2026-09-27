@@ -32,7 +32,7 @@ static struct device *dmaengine_dma_dev(struct dmaengine_pcm *pcm,
 	if (!pcm->chan[substream->stream])
 		return NULL;
 
-	return pcm->chan[substream->stream]->device->dev;
+	return dmaengine_get_dma_device(pcm->chan[substream->stream]);
 }
 
 /**
