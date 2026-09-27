@@ -117,7 +117,7 @@ static unsigned qnx6_block_map(struct inode *inode, unsigned no)
 	unsigned block = 0;
 	struct buffer_head *bh;
 	__fs32 ptr;
-	int levelptr;
+	unsigned int levelptr;
 	int ptrbits = sbi->s_ptrbits;
 	int bitdelta;
 	u32 mask = (1 << ptrbits) - 1;
