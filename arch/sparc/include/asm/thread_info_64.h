@@ -99,13 +99,8 @@ struct thread_info {
 #define FAULT_CODE_BLKCOMMIT	0x10	/* Use blk-commit ASI in copy_page */
 #define	FAULT_CODE_BAD_RA	0x20	/* Bad RA for sun4v		   */
 
-#if PAGE_SHIFT == 13
 #define THREAD_SIZE (4*PAGE_SIZE)
 #define THREAD_SHIFT (PAGE_SHIFT + 2)
-#else /* PAGE_SHIFT == 13 */
-#define THREAD_SIZE PAGE_SIZE
-#define THREAD_SHIFT PAGE_SHIFT
-#endif /* PAGE_SHIFT == 13 */
 
 /*
  * macros/functions for gaining access to the thread information structure
@@ -128,11 +123,7 @@ extern struct thread_info *current_thread_info(void);
 #endif
 
 /* thread information allocation */
-#if PAGE_SHIFT == 13
 #define THREAD_SIZE_ORDER	2
-#else /* PAGE_SHIFT == 13 */
-#define THREAD_SIZE_ORDER	0
-#endif /* PAGE_SHIFT == 13 */
 
 #define __thread_flag_byte_ptr(ti)	\
 	((unsigned char *)(&((ti)->flags)))
