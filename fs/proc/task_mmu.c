@@ -196,7 +196,7 @@ static bool fallback_to_mmap_lock(struct proc_maps_private *priv,
 	return true;
 }
 
-#ifdef CONFIG_PROC_PAGE_MONITOR
+#if defined(CONFIG_PROC_PAGE_MONITOR) || defined(CONFIG_NUMA)
 static void drop_rcu(struct proc_maps_private *priv)
 {
 	if (priv->lock_ctx.mmap_locked)
