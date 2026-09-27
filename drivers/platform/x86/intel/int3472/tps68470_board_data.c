@@ -657,6 +657,14 @@ static const struct dmi_system_id int3472_tps68470_board_data_table[] = {
 	{
 		.matches = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Micro-Star International Co., Ltd."),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Prestige 13 AI+ Ukiyoe Edition A2VMG"),
+			DMI_EXACT_MATCH(DMI_BOARD_NAME, "MS-13Q3"),
+		},
+		.driver_data = (void *)&msi_prestige_ai_evo_tps68470_board_data,
+	},
+	{
+		.matches = {
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Micro-Star International Co., Ltd."),
 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Prestige 14 AI+ Evo C2VMG"),
 			DMI_EXACT_MATCH(DMI_BOARD_NAME, "MS-14N3"),
 		},
