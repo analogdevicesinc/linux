@@ -63,7 +63,6 @@
 #define ACC_FEATURE			0xe
 #define BAD_BLOCK_MARKER_SIZE		0x2
 #define OOB_BUF_SIZE			128
-#define ecceng_to_qspi(eng)		container_of(eng, struct qpic_spi_nand, ecc_eng)
 
 struct snandc_read_status {
 	__le32 snandc_flash;
@@ -168,8 +167,9 @@ static void qcom_spi_set_read_loc_last(struct qcom_nand_controller *snandc,
 static struct qcom_nand_controller *nand_to_qcom_snand(struct nand_device *nand)
 {
 	struct nand_ecc_engine *eng = nand->ecc.engine;
-	struct qpic_spi_nand *qspi = ecceng_to_qspi(eng);
+	struct qpic_spi_nand *qspi;
 
+	qspi = container_of(eng, struct qpic_spi_nand, ecc_eng);
 	return qspi->snandc;
 }
 
