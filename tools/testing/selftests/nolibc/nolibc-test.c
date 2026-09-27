@@ -1369,6 +1369,51 @@ int test_pipe(void)
 	return !!memcmp(buf, msg, len);
 }
 
+int test_pwrite_pread(void)
+{
+	const off_t offset = (0x12ULL << 32) | 0x34;
+	ssize_t ret;
+	char buf[2];
+	int fd, err;
+	off_t offs;
+
+	fd = open("/tmp", O_TMPFILE | O_RDWR, 0644);
+	if (fd == -1)
+		return __LINE__;
+
+	/* Write into the middle of the file. */
+	ret = pwrite(fd, "abc", 3, offset);
+	if (ret != 3) {
+		err = __LINE__;
+		goto out;
+	}
+
+	/* Make sure the file offset points somewhere else before pread(). */
+	offs = lseek(fd, 0, SEEK_END);
+	if (offs != offset + 3) {
+		err = __LINE__;
+		goto out;
+	}
+
+	ret = pread(fd, buf, 2, offset + 1);
+	if (ret != 2) {
+		err = __LINE__;
+		goto out;
+	}
+
+	if (buf[0] != 'b' || buf[1] != 'c') {
+		err = __LINE__;
+		goto out;
+	}
+
+	err = 0;
+
+out:
+	close(fd);
+
+	return err;
+}
+
 int test_rlimit(void)
 {
 	struct rlimit rlim = {
@@ -1746,6 +1791,7 @@ int run_syscall(int min, int max)
 		CASE_TEST(poll_stdout);       EXPECT_SYSNE(1, ({ struct pollfd fds = { 1, POLLOUT, 0}; poll(&fds, 1, 0); }), -1); break;
 		CASE_TEST(poll_fault);        EXPECT_SYSER(1, poll(NULL, 1, 0), -1, EFAULT); break;
 		CASE_TEST(prctl);             EXPECT_SYSER(1, prctl(PR_SET_NAME, (unsigned long)NULL, 0, 0, 0), -1, EFAULT); break;
+		CASE_TEST(pwrite_pread);      EXPECT_SYSZR(has_working_64bit_syscall_arg, test_pwrite_pread()); break;
 		CASE_TEST(read_badf);         EXPECT_SYSER(1, read(-1, &tmp, 1), -1, EBADF); break;
 		CASE_TEST(rlimit);            EXPECT_SYSZR(1, test_rlimit()); break;
 		CASE_TEST(rmdir_blah);        EXPECT_SYSER(1, rmdir("/blah"), -1, ENOENT); break;

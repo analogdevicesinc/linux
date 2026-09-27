@@ -746,6 +746,56 @@ int pivot_root(const char *new, const char *old)
 
 
 /*
+ * ssize_t pread(int fd, void *buf, size_t count, off_t offset);
+ * ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset);
+ */
+
+#ifndef _sys_pread
+static __attribute__((unused))
+ssize_t _sys_pread(int fd, void *buf, size_t count, off_t offset)
+{
+#if __NOLIBC_BITS_PER_SYSCALL_ARG == 64
+	return __nolibc_syscall4(__NR_pread64, fd, buf, count, offset);
+#elif defined(__NOLIBC_PAD_64BIT_SYSCALL_ARGUMENT_PAIR)
+	return __nolibc_syscall6(__NR_pread64, fd, buf, count, 0,
+				 __NOLIBC_LLARGPART(offset, 0), __NOLIBC_LLARGPART(offset, 1));
+#else
+	return __nolibc_syscall5(__NR_pread64, fd, buf, count,
+				 __NOLIBC_LLARGPART(offset, 0), __NOLIBC_LLARGPART(offset, 1));
+#endif
+}
+#endif /* _sys_pread */
+
+static __attribute__((unused))
+ssize_t pread(int fd, void *buf, size_t count, off_t offset)
+{
+	return __sysret(_sys_pread(fd, buf, count, offset));
+}
+
+#ifndef _sys_pwrite
+static __attribute__((unused))
+ssize_t _sys_pwrite(int fd, const void *buf, size_t count, off_t offset)
+{
+#if __NOLIBC_BITS_PER_SYSCALL_ARG == 64
+	return __nolibc_syscall4(__NR_pwrite64, fd, buf, count, offset);
+#elif defined(__NOLIBC_PAD_64BIT_SYSCALL_ARGUMENT_PAIR)
+	return __nolibc_syscall6(__NR_pwrite64, fd, buf, count, 0,
+				 __NOLIBC_LLARGPART(offset, 0), __NOLIBC_LLARGPART(offset, 1));
+#else
+	return __nolibc_syscall5(__NR_pwrite64, fd, buf, count,
+				 __NOLIBC_LLARGPART(offset, 0), __NOLIBC_LLARGPART(offset, 1));
+#endif
+}
+#endif /* _sys_pwrite */
+
+static __attribute__((unused))
+ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset)
+{
+	return __sysret(_sys_pwrite(fd, buf, count, offset));
+}
+
+
+/*
  * ssize_t read(int fd, void *buf, size_t count);
  */
 
