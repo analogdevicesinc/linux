@@ -1649,7 +1649,7 @@ static unsigned int clientid_hashval(u32 id)
 
 static unsigned int clientstr_hashval(struct xdr_netobj name)
 {
-	return opaque_hashval(name.data, 8) & CLIENT_HASH_MASK;
+	return opaque_hashval(name.data, name.len) & CLIENT_HASH_MASK;
 }
 
 /*
