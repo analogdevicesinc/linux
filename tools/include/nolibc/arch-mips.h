@@ -72,6 +72,7 @@
 #define _NOLIBC_SYSCALL_STACK_UNRESERVE
 
 #define _NOLIBC_SYSCALL_REG register long long
+#define __NOLIBC_BITS_PER_SYSCALL_ARG 64
 
 #endif /* _ABIO32 */
 

@@ -40,4 +40,9 @@
 #error Unsupported Architecture
 #endif
 
+
+#ifndef __NOLIBC_BITS_PER_SYSCALL_ARG
+#define __NOLIBC_BITS_PER_SYSCALL_ARG __BITS_PER_LONG
+#endif
+
 #endif /* _NOLIBC_ARCH_H */
