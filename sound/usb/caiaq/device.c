@@ -22,6 +22,7 @@
 #include "midi.h"
 #include "control.h"
 #include "input.h"
+#include "lcd.h"
 
 MODULE_AUTHOR("Daniel Mack <daniel@caiaq.de>");
 MODULE_DESCRIPTION("caiaq USB audio");
@@ -386,6 +387,12 @@ static int setup_card(struct snd_usb_caiaqdev *cdev)
 		return ret;
 	}
 #endif
+
+	ret = snd_usb_caiaq_lcd_init(cdev);
+	if (ret < 0) {
+		dev_err(dev, "Unable to set up LCD (ret=%d)\n", ret);
+		return ret;
+	}
 
 	/* finally, register the card and all its sub-instances */
 	ret = snd_card_register(cdev->chip.card);
