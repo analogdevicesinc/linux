@@ -13,6 +13,7 @@ Supported devices:
 * Aquacomputer Quadro fan controller
 * Aquacomputer High Flow Next sensor
 * Aquacomputer Leakshield leak prevention system
+* Aquacomputer AMPINEL power monitor
 * Aquacomputer Aquastream XT watercooling pump
 * Aquacomputer Aquastream Ultimate watercooling pump
 * Aquacomputer Poweradjust 3 fan controller
@@ -68,6 +69,18 @@ but this is not yet implemented here.
 The Aquastream XT pump exposes temperature readings for the coolant, external sensor
 and fan IC. It also exposes pump and fan speeds (in RPM), voltages, as well as pump
 current.
+
+The AMPINEL exposes total power, total current, input voltage, hotspot
+temperature and six channel currents. Channel numbers follow report order;
+their mapping to physical connector pins has not been verified. The readings
+are received approximately twice per second. Only sensor reads are supported;
+the driver does not configure protection settings or report alarms.
+The separate keyboard interface is not supported and remains unbound while
+this driver is registered.
+
+For AMPINEL, ``power1_input`` is total power, ``in0_input`` is input voltage,
+``temp1_input`` is hotspot temperature, ``curr1_input`` is total current, and
+``curr[2-7]_input`` are the six channel currents.
 
 The Aquastream Ultimate pump exposes coolant temp and an external temp sensor, along
 with speed, power, voltage and current of both the pump and optionally connected fan.
