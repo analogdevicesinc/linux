@@ -265,7 +265,7 @@ static int wait_for_quote_completion(struct tdx_quote_buf *quote_buf, u32 timeou
 	return (i == timeout) ? -ETIMEDOUT : 0;
 }
 
-static int tdx_report_new_locked(struct tsm_report *report, void *data)
+static int tdx_report_new_locked(struct tsm_report *report)
 {
 	u8 *buf;
 	struct tdx_quote_buf *quote_buf = quote_data;
@@ -333,10 +333,10 @@ static int tdx_report_new_locked(struct tsm_report *report, void *data)
 	return ret;
 }
 
-static int tdx_report_new(struct tsm_report *report, void *data)
+static int tdx_report_new(struct tsm_report *report, void *unused)
 {
 	scoped_cond_guard(mutex_intr, return -EINTR, &quote_lock)
-		return tdx_report_new_locked(report, data);
+		return tdx_report_new_locked(report);
 }
 
 static bool tdx_report_attr_visible(int n)
