@@ -10835,17 +10835,13 @@ static void gen_subprog_arg_proto(const struct bpf_subprog_info *sub, const stru
 	}
 }
 
-static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog,
-				    struct btf *btf,
-				    struct bpf_reg_state *regs)
+static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog, struct btf *btf)
 {
 	struct bpf_subprog_info *sub = subprog_info(env, subprog);
 	struct bpf_func_state *caller = cur_func(env);
-	const struct btf_param *args, *stack_args;
 	const struct btf_type *func, *func_proto;
 	struct bpf_call_arg_meta meta;
 	struct bpf_func_proto *fn;
-	u32 arg, slot, nslots;
 	int ret, err;
 
 	memset(&meta, 0, sizeof(meta));
@@ -10867,63 +10863,24 @@ static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog,
 
 	func = btf_type_by_id(btf, env->prog->aux->func_info[subprog].type_id);
 	func_proto = btf_type_by_id(btf, func->type);
-	args = btf_params(func_proto);
-	stack_args = sub->arg_slot_cnt == btf_type_vlen(func_proto) ? args : NULL;
-	ret = check_outgoing_stack_args(env, caller, sub->arg_slot_cnt,
-					bpf_subprog_name(env, subprog), btf, stack_args);
-	if (ret)
-		return ret;
 
 	fn = &env->bpf_subprog_scratch;
 	gen_subprog_arg_proto(sub, btf, func_proto, fn);
 	meta.fn = fn;
 	meta.func_proto = func_proto;
 
-	/* check that BTF function arguments match actual types that the
-	 * verifier sees.
-	 */
-	for (arg = 0, slot = 0; arg < btf_type_vlen(func_proto); arg++, slot += nslots) {
-		enum bpf_arg_type arg_type = fn->arg_type[arg];
-		argno_t argno = argno_from_arg(slot + 1);
-		const struct btf_type *t;
-		u32 k;
-
-		t = btf_type_skip_modifiers(btf, args[arg].type, NULL);
-		nslots = btf_arg_slots(t);
-
-		if (arg_type == ARG_SCALAR || arg_type == ARG_IGNORE ||
-		    arg_type == ARG_PTR_TO_CTX || arg_type == ARG_PTR_TO_DYNPTR ||
-		    base_type(arg_type) == ARG_PTR_TO_ARENA ||
-		    base_type(arg_type) == ARG_PTR_TO_BTF_ID ||
-		    base_type(arg_type) == ARG_PTR_TO_MEM) {
-			ret = check_func_arg(env, arg, slot, 0, &meta, env->insn_idx);
-			if (ret)
-				return ret;
-		} else {
-			verifier_bug(env, "unrecognized %s type %d",
-				     reg_arg_name(env, argno), arg_type);
-			return -EFAULT;
-		}
-
-		for (k = 1; k < nslots; k++) {
-			ret = check_arg_extra_slot(env, caller, slot + k, &meta);
-			if (ret)
-				return ret;
-		}
-	}
-
-	return 0;
+	return check_func_args(env, &meta, env->insn_idx);
 }
 
-/* Compare BTF of a function call with given bpf_reg_state.
+/*
+ * Check that call-site argument states match a subprog's BTF signature.
+ *
  * Returns:
  * EFAULT - there is a verifier bug. Abort verification.
- * EINVAL - there is a type mismatch or BTF is not available.
+ * Other errors - there is a type mismatch or BTF is not available.
  * 0 - BTF matches with what bpf_reg_state expects.
- * Only PTR_TO_CTX and SCALAR_VALUE states are recognized.
  */
-static int btf_check_subprog_call(struct bpf_verifier_env *env, int subprog,
-				  struct bpf_reg_state *regs)
+static int btf_check_subprog_call(struct bpf_verifier_env *env, int subprog)
 {
 	struct bpf_prog *prog = env->prog;
 	struct btf *btf = prog->aux->btf;
@@ -10940,7 +10897,7 @@ static int btf_check_subprog_call(struct bpf_verifier_env *env, int subprog,
 	if (prog->aux->func_info_aux[subprog].unreliable)
 		return -EINVAL;
 
-	err = btf_check_func_arg_match(env, subprog, btf, regs);
+	err = btf_check_func_arg_match(env, subprog, btf);
 	/* Compiler optimizations can remove arguments from static functions
 	 * or mismatched type can be passed into a global function.
 	 * In such cases mark the function as unreliable from BTF point of view.
@@ -10959,7 +10916,7 @@ static int push_callback_call(struct bpf_verifier_env *env, struct bpf_insn *ins
 	int err;
 
 	caller = state->frame[state->curframe];
-	err = btf_check_subprog_call(env, subprog, caller->regs);
+	err = btf_check_subprog_call(env, subprog);
 	if (err == -EFAULT)
 		return err;
 
@@ -11096,7 +11053,7 @@ static int check_func_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 		return -EFAULT;
 
 	caller = state->frame[state->curframe];
-	err = btf_check_subprog_call(env, subprog, caller->regs);
+	err = btf_check_subprog_call(env, subprog);
 	if (err == -EFAULT)
 		return err;
 	if (bpf_subprog_is_global(env, subprog)) {
@@ -11233,7 +11190,7 @@ static int check_func_callx(struct bpf_verifier_env *env, struct bpf_insn *insn,
 
 	/* PTR_TO_FUNC is a pointer to a static subprog */
 	subprog = reg->subprogno;
-	err = btf_check_subprog_call(env, subprog, caller->regs);
+	err = btf_check_subprog_call(env, subprog);
 	if (err == -EFAULT)
 		return err;
 
