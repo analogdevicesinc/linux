@@ -308,7 +308,7 @@ static unsigned long __init get_top_address(char **envp)
 	return PAGE_ALIGN(top_addr + 1);
 }
 
-int __init linux_main(int argc, char **argv, char **envp)
+void __init linux_main(int argc, char **argv, char **envp)
 {
 	unsigned long avail, diff;
 	unsigned long virtmem_size, max_physmem;
@@ -401,7 +401,7 @@ int __init linux_main(int argc, char **argv, char **envp)
 
 	os_flush_stdout();
 
-	return start_uml();
+	start_uml();
 }
 
 int __init __weak read_initrd(void)
