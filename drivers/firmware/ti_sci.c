@@ -4132,7 +4132,7 @@ static int ti_sci_probe(struct platform_device *pdev)
 
 	/* Pre-initialize the buffer pointer to pre-allocated buffers */
 	for (i = 0, xfer = minfo->xfer_block; i < desc->max_msgs; i++, xfer++) {
-		xfer->xfer_buf = devm_kcalloc(dev, 1, desc->max_msg_size,
+		xfer->xfer_buf = devm_kzalloc(dev, desc->max_msg_size,
 					      GFP_KERNEL);
 		if (!xfer->xfer_buf)
 			return -ENOMEM;
