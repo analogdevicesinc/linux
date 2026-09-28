@@ -431,8 +431,7 @@ int __init security_init(void)
 	}
 
 	if (lsm_order_cmdline) {
-		if (lsm_order_legacy)
-			lsm_order_legacy = NULL;
+		lsm_order_legacy = NULL;
 		lsm_order_parse(lsm_order_cmdline, "cmdline");
 	} else
 		lsm_order_parse(lsm_order_builtin, "builtin");
