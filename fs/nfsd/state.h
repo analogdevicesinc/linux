@@ -856,9 +856,11 @@ struct nfs4_layout_stateid {
 	struct mutex			ls_mutex;
 
 	struct delayed_work		ls_fence_work;
+	struct mutex			ls_fence_mutex; /* serializes fence shutdown */
 	unsigned int			ls_fence_delay;
 	bool				ls_fenced;
 	bool				ls_fence_inflight;
+	bool				ls_fence_stopped;
 };
 
 static inline struct nfs4_layout_stateid *layoutstateid(struct nfs4_stid *s)
