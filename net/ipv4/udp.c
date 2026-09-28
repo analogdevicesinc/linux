@@ -139,25 +139,26 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
 	kuid_t uid = sk_uid(sk);
 	struct sock *sk2;
 
+	/* With @bitmap we are scanning for a free port: every port in use
+	 * is marked, whatever reuse options the sockets have. Without it
+	 * we are checking a specific port and honour the reuse options.
+	 */
 	sk_for_each(sk2, &hslot->head) {
 		if (net_eq(sock_net(sk2), net) &&
 		    sk2 != sk &&
 		    (bitmap || udp_sk(sk2)->udp_port_hash == num) &&
-		    (!sk2->sk_reuse || !sk->sk_reuse) &&
+		    (bitmap || !sk2->sk_reuse || !sk->sk_reuse) &&
 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
 		    inet_rcv_saddr_equal(sk, sk2, true)) {
-			if (sk2->sk_reuseport && sk->sk_reuseport &&
-			    !rcu_access_pointer(sk->sk_reuseport_cb) &&
-			    uid_eq(uid, sk_uid(sk2))) {
-				if (!bitmap)
+			if (!bitmap) {
+				if (sk2->sk_reuseport && sk->sk_reuseport &&
+				    !rcu_access_pointer(sk->sk_reuseport_cb) &&
+				    uid_eq(uid, sk_uid(sk2)))
 					return 0;
-			} else {
-				if (!bitmap)
-					return 1;
-				__set_bit(udp_sk(sk2)->udp_port_hash >> log,
-					  bitmap);
+				return 1;
 			}
+			__set_bit(udp_sk(sk2)->udp_port_hash >> log, bitmap);
 		}
 	}
 	return 0;
