@@ -1800,6 +1800,7 @@ static void nfsd4_process_cb_update(struct nfsd4_callback *cb)
 	struct nfs4_client *clp = cb->cb_clp;
 	struct nfsd4_session *ses = NULL;
 	struct nfsd4_conn *c;
+	struct svc_xprt *cb_xprt = NULL;
 	int err;
 
 	trace_nfsd_cb_bc_update(clp, cb);
@@ -1833,8 +1834,9 @@ static void nfsd4_process_cb_update(struct nfsd4_callback *cb)
 	memcpy(&conn, &cb->cb_clp->cl_cb_conn, sizeof(struct nfs4_cb_conn));
 	c = __nfsd4_find_backchannel(clp);
 	if (c) {
-		svc_xprt_get(c->cn_xprt);
-		conn.cb_xprt = c->cn_xprt;
+		cb_xprt = c->cn_xprt;
+		svc_xprt_get(cb_xprt);
+		conn.cb_xprt = cb_xprt;
 		ses = c->cn_session;
 	}
 	spin_unlock(&clp->cl_lock);
@@ -1842,8 +1844,8 @@ static void nfsd4_process_cb_update(struct nfsd4_callback *cb)
 	err = setup_callback_client(clp, &conn, ses);
 	if (err) {
 		nfsd4_mark_cb_down(clp);
-		if (c)
-			svc_xprt_put(c->cn_xprt);
+		if (cb_xprt)
+			svc_xprt_put(cb_xprt);
 		rcu_assign_pointer(clp->cl_cb_session, ses);
 		return;
 	}
