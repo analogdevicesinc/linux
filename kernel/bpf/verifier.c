@@ -8639,18 +8639,27 @@ static bool arg_type_is_scalar(enum bpf_arg_type type)
 }
 
 /*
- * A kfunc is named by a BTF ID, which can take the same numeric value as an
- * enum bpf_func_id. Only test meta->func_id against a BPF_FUNC_* once the call
- * is known to be to a helper; meta->btf is set only for a kfunc.
+ * A helper has no BTF and a nonzero function ID. A kfunc has both, while a
+ * BPF subprogram has BTF and a zero function ID.
  */
+static bool is_helper(const struct bpf_call_arg_meta *meta)
+{
+	return !meta->btf && meta->func_id;
+}
+
 static bool is_helper_call(const struct bpf_call_arg_meta *meta, enum bpf_func_id func_id)
 {
-	return !meta->btf && meta->func_id == func_id;
+	return is_helper(meta) && meta->func_id == func_id;
+}
+
+static bool is_kfunc(const struct bpf_call_arg_meta *meta)
+{
+	return meta->btf && meta->func_id;
 }
 
 static bool is_kfunc_call(const struct bpf_call_arg_meta *meta, u32 btf_id)
 {
-	return meta->btf && meta->func_id == btf_id;
+	return is_kfunc(meta) && meta->func_id == btf_id;
 }
 
 static int resolve_map_arg_type(struct bpf_verifier_env *env,
@@ -8963,7 +8972,7 @@ static int check_func_arg_release(struct bpf_verifier_env *env, struct bpf_reg_s
 	verbose(env, "release function %s expects referenced PTR_TO_BTF_ID passed to %s\n",
 		meta->func_name, reg_arg_name(env, argno));
 
-	if (meta->btf) {
+	if (is_kfunc(meta)) {
 		const struct btf_param *btf_arg;
 		const struct btf_type *t;
 		u32 ref_id;
@@ -9017,7 +9026,7 @@ static int check_reg_type(struct bpf_verifier_env *env, struct bpf_reg_state *re
 		verifier_bug(env, "unsupported arg type %d", arg_type);
 		return -EFAULT;
 	}
-	if (meta->btf && base_type(arg_type) == ARG_PTR_TO_BTF_ID &&
+	if (is_kfunc(meta) && base_type(arg_type) == ARG_PTR_TO_BTF_ID &&
 	    (base_type(type) == PTR_TO_BTF_ID || reg2btf_ids[base_type(type)]))
 		goto found;
 
@@ -9040,7 +9049,7 @@ static int check_reg_type(struct bpf_verifier_env *env, struct bpf_reg_state *re
 	if (base_type(arg_type) == ARG_PTR_TO_MEM)
 		type &= ~DYNPTR_TYPE_FLAG_MASK;
 	/* Allow allocated memory for kfunc ARG_PTR_TO_MEM but not helper. */
-	if (meta->btf && base_type(arg_type) == ARG_PTR_TO_MEM &&
+	if (is_kfunc(meta) && base_type(arg_type) == ARG_PTR_TO_MEM &&
 	    type_is_ptr_alloc_obj(type))
 		type = PTR_TO_MEM;
 
@@ -9363,7 +9372,8 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 			  struct bpf_call_arg_meta *meta,
 			  int insn_idx)
 {
-	const struct btf_param *btf_arg = meta->btf ? &btf_params(meta->func_proto)[arg] : NULL;
+	const struct btf_param *btf_arg = is_kfunc(meta) ?
+					  &btf_params(meta->func_proto)[arg] : NULL;
 	const struct bpf_func_proto *fn = meta->fn;
 	struct bpf_func_state *caller = cur_func(env);
 	struct bpf_reg_state *regs = cur_regs(env);
@@ -10789,7 +10799,7 @@ err_out:
 }
 
 static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog,
-				    const struct btf *btf,
+				    struct btf *btf,
 				    struct bpf_reg_state *regs)
 {
 	struct bpf_subprog_info *sub = subprog_info(env, subprog);
@@ -10801,8 +10811,8 @@ static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog,
 	u32 i;
 	int ret, err;
 
-	/* Leave btf and func_id zero: this is neither a helper nor a kfunc. */
 	memset(&meta, 0, sizeof(meta));
+	meta.btf = btf;
 	meta.func_name = bpf_subprog_name(env, subprog);
 
 	ret = btf_prepare_func_args(env, subprog);
@@ -13783,7 +13793,7 @@ static int process_arg_ptr_to_btf_id(struct bpf_verifier_env *env, struct bpf_re
 	 * resolve types.
 	 */
 	if ((arg_type_is_release(arg_type) && !is_helper_call(meta, BPF_FUNC_sk_release)) ||
-	    (meta->btf && btf_type_ids_nocast_alias(&env->log, reg_btf, reg_btf_id,
+	    (is_kfunc(meta) && btf_type_ids_nocast_alias(&env->log, reg_btf, reg_btf_id,
 						    arg_btf, arg_btf_id)))
 		strict_type_match = true;
 
@@ -13800,7 +13810,7 @@ static int process_arg_ptr_to_btf_id(struct bpf_verifier_env *env, struct bpf_re
 	 * actually use it -- it must cast to the underlying type. So we allow
 	 * caller to pass in the underlying type.
 	 */
-	taking_projection = meta->btf && btf_is_projection_of(arg_tname, reg_tname);
+	taking_projection = is_kfunc(meta) && btf_is_projection_of(arg_tname, reg_tname);
 	if (!taking_projection && !struct_same) {
 		verbose(env, "%s %s expected pointer to %s %s but %s has a pointer to %s %s\n",
 			meta->func_name, reg_arg_name(env, argno),
