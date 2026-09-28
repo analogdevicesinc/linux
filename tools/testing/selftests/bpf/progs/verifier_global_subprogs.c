@@ -195,7 +195,7 @@ int arg_tag_nonnull_ptr_good(void *ctx)
 
 SEC("?raw_tp")
 __failure __log_level(2)
-__msg("R1 is expected to be non-NULL")
+__msg("Possibly NULL pointer passed to trusted R1")
 int arg_tag_nonnull_ptr_null_bad(void *ctx)
 {
 	int y = 74;

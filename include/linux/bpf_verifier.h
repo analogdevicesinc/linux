@@ -1656,6 +1656,9 @@ struct bpf_call_arg_meta {
 	struct ret_mem_desc ret_mem;
 	struct arg_raw_mem_desc arg_raw_mem;
 
+	/* Only set by subprog */
+	bool subprog_may_change_pkt;
+
 	/* Only set by kfunc */
 	bool r0_rdonly;
 	u32 kfunc_flags;
