@@ -104,7 +104,7 @@ stabilized.
 
 ``/sys/kernel/debug/kho/out/scratch_phys``
     Physical locations of KHO scratch regions. Kexec user space tools
-    can use this file in conjunction to scratch_phys to determine where
+    can use this file in conjunction to scratch_len to determine where
     it should place its payload images.
 
 ``/sys/kernel/debug/kho/out/sub_fdts/``
