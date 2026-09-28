@@ -11288,8 +11288,13 @@ static int sched_non_preferred_cpu_push_stop(void *arg)
 		update_rq_clock(rq);
 		context_unsafe_alias(rq);
 
-		if (task_rq(p) == rq && task_on_rq_queued(p))
-			rq = __migrate_task(rq, &rf, p, cpu);
+		if (task_rq(p) == rq && task_on_rq_queued(p)) {
+			struct rq *dest_rq = __migrate_task(rq, &rf, p, cpu);
+
+			if (rq != dest_rq)
+				schedstat_inc(p->stats.nr_migrations_cpu_non_preferred);
+			rq = dest_rq;
+		}
 		rq_unlock(rq, &rf);
 	}
 
