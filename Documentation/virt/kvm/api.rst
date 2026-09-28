@@ -6690,7 +6690,7 @@ significant bit):
 :Capability: KVM_CAP_GUEST_MEMFD_MEMORY_ATTRIBUTES
 :Architectures: all
 :Type: guest_memfd ioctl
-:Parameters: struct kvm_memory_attributes2 (in)
+:Parameters: struct kvm_memory_attributes2 (in/out)
 :Returns: 0 on success, <0 on error
 
 Errors:
@@ -6700,6 +6700,8 @@ Errors:
              page aligned, causes an overflow, or size is zero).
   EFAULT     The parameter address was invalid.
   ENOMEM     Ran out of memory trying to track private/shared state
+  EAGAIN     Pages in the range have outstanding references, see
+             ``error_offset`` below.
   ========== ===============================================================
 
 KVM_SET_MEMORY_ATTRIBUTES2 is an extension to
@@ -6719,15 +6721,19 @@ Attribute values are shared with KVM_SET_MEMORY_ATTRIBUTES.
 	__u64 size;
 	__u64 attributes;
 	__u64 flags;
-	__u64 reserved[12];
+	__u64 error_offset;
+	__u64 reserved[11];
   };
 
   #define KVM_MEMORY_ATTRIBUTE_PRIVATE           (1ULL << 3)
 
+The capability KVM_CAP_GUEST_MEMFD_MEMORY_ATTRIBUTES enumerates the attributes
+that can be set via KVM_SET_MEMORY_ATTRIBUTES2.
+
 Set attributes for a range of offsets within a guest_memfd to
 KVM_MEMORY_ATTRIBUTE_PRIVATE to limit the specified guest_memfd backed
-memory range for guest use. Even if KVM_CAP_GUEST_MEMFD_MMAP is
-supported, after a successful call to set
+memory range for guest use. Even if the guest_memfd was created with
+GUEST_MEMFD_FLAG_MMAP, after a successful call to set
 KVM_MEMORY_ATTRIBUTE_PRIVATE, the requested range will not be mappable
 into host userspace and will only be mappable by the guest.
 
