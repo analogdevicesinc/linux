@@ -800,7 +800,10 @@ static inline int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg)
 	int ret = INDIRECT_CALL_INET(READ_ONCE(sock->ops)->sendmsg, inet6_sendmsg,
 				     inet_sendmsg, sock, msg,
 				     msg_data_left(msg));
-	BUG_ON(ret == -EIOCBQUEUED);
+	if (unlikely(ret == -EIOCBQUEUED)) {
+		DEBUG_NET_WARN_ON_ONCE(1);
+		ret = -EIO;
+	}
 
 	if (trace_sock_send_length_enabled())
 		call_trace_sock_send_length(sock->sk, ret, 0);
