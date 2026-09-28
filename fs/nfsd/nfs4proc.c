@@ -1608,6 +1608,12 @@ void nfsd4_async_copy_reaper(struct nfsd_net *nn)
 			if (test_bit(NFSD4_COPY_F_OFFLOAD_DONE,
 				     &copy->cp_copy.cp_flags)) {
 				if (!--copy->cp_ttl) {
+					/*
+					 * cleanup_async_copy() drops the stateid's
+					 * final reference after client_lock is
+					 * released. Keep sc_client alive until then.
+					 */
+					nfsd4_get_client(clp);
 					list_del_init(&copy->copies);
 					list_add(&copy->copies, &reaplist);
 				}
@@ -1618,10 +1624,14 @@ void nfsd4_async_copy_reaper(struct nfsd_net *nn)
 	spin_unlock(&nn->client_lock);
 
 	while (!list_empty(&reaplist)) {
+		struct nfs4_client *clp;
+
 		copy = list_first_entry(&reaplist, struct nfsd4_async_copy,
 					copies);
+		clp = copy->cp_stid.sc_client;
 		list_del_init(&copy->copies);
 		cleanup_async_copy(copy);
+		nfsd4_put_client(clp);
 	}
 }
 
