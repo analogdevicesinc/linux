@@ -8632,6 +8632,9 @@ int sched_cpu_activate(unsigned int cpu)
 	 */
 	sched_set_rq_online(rq, cpu);
 
+	/* preferred is subset of active and follows its state */
+	set_cpu_preferred(cpu, true);
+
 	return 0;
 }
 
@@ -8644,6 +8647,8 @@ int sched_cpu_deactivate(unsigned int cpu)
 
 	if (ret)
 		return ret;
+
+	set_cpu_preferred(cpu, false);
 
 	/*
 	 * Remove CPU from nohz.idle_cpus_mask to prevent participating in
