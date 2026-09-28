@@ -2064,6 +2064,7 @@ static struct clk_branch mdss_axi_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "mdss_axi_clk",
 			.parent_hws = (const struct clk_hw *[]){ &axi_clk_src.clkr.hw },
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
