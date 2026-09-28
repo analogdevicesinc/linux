@@ -18,6 +18,7 @@ enum chips {
 	adpm12160,
 	adpm12200,
 	adpm12250,
+	adpm12886,
 	max34440,
 	max34441,
 	max34446,
@@ -107,7 +108,7 @@ static int max34440_read_word_data(struct i2c_client *client, int page,
 		 */
 		if (data->id == max34451 || data->id == max34452 ||
 		    data->id == adpm12160 || data->id == adpm12200 ||
-		    data->id == adpm12250)
+		    data->id == adpm12250 || data->id == adpm12886)
 			return -ENXIO;
 		ret = -ENODATA;
 		break;
@@ -126,7 +127,8 @@ static int max34440_read_word_data(struct i2c_client *client, int page,
 	case PMBUS_VIRT_READ_IOUT_AVG:
 		if (data->id != max34446 && data->id != max34451 &&
 		    data->id != max34452 && data->id != adpm12160 &&
-		    data->id != adpm12200 && data->id != adpm12250)
+		    data->id != adpm12200 && data->id != adpm12250 &&
+		    data->id != adpm12886)
 			return -ENXIO;
 		ret = pmbus_read_word_data(client, page, phase,
 					   MAX34446_MFR_IOUT_AVG);
@@ -216,7 +218,8 @@ static int max34440_write_word_data(struct i2c_client *client, int page,
 					    MAX34440_MFR_IOUT_PEAK, 0);
 		if (!ret && (data->id == max34446 || data->id == max34451 ||
 			     data->id == max34452 || data->id == adpm12160 ||
-			     data->id == adpm12200 || data->id == adpm12250))
+			     data->id == adpm12200 || data->id == adpm12250 ||
+			     data->id == adpm12886))
 			ret = pmbus_write_word_data(client, page,
 					MAX34446_MFR_IOUT_AVG, 0);
 
@@ -290,7 +293,7 @@ static int max34451_read_byte_data(struct i2c_client *client, int page, int reg)
 		 */
 		if (data->id == max34451 || data->id == max34452 ||
 		    data->id == adpm12160 || data->id == adpm12200 ||
-		    data->id == adpm12250)
+		    data->id == adpm12250 || data->id == adpm12886)
 			return -ENXIO;
 		return -ENODATA;
 	default:
@@ -314,7 +317,7 @@ static int max34451_write_byte_data(struct i2c_client *client, int page,
 		 */
 		if (data->id == max34451 || data->id == max34452 ||
 		    data->id == adpm12160 || data->id == adpm12200 ||
-		    data->id == adpm12250)
+		    data->id == adpm12250 || data->id == adpm12886)
 			return -ENXIO;
 		return -ENODATA;
 	default:
@@ -522,6 +525,41 @@ static struct pmbus_driver_info max34440_info[] = {
 		.func[4] = PMBUS_HAVE_STATUS_IOUT,
 		.func[5] = PMBUS_HAVE_IOUT | PMBUS_HAVE_STATUS_IOUT,
 		.func[6] = PMBUS_HAVE_IOUT | PMBUS_HAVE_STATUS_IOUT,
+		.func[9] = PMBUS_HAVE_VIN | PMBUS_HAVE_STATUS_INPUT,
+		.func[10] = PMBUS_HAVE_IIN | PMBUS_HAVE_STATUS_INPUT,
+		.func[14] = PMBUS_HAVE_IOUT,
+		.func[18] = PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP,
+		.read_byte_data = max34451_read_byte_data,
+		.read_word_data = max34440_read_word_data,
+		.write_byte_data = max34451_write_byte_data,
+		.write_word_data = max34440_write_word_data,
+	},
+	[adpm12886] = {
+		.pages = 19,
+		.format[PSC_VOLTAGE_IN] = direct,
+		.format[PSC_VOLTAGE_OUT] = direct,
+		.format[PSC_CURRENT_IN] = direct,
+		.format[PSC_CURRENT_OUT] = direct,
+		.format[PSC_TEMPERATURE] = direct,
+		.m[PSC_VOLTAGE_IN] = 125,
+		.b[PSC_VOLTAGE_IN] = 0,
+		.R[PSC_VOLTAGE_IN] = 0,
+		.m[PSC_VOLTAGE_OUT] = 125,
+		.b[PSC_VOLTAGE_OUT] = 0,
+		.R[PSC_VOLTAGE_OUT] = 0,
+		.m[PSC_CURRENT_IN] = 250,
+		.b[PSC_CURRENT_IN] = 0,
+		.R[PSC_CURRENT_IN] = -1,
+		.m[PSC_CURRENT_OUT] = 250,
+		.b[PSC_CURRENT_OUT] = 0,
+		.R[PSC_CURRENT_OUT] = -1,
+		.m[PSC_TEMPERATURE] = 1,
+		.b[PSC_TEMPERATURE] = 0,
+		.R[PSC_TEMPERATURE] = 2,
+		/* absent func below [18] are not for monitoring */
+		.func[2] = PMBUS_HAVE_VOUT | PMBUS_HAVE_STATUS_VOUT,
+		.func[4] = PMBUS_HAVE_STATUS_IOUT,
+		.func[5] = PMBUS_HAVE_IOUT | PMBUS_HAVE_STATUS_IOUT,
 		.func[9] = PMBUS_HAVE_VIN | PMBUS_HAVE_STATUS_INPUT,
 		.func[10] = PMBUS_HAVE_IIN | PMBUS_HAVE_STATUS_INPUT,
 		.func[14] = PMBUS_HAVE_IOUT,
@@ -789,7 +827,7 @@ static int max34440_probe(struct i2c_client *client)
 		if (rv)
 			return rv;
 	} else if (data->id == adpm12160 || data->id == adpm12200 ||
-		   data->id == adpm12250) {
+		   data->id == adpm12250 || data->id == adpm12886) {
 		data->iout_oc_fault_limit = PMBUS_IOUT_OC_FAULT_LIMIT;
 		data->iout_oc_warn_limit = PMBUS_IOUT_OC_WARN_LIMIT;
 	}
@@ -803,6 +841,7 @@ static const struct i2c_device_id max34440_id[] = {
 	{"adpm12200", adpm12200},
 	{"adpm12250", adpm12250},
 	{"adpm12300", adpm12250},
+	{"adpm12886", adpm12886},
 	{"max34440", max34440},
 	{"max34441", max34441},
 	{"max34446", max34446},
