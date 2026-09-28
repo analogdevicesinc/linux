@@ -2522,17 +2522,19 @@ static int bcm_sysport_probe(struct platform_device *pdev)
 	if (ret)
 		priv->phy_interface = PHY_INTERFACE_MODE_GMII;
 
+	priv->phy_dn = of_parse_phandle(dn, "phy-handle", 0);
+
 	/* In the case of a fixed PHY, the DT node associated
 	 * to the PHY is the Ethernet MAC DT node.
 	 */
-	if (of_phy_is_fixed_link(dn)) {
+	if (!priv->phy_dn && of_phy_is_fixed_link(dn)) {
 		ret = of_phy_register_fixed_link(dn);
 		if (ret) {
 			dev_err(&pdev->dev, "failed to register fixed PHY\n");
 			goto err_free_netdev;
 		}
 
-		priv->phy_dn = dn;
+		priv->phy_dn = of_node_get(dn);
 	}
 
 	/* Initialize netdevice members */
@@ -2617,6 +2619,7 @@ err_deregister_notifier:
 err_deregister_fixed_link:
 	if (of_phy_is_fixed_link(dn))
 		of_phy_deregister_fixed_link(dn);
+	of_node_put(priv->phy_dn);
 err_free_netdev:
 	free_netdev(dev);
 	return ret;
@@ -2635,6 +2638,7 @@ static void bcm_sysport_remove(struct platform_device *pdev)
 	unregister_netdev(dev);
 	if (of_phy_is_fixed_link(dn))
 		of_phy_deregister_fixed_link(dn);
+	of_node_put(priv->phy_dn);
 	free_netdev(dev);
 	dev_set_drvdata(&pdev->dev, NULL);
 }
