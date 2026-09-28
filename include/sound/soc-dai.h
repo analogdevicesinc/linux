@@ -212,6 +212,8 @@ int snd_soc_dai_get_channel_map(const struct snd_soc_dai *dai,
 		unsigned int *tx_num, unsigned int *tx_slot,
 		unsigned int *rx_num, unsigned int *rx_slot);
 
+struct snd_soc_component *snd_soc_dai_to_component(const struct snd_soc_dai *dai);
+struct snd_soc_dai_driver *snd_soc_dai_to_driver(const struct snd_soc_dai *dai);
 int snd_soc_dai_is_dummy(const struct snd_soc_dai *dai);
 int snd_soc_dai_add_controls(struct snd_soc_dai *dai,
 			     const struct snd_kcontrol_new *controls, int num_controls);
@@ -229,18 +231,7 @@ void snd_soc_dai_suspend(struct snd_soc_dai *dai);
 void snd_soc_dai_resume(struct snd_soc_dai *dai);
 int snd_soc_dai_compress_new(struct snd_soc_dai *dai, struct snd_soc_pcm_runtime *rtd);
 bool snd_soc_dai_stream_valid(const struct snd_soc_dai *dai, int stream);
-void snd_soc_dai_action(struct snd_soc_dai *dai,
-			int stream, int action);
-static inline void snd_soc_dai_activate(struct snd_soc_dai *dai,
-					int stream)
-{
-	snd_soc_dai_action(dai, stream,  1);
-}
-static inline void snd_soc_dai_deactivate(struct snd_soc_dai *dai,
-					  int stream)
-{
-	snd_soc_dai_action(dai, stream, -1);
-}
+
 int snd_soc_dai_active(const struct snd_soc_dai *dai);
 
 int snd_soc_pcm_dai_probe(struct snd_soc_pcm_runtime *rtd, int order);
@@ -283,6 +274,7 @@ int snd_soc_dai_matches_args(const struct snd_soc_dai *dai,
 int snd_soc_dai_matches_dlc(struct snd_soc_dai *dai,
 			    const struct snd_soc_dai_link_component *dlc);
 const char *snd_soc_dai_name(const struct snd_soc_dai *dai);
+int snd_soc_dai_id(const struct snd_soc_dai *dai);
 
 struct snd_soc_dai_ops {
 	/* DAI driver callbacks */
@@ -558,6 +550,13 @@ struct snd_soc_dai *snd_soc_dai_register(struct snd_soc_component *component,
 					 struct snd_soc_dai_driver *dai_drv,
 					 bool legacy_dai_naming);
 void snd_soc_dai_unregister(struct snd_soc_dai *dai);
+struct snd_soc_dai *snd_soc_dai_from_list(struct list_head *list);
+struct list_head *snd_soc_dai_to_list(struct snd_soc_dai *dai);
+unsigned int snd_soc_dai_get_symmetric_rate(struct snd_soc_dai *dai);
+unsigned int snd_soc_dai_get_symmetric_channels(struct snd_soc_dai *dai);
+unsigned int snd_soc_dai_get_symmetric_sample_bits(struct snd_soc_dai *dai);
+void snd_soc_dai_set_priv(struct snd_soc_dai *dai, void *priv);
+void *snd_soc_dai_to_priv(struct snd_soc_dai *dai);
 
 /* REMOVE ME */
 #define snd_soc_dai_get_pcm_stream			snd_soc_dai_pcm_stream_get

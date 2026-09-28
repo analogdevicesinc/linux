@@ -20,6 +20,42 @@ static inline int _soc_dai_ret(const struct snd_soc_dai *dai,
 			   "at %s() on %s\n", func, dai->name);
 }
 
+struct snd_soc_component *snd_soc_dai_to_component(const struct snd_soc_dai *dai)
+{
+	return dai->component;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_to_component);
+
+struct snd_soc_dai_driver *snd_soc_dai_to_driver(const struct snd_soc_dai *dai)
+{
+	return dai->driver;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_to_driver);
+
+void snd_soc_dai_set_priv(struct snd_soc_dai *dai, void *priv)
+{
+	dai->priv = priv;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_set_priv);
+
+void *snd_soc_dai_to_priv(struct snd_soc_dai *dai)
+{
+	return dai->priv;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_to_priv);
+
+struct snd_soc_dai *snd_soc_dai_from_list(struct list_head *list)
+{
+	return list_entry(list, struct snd_soc_dai, list);
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_from_list);
+
+struct list_head *snd_soc_dai_to_list(struct snd_soc_dai *dai)
+{
+	return &dai->list;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_to_list);
+
 /*
  * We might want to check substream by using list.
  * In such case, we can update these macros.
@@ -671,8 +707,7 @@ bool snd_soc_dai_stream_valid(const struct snd_soc_dai *dai, int dir)
 	return stream->channels_min;
 }
 
-void snd_soc_dai_action(struct snd_soc_dai *dai,
-			int stream, int action)
+void snd_soc_dai_active_update(struct snd_soc_dai *dai, int stream, int action)
 {
 	/* see snd_soc_dai_stream_active() */
 	dai->stream[stream].active	+= action;
@@ -680,7 +715,6 @@ void snd_soc_dai_action(struct snd_soc_dai *dai,
 	/* see snd_soc_component_active() */
 	dai->component->active		+= action;
 }
-EXPORT_SYMBOL_GPL(snd_soc_dai_action);
 
 int snd_soc_dai_active(const struct snd_soc_dai *dai)
 {
@@ -688,7 +722,7 @@ int snd_soc_dai_active(const struct snd_soc_dai *dai)
 
 	active = 0;
 	for_each_pcm_streams(stream)
-		active += dai->stream[stream].active;
+		active += snd_soc_dai_stream_active(dai, stream);
 
 	return active;
 }
@@ -1073,6 +1107,12 @@ const char *snd_soc_dai_name(const struct snd_soc_dai *dai)
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_name);
 
+int snd_soc_dai_id(const struct snd_soc_dai *dai)
+{
+	return dai->id;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_id);
+
 const struct snd_soc_pcm_stream *
 snd_soc_dai_pcm_stream_get_i(const struct snd_soc_dai *dai, int stream)
 {
@@ -1119,7 +1159,7 @@ EXPORT_SYMBOL_GPL(snd_soc_dai_stream_tdm_mask_set);
 
 unsigned int snd_soc_dai_stream_active(const struct snd_soc_dai *dai, int stream)
 {
-	/* see snd_soc_dai_action() for setup */
+	/* see snd_soc_dai_active_update() for setup */
 	return dai->stream[stream].active;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_stream_active);
@@ -1233,6 +1273,24 @@ struct snd_soc_dai *snd_soc_dai_register(struct snd_soc_component *component,
 }
 EXPORT_SYMBOL_GPL(snd_soc_dai_register);
 
+unsigned int snd_soc_dai_get_symmetric_rate(struct snd_soc_dai *dai)
+{
+	return dai->symmetric_rate;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_get_symmetric_rate);
+
+unsigned int snd_soc_dai_get_symmetric_channels(struct snd_soc_dai *dai)
+{
+	return dai->symmetric_channels;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_get_symmetric_channels);
+
+unsigned int snd_soc_dai_get_symmetric_sample_bits(struct snd_soc_dai *dai)
+{
+	return dai->symmetric_sample_bits;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dai_get_symmetric_sample_bits);
+
 void snd_soc_dai_symmetric_set_params(struct snd_soc_dai *dai,
 				      struct snd_pcm_hw_params *params)
 {
@@ -1330,4 +1388,14 @@ void snd_soc_dai_symmetric_update(struct snd_pcm_substream *substream)
 
 	if (symmetry)
 		substream->runtime->hw.info |= SNDRV_PCM_INFO_JOINT_DUPLEX;
+}
+
+struct clk *snd_soc_dai_get_bclk(struct snd_soc_dai *dai)
+{
+	return dai->bclk;
+}
+
+unsigned int snd_soc_dai_get_bclk_ratio(struct snd_soc_dai *dai)
+{
+	return dai->bclk_ratio;
 }
