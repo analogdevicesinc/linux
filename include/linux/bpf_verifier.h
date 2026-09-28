@@ -976,6 +976,7 @@ struct bpf_verifier_env {
 	const struct bpf_line_info *prev_linfo;
 	struct bpf_verifier_log log;
 	struct bpf_diag *diag;
+	struct bpf_func_proto bpf_subprog_scratch;
 	struct bpf_subprog_info subprog_info[BPF_MAX_SUBPROGS + 2]; /* max + 2 for the fake and exception subprogs */
 	/* subprog indices sorted in topological order: leaves first, callers last */
 	int subprog_topo_order[BPF_MAX_SUBPROGS + 2];
@@ -1645,6 +1646,7 @@ struct bpf_call_arg_meta {
 	struct btf *btf;
 	u32 func_id;
 	const struct bpf_func_proto *fn;
+	const struct btf_type *func_proto;
 	u8 release_regno;
 	u32 ret_btf_id;
 	u32 subprogno;
@@ -1657,7 +1659,6 @@ struct bpf_call_arg_meta {
 	/* Only set by kfunc */
 	bool r0_rdonly;
 	u32 kfunc_flags;
-	const struct btf_type *func_proto;
 	const char *func_name;
 	struct arg_constant_desc arg_constant;
 
