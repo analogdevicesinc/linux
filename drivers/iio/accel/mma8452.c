@@ -242,21 +242,25 @@ static int mma8452_set_runtime_pm_state(struct i2c_client *client, bool on)
 
 static int mma8452_read(struct mma8452_data *data, __be16 buf[3])
 {
-	int ret = mma8452_drdy(data);
-
-	if (ret < 0)
-		return ret;
+	int ret;
 
 	ret = mma8452_set_runtime_pm_state(data->client, true);
 	if (ret)
 		return ret;
 
+	ret = mma8452_drdy(data);
+	if (ret < 0)
+		goto out_runtime_put;
+
 	ret = i2c_smbus_read_i2c_block_data(data->client, MMA8452_OUT_X,
 					    3 * sizeof(__be16), (u8 *)buf);
 	if (ret < 0)
-		return ret;
+		goto out_runtime_put;
 
-	ret = mma8452_set_runtime_pm_state(data->client, false);
+	return mma8452_set_runtime_pm_state(data->client, false);
+
+out_runtime_put:
+	mma8452_set_runtime_pm_state(data->client, false);
 
 	return ret;
 }
