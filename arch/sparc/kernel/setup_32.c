@@ -254,6 +254,30 @@ static __init void leon_patch(void)
 
 struct tt_entry *sparc_ttable;
 
+/* Drop RAM below the kernel; the linear map runs upward from phys_base
+ * and cannot reach it.
+ */
+static void __init trim_sp_banks_below(unsigned long base)
+{
+	int i, j = 0;
+
+	for (i = 0; sp_banks[i].num_bytes != 0; i++) {
+		unsigned long start = sp_banks[i].base_addr;
+		unsigned long end = start + sp_banks[i].num_bytes;
+
+		if (end <= base)
+			continue;		/* wholly below - drop it */
+		if (start < base)
+			start = base;		/* straddles - trim the front */
+
+		sp_banks[j].base_addr = start;
+		sp_banks[j].num_bytes = end - start;
+		j++;
+	}
+	sp_banks[j].base_addr = 0;
+	sp_banks[j].num_bytes = 0;
+}
+
 /* Called from head_32.S - before we have setup anything
  * in the kernel. Be very careful with what you do here.
  */
@@ -332,6 +356,22 @@ void __init setup_arch(char **cmdline_p)
 		if (highest_paddr < top)
 			highest_paddr = top;
 	}
+
+	/* phys_base must describe what PAGE_OFFSET maps to, not where RAM starts. */
+	if (sparc_cpu_model == sun4m || sparc_cpu_model == sun4d) {
+		unsigned long real_base = __get_phys(PAGE_OFFSET);
+
+		prom_printf("phys_base: RAM starts at 0x%lx, kernel is at 0x%lx\n",
+			    phys_base, real_base);
+
+		if (real_base && real_base != phys_base) {
+			phys_base = real_base;
+			trim_sp_banks_below(phys_base);
+			prom_printf("phys_base: adopted 0x%lx, RAM below it dropped\n",
+				    phys_base);
+		}
+	}
+
 	pfn_base = phys_base >> PAGE_SHIFT;
 
 	if (!root_flags)
