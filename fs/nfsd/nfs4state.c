@@ -2806,6 +2806,15 @@ static void __free_client(struct kref *k)
 }
 
 /**
+ * nfsd4_get_client - acquire a reference on an nfs4_client
+ * @clp: the client to be acquired
+ */
+void nfsd4_get_client(struct nfs4_client *clp)
+{
+	kref_get(&clp->cl_nfsdfs.cl_ref);
+}
+
+/**
  * nfsd4_put_client - release a reference on an nfs4_client
  * @clp: the client to be released
  *
