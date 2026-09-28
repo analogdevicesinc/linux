@@ -10872,10 +10872,9 @@ static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog,
 		nslots = btf_arg_slots(t);
 
 		if (arg_type == ARG_SCALAR) {
-			if (reg->type != SCALAR_VALUE) {
-				bpf_log(log, "%s is not a scalar\n", reg_arg_name(env, argno));
-				return -EINVAL;
-			}
+			ret = check_func_arg(env, arg, slot, 0, &meta, env->insn_idx);
+			if (ret)
+				return ret;
 		} else if (arg_type & PTR_UNTRUSTED) {
 			/*
 			 * Anything is allowed for untrusted arguments, as these are
@@ -10965,15 +10964,9 @@ static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog,
 		}
 
 		for (k = 1; k < nslots; k++) {
-			argno_t extra_argno = argno_from_arg(slot + k + 1);
-			struct bpf_reg_state *extra_reg;
-
-			extra_reg = get_func_arg_reg(caller, regs, slot + k);
-			if (extra_reg->type != SCALAR_VALUE) {
-				bpf_log(log, "%s is not a scalar\n",
-					reg_arg_name(env, extra_argno));
-				return -EINVAL;
-			}
+			ret = check_arg_extra_slot(env, caller, slot + k, &meta);
+			if (ret)
+				return ret;
 		}
 	}
 
