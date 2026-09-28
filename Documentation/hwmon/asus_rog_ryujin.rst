@@ -37,8 +37,10 @@ supports hot swapping.
 The pump of the RYUJIN III also has a 4-pin cable for a motherboard fan header.
 The cooler either hands the pump to its internal controller, which follows the
 PWM of the header its 4-pin cable is plugged into, or runs it at the pump duty
-set over USB. Writing pwm1 selects the duty set over USB. Writing pwm2 sets
-only the internal fan duty and leaves the pump control as it is.
+set over USB, as reported by pwm1_enable. Writing pwm1 selects the duty set
+over USB, and writing 2 to pwm1_enable hands the pump back to its internal
+controller. Writing pwm2 sets only the internal fan duty and leaves the pump
+control as it is.
 
 Sysfs entries
 -------------
@@ -52,6 +54,8 @@ fan5_input  External (controller) fan 3 speed (in rpm, RYUJIN II only)
 fan6_input  External (controller) fan 4 speed (in rpm, RYUJIN II only)
 temp1_input Coolant temperature (in millidegrees Celsius)
 pwm1        Pump duty
+pwm1_enable Pump control: 1 = pwm1, 2 = internal controller following
+            the fan header PWM (RYUJIN III only)
 pwm2        Internal fan duty
 pwm3        External (controller) fan duty (RYUJIN II only)
 =========== ==========================================================
