@@ -263,9 +263,7 @@ class TraceDisasm:
 
         dso = getattr(sample, 'dso_long_name', None) or sample.dso or '[unknown]'
         symbol = sample.symbol or '[unknown]'
-        dso_bid = (sample.dso_bid.decode('utf-8')
-                   if isinstance(sample.dso_bid, bytes)
-                   else str(sample.dso_bid or '[unknown]'))
+        dso_bid = sample.dso_bid or '[unknown]'
         dso_start = sample.map_start
         dso_end = sample.map_end
         map_pgoff = sample.map_pgoff or 0
