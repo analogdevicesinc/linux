@@ -8264,12 +8264,12 @@ static bool is_kfunc_arg_iter(struct bpf_call_arg_meta *meta, int arg_idx,
 	return btf_param_match_suffix(meta->btf, arg, "__iter");
 }
 
-static int process_iter_arg(struct bpf_verifier_env *env, struct bpf_reg_state *reg, argno_t argno, int insn_idx,
+static int process_iter_arg(struct bpf_verifier_env *env, struct bpf_reg_state *reg,
+			    u32 arg, argno_t argno, int insn_idx,
 			    struct bpf_call_arg_meta *meta)
 {
 	struct bpf_func_state *state = bpf_func(env, reg);
 	const struct btf_type *t;
-	u32 arg_idx = arg_idx_from_argno(argno);
 	int spi, err, i, nr_slots, btf_id;
 
 	if (reg->type != PTR_TO_STACK) {
@@ -8289,7 +8289,7 @@ static int process_iter_arg(struct bpf_verifier_env *env, struct bpf_reg_state *
 	 * to any kfunc, if arg has "__iter" suffix, we need to be a bit more
 	 * conservative here.
 	 */
-	btf_id = btf_check_iter_arg(meta->btf, meta->func_proto, arg_idx);
+	btf_id = btf_check_iter_arg(meta->btf, meta->func_proto, arg);
 	if (btf_id < 0) {
 		verbose(env, "expected valid iter pointer as %s\n",
 			reg_arg_name(env, argno));
@@ -8920,7 +8920,7 @@ __printf(6, 7) static void bpf_diag_call_arg_fmt(struct bpf_verifier_env *env, u
 }
 
 static int check_func_arg_nullability(struct bpf_verifier_env *env,
-				      struct bpf_reg_state *reg, argno_t argno,
+				      struct bpf_reg_state *reg, u32 arg, argno_t argno,
 				      enum bpf_arg_type arg_type,
 				      struct bpf_call_arg_meta *meta, int insn_idx)
 {
@@ -8933,7 +8933,7 @@ static int check_func_arg_nullability(struct bpf_verifier_env *env,
 	if (meta->btf) {
 		u32 arg_btf_id;
 
-		arg_btf_id = btf_params(meta->func_proto)[arg_idx_from_argno(argno)].type;
+		arg_btf_id = btf_params(meta->func_proto)[arg].type;
 		expected_type = bpf_diag_fmt(env, "value of type %s",
 					     bpf_diag_fmt_btf_type(env, meta->btf, arg_btf_id));
 	}
@@ -8948,7 +8948,7 @@ static int check_func_arg_nullability(struct bpf_verifier_env *env,
 }
 
 static int check_func_arg_release(struct bpf_verifier_env *env, struct bpf_reg_state *reg,
-				  argno_t argno, enum bpf_arg_type arg_type,
+				  u32 arg, argno_t argno, enum bpf_arg_type arg_type,
 				  struct bpf_call_arg_meta *meta, int insn_idx)
 {
 	const char *expected_type = "pointer";
@@ -8968,7 +8968,7 @@ static int check_func_arg_release(struct bpf_verifier_env *env, struct bpf_reg_s
 		const struct btf_type *t;
 		u32 ref_id;
 
-		btf_arg = &btf_params(meta->func_proto)[arg_idx_from_argno(argno)];
+		btf_arg = &btf_params(meta->func_proto)[arg];
 		ref_id = btf_arg->type;
 		t = btf_type_skip_modifiers(meta->btf, btf_arg->type, NULL);
 		if (btf_type_is_ptr(t))
@@ -9413,7 +9413,7 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 		return 0;
 	}
 
-	err = check_func_arg_nullability(env, reg, argno, arg_type, meta, insn_idx);
+	err = check_func_arg_nullability(env, reg, arg, argno, arg_type, meta, insn_idx);
 	if (err)
 		return err;
 
@@ -9425,7 +9425,7 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 	if (err)
 		return err;
 
-	err = check_func_arg_release(env, reg, argno, arg_type, meta, insn_idx);
+	err = check_func_arg_release(env, reg, arg, argno, arg_type, meta, insn_idx);
 	if (err)
 		return err;
 
@@ -9759,7 +9759,7 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 			verbose(env, "css_task_iter is only allowed in bpf_lsm, bpf_iter and sleepable progs\n");
 			return -EINVAL;
 		}
-		err = process_iter_arg(env, reg, argno, insn_idx, meta);
+		err = process_iter_arg(env, reg, arg, argno, insn_idx, meta);
 		if (err < 0)
 			return err;
 		break;
