@@ -10,9 +10,19 @@ static void test_skel(void)
 	struct linked_arena *skel;
 	int err;
 
-	skel = linked_arena__open_and_load();
-	if (!ASSERT_OK_PTR(skel, "skel_open_and_load"))
+	skel = linked_arena__open();
+	if (!ASSERT_OK_PTR(skel, "skel_open"))
 		return;
+
+	if (skel->data->skip_tests) {
+		printf("%s:SKIP: no addr_space_cast support in the BPF compiler\n", __func__);
+		test__skip();
+		goto cleanup;
+	}
+
+	err = linked_arena__load(skel);
+	if (!ASSERT_OK(err, "skel_load"))
+		goto cleanup;
 
 	ASSERT_EQ(skel->arena->a_val, 1, "a_val_init");
 	ASSERT_EQ(skel->arena->b_val, 2, "b_val_init");
@@ -28,6 +38,7 @@ static void test_skel(void)
 	ASSERT_EQ(skel->arena->a_val, 11, "a_val");
 	ASSERT_EQ(skel->arena->b_val, 22, "b_val");
 
+cleanup:
 	linked_arena__destroy(skel);
 }
 

@@ -4,15 +4,19 @@
 #include <bpf/bpf_helpers.h>
 #include "bpf_arena_common.h"
 
-long __arena b_val = 2;
-extern long __arena a_val; /* defined in linked_arena1.c */
+long __arena_global b_val = 2;
+extern long __arena_global a_val; /* defined in linked_arena1.c */
 
 SEC("syscall")
 int bump2(void *ctx)
 {
+#ifdef __BPF_FEATURE_ADDR_SPACE_CAST
 	a_val += 10;
 	b_val += 20;
 	return a_val + b_val;
+#else /* see linked_arena1.c */
+	return (long)&a_val;
+#endif
 }
 
 char _license[] SEC("license") = "GPL";
