@@ -2082,6 +2082,7 @@ static void revoke_one_stid(struct nfsd_net *nn, struct nfs4_client *clp,
 			atomic_inc(&clp->cl_admin_revoked);
 		}
 		spin_unlock(&clp->cl_lock);
+		nfsd4_stop_layout_fence(layoutstateid(stid));
 		nfsd4_close_layout(layoutstateid(stid));
 		drop_stid_export(clp, stid);
 		break;
@@ -5870,6 +5871,7 @@ static void nfsd4_drop_revoked_stid(struct nfs4_stid *s)
 		ls = layoutstateid(s);
 		list_del_init(&ls->ls_perclnt);
 		spin_unlock(&cl->cl_lock);
+		nfsd4_stop_layout_fence(ls);
 		nfs4_put_stid(s);
 		break;
 	default:
