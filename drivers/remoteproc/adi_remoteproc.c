@@ -1079,12 +1079,10 @@ static int adi_rproc_sanity_check(struct rproc *rproc, const struct firmware *fw
 	/* Check if it is a LDR or ELF file */
 	rproc_data->firmware_format = adi_valid_firmware(rproc, fw);
 
-	if (rproc_data->firmware_format < 0) {
+	if (rproc_data->firmware_format < 0)
 		return rproc_data->firmware_format;
-	}
-	else {
-		return 0;
-	}
+
+	return 0;
 }
 
 static u64 adi_rproc_get_boot_addr(struct rproc *rproc, const struct firmware *fw)
@@ -1116,12 +1114,10 @@ static void *adi_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *u
 	if (len == 0)
 		return NULL;
 
-	if (da >= rproc_data->l1_da_range[0] && da < rproc_data->l1_da_range[1]) {
+	if (da >= rproc_data->l1_da_range[0] && da < rproc_data->l1_da_range[1])
 		ret = L1_shared_base + (da - rproc_data->l1_da_range[0]);
-	}
-	else if (da >= rproc_data->l2_da_range[0] && da < rproc_data->l2_da_range[1]) {
+	else if (da >= rproc_data->l2_da_range[0] && da < rproc_data->l2_da_range[1])
 		ret = L2_shared_base + (da - rproc_data->l2_da_range[0]);
-	}
 
 	return ret;
 }
