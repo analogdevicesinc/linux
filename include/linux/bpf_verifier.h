@@ -354,6 +354,11 @@ struct bpf_func_state {
 	 * 0 = main function, 1 = first callee.
 	 */
 	u32 frameno;
+	/*
+	 * Unique diagnostic identity for this function invocation. Frame depth is
+	 * reused after returns, while this ID is preserved across state clones.
+	 */
+	u32 diag_frame_id;
 	/* subprog number == index within subprog_info
 	 * zero == main subprog
 	 */
@@ -380,6 +385,8 @@ struct bpf_func_state {
 	 *                           | number of simulations is tracked in frame N
 	 */
 	u32 callback_depth;
+	/* Instructions processed in this frame and callees on the current path. */
+	u32 insns_subtotal;
 
 	/* The following fields should be last. See copy_func_state() */
 	/* The state of the stack. Each element of the array describes BPF_REG_SIZE
@@ -798,7 +805,8 @@ struct bpf_subprog_info {
 	u32 exit_idx; /* Index of one of the BPF_EXIT instructions in this subprogram */
 	u16 stack_depth; /* max. stack depth used by this function */
 	u16 stack_extra;
-	u32 insn_processed;
+	u32 insns_total;
+	u32 insns_self;
 	/* offsets in range [stack_depth .. fastcall_stack_off)
 	 * are used for bpf_fastcall spills and fills.
 	 */
@@ -830,6 +838,7 @@ static inline u16 bpf_in_stack_arg_cnt(const struct bpf_subprog_info *sub)
 	return 0;
 }
 
+struct bpf_diag;
 struct bpf_verifier_env;
 
 struct backtrack_state {
@@ -943,9 +952,11 @@ struct bpf_verifier_env {
 	bool seen_direct_write;
 	bool seen_exception;
 	bool signature;
+	u32 insn_aux_data_len;
 	struct bpf_insn_aux_data *insn_aux_data; /* array of per-insn state */
 	const struct bpf_line_info *prev_linfo;
 	struct bpf_verifier_log log;
+	struct bpf_diag *diag;
 	struct bpf_subprog_info subprog_info[BPF_MAX_SUBPROGS + 2]; /* max + 2 for the fake and exception subprogs */
 	/* subprog indices sorted in topological order: leaves first, callers last */
 	int subprog_topo_order[BPF_MAX_SUBPROGS + 2];
@@ -1297,6 +1308,27 @@ static inline u32 type_flag(u32 type)
 	return type & ~BPF_BASE_TYPE_MASK;
 }
 
+static inline bool bpf_is_ptr_to_mem_or_btf_id(enum bpf_reg_type type)
+{
+	switch (base_type(type)) {
+	case PTR_TO_MEM:
+	case PTR_TO_BTF_ID:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static inline bool bpf_may_fault_on_deref(enum bpf_reg_type type)
+{
+	/*
+	 * The pointer types which must not be dereferenced without fault
+	 * protection, that is, the ones bpf_convert_ctx_accesses() has to
+	 * turn a BPF_LDX into a BPF_PROBE_MEM one for.
+	 */
+	return type == PTR_TO_BTF_ID || (type_flag(type) & PTR_UNTRUSTED);
+}
+
 static inline bool bpf_prog_has_arena_ctx_arg(const struct bpf_prog *prog)
 {
 	int i;
@@ -1343,6 +1375,18 @@ static inline bool type_is_ptr_alloc_obj(u32 type)
 static inline bool type_is_non_owning_ref(u32 type)
 {
 	return type_is_ptr_alloc_obj(type) && type_flag(type) & NON_OWN_REF;
+}
+
+static inline bool type_is_map_ptr(enum bpf_reg_type type)
+{
+	switch (base_type(type)) {
+	case CONST_PTR_TO_MAP:
+	case PTR_TO_MAP_KEY:
+	case PTR_TO_MAP_VALUE:
+		return true;
+	default:
+		return false;
+	}
 }
 
 static inline bool type_is_pkt_pointer(enum bpf_reg_type type)
@@ -1429,8 +1473,10 @@ void print_verifier_state(struct bpf_verifier_env *env, const struct bpf_verifie
 void print_insn_state(struct bpf_verifier_env *env, const struct bpf_verifier_state *vstate,
 		      u32 frameno);
 u32 bpf_vlog_alignment(u32 pos);
+const char *bpf_disasm_kfunc_name(void *data, const struct bpf_insn *insn);
 
 struct bpf_subprog_info *bpf_find_containing_subprog(struct bpf_verifier_env *env, int off);
+const char *bpf_subprog_name(const struct bpf_verifier_env *env, int subprog);
 int bpf_jmp_offset(struct bpf_insn *insn);
 struct bpf_iarray *bpf_insn_successors(struct bpf_verifier_env *env, u32 idx);
 void bpf_fmt_stack_mask(char *buf, ssize_t buf_sz, u64 stack_mask);

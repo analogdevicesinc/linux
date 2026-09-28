@@ -770,8 +770,7 @@ static int gve_rx_xsk_dqo(struct napi_struct *napi, struct gve_rx_ring *rx,
 	}
 
 	/* Copy the data to skb */
-	rx->ctx.skb_head = gve_rx_copy_data(priv->dev, napi,
-					    xdp->data, buf_len);
+	rx->ctx.skb_head = xdp_build_skb_from_zc(xdp);
 	if (unlikely(!rx->ctx.skb_head)) {
 		xsk_buff_free(xdp);
 		gve_free_buf_state(rx, buf_state);
@@ -779,8 +778,6 @@ static int gve_rx_xsk_dqo(struct napi_struct *napi, struct gve_rx_ring *rx,
 	}
 	rx->ctx.skb_tail = rx->ctx.skb_head;
 
-	/* Free XSK buffer and Buffer state */
-	xsk_buff_free(xdp);
 	gve_free_buf_state(rx, buf_state);
 
 	/* Update Stats */
@@ -886,6 +883,11 @@ static int gve_rx_dqo(struct napi_struct *napi, struct gve_rx_ring *rx,
 		rx->rx_hsplit_unsplit_pkt += unsplit;
 		rx->rx_hsplit_bytes += hdr_len;
 		u64_stats_update_end(&rx->statss);
+
+		if (!buf_len) {
+			gve_free_buffer(rx, buf_state);
+			return 0;
+		}
 	} else if (!rx->ctx.skb_head && rx->dqo.page_pool &&
 		   netmem_is_net_iov(buf_state->page_info.netmem)) {
 		/* when header split is disabled, the header went to the packet
@@ -919,7 +921,7 @@ static int gve_rx_dqo(struct napi_struct *napi, struct gve_rx_ring *rx,
 				 buf_state->page_info.page_address +
 				 buf_state->page_info.page_offset,
 				 buf_state->page_info.pad,
-				 buf_len, false);
+				 buf_len, true);
 		gve_xdp.gve = priv;
 		gve_xdp.compl_desc = compl_desc;
 
@@ -933,9 +935,17 @@ static int gve_rx_dqo(struct napi_struct *napi, struct gve_rx_ring *rx,
 			return 0;
 		}
 
+		rx->ctx.skb_head = xdp_build_skb_from_buff(&gve_xdp.xdp);
+		if (unlikely(!rx->ctx.skb_head))
+			goto error;
+		rx->ctx.skb_tail = rx->ctx.skb_head;
+
+		gve_reuse_buffer(rx, buf_state);
+
 		u64_stats_update_begin(&rx->statss);
 		rx->xdp_actions[XDP_PASS]++;
 		u64_stats_update_end(&rx->statss);
+		return 0;
 	}
 
 	if (eop && buf_len <= priv->rx_copybreak &&

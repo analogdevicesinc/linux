@@ -1097,7 +1097,7 @@ static int start_dl_timer(struct sched_dl_entity *dl_se)
 	 * chosen as the deadline is too small, don't even try to
 	 * start the timer in the past!
 	 */
-	if (ktime_us_delta(act, now) < 0)
+	if (ktime_before(act, now))
 		return 0;
 
 	/*
@@ -2734,15 +2734,17 @@ static int balance_dl(struct rq *rq, struct rq_flags *rf)
  */
 static void wakeup_preempt_dl(struct rq *rq, struct task_struct *p, int flags)
 {
+	struct task_struct *donor = rq->donor;
 	/*
 	 * Can only get preempted by stop-class, and those should be
 	 * few and short lived, doesn't really make sense to push
 	 * anything away for that.
 	 */
-	if (p->sched_class != &dl_sched_class)
+	if (p->sched_class != &dl_sched_class ||
+	    donor->sched_class != &dl_sched_class)
 		return;
 
-	if (dl_entity_preempt(&p->dl, &rq->donor->dl)) {
+	if (dl_entity_preempt(&p->dl, &donor->dl)) {
 		resched_curr(rq);
 		return;
 	}
@@ -2771,10 +2773,13 @@ static void start_hrtick_dl(struct rq *rq, struct sched_dl_entity *dl_se)
  * DL keeps current in tree, because ->deadline is not typically changed while
  * a task is runnable.
  */
-static void set_next_task_dl(struct rq *rq, struct task_struct *p, bool first)
+static void set_next_task_dl(struct rq *rq, struct task_struct *p, enum snt_e type)
 {
 	struct sched_dl_entity *dl_se = &p->dl;
 	struct dl_rq *dl_rq = &rq->dl;
+
+	if (type == SNT_REPICK)
+		return;
 
 	p->se.exec_start = rq_clock_task(rq);
 	if (on_dl_rq(&p->dl))
@@ -2786,7 +2791,7 @@ static void set_next_task_dl(struct rq *rq, struct task_struct *p, bool first)
 	WARN_ON_ONCE(dl_rq->curr);
 	dl_rq->curr = dl_se;
 
-	if (!first)
+	if (type != SNT_PICK)
 		return;
 
 	if (rq->donor->sched_class != &dl_sched_class)
@@ -3026,8 +3031,8 @@ static struct task_struct *pick_next_pushable_dl_task(struct rq *rq)
 	next_node = rb_first_cached(&rq->dl.pushable_dl_tasks_root);
 	while (next_node) {
 		i = __node_2_pdl(next_node);
-		/* make sure task isn't on_cpu (possible with proxy-exec) */
-		if (!task_on_cpu(rq, i)) {
+		/* skip tasks that cannot be migrated */
+		if (!task_on_cpu(rq, i) && !is_migration_disabled(i)) {
 			p = i;
 			break;
 		}

@@ -1169,19 +1169,19 @@ static const char *btf_show_name(struct btf_show *show)
 			id = t->type;
 			break;
 		default:
-			id = 0;
-			break;
+			goto resolved;
 		}
+		t = btf_type_skip_qualifiers(show->btf, id);
 		if (!id)
 			break;
-		t = btf_type_skip_qualifiers(show->btf, id);
 	}
 	/* We may not be able to represent this type; bail to be safe */
 	if (i == BTF_SHOW_MAX_ITER)
 		return "";
 
+resolved:
 	if (!name)
-		name = btf_name_by_offset(show->btf, t->name_off);
+		name = btf_type_is_void(t) ? "void" : btf_name_by_offset(show->btf, t->name_off);
 
 	switch (BTF_INFO_KIND(t->info)) {
 	case BTF_KIND_STRUCT:
@@ -2533,7 +2533,6 @@ static void btf_bitfield_show(void *data, u8 bits_offset,
 	btf_int128_shift(print_num, left_shift_bits, right_shift_bits);
 	btf_int128_print(show, print_num);
 }
-
 
 static void btf_int_bits_show(const struct btf *btf,
 			      const struct btf_type *t,
@@ -6469,7 +6468,7 @@ err_out:
  * split BTF ids will need to be mapped to actual base/split ids for
  * BTF now that it has been relocated.
  */
-static __u32 btf_relocate_id(const struct btf *btf, __u32 id)
+__u32 btf_relocate_id(const struct btf *btf, __u32 id)
 {
 	if (!btf->base_btf || !btf->base_id_map)
 		return id;
@@ -6678,13 +6677,6 @@ static const struct bpf_raw_tp_null_args raw_tp_null_args[] = {
 	{ "cachefiles_mark_inactive", 0x1 },
 	{ "cachefiles_vfs_error", 0x1 },
 	{ "cachefiles_io_error", 0x1 },
-	{ "cachefiles_ondemand_open", 0x1 },
-	{ "cachefiles_ondemand_copen", 0x1 },
-	{ "cachefiles_ondemand_close", 0x1 },
-	{ "cachefiles_ondemand_read", 0x1 },
-	{ "cachefiles_ondemand_cread", 0x1 },
-	{ "cachefiles_ondemand_fd_write", 0x1 },
-	{ "cachefiles_ondemand_fd_release", 0x1 },
 	/* ext4, from ext4__mballoc event class */
 	{ "ext4_mballoc_discard", 0x10 },
 	{ "ext4_mballoc_free", 0x10 },
@@ -8317,6 +8309,16 @@ int btf_type_snprintf_show(const struct btf *btf, u32 type_id, void *obj,
 	return ssnprintf.len;
 }
 
+int btf_type_name_to_buf(const struct btf *btf, u32 type_id, char *buf, int len)
+{
+	struct btf_show show = {
+		.btf = btf,
+		.state.type_id = type_id,
+	};
+
+	return snprintf(buf, len, "%s", btf_show_name(&show));
+}
+
 #ifdef CONFIG_PROC_FS
 static void bpf_btf_show_fdinfo(struct seq_file *m, struct file *filp)
 {
@@ -8655,7 +8657,7 @@ struct module *btf_try_get_module(const struct btf *btf)
 /* Returns struct btf corresponding to the struct module.
  * This function can return NULL or ERR_PTR.
  */
-static struct btf *btf_get_module_btf(const struct module *module)
+struct btf *btf_get_module_btf(const struct module *module)
 {
 #ifdef CONFIG_DEBUG_INFO_BTF_MODULES
 	struct btf_module *btf_mod, *tmp;

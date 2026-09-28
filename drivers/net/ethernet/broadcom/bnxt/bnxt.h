@@ -1261,13 +1261,13 @@ struct bnxt_irq {
 	irq_handler_t	handler;
 	unsigned int	vector;
 	u8		requested:1;
-	u8		have_cpumask:1;
 	char		name[IFNAMSIZ + BNXT_IRQ_NAME_EXTRA];
-	cpumask_var_t	cpu_mask;
 
 	struct bnxt	*bp;
 	int		msix_nr;
 	int		ring_nr;
+	u16		tag;
+	u16		new_tag;
 	struct irq_affinity_notify affinity_notify;
 };
 
@@ -2480,6 +2480,15 @@ struct bnxt {
 	 pci_channel_offline((bp)->pdev))
 
 	struct bnxt_irq	*irq_tbl;
+	/* IRQ affinity, indexed by completion ring. Kept across IRQ
+	 * reallocation, the MSI-X vector index is not stable.
+	 */
+	cpumask_var_t		*ring_cpu_mask;
+	/* Rings for which the mask above was configured from the outside,
+	 * rather than being our own default placement.
+	 */
+	unsigned long		*ring_affinity_set;
+	int			max_irqs;
 	int			total_irqs;
 	int			ulp_num_msix_want;
 	u8			mac_addr[ETH_ALEN];
@@ -2642,6 +2651,7 @@ struct bnxt {
 #define BNXT_RING_COAL_NOW_SP_EVENT	17
 #define BNXT_FW_RESET_NOTIFY_SP_EVENT	18
 #define BNXT_FW_EXCEPTION_SP_EVENT	19
+#define BNXT_TPH_UPDATE_SP_EVENT	20
 #define BNXT_LINK_CFG_CHANGE_SP_EVENT	21
 #define BNXT_THERMAL_THRESHOLD_SP_EVENT	22
 #define BNXT_FW_ECHO_REQUEST_SP_EVENT	23

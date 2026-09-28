@@ -269,7 +269,6 @@ bpf_insn_successors(struct bpf_verifier_env *env, u32 idx)
 
 __diag_pop();
 
-
 static inline bool update_insn(struct bpf_verifier_env *env,
 			       struct func_instance *instance, u32 frame, u32 insn_idx)
 {
@@ -1209,12 +1208,9 @@ static void arg_track_xfer(struct bpf_verifier_env *env, struct bpf_insn *insn,
 				clear_stack_for_all_offs(insn, at_out, insn->dst_reg,
 							 at_stack_out, sz);
 
-			if (insn->imm == BPF_CMPXCHG)
-				at_out[BPF_REG_0] = none;
-			else if (insn->imm == BPF_LOAD_ACQ)
-				*dst = none;
-			else if (insn->imm & BPF_FETCH)
-				*src = none;
+			r = bpf_atomic_load_reg(insn);
+			if (r >= 0)
+				at_out[r] = none;
 		}
 	} else if (class == BPF_ST && BPF_MODE(insn->code) == BPF_MEM) {
 		u32 sz = bpf_size_to_bytes(BPF_SIZE(insn->code));
@@ -1864,7 +1860,6 @@ static int analyze_subprog(struct bpf_verifier_env *env,
 
 	if (need_resched())
 		cond_resched();
-
 
 	/*
 	 * When an instance is reused (must_write_initialized == true),

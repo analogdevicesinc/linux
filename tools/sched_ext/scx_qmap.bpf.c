@@ -369,6 +369,22 @@ static u64 needs_immed(s32 cid)
 	return qa.cid_shared[cid] ? SCX_ENQ_IMMED : 0;
 }
 
+static void dispatch_to_rescue(struct task_struct *p, task_ctx_t *taskc,
+			       u64 enq_flags)
+{
+	u32 cid = cmask_next_set_wrap(&taskc->cpus_allowed, 0);
+
+	if (cid >= scx_bpf_nr_cids()) {
+		scx_bpf_error("task %d has no allowed cid", p->pid);
+		return;
+	}
+
+	taskc->force_local = false;
+	__sync_fetch_and_add(&qa.nr_rescue_dsp, 1);
+	scx_bpf_dsq_insert(p, SCX_DSQ_LOCAL_ON | cid, slice_ns,
+			   enq_flags | SCX_ENQ_RESCUE);
+}
+
 /* first cid this node does NOT hold for fault injection, -1 if none */
 static s32 first_unavail_cid(void)
 {
@@ -442,6 +458,9 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 	 */
 	taskc->core_sched_seq = qa.core_sched_tail_seqs[idx]++;
 
+	if (enq_flags & SCX_ENQ_BLOCKED)
+		__sync_fetch_and_add(&qa.nr_enq_blocked, 1);
+
 	/*
 	 * A task of ours that can run on none of our self cids - the parent
 	 * didn't grant them or we delegated them to children - would starve in
@@ -451,18 +470,64 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 	 * If we hold ENQ on that cid it runs. Otherwise the kernel diverts the
 	 * task to its rescue path. IMMED would turn the insert into a legal
 	 * placement on a time-shared cid and the kernel would bounce it back
-	 * here instead of rescuing it.
+	 * here instead of rescuing it. Do this before the blocked-donor fast
+	 * paths, which also require an eligible self cid to make progress.
 	 */
 	if (!cmask_intersects(&taskc->cpus_allowed, &qa.self_cids.mask)) {
-		s32 c = cmask_next_set_wrap(&taskc->cpus_allowed, 0);
+		dispatch_to_rescue(p, taskc, enq_flags);
+		return;
+	}
 
-		if (c >= 0 && c < scx_bpf_nr_cids()) {
-			taskc->force_local = false;
-			__sync_fetch_and_add(&qa.nr_rescue_dsp, 1);
-			scx_bpf_dsq_insert(p, SCX_DSQ_LOCAL_ON | c, slice_ns,
-					   enq_flags | SCX_ENQ_RESCUE);
+	/*
+	 * SCX_OPS_ALWAYS_ENQ_IMMED makes the local insertion below implicitly
+	 * carry SCX_ENQ_IMMED. If the CPU can't run the blocked donor immediately,
+	 * the core returns it through ops.enqueue() with SCX_ENQ_REENQ. Inserting
+	 * it into the same local DSQ would repeat the IMMED handback until the
+	 * scheduler is ejected. Move reenqueued blocked donors to the shared DSQ,
+	 * which doesn't carry SCX_ENQ_IMMED, so another CPU can consume them.
+	 */
+	if ((enq_flags & (SCX_ENQ_BLOCKED | SCX_ENQ_REENQ)) ==
+	    (SCX_ENQ_BLOCKED | SCX_ENQ_REENQ)) {
+		taskc->force_local = false;
+		scx_bpf_dsq_insert(p, SHARED_DSQ, 0, enq_flags);
+		cid = cmask_next_and2_set_wrap(&taskc->cpus_allowed,
+					       &qa.idle_cids.mask,
+					       &qa.self_cids.mask, 0);
+		if (cid < scx_bpf_nr_cids())
+			scx_bpf_kick_cid(cid, SCX_KICK_IDLE);
+		return;
+	}
+
+	/*
+	 * Insert a blocked mutex donor at the head of an eligible local DSQ with
+	 * a fresh slice and %SCX_ENQ_PREEMPT, requesting an immediate reschedule.
+	 * The test above guarantees that cpus_allowed intersects self_cids, but
+	 * the donor's current cid may have been delegated to a child. Search the
+	 * intersection starting at the current cid, preserving it when qmap still
+	 * holds it and wrapping to another eligible self cid otherwise.
+	 *
+	 * A self cid may be held exclusively with SCX_CAP_ENQ or time-shared with
+	 * only SCX_CAP_ENQ_IMMED. Add needs_immed() so either kind can accept the
+	 * local insertion instead of rejecting and reenqueuing the donor for a
+	 * capability miss. Once selected, the core proxy-exec path can run the
+	 * mutex owner using the donor's scheduling context.
+	 *
+	 * This policy is intentionally unfair and can strongly prioritize tasks
+	 * using contended mutexes; scx_qmap is a demonstration scheduler and
+	 * this behavior makes proxy-exec support easy to observe.
+	 */
+	if (enq_flags & SCX_ENQ_BLOCKED) {
+		cid = cmask_next_and_set_wrap(&taskc->cpus_allowed,
+					      &qa.self_cids.mask,
+					      scx_bpf_task_cid(p));
+		if (cid >= scx_bpf_nr_cids()) {
+			/* self_cids may have changed since the intersection test */
+			dispatch_to_rescue(p, taskc, enq_flags);
 			return;
 		}
+		scx_bpf_dsq_insert(p, SCX_DSQ_LOCAL_ON | cid, slice_ns,
+				   enq_flags | needs_immed(cid) | SCX_ENQ_PREEMPT);
+		return;
 	}
 
 	/*

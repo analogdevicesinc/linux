@@ -301,9 +301,9 @@ An example is given below::
         }
 
 Calling such a kfunc requires the program to use an arena map and a JIT with
-arena argument support (currently x86-64); verification fails otherwise. The
-program can pass any value without compromising the kernel. A value that does
-not point into the arena is a program bug.
+arena argument support (currently x86-64 and arm64); verification fails
+otherwise. The program can pass any value without compromising the kernel. A
+value that does not point into the arena is a program bug.
 
 The suffixes have the same meaning on the arguments of struct_ops stub
 functions, with the conversion running in the opposite direction. The
@@ -513,8 +513,8 @@ At kernel build time the ``resolve_btfids`` tool finds all kfuncs declared with
 ``BTF_KFUNCS_START()`` and emits their BTF annotations into the kernel's BTF.
 For each kfunc it emits a ``bpf_kfunc`` BTF decl tag, a ``bpf_fastcall`` decl
 tag when the kfunc is flagged ``KF_FASTCALL``, and the ``address_space(1)`` type
-attribute on the return value and/or arguments flagged ``KF_ARENA_RET``,
-``KF_ARENA_ARG1`` or ``KF_ARENA_ARG2`` (see section 2.8).
+attribute on the return value and/or arguments that use arena pointers (see
+sections 2.3.8 and 2.8).
 
 2.7  Specifying no-cast aliases with ___init
 --------------------------------------------

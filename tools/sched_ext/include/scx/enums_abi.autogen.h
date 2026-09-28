@@ -180,7 +180,7 @@ static const struct __scx_enum_abi_val __scx_enum_abi_vals[]
 	{ "scx_ops_flags", "SCX_OPS_ALWAYS_ENQ_IMMED", 0x80LLU },
 	{ "scx_ops_flags", "SCX_OPS_TID_TO_TASK", 0x100LLU },
 	{ "scx_ops_flags", "SCX_OPS_LAZY_RESCHED", 0x200LLU },
-	{ "scx_ops_flags", "SCX_OPS_ALL_FLAGS", 0x3ffLLU },
+	{ "scx_ops_flags", "SCX_OPS_ALL_FLAGS", 0x7ffLLU },
 	{ "scx_ops_flags", "__SCX_OPS_INTERNAL_MASK", 0xff00000000000000LLU },
 	{ "scx_ops_flags", "SCX_OPS_HAS_CPU_PREEMPT", 0x100000000000000LLU },
 	{ "scx_ops_state", "SCX_OPSS_NONE", 0x0LLU },

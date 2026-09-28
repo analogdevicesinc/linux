@@ -506,7 +506,7 @@ static inline void cgroup_unlock(void)
 		rcu_read_lock_sched_held() ||				\
 		lockdep_is_held(&cgroup_mutex) ||			\
 		lockdep_is_held(&css_set_lock) ||			\
-		((task)->flags & PF_EXITING) || (__c))
+		(data_race((task)->flags) & PF_EXITING) || (__c))
 #else
 #define task_css_set_check(task, __c)					\
 	rcu_dereference((task)->cgroups)
@@ -647,6 +647,27 @@ static inline struct cgroup *cgroup_ancestor(struct cgroup *cgrp,
 	if (ancestor_level < 0 || ancestor_level > cgrp->level)
 		return NULL;
 	return cgrp->ancestors[ancestor_level];
+}
+
+/**
+ * cgroup_common_ancestor - find common ancestor of two cgroups
+ * @a: first cgroup to find common ancestor of
+ * @b: second cgroup to find common ancestor of
+ *
+ * Find the first cgroup that is an ancestor of both @a and @b, if it exists
+ * and return a pointer to it. If such a cgroup doesn't exist, return NULL.
+ *
+ * This function is safe to call as long as both @a and @b are accessible.
+ */
+static inline struct cgroup *cgroup_common_ancestor(struct cgroup *a,
+						    struct cgroup *b)
+{
+	int level;
+
+	for (level = min(a->level, b->level); level >= 0; level--)
+		if (a->ancestors[level] == b->ancestors[level])
+			return a->ancestors[level];
+	return NULL;
 }
 
 /**

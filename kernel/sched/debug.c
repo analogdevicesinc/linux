@@ -73,13 +73,13 @@ static int sched_feat_show(struct seq_file *m, void *v)
 
 #ifdef CONFIG_JUMP_LABEL
 
-#define jump_label_key__true  STATIC_KEY_INIT_TRUE
-#define jump_label_key__false STATIC_KEY_INIT_FALSE
+#define jump_label_key__true  { .key_true  = STATIC_KEY_TRUE_INIT  }
+#define jump_label_key__false { .key_false = STATIC_KEY_FALSE_INIT }
 
 #define SCHED_FEAT(name, enabled)	\
 	jump_label_key__##enabled ,
 
-struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
+union sched_feat_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #include "features.h"
 };
 
@@ -87,12 +87,12 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 
 static void sched_feat_disable(int i)
 {
-	static_key_disable_cpuslocked(&sched_feat_keys[i]);
+	static_branch_disable_cpuslocked(&sched_feat_keys[i].key_true);
 }
 
 static void sched_feat_enable(int i)
 {
-	static_key_enable_cpuslocked(&sched_feat_keys[i]);
+	static_branch_enable_cpuslocked(&sched_feat_keys[i].key_false);
 }
 #else /* !CONFIG_JUMP_LABEL: */
 static void sched_feat_disable(int i) { };
@@ -280,16 +280,10 @@ static ssize_t sched_dynamic_write(struct file *filp, const char __user *ubuf,
 
 static int sched_dynamic_show(struct seq_file *m, void *v)
 {
-	int i = (IS_ENABLED(CONFIG_PREEMPT_RT) || IS_ENABLED(CONFIG_ARCH_HAS_PREEMPT_LAZY)) * 2;
 	int mode = READ_ONCE(preempt_dynamic_mode);
-	int j;
 
-	/* Count entries in NULL terminated preempt_modes */
-	for (j = 0; preempt_modes[j]; j++)
-		;
-	j -= !IS_ENABLED(CONFIG_ARCH_HAS_PREEMPT_LAZY);
-
-	for (; i < j; i++) {
+	/* Stop at NULL terminator */
+	for (int i = 0; preempt_modes[i]; i++) {
 		if (mode == i)
 			seq_puts(m, "(");
 		seq_puts(m, preempt_modes[i]);
@@ -633,6 +627,82 @@ static void debugfs_fair_server_init(void)
 	}
 }
 
+#ifdef CONFIG_FAIR_GROUP_SCHED
+static int cgroup_mode = 2;
+
+/* See __sched_cgroup_mode_update(). */
+static const char *cgroup_mode_str[] = {
+	"up",
+	"smp",
+	"concur",
+	"max",
+	"tasks",
+};
+
+static int sched_cgroup_mode(const char *str)
+{
+	for (int i = 0; i < ARRAY_SIZE(cgroup_mode_str); i++) {
+		if (!strcmp(str, cgroup_mode_str[i]))
+			return i;
+	}
+	return -EINVAL;
+}
+
+static ssize_t sched_cgroup_write(struct file *filp, const char __user *ubuf,
+				   size_t cnt, loff_t *ppos)
+{
+	char buf[16];
+	int mode;
+
+	if (cnt > 15)
+		cnt = 15;
+
+	if (copy_from_user(buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt] = 0;
+	mode = sched_cgroup_mode(strstrip(buf));
+	if (mode < 0)
+		return mode;
+
+	__sched_cgroup_mode_update(mode);
+	WRITE_ONCE(cgroup_mode, mode);
+
+	*ppos += cnt;
+	return cnt;
+}
+
+static int sched_cgroup_show(struct seq_file *m, void *v)
+{
+	int mode = READ_ONCE(cgroup_mode);
+
+	for (int i = 0; i < ARRAY_SIZE(cgroup_mode_str); i++) {
+		if (mode == i)
+			seq_puts(m, "(");
+		seq_puts(m, cgroup_mode_str[i]);
+		if (mode == i)
+			seq_puts(m, ")");
+
+		seq_puts(m, " ");
+	}
+	seq_puts(m, "\n");
+	return 0;
+}
+
+static int sched_cgroup_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, sched_cgroup_show, NULL);
+}
+
+static const struct file_operations sched_cgroup_fops = {
+	.open		= sched_cgroup_open,
+	.write		= sched_cgroup_write,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
+
 static __init int sched_init_debug(void)
 {
 	struct dentry __maybe_unused *numa, *llc;
@@ -685,6 +755,10 @@ static __init int sched_init_debug(void)
 #endif
 
 	debugfs_create_file("debug", 0444, debugfs_sched, NULL, &sched_debug_fops);
+
+#ifdef CONFIG_FAIR_GROUP_SCHED
+	debugfs_create_file("cgroup_mode", 0644, debugfs_sched, NULL, &sched_cgroup_fops);
+#endif
 
 	debugfs_fair_server_init();
 #ifdef CONFIG_SCHED_CLASS_EXT
@@ -895,10 +969,11 @@ print_task(struct seq_file *m, struct rq *rq, struct task_struct *p)
 	else
 		SEQ_printf(m, " %c", task_state_to_char(p));
 
-	SEQ_printf(m, " %15s %5d %9Ld.%06ld   %c   %9Ld.%06ld %c %9Ld.%06ld %9Ld.%06ld %9Ld   %5d ",
+	SEQ_printf(m, " %15s %5d %10ld %9Ld.%06ld   %c   %9Ld.%06ld %c %9Ld.%06ld %9Ld.%06ld %9Ld   %5d ",
 		p->comm, task_pid_nr(p),
+		p->se.h_load.weight,
 		SPLIT_NS(p->se.vruntime),
-		entity_eligible(cfs_rq_of(&p->se), &p->se) ? 'E' : 'N',
+		entity_eligible(&rq->cfs, &p->se) ? 'E' : 'N',
 		SPLIT_NS(p->se.deadline),
 		p->se.custom_slice ? 'S' : ' ',
 		SPLIT_NS(p->se.slice),
@@ -927,7 +1002,7 @@ static void print_rq(struct seq_file *m, struct rq *rq, int rq_cpu)
 
 	SEQ_printf(m, "\n");
 	SEQ_printf(m, "runnable tasks:\n");
-	SEQ_printf(m, " S            task   PID       vruntime   eligible    "
+	SEQ_printf(m, " S            task   PID     weight       vruntime   eligible    "
 		   "deadline             slice          sum-exec      switches  "
 		   "prio         wait-time        sum-sleep       sum-block"
 #ifdef CONFIG_NUMA_BALANCING
@@ -1035,6 +1110,8 @@ void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 			cfs_rq->tg_load_avg_contrib);
 	SEQ_printf(m, "  .%-30s: %ld\n", "tg_load_avg",
 			atomic_long_read(&cfs_rq->tg->load_avg));
+	SEQ_printf(m, "  .%-30s: %lu\n", "h_load",
+			cfs_rq->h_load);
 #endif /* CONFIG_FAIR_GROUP_SCHED */
 #ifdef CONFIG_CFS_BANDWIDTH
 	SEQ_printf(m, "  .%-30s: %d\n", "throttled",
@@ -1359,7 +1436,6 @@ void proc_sched_show_task(struct task_struct *p, struct pid_namespace *ns,
 		P_SCHEDSTAT(wait_count);
 		PN_SCHEDSTAT(iowait_sum);
 		P_SCHEDSTAT(iowait_count);
-		P_SCHEDSTAT(nr_migrations_cold);
 		P_SCHEDSTAT(nr_failed_migrations_affine);
 		P_SCHEDSTAT(nr_failed_migrations_running);
 		P_SCHEDSTAT(nr_failed_migrations_hot);
@@ -1371,8 +1447,6 @@ void proc_sched_show_task(struct task_struct *p, struct pid_namespace *ns,
 		P_SCHEDSTAT(nr_wakeups_remote);
 		P_SCHEDSTAT(nr_wakeups_affine);
 		P_SCHEDSTAT(nr_wakeups_affine_attempts);
-		P_SCHEDSTAT(nr_wakeups_passive);
-		P_SCHEDSTAT(nr_wakeups_idle);
 
 		avg_atom = p->se.sum_exec_runtime;
 		if (nr_switches)

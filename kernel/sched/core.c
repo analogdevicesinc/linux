@@ -40,7 +40,6 @@
 #include <linux/sched/rseq_api.h>
 #include <linux/sched/rt.h>
 
-#include <linux/blkdev.h>
 #include <linux/context_tracking.h>
 #include <linux/cpuset.h>
 #include <linux/delayacct.h>
@@ -806,7 +805,7 @@ struct rq *_task_rq_lock(struct task_struct *p, struct rq_flags *rf)
 
 /* Use CONFIG_PARAVIRT as this will avoid more #ifdef in arch code. */
 #ifdef CONFIG_PARAVIRT
-struct static_key paravirt_steal_rq_enabled;
+DEFINE_STATIC_KEY_FALSE(paravirt_steal_rq_enabled);
 #endif
 
 static void update_rq_clock_task(struct rq *rq, s64 delta)
@@ -845,7 +844,7 @@ static void update_rq_clock_task(struct rq *rq, s64 delta)
 	}
 #endif
 #ifdef CONFIG_PARAVIRT_TIME_ACCOUNTING
-	if (static_key_false((&paravirt_steal_rq_enabled))) {
+	if (static_branch_unlikely(&paravirt_steal_rq_enabled)) {
 		u64 prev_steal;
 
 		steal = prev_steal = paravirt_steal_clock(cpu_of(rq));
@@ -2253,7 +2252,8 @@ void deactivate_task(struct rq *rq, struct task_struct *p, int flags)
 	dequeue_task(rq, p, flags);
 }
 
-static void block_task(struct rq *rq, struct task_struct *p, unsigned long task_state)
+static bool dequeue_block_task(struct rq *rq, struct task_struct *p,
+			       unsigned long task_state)
 {
 	int flags = DEQUEUE_NOCLOCK;
 
@@ -2274,9 +2274,15 @@ static void block_task(struct rq *rq, struct task_struct *p, unsigned long task_
 	 *
 	 * Where __schedule() and ttwu() have matching control dependencies.
 	 *
-	 * After this, schedule() must not care about p->state any more.
+	 * Once the caller invokes __block_task(), schedule() must not care about
+	 * p->state any more.
 	 */
-	if (dequeue_task(rq, p, DEQUEUE_SLEEP | flags))
+	return dequeue_task(rq, p, DEQUEUE_SLEEP | flags);
+}
+
+static void block_task(struct rq *rq, struct task_struct *p, unsigned long task_state)
+{
+	if (dequeue_block_task(rq, p, task_state))
 		__block_task(rq, p);
 }
 
@@ -3743,11 +3749,17 @@ static inline void ttwu_do_wakeup(struct task_struct *p)
 
 void update_rq_avg_idle(struct rq *rq)
 {
-	u64 delta = rq_clock(rq) - rq->idle_stamp;
-	u64 max = 2*rq->max_idle_balance_cost;
+	u64 idle_stamp = rq->idle_stamp;
+	u64 delta, max;
+
+	if (!idle_stamp)
+		return;
+
+	delta = rq_clock(rq) - idle_stamp;
 
 	update_avg(&rq->avg_idle, delta);
 
+	max = 2 * rq->max_idle_balance_cost;
 	if (rq->avg_idle > max)
 		rq->avg_idle = max;
 	rq->idle_stamp = 0;
@@ -3761,6 +3773,7 @@ static inline void proxy_reset_donor(struct rq *rq)
 	WARN_ON_ONCE(rq->donor == rq->curr);
 
 	put_prev_set_next_task(rq, rq->donor, rq->curr);
+	rq->next_class = rq->curr->sched_class;
 	rq_set_donor(rq, rq->curr);
 	zap_balance_callbacks(rq);
 	resched_curr(rq);
@@ -3775,6 +3788,8 @@ static inline void proxy_reset_donor(struct rq *rq)
  */
 static inline bool proxy_needs_return(struct rq *rq, struct task_struct *p)
 {
+	bool dequeued;
+
 	/*
 	 * Typically per __set_task_cpu(), task_cpu(p) == p->wake_cpu.
 	 *
@@ -3797,12 +3812,23 @@ static inline bool proxy_needs_return(struct rq *rq, struct task_struct *p)
 		/* If already current, don't need to return migrate */
 		if (task_current(rq, p))
 			return false;
-
-		/* If we're return migrating the rq->donor, switch it out for idle */
-		if (task_current_donor(rq, p))
-			proxy_reset_donor(rq);
 	}
-	block_task(rq, p, TASK_WAKING);
+
+	dequeued = dequeue_block_task(rq, p, TASK_WAKING);
+
+	/*
+	 * Dequeue @p from its scheduling class before resetting rq->donor.
+	 * In particular, sched_ext needs to end the donor's running session
+	 * and clear SCX_TASK_QUEUED before put_prev_task_scx() is called by
+	 * proxy_reset_donor(); otherwise it would reenqueue the blocked donor.
+	 *
+	 * Keep on_rq set until all donor references have been replaced.
+	 */
+	if (task_current_donor(rq, p))
+		proxy_reset_donor(rq);
+
+	if (dequeued)
+		__block_task(rq, p);
 	return true;
 }
 #else /* !CONFIG_SCHED_PROXY_EXEC */
@@ -3893,7 +3919,7 @@ static int ttwu_runnable(struct task_struct *p, int wake_flags)
 		 * When on_rq && !on_cpu the task is preempted, see if
 		 * it should preempt the task that is current now.
 		 */
-		wakeup_preempt(rq, p, wake_flags);
+		wakeup_preempt(rq, p, wake_flags | WF_TTWU_RQ);
 	}
 	ttwu_do_wakeup(p);
 	return 1;
@@ -4649,7 +4675,7 @@ void set_numabalancing_state(bool enabled)
 	__set_numabalancing_state(enabled);
 }
 
-#ifdef CONFIG_PROC_SYSCTL
+#ifdef CONFIG_SYSCTL
 static void reset_memory_tiering(void)
 {
 	struct pglist_data *pgdat;
@@ -4685,7 +4711,7 @@ static int sysctl_numa_balancing(const struct ctl_table *table, int write,
 	}
 	return err;
 }
-#endif /* CONFIG_PROC_SYSCTL */
+#endif /* CONFIG_SYSCTL */
 #endif /* CONFIG_NUMA_BALANCING */
 
 #ifdef CONFIG_SCHEDSTATS
@@ -4729,7 +4755,7 @@ out:
 }
 __setup("schedstats=", setup_schedstats);
 
-#ifdef CONFIG_PROC_SYSCTL
+#ifdef CONFIG_SYSCTL
 static int sysctl_schedstats(const struct ctl_table *table, int write, void *buffer,
 		size_t *lenp, loff_t *ppos)
 {
@@ -4749,7 +4775,7 @@ static int sysctl_schedstats(const struct ctl_table *table, int write, void *buf
 		set_schedstats(state);
 	return err;
 }
-#endif /* CONFIG_PROC_SYSCTL */
+#endif /* CONFIG_SYSCTL */
 #endif /* CONFIG_SCHEDSTATS */
 
 #ifdef CONFIG_SYSCTL
@@ -5137,7 +5163,7 @@ static void do_balance_callbacks(struct rq *rq, struct balance_callback *head)
 	lockdep_assert_rq_held(rq);
 
 	while (head) {
-		func = (void (*)(struct rq *))head->func;
+		func = head->func;
 		next = head->next;
 		head->next = NULL;
 		head = next;
@@ -5668,11 +5694,8 @@ EXPORT_PER_CPU_SYMBOL(kernel_cpustat);
  */
 static inline void prefetch_curr_exec_start(struct task_struct *p)
 {
-#ifdef CONFIG_FAIR_GROUP_SCHED
-	struct sched_entity *curr = p->se.cfs_rq->curr;
-#else
 	struct sched_entity *curr = task_rq(p)->cfs.curr;
-#endif
+
 	prefetch(curr);
 	prefetch(&curr->exec_start);
 }
@@ -5984,8 +6007,13 @@ void preempt_count_add(int val)
 #ifdef CONFIG_DEBUG_PREEMPT
 	/*
 	 * Underflow?
+	 *
+	 * Cannot detect underflow based on the current preempt_count() value
+	 * if using HAS_SEPARATE_PREEMPT_RESCHED_BITS because preempt count takes all 32
+	 * bits.
 	 */
-	if (DEBUG_LOCKS_WARN_ON((preempt_count() < 0)))
+	if (!IS_ENABLED(CONFIG_HAS_SEPARATE_PREEMPT_RESCHED_BITS) &&
+	    DEBUG_LOCKS_WARN_ON((preempt_count() < 0)))
 		return;
 #endif
 	__preempt_count_add(val);
@@ -6017,7 +6045,10 @@ void preempt_count_sub(int val)
 	/*
 	 * Underflow?
 	 */
-	if (DEBUG_LOCKS_WARN_ON(val > preempt_count()))
+	unsigned int uval = val;
+	unsigned int pc = preempt_count();
+
+	if (DEBUG_LOCKS_WARN_ON(pc - uval > pc))
 		return;
 	/*
 	 * Is the spinlock portion underflowing?
@@ -6265,10 +6296,7 @@ pick_next_task(struct rq *rq, struct rq_flags *rf)
 	 * selection. In this case, do a core-wide selection.
 	 */
 	if (rq->core->core_pick_seq == rq->core->core_task_seq &&
-	    rq->core->core_pick_seq != rq->core_sched_seq &&
 	    rq->core_pick) {
-		WRITE_ONCE(rq->core_sched_seq, rq->core->core_pick_seq);
-
 		next = rq->core_pick;
 		rq->dl_server = rq->core_dl_server;
 		rq->core_pick = NULL;
@@ -6300,11 +6328,13 @@ restart:
 	}
 
 	/*
-	 * core->core_task_seq, core->core_pick_seq, rq->core_sched_seq
+	 * core->core_task_seq, core->core_pick_seq
 	 *
 	 * @task_seq guards the task state ({en,de}queues)
 	 * @pick_seq is the @task_seq we did a selection on
-	 * @sched_seq is the @pick_seq we scheduled
+	 *
+	 * Once a core-wide selection is committed, a non-NULL core_pick denotes
+	 * a pick which still needs to be consumed on this CPU.
 	 *
 	 * However, preemptions can cause multiple picks on the same task set.
 	 * 'Fix' this by also increasing @task_seq for every pick.
@@ -6411,7 +6441,6 @@ restart:
 
 	rq->core->core_pick_seq = rq->core->core_task_seq;
 	next = rq->core_pick;
-	rq->core_sched_seq = rq->core->core_pick_seq;
 
 	/* Something should have been selected for current CPU */
 	WARN_ON_ONCE(!next);
@@ -6499,7 +6528,10 @@ static bool try_steal_cookie(int this, int that)
 		return false;
 
 	do {
-		if (p == src->core_pick || p == src->curr)
+		if (p == src->core_pick || p == src->curr || p == src->donor)
+			goto next;
+
+		if (task_is_blocked(p))
 			goto next;
 
 		if (!is_cpu_allowed(p, this))
@@ -6802,6 +6834,34 @@ static void proxy_deactivate(struct rq *rq, struct task_struct *donor)
 	block_task(rq, donor, state);
 }
 
+/*
+ * Remove a retained proxy donor before changing its scheduler ownership.
+ * The caller holds p->pi_lock, so p cannot wake and migrate if block_task()
+ * drops it from the runqueue. If DELAY_DEQUEUE keeps a blocked fair task
+ * queued, switching_from_fair() completes the dequeue in the immediately
+ * following sched_change_begin().
+ */
+void sched_proxy_block_task(struct rq *rq, struct task_struct *p)
+{
+	unsigned long state = READ_ONCE(p->__state);
+
+	lockdep_assert_held(&p->pi_lock);
+	lockdep_assert_rq_held(rq);
+
+	if (!p->is_blocked || !task_on_rq_queued(p))
+		return;
+	if (WARN_ON_ONCE(state == TASK_RUNNING))
+		return;
+
+	if (task_current_donor(rq, p))
+		proxy_reset_donor(rq);
+
+	if (!p->se.sched_delayed)
+		block_task(rq, p, state);
+
+	WARN_ON_ONCE(task_on_rq_queued(p) && !p->se.sched_delayed);
+}
+
 static inline void proxy_release_rq_lock(struct rq *rq, struct rq_flags *rf)
 	__releases(__rq_lockp(rq))
 {
@@ -6847,9 +6907,9 @@ static void proxy_migrate_task(struct rq *rq, struct rq_flags *rf,
 	__must_hold(__rq_lockp(rq))
 {
 	struct rq *target_rq = cpu_rq(target_cpu);
+	LIST_HEAD(migrate_list);
 
 	lockdep_assert_rq_held(rq);
-	WARN_ON(p == rq->curr);
 	/*
 	 * Since we are migrating a blocked donor, it could be rq->donor,
 	 * and we want to make sure there aren't any references from this
@@ -6862,13 +6922,20 @@ static void proxy_migrate_task(struct rq *rq, struct rq_flags *rf,
 	 * before we release the lock.
 	 */
 	proxy_resched_idle(rq);
-
-	deactivate_task(rq, p, DEQUEUE_NOCLOCK);
-	proxy_set_task_cpu(p, target_cpu);
-
+	for (; p; p = p->blocked_donor) {
+		WARN_ON(p == rq->curr);
+		deactivate_task(rq, p, DEQUEUE_NOCLOCK);
+		proxy_set_task_cpu(p, target_cpu);
+		/*
+		 * We can re-use se.group_node to migrate the thing,
+		 * because @p is deactivated (won't be balanced) and
+		 * we hold the rq_lock.
+		 */
+		list_add(&p->se.group_node, &migrate_list);
+	}
 	proxy_release_rq_lock(rq, rf);
 
-	attach_one_task(target_rq, p);
+	__attach_tasks(target_rq, &migrate_list);
 
 	proxy_reacquire_rq_lock(rq, rf);
 }
@@ -6961,7 +7028,7 @@ find_proxy_task(struct rq *rq, struct task_struct *donor, struct rq_flags *rf)
 		if (!READ_ONCE(owner->on_rq) || owner->se.sched_delayed) {
 			/* XXX Don't handle blocked owners/delayed dequeue yet */
 			if (curr_in_chain)
-				return proxy_resched_idle(rq);
+				goto resched_idle;
 			__clear_task_blocked_on(p, NULL);
 			goto deactivate;
 		}
@@ -6973,7 +7040,7 @@ find_proxy_task(struct rq *rq, struct task_struct *donor, struct rq_flags *rf)
 			 * and leave that CPU to sort things out.
 			 */
 			if (curr_in_chain)
-				return proxy_resched_idle(rq);
+				goto resched_idle;
 			goto migrate_task;
 		}
 
@@ -6986,7 +7053,7 @@ find_proxy_task(struct rq *rq, struct task_struct *donor, struct rq_flags *rf)
 			 * case we should end up back in find_proxy_task(), this time
 			 * hopefully with all relevant tasks already enqueued.
 			 */
-			return proxy_resched_idle(rq);
+			goto resched_idle;
 		}
 
 		/*
@@ -7023,7 +7090,7 @@ find_proxy_task(struct rq *rq, struct task_struct *donor, struct rq_flags *rf)
 			 * So schedule rq->idle so that ttwu_runnable() can get the rq
 			 * lock and mark owner as running.
 			 */
-			return proxy_resched_idle(rq);
+			goto resched_idle;
 		}
 		/*
 		 * OK, now we're absolutely sure @owner is on this
@@ -7033,8 +7100,18 @@ find_proxy_task(struct rq *rq, struct task_struct *donor, struct rq_flags *rf)
 		owner->blocked_donor = p;
 	}
 	WARN_ON_ONCE(owner && !owner->on_rq);
+
+	if (owner && !sched_cpu_cookie_match(rq, owner)) {
+		if (curr_in_chain)
+			return proxy_resched_idle(rq);
+		p = donor; /* Deactivate the donor, not the runnable owner */
+		clear_task_blocked_on(p, NULL);
+		goto deactivate;
+	}
 	return owner;
 
+resched_idle:
+	return proxy_resched_idle(rq);
 deactivate:
 	proxy_deactivate(rq, p);
 	return NULL;
@@ -7166,13 +7243,12 @@ static void __sched notrace __schedule(int sched_mode)
 		}
 	} else if (!preempt && prev_state) {
 		/*
-		 * We pass task_is_blocked() as the should_block arg
-		 * in order to keep mutex-blocked tasks on the runqueue
-		 * for slection with proxy-exec (without proxy-exec
-		 * task_is_blocked() will always be false).
+		 * Keep mutex-blocked tasks on the runqueue for proxy execution
+		 * only when their scheduling class allows it. Without proxy
+		 * execution, task_is_blocked() always returns false.
 		 */
 		try_to_block_task(rq, prev, &prev_state,
-				  !task_is_blocked(prev));
+				  !task_is_blocked(prev) || !scx_allow_proxy_exec(prev));
 		switch_count = &prev->nvcsw;
 	}
 
@@ -7193,6 +7269,7 @@ pick_again:
 			}
 			if (next == rq->idle) {
 				zap_balance_callbacks(rq);
+				scx_proxy_reenqueue_retry(rq, next);
 				goto keep_resched;
 			}
 		}
@@ -7211,8 +7288,10 @@ pick_again:
 			 * on_cpu.
 			 */
 			donor->sched_class->put_prev_task(rq, donor, donor);
-			donor->sched_class->set_next_task(rq, donor, true);
+			donor->sched_class->set_next_task(rq, donor, SNT_PICK);
 		}
+		scx_proxy_donor_start(rq);
+		scx_proxy_reenqueue_retry(rq, next);
 	} else {
 		rq_set_donor(rq, next);
 	}
@@ -7471,27 +7550,6 @@ asmlinkage __visible void __sched notrace preempt_schedule(void)
 NOKPROBE_SYMBOL(preempt_schedule);
 EXPORT_SYMBOL(preempt_schedule);
 
-#ifdef CONFIG_PREEMPT_DYNAMIC
-# ifdef CONFIG_HAVE_PREEMPT_DYNAMIC_CALL
-#  ifndef preempt_schedule_dynamic_enabled
-#   define preempt_schedule_dynamic_enabled	preempt_schedule
-#   define preempt_schedule_dynamic_disabled	NULL
-#  endif
-DEFINE_STATIC_CALL(preempt_schedule, preempt_schedule_dynamic_enabled);
-EXPORT_STATIC_CALL_TRAMP(preempt_schedule);
-# elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
-static DEFINE_STATIC_KEY_TRUE(sk_dynamic_preempt_schedule);
-void __sched notrace dynamic_preempt_schedule(void)
-{
-	if (!static_branch_unlikely(&sk_dynamic_preempt_schedule))
-		return;
-	preempt_schedule();
-}
-NOKPROBE_SYMBOL(dynamic_preempt_schedule);
-EXPORT_SYMBOL(dynamic_preempt_schedule);
-# endif
-#endif /* CONFIG_PREEMPT_DYNAMIC */
-
 /**
  * preempt_schedule_notrace - preempt_schedule called by tracing
  *
@@ -7543,27 +7601,6 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
 	} while (need_resched());
 }
 EXPORT_SYMBOL_GPL(preempt_schedule_notrace);
-
-#ifdef CONFIG_PREEMPT_DYNAMIC
-# if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
-#  ifndef preempt_schedule_notrace_dynamic_enabled
-#   define preempt_schedule_notrace_dynamic_enabled	preempt_schedule_notrace
-#   define preempt_schedule_notrace_dynamic_disabled	NULL
-#  endif
-DEFINE_STATIC_CALL(preempt_schedule_notrace, preempt_schedule_notrace_dynamic_enabled);
-EXPORT_STATIC_CALL_TRAMP(preempt_schedule_notrace);
-# elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
-static DEFINE_STATIC_KEY_TRUE(sk_dynamic_preempt_schedule_notrace);
-void __sched notrace dynamic_preempt_schedule_notrace(void)
-{
-	if (!static_branch_unlikely(&sk_dynamic_preempt_schedule_notrace))
-		return;
-	preempt_schedule_notrace();
-}
-NOKPROBE_SYMBOL(dynamic_preempt_schedule_notrace);
-EXPORT_SYMBOL(dynamic_preempt_schedule_notrace);
-# endif
-#endif
 
 #endif /* CONFIG_PREEMPTION */
 
@@ -7765,7 +7802,7 @@ out_unlock:
 }
 #endif /* CONFIG_RT_MUTEXES */
 
-#if !defined(CONFIG_PREEMPTION) || defined(CONFIG_PREEMPT_DYNAMIC)
+#if !defined(CONFIG_PREEMPTION)
 int __sched __cond_resched(void)
 {
 	if (should_resched(0) && !irqs_disabled()) {
@@ -7792,38 +7829,6 @@ int __sched __cond_resched(void)
 }
 EXPORT_SYMBOL(__cond_resched);
 #endif
-
-#ifdef CONFIG_PREEMPT_DYNAMIC
-# ifdef CONFIG_HAVE_PREEMPT_DYNAMIC_CALL
-#  define cond_resched_dynamic_enabled	__cond_resched
-#  define cond_resched_dynamic_disabled	((void *)&__static_call_return0)
-DEFINE_STATIC_CALL_RET0(cond_resched, __cond_resched);
-EXPORT_STATIC_CALL_TRAMP(cond_resched);
-
-#  define might_resched_dynamic_enabled	__cond_resched
-#  define might_resched_dynamic_disabled ((void *)&__static_call_return0)
-DEFINE_STATIC_CALL_RET0(might_resched, __cond_resched);
-EXPORT_STATIC_CALL_TRAMP(might_resched);
-# elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
-static DEFINE_STATIC_KEY_FALSE(sk_dynamic_cond_resched);
-int __sched dynamic_cond_resched(void)
-{
-	if (!static_branch_unlikely(&sk_dynamic_cond_resched))
-		return 0;
-	return __cond_resched();
-}
-EXPORT_SYMBOL(dynamic_cond_resched);
-
-static DEFINE_STATIC_KEY_FALSE(sk_dynamic_might_resched);
-int __sched dynamic_might_resched(void)
-{
-	if (!static_branch_unlikely(&sk_dynamic_might_resched))
-		return 0;
-	return __cond_resched();
-}
-EXPORT_SYMBOL(dynamic_might_resched);
-# endif
-#endif /* CONFIG_PREEMPT_DYNAMIC */
 
 /*
  * __cond_resched_lock() - if a reschedule is pending, drop the given lock,
@@ -7894,50 +7899,21 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
 # endif
 
 /*
- * SC:cond_resched
- * SC:might_resched
- * SC:preempt_schedule
- * SC:preempt_schedule_notrace
- * SC:irqentry_exit_cond_resched
- *
- *
  * NONE:
- *   cond_resched               <- __cond_resched
- *   might_resched              <- RET0
- *   preempt_schedule           <- NOP
- *   preempt_schedule_notrace   <- NOP
- *   irqentry_exit_cond_resched <- NOP
- *   dynamic_preempt_lazy       <- false
+ *   (unselectable)
  *
  * VOLUNTARY:
- *   cond_resched               <- __cond_resched
- *   might_resched              <- __cond_resched
- *   preempt_schedule           <- NOP
- *   preempt_schedule_notrace   <- NOP
- *   irqentry_exit_cond_resched <- NOP
- *   dynamic_preempt_lazy       <- false
+ *   (unselectable)
  *
  * FULL:
- *   cond_resched               <- RET0
- *   might_resched              <- RET0
- *   preempt_schedule           <- preempt_schedule
- *   preempt_schedule_notrace   <- preempt_schedule_notrace
- *   irqentry_exit_cond_resched <- irqentry_exit_cond_resched
  *   dynamic_preempt_lazy       <- false
  *
  * LAZY:
- *   cond_resched               <- RET0
- *   might_resched              <- RET0
- *   preempt_schedule           <- preempt_schedule
- *   preempt_schedule_notrace   <- preempt_schedule_notrace
- *   irqentry_exit_cond_resched <- irqentry_exit_cond_resched
  *   dynamic_preempt_lazy       <- true
  */
 
 enum {
 	preempt_dynamic_undefined = -1,
-	preempt_dynamic_none,
-	preempt_dynamic_voluntary,
 	preempt_dynamic_full,
 	preempt_dynamic_lazy,
 };
@@ -7946,21 +7922,11 @@ int preempt_dynamic_mode = preempt_dynamic_undefined;
 
 int sched_dynamic_mode(const char *str)
 {
-# if !(defined(CONFIG_PREEMPT_RT) || defined(CONFIG_ARCH_HAS_PREEMPT_LAZY))
-	if (!strcmp(str, "none"))
-		return preempt_dynamic_none;
-
-	if (!strcmp(str, "voluntary"))
-		return preempt_dynamic_voluntary;
-# endif
-
 	if (!strcmp(str, "full"))
 		return preempt_dynamic_full;
 
-# ifdef CONFIG_ARCH_HAS_PREEMPT_LAZY
 	if (!strcmp(str, "lazy"))
 		return preempt_dynamic_lazy;
-# endif
 
 	return -EINVAL;
 }
@@ -7968,71 +7934,18 @@ int sched_dynamic_mode(const char *str)
 # define preempt_dynamic_key_enable(f)	static_key_enable(&sk_dynamic_##f.key)
 # define preempt_dynamic_key_disable(f)	static_key_disable(&sk_dynamic_##f.key)
 
-# if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
-#  define preempt_dynamic_enable(f)	static_call_update(f, f##_dynamic_enabled)
-#  define preempt_dynamic_disable(f)	static_call_update(f, f##_dynamic_disabled)
-# elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
-#  define preempt_dynamic_enable(f)	preempt_dynamic_key_enable(f)
-#  define preempt_dynamic_disable(f)	preempt_dynamic_key_disable(f)
-# else
-#  error "Unsupported PREEMPT_DYNAMIC mechanism"
-# endif
-
 static DEFINE_MUTEX(sched_dynamic_mutex);
 
 static void __sched_dynamic_update(int mode)
 {
-	/*
-	 * Avoid {NONE,VOLUNTARY} -> FULL transitions from ever ending up in
-	 * the ZERO state, which is invalid.
-	 */
-	preempt_dynamic_enable(cond_resched);
-	preempt_dynamic_enable(might_resched);
-	preempt_dynamic_enable(preempt_schedule);
-	preempt_dynamic_enable(preempt_schedule_notrace);
-	preempt_dynamic_enable(irqentry_exit_cond_resched);
-	preempt_dynamic_key_disable(preempt_lazy);
-
 	switch (mode) {
-	case preempt_dynamic_none:
-		preempt_dynamic_enable(cond_resched);
-		preempt_dynamic_disable(might_resched);
-		preempt_dynamic_disable(preempt_schedule);
-		preempt_dynamic_disable(preempt_schedule_notrace);
-		preempt_dynamic_disable(irqentry_exit_cond_resched);
-		preempt_dynamic_key_disable(preempt_lazy);
-		if (mode != preempt_dynamic_mode)
-			pr_info("Dynamic Preempt: none\n");
-		break;
-
-	case preempt_dynamic_voluntary:
-		preempt_dynamic_enable(cond_resched);
-		preempt_dynamic_enable(might_resched);
-		preempt_dynamic_disable(preempt_schedule);
-		preempt_dynamic_disable(preempt_schedule_notrace);
-		preempt_dynamic_disable(irqentry_exit_cond_resched);
-		preempt_dynamic_key_disable(preempt_lazy);
-		if (mode != preempt_dynamic_mode)
-			pr_info("Dynamic Preempt: voluntary\n");
-		break;
-
 	case preempt_dynamic_full:
-		preempt_dynamic_disable(cond_resched);
-		preempt_dynamic_disable(might_resched);
-		preempt_dynamic_enable(preempt_schedule);
-		preempt_dynamic_enable(preempt_schedule_notrace);
-		preempt_dynamic_enable(irqentry_exit_cond_resched);
 		preempt_dynamic_key_disable(preempt_lazy);
 		if (mode != preempt_dynamic_mode)
 			pr_info("Dynamic Preempt: full\n");
 		break;
 
 	case preempt_dynamic_lazy:
-		preempt_dynamic_disable(cond_resched);
-		preempt_dynamic_disable(might_resched);
-		preempt_dynamic_enable(preempt_schedule);
-		preempt_dynamic_enable(preempt_schedule_notrace);
-		preempt_dynamic_enable(irqentry_exit_cond_resched);
 		preempt_dynamic_key_enable(preempt_lazy);
 		if (mode != preempt_dynamic_mode)
 			pr_info("Dynamic Preempt: lazy\n");
@@ -8065,11 +7978,7 @@ __setup("preempt=", setup_preempt_mode);
 static void __init preempt_dynamic_init(void)
 {
 	if (preempt_dynamic_mode == preempt_dynamic_undefined) {
-		if (IS_ENABLED(CONFIG_PREEMPT_NONE)) {
-			sched_dynamic_update(preempt_dynamic_none);
-		} else if (IS_ENABLED(CONFIG_PREEMPT_VOLUNTARY)) {
-			sched_dynamic_update(preempt_dynamic_voluntary);
-		} else if (IS_ENABLED(CONFIG_PREEMPT_LAZY)) {
+		if (IS_ENABLED(CONFIG_PREEMPT_LAZY)) {
 			sched_dynamic_update(preempt_dynamic_lazy);
 		} else {
 			/* Default static call setting, nothing to do */
@@ -8089,8 +7998,6 @@ static void __init preempt_dynamic_init(void)
 	}								\
 	EXPORT_SYMBOL_GPL(preempt_model_##mode)
 
-PREEMPT_MODEL_ACCESSOR(none);
-PREEMPT_MODEL_ACCESSOR(voluntary);
 PREEMPT_MODEL_ACCESSOR(full);
 PREEMPT_MODEL_ACCESSOR(lazy);
 
@@ -8103,7 +8010,7 @@ static inline void preempt_dynamic_init(void) { }
 #endif /* CONFIG_PREEMPT_DYNAMIC */
 
 const char *preempt_modes[] = {
-	"none", "voluntary", "full", "lazy", NULL,
+	"full", "lazy", NULL,
 };
 
 const char *preempt_model_str(void)
@@ -9232,7 +9139,7 @@ void __might_resched(const char *file, int line, unsigned int offsets)
 }
 EXPORT_SYMBOL(__might_resched);
 
-void __cant_sleep(const char *file, int line, int preempt_offset)
+void __cant_sleep(const char *file, int line)
 {
 	static unsigned long prev_jiffy;
 
@@ -9242,7 +9149,7 @@ void __cant_sleep(const char *file, int line, int preempt_offset)
 	if (!IS_ENABLED(CONFIG_PREEMPT_COUNT))
 		return;
 
-	if (preempt_count() > preempt_offset)
+	if (preempt_count())
 		return;
 
 	if (time_before(jiffies, prev_jiffy + HZ) && prev_jiffy)
@@ -9274,7 +9181,7 @@ void __cant_migrate(const char *file, int line)
 	if (!IS_ENABLED(CONFIG_PREEMPT_COUNT))
 		return;
 
-	if (preempt_count() > 0)
+	if (preempt_count())
 		return;
 
 	if (time_before(jiffies, prev_jiffy + HZ) && prev_jiffy)
