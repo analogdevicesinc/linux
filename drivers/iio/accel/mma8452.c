@@ -122,21 +122,21 @@ struct mma8452_data {
 	u8 data_cfg;
 };
 
- /**
-  * struct mma8452_event_regs - chip specific data related to events
-  * @ev_cfg:			event config register address
-  * @ev_cfg_ele:			latch bit in event config register
-  * @ev_cfg_chan_shift:		number of the bit to enable events in X
-  *				direction; in event config register
-  * @ev_src:			event source register address
-  * @ev_ths:			event threshold register address
-  * @ev_ths_mask:		mask for the threshold value
-  * @ev_count:			event count (period) register address
-  *
-  * Since not all chips supported by the driver support comparing high pass
-  * filtered data for events (interrupts), different interrupt sources are
-  * used for different chips and the relevant registers are included here.
-  */
+/**
+ * struct mma8452_event_regs - chip specific data related to events
+ * @ev_cfg:			event config register address
+ * @ev_cfg_ele:			latch bit in event config register
+ * @ev_cfg_chan_shift:		number of the bit to enable events in X
+ *				direction; in event config register
+ * @ev_src:			event source register address
+ * @ev_ths:			event threshold register address
+ * @ev_ths_mask:		mask for the threshold value
+ * @ev_count:			event count (period) register address
+ *
+ * Since not all chips supported by the driver support comparing high pass
+ * filtered data for events (interrupts), different interrupt sources are
+ * used for different chips and the relevant registers are included here.
+ */
 struct mma8452_event_regs {
 	u8 ev_cfg;
 	u8 ev_cfg_ele;
