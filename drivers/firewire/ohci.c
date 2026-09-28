@@ -307,7 +307,7 @@ static bool detect_vt630x_with_asm1083_on_amd_ryzen_machine(const struct pci_dev
 	const struct pci_dev *pcie_to_pci_bridge;
 
 	// Detect any type of AMD Ryzen machine.
-	if (!static_cpu_has(X86_FEATURE_ZEN))
+	if (!cpu_feature_enabled(X86_FEATURE_ZEN))
 		return false;
 
 	// Detect VIA VT6306/6307/6308.
@@ -540,10 +540,12 @@ static void ar_context_link_page(struct ar_context *ctx, unsigned int index)
 
 static void ar_context_release(struct ar_context *ctx)
 {
-	struct device *dev = ctx->ohci->card.device;
+	struct device *dev;
 
 	if (!ctx->buffer)
 		return;
+
+	dev = ctx->ohci->card.device;
 
 	for (int i = 0; i < AR_BUFFERS; ++i) {
 		dma_addr_t dma_addr = ctx->dma_addrs[i];

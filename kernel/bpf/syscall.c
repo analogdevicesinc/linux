@@ -636,7 +636,6 @@ int bpf_map_alloc_pages(const struct bpf_map *map, int nid,
 	return ret;
 }
 
-
 static int btf_field_cmp(const void *a, const void *b)
 {
 	const struct btf_field *f1 = a, *f2 = b;
@@ -1077,9 +1076,22 @@ static void bpf_map_mmap_close(struct vm_area_struct *vma)
 		bpf_map_write_active_dec(map);
 }
 
+static vm_fault_t bpf_map_mmap_fault(struct vm_fault *vmf)
+{
+	struct bpf_map *map = vmf->vma->vm_private_data;
+
+	return map->ops->map_mmap_fault(map, vmf);
+}
+
 static const struct vm_operations_struct bpf_map_default_vmops = {
 	.open		= bpf_map_mmap_open,
 	.close		= bpf_map_mmap_close,
+};
+
+static const struct vm_operations_struct bpf_map_lazy_vmops = {
+	.open		= bpf_map_mmap_open,
+	.close		= bpf_map_mmap_close,
+	.fault		= bpf_map_mmap_fault,
 };
 
 static int bpf_map_mmap(struct file *filp, struct vm_area_struct *vma)
@@ -1117,7 +1129,7 @@ out:
 		return err;
 
 	/* set default open/close callbacks */
-	vma->vm_ops = &bpf_map_default_vmops;
+	vma->vm_ops = map->ops->map_mmap_fault ? &bpf_map_lazy_vmops : &bpf_map_default_vmops;
 	vma->vm_private_data = map;
 	vm_flags_clear(vma, VM_MAYEXEC);
 	/* If mapping is read-only, then disallow potentially re-mapping with
@@ -1829,7 +1841,6 @@ free_key:
 	kvfree(key);
 	return err;
 }
-
 
 #define BPF_MAP_UPDATE_ELEM_LAST_FIELD flags
 
@@ -3496,7 +3507,6 @@ int bpf_link_prime(struct bpf_link *link, struct bpf_link_primer *primer)
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0)
 		return fd;
-
 
 	id = bpf_link_alloc_id(link);
 	if (id < 0) {
@@ -5505,7 +5515,6 @@ static int bpf_link_get_info_by_fd(struct file *file,
 	return 0;
 }
 
-
 static int token_get_info_by_fd(struct file *file,
 				struct bpf_token *token,
 				const union bpf_attr *attr,
@@ -6506,7 +6515,6 @@ BPF_CALL_3(bpf_sys_bpf, int, cmd, union bpf_attr *, attr, u32, attr_size)
 	}
 	return __sys_bpf(cmd, KERNEL_BPFPTR(attr), attr_size, KERNEL_BPFPTR(NULL), 0);
 }
-
 
 /* To shut up -Wmissing-prototypes.
  * This function is used by the kernel light skeleton

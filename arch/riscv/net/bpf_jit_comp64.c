@@ -1823,9 +1823,10 @@ int bpf_jit_emit_insn(const struct bpf_insn *insn, struct rv_jit_context *ctx,
 
 			for (idx = 0; idx < fm->nr_args; idx++) {
 				u8 reg = bpf_to_rv_reg(BPF_REG_1 + idx, ctx);
+				bool sign = fm->arg_flags[idx] & BTF_FMODEL_SIGNED_ARG;
 
-				if (fm->arg_size[idx] == sizeof(int))
-					emit_sextw(reg, reg, ctx);
+				if (sign_extend(reg, reg, fm->arg_size[idx], sign, ctx))
+					return -EINVAL;
 			}
 		}
 
@@ -1992,10 +1993,19 @@ int bpf_jit_emit_insn(const struct bpf_insn *insn, struct rv_jit_context *ctx,
 			ret = emit_atomic_rmw(rd, rs, insn, ctx);
 
 		/* ret can be 1 (skip-zext); extable entry still needs to be added */
-		if (ret >= 0)
-			ret = add_exception_handler(insn,
-				bpf_atomic_is_load_acq(insn) ? rd : REG_DONT_CLEAR_MARKER,
-				ctx) ?: ret;
+		if (ret >= 0) {
+			/*
+			 * A load-acquire reads into dst_reg, and a read-modify-write
+			 * carrying BPF_FETCH reads the old value into src_reg, or into
+			 * r0 for a BPF_CMPXCHG. Clear that register on fault, the
+			 * remaining atomics have no destination register.
+			 */
+			int load_reg = bpf_atomic_load_reg(insn);
+
+			ret = add_exception_handler(insn, load_reg < 0 ?
+					REG_DONT_CLEAR_MARKER : regmap[load_reg],
+					ctx) ?: ret;
+		}
 
 		if (ret)
 			return ret;

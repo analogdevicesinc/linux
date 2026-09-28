@@ -1629,7 +1629,8 @@ static void wakeup_preempt_rt(struct rq *rq, struct task_struct *p, int flags)
 	/*
 	 * XXX If we're preempted by DL, queue a push?
 	 */
-	if (p->sched_class != &rt_sched_class)
+	if (p->sched_class != &rt_sched_class ||
+	    donor->sched_class != &rt_sched_class)
 		return;
 
 	if (p->prio < donor->prio) {
@@ -1653,10 +1654,13 @@ static void wakeup_preempt_rt(struct rq *rq, struct task_struct *p, int flags)
 		check_preempt_equal_prio(rq, p);
 }
 
-static inline void set_next_task_rt(struct rq *rq, struct task_struct *p, bool first)
+static inline void set_next_task_rt(struct rq *rq, struct task_struct *p, enum snt_e type)
 {
 	struct sched_rt_entity *rt_se = &p->rt;
 	struct rt_rq *rt_rq = &rq->rt;
+
+	if (type == SNT_REPICK)
+		return;
 
 	p->se.exec_start = rq_clock_task(rq);
 	if (on_rt_rq(&p->rt))
@@ -1665,7 +1669,7 @@ static inline void set_next_task_rt(struct rq *rq, struct task_struct *p, bool f
 	/* The running task is never eligible for pushing */
 	dequeue_pushable_task(rq, p);
 
-	if (!first)
+	if (type != SNT_PICK)
 		return;
 
 	/*
@@ -1871,8 +1875,8 @@ static struct task_struct *pick_next_pushable_task(struct rq *rq)
 		return NULL;
 
 	plist_for_each_entry(i, head, pushable_tasks) {
-		/* make sure task isn't on_cpu (possible with proxy-exec) */
-		if (!task_on_cpu(rq, i)) {
+		/* skip tasks that cannot be migrated */
+		if (!task_on_cpu(rq, i) && !is_migration_disabled(i)) {
 			p = i;
 			break;
 		}

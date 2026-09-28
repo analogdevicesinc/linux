@@ -49,16 +49,7 @@ static int insn_def_regno(const struct bpf_insn *insn)
 	case BPF_ST:
 		return -1;
 	case BPF_STX:
-		if (BPF_MODE(insn->code) == BPF_ATOMIC ||
-		    BPF_MODE(insn->code) == BPF_PROBE_ATOMIC) {
-			if (insn->imm == BPF_CMPXCHG)
-				return BPF_REG_0;
-			else if (insn->imm == BPF_LOAD_ACQ)
-				return insn->dst_reg;
-			else if (insn->imm & BPF_FETCH)
-				return insn->src_reg;
-		}
-		return -1;
+		return bpf_atomic_load_reg(insn);
 	default:
 		return insn->dst_reg;
 	}
@@ -239,6 +230,7 @@ static void adjust_insn_aux_data(struct bpf_verifier_env *env,
 	if (cnt == 1)
 		return;
 	prog_len = new_prog->len;
+	env->insn_aux_data_len = prog_len;
 
 	memmove(data + off + cnt - 1, data + off,
 		sizeof(struct bpf_insn_aux_data) * (prog_len - off - cnt + 1));
@@ -410,13 +402,17 @@ static int adjust_subprog_starts_after_remove(struct bpf_verifier_env *env,
 			sizeof(*env->subprog_info) * move);
 		env->subprog_cnt -= j - i;
 
-		/* remove func_info */
+		/* remove func_info and its aux */
 		if (aux->func_info) {
 			move = aux->func_info_cnt - j;
 
 			memmove(aux->func_info + i,
 				aux->func_info + j,
 				sizeof(*aux->func_info) * move);
+			if (aux->func_info_aux)
+				memmove(aux->func_info_aux + i,
+					aux->func_info_aux + j,
+					sizeof(*aux->func_info_aux) * move);
 			aux->func_info_cnt -= j - i;
 			/* func_info->insn_off is set after all code rewrites,
 			 * in adjust_btf_func() - no need to adjust
@@ -505,7 +501,6 @@ static int bpf_adj_linfo_after_remove(struct bpf_verifier_env *env, u32 off,
 void bpf_clear_insn_aux_data(struct bpf_verifier_env *env, int start, int len)
 {
 	struct bpf_insn_aux_data *aux_data = env->insn_aux_data;
-	struct bpf_insn *insns = env->prog->insnsi;
 	int end = start + len;
 	int i;
 
@@ -514,9 +509,6 @@ void bpf_clear_insn_aux_data(struct bpf_verifier_env *env, int start, int len)
 			kvfree(aux_data[i].jt);
 			aux_data[i].jt = NULL;
 		}
-
-		if (bpf_is_ldimm64(&insns[i]))
-			i++;
 	}
 }
 
@@ -529,7 +521,6 @@ static int verifier_remove_insns(struct bpf_verifier_env *env, u32 off, u32 cnt)
 	if (bpf_prog_is_offloaded(env->prog->aux))
 		bpf_prog_offload_remove_insns(env, off, cnt);
 
-	/* Should be called before bpf_remove_insns, as it uses prog->insnsi */
 	bpf_clear_insn_aux_data(env, off, cnt);
 
 	err = bpf_remove_insns(env->prog, off, cnt);
@@ -548,6 +539,7 @@ static int verifier_remove_insns(struct bpf_verifier_env *env, u32 off, u32 cnt)
 
 	memmove(aux_data + off,	aux_data + off + cnt,
 		sizeof(*aux_data) * (orig_prog_len - off - cnt));
+	env->insn_aux_data_len -= cnt;
 
 	return 0;
 }
@@ -820,6 +812,7 @@ int bpf_convert_ctx_accesses(struct bpf_verifier_env *env)
 
 	for (i = 0; i < insn_cnt; i++, insn++) {
 		bpf_convert_ctx_access_t convert_ctx_access;
+		enum bpf_reg_type ptr_type;
 		u8 mode;
 
 		if (env->insn_aux_data[i + delta].nospec) {
@@ -912,7 +905,8 @@ int bpf_convert_ctx_accesses(struct bpf_verifier_env *env)
 			continue;
 		}
 
-		switch ((int)env->insn_aux_data[i + delta].ptr_type) {
+		ptr_type = env->insn_aux_data[i + delta].ptr_type;
+		switch ((int)ptr_type) {
 		case PTR_TO_CTX:
 			if (!ops->convert_ctx_access)
 				continue;
@@ -928,26 +922,6 @@ int bpf_convert_ctx_accesses(struct bpf_verifier_env *env)
 		case PTR_TO_XDP_SOCK:
 			convert_ctx_access = bpf_xdp_sock_convert_ctx_access;
 			break;
-		case PTR_TO_BTF_ID:
-		case PTR_TO_BTF_ID | PTR_UNTRUSTED:
-		/* PTR_TO_BTF_ID | MEM_ALLOC always has a valid lifetime, unlike
-		 * PTR_TO_BTF_ID, and an active referenced id, but the same cannot
-		 * be said once it is marked PTR_UNTRUSTED, hence we must handle
-		 * any faults for loads into such types. BPF_WRITE is disallowed
-		 * for this case.
-		 */
-		case PTR_TO_BTF_ID | MEM_ALLOC | PTR_UNTRUSTED:
-		case PTR_TO_MEM | MEM_RDONLY | PTR_UNTRUSTED:
-			if (type == BPF_READ) {
-				if (BPF_MODE(insn->code) == BPF_MEM)
-					insn->code = BPF_LDX | BPF_PROBE_MEM |
-						     BPF_SIZE((insn)->code);
-				else
-					insn->code = BPF_LDX | BPF_PROBE_MEMSX |
-						     BPF_SIZE((insn)->code);
-				env->prog->aux->num_exentries++;
-			}
-			continue;
 		case PTR_TO_ARENA:
 			if (BPF_MODE(insn->code) == BPF_MEMSX) {
 				if (!bpf_jit_supports_insn(insn, true)) {
@@ -961,6 +935,29 @@ int bpf_convert_ctx_accesses(struct bpf_verifier_env *env)
 			env->prog->aux->num_exentries++;
 			continue;
 		default:
+			/*
+			 * A pointer which may fault on a dereference must not
+			 * be loaded from without fault protection, hence turn
+			 * the BPF_LDX into a BPF_PROBE_MEM one so that a bad
+			 * address is handled rather than panicking the kernel.
+			 * A store through one is rejected earlier, there is no
+			 * probed counterpart to rewrite it into.
+			 */
+			if (bpf_is_ptr_to_mem_or_btf_id(ptr_type) &&
+			    bpf_may_fault_on_deref(ptr_type) &&
+			    type == BPF_READ) {
+				if (BPF_MODE(insn->code) == BPF_MEM)
+					insn->code = BPF_LDX | BPF_PROBE_MEM |
+						     BPF_SIZE(insn->code);
+				else
+					insn->code = BPF_LDX | BPF_PROBE_MEMSX |
+						     BPF_SIZE(insn->code);
+				env->prog->aux->num_exentries++;
+				continue;
+			}
+			if (verifier_bug_if(bpf_may_fault_on_deref(ptr_type), env,
+					    "access to a fault prone pointer is not rewritten as a probed one"))
+				return -EFAULT;
 			continue;
 		}
 
@@ -1064,26 +1061,6 @@ static void bpf_restore_subprog_starts(struct bpf_verifier_env *env, u32 *orig_s
 		env->subprog_info[i].start = orig_starts[i];
 	/* restore the start of fake 'exit' subprog as well */
 	env->subprog_info[env->subprog_cnt].start = env->prog->len;
-}
-
-struct bpf_insn_aux_data *bpf_dup_insn_aux_data(struct bpf_verifier_env *env)
-{
-	size_t size;
-	void *new_aux;
-
-	size = array_size(sizeof(struct bpf_insn_aux_data), env->prog->len);
-	new_aux = __vmalloc(size, GFP_KERNEL_ACCOUNT);
-	if (new_aux)
-		memcpy(new_aux, env->insn_aux_data, size);
-	return new_aux;
-}
-
-void bpf_restore_insn_aux_data(struct bpf_verifier_env *env,
-			       struct bpf_insn_aux_data *orig_insn_aux)
-{
-	/* the expanded elements are zero-filled, so no special handling is required */
-	vfree(env->insn_aux_data);
-	env->insn_aux_data = orig_insn_aux;
 }
 
 static int jit_subprogs(struct bpf_verifier_env *env)
@@ -1360,7 +1337,6 @@ int bpf_jit_subprogs(struct bpf_verifier_env *env)
 	bool blinded = false;
 	struct bpf_insn *insn;
 	struct bpf_prog *prog, *orig_prog;
-	struct bpf_insn_aux_data *orig_insn_aux;
 	u32 *orig_subprog_starts;
 
 	if (env->subprog_cnt <= 1)
@@ -1368,14 +1344,8 @@ int bpf_jit_subprogs(struct bpf_verifier_env *env)
 
 	prog = orig_prog = env->prog;
 	if (bpf_prog_need_blind(prog)) {
-		orig_insn_aux = bpf_dup_insn_aux_data(env);
-		if (!orig_insn_aux) {
-			err = -ENOMEM;
-			goto out_cleanup;
-		}
 		orig_subprog_starts = bpf_dup_subprog_starts(env);
 		if (!orig_subprog_starts) {
-			vfree(orig_insn_aux);
 			err = -ENOMEM;
 			goto out_cleanup;
 		}
@@ -1395,7 +1365,6 @@ int bpf_jit_subprogs(struct bpf_verifier_env *env)
 	if (blinded) {
 		bpf_jit_prog_release_other(prog, orig_prog);
 		kvfree(orig_subprog_starts);
-		vfree(orig_insn_aux);
 	}
 
 	return 0;
@@ -1425,7 +1394,6 @@ out_jit_err:
 
 out_restore:
 	bpf_restore_subprog_starts(env, orig_subprog_starts);
-	bpf_restore_insn_aux_data(env, orig_insn_aux);
 	kvfree(orig_subprog_starts);
 out_cleanup:
 	/* cleanup main prog to be interpreted */
@@ -1506,7 +1474,6 @@ int bpf_fixup_call_args(struct bpf_verifier_env *env)
 #endif
 	return err;
 }
-
 
 /* The function requires that first instruction in 'patch' is insnsi[prog->len - 1] */
 static int add_hidden_subprog(struct bpf_verifier_env *env, struct bpf_insn *patch, int len)
@@ -1873,6 +1840,43 @@ int bpf_do_misc_fixups(struct bpf_verifier_env *env)
 			delta += cnt - 1;
 			env->prog = prog = new_prog;
 			insn = new_prog->insnsi + i + delta;
+			goto next_insn;
+		}
+
+		if (bpf_jit_supports_percpu_insn() &&
+		    insn->code == (BPF_LD | BPF_IMM | BPF_DW) &&
+		    (insn->src_reg == BPF_PSEUDO_MAP_VALUE ||
+		     insn->src_reg == BPF_PSEUDO_MAP_IDX_VALUE)) {
+			struct bpf_map *map;
+
+			aux = &env->insn_aux_data[i + delta];
+			map = env->used_maps[aux->map_index];
+			if (map->map_type != BPF_MAP_TYPE_PERCPU_ARRAY)
+				goto next_insn;
+
+			prog->jit_required = true;
+
+			/*
+			 * We are *skipping* first half of ld_imm64 insn
+			 * with 'i++;', patching over second half of it
+			 * with that same half + mov64_percpu_reg insn.
+			 * All because bpf_patch_insn_data() can only
+			 * replace one 8-byte insn, which does not work
+			 * well for ld_imm64 insn.
+			 */
+
+			insn_buf[0] = insn[1];
+			insn_buf[1] = BPF_MOV64_PERCPU_REG(insn->dst_reg, insn->dst_reg);
+			cnt = 2;
+
+			i++;
+			new_prog = bpf_patch_insn_data(env, i + delta, insn_buf, cnt);
+			if (!new_prog)
+				return -ENOMEM;
+
+			delta    += cnt - 1;
+			env->prog = prog = new_prog;
+			insn      = new_prog->insnsi + i + delta;
 			goto next_insn;
 		}
 
