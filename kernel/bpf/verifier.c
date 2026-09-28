@@ -9501,7 +9501,7 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 	case ARG_PTR_TO_BTF_ID_SOCK_COMMON:
 	{
 		const u32 *arg_btf_id = fn->arg_btf_id[arg];
-		const struct btf *arg_btf = meta->btf ?: btf_vmlinux;
+		const struct btf *arg_btf = is_kfunc(meta) ? meta->btf : btf_vmlinux;
 
 		if (!meta->btf) {
 			const struct bpf_reg_types *compatible;
@@ -9529,8 +9529,8 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 			}
 		}
 
-		if (meta->btf && (!is_trusted_reg(env, reg) ||
-				  bpf_type_has_unsafe_modifiers(reg->type))) {
+		if (is_kfunc(meta) && (!is_trusted_reg(env, reg) ||
+				       bpf_type_has_unsafe_modifiers(reg->type))) {
 			if (!(arg_type & MEM_RCU)) {
 				const char *actual_type, *arg_name, *expected_type;
 
@@ -10806,6 +10806,8 @@ static void gen_subprog_arg_proto(const struct bpf_subprog_info *sub, const stru
 			arg_type = ARG_IGNORE;
 		} else if (base_type(arg_type) == ARG_PTR_TO_ARENA) {
 			arg_type |= PTR_MAYBE_NULL;
+		} else if (base_type(arg_type) == ARG_PTR_TO_BTF_ID) {
+			proto->arg_btf_id[arg] = &sub->args[slot].btf_id;
 		}
 		proto->arg_type[arg] = arg_type;
 		t = btf_type_skip_modifiers(btf, args[arg].type, NULL);
@@ -10872,7 +10874,8 @@ static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog,
 
 		if (arg_type == ARG_SCALAR || arg_type == ARG_IGNORE ||
 		    arg_type == ARG_PTR_TO_CTX || arg_type == ARG_PTR_TO_DYNPTR ||
-		    base_type(arg_type) == ARG_PTR_TO_ARENA) {
+		    base_type(arg_type) == ARG_PTR_TO_ARENA ||
+		    base_type(arg_type) == ARG_PTR_TO_BTF_ID) {
 			ret = check_func_arg(env, arg, slot, 0, &meta, env->insn_idx);
 			if (ret)
 				return ret;
@@ -10900,24 +10903,6 @@ static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog,
 					reg_arg_name(env, argno));
 				return -EINVAL;
 			}
-		} else if (base_type(arg_type) == ARG_PTR_TO_BTF_ID) {
-			int err;
-
-			if (bpf_register_is_null(reg) && type_may_be_null(arg_type)) {
-				err = mark_arg_precision(env, argno);
-				if (err)
-					return err;
-				continue;
-			}
-
-			err = check_reg_type(env, reg, argno, arg_type, &meta);
-			err = err ?: check_func_arg_reg_off(env, reg, argno, arg_type);
-			if (!err && base_type(reg->type) == PTR_TO_BTF_ID)
-				err = process_arg_ptr_to_btf_id(env, reg, argno, arg_type,
-								btf_vmlinux, sub->args[slot].btf_id,
-								&meta, env->insn_idx);
-			if (err)
-				return err;
 		} else {
 			verifier_bug(env, "unrecognized %s type %d",
 				     reg_arg_name(env, argno), arg_type);
@@ -13063,7 +13048,7 @@ static int resolve_func_arg_type(struct bpf_verifier_env *env,
 	if (base_type(*arg_type) != ARG_PTR_TO_BTF_ID)
 		return 0;
 
-	if (!meta->btf || arg_type_is_release(*arg_type) ||
+	if (!is_kfunc(meta) || arg_type_is_release(*arg_type) ||
 	    base_type(reg->type) == PTR_TO_BTF_ID ||
 	    reg2btf_ids[base_type(reg->type)])
 		return 0;
