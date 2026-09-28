@@ -274,23 +274,23 @@ static inline long scx_hotplug_seq(void)
  * - v7.1:  ops.sub_attach(), ops.sub_detach(), ops.sub_cgroup_id
  * - v7.3:  ops.rescue_bandwidth_ppt, ops.rescue_quantum_us
  */
-#define __SCX_OPS_OPEN(__ops_name, __scx_name, __ops_struct) ({			\
+#define __SCX_OPS_OPEN(__ops_name, __scx_name, __ops_struct, __opts) ({		\
 	struct __scx_name *__oskel;						\
 										\
 	SCX_BUG_ON(!__COMPAT_struct_has_field(__ops_struct, "dump"),		\
 		   __ops_struct ".dump() missing, kernel too old?");		\
 										\
-	__oskel = __scx_name##__open();						\
+	__oskel = __scx_name##__open_opts(__opts);				\
 	SCX_BUG_ON(!__oskel, "Could not open " #__scx_name);			\
 	__oskel->struct_ops.__ops_name->hotplug_seq = scx_hotplug_seq();	\
 	SCX_ENUM_INIT(__oskel);							\
 	__oskel;								\
 })
 
-#define SCX_OPS_OPEN(__ops_name, __scx_name) ({					\
+#define SCX_OPS_OPEN_OPTS(__ops_name, __scx_name, __opts) ({			\
 	struct __scx_name *__skel;						\
 										\
-	__skel = __SCX_OPS_OPEN(__ops_name, __scx_name, "sched_ext_ops");	\
+	__skel = __SCX_OPS_OPEN(__ops_name, __scx_name, "sched_ext_ops", __opts); \
 	if (__skel->struct_ops.__ops_name->cgroup_set_bandwidth &&		\
 	    !__COMPAT_struct_has_field("sched_ext_ops", "cgroup_set_bandwidth")) { \
 		fprintf(stderr, "WARNING: kernel doesn't support ops.cgroup_set_bandwidth()\n"); \
@@ -329,12 +329,18 @@ static inline long scx_hotplug_seq(void)
 	__skel; 								\
 })
 
+#define SCX_OPS_OPEN(__ops_name, __scx_name)					\
+	SCX_OPS_OPEN_OPTS(__ops_name, __scx_name, 0)
+
 /*
  * Open a cid-form (struct sched_ext_ops_cid) skeleton. The cid form postdates
  * every op the load-time fix-ups above handle, so none of them apply.
  */
+#define SCX_OPS_CID_OPEN_OPTS(__ops_name, __scx_name, __opts)			\
+	__SCX_OPS_OPEN(__ops_name, __scx_name, "sched_ext_ops_cid", __opts)
+
 #define SCX_OPS_CID_OPEN(__ops_name, __scx_name)				\
-	__SCX_OPS_OPEN(__ops_name, __scx_name, "sched_ext_ops_cid")
+	SCX_OPS_CID_OPEN_OPTS(__ops_name, __scx_name, 0)
 
 /*
  * Associate non-struct_ops BPF programs with the scheduler's struct_ops map so
