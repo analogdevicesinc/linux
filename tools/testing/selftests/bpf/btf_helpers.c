@@ -114,8 +114,11 @@ int fprintf_btf_type_raw(FILE *out, const struct btf *btf, __u32 id)
 	case BTF_KIND_VOLATILE:
 	case BTF_KIND_RESTRICT:
 	case BTF_KIND_TYPEDEF:
-	case BTF_KIND_TYPE_TAG:
 		fprintf(out, " type_id=%u", t->type);
+		break;
+	case BTF_KIND_TYPE_TAG:
+		fprintf(out, " type_id=%u%s", t->type,
+			btf_kflag(t) ? " kflag=1" : "");
 		break;
 	case BTF_KIND_ARRAY: {
 		const struct btf_array *arr = btf_array(t);
@@ -203,8 +206,9 @@ int fprintf_btf_type_raw(FILE *out, const struct btf *btf, __u32 id)
 		fprintf(out, " size=%u", t->size);
 		break;
 	case BTF_KIND_DECL_TAG:
-		fprintf(out, " type_id=%u component_idx=%d",
-			t->type, btf_decl_tag(t)->component_idx);
+		fprintf(out, " type_id=%u component_idx=%d%s",
+			t->type, btf_decl_tag(t)->component_idx,
+			btf_kflag(t) ? " kflag=1" : "");
 		break;
 	case BTF_KIND_LOC_PARAM: {
 		struct btf_loc_param *p = btf_loc_param(t);
