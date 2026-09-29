@@ -1117,6 +1117,17 @@ complete_xfer:
 		} else if (xfer->cs_change) {
 			spi_transfer_delay_exec(xfer);
 			tegra_spi_transfer_end(spi);
+			spi_transfer_cs_change_delay_exec(msg, xfer);
+			if (spi_get_csgpiod(spi, 0))
+				gpiod_set_value(spi_get_csgpiod(spi, 0), 1);
+			if (!tspi->use_hw_based_cs) {
+				if (spi->mode & SPI_CS_HIGH)
+					tspi->command1_reg |= SPI_CS_SW_VAL;
+				else
+					tspi->command1_reg &= ~SPI_CS_SW_VAL;
+				tegra_spi_writel(tspi, tspi->command1_reg,
+						 SPI_COMMAND1);
+			}
 		}
 
 	}
