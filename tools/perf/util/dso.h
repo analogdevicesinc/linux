@@ -328,8 +328,14 @@ DECLARE_RC_STRUCT(dso) {
 	enum dso_load_errno	load_errno;
 	u16		 long_name_len;
 	u16		 short_name_len;
+	/*
+	 * DSO file data can be spread into multiple places.  Distros usually
+	 * place debug info to a separate file.  Symbol tables may exist in
+	 * the binary or the debug file.  Let's separate them.
+	 */
 	enum dso_binary_type	symtab_type:8;
 	enum dso_binary_type	binary_type:8;
+	enum dso_binary_type	dbginfo_type:8;
 	enum dso_space_type	kernel:2;
 	enum dso_swap_type	needs_swap:2;
 	bool			is_kmod:1;
@@ -995,6 +1001,16 @@ static inline bool dso__is_kallsyms(const struct dso *dso)
 		return true;
 
 	return is_guest_kallsyms_pid_name(name);
+}
+
+static inline enum dso_binary_type dso__dbginfo_type(const struct dso *dso)
+{
+	return RC_CHK_ACCESS(dso)->dbginfo_type;
+}
+
+static inline void dso__set_dbginfo_type(struct dso *dso, enum dso_binary_type bt)
+{
+	RC_CHK_ACCESS(dso)->dbginfo_type = bt;
 }
 
 bool dso__is_object_file(const struct dso *dso);
