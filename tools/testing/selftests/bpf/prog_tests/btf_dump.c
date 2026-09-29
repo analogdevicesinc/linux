@@ -161,12 +161,7 @@ static int test_btf_dump_case(int n, struct btf_dump_test_case *t)
 		goto done;
 	}
 
-	/*
-	 * The mismatch has already been reported, so this only has to
-	 * register the failure. ASSERT_OK() would append a stale errno to it.
-	 */
-	err = compare_text_to_expected(dump, expected);
-	ASSERT_EQ(err, 0, "compare_text_to_expected");
+	ASSERT_TEXT_EQ(dump, expected, "compare_text_to_expected");
 
 done:
 	free(expected);
@@ -224,7 +219,7 @@ static void test_ctx__dump_and_compare(struct test_ctx *t,
 	fflush(t->dump_buf_file);
 	t->dump_buf[t->dump_buf_sz] = 0; /* some libc implementations don't do this */
 
-	ASSERT_STREQ(t->dump_buf, expected_output, message);
+	ASSERT_TEXT_EQ(t->dump_buf, expected_output, message);
 }
 
 static void test_btf_dump_incremental(void)
