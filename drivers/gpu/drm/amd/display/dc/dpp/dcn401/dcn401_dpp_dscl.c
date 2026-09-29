@@ -478,8 +478,9 @@ enum lb_memory_config dpp401_dscl_find_lb_memory_config(struct dcn401_dpp *dpp,
 	int ceil_vratio_c = dc_fixpt_ceil(scl_data->ratios.vert_c);
 
 	if (dpp->base.ctx->dc->debug.use_max_lb) {
-		if (scl_data->format == PIXEL_FORMAT_420BPP8
+		if ((scl_data->format == PIXEL_FORMAT_420BPP8
 				|| scl_data->format == PIXEL_FORMAT_420BPP10)
+				&& !scl_data->upsp)
 			return LB_MEMORY_CONFIG_3;
 		return LB_MEMORY_CONFIG_0;
 	}
@@ -498,8 +499,9 @@ enum lb_memory_config dpp401_dscl_find_lb_memory_config(struct dcn401_dpp *dpp,
 			&& dpp401_dscl_is_lb_conf_valid(ceil_vratio_c, num_part_c, vtaps_c))
 		return LB_MEMORY_CONFIG_2;
 
-	if (scl_data->format == PIXEL_FORMAT_420BPP8
-			|| scl_data->format == PIXEL_FORMAT_420BPP10) {
+	if ((scl_data->format == PIXEL_FORMAT_420BPP8
+			|| scl_data->format == PIXEL_FORMAT_420BPP10)
+			&& !scl_data->upsp) {
 		dpp->base.caps->dscl_calc_lb_num_partitions(
 				scl_data, LB_MEMORY_CONFIG_3, &num_part_y, &num_part_c);
 

@@ -187,6 +187,7 @@ void dpp60_dscl_set_scaler_manual_scale(struct dpp *dpp_base,
 		v_num_taps_c = scl_data->dscl_prog_data.taps.v_taps_c;
 		h_num_taps = scl_data->dscl_prog_data.taps.h_taps;
 		h_num_taps_c = scl_data->dscl_prog_data.taps.h_taps_c;
+		ycbcr = ycbcr && !scl_data->dscl_prog_data.upsp_mode;
 	}
 
 	/* Unconditionally power on DSCL - can be in light sleep otherwise. */
@@ -280,7 +281,7 @@ void dpp60_dscl_program_upsp(struct dpp *dpp_base,
 {
 	struct dcn60_dpp *dpp = TO_DCN60_DPP(dpp_base);
 
-	REG_SET_8(UPSP_MODE, 0,
+	REG_SET_8(CNVC_UPSP_MODE, 0,
 			UPSP_MODE, dscl_prog_data->upsp_mode,
 			UPSP_V_NUM_TAPS, dscl_prog_data->upsp_v_num_taps,
 			UPSP_V_INIT_INT, dscl_prog_data->upsp_v_init_int,
@@ -289,27 +290,27 @@ void dpp60_dscl_program_upsp(struct dpp *dpp_base,
 			UPSP_H_INIT_INT, dscl_prog_data->upsp_h_init_int,
 			UPSP_H_INIT_FRAC, dscl_prog_data->upsp_h_init_frac,
 			UPSP_BOUNDARY_MODE, dscl_prog_data->upsp_boundary_mode);
-	REG_SET_4(UPSP_V_COEF_P0, 0,
+	REG_SET_4(CNVC_UPSP_V_COEF_P0, 0,
 			UPSP_V_COEF_TAP0_P0, dscl_prog_data->upsp_v_coef_tap0_p0,
 			UPSP_V_COEF_TAP1_P0, dscl_prog_data->upsp_v_coef_tap1_p0,
 			UPSP_V_COEF_TAP2_P0, dscl_prog_data->upsp_v_coef_tap2_p0,
 			UPSP_V_COEF_TAP3_P0, dscl_prog_data->upsp_v_coef_tap3_p0);
-	REG_SET_4(UPSP_V_COEF_P1, 0,
+	REG_SET_4(CNVC_UPSP_V_COEF_P1, 0,
 			UPSP_V_COEF_TAP0_P1, dscl_prog_data->upsp_v_coef_tap0_p1,
 			UPSP_V_COEF_TAP1_P1, dscl_prog_data->upsp_v_coef_tap1_p1,
 			UPSP_V_COEF_TAP2_P1, dscl_prog_data->upsp_v_coef_tap2_p1,
 			UPSP_V_COEF_TAP3_P1, dscl_prog_data->upsp_v_coef_tap3_p1);
-	REG_SET_4(UPSP_H_COEF_P0, 0,
+	REG_SET_4(CNVC_UPSP_H_COEF_P0, 0,
 			UPSP_H_COEF_TAP0_P0, dscl_prog_data->upsp_h_coef_tap0_p0,
 			UPSP_H_COEF_TAP1_P0, dscl_prog_data->upsp_h_coef_tap1_p0,
 			UPSP_H_COEF_TAP2_P0, dscl_prog_data->upsp_h_coef_tap2_p0,
 			UPSP_H_COEF_TAP3_P0, dscl_prog_data->upsp_h_coef_tap3_p0);
-	REG_SET_4(UPSP_H_COEF_P1, 0,
+	REG_SET_4(CNVC_UPSP_H_COEF_P1, 0,
 			UPSP_H_COEF_TAP0_P1, dscl_prog_data->upsp_h_coef_tap0_p1,
 			UPSP_H_COEF_TAP1_P1, dscl_prog_data->upsp_h_coef_tap1_p1,
 			UPSP_H_COEF_TAP2_P1, dscl_prog_data->upsp_h_coef_tap2_p1,
 			UPSP_H_COEF_TAP3_P1, dscl_prog_data->upsp_h_coef_tap3_p1);
-	REG_SET_2(UPSP_CLAMP, 0,
+	REG_SET_2(CNVC_UPSP_CLAMP, 0,
 			UPSP_CLAMP_MAX, dscl_prog_data->upsp_clamp_max,
 			UPSP_CLAMP_MIN, dscl_prog_data->upsp_clamp_min);
 }

@@ -448,12 +448,12 @@
 #define DPP_REG_VARIABLE_LIST_DCN60 \
 	DPP_REG_VARIABLE_LIST_DCN50; \
 	uint32_t SCL_BLACK_COLOR; \
-	uint32_t UPSP_MODE; \
-	uint32_t UPSP_V_COEF_P0; \
-	uint32_t UPSP_V_COEF_P1; \
-	uint32_t UPSP_H_COEF_P0; \
-	uint32_t UPSP_H_COEF_P1; \
-	uint32_t UPSP_CLAMP
+	uint32_t CNVC_UPSP_MODE; \
+	uint32_t CNVC_UPSP_V_COEF_P0; \
+	uint32_t CNVC_UPSP_V_COEF_P1; \
+	uint32_t CNVC_UPSP_H_COEF_P0; \
+	uint32_t CNVC_UPSP_H_COEF_P1; \
+	uint32_t CNVC_UPSP_CLAMP
 
 struct dcn60_dpp_registers {
 	DPP_REG_VARIABLE_LIST_DCN60;
@@ -490,7 +490,8 @@ void dpp60_dpp_setup(
 	enum expansion_mode mode,
 	struct dc_csc_transform input_csc_color_matrix,
 	enum dc_color_space input_color_space,
-	struct cnv_alpha_2bit_lut *alpha_2bit_lut);
+	struct cnv_alpha_2bit_lut *alpha_2bit_lut,
+	enum upsp_mode upsp_mode);
 
 void dpp60_full_bypass(struct dpp *dpp_base);
 

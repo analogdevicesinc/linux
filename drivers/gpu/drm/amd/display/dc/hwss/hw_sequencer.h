@@ -155,6 +155,7 @@ struct setup_dpp_params {
 	enum surface_pixel_format format;
 	struct dc_csc_transform input_csc_color_matrix;
 	enum dc_color_space color_space;
+	enum upsp_mode upsp_mode;
 };
 
 struct program_bias_and_scale_params {

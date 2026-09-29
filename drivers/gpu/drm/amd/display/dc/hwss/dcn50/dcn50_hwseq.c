@@ -153,7 +153,8 @@ void dcn50_update_dchubp_dpp(
 			EXPANSION_MODE_ZERO,
 			plane_state->input_csc_color_matrix,
 			plane_state->color_space,
-			NULL);
+			NULL,
+			pipe_ctx->plane_res.scl_data.upsp);
 
 		if (dpp->funcs->set_cursor_matrix) {
 			dpp->funcs->set_cursor_matrix(dpp,

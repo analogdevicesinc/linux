@@ -2964,7 +2964,8 @@ void hwss_setup_dpp(union block_sequence_params *params)
 				EXPANSION_MODE_ZERO,
 				p->input_csc_color_matrix,
 				p->color_space,
-				NULL);
+				NULL,
+				p->upsp_mode);
 	}
 }
 
@@ -5722,6 +5723,7 @@ void hwss_add_dpp_setup_dpp(struct block_sequence_state *seq_state,
 		p->format = plane_state->format;
 		p->input_csc_color_matrix = plane_state->input_csc_color_matrix;
 		p->color_space = plane_state->color_space;
+		p->upsp_mode = resource_is_upsp_required(plane_state->format, plane_state->scaling_linearity);
 		(*seq_state->num_steps)++;
 	}
 }

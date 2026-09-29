@@ -2943,7 +2943,8 @@ static void dcn10_update_dpp(struct dpp *dpp, struct dc_plane_state *plane_state
 			EXPANSION_MODE_ZERO,
 			plane_state->input_csc_color_matrix,
 			plane_state->color_space,
-			NULL);
+			NULL,
+			0);
 
 	//set scale and bias registers
 	build_prescale_params(&bns_params, plane_state);
