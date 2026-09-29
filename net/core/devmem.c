@@ -17,17 +17,38 @@
 #include <net/page_pool/memory_provider.h>
 #include <net/sock.h>
 #include <net/tcp.h>
-#include <trace/events/page_pool.h>
 
 #include "devmem.h"
 #include "mp_dmabuf_devmem.h"
-#include "page_pool_priv.h"
 
 /* Device memory support */
 
 static DEFINE_XARRAY_FLAGS(net_devmem_dmabuf_bindings, XA_FLAGS_ALLOC1);
 
 static const struct memory_provider_ops dmabuf_devmem_ops;
+
+static struct net_iov *net_iov_free_pop(struct net_iov_area *area,
+					u32 *freelist, u32 *free_count)
+{
+	u32 idx;
+
+	if (unlikely(!*free_count))
+		return NULL;
+
+	idx = freelist[--(*free_count)];
+	return &area->niovs[idx];
+}
+
+static void net_iov_free_push(struct net_iov_area *area,
+			      u32 *freelist, u32 *free_count,
+			      struct net_iov *niov)
+{
+	if (WARN_ON_ONCE(net_iov_owner(niov) != area ||
+			 *free_count >= area->num_niovs))
+		return;
+
+	freelist[(*free_count)++] = net_iov_idx(niov);
+}
 
 static void net_devmem_dmabuf_binding_release(struct percpu_ref *ref)
 {
@@ -44,7 +65,7 @@ void __net_devmem_dmabuf_binding_free(struct work_struct *wq)
 
 	if (binding->freelist)
 		WARN(binding->free_count != binding->area.num_niovs,
-		     "destroying dmabuf binding with outstanding net_iovs: total=%zu, free=%zu",
+		     "destroying dmabuf binding with outstanding net_iovs: total=%zu, free=%u",
 		     binding->area.num_niovs, binding->free_count);
 
 	kvfree(binding->area.niovs);
@@ -63,14 +84,15 @@ static unsigned int
 net_devmem_alloc_dmabuf_bulk(struct net_devmem_dmabuf_binding *binding,
 			     netmem_ref *netmems, unsigned int count)
 {
+	struct net_iov *niov;
 	unsigned int i;
 
 	spin_lock_bh(&binding->freelist_lock);
 
-	count = min_t(size_t, count, binding->free_count);
+	count = min(count, binding->free_count);
 	for (i = 0; i < count; i++) {
-		struct net_iov *niov = binding->freelist[--binding->free_count];
-
+		niov = net_iov_free_pop(&binding->area, binding->freelist,
+					&binding->free_count);
 		netmems[i] = net_iov_to_netmem(niov);
 	}
 
@@ -84,12 +106,8 @@ void net_devmem_free_dmabuf(struct net_iov *niov)
 	struct net_devmem_dmabuf_binding *binding = net_devmem_iov_binding(niov);
 
 	spin_lock_bh(&binding->freelist_lock);
-	if (WARN_ON_ONCE(binding->free_count >= binding->area.num_niovs)) {
-		spin_unlock_bh(&binding->freelist_lock);
-		return;
-	}
-
-	binding->freelist[binding->free_count++] = niov;
+	net_iov_free_push(&binding->area, binding->freelist,
+			  &binding->free_count, niov);
 	spin_unlock_bh(&binding->freelist_lock);
 }
 
@@ -228,6 +246,12 @@ net_devmem_bind_dmabuf(struct net_device *dev, void *vdev,
 		goto err_unmap;
 	}
 
+	if ((dmabuf->size >> niov_shift) > U32_MAX) {
+		err = -E2BIG;
+		NL_SET_ERR_MSG(extack, "dmabuf contains too many net_iovs");
+		goto err_unmap;
+	}
+
 	binding->area.base_virtual = 0;
 	binding->area.num_niovs = dmabuf->size >> niov_shift;
 	if (direction == DMA_TO_DEVICE) {
@@ -247,7 +271,7 @@ net_devmem_bind_dmabuf(struct net_device *dev, void *vdev,
 			goto err_unmap;
 		}
 	}
-	binding->area.niovs = kvmalloc_objs(*binding->area.niovs,
+	binding->area.niovs = kvzalloc_objs(*binding->area.niovs,
 					    binding->area.num_niovs);
 	if (!binding->area.niovs) {
 		err = -ENOMEM;
@@ -274,12 +298,18 @@ net_devmem_bind_dmabuf(struct net_device *dev, void *vdev,
 		for (i = 0; i < nr_niovs; i++, niov_idx++) {
 			niov = &binding->area.niovs[niov_idx];
 			net_iov_init(niov, &binding->area, NET_IOV_DMABUF);
-			page_pool_set_dma_addr_netmem(net_iov_to_netmem(niov),
-						      dma_addr);
+			if (net_mp_niov_set_dma_addr(niov, dma_addr)) {
+				err = -EFAULT;
+				NL_SET_ERR_MSG(extack,
+					       "dmabuf DMA address cannot be represented");
+				goto err_free_niovs;
+			}
 			if (direction == DMA_TO_DEVICE)
 				binding->tx_vec[niov_idx] = niov;
 			else
-				binding->freelist[binding->free_count++] = niov;
+				net_iov_free_push(&binding->area,
+						  binding->freelist,
+						  &binding->free_count, niov);
 			dma_addr += niov_size;
 		}
 	}
@@ -439,19 +469,9 @@ netmem_ref mp_dmabuf_devmem_alloc_netmems(struct page_pool *pool, gfp_t gfp)
 	if (unlikely(!allocated))
 		return 0;
 
-	for (i = 0; i < allocated; i++) {
-		struct net_iov *niov = netmem_to_net_iov(netmems[i]);
-
-		niov->desc.pp_magic = 0;
-		niov->desc.pp = NULL;
-		atomic_long_set(&niov->desc.pp_ref_count, 0);
-
-		page_pool_set_pp_info(pool, netmems[i]);
-
-		pool->pages_state_hold_cnt++;
-		trace_page_pool_state_hold(pool, netmems[i],
-					   pool->pages_state_hold_cnt);
-	}
+	for (i = 0; i < allocated; i++)
+		net_mp_niov_set_page_pool(pool,
+					  netmem_to_net_iov(netmems[i]));
 
 	/* Return the last one, the rest stay in the page_pool cache. */
 	allocated--;
@@ -476,8 +496,7 @@ bool mp_dmabuf_devmem_release_page(struct page_pool *pool, netmem_ref netmem)
 	if (WARN_ON_ONCE(refcount != 1))
 		return false;
 
-	page_pool_clear_pp_info(netmem);
-
+	net_mp_niov_clear_page_pool(netmem_to_net_iov(netmem));
 	net_devmem_free_dmabuf(netmem_to_net_iov(netmem));
 
 	/* We don't want the page pool put_page()ing our net_iovs. */
