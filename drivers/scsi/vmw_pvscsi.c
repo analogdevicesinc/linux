@@ -201,6 +201,9 @@ static u64 pvscsi_map_context(const struct pvscsi_adapter *adapter,
 static struct pvscsi_ctx *
 pvscsi_get_context(const struct pvscsi_adapter *adapter, u64 context)
 {
+	if (unlikely(context == 0 || context > adapter->req_depth))
+		return NULL;
+
 	return &adapter->cmd_map[context - 1];
 }
 
@@ -550,6 +553,11 @@ static void pvscsi_complete_request(struct pvscsi_adapter *adapter,
 	u32 sdstat = e->scsiStatus;
 
 	ctx = pvscsi_get_context(adapter, e->context);
+	if (ctx == NULL || ctx->cmd == NULL) {
+		dev_err_ratelimited(&adapter->dev->dev,
+				    "Can not find mapping for context %llu", e->context);
+		return;
+	}
 	cmd = ctx->cmd;
 	abort_cmp = ctx->abort_cmp;
 	pvscsi_unmap_buffers(adapter, ctx);
