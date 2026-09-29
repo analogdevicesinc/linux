@@ -317,8 +317,8 @@ const struct sched_class fair_sched_class;
 #ifdef CONFIG_FAIR_GROUP_SCHED
 
 /* Walk up scheduling entities hierarchy */
-#define for_each_sched_entity(se) \
-		for (; se; se = se->parent)
+#define for_each_sched_entity(se, cfs_rq)				\
+	for (; (se) && ((cfs_rq) = cfs_rq_of(se)); (se) = (se)->parent)
 
 static inline bool list_add_leaf_cfs_rq(struct cfs_rq *cfs_rq)
 {
@@ -452,8 +452,8 @@ static int se_is_idle(struct sched_entity *se)
 
 #else /* !CONFIG_FAIR_GROUP_SCHED: */
 
-#define for_each_sched_entity(se) \
-		for (; se; se = NULL)
+#define for_each_sched_entity(se, cfs_rq) \
+	for (; (se) && ((cfs_rq) = cfs_rq_of(se)); (se) = NULL)
 
 static inline bool list_add_leaf_cfs_rq(struct cfs_rq *cfs_rq)
 {
@@ -2223,9 +2223,10 @@ static void update_curr(struct cfs_rq *cfs_rq)
 static void update_curr_fair(struct rq *rq)
 {
 	struct sched_entity *se = &rq->donor->se;
+	struct cfs_rq *cfs_rq;
 
-	for_each_sched_entity(se)
-		update_curr(cfs_rq_of(se));
+	for_each_sched_entity(se, cfs_rq)
+		update_curr(cfs_rq);
 }
 
 static inline void
@@ -4957,18 +4958,19 @@ static void reweight_task_fair(struct rq *rq, struct task_struct *p,
 {
 	struct sched_entity *se = &p->se;
 	unsigned long weight = NICE_0_LOAD;
+	struct cfs_rq *cfs_rq = cfs_rq_of(se);
 
 	if (se->on_rq)
 		update_curr_fair(rq);
 
-	reweight_entity(cfs_rq_of(se), se, lw->weight);
+	reweight_entity(cfs_rq, se, lw->weight);
 	se->load.inv_weight = lw->inv_weight;
 
 	if (!se->on_rq)
 		return;
 
-	for_each_sched_entity(se)
-		weight = __calc_prop_weight(cfs_rq_of(se), se, weight);
+	for_each_sched_entity(se, cfs_rq)
+		weight = __calc_prop_weight(cfs_rq, se, weight);
 
 	reweight_eevdf(&rq->cfs, &p->se, weight, p->se.on_rq);
 }
@@ -6547,6 +6549,8 @@ static __always_inline void return_cfs_rq_runtime(struct cfs_rq *cfs_rq);
 
 static void set_delayed(struct sched_entity *se)
 {
+	struct cfs_rq *cfs_rq;
+
 	/*
 	 * Delayed se of cfs_rq have no tasks queued on them.
 	 * Do not adjust h_nr_runnable since __dequeue_task()
@@ -6569,15 +6573,14 @@ static void set_delayed(struct sched_entity *se)
 	pref_llc_running_dec(rq_of(cfs_rq_of(se)), task_of(se));
 	se->sched_delayed = 1;
 
-	for_each_sched_entity(se) {
-		struct cfs_rq *cfs_rq = cfs_rq_of(se);
-
+	for_each_sched_entity(se, cfs_rq)
 		cfs_rq->h_nr_runnable--;
-	}
 }
 
 static void clear_delayed(struct sched_entity *se)
 {
+	struct cfs_rq *cfs_rq;
+
 	se->sched_delayed = 0;
 
 	/*
@@ -6596,11 +6599,8 @@ static void clear_delayed(struct sched_entity *se)
 	 */
 	pref_llc_running_inc(rq_of(cfs_rq_of(se)), task_of(se));
 
-	for_each_sched_entity(se) {
-		struct cfs_rq *cfs_rq = cfs_rq_of(se);
-
+	for_each_sched_entity(se, cfs_rq)
 		cfs_rq->h_nr_runnable++;
-	}
 }
 
 static void
@@ -7262,14 +7262,16 @@ void unthrottle_cfs_rq(struct cfs_rq *cfs_rq)
 	walk_tg_tree_from(cfs_rq->tg, tg_nop, tg_unthrottle_up, (void *)rq);
 
 	if (!cfs_rq->load.weight) {
+		struct cfs_rq *cfs_rq_se;
+
 		if (!cfs_rq->on_list)
 			return;
 		/*
 		 * Nothing to run but something to decay (on_list)?
 		 * Complete the branch.
 		 */
-		for_each_sched_entity(se) {
-			if (list_add_leaf_cfs_rq(cfs_rq_of(se)))
+		for_each_sched_entity(se, cfs_rq_se) {
+			if (list_add_leaf_cfs_rq(cfs_rq_se))
 				break;
 		}
 	}
@@ -8115,13 +8117,12 @@ static unsigned long enqueue_hierarchy(struct task_struct *p, int flags)
 	struct sched_entity *se = &p->se;
 	int h_nr_idle = task_has_idle_policy(p);
 	int h_nr_runnable = 1;
+	struct cfs_rq *cfs_rq;
 
 	if (task_new && se->sched_delayed)
 		h_nr_runnable = 0;
 
-	for_each_sched_entity(se) {
-		struct cfs_rq *cfs_rq = cfs_rq_of(se);
-
+	for_each_sched_entity(se, cfs_rq) {
 		update_curr(cfs_rq);
 
 		if (!se->on_rq) {
@@ -8252,16 +8253,15 @@ static void dequeue_hierarchy(struct task_struct *p, int flags)
 	bool task_sleep = flags & DEQUEUE_SLEEP;
 	bool task_delayed = flags & DEQUEUE_DELAYED;
 	bool task_throttled = flags & DEQUEUE_THROTTLE;
-	int h_nr_runnable = 0;
 	int h_nr_idle = task_has_idle_policy(p);
+	int h_nr_runnable = 0;
+	struct cfs_rq *cfs_rq;
 	bool dequeue = true;
 
 	if (task_sleep || task_delayed || !se->sched_delayed)
 		h_nr_runnable = 1;
 
-	for_each_sched_entity(se) {
-		struct cfs_rq *cfs_rq = cfs_rq_of(se);
-
+	for_each_sched_entity(se, cfs_rq) {
 		update_curr(cfs_rq);
 
 		if (dequeue) {
@@ -11587,8 +11587,7 @@ static void update_cfs_rq_h_load(struct cfs_rq *cfs_rq)
 		return;
 
 	WRITE_ONCE(cfs_rq->h_load_next, NULL);
-	for_each_sched_entity(se) {
-		cfs_rq = cfs_rq_of(se);
+	for_each_sched_entity(se, cfs_rq) {
 		WRITE_ONCE(cfs_rq->h_load_next, se);
 		if (cfs_rq->last_h_load_update == now)
 			break;
@@ -15281,9 +15280,9 @@ static inline void task_tick_core(struct rq *rq, struct task_struct *curr)
 static void se_fi_update(const struct sched_entity *se, unsigned int fi_seq,
 			 bool forceidle)
 {
-	for_each_sched_entity(se) {
-		struct cfs_rq *cfs_rq = cfs_rq_of(se);
+	struct cfs_rq *cfs_rq;
 
+	for_each_sched_entity(se, cfs_rq) {
 		if (forceidle) {
 			if (cfs_rq->forceidle_seq == fi_seq)
 				break;
@@ -15361,10 +15360,8 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int hrtick)
 		unsigned long weight = NICE_0_LOAD;
 		struct cfs_rq *cfs_rq;
 
-		for_each_sched_entity(se) {
-			cfs_rq = cfs_rq_of(se);
+		for_each_sched_entity(se, cfs_rq) {
 			entity_tick(cfs_rq, se, hrtick);
-
 			weight = __calc_prop_weight(cfs_rq, se, weight);
 		}
 
@@ -15446,9 +15443,7 @@ static void propagate_entity_cfs_rq(struct sched_entity *se)
 	/* Start to propagate at parent */
 	se = se->parent;
 
-	for_each_sched_entity(se) {
-		cfs_rq = cfs_rq_of(se);
-
+	for_each_sched_entity(se, cfs_rq) {
 		update_load_avg(cfs_rq, se, UPDATE_TG);
 
 		if (!cfs_rq_pelt_clock_throttled(cfs_rq))
@@ -15555,9 +15550,7 @@ static void set_next_task_fair(struct rq *rq, struct task_struct *p, enum snt_e 
 	if (on_rq)
 		__dequeue_entity(cfs_rq, se);
 
-	for_each_sched_entity(se) {
-		cfs_rq = cfs_rq_of(se);
-
+	for_each_sched_entity(se, cfs_rq) {
 		if (!IS_ENABLED(CONFIG_FAIR_GROUP_SCHED) ||
 		    !first || !cfs_rq->h_curr)
 			set_next_entity(cfs_rq, se);
@@ -15764,13 +15757,14 @@ static int __sched_group_set_shares(struct task_group *tg, unsigned long shares)
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
 		struct sched_entity *se = tg_se(tg, i);
+		struct cfs_rq *cfs_rq;
 		struct rq_flags rf;
 
 		/* Propagate contribution to hierarchy */
 		rq_lock_irqsave(rq, &rf);
 		update_rq_clock(rq);
-		for_each_sched_entity(se) {
-			update_load_avg(cfs_rq_of(se), se, UPDATE_TG);
+		for_each_sched_entity(se, cfs_rq) {
+			update_load_avg(cfs_rq, se, UPDATE_TG);
 			update_cfs_group(se);
 		}
 		rq_unlock_irqrestore(rq, &rf);
@@ -15817,6 +15811,7 @@ int sched_group_set_idle(struct task_group *tg, long idle)
 		struct sched_entity *se = tg_se(tg, i);
 		struct cfs_rq *grp_cfs_rq = tg_cfs_rq(tg, i);
 		bool was_idle = cfs_rq_is_idle(grp_cfs_rq);
+		struct cfs_rq *cfs_rq;
 		long idle_task_delta;
 		struct rq_flags rf;
 
@@ -15831,9 +15826,7 @@ int sched_group_set_idle(struct task_group *tg, long idle)
 		if (!cfs_rq_is_idle(grp_cfs_rq))
 			idle_task_delta *= -1;
 
-		for_each_sched_entity(se) {
-			struct cfs_rq *cfs_rq = cfs_rq_of(se);
-
+		for_each_sched_entity(se, cfs_rq) {
 			if (!se->on_rq)
 				break;
 
