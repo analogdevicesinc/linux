@@ -106,7 +106,8 @@ class StatCpiAnalyzer:
             if ins != 0:
                 cpi = cyc / float(ins)
             t_sec = timestamp / 1000000000.0
-            print(f"{t_sec:15f}: cpu {cpu}, thread {thread} -> cpi {cpi:f} ({cyc:.0f}/{ins:.0f})")
+            print(f"{t_sec:15f}: cpu {cpu}, thread {thread} -> cpi {cpi:f} ({cyc:.0f}/{ins:.0f})",
+                  flush=True)
 
     def read_counters(self, evlist: Any) -> None:
         """Read counters live."""
@@ -151,6 +152,7 @@ class StatCpiAnalyzer:
 
         last_err: Optional[OSError] = None
         for events, tmap in candidates:
+            evlist = None
             try:
                 evlist = perf.parse_events(events, None, tmap)
                 for evsel in evlist:
@@ -161,32 +163,41 @@ class StatCpiAnalyzer:
                 evlist.enable()
                 return evlist
             except PermissionError as e:
+                if evlist is not None:
+                    evlist.close()
                 last_err = e
             except OSError as e:
+                if evlist is not None:
+                    evlist.close()
                 if e.errno == 13:
                     last_err = e
                 else:
                     raise
+            except BaseException:
+                if evlist is not None:
+                    evlist.close()
+                raise
         if last_err is not None:
             raise last_err
         raise RuntimeError("Failed to open events")
 
     def run_live(self) -> None:
         """Read counters live."""
-        try:
-            evlist = self._open_live_evlist()
-        except OSError as e:
-            print(f"Failed to open events: {e}", file=sys.stderr)
-            sys.exit(1)
-
         def handle_signal(_signum: int, _frame: Any) -> None:
             raise KeyboardInterrupt
 
         signal.signal(signal.SIGINT, signal.default_int_handler)
         signal.signal(signal.SIGTERM, handle_signal)
 
-        print("Live mode started. Press Ctrl+C to stop.")
+        evlist = None
         try:
+            try:
+                evlist = self._open_live_evlist()
+            except OSError as e:
+                print(f"Failed to open events: {e}", file=sys.stderr)
+                sys.exit(1)
+
+            print("Live mode started. Press Ctrl+C to stop.", flush=True)
             while True:
                 time.sleep(self.args.interval)
                 timestamp = time.time_ns()
@@ -195,9 +206,10 @@ class StatCpiAnalyzer:
                 self.data.clear()
                 self.recorded_pairs.clear()
         except KeyboardInterrupt:
-            print("\nStopped.")
+            print("\nStopped.", flush=True)
         finally:
-            evlist.close()
+            if evlist is not None:
+                evlist.close()
 
 def main() -> None:
     """Main function."""

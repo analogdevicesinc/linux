@@ -50,7 +50,7 @@ test_live_mode() {
 		echo "perf stat failed (permissions?), skipping live mode test."
 		return 0
 	fi
-	perf test -w noploop &
+	perf test -w noploop 60 &
 	workload_pid=$!
 	if ! perf stat -e cycles,instructions -p "$workload_pid" -- sleep 0.05 2>/dev/null && \
 	   ! perf stat -e cycles:u,instructions:u -p "$workload_pid" -- sleep 0.05 2>/dev/null; then
@@ -61,10 +61,16 @@ test_live_mode() {
 	fi
 	ran=1
 
-	# Run live mode for 1 interval in the background, give it a tiny sleep, then interrupt
+	# Run live mode in the background, wait until at least one interval is
+	# printed, then interrupt.
 	perf script stat-cpi -I 0.1 -p "$workload_pid" > "${temp_out}" &
 	pid=$!
-	sleep 0.5
+	for _ in $(seq 1 50); do
+		if grep -q "cpi" "${temp_out}"; then
+			break
+		fi
+		sleep 0.1
+	done
 	kill -INT "$pid" 2>/dev/null || true
 	set +e
 	wait "$pid"
