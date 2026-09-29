@@ -10136,6 +10136,11 @@ __bpf_kfunc bool scx_bpf_task_set_lazy_resched(struct task_struct *p, bool lazy,
 {
 	struct scx_sched *sch;
 
+	/*
+	 * clang's register locations for @lazy make pahole 1.32 drop this kfunc
+	 * from BTF. Keep @lazy in memory so its location names no register.
+	 */
+	barrier_data(&lazy);
 	guard(rcu)();
 	sch = scx_prog_sched(aux);
 	if (unlikely(!sch || !scx_task_on_sched(sch, p)))
