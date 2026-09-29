@@ -36,7 +36,6 @@ static inline int nf_osf_ttl(const struct sk_buff *skb,
 	switch (ttl_check) {
 	case NF_OSF_TTL_TRUE:
 		return ip->ttl == f_ttl;
-		break;
 	case NF_OSF_TTL_NOCHECK:
 		return 1;
 	case NF_OSF_TTL_LESS:
