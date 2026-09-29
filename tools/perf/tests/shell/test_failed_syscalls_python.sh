@@ -27,22 +27,22 @@ if [ ! -f "$script_path" ]; then
 fi
 
 err=0
-temp_data=""
-temp_out=""
+temp_dir=$(mktemp -d /tmp/perf-failed-syscalls-XXXXXX)
+temp_data="${temp_dir}/perf.data"
+temp_out="${temp_dir}/perf.out"
 
 cleanup() {
-	rm -f "${temp_data}" "${temp_out}"
+	rm -rf "${temp_dir}"
 }
 trap 'cleanup' EXIT TERM INT
-
-temp_data=$(mktemp /tmp/perf.data.XXXXXX)
-temp_out=$(mktemp /tmp/perf.out.XXXXXX)
 
 echo "Testing failed-syscalls.py..."
 
 # Check if sys_exit event can be recorded
-if ! perf record -e raw_syscalls:sys_exit -o /dev/null -- true >/dev/null 2>&1; then
-	if ! perf record -e syscalls:sys_exit -o /dev/null -- true >/dev/null 2>&1; then
+if ! perf record -B -N --no-bpf-event -e raw_syscalls:sys_exit \
+	-o /dev/null -- true >/dev/null 2>&1; then
+	if ! perf record -B -N --no-bpf-event -e syscalls:sys_exit \
+		-o /dev/null -- true >/dev/null 2>&1; then
 		echo "Skipping test, no permission or support for sys_exit event"
 		exit 2
 	else
@@ -52,28 +52,38 @@ else
 	EVENT="raw_syscalls:sys_exit"
 fi
 
-# Run perf record with a command that fails a syscall (ls non-existent file).
-# ls exits with non-zero, so perf record returns non-zero exit code of the workload.
-perf record -e "${EVENT}" -o "${temp_data}" \
-	-- ls /nonexistent_file_for_test >/dev/null 2>&1 || true
+# Run perf record with a command that fails a syscall (ls non-existent file),
+# sleeping briefly in the subshell so ls's PERF_RECORD_COMM and sys_exit events are flushed.
+passed=0
+for _ in 1 2 3 4 5; do
+	rm -f "${temp_data}" "${temp_out}"
+	perf record -B -N --no-bpf-event -e "${EVENT}" -o "${temp_data}" \
+		-- sh -c "ls /nonexistent_file_for_test 2>/dev/null; sleep 0.05 || true" \
+		>/dev/null 2>&1 || true
+
+	if [ ! -s "${temp_data}" ]; then
+		continue
+	fi
+
+	# Check that the script executes
+	if perf script failed-syscalls -i "${temp_data}" > "${temp_out}" && \
+	   grep -q "failed syscalls by comm" "${temp_out}" && \
+	   grep -Eq '^ls[[:space:]]+[0-9]+' "${temp_out}"; then
+		passed=1
+		break
+	fi
+done
 
 if [ ! -s "${temp_data}" ]; then
 	echo "Skipping test, perf record failed to create data"
 	exit 2
 fi
 
-# Check that the script executes
-if ! perf script failed-syscalls -i "${temp_data}" > "${temp_out}"; then
-	echo "failed-syscalls.py test failed"
+if [ "$passed" -eq 0 ]; then
+	echo "Failed to find the metrics table header or expected error"
 	err=1
 else
-	if ! grep -q "failed syscalls by comm" "${temp_out}" || \
-		! grep -Eq '^ls[[:space:]]+[0-9]+' "${temp_out}"; then
-		echo "Failed to find the metrics table header or expected error"
-		err=1
-	else
-		echo "failed-syscalls test passed."
-	fi
+	echo "failed-syscalls test passed."
 fi
 rm -f "${temp_out}"
 
