@@ -15,17 +15,14 @@ def test(conf):
     assert conf.olddefconfig('config') == 0
     assert 'user-provided values changed by Kconfig' not in conf.stderr
 
-    assert conf._run_conf('--olddefconfig', dot_config='config',
-                          extra_env=warn_changed_input) == 0
+    assert conf.olddefconfig('config', extra_env=warn_changed_input) == 0
     assert conf.stderr_contains('expected_stderr')
     assert conf.config_matches('expected_config')
 
-    assert conf._run_conf('--olddefconfig', dot_config='config',
-                          extra_env=warn_changed_input, silent=True) == 0
+    assert conf.olddefconfig('config', extra_env=warn_changed_input,
+                             silent=True) == 0
     assert conf.stderr_contains('expected_stderr')
 
-    assert conf._run_conf('--savedefconfig=defconfig', dot_config='config',
-                          out_file='defconfig',
-                          extra_env=warn_changed_input) == 0
+    assert conf.savedefconfig('config', extra_env=warn_changed_input) == 0
     assert conf.stderr_contains('expected_stderr')
     assert conf.config_matches('expected_defconfig')

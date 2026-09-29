@@ -159,13 +159,13 @@ class Conf:
         return self._run_conf('--oldconfig', dot_config=dot_config,
                               interactive=True, in_keys=in_keys)
 
-    def olddefconfig(self, dot_config=None):
+    def olddefconfig(self, dot_config=None, **kw):
         """Run olddefconfig.
 
         dot_config: .config file to use for configuration base (optional)
         returncode: exit status of the Kconfig executable
         """
-        return self._run_conf('--olddefconfig', dot_config=dot_config)
+        return self._run_conf('--olddefconfig', dot_config=dot_config, **kw)
 
     def defconfig(self, defconfig):
         """Run defconfig.
@@ -229,14 +229,15 @@ class Conf:
 
         return self._allconfig('rand', all_config, extra_env=extra_env)
 
-    def savedefconfig(self, dot_config):
+    def savedefconfig(self, dot_config, out_file='defconfig', **kw):
         """Run savedefconfig.
 
         dot_config: .config file for input
+        out_file: defconfig file for output
         returncode: exit status of the Kconfig executable
         """
         return self._run_conf('--savedefconfig={}'.format(out_file),
-                              dot_config=dot_config, out_file='defconfig')
+                              dot_config=dot_config, out_file=out_file, **kw)
 
     def listnewconfig(self, dot_config=None):
         """Run listnewconfig.
