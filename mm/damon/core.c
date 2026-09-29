@@ -3267,7 +3267,7 @@ static void damos_set_quota_goal_current_value(struct damon_ctx *c,
 	if (!goal->complement)
 		return;
 
-	/* updte current_value to complemented value */
+	/* update current_value to complemented value */
 
 	/* for user_input, users set complemented value on their own */
 	if (goal->metric == DAMOS_QUOTA_USER_INPUT)
