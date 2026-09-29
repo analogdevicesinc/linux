@@ -85,7 +85,7 @@ struct ldr_hdr {
 
 enum adi_rproc_variant {
 	SC5XX_RPROC_SHARC,
-	SC5XX_RPROC_SHARCFX, 
+	SC5XX_RPROC_SHARCFX,
 };
 
 struct adi_rproc_config {
