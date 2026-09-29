@@ -101,7 +101,7 @@ struct debuginfo *debuginfo__new(const char *path)
 	/* Try to open distro debuginfo files */
 	dso = dso__new(path);
 	if (!dso)
-		goto out;
+		return NULL;
 
 	/*
 	 * Set the build id for DSO_BINARY_TYPE__BUILDID_DEBUGINFO. Don't block
@@ -114,18 +114,12 @@ struct debuginfo *debuginfo__new(const char *path)
 	dso__find_dbginfo_type(dso);
 	if (dso__read_binary_type_filename(dso, dso__dbginfo_type(dso), &nil,
 					   buf, PATH_MAX) < 0)
-		goto out;
+		return NULL;
 
 	dinfo = __debuginfo__new(buf);
 	dso__put(dso);
 
-out:
-	if (dinfo)
-		return dinfo;
-
-	/* if failed to open all distro debuginfo, open given binary */
-	symbol__join_symfs(buf, path);
-	return __debuginfo__new(buf);
+	return dinfo;
 }
 
 void debuginfo__delete(struct debuginfo *dbg)
