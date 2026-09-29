@@ -69,6 +69,9 @@
 /* JESD204_RX_REG_SYSREF_CONF */
 #define JESD204_RX_REG_SYSREF_CONF_SYSREF_DISABLE	BIT(0)
 
+/* JESD204_RX_REG_LINK_CONF1 */
+#define JESD204_RX_LINK_CONF1_HEADER_MODE		GENMASK(3, 2)
+
 /* JESD204_RX_REG_LINK_CONF2 */
 #define JESD204_RX_LINK_CONF2_BUFFER_EARLY_RELEASE	BIT(16)
 
@@ -99,6 +102,7 @@ struct axi_jesd204_rx {
 	unsigned int tpl_data_path_width;
 	unsigned int version;
 	enum jesd204_encoder encoder;
+	u32 header_mode;
 
 	struct delayed_work watchdog_work;
 
@@ -571,6 +575,13 @@ static int axi_jesd204_rx_apply_config(struct axi_jesd204_rx *jesd,
 	if (config->sysref.lmfc_offset != JESD204_LMFC_OFFSET_UNINITIALIZED)
 		writel_relaxed(config->sysref.lmfc_offset,
 			jesd->base + JESD204_RX_REG_SYSREF_LMFC_OFFSET);
+
+	if (jesd->version >= ADI_AXI_PCORE_VER(1, 8, 'a')) {
+		val = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_CONF1);
+		val &= ~JESD204_RX_LINK_CONF1_HEADER_MODE;
+		val |= FIELD_PREP(JESD204_RX_LINK_CONF1_HEADER_MODE, jesd->header_mode);
+		writel_relaxed(val, jesd->base + JESD204_RX_REG_LINK_CONF1);
+	}
 
 	return 0;
 }
@@ -1295,6 +1306,23 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Invalid encoder value from HDL core %u\n",
 			jesd->encoder);
 		return ret;
+	}
+
+	if (jesd->version >= ADI_AXI_PCORE_VER(1, 8, 'a')) {
+		ret = of_property_read_u32(pdev->dev.of_node, "adi,header-mode",
+					   &jesd->header_mode);
+		if (!ret) {
+			if (jesd->encoder != JESD204_ENCODER_64B66B) {
+				dev_err(&pdev->dev, "adi,header-mode is only supported with 64B66B\n");
+				return -EINVAL;
+			}
+			if (jesd->header_mode != JESD204_HEADER_MODE_CRC12 &&
+			    jesd->header_mode != JESD204_HEADER_MODE_FEC) {
+				dev_err(&pdev->dev, "Unsupported adi,header-mode %u\n",
+					jesd->header_mode);
+				return -EINVAL;
+			}
+		}
 	}
 
 	ret = devm_add_action_or_reset(&pdev->dev, axi_jesd204_rx_teardown, jesd);
