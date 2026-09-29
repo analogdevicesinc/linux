@@ -2133,6 +2133,20 @@ void dso__find_dbginfo_type(struct dso *dso)
 		return;
 	dso__set_debuginfo_searched(dso);
 
+	/* Maybe debug info is in the same file with the symbol table */
+	path = dso__get_filename(dso, "", &decomp, dso__symtab_type(dso));
+	if (path) {
+		found = filename__has_section(path, ".debug_info") ||
+			filename__has_section(path, ".zdebug_info");
+
+		dso__put_filename(dso, path, decomp);
+		if (found) {
+			dso__set_dbginfo_type(dso, dso__symtab_type(dso));
+			return;
+		}
+	}
+
+	/* Otherwise check distro debug locations */
 	for (type = dbginfo_types; *type != DSO_BINARY_TYPE__NOT_FOUND; type++) {
 		path = dso__get_filename(dso, "", &decomp, *type);
 		if (path == NULL)
