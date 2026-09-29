@@ -1013,6 +1013,8 @@ static inline void dso__set_dbginfo_type(struct dso *dso, enum dso_binary_type b
 	RC_CHK_ACCESS(dso)->dbginfo_type = bt;
 }
 
+void dso__find_dbginfo_type(struct dso *dso);
+
 bool dso__is_object_file(const struct dso *dso);
 
 void dso__free_a2l(struct dso *dso);

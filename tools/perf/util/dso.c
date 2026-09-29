@@ -2108,3 +2108,32 @@ void dso__set_symsrc_filename(struct dso *dso, char *val)
 	dso__set_has_srcline(dso, true);
 	dso__set_a2l_fails(dso, 0);
 }
+
+void dso__find_dbginfo_type(struct dso *dso)
+{
+	static const enum dso_binary_type dbginfo_types[] = {
+		DSO_BINARY_TYPE__FEDORA_DEBUGINFO,
+		DSO_BINARY_TYPE__UBUNTU_DEBUGINFO,
+		DSO_BINARY_TYPE__MIXEDUP_UBUNTU_DEBUGINFO,
+		DSO_BINARY_TYPE__OPENEMBEDDED_DEBUGINFO,
+		DSO_BINARY_TYPE__BUILDID_DEBUGINFO,
+		DSO_BINARY_TYPE__NOT_FOUND,
+	};
+	const enum dso_binary_type *type;
+	char buf[PATH_MAX];
+
+	if (dso__dbginfo_type(dso) != DSO_BINARY_TYPE__NOT_FOUND)
+		return;
+
+	for (type = dbginfo_types; *type != DSO_BINARY_TYPE__NOT_FOUND; type++) {
+		if (dso__read_binary_type_filename(dso, *type, "",
+						   buf, PATH_MAX) < 0)
+			continue;
+
+		if (filename__has_section(buf, ".debug_info") ||
+		    filename__has_section(buf, ".zdebug_info"))
+			break;
+	}
+
+	dso__set_dbginfo_type(dso, *type);
+}

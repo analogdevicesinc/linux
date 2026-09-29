@@ -93,15 +93,6 @@ static struct debuginfo *__debuginfo__new(const char *path)
 
 struct debuginfo *debuginfo__new(const char *path)
 {
-	static const enum dso_binary_type distro_dwarf_types[] = {
-		DSO_BINARY_TYPE__FEDORA_DEBUGINFO,
-		DSO_BINARY_TYPE__UBUNTU_DEBUGINFO,
-		DSO_BINARY_TYPE__OPENEMBEDDED_DEBUGINFO,
-		DSO_BINARY_TYPE__BUILDID_DEBUGINFO,
-		DSO_BINARY_TYPE__MIXEDUP_UBUNTU_DEBUGINFO,
-		DSO_BINARY_TYPE__NOT_FOUND,
-	};
-	const enum dso_binary_type *type;
 	char buf[PATH_MAX], nil = '\0';
 	struct dso *dso;
 	struct debuginfo *dinfo = NULL;
@@ -120,14 +111,12 @@ struct debuginfo *debuginfo__new(const char *path)
 	if (filename__read_build_id(path, &bid) > 0)
 		dso__set_build_id(dso, &bid);
 
-	for (type = distro_dwarf_types;
-	     !dinfo && *type != DSO_BINARY_TYPE__NOT_FOUND;
-	     type++) {
-		if (dso__read_binary_type_filename(dso, *type, &nil,
-						   buf, PATH_MAX) < 0)
-			continue;
-		dinfo = __debuginfo__new(buf);
-	}
+	dso__find_dbginfo_type(dso);
+	if (dso__read_binary_type_filename(dso, dso__dbginfo_type(dso), &nil,
+					   buf, PATH_MAX) < 0)
+		goto out;
+
+	dinfo = __debuginfo__new(buf);
 	dso__put(dso);
 
 out:
