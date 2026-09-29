@@ -2053,19 +2053,18 @@ __noinline long global_call_bpf_dynptr(const struct bpf_dynptr *dynptr)
 	/* Avoid leaving this global function empty to avoid having the compiler
 	 * optimize away the call to this global function.
 	 */
+	__sink(dynptr);
 	__sink(ret);
 	return ret;
 }
 
 SEC("?raw_tp")
-__failure __msg("R1 expected pointer to stack or const struct bpf_dynptr")
+__failure __msg("R1 type=trusted_ptr_ expected=fp, dynptr_ptr")
 int test_dynptr_reg_type(void *ctx)
 {
-	struct task_struct *current = NULL;
-	/* R1 should be holding a PTR_TO_BTF_ID, so this shouldn't be a
-	 * reg->type that can be passed to a function accepting a
-	 * ARG_PTR_TO_DYNPTR | MEM_RDONLY. process_dynptr_func() should catch
-	 * this.
+	struct task_struct *current = bpf_get_current_task_btf();
+	/* R1 holds a PTR_TO_BTF_ID, which cannot be passed to a function
+	 * accepting ARG_PTR_TO_DYNPTR | MEM_RDONLY.
 	 */
 	global_call_bpf_dynptr((const struct bpf_dynptr *)current);
 	return 0;

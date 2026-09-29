@@ -87,7 +87,7 @@ __weak int subprog_trusted_task_nonnull(struct task_struct *task __arg_trusted)
 
 SEC("?kprobe")
 __failure __log_level(2)
-__msg("R1 type=scalar expected=ptr_, trusted_ptr_, rcu_ptr_")
+__msg("Possibly NULL pointer passed to trusted R1")
 __msg("Caller passes invalid args into func#1 ('subprog_trusted_task_nonnull')")
 int trusted_task_arg_nonnull_fail1(void *ctx)
 {
@@ -96,7 +96,7 @@ int trusted_task_arg_nonnull_fail1(void *ctx)
 
 SEC("?tp_btf/task_newtask")
 __failure __log_level(2)
-__msg("R1 type=trusted_ptr_or_null_ expected=ptr_, trusted_ptr_, rcu_ptr_")
+__msg("Possibly NULL pointer passed to trusted R1")
 __msg("Caller passes invalid args into func#1 ('subprog_trusted_task_nonnull')")
 int trusted_task_arg_nonnull_fail2(void *ctx)
 {
@@ -389,7 +389,8 @@ __weak int subprog_pkt_ptr_changes_data(struct __sk_buff *skb __arg_ctx,
 
 SEC("?tc")
 __failure __log_level(2)
-__msg("R2 is a packet pointer, but func#{{[0-9]+}} may change packet data")
+__msg("cannot pass packet pointer R2")
+__msg("function may change packet data")
 __msg("Caller passes invalid args into func#{{[0-9]+}} ('subprog_pkt_ptr_changes_data')")
 int pkt_ptr_to_global_mem_arg_changes_data(struct __sk_buff *skb)
 {

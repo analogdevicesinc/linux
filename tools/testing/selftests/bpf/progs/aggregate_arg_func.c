@@ -43,7 +43,7 @@ __naked int aggregate_arg_pair_asm(void)
 }
 
 SEC("tc")
-__failure __msg("R2 is not a scalar")
+__failure __msg("R2 type=fp expected=scalar")
 __naked int aggregate_arg_pair_ptr_fail(void)
 {
 	asm volatile (
