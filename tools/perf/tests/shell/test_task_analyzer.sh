@@ -60,7 +60,8 @@ skip_no_probe_record_support() {
 
 prepare_perf_data() {
 	# 1s should be sufficient to catch at least some switches
-	perf record -e sched:sched_switch -a -o "${perfdata}" -- sleep 1 > /dev/null 2>&1
+	perf record -B -N --no-bpf-event -e sched:sched_switch -a -o "${perfdata}" \
+		-- sleep 1 > /dev/null 2>&1
 	# check if perf data file got created in above step.
 	if [ ! -e "${perfdata}" ]; then
 		printf "FAIL: perf record failed to create \"${perfdata}\" \n"

@@ -41,10 +41,10 @@ temp_out=$(mktemp /tmp/perf.out.XXXXXX)
 echo "Testing rwtop.py..."
 
 # Create a perf.data file. Try to get tracepoint data.
-if perf list | grep -q "syscalls:sys_enter_read"; then
+if perf list tracepoint | grep -q "syscalls:sys_enter_read"; then
 	ev="syscalls:sys_enter_read,syscalls:sys_exit_read"
 	ev="${ev},syscalls:sys_enter_write,syscalls:sys_exit_write"
-	perf record -e "$ev" -a -o "${temp_data}" \
+	perf record -B -N --no-bpf-event -e "$ev" -o "${temp_data}" \
 		-- dd if=/dev/urandom of=/dev/null bs=1M count=10 >/dev/null 2>&1 || \
 		{ echo "Skipping test, perf record failed"; exit 2; }
 else

@@ -37,8 +37,9 @@ temp_out=$(mktemp /tmp/perf.out.XXXXXX)
 echo "Testing rw-by-file.py..."
 
 # Create a perf.data file. Try to get tracepoint data.
-if perf list | grep -q "syscalls:sys_enter_read"; then
-	perf record -e syscalls:sys_enter_read,syscalls:sys_enter_write -a -o "${temp_data}" \
+if perf list tracepoint | grep -q "syscalls:sys_enter_read"; then
+	perf record -B -N --no-bpf-event -e syscalls:sys_enter_read,syscalls:sys_enter_write \
+		-o "${temp_data}" \
 		-- dd if=/dev/urandom of=/dev/null bs=1M count=10 >/dev/null 2>&1 || \
 		{ echo "Skipping test, perf record failed"; exit 2; }
 else

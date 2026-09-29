@@ -78,10 +78,12 @@ test_file_mode() {
 	echo "Testing mem-phys-addr.py file mode..."
 
 	# Generate memory access events (try unprivileged user-space first, then system-wide)
-	if ! perf record --phys-data -d -o "${temp_data}" \
+	if ! perf record -B -N --no-bpf-event --phys-data -d -o "${temp_data}" \
 	     -- perf test -w datasym >/dev/null 2>&1 && \
-	   ! perf record -d -o "${temp_data}" -- perf test -w datasym >/dev/null 2>&1 && \
-	   ! perf record -d -a -o "${temp_data}" -- sleep 0.2 >/dev/null 2>&1; then
+	   ! perf record -B -N --no-bpf-event -d -o "${temp_data}" \
+	     -- perf test -w datasym >/dev/null 2>&1 && \
+	   ! perf record -B -N --no-bpf-event -d -a -o "${temp_data}" \
+	     -- sleep 0.1 >/dev/null 2>&1; then
 		echo "Skipping file mode record test, perf record -d not supported"
 		return 0
 	fi

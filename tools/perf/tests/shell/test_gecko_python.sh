@@ -39,7 +39,8 @@ test_file_mode() {
 	echo "Testing gecko.py..."
 
 	# Generate some events with callchains
-	if ! perf record -g -o "${temp_data}" -- perf test -w noploop >/dev/null 2>&1; then
+	if ! perf record -B -N --no-bpf-event -g -o "${temp_data}" \
+		-- perf test -w noploop >/dev/null 2>&1; then
 		echo "Skipping test, perf record -g failed (permissions or lack of support)"
 		exit 2
 	fi

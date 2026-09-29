@@ -44,15 +44,17 @@ test_file_mode() {
 	echo "Testing compaction-times.py..."
 
 	# Check for any compaction events to see if kernel supports it
-	if ! perf list | grep -q "compaction:mm_compaction_begin"; then
+	if ! perf list tracepoint | grep -q "compaction:mm_compaction_begin"; then
 		echo "Skipping test, compaction tracepoints not found"
 		exit 2
 	fi
 
 	# Generate some events
-	# We might not naturally trigger compaction in 0.5s sleep, but the script
+	# We might not naturally trigger compaction in 0.1s sleep, but the script
 	# should parse the empty or sparse file correctly without crashing.
-	if ! perf record -e "compaction:*" -a -o "${temp_data}" -- sleep 0.5 >/dev/null 2>&1; then
+	if ! perf record -B -N --no-bpf-event \
+		-e "compaction:mm_compaction_begin,compaction:mm_compaction_end" \
+		-a -o "${temp_data}" -- sleep 0.1 >/dev/null 2>&1; then
 		echo "Skipping test, perf record failed"
 		exit 2
 	fi

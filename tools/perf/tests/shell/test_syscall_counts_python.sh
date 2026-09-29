@@ -43,13 +43,14 @@ temp_out=$(mktemp /tmp/perf.out.XXXXXX)
 test_file_mode() {
 	echo "Testing syscall-counts.py..."
 	# Some systems might not have raw_syscalls:sys_enter (e.g. stripped kernels or permissions)
-	if ! perf list | grep -q raw_syscalls:sys_enter; then
+	if ! perf list tracepoint | grep -q raw_syscalls:sys_enter; then
 		echo "Skipping test, raw_syscalls:sys_enter not found"
 		exit 2
 	fi
 
 	# Generate some syscall events
-	if ! perf record -e raw_syscalls:sys_enter -o "${temp_data}" -- sleep 0.5 2>/dev/null; then
+	if ! perf record -B -N --no-bpf-event -e raw_syscalls:sys_enter -o "${temp_data}" \
+		-- sh -c "sleep 0.1; sleep 0.05" 2>/dev/null; then
 		echo "perf record failed (permissions?), skipping file mode test."
 		exit 2
 	fi

@@ -67,8 +67,8 @@ if ! grep -q "H_REMOVE.*1.*1500.*1500.*1500" "${temp_out}"; then
 fi
 
 # Create a perf.data file if powerpc hcall tracepoints are available on this host.
-if ! perf record -e powerpc:hcall_entry,powerpc:hcall_exit -a -o "${temp_data}" \
-	-- perf test -w noploop >/dev/null 2>&1; then
+if ! perf record -B -N --no-bpf-event -e powerpc:hcall_entry,powerpc:hcall_exit \
+	-a -o "${temp_data}" -- perf test -w noploop >/dev/null 2>&1; then
 	echo "Skipping live record test, powerpc hcall tracepoints not available"
 	exit 0
 fi

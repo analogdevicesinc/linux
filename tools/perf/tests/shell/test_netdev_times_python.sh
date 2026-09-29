@@ -85,9 +85,9 @@ then
 fi
 
 # Create a perf.data file. Force dropping a packet if tracepoint is available!
-if ! perf record -e skb:kfree_skb -a -o "${temp_data}" \
-	-- ping -c 1 127.0.0.1 >/dev/null 2>&1; then
-	perf record -e cycles -o "${temp_data}" \
+if ! perf record -B -N --no-bpf-event -e skb:kfree_skb -a -o "${temp_data}" \
+	-- ping -c 1 -W 1 127.0.0.1 >/dev/null 2>&1; then
+	perf record -B -N --no-bpf-event -e cycles -o "${temp_data}" \
 		-- perf test -w noploop >/dev/null 2>&1 || \
 		{ echo "Skipping test, perf record failed"; exit 2; }
 fi

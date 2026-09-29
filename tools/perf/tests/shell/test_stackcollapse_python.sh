@@ -37,7 +37,7 @@ echo "Testing stackcollapse.py..."
 
 # Create a perf.data file with callchains. Use a busy workload rather than
 # sleep, as an idle system may not generate any samples at all.
-perf record -g -o "${temp_data}" \
+perf record -B -N --no-bpf-event -g -o "${temp_data}" \
 		-- perf test -w noploop >/dev/null 2>&1 || \
 		{ echo "Skipping test, perf record failed"; exit 2; }
 

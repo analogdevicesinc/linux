@@ -42,11 +42,12 @@ temp_out=$(mktemp /tmp/perf.out.XXXXXX)
 echo "Testing net_dropmonitor.py..."
 
 # Create a perf.data file. Force dropping a packet if tracepoint is available!
-if ! perf record -e skb:kfree_skb -o "${temp_data}" -a \
-	-- ping -c 1 255.255.255.255 >/dev/null 2>&1; then
-	if ! perf record -e skb:kfree_skb -o "${temp_data}" \
+if ! perf record -B -N --no-bpf-event -e skb:kfree_skb -o "${temp_data}" -a \
+	-- ping -c 1 -W 1 255.255.255.255 >/dev/null 2>&1; then
+	if ! perf record -B -N --no-bpf-event -e skb:kfree_skb -o "${temp_data}" \
 		-- sleep 0.1 >/dev/null 2>&1; then
-		if ! perf record -o "${temp_data}" -- uname >/dev/null 2>&1; then
+		if ! perf record -B -N --no-bpf-event -o "${temp_data}" \
+			-- uname >/dev/null 2>&1; then
 			echo "Skipping test, cannot record perf events"
 			exit 2
 		fi

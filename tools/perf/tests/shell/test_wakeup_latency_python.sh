@@ -41,9 +41,9 @@ temp_out=$(mktemp /tmp/perf.out.XXXXXX)
 echo "Testing wakeup-latency.py..."
 
 # Create a perf.data file. Try to get tracepoint data.
-if perf list | grep -q "sched:sched_wakeup"; then
+if perf list tracepoint | grep -q "sched:sched_wakeup"; then
 	ev="sched:sched_wakeup,sched:sched_wakeup_new,sched:sched_switch"
-	perf record -e "$ev" -a -o "${temp_data}" \
+	perf record -B -N --no-bpf-event -e "$ev" -a -o "${temp_data}" \
 		-- sleep 0.1 >/dev/null 2>&1 || \
 		{ echo "Skipping test, perf record failed"; exit 2; }
 else
@@ -70,7 +70,8 @@ else
 fi
 
 # Also test zero-wakeups / unhandled events path to verify division-by-zero protection
-if perf record -e cycles -o "${temp_data}" -- perf test -w noploop >/dev/null 2>&1; then
+if perf record -B -N --no-bpf-event -e cycles -o "${temp_data}" \
+	-- perf test -w noploop >/dev/null 2>&1; then
 	if ! perf script wakeup-latency -i "${temp_data}" > "${temp_out}" || \
 	   ! grep -q "avg_wakeup_latency (ns): N/A" "${temp_out}"; then
 		echo "wakeup-latency zero-wakeups guard test failed"

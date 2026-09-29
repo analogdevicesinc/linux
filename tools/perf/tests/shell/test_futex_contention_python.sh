@@ -89,14 +89,15 @@ EOF
 test_file_mode() {
 	echo "Testing futex-contention.py..."
 	# Some systems might not have syscalls:sys_enter_futex
-	if ! perf list | grep -q syscalls:sys_enter_futex; then
+	if ! perf list tracepoint | grep -q syscalls:sys_enter_futex; then
 		echo "Skipping file mode test, syscalls:sys_enter_futex not found"
 		return
 	fi
 
 	# Generate some futex events
-	if ! perf record -e syscalls:sys_enter_futex,syscalls:sys_exit_futex -a -o "${temp_data}" \
-		-- sleep 0.5 2>/dev/null; then
+	if ! perf record -B -N --no-bpf-event \
+		-e syscalls:sys_enter_futex,syscalls:sys_exit_futex -a -o "${temp_data}" \
+		-- sleep 0.1 2>/dev/null; then
 		echo "Skipping file mode test (record failed)"
 		return
 	fi

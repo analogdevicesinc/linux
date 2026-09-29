@@ -45,10 +45,11 @@ test_file_mode() {
 	echo "Testing check-perf-trace.py..."
 
 	events=""
-	if perf list | grep -q "irq:softirq_entry"; then
+	tp_list=$(perf list tracepoint)
+	if echo "$tp_list" | grep -q "irq:softirq_entry"; then
 		events="irq:softirq_entry"
 	fi
-	if perf list | grep -q "kmem:kmalloc"; then
+	if echo "$tp_list" | grep -q "kmem:kmalloc"; then
 		if [ -n "$events" ]; then
 			events="$events,kmem:kmalloc,kmem:kfree"
 		else
@@ -62,7 +63,8 @@ test_file_mode() {
 	fi
 
 	# Generate events
-	if ! perf record -e "$events" -a -o "${temp_data}" -- sleep 0.5 >/dev/null 2>&1; then
+	if ! perf record -B -N --no-bpf-event -e "$events" -o "${temp_data}" \
+		-- sh -c "sleep 0.1" >/dev/null 2>&1; then
 		echo "Skipping test, perf record failed"
 		exit 2
 	fi

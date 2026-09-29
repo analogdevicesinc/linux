@@ -43,14 +43,14 @@ temp_out=$(mktemp /tmp/perf.out.XXXXXX)
 test_file_mode() {
 	echo "Testing syscall-counts-by-pid.py..."
 	# Some systems might not have raw_syscalls:sys_enter
-	if ! perf list | grep -q raw_syscalls:sys_enter; then
+	if ! perf list tracepoint | grep -q raw_syscalls:sys_enter; then
 		echo "Skipping test, raw_syscalls:sys_enter not found"
 		exit 2
 	fi
 
 	# Generate some syscall events
-	perf record -e raw_syscalls:sys_enter -a -o "${temp_data}" \
-		-- sleep 0.5 >/dev/null 2>&1 || \
+	perf record -B -N --no-bpf-event -e raw_syscalls:sys_enter -o "${temp_data}" \
+		-- sh -c "sleep 0.1; sleep 0.05" >/dev/null 2>&1 || \
 		{ echo "Skipping test, perf record failed"; exit 2; }
 
 	if ! perf script syscall-counts-by-pid -i "${temp_data}" > "${temp_out}"; then

@@ -60,7 +60,8 @@ test_file_mode() {
 	echo "Testing flamegraph.py..."
 
 	# Generate some events with callchains
-	if ! perf record -g -o "${temp_data}" -- perf test -w noploop >/dev/null 2>&1; then
+	if ! perf record -B -N --no-bpf-event -g -o "${temp_data}" \
+		-- perf test -w noploop >/dev/null 2>&1; then
 		echo "Skipping test, perf record -g failed (permissions or lack of support)"
 		exit 2
 	fi
@@ -75,7 +76,7 @@ test_file_mode() {
 
 	# Run the script in pipe ('-') mode and validate JSON output
 	rm -f "${temp_json}"
-	if ! perf record -g -o - -- perf test -w noploop 2>/dev/null | \
+	if ! perf record -B -N --no-bpf-event -g -o - -- perf test -w noploop 2>/dev/null | \
 		perf script flamegraph -i - -f json -o "${temp_json}" >/dev/null; then
 		echo "Pipe stdin JSON mode test failed."
 		err=1

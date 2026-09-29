@@ -39,7 +39,8 @@ test_file_mode() {
 	echo "Testing event_analyzing_sample.py..."
 
 	# Generate some events
-	if ! perf record -o "${temp_data}" -- perf test -w noploop >/dev/null 2>&1; then
+	if ! perf record -B -N --no-bpf-event -o "${temp_data}" \
+		-- perf test -w noploop >/dev/null 2>&1; then
 		echo "Skipping test, perf record failed"
 		exit 2
 	fi
