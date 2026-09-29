@@ -152,6 +152,7 @@
 struct ak4619_priv {
 	struct regmap *regmap;
 	struct snd_pcm_hw_constraint_list constraint;
+	struct gpio_desc *pdn_gpio;
 	int deemph_en;
 	unsigned int playback_rate;
 	unsigned int sysclk;
@@ -875,10 +876,20 @@ static int ak4619_i2c_probe(struct i2c_client *i2c)
 
 	i2c_set_clientdata(i2c, ak4619);
 
+	ak4619->pdn_gpio = devm_gpiod_get_optional(dev, "powerdown",
+		GPIOD_OUT_LOW);
+	if (IS_ERR(ak4619->pdn_gpio))
+		return dev_err_probe(dev, PTR_ERR(ak4619->pdn_gpio),
+			"powerdown GPIO request failed\n");
+	if (ak4619->pdn_gpio)
+		msleep(10);
+
 	ak4619->regmap = devm_regmap_init_i2c(i2c, &ak4619_regmap_cfg);
 	if (IS_ERR(ak4619->regmap)) {
 		ret = PTR_ERR(ak4619->regmap);
 		dev_err(dev, "regmap_init() failed: %d\n", ret);
+		if (ak4619->pdn_gpio)
+			gpiod_set_value_cansleep(ak4619->pdn_gpio, 1);
 		return ret;
 	}
 
@@ -887,6 +898,8 @@ static int ak4619_i2c_probe(struct i2c_client *i2c)
 	if (ret < 0) {
 		dev_err(dev, "Failed to register ak4619 component: %d\n",
 			ret);
+		if (ak4619->pdn_gpio)
+			gpiod_set_value_cansleep(ak4619->pdn_gpio, 1);
 		return ret;
 	}
 
