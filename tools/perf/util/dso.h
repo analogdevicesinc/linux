@@ -349,6 +349,7 @@ DECLARE_RC_STRUCT(dso) {
 	u8		 short_name_allocated:1;
 	u8		 long_name_allocated:1;
 	u8		 is_64_bit:1;
+	u8		 debuginfo_searched:1;
 	bool		 sorted_by_name;
 	bool		 loaded;
 	u8		 rel;
@@ -1018,6 +1019,16 @@ static inline void dso__set_dbginfo_type(struct dso *dso, enum dso_binary_type b
 }
 
 void dso__find_dbginfo_type(struct dso *dso);
+
+static inline bool dso__debuginfo_searched(const struct dso *dso)
+{
+	return RC_CHK_ACCESS(dso)->debuginfo_searched;
+}
+
+static inline void dso__set_debuginfo_searched(struct dso *dso)
+{
+	RC_CHK_ACCESS(dso)->debuginfo_searched = 1;
+}
 
 bool dso__is_object_file(const struct dso *dso);
 

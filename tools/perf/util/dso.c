@@ -2129,6 +2129,10 @@ void dso__find_dbginfo_type(struct dso *dso)
 	if (dso__dbginfo_type(dso) != DSO_BINARY_TYPE__NOT_FOUND)
 		return;
 
+	if (dso__debuginfo_searched(dso))
+		return;
+	dso__set_debuginfo_searched(dso);
+
 	for (type = dbginfo_types; *type != DSO_BINARY_TYPE__NOT_FOUND; type++) {
 		path = dso__get_filename(dso, "", &decomp, *type);
 		if (path == NULL)
