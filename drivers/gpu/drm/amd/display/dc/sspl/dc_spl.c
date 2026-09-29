@@ -1018,6 +1018,13 @@ static bool spl_get_optimal_number_of_taps(
 	bool is_horz_subsampled = (spl_is_subsampled_format(spl_in->basic_in.format) && !spl_in->upsp_mode);
 	bool is_vert_subsampled = (spl_is_yuv420(spl_in->basic_in.format) && !spl_in->upsp_mode);
 
+	/* Only 4:2:2 subsamples a single axis; 90/270 rotates that axis from horizontal to vertical
+	 * (like the ratio/cositing swaps above) so the now-full-res axis gets the 1-tap sharp bypass */
+	if ((spl_in->basic_in.rotation == SPL_ROTATION_ANGLE_90 ||
+		spl_in->basic_in.rotation == SPL_ROTATION_ANGLE_270) &&
+		spl_is_yuv422(spl_in->basic_in.format))
+		spl_swap(is_horz_subsampled, is_vert_subsampled);
+
 	if (spl_scratch->scl_data.viewport.width > spl_scratch->scl_data.h_active &&
 		max_downscale_src_width != 0 &&
 		spl_scratch->scl_data.viewport.width > max_downscale_src_width) {
