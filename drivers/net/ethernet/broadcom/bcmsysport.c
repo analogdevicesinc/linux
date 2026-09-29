@@ -1717,6 +1717,9 @@ static void bcm_sysport_fini_rx_ring(struct bcm_sysport_priv *priv)
 	if (!(reg & RDMA_DISABLED))
 		netdev_warn(priv->netdev, "RDMA not stopped!\n");
 
+	if (!priv->rx_cbs)
+		return;
+
 	for (i = 0; i < priv->num_rx_bds; i++) {
 		cb = &priv->rx_cbs[i];
 		if (dma_unmap_addr(cb, dma_addr))
@@ -2083,7 +2086,7 @@ static int bcm_sysport_stop(struct net_device *dev)
 
 	ret = tdma_enable_set(priv, 0);
 	if (ret) {
-		netdev_err(dev, "timeout disabling RDMA\n");
+		netdev_err(dev, "timeout disabling TDMA\n");
 		return ret;
 	}
 
@@ -2092,7 +2095,7 @@ static int bcm_sysport_stop(struct net_device *dev)
 
 	ret = rdma_enable_set(priv, 0);
 	if (ret) {
-		netdev_err(dev, "timeout disabling TDMA\n");
+		netdev_err(dev, "timeout disabling RDMA\n");
 		return ret;
 	}
 
@@ -2647,7 +2650,7 @@ static int bcm_sysport_suspend_to_wol(struct bcm_sysport_priv *priv)
 {
 	struct net_device *ndev = priv->netdev;
 	unsigned int timeout = 1000;
-	unsigned int index, i = 0;
+	unsigned int index;
 	u32 reg;
 
 	reg = umac_readl(priv, UMAC_MPD_CTRL);
@@ -2677,10 +2680,8 @@ static int bcm_sysport_suspend_to_wol(struct bcm_sysport_priv *priv)
 		reg = rxchk_readl(priv, RXCHK_CONTROL);
 		reg &= ~(RXCHK_BRCM_TAG_MATCH_MASK <<
 			 RXCHK_BRCM_TAG_MATCH_SHIFT);
-		for_each_set_bit(index, priv->filters, RXCHK_BRCM_TAG_MAX) {
-			reg |= BIT(RXCHK_BRCM_TAG_MATCH_SHIFT + i);
-			i++;
-		}
+		for_each_set_bit(index, priv->filters, RXCHK_BRCM_TAG_MAX)
+			reg |= BIT(RXCHK_BRCM_TAG_MATCH_SHIFT + index);
 		reg |= RXCHK_EN | RXCHK_BRCM_TAG_EN;
 		rxchk_writel(priv, reg, RXCHK_CONTROL);
 	}
