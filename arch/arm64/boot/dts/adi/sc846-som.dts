@@ -36,7 +36,7 @@
 
 &scb {
 	sharcfx: sharcfx@28240000 {
-		compatible = "adi,remoteproc";
+		compatible = "adi,sc8xx-rproc";
 		reg = <0x28240000 0x90000>,
 				<0x20400000 0x400000>;
 		core-id = <1>;
