@@ -47,6 +47,7 @@ definitions:
       -
         name: started
         doc: The firmware flashing process has started.
+        value: 1
       -
         name: in-progress
         doc: The firmware flashing process is in progress.
@@ -89,6 +90,7 @@ definitions:
       -
         name: power-not-available
         doc: Group of power_not_available states
+        value: 8
       -
         name: short-detected
         doc: Group of short_detected states
@@ -97,7 +99,7 @@ definitions:
     enum-name: phy-upstream
     header: linux/ethtool.h
     type: enum
-    name-prefix: phy-upstream
+    name-prefix: phy-upstream-
     entries: [mac, phy]
   -
     name: tcp-data-split

@@ -158,7 +158,7 @@ definitions:
       -
         name: entry
   -
-    type: enum
+    type: flags
     name: resource-scope
     entries:
       -
@@ -903,7 +903,6 @@ attribute-sets:
         name: resource-scope-mask
         type: u32
         enum: resource-scope
-        enum-as-flags: true
         doc: |
           Bitmask selecting which resource classes to include in a
           resource-dump response. Bit 0 (dev) selects device-level
