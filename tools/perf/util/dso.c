@@ -2086,17 +2086,10 @@ const u8 *dso__read_symbol(struct dso *dso, const char *symfs_filename,
 
 struct debuginfo *dso__debuginfo(struct dso *dso)
 {
-	char *name;
-	bool decomp = false;
-	struct debuginfo *dinfo = NULL;
+	struct debuginfo *dinfo;
 
 	mutex_lock(dso__lock(dso));
-
-	name = dso__get_filename(dso, "", &decomp, dso__dbginfo_type(dso));
-	if (name) {
-		dinfo = debuginfo__new(name);
-		dso__put_filename(dso, name, decomp);
-	}
+	dinfo = debuginfo__new(dso);
 	mutex_unlock(dso__lock(dso));
 	return dinfo;
 }
