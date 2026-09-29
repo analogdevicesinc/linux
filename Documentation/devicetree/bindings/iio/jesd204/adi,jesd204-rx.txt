@@ -20,6 +20,9 @@ Required properties:
 Optional properties:
   - adi,high-density: If specified the JESD204B link is configured for high
                       density (HD) operation.
+  - adi,header-mode: JESD204C sync header use: 0 for CRC-12 (default) or 2 for
+                     Forward Error Correction. FEC needs a 64B66B core,
+                     version 1.08.a or later, built with ENABLE_FEC=1.
 
 Example:
 
