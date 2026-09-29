@@ -5,6 +5,13 @@
 
 #include "sched-pelt.h"
 
+/*
+ * Pelt uses apprixmate 'us' as ns/1024; and then uses time segments of 1024
+ * 'us'. As a result each segment is in fact '1<<20' ns.
+ */
+#define PELT_SEGMENT_NS		(1<<20)
+#define PELT_SEGMENT_MASK	(PELT_SEGMENT_NS-1)
+
 int __update_load_avg_blocked_se(u64 now, struct sched_entity *se);
 int __update_load_avg_se(u64 now, struct cfs_rq *cfs_rq, struct sched_entity *se);
 int __update_load_avg_cfs_rq(u64 now, struct cfs_rq *cfs_rq);

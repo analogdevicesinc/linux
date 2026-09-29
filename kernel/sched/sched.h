@@ -736,7 +736,6 @@ struct cfs_rq {
 	 */
 	unsigned long		h_load;
 	u64			last_h_load_update;
-	struct sched_entity	*h_load_next;
 
 	struct rq		*rq;	/* CPU runqueue to which this cfs_rq is attached */
 
