@@ -3010,8 +3010,6 @@ static const u32 gcc_eliza_critical_cbcrs[] = {
 	0x26034, /* GCC_CAMERA_XO_CLK */
 	0x27004, /* GCC_DISP_AHB_CLK */
 	0x71004, /* GCC_GPU_CFG_AHB_CLK */
-	0x52010, /* GCC_PCIE_RSCC_CFG_AHB_CLK */
-	0x52010, /* GCC_PCIE_RSCC_XO_CLK */
 	0x32004, /* GCC_VIDEO_AHB_CLK */
 	0x32038, /* GCC_VIDEO_XO_CLK */
 };
@@ -3045,6 +3043,10 @@ static const struct regmap_config gcc_eliza_regmap_config = {
 
 static void clk_eliza_regs_configure(struct device *dev, struct regmap *regmap)
 {
+	/* Keep clocks always enabled */
+	regmap_update_bits(regmap, 0x52010, BIT(20), BIT(20)); /* GCC_PCIE_RSCC_CFG_AHB_CLK */
+	regmap_update_bits(regmap, 0x52010, BIT(21), BIT(21)); /* GCC_PCIE_RSCC_XO_CLK */
+
 	/* FORCE_MEM_CORE_ON for ufs phy ice core and gcc ufs phy axi clocks  */
 	qcom_branch_set_force_mem_core(regmap, gcc_ufs_phy_ice_core_clk, true);
 	qcom_branch_set_force_mem_core(regmap, gcc_ufs_phy_axi_clk, true);
@@ -3066,6 +3068,7 @@ static const struct qcom_cc_desc gcc_eliza_desc = {
 	.num_resets = ARRAY_SIZE(gcc_eliza_resets),
 	.gdscs = gcc_eliza_gdscs,
 	.num_gdscs = ARRAY_SIZE(gcc_eliza_gdscs),
+	.use_rpm = true,
 	.driver_data = &gcc_eliza_driver_data,
 };
 
@@ -3088,17 +3091,7 @@ static struct platform_driver gcc_eliza_driver = {
 	},
 };
 
-static int __init gcc_eliza_init(void)
-{
-	return platform_driver_register(&gcc_eliza_driver);
-}
-subsys_initcall(gcc_eliza_init);
-
-static void __exit gcc_eliza_exit(void)
-{
-	platform_driver_unregister(&gcc_eliza_driver);
-}
-module_exit(gcc_eliza_exit);
+subsys_platform_driver(gcc_eliza_driver);
 
 MODULE_DESCRIPTION("QTI GCC Eliza Driver");
 MODULE_LICENSE("GPL");
