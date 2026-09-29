@@ -14,6 +14,10 @@
 #define JESD204_ENCODER_MASK		GENMASK(9, 8)
 #define JESD204_ENCODER_GET(x)		FIELD_GET(JESD204_ENCODER_MASK, x)
 
+/* LINK_CONF1 HEADER_MODE values: JESD204C sync header use, 64B66B only */
+#define JESD204_HEADER_MODE_CRC12	0
+#define JESD204_HEADER_MODE_FEC		2
+
 /**
  * axi_jesd_ext_reset - Perform an optional external GT reset using GPIO signals
  * @dev: Pointer to the device structure
