@@ -1753,8 +1753,9 @@ void dcn6_calculate_pstate_schedule_windows(
 		det_fill_delay_otg_vlines = (int)(math_ceil(det_fill_delay_us[k] / otg_vline_time_us[k]));
 		reserved_vblank_otg_vlines = (int)(math_ceil(reserved_vblank_us[k] / otg_vline_time_us[k]));
 
-		allow_start_otg_vlines = v_blank_end[k] + det_fill_delay_otg_vlines;
-		allow_end_otg_vlines = v_blank_start[k] - (blackout_otg_vlines - reserved_vblank_otg_vlines);
+		/* for vactive only, make relative to vblank end */
+		allow_start_otg_vlines = det_fill_delay_otg_vlines;
+		allow_end_otg_vlines = v_blank_start[k] - v_blank_end[k] - (blackout_otg_vlines - reserved_vblank_otg_vlines);
 
 		/* Convert them back to time since the start of a frame */
 		allow_start_us[k] = allow_start_otg_vlines * otg_vline_time_us[k];
