@@ -590,8 +590,8 @@ char *dso__filename_with_chroot(const struct dso *dso, const char *filename)
 	return filename_with_chroot(nsinfo__pid(dso__nsinfo_const(dso)), filename);
 }
 
-static char *dso__get_filename(struct dso *dso, const char *root_dir,
-			       bool *decomp)
+char *dso__get_filename(struct dso *dso, const char *root_dir, bool *decomp,
+			enum dso_binary_type type)
 {
 	char *name = malloc(PATH_MAX);
 
@@ -600,8 +600,7 @@ static char *dso__get_filename(struct dso *dso, const char *root_dir,
 	if (name == NULL)
 		return NULL;
 
-	if (dso__read_binary_type_filename(dso, dso__binary_type(dso),
-					    root_dir, name, PATH_MAX))
+	if (dso__read_binary_type_filename(dso, type, root_dir, name, PATH_MAX))
 		goto out;
 
 	if (!is_regular_file(name)) {
@@ -671,7 +670,8 @@ static int __open_dso(struct dso *dso, struct machine *machine)
 
 	mutex_lock(dso__lock(dso));
 
-	name = dso__get_filename(dso, machine ? machine->root_dir : "", &decomp);
+	name = dso__get_filename(dso, machine ? machine->root_dir : "", &decomp,
+				 dso__binary_type(dso));
 	if (name) {
 		fd = do_open(name);
 	} else {
@@ -2087,7 +2087,7 @@ struct debuginfo *dso__debuginfo(struct dso *dso)
 
 	mutex_lock(dso__lock(dso));
 
-	name = dso__get_filename(dso, "", &decomp);
+	name = dso__get_filename(dso, "", &decomp, dso__dbginfo_type(dso));
 	if (name)
 		dinfo = debuginfo__new(name);
 
@@ -2121,18 +2121,25 @@ void dso__find_dbginfo_type(struct dso *dso)
 		DSO_BINARY_TYPE__NOT_FOUND,
 	};
 	const enum dso_binary_type *type;
-	char buf[PATH_MAX];
+	char *path;
+	bool found, decomp = false;
 
 	if (dso__dbginfo_type(dso) != DSO_BINARY_TYPE__NOT_FOUND)
 		return;
 
 	for (type = dbginfo_types; *type != DSO_BINARY_TYPE__NOT_FOUND; type++) {
-		if (dso__read_binary_type_filename(dso, *type, "",
-						   buf, PATH_MAX) < 0)
+		path = dso__get_filename(dso, "", &decomp, *type);
+		if (path == NULL)
 			continue;
 
-		if (filename__has_section(buf, ".debug_info") ||
-		    filename__has_section(buf, ".zdebug_info"))
+		found = filename__has_section(path, ".debug_info") ||
+			filename__has_section(path, ".zdebug_info");
+
+		if (decomp)
+			unlink(path);
+		free(path);
+
+		if (found)
 			break;
 	}
 

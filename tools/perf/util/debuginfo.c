@@ -93,10 +93,11 @@ static struct debuginfo *__debuginfo__new(const char *path)
 
 struct debuginfo *debuginfo__new(const char *path)
 {
-	char buf[PATH_MAX], nil = '\0';
 	struct dso *dso;
-	struct debuginfo *dinfo = NULL;
-	struct build_id bid = { .size = 0};
+	struct debuginfo *dinfo;
+	struct build_id bid = { .size = 0 };
+	char *filename;
+	bool decomp = false;
 
 	/* Try to open distro debuginfo files */
 	dso = dso__new(path);
@@ -112,11 +113,15 @@ struct debuginfo *debuginfo__new(const char *path)
 		dso__set_build_id(dso, &bid);
 
 	dso__find_dbginfo_type(dso);
-	if (dso__read_binary_type_filename(dso, dso__dbginfo_type(dso), &nil,
-					   buf, PATH_MAX) < 0)
+	filename = dso__get_filename(dso, "", &decomp, dso__dbginfo_type(dso));
+	if (filename == NULL)
 		return NULL;
 
-	dinfo = __debuginfo__new(buf);
+	dinfo = __debuginfo__new(filename);
+
+	if (decomp)
+		unlink(filename);
+	free(filename);
 	dso__put(dso);
 
 	return dinfo;
