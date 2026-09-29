@@ -367,8 +367,10 @@ static int rs9_resume(struct device *dev)
 
 	regcache_cache_only(rs9->regmap, false);
 	ret = regcache_sync(rs9->regmap);
-	if (ret)
+	if (ret) {
+		regcache_cache_only(rs9->regmap, true);
 		dev_err(dev, "Failed to restore register map: %d\n", ret);
+	}
 	return ret;
 }
 

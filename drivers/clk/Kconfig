@@ -451,12 +451,14 @@ config COMMON_CLK_STM32H7
 
 config COMMON_CLK_MMP2
 	def_bool COMMON_CLK && (MACH_MMP2_DT || MACH_MMP3_DT)
+	select COMMON_CLK_MMP
 	help
 	  Support for Marvell MMP2 and MMP3 SoC clocks
 
 config COMMON_CLK_MMP2_AUDIO
         tristate "Clock driver for MMP2 Audio subsystem"
         depends on COMMON_CLK_MMP2 || COMPILE_TEST
+        select COMMON_CLK_MMP
         help
           This driver supports clocks for Audio subsystem on MMP2 SoC.
 

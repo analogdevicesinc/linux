@@ -13,6 +13,7 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/bitops.h>
 #include <linux/bitrev.h>
 #include <linux/clk-provider.h>
 #include <linux/i2c.h>
@@ -255,18 +256,24 @@ static void si521xx_diff_idx_to_reg_bit(const u16 chip_info, const int idx,
 					struct si_clk *clk)
 {
 	unsigned long mask;
-	int oe, b, ctr = 0;
+	unsigned int bit;
+	int oe = 1;
 
-	for (oe = 1; oe <= 2; oe++) {
-		mask = bitrev8(SI521XX_OE_MAP_GET_OE(oe, chip_info));
-		for_each_set_bit(b, &mask, 8) {
-			if (ctr++ != idx)
-				continue;
-			clk->reg = SI521XX_REG_OE(oe);
-			clk->bit = 7 - b;
-			return;
-		}
-	}
+	mask = bitrev8(SI521XX_OE_MAP_GET_OE(1, chip_info));
+	bit = fns(mask, idx);
+	if (bit < 8)
+		goto out;
+
+	oe = 2;
+	bit = idx - hweight8(mask);
+	mask = bitrev8(SI521XX_OE_MAP_GET_OE(2, chip_info));
+	bit = fns(mask, bit);
+	if (bit >= 8)
+		return;
+
+out:
+	clk->reg = SI521XX_REG_OE(oe);
+	clk->bit = 7 - bit;
 }
 
 static struct clk_hw *
@@ -358,8 +365,10 @@ static int si521xx_resume(struct device *dev)
 
 	regcache_cache_only(si->regmap, false);
 	ret = regcache_sync(si->regmap);
-	if (ret)
+	if (ret) {
+		regcache_cache_only(si->regmap, true);
 		dev_err(dev, "Failed to restore register map: %d\n", ret);
+	}
 	return ret;
 }
 
