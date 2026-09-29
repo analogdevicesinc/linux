@@ -149,7 +149,7 @@ static void rockchip_pcie_intx_handler(struct irq_desc *desc)
 	reg = rockchip_pcie_readl_apb(rockchip, PCIE_CLIENT_INTR_STATUS_LEGACY);
 
 	for_each_set_bit(hwirq, &reg, 4)
-		generic_handle_domain_irq(rockchip->irq_domain, hwirq);
+		generic_handle_demux_domain_irq(rockchip->irq_domain, hwirq);
 
 	chained_irq_exit(chip, desc);
 }
@@ -173,6 +173,16 @@ static struct irq_chip rockchip_intx_irq_chip = {
 	.irq_mask		= rockchip_intx_mask,
 	.irq_unmask		= rockchip_intx_unmask,
 	.flags			= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_MASK_ON_SUSPEND,
+#ifdef CONFIG_SMP
+	/*
+	 * The legacy interrupt is level triggered. Mask the INTx source in
+	 * the parent's context before the handler is redirected, so that
+	 * the unmasked level line does not keep re-firing the chained
+	 * interrupt until the redirected handler runs.
+	 */
+	.irq_pre_redirect	= rockchip_intx_mask,
+	.irq_set_affinity	= irq_chip_redirect_set_affinity,
+#endif
 };
 
 static int rockchip_pcie_intx_map(struct irq_domain *domain, unsigned int irq,
