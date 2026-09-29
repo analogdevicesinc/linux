@@ -97,7 +97,6 @@ struct qpic_ecc {
 	u32 cfg1;
 	u32 cfg0_raw;
 	u32 cfg1_raw;
-	u32 ecc_buf_cfg;
 	u32 ecc_bch_cfg;
 	bool bch_enabled;
 };
@@ -406,8 +405,6 @@ static int qcom_spi_ecc_init_ctx_pipelined(struct nand_device *nand)
 			       FIELD_PREP(ECC_FORCE_CLK_OPEN, 1) |
 			       FIELD_PREP(ECC_MODE_MASK, ecc_cfg->ecc_mode) |
 			       FIELD_PREP(ECC_PARITY_SIZE_BYTES_BCH_MASK, ecc_cfg->ecc_bytes_hw);
-
-	ecc_cfg->ecc_buf_cfg = FIELD_PREP(NUM_STEPS_MASK, 0x203);
 
 	conf->step_size = ecc_cfg->step_size;
 	conf->strength = ecc_cfg->strength;
@@ -1198,13 +1195,12 @@ static int qcom_spi_program_ecc(struct qcom_nand_controller *snandc,
 	u8 *data_buf = NULL, *oob_buf = NULL;
 	int i, ret;
 	int num_cw = snandc->qspi->num_cw;
-	u32 cfg0, cfg1, ecc_bch_cfg, ecc_buf_cfg;
+	u32 cfg0, cfg1, ecc_bch_cfg;
 
 	cfg0 = (ecc_cfg->cfg0 & ~CW_PER_PAGE_MASK) |
 	       FIELD_PREP(CW_PER_PAGE_MASK, num_cw - 1);
 	cfg1 = ecc_cfg->cfg1;
 	ecc_bch_cfg = ecc_cfg->ecc_bch_cfg;
-	ecc_buf_cfg = ecc_cfg->ecc_buf_cfg;
 
 	if (snandc->qspi->data_buf)
 		data_buf = snandc->qspi->data_buf;
@@ -1222,7 +1218,6 @@ static int qcom_spi_program_ecc(struct qcom_nand_controller *snandc,
 	snandc->regs->cfg0 = cpu_to_le32(cfg0);
 	snandc->regs->cfg1 = cpu_to_le32(cfg1);
 	snandc->regs->ecc_bch_cfg = cpu_to_le32(ecc_bch_cfg);
-	snandc->regs->ecc_buf_cfg = cpu_to_le32(ecc_buf_cfg);
 	snandc->regs->exec = cpu_to_le32(1);
 
 	qcom_spi_config_page_write(snandc);
@@ -1275,13 +1270,12 @@ static int qcom_spi_program_oob(struct qcom_nand_controller *snandc,
 	u8 *oob_buf = NULL;
 	int ret, col, data_size, oob_size;
 	int num_cw = snandc->qspi->num_cw;
-	u32 cfg0, cfg1, ecc_bch_cfg, ecc_buf_cfg;
+	u32 cfg0, cfg1, ecc_bch_cfg;
 
 	cfg0 = (ecc_cfg->cfg0 & ~CW_PER_PAGE_MASK) |
 	       FIELD_PREP(CW_PER_PAGE_MASK, 0);
 	cfg1 = ecc_cfg->cfg1;
 	ecc_bch_cfg = ecc_cfg->ecc_bch_cfg;
-	ecc_buf_cfg = ecc_cfg->ecc_buf_cfg;
 
 	col = ecc_cfg->cw_size * (num_cw - 1);
 
@@ -1297,7 +1291,6 @@ static int qcom_spi_program_oob(struct qcom_nand_controller *snandc,
 	snandc->regs->cfg0 = cpu_to_le32(cfg0);
 	snandc->regs->cfg1 = cpu_to_le32(cfg1);
 	snandc->regs->ecc_bch_cfg = cpu_to_le32(ecc_bch_cfg);
-	snandc->regs->ecc_buf_cfg = cpu_to_le32(ecc_buf_cfg);
 	snandc->regs->exec = cpu_to_le32(1);
 
 	/* calculate the data and oob size for the last codeword/step */
