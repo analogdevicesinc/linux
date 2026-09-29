@@ -669,8 +669,8 @@ static void build_vtem_infopacket_data(const struct dc_stream_state *stream,
 	set_field_with_mask(&infopacket->sb[VTEM_MD0], MASK_VTEM_MD0__FVA_FACTOR_M1,
 			(fva_factor > 0) ? (fva_factor - 1) : 0);
 	/* VRR Parameters */
-	if (vrr->state == VRR_STATE_ACTIVE_VARIABLE ||
-	    vrr->state == VRR_STATE_ACTIVE_FIXED) {
+	if (vrr->state != VRR_STATE_DISABLED &&
+			vrr->state != VRR_STATE_UNSUPPORTED) {
 		set_field_with_mask(&infopacket->sb[VTEM_MD0], MASK_VTEM_MD0__VRR_EN, 1);
 	} else {
 		set_field_with_mask(&infopacket->sb[VTEM_MD0], MASK_VTEM_MD0__VRR_EN, 0);
