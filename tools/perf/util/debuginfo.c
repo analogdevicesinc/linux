@@ -118,10 +118,7 @@ struct debuginfo *debuginfo__new(const char *path)
 		return NULL;
 
 	dinfo = __debuginfo__new(filename);
-
-	if (decomp)
-		unlink(filename);
-	free(filename);
+	dso__put_filename(dso, filename, decomp);
 	dso__put(dso);
 
 	return dinfo;

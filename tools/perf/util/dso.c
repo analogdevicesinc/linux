@@ -661,6 +661,14 @@ out:
 	return NULL;
 }
 
+void dso__put_filename(struct dso *dso __maybe_unused, char *filename, bool decomp)
+{
+	if (decomp)
+		unlink(filename);
+
+	free(filename);
+}
+
 static int __open_dso(struct dso *dso, struct machine *machine)
 	EXCLUSIVE_LOCKS_REQUIRED(_dso__data_open_lock)
 {
@@ -680,11 +688,8 @@ static int __open_dso(struct dso *dso, struct machine *machine)
 		fd = -errno;
 	}
 
-	if (decomp)
-		unlink(name);
-
+	dso__put_filename(dso, name, decomp);
 	mutex_unlock(dso__lock(dso));
-	free(name);
 	return fd;
 }
 
@@ -2088,14 +2093,11 @@ struct debuginfo *dso__debuginfo(struct dso *dso)
 	mutex_lock(dso__lock(dso));
 
 	name = dso__get_filename(dso, "", &decomp, dso__dbginfo_type(dso));
-	if (name)
+	if (name) {
 		dinfo = debuginfo__new(name);
-
-	if (decomp)
-		unlink(name);
-
+		dso__put_filename(dso, name, decomp);
+	}
 	mutex_unlock(dso__lock(dso));
-	free(name);
 	return dinfo;
 }
 
@@ -2135,10 +2137,7 @@ void dso__find_dbginfo_type(struct dso *dso)
 		found = filename__has_section(path, ".debug_info") ||
 			filename__has_section(path, ".zdebug_info");
 
-		if (decomp)
-			unlink(path);
-		free(path);
-
+		dso__put_filename(dso, path, decomp);
 		if (found)
 			break;
 	}
