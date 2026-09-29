@@ -174,8 +174,23 @@ i2c_smbus_write_word_swapped(const struct i2c_client *client,
 }
 
 /* Returns the number of read bytes */
-s32 i2c_smbus_read_block_data(const struct i2c_client *client,
-			      u8 command, u8 *values);
+s32 __i2c_smbus_read_block_data(const struct i2c_client *client,
+				u8 command, u8 length, u8 *values);
+/*
+ * This monstrosity allows to call i2c_smbus_read_block_data() with either
+ * 3 or 4 arguments and will be removed once all users have been switched
+ * to the 4 argument version.
+ */
+#define __i2c_smbus_read_block_data_3arg(client, cmd, values)			\
+	__i2c_smbus_read_block_data(client, cmd, I2C_SMBUS_BLOCK_MAX, values)
+#define __i2c_smbus_read_block_data_4arg(client, cmd, length, values)		\
+	__i2c_smbus_read_block_data(client, cmd, length, values)
+#define __i2c_smbus_read_block_data_impl(_1, _2, _3, _4, impl, ...) impl
+#define i2c_smbus_read_block_data(client, cmd, varargs...)			\
+	__i2c_smbus_read_block_data_impl(client, cmd, varargs,			\
+					 __i2c_smbus_read_block_data_4arg,	\
+					 __i2c_smbus_read_block_data_3arg)	\
+					 (client, cmd, varargs)
 s32 i2c_smbus_write_block_data(const struct i2c_client *client,
 			       u8 command, u8 length, const u8 *values);
 /* Returns the number of read bytes */
