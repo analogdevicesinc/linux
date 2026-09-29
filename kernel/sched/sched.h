@@ -726,6 +726,7 @@ struct cfs_rq {
 	unsigned long		tg_runnable_avg_contrib;
 	long			propagate;
 	long			prop_runnable_sum;
+	struct sched_entity	*backlink;
 
 	/*
 	 *   h_load = weight * f(tg)
