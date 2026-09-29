@@ -4823,10 +4823,53 @@ static s32 btf_loc_param_check_meta(struct btf_verifier_env *env,
 		btf_verifier_log_type(env, t, "Invalid btf_info kind_flag");
 		return -EINVAL;
 	}
+	/* All LOC_PARAMs have vlen of at least 1 */
+	if (vlen < 1)
+		goto invalid_vlen;
+
+	switch (p->flags) {
+	case BTF_LOC_PARAM_CONST:
+	case BTF_LOC_PARAM_CONST | BTF_LOC_PARAM_SIGNED:
+	case BTF_LOC_PARAM_CONST | BTF_LOC_PARAM_ADDR:
+	case BTF_LOC_PARAM_CONST | BTF_LOC_PARAM_ADDR | BTF_LOC_PARAM_SIGNED:
+		if (vlen > 2)
+			goto invalid_vlen;
+		/* Ensure size/vlen are consistent */
+		if (size > sizeof(__u32) && vlen != 2)
+			goto invalid_vlen;
+		if (size > sizeof(__u64))
+			goto invalid_vlen;
+		break;
+	case BTF_LOC_PARAM_REG:
+		/* Reg or reg/reg pair */
+		if (vlen > 2)
+			goto invalid_vlen;
+		break;
+	case BTF_LOC_PARAM_REG | BTF_LOC_PARAM_DEREF:
+		/* A reg deref without offset can only have vlen 1 */
+		if (vlen != 1)
+			goto invalid_vlen;
+		break;
+	case BTF_LOC_PARAM_REG | BTF_LOC_PARAM_OFFSET:
+	case BTF_LOC_PARAM_REG | BTF_LOC_PARAM_OFFSET | BTF_LOC_PARAM_SIGNED:
+	case BTF_LOC_PARAM_REG | BTF_LOC_PARAM_DEREF | BTF_LOC_PARAM_OFFSET:
+	case BTF_LOC_PARAM_REG | BTF_LOC_PARAM_DEREF | BTF_LOC_PARAM_OFFSET |
+	     BTF_LOC_PARAM_SIGNED:
+		if (vlen < 2 || vlen > 3)
+			goto invalid_vlen;
+		break;
+	default:
+		btf_verifier_log_type(env, t, "Invalid flags");
+		return -EINVAL;
+	}
 
 	btf_verifier_log_type(env, t, NULL);
 
 	return meta_needed;
+
+invalid_vlen:
+	btf_verifier_log_type(env, t, "Invalid vlen");
+	return -EINVAL;
 }
 
 static void btf_loc_param_log(struct btf_verifier_env *env,
