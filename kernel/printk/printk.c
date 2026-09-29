@@ -1085,9 +1085,9 @@ static void __init log_buf_add_cpu(void)
 	if (num_possible_cpus() == 1)
 		return;
 
-	cpu_extra = (num_possible_cpus() - 1) * __LOG_CPU_MAX_BUF_LEN;
+	cpu_extra = num_possible_cpus() * __LOG_CPU_MAX_BUF_LEN;
 
-	/* by default this will only continue through for large > 64 CPUs */
+	/* by default this will only continue through for more than 16 CPUs */
 	if (cpu_extra <= __LOG_BUF_LEN / 2)
 		return;
 
@@ -4608,31 +4608,26 @@ bool pr_flush(int timeout_ms, bool reset_on_progress)
 /*
  * Delayed printk version, for scheduler-internal messages:
  */
-#define PRINTK_PENDING_WAKEUP	0x01
-#define PRINTK_PENDING_OUTPUT	0x02
+#define PRINTK_PENDING_OUTPUT	0x01
 
-static DEFINE_PER_CPU(int, printk_pending);
-
-static void wake_up_klogd_work_func(struct irq_work *irq_work)
+static void pending_wake_fn(struct irq_work *irq_work)
 {
-	int pending = this_cpu_xchg(printk_pending, 0);
-
-	if (pending & PRINTK_PENDING_OUTPUT) {
-		if (force_legacy_kthread()) {
-			if (printk_legacy_kthread)
-				wake_up_interruptible(&legacy_wait);
-		} else {
-			if (console_trylock())
-				console_unlock();
-		}
-	}
-
-	if (pending & PRINTK_PENDING_WAKEUP)
-		wake_up_interruptible(&log_wait);
+	wake_up_interruptible(&log_wait);
 }
 
-static DEFINE_PER_CPU(struct irq_work, wake_up_klogd_work) =
-	IRQ_WORK_INIT_LAZY(wake_up_klogd_work_func);
+static void pending_output_fn(struct irq_work *irq_work)
+{
+	if (force_legacy_kthread()) {
+		if (printk_legacy_kthread)
+			wake_up_interruptible(&legacy_wait);
+	} else {
+		if (console_trylock())
+			console_unlock();
+	}
+}
+
+static struct irq_work pending_wakeup_work = IRQ_WORK_INIT_LAZY(pending_wake_fn);
+static struct irq_work pending_output_work = IRQ_WORK_INIT_LAZY(pending_output_fn);
 
 static void __wake_up_klogd(int val)
 {
@@ -4646,7 +4641,6 @@ static void __wake_up_klogd(int val)
 	if (WARN_ON_ONCE(console_irqwork_blocked))
 		return;
 
-	preempt_disable();
 	/*
 	 * Guarantee any new records can be seen by tasks preparing to wait
 	 * before this context checks if the wait queue is empty.
@@ -4658,12 +4652,11 @@ static void __wake_up_klogd(int val)
 	 *
 	 * This pairs with devkmsg_read:A and syslog_print:A.
 	 */
-	if (wq_has_sleeper(&log_wait) || /* LMM(__wake_up_klogd:A) */
-	    (val & PRINTK_PENDING_OUTPUT)) {
-		this_cpu_or(printk_pending, val);
-		irq_work_queue(this_cpu_ptr(&wake_up_klogd_work));
-	}
-	preempt_enable();
+	if (wq_has_sleeper(&log_wait)) /* LMM(__wake_up_klogd:A) */
+		irq_work_queue(&pending_wakeup_work);
+
+	if (val & PRINTK_PENDING_OUTPUT)
+		irq_work_queue(&pending_output_work);
 }
 
 /**
@@ -4678,7 +4671,7 @@ static void __wake_up_klogd(int val)
  */
 void wake_up_klogd(void)
 {
-	__wake_up_klogd(PRINTK_PENDING_WAKEUP);
+	__wake_up_klogd(0);
 }
 
 /**
@@ -4699,7 +4692,7 @@ void defer_console_output(void)
 	 * New messages may have been added directly to the ringbuffer
 	 * using vprintk_store(), so wake any waiters as well.
 	 */
-	__wake_up_klogd(PRINTK_PENDING_WAKEUP | PRINTK_PENDING_OUTPUT);
+	__wake_up_klogd(PRINTK_PENDING_OUTPUT);
 }
 
 /**
