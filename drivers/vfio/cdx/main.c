@@ -254,10 +254,10 @@ static int vfio_cdx_mmap_mmio(struct vfio_cdx_region region,
 	if (base + size > region.size)
 		return -EINVAL;
 
-	vma->vm_pgoff = (region.addr >> PAGE_SHIFT) + pgoff;
 	vma->vm_page_prot = pgprot_device(vma->vm_page_prot);
 
-	return io_remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
+	return io_remap_pfn_range(vma, vma->vm_start,
+				  (region.addr >> PAGE_SHIFT) + pgoff,
 				  size, vma->vm_page_prot);
 }
 
