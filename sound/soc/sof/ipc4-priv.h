@@ -58,13 +58,18 @@ struct sof_ipc4_fw_library {
 	struct sof_ipc4_fw_module *modules;
 };
 
+struct snd_ipc4_nhlt {
+	struct list_head list;
+	void *nhlt;
+	bool from_acpi;
+};
+
 /**
  * struct sof_ipc4_fw_data - IPC4-specific data
  * @manifest_fw_hdr_offset: FW header offset in the manifest
  * @fw_lib_xa: XArray for firmware libraries, including basefw (ID = 0)
  *	       Used to store the FW libraries and to manage the unique IDs of the
  *	       libraries.
- * @nhlt: NHLT table either from the BIOS or the topology manifest
  * @mtrace_type: mtrace type supported on the booted platform
  * @mtrace_log_bytes: log bytes as reported by the firmware via fw_config reply
  * @num_playback_streams: max number of playback DMAs, needed for CHAIN_DMA offset
@@ -74,6 +79,7 @@ struct sof_ipc4_fw_library {
  *		    base firmware
  * @fw_context_save: Firmware supports full context save and restore
  * @libraries_restored: The libraries have been retained during firmware boot
+ * @nhlt_list: The NHLT tables from the BIOS and the topology manifest
  *
  * @load_library: Callback function for platform dependent library loading
  * @pipeline_state_mutex: Mutex to protect pipeline triggers, ref counts, states and deletion
@@ -81,7 +87,6 @@ struct sof_ipc4_fw_library {
 struct sof_ipc4_fw_data {
 	u32 manifest_fw_hdr_offset;
 	struct xarray fw_lib_xa;
-	void *nhlt;
 	enum sof_ipc4_mtrace_type mtrace_type;
 	u32 mtrace_log_bytes;
 	int num_playback_streams;
@@ -90,6 +95,7 @@ struct sof_ipc4_fw_data {
 	u32 max_libs_count;
 	bool fw_context_save;
 	bool libraries_restored;
+	struct list_head nhlt_list;
 
 	int (*load_library)(struct snd_sof_dev *sdev,
 			    struct sof_ipc4_fw_library *fw_lib, bool reload);

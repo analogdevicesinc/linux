@@ -537,13 +537,26 @@ static int rockchip_i2s_dai_probe(struct snd_soc_dai *dai)
 	return 0;
 }
 
+static const u64 rockchip_i2s_dai_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF;
+
 static const struct snd_soc_dai_ops rockchip_i2s_dai_ops = {
-	.probe = rockchip_i2s_dai_probe,
-	.hw_params = rockchip_i2s_hw_params,
-	.set_bclk_ratio	= rockchip_i2s_set_bclk_ratio,
-	.set_sysclk = rockchip_i2s_set_sysclk,
-	.set_fmt = rockchip_i2s_set_fmt,
-	.trigger = rockchip_i2s_trigger,
+	.probe				= rockchip_i2s_dai_probe,
+	.hw_params			= rockchip_i2s_hw_params,
+	.set_bclk_ratio			= rockchip_i2s_set_bclk_ratio,
+	.set_sysclk			= rockchip_i2s_set_sysclk,
+	.set_fmt			= rockchip_i2s_set_fmt,
+	.trigger			= rockchip_i2s_trigger,
+	.auto_selectable_formats	= &rockchip_i2s_dai_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 static struct snd_soc_dai_driver rockchip_i2s_dai = {
