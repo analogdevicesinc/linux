@@ -179,6 +179,8 @@ struct xe_device {
 		u8 has_cached_pt:1;
 		/** @info.has_device_atomics_on_smem: Supports device atomics on SMEM */
 		u8 has_device_atomics_on_smem:1;
+		/** @info.has_device_uid: Device supports unique 64-bit GPU SOC ID */
+		u8 has_device_uid:1;
 		/** @info.has_drm_ras: Device supports drm_ras (Reliability, Availability, Serviceability) */
 		u8 has_drm_ras:1;
 		/** @info.has_fan_control: Device supports fan control */
@@ -264,6 +266,9 @@ struct xe_device {
 		 */
 		bool oob_initialized;
 	} wa_active;
+
+	/** @device_uid: unique 64-bit GPU SOC identifier */
+	u64 device_uid;
 
 	/** @survivability: survivability information for device */
 	struct xe_survivability survivability;
