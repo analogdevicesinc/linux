@@ -551,6 +551,8 @@ static void pvscsi_complete_request(struct pvscsi_adapter *adapter,
 	struct completion *abort_cmp;
 	u32 btstat = e->hostStatus;
 	u32 sdstat = e->scsiStatus;
+	u64 data_len = e->dataLen;
+	u32 data_trans = 0;
 
 	ctx = pvscsi_get_context(adapter, e->context);
 	if (ctx == NULL || ctx->cmd == NULL) {
@@ -598,15 +600,16 @@ static void pvscsi_complete_request(struct pvscsi_adapter *adapter,
 			 * returns zero dataLen with non zero data - do not set
 			 * residual count in that case.
 			 */
-			if (e->dataLen && (e->dataLen < scsi_bufflen(cmd)))
-				scsi_set_resid(cmd, scsi_bufflen(cmd) - e->dataLen);
+			if (data_len && (data_len < scsi_bufflen(cmd)))
+				scsi_set_resid(cmd, scsi_bufflen(cmd) - data_len);
 			cmd->result = (DID_OK << 16);
 			break;
 
 		case BTSTAT_DATARUN:
 		case BTSTAT_DATA_UNDERRUN:
 			/* Report residual data in underruns */
-			scsi_set_resid(cmd, scsi_bufflen(cmd) - e->dataLen);
+			data_trans = min_t(u64, data_len, scsi_bufflen(cmd));
+			scsi_set_resid(cmd, scsi_bufflen(cmd) - data_trans);
 			cmd->result = (DID_ERROR << 16);
 			break;
 
