@@ -2879,7 +2879,7 @@ static void put_prev_task_dl(struct rq *rq, struct task_struct *p, struct task_s
  * and everything must be accessed through the @rq and @curr passed in
  * parameters.
  */
-static void task_tick_dl(struct rq *rq, struct task_struct *p, int queued)
+static void task_tick_dl(struct rq *rq, struct task_struct *p, int hrtick)
 {
 	update_curr_dl(rq);
 
@@ -2889,7 +2889,7 @@ static void task_tick_dl(struct rq *rq, struct task_struct *p, int queued)
 	 * not being the leftmost task anymore. In that case NEED_RESCHED will
 	 * be set and schedule() will start a new hrtick for the next task.
 	 */
-	if (hrtick_enabled_dl(rq) && queued && p->dl.runtime > 0 &&
+	if (hrtick_enabled_dl(rq) && hrtick && p->dl.runtime > 0 &&
 	    is_leftmost(&p->dl, &rq->dl))
 		start_hrtick_dl(rq, &p->dl);
 }
