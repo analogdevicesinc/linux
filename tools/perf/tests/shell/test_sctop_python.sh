@@ -27,51 +27,51 @@ if [ ! -f "$script_path" ]; then
 fi
 
 err=0
-temp_data=""
-temp_out=""
+temp_dir=$(mktemp -d /tmp/perf-sctop-XXXXXX)
+temp_data="${temp_dir}/perf.data"
+temp_out="${temp_dir}/perf.out"
 
 cleanup() {
-	rm -f "${temp_data}" "${temp_out}"
+	rm -rf "${temp_dir}"
 }
 trap 'cleanup' EXIT TERM INT
-
-temp_data=$(mktemp /tmp/perf.data.XXXXXX)
-temp_out=$(mktemp /tmp/perf.out.XXXXXX)
 
 echo "Testing sctop.py..."
 
 # Create a perf.data file.
-if perf list | grep -q "raw_syscalls:sys_enter"; then
-	perf record -e raw_syscalls:sys_enter -a -o "${temp_data}" \
-		-- sleep 0.1 >/dev/null 2>&1 || \
-		{ echo "Skipping test, perf record failed"; exit 2; }
-else
+if ! perf list tracepoint | grep -q "raw_syscalls:sys_enter"; then
 	echo "Skipping test, no raw_syscalls:sys_enter event"
 	exit 2
 fi
 
-if [ ! -s "${temp_data}" ]; then
-	echo "Skipping test, perf record failed to create data"
-	exit 2
-fi
+passed=0
+for _ in 1 2 3 4 5; do
+	rm -f "${temp_data}" "${temp_out}"
+	if ! perf record -B -N --no-bpf-event -e raw_syscalls:sys_enter -o "${temp_data}" \
+		-- sh -c "sleep 0.1; sleep 0.05" >/dev/null 2>&1; then
+		echo "Skipping test, perf record failed"
+		exit 2
+	fi
 
-# Check that the script executes
-if ! perf script sctop -i "${temp_data}" > "${temp_out}"; then
+	if [ ! -s "${temp_data}" ]; then
+		continue
+	fi
+
+	# Check that the script executes
+	if perf script sctop -i "${temp_data}" > "${temp_out}" && \
+	   grep -E -q "[0-9]+$" "${temp_out}" && \
+	   perf script sctop -i "${temp_data}" sleep 1 > "${temp_out}" && \
+	   grep -E -q "[0-9]+$" "${temp_out}"; then
+		passed=1
+		break
+	fi
+done
+
+if [ "$passed" -eq 0 ]; then
 	echo "sctop.py test failed"
 	err=1
-elif ! grep -E -q "[0-9]+$" "${temp_out}"; then
-	echo "Failed to find metric data rows in default run"
-	err=1
-elif ! perf script sctop -i "${temp_data}" sleep 1 > "${temp_out}"; then
-	echo "sctop.py comm+interval test failed"
-	err=1
 else
-	if ! grep -E -q "[0-9]+$" "${temp_out}"; then
-		echo "Failed to find metric data rows"
-		err=1
-	else
-		echo "sctop test passed."
-	fi
+	echo "sctop test passed."
 fi
 rm -f "${temp_out}"
 

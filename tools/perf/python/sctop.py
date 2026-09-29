@@ -37,6 +37,7 @@ class SCTopAnalyzer:
         self.offline = offline
         self.own_pid = os.getpid()
         self.last_print_time: Optional[int] = None
+        self.printed = False
         self.session: Optional[perf.session] = None
         self.e_machine: Optional[int] = None
 
@@ -137,6 +138,7 @@ class SCTopAnalyzer:
 
     def print_current_totals(self):
         """Print current syscall totals."""
+        self.printed = True
         # Clear terminal
         if not self.offline:
             print("\x1b[2J\x1b[H", end="")
@@ -217,8 +219,8 @@ def main():
         if args.input:
             session = perf.session(perf.data(args.input), sample=analyzer.process_event)
             analyzer.session = session
-            session.process_events()
             analyzer.e_machine = getattr(session, "e_machine", None)
+            session.process_events()
         else:
             try:
                 live_session = LiveSession(
@@ -237,7 +239,8 @@ def main():
         sys.exit(1)
     finally:
         if args.input:
-            analyzer.print_current_totals()
+            if not analyzer.printed or analyzer.syscalls:
+                analyzer.print_current_totals()
             # Break the reference cycle between perf.session and analyzer.process_event
             # because perf.session lacks cyclic GC support (tp_traverse).
             analyzer.session = None
