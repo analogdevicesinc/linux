@@ -1705,7 +1705,7 @@ static int uniwill_kbd_led_mc_brightness_set(struct led_classdev *led_cdev,
 
 	/*
 	 * The EC interprets a RGB value of 0x000000 as a command to restore
-	 * the device-specfic default RGB value. Work around this by writing
+	 * the device-specific default RGB value. Work around this by writing
 	 * a RGB value of 0x010101 (faint white) instead.
 	 */
 	if (data->kbd_led_mc_subled_info[0].intensity == 0 &&
