@@ -4303,9 +4303,10 @@ bool nfsd4_spo_must_allow(struct svc_rqst *rqstp)
 	opiter = resp->opcnt;
 	while (opiter < argp->opcnt) {
 		this = &argp->ops[opiter++];
-		if (test_bit(this->opnum, allow->u.longs) &&
-			cstate->clp->cl_mach_cred &&
-			nfsd4_mach_creds_match(cstate->clp, rqstp)) {
+		if (this->opnum <= LAST_NFS4_OP &&
+		    test_bit(this->opnum, allow->u.longs) &&
+		    cstate->clp->cl_mach_cred &&
+		    nfsd4_mach_creds_match(cstate->clp, rqstp)) {
 			cstate->spo_must_allowed = true;
 			return true;
 		}
