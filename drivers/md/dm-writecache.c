@@ -81,15 +81,9 @@ struct wc_memory_superblock {
 struct wc_entry {
 	struct rb_node rb_node;
 	struct list_head lru;
+	u32 age; // jiffies
 	unsigned short wc_list_contiguous;
-#if BITS_PER_LONG == 64
-	bool write_in_progress : 1;
-	unsigned long index : 47;
-#else
 	bool write_in_progress;
-	unsigned long index;
-#endif
-	unsigned long age;
 #ifdef DM_WRITECACHE_HANDLE_HARDWARE_ERRORS
 	uint64_t original_sector;
 	uint64_t seq_count;
@@ -389,20 +383,28 @@ static struct wc_memory_superblock *sb(struct dm_writecache *wc)
 	return wc->memory_map;
 }
 
+static inline unsigned long wc_entry_index(const struct wc_entry *base, const struct wc_entry *entry)
+{
+	return entry - base;
+}
+
 static struct wc_memory_entry *memory_entry(struct dm_writecache *wc, struct wc_entry *e)
 {
-	return &sb(wc)->entries[e->index];
+	const unsigned long index = wc_entry_index(wc->entries, e);
+	return &sb(wc)->entries[index];
 }
 
 static void *memory_data(struct dm_writecache *wc, struct wc_entry *e)
 {
-	return (char *)wc->block_start + (e->index << wc->block_size_bits);
+	const unsigned long index = wc_entry_index(wc->entries, e);
+	return (char *)wc->block_start + (index << wc->block_size_bits);
 }
 
 static sector_t cache_sector(struct dm_writecache *wc, struct wc_entry *e)
 {
+	const unsigned long index = wc_entry_index(wc->entries, e);
 	return wc->start_sector + wc->metadata_sectors +
-		((sector_t)e->index << (wc->block_size_bits - SECTOR_SHIFT));
+		((sector_t)index << (wc->block_size_bits - SECTOR_SHIFT));
 }
 
 static uint64_t read_original_sector(struct dm_writecache *wc, struct wc_entry *e)
@@ -668,7 +670,7 @@ static void writecache_insert_entry(struct dm_writecache *wc, struct wc_entry *i
 	rb_link_node(&ins->rb_node, parent, node);
 	rb_insert_color(&ins->rb_node, &wc->tree);
 	list_add(&ins->lru, &wc->lru);
-	ins->age = jiffies;
+	ins->age = (u32)jiffies;
 }
 
 static void writecache_unlink(struct dm_writecache *wc, struct wc_entry *e)
@@ -969,7 +971,6 @@ static int writecache_alloc_entries(struct dm_writecache *wc)
 	for (b = 0; b < wc->n_blocks; b++) {
 		struct wc_entry *e = &wc->entries[b];
 
-		e->index = b;
 		e->write_in_progress = false;
 		cond_resched();
 	}
@@ -1986,7 +1987,7 @@ restart:
 	while (!list_empty(&wc->lru) &&
 	       (wc->writeback_all ||
 		wc->freelist_size + wc->writeback_size <= wc->freelist_low_watermark ||
-		(jiffies - container_of(wc->lru.prev, struct wc_entry, lru)->age >=
+		((u32)(jiffies - container_of(wc->lru.prev, struct wc_entry, lru)->age) >=
 		 wc->max_age - wc->max_age / MAX_AGE_DIV))) {
 
 		n_walked++;
@@ -2107,7 +2108,6 @@ static int calculate_memory_size(uint64_t device_size, unsigned int block_size,
 				 size_t *n_blocks_p, size_t *n_metadata_blocks_p)
 {
 	uint64_t n_blocks, offset;
-	struct wc_entry e;
 
 	n_blocks = device_size;
 	do_div(n_blocks, block_size + sizeof(struct wc_memory_entry));
@@ -2125,11 +2125,6 @@ static int calculate_memory_size(uint64_t device_size, unsigned int block_size,
 			break;
 		n_blocks--;
 	}
-
-	/* check if the bit field overflows */
-	e.index = n_blocks;
-	if (e.index != n_blocks)
-		return -EFBIG;
 
 	if (n_blocks_p)
 		*n_blocks_p = n_blocks;
@@ -2444,13 +2439,15 @@ static int writecache_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 			wc->autocommit_time_set = true;
 		} else if (!strcasecmp(string, "max_age") && opt_params >= 1) {
 			unsigned int max_age_msecs;
+			unsigned long max_age_jiffies;
 
 			string = dm_shift_arg(&as), opt_params--;
 			if (sscanf(string, "%u%c", &max_age_msecs, &dummy) != 1)
 				goto invalid_optional;
-			if (max_age_msecs > 86400000)
+			max_age_jiffies = msecs_to_jiffies(max_age_msecs);
+			if (max_age_jiffies >= min(MAX_JIFFY_OFFSET, (7 << 28))) // 7/8ths of 1 << 31
 				goto invalid_optional;
-			wc->max_age = msecs_to_jiffies(max_age_msecs);
+			wc->max_age = max_age_jiffies;
 			wc->max_age_set = true;
 			wc->max_age_value = max_age_msecs;
 		} else if (!strcasecmp(string, "cleaner")) {
