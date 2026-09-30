@@ -67,6 +67,7 @@ TEST_PROGS := \
 	nat6to4.sh \
 	ndisc_unsolicited_na_test.sh \
 	netdev-l2addr.sh \
+	netdev_lock.py \
 	netdevice.sh \
 	netns-name.sh \
 	netns-sysctl.sh \

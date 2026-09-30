@@ -1358,17 +1358,29 @@ static int fl_set_vxlan_opt(const struct nlattr *nla, struct fl_flow_key *key,
 
 static int fl_set_erspan_opt(const struct nlattr *nla, struct fl_flow_key *key,
 			     int depth, int option_len,
-			     struct netlink_ext_ack *extack)
+			     struct netlink_ext_ack *extack, u8 *key_ver)
 {
 	struct nlattr *tb[TCA_FLOWER_KEY_ENC_OPT_ERSPAN_MAX + 1];
 	struct erspan_metadata *md;
 	int err;
 
 	md = (struct erspan_metadata *)&key->enc_opts.data[key->enc_opts.len];
-	md->version = 1;
 
-	if (!depth)
+	if (!depth) {
+		/* No mask attribute supplied: exact-match every field the
+		 * key set, keyed off the key's own version so the v2 dir/hwid
+		 * bytes are masked without touching the overlapping
+		 * timestamp/sgt bytes of the union (see 292207809486).
+		 */
+		md->version = *key_ver;
+		if (md->version == 1) {
+			memset(&md->u.index, 0xff, sizeof(md->u.index));
+		} else if (md->version == 2) {
+			md->u.md2.dir = 1;
+			set_hwid(&md->u.md2, 0xff);
+		}
 		return sizeof(*md);
+	}
 
 	if (nla_type(nla) != TCA_FLOWER_KEY_ENC_OPTS_ERSPAN) {
 		NL_SET_ERR_MSG(extack, "Non-erspan option type for mask");
@@ -1387,6 +1399,22 @@ static int fl_set_erspan_opt(const struct nlattr *nla, struct fl_flow_key *key,
 
 	if (tb[TCA_FLOWER_KEY_ENC_OPT_ERSPAN_VER])
 		md->version = nla_get_u8(tb[TCA_FLOWER_KEY_ENC_OPT_ERSPAN_VER]);
+	else
+		md->version = 1;
+
+	/* The key and mask must describe the same union layout: the
+	 * per-version default below only exact-matches the fields of its own
+	 * version, so a mask version that differs from the key's would
+	 * silently wildcard the key's matched fields.  A mask without a
+	 * version keeps the historical v1 default.
+	 */
+	if (option_len && md->version != *key_ver) {
+		NL_SET_ERR_MSG(extack, "Tunnel key erspan option ver mismatch");
+		return -EINVAL;
+	}
+
+	if (!option_len)
+		*key_ver = md->version;
 
 	if (md->version == 1) {
 		if (!option_len && !tb[TCA_FLOWER_KEY_ENC_OPT_ERSPAN_INDEX]) {
@@ -1509,6 +1537,7 @@ static int fl_set_enc_opt(struct nlattr **tb, struct fl_flow_key *key,
 {
 	const struct nlattr *nla_enc_key, *nla_opt_key, *nla_opt_msk = NULL;
 	int err, option_len, key_depth, msk_depth = 0;
+	u8 key_ver = 1;
 
 	err = nla_validate_nested_deprecated(tb[TCA_FLOWER_KEY_ENC_OPTS],
 					     TCA_FLOWER_KEY_ENC_OPTS_MAX,
@@ -1607,7 +1636,7 @@ static int fl_set_enc_opt(struct nlattr **tb, struct fl_flow_key *key,
 			key->enc_opts.dst_opt_type = IP_TUNNEL_ERSPAN_OPT_BIT;
 			option_len = fl_set_erspan_opt(nla_opt_key, key,
 						       key_depth, option_len,
-						       extack);
+						       extack, &key_ver);
 			if (option_len < 0)
 				return option_len;
 
@@ -1618,7 +1647,7 @@ static int fl_set_enc_opt(struct nlattr **tb, struct fl_flow_key *key,
 			mask->enc_opts.dst_opt_type = IP_TUNNEL_ERSPAN_OPT_BIT;
 			option_len = fl_set_erspan_opt(nla_opt_msk, mask,
 						       msk_depth, option_len,
-						       extack);
+						       extack, &key_ver);
 			if (option_len < 0)
 				return option_len;
 

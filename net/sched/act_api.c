@@ -475,6 +475,15 @@ static size_t tcf_action_full_attrs_size(size_t sz)
 		+ sz;
 }
 
+/* tca_get_fill() may append TCA_ROOT_EXT_WARN_MSG from extack->_msg */
+static size_t tcf_action_warn_attr_size(const struct netlink_ext_ack *extack)
+{
+	if (unlikely(extack && extack->_msg))
+		return nla_total_size(strlen(extack->_msg) + 1);
+
+	return 0;
+}
+
 static size_t tcf_action_fill_size(const struct tc_action *act)
 {
 	size_t sz = tcf_action_shared_attrs_size(act);
@@ -1980,7 +1989,8 @@ static struct sk_buff *tcf_del_notify_msg(struct net *net, struct nlmsghdr *n,
 {
 	struct sk_buff *skb;
 
-	skb = alloc_skb(max(attr_size, NLMSG_GOODSIZE), GFP_KERNEL);
+	skb = alloc_skb(max(attr_size + tcf_action_warn_attr_size(extack),
+			    NLMSG_GOODSIZE), GFP_KERNEL);
 	if (!skb)
 		return ERR_PTR(-ENOBUFS);
 
@@ -2078,7 +2088,8 @@ static struct sk_buff *tcf_add_notify_msg(struct net *net, struct nlmsghdr *n,
 {
 	struct sk_buff *skb;
 
-	skb = alloc_skb(max(attr_size, NLMSG_GOODSIZE), GFP_KERNEL);
+	skb = alloc_skb(max(attr_size + tcf_action_warn_attr_size(extack),
+			    NLMSG_GOODSIZE), GFP_KERNEL);
 	if (!skb)
 		return ERR_PTR(-ENOBUFS);
 

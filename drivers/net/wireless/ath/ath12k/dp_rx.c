@@ -1375,6 +1375,7 @@ void ath12k_dp_rx_deliver_msdu(struct ath12k_pdev_dp *dp_pdev, struct napi_struc
 	struct ath12k_dp *dp = dp_pdev->dp;
 	struct ieee80211_rx_status *rx_status;
 	struct ieee80211_sta *pubsta;
+	struct ieee80211_link_sta *link_pubsta = NULL;
 	struct ath12k_dp_peer *peer;
 	struct ath12k_skb_rxcb *rxcb = ATH12K_SKB_RXCB(msdu);
 	struct ieee80211_rx_status *status = rx_info->rx_status;
@@ -1384,9 +1385,19 @@ void ath12k_dp_rx_deliver_msdu(struct ath12k_pdev_dp *dp_pdev, struct napi_struc
 
 	pubsta = peer ? peer->sta : NULL;
 
-	status->link_valid = 0;
-	if (pubsta && pubsta->valid_links)
-		ath12k_hw_set_rx_link_id(dp->hw_params, peer, rxcb, status);
+	if (pubsta) {
+		if (pubsta->valid_links) {
+			int link_id =
+				ath12k_hw_get_rx_link_id(dp->hw_params, peer,
+							 rxcb, status);
+
+			if (link_id >= 0)
+				link_pubsta =
+					rcu_dereference(pubsta->link[link_id]);
+		} else {
+			link_pubsta = &pubsta->deflink;
+		}
+	}
 
 	ath12k_dbg(dp->ab, ATH12K_DBG_DATA,
 		   "rx skb %p len %u peer %pM %d %s sn %u %s%s%s%s%s%s%s%s%s%s rate_idx %u vht_nss %u freq %u band %u flag 0x%x fcs-err %i mic-err %i amsdu-more %i\n",
@@ -1422,7 +1433,8 @@ void ath12k_dp_rx_deliver_msdu(struct ath12k_pdev_dp *dp_pdev, struct napi_struc
 
 	/* TODO: trace rx packet */
 
-	ieee80211_rx_napi(ath12k_pdev_dp_to_hw(dp_pdev), pubsta, msdu, napi);
+	ieee80211_rx_napi(ath12k_pdev_dp_to_hw(dp_pdev), link_pubsta, msdu,
+			  napi);
 }
 EXPORT_SYMBOL(ath12k_dp_rx_deliver_msdu);
 

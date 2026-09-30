@@ -5430,8 +5430,7 @@ static void mlx5e_set_netdev_dev_addr(struct net_device *netdev)
 	u8 addr[ETH_ALEN];
 
 	mlx5_query_mac_address(priv->mdev, addr);
-	if (is_zero_ether_addr(addr) &&
-	    !MLX5_CAP_GEN(priv->mdev, vport_group_manager)) {
+	if (is_zero_ether_addr(addr)) {
 		eth_hw_addr_random(netdev);
 		mlx5_core_info(priv->mdev, "Assigned random MAC address %pM\n", netdev->dev_addr);
 		return;

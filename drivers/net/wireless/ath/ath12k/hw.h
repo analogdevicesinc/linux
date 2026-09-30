@@ -249,9 +249,9 @@ struct ath12k_hw_ops {
 	bool (*dp_srng_is_tx_comp_ring)(int ring_num);
 	bool (*is_frame_link_agnostic)(struct ath12k_link_vif *arvif,
 				       struct ieee80211_mgmt *mgmt);
-	void (*set_rx_link_id)(struct ath12k_dp_peer *dp_peer,
-			       struct ath12k_skb_rxcb *rxcb,
-			       struct ieee80211_rx_status *status);
+	int (*get_rx_link_id)(struct ath12k_dp_peer *dp_peer,
+			      struct ath12k_skb_rxcb *rxcb,
+			      struct ieee80211_rx_status *status);
 };
 
 static inline
@@ -282,13 +282,15 @@ static inline int ath12k_hw_mac_id_to_srng_id(const struct ath12k_hw_params *hw,
 	return 0;
 }
 
-static inline void ath12k_hw_set_rx_link_id(const struct ath12k_hw_params *hw,
-					    struct ath12k_dp_peer *dp_peer,
-					    struct ath12k_skb_rxcb *rxcb,
-					    struct ieee80211_rx_status *status)
+static inline int ath12k_hw_get_rx_link_id(const struct ath12k_hw_params *hw,
+					   struct ath12k_dp_peer *dp_peer,
+					   struct ath12k_skb_rxcb *rxcb,
+					   struct ieee80211_rx_status *status)
 {
-	if (hw->hw_ops->set_rx_link_id)
-		hw->hw_ops->set_rx_link_id(dp_peer, rxcb, status);
+	if (hw->hw_ops->get_rx_link_id)
+		return hw->hw_ops->get_rx_link_id(dp_peer, rxcb, status);
+
+	return -1;
 }
 
 struct ath12k_fw_ie {

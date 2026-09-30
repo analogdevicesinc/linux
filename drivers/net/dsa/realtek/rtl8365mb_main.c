@@ -101,6 +101,7 @@
 #include <linux/regmap.h>
 #include <linux/if_bridge.h>
 #include <linux/if_vlan.h>
+#include <linux/mdio.h>
 #include <linux/phylink.h>
 
 #include "realtek.h"
@@ -199,8 +200,20 @@
 #define   RTL8365MB_GPHY_OCP_MSB_0_CFG_CPU_OCPADR_MASK	0x0FC0
 #define RTL8365MB_PHY_OCP_ADDR_PREFIX_MASK		0xFC00
 
+/* The full 16-bit OCP address is split across two registers: bits [15:10] are
+ * the prefix (RTL8365MB_PHY_OCP_ADDR_PREFIX_MASK above), and bits [9:1] go into
+ * the ADDRESS register as two fields, [5:1] and [9:6]. Bit 0 is always 0 - PHY
+ * OCP registers are 2-byte aligned.
+ */
+#define RTL8365MB_PHY_OCP_ADDR_5_1_MASK			GENMASK(5, 1)
+#define RTL8365MB_PHY_OCP_ADDR_9_6_MASK			GENMASK(9, 6)
+
 /* The PHY OCP addresses of PHY registers 0~31 start here */
 #define RTL8365MB_PHY_OCP_ADDR_PHYREG_BASE		0xA400
+
+#define RTL8365MB_PHY_OCP_ADDR_EEE_ABLE			0xA5C4
+#define RTL8365MB_PHY_OCP_ADDR_EEE_ADV			0xA5D0
+#define RTL8365MB_PHY_OCP_ADDR_EEE_LPABLE		0xA5D2
 
 /* External interface port mode values - used in DIGITAL_INTERFACE_SELECT */
 #define RTL8365MB_EXT_PORT_MODE_DISABLE		0
@@ -871,6 +884,8 @@ static int rtl8365mb_phy_poll_busy(struct realtek_priv *priv)
 static int rtl8365mb_phy_ocp_prepare(struct realtek_priv *priv, int phy,
 				     u32 ocp_addr)
 {
+	u16 ocp_addr_lo = FIELD_GET(RTL8365MB_PHY_OCP_ADDR_5_1_MASK, ocp_addr);
+	u16 ocp_addr_hi = FIELD_GET(RTL8365MB_PHY_OCP_ADDR_9_6_MASK, ocp_addr);
 	u32 val;
 	int ret;
 
@@ -887,9 +902,9 @@ static int rtl8365mb_phy_ocp_prepare(struct realtek_priv *priv, int phy,
 	val = RTL8365MB_PHY_BASE;
 	val |= FIELD_PREP(RTL8365MB_INDIRECT_ACCESS_ADDRESS_PHYNUM_MASK, phy);
 	val |= FIELD_PREP(RTL8365MB_INDIRECT_ACCESS_ADDRESS_OCPADR_5_1_MASK,
-			  ocp_addr >> 1);
+			  ocp_addr_lo);
 	val |= FIELD_PREP(RTL8365MB_INDIRECT_ACCESS_ADDRESS_OCPADR_9_6_MASK,
-			  ocp_addr >> 6);
+			  ocp_addr_hi);
 	ret = regmap_write(priv->map_nolock,
 			   RTL8365MB_INDIRECT_ACCESS_ADDRESS_REG, val);
 	if (ret)
@@ -1036,6 +1051,66 @@ static int rtl8365mb_phy_write(struct realtek_priv *priv, int phy, int regnum,
 
 	dev_dbg(priv->dev, "write PHY%d register 0x%02x @ %04x, val -> %04x\n",
 		phy, regnum, ocp_addr, val);
+
+	return 0;
+}
+
+static int rtl8365mb_phy_read_c45(struct realtek_priv *priv, int phy, int devad,
+				  int regnum)
+{
+	u32 ocp_addr;
+	u16 val;
+	int ret;
+
+	if (phy > RTL8365MB_PHYADDRMAX)
+		return -EINVAL;
+
+	if (devad == MDIO_MMD_PCS && regnum == MDIO_PCS_EEE_ABLE)
+		ocp_addr = RTL8365MB_PHY_OCP_ADDR_EEE_ABLE;
+	else if (devad == MDIO_MMD_AN && regnum == MDIO_AN_EEE_ADV)
+		ocp_addr = RTL8365MB_PHY_OCP_ADDR_EEE_ADV;
+	else if (devad == MDIO_MMD_AN && regnum == MDIO_AN_EEE_LPABLE)
+		ocp_addr = RTL8365MB_PHY_OCP_ADDR_EEE_LPABLE;
+	else
+		/* Only the EEE registers are mapped; others read as 0, as the
+		 * hardware does, so the generic MMD code is not tripped up by
+		 * an error.
+		 */
+		return 0;
+
+	ret = rtl8365mb_phy_ocp_read(priv, phy, ocp_addr, &val);
+	if (ret) {
+		dev_err(priv->dev,
+			"failed to read PHY%d OCP %04x, ret %d\n", phy, ocp_addr,
+			ret);
+		return ret;
+	}
+
+	return val;
+}
+
+static int rtl8365mb_phy_write_c45(struct realtek_priv *priv, int phy,
+				   int devad, int regnum, u16 val)
+{
+	int ret;
+
+	if (phy > RTL8365MB_PHYADDRMAX)
+		return -EINVAL;
+
+	/* Only the EEE advertisement register is writable; writes to other
+	 * registers are ignored, as the hardware does.
+	 */
+	if (devad != MDIO_MMD_AN || regnum != MDIO_AN_EEE_ADV)
+		return 0;
+
+	ret = rtl8365mb_phy_ocp_write(priv, phy, RTL8365MB_PHY_OCP_ADDR_EEE_ADV,
+				      val);
+	if (ret) {
+		dev_err(priv->dev,
+			"failed to write PHY%d OCP %04x, ret %d\n", phy,
+			RTL8365MB_PHY_OCP_ADDR_EEE_ADV, ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -1639,6 +1714,14 @@ static void rtl8365mb_phylink_get_caps(struct dsa_switch *ds, int port,
 		 */
 		__set_bit(PHY_INTERFACE_MODE_GMII,
 			  config->supported_interfaces);
+
+		/* Integrated PHYs support EEE at 100M/1G; the hardware manages
+		 * LPI on its own, so just advertise LPI awareness to phylink.
+		 */
+		memcpy(config->lpi_interfaces, config->supported_interfaces,
+		       sizeof(config->lpi_interfaces));
+		config->lpi_capabilities = MAC_100FD | MAC_1000FD;
+		config->eee_enabled_default = true;
 		return;
 	}
 
@@ -3275,18 +3358,66 @@ static int rtl8365mb_detect(struct realtek_priv *priv)
 	return 0;
 }
 
+static int rtl8365mb_phylink_mac_enable_tx_lpi(struct phylink_config *config,
+					       u32 timer, bool tx_clock_stop)
+{
+	/* The hardware manages LPI itself; there is no MAC-level LPI control.
+	 * This callback only signals LPI awareness to phylink.
+	 */
+	return 0;
+}
+
+static void rtl8365mb_phylink_mac_disable_tx_lpi(struct phylink_config *config)
+{
+}
+
 static const struct phylink_mac_ops rtl8365mb_phylink_mac_ops = {
 	.mac_select_pcs = rtl8365mb_phylink_mac_select_pcs,
 	.mac_config = rtl8365mb_phylink_mac_config,
 	.mac_link_down = rtl8365mb_phylink_mac_link_down,
 	.mac_link_up = rtl8365mb_phylink_mac_link_up,
+	.mac_enable_tx_lpi = rtl8365mb_phylink_mac_enable_tx_lpi,
+	.mac_disable_tx_lpi = rtl8365mb_phylink_mac_disable_tx_lpi,
 };
+
+static bool rtl8365mb_support_eee(struct dsa_switch *ds, int port)
+{
+	/* Only integrated-PHY ports support EEE, not the external RGMII ports. */
+	return !rtl8365mb_get_port_extint(ds->priv, port);
+}
+
+static int rtl8365mb_set_mac_eee(struct dsa_switch *ds, int port,
+				 struct ethtool_keee *e)
+{
+	struct realtek_priv *priv = ds->priv;
+
+	/* The only LPI timing control (tx_lpi_timer) is a single global
+	 * per-speed register shared by all ports, so it cannot be set from this
+	 * per-port callback; leave it at its reset default. Per-port EEE is
+	 * driven through the PHY advertisement. Reject the per-port TX LPI knobs
+	 * rather than silently ignoring them.
+	 */
+	if (!e->tx_lpi_enabled) {
+		dev_err(priv->dev, "disabling EEE TX LPI is not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	if (e->tx_lpi_timer) {
+		dev_err(priv->dev,
+			"setting the EEE TX LPI timer is not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
 
 static const struct dsa_switch_ops rtl8365mb_switch_ops = {
 	.get_tag_protocol = rtl8365mb_get_tag_protocol,
 	.change_tag_protocol = rtl8365mb_change_tag_protocol,
 	.setup = rtl8365mb_setup,
 	.teardown = rtl8365mb_teardown,
+	.support_eee = rtl8365mb_support_eee,
+	.set_mac_eee = rtl8365mb_set_mac_eee,
 	.phylink_get_caps = rtl8365mb_phylink_get_caps,
 	.port_bridge_join = rtl83xx_port_bridge_join,
 	.port_bridge_leave = rtl83xx_port_bridge_leave,
@@ -3332,6 +3463,12 @@ static const struct realtek_ops rtl8365mb_ops = {
 	.l2_flush = rtl8365mb_l2_flush,
 	.phy_read = rtl8365mb_phy_read,
 	.phy_write = rtl8365mb_phy_write,
+	.phy_read_c45 = rtl8365mb_phy_read_c45,
+	.phy_write_c45 = rtl8365mb_phy_write_c45,
+};
+
+static const char *const rtl8365mb_supplies[] = {
+	"avddh", "avddl", "dvddio", "dvddio1", "dvddl", "pllvddl",
 };
 
 const struct realtek_variant rtl8365mb_variant = {
@@ -3342,11 +3479,13 @@ const struct realtek_variant rtl8365mb_variant = {
 	.cmd_read = 0xb9,
 	.cmd_write = 0xb8,
 	.chip_data_sz = sizeof(struct rtl8365mb),
+	.supplies = rtl8365mb_supplies,
+	.num_supplies = ARRAY_SIZE(rtl8365mb_supplies),
 };
 
 static const struct of_device_id rtl8365mb_of_match[] = {
 	{ .compatible = "realtek,rtl8365mb", .data = &rtl8365mb_variant, },
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, rtl8365mb_of_match);
 

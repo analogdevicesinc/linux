@@ -568,8 +568,8 @@ int cfg80211_chandef_add_npca(struct wiphy *wiphy,
 			      const struct ieee80211_uhr_npca_info *npca)
 {
 	struct cfg80211_chan_def new_chandef = *chandef;
-	u32 width, npca_freq;
-	u8 offs;
+	u32 npca_freq;
+	u8 chan;
 
 	if (chandef->npca_chan || chandef->npca_punctured)
 		return -EINVAL;
@@ -589,11 +589,10 @@ int cfg80211_chandef_add_npca(struct wiphy *wiphy,
 		return -EINVAL;
 	}
 
-	offs = le32_get_bits(npca->params,
-			     IEEE80211_UHR_NPCA_PARAMS_PRIMARY_CHAN_OFFS);
+	chan = le32_get_bits(npca->params,
+			     IEEE80211_UHR_NPCA_PARAMS_PRIMARY_CHAN);
 
-	width = cfg80211_chandef_get_width(chandef);
-	npca_freq = chandef->center_freq1 - width / 2 + 10 + 20 * offs;
+	npca_freq = ieee80211_channel_to_frequency(chan, chandef->chan->band);
 	new_chandef.npca_chan = ieee80211_get_channel(wiphy, npca_freq);
 	if (!new_chandef.npca_chan)
 		return -EINVAL;

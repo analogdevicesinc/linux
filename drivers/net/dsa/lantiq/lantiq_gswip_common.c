@@ -1279,12 +1279,8 @@ static int gswip_port_change_mtu(struct dsa_switch *ds, int port, int new_mtu)
 	/* Enable MLEN for ports with non-standard MTUs, including the special
 	 * header on the CPU port added above.
 	 */
-	if (new_mtu != ETH_DATA_LEN)
-		regmap_set_bits(priv->gswip, GSWIP_MAC_CTRL_2p(port),
-				GSWIP_MAC_CTRL_2_MLEN);
-	else
-		regmap_clear_bits(priv->gswip, GSWIP_MAC_CTRL_2p(port),
-				  GSWIP_MAC_CTRL_2_MLEN);
+	regmap_assign_bits(priv->gswip, GSWIP_MAC_CTRL_2p(port),
+			   GSWIP_MAC_CTRL_2_MLEN, new_mtu != ETH_DATA_LEN);
 
 	return 0;
 }
@@ -1339,6 +1335,7 @@ static void gswip_port_set_speed(struct gswip_priv *priv, int port, int speed,
 		break;
 
 	case SPEED_1000:
+	case SPEED_2500:
 		mdio_phy = GSWIP_MDIO_PHY_SPEED_G1;
 
 		mii_cfg = GSWIP_MII_CFG_RATE_M125;

@@ -14,11 +14,13 @@ struct gro_cell {
 int gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
 {
 	struct net_device *dev = skb->dev;
+	enum skb_drop_reason reason;
 	bool have_bh_lock = false;
 	struct gro_cell *cell;
 	int res;
 
 	rcu_read_lock();
+	reason = SKB_DROP_REASON_DEV_READY;
 	if (unlikely(!(dev->flags & IFF_UP)))
 		goto drop;
 
@@ -34,9 +36,10 @@ int gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
 	cell = this_cpu_ptr(gcells->cells);
 
 	if (skb_queue_len(&cell->napi_skbs) > READ_ONCE(net_hotdata.max_backlog)) {
+		reason = SKB_DROP_REASON_CPU_BACKLOG;
 drop:
 		dev_core_stats_rx_dropped_inc(dev);
-		kfree_skb(skb);
+		kfree_skb_reason(skb, reason);
 		res = NET_RX_DROP;
 		goto unlock;
 	}

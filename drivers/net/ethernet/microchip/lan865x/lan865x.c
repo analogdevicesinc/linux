@@ -347,8 +347,8 @@ static int lan865x_probe(struct spi_device *spi)
 	INIT_WORK(&priv->multicast_work, lan865x_multicast_work_handler);
 
 	priv->tc6 = oa_tc6_init(spi, netdev, NULL);
-	if (!priv->tc6) {
-		ret = -ENODEV;
+	if (IS_ERR(priv->tc6)) {
+		ret = PTR_ERR(priv->tc6);
 		goto free_netdev;
 	}
 

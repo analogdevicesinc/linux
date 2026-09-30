@@ -424,6 +424,7 @@ static void ionic_remove(struct pci_dev *pdev)
 		ionic_auxbus_unregister(ionic->lif);
 		ionic_lif_unregister(ionic->lif);
 		ionic_devlink_unregister(ionic);
+		ionic_vf_dealloc(ionic);
 		ionic_lif_deinit(ionic->lif);
 		ionic_lif_free(ionic->lif);
 		ionic->lif = NULL;

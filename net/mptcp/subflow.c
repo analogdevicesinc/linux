@@ -408,20 +408,21 @@ static struct dst_entry *subflow_v6_route_req(const struct sock *sk,
 #endif
 
 /* validate received truncated hmac and create hmac for third ACK */
-static bool subflow_thmac_valid(struct mptcp_subflow_context *subflow)
+static bool subflow_thmac_valid(struct mptcp_subflow_context *subflow,
+				u64 thmac)
 {
 	u8 hmac[SHA256_DIGEST_SIZE];
-	u64 thmac;
+	u64 expected_thmac;
 
 	subflow_generate_hmac(subflow->remote_key, subflow->local_key,
 			      subflow->remote_nonce, subflow->local_nonce,
 			      hmac);
 
-	thmac = get_unaligned_be64(hmac);
-	pr_debug("subflow=%p, token=%u, thmac=%llu, subflow->thmac=%llu\n",
-		 subflow, subflow->token, thmac, subflow->thmac);
+	expected_thmac = get_unaligned_be64(hmac);
+	pr_debug("subflow=%p, token=%u, expected_thmac=%llu, thmac=%llu\n",
+		 subflow, subflow->token, expected_thmac, thmac);
 
-	return thmac == subflow->thmac;
+	return expected_thmac == thmac;
 }
 
 void mptcp_subflow_reset(struct sock *ssk)
@@ -575,14 +576,13 @@ static void subflow_finish_connect(struct sock *sk, const struct sk_buff *skb)
 		}
 
 		subflow->backup = mp_opt.backup;
-		subflow->thmac = mp_opt.thmac;
 		subflow->remote_nonce = mp_opt.nonce;
 		WRITE_ONCE(subflow->remote_id, mp_opt.join_id);
 		pr_debug("subflow=%p, thmac=%llu, remote_nonce=%u backup=%d\n",
-			 subflow, subflow->thmac, subflow->remote_nonce,
+			 subflow, mp_opt.thmac, subflow->remote_nonce,
 			 subflow->backup);
 
-		if (!subflow_thmac_valid(subflow)) {
+		if (!subflow_thmac_valid(subflow, mp_opt.thmac)) {
 			MPTCP_INC_STATS(sock_net(sk), MPTCP_MIB_JOINSYNACKMAC);
 			subflow->reset_reason = MPTCP_RST_EMPTCP;
 			goto do_reset;

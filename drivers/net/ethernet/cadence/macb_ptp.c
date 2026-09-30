@@ -374,16 +374,6 @@ void gem_ptp_remove(struct net_device *netdev)
 		 GEM_PTP_TIMER_NAME);
 }
 
-static int gem_ptp_set_ts_mode(struct macb *bp,
-			       enum macb_bd_control tx_bd_control,
-			       enum macb_bd_control rx_bd_control)
-{
-	gem_writel(bp, TXBDCTRL, GEM_BF(TXTSMODE, tx_bd_control));
-	gem_writel(bp, RXBDCTRL, GEM_BF(RXTSMODE, rx_bd_control));
-
-	return 0;
-}
-
 int gem_get_hwtst(struct net_device *netdev,
 		  struct kernel_hwtstamp_config *tstamp_config)
 {
@@ -396,25 +386,17 @@ int gem_get_hwtst(struct net_device *netdev,
 	return 0;
 }
 
-static void gem_ptp_set_one_step_sync(struct macb *bp, u8 enable)
-{
-	u32 reg_val;
-
-	reg_val = macb_readl(bp, NCR);
-
-	if (enable)
-		macb_writel(bp, NCR, reg_val | MACB_BIT(OSSMODE));
-	else
-		macb_writel(bp, NCR, reg_val & ~MACB_BIT(OSSMODE));
-}
-
 int gem_set_hwtst(struct net_device *netdev,
 		  struct kernel_hwtstamp_config *tstamp_config,
 		  struct netlink_ext_ack *extack)
 {
 	enum macb_bd_control tx_bd_control = TSTAMP_DISABLED;
 	enum macb_bd_control rx_bd_control = TSTAMP_DISABLED;
+	int rx_filter = tstamp_config->rx_filter;
 	struct macb *bp = netdev_priv(netdev);
+	u32 ncr_mask = MACB_BIT(SRTSM);
+	unsigned long flags;
+	u32 ncr_bits = 0;
 	u32 regval;
 
 	if (!macb_dma_ptp(bp))
@@ -424,23 +406,20 @@ int gem_set_hwtst(struct net_device *netdev,
 	case HWTSTAMP_TX_OFF:
 		break;
 	case HWTSTAMP_TX_ONESTEP_SYNC:
-		gem_ptp_set_one_step_sync(bp, 1);
+		ncr_bits |= MACB_BIT(OSSMODE);
+		ncr_mask |= MACB_BIT(OSSMODE);
 		tx_bd_control = TSTAMP_ALL_FRAMES;
 		break;
 	case HWTSTAMP_TX_ON:
-		gem_ptp_set_one_step_sync(bp, 0);
+		ncr_mask |= MACB_BIT(OSSMODE);
 		tx_bd_control = TSTAMP_ALL_FRAMES;
 		break;
 	default:
 		return -ERANGE;
 	}
 
-	switch (tstamp_config->rx_filter) {
+	switch (rx_filter) {
 	case HWTSTAMP_FILTER_NONE:
-		break;
-	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-		break;
-	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
 		break;
 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
 	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
@@ -451,25 +430,32 @@ int gem_set_hwtst(struct net_device *netdev,
 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
 	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
-		rx_bd_control =  TSTAMP_ALL_PTP_FRAMES;
-		tstamp_config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
-		regval = macb_readl(bp, NCR);
-		macb_writel(bp, NCR, (regval | MACB_BIT(SRTSM)));
+		rx_bd_control = TSTAMP_ALL_PTP_FRAMES;
+		rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
+		ncr_bits |= MACB_BIT(SRTSM);
 		break;
+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
 	case HWTSTAMP_FILTER_ALL:
 		rx_bd_control = TSTAMP_ALL_FRAMES;
-		tstamp_config->rx_filter = HWTSTAMP_FILTER_ALL;
+		rx_filter = HWTSTAMP_FILTER_ALL;
 		break;
 	default:
-		tstamp_config->rx_filter = HWTSTAMP_FILTER_NONE;
 		return -ERANGE;
 	}
 
-	bp->tstamp_config = *tstamp_config;
+	spin_lock_irqsave(&bp->lock, flags);
+	regval = macb_readl(bp, NCR);
+	regval = (regval & ~ncr_mask) | ncr_bits;
+	macb_writel(bp, NCR, regval);
 
-	if (gem_ptp_set_ts_mode(bp, tx_bd_control, rx_bd_control) != 0)
-		return -ERANGE;
+	gem_writel(bp, TXBDCTRL, GEM_BF(TXTSMODE, tx_bd_control));
+	gem_writel(bp, RXBDCTRL, GEM_BF(RXTSMODE, rx_bd_control));
+
+	tstamp_config->rx_filter = rx_filter;
+	bp->tstamp_config = *tstamp_config;
+	spin_unlock_irqrestore(&bp->lock, flags);
 
 	return 0;
 }

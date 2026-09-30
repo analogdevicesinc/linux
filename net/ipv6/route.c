@@ -218,7 +218,7 @@ struct neighbour *ip6_neigh_lookup(const struct in6_addr *gw,
 	if (n)
 		return n;
 
-	n = neigh_create(&nd_tbl, daddr, dev);
+	n = neigh_create(nd_table(dev_net(dev)), daddr, dev);
 	return IS_ERR(n) ? NULL : n;
 }
 
@@ -1663,13 +1663,6 @@ static unsigned int fib6_mtu(const struct fib6_result *res)
 	return mtu - lwtunnel_headroom(nh->fib_nh_lws, mtu);
 }
 
-#define FIB6_EXCEPTION_BUCKET_FLUSHED  0x1UL
-
-/* used when the flushed bit is not relevant, only access to the bucket
- * (ie., all bucket users except rt6_insert_exception);
- *
- * called under rcu lock; sometimes called with rt6_exception_lock held
- */
 static
 struct rt6_exception_bucket *fib6_nh_get_excptn_bucket(const struct fib6_nh *nh,
 						       spinlock_t *lock)
@@ -1682,38 +1675,7 @@ struct rt6_exception_bucket *fib6_nh_get_excptn_bucket(const struct fib6_nh *nh,
 	else
 		bucket = rcu_dereference(nh->rt6i_exception_bucket);
 
-	/* remove bucket flushed bit if set */
-	if (bucket) {
-		unsigned long p = (unsigned long)bucket;
-
-		p &= ~FIB6_EXCEPTION_BUCKET_FLUSHED;
-		bucket = (struct rt6_exception_bucket *)p;
-	}
-
 	return bucket;
-}
-
-static bool fib6_nh_excptn_bucket_flushed(struct rt6_exception_bucket *bucket)
-{
-	unsigned long p = (unsigned long)bucket;
-
-	return !!(p & FIB6_EXCEPTION_BUCKET_FLUSHED);
-}
-
-/* called with rt6_exception_lock held */
-static void fib6_nh_excptn_bucket_set_flushed(struct fib6_nh *nh,
-					      spinlock_t *lock)
-{
-	struct rt6_exception_bucket *bucket;
-	unsigned long p;
-
-	bucket = rcu_dereference_protected(nh->rt6i_exception_bucket,
-					   lockdep_is_held(lock));
-
-	p = (unsigned long)bucket;
-	p |= FIB6_EXCEPTION_BUCKET_FLUSHED;
-	bucket = (struct rt6_exception_bucket *)p;
-	rcu_assign_pointer(nh->rt6i_exception_bucket, bucket);
 }
 
 static int rt6_insert_exception(struct rt6_info *nrt,
@@ -1745,9 +1707,6 @@ static int rt6_insert_exception(struct rt6_info *nrt,
 			goto out;
 		}
 		rcu_assign_pointer(nh->rt6i_exception_bucket, bucket);
-	} else if (fib6_nh_excptn_bucket_flushed(bucket)) {
-		err = -EINVAL;
-		goto out;
 	}
 
 #ifdef CONFIG_IPV6_SUBTREES
@@ -1817,10 +1776,6 @@ static void fib6_nh_flush_exceptions(struct fib6_nh *nh, struct fib6_info *from)
 	bucket = fib6_nh_get_excptn_bucket(nh, &rt6_exception_lock);
 	if (!bucket)
 		goto out;
-
-	/* Prevent rt6_insert_exception() to recreate the bucket list */
-	if (!from)
-		fib6_nh_excptn_bucket_set_flushed(nh, &rt6_exception_lock);
 
 	for (i = 0; i < FIB6_EXCEPTION_BUCKET_SIZE; i++) {
 		hlist_for_each_entry_safe(rt6_ex, tmp, &bucket->chain, hlist) {
@@ -4250,6 +4205,7 @@ static int ip6_route_del(struct fib6_config *cfg,
 static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_buff *skb)
 {
 	struct netevent_redirect netevent;
+	struct net_device *dev = skb->dev;
 	struct rt6_info *rt, *nrt = NULL;
 	struct fib6_result res = {};
 	struct ndisc_options ndopts;
@@ -4283,7 +4239,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
 		return;
 	}
 
-	in6_dev = __in6_dev_get(skb->dev);
+	in6_dev = __in6_dev_get(dev);
 	if (!in6_dev)
 		return;
 	if (READ_ONCE(in6_dev->cnf.forwarding) ||
@@ -4295,15 +4251,14 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
 	 *	first-hop router for the specified ICMP Destination Address.
 	 */
 
-	if (!ndisc_parse_options(skb->dev, msg->opt, optlen, &ndopts)) {
+	if (!ndisc_parse_options(dev, msg->opt, optlen, &ndopts)) {
 		net_dbg_ratelimited("rt6_redirect: invalid ND options\n");
 		return;
 	}
 
 	lladdr = NULL;
 	if (ndopts.nd_opts_tgt_lladdr) {
-		lladdr = ndisc_opt_addr_data(ndopts.nd_opts_tgt_lladdr,
-					     skb->dev);
+		lladdr = ndisc_opt_addr_data(ndopts.nd_opts_tgt_lladdr, dev);
 		if (!lladdr) {
 			net_dbg_ratelimited("rt6_redirect: invalid link-layer address length\n");
 			return;
@@ -4322,7 +4277,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
 	 */
 	dst_confirm_neigh(&rt->dst, &ipv6_hdr(skb)->saddr);
 
-	neigh = __neigh_lookup(&nd_tbl, &msg->target, skb->dev, 1);
+	neigh = __neigh_lookup(nd_table(dev_net(dev)), &msg->target, dev, 1);
 	if (!neigh)
 		return;
 
@@ -4330,7 +4285,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
 	 *	We have finally decided to accept it.
 	 */
 
-	ndisc_update(skb->dev, neigh, lladdr, NUD_STALE,
+	ndisc_update(dev, neigh, lladdr, NUD_STALE,
 		     NEIGH_UPDATE_F_WEAK_OVERRIDE|
 		     NEIGH_UPDATE_F_OVERRIDE|
 		     (on_link ? 0 : (NEIGH_UPDATE_F_OVERRIDE_ISROUTER|
@@ -5051,9 +5006,11 @@ void rt6_sync_down_dev(struct net_device *dev, unsigned long event)
 
 void rt6_disable_ip(struct net_device *dev, unsigned long event)
 {
+	struct net *net = dev_net(dev);
+
 	rt6_sync_down_dev(dev, event);
 	rt6_uncached_list_flush_dev(dev);
-	neigh_ifdown(&nd_tbl, dev);
+	neigh_ifdown(nd_table(net), dev);
 }
 
 struct rt6_mtu_change_arg {

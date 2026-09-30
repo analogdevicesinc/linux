@@ -568,6 +568,41 @@ static inline void netdev_set_addr_lockdep_class(struct net_device *dev)
 }
 #endif
 
+#ifdef CONFIG_PROVE_LOCKING
+static int netdev_lock_cmp_fn(const struct lockdep_map *a,
+			      const struct lockdep_map *b)
+{
+	if (a == b)
+		return 0;
+
+	/* @a and @b must be of same class - both virtual or physical.
+	 * cmp_fn won't be called for devices of different classes.
+	 *
+	 * For the same class only allow nesting under the protection
+	 * of rtnl_lock. Note that we can't use lockdep_rtnl_is_held()
+	 * here, it always answers UNKNOWN from within lockdep.
+	 */
+	return rtnl_is_locked() ? -1 : 1;
+}
+
+/* A virtual device can be locked before the physical device it leases
+ * queues from, see netdev_nl_queue_create_doit(). Keep the two kinds
+ * in separate classes so the dependency graph enforces the order;
+ * netdev_lock_cmp_fn() then only has to rule on same-class nesting.
+ */
+void netdev_set_instance_lock_class(struct net_device *dev)
+{
+	static struct lock_class_key netdev_virt_instance_lock_key;
+
+	if (dev->dev.parent)
+		return;
+
+	lockdep_set_class(&dev->lock, &netdev_virt_instance_lock_key);
+	lock_set_cmp_fn(&dev->lock, netdev_lock_cmp_fn, NULL);
+}
+EXPORT_SYMBOL_GPL(netdev_set_instance_lock_class);
+#endif
+
 /*******************************************************************************
  *
  *		Protocol management and registration routines
@@ -12215,6 +12250,8 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
 #endif
 
 	mutex_init(&dev->lock);
+	/* see also netdev_set_instance_lock_class() */
+	lock_set_cmp_fn(&dev->lock, netdev_lock_cmp_fn, NULL);
 	netif_rx_mode_init(dev);
 
 	dev->priv_flags = IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM;

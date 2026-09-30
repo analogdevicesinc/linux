@@ -95,6 +95,8 @@ extern int		netdev_unregister_timeout_secs;
 extern int		weight_p;
 extern int		dev_weight_rx_bias;
 extern int		dev_weight_tx_bias;
+extern u8		netdev_rss_key[NETDEV_RSS_KEY_LEN] __read_mostly;
+extern bool		netdev_rss_key_initialized;
 
 extern struct rw_semaphore dev_addr_sem;
 

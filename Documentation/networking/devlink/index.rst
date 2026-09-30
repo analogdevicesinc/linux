@@ -99,6 +99,7 @@ parameters, info versions, and other features it supports.
    nfp
    octeontx2
    prestera
+   ptp_ocp
    qed
    sfc
    stmmac
