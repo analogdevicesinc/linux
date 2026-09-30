@@ -10,6 +10,7 @@ use kernel::{
     InPlaceModule, //
 };
 
+pub mod api;
 mod driver;
 mod falcon;
 mod fb;
@@ -18,10 +19,13 @@ mod fsp;
 mod gpu;
 mod gsp;
 mod mctp;
+mod mm;
 #[macro_use]
 mod num;
 mod regs;
 mod sbuffer;
+#[cfg(CONFIG_NOVA_CORE_SELFTESTS)]
+mod selftest;
 mod vbios;
 mod vgpu;
 
