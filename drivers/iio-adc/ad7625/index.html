@@ -8,8 +8,8 @@
 
     <title>AD7625 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=fb8972a4" />
-    <script async="async" src="../../../_static/app.umd.js?v=8c78863f"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=b1d7a81a" />
+    <script async="async" src="../../../_static/app.umd.js?v=daa30c51"></script>
     <link rel="icon" href="../../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../../genindex/" />
     <link rel="search" title="Search" href="../../../search/" />
@@ -464,12 +464,12 @@ serial interface, reducing external hardware connections.</p>
 <h2>Devicetree Configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h2>
 <p>The devicetree (<code class="docutils literal notranslate"><span class="pre">.dts</span></code> file) describes how the chip is wired up. The examples
 linked above are for evaluation boards connected to a Zedboard and using the
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_lvds_adc/index.html#pulsar-lvds-adc" target="_blank" title="(in HDL)"><span>PULSAR-LVDS-ADC HDL project</span></a>.
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_lvds_adc/#pulsar-lvds-adc" target="_blank" title="(in HDL)"><span>PULSAR-LVDS-ADC HDL project</span></a>.
 Depending on the desired configuration for the AD762x/AD796x devices in your
 design, you may need to alter the devicetree for use.</p>
 <p>The ADC has a number of EN (<code class="docutils literal notranslate"><span class="pre">enable</span></code>) GPIOs that define its operational mode.
 In the
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_lvds_adc/index.html#pulsar-lvds-adc" target="_blank" title="(in HDL)"><span>PULSAR-LVDS-ADC HDL project</span></a>,
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_lvds_adc/#pulsar-lvds-adc" target="_blank" title="(in HDL)"><span>PULSAR-LVDS-ADC HDL project</span></a>,
 these are identified as EN0 through EN3, with EN2 and EN3 only being
 present/instantiated for the AD796x ADCs. Both subfamilies support the use of
 two devicetree fields for indicating to the driver which mode the device should
@@ -736,9 +736,9 @@ elsewhere in the devicetree:</p>
 </pre></div>
 </div>
 <p>Where the
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_clkgen/index.html#axi-clkgen" target="_blank" title="(in HDL)"><span>AXI CLK Generator</span></a>
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_clkgen/#axi-clkgen" target="_blank" title="(in HDL)"><span>AXI CLK Generator</span></a>
 and
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_pwm_gen/index.html#axi-pwm-gen" target="_blank" title="(in HDL)"><span>AXI PWM Generator</span></a>
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_pwm_gen/#axi-pwm-gen" target="_blank" title="(in HDL)"><span>AXI PWM Generator</span></a>
 drivers are used, respectively.</p>
 </section>
 </section>

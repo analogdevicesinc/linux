@@ -8,8 +8,8 @@
 
     <title>AD738x &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=fb8972a4" />
-    <script async="async" src="../../../_static/app.umd.js?v=8c78863f"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=b1d7a81a" />
+    <script async="async" src="../../../_static/app.umd.js?v=daa30c51"></script>
     <link rel="icon" href="../../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../../genindex/" />
     <link rel="search" title="Search" href="../../../search/" />
@@ -511,7 +511,7 @@ the clock polarity.</p>
 The ADI Linux kernel does support this. In this case you will need to add a
 ’‘adi,num-sdi’’ property that corresponds to the <code class="docutils literal notranslate"><span class="pre">NUM_OF_SDI</span></code> compile option
 that was used when compiling the FPGA bitstream from the
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/index.html#ad738x-fmc" target="_blank" title="(in HDL)"><span>AD738x_FMC HDL project</span></a>.</p>
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/#ad738x-fmc" target="_blank" title="(in HDL)"><span>AD738x_FMC HDL project</span></a>.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">num</span><span class="o">-</span><span class="n">sdi</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
 </pre></div>
 </div>
@@ -640,7 +640,7 @@ mV</strong></p>
 the maximum sample rate (e.g. 4 MSPS), it needs to be used with a specialized
 SPI controller that supports offloading. And example of such a SPI controller
 can be found in the
-example <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/index.html#ad738x-fmc" target="_blank" title="(in HDL)"><span>AD738x_FMC HDL project</span></a>.
+example <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/#ad738x-fmc" target="_blank" title="(in HDL)"><span>AD738x_FMC HDL project</span></a>.
 It can also be used with conventional SPI controllers, but sampling rate will be
 limited by the software and hardware capabilities of the system it is running
 on.</p>

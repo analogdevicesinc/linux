@@ -8,8 +8,8 @@
 
     <title>AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=fb8972a4" />
-    <script async="async" src="../../../_static/app.umd.js?v=8c78863f"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=b1d7a81a" />
+    <script async="async" src="../../../_static/app.umd.js?v=daa30c51"></script>
     <link rel="icon" href="../../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../../genindex/" />
     <link rel="search" title="Search" href="../../../search/" />
@@ -473,8 +473,8 @@ the ad400x Linux driver.</p>
 speeds up to 2 MSPS, additional components are required to achieve high
 performance. In this scenario, the following HDL components are required:</p>
 <ul class="simple">
-<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/index.html#spi-engine" target="_blank" title="(in HDL)"><span>SPI Engine</span></a></p></li>
-<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_dmac/index.html#axi-dmac" target="_blank" title="(in HDL)"><span>AXI DMAC</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/#spi-engine" target="_blank" title="(in HDL)"><span>SPI Engine</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_dmac/#axi-dmac" target="_blank" title="(in HDL)"><span>AXI DMAC</span></a></p></li>
 </ul>
 <p>The device will interface with these components and follow the device tree
 bindings.</p>
@@ -832,7 +832,7 @@ format.</p>
 <section id="buffer-example">
 <h3>Buffer Example<a class="headerlink" href="#buffer-example" title="Link to this heading"></a></h3>
 <p>When the buffer is enabled, the ad400x driver prepares a read transfer and
-configures the <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/spi_engine_offload.html#spi-engine-offload" target="_blank" title="(in HDL)"><span>SPI Engine Offload Module</span></a> module to repeat that
+configures the <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/spi_engine_offload/#spi-engine-offload" target="_blank" title="(in HDL)"><span>SPI Engine Offload Module</span></a> module to repeat that
 transfer each time the offload module is triggered. Then, the ad400x driver sets
 a PWM device to trigger the offload module at the rate specified by the
 <code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> attribute. With that, ADC readings are gathered

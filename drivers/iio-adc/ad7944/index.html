@@ -8,8 +8,8 @@
 
     <title>AD7944/AD7985/AD7986 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=fb8972a4" />
-    <script async="async" src="../../../_static/app.umd.js?v=8c78863f"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=b1d7a81a" />
+    <script async="async" src="../../../_static/app.umd.js?v=daa30c51"></script>
     <link rel="icon" href="../../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../../genindex/" />
     <link rel="search" title="Search" href="../../../search/" />
@@ -436,7 +436,7 @@ for supported evaluation boards.</p>
 </div>
 <p><strong>Note:</strong> In order to achieve the maximum sample rate, using a SPI offload such
 as the
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/index.html#spi-engine" target="_blank" title="(in HDL)"><span>SPI Engine</span></a>
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/#spi-engine" target="_blank" title="(in HDL)"><span>SPI Engine</span></a>
 is required. This feature is not yet supported in mainline Linux.</p>
 </section>
 <section id="files">
@@ -468,7 +468,7 @@ is required. This feature is not yet supported in mainline Linux.</p>
 <p>The devicetree (<code class="docutils literal notranslate"><span class="pre">.dts</span></code> file) describes how the chip is wired up. The example
 devicetree linked above is for the evaluation board with the FMCZ connector
 using the default jumper positions and the
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html#pulsar-adc" target="_blank" title="(in HDL)"><span>PULSAR-ADC HDL project</span></a>
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_adc/#pulsar-adc" target="_blank" title="(in HDL)"><span>PULSAR-ADC HDL project</span></a>
 compiled with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">FMC_N_PMOD=1</span> <span class="pre">SPI_OP_MODE=2</span></code>.</p>
 <p>If you change any jumpers on the evaluation board or modify the HDL project, you
 may need to update the <code class="docutils literal notranslate"><span class="pre">.dts</span></code> file to reflect the changes in wiring.</p>
@@ -510,7 +510,7 @@ ADC. The SDI pin of the ADC is hard-wired high.</p>
 </pre></div>
 </div>
 <p>If using the
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html#pulsar-adc" target="_blank" title="(in HDL)"><span>PULSAR-ADC HDL project</span></a>,
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_adc/#pulsar-adc" target="_blank" title="(in HDL)"><span>PULSAR-ADC HDL project</span></a>,
 with the FMCZ eval board, compile using the HDL using the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">FMC_N_PMOD=1</span>
 <span class="pre">SPI_OP_MODE=2</span></code> options. And add the following extra node to the top level of
 the devicetree to pull the SDI pin high.</p>
@@ -535,7 +535,7 @@ omitted, but GPIO connected to the CNV pin needs to be specified.</p>
 </pre></div>
 </div>
 <p>If using the
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html#pulsar-adc" target="_blank" title="(in HDL)"><span>PULSAR-ADC HDL project</span></a>,
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_adc/#pulsar-adc" target="_blank" title="(in HDL)"><span>PULSAR-ADC HDL project</span></a>,
 with the FMCZ eval board, compile using the HDL using the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">FMC_N_PMOD=1</span>
 <span class="pre">SPI_OP_MODE=1</span></code> options.</p>
 </section>
@@ -551,7 +551,7 @@ in the chain. The SDI pin of the last ADC in the chain is hard-wired low.</p>
 </div>
 <p>Change <code class="docutils literal notranslate"><span class="pre">#daisy-chained-devices</span></code> to the actual number of devices in the chain.</p>
 <p>If using the
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html#pulsar-adc" target="_blank" title="(in HDL)"><span>PULSAR-ADC HDL project</span></a>,
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/pulsar_adc/#pulsar-adc" target="_blank" title="(in HDL)"><span>PULSAR-ADC HDL project</span></a>,
 with the FMCZ eval board, compile using the HDL using the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">FMC_N_PMOD=1</span>
 <span class="pre">SPI_OP_MODE=2</span></code> options. And add the following extra node to the top level of
 the devicetree to pull the SDI pin low.</p>
