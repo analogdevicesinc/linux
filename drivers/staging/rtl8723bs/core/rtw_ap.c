@@ -1068,7 +1068,7 @@ int rtw_acl_add_sta(struct adapter *padapter, u8 *addr)
 	struct __queue	*pacl_node_q = &pacl_list->acl_node_q;
 
 	if ((NUM_ACL - 1) < pacl_list->num)
-		return (-1);
+		return -1;
 
 	spin_lock_bh(&pacl_node_q->lock);
 
