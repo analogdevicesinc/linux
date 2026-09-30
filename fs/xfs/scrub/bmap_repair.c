@@ -211,7 +211,7 @@ xrep_bmap_check_fork_rmap(
 
 	/* Check the file offset range. */
 	if (!(rec->rm_flags & XFS_RMAP_BMBT_BLOCK) &&
-	    !xfs_verify_fileext(sc->mp, rec->rm_offset, rec->rm_blockcount))
+	    !xfs_verify_fileext(rec->rm_offset, rec->rm_blockcount))
 		return -EFSCORRUPTED;
 
 	/* No contradictory flags. */
@@ -389,7 +389,7 @@ xrep_bmap_check_rtfork_rmap(
 		return -EFSCORRUPTED;
 
 	/* Check the file offsets and physical extents. */
-	if (!xfs_verify_fileext(sc->mp, rec->rm_offset, rec->rm_blockcount))
+	if (!xfs_verify_fileext(rec->rm_offset, rec->rm_blockcount))
 		return -EFSCORRUPTED;
 
 	/* Check that this is within the rtgroup. */

@@ -1026,8 +1026,7 @@ int						/* error code */
 xfs_bmap_add_attrfork(
 	struct xfs_trans	*tp,
 	struct xfs_inode	*ip,		/* incore inode pointer */
-	int			size,		/* space new attribute needs */
-	int			rsvd)		/* xact may use reserved blks */
+	int			size)		/* space new attribute needs */
 {
 	struct xfs_mount	*mp = tp->t_mountp;
 	int			logflags;	/* logging flags */
@@ -6088,7 +6087,7 @@ xfs_bmap_validate_extent_raw(
 	int			whichfork,
 	struct xfs_bmbt_irec	*irec)
 {
-	if (!xfs_verify_fileext(mp, irec->br_startoff, irec->br_blockcount))
+	if (!xfs_verify_fileext(irec->br_startoff, irec->br_blockcount))
 		return __this_address;
 
 	if (rtfile && whichfork == XFS_DATA_FORK) {
