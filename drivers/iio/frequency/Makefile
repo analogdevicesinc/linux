@@ -10,6 +10,7 @@ obj-$(CONFIG_AD9523) += ad9523.o
 obj-$(CONFIG_AD9528) += ad9528.o
 obj-$(CONFIG_AD9548) += ad9548.o
 obj-$(CONFIG_AD9910) += ad9910.o
+obj-$(CONFIG_AD9910_AXI_BACKEND) += ad9910-axi-backend.o
 obj-$(CONFIG_ADF4030) += adf4030.o
 obj-$(CONFIG_ADF41513) += adf41513.o
 obj-$(CONFIG_ADF4159) += adf4159.o
