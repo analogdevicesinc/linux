@@ -1781,6 +1781,7 @@ static void nfs4_free_ol_stateid(struct nfs4_stid *stid)
 static void nfs4_free_lock_stateid(struct nfs4_stid *stid)
 {
 	struct nfs4_ol_stateid *stp = openlockstateid(stid);
+	struct nfs4_ol_stateid *open_stp = stp->st_openstp;
 	struct nfs4_lockowner *lo = lockowner(stp->st_stateowner);
 	struct nfsd_file *nf;
 
@@ -1791,6 +1792,8 @@ static void nfs4_free_lock_stateid(struct nfs4_stid *stid)
 		nfsd_file_put(nf);
 	}
 	nfs4_free_ol_stateid(stid);
+	if (open_stp)
+		nfs4_put_stid(&open_stp->st_stid);
 }
 
 /*
@@ -9312,6 +9315,7 @@ retry:
 			exp_get(open_stp->st_stid.sc_export);
 	stp->st_access_bmap = 0;
 	stp->st_deny_bmap = open_stp->st_deny_bmap;
+	refcount_inc(&open_stp->st_stid.sc_count);
 	stp->st_openstp = open_stp;
 	spin_lock(&fp->fi_lock);
 	list_add(&stp->st_locks, &open_stp->st_locks);
