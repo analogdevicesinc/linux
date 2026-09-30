@@ -321,7 +321,7 @@ to use.
 - DESC_METADATA_CLIENT
 
   The metadata buffer is allocated/provided by the client driver and it is
-  attached (via the dmaengine_desc_attach_metadata() helper to the descriptor.
+  attached (via the dmaengine_desc_attach_metadata() helper) to the descriptor.
 
   From the DMA driver the following is expected for this mode:
 

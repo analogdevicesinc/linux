@@ -130,7 +130,7 @@ struct dw_edma_chip {
 
 	u16			ll_wr_cnt;
 	u16			ll_rd_cnt;
-	/* link list address */
+	/* Linked-list regions must not cross a 4 GiB address boundary. */
 	struct dw_edma_region	ll_region_wr[HDMA_MAX_WR_CH];
 	struct dw_edma_region	ll_region_rd[HDMA_MAX_RD_CH];
 
@@ -147,6 +147,7 @@ struct dw_edma_chip {
 
 	struct dw_edma		*dw;
 	bool			cfg_non_ll;
+	u32			ch_space_sz;
 };
 
 /* Export to the platform drivers */

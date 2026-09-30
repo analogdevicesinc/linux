@@ -623,11 +623,6 @@ struct d40_base {
 	struct d40_chan			 phy_chans[];
 };
 
-static struct device *chan2dev(struct d40_chan *d40c)
-{
-	return &d40c->chan.dev->device;
-}
-
 static bool chan_is_physical(struct d40_chan *chan)
 {
 	return chan->log_num == D40_PHY_CHAN;
@@ -648,7 +643,7 @@ static void __iomem *chan_base(struct d40_chan *chan)
 	dev_err(dev, "[%s] " format, __func__, ## arg)
 
 #define chan_err(d40c, format, arg...)		\
-	d40_err(chan2dev(d40c), format, ## arg)
+	d40_err(dmaengine_chan_dev(&d40c->chan), format, ## arg)
 
 static int d40_set_runtime_config_write(struct dma_chan *chan,
 				  struct dma_slave_config *config,
@@ -1243,7 +1238,7 @@ static void __d40_config_set_event(struct d40_chan *d40c,
 		}
 
 		if (tries != 99)
-			dev_dbg(chan2dev(d40c),
+			dev_dbg(dmaengine_chan_dev(&d40c->chan),
 				"[%s] workaround enable S%cLNK (%d tries)\n",
 				__func__, reg == D40_CHAN_REG_SSLNK ? 'S' : 'D',
 				100 - tries);
@@ -1924,7 +1919,7 @@ found_phy:
 			i = d40c->dma_cfg.phy_channel;
 
 			if ((i != phy_num) && (i != phy_num + 1)) {
-				dev_err(chan2dev(d40c),
+				dev_err(dmaengine_chan_dev(&d40c->chan),
 					"invalid fixed phy channel %d\n", i);
 				return -EINVAL;
 			}
@@ -1933,7 +1928,7 @@ found_phy:
 					       is_log, first_phy_user))
 				goto found_log;
 
-			dev_err(chan2dev(d40c),
+			dev_err(dmaengine_chan_dev(&d40c->chan),
 				"could not allocate fixed phy channel %d\n", i);
 			return -EINVAL;
 		}
@@ -2446,7 +2441,7 @@ static int d40_alloc_chan_resources(struct dma_chan *chan)
 		d40c->dst_def_cfg |= BIT(D40_SREG_CFG_LOG_GIM_POS);
 	}
 
-	dev_dbg(chan2dev(d40c), "allocated %s channel (phy %d%s)\n",
+	dev_dbg(dmaengine_chan_dev(&d40c->chan), "allocated %s channel (phy %d%s)\n",
 		 chan_is_logical(d40c) ? "logical" : "physical",
 		 d40c->phy_chan->num,
 		 d40c->dma_cfg.use_fixed_channel ? ", fixed" : "");
