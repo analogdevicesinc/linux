@@ -78,6 +78,15 @@ struct ldr_hdr {
 	u32 argument;
 };
 
+enum adi_rproc_variant {
+	SC5XX_RPROC_SHARC,
+	SC5XX_RPROC_SHARCFX,
+};
+
+struct adi_rproc_config {
+	unsigned int variant;
+};
+
 struct sharc_resource_table {
 	struct resource_table table_hdr;
 	unsigned int offset[NUM_TABLE_ENTRIES];
@@ -996,8 +1005,17 @@ static void adi_remoteproc_remove(struct platform_device *pdev)
 	mbox_free_channel(rproc_data->kick_chan);
 }
 
+static const struct adi_rproc_config sc5xx_rproc_cfg = {
+	.variant = SC5XX_RPROC_SHARC,
+};
+
+static const struct adi_rproc_config sc8xx_rproc_cfg = {
+	.variant = SC5XX_RPROC_SHARCFX,
+};
+
 static const struct of_device_id adi_rproc_of_match[] = {
-	{ .compatible = "adi,remoteproc" },
+	{ .compatible = "adi,adsp-sc598-rproc", .data = &sc5xx_rproc_cfg },
+	{ .compatible = "adi,adsp-sc846-rproc", .data = &sc8xx_rproc_cfg },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adi_rproc_of_match);
