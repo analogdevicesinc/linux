@@ -116,8 +116,8 @@ xrep_quota_item_bmap(
 	int			error;
 
 	/* The computed file offset should always be valid. */
-	if (!xfs_verify_fileoff(mp, offset)) {
-		ASSERT(xfs_verify_fileoff(mp, offset));
+	if (!xfs_verify_fileoff(offset)) {
+		ASSERT(xfs_verify_fileoff(offset));
 		return -EFSCORRUPTED;
 	}
 	dq->q_fileoffset = offset;
@@ -248,10 +248,7 @@ xrep_quota_item(
 
 	dq->q_flags |= XFS_DQFLAG_DIRTY;
 	xfs_trans_dqjoin(sc->tp, dq);
-	if (dq->q_id) {
-		xfs_qm_adjust_dqlimits(dq);
-		xfs_qm_adjust_dqtimers(dq);
-	}
+	xfs_qm_adjust_dqenforcement(dq);
 	xfs_trans_log_dquot(sc->tp, dq);
 	return xfs_trans_roll(&sc->tp);
 

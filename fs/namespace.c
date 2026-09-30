@@ -109,7 +109,7 @@ struct mount_kattr {
 	unsigned int lookup_flags;
 	enum mount_kattr_flags_t kflags;
 	struct user_namespace *mnt_userns;
-	struct mnt_idmap *mnt_idmap;
+	const struct mnt_idmap *mnt_idmap;
 };
 
 /* /sys/fs */
@@ -249,16 +249,24 @@ void mnt_release_group_id(struct mount *mnt)
 	mnt->mnt_group_id = 0;
 }
 
-/*
- * vfsmount lock must be held for read
- */
-static inline void mnt_add_count(struct mount *mnt, int n)
+static inline void mnt_inc_count(struct mount *mnt)
 {
 #ifdef CONFIG_SMP
-	this_cpu_add(mnt->mnt_pcp->mnt_count, n);
+	this_cpu_inc(mnt->mnt_pcp->mnt_gets);
 #else
 	preempt_disable();
-	mnt->mnt_count += n;
+	mnt->mnt_count++;
+	preempt_enable();
+#endif
+}
+
+static inline void mnt_dec_count(struct mount *mnt)
+{
+#ifdef CONFIG_SMP
+	this_cpu_inc(mnt->mnt_pcp->mnt_puts);
+#else
+	preempt_disable();
+	mnt->mnt_count--;
 	preempt_enable();
 #endif
 }
@@ -269,14 +277,17 @@ static inline void mnt_add_count(struct mount *mnt, int n)
 int mnt_get_count(struct mount *mnt)
 {
 #ifdef CONFIG_SMP
-	int count = 0;
+	unsigned int gets = 0, puts = 0;
 	int cpu;
 
-	for_each_possible_cpu(cpu) {
-		count += per_cpu_ptr(mnt->mnt_pcp, cpu)->mnt_count;
-	}
+	/* puts first, so a put counted here has its get counted below */
+	for_each_possible_cpu(cpu)
+		puts += per_cpu_ptr(mnt->mnt_pcp, cpu)->mnt_puts;
+	smp_mb();	/* pairs with the smp_wmb() in mntput_no_expire() */
+	for_each_possible_cpu(cpu)
+		gets += per_cpu_ptr(mnt->mnt_pcp, cpu)->mnt_gets;
 
-	return count;
+	return gets - puts;
 #else
 	return mnt->mnt_count;
 #endif
@@ -305,7 +316,7 @@ static struct mount *alloc_vfsmnt(const char *name)
 		if (!mnt->mnt_pcp)
 			goto out_free_devname;
 
-		this_cpu_add(mnt->mnt_pcp->mnt_count, 1);
+		this_cpu_inc(mnt->mnt_pcp->mnt_gets);
 #else
 		mnt->mnt_count = 1;
 		mnt->mnt_writers = 0;
@@ -746,13 +757,13 @@ int __legitimize_mnt(struct vfsmount *bastard, unsigned seq)
 	if (bastard == NULL)
 		return 0;
 	mnt = real_mount(bastard);
-	mnt_add_count(mnt, 1);
-	smp_mb();		// see mntput_no_expire() and do_umount()
+	mnt_inc_count(mnt);
+	smp_mb();	/* see mntput_no_expire_slowpath() and do_umount() */
 	if (likely(!read_seqretry(&mount_lock, seq)))
 		return 0;
 	lock_mount_hash();
 	if (unlikely(bastard->mnt_flags & (MNT_SYNC_UMOUNT | MNT_DOOMED))) {
-		mnt_add_count(mnt, -1);
+		mnt_dec_count(mnt);
 		unlock_mount_hash();
 		return 1;
 	}
@@ -1254,6 +1265,7 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 
 	mnt->mnt.mnt_flags = READ_ONCE(old->mnt.mnt_flags) &
 			     ~MNT_INTERNAL_FLAGS;
+	mnt->mnt_t_flags = old->mnt_t_flags & T_UNBINDABLE;
 
 	if (flag & (CL_SLAVE | CL_PRIVATE))
 		mnt->mnt_group_id = 0; /* not a peer of original */
@@ -1347,7 +1359,7 @@ static void noinline mntput_no_expire_slowpath(struct mount *mnt)
 	 * mount_lock, we'll see their refcount increment here.
 	 */
 	smp_mb();
-	mnt_add_count(mnt, -1);
+	mnt_dec_count(mnt);
 	count = mnt_get_count(mnt);
 	if (count != 0) {
 		WARN_ON(count < 0);
@@ -1404,7 +1416,8 @@ static void mntput_no_expire(struct mount *mnt)
 		 * non-NULL under rcu_read_lock(), the reference
 		 * we are dropping is not the final one.
 		 */
-		mnt_add_count(mnt, -1);
+		smp_wmb();	/* pairs with the smp_mb() in mnt_get_count() */
+		mnt_dec_count(mnt);
 		rcu_read_unlock();
 		return;
 	}
@@ -1426,7 +1439,7 @@ EXPORT_SYMBOL(mntput);
 struct vfsmount *mntget(struct vfsmount *mnt)
 {
 	if (mnt)
-		mnt_add_count(real_mount(mnt), 1);
+		mnt_inc_count(real_mount(mnt));
 	return mnt;
 }
 EXPORT_SYMBOL(mntget);
@@ -3467,7 +3480,7 @@ static int do_set_group(const struct path *from_path, const struct path *to_path
 		return -EINVAL;
 
 	/* Setting sharing groups is only allowed on private mounts */
-	if (IS_MNT_SHARED(to) || IS_MNT_SLAVE(to))
+	if (IS_MNT_SHARED(to) || IS_MNT_SLAVE(to) || IS_MNT_UNBINDABLE(to))
 		return -EINVAL;
 
 	/* From should not be private */
@@ -4115,7 +4128,7 @@ int path_mount(const char *dev_name, const struct path *path,
 	if (flags & SB_MANDLOCK)
 		warn_mandlock();
 
-	/* Default to relatime unless overriden */
+	/* Default to relatime unless overridden */
 	if (!(flags & MS_NOATIME))
 		mnt_flags |= MNT_RELATIME;
 
@@ -4246,8 +4259,6 @@ struct mnt_namespace *copy_mnt_ns(u64 flags, struct mnt_namespace *ns,
 	struct mount *old;
 	struct mount *new;
 	int copy_flags;
-
-	BUG_ON(!ns);
 
 	if (likely(!(flags & CLONE_NEWNS))) {
 		get_mnt_ns(ns);
@@ -4544,16 +4555,16 @@ SYSCALL_DEFINE3(fsmount, int, fs_fd, unsigned int, flags,
 
 	FD_PREPARE(fdf, (flags & FSMOUNT_CLOEXEC) ? O_CLOEXEC : 0,
 		   dentry_open(&new_path, O_PATH, fc->cred));
-	if (fdf.err) {
+	if (fdf->fd < 0) {
 		dissolve_on_fput(new_path.mnt);
-		return fdf.err;
+		return fdf->fd;
 	}
 
 	/*
 	 * Attach to an apparent O_PATH fd with a note that we
 	 * need to unmount it, not just simply put it.
 	 */
-	fd_prepare_file(fdf)->f_mode |= FMODE_NEED_UNMOUNT;
+	fdf->file->f_mode |= FMODE_NEED_UNMOUNT;
 	return fd_publish(fdf);
 }
 
@@ -4898,7 +4909,7 @@ static int mount_setattr_prepare(struct mount_kattr *kattr, struct mount *mnt)
 
 static void do_idmap_mount(const struct mount_kattr *kattr, struct mount *mnt)
 {
-	struct mnt_idmap *old_idmap;
+	const struct mnt_idmap *old_idmap;
 
 	if (!kattr->mnt_idmap)
 		return;
@@ -4941,7 +4952,7 @@ static int do_mount_setattr(const struct path *path, struct mount_kattr *kattr)
 		return -EINVAL;
 
 	if (kattr->mnt_userns) {
-		struct mnt_idmap *mnt_idmap;
+		const struct mnt_idmap *mnt_idmap;
 
 		mnt_idmap = alloc_mnt_idmap(kattr->mnt_userns);
 		if (IS_ERR(mnt_idmap))
@@ -5198,12 +5209,12 @@ SYSCALL_DEFINE5(open_tree_attr, int, dfd, const char __user *, filename,
 		return -EINVAL;
 
 	FD_PREPARE(fdf, flags, vfs_open_tree(dfd, filename, flags));
-	if (fdf.err)
-		return fdf.err;
+	if (fdf->fd < 0)
+		return fdf->fd;
 
 	if (uattr) {
 		struct mount_kattr kattr = {};
-		struct file *file = fd_prepare_file(fdf);
+		struct file *file = fdf->file;
 		int ret;
 
 		if (flags & OPEN_TREE_CLONE)
@@ -5246,7 +5257,7 @@ struct kstatmount {
 	struct statmount __user *buf;
 	size_t bufsize;
 	struct vfsmount *mnt;
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	u64 mask;
 	struct path root;
 	struct seq_file seq;

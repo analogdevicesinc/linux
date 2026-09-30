@@ -2354,7 +2354,7 @@ void nfs41_notify_server(struct nfs_client *clp)
 	nfs4_schedule_state_manager(clp);
 }
 
-static void nfs4_reset_all_state(struct nfs_client *clp)
+void nfs4_reset_all_state(struct nfs_client *clp)
 {
 	if (test_and_set_bit(NFS4CLNT_LEASE_EXPIRED, &clp->cl_state) == 0) {
 		set_bit(NFS4CLNT_PURGE_STATE, &clp->cl_state);
@@ -2669,6 +2669,11 @@ static void nfs4_state_manager(struct nfs_client *clp)
 				set_bit(NFS4CLNT_RUN_MANAGER, &clp->cl_state);
 			}
 			nfs4_layoutreturn_any_run(clp);
+			if (test_and_clear_bit(NFS4CLNT_DEVICEID_DELETE,
+					       &clp->cl_state)) {
+				nfs4_deviceid_delete_recover_run(clp);
+				set_bit(NFS4CLNT_RUN_MANAGER, &clp->cl_state);
+			}
 			clear_bit(NFS4CLNT_RECALL_RUNNING, &clp->cl_state);
 		}
 
