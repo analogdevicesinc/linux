@@ -401,7 +401,7 @@ static int btintel_pcie_send_sync(struct btintel_pcie_data *data,
 
 	tfd_index = data->ia.tr_hia[BTINTEL_PCIE_TXQ_NUM];
 
-	if (tfd_index > txq->count)
+	if (tfd_index >= txq->count)
 		return -ERANGE;
 
 	if (skb->len > BTINTEL_PCIE_BUFFER_SIZE - BTINTEL_PCIE_HCI_TYPE_LEN) {
@@ -1876,6 +1876,13 @@ static int btintel_pcie_config_pcie(struct pci_dev *pdev,
 	data->base_addr = pcim_iomap_region(pdev, 0, KBUILD_MODNAME);
 	if (IS_ERR(data->base_addr))
 		return PTR_ERR(data->base_addr);
+
+	/* Do shared hardware reset to ensure a clean start before
+	 * configuring interrupts.
+	 */
+	err = btintel_pcie_reset_bt(data);
+	if (err)
+		return err;
 
 	err = btintel_pcie_setup_irq(data);
 	if (err)
