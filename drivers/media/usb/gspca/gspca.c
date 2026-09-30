@@ -19,7 +19,6 @@
 #include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/string.h>
-#include <linux/pagemap.h>
 #include <linux/io.h>
 #include <asm/page.h>
 #include <linux/uaccess.h>

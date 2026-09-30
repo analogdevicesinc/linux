@@ -30,13 +30,13 @@
 #include <linux/sched/signal.h>
 #include <linux/fs.h>
 #include <linux/pci.h>
+#include <linux/highmem.h>
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
 #include <linux/list.h>
 #include <linux/unistd.h>
-#include <linux/pagemap.h>
 #include <linux/scatterlist.h>
 #include <linux/kthread.h>
 #include <linux/mutex.h>

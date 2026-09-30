@@ -31,13 +31,12 @@
  */
 
 #include <linux/dma-mapping.h>
+#include <linux/highmem.h>
 #include <linux/iommu.h>
-#include <linux/pagemap.h>
 #include <linux/sched/task.h>
 #include <linux/sched/mm.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
-#include <linux/swap.h>
 #include <linux/dma-buf.h>
 #include <linux/sizes.h>
 #include <linux/module.h>
