@@ -2858,7 +2858,7 @@ static int schemata_list_add(struct rdt_resource *r, enum resctrl_conf_type type
 {
 	struct resctrl_schema *s;
 	const char *suffix = "";
-	int ret, cl;
+	int cl;
 
 	s = kzalloc_obj(*s);
 	if (!s)
@@ -2882,13 +2882,11 @@ static int schemata_list_add(struct rdt_resource *r, enum resctrl_conf_type type
 		break;
 	}
 
-	ret = snprintf(s->name, sizeof(s->name), "%s%s", r->name, suffix);
-	if (ret >= sizeof(s->name)) {
+	cl = snprintf(s->name, sizeof(s->name), "%s%s", r->name, suffix);
+	if (cl >= sizeof(s->name)) {
 		kfree(s);
 		return -EINVAL;
 	}
-
-	cl = strlen(s->name);
 
 	/*
 	 * If CDP is supported by this resource, but not enabled,
