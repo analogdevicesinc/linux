@@ -70,19 +70,24 @@ __rtrs_get_permit(struct rtrs_clt_sess *clt, enum rtrs_clt_con_type con_type)
 {
 	size_t max_depth = clt->queue_depth;
 	struct rtrs_permit *permit;
-	int bit;
+	unsigned long bit = 0;
 
 	/*
-	 * Adapted from null_blk get_tag(). Callers from different cpus may
-	 * grab the same bit, since find_first_zero_bit is not atomic.
-	 * But then the test_and_set_bit_lock will fail for all the
-	 * callers but one, so that they will loop again.
-	 * This way an explicit spinlock is not required.
+	 * Callers from different CPUs may grab the same bit, since the bitmap
+	 * scan is not atomic. But then the test_and_set_bit_lock() will fail
+	 * for all the callers but one, so that they loop again. This way an
+	 * explicit spinlock is not required. find_next_zero_bit() resumes
+	 * from the last position so that a lost race does not rescan the
+	 * already-set low bits; if it reaches the end, wrap to the beginning
+	 * to exhaust the map and still find a permit freed below the cursor.
 	 */
 	do {
-		bit = find_first_zero_bit(clt->permits_map, max_depth);
-		if (bit >= max_depth)
-			return NULL;
+		bit = find_next_zero_bit(clt->permits_map, max_depth, bit);
+		if (bit >= max_depth) {
+			bit = find_first_zero_bit(clt->permits_map, max_depth);
+			if (bit >= max_depth)
+				return NULL;
+		}
 	} while (test_and_set_bit_lock(bit, clt->permits_map));
 
 	permit = get_permit(clt, bit);
@@ -1853,6 +1858,10 @@ static int rtrs_rdma_conn_established(struct rtrs_clt_con *con,
 	}
 	if (con->c.cid == 0) {
 		queue_depth = le16_to_cpu(msg->queue_depth);
+		if (!queue_depth) {
+			rtrs_err(clt, "Invalid queue depth %u\n", queue_depth);
+			return -ECONNRESET;
+		}
 
 		if (clt_path->queue_depth > 0 && queue_depth != clt_path->queue_depth) {
 			rtrs_err(clt, "Error: queue depth changed\n");

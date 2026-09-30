@@ -300,7 +300,7 @@ static bool mlx5_ib_invalidate_range(struct mmu_interval_notifier *mni,
 	/*
 	 * Iteration one - zap the HW's MTTs. The notifiers_count ensures that
 	 * while we are doing the invalidation, no page fault will attempt to
-	 * overwrite the same MTTs.  Concurent invalidations might race us,
+	 * overwrite the same MTTs.  Concurrent invalidations might race us,
 	 * but they will write 0s as well, so no difference in the end result.
 	 */
 	for (addr = start; addr < end; addr += BIT(umem_odp->page_shift)) {

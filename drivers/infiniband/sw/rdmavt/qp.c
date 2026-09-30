@@ -814,7 +814,7 @@ bail:
  *
  * This function is called from both rvt_create_qp() and
  * rvt_reset_qp().   The difference is that the reset
- * patch the necessary locks to protect against concurent
+ * patch the necessary locks to protect against concurrent
  * access.
  */
 static void rvt_init_qp(struct rvt_dev_info *rdi, struct rvt_qp *qp,

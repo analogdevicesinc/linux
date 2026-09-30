@@ -336,7 +336,6 @@ static int siw_tcp_sendpages(struct socket *s, struct page **page, int offset,
 		if (size + offset <= PAGE_SIZE)
 			msg.msg_flags &= ~MSG_MORE;
 
-		tcp_rate_check_app_limited(sk);
 		if (!sendpage_ok(page[i]))
 			msg.msg_flags &= ~MSG_SPLICE_PAGES;
 		bvec_set_page(&bvec, page[i], bytes, offset);

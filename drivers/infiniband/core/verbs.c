@@ -2362,7 +2362,7 @@ EXPORT_SYMBOL(ib_dereg_mr_user);
  * @max_num_sg:    maximum sg entries available for registration.
  *
  * Notes:
- * Memory registeration page/sg lists must not exceed max_num_sg.
+ * Memory registration page/sg lists must not exceed max_num_sg.
  * For mr_type IB_MR_TYPE_MEM_REG, the total length cannot exceed
  * max_num_sg * used_page_size.
  *
