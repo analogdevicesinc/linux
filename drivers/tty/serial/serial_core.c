@@ -33,7 +33,6 @@
 #include <linux/uaccess.h>
 
 #include "serial_base.h"
-#include "8250/8250.h" /* For hub6_match_port() */
 
 /*
  * This is used to lock changes in serial line configuration.
@@ -247,29 +246,29 @@ static int uart_alloc_xmit_buf(struct tty_port *port)
 	struct uart_state *state = container_of(port, struct uart_state, port);
 	struct uart_port *uport;
 	unsigned long flags;
-	unsigned long page;
+	u8 *buf;
 
 	/*
 	 * Initialise and allocate the transmit and temporary
 	 * buffer.
 	 */
-	page = get_zeroed_page(GFP_KERNEL);
-	if (!page)
+	buf = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!buf)
 		return -ENOMEM;
 
 	uport = uart_port_ref_lock(state, &flags);
 	if (!state->port.xmit_buf) {
-		state->port.xmit_buf = (unsigned char *)page;
+		state->port.xmit_buf = buf;
 		kfifo_init(&state->port.xmit_fifo, state->port.xmit_buf,
 				PAGE_SIZE);
 		uart_port_unlock_deref(uport, flags);
 	} else {
 		uart_port_unlock_deref(uport, flags);
 		/*
-		 * Do not free() the page under the port lock, see
+		 * Do not free() the buffer under the port lock, see
 		 * uart_free_xmit_buf().
 		 */
-		free_page(page);
+		kfree(buf);
 	}
 
 	return 0;
@@ -280,10 +279,10 @@ static void uart_free_xmit_buf(struct tty_port *port)
 	struct uart_state *state = container_of(port, struct uart_state, port);
 	struct uart_port *uport;
 	unsigned long flags;
-	char *xmit_buf;
+	u8 *xmit_buf;
 
 	/*
-	 * Do not free() the transmit buffer page under the port lock since
+	 * Do not free() the transmit buffer under the port lock since
 	 * this can create various circular locking scenarios. For instance,
 	 * console driver may need to allocate/free a debug object, which
 	 * can end up in printk() recursion.
@@ -294,7 +293,7 @@ static void uart_free_xmit_buf(struct tty_port *port)
 	INIT_KFIFO(port->xmit_fifo);
 	uart_port_unlock_deref(uport, flags);
 
-	free_page((unsigned long)xmit_buf);
+	kfree(xmit_buf);
 }
 
 /*
@@ -2133,7 +2132,8 @@ EXPORT_SYMBOL_GPL(uart_console_write);
 
 /**
  * uart_parse_earlycon - Parse earlycon options
- * @p:	     ptr to 2nd field (ie., just beyond '<name>,')
+ * @p:	     ptr to 2nd field (ie., just beyond '<name>,'); %NULL if
+ *	     no console options were supplied
  * @iotype:  ptr for decoded iotype (out)
  * @addr:    ptr for decoded mapbase/iobase (out)
  * @options: ptr for <options> field; %NULL if not present (out)
@@ -2153,6 +2153,9 @@ EXPORT_SYMBOL_GPL(uart_console_write);
 int uart_parse_earlycon(char *p, enum uart_iotype *iotype,
 			resource_size_t *addr, char **options)
 {
+	if (!p)
+		return -EINVAL;
+
 	if (strncmp(p, "mmio,", 5) == 0) {
 		*iotype = UPIO_MEM;
 		p += 5;
@@ -3255,32 +3258,6 @@ static void serial_core_remove_one_port(struct uart_driver *drv,
 	wait_event(state->remove_wait, !atomic_read(&state->refcount));
 	state->uart_port = NULL;
 }
-
-/**
- * uart_match_port - are the two ports equivalent?
- * @port1: first port
- * @port2: second port
- *
- * This utility function can be used to determine whether two uart_port
- * structures describe the same port.
- */
-bool uart_match_port(const struct uart_port *port1,
-		const struct uart_port *port2)
-{
-	if (port1->iotype != port2->iotype)
-		return false;
-	else if (port1->iotype == UPIO_PORT)
-		return port1->iobase == port2->iobase;
-	else if (port1->iotype == UPIO_HUB6)
-		return hub6_match_port(port1, port2);
-	else if (uart_iotype_mmio(port1->iotype))
-		return port1->mapbase == port2->mapbase;
-	else if (port1->iotype == UPIO_BUS)
-		return true;
-	else
-		return false;
-}
-EXPORT_SYMBOL(uart_match_port);
 
 static struct serial_ctrl_device *
 serial_core_get_ctrl_dev(struct serial_port_device *port_dev)
