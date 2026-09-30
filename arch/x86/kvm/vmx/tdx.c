@@ -2161,8 +2161,7 @@ int tdx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t fastpath)
 
 	switch (exit_reason.basic) {
 	case EXIT_REASON_TRIPLE_FAULT:
-		vcpu->run->exit_reason = KVM_EXIT_SHUTDOWN;
-		vcpu->mmio_needed = 0;
+		kvm_prepare_shutdown_exit(vcpu);
 		return 0;
 	case EXIT_REASON_EXCEPTION_NMI:
 		return tdx_handle_exception_nmi(vcpu);

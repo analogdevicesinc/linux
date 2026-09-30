@@ -2208,7 +2208,6 @@ static int mc_interception(struct kvm_vcpu *vcpu)
 
 static int shutdown_interception(struct kvm_vcpu *vcpu)
 {
-	struct kvm_run *kvm_run = vcpu->run;
 	struct vcpu_svm *svm = to_svm(vcpu);
 
 
@@ -2232,7 +2231,7 @@ static int shutdown_interception(struct kvm_vcpu *vcpu)
 		kvm_vcpu_reset(vcpu, true);
 	}
 
-	kvm_run->exit_reason = KVM_EXIT_SHUTDOWN;
+	kvm_prepare_shutdown_exit(vcpu);
 	return 0;
 }
 
