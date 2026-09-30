@@ -923,12 +923,14 @@ struct ieee80211_bss_conf {
  * @channel_entry: the Channel Entry blob as defined in Wi-Fi Aware
  *	(TM) 4.0 specification Table 100 (Channel Entry format for the NAN
  *	Availability attribute).
+ * @no_evacuate: if set, this channel must not be evacuated
  */
 struct ieee80211_nan_channel {
 	struct ieee80211_chan_req chanreq;
 	u8 needed_rx_chains;
 	struct ieee80211_chanctx_conf *chanctx_conf;
 	u8 channel_entry[6];
+	bool no_evacuate;
 };
 
 /**
@@ -2395,6 +2397,8 @@ static inline bool lockdep_vif_wiphy_mutex_held(struct ieee80211_vif *vif)
  *	number generation only
  * @IEEE80211_KEY_FLAG_SPP_AMSDU: SPP A-MSDUs can be used with this key
  *	(set by mac80211 from the sta->spp_amsdu flag)
+ * @IEEE80211_KEY_FLAG_CIP: This key is used for the Control Integrity
+ *	Protocol, and is either a pairwise key or a CIGTK.
  */
 enum ieee80211_key_flags {
 	IEEE80211_KEY_FLAG_GENERATE_IV_MGMT	= BIT(0),
@@ -2409,6 +2413,7 @@ enum ieee80211_key_flags {
 	IEEE80211_KEY_FLAG_NO_AUTO_TX		= BIT(9),
 	IEEE80211_KEY_FLAG_GENERATE_MMIE	= BIT(10),
 	IEEE80211_KEY_FLAG_SPP_AMSDU		= BIT(11),
+	IEEE80211_KEY_FLAG_CIP			= BIT(12),
 };
 
 /**
@@ -2629,6 +2634,7 @@ struct ieee80211_sta_aggregates {
  * @eht_cap: EHT capabilities of this STA
  * @uhr_cap: UHR capabilities of this STA
  * @s1g_cap: S1G capabilities of this STA
+ * @cip_cap: the CIP capabilities of this STA (or zero)
  * @agg: per-link data for multi-link aggregation
  * @bandwidth: current bandwidth the station can receive with.
  *	This is the minimum between the peer's capabilities and our own
@@ -2657,6 +2663,7 @@ struct ieee80211_link_sta {
 	struct ieee80211_sta_eht_cap eht_cap;
 	struct ieee80211_sta_uhr_cap uhr_cap;
 	struct ieee80211_sta_s1g_cap s1g_cap;
+	u8 cip_cap;
 
 	struct ieee80211_sta_aggregates agg;
 
@@ -2720,6 +2727,7 @@ struct ieee80211_link_sta {
  * @valid_links: bitmap of valid links, or 0 for non-MLO
  * @spp_amsdu: indicates whether the STA uses SPP A-MSDU or not.
  * @epp_peer: indicates that the peer is an EPP peer.
+ * @cip: indicates whether the STA uses control frame protection or not.
  * @nmi: For NDI stations, pointer to the NMI station of the peer.
  * @nan_sched: NAN peer schedule for this station. Valid only for NMI stations.
  * @ext_mld_capa_ops: the MLD's extended MLD capabilities and operations
@@ -2740,6 +2748,8 @@ struct ieee80211_sta {
 	bool spp_amsdu;
 	u8 max_amsdu_subframes;
 	u16 eml_cap;
+
+	bool cip;
 
 	struct ieee80211_sta_aggregates *cur;
 
@@ -6278,6 +6288,7 @@ void ieee80211_set_key_rx_seq(struct ieee80211_key_conf *keyconf,
  * @key_len: the key data. Might be bigger than the actual key length,
  *	but not smaller (for the driver convinence)
  * @link_id: the link id of the key or -1 for non-MLO
+ * @cigtk: whether this is a CIGTK
  *
  * When GTK rekeying was done while the system was suspended, (a) new
  * key(s) will be available. These will be needed by mac80211 for proper
@@ -6304,7 +6315,7 @@ void ieee80211_set_key_rx_seq(struct ieee80211_key_conf *keyconf,
 struct ieee80211_key_conf *
 ieee80211_gtk_rekey_add(struct ieee80211_vif *vif,
 			u8 idx, u8 *key_data, u8 key_len,
-			int link_id);
+			int link_id, bool cigtk);
 
 /**
  * ieee80211_gtk_rekey_notify - notify userspace supplicant of rekeying

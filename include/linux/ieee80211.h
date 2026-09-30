@@ -1828,6 +1828,7 @@ enum ieee80211_eid_ext {
 	WLAN_EID_EXT_BANDWIDTH_INDICATION = 135,
 	WLAN_EID_EXT_KNOWN_STA_IDENTIFCATION = 136,
 	WLAN_EID_EXT_NON_AP_STA_REG_CON = 137,
+	WLAN_EID_EXT_CIP_CAPA = 150,
 	WLAN_EID_EXT_UHR_OPER = 151,
 	WLAN_EID_EXT_UHR_CAPA = 152,
 	WLAN_EID_EXT_MACP = 153,
@@ -2898,5 +2899,26 @@ static inline bool ieee80211_check_tim(const struct ieee80211_tim_ie *tim,
 	return s1g ? ieee80211_s1g_check_tim(tim, tim_len, aid) :
 		     __ieee80211_check_tim(tim, tim_len, aid);
 }
+
+/**
+ * enum ieee80211_cip_cap_fields - CIP Capabilities element fields
+ * @IEEE80211_CIP_CAP_MIC_PADDING: The MIC padding subfield in the CIP
+ *	capabilities
+ * @IEEE80211_CIP_CAP_PROTECTED_CTRL_FRAME_ONLY: The MIC Padding For Protected
+ *	Control Frames Only bit in CIP capabilities
+ */
+enum ieee80211_cip_cap_fields {
+	IEEE80211_CIP_CAP_MIC_PADDING			= 0x0F,
+	IEEE80211_CIP_CAP_PROTECTED_CTRL_FRAME_ONLY	= 0x10,
+};
+
+/**
+ * struct ieee80211_cip_cap - CIP Capabilities element
+ *
+ * @v: The value of the Control Integrity Protocol Capability element
+ */
+struct ieee80211_cip_cap {
+	u8 v;
+} __packed;
 
 #endif /* LINUX_IEEE80211_H */

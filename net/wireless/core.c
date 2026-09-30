@@ -312,6 +312,8 @@ int cfg80211_nan_set_local_schedule(struct cfg80211_registered_device *rdev,
 				    struct wireless_dev *wdev,
 				    struct cfg80211_nan_local_sched *sched)
 {
+	struct cfg80211_chan_def *chandefs = NULL, *old_chandefs;
+	u8 old_n_channels;
 	int ret;
 
 	lockdep_assert_held(&rdev->wiphy.mtx);
@@ -322,30 +324,79 @@ int cfg80211_nan_set_local_schedule(struct cfg80211_registered_device *rdev,
 	if (wdev->u.nan.sched_update_pending)
 		return -EBUSY;
 
-	ret = rdev_nan_set_local_sched(rdev, wdev, sched);
-	if (ret)
-		return ret;
+	/*
+	 * Pre-allocate chandefs, so we don't ruin the current
+	 * schedule on allocation failure.
+	 */
+	if (sched->n_channels) {
+		chandefs = kcalloc(sched->n_channels, sizeof(*chandefs),
+				   GFP_KERNEL);
+		if (!chandefs)
+			return -ENOMEM;
 
+		for (int i = 0; i < sched->n_channels; i++)
+			chandefs[i] = sched->nan_channels[i].chandef;
+	}
+
+	/*
+	 * Swap in the new chandefs before calling the driver and set the
+	 * deferred flag, so if the driver completes the update synchronously
+	 * the new schedule will be already in place.
+	 */
+	old_chandefs = wdev->u.nan.chandefs;
+	old_n_channels = wdev->u.nan.n_channels;
+	wdev->u.nan.chandefs = chandefs;
+	wdev->u.nan.n_channels = sched->n_channels;
 	wdev->u.nan.sched_update_pending = sched->deferred;
 
-	kfree(wdev->u.nan.chandefs);
-	wdev->u.nan.chandefs = NULL;
-	wdev->u.nan.n_channels = 0;
+	ret = rdev_nan_set_local_sched(rdev, wdev, sched);
+	if (ret) {
+		/* Restore the previous schedule on failure */
+		wdev->u.nan.sched_update_pending = false;
+		wdev->u.nan.chandefs = old_chandefs;
+		wdev->u.nan.n_channels = old_n_channels;
+		kfree(chandefs);
+		return ret;
+	}
 
-	if (!sched->n_channels)
-		return 0;
-
-	wdev->u.nan.chandefs = kzalloc_objs(*wdev->u.nan.chandefs,
-					    sched->n_channels);
-	if (!wdev->u.nan.chandefs)
-		return -ENOMEM;
-
-	for (int i = 0; i < sched->n_channels; i++)
-		wdev->u.nan.chandefs[i] = sched->nan_channels[i].chandef;
-
-	wdev->u.nan.n_channels = sched->n_channels;
+	kfree(old_chandefs);
 
 	return 0;
+}
+
+int cfg80211_nan_set_non_evac_channels(struct cfg80211_registered_device *rdev,
+				       struct wireless_dev *wdev,
+				       struct cfg80211_nan_non_evac_channels *channels)
+{
+	lockdep_assert_held(&rdev->wiphy.mtx);
+
+	if (wdev->iftype != NL80211_IFTYPE_NAN || !wdev_running(wdev))
+		return -EINVAL;
+
+	/*
+	 * Don't allow updating the non-evacuable channels while a deferred
+	 * schedule update is pending, as the set of channels may still change.
+	 */
+	if (wdev->u.nan.sched_update_pending)
+		return -EBUSY;
+
+	/* All provided channels must belong to the current local schedule. */
+	for (int i = 0; i < channels->n_channels; i++) {
+		bool found = false;
+
+		for (int j = 0; j < wdev->u.nan.n_channels; j++) {
+			if (cfg80211_chandef_identical(&wdev->u.nan.chandefs[j],
+						       &channels->chandefs[i])) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found)
+			return -ENOENT;
+	}
+
+	return rdev_nan_set_non_evac_channels(rdev, wdev, channels);
 }
 
 void cfg80211_stop_pd(struct cfg80211_registered_device *rdev,

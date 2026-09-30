@@ -7,6 +7,7 @@
 #include <linux/types.h>
 #include <linux/bitops.h>
 #include <linux/bitfield.h>
+#include <linux/sizes.h>
 
 #include "../debug.h"
 #include "../core.h"
@@ -369,6 +370,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
 		.max_radios = 1,
 		.single_pdev_only = false,
 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_QCN9274,
+		.qmi_max_chunk_size = SZ_2M,
 		.internal_sleep_clock = false,
 
 		.hw_ops = &qcn9274_ops,
@@ -461,6 +463,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
 		.max_radios = 1,
 		.single_pdev_only = true,
 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_WCN7850,
+		.qmi_max_chunk_size = SZ_512K,
 		.internal_sleep_clock = true,
 
 		.hw_ops = &wcn7850_ops,
@@ -553,6 +556,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
 		.max_radios = 2,
 		.single_pdev_only = false,
 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_QCN9274,
+		.qmi_max_chunk_size = SZ_2M,
 		.internal_sleep_clock = false,
 
 		.hw_ops = &qcn9274_ops,
@@ -643,6 +647,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
 		.max_radios = 1,
 		.single_pdev_only = false,
 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_IPQ5332,
+		.qmi_max_chunk_size = SZ_2M,
 		.internal_sleep_clock = false,
 
 		.hw_ops = &qcn9274_ops,
@@ -729,6 +734,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
 		.max_radios = 1,
 		.single_pdev_only = true,
 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_WCN7850,
+		.qmi_max_chunk_size = SZ_512K,
 		.internal_sleep_clock = true,
 
 		.hw_ops = &qcc2072_ops,
@@ -822,6 +828,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
 		.max_radios = 1,
 		.single_pdev_only = false,
 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_IPQ5332,
+		.qmi_max_chunk_size = SZ_2M,
 		.internal_sleep_clock = false,
 
 		.hw_ops = &qcn9274_ops,

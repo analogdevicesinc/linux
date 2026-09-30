@@ -166,6 +166,7 @@ struct ath12k_hw_params {
 	u8 max_radios;
 	bool single_pdev_only:1;
 	u32 qmi_service_ins_id;
+	u32 qmi_max_chunk_size;
 	bool internal_sleep_clock:1;
 
 	const struct ath12k_hw_ops *hw_ops;

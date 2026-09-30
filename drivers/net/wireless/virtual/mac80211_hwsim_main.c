@@ -5650,6 +5650,14 @@ static void mac80211_hwsim_sband_capab(struct ieee80211_supported_band *sband)
 	 BIT(NL80211_IFTYPE_MESH_POINT) | \
 	 BIT(NL80211_IFTYPE_OCB))
 
+static const u8 iftypes_ext_capa[] = {
+	 [0] = WLAN_EXT_CAPA1_EXT_CHANNEL_SWITCHING,
+	 [2] = WLAN_EXT_CAPA3_MULTI_BSSID_SUPPORT,
+	 [7] = WLAN_EXT_CAPA8_OPMODE_NOTIF |
+	       WLAN_EXT_CAPA8_MAX_MSDU_IN_AMSDU_LSB,
+	 [8] = WLAN_EXT_CAPA9_MAX_MSDU_IN_AMSDU_MSB,
+};
+
 static const u8 iftypes_ext_capa_ap[] = {
 	 [0] = WLAN_EXT_CAPA1_EXT_CHANNEL_SWITCHING,
 	 [2] = WLAN_EXT_CAPA3_MULTI_BSSID_SUPPORT,
@@ -5674,6 +5682,33 @@ static const struct wiphy_iftype_ext_capab mac80211_hwsim_iftypes_ext_capa[] = {
 		.eml_capabilities = IEEE80211_EML_CAP_EMLSR_SUPP |
 				    IEEE80211_EML_CAP_EMLMR_SUPPORT,
 		.mld_capa_and_ops = MAC80211_HWSIM_MLD_CAPA_OPS,
+		/* CIP works as hwsim does not have control frames */
+		.cip_supported = true,
+		.cip_capabilities = 0,
+	},
+	{
+		.iftype = NL80211_IFTYPE_STATION,
+		.extended_capabilities = iftypes_ext_capa,
+		.extended_capabilities_mask = iftypes_ext_capa,
+		.extended_capabilities_len = sizeof(iftypes_ext_capa),
+		.cip_supported = true,
+		.cip_capabilities = 0,
+	},
+	{
+		.iftype = NL80211_IFTYPE_P2P_CLIENT,
+		.extended_capabilities = iftypes_ext_capa,
+		.extended_capabilities_mask = iftypes_ext_capa,
+		.extended_capabilities_len = sizeof(iftypes_ext_capa),
+		.cip_supported = true,
+		.cip_capabilities = 0,
+	},
+	{
+		.iftype = NL80211_IFTYPE_P2P_GO,
+		.extended_capabilities = iftypes_ext_capa,
+		.extended_capabilities_mask = iftypes_ext_capa,
+		.extended_capabilities_len = sizeof(iftypes_ext_capa),
+		.cip_supported = true,
+		.cip_capabilities = 0,
 	},
 };
 

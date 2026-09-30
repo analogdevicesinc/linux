@@ -205,6 +205,10 @@ ieee80211_parse_extension_element(u32 *crc,
 			elems->ttlm_num++;
 		}
 		break;
+	case WLAN_EID_EXT_CIP_CAPA:
+		if (len >= sizeof(*elems->cip_cap))
+			elems->cip_cap = data;
+		break;
 	case WLAN_EID_EXT_UHR_OPER:
 		if (params->mode < IEEE80211_CONN_MODE_UHR)
 			break;

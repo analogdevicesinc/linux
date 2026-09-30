@@ -1283,6 +1283,28 @@ static int ieee80211_put_preq_ies_band(struct sk_buff *skb,
 	if (band == NL80211_BAND_S1GHZ)
 		return ieee80211_put_s1g_cap(skb, &sband->s1g_cap);
 
+	/*
+	 * For EPP minimal content probes, restrict supported rates:
+	 * - 2 GHz: only 1, 2, 5.5, 6, 11, 12, 24 Mb/s
+	 * - 5/6 GHz: only 6, 12, 24 Mb/s
+	 */
+	if (flags & IEEE80211_PROBE_FLAG_MIN_CONTENT) {
+		for (i = 0; i < sband->n_bitrates; i++) {
+			u16 rate = sband->bitrates[i].bitrate;
+
+			if (band == NL80211_BAND_2GHZ) {
+				if (rate != 10 && rate != 20 &&
+				    rate != 55 && rate != 60 &&
+				    rate != 110 && rate != 120 &&
+				    rate != 240)
+					rate_mask &= ~BIT(i);
+			} else {
+				if (rate != 60 && rate != 120 && rate != 240)
+					rate_mask &= ~BIT(i);
+			}
+		}
+	}
+
 	err = ieee80211_put_srates_elem(skb, sband, 0,
 					~rate_mask, WLAN_EID_SUPP_RATES);
 	if (err)
@@ -4676,6 +4698,25 @@ int ieee80211_put_uhr_cap(struct sk_buff *skb,
 	skb_put_u8(skb, WLAN_EID_EXT_UHR_CAPA);
 	skb_put_data(skb, &uhr_cap->mac, sizeof(uhr_cap->mac));
 	skb_put_data(skb, &uhr_cap->phy, sizeof(uhr_cap->phy));
+
+	return 0;
+}
+
+int ieee80211_put_cip_cap(struct sk_buff *skb,
+			  struct ieee80211_sub_if_data *sdata)
+{
+	const struct wiphy_iftype_ext_capab *ift_ext_capa =
+		cfg80211_get_iftype_ext_capa(sdata->local->hw.wiphy,
+					     ieee80211_vif_type_p2p(&sdata->vif));
+	u8 cip_capabilities = ift_ext_capa ? ift_ext_capa->cip_capabilities : 0;
+
+	if (skb_tailroom(skb) < 4)
+		return -ENOBUFS;
+
+	skb_put_u8(skb, WLAN_EID_EXTENSION);
+	skb_put_u8(skb, 2);
+	skb_put_u8(skb, WLAN_EID_EXT_CIP_CAPA);
+	skb_put_u8(skb, cip_capabilities);
 
 	return 0;
 }

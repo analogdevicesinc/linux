@@ -1138,7 +1138,8 @@ iwl_mld_add_mcast_rekey(struct ieee80211_vif *vif,
 		return;
 
 	key_config = ieee80211_gtk_rekey_add(vif, key_data->id, key_data->key,
-					     sizeof(key_data->key), link_id);
+					     sizeof(key_data->key), link_id,
+					     false);
 	if (IS_ERR(key_config))
 		return;
 
@@ -1220,7 +1221,8 @@ static void iwl_mld_mlo_rekey(struct iwl_mld *mld,
 				 mlo_key->idx, link_id);
 
 		key = ieee80211_gtk_rekey_add(vif, mlo_key->idx, mlo_key->key,
-					      sizeof(mlo_key->key), link_id);
+					      sizeof(mlo_key->key), link_id,
+					      false);
 
 		if (IS_ERR(key))
 			continue;

@@ -825,7 +825,8 @@ exit:
 }
 
 static int cfg80211_rtw_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-				int link_id, u8 key_index, bool pairwise,
+				int link_id, u8 key_index,
+				enum nl80211_key_type type,
 				const u8 *mac_addr, struct key_params *params)
 {
 	char *alg_name;
@@ -904,7 +905,8 @@ addkey_end:
 }
 
 static int cfg80211_rtw_get_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-				int link_id, u8 key_index, bool pairwise,
+				int link_id, u8 key_index,
+				enum nl80211_key_type type,
 				const u8 *mac_addr, void *cookie,
 				void (*callback)(void *cookie,
 						 struct key_params*))
@@ -913,7 +915,8 @@ static int cfg80211_rtw_get_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 }
 
 static int cfg80211_rtw_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-				int link_id, u8 key_index, bool pairwise,
+				int link_id, u8 key_index,
+				enum nl80211_key_type type,
 				const u8 *mac_addr)
 {
 	struct adapter *padapter = rtw_netdev_priv(wdev->netdev);
