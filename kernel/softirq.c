@@ -645,8 +645,8 @@ restart:
 		h->action();
 		trace_softirq_exit(vec_nr);
 		if (unlikely(prev_count != preempt_count())) {
-			pr_err("huh, entered softirq %u %s %p with preempt_count %08x, exited with %08x?\n",
-			       vec_nr, softirq_to_name[vec_nr], h->action,
+			pr_err("huh, entered softirq %u %s with preempt_count %08x, exited with %08x?\n",
+			       vec_nr, softirq_to_name[vec_nr],
 			       prev_count, preempt_count());
 			preempt_count_set(prev_count);
 		}
