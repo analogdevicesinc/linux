@@ -281,9 +281,8 @@ void regcache_exit(struct regmap *map)
 	if (map->cache_ops->exit) {
 		dev_dbg(map->dev, "Destroying %s cache\n",
 			map->cache_ops->name);
-		map->lock(map->lock_arg);
-		map->cache_ops->exit(map);
-		map->unlock(map->lock_arg);
+		scoped_guard(regmap, map)
+			map->cache_ops->exit(map);
 	}
 
 	kfree(map->reg_defaults);
@@ -584,20 +583,14 @@ EXPORT_SYMBOL_GPL(regcache_sync_region);
 int regcache_drop_region(struct regmap *map, unsigned int min,
 			 unsigned int max)
 {
-	int ret = 0;
-
 	if (!map->cache_ops || !map->cache_ops->drop)
 		return -EINVAL;
 
-	map->lock(map->lock_arg);
+	guard(regmap)(map);
 
 	trace_regcache_drop_region(map, min, max);
 
-	ret = map->cache_ops->drop(map, min, max);
-
-	map->unlock(map->lock_arg);
-
-	return ret;
+	return map->cache_ops->drop(map, min, max);
 }
 EXPORT_SYMBOL_GPL(regcache_drop_region);
 
@@ -615,12 +608,11 @@ EXPORT_SYMBOL_GPL(regcache_drop_region);
  */
 void regcache_cache_only(struct regmap *map, bool enable)
 {
-	map->lock(map->lock_arg);
+	guard(regmap)(map);
 	WARN_ON(map->cache_type != REGCACHE_NONE &&
 		map->cache_bypass && enable);
 	map->cache_only = enable;
 	trace_regmap_cache_only(map, enable);
-	map->unlock(map->lock_arg);
 }
 EXPORT_SYMBOL_GPL(regcache_cache_only);
 
@@ -639,10 +631,9 @@ EXPORT_SYMBOL_GPL(regcache_cache_only);
  */
 void regcache_mark_dirty(struct regmap *map)
 {
-	map->lock(map->lock_arg);
+	guard(regmap)(map);
 	map->cache_dirty = true;
 	map->no_sync_defaults = true;
-	map->unlock(map->lock_arg);
 }
 EXPORT_SYMBOL_GPL(regcache_mark_dirty);
 
@@ -659,11 +650,10 @@ EXPORT_SYMBOL_GPL(regcache_mark_dirty);
  */
 void regcache_cache_bypass(struct regmap *map, bool enable)
 {
-	map->lock(map->lock_arg);
+	guard(regmap)(map);
 	WARN_ON(map->cache_only && enable);
 	map->cache_bypass = enable;
 	trace_regmap_cache_bypass(map, enable);
-	map->unlock(map->lock_arg);
 }
 EXPORT_SYMBOL_GPL(regcache_cache_bypass);
 
@@ -680,11 +670,9 @@ bool regcache_reg_cached(struct regmap *map, unsigned int reg)
 	unsigned int val;
 	int ret;
 
-	map->lock(map->lock_arg);
+	guard(regmap)(map);
 
 	ret = regcache_read(map, reg, &val);
-
-	map->unlock(map->lock_arg);
 
 	return ret == 0;
 }
