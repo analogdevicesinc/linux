@@ -258,10 +258,16 @@ struct snd_soc_component {
 	void *priv;
 };
 
-#define for_each_component_dais(component, dai)\
-	list_for_each_entry(dai, &(component)->dai_list, list)
-#define for_each_component_dais_safe(component, dai, _dai)\
-	list_for_each_entry_safe(dai, _dai, &(component)->dai_list, list)
+#define for_each_component_dais(component, dai)				\
+	for (dai = snd_soc_dai_from_list((component)->dai_list.next);	\
+	     snd_soc_dai_to_list(dai) != &(component)->dai_list;	\
+	     dai = snd_soc_dai_from_list(snd_soc_dai_to_list(dai)->next))
+
+#define for_each_component_dais_safe(component, dai, _dai)			\
+	for (dai = snd_soc_dai_from_list((component)->dai_list.next),		\
+	     _dai = snd_soc_dai_from_list(snd_soc_dai_to_list(dai)->next);	\
+	     snd_soc_dai_to_list(dai) != &(component)->dai_list;		\
+	     dai = _dai, _dai = snd_soc_dai_from_list(snd_soc_dai_to_list(_dai)->next))
 
 /**
  * snd_soc_component_to_dapm() - Returns the DAPM context associated with a

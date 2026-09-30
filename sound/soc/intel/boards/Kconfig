@@ -536,6 +536,7 @@ config SND_SOC_INTEL_SOUNDWIRE_SOF_MACH
 	imply SND_SOC_TAC5XX2_SDW
 	select SND_SOC_DMIC
 	select SND_SOC_INTEL_HDA_DSP_COMMON
+	select SND_SOC_SN624X_SDCA_SDW
 	imply SND_SOC_SDW_MOCKUP
 	help
 	  Add support for Intel SoundWire-based platforms connected to

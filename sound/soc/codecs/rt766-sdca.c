@@ -1297,7 +1297,7 @@ static int rt766_func_initialize(struct rt766_sdca_priv *rt766, struct sdca_func
 	regmap_read(rt766->regmap, func_status_reg, &func_status);
 	dev_dbg(dev, "%s, %s func_status=0x%x\n", __func__, func_data->desc->name, func_status);
 
-	if ((func_status & SDCA_CTL_ENTITY_0_FUNCTION_NEEDS_INITIALIZATION) || (!rt766->first_hw_init)) {
+	if ((func_status & SDCA_CTL_ENTITY_0_FUNCTION_NEEDS_INITIALIZATION)) {
 		ret = sdca_regmap_write_init(dev, rt766->regmap, func_data);
 		if (ret) {
 			dev_err(dev, "%s initialization table update failed\n", func_data->desc->name);

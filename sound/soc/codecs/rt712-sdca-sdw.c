@@ -395,6 +395,7 @@ static void rt712_sdca_sdw_remove(struct sdw_slave *slave)
 
 	mutex_destroy(&rt712->calibrate_mutex);
 	mutex_destroy(&rt712->disable_irq_lock);
+	mutex_destroy(&rt712->gc_lock);
 }
 
 static const struct sdw_device_id rt712_sdca_id[] = {
