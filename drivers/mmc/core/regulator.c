@@ -197,7 +197,7 @@ int mmc_regulator_set_vqmmc(struct mmc_host *mmc, struct mmc_ios *ios)
 		return mmc_regulator_set_voltage_if_supported(mmc->supply.vqmmc,
 						1700000, 1800000, 1950000);
 	case MMC_SIGNAL_VOLTAGE_330:
-		ret = mmc_ocrbitnum_to_vdd(mmc->ios.vdd, &volt, &max_uV);
+		ret = mmc_ocrbitnum_to_vdd(ios->vdd, &volt, &max_uV);
 		if (ret < 0)
 			return ret;
 
