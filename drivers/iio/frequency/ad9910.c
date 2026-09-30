@@ -2385,10 +2385,35 @@ static int ad9910_amplitude_source_show(struct seq_file *s, void *ignored)
 }
 DEFINE_SHOW_ATTRIBUTE(ad9910_amplitude_source);
 
+static int ad9910_extend_channels(struct iio_backend *back)
+{
+	int ch_idx, ret;
+
+	for (ch_idx = AD9910_CHAN_IDX_PARALLEL_AMP;
+	     ch_idx < ARRAY_SIZE(ad9910_channels); ch_idx++) {
+		ret = iio_backend_extend_chan_spec(back, &ad9910_channels[ch_idx]);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static inline void ad9910_debugfs_init(struct ad9910_state *st,
 				       struct iio_dev *indio_dev)
 {
 	struct dentry *d = iio_get_debugfs_dentry(indio_dev);
+	char buf[64];
+
+	/*
+	 * symlinks are created here so iio userspace tools can refer to them
+	 * as debug attributes.
+	 */
+	snprintf(buf, sizeof(buf), "/sys/class/firmware/%s/loading", st->ram_fwu_name);
+	debugfs_create_symlink("ram_loading", d, buf);
+
+	snprintf(buf, sizeof(buf), "/sys/class/firmware/%s/data", st->ram_fwu_name);
+	debugfs_create_symlink("ram_data", d, buf);
 
 	debugfs_create_file("frequency_source", 0400, d, st,
 			    &ad9910_frequency_source_fops);
@@ -2505,6 +2530,11 @@ static int ad9910_probe(struct spi_device *spi)
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "failed to request iio backend buffer\n");
+
+		ret = ad9910_extend_channels(st->back);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "failed to extend iio channels\n");
 
 		indio_dev->setup_ops = &ad9910_buffer_setup_ops;
 		indio_dev->available_scan_masks = ad9910_available_scan_masks;
