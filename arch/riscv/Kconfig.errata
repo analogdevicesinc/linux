@@ -24,6 +24,7 @@ config ERRATA_ANDES_CMO
 config ERRATA_MIPS
 	bool "MIPS errata"
 	depends on RISCV_ALTERNATIVE
+	select RISCV_ALTERNATIVE_EARLY
 	help
 	  All MIPS errata Kconfig depend on this Kconfig. Disabling
 	  this Kconfig will disable all MIPS errata. Please say "Y"
