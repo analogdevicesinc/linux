@@ -243,6 +243,11 @@ static inline bool __COMPAT_is_enq_cpu_selected(u64 enq_flags)
 	 scx_bpf_pick_any_cpu_node(cpus_allowed, node, flags) :			\
 	 scx_bpf_pick_any_cpu(cpus_allowed, flags))
 
+/* v7.4: Add scx_bpf_cid_node(). */
+#define __COMPAT_scx_bpf_cid_node(cid)					\
+	(bpf_ksym_exists(scx_bpf_cid_node) ?				\
+	 scx_bpf_cid_node(cid) : NUMA_NO_NODE)
+
 /*
  * v6.18: Add a helper to retrieve the current task running on a CPU.
  *
@@ -401,6 +406,15 @@ static inline void scx_bpf_task_set_dsq_vtime(struct task_struct *p, u64 vtime)
 		scx_bpf_task_set_dsq_vtime___new(p, vtime);
 	else
 		p->scx.dsq_vtime = vtime;
+}
+
+/* v7.4: Add scx_bpf_task_set_lazy_resched(). */
+bool scx_bpf_task_set_lazy_resched___new(struct task_struct *p, bool lazy) __ksym __weak;
+
+static inline void scx_bpf_task_set_lazy_resched(struct task_struct *p, bool lazy)
+{
+	if (bpf_ksym_exists(scx_bpf_task_set_lazy_resched___new))
+		scx_bpf_task_set_lazy_resched___new(p, lazy);
 }
 
 /*
