@@ -172,10 +172,10 @@ struct fw_attribute_group {
 };
 
 enum fw_device_quirk {
-	// See afa1282a35d3 ("firewire: core: check for 1394a compliant IRM, fix inaccessibility of Sony camcorder").
+	// See 10389536742c ("firewire: core: check for 1394a compliant IRM, fix inaccessibility of Sony camcorder").
 	FW_DEVICE_QUIRK_IRM_IS_1394_1995_ONLY = BIT(0),
 
-	// See a509e43ff338 ("firewire: core: fix unstable I/O with Canon camcorder").
+	// See 6044565af458 ("firewire: core: fix unstable I/O with Canon camcorder").
 	FW_DEVICE_QUIRK_IRM_IGNORES_BUS_MANAGER = BIT(1),
 
 	// MOTU Audio Express transfers acknowledge packet with 0x10 for pending state.
@@ -224,7 +224,7 @@ struct fw_device {
 	struct mutex client_list_mutex;
 	struct list_head client_list;
 
-	const u32 *config_rom;
+	const u32 *config_rom __counted_by_ptr(config_rom_length);
 	size_t config_rom_length;
 	int config_rom_retries;
 	unsigned is_local:1;
@@ -298,16 +298,25 @@ union fw_transaction_callback {
 	fw_transaction_callback_with_tstamp_t with_tstamp;
 };
 
-/*
- * This callback handles an inbound request subaction.  It is called in
- * RCU read-side context, therefore must not sleep.
+/**
+ * typedef fw_address_callback_t - Function to handle the request of the asynchronous transaction.
+ * @card: the card instance which receives the request
+ * @request: the request instance.
+ * @tcode: the transaction code
+ * @destination: the destination node ID
+ * @source: the source node ID
+ * @generation: the bus generation in which the request was sent
+ * @offset: the destination offset in source node.
+ * @data: the request content if available.
+ * @length: the length of data.
+ * @callback_data: the data registered with this function.
  *
- * The callback should not initiate outbound request subactions directly.
- * Otherwise there is a danger of recursion of inbound and outbound
- * transactions from and to the local node.
+ * This callback handles an inbound request subaction.
  *
  * The callback is responsible that fw_send_response() is called on the @request, except for FCP
  * registers for which the core takes care of that.
+ *
+ * Context: Process context.
  */
 typedef void (*fw_address_callback_t)(struct fw_card *card,
 				      struct fw_request *request,
@@ -322,22 +331,24 @@ struct fw_packet {
 	int generation;
 	u32 header[4];
 	size_t header_length;
-	void *payload;
+	void *payload __counted_by_ptr(payload_length);
 	size_t payload_length;
 	dma_addr_t payload_bus;
 	bool payload_mapped;
 	u32 timestamp;
+
+	// Used to handle the local-to-local packets in the AT request/response contexts.
+	struct list_head link_for_local;
 
 	/*
 	 * This callback is called when the packet transmission has completed.
 	 * For successful transmission, the status code is the ack received
 	 * from the destination.  Otherwise it is one of the juju-specific
 	 * rcodes:  RCODE_SEND_ERROR, _CANCELLED, _BUSY, _GENERATION, _NO_ACK.
-	 * The callback can be called from workqueue and thus must never block.
+	 * The callback is called from a workqueue. It is not preferable to block it so long.
 	 */
 	fw_packet_callback_t callback;
 	int ack;
-	struct list_head link;
 	void *driver_data;
 };
 
@@ -359,6 +370,11 @@ struct fw_transaction {
 	union fw_transaction_callback callback;
 	bool with_tstamp;
 	void *callback_data;
+
+	// For some error cases.
+	struct work_struct error_work;
+	int rcode;
+	u32 response_timestamp;
 };
 
 struct fw_address_handler {
@@ -411,9 +427,8 @@ void __fw_send_request(struct fw_card *card, struct fw_transaction *t, int tcode
  * A variation of __fw_send_request() to generate callback for response subaction without time
  * stamp.
  *
- * The callback is invoked in the workqueue context in most cases. However, if an error is detected
- * before queueing or the destination address refers to the local node, it is invoked in the
- * current context instead.
+ * After the transaction is completed successfully or unsuccessfully, the @callback will be called
+ * in process context.
  */
 static inline void fw_send_request(struct fw_card *card, struct fw_transaction *t, int tcode,
 				   int destination_id, int generation, int speed,
@@ -444,9 +459,8 @@ static inline void fw_send_request(struct fw_card *card, struct fw_transaction *
  *
  * A variation of __fw_send_request() to generate callback for response subaction with time stamp.
  *
- * The callback is invoked in the workqueue context in most cases. However, if an error is detected
- * before queueing or the destination address refers to the local node, it is invoked in the current
- * context instead.
+ * After the transaction is completed successfully or unsuccessfully, the @callback will be called
+ * in process context.
  */
 static inline void fw_send_request_with_tstamp(struct fw_card *card, struct fw_transaction *t,
 	int tcode, int destination_id, int generation, int speed, unsigned long long offset,
