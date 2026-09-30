@@ -771,8 +771,8 @@ static int validate_change(struct cpuset *cur, struct cpuset *trial)
 	 * For v1, effective_cpus == cpus_allowed & user_xcpus() returns
 	 * cpus_allowed.
 	 *
-	 * For v2, is_cpu_exclusive() & is_sched_load_balance() are true only
-	 * for non-isolated partition root. At this point, the target
+	 * For v2, is_partition_valid(cur) & is_sched_load_balance() are true
+	 * only for non-isolated partition root. At this point, the target
 	 * effective_cpus isn't computed yet. user_xcpus() is the best
 	 * approximation.
 	 *
@@ -781,7 +781,8 @@ static int validate_change(struct cpuset *cur, struct cpuset *trial)
 	 * becomes an issue.
 	 */
 	ret = -EBUSY;
-	if (is_cpu_exclusive(cur) && is_sched_load_balance(cur) &&
+	if ((is_partition_valid(cur) || (!cpuset_v2() && is_cpu_exclusive(cur))) &&
+	    is_sched_load_balance(cur) &&
 	    !cpuset_cpumask_can_shrink(cur->effective_cpus, user_xcpus(trial)))
 		goto out;
 
@@ -1174,25 +1175,6 @@ static void update_sibling_cpumasks(struct cpuset *parent, struct cpuset *cs,
 				    struct tmpmasks *tmp);
 
 /*
- * Update partition exclusive flag
- *
- * Return: 0 if successful, an error code otherwise
- */
-static int update_partition_exclusive_flag(struct cpuset *cs, int new_prs)
-{
-	bool exclusive = (new_prs > PRS_MEMBER);
-
-	if (exclusive && !is_cpu_exclusive(cs)) {
-		if (cpuset_update_flag(CS_CPU_EXCLUSIVE, cs, 1))
-			return PERR_NOTEXCL;
-	} else if (!exclusive && is_cpu_exclusive(cs)) {
-		/* Turning off CS_CPU_EXCLUSIVE will not return error */
-		cpuset_update_flag(CS_CPU_EXCLUSIVE, cs, 0);
-	}
-	return 0;
-}
-
-/*
  * Update partition load balance flag and/or rebuild sched domain
  *
  * Changing load balance flag will automatically call
@@ -1216,10 +1198,7 @@ static void update_partition_sd_lb(struct cpuset *cs, int old_prs)
 	}
 	if (new_lb != !!is_sched_load_balance(cs)) {
 		rebuild_domains = true;
-		if (new_lb)
-			set_bit(CS_SCHED_LOAD_BALANCE, &cs->flags);
-		else
-			clear_bit(CS_SCHED_LOAD_BALANCE, &cs->flags);
+		assign_bit(CS_SCHED_LOAD_BALANCE, &cs->flags, new_lb);
 	}
 
 	if (rebuild_domains)
@@ -1250,11 +1229,9 @@ static void reset_partition_data(struct cpuset *cs)
 
 	lockdep_assert_held(&callback_lock);
 
-	if (cpumask_empty(cs->exclusive_cpus)) {
+	if (cpumask_empty(cs->exclusive_cpus))
 		cpumask_clear(cs->effective_xcpus);
-		if (is_cpu_exclusive(cs))
-			clear_bit(CS_CPU_EXCLUSIVE, &cs->flags);
-	}
+
 	if (!cpumask_and(cs->effective_cpus, parent->effective_cpus, cs->cpus_allowed))
 		cpumask_copy(cs->effective_cpus, parent->effective_cpus);
 }
@@ -2032,19 +2009,6 @@ write_error:
 		return 0;
 
 	/*
-	 * Transitioning between invalid to valid or vice versa may require
-	 * changing CS_CPU_EXCLUSIVE. In the case of partcmd_update,
-	 * validate_change() has already been successfully called and
-	 * CPU lists in cs haven't been updated yet. So defer it to later.
-	 */
-	if ((old_prs != new_prs) && (cmd != partcmd_update))  {
-		int err = update_partition_exclusive_flag(cs, new_prs);
-
-		if (err)
-			return err;
-	}
-
-	/*
 	 * Change the parent's effective_cpus & effective_xcpus (top cpuset
 	 * only).
 	 *
@@ -2065,9 +2029,6 @@ write_error:
 		partition_xcpus_add(new_prs, parent, tmp->delmask);
 
 	spin_unlock_irq(&callback_lock);
-
-	if ((old_prs != new_prs) && (cmd == partcmd_update))
-		update_partition_exclusive_flag(cs, new_prs);
 
 	if (adding || deleting) {
 		cpuset_update_tasks_cpumask(parent, tmp->addmask);
@@ -2309,10 +2270,8 @@ get_css:
 		 */
 		if (cpuset_v2() && !is_partition_valid(cp) &&
 		    (is_sched_load_balance(parent) != is_sched_load_balance(cp))) {
-			if (is_sched_load_balance(parent))
-				set_bit(CS_SCHED_LOAD_BALANCE, &cp->flags);
-			else
-				clear_bit(CS_SCHED_LOAD_BALANCE, &cp->flags);
+			assign_bit(CS_SCHED_LOAD_BALANCE, &cp->flags,
+				   is_sched_load_balance(parent));
 		}
 
 		/*
@@ -2891,10 +2850,7 @@ int cpuset_update_flag(cpuset_flagbits_t bit, struct cpuset *cs,
 	if (!trialcs)
 		return -ENOMEM;
 
-	if (turning_on)
-		set_bit(bit, &trialcs->flags);
-	else
-		clear_bit(bit, &trialcs->flags);
+	assign_bit(bit, &trialcs->flags, turning_on);
 
 	err = validate_change(cs, trialcs);
 	if (err < 0)
@@ -2949,10 +2905,6 @@ static int update_prstate(struct cpuset *cs, int new_prs)
 
 	if (alloc_tmpmasks(&tmpmask))
 		return -ENOMEM;
-
-	err = update_partition_exclusive_flag(cs, new_prs);
-	if (err)
-		goto out;
 
 	if (!old_prs) {
 		/*
@@ -3017,13 +2969,10 @@ static int update_prstate(struct cpuset *cs, int new_prs)
 	}
 out:
 	/*
-	 * Make partition invalid & disable CS_CPU_EXCLUSIVE if an error
-	 * happens.
+	 * Make partition invalid if an error happens.
 	 */
-	if (err) {
+	if (err)
 		new_prs = -new_prs;
-		update_partition_exclusive_flag(cs, new_prs);
-	}
 
 	spin_lock_irq(&callback_lock);
 	cs->partition_root_state = new_prs;
@@ -3045,8 +2994,6 @@ out:
 	update_partition_sd_lb(cs, old_prs);
 
 	notify_partition_change(cs, old_prs);
-	if (force_sd_rebuild)
-		rebuild_sched_domains_locked();
 	free_tmpmasks(&tmpmask);
 	return 0;
 }
