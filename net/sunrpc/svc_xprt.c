@@ -64,8 +64,10 @@ static LIST_HEAD(svc_xprt_class_list);
  *		- Can be set or cleared at any time.
  *		- After a set, svc_xprt_enqueue must be called to enqueue
  *		  the transport for processing.
- *		- After a clear, the transport must be read/accepted.
- *		  If this succeeds, it must be set again.
+ *		- After clearing XPT_CONN, the transport must be
+ *		  accepted. If this succeeds, the bit must be set again.
+ *		- xpo_recvfrom decides when XPT_DATA is cleared; see
+ *		  svc_xprt_received.
  *	XPT_CLOSE:
  *		- Can set at any time. It is never cleared.
  *      XPT_DEAD:
@@ -218,8 +220,9 @@ EXPORT_SYMBOL_GPL(svc_xprt_init);
  * The caller must hold the XPT_BUSY bit and must
  * not thereafter touch transport data.
  *
- * Note: XPT_DATA only gets cleared when a read-attempt finds no (or
- * insufficient) data.
+ * Note: xpo_recvfrom decides when to clear XPT_DATA. A transport may
+ * leave the bit set until a read attempt finds no (or insufficient)
+ * data, or clear it as soon as it consumes the last queued receive.
  */
 void svc_xprt_received(struct svc_xprt *xprt)
 {
@@ -475,11 +478,11 @@ static bool svc_xprt_ready(struct svc_xprt *xprt)
 
 	/*
 	 * If another cpu has recently updated xpt_flags,
-	 * sk_sock->flags, xpt_reserved, or xpt_nr_rqsts, we need to
-	 * know about it; otherwise it's possible that both that cpu and
-	 * this one could call svc_xprt_enqueue() without either
-	 * svc_xprt_enqueue() recognizing that the conditions below
-	 * are satisfied, and we could stall indefinitely:
+	 * sk_sock->flags, xpt_reserved (UDP only), or xpt_nr_rqsts,
+	 * we need to know about it; otherwise it's possible that both
+	 * that cpu and this one could call svc_xprt_enqueue() without
+	 * either svc_xprt_enqueue() recognizing that the conditions
+	 * below are satisfied, and we could stall indefinitely:
 	 */
 	smp_rmb();
 	xpt_flags = READ_ONCE(xprt->xpt_flags);
@@ -551,6 +554,10 @@ static struct svc_xprt *svc_xprt_dequeue(struct svc_pool *pool)
  * to make sure the reply fits.  This function reduces that reserved
  * space to be the amount of space used already, plus @space.
  *
+ * The transport's reservation is tracked only on classes that set
+ * SVC_XPRT_FLAG_WSPACE_RESERVE.  On the others, only @rqstp's
+ * reservation is updated.
+ *
  */
 void svc_reserve(struct svc_rqst *rqstp, int space)
 {
@@ -559,10 +566,12 @@ void svc_reserve(struct svc_rqst *rqstp, int space)
 	space += rqstp->rq_res.head[0].iov_len;
 
 	if (xprt && space < rqstp->rq_reserved) {
-		atomic_sub((rqstp->rq_reserved - space),
-			   &xprt->xpt_reserved);
+		if (xprt->xpt_class->xcl_flags & SVC_XPRT_FLAG_WSPACE_RESERVE) {
+			atomic_sub((rqstp->rq_reserved - space),
+				   &xprt->xpt_reserved);
+			svc_xprt_resource_released(xprt);
+		}
 		rqstp->rq_reserved = space;
-		svc_xprt_resource_released(xprt);
 	}
 }
 EXPORT_SYMBOL_GPL(svc_reserve);
@@ -869,7 +878,8 @@ static void svc_handle_xprt(struct svc_rqst *rqstp, struct svc_xprt *xprt)
 		else
 			len = xprt->xpt_ops->xpo_recvfrom(rqstp);
 		rqstp->rq_reserved = serv->sv_max_mesg;
-		atomic_add(rqstp->rq_reserved, &xprt->xpt_reserved);
+		if (xprt->xpt_class->xcl_flags & SVC_XPRT_FLAG_WSPACE_RESERVE)
+			atomic_add(rqstp->rq_reserved, &xprt->xpt_reserved);
 		if (len <= 0)
 			goto out;
 

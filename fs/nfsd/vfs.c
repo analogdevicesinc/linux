@@ -34,15 +34,14 @@
 #include <linux/sunrpc/xdr.h>
 #include <linux/fileattr.h>
 
-#include "xdr3.h"
-
 #ifdef CONFIG_NFSD_V4
 #include "acl.h"
 #include "idmap.h"
-#include "xdr4.h"
 #endif /* CONFIG_NFSD_V4 */
 
 #include "nfsd.h"
+#include "nfserr.h"
+#include "nfs4ctl.h"
 #include "netns.h"
 #include "stats.h"
 #include "vfs.h"
@@ -63,7 +62,7 @@ u64 nfsd_io_cache_write __read_mostly = NFSD_IO_BUFFERED;
  * it's an error we don't expect, log it once and return nfserr_io.
  */
 __be32
-nfserrno (int errno)
+nfserrno(int errno)
 {
 	static struct {
 		__be32	nfserr;
@@ -107,6 +106,8 @@ nfserrno (int errno)
 		{ nfserr_perm, -ENOKEY },
 		{ nfserr_no_grace, -ENOGRACE},
 		{ nfserr_io, -EBADMSG },
+		{ nfserr_symlink, -ELOOP },
+		{ nfserr_wrong_type, -EFTYPE },
 	};
 	int	i;
 
@@ -118,15 +119,15 @@ nfserrno (int errno)
 	return nfserr_io;
 }
 
-/* 
- * Called from nfsd_lookup and encode_dirent. Check if we have crossed 
+/*
+ * Called from nfsd_lookup and encode_dirent. Check if we have crossed
  * a mount point.
- * Returns -EAGAIN or -ETIMEDOUT leaving *dpp and *expp unchanged,
+ * Returns an nfs error leaving *dpp and *expp unchanged,
  *  or nfs_ok having possibly changed *dpp and *expp
  */
-int
-nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp, 
-		        struct svc_export **expp)
+__be32
+nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp,
+	       struct svc_export **expp)
 {
 	struct svc_export *exp = *expp, *exp2 = NULL;
 	struct dentry *dentry = *dpp;
@@ -134,6 +135,7 @@ nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp,
 			    .dentry = dget(dentry)};
 	unsigned int follow_flags = 0;
 	int err = 0;
+	__be32 nfserr = nfs_ok;
 
 	if (exp->ex_flags & NFSEXP_CROSSMOUNT)
 		follow_flags = LOOKUP_AUTOMOUNT;
@@ -163,23 +165,28 @@ nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp,
 			err = 0;
 	} else if (nfsd_v4client(rqstp) ||
 		(exp->ex_flags & NFSEXP_CROSSMOUNT) || EX_NOHIDE(exp2)) {
-		/* successfully crossed mount point */
-		/*
-		 * This is subtle: path.dentry is *not* on path.mnt
-		 * at this point.  The only reason we are safe is that
-		 * original mnt is pinned down by exp, so we should
-		 * put path *before* putting exp
-		 */
-		*dpp = path.dentry;
-		path.dentry = dentry;
-		*expp = exp2;
-		exp2 = exp;
+		nfserr = check_nfsd_access(exp, rqstp);
+		if (nfserr == nfs_ok) {
+			/* successfully crossed mount point */
+			/*
+			 * This is subtle: path.dentry is *not* on path.mnt
+			 * at this point.  The only reason we are safe is that
+			 * original mnt is pinned down by exp, so we should
+			 * put path *before* putting exp
+			 */
+			*dpp = path.dentry;
+			path.dentry = dentry;
+			*expp = exp2;
+			exp2 = exp;
+		}
 	}
 out:
 	path_put(&path);
 	if (exp2)
 		exp_put(exp2);
-	return err;
+	if (nfserr)
+		return nfserr;
+	return nfserrno(err);
 }
 
 static void follow_to_parent(struct path *path)
@@ -277,10 +284,12 @@ nfsd_lookup_dentry(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		if (IS_ERR(dentry))
 			goto out_nfserr;
 		if (nfsd_mountpoint(dentry, exp)) {
-			host_err = nfsd_cross_mnt(rqstp, &dentry, &exp);
-			if (host_err) {
+			__be32 nfserr = nfsd_cross_mnt(rqstp, &dentry, &exp);
+
+			if (nfserr) {
 				dput(dentry);
-				goto out_nfserr;
+				exp_put(exp);
+				return nfserr;
 			}
 		}
 	}
@@ -327,9 +336,6 @@ nfsd_lookup(struct svc_rqst *rqstp, struct svc_fh *fhp, const char *name,
 	err = nfsd_lookup_dentry(rqstp, fhp, name, len, &exp, &dentry);
 	if (err)
 		return err;
-	err = check_nfsd_access(exp, rqstp, false);
-	if (err)
-		goto out;
 	/*
 	 * Note: we compose the file handle now, but as the
 	 * dentry may be negative, it may need to be updated.
@@ -337,15 +343,26 @@ nfsd_lookup(struct svc_rqst *rqstp, struct svc_fh *fhp, const char *name,
 	err = fh_compose(resfh, exp, dentry, fhp);
 	if (!err && d_really_is_negative(dentry))
 		err = nfserr_noent;
-out:
+
 	dput(dentry);
 	exp_put(exp);
 	return err;
 }
 
-static void
-commit_reset_write_verifier(struct nfsd_net *nn, struct svc_rqst *rqstp,
-			    int err)
+/**
+ * nfsd_maybe_reset_write_verifier - Reset the write verifier after an I/O error
+ * @nn: nfsd namespace holding the write verifier
+ * @rqstp: RPC transaction context
+ * @err: errno reported by the failed operation
+ *
+ * A write verifier reset tells clients that unstable data the server has
+ * already acknowledged might have been lost. Client response is to resend
+ * in-flight dirty data.
+ *
+ * Context: Process context.
+ */
+void nfsd_maybe_reset_write_verifier(struct nfsd_net *nn,
+				     struct svc_rqst *rqstp, int err)
 {
 	switch (err) {
 	case -EAGAIN:
@@ -682,56 +699,67 @@ int nfsd4_is_junction(struct dentry *dentry)
 	return 1;
 }
 
-static struct nfsd4_compound_state *nfsd4_get_cstate(struct svc_rqst *rqstp)
+/**
+ * nfsd_clone_file_range - Clone a range of one file into another
+ * @src: file the range is cloned from
+ * @src_pos: offset in @src where the source range begins
+ * @dst: file the range is cloned into
+ * @dst_pos: offset in @dst where the destination range begins
+ * @count: length of the range, or zero to clone through end-of-file
+ * @since: receives @dst's writeback error state, sampled before the clone
+ *
+ * A caller that has to place the cloned data on durable storage passes
+ * @since to nfsd_clone_sync_range() once this call succeeds. Sampling
+ * happens here because a writeback error raised by the clone's own
+ * dirty pages has to fall inside the sampled interval.
+ *
+ * Context: Process context.
+ * Return: zero on success, or a negative errno
+ */
+int nfsd_clone_file_range(struct file *src, u64 src_pos, struct file *dst,
+			  u64 dst_pos, u64 count, errseq_t *since)
 {
-	return &((struct nfsd4_compoundres *)rqstp->rq_resp)->cstate;
+	loff_t cloned;
+
+	*since = READ_ONCE(dst->f_wb_err);
+	cloned = vfs_clone_file_range(src, src_pos, dst, dst_pos, count, 0);
+	if (cloned < 0)
+		return cloned;
+	if (count && cloned != count)
+		return -EINVAL;
+	return 0;
 }
 
-__be32 nfsd4_clone_file_range(struct svc_rqst *rqstp,
-		struct nfsd_file *nf_src, u64 src_pos,
-		struct nfsd_file *nf_dst, u64 dst_pos,
-		u64 count, bool sync)
+/**
+ * nfsd_clone_sync_range - Commit a cloned range to durable storage
+ * @src: file the range was cloned from, whose metadata is committed too
+ * @dst: file the range was cloned into
+ * @dst_pos: offset in @dst where the cloned range begins
+ * @count: length of the range, or zero if the clone ran to end-of-file
+ * @since: @dst's writeback error state as sampled by
+ *	   nfsd_clone_file_range()
+ *
+ * Context: Process context.
+ * Return: zero on success, or a negative errno
+ */
+int nfsd_clone_sync_range(struct file *src, struct file *dst, u64 dst_pos,
+			  u64 count, errseq_t since)
 {
-	struct file *src = nf_src->nf_file;
-	struct file *dst = nf_dst->nf_file;
-	errseq_t since;
-	loff_t cloned;
-	__be32 ret = 0;
+	loff_t dst_end = count ? dst_pos + count - 1 : LLONG_MAX;
+	int status;
 
-	since = READ_ONCE(dst->f_wb_err);
-	cloned = vfs_clone_file_range(src, src_pos, dst, dst_pos, count, 0);
-	if (cloned < 0) {
-		ret = nfserrno(cloned);
-		goto out_err;
+	status = vfs_fsync_range(dst, dst_pos, dst_end, 0);
+	if (!status)
+		status = filemap_check_wb_err(dst->f_mapping, since);
+	if (!status) {
+		/*
+		 * A reflink marks extents shared in the source inode too,
+		 * so the source's metadata has to reach durable storage
+		 * even though its data is untouched.
+		 */
+		status = commit_inode_metadata(file_inode(src));
 	}
-	if (count && cloned != count) {
-		ret = nfserrno(-EINVAL);
-		goto out_err;
-	}
-	if (sync) {
-		loff_t dst_end = count ? dst_pos + count - 1 : LLONG_MAX;
-		int status = vfs_fsync_range(dst, dst_pos, dst_end, 0);
-
-		if (!status)
-			status = filemap_check_wb_err(dst->f_mapping, since);
-		if (!status)
-			status = commit_inode_metadata(file_inode(src));
-		if (status < 0) {
-			struct nfsd_net *nn = net_generic(nf_dst->nf_net,
-							  nfsd_net_id);
-
-			trace_nfsd_clone_file_range_err(rqstp,
-					&nfsd4_get_cstate(rqstp)->save_fh,
-					src_pos,
-					&nfsd4_get_cstate(rqstp)->current_fh,
-					dst_pos,
-					count, status);
-			commit_reset_write_verifier(nn, rqstp, status);
-			ret = nfserrno(status);
-		}
-	}
-out_err:
-	return ret;
+	return status;
 }
 
 ssize_t nfsd_copy_file_range(struct file *src, u64 src_pos, struct file *dst,
@@ -773,64 +801,21 @@ __be32 nfsd4_vfs_fallocate(struct svc_rqst *rqstp, struct svc_fh *fhp,
 }
 #endif /* defined(CONFIG_NFSD_V4) */
 
-/*
- * Check server access rights to a file system object
+/**
+ * nfsd_access - Check caller's access rights to a file system object
+ * @rqstp: RPC transaction context
+ * @fhp: target NFS filehandle
+ * @maps: tables mapping on-the-wire access bits to NFSD_MAY flags
+ * @access: requested access bits on entry, permitted bits on return
+ * @supported: optional output of the access bits the server supports
+ *
+ * Return: nfs_ok on success, otherwise an nfserr status code
  */
-struct accessmap {
-	u32		access;
-	int		how;
-};
-static struct accessmap	nfs3_regaccess[] = {
-    {	NFS3_ACCESS_READ,	NFSD_MAY_READ			},
-    {	NFS3_ACCESS_EXECUTE,	NFSD_MAY_EXEC			},
-    {	NFS3_ACCESS_MODIFY,	NFSD_MAY_WRITE|NFSD_MAY_TRUNC	},
-    {	NFS3_ACCESS_EXTEND,	NFSD_MAY_WRITE			},
-
-#ifdef CONFIG_NFSD_V4
-    {	NFS4_ACCESS_XAREAD,	NFSD_MAY_READ			},
-    {	NFS4_ACCESS_XAWRITE,	NFSD_MAY_WRITE			},
-    {	NFS4_ACCESS_XALIST,	NFSD_MAY_READ			},
-#endif
-
-    {	0,			0				}
-};
-
-static struct accessmap	nfs3_diraccess[] = {
-    {	NFS3_ACCESS_READ,	NFSD_MAY_READ			},
-    {	NFS3_ACCESS_LOOKUP,	NFSD_MAY_EXEC			},
-    {	NFS3_ACCESS_MODIFY,	NFSD_MAY_EXEC|NFSD_MAY_WRITE|NFSD_MAY_TRUNC},
-    {	NFS3_ACCESS_EXTEND,	NFSD_MAY_EXEC|NFSD_MAY_WRITE	},
-    {	NFS3_ACCESS_DELETE,	NFSD_MAY_REMOVE			},
-
-#ifdef CONFIG_NFSD_V4
-    {	NFS4_ACCESS_XAREAD,	NFSD_MAY_READ			},
-    {	NFS4_ACCESS_XAWRITE,	NFSD_MAY_WRITE			},
-    {	NFS4_ACCESS_XALIST,	NFSD_MAY_READ			},
-#endif
-
-    {	0,			0				}
-};
-
-static struct accessmap	nfs3_anyaccess[] = {
-	/* Some clients - Solaris 2.6 at least, make an access call
-	 * to the server to check for access for things like /dev/null
-	 * (which really, the server doesn't care about).  So
-	 * We provide simple access checking for them, looking
-	 * mainly at mode bits, and we make sure to ignore read-only
-	 * filesystem checks
-	 */
-    {	NFS3_ACCESS_READ,	NFSD_MAY_READ			},
-    {	NFS3_ACCESS_EXECUTE,	NFSD_MAY_EXEC			},
-    {	NFS3_ACCESS_MODIFY,	NFSD_MAY_WRITE|NFSD_MAY_LOCAL_ACCESS	},
-    {	NFS3_ACCESS_EXTEND,	NFSD_MAY_WRITE|NFSD_MAY_LOCAL_ACCESS	},
-
-    {	0,			0				}
-};
-
-__be32
-nfsd_access(struct svc_rqst *rqstp, struct svc_fh *fhp, u32 *access, u32 *supported)
+__be32 nfsd_access(struct svc_rqst *rqstp, struct svc_fh *fhp,
+		   const struct nfsd_access_maps *maps,
+		   u32 *access, u32 *supported)
 {
-	struct accessmap	*map;
+	const struct nfsd_access_map *map;
 	struct svc_export	*export;
 	struct dentry		*dentry;
 	u32			query, result = 0, sresult = 0;
@@ -844,12 +829,11 @@ nfsd_access(struct svc_rqst *rqstp, struct svc_fh *fhp, u32 *access, u32 *suppor
 	dentry = fhp->fh_dentry;
 
 	if (d_is_reg(dentry))
-		map = nfs3_regaccess;
+		map = maps->regular;
 	else if (d_is_dir(dentry))
-		map = nfs3_diraccess;
+		map = maps->directory;
 	else
-		map = nfs3_anyaccess;
-
+		map = maps->other;
 
 	query = *access;
 	for  (; map->access; map++) {
@@ -859,7 +843,7 @@ nfsd_access(struct svc_rqst *rqstp, struct svc_fh *fhp, u32 *access, u32 *suppor
 			sresult |= map->access;
 
 			err2 = nfsd_permission(&rqstp->rq_cred, export,
-					       dentry, map->how);
+					       dentry, map->may);
 			switch (err2) {
 			case nfs_ok:
 				result |= map->access;
@@ -1424,7 +1408,7 @@ nfsd_direct_write(struct svc_rqst *rqstp, struct svc_fh *fhp,
  * @offset: Byte offset of start
  * @payload: xdr_buf containing the write payload
  * @cnt: IN: number of bytes to write, OUT: number of bytes actually written
- * @stable: An NFS stable_how value
+ * @iocb_flags: VFS IOCB_* flags expressing the requested write stability
  * @verf: NFS WRITE verifier
  *
  * Upon return, caller must invoke fh_put on @fhp.
@@ -1436,7 +1420,7 @@ __be32
 nfsd_vfs_write(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	       struct nfsd_file *nf, loff_t offset,
 	       const struct xdr_buf *payload, unsigned long *cnt,
-	       int stable, __be32 *verf)
+	       int iocb_flags, __be32 *verf)
 {
 	struct nfsd_net		*nn = net_generic(SVC_NET(rqstp), nfsd_net_id);
 	struct file		*file = nf->nf_file;
@@ -1473,21 +1457,11 @@ nfsd_vfs_write(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	exp = fhp->fh_export;
 
 	if (!EX_ISSYNC(exp))
-		stable = NFS_UNSTABLE;
+		iocb_flags = 0;
 	init_sync_kiocb(&kiocb, file);
 	kiocb.ki_pos = offset;
-	if (likely(!fhp->fh_use_wgather)) {
-		switch (stable) {
-		case NFS_FILE_SYNC:
-			/* persist data and timestamps */
-			kiocb.ki_flags |= IOCB_DSYNC | IOCB_SYNC;
-			break;
-		case NFS_DATA_SYNC:
-			/* persist data only */
-			kiocb.ki_flags |= IOCB_DSYNC;
-			break;
-		}
-	}
+	if (likely(!fhp->fh_use_wgather))
+		kiocb.ki_flags |= iocb_flags;
 
 	nvecs = xdr_buf_to_bvec(rqstp->rq_bvec, rqstp->rq_maxpages, payload);
 	if (nvecs < 0) {
@@ -1517,21 +1491,21 @@ nfsd_vfs_write(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		break;
 	}
 	if (host_err < 0) {
-		commit_reset_write_verifier(nn, rqstp, host_err);
+		nfsd_maybe_reset_write_verifier(nn, rqstp, host_err);
 		goto out_nfserr;
 	}
 	nfsd_stats_io_write_add(nn, exp, *cnt);
 	fsnotify_modify(file);
 	host_err = filemap_check_wb_err(file->f_mapping, since);
 	if (host_err < 0) {
-		commit_reset_write_verifier(nn, rqstp, host_err);
+		nfsd_maybe_reset_write_verifier(nn, rqstp, host_err);
 		goto out_nfserr;
 	}
 
-	if (stable && fhp->fh_use_wgather) {
+	if (iocb_flags && fhp->fh_use_wgather) {
 		host_err = wait_for_concurrent_writes(file);
 		if (host_err < 0)
-			commit_reset_write_verifier(nn, rqstp, host_err);
+			nfsd_maybe_reset_write_verifier(nn, rqstp, host_err);
 	}
 
 out_nfserr:
@@ -1619,7 +1593,7 @@ __be32 nfsd_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
  * @offset: Byte offset of start
  * @payload: xdr_buf containing the write payload
  * @cnt: IN: number of bytes to write, OUT: number of bytes actually written
- * @stable: An NFS stable_how value
+ * @iocb_flags: VFS IOCB_* flags expressing the requested write stability
  * @verf: NFS WRITE verifier
  *
  * Upon return, caller must invoke fh_put on @fhp.
@@ -1629,8 +1603,8 @@ __be32 nfsd_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
  */
 __be32
 nfsd_write(struct svc_rqst *rqstp, struct svc_fh *fhp, loff_t offset,
-	   const struct xdr_buf *payload, unsigned long *cnt, int stable,
-	   __be32 *verf)
+	   const struct xdr_buf *payload, unsigned long *cnt,
+	   int iocb_flags, __be32 *verf)
 {
 	struct nfsd_file *nf;
 	__be32 err;
@@ -1642,7 +1616,7 @@ nfsd_write(struct svc_rqst *rqstp, struct svc_fh *fhp, loff_t offset,
 		goto out;
 
 	err = nfsd_vfs_write(rqstp, fhp, nf, offset, payload, cnt,
-			     stable, verf);
+			     iocb_flags, verf);
 	nfsd_file_put(nf);
 out:
 	trace_nfsd_write_done(rqstp, fhp, offset, *cnt);
@@ -1707,14 +1681,14 @@ nfsd_commit(struct svc_rqst *rqstp, struct svc_fh *fhp, struct nfsd_file *nf,
 			err2 = filemap_check_wb_err(nf->nf_file->f_mapping,
 						    since);
 			if (err2 < 0)
-				commit_reset_write_verifier(nn, rqstp, err2);
+				nfsd_maybe_reset_write_verifier(nn, rqstp, err2);
 			err = nfserrno(err2);
 			break;
 		case -EINVAL:
 			err = nfserr_notsupp;
 			break;
 		default:
-			commit_reset_write_verifier(nn, rqstp, err2);
+			nfsd_maybe_reset_write_verifier(nn, rqstp, err2);
 			err = nfserrno(err2);
 		}
 	} else

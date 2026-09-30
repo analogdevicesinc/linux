@@ -6,6 +6,7 @@
  */
 
 #include "nfsd.h"
+#include "nfserr.h"
 /* FIXME: nfsacl.h is a broken header */
 #include <linux/nfsacl.h>
 #include <linux/gfp.h>
