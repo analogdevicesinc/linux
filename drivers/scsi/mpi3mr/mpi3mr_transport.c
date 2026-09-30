@@ -1567,7 +1567,7 @@ static struct mpi3mr_sas_port *mpi3mr_sas_port_add(struct mpi3mr_ioc *mrioc,
 	}
 
 	list_for_each_entry_safe(mr_sas_phy, next, &mr_sas_port->phy_list,
-	    port_siblings) {
+				 port_siblings) {
 		mr_sas_phy->phy_belongs_to_port = 0;
 		list_del(&mr_sas_phy->port_siblings);
 	}

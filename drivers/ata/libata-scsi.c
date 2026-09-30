@@ -3578,7 +3578,7 @@ static unsigned int ata_scsi_pass_thru(struct ata_queued_cmd *qc)
 		unsigned int multi_count = 1 << (cdb[1] >> 5);
 
 		if (!dev->multi_count) {
-			ata_scsi_set_sense(dev, scmd, ABORTED_COMMAND, 0, 0);
+			ata_scsi_set_sense(dev, scmd, ABORTED_COMMAND, NO_ADDITIONAL_SENSE_INFORMATION);
 			return 1;
 		}
 
