@@ -2,7 +2,7 @@
 
 CFLAGS += -Wall -O2 -g $(KHDR_INCLUDES)
 
-TEST_GEN_PROGS := fusectl_test
+TEST_GEN_PROGS := fusectl_test test_syncfs
 TEST_GEN_PROGS += write_extend_eof_test
 TEST_GEN_FILES := fuse_mnt
 

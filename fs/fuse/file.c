@@ -119,7 +119,7 @@ static void fuse_file_put(struct fuse_file *ff, bool sync)
 			 * DAX inodes may need to issue a number of synchronous
 			 * request for clearing the mappings.
 			 */
-			if (ra && ra->inode && FUSE_IS_DAX(ra->inode))
+			if (ra && ra->inode && FUSE_IS_VDAX(ra->inode))
 				args->may_block = true;
 			args->end = fuse_release_end;
 			if (fuse_simple_background(ff->fm, args,
@@ -256,7 +256,7 @@ static int fuse_open(struct inode *inode, struct file *file)
 	int err;
 	bool is_truncate = (file->f_flags & O_TRUNC) && fc->atomic_o_trunc;
 	bool is_wb_truncate = is_truncate && fc->writeback_cache;
-	bool dax_truncate = is_truncate && FUSE_IS_DAX(inode);
+	bool vdax_truncate = is_truncate && FUSE_IS_VDAX(inode);
 
 	if (fuse_is_bad(inode))
 		return -EIO;
@@ -265,17 +265,17 @@ static int fuse_open(struct inode *inode, struct file *file)
 	if (err)
 		return err;
 
-	if (is_wb_truncate || dax_truncate)
+	if (is_wb_truncate || vdax_truncate)
 		inode_lock(inode);
 
-	if (dax_truncate) {
+	if (vdax_truncate) {
 		filemap_invalidate_lock(inode->i_mapping);
-		err = fuse_dax_break_layouts(inode, 0, -1);
+		err = fuse_vdax_break_layouts(inode, 0, -1);
 		if (err)
 			goto out_unlock;
 	}
 
-	if (is_wb_truncate || dax_truncate)
+	if (is_wb_truncate || vdax_truncate)
 		fuse_set_nowrite(inode);
 
 	err = fuse_do_open(fm, get_node_id(inode), file, false);
@@ -288,7 +288,7 @@ static int fuse_open(struct inode *inode, struct file *file)
 			fuse_truncate_update_attr(inode, file);
 	}
 
-	if (is_wb_truncate || dax_truncate)
+	if (is_wb_truncate || vdax_truncate)
 		fuse_release_nowrite(inode);
 	if (!err) {
 		if (is_truncate)
@@ -297,9 +297,9 @@ static int fuse_open(struct inode *inode, struct file *file)
 			invalidate_inode_pages2(inode->i_mapping);
 	}
 out_unlock:
-	if (dax_truncate)
+	if (vdax_truncate)
 		filemap_invalidate_unlock(inode->i_mapping);
-	if (is_wb_truncate || dax_truncate)
+	if (is_wb_truncate || vdax_truncate)
 		inode_unlock(inode);
 
 	return err;
@@ -311,7 +311,7 @@ static void fuse_prepare_release(struct fuse_inode *fi, struct fuse_file *ff,
 	struct fuse_conn *fc = ff->fm->fc;
 	struct fuse_release_args *ra = &ff->args->release_args;
 
-	if (fuse_file_passthrough(ff))
+	if (fuse_is_passthrough(ff))
 		fuse_passthrough_release(ff, fuse_inode_backing(fi));
 
 	/* Inode is NULL on error path of fuse_create_open() */
@@ -689,7 +689,7 @@ static void fuse_aio_complete(struct fuse_io_priv *io, int err, ssize_t pos)
 		struct address_space *mapping = io->iocb->ki_filp->f_mapping;
 		ssize_t res = fuse_get_res_by_io(io);
 
-		if (res >= 0) {
+		if (res >= 0 && io->write) {
 			struct fuse_conn *fc = get_fuse_conn(inode);
 			struct fuse_inode *fi = get_fuse_inode(inode);
 
@@ -864,18 +864,29 @@ static int fuse_do_readfolio(struct file *file, struct folio *folio,
 
 	attr_ver = fuse_get_attr_version(fm->fc);
 
-	/* Don't overflow end offset */
-	if (pos + (desc.length - 1) == LLONG_MAX)
-		desc.length--;
+	/*
+	 * Don't overflow end offset.
+	 *
+	 * Ask the server for len - 1 bytes. desc.length still holds the full
+	 * length. When the reply comes back, it will be one byte shorter than
+	 * desc.length and fuse_copy_folios() will zero that last byte.
+	 *
+	 * For this reason, desc.length must not be decremented too. The caller
+	 * reports the full length to iomap_finish_folio_read(), which marks
+	 * every block it covers uptodate. Shortening the descriptor would
+	 * suppress zeroing and leave the last byte holding stale data.
+	 */
+	if (pos + (len - 1) == LLONG_MAX)
+		len--;
 
-	fuse_read_args_fill(&ia, file, pos, desc.length, FUSE_READ);
+	fuse_read_args_fill(&ia, file, pos, len, FUSE_READ);
 	res = fuse_simple_request(fm, &ia.ap.args);
 	if (res < 0)
 		return res;
 	/*
 	 * Short read means EOF.  If file size is larger, truncate it
 	 */
-	if (res < desc.length)
+	if (res < len)
 		fuse_short_read(inode, attr_ver, res, &ia.ap);
 
 	return 0;
@@ -1068,11 +1079,20 @@ static void fuse_send_readpages(struct fuse_io_args *ia, struct file *file,
 	ap->args.page_zeroing = true;
 	ap->args.page_replace = true;
 
-	/* Don't overflow end offset */
-	if (pos + (count - 1) == LLONG_MAX) {
+	/*
+	 * Don't overflow end offset.
+	 *
+	 * Ask the server for count - 1 bytes. The reply is then one byte
+	 * shorter than what the descriptor lengths add up to, so
+	 * fuse_copy_folios() zeroes the last byte when it walks the folios.
+	 *
+	 * ap->descs[] must not be decremented here. It is what
+	 * fuse_readpages_end() reports back to iomap_finish_folio_read(), and
+	 * iomap has already accounted the full descriptor length, so shortening
+	 * it would leave ifs->read_bytes_pending nonzero and the folio locked.
+	 */
+	if (pos + (count - 1) == LLONG_MAX)
 		count--;
-		ap->descs[ap->num_folios - 1].length--;
-	}
 	WARN_ON((loff_t) (pos + count) < 0);
 
 	fuse_read_args_fill(ia, file, pos, count, FUSE_READ);
@@ -1835,13 +1855,13 @@ static ssize_t fuse_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	if (fuse_is_bad(inode))
 		return -EIO;
 
-	if (FUSE_IS_DAX(inode))
-		return fuse_dax_read_iter(iocb, to);
+	if (FUSE_IS_VDAX(inode))
+		return fuse_vdax_read_iter(iocb, to);
 
 	/* FOPEN_DIRECT_IO overrides FOPEN_PASSTHROUGH */
 	if (ff->open_flags & FOPEN_DIRECT_IO)
 		return fuse_direct_read_iter(iocb, to);
-	else if (fuse_file_passthrough(ff))
+	else if (fuse_is_passthrough(ff))
 		return fuse_passthrough_read_iter(iocb, to);
 	else
 		return fuse_cache_read_iter(iocb, to);
@@ -1856,13 +1876,13 @@ static ssize_t fuse_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	if (fuse_is_bad(inode))
 		return -EIO;
 
-	if (FUSE_IS_DAX(inode))
-		return fuse_dax_write_iter(iocb, from);
+	if (FUSE_IS_VDAX(inode))
+		return fuse_vdax_write_iter(iocb, from);
 
 	/* FOPEN_DIRECT_IO overrides FOPEN_PASSTHROUGH */
 	if (ff->open_flags & FOPEN_DIRECT_IO)
 		return fuse_direct_write_iter(iocb, from);
-	else if (fuse_file_passthrough(ff))
+	else if (fuse_is_passthrough(ff))
 		return fuse_passthrough_write_iter(iocb, from);
 	else
 		return fuse_cache_write_iter(iocb, from);
@@ -1875,7 +1895,10 @@ static ssize_t fuse_splice_read(struct file *in, loff_t *ppos,
 	struct fuse_file *ff = in->private_data;
 
 	/* FOPEN_DIRECT_IO overrides FOPEN_PASSTHROUGH */
-	if (fuse_file_passthrough(ff) && !(ff->open_flags & FOPEN_DIRECT_IO))
+
+	if (ff->open_flags & FOPEN_DIRECT_IO)
+		return copy_splice_read(in, ppos, pipe, len, flags);
+	else if (fuse_is_passthrough(ff))
 		return fuse_passthrough_splice_read(in, ppos, pipe, len, flags);
 	else
 		return filemap_splice_read(in, ppos, pipe, len, flags);
@@ -1887,7 +1910,7 @@ static ssize_t fuse_splice_write(struct pipe_inode_info *pipe, struct file *out,
 	struct fuse_file *ff = out->private_data;
 
 	/* FOPEN_DIRECT_IO overrides FOPEN_PASSTHROUGH */
-	if (fuse_file_passthrough(ff) && !(ff->open_flags & FOPEN_DIRECT_IO))
+	if (fuse_is_passthrough(ff) && !(ff->open_flags & FOPEN_DIRECT_IO))
 		return fuse_passthrough_splice_write(pipe, out, ppos, len, flags);
 	else
 		return iter_file_splice_write(pipe, out, ppos, len, flags);
@@ -2394,15 +2417,15 @@ static int fuse_file_mmap(struct file *file, struct vm_area_struct *vma)
 	int rc;
 
 	/* DAX mmap is superior to direct_io mmap */
-	if (FUSE_IS_DAX(inode))
-		return fuse_dax_mmap(file, vma);
+	if (FUSE_IS_VDAX(inode))
+		return fuse_vdax_mmap(file, vma);
 
 	/*
 	 * If inode is in passthrough io mode, because it has some file open
 	 * in passthrough mode, either mmap to backing file or fail mmap,
 	 * because mixing cached mmap and passthrough io mode is not allowed.
 	 */
-	if (fuse_file_passthrough(ff))
+	if (fuse_is_passthrough(ff))
 		return fuse_passthrough_mmap(file, vma);
 	else if (fuse_inode_backing(get_fuse_inode(inode)))
 		return -ENODEV;
@@ -2844,7 +2867,7 @@ static long fuse_file_fallocate(struct file *file, int mode, loff_t offset,
 		.mode = mode
 	};
 	int err;
-	bool block_faults = FUSE_IS_DAX(inode) &&
+	bool block_faults = FUSE_IS_VDAX(inode) &&
 		(!(mode & FALLOC_FL_KEEP_SIZE) ||
 		 (mode & (FALLOC_FL_PUNCH_HOLE | FALLOC_FL_ZERO_RANGE)));
 
@@ -2858,7 +2881,7 @@ static long fuse_file_fallocate(struct file *file, int mode, loff_t offset,
 	inode_lock(inode);
 	if (block_faults) {
 		filemap_invalidate_lock(inode->i_mapping);
-		err = fuse_dax_break_layouts(inode, 0, -1);
+		err = fuse_vdax_break_layouts(inode, 0, -1);
 		if (err)
 			goto out;
 	}
@@ -2978,14 +3001,16 @@ static ssize_t __fuse_copy_file_range(struct file *file_in, loff_t pos_in,
 
 	/*
 	 * Write out dirty pages in the destination file before sending the COPY
-	 * request to userspace.  After the request is completed, truncate off
-	 * pages (including partial ones) from the cache that have been copied,
-	 * since these contain stale data at that point.
+	 * request to userspace.  After the request is completed, drop the
+	 * folios covering the copied range from the cache, since these contain
+	 * stale data at that point.
 	 *
-	 * This should be mostly correct, but if the COPY writes to partial
-	 * pages (at the start or end) and the parts not covered by the COPY are
+	 * This should be mostly correct, but if the COPY writes to a partial
+	 * folio (at the start or end) and the parts not covered by the COPY are
 	 * written through a memory map after calling fuse_writeback_range(),
-	 * then these partial page modifications will be lost on truncation.
+	 * then that folio is laundered before it is dropped, so the memory map
+	 * modifications are written back over the range the server just copied
+	 * into and the copied data is lost.
 	 *
 	 * It is unlikely that someone would rely on such mixed style
 	 * modifications.  Yet this does give less guarantees than if the
@@ -3038,9 +3063,10 @@ fallback:
 		goto out;
 	}
 
-	truncate_inode_pages_range(inode_out->i_mapping,
-				   ALIGN_DOWN(pos_out, PAGE_SIZE),
-				   ALIGN(pos_out + bytes_copied, PAGE_SIZE) - 1);
+	if (bytes_copied)
+		invalidate_inode_pages2_range(inode_out->i_mapping,
+					      pos_out >> PAGE_SHIFT,
+					      (pos_out + bytes_copied - 1) >> PAGE_SHIFT);
 
 	file_update_time(file_out);
 	fuse_write_update_attr(inode_out, pos_out + bytes_copied, bytes_copied);
@@ -3113,6 +3139,7 @@ void fuse_init_file_inode(struct inode *inode, unsigned int flags)
 {
 	struct fuse_inode *fi = get_fuse_inode(inode);
 	struct fuse_conn *fc = get_fuse_conn(inode);
+	unsigned int max_folio_pages;
 
 	inode->i_fop = &fuse_file_operations;
 	inode->i_data.a_ops = &fuse_file_aops;
@@ -3126,6 +3153,20 @@ void fuse_init_file_inode(struct inode *inode, unsigned int flags)
 	init_waitqueue_head(&fi->page_waitq);
 	init_waitqueue_head(&fi->direct_io_waitq);
 
-	if (IS_ENABLED(CONFIG_FUSE_DAX))
-		fuse_dax_inode_init(inode, flags);
+	if (IS_ENABLED(CONFIG_FUSE_VDAX))
+		fuse_vdax_inode_init(inode, flags);
+
+	if (FUSE_IS_VDAX(inode))
+		return;
+
+	/*
+	 * A folio is never split across requests so cap the order so that one
+	 * always fits in a single request.
+	 */
+	max_folio_pages = min3(fc->max_write >> PAGE_SHIFT,
+			       fc->max_read >> PAGE_SHIFT, fc->max_pages);
+
+	if (max_folio_pages)
+		mapping_set_folio_order_range(inode->i_mapping, 0,
+					      ilog2(max_folio_pages));
 }
