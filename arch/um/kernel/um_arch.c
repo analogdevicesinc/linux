@@ -44,7 +44,12 @@ static char __initdata command_line[COMMAND_LINE_SIZE] = { 0 };
 
 static void __init add_arg(char *arg)
 {
-	if (strlen(command_line) + strlen(arg) + 1 > COMMAND_LINE_SIZE) {
+	size_t len = strlen(command_line) + strlen(arg) + 1;
+
+	if (command_line[0])
+		len++;
+
+	if (len > COMMAND_LINE_SIZE) {
 		os_warn("add_arg: Too many command line arguments!\n");
 		exit(1);
 	}
@@ -303,7 +308,7 @@ static unsigned long __init get_top_address(char **envp)
 	return PAGE_ALIGN(top_addr + 1);
 }
 
-int __init linux_main(int argc, char **argv, char **envp)
+void __init linux_main(int argc, char **argv, char **envp)
 {
 	unsigned long avail, diff;
 	unsigned long virtmem_size, max_physmem;
@@ -396,7 +401,7 @@ int __init linux_main(int argc, char **argv, char **envp)
 
 	os_flush_stdout();
 
-	return start_uml();
+	start_uml();
 }
 
 int __init __weak read_initrd(void)
