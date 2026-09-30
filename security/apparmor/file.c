@@ -489,7 +489,7 @@ static void update_file_ctx(struct aa_file_ctx *fctx, struct aa_label *label,
 
 static int __file_path_perm(const char *op, const struct cred *subj_cred,
 			    struct aa_label *label,
-			    struct aa_label *flabel, struct file *file,
+			    struct aa_label *flabel, const struct file *file,
 			    u32 request, u32 denied, bool in_atomic)
 {
 	struct aa_profile *profile;
@@ -550,7 +550,7 @@ static int __file_path_perm(const char *op, const struct cred *subj_cred,
 
 static int __file_sock_perm(const char *op, const struct cred *subj_cred,
 			    struct aa_label *label,
-			    struct aa_label *flabel, struct file *file,
+			    struct aa_label *flabel, const struct file *file,
 			    u32 request, u32 denied)
 {
 	int error;
@@ -579,7 +579,7 @@ static bool __file_is_delegated(struct aa_label *obj_label)
 	return unconfined(obj_label);
 }
 
-static bool __is_unix_file(struct file *file)
+static bool __is_unix_file(const struct file *file)
 {
 	struct socket *sock = (struct socket *) file->private_data;
 
@@ -595,7 +595,7 @@ static bool __is_unix_file(struct file *file)
 	return false;
 }
 
-static bool __unix_needs_revalidation(struct file *file, struct aa_label *label,
+static bool __unix_needs_revalidation(const struct file *file, struct aa_label *label,
 				      u32 request)
 {
 	struct socket *sock = (struct socket *) file->private_data;
@@ -624,7 +624,7 @@ static bool __unix_needs_revalidation(struct file *file, struct aa_label *label,
  * Returns: %0 if access allowed else error
  */
 int aa_file_perm(const char *op, const struct cred *subj_cred,
-		 struct aa_label *label, struct file *file,
+		 struct aa_label *label, const struct file *file,
 		 u32 request, bool in_atomic)
 {
 	struct aa_file_ctx *fctx;

@@ -525,7 +525,7 @@ static void apparmor_file_free_security(struct file *file)
 		aa_put_label(rcu_access_pointer(ctx->label));
 }
 
-static int common_file_perm(const char *op, struct file *file, u32 mask)
+static int common_file_perm(const char *op, const struct file *file, u32 mask)
 {
 	struct aa_label *label;
 	bool needput;
@@ -543,7 +543,7 @@ static int apparmor_file_receive(struct file *file)
 	return common_file_perm(OP_FRECEIVE, file, aa_map_file_to_perms(file));
 }
 
-static int apparmor_file_permission(struct file *file, int mask)
+static int apparmor_file_permission(const struct file *file, int mask)
 {
 	return common_file_perm(OP_FPERM, file, mask);
 }

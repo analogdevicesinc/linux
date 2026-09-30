@@ -715,7 +715,7 @@ static void update_peer_ctx(struct sock *sk, struct aa_sk_ctx *ctx,
  * boundaries. Otherwise cached info off file is sufficient
  */
 int aa_unix_file_perm(const struct cred *subj_cred, struct aa_label *label,
-		      const char *op, u32 request, struct file *file)
+		      const char *op, u32 request, const struct file *file)
 {
 	struct socket *sock = (struct socket *) file->private_data;
 	struct sockaddr_un *addr, *peer_addr;

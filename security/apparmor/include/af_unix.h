@@ -50,6 +50,6 @@ int aa_unix_msg_perm(const char *op, u32 request, struct socket *sock,
 int aa_unix_opt_perm(const char *op, u32 request, struct socket *sock, int level,
 		     int optname);
 int aa_unix_file_perm(const struct cred *subj_cred, struct aa_label *label,
-		      const char *op, u32 request, struct file *file);
+		      const char *op, u32 request, const struct file *file);
 
 #endif /* __AA_AF_UNIX_H */
