@@ -290,6 +290,7 @@ static int mxcmci_setup_data(struct mxcmci_host *host, struct mmc_data *data)
 	unsigned int datasize = nob * blksz;
 	struct scatterlist *sg;
 	enum dma_transfer_direction slave_dirn;
+	struct device *dma_dev;
 	int i, nents;
 
 	host->data = data;
@@ -301,6 +302,8 @@ static int mxcmci_setup_data(struct mxcmci_host *host, struct mmc_data *data)
 
 	if (!mxcmci_use_dma(host))
 		return 0;
+
+	dma_dev = dmaengine_get_dma_device(host->dma);
 
 	for_each_sg(data->sg, sg, data->sg_len, i) {
 		if (sg->offset & 3 || sg->length & 3 || sg->length < 512) {
@@ -319,8 +322,7 @@ static int mxcmci_setup_data(struct mxcmci_host *host, struct mmc_data *data)
 		mxcmci_swap_buffers(data);
 	}
 
-	nents = dma_map_sg(host->dma->device->dev, data->sg,
-				     data->sg_len,  host->dma_dir);
+	nents = dma_map_sg(dma_dev, data->sg, data->sg_len,  host->dma_dir);
 	if (nents != data->sg_len)
 		return -EINVAL;
 
@@ -329,8 +331,7 @@ static int mxcmci_setup_data(struct mxcmci_host *host, struct mmc_data *data)
 		DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
 	if (!host->desc) {
-		dma_unmap_sg(host->dma->device->dev, data->sg, data->sg_len,
-				host->dma_dir);
+		dma_unmap_sg(dma_dev, data->sg, data->sg_len, host->dma_dir);
 		host->do_dma = 0;
 		return 0; /* Fall back to PIO */
 	}
@@ -439,7 +440,7 @@ static int mxcmci_finish_data(struct mxcmci_host *host, unsigned int stat)
 	int data_error;
 
 	if (mxcmci_use_dma(host)) {
-		dma_unmap_sg(host->dma->device->dev, data->sg, data->sg_len,
+		dma_unmap_sg(dmaengine_get_dma_device(host->dma), data->sg, data->sg_len,
 				host->dma_dir);
 		mxcmci_swap_buffers(data);
 	}
@@ -1125,8 +1126,7 @@ static int mxcmci_probe(struct platform_device *pdev)
 		}
 	}
 	if (host->dma)
-		mmc->max_seg_size = dma_get_max_seg_size(
-				host->dma->device->dev);
+		mmc->max_seg_size = dma_get_max_seg_size(dmaengine_get_dma_device(host->dma));
 	else
 		dev_info(mmc_dev(host->mmc), "dma not available. Using PIO\n");
 
