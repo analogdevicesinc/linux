@@ -25,6 +25,9 @@ static void hubp60_program_deadline(
 {
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
 
+	/* Make sure DLG test mode is disabled */
+	REG_WRITE(HUBPREQ_DEBUG_DB, 0);
+
 	/* DLG - Per hubp */
 	REG_SET_2(BLANK_OFFSET_0, 0,
 		REFCYC_H_BLANK_END, dlg_attr->refcyc_h_blank_end,
@@ -424,6 +427,7 @@ static struct hubp_funcs dcn60_hubp_funcs = {
 	.mem_program_viewport = hubp401_set_viewport,
 	.set_cursor_attributes	= hubp60_cursor_set_attributes,
 	.set_cursor_position	= hubp401_cursor_set_position,
+	.refresh_cursor_state	= hubp401_cursor_refresh_state,
 	.hubp_clk_cntl = hubp2_clk_cntl,
 	.hubp_vtg_sel = hubp2_vtg_sel,
 	.dmdata_set_attributes = hubp3_dmdata_set_attributes,

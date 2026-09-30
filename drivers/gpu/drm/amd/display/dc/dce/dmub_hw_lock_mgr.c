@@ -36,6 +36,14 @@ static bool dmub_hw_lock_has_inbox0_lock(const struct dc *dc)
 	       dc->ctx->dmub_srv->dmub->meta_info.feature_bits.bits.inbox0_lock_support;
 }
 
+static bool dmub_hw_lock_has_inbox0_lock_split(const struct dc *dc)
+{
+	return dc->ctx && dc->ctx->dmub_srv &&
+		dc->hwss.dmub_hw_control_lock &&
+		dc->hwss.dmub_hw_control_lock_fast &&
+		dc->ctx->dmub_srv->dmub->meta_info.feature_bits.bits.inbox0_lock_split;
+}
+
 void dmub_hw_lock_mgr_cmd(struct dc_dmub_srv *dmub_srv,
 				bool lock,
 				union dmub_hw_lock_flags *hw_locks,
@@ -121,5 +129,5 @@ bool should_use_dmub_inbox1_lock(const struct dc *dc, const struct dc_link *link
 
 bool should_use_dmub_inbox0_lock_for_link(const struct dc *dc, const struct dc_link *link)
 {
-	return dmub_hw_lock_has_inbox0_lock(dc) && dmub_hw_lock_mgr_does_link_require_lock(dc, link);
+	return dmub_hw_lock_has_inbox0_lock_split(dc) && dmub_hw_lock_mgr_does_link_require_lock(dc, link);
 }

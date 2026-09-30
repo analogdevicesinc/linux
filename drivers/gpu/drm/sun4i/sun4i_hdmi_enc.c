@@ -292,6 +292,7 @@ static void sun4i_hdmi_connector_reset(struct drm_connector *connector)
 }
 
 static const struct drm_connector_funcs sun4i_hdmi_connector_funcs = {
+	.debugfs_init		= drm_hdmi_connector_debugfs_init,
 	.detect			= sun4i_hdmi_connector_detect,
 	.fill_modes		= drm_helper_probe_single_connector_modes,
 	.reset			= sun4i_hdmi_connector_reset,
@@ -653,7 +654,7 @@ static int sun4i_hdmi_bind(struct device *dev, struct device *master,
 
 	drm_connector_helper_add(&hdmi->connector,
 				 &sun4i_hdmi_connector_helper_funcs);
-	ret = drmm_connector_hdmi_init(drm, &hdmi->connector,
+	ret = drmm_connector_hdmi_ini2(drm, &hdmi->connector,
 				       /*
 					* NOTE: Those are likely to be
 					* wrong, but I couldn't find the

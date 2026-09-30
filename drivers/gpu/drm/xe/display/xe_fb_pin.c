@@ -203,7 +203,7 @@ static int __xe_pin_fb_vma_dpt(struct drm_gem_object *obj,
 	vma->node = dpt->ggtt_node[tile0->id];
 
 	/* Ensure DPT writes are flushed */
-	xe_device_l2_flush(xe);
+	xe_device_l2_flush(xe, false);
 	return 0;
 }
 

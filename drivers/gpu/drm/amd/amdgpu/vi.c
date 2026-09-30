@@ -1729,11 +1729,6 @@ static int vi_common_resume(struct amdgpu_ip_block *ip_block)
 	return vi_common_hw_init(ip_block);
 }
 
-static bool vi_common_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	return true;
-}
-
 static void vi_update_bif_medium_grain_light_sleep(struct amdgpu_device *adev,
 						   bool enable)
 {
@@ -2025,7 +2020,6 @@ static const struct amd_ip_funcs vi_common_ip_funcs = {
 	.hw_fini = vi_common_hw_fini,
 	.suspend = vi_common_suspend,
 	.resume = vi_common_resume,
-	.is_idle = vi_common_is_idle,
 	.set_clockgating_state = vi_common_set_clockgating_state,
 	.set_powergating_state = vi_common_set_powergating_state,
 	.get_clockgating_state = vi_common_get_clockgating_state,

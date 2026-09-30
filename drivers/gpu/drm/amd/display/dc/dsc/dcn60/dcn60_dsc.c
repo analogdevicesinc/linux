@@ -60,7 +60,7 @@ void dsc60_construct(struct dcn60_dsc *dsc,
 	dsc->dsc_shift = dsc_shift;
 	dsc->dsc_mask = dsc_mask;
 
-	dsc->max_image_width = 5184;
+	dsc->max_image_width = 5760;
 }
 
 static void dsc60_init_reg_values(struct dsc60_reg_values *reg_vals)
@@ -181,7 +181,7 @@ static bool dsc60_prepare_config(const struct dsc_config *dsc_cfg, struct dsc60_
 
 	// TODO: in addition to validating slice height (pic height must be divisible by slice height),
 	// see what happens when the same condition doesn't apply for slice_width/pic_width.
-	dsc_reg_vals->pps.slice_width = (u16)(dsc_cfg->pic_width / dsc_cfg->dc_dsc_cfg.num_slices_h);
+	dsc_reg_vals->pps.slice_width = (u16)((dsc_cfg->pic_width + dsc_cfg->dsc_padding + dsc_cfg->dc_dsc_cfg.num_slices_h - 1) / dsc_cfg->dc_dsc_cfg.num_slices_h);
 	dsc_reg_vals->pps.slice_height = (u16)(dsc_cfg->pic_height / dsc_cfg->dc_dsc_cfg.num_slices_v);
 
 	ASSERT(dsc_reg_vals->pps.slice_height * dsc_cfg->dc_dsc_cfg.num_slices_v == dsc_cfg->pic_height);

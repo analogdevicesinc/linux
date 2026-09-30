@@ -1156,10 +1156,8 @@ static int lt9611_probe(struct i2c_client *client)
 	ret = devm_request_threaded_irq(dev, client->irq, NULL,
 					lt9611_irq_thread_handler,
 					IRQF_ONESHOT, "lt9611", lt9611);
-	if (ret) {
-		dev_err(dev, "failed to request irq\n");
+	if (ret)
 		goto err_disable_regulators;
-	}
 
 	i2c_set_clientdata(client, lt9611);
 
@@ -1229,7 +1227,7 @@ static void lt9611_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id lt9611_id[] = {
-	{ .name = "lontium,lt9611" },
+	{ .name = "lt9611" },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, lt9611_id);

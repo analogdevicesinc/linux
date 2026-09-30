@@ -236,9 +236,11 @@ void xe_pt_destroy(struct xe_pt *pt, u32 flags, struct llist_head *deferred)
  */
 void xe_pt_clear(struct xe_device *xe, struct xe_pt *pt)
 {
-	struct iosys_map *map = &pt->bo->vmap;
+	struct xe_bo *bo = pt->bo;
 
-	xe_map_memset(xe, map, 0, 0, SZ_4K);
+	xe_bo_assert_held(bo);
+	if (!iosys_map_is_null(&bo->vmap))
+		xe_map_memset(xe, &bo->vmap, 0, 0, SZ_4K);
 }
 
 /**
@@ -831,9 +833,12 @@ xe_pt_stage_bind(struct xe_tile *tile, struct xe_vma *vma,
 			return -EAGAIN;
 		}
 		if (xe_svm_range_has_dma_mapping(range)) {
-			xe_res_first_dma(range->pages.dma_addr, 0,
-					 xe_svm_range_size(range),
-					 &curs);
+			const struct drm_pagemap_addr *addr;
+			bool contiguous;
+
+			addr = xe_svm_range_first_dma(range, &contiguous);
+			xe_res_first_dma(addr, 0, xe_svm_range_size(range),
+					 contiguous, &curs);
 			xe_svm_range_debug(range, "BIND PREPARE - MIXED");
 		} else {
 			xe_assert(xe, false);
@@ -865,10 +870,15 @@ xe_pt_stage_bind(struct xe_tile *tile, struct xe_vma *vma,
 		xe_bo_assert_held(bo);
 
 	if (!xe_vma_is_null(vma) && !range && !is_purged) {
-		if (xe_vma_is_userptr(vma))
-			xe_res_first_dma(to_userptr_vma(vma)->userptr.pages.dma_addr, 0,
-					 xe_vma_size(vma), &curs);
-		else if (xe_bo_is_vram(bo) || xe_bo_is_stolen(bo))
+		if (xe_vma_is_userptr(vma)) {
+			const struct drm_pagemap_addr *addr;
+			bool contiguous;
+
+			addr = drm_gpusvm_pages_first_dma(&to_userptr_vma(vma)->userptr.pages,
+							  &contiguous);
+			xe_res_first_dma(addr, 0, xe_vma_size(vma), contiguous,
+					 &curs);
+		} else if (xe_bo_is_vram(bo) || xe_bo_is_stolen(bo))
 			xe_res_first(bo->ttm.resource, xe_vma_bo_offset(vma),
 				     xe_vma_size(vma), &curs);
 		else
@@ -2414,6 +2424,12 @@ static int op_prepare(struct xe_vm *vm,
 			xa_for_each(&op->prefetch_range.range, i, range) {
 				err = bind_range_prepare(vm, tile, pt_update_ops,
 							 vma, range);
+				/*
+				 * Don't tell user space to retry, rather let
+				 * page faults fixup the pages.
+				 */
+				if (err == -EAGAIN)
+					err = -ENODATA;
 				if (err)
 					return err;
 			}

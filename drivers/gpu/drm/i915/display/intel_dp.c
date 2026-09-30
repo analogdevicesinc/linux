@@ -1274,17 +1274,7 @@ bool intel_dp_can_join(struct intel_dp *intel_dp,
 	if (num_joined_pipes > 1 && !intel_dp_has_joiner(intel_dp))
 		return false;
 
-	switch (num_joined_pipes) {
-	case 1:
-		return true;
-	case 2:
-		return HAS_BIGJOINER(display) ||
-		       HAS_UNCOMPRESSED_JOINER(display);
-	case 4:
-		return HAS_ULTRAJOINER(display);
-	default:
-		return false;
-	}
+	return intel_joiner_valid_primary_pipe_mask(display, num_joined_pipes);
 }
 
 bool intel_dp_dotclk_valid(struct intel_display *display,
@@ -2920,6 +2910,7 @@ intel_dp_compute_link_config(struct intel_encoder *encoder,
 			     struct drm_connector_state *conn_state,
 			     bool respect_downstream_limits)
 {
+	struct intel_display *display = to_intel_display(encoder);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	struct intel_connector *connector =
 		to_intel_connector(conn_state->connector);
@@ -2934,6 +2925,10 @@ intel_dp_compute_link_config(struct intel_encoder *encoder,
 		return -EINVAL;
 
 	for_each_joiner_candidate(connector, adjusted_mode, num_joined_pipes) {
+		/* If the pipe can't be a joiner primary, skip early. */
+		if (!(intel_joiner_valid_primary_pipe_mask(display, num_joined_pipes) & BIT(crtc->pipe)))
+			continue;
+
 		/*
 		 * NOTE:
 		 * The crtc_state->joiner_pipes should have been set at the end
@@ -3125,6 +3120,7 @@ static void intel_dp_compute_as_sdp(struct intel_dp *intel_dp,
 	struct drm_dp_as_sdp *as_sdp = &crtc_state->infoframes.as_sdp;
 	const struct drm_display_mode *adjusted_mode =
 		&crtc_state->hw.adjusted_mode;
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 
 	/*
 	 * #FIXME: SDP/infoframe updates aren’t truly atomic, and with the new
@@ -3142,10 +3138,14 @@ static void intel_dp_compute_as_sdp(struct intel_dp *intel_dp,
 	as_sdp->revision = 0x2;
 	as_sdp->vtotal = intel_vrr_vmin_vtotal(crtc_state);
 
-	if (crtc_state->cmrr.enable) {
+	if (crtc_state->vrr.cmrr.enable) {
 		as_sdp->mode = DP_AS_SDP_FAVT_TRR_REACHED;
 		as_sdp->target_rr = drm_mode_vrefresh(adjusted_mode);
-		as_sdp->target_rr_divider = true;
+
+		if (crtc->force_cmrr.denominator == 1001)
+			as_sdp->target_rr_divider = true;
+		else
+			as_sdp->target_rr_divider = false;
 	} else if (crtc_state->vrr.enable) {
 		as_sdp->mode = DP_AS_SDP_AVT_DYNAMIC_VTOTAL;
 	} else {
@@ -4139,14 +4139,9 @@ static int intel_dp_pcon_set_frl_mask(int max_frl)
 static int intel_dp_hdmi_sink_max_frl(struct intel_dp *intel_dp)
 {
 	struct intel_connector *connector = intel_dp->attached_connector;
-	const struct drm_display_info *info = &connector->base.display_info;
-	int max_frl_rate;
-	int max_lanes, rate_per_lane;
-	int max_dsc_lanes, dsc_rate_per_lane;
-
-	max_lanes = info->hdmi.max_lanes;
-	rate_per_lane = info->hdmi.max_frl_rate_per_lane;
-	max_frl_rate = max_lanes * rate_per_lane;
+	struct drm_connector *drm_connector = &connector->base;
+	int max_frl_rate = intel_hdmi_sink_max_frl_rate(drm_connector);
+	int dsc_max_frl_rate = intel_hdmi_sink_dsc_max_frl_rate(drm_connector);
 
 	/*
 	 * The sink's DSC max FRL rate only applies to compressed video
@@ -4155,12 +4150,8 @@ static int intel_dp_hdmi_sink_max_frl(struct intel_dp *intel_dp)
 	 * the regular max FRL rate is the limit.
 	 */
 	if (drm_dp_pcon_enc_is_dsc_1_2(intel_dp->pcon_dsc_dpcd) &&
-	    info->hdmi.dsc_cap.v_1p2) {
-		max_dsc_lanes = info->hdmi.dsc_cap.max_lanes;
-		dsc_rate_per_lane = info->hdmi.dsc_cap.max_frl_rate_per_lane;
-		if (max_dsc_lanes && dsc_rate_per_lane)
-			max_frl_rate = min(max_frl_rate, max_dsc_lanes * dsc_rate_per_lane);
-	}
+	    dsc_max_frl_rate)
+		return min(max_frl_rate, dsc_max_frl_rate);
 
 	return max_frl_rate;
 }
@@ -4326,7 +4317,9 @@ intel_dp_pcon_dsc_enc_slices(struct intel_dp *intel_dp,
 	int pcon_max_slices = drm_dp_pcon_dsc_max_slices(intel_dp->pcon_dsc_dpcd);
 	int pcon_max_slice_width = drm_dp_pcon_dsc_max_slice_width(intel_dp->pcon_dsc_dpcd);
 
-	return intel_hdmi_dsc_get_num_slices(crtc_state, pcon_max_slices,
+	return intel_hdmi_dsc_get_num_slices(&crtc_state->hw.adjusted_mode,
+					     crtc_state->output_format,
+					     pcon_max_slices,
 					     pcon_max_slice_width,
 					     hdmi_max_slices, hdmi_throughput);
 }
@@ -4343,9 +4336,10 @@ intel_dp_pcon_dsc_enc_bpp(struct intel_dp *intel_dp,
 	int pcon_fractional_bpp = drm_dp_pcon_dsc_bpp_incr(intel_dp->pcon_dsc_dpcd);
 	int hdmi_max_chunk_bytes =
 		info->hdmi.dsc_cap.total_chunk_kbytes * 1024;
+	int bpc = crtc_state->pipe_bpp / 3;
 
 	return intel_hdmi_dsc_get_bpp(pcon_fractional_bpp, slice_width,
-				      num_slices, output_format, hdmi_all_bpp,
+				      num_slices, output_format, bpc, hdmi_all_bpp,
 				      hdmi_max_chunk_bytes);
 }
 

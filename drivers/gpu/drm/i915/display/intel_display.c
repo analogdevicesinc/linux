@@ -60,7 +60,6 @@
 #include "intel_bo.h"
 #include "intel_bw.h"
 #include "intel_cdclk.h"
-#include "intel_clock_gating.h"
 #include "intel_cmtg.h"
 #include "intel_color.h"
 #include "intel_crt.h"
@@ -107,6 +106,7 @@
 #include "intel_modeset_verify.h"
 #include "intel_overlay.h"
 #include "intel_panel.h"
+#include "intel_parent.h"
 #include "intel_pch_display.h"
 #include "intel_pch_refclk.h"
 #include "intel_pfit.h"
@@ -119,7 +119,6 @@
 #include "intel_sdvo.h"
 #include "intel_snps_phy.h"
 #include "intel_tc.h"
-#include "intel_tdf.h"
 #include "intel_tv.h"
 #include "intel_vblank.h"
 #include "intel_vdsc.h"
@@ -191,6 +190,53 @@ is_trans_port_sync_mode(const struct intel_crtc_state *crtc_state)
 {
 	return is_trans_port_sync_master(crtc_state) ||
 		is_trans_port_sync_slave(crtc_state);
+}
+
+/*
+ * Return a bitmask of all the start indices of consecutive bitfields of size
+ * width in mask.
+ */
+static unsigned long find_consecutive_bits(unsigned long mask, int width)
+{
+	unsigned long bit, out_mask = 0;
+
+	if (!width)
+		return 0;
+
+	for_each_set_bit(bit, &mask, BITS_PER_TYPE(mask)) {
+		/* For each set bit, see if the following bits are set also */
+		unsigned long bitfield = GENMASK(bit + width - 1, bit);
+
+		if ((mask & bitfield) == bitfield)
+			out_mask |= BIT(bit);
+	}
+
+	return out_mask;
+}
+
+/*
+ * Return a bitmask of all valid joiner primary pipes for joining
+ * num_joined_pipes pipes. For completeness, return all valid pipes for
+ * num_joined_pipes == 1.
+ *
+ * Return 0 if the platform doesn't support joining for the requested number of
+ * pipes, or there are not enough consecutive pipes available.
+ */
+u8 intel_joiner_valid_primary_pipe_mask(struct intel_display *display, int num_joined_pipes)
+{
+	if (num_joined_pipes == 1) {
+		return DISPLAY_RUNTIME_INFO(display)->pipe_mask;
+	} else if (num_joined_pipes == 2) {
+		if (!HAS_UNCOMPRESSED_JOINER(display) && !HAS_BIGJOINER(display))
+			return 0;
+	} else if (num_joined_pipes == 4) {
+		if (!HAS_ULTRAJOINER(display))
+			return 0;
+	} else {
+		return 0;
+	}
+
+	return find_consecutive_bits(DISPLAY_RUNTIME_INFO(display)->pipe_mask, num_joined_pipes);
 }
 
 static enum pipe joiner_primary_pipe(const struct intel_crtc_state *crtc_state)
@@ -950,8 +996,8 @@ static bool vrr_params_changed(const struct intel_crtc_state *old_crtc_state,
 static bool cmrr_params_changed(const struct intel_crtc_state *old_crtc_state,
 				const struct intel_crtc_state *new_crtc_state)
 {
-	return old_crtc_state->cmrr.cmrr_m != new_crtc_state->cmrr.cmrr_m ||
-		old_crtc_state->cmrr.cmrr_n != new_crtc_state->cmrr.cmrr_n;
+	return old_crtc_state->vrr.cmrr.cmrr_m != new_crtc_state->vrr.cmrr.cmrr_m ||
+		old_crtc_state->vrr.cmrr.cmrr_n != new_crtc_state->vrr.cmrr.cmrr_n;
 }
 
 static bool intel_crtc_vrr_enabling(struct intel_atomic_state *state,
@@ -1817,9 +1863,7 @@ static void hsw_crtc_disable(struct intel_atomic_state *state,
 /* Prefer intel_encoder_is_combo() */
 bool intel_phy_is_combo(struct intel_display *display, enum phy phy)
 {
-	if (phy == PHY_NONE)
-		return false;
-	else if (display->platform.alderlake_s)
+	if (display->platform.alderlake_s)
 		return phy <= PHY_E;
 	else if (display->platform.dg1 || display->platform.rocketlake)
 		return phy <= PHY_D;
@@ -1873,7 +1917,7 @@ bool intel_phy_is_snps(struct intel_display *display, enum phy phy)
 	 * For DG2, and for DG2 only, all four "combo" ports and the TC1 port
 	 * (PHY E) use Synopsis PHYs. See intel_phy_is_tc().
 	 */
-	return display->platform.dg2 && phy > PHY_NONE && phy <= PHY_E;
+	return display->platform.dg2 && phy <= PHY_E;
 }
 
 /* Prefer intel_encoder_to_phy() */
@@ -1889,6 +1933,10 @@ enum phy intel_port_to_phy(struct intel_display *display, enum port port)
 		return PHY_C + port - PORT_TC1;
 	else if ((display->platform.jasperlake || display->platform.elkhartlake) &&
 		 port == PORT_D)
+		return PHY_A;
+
+	if (drm_WARN(display->drm, port < 0,
+		     "PHY is invalid if port < 0 (%d), assuming PHY_A\n", port))
 		return PHY_A;
 
 	return PHY_A + port - PORT_A;
@@ -5536,9 +5584,9 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 		PIPE_CONF_CHECK_I(vrr.flipline);
 		PIPE_CONF_CHECK_I(vrr.vsync_start);
 		PIPE_CONF_CHECK_I(vrr.vsync_end);
-		PIPE_CONF_CHECK_LLI(cmrr.cmrr_m);
-		PIPE_CONF_CHECK_LLI(cmrr.cmrr_n);
-		PIPE_CONF_CHECK_BOOL(cmrr.enable);
+		PIPE_CONF_CHECK_LLI(vrr.cmrr.cmrr_m);
+		PIPE_CONF_CHECK_LLI(vrr.cmrr.cmrr_n);
+		PIPE_CONF_CHECK_BOOL(vrr.cmrr.enable);
 		PIPE_CONF_CHECK_I(vrr.dc_balance.vmin);
 		PIPE_CONF_CHECK_I(vrr.dc_balance.vmax);
 		PIPE_CONF_CHECK_I(vrr.dc_balance.guardband);
@@ -7506,7 +7554,7 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 
 	intel_atomic_commit_fence_wait(state);
 
-	intel_td_flush(display);
+	intel_parent_transient_data_flush(display);
 
 	intel_atomic_prepare_plane_clear_colors(state);
 
@@ -8113,9 +8161,9 @@ static int max_dotclock(struct intel_display *display)
 {
 	int max_dotclock = display->cdclk.max_dotclk_freq;
 
-	if (HAS_ULTRAJOINER(display))
+	if (intel_joiner_valid_primary_pipe_mask(display, 4))
 		max_dotclock *= 4;
-	else if (HAS_UNCOMPRESSED_JOINER(display) || HAS_BIGJOINER(display))
+	else if (intel_joiner_valid_primary_pipe_mask(display, 2))
 		max_dotclock *= 2;
 
 	return max_dotclock;

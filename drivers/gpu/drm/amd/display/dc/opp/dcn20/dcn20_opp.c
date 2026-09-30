@@ -455,6 +455,8 @@ void dcn20_opp_construct(struct dcn20_opp *oppn20,
 	oppn20->base.ctx = ctx;
 	oppn20->base.inst = inst;
 	oppn20->base.funcs = &dcn20_opp_funcs;
+	oppn20->base.mpc_tree_params.opp_id = inst;
+	oppn20->base.mpc_tree_params.opp_list = NULL;
 
 	oppn20->regs = regs;
 	oppn20->opp_shift = opp_shift;

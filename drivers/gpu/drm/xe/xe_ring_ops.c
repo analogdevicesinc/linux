@@ -55,8 +55,8 @@ __emit_aux_table_inv(u32 *cmd, const struct xe_reg reg, u32 adj_offset)
 		 MI_LRI_MMIO_REMAP_EN;
 	*cmd++ = reg.addr + adj_offset;
 	*cmd++ = AUX_INV;
-	*cmd++ = MI_SEMAPHORE_WAIT_TOKEN | MI_SEMAPHORE_REGISTER_POLL |
-		 MI_SEMAPHORE_POLL | MI_SEMAPHORE_SAD_EQ_SDD;
+	*cmd++ = MI_SEMAPHORE_WAIT | MI_SEMW_REGISTER_POLL |
+		 MI_SEMW_POLL | MI_SEMW_COMPARE(SAD_EQ_SDD);
 	*cmd++ = 0;
 	*cmd++ = reg.addr + adj_offset;
 	*cmd++ = 0;

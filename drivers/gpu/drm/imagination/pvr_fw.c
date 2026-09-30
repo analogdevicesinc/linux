@@ -945,8 +945,6 @@ pvr_fw_init(struct pvr_device *pvr_dev)
 		[PVR_FW_PROCESSOR_TYPE_RISCV] = &pvr_fw_defs_riscv,
 	};
 
-	u32 kccb_size_log2 = ROGUE_FWIF_KCCB_NUMCMDS_LOG2_DEFAULT;
-	u32 kccb_rtn_size = (1 << kccb_size_log2) * sizeof(*pvr_dev->kccb.rtn);
 	struct pvr_fw_device *fw_dev = &pvr_dev->fw_dev;
 	int err;
 
@@ -981,18 +979,9 @@ pvr_fw_init(struct pvr_device *pvr_dev)
 	if (err)
 		goto err_kccb_fini;
 
-	/* Allocate memory for KCCB return slots. */
-	pvr_dev->kccb.rtn = pvr_fw_object_create_and_map(pvr_dev, kccb_rtn_size,
-							 PVR_BO_FW_FLAGS_DEVICE_UNCACHED,
-							 NULL, NULL, &pvr_dev->kccb.rtn_obj);
-	if (IS_ERR(pvr_dev->kccb.rtn)) {
-		err = PTR_ERR(pvr_dev->kccb.rtn);
-		goto err_fwccb_fini;
-	}
-
 	err = pvr_fw_create_structures(pvr_dev);
 	if (err)
-		goto err_kccb_rtn_release;
+		goto err_fwccb_fini;
 
 	err = pvr_fw_start(pvr_dev);
 	if (err)
@@ -1014,9 +1003,6 @@ err_fw_stop:
 err_destroy_structures:
 	pvr_fw_destroy_structures(pvr_dev);
 
-err_kccb_rtn_release:
-	pvr_fw_object_unmap_and_destroy(pvr_dev->kccb.rtn_obj);
-
 err_fwccb_fini:
 	pvr_ccb_fini(&pvr_dev->fwccb);
 
@@ -1029,8 +1015,7 @@ err_fw_cleanup:
 err_mm_takedown:
 	drm_mm_takedown(&fw_dev->fw_mm);
 
-	if (fw_dev->defs->fini)
-		fw_dev->defs->fini(pvr_dev);
+	fw_dev->defs->fini(pvr_dev);
 
 	return err;
 }
@@ -1047,7 +1032,6 @@ pvr_fw_fini(struct pvr_device *pvr_dev)
 	WRITE_ONCE(fw_dev->initialised, false);
 
 	pvr_fw_destroy_structures(pvr_dev);
-	pvr_fw_object_unmap_and_destroy(pvr_dev->kccb.rtn_obj);
 
 	/*
 	 * Ensure FWCCB worker has finished executing before destroying FWCCB. The IRQ handler has
@@ -1063,8 +1047,7 @@ pvr_fw_fini(struct pvr_device *pvr_dev)
 
 	drm_mm_takedown(&fw_dev->fw_mm);
 
-	if (fw_dev->defs->fini)
-		fw_dev->defs->fini(pvr_dev);
+	fw_dev->defs->fini(pvr_dev);
 }
 
 /**

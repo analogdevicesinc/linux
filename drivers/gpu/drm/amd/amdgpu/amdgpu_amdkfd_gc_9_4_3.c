@@ -20,6 +20,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 #include "amdgpu.h"
+#include "amdgpu_ip.h"
 #include "amdgpu_amdkfd.h"
 #include "amdgpu_amdkfd_gfx_v9.h"
 #include "amdgpu_amdkfd_aldebaran.h"

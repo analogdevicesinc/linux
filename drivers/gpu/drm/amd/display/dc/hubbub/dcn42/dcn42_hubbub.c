@@ -431,13 +431,6 @@ static void hubbub42_allow_self_refresh_control(struct hubbub *hubbub, bool allo
 			DCHUBBUB_ARB_ALLOW_SELF_REFRESH_FORCE_VALUE, 0,
 			DCHUBBUB_ARB_ALLOW_SELF_REFRESH_FORCE_ENABLE, !allow);
 }
-static void hubbub42_set_sdp_control(struct hubbub *hubbub, bool dc_control)
-{
-	struct dcn20_hubbub *hubbub2 = TO_DCN20_HUBBUB(hubbub);
-
-	REG_UPDATE(DCHUBBUB_SDPIF_CFG0,
-			SDPIF_PORT_CONTROL, dc_control);
-}
 
 static bool hubbub42_program_watermarks(
 		struct hubbub *hubbub,
@@ -449,9 +442,8 @@ static bool hubbub42_program_watermarks(
 	struct dcn20_hubbub *hubbub2 = TO_DCN20_HUBBUB(hubbub);
 
 	if (!safe_to_lower && hubbub->ctx->dc->debug.disable_stutter_for_wm_program) {
-		/* before raising watermarks, SDP control give to DF, stutter must be disabled */
+		/* before raising watermarks, stutter must be disabled */
 		wm_pending = true;
-		hubbub42_set_sdp_control(hubbub, false);
 		hubbub42_allow_self_refresh_control(hubbub, false);
 	}
 	if (hubbub42_program_urgent_watermarks(hubbub, watermarks, safe_to_lower))
@@ -478,9 +470,6 @@ static bool hubbub42_program_watermarks(
 
 	if (safe_to_lower || hubbub->ctx->dc->debug.disable_stutter)
 		hubbub42_allow_self_refresh_control(hubbub, !hubbub->ctx->dc->debug.disable_stutter);
-	if (safe_to_lower && hubbub->ctx->dc->debug.disable_stutter_for_wm_program) {
-		hubbub42_set_sdp_control(hubbub, true);
-	}
 	hubbub32_force_usr_retraining_allow(hubbub, hubbub->ctx->dc->debug.force_usr_allow);
 
 	return wm_pending;
@@ -566,6 +555,8 @@ void hubbub42_construct(struct dcn20_hubbub *hubbub2,
 	int config_return_buffer_size_kb)
 {
 	hubbub2->base.ctx = ctx;
+
+	hubbub2->base.inst = 0;
 	hubbub2->base.funcs = &hubbub42_funcs;
 	hubbub2->regs = hubbub_regs;
 	hubbub2->shifts = hubbub_shift;

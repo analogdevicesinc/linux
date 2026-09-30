@@ -452,8 +452,7 @@ static int vidi_bind(struct device *dev, struct device *master, void *data)
 	ret = drm_encoder_init(drm_dev, encoder, &exynos_vidi_encoder_funcs,
 			       DRM_MODE_ENCODER_TMDS, NULL);
 	if (ret) {
-		DRM_DEV_ERROR(dev, "failed to initialize encoder ret = %d\n",
-			      ret);
+		drm_err(drm_dev, "failed to initialize encoder ret = %d\n", ret);
 		return ret;
 	}
 

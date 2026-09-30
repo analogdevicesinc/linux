@@ -1076,7 +1076,6 @@ static int mcde_dsi_bind(struct device *dev, struct device *master,
 	struct drm_device *drm = data;
 	struct mcde *mcde = to_mcde(drm);
 	struct mcde_dsi *d = dev_get_drvdata(dev);
-	struct device_node *child;
 	struct drm_panel *panel = NULL;
 	struct drm_bridge *bridge __free(drm_bridge_put) = NULL;
 
@@ -1104,7 +1103,7 @@ static int mcde_dsi_bind(struct device *dev, struct device *master,
 	}
 
 	/* Look for a panel as a child to this node */
-	for_each_available_child_of_node(dev->of_node, child) {
+	for_each_available_child_of_node_scoped(dev->of_node, child) {
 		panel = of_drm_find_panel(child);
 		if (IS_ERR(panel)) {
 			dev_err(dev, "failed to find panel try bridge (%ld)\n",
@@ -1114,15 +1113,12 @@ static int mcde_dsi_bind(struct device *dev, struct device *master,
 			bridge = of_drm_find_and_get_bridge(child);
 			if (!bridge) {
 				dev_err(dev, "failed to find bridge\n");
-				of_node_put(child);
 				return -EINVAL;
 			}
 		}
 
-		if (panel || bridge) {
-			of_node_put(child);
+		if (panel || bridge)
 			break;
-		}
 	}
 	if (panel) {
 		bridge = drm_panel_bridge_add_typed(panel,

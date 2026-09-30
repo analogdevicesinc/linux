@@ -201,6 +201,8 @@ struct device_queue_manager_ops {
 				  void *ctl_stack);
 	void	(*set_perfcount)(struct device_queue_manager *dqm,
 				  int enable);
+	int (*clean_process_queues_cpsch)(struct device_queue_manager *dqm,
+				    struct qcm_process_device *qpd);
 };
 
 struct device_queue_manager_asic_ops {
@@ -281,6 +283,7 @@ struct device_queue_manager {
 	uint32_t		wait_times;
 
 	wait_queue_head_t	destroy_wait;
+	struct delayed_work	notify_unmap_work;
 
 	/* for per-queue reset support */
 	struct dqm_detect_hang_info *detect_hang_info;

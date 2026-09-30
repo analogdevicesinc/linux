@@ -36,6 +36,7 @@
 #include "amdgpu_rap.h"
 #include "amdgpu_securedisplay.h"
 #include "amdgpu_fw_attestation.h"
+#include "amdgpu_sdma.h"
 #include "amdgpu_umr.h"
 
 #include "amdgpu_reset.h"
@@ -2230,6 +2231,20 @@ int amdgpu_debugfs_init(struct amdgpu_device *adev)
 			    &amdgpu_debugfs_vm_info_fops);
 	debugfs_create_file("amdgpu_benchmark", 0200, root, adev,
 			    &amdgpu_benchmark_fops);
+
+	/* Debug-only: bitmap of incoming UALink protocol messages to drop.
+	 * Each bit position corresponds to an enum AMDGPU_UALINK_PROTOCOL_MESSAGES
+	 * value. Setting a bit causes exactly one matching incoming packet to be
+	 * dropped, after which the bit auto-clears and traffic resumes. Used to
+	 * exercise the connection reset paths.
+	 *
+	 * Examples (drop one NPA-REQ):
+	 *   echo 0x8  > /sys/kernel/debug/dri/0/amdgpu_ualink_drop_msg_bitmap
+	 * (drop one NPA-RSP):
+	 *   echo 0x10 > /sys/kernel/debug/dri/0/amdgpu_ualink_drop_msg_bitmap
+	 */
+	debugfs_create_ulong("amdgpu_ualink_drop_msg_bitmap", 0600, root,
+			     &adev->ualink.drop_msg_bitmap);
 
 	adev->debugfs_vbios_blob.data = adev->bios;
 	adev->debugfs_vbios_blob.size = adev->bios_size;

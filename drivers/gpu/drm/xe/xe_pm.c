@@ -905,6 +905,11 @@ static bool xe_pm_suspending_or_resuming(struct xe_device *xe)
  * break scope-based handling, or when the lifetime of the runtime PM reference
  * does not match a specific scope (e.g., runtime PM obtained in one function
  * and released in a different one).
+ *
+ * This helper assumes the caller already holds a runtime PM reference and
+ * only warns when it cannot see one. After hot-unplug runtime PM is disabled
+ * and the check fails even when a reference is held, so callers that may run
+ * after unplug must guard it with drm_dev_enter()/drm_dev_exit() instead.
  */
 void xe_pm_runtime_get_noresume(struct xe_device *xe)
 {
@@ -1023,6 +1028,24 @@ void xe_pm_d3cold_allowed_toggle(struct xe_device *xe)
 		xe->d3cold.allowed = false;
 
 	mutex_unlock(&xe->d3cold.lock);
+}
+
+/**
+ * xe_pm_wait_all_c6() - Wait for all GTs to enter C6.
+ * @xe: xe device instance
+ *
+ * Return: 0 on success, -EAGAIN on failure
+ */
+int xe_pm_wait_all_c6(struct xe_device *xe)
+{
+	struct xe_gt *gt;
+	u8 id;
+
+	for_each_gt(gt, xe, id)
+		if (xe_gt_idle_wait_for_c6(gt, 200))
+			return -EAGAIN;
+
+	return 0;
 }
 
 /**

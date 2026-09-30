@@ -240,14 +240,20 @@ static int mes_v12_0_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 	if (r < 1 || !(lower_32_bits(*status_ptr))) {
 
 		if (misc_op_str)
-			dev_err(adev->dev, "MES(%d) failed to respond to msg=%s (%s)\n",
-				pipe, op_str, misc_op_str);
+			dev_err(adev->dev,
+				"MES(%d) failed to respond to msg=%s (%s) fence_wait_ret=%ld status=0x%x_%x\n",
+				pipe, op_str, misc_op_str, r,
+				upper_32_bits(*status_ptr), lower_32_bits(*status_ptr));
 		else if (op_str)
-			dev_err(adev->dev, "MES(%d) failed to respond to msg=%s\n",
-				pipe, op_str);
+			dev_err(adev->dev,
+				"MES(%d) failed to respond to msg=%s fence_wait_ret=%ld status=0x%x_%x\n",
+				pipe, op_str, r,
+				upper_32_bits(*status_ptr), lower_32_bits(*status_ptr));
 		else
-			dev_err(adev->dev, "MES(%d) failed to respond to msg=%d\n",
-				pipe, x_pkt->header.opcode);
+			dev_err(adev->dev,
+				"MES(%d) failed to respond to msg=%d fence_wait_ret=%ld status=0x%x_%x\n",
+				pipe, x_pkt->header.opcode, r,
+				upper_32_bits(*status_ptr), lower_32_bits(*status_ptr));
 
 		while (halt_if_hws_hang)
 			schedule();
@@ -1306,6 +1312,17 @@ static void mes_v12_0_enable(struct amdgpu_device *adev, bool enable)
 	uint32_t pipe, data = 0;
 
 	if (enable) {
+		/*
+		 * The event-log/MSCRATCH region is only zeroed once at sw_init.
+		 * On the resume path (hw_init without sw_init) it still holds the
+		 * previous session's data, so the MES firmware walks stale
+		 * pointers on activation and triggers a CPC page fault. Re-clear
+		 * it before unhalting MES.
+		 */
+		if (amdgpu_mes_log_enable && adev->mes.event_log_cpu_addr)
+			memset(adev->mes.event_log_cpu_addr, 0,
+			       adev->mes.event_log_size);
+
 		mutex_lock(&adev->srbm_mutex);
 		for (pipe = 0; pipe < AMDGPU_MAX_MES_PIPES; pipe++) {
 			soc24_grbm_select(adev, 3, pipe, 0, 0);
