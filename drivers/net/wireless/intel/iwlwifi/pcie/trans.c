@@ -28,7 +28,7 @@
 #include "mei/iwl-mei.h"
 #include "internal.h"
 #include "iwl-fh.h"
-#include "pcie/iwl-context-info-v2.h"
+#include "iwl-context-info-v2.h"
 #include "pcie/utils.h"
 
 #define IWL_HOST_MON_BLOCK_PEMON	0x00
@@ -1903,7 +1903,7 @@ void iwl_trans_pcie_write_prph(struct iwl_trans *trans, u32 addr, u32 val)
 	iwl_trans_pcie_write32(trans, HBUS_TARG_PRPH_WDAT, val);
 }
 
-void iwl_pcie_gen1_2_op_mode_enter(struct iwl_trans *trans)
+void iwl_trans_pcie_op_mode_enter(struct iwl_trans *trans)
 {
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
 
@@ -2402,10 +2402,10 @@ bool _iwl_trans_pcie_grab_nic_access(struct iwl_trans *trans, bool silent)
 
 out:
 	/*
-	 * Fool sparse by faking we release the lock - sparse will
-	 * track nic_access anyway.
+	 * Deliberately return with reg_lock held; the caller must drop it via
+	 * iwl_trans_pcie_release_nic_access(), or explicitly if it wants to
+	 * keep the NIC awake past the critical section (cmd_hold_nic_awake).
 	 */
-	__release(&trans_pcie->reg_lock);
 	return true;
 }
 
@@ -2427,23 +2427,18 @@ void iwl_trans_pcie_resched_with_nic_access(struct iwl_trans *trans)
 {
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
 
+	lockdep_assert_held(&trans_pcie->reg_lock);
+
 	spin_unlock_bh(&trans_pcie->reg_lock);
 	cond_resched();
 	spin_lock_bh(&trans_pcie->reg_lock);
 }
 
-void __releases(nic_access_nobh)
-iwl_trans_pcie_release_nic_access(struct iwl_trans *trans)
+void iwl_trans_pcie_release_nic_access(struct iwl_trans *trans)
 {
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
 
 	lockdep_assert_held(&trans_pcie->reg_lock);
-
-	/*
-	 * Fool sparse by faking we acquiring the lock - sparse will
-	 * track nic_access anyway.
-	 */
-	__acquire(&trans_pcie->reg_lock);
 
 	if (trans_pcie->cmd_hold_nic_awake)
 		goto out;
@@ -2460,7 +2455,6 @@ iwl_trans_pcie_release_nic_access(struct iwl_trans *trans)
 	 * scheduled on different CPUs (after we drop reg_lock).
 	 */
 out:
-	__release(nic_access_nobh);
 	spin_unlock_bh(&trans_pcie->reg_lock);
 }
 
@@ -3016,24 +3010,6 @@ static ssize_t iwl_dbgfs_csr_write(struct file *file,
 	return count;
 }
 
-static ssize_t iwl_dbgfs_fh_reg_read(struct file *file,
-				     char __user *user_buf,
-				     size_t count, loff_t *ppos)
-{
-	struct iwl_trans *trans = file->private_data;
-	char *buf = NULL;
-	ssize_t ret;
-
-	ret = iwl_dump_fh(trans, &buf);
-	if (ret < 0)
-		return ret;
-	if (!buf)
-		return -EINVAL;
-	ret = simple_read_from_buffer(user_buf, count, ppos, buf, ret);
-	kfree(buf);
-	return ret;
-}
-
 static ssize_t iwl_dbgfs_rfkill_read(struct file *file,
 				     char __user *user_buf,
 				     size_t count, loff_t *ppos)
@@ -3071,137 +3047,6 @@ static ssize_t iwl_dbgfs_rfkill_write(struct file *file,
 	iwl_pcie_handle_rfkill_irq(trans, false);
 
 	return count;
-}
-
-static int iwl_dbgfs_monitor_data_open(struct inode *inode,
-				       struct file *file)
-{
-	struct iwl_trans *trans = inode->i_private;
-	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
-
-	if (!trans->dbg.dest_tlv ||
-	    trans->dbg.dest_tlv->monitor_mode != EXTERNAL_MODE) {
-		IWL_ERR(trans, "Debug destination is not set to DRAM\n");
-		return -ENOENT;
-	}
-
-	if (trans_pcie->fw_mon_data.state != IWL_FW_MON_DBGFS_STATE_CLOSED)
-		return -EBUSY;
-
-	trans_pcie->fw_mon_data.state = IWL_FW_MON_DBGFS_STATE_OPEN;
-	return simple_open(inode, file);
-}
-
-static int iwl_dbgfs_monitor_data_release(struct inode *inode,
-					  struct file *file)
-{
-	struct iwl_trans_pcie *trans_pcie =
-		IWL_TRANS_GET_PCIE_TRANS(inode->i_private);
-
-	if (trans_pcie->fw_mon_data.state == IWL_FW_MON_DBGFS_STATE_OPEN)
-		trans_pcie->fw_mon_data.state = IWL_FW_MON_DBGFS_STATE_CLOSED;
-	return 0;
-}
-
-static bool iwl_write_to_user_buf(char __user *user_buf, ssize_t count,
-				  void *buf, ssize_t *size,
-				  ssize_t *bytes_copied)
-{
-	ssize_t buf_size_left = count - *bytes_copied;
-
-	buf_size_left = buf_size_left - (buf_size_left % sizeof(u32));
-	if (*size > buf_size_left)
-		*size = buf_size_left;
-
-	*size -= copy_to_user(user_buf, buf, *size);
-	*bytes_copied += *size;
-
-	if (buf_size_left == *size)
-		return true;
-	return false;
-}
-
-static ssize_t iwl_dbgfs_monitor_data_read(struct file *file,
-					   char __user *user_buf,
-					   size_t count, loff_t *ppos)
-{
-	struct iwl_trans *trans = file->private_data;
-	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
-	u8 *cpu_addr = (void *)trans->dbg.fw_mon.block, *curr_buf;
-	struct cont_rec *data = &trans_pcie->fw_mon_data;
-	u32 write_ptr_addr, wrap_cnt_addr, write_ptr, wrap_cnt;
-	ssize_t size, bytes_copied = 0;
-	bool b_full;
-
-	if (trans->dbg.dest_tlv) {
-		write_ptr_addr =
-			le32_to_cpu(trans->dbg.dest_tlv->write_ptr_reg);
-		wrap_cnt_addr = le32_to_cpu(trans->dbg.dest_tlv->wrap_count);
-	} else {
-		write_ptr_addr = MON_BUFF_WRPTR;
-		wrap_cnt_addr = MON_BUFF_CYCLE_CNT;
-	}
-
-	if (unlikely(!trans->dbg.rec_on))
-		return 0;
-
-	mutex_lock(&data->mutex);
-	if (data->state ==
-	    IWL_FW_MON_DBGFS_STATE_DISABLED) {
-		mutex_unlock(&data->mutex);
-		return 0;
-	}
-
-	/* write_ptr position in bytes rather then DW */
-	write_ptr = iwl_read_prph(trans, write_ptr_addr) * sizeof(u32);
-	wrap_cnt = iwl_read_prph(trans, wrap_cnt_addr);
-
-	if (data->prev_wrap_cnt == wrap_cnt) {
-		size = write_ptr - data->prev_wr_ptr;
-		curr_buf = cpu_addr + data->prev_wr_ptr;
-		b_full = iwl_write_to_user_buf(user_buf, count,
-					       curr_buf, &size,
-					       &bytes_copied);
-		data->prev_wr_ptr += size;
-
-	} else if (data->prev_wrap_cnt == wrap_cnt - 1 &&
-		   write_ptr < data->prev_wr_ptr) {
-		size = trans->dbg.fw_mon.size - data->prev_wr_ptr;
-		curr_buf = cpu_addr + data->prev_wr_ptr;
-		b_full = iwl_write_to_user_buf(user_buf, count,
-					       curr_buf, &size,
-					       &bytes_copied);
-		data->prev_wr_ptr += size;
-
-		if (!b_full) {
-			size = write_ptr;
-			b_full = iwl_write_to_user_buf(user_buf, count,
-						       cpu_addr, &size,
-						       &bytes_copied);
-			data->prev_wr_ptr = size;
-			data->prev_wrap_cnt++;
-		}
-	} else {
-		if (data->prev_wrap_cnt == wrap_cnt - 1 &&
-		    write_ptr > data->prev_wr_ptr)
-			IWL_WARN(trans,
-				 "write pointer passed previous write pointer, start copying from the beginning\n");
-		else if (!unlikely(data->prev_wrap_cnt == 0 &&
-				   data->prev_wr_ptr == 0))
-			IWL_WARN(trans,
-				 "monitor data is out of sync, start copying from the beginning\n");
-
-		size = write_ptr;
-		b_full = iwl_write_to_user_buf(user_buf, count,
-					       cpu_addr, &size,
-					       &bytes_copied);
-		data->prev_wr_ptr = size;
-		data->prev_wrap_cnt = wrap_cnt;
-	}
-
-	mutex_unlock(&data->mutex);
-
-	return bytes_copied;
 }
 
 static ssize_t iwl_dbgfs_rf_read(struct file *file,
@@ -3264,7 +3109,6 @@ static ssize_t iwl_dbgfs_reset_write(struct file *file,
 }
 
 DEBUGFS_READ_WRITE_FILE_OPS(interrupt);
-DEBUGFS_READ_FILE_OPS(fh_reg);
 DEBUGFS_READ_FILE_OPS(rx_queue);
 DEBUGFS_WRITE_FILE_OPS(csr);
 DEBUGFS_READ_WRITE_FILE_OPS(rfkill);
@@ -3279,12 +3123,6 @@ static const struct file_operations iwl_dbgfs_tx_queue_ops = {
 	.release = seq_release_private,
 };
 
-static const struct file_operations iwl_dbgfs_monitor_data_ops = {
-	.read = iwl_dbgfs_monitor_data_read,
-	.open = iwl_dbgfs_monitor_data_open,
-	.release = iwl_dbgfs_monitor_data_release,
-};
-
 /* Create the debugfs files and directories */
 void iwl_trans_pcie_dbgfs_register(struct iwl_trans *trans)
 {
@@ -3294,21 +3132,9 @@ void iwl_trans_pcie_dbgfs_register(struct iwl_trans *trans)
 	DEBUGFS_ADD_FILE(tx_queue, dir, 0400);
 	DEBUGFS_ADD_FILE(interrupt, dir, 0600);
 	DEBUGFS_ADD_FILE(csr, dir, 0200);
-	DEBUGFS_ADD_FILE(fh_reg, dir, 0400);
 	DEBUGFS_ADD_FILE(rfkill, dir, 0600);
-	DEBUGFS_ADD_FILE(monitor_data, dir, 0400);
 	DEBUGFS_ADD_FILE(rf, dir, 0400);
 	DEBUGFS_ADD_FILE(reset, dir, 0200);
-}
-
-void iwl_trans_pcie_debugfs_cleanup(struct iwl_trans *trans)
-{
-	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
-	struct cont_rec *data = &trans_pcie->fw_mon_data;
-
-	mutex_lock(&data->mutex);
-	data->state = IWL_FW_MON_DBGFS_STATE_DISABLED;
-	mutex_unlock(&data->mutex);
 }
 #endif /*CONFIG_IWLWIFI_DEBUGFS */
 
@@ -3742,8 +3568,10 @@ void iwl_trans_pci_interrupts(struct iwl_trans *trans, bool enable)
 
 void iwl_trans_pcie_sync_nmi(struct iwl_trans *trans)
 {
-	u32 inta_addr, sw_err_bit;
+	bool interrupts_enabled = test_bit(STATUS_INT_ENABLED, &trans->status);
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
+	unsigned long timeout = jiffies + IWL_TRANS_NMI_TIMEOUT;
+	u32 inta_addr, sw_err_bit;
 
 	if (trans_pcie->msix_enabled) {
 		inta_addr = CSR_MSIX_HW_INT_CAUSES_AD;
@@ -3756,7 +3584,34 @@ void iwl_trans_pcie_sync_nmi(struct iwl_trans *trans)
 		sw_err_bit = CSR_INT_BIT_SW_ERR;
 	}
 
-	iwl_trans_sync_nmi_with_addr(trans, inta_addr, sw_err_bit);
+	/* if the interrupts were already disabled, there is no point in
+	 * calling iwl_disable_interrupts
+	 */
+	if (interrupts_enabled)
+		iwl_trans_pci_interrupts(trans, false);
+
+	iwl_trans_force_nmi(trans);
+	while (time_after(timeout, jiffies)) {
+		u32 inta_hw = iwl_read32(trans, inta_addr);
+
+		/* Error detected by uCode */
+		if (inta_hw & sw_err_bit) {
+			/* Clear causes register */
+			iwl_write32(trans, inta_addr, inta_hw & sw_err_bit);
+			break;
+		}
+
+		mdelay(1);
+	}
+
+	/* enable interrupts only if there were already enabled before this
+	 * function to avoid a case were the driver enable interrupts before
+	 * proper configurations were made
+	 */
+	if (interrupts_enabled)
+		iwl_trans_pci_interrupts(trans, true);
+
+	iwl_trans_fw_error(trans, IWL_ERR_TYPE_NMI_FORCED);
 }
 
 static int iwl_trans_pcie_alloc_txcmd_pool(struct iwl_trans *trans)
@@ -3973,11 +3828,6 @@ iwl_trans_pcie_alloc(struct pci_dev *pdev,
 			goto out_free_ict;
 		}
 	 }
-
-#ifdef CONFIG_IWLWIFI_DEBUGFS
-	trans_pcie->fw_mon_data.state = IWL_FW_MON_DBGFS_STATE_CLOSED;
-	mutex_init(&trans_pcie->fw_mon_data.mutex);
-#endif
 
 	iwl_dbg_tlv_init(trans);
 
@@ -4229,10 +4079,9 @@ static void iwl_pcie_check_me_status(struct iwl_trans *trans)
 	schedule_delayed_work(&trans_pcie->me_recheck_wk, HZ);
 }
 
-int iwl_pci_gen1_2_probe(struct pci_dev *pdev,
-			 const struct pci_device_id *ent,
-			 const struct iwl_mac_cfg *mac_cfg,
-			 u8 __iomem *hw_base, u32 hw_rev)
+int _iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent,
+		   const struct iwl_mac_cfg *mac_cfg,
+		   u8 __iomem *hw_base, u32 hw_rev)
 {
 	const struct iwl_dev_info *dev_info;
 	struct iwl_trans_info info = {
@@ -4382,18 +4231,7 @@ out_free_trans:
 	return ret;
 }
 
-void iwl_pcie_gen1_2_remove(struct iwl_trans *trans)
-{
-	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
-
-	cancel_delayed_work_sync(&trans_pcie->me_recheck_wk);
-
-	iwl_drv_stop(trans->drv);
-
-	iwl_trans_pcie_free(trans);
-}
-
-int iwl_pcie_gen1_2_activate_nic(struct iwl_trans *trans)
+int iwl_pcie_activate_nic(struct iwl_trans *trans)
 {
 	const struct iwl_mac_cfg *mac_cfg = trans->mac_cfg;
 	u32 poll_ready;

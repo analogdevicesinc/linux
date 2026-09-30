@@ -10,9 +10,10 @@
 
 #include "iwl-trans.h"
 #include "iwl-drv.h"
+#include "iwl-prph.h"
 #include <linux/dmapool.h>
 #include "fw/api/commands.h"
-#include "pcie/gen1_2/internal.h"
+#include "pcie/internal.h"
 #include "pcie/iwl-context-info-v2.h"
 
 struct iwl_trans_dev_restart_data {
@@ -333,14 +334,14 @@ IWL_EXPORT_SYMBOL(iwl_trans_send_cmd);
 
 struct iwl_device_tx_cmd *iwl_trans_alloc_tx_cmd(struct iwl_trans *trans)
 {
-	return iwl_pcie_gen1_2_alloc_tx_cmd(trans);
+	return iwl_pcie_alloc_tx_cmd(trans);
 }
 IWL_EXPORT_SYMBOL(iwl_trans_alloc_tx_cmd);
 
 void iwl_trans_free_tx_cmd(struct iwl_trans *trans,
 			   struct iwl_device_tx_cmd *dev_cmd)
 {
-	iwl_pcie_gen1_2_free_tx_cmd(trans, dev_cmd);
+	iwl_pcie_free_tx_cmd(trans, dev_cmd);
 }
 IWL_EXPORT_SYMBOL(iwl_trans_free_tx_cmd);
 
@@ -395,7 +396,7 @@ void iwl_trans_op_mode_enter(struct iwl_trans *trans,
 
 	WARN_ON_ONCE(!trans->conf.rx_mpdu_cmd);
 
-	iwl_pcie_gen1_2_op_mode_enter(trans);
+	iwl_trans_pcie_op_mode_enter(trans);
 }
 IWL_EXPORT_SYMBOL(iwl_trans_op_mode_enter);
 
@@ -451,6 +452,23 @@ void iwl_trans_write_prph(struct iwl_trans *trans, u32 ofs, u32 val)
 {
 	return iwl_trans_pcie_write_prph(trans, ofs, val);
 }
+
+void iwl_trans_force_nmi(struct iwl_trans *trans)
+{
+	if (trans->mac_cfg->device_family < IWL_DEVICE_FAMILY_9000)
+		iwl_write_prph_delay(trans, DEVICE_SET_NMI_REG,
+				     DEVICE_SET_NMI_VAL_DRV, 1);
+	else if (trans->mac_cfg->device_family < IWL_DEVICE_FAMILY_AX210)
+		iwl_write_umac_prph(trans, UREG_NIC_SET_NMI_DRIVER,
+				    UREG_NIC_SET_NMI_DRIVER_NMI_FROM_DRIVER);
+	else if (trans->mac_cfg->device_family < IWL_DEVICE_FAMILY_BZ)
+		iwl_write_umac_prph(trans, UREG_DOORBELL_TO_ISR6,
+				    UREG_DOORBELL_TO_ISR6_NMI_BIT);
+	else
+		iwl_write32(trans, CSR_DOORBELL_VECTOR,
+			    UREG_DOORBELL_TO_ISR6_NMI_BIT);
+}
+IWL_EXPORT_SYMBOL(iwl_trans_force_nmi);
 
 int iwl_trans_read_mem(struct iwl_trans *trans, u32 addr,
 		       void *buf, int dwords)
@@ -523,11 +541,6 @@ int iwl_trans_d3_resume(struct iwl_trans *trans, bool reset)
 }
 IWL_EXPORT_SYMBOL(iwl_trans_d3_resume);
 
-void iwl_trans_interrupts(struct iwl_trans *trans, bool enable)
-{
-	iwl_trans_pci_interrupts(trans, enable);
-}
-
 void iwl_trans_sync_nmi(struct iwl_trans *trans)
 {
 	iwl_trans_pcie_sync_nmi(trans);
@@ -563,8 +576,7 @@ void iwl_trans_resched_with_nic_access(struct iwl_trans *trans)
 	iwl_trans_pcie_resched_with_nic_access(trans);
 }
 
-void __releases(nic_access)
-iwl_trans_release_nic_access(struct iwl_trans *trans)
+void iwl_trans_release_nic_access(struct iwl_trans *trans)
 {
 	iwl_trans_pcie_release_nic_access(trans);
 }
@@ -746,13 +758,6 @@ void iwl_trans_txq_set_shared_mode(struct iwl_trans *trans,
 }
 IWL_EXPORT_SYMBOL(iwl_trans_txq_set_shared_mode);
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
-void iwl_trans_debugfs_cleanup(struct iwl_trans *trans)
-{
-	iwl_trans_pcie_debugfs_cleanup(trans);
-}
-#endif
-
 void iwl_trans_set_q_ptrs(struct iwl_trans *trans, int queue, int ptr)
 {
 	if (WARN_ONCE(trans->state != IWL_TRANS_FW_ALIVE,
@@ -828,13 +833,13 @@ IWL_EXPORT_SYMBOL(iwl_trans_is_pm_supported);
 
 bool iwl_trans_is_ltr_enabled(struct iwl_trans *trans)
 {
-	return iwl_pcie_gen1_2_is_ltr_enabled(trans);
+	return iwl_pcie_is_ltr_enabled(trans);
 }
 IWL_EXPORT_SYMBOL(iwl_trans_is_ltr_enabled);
 
 int iwl_trans_activate_nic(struct iwl_trans *trans)
 {
-	return iwl_pcie_gen1_2_activate_nic(trans);
+	return iwl_pcie_activate_nic(trans);
 }
 IWL_EXPORT_SYMBOL(iwl_trans_activate_nic);
 

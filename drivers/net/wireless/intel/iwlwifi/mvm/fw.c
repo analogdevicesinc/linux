@@ -911,7 +911,8 @@ int iwl_mvm_sar_select_profile(struct iwl_mvm *mvm, int prof_a, int prof_b)
 
 	ret = iwl_sar_fill_profile(&mvm->fwrt, per_chain,
 				   IWL_NUM_CHAIN_TABLES,
-				   n_subbands, prof_a, prof_b);
+				   n_subbands, prof_a, prof_b,
+				   mvm->fwrt.sar_profiles, false);
 
 	/* return on error or if the profile is disabled (positive number) */
 	if (ret)
@@ -1526,7 +1527,7 @@ static void iwl_mvm_send_lari_cfg_extension(struct iwl_mvm *mvm)
 	u32 value;
 	int ret;
 
-	if (iwl_fw_lookup_cmd_ver(mvm->fw, cmd_id, 0) < 1)
+	if (iwl_fw_lookup_cmd_ver(mvm->fw, cmd_id, 0) != 1)
 		return;
 
 	ret = iwl_bios_get_dsm(fwrt, DSM_FUNC_REGULATORY_CONFIG, &value);
@@ -1576,7 +1577,7 @@ void iwl_mvm_get_bios_tables(struct iwl_mvm *mvm)
 {
 	int ret;
 
-	iwl_acpi_get_guid_lock_status(&mvm->fwrt);
+	iwl_bios_get_guid_lock_status(&mvm->fwrt);
 
 	/* read PPAG table */
 	ret = iwl_bios_get_ppag_table(&mvm->fwrt);

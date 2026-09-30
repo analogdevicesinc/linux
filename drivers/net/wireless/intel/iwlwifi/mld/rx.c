@@ -818,7 +818,8 @@ static void iwl_mld_decode_eht_usig_tb(struct iwl_mld_rx_phy_data *phy_data,
 	__le32 usig_a2 = phy_data->ntfy->sigs.eht_tb.usig_a2_eht;
 
 	IWL_MLD_ENC_USIG_VALUE_MASK(usig, usig_a1,
-				    OFDM_RX_FRAME_EHT_USIG1_DISREGARD,
+				    OFDM_RX_FRAME_EHT_USIG1_DISREGARD |
+				    OFDM_RX_FRAME_EHT_USIG1_VALIDATE,
 				    IEEE80211_RADIOTAP_EHT_USIG1_TB_B20_B25_DISREGARD);
 	IWL_MLD_ENC_USIG_VALUE_MASK(usig, usig_a2,
 				    OFDM_RX_FRAME_EHT_PPDU_TYPE,
@@ -2281,7 +2282,7 @@ void iwl_mld_handle_rsc_notif(struct iwl_mld *mld,
 #endif /* CONFIG_PM_SLEEP */
 
 static void iwl_mld_no_data_rx(struct iwl_mld *mld,
-			       struct napi_struct *napi,
+			       struct napi_struct *napi, u8 status,
 			       struct iwl_rx_phy_air_sniffer_ntfy *ntfy)
 {
 	struct ieee80211_rx_status *rx_status;
@@ -2306,7 +2307,7 @@ static void iwl_mld_no_data_rx(struct iwl_mld *mld,
 	/* 0-length PSDU */
 	rx_status->flag |= RX_FLAG_NO_PSDU;
 
-	switch (ntfy->status) {
+	switch (status) {
 	case IWL_SNIF_STAT_PLCP_RX_OK:
 		/* we only get here with sounding PPDUs */
 		rx_status->zero_length_psdu_type =
@@ -2365,11 +2366,9 @@ void iwl_mld_handle_phy_air_sniffer_notif(struct iwl_mld *mld,
 		return;
 
 	/* check if there's an old one to release as errored */
-	if (mld->monitor.phy.valid && !mld->monitor.phy.used) {
-		/* didn't capture data, so override status */
-		mld->monitor.phy.data.status = IWL_SNIF_STAT_AID_NOT_FOR_US;
-		iwl_mld_no_data_rx(mld, napi, &mld->monitor.phy.data);
-	}
+	if (mld->monitor.phy.valid && !mld->monitor.phy.used)
+		iwl_mld_no_data_rx(mld, napi, IWL_SNIF_STAT_AID_NOT_FOR_US,
+				   &mld->monitor.phy.data);
 
 	/* old data is no longer valid now */
 	mld->monitor.phy.valid = false;
@@ -2406,7 +2405,7 @@ void iwl_mld_handle_phy_air_sniffer_notif(struct iwl_mld *mld,
 	}
 
 	if (ntfy->status != IWL_SNIF_STAT_PLCP_RX_OK || is_ndp) {
-		iwl_mld_no_data_rx(mld, napi, ntfy);
+		iwl_mld_no_data_rx(mld, napi, ntfy->status, ntfy);
 		return;
 	}
 

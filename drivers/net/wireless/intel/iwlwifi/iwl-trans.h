@@ -934,10 +934,6 @@ int iwl_trans_read_mem_no_grab(struct iwl_trans *trans, u32 addr,
 int iwl_trans_read_config32(struct iwl_trans *trans, u32 ofs,
 			    u32 *val);
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
-void iwl_trans_debugfs_cleanup(struct iwl_trans *trans);
-#endif
-
 #define iwl_trans_read_mem_bytes(trans, addr, buf, bufsize)	\
 	({							\
 		if (__builtin_constant_p(bufsize))		\
@@ -996,8 +992,7 @@ bool iwl_trans_grab_nic_access(struct iwl_trans *trans);
  */
 void iwl_trans_resched_with_nic_access(struct iwl_trans *trans);
 
-void __releases(nic_access)
-iwl_trans_release_nic_access(struct iwl_trans *trans);
+void iwl_trans_release_nic_access(struct iwl_trans *trans);
 
 static inline void iwl_trans_schedule_reset(struct iwl_trans *trans,
 					    enum iwl_fw_error_type type)
@@ -1059,8 +1054,7 @@ static inline bool iwl_trans_fw_running(struct iwl_trans *trans)
 
 void iwl_trans_sync_nmi(struct iwl_trans *trans);
 
-void iwl_trans_sync_nmi_with_addr(struct iwl_trans *trans, u32 inta_addr,
-				  u32 sw_err_bit);
+void iwl_trans_force_nmi(struct iwl_trans *trans);
 
 int iwl_trans_load_pnvm(struct iwl_trans *trans,
 			const struct iwl_pnvm_image *pnvm_data,
@@ -1081,8 +1075,6 @@ static inline bool iwl_trans_dbg_ini_valid(struct iwl_trans *trans)
 	return trans->dbg.internal_ini_cfg != IWL_INI_CFG_STATE_NOT_LOADED ||
 		trans->dbg.external_ini_cfg != IWL_INI_CFG_STATE_NOT_LOADED;
 }
-
-void iwl_trans_interrupts(struct iwl_trans *trans, bool enable);
 
 int iwl_trans_activate_nic(struct iwl_trans *trans);
 

@@ -12,7 +12,7 @@
 #include "iwl-io.h"
 #include "internal.h"
 #include "iwl-op-mode.h"
-#include "pcie/iwl-context-info-v2.h"
+#include "iwl-context-info-v2.h"
 #include "fw/dbg.h"
 
 /******************************************************************************
@@ -1493,7 +1493,7 @@ static struct iwl_rx_mem_buffer *iwl_pcie_get_rxb(struct iwl_trans *trans,
 
 out_err:
 	WARN(1, "Invalid rxb from HW %u\n", (u32)vid);
-	iwl_force_nmi(trans);
+	iwl_trans_force_nmi(trans);
 	return NULL;
 }
 
@@ -1518,6 +1518,11 @@ restart:
 	 * buffer that the driver may process (last buffer filled by ucode). */
 	r = iwl_get_closed_rb_stts(trans, rxq);
 	i = rxq->read;
+
+	/* Order the read of the write pointer before any read of the
+	 * completion descriptors and of the RB contents it makes visible.
+	 */
+	dma_rmb();
 
 	/* W/A 9000 device step A0 wrap-around bug */
 	r &= (rxq->queue_size - 1);
