@@ -48,6 +48,9 @@
 #define DWCMSHC_ENHANCED_STROBE		BIT(8)
 #define DWCMSHC_EMMC_ATCTRL		0x40
 #define DWCMSHC_AT_STAT			0x44
+/* StarFive JHB100 SoC MSHCCS register */
+#define DWCMSHC_ARWADDR			GENMASK(3, 0)
+#define DWCMSHC_ARWADDR_DEFAULT		4
 /* Tuning and auto-tuning fields in AT_CTRL_R control register */
 #define AT_CTRL_AT_EN			BIT(0) /* autotuning is enabled */
 #define AT_CTRL_CI_SEL			BIT(1) /* interval to drive center phase select */
@@ -184,6 +187,7 @@
 #define PHY_SDCLKDL_DC_INITIAL		0x40 /* initial delay code */
 #define PHY_SDCLKDL_DC_DEFAULT		0x32 /* default delay code */
 #define PHY_SDCLKDL_DC_HS400		0x18 /* delay code for HS400 mode */
+#define PHY_SDCLKDL_DC_JHB100		0x10 /* delay code for StarFive JHB100 */
 
 #define PHY_SMPLDL_CNFG_R		(DWC_MSHC_PTR_PHY_R + 0x20)
 #define PHY_SMPLDL_CNFG_EXTDLY_EN	BIT(0)
@@ -296,6 +300,11 @@ struct k230_priv  {
 	struct regmap *hi_sys_regmap;
 };
 
+struct jhb100_priv {
+	struct clk *cclk_tx;
+	bool cclk_tx_on;
+};
+
 #define DWCMSHC_MAX_OTHER_CLKS 3
 
 struct dwcmshc_priv {
@@ -316,6 +325,7 @@ struct dwcmshc_pltfm_data {
 	const struct sdhci_pltfm_data pdata;
 	const struct cqhci_host_ops *cqhci_host_ops;
 	int (*init)(struct device *dev, struct sdhci_host *host, struct dwcmshc_priv *dwc_priv);
+	void (*deinit)(struct dwcmshc_priv *dwc_priv);
 	void (*postinit)(struct sdhci_host *host, struct dwcmshc_priv *dwc_priv);
 };
 
@@ -2270,6 +2280,155 @@ static const struct dwcmshc_pltfm_data sdhci_dwcmshc_hpe_gsc_pdata = {
 	.init = dwcmshc_hpe_gsc_init,
 };
 
+static int sdhci_jhb100_set_dma_mask(struct sdhci_host *host)
+{
+	struct mmc_host *mmc = host->mmc;
+	struct device *dev = mmc_dev(mmc);
+	int ret;
+
+	/*
+	 * The StarFive JHB100's CMSHC controller only drives 32 DMA address
+	 * bits, the higher DMA address bits [35:32] are supplied by the
+	 * ARWADDR field in the PER1 SYSCON. The 36-bit mask describes this
+	 * hardware capability. As ARWADDR is fixed to 4, the controller can
+	 * only reach [0x400000000 - 0x4ffffffff]. The dma-ranges of the
+	 * parent bus must restrict DMA to this window, so that any address
+	 * outside of it fails to map and is never passed to the hardware.
+	 */
+	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(36));
+	if (ret)
+		dev_err(dev, "Failed to set 36-bit DMA mask.\n");
+
+	return ret;
+}
+
+static void sdhci_jhb100_set_clock(struct sdhci_host *host, unsigned int clock)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct dwcmshc_priv *dwc_priv = sdhci_pltfm_priv(pltfm_host);
+	struct jhb100_priv *priv = dwc_priv->priv;
+
+	/*
+	 * The cclk_tx clock is disabled before sdhci_set_clock(), and then a
+	 * 15us delay is required, This delay is determined by SoC simulation
+	 * and is a special requirement on JHB100 SoC, mainly used to eliminate
+	 * glitches caused by frequency switching.
+	 */
+	if (priv->cclk_tx_on) {
+		clk_disable_unprepare(priv->cclk_tx);
+		priv->cclk_tx_on = false;
+		fsleep(15);
+	}
+
+	sdhci_set_clock(host, clock);
+
+	/* keep cclk_tx gated while the card clock is off, e.g. during suspend */
+	if (!clock)
+		return;
+
+	if (clk_prepare_enable(priv->cclk_tx))
+		dev_err(mmc_dev(host->mmc), "failed to re-enable cclk_tx\n");
+	else
+		priv->cclk_tx_on = true;
+}
+
+static void sdhci_jhb100_set_uhs_signaling(struct sdhci_host *host,
+					   unsigned int timing)
+{
+	dwcmshc_set_uhs_signaling(host, timing);
+	sdhci_writeb(host, 0, PHY_DLLDL_CNFG_R);
+	th1520_sdhci_set_phy(host);
+}
+
+static const struct sdhci_ops starfive_jhb100_ops = {
+	.set_dma_mask		= sdhci_jhb100_set_dma_mask,
+	.set_clock		= sdhci_jhb100_set_clock,
+	.set_uhs_signaling	= sdhci_jhb100_set_uhs_signaling,
+	.set_bus_width		= sdhci_set_bus_width,
+	.reset			= dwcmshc_reset,
+	.get_max_clock		= dwcmshc_get_max_clock,
+	.adma_write_desc	= dwcmshc_adma_write_desc,
+	.irq			= dwcmshc_cqe_irq_handler,
+	.voltage_switch		= dwcmshc_phy_init,
+	.platform_execute_tuning = th1520_execute_tuning,
+};
+
+static int dwcmshc_starfive_jhb100_init(struct device *dev, struct sdhci_host *host,
+					struct dwcmshc_priv *dwc_priv)
+{
+	struct reset_control *reset;
+	struct jhb100_priv *priv;
+	unsigned int reg_offset;
+	struct regmap *syscon;
+	int ret;
+
+	priv = devm_kzalloc(dev, sizeof(struct jhb100_priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
+	syscon = syscon_regmap_lookup_by_phandle_args(dev->of_node,
+						      "starfive,jhb100-per1-syscon",
+						      1, &reg_offset);
+	if (IS_ERR(syscon))
+		return PTR_ERR(syscon);
+
+	/* configure the higher DMA address bits [35:32] */
+	ret = regmap_update_bits(syscon, reg_offset, DWCMSHC_ARWADDR,
+				 DWCMSHC_ARWADDR_DEFAULT);
+	if (ret)
+		return ret;
+
+	reset = devm_reset_control_get_exclusive_deasserted(mmc_dev(host->mmc), NULL);
+	if (IS_ERR(reset))
+		return dev_err_probe(mmc_dev(host->mmc), PTR_ERR(reset),
+				     "Failed to get&deassert reset control\n");
+
+	priv->cclk_tx = devm_clk_get(dev, "cclk_tx");
+	if (IS_ERR(priv->cclk_tx))
+		return dev_err_probe(dev, PTR_ERR(priv->cclk_tx),
+				     "Failed to get cclk_tx clock\n");
+
+	ret = clk_prepare_enable(priv->cclk_tx);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to enable cclk_tx clock\n");
+
+	priv->cclk_tx_on = true;
+
+	if (host->mmc->caps & MMC_CAP_1_8V_DDR ||
+	    host->mmc->caps2 & (MMC_CAP2_HS400_1_8V | MMC_CAP2_HS200_1_8V_SDR))
+		dwc_priv->flags |= FLAG_IO_FIXED_1V8;
+	else
+		dwc_priv->flags &= ~FLAG_IO_FIXED_1V8;
+
+	dwc_priv->delay_line = PHY_SDCLKDL_DC_JHB100;
+	dwc_priv->priv = priv;
+
+	if (dwc_priv->flags & FLAG_IO_FIXED_1V8) {
+		host->flags &= ~SDHCI_SIGNALING_330;
+		host->flags |=  SDHCI_SIGNALING_180;
+	}
+
+	return 0;
+}
+
+static void dwcmshc_starfive_jhb100_deinit(struct dwcmshc_priv *dwc_priv)
+{
+	struct jhb100_priv *priv = dwc_priv->priv;
+
+	if (priv->cclk_tx_on)
+		clk_disable_unprepare(priv->cclk_tx);
+}
+
+static const struct dwcmshc_pltfm_data sdhci_dwcmshc_jhb100_pdata = {
+	.pdata = {
+		.ops = &starfive_jhb100_ops,
+		.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN,
+		.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+	},
+	.init = dwcmshc_starfive_jhb100_init,
+	.deinit = dwcmshc_starfive_jhb100_deinit,
+};
+
 static const struct cqhci_host_ops dwcmshc_cqhci_ops = {
 	.enable		= dwcmshc_sdhci_cqe_enable,
 	.disable	= sdhci_cqe_disable,
@@ -2389,6 +2548,10 @@ static const struct of_device_id sdhci_dwcmshc_dt_ids[] = {
 	{
 		.compatible = "hpe,gsc-dwcmshc",
 		.data = &sdhci_dwcmshc_hpe_gsc_pdata,
+	},
+	{
+		.compatible = "starfive,jhb100-dwcmshc",
+		.data = &sdhci_dwcmshc_jhb100_pdata,
 	},
 	{},
 };
@@ -2516,6 +2679,8 @@ err_setup_host:
 err_rpm:
 	pm_runtime_disable(dev);
 	pm_runtime_put_noidle(dev);
+	if (pltfm_data->deinit)
+		pltfm_data->deinit(priv);
 err_bus_clk:
 	clk_disable_unprepare(priv->bus_clk);
 err_clk:
@@ -2540,12 +2705,16 @@ static void dwcmshc_remove(struct platform_device *pdev)
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct dwcmshc_priv *priv = sdhci_pltfm_priv(pltfm_host);
+	const struct dwcmshc_pltfm_data *pltfm_data = priv->dwcmshc_pdata;
 
 	pm_runtime_get_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
 
 	sdhci_remove_host(host, 0);
+
+	if (pltfm_data->deinit)
+		pltfm_data->deinit(priv);
 
 	dwcmshc_disable_card_clk(host);
 
