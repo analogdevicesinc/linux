@@ -14,7 +14,15 @@ allOf:
 
 properties:
   compatible:
-    const: maxim,max8903
+    oneOf:
+      - enum:
+          - maxim,max8903
+
+      - items:
+          - enum:
+              - maxim,max8922l
+              - richtek,rt9524
+          - const: maxim,max8903
 
   dok-gpios:
     maxItems: 1
