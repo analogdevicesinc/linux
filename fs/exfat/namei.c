@@ -386,7 +386,7 @@ int exfat_find_empty_entry(struct inode *inode,
 	}
 
 	p_dir->dir = exfat_sector_to_cluster(sbi, es->bh[0]->b_blocknr);
-	p_dir->size -= dentry / sbi->dentries_per_clu;
+	p_dir->size -= dentry >> sbi->dentries_per_clu_bits;
 
 	return dentry & (sbi->dentries_per_clu - 1);
 }
@@ -638,14 +638,15 @@ static int exfat_find(struct inode *dir, const struct qstr *qname,
 	/* adjust cdir to the optimized value */
 	cdir.dir = hint_opt.clu;
 	if (cdir.flags & ALLOC_NO_FAT_CHAIN)
-		cdir.size -= dentry / sbi->dentries_per_clu;
+		cdir.size -= dentry >> sbi->dentries_per_clu_bits;
 	dentry = hint_opt.eidx;
 
 	info->dir = cdir;
 	info->entry = dentry;
 	info->num_subdirs = 0;
 
-	if (exfat_get_dentry_set(&es, sb, &cdir, dentry, ES_2_ENTRIES))
+	/* Validate the complete set, including recognized benign entries. */
+	if (exfat_get_dentry_set(&es, sb, &cdir, dentry, ES_ALL_ENTRIES))
 		return -EIO;
 	ep = exfat_get_dentry_cached(&es, ES_IDX_FILE);
 	ep2 = exfat_get_dentry_cached(&es, ES_IDX_STREAM);
