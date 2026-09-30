@@ -156,8 +156,7 @@ struct create_durable_rsp {
 } __packed;
 
 /*
- * See POSIX-SMB2 2.2.14.2.16
- * Link: https://gitlab.com/samba-team/smb3-posix-spec/-/blob/master/smb3_posix_extensions.md
+ * See POSIX-SMB2 2.1.3.2.1
  */
 struct create_posix_rsp {
 	struct create_context_hdr ccontext;
@@ -199,7 +198,7 @@ struct file_sparse {
 #define FILE_INTERNAL_INFORMATION_SIZE        8
 #define FILE_EA_INFORMATION_SIZE              4
 #define FILE_ACCESS_INFORMATION_SIZE          4
-#define FILE_NAME_INFORMATION_SIZE            9
+#define FILE_NAME_INFORMATION_SIZE            8
 #define FILE_RENAME_INFORMATION_SIZE          10
 #define FILE_LINK_INFORMATION_SIZE            11
 #define FILE_NAMES_INFORMATION_SIZE           12
@@ -211,8 +210,6 @@ struct file_sparse {
 #define FILE_ALL_INFORMATION_SIZE             104
 #define FILE_ALLOCATION_INFORMATION_SIZE      19
 #define FILE_END_OF_FILE_INFORMATION_SIZE     20
-#define FILE_ALTERNATE_NAME_INFORMATION_SIZE  8
-#define FILE_NORMALIZED_NAME_INFORMATION_SIZE 8
 #define FILE_STREAM_INFORMATION_SIZE          32
 #define FILE_PIPE_INFORMATION_SIZE            23
 #define FILE_PIPE_LOCAL_INFORMATION_SIZE      24
@@ -259,7 +256,7 @@ struct smb2_file_alignment_info {
 	__le32 AlignmentRequirement;
 } __packed;
 
-struct smb2_file_alt_name_info {
+struct smb2_file_name_info {
 	__le32 FileNameLength;
 	char FileName[];
 } __packed;
@@ -351,6 +348,7 @@ struct create_sd_buf_req {
 	struct smb_ntsd ntsd;
 } __packed;
 
+/* See POSIX-FSCC 2.2.1 */
 struct smb2_posix_info {
 	__le32 NextEntryOffset;
 	__u32 Ignored;
@@ -364,20 +362,18 @@ struct smb2_posix_info {
 	__le64 Inode;
 	__le32 DeviceId;
 	__le32 Zero;
-	/* beginning of POSIX Create Context Response */
+	/*
+	 * Beginning of POSIX Create Context Response
+	 * See POSIX-SMB2 2.1.3.2.1
+	 */
 	__le32 HardLinks;
 	__le32 ReparseTag;
 	__le32 Mode;
 	/* SidBuffer contain two sids (UNIX user sid(16), UNIX group sid(16)) */
 	u8 SidBuffer[32];
+	/* End of POSIX Create Context Response */
 	__le32 name_len;
 	u8 name[];
-	/*
-	 * var sized owner SID
-	 * var sized group SID
-	 * le32 filenamelength
-	 * u8  filename[]
-	 */
 } __packed;
 
 /* functions */
