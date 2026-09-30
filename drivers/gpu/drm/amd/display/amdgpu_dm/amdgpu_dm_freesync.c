@@ -112,6 +112,26 @@ void amdgpu_dm_reset_freesync_config_for_crtc(
 }
 EXPORT_IF_KUNIT(amdgpu_dm_reset_freesync_config_for_crtc);
 
+static bool amdgpu_dm_is_vrr_timing_valid(const struct drm_display_mode *mode,
+		int max_vfreq)
+{
+	u64 numerator, denominator, vtotal_at_max_refresh;
+
+	/*
+	 * Leave the existing decision unchanged without complete timing data;
+	 * otherwise, the computed vtotal must not be below the nominal vtotal.
+	 */
+	if (!mode->clock || !mode->htotal || !mode->vtotal || max_vfreq <= 0)
+		return true;
+
+	numerator = (u64)mode->clock * 1000;
+	denominator = (u64)mode->htotal * max_vfreq;
+	vtotal_at_max_refresh =
+		div64_u64(numerator + denominator - 1, denominator);
+
+	return vtotal_at_max_refresh >= mode->vtotal;
+}
+
 void amdgpu_dm_get_freesync_config_for_crtc(
 	struct dm_crtc_state *new_crtc_state,
 	struct dm_connector_state *new_con_state)
@@ -121,15 +141,19 @@ void amdgpu_dm_get_freesync_config_for_crtc(
 	struct drm_display_mode *mode = &new_crtc_state->base.mode;
 	int vrefresh = drm_mode_vrefresh(mode);
 	bool fs_vid_mode = false;
+	bool vrr_timing_valid;
 
 	if (new_con_state->base.connector->connector_type == DRM_MODE_CONNECTOR_WRITEBACK)
 		return;
 
 	aconnector = to_amdgpu_dm_connector(new_con_state->base.connector);
 
+	vrr_timing_valid = amdgpu_dm_is_vrr_timing_valid(mode, aconnector->max_vfreq);
+
 	new_crtc_state->vrr_supported = new_con_state->freesync_capable &&
 					vrefresh >= aconnector->min_vfreq &&
-					vrefresh <= aconnector->max_vfreq;
+					vrefresh <= aconnector->max_vfreq &&
+					vrr_timing_valid;
 
 	if (new_crtc_state->vrr_supported) {
 		new_crtc_state->stream->ignore_msa_timing_param = true;
