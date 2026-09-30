@@ -308,45 +308,33 @@ static int atmel_tdes_crypt_pdc_stop(struct atmel_tdes_dev *dd)
 
 static int atmel_tdes_buff_init(struct atmel_tdes_dev *dd)
 {
-	int err = -ENOMEM;
-
 	dd->buf_in = (void *)__get_free_page(GFP_KERNEL);
 	dd->buf_out = (void *)__get_free_page(GFP_KERNEL);
-	dd->buflen = PAGE_SIZE;
-	dd->buflen &= ~(DES_BLOCK_SIZE - 1);
+	dd->buflen = PAGE_SIZE & ~(DES_BLOCK_SIZE - 1);
 
 	if (!dd->buf_in || !dd->buf_out) {
-		dev_dbg(dd->dev, "unable to alloc pages.\n");
+		dev_err(dd->dev, "failed to allocate DMA buffers\n");
 		goto err_alloc;
 	}
 
-	/* MAP here */
-	dd->dma_addr_in = dma_map_single(dd->dev, dd->buf_in,
-					dd->buflen, DMA_TO_DEVICE);
-	err = dma_mapping_error(dd->dev, dd->dma_addr_in);
-	if (err) {
-		dev_dbg(dd->dev, "dma %zd bytes error\n", dd->buflen);
-		goto err_map_in;
-	}
+	dd->dma_addr_in = dma_map_single(dd->dev, dd->buf_in, dd->buflen, DMA_TO_DEVICE);
+	if (dma_mapping_error(dd->dev, dd->dma_addr_in))
+		goto err_map;
 
-	dd->dma_addr_out = dma_map_single(dd->dev, dd->buf_out,
-					dd->buflen, DMA_FROM_DEVICE);
-	err = dma_mapping_error(dd->dev, dd->dma_addr_out);
-	if (err) {
-		dev_dbg(dd->dev, "dma %zd bytes error\n", dd->buflen);
-		goto err_map_out;
+	dd->dma_addr_out = dma_map_single(dd->dev, dd->buf_out, dd->buflen, DMA_FROM_DEVICE);
+	if (dma_mapping_error(dd->dev, dd->dma_addr_out)) {
+		dma_unmap_single(dd->dev, dd->dma_addr_in, dd->buflen, DMA_TO_DEVICE);
+		goto err_map;
 	}
 
 	return 0;
 
-err_map_out:
-	dma_unmap_single(dd->dev, dd->dma_addr_in, dd->buflen,
-		DMA_TO_DEVICE);
-err_map_in:
+err_map:
+	dev_err(dd->dev, "failed to map %zu bytes for DMA\n", dd->buflen);
 err_alloc:
 	free_page((unsigned long)dd->buf_out);
 	free_page((unsigned long)dd->buf_in);
-	return err;
+	return -ENOMEM;
 }
 
 static void atmel_tdes_buff_cleanup(struct atmel_tdes_dev *dd)
@@ -361,18 +349,9 @@ static void atmel_tdes_buff_cleanup(struct atmel_tdes_dev *dd)
 
 static int atmel_tdes_crypt_pdc(struct atmel_tdes_dev *dd,
 				dma_addr_t dma_addr_in,
-				dma_addr_t dma_addr_out, int length)
+				dma_addr_t dma_addr_out)
 {
-	int len32;
-
-	dd->dma_size = length;
-
-	if (!(dd->flags & TDES_FLAGS_FAST)) {
-		dma_sync_single_for_device(dd->dev, dma_addr_in, length,
-					   DMA_TO_DEVICE);
-	}
-
-	len32 = DIV_ROUND_UP(length, sizeof(u32));
+	u32 len32 = DIV_ROUND_UP(dd->dma_size, sizeof(u32));
 
 	atmel_tdes_write(dd, TDES_PTCR, TDES_PTCR_TXTDIS|TDES_PTCR_RXTDIS);
 	atmel_tdes_write(dd, TDES_TPR, dma_addr_in);
@@ -391,18 +370,11 @@ static int atmel_tdes_crypt_pdc(struct atmel_tdes_dev *dd,
 
 static int atmel_tdes_crypt_dma(struct atmel_tdes_dev *dd,
 				dma_addr_t dma_addr_in,
-				dma_addr_t dma_addr_out, int length)
+				dma_addr_t dma_addr_out)
 {
 	struct scatterlist sg[2];
 	struct dma_async_tx_descriptor	*in_desc, *out_desc;
 	enum dma_slave_buswidth addr_width;
-
-	dd->dma_size = length;
-
-	if (!(dd->flags & TDES_FLAGS_FAST)) {
-		dma_sync_single_for_device(dd->dev, dma_addr_in, length,
-					   DMA_TO_DEVICE);
-	}
 
 	addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 
@@ -416,11 +388,11 @@ static int atmel_tdes_crypt_dma(struct atmel_tdes_dev *dd,
 
 	sg_init_table(&sg[0], 1);
 	sg_dma_address(&sg[0]) = dma_addr_in;
-	sg_dma_len(&sg[0]) = length;
+	sg_dma_len(&sg[0]) = dd->dma_size;
 
 	sg_init_table(&sg[1], 1);
 	sg_dma_address(&sg[1]) = dma_addr_out;
-	sg_dma_len(&sg[1]) = length;
+	sg_dma_len(&sg[1]) = dd->dma_size;
 
 	in_desc = dmaengine_prep_slave_sg(dd->dma_lch_in.chan, &sg[0],
 				1, DMA_MEM_TO_DEV,
@@ -494,11 +466,17 @@ static int atmel_tdes_crypt_start(struct atmel_tdes_dev *dd)
 	}
 
 	dd->total -= count;
+	dd->dma_size = count;
+
+	if (!fast) {
+		dma_sync_single_for_device(dd->dev, addr_in, dd->dma_size, DMA_TO_DEVICE);
+		dma_sync_single_for_device(dd->dev, addr_out, dd->dma_size, DMA_FROM_DEVICE);
+	}
 
 	if (dd->caps.has_dma)
-		err = atmel_tdes_crypt_dma(dd, addr_in, addr_out, count);
+		err = atmel_tdes_crypt_dma(dd, addr_in, addr_out);
 	else
-		err = atmel_tdes_crypt_pdc(dd, addr_in, addr_out, count);
+		err = atmel_tdes_crypt_pdc(dd, addr_in, addr_out);
 
 	if (err && (dd->flags & TDES_FLAGS_FAST)) {
 		dma_unmap_sg(dd->dev, dd->in_sg, 1, DMA_TO_DEVICE);
@@ -933,7 +911,7 @@ static int atmel_tdes_probe(struct platform_device *pdev)
 	struct resource *tdes_res;
 	int err;
 
-	tdes_dd = devm_kmalloc(&pdev->dev, sizeof(*tdes_dd), GFP_KERNEL);
+	tdes_dd = devm_kzalloc(&pdev->dev, sizeof(*tdes_dd), GFP_KERNEL);
 	if (!tdes_dd)
 		return -ENOMEM;
 
