@@ -394,6 +394,7 @@ static int lpc32xx_xmit_dma(struct mtd_info *mtd, void *mem, int len,
 {
 	struct nand_chip *chip = mtd_to_nand(mtd);
 	struct lpc32xx_nand_host *host = nand_get_controller_data(chip);
+	struct device *dma_dev = dmaengine_get_dma_device(host->dma_chan);
 	struct dma_async_tx_descriptor *desc;
 	int flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
 	unsigned long time_left;
@@ -401,8 +402,7 @@ static int lpc32xx_xmit_dma(struct mtd_info *mtd, void *mem, int len,
 
 	sg_init_one(&host->sgl, mem, len);
 
-	res = dma_map_sg(host->dma_chan->device->dev, &host->sgl, 1,
-			 DMA_BIDIRECTIONAL);
+	res = dma_map_sg(dma_dev, &host->sgl, 1, DMA_BIDIRECTIONAL);
 	if (res != 1) {
 		dev_err(mtd->dev.parent, "Failed to map sg list\n");
 		return -ENXIO;
@@ -430,12 +430,10 @@ static int lpc32xx_xmit_dma(struct mtd_info *mtd, void *mem, int len,
 		goto out1;
 	}
 
-	dma_unmap_sg(host->dma_chan->device->dev, &host->sgl, 1,
-		     DMA_BIDIRECTIONAL);
+	dma_unmap_sg(dma_dev, &host->sgl, 1, DMA_BIDIRECTIONAL);
 	return 0;
 out1:
-	dma_unmap_sg(host->dma_chan->device->dev, &host->sgl, 1,
-		     DMA_BIDIRECTIONAL);
+	dma_unmap_sg(dma_dev, &host->sgl, 1, DMA_BIDIRECTIONAL);
 	return res;
 }
 
