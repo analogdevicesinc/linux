@@ -264,7 +264,7 @@ MODULE_PARM_DESC(opl3_port, "OPL3 port # for Riptide driver.");
 #define SEND_SI2S(p,b)             sendcmd(p,PARM,SI2S,WORD2(b),RET(0))
 
 #define EOB_STATUS         0x80000000	/* status flags : block boundary */
-#define EOS_STATUS         0x40000000	/*              : stoppped */
+#define EOS_STATUS         0x40000000	/*              : stopped */
 #define EOC_STATUS         0x20000000	/*              : stream end */
 #define ERR_STATUS         0x10000000
 #define EMPTY_STATUS       0x08000000
@@ -453,7 +453,7 @@ struct snd_riptide {
 	int in_suspend;
 };
 
-struct sgd {			/* scatter gather desriptor */
+struct sgd {			/* scatter gather descriptor */
 	__le32 dwNextLink;
 	__le32 dwSegPtrPhys;
 	__le32 dwSegLen;

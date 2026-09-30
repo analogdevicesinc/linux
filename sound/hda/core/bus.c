@@ -21,7 +21,7 @@ static const struct hdac_bus_ops default_ops = {
 };
 
 /**
- * snd_hdac_bus_init - initialize a HD-audio bas bus
+ * snd_hdac_bus_init - initialize a HD-audio bus device
  * @bus: the pointer to bus object
  * @dev: device pointer
  * @ops: bus verb operators
