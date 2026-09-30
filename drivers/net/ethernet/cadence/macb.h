@@ -1197,7 +1197,7 @@ struct macb_queue;
 struct macb_or_gem_ops {
 	int	(*mog_alloc_rx_buffers)(struct macb *bp);
 	void	(*mog_free_rx_buffers)(struct macb *bp);
-	void	(*mog_init_rings)(struct macb *bp);
+	int	(*mog_init_rings)(struct macb *bp);
 	int	(*mog_rx)(struct macb_queue *queue, struct napi_struct *napi,
 			  int budget);
 };
@@ -1381,6 +1381,11 @@ struct macb {
 	bool			eee_active;
 	struct delayed_work	tx_lpi_work;
 	u32			tx_lpi_timer;
+
+	/* ISR must not drive NAPI & BH mechanisms. True when the interface
+	 * is closed. Protected by bp->lock.
+	 */
+	bool			irq_quiesced;
 
 	int	rx_bd_rd_prefetch;
 	int	tx_bd_rd_prefetch;

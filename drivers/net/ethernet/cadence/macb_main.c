@@ -1505,7 +1505,7 @@ static int macb_tx_complete(struct macb_queue *queue, int budget)
 	return packets;
 }
 
-static void gem_rx_refill(struct macb_queue *queue)
+static int gem_rx_refill(struct macb_queue *queue)
 {
 	struct macb *bp = queue->bp;
 	struct macb_dma_desc *desc;
@@ -1577,6 +1577,14 @@ static void gem_rx_refill(struct macb_queue *queue)
 
 	netdev_vdbg(bp->netdev, "rx ring: queue: %p, prepared head %d, tail %d\n",
 		    queue, queue->rx_prepared_head, queue->rx_tail);
+
+	/* Fail if queue has zero prepared descriptors. This is critical because
+	 * nothing will ever trigger a refill again.
+	 */
+	if (queue->rx_prepared_head == queue->rx_tail)
+		return -ENOMEM;
+
+	return 0;
 }
 
 /* Mark DMA descriptors from begin up to and not including end as unused */
@@ -1614,6 +1622,13 @@ static int gem_rx(struct macb_queue *queue, struct napi_struct *napi,
 		u32 ctrl;
 		dma_addr_t addr;
 		bool rxused;
+
+		/* Only descriptors in [rx_tail, rx_prepared_head) were armed
+		 * for hardware. Outside, we might have RX_USED descriptors for
+		 * alloc failures.
+		 */
+		if (queue->rx_tail == queue->rx_prepared_head)
+			break;
 
 		entry = macb_rx_ring_wrap(bp, queue->rx_tail);
 		desc = macb_rx_desc(queue, entry);
@@ -1878,6 +1893,10 @@ static bool macb_rx_pending(struct macb_queue *queue)
 	struct macb_dma_desc *desc;
 	unsigned int entry;
 
+	/* No armed descriptor left: nothing can be pending. */
+	if (macb_is_gem(bp) && queue->rx_tail == queue->rx_prepared_head)
+		return false;
+
 	entry = macb_rx_ring_wrap(bp, queue->rx_tail);
 	desc = macb_rx_desc(queue, entry);
 
@@ -2007,6 +2026,53 @@ static int macb_tx_poll(struct napi_struct *napi, int budget)
 	}
 
 	return work_done;
+}
+
+static void macb_quiesce_start(struct macb *bp)
+{
+	struct macb_queue *queue;
+	unsigned long flags;
+	unsigned int q;
+
+	spin_lock_irqsave(&bp->lock, flags);
+	bp->irq_quiesced = true;
+	spin_unlock_irqrestore(&bp->lock, flags);
+
+	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue)
+		synchronize_irq(queue->irq);
+
+	cancel_work_sync(&bp->hresp_err_bh_work);
+
+	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
+		/* Must be done before NAPI is disabled: the task ends with a
+		 * napi_enable() call.
+		 */
+		cancel_work_sync(&queue->tx_error_task);
+
+		napi_disable(&queue->napi_rx);
+		napi_disable(&queue->napi_tx);
+	}
+
+	/* Must be done after napi_tx is disabled: its completion re-arms
+	 * the LPI timer.
+	 */
+	cancel_delayed_work_sync(&bp->tx_lpi_work);
+}
+
+static void macb_quiesce_end(struct macb *bp)
+{
+	struct macb_queue *queue;
+	unsigned long flags;
+	unsigned int q;
+
+	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
+		napi_enable(&queue->napi_rx);
+		napi_enable(&queue->napi_tx);
+	}
+
+	spin_lock_irqsave(&bp->lock, flags);
+	bp->irq_quiesced = false;
+	spin_unlock_irqrestore(&bp->lock, flags);
 }
 
 static void macb_hresp_error_task(struct work_struct *work)
@@ -2151,8 +2217,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
 	spin_lock(&bp->lock);
 
 	while (status) {
-		/* close possible race with dev_close */
-		if (unlikely(!netif_running(netdev))) {
+		/* self-disarm while the netdev is closed */
+		if (unlikely(bp->irq_quiesced)) {
 			queue_writel(queue, IDR, -1);
 			macb_queue_isr_clear(bp, queue, -1);
 			break;
@@ -2812,19 +2878,26 @@ out_err:
 	return -ENOMEM;
 }
 
-static void gem_init_rx_ring(struct macb_queue *queue)
+static int gem_init_rx_ring(struct macb_queue *queue)
 {
+	unsigned int i;
+
 	queue->rx_tail = 0;
 	queue->rx_prepared_head = 0;
 
-	gem_rx_refill(queue);
+	for (i = 0; i < queue->bp->rx_ring_size; i++)
+		macb_rx_desc(queue, i)->addr |= MACB_BIT(RX_USED);
+
+	return gem_rx_refill(queue);
 }
 
-static void gem_init_rings(struct macb *bp)
+static int gem_init_rings(struct macb *bp)
 {
 	struct macb_queue *queue;
 	struct macb_dma_desc *desc = NULL;
+	int last_err = 0;
 	unsigned int q;
+	int err;
 	int i;
 
 	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
@@ -2837,11 +2910,15 @@ static void gem_init_rings(struct macb *bp)
 		queue->tx_head = 0;
 		queue->tx_tail = 0;
 
-		gem_init_rx_ring(queue);
+		err = gem_init_rx_ring(queue);
+		if (err)
+			last_err = err;
 	}
+
+	return last_err;
 }
 
-static void macb_init_rings(struct macb *bp)
+static int macb_init_rings(struct macb *bp)
 {
 	int i;
 	struct macb_dma_desc *desc = NULL;
@@ -2856,6 +2933,8 @@ static void macb_init_rings(struct macb *bp)
 	bp->queues[0].tx_head = 0;
 	bp->queues[0].tx_tail = 0;
 	desc->ctrl |= MACB_BIT(TX_WRAP);
+
+	return 0;
 }
 
 static void macb_reset_hw(struct macb *bp)
@@ -3166,8 +3245,6 @@ static int macb_open(struct net_device *netdev)
 {
 	size_t bufsz = netdev->mtu + ETH_HLEN + ETH_FCS_LEN + NET_IP_ALIGN;
 	struct macb *bp = netdev_priv(netdev);
-	struct macb_queue *queue;
-	unsigned int q;
 	int err;
 
 	netdev_dbg(bp->netdev, "open\n");
@@ -3186,13 +3263,12 @@ static int macb_open(struct net_device *netdev)
 		goto pm_exit;
 	}
 
-	bp->macbgem_ops.mog_init_rings(bp);
+	err = bp->macbgem_ops.mog_init_rings(bp);
+	if (err)
+		goto free_rings;
 	macb_init_buffers(bp);
 
-	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
-		napi_enable(&queue->napi_rx);
-		napi_enable(&queue->napi_tx);
-	}
+	macb_quiesce_end(bp);
 
 	macb_init_hw(bp);
 
@@ -3219,11 +3295,11 @@ phy_off:
 	phy_power_off(bp->phy);
 
 reset_hw:
+	/* The netdev stays down: quiesce and drain, as macb_close() does. */
+	macb_quiesce_start(bp);
+
 	macb_reset_hw(bp);
-	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
-		napi_disable(&queue->napi_rx);
-		napi_disable(&queue->napi_tx);
-	}
+free_rings:
 	macb_free(bp);
 pm_exit:
 	pm_runtime_put_sync(&bp->pdev->dev);
@@ -3233,19 +3309,17 @@ pm_exit:
 static int macb_close(struct net_device *netdev)
 {
 	struct macb *bp = netdev_priv(netdev);
-	struct macb_queue *queue;
 	unsigned long flags;
 	unsigned int q;
 
+	macb_quiesce_start(bp);
+
+	/* Drain the BH contexts before stopping the queues: NAPI completion
+	 * and tx_error_task wake them up.
+	 */
 	netif_tx_stop_all_queues(netdev);
-
-	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
-		napi_disable(&queue->napi_rx);
-		napi_disable(&queue->napi_tx);
+	for (q = 0; q < bp->num_queues; ++q)
 		netdev_tx_reset_queue(netdev_get_tx_queue(netdev, q));
-	}
-
-	cancel_delayed_work_sync(&bp->tx_lpi_work);
 
 	phylink_stop(bp->phylink);
 	phylink_disconnect_phy(bp->phylink);
@@ -4766,6 +4840,11 @@ static int macb_init_dflt(struct platform_device *pdev)
 
 	bp->tx_ring_size = DEFAULT_TX_RING_SIZE;
 	bp->rx_ring_size = DEFAULT_RX_RING_SIZE;
+
+	/* No locking needed because the IRQs are not requested yet. The
+	 * flag is cleared by macb_open() and re-armed by macb_close().
+	 */
+	bp->irq_quiesced = true;
 
 	/* set the queue register mapping once for all: queue0 has a special
 	 * register mapping but we don't want to test the queue index then
