@@ -1339,8 +1339,13 @@ static void mes_dbgext_buf_read(const u8 *buf, u32 buffer_size, u32 hdr_size,
 	}
 }
 
+static const char *mes_dbgext_pipe_name(u32 pipe)
+{
+	return pipe == AMDGPU_MES_SCHED_PIPE ? "0" : "1";
+}
+
 static void mes_dbgext_print_item(struct amdgpu_device *adev, int xcc,
-				  u32 type, char *text)
+				  int pipe, u32 type, char *text)
 {
 	size_t n = strlen(text);
 	char pfx[12] = "";
@@ -1351,21 +1356,24 @@ static void mes_dbgext_print_item(struct amdgpu_device *adev, int xcc,
 	while (n && (text[n - 1] == '\n' || text[n - 1] == '\r'))
 		text[--n] = '\0';
 
-	/* Tag with the source XCC only when more than one is being logged, so
-	 * single-XCC (gfx11/gfx12) output is unchanged.
+	/* Tag with the source XCC and MES pipe (sched/kiq) only when more than
+	 * one region is being logged, so single-region output is unchanged.
 	 */
-	if (adev->mes.dbgext_num_xcc > 1)
-		snprintf(pfx, sizeof(pfx), " xcc%d", xcc);
+	if (adev->mes.dbgext_num_pipes > 1)
+		snprintf(pfx, sizeof(pfx), "(%d,%s)", xcc,
+			 mes_dbgext_pipe_name(pipe));
+	else if (adev->mes.dbgext_num_xcc > 1)
+		snprintf(pfx, sizeof(pfx), "(%d)", xcc);
 
 	switch (type) {
 	case MES_DBGEXT_MSG_ASSERT:
-		dev_err(adev->dev, "[mes_dbgext%s] ASSERT %s\n", pfx, text);
+		dev_err(adev->dev, "[mes_dbgext] %s ASSERT %s\n", pfx, text);
 		break;
 	case MES_DBGEXT_MSG:
-		dev_info(adev->dev, "[mes_dbgext%s] %s\n", pfx, text);
+		dev_info(adev->dev, "[mes_dbgext] %s %s\n", pfx, text);
 		break;
 	default:
-		dev_warn(adev->dev, "[mes_dbgext%s] %s\n", pfx, text);
+		dev_warn(adev->dev, "[mes_dbgext] %s %s\n", pfx, text);
 		break;
 	}
 }
@@ -1376,7 +1384,7 @@ static void mes_dbgext_print_item(struct amdgpu_device *adev, int xcc,
  * caller-provided scratch of at least MES_DBGEXT_MAX_ITEM_SIZE + 1 bytes.
  */
 static void mes_dbgext_process_zone(struct amdgpu_device *adev, u8 *zbase,
-				    u8 *item, int xcc)
+				    u8 *item, int xcc, int pipe)
 {
 	struct mes_dbgext_zone_header *zh =
 		(struct mes_dbgext_zone_header *)zbase;
@@ -1438,7 +1446,7 @@ static void mes_dbgext_process_zone(struct amdgpu_device *adev, u8 *zbase,
 			mes_dbgext_buf_read(zbase, buffer_size, hdr_size, rptr,
 					    item, len);
 			item[len] = '\0';
-			mes_dbgext_print_item(adev, xcc, type,
+			mes_dbgext_print_item(adev, xcc, pipe, type,
 				(char *)item + MES_DBGEXT_ITEM_HDR_SIZE);
 		}
 
@@ -1461,11 +1469,12 @@ static void mes_dbgext_process_zone(struct amdgpu_device *adev, u8 *zbase,
 }
 
 /*
- * Drain one per-XCC region: parse its zone table (a zone_count dword followed
- * by per-zone {offset,length} descriptors) and drain each zone.  @base points
- * at the region start; @xcc tags the output.
+ * Drain one per-(xcc, pipe) region: parse its zone table (a zone_count dword
+ * followed by per-zone {offset,length} descriptors) and drain each zone.
+ * @base points at the region start; @xcc and @pipe tag the output.
  */
-static void mes_dbgext_process_region(struct amdgpu_device *adev, u8 *base, int xcc)
+static void mes_dbgext_process_region(struct amdgpu_device *adev, u8 *base,
+				      int xcc, int pipe)
 {
 	struct amdgpu_mes *mes = &adev->mes;
 	u32 zone_count, hdr_len, z;
@@ -1499,32 +1508,41 @@ static void mes_dbgext_process_region(struct amdgpu_device *adev, u8 *base, int 
 		    zlen > mes->dbgext_log_size - zoff)
 			continue;
 
-		mes_dbgext_process_zone(adev, base + zoff, item, xcc);
+		mes_dbgext_process_zone(adev, base + zoff, item, xcc, pipe);
 	}
 
 	kfree(item);
 }
 
+static u32 mes_dbgext_num_pipes(struct amdgpu_mes *mes)
+{
+	return mes->dbgext_num_pipes ? mes->dbgext_num_pipes : 1;
+}
+
+static u32 mes_dbgext_num_regions(struct amdgpu_mes *mes)
+{
+	return (mes->dbgext_num_xcc ? mes->dbgext_num_xcc : 1) *
+	       mes_dbgext_num_pipes(mes);
+}
+
 static void mes_dbgext_process_all(struct amdgpu_device *adev)
 {
 	struct amdgpu_mes *mes = &adev->mes;
-	u32 num_xcc = mes->dbgext_num_xcc ? mes->dbgext_num_xcc : 1;
+	u32 num_pipes = mes_dbgext_num_pipes(mes);
+	u32 num_regions = mes_dbgext_num_regions(mes);
 	u8 *buf = mes->dbgext_log_cpu_addr;
-	u32 xcc;
+	u32 i;
 
 	if (!buf)
 		return;
 
 	/*
-	 * The buffer holds num_xcc back-to-back per-XCC regions, each
-	 * dbgext_log_size bytes.  Drain each region and tag its output with the
-	 * source XCC (single-XCC ASICs have exactly one region).
+	 * Every armed (xcc, pipe) raises the same host interrupt, so drain all
+	 * regions; each is a no-op when it has no new data.
 	 */
-	for (xcc = 0; xcc < num_xcc; xcc++) {
-		u8 *base = buf + xcc * mes->dbgext_log_size;
-
-		mes_dbgext_process_region(adev, base, xcc);
-	}
+	for (i = 0; i < num_regions; i++)
+		mes_dbgext_process_region(adev, buf + i * mes->dbgext_log_size,
+					  i / num_pipes, i % num_pipes);
 }
 
 static int amdgpu_mes_dbgext_reader(void *param)
@@ -1577,7 +1595,8 @@ void amdgpu_mes_dbgext_notify(struct amdgpu_device *adev, u32 context_data)
 }
 
 static int amdgpu_mes_dbgext_setup_fw(struct amdgpu_device *adev, u32 xcc_id,
-				      u64 log_buffer_mc_addr, u64 log_options)
+				      u32 pipe, u64 log_buffer_mc_addr,
+				      u64 log_options)
 {
 	struct amdgpu_mes *mes = &adev->mes;
 	struct mes_misc_op_input op_input = {0};
@@ -1590,6 +1609,7 @@ static int amdgpu_mes_dbgext_setup_fw(struct amdgpu_device *adev, u32 xcc_id,
 	op_input.op = MES_MISC_OP_SETUP_MES_DBGEXT;
 	op_input.setup_mes_dbgext.log_buffer_mc_addr = log_buffer_mc_addr;
 	op_input.setup_mes_dbgext.log_options = log_options;
+	op_input.setup_mes_dbgext.pipe = pipe;
 
 	amdgpu_mes_lock(mes);
 	r = mes->funcs->misc_op(mes, &op_input);
@@ -1606,7 +1626,7 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 	u64 fw_options;
 	u32 size;
 	u32 req_kb;
-	u32 num_xcc, xcc;
+	u32 num_xcc, num_pipes, num_regions, i;
 	int r;
 
 	/*
@@ -1636,15 +1656,21 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 	}
 
 	/*
-	 * Log every XCC's MES firmware.  Each XCC runs its own MES and gets its
-	 * own per-XCC region within one buffer (see dbgext_num_xcc); single-XCC
-	 * ASICs (gfx11/gfx12) collapse to a single region.
+	 * Log every MES firmware instance: each XCC runs its own MES, and under
+	 * unified MES both pipes of each XCC run firmware with their own
+	 * context, so each (xcc, pipe) gets its own region within one buffer
+	 * (see dbgext_num_xcc/dbgext_num_pipes).  Without unified MES the KIQ
+	 * pipe is driven through the gfx KIQ ring and cannot take MES API
+	 * packets, so only the scheduler pipe is logged.
 	 */
 	num_xcc = adev->gfx.xcc_mask ? NUM_XCC(adev->gfx.xcc_mask) : 1;
+	num_pipes = adev->enable_uni_mes ? AMDGPU_MAX_MES_PIPES : 1;
+	num_regions = num_xcc * num_pipes;
 	mes->dbgext_num_xcc = num_xcc;
+	mes->dbgext_num_pipes = num_pipes;
 
 	if (!mes->dbgext_log_gpu_obj) {
-		/* Clamp to a sane range (4 KB .. 1 MB), per XCC. */
+		/* Clamp to a sane range (4 KB .. 1 MB), per region. */
 		size = clamp(req_kb, 4U, 1024U);
 		size = ALIGN((u32)size * SZ_1K, PAGE_SIZE);
 		/*
@@ -1655,8 +1681,8 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 		if (size < SZ_8K)
 			size = SZ_8K;
 
-		/* One buffer holds num_xcc back-to-back per-XCC regions. */
-		r = amdgpu_bo_create_kernel(adev, size * num_xcc, PAGE_SIZE,
+		/* One buffer holds num_regions back-to-back regions. */
+		r = amdgpu_bo_create_kernel(adev, size * num_regions, PAGE_SIZE,
 					    AMDGPU_GEM_DOMAIN_GTT,
 					    &mes->dbgext_log_gpu_obj,
 					    &mes->dbgext_log_gpu_addr,
@@ -1678,13 +1704,13 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 	}
 
 	/*
-	 * (Re)initialize each per-XCC region's header.  On resume the MES was
-	 * reset and re-lays its header, and the driver's rptr/wptr must restart
-	 * clean.  Clear the whole buffer once, then seed every region.
+	 * (Re)initialize each region's header.  On resume the MES was reset and
+	 * re-lays its header, and the driver's rptr/wptr must restart clean.
+	 * Clear the whole buffer once, then seed every region.
 	 */
-	memset(mes->dbgext_log_cpu_addr, 0, size * num_xcc);
-	for (xcc = 0; xcc < num_xcc; xcc++) {
-		u8 *base = (u8 *)mes->dbgext_log_cpu_addr + xcc * size;
+	memset(mes->dbgext_log_cpu_addr, 0, size * num_regions);
+	for (i = 0; i < num_regions; i++) {
+		u8 *base = (u8 *)mes->dbgext_log_cpu_addr + i * size;
 
 		/*
 		 * mes_aux: seed only the total region size in the first dword.
@@ -1736,18 +1762,20 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 	if (use_irq)
 		mes->funcs->enable_dbgext_irq(mes, true);
 
-	/* Point each XCC's MES firmware at its own per-XCC region. */
-	for (xcc = 0; xcc < num_xcc; xcc++) {
-		r = amdgpu_mes_dbgext_setup_fw(adev, xcc,
-					       mes->dbgext_log_gpu_addr + xcc * size,
+	/* Point each (xcc, pipe) MES firmware at its own region. */
+	for (i = 0; i < num_regions; i++) {
+		r = amdgpu_mes_dbgext_setup_fw(adev, i / num_pipes, i % num_pipes,
+					       mes->dbgext_log_gpu_addr + i * size,
 					       fw_options);
 		if (r) {
 			dev_err(adev->dev,
-				"failed to setup mes_dbgext in FW on xcc%u (%d)\n",
-				xcc, r);
-			/* Detach the XCCs already armed before bailing. */
-			while (xcc--)
-				amdgpu_mes_dbgext_setup_fw(adev, xcc, 0, 0);
+				"failed to setup mes_dbgext in FW on xcc%u %s pipe (%d)\n",
+				i / num_pipes,
+				mes_dbgext_pipe_name(i % num_pipes), r);
+			/* Detach the regions already armed before bailing. */
+			while (i--)
+				amdgpu_mes_dbgext_setup_fw(adev, i / num_pipes,
+							   i % num_pipes, 0, 0);
 			goto err_disable;
 		}
 	}
@@ -1775,8 +1803,8 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 	}
 
 	dev_info(adev->dev,
-		 "mes_dbgext enabled: %u KB x %u xcc @ 0x%llx (%s, fw options 0x%llx)\n",
-		 size / SZ_1K, num_xcc, mes->dbgext_log_gpu_addr,
+		 "mes_dbgext enabled: %u KB x %u xcc x %u pipe @ 0x%llx (%s, fw options 0x%llx)\n",
+		 size / SZ_1K, num_xcc, num_pipes, mes->dbgext_log_gpu_addr,
 		 use_irq ? "interrupt" : "polling", fw_options);
 
 	/*
@@ -1792,8 +1820,9 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 	return 0;
 
 err_fw_detach:
-	for (xcc = 0; xcc < num_xcc; xcc++)
-		amdgpu_mes_dbgext_setup_fw(adev, xcc, 0, 0);
+	for (i = 0; i < num_regions; i++)
+		amdgpu_mes_dbgext_setup_fw(adev, i / num_pipes, i % num_pipes,
+					   0, 0);
 err_disable:
 	/* Undo the early arming done before setup_fw(). */
 	mes->dbgext_active = false;
@@ -1850,17 +1879,19 @@ static void amdgpu_mes_dbgext_stop_locked(struct amdgpu_device *adev)
 		return;
 
 	/*
-	 * Detach the firmware from the buffer before we free it, on every XCC we
-	 * armed.  Skip this across a suspend: the MES is being torn down anyway,
-	 * the buffer is kept for resume, and submitting a packet on the suspend
-	 * path is unnecessary.
+	 * Detach the firmware from the buffer before we free it, on every
+	 * (xcc, pipe) we armed.  Skip this across a suspend: the MES is being
+	 * torn down anyway, the buffer is kept for resume, and submitting a
+	 * packet on the suspend path is unnecessary.
 	 */
 	if (!adev->in_suspend) {
-		u32 num_xcc = mes->dbgext_num_xcc ? mes->dbgext_num_xcc : 1;
-		u32 xcc;
+		u32 num_pipes = mes_dbgext_num_pipes(mes);
+		u32 num_regions = mes_dbgext_num_regions(mes);
+		u32 i;
 
-		for (xcc = 0; xcc < num_xcc; xcc++)
-			amdgpu_mes_dbgext_setup_fw(adev, xcc, 0, 0);
+		for (i = 0; i < num_regions; i++)
+			amdgpu_mes_dbgext_setup_fw(adev, i / num_pipes,
+						   i % num_pipes, 0, 0);
 	}
 
 	/* Make sure no drain work is still touching the buffer. */
@@ -1922,8 +1953,10 @@ static int amdgpu_debugfs_mes_dbgext_show(struct seq_file *m, void *unused)
 
 	mutex_lock(&mes->dbgext_lock);
 	seq_printf(m, "state:   %s\n", mes->dbgext_active ? "on" : "off");
-	seq_printf(m, "size:    %u KB x %u xcc\n", mes->dbgext_log_size / SZ_1K,
-		   mes->dbgext_num_xcc ? mes->dbgext_num_xcc : 1);
+	seq_printf(m, "size:    %u KB x %u xcc x %u pipe\n",
+		   mes->dbgext_log_size / SZ_1K,
+		   mes->dbgext_num_xcc ? mes->dbgext_num_xcc : 1,
+		   mes_dbgext_num_pipes(mes));
 	seq_printf(m, "mode:    %s\n",
 		   mes->dbgext_use_irq ? "interrupt" : "polling");
 	seq_printf(m, "options: 0x%llx\n", mes->dbgext_log_options);

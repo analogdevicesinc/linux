@@ -154,7 +154,7 @@ struct amdgpu_mes {
 	void				*event_log_cpu_addr;
 
 	/* MES firmware debug extension ("mes_dbgext") log buffer */
-	uint32_t			dbgext_log_size;	/* per-XCC region size */
+	uint32_t			dbgext_log_size;	/* per-region size */
 	uint64_t			dbgext_log_options;
 	struct amdgpu_bo		*dbgext_log_gpu_obj;
 	uint64_t			dbgext_log_gpu_addr;
@@ -162,10 +162,13 @@ struct amdgpu_mes {
 	bool				dbgext_use_irq;
 
 	/*
-	 * Number of per-XCC log regions packed back-to-back in the buffer above;
-	 * each is dbgext_log_size bytes.  1 on single-XCC ASICs (gfx11/gfx12).
+	 * The buffer above holds dbgext_num_xcc * dbgext_num_pipes back-to-back
+	 * log regions of dbgext_log_size bytes, one per (xcc, MES pipe), at
+	 * index xcc * dbgext_num_pipes + pipe.  dbgext_num_pipes is 2 under
+	 * unified MES (scheduler + KIQ pipe each run firmware), else 1.
 	 */
 	uint32_t			dbgext_num_xcc;
+	uint32_t			dbgext_num_pipes;
 
 	/* armed: FW attached + reader/irq running */
 	bool					dbgext_active;
@@ -453,6 +456,7 @@ struct mes_misc_op_input {
 		struct {
 			uint64_t log_buffer_mc_addr;
 			uint64_t log_options;
+			uint32_t pipe;
 		} setup_mes_dbgext;
 	};
 };
