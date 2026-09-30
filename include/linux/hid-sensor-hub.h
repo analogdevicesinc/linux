@@ -38,6 +38,7 @@ struct hid_sensor_hub_attribute_info {
 /**
  * struct sensor_hub_pending - Synchronous read pending information
  * @status:		Pending status true/false.
+ * @shutdown:		The device is being removed.
  * @ready:		Completion synchronization data.
  * @usage_id:		Usage id for physical device, e.g. gyro usage id.
  * @attr_usage_id:	Usage Id of a field, e.g. X-axis for a gyro.
@@ -48,6 +49,7 @@ struct hid_sensor_hub_attribute_info {
  */
 struct sensor_hub_pending {
 	bool status;
+	bool shutdown;
 	struct completion ready;
 	u32 usage_id;
 	u32 attr_usage_id;
