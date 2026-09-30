@@ -42,22 +42,6 @@ impl<T: ?Sized> PhantomInvariant<T> {
     }
 }
 
-/// Zero-sized type used to mark a lifetime as invariant.
-///
-/// This is a polyfill for the [unstable type] in the standard library of the same name.
-///
-/// [unstable type]: https://doc.rust-lang.org/nightly/std/marker/struct.PhantomInvariantLifetime.html
-#[repr(transparent)]
-#[derive(Clone, Copy, Default)]
-pub struct PhantomInvariantLifetime<'a>(PhantomInvariant<&'a ()>);
-
-impl PhantomInvariantLifetime<'_> {
-    #[inline(always)]
-    pub const fn new() -> Self {
-        Self(PhantomInvariant::new())
-    }
-}
-
 /// Token type to signify successful initialization.
 ///
 /// Can only be constructed via the unsafe [`Self::new`] function. The initializer macros use this
@@ -81,39 +65,43 @@ impl InitOk {
 ///
 /// # Safety
 ///
-/// Only the `init` module is allowed to use this trait.
+/// `pin-init` relies on the correctness of the helper functions defined on `PinData`.
+/// Thus, only the `#[pin_data]` can implement this trait.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be used with `pin_init!` macro",
+    note = "did you forget to add `#[pin_data]` attribute to the struct?"
+)]
 pub unsafe trait HasPinData {
     type PinData;
 
-    #[expect(clippy::missing_safety_doc)]
-    unsafe fn __pin_data() -> Self::PinData;
+    fn __pin_data(_: InitData<Self>) -> Self::PinData;
 }
 
-/// This trait is automatically implemented for every type. It aims to provide the same type
-/// inference help as `HasPinData`.
+/// This trait is automatically implemented for every type.
 ///
-/// # Safety
-///
-/// Only the `init` module is allowed to use this trait.
-pub unsafe trait HasInitData {
-    type InitData;
-
-    #[expect(clippy::missing_safety_doc)]
-    unsafe fn __init_data() -> Self::InitData;
+/// It aims to provide type inference help; `PATH::__init_data()` would be able to retrieve an
+/// instance of `InitData<PATH<Generics>>` without having to mention the generics explicitly.
+pub trait HasInitData {
+    #[inline]
+    fn __init_data() -> InitData<Self> {
+        InitData(PhantomInvariant::new())
+    }
 }
 
-pub struct AllData<T: ?Sized>(PhantomInvariant<T>);
+impl<T: ?Sized> HasInitData for T {}
 
-impl<T: ?Sized> Clone for AllData<T> {
+pub struct InitData<T: ?Sized>(PhantomInvariant<T>);
+
+impl<T: ?Sized> Clone for InitData<T> {
     #[inline]
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: ?Sized> Copy for AllData<T> {}
+impl<T: ?Sized> Copy for InitData<T> {}
 
-impl<T: ?Sized> AllData<T> {
+impl<T: ?Sized> InitData<T> {
     /// Type inference helper function.
     #[inline(always)]
     pub fn __make_closure<F, E>(self, f: F) -> F
@@ -121,16 +109,6 @@ impl<T: ?Sized> AllData<T> {
         F: FnOnce(*mut T) -> Result<InitOk, E>,
     {
         f
-    }
-}
-
-// SAFETY: TODO.
-unsafe impl<T: ?Sized> HasInitData for T {
-    type InitData = AllData<T>;
-
-    #[inline]
-    unsafe fn __init_data() -> Self::InitData {
-        AllData(PhantomInvariant::new())
     }
 }
 
