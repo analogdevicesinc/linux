@@ -262,7 +262,6 @@ struct bam_transaction {
 		u32 tx_sgl_start;
 		u32 rx_sgl_pos;
 		u32 rx_sgl_start;
-
 	);
 };
 
