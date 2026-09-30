@@ -818,6 +818,15 @@ enum dc_status dcn401_enable_stream_timing(
 
 	hws->funcs.blank_pixel_data(dc, pipe_ctx, true);
 
+	/* Legacy code path will enable DSC during DPMS on sequence. Since DSC
+	 * HW block programming is independent from link and stream encoder operations, it
+	 * has moved to hwss and should be called when enabling/disabling OTG.
+	 */
+	if (stream->timing.flags.DSC && pipe_ctx->stream_res.dsc) {
+		if (dc->hwss.configure_dsc)
+			dc->hwss.configure_dsc(pipe_ctx, true);
+	}
+
 	/* VTG is  within DCHUB command block. DCFCLK is always on */
 	if (false == pipe_ctx->stream_res.tg->funcs->enable_crtc(pipe_ctx->stream_res.tg)) {
 		BREAK_TO_DEBUGGER();
@@ -2115,6 +2124,15 @@ void dcn401_reset_back_end_for_pipe(
 			dc->hwss.set_abm_immediate_disable(pipe_ctx);
 
 			pipe_ctx->stream_res.tg->funcs->disable_crtc(pipe_ctx->stream_res.tg);
+
+			/* Legacy code path will enable DSC during DPMS on sequence. Since DSC
+			 * HW block programming is independent from backend operations, it
+			 * has moved to hwss and should be called when enabling/disabling OTG.
+			 */
+			if (pipe_ctx->stream_res.dsc) {
+				if (dc->hwss.configure_dsc)
+					dc->hwss.configure_dsc(pipe_ctx, false);
+			}
 
 			pipe_ctx->stream_res.tg->funcs->enable_optc_clock(pipe_ctx->stream_res.tg, false);
 		}

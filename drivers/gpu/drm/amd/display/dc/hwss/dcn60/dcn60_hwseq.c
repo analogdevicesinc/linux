@@ -125,6 +125,7 @@ bool dcn60_configure_dsc(struct pipe_ctx *pipe_ctx, bool enable)
 			enum optc_dsc_mode mode = dsc_optc_cfg.is_pixel_format_444 ?
 					OPTC_DSC_ENABLED_444 : OPTC_DSC_ENABLED_NATIVE_SUBSAMPLED;
 
+			DC_LOG_DSC("Setting optc DSC config for tg instance %d:", pipe_ctx->stream_res.tg->inst);
 			pipe_ctx->stream_res.tg->funcs->set_dsc_config(
 					pipe_ctx->stream_res.tg, mode,
 					dsc_optc_cfg.bytes_per_pixel, dsc_optc_cfg.slice_width);
@@ -132,6 +133,7 @@ bool dcn60_configure_dsc(struct pipe_ctx *pipe_ctx, bool enable)
 		return true;
 	}
 
+	DC_LOG_DSC("Setting optc DSC config for tg instance %d:", pipe_ctx->stream_res.tg->inst);
 	pipe_ctx->stream_res.tg->funcs->set_dsc_config(
 			pipe_ctx->stream_res.tg, OPTC_DSC_DISABLED, 0, 0);
 

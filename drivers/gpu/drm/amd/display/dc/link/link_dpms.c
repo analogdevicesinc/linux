@@ -914,6 +914,7 @@ static bool configure_dsc_hw_block(struct pipe_ctx *pipe_ctx, bool enable,
  */
 void link_set_dsc_on_stream(struct pipe_ctx *pipe_ctx, bool enable)
 {
+	struct dc *dc = pipe_ctx->stream->ctx->dc;
 	struct dsc_config dsc_cfg = {0};
 	struct dsc_optc_config dsc_optc_cfg = {0};
 
@@ -922,12 +923,20 @@ void link_set_dsc_on_stream(struct pipe_ctx *pipe_ctx, bool enable)
 		return;
 	}
 
-	if (enable) {
-		if (configure_dsc_hw_block(pipe_ctx, true, &dsc_cfg, &dsc_optc_cfg))
-			set_encoder_dsc_config(pipe_ctx, &dsc_cfg, &dsc_optc_cfg, true);
-	} else {
+	if (dc->hwss.configure_dsc) {
+		/* If the hwss configure_dsc function is supported, then DSC will be programmed
+		 * in the same sequence of OTG enable/disable. Thus, we don't need to configure
+		 * the DSC hw block here.
+		 */
 		set_encoder_dsc_config(pipe_ctx, &dsc_cfg, &dsc_optc_cfg, false);
-		configure_dsc_hw_block(pipe_ctx, false, &dsc_cfg, &dsc_optc_cfg);
+	} else {
+		if (enable) {
+			if (configure_dsc_hw_block(pipe_ctx, true, &dsc_cfg, &dsc_optc_cfg))
+				set_encoder_dsc_config(pipe_ctx, &dsc_cfg, &dsc_optc_cfg, true);
+		} else {
+			set_encoder_dsc_config(pipe_ctx, &dsc_cfg, &dsc_optc_cfg, false);
+			configure_dsc_hw_block(pipe_ctx, false, &dsc_cfg, &dsc_optc_cfg);
+		}
 	}
 }
 
