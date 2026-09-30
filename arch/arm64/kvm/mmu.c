@@ -1697,7 +1697,6 @@ static int gmem_abort(const struct kvm_s2_fault_desc *s2fd,
 	struct kvm_pgtable *pgt = s2fd->mmu->pgt;
 	struct kvm_guest_s2_mapping *mapping = NULL;
 	unsigned long mmu_seq;
-	struct page *page;
 	struct kvm *kvm = s2fd->vcpu->kvm;
 	void *memcache = NULL;
 	kvm_pfn_t pfn;
@@ -1730,7 +1729,7 @@ static int gmem_abort(const struct kvm_s2_fault_desc *s2fd,
 	/* Pairs with the smp_wmb() in kvm_mmu_invalidate_end(). */
 	smp_rmb();
 
-	ret = kvm_gmem_get_pfn(kvm, s2fd->memslot, gfn, &pfn, &page, NULL);
+	ret = kvm_gmem_get_pfn(kvm, s2fd->memslot, gfn, &pfn, NULL);
 	if (ret) {
 		/* If result is non-NULL this is a synthetic fault. */
 		if (!result)
@@ -1783,7 +1782,6 @@ static int gmem_abort(const struct kvm_s2_fault_desc *s2fd,
 	}
 
 out_unlock:
-	kvm_release_faultin_page(kvm, page, !!ret, prot & KVM_PGTABLE_PROT_W);
 	kvm_fault_unlock(kvm);
 	kfree(mapping);
 

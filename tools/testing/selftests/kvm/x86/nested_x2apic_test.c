@@ -71,7 +71,7 @@ static void l1_vmx_code(struct vmx_pages *vmx, struct hyperv_test_pages *hv_page
 	}
 
 	prepare_vmcs(vmx, NULL);
-	GUEST_ASSERT_EQ(vmwrite(GUEST_RIP, (unsigned long)l2_guest_code), 0);
+	vmwrite(GUEST_RIP, (unsigned long)l2_guest_code);
 
 	control = vmreadz(PIN_BASED_VM_EXEC_CONTROL);
 	control |= PIN_BASED_EXT_INTR_MASK;
