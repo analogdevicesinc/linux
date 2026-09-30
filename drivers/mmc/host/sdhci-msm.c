@@ -1490,7 +1490,7 @@ static int msm_toggle_vqmmc(struct sdhci_msm_host *msm_host,
 			      struct mmc_host *mmc, bool level)
 {
 	int ret;
-	struct mmc_ios ios;
+	struct mmc_ios ios = mmc->ios;
 
 	if (msm_host->vqmmc_enabled == level)
 		return 0;
