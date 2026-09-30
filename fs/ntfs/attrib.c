@@ -103,6 +103,17 @@ int ntfs_map_runlist_nolock(struct ntfs_inode *ni, s64 vcn, struct ntfs_attr_sea
 		base_ni = ni;
 	else
 		base_ni = ni->ext.base_ntfs_ino;
+	/*
+	 * ntfs_read_inode_mount() builds $MFT's runlist itself, so nothing
+	 * should reach here for $MFT.  A crafted image can: the read that
+	 * gets here already holds the $MFT folio lock it would wait on.
+	 */
+	if (unlikely(NVolMftBootstrap(ni->vol) &&
+		     base_ni == NTFS_I(ni->vol->mft_ino))) {
+		ntfs_error(ni->vol->sb,
+			   "$MFT needs its own extent records to describe itself; cannot mount.");
+		return -EIO;
+	}
 	if (!ctx) {
 		ctx_is_temporary = ctx_needs_reset = true;
 		m = map_mft_record(base_ni);
@@ -317,7 +328,7 @@ int ntfs_map_runlist(struct ntfs_inode *ni, s64 vcn)
 struct runlist_element *ntfs_attr_vcn_to_rl(struct ntfs_inode *ni, s64 vcn, s64 *lcn)
 {
 	struct runlist_element *rl = ni->runlist.rl;
-	int err;
+	int err = 0;
 	bool is_retry = false;
 
 	if (!rl) {
@@ -335,10 +346,32 @@ remap_rl:
 
 	if (*lcn <= LCN_RL_NOT_MAPPED && is_retry == false) {
 		is_retry = true;
-		if (!ntfs_map_runlist_nolock(ni, vcn, NULL)) {
+		err = ntfs_map_runlist_nolock(ni, vcn, NULL);
+		if (!err) {
 			rl = ni->runlist.rl;
 			goto remap_rl;
 		}
+	}
+
+	/*
+	 * Neither the runlist nor the retry mapped @vcn, e.g. because the
+	 * extent mft record holding it is corrupt or because the mapping
+	 * pairs end too soon.  ntfs_map_runlist_nolock() reports the latter
+	 * as -ENOENT, as @vcn lies past the extent it found.  Below the
+	 * allocated size, callers would treat LCN_RL_NOT_MAPPED or LCN_ENOENT
+	 * as a hole, so fail instead.  At or beyond it nothing is mapped: the
+	 * runlist ends there with LCN_ENOENT, or with LCN_RL_NOT_MAPPED if
+	 * only a later extent has been mapped, so return that end as it is.
+	 */
+	if (*lcn <= LCN_RL_NOT_MAPPED) {
+		unsigned long flags;
+		s64 allocated_size;
+
+		read_lock_irqsave(&ni->size_lock, flags);
+		allocated_size = ni->allocated_size;
+		read_unlock_irqrestore(&ni->size_lock, flags);
+		if ((s64)ntfs_cluster_to_bytes(ni->vol, vcn) < allocated_size)
+			return ERR_PTR(err == -ENOMEM ? -ENOMEM : -EIO);
 	}
 
 	return rl;
@@ -909,7 +942,7 @@ static int ntfs_attr_find(const __le32 type, const __le16 *name,
 
 				rc = ntfs_collate_names(name, name_len,
 						(__le16 *)((u8 *)a + le16_to_cpu(a->name_offset)),
-						a->name_length, 1, IGNORE_CASE,
+						a->name_length, true, IGNORE_CASE,
 						upcase, upcase_len);
 				/*
 				 * If @name collates before a->name, there is no
@@ -922,7 +955,7 @@ static int ntfs_attr_find(const __le32 type, const __le16 *name,
 					continue;
 				rc = ntfs_collate_names(name, name_len,
 						(__le16 *)((u8 *)a + le16_to_cpu(a->name_offset)),
-						a->name_length, 1, CASE_SENSITIVE,
+						a->name_length, true, CASE_SENSITIVE,
 						upcase, upcase_len);
 				if (rc == -1)
 					return -ENOENT;
@@ -1313,7 +1346,7 @@ find_attr_list_attr:
 			register int rc;
 
 			rc = ntfs_collate_names(name, name_len, al_name,
-					al_name_len, 1, IGNORE_CASE,
+					al_name_len, true, IGNORE_CASE,
 					vol->upcase, vol->upcase_len);
 			/*
 			 * If @name collates before al_name, there is no
@@ -1326,7 +1359,7 @@ find_attr_list_attr:
 				continue;
 
 			rc = ntfs_collate_names(name, name_len, al_name,
-					al_name_len, 1, CASE_SENSITIVE,
+					al_name_len, true, CASE_SENSITIVE,
 					vol->upcase, vol->upcase_len);
 			if (rc == -1)
 				goto not_found;
@@ -1775,7 +1808,7 @@ int ntfs_attr_size_bounds_check(const struct ntfs_volume *vol, const __le32 type
 	 * $ATTRIBUTE_LIST has a maximum size of 256kiB, but this is not
 	 * listed in $AttrDef.
 	 */
-	if (unlikely(type == AT_ATTRIBUTE_LIST && size > 256 * 1024))
+	if (unlikely(type == AT_ATTRIBUTE_LIST && size > NTFS_MAX_ATTR_LIST_SIZE))
 		return -ERANGE;
 	/* Get the $AttrDef entry for the attribute @type. */
 	ad = ntfs_attr_find_in_attrdef(vol, type);
@@ -4234,12 +4267,14 @@ static int ntfs_attr_make_resident(struct ntfs_inode *ni, struct ntfs_attr_searc
  * ntfs_non_resident_attr_shrink - shrink a non-resident, open ntfs attribute
  * @ni:		non-resident ntfs attribute to shrink
  * @newsize:	new size (in bytes) to which to shrink the attribute
+ * @pagecache_truncated: page cache was already truncated to @newsize
  *
  * Reduce the size of a non-resident, open ntfs attribute @na to @newsize bytes.
  */
 static int ntfs_non_resident_attr_shrink(struct ntfs_inode *ni,
 					 const s64 newsize,
-					struct ntfs_inode *locked_ni)
+					struct ntfs_inode *locked_ni,
+					bool pagecache_truncated)
 {
 	struct ntfs_volume *vol;
 	struct ntfs_attr_search_ctx *ctx;
@@ -4389,7 +4424,8 @@ static int ntfs_non_resident_attr_shrink(struct ntfs_inode *ni,
 	 * later writeback map a vcn past the new allocation, which fails with
 	 * -ENOENT and loses the write.
 	 */
-	truncate_inode_pages(VFS_I(ni)->i_mapping, newsize);
+	if (!pagecache_truncated)
+		truncate_inode_pages(VFS_I(ni)->i_mapping, newsize);
 
 	/* Update data size in the index. */
 	if (ni->type == AT_DATA && ni->name == AT_UNNAMED)
@@ -4450,6 +4486,7 @@ static int ntfs_non_resident_attr_expand(struct ntfs_inode *ni, const s64 newsiz
 	struct ntfs_inode *base_ni;
 	struct super_block *sb = ni->vol->sb;
 	size_t new_rl_count;
+	unsigned long flags;
 
 	ntfs_debug("Inode 0x%llx, attr 0x%x, new size %lld old size %lld\n",
 			(unsigned long long)ni->mft_no, ni->type,
@@ -4680,11 +4717,20 @@ rollback:
 	if (err2)
 		ntfs_debug("Leaking clusters");
 
-	/* Now, truncate the runlist itself. */
+	/*
+	 * Now, truncate the runlist itself.  Restore allocated_size before
+	 * dropping the lock: ntfs_attr_vcn_to_rl() fails a lookup below the
+	 * allocated size that falls past the end of the runlist.
+	 */
 	if (ni != locked_ni)
 		down_write(&ni->runlist.lock);
 	err2 = ntfs_rl_truncate_nolock(vol, &ni->runlist,
 			ntfs_bytes_to_cluster(vol, org_alloc_size));
+	if (!err2) {
+		write_lock_irqsave(&ni->size_lock, flags);
+		ni->allocated_size = org_alloc_size;
+		write_unlock_irqrestore(&ni->size_lock, flags);
+	}
 	if (ni != locked_ni)
 		up_write(&ni->runlist.lock);
 	if (err2) {
@@ -4696,8 +4742,6 @@ rollback:
 		ni->runlist.rl = NULL;
 		ntfs_error(sb, "Couldn't truncate runlist. Rollback failed");
 	} else {
-		/* Prepare to mapping pairs update. */
-		ni->allocated_size = org_alloc_size;
 		/* Restore mapping pairs. */
 		if (ni != locked_ni)
 			down_read(&ni->runlist.lock);
@@ -4991,7 +5035,7 @@ int __ntfs_attr_truncate_vfs(struct ntfs_inode *ni, const s64 newsize,
 			up_write(&ni->runlist.lock);
 		} else
 			err = ntfs_non_resident_attr_shrink(
-					ni, newsize, NULL);
+					ni, newsize, NULL, true);
 	} else
 		err = ntfs_resident_attr_resize(ni, newsize, 0,
 						NVolDisableSparse(ni->vol) ?
@@ -5104,7 +5148,7 @@ int ntfs_attr_truncate_i_locked(struct ntfs_inode *ni, const s64 newsize,
 					ni, newsize, 0, holes, locked_ni);
 		else
 			err = ntfs_non_resident_attr_shrink(
-					ni, newsize, locked_ni);
+					ni, newsize, locked_ni, false);
 	} else
 		err = ntfs_resident_attr_resize(ni, newsize, 0, holes);
 	ntfs_debug("Return status %d\n", err);
@@ -5855,7 +5899,7 @@ int ntfs_attr_fallocate(struct ntfs_inode *ni, loff_t start, loff_t byte_len, bo
 						goto out;
 				}
 
-				if (signal_pending(current))
+				if (fatal_signal_pending(current))
 					goto signal_out;
 
 				vcn += alloc_cnt;
@@ -5876,7 +5920,7 @@ int ntfs_attr_fallocate(struct ntfs_inode *ni, loff_t start, loff_t byte_len, bo
 					    try_alloc_cnt, &balloc, false, false);
 		up_write(&ni->runlist.lock);
 		mutex_unlock(&ni->mrec_lock);
-		if (err || signal_pending(current))
+		if (err || fatal_signal_pending(current))
 			goto signal_out;
 
 		vcn += alloc_cnt;

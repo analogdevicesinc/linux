@@ -651,6 +651,25 @@ void ntfs_set_vfs_operations(struct inode *inode, mode_t mode, dev_t dev)
 	}
 }
 
+static bool ntfs_non_resident_sizes_inconsistent(struct inode *vi,
+						 const struct attr_record *a)
+{
+	s64 allocated_size = le64_to_cpu(a->data.non_resident.allocated_size);
+	s64 data_size = le64_to_cpu(a->data.non_resident.data_size);
+	s64 initialized_size = le64_to_cpu(a->data.non_resident.initialized_size);
+
+	if (initialized_size >= 0 && initialized_size <= data_size &&
+	    data_size <= allocated_size &&
+	    !ntfs_bytes_to_cluster_off(NTFS_I(vi)->vol, allocated_size))
+		return false;
+
+	ntfs_error(vi->i_sb,
+		   "Attribute 0x%x of inode 0x%llx is corrupt (initialized size %lld, data size %lld, allocated size %lld).",
+		   le32_to_cpu(a->type), NTFS_I(vi)->mft_no, initialized_size,
+		   data_size, allocated_size);
+	return true;
+}
+
 /*
  * ntfs_read_locked_inode - read an inode from its device
  * @vi:		inode to read
@@ -805,6 +824,8 @@ static int ntfs_read_locked_inode(struct inode *vi)
 			goto unm_err_out;
 		}
 	} else {
+		s64 attr_list_size;
+
 		if (vi->i_ino == FILE_MFT)
 			goto skip_attr_list_load;
 		ntfs_debug("Attribute list found in inode 0x%llx.", ni->mft_no);
@@ -827,11 +848,14 @@ static int ntfs_read_locked_inode(struct inode *vi)
 				ni->mft_no);
 		}
 		/* Now allocate memory for the attribute list. */
-		ni->attr_list_size = (u32)ntfs_attr_size(a);
-		if (!ni->attr_list_size) {
-			ntfs_error(vi->i_sb, "Attr_list_size is zero");
+		attr_list_size = ntfs_attr_size(a);
+		if (attr_list_size <= 0 ||
+		    attr_list_size > NTFS_MAX_ATTR_LIST_SIZE) {
+			ntfs_error(vi->i_sb, "Invalid attribute list size %lld (mft_no 0x%llx).",
+				   (long long)attr_list_size, ni->mft_no);
 			goto unm_err_out;
 		}
+		ni->attr_list_size = (u32)attr_list_size;
 		ni->attr_list = kvzalloc(ni->attr_list_size, GFP_NOFS);
 		if (!ni->attr_list) {
 			ntfs_error(vi->i_sb,
@@ -1021,8 +1045,8 @@ view_index_meta:
 			ni->itype.index.vcn_size = vol->cluster_size;
 			ni->itype.index.vcn_size_bits = vol->cluster_size_bits;
 		} else {
-			ni->itype.index.vcn_size = vol->sector_size;
-			ni->itype.index.vcn_size_bits = vol->sector_size_bits;
+			ni->itype.index.vcn_size = NTFS_BLOCK_SIZE;
+			ni->itype.index.vcn_size_bits = NTFS_BLOCK_SIZE_BITS;
 		}
 
 		/* Setup the index allocation attribute, even if not present. */
@@ -1143,14 +1167,21 @@ view_index_meta:
 					goto unm_err_out;
 				}
 
+				/*
+				 * Windows stores the standard compression unit in
+				 * sparse attributes even when the data is not compressed.
+				 */
 				if (NInoSparse(ni) &&
 				    a->data.non_resident.compression_unit &&
 				    a->data.non_resident.compression_unit !=
-				     vol->sparse_compression_unit) {
+				     vol->sparse_compression_unit &&
+				    a->data.non_resident.compression_unit !=
+				     STANDARD_COMPRESSION_UNIT) {
 					ntfs_error(vi->i_sb,
-						   "Found non-standard compression unit (%u instead of 0 or %d).  Cannot handle this.",
+						   "Found non-standard compression unit (%u instead of 0, %d, or %d).  Cannot handle this.",
 						   a->data.non_resident.compression_unit,
-						   vol->sparse_compression_unit);
+						   vol->sparse_compression_unit,
+						   STANDARD_COMPRESSION_UNIT);
 					err = -EOPNOTSUPP;
 					goto unm_err_out;
 				}
@@ -1179,6 +1210,8 @@ view_index_meta:
 					"First extent of $DATA attribute has non zero lowest_vcn.");
 				goto unm_err_out;
 			}
+			if (ntfs_non_resident_sizes_inconsistent(vi, a))
+				goto unm_err_out;
 			vi->i_size = ni->data_size = le64_to_cpu(a->data.non_resident.data_size);
 			ni->initialized_size = le64_to_cpu(a->data.non_resident.initialized_size);
 			ni->allocated_size = le64_to_cpu(a->data.non_resident.allocated_size);
@@ -1441,6 +1474,8 @@ static int ntfs_read_locked_attr_inode(struct inode *base_vi, struct inode *vi)
 			ntfs_error(vi->i_sb, "First extent of attribute has non-zero lowest_vcn.");
 			goto unm_err_out;
 		}
+		if (ntfs_non_resident_sizes_inconsistent(vi, a))
+			goto unm_err_out;
 		vi->i_size = ni->data_size = le64_to_cpu(a->data.non_resident.data_size);
 		ni->initialized_size = le64_to_cpu(a->data.non_resident.initialized_size);
 		ni->allocated_size = le64_to_cpu(a->data.non_resident.allocated_size);
@@ -1612,8 +1647,8 @@ static int ntfs_read_locked_index_inode(struct inode *base_vi, struct inode *vi)
 		ni->itype.index.vcn_size = vol->cluster_size;
 		ni->itype.index.vcn_size_bits = vol->cluster_size_bits;
 	} else {
-		ni->itype.index.vcn_size = vol->sector_size;
-		ni->itype.index.vcn_size_bits = vol->sector_size_bits;
+		ni->itype.index.vcn_size = NTFS_BLOCK_SIZE;
+		ni->itype.index.vcn_size_bits = NTFS_BLOCK_SIZE_BITS;
 	}
 
 	/* Find index allocation attribute. */
@@ -1670,6 +1705,8 @@ static int ntfs_read_locked_index_inode(struct inode *base_vi, struct inode *vi)
 			"First extent of $INDEX_ALLOCATION attribute has non zero lowest_vcn.");
 		goto unm_err_out;
 	}
+	if (ntfs_non_resident_sizes_inconsistent(vi, a))
+		goto unm_err_out;
 	vi->i_size = ni->data_size = le64_to_cpu(a->data.non_resident.data_size);
 	ni->initialized_size = le64_to_cpu(a->data.non_resident.initialized_size);
 	ni->allocated_size = le64_to_cpu(a->data.non_resident.allocated_size);
@@ -1955,6 +1992,7 @@ int ntfs_read_inode_mount(struct inode *vi)
 	} else /* if (!err) */ {
 		struct attr_list_entry *al_entry, *next_al_entry;
 		u8 *al_end;
+		s64 attr_list_size;
 		static const char *es = "  Not allowed.  $MFT is corrupt.  You should run chkdsk.";
 
 		ntfs_debug("Attribute list attribute found in $MFT.");
@@ -1978,11 +2016,14 @@ int ntfs_read_inode_mount(struct inode *vi)
 				"Resident attribute list attribute in $MFT system file is marked encrypted/sparse which is not true.  However, Windows allows this and chkdsk does not detect or correct it so we will just ignore the invalid flags and pretend they are not set.");
 		}
 		/* Now allocate memory for the attribute list. */
-		ni->attr_list_size = (u32)ntfs_attr_size(a);
-		if (!ni->attr_list_size) {
-			ntfs_error(sb, "Attr_list_size is zero");
+		attr_list_size = ntfs_attr_size(a);
+		if (attr_list_size <= 0 ||
+		    attr_list_size > NTFS_MAX_ATTR_LIST_SIZE) {
+			ntfs_error(sb, "Invalid attribute list size %lld (mft_no 0x%llx).%s",
+				   (long long)attr_list_size, ni->mft_no, es);
 			goto put_err_out;
 		}
+		ni->attr_list_size = (u32)attr_list_size;
 		ni->attr_list = kvzalloc(round_up(ni->attr_list_size, SECTOR_SIZE),
 					 GFP_NOFS);
 		if (!ni->attr_list) {
@@ -1999,6 +2040,8 @@ int ntfs_read_inode_mount(struct inode *vi)
 					"Attribute list has non zero lowest_vcn. $MFT is corrupt. You should run chkdsk.");
 				goto put_err_out;
 			}
+			if (ntfs_non_resident_sizes_inconsistent(vi, a))
+				goto put_err_out;
 
 			rl = ntfs_mapping_pairs_decompress(vol, a, NULL, &new_rl_count);
 			if (IS_ERR(rl)) {
@@ -2071,6 +2114,11 @@ int ntfs_read_inode_mount(struct inode *vi)
 	/* Now load all attribute extents. */
 	a = NULL;
 	next_vcn = last_vcn = highest_vcn = 0;
+	/*
+	 * Reading one of $MFT's own extent records in this loop can re-enter
+	 * ntfs_map_runlist_nolock() for $MFT; see the check there.
+	 */
+	NVolSetMftBootstrap(vol);
 	while (!(err = ntfs_attr_lookup(AT_DATA, NULL, 0, 0, next_vcn, NULL, 0,
 			ctx))) {
 		struct runlist_element *nrl;
@@ -2123,6 +2171,16 @@ int ntfs_read_inode_mount(struct inode *vi)
 			ni->initialized_size = le64_to_cpu(a->data.non_resident.initialized_size);
 			ni->allocated_size = le64_to_cpu(a->data.non_resident.allocated_size);
 			/*
+			 * Records between allocated_size and data_size are not
+			 * on disk, and would be read as zeros.
+			 */
+			if (vi->i_size > ni->allocated_size) {
+				ntfs_error(sb,
+					   "$MFT data size %lld exceeds its allocated size %lld. $MFT is corrupt. Run chkdsk.",
+					   vi->i_size, ni->allocated_size);
+				goto put_err_out;
+			}
+			/*
 			 * Verify the number of mft records does not exceed
 			 * 2^32 - 1.
 			 */
@@ -2153,6 +2211,7 @@ int ntfs_read_inode_mount(struct inode *vi)
 			err = ntfs_read_locked_inode(vi);
 			if (err) {
 				ntfs_error(sb, "ntfs_read_inode() of $MFT failed.\n");
+				NVolClearMftBootstrap(vol);
 				ntfs_attr_put_search_ctx(ctx);
 				/* Revert to the safe super operations. */
 				kfree(m);
@@ -2186,6 +2245,7 @@ int ntfs_read_inode_mount(struct inode *vi)
 			goto put_err_out;
 		}
 	}
+	NVolClearMftBootstrap(vol);
 	if (err != -ENOENT) {
 		ntfs_error(sb, "Failed to lookup $MFT/$DATA attribute extent. Run chkdsk.\n");
 		goto put_err_out;
@@ -2220,6 +2280,8 @@ em_put_err_out:
 put_err_out:
 	ntfs_attr_put_search_ctx(ctx);
 err_out:
+	/* Also reached from inside the $DATA loop. */
+	NVolClearMftBootstrap(vol);
 	ntfs_error(sb, "Failed. Marking inode as bad.");
 	kfree(m);
 	return -1;
@@ -2915,8 +2977,7 @@ err_out:
  * abort if deprotection or checks fail.
  *
  * Finally attach the ntfs inode to its base inode @base_ni and return a
- * pointer to the ntfs_inode structure on success or NULL on error, with errno
- * set to the error code.
+ * pointer to the ntfs_inode structure on success or ERR_PTR() on error.
  *
  * Note, extent inodes are never closed directly. They are automatically
  * disposed off by the closing of the base inode.
@@ -2932,7 +2993,7 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 	struct super_block *sb;
 
 	if (!base_ni)
-		return NULL;
+		return ERR_PTR(-EINVAL);
 
 	sb = base_ni->vol->sb;
 	ntfs_debug("Opening extent inode %llu (base mft record %llu).\n",
@@ -2951,7 +3012,7 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 			if (IS_ERR(ni_mrec)) {
 				ntfs_error(sb, "failed to map mft record for %llu",
 						ni->mft_no);
-				goto out;
+				return ERR_CAST(ni_mrec);
 			}
 			/* Verify the sequence number if given. */
 			seq_no = MSEQNO_LE(mref);
@@ -2960,7 +3021,7 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 				ntfs_error(sb, "Found stale extent mft reference mft=%llu",
 						ni->mft_no);
 				unmap_mft_record(ni);
-				goto out;
+				return ERR_PTR(-EIO);
 			}
 			unmap_mft_record(ni);
 			goto out;
@@ -2969,7 +3030,7 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 	/* Wasn't there, we need to load the extent inode. */
 	ni = ntfs_new_extent_inode(base_ni->vol->sb, mft_no);
 	if (!ni)
-		goto out;
+		return ERR_PTR(-ENOMEM);
 
 	ni->seq_no = (u16)MSEQNO_LE(mref);
 	ni->nr_extents = -1;
@@ -2979,8 +3040,10 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 		i = (base_ni->nr_extents + 4) * sizeof(struct ntfs_inode *);
 
 		extent_nis = kvzalloc(i, GFP_NOFS);
-		if (!extent_nis)
-			goto err_out;
+		if (!extent_nis) {
+			ntfs_destroy_ext_inode(ni);
+			return ERR_PTR(-ENOMEM);
+		}
 		if (base_ni->nr_extents) {
 			memcpy(extent_nis, base_ni->ext.extent_ntfs_inos,
 					i - 4 * sizeof(struct ntfs_inode *));
@@ -2993,10 +3056,6 @@ static struct ntfs_inode *ntfs_extent_inode_open(struct ntfs_inode *base_ni,
 out:
 	ntfs_debug("\n");
 	return ni;
-err_out:
-	ntfs_destroy_ext_inode(ni);
-	ni = NULL;
-	goto out;
 }
 
 /*
@@ -3034,9 +3093,12 @@ int ntfs_inode_attach_all_extents(struct ntfs_inode *ni)
 	while ((u8 *)ale < ni->attr_list + ni->attr_list_size) {
 		if (ni->mft_no != MREF_LE(ale->mft_reference) &&
 				prev_attached != MREF_LE(ale->mft_reference)) {
-			if (!ntfs_extent_inode_open(ni, ale->mft_reference)) {
+			struct ntfs_inode *ext_ni;
+
+			ext_ni = ntfs_extent_inode_open(ni, ale->mft_reference);
+			if (IS_ERR(ext_ni)) {
 				ntfs_debug("Couldn't attach extent inode.\n");
-				return -1;
+				return PTR_ERR(ext_ni);
 			}
 			prev_attached = MREF_LE(ale->mft_reference);
 		}
@@ -3629,9 +3691,10 @@ static inline int ntfs_enlarge_attribute(struct inode *vi, s64 pos, s64 count,
 		return -EOPNOTSUPP;
 
 	if (pos + count > ni->data_size) {
-		if (ntfs_attr_truncate(ni, pos + count)) {
+		ret = ntfs_attr_truncate(ni, pos + count);
+		if (ret) {
 			ntfs_debug("Failed to truncate attribute");
-			return -1;
+			return ret;
 		}
 
 		ntfs_attr_reinit_search_ctx(ctx);
@@ -3719,7 +3782,7 @@ static s64 __ntfs_inode_non_resident_attr_pwrite(struct inode *vi,
 
 	index = pos >> PAGE_SHIFT;
 	while (count) {
-		if (count == PAGE_SIZE) {
+		if (count == PAGE_SIZE && !offset_in_page(pos)) {
 			folio = __filemap_get_folio(vi->i_mapping, index,
 					FGP_CREAT | FGP_LOCK,
 					mapping_gfp_mask(mapping));
@@ -3739,7 +3802,9 @@ static s64 __ntfs_inode_non_resident_attr_pwrite(struct inode *vi,
 			folio_lock(folio);
 		}
 
-		if (count == PAGE_SIZE) {
+		folio_wait_writeback(folio);
+
+		if (count == PAGE_SIZE && !offset_in_page(pos)) {
 			offset = 0;
 			attr_len = count;
 		} else {
@@ -3758,7 +3823,9 @@ static s64 __ntfs_inode_non_resident_attr_pwrite(struct inode *vi,
 			struct runlist_element *rl;
 			int bio_err;
 
-			lcn_count = max_t(s64, 1, ntfs_bytes_to_cluster(vol, attr_len));
+			lcn_count = max_t(s64, 1,
+					  ntfs_bytes_to_cluster(vol, attr_len +
+								vol->cluster_size - 1));
 			vcn = ntfs_pidx_to_cluster(vol, folio->index);
 
 			do {
