@@ -19,6 +19,7 @@
 #include "abi/guc_klvs_abi.h"
 #include "xe_assert.h"
 #include "xe_bo.h"
+#include "xe_cpu_bind.h"
 #include "xe_devcoredump.h"
 #include "xe_device.h"
 #include "xe_exec_queue.h"
@@ -42,6 +43,7 @@
 #include "xe_mocs.h"
 #include "xe_module.h"
 #include "xe_pm.h"
+#include "xe_pt.h"
 #include "xe_ring_ops_types.h"
 #include "xe_sched_job.h"
 #include "xe_sleep.h"
@@ -1188,9 +1190,10 @@ static void submit_exec_queue(struct xe_exec_queue *q, struct xe_sched_job *job)
 	xe_gt_assert(guc_to_gt(guc), exec_queue_registered(q));
 
 	if (!job->restore_replay || job->last_replay) {
+		/* A ULLS job past the first publishes its own ring tail */
 		if (xe_exec_queue_is_parallel(q))
 			wq_item_append(q);
-		else
+		else if (!xe_sched_job_ulls_is_chained(job))
 			xe_lrc_set_ring_tail(lrc, lrc->ring.tail);
 		job->last_replay = false;
 	}
@@ -1207,6 +1210,9 @@ static void submit_exec_queue(struct xe_exec_queue *q, struct xe_sched_job *job)
 	if (exec_queue_suspended(q))
 		return;
 
+	if (xe_sched_job_ulls_is_chained(job))
+		xe_lrc_set_ulls_semaphore(lrc, xe_sched_job_lrc_seqno(job));
+
 	if (!exec_queue_enabled(q)) {
 		action[len++] = XE_GUC_ACTION_SCHED_CONTEXT_MODE_SET;
 		action[len++] = q->guc->id;
@@ -1220,13 +1226,14 @@ static void submit_exec_queue(struct xe_exec_queue *q, struct xe_sched_job *job)
 		set_exec_queue_pending_enable(q);
 		set_exec_queue_enabled(q);
 		trace_xe_exec_queue_scheduling_enable(q);
-	} else {
+	} else if (!xe_sched_job_ulls_is_chained(job)) {
 		action[len++] = XE_GUC_ACTION_SCHED_CONTEXT;
 		action[len++] = q->guc->id;
 		trace_xe_exec_queue_submit(q);
 	}
 
-	xe_guc_ct_send(&guc->ct, action, len, g2h_len, num_g2h);
+	if (!xe_sched_job_ulls_is_chained(job) || num_g2h)
+		xe_guc_ct_send(&guc->ct, action, len, g2h_len, num_g2h);
 
 	if (extra_submit) {
 		len = 0;
@@ -1238,21 +1245,70 @@ static void submit_exec_queue(struct xe_exec_queue *q, struct xe_sched_job *job)
 	}
 }
 
+static bool is_pt_job(struct xe_sched_job *job)
+{
+	return job->is_pt_job;
+}
+
+static void run_pt_job(struct xe_device *xe, struct xe_sched_job *job,
+		       bool force_clear)
+{
+	struct xe_tile *tile;
+	int id;
+
+	for_each_tile(tile, xe, id) {
+		struct xe_pt_job_ops *pt_job_ops =
+			job->pt_update[0].pt_job_ops[id];
+
+		if (!pt_job_ops || !pt_job_ops->current_op)
+			continue;
+
+		xe_cpu_bind_update_pgtables_execute(job->pt_update[0].vm, tile,
+						    job->pt_update[0].ops,
+						    pt_job_ops->ops,
+						    pt_job_ops->current_op,
+						    force_clear);
+	}
+}
+
+static void put_pt_job(struct xe_device *xe, struct xe_sched_job *job)
+{
+	struct xe_tile *tile;
+	int id;
+
+	for_each_tile(tile, xe, id) {
+		struct xe_pt_job_ops *pt_job_ops =
+			job->pt_update[0].pt_job_ops[id];
+
+		xe_pt_job_ops_put(pt_job_ops);
+	}
+}
+
 static struct dma_fence *
 guc_exec_queue_run_job(struct drm_sched_job *drm_job)
 {
 	struct xe_sched_job *job = to_xe_sched_job(drm_job);
 	struct xe_exec_queue *q = job->q;
 	struct xe_guc *guc = exec_queue_to_guc(q);
-	bool killed_or_banned_or_wedged =
-		exec_queue_killed_or_banned_or_wedged(q);
+	bool killed_or_banned_or_wedged_or_error  =
+		exec_queue_killed_or_banned_or_wedged(q) ||
+		xe_sched_job_is_error(job);
 
 	xe_gt_assert(guc_to_gt(guc), !(exec_queue_destroyed(q) || exec_queue_pending_disable(q)) ||
 		     exec_queue_banned(q) || exec_queue_suspended(q));
 
 	trace_xe_sched_job_run(job);
 
-	if (!killed_or_banned_or_wedged && !xe_sched_job_is_error(job)) {
+	if (is_pt_job(job)) {
+		xe_gt_assert(guc_to_gt(guc), !exec_queue_registered(q));
+
+		run_pt_job(guc_to_xe(guc), job,
+			   killed_or_banned_or_wedged_or_error);
+		put_pt_job(guc_to_xe(guc), job);
+		dma_fence_put(job->fence);	/* Drop ref from xe_sched_job_arm */
+
+		return NULL;
+	} else if (!killed_or_banned_or_wedged_or_error) {
 		if (xe_exec_queue_is_multi_queue_secondary(q)) {
 			struct xe_exec_queue *primary = xe_exec_queue_multi_queue_primary(q);
 
@@ -2049,6 +2105,7 @@ static int guc_exec_queue_init(struct xe_exec_queue *q)
 	struct xe_guc_exec_queue *ge;
 	long timeout;
 	int err, i;
+	int max_jobs = (xe_lrc_ring_size() / MAX_JOB_SIZE_BYTES);
 
 	xe_gt_assert(guc_to_gt(guc), xe_device_uc_enabled(guc_to_xe(guc)));
 
@@ -2088,8 +2145,11 @@ static int guc_exec_queue_init(struct xe_exec_queue *q)
 		submit_wq = primary->guc->sched.base.submit_wq;
 	}
 
+	if (q->vm && q->vm->flags & XE_VM_FLAG_MIGRATION)
+		max_jobs = min(max_jobs, LRC_MIGRATION_ULLS_SEMAPHORE_COUNT - 1);
+
 	err = xe_sched_init(&ge->sched, &drm_sched_ops, &xe_sched_ops,
-			    submit_wq, xe_lrc_ring_size() / MAX_JOB_SIZE_BYTES, 64,
+			    submit_wq, max_jobs, 64,
 			    timeout, guc_to_gt(guc)->ordered_wq, NULL,
 			    ge->name, gt_to_xe(q->gt)->drm.dev);
 	if (err)
@@ -3686,6 +3746,7 @@ xe_guc_exec_queue_snapshot_capture(struct xe_exec_queue *q)
 	snapshot->logical_mask = q->logical_mask;
 	snapshot->width = q->width;
 	snapshot->refcount = kref_read(&q->refcount);
+	snapshot->jobcount = atomic_read(&q->job_cnt);
 	snapshot->sched_timeout = sched->base.timeout;
 	snapshot->sched_props.timeslice_us = q->sched_props.timeslice_us;
 	snapshot->sched_props.preempt_timeout_us =
@@ -3758,6 +3819,7 @@ xe_guc_exec_queue_snapshot_print(struct xe_guc_submit_exec_queue_snapshot *snaps
 	drm_printf(p, "\tLogical mask: 0x%x\n", snapshot->logical_mask);
 	drm_printf(p, "\tWidth: %d\n", snapshot->width);
 	drm_printf(p, "\tRef: %d\n", snapshot->refcount);
+	drm_printf(p, "\tJob count: %u\n", snapshot->jobcount);
 	drm_printf(p, "\tTimeout: %ld (ms)\n", snapshot->sched_timeout);
 	drm_printf(p, "\tTimeslice: %u (us)\n",
 		   snapshot->sched_props.timeslice_us);

@@ -137,16 +137,14 @@ struct xe_exec_queue {
 #define EXEC_QUEUE_FLAG_KERNEL			BIT(0)
 /* for VM jobs. Caller needs to hold rpm ref when creating queue with this flag */
 #define EXEC_QUEUE_FLAG_VM			BIT(1)
-/* child of VM queue for multi-tile VM jobs */
-#define EXEC_QUEUE_FLAG_BIND_ENGINE_CHILD	BIT(2)
 /* kernel exec_queue only, set priority to highest level */
-#define EXEC_QUEUE_FLAG_HIGH_PRIORITY		BIT(3)
+#define EXEC_QUEUE_FLAG_HIGH_PRIORITY		BIT(2)
 /* flag to indicate low latency hint to guc */
-#define EXEC_QUEUE_FLAG_LOW_LATENCY		BIT(4)
+#define EXEC_QUEUE_FLAG_LOW_LATENCY		BIT(3)
 /* for migration (kernel copy, clear, bind) jobs */
-#define EXEC_QUEUE_FLAG_MIGRATE			BIT(5)
+#define EXEC_QUEUE_FLAG_MIGRATE			BIT(4)
 /* for programming COMMON_SLICE_CHICKEN3 on first submission */
-#define EXEC_QUEUE_FLAG_DISABLE_STATE_CACHE_PERF_FIX	BIT(6)
+#define EXEC_QUEUE_FLAG_DISABLE_STATE_CACHE_PERF_FIX	BIT(5)
 
 	/**
 	 * @flags: flags for this exec queue, should statically setup aside from ban
@@ -156,13 +154,6 @@ struct xe_exec_queue {
 
 	/** @ban_reason: Bitmask of ban reasons (DRM_XE_EXEC_QUEUE_BAN_REASON_*) */
 	atomic_t ban_reason;
-
-	union {
-		/** @multi_gt_list: list head for VM bind engines if multi-GT */
-		struct list_head multi_gt_list;
-		/** @multi_gt_link: link for VM bind engines if multi-GT */
-		struct list_head multi_gt_link;
-	};
 
 	union {
 		/** @execlist: execlist backend specific state for exec queue */
@@ -230,7 +221,8 @@ struct xe_exec_queue {
 
 #define XE_EXEC_QUEUE_TLB_INVAL_PRIMARY_GT	0
 #define XE_EXEC_QUEUE_TLB_INVAL_MEDIA_GT	1
-#define XE_EXEC_QUEUE_TLB_INVAL_COUNT		(XE_EXEC_QUEUE_TLB_INVAL_MEDIA_GT  + 1)
+#define XE_EXEC_QUEUE_TLB_INVAL_COUNT	\
+	((XE_EXEC_QUEUE_TLB_INVAL_MEDIA_GT + 1) * 2)
 
 	/** @tlb_inval: TLB invalidations exec queue state */
 	struct {

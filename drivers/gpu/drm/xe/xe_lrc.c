@@ -706,6 +706,7 @@ u32 xe_lrc_pphwsp_offset(struct xe_lrc *lrc)
 #define LRC_CTX_JOB_TIMESTAMP_OFFSET 512
 #define LRC_ENGINE_ID_PPHWSP_OFFSET 1024
 #define LRC_PARALLEL_PPHWSP_OFFSET 2048
+#define LRC_ULLS_PPHWSP_OFFSET 2048	/* Mutually exclusive with parallel */
 
 #define LRC_SEQNO_OFFSET 0
 #define LRC_START_SEQNO_OFFSET (LRC_SEQNO_OFFSET + 8)
@@ -766,6 +767,12 @@ static inline u32 __xe_lrc_parallel_offset(struct xe_lrc *lrc)
 static inline u32 __xe_lrc_engine_id_offset(struct xe_lrc *lrc)
 {
 	return xe_lrc_pphwsp_offset(lrc) + LRC_ENGINE_ID_PPHWSP_OFFSET;
+}
+
+static u32 __xe_lrc_ulls_offset(struct xe_lrc *lrc)
+{
+	/* The ulls is stored in the driver-defined portion of PPHWSP */
+	return xe_lrc_pphwsp_offset(lrc) + LRC_ULLS_PPHWSP_OFFSET;
 }
 
 static u32 __xe_lrc_ctx_timestamp_offset(struct xe_lrc *lrc)
@@ -835,6 +842,7 @@ DECL_MAP_ADDR_HELPERS(ctx_job_timestamp, lrc->bo)
 DECL_MAP_ADDR_HELPERS(ctx_timestamp, lrc->bo)
 DECL_MAP_ADDR_HELPERS(ctx_timestamp_udw, lrc->bo)
 DECL_MAP_ADDR_HELPERS(parallel, lrc->bo)
+DECL_MAP_ADDR_HELPERS(ulls, lrc->bo)
 DECL_MAP_ADDR_HELPERS(indirect_ring, lrc->bo)
 DECL_MAP_ADDR_HELPERS(engine_id, lrc->bo)
 DECL_MAP_ADDR_HELPERS(queue_timestamp, lrc->bo)
@@ -1805,6 +1813,26 @@ void xe_lrc_set_ring_tail(struct xe_lrc *lrc, u32 tail)
 		xe_lrc_write_ctx_reg(lrc, CTX_RING_TAIL, tail);
 }
 
+/**
+ * xe_lrc_ring_tail_ggtt_addr() - Saved ring tail GGTT address
+ * @lrc: Pointer to the lrc.
+ *
+ * GGTT address of the ring tail as saved for this context - in the indirect
+ * ring state on platforms which have it, otherwise in the context image.
+ * This is what a context restore loads the tail register from, so a ring
+ * which advances the tail register itself must keep this in sync.
+ *
+ * Returns: saved ring tail GGTT address
+ */
+u32 xe_lrc_ring_tail_ggtt_addr(struct xe_lrc *lrc)
+{
+	if (xe_lrc_has_indirect_ring_state(lrc))
+		return __xe_lrc_indirect_ring_ggtt_addr(lrc) +
+			INDIRECT_CTX_RING_TAIL * sizeof(u32);
+
+	return __xe_lrc_regs_ggtt_addr(lrc) + CTX_RING_TAIL * sizeof(u32);
+}
+
 u32 xe_lrc_ring_tail(struct xe_lrc *lrc)
 {
 	if (xe_lrc_has_indirect_ring_state(lrc))
@@ -1982,6 +2010,51 @@ static u32 xe_lrc_engine_id(struct xe_lrc *lrc)
 
 	map = __xe_lrc_engine_id_map(lrc);
 	return xe_map_read32(xe, &map);
+}
+
+#define semaphore_offset(seqno) \
+	(sizeof(u32) * ((seqno) % LRC_MIGRATION_ULLS_SEMAPHORE_COUNT))
+
+/**
+ * xe_lrc_ulls_semaphore_ggtt_addr() - ULLS semaphore GGTT address
+ * @lrc: Pointer to the lrc.
+ * @seqno: seqno of current job.
+ *
+ * Calculate ULLS semaphore GGTT address based on input seqno
+ *
+ * Returns: ULLS semaphore GGTT address
+ */
+u32 xe_lrc_ulls_semaphore_ggtt_addr(struct xe_lrc *lrc, u32 seqno)
+{
+	xe_assert(lrc_to_xe(lrc), semaphore_offset(seqno) <
+		  LRC_PPHWSP_SIZE - LRC_ULLS_PPHWSP_OFFSET);
+
+	return __xe_lrc_ulls_ggtt_addr(lrc) + semaphore_offset(seqno);
+}
+
+/**
+ * xe_lrc_set_ulls_semaphore() - Set ULLS semaphore
+ * @lrc: Pointer to the lrc.
+ * @seqno: seqno of current job.
+ *
+ * Set ULLS semaphore based on input seqno
+ */
+void xe_lrc_set_ulls_semaphore(struct xe_lrc *lrc, u32 seqno)
+{
+	struct xe_device *xe = lrc_to_xe(lrc);
+	struct iosys_map map = __xe_lrc_ulls_map(lrc);
+
+	xe_assert(xe, semaphore_offset(seqno) <
+		  LRC_PPHWSP_SIZE - LRC_ULLS_PPHWSP_OFFSET);
+
+	/*
+	 * The ring contents this semaphore releases are ordered by the
+	 * xe_device_wmb() at the end of xe_lrc_write_ring().
+	 */
+	iosys_map_incr(&map, semaphore_offset(seqno));
+	xe_map_write32(xe, &map, LRC_MIGRATION_ULLS_SEMAPHORE_SIGNAL);
+
+	xe_device_wmb(xe);	/* Flush write to hardware */
 }
 
 static int instr_dw(u32 cmd_header)

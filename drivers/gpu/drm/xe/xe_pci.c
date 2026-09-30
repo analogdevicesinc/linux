@@ -371,6 +371,7 @@ static const __maybe_unused struct xe_device_desc pvc_desc = {
 	.has_display = false,
 	.has_drm_ras = true,
 	.has_gsc_nvm = 1,
+	.has_pt_mirror = 1,
 	.has_heci_gscfi = 1,
 	.max_gt_per_tile = 1,
 	.max_remote_tiles = 1,
@@ -460,6 +461,7 @@ static const struct xe_device_desc nvls_desc = {
 	.has_flat_ccs = 1,
 	.has_pre_prod_wa = 1,
 	.has_sriov = true,
+	.has_pxp = true,
 	.max_gt_per_tile = 2,
 	MULTI_LRC_MASK,
 	.va_bits = 48,
@@ -471,6 +473,7 @@ static const struct xe_device_desc cri_desc = {
 	PLATFORM(CRESCENTISLAND),
 	.dma_mask_size = 52,
 	.has_display = false,
+	.has_device_uid = true,
 	.has_drm_ras = true,
 	.has_flat_ccs = false,
 	.has_gsc_nvm = 1,
@@ -791,6 +794,7 @@ static int xe_info_init_early(struct xe_device *xe,
 
 	xe->info.is_dgfx = desc->is_dgfx;
 	xe->info.has_cached_pt = desc->has_cached_pt;
+	xe->info.has_device_uid = desc->has_device_uid;
 	xe->info.has_drm_ras = desc->has_drm_ras;
 	xe->info.has_fan_control = desc->has_fan_control;
 	/* runtime fusing may force flat_ccs to disabled later */
@@ -806,6 +810,7 @@ static int xe_info_init_early(struct xe_device *xe,
 	xe->info.has_mert = desc->has_mert;
 	xe->info.has_page_reclaim_hw_assist = desc->has_page_reclaim_hw_assist;
 	xe->info.has_pre_prod_wa = desc->has_pre_prod_wa;
+	xe->info.has_pt_mirror = desc->has_pt_mirror;
 	xe->info.has_pxp = desc->has_pxp;
 	xe->info.has_soc_remapper_sysctrl = desc->has_soc_remapper_sysctrl;
 	xe->info.has_soc_remapper_telem = desc->has_soc_remapper_telem;

@@ -15,6 +15,7 @@
 #include "xe_gt_stats.h"
 #include "xe_hw_engine.h"
 #include "xe_log.h"
+#include "xe_migrate.h"
 #include "xe_pagefault.h"
 #include "xe_pagefault_types.h"
 #include "xe_pm.h"
@@ -280,6 +281,8 @@ static int xe_pagefault_service(struct xe_pagefault *pf)
 	vm = xe_pagefault_asid_to_vm(pf, asid);
 	if (IS_ERR(vm))
 		return PTR_ERR(vm);
+
+	xe_migrate_ulls_enter(gt_to_tile(gt)->migrate);
 
 	down_read(&vm->lock);
 
