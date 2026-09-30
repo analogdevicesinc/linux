@@ -271,7 +271,7 @@ void hmac_md5_final(struct hmac_md5_ctx *ctx, u8 out[MD5_DIGEST_SIZE])
 	cpu_to_le32_array(ctx->ostate.h, ARRAY_SIZE(ctx->ostate.h));
 	memcpy(out, ctx->ostate.h, MD5_DIGEST_SIZE);
 
-	memzero_explicit(ctx, sizeof(*ctx));
+	hmac_md5_zeroize_ctx(ctx);
 }
 EXPORT_SYMBOL_GPL(hmac_md5_final);
 
