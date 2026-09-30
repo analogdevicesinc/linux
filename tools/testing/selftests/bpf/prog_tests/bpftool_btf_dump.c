@@ -207,7 +207,6 @@ static void test_dump(const char *btf_path, bool sorted)
 {
 	const char *exp_path;
 	char *dump, *exp;
-	int err;
 
 	exp_path = sorted ? EXPECTED_SORTED : EXPECTED_UNSORTED;
 
@@ -219,8 +218,7 @@ static void test_dump(const char *btf_path, bool sorted)
 	if (!exp)
 		goto out_dump;
 
-	err = compare_text_to_expected(dump, exp);
-	ASSERT_OK(err, sorted ? "cmp_sorted" : "cmp_unsorted");
+	ASSERT_TEXT_EQ(dump, exp, sorted ? "cmp_sorted" : "cmp_unsorted");
 
 	free(exp);
 out_dump:
@@ -260,7 +258,7 @@ static void test_loc_dump(const char *btf_path)
 	if (!dump)
 		return;
 
-	ASSERT_OK(compare_text_to_expected(dump, expected), "cmp_loc_dump");
+	ASSERT_TEXT_EQ(dump, expected, "cmp_loc_dump");
 	free(dump);
 }
 
