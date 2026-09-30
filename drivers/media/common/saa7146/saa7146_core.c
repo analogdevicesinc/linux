@@ -252,6 +252,15 @@ int saa7146_pgtable_build_single(struct pci_dev *pci, struct saa7146_pgtable *pt
 
 	ptr = pt->cpu;
 	for_each_sg_dma_page(list, &dma_iter, sglen, 0) {
+		/*
+		 * The page table is exactly PAGE_SIZE large, i.e. it holds
+		 * PAGE_SIZE / sizeof(__le32) entries. Buffers needing more
+		 * pages would overflow it.
+		 */
+		if (nr_pages >= PAGE_SIZE / sizeof(__le32)) {
+			pr_err("page table too small\n");
+			return -EIO;
+		}
 		*ptr++ = cpu_to_le32(sg_page_iter_dma_address(&dma_iter));
 		nr_pages++;
 	}
@@ -340,6 +349,8 @@ static int saa7146_init_one(struct pci_dev *pci, const struct pci_device_id *ent
 		goto out;
 	}
 
+	spin_lock_init(&dev->int_slock);
+
 	/* create a nice device name */
 	sprintf(dev->name, "saa7146 (%d)", saa7146_num);
 
@@ -425,7 +436,6 @@ static int saa7146_init_one(struct pci_dev *pci, const struct pci_device_id *ent
 	dev->ext = ext;
 
 	mutex_init(&dev->v4l2_lock);
-	spin_lock_init(&dev->int_slock);
 	spin_lock_init(&dev->slock);
 
 	mutex_init(&dev->i2c_lock);

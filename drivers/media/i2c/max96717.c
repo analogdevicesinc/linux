@@ -414,6 +414,7 @@ static int max96717_set_routing(struct v4l2_subdev *sd,
 }
 
 static int max96717_set_fmt(struct v4l2_subdev *sd,
+			    const struct v4l2_subdev_client_info *ci,
 			    struct v4l2_subdev_state *state,
 			    struct v4l2_subdev_format *format)
 {
