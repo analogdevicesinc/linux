@@ -64,10 +64,8 @@ err_free_primary:
 static void ivpu_preemption_buffers_free(struct ivpu_device *vdev,
 					 struct ivpu_file_priv *file_priv, struct ivpu_cmdq *cmdq)
 {
-	if (cmdq->primary_preempt_buf)
-		ivpu_bo_free(cmdq->primary_preempt_buf);
-	if (cmdq->secondary_preempt_buf)
-		ivpu_bo_free(cmdq->secondary_preempt_buf);
+	ivpu_bo_free(cmdq->primary_preempt_buf);
+	ivpu_bo_free(cmdq->secondary_preempt_buf);
 }
 
 static int ivpu_preemption_job_init(struct ivpu_device *vdev, struct ivpu_file_priv *file_priv,

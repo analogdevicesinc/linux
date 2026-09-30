@@ -77,7 +77,6 @@
 #include <drm/drm_gem.h>
 #include <drm/drm_syncobj.h>
 #include <drm/gpu_scheduler.h>
-#include <drm/spsc_queue.h>
 
 #include "sched_internal.h"
 

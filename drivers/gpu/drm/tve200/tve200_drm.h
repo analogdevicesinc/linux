@@ -103,7 +103,6 @@ struct tve200_drm_dev_private {
 	struct drm_device *drm;
 
 	struct drm_connector *connector;
-	struct drm_panel *panel;
 	struct drm_bridge *bridge;
 	struct drm_plane plane;
 	struct drm_crtc crtc;

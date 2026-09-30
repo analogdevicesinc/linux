@@ -471,6 +471,9 @@ struct ivpu_bo *ivpu_bo_create_global(struct ivpu_device *vdev, u64 size, u32 fl
 
 void ivpu_bo_free(struct ivpu_bo *bo)
 {
+	if (!bo)
+		return;
+
 	struct iosys_map map = IOSYS_MAP_INIT_VADDR(bo->base.vaddr);
 
 	if (bo->flags & DRM_IVPU_BO_MAPPABLE) {
