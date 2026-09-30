@@ -1704,6 +1704,8 @@ patternProperties:
     description: Techvision Intelligent Technology Co., Ltd
   "^techwell,.*":
     description: Techwell, Inc.
+  "^teclast,.*":
+    description: Teclast
   "^teejet,.*":
     description: TeeJet
   "^teltonika,.*":
