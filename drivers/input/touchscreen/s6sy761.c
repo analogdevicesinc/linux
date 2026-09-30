@@ -108,6 +108,8 @@ struct s6sy761_data {
 
 	u16 devid;
 	u8 tx_channel;
+
+	bool powered_up;
 };
 
 /*
@@ -307,32 +309,41 @@ static int s6sy761_power_on(struct s6sy761_data *sdata)
 					    S6SY761_EVENT_SIZE,
 					    buffer);
 	if (ret < 0)
-		return ret;
+		goto err_disable_regulators;
 
 	event = (buffer[0] >> 2) & 0xf;
 
 	if ((event != S6SY761_EVENT_INFO &&
 	     event != S6SY761_EVENT_VENDOR_INFO) ||
 	    buffer[1] != S6SY761_INFO_BOOT_COMPLETE) {
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err_disable_regulators;
 	}
 
 	ret = i2c_smbus_read_byte_data(sdata->client, S6SY761_BOOT_STATUS);
 	if (ret < 0)
-		return ret;
+		goto err_disable_regulators;
 
 	/* for some reasons the device might be stuck in the bootloader */
-	if (ret != S6SY761_BS_APPLICATION)
-		return -ENODEV;
+	if (ret != S6SY761_BS_APPLICATION) {
+		ret = -ENODEV;
+		goto err_disable_regulators;
+	}
 
 	/* enable touch functionality */
 	ret = i2c_smbus_write_word_data(sdata->client,
 					S6SY761_TOUCH_FUNCTION,
 					S6SY761_MASK_TOUCH);
 	if (ret)
-		return ret;
+		goto err_disable_regulators;
 
+	sdata->powered_up = true;
 	return 0;
+
+err_disable_regulators:
+	regulator_bulk_disable(ARRAY_SIZE(sdata->regulators),
+			       sdata->regulators);
+	return ret;
 }
 
 static int s6sy761_hw_init(struct s6sy761_data *sdata,
@@ -381,9 +392,11 @@ static void s6sy761_power_off(void *data)
 {
 	struct s6sy761_data *sdata = data;
 
-	disable_irq(sdata->client->irq);
-	regulator_bulk_disable(ARRAY_SIZE(sdata->regulators),
-						sdata->regulators);
+	if (!sdata->powered_up)
+		return;
+
+	regulator_bulk_disable(ARRAY_SIZE(sdata->regulators), sdata->regulators);
+	sdata->powered_up = false;
 }
 
 static int s6sy761_probe(struct i2c_client *client)
@@ -490,9 +503,22 @@ static int s6sy761_suspend(struct device *dev)
 {
 	struct s6sy761_data *sdata = dev_get_drvdata(dev);
 
-	s6sy761_power_off(sdata);
+	if (sdata->powered_up) {
+		disable_irq(sdata->client->irq);
+		s6sy761_power_off(sdata);
+	}
 
 	return 0;
+}
+
+static int s6sy761_restore_sense(struct s6sy761_data *sdata)
+{
+	guard(mutex)(&sdata->input->mutex);
+
+	if (!input_device_enabled(sdata->input))
+		return 0;
+
+	return i2c_smbus_write_byte(sdata->client, S6SY761_SENSE_ON);
 }
 
 static int s6sy761_resume(struct device *dev)
@@ -504,15 +530,16 @@ static int s6sy761_resume(struct device *dev)
 	if (err)
 		return err;
 
+	err = s6sy761_restore_sense(sdata);
+	if (err)
+		goto err_power_off;
+
 	enable_irq(sdata->client->irq);
 
-	guard(mutex)(&sdata->input->mutex);
+	return 0;
 
-	if (!input_device_enabled(sdata->input))
-		return 0;
-
-	err = i2c_smbus_write_byte(sdata->client, S6SY761_SENSE_ON);
-
+err_power_off:
+	s6sy761_power_off(sdata);
 	return err;
 }
 
