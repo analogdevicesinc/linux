@@ -515,9 +515,9 @@ struct clk_hw *imx_dev_clk_hw_pll14xx(struct device *dev, const char *name,
 				const char *parent_name, void __iomem *base,
 				const struct imx_pll14xx_clk *pll_clk)
 {
+	struct clk_init_data init = {};
 	struct clk_pll14xx *pll;
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 	u32 val;
 
