@@ -749,8 +749,10 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 	lockdep_assert_held(&csi2->isys->stream_mutex);
 
 	ret = ipu6_isys_get_frame_desc(remote_sd, remote_pad->index, &desc);
-	if (ret)
-		return ret;
+	if (ret) {
+		dev_err(sd->dev, "cannot obtain frame descriptor\n");
+		return 0;
+	}
 
 	sink_streams =
 		v4l2_subdev_state_xlate_streams(state, pad, CSI2_PAD_SINK,
