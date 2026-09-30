@@ -65,7 +65,7 @@
 		};
 
 		core1-rproc@28240000 {
-			compatible = "adi,remoteproc";
+			compatible = "adi,adsp-sc598-rproc","adi,remoteproc";
 			reg = <0x28240000 0x160000>,
 					<0x20080000 0x40000>;
 			core-id = <1>;
@@ -82,7 +82,7 @@
 		};
 
 		core2-rproc@28a40000 {
-			compatible = "adi,remoteproc";
+			compatible = "adi,adsp-sc598-rproc","adi,remoteproc";
 			reg = <0x28a40000 0x160000>,
 					<0x20080000 0x40000>;
 			core-id = <2>;
