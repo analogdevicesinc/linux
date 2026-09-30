@@ -144,13 +144,13 @@ static void take_rmap_locks(struct vm_area_struct *vma)
 {
 	if (vma->vm_file)
 		i_mmap_lock_write(vma->vm_file->f_mapping);
-	if (vma->anon_vma)
+	if (vma_has_anon_rmap(vma))
 		anon_vma_lock_write(vma->anon_vma);
 }
 
 static void drop_rmap_locks(struct vm_area_struct *vma)
 {
-	if (vma->anon_vma)
+	if (vma_has_anon_rmap(vma))
 		anon_vma_unlock_write(vma->anon_vma);
 	if (vma->vm_file)
 		i_mmap_unlock_write(vma->vm_file->f_mapping);
@@ -214,7 +214,7 @@ static int move_ptes(struct pagetable_move_control *pmc,
 	int err = 0;
 
 	/*
-	 * When need_rmap_locks is true, we take the i_mmap_rwsem and anon_vma
+	 * When need_rmap_locks is true, we take the i_mmap_rwsem and anon rmap
 	 * locks to ensure that rmap will always observe either the old or the
 	 * new ptes. This is the easiest way to avoid races with
 	 * truncate_pagecache(), page migration, etc...
@@ -812,7 +812,7 @@ unsigned long move_page_tables(struct pagetable_move_control *pmc)
 	if (!pmc->len_in)
 		return 0;
 
-	if (is_vm_hugetlb_page(pmc->old))
+	if (vma_is_hugetlb(pmc->old))
 		return move_hugetlb_page_tables(pmc->old, pmc->new, pmc->old_addr,
 						pmc->new_addr, pmc->len_in);
 
@@ -1366,8 +1366,8 @@ static void dontunmap_complete(struct vma_remap_struct *vrm,
 	vma_clear_flags_mask(vma, VMA_LOCKED_MASK);
 
 	/*
-	 * anon_vma links of the old vma is no longer needed after its page
-	 * table has been moved.
+	 * The anon rmap links of the old vma are no longer needed after its
+	 * page table has been moved.
 	 */
 	unlink_anon_vmas(vma);
 	/*
@@ -1758,7 +1758,7 @@ static bool vma_multi_allowed(struct vm_area_struct *vma)
 	/* Known good. */
 	if (vma_is_shmem(vma))
 		return true;
-	if (is_vm_hugetlb_page(vma))
+	if (vma_is_hugetlb(vma))
 		return true;
 	if (file->f_op->get_unmapped_area == thp_get_unmapped_area)
 		return true;
@@ -1781,7 +1781,7 @@ static int check_prep_vma(struct vma_remap_struct *vrm)
 		return -EPERM;
 
 	/* Align to hugetlb page size, if required. */
-	if (is_vm_hugetlb_page(vma) && !align_hugetlb(vrm))
+	if (vma_is_hugetlb(vma) && !align_hugetlb(vrm))
 		return -EINVAL;
 
 	vrm_set_delta(vrm);
@@ -1811,8 +1811,7 @@ static int check_prep_vma(struct vma_remap_struct *vrm)
 		return -EINVAL;
 	}
 
-	if ((vrm->flags & MREMAP_DONTUNMAP) &&
-	    vma_test_any(vma, VMA_DONTEXPAND_BIT, VMA_PFNMAP_BIT))
+	if ((vrm->flags & MREMAP_DONTUNMAP) && vma_is_fixed_mapping(vma))
 		return -EINVAL;
 
 	/*
@@ -1850,7 +1849,7 @@ static int check_prep_vma(struct vma_remap_struct *vrm)
 	if (pgoff + (new_len >> PAGE_SHIFT) < pgoff)
 		return -EINVAL;
 
-	if (vma_test_any(vma, VMA_DONTEXPAND_BIT, VMA_PFNMAP_BIT))
+	if (vma_is_fixed_mapping(vma))
 		return -EFAULT;
 
 	if (!mlock_future_ok(mm, vma_test(vma, VMA_LOCKED_BIT), vrm->delta))
