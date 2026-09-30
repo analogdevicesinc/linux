@@ -299,7 +299,7 @@ int ras_eeprom_mgr_check_and_report_status(struct ras_core_context *ras_core, bo
 				valid_err_count, mgr->ras_err_threshold);
 
 	} else if (info.eeprom_status == RAS_EEPROM_LOCKED) {
-		if (info.rma_status || (valid_err_count >= mgr->ras_err_threshold)) {
+		if (info.rma_status || valid_err_count > mgr->ras_err_threshold) {
 			if (info.rma_status)
 				RAS_DEV_ERR(ras_core->dev, "RAS records:%d exceed error threshold",
 					valid_err_count);
@@ -318,13 +318,13 @@ int ras_eeprom_mgr_check_and_report_status(struct ras_core_context *ras_core, bo
 				RAS_DEV_ERR(ras_core->dev,
 				"User defined threshold is set, runtime service will be halt when threshold is reached\n");
 			}
-		} else if ((valid_err_count < mgr->ras_err_threshold) &&
+		} else if ((valid_err_count <= mgr->ras_err_threshold) &&
 				mgr->eeprom_ops->unlock_eeprom) {
 			/* This means that, the threshold was increased since
 			 * the last time the system was booted, and now,
-			 * the saved error count is less than threshold,
+			 * the saved error count does not exceed the threshold,
 			 * so that at least one more record can be saved,
-			 * before the page count threshold is reached.
+			 * before the page count threshold is exceeded.
 			 */
 			ret = mgr->eeprom_ops->unlock_eeprom(ras_core);
 			if (ret) {
