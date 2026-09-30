@@ -762,9 +762,8 @@ static int fill_ptr_key(struct notifier_block *nb, unsigned long action, void *d
 {
 	get_random_bytes(&ptr_key, sizeof(ptr_key));
 
-	/* Pairs with smp_rmb() before reading ptr_key. */
-	smp_wmb();
-	WRITE_ONCE(filled_random_ptr_key, true);
+	/* Pairs with smp_load_acquire() before reading ptr_key. */
+	smp_store_release(&filled_random_ptr_key, true);
 	return NOTIFY_DONE;
 }
 
@@ -781,11 +780,9 @@ static inline int __ptr_to_hashval(const void *ptr, unsigned long *hashval_out)
 {
 	unsigned long hashval;
 
-	if (!READ_ONCE(filled_random_ptr_key))
+	/* Pairs with smp_store_release() after writing ptr_key. */
+	if (!smp_load_acquire(&filled_random_ptr_key))
 		return -EBUSY;
-
-	/* Pairs with smp_wmb() after writing ptr_key. */
-	smp_rmb();
 
 #ifdef CONFIG_64BIT
 	hashval = (unsigned long)siphash_1u64((u64)ptr, &ptr_key);
