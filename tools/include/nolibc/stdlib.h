@@ -230,7 +230,7 @@ int _nolibc_u64toa_base(uint64_t in, char *buffer, unsigned int base, uint64_t r
 
 	/* Generate least significant digit first */
 	do {
-#if defined(__SIZEOF_INT128__) && !defined(__mips__) && !defined(__sparc__)
+#if defined(__SIZEOF_INT128__) && !defined(__mips__) && !defined(__sparc__) && !defined(__hppa__)
 		q = ((unsigned __int128)in * recip) >> 64;
 #else
 		uint64_t p = (uint32_t)in * (recip >> 32);
