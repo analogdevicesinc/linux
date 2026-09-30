@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0+ OR MIT
 /*
- * Apple Mac Studio (M3 Ultra, 2025)
+ * Apple MacBook Neo (A18 Pro, 2026)
  *
- * target-type: J575d
+ * target-type: J700
  *
  * Copyright The Asahi Linux Contributors
  */
 
 /dts-v1/;
 
-#include "t6032.dtsi"
+#include "t8140.dtsi"
 
 / {
-	compatible = "apple,j575d", "apple,t6032", "apple,arm-platform";
-	model = "Apple Mac Studio (M3 Ultra, 2025)";
+	compatible = "apple,j700", "apple,t8140", "apple,arm-platform";
+	model = "Apple MacBook Neo (A18 Pro, 2026)";
 
 	aliases {
 		serial0 = &serial0;
@@ -28,18 +28,24 @@
 
 		framebuffer@0 {
 			compatible = "apple,simple-framebuffer",
-				     "simple-framebuffer";
+			             "simple-framebuffer";
 			reg = <0 0 0 0>; /* To be filled by loader */
 			/* Format properties will be added by loader */
-			power-domains = <&ps_dispext0_cpu>;
 
 			status = "disabled";
 		};
 	};
 
-	memory@10000000000 {
+	memory@800000000 {
 		device_type = "memory";
-		reg = <0x100 0 0x2 0>; /* To be filled by loader */
+		reg = <0x8 0 0x2 0>; /* To be filled by loader */
+	};
+
+	reserved-memory {
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		/* To be filled by loader */
 	};
 };
 
