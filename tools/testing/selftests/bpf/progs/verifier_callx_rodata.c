@@ -803,6 +803,14 @@ int callx_c_ops_selected(void *ctx)
 	return use_shape(ops, 3);
 }
 
+/*
+ * clang-22 with -mcpu=v4 drops the lookup table it builds for this switch
+ * ("Undefined temporary symbol .Lswitch.table.call_by_switch").
+ * Fixed in clang-23 by llvm commit 9fc458a1d95b.
+ *
+ * https://github.com/llvm/llvm-project/commit/9fc458a1d95b
+ */
+#if __clang_major__ != 22 || __BPF_CPU_VERSION__ < 4
 /* the compiler might turn the switch into a table that has no symbol */
 static __noinline int call_by_switch(unsigned int idx, int x)
 {
@@ -846,6 +854,18 @@ int callx_c_switch_table(void *ctx)
 	/* op11(3) = 3 * 13 + 11 */
 	return call_by_switch(op_idx - 8, 3);
 }
+
+#else
+
+SEC("socket")
+__skip("clang-22 bug with -mcpu=v4, switch table test cannot be built")
+__success
+int callx_c_switch_table(void *ctx)
+{
+	return 0;
+}
+
+#endif
 
 /*
  * Misaligned pointers to functions are ignored, the rest of the data is
