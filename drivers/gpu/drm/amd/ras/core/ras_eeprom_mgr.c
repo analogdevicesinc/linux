@@ -273,6 +273,7 @@ int ras_eeprom_mgr_check_and_report_status(struct ras_core_context *ras_core, bo
 {
 	struct ras_eeprom_mgr *mgr = &ras_core->eeprom_mgr;
 	struct ras_eeprom_info info = {0};
+	u32 bad_page_count, bad_page_threshold;
 	int valid_err_count;
 	int ret = 0;
 
@@ -287,25 +288,29 @@ int ras_eeprom_mgr_check_and_report_status(struct ras_core_context *ras_core, bo
 		return ret;
 
 	valid_err_count = ras_umc_get_saved_eeprom_count(ras_core);
+	bad_page_count = ras_umc_get_badpage_count(ras_core);
+	bad_page_threshold = mgr->ras_err_threshold * ras_core->ras_umc.max_pages_per_row;
 	if (info.eeprom_status == RAS_EEPROM_OK) {
 		RAS_DEV_DBG(ras_core->dev,
-			"Found existing EEPROM table with %d records\n",
-			valid_err_count);
+			"Found existing EEPROM table with %u records\n",
+			bad_page_count);
 
 		/* Warn if error count reaches or exceeds 90% of the threshold */
 		if (10 * valid_err_count >= 9 * mgr->ras_err_threshold)
 			RAS_DEV_WARN(ras_core->dev,
-				"RAS records:%u exceeds 90%% of threshold:%d\n",
-				valid_err_count, mgr->ras_err_threshold);
+				"RAS records:%u exceeds 90%% of threshold:%u\n",
+				bad_page_count, bad_page_threshold);
 
 	} else if (info.eeprom_status == RAS_EEPROM_LOCKED) {
 		if (info.rma_status || valid_err_count > mgr->ras_err_threshold) {
 			if (info.rma_status)
-				RAS_DEV_ERR(ras_core->dev, "RAS records:%d exceed error threshold",
-					valid_err_count);
+				RAS_DEV_ERR(ras_core->dev,
+					    "RAS records:%u exceed error threshold",
+					    bad_page_count);
 			else
-				RAS_DEV_ERR(ras_core->dev, "RAS records:%d exceed threshold:%d",
-					valid_err_count, mgr->ras_err_threshold);
+				RAS_DEV_ERR(ras_core->dev,
+					    "RAS records:%u exceed threshold:%u",
+					    bad_page_count, bad_page_threshold);
 
 			if (mgr->work_mode_over_thresh != RAS_WORK_MODE_OVER_THRESH_DEBUG)
 				ras_core->bad_page_over_threshold = true;
@@ -333,13 +338,13 @@ int ras_eeprom_mgr_check_and_report_status(struct ras_core_context *ras_core, bo
 				ras_core->is_rma = false;
 				ras_core->bad_page_over_threshold = false;
 				RAS_DEV_INFO(ras_core->dev,
-					"records:%d threshold:%d, resetting RAS table header signature",
-					valid_err_count, mgr->ras_err_threshold);
+					"records:%u threshold:%u, resetting RAS table header signature",
+					bad_page_count, bad_page_threshold);
 			}
 		} else {
 			RAS_DEV_ERR(ras_core->dev,
-				"records:%d threshold:%d, not support to resize RAS table\n",
-				valid_err_count, mgr->ras_err_threshold);
+				"records:%u threshold:%u, not support to resize RAS table\n",
+				bad_page_count, bad_page_threshold);
 		}
 	} else {
 		RAS_DEV_ERR(ras_core->dev, "Error ras eeprom status:0x%x\n", info.eeprom_status);
