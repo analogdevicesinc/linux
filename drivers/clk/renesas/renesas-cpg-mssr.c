@@ -944,6 +944,12 @@ static const struct of_device_id cpg_mssr_match[] = {
 		.data = &r8a774a1_cpg_mssr_info,
 	},
 #endif
+#ifdef CONFIG_CLK_R8A774A3
+	{
+		.compatible = "renesas,r8a774a3-cpg-mssr",
+		.data = &r8a774a3_cpg_mssr_info,
+	},
+#endif
 #ifdef CONFIG_CLK_R8A774B1
 	{
 		.compatible = "renesas,r8a774b1-cpg-mssr",
