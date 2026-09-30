@@ -4137,7 +4137,7 @@ static int disable_sched_schedstat(void)
 }
 
 /* perf.data or any other output file name used by stats subcommand (only). */
-const char *output_name;
+static const char *output_name;
 
 static int perf_sched__schedstat_record(struct perf_sched *sched,
 					int argc, const char **argv)
@@ -5182,8 +5182,7 @@ static bool schedstat_events_exposed(void)
 	 * Select "sched:sched_stat_wait" event to check
 	 * whether schedstat tracepoints are exposed.
 	 */
-	return IS_ERR(trace_event__tp_format("sched", "sched_stat_wait")) ?
-		false : true;
+	return trace_event__tp_format("sched", "sched_stat_wait");
 }
 
 static int __cmd_record(int argc, const char **argv)
@@ -5240,7 +5239,7 @@ static int __cmd_record(int argc, const char **argv)
 
 	rec_argv[i++] = strdup("-e");
 	waking_event = trace_event__tp_format("sched", "sched_waking");
-	if (!IS_ERR(waking_event))
+	if (waking_event)
 		rec_argv[i++] = strdup("sched:sched_waking");
 	else
 		rec_argv[i++] = strdup("sched:sched_wakeup");

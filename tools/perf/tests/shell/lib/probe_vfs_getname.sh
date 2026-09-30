@@ -13,6 +13,7 @@ cleanup_probe_vfs_getname() {
 add_probe_vfs_getname() {
 	add_probe_verbose=$1
 	if [ $had_vfs_getname -eq 1 ] ; then
+		local func=getname_flags
 		result_initname_re="[[:space:]]+([[:digit:]]+)[[:space:]]+initname.*"
 		line=$(perf probe -L getname_flags 2>&1 | grep -E "$result_initname_re" | sed -r "s/$result_initname_re/\1/")
 
@@ -28,13 +29,20 @@ add_probe_vfs_getname() {
 			line=$(perf probe -L getname_flags 2>&1 | grep -E "$result_aname_re" | sed -r "s/$result_aname_re/\1/")
 		fi
 
+		# Since v7.0 getname_flags() is a wrapper around do_getname().
+		if [ -z "$line" ] ; then
+			func=do_getname
+			line=$(perf probe -L $func 2>&1 | grep -E "$result_initname_re" |
+				sed -r "s/$result_initname_re/\1/")
+		fi
+
 		if [ -z "$line" ] ; then
 			echo "Could not find probeable line"
 			return 2
 		fi
 
-		perf probe -q       "vfs_getname=getname_flags:${line} pathname=result->name:string" || \
-		perf probe $add_probe_verbose "vfs_getname=getname_flags:${line} pathname=filename:ustring" || return 1
+		perf probe -q       "vfs_getname=${func}:${line} pathname=result->name:string" || \
+		perf probe $add_probe_verbose "vfs_getname=${func}:${line} pathname=filename:ustring" || return 1
 	fi
 }
 

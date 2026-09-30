@@ -4,7 +4,6 @@
 
 # Check that perf trace works with various summary mode
 
-# shellcheck source=lib/probe.sh
 . "$(dirname $0)"/lib/probe.sh
 
 skip_if_no_perf_trace || exit 2

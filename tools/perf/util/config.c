@@ -9,28 +9,34 @@
  * Copyright (C) Johannes Schindelin, 2005
  *
  */
-#include <errno.h>
-#include <sys/param.h>
-#include "cache.h"
-#include "callchain.h"
-#include "header.h"
-#include <subcmd/exec-cmd.h>
-#include "util/event.h"  /* proc_map_timeout */
-#include "util/hist.h"  /* perf_hist_config */
-#include "util/stat.h"  /* perf_stat__set_big_num */
-#include "util/evsel.h"  /* evsel__hw_names, evsel__use_bpf_counters */
-#include "srcline.h"
-#include "build-id.h"
-#include "debug.h"
 #include "config.h"
-#include "unwind.h"
-#include <sys/types.h>
-#include <sys/stat.h>
+
+#include <errno.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <string.h>
+
+#include <linux/ctype.h>
 #include <linux/string.h>
 #include <linux/zalloc.h>
-#include <linux/ctype.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <subcmd/exec-cmd.h>
+
+#include "build-id.h"
+#include "callchain.h"
+#include "debug.h"
+#include "header.h"
+#include "path.h"
+#include "srcline.h"
+#include "unwind.h"
+#include "util/event.h" /* proc_map_timeout */
+#include "util/evsel.h" /* evsel__hw_names, evsel__use_bpf_counters */
+#include "util/hist.h" /* perf_hist_config */
+#include "util/stat.h" /* perf_stat__set_big_num */
 
 #define MAXNAME (256)
 
@@ -463,6 +469,16 @@ static int perf_default_core_config(const char *var, const char *value)
 
 	if (!strcmp(var, "core.addr2line-disable-warn"))
 		symbol_conf.addr2line_disable_warn = perf_config_bool(var, value);
+
+	if (!strcmp(var, "core.hybrid-merge")) {
+		/*
+		 * Note, this is for sampling tools like perf report and top.
+		 * perf stat has its own merging options and the
+		 * stat_config.hybrid_merge of "perf stat --hybrid-merge" is
+		 * deliberately not set here.
+		 */
+		symbol_conf.hybrid_merge = perf_config_bool(var, value);
+	}
 
 	/* Add other config variables here. */
 	return 0;

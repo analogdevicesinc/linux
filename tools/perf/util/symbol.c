@@ -27,6 +27,7 @@
 #include "dso.h"
 #include "util.h" // lsdir()
 #include "event.h"
+#include "libbfd.h"
 #include "machine.h"
 #include "map.h"
 #include "symbol.h"
@@ -73,6 +74,7 @@ struct symbol_conf symbol_conf = {
 	.symfs			= "",
 	.symfs_layout_flat	= false,
 	.event_group		= true,
+	.hybrid_merge		= false,
 	.inline_name		= true,
 	.res_sample		= 0,
 	.addr2line_timeout_ms	= 5 * 1000,
@@ -298,6 +300,10 @@ void symbols__fixup_end(struct rb_root_cached *symbols, bool is_kallsyms)
 			else if (prev_mod && strcmp(prev_mod, curr_mod))
 				prev->end = roundup(prev->end + 4096, 4096);
 			else
+				prev->end = curr->start;
+
+			/* The next module can start within that page */
+			if (prev->end > curr->start)
 				prev->end = curr->start;
 
 			pr_debug4("%s sym:%s end:%#" PRIx64 "\n",
@@ -2707,13 +2713,24 @@ static bool want_demangle(bool is_kernel_sym)
  * version.
  */
 #ifndef HAVE_CXA_DEMANGLE_SUPPORT
+#ifdef HAVE_CPLUS_DEMANGLE_SUPPORT
+/*
+ * Declarations from libiberty's demangle.h, the header isn't installed by
+ * every binutils package.
+ */
+#ifndef DMGL_PARAMS
+#define DMGL_PARAMS	(1 << 0)	/* Include function arguments. */
+#define DMGL_ANSI	(1 << 1)	/* Include const, volatile, etc. */
+#endif
+
+char *cplus_demangle(const char *mangled, int options);
+#endif
+
 char *cxx_demangle_sym(const char *str __maybe_unused, bool params __maybe_unused,
 		       bool modifiers __maybe_unused)
 {
 #ifdef HAVE_LIBBFD_SUPPORT
-	int flags = (params ? DMGL_PARAMS : 0) | (modifiers ? DMGL_ANSI : 0);
-
-	return bfd_demangle(NULL, str, flags);
+	return libbfd__demangle_sym(str, params, modifiers);
 #elif defined(HAVE_CPLUS_DEMANGLE_SUPPORT)
 	int flags = (params ? DMGL_PARAMS : 0) | (modifiers ? DMGL_ANSI : 0);
 
