@@ -16,6 +16,24 @@ config ADI_SRAM_MMAP_V7
 	help
 	  Enable the mmap driver for sc5xx on chip SRAM.
 
+config ADI_SMPU_EXMON
+	tristate "SC84x SMPU exclusive-monitor test module"
+	depends on ARCH_SC84X || COMPILE_TEST
+	depends on m
+	default n
+	help
+	  Debug/test module. Checks whether Cortex-A55 exclusive accesses
+	  (LDAXR/STXR) arm the ADSP-SC84x SMPU exclusive monitors (SMPU2/4/9
+	  EXACADD/EXACSTAT) for cacheable and non-cacheable mappings of L2
+	  SRAM and DDR, and whether STXR succeeds. All work is done at load
+	  time and reported in the kernel log.
+
+	  An exclusive to memory without a monitor makes the A55 abort, which
+	  oopses the kernel. Not for production kernels. See
+	  drivers/misc/adi/smpu_exmon-HANDOVER.md.
+
+	  If unsure, say N.
+
 config ADI_SRAM_CONTROLLER
 	bool "/proc/sraminfo support for sc5xx onchip SRAM"
 	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST
