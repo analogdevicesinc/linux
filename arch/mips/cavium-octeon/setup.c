@@ -653,6 +653,24 @@ void octeon_user_io_init(void)
 	write_c0_derraddr1(0);
 }
 
+#ifdef CONFIG_CAVIUM_OCTEON_LOCK_L2
+static bool __init octeon_l2_is_crippled(void)
+{
+	/*
+	 * L2D_FUS3 exists on CN3XXX/CN5XXX only. On OCTEON II the
+	 * crippled-L2 fuses live in MIO_FUS_DAT3[l2c_crip].
+	 */
+	if (OCTEON_IS_MODEL(OCTEON_CN6XXX)) {
+		union cvmx_mio_fus_dat3 fus_dat3;
+
+		fus_dat3.u64 = cvmx_read_csr(CVMX_MIO_FUS_DAT3);
+		return fus_dat3.s.l2c_crip != 0;
+	}
+
+	return cvmx_read_csr(CVMX_L2D_FUS3) & (3ull << 34);
+}
+#endif
+
 /**
  * prom_init - Early entry point for arch setup
  */
@@ -801,7 +819,7 @@ void __init prom_init(void)
 	}
 
 #ifdef CONFIG_CAVIUM_OCTEON_LOCK_L2
-	if (cvmx_read_csr(CVMX_L2D_FUS3) & (3ull << 34)) {
+	if (octeon_l2_is_crippled()) {
 		pr_info("Skipping L2 locking due to reduced L2 cache size\n");
 	} else {
 		uint32_t __maybe_unused ebase = read_c0_ebase() & 0x3ffff000;
@@ -1109,7 +1127,7 @@ EXPORT_SYMBOL(prom_putchar);
 
 void __init prom_free_prom_memory(void)
 {
-	if (OCTEON_IS_MODEL(OCTEON_CN6XXX)) {
+	if (OCTEON_IS_MODEL(OCTEON_CN63XX_PASS1_X)) {
 		/* Check for presence of Core-14449 fix.  */
 		u32 insn;
 		u32 *foo;
