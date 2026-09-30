@@ -32,6 +32,7 @@ properties:
           - sophgo,cv1800b-dwcmshc
           - sophgo,sg2002-dwcmshc
           - sophgo,sg2042-dwcmshc
+          - starfive,jhb100-dwcmshc
           - thead,th1520-dwcmshc
           - eswin,eic7700-dwcmshc
 
@@ -53,11 +54,11 @@ properties:
     maxItems: 1
 
   resets:
-    minItems: 4
+    minItems: 1
     maxItems: 5
 
   reset-names:
-    minItems: 4
+    minItems: 1
     maxItems: 5
 
   canaan,usb-phy:
@@ -97,6 +98,22 @@ properties:
       Phandle to the HPE GXP SoC system register block (syscon) and
       offset of the MSHCCS register used to configure clock
       synchronisation for HS200 tuning.
+
+  starfive,jhb100-per1-syscon:
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+    items:
+      - items:
+          - description: Phandle to StarFive JHB100 SoC Peripheral-1 syscon
+                         register block.
+          - description: Offset of the register used to configure the
+                         upper DMA address bits [35:32] of the eMMC DMA
+                         address.
+    description:
+      Phandle to the StarFive JHB100 SoC Peripheral-1 syscon register
+      block, and the offset of the register that holds the upper DMA
+      address bits [35:32] of the eMMC DMA address. This is used to
+      extend the default 32-bit DMA capability of the CMSHC controller
+      up to 36-bit.
 
 required:
   - compatible
@@ -167,7 +184,16 @@ allOf:
             - const: core
             - const: bus
             - const: timer
-    else:
+
+  - if:
+      not:
+        properties:
+          compatible:
+            contains:
+              enum:
+                - sophgo,sg2042-dwcmshc
+                - starfive,jhb100-dwcmshc
+    then:
       properties:
         clocks:
           minItems: 1
@@ -205,7 +231,16 @@ allOf:
       required:
         - eswin,hsp-sp-csr
         - eswin,drive-impedance-ohms
-    else:
+
+  - if:
+      not:
+        properties:
+          compatible:
+            contains:
+              enum:
+                - eswin,eic7700-dwcmshc
+                - starfive,jhb100-dwcmshc
+    then:
       properties:
         resets:
           minItems: 5
@@ -227,6 +262,37 @@ allOf:
     then:
       required:
         - power-domains
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: starfive,jhb100-dwcmshc
+    then:
+      properties:
+        clocks:
+          items:
+            - description: core clock
+            - description: bus clock
+            - description: card transmit clock
+        clock-names:
+          items:
+            - const: core
+            - const: bus
+            - const: cclk_tx
+        resets:
+          maxItems: 1
+        reset-names:
+          items:
+            - const: core
+        starfive,jhb100-per1-syscon: true
+      required:
+        - resets
+        - reset-names
+        - starfive,jhb100-per1-syscon
+    else:
+      properties:
+        starfive,jhb100-per1-syscon: false
 
 unevaluatedProperties: false
 
