@@ -36,7 +36,7 @@
 
 &scb {
 	sharc0: core1-rproc@28240000 {
-		compatible = "adi,remoteproc";
+		compatible = "adi,adsp-sc846-rproc","adi,remoteproc";
 		reg = <0x28240000 0x160000>,
 				<0x20000000 0x200000>;
 		core-id = <1>;
