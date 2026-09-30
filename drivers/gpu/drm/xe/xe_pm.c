@@ -78,6 +78,8 @@
  * management (RPS).
  */
 
+#define HAS_PM_PME_SUPPORT(xe) (GRAPHICS_VERx100(xe) >= 3500)
+
 #ifdef CONFIG_LOCKDEP
 static struct lockdep_map xe_pm_runtime_d3cold_map = {
 	.name = "xe_rpm_d3cold_map"
@@ -384,6 +386,14 @@ int xe_pm_init_early(struct xe_device *xe)
 }
 ALLOW_ERROR_INJECTION(xe_pm_init_early, ERRNO); /* See xe_pci_probe() */
 
+static bool xe_pm_pci_pme_capable(struct xe_device *xe)
+{
+	struct pci_dev *pdev = to_pci_dev(xe->drm.dev);
+
+	return HAS_PM_PME_SUPPORT(xe) ?
+		pci_pme_capable(pdev, PCI_D3hot) : false;
+}
+
 /**
  * xe_pm_probe() - Initialize Xe Power Management
  * @xe: the &xe_device instance
@@ -396,6 +406,16 @@ int xe_pm_probe(struct xe_device *xe)
 {
 	xe->d3cold.capable = xe_pm_pci_d3cold_capable(xe);
 	xe_dbg(xe, "d3cold: capable=%s\n", str_yes_no(xe->d3cold.capable));
+
+	xe->pme.capable = xe_pm_pci_pme_capable(xe);
+	xe_dbg(xe, "pme: capable=%s\n", str_yes_no(xe->pme.capable));
+
+	if (xe->pme.capable) {
+		int err = devm_device_init_wakeup(xe->drm.dev);
+
+		if (err)
+			return err;
+	}
 
 	return 0;
 }
@@ -650,6 +670,7 @@ int xe_pm_runtime_suspend(struct xe_device *xe)
 	return 0;
 
 out_resume:
+	xe_pm_update_pme_enabled(xe, false);
 	xe_display_pm_runtime_resume(xe);
 	xe_pxp_pm_resume(xe->pxp);
 out:
@@ -991,6 +1012,30 @@ int xe_pm_set_vram_threshold(struct xe_device *xe, u32 threshold)
 	mutex_unlock(&xe->d3cold.lock);
 
 	return 0;
+}
+
+/**
+ * xe_pm_pme_enabled - get the current status of PME enabled
+ * @xe: xe device instance
+ *
+ * Returns: True if PME is enabled, false otherwise.
+ */
+bool xe_pm_pme_enabled(struct xe_device *xe)
+{
+	return xe->pme.enabled;
+}
+
+/**
+ * xe_pm_update_pme_enabled - Update the PME enabled state
+ * @xe: xe device instance
+ * @status: New PME enabled status
+ *
+ * Called during runtime suspend / resume. Status is set to True if PME is
+ * enabled during runtime_suspend. Cleared on runtime_resume.
+ */
+void xe_pm_update_pme_enabled(struct xe_device *xe, bool status)
+{
+	xe->pme.enabled = status;
 }
 
 /**
