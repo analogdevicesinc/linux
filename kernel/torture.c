@@ -732,6 +732,26 @@ static ktime_t stutter_till_abs_time;
 static int stutter;
 static int stutter_gap;
 
+static bool _stutter_will_wait(ktime_t *till_ns)
+{
+	*till_ns = READ_ONCE(stutter_till_abs_time);
+	if (*till_ns && ktime_before(ktime_get(), *till_ns))
+		return true;
+	return false;
+}
+
+/*
+ * Will stutter_wait() actually stutter?  The returned result is of
+ * course immediately stale due to the passage of time.
+ */
+bool stutter_will_wait(void)
+{
+	ktime_t till_ns;
+
+	return _stutter_will_wait(&till_ns);
+}
+EXPORT_SYMBOL_GPL(stutter_will_wait);
+
 /*
  * Block until the stutter interval ends.  This must be called periodically
  * by all running kthreads that need to be subject to stuttering.
@@ -742,8 +762,7 @@ bool stutter_wait(const char *title)
 	ktime_t till_ns;
 
 	cond_resched_tasks_rcu_qs();
-	till_ns = READ_ONCE(stutter_till_abs_time);
-	if (till_ns && ktime_before(ktime_get(), till_ns)) {
+	if (_stutter_will_wait(&till_ns)) {
 		torture_hrtimeout_ns(till_ns, 0, HRTIMER_MODE_ABS, NULL);
 		ret = true;
 	}
@@ -993,3 +1012,18 @@ void torture_sched_set_normal(struct task_struct *t, int nice)
 	sched_set_normal(t, realnice);
 }
 EXPORT_SYMBOL_GPL(torture_sched_set_normal);
+
+/*
+ * Sum the specified per-CPU atomic_long_t variable.
+ */
+s64 torture_sum_pcpu_atomic_long(atomic_long_t __percpu *pcp)
+{
+	int cpu;
+	s64 sum = 0;
+
+	for_each_possible_cpu(cpu) {
+		sum += atomic_long_read(per_cpu_ptr(pcp, cpu));
+	}
+	return sum;
+}
+EXPORT_SYMBOL_GPL(torture_sum_pcpu_atomic_long);
