@@ -9,6 +9,8 @@
 
 #define verbose(env, fmt, args...) bpf_verifier_log_write(env, fmt, ##args)
 
+#define BPF_MAX_GOTOX_EDGES	BPF_COMPLEXITY_LIMIT_INSNS
+
 /* non-recursive DFS pseudo code
  * 1  procedure DFS-iterative(G,v):
  * 2      label v as discovered
@@ -284,15 +286,17 @@ err_free:
 }
 
 /*
- * Find and collect all maps which fit in the subprog. Return the result as one
- * combined jump table in jt->items (allocated with kvcalloc)
+ * Collect the jump table of every subprogram that has one, as the combined
+ * table of all maps whose targets land inside that subprogram. All gotox
+ * instructions of a subprogram share the same table, so this is done in a
+ * single pass over the maps rather than once per gotox.
  */
-static struct bpf_iarray *jt_from_subprog(struct bpf_verifier_env *env,
-					  int subprog_start, int subprog_end)
+static int __compute_subprog_jts(struct bpf_verifier_env *env)
 {
-	struct bpf_iarray *jt = NULL;
+	struct bpf_subprog_info *subprog;
+	struct bpf_iarray *jt, *jt_cur;
 	struct bpf_map *map;
-	struct bpf_iarray *jt_cur;
+	u32 old_cnt;
 	int i;
 
 	for (i = 0; i < env->insn_array_map_cnt; i++) {
@@ -303,29 +307,90 @@ static struct bpf_iarray *jt_from_subprog(struct bpf_verifier_env *env,
 		map = env->insn_array_maps[i];
 
 		jt_cur = jt_from_map(map);
-		if (IS_ERR(jt_cur)) {
-			kvfree(jt);
-			return jt_cur;
+		if (IS_ERR(jt_cur))
+			return PTR_ERR(jt_cur);
+
+		subprog = bpf_find_containing_subprog(env, jt_cur->items[0]);
+		if (verifier_bug_if(!subprog, env, "no subprog contains insn %u of an insn array map",
+				    jt_cur->items[0])) {
+			kvfree(jt_cur);
+			return -EFAULT;
+		}
+		if (jt_cur->items[jt_cur->cnt - 1] >= (subprog + 1)->start) {
+			verbose(env, "jump table of subprog starting at %u spans multiple subprogs, map id=%d\n",
+				subprog->start, map->id);
+			bpf_diag_program_structure(
+				env, subprog->start, "jump table spans subprograms",
+				"Keep every entry of a jump table inside one subprogram.",
+				"The jump table in map id %d for the subprogram that starts at instruction %u reaches past its end at instruction %u.",
+				map->id, subprog->start, (subprog + 1)->start);
+			kvfree(jt_cur);
+			return -EINVAL;
 		}
 
-		/*
-		 * This is enough to check one element. The full table is
-		 * checked to fit inside the subprog later in create_jt()
-		 */
-		if (jt_cur->items[0] >= subprog_start && jt_cur->items[0] < subprog_end) {
-			u32 old_cnt = jt ? jt->cnt : 0;
-			jt = bpf_iarray_realloc(jt, old_cnt + jt_cur->cnt);
-			if (!jt) {
-				kvfree(jt_cur);
-				return ERR_PTR(-ENOMEM);
-			}
-			memcpy(jt->items + old_cnt, jt_cur->items, jt_cur->cnt << 2);
+		old_cnt = subprog->jt ? subprog->jt->cnt : 0;
+		jt = bpf_iarray_realloc(subprog->jt, old_cnt + jt_cur->cnt);
+		if (!jt) {
+			subprog->jt = NULL;
+			kvfree(jt_cur);
+			return -ENOMEM;
 		}
+		memcpy(jt->items + old_cnt, jt_cur->items, jt_cur->cnt << 2);
+		subprog->jt = jt;
 
 		kvfree(jt_cur);
 	}
 
-	if (!jt) {
+	for (i = 0; i < env->subprog_cnt; i++) {
+		jt = env->subprog_info[i].jt;
+		if (jt)
+			jt->cnt = sort_insn_array_uniq(jt->items, jt->cnt);
+	}
+
+	env->cfg.subprog_jts_ready = true;
+	return 0;
+}
+
+/* Leave nothing behind on failure. */
+static int compute_subprog_jts(struct bpf_verifier_env *env)
+{
+	int err;
+
+	err = __compute_subprog_jts(env);
+	if (err)
+		bpf_free_subprog_jts(env);
+	return err;
+}
+
+void bpf_free_subprog_jts(struct bpf_verifier_env *env)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(env->subprog_info); i++) {
+		kvfree(env->subprog_info[i].jt);
+		env->subprog_info[i].jt = NULL;
+	}
+	env->cfg.subprog_jts_ready = false;
+}
+
+static struct bpf_iarray *
+subprog_jt(int t, struct bpf_verifier_env *env)
+{
+	struct bpf_subprog_info *subprog;
+	int subprog_start, err;
+
+	if (!env->cfg.subprog_jts_ready) {
+		err = compute_subprog_jts(env);
+		if (err)
+			return ERR_PTR(err);
+	}
+
+	subprog = bpf_find_containing_subprog(env, t);
+	if (verifier_bug_if(!subprog, env, "no subprog contains insn %d", t))
+		return ERR_PTR(-EFAULT);
+	subprog_start = subprog->start;
+
+	if (!subprog->jt) {
 		verbose(env, "no jump tables found for subprog starting at %u\n", subprog_start);
 		bpf_diag_program_structure(
 			env, subprog_start, "missing jump table",
@@ -335,41 +400,7 @@ static struct bpf_iarray *jt_from_subprog(struct bpf_verifier_env *env,
 		return ERR_PTR(-EINVAL);
 	}
 
-	jt->cnt = sort_insn_array_uniq(jt->items, jt->cnt);
-	return jt;
-}
-
-static struct bpf_iarray *
-create_jt(int t, struct bpf_verifier_env *env)
-{
-	struct bpf_subprog_info *subprog;
-	int subprog_start, subprog_end;
-	struct bpf_iarray *jt;
-	int i;
-
-	subprog = bpf_find_containing_subprog(env, t);
-	subprog_start = subprog->start;
-	subprog_end = (subprog + 1)->start;
-	jt = jt_from_subprog(env, subprog_start, subprog_end);
-	if (IS_ERR(jt))
-		return jt;
-
-	/* Check that the every element of the jump table fits within the given subprogram */
-	for (i = 0; i < jt->cnt; i++) {
-		if (jt->items[i] < subprog_start || jt->items[i] >= subprog_end) {
-			verbose(env, "jump table for insn %d points outside of the subprog [%u,%u]\n",
-					t, subprog_start, subprog_end);
-			bpf_diag_program_structure(
-				env, t, "jump table target out of range",
-				"Keep every jump-table target inside the same subprogram.",
-				"The jump table for instruction %d points outside subprogram range [%u,%u).",
-				t, subprog_start, subprog_end);
-			kvfree(jt);
-			return ERR_PTR(-EINVAL);
-		}
-	}
-
-	return jt;
+	return subprog->jt;
 }
 
 /* "conditional jump with N edges" */
@@ -381,27 +412,39 @@ static int visit_gotox_insn(int t, struct bpf_verifier_env *env)
 	struct bpf_iarray *jt;
 	int i, w;
 
-	jt = env->insn_aux_data[t].jt;
-	if (!jt) {
-		jt = create_jt(t, env);
-		if (IS_ERR(jt))
-			return PTR_ERR(jt);
+	/*
+	 * The first visit pushes every target that still needs exploring, and
+	 * those are all done by the time this insn is revisited, so there is
+	 * nothing left to walk the jump table for.
+	 */
+	if (insn_state[t] & BRANCH)
+		return DONE_EXPLORING;
 
-		env->insn_aux_data[t].jt = jt;
+	jt = subprog_jt(t, env);
+	if (IS_ERR(jt))
+		return PTR_ERR(jt);
+
+	insn_state[t] |= BRANCH;
+
+	if (check_add_overflow(env->cfg.gotox_edges, jt->cnt,
+			       &env->cfg.gotox_edges) ||
+	    env->cfg.gotox_edges > BPF_MAX_GOTOX_EDGES) {
+		verbose(env, "number of indirect jump edges in the program exceeds %u\n",
+			BPF_MAX_GOTOX_EDGES);
+		bpf_diag_program_structure(
+			env, t, "too many indirect jump edges",
+			"Reduce the number of indirect jumps, or the number of distinct targets they can reach.",
+			"The program has more than %u indirect jump edges in total, counted over every gotox instruction.",
+			BPF_MAX_GOTOX_EDGES);
+		return -E2BIG;
 	}
 
 	mark_prune_point(env, t);
 	for (i = 0; i < jt->cnt; i++) {
 		w = jt->items[i];
-		if (w < 0 || w >= env->prog->len) {
-			verbose(env, "indirect jump out of range from insn %d to %d\n", t, w);
-			bpf_diag_program_structure(
-				env, t, "indirect jump out of range",
-				"Keep indirect jump targets inside the program.",
-				"Instruction %d can jump indirectly to instruction %d, but the program only contains instructions 0 through %d.",
-				t, w, env->prog->len - 1);
-			return -EINVAL;
-		}
+		if (verifier_bug_if(w < 0 || w >= env->prog->len, env,
+				    "indirect jump from insn %d to %d out of range", t, w))
+			return -EFAULT;
 
 		mark_jmp_point(env, w);
 		mark_jump_target(env, w);
@@ -422,27 +465,73 @@ static int visit_gotox_insn(int t, struct bpf_verifier_env *env)
 }
 
 /*
- * Instructions that can abnormally return from a subprog (tail_call
- * upon success, ld_{abs,ind} upon load failure) have a hidden exit
- * that the verifier must account for.
+ * Return pointers to functions in the read-only map that ld_imm64 instruction
+ * 't' loads the address of, or of its value, if there are any.
  */
-static int visit_abnormal_return_insn(struct bpf_verifier_env *env, int t)
+static struct bpf_func_ptr *insn_func_ptrs(struct bpf_verifier_env *env, int t, u32 *cnt)
 {
-	struct bpf_subprog_info *subprog;
-	struct bpf_iarray *jt;
+	struct bpf_insn *insn = &env->prog->insnsi[t];
 
-	if (env->insn_aux_data[t].jt)
-		return 0;
+	*cnt = 0;
+	if (!env->func_ptr_cnt || !bpf_is_ldimm64(insn))
+		return NULL;
+	if (insn->src_reg != BPF_PSEUDO_MAP_VALUE &&
+	    insn->src_reg != BPF_PSEUDO_MAP_IDX_VALUE &&
+	    insn->src_reg != BPF_PSEUDO_MAP_FD &&
+	    insn->src_reg != BPF_PSEUDO_MAP_IDX)
+		return NULL;
 
-	jt = bpf_iarray_realloc(NULL, 2);
-	if (!jt)
-		return -ENOMEM;
+	return bpf_map_func_ptrs(env, env->used_maps[env->insn_aux_data[t].map_index], cnt);
+}
 
-	subprog = bpf_find_containing_subprog(env, t);
-	jt->items[0] = t + 1;
-	jt->items[1] = subprog->exit_idx;
-	env->insn_aux_data[t].jt = jt;
-	return 0;
+/*
+ * ld_imm64 that loads the address of a map that has pointers to functions
+ * is similar to ld_imm64 with BPF_PSEUDO_FUNC that loads the address of one
+ * function: any of them may be read from the map and called via callx later.
+ * Treat it as a call of all of them.
+ */
+static int visit_func_ptrs_insn(int t, struct bpf_verifier_env *env,
+				struct bpf_func_ptr *ptrs, u32 cnt)
+{
+	int *insn_stack = env->cfg.insn_stack;
+	int *insn_state = env->cfg.insn_state;
+	int ret, w;
+	u32 i;
+
+	ret = push_insn(t, t + 2, FALLTHROUGH, env);
+	if (ret)
+		return ret;
+
+	/*
+	 * Explore one function at a time like push_insn() does, so that
+	 * DISCOVERED function is a caller of 't' and not the one that waits in
+	 * insn_stack[], which merge_callee_effects() relies on.
+	 */
+	for (i = 0; i < cnt; i++) {
+		w = ptrs[i].xlated_off;
+		if (insn_state[w])
+			continue;
+
+		if (env->cfg.cur_stack >= env->prog->len)
+			return -E2BIG;
+
+		insn_stack[env->cfg.cur_stack++] = w;
+		insn_state[w] = DISCOVERED;
+		return KEEP_EXPLORING;
+	}
+
+	/* all functions are explored, their effects are known */
+	mark_prune_point(env, t);
+	for (i = 0; i < cnt; i++) {
+		w = ptrs[i].xlated_off;
+		merge_callee_effects(env, t, w);
+
+		/* the same marks as push_insn() leaves on a branch target */
+		mark_prune_point(env, w);
+		mark_jmp_point(env, w);
+		mark_jump_target(env, w);
+	}
+	return DONE_EXPLORING;
 }
 
 /* Visits the instruction at index t and returns one of the following:
@@ -453,21 +542,20 @@ static int visit_abnormal_return_insn(struct bpf_verifier_env *env, int t)
 static int visit_insn(int t, struct bpf_verifier_env *env)
 {
 	struct bpf_insn *insns = env->prog->insnsi, *insn = &insns[t];
+	struct bpf_func_ptr *ptrs;
 	int ret, off, insn_sz;
+	u32 cnt;
 
 	if (bpf_pseudo_func(insn))
 		return visit_func_call_insn(t, insns, env, true);
 
+	ptrs = insn_func_ptrs(env, t, &cnt);
+	if (ptrs)
+		return visit_func_ptrs_insn(t, env, ptrs, cnt);
+
 	/* All non-branch instructions have a single fall-through edge. */
 	if (BPF_CLASS(insn->code) != BPF_JMP &&
 	    BPF_CLASS(insn->code) != BPF_JMP32) {
-		if (BPF_CLASS(insn->code) == BPF_LD &&
-		    (BPF_MODE(insn->code) == BPF_ABS ||
-		     BPF_MODE(insn->code) == BPF_IND)) {
-			ret = visit_abnormal_return_insn(env, t);
-			if (ret)
-				return ret;
-		}
 		insn_sz = bpf_is_ldimm64(insn) ? 2 : 1;
 		return push_insn(t, t + insn_sz, FALLTHROUGH, env);
 	}
@@ -512,11 +600,6 @@ static int visit_insn(int t, struct bpf_verifier_env *env)
 				mark_subprog_might_sleep(env, t);
 			if (bpf_helper_changes_pkt_data(insn->imm))
 				mark_subprog_changes_pkt_data(env, t);
-			if (insn->imm == BPF_FUNC_tail_call) {
-				ret = visit_abnormal_return_insn(env, t);
-				if (ret)
-					return ret;
-			}
 		} else if (insn->src_reg == BPF_PSEUDO_KFUNC_CALL) {
 			struct bpf_call_arg_meta meta;
 
@@ -749,7 +832,7 @@ int bpf_compute_scc(struct bpf_verifier_env *env)
 	struct bpf_insn_aux_data *aux = env->insn_aux_data;
 	const u32 insn_cnt = env->prog->len;
 	int stack_sz, dfs_sz, err = 0;
-	u32 *stack, *pre, *low, *dfs;
+	u32 *stack, *pre, *low, *dfs, *dfs_pos;
 	u32 i, j, t, w;
 	u32 next_preorder_num;
 	u32 next_scc_id;
@@ -762,13 +845,16 @@ int bpf_compute_scc(struct bpf_verifier_env *env)
 	 * - 'stack' accumulates vertices in DFS order, see invariant comment below;
 	 * - 'pre[t] == p' => preorder number of vertex 't' is 'p';
 	 * - 'low[t] == n' => smallest preorder number of the vertex reachable from 't' is 'n';
-	 * - 'dfs' DFS traversal stack, used to emulate explicit recursion.
+	 * - 'dfs' DFS traversal stack, used to emulate explicit recursion;
+	 * - 'dfs_pos[k] == j' => the frame 'dfs[k]' resumes visiting its
+	 *   successors at index 'j'.
 	 */
 	stack = kvcalloc(insn_cnt, sizeof(int), GFP_KERNEL_ACCOUNT);
 	pre = kvcalloc(insn_cnt, sizeof(int), GFP_KERNEL_ACCOUNT);
 	low = kvcalloc(insn_cnt, sizeof(int), GFP_KERNEL_ACCOUNT);
 	dfs = kvcalloc(insn_cnt, sizeof(*dfs), GFP_KERNEL_ACCOUNT);
-	if (!stack || !pre || !low || !dfs) {
+	dfs_pos = kvcalloc(insn_cnt, sizeof(*dfs_pos), GFP_KERNEL_ACCOUNT);
+	if (!stack || !pre || !low || !dfs || !dfs_pos) {
 		err = -ENOMEM;
 		goto exit;
 	}
@@ -851,6 +937,7 @@ int bpf_compute_scc(struct bpf_verifier_env *env)
 		stack_sz = 0;
 		dfs_sz = 1;
 		dfs[0] = i;
+		dfs_pos[0] = 0;
 dfs_continue:
 		while (dfs_sz) {
 			w = dfs[dfs_sz - 1];
@@ -860,13 +947,22 @@ dfs_continue:
 				next_preorder_num++;
 				stack[stack_sz++] = w;
 			}
-			/* Visit 'w' successors */
+			/* Visit remaining 'w' successors */
 			succ = bpf_insn_successors(env, w);
-			for (j = 0; j < succ->cnt; ++j) {
+			for (j = dfs_pos[dfs_sz - 1]; j < succ->cnt; ++j) {
 				if (pre[succ->items[j]]) {
 					low[w] = min(low[w], low[succ->items[j]]);
 				} else {
-					dfs[dfs_sz++] = succ->items[j];
+					/*
+					 * Once DFS for succ->items[j] is complete,
+					 * pre[succ->items[j]] is non-zero, hence
+					 * resuming at 'j' allows to follow the
+					 * low[w] = min(...) update branch above.
+					 */
+					dfs_pos[dfs_sz - 1] = j;
+					dfs_pos[dfs_sz] = 0;
+					dfs[dfs_sz] = succ->items[j];
+					dfs_sz++;
 					goto dfs_continue;
 				}
 			}
@@ -916,5 +1012,6 @@ exit:
 	kvfree(pre);
 	kvfree(low);
 	kvfree(dfs);
+	kvfree(dfs_pos);
 	return err;
 }

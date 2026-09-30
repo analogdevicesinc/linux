@@ -27,6 +27,9 @@ obj-$(CONFIG_BPF_SYSCALL) += offload.o
 obj-$(CONFIG_BPF_SYSCALL) += net_namespace.o
 obj-$(CONFIG_BPF_SYSCALL) += tcx.o
 endif
+ifeq ($(CONFIG_KEYS),y)
+obj-$(CONFIG_BPF_SYSCALL) += keys.o
+endif
 ifeq ($(CONFIG_PERF_EVENTS),y)
 obj-$(CONFIG_BPF_SYSCALL) += stackmap.o
 endif
@@ -55,9 +58,7 @@ obj-$(CONFIG_BPF_SYSCALL) += cpumask.o
 # semantics within pahole are revisited accordingly.
 obj-${CONFIG_BPF_LSM} += bpf_lsm_proto.o bpf_lsm.o
 endif
-ifneq ($(CONFIG_CRYPTO),)
-obj-$(CONFIG_BPF_SYSCALL) += crypto.o
-endif
+obj-$(CONFIG_BPF_CRYPTO) += crypto.o
 obj-$(CONFIG_BPF_PRELOAD) += preload/
 
 obj-$(CONFIG_BPF_SYSCALL) += relo_core.o

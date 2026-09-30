@@ -7063,6 +7063,132 @@ static struct btf_dedup_test dedup_tests[] = {
 	},
 },
 {
+	.descr = "dedup: array element comparison",
+	.input = {
+		.raw_types = {
+			/* signed int */
+			BTF_TYPE_INT_ENC(NAME_NTH(1), BTF_INT_SIGNED, 0, 32, 4), /* [1] */
+			/* unsigned int */
+			BTF_TYPE_INT_ENC(NAME_NTH(2), 0, 0, 32, 4),		/* [2] */
+			/* signed int[1] */
+			BTF_TYPE_ARRAY_ENC(1, 1, 1),				/* [3] */
+			/* duplicate signed int[1] */
+			BTF_TYPE_ARRAY_ENC(1, 1, 1),				/* [4] */
+			/* unsigned int[1] */
+			BTF_TYPE_ARRAY_ENC(2, 2, 1),				/* [5] */
+			/* struct s { signed int a[1]; signed int b[1]; } */
+			BTF_STRUCT_ENC(NAME_NTH(3), 2, 8),			/* [6] */
+			BTF_MEMBER_ENC(NAME_NTH(4), 3, 0),
+			BTF_MEMBER_ENC(NAME_NTH(5), 3, 32),
+			/* struct s { signed int a[1]; unsigned int b[1]; } */
+			BTF_STRUCT_ENC(NAME_NTH(3), 2, 8),			/* [7] */
+			BTF_MEMBER_ENC(NAME_NTH(4), 4, 0),
+			BTF_MEMBER_ENC(NAME_NTH(5), 5, 32),
+			BTF_END_RAW,
+		},
+		BTF_STR_SEC("\0int\0unsigned int\0s\0a\0b"),
+	},
+	.expect = {
+		.raw_types = {
+			BTF_TYPE_INT_ENC(NAME_NTH(1), BTF_INT_SIGNED, 0, 32, 4), /* [1] */
+			BTF_TYPE_INT_ENC(NAME_NTH(2), 0, 0, 32, 4),		/* [2] */
+			BTF_TYPE_ARRAY_ENC(1, 1, 1),				/* [3] */
+			BTF_TYPE_ARRAY_ENC(2, 2, 1),				/* [4] */
+			BTF_STRUCT_ENC(NAME_NTH(3), 2, 8),			/* [5] */
+			BTF_MEMBER_ENC(NAME_NTH(4), 3, 0),
+			BTF_MEMBER_ENC(NAME_NTH(5), 3, 32),
+			BTF_STRUCT_ENC(NAME_NTH(3), 2, 8),			/* [6] */
+			BTF_MEMBER_ENC(NAME_NTH(4), 3, 0),
+			BTF_MEMBER_ENC(NAME_NTH(5), 4, 32),
+			BTF_END_RAW,
+		},
+		BTF_STR_SEC("\0int\0unsigned int\0s\0a\0b"),
+	},
+},
+{
+	.descr = "dedup: array element comparison with same index type",
+	.input = {
+		.raw_types = {
+			BTF_TYPE_INT_ENC(NAME_NTH(1), BTF_INT_SIGNED, 0, 32, 4), /* [1] */
+			BTF_TYPE_INT_ENC(NAME_NTH(2), 0, 0, 32, 4),		/* [2] */
+			BTF_TYPE_ARRAY_ENC(1, 1, 1),				/* [3] */
+			BTF_TYPE_ARRAY_ENC(1, 1, 1),				/* [4] */
+			BTF_TYPE_ARRAY_ENC(2, 1, 1),				/* [5] */
+			/* struct s { int a[1]; int b[1]; } */
+			BTF_STRUCT_ENC(NAME_NTH(3), 2, 8),			/* [6] */
+			BTF_MEMBER_ENC(NAME_NTH(4), 3, 0),
+			BTF_MEMBER_ENC(NAME_NTH(5), 3, 32),
+			/* struct s { int a[1]; unsigned int b[1]; } */
+			BTF_STRUCT_ENC(NAME_NTH(3), 2, 8),			/* [7] */
+			BTF_MEMBER_ENC(NAME_NTH(4), 4, 0),
+			BTF_MEMBER_ENC(NAME_NTH(5), 5, 32),
+			BTF_END_RAW,
+		},
+		BTF_STR_SEC("\0int\0unsigned int\0s\0a\0b"),
+	},
+	.expect = {
+		.raw_types = {
+			BTF_TYPE_INT_ENC(NAME_NTH(1), BTF_INT_SIGNED, 0, 32, 4), /* [1] */
+			BTF_TYPE_INT_ENC(NAME_NTH(2), 0, 0, 32, 4),		/* [2] */
+			BTF_TYPE_ARRAY_ENC(1, 1, 1),				/* [3] */
+			BTF_TYPE_ARRAY_ENC(2, 1, 1),				/* [4] */
+			BTF_STRUCT_ENC(NAME_NTH(3), 2, 8),			/* [5] */
+			BTF_MEMBER_ENC(NAME_NTH(4), 3, 0),
+			BTF_MEMBER_ENC(NAME_NTH(5), 3, 32),
+			BTF_STRUCT_ENC(NAME_NTH(3), 2, 8),			/* [6] */
+			BTF_MEMBER_ENC(NAME_NTH(4), 3, 0),
+			BTF_MEMBER_ENC(NAME_NTH(5), 4, 32),
+			BTF_END_RAW,
+		},
+		BTF_STR_SEC("\0int\0unsigned int\0s\0a\0b"),
+	},
+},
+{
+	.descr = "dedup: identical array element comparison",
+	.input = {
+		.raw_types = {
+			/* int */
+			BTF_TYPE_INT_ENC(NAME_NTH(1), BTF_INT_SIGNED, 0, 32, 4), /* [1] */
+			/* struct container { struct elem first[1]; struct elem second[1]; } */
+			BTF_STRUCT_ENC(NAME_NTH(2), 2, 8),			/* [2] */
+			BTF_MEMBER_ENC(NAME_NTH(3), 3, 0),
+			BTF_MEMBER_ENC(NAME_NTH(4), 3, 32),
+			/* struct elem[1] */
+			BTF_TYPE_ARRAY_ENC(4, 1, 1),				/* [3] */
+			/* struct elem { int x; } */
+			BTF_STRUCT_ENC(NAME_NTH(5), 1, 4),			/* [4] */
+			BTF_MEMBER_ENC(NAME_NTH(6), 1, 0),
+			/* duplicate struct container */
+			BTF_STRUCT_ENC(NAME_NTH(2), 2, 8),			/* [5] */
+			BTF_MEMBER_ENC(NAME_NTH(3), 6, 0),
+			BTF_MEMBER_ENC(NAME_NTH(4), 7, 32),
+			/* duplicate struct elem[1] */
+			BTF_TYPE_ARRAY_ENC(8, 1, 1),				/* [6] */
+			BTF_TYPE_ARRAY_ENC(9, 1, 1),				/* [7] */
+			/* duplicate struct elem */
+			BTF_STRUCT_ENC(NAME_NTH(5), 1, 4),			/* [8] */
+			BTF_MEMBER_ENC(NAME_NTH(6), 1, 0),
+			BTF_STRUCT_ENC(NAME_NTH(5), 1, 4),			/* [9] */
+			BTF_MEMBER_ENC(NAME_NTH(6), 1, 0),
+			BTF_END_RAW,
+		},
+		BTF_STR_SEC("\0int\0container\0first\0second\0elem\0x"),
+	},
+	.expect = {
+		.raw_types = {
+			BTF_TYPE_INT_ENC(NAME_NTH(1), BTF_INT_SIGNED, 0, 32, 4), /* [1] */
+			BTF_STRUCT_ENC(NAME_NTH(2), 2, 8),			/* [2] */
+			BTF_MEMBER_ENC(NAME_NTH(3), 3, 0),
+			BTF_MEMBER_ENC(NAME_NTH(4), 3, 32),
+			BTF_TYPE_ARRAY_ENC(4, 1, 1),				/* [3] */
+			BTF_STRUCT_ENC(NAME_NTH(5), 1, 4),			/* [4] */
+			BTF_MEMBER_ENC(NAME_NTH(6), 1, 0),
+			BTF_END_RAW,
+		},
+		BTF_STR_SEC("\0int\0container\0first\0second\0elem\0x"),
+	},
+},
+{
 	.descr = "dedup: struct example #1",
 	/*
 	 * struct s {

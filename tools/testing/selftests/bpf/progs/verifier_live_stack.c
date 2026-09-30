@@ -21,8 +21,6 @@ struct {
 	__type(value, __u64);
 } array_map_8b SEC(".maps");
 
-const char snprintf_u64_fmt[] = "%llu";
-
 SEC("socket")
 __log_level(2)
 __msg("0: (79) r1 = *(u64 *)(r10 -8)        ; use: fp0-8")
@@ -246,7 +244,7 @@ static __used __naked void read_first_param2(void)
 SEC("socket")
 __flag(BPF_F_TEST_STATE_FREQ)
 __failure
-__msg("R1 type=scalar expected=map_ptr")
+__msg("Possibly NULL pointer passed to trusted R1")
 __naked void caller_stack_pruning_callback(void)
 {
 	asm volatile (
@@ -320,7 +318,7 @@ struct {
 } map_array SEC(".maps");
 
 SEC("socket")
-__failure __msg("invalid read from stack R2 off=-1024 size=8")
+__failure __msg("invalid read from stack R2 off=-4096 size=8")
 __flag(BPF_F_TEST_STATE_FREQ)
 __naked unsigned long caller_stack_write_tail_call(void)
 {
@@ -331,7 +329,7 @@ __naked unsigned long caller_stack_write_tail_call(void)
         "if r0 != 42 goto 1f;"
         "goto 2f;"
   "1:"
-        "*(u64 *)(r10 - 8) = -1024;"
+        "*(u64 *)(r10 - 8) = -4096;"
   "2:"
         "r1 = r6;"
         "r2 = r10;"
@@ -1947,15 +1945,15 @@ static __used __naked void fwd_parent_key_to_helper(void)
 
 /*
  * Regression for keeping later helper args after a whole-stack fallback
- * on an earlier local arg.  The first bpf_snprintf() arg is a local
+ * on an earlier local arg.  The bpf_map_update_elem() key is a local
  * frame-derived pointer with offset-imprecise tracking (`fp1 ?`), which
- * conservatively marks the whole local stack live.  The fourth arg still
+ * conservatively marks the whole local stack live.  The value arg still
  * forwards &parent_fp-8 and must contribute nonlocal_use[0]=0:3.
  */
 SEC("socket")
 __log_level(2)
 __success
-__msg("call bpf_snprintf{{.*}}        ; use: fp1-8..-512 fp0-8")
+__msg("call bpf_map_update_elem{{.*}}; use: fp1-8..-{{(512|2048)}} fp0-8")
 __naked void helper_arg_fallback_keeps_scanning(void)
 {
 	asm volatile (
@@ -1963,32 +1961,33 @@ __naked void helper_arg_fallback_keeps_scanning(void)
 	"*(u64 *)(r10 - 8) = r1;"
 	"r1 = r10;"
 	"r1 += -8;"
-	"call helper_snprintf_parent_after_local_fallback;"
+	"call helper_update_parent_after_local_fallback;"
 	"r0 = 0;"
 	"exit;"
 	::: __clobber_all);
 }
 
-static __used __naked void helper_snprintf_parent_after_local_fallback(void)
+static __used __naked void helper_update_parent_after_local_fallback(void)
 {
 	asm volatile (
 	"r6 = r1;"				/* save &parent_fp-8 */
 	"call %[bpf_get_prandom_u32];"
 	"r0 &= 8;"
-	"r1 = r10;"
-	"r1 += -16;"
-	"r1 += r0;"				/* local fp, offset-imprecise */
-	"r2 = 8;"
-	"r3 = %[snprintf_u64_fmt] ll;"
-	"r4 = r6;"				/* later arg: parent fp-8 */
-	"r5 = 8;"
-	"call %[bpf_snprintf];"
+	"*(u64 *)(r10 - 16) = 0;"
+	"*(u64 *)(r10 - 8) = 0;"
+	"r2 = r10;"
+	"r2 += -16;"
+	"r2 += r0;"				/* local fp, offset-imprecise */
+	"r1 = %[array_map_8b] ll;"
+	"r3 = r6;"				/* later arg: parent fp-8 */
+	"r4 = 0;"
+	"call %[bpf_map_update_elem];"
 	"r0 = 0;"
 	"exit;"
 	:
 	: __imm(bpf_get_prandom_u32),
-	  __imm(bpf_snprintf),
-	  __imm_addr(snprintf_u64_fmt)
+	  __imm(bpf_map_update_elem),
+	  __imm_addr(array_map_8b)
 	: __clobber_all);
 }
 
@@ -2268,7 +2267,7 @@ static __used __naked void merge_leaf_read(void)
 SEC("socket")
 __log_level(2)
 __success
-__msg("call bpf_loop#181            ; use: fp2-8..-512 fp1-8..-512 fp0-8..-512")
+__msg("call bpf_loop#181            ; use: fp2-8..-{{(512|2048)}} fp1-8..-{{(512|2048)}} fp0-8..-{{(512|2048)}}")
 __naked void bpf_loop_two_callbacks(void)
 {
 	asm volatile (
@@ -2839,4 +2838,100 @@ static __used __naked void imprecise_dst_spill_join_sub(void)
 	"exit;"
 	:: __imm(bpf_get_prandom_u32)
 	: __clobber_all);
+}
+
+/*
+ * A store that does not fully cover a 4-byte half-slot defines nothing, so a
+ * narrow store at the top of the frame must not turn any slot into a "def",
+ * least of all every slot of the frame: the earlier data at fp-8 stays live.
+ */
+SEC("socket")
+__log_level(2)
+__msg("0: (79) r0 = *(u64 *)(r10 -8)        ; use: fp0-8")
+__msg("1: (73) *(u8 *)(r10 -1) = r0{{$}}")
+__msg("2: (6b) *(u16 *)(r10 -4) = r0{{$}}")
+__msg("3: (79) r0 = *(u64 *)(r10 -8)        ; use: fp0-8")
+__naked void narrow_store_defines_nothing(void)
+{
+	asm volatile (
+	"r0 = *(u64 *)(r10 - 8);"
+	"*(u8 *)(r10 - 1) = r0;"
+	"*(u16 *)(r10 - 4) = r0;"
+	"r0 = *(u64 *)(r10 - 8);"
+	"exit;"
+	::: __clobber_all);
+}
+
+/*
+ * The same callee instance is analyzed twice: the call sites are visited in
+ * postorder, so the second one goes first with a precise pointer 248 bytes
+ * into the main frame, and the first one then passes a pointer of unknown
+ * offset, which reads the whole frame. The precise pass stays within the
+ * first word of the masks on 64-bit, so the whole-frame pass is wider under
+ * every stack budget and merging the second into the first has to widen the
+ * masks while keeping the whole-frame read.
+ */
+SEC("socket")
+__log_level(2)
+__msg("stack use/def subprog#{{[0-9]+}} merge_read_all_callee (d2,cs{{[0-9]+}}):")
+__msg("(79) r0 = *(u64 *)(r1 +0){{.*}}; use: fp0-8..-{{(512|2048)}}")
+__naked void merge_keeps_whole_frame_read(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"*(u64 *)(r10 - 16) = r1;"
+	"*(u64 *)(r10 - 248) = r1;"
+	"call %[bpf_get_prandom_u32];"
+	"r0 &= 8;"
+	"r1 = r10;"
+	"r1 += -16;"
+	"r1 += r0;"
+	"call merge_read_all_mid;"
+	"r1 = r10;"
+	"r1 += -248;"
+	"call merge_read_all_mid;"
+	"r0 = 0;"
+	"exit;"
+	:: __imm(bpf_get_prandom_u32)
+	: __clobber_all);
+}
+
+static __used __naked void merge_read_all_mid(void)
+{
+	asm volatile (
+	"call merge_read_all_callee;"
+	"exit;"
+	::: __clobber_all);
+}
+
+static __used __naked void merge_read_all_callee(void)
+{
+	asm volatile (
+	"r0 = *(u64 *)(r1 + 0);"
+	"exit;"
+	::: __clobber_all);
+}
+
+/*
+ * A frame pointer spilled below fp-512 is a spill like any other: the fill
+ * restores its identity, and a load through it reads only the slot it names
+ * instead of the whole frame.
+ */
+SEC("socket")
+__log_level(2)
+__load_if_large_stack()
+__msg("(79) r0 = *(u64 *)(r1 +0){{.*}}; use: fp0-8{{$}}")
+__naked void spill_below_512_stays_precise(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"r1 = r10;"
+	"r1 += -8;"
+	"*(u64 *)(r10 - 520) = r1;"
+	"r1 = *(u64 *)(r10 - 520);"
+	"r0 = *(u64 *)(r1 + 0);"
+	"exit;"
+	::: __clobber_all);
 }

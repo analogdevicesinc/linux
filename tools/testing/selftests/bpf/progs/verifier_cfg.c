@@ -173,4 +173,43 @@ l1_%=:	exit;						\
 "	::: __clobber_all);
 }
 
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, __u32);
+	__type(value, __u32);
+} map_array SEC(".maps");
+
+extern void bpf_throw(__u64 cookie) __ksym;
+
+/*
+ * The subprogram leaves through the tail call or the exception and never
+ * reaches an exit insn, so the hidden edge of the tail call has no exit to
+ * point at. The stack access makes the liveness pass walk the subprogram,
+ * and the loop compiles to a single jump back onto itself.
+ */
+__noinline __used
+static int tail_call_or_throw_subprog(void *ctx)
+{
+	volatile __u32 idx = 0;
+
+	bpf_tail_call(ctx, &map_array, idx);
+	bpf_throw(0);
+	for (;;) {}
+	return 0;
+}
+
+SEC("tc")
+__description("tail call in a subprogram without an exit")
+__arch_x86_64
+__arch_arm64
+__success
+__naked void tail_call_in_subprog_without_exit(void)
+{
+	asm volatile ("					\
+	call tail_call_or_throw_subprog;		\
+	exit;						\
+"	::: __clobber_all);
+}
+
 char _license[] SEC("license") = "GPL";

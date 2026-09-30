@@ -240,24 +240,26 @@ void bpf_selem_link_storage_nolock(struct bpf_local_storage *local_storage,
 	hlist_add_head_rcu(&selem->snode, &local_storage->list);
 }
 
+/* Must be called with the owning local_storage->lock held. */
 static int bpf_selem_unlink_map(struct bpf_local_storage_elem *selem)
 {
 	struct bpf_local_storage *local_storage;
 	struct bpf_local_storage_map *smap;
 	struct bpf_local_storage_map_bucket *b;
-	unsigned long flags;
 	int err;
+
+	lockdep_assert_irqs_disabled();
 
 	local_storage = rcu_dereference_check(selem->local_storage,
 					      bpf_rcu_lock_held());
 	smap = rcu_dereference_check(SDATA(selem)->smap, bpf_rcu_lock_held());
 	b = select_bucket(smap, local_storage);
-	err = raw_res_spin_lock_irqsave(&b->lock, flags);
+	err = raw_res_spin_lock(&b->lock);
 	if (err)
 		return err;
 
 	hlist_del_init_rcu(&selem->map_node);
-	raw_res_spin_unlock_irqrestore(&b->lock, flags);
+	raw_res_spin_unlock(&b->lock);
 
 	return 0;
 }
@@ -552,7 +554,7 @@ bpf_local_storage_update(void *owner, struct bpf_local_storage_map *smap,
 	struct bpf_local_storage *local_storage;
 	struct bpf_local_storage_map_bucket *b;
 	HLIST_HEAD(old_selem_free_list);
-	unsigned long flags, b_flags;
+	unsigned long flags;
 	int err;
 
 	/* BPF_EXIST and BPF_NOEXIST cannot be both set */
@@ -637,7 +639,8 @@ bpf_local_storage_update(void *owner, struct bpf_local_storage_map *smap,
 
 	b = select_bucket(smap, local_storage);
 
-	err = raw_res_spin_lock_irqsave(&b->lock, b_flags);
+	/* local_storage->lock is held, so IRQs are already disabled. */
+	err = raw_res_spin_lock(&b->lock);
 	if (err)
 		goto unlock;
 
@@ -655,7 +658,7 @@ bpf_local_storage_update(void *owner, struct bpf_local_storage_map *smap,
 						&old_selem_free_list);
 	}
 
-	raw_res_spin_unlock_irqrestore(&b->lock, b_flags);
+	raw_res_spin_unlock(&b->lock);
 unlock:
 	raw_res_spin_unlock_irqrestore(&local_storage->lock, flags);
 free_selem:
