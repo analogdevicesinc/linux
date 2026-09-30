@@ -338,6 +338,7 @@ struct nfsd_file *nfs_open_local_fh(nfs_uuid_t *uuid,
 		   const fmode_t fmode)
 {
 	struct net *net;
+	struct auth_domain *dom;
 	struct nfsd_file *localio;
 
 	/*
@@ -351,14 +352,19 @@ struct nfsd_file *nfs_open_local_fh(nfs_uuid_t *uuid,
 	 * make 'nfs_to' calls.
 	 */
 	rcu_read_lock();
+	spin_lock(&uuid->lock);
 	net = rcu_dereference(uuid->net);
-	if (!net || !nfs_to->nfsd_net_try_get(net)) {
+	if (!net || !uuid->dom || !nfs_to->nfsd_net_try_get(net)) {
+		spin_unlock(&uuid->lock);
 		rcu_read_unlock();
 		return ERR_PTR(-ENXIO);
 	}
+	dom = uuid->dom;
+	kref_get(&dom->ref);
+	spin_unlock(&uuid->lock);
 	rcu_read_unlock();
 	/* We have an implied reference to net thanks to nfsd_net_try_get */
-	localio = nfs_to->nfsd_open_local_fh(net, uuid->dom, rpc_clnt, cred,
+	localio = nfs_to->nfsd_open_local_fh(net, dom, rpc_clnt, cred,
 					     nfs_fh, pnf, fmode);
 	if (!IS_ERR(localio) && nfs_uuid_add_file(uuid, nfl) < 0) {
 		/*
@@ -378,6 +384,7 @@ struct nfsd_file *nfs_open_local_fh(nfs_uuid_t *uuid,
 		nfs_to_nfsd_file_put_local(&tmp);
 		localio = ERR_PTR(-ENXIO);
 	}
+	auth_domain_put(dom);
 	nfs_to_nfsd_net_put(net);
 
 	return localio;
