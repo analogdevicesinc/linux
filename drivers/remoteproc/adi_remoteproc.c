@@ -92,6 +92,53 @@ struct adi_rproc_config {
 	unsigned int variant;
 };
 
+#define WORD_SCALE_8 1
+#define WORD_SCALE_16 2
+#define WORD_SCALE_32 4
+#define WORD_SCALE_48 6
+#define WORD_SCALE_64 8
+
+struct sharcp_space {
+	uint32_t start;
+	uint32_t end;
+	uint32_t byte_base;
+	uint8_t l1;
+	uint8_t scale;
+	uint8_t bits;
+};
+
+static const struct sharcp_space sharcp_spaces[] = {
+	/* L1 block 0 */
+	{ 0x00048000, 0x0004dfff, 0x00240000, 1, WORD_SCALE_64, 64 },
+	{ 0x00090000, 0x00097fff, 0x00240000, 1, WORD_SCALE_48, 48 },
+	{ 0x00090000, 0x0009bfff, 0x00240000, 1, WORD_SCALE_32, 32 },
+	{ 0x00120000, 0x00137fff, 0x00240000, 1, WORD_SCALE_16, 16 },
+	{ 0x00240000, 0x0026ffff, 0x00240000, 1, WORD_SCALE_8,  8  },
+	/* L1 block 1 */
+	{ 0x00058000, 0x0005dfff, 0x002c0000, 1, WORD_SCALE_64, 64 },
+	{ 0x000b0000, 0x000b7fff, 0x002c0000, 1, WORD_SCALE_48, 48 },
+	{ 0x000b0000, 0x000bbfff, 0x002c0000, 1, WORD_SCALE_32, 32 },
+	{ 0x00160000, 0x00177fff, 0x002c0000, 1, WORD_SCALE_16, 16 },
+	{ 0x002c0000, 0x002effff, 0x002c0000, 1, WORD_SCALE_8,  8  },
+	/* L1 block 2 */
+	{ 0x00060000, 0x00063fff, 0x00300000, 1, WORD_SCALE_64, 64 },
+	{ 0x000c0000, 0x000c5554, 0x00300000, 1, WORD_SCALE_48, 48 },
+	{ 0x000c0000, 0x000c7fff, 0x00300000, 1, WORD_SCALE_32, 32 },
+	{ 0x00180000, 0x0018ffff, 0x00300000, 1, WORD_SCALE_16, 16 },
+	{ 0x00300000, 0x0031ffff, 0x00300000, 1, WORD_SCALE_8,  8  },
+	/* L1 block 3 */
+	{ 0x00070000, 0x00073fff, 0x00380000, 1, WORD_SCALE_64, 64 },
+	{ 0x000e0000, 0x000e5554, 0x00380000, 1, WORD_SCALE_48, 48 },
+	{ 0x000e0000, 0x000e7fff, 0x00380000, 1, WORD_SCALE_32, 32 },
+	{ 0x001c0000, 0x001cffff, 0x00380000, 1, WORD_SCALE_16, 16 },
+	{ 0x00380000, 0x0039ffff, 0x00380000, 1, WORD_SCALE_8,  8  },
+	/* L2, shared between the cores, no multiprocessor offset */
+	{ 0x00580000, 0x005d5554, 0x20000000, 0, WORD_SCALE_48, 48 }, // ? verify
+	{ 0x08000000, 0x0807ffff, 0x20000000, 0, WORD_SCALE_32, 32 },
+	{ 0x00b00000, 0x00bfffff, 0x20000000, 0, WORD_SCALE_16, 16 },
+	{ 0x20000000, 0x201fffff, 0x20000000, 0, WORD_SCALE_8,  8  },
+};
+
 struct sharc_resource_table {
 	struct resource_table table_hdr;
 	unsigned int offset[NUM_TABLE_ENTRIES];
@@ -193,6 +240,7 @@ struct adi_rproc_data {
 	 * rather than from the driver's built-in template.
 	 */
 	bool rsc_table_from_fw;
+	struct adi_rproc_config cfg;
 };
 
 static int adi_core_set_svect(struct adi_rproc_data *rproc_data,
@@ -414,33 +462,6 @@ static int adi_ldr_load(struct adi_rproc_data *rproc_data,
 }
 
 /*
- * adi_rproc_da_to_pa: translate a SHARC device address to a physical address
- *
- * Returns 0 if the address is outside both mapped windows, or if the region
- * would run past the end of the window it starts in.
- */
-static phys_addr_t adi_rproc_da_to_pa(struct adi_rproc_data *rproc_data, u64 da,
-				      size_t len)
-{
-	if (!len)
-		return 0;
-
-	if (da >= rproc_data->l1_da_range[0] && da < rproc_data->l1_da_range[1]) {
-		if (len > rproc_data->l1_da_range[1] - da)
-			return 0;
-		return rproc_data->l1_phys_base + (da - rproc_data->l1_da_range[0]);
-	}
-
-	if (da >= rproc_data->l2_da_range[0] && da < rproc_data->l2_da_range[1]) {
-		if (len > rproc_data->l2_da_range[1] - da)
-			return 0;
-		return rproc_data->l2_phys_base + (da - rproc_data->l2_da_range[0]);
-	}
-
-	return 0;
-}
-
-/*
  * adi_rproc_dma_write: copy a buffer to a SHARC physical address using MDMA
  *
  * The SHARC-FX I-completer rejects 8- and 16-bit accesses to IRAM, so the
@@ -581,6 +602,8 @@ static int adi_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 	phnum = elf_hdr_get_e_phnum(class, ehdr);
 	phdr = elf_data + elf_hdr_get_e_phoff(class, ehdr);
 
+	printk("%s:%s:%d\n",__FILE__,__FUNCTION__,__LINE__);
+
 	enable_spu();
 
 	for (i = 0; i < phnum; i++, phdr += elf_phdr_get_size) {
@@ -618,7 +641,9 @@ static int adi_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 			break;
 		}
 
-		pa = adi_rproc_da_to_pa(rproc_data, da, memsz);
+		//pa = adi_rproc_da_to_pa(rproc_data, da, memsz);
+		printk("%s:%s:%d\n",__FILE__,__FUNCTION__,__LINE__);
+		pa = rproc_da_to_va(rproc, da, memsz, NULL);
 		if (!pa) {
 			dev_err(dev, "bad phdr da 0x%llx mem 0x%llx\n", da, memsz);
 			ret = -EINVAL;
@@ -663,12 +688,16 @@ static int adi_rproc_load(struct rproc *rproc, const struct firmware *fw)
 	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
 	int ret;
 
+	printk("%s:%s:%d\n",__FILE__,__FUNCTION__,__LINE__);
+
 	switch (rproc_data->firmware_format) {
 	case ADI_FW_LDR:
 		ret = adi_ldr_load(rproc_data, fw);
 		break;
 	case ADI_FW_ELF:
+		printk("%s:%s:%d\n",__FILE__,__FUNCTION__,__LINE__);
 		ret = adi_elf_load_segments(rproc, fw);
+		//ret = 
 		break;
 	default:
 		WARN(1, "Invalid rproc_data->firmware_format\n");
@@ -1120,13 +1149,23 @@ static void *adi_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *u
 	void __iomem *L2_shared_base = rproc_data->L2_shared_base;
 	void *ret = NULL;
 
+	printk("%s:%s:%d\n",__FILE__,__FUNCTION__,__LINE__);
+
 	if (len == 0)
 		return NULL;
 
-	if (da >= rproc_data->l1_da_range[0] && da < rproc_data->l1_da_range[1])
-		ret = L1_shared_base + (da - rproc_data->l1_da_range[0]);
-	else if (da >= rproc_data->l2_da_range[0] && da < rproc_data->l2_da_range[1])
-		ret = L2_shared_base + (da - rproc_data->l2_da_range[0]);
+	if (rproc_data->cfg.variant == SC5XX_RPROC_SHARCFX) {
+		printk("%s:%s:%d\n",__FILE__,__FUNCTION__,__LINE__);
+		if (da >= rproc_data->l1_da_range[0] && da < rproc_data->l1_da_range[1])
+			ret = L1_shared_base + (da - rproc_data->l1_da_range[0]);
+		else if (da >= rproc_data->l2_da_range[0] && da < rproc_data->l2_da_range[1])
+			ret = L2_shared_base + (da - rproc_data->l2_da_range[0]);
+	}
+	if (rproc_data->cfg.variant == SC5XX_RPROC_SHARC) {
+		printk("%s:%s:%d\n",__FILE__,__FUNCTION__,__LINE__);
+	}
+
+	printk("ret=%08x\n",ret);
 
 	return ret;
 }
@@ -1156,6 +1195,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	u32 addr[2];
 	int ret, core_id;
 	const char *name;
+
+	printk("%s:%s:%d\n",__FILE__,__FUNCTION__,__LINE__);
 
 	ret = of_property_read_string(np, "firmware-name", &name);
 	if (ret)
