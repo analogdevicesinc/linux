@@ -2,7 +2,6 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
 
-
 / {
 	thermal-zones {
 		pm8841-thermal {
@@ -34,7 +33,6 @@
 };
 
 &spmi_bus {
-
 	pm8841_0: pm8841@4 {
 		compatible = "qcom,pm8841", "qcom,spmi-pmic";
 		reg = <0x4 SPMI_USID>;
