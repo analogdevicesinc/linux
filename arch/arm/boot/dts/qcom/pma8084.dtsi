@@ -5,7 +5,6 @@
 #include <dt-bindings/spmi/spmi.h>
 
 &spmi_bus {
-
 	pma8084_0: pma8084@0 {
 		compatible = "qcom,pma8084", "qcom,spmi-pmic";
 		reg = <0x0 SPMI_USID>;
