@@ -775,12 +775,9 @@ static void *adi_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *u
 	void __iomem *L2_shared_base = rproc_data->L2_shared_base;
 	void *ret = NULL;
 
-	if (len == 0)
-		return NULL;
-
-	if (da >= rproc_data->l1_da_range[0] && da < rproc_data->l1_da_range[1])
+	if (da >= rproc_data->l1_da_range[0] && da + len <= rproc_data->l1_da_range[1])
 		ret = L1_shared_base + (da - rproc_data->l1_da_range[0]);
-	else if (da >= rproc_data->l2_da_range[0] && da < rproc_data->l2_da_range[1])
+	else if (da >= rproc_data->l2_da_range[0] && da + len <= rproc_data->l2_da_range[1])
 		ret = L2_shared_base + (da - rproc_data->l2_da_range[0]);
 
 	return ret;
