@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="This document describes the Fractional Sample Rate Converter (FSRC) support for AD9084/AD9088 Apollo devices, including the FPGA AXI FSRC sequencer, the device tree configuration, and the dynamic reconfiguration flows." name="description" />
+
+    <title>Fractional Sample Rate Converter &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/app.min.css?v=b1d7a81a" />
+    <script async="async" src="../../../../_static/app.umd.js?v=daa30c51"></script>
+    <link rel="icon" href="../../../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex/" />
+    <link rel="search" title="Search" href="../../../../search/" />
+    <link rel="next" title="Contribution guidelines" href="../../../../contribute/" />
+    <link rel="prev" title="GPIO usage" href="../gpio/" />
+   
+  
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://developer.analog.com/" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Documentation</label>
+        
+        <a id="logo" href="../../../../">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">Fractional Sample Rate Converter</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#system-architecture">System Architecture</a><ul>
+<li><a class="reference internal" href="#data-paths">Data Paths</a></li>
+<li><a class="reference internal" href="#hdl">HDL</a></li>
+<li><a class="reference internal" href="#linux-drivers">Linux Drivers</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#device-tree">Device Tree</a><ul>
+<li><a class="reference internal" href="#axi-fsrc-sequencer">AXI FSRC Sequencer</a></li>
+<li><a class="reference internal" href="#apollo">Apollo</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#axi-fsrc-iio-device">AXI FSRC IIO Device</a><ul>
+<li><a class="reference internal" href="#sequencer-timing">Sequencer Timing</a></li>
+<li><a class="reference internal" href="#register-access">Register Access</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#apollo-debugfs-attributes">Apollo Debugfs Attributes</a></li>
+<li><a class="reference internal" href="#dynamic-reconfiguration">Dynamic Reconfiguration</a><ul>
+<li><a class="reference internal" href="#tx-over-spi">TX over SPI</a></li>
+<li><a class="reference internal" href="#tx-with-the-sysref-timed-trigger">TX with the SYSREF Timed Trigger</a></li>
+<li><a class="reference internal" href="#rx">RX</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../../../">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../../../">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../../backlight/adp8860/">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../backlight/adp8870/">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../clk/ad9545/">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../demo/pmod-ad1-da1-demo/">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../dma/axi-dmac/">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../drm/adv7511/">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../drm/hdl-axi-hdmi/">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../gpio/adp5588-gpio/">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../hwmon/axi_fan_control/">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../hwmon/ltc2947/">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-accelerometer/adis16201/">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-accelerometer/adis16203/">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-accelerometer/adis16209/">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-accelerometer/adis16240/">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-accelerometer/adxl313/">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-accelerometer/adxl355/">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-accelerometer/adxl367/">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-accelerometer/adxl372/">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad400x/">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad4030/">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad4134/">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad4170/">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad4630/">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad463x/">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad4695/">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad6676/">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7091r5/">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7091r8/">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7124/">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7173/">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7192/">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7266/">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7280a/">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7291/">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7298/">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad738x/">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7476a/">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7606/">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7625/">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7766/">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7768/">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7768-1/">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7780/">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7791/">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7793/">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7887/">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7944/">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad7998/">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad9083/">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ad9208/">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/adaq8092/">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/adas1000/">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/axi-adc-hdl/">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/axi-jesd204b-gt-hdl/">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/axi-jesd204b-hdl/">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ltc2358/">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ltc2387/">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/ltc2499/">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/max11205/">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/max14001/">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-adc/max22531/">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-addac/ad74413r/">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-amplifiers/ad8366/">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-amplifiers/ada4250/">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-amplifiers/hmc425a/">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-cdc/ad7150/">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-cdc/ad7152/">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-cdc/ad7745/">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5064/">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5360/">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5380/">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5421/">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5446/">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5449/">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5504/">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5592r/">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5593r/">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5624r/">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5676/">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5755/">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5758/">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5764/">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5770r/">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5791/">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad7293/">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad7303/">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/axi-ad3552r/">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ltc2664/">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ltc2672/">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dds/ad9172/">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dds/ad9832/">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dds/ad9834/">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dds/axi-dac-dds-hdl/">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-filter/admv8818/">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-gyroscope/adis16060/">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-gyroscope/adis16080/">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-gyroscope/adis16130/">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-gyroscope/adis16136/">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-gyroscope/adis16260/">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-gyroscope/adxrs450/">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-impedance-analyzer/ad5933/">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-inertial-measurement-units/adis16400/">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-inertial-measurement-units/adis16475/">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-inertial-measurement-units/adis16480/">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-logic/axi-aion-trig/">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/ad9162/">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/ad9508/">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/ad9517/">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/ad9523/">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/ad9528/">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/adf4159/">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/adf4350/">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/adf4360/">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/adf4371/">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/adf4377/">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/adf4382/">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/adf5355/">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/admfm2000/">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/admv1013/">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/admv1014/">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/adrf6780/">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/hmc7044/">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-pll/ltc6952/">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-resolver/ad2s1200/">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-resolver/ad2s1210/">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-resolver/ad2s90/">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-synchronizer/adf4030/">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-temperature/ltc2983/">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/ad9361/">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/ad9361-customization/">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/ad9371/">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/ad9371-customization/">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/adar1000/">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/adar4000/">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/adrv9002/">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/adrv9002-customization/">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/adrv9009/">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/adrv9009-customization/">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/adrv9025/">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/adrv9025-customization/">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/adrv904x/">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-transceiver/adrv904x-customization/">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ad9081/">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-vector-power/adl5960/">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../input-keyboard/adp5588/">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../input-keyboard/adp5589/">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../input-misc/ad714x/">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../input-misc/adxl345/">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../input-misc/adxl362/">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../input-touchscreen/ad7873/">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../input-touchscreen/ad7877/">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../input-touchscreen/ad7879/">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../jesd204/axi_adxcvr/">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../jesd204/axi_jesd204_rx/">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../jesd204/axi_jesd204_tx/">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../jesd204/jesd204-fsm-framework/">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../leds/adp1650/">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../misc/axi-hsci/">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../misc/axi-tdd/">AXI TDD</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../misc/dpot/">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../multifunction-device/adp5520/">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../mux/adgs1408/">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../net-mac-phy/adin1110/">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../net-mac-phy/adin2111/">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../net-mac-phy/open_alliance/">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../net-phy/adin/">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../net-phy/adin1100/">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../net-phy/adin1320/">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../networking-mac802154/adf7242/">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pmbus/adm1275/">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../regulator/ad5398/">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../regulator/adp150/">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../serial/max310x/">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/ad1835a/">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/ad1936/">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/ad73322/">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/adau1361/">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/adau1372/">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/adau1373/">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/adau1381/">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/adau1701/">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/adau1860/">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/adau1977/">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/adau7002/">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/adau7118/">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/adav801/">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/hdl-axi-i2s/">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/hdl-axi-spidf/">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/ssm2518/">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/ssm2602/">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/ssm4329/">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sound/ssm4567/">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../spi/spi_engine/">SPI Engine</a></li>
+<li class="toctree-l2 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1" checked=""/><div class="collapse"><a class="reference internal" href="../">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../mcs/">Multi-Chip Synchronization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../gpio/">GPIO usage</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Fractional Sample Rate Converter</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../contribute/">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ci/">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../mainline/">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../../../">Drivers</a></li><li><a href="../">AD9084/AD9088</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="fractional-sample-rate-converter">
+<span id="ad9088-fsrc"></span><h1>Fractional Sample Rate Converter<a class="headerlink" href="#fractional-sample-rate-converter" title="Link to this heading"></a></h1>
+<p>This document describes the Fractional Sample Rate Converter (FSRC) support
+for AD9084/AD9088 Apollo devices, including the FPGA AXI FSRC sequencer,
+the device tree configuration, and the dynamic reconfiguration flows.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The FSRC changes the ratio between the JESD204 link sample rate and the
+converter data path sample rate by a fractional factor N/M, without changing
+the clocks. The JESD204 link keeps running at the profile lane rate, and the
+rate change is carried by invalid samples (holes):</p>
+<ul class="simple">
+<li><p><strong>TX</strong>: the FPGA inserts invalid samples in the stream it sends to Apollo,
+so only M of every N link samples are valid. The Apollo JRx rate match FIFO
+discards the invalid samples, and the Apollo TX FSRC interpolates the
+valid samples back to the full data path rate.</p></li>
+<li><p><strong>RX</strong>: the Apollo RX FSRC decimates the data path rate by N/M and fills
+the link with invalid samples, sent as -FS. The FPGA removes them, so the
+DMA only receives valid samples.</p></li>
+</ul>
+<p>For a ratio N/M, a fraction (N-M)/N of the link samples are invalid. For
+example, 15625/12288 gives 21.36% invalid samples.</p>
+<p>The supported ratios are 1 &lt; N/M &lt; 2. N = M selects the FSRC 1x mode, where
+the FSRC passes the samples unchanged.</p>
+<p>With the Apollo FSRC active, -FS data samples are mapped to -FS+1 before the
+invalid sample insertion.</p>
+<p>The FSRC is reconfigured at runtime, with the JESD204 links up, either over
+SPI or with a SYSREF timed trigger driven by the FPGA sequencer, see
+<a class="reference internal" href="#ad9088-fsrc-reconfig"><span class="std std-ref">Dynamic Reconfiguration</span></a>.</p>
+</section>
+<section id="system-architecture">
+<h2>System Architecture<a class="headerlink" href="#system-architecture" title="Link to this heading"></a></h2>
+<section id="data-paths">
+<h3>Data Paths<a class="headerlink" href="#data-paths" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TX</span><span class="p">:</span>
+<span class="o">+-----+</span>    <span class="o">+-----------+</span>  <span class="n">JESD204</span>   <span class="o">+-------------+</span>    <span class="o">+----------+</span>    <span class="o">+-----+</span>
+<span class="o">|</span> <span class="n">DMA</span> <span class="o">|---&gt;|</span> <span class="n">FPGA</span> <span class="n">TX</span>   <span class="o">|-----------&gt;|</span> <span class="n">Apollo</span> <span class="n">JRx</span>  <span class="o">|---&gt;|</span> <span class="n">Apollo</span>   <span class="o">|---&gt;|</span> <span class="n">DAC</span> <span class="o">|</span>
+<span class="o">|</span>     <span class="o">|</span>    <span class="o">|</span> <span class="n">FSRC</span>      <span class="o">|</span> <span class="n">M</span> <span class="n">valid</span> <span class="n">of</span> <span class="o">|</span> <span class="n">rate</span> <span class="n">match</span>  <span class="o">|</span>    <span class="o">|</span> <span class="n">TX</span> <span class="n">FSRC</span>  <span class="o">|</span>    <span class="o">|</span>     <span class="o">|</span>
+<span class="o">+-----+</span>    <span class="o">|</span> <span class="p">(</span><span class="n">holes</span><span class="p">)</span>   <span class="o">|</span> <span class="n">N</span> <span class="n">samples</span>  <span class="o">|</span> <span class="n">FIFO</span> <span class="p">(</span><span class="n">drops</span> <span class="o">|</span>    <span class="o">|</span> <span class="p">(</span><span class="n">interp</span><span class="o">.</span> <span class="o">|</span>    <span class="o">+-----+</span>
+           <span class="o">+-----------+</span>            <span class="o">|</span> <span class="n">invalids</span><span class="p">)</span>   <span class="o">|</span>    <span class="o">|</span>  <span class="n">M</span> <span class="o">-&gt;</span> <span class="n">N</span><span class="p">)</span> <span class="o">|</span>
+                                    <span class="o">+-------------+</span>    <span class="o">+----------+</span>
+
+<span class="n">RX</span><span class="p">:</span>
+<span class="o">+-----+</span>    <span class="o">+----------+</span>    <span class="o">+-----------+</span>  <span class="n">JESD204</span>   <span class="o">+-----------+</span>    <span class="o">+-----+</span>
+<span class="o">|</span> <span class="n">ADC</span> <span class="o">|---&gt;|</span> <span class="n">Apollo</span>   <span class="o">|---&gt;|</span> <span class="n">Apollo</span>    <span class="o">|-----------&gt;|</span> <span class="n">FPGA</span> <span class="n">RX</span>   <span class="o">|---&gt;|</span> <span class="n">DMA</span> <span class="o">|</span>
+<span class="o">|</span>     <span class="o">|</span>    <span class="o">|</span> <span class="n">RX</span> <span class="n">FSRC</span>  <span class="o">|</span>    <span class="o">|</span> <span class="n">JTx</span>       <span class="o">|</span> <span class="o">-</span><span class="n">FS</span> <span class="n">holes</span>  <span class="o">|</span> <span class="n">FSRC</span>      <span class="o">|</span>    <span class="o">|</span>     <span class="o">|</span>
+<span class="o">+-----+</span>    <span class="o">|</span> <span class="p">(</span><span class="n">N</span> <span class="o">-&gt;</span> <span class="n">M</span><span class="p">)</span> <span class="o">|</span>    <span class="o">|</span>           <span class="o">|</span>            <span class="o">|</span> <span class="p">(</span><span class="n">removes</span>  <span class="o">|</span>    <span class="o">+-----+</span>
+           <span class="o">+----------+</span>    <span class="o">+-----------+</span>            <span class="o">|</span>  <span class="o">-</span><span class="n">FS</span><span class="p">)</span>     <span class="o">|</span>
+                                                    <span class="o">+-----------+</span>
+</pre></div>
+</div>
+<p>The Apollo JRx rate match FIFO takes each converter clock worth of samples,
+NS of them, as all valid or all invalid. The FPGA therefore inserts the
+invalid samples in groups of NS samples, NS being the JRx samples per
+converter clock (<code class="docutils literal notranslate"><span class="pre">ns_minus1</span> <span class="pre">+</span> <span class="pre">1</span></code> of the JRx link).</p>
+</section>
+<section id="hdl">
+<h3>HDL<a class="headerlink" href="#hdl" title="Link to this heading"></a></h3>
+<p>The FPGA side is the <code class="docutils literal notranslate"><span class="pre">axi_fsrc</span></code> IP from the HDL <code class="docutils literal notranslate"><span class="pre">library/axi_fsrc</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">axi_fsrc_tx</span></code>: inserts the invalid samples in the TX stream, with a
+programmable N/M accumulator.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">axi_fsrc_rx</span></code>: removes the -FS invalid samples from the RX stream.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">axi_fsrc_sequencer</span></code>: counts SYSREF periods and drives the Apollo
+trigger pins and the TX data start, for SYSREF timed reconfigurations.</p></li>
+</ul>
+<p>In the <a class="icon git reference external" href="https://github.com/analogdevicesinc/hdl/tree/main/projects/ad9084_ebz" target="_blank">AD9084-EBZ</a> reference design, the
+FSRC is built with the <code class="docutils literal notranslate"><span class="pre">FSRC_ENABLE=1</span></code> project parameter. The sequencer
+then drives the Apollo trigger pins (<code class="docutils literal notranslate"><span class="pre">trig_a</span></code>/<code class="docutils literal notranslate"><span class="pre">trig_b</span></code>) instead of the
+AION trigger IP.</p>
+</section>
+<section id="linux-drivers">
+<h3>Linux Drivers<a class="headerlink" href="#linux-drivers" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/trx-rf/ad9088/ad9088_fsrc.c" target="_blank">ad9088_fsrc.c</a> -
+Apollo FSRC configuration and reconfiguration sequences.</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_fsrc_sequencer.c" target="_blank">axi_fsrc_sequencer.c</a> -
+FPGA AXI FSRC TX, RX and sequencer driver (<code class="docutils literal notranslate"><span class="pre">CONFIG_AXI_FSRC_SEQUENCER</span></code>).</p></li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">axi_fsrc_sequencer</span></code> driver registers an IIO device, <code class="docutils literal notranslate"><span class="pre">axi_fsrc</span></code>,
+which the Apollo driver consumes as the <code class="docutils literal notranslate"><span class="pre">fsrc</span></code> IIO channel.</p>
+</section>
+</section>
+<section id="device-tree">
+<h2>Device Tree<a class="headerlink" href="#device-tree" title="Link to this heading"></a></h2>
+<section id="axi-fsrc-sequencer">
+<h3>AXI FSRC Sequencer<a class="headerlink" href="#axi-fsrc-sequencer" title="Link to this heading"></a></h3>
+<p>The sequencer node holds the sequencer registers, and links the TX and RX
+FSRC cores through <code class="docutils literal notranslate"><span class="pre">fsrc-topology</span></code>. Each core node sets its role with one
+of <code class="docutils literal notranslate"><span class="pre">adi,fsrc_tx</span></code>, <code class="docutils literal notranslate"><span class="pre">adi,fsrc_rx</span></code>, <code class="docutils literal notranslate"><span class="pre">adi,fsrc_tx_a</span></code> or <code class="docutils literal notranslate"><span class="pre">adi,fsrc_rx_a</span></code>.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">axi_fsrc_sequencer</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-fsrc-sequencer</span><span class="o">@</span><span class="mi">a4540000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-fsrc-sequencer"</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0xa4540000</span><span class="w"> </span><span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">fsrc-topology</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_fsrc_tx</span><span class="w"> </span><span class="o">&amp;</span><span class="na">axi_fsrc_rx</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="o">#</span><span class="n">io-channel-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="nl">axi_fsrc_tx</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-fsrc-sequencer</span><span class="o">@</span><span class="mi">a4510000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0xa4510000</span><span class="w"> </span><span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">fsrc_tx</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="nl">axi_fsrc_rx</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-fsrc-sequencer</span><span class="o">@</span><span class="mi">a4500000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0xa4500000</span><span class="w"> </span><span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">fsrc_rx</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">fsrc-topology</span></code>: phandles to the FSRC cores. Each role can only be
+assigned once.</p></li>
+</ul>
+</section>
+<section id="apollo">
+<h3>Apollo<a class="headerlink" href="#apollo" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">fsrc</span></code> IIO channel enables the FSRC support in the Apollo driver:</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad9084"</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/* ... other properties ... */</span>
+
+<span class="w">    </span><span class="cm">/* SYSREF timed reconfiguration, see below */</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">fsrc-gpio-trig</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">io-channels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adf4030</span><span class="w"> </span><span class="mi">5</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adf4382</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_fsrc_sequencer</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">io-channel-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"bsync"</span><span class="p">,</span><span class="w"> </span><span class="s">"clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"fsrc"</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">io-channels</span></code>/<code class="docutils literal notranslate"><span class="pre">io-channel-names</span></code>: with an <code class="docutils literal notranslate"><span class="pre">fsrc</span></code> channel, the driver
+keeps the Apollo FSRC in the data path. Without it, the profile is used
+as is, and the FSRC configure and reconfig debugfs attributes return
+-ENODEV.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,fsrc-gpio-trig</span></code>: optional, asserts that the FPGA sequencer trigger
+output is routed to the Apollo trigger pin A0, and selects the SYSREF timed
+TX reconfiguration. Without it, the reconfigurations are done over SPI.</p></li>
+</ul>
+<p>With the <code class="docutils literal notranslate"><span class="pre">fsrc</span></code> channel present, the driver modifies the device profile
+before loading it:</p>
+<ul class="simple">
+<li><p>RX and TX FSRC not bypassed, <code class="docutils literal notranslate"><span class="pre">enable0</span></code> and <code class="docutils literal notranslate"><span class="pre">enable1</span></code> set, in 1x mode.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">split_4t4r</span></code> set on 4T4R profiles, so the second stream of each side
+(FSRC0_1) is enabled.</p></li>
+<li><p>FSRC gain reduction at <code class="docutils literal notranslate"><span class="pre">0xFFF</span></code>, profiles without FSRC may set it at 0.</p></li>
+<li><p>RX rate match FIFO invalid samples enabled, sample repeat and DDC dither
+disabled.</p></li>
+</ul>
+<p>So the device boots at 1:1 with the FSRC in the path, ready for a runtime
+reconfiguration.</p>
+<p>On the VCK190 and VCU118 device trees, the FSRC nodes and the <code class="docutils literal notranslate"><span class="pre">fsrc</span></code>
+channel are guarded by the <code class="docutils literal notranslate"><span class="pre">WITH_FSRC</span></code> macro. Since the sequencer drives
+the trigger pins, the VCU118 device tree also leaves out the AION trigger
+with <code class="docutils literal notranslate"><span class="pre">WITH_FSRC</span></code>, and the VCK190 device tree builds without it
+(<code class="docutils literal notranslate"><span class="pre">WITH_AXI_AION_TRIG</span></code> at 0).</p>
+</section>
+</section>
+<section id="axi-fsrc-iio-device">
+<h2>AXI FSRC IIO Device<a class="headerlink" href="#axi-fsrc-iio-device" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">axi_fsrc</span></code> device exposes one output channel with the FPGA FSRC
+controls:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device4$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>name
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>axi_fsrc
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device4$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>name                          out_altvoltage0_tx_active
+of_node                       out_altvoltage0_tx_enable
+out_altvoltage0_rx_enable     out_altvoltage0_tx_ratio_set
+out_altvoltage0_seq_start     ...
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_rx_enable</span></code>: Enable the FPGA RX FSRC, which removes the
+-FS invalid samples.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_tx_enable</span></code>: Enable the FPGA TX FSRC. Disabling it also
+clears <code class="docutils literal notranslate"><span class="pre">tx_active</span></code>.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_tx_active</span></code>: Start or stop the TX data. When stopped, the
+FPGA sends only invalid samples. Requires <code class="docutils literal notranslate"><span class="pre">tx_enable</span></code>, else -EINVAL.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Stop, send only invalid samples.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Start sending valid samples at the configured ratio.</div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_tx_ratio_set</span></code>: Program the TX hole pattern as
+<code class="docutils literal notranslate"><span class="pre">&lt;N&gt;</span> <span class="pre">&lt;M&gt;</span> <span class="pre">[NS]</span></code>, with NS the invalid sample group size (default 1). Reads
+back the last values.</p>
+<div class="line-block">
+<div class="line">Range: <code class="docutils literal notranslate"><span class="pre">M</span> <span class="pre">&lt;=</span> <span class="pre">N</span> <span class="pre">&lt;</span> <span class="pre">2M</span></code></div>
+<div class="line">NS: a divisor of the core samples per beat, or a multiple of it spanning
+at most 256 beats.</div>
+</div>
+<p>The new hole pattern takes effect at once, while the FPGA TX is active.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_altvoltage0_tx_ratio_set
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>1 1 4
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_seq_start</span></code>: Write <code class="docutils literal notranslate"><span class="pre">1</span></code> to arm the TX FSRC on the
+sequencer data start, reseed the hole pattern, and start the sequencer.</p></li>
+</ul>
+<p>The Apollo driver drives these attributes during the reconfiguration
+sequences; they are only needed directly to test the FPGA side.</p>
+<section id="sequencer-timing">
+<h3>Sequencer Timing<a class="headerlink" href="#sequencer-timing" title="Link to this heading"></a></h3>
+<p>All sequencer counts are in SYSREF periods from the sequencer start, 4 bits
+each:</p>
+<ul class="simple">
+<li><p>Apollo trigger: at count 2.</p></li>
+<li><p>TX data start: at count 4, the FPGA TX FSRC starts sending valid samples.</p></li>
+</ul>
+</section>
+<section id="register-access">
+<h3>Register Access<a class="headerlink" href="#register-access" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">direct_reg_access</span></code> debugfs attribute reads and writes the core
+registers, with the core selected by bits [23:16] of the address: <code class="docutils literal notranslate"><span class="pre">0</span></code>
+sequencer, <code class="docutils literal notranslate"><span class="pre">1</span></code> RX, <code class="docutils literal notranslate"><span class="pre">2</span></code> TX, <code class="docutils literal notranslate"><span class="pre">3</span></code> RX A, <code class="docutils literal notranslate"><span class="pre">4</span></code> TX A. A core that is not in
+the topology returns -ENODEV, an index past the last core -EINVAL.</p>
+<div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Read the TX FSRC enable register</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device4$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span>0x20010<span class="w"> </span>&gt;<span class="w"> </span>direct_reg_access
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device4$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>direct_reg_access
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>0x1
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+</section>
+<section id="apollo-debugfs-attributes">
+<h2>Apollo Debugfs Attributes<a class="headerlink" href="#apollo-debugfs-attributes" title="Link to this heading"></a></h2>
+<p>The FSRC is configured through the Apollo device debugfs:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device8$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>fsrc
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>fsrc_inspect
+fsrc_rx_configure
+fsrc_rx_reconfig
+fsrc_tx_configure
+fsrc_tx_reconfig
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">fsrc_tx_configure</span></code>: Set the TX ratio as <code class="docutils literal notranslate"><span class="pre">&lt;N&gt;</span> <span class="pre">&lt;M&gt;</span></code>. Programs the FPGA
+TX hole pattern, with NS from the JRx link, which takes effect at once, the
+JRx invalid sample handling, and the Apollo TX FSRC rate, or the 1x mode
+for N = M, which takes effect at the next <code class="docutils literal notranslate"><span class="pre">fsrc_tx_reconfig</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fsrc_rx_configure</span></code>: Set the RX ratio as <code class="docutils literal notranslate"><span class="pre">&lt;N&gt;</span> <span class="pre">&lt;M&gt;</span></code>. Programs the
+Apollo RX FSRC rate, or the 1x mode for N = M, which takes effect at the
+next <code class="docutils literal notranslate"><span class="pre">fsrc_rx_reconfig</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fsrc_tx_reconfig</span></code>: Write <code class="docutils literal notranslate"><span class="pre">1</span></code> to apply the TX configuration, see
+<a class="reference internal" href="#ad9088-fsrc-reconfig"><span class="std std-ref">Dynamic Reconfiguration</span></a>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fsrc_rx_reconfig</span></code>: Write <code class="docutils literal notranslate"><span class="pre">1</span></code> to apply the RX configuration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fsrc_inspect</span></code>: Read the configuration of all RX and TX FSRC blocks.</p></li>
+</ul>
+<p>The configure attributes require two arguments, else -EINVAL. The configure
+and reconfig attributes require the <code class="docutils literal notranslate"><span class="pre">fsrc</span></code> IIO channel, else -ENODEV. The
+Apollo API rejects ratios outside 1 &lt; N/M &lt; 2.</p>
+<p>The FSRC rate is <code class="docutils literal notranslate"><span class="pre">fsrc_rate_int</span> <span class="pre">+</span> <span class="pre">fsrc_rate_frac_a</span> <span class="pre">/</span> <span class="pre">fsrc_rate_frac_b</span></code>
+= 2^48 M/N, and the gain reduction is floor(4096 M/N):</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s2">"15625 12288"</span><span class="w"> </span>&gt;<span class="w"> </span>fsrc_tx_configure
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>fsrc_tx_reconfig
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>fsrc_inspect
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>Rx FSRC:
+  A0:
+    enable0:          1
+...
+Tx FSRC:
+  A0:
+    enable0:          1
+    enable1:          0
+    mode_1x:          0
+    split_4t4r:       1
+    fsrc_bypass:      0
+    fsrc_rate_int:    0xc9539b888722
+    fsrc_rate_frac_a: 0x25ce
+    fsrc_rate_frac_b: 0x3d09
+    gain_reduction:   0xc95
+    fsrc_delay:       0x0
+...
+  FSRC ratio (N/M) = 2^48 / (fsrc_rate_int + fsrc_rate_frac_a/fsrc_rate_frac_b)
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>At 1:1, the blocks report <code class="docutils literal notranslate"><span class="pre">mode_1x:</span> <span class="pre">1</span></code> and <code class="docutils literal notranslate"><span class="pre">gain_reduction:</span> <span class="pre">0xfff</span></code>.</p>
+</section>
+<section id="dynamic-reconfiguration">
+<span id="ad9088-fsrc-reconfig"></span><h2>Dynamic Reconfiguration<a class="headerlink" href="#dynamic-reconfiguration" title="Link to this heading"></a></h2>
+<p>A reconfiguration is set with the configure attributes, then applied with
+the reconfig attributes, TX and RX independently. Write the reconfig right
+after the configure: the FPGA TX hole pattern changes at the configure, the
+Apollo TX FSRC only at the reconfig, and the TX data is not valid in
+between.</p>
+<div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># TX and RX at 15625/12288</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s2">"15625 12288"</span><span class="w"> </span>&gt;<span class="w"> </span>fsrc_tx_configure
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s2">"15625 12288"</span><span class="w"> </span>&gt;<span class="w"> </span>fsrc_rx_configure
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>fsrc_tx_reconfig
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>fsrc_rx_reconfig
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Back to 1:1</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s2">"1 1"</span><span class="w"> </span>&gt;<span class="w"> </span>fsrc_tx_configure
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s2">"1 1"</span><span class="w"> </span>&gt;<span class="w"> </span>fsrc_rx_configure
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>fsrc_tx_reconfig
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>fsrc_rx_reconfig
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>The DMA sample rate follows the ratio: with the TX at N/M, a DMA tone of
+frequency f leaves the DAC at f M/N relative to the DAC NCO; with the RX at
+N/M, the captured tone scales by N/M.</p>
+<section id="tx-over-spi">
+<h3>TX over SPI<a class="headerlink" href="#tx-over-spi" title="Link to this heading"></a></h3>
+<p>Without <code class="docutils literal notranslate"><span class="pre">adi,fsrc-gpio-trig</span></code>, <code class="docutils literal notranslate"><span class="pre">fsrc_tx_reconfig</span></code>:</p>
+<ol class="arabic simple">
+<li><p>Enables the FPGA TX FSRC and waits 10 ms.</p></li>
+<li><p>Enables the Apollo DSP reset on trigger, and runs the manual dynamic
+reconfiguration sync, which applies the new configuration.</p></li>
+<li><p>Disarms the trigger resets.</p></li>
+<li><p>Starts the FPGA TX data at the new ratio.</p></li>
+<li><p>After 100 us, resets the JRx rate match FIFOs of links A0 and B0.</p></li>
+</ol>
+<p>The new rate is applied at an SPI write, so the FPGA hole pattern and the
+Apollo FSRC start at an arbitrary time relative to each other and to SYSREF.</p>
+</section>
+<section id="tx-with-the-sysref-timed-trigger">
+<h3>TX with the SYSREF Timed Trigger<a class="headerlink" href="#tx-with-the-sysref-timed-trigger" title="Link to this heading"></a></h3>
+<p>With <code class="docutils literal notranslate"><span class="pre">adi,fsrc-gpio-trig</span></code>, <code class="docutils literal notranslate"><span class="pre">fsrc_tx_reconfig</span></code>:</p>
+<ol class="arabic simple">
+<li><p>Enables the FPGA TX FSRC and stops the TX data: the FPGA sends only
+invalid samples.</p></li>
+<li><p>Forces invalid samples on the Apollo JTx links, and waits 1 s for the
+invalid samples to flow through the system.</p></li>
+<li><p>Resets the JRx rate match FIFOs of links A0 and B0, while only invalid
+samples arrive.</p></li>
+<li><p>Maps the trigger pin A0 to all RX and TX blocks, enables the DSP reset on
+trigger, and arms the trigger sync.</p></li>
+<li><p>Starts the FPGA sequencer: at the trigger count it triggers the Apollo
+reconfiguration, and at the data start count the FPGA TX starts sending
+valid samples.</p></li>
+<li><p>Clears the trigger sync and disarms the trigger resets.</p></li>
+</ol>
+<p>The JRx rate match FIFOs start empty, and the Apollo reconfiguration and
+the FPGA data start happen at fixed SYSREF counts from the sequencer start,
+so the timing repeats from one reconfiguration to the next. There is no
+rate match FIFO reset after the trigger, which would be at an arbitrary
+time. The JTx forced invalid samples clear when the reconfiguration
+completes. The sequence takes about 1.1 s.</p>
+</section>
+<section id="rx">
+<h3>RX<a class="headerlink" href="#rx" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">fsrc_rx_reconfig</span></code> always reconfigures over SPI:</p>
+<ol class="arabic simple">
+<li><p>Enables the FPGA RX FSRC, which removes the -FS invalid samples.</p></li>
+<li><p>Enables the Apollo DSP reset on trigger, and runs the manual dynamic
+reconfiguration sync.</p></li>
+<li><p>Disarms the trigger resets.</p></li>
+</ol>
+<p>The RX needs no alignment with the FPGA, which deletes the invalid samples
+wherever they are. Running the sequencer here would also restart the TX hole
+pattern. The JRx rate match FIFOs are on the TX path, so the RX
+reconfiguration does not reset them.</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="../gpio/" title="Previous document (Alt+Shift+LeftArrow)" class="prev">GPIO usage</a>
+    <a href="../../../../contribute/" title="Next document (Alt+Shift+RightArrow)" class="next">Contribution guidelines</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>
