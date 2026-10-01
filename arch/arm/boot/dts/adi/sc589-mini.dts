@@ -87,8 +87,6 @@
 				reset-names = "crst", "start";
 				mboxes = <&tru 97>; /* trigger master SOFT4 */
 				mbox-names = "kick";
-				adi,l1-da = <0x00240000 0x00160000>;
-				adi,l2-da = <0x20080000 0x00040000>;
 				adi,rsc-table = <&rsc_tbl0>;
 			};
 
@@ -104,8 +102,6 @@
 				reset-names = "crst", "start";
 				mboxes = <&tru 98>; /* trigger master SOFT5 */
 				mbox-names = "kick";
-				adi,l1-da = <0x00240000 0x00160000>;
-				adi,l2-da = <0x20080000 0x00040000>;
 				adi,rsc-table = <&rsc_tbl1>;
 			};
 		};
