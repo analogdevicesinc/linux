@@ -39,6 +39,11 @@ enum ad9088_debugfs_cmd {
 	DBGFS_MCS_TRACK_CAL_VALIDATE,
 	DBGFS_MCS_TRACK_DECIMATION,
 	DBGFS_MCS_TRACK_WIN,
+	/* FSRC commands */
+	DBGFS_FSRC_RX_CONFIGURE,
+	DBGFS_FSRC_TX_CONFIGURE,
+	DBGFS_FSRC_TX_RECONFIG,
+	DBGFS_FSRC_RX_RECONFIG,
 };
 
 static const u8 lanes_all[] = {
@@ -434,6 +439,13 @@ static ssize_t ad9088_debugfs_read(struct file *file, char __user *userbuf,
 			/* Write-only attributes, return 0 on read */
 			val = 0;
 			break;
+		case DBGFS_FSRC_RX_CONFIGURE:
+		case DBGFS_FSRC_TX_CONFIGURE:
+		case DBGFS_FSRC_TX_RECONFIG:
+		case DBGFS_FSRC_RX_RECONFIG:
+			/* Write-only attributes, return 0 on read */
+			val = 0;
+			break;
 		default:
 			val = entry->val;
 		}
@@ -760,6 +772,47 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 	case DBGFS_MCS_INIT_CAL_STATUS:
 		/* Read-only attributes */
 		return -EINVAL;
+	/* FSRC commands */
+	case DBGFS_FSRC_RX_CONFIGURE:
+		if (ret < 2) {
+			dev_err(&phy->spi->dev, "Attribute requires 2 arguments <N> <M>\n");
+			return -EINVAL;
+		}
+		if (!phy->iio_axi_fsrc_rx) {
+			dev_err(&phy->spi->dev, "No FPGA RX FSRC\n");
+			return -ENODEV;
+		}
+		ret = ad9088_fsrc_rx_configure(phy, val, val2);
+		break;
+	case DBGFS_FSRC_TX_CONFIGURE:
+		if (ret < 2) {
+			dev_err(&phy->spi->dev, "Attribute requires 2 arguments <N> <M>\n");
+			return -EINVAL;
+		}
+		if (!phy->iio_axi_fsrc_tx) {
+			dev_err(&phy->spi->dev, "No FPGA TX FSRC\n");
+			return -ENODEV;
+		}
+		ret = ad9088_fsrc_tx_configure(phy, val, val2);
+		break;
+	case DBGFS_FSRC_TX_RECONFIG:
+		if (!val)
+			break;
+		if (!phy->iio_axi_fsrc_tx) {
+			dev_err(&phy->spi->dev, "No FPGA TX FSRC\n");
+			return -ENODEV;
+		}
+		ret = ad9088_fsrc_tx_reconfig_sequence(phy, !!val);
+		break;
+	case DBGFS_FSRC_RX_RECONFIG:
+		if (!val)
+			break;
+		if (!phy->iio_axi_fsrc_rx) {
+			dev_err(&phy->spi->dev, "No FPGA RX FSRC\n");
+			return -ENODEV;
+		}
+		ret = ad9088_fsrc_rx_reconfig_sequence(phy, !!val);
+		break;
 	default:
 		break;
 	}
@@ -809,6 +862,11 @@ static void ad9088_add_debugfs_entry(struct ad9088_phy *phy,
 	phy->debugfs_entry[i].cmd = cmd;
 
 	phy->ad9088_debugfs_entry_index++;
+}
+
+static int ad9088_fsrc_inspect_show(struct seq_file *file, void *offset)
+{
+	return ad9088_fsrc_inspect(file);
 }
 
 void ad9088_debugfs_register(struct iio_dev *indio_dev)
@@ -884,6 +942,19 @@ void ad9088_debugfs_register(struct iio_dev *indio_dev)
 				 "mcs_track_decimation", DBGFS_MCS_TRACK_DECIMATION);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "mcs_track_win", DBGFS_MCS_TRACK_WIN);
+
+	/* FSRC entries */
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_rx_configure", DBGFS_FSRC_RX_CONFIGURE);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_tx_configure", DBGFS_FSRC_TX_CONFIGURE);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_tx_reconfig", DBGFS_FSRC_TX_RECONFIG);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "fsrc_rx_reconfig", DBGFS_FSRC_RX_RECONFIG);
+	debugfs_create_devm_seqfile(&conv->spi->dev, "fsrc_inspect",
+				    iio_get_debugfs_dentry(indio_dev),
+				    ad9088_fsrc_inspect_show);
 
 	for (i = 0; i < phy->ad9088_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
