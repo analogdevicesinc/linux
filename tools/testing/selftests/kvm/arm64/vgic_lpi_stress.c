@@ -28,7 +28,7 @@ static struct kvm_vm *vm;
 static struct kvm_vcpu **vcpus;
 static int its_fd;
 
-static struct test_data {
+struct test_data {
 	bool		request_vcpus_stop;
 	u32		nr_cpus;
 	u32		nr_devices;
@@ -42,7 +42,11 @@ static struct test_data {
 
 	gpa_t		lpi_prop_table;
 	gpa_t		lpi_pend_tables;
-} test_data =  {
+};
+
+static struct test_data test_data;
+
+static struct test_data stress_args = {
 	.nr_cpus	= 1,
 	.nr_devices	= 1,
 	.nr_event_ids	= 16,
@@ -123,13 +127,8 @@ static void guest_setup_gic(void)
 		its_send_sync_cmd(test_data.cmdq_base_va, cpuid);
 }
 
-static void guest_code(size_t nr_lpis)
+static void guest_wait_for_stop(void)
 {
-	guest_setup_gic();
-	local_irq_enable();
-
-	GUEST_SYNC(0);
-
 	/*
 	 * Don't use WFI here to avoid blocking the vCPU thread indefinitely and
 	 * never getting the stop signal.
@@ -138,6 +137,16 @@ static void guest_code(size_t nr_lpis)
 		cpu_relax();
 
 	GUEST_DONE();
+}
+
+static void guest_stress_code(size_t nr_lpis)
+{
+	guest_setup_gic();
+	local_irq_enable();
+
+	GUEST_SYNC(0);
+
+	guest_wait_for_stop();
 }
 
 static void setup_memslot(void)
@@ -294,7 +303,7 @@ static void report_stats(struct timespec delta)
 	pr_info("Rate: %.2f LPIs/sec\n", nr_lpis / time);
 }
 
-static void run_test(void)
+static void run_stress_test(void)
 {
 	u32 nr_devices = test_data.nr_devices;
 	u32 nr_vcpus = test_data.nr_cpus;
@@ -326,10 +335,12 @@ static void run_test(void)
 	for (i = 0; i < nr_vcpus; i++)
 		kvm_pthread_join(vcpu_threads[i], NULL);
 
+	pthread_barrier_destroy(&test_setup_barrier);
+
 	report_stats(delta);
 }
 
-static void setup_vm(void)
+static void setup_vm(void *guest_code, handler_fn irq_handler)
 {
 	int i;
 
@@ -342,7 +353,7 @@ static void setup_vm(void)
 	for (i = 0; i < test_data.nr_cpus; i++)
 		vcpu_init_descriptor_tables(vcpus[i]);
 
-	vm_install_exception_handler(vm, VECTOR_IRQ_CURRENT, guest_irq_handler);
+	vm_install_exception_handler(vm, VECTOR_IRQ_CURRENT, irq_handler);
 
 	setup_memslot();
 
@@ -358,12 +369,23 @@ static void destroy_vm(void)
 	free(vcpus);
 }
 
+static void test_lpi_stress(void)
+{
+	test_data = stress_args;
+
+	setup_vm(guest_stress_code, guest_irq_handler);
+
+	run_stress_test();
+
+	destroy_vm();
+}
+
 static void pr_usage(const char *name)
 {
 	pr_info("%s [-v NR_VCPUS] [-d NR_DEVICES] [-e NR_EVENTS] [-i ITERS] -h\n", name);
-	pr_info("  -v:\tnumber of vCPUs (default: %u)\n", test_data.nr_cpus);
-	pr_info("  -d:\tnumber of devices (default: %u)\n", test_data.nr_devices);
-	pr_info("  -e:\tnumber of event IDs per device (default: %u)\n", test_data.nr_event_ids);
+	pr_info("  -v:\tnumber of vCPUs (default: %u)\n", stress_args.nr_cpus);
+	pr_info("  -d:\tnumber of devices (default: %u)\n", stress_args.nr_devices);
+	pr_info("  -e:\tnumber of event IDs per device (default: %u)\n", stress_args.nr_event_ids);
 	pr_info("  -i:\tnumber of iterations (default: %lu)\n", nr_iterations);
 }
 
@@ -377,13 +399,13 @@ int main(int argc, char **argv)
 	while ((c = getopt(argc, argv, "hv:d:e:i:")) != -1) {
 		switch (c) {
 		case 'v':
-			test_data.nr_cpus = atoi(optarg);
+			stress_args.nr_cpus = atoi(optarg);
 			break;
 		case 'd':
-			test_data.nr_devices = atoi(optarg);
+			stress_args.nr_devices = atoi(optarg);
 			break;
 		case 'e':
-			test_data.nr_event_ids = atoi(optarg);
+			stress_args.nr_event_ids = atoi(optarg);
 			break;
 		case 'i':
 			nr_iterations = strtoul(optarg, NULL, 0);
@@ -395,16 +417,12 @@ int main(int argc, char **argv)
 		}
 	}
 
-	nr_threads = test_data.nr_cpus + test_data.nr_devices;
+	nr_threads = stress_args.nr_cpus + stress_args.nr_devices;
 	if (nr_threads > get_nprocs())
 		pr_info("WARNING: running %u threads on %d CPUs; performance is degraded.\n",
 			 nr_threads, get_nprocs());
 
-	setup_vm();
-
-	run_test();
-
-	destroy_vm();
+	test_lpi_stress();
 
 	return 0;
 }
