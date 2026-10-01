@@ -446,6 +446,21 @@ static bool set_long_vtotal(struct dc *dc, struct dc_stream_state *stream, struc
 	return false;
 }
 
+/* A hardware re-init resets the OTG DRR registers while stream->adjust keeps the
+ * pre-reset values, so those values represent has to be marked stale.
+ */
+static void invalidate_drr_adjust(struct dc *dc)
+{
+	int i;
+
+	if (!dc->current_state)
+		return;
+
+	for (i = 0; i < dc->current_state->stream_count; i++)
+		if (dc->current_state->streams[i])
+			dc->current_state->streams[i]->adjust.timing_adjust_pending = true;
+}
+
 /**
  * dc_stream_get_last_used_drr_vtotal - Looks up the pipe context of
  * dc_stream_state and gets the last VTOTAL used by DRR (Dynamic Refresh Rate)
@@ -1342,6 +1357,9 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 {
 	int i;
 	bool drr_unchanged;
+	bool exceeds_max_v_total = dc->caps.max_v_total != 0 &&
+			(adjust->v_total_max > dc->caps.max_v_total ||
+			 adjust->v_total_min > dc->caps.max_v_total);
 
 	/*
 	 * Don't adjust DRR while there's bandwidth optimizations pending to
@@ -1369,6 +1387,12 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 	if (drr_unchanged)
 		return true;
 
+	/* leave stream->adjust describing the OTG rather than latching
+	 * a pending adjustment that no later call can ever clear.
+	 */
+	if (exceeds_max_v_total && !adjust->allow_otg_v_count_halt)
+		return false;
+
 	dc_exit_ips_for_hw_access(dc);
 
 	stream->adjust.v_total_max = adjust->v_total_max;
@@ -1376,16 +1400,15 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 	stream->adjust.v_total_mid_frame_num = adjust->v_total_mid_frame_num;
 	stream->adjust.v_total_min = adjust->v_total_min;
 	stream->adjust.allow_otg_v_count_halt = adjust->allow_otg_v_count_halt;
+	/* Only cleared once the new values have actually reached an OTG. */
+	stream->adjust.timing_adjust_pending = true;
 
-	if (dc->caps.max_v_total != 0 &&
-		(adjust->v_total_max > dc->caps.max_v_total || adjust->v_total_min > dc->caps.max_v_total)) {
-		if (adjust->allow_otg_v_count_halt) {
-			stream->adjust.timing_adjust_pending = false;
-			return set_long_vtotal(dc, stream, adjust);
-		}
-		/* Nothing reached hw, so stream->adjust no longer describes the OTG. */
-		stream->adjust.timing_adjust_pending = true;
-		return false;
+	if (exceeds_max_v_total) {
+		if (!set_long_vtotal(dc, stream, adjust))
+			return false;
+
+		stream->adjust.timing_adjust_pending = false;
+		return true;
 	}
 
 	for (i = 0; i < MAX_PIPES; i++) {
@@ -6308,6 +6331,8 @@ void dc_set_power_state(struct dc *dc, enum dc_acpi_cm_power_state power_state)
 		dc_dmub_srv_notify_fw_dc_power_state(dc->ctx->dmub_srv, power_state);
 
 		dc->hwss.init_hw(dc);
+
+		invalidate_drr_adjust(dc);
 
 		if (dc->hwss.init_sys_ctx != NULL &&
 			dc->vm_pa_config.valid) {
