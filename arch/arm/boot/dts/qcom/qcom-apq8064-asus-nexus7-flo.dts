@@ -79,7 +79,7 @@
 };
 
 &dsi0 {
-	vdda-supply = <&pm8921_l2>;/*VDD_MIPI1 to 4*/
+	vdda-supply = <&pm8921_l2>; /* VDD_MIPI1 to 4 */
 	vdd-supply = <&pm8921_l8>;
 	vddio-supply = <&pm8921_lvs7>;
 	avdd-supply = <&pm8921_l11>;
@@ -114,7 +114,7 @@
 };
 
 &dsi0_phy {
-	vddio-supply = <&pm8921_lvs7>;/*VDD_PLL2_1 to 7*/
+	vddio-supply = <&pm8921_lvs7>; /* VDD_PLL2_1 to 7 */
 	status = "okay";
 };
 
