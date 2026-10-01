@@ -482,7 +482,6 @@
 				#size-cells = <0>;
 				status = "disabled";
 			};
-
 		};
 
 		gsbi2: gsbi@12480000 {

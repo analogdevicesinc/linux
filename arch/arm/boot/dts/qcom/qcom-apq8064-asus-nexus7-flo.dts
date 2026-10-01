@@ -137,7 +137,6 @@
 		compatible = "ti,bq27541";
 		reg = <0x55>;
 	};
-
 };
 
 &gsbi3 {
