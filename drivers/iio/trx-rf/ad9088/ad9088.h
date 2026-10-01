@@ -261,7 +261,7 @@ struct ad9088_phy {
 	u32 mcs_track_decimation;
 	u32 mcs_track_win;
 
-	struct ad9088_debugfs_entry debugfs_entry[32];
+	struct ad9088_debugfs_entry debugfs_entry[39];
 	u32 ad9088_debugfs_entry_index;
 
 	const char **rx_labels;
@@ -316,7 +316,7 @@ struct ad9088_phy {
 
 	u8 hsci_buf[ADI_APOLLO_HAL_REGIO_HSCI_STREAM_DEFAULT_SIZE];
 	u8 gpios_exported[ADI_APOLLO_NUM_GPIO];
-	char dbuf[1024];
+	char dbuf[4096];
 
 	u8 loopback_mode[ADI_APOLLO_NUM_SIDES];
 	u8 lb1_blend[ADI_APOLLO_NUM_SIDES];
@@ -398,6 +398,7 @@ int ad9088_fsrc_rx_configure(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
 int ad9088_fsrc_tx_configure(struct ad9088_phy *phy, u32 fsrc_n, u32 fsrc_m);
 int ad9088_fsrc_tx_reconfig_sequence(struct ad9088_phy *phy, bool enable);
 int ad9088_fsrc_rx_reconfig_sequence(struct ad9088_phy *phy, bool enable);
+int ad9088_fsrc_inspect(struct ad9088_phy *phy);
 
 /* Calibration data format */
 #define AD9088_CAL_MAGIC	0x41443930  /* "AD90" */
