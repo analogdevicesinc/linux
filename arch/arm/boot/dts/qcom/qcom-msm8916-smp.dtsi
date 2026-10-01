@@ -5,12 +5,15 @@
 		cpu@0 {
 			enable-method = "qcom,msm8916-smp";
 		};
+
 		cpu@1 {
 			enable-method = "qcom,msm8916-smp";
 		};
+
 		cpu@2 {
 			enable-method = "qcom,msm8916-smp";
 		};
+
 		cpu@3 {
 			enable-method = "qcom,msm8916-smp";
 		};
