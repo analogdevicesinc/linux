@@ -6,6 +6,18 @@
 
 menu "Linear and angular position sensors"
 
+config ADMT4000_POS
+	tristate "ADMT4000 true power-on multiturn sensor"
+	depends on SPI
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+		Say yes here to build support for Analog Devices ADMT4000 True Power-On
+		Multiturn Sensor.
+
+		To compile this driver as a module, choose M here: the
+		module will be called admt4000.
+
 config IQS624_POS
 	tristate "Azoteq IQS624/625 angular position sensors"
 	depends on MFD_IQS62X || COMPILE_TEST
