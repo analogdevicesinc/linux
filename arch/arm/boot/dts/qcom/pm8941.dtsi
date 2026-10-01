@@ -3,7 +3,6 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
 
-
 / {
 	thermal-zones {
 		pm8941-thermal {
@@ -35,7 +34,6 @@
 };
 
 &spmi_bus {
-
 	pm8941_0: pm8941@0 {
 		compatible = "qcom,pm8941", "qcom,spmi-pmic";
 		reg = <0x0 SPMI_USID>;
@@ -145,7 +143,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#io-channel-cells = <1>;
-
 
 			channel@6 {
 				reg = <VADC_VBAT_SNS>;
