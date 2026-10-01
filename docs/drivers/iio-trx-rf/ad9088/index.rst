@@ -62,6 +62,7 @@ Linux Driver
 * :git+linux:`ad9088_debugfs.c <main:drivers/iio/trx-rf/ad9088/ad9088_debugfs.c>` - Debugfs interface
 * :git+linux:`ad9088_fft.c <main:drivers/iio/trx-rf/ad9088/ad9088_fft.c>` - FFT sniffer support
 * :git+linux:`ad9088_ffh.c <main:drivers/iio/trx-rf/ad9088/ad9088_ffh.c>` - Fast frequency hopping
+* :git+linux:`ad9088_fsrc.c <main:drivers/iio/trx-rf/ad9088/ad9088_fsrc.c>` - Fractional sample rate converter
 * :git+linux:`ad9088_jesd204_fsm.c <main:drivers/iio/trx-rf/ad9088/ad9088_jesd204_fsm.c>` - JESD204 FSM callbacks
 * :git+linux:`ad9088_mcs.c <main:drivers/iio/trx-rf/ad9088/ad9088_mcs.c>` - MCS calibration
 * :git+linux:`ad9088_cal_dump.c <main:tools/iio/ad9088_cal_dump.c>` - Calibration dump tool
@@ -203,6 +204,7 @@ Detailed topics
 
    mcs
    gpio
+   fsrc
 
 Topology
 ~~~~~~~~
