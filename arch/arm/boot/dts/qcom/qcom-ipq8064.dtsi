@@ -353,8 +353,8 @@
 			qcom,ipc = <&l2cc 0x8 2>;
 
 			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>;
+				     <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "ack", "err", "wakeup";
 
 			clocks = <&gcc RPM_MSG_RAM_H_CLK>;
@@ -438,7 +438,7 @@
 
 			leds_pins: leds-state {
 				pins = "gpio7", "gpio8", "gpio9",
-					"gpio26", "gpio53";
+				       "gpio26", "gpio53";
 				function = "gpio";
 				drive-strength = <2>;
 				bias-pull-down;
@@ -489,9 +489,9 @@
 
 			rgmii2_pins: rgmii2-state {
 				pins = "gpio27", "gpio28", "gpio29",
-					"gpio30", "gpio31", "gpio32",
-					"gpio51", "gpio52", "gpio59",
-					"gpio60", "gpio61", "gpio62";
+				       "gpio30", "gpio31", "gpio32",
+				       "gpio51", "gpio52", "gpio59",
+				       "gpio60", "gpio61", "gpio62";
 				function = "rgmii2";
 				drive-strength = <8>;
 				bias-disable;
@@ -1257,11 +1257,11 @@
 			compatible = "qcom,lpass-cpu";
 			status = "disabled";
 			clocks = <&lcc AHBIX_CLK>,
-					<&lcc MI2S_OSR_CLK>,
-					<&lcc MI2S_BIT_CLK>;
+				 <&lcc MI2S_OSR_CLK>,
+				 <&lcc MI2S_BIT_CLK>;
 			clock-names = "ahbix-clk",
-					"mi2s-osr-clk",
-					"mi2s-bit-clk";
+				      "mi2s-osr-clk",
+				      "mi2s-bit-clk";
 			interrupts = <GIC_SPI 85 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "lpass-irq-lpaif";
 			reg = <0x28100000 0x10000>;
@@ -1280,7 +1280,7 @@
 				 <&gcc SATA_RXOOB_CLK>,
 				 <&gcc SATA_PMALIVE_CLK>;
 			clock-names = "slave_iface", "iface", "core",
-					"rxoob", "pmalive";
+				      "rxoob", "pmalive";
 
 			assigned-clocks = <&gcc SATA_RXOOB_CLK>, <&gcc SATA_PMALIVE_CLK>;
 			assigned-clock-rates = <100000000>, <100000000>;
