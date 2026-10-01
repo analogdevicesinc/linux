@@ -59,6 +59,9 @@ properties:
       supported on all chips.
     type: boolean
 
+  "#thermal-sensor-cells":
+    const: 0
+
 required:
   - compatible
   - reg
