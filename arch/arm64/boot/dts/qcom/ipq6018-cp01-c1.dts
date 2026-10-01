@@ -48,10 +48,6 @@
 	};
 };
 
-&dwc_1 {
-	dr_mode = "host";
-};
-
 &tlmm {
 	i2c_1_pins: i2c-1-state {
 		pins = "gpio42", "gpio43";
@@ -88,5 +84,7 @@
 };
 
 &usb2 {
+	dr_mode = "host";
+
 	status = "okay";
 };
