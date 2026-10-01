@@ -2356,12 +2356,14 @@ static int adrv904x_probe(struct spi_device *spi)
 
 static const struct spi_device_id adrv904x_id[] = {
 	{ "adrv9040" },
+	{ "adrv9042" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adrv904x_id);
 
 static const struct of_device_id adrv904x_of_match[] = {
 	{ .compatible = "adi,adrv9040" },
+	{ .compatible = "adi,adrv9042" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adrv904x_of_match);
