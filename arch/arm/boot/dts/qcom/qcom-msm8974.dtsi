@@ -867,7 +867,7 @@
 					tpiu_in: endpoint {
 						remote-endpoint = <&replicator_out1>;
 					};
-				 };
+				};
 			};
 		};
 
