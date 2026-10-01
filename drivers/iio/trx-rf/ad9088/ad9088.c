@@ -5226,11 +5226,22 @@ static int ad9088_probe(struct spi_device *spi)
 	if (IS_ERR(reset))
 		return PTR_ERR(reset);
 
+	/* User assert that FPGA AXI FSRC routes to Apollo GPIO */
+	phy->fsrc_gpio_trig_en = device_property_read_bool(&spi->dev, "adi,fsrc-gpio-trig");
+
 	ret = ad9088_iio_get_optional_channel(phy, &phy->iio_adf4030, "bsync");
 	if (ret)
 		return ret;
 
 	ret = ad9088_iio_get_optional_channel(phy, &phy->iio_adf4382, "clk");
+	if (ret)
+		return ret;
+
+	ret = ad9088_iio_get_optional_channel(phy, &phy->iio_axi_fsrc_tx, "fsrc_tx");
+	if (ret)
+		return ret;
+
+	ret = ad9088_iio_get_optional_channel(phy, &phy->iio_axi_fsrc_rx, "fsrc_rx");
 	if (ret)
 		return ret;
 
