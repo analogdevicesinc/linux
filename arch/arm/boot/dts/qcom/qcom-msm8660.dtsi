@@ -107,7 +107,6 @@
 			interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-controller;
 			#interrupt-cells = <2>;
-
 		};
 
 		gcc: clock-controller@900000 {
@@ -430,5 +429,4 @@
 			reg = <0x1a400000 0x100>;
 		};
 	};
-
 };
