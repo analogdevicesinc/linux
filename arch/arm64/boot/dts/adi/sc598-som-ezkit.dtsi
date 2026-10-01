@@ -61,12 +61,12 @@
 
 			ospi_2: partition@100000 {
 				label = "kernel";
-				reg = <0x100000 0xf00000>;
+				reg = <0x100000 0x2000000>;
 			};
 
-			ospi_3: partition@1000000 {
+			ospi_3: partition@2100000 {
 				label = "rootfs";
-				reg = <0x1000000 0x1000000>;
+				reg = <0x2100000 0x5f00000>;
 			};
 		};
 	};
