@@ -32,6 +32,7 @@
 					pins = "gpio13", "gpio14", "gpio15";
 					bias-disable;
 				};
+
 				spio-cs-pins {
 					function = "gpio";
 					pins = "gpio12";
