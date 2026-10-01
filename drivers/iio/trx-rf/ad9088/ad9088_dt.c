@@ -100,6 +100,50 @@ static void ad9088_jesd_lane_setup(struct ad9088_phy *phy)
 	}
 }
 
+/* Profiles without FSRC may set the gain at 0, the rate is unused in 1x */
+static void ad9088_fsrc_cfg_1x(adi_apollo_fsrc_cfg_t *fsrc)
+{
+	fsrc->gain_reduction = AD9088_FSRC_1X_GAIN;
+}
+
+/**
+ * If the axi_fsrc_sequencer is enabled, do not bypass FSCR IP.
+ * There is no later API to not bypass the block, so puts on 1x mode.
+ */
+static int ad9088_fsrc_setup(struct ad9088_phy *phy)
+{
+	if (!phy->iio_axi_fsrc)
+		return 0;
+
+	dev_info(&phy->spi->dev, "AXI FSRC instantiated, enforce FSRC not bypassed and constraints\n");
+
+	/**
+	 * At adi_apollo_*x_fsrc_configure:
+	 * adi_apollo_fsrc_pgm_t.fsrc_bypass = !(enable0 || enable1)
+	 */
+	for (u8 i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
+		for (u8 j = 0; j < ADI_APOLLO_JESD_LINKS; j++) {
+			phy->profile.rx_path[i].rx_dformat[j].ddc_dither_en = false;
+			phy->profile.rx_path[i].rx_dformat[j].rm_fifo.invalid_en = true;
+			phy->profile.rx_path[i].rx_dformat[j].rm_fifo.sample_repeat_en = false;
+		}
+		phy->profile.rx_path[i].rx_fsrc.mode_1x = true;
+		phy->profile.tx_path[i].tx_fsrc.mode_1x = true;
+		phy->profile.rx_path[i].rx_fsrc.enable0 = true;
+		phy->profile.rx_path[i].rx_fsrc.enable1 = true;
+		phy->profile.tx_path[i].tx_fsrc.enable0 = true;
+		phy->profile.tx_path[i].tx_fsrc.enable1 = true;
+		phy->profile.rx_path[i].rx_fsrc.bypass = false;
+		phy->profile.tx_path[i].tx_fsrc.bypass = false;
+		phy->profile.rx_path[i].rx_fsrc.split_4t4r = !phy->profile.profile_cfg.is_8t8r;
+		phy->profile.tx_path[i].tx_fsrc.split_4t4r = !phy->profile.profile_cfg.is_8t8r;
+		ad9088_fsrc_cfg_1x(&phy->profile.rx_path[i].rx_fsrc);
+		ad9088_fsrc_cfg_1x(&phy->profile.tx_path[i].tx_fsrc);
+	}
+
+	return 0;
+}
+
 int ad9088_parse_dt(struct ad9088_phy *phy)
 {
 	struct device *dev = &phy->spi->dev;
@@ -233,6 +277,8 @@ int ad9088_parse_dt(struct ad9088_phy *phy)
 		phy->profile.rx_path[1].rx_dformat[0].ddc_dither_en = found;
 		phy->profile.rx_path[1].rx_dformat[1].ddc_dither_en = found;
 	}
+
+	ad9088_fsrc_setup(phy);
 
 	ret = of_property_read_u32(node, "adi,subclass", &val);
 	if (!ret) {
