@@ -99,7 +99,7 @@
 		 * for network wakeup, connected to the TLMM.
 		 */
 		interrupts-extended = <&pm8058_gpio 7 IRQ_TYPE_EDGE_FALLING>,
-				    <&tlmm 29 IRQ_TYPE_EDGE_RISING>;
+				      <&tlmm 29 IRQ_TYPE_EDGE_RISING>;
 		reset-gpios = <&tlmm 30 GPIO_ACTIVE_LOW>;
 		vdd33a-supply = <&dragon_veth>;
 		vddvario-supply = <&dragon_vario>;
@@ -861,7 +861,7 @@
 		data-pins {
 			/* SDC1 D0 to D7 */
 			pins = "gpio159", "gpio160", "gpio161", "gpio162",
-			     "gpio163", "gpio164", "gpio165", "gpio166";
+			       "gpio163", "gpio164", "gpio165", "gpio166";
 			function = "sdc1";
 			drive-strength = <10>;
 			bias-pull-up;
