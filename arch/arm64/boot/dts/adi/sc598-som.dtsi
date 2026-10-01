@@ -77,6 +77,7 @@
 				compatible = "adi,remoteproc";
 				reg = <0x0 0x00240000 0x001c0000>,
 				      <0x0 0x20000000 0x00200000>;
+				reg-names = "l1", "l2";
 				core-id = <1>;
 				firmware-name = "adi/rpmsg_echo_sharc_core1.ldr";
 				interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
@@ -94,6 +95,7 @@
 				compatible = "adi,remoteproc";
 				reg = <0x1 0x00240000 0x001c0000>,
 				      <0x1 0x20000000 0x00200000>;
+				reg-names = "l1", "l2";
 				core-id = <2>;
 				firmware-name = "adi/rpmsg_echo_sharc_core2.ldr";
 				interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
