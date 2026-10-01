@@ -83,8 +83,8 @@
 			compatible = "qcom,msm-8660-qgic";
 			interrupt-controller;
 			#interrupt-cells = <3>;
-			reg = < 0x02080000 0x1000 >,
-			      < 0x02081000 0x1000 >;
+			reg = <0x02080000 0x1000>,
+			      <0x02081000 0x1000>;
 		};
 
 		timer@2000000 {
