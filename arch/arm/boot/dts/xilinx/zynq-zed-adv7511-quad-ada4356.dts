@@ -143,40 +143,68 @@
 					  "GSEL1_A", "FREQ_SEL_A";
 
 			/*
-			 * Per channel: FREQ_SEL=1, GSEL1=0, GSEL0=1, CURR_DIV_EN=0
-			 * -- i.e. 0xAA, TZ = 4.54k, on all four channels. The BHCS
-			 * Howland jumpers stay at 2K.
+			 * Operating point. Per channel: FREQ_SEL=1, GSEL1=1, GSEL0=0,
+			 * CURR_DIV_EN=0 -- i.e. 0xCC, TZ = 11k, on all four channels,
+			 * paired with the 2K BHCS Howland jumpers and driven at
+			 * 1.20 Vpp / +0.50 V.
 			 *
 			 * Transimpedance runs 133k (00) / 11k (10) / 4.54k (01),
 			 * datasheet Table 11. History: 133k was the original operating
 			 * point, but its max linear input current is only 10uA, which
 			 * maps to 66% of the ADC's +-1V span -- a hard -4 dBFS ceiling,
-			 * never weak drive. Moving to 11k removed that and also cut the
-			 * additive ~0.89 MHz carrier 12.1x (it scales with Rf) to ~1
-			 * code. 4.54k cuts that carrier a further 2.4x, but the spur
-			 * that now dominates is a delay modulation proportional to the
-			 * ADC-referred signal, so its dBc does not move -- what this
-			 * setting actually buys is TIA bandwidth, not SNR.
+			 * never weak drive. 11k removed that.
 			 *
-			 * 4.54k is 0.413x of 11k, so against the 2K jumpers both the
-			 * amplitude and the DC pedestal scale by ~0.41: 1.2 Vpp gave
-			 * 5386 codes on a 2100 pedestal at 11k, expect ~2220 on ~870.
-			 * Drive has to rise to ~2.9 Vpp to get back to -3.6 dBFS and
-			 * the clip ceiling moves out to ~3.9 Vpp. Raise the generator
-			 * in steps and re-check max against 8191 each time.
+			 * All four combinations have since been measured against the
+			 * ~0.89 MHz delay-modulation spur, quoted as mean dTau over the
+			 * four channels (lower is better):
+			 *
+			 *	11k   / 2K     3.39, 3.44 ns  (two sessions)  <- best
+			 *	4.54k / 2K     3.89 ns
+			 *	4.54k / 200R   4.17 ns
+			 *	11k   / 200R   6.48, 6.57 ns  (two boots)     <- worst
+			 *
+			 * The Howland jumper dominates: 2K beats 200R at both gains,
+			 * because 200R turns a few tenths of an ohm of contact
+			 * resistance into a 0.2% error instead of 0.01%. 11k also keeps
+			 * the DC pedestal further from the rail than 4.54k. Do not
+			 * retry 11k/200R -- it is the worst config on both counts.
+			 *
+			 * The jumper also sets the per-channel propagation delay, which
+			 * is where channel D's long-standing ~90 ns lateness came from.
+			 * Measured 2026-10-01, three boots each: at 133k/22K, D sat
+			 * 95.2 ns late (repeatable to 52 ps, and -12 samples is well
+			 * outside the 0..-3 BUFR phase draw, so it was never a sync
+			 * problem). Moving D alone to 11k removed 50.1 ns of it, which
+			 * is the TIA term (Cf ~0.41 pF on D vs ~0.35 pF on A, an 18%
+			 * component tolerance). Taking all four to 11k left D still
+			 * 87.5 ns late -- so the gain setting was not the cause.
+			 * Refitting the 2K jumpers brought D back inside one sample.
+			 * The 22K jumper is therefore the aggressor; a ~4 pF stray
+			 * across it accounts for the 87.5 ns, but that is a fit, not a
+			 * measurement, and at 2K the same model predicts ~8 ns -- one
+			 * sample, indistinguishable from the BUFR draw until the HDL
+			 * exposes shift_cnt. Do not fit 22K jumpers.
+			 *
+			 * DRIVE LEVEL at 11k/2K: 4490 codes peak per Vpp, and the
+			 * pedestal is Q - TZ*I_dc, i.e. the generator offset pulls it
+			 * DOWN from the top rail. Working point 1.20 Vpp / +0.50 V ->
+			 * ampl ~5400 codes (-3.6 dBFS), pedestal ~2100, D peaks ~7750.
+			 * Raise the offset BEFORE the amplitude: at a low offset the
+			 * pedestal sits near 6200 and adding swing clips instantly.
+			 * Check max against 8191 -- D sits ~150 codes high and clips first.
 			 *
 			 * FREQ_SEL=1 is the narrow filter and is worth 1.3 ENOB --
 			 * measured, not assumed: clearing it takes the
 			 * 10-62.5 MHz noise from 5.5 to 21.5 LSB rms.
 			 * The 0xFF power-up leaves GSEL1=GSEL0=1, which the ADI
-			 * spec calls an invalid transimpedance setting; GSEL1 now stays
+			 * spec calls an invalid transimpedance setting; GSEL0 now stays
 			 * hogged low so that state cannot be reached.
 			 */
 			fe-ab-high-hog {
 				gpio-hog;
-				gpios = <1 GPIO_ACTIVE_HIGH>,
+				gpios = <2 GPIO_ACTIVE_HIGH>,
 					<3 GPIO_ACTIVE_HIGH>,
-					<5 GPIO_ACTIVE_HIGH>,
+					<6 GPIO_ACTIVE_HIGH>,
 					<7 GPIO_ACTIVE_HIGH>;
 				output-high;
 			};
@@ -184,9 +212,9 @@
 			fe-ab-low-hog {
 				gpio-hog;
 				gpios = <0 GPIO_ACTIVE_HIGH>,
-					<2 GPIO_ACTIVE_HIGH>,
+					<1 GPIO_ACTIVE_HIGH>,
 					<4 GPIO_ACTIVE_HIGH>,
-					<6 GPIO_ACTIVE_HIGH>;
+					<5 GPIO_ACTIVE_HIGH>;
 				output-low;
 			};
 		};
@@ -202,12 +230,12 @@
 					  "CURR_DIV_EN_C", "GSEL0_C",
 					  "GSEL1_C", "FREQ_SEL_C";
 
-			/* 0xAA, TZ = 4.54k -- see the fe_ctrl_ab comment. */
+			/* 0xCC, TZ = 11k -- see the fe_ctrl_ab comment. */
 			fe-cd-high-hog {
 				gpio-hog;
-				gpios = <1 GPIO_ACTIVE_HIGH>,
+				gpios = <2 GPIO_ACTIVE_HIGH>,
 					<3 GPIO_ACTIVE_HIGH>,
-					<5 GPIO_ACTIVE_HIGH>,
+					<6 GPIO_ACTIVE_HIGH>,
 					<7 GPIO_ACTIVE_HIGH>;
 				output-high;
 			};
@@ -215,9 +243,9 @@
 			fe-cd-low-hog {
 				gpio-hog;
 				gpios = <0 GPIO_ACTIVE_HIGH>,
-					<2 GPIO_ACTIVE_HIGH>,
+					<1 GPIO_ACTIVE_HIGH>,
 					<4 GPIO_ACTIVE_HIGH>,
-					<6 GPIO_ACTIVE_HIGH>;
+					<5 GPIO_ACTIVE_HIGH>;
 				output-low;
 			};
 		};
