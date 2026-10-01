@@ -261,7 +261,6 @@
 				      "phy_phy";
 
 			status = "disabled";
-
 		};
 
 		system_noc: interconnect@1620000 {
@@ -807,7 +806,6 @@
 			apps_bcm_voter: bcm-voter {
 				compatible = "qcom,bcm-voter";
 			};
-
 		};
 	};
 
