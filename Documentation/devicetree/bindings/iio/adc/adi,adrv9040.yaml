@@ -21,6 +21,7 @@ properties:
   compatible:
     enum:
       - adi,adrv9040
+      - adi,adrv9042
 
   reg:
     maxItems: 1
