@@ -35,22 +35,32 @@
 };
 
 &scb {
-	sharc0: core1-rproc@28240000 {
-		compatible = "adi,remoteproc";
-		reg = <0x28240000 0x00160000>,
-		      <0x20000000 0x00200000>;
-		core-id = <1>;
-		core-irq = <321>; /* SOFT1 */
-		firmware-name = "adi/rpmsg_echo_sharc_core1.ldr";
-		interrupts = <GIC_SPI 352 IRQ_TYPE_EDGE_RISING>; /* TRU0_RCV3 */
-		adi,rcu = <&rcu>;
-		adi,l1-da = <0x00240000 0x00160000>;
-		adi,l2-da = <0x20000000 0x00200000>;
-		adi,rsc-table = <&rsc_tbl0>;
-		adi,verify = <1>;
-		adi,tru = <&tru>;
-		adi,tru-master-id = <ADI_TRU_MST_SOFT(4)>;
-		status = "okay";
+	remoteproc { // XXX find a better name than "remoteproc"
+		compatible = "simple-bus";
+
+		#address-cells = <2>;
+		#size-cells = <1>;
+
+		ranges = <0x0 0x00240000 0x28240000 0x00160000>,
+			 <0x0 0x20000000 0x20000000 0x00200000>;
+
+		sharc@0 {
+			compatible = "adi,remoteproc";
+			reg = <0x0 0x00240000 0x00160000>,
+			      <0x0 0x20000000 0x00200000>;
+			core-id = <1>;
+			core-irq = <321>; /* SOFT1 */
+			firmware-name = "adi/rpmsg_echo_sharc_core1.ldr";
+			interrupts = <GIC_SPI 352 IRQ_TYPE_EDGE_RISING>; /* TRU0_RCV3 */
+			adi,rcu = <&rcu>;
+			adi,l1-da = <0x00240000 0x00160000>;
+			adi,l2-da = <0x20000000 0x00200000>;
+			adi,rsc-table = <&rsc_tbl0>;
+			adi,verify = <1>;
+			adi,tru = <&tru>;
+			adi,tru-master-id = <ADI_TRU_MST_SOFT(4)>;
+			status = "okay";
+		};
 	};
 };
 
