@@ -916,8 +916,8 @@
 
 		sata0: sata@29000000 {
 			compatible = "qcom,apq8064-ahci", "generic-ahci";
-			status	 = "disabled";
-			reg	 = <0x29000000 0x180>;
+			status = "disabled";
+			reg = <0x29000000 0x180>;
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
 
 			clocks = <&gcc SFAB_SATA_S_H_CLK>,
