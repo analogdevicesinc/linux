@@ -44,8 +44,8 @@
 		firmware-name = "adi/rpmsg_echo_sharc_core1.ldr";
 		interrupts = <GIC_SPI 352 IRQ_TYPE_EDGE_RISING>; /* TRU0_RCV3 */
 		adi,rcu = <&rcu>;
-		adi,l1-da = <0x00240000 0x003a0000>;
-		adi,l2-da = <0x20000000 0x20200000>;
+		adi,l1-da = <0x00240000 0x00160000>;
+		adi,l2-da = <0x20000000 0x00200000>;
 		adi,rsc-table = <&rsc_tbl0>;
 		adi,verify = <1>;
 		adi,tru = <&tru>;
