@@ -1188,6 +1188,7 @@ struct dc_debug_options {
 	bool enable_dmcub_surface_flip;
 	bool usbc_combo_phy_reset_wa;
 	bool force_fva;
+	bool force_dpg_on_flip;
 	int max_frl_rate;
 	unsigned int  force_frl_rate;
 	bool ignore_ffe;

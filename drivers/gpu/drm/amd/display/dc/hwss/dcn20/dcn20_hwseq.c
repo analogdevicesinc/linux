@@ -1249,6 +1249,13 @@ void dcn20_blank_pixel_data(
 	/* get opp dpg blank color */
 	color_space_to_black_color(dc, color_space, &black_color);
 
+	/* Debug: force a solid blue DPG pattern. */
+	if (dc->debug.force_dpg_on_flip) {
+		black_color.color_r_cr = 0;
+		black_color.color_g_y = 0;
+		black_color.color_b_cb = 0x3ff;
+	}
+
 	if (blank) {
 		dc->hwss.set_abm_immediate_disable(pipe_ctx);
 

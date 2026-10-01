@@ -2723,6 +2723,17 @@ void dcn401_program_front_end_for_ctx(
 			pipe->plane_res.hubp->funcs->hubp_wait_pipe_read_start(pipe->plane_res.hubp);
 		}
 	}
+
+	/* Debug (DM SystemDisplayEnable, driver disabled): force solid-color DPG
+	 * output last, after all normal pipe/OPP programming, so it isn't overwritten.
+	 */
+	if (dc->debug.force_dpg_on_flip && hws->funcs.blank_pixel_data) {
+		for (i = 0; i < dc->res_pool->pipe_count; i++) {
+			pipe = &context->res_ctx.pipe_ctx[i];
+			if (resource_is_pipe_type(pipe, OTG_MASTER))
+				hws->funcs.blank_pixel_data(dc, pipe, true);
+		}
+	}
 }
 
 void dcn401_post_unlock_program_front_end(
