@@ -64,8 +64,8 @@
 	scb {
 		sharc0: core1-rproc@28240000 {
 			compatible = "adi,remoteproc";
-			reg = <0x28240000 0x1c0000>,
-					<0x20000000 0x200000>;
+			reg = <0x28240000 0x001c0000>,
+			      <0x20000000 0x00200000>;
 			core-id = <1>;
 			firmware-name = "adi/rpmsg_echo_sharc_core1.ldr";
 			interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
@@ -74,7 +74,7 @@
 			reset-names = "crst", "start";
 			mboxes = <&tru 135>; /* trigger master SOFT4 */
 			mbox-names = "kick";
-			adi,l1-da = <0x240000 0x400000>;
+			adi,l1-da = <0x00240000 0x00400000>;
 			adi,l2-da = <0x20000000 0x20200000>;
 			adi,rsc-table = <&rsc_tbl0>;
 			adi,verify = <1>;
@@ -83,8 +83,8 @@
 
 		sharc1: core2-rproc@28a40000 {
 			compatible = "adi,remoteproc";
-			reg = <0x28a40000 0x1c0000>,
-					<0x20000000 0x200000>;
+			reg = <0x28a40000 0x001c0000>,
+			      <0x20000000 0x00200000>;
 			core-id = <2>;
 			firmware-name = "adi/rpmsg_echo_sharc_core2.ldr";
 			interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
@@ -93,7 +93,7 @@
 			reset-names = "crst", "start";
 			mboxes = <&tru 136>; /* trigger master SOFT5 */
 			mbox-names = "kick";
-			adi,l1-da = <0x240000 0x400000>;
+			adi,l1-da = <0x00240000 0x00400000>;
 			adi,l2-da = <0x20000000 0x20200000>;
 			adi,rsc-table = <&rsc_tbl1>;
 			adi,verify = <1>;
