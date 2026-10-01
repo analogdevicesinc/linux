@@ -497,6 +497,7 @@ static int ti_iodelay_dt_node_to_map(struct pinctrl_dev *pctldev,
 	struct ti_iodelay_device *iod;
 	struct ti_iodelay_cfg *cfg;
 	struct ti_iodelay_pingroup *g;
+	struct group_desc *grp;
 	const char *name = "pinctrl-pin-array";
 	int rows, *pins, error = -EINVAL, i;
 
@@ -552,6 +553,19 @@ static int ti_iodelay_dt_node_to_map(struct pinctrl_dev *pctldev,
 	error = pinctrl_generic_add_group(iod->pctl, np->name, pins, i, g);
 	if (error < 0)
 		goto free_data;
+
+	/*
+	 * The core deduplicates groups by name and keeps the first for the
+	 * controller's lifetime; on a repeated mapping (consumer re-probe)
+	 * reuse it and free our now-redundant copy.
+	 */
+	grp = pinctrl_generic_get_group(iod->pctl, error);
+	if (grp->data != g) {
+		devm_kfree(iod->dev, cfg);
+		devm_kfree(iod->dev, pins);
+		devm_kfree(iod->dev, g);
+		g = grp->data;
+	}
 
 	(*map)->type = PIN_MAP_TYPE_CONFIGS_GROUP;
 	(*map)->data.configs.group_or_pin = np->name;
@@ -722,6 +736,15 @@ static void ti_iodelay_pinconf_group_dbg_show(struct pinctrl_dev *pctldev,
 }
 #endif
 
+static void ti_iodelay_dt_free_map(struct pinctrl_dev *pctldev,
+				   struct pinctrl_map *map, unsigned int num_maps)
+{
+	struct ti_iodelay_device *iod;
+
+	iod = pinctrl_dev_get_drvdata(pctldev);
+	devm_kfree(iod->dev, map);
+}
+
 static const struct pinctrl_ops ti_iodelay_pinctrl_ops = {
 	.get_groups_count = pinctrl_generic_get_group_count,
 	.get_group_name = pinctrl_generic_get_group_name,
@@ -730,6 +753,7 @@ static const struct pinctrl_ops ti_iodelay_pinctrl_ops = {
 	.pin_dbg_show = ti_iodelay_pin_dbg_show,
 #endif
 	.dt_node_to_map = ti_iodelay_dt_node_to_map,
+	.dt_free_map = ti_iodelay_dt_free_map,
 };
 
 static const struct pinconf_ops ti_iodelay_pinctrl_pinconf_ops = {
