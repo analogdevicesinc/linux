@@ -1499,13 +1499,11 @@ void tick_irq_enter(void)
 	tick_nohz_irq_enter();
 }
 
-static int sched_skew_tick;
+static bool sched_skew_tick __ro_after_init;
 
 static int __init skew_tick(char *str)
 {
-	get_option(&str, &sched_skew_tick);
-
-	return 0;
+	return kstrtobool(str, &sched_skew_tick);
 }
 early_param("skew_tick", skew_tick);
 
