@@ -99,7 +99,7 @@
 		MATRIX_KEY(0, 1, KEY_VOLUMEDOWN)
 		MATRIX_KEY(0, 2, KEY_CAMERA_FOCUS)
 		MATRIX_KEY(0, 3, KEY_CAMERA)
-		>;
+	>;
 	keypad,num-rows = <1>;
 	keypad,num-columns = <5>;
 
