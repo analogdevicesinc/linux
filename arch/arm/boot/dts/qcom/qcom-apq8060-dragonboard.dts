@@ -181,6 +181,7 @@
 		vcc-supply = <&pm8058_s3>;
 		pagesize = <64>;
 	};
+
 	wm8903: wm8903@1a {
 		/* This Woolfson Micro device has an unrouted interrupt line */
 		compatible = "wlf,wm8903";
@@ -226,6 +227,7 @@
 		vid-supply = <&pm8058_lvs0>; // 1.8V
 		vdd-supply = <&pm8058_l14>; // 2.85V
 	};
+
 	bmp085@77 {
 		compatible = "bosch,bmp085";
 		reg = <0x77>;
@@ -237,6 +239,7 @@
 		vddd-supply = <&pm8058_lvs0>; // 1.8V
 		vdda-supply = <&pm8058_l14>; // 2.85V
 	};
+
 	mpu3050@68 {
 		compatible = "invensense,mpu3050";
 		reg = <0x68>;
@@ -287,6 +290,7 @@
 			power-source = <PM8058_GPIO_S3>;
 		};
 	};
+
 	dragon_bmp085_gpios: bmp085-state {
 		pinconf {
 			pins = "gpio16";
@@ -296,6 +300,7 @@
 			power-source = <PM8058_GPIO_S3>;
 		};
 	};
+
 	dragon_mpu3050_gpios: mpu3050-state {
 		pinconf {
 			pins = "gpio17";
@@ -305,6 +310,7 @@
 			power-source = <PM8058_GPIO_S3>;
 		};
 	};
+
 	dragon_sdcc3_gpios: sdcc3-state {
 		pinconf {
 			pins = "gpio22";
@@ -314,6 +320,7 @@
 			power-source = <PM8058_GPIO_S3>;
 		};
 	};
+
 	dragon_sdcc5_gpios: sdcc5-state {
 		pinconf {
 			pins = "gpio26";
@@ -324,6 +331,7 @@
 			power-source = <PM8058_GPIO_S3>;
 		};
 	};
+
 	dragon_ak8975_gpios: ak8975-state {
 		pinconf {
 			pins = "gpio33";
@@ -333,6 +341,7 @@
 			power-source = <PM8058_GPIO_S3>;
 		};
 	};
+
 	dragon_cm3605_gpios: cm3605-state {
 		/* Pin 34 connected to the proxy IRQ */
 		gpio34-pins {
@@ -342,6 +351,7 @@
 			bias-disable;
 			power-source = <PM8058_GPIO_S3>;
 		};
+
 		/* Pin 35 connected to ASET */
 		gpio35-pins {
 			pins = "gpio35";
@@ -351,6 +361,7 @@
 			power-source = <PM8058_GPIO_S3>;
 		};
 	};
+
 	dragon_veth_gpios: veth-state {
 		pinconf {
 			pins = "gpio40";
@@ -521,12 +532,14 @@
 			qcom,switch-mode-frequency = <1600000>;
 			bias-pull-down;
 		};
+
 		pm8901_s3: s3 {
 			regulator-min-microvolt = <1100000>;
 			regulator-max-microvolt = <1100000>;
 			qcom,switch-mode-frequency = <1600000>;
 			bias-pull-down;
 		};
+
 		pm8901_s4: s4 {
 			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1225000>;
@@ -837,12 +850,14 @@
 			drive-strength = <16>;
 			bias-disable;
 		};
+
 		cmd-pins {
 			pins = "gpio168"; /* SDC1 CMD */
 			function = "sdc1";
 			drive-strength = <10>;
 			bias-pull-up;
 		};
+
 		data-pins {
 			/* SDC1 D0 to D7 */
 			pins = "gpio159", "gpio160", "gpio161", "gpio162",
@@ -863,11 +878,13 @@
 			drive-strength = <8>;
 			bias-disable;
 		};
+
 		cmd-pins {
 			pins = "sdc3_cmd";
 			drive-strength = <8>;
 			bias-pull-up;
 		};
+
 		data-pins {
 			pins = "sdc3_data";
 			drive-strength = <8>;
@@ -883,12 +900,14 @@
 			drive-strength = <16>;
 			bias-disable;
 		};
+
 		cmd-pins {
 			pins = "gpio95"; /* SDC5 CMD */
 			function = "sdc5";
 			drive-strength = <10>;
 			bias-pull-up;
 		};
+
 		data-pins {
 			/* SDC5 D0 to D3 */
 			pins = "gpio96", "gpio98", "gpio99", "gpio100";
@@ -930,6 +949,7 @@
 			drive-strength = <8>;
 			bias-disable;
 		};
+
 		rx-pins {
 			pins = "gpio118";
 			function = "gsbi12";
@@ -951,6 +971,7 @@
 			    "gpio134"; /* CS0_N testpoint TP29 */
 			function = "ebi2cs";
 		};
+
 		mux1-pins {
 			pins =
 			    /* EBI2_ADDR_7 downto EBI2_ADDR_0 address bus */
@@ -983,6 +1004,7 @@
 			drive-strength = <6>;
 			bias-disable;
 		};
+
 		irq-pins {
 			pins = "gpio61"; /* IRQ line */
 			function = "gpio";
