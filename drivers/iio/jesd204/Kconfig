@@ -10,6 +10,18 @@ config AXI_ADXCVR
 	depends on COMMON_CLK
 	select XILINX_TRANSCEIVER
 
+config AXI_FSRC_SEQUENCER
+	tristate "Analog Devices AXI FSRC Sequencer Support"
+	help
+	  Say yes here to build support for the AXI FSRC IP Cores.
+
+	  The AXI FSRC (Fractional Sample Rate Converter) include the TX/RX and
+	  sequencer IP cores. The TX core inserts invalid samples into the
+	  stream sent to the converter, the RX core removes the invalid samples
+	  the converter injects, and the sequencer counts SYSREF periods to
+	  align the dynamic reconfiguration of the converter and the FPGA
+	  cores.
+
 config AXI_JESD204B
 	tristate "Generic AXI JESD204B configuration driver"
 	depends on COMMON_CLK

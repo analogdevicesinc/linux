@@ -15,7 +15,9 @@
 #include <dt-bindings/jesd204/adxcvr.h>
 
 #define WITH_AXI_AION_TRIG 0
+#ifndef WITH_FSRC
 #define WITH_FSRC 0
+#endif /* WITH_FSRC */
 
 #define fmc_spi spi0
 
@@ -442,7 +444,6 @@
 			compatible = "adi,axi-fsrc-sequencer";
 			reg = <0xa4540000 0x10000>;
 
-			trig-gpios = <&axi_gpio 26 GPIO_ACTIVE_HIGH>; // 58-32 offset
 			fsrc-topology = <&axi_fsrc_tx &axi_fsrc_rx>;
 			#io-channel-cells = <1>;
 		};
