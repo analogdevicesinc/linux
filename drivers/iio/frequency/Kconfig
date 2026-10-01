@@ -32,6 +32,7 @@ config AD9910
 	select CRC32
 	select FW_LOADER
 	select FW_UPLOAD
+	select IIO_BACKEND
 	help
 	  Say yes here to build support for Analog Devices AD9910
 	  1 GSPS, 14-Bit DDS with integrated DAC.
@@ -41,6 +42,24 @@ config AD9910
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad9910.
+
+config AD9910_AXI_BACKEND
+	tristate "Analog Devices AD9910 AXI Backend driver"
+	depends on AD9910
+	depends on HAS_IOMEM && PWM
+	select IIO_BACKEND
+	select IIO_BUFFER
+	select IIO_BUFFER_HW_CONSUMER
+	select IIO_BUFFER_DMAENGINE
+	select REGMAP_MMIO
+	help
+	  Say yes here to build support for the AXI Backend Driver for the
+	  Analog Devices AD9910 DDS. The IP core is used to drive digital ramp
+	  control pins and interface with the parallel data port of the AD9910
+	  device.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad9910-axi-backend.
 
 endmenu
 

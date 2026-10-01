@@ -21,6 +21,7 @@
 #include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/property.h>
+#include <linux/pwm.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/seq_file.h>
@@ -30,8 +31,11 @@
 #include <linux/units.h>
 #include <linux/unaligned.h>
 
+#include <linux/iio/backend.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+
+#include "ad9910.h"
 
 /* Register addresses */
 #define AD9910_REG_CFR1			0x00
@@ -194,11 +198,6 @@
 #define AD9910_RAM_ENABLED(st)		\
 	FIELD_GET(AD9910_CFR1_RAM_ENABLE_MSK, (st)->reg[AD9910_REG_CFR1].val32)
 
-#define AD9910_DEST_FREQUENCY		0
-#define AD9910_DEST_PHASE		1
-#define AD9910_DEST_AMPLITUDE		2
-#define AD9910_DEST_POLAR		3
-
 /* PLL constants */
 #define AD9910_PLL_MIN_N		12
 #define AD9910_PLL_MAX_N		127
@@ -303,31 +302,12 @@ struct ad9910_ram_fw {
 } __packed;
 
 enum {
-	AD9910_CHAN_IDX_PHY,
-	AD9910_CHAN_IDX_PROFILE_0,
-	AD9910_CHAN_IDX_PROFILE_1,
-	AD9910_CHAN_IDX_PROFILE_2,
-	AD9910_CHAN_IDX_PROFILE_3,
-	AD9910_CHAN_IDX_PROFILE_4,
-	AD9910_CHAN_IDX_PROFILE_5,
-	AD9910_CHAN_IDX_PROFILE_6,
-	AD9910_CHAN_IDX_PROFILE_7,
-	AD9910_CHAN_IDX_PARALLEL_AMP,
-	AD9910_CHAN_IDX_PARALLEL_PHASE,
-	AD9910_CHAN_IDX_PARALLEL_FREQ,
-	AD9910_CHAN_IDX_PARALLEL_POLAR_AMP,
-	AD9910_CHAN_IDX_PARALLEL_POLAR_PHASE,
-	AD9910_CHAN_IDX_DRG_FREQ,
-	AD9910_CHAN_IDX_DRG_PHASE,
-	AD9910_CHAN_IDX_DRG_AMP,
-	AD9910_CHAN_IDX_DRG_FREQ_RAMP_UP,
-	AD9910_CHAN_IDX_DRG_FREQ_RAMP_DOWN,
-	AD9910_CHAN_IDX_DRG_PHASE_RAMP_UP,
-	AD9910_CHAN_IDX_DRG_PHASE_RAMP_DOWN,
-	AD9910_CHAN_IDX_DRG_AMP_RAMP_UP,
-	AD9910_CHAN_IDX_DRG_AMP_RAMP_DOWN,
-	AD9910_CHAN_IDX_RAM,
-	AD9910_CHAN_IDX_OSK,
+	AD9910_SCAN_IDX_AMP = 0,
+	AD9910_SCAN_IDX_PHASE,
+	AD9910_SCAN_IDX_FREQ,
+	/* polar phase goes first, as it is placed in the lower byte, D[7:0] */
+	AD9910_SCAN_IDX_POLAR_PHASE,
+	AD9910_SCAN_IDX_POLAR_AMP,
 };
 
 enum {
@@ -355,11 +335,16 @@ union ad9910_reg {
 struct ad9910_state {
 	struct spi_device *spi;
 	struct clk *refclk;
+	struct pwm_device *drctl_pwm;
 	struct fw_upload *ram_fwu;
 
 	struct gpio_desc *gpio_pwdown;
 	struct gpio_desc *gpio_update;
 	struct gpio_descs *gpio_profile;
+	struct iio_backend *back;
+
+	s64 ramp_up_time_ns;
+	s64 ramp_down_time_ns;
 
 	/* cached registers */
 	union ad9910_reg reg[AD9910_REG_NUM_CACHED];
@@ -376,6 +361,7 @@ struct ad9910_state {
 
 	struct ad9910_data data;
 	u8 profile;
+	u8 scan_mask;
 
 	bool ram_fwu_cancel;
 	char ram_fwu_name[20];
@@ -594,6 +580,11 @@ static int ad9910_set_sysclk_freq(struct ad9910_state *st, u32 freq_hz,
 
 	st->data.sysclk_freq_hz = sysclk_freq_hz;
 
+	if (st->back)
+		return iio_backend_set_sampling_freq(st->back,
+						     AD9910_CHAN_IDX_PHY,
+						     sysclk_freq_hz);
+
 	return 0;
 }
 
@@ -604,6 +595,10 @@ static int ad9910_profile_set(struct ad9910_state *st, u8 profile)
 	st->profile = profile;
 	values[0] = profile;
 	gpiod_multi_set_value_cansleep(st->gpio_profile, values);
+
+	if (st->back)
+		return iio_backend_chan_enable(st->back,
+					       AD9910_CHAN_IDX_PROFILE_0 + profile);
 
 	return 0;
 }
@@ -648,6 +643,66 @@ static int ad9910_sw_powerdown_set(struct ad9910_state *st, bool enable)
 
 	return ad9910_reg32_update(st, AD9910_REG_CFR1,
 				   AD9910_CFR1_SW1_POWER_DOWN_MSK, 0, true);
+}
+
+static int ad9910_drctl_sync(struct ad9910_state *st)
+{
+	struct pwm_state state;
+	bool ndh, ndl;
+	int ret;
+
+	if (!st->drctl_pwm)
+		return 0;
+
+	ndh = FIELD_GET(AD9910_CFR2_DRG_NO_DWELL_HIGH_MSK,
+			st->reg[AD9910_REG_CFR2].val32);
+	ndl = FIELD_GET(AD9910_CFR2_DRG_NO_DWELL_LOW_MSK,
+			st->reg[AD9910_REG_CFR2].val32);
+
+	pwm_init_state(st->drctl_pwm, &state);
+
+	if (!ndh && ndl) {
+		state.duty_cycle = st->ramp_down_time_ns / 2;
+		state.period = st->ramp_down_time_ns;
+		state.polarity = PWM_POLARITY_INVERSED;
+	} else if (ndh && !ndl) {
+		state.duty_cycle = st->ramp_up_time_ns / 2;
+		state.period = st->ramp_up_time_ns;
+		state.polarity = PWM_POLARITY_NORMAL;
+	} else if (!ndh && !ndl) {
+		state.duty_cycle = st->ramp_up_time_ns;
+		state.period = st->ramp_up_time_ns + st->ramp_down_time_ns;
+		state.polarity = PWM_POLARITY_NORMAL;
+	} else {
+		state.duty_cycle = 0;
+		state.period = st->ramp_up_time_ns + st->ramp_down_time_ns;
+		state.polarity = PWM_POLARITY_NORMAL;
+	}
+
+	if (!state.period) {
+		pwm_disable(st->drctl_pwm);
+		return 0;
+	}
+
+	state.enabled = true;
+	ret = pwm_apply_might_sleep(st->drctl_pwm, &state);
+	if (ret)
+		return ret;
+
+	ret = pwm_get_state_hw(st->drctl_pwm, &state);
+	if (ret)
+		return ret;
+
+	if (!ndh && ndl) {
+		st->ramp_down_time_ns = state.period;
+	} else if (ndh && !ndl) {
+		st->ramp_up_time_ns = state.period;
+	} else if (!ndh && !ndl) {
+		st->ramp_up_time_ns = state.duty_cycle;
+		st->ramp_down_time_ns = state.period - st->ramp_up_time_ns;
+	}
+
+	return 0;
 }
 
 static ssize_t ad9910_ext_info_read(struct iio_dev *indio_dev,
@@ -716,6 +771,13 @@ static ssize_t ad9910_ext_info_write(struct iio_dev *indio_dev,
 			if (ret)
 				return ret;
 		}
+
+		/*
+		 * DRCTL waveform depends on the dwell configuration, but the
+		 * previous integration time values may not suit the new
+		 * waveform, which should not prevent dwell_en from changing.
+		 */
+		ad9910_drctl_sync(st);
 		break;
 	default:
 		return -EINVAL;
@@ -985,6 +1047,7 @@ static const struct iio_chan_spec_ext_info ad9910_osk_ext_info[] = {
 	.output = 1,						\
 	.channel = AD9910_CHANNEL_PROFILE_ ## idx,		\
 	.address = AD9910_CHAN_IDX_PROFILE_ ## idx,		\
+	.scan_index = -1,					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE) |	\
 			      BIT(IIO_CHAN_INFO_FREQUENCY) |	\
 			      BIT(IIO_CHAN_INFO_PHASE) |	\
@@ -999,6 +1062,7 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_PHY,
 		.address = AD9910_CHAN_IDX_PHY,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
 		.ext_info = ad9910_phy_ext_info,
@@ -1017,6 +1081,14 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_PARALLEL,
 		.address = AD9910_CHAN_IDX_PARALLEL_AMP,
+		.scan_index = AD9910_SCAN_IDX_AMP,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 14,
+			.storagebits = 16,
+			.shift = 2,
+		},
+		.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_PHY],
 	},
 	[AD9910_CHAN_IDX_PARALLEL_PHASE] = {
@@ -1025,7 +1097,15 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_PARALLEL,
 		.address = AD9910_CHAN_IDX_PARALLEL_PHASE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_SCALE),
+		.scan_index = AD9910_SCAN_IDX_PHASE,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 16,
+			.storagebits = 16,
+			.shift = 0,
+		},
+		.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_SCALE),
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_PHY],
 	},
 	[AD9910_CHAN_IDX_PARALLEL_FREQ] = {
@@ -1034,7 +1114,15 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_PARALLEL,
 		.address = AD9910_CHAN_IDX_PARALLEL_FREQ,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_OFFSET) |
+		.scan_index = AD9910_SCAN_IDX_FREQ,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 16,
+			.storagebits = 16,
+			.shift = 0,
+		},
+		.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_OFFSET) |
 				      BIT(IIO_CHAN_INFO_SCALE),
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_PHY],
 	},
@@ -1044,7 +1132,15 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_PARALLEL_POLAR,
 		.address = AD9910_CHAN_IDX_PARALLEL_POLAR_AMP,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_OFFSET) |
+		.scan_index = AD9910_SCAN_IDX_POLAR_AMP,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 8,
+			.storagebits = 8,
+			.shift = 0,
+		},
+		.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_OFFSET) |
 				      BIT(IIO_CHAN_INFO_SCALE),
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_PHY],
 	},
@@ -1054,7 +1150,15 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_PARALLEL_POLAR,
 		.address = AD9910_CHAN_IDX_PARALLEL_POLAR_PHASE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_OFFSET) |
+		.scan_index = AD9910_SCAN_IDX_POLAR_PHASE,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 8,
+			.storagebits = 8,
+			.shift = 0,
+		},
+		.info_mask_separate = BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_OFFSET) |
 				      BIT(IIO_CHAN_INFO_SCALE),
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_PHY],
 	},
@@ -1064,6 +1168,7 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_DRG,
 		.address = AD9910_CHAN_IDX_DRG_FREQ,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE) |
 				      BIT(IIO_CHAN_INFO_SCALE),
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_PHY],
@@ -1074,6 +1179,7 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_DRG,
 		.address = AD9910_CHAN_IDX_DRG_PHASE,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE) |
 				      BIT(IIO_CHAN_INFO_SCALE),
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_PHY],
@@ -1084,6 +1190,7 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_DRG,
 		.address = AD9910_CHAN_IDX_DRG_AMP,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE) |
 				      BIT(IIO_CHAN_INFO_SCALE),
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_PHY],
@@ -1094,8 +1201,10 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_DRG_RAMP_UP,
 		.address = AD9910_CHAN_IDX_DRG_FREQ_RAMP_UP,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_FREQ],
 	},
@@ -1105,8 +1214,10 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_DRG_RAMP_DOWN,
 		.address = AD9910_CHAN_IDX_DRG_FREQ_RAMP_DOWN,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_FREQ],
 	},
@@ -1116,8 +1227,10 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_DRG_RAMP_UP,
 		.address = AD9910_CHAN_IDX_DRG_PHASE_RAMP_UP,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_PHASE],
 	},
@@ -1127,8 +1240,10 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_DRG_RAMP_DOWN,
 		.address = AD9910_CHAN_IDX_DRG_PHASE_RAMP_DOWN,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_PHASE],
 	},
@@ -1138,8 +1253,10 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_DRG_RAMP_UP,
 		.address = AD9910_CHAN_IDX_DRG_AMP_RAMP_UP,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_AMP],
 	},
@@ -1149,8 +1266,10 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_DRG_RAMP_DOWN,
 		.address = AD9910_CHAN_IDX_DRG_AMP_RAMP_DOWN,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_AMP],
 	},
@@ -1160,6 +1279,7 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_RAM,
 		.address = AD9910_CHAN_IDX_RAM,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE) |
 				      BIT(IIO_CHAN_INFO_FREQUENCY) |
 				      BIT(IIO_CHAN_INFO_PHASE) |
@@ -1172,6 +1292,7 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.output = 1,
 		.channel = AD9910_CHANNEL_OSK,
 		.address = AD9910_CHAN_IDX_OSK,
+		.scan_index = -1,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE) |
 				      BIT(IIO_CHAN_INFO_RAW) |
 				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
@@ -1285,6 +1406,12 @@ static int ad9910_read_raw(struct iio_dev *indio_dev,
 		case AD9910_CHANNEL_PHY:
 			*val = st->data.sysclk_freq_hz;
 			return IIO_VAL_INT;
+		case AD9910_CHANNEL_PARALLEL:
+		case AD9910_CHANNEL_PARALLEL_POLAR:
+			if (!st->back)
+				return -EOPNOTSUPP;
+
+			return iio_backend_read_raw(st->back, chan, val, val2, info);
 		case AD9910_CHANNEL_DRG_RAMP_UP:
 			tmp32 = FIELD_GET(AD9910_DRG_RATE_INC_MSK,
 					  st->reg[AD9910_REG_DRG_RATE].val32);
@@ -1375,6 +1502,17 @@ static int ad9910_read_raw(struct iio_dev *indio_dev,
 					  st->reg[AD9910_REG_POW].val16);
 			iio_val_s64_decompose(MICRO * tmp32 >> 8, val, val2);
 			return IIO_VAL_DECIMAL64_MICRO;
+		default:
+			return -EINVAL;
+		}
+	case IIO_CHAN_INFO_INT_TIME:
+		switch (chan->channel) {
+		case AD9910_CHANNEL_DRG_RAMP_UP:
+			iio_val_s64_decompose(st->ramp_up_time_ns, val, val2);
+			return IIO_VAL_DECIMAL64_NANO;
+		case AD9910_CHANNEL_DRG_RAMP_DOWN:
+			iio_val_s64_decompose(st->ramp_down_time_ns, val, val2);
+			return IIO_VAL_DECIMAL64_NANO;
 		default:
 			return -EINVAL;
 		}
@@ -1583,6 +1721,18 @@ static int ad9910_write_raw(struct iio_dev *indio_dev,
 		if (chan->channel == AD9910_CHANNEL_PHY)
 			return ad9910_set_sysclk_freq(st, val, true);
 
+		if (chan->channel == AD9910_CHANNEL_PARALLEL ||
+		    chan->channel == AD9910_CHANNEL_PARALLEL_POLAR) {
+			if (!st->back)
+				return -EOPNOTSUPP;
+
+			if (val < 0)
+				return -EINVAL;
+
+			return iio_backend_set_sampling_freq(st->back,
+							     chan->address, val);
+		}
+
 		if (val < 0 || val2 < 0 || val > st->data.sysclk_freq_hz / 4)
 			return -EINVAL;
 
@@ -1678,6 +1828,27 @@ static int ad9910_write_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 	}
+	case IIO_CHAN_INFO_INT_TIME: {
+		s64 val64 = iio_val_s64_compose(val, val2);
+
+		if (!st->drctl_pwm)
+			return -EOPNOTSUPP;
+
+		if (val64 < 0)
+			return -EINVAL;
+
+		switch (chan->channel) {
+		case AD9910_CHANNEL_DRG_RAMP_UP:
+			st->ramp_up_time_ns = val64;
+			break;
+		case AD9910_CHANNEL_DRG_RAMP_DOWN:
+			st->ramp_down_time_ns = val64;
+			break;
+		default:
+			return -EINVAL;
+		}
+		return ad9910_drctl_sync(st);
+	}
 	default:
 		return -EINVAL;
 	}
@@ -1705,13 +1876,20 @@ static int ad9910_write_raw_get_fmt(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (chan->channel == AD9910_CHANNEL_PHY)
+		switch (chan->channel) {
+		case AD9910_CHANNEL_PHY:
+		case AD9910_CHANNEL_PARALLEL:
+		case AD9910_CHANNEL_PARALLEL_POLAR:
 			return IIO_VAL_INT;
-		return IIO_VAL_INT_PLUS_MICRO;
+		default:
+			return IIO_VAL_INT_PLUS_MICRO;
+		}
 	case IIO_CHAN_INFO_SCALE:
 		return IIO_VAL_INT_PLUS_NANO;
 	case IIO_CHAN_INFO_OFFSET:
 		return IIO_VAL_DECIMAL64_MICRO;
+	case IIO_CHAN_INFO_INT_TIME:
+		return IIO_VAL_DECIMAL64_NANO;
 	default:
 		return -EINVAL;
 	}
@@ -2094,6 +2272,12 @@ static inline const char *ad9910_frequency_source_get(struct ad9910_state *st)
 				 st->reg[AD9910_REG_CFR2].val32))
 		return ad9910_channel_str[AD9910_CHAN_IDX_DRG_FREQ];
 
+	/* Parallel data port enabled and data destination is frequency */
+	mode_en = FIELD_GET(AD9910_CFR2_PARALLEL_DATA_PORT_EN_MSK,
+			    st->reg[AD9910_REG_CFR2].val32);
+	if (mode_en && (st->scan_mask & BIT(AD9910_SCAN_IDX_FREQ)))
+		return ad9910_channel_str[AD9910_CHAN_IDX_PARALLEL_FREQ];
+
 	/* FTW: RAM enabled and data destination is phase, amplitude, or polar */
 	if (ram_en)
 		return ad9910_channel_str[AD9910_CHAN_IDX_RAM];
@@ -2133,6 +2317,16 @@ static inline const char *ad9910_phase_source_get(struct ad9910_state *st)
 		       FIELD_GET(AD9910_CFR2_DRG_DEST_MSK,
 				 st->reg[AD9910_REG_CFR2].val32))
 		return ad9910_channel_str[AD9910_CHAN_IDX_DRG_PHASE];
+
+	/* Parallel data port enabled and data destination is phase */
+	mode_en = FIELD_GET(AD9910_CFR2_PARALLEL_DATA_PORT_EN_MSK,
+			    st->reg[AD9910_REG_CFR2].val32);
+	if (mode_en) {
+		if (st->scan_mask & BIT(AD9910_SCAN_IDX_PHASE))
+			return ad9910_channel_str[AD9910_CHAN_IDX_PARALLEL_PHASE];
+		if (st->scan_mask & BIT(AD9910_SCAN_IDX_POLAR_PHASE))
+			return ad9910_channel_str[AD9910_CHAN_IDX_PARALLEL_POLAR_PHASE];
+	}
 
 	/* POW: RAM enabled and data destination is frequency or amplitude */
 	if (ram_en)
@@ -2180,6 +2374,16 @@ static inline const char *ad9910_amplitude_source_get(struct ad9910_state *st)
 				 st->reg[AD9910_REG_CFR2].val32))
 		return ad9910_channel_str[AD9910_CHAN_IDX_DRG_AMP];
 
+	/* Parallel data port enabled and data destination is amplitude */
+	mode_en = FIELD_GET(AD9910_CFR2_PARALLEL_DATA_PORT_EN_MSK,
+			    st->reg[AD9910_REG_CFR2].val32);
+	if (mode_en) {
+		if (st->scan_mask & BIT(AD9910_SCAN_IDX_AMP))
+			return ad9910_channel_str[AD9910_CHAN_IDX_PARALLEL_AMP];
+		if (st->scan_mask & BIT(AD9910_SCAN_IDX_POLAR_AMP))
+			return ad9910_channel_str[AD9910_CHAN_IDX_PARALLEL_POLAR_AMP];
+	}
+
 	/* only way to control amplitude at this point is through OSK */
 	if (ram_en)
 		return ad9910_channel_str[AD9910_CHAN_IDX_OSK];
@@ -2207,6 +2411,72 @@ static inline void ad9910_debugfs_init(struct ad9910_state *st,
 	debugfs_create_file("amplitude_source", 0400, d, st,
 			    &ad9910_amplitude_source_fops);
 }
+
+static const u8 ad9910_scan_chan_idx[] = {
+	[AD9910_SCAN_IDX_AMP] = AD9910_CHAN_IDX_PARALLEL_AMP,
+	[AD9910_SCAN_IDX_PHASE] = AD9910_CHAN_IDX_PARALLEL_PHASE,
+	[AD9910_SCAN_IDX_FREQ] = AD9910_CHAN_IDX_PARALLEL_FREQ,
+	[AD9910_SCAN_IDX_POLAR_PHASE] = AD9910_CHAN_IDX_PARALLEL_POLAR_PHASE,
+	[AD9910_SCAN_IDX_POLAR_AMP] = AD9910_CHAN_IDX_PARALLEL_POLAR_AMP,
+};
+
+static u32 ad9910_buffer_chan_idx(struct iio_dev *indio_dev)
+{
+	unsigned int scan_idx = find_first_bit(indio_dev->active_scan_mask,
+					       iio_get_masklength(indio_dev));
+
+	return ad9910_scan_chan_idx[scan_idx];
+}
+
+static int ad9910_buffer_preenable(struct iio_dev *indio_dev)
+{
+	struct ad9910_state *st = iio_priv(indio_dev);
+	int ret;
+
+	guard(mutex)(&st->lock);
+
+	st->scan_mask = *indio_dev->active_scan_mask;
+	ret = iio_backend_chan_enable(st->back,
+				      ad9910_buffer_chan_idx(indio_dev));
+	if (ret)
+		return ret;
+
+	return ad9910_reg32_update(st, AD9910_REG_CFR2,
+				   AD9910_CFR2_PARALLEL_DATA_PORT_EN_MSK,
+				   AD9910_CFR2_PARALLEL_DATA_PORT_EN_MSK,
+				   true);
+}
+
+static int ad9910_buffer_postdisable(struct iio_dev *indio_dev)
+{
+	struct ad9910_state *st = iio_priv(indio_dev);
+	int ret;
+
+	guard(mutex)(&st->lock);
+
+	st->scan_mask = 0;
+	ret = ad9910_reg32_update(st, AD9910_REG_CFR2,
+				  AD9910_CFR2_PARALLEL_DATA_PORT_EN_MSK,
+				  0, true);
+	if (ret)
+		return ret;
+
+	return iio_backend_chan_disable(st->back,
+					ad9910_buffer_chan_idx(indio_dev));
+}
+
+static const struct iio_buffer_setup_ops ad9910_buffer_setup_ops = {
+	.preenable = ad9910_buffer_preenable,
+	.postdisable = ad9910_buffer_postdisable,
+};
+
+static const unsigned long ad9910_available_scan_masks[] = {
+	BIT(AD9910_SCAN_IDX_AMP),
+	BIT(AD9910_SCAN_IDX_PHASE),
+	BIT(AD9910_SCAN_IDX_FREQ),
+	BIT(AD9910_SCAN_IDX_POLAR_AMP) | BIT(AD9910_SCAN_IDX_POLAR_PHASE),
+	0
+};
 
 static int ad9910_probe(struct spi_device *spi)
 {
@@ -2251,6 +2521,21 @@ static int ad9910_probe(struct spi_device *spi)
 		return dev_err_probe(dev, PTR_ERR(dev_rst),
 				     "failed to get device reset control\n");
 
+	st->back = devm_iio_backend_get_optional(dev, NULL);
+	if (IS_ERR(st->back))
+		return dev_err_probe(dev, PTR_ERR(st->back),
+				     "failed to get iio backend\n");
+
+	if (st->back) {
+		ret = devm_iio_backend_request_buffer(dev, st->back, indio_dev);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "failed to request iio backend buffer\n");
+
+		indio_dev->setup_ops = &ad9910_buffer_setup_ops;
+		indio_dev->available_scan_masks = ad9910_available_scan_masks;
+	}
+
 	/*
 	 * The IO RESET pin is not used in this driver, as we assume that all
 	 * SPI transfers are complete, but if it is wired up, we need to make
@@ -2289,6 +2574,15 @@ static int ad9910_probe(struct spi_device *spi)
 				     "failed to add hw powerdown action\n");
 
 	fsleep(AD9910_WAKEUP_DELAY_us);
+
+	st->drctl_pwm = devm_pwm_get(dev, "drctl");
+	if (IS_ERR(st->drctl_pwm)) {
+		ret = PTR_ERR(st->drctl_pwm);
+		if (ret != -ENOENT && ret != -ENODEV)
+			return dev_err_probe(dev, PTR_ERR(st->drctl_pwm),
+					     "failed to get drctl pwm\n");
+		st->drctl_pwm = NULL;
+	}
 
 	ret = ad9910_parse_fw(st);
 	if (ret)
@@ -2345,3 +2639,4 @@ module_spi_driver(ad9910_driver);
 MODULE_AUTHOR("Rodrigo Alencar <rodrigo.alencar@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD9910 DDS driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS("IIO_BACKEND");
