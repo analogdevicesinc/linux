@@ -927,6 +927,7 @@ int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p,
 		case 0x04000007: /* motion estimation */
 		case 0x04000008: /* rdo */
 		case 0x04000009: /* vui */
+		case 0x0400000d: /* sei */
 		case 0x05000002: /* auxiliary buffer */
 		case 0x05000009: /* clock table */
 			break;
