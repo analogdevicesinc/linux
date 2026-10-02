@@ -559,7 +559,9 @@ static int amdgpu_vce_get_destroy_msg(struct amdgpu_ring *ring, uint32_t handle,
 	const unsigned int ib_size_dw = 1024;
 	struct amdgpu_job *job;
 	struct amdgpu_ib *ib;
+	struct amdgpu_ib ib_msg;
 	struct dma_fence *f = NULL;
+	uint64_t addr;
 	int i, r;
 
 	r = amdgpu_job_alloc_with_ib(ring->adev,
@@ -573,7 +575,17 @@ static int amdgpu_vce_get_destroy_msg(struct amdgpu_ring *ring, uint32_t handle,
 	if (r)
 		return r;
 
+	memset(&ib_msg, 0, sizeof(ib_msg));
+	/* only one gpu page is needed, alloc +1 page to make addr aligned. */
+	r = amdgpu_ib_get(ring->adev, NULL, AMDGPU_GPU_PAGE_SIZE * 2,
+			  direct ? AMDGPU_IB_POOL_DIRECT : AMDGPU_IB_POOL_DELAYED,
+			  &ib_msg);
+	if (r)
+		goto err;
+
 	ib = &job->ibs[0];
+	/* let addr point to page boundary */
+	addr = AMDGPU_GPU_PAGE_ALIGN(ib_msg.gpu_addr);
 
 	/* stitch together an VCE destroy msg */
 	ib->length_dw = 0;
@@ -587,8 +599,14 @@ static int amdgpu_vce_get_destroy_msg(struct amdgpu_ring *ring, uint32_t handle,
 	ib->ptr[ib->length_dw++] = 0x00000001; /* destroy session */
 	ib->ptr[ib->length_dw++] = 0x00000000;
 	ib->ptr[ib->length_dw++] = 0x00000000;
-	ib->ptr[ib->length_dw++] = 0xffffffff; /* feedback is not needed, set to 0xffffffff and firmware will not output feedback */
+	ib->ptr[ib->length_dw++] = 0xffffffff;
 	ib->ptr[ib->length_dw++] = 0x00000000;
+
+	ib->ptr[ib->length_dw++] = 0x00000014; /* len */
+	ib->ptr[ib->length_dw++] = 0x05000005; /* feedback buffer */
+	ib->ptr[ib->length_dw++] = upper_32_bits(addr);
+	ib->ptr[ib->length_dw++] = addr;
+	ib->ptr[ib->length_dw++] = 0x00000001;
 
 	ib->ptr[ib->length_dw++] = 0x00000008; /* len */
 	ib->ptr[ib->length_dw++] = 0x02000001; /* destroy cmd */
@@ -600,6 +618,7 @@ static int amdgpu_vce_get_destroy_msg(struct amdgpu_ring *ring, uint32_t handle,
 		r = amdgpu_job_submit_direct(job, ring, &f);
 	else
 		f = amdgpu_job_submit(job);
+	amdgpu_ib_free(&ib_msg, f);
 	if (r)
 		goto err;
 
