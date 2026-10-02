@@ -362,6 +362,7 @@ static inline void svc_thread_init_status(struct svc_rqst *rqstp, int err)
 
 struct svc_deferred_req {
 	u32			prot;	/* protocol (UDP or TCP) */
+	bool			secure;	/* RQ_SECURE of the original request */
 	struct svc_xprt		*xprt;
 	struct sockaddr_storage	addr;	/* where reply must go */
 	size_t			addrlen;
