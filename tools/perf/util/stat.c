@@ -381,6 +381,10 @@ static bool evsel__count_has_error(struct evsel *evsel,
 	if (config->aggr_mode == AGGR_GLOBAL)
 		return false;
 
+	/* cgroup events may not be scheduled on some CPUs */
+	if (evsel->cgrp)
+		return false;
+
 	/* it's considered ok when it actually ran */
 	if (count->ena != 0 && count->run != 0)
 		return false;
