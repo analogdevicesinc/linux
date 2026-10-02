@@ -1283,6 +1283,10 @@
 	status = "okay";
 };
 
+&watchdog {
+	status = "okay";
+};
+
 &xo_board {
 	clock-frequency = <76800000>;
 };
