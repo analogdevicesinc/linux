@@ -1197,7 +1197,6 @@ static struct clk_rcg2 ubi0_axi_clk_src = {
 		.parent_data = gcc_xo_gpll0_gpll2,
 		.num_parents = ARRAY_SIZE(gcc_xo_gpll0_gpll2),
 		.ops = &clk_rcg2_ops,
-		.flags = CLK_SET_RATE_PARENT,
 	},
 };
 
