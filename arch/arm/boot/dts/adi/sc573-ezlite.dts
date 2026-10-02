@@ -68,7 +68,6 @@
 			adi,l1-da = <0x240000 0x3a0000>;
 			adi,l2-da = <0x20080000 0x200C0000>;
 			adi,rsc-table = <&rsc_tbl0>;
-			status = "okay";
 		};
 
 		core2-rproc@3108C000 {
@@ -86,7 +85,6 @@
 			adi,l1-da = <0x240000 0x3a0000>;
 			adi,l2-da = <0x20080000 0x200C0000>;
 			adi,rsc-table = <&rsc_tbl1>;
-			status = "okay";
 		};
 
 		sound {
