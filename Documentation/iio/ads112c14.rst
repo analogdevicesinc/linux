@@ -1,0 +1,355 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+================
+ADS112C14 driver
+================
+
+ADC driver for Texas Instruments ADS112C14 and similar devices. The module name
+is ``ti-ads112c14``.
+
+Supported devices
+=================
+
+The following chips are supported by this driver:
+
+* `ADS112C14 <https://www.ti.com/product/ADS112C14>`_ (16-bit)
+* `ADS122C14 <https://www.ti.com/product/ADS122C14>`_ (24-bit)
+
+These are low-power ADCs with 8 analog inputs and an I2C interface. They are
+primarily designed for use with resistive sensors such as RTDs, thermocouples
+and resistive bridges.
+
+Supported features
+==================
+
+Measurement channels
+--------------------
+
+Each ``channel@`` node in the devicetree describes the conditions needed to
+take a particular measurement rather than just a physical input. In addition to
+the analog input(s), this includes the reference source, excitation currents,
+burnout current and input chopping. See the `ti,ads112c14.yaml`_ devicetree
+binding for the details.
+
+.. _ti,ads112c14.yaml: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/ti,ads112c14.yaml
+
+The IIO channels in sysfs are named after the analog inputs given in the
+devicetree:
+
+* The ``single-channel = <X>`` devicetree property creates an ``in_voltageX``
+  channel.
+* The ``diff-channels = <X>, <Y>`` devicetree property creates an
+  ``in_voltageX-voltageY`` channel.
+* If the measurement uses the external reference and the
+  ``ti,refp-refn-resistor-ohms`` devicetree property is given, the measurement
+  is ratiometric to the resistor between REFP and REFN, so it is reported as an
+  ``in_resistanceX`` channel instead, where ``X`` is the positive input. In
+  this case, ``raw * scale`` gives the resistance in ohms.
+
+If a devicetree channel node has a ``label`` property, it can be read from the
+``in_*_label`` sysfs attribute.
+
+Unless the ``bipolar`` devicetree property is given, the raw value is unsigned.
+
+The ``in_*_scale`` sysfs attribute selects the PGA gain. The available values
+are listed in the ``in_*_scale_available`` sysfs attribute.
+
+Excitation currents are left enabled after a measurement until a measurement is
+made that does not use them.
+
+System monitor channels
+-----------------------
+
+The following channels are always present in sysfs, regardless of the
+devicetree:
+
+============================ ===============================================
+Channel                      Description
+============================ ===============================================
+``in_temp100``               Internal temperature sensor.
+``in_voltage101``            External reference voltage (REFP - REFN).
+``in_voltage102``            AVDD supply voltage.
+``in_voltage103``            DVDD supply voltage.
+``in_voltage104-voltage104`` Internal short, used for offset calibration.
+============================ ===============================================
+
+The chip measures the external reference, AVDD and DVDD through an internal
+attenuator that divides by 8. This is already taken into account in the scale,
+so ``raw * scale`` gives the actual voltage in millivolts.
+
+The internal short channel has a writable ``in_voltage104-voltage104_scale``
+sysfs attribute so that the PGA gain can be set to match the gain of the
+measurement channel being calibrated.
+
+When the external reference is a resistor driven by the excitation currents
+(e.g. in an RTD configuration), there is only a reference voltage while the
+excitation currents are enabled. So a measurement that uses the excitation
+currents needs to be made first, otherwise the ``in_voltage101`` reading will
+not be meaningful.
+
+Filter type, oversampling ratio and sampling frequency
+------------------------------------------------------
+
+The filter type, oversampling ratio and sampling frequency can be set per
+channel with the ``in_*_filter_type``, ``in_*_oversampling_ratio`` and
+``in_*_sampling_frequency`` sysfs attributes.
+
+On these chips, these three settings are tightly coupled and do not map
+directly to separate register fields. The available values of one attribute
+depend on the current value of the others, so the attributes must be written in
+a specific order:
+
+1. Write ``in_*_filter_type``.
+2. If the filter type is ``sinc4`` or ``sinc4+sinc1``, write
+   ``in_*_oversampling_ratio`` and then ``in_*_sampling_frequency``.
+3. If the filter type is ``sinc4+sinc1+pf1``, write ``in_*_sampling_frequency``
+   and then ``in_*_oversampling_ratio``.
+
+After each write, check the ``*_available`` sysfs attribute of the next
+attribute to see which values can be selected.
+
+Settling time
+-------------
+
+The ``in_*_settlingtime`` sysfs attribute sets the total time for the ADC to
+settle before it outputs the first conversion result after starting conversions
+or after changing settings. The ``in_*_settlingtime_available`` sysfs attribute
+gives the range of allowed values as ``[min step max]``.
+
+The minimum value is the fixed latency of the digital filter for the current
+filter type, oversampling ratio and sampling frequency. This already includes
+the time for the conversion itself. Selecting a larger value adds a
+programmable delay before the conversion starts, which can be used to allow
+external circuitry (e.g. filters on the analog inputs) to settle. The available
+delays are not evenly spaced, so the driver selects the smallest delay that
+gives at least the requested settling time. Read back the attribute after
+writing it to see the actual value.
+
+The settling time applies to more than just the first conversion in some
+cases:
+
+* In single-shot mode, every conversion is a first conversion. This includes
+  reading ``in_*_raw`` and buffered reads that are not using the DRDY trigger
+  (see `Device buffers`_).
+* When input chopping is enabled with the ``input-chopping`` devicetree
+  property, the input mux is swapped after each conversion, so every
+  conversion waits for the settling time. In this case, the actual data rate
+  is lower than ``in_*_sampling_frequency`` and is approximately
+  ``1 / settlingtime``.
+
+Burnout current
+---------------
+
+If a devicetree channel node has the ``burn-out-current-nanoamp`` property, the
+channel has an extra ``in_*_burnoutraw`` sysfs attribute. Reading it takes a
+single conversion with the burnout current sources enabled. This can be used to
+detect an open or shorted sensor. The burnout current affects the accuracy of
+the reading, so it is only enabled for this conversion and not for normal
+reads. Input chopping is also disabled during this conversion since the chip
+does not allow it to be used together with the burnout current sources.
+
+External clock
+--------------
+
+If the ``clocks`` devicetree property is given, the chip is clocked from the
+external clock on the GPIO3 pin instead of the internal 4.096 MHz oscillator.
+The available sampling frequencies and settling times in sysfs are scaled
+accordingly.
+
+I2C CRC
+-------
+
+The I2C CRC feature of the chip is always enabled. The driver checks the CRC of
+all register reads and direct reads. For buffered reads, see `Device buffers`_.
+
+GPIO controller
+---------------
+
+If the ``gpio-controller`` devicetree property is given, the AIN4/GPIO0 to
+AIN7/GPIO3 pins can be used as GPIOs. The lines are named ``iio:deviceN:GPIOx``.
+
+Pins that are used for something else according to the devicetree are not
+available as GPIOs. This includes:
+
+* Analog inputs and excitation current outputs used by any measurement channel
+  (AIN4 to AIN7 are GPIO0 to GPIO3).
+* GPIO0 and GPIO1 when an external reference is used (REFP and REFN share these
+  pins).
+* GPIO2 when ``interrupt-names`` contains ``fault``.
+* GPIO3 when ``interrupt-names`` contains ``drdy`` or when the ``clocks``
+  property is given.
+
+Outputs are always configured as push-pull.
+
+Debugfs register access
+-----------------------
+
+The chip registers can be read and written via the ``direct_reg_access``
+debugfs attribute. This can be used to check settings against the datasheet and
+to check status that is not otherwise available, such as the AVDD and reference
+undervoltage and fault flags in the ``STATUS_MSB`` register (0x02). For
+example:
+
+.. code-block:: bash
+
+    $ cd /sys/kernel/debug/iio/iio:device0
+    $ echo 0x02 > direct_reg_access
+    $ cat direct_reg_access
+
+Writing registers this way bypasses the driver, so it should only be used for
+debugging.
+
+Unimplemented features
+----------------------
+
+* Power management (power-down and standby modes).
+* Monitoring and events (e.g. AVDD and reference undervoltage, /FAULT pin).
+* Open-drain configuration of the GPIO outputs and /DRDY output.
+
+Device buffers
+==============
+
+This driver supports IIO triggered buffers. The behavior depends on which
+trigger is used.
+
+DRDY trigger
+------------
+
+If the ``interrupt-names`` devicetree property contains ``drdy``, the driver
+provides a trigger for it. The driver does not set the interrupt trigger type,
+so it must be given in the ``interrupts`` devicetree property. Since /DRDY is
+active low, this should be ``IRQ_TYPE_EDGE_FALLING``.
+
+When this trigger is used, the chip runs in continuous conversion mode and the
+data is read each time a conversion completes. In this mode, only one channel
+may be enabled at a time, and the data rate is given by the
+``in_*_sampling_frequency`` sysfs attribute of that channel (except when input
+chopping is enabled, see `Settling time`_).
+
+The trigger is not assigned by default, so it has to be selected by writing to
+the ``trigger/current_trigger`` sysfs attribute. The trigger is named
+``<name>-dev<N>-drdy``, where ``<name>`` is the value of the ``name`` sysfs
+attribute of the IIO device and ``<N>`` is the same number as in the
+``iio:device<N>`` directory name of the IIO device. For example, for
+``iio:device0``, ``<N>`` is ``0``:
+
+.. code-block:: bash
+
+    $ cd /sys/bus/iio/devices/iio:device0
+    $ echo "$(cat name)-dev0-drdy" > trigger/current_trigger
+
+Other triggers
+--------------
+
+When any other trigger is used (e.g. an hrtimer trigger), the chip runs in
+single-shot mode and each enabled channel is read in turn each time the trigger
+fires. In this mode, any number of channels may be enabled. Since every
+conversion includes the settling time, the trigger frequency cannot be set as
+high as ``in_*_sampling_frequency``. Each time the trigger fires, it takes at
+least the sum of the ``in_*_settlingtime`` values of all enabled channels plus
+the I2C communication time to read all of the channels. The trigger frequency
+needs to be low enough to allow for this.
+
+Buffer data format
+------------------
+
+Each sample is stored in 32 bits, big-endian, with the conversion result in the
+upper bits. The byte immediately following the conversion result contains the
+CRC byte sent by the chip. The driver does not check this CRC for buffered
+reads, so userspace can use it to detect and discard corrupted samples. The CRC
+is CRC-8 with polynomial 0x07 and initial value 0xFF, calculated over the bytes
+of the conversion result.
+
+Devicetree examples
+===================
+
+The following examples show some typical sensor configurations. See the
+datasheet for the corresponding circuit diagrams.
+
+2-wire RTD
+----------
+
+One excitation current drives both the RTD and the reference resistor, so the
+measurement is ratiometric and the RTD resistance is available from
+``in_resistance1_raw`` and ``in_resistance1_scale``.
+
+.. code-block::
+
+    adc@40 {
+        compatible = "ti,ads122c14";
+        reg = <0x40>;
+        avdd-supply = <&avdd>;
+        dvdd-supply = <&dvdd>;
+        ti,refp-refn-resistor-ohms = <500>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        channel@0 {
+            reg = <0>;
+            diff-channels = <1>, <4>;
+            excitation-channels = <0>;
+            excitation-current-nanoamp = <500000>;
+            reference-sources = "external";
+        };
+    };
+
+3-wire RTD
+----------
+
+Two matched excitation currents are used to cancel out the lead resistance.
+Input chopping is enabled to reduce offset errors.
+
+.. code-block::
+
+    adc@40 {
+        compatible = "ti,ads122c14";
+        reg = <0x40>;
+        avdd-supply = <&avdd>;
+        dvdd-supply = <&dvdd>;
+        ti,refp-refn-resistor-ohms = <500>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        channel@0 {
+            reg = <0>;
+            diff-channels = <1>, <2>;
+            excitation-channels = <0>, <3>;
+            excitation-current-nanoamp = <500000>, <500000>;
+            input-chopping;
+            reference-sources = "external";
+        };
+    };
+
+Resistive bridge with thermistor
+--------------------------------
+
+The bridge is excited by AVDD, which is also connected to REFP, so the bridge
+measurement is ratiometric. The thermistor is measured using the internal
+reference. The labels make it easy to find the channels in userspace.
+
+.. code-block::
+
+    adc@40 {
+        compatible = "ti,ads122c14";
+        reg = <0x40>;
+        avdd-supply = <&avdd>;
+        dvdd-supply = <&dvdd>;
+        refp-supply = <&avdd>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        channel@0 {
+            reg = <0>;
+            diff-channels = <6>, <7>;
+            bipolar;
+            reference-sources = "external";
+            label = "bridge";
+        };
+
+        channel@1 {
+            reg = <1>;
+            diff-channels = <1>, <2>;
+            reference-sources = "internal-2.5v";
+            label = "thermistor";
+        };
+    };
