@@ -78,7 +78,6 @@
 				mboxes = <&tru 71>; /* trigger master SOFT4 */
 				mbox-names = "kick";
 				adi,rsc-table = <&rsc_tbl0>;
-				status = "okay";
 			};
 
 			sharc@1 {
@@ -95,7 +94,6 @@
 				mboxes = <&tru 72>; /* trigger master SOFT5 */
 				mbox-names = "kick";
 				adi,rsc-table = <&rsc_tbl1>;
-				status = "okay";
 			};
 		};
 
