@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADAQ23875 (LTC2387-16 inside, 16-bit, one-lane mode).
+ *
+ * Pair with the matching one-lane HDL bitstream (TWOLANES=0, ADC_RES=16).
+ *
+ * hdl_project: <adaq2387x/zed with ADC_RES=16, TWOLANES=0>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed-adv7511-adaq23875.dtsi"
+
+&adaq23875 {
+	adi,use-one-lane;
+};

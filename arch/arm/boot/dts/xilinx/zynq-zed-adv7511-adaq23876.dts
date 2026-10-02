@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADAQ23876 (LTC2387-16 inside, 16-bit, two-lane mode).
+ *
+ * hdl_project: <adaq2387x/zed with ADC_RES=16, TWOLANES=1>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed-adv7511-adaq23876.dtsi"
