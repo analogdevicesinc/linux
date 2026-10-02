@@ -35,18 +35,23 @@
 };
 
 &scb {
-	sharc0: core1-rproc@28240000 {
-		compatible = "adi,remoteproc";
-		reg = <0x28240000 0x160000>,
-				<0x20000000 0x200000>;
+	sharcfx: sharcfx@28240000 {
+		compatible = "adi,sc8xx-rproc";
+		reg = <0x28240000 0x90000>,
+				<0x20400000 0x400000>;
 		core-id = <1>;
 		core-irq = <321>; /* SOFT1 */
 		firmware-name = "adi/rpmsg_echo_sharc_core1.ldr";
 		interrupts = <GIC_SPI 352 IRQ_TYPE_EDGE_RISING>; /* TRU0_RCV3 */
-		adi,rcu = <&rcu>;
-		adi,l1-da = <0x240000 0x3a0000>;
-		adi,l2-da = <0x20000000 0x20200000>;
+		adi,svect = <&rcu 0x30>;
+		resets = <&rcu 1 0>, <&rcu 1 1>;
+		reset-names = "crst", "start";
+		mboxes = <&tru 171>; /* trigger master SOFT4 */
+		mbox-names = "kick";
+		adi,l1-da = <0x2f780000 0x2f810000>;
+		adi,l2-da = <0x20400000 0x20800000>;
 		adi,rsc-table = <&rsc_tbl0>;
+		vdev-vring = <&vdev0vrings>;
 		adi,verify = <1>;
 		adi,tru = <&tru>;
 		adi,tru-master-id = <ADI_TRU_MST_SOFT(4)>;

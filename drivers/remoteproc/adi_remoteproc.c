@@ -31,10 +31,12 @@
 #include <linux/remoteproc.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
+#include <linux/unaligned.h>
 
 #include <linux/soc/adi/icc.h>
 #include <linux/soc/adi/spu.h>
 #include "remoteproc_internal.h"
+#include "remoteproc_elf_helpers.h"
 
 /* location of bootrom that loops idle */
 #define SHARC_IDLE_ADDR			(0x00090004)
@@ -52,6 +54,36 @@
 
 #define NUM_TABLE_ENTRIES         1
 /* Resource table for the given remote */
+
+#define SHARCFX_IRAM_ARM_OFFSET 0x07540000
+#define SHARCFX_IRAM_START	0x2f800000
+#define SHARCFX_IRAM_END	0x2f80ffff
+
+/*
+ * Stride of ELF segments in the staging buffer: the widest MDMA access, so the
+ * source end never narrows the access size get_txn_align() picks.
+ */
+#define ADI_ELF_SEG_ALIGN	32
+
+/* SHARC+ L1 multiprocessor window offsets, per core (DS Table 4) */
+#define SHARC1_MP_OFFSET	0x28000000
+#define SHARC2_MP_OFFSET	0x28800000
+
+/*
+ * ".adi.attributes" is the Arm build attributes encoding with "AnonADI" as the
+ * vendor name: a format byte, then one vendor subsection made of (u8 tag,
+ * le32 length) sub-subsections. A Section sub-subsection lists the section
+ * indices it describes as 0-terminated ULEB128s, followed by ULEB128 (tag,
+ * value) pairs.
+ */
+#define SHT_ADI_ATTRIBUTES	(SHT_LOPROC + 2)
+#define ADI_ATTR_SECTION_NAME	".adi.attributes"
+#define ADI_ATTR_FORMAT_A	'A'
+#define ADI_ATTR_HDR_LEN	5	/* u8 format or tag, le32 length */
+#define ADI_ATTR_VENDOR		"AnonADI"
+#define ADI_ATTR_SUB_SECTION	2
+#define ADI_ATTR_TAG_PART_NAME	4	/* the one string valued attribute */
+#define ADI_ATTR_TAG_WORD_BITS	19	/* bits in one addressable word */
 
 struct bcode_flag_t {
 	uint32_t bCode:4,			/* 0-3 */
@@ -76,6 +108,68 @@ struct ldr_hdr {
 	u32 target_addr;
 	u32 byte_count;
 	u32 argument;
+};
+
+enum adi_rproc_variant {
+	SC5XX_RPROC_SHARC,
+	SC5XX_RPROC_SHARCFX,
+};
+
+struct adi_rproc_config {
+	unsigned int variant;
+};
+
+#define WORD_SCALE_8 1
+#define WORD_SCALE_16 2
+#define WORD_SCALE_32 4
+#define WORD_SCALE_48 6
+#define WORD_SCALE_64 8
+
+struct sharcp_space {
+	uint32_t start;
+	uint32_t end;
+	uint32_t byte_base;
+	uint8_t l1;
+	uint8_t scale;
+	uint8_t bits;
+};
+
+static const struct sharcp_space sharcp_spaces[] = {
+	/* L1 block 0 */
+	{ 0x00048000, 0x0004dfff, 0x00240000, 1, WORD_SCALE_64, 64 },
+	{ 0x00090000, 0x00097fff, 0x00240000, 1, WORD_SCALE_48, 48 },
+	{ 0x00090000, 0x0009bfff, 0x00240000, 1, WORD_SCALE_32, 32 },
+	{ 0x00120000, 0x00137fff, 0x00240000, 1, WORD_SCALE_16, 16 },
+	{ 0x00240000, 0x0026ffff, 0x00240000, 1, WORD_SCALE_8,  8  },
+	/* L1 block 1 */
+	{ 0x00058000, 0x0005dfff, 0x002c0000, 1, WORD_SCALE_64, 64 },
+	{ 0x000b0000, 0x000b7fff, 0x002c0000, 1, WORD_SCALE_48, 48 },
+	{ 0x000b0000, 0x000bbfff, 0x002c0000, 1, WORD_SCALE_32, 32 },
+	{ 0x00160000, 0x00177fff, 0x002c0000, 1, WORD_SCALE_16, 16 },
+	{ 0x002c0000, 0x002effff, 0x002c0000, 1, WORD_SCALE_8,  8  },
+	/* L1 block 2 */
+	{ 0x00060000, 0x00063fff, 0x00300000, 1, WORD_SCALE_64, 64 },
+	{ 0x000c0000, 0x000c5554, 0x00300000, 1, WORD_SCALE_48, 48 },
+	{ 0x000c0000, 0x000c7fff, 0x00300000, 1, WORD_SCALE_32, 32 },
+	{ 0x00180000, 0x0018ffff, 0x00300000, 1, WORD_SCALE_16, 16 },
+	{ 0x00300000, 0x0031ffff, 0x00300000, 1, WORD_SCALE_8,  8  },
+	/* L1 block 3 */
+	{ 0x00070000, 0x00073fff, 0x00380000, 1, WORD_SCALE_64, 64 },
+	{ 0x000e0000, 0x000e5554, 0x00380000, 1, WORD_SCALE_48, 48 },
+	{ 0x000e0000, 0x000e7fff, 0x00380000, 1, WORD_SCALE_32, 32 },
+	{ 0x001c0000, 0x001cffff, 0x00380000, 1, WORD_SCALE_16, 16 },
+	{ 0x00380000, 0x0039ffff, 0x00380000, 1, WORD_SCALE_8,  8  },
+	/* L2, shared between the cores, no multiprocessor offset */
+	{ 0x00580000, 0x005d5554, 0x20000000, 0, WORD_SCALE_48, 48 }, // ? verify
+	{ 0x08000000, 0x0807ffff, 0x20000000, 0, WORD_SCALE_32, 32 },
+	{ 0x00b00000, 0x00bfffff, 0x20000000, 0, WORD_SCALE_16, 16 },
+	{ 0x20000000, 0x201fffff, 0x20000000, 0, WORD_SCALE_8,  8  },
+};
+
+/* Word width of one allocated ELF section, as .adi.attributes records it */
+struct sharcp_section {
+	u32 addr;
+	u32 bits;
 };
 
 struct sharc_resource_table {
@@ -161,6 +255,15 @@ struct adi_rproc_data {
 	int firmware_format;
 	void __iomem *L1_shared_base;
 	void __iomem *L2_shared_base;
+	/*
+	 * Physical bases and sizes matching L1_shared_base/L2_shared_base. MDMA
+	 * works on physical addresses, not the ioremapped ones, so the ELF
+	 * loader needs both forms of the same window.
+	 */
+	phys_addr_t l1_phys_base;
+	phys_addr_t l2_phys_base;
+	size_t l1_size;
+	size_t l2_size;
 	struct workqueue_struct *core_workqueue;
 	enum adi_rproc_rpmsg_state rpmsg_state;
 	u64 l1_da_range[2];
@@ -168,6 +271,18 @@ struct adi_rproc_data {
 	u32 verify;
 	struct adi_sharc_resource_table *adi_rsc_table;
 	struct sharc_resource_table *loaded_rsc_table;
+	/* True when the resource table came from the firmware image itself
+	 * rather than from the driver's built-in template.
+	 */
+	bool rsc_table_from_fw;
+	struct adi_rproc_config cfg;
+	/*
+	 * SHARC+ only: word width of each section of the ELF image loaded,
+	 * which its device addresses cannot be translated without. Kept from
+	 * load to stop, as the resource table is looked up after the load.
+	 */
+	struct sharcp_section *sections;
+	unsigned int num_sections;
 };
 
 static int adi_core_set_svect(struct adi_rproc_data *rproc_data,
@@ -226,7 +341,6 @@ static int is_empty(struct ldr_hdr *hdr)
 static void load_callback(void *p)
 {
 	struct completion *cmp = p;
-
 	complete(cmp);
 }
 
@@ -244,6 +358,7 @@ static void ldr_load(struct adi_rproc_data *rproc_data)
 //	uint32_t verfied = 0;
 //	uint8_t *pCompareBuffer;
 //	uint8_t *pVerifyBuffer;
+
 	struct dma_chan *chan = dma_find_channel(DMA_MEMCPY);
 	struct dma_async_tx_descriptor *tx;
 	struct completion cmp;
@@ -344,8 +459,7 @@ static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
 		return ADI_FW_LDR;
 
 	if (!rproc_elf_sanity_check(rproc, fw)) {
-		dev_err(&rproc->dev, "ELF format not supported\n");
-		return -EOPNOTSUPP;
+		return ADI_FW_ELF;
 	}
 
 	dev_err(&rproc->dev, "## No valid image at address %p\n", fw->data);
@@ -367,6 +481,7 @@ static void disable_spu(void)
 static int adi_ldr_load(struct adi_rproc_data *rproc_data,
 						const struct firmware *fw)
 {
+
 	rproc_data->fw_size = fw->size;
 	if (!rproc_data->mem_virt) {
 		rproc_data->mem_virt = dma_alloc_coherent(rproc_data->dev,
@@ -388,6 +503,568 @@ static int adi_ldr_load(struct adi_rproc_data *rproc_data,
 	return 0;
 }
 
+/* Read one ULEB128 from [*p, end), failing rather than truncating to 32 bits */
+static bool adi_attr_uleb128(const u8 **p, const u8 *end, u32 *val)
+{
+	unsigned int shift = 0;
+	u32 v = 0;
+	u8 byte;
+
+	do {
+		if (*p >= end || shift > 28)
+			return false;
+
+		byte = *(*p)++;
+		if (shift == 28 && (byte & 0x70))
+			return false;
+
+		v |= (u32)(byte & 0x7f) << shift;
+		shift += 7;
+	} while (byte & 0x80);
+
+	*val = v;
+	return true;
+}
+
+/*
+ * adi_attr_parse: record the word width of each section .adi.attributes covers
+ *
+ * @bits is indexed by ELF section number and has @shnum entries. Only Section
+ * sub-subsections are read; the rest, the File one with the part name among
+ * them, are stepped over whole.
+ */
+static int adi_attr_parse(const u8 *attr, size_t size, u32 *bits,
+			  unsigned int shnum)
+{
+	const size_t vendor_len = sizeof(ADI_ATTR_VENDOR);
+	const u8 *p, *q, *list, *end, *sub_end;
+	u32 len, idx, tag, val, word_bits;
+
+	if (size < ADI_ATTR_HDR_LEN + vendor_len || attr[0] != ADI_ATTR_FORMAT_A)
+		return -EINVAL;
+
+	/* The vendor subsection length counts itself but not the format byte */
+	len = get_unaligned_le32(attr + 1);
+	if (len < sizeof(u32) + vendor_len || len > size - 1 ||
+	    memcmp(attr + ADI_ATTR_HDR_LEN, ADI_ATTR_VENDOR, vendor_len))
+		return -EINVAL;
+
+	end = attr + 1 + len;
+
+	for (p = attr + ADI_ATTR_HDR_LEN + vendor_len;
+	     end - p >= ADI_ATTR_HDR_LEN; p = sub_end) {
+		/* A sub-subsection length counts its tag byte and itself */
+		len = get_unaligned_le32(p + 1);
+		if (len < ADI_ATTR_HDR_LEN || len > (size_t)(end - p))
+			return -EINVAL;
+
+		sub_end = p + len;
+
+		if (p[0] != ADI_ATTR_SUB_SECTION)
+			continue;
+
+		/* Step over the 0-terminated list of sections, applied below */
+		list = p + ADI_ATTR_HDR_LEN;
+		q = list;
+		do {
+			if (!adi_attr_uleb128(&q, sub_end, &idx))
+				return -EINVAL;
+		} while (idx);
+
+		word_bits = 0;
+		while (q < sub_end) {
+			if (!adi_attr_uleb128(&q, sub_end, &tag))
+				return -EINVAL;
+
+			if (tag == ADI_ATTR_TAG_PART_NAME) {
+				q += strnlen((const char *)q, sub_end - q) + 1;
+				continue;
+			}
+
+			if (!adi_attr_uleb128(&q, sub_end, &val))
+				return -EINVAL;
+
+			if (tag == ADI_ATTR_TAG_WORD_BITS)
+				word_bits = val;
+		}
+
+		while (word_bits && adi_attr_uleb128(&list, sub_end, &idx) && idx) {
+			if (idx < shnum)
+				bits[idx] = word_bits;
+		}
+	}
+
+	return 0;
+}
+
+static void sharcp_free_sections(struct adi_rproc_data *rproc_data)
+{
+	kfree(rproc_data->sections);
+	rproc_data->sections = NULL;
+	rproc_data->num_sections = 0;
+}
+
+/*
+ * sharcp_parse_sections: collect the word width of every allocated section
+ *
+ * SHARC+ addresses count words, not bytes, and the 48-bit instruction space
+ * overlays the 32-bit data space, so nothing in an address says how to scale
+ * it: only the image's .adi.attributes section does. The ADI linker emits one
+ * section per loadable segment with sh_addr matching p_paddr, so recording
+ * the widths by section address lets a segment address be looked up directly.
+ */
+static int sharcp_parse_sections(struct adi_rproc_data *rproc_data,
+				 const struct firmware *fw)
+{
+	const u8 *elf_data = fw->data;
+	u8 class = fw_elf_get_class(fw);
+	size_t shdr_size = elf_size_of_shdr(class);
+	u64 shoff, strtab_off, strtab_size, attr_off, attr_size;
+	const void *shdr, *shstr, *attr = NULL;
+	struct sharcp_section *sections;
+	unsigned int i, n = 0;
+	u16 shnum, shstrndx;
+	u32 *bits;
+	int ret;
+
+	sharcp_free_sections(rproc_data);
+
+	shoff = elf_hdr_get_e_shoff(class, elf_data);
+	shnum = elf_hdr_get_e_shnum(class, elf_data);
+	shstrndx = elf_hdr_get_e_shstrndx(class, elf_data);
+
+	if (!shnum || shstrndx >= shnum || shoff > fw->size ||
+	    (u64)shnum * shdr_size > fw->size - shoff)
+		return -EINVAL;
+
+	shdr = elf_data + shoff;
+	shstr = shdr + shstrndx * shdr_size;
+	strtab_off = elf_shdr_get_sh_offset(class, shstr);
+	strtab_size = elf_shdr_get_sh_size(class, shstr);
+	if (strtab_off > fw->size || strtab_size > fw->size - strtab_off)
+		return -EINVAL;
+
+	for (i = 0; i < shnum; i++) {
+		const void *s = shdr + i * shdr_size;
+		u32 name = elf_shdr_get_sh_name(class, s);
+
+		if (elf_shdr_get_sh_type(class, s) != SHT_ADI_ATTRIBUTES ||
+		    name >= strtab_size ||
+		    strtab_size - name < sizeof(ADI_ATTR_SECTION_NAME))
+			continue;
+
+		if (!memcmp(elf_data + strtab_off + name, ADI_ATTR_SECTION_NAME,
+			    sizeof(ADI_ATTR_SECTION_NAME))) {
+			attr = s;
+			break;
+		}
+	}
+
+	if (!attr)
+		return -ENOENT;
+
+	attr_off = elf_shdr_get_sh_offset(class, attr);
+	attr_size = elf_shdr_get_sh_size(class, attr);
+	if (attr_off > fw->size || attr_size > fw->size - attr_off)
+		return -EINVAL;
+
+	bits = kcalloc(shnum, sizeof(*bits), GFP_KERNEL);
+	if (!bits)
+		return -ENOMEM;
+
+	ret = adi_attr_parse(elf_data + attr_off, attr_size, bits, shnum);
+	if (ret)
+		goto free_bits;
+
+	sections = kcalloc(shnum, sizeof(*sections), GFP_KERNEL);
+	if (!sections) {
+		ret = -ENOMEM;
+		goto free_bits;
+	}
+
+	for (i = 0; i < shnum; i++) {
+		const void *s = shdr + i * shdr_size;
+
+		if (!bits[i] || !(elf_shdr_get_sh_flags(class, s) & SHF_ALLOC) ||
+		    !elf_shdr_get_sh_size(class, s))
+			continue;
+
+		sections[n].addr = elf_shdr_get_sh_addr(class, s);
+		sections[n].bits = bits[i];
+		n++;
+	}
+
+	rproc_data->sections = sections;
+	rproc_data->num_sections = n;
+
+free_bits:
+	kfree(bits);
+	return ret;
+}
+
+static u32 sharcp_section_bits(struct adi_rproc_data *rproc_data, u64 da)
+{
+	unsigned int i;
+
+	for (i = 0; i < rproc_data->num_sections; i++) {
+		if (rproc_data->sections[i].addr == da)
+			return rproc_data->sections[i].bits;
+	}
+
+	return 0;
+}
+
+/*
+ * sharcp_da_to_pa: translate a SHARC+ word address into an Arm byte address
+ *
+ * Each space in sharcp_spaces[] starts at its block's byte base, scaled down
+ * by the space's word size. Core-private L1 is then reached through that
+ * core's multiprocessor window; L2 is shared and needs no offset.
+ */
+static phys_addr_t sharcp_da_to_pa(struct adi_rproc_data *rproc_data, u64 da,
+				   u32 bits, unsigned int *word)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(sharcp_spaces); i++) {
+		const struct sharcp_space *sp = &sharcp_spaces[i];
+		phys_addr_t pa;
+
+		if (sp->bits != bits || da < sp->start || da > sp->end)
+			continue;
+
+		pa = sp->byte_base + (da - sp->start) * sp->scale;
+		if (sp->l1)
+			pa += rproc_data->core_id == 2 ? SHARC2_MP_OFFSET :
+							 SHARC1_MP_OFFSET;
+
+		*word = sp->scale;
+		return pa;
+	}
+
+	return 0;
+}
+
+/*
+ * adi_rproc_da_to_pa: translate a core device address into an Arm physical one
+ *
+ * @word is set to the size in bytes of one addressable word at @da. Returns 0
+ * if @da cannot be translated.
+ */
+static phys_addr_t adi_rproc_da_to_pa(struct adi_rproc_data *rproc_data,
+				      u64 da, unsigned int *word)
+{
+	u32 bits;
+
+	*word = WORD_SCALE_8;
+
+	switch (rproc_data->cfg.variant) {
+	case SC5XX_RPROC_SHARCFX:
+		if (da >= rproc_data->l1_da_range[0] && da < rproc_data->l1_da_range[1])
+			return rproc_data->l1_phys_base + (da - rproc_data->l1_da_range[0]);
+		if (da >= rproc_data->l2_da_range[0] && da < rproc_data->l2_da_range[1])
+			return rproc_data->l2_phys_base + (da - rproc_data->l2_da_range[0]);
+		return 0;
+	case SC5XX_RPROC_SHARC:
+		bits = sharcp_section_bits(rproc_data, da);
+		if (!bits)
+			return 0;
+		return sharcp_da_to_pa(rproc_data, da, bits, word);
+	}
+
+	return 0;
+}
+
+static bool adi_rproc_in_window(phys_addr_t pa, size_t len,
+				phys_addr_t base, size_t size)
+{
+	return pa >= base && len <= size && pa - base <= size - len;
+}
+
+/* Map a range inside one of the two DT "reg" windows to its ioremapped VA */
+static void __iomem *adi_rproc_pa_to_va(struct adi_rproc_data *rproc_data,
+					phys_addr_t pa, size_t len)
+{
+	if (adi_rproc_in_window(pa, len, rproc_data->l1_phys_base,
+				rproc_data->l1_size))
+		return rproc_data->L1_shared_base + (pa - rproc_data->l1_phys_base);
+
+	if (adi_rproc_in_window(pa, len, rproc_data->l2_phys_base,
+				rproc_data->l2_size))
+		return rproc_data->L2_shared_base + (pa - rproc_data->l2_phys_base);
+
+	return NULL;
+}
+
+/*
+ * sharcp_swap_words: copy @len bytes, byte-reversing each @word byte word
+ *
+ * The .dxe stores every word of a word-addressed SHARC+ space in the opposite
+ * byte order to the one the Arm byte window presents. CCES's elfloader applies
+ * that swap when it builds a .ldr, which is why the LDR path can copy blocks
+ * verbatim; an ELF has to be swapped here, or the core resets to a valid SVECT,
+ * fetches byte-reversed instructions and silently does nothing. A trailing
+ * partial word is copied as is.
+ */
+static void sharcp_swap_words(u8 *dst, const u8 *src, size_t len,
+			      unsigned int word)
+{
+	unsigned int i;
+	size_t off;
+
+	for (off = 0; off + word <= len; off += word) {
+		for (i = 0; i < word; i++)
+			dst[off + word - 1 - i] = src[off + i];
+	}
+
+	memcpy(dst + off, src + off, len - off);
+}
+
+/*
+ * adi_rproc_dma_submit: queue @tx on @chan, completing @done when it finishes
+ *
+ * @tx is freed once it completes, so it must not be touched after the submit.
+ */
+static int adi_rproc_dma_submit(struct adi_rproc_data *rproc_data,
+				struct dma_chan *chan,
+				struct dma_async_tx_descriptor *tx,
+				struct completion *done)
+{
+	int ret;
+
+	if (!tx) {
+		dev_err(rproc_data->dev, "Failed to allocate dma transaction\n");
+		return -ENOMEM;
+	}
+
+	if (done) {
+		tx->callback = load_callback;
+		tx->callback_param = done;
+	}
+
+	ret = dma_submit_error(dmaengine_submit(tx));
+	if (ret) {
+		dev_err(rproc_data->dev, "Failed to submit dma transaction\n");
+		return ret;
+	}
+
+	dma_async_issue_pending(chan);
+
+	return 0;
+}
+
+/* One PT_LOAD segment of an ELF image, translated for this core */
+struct adi_elf_segment {
+	u64 da;
+	u64 offset;
+	size_t filesz;
+	size_t memsz;
+	phys_addr_t pa;
+	unsigned int word;
+};
+
+/*
+ * adi_elf_get_segment: read and check one program header
+ *
+ * @seg->memsz is left at 0 for a header with nothing to load.
+ */
+static int adi_elf_get_segment(struct rproc *rproc, const struct firmware *fw,
+			       const void *phdr, struct adi_elf_segment *seg)
+{
+	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	u8 class = fw_elf_get_class(fw);
+	u64 memsz = elf_phdr_get_p_memsz(class, phdr);
+	u64 filesz = elf_phdr_get_p_filesz(class, phdr);
+	u32 type = elf_phdr_get_p_type(class, phdr);
+	struct device *dev = &rproc->dev;
+
+	seg->memsz = 0;
+
+	if (type != PT_LOAD || !memsz)
+		return 0;
+
+	seg->da = elf_phdr_get_p_paddr(class, phdr);
+	seg->offset = elf_phdr_get_p_offset(class, phdr);
+
+	dev_dbg(dev, "phdr: type %d da 0x%llx memsz 0x%llx filesz 0x%llx\n",
+		type, seg->da, memsz, filesz);
+
+	if (filesz > memsz) {
+		dev_err(dev, "bad phdr filesz 0x%llx memsz 0x%llx\n",
+			filesz, memsz);
+		return -EINVAL;
+	}
+
+	if (seg->offset + filesz > fw->size) {
+		dev_err(dev, "truncated fw: need 0x%llx avail 0x%zx\n",
+			seg->offset + filesz, fw->size);
+		return -EINVAL;
+	}
+
+	if (!rproc_u64_fit_in_size_t(memsz)) {
+		dev_err(dev, "size (%llx) does not fit in size_t type\n",
+			memsz);
+		return -EOVERFLOW;
+	}
+
+	/* Only DMA into the windows the DT gives this core */
+	seg->pa = adi_rproc_da_to_pa(rproc_data, seg->da, &seg->word);
+	if (!seg->pa || !adi_rproc_pa_to_va(rproc_data, seg->pa, memsz)) {
+		dev_err(dev, "bad phdr da 0x%llx mem 0x%llx\n", seg->da, memsz);
+		return -EINVAL;
+	}
+
+	seg->filesz = filesz;
+	seg->memsz = memsz;
+
+	return 0;
+}
+
+/*
+ * adi_elf_load_segments: load ELF PT_LOAD segments over MDMA
+ *
+ * Mirrors rproc_elf_load_segments() but routes every write through MDMA
+ * rather than memcpy(), because the SHARC-FX I-completer rejects 8- and
+ * 16-bit accesses to IRAM: the optimised memcpy tail emits byte and halfword
+ * stores and the fabric answers with an SError.
+ *
+ * The transfers are issued the way ldr_load() issues LDR blocks: the payload
+ * is staged in one coherent buffer (fw->data is vmalloc'ed and cannot be used
+ * for DMA), every transfer is queued on the memcpy channel, which runs them in
+ * order, and only the last one signals completion. Only segment contents are
+ * staged, not the whole image, as most of a .dxe is debug information.
+ *
+ * Every program header is checked before anything is written, so a bad image
+ * leaves the core's memory untouched.
+ *
+ * The SPU is held open for the duration of the load, as the LDR path does:
+ * the SHARC-FX bus completer ports reject non-secure accesses with an error
+ * response rather than completing them.
+ *
+ * SHARC+ segment addresses are word addresses whose width only the image's
+ * .adi.attributes section records, so that is parsed first; see
+ * sharcp_parse_sections(). Their wider words are byte swapped while staged,
+ * see sharcp_swap_words().
+ */
+static int adi_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
+{
+	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	const u8 *elf_data = fw->data;
+	u8 class = fw_elf_get_class(fw);
+	u32 elf_phdr_get_size = elf_size_of_phdr(class);
+	struct device *dev = &rproc->dev;
+	struct dma_async_tx_descriptor *tx;
+	struct completion cmp, *done;
+	struct adi_elf_segment seg;
+	const void *phdrs, *phdr;
+	size_t size = 0, pos = 0;
+	struct dma_chan *chan;
+	int i, last = -1, ret = 0;
+	dma_addr_t handle = 0;
+	u8 *buf = NULL;
+	u16 phnum;
+
+	phnum = elf_hdr_get_e_phnum(class, elf_data);
+	phdrs = elf_data + elf_hdr_get_e_phoff(class, elf_data);
+
+	chan = dma_find_channel(DMA_MEMCPY);
+	if (!chan) {
+		dev_err(rproc_data->dev, "Could not find dma memcpy channel\n");
+		return -ENODEV;
+	}
+
+	if (rproc_data->cfg.variant == SC5XX_RPROC_SHARC) {
+		ret = sharcp_parse_sections(rproc_data, fw);
+		if (ret) {
+			dev_err(dev, "failed to parse ADI ELF attributes: %d\n", ret);
+			return ret;
+		}
+	}
+
+	/* Check every segment and size the staging buffer before loading any */
+	for (i = 0, phdr = phdrs; i < phnum; i++, phdr += elf_phdr_get_size) {
+		ret = adi_elf_get_segment(rproc, fw, phdr, &seg);
+		if (ret)
+			return ret;
+
+		if (!seg.memsz)
+			continue;
+
+		size += ALIGN(seg.filesz, ADI_ELF_SEG_ALIGN);
+		last = i;
+	}
+
+	if (last < 0) {
+		dev_err(dev, "no loadable segments in firmware\n");
+		return -EINVAL;
+	}
+
+	/* An image of nothing but .bss-style segments needs no staging */
+	if (size) {
+		buf = dma_alloc_coherent(rproc_data->dev, size, &handle, GFP_KERNEL);
+		if (!buf)
+			return -ENOMEM;
+	}
+
+	init_completion(&cmp);
+
+	enable_spu();
+
+	for (i = 0, phdr = phdrs; i <= last; i++, phdr += elf_phdr_get_size) {
+		ret = adi_elf_get_segment(rproc, fw, phdr, &seg);
+		if (ret)
+			break;
+
+		if (!seg.memsz)
+			continue;
+
+		/* The transfers run in order, so the last one marks the end */
+		done = (i == last) ? &cmp : NULL;
+
+		if (seg.filesz) {
+			if (seg.word > WORD_SCALE_8)
+				sharcp_swap_words(buf + pos, elf_data + seg.offset,
+						  seg.filesz, seg.word);
+			else
+				memcpy(buf + pos, elf_data + seg.offset, seg.filesz);
+
+			tx = dmaengine_prep_dma_memcpy(chan, seg.pa, handle + pos,
+						       seg.filesz, 0);
+			ret = adi_rproc_dma_submit(rproc_data, chan, tx,
+						   seg.memsz == seg.filesz ? done : NULL);
+			if (ret)
+				break;
+
+			pos += ALIGN(seg.filesz, ADI_ELF_SEG_ALIGN);
+		}
+
+		/* Zero the .bss-style tail the image does not carry */
+		if (seg.memsz > seg.filesz) {
+			tx = dmaengine_prep_dma_memset(chan, seg.pa + seg.filesz, 0,
+						       seg.memsz - seg.filesz, 0);
+			ret = adi_rproc_dma_submit(rproc_data, chan, tx, done);
+			if (ret)
+				break;
+		}
+	}
+
+	if (!ret && !wait_for_completion_timeout(&cmp, CORE_INIT_TIMEOUT)) {
+		dev_err(dev, "Timed out waiting for firmware dma\n");
+		ret = -ETIMEDOUT;
+	}
+
+	/* Drop anything still queued: it must not read @buf or complete @cmp */
+	if (ret)
+		dmaengine_terminate_sync(chan);
+
+	disable_spu();
+
+	if (buf)
+		dma_free_coherent(rproc_data->dev, size, buf, handle);
+
+	return ret;
+}
+
 /*
  * adi_rproc_load: parse and load ADI SHARC LDR file into memory
  *
@@ -404,7 +1081,7 @@ static int adi_rproc_load(struct rproc *rproc, const struct firmware *fw)
 		ret = adi_ldr_load(rproc_data, fw);
 		break;
 	case ADI_FW_ELF:
-		ret = rproc_elf_load_segments(rproc, fw);
+		ret = adi_elf_load_segments(rproc, fw);
 		break;
 	default:
 		WARN(1, "Invalid rproc_data->firmware_format\n");
@@ -426,9 +1103,29 @@ static int adi_rproc_load(struct rproc *rproc, const struct firmware *fw)
 static int adi_rproc_start(struct rproc *rproc)
 {
 	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	unsigned long svect = rproc_data->ldr_load_addr;
 	int ret;
 
-	ret = adi_core_set_svect(rproc_data, rproc_data->ldr_load_addr);
+	/*
+	 * The LDR parser records the first block's target address as it walks
+	 * the image, so ldr_load_addr is already correct for that format. An
+	 * ELF has no equivalent pass, and without this ldr_load_addr would
+	 * still hold SHARC_IDLE_ADDR from probe, leaving the core spinning in
+	 * the bootrom idle loop instead of running the loaded firmware. Use
+	 * the entry point remoteproc resolved through .get_boot_addr.
+	 */
+	if (rproc_data->firmware_format == ADI_FW_ELF) {
+		if (!rproc->bootaddr) {
+			dev_err(rproc_data->dev, "No entry point for ELF firmware\n");
+			return -EINVAL;
+		}
+		svect = (unsigned long)rproc->bootaddr;
+	}
+
+	dev_dbg(rproc_data->dev, "starting core%d at 0x%lx\n",
+		rproc_data->core_id, svect);
+
+	ret = adi_core_set_svect(rproc_data, svect);
 	if (ret)
 		return ret;
 
@@ -471,39 +1168,101 @@ static int adi_rproc_stop(struct rproc *rproc)
 
 	rproc_data->ldr_load_addr = SHARC_IDLE_ADDR;
 	rproc_data->loaded_rsc_table = NULL;
+	sharcp_free_sections(rproc_data);
 	return ret;
 }
 
-static int adi_ldr_load_rsc_table(struct rproc *rproc, const struct firmware *fw)
+/*
+ * Build the resource table from the driver's built-in template.
+ *
+ * LDR images have no resource table section at all, and ELF images are not
+ * required to carry one either, so in both cases the table is synthesised
+ * here. The layout matches struct sharc_resource_table, which the carveout
+ * setup in adi_rproc_parse_fw() relies on.
+ */
+static int adi_rsc_table_from_template(struct rproc *rproc)
 {
 	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
 	size_t size = sizeof(_rsc_table_template.rsc_table);
-
-	if (rproc_data->adi_rsc_table == NULL)
-		return -EINVAL;
+	struct sharc_resource_table *table;
+	u32 notifyid;
 
 	/* kfree in remoteproc_core.c */
 	rproc->cached_table = kmemdup(&_rsc_table_template.rsc_table, size, GFP_KERNEL);
 	if (!rproc->cached_table)
 		return -ENOMEM;
 
-	if (rproc_data->core_id == 1) {
-		((struct sharc_resource_table *)rproc->cached_table)->rpmsg_vdev.notifyid = 1;
-		((struct sharc_resource_table *)rproc->cached_table)->vring[0].notifyid = 1;
-		((struct sharc_resource_table *)rproc->cached_table)->vring[1].notifyid = 1;
-	} else {
-		((struct sharc_resource_table *)rproc->cached_table)->rpmsg_vdev.notifyid = 2;
-		((struct sharc_resource_table *)rproc->cached_table)->vring[0].notifyid = 2;
-		((struct sharc_resource_table *)rproc->cached_table)->vring[1].notifyid = 2;
-	}
+	/* Notify id is the core the vdev belongs to */
+	notifyid = (rproc_data->core_id == 1) ? 1 : 2;
+
+	table = (struct sharc_resource_table *)rproc->cached_table;
+	table->rpmsg_vdev.notifyid = notifyid;
+	table->vring[0].notifyid = notifyid;
+	table->vring[1].notifyid = notifyid;
 
 	/* Initialize ADI resource table header*/
 	rproc_data->adi_rsc_table->adi_table_hdr = _rsc_table_template.adi_table_hdr;
 
 	rproc->table_ptr = rproc->cached_table;
 	rproc->table_sz = size;
+	rproc_data->rsc_table_from_fw = false;
 
 	return 0;
+}
+
+static int adi_ldr_load_rsc_table(struct rproc *rproc, const struct firmware *fw)
+{
+	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+
+	if (rproc_data->adi_rsc_table == NULL)
+		return -EINVAL;
+
+	return adi_rsc_table_from_template(rproc);
+}
+
+/*
+ * Load the resource table from an ELF image.
+ *
+ * Firmware built with a .resource_table section is used as-is. Images without
+ * one (for example the SHARC-FX CCES default projects) fall back to the
+ * built-in template so that vring carveouts and rpmsg still come up exactly
+ * as they do for LDR images.
+ */
+static int adi_elf_load_rsc_table(struct rproc *rproc, const struct firmware *fw)
+{
+	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	int ret;
+
+	if (rproc_data->adi_rsc_table == NULL)
+		return -EINVAL;
+
+	ret = rproc_elf_load_rsc_table(rproc, fw);
+	if (!ret) {
+		rproc_data->rsc_table_from_fw = true;
+
+		/*
+		 * The carveout setup writes through struct sharc_resource_table,
+		 * so a firmware supplied table has to be at least that large.
+		 */
+		if (rproc->table_sz < sizeof(struct sharc_resource_table)) {
+			dev_err(&rproc->dev,
+				"firmware resource table too small (%zu < %zu)\n",
+				rproc->table_sz,
+				sizeof(struct sharc_resource_table));
+			kfree(rproc->cached_table);
+			rproc->cached_table = NULL;
+			rproc->table_ptr = NULL;
+			rproc->table_sz = 0;
+			return -EINVAL;
+		}
+
+		return 0;
+	}
+
+	dev_warn(&rproc->dev,
+		 "no resource table in firmware, using built-in template\n");
+
+	return adi_rsc_table_from_template(rproc);
 }
 
 static int adi_rproc_map_carveout(struct rproc *rproc, struct rproc_mem_entry *mem)
@@ -545,15 +1304,16 @@ static int adi_rproc_parse_fw(struct rproc *rproc, const struct firmware *fw)
 		ret = adi_ldr_load_rsc_table(rproc, fw);
 		break;
 	case ADI_FW_ELF:
-		ret = rproc_elf_load_rsc_table(rproc, fw);
+		ret = adi_elf_load_rsc_table(rproc, fw);
 		break;
 	default:
 		WARN(1, "Invalid rproc_data->firmware_format\n");
 		return -EINVAL;
 	}
 
-	if (ret < 0)
+	if (ret < 0) {
 		return ret;
+	}
 
 	/* Set defaults */
 	rsc_table = (struct sharc_resource_table *)rproc->cached_table;
@@ -671,17 +1431,16 @@ static struct resource_table *adi_rproc_find_loaded_rsc_table(struct rproc *rpro
 	if (rproc_data->adi_rsc_table == NULL)
 		return NULL;
 
-	switch (rproc_data->firmware_format) {
-	case ADI_FW_LDR:
-		ret = adi_ldr_find_loaded_rsc_table(rproc, fw);
-		break;
-	case ADI_FW_ELF:
+	/*
+	 * Follow whichever table was actually loaded rather than the firmware
+	 * format: an ELF image without a .resource_table section falls back to
+	 * the built-in template, so it has to be looked up the same way an LDR
+	 * image is.
+	 */
+	if (rproc_data->rsc_table_from_fw)
 		ret = rproc_elf_find_loaded_rsc_table(rproc, fw);
-		break;
-	default:
-		WARN(1, "Invalid rproc_data->firmware_format\n");
-		return NULL;
-	}
+	else
+		ret = adi_ldr_find_loaded_rsc_table(rproc, fw);
 	rproc_data->loaded_rsc_table = (struct sharc_resource_table *)ret;
 	return ret;
 }
@@ -745,8 +1504,8 @@ static int adi_rproc_sanity_check(struct rproc *rproc, const struct firmware *fw
 
 	if (rproc_data->firmware_format < 0)
 		return rproc_data->firmware_format;
-	else
-		return 0;
+
+	return 0;
 }
 
 static u64 adi_rproc_get_boot_addr(struct rproc *rproc, const struct firmware *fw)
@@ -771,19 +1530,17 @@ static u64 adi_rproc_get_boot_addr(struct rproc *rproc, const struct firmware *f
 static void *adi_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *unused)
 {
 	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
-	void __iomem *L1_shared_base = rproc_data->L1_shared_base;
-	void __iomem *L2_shared_base = rproc_data->L2_shared_base;
-	void *ret = NULL;
+	unsigned int word;
+	phys_addr_t pa;
 
 	if (len == 0)
 		return NULL;
 
-	if (da >= rproc_data->l1_da_range[0] && da < rproc_data->l1_da_range[1])
-		ret = L1_shared_base + da;
-	else if (da >= rproc_data->l2_da_range[0] && da < rproc_data->l2_da_range[1])
-		ret = L2_shared_base + (da - rproc_data->l2_da_range[0]);
+	pa = adi_rproc_da_to_pa(rproc_data, da, &word);
+	if (!pa)
+		return NULL;
 
-	return ret;
+	return (void __force *)adi_rproc_pa_to_va(rproc_data, pa, len);
 }
 
 static const struct rproc_ops adi_rproc_ops = {
@@ -801,6 +1558,7 @@ static const struct rproc_ops adi_rproc_ops = {
 static int adi_remoteproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct adi_rproc_config *cfg;
 	struct adi_rproc_data *rproc_data;
 	struct device_node *np = dev->of_node;
 	struct device_node *node;
@@ -811,6 +1569,10 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	u32 addr[2];
 	int ret, core_id;
 	const char *name;
+
+	cfg = of_device_get_match_data(dev);
+	if (!cfg)
+		return dev_err_probe(dev, -ENODEV, "No variant configuration\n");
 
 	ret = of_property_read_string(np, "firmware-name", &name);
 	if (ret)
@@ -826,13 +1588,13 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	rproc_data = (struct adi_rproc_data *)rproc->priv;
+	rproc_data->cfg = *cfg;
 	platform_set_drvdata(pdev, rproc);
 
 	ret = of_parse_phandle_with_fixed_args(np, "adi,svect", 1, 0,
 					       &svect_args);
 	if (ret)
 		return dev_err_probe(dev, ret, "Missing adi,svect property\n");
-
 	rproc_data->svect_regmap = syscon_node_to_regmap(svect_args.np);
 	of_node_put(svect_args.np);
 	if (IS_ERR(rproc_data->svect_regmap))
@@ -911,7 +1673,6 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		}
 
 		rproc_data->icc_irq_flags = IRQF_PERCPU | IRQF_SHARED | IRQF_ONESHOT;
-
 	} else {
 		rproc_data->adi_rsc_table = NULL;
 	}
@@ -926,6 +1687,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		ret = dev_err_probe(dev, -ENODEV, "Cannot get L1 base address (reg 0)\n");
 		goto free_workqueue;
 	}
+
 	rproc_data->L1_shared_base = devm_ioremap_wc(dev,
 						     res->start,
 						     resource_size(res));
@@ -933,6 +1695,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto free_workqueue;
 	}
+	rproc_data->l1_phys_base = res->start;
+	rproc_data->l1_size = resource_size(res);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
@@ -947,6 +1711,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto free_workqueue;
 	}
+	rproc_data->l2_phys_base = res->start;
+	rproc_data->l2_size = resource_size(res);
 
 	rproc_data->verify = 0;
 	of_property_read_u32(np, "adi,verify", &rproc_data->verify);
@@ -991,13 +1757,23 @@ static void adi_remoteproc_remove(struct platform_device *pdev)
 	struct adi_rproc_data *rproc_data = rproc->priv;
 
 	rproc_del(rproc);
+	sharcp_free_sections(rproc_data);
 	dmaengine_put();
 	destroy_workqueue(rproc_data->core_workqueue);
 	mbox_free_channel(rproc_data->kick_chan);
 }
 
+static const struct adi_rproc_config sc5xx_rproc_cfg = {
+	.variant = SC5XX_RPROC_SHARC,
+};
+
+static const struct adi_rproc_config sc8xx_rproc_cfg = {
+	.variant = SC5XX_RPROC_SHARCFX,
+};
+
 static const struct of_device_id adi_rproc_of_match[] = {
-	{ .compatible = "adi,remoteproc" },
+	{ .compatible = "adi,sc5xx-rproc", .data = &sc5xx_rproc_cfg },
+	{ .compatible = "adi,sc8xx-rproc", .data = &sc8xx_rproc_cfg },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adi_rproc_of_match);
@@ -1006,7 +1782,7 @@ static struct platform_driver adi_rproc_driver = {
 	.probe = adi_remoteproc_probe,
 	.remove = adi_remoteproc_remove,
 	.driver = {
-		.name = "adi_remoteproc",
+		.name = "adi-rproc",
 		.of_match_table = adi_rproc_of_match,
 	},
 };
