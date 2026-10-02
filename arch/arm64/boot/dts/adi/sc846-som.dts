@@ -49,7 +49,6 @@
 		adi,rsc-table = <&rsc_tbl0>;
 		adi,tru = <&tru>;
 		adi,tru-master-id = <ADI_TRU_MST_SOFT(4)>;
-		status = "okay";
 	};
 };
 
