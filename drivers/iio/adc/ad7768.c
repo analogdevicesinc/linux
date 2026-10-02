@@ -197,6 +197,29 @@ struct ad7768_state {
 	__be16 d16 __aligned(IIO_DMA_MINALIGN);
 };
 
+static void ad7768_pm_put(struct device *dev)
+{
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+}
+
+DEFINE_FREE(ad7768_pm_put, struct device *, if (_T) ad7768_pm_put(_T))
+
+static int ad7768_pm_runtime_resume_and_get(struct ad7768_state *st,
+					    struct device **dev)
+{
+	struct device *regmap_dev = regmap_get_device(st->regmap);
+	int ret;
+
+	ret = pm_runtime_resume_and_get(regmap_dev);
+	if (ret < 0)
+		return ret;
+
+	*dev = regmap_dev;
+
+	return 0;
+}
+
 static const unsigned int ad7768_vcm_voltage_table[] = {
 	0, 1650000, 2500000, 2140000,
 };
@@ -227,7 +250,7 @@ static int ad7768_vcm_enable(struct regulator_dev *rdev)
 	ret = regmap_clear_bits(st->regmap, AD7768_REG_GENERAL_CONFIG,
 				AD7768_GEN_CONFIG_VCM_PD);
 	if (ret)
-		pm_runtime_put_autosuspend(regmap_get_device(st->regmap));
+		ad7768_pm_put(regmap_get_device(st->regmap));
 
 	return ret;
 }
@@ -242,7 +265,7 @@ static int ad7768_vcm_disable(struct regulator_dev *rdev)
 	if (ret)
 		return ret;
 
-	pm_runtime_put_autosuspend(regmap_get_device(st->regmap));
+	ad7768_pm_put(regmap_get_device(st->regmap));
 
 	return 0;
 }
@@ -250,10 +273,10 @@ static int ad7768_vcm_disable(struct regulator_dev *rdev)
 static int ad7768_vcm_is_enabled(struct regulator_dev *rdev)
 {
 	struct ad7768_state *st = rdev_get_drvdata(rdev);
+	struct device *dev __free(ad7768_pm_put) = NULL;
 	int ret;
 
-	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(regmap_get_device(st->regmap), pm);
-	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+	ret = ad7768_pm_runtime_resume_and_get(st, &dev);
 	if (ret)
 		return ret;
 
@@ -269,10 +292,10 @@ static int ad7768_vcm_set_voltage_sel(struct regulator_dev *rdev,
 				      unsigned int selector)
 {
 	struct ad7768_state *st = rdev_get_drvdata(rdev);
+	struct device *dev __free(ad7768_pm_put) = NULL;
 	int ret;
 
-	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(regmap_get_device(st->regmap), pm);
-	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+	ret = ad7768_pm_runtime_resume_and_get(st, &dev);
 	if (ret)
 		return ret;
 
@@ -285,11 +308,11 @@ static int ad7768_vcm_set_voltage_sel(struct regulator_dev *rdev,
 static int ad7768_vcm_get_voltage_sel(struct regulator_dev *rdev)
 {
 	struct ad7768_state *st = rdev_get_drvdata(rdev);
+	struct device *dev __free(ad7768_pm_put) = NULL;
 	unsigned int val;
 	int ret;
 
-	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(regmap_get_device(st->regmap), pm);
-	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+	ret = ad7768_pm_runtime_resume_and_get(st, &dev);
 	if (ret)
 		return ret;
 
@@ -435,7 +458,7 @@ static u8 ad7768_precharge_buf2_mask(const struct ad7768_state *st, u16 val)
 {
 	unsigned int split = st->chip_info->prebuf_split;
 
-	return field_get(GENMASK(2 * split - 1, split), val);
+	return (val >> split) & GENMASK(split - 1, 0);
 }
 
 static int ad7768_regmap_read(void *context, const void *reg_buf,
@@ -568,12 +591,12 @@ static int ad7768_read_calib_value(struct ad7768_state *st,
 				   unsigned int base_reg, bool is_signed,
 				   int *val)
 {
+	struct device *dev __free(ad7768_pm_put) = NULL;
 	unsigned int regval;
 	u8 data[3];
 	int ret;
 
-	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(regmap_get_device(st->regmap), pm);
-	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+	ret = ad7768_pm_runtime_resume_and_get(st, &dev);
 	if (ret)
 		return ret;
 
@@ -593,6 +616,7 @@ static int ad7768_write_calib_value(struct ad7768_state *st,
 				    unsigned int base_reg, bool is_signed,
 				    int val)
 {
+	struct device *dev __free(ad7768_pm_put) = NULL;
 	u8 data[3];
 	int ret;
 
@@ -605,8 +629,7 @@ static int ad7768_write_calib_value(struct ad7768_state *st,
 
 	put_unaligned_be24(val, data);
 
-	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(regmap_get_device(st->regmap), pm);
-	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+	ret = ad7768_pm_runtime_resume_and_get(st, &dev);
 	if (ret)
 		return ret;
 
@@ -621,10 +644,10 @@ static int ad7768_reg_access(struct iio_dev *indio_dev,
 			     unsigned int *readval)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
+	struct device *dev __free(ad7768_pm_put) = NULL;
 	int ret;
 
-	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(regmap_get_device(st->regmap), pm);
-	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+	ret = ad7768_pm_runtime_resume_and_get(st, &dev);
 	if (ret)
 		return ret;
 
@@ -809,12 +832,10 @@ static int ad7768_set_filter_mode(struct iio_dev *indio_dev,
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 
-	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
-	if (IIO_DEV_ACQUIRE_FAILED(claim))
-		return -EBUSY;
-
-	guard(mutex)(&st->lock);
-	st->ch_filter[chan->channel] = mode;
+	iio_device_claim_direct_scoped(return -EBUSY, indio_dev) {
+		guard(mutex)(&st->lock);
+		st->ch_filter[chan->channel] = mode;
+	}
 
 	return 0;
 }
@@ -1132,7 +1153,7 @@ static int ad7768_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 
-	pm_runtime_put_autosuspend(regmap_get_device(st->regmap));
+	ad7768_pm_put(regmap_get_device(st->regmap));
 
 	return 0;
 }
@@ -1219,31 +1240,32 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 	unsigned int base_reg;
 	s64 delay_ps;
 
-	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
-	if (IIO_DEV_ACQUIRE_FAILED(claim))
-		return -EBUSY;
+	iio_device_claim_direct_scoped(return -EBUSY, indio_dev) {
+		switch (info) {
+		case IIO_CHAN_INFO_SAMP_FREQ:
+			return ad7768_set_sampling_freq(indio_dev, val,
+						       chan->channel);
+		case IIO_CHAN_INFO_CALIBBIAS:
+			base_reg = ad7768_get_calib_reg_base(st, chan, false);
+			return ad7768_write_calib_value(st, base_reg, true, val);
+		case IIO_CHAN_INFO_CALIBSCALE:
+			base_reg = ad7768_get_calib_reg_base(st, chan, true);
+			return ad7768_write_calib_value(st, base_reg, false, val);
+		case IIO_CHAN_INFO_CONVDELAY: {
+			delay_ps = iio_val_s64_compose(val, val2);
+			if (delay_ps < 0)
+				return -EINVAL;
 
-	switch (info) {
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		return ad7768_set_sampling_freq(indio_dev, val, chan->channel);
-	case IIO_CHAN_INFO_CALIBBIAS:
-		base_reg = ad7768_get_calib_reg_base(st, chan, false);
-		return ad7768_write_calib_value(st, base_reg, true, val);
-	case IIO_CHAN_INFO_CALIBSCALE:
-		base_reg = ad7768_get_calib_reg_base(st, chan, true);
-		return ad7768_write_calib_value(st, base_reg, false, val);
-	case IIO_CHAN_INFO_CONVDELAY: {
-		delay_ps = iio_val_s64_compose(val, val2);
-		if (delay_ps < 0)
+			guard(mutex)(&st->lock);
+			st->ch_convdelay_ps[chan->channel] = delay_ps;
+			return 0;
+		}
+		default:
 			return -EINVAL;
+		}
+	}
 
-		guard(mutex)(&st->lock);
-		st->ch_convdelay_ps[chan->channel] = delay_ps;
-		return 0;
-	}
-	default:
-		return -EINVAL;
-	}
+	return -EINVAL;
 }
 
 static int ad7768_read_avail(struct iio_dev *indio_dev,
@@ -1925,4 +1947,4 @@ MODULE_AUTHOR("Stefan Popa <stefan.popa@analog.com>");
 MODULE_AUTHOR("Janani Sunil <janani.sunil@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD7768 ADC driver");
 MODULE_LICENSE("GPL");
-MODULE_IMPORT_NS("IIO_BACKEND");
+MODULE_IMPORT_NS(IIO_BACKEND);
