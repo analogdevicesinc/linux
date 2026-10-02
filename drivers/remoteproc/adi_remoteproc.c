@@ -59,6 +59,12 @@
 #define SHARCFX_IRAM_START	0x2f800000
 #define SHARCFX_IRAM_END	0x2f80ffff
 
+/*
+ * Stride of ELF segments in the staging buffer: the widest MDMA access, so the
+ * source end never narrows the access size get_txn_align() picks.
+ */
+#define ADI_ELF_SEG_ALIGN	32
+
 /* SHARC+ L1 multiprocessor window offsets, per core (DS Table 4) */
 #define SHARC1_MP_OFFSET	0x28000000
 #define SHARC2_MP_OFFSET	0x28800000
@@ -73,6 +79,7 @@
 #define SHT_ADI_ATTRIBUTES	(SHT_LOPROC + 2)
 #define ADI_ATTR_SECTION_NAME	".adi.attributes"
 #define ADI_ATTR_FORMAT_A	'A'
+#define ADI_ATTR_HDR_LEN	5	/* u8 format or tag, le32 length */
 #define ADI_ATTR_VENDOR		"AnonADI"
 #define ADI_ATTR_SUB_SECTION	2
 #define ADI_ATTR_TAG_PART_NAME	4	/* the one string valued attribute */
@@ -523,54 +530,48 @@ static bool adi_attr_uleb128(const u8 **p, const u8 *end, u32 *val)
  * adi_attr_parse: record the word width of each section .adi.attributes covers
  *
  * @bits is indexed by ELF section number and has @shnum entries. Only Section
- * sub-subsections are read; skipping the rest also steps over the File
- * sub-subsection and the part name in it.
+ * sub-subsections are read; the rest, the File one with the part name among
+ * them, are stepped over whole.
  */
 static int adi_attr_parse(const u8 *attr, size_t size, u32 *bits,
 			  unsigned int shnum)
 {
 	const size_t vendor_len = sizeof(ADI_ATTR_VENDOR);
-	const size_t hdr_len = 1 + sizeof(u32);
-	const u8 *p, *end;
-	u32 len;
+	const u8 *p, *q, *list, *end, *sub_end;
+	u32 len, idx, tag, val, word_bits;
 
-	if (size < hdr_len || attr[0] != ADI_ATTR_FORMAT_A)
+	if (size < ADI_ATTR_HDR_LEN + vendor_len || attr[0] != ADI_ATTR_FORMAT_A)
 		return -EINVAL;
 
 	/* The vendor subsection length counts itself but not the format byte */
 	len = get_unaligned_le32(attr + 1);
-	if (len < sizeof(u32) + vendor_len || len > size - 1)
+	if (len < sizeof(u32) + vendor_len || len > size - 1 ||
+	    memcmp(attr + ADI_ATTR_HDR_LEN, ADI_ATTR_VENDOR, vendor_len))
 		return -EINVAL;
 
-	p = attr + hdr_len;
 	end = attr + 1 + len;
 
-	if (memcmp(p, ADI_ATTR_VENDOR, vendor_len))
-		return -EINVAL;
-	p += vendor_len;
-
-	while ((size_t)(end - p) >= hdr_len) {
-		u32 sub_len = get_unaligned_le32(p + 1);
-		const u8 *q = p + hdr_len, *list, *sub_end;
-		u32 idx, tag, val, word_bits = 0;
-		u8 sub_tag = p[0];
-
-		if (sub_len < hdr_len || sub_len > (size_t)(end - p))
+	for (p = attr + ADI_ATTR_HDR_LEN + vendor_len;
+	     end - p >= ADI_ATTR_HDR_LEN; p = sub_end) {
+		/* A sub-subsection length counts its tag byte and itself */
+		len = get_unaligned_le32(p + 1);
+		if (len < ADI_ATTR_HDR_LEN || len > (size_t)(end - p))
 			return -EINVAL;
 
-		sub_end = p + sub_len;
-		p = sub_end;
+		sub_end = p + len;
 
-		if (sub_tag != ADI_ATTR_SUB_SECTION)
+		if (p[0] != ADI_ATTR_SUB_SECTION)
 			continue;
 
-		/* The 0-terminated list of sections this one describes */
-		list = q;
+		/* Step over the 0-terminated list of sections, applied below */
+		list = p + ADI_ATTR_HDR_LEN;
+		q = list;
 		do {
 			if (!adi_attr_uleb128(&q, sub_end, &idx))
 				return -EINVAL;
 		} while (idx);
 
+		word_bits = 0;
 		while (q < sub_end) {
 			if (!adi_attr_uleb128(&q, sub_end, &tag))
 				return -EINVAL;
@@ -587,10 +588,7 @@ static int adi_attr_parse(const u8 *attr, size_t size, u32 *bits,
 				word_bits = val;
 		}
 
-		if (!word_bits)
-			continue;
-
-		while (adi_attr_uleb128(&list, sub_end, &idx) && idx) {
+		while (word_bits && adi_attr_uleb128(&list, sub_end, &idx) && idx) {
 			if (idx < shnum)
 				bits[idx] = word_bits;
 		}
@@ -823,111 +821,28 @@ static void sharcp_swap_words(u8 *dst, const u8 *src, size_t len,
 }
 
 /*
- * adi_rproc_dma_write: copy a buffer to a SHARC physical address using MDMA
+ * adi_rproc_dma_submit: queue @tx on @chan, completing @done when it finishes
  *
- * The SHARC-FX I-completer rejects 8- and 16-bit accesses to IRAM, so the
- * ARM cannot memcpy() into that window: the optimised memcpy tail emits byte
- * and halfword stores and the fabric answers with an SError. MDMA issues
- * naturally aligned bursts instead, which is also how the LDR path loads
- * every block. @src must be a kernel buffer suitable for streaming DMA.
- *
- * @word is the size in bytes of one word at @dst; wider words are byte
- * swapped on the way, see sharcp_swap_words().
+ * @tx is freed once it completes, so it must not be touched after the submit.
  */
-static int adi_rproc_dma_write(struct adi_rproc_data *rproc_data,
-			       phys_addr_t dst, const void *src, size_t len,
-			       unsigned int word)
+static int adi_rproc_dma_submit(struct adi_rproc_data *rproc_data,
+				struct dma_chan *chan,
+				struct dma_async_tx_descriptor *tx,
+				struct completion *done)
 {
-	struct dma_async_tx_descriptor *tx;
-	struct dma_chan *chan;
-	struct completion cmp;
-	dma_addr_t src_handle;
-	dma_cookie_t cookie;
-	void *bounce;
-	int ret = 0;
-
-	chan = dma_find_channel(DMA_MEMCPY);
-	if (!chan) {
-		dev_err(rproc_data->dev, "Could not find dma memcpy channel\n");
-		return -ENODEV;
-	}
-
-	/*
-	 * fw->data is vmalloc'ed, which cannot be mapped for streaming DMA,
-	 * so stage the segment through a coherent bounce buffer.
-	 */
-	bounce = dma_alloc_coherent(rproc_data->dev, len, &src_handle, GFP_KERNEL);
-	if (!bounce)
-		return -ENOMEM;
-
-	if (word > WORD_SCALE_8)
-		sharcp_swap_words(bounce, src, len, word);
-	else
-		memcpy(bounce, src, len);
-
-	init_completion(&cmp);
-
-	tx = dmaengine_prep_dma_memcpy(chan, dst, src_handle, len, 0);
-	if (!tx) {
-		dev_err(rproc_data->dev, "Failed to allocate dma transaction\n");
-		ret = -ENOMEM;
-		goto free_bounce;
-	}
-
-	tx->callback = load_callback;
-	tx->callback_param = &cmp;
-
-	cookie = dmaengine_submit(tx);
-	ret = dma_submit_error(cookie);
-	if (ret) {
-		dev_err(rproc_data->dev, "Failed to submit dma transaction\n");
-		goto free_bounce;
-	}
-
-	dma_async_issue_pending(chan);
-
-	if (!wait_for_completion_timeout(&cmp, CORE_INIT_TIMEOUT)) {
-		dev_err(rproc_data->dev, "Timed out waiting for dma to %pa\n", &dst);
-		dmaengine_terminate_sync(chan);
-		ret = -ETIMEDOUT;
-	}
-
-free_bounce:
-	dma_free_coherent(rproc_data->dev, len, bounce, src_handle);
-	return ret;
-}
-
-/*
- * adi_rproc_dma_set: fill a SHARC physical range with a byte value using MDMA
- */
-static int adi_rproc_dma_set(struct adi_rproc_data *rproc_data,
-			     phys_addr_t dst, int value, size_t len)
-{
-	struct dma_async_tx_descriptor *tx;
-	struct dma_chan *chan;
-	struct completion cmp;
-	dma_cookie_t cookie;
 	int ret;
 
-	chan = dma_find_channel(DMA_MEMCPY);
-	if (!chan) {
-		dev_err(rproc_data->dev, "Could not find dma memcpy channel\n");
-		return -ENODEV;
-	}
-
-	init_completion(&cmp);
-
-	tx = dmaengine_prep_dma_memset(chan, dst, value, len, 0);
 	if (!tx) {
 		dev_err(rproc_data->dev, "Failed to allocate dma transaction\n");
 		return -ENOMEM;
 	}
 
-	tx->callback = load_callback;
-	tx->callback_param = &cmp;
+	if (done) {
+		tx->callback = load_callback;
+		tx->callback_param = done;
+	}
 
-	cookie = dmaengine_submit(tx);
-	ret = dma_submit_error(cookie);
+	ret = dma_submit_error(dmaengine_submit(tx));
 	if (ret) {
 		dev_err(rproc_data->dev, "Failed to submit dma transaction\n");
 		return ret;
@@ -935,11 +850,72 @@ static int adi_rproc_dma_set(struct adi_rproc_data *rproc_data,
 
 	dma_async_issue_pending(chan);
 
-	if (!wait_for_completion_timeout(&cmp, CORE_INIT_TIMEOUT)) {
-		dev_err(rproc_data->dev, "Timed out waiting for dma to %pa\n", &dst);
-		dmaengine_terminate_sync(chan);
-		return -ETIMEDOUT;
+	return 0;
+}
+
+/* One PT_LOAD segment of an ELF image, translated for this core */
+struct adi_elf_segment {
+	u64 da;
+	u64 offset;
+	size_t filesz;
+	size_t memsz;
+	phys_addr_t pa;
+	unsigned int word;
+};
+
+/*
+ * adi_elf_get_segment: read and check one program header
+ *
+ * @seg->memsz is left at 0 for a header with nothing to load.
+ */
+static int adi_elf_get_segment(struct rproc *rproc, const struct firmware *fw,
+			       const void *phdr, struct adi_elf_segment *seg)
+{
+	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	u8 class = fw_elf_get_class(fw);
+	u64 memsz = elf_phdr_get_p_memsz(class, phdr);
+	u64 filesz = elf_phdr_get_p_filesz(class, phdr);
+	u32 type = elf_phdr_get_p_type(class, phdr);
+	struct device *dev = &rproc->dev;
+
+	seg->memsz = 0;
+
+	if (type != PT_LOAD || !memsz)
+		return 0;
+
+	seg->da = elf_phdr_get_p_paddr(class, phdr);
+	seg->offset = elf_phdr_get_p_offset(class, phdr);
+
+	dev_dbg(dev, "phdr: type %d da 0x%llx memsz 0x%llx filesz 0x%llx\n",
+		type, seg->da, memsz, filesz);
+
+	if (filesz > memsz) {
+		dev_err(dev, "bad phdr filesz 0x%llx memsz 0x%llx\n",
+			filesz, memsz);
+		return -EINVAL;
 	}
+
+	if (seg->offset + filesz > fw->size) {
+		dev_err(dev, "truncated fw: need 0x%llx avail 0x%zx\n",
+			seg->offset + filesz, fw->size);
+		return -EINVAL;
+	}
+
+	if (!rproc_u64_fit_in_size_t(memsz)) {
+		dev_err(dev, "size (%llx) does not fit in size_t type\n",
+			memsz);
+		return -EOVERFLOW;
+	}
+
+	/* Only DMA into the windows the DT gives this core */
+	seg->pa = adi_rproc_da_to_pa(rproc_data, seg->da, &seg->word);
+	if (!seg->pa || !adi_rproc_pa_to_va(rproc_data, seg->pa, memsz)) {
+		dev_err(dev, "bad phdr da 0x%llx mem 0x%llx\n", seg->da, memsz);
+		return -EINVAL;
+	}
+
+	seg->filesz = filesz;
+	seg->memsz = memsz;
 
 	return 0;
 }
@@ -948,8 +924,18 @@ static int adi_rproc_dma_set(struct adi_rproc_data *rproc_data,
  * adi_elf_load_segments: load ELF PT_LOAD segments over MDMA
  *
  * Mirrors rproc_elf_load_segments() but routes every write through MDMA
- * rather than memcpy(), because IRAM cannot take narrow accesses from the
- * ARM. See adi_rproc_dma_write().
+ * rather than memcpy(), because the SHARC-FX I-completer rejects 8- and
+ * 16-bit accesses to IRAM: the optimised memcpy tail emits byte and halfword
+ * stores and the fabric answers with an SError.
+ *
+ * The transfers are issued the way ldr_load() issues LDR blocks: the payload
+ * is staged in one coherent buffer (fw->data is vmalloc'ed and cannot be used
+ * for DMA), every transfer is queued on the memcpy channel, which runs them in
+ * order, and only the last one signals completion. Only segment contents are
+ * staged, not the whole image, as most of a .dxe is debug information.
+ *
+ * Every program header is checked before anything is written, so a bad image
+ * leaves the core's memory untouched.
  *
  * The SPU is held open for the duration of the load, as the LDR path does:
  * the SHARC-FX bus completer ports reject non-secure accesses with an error
@@ -957,7 +943,8 @@ static int adi_rproc_dma_set(struct adi_rproc_data *rproc_data,
  *
  * SHARC+ segment addresses are word addresses whose width only the image's
  * .adi.attributes section records, so that is parsed first; see
- * sharcp_parse_sections().
+ * sharcp_parse_sections(). Their wider words are byte swapped while staged,
+ * see sharcp_swap_words().
  */
 static int adi_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 {
@@ -966,13 +953,25 @@ static int adi_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 	u8 class = fw_elf_get_class(fw);
 	u32 elf_phdr_get_size = elf_size_of_phdr(class);
 	struct device *dev = &rproc->dev;
-	const void *ehdr, *phdr;
-	int i, ret = 0;
+	struct dma_async_tx_descriptor *tx;
+	struct completion cmp, *done;
+	struct adi_elf_segment seg;
+	const void *phdrs, *phdr;
+	size_t size = 0, pos = 0;
+	struct dma_chan *chan;
+	int i, last = -1, ret = 0;
+	dma_addr_t handle = 0;
+	u8 *buf = NULL;
 	u16 phnum;
 
-	ehdr = elf_data;
-	phnum = elf_hdr_get_e_phnum(class, ehdr);
-	phdr = elf_data + elf_hdr_get_e_phoff(class, ehdr);
+	phnum = elf_hdr_get_e_phnum(class, elf_data);
+	phdrs = elf_data + elf_hdr_get_e_phoff(class, elf_data);
+
+	chan = dma_find_channel(DMA_MEMCPY);
+	if (!chan) {
+		dev_err(rproc_data->dev, "Could not find dma memcpy channel\n");
+		return -ENODEV;
+	}
 
 	if (rproc_data->cfg.variant == SC5XX_RPROC_SHARC) {
 		ret = sharcp_parse_sections(rproc_data, fw);
@@ -982,75 +981,86 @@ static int adi_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 		}
 	}
 
-	enable_spu();
+	/* Check every segment and size the staging buffer before loading any */
+	for (i = 0, phdr = phdrs; i < phnum; i++, phdr += elf_phdr_get_size) {
+		ret = adi_elf_get_segment(rproc, fw, phdr, &seg);
+		if (ret)
+			return ret;
 
-	for (i = 0; i < phnum; i++, phdr += elf_phdr_get_size) {
-		u64 da = elf_phdr_get_p_paddr(class, phdr);
-		u64 memsz = elf_phdr_get_p_memsz(class, phdr);
-		u64 filesz = elf_phdr_get_p_filesz(class, phdr);
-		u64 offset = elf_phdr_get_p_offset(class, phdr);
-		u32 type = elf_phdr_get_p_type(class, phdr);
-		unsigned int word;
-		phys_addr_t pa;
-
-		if (type != PT_LOAD || !memsz)
+		if (!seg.memsz)
 			continue;
 
-		dev_dbg(dev, "phdr: type %d da 0x%llx memsz 0x%llx filesz 0x%llx\n",
-			type, da, memsz, filesz);
+		size += ALIGN(seg.filesz, ADI_ELF_SEG_ALIGN);
+		last = i;
+	}
 
-		if (filesz > memsz) {
-			dev_err(dev, "bad phdr filesz 0x%llx memsz 0x%llx\n",
-				filesz, memsz);
-			ret = -EINVAL;
+	if (last < 0) {
+		dev_err(dev, "no loadable segments in firmware\n");
+		return -EINVAL;
+	}
+
+	/* An image of nothing but .bss-style segments needs no staging */
+	if (size) {
+		buf = dma_alloc_coherent(rproc_data->dev, size, &handle, GFP_KERNEL);
+		if (!buf)
+			return -ENOMEM;
+	}
+
+	init_completion(&cmp);
+
+	enable_spu();
+
+	for (i = 0, phdr = phdrs; i <= last; i++, phdr += elf_phdr_get_size) {
+		ret = adi_elf_get_segment(rproc, fw, phdr, &seg);
+		if (ret)
 			break;
-		}
 
-		if (offset + filesz > fw->size) {
-			dev_err(dev, "truncated fw: need 0x%llx avail 0x%zx\n",
-				offset + filesz, fw->size);
-			ret = -EINVAL;
-			break;
-		}
+		if (!seg.memsz)
+			continue;
 
-		if (!rproc_u64_fit_in_size_t(memsz)) {
-			dev_err(dev, "size (%llx) does not fit in size_t type\n",
-				memsz);
-			ret = -EOVERFLOW;
-			break;
-		}
+		/* The transfers run in order, so the last one marks the end */
+		done = (i == last) ? &cmp : NULL;
 
-		/* Only DMA into the windows the DT gives this core */
-		pa = adi_rproc_da_to_pa(rproc_data, da, &word);
-		if (!pa || !adi_rproc_pa_to_va(rproc_data, pa, memsz)) {
-			dev_err(dev, "bad phdr da 0x%llx mem 0x%llx\n", da, memsz);
-			ret = -EINVAL;
-			break;
-		}
+		if (seg.filesz) {
+			if (seg.word > WORD_SCALE_8)
+				sharcp_swap_words(buf + pos, elf_data + seg.offset,
+						  seg.filesz, seg.word);
+			else
+				memcpy(buf + pos, elf_data + seg.offset, seg.filesz);
 
-		if (filesz) {
-			ret = adi_rproc_dma_write(rproc_data, pa,
-						  elf_data + offset, filesz, word);
-			if (ret) {
-				dev_err(dev, "dma copy failed for da 0x%llx memsz 0x%llx\n",
-					da, memsz);
+			tx = dmaengine_prep_dma_memcpy(chan, seg.pa, handle + pos,
+						       seg.filesz, 0);
+			ret = adi_rproc_dma_submit(rproc_data, chan, tx,
+						   seg.memsz == seg.filesz ? done : NULL);
+			if (ret)
 				break;
-			}
+
+			pos += ALIGN(seg.filesz, ADI_ELF_SEG_ALIGN);
 		}
 
 		/* Zero the .bss-style tail the image does not carry */
-		if (memsz > filesz) {
-			ret = adi_rproc_dma_set(rproc_data, pa + filesz, 0,
-						memsz - filesz);
-			if (ret) {
-				dev_err(dev, "dma memset failed for da 0x%llx memsz 0x%llx\n",
-					da, memsz);
+		if (seg.memsz > seg.filesz) {
+			tx = dmaengine_prep_dma_memset(chan, seg.pa + seg.filesz, 0,
+						       seg.memsz - seg.filesz, 0);
+			ret = adi_rproc_dma_submit(rproc_data, chan, tx, done);
+			if (ret)
 				break;
-			}
 		}
 	}
 
+	if (!ret && !wait_for_completion_timeout(&cmp, CORE_INIT_TIMEOUT)) {
+		dev_err(dev, "Timed out waiting for firmware dma\n");
+		ret = -ETIMEDOUT;
+	}
+
+	/* Drop anything still queued: it must not read @buf or complete @cmp */
+	if (ret)
+		dmaengine_terminate_sync(chan);
+
 	disable_spu();
+
+	if (buf)
+		dma_free_coherent(rproc_data->dev, size, buf, handle);
 
 	return ret;
 }
