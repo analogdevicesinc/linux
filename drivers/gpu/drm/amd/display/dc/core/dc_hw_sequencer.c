@@ -756,7 +756,7 @@ void set_drr_and_clear_adjust_pending(
 
 	if (stream)
 		/* A null params resets DRR in hw, leaving stream->adjust stale. */
-		stream->adjust.timing_adjust_pending = (params == NULL);
+		stream->timing_adjust_pending = (params == NULL);
 }
 
 void get_fams2_visual_confirm_color(

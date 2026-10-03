@@ -42,7 +42,7 @@
 bool amdgpu_dm_is_dc_timing_adjust_needed(struct dm_crtc_state *old_state,
 					  struct dm_crtc_state *new_state)
 {
-	if (new_state->stream->adjust.timing_adjust_pending)
+	if (new_state->stream->timing_adjust_pending)
 		return true;
 	if (new_state->freesync_config.state ==  VRR_STATE_ACTIVE_FIXED)
 		return true;

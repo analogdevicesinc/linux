@@ -173,7 +173,7 @@ static void dm_test_dc_timing_adjust_pending(struct kunit *test)
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream);
 
 	new_state->stream = stream;
-	stream->adjust.timing_adjust_pending = 1;
+	stream->timing_adjust_pending = 1;
 
 	KUNIT_EXPECT_TRUE(test, amdgpu_dm_is_dc_timing_adjust_needed(old_state, new_state));
 }
@@ -592,7 +592,7 @@ static void dm_test_update_freesync_state_pre_ai_active(struct kunit *test)
 
 	amdgpu_dm_update_freesync_state_on_stream(&adev->dm, &crtc_state, stream, surface, 0);
 
-	KUNIT_EXPECT_FALSE(test, stream->adjust.timing_adjust_pending);
+	KUNIT_EXPECT_FALSE(test, stream->timing_adjust_pending);
 }
 
 static void dm_test_update_freesync_state_pcon_version(struct kunit *test, u8 version)
