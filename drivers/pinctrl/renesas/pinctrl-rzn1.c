@@ -411,15 +411,19 @@ static int rzn1_dt_node_to_map(struct pinctrl_dev *pctldev,
 
 	ret = rzn1_dt_node_to_map_one(pctldev, np, map, num_maps);
 	if (ret < 0)
-		return ret;
+		goto err_free_map;
 
 	for_each_child_of_node_scoped(np, child) {
 		ret = rzn1_dt_node_to_map_one(pctldev, child, map, num_maps);
 		if (ret < 0)
-			return ret;
+			goto err_free_map;
 	}
 
 	return 0;
+
+err_free_map:
+	pinctrl_utils_free_map(pctldev, *map, *num_maps);
+	return ret;
 }
 
 static const struct pinctrl_ops rzn1_pctrl_ops = {
