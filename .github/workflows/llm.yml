@@ -96,13 +96,16 @@ jobs:
              CXX=gcc-13
              ARCH=arm
              CROSS_COMPILE=arm-linux-
+          $ get_adi_ci_defconfig
+          $ make adi_ci_defconfig
           $ auto_set_kconfig
           $ make
           ```
           You can always do `type auto_set_kconfig` to get the bash method body or the command source.
           You must use the set_arch command, it properly sets the correct compilers for all
           architectures, for example, `set_arch gcc_aarch64` sets `CROSS_COMPILE=aarch64-linux-`.
-          The available compilers are $set_arch_available
+          The available compilers are $set_arch_available. `get_adi_ci_defconfig` copies over streamlined
+          base defconfigs to be used with `auto_set_kconfig`.
 
           You shall install pip packages to help you review, test and debug;
           a venv is already active.
@@ -157,10 +160,16 @@ jobs:
           }
 
           mkdir "$ci_worktree/ci"
+          mkdir "$ci_worktree/arch/arm/configs"
+          mkdir "$ci_worktree/arch/arm64/configs"
+          mkdir "$ci_worktree/arch/x86/configs"
           get_file "ci/build.sh"
           get_file "ci/symbols_depend.py"
           get_file "ci/touched_kconfig.awk"
           get_file "ci/extract_register_map.py"
+          get_file "arch/arm/configs/adi_ci_defconfig"
+          get_file "arch/arm64/configs/adi_ci_defconfig"
+          get_file "arch/x86/configs/adi_ci_defconfig"
 
           echo "CI_WORKTREE=$ci_worktree" >> "$GITHUB_ENV"
           echo "sh_source=$ci_worktree/ci/build.sh" >> "$GITHUB_ENV"
