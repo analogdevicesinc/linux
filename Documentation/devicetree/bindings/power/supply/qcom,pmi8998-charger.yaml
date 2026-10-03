@@ -19,14 +19,17 @@ properties:
     maxItems: 1
 
   interrupts:
-    maxItems: 4
+    minItems: 4
+    maxItems: 5
 
   interrupt-names:
+    minItems: 4
     items:
       - const: usb-plugin
       - const: bat-ov
       - const: wdog-bark
       - const: usbin-icl-change
+      - const: chg-state-change
 
   io-channels:
     items:
