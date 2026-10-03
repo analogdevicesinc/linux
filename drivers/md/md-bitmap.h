@@ -29,6 +29,7 @@ enum bitmap_state {
 	BITMAP_FIRST_USE   = 3, /* llbitmap is just created */
 	BITMAP_CLEAN       = 4, /* llbitmap is created with assume_clean */
 	BITMAP_DAEMON_BUSY = 5, /* llbitmap daemon is not finished after daemon_sleep */
+	BITMAP_SHUTDOWN    = 6, /* llbitmap is being destroyed */
 	BITMAP_HOSTENDIAN  =15,
 };
 
@@ -98,7 +99,7 @@ struct bitmap_operations {
 
 	void (*start_behind_write)(struct mddev *mddev);
 	void (*end_behind_write)(struct mddev *mddev);
-	void (*wait_behind_writes)(struct mddev *mddev);
+	bool (*wait_behind_writes)(struct mddev *mddev, bool nowait);
 
 	md_bitmap_fn *start_write;
 	md_bitmap_fn *end_write;
@@ -125,7 +126,7 @@ struct bitmap_operations {
 	void (*set_pages)(void *data, unsigned long pages);
 	void (*free)(void *data);
 
-	struct attribute_group *group;
+	const struct attribute_group **groups;
 };
 
 /* the bitmap API */

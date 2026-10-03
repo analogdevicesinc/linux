@@ -140,6 +140,7 @@ static int erofs_init_device(struct erofs_buf *buf, struct super_block *sb,
 	struct erofs_fscache *fscache;
 	struct erofs_deviceslot *dis;
 	struct file *file;
+	bool _48bit;
 
 	dis = erofs_read_metabuf(buf, sb, *pos, false);
 	if (IS_ERR(dis))
@@ -186,8 +187,11 @@ static int erofs_init_device(struct erofs_buf *buf, struct super_block *sb,
 		dif->file = file;
 	}
 
-	dif->blocks = le32_to_cpu(dis->blocks_lo);
-	dif->uniaddr = le32_to_cpu(dis->uniaddr_lo);
+	_48bit = erofs_sb_has_48bit(sbi);
+	dif->blocks = le32_to_cpu(dis->blocks_lo) |
+		(_48bit ? (u64)le16_to_cpu(dis->blocks_hi) << 32 : 0);
+	dif->uniaddr = le32_to_cpu(dis->uniaddr_lo) |
+		(_48bit ? (u64)le16_to_cpu(dis->uniaddr_hi) << 32 : 0);
 	sbi->total_blocks += dif->blocks;
 	*pos += EROFS_DEVT_SLOT_SIZE;
 	return 0;
@@ -375,8 +379,7 @@ static void erofs_default_options(struct erofs_sb_info *sbi)
 {
 #ifdef CONFIG_EROFS_FS_ZIP
 	sbi->opt.cache_strategy = EROFS_ZIP_CACHE_READAROUND;
-	sbi->opt.max_sync_decompress_pages = 3;
-	sbi->opt.sync_decompress = EROFS_SYNC_DECOMPRESS_AUTO;
+	sbi->sync_decompress = EROFS_SYNC_DECOMPRESS_AUTO;
 #endif
 #ifdef CONFIG_EROFS_FS_XATTR
 	set_opt(&sbi->opt, XATTR_USER);

@@ -313,6 +313,9 @@ static int perf_ibs_init(struct perf_event *event)
 	if (ret)
 		return ret;
 
+	if (perf_allow_kernel())
+		hwc->flags |= PERF_X86_EVENT_UNPRIVILEGED;
+
 	if (hwc->sample_period) {
 		if (config & perf_ibs->cnt_mask)
 			/* raw max_cnt may not be set */
@@ -1214,12 +1217,10 @@ static void perf_ibs_phyaddr_clear(struct perf_ibs *perf_ibs,
 				   struct perf_ibs_data *ibs_data)
 {
 	if (perf_ibs == &perf_ibs_op) {
-		ibs_data->regs[ibs_op_msr_idx(MSR_AMD64_IBSOPDATA3)] &= ~(1ULL << 18);
 		ibs_data->regs[ibs_op_msr_idx(MSR_AMD64_IBSDCPHYSAD)] = 0;
 		return;
 	}
 
-	ibs_data->regs[ibs_fetch_msr_idx(MSR_AMD64_IBSFETCHCTL)] &= ~(1ULL << 52);
 	ibs_data->regs[ibs_fetch_msr_idx(MSR_AMD64_IBSFETCHPHYSAD)] = 0;
 }
 
@@ -1344,7 +1345,7 @@ fail:
 	 * unprivileged users.
 	 */
 	if ((event->attr.sample_type & PERF_SAMPLE_RAW) &&
-	    perf_allow_kernel()) {
+	    (hwc->flags & PERF_X86_EVENT_UNPRIVILEGED)) {
 		perf_ibs_phyaddr_clear(perf_ibs, &ibs_data);
 	}
 
@@ -1718,26 +1719,30 @@ static int x86_pmu_amd_ibs_starting_cpu(unsigned int cpu)
 
 #ifdef CONFIG_PM
 
-static int perf_ibs_suspend(void)
+static int perf_ibs_suspend(void *data)
 {
 	clear_APIC_ibs();
 	return 0;
 }
 
-static void perf_ibs_resume(void)
+static void perf_ibs_resume(void *data)
 {
 	ibs_eilvt_setup();
 	setup_APIC_ibs();
 }
 
-static struct syscore_ops perf_ibs_syscore_ops = {
+static const struct syscore_ops perf_ibs_syscore_ops = {
 	.resume		= perf_ibs_resume,
 	.suspend	= perf_ibs_suspend,
 };
 
+static struct syscore perf_ibs_syscore = {
+	.ops = &perf_ibs_syscore_ops,
+};
+
 static void perf_ibs_pm_init(void)
 {
-	register_syscore_ops(&perf_ibs_syscore_ops);
+	register_syscore(&perf_ibs_syscore);
 }
 
 #else
