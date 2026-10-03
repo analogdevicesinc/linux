@@ -762,6 +762,15 @@ static irqreturn_t smb_handle_usb_icl_change(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t smb_handle_chg_state_change(int irq, void *data)
+{
+	struct smb_chip *chip = data;
+
+	power_supply_changed(chip->chg_psy);
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t smb_handle_wdog_bark(int irq, void *data)
 {
 	struct smb_chip *chip = data;
@@ -1080,6 +1089,21 @@ skip_float_voltage:
 	rc = smb_init_irq(chip, &irq, "wdog-bark", smb_handle_wdog_bark);
 	if (rc < 0)
 		return rc;
+
+	/* Optional: not every device tree lists it */
+	irq = platform_get_irq_byname_optional(pdev, "chg-state-change");
+	if (irq > 0) {
+		rc = devm_request_threaded_irq(chip->dev, irq, NULL,
+					       smb_handle_chg_state_change,
+					       IRQF_ONESHOT, "chg-state-change",
+					       chip);
+		if (rc < 0)
+			return dev_err_probe(chip->dev, rc,
+					     "Couldn't request irq chg-state-change\n");
+	} else if (irq != -ENXIO) {
+		return dev_err_probe(chip->dev, irq,
+				     "Couldn't get irq chg-state-change\n");
+	}
 
 	devm_device_init_wakeup(chip->dev);
 
