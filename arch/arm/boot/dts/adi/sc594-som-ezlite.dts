@@ -35,8 +35,8 @@
 };
 
 &i2c2 {
-	crr_gpio_expander: adp5588@30 {
-		compatible = "adi,adp5588-gpio";
+	crr_gpio_expander: gpio@30 {
+		compatible = "adi,adp5587";
 		gpio-controller;
 		#gpio-cells = <2>;
 		reg = <0x30>;
