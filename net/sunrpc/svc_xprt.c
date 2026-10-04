@@ -1330,6 +1330,7 @@ static struct cache_deferred_req *svc_defer(struct cache_req *req)
 		memcpy(&dr->addr, &rqstp->rq_addr, rqstp->rq_addrlen);
 		dr->addrlen = rqstp->rq_addrlen;
 		dr->daddr = rqstp->rq_daddr;
+		dr->daddrlen = rqstp->rq_daddrlen;
 		dr->secure = test_bit(RQ_SECURE, &rqstp->rq_flags);
 		dr->argslen = rqstp->rq_arg.len >> 2;
 
@@ -1364,6 +1365,7 @@ static noinline int svc_deferred_recv(struct svc_rqst *rqstp)
 	memcpy(&rqstp->rq_addr, &dr->addr, dr->addrlen);
 	rqstp->rq_addrlen     = dr->addrlen;
 	rqstp->rq_daddr       = dr->daddr;
+	rqstp->rq_daddrlen    = dr->daddrlen;
 	rqstp->rq_xprt_ctxt   = dr->xprt_ctxt;
 	/*
 	 * ->xpo_recvfrom() is bypassed for a deferred request, so the
