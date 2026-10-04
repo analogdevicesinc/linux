@@ -921,24 +921,19 @@ vc4_exec_put(struct vc4_exec_info *exec)
 void
 vc4_job_handle_completed(struct vc4_dev *vc4)
 {
-	unsigned long irqflags;
+	struct vc4_exec_info *exec, *next;
+	LIST_HEAD(done);
 
 	if (WARN_ON_ONCE(vc4->gen > VC4_GEN_4))
 		return;
 
-	spin_lock_irqsave(&vc4->job_lock, irqflags);
-	while (!list_empty(&vc4->job_done_list)) {
-		struct vc4_exec_info *exec =
-			list_first_entry(&vc4->job_done_list,
-					 struct vc4_exec_info, head);
+	scoped_guard(spinlock_irqsave, &vc4->job_lock)
+		list_splice_init(&vc4->job_done_list, &done);
+
+	list_for_each_entry_safe(exec, next, &done, head) {
 		list_del(&exec->head);
-
-		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
 		vc4_exec_put(exec);
-		spin_lock_irqsave(&vc4->job_lock, irqflags);
 	}
-
-	spin_unlock_irqrestore(&vc4->job_lock, irqflags);
 }
 
 /* Scheduled when any job has been completed, this walks the list of
