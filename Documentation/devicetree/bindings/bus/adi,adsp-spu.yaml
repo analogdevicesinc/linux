@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bus/adi,adsp-spu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADSP System Protection Unit
+
+maintainers:
+  - Ozan Durgut <ozan.durgut@analog.com>
+
+description: |
+  The System Protection Unit (SPU) is the peripheral firewall found on
+  several Analog Devices ADSP/SHARC-FX processors (SC59x, SC846, SC594).
+  It sits between the system crossbar and the peripheral MMR interface and
+  can write-protect a peripheral's registers from selected bus masters.
+  Register layout is identical across these chips; only the SEC interrupt
+  ID and the number of write-protectable peripherals differ.
+
+  The protection policy is programmed by secure firmware. The SPU node is an
+  access-controller bus; operating systems read the inherited write-protect
+  state before populating child devices. A child with the Cortex-A55 requester
+  blocked is not populated.
+
+properties:
+  compatible:
+    items:
+      - enum:
+          - adi,sc59x-spu
+          - adi,sc846-spu
+          - adi,sc594-spu
+      - const: simple-bus
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+    description: SPU protection/security violation interrupt.
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 1
+
+  "#access-controller-cells":
+    const: 1
+    description: Peripheral number used by the corresponding SPU_WP register.
+
+  ranges: true
+
+patternProperties:
+  "^.*@[0-9a-f]+$":
+    description: Peripheral controlled by the SPU.
+    type: object
+    additionalProperties: true
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - "#address-cells"
+  - "#size-cells"
+  - "#access-controller-cells"
+  - ranges
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    spu: bus@3108b000 {
+        compatible = "adi,sc59x-spu", "simple-bus";
+        reg = <0x3108b000 0x1000>;
+        interrupts = <GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>;
+        #address-cells = <1>;
+        #size-cells = <1>;
+        #access-controller-cells = <1>;
+        ranges;
+
+        serial@31003000 {
+            compatible = "adi,uart4";
+            reg = <0x31003000 0x40>;
+            access-controllers = <&spu 29>;
+        };
+    };
