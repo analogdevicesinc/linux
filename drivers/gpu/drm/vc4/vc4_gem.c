@@ -859,7 +859,6 @@ vc4_release_exec(struct kref *ref)
 	struct vc4_exec_info *exec = container_of(ref, struct vc4_exec_info,
 						  refcount);
 	struct vc4_dev *vc4 = exec->dev;
-	unsigned long irqflags;
 	unsigned i;
 
 	/* The render done handler signals the fence, so only drop the
@@ -888,9 +887,8 @@ vc4_release_exec(struct kref *ref)
 	 * completion had their slots released in vc4_irq_finish_render_job().
 	 * Only jobs that never completed still have slots to be released here.
 	 */
-	spin_lock_irqsave(&vc4->job_lock, irqflags);
-	vc4->bin_alloc_used &= ~exec->bin_slots;
-	spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+	scoped_guard(spinlock_irqsave, &vc4->bin_alloc_lock)
+		vc4->bin_alloc_used &= ~exec->bin_slots;
 
 	/* Let anyone waiting on the binner pool retry. */
 	wake_up_all(&vc4->job_wait_queue);
@@ -1189,6 +1187,7 @@ int vc4_gem_init(struct drm_device *dev)
 	INIT_LIST_HEAD(&vc4->render_job_list);
 	INIT_LIST_HEAD(&vc4->job_done_list);
 	spin_lock_init(&vc4->job_lock);
+	spin_lock_init(&vc4->bin_alloc_lock);
 	spin_lock_init(&vc4->hang_state_lock);
 	spin_lock_init(&vc4->perfmon_state.lock);
 

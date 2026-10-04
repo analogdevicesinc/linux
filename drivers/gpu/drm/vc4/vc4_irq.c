@@ -64,8 +64,6 @@ vc4_overflow_mem_work(struct work_struct *work)
 		container_of(work, struct vc4_dev, overflow_mem_work);
 	struct vc4_bo *bo;
 	int bin_bo_slot;
-	struct vc4_exec_info *exec;
-	unsigned long irqflags;
 
 	mutex_lock(&vc4->bin_bo_lock);
 
@@ -80,34 +78,37 @@ vc4_overflow_mem_work(struct work_struct *work)
 		goto complete;
 	}
 
-	spin_lock_irqsave(&vc4->job_lock, irqflags);
+	scoped_guard(spinlock_irqsave, &vc4->job_lock) {
+		struct vc4_exec_info *exec;
 
-	if (vc4->bin_alloc_overflow) {
-		/* If we had overflow memory allocated previously,
-		 * then that chunk will free when the current bin job
-		 * is done.  If we don't have a bin job running, then
-		 * the chunk will be done whenever the list of render
-		 * jobs has drained.
-		 */
-		exec = vc4_first_bin_job(vc4);
-		if (!exec)
-			exec = vc4_last_render_job(vc4);
-		if (exec) {
-			exec->bin_slots |= vc4->bin_alloc_overflow;
-		} else {
-			/* There's nothing queued in the hardware, so
-			 * the old slot is free immediately.
+		guard(spinlock)(&vc4->bin_alloc_lock);
+
+		if (vc4->bin_alloc_overflow) {
+			/* If we had overflow memory allocated previously,
+			 * then that chunk will free when the current bin job
+			 * is done.  If we don't have a bin job running, then
+			 * the chunk will be done whenever the list of render
+			 * jobs has drained.
 			 */
-			vc4->bin_alloc_used &= ~vc4->bin_alloc_overflow;
+			exec = vc4_first_bin_job(vc4);
+			if (!exec)
+				exec = vc4_last_render_job(vc4);
+			if (exec) {
+				exec->bin_slots |= vc4->bin_alloc_overflow;
+			} else {
+				/* There's nothing queued in the hardware, so
+				 * the old slot is free immediately.
+				 */
+				vc4->bin_alloc_used &= ~vc4->bin_alloc_overflow;
+			}
 		}
+		vc4->bin_alloc_overflow = BIT(bin_bo_slot);
 	}
-	vc4->bin_alloc_overflow = BIT(bin_bo_slot);
 
 	V3D_WRITE(V3D_BPOA, bo->base.dma_addr + bin_bo_slot * vc4->bin_alloc_size);
 	V3D_WRITE(V3D_BPOS, vc4->bin_alloc_size);
 	V3D_WRITE(V3D_INTCTL, V3D_INT_OUTOMEM);
 	V3D_WRITE(V3D_INTENA, V3D_INT_OUTOMEM);
-	spin_unlock_irqrestore(&vc4->job_lock, irqflags);
 
 complete:
 	mutex_unlock(&vc4->bin_bo_lock);
@@ -165,7 +166,8 @@ vc4_irq_finish_render_job(struct drm_device *dev)
 
 	vc4->finished_seqno++;
 
-	vc4->bin_alloc_used &= ~exec->bin_slots;
+	scoped_guard(spinlock, &vc4->bin_alloc_lock)
+		vc4->bin_alloc_used &= ~exec->bin_slots;
 	exec->bin_slots = 0;
 
 	list_move_tail(&exec->head, &vc4->job_done_list);

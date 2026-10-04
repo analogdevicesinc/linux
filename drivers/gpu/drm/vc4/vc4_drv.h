@@ -204,6 +204,9 @@ struct vc4_dev {
 	/* Size of blocks allocated within bin_bo. */
 	uint32_t bin_alloc_size;
 
+	/* Protects @bin_alloc_used and @bin_alloc_overflow. */
+	spinlock_t bin_alloc_lock;
+
 	/* Bitmask of the bin_alloc_size chunks in bin_bo that are
 	 * used.
 	 */
