@@ -68,6 +68,15 @@
 		stdout-path = "serial2:1500000n8";
 	};
 
+	dc-charger {
+		compatible = "gpio-charger";
+		charger-type = "mains";
+		charge-status-gpios = <&gpio2 RK_PD3 GPIO_ACTIVE_HIGH>;
+		gpios = <&gpio0 RK_PA2 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&dcin_good>, <&charger_status>;
+	};
+
 	clkin_gmac: external-gmac-clock {
 		compatible = "fixed-clock";
 		clock-frequency = <125000000>;
@@ -639,6 +648,16 @@
 
 		fan2_sense: fan2-sense {
 			rockchip,pins = <4 RK_PC7 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	charger {
+		charger_status: charger-status {
+			rockchip,pins = <2 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		dcin_good: dcin-good {
+			rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
