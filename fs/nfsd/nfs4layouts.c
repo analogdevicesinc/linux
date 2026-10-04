@@ -169,13 +169,6 @@ nfsd4_free_layout_stateid(struct nfs4_stid *stid)
 
 	trace_nfsd_layoutstate_free(&ls->ls_stid.sc_stateid);
 
-	spin_lock(&ls->ls_lock);
-	if (delayed_work_pending(&ls->ls_fence_work)) {
-		spin_unlock(&ls->ls_lock);
-		cancel_delayed_work_sync(&ls->ls_fence_work);
-	} else
-		spin_unlock(&ls->ls_lock);
-
 	spin_lock(&clp->cl_lock);
 	list_del_init(&ls->ls_perclnt);
 	spin_unlock(&clp->cl_lock);
