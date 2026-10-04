@@ -193,11 +193,8 @@ vc4_irq_finish_render_job(struct drm_device *dev)
 	else if (nextbin && nextbin->perfmon != exec->perfmon)
 		vc4_submit_next_bin_job(dev);
 
-	if (exec->fence) {
+	if (exec->fence)
 		dma_fence_signal_locked(exec->fence);
-		dma_fence_put(exec->fence);
-		exec->fence = NULL;
-	}
 
 	wake_up_all(&vc4->job_wait_queue);
 	schedule_work(&vc4->job_done_work);

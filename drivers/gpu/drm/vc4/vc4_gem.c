@@ -652,14 +652,6 @@ vc4_queue_submit(struct drm_device *dev, struct vc4_exec_info *exec,
 
 	kref_get(&exec->refcount);
 
-	/* The job can complete and drop exec->fence as soon as job_lock is
-	 * released, so hold our own reference.
-	 */
-	if (out_sync)
-		dma_fence_get(&fence->base);
-
-	vc4_attach_fences(exec);
-
 	list_add_tail(&exec->head, &vc4->bin_job_list);
 
 	/* If no bin job was executing and if the render job (if any) has the
@@ -676,12 +668,12 @@ vc4_queue_submit(struct drm_device *dev, struct vc4_exec_info *exec,
 
 	spin_unlock_irqrestore(&vc4->job_lock, irqflags);
 
+	vc4_attach_fences(exec);
+
 	drm_exec_fini(exec_ctx);
 
-	if (out_sync) {
+	if (out_sync)
 		drm_syncobj_replace_fence(out_sync, &fence->base);
-		dma_fence_put(&fence->base);
-	}
 
 	return 0;
 }
@@ -875,13 +867,10 @@ vc4_release_exec(struct kref *ref)
 	unsigned long irqflags;
 	unsigned i;
 
-	/* If we got force-completed because of GPU reset rather than
-	 * through our IRQ handler, signal the fence now.
+	/* The render done handler signals the fence, so only drop the
+	 * reference here.
 	 */
-	if (exec->fence) {
-		dma_fence_signal(exec->fence);
-		dma_fence_put(exec->fence);
-	}
+	dma_fence_put(exec->fence);
 
 	if (exec->bo) {
 		for (i = 0; i < exec->bo_count; i++) {
