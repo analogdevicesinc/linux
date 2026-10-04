@@ -75,7 +75,6 @@ vc4_get_hang_state_ioctl(struct drm_device *dev, void *data,
 	struct vc4_hang_state *kernel_state;
 	struct drm_vc4_get_hang_state *state;
 	struct vc4_dev *vc4 = to_vc4_dev(dev);
-	unsigned long irqflags;
 	u32 i;
 	int ret = 0;
 
@@ -87,10 +86,10 @@ vc4_get_hang_state_ioctl(struct drm_device *dev, void *data,
 		return -ENODEV;
 	}
 
-	spin_lock_irqsave(&vc4->job_lock, irqflags);
+	spin_lock(&vc4->hang_state_lock);
 	kernel_state = vc4->hang_state;
 	if (!kernel_state) {
-		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+		spin_unlock(&vc4->hang_state_lock);
 		return -ENOENT;
 	}
 	state = &kernel_state->user_state;
@@ -100,12 +99,12 @@ vc4_get_hang_state_ioctl(struct drm_device *dev, void *data,
 	 */
 	if (get_state->bo_count < state->bo_count) {
 		get_state->bo_count = state->bo_count;
-		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+		spin_unlock(&vc4->hang_state_lock);
 		return 0;
 	}
 
 	vc4->hang_state = NULL;
-	spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+	spin_unlock(&vc4->hang_state_lock);
 
 	/* Save the user's BO pointer, so we don't stomp it with the memcpy. */
 	state->bo = get_state->bo;
@@ -274,13 +273,13 @@ vc4_save_hang_state(struct drm_device *dev)
 		mutex_unlock(&bo->madv_lock);
 	}
 
-	spin_lock_irqsave(&vc4->job_lock, irqflags);
+	spin_lock(&vc4->hang_state_lock);
 	if (vc4->hang_state) {
-		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+		spin_unlock(&vc4->hang_state_lock);
 		vc4_free_hang_state(dev, kernel_state);
 	} else {
 		vc4->hang_state = kernel_state;
-		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+		spin_unlock(&vc4->hang_state_lock);
 	}
 
 	return;
@@ -1190,6 +1189,7 @@ int vc4_gem_init(struct drm_device *dev)
 	INIT_LIST_HEAD(&vc4->render_job_list);
 	INIT_LIST_HEAD(&vc4->job_done_list);
 	spin_lock_init(&vc4->job_lock);
+	spin_lock_init(&vc4->hang_state_lock);
 	spin_lock_init(&vc4->perfmon_state.lock);
 
 	INIT_WORK(&vc4->hangcheck.reset_work, vc4_reset_work);

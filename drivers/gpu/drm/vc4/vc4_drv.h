@@ -99,6 +99,8 @@ struct vc4_dev {
 	struct vc4_hvs *hvs;
 	struct vc4_v3d *v3d;
 
+	/* Protects @hang_state. */
+	spinlock_t hang_state_lock;
 	struct vc4_hang_state *hang_state;
 
 	/* The kernel-space BO cache.  Tracks buffers that have been
