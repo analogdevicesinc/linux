@@ -181,10 +181,17 @@ struct vc4_dev {
 	wait_queue_head_t job_wait_queue;
 	struct work_struct job_done_work;
 
-	/* Used to track the active perfmon if any. Access to this field is
-	 * protected by job_lock.
+	/* Tracks the performance monitor state. The V3D block exposes a single
+	 * set of performance counters, so at most one perfmon can be active at
+	 * any moment.
 	 */
-	struct vc4_perfmon *active_perfmon;
+	struct {
+		/* Protects @active. */
+		spinlock_t lock;
+
+		/* Perfmon currently programmed in HW (or NULL if none). */
+		struct vc4_perfmon *active;
+	} perfmon_state;
 
 	/* The memory used for storing binner tile alloc, tile state,
 	 * and overflow memory allocations.  This is freed when V3D

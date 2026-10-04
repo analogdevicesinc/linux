@@ -145,8 +145,7 @@ vc4_cancel_bin_job(struct drm_device *dev)
 		return;
 
 	/* Stop the perfmon so that the next bin job can be started. */
-	if (exec->perfmon)
-		vc4_perfmon_stop(vc4, exec->perfmon, false);
+	vc4_perfmon_stop(vc4, exec->perfmon, false);
 
 	list_move_tail(&exec->head, &vc4->bin_job_list);
 	vc4_submit_next_bin_job(dev);
