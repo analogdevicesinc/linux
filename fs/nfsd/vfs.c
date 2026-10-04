@@ -1134,9 +1134,6 @@ nfsd_direct_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	if (host_err >= 0) {
 		unsigned int pad = offset - dio_start;
 
-		/* The returned payload starts after the pad */
-		rqstp->rq_res.page_base = pad;
-
 		/* Compute the count of bytes to be returned */
 		if (host_err > pad + *count)
 			host_err = *count;
@@ -1144,6 +1141,10 @@ nfsd_direct_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 			host_err -= pad;
 		else
 			host_err = 0;
+
+		/* The returned payload starts after the pad */
+		if (host_err)
+			rqstp->rq_res.page_base = pad;
 	} else if (unlikely(host_err == -EINVAL)) {
 		struct inode *inode = d_inode(fhp->fh_dentry);
 
