@@ -5303,17 +5303,12 @@ static __be32 nfsd4_encode_readv(struct nfsd4_compoundres *resp,
 				 unsigned long maxcount)
 {
 	struct xdr_stream *xdr = resp->xdr;
-	unsigned int base = xdr->buf->page_len & ~PAGE_MASK;
 	unsigned int starting_len = xdr->buf->len;
 	__be32 zero = xdr_zero;
 	__be32 nfserr;
 
-	resp->rqstp->rq_next_page = xdr->buf->pages +
-				    (xdr->buf->page_len >> PAGE_SHIFT);
-
 	nfserr = nfsd_iter_read(resp->rqstp, read->rd_fhp, read->rd_nf,
-				read->rd_offset, &maxcount, base,
-				&read->rd_eof);
+				read->rd_offset, &maxcount, &read->rd_eof);
 	read->rd_length = maxcount;
 	if (nfserr)
 		return nfserr;
