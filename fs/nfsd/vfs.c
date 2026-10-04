@@ -1088,14 +1088,13 @@ __be32 nfsd_splice_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
  *
  * Note that a direct read can be done only when the xdr_buf containing
  * the NFS READ reply does not already have contents in its .pages array.
- * This is due to potentially restrictive alignment requirements on the
- * read buffer. When .page_len and @base are zero, the .pages array is
- * guaranteed to be page-aligned.
+ * Direct I/O alignment can be restrictive, and with .page_len zero the
+ * read buffer starts on a page boundary.
  */
 static noinline_for_stack __be32
 nfsd_direct_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		 struct nfsd_file *nf, loff_t offset, unsigned long *count,
-		 u32 *eof)
+		 struct page **page, u32 *eof)
 {
 	u64 dio_start, dio_end;
 	unsigned long v, total;
@@ -1115,16 +1114,15 @@ nfsd_direct_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 
 	v = 0;
 	total = dio_end - dio_start;
-	while (total && v < rqstp->rq_maxpages &&
-	       rqstp->rq_next_page < rqstp->rq_page_end) {
+	while (total && v < rqstp->rq_maxpages && page < rqstp->rq_page_end) {
 		len = min_t(size_t, total, PAGE_SIZE);
-		bvec_set_page(&rqstp->rq_bvec[v], *rqstp->rq_next_page,
-			      len, 0);
+		bvec_set_page(&rqstp->rq_bvec[v], *page, len, 0);
 
 		total -= len;
-		++rqstp->rq_next_page;
+		++page;
 		++v;
 	}
+	rqstp->rq_next_page = page;
 
 	trace_nfsd_read_direct(rqstp, fhp, offset, *count - total);
 	iov_iter_bvec(&iter, ITER_DEST, rqstp->rq_bvec, v,
@@ -1182,19 +1180,24 @@ static bool nfsd_direct_read_ok(struct svc_rqst *rqstp, struct nfsd_file *nf)
  * @nf: opened struct nfsd_file of file to be read
  * @offset: starting byte offset
  * @count: IN: requested number of bytes; OUT: number of bytes read
- * @base: offset in first page of read buffer
  * @eof: OUT: set non-zero if operation reached the end of the file
  *
  * Some filesystems or situations cannot use nfsd_splice_read. This
  * function is the slightly less-performant fallback for those cases.
+ * File data lands in @rqstp->rq_res.pages at the offset .page_len
+ * records. On return, @rqstp->rq_next_page points past the last page
+ * offered to the read.
  *
  * Returns nfs_ok on success, otherwise an nfserr stat value is
  * returned.
  */
 __be32 nfsd_iter_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		      struct nfsd_file *nf, loff_t offset, unsigned long *count,
-		      unsigned int base, u32 *eof)
+		      u32 *eof)
 {
+	struct xdr_buf *buf = &rqstp->rq_res;
+	struct page **page = buf->pages + (buf->page_len >> PAGE_SHIFT);
+	unsigned int base = buf->page_len & ~PAGE_MASK;
 	struct file *file = nf->nf_file;
 	unsigned long v, total;
 	struct iov_iter iter;
@@ -1210,7 +1213,7 @@ __be32 nfsd_iter_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	case NFSD_IO_DIRECT:
 		if (nfsd_direct_read_ok(rqstp, nf))
 			return nfsd_direct_read(rqstp, fhp, nf, offset,
-						count, eof);
+						count, page, eof);
 		fallthrough;
 	case NFSD_IO_DONTCACHE:
 		if (file->f_op->fop_flags & FOP_DONTCACHE)
@@ -1222,17 +1225,16 @@ __be32 nfsd_iter_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 
 	v = 0;
 	total = *count;
-	while (total && v < rqstp->rq_maxpages &&
-	       rqstp->rq_next_page < rqstp->rq_page_end) {
+	while (total && v < rqstp->rq_maxpages && page < rqstp->rq_page_end) {
 		len = min_t(size_t, total, PAGE_SIZE - base);
-		bvec_set_page(&rqstp->rq_bvec[v], *rqstp->rq_next_page,
-			      len, base);
+		bvec_set_page(&rqstp->rq_bvec[v], *page, len, base);
 
 		total -= len;
-		++rqstp->rq_next_page;
+		++page;
 		++v;
 		base = 0;
 	}
+	rqstp->rq_next_page = page;
 
 	trace_nfsd_read_vector(rqstp, fhp, offset, *count - total);
 	iov_iter_bvec(&iter, ITER_DEST, rqstp->rq_bvec, v, *count - total);
@@ -1589,7 +1591,7 @@ __be32 nfsd_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	if (file->f_op->splice_read && nfsd_read_splice_ok(rqstp))
 		err = nfsd_splice_read(rqstp, fhp, file, offset, count, eof);
 	else
-		err = nfsd_iter_read(rqstp, fhp, nf, offset, count, 0, eof);
+		err = nfsd_iter_read(rqstp, fhp, nf, offset, count, eof);
 
 	nfsd_file_put(nf);
 	trace_nfsd_read_done(rqstp, fhp, offset, *count);
