@@ -313,7 +313,6 @@
 				regulator-name = "VLDO2";
 				regulator-min-microvolt = <800000>;
 				regulator-max-microvolt = <1550000>;
-				regulator-always-on;
 			};
 
 			vgen3_reg: vccsd {
@@ -334,14 +333,12 @@
 				regulator-name = "VLDO3";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <3300000>;
-				regulator-always-on;
 			};
 
 			vgen6_reg: vldo4 {
 				regulator-name = "VLDO4";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <3300000>;
-				regulator-always-on;
 			};
 		};
 	};
