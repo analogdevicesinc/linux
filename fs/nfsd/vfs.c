@@ -37,6 +37,7 @@
 #ifdef CONFIG_NFSD_V4
 #include "acl.h"
 #include "idmap.h"
+#include "xdr4.h"
 #endif /* CONFIG_NFSD_V4 */
 
 #include "nfsd.h"
@@ -1155,6 +1156,24 @@ nfsd_direct_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 				eof, host_err);
 }
 
+static bool nfsd_direct_read_ok(struct svc_rqst *rqstp, struct nfsd_file *nf)
+{
+	/* When dio_read_offset_align is zero, dio is not supported */
+	if (!nf->nf_dio_read_offset_align)
+		return false;
+	if (rqstp->rq_res.page_len)
+		return false;
+#ifdef CONFIG_NFSD_V4
+	/*
+	 * The xdr_stream encoder ignores rq_res.page_base, so an operation
+	 * encoded after a direct read would overwrite the payload's tail.
+	 */
+	if (rqstp->rq_vers == 4 && !nfsd4_last_compound_op(rqstp))
+		return false;
+#endif
+	return true;
+}
+
 /**
  * nfsd_iter_read - Perform a VFS read using an iterator
  * @rqstp: RPC transaction context
@@ -1188,8 +1207,7 @@ __be32 nfsd_iter_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	case NFSD_IO_BUFFERED:
 		break;
 	case NFSD_IO_DIRECT:
-		/* When dio_read_offset_align is zero, dio is not supported */
-		if (nf->nf_dio_read_offset_align && !rqstp->rq_res.page_len)
+		if (nfsd_direct_read_ok(rqstp, nf))
 			return nfsd_direct_read(rqstp, fhp, nf, offset,
 						count, eof);
 		fallthrough;
