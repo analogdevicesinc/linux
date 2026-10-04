@@ -270,7 +270,7 @@
 		reg = <0x08>;
 
 		regulators {
-			sw1_reg: sw1 {
+			vdd_arm_soc_in: sw1 {
 				regulator-name = "SW1";
 				regulator-min-microvolt = <700000>;
 				regulator-max-microvolt = <3300000>;
@@ -764,6 +764,16 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm_cp>;
 	status = "okay";
+};
+
+&reg_arm {
+	vin-supply = <&vdd_arm_soc_in>;
+	regulator-allow-bypass;
+};
+
+&reg_soc {
+	vin-supply = <&vdd_arm_soc_in>;
+	regulator-allow-bypass;
 };
 
 &uart1 {
