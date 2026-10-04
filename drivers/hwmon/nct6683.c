@@ -27,6 +27,7 @@
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/jiffies.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
@@ -166,11 +167,22 @@ superio_exit(int ioreg)
 
 #define NCT6683_REG_FAN_MIN(x)		(0x3b8 + (x) * 2)	/* 16 bit */
 
+#define NCT6683_REG_FAN_MODE		0xa00	/* channels 0-7 */
 #define NCT6683_REG_FAN_CFG_CTRL	0xa01
 #define NCT6683_FAN_CFG_REQ		0x80
 #define NCT6683_FAN_CFG_DONE		0x40
 
+#define NCT6687DR_REG_FAN_MODE_SYS	0x80f	/* channels 8-15 */
 #define NCT6687DR_REG_PWM_SYS(x)	(0xe00 + (x) - 10)	/* channels 10-15 */
+#define NCT6687DR_REG_PWM_CMD_SYS(x)	(0x260 + (x) - 10)	/* channels 10-15 */
+
+#define NCT6687DR_FAN_CTRL_MASK		(BIT(0) | BIT(1) | GENMASK(15, 10))
+
+#define NCT6687DR_REG_FAN_ENGINE_STS	0xcf8
+#define NCT6687DR_FAN_ENGINE_PHASE	BIT(3)
+#define NCT6687DR_FAN_ENGINE_INVALID	BIT(4)
+#define NCT6687DR_FAN_ENGINE_CHECK_DONE	BIT(5)
+#define NCT6687DR_FAN_ENGINE_LOCK	BIT(6)
 
 #define NCT6683_REG_CUSTOMER_ID		0x602
 #define NCT6683_CUSTOMER_ID_INTEL	0x805
@@ -346,6 +358,8 @@ struct nct6683_data {
 
 	u16 have_pwm;
 	u8 pwm[NCT6683_NUM_REG_FAN];	/* indexed by fan channel */
+
+	u16 have_fan_ctrl;		/* channels supporting fan control */
 
 #ifdef CONFIG_PM
 	/* Remember extra register values over suspend/resume */
@@ -925,6 +939,136 @@ static const struct sensor_template_group nct6683_temp_template_group = {
 	.base = 1,
 };
 
+static u16 nct6683_mode_reg(int ch)
+{
+	return ch < 8 ? NCT6683_REG_FAN_MODE : NCT6687DR_REG_FAN_MODE_SYS;
+}
+
+static u16 nct6683_cmd_reg(int ch)
+{
+	return ch < 8 ? NCT6683_REG_PWM_WRITE(ch) : NCT6687DR_REG_PWM_CMD_SYS(ch);
+}
+
+static bool nct6683_pwm_manual(struct nct6683_data *data, int ch)
+{
+	return nct6683_read(data, nct6683_mode_reg(ch)) & BIT(ch % 8);
+}
+
+static bool nct6683_fan_cfg_idle(struct nct6683_data *data)
+{
+	return !(nct6683_read(data, NCT6687DR_REG_FAN_ENGINE_STS) &
+		 NCT6687DR_FAN_ENGINE_PHASE) &&
+	       !(nct6683_read(data, NCT6683_REG_FAN_CFG_CTRL) &
+		 NCT6683_FAN_CFG_REQ);
+}
+
+static bool nct6687dr_fan_cfg_accessible(u16 sts)
+{
+	return (sts & (NCT6687DR_FAN_ENGINE_PHASE | NCT6687DR_FAN_ENGINE_LOCK)) ==
+		NCT6687DR_FAN_ENGINE_PHASE;
+}
+
+static int nct6687dr_fan_cfg_start(struct nct6683_data *data)
+{
+	bool idle;
+	u16 sts;
+	int err;
+
+	sts = nct6683_read(data, NCT6687DR_REG_FAN_ENGINE_STS);
+	if (nct6687dr_fan_cfg_accessible(sts))
+		return 0;
+
+	/* Wait for a pending request or configuration phase to complete */
+	err = read_poll_timeout(nct6683_fan_cfg_idle, idle, idle,
+				USEC_PER_MSEC, USEC_PER_SEC, false, data);
+	if (err)
+		return err;
+
+	nct6683_write(data, NCT6683_REG_FAN_CFG_CTRL,
+		      nct6683_read(data, NCT6683_REG_FAN_CFG_CTRL) |
+		      NCT6683_FAN_CFG_REQ);
+
+	return read_poll_timeout(nct6683_read, sts,
+				 nct6687dr_fan_cfg_accessible(sts),
+				 USEC_PER_MSEC, USEC_PER_SEC, true,
+				 data, NCT6687DR_REG_FAN_ENGINE_STS);
+}
+
+static int nct6687dr_fan_cfg_finish(struct nct6683_data *data)
+{
+	u16 sts;
+	int err;
+
+	sts = nct6683_read(data, NCT6687DR_REG_FAN_ENGINE_STS);
+	if (!nct6687dr_fan_cfg_accessible(sts))
+		return -EAGAIN;
+
+	nct6683_write(data, NCT6683_REG_FAN_CFG_CTRL,
+		      nct6683_read(data, NCT6683_REG_FAN_CFG_CTRL) |
+		      NCT6683_FAN_CFG_DONE);
+
+	/* The registers are locked again once the configuration is checked */
+	err = read_poll_timeout(nct6683_read, sts,
+				(sts & NCT6687DR_FAN_ENGINE_LOCK) &&
+				(sts & NCT6687DR_FAN_ENGINE_CHECK_DONE),
+				USEC_PER_MSEC, USEC_PER_SEC, true,
+				data, NCT6687DR_REG_FAN_ENGINE_STS);
+	if (err)
+		return err;
+
+	return (sts & NCT6687DR_FAN_ENGINE_INVALID) ? -EAGAIN : 0;
+}
+
+/*
+ * Select manual or automatic mode for a fan channel and, if cmd is not
+ * negative, set its duty cycle for manual mode.
+ */
+static int nct6683_fan_ctrl_update(struct nct6683_data *data, int ch,
+				   bool manual, int cmd)
+{
+	u16 mode_reg = nct6683_mode_reg(ch);
+	u16 cmd_reg = nct6683_cmd_reg(ch);
+	u8 mask = BIT(ch % 8);
+	int attempt, err;
+	u8 mode;
+
+	for (attempt = 0; attempt < 3; attempt++) {
+		err = nct6687dr_fan_cfg_start(data);
+		if (err)
+			return err;
+
+		mode = nct6683_read(data, mode_reg);
+		if (cmd >= 0)
+			nct6683_write(data, cmd_reg, cmd);
+		nct6683_write(data, mode_reg,
+			      manual ? mode | mask : mode & ~mask);
+
+		/* Retry if the configuration phase was lost or rejected */
+		err = nct6687dr_fan_cfg_finish(data);
+		if (err != -EAGAIN)
+			return err;
+	}
+
+	return -EIO;
+}
+
+static int nct6683_set_pwm(struct nct6683_data *data, int ch, u8 val)
+{
+	int err;
+
+	mutex_lock(&data->update_lock);
+	/* The duty cycle can only be set in manual mode */
+	if (nct6683_pwm_manual(data, ch))
+		err = nct6683_fan_ctrl_update(data, ch, true, val);
+	else
+		err = -EBUSY;
+	if (!err)
+		data->pwm[ch] = val;
+	mutex_unlock(&data->update_lock);
+
+	return err;
+}
+
 static ssize_t
 show_pwm(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -943,9 +1087,15 @@ store_pwm(struct device *dev, struct device_attribute *attr, const char *buf,
 	struct nct6683_data *data = dev_get_drvdata(dev);
 	int index = sattr->index;
 	unsigned long val;
+	int err;
 
 	if (kstrtoul(buf, 10, &val) || val > 255)
 		return -EINVAL;
+
+	if (data->have_fan_ctrl & BIT(index)) {
+		err = nct6683_set_pwm(data, index, val);
+		return err ? err : count;
+	}
 
 	mutex_lock(&data->update_lock);
 	nct6683_write(data, NCT6683_REG_FAN_CFG_CTRL, NCT6683_FAN_CFG_REQ);
@@ -959,17 +1109,67 @@ store_pwm(struct device *dev, struct device_attribute *attr, const char *buf,
 
 SENSOR_TEMPLATE(pwm, "pwm%d", S_IRUGO, show_pwm, store_pwm, 0);
 
+static ssize_t
+show_pwm_enable(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct sensor_device_attribute *sattr = to_sensor_dev_attr(attr);
+	struct nct6683_data *data = dev_get_drvdata(dev);
+	bool manual;
+
+	mutex_lock(&data->update_lock);
+	manual = nct6683_pwm_manual(data, sattr->index);
+	mutex_unlock(&data->update_lock);
+
+	return sysfs_emit(buf, "%d\n", manual ? 1 : 2);
+}
+
+static ssize_t
+store_pwm_enable(struct device *dev, struct device_attribute *attr,
+		 const char *buf, size_t count)
+{
+	struct sensor_device_attribute *sattr = to_sensor_dev_attr(attr);
+	struct nct6683_data *data = dev_get_drvdata(dev);
+	int index = sattr->index;
+	unsigned long val;
+	int cmd, err = 0;
+	bool manual;
+
+	if (kstrtoul(buf, 10, &val) || (val != 1 && val != 2))
+		return -EINVAL;
+
+	manual = val == 1;
+
+	mutex_lock(&data->update_lock);
+	if (nct6683_pwm_manual(data, index) != manual) {
+		/* Keep the current duty cycle when switching to manual mode */
+		cmd = manual ? nct6683_read(data, nct6683_pwm_reg(index)) : -1;
+		err = nct6683_fan_ctrl_update(data, index, manual, cmd);
+	}
+	mutex_unlock(&data->update_lock);
+
+	return err ? err : count;
+}
+
+SENSOR_TEMPLATE(pwm_enable, "pwm%d_enable", 0444, show_pwm_enable,
+		store_pwm_enable, 0);
+
 static umode_t nct6683_pwm_is_visible(struct kobject *kobj,
 				      struct attribute *attr, int index)
 {
 	struct device *dev = kobj_to_dev(kobj);
 	struct nct6683_data *data = dev_get_drvdata(dev);
-	int pwm = index;	/* pwm index */
+	int pwm = index / 2;	/* pwm index */
+	int nr = index % 2;	/* attribute index */
 
 	if (!(data->have_pwm & (1 << pwm)))
 		return 0;
 
-	/* Only update pwm values for Mitac boards */
+	if (data->have_fan_ctrl & BIT(pwm))
+		return attr->mode | 0200;
+
+	if (nr == 1)	/* pwm_enable */
+		return 0;
+
 	if (data->customer_id == NCT6683_CUSTOMER_ID_MITAC)
 		return attr->mode | S_IWUSR;
 
@@ -978,6 +1178,7 @@ static umode_t nct6683_pwm_is_visible(struct kobject *kobj,
 
 static struct sensor_device_template *nct6683_attributes_pwm_template[] = {
 	&sensor_dev_template_pwm,
+	&sensor_dev_template_pwm_enable,
 	NULL
 };
 
@@ -1165,7 +1366,9 @@ nct6683_setup_fans(struct nct6683_data *data)
 		 * The system fan channels (10-15) have no fan output
 		 * configuration register, so check their fan input instead.
 		 */
-		data->have_pwm |= data->have_fan & GENMASK(15, 10);
+		data->have_fan_ctrl = NCT6687DR_FAN_CTRL_MASK &
+			(data->have_pwm | (data->have_fan & GENMASK(15, 8)));
+		data->have_pwm |= data->have_fan_ctrl;
 	}
 }
 
