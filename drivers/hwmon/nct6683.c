@@ -22,6 +22,7 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/acpi.h>
+#include <linux/bits.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/init.h>
@@ -168,6 +169,8 @@ superio_exit(int ioreg)
 #define NCT6683_REG_FAN_CFG_CTRL	0xa01
 #define NCT6683_FAN_CFG_REQ		0x80
 #define NCT6683_FAN_CFG_DONE		0x40
+
+#define NCT6687DR_REG_PWM_SYS(x)	(0xe00 + (x) - 10)	/* channels 10-15 */
 
 #define NCT6683_REG_CUSTOMER_ID		0x602
 #define NCT6683_CUSTOMER_ID_INTEL	0x805
@@ -341,8 +344,8 @@ struct nct6683_data {
 	u8 fanout_cfg[NCT6683_NUM_REG_FAN];
 	u16 have_fan;			/* some fan inputs can be disabled */
 
-	u8 have_pwm;
-	u8 pwm[NCT6683_NUM_REG_PWM];
+	u16 have_pwm;
+	u8 pwm[NCT6683_NUM_REG_FAN];	/* indexed by fan channel */
 
 #ifdef CONFIG_PM
 	/* Remember extra register values over suspend/resume */
@@ -588,15 +591,21 @@ static int get_temp_reg(struct nct6683_data *data, int nr, int index)
 	return reg;
 }
 
+/* Channels 8-15 are only used on NCT6687D-R */
+static u16 nct6683_pwm_reg(int ch)
+{
+	return ch < 8 ? NCT6683_REG_PWM(ch) : NCT6687DR_REG_PWM_SYS(ch);
+}
+
 static void nct6683_update_pwm(struct device *dev)
 {
 	struct nct6683_data *data = dev_get_drvdata(dev);
 	int i;
 
-	for (i = 0; i < NCT6683_NUM_REG_PWM; i++) {
+	for (i = 0; i < ARRAY_SIZE(data->pwm); i++) {
 		if (!(data->have_pwm & (1 << i)))
 			continue;
-		data->pwm[i] = nct6683_read(data, NCT6683_REG_PWM(i));
+		data->pwm[i] = nct6683_read(data, nct6683_pwm_reg(i));
 	}
 }
 
@@ -1148,6 +1157,15 @@ nct6683_setup_fans(struct nct6683_data *data)
 		if (reg & 0x80)
 			data->have_pwm |= 1 << i;
 		data->fanout_cfg[i] = reg;
+	}
+
+	if (data->kind == nct6687 &&
+	    data->customer_id == NCT6683_CUSTOMER_ID_MSI4) {
+		/*
+		 * The system fan channels (10-15) have no fan output
+		 * configuration register, so check their fan input instead.
+		 */
+		data->have_pwm |= data->have_fan & GENMASK(15, 10);
 	}
 }
 
