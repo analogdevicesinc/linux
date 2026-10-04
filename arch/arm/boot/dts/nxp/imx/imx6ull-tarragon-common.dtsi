@@ -30,15 +30,6 @@
 		reset-gpios = <&gpio4 10 GPIO_ACTIVE_LOW>;
 	};
 
-	reg_dcdc_3v3: regulator-dcdc-3v3 {
-		compatible = "regulator-fixed";
-		regulator-name = "dcdc-3v3";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		regulator-boot-on;
-		regulator-always-on;
-	};
-
 	reg_1v8: regulator-1v8 {
 		compatible = "regulator-fixed";
 		regulator-name = "ldo-1v8";
@@ -278,7 +269,7 @@
 				regulator-always-on;
 			};
 
-			sw2_reg: sw2 {
+			reg_dcdc_3v3: sw2 {
 				regulator-name = "SW2";
 				regulator-min-microvolt = <1500000>;
 				regulator-max-microvolt = <3300000>;
@@ -838,7 +829,7 @@
 	pinctrl-0 = <&pinctrl_usdhc2>;
 	pinctrl-1 = <&pinctrl_usdhc2_100mhz>;
 	pinctrl-2 = <&pinctrl_usdhc2_200mhz>;
-	vmmc-supply = <&sw2_reg>;
+	vmmc-supply = <&reg_dcdc_3v3>;
 	vqmmc-supply = <&reg_1v8>;
 	mmc-pwrseq = <&emmc_pwrseq>;
 	bus-width = <8>;
