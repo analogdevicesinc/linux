@@ -62,8 +62,7 @@ static bool rz_mtu3_is_16bit_shared_reg(u16 offset)
 
 u16 rz_mtu3_shared_reg_read(struct rz_mtu3_channel *ch, u16 offset)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 
 	if (rz_mtu3_is_16bit_shared_reg(offset))
 		return readw(priv->mmio + offset);
@@ -74,8 +73,7 @@ EXPORT_SYMBOL_GPL(rz_mtu3_shared_reg_read);
 
 u8 rz_mtu3_8bit_ch_read(struct rz_mtu3_channel *ch, u16 offset)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 	u16 ch_offs;
 
 	ch_offs = rz_mtu3_8bit_ch_reg_offs[ch->channel_number][offset];
@@ -86,8 +84,7 @@ EXPORT_SYMBOL_GPL(rz_mtu3_8bit_ch_read);
 
 u16 rz_mtu3_16bit_ch_read(struct rz_mtu3_channel *ch, u16 offset)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 	u16 ch_offs;
 
 	/* MTU8 doesn't have 16-bit registers */
@@ -102,8 +99,7 @@ EXPORT_SYMBOL_GPL(rz_mtu3_16bit_ch_read);
 
 u32 rz_mtu3_32bit_ch_read(struct rz_mtu3_channel *ch, u16 offset)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 	u16 ch_offs;
 
 	if (ch->channel_number != RZ_MTU3_CHAN_1 && ch->channel_number != RZ_MTU3_CHAN_8)
@@ -117,8 +113,7 @@ EXPORT_SYMBOL_GPL(rz_mtu3_32bit_ch_read);
 
 void rz_mtu3_8bit_ch_write(struct rz_mtu3_channel *ch, u16 offset, u8 val)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 	u16 ch_offs;
 
 	ch_offs = rz_mtu3_8bit_ch_reg_offs[ch->channel_number][offset];
@@ -128,8 +123,7 @@ EXPORT_SYMBOL_GPL(rz_mtu3_8bit_ch_write);
 
 void rz_mtu3_16bit_ch_write(struct rz_mtu3_channel *ch, u16 offset, u16 val)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 	u16 ch_offs;
 
 	/* MTU8 doesn't have 16-bit registers */
@@ -143,8 +137,7 @@ EXPORT_SYMBOL_GPL(rz_mtu3_16bit_ch_write);
 
 void rz_mtu3_32bit_ch_write(struct rz_mtu3_channel *ch, u16 offset, u32 val)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 	u16 ch_offs;
 
 	if (ch->channel_number != RZ_MTU3_CHAN_1 && ch->channel_number != RZ_MTU3_CHAN_8)
@@ -157,8 +150,7 @@ EXPORT_SYMBOL_GPL(rz_mtu3_32bit_ch_write);
 
 void rz_mtu3_shared_reg_write(struct rz_mtu3_channel *ch, u16 offset, u16 value)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 
 	if (rz_mtu3_is_16bit_shared_reg(offset))
 		writew(value, priv->mmio + offset);
@@ -170,8 +162,7 @@ EXPORT_SYMBOL_GPL(rz_mtu3_shared_reg_write);
 void rz_mtu3_shared_reg_update_bit(struct rz_mtu3_channel *ch, u16 offset,
 				   u16 pos, u8 val)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 	unsigned long tmdr, flags;
 
 	spin_lock_irqsave(&priv->lock, flags);
@@ -244,8 +235,7 @@ static u8 rz_mtu3_get_tstr_bit_pos(struct rz_mtu3_channel *ch)
 
 static void rz_mtu3_start_stop_ch(struct rz_mtu3_channel *ch, bool start)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 	unsigned long flags, tstr;
 	u16 offset;
 	u8 bitpos;
@@ -265,8 +255,7 @@ static void rz_mtu3_start_stop_ch(struct rz_mtu3_channel *ch, bool start)
 
 bool rz_mtu3_is_enabled(struct rz_mtu3_channel *ch)
 {
-	struct rz_mtu3 *mtu = dev_get_drvdata(ch->dev->parent);
-	struct rz_mtu3_priv *priv = mtu->priv_data;
+	struct rz_mtu3_priv *priv = ch->priv;
 	unsigned long flags, tstr;
 	u16 offset;
 	u8 bitpos;
@@ -320,11 +309,9 @@ static int rz_mtu3_probe(struct platform_device *pdev)
 	if (!ddata)
 		return -ENOMEM;
 
-	ddata->priv_data = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-	if (!ddata->priv_data)
+	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv)
 		return -ENOMEM;
-
-	priv = ddata->priv_data;
 
 	priv->mmio = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(priv->mmio))
@@ -344,6 +331,7 @@ static int rz_mtu3_probe(struct platform_device *pdev)
 	for (i = 0; i < RZ_MTU_NUM_CHANNELS; i++) {
 		ddata->channels[i].channel_number = i;
 		ddata->channels[i].is_busy = false;
+		ddata->channels[i].priv = priv;
 		mutex_init(&ddata->channels[i].lock);
 	}
 
