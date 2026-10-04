@@ -6804,7 +6804,14 @@ release:
 	next_page = xdr->buf->pages +
 		DIV_ROUND_UP(xdr->buf->page_base + xdr->buf->page_len,
 			     PAGE_SIZE);
-	rqstp->rq_next_page = min(next_page, rqstp->rq_page_end);
+	next_page = min(next_page, rqstp->rq_page_end);
+	/*
+	 * A failed splice read leaves page cache pages in rq_respages
+	 * above the truncated payload. Keep them below rq_next_page so
+	 * that svc_rqst_release_pages() releases them.
+	 */
+	if (!op->status || next_page > rqstp->rq_next_page)
+		rqstp->rq_next_page = next_page;
 }
 
 /**
