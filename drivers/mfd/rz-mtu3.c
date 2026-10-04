@@ -13,6 +13,7 @@
 #include <linux/mfd/rz-mtu3.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/reset.h>
 #include <linux/spinlock.h>
 
@@ -290,6 +291,7 @@ static int rz_mtu3_probe(struct platform_device *pdev)
 	struct rz_mtu3 *ddata;
 	struct reset_control *rstc;
 	unsigned int i;
+	int ret;
 
 	ddata = devm_kzalloc(dev, sizeof(*ddata), GFP_KERNEL);
 	if (!ddata)
@@ -320,6 +322,10 @@ static int rz_mtu3_probe(struct platform_device *pdev)
 		ddata->channels[i].priv = priv;
 		mutex_init(&ddata->channels[i].lock);
 	}
+
+	ret = devm_pm_runtime_enable(dev);
+	if (ret)
+		return ret;
 
 	return devm_mfd_add_devices(dev, 0, rz_mtu3_devs,
 				    ARRAY_SIZE(rz_mtu3_devs), NULL, 0, NULL);
