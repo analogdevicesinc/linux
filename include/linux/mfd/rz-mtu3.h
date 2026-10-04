@@ -122,6 +122,8 @@ enum rz_mtu3_channels {
 	RZ_MTU_NUM_CHANNELS
 };
 
+struct rz_mtu3_priv;
+
 /**
  * struct rz_mtu3_channel - MTU3 channel private data
  *
@@ -129,12 +131,14 @@ enum rz_mtu3_channels {
  * @channel_number: channel number
  * @lock: Lock to protect channel state
  * @is_busy: channel state
+ * @priv: Device data
  */
 struct rz_mtu3_channel {
 	struct device *dev;
 	unsigned int channel_number;
 	struct mutex lock;
 	bool is_busy;
+	struct rz_mtu3_priv *priv;
 };
 
 /**
@@ -142,13 +146,10 @@ struct rz_mtu3_channel {
  *
  * @clk: MTU3 module clock
  * @rz_mtu3_channel: HW channels
- * @priv_data: MTU3 core driver private data
  */
 struct rz_mtu3 {
 	struct clk *clk;
 	struct rz_mtu3_channel channels[RZ_MTU_NUM_CHANNELS];
-
-	void *priv_data;
 };
 
 static inline bool rz_mtu3_request_channel(struct rz_mtu3_channel *ch)
