@@ -111,12 +111,9 @@
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet1
-		     &pinctrl_enet1_phy_rst
 		     &pinctrl_enet_mdio>;
 	phy-supply = <&reg_dcdc_3v3>;
 	phy-mode = "rmii";
-	phy-reset-gpios = <&gpio5 6 GPIO_ACTIVE_LOW>;
-	phy-reset-duration = <25>;
 	phy-handle = <&ethphy0>;
 
 	mdio {
@@ -127,13 +124,16 @@
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <0>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_enet1_phy_int>;
+			pinctrl-0 = <&pinctrl_enet1_phy_int &pinctrl_enet1_phy_rst>;
 			interrupt-parent = <&gpio2>;
 			interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
 			interrupts-extended = <&gpio2 7 IRQ_TYPE_EDGE_FALLING>;
 			clocks = <&clks IMX6UL_CLK_ENET_REF>;
 			clock-names = "rmii-ref";
 			max-speed = <100>;
+			reset-assert-us = <500>;
+			reset-deassert-us = <500>;
+			reset-gpios = <&gpio5 6 GPIO_ACTIVE_LOW>;
 			smsc,disable-energy-detect;
 		};
 	};
