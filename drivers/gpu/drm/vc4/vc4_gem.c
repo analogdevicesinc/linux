@@ -633,7 +633,6 @@ vc4_queue_submit(struct drm_device *dev, struct vc4_exec_info *exec,
 {
 	struct vc4_dev *vc4 = to_vc4_dev(dev);
 	struct vc4_exec_info *renderjob;
-	uint64_t seqno;
 	unsigned long irqflags;
 	struct vc4_fence *fence;
 
@@ -644,8 +643,7 @@ vc4_queue_submit(struct drm_device *dev, struct vc4_exec_info *exec,
 
 	spin_lock_irqsave(&vc4->job_lock, irqflags);
 
-	seqno = ++vc4->emit_seqno;
-	exec->seqno = seqno;
+	exec->seqno = ++vc4->emit_seqno;
 
 	dma_fence_init(&fence->base, &vc4_fence_ops, &vc4->job_lock,
 		       vc4->dma_fence_context, exec->seqno);
@@ -1183,7 +1181,7 @@ vc4_submit_cl_ioctl(struct drm_device *dev, void *data,
 		goto fail_unreserve;
 
 	/* Return the seqno for our job. */
-	args->seqno = vc4->emit_seqno;
+	args->seqno = exec->seqno;
 
 	vc4_exec_put(exec);
 
