@@ -652,6 +652,8 @@ vc4_queue_submit(struct drm_device *dev, struct vc4_exec_info *exec,
 	fence->seqno = exec->seqno;
 	exec->fence = &fence->base;
 
+	kref_get(&exec->refcount);
+
 	/* The job can complete and drop exec->fence as soon as job_lock is
 	 * released, so hold our own reference.
 	 */
@@ -732,11 +734,11 @@ vc4_cl_lookup_bos(struct drm_device *dev,
 
 fail_dec_usecnt:
 	/* Decrease usecnt on acquired objects.
-	 * We cannot rely on  vc4_complete_exec() to release resources here,
-	 * because vc4_complete_exec() has no information about which BO has
-	 * had its ->usecnt incremented.
+	 * We cannot rely on vc4_release_exec() to release resources here,
+	 * because it has no information about which BO has had its ->usecnt
+	 * incremented.
 	 * To make things easier we just free everything explicitly and set
-	 * exec->bo to NULL so that vc4_complete_exec() skips the 'BO release'
+	 * exec->bo to NULL so that vc4_release_exec() skips the 'BO release'
 	 * step.
 	 */
 	for (i-- ; i >= 0; i--)
@@ -867,9 +869,11 @@ fail:
 }
 
 static void
-vc4_complete_exec(struct drm_device *dev, struct vc4_exec_info *exec)
+vc4_release_exec(struct kref *ref)
 {
-	struct vc4_dev *vc4 = to_vc4_dev(dev);
+	struct vc4_exec_info *exec = container_of(ref, struct vc4_exec_info,
+						  refcount);
+	struct vc4_dev *vc4 = exec->dev;
 	unsigned long irqflags;
 	unsigned i;
 
@@ -921,6 +925,12 @@ vc4_complete_exec(struct drm_device *dev, struct vc4_exec_info *exec)
 	kfree(exec);
 }
 
+static void
+vc4_exec_put(struct vc4_exec_info *exec)
+{
+	kref_put(&exec->refcount, vc4_release_exec);
+}
+
 void
 vc4_job_handle_completed(struct vc4_dev *vc4)
 {
@@ -937,7 +947,7 @@ vc4_job_handle_completed(struct vc4_dev *vc4)
 		list_del(&exec->head);
 
 		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
-		vc4_complete_exec(&vc4->base, exec);
+		vc4_exec_put(exec);
 		spin_lock_irqsave(&vc4->job_lock, irqflags);
 	}
 
@@ -1084,6 +1094,8 @@ vc4_submit_cl_ioctl(struct drm_device *dev, void *data,
 		return ret;
 	}
 
+	kref_init(&exec->refcount);
+
 	exec->args = args;
 	INIT_LIST_HEAD(&exec->unref_list);
 
@@ -1173,12 +1185,14 @@ vc4_submit_cl_ioctl(struct drm_device *dev, void *data,
 	/* Return the seqno for our job. */
 	args->seqno = vc4->emit_seqno;
 
+	vc4_exec_put(exec);
+
 	return 0;
 
 fail_unreserve:
 	drm_exec_fini(&exec_ctx);
 fail:
-	vc4_complete_exec(&vc4->base, exec);
+	vc4_exec_put(exec);
 
 	return ret;
 }
