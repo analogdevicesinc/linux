@@ -155,8 +155,8 @@ static const struct da280_match_data da226_match_data = { "da226", 2 };
 static const struct da280_match_data da280_match_data = { "da280", 3 };
 
 static const struct acpi_device_id da280_acpi_match[] = {
-	{ "NSA2513", (kernel_ulong_t)&da217_match_data },
-	{ "MIRAACC", (kernel_ulong_t)&da280_match_data },
+	{ .id = "NSA2513", .driver_data = (kernel_ulong_t)&da217_match_data },
+	{ .id = "MIRAACC", .driver_data = (kernel_ulong_t)&da280_match_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, da280_acpi_match);
