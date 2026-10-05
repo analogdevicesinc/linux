@@ -1095,7 +1095,7 @@ static const struct dev_pm_ops rpr0521_pm_ops = {
 };
 
 static const struct acpi_device_id rpr0521_acpi_match[] = {
-	{"RPR0521", 0},
+	{ .id = "RPR0521" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, rpr0521_acpi_match);
