@@ -201,7 +201,7 @@ struct nlm_file {
 	struct lockd_share *	f_shares;	/* DOS shares */
 	struct list_head	f_blocks;	/* blocked locks */
 	unsigned int		f_locks;	/* guesstimate # of locks */
-	unsigned int		f_count;	/* reference count */
+	atomic_t		f_count;	/* reference count */
 	struct mutex		f_mutex;	/* avoid concurrent access */
 };
 
