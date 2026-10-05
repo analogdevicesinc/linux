@@ -941,7 +941,7 @@ static const struct dev_pm_ops us5182d_pm_ops = {
 };
 
 static const struct acpi_device_id us5182d_acpi_match[] = {
-	{ "USD5182", 0 },
+	{ .id = "USD5182" },
 	{ }
 };
 
