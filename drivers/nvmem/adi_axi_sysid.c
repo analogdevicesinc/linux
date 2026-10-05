@@ -20,6 +20,7 @@
 enum {
 	AXI_SYSID_HEADER_V1 = 1,
 	AXI_SYSID_HEADER_V2,
+	AXI_SYSID_HEADER_V3,
 };
 
 struct axi_sysid {
@@ -51,6 +52,16 @@ struct build_info_header_v1 {
 
 struct build_info_header_v1_1 {
 	s8 git_branch[28];
+	s8 git_hash[44];
+	s8 git_clean_chk[4];
+	s8 vadj_chk[4];
+	s8 epoch[12];
+	u8 padding[4];
+	u32 crc;
+} __packed;
+
+struct build_info_header_v1_2 {
+	s8 git_branch[128];
 	s8 git_hash[44];
 	s8 git_clean_chk[4];
 	s8 vadj_chk[4];
@@ -115,6 +126,45 @@ static char *axi_sysid_get_str(struct axi_sysid *st, int this)
 	}
 
 	return NULL;
+}
+
+static int axi_sysid_validate_v1_2(struct platform_device *pdev,
+				   struct axi_sysid *st,
+				   struct build_info_header_v1_2 *build)
+{
+	struct sysid_header_v1 *header;
+	char custom_info[516];
+	struct tm tm;
+	time64_t t = 0;
+
+	if (axi_sysid_checksum((u8 *)build, sizeof(struct build_info_header_v1_2))) {
+		dev_err(&pdev->dev, "verify build header checksum failed\n");
+		return -EFAULT;
+	}
+
+	header = (struct sysid_header_v1 *) st->mem;
+
+	sscanf(build->epoch, "%12lld", &t);
+	time64_to_tm(t, 0, &tm);
+
+	if (axi_sysid_get_str(st, header->custom_info_offs))
+		snprintf(custom_info, sizeof(custom_info), "%s%s%s",
+			" [", axi_sysid_get_str(st, header->custom_info_offs), "]");
+	else
+		custom_info[0] = 0;
+
+	dev_info(&pdev->dev,
+		"[%s]%s on [%s] git branch <%.128s> git <%.40s> %s [%ld-%02d-%02d %02d:%02d:%02d] UTC\n",
+		axi_sysid_get_str(st, header->board_info_offs),
+		custom_info,
+		axi_sysid_get_str(st, header->product_info_offs),
+		build->git_branch,
+		build->git_hash,
+		(build->git_clean_chk[0] == 't') ? "clean" : "dirty",
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+		tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+	return 0;
 }
 
 static int axi_sysid_validate_v1_1(struct platform_device *pdev,
@@ -197,6 +247,7 @@ static int axi_sysid_validate_v1(struct platform_device *pdev,
 static int axi_sysid_validate(struct platform_device *pdev,
 			      struct axi_sysid *st)
 {
+	struct build_info_header_v1_2 *build_v1_2;
 	struct build_info_header_v1_1 *build_v1_1;
 	struct build_info_header_v1 *build_v1;
 	struct sysid_header_v1 *header;
@@ -224,6 +275,10 @@ static int axi_sysid_validate(struct platform_device *pdev,
 	build_raw = &st->mem[header->build_info_offs];
 
 	switch (header->version) {
+	case AXI_SYSID_HEADER_V3:
+		build_v1_2 = (struct build_info_header_v1_2 *) build_raw;
+
+		return axi_sysid_validate_v1_2(pdev, st, build_v1_2);
 	case AXI_SYSID_HEADER_V2:
 		build_v1_1 = (struct build_info_header_v1_1 *) build_raw;
 
@@ -254,6 +309,10 @@ static const struct axi_sysid_core_info version_1_0_0_info[] = {
 	{
 		.version = ADI_AXI_PCORE_VER(1, 1, 'a'),
 		.header_version = AXI_SYSID_HEADER_V2,
+	},
+	{
+		.version = ADI_AXI_PCORE_VER(1, 2, 'a'),
+		.header_version = AXI_SYSID_HEADER_V3,
 	},
 	{}
 };
