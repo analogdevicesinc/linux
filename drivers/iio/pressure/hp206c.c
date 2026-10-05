@@ -400,7 +400,7 @@ static const struct i2c_device_id hp206c_id[] = {
 MODULE_DEVICE_TABLE(i2c, hp206c_id);
 
 static const struct acpi_device_id hp206c_acpi_match[] = {
-	{"HOP206C", 0},
+	{ .id = "HOP206C" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, hp206c_acpi_match);
