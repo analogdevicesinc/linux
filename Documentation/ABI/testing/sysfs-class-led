@@ -112,3 +112,71 @@ Description:
 		Invert the LED on/off state. This parameter is specific to
 		the backlight trigger. It is useful when driving a LED which
 		is intended to indicate a device in a standby like state.
+
+What:		/sys/class/leds/<led>/delay_on
+Date:		March 2006
+KernelVersion:	2.6.17
+Contact:	linux-leds@vger.kernel.org
+Description:
+		This attribute is only present when the LED's trigger is
+		set to "timer" or "oneshot".
+
+		For the "timer" trigger, specifies for how many milliseconds
+		the LED has to stay on in each cycle of a repeating on/off
+		blink. Writing a new value restarts the blink immediately.
+		Defaults to 500 ms.
+
+		For the "oneshot" trigger, specifies for how many
+		milliseconds the LED has to stay at LED_FULL brightness
+		after it has been armed. Defaults to 100 ms.
+
+What:		/sys/class/leds/<led>/delay_off
+Date:		March 2006
+KernelVersion:	2.6.17
+Contact:	linux-leds@vger.kernel.org
+Description:
+		This attribute is only present when the LED's trigger is
+		set to "timer" or "oneshot".
+
+		For the "timer" trigger, specifies for how many milliseconds
+		the LED has to stay off in each cycle of a repeating on/off
+		blink. Writing a new value restarts the blink immediately.
+		Defaults to 500 ms; together with the default delay_on this
+		gives a 1 Hz blink.
+
+		For the "oneshot" trigger, specifies for how many
+		milliseconds the LED has to stay at LED_OFF brightness
+		after it has been armed. Defaults to 100 ms.
+
+What:		/sys/class/leds/<led>/invert
+Date:		Jun 2012
+KernelVersion:	3.6
+Contact:	linux-leds@vger.kernel.org
+Description:
+		This attribute is only present when the LED's trigger is
+		set to "oneshot", "heartbeat" or "activity". Any non-zero
+		value written is stored as 1, so reading it back returns
+		0 or 1.
+
+		For the "oneshot" trigger, reverses the blink logic. If set
+		to 0 (default) blink on for delay_on ms, then blink off for
+		delay_off ms, leaving the LED normally off. If set to 1,
+		blink off for delay_off ms, then blink on for delay_on ms,
+		leaving the LED normally on. Setting this value also
+		immediately changes the LED state.
+
+		For the "heartbeat" trigger, inverts the heartbeat pattern.
+		If set to 0 (default) the LED stays off most of the time and
+		blinks briefly on. If set to 1 the LED stays on most of the
+		time and blinks briefly off. Unlike "oneshot", the new value
+		only takes effect at the next phase of the pattern.
+
+		For the "activity" trigger, inverts the on/off states of the
+		CPU activity blink. If set to 0 (default) the LED is mostly
+		off when the system is idle and stays on longer as CPU usage
+		grows. If set to 1 the LED is mostly on when idle and stays
+		off longer as CPU usage grows. The new value only takes
+		effect at the next on/off transition.
+
+		This is unrelated to the /sys/class/leds/<led>/inverted
+		attribute, which is specific to the backlight trigger.
