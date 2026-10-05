@@ -39,14 +39,14 @@ static void bmc150_accel_remove(struct spi_device *spi)
 }
 
 static const struct acpi_device_id bmc150_accel_acpi_match[] = {
-	{"BMA0255"},
-	{"BMA0280"},
-	{"BMA222"},
-	{"BMA222E"},
-	{"BMA250E"},
-	{"BMC150A"},
-	{"BMI055A"},
-	{"BSBA0150"},
+	{ .id = "BMA0255" },
+	{ .id = "BMA0280" },
+	{ .id = "BMA222" },
+	{ .id = "BMA222E" },
+	{ .id = "BMA250E" },
+	{ .id = "BMC150A" },
+	{ .id = "BMI055A" },
+	{ .id = "BSBA0150" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, bmc150_accel_acpi_match);
