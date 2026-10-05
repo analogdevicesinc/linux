@@ -312,6 +312,7 @@ struct ad9088_phy {
 
 	u8 hsci_buf[ADI_APOLLO_HAL_REGIO_HSCI_STREAM_DEFAULT_SIZE];
 	u8 gpios_exported[ADI_APOLLO_NUM_GPIO];
+	const char *gpio_owner[ADI_APOLLO_NUM_GPIO];
 	char dbuf[4096];
 
 	u8 loopback_mode[ADI_APOLLO_NUM_SIDES];
@@ -382,6 +383,7 @@ int adi_ad9088_calc_nco_ftw(struct ad9088_phy *phy, u64 freq, s64 nco_shift, u32
 			    u64 *ftw, u64 *frac_a, u64 *frac_b);
 const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
 						  const struct iio_chan_spec *chan);
+int ad9088_gpio_claim(struct ad9088_phy *phy, u32 pin, const char *owner);
 int ad9088_ffh_probe(struct ad9088_phy *phy);
 ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev, uintptr_t private,
 				 const struct iio_chan_spec *chan, char *buf);
