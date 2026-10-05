@@ -5081,6 +5081,57 @@ static void ad9088_set_gpio(struct gpio_chip *chip, unsigned int offset, int val
 	adi_apollo_gpio_cmos_output_set(&phy->ad9088, phy->gpios_exported[offset], value);
 }
 
+/**
+ * ad9088_gpio_claim - Reserve a GPIO for a single function
+ * @phy: Device handle
+ * @pin: GPIO number
+ * @owner: Devicetree property mapping the pin
+ *
+ * Return: 0 on success, negative error code otherwise
+ */
+int ad9088_gpio_claim(struct ad9088_phy *phy, u32 pin, const char *owner)
+{
+	struct device *dev = &phy->spi->dev;
+
+	if (pin >= ADI_APOLLO_NUM_GPIO)
+		return dev_err_probe(dev, -EINVAL, "%s: invalid GPIO%u\n", owner, pin);
+
+	if (phy->gpio_owner[pin])
+		return dev_err_probe(dev, -EBUSY, "GPIO%u: %s collides with %s\n",
+				     pin, owner, phy->gpio_owner[pin]);
+
+	phy->gpio_owner[pin] = owner;
+
+	return 0;
+}
+
+/*
+ * MCS tracking keeps strobing the ADF4382 delay adjust in the background.
+ */
+static int ad9088_gpio_claim_clock_align(struct ad9088_phy *phy)
+{
+	adi_apollo_adf4382_cfg_t *cfg = &phy->profile.mcs_cfg.adf4382_cfg;
+	unsigned int i, num = phy->profile.clk_cfg.is_dual_clk ? ADI_APOLLO_NUM_ADF4382_GPIOS : 1;
+	int ret;
+
+	if (!phy->iio_adf4030 || !phy->iio_adf4382)
+		return 0;
+
+	for (i = 0; i < num; i++) {
+		ret = ad9088_gpio_claim(phy, cfg->clock_align_delay_adjust_gpio[i],
+					"adi,clock-align-delay-adjust-gpio-num");
+		if (ret)
+			return ret;
+
+		ret = ad9088_gpio_claim(phy, cfg->clock_align_delay_strobe_gpio[i],
+					"adi,clock-align-delay-strobe-gpio-num");
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int ad9088_gpio_quick_config(struct ad9088_phy *phy)
 {
 	struct device *dev = &phy->spi->dev;
@@ -5106,7 +5157,7 @@ static int ad9088_gpio_quick_config(struct ad9088_phy *phy)
 
 static int ad9088_gpio_setup(struct ad9088_phy *phy)
 {
-	int ret, len;
+	int ret, len, i;
 
 	len = device_property_count_u8(&phy->spi->dev, "adi,gpio-exports");
 	if (len < 0)
@@ -5118,6 +5169,12 @@ static int ad9088_gpio_setup(struct ad9088_phy *phy)
 					    phy->gpios_exported, len);
 	if (ret < 0)
 		return ret;
+
+	for (i = 0; i < len; i++) {
+		ret = ad9088_gpio_claim(phy, phy->gpios_exported[i], "adi,gpio-exports");
+		if (ret)
+			return ret;
+	}
 
 	phy->gpiochip.label = "ad9088";
 	phy->gpiochip.base = -1;
@@ -5444,6 +5501,10 @@ static int ad9088_probe(struct spi_device *spi)
 		return ret;
 
 	ret = ad9088_gpio_quick_config(phy);
+	if (ret)
+		return ret;
+
+	ret = ad9088_gpio_claim_clock_align(phy);
 	if (ret)
 		return ret;
 
