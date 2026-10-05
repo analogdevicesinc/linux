@@ -1158,7 +1158,7 @@ static const struct i2c_device_id apds9960_id[] = {
 MODULE_DEVICE_TABLE(i2c, apds9960_id);
 
 static const struct acpi_device_id apds9960_acpi_match[] = {
-	{ "MSHW0184" },
+	{ .id = "MSHW0184" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, apds9960_acpi_match);

@@ -450,7 +450,7 @@ static const struct dev_pm_ops pa12203001_pm_ops = {
 };
 
 static const struct acpi_device_id pa12203001_acpi_match[] = {
-	{ "TXCPA122", 0 },
+	{ .id = "TXCPA122" },
 	{ }
 };
 
