@@ -238,7 +238,7 @@ static void acpi_als_remove(struct platform_device *pdev)
 }
 
 static const struct acpi_device_id acpi_als_device_ids[] = {
-	{"ACPI0008", 0},
+	{ .id = "ACPI0008" },
 	{ }
 };
 

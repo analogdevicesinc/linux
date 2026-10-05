@@ -533,7 +533,7 @@ MODULE_DEVICE_TABLE(of, cm32181_of_match);
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id cm32181_acpi_match[] = {
-	{ "CPLM3218", 0 },
+	{ .id = "CPLM3218" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, cm32181_acpi_match);
