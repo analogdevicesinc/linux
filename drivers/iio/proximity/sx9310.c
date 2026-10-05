@@ -992,8 +992,8 @@ static const struct sx931x_info sx9311_info = {
 };
 
 static const struct acpi_device_id sx9310_acpi_match[] = {
-	{ "STH9310", (kernel_ulong_t)&sx9310_info },
-	{ "STH9311", (kernel_ulong_t)&sx9311_info },
+	{ .id = "STH9310", .driver_data = (kernel_ulong_t)&sx9310_info },
+	{ .id = "STH9311", .driver_data = (kernel_ulong_t)&sx9311_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, sx9310_acpi_match);
