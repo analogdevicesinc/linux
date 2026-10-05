@@ -542,7 +542,7 @@ config SND_SOC_ADAU1962
 	tristate
 
 config SND_SOC_ADAU1962_I2C
-	tristate
+	tristate "Analog Devices ADAU1962 CODEC - I2C"
 	select SND_SOC_ADAU1962
 	select REGMAP_I2C
 
