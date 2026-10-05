@@ -224,7 +224,7 @@ static const struct i2c_device_id max30208_id_table[] = {
 MODULE_DEVICE_TABLE(i2c, max30208_id_table);
 
 static const struct acpi_device_id max30208_acpi_match[] = {
-	{ "MAX30208" },
+	{ .id = "MAX30208" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, max30208_acpi_match);
