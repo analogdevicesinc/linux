@@ -573,7 +573,7 @@ static const struct dev_pm_ops mma9551_pm_ops = {
 };
 
 static const struct acpi_device_id mma9551_acpi_match[] = {
-	{"MMA9551", 0},
+	{ .id = "MMA9551" },
 	{ }
 };
 
