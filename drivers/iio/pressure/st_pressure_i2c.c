@@ -54,7 +54,7 @@ static const struct of_device_id st_press_of_match[] = {
 MODULE_DEVICE_TABLE(of, st_press_of_match);
 
 static const struct acpi_device_id st_press_acpi_match[] = {
-	{"SNO9210", LPS22HB},
+	{ .id = "SNO9210", .driver_data = LPS22HB },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, st_press_acpi_match);
