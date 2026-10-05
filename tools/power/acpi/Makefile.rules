@@ -21,13 +21,15 @@ $(KERNEL_INCLUDE)/acpi: FORCE
 $(objdir)%.o: %.c | $(KERNEL_INCLUDE)/acpi
 	$(ECHO) "  CC      " $(subst $(OUTPUT),,$@)
 	$(QUIET) $(MKDIR) -p $(objdir) 2>/dev/null
-	$(QUIET) $(CC) -c $(CFLAGS) -o $@ $<
+	$(QUIET) $(CC) -c $(CFLAGS) -MMD -MP -o $@ $<
+
+-include $(toolobjs:.o=.d)
 
 all: $(OUTPUT)$(TOOL)
 clean:
 	$(ECHO) "  RMOBJ   " $(subst $(OUTPUT),,$(objdir))
 	$(QUIET) find $(objdir) \( -not -type d \)\
-		 -and \( -name '*~' -o -name '*.[oas]' \)\
+		 -and \( -name '*~' -o -name '*.[oasd]' \)\
 		 -type f -print | xargs rm -f
 	$(ECHO) "  RM      " $(TOOL)
 	$(QUIET) rm -f $(OUTPUT)$(TOOL)
