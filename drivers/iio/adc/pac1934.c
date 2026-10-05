@@ -1615,7 +1615,7 @@ MODULE_DEVICE_TABLE(of, pac1934_of_match);
  * https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ApplicationNotes/ApplicationNotes/PAC1934-Integration-Notes-for-Microsoft-Windows-10-and-Windows-11-Driver-Support-DS00002534.pdf
  */
 static const struct acpi_device_id pac1934_acpi_match[] = {
-	{ "MCHP1930", .driver_data = (kernel_ulong_t)&pac1934_chip_config[PAC1934] },
+	{ .id = "MCHP1930", .driver_data = (kernel_ulong_t)&pac1934_chip_config[PAC1934] },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, pac1934_acpi_match);
