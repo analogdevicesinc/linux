@@ -756,8 +756,10 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 			return dev_err_probe(st->dev, ret,
 					     "Failed to request irq\n");
 
-		adi_apollo_gpio_quick_config_mode_set(&phy->ad9088, 0);
-		adi_apollo_gpio_cmos_func_mode_set(&phy->ad9088, pin, gpio_func);
+		ret = adi_apollo_gpio_cmos_func_mode_set(&phy->ad9088, pin, gpio_func);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_gpio_cmos_func_mode_set");
+		if (ret)
+			return ret;
 	}
 
 	ad9088_rx_sniffer_populate_default_params(ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE,
