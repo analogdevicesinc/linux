@@ -12,6 +12,7 @@
 
 #include <linux/array_size.h>
 #include <linux/bits.h>
+#include <linux/cleanup.h>
 #include <linux/dev_printk.h>
 #include <linux/device.h>
 #include <linux/i2c.h>
@@ -71,19 +72,24 @@ static int tsys02d_write_raw(struct iio_dev *indio_dev,
 	int i, ret;
 
 	switch (mask) {
-	case IIO_CHAN_INFO_SAMP_FREQ:
+	case IIO_CHAN_INFO_SAMP_FREQ: {
 		i = ARRAY_SIZE(tsys02d_samp_freq);
 		while (i-- > 0)
 			if (val == tsys02d_samp_freq[i])
 				break;
 		if (i < 0)
 			return -EINVAL;
-		mutex_lock(&dev_data->lock);
-		dev_data->res_index = i;
-		ret = ms_sensors_write_resolution(dev_data, i);
-		mutex_unlock(&dev_data->lock);
 
-		return ret;
+		guard(mutex)(&dev_data->lock);
+
+		ret = ms_sensors_write_resolution(dev_data, i);
+		if (ret)
+			return ret;
+
+		dev_data->res_index = i;
+
+		return 0;
+	}
 	default:
 		return -EINVAL;
 	}
