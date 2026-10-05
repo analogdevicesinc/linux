@@ -1322,7 +1322,7 @@ static const struct of_device_id pac1921_of_match[] = {
 MODULE_DEVICE_TABLE(of, pac1921_of_match);
 
 static const struct acpi_device_id pac1921_acpi_match[] = {
-	{ "MCHP1921" },
+	{ .id = "MCHP1921" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, pac1921_acpi_match);

@@ -347,7 +347,7 @@ static int ad7298_probe(struct spi_device *spi)
 }
 
 static const struct acpi_device_id ad7298_acpi_ids[] = {
-	{ "INT3494", 0 },
+	{ .id = "INT3494" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, ad7298_acpi_ids);
