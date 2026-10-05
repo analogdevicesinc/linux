@@ -133,9 +133,9 @@ static const struct spi_device_id max5487_id[] = {
 MODULE_DEVICE_TABLE(spi, max5487_id);
 
 static const struct acpi_device_id max5487_acpi_match[] = {
-	{ "MAX5487", 10 },
-	{ "MAX5488", 50 },
-	{ "MAX5489", 100 },
+	{ .id = "MAX5487", .driver_data = 10 },
+	{ .id = "MAX5488", .driver_data = 50 },
+	{ .id = "MAX5489", .driver_data = 100 },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, max5487_acpi_match);
