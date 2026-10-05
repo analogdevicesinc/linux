@@ -22,6 +22,15 @@ static const struct scpsys_domain_data scpsys_domain_data_mt8183[] = {
 		.pwr_sta2nd_offs = 0x0184,
 		.sram_pdn_bits = GENMASK(11, 8),
 		.sram_pdn_ack_bits = GENMASK(15, 12),
+		/*
+		 * Depending on firmware, the audio domain may be left
+		 * partially on at boot, with genpd detecting it as on when
+		 * it isn't fully initialized. Force a real off/on cycle
+		 * instead of trusting that state, same as the MFG domains
+		 * in commit 818d56ac1d ("pmdomain: mediatek: Fix mt8183
+		 * hang on boot").
+		 */
+		.caps = MTK_SCPD_KEEP_DEFAULT_OFF,
 	},
 	[MT8183_POWER_DOMAIN_CONN] = {
 		.name = "conn",
