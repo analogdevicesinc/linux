@@ -266,7 +266,7 @@ static const struct spi_device_id adc128_id[] = {
 MODULE_DEVICE_TABLE(spi, adc128_id);
 
 static const struct acpi_device_id adc128_acpi_match[] = {
-	{ "AANT1280", (kernel_ulong_t)&adc124s_config },
+	{ .id = "AANT1280", .driver_data = (kernel_ulong_t)&adc124s_config },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, adc128_acpi_match);
