@@ -553,7 +553,7 @@ static const struct of_device_id mmc35240_of_match[] = {
 MODULE_DEVICE_TABLE(of, mmc35240_of_match);
 
 static const struct acpi_device_id mmc35240_acpi_match[] = {
-	{"MMC35240", 0},
+	{ .id = "MMC35240" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, mmc35240_acpi_match);
