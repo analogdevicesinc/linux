@@ -21,7 +21,7 @@ history`_ article on Wikipedia provides helpful diagrams for understanding the
 various Linux kernel releases. For example, the following diagram shows all
 6.x.y releases:
 
-.. image:: https://upload.wikimedia.org/wikipedia/en/timeline/l6dviz7g7u8sv3g7eoysel7pp7vcxoq.png
+.. image:: https://upload.wikimedia.org/wikipedia/en/timeline/lvyrl827fc6uxw4suwwhibdlw8l0f7x.png
 
 .. _kernel.org: https://www.kernel.org/
 .. _Linux kernel version history: https://en.wikipedia.org/wiki/Linux_kernel_version_history

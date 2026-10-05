@@ -451,7 +451,8 @@ Apollo FSRC configuration and reconfiguration sequences.</p></li>
 FPGA AXI FSRC TX, RX and sequencer driver (<code class="docutils literal notranslate"><span class="pre">CONFIG_AXI_FSRC_SEQUENCER</span></code>).</p></li>
 </ul>
 <p>The <code class="docutils literal notranslate"><span class="pre">axi_fsrc_sequencer</span></code> driver registers an IIO device, <code class="docutils literal notranslate"><span class="pre">axi_fsrc</span></code>,
-which the Apollo driver consumes as the <code class="docutils literal notranslate"><span class="pre">fsrc</span></code> IIO channel.</p>
+with one channel per FSRC core. The Apollo driver consumes them as the
+<code class="docutils literal notranslate"><span class="pre">fsrc_tx</span></code> and <code class="docutils literal notranslate"><span class="pre">fsrc_rx</span></code> IIO channels.</p>
 </section>
 </section>
 <section id="device-tree">
@@ -483,11 +484,14 @@ of <code class="docutils literal notranslate"><span class="pre">adi,fsrc_tx</spa
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">fsrc-topology</span></code>: phandles to the FSRC cores. Each role can only be
 assigned once.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">#io-channel-cells</span></code>: 1, the channel index: <code class="docutils literal notranslate"><span class="pre">0</span></code> the TX core, <code class="docutils literal notranslate"><span class="pre">1</span></code>
+the RX core.</p></li>
 </ul>
 </section>
 <section id="apollo">
 <h3>Apollo<a class="headerlink" href="#apollo" title="Link to this heading"></a></h3>
-<p>The <code class="docutils literal notranslate"><span class="pre">fsrc</span></code> IIO channel enables the FSRC support in the Apollo driver:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">fsrc_tx</span></code> and <code class="docutils literal notranslate"><span class="pre">fsrc_rx</span></code> IIO channels enable the FSRC support in the
+Apollo driver:</p>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad9084"</span><span class="p">;</span>
 <span class="w">    </span><span class="cm">/* ... other properties ... */</span>
@@ -495,21 +499,22 @@ assigned once.</p></li>
 <span class="w">    </span><span class="cm">/* SYSREF timed reconfiguration, see below */</span>
 <span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">fsrc-gpio-trig</span><span class="p">;</span>
 
-<span class="w">    </span><span class="n">io-channels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adf4030</span><span class="w"> </span><span class="mi">5</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adf4382</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_fsrc_sequencer</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">    </span><span class="n">io-channel-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"bsync"</span><span class="p">,</span><span class="w"> </span><span class="s">"clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"fsrc"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">io-channels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adf4030</span><span class="w"> </span><span class="mi">5</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adf4382</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">                  </span><span class="o">&lt;&amp;</span><span class="na">axi_fsrc_sequencer</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_fsrc_sequencer</span><span class="w"> </span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">io-channel-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"bsync"</span><span class="p">,</span><span class="w"> </span><span class="s">"clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"fsrc_tx"</span><span class="p">,</span><span class="w"> </span><span class="s">"fsrc_rx"</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">io-channels</span></code>/<code class="docutils literal notranslate"><span class="pre">io-channel-names</span></code>: with an <code class="docutils literal notranslate"><span class="pre">fsrc</span></code> channel, the driver
-keeps the Apollo FSRC in the data path. Without it, the profile is used
-as is, and the FSRC configure and reconfig debugfs attributes return
--ENODEV.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">io-channels</span></code>/<code class="docutils literal notranslate"><span class="pre">io-channel-names</span></code>: with an <code class="docutils literal notranslate"><span class="pre">fsrc_tx</span></code> or <code class="docutils literal notranslate"><span class="pre">fsrc_rx</span></code>
+channel, the driver keeps the Apollo FSRC in the data path. Without
+either, the profile is used as is. The TX configure and reconfig debugfs
+attributes require <code class="docutils literal notranslate"><span class="pre">fsrc_tx</span></code>, the RX ones <code class="docutils literal notranslate"><span class="pre">fsrc_rx</span></code>, else -ENODEV.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">adi,fsrc-gpio-trig</span></code>: optional, asserts that the FPGA sequencer trigger
 output is routed to the Apollo trigger pin A0, and selects the SYSREF timed
 TX reconfiguration. Without it, the reconfigurations are done over SPI.</p></li>
 </ul>
-<p>With the <code class="docutils literal notranslate"><span class="pre">fsrc</span></code> channel present, the driver modifies the device profile
+<p>With an FSRC channel present, the driver modifies the device profile
 before loading it:</p>
 <ul class="simple">
 <li><p>RX and TX FSRC not bypassed, <code class="docutils literal notranslate"><span class="pre">enable0</span></code> and <code class="docutils literal notranslate"><span class="pre">enable1</span></code> set, in 1x mode.</p></li>
@@ -521,8 +526,8 @@ disabled.</p></li>
 </ul>
 <p>So the device boots at 1:1 with the FSRC in the path, ready for a runtime
 reconfiguration.</p>
-<p>On the VCK190 and VCU118 device trees, the FSRC nodes and the <code class="docutils literal notranslate"><span class="pre">fsrc</span></code>
-channel are guarded by the <code class="docutils literal notranslate"><span class="pre">WITH_FSRC</span></code> macro. Since the sequencer drives
+<p>On the VCK190 and VCU118 device trees, the FSRC nodes and the <code class="docutils literal notranslate"><span class="pre">fsrc_tx</span></code>
+and <code class="docutils literal notranslate"><span class="pre">fsrc_rx</span></code> channels are guarded by the <code class="docutils literal notranslate"><span class="pre">WITH_FSRC</span></code> macro. Since the sequencer drives
 the trigger pins, the VCU118 device tree also leaves out the AION trigger
 with <code class="docutils literal notranslate"><span class="pre">WITH_FSRC</span></code>, and the VCK190 device tree builds without it
 (<code class="docutils literal notranslate"><span class="pre">WITH_AXI_AION_TRIG</span></code> at 0).</p>
@@ -530,8 +535,9 @@ with <code class="docutils literal notranslate"><span class="pre">WITH_FSRC</spa
 </section>
 <section id="axi-fsrc-iio-device">
 <h2>AXI FSRC IIO Device<a class="headerlink" href="#axi-fsrc-iio-device" title="Link to this heading"></a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">axi_fsrc</span></code> device exposes one output channel with the FPGA FSRC
-controls:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">axi_fsrc</span></code> device exposes one channel per FSRC core, the output
+channel 0 for the TX core and the input channel 1 for the RX core, plus the
+sequencer control shared by both:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device4$
 </pre></div>
 </div>
@@ -547,35 +553,38 @@ controls:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>name                          out_altvoltage0_tx_active
-of_node                       out_altvoltage0_tx_enable
-out_altvoltage0_rx_enable     out_altvoltage0_tx_ratio_set
-out_altvoltage0_seq_start     ...
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>in_altvoltage1_enable         out_altvoltage0_ratio_set
+name                          out_altvoltage0_transmit
+of_node                       seq_start
+out_altvoltage0_enable        ...
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_rx_enable</span></code>: Enable the FPGA RX FSRC, which removes the
+<div class="clear-left"></div></div></div><p>Both channels are always present, so the <code class="docutils literal notranslate"><span class="pre">io-channels</span></code> indexes are fixed.
+The attributes of a core that is not in the topology return -ENODEV.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">in_altvoltage1_enable</span></code>: Enable the FPGA RX FSRC, which removes the
 -FS invalid samples.</p>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
 <div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
 </div>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_tx_enable</span></code>: Enable the FPGA TX FSRC. Disabling it also
-clears <code class="docutils literal notranslate"><span class="pre">tx_active</span></code>.</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_enable</span></code>: Enable the FPGA TX FSRC. Disabling it also
+clears <code class="docutils literal notranslate"><span class="pre">out_altvoltage0_transmit</span></code>.</p>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
 <div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
 </div>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_tx_active</span></code>: Start or stop the TX data. When stopped, the
-FPGA sends only invalid samples. Requires <code class="docutils literal notranslate"><span class="pre">tx_enable</span></code>, else -EINVAL.</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_transmit</span></code>: Start or stop the TX data. When stopped, the
+FPGA sends only invalid samples. Requires <code class="docutils literal notranslate"><span class="pre">out_altvoltage0_enable</span></code>, else
+-EINVAL.</p>
 <div class="line-block">
 <div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Stop, send only invalid samples.</div>
 <div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Start sending valid samples at the configured ratio.</div>
 </div>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_tx_ratio_set</span></code>: Program the TX hole pattern as
+<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_ratio_set</span></code>: Program the TX hole pattern as
 <code class="docutils literal notranslate"><span class="pre">&lt;N&gt;</span> <span class="pre">&lt;M&gt;</span> <span class="pre">[NS]</span></code>, with NS the invalid sample group size (default 1). Reads
 back the last values.</p>
 <div class="line-block">
@@ -587,15 +596,15 @@ at most 256 beats.</div>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_altvoltage0_tx_ratio_set
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_altvoltage0_ratio_set
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>1 1 4
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">out_altvoltage0_seq_start</span></code>: Write <code class="docutils literal notranslate"><span class="pre">1</span></code> to arm the TX FSRC on the
-sequencer data start, reseed the hole pattern, and start the sequencer.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">seq_start</span></code>: Write <code class="docutils literal notranslate"><span class="pre">1</span></code> to arm the TX FSRC on the sequencer data start,
+reseed the hole pattern, and start the sequencer.</p></li>
 </ul>
 <p>The Apollo driver drives these attributes during the reconfiguration
 sequences; they are only needed directly to test the FPGA side.</p>
@@ -663,8 +672,9 @@ next <code class="docutils literal notranslate"><span class="pre">fsrc_rx_reconf
 <li><p><code class="docutils literal notranslate"><span class="pre">fsrc_rx_reconfig</span></code>: Write <code class="docutils literal notranslate"><span class="pre">1</span></code> to apply the RX configuration.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">fsrc_inspect</span></code>: Read the configuration of all RX and TX FSRC blocks.</p></li>
 </ul>
-<p>The configure attributes require two arguments, else -EINVAL. The configure
-and reconfig attributes require the <code class="docutils literal notranslate"><span class="pre">fsrc</span></code> IIO channel, else -ENODEV. The
+<p>The configure attributes require two arguments, else -EINVAL. The TX
+configure and reconfig attributes require the <code class="docutils literal notranslate"><span class="pre">fsrc_tx</span></code> IIO channel, the
+RX ones the <code class="docutils literal notranslate"><span class="pre">fsrc_rx</span></code> IIO channel, else -ENODEV. The
 Apollo API rejects ratios outside 1 &lt; N/M &lt; 2.</p>
 <p>The FSRC rate is <code class="docutils literal notranslate"><span class="pre">fsrc_rate_int</span> <span class="pre">+</span> <span class="pre">fsrc_rate_frac_a</span> <span class="pre">/</span> <span class="pre">fsrc_rate_frac_b</span></code>
 = 2^48 M/N, and the gain reduction is floor(4096 M/N):</p>

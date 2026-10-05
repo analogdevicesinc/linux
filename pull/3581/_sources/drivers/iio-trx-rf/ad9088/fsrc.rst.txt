@@ -90,7 +90,8 @@ Linux Drivers
   FPGA AXI FSRC TX, RX and sequencer driver (``CONFIG_AXI_FSRC_SEQUENCER``).
 
 The ``axi_fsrc_sequencer`` driver registers an IIO device, ``axi_fsrc``,
-which the Apollo driver consumes as the ``fsrc`` IIO channel.
+with one channel per FSRC core. The Apollo driver consumes them as the
+``fsrc_tx`` and ``fsrc_rx`` IIO channels.
 
 Device Tree
 ===========
@@ -124,11 +125,14 @@ of ``adi,fsrc_tx``, ``adi,fsrc_rx``, ``adi,fsrc_tx_a`` or ``adi,fsrc_rx_a``.
 
 * ``fsrc-topology``: phandles to the FSRC cores. Each role can only be
   assigned once.
+* ``#io-channel-cells``: 1, the channel index: ``0`` the TX core, ``1``
+  the RX core.
 
 Apollo
 ------
 
-The ``fsrc`` IIO channel enables the FSRC support in the Apollo driver:
+The ``fsrc_tx`` and ``fsrc_rx`` IIO channels enable the FSRC support in the
+Apollo driver:
 
 .. code:: dts
 
@@ -139,19 +143,20 @@ The ``fsrc`` IIO channel enables the FSRC support in the Apollo driver:
        /* SYSREF timed reconfiguration, see below */
        adi,fsrc-gpio-trig;
 
-       io-channels = <&adf4030 5>, <&adf4382 0>, <&axi_fsrc_sequencer 0>;
-       io-channel-names = "bsync", "clk", "fsrc";
+       io-channels = <&adf4030 5>, <&adf4382 0>,
+                     <&axi_fsrc_sequencer 0>, <&axi_fsrc_sequencer 1>;
+       io-channel-names = "bsync", "clk", "fsrc_tx", "fsrc_rx";
    };
 
-* ``io-channels``/``io-channel-names``: with an ``fsrc`` channel, the driver
-  keeps the Apollo FSRC in the data path. Without it, the profile is used
-  as is, and the FSRC configure and reconfig debugfs attributes return
-  -ENODEV.
+* ``io-channels``/``io-channel-names``: with an ``fsrc_tx`` or ``fsrc_rx``
+  channel, the driver keeps the Apollo FSRC in the data path. Without
+  either, the profile is used as is. The TX configure and reconfig debugfs
+  attributes require ``fsrc_tx``, the RX ones ``fsrc_rx``, else -ENODEV.
 * ``adi,fsrc-gpio-trig``: optional, asserts that the FPGA sequencer trigger
   output is routed to the Apollo trigger pin A0, and selects the SYSREF timed
   TX reconfiguration. Without it, the reconfigurations are done over SPI.
 
-With the ``fsrc`` channel present, the driver modifies the device profile
+With an FSRC channel present, the driver modifies the device profile
 before loading it:
 
 * RX and TX FSRC not bypassed, ``enable0`` and ``enable1`` set, in 1x mode.
@@ -164,8 +169,8 @@ before loading it:
 So the device boots at 1:1 with the FSRC in the path, ready for a runtime
 reconfiguration.
 
-On the VCK190 and VCU118 device trees, the FSRC nodes and the ``fsrc``
-channel are guarded by the ``WITH_FSRC`` macro. Since the sequencer drives
+On the VCK190 and VCU118 device trees, the FSRC nodes and the ``fsrc_tx``
+and ``fsrc_rx`` channels are guarded by the ``WITH_FSRC`` macro. Since the sequencer drives
 the trigger pins, the VCU118 device tree also leaves out the AION trigger
 with ``WITH_FSRC``, and the VCK190 device tree builds without it
 (``WITH_AXI_AION_TRIG`` at 0).
@@ -173,8 +178,9 @@ with ``WITH_FSRC``, and the VCK190 device tree builds without it
 AXI FSRC IIO Device
 ===================
 
-The ``axi_fsrc`` device exposes one output channel with the FPGA FSRC
-controls:
+The ``axi_fsrc`` device exposes one channel per FSRC core, the output
+channel 0 for the TX core and the input channel 1 for the RX core, plus the
+sequencer control shared by both:
 
 .. shell::
 
@@ -182,30 +188,34 @@ controls:
    $ cat name
     axi_fsrc
    $ ls
-    name                          out_altvoltage0_tx_active
-    of_node                       out_altvoltage0_tx_enable
-    out_altvoltage0_rx_enable     out_altvoltage0_tx_ratio_set
-    out_altvoltage0_seq_start     ...
+    in_altvoltage1_enable         out_altvoltage0_ratio_set
+    name                          out_altvoltage0_transmit
+    of_node                       seq_start
+    out_altvoltage0_enable        ...
 
-- ``out_altvoltage0_rx_enable``: Enable the FPGA RX FSRC, which removes the
+Both channels are always present, so the ``io-channels`` indexes are fixed.
+The attributes of a core that is not in the topology return -ENODEV.
+
+- ``in_altvoltage1_enable``: Enable the FPGA RX FSRC, which removes the
   -FS invalid samples.
 
   | ``0``: Disable.
   | ``1``: Enable.
 
-- ``out_altvoltage0_tx_enable``: Enable the FPGA TX FSRC. Disabling it also
-  clears ``tx_active``.
+- ``out_altvoltage0_enable``: Enable the FPGA TX FSRC. Disabling it also
+  clears ``out_altvoltage0_transmit``.
 
   | ``0``: Disable.
   | ``1``: Enable.
 
-- ``out_altvoltage0_tx_active``: Start or stop the TX data. When stopped, the
-  FPGA sends only invalid samples. Requires ``tx_enable``, else -EINVAL.
+- ``out_altvoltage0_transmit``: Start or stop the TX data. When stopped, the
+  FPGA sends only invalid samples. Requires ``out_altvoltage0_enable``, else
+  -EINVAL.
 
   | ``0``: Stop, send only invalid samples.
   | ``1``: Start sending valid samples at the configured ratio.
 
-- ``out_altvoltage0_tx_ratio_set``: Program the TX hole pattern as
+- ``out_altvoltage0_ratio_set``: Program the TX hole pattern as
   ``<N> <M> [NS]``, with NS the invalid sample group size (default 1). Reads
   back the last values.
 
@@ -218,11 +228,11 @@ controls:
   .. shell::
      :no-path:
 
-     $ cat out_altvoltage0_tx_ratio_set
+     $ cat out_altvoltage0_ratio_set
       1 1 4
 
-- ``out_altvoltage0_seq_start``: Write ``1`` to arm the TX FSRC on the
-  sequencer data start, reseed the hole pattern, and start the sequencer.
+- ``seq_start``: Write ``1`` to arm the TX FSRC on the sequencer data start,
+  reseed the hole pattern, and start the sequencer.
 
 The Apollo driver drives these attributes during the reconfiguration
 sequences; they are only needed directly to test the FPGA side.
@@ -279,8 +289,9 @@ The FSRC is configured through the Apollo device debugfs:
 - ``fsrc_rx_reconfig``: Write ``1`` to apply the RX configuration.
 - ``fsrc_inspect``: Read the configuration of all RX and TX FSRC blocks.
 
-The configure attributes require two arguments, else -EINVAL. The configure
-and reconfig attributes require the ``fsrc`` IIO channel, else -ENODEV. The
+The configure attributes require two arguments, else -EINVAL. The TX
+configure and reconfig attributes require the ``fsrc_tx`` IIO channel, the
+RX ones the ``fsrc_rx`` IIO channel, else -ENODEV. The
 Apollo API rejects ratios outside 1 < N/M < 2.
 
 The FSRC rate is ``fsrc_rate_int + fsrc_rate_frac_a / fsrc_rate_frac_b``
