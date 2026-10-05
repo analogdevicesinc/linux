@@ -151,7 +151,7 @@ jobs:
         run: |
           ref="refs/heads/ci"
           org_repo="analogdevicesinc/linux"
-          ci_worktree="$(mktemp -d)"
+          ci_worktree="$(mktemp -dt ci.XXX)"
 
           get_file () {
             echo https://raw.githubusercontent.com/$org_repo/$ref/$1
@@ -160,9 +160,9 @@ jobs:
           }
 
           mkdir "$ci_worktree/ci"
-          mkdir "$ci_worktree/arch/arm/configs"
-          mkdir "$ci_worktree/arch/arm64/configs"
-          mkdir "$ci_worktree/arch/x86/configs"
+          mkdir -p "$ci_worktree/arch/arm/configs"
+          mkdir -p "$ci_worktree/arch/arm64/configs"
+          mkdir -p "$ci_worktree/arch/x86/configs"
           get_file "ci/build.sh"
           get_file "ci/symbols_depend.py"
           get_file "ci/touched_kconfig.awk"
@@ -183,7 +183,7 @@ jobs:
 
       - name: Setup skills
         run: |
-          prompt_dir="$(mktemp -d)"
+          prompt_dir="$(mktemp -dt prompt.XXX)"
           echo "prompt_dir=$prompt_dir" >> "$GITHUB_ENV"
           git clone --depth 1 https://github.com/masoncl/review-prompts "$prompt_dir" && cd $_
 
