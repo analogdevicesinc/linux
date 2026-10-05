@@ -13,13 +13,12 @@ $(OUTPUT)$(TOOL): $(toolobjs) FORCE
 	$(ECHO) "  STRIP   " $(subst $(OUTPUT),,$@)
 	$(QUIET) $(STRIPCMD) $@
 
-$(KERNEL_INCLUDE):
-	$(ECHO) "  MKDIR   " $(subst $(OUTPUT),,$@)
+$(KERNEL_INCLUDE)/acpi: FORCE
 	$(QUIET) mkdir -p $(KERNEL_INCLUDE)
-	$(ECHO) "  CP      " $(subst $(OUTPUT),,$@)
-	$(QUIET) cp -rf $(srctree)/../../../include/acpi $(KERNEL_INCLUDE)/
+	$(QUIET) rm -rf $@
+	$(QUIET) ln -s $(abspath $(srctree)/../../../include/acpi) $@
 
-$(objdir)%.o: %.c $(KERNEL_INCLUDE)
+$(objdir)%.o: %.c | $(KERNEL_INCLUDE)/acpi
 	$(ECHO) "  CC      " $(subst $(OUTPUT),,$@)
 	$(QUIET) $(MKDIR) -p $(objdir) 2>/dev/null
 	$(QUIET) $(CC) -c $(CFLAGS) -o $@ $<
