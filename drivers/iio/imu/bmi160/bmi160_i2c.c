@@ -52,9 +52,9 @@ static const struct acpi_device_id bmi160_acpi_match[] = {
 	 * this is not expected to change anymore since at least some of
 	 * the affected devices are from 2021/2022.
 	 */
-	{"10EC5280", 0},
-	{"BMI0120", 0},
-	{"BMI0160", 0},
+	{ .id = "10EC5280" },
+	{ .id = "BMI0120" },
+	{ .id = "BMI0160" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, bmi160_acpi_match);

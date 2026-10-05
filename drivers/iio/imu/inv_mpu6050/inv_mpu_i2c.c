@@ -274,7 +274,7 @@ static const struct of_device_id inv_of_match[] = {
 MODULE_DEVICE_TABLE(of, inv_of_match);
 
 static const struct acpi_device_id inv_acpi_match[] = {
-	{"INVN6500", INV_MPU6500},
+	{ .id = "INVN6500", .driver_data = INV_MPU6500 },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, inv_acpi_match);
