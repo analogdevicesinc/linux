@@ -107,7 +107,7 @@ static const struct acpi_device_id bmi323_acpi_match[] = {
 	 * driver initialization. This device reset does occur in both the
 	 * bmi323 and bmc150 init sequences.
 	 */
-	{ "BOSC0200" },
+	{ .id = "BOSC0200" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, bmi323_acpi_match);
