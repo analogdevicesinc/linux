@@ -158,9 +158,6 @@ static const struct ad7768_mclk_div_info ad7768_mclk_divs[] = {
 	{ .reg_value = AD7768_POWER_MODE_MCLK_DIV_4, .divisor = 4 },
 };
 
-#define AD7768_MAX_FREQS \
-	(AD7768_MAX_FREQ_PER_DIV + ARRAY_SIZE(ad7768_mclk_divs))
-
 struct ad7768_precharge_config {
 	bool prebufp_en;
 	bool prebufn_en;
@@ -203,8 +200,7 @@ struct ad7768_state {
 	enum ad7768_clock_source clock_source;
 	const struct ad7768_chip_info *chip_info;
 	struct ad7768_avail_freq avail_freq[ARRAY_SIZE(ad7768_mclk_divs)];
-	unsigned int n_freqs;
-	int freqs[AD7768_MAX_FREQS];
+	int freqs[ARRAY_SIZE(ad7768_mclk_divs)][AD7768_MAX_FREQ_PER_DIV];
 	u64 ch_convdelay_ps[AD7768_MAX_CHANNEL];
 	unsigned int ch_freq[AD7768_MAX_CHANNEL];
 	unsigned int mclk_div_idx;
@@ -827,27 +823,15 @@ static int ad7768_set_lowest_noise_mode(struct ad7768_state *st,
 	return -EINVAL;
 }
 
-static bool ad7768_freq_supported_in_any_mode(const struct ad7768_state *st,
-					      unsigned int freq)
-{
-	for (unsigned int mclk_div_idx = 0;
-	     mclk_div_idx < ARRAY_SIZE(ad7768_mclk_divs); mclk_div_idx++) {
-		if (ad7768_find_freq_config(st, mclk_div_idx, freq))
-			return true;
-	}
-
-	return false;
-}
-
 static int ad7768_set_sampling_freq(struct iio_dev *indio_dev,
 				    unsigned int freq, unsigned int channel)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 
-	if (!freq || !ad7768_freq_supported_in_any_mode(st, freq))
+	guard(mutex)(&st->lock);
+	if (!freq || !ad7768_find_freq_config(st, st->mclk_div_idx, freq))
 		return -EINVAL;
 
-	guard(mutex)(&st->lock);
 	st->ch_freq[channel] = freq;
 
 	return 0;
@@ -1306,9 +1290,10 @@ static int ad7768_read_avail(struct iio_dev *indio_dev,
 	if (info != IIO_CHAN_INFO_SAMP_FREQ)
 		return -EINVAL;
 
-	*vals = st->freqs;
+	guard(mutex)(&st->lock);
+	*vals = st->freqs[st->mclk_div_idx];
 	*type = IIO_VAL_INT;
-	*length = st->n_freqs;
+	*length = st->avail_freq[st->mclk_div_idx].n_freqs;
 
 	return IIO_AVAIL_LIST;
 }
@@ -1407,12 +1392,14 @@ static void ad7768_set_available_sampling_freqs(struct ad7768_state *st)
 		avail_freq = &st->avail_freq[div_idx];
 		while (dec--) {
 			struct ad7768_freq_config *freq_cfg;
+			unsigned int freq_idx = avail_freq->n_freqs++;
 
-			freq_cfg = &avail_freq->freq_cfg[avail_freq->n_freqs++];
+			freq_cfg = &avail_freq->freq_cfg[freq_idx];
 			freq_cfg->dec_rate = dec;
 			freq_cfg->freq_hz =
 				mclk / (ad7768_dec_rate[dec] *
 					ad7768_mclk_divs[div_idx].divisor);
+			st->freqs[div_idx][freq_idx] = freq_cfg->freq_hz;
 		}
 	}
 
@@ -1421,20 +1408,6 @@ static void ad7768_set_available_sampling_freqs(struct ad7768_state *st)
 	    st->chip_info->num_channels == AD7768_MAX_CHANNEL &&
 	    st->avail_freq[n_mclk_divs - 1].n_freqs)
 		st->avail_freq[n_mclk_divs - 1].n_freqs--;
-
-	for (unsigned int div_idx = 0; div_idx < n_mclk_divs; div_idx++) {
-		const struct ad7768_avail_freq *avail_freq;
-
-		avail_freq = &st->avail_freq[div_idx];
-		for (unsigned int i = 0; i < avail_freq->n_freqs; i++) {
-			unsigned int freq = avail_freq->freq_cfg[i].freq_hz;
-
-			if (st->n_freqs && st->freqs[st->n_freqs - 1] >= freq)
-				continue;
-
-			st->freqs[st->n_freqs++] = freq;
-		}
-	}
 }
 
 static int ad7768_init_sampling_freqs(struct ad7768_state *st)
