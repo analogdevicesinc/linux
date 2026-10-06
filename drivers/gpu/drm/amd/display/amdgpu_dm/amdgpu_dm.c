@@ -2614,13 +2614,6 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
 
 				if (psr_feature_enabled) {
 					amdgpu_dm_set_psr_caps(link, aconnector);
-					drm_info(adev_to_drm(adev), "%s: PSR support %d, DC PSR ver %d, sink PSR ver %d DPCD caps 0x%x su_y_granularity %d\n",
-						 aconnector->base.name,
-						 link->psr_settings.psr_feature_enabled,
-						 link->psr_settings.psr_version,
-						 link->dpcd_caps.psr_info.psr_version,
-						 link->dpcd_caps.psr_info.psr_dpcd_caps.raw,
-						 link->dpcd_caps.psr_info.psr2_su_y_granularity_cap);
 				}
 			}
 		}
@@ -4549,11 +4542,35 @@ STATIC_IFN_KUNIT void amdgpu_dm_mod_power_setup_streams(struct drm_atomic_commit
 			continue;
 
 		if (new_crtc_state->active) {
+			struct amdgpu_dm_connector *aconnector =
+				(struct amdgpu_dm_connector *)
+				dm_new_crtc_state->stream->dm_stream_context;
+			struct dc_link *link = dm_new_crtc_state->stream->link;
+
 			amdgpu_dm_link_setup_replay(dm_new_crtc_state->stream,
 					&acrtc->dm_irq_params.vrr_params);
 			mod_power_notify_mode_change(dm->power_module,
 						dm_new_crtc_state->stream,
 						false);
+
+			if (link->replay_settings.config.replay_cap_support) {
+				drm_info(state->dev,
+					"%s: Replay enabled %d, Allow active %d, Config ver %d\n",
+					aconnector->base.name,
+					link->replay_settings.replay_feature_enabled,
+					link->replay_settings.replay_allow_active,
+					link->replay_settings.config.replay_version);
+			}
+			if (link->psr_settings.psr_version != DC_PSR_VERSION_UNSUPPORTED) {
+				drm_info(state->dev,
+					"%s: PSR support %d, DC PSR ver %d, Sink PSR ver %d, DPCD caps 0x%x, su_y_granularity %d\n",
+					aconnector->base.name,
+					link->psr_settings.psr_feature_enabled,
+					link->psr_settings.psr_version,
+					link->dpcd_caps.psr_info.psr_version,
+					link->dpcd_caps.psr_info.psr_dpcd_caps.raw,
+					link->dpcd_caps.psr_info.psr2_su_y_granularity_cap);
+			}
 
 			/*
 			 * Block PSR / Replay on the new stream until display settles post-modeset.
