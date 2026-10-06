@@ -6,13 +6,14 @@
  */
 
 #include <linux/auxiliary_bus.h>
-#include <linux/bitmap.h>
+#include <linux/bitops.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/gpio/driver.h>
 #include <linux/gpio/regmap.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 
 #define AD7768_REG_GPIO_CONTROL		0x0E
@@ -22,19 +23,21 @@
 #define AD7768_REG_GPIO_READ		0x10
 
 #define AD7768_NUM_GPIOS		5
+#define AD7768_FILTER_GPIO		4
 
 static int ad7768_gpio_init_valid_mask(struct gpio_chip *gc,
 				       unsigned long *valid_mask,
 				       unsigned int ngpios)
 {
-	unsigned long *mask = dev_get_platdata(gc->parent);
-
-	bitmap_copy(valid_mask, mask, ngpios);
+	if (ngpios > AD7768_FILTER_GPIO &&
+	    fwnode_property_match_string(gc->fwnode, "clock-names", "mclk") < 0)
+		__clear_bit(AD7768_FILTER_GPIO, valid_mask);
 
 	return 0;
 }
 
 static int ad7768_gpio_reg_mask_xlate(struct gpio_regmap *gpio,
+				      enum gpio_regmap_operation op,
 				      unsigned int base, unsigned int offset,
 				      unsigned int *reg, unsigned int *mask)
 {
@@ -44,7 +47,7 @@ static int ad7768_gpio_reg_mask_xlate(struct gpio_regmap *gpio,
 	*reg = base;
 	*mask = BIT(offset);
 
-	if (base != AD7768_REG_GPIO_READ)
+	if (op != GPIO_REGMAP_GET_OP)
 		return 0;
 
 	/*
@@ -66,11 +69,10 @@ static int ad7768_gpio_probe(struct auxiliary_device *adev,
 {
 	struct gpio_regmap_config config;
 	struct device *dev = &adev->dev;
-	struct device *parent;
+	struct device *parent = dev->parent;
 	struct regmap *map;
 	int ret;
 
-	parent = dev->parent;
 	map = dev_get_regmap(parent, NULL);
 	if (!map)
 		return -ENODEV;
@@ -93,6 +95,7 @@ static int ad7768_gpio_probe(struct auxiliary_device *adev,
 		.reg_set_base = AD7768_REG_GPIO_WRITE,
 		.reg_dir_out_base = AD7768_REG_GPIO_CONTROL,
 		.pm_dev = parent,
+		.fwnode = dev_fwnode(parent),
 		.reg_mask_xlate = ad7768_gpio_reg_mask_xlate,
 		.init_valid_mask = ad7768_gpio_init_valid_mask,
 		.drvdata = map,

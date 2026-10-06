@@ -34,7 +34,6 @@
 
 #include <linux/iio/backend.h>
 #include <linux/iio/iio.h>
-#include <linux/iio/types.h>
 
 #define AD7768_REG_CH_STANDBY				0x00
 
@@ -66,7 +65,10 @@
 #define   AD7768_INTERFACE_CFG_CRC_SELECT_MSK		GENMASK(3, 2)
 #define     AD7768_INTERFACE_CFG_CRC_SELECT_4		0x1
 #define   AD7768_INTERFACE_CFG_DCLK_DIV_MSK		GENMASK(1, 0)
-#define     AD7768_INTERFACE_CFG_DCLK_DIV(x)		(4 - ffs(x))
+#define     AD7768_INTERFACE_CFG_DCLK_DIV_8		0x0
+#define     AD7768_INTERFACE_CFG_DCLK_DIV_4		0x1
+#define     AD7768_INTERFACE_CFG_DCLK_DIV_2		0x2
+#define     AD7768_INTERFACE_CFG_DCLK_DIV_1		0x3
 
 #define AD7768_REG_REV_ID				0x0A
 #define   AD7768_REV_ID_VAL				0x06
@@ -79,8 +81,8 @@
 
 #define AD7768_REG_PRECHARGE_BUF1			0x11
 #define AD7768_REG_PRECHARGE_BUF2			0x12
-#define   AD7768_PREBUF_POS_EN(ch)			BIT((ch) * 2)
-#define   AD7768_PREBUF_NEG_EN(ch)			BIT(((ch) * 2) + 1)
+#define   AD7768_PREBUF_POS_EN(ch)			BIT((ch) * 2 + 0)
+#define   AD7768_PREBUF_NEG_EN(ch)			BIT((ch) * 2 + 1)
 
 #define AD7768_REG_REFP_BUF				0x13
 #define AD7768_REG_REFN_BUF				0x14
@@ -88,20 +90,9 @@
 #define AD7768_REG_OFFSET_BASE				0x1E
 #define AD7768_REG_GAIN_BASE				0x36
 #define AD7768_REG_PHASE_BASE				0x4E
-#define AD7768_REG_OFFSET(ch) \
-	(AD7768_REG_OFFSET_BASE + (3 * (ch)))
-#define AD7768_REG_GAIN(ch) \
-	(AD7768_REG_GAIN_BASE + (3 * (ch)))
-#define AD7768_REG_PHASE(ch) \
-	((AD7768_REG_PHASE_BASE + (ch)))
-#define __AD7768_4_REG_MAP(ch) \
-	((ch) < 2 ? (ch) : ((ch) + 2))
-#define AD7768_4_REG_OFFSET(ch) \
-	(AD7768_REG_OFFSET_BASE + (3 * __AD7768_4_REG_MAP(ch)))
-#define AD7768_4_REG_GAIN(ch) \
-	(AD7768_REG_GAIN_BASE + (3 * __AD7768_4_REG_MAP(ch)))
-#define AD7768_4_REG_PHASE(ch) \
-	(AD7768_REG_PHASE_BASE + __AD7768_4_REG_MAP(ch))
+#define AD7768_REG_OFFSET(ch)	(AD7768_REG_OFFSET_BASE + 3 * (ch))
+#define AD7768_REG_GAIN(ch)	(AD7768_REG_GAIN_BASE + 3 * (ch))
+#define AD7768_REG_PHASE(ch)	(AD7768_REG_PHASE_BASE + (ch))
 
 #define AD7768_REG_DIAGNOSTIC_RX			0x56
 
@@ -118,9 +109,9 @@
 #define AD7768_MAX_MCLK_FREQ_HZ				(34 * HZ_PER_MHZ)
 #define AD7768_MAX_FREQ_PER_MODE			6
 #define AD7768_MAX_CHANNEL				8
-#define AD7768_NUM_GPIOS				5
 #define AD7768_NUM_CHANNEL_MODES			2
-#define AD7768_CALIB_REG_MSK				GENMASK(23, 0)
+#define AD7768_CALIB_SIGN_BIT				23
+#define AD7768_CALIB_REG_MSK				GENMASK(AD7768_CALIB_SIGN_BIT, 0)
 #define AD7768_WIDEBAND_SETTLING_SAMPLES		68
 #define AD7768_SINC5_SETTLING_SAMPLES			7
 
@@ -174,10 +165,10 @@ struct ad7768_avail_freq {
 
 struct ad7768_chip_info {
 	const char *name;
-	unsigned int num_channels;
 	const struct regmap_config *regmap_config;
 	const unsigned int *available_datalines;
 	unsigned int num_datalines;
+	unsigned int num_channels;
 	const u8 *chan_map;
 	u8 prebuf_split;
 };
@@ -188,21 +179,21 @@ struct ad7768_state {
 	struct mutex lock;
 	struct clk *mclk;
 	unsigned int datalines;
-	unsigned long gpio_valid_mask;
 	enum ad7768_clock_source clock_source;
-	unsigned int power_mode_idx;
 	const struct ad7768_chip_info *chip_info;
 	struct ad7768_avail_freq avail_freq[ARRAY_SIZE(ad7768_power_modes)];
 	unsigned int n_freqs;
 	int freqs[AD7768_MAX_FREQS];
-	unsigned int ch_freq[AD7768_MAX_CHANNEL];
 	u64 ch_convdelay_ps[AD7768_MAX_CHANNEL];
+	unsigned int ch_freq[AD7768_MAX_CHANNEL];
+	unsigned int power_mode_idx;
 	enum ad7768_filter_type ch_filter[AD7768_MAX_CHANNEL];
 	struct iio_backend *back;
 	struct regulator_dev *vcm_rdev;
 	unsigned int avdd1_uV;
 	unsigned int vref_uV[2];
 
+	/* Used only in regmap_read() callback, hence guarded by regmap lock. */
 	__be16 d16 __aligned(IIO_DMA_MINALIGN);
 };
 
@@ -392,12 +383,29 @@ static u8 ad7768_channel_mask(const struct ad7768_state *st, u8 ch)
 
 static u8 ad7768_channel_mode_mask(const struct ad7768_state *st, u8 ch)
 {
+	/*
+	 * AD7768-4 channels 2 and 3 use bits 4 and 5 for CH_x_MODE, while
+	 * their CH_x_MDE_EN fields are in bits 2 and 3 and must be programmed
+	 * to the same value. On AD7768, chan_map[] is an identity map, so the
+	 * OR produces a single bit.
+	 */
 	return BIT(ch) | ad7768_channel_mask(st, ch);
 }
 
 static u8 ad7768_all_standby_mask(const struct ad7768_state *st)
 {
 	return GENMASK(st->chip_info->num_channels - 1, 0);
+}
+
+static void ad7768_keep_xtal_channel_active(const struct ad7768_state *st,
+					    unsigned long *standby_mask)
+{
+	/*
+	 * Crystal excitation requires channel 4 on AD7768 or channel 2 on
+	 * AD7768-4 to remain active.
+	 */
+	if (st->clock_source == AD7768_CLOCK_SOURCE_XTAL)
+		__clear_bit(st->chip_info->num_channels / 2, standby_mask);
 }
 
 static unsigned int ad7768_offset_reg(const struct ad7768_state *st,
@@ -425,8 +433,9 @@ static u8 ad7768_precharge_buf1_mask(const struct ad7768_state *st, u16 val)
 
 static u8 ad7768_precharge_buf2_mask(const struct ad7768_state *st, u16 val)
 {
-	return (val >> st->chip_info->prebuf_split) &
-	       GENMASK(st->chip_info->prebuf_split - 1, 0);
+	unsigned int split = st->chip_info->prebuf_split;
+
+	return field_get(GENMASK(2 * split - 1, split), val);
 }
 
 static int ad7768_regmap_read(void *context, const void *reg_buf,
@@ -470,10 +479,8 @@ static int ad7768_regmap_read(void *context, const void *reg_buf,
 	return 0;
 }
 
-static int ad7768_regmap_write(void *context, const void *data, size_t count)
+static int ad7768_regmap_write(void *spi, const void *data, size_t count)
 {
-	struct spi_device *spi = context;
-
 	return spi_write(spi, data, count);
 }
 
@@ -504,12 +511,12 @@ static bool ad7768_4_readable_reg(struct device *dev, unsigned int reg)
 	switch (reg) {
 	case AD7768_REG_CH_STANDBY ... AD7768_REG_REV_ID:
 	case AD7768_REG_GPIO_CONTROL ... AD7768_REG_REFN_BUF:
-	case AD7768_4_REG_OFFSET(0) ... AD7768_4_REG_OFFSET(1) + 2:
-	case AD7768_4_REG_OFFSET(2) ... AD7768_4_REG_OFFSET(3) + 2:
-	case AD7768_4_REG_GAIN(0) ... AD7768_4_REG_GAIN(1) + 2:
-	case AD7768_4_REG_GAIN(2) ... AD7768_4_REG_GAIN(3) + 2:
-	case AD7768_4_REG_PHASE(0) ... AD7768_4_REG_PHASE(1):
-	case AD7768_4_REG_PHASE(2) ... AD7768_4_REG_PHASE(3):
+	case AD7768_REG_OFFSET(0) ... AD7768_REG_OFFSET(1) + 2:
+	case AD7768_REG_OFFSET(4) ... AD7768_REG_OFFSET(5) + 2:
+	case AD7768_REG_GAIN(0) ... AD7768_REG_GAIN(1) + 2:
+	case AD7768_REG_GAIN(4) ... AD7768_REG_GAIN(5) + 2:
+	case AD7768_REG_PHASE(0) ... AD7768_REG_PHASE(1):
+	case AD7768_REG_PHASE(4) ... AD7768_REG_PHASE(5):
 	case AD7768_REG_DIAGNOSTIC_RX ... AD7768_REG_CHOP_CTRL:
 		return true;
 	default:
@@ -521,6 +528,11 @@ static const struct regmap_config ad7768_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.max_register = AD7768_REG_CHOP_CTRL,
+	/*
+	 * Regmap bulk transfers use one starting address, while each register
+	 * access requires a separate 16-bit SPI frame and reads use an off-frame
+	 * response. Split bulk transfers into individual register accesses.
+	 */
 	.use_single_read = true,
 	.use_single_write = true,
 	.readable_reg = ad7768_readable_reg,
@@ -530,6 +542,11 @@ static const struct regmap_config ad7768_4_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.max_register = AD7768_REG_CHOP_CTRL,
+	/*
+	 * Regmap bulk transfers use one starting address, while each register
+	 * access requires a separate 16-bit SPI frame and reads use an off-frame
+	 * response. Split bulk transfers into individual register accesses.
+	 */
 	.use_single_read = true,
 	.use_single_write = true,
 	.readable_reg = ad7768_4_readable_reg,
@@ -546,8 +563,10 @@ static unsigned int ad7768_get_calib_reg_base(struct ad7768_state *st,
 }
 
 static int ad7768_read_calib_value(struct ad7768_state *st,
-				   unsigned int base_reg, unsigned int *val)
+				   unsigned int base_reg, bool is_signed,
+				   int *val)
 {
+	unsigned int regval;
 	u8 data[3];
 	int ret;
 
@@ -562,18 +581,24 @@ static int ad7768_read_calib_value(struct ad7768_state *st,
 	if (ret)
 		return ret;
 
-	*val = get_unaligned_be24(data);
+	regval = get_unaligned_be24(data);
+	*val = is_signed ? sign_extend32(regval, AD7768_CALIB_SIGN_BIT) : regval;
 
 	return 0;
 }
 
 static int ad7768_write_calib_value(struct ad7768_state *st,
-				    unsigned int base_reg, unsigned int val)
+				    unsigned int base_reg, bool is_signed,
+				    int val)
 {
 	u8 data[3];
 	int ret;
 
-	if (val > AD7768_CALIB_REG_MSK)
+	if (is_signed &&
+	    val != sign_extend32(val, AD7768_CALIB_SIGN_BIT))
+		return -EINVAL;
+
+	if (!is_signed && (val < 0 || val > AD7768_CALIB_REG_MSK))
 		return -EINVAL;
 
 	put_unaligned_be24(val, data);
@@ -628,14 +653,10 @@ static int ad7768_set_power_mode(struct ad7768_state *st,
 
 	mode_info = &ad7768_power_modes[mode_idx];
 	ret = regmap_update_bits(st->regmap, AD7768_REG_POWER_MODE,
-				 AD7768_POWER_MODE_POWER_MODE_MSK,
-				 FIELD_PREP(AD7768_POWER_MODE_POWER_MODE_MSK,
-					    mode_info->mode));
-	if (ret)
-		return ret;
-
-	ret = regmap_update_bits(st->regmap, AD7768_REG_POWER_MODE,
+				 AD7768_POWER_MODE_POWER_MODE_MSK |
 				 AD7768_POWER_MODE_MCLK_DIV_MSK,
+				 FIELD_PREP(AD7768_POWER_MODE_POWER_MODE_MSK,
+					    mode_info->mode) |
 				 FIELD_PREP(AD7768_POWER_MODE_MCLK_DIV_MSK,
 					    mode_info->mode));
 	if (ret)
@@ -681,17 +702,30 @@ static int ad7768_set_clk_divs(struct ad7768_state *st, unsigned int freq)
 		return -EINVAL;
 
 	dclk = freq_cfg->freq_hz * AD7768_SAMPLE_SIZE * chan_per_doutx;
-	if (!dclk || dclk > mclk)
+	if (dclk > mclk)
 		return -EINVAL;
 
-	/* Set the divider to the next-lowest supported power of two. */
 	dclk_div = DIV_ROUND_CLOSEST(mclk, dclk);
-	if (dclk_div > AD7768_MAX_DCLK_DIV)
-		dclk_div = AD7768_MAX_DCLK_DIV;
-	else
-		dclk_div = rounddown_pow_of_two(dclk_div);
 
-	dclk_div_reg = AD7768_INTERFACE_CFG_DCLK_DIV(dclk_div);
+	/* Set the divider to the next-lowest supported power of two. */
+	dclk_div = rounddown_pow_of_two(min(dclk_div, AD7768_MAX_DCLK_DIV));
+
+	switch (dclk_div) {
+	case 1:
+		dclk_div_reg = AD7768_INTERFACE_CFG_DCLK_DIV_1;
+		break;
+	case 2:
+		dclk_div_reg = AD7768_INTERFACE_CFG_DCLK_DIV_2;
+		break;
+	case 4:
+		dclk_div_reg = AD7768_INTERFACE_CFG_DCLK_DIV_4;
+		break;
+	case 8:
+		dclk_div_reg = AD7768_INTERFACE_CFG_DCLK_DIV_8;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	return regmap_update_bits(st->regmap, AD7768_REG_INTERFACE_CFG,
 				  AD7768_INTERFACE_CFG_DCLK_DIV_MSK,
@@ -717,26 +751,24 @@ static int ad7768_set_mode_decimation(struct ad7768_state *st,
 static int ad7768_set_lowest_noise_mode(struct ad7768_state *st,
 					const unsigned long *scan_mask)
 {
+	unsigned int mode_idx = ARRAY_SIZE(ad7768_power_modes);
+
 	/*
 	 * The output data rate ranges overlap between the power modes. At a
 	 * common ODR, the faster mode has lower noise, so prefer the fastest
 	 * mode that supports every enabled channel.
 	 */
-	for (unsigned int mode_idx = ARRAY_SIZE(ad7768_power_modes);
-	     mode_idx-- > 0;) {
-		bool supported = true;
+	while (mode_idx--) {
 		unsigned int channel;
 
-		for_each_set_bit(channel, scan_mask,
-				 st->chip_info->num_channels) {
+		for_each_set_bit(channel, scan_mask, st->chip_info->num_channels) {
 			if (!ad7768_find_freq_config(st, mode_idx,
-						     st->ch_freq[channel])) {
-				supported = false;
+						     st->ch_freq[channel]))
 				break;
-			}
 		}
 
-		if (supported)
+		/* All enabled channels support their requested frequency. */
+		if (channel == st->chip_info->num_channels)
 			return ad7768_set_power_mode(st, mode_idx);
 	}
 
@@ -834,8 +866,8 @@ static int ad7768_get_convdelay_params(struct ad7768_state *st, unsigned int ch,
 	const struct ad7768_freq_config *freq_cfg;
 	unsigned int dec_rate;
 	unsigned int mclk_div;
-	unsigned int mult;
-	u64 mclk;
+	unsigned long mclk;
+	u64 mult;
 
 	freq_cfg = ad7768_find_freq_config(st, st->power_mode_idx,
 					   st->ch_freq[ch]);
@@ -879,12 +911,14 @@ static int ad7768_get_convdelay_params(struct ad7768_state *st, unsigned int ch,
 	}
 
 	mclk = clk_get_rate(st->mclk);
-	if (!mclk)
+	if (!mclk || mclk > U32_MAX)
 		return -EINVAL;
 
 	mclk_div = ad7768_power_modes[st->power_mode_idx].mclk_div;
-	params->step_ps = DIV_ROUND_CLOSEST_ULL((u64)mult * PSEC_PER_SEC *
-						mclk_div, mclk);
+	params->step_ps =
+		DIV_ROUND_CLOSEST_ULL(mult * PSEC_PER_SEC * mclk_div, (u32)mclk);
+	if (params->step_ps > U32_MAX)
+		return -EINVAL;
 
 	return 0;
 }
@@ -902,11 +936,16 @@ static int ad7768_set_channel_convdelay(struct ad7768_state *st,
 	if (ret)
 		return ret;
 
+	/*
+	 * Validate the requested delay before rounding so an out-of-range value
+	 * cannot round down into the valid range. Then verify that the rounded
+	 * value fits in the hardware register.
+	 */
 	max_delay_ps = (u64)params.max_raw * params.step_ps;
 	if (delay_ps > max_delay_ps)
 		return -EINVAL;
 
-	raw = DIV_ROUND_CLOSEST_ULL(delay_ps, params.step_ps);
+	raw = DIV_ROUND_CLOSEST_ULL(delay_ps, (u32)params.step_ps);
 	if (raw > params.max_raw)
 		return -EINVAL;
 
@@ -921,8 +960,8 @@ static void ad7768_filter_wait(const unsigned int *mode_freq,
 	unsigned int t_settle_us = 0;
 
 	for (unsigned int mode = 0; mode < AD7768_NUM_CHANNEL_MODES; mode++) {
-		unsigned int settling_samples;
 		unsigned int t_mode_us;
+		u8 settling_samples;
 
 		if (!mode_used[mode] || !mode_freq[mode])
 			continue;
@@ -951,7 +990,7 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 	struct device *dev = indio_dev->dev.parent;
 	unsigned long channel_mask;
 	unsigned long standby_mask;
-	unsigned int max_freq = 0;
+	unsigned int max_freq;
 	unsigned int c;
 	int ret;
 
@@ -966,13 +1005,7 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 
 	channel_mask = ad7768_all_standby_mask(st);
 	standby_mask = channel_mask & ~*scan_mask;
-
-	/*
-	 * Crystal excitation requires channel 4 on AD7768 or channel 2 on
-	 * AD7768-4 to remain active.
-	 */
-	if (st->clock_source == AD7768_CLOCK_SOURCE_XTAL)
-		standby_mask &= ~BIT(st->chip_info->num_channels / 2);
+	ad7768_keep_xtal_channel_active(st, &standby_mask);
 
 	for_each_set_bit(c, scan_mask, st->chip_info->num_channels) {
 		unsigned int mask;
@@ -1002,6 +1035,7 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
+	max_freq = 0;
 	for (unsigned int mode = 0; mode < AD7768_NUM_CHANNEL_MODES; mode++) {
 		if (!mode_used[mode])
 			continue;
@@ -1053,11 +1087,11 @@ static int ad7768_update_scan_mode(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	for (unsigned int c = 0; c < st->chip_info->num_channels; c++) {
-		if (test_bit(c, scan_mask))
-			ret = iio_backend_chan_enable(st->back, c);
+	for (unsigned int ch = 0; ch < st->chip_info->num_channels; ch++) {
+		if (test_bit(ch, scan_mask))
+			ret = iio_backend_chan_enable(st->back, ch);
 		else
-			ret = iio_backend_chan_disable(st->back, c);
+			ret = iio_backend_chan_disable(st->back, ch);
 		if (ret)
 			return ret;
 	}
@@ -1097,6 +1131,7 @@ static int ad7768_buffer_postdisable(struct iio_dev *indio_dev)
 	struct ad7768_state *st = iio_priv(indio_dev);
 
 	pm_runtime_put_autosuspend(regmap_get_device(st->regmap));
+
 	return 0;
 }
 
@@ -1104,6 +1139,19 @@ static const struct iio_buffer_setup_ops ad7768_buffer_ops = {
 	.preenable = ad7768_buffer_preenable,
 	.postdisable = ad7768_buffer_postdisable,
 };
+
+static int ad7768_read_scale(struct ad7768_state *st,
+			     const struct iio_chan_spec *chan,
+			     int *val, int *val2)
+{
+	unsigned int vref_idx;
+
+	vref_idx = chan->channel >= st->chip_info->num_channels / 2;
+	*val = 2 * st->vref_uV[vref_idx] / (MICRO / MILLI);
+	*val2 = chan->scan_type.realbits;
+
+	return IIO_VAL_FRACTIONAL_LOG2;
+}
 
 static int ad7768_read_raw(struct iio_dev *indio_dev,
 			   const struct iio_chan_spec *chan,
@@ -1113,15 +1161,8 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 	int ret;
 
 	switch (info) {
-	case IIO_CHAN_INFO_SCALE: {
-		unsigned int vref_idx;
-
-		vref_idx = chan->channel >= st->chip_info->num_channels / 2;
-		*val = 2 * st->vref_uV[vref_idx] / 1000;
-		*val2 = chan->scan_type.realbits;
-
-		return IIO_VAL_FRACTIONAL_LOG2;
-	}
+	case IIO_CHAN_INFO_SCALE:
+		return ad7768_read_scale(st, chan, val, val2);
 	case IIO_CHAN_INFO_SAMP_FREQ: {
 		guard(mutex)(&st->lock);
 		*val = st->ch_freq[chan->channel];
@@ -1133,14 +1174,12 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_CALIBSCALE: {
 		bool is_gain = info == IIO_CHAN_INFO_CALIBSCALE;
 		unsigned int base_reg;
-		unsigned int calib;
 
 		base_reg = ad7768_get_calib_reg_base(st, chan, is_gain);
-		ret = ad7768_read_calib_value(st, base_reg, &calib);
+		ret = ad7768_read_calib_value(st, base_reg, !is_gain, val);
 		if (ret)
 			return ret;
 
-		*val = calib;
 		return IIO_VAL_INT;
 	}
 	case IIO_CHAN_INFO_CONVDELAY: {
@@ -1186,17 +1225,11 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return ad7768_set_sampling_freq(indio_dev, val, chan->channel);
 	case IIO_CHAN_INFO_CALIBBIAS:
-		if (val < 0 || val > AD7768_CALIB_REG_MSK)
-			return -EINVAL;
-
 		base_reg = ad7768_get_calib_reg_base(st, chan, false);
-		return ad7768_write_calib_value(st, base_reg, val);
+		return ad7768_write_calib_value(st, base_reg, true, val);
 	case IIO_CHAN_INFO_CALIBSCALE:
-		if (val < 0 || val > AD7768_CALIB_REG_MSK)
-			return -EINVAL;
-
 		base_reg = ad7768_get_calib_reg_base(st, chan, true);
-		return ad7768_write_calib_value(st, base_reg, val);
+		return ad7768_write_calib_value(st, base_reg, false, val);
 	case IIO_CHAN_INFO_CONVDELAY: {
 		delay_ps = iio_val_s64_compose(val, val2);
 		if (delay_ps < 0)
@@ -1247,17 +1280,13 @@ static int ad7768_gpio_adev_init(struct ad7768_state *st)
 	if (!device_property_read_bool(dev, "gpio-controller"))
 		return 0;
 
-	st->gpio_valid_mask = GENMASK(AD7768_NUM_GPIOS - 1, 0);
-	if (st->clock_source != AD7768_CLOCK_SOURCE_MCLK)
-		st->gpio_valid_mask &= ~BIT(4);
-
 	/*
 	 * Use the SPI bus number and chip select to derive a stable per-device
 	 * ID.
 	 */
 	id = (spi->controller->bus_num << 8) | spi_get_chipselect(spi, 0);
 	adev = __devm_auxiliary_device_create(dev, KBUILD_MODNAME, "gpio",
-					      &st->gpio_valid_mask, id);
+					      NULL, id);
 	if (!adev)
 		return dev_err_probe(dev, -ENODEV,
 				     "Failed to create GPIO auxiliary device\n");
@@ -1275,7 +1304,7 @@ static int ad7768_configure_precharge_buffers(struct iio_dev *indio_dev,
 	u8 refbufn_val = 0;
 	int ret;
 
-	for (u8 ch = 0; ch < indio_dev->num_channels; ch++) {
+	for (unsigned int ch = 0; ch < indio_dev->num_channels; ch++) {
 		u8 channel = indio_dev->channels[ch].channel;
 
 		if (precharge_cfg[channel].prebufp_en)
@@ -1311,32 +1340,31 @@ static int ad7768_configure_precharge_buffers(struct iio_dev *indio_dev,
 
 static void ad7768_set_available_sampling_freqs(struct ad7768_state *st)
 {
+	unsigned int n_power_modes = ARRAY_SIZE(ad7768_power_modes);
 	unsigned int mclk = clk_get_rate(st->mclk);
 
-	for (unsigned int mode_idx = 0;
-	     mode_idx < ARRAY_SIZE(ad7768_power_modes); mode_idx++) {
+	for (unsigned int mode_idx = 0; mode_idx < n_power_modes; mode_idx++) {
+		unsigned int dec = ARRAY_SIZE(ad7768_dec_rate);
 		struct ad7768_avail_freq *avail_freq;
+		unsigned int div;
 
 		avail_freq = &st->avail_freq[mode_idx];
-		for (unsigned int dec = ARRAY_SIZE(ad7768_dec_rate); dec > 0;
-		     dec--) {
+		div = ad7768_power_modes[mode_idx].mclk_div;
+		while (dec--) {
 			struct ad7768_freq_config *freq_cfg;
 
 			freq_cfg = &avail_freq->freq_cfg[avail_freq->n_freqs++];
-			freq_cfg->dec_rate = dec - 1;
-			freq_cfg->freq_hz = mclk /
-				(ad7768_dec_rate[dec - 1] *
-				 ad7768_power_modes[mode_idx].mclk_div);
+			freq_cfg->dec_rate = dec;
+			freq_cfg->freq_hz = mclk / (ad7768_dec_rate[dec] * div);
 		}
 	}
 
 	/* One DOUT line cannot carry the AD7768 fast-mode x32 output rate. */
 	if (st->datalines == 1 &&
 	    st->chip_info->num_channels == AD7768_MAX_CHANNEL)
-		st->avail_freq[ARRAY_SIZE(ad7768_power_modes) - 1].n_freqs--;
+		st->avail_freq[n_power_modes - 1].n_freqs--;
 
-	for (unsigned int mode_idx = 0;
-	     mode_idx < ARRAY_SIZE(ad7768_power_modes); mode_idx++) {
+	for (unsigned int mode_idx = 0; mode_idx < n_power_modes; mode_idx++) {
 		const struct ad7768_avail_freq *avail_freq;
 
 		avail_freq = &st->avail_freq[mode_idx];
@@ -1378,24 +1406,23 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 	struct ad7768_precharge_config precharge_cfg[AD7768_MAX_CHANNEL] = { };
 	struct ad7768_state *st = iio_priv(indio_dev);
 	const unsigned int *available_datalines;
+	const char *propname;
 	bool datalines_valid = false;
 	struct iio_chan_spec *chan;
 	unsigned int num_channels;
-	unsigned int standby_mask;
+	unsigned long standby_mask;
 	unsigned int len;
 	int chan_idx = 0;
 	int ret;
 
-	num_channels = 0;
-	device_for_each_named_child_node_scoped(dev, child, "channel")
-		num_channels++;
+	propname = "adi,data-lines-number";
+	num_channels = device_get_named_child_node_count(dev, "channel");
+	if (num_channels == 0)
+		return dev_err_probe(dev, -ENOENT, "No channel specified\n");
+	if (num_channels > st->chip_info->num_channels)
+		return dev_err_probe(dev, -ENOSPC, "Invalid number of channels\n");
 
-	if (!num_channels || num_channels > st->chip_info->num_channels)
-		return dev_err_probe(dev, -EINVAL,
-				     "Invalid number of channels\n");
-
-	chan = devm_kcalloc(indio_dev->dev.parent, num_channels,
-			    sizeof(*chan), GFP_KERNEL);
+	chan = devm_kcalloc(dev, num_channels, sizeof(*chan), GFP_KERNEL);
 	if (!chan)
 		return -ENOMEM;
 
@@ -1403,13 +1430,7 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 	indio_dev->num_channels = num_channels;
 
 	standby_mask = ad7768_all_standby_mask(st);
-
-	/*
-	 * Crystal excitation requires channel 4 on AD7768 or channel 2 on
-	 * AD7768-4 to remain active.
-	 */
-	if (st->clock_source == AD7768_CLOCK_SOURCE_XTAL)
-		standby_mask &= ~BIT(st->chip_info->num_channels / 2);
+	ad7768_keep_xtal_channel_active(st, &standby_mask);
 
 	ret = regmap_write(st->regmap, AD7768_REG_CH_STANDBY, standby_mask);
 	if (ret)
@@ -1425,7 +1446,7 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 					     child);
 
 		if (channel >= st->chip_info->num_channels)
-			return dev_err_probe(dev, -EINVAL,
+			return dev_err_probe(dev, -ECHRNG,
 					     "Invalid channel %u in firmware\n",
 					     channel);
 
@@ -1435,24 +1456,20 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 			return ret;
 
 		precharge_cfg[channel].prebufp_en =
-			fwnode_property_read_bool(child,
-						  "adi,prechargebuf-pos-enable");
+			fwnode_property_read_bool(child, "adi,prechargebuf-pos-enable");
 		precharge_cfg[channel].prebufn_en =
-			fwnode_property_read_bool(child,
-						  "adi,prechargebuf-neg-enable");
+			fwnode_property_read_bool(child, "adi,prechargebuf-neg-enable");
 		precharge_cfg[channel].refbufp =
-			fwnode_property_read_bool(child,
-						  "adi,refbuf-pos-enable");
+			fwnode_property_read_bool(child, "adi,refbuf-pos-enable");
 		precharge_cfg[channel].refbufn =
-			fwnode_property_read_bool(child,
-						  "adi,refbuf-neg-enable");
+			fwnode_property_read_bool(child, "adi,refbuf-neg-enable");
 
-		chan[chan_idx] = (struct iio_chan_spec) {
+		chan[chan_idx++] = (struct iio_chan_spec) {
 			.type = IIO_VOLTAGE,
-			.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBBIAS) |
+			.info_mask_separate = BIT(IIO_CHAN_INFO_SCALE) |
+					      BIT(IIO_CHAN_INFO_CALIBBIAS) |
 					      BIT(IIO_CHAN_INFO_CALIBSCALE) |
 					      BIT(IIO_CHAN_INFO_CONVDELAY) |
-					      BIT(IIO_CHAN_INFO_SCALE) |
 					      BIT(IIO_CHAN_INFO_SAMP_FREQ),
 			.info_mask_separate_available =
 				BIT(IIO_CHAN_INFO_SAMP_FREQ),
@@ -1466,7 +1483,6 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 			},
 			.ext_info = ad7768_ext_info,
 		};
-		chan_idx++;
 	}
 
 	ret = ad7768_configure_precharge_buffers(indio_dev, precharge_cfg);
@@ -1475,13 +1491,14 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 
 	available_datalines = st->chip_info->available_datalines;
 	len = st->chip_info->num_datalines;
-	st->datalines = available_datalines[len - 1];
-	ret = device_property_read_u32(dev, "adi,data-lines-number",
-				       &st->datalines);
-	if (ret && ret != -EINVAL)
-		return dev_err_probe(dev, ret,
-				     "Invalid %s property\n",
-				     "adi,data-lines-number");
+	if (device_property_present(dev, propname)) {
+		ret = device_property_read_u32(dev, propname, &st->datalines);
+		if (ret)
+			return dev_err_probe(dev, ret, "Invalid %s property\n",
+					     propname);
+	} else {
+		st->datalines = available_datalines[len - 1];
+	}
 
 	for (unsigned int i = 0; i < len; i++) {
 		if (available_datalines[i] == st->datalines) {
@@ -1492,7 +1509,7 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 
 	if (!datalines_valid)
 		return dev_err_probe(dev, -EINVAL,
-				     "Invalid data-lines-number %d for %s\n",
+				     "Invalid %s %u for %s\n", propname,
 				     st->datalines, st->chip_info->name);
 
 	ad7768_set_available_sampling_freqs(st);
@@ -1624,6 +1641,23 @@ static int ad7768_get_enable_vref(struct device *dev, unsigned int index)
 	return refp_uV - refn_uV;
 }
 
+static int ad7768_enter_sleep(struct ad7768_state *st)
+{
+	return regmap_set_bits(st->regmap, AD7768_REG_POWER_MODE,
+			       AD7768_SLEEP_MODE_MSK);
+}
+
+static void ad7768_power_off(void *data)
+{
+	struct ad7768_state *st = data;
+	struct device *dev = regmap_get_device(st->regmap);
+	int ret;
+
+	ret = ad7768_enter_sleep(st);
+	if (ret)
+		dev_err(dev, "Failed to put device to sleep\n");
+}
+
 static int ad7768_validate_mclk_rate(struct device *dev,
 				     const struct ad7768_state *st)
 {
@@ -1663,13 +1697,14 @@ static int ad7768_probe(struct spi_device *spi)
 
 	st->chip_info = spi_get_device_match_data(spi);
 	if (!st->chip_info)
-		return dev_err_probe(dev, -ENODEV,
-				     "Failed to get match data\n");
+		return dev_err_probe(dev, -ENODATA, "Failed to get match data\n");
 
 	ret = devm_regulator_get_enable_optional(dev, "avss");
-	if (ret < 0 && ret != -ENODEV)
-		return dev_err_probe(dev, ret,
-				     "Failed to enable AVSS supply\n");
+	if (ret == -ENODEV) {
+		/* AVSS may be connected directly to ground instead of a regulator. */
+	} else if (ret) {
+		return dev_err_probe(dev, ret, "Failed to enable AVSS supply\n");
+	}
 
 	ret = devm_regulator_get_enable_read_voltage(dev, "avdd1");
 	if (ret < 0)
@@ -1684,8 +1719,7 @@ static int ad7768_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	for (unsigned int i = 0;
-	     i < ARRAY_SIZE(ad7768_vref_supply_names); i++) {
+	for (unsigned int i = 0; i < ARRAY_SIZE(ad7768_vref_supply_names); i++) {
 		ret = ad7768_get_enable_vref(dev, i);
 		if (ret < 0)
 			return ret;
@@ -1707,10 +1741,15 @@ static int ad7768_probe(struct spi_device *spi)
 	 * disabled until GPIO4 is driven low and the LVDS input is enabled in
 	 * the power mode register.
 	 */
-	if (st->clock_source == AD7768_CLOCK_SOURCE_LVDS)
-		st->mclk = devm_clk_get(dev, clock_name);
-	else
+	switch (st->clock_source) {
+	case AD7768_CLOCK_SOURCE_MCLK:
+	case AD7768_CLOCK_SOURCE_XTAL:
 		st->mclk = devm_clk_get_enabled(dev, clock_name);
+		break;
+	case AD7768_CLOCK_SOURCE_LVDS:
+		st->mclk = devm_clk_get(dev, clock_name);
+		break;
+	}
 
 	if (IS_ERR(st->mclk))
 		return dev_err_probe(dev, PTR_ERR(st->mclk),
@@ -1741,17 +1780,26 @@ static int ad7768_probe(struct spi_device *spi)
 	if (rev_id != AD7768_REV_ID_VAL)
 		dev_info(dev, "Unexpected revision ID 0x%02x\n", rev_id);
 
-	if (st->clock_source == AD7768_CLOCK_SOURCE_XTAL) {
+	switch (st->clock_source) {
+	case AD7768_CLOCK_SOURCE_MCLK:
+		break;
+	case AD7768_CLOCK_SOURCE_XTAL:
 		ret = ad7768_configure_xtal_clock(st);
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "Failed to configure crystal clock\n");
-	} else if (st->clock_source == AD7768_CLOCK_SOURCE_LVDS) {
+		break;
+	case AD7768_CLOCK_SOURCE_LVDS:
 		ret = ad7768_enable_lvds_clock(st);
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "Failed to enable LVDS clock\n");
+		break;
 	}
+
+	ret = devm_add_action_or_reset(dev, ad7768_power_off, st);
+	if (ret)
+		return ret;
 
 	ret = ad7768_parse_config(indio_dev, dev);
 	if (ret)
@@ -1814,8 +1862,7 @@ static int ad7768_runtime_suspend(struct device *dev)
 {
 	struct ad7768_state *st = dev_get_drvdata(dev);
 
-	return regmap_set_bits(st->regmap, AD7768_REG_POWER_MODE,
-			       AD7768_SLEEP_MODE_MSK);
+	return ad7768_enter_sleep(st);
 }
 
 static int ad7768_runtime_resume(struct device *dev)
@@ -1848,8 +1895,8 @@ static const struct of_device_id ad7768_of_match[] = {
 MODULE_DEVICE_TABLE(of, ad7768_of_match);
 
 static const struct spi_device_id ad7768_spi_id[] = {
-	{ "ad7768", (kernel_ulong_t)&ad7768_chip_info },
-	{ "ad7768-4", (kernel_ulong_t)&ad7768_4_chip_info },
+	{ .name = "ad7768", .driver_data = (kernel_ulong_t)&ad7768_chip_info },
+	{ .name = "ad7768-4", .driver_data = (kernel_ulong_t)&ad7768_4_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad7768_spi_id);
