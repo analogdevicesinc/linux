@@ -86,25 +86,16 @@ enum stm32_adc_int_ch {
 	STM32_ADC_INT_CH_VDDQ_DDR,
 	STM32_ADC_INT_CH_VREFINT,
 	STM32_ADC_INT_CH_VBAT,
-	STM32_ADC_INT_CH_NB,
+	STM32_ADC_INT_CH_NB
 };
 
-/**
- * struct stm32_adc_ic - ADC internal channels
- * @name:	name of the internal channel
- * @idx:	internal channel enum index
- */
-struct stm32_adc_ic {
-	const char *name;
-	u32 idx;
-};
-
-static const struct stm32_adc_ic stm32_adc_ic[STM32_ADC_INT_CH_NB] = {
-	{ "vddcore", STM32_ADC_INT_CH_VDDCORE },
-	{ "vddcpu", STM32_ADC_INT_CH_VDDCPU },
-	{ "vddq_ddr", STM32_ADC_INT_CH_VDDQ_DDR },
-	{ "vrefint", STM32_ADC_INT_CH_VREFINT },
-	{ "vbat", STM32_ADC_INT_CH_VBAT },
+/* STM32 ADC internal channel names */
+static const char stm32_adc_ic[STM32_ADC_INT_CH_NB][STM32_ADC_CH_SZ] = {
+	[STM32_ADC_INT_CH_VDDCORE] = "vddcore",
+	[STM32_ADC_INT_CH_VDDCPU] = "vddcpu",
+	[STM32_ADC_INT_CH_VDDQ_DDR] = "vddq_ddr",
+	[STM32_ADC_INT_CH_VREFINT] = "vrefint",
+	[STM32_ADC_INT_CH_VBAT] = "vbat",
 };
 
 /**
@@ -2268,7 +2259,7 @@ static int stm32_adc_populate_int_ch(struct iio_dev *indio_dev, const char *ch_n
 	int i, ret;
 
 	for (i = 0; i < STM32_ADC_INT_CH_NB; i++) {
-		if (!strncmp(stm32_adc_ic[i].name, ch_name, STM32_ADC_CH_SZ)) {
+		if (!strncmp(stm32_adc_ic[i], ch_name, STM32_ADC_CH_SZ)) {
 			bool na;
 
 			/* Check internal channel availability */
@@ -2302,7 +2293,7 @@ static int stm32_adc_populate_int_ch(struct iio_dev *indio_dev, const char *ch_n
 				return 0;
 			}
 
-			if (stm32_adc_ic[i].idx != STM32_ADC_INT_CH_VREFINT) {
+			if (i != STM32_ADC_INT_CH_VREFINT) {
 				adc->int_ch[i] = chan;
 				break;
 			}
@@ -2717,8 +2708,10 @@ static const struct stm32_adc_cfg stm32f4_adc_cfg = {
 	.vref_charac_mV = 3300,
 };
 
-static const unsigned int stm32_adc_min_ts_h7[] = { 0, 0, 0, 4300, 9000 };
-static_assert(ARRAY_SIZE(stm32_adc_min_ts_h7) == STM32_ADC_INT_CH_NB);
+static const unsigned int stm32_adc_min_ts_h7[STM32_ADC_INT_CH_NB] = {
+	[STM32_ADC_INT_CH_VREFINT] = 4300,
+	[STM32_ADC_INT_CH_VBAT] = 9000,
+};
 
 static const struct stm32_adc_cfg stm32h7_adc_cfg = {
 	.regs = &stm32h7_adc_regspec,
@@ -2739,8 +2732,11 @@ static const struct stm32_adc_cfg stm32h7_adc_cfg = {
 	.vref_charac_mV = 3300,
 };
 
-static const unsigned int stm32_adc_min_ts_mp1[] = { 100, 0, 0, 4300, 9800 };
-static_assert(ARRAY_SIZE(stm32_adc_min_ts_mp1) == STM32_ADC_INT_CH_NB);
+static const unsigned int stm32_adc_min_ts_mp1[STM32_ADC_INT_CH_NB] = {
+	[STM32_ADC_INT_CH_VDDCORE] = 100,
+	[STM32_ADC_INT_CH_VREFINT] = 4300,
+	[STM32_ADC_INT_CH_VBAT] = 9800,
+};
 
 static const struct stm32_adc_cfg stm32mp1_adc_cfg = {
 	.regs = &stm32mp1_adc_regspec,
@@ -2762,8 +2758,13 @@ static const struct stm32_adc_cfg stm32mp1_adc_cfg = {
 	.vref_charac_mV = 3300,
 };
 
-static const unsigned int stm32_adc_min_ts_mp13[] = { 1000, 1000, 1000, 4300, 9800 };
-static_assert(ARRAY_SIZE(stm32_adc_min_ts_mp13) == STM32_ADC_INT_CH_NB);
+static const unsigned int stm32_adc_min_ts_mp13[STM32_ADC_INT_CH_NB] = {
+	[STM32_ADC_INT_CH_VDDCORE] = 1000,
+	[STM32_ADC_INT_CH_VDDCPU] = 1000,
+	[STM32_ADC_INT_CH_VDDQ_DDR] = 1000,
+	[STM32_ADC_INT_CH_VREFINT] = 4300,
+	[STM32_ADC_INT_CH_VBAT] = 9800,
+};
 
 static const struct stm32_adc_cfg stm32mp13_adc_cfg = {
 	.regs = &stm32mp13_adc_regspec,
