@@ -895,20 +895,11 @@ static const struct stm32_adc_priv_cfg stm32mp13_adc_priv_cfg = {
 };
 
 static const struct of_device_id stm32_adc_of_match[] = {
-	{
-		.compatible = "st,stm32f4-adc-core",
-		.data = (void *)&stm32f4_adc_priv_cfg
-	}, {
-		.compatible = "st,stm32h7-adc-core",
-		.data = (void *)&stm32h7_adc_priv_cfg
-	}, {
-		.compatible = "st,stm32mp1-adc-core",
-		.data = (void *)&stm32mp1_adc_priv_cfg
-	}, {
-		.compatible = "st,stm32mp13-adc-core",
-		.data = (void *)&stm32mp13_adc_priv_cfg
-	}, {
-	},
+	{ .compatible = "st,stm32f4-adc-core", .data = (void *)&stm32f4_adc_priv_cfg },
+	{ .compatible = "st,stm32h7-adc-core", .data = (void *)&stm32h7_adc_priv_cfg },
+	{ .compatible = "st,stm32mp1-adc-core",	.data = (void *)&stm32mp1_adc_priv_cfg },
+	{ .compatible = "st,stm32mp13-adc-core", .data = (void *)&stm32mp13_adc_priv_cfg },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, stm32_adc_of_match);
 
