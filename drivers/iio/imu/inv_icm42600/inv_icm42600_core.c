@@ -505,7 +505,7 @@ static int inv_icm42600_set_conf(struct inv_icm42600_state *st,
  *  @st:	driver internal state
  *  @bus_setup:	callback for setting up bus specific registers
  *
- *  Returns 0 on success, a negative error code otherwise.
+ *  Return: 0 on success, a negative error code otherwise.
  */
 static int inv_icm42600_setup(struct inv_icm42600_state *st,
 			      inv_icm42600_bus_setup bus_setup)
@@ -639,7 +639,7 @@ out_unlock:
  * @irq_type:	irq trigger type
  * @open_drain:	true if irq is open drain, false for push-pull
  *
- * Returns 0 on success, a negative error code otherwise.
+ * Return: 0 on success, a negative error code otherwise.
  */
 static int inv_icm42600_irq_init(struct inv_icm42600_state *st, int irq,
 				 int irq_type, bool open_drain)
