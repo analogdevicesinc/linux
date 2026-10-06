@@ -524,8 +524,8 @@
 			interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C0>;
 			clock-names = "i2c";
-			pinctrl-names = "default";
 			pinctrl-0 = <&i2c0_bus>;
+			pinctrl-names = "default";
 
 			status = "disabled";
 		};
@@ -538,8 +538,8 @@
 			interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C1>;
 			clock-names = "i2c";
-			pinctrl-names = "default";
 			pinctrl-0 = <&i2c1_bus>;
+			pinctrl-names = "default";
 
 			status = "disabled";
 		};
@@ -552,8 +552,8 @@
 			interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C2>;
 			clock-names = "i2c";
-			pinctrl-names = "default";
 			pinctrl-0 = <&i2c2_bus>;
+			pinctrl-names = "default";
 
 			status = "disabled";
 		};
@@ -566,8 +566,8 @@
 			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C3>;
 			clock-names = "i2c";
-			pinctrl-names = "default";
 			pinctrl-0 = <&i2c3_bus>;
+			pinctrl-names = "default";
 
 			status = "disabled";
 		};
@@ -580,8 +580,8 @@
 			interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C4>;
 			clock-names = "i2c";
-			pinctrl-names = "default";
 			pinctrl-0 = <&i2c4_bus>;
+			pinctrl-names = "default";
 
 			status = "disabled";
 		};
@@ -594,8 +594,8 @@
 			interrupts = <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C5>;
 			clock-names = "i2c";
-			pinctrl-names = "default";
 			pinctrl-0 = <&i2c5_bus>;
+			pinctrl-names = "default";
 
 			status = "disabled";
 		};
@@ -608,8 +608,8 @@
 			interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C6>;
 			clock-names = "i2c";
-			pinctrl-names = "default";
 			pinctrl-0 = <&i2c6_bus>;
+			pinctrl-names = "default";
 
 			status = "disabled";
 		};
@@ -622,8 +622,8 @@
 			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C7>;
 			clock-names = "i2c";
-			pinctrl-names = "default";
 			pinctrl-0 = <&i2c7_bus>;
+			pinctrl-names = "default";
 
 			status = "disabled";
 		};
@@ -655,8 +655,8 @@
 			#size-cells = <0>;
 			clocks = <&clock CLK_SPI0>, <&clock CLK_SCLK_SPI0>;
 			clock-names = "spi", "spi_busclk0";
-			pinctrl-names = "default";
 			pinctrl-0 = <&spi0_bus>;
+			pinctrl-names = "default";
 			fifo-depth = <256>;
 
 			status = "disabled";
@@ -672,8 +672,8 @@
 			#size-cells = <0>;
 			clocks = <&clock CLK_SPI1>, <&clock CLK_SCLK_SPI1>;
 			clock-names = "spi", "spi_busclk0";
-			pinctrl-names = "default";
 			pinctrl-0 = <&spi1_bus>;
+			pinctrl-names = "default";
 			fifo-depth = <64>;
 
 			status = "disabled";
@@ -689,8 +689,8 @@
 			#size-cells = <0>;
 			clocks = <&clock CLK_SPI2>, <&clock CLK_SCLK_SPI2>;
 			clock-names = "spi", "spi_busclk0";
-			pinctrl-names = "default";
 			pinctrl-0 = <&spi2_bus>;
+			pinctrl-names = "default";
 			fifo-depth = <64>;
 
 			status = "disabled";
@@ -742,8 +742,8 @@
 			compatible = "samsung,exynos4210-fimd";
 			interrupt-parent = <&combiner>;
 			reg = <0x11c00000 0x20000>;
-			interrupt-names = "fifo", "vsync", "lcd_sys";
 			interrupts = <11 0>, <11 1>, <11 2>;
+			interrupt-names = "fifo", "vsync", "lcd_sys";
 			clocks = <&clock CLK_SCLK_FIMD0>, <&clock CLK_FIMD0>;
 			clock-names = "sclk_fimd", "fimd";
 			power-domains = <&pd_lcd0>;
@@ -785,12 +785,12 @@
 			compatible = "samsung,exynos4210-hdmi";
 			reg = <0x12d00000 0x70000>;
 			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
-			clock-names = "hdmi", "sclk_hdmi", "sclk_pixel",
-				      "sclk_hdmiphy", "mout_hdmi";
 			clocks = <&clock CLK_HDMI>, <&clock CLK_SCLK_HDMI>,
 				 <&clock CLK_SCLK_PIXEL>,
 				 <&clock CLK_SCLK_HDMIPHY>,
 				 <&clock CLK_MOUT_HDMI>;
+			clock-names = "hdmi", "sclk_hdmi", "sclk_pixel",
+				      "sclk_hdmiphy", "mout_hdmi";
 			phy = <&hdmi_i2c_phy>;
 			power-domains = <&pd_tv>;
 			samsung,syscon-phandle = <&pmu_system_controller>;
@@ -807,8 +807,8 @@
 			clock-names = "hdmicec";
 			samsung,syscon-phandle = <&pmu_system_controller>;
 			hdmi-phandle = <&hdmi>;
-			pinctrl-names = "default";
 			pinctrl-0 = <&hdmi_cec>;
+			pinctrl-names = "default";
 
 			status = "disabled";
 		};
@@ -943,8 +943,8 @@
 			reg = <0x13620000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <5 5>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_MFCL>, <&clock CLK_MFC>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_mfc>;
 			#iommu-cells = <0>;
 		};
@@ -954,8 +954,8 @@
 			reg = <0x13630000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <5 6>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_MFCR>, <&clock CLK_MFC>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_mfc>;
 			#iommu-cells = <0>;
 		};
@@ -965,8 +965,8 @@
 			reg = <0x12e20000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <5 4>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_TV>, <&clock CLK_MIXER>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_tv>;
 			#iommu-cells = <0>;
 		};
@@ -976,8 +976,8 @@
 			reg = <0x11a20000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <4 2>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_FIMC0>, <&clock CLK_FIMC0>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_cam>;
 			#iommu-cells = <0>;
 		};
@@ -987,8 +987,8 @@
 			reg = <0x11a30000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <4 3>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_FIMC1>, <&clock CLK_FIMC1>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_cam>;
 			#iommu-cells = <0>;
 		};
@@ -998,8 +998,8 @@
 			reg = <0x11a40000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <4 4>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_FIMC2>, <&clock CLK_FIMC2>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_cam>;
 			#iommu-cells = <0>;
 		};
@@ -1009,8 +1009,8 @@
 			reg = <0x11a50000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <4 5>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_FIMC3>, <&clock CLK_FIMC3>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_cam>;
 			#iommu-cells = <0>;
 		};
@@ -1020,8 +1020,8 @@
 			reg = <0x11a60000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <4 6>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_JPEG>, <&clock CLK_JPEG>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_cam>;
 			#iommu-cells = <0>;
 		};
@@ -1031,9 +1031,9 @@
 			reg = <0x12a30000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <5 0>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_ROTATOR>,
 				 <&clock CLK_ROTATOR>;
+			clock-names = "sysmmu", "master";
 			#iommu-cells = <0>;
 		};
 
@@ -1042,8 +1042,8 @@
 			reg = <0x11e20000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <5 2>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_FIMD0>, <&clock CLK_FIMD0>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_lcd0>;
 			#iommu-cells = <0>;
 		};
