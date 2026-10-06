@@ -115,7 +115,7 @@
 
 		sound {
 			compatible = "adi,sc5xx-asoc-card";
-			adi,cpu-dai = <&i2s0_sport0>;
+			adi,cpu-dai = <&i2s0>;
 			adi,codec = <&adau1761>;
 		};
 	};
@@ -204,7 +204,7 @@
 	status = "okay";
 };
 
-&i2s0_sport0 {
+&i2s0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&sru_dai0>;
 	status = "okay";
