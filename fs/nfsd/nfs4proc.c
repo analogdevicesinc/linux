@@ -707,8 +707,7 @@ nfsd4_open(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 				&rp->rp_openfh);
 		status = fh_verify(rqstp, &cstate->current_fh, 0, NFSD_MAY_NOP);
 		if (status)
-			dprintk("nfsd4_open: replay failed"
-				" restoring previous filehandle\n");
+			nfsd4_cstate_clear_replay(cstate);
 		else
 			status = nfserr_replay_me;
 	}
