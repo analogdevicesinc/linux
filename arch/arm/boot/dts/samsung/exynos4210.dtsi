@@ -269,15 +269,10 @@
 			label = "LCD1";
 		};
 
-		l2c: cache-controller@10502000 {
-			compatible = "arm,pl310-cache";
-			reg = <0x10502000 0x1000>;
-			cache-unified;
-			cache-level = <2>;
-			prefetch-data = <1>;
-			prefetch-instr = <1>;
-			arm,tag-latency = <2 2 1>;
-			arm,data-latency = <2 2 1>;
+		clock: clock-controller@10030000 {
+			compatible = "samsung,exynos4210-clock";
+			reg = <0x10030000 0x20000>;
+			#clock-cells = <1>;
 		};
 
 		mct: timer@10050000 {
@@ -301,10 +296,22 @@
 			clock-names = "watchdog";
 		};
 
-		clock: clock-controller@10030000 {
-			compatible = "samsung,exynos4210-clock";
-			reg = <0x10030000 0x20000>;
-			#clock-cells = <1>;
+		l2c: cache-controller@10502000 {
+			compatible = "arm,pl310-cache";
+			reg = <0x10502000 0x1000>;
+			cache-unified;
+			cache-level = <2>;
+			prefetch-data = <1>;
+			prefetch-instr = <1>;
+			arm,tag-latency = <2 2 1>;
+			arm,data-latency = <2 2 1>;
+		};
+
+		ppmu_acp: ppmu@10ae0000 {
+			compatible = "samsung,exynos-ppmu";
+			reg = <0x10ae0000 0x2000>;
+
+			status = "disabled";
 		};
 
 		pinctrl_0: pinctrl@11400000 {
@@ -330,20 +337,15 @@
 			reg = <0x03860000 0x1000>;
 		};
 
-		g2d: g2d@12800000 {
-			compatible = "samsung,s5pv210-g2d";
-			reg = <0x12800000 0x1000>;
-			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clock CLK_SCLK_FIMG2D>, <&clock CLK_G2D>;
-			clock-names = "sclk_fimg2d", "fimg2d";
-			power-domains = <&pd_lcd0>;
-			iommus = <&sysmmu_g2d>;
-		};
-
-		ppmu_acp: ppmu@10ae0000 {
-			compatible = "samsung,exynos-ppmu";
-			reg = <0x10ae0000 0x2000>;
-			status = "disabled";
+		sysmmu_fimd1: sysmmu@12220000 {
+			compatible = "samsung,exynos-sysmmu";
+			interrupt-parent = <&combiner>;
+			reg = <0x12220000 0x1000>;
+			interrupts = <5 3>;
+			clock-names = "sysmmu", "master";
+			clocks = <&clock CLK_SMMU_FIMD1>, <&clock CLK_FIMD1>;
+			power-domains = <&pd_lcd1>;
+			#iommu-cells = <0>;
 		};
 
 		ppmu_lcd1: ppmu@12240000 {
@@ -354,6 +356,16 @@
 			status = "disabled";
 		};
 
+		g2d: g2d@12800000 {
+			compatible = "samsung,s5pv210-g2d";
+			reg = <0x12800000 0x1000>;
+			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clock CLK_SCLK_FIMG2D>, <&clock CLK_G2D>;
+			clock-names = "sclk_fimg2d", "fimg2d";
+			power-domains = <&pd_lcd0>;
+			iommus = <&sysmmu_g2d>;
+		};
+
 		sysmmu_g2d: sysmmu@12a20000 {
 			compatible = "samsung,exynos-sysmmu";
 			reg = <0x12a20000 0x1000>;
@@ -362,17 +374,6 @@
 			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_G2D>, <&clock CLK_G2D>;
 			power-domains = <&pd_lcd0>;
-			#iommu-cells = <0>;
-		};
-
-		sysmmu_fimd1: sysmmu@12220000 {
-			compatible = "samsung,exynos-sysmmu";
-			interrupt-parent = <&combiner>;
-			reg = <0x12220000 0x1000>;
-			interrupts = <5 3>;
-			clock-names = "sysmmu", "master";
-			clocks = <&clock CLK_SMMU_FIMD1>, <&clock CLK_FIMD1>;
-			power-domains = <&pd_lcd1>;
 			#iommu-cells = <0>;
 		};
 	};
