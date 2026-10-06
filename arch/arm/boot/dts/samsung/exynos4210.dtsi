@@ -267,9 +267,9 @@
 		sysram: sram@2020000 {
 			compatible = "mmio-sram";
 			reg = <0x02020000 0x20000>;
+			ranges = <0 0x02020000 0x20000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0 0x02020000 0x20000>;
 
 			smp-sram@0 {
 				compatible = "samsung,exynos4210-sysram";
@@ -359,11 +359,11 @@
 
 		sysmmu_fimd1: sysmmu@12220000 {
 			compatible = "samsung,exynos-sysmmu";
-			interrupt-parent = <&combiner>;
 			reg = <0x12220000 0x1000>;
+			interrupt-parent = <&combiner>;
 			interrupts = <5 3>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_FIMD1>, <&clock CLK_FIMD1>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_lcd1>;
 			#iommu-cells = <0>;
 		};
@@ -392,8 +392,8 @@
 			reg = <0x12a20000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <4 7>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_G2D>, <&clock CLK_G2D>;
+			clock-names = "sysmmu", "master";
 			power-domains = <&pd_lcd0>;
 			#iommu-cells = <0>;
 		};
@@ -436,7 +436,6 @@
 };
 
 &combiner {
-	samsung,combiner-nr = <16>;
 	interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,
@@ -453,6 +452,7 @@
 		     <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+	samsung,combiner-nr = <16>;
 };
 
 &fimc_0 {
@@ -523,11 +523,11 @@
 };
 
 &mixer {
-	clock-names = "mixer", "hdmi", "sclk_hdmi", "vp", "mout_mixer",
-		      "sclk_mixer";
 	clocks = <&clock CLK_MIXER>, <&clock CLK_HDMI>,
 		 <&clock CLK_SCLK_HDMI>, <&clock CLK_VP>,
 		 <&clock CLK_MOUT_MIXER>, <&clock CLK_SCLK_MIXER>;
+	clock-names = "mixer", "hdmi", "sclk_hdmi", "vp", "mout_mixer",
+		      "sclk_mixer";
 };
 
 &pmu {
@@ -538,11 +538,11 @@
 };
 
 &pmu_system_controller {
-	clock-names = "clkout0", "clkout1", "clkout2", "clkout3",
-			"clkout4", "clkout8", "clkout9";
 	clocks = <&clock CLK_OUT_DMC>, <&clock CLK_OUT_TOP>,
 		<&clock CLK_OUT_LEFTBUS>, <&clock CLK_OUT_RIGHTBUS>,
 		<&clock CLK_OUT_CPU>, <&clock CLK_XXTI>, <&clock CLK_XUSBXTI>;
+	clock-names = "clkout0", "clkout1", "clkout2", "clkout3",
+			"clkout4", "clkout8", "clkout9";
 	#clock-cells = <1>;
 };
 
