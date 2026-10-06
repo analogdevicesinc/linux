@@ -60,6 +60,7 @@
 			/* Corresponds to 800MHz */
 			cooling-device = <&cpu0 2 2>;
 		};
+
 		map1 {
 			/* Corresponds to 200MHz */
 			cooling-device = <&cpu0 4 4>;
@@ -70,6 +71,7 @@
 &i2c_0 {
 	samsung,i2c-sda-delay = <100>;
 	samsung,i2c-max-bus-freq = <100000>;
+
 	status = "okay";
 
 	eeprom@50 {
@@ -84,12 +86,13 @@
 };
 
 &keypad {
+	wakeup-source;
+	pinctrl-0 = <&keypad_rows &keypad_cols>;
+	pinctrl-names = "default";
 	samsung,keypad-num-rows = <2>;
 	samsung,keypad-num-columns = <8>;
 	linux,input-no-autorepeat;
-	wakeup-source;
-	pinctrl-names = "default";
-	pinctrl-0 = <&keypad_rows &keypad_cols>;
+
 	status = "okay";
 
 	key-1 {
@@ -177,8 +180,9 @@
 
 &sdhci_2 {
 	bus-width = <4>;
-	pinctrl-names = "default";
 	pinctrl-0 = <&sd2_clk &sd2_cmd &sd2_cd &sd2_bus4>;
+	pinctrl-names = "default";
+
 	status = "okay";
 };
 
@@ -200,13 +204,14 @@
 
 &spi_2 {
 	cs-gpios = <&gpc1 2 GPIO_ACTIVE_HIGH>;
+
 	status = "okay";
 
 	flash@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
 		compatible = "winbond,w25x80", "jedec,spi-nor";
 		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 		spi-max-frequency = <1000000>;
 
 		controller-data {
@@ -214,14 +219,14 @@
 		};
 
 		partition@0 {
-			label = "U-Boot";
 			reg = <0x0 0x40000>;
+			label = "U-Boot";
 			read-only;
 		};
 
 		partition@40000 {
-			label = "Kernel";
 			reg = <0x40000 0xc0000>;
+			label = "Kernel";
 		};
 	};
 };
