@@ -100,6 +100,7 @@ enum stm32_adc_int_ch {
 	STM32_ADC_INT_CH_VDDQ_DDR,
 	STM32_ADC_INT_CH_VREFINT,
 	STM32_ADC_INT_CH_VBAT,
+	STM32_ADC_INT_CH_VDDGPU,
 	STM32_ADC_INT_CH_NB
 };
 
@@ -110,6 +111,7 @@ static const char stm32_adc_ic[STM32_ADC_INT_CH_NB][STM32_ADC_CH_SZ] = {
 	[STM32_ADC_INT_CH_VDDQ_DDR] = "vddq_ddr",
 	[STM32_ADC_INT_CH_VREFINT] = "vrefint",
 	[STM32_ADC_INT_CH_VBAT] = "vbat",
+	[STM32_ADC_INT_CH_VDDGPU] = "vddgpu",
 };
 
 /**
@@ -170,6 +172,7 @@ struct stm32_adc_vrefint {
  * @smp_bits:		smpr1 & smpr2 index and bitfields
  * @or_vddcore:		option register & vddcore bitfield
  * @or_vddcpu:		option register & vddcpu bitfield
+ * @or_vddgpu:		option register & vddgpu bitfield
  * @or_vddq_ddr:	option register & vddq_ddr bitfield
  * @ccr_vbat:		common register & vbat bitfield
  * @ccr_vref:		common register & vrefint bitfield
@@ -189,6 +192,7 @@ struct stm32_adc_regspec {
 	const struct stm32_adc_regs *smp_bits;
 	const struct stm32_adc_regs or_vddcore;
 	const struct stm32_adc_regs or_vddcpu;
+	const struct stm32_adc_regs or_vddgpu;
 	const struct stm32_adc_regs or_vddq_ddr;
 	const struct stm32_adc_regs ccr_vbat;
 	const struct stm32_adc_regs ccr_vref;
@@ -728,6 +732,7 @@ static const struct stm32_adc_regspec stm32mp25_adc2_adc3_regspec = {
 	.smp_bits = stm32h7_smp_bits,
 	.or_vddcore = { STM32MP25_ADC23_OR, STM32MP25_VDDCOREEN },
 	.or_vddcpu = { STM32MP25_ADC23_OR, STM32MP25_VDDCPUEN },
+	.or_vddgpu = { STM32MP25_ADC23_OR, STM32MP25_VDDGPUEN },
 	.ccr_vbat = { STM32H7_ADC_CCR, STM32H7_VBATEN },
 	.ccr_vref = { STM32H7_ADC_CCR, STM32H7_VREFEN },
 };
@@ -956,6 +961,11 @@ static void stm32_adc_int_ch_enable(struct iio_dev *indio_dev)
 			stm32_adc_set_bits_common(adc, adc->cfg->regs->ccr_vbat.reg,
 						  adc->cfg->regs->ccr_vbat.mask);
 			break;
+		case STM32_ADC_INT_CH_VDDGPU:
+			dev_dbg(&indio_dev->dev, "Enable VDDGPU\n");
+			stm32_adc_set_bits(adc, adc->cfg->regs->or_vddgpu.reg,
+					   adc->cfg->regs->or_vddgpu.mask);
+			break;
 		}
 	}
 }
@@ -988,6 +998,10 @@ static void stm32_adc_int_ch_disable(struct stm32_adc *adc)
 		case STM32_ADC_INT_CH_VBAT:
 			stm32_adc_clr_bits_common(adc, adc->cfg->regs->ccr_vbat.reg,
 						  adc->cfg->regs->ccr_vbat.mask);
+			break;
+		case STM32_ADC_INT_CH_VDDGPU:
+			stm32_adc_clr_bits(adc, adc->cfg->regs->or_vddgpu.reg,
+					   adc->cfg->regs->or_vddgpu.mask);
 			break;
 		}
 	}
@@ -2681,6 +2695,9 @@ static int stm32_adc_populate_int_ch(struct iio_dev *indio_dev, const char *ch_n
 			case STM32_ADC_INT_CH_VBAT:
 				na = !adc->cfg->regs->ccr_vbat.reg;
 				break;
+			case STM32_ADC_INT_CH_VDDGPU:
+				na = !adc->cfg->regs->or_vddgpu.reg;
+				break;
 			default:
 				return -EINVAL;
 			}
@@ -3192,6 +3209,7 @@ static const unsigned int stm32_adc_min_ts_mp25[STM32_ADC_INT_CH_NB] = {
 	[STM32_ADC_INT_CH_VDDCPU] = 34,
 	[STM32_ADC_INT_CH_VREFINT] = 34,
 	[STM32_ADC_INT_CH_VBAT] = 34,
+	[STM32_ADC_INT_CH_VDDGPU] = 34,
 };
 
 static const struct stm32_adc_cfg stm32mp23_adc1_cfg = {
