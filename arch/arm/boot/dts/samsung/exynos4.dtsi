@@ -60,9 +60,9 @@
 
 	soc: soc {
 		compatible = "simple-bus";
+		ranges;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges;
 
 		clock_audss: clock-controller@3810000 {
 			compatible = "samsung,exynos4210-audss-clock";
@@ -86,8 +86,8 @@
 			clock-output-names = "i2s_cdclk0";
 			dmas = <&pdma0 12>, <&pdma0 11>, <&pdma0 10>;
 			dma-names = "tx", "rx", "tx-sec";
-			samsung,idma-addr = <0x03000000>;
 			#sound-dai-cells = <1>;
+			samsung,idma-addr = <0x03000000>;
 
 			status = "disabled";
 		};
@@ -159,16 +159,16 @@
 
 		gic: interrupt-controller@10490000 {
 			compatible = "arm,cortex-a9-gic";
+			reg = <0x10490000 0x10000>, <0x10480000 0x10000>;
 			#interrupt-cells = <3>;
 			interrupt-controller;
-			reg = <0x10490000 0x10000>, <0x10480000 0x10000>;
 		};
 
 		combiner: interrupt-controller@10440000 {
 			compatible = "samsung,exynos4210-combiner";
+			reg = <0x10440000 0x1000>;
 			#interrupt-cells = <2>;
 			interrupt-controller;
-			reg = <0x10440000 0x1000>;
 		};
 
 		sys_reg: syscon@10010000 {
@@ -198,21 +198,22 @@
 			phy-names = "dsim";
 			clocks = <&clock CLK_DSIM0>, <&clock CLK_SCLK_MIPI0>;
 			clock-names = "bus_clk", "sclk_mipi";
-
-			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <0>;
+
+			status = "disabled";
 		};
 
 		camera: camera@11800000 {
 			compatible = "samsung,fimc";
 			ranges = <0x0 0x11800000 0xa0000>;
 
-			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#clock-cells = <1>;
 			clock-output-names = "cam_a_clkout", "cam_b_clkout";
+
+			status = "disabled";
 
 			fimc_0: fimc@0 {
 				compatible = "samsung,exynos4210-fimc";
@@ -221,9 +222,9 @@
 				clocks = <&clock CLK_FIMC0>,
 					 <&clock CLK_SCLK_FIMC0>;
 				clock-names = "fimc", "sclk_fimc";
+				iommus = <&sysmmu_fimc0>;
 				power-domains = <&pd_cam>;
 				samsung,sysreg = <&sys_reg>;
-				iommus = <&sysmmu_fimc0>;
 
 				status = "disabled";
 			};
@@ -235,9 +236,9 @@
 				clocks = <&clock CLK_FIMC1>,
 					 <&clock CLK_SCLK_FIMC1>;
 				clock-names = "fimc", "sclk_fimc";
+				iommus = <&sysmmu_fimc1>;
 				power-domains = <&pd_cam>;
 				samsung,sysreg = <&sys_reg>;
-				iommus = <&sysmmu_fimc1>;
 
 				status = "disabled";
 			};
@@ -249,9 +250,9 @@
 				clocks = <&clock CLK_FIMC2>,
 					 <&clock CLK_SCLK_FIMC2>;
 				clock-names = "fimc", "sclk_fimc";
+				iommus = <&sysmmu_fimc2>;
 				power-domains = <&pd_cam>;
 				samsung,sysreg = <&sys_reg>;
-				iommus = <&sysmmu_fimc2>;
 
 				status = "disabled";
 			};
@@ -263,9 +264,9 @@
 				clocks = <&clock CLK_FIMC3>,
 					 <&clock CLK_SCLK_FIMC3>;
 				clock-names = "fimc", "sclk_fimc";
+				iommus = <&sysmmu_fimc3>;
 				power-domains = <&pd_cam>;
 				samsung,sysreg = <&sys_reg>;
-				iommus = <&sysmmu_fimc3>;
 
 				status = "disabled";
 			};
@@ -281,10 +282,10 @@
 				power-domains = <&pd_cam>;
 				phys = <&mipi_phy 0>;
 				phy-names = "csis";
-
-				status = "disabled";
 				#address-cells = <1>;
 				#size-cells = <0>;
+
+				status = "disabled";
 			};
 
 			csis_1: csis@90000 {
@@ -298,10 +299,10 @@
 				power-domains = <&pd_cam>;
 				phys = <&mipi_phy 2>;
 				phy-names = "csis";
-
-				status = "disabled";
 				#address-cells = <1>;
 				#size-cells = <0>;
+
+				status = "disabled";
 			};
 		};
 
@@ -370,10 +371,10 @@
 		exynos_usbphy: usb-phy@125b0000 {
 			compatible = "samsung,exynos4210-usb2-phy";
 			reg = <0x125b0000 0x100>;
-			samsung,pmureg-phandle = <&pmu_system_controller>;
 			clocks = <&clock CLK_USB_DEVICE>, <&clock CLK_XUSBXTI>;
 			clock-names = "phy", "ref";
 			#phy-cells = <1>;
+			samsung,pmureg-phandle = <&pmu_system_controller>;
 
 			status = "disabled";
 		};
@@ -396,10 +397,10 @@
 			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_USB_HOST>;
 			clock-names = "usbhost";
-
-			status = "disabled";
 			phys = <&exynos_usbphy 1>, <&exynos_usbphy 2>, <&exynos_usbphy 3>;
 			phy-names = "host", "hsic0", "hsic1";
+
+			status = "disabled";
 		};
 
 		ohci: usb@12590000 {
@@ -408,10 +409,10 @@
 			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_USB_HOST>;
 			clock-names = "usbhost";
-
-			status = "disabled";
 			phys = <&exynos_usbphy 1>;
 			phy-names = "host";
+
+			status = "disabled";
 		};
 
 		gpu: gpu@13000000 {
@@ -517,10 +518,10 @@
 		};
 
 		i2c_0: i2c@13860000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "samsung,s3c2440-i2c";
 			reg = <0x13860000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C0>;
 			clock-names = "i2c";
@@ -531,10 +532,10 @@
 		};
 
 		i2c_1: i2c@13870000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "samsung,s3c2440-i2c";
 			reg = <0x13870000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C1>;
 			clock-names = "i2c";
@@ -545,10 +546,10 @@
 		};
 
 		i2c_2: i2c@13880000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "samsung,s3c2440-i2c";
 			reg = <0x13880000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C2>;
 			clock-names = "i2c";
@@ -559,10 +560,10 @@
 		};
 
 		i2c_3: i2c@13890000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "samsung,s3c2440-i2c";
 			reg = <0x13890000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C3>;
 			clock-names = "i2c";
@@ -573,10 +574,10 @@
 		};
 
 		i2c_4: i2c@138a0000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "samsung,s3c2440-i2c";
 			reg = <0x138a0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C4>;
 			clock-names = "i2c";
@@ -587,10 +588,10 @@
 		};
 
 		i2c_5: i2c@138b0000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "samsung,s3c2440-i2c";
 			reg = <0x138b0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C5>;
 			clock-names = "i2c";
@@ -601,10 +602,10 @@
 		};
 
 		i2c_6: i2c@138c0000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "samsung,s3c2440-i2c";
 			reg = <0x138c0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C6>;
 			clock-names = "i2c";
@@ -615,10 +616,10 @@
 		};
 
 		i2c_7: i2c@138d0000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "samsung,s3c2440-i2c";
 			reg = <0x138d0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C7>;
 			clock-names = "i2c";
@@ -629,10 +630,10 @@
 		};
 
 		i2c_8: i2c@138e0000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "samsung,s3c2440-hdmiphy-i2c";
 			reg = <0x138e0000 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C_HDMI>;
 			clock-names = "i2c";
@@ -740,8 +741,8 @@
 
 		fimd: fimd@11c00000 {
 			compatible = "samsung,exynos4210-fimd";
-			interrupt-parent = <&combiner>;
 			reg = <0x11c00000 0x20000>;
+			interrupt-parent = <&combiner>;
 			interrupts = <11 0>, <11 1>, <11 2>;
 			interrupt-names = "fifo", "vsync", "lcd_sys";
 			clocks = <&clock CLK_SCLK_FIMD0>, <&clock CLK_FIMD0>;
@@ -754,12 +755,12 @@
 		};
 
 		tmu: tmu@100c0000 {
-			interrupt-parent = <&combiner>;
 			reg = <0x100c0000 0x100>;
+			interrupt-parent = <&combiner>;
 			interrupts = <2 4>;
+			#thermal-sensor-cells = <0>;
 
 			status = "disabled";
-			#thermal-sensor-cells = <0>;
 		};
 
 		jpeg_codec: jpeg-codec@11840000 {
@@ -793,8 +794,8 @@
 				      "sclk_hdmiphy", "mout_hdmi";
 			phy = <&hdmi_i2c_phy>;
 			power-domains = <&pd_tv>;
-			samsung,syscon-phandle = <&pmu_system_controller>;
 			#sound-dai-cells = <0>;
+			samsung,syscon-phandle = <&pmu_system_controller>;
 
 			status = "disabled";
 		};
@@ -805,18 +806,18 @@
 			interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_HDMI_CEC>;
 			clock-names = "hdmicec";
-			samsung,syscon-phandle = <&pmu_system_controller>;
 			hdmi-phandle = <&hdmi>;
 			pinctrl-0 = <&hdmi_cec>;
 			pinctrl-names = "default";
+			samsung,syscon-phandle = <&pmu_system_controller>;
 
 			status = "disabled";
 		};
 
 		mixer: mixer@12c10000 {
 			compatible = "samsung,exynos4210-mixer";
-			interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0x12c10000 0x2100>, <0x12c00000 0x300>;
+			interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
 			power-domains = <&pd_tv>;
 			iommus = <&sysmmu_tv>;
 
