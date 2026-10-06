@@ -121,6 +121,9 @@
 #define STM32MP13_ADC_CALFACT		0xB4
 #define STM32MP13_ADC2_OR		0xC8
 
+/* STM32MP25 - ADC2 and ADC3 option register */
+#define STM32MP25_ADC23_OR		0xD0
+
 /* STM32H7 - common registers for all ADC instances */
 #define STM32H7_ADC_CSR			(STM32_ADCX_COMN_OFFSET + 0x00)
 #define STM32H7_ADC_CCR			(STM32_ADCX_COMN_OFFSET + 0x08)
@@ -257,8 +260,25 @@ enum stm32h7_adc_dmngt {
 #define STM32MP13_OP1			BIT(1)
 #define STM32MP13_OP0			BIT(0)
 
+/* STM32MP25 - Registers for each ADC instance */
+#define STM32MP25_ADC_CALFACT		0xC4
+
+/* STM32MP25_ADC_CALFACT - bit fields */
+#define STM32MP25_CALFACT_CALADDOS	BIT(31)
+#define STM32MP25_CALFACT_D_MASK	GENMASK(24, 16)
+#define STM32MP25_CALFACT_S_MASK	GENMASK(8, 0)
+
+/* STM32MP25_ADC_CFGR specific bit fields */
+#define STM32MP25_RES_SHIFT		2
+#define STM32MP25_RES_MASK		GENMASK(3, 2)
+
+/* STM32MP25_ADC23_OR - specific bit fields */
+#define STM32MP25_VDDCPUEN		BIT(3)
+#define STM32MP25_VDDCOREEN		BIT(2)
+
 #define STM32MP15_IPIDR_NUMBER		0x00110005
 #define STM32MP13_IPIDR_NUMBER		0x00110006
+#define STM32MP25_IPIDR_NUMBER		0x00110008
 
 /**
  * struct stm32_adc_common - stm32 ADC driver common data (for all instances)
