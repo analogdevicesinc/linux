@@ -65,6 +65,18 @@ config ADIS16550
 	  To compile this driver as a module, choose M here: the module will be
 	  called adis16550.
 
+config ADIS16607
+	tristate "Analog Devices ADIS16607 and similar IMU driver"
+	depends on SPI
+	select IIO_ADIS_LIB
+	help
+	  Say yes here to build support for Analog Devices ADIS16607-2
+	  and ADIS16607-3 inertial sensors containing triaxis
+	  gyroscope and triaxis accelerometer.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called adis16607.
+
 source "drivers/iio/imu/bmi160/Kconfig"
 source "drivers/iio/imu/bmi323/Kconfig"
 source "drivers/iio/imu/bno055/Kconfig"
