@@ -403,16 +403,16 @@ config AD7766
 	  called ad7766.
 
 config AD7768
-	tristate "Analog Devices AD7768 ADC driver"
+	tristate "Analog Devices AD7768/AD7768-4 ADC driver"
 	depends on SPI
-	depends on GPIOLIB
-	select CF_AXI_ADC
+	select REGULATOR
+	select AUXILIARY_BUS
 	select IIO_BUFFER
-	select IIO_BUFFER_DMA
-	select IIO_BUFFER_DMAENGINE
+	select IIO_BACKEND
+	select REGMAP
 	help
-	  Say yes here to build support for Analog Devices AD7768 SPI analog to
-	  digital converter (ADC).
+	  Say yes here to build support for Analog Devices AD7768 and AD7768-4
+	  SPI analog to digital converters.
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad7768.
