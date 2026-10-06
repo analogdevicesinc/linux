@@ -6767,7 +6767,13 @@ nfsd4_encode_operation(struct nfsd4_compoundres *resp, struct nfsd4_op *op)
 		 */
 		warn_on_nonidempotent_op(op);
 		xdr_truncate_encode(xdr, op_status_offset + XDR_UNIT);
-	} else if (so) {
+		/* Keep a truncated reply out of so_replay. */
+		so = NULL;
+	}
+status:
+	op->status = nfsd4_map_status(op->status,
+				      resp->cstate.minorversion);
+	if (so) {
 		int len = xdr->buf->len - (op_status_offset + XDR_UNIT);
 
 		so->so_replay.rp_status = op->status;
@@ -6778,8 +6784,8 @@ nfsd4_encode_operation(struct nfsd4_compoundres *resp, struct nfsd4_op *op)
 			if (buf) {
 				so->so_replay.rp_buf = buf;
 			} else {
-				/* rp_buflen already zeroed; skip caching */
-				goto status;
+				/* A body this long would overrun rp_ibuf. */
+				len = 0;
 			}
 		} else if (so->so_replay.rp_buf != so->so_replay.rp_ibuf) {
 			nfs4_replay_free_cache(&so->so_replay);
@@ -6789,9 +6795,6 @@ nfsd4_encode_operation(struct nfsd4_compoundres *resp, struct nfsd4_op *op)
 					op_status_offset + XDR_UNIT,
 					so->so_replay.rp_buf, len);
 	}
-status:
-	op->status = nfsd4_map_status(op->status,
-				      resp->cstate.minorversion);
 	write_bytes_to_xdr_buf(xdr->buf, op_status_offset,
 			       &op->status, XDR_UNIT);
 release:
