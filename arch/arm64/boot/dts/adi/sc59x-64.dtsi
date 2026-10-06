@@ -468,7 +468,7 @@
 			interrupt-names = "hsport-a", "hsport-b";
 			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sport0_dma_cluster 0>, <&sport0_dma_cluster 1>;
+			dmas = <&scb1_dma 0>, <&scb1_dma 1>;
 			dma-names = "hsport-a", "hsport-b";
 			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk";
@@ -483,7 +483,7 @@
 			interrupt-names = "hsport-a", "hsport-b";
 			interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sport4_dma_cluster 10>, <&sport4_dma_cluster 11>;
+			dmas = <&scb2_dma 10>, <&scb2_dma 11>;
 			dma-names = "hsport-a", "hsport-b";
 			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk";
@@ -1063,7 +1063,7 @@
 //			spu_securep_id = <115>;
 //		};
 
-		sport0_dma_cluster: dma@31022000 {
+		scb1_dma: dma-controller@31022000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31022000 0x1000>;
 			#address-cells = <1>;
@@ -1071,7 +1071,7 @@
 			status = "okay";
 			#dma-cells = <1>;
 
-			sport0a: channel@0 {
+			channel@0 {
 				reg = <0>;
 				adi,id = <0>;
 				adi,src-offset = <0>;
@@ -1081,7 +1081,7 @@
 				interrupt-names = "complete", "error";
 			};
 
-			sport0b: channel@1 {
+			channel@1 {
 				reg = <1>;
 				adi,id = <1>;
 				adi,src-offset = <0x80>;
@@ -1092,7 +1092,7 @@
 			};
 		};
 
-		sport4_dma_cluster: dma@31023000 {
+		scb2_dma: dma-controller@31023000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31023000 0x1000>;
 			#address-cells = <1>;
@@ -1100,7 +1100,7 @@
 			status = "okay";
 			#dma-cells = <1>;
 
-			sport4a: channel@a {
+			channel@a {
 				reg = <10>;
 				adi,id = <10>;
 				adi,src-offset = <0>;
@@ -1110,7 +1110,7 @@
 				interrupt-names = "complete", "error";
 			};
 
-			sport4b: channel@b {
+			channel@b {
 				reg = <11>;
 				adi,id = <11>;
 				adi,src-offset = <0x80>;
