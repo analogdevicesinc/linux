@@ -35,7 +35,6 @@
 		stdout-path = "serial2:115200n8";
 	};
 
-
 	fixed-rate-clocks {
 		xxti {
 			compatible = "samsung,clock-xxti";
@@ -353,7 +352,7 @@
 				    <&gpx0 4 GPIO_ACTIVE_HIGH>;
 		max8952,default-mode = <0>;
 		max8952,dvs-mode-microvolt = <1250000>, <1200000>,
-						<1050000>, <950000>;
+					     <1050000>, <950000>;
 		max8952,sync-freq = <0>;
 		max8952,ramp-speed = <0>;
 	};
@@ -367,9 +366,9 @@
 
 		max8998,pmic-buck1-default-dvs-idx = <0>;
 		max8998,pmic-buck1-dvs-gpios = <&gpx0 5 GPIO_ACTIVE_HIGH>,
-						<&gpx0 6 GPIO_ACTIVE_HIGH>;
+					       <&gpx0 6 GPIO_ACTIVE_HIGH>;
 		max8998,pmic-buck1-dvs-voltage = <1100000>, <1000000>,
-						<1100000>, <1000000>;
+						 <1100000>, <1000000>;
 
 		max8998,pmic-buck2-default-dvs-idx = <0>;
 		max8998,pmic-buck2-dvs-gpio = <&gpe2 0 GPIO_ACTIVE_HIGH>;
@@ -650,8 +649,8 @@
 };
 
 &serial_0 {
-	/delete-property/dmas;
-	/delete-property/dma-names;
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
 	pinctrl-0 = <&uart0_data &uart0_fctl>;
 	pinctrl-names = "default";
 
@@ -674,20 +673,20 @@
 
 &serial_1 {
 	status = "okay";
-	/delete-property/dmas;
-	/delete-property/dma-names;
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
 };
 
 &serial_2 {
 	status = "okay";
-	/delete-property/dmas;
-	/delete-property/dma-names;
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
 };
 
 &serial_3 {
 	status = "okay";
-	/delete-property/dmas;
-	/delete-property/dma-names;
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
 };
 
 &soc {
