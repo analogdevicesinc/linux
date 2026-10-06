@@ -392,7 +392,7 @@ static const struct stm32_adc_trig_info stm32f4_adc_trigs[] = {
 	{ TIM5_CH3, STM32_EXT12 },
 	{ TIM8_CH1, STM32_EXT13 },
 	{ TIM8_TRGO, STM32_EXT14 },
-	{}, /* sentinel */
+	{ }
 };
 
 /*
