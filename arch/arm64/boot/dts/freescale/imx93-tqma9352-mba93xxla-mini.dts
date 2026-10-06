@@ -477,17 +477,17 @@
 	};
 
 	pinctrl_flexcan1: flexcan1grp {
-		fsl,pins = /* HYS | PU | FSEL_0 | DSE no drive */
-			   <MX93_PAD_PDM_BIT_STREAM0__CAN1_RX		0x1200>,
-			   /* PU | FSEL_3 | DSE X4 */
-			   <MX93_PAD_PDM_CLK__CAN1_TX			0x039e>;
+		fsl,pins = /* HYS | FSEL_0 | DSE no drive */
+			   <MX93_PAD_PDM_BIT_STREAM0__CAN1_RX		0x1000>,
+			   /* FSEL_3 | DSE X4 */
+			   <MX93_PAD_PDM_CLK__CAN1_TX			0x019e>;
 	};
 
 	pinctrl_flexcan2: flexcan2grp {
-		fsl,pins = /* HYS | PU | FSEL_0 | DSE no drive */
-			   <MX93_PAD_GPIO_IO27__CAN2_RX			0x1200>,
-			   /* PU | FSEL_3 | DSE X4 */
-			   <MX93_PAD_GPIO_IO25__CAN2_TX			0x039e>;
+		fsl,pins = /* HYS FSEL_0 | DSE no drive */
+			   <MX93_PAD_GPIO_IO27__CAN2_RX			0x1000>,
+			   /* FSEL_3 | DSE X4 */
+			   <MX93_PAD_GPIO_IO25__CAN2_TX			0x019e>;
 	};
 
 	pinctrl_gpio2: gpio2grp {
