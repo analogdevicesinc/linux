@@ -151,7 +151,6 @@ struct inv_icm42600_apex {
  *  @chip:		chip identifier.
  *  @name:		chip name.
  *  @map:		regmap pointer.
- *  @vdd_supply:	VDD voltage regulator for the chip.
  *  @vddio_supply:	I/O voltage regulator for the chip.
  *  @irq:		chip irq, required to enable/disable and set wakeup
  *  @orientation:	sensor chip orientation relative to main hardware.
