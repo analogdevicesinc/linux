@@ -2798,8 +2798,11 @@ union dmub_fams2_stream_static_sub_state_v2 {
 
 struct dmub_fams2_stream_static_state {
 	enum fams2_stream_type type;
-	uint32_t otg_vline_time_ns;
-	uint32_t otg_vline_time_ticks;
+	union {
+		uint32_t otg_vline_time_ns; // used by DCN4
+		uint32_t otg_vline_time_ps; // used by DCN6+
+	};
+	uint32_t otg_vline_time_ticks; // U22.10 fixed point, see FAMS2_OTG_VLINE_TIME_TICKS_U22_10_FRAC_BITS
 	uint16_t htotal;
 	uint16_t vtotal; // nominal vtotal
 	uint16_t vblank_start;
@@ -2831,8 +2834,11 @@ struct dmub_fams2_stream_static_state {
 
 struct dmub_fams2_cmd_stream_static_base_state {
 	enum fams2_stream_type type;
-	uint32_t otg_vline_time_ns;
-	uint32_t otg_vline_time_ticks;
+	union {
+		uint32_t otg_vline_time_ns; // used by DCN4
+		uint32_t otg_vline_time_ps; // used by DCN6+
+	};
+	uint32_t otg_vline_time_ticks; // U22.10 fixed point, see FAMS2_OTG_VLINE_TIME_TICKS_U22_10_FRAC_BITS
 	uint16_t htotal;
 	uint16_t vtotal; // nominal vtotal
 	uint16_t vblank_start;
