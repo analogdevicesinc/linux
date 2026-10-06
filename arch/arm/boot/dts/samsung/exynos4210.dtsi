@@ -33,6 +33,7 @@
 		clocks = <&clock CLK_DIV_ACP>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_acp_opp_table>;
+
 		status = "disabled";
 
 		bus_acp_opp_table: opp-table {
@@ -42,9 +43,11 @@
 			opp-134000000 {
 				opp-hz = /bits/ 64 <134000000>;
 			};
+
 			opp-160000000 {
 				opp-hz = /bits/ 64 <160000000>;
 			};
+
 			opp-200000000 {
 				opp-hz = /bits/ 64 <200000000>;
 			};
@@ -56,6 +59,7 @@
 		clocks = <&clock CLK_ACLK160>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_display_opp_table>;
+
 		status = "disabled";
 
 		bus_display_opp_table: opp-table {
@@ -65,9 +69,11 @@
 			opp-100000000 {
 				opp-hz = /bits/ 64 <100000000>;
 			};
+
 			opp-134000000 {
 				opp-hz = /bits/ 64 <134000000>;
 			};
+
 			opp-160000000 {
 				opp-hz = /bits/ 64 <160000000>;
 			};
@@ -79,6 +85,7 @@
 		clocks = <&clock CLK_DIV_DMC>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_dmc_opp_table>;
+
 		status = "disabled";
 
 		bus_dmc_opp_table: opp-table {
@@ -89,10 +96,12 @@
 				opp-hz = /bits/ 64 <134000000>;
 				opp-microvolt = <1025000>;
 			};
+
 			opp-267000000 {
 				opp-hz = /bits/ 64 <267000000>;
 				opp-microvolt = <1050000>;
 			};
+
 			opp-400000000 {
 				opp-hz = /bits/ 64 <400000000>;
 				opp-microvolt = <1150000>;
@@ -106,6 +115,7 @@
 		clocks = <&clock CLK_ACLK133>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_fsys_opp_table>;
+
 		status = "disabled";
 
 		bus_fsys_opp_table: opp-table {
@@ -115,6 +125,7 @@
 			opp-10000000 {
 				opp-hz = /bits/ 64 <10000000>;
 			};
+
 			opp-134000000 {
 				opp-hz = /bits/ 64 <134000000>;
 			};
@@ -126,6 +137,7 @@
 		clocks = <&clock CLK_ACLK200>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_leftbus_opp_table>;
+
 		status = "disabled";
 	};
 
@@ -134,6 +146,7 @@
 		clocks = <&clock CLK_DIV_GDL>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_leftbus_opp_table>;
+
 		status = "disabled";
 	};
 
@@ -142,6 +155,7 @@
 		clocks = <&clock CLK_SCLK_MFC>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_leftbus_opp_table>;
+
 		status = "disabled";
 	};
 
@@ -150,6 +164,7 @@
 		clocks = <&clock CLK_ACLK100>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_peri_opp_table>;
+
 		status = "disabled";
 
 		bus_peri_opp_table: opp-table {
@@ -159,6 +174,7 @@
 			opp-5000000 {
 				opp-hz = /bits/ 64 <5000000>;
 			};
+
 			opp-100000000 {
 				opp-hz = /bits/ 64 <100000000>;
 			};
@@ -170,6 +186,7 @@
 		clocks = <&clock CLK_DIV_GDR>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_leftbus_opp_table>;
+
 		status = "disabled";
 	};
 
@@ -182,6 +199,7 @@
 				core0 {
 					cpu = <&cpu0>;
 				};
+
 				core1 {
 					cpu = <&cpu1>;
 				};
@@ -234,9 +252,11 @@
 		opp-100000000 {
 			opp-hz = /bits/ 64 <100000000>;
 		};
+
 		opp-160000000 {
 			opp-hz = /bits/ 64 <160000000>;
 		};
+
 		opp-200000000 {
 			opp-hz = /bits/ 64 <200000000>;
 			opp-suspend;
@@ -353,6 +373,7 @@
 			reg = <0x12240000 0x2000>;
 			clocks = <&clock CLK_PPMULCD1>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -489,6 +510,7 @@
 			opp-hz = /bits/ 64 <160000000>;
 			opp-microvolt = <950000>;
 		};
+
 		opp-267000000 {
 			opp-hz = /bits/ 64 <267000000>;
 			opp-microvolt = <1050000>;
@@ -511,6 +533,7 @@
 &pmu {
 	interrupts = <2 2>, <3 2>;
 	interrupt-affinity = <&cpu0>, <&cpu1>;
+
 	status = "okay";
 };
 
