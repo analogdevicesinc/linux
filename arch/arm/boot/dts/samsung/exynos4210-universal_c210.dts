@@ -74,46 +74,46 @@
 
 		vol-up-key {
 			gpios = <&gpx2 0 GPIO_ACTIVE_LOW>;
-			linux,code = <115>;
 			label = "volume up";
 			debounce-interval = <1>;
+			linux,code = <115>;
 		};
 
 		vol-down-key {
 			gpios = <&gpx2 1 GPIO_ACTIVE_LOW>;
-			linux,code = <114>;
 			label = "volume down";
 			debounce-interval = <1>;
+			linux,code = <114>;
 		};
 
 		config-key {
 			gpios = <&gpx2 2 GPIO_ACTIVE_LOW>;
-			linux,code = <171>;
 			label = "config";
 			debounce-interval = <1>;
 			wakeup-source;
+			linux,code = <171>;
 		};
 
 		camera-key {
 			gpios = <&gpx2 3 GPIO_ACTIVE_LOW>;
-			linux,code = <212>;
 			label = "camera";
 			debounce-interval = <1>;
+			linux,code = <212>;
 		};
 
 		power-key {
 			gpios = <&gpx2 7 GPIO_ACTIVE_LOW>;
-			linux,code = <116>;
 			label = "power";
 			debounce-interval = <1>;
 			wakeup-source;
+			linux,code = <116>;
 		};
 
 		ok-key {
 			gpios = <&gpx3 5 GPIO_ACTIVE_LOW>;
-			linux,code = <352>;
 			label = "ok";
 			debounce-interval = <1>;
+			linux,code = <352>;
 		};
 	};
 
@@ -147,6 +147,7 @@
 			reset-delay = <10>;
 			panel-width-mm = <90>;
 			panel-height-mm = <154>;
+
 			display-timings {
 				timing {
 					clock-frequency = <23492370>;
@@ -164,6 +165,7 @@
 					pixelclk-active = <0>;
 				};
 			};
+
 			port {
 				lcd_ep: endpoint {
 					remote-endpoint = <&fimd_dpi_ep>;
@@ -185,12 +187,13 @@
 		compatible = "i2c-gpio";
 		sda-gpios = <&gpe4 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 		scl-gpios = <&gpe4 3 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-		i2c-gpio,delay-us = <100>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 
 		pinctrl-0 = <&i2c_ddc_bus>;
 		pinctrl-names = "default";
+		i2c-gpio,delay-us = <100>;
+
 		status = "okay";
 	};
 };
@@ -209,6 +212,7 @@
 			/* Corresponds to 800MHz */
 			cooling-device = <&cpu0 2 2>;
 		};
+
 		map1 {
 			/* Corresponds to 200MHz */
 			cooling-device = <&cpu0 4 4>;
@@ -217,58 +221,67 @@
 };
 
 &ehci {
-	status = "okay";
 	phys = <&exynos_usbphy 1>;
 	phy-names = "host";
+
+	status = "okay";
 };
 
 &exynos_usbphy {
-	status = "okay";
 	vbus-supply = <&safeout1_reg>;
+
+	status = "okay";
 };
 
 &fimc_0 {
-	status = "okay";
 	assigned-clocks = <&clock CLK_MOUT_FIMC0>,
 			  <&clock CLK_SCLK_FIMC0>;
 	assigned-clock-parents = <&clock CLK_SCLK_MPLL>;
 	assigned-clock-rates = <0>, <160000000>;
+
+	status = "okay";
 };
 
 &fimc_1 {
-	status = "okay";
 	assigned-clocks = <&clock CLK_MOUT_FIMC1>,
 			  <&clock CLK_SCLK_FIMC1>;
 	assigned-clock-parents = <&clock CLK_SCLK_MPLL>;
 	assigned-clock-rates = <0>, <160000000>;
+
+	status = "okay";
 };
 
 &fimc_2 {
-	status = "okay";
 	assigned-clocks = <&clock CLK_MOUT_FIMC2>,
 			  <&clock CLK_SCLK_FIMC2>;
 	assigned-clock-parents = <&clock CLK_SCLK_MPLL>;
 	assigned-clock-rates = <0>, <160000000>;
+
+	status = "okay";
 };
 
 &fimc_3 {
-	status = "okay";
 	assigned-clocks = <&clock CLK_MOUT_FIMC3>,
 			  <&clock CLK_SCLK_FIMC3>;
 	assigned-clock-parents = <&clock CLK_SCLK_MPLL>;
 	assigned-clock-rates = <0>, <160000000>;
+
+	status = "okay";
 };
 
 &fimd {
 	pinctrl-0 = <&lcd_clk>, <&lcd_data24>;
 	pinctrl-names = "default";
-	status = "okay";
-	samsung,invert-vden;
-	samsung,invert-vclk;
 	#address-cells = <1>;
 	#size-cells = <0>;
+	samsung,invert-vden;
+	samsung,invert-vclk;
+
+	status = "okay";
+
 	port@3 {
 		reg = <3>;
+
 		fimd_dpi_ep: endpoint {
 			remote-endpoint = <&lcd_ep>;
 		};
@@ -277,18 +290,20 @@
 
 &gpu {
 	mali-supply = <&buck2_reg>;
+
 	status = "okay";
 };
 
 &hdmi {
 	hpd-gpios = <&gpx3 7 GPIO_ACTIVE_HIGH>;
-	pinctrl-names = "default";
 	pinctrl-0 = <&hdmi_hpd>;
+	pinctrl-names = "default";
 	hdmi-en-supply = <&hdmi_en>;
 	vdd-supply = <&ldo3_reg>;
 	vdd_osc-supply = <&ldo4_reg>;
 	vdd_pll-supply = <&ldo3_reg>;
 	ddc = <&hdmi_ddc>;
+
 	status = "okay";
 };
 
@@ -296,15 +311,17 @@
 	vusb_d-supply = <&ldo3_reg>;
 	vusb_a-supply = <&ldo8_reg>;
 	dr_mode = "peripheral";
+
 	status = "okay";
 };
 
 &i2c_3 {
+	pinctrl-0 = <&i2c3_bus>;
+	pinctrl-names = "default";
 	samsung,i2c-sda-delay = <100>;
 	samsung,i2c-slave-addr = <0x10>;
 	samsung,i2c-max-bus-freq = <100000>;
-	pinctrl-0 = <&i2c3_bus>;
-	pinctrl-names = "default";
+
 	status = "okay";
 
 	tsp@4a {
@@ -314,16 +331,23 @@
 };
 
 &i2c_5 {
+	pinctrl-0 = <&i2c5_bus>;
+	pinctrl-names = "default";
 	samsung,i2c-sda-delay = <100>;
 	samsung,i2c-slave-addr = <0x10>;
 	samsung,i2c-max-bus-freq = <100000>;
-	pinctrl-0 = <&i2c5_bus>;
-	pinctrl-names = "default";
+
 	status = "okay";
 
 	vdd_arm_reg: pmic@60 {
 		compatible = "maxim,max8952";
 		reg = <0x60>;
+
+		regulator-name = "VARM_1.2V_C210";
+		regulator-min-microvolt = <770000>;
+		regulator-max-microvolt = <1400000>;
+		regulator-always-on;
+		regulator-boot-on;
 
 		max8952,vid-gpios = <&gpx0 3 GPIO_ACTIVE_HIGH>,
 				    <&gpx0 4 GPIO_ACTIVE_HIGH>;
@@ -332,20 +356,14 @@
 						<1050000>, <950000>;
 		max8952,sync-freq = <0>;
 		max8952,ramp-speed = <0>;
-
-		regulator-name = "VARM_1.2V_C210";
-		regulator-min-microvolt = <770000>;
-		regulator-max-microvolt = <1400000>;
-		regulator-always-on;
-		regulator-boot-on;
 	};
 
 	pmic@66 {
 		compatible = "national,lp3974";
-		interrupts-extended = <&gpx0 7 0>, <&gpx2 7 0>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&lp3974_irq>;
 		reg = <0x66>;
+		interrupts-extended = <&gpx0 7 0>, <&gpx2 7 0>;
+		pinctrl-0 = <&lp3974_irq>;
+		pinctrl-names = "default";
 
 		max8998,pmic-buck1-default-dvs-idx = <0>;
 		max8998,pmic-buck1-dvs-gpios = <&gpx0 5 GPIO_ACTIVE_HIGH>,
@@ -576,13 +594,15 @@
 
 &pwm {
 	compatible = "samsung,s5p6440-pwm";
+
 	status = "okay";
 };
 
 &rtc {
-	status = "okay";
 	clocks = <&clock CLK_RTC>, <&pmic_ap_clk>;
 	clock-names = "rtc", "rtc_src";
+
+	status = "okay";
 };
 
 &sdhci_0 {
@@ -591,6 +611,7 @@
 	pinctrl-0 = <&sd0_clk &sd0_cmd &sd0_bus8>;
 	pinctrl-names = "default";
 	vmmc-supply = <&vemmc_reg>;
+
 	status = "okay";
 };
 
@@ -600,12 +621,11 @@
 	pinctrl-names = "default";
 	vmmc-supply = <&ldo5_reg>;
 	cd-gpios = <&gpx3 4 GPIO_ACTIVE_LOW>;
+
 	status = "okay";
 };
 
 &sdhci_3 {
-	status = "okay";
-
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -615,8 +635,10 @@
 	mmc-pwrseq = <&wlan_pwrseq>;
 	vmmc-supply = <&ldo5_reg>;
 
-	pinctrl-names = "default";
 	pinctrl-0 = <&sd3_clk>, <&sd3_cmd>, <&sd3_bus4>;
+	pinctrl-names = "default";
+
+	status = "okay";
 
 	brcmf: wifi@1 {
 		compatible = "brcm,bcm4330-fmac", "brcm,bcm4329-fmac";
@@ -628,13 +650,14 @@
 };
 
 &serial_0 {
-	status = "okay";
 	/delete-property/dmas;
 	/delete-property/dma-names;
 	pinctrl-0 = <&uart0_data &uart0_fctl>;
 	pinctrl-names = "default";
 
 	uart-has-rtscts;
+
+	status = "okay";
 
 	bluetooth {
 		compatible = "brcm,bcm4330-bt";
