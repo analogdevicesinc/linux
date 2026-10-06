@@ -172,8 +172,6 @@ static unsigned int inv_icm42600_wm_truncate(unsigned int watermark,
  * inv_icm42600_buffer_update_watermark - update watermark FIFO threshold
  * @st:	driver internal state
  *
- * Returns 0 on success, a negative error code otherwise.
- *
  * FIFO watermark threshold is computed based on the required watermark values
  * set for gyro and accel sensors. Since watermark is all about acceptable data
  * latency, we should need to use the smallest latency value. But it is not as
@@ -188,6 +186,8 @@ static unsigned int inv_icm42600_wm_truncate(unsigned int watermark,
  *    dividing this computed latency by the smallest period, which corresponds
  *    to the FIFO frequency. Beware that this is only true because we are not
  *    using 500Hz frequency which is not a multiple of the others.
+ *
+ * Return: 0 on success, a negative error code otherwise.
  */
 int inv_icm42600_buffer_update_watermark(struct inv_icm42600_state *st)
 {
