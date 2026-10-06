@@ -54,6 +54,7 @@
 	pmu: pmu {
 		compatible = "arm,cortex-a9-pmu";
 		interrupt-parent = <&combiner>;
+
 		status = "disabled";
 	};
 
@@ -87,6 +88,7 @@
 			dma-names = "tx", "rx", "tx-sec";
 			samsung,idma-addr = <0x03000000>;
 			#sound-dai-cells = <1>;
+
 			status = "disabled";
 		};
 
@@ -196,6 +198,7 @@
 			phy-names = "dsim";
 			clocks = <&clock CLK_DSIM0>, <&clock CLK_SCLK_MIPI0>;
 			clock-names = "bus_clk", "sclk_mipi";
+
 			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -204,6 +207,7 @@
 		camera: camera@11800000 {
 			compatible = "samsung,fimc";
 			ranges = <0x0 0x11800000 0xa0000>;
+
 			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -220,6 +224,7 @@
 				power-domains = <&pd_cam>;
 				samsung,sysreg = <&sys_reg>;
 				iommus = <&sysmmu_fimc0>;
+
 				status = "disabled";
 			};
 
@@ -233,6 +238,7 @@
 				power-domains = <&pd_cam>;
 				samsung,sysreg = <&sys_reg>;
 				iommus = <&sysmmu_fimc1>;
+
 				status = "disabled";
 			};
 
@@ -246,6 +252,7 @@
 				power-domains = <&pd_cam>;
 				samsung,sysreg = <&sys_reg>;
 				iommus = <&sysmmu_fimc2>;
+
 				status = "disabled";
 			};
 
@@ -259,6 +266,7 @@
 				power-domains = <&pd_cam>;
 				samsung,sysreg = <&sys_reg>;
 				iommus = <&sysmmu_fimc3>;
+
 				status = "disabled";
 			};
 
@@ -273,6 +281,7 @@
 				power-domains = <&pd_cam>;
 				phys = <&mipi_phy 0>;
 				phy-names = "csis";
+
 				status = "disabled";
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -289,6 +298,7 @@
 				power-domains = <&pd_cam>;
 				phys = <&mipi_phy 2>;
 				phy-names = "csis";
+
 				status = "disabled";
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -303,6 +313,7 @@
 				     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_RTC>;
 			clock-names = "rtc";
+
 			status = "disabled";
 		};
 
@@ -312,6 +323,7 @@
 			interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_KEYIF>;
 			clock-names = "keypad";
+
 			status = "disabled";
 		};
 
@@ -321,6 +333,7 @@
 			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_SDMMC0>, <&clock CLK_SCLK_MMC0>;
 			clock-names = "hsmmc", "mmc_busclk.2";
+
 			status = "disabled";
 		};
 
@@ -330,6 +343,7 @@
 			interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_SDMMC1>, <&clock CLK_SCLK_MMC1>;
 			clock-names = "hsmmc", "mmc_busclk.2";
+
 			status = "disabled";
 		};
 
@@ -339,6 +353,7 @@
 			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_SDMMC2>, <&clock CLK_SCLK_MMC2>;
 			clock-names = "hsmmc", "mmc_busclk.2";
+
 			status = "disabled";
 		};
 
@@ -348,6 +363,7 @@
 			interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_SDMMC3>, <&clock CLK_SCLK_MMC3>;
 			clock-names = "hsmmc", "mmc_busclk.2";
+
 			status = "disabled";
 		};
 
@@ -358,6 +374,7 @@
 			clocks = <&clock CLK_USB_DEVICE>, <&clock CLK_XUSBXTI>;
 			clock-names = "phy", "ref";
 			#phy-cells = <1>;
+
 			status = "disabled";
 		};
 
@@ -369,6 +386,7 @@
 			clock-names = "otg";
 			phys = <&exynos_usbphy 0>;
 			phy-names = "usb2-phy";
+
 			status = "disabled";
 		};
 
@@ -378,6 +396,7 @@
 			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_USB_HOST>;
 			clock-names = "usbhost";
+
 			status = "disabled";
 			phys = <&exynos_usbphy 1>, <&exynos_usbphy 2>, <&exynos_usbphy 3>;
 			phy-names = "host", "hsic0", "hsic1";
@@ -389,6 +408,7 @@
 			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_USB_HOST>;
 			clock-names = "usbhost";
+
 			status = "disabled";
 			phys = <&exynos_usbphy 1>;
 			phy-names = "host";
@@ -405,6 +425,7 @@
 				 <&clock CLK_SCLK_G3D>;
 			clock-names = "bus", "core";
 			power-domains = <&pd_g3d>;
+
 			status = "disabled";
 		};
 
@@ -418,6 +439,7 @@
 			dmas = <&pdma1 12>, <&pdma1 11>;
 			dma-names = "tx", "rx";
 			#sound-dai-cells = <1>;
+
 			status = "disabled";
 		};
 
@@ -431,6 +453,7 @@
 			dmas = <&pdma0 14>, <&pdma0 13>;
 			dma-names = "tx", "rx";
 			#sound-dai-cells = <1>;
+
 			status = "disabled";
 		};
 
@@ -453,6 +476,7 @@
 			clock-names = "uart", "clk_uart_baud0";
 			dmas = <&pdma0 15>, <&pdma0 16>;
 			dma-names = "rx", "tx";
+
 			status = "disabled";
 		};
 
@@ -464,6 +488,7 @@
 			clock-names = "uart", "clk_uart_baud0";
 			dmas = <&pdma1 15>, <&pdma1 16>;
 			dma-names = "rx", "tx";
+
 			status = "disabled";
 		};
 
@@ -475,6 +500,7 @@
 			clock-names = "uart", "clk_uart_baud0";
 			dmas = <&pdma0 17>, <&pdma0 18>;
 			dma-names = "rx", "tx";
+
 			status = "disabled";
 		};
 
@@ -486,6 +512,7 @@
 			clock-names = "uart", "clk_uart_baud0";
 			dmas = <&pdma1 17>, <&pdma1 18>;
 			dma-names = "rx", "tx";
+
 			status = "disabled";
 		};
 
@@ -499,6 +526,7 @@
 			clock-names = "i2c";
 			pinctrl-names = "default";
 			pinctrl-0 = <&i2c0_bus>;
+
 			status = "disabled";
 		};
 
@@ -512,6 +540,7 @@
 			clock-names = "i2c";
 			pinctrl-names = "default";
 			pinctrl-0 = <&i2c1_bus>;
+
 			status = "disabled";
 		};
 
@@ -525,6 +554,7 @@
 			clock-names = "i2c";
 			pinctrl-names = "default";
 			pinctrl-0 = <&i2c2_bus>;
+
 			status = "disabled";
 		};
 
@@ -538,6 +568,7 @@
 			clock-names = "i2c";
 			pinctrl-names = "default";
 			pinctrl-0 = <&i2c3_bus>;
+
 			status = "disabled";
 		};
 
@@ -551,6 +582,7 @@
 			clock-names = "i2c";
 			pinctrl-names = "default";
 			pinctrl-0 = <&i2c4_bus>;
+
 			status = "disabled";
 		};
 
@@ -564,6 +596,7 @@
 			clock-names = "i2c";
 			pinctrl-names = "default";
 			pinctrl-0 = <&i2c5_bus>;
+
 			status = "disabled";
 		};
 
@@ -577,6 +610,7 @@
 			clock-names = "i2c";
 			pinctrl-names = "default";
 			pinctrl-0 = <&i2c6_bus>;
+
 			status = "disabled";
 		};
 
@@ -590,6 +624,7 @@
 			clock-names = "i2c";
 			pinctrl-names = "default";
 			pinctrl-0 = <&i2c7_bus>;
+
 			status = "disabled";
 		};
 
@@ -601,6 +636,7 @@
 			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clock CLK_I2C_HDMI>;
 			clock-names = "i2c";
+
 			status = "disabled";
 
 			hdmi_i2c_phy: hdmi-phy@38 {
@@ -622,6 +658,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&spi0_bus>;
 			fifo-depth = <256>;
+
 			status = "disabled";
 		};
 
@@ -638,6 +675,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&spi1_bus>;
 			fifo-depth = <64>;
+
 			status = "disabled";
 		};
 
@@ -654,6 +692,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&spi2_bus>;
 			fifo-depth = <64>;
+
 			status = "disabled";
 		};
 
@@ -668,6 +707,7 @@
 			clocks = <&clock CLK_PWM>;
 			clock-names = "timers";
 			#pwm-cells = <3>;
+
 			status = "disabled";
 		};
 
@@ -709,6 +749,7 @@
 			power-domains = <&pd_lcd0>;
 			iommus = <&sysmmu_fimd0>;
 			samsung,sysreg = <&sys_reg>;
+
 			status = "disabled";
 		};
 
@@ -716,6 +757,7 @@
 			interrupt-parent = <&combiner>;
 			reg = <0x100c0000 0x100>;
 			interrupts = <2 4>;
+
 			status = "disabled";
 			#thermal-sensor-cells = <0>;
 		};
@@ -753,6 +795,7 @@
 			power-domains = <&pd_tv>;
 			samsung,syscon-phandle = <&pmu_system_controller>;
 			#sound-dai-cells = <0>;
+
 			status = "disabled";
 		};
 
@@ -766,6 +809,7 @@
 			hdmi-phandle = <&hdmi>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&hdmi_cec>;
+
 			status = "disabled";
 		};
 
@@ -775,6 +819,7 @@
 			reg = <0x12c10000 0x2100>, <0x12c00000 0x300>;
 			power-domains = <&pd_tv>;
 			iommus = <&sysmmu_tv>;
+
 			status = "disabled";
 		};
 
@@ -783,6 +828,7 @@
 			reg = <0x106a0000 0x2000>;
 			clocks = <&clock CLK_PPMUDMC0>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -791,6 +837,7 @@
 			reg = <0x106b0000 0x2000>;
 			clocks = <&clock CLK_PPMUDMC1>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -799,6 +846,7 @@
 			reg = <0x106c0000 0x2000>;
 			clocks = <&clock CLK_PPMUCPU>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -807,6 +855,7 @@
 			reg = <0x112a0000 0x2000>;
 			clocks = <&clock CLK_PPMURIGHT>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -815,6 +864,7 @@
 			reg = <0x116a0000 0x2000>;
 			clocks = <&clock CLK_PPMULEFT>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -823,6 +873,7 @@
 			reg = <0x11ac0000 0x2000>;
 			clocks = <&clock CLK_PPMUCAMIF>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -831,12 +882,14 @@
 			reg = <0x11e40000 0x2000>;
 			clocks = <&clock CLK_PPMULCD0>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
 		ppmu_fsys: ppmu@12630000 {
 			compatible = "samsung,exynos-ppmu";
 			reg = <0x12630000 0x2000>;
+
 			status = "disabled";
 		};
 
@@ -845,6 +898,7 @@
 			reg = <0x12aa0000 0x2000>;
 			clocks = <&clock CLK_PPMUIMAGE>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -853,6 +907,7 @@
 			reg = <0x12e40000 0x2000>;
 			clocks = <&clock CLK_PPMUTV>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -861,6 +916,7 @@
 			reg = <0x13220000 0x2000>;
 			clocks = <&clock CLK_PPMUG3D>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -869,6 +925,7 @@
 			reg = <0x13660000 0x2000>;
 			clocks = <&clock CLK_PPMUMFC_L>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
@@ -877,6 +934,7 @@
 			reg = <0x13670000 0x2000>;
 			clocks = <&clock CLK_PPMUMFC_R>;
 			clock-names = "ppmu";
+
 			status = "disabled";
 		};
 
