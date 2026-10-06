@@ -166,7 +166,10 @@ void dpp60_dscl_set_scaler_manual_scale(struct dpp *dpp_base,
 		(dpp->scl_data.dscl_prog_data.sharpness_level
 		!= scl_data->dscl_prog_data.sharpness_level)) {
 		/* ISHARP_DELTA_LUT */
+		dpp401_power_on_isharp(dpp_base, true);
 		dpp401_dscl_set_isharp_filter(dpp401, scl_data->dscl_prog_data.isharp_delta);
+		dpp401_power_on_isharp(dpp_base, false);
+
 		dpp->scl_data.dscl_prog_data.sharpness_level = scl_data->dscl_prog_data.sharpness_level;
 		memcpy(dpp->scl_data.dscl_prog_data.isharp_delta, scl_data->dscl_prog_data.isharp_delta,
 			sizeof(uint32_t) * ISHARP_LUT_TABLE_SIZE);
@@ -230,7 +233,9 @@ void dpp60_dscl_set_scaler_manual_scale(struct dpp *dpp_base,
 	if (dscl_mode == DCN401_DSCL_MODE_SCALING_444_BYPASS) {
 		if (dpp->base.ctx->dc->config.prefer_easf)
 			dpp401_dscl_disable_easf(dpp_base, scl_data);
+		dpp401_power_on_isharp(dpp_base, true);
 		dpp401_dscl_program_isharp(dpp_base, scl_data, program_isharp_1dlut, &bs_coeffs_updated);
+		dpp401_power_on_isharp(dpp_base, false);
 		return;
 	}
 
@@ -261,7 +266,9 @@ void dpp60_dscl_set_scaler_manual_scale(struct dpp *dpp_base,
 	 *   WB scaler coeffs and toggle coeff RAM together
 	 */
 	//if (dpp->base.ctx->dc->config.prefer_easf)
+	dpp401_power_on_isharp(dpp_base, true);
 	dpp401_dscl_program_isharp(dpp_base, scl_data, program_isharp_1dlut, &bs_coeffs_updated);
+	dpp401_power_on_isharp(dpp_base, false);
 
 	dpp401_dscl_set_scl_filter(dpp401, scl_data, ycbcr, bs_coeffs_updated);
 	/* Edge adaptive scaler function configuration */

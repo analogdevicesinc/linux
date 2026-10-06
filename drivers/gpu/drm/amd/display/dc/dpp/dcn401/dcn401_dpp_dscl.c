@@ -146,7 +146,7 @@ enum dcn401_dscl_mode_sel dpp401_dscl_get_dscl_mode(
 	return DCN401_DSCL_MODE_SCALING_420_YCBCR_ENABLE;
 }
 
-void dpp401_power_on_dscl(
+static void dpp401_power_on_dscl(
 	struct dpp *dpp_base,
 	bool power_on)
 {
@@ -173,6 +173,25 @@ void dpp401_power_on_dscl(
 	}
 }
 
+void dpp401_power_on_isharp(
+	struct dpp *dpp_base,
+	bool power_on)
+{
+	struct dcn401_dpp *dpp = TO_DCN401_DPP(dpp_base);
+
+	if (power_on) {
+		/* exit LS prior to programming ISHARP LUT */
+		REG_UPDATE_2(ISHARP_DELTA_LUT_MEM_PWR_CTRL,
+		     ISHARP_DELTA_LUT_MEM_PWR_FORCE, 0,
+		     ISHARP_DELTA_LUT_MEM_PWR_DIS, 1);
+		REG_WAIT(ISHARP_DELTA_LUT_MEM_PWR_CTRL,
+			ISHARP_DELTA_LUT_MEM_PWR_STATE, 0, 1, 100);
+	} else {
+		REG_UPDATE_SEQ_2(ISHARP_DELTA_LUT_MEM_PWR_CTRL,
+			 ISHARP_DELTA_LUT_MEM_PWR_FORCE, 0,
+			 ISHARP_DELTA_LUT_MEM_PWR_DIS, 0);
+	}
+}
 
 static void dpp401_dscl_set_lb(
 	struct dcn401_dpp *dpp,
@@ -964,13 +983,6 @@ void dpp401_dscl_program_isharp(struct dpp *dpp_base,
 	*bs_coeffs_updated = false;
 
 	PERF_TRACE();
-	/*power on isharp_delta_mem first*/
-	REG_UPDATE_2(ISHARP_DELTA_LUT_MEM_PWR_CTRL,
-		     ISHARP_DELTA_LUT_MEM_PWR_FORCE, 0,
-		     ISHARP_DELTA_LUT_MEM_PWR_DIS, 1);
-
-	REG_WAIT(ISHARP_DELTA_LUT_MEM_PWR_CTRL,
-		ISHARP_DELTA_LUT_MEM_PWR_STATE, 0, 1, 100);
 
 	/* ISHARP_MODE */
 	REG_SET_6(ISHARP_MODE, 0,
@@ -1049,11 +1061,6 @@ void dpp401_dscl_program_isharp(struct dpp *dpp_base,
 		}
 	}
 
-	/*power on isharp_delta_mem first*/
-	REG_UPDATE_SEQ_2(ISHARP_DELTA_LUT_MEM_PWR_CTRL,
-			 ISHARP_DELTA_LUT_MEM_PWR_FORCE, 0,
-			 ISHARP_DELTA_LUT_MEM_PWR_DIS, 0);
-
 	PERF_TRACE();
 } // dpp401_dscl_program_isharp
 /**
@@ -1096,7 +1103,10 @@ void dpp401_dscl_set_scaler_manual_scale(struct dpp *dpp_base,
 		(dpp->scl_data.dscl_prog_data.sharpness_level
 		!= scl_data->dscl_prog_data.sharpness_level)) {
 		/* ISHARP_DELTA_LUT */
+		dpp401_power_on_isharp(dpp_base, true);
 		dpp401_dscl_set_isharp_filter(dpp, scl_data->dscl_prog_data.isharp_delta);
+		dpp401_power_on_isharp(dpp_base, false);
+
 		dpp->scl_data.dscl_prog_data.sharpness_level = scl_data->dscl_prog_data.sharpness_level;
 		memcpy(dpp->scl_data.dscl_prog_data.isharp_delta, scl_data->dscl_prog_data.isharp_delta,
 			sizeof(uint32_t) * ISHARP_LUT_TABLE_SIZE);
@@ -1159,7 +1169,9 @@ void dpp401_dscl_set_scaler_manual_scale(struct dpp *dpp_base,
 	if (dscl_mode == DCN401_DSCL_MODE_SCALING_444_BYPASS) {
 		if (dpp->base.ctx->dc->config.prefer_easf)
 			dpp401_dscl_disable_easf(dpp_base, scl_data);
+		dpp401_power_on_isharp(dpp_base, true);
 		dpp401_dscl_program_isharp(dpp_base, scl_data, program_isharp_1dlut, &bs_coeffs_updated);
+		dpp401_power_on_isharp(dpp_base, false);
 		return;
 	}
 
@@ -1193,7 +1205,9 @@ void dpp401_dscl_set_scaler_manual_scale(struct dpp *dpp_base,
 	 *   WB scaler coeffs and toggle coeff RAM together
 	 */
 	//if (dpp->base.ctx->dc->config.prefer_easf)
+	dpp401_power_on_isharp(dpp_base, true);
 	dpp401_dscl_program_isharp(dpp_base, scl_data, program_isharp_1dlut, &bs_coeffs_updated);
+	dpp401_power_on_isharp(dpp_base, false);
 
 	dpp401_dscl_set_scl_filter(dpp, scl_data, ycbcr, bs_coeffs_updated);
 	/* Edge adaptive scaler function configuration */

@@ -757,10 +757,6 @@ enum dcn401_dscl_mode_sel dpp401_dscl_get_dscl_mode(
 	const struct scaler_data *data,
 	bool dbg_always_scale);
 
-void dpp401_power_on_dscl(
-	struct dpp *dpp_base,
-	bool power_on);
-
 void dpp401_dscl_set_recout(
 	struct dcn401_dpp *dpp,
 	const struct rect *recout);
@@ -792,5 +788,9 @@ void dpp401_dscl_disable_easf(
 void dpp401_dscl_program_easf(
 	struct dpp *dpp_base,
 	const struct scaler_data *scl_data);
+
+void dpp401_power_on_isharp(
+	struct dpp *dpp_base,
+	bool power_on);
 
 #endif /* __DCN401_DPP_H__ */
