@@ -171,6 +171,7 @@ static int gfx_v9_4_3_get_cu_info(struct amdgpu_device *adev,
 				struct amdgpu_cu_info *cu_info);
 static void gfx_v9_4_3_xcc_set_safe_mode(struct amdgpu_device *adev, int xcc_id);
 static void gfx_v9_4_3_xcc_unset_safe_mode(struct amdgpu_device *adev, int xcc_id);
+static void gfx_v9_4_3_enable_ptl_skip_interrupt(struct amdgpu_device *adev);
 
 static void gfx_v9_4_3_kiq_set_resources(struct amdgpu_ring *kiq_ring,
 				uint64_t queue_mask)
@@ -2465,6 +2466,11 @@ static int gfx_v9_4_3_ptl_hw_init(struct amdgpu_device *adev)
 
 	gfx_v9_4_3_perf_monitor_ptl_init(adev, enable ? 1 : 0);
 
+	/* Enable PTL register skip notifications if PTL is supported */
+	if (ptl->hw_supported_state == AMDGPU_PTL_HW_SUPPORTED)
+		if (adev->gfx.mec_fw_version >= 194)
+			gfx_v9_4_3_enable_ptl_skip_interrupt(adev);
+
 	return 0;
 }
 
@@ -3325,6 +3331,34 @@ static int gfx_v9_4_3_set_bad_op_fault_state(struct amdgpu_device *adev,
 	}
 
 	return 0;
+}
+
+/*
+ * Enable GENERIC1 interrupt (bit 30) for PTL register skip notifications.
+ * When FW skips a privileged register access due to PTL, it signals via
+ * GENERIC1 and KFD receives interrupt source 177 with skip details.
+ */
+static void gfx_v9_4_3_enable_ptl_skip_interrupt(struct amdgpu_device *adev)
+{
+	u32 mec_int_cntl_reg, mec_int_cntl;
+	int i, j, k, num_xcc;
+
+	num_xcc = NUM_XCC(adev->gfx.xcc_mask);
+	for (i = 0; i < num_xcc; i++) {
+		for (j = 0; j < adev->gfx.mec.num_mec; j++) {
+			for (k = 0; k < adev->gfx.mec.num_pipe_per_mec; k++) {
+				mec_int_cntl_reg = gfx_v9_4_3_get_cpc_int_cntl(adev, i, j + 1, k);
+
+				if (mec_int_cntl_reg) {
+					mec_int_cntl = RREG32_XCC(mec_int_cntl_reg, i);
+					mec_int_cntl = REG_SET_FIELD(mec_int_cntl,
+							CP_ME1_PIPE0_INT_CNTL,
+							GENERIC1_INT_ENABLE, 1);
+					WREG32_XCC(mec_int_cntl_reg, mec_int_cntl, i);
+				}
+			}
+		}
+	}
 }
 
 static int gfx_v9_4_3_set_priv_inst_fault_state(struct amdgpu_device *adev,

@@ -124,6 +124,28 @@ enum SQ_INTERRUPT_ERROR_TYPE {
 #define KFD_SQ_INT_DATA__ERR_TYPE__SHIFT 20
 
 /*
+ * PTL (Peak TOPS Limiter) register skip notification.
+ * When FW skips a privileged register access, it sends interrupt 177
+ * with GENERIC1 and provides packet type info in CPC_INT_CNTX_ID[31:28].
+ */
+#define CPC_PTL_PACKET_TYPE_SET_UCONFIG_REG	1
+#define CPC_PTL_PACKET_TYPE_SET_SH_REG		2
+#define CPC_PTL_PACKET_TYPE_COPY_DATA_READ	3
+#define CPC_PTL_PACKET_TYPE_COPY_DATA_WRITE	4
+#define CPC_PTL_PACKET_TYPE_WRITE_DATA		5
+#define CPC_PTL_PACKET_TYPE_COND_WRITE		6
+#define CPC_PTL_PACKET_TYPE_WAIT_REG_MEM	7
+#define CPC_PTL_PACKET_TYPE_WAIT_REG_MEM64	8
+
+/* CPC_INT_CNTX_ID[31:28]: packet type that was skipped */
+#define CPC_INT_CNTX_ID__PACKET_TYPE__SHIFT	28
+#define CPC_INT_CNTX_ID__PACKET_TYPE_MASK	0xF0000000
+
+/* CPC_INT_INFO[30:28]: queue ID */
+#define CPC_INT_INFO__QUEUE_ID__SHIFT		28
+#define CPC_INT_INFO__QUEUE_ID_MASK		0x70000000
+
+/*
  * The debugger will send user data(m0) with PRIV=1 to indicate it requires
  * notification from the KFD with the following queue id (DOORBELL_ID) and
  * trap code (TRAP_CODE).
@@ -141,6 +163,30 @@ enum SQ_INTERRUPT_ERROR_TYPE {
 #define KFD_DEBUG_CP_BAD_OP_ECODE(ctxid0)	(((ctxid0) &		\
 				KFD_DEBUG_CP_BAD_OP_ECODE_MASK)		\
 				>> KFD_DEBUG_CP_BAD_OP_ECODE_SHIFT)
+
+static const char *cpc_packet_type_name(uint32_t packet_type)
+{
+	switch (packet_type) {
+	case CPC_PTL_PACKET_TYPE_SET_UCONFIG_REG:
+		return "SET_UCONFIG_REG";
+	case CPC_PTL_PACKET_TYPE_SET_SH_REG:
+		return "SET_SH_REG";
+	case CPC_PTL_PACKET_TYPE_COPY_DATA_READ:
+		return "COPY_DATA_READ";
+	case CPC_PTL_PACKET_TYPE_COPY_DATA_WRITE:
+		return "COPY_DATA_WRITE";
+	case CPC_PTL_PACKET_TYPE_WRITE_DATA:
+		return "WRITE_DATA";
+	case CPC_PTL_PACKET_TYPE_COND_WRITE:
+		return "COND_WRITE";
+	case CPC_PTL_PACKET_TYPE_WAIT_REG_MEM:
+		return "WAIT_REG_MEM";
+	case CPC_PTL_PACKET_TYPE_WAIT_REG_MEM64:
+		return "WAIT_REG_MEM64";
+	default:
+		return "UNKNOWN";
+	}
+}
 
 static void event_interrupt_poison_consumption_v9(struct kfd_node *dev,
 				uint16_t pasid, uint16_t client_id)
@@ -352,6 +398,8 @@ static bool event_interrupt_isr_v9(struct kfd_node *dev,
 		source_id == SOC15_INTSRC_SDMA_ECC ||
 		source_id == SOC15_INTSRC_SQ_INTERRUPT_MSG ||
 		source_id == SOC15_INTSRC_CP_BAD_OPCODE ||
+		(client_id == SOC15_IH_CLIENTID_GRBM_CP &&
+		 source_id == SOC15_INTSRC_CP_PTL_REG_SKIP) ||
 		KFD_IRQ_IS_FENCE(client_id, source_id) ||
 		((client_id == SOC15_IH_CLIENTID_VMC ||
 		client_id == SOC15_IH_CLIENTID_VMC1 ||
@@ -538,6 +586,34 @@ static void event_interrupt_wq_v9(struct kfd_node *dev,
 				KFD_DEBUG_DOORBELL_ID(context_id0),
 				KFD_EC_MASK(KFD_DEBUG_CP_BAD_OP_ECODE(context_id0)),
 				NULL, 0);
+		} else if (source_id == SOC15_INTSRC_CP_PTL_REG_SKIP) {
+			uint32_t packet_type, queue_id;
+			uint32_t skipped_addr;
+
+			/*
+			 * PTL (Peak TOPS Limiter) register skip notification.
+			 * FW skipped a privileged register access and is notifying KFD.
+			 * Data from IH entry (not registers):
+			 * - context_id0 contains CPC_INT_CNTX_ID with packet type in [31:28]
+			 * - context_id1 contains CPC_INT_INFO with queue ID in [30:28]
+			 * - context_id2 contains CPC_INT_ADDR (skipped register address)
+			 * - PASID comes from CPC_INT_PASID (already extracted from IH entry)
+			 */
+			skipped_addr = SOC15_CONTEXT_ID2_FROM_IH_ENTRY(ih_ring_entry);
+
+			/* Extract packet type from CPC_INT_CNTX_ID[31:28] */
+			packet_type = (context_id0 & CPC_INT_CNTX_ID__PACKET_TYPE_MASK) >>
+					CPC_INT_CNTX_ID__PACKET_TYPE__SHIFT;
+
+			/* Extract queue ID from CPC_INT_INFO[30:28] */
+			queue_id = (context_id1 & CPC_INT_INFO__QUEUE_ID_MASK) >>
+					CPC_INT_INFO__QUEUE_ID__SHIFT;
+
+			dev_info_ratelimited(dev->adev->dev,
+				"PTL: AQL request was rejected due to incompatible user input; please verify your PTL configuration.");
+			dev_dbg_ratelimited(dev->adev->dev,
+				"PTL: register access skipped - pasid 0x%x, queue %u, packet %s, addr 0x%x\n",
+				pasid, queue_id, cpc_packet_type_name(packet_type), skipped_addr);
 		}
 	} else if (client_id == SOC15_IH_CLIENTID_SDMA0 ||
 		   client_id == SOC15_IH_CLIENTID_SDMA1 ||
