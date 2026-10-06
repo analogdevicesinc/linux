@@ -394,6 +394,118 @@
 			status = "disabled";
 		};
 
+		i2s1: i2s@31002100 {
+			compatible = "adi,adsp-sc589-sport",
+				     "adi,adsp-sc598-sport";
+			reg = <0x31002100 0x100>;
+			interrupt-names = "hsport-a", "hsport-b";
+			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&scb1_dma 2>, <&scb1_dma 3>;
+			dma-names = "hsport-a", "hsport-b";
+			clocks = <&clk ADSP_SC58X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
+			#sound-dai-cells = <1>;
+
+			status = "disabled";
+		};
+
+		i2s2: i2s@31002200 {
+			compatible = "adi,adsp-sc589-sport",
+				     "adi,adsp-sc598-sport";
+			reg = <0x31002200 0x100>;
+			interrupt-names = "hsport-a", "hsport-b";
+			interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&scb1_dma 4>, <&scb1_dma 5>;
+			dma-names = "hsport-a", "hsport-b";
+			clocks = <&clk ADSP_SC58X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
+			#sound-dai-cells = <1>;
+
+			status = "disabled";
+		};
+
+		i2s3: i2s@31002300 {
+			compatible = "adi,adsp-sc589-sport",
+				     "adi,adsp-sc598-sport";
+			reg = <0x31002300 0x100>;
+			interrupt-names = "hsport-a", "hsport-b";
+			interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&scb1_dma 6>, <&scb1_dma 7>;
+			dma-names = "hsport-a", "hsport-b";
+			clocks = <&clk ADSP_SC58X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
+			#sound-dai-cells = <1>;
+
+			status = "disabled";
+		};
+
+		i2s4: i2s@31002400 {
+			compatible = "adi,adsp-sc589-sport",
+				     "adi,adsp-sc598-sport";
+			reg = <0x31002400 0x100>;
+			interrupt-names = "hsport-a", "hsport-b";
+			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&scb2_dma 10>, <&scb2_dma 11>;
+			dma-names = "hsport-a", "hsport-b";
+			clocks = <&clk ADSP_SC58X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
+			#sound-dai-cells = <1>;
+
+			status = "disabled";
+		};
+
+		i2s5: i2s@31002500 {
+			compatible = "adi,adsp-sc589-sport",
+				     "adi,adsp-sc598-sport";
+			reg = <0x31002500 0x100>;
+			interrupt-names = "hsport-a", "hsport-b";
+			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&scb2_dma 12>, <&scb2_dma 13>;
+			dma-names = "hsport-a", "hsport-b";
+			clocks = <&clk ADSP_SC58X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
+			#sound-dai-cells = <1>;
+
+			status = "disabled";
+		};
+
+		i2s6: i2s@31002600 {
+			compatible = "adi,adsp-sc589-sport",
+				     "adi,adsp-sc598-sport";
+			reg = <0x31002600 0x100>;
+			interrupt-names = "hsport-a", "hsport-b";
+			interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&scb2_dma 14>, <&scb2_dma 15>;
+			dma-names = "hsport-a", "hsport-b";
+			clocks = <&clk ADSP_SC58X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
+			#sound-dai-cells = <1>;
+
+			status = "disabled";
+		};
+
+		i2s7: i2s@31002700 {
+			compatible = "adi,adsp-sc589-sport",
+				     "adi,adsp-sc598-sport";
+			reg = <0x31002700 0x100>;
+			interrupt-names = "hsport-a", "hsport-b";
+			interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&scb2_dma 16>, <&scb2_dma 17>;
+			dma-names = "hsport-a", "hsport-b";
+			clocks = <&clk ADSP_SC58X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
+			#sound-dai-cells = <1>;
+
+			status = "disabled";
+		};
+
 		watchdog: watchdog@31008000 {
 			compatible = "adi,watchdog";
 			reg = <0x31008000 0x10>;
@@ -1077,52 +1189,180 @@
 			};
 		};
 
-		scb2_dma: dma-controller@31024000 {
-			compatible = "adi,dma-controller";
-			reg = <0x31024000 0x1000>;
-			status = "okay";
-			#dma-cells = <1>;
-
-			channel@10 {
-				adi,id = <10>;
-				adi,src-offset = <0>;
-				adi,skip-interrupts = <0>;
-				interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "complete", "error";
-			};
-
-			channel@11 {
-				adi,id = <11>;
-				adi,src-offset = <0x80>;
-				adi,skip-interrupts = <0>;
-				interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "complete", "error";
-			};
-		};
-
 		scb1_dma: dma-controller@31022000 {
 			compatible = "adi,dma-controller";
 			reg = <0x31022000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
 			#dma-cells = <1>;
 
 			channel@0 {
+				reg = <0>;
 				adi,id = <0>;
 				adi,src-offset = <0>;
 				adi,skip-interrupts = <0>;
 				interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
+					     <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
 				interrupt-names = "complete", "error";
 			};
 
 			channel@1 {
+				reg = <1>;
 				adi,id = <1>;
 				adi,src-offset = <0x80>;
 				adi,skip-interrupts = <0>;
 				interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
+					     <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@2 {
+				reg = <2>;
+				adi,id = <2>;
+				adi,src-offset = <0>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@3 {
+				reg = <3>;
+				adi,id = <3>;
+				adi,src-offset = <0x80>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@4 {
+				reg = <4>;
+				adi,id = <4>;
+				adi,src-offset = <0>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@5 {
+				reg = <5>;
+				adi,id = <5>;
+				adi,src-offset = <0x80>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@6 {
+				reg = <6>;
+				adi,id = <6>;
+				adi,src-offset = <0>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@7 {
+				reg = <7>;
+				adi,id = <7>;
+				adi,src-offset = <0x80>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+		};
+
+		scb2_dma: dma-controller@31024000 {
+			compatible = "adi,dma-controller";
+			reg = <0x31024000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			#dma-cells = <1>;
+
+			channel@a {
+				reg = <10>;
+				adi,id = <10>;
+				adi,src-offset = <0>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@b {
+				reg = <11>;
+				adi,id = <11>;
+				adi,src-offset = <0x80>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@c {
+				reg = <12>;
+				adi,id = <12>;
+				adi,src-offset = <0>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@d {
+				reg = <13>;
+				adi,id = <13>;
+				adi,src-offset = <0x80>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@e {
+				reg = <14>;
+				adi,id = <14>;
+				adi,src-offset = <0>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@f {
+				reg = <15>;
+				adi,id = <15>;
+				adi,src-offset = <0x80>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@10 {
+				reg = <16>;
+				adi,id = <16>;
+				adi,src-offset = <0>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "complete", "error";
+			};
+
+			channel@11 {
+				reg = <17>;
+				adi,id = <17>;
+				adi,src-offset = <0x80>;
+				adi,skip-interrupts = <0>;
+				interrupts = <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>;
 				interrupt-names = "complete", "error";
 			};
 		};
