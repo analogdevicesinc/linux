@@ -32,6 +32,7 @@ jobs:
     secrets: inherit
     permissions:
       contents: read
+      security-events: write
     with:
       compiler: "llvm"
       arch: "x86"
@@ -54,6 +55,7 @@ jobs:
     secrets: inherit
     permissions:
       contents: read
+      security-events: write
     with:
       compiler: "gcc"
       arch: "arm"

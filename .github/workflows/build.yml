@@ -38,6 +38,10 @@ jobs:
     runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
     continue-on-error: true
 
+    permissions:
+      contents: read
+      security-events: write
+
     env:
       GCC_VERSION: 13
       LLVM_VERSION: 19
@@ -78,6 +82,7 @@ jobs:
         get_file ci/touched_kconfig.awk
         get_file ci/gen_sbom.py
         get_file ci/kconfiglib.py
+        get_file ci/merge_sarif.py
 
         if [[ "${{ inputs.defconfig }}" == "adi_ci_defconfig" ]]; then
           mkdir -p arch/${{ inputs.arch }}/configs
@@ -269,6 +274,26 @@ jobs:
       run: |
         source ./ci/build.sh
         compile_clang_analyzer
+
+    - name: Merge SARIF results
+      if: ${{ !cancelled() && env.fatal != 'true' && inputs.checks == true }}
+      id: sarif
+      run: |
+        for analyzer in gcc clang; do
+          input="${{ runner.temp }}/sarif/$analyzer"
+          [[ -d "$input" ]] || continue
+          python3 ci/merge_sarif.py "$input" \
+            "${{ runner.temp }}/sarif-upload/$analyzer.sarif"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        done
+
+    - name: Upload SARIF results
+      if: ${{ !cancelled() && steps.sarif.outputs.found == 'true' }}
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ runner.temp }}/sarif-upload
+        category: ${{ inputs.compiler }}-${{ inputs.arch }}-${{ inputs.defconfig }}
+        checkout_path: ${{ github.workspace }}
 
     - name: Smatch
       if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_SMATCH == 'true' }}

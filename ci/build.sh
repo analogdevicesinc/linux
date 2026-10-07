@@ -850,8 +850,8 @@ compile_gcc_fanalyzer () {
 	export step_name="gcc_fanalyzer"
 	local exceptions_file="ci/travis/deadcode_exceptions"
 	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha  -- '**/*.c')
-	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
-	local mail=
+	local sarif_dir="${RUNNER_TEMP:-/tmp}/sarif/gcc"
+	local sarif_file status
 	local warn=0
 
 	echo "recompile with gcc fanalyzer flag on range $base_sha..$head_sha"
@@ -874,60 +874,33 @@ compile_gcc_fanalyzer () {
 		compile_dir=$(jq -r '.directory' <<<"$compile_entry")
 		if [[ -z "$compile_cmd" ]]; then
 			[[ ! "$file" == "arch/$ARCH/"* ]] && continue
-			echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
+			echo "$step_name: Failed to get compile command for $file"
 			warn=1
 			continue
 		fi
 
 		echo -e "\e[1m$file\e[0m"
-		compile_cmd="$compile_cmd -fanalyzer"
-		pushd $compile_dir
-		mail=$(eval "$compile_cmd" 2>&1 || (
-			echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
-		)
-		popd
-		found=0
-		msg=
-
-		while read -r row
-		do
-			if [[ "$row" =~ $regex ]]; then
-				if [[ "$found" == "1" ]]; then
-					echo $msg
-					msg=
-				fi
-
-				found=0
-				IFS=':' read -r -a list <<< "$row"
-
-				file=$(echo ${list[0]} | xargs)
-				line=${list[1]}
-				col=${list[2]}
-				type=$(echo ${list[3]} | xargs)
-				msg_=${list[4]}
-
-				if [[ "$type" == "note" ]]; then
-					echo $row
-				else
-					warn=1
-					found=1
-					msg="::$type file=$file,line=$line,col=$col::gcc_fanalayzer: $msg_"
-				fi
-
-			else
-				if [[ $found == "1" ]]; then
-					msg=${msg}$_n${row}
-				else
-					echo $row
-				fi
-			fi
-
-		done <<< "$mail"
-
-		if [[ "$found" == "1" ]]; then
-			echo $msg
+		sarif_file="$sarif_dir/$file.sarif"
+		mkdir -p "$(dirname "$sarif_file")"
+		pushd "$compile_dir"
+		status=0
+		eval "$compile_cmd -fanalyzer -fdiagnostics-format=sarif-stderr" \
+				2>"$sarif_file" || status=$?
+		if [[ $status -ne 0 ]]; then
+			echo "$step_name: $file exited with code $status"
+			warn=1
 		fi
+		popd
 
+		if ! jq -e '.version == "2.1.0" and (.runs | type == "array")' \
+				"$sarif_file" >/dev/null; then
+			echo "$step_name: $file produced invalid SARIF"
+			rm -f "$sarif_file"
+			warn=1
+		elif jq -e '[.runs[]?.results[]?] | length > 0' \
+				"$sarif_file" >/dev/null; then
+			warn=1
+		fi
 	done <<< "$files"
 
 	_set_step_warn $warn
@@ -937,8 +910,8 @@ compile_gcc_fanalyzer () {
 compile_clang_analyzer () {
 	export step_name="clang_analyzer"
 	local files=$(git diff --diff-filter=ACM --no-renames --name-only $base_sha..$head_sha -- '**/*.c')
-	local regex='^[[:alnum:]/._-]+:[[:digit:]]+:[[:digit:]]+: .*$'
-	local mail=
+	local sarif_dir="${RUNNER_TEMP:-/tmp}/sarif/clang"
+	local sarif_file sarif_output status
 	local fail=0
 	local warn=0
 
@@ -958,64 +931,35 @@ compile_clang_analyzer () {
 		compile_dir=$(jq -r '.directory' <<<"$compile_entry")
 		if [[ -z "$compile_cmd" ]]; then
 			[[ ! "$file" == "arch/$ARCH/"* ]] && continue
-			echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
+			echo "$step_name: Failed to get compile command for $file"
 			fail=1
 			continue
 		fi
 
 		echo -e "\e[1m$file\e[0m"
-		compile_cmd="$compile_cmd --analyze -Xanalyzer -analyzer-output=text"
-		pushd $compile_dir
-		mail=$(eval "$compile_cmd" 2>&1 || (
-			echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
-		)
+		sarif_file="$sarif_dir/$file.sarif"
+		mkdir -p "$(dirname "$sarif_file")"
+		printf -v sarif_output '%q' "$sarif_file"
+		compile_cmd="$compile_cmd --analyze -Xanalyzer -analyzer-output=sarif -o $sarif_output"
+		pushd "$compile_dir"
+		status=0
+		eval "$compile_cmd" || status=$?
+		if [[ $status -ne 0 ]]; then
+			echo "$step_name: $file exited with code $status"
+			fail=1
+		fi
 		popd
-		found=0
-		msg=
 
-		while read -r row
-		do
-			if [[ "$row" =~ $regex ]]; then
-				if [[ "$found" == "1" ]]; then
-					echo $msg
-					msg=
-				fi
-
-				found=0
-				IFS=':' read -r -a list <<< "$row"
-
-				file=$(echo ${list[0]} | xargs)
-				line=${list[1]}
-				col=${list[2]}
-				type=$(echo ${list[3]} | xargs)
-				msg_=${list[4]}
-
-				if [[ "$type" == "note" ]]; then
-					echo $row
-				else
-					if [[ "$type" == "error" ]]; then
-						fail=1
-					else
-						warn=1
-					fi
-					found=1
-					msg="::$type file=$file,line=$line,col=$col::clang_analyzer: $msg_"
-				fi
-
-			else
-				if [[ $found == "1" ]]; then
-					msg=${msg}$_n${row}
-				else
-					echo $row
-				fi
-			fi
-
-		done <<< "$mail"
-
-			if [[ "$found" == "1" ]]; then
-				echo $msg
-			fi
-
+		if [[ ! -f "$sarif_file" ]] || \
+				! jq -e '.version == "2.1.0" and (.runs | type == "array")' \
+				"$sarif_file" >/dev/null; then
+			echo "$step_name: $file produced invalid SARIF"
+			rm -f "$sarif_file"
+			fail=1
+		elif jq -e '[.runs[]?.results[]?] | length > 0' \
+				"$sarif_file" >/dev/null; then
+			warn=1
+		fi
 	done <<< "$files"
 
 	_set_step_warn $warn
