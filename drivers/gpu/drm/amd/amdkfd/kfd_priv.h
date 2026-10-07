@@ -873,6 +873,7 @@ struct kfd_process_device {
 	uint32_t spi_dbg_override;
 	uint32_t spi_dbg_launch_mode;
 	uint32_t watch_points[4];
+	uint64_t watch_addresses[4];
 	uint32_t alloc_watch_ids;
 
 	/*

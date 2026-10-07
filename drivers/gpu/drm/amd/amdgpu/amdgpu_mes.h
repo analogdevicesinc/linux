@@ -436,6 +436,7 @@ struct mes_misc_op_input {
 			} flags;
 			uint32_t spi_gdbg_per_vmid_cntl;
 			uint32_t tcp_watch_cntl[4];
+			uint64_t watch_addresses[4];
 			uint32_t trap_en;
 		} set_shader_debugger;
 
@@ -626,6 +627,7 @@ int amdgpu_mes_set_shader_debugger(struct amdgpu_device *adev,
 				uint64_t process_context_addr,
 				uint32_t spi_gdbg_per_vmid_cntl,
 				const uint32_t *tcp_watch_cntl,
+				const uint64_t *watch_addresses,
 				uint32_t flags,
 				bool trap_en,
 				uint32_t xcc_id);

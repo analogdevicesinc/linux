@@ -374,7 +374,9 @@ int kfd_dbg_set_mes_debug_mode(struct kfd_process_device *pdd, bool sq_trap_en)
 
 	return amdgpu_mes_set_shader_debugger(pdd->dev->adev,
 					pdd->proc_ctx_gpu_addr, spi_dbg_cntl,
-					pdd->watch_points, flags, sq_trap_en,
+					pdd->watch_points,
+					pdd->watch_addresses,
+					flags, sq_trap_en,
 					ffs(pdd->dev->xcc_mask) - 1);
 }
 
@@ -449,6 +451,7 @@ int kfd_dbg_trap_clear_dev_address_watch(struct kfd_process_device *pdd,
 	pdd->watch_points[watch_id] = pdd->dev->kfd2kgd->clear_address_watch(
 							pdd->dev->adev,
 							watch_id);
+	pdd->watch_addresses[watch_id] = 0;
 	amdgpu_gfx_off_ctrl(pdd->dev->adev, true);
 
 	if (!pdd->dev->kfd->shared_resources.enable_mes)
@@ -485,6 +488,7 @@ int kfd_dbg_trap_set_dev_address_watch(struct kfd_process_device *pdd,
 	}
 
 	amdgpu_gfx_off_ctrl(pdd->dev->adev, false);
+	pdd->watch_addresses[*watch_id] = watch_address;
 	for_each_inst(xcc_id, xcc_mask)
 		pdd->watch_points[*watch_id] = pdd->dev->kfd2kgd->set_address_watch(
 				pdd->dev->adev,

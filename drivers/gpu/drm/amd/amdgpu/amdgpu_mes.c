@@ -736,6 +736,7 @@ int amdgpu_mes_set_shader_debugger(struct amdgpu_device *adev,
 				uint64_t process_context_addr,
 				uint32_t spi_gdbg_per_vmid_cntl,
 				const uint32_t *tcp_watch_cntl,
+				const uint64_t *watch_addresses,
 				uint32_t flags,
 				bool trap_en,
 				uint32_t xcc_id)
@@ -761,6 +762,8 @@ int amdgpu_mes_set_shader_debugger(struct amdgpu_device *adev,
 	op_input.set_shader_debugger.spi_gdbg_per_vmid_cntl = spi_gdbg_per_vmid_cntl;
 	memcpy(op_input.set_shader_debugger.tcp_watch_cntl, tcp_watch_cntl,
 			sizeof(op_input.set_shader_debugger.tcp_watch_cntl));
+	memcpy(op_input.set_shader_debugger.watch_addresses, watch_addresses,
+			sizeof(op_input.set_shader_debugger.watch_addresses));
 
 	if (((adev->mes.sched_version & AMDGPU_MES_API_VERSION_MASK) >>
 			AMDGPU_MES_API_VERSION_SHIFT) >= 14)
