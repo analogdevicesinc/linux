@@ -20,6 +20,7 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/atomic.h>
+#include <linux/blkdev.h>
 #include <linux/swap_ops.h>
 #include <linux/crypto.h>
 #include <linux/scatterlist.h>
@@ -1278,6 +1279,7 @@ static unsigned long zswap_shrinker_scan(struct shrinker *shrinker,
 		.encountered_page_in_swapcache = &encountered_page_in_swapcache,
 	};
 	unsigned long shrink_ret;
+	struct blk_plug plug;
 
 	if (!zswap_shrinker_enabled ||
 			!mem_cgroup_zswap_writeback_enabled(sc->memcg)) {
@@ -1285,10 +1287,12 @@ static unsigned long zswap_shrinker_scan(struct shrinker *shrinker,
 		return SHRINK_STOP;
 	}
 
+	blk_start_plug(&plug);
 	shrink_ret = list_lru_shrink_walk(&zswap_list_lru, sc, &shrink_memcg_cb,
 		&ctl);
 
 	swap_write_submit(&ctl.io_ctx);
+	blk_finish_plug(&plug);
 
 	if (encountered_page_in_swapcache)
 		return SHRINK_STOP;
@@ -1396,6 +1400,7 @@ static int shrink_memcg(struct mem_cgroup *memcg)
 {
 	struct zswap_shrink_ctl ctl = {};
 	int nid, shrunk = 0, scanned = 0;
+	struct blk_plug plug;
 
 	if (!mem_cgroup_zswap_writeback_enabled(memcg))
 		return -ENOENT;
@@ -1407,6 +1412,7 @@ static int shrink_memcg(struct mem_cgroup *memcg)
 	if (memcg && !mem_cgroup_online(memcg))
 		return -ENOENT;
 
+	blk_start_plug(&plug);
 	for_each_node_state(nid, N_NORMAL_MEMORY) {
 		unsigned long nr_to_walk = SWAP_CLUSTER_MAX;
 
@@ -1416,6 +1422,7 @@ static int shrink_memcg(struct mem_cgroup *memcg)
 	}
 
 	swap_write_submit(&ctl.io_ctx);
+	blk_finish_plug(&plug);
 
 	/* Nothing was scanned: every LRU under @memcg was empty. */
 	if (!scanned)
