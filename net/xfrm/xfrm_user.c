@@ -314,6 +314,22 @@ static int verify_selector_prefixlen(u16 family,
 	}
 }
 
+static int verify_mark(struct nlattr **attrs, struct netlink_ext_ack *extack)
+{
+	const struct xfrm_mark *m;
+
+	if (!attrs[XFRMA_MARK])
+		return 0;
+
+	m = nla_data(attrs[XFRMA_MARK]);
+	if ((m->v & m->m) != m->v) {
+		NL_SET_ERR_MSG(extack, "Invalid mark value/mask combination");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int verify_newsa_info(struct xfrm_usersa_info *p,
 			     struct nlattr **attrs,
 			     struct netlink_ext_ack *extack)
@@ -330,6 +346,10 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
 		family = p->family;
 
 	err = verify_selector_prefixlen(family, &p->sel, extack);
+	if (err)
+		goto out;
+
+	err = verify_mark(attrs, extack);
 	if (err)
 		goto out;
 
@@ -3369,6 +3389,10 @@ static int xfrm_do_migrate_state(struct sk_buff *skb, struct nlmsghdr *nlh,
 		if (err)
 			return err;
 	}
+
+	err = verify_mark(attrs, extack);
+	if (err)
+		return err;
 
 	copy_from_user_migrate_state(&m, um);
 
