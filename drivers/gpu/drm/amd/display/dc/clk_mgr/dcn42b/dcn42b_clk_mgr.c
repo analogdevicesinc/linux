@@ -418,8 +418,6 @@ static void dcn42b_update_clocks(struct clk_mgr *clk_mgr_base,
 			dc->debug.force_min_dcfclk_mhz = DCN42B_MIN_DCFCLK_MHZ;
 		else if (dc->debug.force_min_dcfclk_mhz > DCN42B_MAX_DCFCLK_MHZ)
 			dc->debug.force_min_dcfclk_mhz = DCN42B_MAX_DCFCLK_MHZ;
-	} else if (power_supply_is_system_supplied()) {
-		dc->debug.force_min_dcfclk_mhz = DCN42B_AC_MIN_DCFCLK_MHZ;
 	}
 
 	dcn42_update_clocks(clk_mgr_base, context, safe_to_lower);

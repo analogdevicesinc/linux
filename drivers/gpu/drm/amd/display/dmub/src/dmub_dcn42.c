@@ -392,10 +392,9 @@ bool dmub_dcn42_is_hw_init(struct dmub_srv *dmub)
 
 	fw_version = REG_READ(DMCUB_SCRATCH1);
 	is_vbios_fw = ((fw_version >> 6) & 0x01) ? true : false;
-	if (is_vbios_fw) {
-		dm_output_to_console("\n: DMU started with VBIOS FW, fw_version = 0x%x\n", fw_version);
+	if (is_vbios_fw)
 		return false;
-	}
+
 	return is_hw_init != 0 && status.bits.dal_fw;
 }
 
