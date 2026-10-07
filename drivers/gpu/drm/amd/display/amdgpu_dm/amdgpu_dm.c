@@ -4453,12 +4453,12 @@ STATIC_IFN_KUNIT void dm_clear_writeback(struct amdgpu_display_manager *dm,
 EXPORT_IF_KUNIT(dm_clear_writeback);
 
 /**
- * amdgpu_dm_mod_power_update_streams - update mod_power stream state on modeset
+ * amdgpu_dm_mod_power_update_streams - update mod_power stream state
  * @state: the drm atomic state
  * @dm: the display manager to update mod_power on
  *
- * Notify mod_power of stream changes on modeset events, and disable PSR/Replay
- * in preparation for hardware programming. See also
+ * Disable PSR/Replay before hardware programming for active streams, and
+ * update mod_power stream state when a modeset changes the stream. See also
  * amdgpu_dm_mod_power_setup_streams() for post-modeset mod_power setup.
  */
 STATIC_IFN_KUNIT void amdgpu_dm_mod_power_update_streams(struct drm_atomic_commit *state,
@@ -4474,15 +4474,15 @@ STATIC_IFN_KUNIT void amdgpu_dm_mod_power_update_streams(struct drm_atomic_commi
 		dm_old_crtc_state = to_dm_crtc_state(old_crtc_state);
 		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
 
-		if (!drm_atomic_crtc_needs_modeset(new_crtc_state))
-			continue;
-
 		/*
-		 * Update mod_power on modeset event in preparation for hw
-		 * programming. Always use the old stream, since it would have
-		 * been previously added to mod_power. If old stream is null (on
-		 * crtc enable, for example), mod_power will no-op, which is the
-		 * desried behavior.
+		 * Notify mod_power that hardware programming is about to occur.
+		 * This must be done before the modeset check because a non-modeset
+		 * commit can still update an active framebuffer or plane while
+		 * PSR/Replay is enabled.
+		 *
+		 * Always use the old stream since it is the stream currently
+		 * registered with mod_power. If old stream is NULL, the event
+		 * helpers will no-op.
 		 */
 		if (old_crtc_state->active) {
 			scoped_guard(mutex, &dm->dc_lock) {
@@ -4491,10 +4491,14 @@ STATIC_IFN_KUNIT void amdgpu_dm_mod_power_update_streams(struct drm_atomic_commi
 					psr_event_hw_programming, true);
 				amdgpu_dm_replay_set_event(dm, dm_old_crtc_state->stream, true,
 					replay_event_hw_programming, true);
-				amdgpu_dm_replay_set_event(dm, dm_old_crtc_state->stream, false,
-					replay_event_general_ui, false);
 			}
 		}
+
+		if (!drm_atomic_crtc_needs_modeset(new_crtc_state))
+			continue;
+
+		if (dm_old_crtc_state->stream == dm_new_crtc_state->stream)
+			continue;
 
 		if (new_crtc_state->active) {
 			aconnector = (struct amdgpu_dm_connector *)
