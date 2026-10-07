@@ -6,6 +6,7 @@
 #define __DML2_PMO_DCN6_H__
 #include "dml2_internal_shared_types.h"
 
+void dml2_pmo_dcn6_assign_pstate_strategies(struct dml2_pmo_instance *pmo);
 bool dml2_pmo_dcn6a_initialize(struct dml2_pmo_initialize_in_out *in_out);
 int dml2_pmo_dcn6a_get_ordered_mandatory_stage_optimizers(struct dml2_pmo_instance *pmo,
 		struct dml2_pmo_stage_optimizer **optimers);
