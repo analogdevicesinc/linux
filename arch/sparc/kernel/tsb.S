@@ -144,6 +144,26 @@ tsb_miss_page_table_walk_sun4v_fastpath:
 	bne,pt		%xcc, 60f
 	 nop
 
+	/* If this fault came from a window spill or fill (TL > 1),
+	 * we cannot build a trap stack and call hugetlb_setup() from
+	 * here.  Route it through tsb_do_fault instead, so that
+	 * do_sparc64_fault() runs and its huge-TSB grow check
+	 * allocates the TSB before the access is replayed.
+	 *
+	 * This must be decided before the register bank switch below:
+	 * %g3 (the fault code) and %g5 (now the PTE) live in the TLB
+	 * miss handler's globals and do not survive it.  Consuming
+	 * them after the switch, as this path used to when it went to
+	 * winfix_trampoline directly, records a stale %g3 as the
+	 * fault code and a stale %g5 as the fault address, and the
+	 * task is then killed with a SIGSEGV at a garbage address.
+	 * tsb_do_fault re-fetches both from the MMU after switching.
+	 */
+	rdpr	%tl, %g7
+	cmp	%g7, 1
+	bgu,pn	%xcc, tsb_do_fault
+	 nop
+
 661:	rdpr		%pstate, %g5
 	wrpr		%g5, PSTATE_AG | PSTATE_MG, %pstate
 	.section	.sun4v_2insn_patch, "ax"
@@ -152,10 +172,6 @@ tsb_miss_page_table_walk_sun4v_fastpath:
 	nop
 	.previous
 
-	rdpr	%tl, %g7
-	cmp	%g7, 1
-	bne,pn	%xcc, winfix_trampoline
-	 mov	%g3, %g4
 	ba,pt	%xcc, etrap
 	 rd	%pc, %g7
 	call	hugetlb_setup
