@@ -774,8 +774,6 @@ static int st7703_enable(struct drm_panel *panel)
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 	struct mipi_dsi_multi_context dsi_ctx = {.dsi = dsi};
 
-	ctx->desc->init_sequence(&dsi_ctx);
-
 	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
 
 	/* It takes the controller 120 msec to wake up after sleep. */
@@ -784,7 +782,7 @@ static int st7703_enable(struct drm_panel *panel)
 	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
 
 	if (!dsi_ctx.accum_err)
-		dev_dbg(ctx->dev, "Panel init sequence done\n");
+		dev_dbg(ctx->dev, "Panel enable done\n");
 
 	return dsi_ctx.accum_err;
 }
@@ -819,6 +817,8 @@ static int st7703_unprepare(struct drm_panel *panel)
 static int st7703_prepare(struct drm_panel *panel)
 {
 	struct st7703 *ctx = panel_to_st7703(panel);
+	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	struct mipi_dsi_multi_context dsi_ctx = {.dsi = dsi};
 	int ret;
 
 	dev_dbg(ctx->dev, "Resetting the panel\n");
@@ -842,6 +842,18 @@ static int st7703_prepare(struct drm_panel *panel)
 
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 	usleep_range(15000, 20000);
+
+	ctx->desc->init_sequence(&dsi_ctx);
+
+	if (dsi_ctx.accum_err) {
+		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+		regulator_disable(ctx->iovcc);
+		regulator_disable(ctx->vcc);
+
+		return dsi_ctx.accum_err;
+	}
+
+	dev_dbg(ctx->dev, "Panel init sequence done\n");
 
 	return 0;
 }
