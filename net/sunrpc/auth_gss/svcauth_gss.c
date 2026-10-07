@@ -944,7 +944,6 @@ svcauth_gss_unwrap_priv(struct svc_rqst *rqstp, u32 seq, struct gss_ctx *ctx)
 	struct xdr_stream *xdr = &rqstp->rq_arg_stream;
 	u32 len, maj_stat, seq_num, offset;
 	struct xdr_buf *buf = xdr->buf;
-	unsigned int saved_len;
 
 	if (xdr_stream_decode_u32(xdr, &len) < 0)
 		goto unwrap_failed;
@@ -959,11 +958,14 @@ svcauth_gss_unwrap_priv(struct svc_rqst *rqstp, u32 seq, struct gss_ctx *ctx)
 		goto unwrap_failed;
 	offset = xdr_stream_pos(xdr);
 
-	saved_len = buf->len;
 	maj_stat = gss_unwrap(ctx, offset, offset + len, buf);
 	if (maj_stat != GSS_S_COMPLETE)
 		goto bad_unwrap;
-	xdr->nwords -= XDR_QUADLEN(saved_len - buf->len);
+	/* gss_unwrap redacts the opaque blob from the head iovec.
+	 * buf has changed, thus the stream needs to be reset.
+	 */
+	xdr_init_decode(xdr, buf, buf->head[0].iov_base + offset, NULL);
+	xdr_set_scratch_folio(xdr, rqstp->rq_scratch_folio);
 
 out_seq:
 	/* gss_unwrap() decrypted the sequence number. */
