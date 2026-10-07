@@ -2309,6 +2309,9 @@ static int xfrm_add_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
 	err = verify_sec_ctx_len(attrs, extack);
 	if (err)
 		return err;
+	err = verify_mark(attrs, extack);
+	if (err)
+		return err;
 
 	xp = xfrm_policy_construct(net, p, attrs, &err, extack);
 	if (!xp)
