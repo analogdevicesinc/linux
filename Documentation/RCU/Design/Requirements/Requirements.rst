@@ -2686,11 +2686,13 @@ The `SRCU API
 <https://lwn.net/Articles/609973/#RCU%20Per-Flavor%20API%20Table>`__
 includes srcu_read_lock(), srcu_read_unlock(),
 srcu_dereference(), srcu_dereference_check(), synchronize_srcu(),
-synchronize_srcu_expedited(), call_srcu(), srcu_barrier(),
-and srcu_read_lock_held(). It also includes DEFINE_SRCU(),
-DEFINE_STATIC_SRCU(), DEFINE_SRCU_FAST(), DEFINE_STATIC_SRCU_FAST(),
-init_srcu_struct(), and init_srcu_struct_fast() APIs for defining and
-initializing ``srcu_struct`` structures.
+synchronize_srcu_expedited(), synchronize_srcu_atomic(), call_srcu(),
+srcu_barrier(), and srcu_read_lock_held(). It also includes
+DEFINE_SRCU(), DEFINE_STATIC_SRCU(), DEFINE_SRCU_FAST(),
+DEFINE_STATIC_SRCU_FAST(), DEFINE_SRCU_ATOMIC(),
+DEFINE_STATIC_SRCU_ATOMIC(), init_srcu_struct(),
+init_srcu_struct_fast(), and init_srcu_struct_atomic() APIs for
+defining and initializing ``srcu_struct`` structures.
 
 More recently, the SRCU API has added polling interfaces:
 
@@ -2709,6 +2711,22 @@ These functions are used to avoid unnecessary SRCU grace periods in
 certain types of buffer-cache algorithms having multi-stage age-out
 mechanisms.  The idea is that by the time the block has aged completely
 from the cache, an SRCU grace period will be very likely to have elapsed.
+
+A more recent addition to the SRCU API is the atomic flavor:
+srcu_read_lock_atomic(), srcu_read_unlock_atomic(), and
+synchronize_srcu_atomic(). An atomic-SRCU reader runs with preemption
+disabled, must invoke srcu_read_lock_atomic() and
+srcu_read_unlock_atomic() on the same CPU from the same context, and
+must never sleep nor block on anything that might itself depend on
+memory allocation, which allows synchronize_srcu_atomic() to spin
+rather than sleep while waiting for pre-existing readers. This
+requires that all other SRCU usage be excluded from a given atomic
+``srcu_struct`` structure: every reader must use
+srcu_read_lock_atomic() and srcu_read_unlock_atomic() rather than
+srcu_read_lock() or any other SRCU reader flavor, and the structure
+must not be passed to call_srcu(), synchronize_srcu(),
+synchronize_srcu_expedited(), start_poll_synchronize_srcu(),
+srcu_barrier(), or srcu_expedite_current().
 
 Tasks RCU
 ~~~~~~~~~
