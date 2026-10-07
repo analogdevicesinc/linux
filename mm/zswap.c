@@ -1043,6 +1043,21 @@ static bool zswap_decompress(struct zswap_entry *entry, struct folio *folio)
 /*********************************
 * writeback code
 **********************************/
+/* State shared by all the entries written back by one LRU walk. */
+struct zswap_shrink_ctl {
+	/*
+	 * Collects the writeback of consecutive entries into as few IOs as
+	 * possible. The owner of the walk must submit what is left in it
+	 * once it is done.
+	 */
+	struct swap_io_ctx io_ctx;
+	/*
+	 * If not NULL, stop the walk when writeback finds a folio already in
+	 * the swap cache, and set it to true.
+	 */
+	bool *encountered_page_in_swapcache;
+};
+
 /*
  * Attempts to free an entry by adding a folio to the swap cache,
  * decompressing the entry data into the folio, and issuing a
@@ -1054,8 +1069,12 @@ static bool zswap_decompress(struct zswap_entry *entry, struct folio *folio)
  * in the first place.  After the folio has been decompressed into
  * the swap cache, the compressed version stored by zswap can be
  * freed.
+ *
+ * The folio is only added to @ctx here, it is up to the owner of @ctx to
+ * submit the IO.
  */
-static int zswap_writeback_entry(struct zswap_entry *entry,
+static int zswap_writeback_entry(struct swap_io_ctx *ctx,
+				 struct zswap_entry *entry,
 				 swp_entry_t swpentry)
 {
 	struct xarray *tree;
@@ -1063,7 +1082,6 @@ static int zswap_writeback_entry(struct zswap_entry *entry,
 	struct folio *folio;
 	struct mempolicy *mpol;
 	struct swap_info_struct *si;
-	struct swap_io_ctx ctx = {};
 	int ret = 0;
 
 	/* try to allocate swap cache folio */
@@ -1135,8 +1153,7 @@ static int zswap_writeback_entry(struct zswap_entry *entry,
 	folio_put(folio);
 
 	/* start writeback */
-	__swap_writeout(&ctx, folio);
-	swap_write_submit(&ctx);
+	__swap_writeout(ctx, folio);
 
 	return 0;
 
@@ -1176,7 +1193,7 @@ static enum lru_status shrink_memcg_cb(struct list_head *item, struct list_lru_o
 				       void *arg)
 {
 	struct zswap_entry *entry = container_of(item, struct zswap_entry, lru);
-	bool *encountered_page_in_swapcache = (bool *)arg;
+	struct zswap_shrink_ctl *ctl = arg;
 	swp_entry_t swpentry;
 	enum lru_status ret = LRU_REMOVED_RETRY;
 	int writeback_result;
@@ -1231,7 +1248,7 @@ static enum lru_status shrink_memcg_cb(struct list_head *item, struct list_lru_o
 	 */
 	spin_unlock(&l->lock);
 
-	writeback_result = zswap_writeback_entry(entry, swpentry);
+	writeback_result = zswap_writeback_entry(&ctl->io_ctx, entry, swpentry);
 
 	if (writeback_result) {
 		zswap_reject_reclaim_fail++;
@@ -1242,9 +1259,9 @@ static enum lru_status shrink_memcg_cb(struct list_head *item, struct list_lru_o
 		 * into the warmer region. We should terminate shrinking (if we're in the dynamic
 		 * shrinker context).
 		 */
-		if (writeback_result == -EEXIST && encountered_page_in_swapcache) {
+		if (writeback_result == -EEXIST && ctl->encountered_page_in_swapcache) {
 			ret = LRU_STOP;
-			*encountered_page_in_swapcache = true;
+			*ctl->encountered_page_in_swapcache = true;
 		}
 	} else {
 		zswap_written_back_pages++;
@@ -1256,8 +1273,11 @@ static enum lru_status shrink_memcg_cb(struct list_head *item, struct list_lru_o
 static unsigned long zswap_shrinker_scan(struct shrinker *shrinker,
 		struct shrink_control *sc)
 {
-	unsigned long shrink_ret;
 	bool encountered_page_in_swapcache = false;
+	struct zswap_shrink_ctl ctl = {
+		.encountered_page_in_swapcache = &encountered_page_in_swapcache,
+	};
+	unsigned long shrink_ret;
 
 	if (!zswap_shrinker_enabled ||
 			!mem_cgroup_zswap_writeback_enabled(sc->memcg)) {
@@ -1266,7 +1286,9 @@ static unsigned long zswap_shrinker_scan(struct shrinker *shrinker,
 	}
 
 	shrink_ret = list_lru_shrink_walk(&zswap_list_lru, sc, &shrink_memcg_cb,
-		&encountered_page_in_swapcache);
+		&ctl);
+
+	swap_write_submit(&ctl.io_ctx);
 
 	if (encountered_page_in_swapcache)
 		return SHRINK_STOP;
@@ -1372,6 +1394,7 @@ static struct shrinker *zswap_alloc_shrinker(void)
  */
 static int shrink_memcg(struct mem_cgroup *memcg)
 {
+	struct zswap_shrink_ctl ctl = {};
 	int nid, shrunk = 0, scanned = 0;
 
 	if (!mem_cgroup_zswap_writeback_enabled(memcg))
@@ -1388,9 +1411,11 @@ static int shrink_memcg(struct mem_cgroup *memcg)
 		unsigned long nr_to_walk = SWAP_CLUSTER_MAX;
 
 		shrunk += list_lru_walk_one(&zswap_list_lru, nid, memcg,
-					    &shrink_memcg_cb, NULL, &nr_to_walk);
+					    &shrink_memcg_cb, &ctl, &nr_to_walk);
 		scanned += SWAP_CLUSTER_MAX - nr_to_walk;
 	}
+
+	swap_write_submit(&ctl.io_ctx);
 
 	/* Nothing was scanned: every LRU under @memcg was empty. */
 	if (!scanned)
