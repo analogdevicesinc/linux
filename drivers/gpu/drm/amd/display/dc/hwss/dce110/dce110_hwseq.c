@@ -102,6 +102,7 @@ struct dce110_hw_seq_reg_offsets {
 	uint32_t crtc;
 };
 
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static const struct dce110_hw_seq_reg_offsets reg_offsets[] = {
 {
 	.crtc = (mmCRTC0_CRTC_GSL_CONTROL - mmCRTC_GSL_CONTROL),
@@ -122,6 +123,7 @@ static const struct dce110_hw_seq_reg_offsets reg_offsets[] = {
 
 #define HW_REG_CRTC(reg, id)\
 	(reg + reg_offsets[id].crtc)
+#endif
 
 #define MAX_WATERMARK 0xFFFF
 #define SAFE_NBP_MARK 0x7FFF
@@ -130,6 +132,7 @@ static const struct dce110_hw_seq_reg_offsets reg_offsets[] = {
  * Private definitions
  ******************************************************************************/
 /***************************PIPE_CONTROL***********************************/
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static void dce110_init_pte(struct dc_context *ctx)
 {
 	uint32_t addr;
@@ -196,6 +199,7 @@ static void dce110_init_pte(struct dc_context *ctx)
 		dm_write_reg(ctx, addr, value);
 	}
 }
+#endif
 /**************************************************************************/
 
 static void enable_display_pipe_clock_gating(
@@ -207,6 +211,7 @@ static void enable_display_pipe_clock_gating(
 	/*TODO*/
 }
 
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static bool dce110_enable_display_power_gating(
 	struct dc *dc,
 	uint8_t controller_id,
@@ -631,6 +636,8 @@ dce110_set_output_transfer_func(struct set_output_transfer_func_params *params)
 	return true;
 }
 
+#endif
+
 void dce110_update_info_frame(struct pipe_ctx *pipe_ctx)
 {
 	bool is_hdmi_tmds;
@@ -698,6 +705,7 @@ dce110_external_encoder_control(enum bp_external_encoder_control_action action,
 		DC_LOG_ERROR("Failed to execute external encoder action: 0x%x\n", action);
 }
 
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static void
 dce110_prepare_ddc(struct dc_link *link)
 {
@@ -716,6 +724,8 @@ dce110_dac_load_detect(struct dc_link *link)
 			bios, link_enc->analog_engine, link->ext_enc_id);
 	return bp_result == BP_RESULT_OK;
 }
+
+#endif
 
 void dce110_enable_stream(struct pipe_ctx *pipe_ctx)
 {
@@ -1595,6 +1605,7 @@ void build_audio_output(
 	}
 }
 
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static void program_scaler(const struct dc *dc,
 		const struct pipe_ctx *pipe_ctx)
 {
@@ -1699,6 +1710,8 @@ static enum dc_status dce110_enable_stream_timing(
 
 	return DC_OK;
 }
+
+#endif
 
 enum dc_status dce110_apply_single_controller_ctx_to_hw(
 		struct pipe_ctx *pipe_ctx,
@@ -2284,6 +2297,7 @@ void dce110_set_safe_displaymarks(
  * Public functions
  ******************************************************************************/
 
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static void set_drr(struct pipe_ctx **pipe_ctx,
 		int num_pipes, struct dc_crtc_timing_adjust adjust)
 {
@@ -2357,6 +2371,8 @@ static void set_static_screen_control(struct pipe_ctx **pipe_ctx,
 			set_static_screen_control(pipe_ctx[i]->stream_res.tg,
 					triggers, params->num_frames);
 }
+
+#endif
 
 /*
  *  Check if FBC can be enabled
@@ -2450,6 +2466,7 @@ void enable_fbc(
 	}
 }
 
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static void dce110_reset_hw_ctx_wrap(
 		struct dc *dc,
 		struct dc_state *context)
@@ -2521,6 +2538,8 @@ static void dce110_reset_hw_ctx_wrap(
 		}
 	}
 }
+
+#endif
 
 static void dce110_setup_audio_dto(
 		struct dc *dc,
@@ -2764,6 +2783,7 @@ enum dc_status dce110_apply_ctx_to_hw(
 /*******************************************************************************
  * Front End programming
  ******************************************************************************/
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static void set_default_colors(struct pipe_ctx *pipe_ctx)
 {
 	struct default_adjustment default_adjust = { 0 };
@@ -2893,12 +2913,15 @@ static void dce110_update_pending_status(struct pipe_ctx *pipe_ctx)
 	}
 }
 
+#endif
+
 void dce110_power_down(struct dc *dc)
 {
 	power_down_all_hw_blocks(dc);
 	disable_vga_and_power_gate_all_controllers(dc);
 }
 
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static bool wait_for_reset_trigger_to_occur(
 	struct dc_context *dc_ctx,
 	struct timing_generator *tg)
@@ -3105,6 +3128,8 @@ static void dce110_init_hw(struct dc *dc)
 }
 
 
+#endif
+
 void dce110_prepare_bandwidth(
 		struct dc *dc,
 		struct dc_state *context)
@@ -3134,6 +3159,7 @@ void dce110_optimize_bandwidth(
 				true);
 }
 
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static void dce110_program_front_end_for_pipe(
 		struct dc *dc, struct pipe_ctx *pipe_ctx)
 {
@@ -3411,6 +3437,8 @@ static void dce110_set_cursor_attribute(struct pipe_ctx *pipe_ctx)
 				pipe_ctx->plane_res.xfm, attributes);
 }
 
+#endif
+
 bool dce110_set_backlight_level(struct pipe_ctx *pipe_ctx,
 	struct set_backlight_level_params *backlight_level_params)
 {
@@ -3514,6 +3542,7 @@ void dce110_enable_tmds_link_output(struct dc_link *link,
 				link->ddc_hw_inst, false);
 }
 
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static void dce110_enable_analog_link_output(
 		struct dc_link *link,
 		uint32_t pix_clk_100hz)
@@ -3522,6 +3551,8 @@ static void dce110_enable_analog_link_output(
 			link->link_enc,
 			pix_clk_100hz);
 }
+
+#endif
 
 void dce110_enable_dp_link_output(
 		struct dc_link *link,
@@ -3622,6 +3653,7 @@ void dce110_disable_link_output(struct dc_link *link,
 	dc->link_srv->dp_trace_source_sequence(link, DPCD_SOURCE_SEQ_AFTER_DISABLE_LINK_PHY);
 }
 
+#if defined(CONFIG_DRM_AMD_DC_DCE)
 static const struct hw_sequencer_funcs dce110_funcs = {
 	.program_gamut_remap = program_gamut_remap,
 	.program_output_csc = program_output_csc,
@@ -3688,8 +3720,8 @@ static const struct hwseq_private_funcs dce110_private_funcs = {
 
 void dce110_hw_sequencer_construct(struct dc *dc)
 {
-	if (IS_ENABLED(CONFIG_DRM_AMD_DC_DCE)) {
-		dc->hwss = dce110_funcs;
-		dc->hwseq->funcs = dce110_private_funcs;
-	}
+	dc->hwss = dce110_funcs;
+	dc->hwseq->funcs = dce110_private_funcs;
 }
+
+#endif /* CONFIG_DRM_AMD_DC_DCE */
