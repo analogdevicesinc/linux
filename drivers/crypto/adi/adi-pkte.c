@@ -733,5 +733,5 @@ module_platform_driver(adi_driver);
 
 MODULE_DESCRIPTION("ADI SHA1/224/256 & MD5 HW Acceleration");
 MODULE_AUTHOR("Nathan Barrett-Morrison <nathan.morrison@timesys.com>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
 
