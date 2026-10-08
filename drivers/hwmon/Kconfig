@@ -2467,6 +2467,21 @@ config SENSORS_SPD5118_DETECT
 
 	  If unsure, say Y.
 
+config SENSORS_STARFIVE_PWM_FAN
+	tristate "StarFive JHB100 PWM fan controller"
+	depends on ARCH_STARFIVE || COMPILE_TEST
+	depends on HAS_IOMEM
+	depends on PWM
+	help
+	  This driver supports the PWM fan controller found on StarFive SoCs
+	  such as the JHB100. It uses up to 8 PWM outputs supplied by an
+	  external PWM controller to control fan speed, and a tachometer block
+	  with 16 inputs to report fan speed in RPM through the hwmon sysfs
+	  interface, along with stall and low-speed alarms.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called starfive-pwm-fan.
+
 config SENSORS_TC74
 	tristate "Microchip TC74"
 	depends on I2C
