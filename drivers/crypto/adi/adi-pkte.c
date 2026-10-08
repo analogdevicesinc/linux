@@ -707,13 +707,9 @@ err_engine:
 	return ret;
 }
 
-static int adi_remove(struct platform_device *pdev)
+static void adi_remove(struct platform_device *pdev)
 {
-	struct adi_dev *pkte_dev;
-
-	pkte_dev = platform_get_drvdata(pdev);
-	if (!pkte_dev)
-		return -ENODEV;
+	struct adi_dev *pkte_dev = platform_get_drvdata(pdev);
 
 	adi_unregister_algs(pkte_dev);
 
@@ -727,8 +723,6 @@ static int adi_remove(struct platform_device *pdev)
 	dma_free_coherent(pkte_dev->dev, sizeof(struct ADI_PKTE_DEVICE),
 			  pkte_dev->pkte_device, pkte_dev->dma_handle);
 #endif
-
-	return 0;
 }
 
 static struct platform_driver adi_driver = {
