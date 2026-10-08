@@ -224,7 +224,7 @@ static void adi_append_sg(struct adi_request_ctx *rctx, struct adi_dev *pkte_dev
 		rctx->total -= count;
 
 		if (pkte_dev->flags & (PKTE_TCM_MODE | PKTE_AUTONOMOUS_MODE)) {
-			if (rctx->bufcnt >= PKTE_BUFLEN) {
+			if (rctx->bufcnt >= rctx->buflen) {
 				pkte_dev->ring_pos_produce++;
 				if (pkte_dev->ring_pos_produce >= PKTE_RING_BUFFERS)
 					pkte_dev->ring_pos_produce = 0;
@@ -525,7 +525,11 @@ static int adi_init(struct ahash_request *req)
 	rctx->bufcnt = 0;
 	rctx->total = 0;
 	rctx->offset = 0;
-	rctx->buflen = PKTE_BUFLEN;
+	/*
+	 * The engine skips the final padding when the last packet is a full
+	 * 8 KiB, so keep packets one block short of the buffer size.
+	 */
+	rctx->buflen = PKTE_BUFLEN - SHA256_BLOCK_SIZE;
 
 	pkte_dev->ring_pos_produce = 0;
 	pkte_dev->ring_pos_consume = 0;
@@ -551,8 +555,8 @@ static int adi_update_req(struct adi_dev *pkte_dev)
 			err = adi_process_packet(pkte_dev, bufcnt, 0);
 		}
 	} else {
-		if ((rctx->total >= (rctx->buflen)) ||
-			   (rctx->bufcnt + rctx->total >= (rctx->buflen))) {
+		/* Hold a full buffer back so the final packet is never empty */
+		if (rctx->bufcnt + rctx->total > rctx->buflen) {
 			adi_append_sg(rctx, pkte_dev);
 			bufcnt = rctx->bufcnt;
 			rctx->bufcnt = 0;
