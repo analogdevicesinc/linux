@@ -877,5 +877,6 @@ source "drivers/crypto/aspeed/Kconfig"
 source "drivers/crypto/starfive/Kconfig"
 source "drivers/crypto/inside-secure/eip93/Kconfig"
 source "drivers/crypto/ti/Kconfig"
+source "drivers/crypto/adi/Kconfig"
 
 endif # CRYPTO_HW

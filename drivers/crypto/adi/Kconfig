@@ -1,0 +1,27 @@
+config CRYPTO_DEV_ADI_CRC
+	tristate "Support for ADI SC5XX CRC hardware"
+	depends on (ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X)
+	help
+	  ADI SC5XX processors have CRC hardware. Select this if you
+	  want to use the ADI SC5XX CRC module.
+
+config CRYPTO_DEV_ADI_HASH
+	tristate "Support for ADI hash acceleration"
+	depends on (ARCH_SC59X || ARCH_SC59X_64)
+	select CRYPTO_HASH
+	select CRYPTO_MD5
+	select CRYPTO_SHA1
+	select CRYPTO_SHA256
+	select CRYPTO_ENGINE
+	help
+	  This enables support for hw-accelerated hashing on ADI's SC598
+
+config CRYPTO_DEV_ADI_SKCIPHER
+	tristate "Support for ADI symmetric ciphers"
+	depends on (ARCH_SC59X || ARCH_SC59X_64)
+	select CRYPTO_SKCIPHER
+	select CRYPTO_ALGAPI
+	select CRYPTO_ENGINE
+	select CRYPTO_LIB_DES
+	help
+	  This enables support for hw-accelerated symmetric ciphers on ADI's SC598
