@@ -15,28 +15,68 @@
 	model = "ADI sc594-som-ezlite";
 	compatible = "adi,sc594-som-ezlite", "adi,sc59x";
 
-	clocks {
-		compatible = "simple-bus";
-		mclk: mclk {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <24576000>;
-			clock-output-names = "mclk";
-		};
-	};
+	sound {
+		compatible = "simple-audio-card";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		simple-audio-card,name = "sound";
+		simple-audio-card,widgets = "Microphone", "AIN0",
+					    "Microphone", "AIN1",
+					    "Microphone", "AIN2",
+					    "Microphone", "AIN3",
+					    "Headphone", "STEREO OUT";
+		simple-audio-card,routing = "STEREO OUT", "CODEC HPOUTL",
+					    "STEREO OUT", "CODEC HPOUTR",
+					    "CODEC AIN0", "AIN0",
+					    "CODEC AIN1", "AIN1",
+					    "CODEC AIN2", "AIN2",
+					    "CODEC AIN3", "AIN3";
 
-	scb {
-		sound {
-			compatible = "adi,sc5xx-asoc-card";
-			adi,cpu-dai = <&i2s0>;
-			adi,codec = <&adau1372>;
+		simple-audio-card,dai-link@0 {
+			reg = <0>;
+			format = "dsp_a";
+
+			cpu {
+				sound-dai = <&i2s0 0>;
+				dai-tdm-slot-num = <4>;
+				dai-tdm-slot-width = <32>;
+			};
+
+			codec {
+				sound-dai = <&codec>;
+				frame-master;
+				bitclock-master;
+				dai-tdm-slot-num = <4>;
+				dai-tdm-slot-width = <32>;
+				playback-only;
+			};
+		};
+
+		simple-audio-card,dai-link@1 {
+			reg = <1>;
+			format = "dsp_a";
+
+			cpu {
+				sound-dai = <&i2s0 1>;
+				dai-tdm-slot-num = <4>;
+				dai-tdm-slot-width = <32>;
+			};
+
+			codec {
+				sound-dai = <&codec>;
+				frame-master;
+				bitclock-master;
+				dai-tdm-slot-num = <4>;
+				dai-tdm-slot-width = <32>;
+				capture-only;
+			};
 		};
 	};
 };
 
 &i2c2 {
-	crr_gpio_expander: adp5588@30 {
-		compatible = "adi,adp5588-gpio";
+	crr_gpio_expander: gpio@30 {
+		compatible = "adi,adp5587";
 		gpio-controller;
 		#gpio-cells = <2>;
 		reg = <0x30>;
@@ -77,13 +117,6 @@
 			line-name = "eth0-reset";
 		};
 
-		adau1372-pwrdwn {
-			gpio-hog;
-			gpios = <13 GPIO_ACTIVE_LOW>;
-			output-low;
-			line-name = "adau1372_pwrdwn";
-		};
-
 		led1 {
 			gpio-hog;
 			gpios = <15 GPIO_ACTIVE_LOW>;
@@ -106,11 +139,14 @@
 		};
 	};
 
-	adau1372: adau1372@3c {
+	codec: audio-codec@3c {
 		compatible = "adi,adau1372";
 		reg = <0x3c>;
 		clock-names = "mclk";
-		clocks = <&mclk>;
+		clocks = <&audio_clk>;
+		powerdown-gpios = <&crr_gpio_expander 13 GPIO_ACTIVE_LOW>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "CODEC";
 	};
 };
 
@@ -177,5 +213,7 @@
 &i2s0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&sru_dai0>;
+	sound-name-prefix = "SPORT0";
+
 	status = "okay";
 };
