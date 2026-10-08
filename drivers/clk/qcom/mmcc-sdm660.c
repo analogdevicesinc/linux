@@ -1088,7 +1088,6 @@ static struct clk_rcg2 video_core_clk_src = {
 		.parent_data = mmcc_xo_mmpll0_mmpll8_mmpll3_mmpll6_gpll0_mmpll7,
 		.num_parents = ARRAY_SIZE(mmcc_xo_mmpll0_mmpll8_mmpll3_mmpll6_gpll0_mmpll7),
 		.ops = &clk_rcg2_ops,
-		.flags = CLK_IS_CRITICAL,
 	},
 };
 
