@@ -522,5 +522,6 @@ bool dpp60_construct(struct dcn60_dpp *dpp60,
 bool dpp6_program_gamcor_lut(
 	struct dpp *dpp_base, const struct pwl_params *params);
 
+void dcn6_dpp_reset(struct dpp *dpp_base);
 
 #endif /* __DCN60_DPP_H__ */

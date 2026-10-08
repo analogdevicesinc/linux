@@ -316,10 +316,25 @@ void dpp60_full_bypass(struct dpp *dpp_base)
 		REG_SET(CM_CONTROL, 0, CM_BYPASS, 1);
 }
 
+void dcn6_dpp_reset(struct dpp *dpp_base)
+{
+	struct dcn60_dpp *dpp = TO_DCN60_DPP(dpp_base);
+
+	if (dpp->scl_data.upsp) {
+		if (dpp->tf_mask->UPSP_MODE) {
+			// Reset dpp registers used for upsp, lls
+			REG_WRITE(CNVC_UPSP_MODE, 0);
+			REG_WRITE(PRE_CSC_MODE, 0);
+		}
+	}
+
+	dpp_reset(dpp_base);
+}
+
 static struct dpp_funcs dcn60_dpp_funcs = {
 	.dpp_program_gamcor_lut		= dpp6_program_gamcor_lut,
 	.dpp_read_state				= dpp401_read_state,
-	.dpp_reset					= dpp_reset,
+	.dpp_reset					= dcn6_dpp_reset,
 	.dpp_set_scaler				= dpp60_dscl_set_scaler_manual_scale,
 	.dpp_get_optimal_number_of_taps	= dpp3_get_optimal_number_of_taps,
 	.dpp_set_pre_degam			= NULL,
