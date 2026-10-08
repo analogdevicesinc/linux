@@ -51,3 +51,8 @@ $(warning,$(greeting,Hello))
 
 # Unreferenced parameters are just ignored.
 $(warning,$(greeting,Hello,John,ignored,ignored))
+
+# Simply expanded variable referring to itself.
+X := 1
+X := $(X) 2
+$(warning,X = $(X))

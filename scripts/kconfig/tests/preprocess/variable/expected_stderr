@@ -7,3 +7,4 @@ Kconfig:41: AB = 5
 Kconfig:45: Hello, my name is John.
 Kconfig:50: Hello, my name is .
 Kconfig:53: Hello, my name is John.
+Kconfig:58: X = 1 2
