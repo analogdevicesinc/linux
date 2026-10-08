@@ -6984,6 +6984,12 @@ static bool nfsd4_want_deleg_timestamps(const struct nfsd4_open *open)
 	return open->op_deleg_want & OPEN4_SHARE_ACCESS_WANT_DELEG_TIMESTAMPS;
 }
 
+static bool nfsd4_want_read_deleg(const struct nfsd4_open *open)
+{
+	return (open->op_deleg_want & NFS4_SHARE_WANT_TYPE_MASK) ==
+		OPEN4_SHARE_ACCESS_WANT_READ_DELEG;
+}
+
 static void
 nfs4_delegation_record_grant_slot(struct nfs4_delegation *dp,
 				 const struct nfsd4_compound_state *cstate)
@@ -7041,14 +7047,16 @@ nfs4_set_delegation(struct nfsd4_open *open,
 	 *  We choose to offer a write delegation for OPEN with the
 	 *  OPEN4_SHARE_ACCESS_WRITE access mode to accommodate such clients.
 	 */
-	if (open->op_share_access & NFS4_SHARE_ACCESS_WRITE) {
+	if ((open->op_share_access & NFS4_SHARE_ACCESS_WRITE) &&
+	    !nfsd4_want_read_deleg(open)) {
 		nf = find_writeable_file(fp);
 		dl_type = deleg_ts ? OPEN_DELEGATE_WRITE_ATTRS_DELEG : OPEN_DELEGATE_WRITE;
 	}
 
 	/*
-	 * If the file is being opened O_RDONLY or we couldn't get a O_RDWR
-	 * file for some reason, then try for a read delegation instead.
+	 * A read delegation can go to a client that holds a write open
+	 * of the file: nfsd_breaker_owns_lease() keeps the holder's own
+	 * opens from breaking it.
 	 */
 	if (!nf && (open->op_share_access & NFS4_SHARE_ACCESS_READ)) {
 		nf = find_readable_file(fp);
@@ -7325,7 +7333,7 @@ nfs4_open_delegation(struct svc_rqst *rqstp, struct nfsd4_open *open,
 
 	memcpy(&open->op_delegate_stateid, &dp->dl_stid.sc_stateid, sizeof(dp->dl_stid.sc_stateid));
 
-	if (open->op_share_access & NFS4_SHARE_ACCESS_WRITE) {
+	if (deleg_is_write(dp->dl_type)) {
 		struct file *f;
 
 		f = rcu_dereference_protected(dp->dl_stid.sc_file->fi_deleg_file, 1)->nf_file;
@@ -7370,6 +7378,10 @@ static bool open_xor_delegation(struct nfsd4_open *open)
 		return false;
 	/* Did we actually get a delegation? */
 	if (!deleg_is_read(open->op_delegate_type) && !deleg_is_write(open->op_delegate_type))
+		return false;
+	/* A read delegation stateid does not permit WRITE. */
+	if (deleg_is_read(open->op_delegate_type) &&
+	    (open->op_share_access & NFS4_SHARE_ACCESS_WRITE))
 		return false;
 	return true;
 }
