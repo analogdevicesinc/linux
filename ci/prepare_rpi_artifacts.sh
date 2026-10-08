@@ -32,11 +32,13 @@ trap "rm -rf ${WORK_DIR}" EXIT
 
 #create version file found in the boot partition
 create_version_file() {
+	local kernel_version="$3"
 	mkdir -p ${WORK_DIR}/${1}
 	echo -e "RPI Boot Files: ${BUILD_SOURCEBRANCHNAME} ${GIT_SHA_DATE}\n" > ${WORK_DIR}/${1}/version_rpi.txt
 	echo -e "  Linux repository: https://github.com/analogdevicesinc/linux" >> ${WORK_DIR}/${1}/version_rpi.txt
 	echo -e "  Linux branch: ${BUILD_SOURCEBRANCHNAME}" >> ${WORK_DIR}/${1}/version_rpi.txt
-	echo -e "  Linux git sha: ${GIT_SHA}\n" >> ${WORK_DIR}/${1}/version_rpi.txt
+	echo -e "  Linux git sha: ${GIT_SHA}" >> ${WORK_DIR}/${1}/version_rpi.txt
+	echo -e "  Linux kernel version: ${kernel_version}\n" >> ${WORK_DIR}/${1}/version_rpi.txt
 	echo -e "Supported RaspberryPi platforms:\n" >> ${WORK_DIR}/${1}/version_rpi.txt
 	list=($2)
 	for platform in "${list[@]}"; do
@@ -80,7 +82,9 @@ artifacts_structure() {
 	echo "=== Processing 32-bit artifacts ==="
 	mkdir -p ${WORK_DIR}/32bit
 	mkdir -p ${WORK_DIR}/32bit/modules
-	create_version_file 32bit "${typeBCM_32bit[*]}"
+	local kernel_version_32
+	kernel_version_32=$(ls "${SOURCE_DIRECTORY}/adi_${typeBCM_32bit[0]}_defconfig-gcc-arm/lib/modules/" 2>/dev/null | head -1)
+	create_version_file 32bit "${typeBCM_32bit[*]}" "$kernel_version_32"
 	for index in "${!typeBCM_32bit[@]}"; do
 		local artifact_dir="adi_${typeBCM_32bit[$index]}_defconfig-gcc-arm"
 		echo "Processing ${artifact_dir}..."
@@ -116,7 +120,9 @@ artifacts_structure() {
 	echo "=== Processing 64-bit artifacts ==="
 	mkdir -p ${WORK_DIR}/64bit
 	mkdir -p ${WORK_DIR}/64bit/modules
-	create_version_file 64bit "${typeBCM_64bit[*]}"
+	local kernel_version_64
+	kernel_version_64=$(ls "${SOURCE_DIRECTORY}/adi_${typeBCM_64bit[0]}_defconfig-gcc-arm64/lib/modules/" 2>/dev/null | head -1)
+	create_version_file 64bit "${typeBCM_64bit[*]}" "$kernel_version_64"
 	for index in "${!typeBCM_64bit[@]}"; do
 		local artifact_dir="adi_${typeBCM_64bit[$index]}_defconfig-gcc-arm64"
 		echo "Processing ${artifact_dir}..."
