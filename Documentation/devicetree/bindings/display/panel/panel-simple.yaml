@@ -396,6 +396,7 @@ if:
       compatible:
         contains:
           enum:
+            - auo,g104sn02
             - innolux,g101ice-l01
             - yes-optoelectronics,ytc700tlag-05-201c
 then:
