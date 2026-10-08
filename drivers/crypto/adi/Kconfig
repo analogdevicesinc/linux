@@ -1,27 +1,44 @@
+# SPDX-License-Identifier: GPL-2.0-only
 config CRYPTO_DEV_ADI_CRC
 	tristate "Support for ADI SC5XX CRC hardware"
-	depends on (ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X)
+	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST
+	depends on HAS_DMA
+	select CRYPTO_HASH
 	help
 	  ADI SC5XX processors have CRC hardware. Select this if you
-	  want to use the ADI SC5XX CRC module.
+	  want to use the ADI SC5XX CRC module. It provides the keyed
+	  hmac(crc32) hash, where the key is the CRC seed, and is used
+	  through the crypto API or cryptodev.
+
+config CRYPTO_DEV_ADI_PKTE
+	tristate "Support for the ADI SC59x security packet engine"
+	depends on ARCH_SC59X || ARCH_SC59X_64 || COMPILE_TEST
+	depends on HAS_DMA
+	select CRYPTO_ENGINE
+	help
+	  This enables the security packet engine (PKTE) found on ADI SC59x
+	  processors. Requests are queued through the crypto engine and
+	  processed by the PKTE in autonomous ring mode by default. Select
+	  the algorithms to offload below.
 
 config CRYPTO_DEV_ADI_HASH
-	tristate "Support for ADI hash acceleration"
-	depends on (ARCH_SC59X || ARCH_SC59X_64)
+	bool "Support for ADI hash acceleration"
+	depends on CRYPTO_DEV_ADI_PKTE
+	default y
 	select CRYPTO_HASH
 	select CRYPTO_MD5
 	select CRYPTO_SHA1
 	select CRYPTO_SHA256
-	select CRYPTO_ENGINE
 	help
-	  This enables support for hw-accelerated hashing on ADI's SC598
+	  This enables MD5, SHA1, SHA224 and SHA256 hashes and their HMAC
+	  variants on the ADI packet engine.
 
 config CRYPTO_DEV_ADI_SKCIPHER
-	tristate "Support for ADI symmetric ciphers"
-	depends on (ARCH_SC59X || ARCH_SC59X_64)
+	bool "Support for ADI symmetric ciphers"
+	depends on CRYPTO_DEV_ADI_PKTE
+	default y
 	select CRYPTO_SKCIPHER
-	select CRYPTO_ALGAPI
-	select CRYPTO_ENGINE
 	select CRYPTO_LIB_DES
 	help
-	  This enables support for hw-accelerated symmetric ciphers on ADI's SC598
+	  This enables AES, DES and 3DES in ECB and CBC modes on the ADI
+	  packet engine.
