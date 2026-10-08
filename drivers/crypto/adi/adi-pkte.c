@@ -11,8 +11,6 @@
  * Contact: Greg Malysa <greg.malysa@timesys.com>
  */
 
-#include <asm/cacheflush.h>
-
 #include <linux/clk.h>
 #include <linux/crypto.h>
 #include <linux/delay.h>

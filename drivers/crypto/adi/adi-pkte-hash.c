@@ -11,8 +11,6 @@
  * Contact: Greg Malysa <greg.malysa@timesys.com>
  */
 
-#include <asm/cacheflush.h>
-
 #include <linux/clk.h>
 #include <linux/crypto.h>
 #include <linux/delay.h>
@@ -361,22 +359,6 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 		pkte_dev->flags |= PKTE_FLAGS_STARTED;
 	}
 
-
-#ifndef PKTE_USE_SRAM
-	//The dma_alloc_coherent region does not appear to be uncached on the SC594
-	//Let's manually flush the cache before we trigger the DMA operation
-	if (current->mm) {
-		int i;
-
-		for (i = 0; i < VMACACHE_SIZE; i++) {
-			if (!current->vmacache.vmas[i])
-				continue;
-			flush_cache_range(current->vmacache.vmas[i],
-					   (long)pkte,
-					  ((long)pkte) + sizeof(struct ADI_PKTE_DEVICE));
-		}
-	}
-#endif
 
 	if (pkte_dev->flags & (PKTE_TCM_MODE | PKTE_AUTONOMOUS_MODE)) {
 		pkte_dev->ring_pos_consume++;
