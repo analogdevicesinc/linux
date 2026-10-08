@@ -1479,12 +1479,12 @@ create_stream_for_sink(struct drm_connector *connector,
 	struct drm_device *dev = connector->dev;
 	struct amdgpu_dm_connector *aconnector = NULL;
 	struct drm_display_mode *preferred_mode = NULL;
+	struct drm_display_mode *connector_mode;
 	const struct drm_connector_state *con_state = &dm_state->base;
 	struct dc_stream_state *stream = NULL;
 	struct drm_display_mode mode;
 	struct drm_display_mode saved_mode;
 	struct drm_display_mode *freesync_mode = NULL;
-	bool native_mode_found = false;
 	bool recalculate_timing = false;
 	bool unadvertised_mode = false;
 	bool scale = dm_state->scaling != RMX_OFF;
@@ -1536,14 +1536,14 @@ create_stream_for_sink(struct drm_connector *connector,
 	stream->timing.flags.LTE_340MCSC_SCRAMBLE =
 		connector->display_info.hdmi.scdc.scrambling.low_rates;
 
-	list_for_each_entry(preferred_mode, &connector->modes, head) {
+	list_for_each_entry(connector_mode, &connector->modes, head) {
 		/* Search for preferred mode */
-		if (preferred_mode->type & DRM_MODE_TYPE_PREFERRED) {
-			native_mode_found = true;
+		if (connector_mode->type & DRM_MODE_TYPE_PREFERRED) {
+			preferred_mode = connector_mode;
 			break;
 		}
 	}
-	if (!native_mode_found)
+	if (!preferred_mode)
 		preferred_mode = list_first_entry_or_null(
 				&connector->modes,
 				struct drm_display_mode,
