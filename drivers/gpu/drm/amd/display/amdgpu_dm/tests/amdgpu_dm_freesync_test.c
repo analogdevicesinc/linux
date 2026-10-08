@@ -349,8 +349,11 @@ static void dm_test_freesync_config_invalid_timing(struct kunit *test)
 	struct dm_test_freesync_ctx *ctx = dm_test_freesync_ctx_alloc(test);
 
 	ctx->conn_state->freesync_capable = true;
-	ctx->aconnector->min_vfreq = 40;
+	ctx->aconnector->min_vfreq = 45;
 	ctx->aconnector->max_vfreq = 60;
+	ctx->stream->timing.pix_clk_100hz = 270000;
+	ctx->stream->timing.h_total = 864;
+	ctx->stream->timing.v_total = 625;
 	ctx->crtc_state->base.mode.clock = 27000;
 	ctx->crtc_state->base.mode.hdisplay = 720;
 	ctx->crtc_state->base.mode.vdisplay = 576;
@@ -363,6 +366,9 @@ static void dm_test_freesync_config_invalid_timing(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)ctx->crtc_state->freesync_config.state,
 			(int)VRR_STATE_UNSUPPORTED);
 
+	ctx->stream->timing.pix_clk_100hz = 5940000;
+	ctx->stream->timing.h_total = 4400;
+	ctx->stream->timing.v_total = 2250;
 	ctx->crtc_state->base.mode.clock = 594000;
 	ctx->crtc_state->base.mode.hdisplay = 3840;
 	ctx->crtc_state->base.mode.vdisplay = 2160;
