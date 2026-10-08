@@ -1711,6 +1711,7 @@ bool disk_live(struct gendisk *disk);
 unsigned int block_size(struct block_device *bdev);
 
 #ifdef CONFIG_BLOCK
+void kill_bdev(struct block_device *bdev);
 void invalidate_bdev(struct block_device *bdev);
 int sync_blockdev(struct block_device *bdev);
 int sync_blockdev_range(struct block_device *bdev, loff_t lstart, loff_t lend);
