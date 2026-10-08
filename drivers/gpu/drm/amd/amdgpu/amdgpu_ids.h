@@ -135,6 +135,7 @@ void amdgpu_vmid_reset_all(struct amdgpu_device *adev);
 void amdgpu_vmid_mgr_init(struct amdgpu_device *adev);
 void amdgpu_vmid_mgr_fini(struct amdgpu_device *adev);
 void amdgpu_vmid_mgr_set_vmid_mask(struct amdgpu_device *adev,
-				   unsigned long vmid_mask, bool for_mmhub);
+				   unsigned long gfx_vmid_mask,
+				   unsigned long mmhub_vmid_mask);
 
 #endif

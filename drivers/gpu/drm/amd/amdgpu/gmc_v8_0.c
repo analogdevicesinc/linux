@@ -1051,7 +1051,7 @@ static int gmc_v8_0_sw_init(struct amdgpu_ip_block *ip_block)
 {
 	int r;
 	struct amdgpu_device *adev = ip_block->adev;
-	unsigned long gfx_vmid_mask;
+	unsigned long vmid_mask;
 
 	set_bit(AMDGPU_GFXHUB(0), adev->vmhubs_mask);
 
@@ -1119,15 +1119,11 @@ static int gmc_v8_0_sw_init(struct amdgpu_ip_block *ip_block)
 	/*
 	 * number of VMs
 	 * VMID 0 is reserved for System
-	 * amdgpu graphics/compute will use VMIDs 1-7
-	 * amdkfd will use VMIDs 8-15
+	 * amdgpu graphics/compute kernel queues will use VMIDs 1-7
+	 * amdkfd/MES user queues will use VMIDs 8-15
 	 */
-	gfx_vmid_mask = GENMASK(7, 1);
-
-	adev->vm_manager.vmid_uq_mask_gfxhub =
-		GENMASK(AMDGPU_NUM_VMID - 1, 1) & ~gfx_vmid_mask;
-	amdgpu_vmid_mgr_set_vmid_mask(adev, gfx_vmid_mask, false);
-	amdgpu_vmid_mgr_set_vmid_mask(adev, gfx_vmid_mask, true);
+	vmid_mask = GENMASK(7, 1);
+	amdgpu_vmid_mgr_set_vmid_mask(adev, vmid_mask, vmid_mask);
 	amdgpu_vm_manager_init(adev);
 
 	/* base offset of vram pages */

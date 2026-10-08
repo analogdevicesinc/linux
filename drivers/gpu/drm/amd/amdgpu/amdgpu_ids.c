@@ -631,44 +631,48 @@ void amdgpu_vmid_reset_all(struct amdgpu_device *adev)
 }
 
 /**
- * amdgpu_vmid_mgr_set_vmid_mask - set the kernel-queue VMID pool for a
- * hub, and the matching user-queue mask on MMHUB
+ * amdgpu_vmid_mgr_set_vmid_mask - set the kernel- and user-queue VMID
+ * pools for both hubs
  *
  * @adev: amdgpu device structure
- * @vmid_mask: kernel-queue round-robin VMID mask for this hub
- * @for_mmhub: true to target MMHUB instances, false for GFXHUB
+ * @gfx_vmid_mask: kernel-queue VMID pool mask for GFXHUB
+ * @mmhub_vmid_mask: kernel-queue VMID pool mask for MMHUB
  *
- * On MMHUB, also sets vmid_uq_mask_mmhub to the fixed pool of VMIDs
- * MES/KFD use there, excluding npa_vmid (a VMID dedicated to a single
- * fixed purpose) from both the kernel- and user-queue masks; the
- * caller must already have set npa_vmid. vmid_uq_mask_gfxhub is set
- * directly by each generation's sw_init(), since unlike MMHUB's it
- * varies per generation.
+ * Sets both hubs' kernel-queue VMID pools (tracked least-recently-used
+ * via id_mgr[].ids_lru), and both hubs' KFD/MES user-queue masks.
+ * vmid_uq_mask_gfxhub is set to the
+ * complement of @gfx_vmid_mask, since unlike MMHUB's it is always a
+ * clean partition of the full VMID range; vmid_uq_mask_mmhub is the
+ * fixed pool set here instead, since MMHUB's kq and uq pools are
+ * allowed to overlap. A VMID dedicated to a single fixed purpose on
+ * MMHUB (npa_vmid) is excluded from both MMHUB pools; it is the
+ * caller's responsibility to have already set npa_vmid.
  */
 void amdgpu_vmid_mgr_set_vmid_mask(struct amdgpu_device *adev,
-				   unsigned long vmid_mask, bool for_mmhub)
+				   unsigned long gfx_vmid_mask,
+				   unsigned long mmhub_vmid_mask)
 {
 	unsigned int i;
 
 	BUILD_BUG_ON(AMDGPU_NUM_VMID > BITS_PER_LONG);
 
-	if (for_mmhub && adev->vm_manager.npa_vmid)
-		vmid_mask &= ~BIT(adev->vm_manager.npa_vmid);
+	if (adev->vm_manager.npa_vmid)
+		mmhub_vmid_mask &= ~BIT(adev->vm_manager.npa_vmid);
 
 	for (i = 0; i < AMDGPU_MAX_VMHUBS; i++) {
 		bool is_mmhub = AMDGPU_IS_MMHUB0(i) || AMDGPU_IS_MMHUB1(i);
 
-		if (is_mmhub == for_mmhub)
-			bitmap_copy(adev->vm_manager.id_mgr[i].vmid_mask,
-				    &vmid_mask, AMDGPU_NUM_VMID);
+		bitmap_copy(adev->vm_manager.id_mgr[i].vmid_mask,
+			    is_mmhub ? &mmhub_vmid_mask : &gfx_vmid_mask,
+			    AMDGPU_NUM_VMID);
 	}
 
-	if (for_mmhub) {
-		adev->vm_manager.vmid_uq_mask_mmhub = 0xFF00;
-		if (adev->vm_manager.npa_vmid)
-			adev->vm_manager.vmid_uq_mask_mmhub &=
-				~BIT(adev->vm_manager.npa_vmid);
-	}
+	adev->vm_manager.vmid_uq_mask_gfxhub =
+		GENMASK(AMDGPU_NUM_VMID - 1, 1) & ~gfx_vmid_mask;
+
+	adev->vm_manager.vmid_uq_mask_mmhub = 0xFF00;
+	if (adev->vm_manager.npa_vmid)
+		adev->vm_manager.vmid_uq_mask_mmhub &= ~BIT(adev->vm_manager.npa_vmid);
 }
 
 /**

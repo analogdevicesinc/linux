@@ -1849,8 +1849,8 @@ static int gmc_v9_0_sw_init(struct amdgpu_ip_block *ip_block)
 	int r, vram_width = 0, vram_type = 0, vram_vendor = 0, dma_addr_bits;
 	struct amdgpu_device *adev = ip_block->adev;
 	unsigned long inst_mask = adev->aid_mask;
-	unsigned int first_userq_vmid;
-	unsigned long gfx_vmid_mask;
+	unsigned int last_kq_vmid;
+	unsigned long vmid_mask;
 
 	adev->gfxhub.funcs->init(adev);
 
@@ -2019,8 +2019,8 @@ static int gmc_v9_0_sw_init(struct amdgpu_ip_block *ip_block)
 	/*
 	 * number of VMs
 	 * VMID 0 is reserved for System
-	 * amdgpu graphics/compute will use VMIDs 1..n-1
-	 * amdkfd will use VMIDs n..15
+	 * amdgpu graphics/compute kernel queues will use VMIDs 1..n-1
+	 * amdkfd/MES user queues will use VMIDs n..15
 	 *
 	 * The first KFD VMID is 8 for GPUs with graphics, 3 for
 	 * compute-only GPUs. On compute-only GPUs that leaves 2 VMIDs
@@ -2032,21 +2032,17 @@ static int gmc_v9_0_sw_init(struct amdgpu_ip_block *ip_block)
 	    adev->jpeg.disable_kq &&
 	    adev->vcn.disable_kq &&
 	    adev->sdma.no_user_submission)
-		first_userq_vmid = 1;
+		last_kq_vmid = 0;
 	else
-		first_userq_vmid =
+		last_kq_vmid =
 			(amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 1) ||
 			 amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 2) ||
 			 amdgpu_is_multi_aid(adev)) ?
-			3 :
-			8;
+			2 :
+			7;
 
-	gfx_vmid_mask = GENMASK(first_userq_vmid - 1, 1);
-
-	adev->vm_manager.vmid_uq_mask_gfxhub =
-		GENMASK(AMDGPU_NUM_VMID - 1, 1) & ~gfx_vmid_mask;
-	amdgpu_vmid_mgr_set_vmid_mask(adev, gfx_vmid_mask, false);
-	amdgpu_vmid_mgr_set_vmid_mask(adev, gfx_vmid_mask, true);
+	vmid_mask = GENMASK(last_kq_vmid, 1);
+	amdgpu_vmid_mgr_set_vmid_mask(adev, vmid_mask, vmid_mask);
 	amdgpu_vm_manager_init(adev);
 
 	gmc_v9_0_save_registers(adev);
