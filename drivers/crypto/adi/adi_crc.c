@@ -268,7 +268,6 @@ static struct ahash_alg algs = {
 					  CRYPTO_ALG_NO_FALLBACK,
 		.cra_blocksize		= CHKSUM_BLOCK_SIZE,
 		.cra_ctxsize		= sizeof(struct adi_crypto_crc_ctx),
-		.cra_alignmask		= 3,
 		.cra_module		= THIS_MODULE,
 	}
 };

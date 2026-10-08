@@ -878,7 +878,6 @@ static struct ahash_engine_alg algs_md5_sha1[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = MD5_HMAC_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_init,
 				.cra_module = THIS_MODULE,
 			}
@@ -905,7 +904,6 @@ static struct ahash_engine_alg algs_md5_sha1[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = MD5_HMAC_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_md5_init,
 				.cra_module = THIS_MODULE,
 			}
@@ -931,7 +929,6 @@ static struct ahash_engine_alg algs_md5_sha1[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA1_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_init,
 				.cra_module = THIS_MODULE,
 			}
@@ -958,7 +955,6 @@ static struct ahash_engine_alg algs_md5_sha1[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA1_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_sha1_init,
 				.cra_module = THIS_MODULE,
 			}
@@ -987,7 +983,6 @@ static struct ahash_engine_alg algs_sha224_sha256[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA224_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_init,
 				.cra_module = THIS_MODULE,
 			}
@@ -1014,7 +1009,6 @@ static struct ahash_engine_alg algs_sha224_sha256[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA224_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_sha224_init,
 				.cra_module = THIS_MODULE,
 			}
@@ -1040,7 +1034,6 @@ static struct ahash_engine_alg algs_sha224_sha256[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA256_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_init,
 				.cra_module = THIS_MODULE,
 			}
@@ -1067,7 +1060,6 @@ static struct ahash_engine_alg algs_sha224_sha256[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA256_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_sha256_init,
 				.cra_module = THIS_MODULE,
 			}
