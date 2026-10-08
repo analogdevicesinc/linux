@@ -19,7 +19,7 @@
 #include "adrv9001_arm_macros.h"
 #include "object_ids.h"
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_bbdc_RejectionEnable_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_bbdc_RejectionEnable_Set_Validate(adi_adrv9001_Device_t *device,
                                          adi_common_Port_e port,
                                          adi_common_ChannelNumber_e channel,
                                          adi_adrv9001_BbdcRejectionStatus_e bbdcRejectionStatus)
@@ -72,7 +72,7 @@ int32_t adi_adrv9001_bbdc_RejectionEnable_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_bbdc_RejectionEnable_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_bbdc_RejectionEnable_Get_Validate(adi_adrv9001_Device_t *device,
                                          adi_common_Port_e port,
                                          adi_common_ChannelNumber_e channel,
                                          adi_adrv9001_BbdcRejectionStatus_e *bbdcRejectionStatus)
@@ -133,7 +133,7 @@ int32_t adi_adrv9001_bbdc_RejectionEnable_Get(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9010_bbdc_LoopGain_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9010_bbdc_LoopGain_Set_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                       adi_common_ChannelNumber_e channel,
                                                                       uint32_t loopGain)
 {
@@ -172,7 +172,7 @@ int32_t adi_adrv9010_bbdc_LoopGain_Set(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9010_bbdc_LoopGain_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9010_bbdc_LoopGain_Get_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                       adi_common_ChannelNumber_e channel,
                                                                       uint32_t *loopGain)
 {

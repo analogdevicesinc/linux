@@ -332,7 +332,7 @@ int32_t adi_adrv9001_Stream_Version(adi_adrv9001_Device_t *device, adi_adrv9001_
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Stream_Gpio_Debug_Set_Validate(adi_adrv9001_Device_t *adrv9001)
+static __maybe_unused int32_t adi_adrv9001_Stream_Gpio_Debug_Set_Validate(adi_adrv9001_Device_t *adrv9001)
 {
     adi_adrv9001_RadioState_t currentState = { 0 };
     uint8_t chanId = 0u;
@@ -378,7 +378,7 @@ int32_t adi_adrv9001_Stream_Gpio_Debug_Set(adi_adrv9001_Device_t *adrv9001, bool
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Stream_Gpio_Debug_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Stream_Gpio_Debug_Get_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                              bool *streamToGpioDebug)
 {
     ADI_NULL_PTR_RETURN(&adrv9001->common, streamToGpioDebug);

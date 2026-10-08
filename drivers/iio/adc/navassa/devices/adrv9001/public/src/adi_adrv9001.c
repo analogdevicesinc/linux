@@ -43,6 +43,7 @@ int32_t adi_adrv9001_HwOpenNoReset(adi_adrv9001_Device_t *device, adi_adrv9001_S
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 
     ADI_ENTRY_EXPECT(device);
+    ADI_NULL_PTR_RETURN(&device->common, spiSettings);
 
     recoveryAction = adi_adrv9001_hal_open(device->common.devHalInfo);
     ADI_ERROR_REPORT(&device->common,
@@ -530,7 +531,7 @@ int32_t adi_adrv9001_Profiles_Verify(adi_adrv9001_Device_t *device, adi_adrv9001
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adrv9001_TemperatureGetValidate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_TemperatureGetValidate(adi_adrv9001_Device_t *device,
 	                                                                         adi_adrv9001_TempReadMode_e tempReadMode,
                                                                              int16_t *temperature_C)
 {

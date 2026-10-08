@@ -58,7 +58,7 @@
 *********************************************************************************************************
 */
 
-#define NEGATIVE(x)		-(x)
+#define NEGATIVE(x)               (-(x))
 
 static const uint16_t NORMAL_MAX_ATTENUATION_MDB = 41950;
 static const uint16_t NORMAL_ATTENUATION_RESOLUTION_MDB = 50;
@@ -130,7 +130,7 @@ static uint32_t Tx_AttenTableAddr_Get(adi_common_ChannelNumber_e channel)
 
 /*********************************************************************************************************/
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_AttenuationMode_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_AttenuationMode_Set_Validate(adi_adrv9001_Device_t *device,
                                                                            adi_common_ChannelNumber_e channel,
                                                                            adi_adrv9001_TxAttenuationControlMode_e mode)
 {
@@ -207,7 +207,7 @@ int32_t adi_adrv9001_Tx_AttenuationMode_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device)
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_AttenuationMode_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_AttenuationMode_Get_Validate(adi_adrv9001_Device_t *device,
                                                                            adi_common_ChannelNumber_e channel,
                                                                            adi_adrv9001_TxAttenuationControlMode_e *mode)
 {
@@ -238,7 +238,7 @@ int32_t adi_adrv9001_Tx_AttenuationMode_Get(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_Attenuation_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                              adi_common_ChannelNumber_e channel,
                                                                              adi_adrv9001_TxAttenuationConfig_t *config)
 {
@@ -265,7 +265,7 @@ int32_t adi_adrv9001_Tx_Attenuation_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_Attenuation_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                            adi_common_ChannelNumber_e channel,
                                                                            adi_adrv9001_TxAttenuationConfig_t *config)
 {
@@ -342,7 +342,7 @@ static __maybe_unused int32_t adi_adrv9001_TxAttenDmGet(adi_adrv9001_Device_t *d
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_Set_Validate(adi_adrv9001_Device_t* device,
+static __maybe_unused int32_t adi_adrv9001_Tx_Attenuation_Set_Validate(adi_adrv9001_Device_t* device,
                                                                        adi_common_ChannelNumber_e channel,
                                                                        uint16_t attenuation_mdB)
 {
@@ -465,7 +465,7 @@ int32_t adi_adrv9001_Tx_Attenuation_Set(adi_adrv9001_Device_t* device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_Get_Validate(adi_adrv9001_Device_t* device,
+static __maybe_unused int32_t adi_adrv9001_Tx_Attenuation_Get_Validate(adi_adrv9001_Device_t* device,
                                                                        adi_common_ChannelNumber_e channel,
                                                                        uint16_t *attenuation_mdB)
 {
@@ -548,7 +548,7 @@ int32_t adi_adrv9001_Tx_Attenuation_Get(adi_adrv9001_Device_t* device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_OutputPowerBoost_Set_Validate(adi_adrv9001_Device_t* device,
+static __maybe_unused int32_t adi_adrv9001_Tx_OutputPowerBoost_Set_Validate(adi_adrv9001_Device_t* device,
                                                                             adi_common_ChannelNumber_e channel)
 {
     adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
@@ -619,7 +619,7 @@ int32_t adi_adrv9001_Tx_OutputPowerBoost_Get(adi_adrv9001_Device_t* device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_AttenuationTable_Write_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_AttenuationTable_Write_Validate(adi_adrv9001_Device_t *device,
                                                                               uint32_t channelMask,
                                                                               uint32_t indexOffset,
                                                                               adi_adrv9001_TxAttenTableRow_t attenTableRows[],
@@ -753,7 +753,7 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Write(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_AttenuationTable_Read_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_AttenuationTable_Read_Validate(adi_adrv9001_Device_t *device,
                                                                              adi_common_ChannelNumber_e channel,
                                                                              uint32_t indexOffset,
                                                                              adi_adrv9001_TxAttenTableRow_t attenTableRows[],
@@ -871,7 +871,7 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Read(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_PaProtection_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_PaProtection_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                               adi_common_ChannelNumber_e channel,
                                                                               adi_adrv9001_TxPaProtectCfg_t *config)
 {
@@ -917,7 +917,7 @@ int32_t adi_adrv9001_Tx_PaProtection_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_PaProtection_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_PaProtection_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                             adi_common_ChannelNumber_e channel,
                                                                             adi_adrv9001_TxPaProtectCfg_t *config)
 {
@@ -957,7 +957,7 @@ int32_t adi_adrv9001_Tx_PaProtection_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_InternalToneGeneration_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Tx_InternalToneGeneration_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                         adi_common_ChannelNumber_e channel,
                                                                                         adi_adrv9001_TxInternalToneGeneration_t *tone)
 {
@@ -1013,7 +1013,7 @@ int32_t adi_adrv9001_Tx_InternalToneGeneration_Configure(adi_adrv9001_Device_t *
     ADI_API_RETURN(adrv9001)
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_InternalToneGeneration_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Tx_InternalToneGeneration_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                       adi_common_ChannelNumber_e channel,
                                                                                       adi_adrv9001_TxInternalToneGeneration_t *tone)
 {
@@ -1057,7 +1057,7 @@ int32_t adi_adrv9001_Tx_InternalToneGeneration_Inspect(adi_adrv9001_Device_t *ad
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_SlewRateLimiter_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_SlewRateLimiter_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                               adi_common_ChannelNumber_e channel,
                                                                               adi_adrv9001_SlewRateLimiterCfg_t *config)
 {
@@ -1139,7 +1139,7 @@ int32_t adi_adrv9001_Tx_SlewRateLimiter_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_SlewRateLimiter_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_SlewRateLimiter_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                             adi_common_ChannelNumber_e channel,
                                                                             adi_adrv9001_SlewRateLimiterCfg_t *config)
 {
@@ -1189,7 +1189,7 @@ int32_t adi_adrv9001_Tx_SlewRateLimiter_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_PaRamp_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_PaRamp_Configure_Validate(adi_adrv9001_Device_t *device,
                                     adi_common_ChannelNumber_e channel,
                                     adi_adrv9001_PaRampCfg_t *paRampCfg)
 {
@@ -1572,7 +1572,7 @@ int32_t adi_adrv9001_Tx_PaRamp_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_PaRamp_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_PaRamp_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                       adi_common_ChannelNumber_e channel,
                                                                       adi_adrv9001_PaRampCfg_t *paRampCfg)
 {
@@ -1835,7 +1835,7 @@ int32_t adi_adrv9001_Tx_PaRamp_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_PinControl_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_Attenuation_PinControl_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                                         adi_common_ChannelNumber_e channel,
                                                                                         adi_adrv9001_TxAttenuationPinControlCfg_t *config)
 {
@@ -1943,7 +1943,7 @@ int32_t adi_adrv9001_Tx_Attenuation_PinControl_Configure(adi_adrv9001_Device_t *
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_PinControl_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Tx_Attenuation_PinControl_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                                       adi_common_ChannelNumber_e channel,
                                                                                       adi_adrv9001_TxAttenuationPinControlCfg_t *config)
 {
@@ -2006,7 +2006,7 @@ int32_t adi_adrv9001_Tx_Attenuation_PinControl_Inspect(adi_adrv9001_Device_t *de
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adrv9001_Tx_FrequencyCorrection_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_Tx_FrequencyCorrection_Set_Validate(adi_adrv9001_Device_t *device,
                                                                            adi_common_ChannelNumber_e channel,
                                                                            int32_t frequencyOffset_Hz)
 {

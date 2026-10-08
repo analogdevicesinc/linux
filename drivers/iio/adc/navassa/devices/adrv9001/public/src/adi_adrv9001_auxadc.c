@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <math.h>
 #endif
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_AuxAdc_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_AuxAdc_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                      adi_adrv9001_AuxAdc_e auxAdc)
 {
     ADI_RANGE_CHECK(device, auxAdc, ADI_ADRV9001_AUXADC0, ADI_ADRV9001_AUXADC3);
@@ -89,7 +89,7 @@ int32_t adi_adrv9001_AuxAdc_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_AuxAdc_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_AuxAdc_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                    adi_adrv9001_AuxAdc_e auxAdc,
                                                                    bool *enabled)
 {
@@ -128,7 +128,7 @@ int32_t adi_adrv9001_AuxAdc_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_AuxAdc_Voltage_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_AuxAdc_Voltage_Get_Validate(adi_adrv9001_Device_t *device,
                                                                        adi_adrv9001_AuxAdc_e auxAdc,
                                                                        uint16_t *auxAdc_mV)
 {

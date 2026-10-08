@@ -39,7 +39,7 @@
 
 #include "object_ids.h"
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_ChannelPowerSaving_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_powerSavingAndMonitorMode_ChannelPowerSaving_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                                                            adi_common_ChannelNumber_e channel,
                                                                                                            adi_adrv9001_PowerSavingAndMonitorMode_ChannelPowerSavingCfg_t *powerSavingCfg)
 {
@@ -149,7 +149,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_ChannelPowerSaving_Configure(adi_
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_ChannelPowerSaving_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_powerSavingAndMonitorMode_ChannelPowerSaving_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                                                          adi_common_ChannelNumber_e channel,
                                                                                                          adi_adrv9001_PowerSavingAndMonitorMode_ChannelPowerSavingCfg_t *powerSavingCfg)
 {
@@ -236,7 +236,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_ChannelPowerSaving_Inspect(adi_ad
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused SystemPowerSavingAndMonitorMode_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t SystemPowerSavingAndMonitorMode_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                                  adi_adrv9001_PowerSavingAndMonitorMode_SystemPowerSavingAndMonitorModeCfg_t *monitorModeCfg)
 {
     adi_adrv9001_GpioCfg_t gpio = { 0 };
@@ -414,7 +414,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_SystemPowerSavingMode_Set(adi_adr
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_SystemPowerSavingMode_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_powerSavingAndMonitorMode_SystemPowerSavingMode_Get_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                                         adi_adrv9001_PowerSavingAndMonitorMode_SystemPowerDownMode_e *mode)
 {
     ADI_NULL_PTR_RETURN(&adrv9001->common, mode);
@@ -435,7 +435,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_SystemPowerSavingMode_Get(adi_adr
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Pattern_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Pattern_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                                             adi_adrv9001_PowerSavingAndMonitorMode_MonitorModePatternCfg_t *monitorModePattern)
 {
     uint8_t readAddrOffset = 0;
@@ -544,7 +544,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Pattern_Configure(adi
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                                            adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeVectorCfg_t *monitorModeVector)
 {
     static uint16_t VECTOR_MASK_MAX = 0x3FFF;
@@ -591,7 +591,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Configure(adi_
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                                          adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeVectorCfg_t *monitorModeVector)
 {
     ADI_NULL_PTR_RETURN(&adrv9001->common, monitorModeVector);
@@ -637,7 +637,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Vector_Inspect(adi_ad
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Rssi_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Rssi_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                                          adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeRssiCfg_t *monitorModeRssiCfg)
 {
     adi_adrv9001_RadioState_t state = { 0 };
@@ -728,7 +728,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Rssi_Configure(adi_ad
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Rssi_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_Rssi_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                                                        adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeRssiCfg_t *monitorModeRssiCfg)
 {
     ADI_NULL_PTR_RETURN(&device->common, monitorModeRssiCfg);
@@ -841,7 +841,7 @@ int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_RxDmrPd_Get(adi_adrv9
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_DmrSearch_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_powerSavingAndMonitorMode_MonitorMode_DmrSearch_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                                               adi_adrv9001_PowerSavingAndMonitorMode_MonitorModeDmrSearchCfg_t *dmrSearchCfg)
 {
     ADI_NULL_PTR_RETURN(&adrv9001->common, dmrSearchCfg);

@@ -19,7 +19,7 @@
 
 #define MAX_PRELUTSCALE 15
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_Initial_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_dpd_Initial_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                           adi_common_ChannelNumber_e channel,
                                                                           adi_adrv9001_DpdInitCfg_t *dpdConfig)
 {
@@ -105,7 +105,7 @@ int32_t adi_adrv9001_dpd_Initial_Configure(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_Initial_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_dpd_Initial_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                     adi_common_ChannelNumber_e channel,
                                     adi_adrv9001_DpdInitCfg_t *dpdConfig)
 {
@@ -143,7 +143,7 @@ int32_t adi_adrv9001_dpd_Initial_Inspect(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_dpd_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                   adi_common_ChannelNumber_e channel,
                                                                   adi_adrv9001_DpdCfg_t *dpdConfig)
 {
@@ -214,7 +214,7 @@ int32_t adi_adrv9001_dpd_Configure(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_dpd_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                 adi_common_ChannelNumber_e channel,
                                 adi_adrv9001_DpdCfg_t *dpdConfig)
 {
@@ -269,7 +269,7 @@ int32_t adi_adrv9001_dpd_Inspect(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_coefficients_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_dpd_coefficients_Set_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                          adi_common_ChannelNumber_e channel,
                                                                          adi_adrv9001_DpdCoefficients_t *coefficients)
 {
@@ -325,7 +325,7 @@ int32_t adi_adrv9001_dpd_coefficients_Set(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_coefficients_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_dpd_coefficients_Get_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                          adi_common_ChannelNumber_e channel,
                                                                          adi_adrv9001_DpdCoefficients_t *coefficients)
 {
@@ -478,7 +478,7 @@ int32_t adi_adrv9001_dpd_CaptureData_Read(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_fh_regions_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_dpd_fh_regions_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                              adi_common_ChannelNumber_e channel,
                                                                              adi_adrv9001_DpdFhRegions_t dpdFhRegions[],
                                                                              uint32_t size)
@@ -567,7 +567,7 @@ int32_t adi_adrv9001_dpd_fh_regions_Configure(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_fh_regions_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_dpd_fh_regions_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                            adi_common_ChannelNumber_e channel,
                                                                            adi_adrv9001_DpdFhRegions_t dpdFhRegions[],
                                                                            uint32_t size)
@@ -621,7 +621,7 @@ int32_t adi_adrv9001_dpd_fh_regions_Inspect(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_channel_Status_Get_Validate(adi_adrv9001_Device_t* adrv9001,
+static __maybe_unused int32_t adi_adrv9001_dpd_channel_Status_Get_Validate(adi_adrv9001_Device_t* adrv9001,
                                                                                          adi_common_ChannelNumber_e channel,
                                                                                          adi_adrv9001_DpdChannelStatus_t* dpdChannelStatus)
 {

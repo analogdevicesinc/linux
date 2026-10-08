@@ -170,7 +170,7 @@ int32_t adi_adrv9001_gpio_InputPinLevel_Get(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_ManualInput_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_gpio_ManualInput_Configure_Validate(adi_adrv9001_Device_t *device,
                                            adi_adrv9001_GpioPin_e pin)
 {
     ADI_RANGE_CHECK(device, pin, ADI_ADRV9001_GPIO_DIGITAL_00, ADI_ADRV9001_GPIO_DIGITAL_15);
@@ -202,7 +202,7 @@ int32_t adi_adrv9001_gpio_ManualInput_Configure(adi_adrv9001_Device_t *device, a
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_ManualOutput_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_gpio_ManualOutput_Configure_Validate(adi_adrv9001_Device_t *device,
                                         adi_adrv9001_GpioPinCrumbSel_e crumb)
 {
     ADI_RANGE_CHECK(device, crumb, ADI_ADRV9001_GPIO_PIN_CRUMB_01_00, ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
@@ -252,7 +252,7 @@ int32_t adi_adrv9001_gpio_ManualOutput_Configure(adi_adrv9001_Device_t *device, 
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_ManualAnalogInput_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_gpio_ManualAnalogInput_Configure_Validate(adi_adrv9001_Device_t *device,
                                              adi_adrv9001_GpioPin_e pin)
 {
     ADI_RANGE_CHECK(device, pin, ADI_ADRV9001_GPIO_ANALOG_00, ADI_ADRV9001_GPIO_ANALOG_11);
@@ -416,7 +416,7 @@ int32_t adi_adrv9001_gpio_ControlInit_Configure(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_gpio_Configure_Validate(adi_adrv9001_Device_t *device,
                                    adi_adrv9001_GpioSignal_e signal,
                                    adi_adrv9001_GpioCfg_t *gpioConfig)
 {
@@ -558,7 +558,7 @@ int32_t adi_adrv9001_gpio_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_gpio_Inspect_Validate(adi_adrv9001_Device_t *device,
                                  adi_adrv9001_GpioSignal_e gpioSignalSel,
                                  adi_adrv9001_GpioCfg_t *gpioConfig)
 {

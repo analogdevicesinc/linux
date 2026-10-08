@@ -43,7 +43,7 @@
 */
 
 /*********************************************************************************************************/
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_ORx_Gain_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_ORx_Gain_Set_Validate(adi_adrv9001_Device_t *device,
 								 adi_common_ChannelNumber_e channel,
 								 uint8_t gainIndex)
 {
@@ -88,7 +88,7 @@ int32_t adi_adrv9001_ORx_Gain_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device)
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_ORx_Gain_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_ORx_Gain_Get_Validate(adi_adrv9001_Device_t *device,
 								 adi_common_ChannelNumber_e channel,
 								 uint8_t *gainIndex)
 {

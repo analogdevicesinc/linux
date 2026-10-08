@@ -26,7 +26,7 @@
 #include "adrv9001_reg_addr_macros.h"
 #include "object_ids.h"
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Rx_TestMode_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Ssi_Rx_TestMode_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                               adi_common_ChannelNumber_e channel,
                                                                               adi_adrv9001_SsiType_e ssiType,
                                                                               adi_adrv9001_SsiDataFormat_e dataFormat,
@@ -148,7 +148,7 @@ int32_t adi_adrv9001_Ssi_Rx_TestMode_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Tx_TestMode_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Ssi_Tx_TestMode_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                               adi_common_ChannelNumber_e channel,
                                                                               adi_adrv9001_SsiType_e ssiType,
                                                                               adi_adrv9001_SsiDataFormat_e dataFormat,
@@ -333,7 +333,7 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                                    adi_common_ChannelNumber_e channel,
                                                                                    adi_adrv9001_SsiType_e ssiType,
                                                                                    adi_adrv9001_SsiDataFormat_e dataFormat,
@@ -691,7 +691,7 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect(adi_adrv9001_Device_t *devic
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Loopback_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Ssi_Loopback_Set_Validate(adi_adrv9001_Device_t *device,
                                                                      adi_common_ChannelNumber_e channel,
                                                                      adi_adrv9001_SsiType_e ssiType)
 {
@@ -827,7 +827,7 @@ static __maybe_unused int32_t adi_adrv9001_Ssi_CmosDelayConfigSet(adi_adrv9001_D
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Delay_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Ssi_Delay_Configure_Validate(adi_adrv9001_Device_t *device,
 	                                                                    adi_common_ChannelNumber_e channel,
 	                                                                    adi_adrv9001_SsiType_e ssiType,
                                                                         adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration)
@@ -987,7 +987,7 @@ static __maybe_unused int32_t adi_adrv9001_Ssi_CmosDelayConfigGet(adi_adrv9001_D
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Delay_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Ssi_Delay_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                       adi_adrv9001_SsiType_e ssiType,
                                                                       adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration)
 {
@@ -1014,7 +1014,7 @@ int32_t adi_adrv9001_Ssi_Delay_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_PowerDown_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Ssi_PowerDown_Set_Validate(adi_adrv9001_Device_t *device,
                                                                       adi_common_Port_e port,
                                                                       adi_common_ChannelNumber_e channel,
                                                                       adi_adrv9001_SsiPowerDown_e powerDownMode)
@@ -1063,7 +1063,7 @@ int32_t adi_adrv9001_Ssi_PowerDown_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_PowerDown_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Ssi_PowerDown_Get_Validate(adi_adrv9001_Device_t *device,
                                                                       adi_common_Port_e port,
                                                                       adi_common_ChannelNumber_e channel,
                                                                       adi_adrv9001_SsiPowerDown_e *powerDownMode)
@@ -1094,7 +1094,7 @@ int32_t adi_adrv9001_Ssi_PowerDown_Get(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Rx_GainSelect_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Ssi_Rx_GainSelect_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                 adi_common_ChannelNumber_e channel,
                                                                                 adi_adrv9001_SsiRxGainSelectCfg_t *ssiRxGainSelectCfg)
 {
@@ -1148,7 +1148,7 @@ int32_t adi_adrv9001_Ssi_Rx_GainSelect_Configure(adi_adrv9001_Device_t *adrv9001
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Rx_GainSelect_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Ssi_Rx_GainSelect_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                               adi_common_ChannelNumber_e channel,
                                                                               adi_adrv9001_SsiRxGainSelectCfg_t *ssiRxGainSelectCfg)
 {

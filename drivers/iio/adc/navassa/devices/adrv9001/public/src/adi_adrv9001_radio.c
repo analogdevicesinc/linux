@@ -31,7 +31,7 @@
 #include "adrv9001_validators.h"
 #include "object_ids.h"
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_Carrier_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_Carrier_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                             adi_common_Port_e port,
                                                                             adi_common_ChannelNumber_e channel,
                                                                             adi_adrv9001_Carrier_t *carrier)
@@ -121,7 +121,7 @@ int32_t adi_adrv9001_Radio_Carrier_Configure(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_Carrier_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_Carrier_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                           adi_common_Port_e port,
                                                                           adi_common_ChannelNumber_e channel,
                                                                           adi_adrv9001_Carrier_t *carrier)
@@ -186,7 +186,7 @@ int32_t adi_adrv9001_Radio_Carrier_Inspect(adi_adrv9001_Device_t *adrv9001,
 }
 
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_Pll_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_Pll_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                         adi_adrv9001_Pll_e pllId,
                                                                         adi_adrv9001_PllConfig_t *pllConfig)
 {
@@ -246,7 +246,7 @@ int32_t adi_adrv9001_Radio_Pll_Configure(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_Pll_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_Pll_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                       adi_adrv9001_Pll_e pllId,
                                                                       adi_adrv9001_PllConfig_t *pllConfig)
 {
@@ -279,7 +279,7 @@ int32_t adi_adrv9001_Radio_Pll_Inspect(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_PllStatus_Get_Validate(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Pll_e pll,
+static __maybe_unused int32_t adi_adrv9001_Radio_PllStatus_Get_Validate(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Pll_e pll,
                                                                         bool *locked)
 {
     ADI_RANGE_CHECK(adrv9001, pll, ADI_ADRV9001_PLL_LO1, ADI_ADRV9001_PLL_CLK_LP);
@@ -307,7 +307,7 @@ int32_t adi_adrv9001_Radio_PllStatus_Get(adi_adrv9001_Device_t *adrv9001, adi_ad
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_ChannelEnableMode_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_ChannelEnableMode_Set_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                             adi_common_ChannelNumber_e channel,
                                                                             adi_common_Port_e port,
                                                                             adi_adrv9001_ChannelEnableMode_e mode)
@@ -350,7 +350,7 @@ int32_t adi_adrv9001_Radio_ChannelEnableMode_Set(adi_adrv9001_Device_t *adrv9001
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_ChannelEnableMode_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_ChannelEnableMode_Get_Validate(adi_adrv9001_Device_t *adrv9001,
                                         adi_common_Port_e port,
                                         adi_common_ChannelNumber_e channel,
                                         adi_adrv9001_ChannelEnableMode_e *mode)
@@ -460,7 +460,7 @@ int32_t adi_adrv9001_Radio_State_Get(adi_adrv9001_Device_t *adrv9001, adi_adrv90
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_Channel_State_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_Channel_State_Get_Validate(adi_adrv9001_Device_t *adrv9001,
                                         adi_common_Port_e port,
                                         adi_common_ChannelNumber_e channel,
                                         adi_adrv9001_ChannelState_e *channelState)
@@ -733,7 +733,7 @@ int32_t adi_adrv9001_Radio_Channel_PowerDown(adi_adrv9001_Device_t *adrv9001,
     return adi_adrv9001_Radio_Channels_PowerDown(adrv9001, &port, &channel, 1);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_Channels_PowerDown_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_Channels_PowerDown_Validate(adi_adrv9001_Device_t *adrv9001,
                                          adi_common_Port_e ports[],
                                          adi_common_ChannelNumber_e channels[],
                                          uint32_t length)
@@ -935,7 +935,7 @@ static int32_t adi_adrv9001_Radio_Channel_ToRfEnabled(adi_adrv9001_Device_t *adr
     ADI_API_RETURN(adrv9001)
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_Channel_ToState_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_Channel_ToState_Validate(adi_adrv9001_Device_t *adrv9001,
                                       adi_common_Port_e port,
                                       adi_common_ChannelNumber_e channel,
                                       adi_adrv9001_ChannelState_e state)
@@ -985,7 +985,7 @@ int32_t adi_adrv9001_Radio_Channel_ToState(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001)
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_PllLoopFilter_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_PllLoopFilter_Set_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                             adi_adrv9001_Pll_e pll,
                                                                             adi_adrv9001_PllLoopFilterCfg_t *pllLoopFilterConfig)
 {
@@ -1091,7 +1091,7 @@ int32_t adi_adrv9001_Radio_PllLoopFilter_Set(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_PllLoopFilter_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_PllLoopFilter_Get_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                             adi_adrv9001_Pll_e pll,
                                                                             adi_adrv9001_PllLoopFilterCfg_t *pllLoopFilterConfig)
 {
@@ -1192,7 +1192,7 @@ uint8_t adi_adrv9001_Radio_MailboxChannelMask_Get(adi_common_Port_e ports[],
     return channelMask;
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_ChannelEnablementDelays_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_ChannelEnablementDelays_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                 adi_common_Port_e port,
                                                 adi_common_ChannelNumber_e channel,
                                                 adi_adrv9001_ChannelEnablementDelays_t *delays)
@@ -1308,7 +1308,7 @@ int32_t adi_adrv9001_Radio_ChannelEnablementDelays_Configure(adi_adrv9001_Device
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_ChannelEnablementDelays_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_ChannelEnablementDelays_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                           adi_common_Port_e port,
                                                                                           adi_common_ChannelNumber_e channel,
                                                                                           adi_adrv9001_ChannelEnablementDelays_t *delays)
@@ -1376,7 +1376,7 @@ int32_t adi_adrv9001_Radio_ChannelEnablementDelays_Inspect(adi_adrv9001_Device_t
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_ToMcsReady_Validate(adi_adrv9001_Device_t *adrv9001)
+static __maybe_unused int32_t adi_adrv9001_Radio_ToMcsReady_Validate(adi_adrv9001_Device_t *adrv9001)
 {
     /* Check that all channels are in calibrated state before going into MCS_READY state */
     uint32_t initializedChannels  = adrv9001->devStateInfo.initializedChannels;
@@ -1425,7 +1425,7 @@ int32_t adi_adrv9001_Radio_ToMcsReady (adi_adrv9001_Device_t *adrv9001)
     ADI_API_RETURN(adrv9001);      
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_RfLogenDivider_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Radio_RfLogenDivider_Get_Validate(adi_adrv9001_Device_t *adrv9001,
 	                                                                                        adi_adrv9001_Pll_e pll,
 	                                                                                        uint32_t *RfLogenDivider)
 {

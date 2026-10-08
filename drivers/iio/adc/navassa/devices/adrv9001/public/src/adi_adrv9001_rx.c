@@ -32,7 +32,7 @@
 #include "adrv9001_validators.h"
 #include "object_ids.h"
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_GainTable_Write_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_GainTable_Write_Validate(adi_adrv9001_Device_t *device,
                                        adi_common_Port_e port,
                                        adi_common_ChannelNumber_e channel,
                                        uint8_t  gainIndexOffset,
@@ -59,8 +59,6 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_GainTable_Write_Val
 		ADI_RANGE_CHECK(device, lnaConfig->numberLnaGainSteps, 2, 4);
 		//ADI_RANGE_CHECK(device, lnaConfig->settlingDelay, 0, 0);
 		//ADI_RANGE_CHECK(device, lnaConfig->lnaDigitalGainDelay, 0, 0);
-
-		ADI_NULL_PTR_RETURN(&device->common, lnaConfig);
 
 		if (lnaConfig->minGainIndex < ABSOLUTE_MIN_INDEX)
 		{
@@ -322,7 +320,7 @@ int32_t adi_adrv9001_Rx_GainTable_Write(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_GainTable_Read_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_GainTable_Read_Validate(adi_adrv9001_Device_t *device,
                                                                     adi_common_ChannelNumber_e channel,
                                                                     uint8_t  gainIndexOffset,
                                                                     adi_adrv9001_RxGainTableRow_t gainTableRows[],
@@ -485,7 +483,7 @@ int32_t adi_adrv9001_Rx_GainTable_Read(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_Gain_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_Gain_Set_Validate(adi_adrv9001_Device_t *device,
                                                                  adi_common_ChannelNumber_e channel,
                                                                  uint8_t gainIndex,
                                                                  adi_adrv9001_RxGainControlMode_e *gainCtrlMode)
@@ -554,7 +552,7 @@ int32_t adi_adrv9001_Rx_Gain_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device)
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_Gain_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_Gain_Get_Validate(adi_adrv9001_Device_t *device,
                                                                 adi_common_ChannelNumber_e channel,
                                                                 uint8_t *gainIndex)
 {
@@ -592,7 +590,7 @@ int32_t adi_adrv9001_Rx_Gain_Get(adi_adrv9001_Device_t *device, adi_common_Chann
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_Rssi_Read_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_Rssi_Read_Validate(adi_adrv9001_Device_t *device,
                                                                  uint32_t *rxRssiPower_mdB,
                                                                  adi_common_ChannelNumber_e rxChannel)
 {
@@ -748,7 +746,7 @@ static __maybe_unused int32_t adi_adrv9001_Rx_InterfaceGain_Validate(adi_adrv900
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_InterfaceGain_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_InterfaceGain_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                                adi_common_ChannelNumber_e channel,
                                                                                adi_adrv9001_RxInterfaceGainCtrl_t *rxInterfaceGainCtrl)
 {
@@ -846,7 +844,7 @@ int32_t adi_adrv9001_Rx_InterfaceGain_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_InterfaceGain_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_InterfaceGain_Set_Validate(adi_adrv9001_Device_t *device,
                                                                          adi_common_ChannelNumber_e channel,
                                                                          adi_adrv9001_RxInterfaceGain_e gain)
 {
@@ -923,7 +921,7 @@ int32_t adi_adrv9001_Rx_InterfaceGain_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_InterfaceGain_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_InterfaceGain_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                              adi_common_ChannelNumber_e channel,
                                                                              adi_adrv9001_RxInterfaceGainCtrl_t *rxInterfaceGainCtrl,
                                                                              adi_adrv9001_RxGainTableType_e *gainTableType)
@@ -1002,7 +1000,7 @@ int32_t adi_adrv9001_Rx_InterfaceGain_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_InterfaceGain_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_InterfaceGain_Get_Validate(adi_adrv9001_Device_t *device,
                                                                          adi_common_ChannelNumber_e channel,
                                                                          adi_adrv9001_RxInterfaceGain_e *gain)
 {
@@ -1071,7 +1069,7 @@ int32_t adi_adrv9001_Rx_InterfaceGain_Get(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_InterfaceGain_SeedGain_Set_Validate(   adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_InterfaceGain_SeedGain_Set_Validate(   adi_adrv9001_Device_t *device,
 	                                                                                                adi_common_ChannelNumber_e channel,
 	                                                                                                adi_adrv9001_RxInterfaceGain_e seedGain)
 {
@@ -1176,7 +1174,7 @@ int32_t adi_adrv9001_Rx_InterfaceGain_EndOfFrameGain_Get(   adi_adrv9001_Device_
 	ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adrv9001_Rx_FrequencyCorrection_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adrv9001_Rx_FrequencyCorrection_Set_Validate(adi_adrv9001_Device_t *device,
                                                                            adi_common_ChannelNumber_e channel,
                                                                            int32_t frequencyOffset_Hz)
 {
@@ -1230,7 +1228,7 @@ int32_t adi_adrv9001_Rx_FrequencyCorrection_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_AdcSwitchEnable_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_AdcSwitchEnable_Set_Validate(adi_adrv9001_Device_t *device,
                                                                            adi_common_ChannelNumber_e channel)
 {
     adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
@@ -1276,7 +1274,7 @@ int32_t adi_adrv9001_Rx_AdcSwitchEnable_Set(adi_adrv9001_Device_t *device,
 
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_AdcSwitchEnable_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_AdcSwitchEnable_Get_Validate(adi_adrv9001_Device_t *device,
                                                                            adi_common_ChannelNumber_e channel,
                                                                            bool *enable)
 {
@@ -1305,7 +1303,7 @@ int32_t adi_adrv9001_Rx_AdcSwitchEnable_Get(adi_adrv9001_Device_t *device,
 
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_AdcSwitch_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_AdcSwitch_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                            adi_common_ChannelNumber_e channel,
                                                                            adi_adrv9001_AdcSwitchCfg_t *switchConfig)
 {
@@ -1388,7 +1386,7 @@ int32_t adi_adrv9001_Rx_AdcSwitch_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_AdcSwitch_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_AdcSwitch_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                          adi_common_ChannelNumber_e channel,
                                                                          adi_adrv9001_AdcSwitchCfg_t *switchConfig)
 {
@@ -1436,7 +1434,7 @@ int32_t adi_adrv9001_Rx_AdcSwitch_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_AdcType_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_AdcType_Get_Validate(adi_adrv9001_Device_t *device,
                                                                    adi_common_ChannelNumber_e channel,
                                                                    adi_adrv9001_AdcType_e *adcType)
 {
@@ -1474,7 +1472,7 @@ int32_t adi_adrv9001_Rx_AdcType_Get(adi_adrv9001_Device_t *device,
 
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_GainIndex_Gpio_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_GainIndex_Gpio_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                                 adi_common_ChannelNumber_e channel,
                                                                                 adi_adrv9001_GainIndexPinCfg_t *gainIndexPinCfgchannel)
 {
@@ -1614,7 +1612,7 @@ int32_t adi_adrv9001_Rx_GainIndex_Gpio_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_PortSwitch_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_PortSwitch_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                             adi_adrv9001_RxPortSwitchCfg_t *switchConfig)
 {
     adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
@@ -1722,7 +1720,7 @@ int32_t adi_adrv9001_Rx_PortSwitch_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_PortSwitch_Inspect_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_PortSwitch_Inspect_Validate(adi_adrv9001_Device_t *device,
                                                                           adi_adrv9001_RxPortSwitchCfg_t *switchConfig)
 {
     ADI_NULL_PTR_RETURN(&device->common, switchConfig);
@@ -1750,7 +1748,7 @@ int32_t adi_adrv9001_Rx_PortSwitch_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_ExternalLna_Configure_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_ExternalLna_Configure_Validate(adi_adrv9001_Device_t *device,
                                                                                             adi_common_ChannelNumber_e channel,
                                                                                             adi_adrv9001_RxLnaConfig_t *lnaConfig,
                                                                                             adi_adrv9001_RxGainTableType_e gainTableType)
@@ -1991,7 +1989,7 @@ int32_t adi_adrv9001_Rx_ExternalLna_DigitalGainDelay_Get(adi_adrv9001_Device_t *
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_Loid_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Rx_Loid_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                 adi_common_ChannelNumber_e channel,
                                 adi_adrv9001_RxrfdcLoidCfg_t *loidConfig)
 {
@@ -2053,7 +2051,7 @@ int32_t adi_adrv9001_Rx_Loid_Configure(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_Loid_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Rx_Loid_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                               adi_common_ChannelNumber_e channel,
                               adi_adrv9001_RxrfdcLoidCfg_t *loidConfig)
 {	
@@ -2096,7 +2094,7 @@ int32_t adi_adrv9001_Rx_Loid_Inspect(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_Rssi_Manual_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Rx_Rssi_Manual_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                                                             adi_common_ChannelNumber_e channel,
                                                                                             uint32_t rssiInterval)
 {
@@ -2166,7 +2164,7 @@ int32_t adi_adrv9001_Rx_Rssi_Manual_Configure(adi_adrv9001_Device_t* adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_Rssi_Manual_Status_Get_Validate(adi_adrv9001_Device_t* adrv9001,
+static __maybe_unused int32_t adi_adrv9001_Rx_Rssi_Manual_Status_Get_Validate(adi_adrv9001_Device_t* adrv9001,
                                                                                              adi_common_ChannelNumber_e channel)
 {
     /* Check device pointer is not null */
@@ -2208,7 +2206,7 @@ int32_t adi_adrv9001_Rx_Rssi_Manual_Status_Get(adi_adrv9001_Device_t *adrv9001,
 	ADI_API_RETURN(adrv9001);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_ActivePortSwitch_Set_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_ActivePortSwitch_Set_Validate(adi_adrv9001_Device_t *device,
 	                                                                                       adi_common_ChannelNumber_e channel,
 	                                                                                       adi_adrv9001_RxRfInputSel_e nextActivePort)
 {
@@ -2266,7 +2264,7 @@ int32_t adi_adrv9001_Rx_ActivePortSwitch_Set(adi_adrv9001_Device_t *device,
 	ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_ActivePortSwitch_Get_Validate(adi_adrv9001_Device_t *device,
+static __maybe_unused int32_t adi_adrv9001_Rx_ActivePortSwitch_Get_Validate(adi_adrv9001_Device_t *device,
 	                                                                                       adi_common_ChannelNumber_e channel,
 	                                                                                       adi_adrv9001_RxRfInputSel_e *nextActivePort)
 {

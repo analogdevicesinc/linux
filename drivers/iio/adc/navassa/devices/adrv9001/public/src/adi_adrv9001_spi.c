@@ -536,7 +536,7 @@ int32_t adi_adrv9001_spi_Cache_Read(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_spi_Master_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_spi_Master_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
 												adi_adrv9001_spiMasterConfig_t *spiMasterConfig)
 {
 	ADI_NULL_PTR_RETURN(&adrv9001->common, spiMasterConfig);
@@ -591,7 +591,7 @@ int32_t adi_adrv9001_spi_Master_Configure(adi_adrv9001_Device_t *device,
 	ADI_API_RETURN(device);
 }
 
-static __maybe_unused int32_t __maybe_unused adi_adrv9001_spi_Master_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
+static __maybe_unused int32_t adi_adrv9001_spi_Master_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
 	adi_adrv9001_spiMasterConfig_t *spiMasterConfig)
 {
 	ADI_NULL_PTR_RETURN(&adrv9001->common, spiMasterConfig);
