@@ -51,6 +51,9 @@ properties:
   power-domains:
     maxItems: 1
 
+  resets:
+    maxItems: 1
+
 required:
   - compatible
   - reg
@@ -85,7 +88,11 @@ allOf:
       properties:
         interrupts: false
         interrupt-names: false
+      required:
+        - resets
     else:
+      properties:
+        resets: false
       required:
         - interrupts
         - interrupt-names
