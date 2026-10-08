@@ -15,6 +15,7 @@
 #include <linux/dev_printk.h>
 #include <linux/err.h>
 #include <linux/export.h>
+#include <linux/idr.h>
 #include <linux/iio/adc/qcom-adc5-gen3-common.h>
 #include <linux/iio/iio.h>
 #include <linux/interrupt.h>
@@ -608,7 +609,14 @@ static void adc5_gen3_delete_aux(void *data)
 	auxiliary_device_delete(data);
 }
 
-static void adc5_gen3_aux_device_release(struct device *dev) {}
+static DEFINE_IDA(adc5_gen3_aux_ida);
+
+static void adc5_gen3_aux_device_release(struct device *dev)
+{
+	struct auxiliary_device *adev = to_auxiliary_dev(dev);
+
+	ida_free(&adc5_gen3_aux_ida, adev->id);
+}
 
 static int adc5_gen3_add_aux_tm_device(struct adc5_chip *adc)
 {
@@ -642,9 +650,16 @@ static int adc5_gen3_add_aux_tm_device(struct adc5_chip *adc)
 
 	aux_device->n_tm_channels = adc->n_tm_channels;
 
-	ret = auxiliary_device_init(&aux_device->aux_dev);
-	if (ret)
+	ret = ida_alloc(&adc5_gen3_aux_ida, GFP_KERNEL);
+	if (ret < 0)
 		return ret;
+	aux_device->aux_dev.id = ret;
+
+	ret = auxiliary_device_init(&aux_device->aux_dev);
+	if (ret) {
+		ida_free(&adc5_gen3_aux_ida, aux_device->aux_dev.id);
+		return ret;
+	}
 
 	ret = devm_add_action_or_reset(adc->dev, adc5_gen3_uninit_aux,
 				       &aux_device->aux_dev);
