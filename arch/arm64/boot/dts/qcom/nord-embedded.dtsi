@@ -820,9 +820,9 @@
 		reg = <0x0 0x08900000 0x0 0xf4200>;
 		clocks = <&bi_tcxo_div2>,
 			 <&sleep_clk>,
-			 <0>,
-			 <0>,
-			 <0>,
+			 <&ufs_mem_phy 0>,
+			 <&ufs_mem_phy 1>,
+			 <&ufs_mem_phy 2>,
 			 <0>,
 			 <0>;
 		#clock-cells = <1>;
