@@ -2930,6 +2930,12 @@
 			label = "tpdm_dcc";
 			qcom,cmb-element-bits = <32>;
 
+			/*
+			 * Clock cannot be properly enabled on secure devices
+			 * due to a hardware issue
+			 */
+			status = "fail";
+
 			out-ports {
 				port {
 					tpdm_dcc_out: endpoint {
