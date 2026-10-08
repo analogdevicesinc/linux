@@ -1395,6 +1395,21 @@ static void apply_dsc_policy_for_stream(struct amdgpu_dm_connector *aconnector,
 }
 #endif
 
+STATIC_IFN_KUNIT bool is_duplicate_mode(struct amdgpu_dm_connector *aconnector,
+					const struct drm_display_mode *mode)
+{
+	struct drm_display_mode *m;
+
+	list_for_each_entry(m, &aconnector->base.probed_modes, head) {
+		if (drm_mode_equal(m, mode))
+			return true;
+	}
+
+	return false;
+}
+
+EXPORT_IF_KUNIT(is_duplicate_mode);
+
 void amdgpu_dm_update_stream_scaling_settings(struct drm_device *dev,
 					   const struct drm_display_mode *mode,
 					   const struct dm_connector_state *dm_state,
@@ -1471,6 +1486,7 @@ create_stream_for_sink(struct drm_connector *connector,
 	struct drm_display_mode *freesync_mode = NULL;
 	bool native_mode_found = false;
 	bool recalculate_timing = false;
+	bool unadvertised_mode = false;
 	bool scale = dm_state->scaling != RMX_OFF;
 	int mode_refresh;
 	int preferred_refresh = 0;
@@ -1557,6 +1573,13 @@ create_stream_for_sink(struct drm_connector *connector,
 					&mode, preferred_mode, scale);
 
 			preferred_refresh = drm_mode_vrefresh(preferred_mode);
+			unadvertised_mode = !is_duplicate_mode(aconnector, drm_mode);
+
+			if (unadvertised_mode && dm_state->scaling == RMX_OFF)
+				drm_dbg_driver(dev,
+					       "Unadvertised mode %dx%d@%d with RMX_OFF\n",
+					       drm_mode->hdisplay, drm_mode->vdisplay,
+					       drm_mode_vrefresh(drm_mode));
 		}
 	}
 
@@ -3005,19 +3028,6 @@ STATIC_IFN_KUNIT void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *co
 }
 EXPORT_IF_KUNIT(amdgpu_dm_connector_ddc_get_modes);
 
-STATIC_IFN_KUNIT bool is_duplicate_mode(struct amdgpu_dm_connector *aconnector,
-			      struct drm_display_mode *mode)
-{
-	struct drm_display_mode *m;
-
-	list_for_each_entry(m, &aconnector->base.probed_modes, head) {
-		if (drm_mode_equal(m, mode))
-			return true;
-	}
-
-	return false;
-}
-EXPORT_IF_KUNIT(is_duplicate_mode);
 
 STATIC_IFN_KUNIT uint add_fs_modes(struct amdgpu_dm_connector *aconnector)
 {
