@@ -1214,11 +1214,57 @@ static ssize_t adrv903x_phy_tx_write(struct iio_dev *indio_dev,
 		.write = adrv903x_phy_tx_write, .private = _ident,             \
 	}
 
+static int adrv903x_set_agc_mode(struct iio_dev *indio_dev,
+				 const struct iio_chan_spec *chan, u32 mode)
+{
+	struct adrv903x_rf_phy *phy = iio_priv(indio_dev);
+	adi_adrv903x_RxGainCtrlModeCfg_t modeCfg = { 0 };
+
+	if (chan->channel > CHAN_RX8)
+		return -EINVAL;
+
+	modeCfg.rxChannelMask = ADI_ADRV903X_RX0 << chan->channel;
+	modeCfg.gainCtrlMode = mode == 0 ? ADI_ADRV903X_MGC : ADI_ADRV903X_AGC;
+
+	guard(mutex)(&phy->lock);
+	return adrv903x_api_call(phy, adi_adrv903x_RxGainCtrlModeSet, &modeCfg, 1);
+}
+
+static int adrv903x_get_agc_mode(struct iio_dev *indio_dev,
+				 const struct iio_chan_spec *chan)
+{
+	struct adrv903x_rf_phy *phy = iio_priv(indio_dev);
+	adi_adrv903x_RxGainCtrlMode_e mode;
+	int ret;
+
+	if (chan->channel > CHAN_RX8)
+		return -EINVAL;
+
+	guard(mutex)(&phy->lock);
+	ret = adrv903x_api_call(phy, adi_adrv903x_RxGainCtrlModeGet,
+				ADI_ADRV903X_RX0 << chan->channel, &mode);
+	if (ret)
+		return ret;
+
+	return mode == ADI_ADRV903X_AGC ? 1 : 0;
+}
+
+static const char * const adrv903x_agc_modes[] = { "manual", "automatic" };
+
+static const struct iio_enum adrv903x_agc_modes_available = {
+	.items = adrv903x_agc_modes,
+	.num_items = ARRAY_SIZE(adrv903x_agc_modes),
+	.get = adrv903x_get_agc_mode,
+	.set = adrv903x_set_agc_mode,
+};
+
 static const struct iio_chan_spec_ext_info adrv903x_phy_rx_ext_info[] = {
 	/* Ideally we use IIO_CHAN_INFO_FREQUENCY, but there are
 	 * values > 2^32 in order to support the entire frequency range
 	 * in Hz. Using scale is a bit ugly.
 	 */
+	IIO_ENUM_AVAILABLE("gain_control_mode", IIO_SEPARATE, &adrv903x_agc_modes_available),
+	IIO_ENUM("gain_control_mode", IIO_SEPARATE, &adrv903x_agc_modes_available),
 	_ADRV903X_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
 	_ADRV903X_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_DIG_DC),
 	_ADRV903X_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
