@@ -784,9 +784,17 @@ static int adi_finup(struct ahash_request *req)
 	struct adi_request_ctx *rctx = ahash_request_ctx(req);
 	struct adi_dev *pkte_dev = rctx->pkte_dev;
 
-	dev_dbg(pkte_dev->dev, "%s not yet implemented\n", __func__);
+	rctx->total = req->nbytes;
+	rctx->sg = req->src;
+	rctx->offset = 0;
 
-	return 0;
+	if (unlikely(pkte_dev->flags & PKTE_FLAGS_HMAC) &&
+	    !(pkte_dev->flags & PKTE_FLAGS_HMAC_KEY_PREPARED))
+		adi_prepare_secret_key(pkte_dev, rctx);
+
+	pkte_dev->flags |= PKTE_FLAGS_FINUP;
+
+	return adi_enqueue(req, PKTE_OP_UPDATE);
 }
 
 static int adi_digest(struct ahash_request *req)
@@ -794,24 +802,15 @@ static int adi_digest(struct ahash_request *req)
 	return adi_init(req) ?: adi_finup(req);
 }
 
+/* The hash state lives in the engine, so it cannot be saved and restored */
 static int adi_export(struct ahash_request *req, void *out)
 {
-	struct adi_ctx *ctx = crypto_ahash_ctx(crypto_ahash_reqtfm(req));
-	struct adi_dev *pkte_dev = adi_find_dev(ctx);
-
-	dev_dbg(pkte_dev->dev, "%s not yet implemented\n", __func__);
-
-	return 0;
+	return -EOPNOTSUPP;
 }
 
 static int adi_import(struct ahash_request *req, const void *in)
 {
-	struct adi_ctx *ctx = crypto_ahash_ctx(crypto_ahash_reqtfm(req));
-	struct adi_dev *pkte_dev = adi_find_dev(ctx);
-
-	dev_dbg(pkte_dev->dev, "%s not yet implemented\n", __func__);
-
-	return 0;
+	return -EOPNOTSUPP;
 }
 
 static int adi_cra_init_algs(struct crypto_tfm *tfm,
