@@ -619,12 +619,8 @@ static int adi_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = device_property_read_string(dev, "mode", &mode);
-	if (ret < 0) {
-		if (ret != -EINVAL)
-			dev_err(dev, "could not parse mode\n");
-		return -EINVAL;
-	}
+	if (device_property_read_string(dev, "mode", &mode))
+		mode = "arm";
 
 	if (strcmp(mode, "tcm") == 0) {
 		pkte_dev->flags |= PKTE_TCM_MODE;
