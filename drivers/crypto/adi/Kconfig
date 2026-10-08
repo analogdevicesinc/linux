@@ -26,12 +26,15 @@ config CRYPTO_DEV_ADI_HASH
 	depends on CRYPTO_DEV_ADI_PKTE
 	default y
 	select CRYPTO_HASH
+	select CRYPTO_HMAC
 	select CRYPTO_MD5
 	select CRYPTO_SHA1
 	select CRYPTO_SHA256
 	help
 	  This enables MD5, SHA1, SHA224 and SHA256 hashes and their HMAC
-	  variants on the ADI packet engine.
+	  variants on the ADI packet engine. The software implementations
+	  are selected because the crypto core falls back to them for
+	  requests the engine cannot take directly.
 
 config CRYPTO_DEV_ADI_SKCIPHER
 	bool "Support for ADI symmetric ciphers"
