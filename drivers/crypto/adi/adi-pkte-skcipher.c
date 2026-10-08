@@ -69,13 +69,10 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 
 	ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
 	crypt = ctx->pkte_dev;
-	pkte = crypt->pkte_device;
-
-	if (!req)
-		return -EINVAL;
-
 	if (!crypt)
 		return -ENODEV;
+
+	pkte = crypt->pkte_device;
 
 
 	if (crypt->flags & PKTE_TCM_MODE) {
