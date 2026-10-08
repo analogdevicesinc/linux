@@ -64,16 +64,10 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 	struct adi_ctx *ctx;
 	struct adi_dev *crypt;
 	struct adi_crypt_reqctx *rctx;
-	int ret;
-	int i, j, ivsize, pos;
+	int i, pos;
 	struct ADI_PKTE_DEVICE *pkte;
 
-#ifdef DEBUG_PKTE
-	char temp[256];
-#endif
-
 	ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
-	ivsize = crypto_skcipher_ivsize(crypto_skcipher_reqtfm(req));
 	crypt = ctx->pkte_dev;
 	pkte = crypt->pkte_device;
 
@@ -251,7 +245,9 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 			crypto_skcipher_reqtfm(req));
 	struct adi_dev *crypt = ctx->pkte_dev;
 	int err;
+#ifdef DEBUG_PKTE
 	unsigned int i;
+#endif
 
 	err = adi_crypt_prepare_req(req);
 	if (err)
@@ -304,9 +300,10 @@ static int adi_crypt_setkey(struct crypto_skcipher *tfm, const u8 *key,
 			     unsigned int keylen)
 {
 	struct adi_ctx *ctx = crypto_skcipher_ctx(tfm);
-	struct adi_dev *crypt = ctx->pkte_dev;
+#ifdef DEBUG_PKTE
 	int i, j;
 	char temp[256];
+#endif
 
 	if (keylen <= PKTE_MAX_KEY_SIZE) {
 #ifdef DEBUG_PKTE

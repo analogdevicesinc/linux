@@ -439,9 +439,10 @@ static int adi_setkey(struct crypto_ahash *tfm,
 {
 	struct adi_ctx *ctx = crypto_ahash_ctx(tfm);
 	struct adi_dev *pkte_dev = adi_find_dev(ctx);
+#ifdef DEBUG_PKTE
 	char temp[256];
 	int i = 0, j = 0;
-
+#endif
 
 	if (keylen <= PKTE_MAX_KEY_SIZE) {
 
@@ -594,7 +595,6 @@ static int adi_final_req(struct adi_dev *pkte_dev)
 static void adi_copy_hash(struct ahash_request *req)
 {
 	struct adi_request_ctx *rctx = ahash_request_ctx(req);
-	struct adi_dev *pkte_dev = rctx->pkte_dev;
 	u32 *hash = (u32 *)rctx->digest;
 	u32 i;
 	struct ADI_PKTE_DEVICE *pkte;
