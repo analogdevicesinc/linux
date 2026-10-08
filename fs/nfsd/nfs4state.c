@@ -7170,8 +7170,6 @@ static void nfsd4_open_deleg_none_ext(struct nfsd4_open *open, int status)
 		case OPEN4_SHARE_ACCESS_WANT_ANY_DELEG:
 			break;
 		case OPEN4_SHARE_ACCESS_WANT_CANCEL:
-			open->op_why_no_deleg = WND4_CANCELLED;
-			break;
 		case OPEN4_SHARE_ACCESS_WANT_NO_DELEG:
 			WARN_ON_ONCE(1);
 		}
@@ -7474,9 +7472,14 @@ nfsd4_process_open2(struct svc_rqst *rqstp, struct svc_fh *current_fh, struct nf
 	mutex_unlock(&stp->st_mutex);
 
 	if (nfsd4_has_session(&resp->cstate)) {
-		if (open->op_deleg_want & OPEN4_SHARE_ACCESS_WANT_NO_DELEG) {
+		switch (open->op_deleg_want & NFS4_SHARE_WANT_TYPE_MASK) {
+		case OPEN4_SHARE_ACCESS_WANT_NO_DELEG:
 			open->op_delegate_type = OPEN_DELEGATE_NONE_EXT;
 			open->op_why_no_deleg = WND4_NOT_WANTED;
+			goto nodeleg;
+		case OPEN4_SHARE_ACCESS_WANT_CANCEL:
+			open->op_delegate_type = OPEN_DELEGATE_NONE_EXT;
+			open->op_why_no_deleg = WND4_CANCELLED;
 			goto nodeleg;
 		}
 	}
