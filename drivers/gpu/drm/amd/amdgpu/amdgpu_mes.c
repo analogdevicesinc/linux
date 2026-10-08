@@ -23,6 +23,7 @@
 
 #include <linux/firmware.h>
 #include <linux/kthread.h>
+#include <linux/pm_runtime.h>
 #include <linux/delay.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
@@ -2035,6 +2036,13 @@ static ssize_t amdgpu_debugfs_mes_dbgext_write(struct file *file,
 
 	if (!mes->funcs || !mes->funcs->misc_op)
 		return -EOPNOTSUPP;
+
+	/* Arming and detaching the firmware talks to the MES. */
+	PM_RUNTIME_ACQUIRE_IF_ENABLED_AUTOSUSPEND(adev->dev, pm);
+
+	r = PM_RUNTIME_ACQUIRE_ERR(&pm);
+	if (r)
+		return r;
 
 	mutex_lock(&mes->dbgext_lock);
 	if (enable) {
