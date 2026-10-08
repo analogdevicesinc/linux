@@ -630,12 +630,30 @@ void amdgpu_vmid_reset_all(struct amdgpu_device *adev)
 	}
 }
 
+/**
+ * amdgpu_vmid_mgr_set_vmid_mask - set the kernel-queue VMID pool for a
+ * hub, and the matching user-queue mask on MMHUB
+ *
+ * @adev: amdgpu device structure
+ * @vmid_mask: kernel-queue round-robin VMID mask for this hub
+ * @for_mmhub: true to target MMHUB instances, false for GFXHUB
+ *
+ * On MMHUB, also sets vmid_uq_mask_mmhub to the fixed pool of VMIDs
+ * MES/KFD use there, excluding npa_vmid (a VMID dedicated to a single
+ * fixed purpose) from both the kernel- and user-queue masks; the
+ * caller must already have set npa_vmid. vmid_uq_mask_gfxhub is set
+ * directly by each generation's sw_init(), since unlike MMHUB's it
+ * varies per generation.
+ */
 void amdgpu_vmid_mgr_set_vmid_mask(struct amdgpu_device *adev,
 				   unsigned long vmid_mask, bool for_mmhub)
 {
 	unsigned int i;
 
 	BUILD_BUG_ON(AMDGPU_NUM_VMID > BITS_PER_LONG);
+
+	if (for_mmhub && adev->vm_manager.npa_vmid)
+		vmid_mask &= ~BIT(adev->vm_manager.npa_vmid);
 
 	for (i = 0; i < AMDGPU_MAX_VMHUBS; i++) {
 		bool is_mmhub = AMDGPU_IS_MMHUB0(i) || AMDGPU_IS_MMHUB1(i);
@@ -644,22 +662,13 @@ void amdgpu_vmid_mgr_set_vmid_mask(struct amdgpu_device *adev,
 			bitmap_copy(adev->vm_manager.id_mgr[i].vmid_mask,
 				    &vmid_mask, AMDGPU_NUM_VMID);
 	}
-}
 
-/**
- * amdgpu_vmid_uq_mask_init - init the user queue VMID masks
- *
- * @adev: amdgpu_device pointer
- *
- * Sets vmid_uq_mask_gfxhub/mmhub to the pool of VMIDs at or above
- * first_kfd_vmid, shared by KFD and MES user queues.
- */
-static void amdgpu_vmid_uq_mask_init(struct amdgpu_device *adev)
-{
-	adev->vm_manager.vmid_uq_mask_gfxhub =
-		((1U << AMDGPU_NUM_VMID) - 1) &
-		~((1U << adev->vm_manager.first_kfd_vmid) - 1);
-	adev->vm_manager.vmid_uq_mask_mmhub = 0xFF00;
+	if (for_mmhub) {
+		adev->vm_manager.vmid_uq_mask_mmhub = 0xFF00;
+		if (adev->vm_manager.npa_vmid)
+			adev->vm_manager.vmid_uq_mask_mmhub &=
+				~BIT(adev->vm_manager.npa_vmid);
+	}
 }
 
 /**
@@ -672,8 +681,6 @@ static void amdgpu_vmid_uq_mask_init(struct amdgpu_device *adev)
 void amdgpu_vmid_mgr_init(struct amdgpu_device *adev)
 {
 	unsigned i, j;
-
-	amdgpu_vmid_uq_mask_init(adev);
 
 	for (i = 0; i < AMDGPU_MAX_VMHUBS; ++i) {
 		struct amdgpu_kq_vmid_mgr *id_mgr =

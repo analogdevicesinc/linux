@@ -745,6 +745,8 @@ static int gmc_v11_0_sw_init(struct amdgpu_ip_block *ip_block)
 {
 	int r, vram_width = 0, vram_type = 0, vram_vendor = 0;
 	struct amdgpu_device *adev = ip_block->adev;
+	unsigned int first_userq_vmid;
+	unsigned long gfx_vmid_mask;
 
 	adev->mmhub.funcs->init(adev);
 
@@ -854,11 +856,12 @@ static int gmc_v11_0_sw_init(struct amdgpu_ip_block *ip_block)
 	 * amdgpu graphics/compute will use VMIDs 1-7
 	 * amdkfd will use VMIDs 8-15
 	 */
-	adev->vm_manager.first_kfd_vmid = adev->gfx.disable_kq ? 1 : 8;
+	first_userq_vmid = adev->gfx.disable_kq ? 1 : 8;
+	gfx_vmid_mask = GENMASK(first_userq_vmid - 1, 1);
 
-	amdgpu_vmid_mgr_set_vmid_mask(adev,
-				      GENMASK(adev->vm_manager.first_kfd_vmid - 1, 1),
-				      false);
+	adev->vm_manager.vmid_uq_mask_gfxhub =
+		GENMASK(AMDGPU_NUM_VMID - 1, 1) & ~gfx_vmid_mask;
+	amdgpu_vmid_mgr_set_vmid_mask(adev, gfx_vmid_mask, false);
 	amdgpu_vmid_mgr_set_vmid_mask(adev, GENMASK(AMDGPU_NUM_VMID - 1, 1), true);
 
 	amdgpu_vm_manager_init(adev);

@@ -56,6 +56,22 @@
 	     __vmid_mask; __vmid_mask = 0)				\
 		for_each_set_bit((vmid), &__vmid_mask, AMDGPU_NUM_VMID)
 
+/**
+ * for_each_uq_gfx_vmid - iterate over every VMID set in vmid_uq_mask_gfxhub
+ * @vmid:	loop cursor (int / unsigned int)
+ * @adev:	struct amdgpu_device *
+ *
+ * Equivalent to walking adev->vm_manager.vmid_uq_mask_gfxhub with
+ * for_each_set_bit().
+ *
+ * Relies on AMDGPU_NUM_VMID (16) fitting in a single unsigned long.
+ */
+#define for_each_uq_gfx_vmid(vmid, adev)					\
+	for (unsigned long __uq_vmid_mask =				\
+		(adev)->vm_manager.vmid_uq_mask_gfxhub;		\
+	     __uq_vmid_mask; __uq_vmid_mask = 0)			\
+		for_each_set_bit((vmid), &__uq_vmid_mask, AMDGPU_NUM_VMID)
+
 struct amdgpu_device;
 struct amdgpu_fpriv;
 struct amdgpu_vm;

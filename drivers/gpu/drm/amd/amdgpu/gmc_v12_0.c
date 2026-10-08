@@ -849,6 +849,8 @@ static int gmc_v12_0_sw_init(struct amdgpu_ip_block *ip_block)
 	struct amdgpu_device *adev = ip_block->adev;
 	uint64_t pte_addr_mask = 0;
 	u32 mmhub_vmid_mask;
+	unsigned int first_userq_vmid;
+	unsigned long gfx_vmid_mask;
 	int i;
 
 	adev->mmhub.funcs->init(adev);
@@ -997,25 +999,23 @@ static int gmc_v12_0_sw_init(struct amdgpu_ip_block *ip_block)
 	 */
 	mmhub_vmid_mask = GENMASK(AMDGPU_NUM_VMID - 1, 1);
 	if (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0)) {
-		adev->vm_manager.first_kfd_vmid = 3;
+		first_userq_vmid = 3;
 		adev->vm_manager.npa_vmid = 15;
-		mmhub_vmid_mask &= ~BIT(adev->vm_manager.npa_vmid);
 	} else {
-		adev->vm_manager.first_kfd_vmid = 8;
+		first_userq_vmid = 8;
 	}
 
 	if (adev->gfx.disable_kq)
-		adev->vm_manager.first_kfd_vmid = 1;
+		first_userq_vmid = 1;
 
+	gfx_vmid_mask = GENMASK(first_userq_vmid - 1, 1);
+
+	adev->vm_manager.vmid_uq_mask_gfxhub =
+		GENMASK(AMDGPU_NUM_VMID - 1, 1) & ~gfx_vmid_mask;
 	amdgpu_vmid_mgr_set_vmid_mask(adev, mmhub_vmid_mask, true);
-	amdgpu_vmid_mgr_set_vmid_mask(adev,
-				      GENMASK(adev->vm_manager.first_kfd_vmid - 1, 1),
-				      false);
+	amdgpu_vmid_mgr_set_vmid_mask(adev, gfx_vmid_mask, false);
 
 	amdgpu_vm_manager_init(adev);
-
-	if (adev->vm_manager.npa_vmid)
-		adev->vm_manager.vmid_uq_mask_mmhub &= ~BIT(adev->vm_manager.npa_vmid);
 
 	r = amdgpu_gmc_ras_sw_init(adev);
 	if (r)
