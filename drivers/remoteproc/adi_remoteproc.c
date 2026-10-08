@@ -775,12 +775,11 @@ static void *adi_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *u
 	void __iomem *L2_shared_base = rproc_data->L2_shared_base;
 	void *ret = NULL;
 
-	if (len == 0)
-		return NULL;
-
-	if (da >= rproc_data->l1_da_range[0] && da < rproc_data->l1_da_range[1])
-		ret = L1_shared_base + da;
-	else if (da >= rproc_data->l2_da_range[0] && da < rproc_data->l2_da_range[1])
+	if (da >= rproc_data->l1_da_range[0] &&
+	    da + len <= rproc_data->l1_da_range[0] + rproc_data->l1_da_range[1])
+		ret = L1_shared_base + (da - rproc_data->l1_da_range[0]);
+	else if (da >= rproc_data->l2_da_range[0] &&
+		 da + len <= rproc_data->l2_da_range[0] + rproc_data->l2_da_range[1])
 		ret = L2_shared_base + (da - rproc_data->l2_da_range[0]);
 
 	return ret;
@@ -808,7 +807,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	struct rproc *rproc;
 	struct resource *res;
 	struct reserved_mem *rmem;
-	u32 addr[2];
+	u64 addr64, size64;
 	int ret, core_id;
 	const char *name;
 
@@ -867,25 +866,21 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, PTR_ERR(rproc_data->kick_chan),
 				     "Unable to get kick mailbox channel\n");
 
-	/*
-	 * for now device addresses are represented as 32 bits and expanded to 64
-	 * here in driver code
-	 */
-	if (of_property_read_u32_array(np, "adi,l1-da", addr, 2)) {
-		ret = dev_err_probe(dev, -ENODEV,
-				    "Missing adi,l1-da with L1 device address range information\n");
+	ret = of_property_read_reg(np, 0, &addr64, &size64);
+	if (ret) {
+		ret = dev_err_probe(dev, -EINVAL, "Failed to get L1 device address info\n");
 		goto free_mbox;
 	}
-	rproc_data->l1_da_range[0] = addr[0];
-	rproc_data->l1_da_range[1] = addr[1];
+	rproc_data->l1_da_range[0] = addr64; /* discard the upper 32 bits */
+	rproc_data->l1_da_range[1] = size64; /* discard the upper 32 bits */
 
-	if (of_property_read_u32_array(np, "adi,l2-da", addr, 2)) {
-		ret = dev_err_probe(dev, -ENODEV,
-				    "Missing adi,l2-da with L2 device address range information\n");
+	ret = of_property_read_reg(np, 1, &addr64, &size64);
+	if (ret) {
+		ret = dev_err_probe(dev, -EINVAL, "Failed to get L2 device address info\n");
 		goto free_mbox;
 	}
-	rproc_data->l2_da_range[0] = addr[0];
-	rproc_data->l2_da_range[1] = addr[1];
+	rproc_data->l2_da_range[0] = addr64; /* discard the upper 32 bits */
+	rproc_data->l2_da_range[1] = size64; /* discard the upper 32 bits */
 
 	/* Get ADI resource table address */
 	node = of_parse_phandle(np, "adi,rsc-table", 0);
