@@ -139,10 +139,16 @@ static atomic_t ad4134_capture_active = ATOMIC_INIT(0);
 #define AD4134_PDN_TIME_US			10000
 
 /*
+ * Spec provenance. The §A-§H lettering used throughout this file is from
+ * files/NI_Start-up_Sequence_Fused_Parts-soft.txt (cited below as
+ * "Sequence.txt"). The constants are from the later files/AD4134_Phase
+ * Sequence Environement .pptx/.docx, which supersede it on two values only:
+ * 39 startup cycles (not 36) and div32 target 5 (not 3).
+ *
  * clkin_aligner IP register map (HDL: hdl/library/clkin_aligner). The IP is a
  * side-band controller for the 48 MHz XTAL2_CLKIN that gates clk_in through a
  * BUFGCE and tracks /32-divider phase + delivered edge counts. It implements
- * the hardware side of Sequence.txt: §E (one-time 36-cycle startup) and §F
+ * the hardware side of Sequence.txt: §E (one-time 39-cycle startup) and §F
  * (deterministic stop-at-/32-boundary across SPI power-mode writes, then
  * resume and IRQ at EDGE_TARGET). EDGE_TARGET is 137 in the bitstream: it
  * anchors odr_sync so the first ODR pulse lands on CLKin edge 146 (the
@@ -160,7 +166,7 @@ static atomic_t ad4134_capture_active = ATOMIC_INIT(0);
 #define   AD4134_CLKIN_CTRL_GATE_FORCE_OFF		BIT(3)
 #define   AD4134_CLKIN_CTRL_GATE_FORCE_ON		BIT(4)
 #define AD4134_CLKIN_STATUS			0x048 /* word 0x12 */
-#define AD4134_CLKIN_STARTUP_CYCLES		0x04C /* word 0x13 — bitstream default 39 (Fused_part_sequence) */
+#define AD4134_CLKIN_STARTUP_CYCLES		0x04C /* word 0x13 — bitstream default 39 (Phase Sequence pptx slide 2) */
 #define AD4134_CLKIN_EDGE_TARGET		0x050 /* word 0x14 — bitstream default 137 (anchors ODR to CLKin edge 146) */
 #define AD4134_CLKIN_EDGE_COUNT			0x054 /* word 0x15 */
 #define AD4134_CLKIN_DIV32_PHASE		0x058 /* word 0x16 */
@@ -607,6 +613,10 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	unsigned int odr_hz;
 	u64 target = 10;
 	int ret;
+
+	/* The slave node has no "pwms": it shares the master's ODR generator. */
+	if (!st->odr_trigger)
+		return -ENODEV;
 
 	/*
 	 * Every ODR pulse causes each of the 4 ADCs within the AD4134 chip to
@@ -1317,13 +1327,16 @@ static int ad4134_clkin_init(struct ad4134_state *st)
  * Sequence.txt §E — one-time controlled startup of XTAL2_CLKIN.
  *
  * The chip's internal clock chain has an RC oscillator that hands over to
- * the external 48 MHz on the FIRST 36 edges of XTAL2_CLKIN it sees after
+ * the external 48 MHz on the FIRST 39 edges of XTAL2_CLKIN it sees after
  * POR. If we let the chip wake up while the BUFGCE gate is open, that
  * handover happens at a non-deterministic point — defeating the purpose
  * of every later §F alignment. So this function owns the reset GPIO
  * release: gate is forced OFF before reset is dropped, so the chip
- * exits POR running on RC only, then we deliver exactly 36 cycles
+ * exits POR running on RC only, then we deliver exactly 39 cycles
  * through clkin_aligner.
+ *
+ * "One-time" is per POR, not per boot: step 2 re-asserts /RESETN so every
+ * probe gets a chip that is still on RC and can take the handover again.
  *
  * Caller has acquired reset_gpio with GPIOD_OUT_HIGH (chip in reset).
  *
@@ -1332,7 +1345,7 @@ static int ad4134_clkin_init(struct ad4134_state *st)
  *   3. fsleep §E.2 POR (~3 ms conservative)
  *   4. STARTUP_FIRE (clears GATE_FORCE_OFF in the same write, since
  *      writel writes the full word and the strobe is bit[0] only)
- *      → FSM IDLE→STARTUP, 36 edges delivered, STOPPED_LOW; IRQ[2]
+ *      → FSM IDLE→STARTUP, 39 edges delivered, STOPPED_LOW; IRQ[2]
  *   5. fsleep §E.4 (20 µs clock-switch handshake)
  *   6. RESUME — XTAL runs continuously from known /32 phase per §C
  */
@@ -1386,7 +1399,7 @@ static int ad4134_clkin_startup(struct ad4134_state *st,
 	/* §E.2 POR wait (chip on RC). */
 	fsleep(3000);
 
-	/* §E.3 STARTUP_FIRE — deliver 36 XTAL cycles. */
+	/* §E.3 STARTUP_FIRE — deliver 39 XTAL cycles. */
 	reinit_completion(&st->clkin_startup_done);
 	writel(AD4134_CLKIN_CTRL_STARTUP_FIRE,
 	       st->clkin_base + AD4134_CLKIN_CONTROL);
@@ -1653,7 +1666,7 @@ static int ad4134_setup(struct ad4134_state *st)
 	 * Sequence.txt §E/§F are one master responsibility on a dual-chip
 	 * board sharing XTAL2_CLKIN. The slave keeps /RESETN asserted and lets
 	 * the master drive the controlled §E for both chips simultaneously
-	 * (gate OFF, both released together, both see the same 36 startup
+	 * (gate OFF, both released together, both see the same 39 startup
 	 * edges) and broadcast §F/config afterwards. Without this the slave
 	 * would release its own reset against a free-running gate — an
 	 * uncontrolled RC->crystal handover that defeats §E.
@@ -1679,8 +1692,8 @@ static int ad4134_setup(struct ad4134_state *st)
 	 * at edge 137 — which anchors the first ODR to CLKin edge 146, the
 	 * AD7134's guaranteed first dig_clk rising edge.
 	 *
-	 * Value 0x01 = AD4134_POWER_MODE_HIGH_PERF. All other DEVICE_CONFIG
-	 * bits default to 0 after reset.
+	 * Value 0x01 = AD4134_POWER_MODE_HIGH_PERF. POWER_MODE is the only
+	 * writable bit; the rest are status and read back from a 0xD0 reset.
 	 */
 	if (st->clkin_present) {
 		ret = ad4134_clkin_change_power_mode(st,
