@@ -65,7 +65,6 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 	struct adi_ctx *ctx;
 	struct adi_dev *crypt;
 	struct adi_crypt_reqctx *rctx;
-	struct scatter_walk in;
 	int ret;
 	int i, j, ivsize, pos;
 	struct ADI_PKTE_DEVICE *pkte;
@@ -207,9 +206,8 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 
 	dev_dbg(crypt->dev, "Started writing (via scatterwalk) %d bytes...\n", req->cryptlen);
 
-	scatterwalk_start(&in, req->src);
-	scatterwalk_copychunks(&pkte->source[crypt->ring_pos_consume][0],
-			       &in, req->cryptlen, 0);
+	memcpy_from_sglist(&pkte->source[crypt->ring_pos_consume][0],
+			   req->src, 0, req->cryptlen);
 
 	if (rctx->mode & CBC) {
 		if (rctx->mode & DECRYPT) {
@@ -255,7 +253,6 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 	struct adi_dev *crypt = ctx->pkte_dev;
 	int err;
 	unsigned int i;
-	struct scatter_walk out;
 
 	err = adi_crypt_prepare_req(req);
 	if (err)
@@ -273,8 +270,7 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 	while (!(adi_read(crypt, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY))
 		;
 
-	scatterwalk_start(&out, req->dst);
-	scatterwalk_copychunks(crypt->pkte_device->destination, &out, req->cryptlen, 1);
+	memcpy_to_sglist(req->dst, 0, crypt->pkte_device->destination, req->cryptlen);
 
 #ifdef DEBUG_PKTE
 	for (i = 0; i < req->cryptlen/4; i++)
