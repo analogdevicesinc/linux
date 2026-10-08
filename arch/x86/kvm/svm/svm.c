@@ -2213,18 +2213,31 @@ static int shutdown_interception(struct kvm_vcpu *vcpu)
 
 
 	/*
-	 * VMCB is undefined after a SHUTDOWN intercept.  INIT the vCPU to put
-	 * the VMCB in a known good state.  Unfortuately, KVM doesn't have
-	 * KVM_MP_STATE_SHUTDOWN and can't add it without potentially breaking
-	 * userspace.  At a platform view, INIT is acceptable behavior as
-	 * there exist bare metal platforms that automatically INIT the CPU
-	 * in response to shutdown.
+	 * The VMCB save area is undefined after a SHUTDOWN intercept, as are
+	 * control area offsets 60h, 61h, and 68h (int_ctl[15:0] and int_state).
+	 * INIT the vCPU to put the VMCB in a known good state.  Unfortunately,
+	 * KVM doesn't have KVM_MP_STATE_SHUTDOWN and can't add it without
+	 * potentially breaking userspace.  At a platform view, INIT is
+	 * acceptable behavior as there exist bare metal platforms that
+	 * automatically INIT the CPU in response to shutdown.
 	 *
 	 * The VM save area for SEV-ES guests has already been encrypted so it
 	 * cannot be reinitialized, i.e. synthesizing INIT is futile.
 	 */
 	if (!is_sev_es_guest(vcpu)) {
-		clear_page(svm->vmcb);
+		struct vmcb_control_area *control = &svm->vmcb->control;
+
+		memset(&svm->vmcb->save, 0, sizeof(svm->vmcb->save));
+		control->int_ctl &= ~GENMASK(15, 0);
+		control->int_state = 0;
+
+		/*
+		 * EVENTINJ is cleared on #VMEXIT, but only if VMRUN fully
+		 * entered the guest.  Manually clear the fields even though it
+		 * should be redundant, as there is no downside to doing so.
+		 */
+		control->event_inj = 0;
+		control->event_inj_err = 0;
 #ifdef CONFIG_KVM_SMM
 		if (is_smm(vcpu))
 			kvm_smm_changed(vcpu, false);
