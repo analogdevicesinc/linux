@@ -19,8 +19,9 @@
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/of_device.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/reset.h>
 
 #include <crypto/engine.h>
@@ -575,7 +576,7 @@ MODULE_DEVICE_TABLE(of, adi_of_match);
 static int adi_get_of_match(struct adi_dev *pkte_dev,
 				   struct device *dev)
 {
-	pkte_dev->pdata = of_device_get_match_data(dev);
+	pkte_dev->pdata = device_get_match_data(dev);
 	if (!pkte_dev->pdata) {
 		dev_dbg(dev, "no compatible OF match\n");
 		return -EINVAL;
@@ -586,7 +587,6 @@ static int adi_get_of_match(struct adi_dev *pkte_dev,
 
 static int adi_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	struct adi_dev *pkte_dev;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
@@ -598,9 +598,7 @@ static int adi_probe(struct platform_device *pdev)
 	if (!pkte_dev)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	pkte_dev->io_base = devm_ioremap_resource(dev, res);
-
+	pkte_dev->io_base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
 	if (IS_ERR(pkte_dev->io_base))
 		return PTR_ERR(pkte_dev->io_base);
 
@@ -621,11 +619,10 @@ static int adi_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = of_property_read_string(np, "mode", &mode);
+	ret = device_property_read_string(dev, "mode", &mode);
 	if (ret < 0) {
 		if (ret != -EINVAL)
-			dev_err(pkte_dev->dev, "%s: could not parse mode\n",
-				of_node_full_name(np));
+			dev_err(dev, "could not parse mode\n");
 		return -EINVAL;
 	}
 
