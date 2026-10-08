@@ -41,4 +41,6 @@ config CRYPTO_DEV_ADI_SKCIPHER
 	select CRYPTO_LIB_DES
 	help
 	  This enables AES, DES and 3DES in ECB and CBC modes on the ADI
-	  packet engine.
+	  packet engine. Requests are limited to the 8 KiB engine buffer;
+	  larger requests are rejected so callers must split them or use
+	  a software implementation.

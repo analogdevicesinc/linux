@@ -367,6 +367,10 @@ static int adi_crypt(struct skcipher_request *req, unsigned long mode)
 	if (!crypt)
 		return -ENODEV;
 
+	/* Each request is staged in a single engine buffer */
+	if (req->cryptlen > PKTE_BUFLEN)
+		return -EINVAL;
+
 	rctx->mode = mode;
 
 	return crypto_transfer_skcipher_request_to_engine(crypt->engine, req);
