@@ -146,7 +146,9 @@
 			 * Operating point. Per channel: FREQ_SEL=1, GSEL1=1, GSEL0=0,
 			 * CURR_DIV_EN=0 -- i.e. 0xCC, TZ = 11k, on all four channels,
 			 * paired with the 2K BHCS Howland jumpers and driven at
-			 * 1.20 Vpp / +0.50 V.
+			 * 1.20 Vpp / +0.50 V. The hogs below cover FREQ_SEL and
+			 * CURR_DIV_EN only; GSEL belongs to the driver and comes up
+			 * at 11k.
 			 *
 			 * Transimpedance runs 133k (00) / 11k (10) / 4.54k (01),
 			 * datasheet Table 11. History: 133k was the original operating
@@ -197,14 +199,15 @@
 			 * measured, not assumed: clearing it takes the
 			 * 10-62.5 MHz noise from 5.5 to 21.5 LSB rms.
 			 * The 0xFF power-up leaves GSEL1=GSEL0=1, which the ADI
-			 * spec calls an invalid transimpedance setting; GSEL0 now stays
-			 * hogged low so that state cannot be reached.
+			 * spec calls an invalid transimpedance setting. GSEL0/GSEL1
+			 * are no longer hogged -- the ada4355 driver claims them as
+			 * gsel-gpios and drives a valid code at probe, and its
+			 * gain_mode enum lists only the three legal settings, so
+			 * {1,1} cannot be selected at runtime.
 			 */
 			fe-ab-high-hog {
 				gpio-hog;
-				gpios = <2 GPIO_ACTIVE_HIGH>,
-					<3 GPIO_ACTIVE_HIGH>,
-					<6 GPIO_ACTIVE_HIGH>,
+				gpios = <3 GPIO_ACTIVE_HIGH>,
 					<7 GPIO_ACTIVE_HIGH>;
 				output-high;
 			};
@@ -212,9 +215,7 @@
 			fe-ab-low-hog {
 				gpio-hog;
 				gpios = <0 GPIO_ACTIVE_HIGH>,
-					<1 GPIO_ACTIVE_HIGH>,
-					<4 GPIO_ACTIVE_HIGH>,
-					<5 GPIO_ACTIVE_HIGH>;
+					<4 GPIO_ACTIVE_HIGH>;
 				output-low;
 			};
 		};
@@ -230,12 +231,10 @@
 					  "CURR_DIV_EN_C", "GSEL0_C",
 					  "GSEL1_C", "FREQ_SEL_C";
 
-			/* 0xCC, TZ = 11k -- see the fe_ctrl_ab comment. */
+			/* FREQ_SEL and CURR_DIV_EN only -- see the fe_ctrl_ab comment. */
 			fe-cd-high-hog {
 				gpio-hog;
-				gpios = <2 GPIO_ACTIVE_HIGH>,
-					<3 GPIO_ACTIVE_HIGH>,
-					<6 GPIO_ACTIVE_HIGH>,
+				gpios = <3 GPIO_ACTIVE_HIGH>,
 					<7 GPIO_ACTIVE_HIGH>;
 				output-high;
 			};
@@ -243,9 +242,7 @@
 			fe-cd-low-hog {
 				gpio-hog;
 				gpios = <0 GPIO_ACTIVE_HIGH>,
-					<1 GPIO_ACTIVE_HIGH>,
-					<4 GPIO_ACTIVE_HIGH>,
-					<5 GPIO_ACTIVE_HIGH>;
+					<4 GPIO_ACTIVE_HIGH>;
 				output-low;
 			};
 		};
@@ -300,6 +297,10 @@
 		 * inverts these into sync_n, so the reset is active high here.
 		 */
 		serdes-rst-gpios = <&gpio0 92 GPIO_ACTIVE_HIGH>;
+
+		/* GSEL0 first, GSEL1 second: the order is the enum's bit order. */
+		gsel-gpios = <&fe_ctrl_ab 5 GPIO_ACTIVE_HIGH>,
+			     <&fe_ctrl_ab 6 GPIO_ACTIVE_HIGH>;
 	};
 
 	adc_ada4356_1: adc@1 {
@@ -314,6 +315,8 @@
 
 		num_lanes = <2>;
 		serdes-rst-gpios = <&gpio0 93 GPIO_ACTIVE_HIGH>;
+		gsel-gpios = <&fe_ctrl_ab 1 GPIO_ACTIVE_HIGH>,
+			     <&fe_ctrl_ab 2 GPIO_ACTIVE_HIGH>;
 	};
 
 	adc_ada4356_2: adc@2 {
@@ -328,6 +331,8 @@
 
 		num_lanes = <2>;
 		serdes-rst-gpios = <&gpio0 94 GPIO_ACTIVE_HIGH>;
+		gsel-gpios = <&fe_ctrl_cd 5 GPIO_ACTIVE_HIGH>,
+			     <&fe_ctrl_cd 6 GPIO_ACTIVE_HIGH>;
 	};
 
 	adc_ada4356_3: adc@3 {
@@ -342,6 +347,8 @@
 
 		num_lanes = <2>;
 		serdes-rst-gpios = <&gpio0 95 GPIO_ACTIVE_HIGH>;
+		gsel-gpios = <&fe_ctrl_cd 1 GPIO_ACTIVE_HIGH>,
+			     <&fe_ctrl_cd 2 GPIO_ACTIVE_HIGH>;
 	};
 
 	/*

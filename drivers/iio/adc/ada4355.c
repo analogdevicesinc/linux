@@ -119,12 +119,25 @@ static const int ada4355_scale_table[][2] = {
 	{2000, 0}, /* 2V differential range (±1V) for 1V reference */
 };
 
+/*
+ * Front-end transimpedance, selected by the GSEL1/GSEL0 pins (datasheet
+ * Table 11). {GSEL1,GSEL0} = {1,1} is an invalid setting and is deliberately
+ * absent from this list, so userspace has no way to reach it.
+ */
+static const char * const ada4355_gain_modes[] = { "133k", "11k", "4k54" };
+static const u8 ada4355_gsel_code[] = { 0x0, 0x2, 0x1 };
+
+#define ADA4355_GSEL_LINES		2
+#define ADA4355_GAIN_MODE_DEFAULT	1
+
 struct ada4355_state {
 	struct spi_device	*spi;
 	struct regmap		*regmap;
 	struct clk		*clk;
 	struct mutex		lock;
 	unsigned int		num_lanes;
+	struct gpio_descs	*gsel;
+	unsigned int		gain_mode;
 
 	/* Readback census for the setup transcript, see ada4355_write_verify() */
 	unsigned int		rb_total;
@@ -237,12 +250,77 @@ static int ada4355_write_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
+static int ada4355_apply_gain_mode(struct ada4355_state *st, unsigned int mode)
+{
+	DECLARE_BITMAP(values, 2);
+	int ret;
+
+	values[0] = ada4355_gsel_code[mode];
+
+	ret = gpiod_set_array_value_cansleep(st->gsel->ndescs, st->gsel->desc,
+					     st->gsel->info, values);
+	if (ret)
+		return ret;
+
+	st->gain_mode = mode;
+
+	return 0;
+}
+
+static int ada4355_get_gain_mode(struct iio_dev *indio_dev,
+				 const struct iio_chan_spec *chan)
+{
+	return ada4355_get_data(indio_dev)->gain_mode;
+}
+
+static int ada4355_set_gain_mode(struct iio_dev *indio_dev,
+				 const struct iio_chan_spec *chan,
+				 unsigned int mode)
+{
+	struct ada4355_state *st = ada4355_get_data(indio_dev);
+	int ret;
+
+	if (!st->gsel)
+		return -ENODEV;
+
+	/*
+	 * Changing the transimpedance moves the DC pedestal and shifts the
+	 * front-end propagation delay by tens of ns, so refuse while a buffer
+	 * is running rather than corrupt a capture in flight.
+	 */
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	scoped_guard(mutex, &st->lock)
+		ret = ada4355_apply_gain_mode(st, mode);
+
+	iio_device_release_direct_mode(indio_dev);
+
+	return ret;
+}
+
+static const struct iio_enum ada4355_gain_mode_enum = {
+	.items = ada4355_gain_modes,
+	.num_items = ARRAY_SIZE(ada4355_gain_modes),
+	.get = ada4355_get_gain_mode,
+	.set = ada4355_set_gain_mode,
+};
+
+static const struct iio_chan_spec_ext_info ada4355_ext_info[] = {
+	IIO_ENUM("gain_mode", IIO_SEPARATE, &ada4355_gain_mode_enum),
+	IIO_ENUM_AVAILABLE("gain_mode", IIO_SHARED_BY_TYPE,
+			   &ada4355_gain_mode_enum),
+	{ }
+};
+
 #define ADA4355_CHAN(_chan, _si, _bits, _sign, _shift) {		\
 	.type = IIO_VOLTAGE,						\
 	.indexed = 1,							\
 	.channel = _chan,						\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_SCALE),			\
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	.ext_info = ada4355_ext_info,					\
 	.scan_index = _si,						\
 	.scan_type = {							\
 		.sign = _sign,						\
@@ -631,6 +709,33 @@ static int ada4355_properties_parse(struct ada4355_state *st)
 		st->num_lanes = ADA4355_FRAME_DELAY_LANE;
 	}
 
+	/*
+	 * OUT_LOW lands on {0,0} = 133k, a valid code, the moment the lines are
+	 * claimed; the expanders power up 0xFF, i.e. the invalid {1,1}.
+	 */
+	st->gsel = devm_gpiod_get_array_optional(&spi->dev, "gsel",
+						 GPIOD_OUT_LOW);
+	if (IS_ERR(st->gsel))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->gsel),
+				     "Failed to get gsel-gpios\n");
+
+	if (!st->gsel) {
+		dev_info(&spi->dev, "gsel-gpios absent, gain fixed by the device tree\n");
+		return 0;
+	}
+
+	if (st->gsel->ndescs != ADA4355_GSEL_LINES)
+		return dev_err_probe(&spi->dev, -EINVAL,
+				     "gsel-gpios needs 2 lines (GSEL0, GSEL1), got %u\n",
+				     st->gsel->ndescs);
+
+	ret = ada4355_apply_gain_mode(st, ADA4355_GAIN_MODE_DEFAULT);
+	if (ret)
+		return dev_err_probe(&spi->dev, ret, "Failed to set gain mode\n");
+
+	dev_info(&spi->dev, "front-end transimpedance %s\n",
+		 ada4355_gain_modes[st->gain_mode]);
+
 	return 0;
 }
 
@@ -745,12 +850,11 @@ static int ada4355_probe(struct spi_device *spi)
 	if (!conv)
 		return -ENOMEM;
 
-	/* cf_axi_adc core discovers the converter via spi drvdata */
-	spi_set_drvdata(spi, conv);
-
 	ret = ada4355_properties_parse(st);
 	if (ret) {
-		dev_err(&spi->dev, "ada4355_probe: properties_parse failed %d\n", ret);
+		if (ret != -EPROBE_DEFER)
+			dev_err(&spi->dev, "ada4355_probe: properties_parse failed %d\n",
+				ret);
 		return ret;
 	}
 
@@ -784,6 +888,13 @@ static int ada4355_probe(struct spi_device *spi)
 	conv->write_raw  = ada4355_write_raw;
 	conv->post_setup = ada4355_post_setup;
 	conv->phy        = st;
+
+	/*
+	 * cf_axi_adc discovers the converter via spi drvdata and treats a
+	 * non-NULL pointer as "ready", dereferencing chip_info immediately.
+	 * Publish it last so a deferred probe above cannot hand it a zeroed one.
+	 */
+	spi_set_drvdata(spi, conv);
 
 	return 0;
 }
