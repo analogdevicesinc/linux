@@ -15,7 +15,7 @@
 #define ADI_PKTE_HASH
 
 #define NUM_HASH_CATEGORIES 2
-extern struct adi_algs_info adi_algs_info_adi[NUM_HASH_CATEGORIES];
+extern struct adi_algs_info adi_pkte_hash_algs_info[NUM_HASH_CATEGORIES];
 
 void adi_write_packet(struct adi_dev *pkte_dev, u32 *source);
 

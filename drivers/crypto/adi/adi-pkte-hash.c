@@ -253,8 +253,8 @@ static void adi_prep_engine(struct adi_dev *pkte_dev, u32 hash_mode)
 	pkte_dev->src_bytes_available = 0;
 	pkte_dev->ring_pos_produce = 0;
 	pkte_dev->ring_pos_consume = 0;
-	ready = 0;
-	processing = 0;
+	adi_pkte_ready = 0;
+	adi_pkte_processing = 0;
 
 	pkte->pPkteList.pCommand.opcode = opcode_hash;
 	pkte->pPkteList.pCommand.direction = dir_outbound;
@@ -301,14 +301,14 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 	}
 
 	if (final && (length == 0)) {
-		ready = 1;
-		wake_up_interruptible(&wq_ready);
+		adi_pkte_ready = 1;
+		wake_up_interruptible(&adi_pkte_wq_ready);
 		return 0;
 	}
 
 	if (pkte_dev->flags & (PKTE_TCM_MODE | PKTE_HOST_MODE)) {
-		wait_event_interruptible(wq_processing, processing == 0);
-		processing = 1;
+		wait_event_interruptible(adi_pkte_wq_processing, adi_pkte_processing == 0);
+		adi_pkte_processing = 1;
 	}
 
 	while (!(adi_read(pkte_dev, STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN))
@@ -548,7 +548,7 @@ static int adi_init(struct ahash_request *req)
 
 	pkte_dev->ring_pos_produce = 0;
 	pkte_dev->ring_pos_consume = 0;
-	processing = 0;
+	adi_pkte_processing = 0;
 
 	return 0;
 }
@@ -657,7 +657,7 @@ static void adi_finish_req(struct ahash_request *req, int err)
 	pkte = pkte_dev->pkte_device;
 
 	if (!err && (PKTE_FLAGS_FINAL & pkte_dev->flags)) {
-		wait_event_interruptible(wq_ready, ready == 1);
+		wait_event_interruptible(adi_pkte_wq_ready, adi_pkte_ready == 1);
 		while (!(adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY))
 			;
 
@@ -1112,7 +1112,7 @@ static struct ahash_alg algs_sha224_sha256[] = {
 	},
 };
 
-struct adi_algs_info adi_algs_info_adi[NUM_HASH_CATEGORIES] = {
+struct adi_algs_info adi_pkte_hash_algs_info[NUM_HASH_CATEGORIES] = {
 	{
 		.algs_list	= algs_md5_sha1,
 		.size		= ARRAY_SIZE(algs_md5_sha1),

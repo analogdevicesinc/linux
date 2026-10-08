@@ -104,11 +104,11 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 		crypt->src_bytes_available = 0;
 		crypt->ring_pos_produce = 0;
 		crypt->ring_pos_consume = 0;
-		ready = 0;
-		processing = 0;
+		adi_pkte_ready = 0;
+		adi_pkte_processing = 0;
 
 		for (i = 0; i < 4; i++)
-			IV[i] = 0;
+			adi_pkte_iv[i] = 0;
 
 		if (rctx->mode & ENCRYPT) {
 			pkte->pPkteList.pCommand.opcode = opcode_encrypt;
@@ -183,19 +183,19 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 
 				if ((rctx->mode & DES) || (rctx->mode & TDES)) {
 					pos = (crypt->src_bytes_available-8)/4;
-					memcpy((u8 *)&IV[0], &pkte->destination[pos], 8);
-					IV[2] = 0;
-					IV[3] = 0;
+					memcpy((u8 *)&adi_pkte_iv[0], &pkte->destination[pos], 8);
+					adi_pkte_iv[2] = 0;
+					adi_pkte_iv[3] = 0;
 				} else {
 					pos = (crypt->src_bytes_available-16)/4;
-					memcpy((u8 *)&IV[0], &pkte->destination[pos], 16);
+					memcpy((u8 *)&adi_pkte_iv[0], &pkte->destination[pos], 16);
 				}
 
 				//Feed previous result into IV
-				adi_config_state(crypt, IV);
+				adi_config_state(crypt, adi_pkte_iv);
 			} else {
 				//Feed previous result into IV
-				adi_config_state(crypt, IV);
+				adi_config_state(crypt, adi_pkte_iv);
 			}
 		} else {
 			adi_config_state(crypt, (u32 *)req->iv);
@@ -215,13 +215,13 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 		if (rctx->mode & DECRYPT) {
 			if ((rctx->mode & DES) || (rctx->mode & TDES)) {
 				pos = (req->cryptlen-8)/4;
-				memcpy((u8 *)&IV[0],
+				memcpy((u8 *)&adi_pkte_iv[0],
 					&pkte->source[crypt->ring_pos_consume][pos], 8);
-				IV[2] = 0;
-				IV[3] = 0;
+				adi_pkte_iv[2] = 0;
+				adi_pkte_iv[3] = 0;
 			} else {
 				pos = (req->cryptlen-16)/4;
-				memcpy((u8 *)&IV[0],
+				memcpy((u8 *)&adi_pkte_iv[0],
 					&pkte->source[crypt->ring_pos_consume][pos], 16);
 			}
 		}
@@ -262,8 +262,8 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 
 
 	if (crypt->flags & (PKTE_TCM_MODE | PKTE_HOST_MODE)) {
-		wait_event_interruptible(wq_processing, processing == 0);
-		processing = 1;
+		wait_event_interruptible(adi_pkte_wq_processing, adi_pkte_processing == 0);
+		adi_pkte_processing = 1;
 	}
 
 	while (!(adi_read(crypt, STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN))
@@ -538,7 +538,7 @@ static int adi_crypt_tdes_ecb_encrypt(struct skcipher_request *req)
 	return adi_crypt(req, ECB | TDES | ENCRYPT);
 }
 
-struct skcipher_alg crypto_algs[NUM_CRYPTO_ALGS] = {
+struct skcipher_alg adi_pkte_skcipher_algs[NUM_CRYPTO_ALGS] = {
 	{
 		.base.cra_name		= "cbc(aes)",
 		.base.cra_driver_name	= "adi-cbc-aes",

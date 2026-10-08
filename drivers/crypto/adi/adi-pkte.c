@@ -46,29 +46,29 @@
 #include "adi-pkte-hash.h"
 #include "adi-pkte-skcipher.h"
 
-DECLARE_WAIT_QUEUE_HEAD(wq_processing);
-int processing;
+DECLARE_WAIT_QUEUE_HEAD(adi_pkte_wq_processing);
+int adi_pkte_processing;
 
-DECLARE_WAIT_QUEUE_HEAD(wq_ready);
-bool ready;
+DECLARE_WAIT_QUEUE_HEAD(adi_pkte_wq_ready);
+bool adi_pkte_ready;
 
-struct adi_drv adi = {
-	.dev_list = LIST_HEAD_INIT(adi.dev_list),
-	.lock = __SPIN_LOCK_UNLOCKED(adi.lock),
+struct adi_drv adi_pkte_drv = {
+	.dev_list = LIST_HEAD_INIT(adi_pkte_drv.dev_list),
+	.lock = __SPIN_LOCK_UNLOCKED(adi_pkte_drv.lock),
 };
 
-u32 Key[8] = {0x0, 0x0, 0x0, 0x0, 0, 0, 0, 0};
-u32 IV[4] = {0x0, 0x0, 0x0, 0x0};
-u32 IDigest[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
-u32 ODigest[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+u32 adi_pkte_key[8] = {0x0, 0x0, 0x0, 0x0, 0, 0, 0, 0};
+u32 adi_pkte_iv[4] = {0x0, 0x0, 0x0, 0x0};
+u32 adi_pkte_idigest[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+u32 adi_pkte_odigest[8] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
 struct adi_dev *adi_find_dev(struct adi_ctx *ctx)
 {
 	struct adi_dev *pkte_dev = NULL, *tmp;
 
-	spin_lock_bh(&adi.lock);
+	spin_lock_bh(&adi_pkte_drv.lock);
 	if (!ctx->pkte_dev) {
-		list_for_each_entry(tmp, &adi.dev_list, list) {
+		list_for_each_entry(tmp, &adi_pkte_drv.dev_list, list) {
 			pkte_dev = tmp;
 			break;
 		}
@@ -77,7 +77,7 @@ struct adi_dev *adi_find_dev(struct adi_ctx *ctx)
 		pkte_dev = ctx->pkte_dev;
 	}
 
-	spin_unlock_bh(&adi.lock);
+	spin_unlock_bh(&adi_pkte_drv.lock);
 
 	return pkte_dev;
 }
@@ -156,14 +156,14 @@ static irqreturn_t adi_irq_handler(int irq, void *dev_id)
 
 
 		if (pkte_dev->pkte_device->pPkteList.pCommand.final_hash_condition == final_hash) {
-			ready = 1;
+			adi_pkte_ready = 1;
 			pkte_dev->flags |= PKTE_FLAGS_COMPLETE;
-			wake_up_interruptible(&wq_ready);
+			wake_up_interruptible(&adi_pkte_wq_ready);
 		}
 
 		if (pkte_dev->flags & PKTE_TCM_MODE) {
-			processing = 0;
-			wake_up_interruptible(&wq_processing);
+			adi_pkte_processing = 0;
+			wake_up_interruptible(&adi_pkte_wq_processing);
 		}
 	}
 
@@ -175,12 +175,12 @@ static irqreturn_t adi_irq_handler(int irq, void *dev_id)
 		adi_write(pkte_dev, RDSC_DECR_OFFSET, 0x1);
 
 		if (pkte_dev->pkte_device->pPkteList.pCommand.final_hash_condition == final_hash) {
-			ready = 1;
+			adi_pkte_ready = 1;
 			pkte_dev->flags |= PKTE_FLAGS_COMPLETE;
-			wake_up_interruptible(&wq_ready);
+			wake_up_interruptible(&adi_pkte_wq_ready);
 		}
-		processing = 0;
-		wake_up_interruptible(&wq_processing);
+		adi_pkte_processing = 0;
+		wake_up_interruptible(&adi_pkte_wq_processing);
 	}
 
 	if (temp & BITM_PKTE_IMSK_EN_IBUFTHRSH) {
@@ -360,20 +360,20 @@ void adi_config_sa_para(struct adi_dev *pkte_dev)
 		(pkte->pPkteList.pCommand.aes_des_key<<BITP_PKTE_SA_CMD1_AESDECKEY);
 }
 
-void adi_config_sa_key(struct adi_dev *pkte_dev, u32 Key[])
+void adi_config_sa_key(struct adi_dev *pkte_dev, const u32 key[])
 {
 	struct SA *SARec;
 
 	SARec = &pkte_dev->pkte_device->pPkteDescriptor.SARecord[pkte_dev->ring_pos_consume];
 
-	SARec->SA_Key.SA_KEY0 = Key[0];
-	SARec->SA_Key.SA_KEY1 = Key[1];
-	SARec->SA_Key.SA_KEY2 = Key[2];
-	SARec->SA_Key.SA_KEY3 = Key[3];
-	SARec->SA_Key.SA_KEY4 = Key[4];
-	SARec->SA_Key.SA_KEY5 = Key[5];
-	SARec->SA_Key.SA_KEY6 = Key[6];
-	SARec->SA_Key.SA_KEY7 = Key[7];
+	SARec->SA_Key.SA_KEY0 = key[0];
+	SARec->SA_Key.SA_KEY1 = key[1];
+	SARec->SA_Key.SA_KEY2 = key[2];
+	SARec->SA_Key.SA_KEY3 = key[3];
+	SARec->SA_Key.SA_KEY4 = key[4];
+	SARec->SA_Key.SA_KEY5 = key[5];
+	SARec->SA_Key.SA_KEY6 = key[6];
+	SARec->SA_Key.SA_KEY7 = key[7];
 }
 
 static void adi_config_idigest(struct adi_dev *pkte_dev, u32 Idigest[])
@@ -408,20 +408,20 @@ static void adi_config_odigest(struct adi_dev *pkte_dev, u32 Odigest[])
 	SARec->SA_Odigest.SA_ODIGEST7 = Odigest[7];
 }
 
-void adi_config_state(struct adi_dev *pkte_dev, u32 IV[])
+void adi_config_state(struct adi_dev *pkte_dev, const u32 iv[])
 {
 	struct ADI_PKTE_DEVICE *pkte;
 
 	pkte = pkte_dev->pkte_device;
 
 #ifdef DEBUG_PKTE
-	dev_dbg(pkte_dev->dev, "%s IV: %x %x %x %x\n", __func__, IV[0], IV[1], IV[2], IV[3]);
+	dev_dbg(pkte_dev->dev, "%s IV: %x %x %x %x\n", __func__, iv[0], iv[1], iv[2], iv[3]);
 #endif
 
-	pkte->pPkteDescriptor.State.STATE_IV0 = IV[0];
-	pkte->pPkteDescriptor.State.STATE_IV1 = IV[1];
-	pkte->pPkteDescriptor.State.STATE_IV2 = IV[2];
-	pkte->pPkteDescriptor.State.STATE_IV3 = IV[3];
+	pkte->pPkteDescriptor.State.STATE_IV0 = iv[0];
+	pkte->pPkteDescriptor.State.STATE_IV1 = iv[1];
+	pkte->pPkteDescriptor.State.STATE_IV2 = iv[2];
+	pkte->pPkteDescriptor.State.STATE_IV3 = iv[3];
 	pkte->pPkteDescriptor.State.STATE_BYTE_CNT0 = (u32)0x0;
 	pkte->pPkteDescriptor.State.STATE_BYTE_CNT1 = (u32)0x0;
 	pkte->pPkteDescriptor.State.STATE_IDIGEST0 = (u32)0x0;
@@ -444,10 +444,10 @@ void adi_start_engine(struct adi_dev *pkte_dev)
 	//Set up configuration structures
 	adi_configure_cdr(pkte_dev);
 	adi_config_sa_para(pkte_dev);
-	adi_config_sa_key(pkte_dev, Key);
-	adi_config_idigest(pkte_dev, IDigest);
-	adi_config_odigest(pkte_dev, ODigest);
-	adi_config_state(pkte_dev, IV);
+	adi_config_sa_key(pkte_dev, adi_pkte_key);
+	adi_config_idigest(pkte_dev, adi_pkte_idigest);
+	adi_config_odigest(pkte_dev, adi_pkte_odigest);
+	adi_config_state(pkte_dev, adi_pkte_iv);
 
 	//Copy command descriptor into all command descriptor rings
 	if (pkte_dev->flags & (PKTE_AUTONOMOUS_MODE | PKTE_TCM_MODE)) {
@@ -493,8 +493,8 @@ int adi_hw_init(struct adi_dev *pkte_dev)
 
 	pkte_dev->src_count_set = 0;
 	pkte_dev->src_bytes_available = 0;
-	ready = 0;
-	processing = 0;
+	adi_pkte_ready = 0;
+	adi_pkte_processing = 0;
 
 	//Continue with previous operation
 	if (!(pkte_dev->flags & PKTE_FLAGS_STARTED))
@@ -522,7 +522,7 @@ static int adi_register_algs(struct adi_dev *pkte_dev)
 #endif
 
 #ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
-	err = crypto_register_skciphers(crypto_algs, ARRAY_SIZE(crypto_algs));
+	err = crypto_register_skciphers(adi_pkte_skcipher_algs, ARRAY_SIZE(adi_pkte_skcipher_algs));
 	if (err) {
 		dev_err(pkte_dev->dev, "Could not register skcipher alg\n");
 		goto err_algs;
@@ -543,7 +543,7 @@ err_algs:
 #endif
 
 #ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
-	crypto_unregister_skciphers(crypto_algs, ARRAY_SIZE(crypto_algs));
+	crypto_unregister_skciphers(adi_pkte_skcipher_algs, ARRAY_SIZE(adi_pkte_skcipher_algs));
 #endif
 
 	return err;
@@ -562,7 +562,7 @@ static int adi_unregister_algs(struct adi_dev *pkte_dev)
 #endif
 
 #ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
-	crypto_unregister_skciphers(crypto_algs, ARRAY_SIZE(crypto_algs));
+	crypto_unregister_skciphers(adi_pkte_skcipher_algs, ARRAY_SIZE(adi_pkte_skcipher_algs));
 #endif
 
 	return 0;
@@ -570,8 +570,8 @@ static int adi_unregister_algs(struct adi_dev *pkte_dev)
 
 static const struct adi_pdata adi_pdata_adi = {
 #ifdef CONFIG_CRYPTO_DEV_ADI_HASH
-	.algs_info	= adi_algs_info_adi,
-	.algs_info_size	= ARRAY_SIZE(adi_algs_info_adi),
+	.algs_info	= adi_pkte_hash_algs_info,
+	.algs_info_size	= ARRAY_SIZE(adi_pkte_hash_algs_info),
 #endif
 };
 
@@ -691,9 +691,9 @@ static int adi_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pkte_dev);
 
-	spin_lock(&adi.lock);
-	list_add_tail(&pkte_dev->list, &adi.dev_list);
-	spin_unlock(&adi.lock);
+	spin_lock(&adi_pkte_drv.lock);
+	list_add_tail(&pkte_dev->list, &adi_pkte_drv.dev_list);
+	spin_unlock(&adi_pkte_drv.lock);
 
 	/* Initialize crypto engine */
 	pkte_dev->engine = crypto_engine_alloc_init(dev, 1);
@@ -717,9 +717,9 @@ err_algs:
 err_engine_start:
 	crypto_engine_exit(pkte_dev->engine);
 err_engine:
-	spin_lock(&adi.lock);
+	spin_lock(&adi_pkte_drv.lock);
 	list_del(&pkte_dev->list);
-	spin_unlock(&adi.lock);
+	spin_unlock(&adi_pkte_drv.lock);
 
 	return ret;
 }
@@ -736,9 +736,9 @@ static int adi_remove(struct platform_device *pdev)
 
 	crypto_engine_exit(pkte_dev->engine);
 
-	spin_lock(&adi.lock);
+	spin_lock(&adi_pkte_drv.lock);
 	list_del(&pkte_dev->list);
-	spin_unlock(&adi.lock);
+	spin_unlock(&adi_pkte_drv.lock);
 
 #ifndef PKTE_USE_SRAM
 	dma_free_coherent(pkte_dev->dev, sizeof(struct ADI_PKTE_DEVICE),
