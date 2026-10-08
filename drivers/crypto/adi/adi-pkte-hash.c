@@ -128,7 +128,7 @@ static void adi_read_packet(struct adi_dev *pkte_dev, u32 *destination)
 		nLength = (u32)(pkte->pPkteDescriptor.CmdDescriptor[pos].PE_DEST_ADDR +
 				pkte->pPkteList.nSrcSize -
 				adi_physical_address(pkte_dev,
-				(u32)pkte->pPkteList.pDestination));
+				pkte->pPkteList.pDestination));
 		SIZE = (nLength > 128) ? 128:nLength;
 
 		if (pkte->pPkteList.pCommand.opcode == opcode_hash) {
@@ -374,7 +374,7 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 		adi_write(pkte_dev, CDSC_CNT_OFFSET, 1);
 
 		adi_write(pkte_dev, SA_RDY_OFFSET,
-			  adi_physical_address(pkte_dev, (u32)&pkte->pPkteDescriptor.State));
+			  adi_physical_address(pkte_dev, &pkte->pPkteDescriptor.State));
 
 		adi_write(pkte_dev, BUF_THRESH_OFFSET,
 			  (u32)128<<BITP_PKTE_BUF_THRESH_INBUF |

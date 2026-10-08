@@ -90,12 +90,14 @@ void adi_write(struct adi_dev *pkte_dev, u32 offset, u32 value)
 	writel(value, pkte_dev->io_base + offset);
 }
 
-u32 adi_physical_address(struct adi_dev *pkte_dev, u32 variableAddress)
+u32 adi_physical_address(struct adi_dev *pkte_dev, const void *addr)
 {
+	size_t offset = (const u8 *)addr - (const u8 *)pkte_dev->pkte_device;
+
 #ifdef PKTE_USE_SRAM
-	return PKTE_SRAM_ADDRESS + variableAddress - ((u32)pkte_dev->pkte_device);
+	return PKTE_SRAM_ADDRESS + offset;
 #else
-	return pkte_dev->dma_handle + variableAddress - ((u32)pkte_dev->pkte_device);
+	return pkte_dev->dma_handle + offset;
 #endif
 }
 
@@ -274,9 +276,9 @@ void adi_init_ring(struct adi_dev *pkte_dev)
 
 	pkte = pkte_dev->pkte_device;
 
-	temp = adi_physical_address(pkte_dev, (u32)&pkte->pPkteDescriptor.CmdDescriptor[0]);
+	temp = adi_physical_address(pkte_dev, &pkte->pPkteDescriptor.CmdDescriptor[0]);
 	adi_write(pkte_dev, CDRBASE_ADDR_OFFSET, temp);
-	temp = adi_physical_address(pkte_dev, (u32)&pkte->pPkteDescriptor.ResultDescriptor[0]);
+	temp = adi_physical_address(pkte_dev, &pkte->pPkteDescriptor.ResultDescriptor[0]);
 	adi_write(pkte_dev, RDRBASE_ADDR_OFFSET, temp);
 	temp = (PKTE_RING_BUFFERS-1)<<BITP_PKTE_RING_CFG_RINGSZ;
 	adi_write(pkte_dev, RING_CFG_OFFSET, temp);
@@ -319,11 +321,11 @@ void adi_configure_cdr(struct adi_dev *pkte_dev)
 
 	commandDesc->PE_CTRL_STAT = (u32)0x1 | (pkte->pPkteList.pCommand.final_hash_condition<<4);
 	commandDesc->PE_SOURCE_ADDR = adi_physical_address(pkte_dev,
-		(u32)&pkte->source[pkte_dev->ring_pos_consume][0]);
-	commandDesc->PE_DEST_ADDR = adi_physical_address(pkte_dev, (u32)&pkte->destination[0]);
-	commandDesc->PE_SA_ADDR = adi_physical_address(pkte_dev, (u32)&SARec->SA_Para.SA_CMD0);
+		&pkte->source[pkte_dev->ring_pos_consume][0]);
+	commandDesc->PE_DEST_ADDR = adi_physical_address(pkte_dev, &pkte->destination[0]);
+	commandDesc->PE_SA_ADDR = adi_physical_address(pkte_dev, &SARec->SA_Para.SA_CMD0);
 	commandDesc->PE_STATE_ADDR = adi_physical_address(pkte_dev,
-		(u32)&pkte->pPkteDescriptor.State.STATE_IV0);
+		&pkte->pPkteDescriptor.State.STATE_IV0);
 	commandDesc->PE_USER_ID = pkte->pPkteList.nUserID;
 }
 
@@ -613,6 +615,11 @@ static int adi_probe(struct platform_device *pdev)
 		return irq;
 
 	pkte_dev->dev = dev;
+
+	/* The engine only DMAs to 32-bit addresses */
+	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+	if (ret)
+		return ret;
 
 	ret = of_property_read_string(np, "mode", &mode);
 	if (ret < 0) {
