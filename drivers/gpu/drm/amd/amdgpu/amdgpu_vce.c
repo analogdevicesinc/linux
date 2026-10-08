@@ -790,6 +790,7 @@ int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p,
 {
 	unsigned int fb_idx = 0, bs_idx = 0;
 	int session_idx = -1;
+	uint32_t img_size[AMDGPU_MAX_VCE_HANDLES];
 	uint32_t destroyed = 0;
 	uint32_t created = 0;
 	uint32_t allocated = 0;
@@ -880,7 +881,15 @@ int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p,
 				r = session_idx;
 				goto out;
 			}
-			size = &p->adev->vce.img_size[session_idx];
+			/*
+			 * Stage the image size locally and only commit it once
+			 * the whole IB is valid, otherwise a failed create
+			 * could change the size of a live session.
+			 */
+			if (!(created & (1 << session_idx)))
+				img_size[session_idx] =
+					p->adev->vce.img_size[session_idx];
+			size = &img_size[session_idx];
 			break;
 
 		case 0x00000002: /* task info */
@@ -893,11 +902,6 @@ int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p,
 			if (destroyed & (1 << session_idx)) {
 				destroyed &= ~(1 << session_idx);
 				allocated |= 1 << session_idx;
-
-			} else if (!(allocated & (1 << session_idx))) {
-				DRM_ERROR("Handle already in use!\n");
-				r = -EINVAL;
-				goto out;
 			}
 
 			uint32_t width, height;
@@ -1012,7 +1016,12 @@ int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p,
 
 out:
 	if (!r) {
-		/* No error, free all destroyed handle slots */
+		/* No error, commit the image size of created sessions */
+		for (i = 0; i < AMDGPU_MAX_VCE_HANDLES; ++i)
+			if (created & (1 << i))
+				p->adev->vce.img_size[i] = img_size[i];
+
+		/* and free all destroyed handle slots */
 		tmp = destroyed;
 	} else {
 		/* Error during parsing, free all allocated handle slots */
@@ -1070,11 +1079,6 @@ int amdgpu_vce_ring_parse_cs_vm(struct amdgpu_cs_parser *p,
 			if (destroyed & (1 << session_idx)) {
 				destroyed &= ~(1 << session_idx);
 				allocated |= 1 << session_idx;
-
-			} else if (!(allocated & (1 << session_idx))) {
-				DRM_ERROR("Handle already in use!\n");
-				r = -EINVAL;
-				goto out;
 			}
 
 			break;
