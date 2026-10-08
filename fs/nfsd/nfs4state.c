@@ -1511,7 +1511,7 @@ nfs4_delegation_exists(struct nfs4_client *clp, struct nfs4_file *fp)
  * Return:
  *      On success: NULL if the delegation was successfully hashed.
  *
- *      On error: -EAGAIN if one was previously granted to this
+ *      On error: -EEXIST if one was previously granted to this
  *                 nfs4_client for this nfs4_file. Delegation is not hashed.
  *
  */
@@ -1527,7 +1527,7 @@ hash_delegation_locked(struct nfs4_delegation *dp, struct nfs4_file *fp)
 	lockdep_assert_held(&clp->cl_lock);
 
 	if (nfs4_delegation_exists(clp, fp))
-		return -EAGAIN;
+		return -EEXIST;
 	refcount_inc(&dp->dl_stid.sc_count);
 	dp->dl_stid.sc_type = SC_TYPE_DELEG;
 	list_add(&dp->dl_perfile, &fp->fi_delegations);
@@ -6944,7 +6944,7 @@ nfsd4_verify_deleg_dentry(struct nfsd4_open *open, struct nfs4_file *fp,
 				 &exp, &child);
 
 	if (err)
-		return -EAGAIN;
+		return -ESTALE;
 
 	exp_put(exp);
 	dput(child);
@@ -6967,7 +6967,7 @@ nfsd4_verify_setuid_write(struct nfsd4_open *open, struct nfsd_file *nf)
 
 	if ((open->op_share_access & NFS4_SHARE_ACCESS_WRITE) &&
 	    (inode->i_mode & (S_ISUID|S_ISGID)))
-		return -EAGAIN;
+		return -EPERM;
 	return 0;
 }
 
@@ -7053,7 +7053,7 @@ nfs4_set_delegation(struct nfsd4_open *open,
 	}
 
 	if (!nf)
-		return ERR_PTR(-EAGAIN);
+		return ERR_PTR(-EBADF);
 
 	/*
 	 * File delegations and associated locks cannot be recovered if the
@@ -7067,9 +7067,9 @@ nfs4_set_delegation(struct nfsd4_open *open,
 	spin_lock(&nn->deleg_lock);
 	spin_lock(&fp->fi_lock);
 	if (nfs4_delegation_exists(clp, fp))
-		status = -EAGAIN;
+		status = -EEXIST;
 	else if (nfsd4_verify_setuid_write(open, nf))
-		status = -EAGAIN;
+		status = -EPERM;
 	else if (!rcu_dereference_protected(fp->fi_deleg_file,
 					    lockdep_is_held(&fp->fi_lock))) {
 		rcu_assign_pointer(fp->fi_deleg_file, nf);
@@ -7298,8 +7298,10 @@ nfs4_open_delegation(struct svc_rqst *rqstp, struct nfsd4_open *open,
 			goto out_no_deleg;
 	}
 	dp = nfs4_set_delegation(open, &resp->cstate, stp, parent);
-	if (IS_ERR(dp))
+	if (IS_ERR(dp)) {
+		status = PTR_ERR(dp);
 		goto out_no_deleg;
+	}
 
 	memcpy(&open->op_delegate_stateid, &dp->dl_stid.sc_stateid, sizeof(dp->dl_stid.sc_stateid));
 
@@ -10687,7 +10689,7 @@ nfsd_get_dir_deleg(struct nfsd4_compound_state *cstate,
 	spin_lock(&fp->fi_lock);
 	/* existing delegation? */
 	if (nfs4_delegation_exists(clp, fp)) {
-		status = -EAGAIN;
+		status = -EEXIST;
 	} else if (!rcu_dereference_protected(fp->fi_deleg_file,
 					      lockdep_is_held(&fp->fi_lock))) {
 		rcu_assign_pointer(fp->fi_deleg_file, nfsd_file_get(nf));
