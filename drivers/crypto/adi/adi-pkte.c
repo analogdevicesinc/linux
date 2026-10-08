@@ -645,11 +645,11 @@ static int adi_probe(struct platform_device *pdev)
 		dev_dbg(pkte_dev->dev, "sram/ioremap %lx @ %p\n",
 			sizeof(struct ADI_PKTE_DEVICE), pkte_dev->pkte_device);
 	#else
-		pkte_dev->pkte_device = dma_alloc_coherent(pkte_dev->dev,
+		pkte_dev->pkte_device = dmam_alloc_coherent(pkte_dev->dev,
 					sizeof(struct ADI_PKTE_DEVICE),
 					&pkte_dev->dma_handle, GFP_KERNEL);
-		dev_dbg(pkte_dev->dev, "dma_alloc_coherent %lx @ %p\n",
-			sizeof(struct ADI_PKTE_DEVICE), pkte_dev->pkte_device);
+		if (!pkte_dev->pkte_device)
+			return -ENOMEM;
 	#endif
 
 	//Disable interrupts until we're using the PKTE
@@ -725,11 +725,6 @@ static void adi_remove(struct platform_device *pdev)
 	spin_lock(&adi_pkte_drv.lock);
 	list_del(&pkte_dev->list);
 	spin_unlock(&adi_pkte_drv.lock);
-
-#ifndef PKTE_USE_SRAM
-	dma_free_coherent(pkte_dev->dev, sizeof(struct ADI_PKTE_DEVICE),
-			  pkte_dev->pkte_device, pkte_dev->dma_handle);
-#endif
 }
 
 static struct platform_driver adi_driver = {
