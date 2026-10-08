@@ -503,75 +503,62 @@ int adi_hw_init(struct adi_dev *pkte_dev)
 	return 0;
 }
 
+static void adi_unregister_hash_algs(struct adi_dev *pkte_dev, size_t count)
+{
+	size_t i;
+
+	for (i = 0; i < count; i++)
+		crypto_engine_unregister_ahashes(pkte_dev->pdata->algs_info[i].algs_list,
+						 pkte_dev->pdata->algs_info[i].size);
+}
+
 static int adi_register_algs(struct adi_dev *pkte_dev)
 {
-	unsigned int i, j;
+	size_t i = 0;
 	int err;
 
-#ifdef CONFIG_CRYPTO_DEV_ADI_HASH
-	for (i = 0; i < pkte_dev->pdata->algs_info_size; i++) {
-		for (j = 0; j < pkte_dev->pdata->algs_info[i].size; j++) {
-			err = crypto_register_ahash(
-				&pkte_dev->pdata->algs_info[i].algs_list[j]);
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_ADI_HASH)) {
+		for (i = 0; i < pkte_dev->pdata->algs_info_size; i++) {
+			err = crypto_engine_register_ahashes(
+				pkte_dev->pdata->algs_info[i].algs_list,
+				pkte_dev->pdata->algs_info[i].size);
 			if (err) {
-				dev_err(pkte_dev->dev, "Could not register hash alg\n");
-				goto err_algs;
+				dev_err(pkte_dev->dev, "Could not register hash algs\n");
+				goto err_hash;
 			}
 		}
 	}
-#endif
 
 #ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
-	err = crypto_register_skciphers(adi_pkte_skcipher_algs, ARRAY_SIZE(adi_pkte_skcipher_algs));
+	err = crypto_engine_register_skciphers(adi_pkte_skcipher_algs,
+					       ARRAY_SIZE(adi_pkte_skcipher_algs));
 	if (err) {
-		dev_err(pkte_dev->dev, "Could not register skcipher alg\n");
-		goto err_algs;
+		dev_err(pkte_dev->dev, "Could not register skcipher algs\n");
+		goto err_hash;
 	}
 #endif
 
 	return 0;
 
-
-err_algs:
-
-#ifdef CONFIG_CRYPTO_DEV_ADI_HASH
-	for (; i--; ) {
-		for (; j--;)
-			crypto_unregister_ahash(
-				&pkte_dev->pdata->algs_info[i].algs_list[j]);
-	}
-#endif
-
-#ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
-	crypto_unregister_skciphers(adi_pkte_skcipher_algs, ARRAY_SIZE(adi_pkte_skcipher_algs));
-#endif
-
+err_hash:
+	adi_unregister_hash_algs(pkte_dev, i);
 	return err;
 }
 
-static int adi_unregister_algs(struct adi_dev *pkte_dev)
+static void adi_unregister_algs(struct adi_dev *pkte_dev)
 {
-	unsigned int i, j;
-
-#ifdef CONFIG_CRYPTO_DEV_ADI_HASH
-	for (i = 0; i < pkte_dev->pdata->algs_info_size; i++) {
-		for (j = 0; j < pkte_dev->pdata->algs_info[i].size; j++)
-			crypto_unregister_ahash(
-				&pkte_dev->pdata->algs_info[i].algs_list[j]);
-	}
-#endif
+	adi_unregister_hash_algs(pkte_dev, pkte_dev->pdata->algs_info_size);
 
 #ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
-	crypto_unregister_skciphers(adi_pkte_skcipher_algs, ARRAY_SIZE(adi_pkte_skcipher_algs));
+	crypto_engine_unregister_skciphers(adi_pkte_skcipher_algs,
+					   ARRAY_SIZE(adi_pkte_skcipher_algs));
 #endif
-
-	return 0;
 }
 
 static const struct adi_pdata adi_pdata_adi = {
 #ifdef CONFIG_CRYPTO_DEV_ADI_HASH
 	.algs_info	= adi_pkte_hash_algs_info,
-	.algs_info_size	= ARRAY_SIZE(adi_pkte_hash_algs_info),
+	.algs_info_size	= NUM_HASH_CATEGORIES,
 #endif
 };
 
@@ -706,14 +693,12 @@ static int adi_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_engine_start;
 
-	/* Register algos */
 	ret = adi_register_algs(pkte_dev);
 	if (ret)
-		goto err_algs;
+		goto err_engine_start;
 
 	return 0;
 
-err_algs:
 err_engine_start:
 	crypto_engine_exit(pkte_dev->engine);
 err_engine:

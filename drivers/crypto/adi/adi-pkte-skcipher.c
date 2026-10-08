@@ -253,12 +253,13 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 	struct adi_ctx *ctx = crypto_skcipher_ctx(
 			crypto_skcipher_reqtfm(req));
 	struct adi_dev *crypt = ctx->pkte_dev;
-	int err = 0;
+	int err;
 	unsigned int i;
 	struct scatter_walk out;
 
-	if (!crypt)
-		return -ENODEV;
+	err = adi_crypt_prepare_req(req);
+	if (err)
+		return err;
 
 
 	if (crypt->flags & (PKTE_TCM_MODE | PKTE_HOST_MODE)) {
@@ -293,28 +294,11 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 	return 0;
 }
 
-static int adi_crypt_prepare_cipher_req(struct crypto_engine *engine,
-					 void *areq)
-{
-	struct skcipher_request *req = container_of(areq,
-						      struct skcipher_request,
-						      base);
-
-
-	return adi_crypt_prepare_req(req);
-}
-
 static int adi_init_skcipher(struct crypto_skcipher *tfm)
 {
 	struct adi_ctx *ctx = crypto_skcipher_ctx(tfm);
-	struct adi_dev *crypt = ctx->pkte_dev;
 
 	crypto_skcipher_set_reqsize(tfm, sizeof(struct adi_crypt_reqctx));
-
-
-	ctx->enginectx.op.do_one_request = adi_crypt_cipher_one_req;
-	ctx->enginectx.op.prepare_request = adi_crypt_prepare_cipher_req;
-	ctx->enginectx.op.unprepare_request = NULL;
 
 	ctx->flags_skcipher &= ~PKTE_FLAGS_STARTED;
 
@@ -538,110 +522,116 @@ static int adi_crypt_tdes_ecb_encrypt(struct skcipher_request *req)
 	return adi_crypt(req, ECB | TDES | ENCRYPT);
 }
 
-struct skcipher_alg adi_pkte_skcipher_algs[NUM_CRYPTO_ALGS] = {
+struct skcipher_engine_alg adi_pkte_skcipher_algs[NUM_CRYPTO_ALGS] = {
 	{
-		.base.cra_name		= "cbc(aes)",
-		.base.cra_driver_name	= "adi-cbc-aes",
-		.base.cra_priority	= 1000,
-		.base.cra_flags		= CRYPTO_ALG_ASYNC,
-		.base.cra_blocksize	= AES_BLOCK_SIZE,
-		.base.cra_ctxsize	= sizeof(struct adi_ctx),
-		.base.cra_alignmask	= 0,
-		.base.cra_module	= THIS_MODULE,
+		.base.base.cra_name		= "cbc(aes)",
+		.base.base.cra_driver_name	= "adi-cbc-aes",
+		.base.base.cra_priority	= 1000,
+		.base.base.cra_flags		= CRYPTO_ALG_ASYNC,
+		.base.base.cra_blocksize	= AES_BLOCK_SIZE,
+		.base.base.cra_ctxsize	= sizeof(struct adi_ctx),
+		.base.base.cra_alignmask	= 0,
+		.base.base.cra_module	= THIS_MODULE,
 
-		.init			= adi_init_skcipher,
-		.min_keysize		= AES_MIN_KEY_SIZE,
-		.max_keysize		= AES_MAX_KEY_SIZE,
-		.ivsize			= AES_BLOCK_SIZE,
-		.setkey			= adi_crypt_aes_setkey,
-		.encrypt		= adi_crypt_aes_cbc_encrypt,
-		.decrypt		= adi_crypt_aes_cbc_decrypt,
+		.base.init			= adi_init_skcipher,
+		.op.do_one_request	= adi_crypt_cipher_one_req,
+		.base.min_keysize		= AES_MIN_KEY_SIZE,
+		.base.max_keysize		= AES_MAX_KEY_SIZE,
+		.base.ivsize			= AES_BLOCK_SIZE,
+		.base.setkey			= adi_crypt_aes_setkey,
+		.base.encrypt		= adi_crypt_aes_cbc_encrypt,
+		.base.decrypt		= adi_crypt_aes_cbc_decrypt,
 	},
 	{
-		.base.cra_name		= "cbc(des)",
-		.base.cra_driver_name	= "adi-cbc-des",
-		.base.cra_priority	= 1000,
-		.base.cra_flags		= CRYPTO_ALG_ASYNC,
-		.base.cra_blocksize	= DES_BLOCK_SIZE,
-		.base.cra_ctxsize	= sizeof(struct adi_ctx),
-		.base.cra_alignmask	= 0,
-		.base.cra_module	= THIS_MODULE,
+		.base.base.cra_name		= "cbc(des)",
+		.base.base.cra_driver_name	= "adi-cbc-des",
+		.base.base.cra_priority	= 1000,
+		.base.base.cra_flags		= CRYPTO_ALG_ASYNC,
+		.base.base.cra_blocksize	= DES_BLOCK_SIZE,
+		.base.base.cra_ctxsize	= sizeof(struct adi_ctx),
+		.base.base.cra_alignmask	= 0,
+		.base.base.cra_module	= THIS_MODULE,
 
-		.init			= adi_init_skcipher,
-		.min_keysize		= DES_BLOCK_SIZE,
-		.max_keysize		= DES_BLOCK_SIZE,
-		.ivsize			= DES_BLOCK_SIZE,
-		.setkey			= adi_crypt_des_setkey,
-		.encrypt		= adi_crypt_des_cbc_encrypt,
-		.decrypt		= adi_crypt_des_cbc_decrypt,
+		.base.init			= adi_init_skcipher,
+		.op.do_one_request	= adi_crypt_cipher_one_req,
+		.base.min_keysize		= DES_BLOCK_SIZE,
+		.base.max_keysize		= DES_BLOCK_SIZE,
+		.base.ivsize			= DES_BLOCK_SIZE,
+		.base.setkey			= adi_crypt_des_setkey,
+		.base.encrypt		= adi_crypt_des_cbc_encrypt,
+		.base.decrypt		= adi_crypt_des_cbc_decrypt,
 	},
 	{
-		.base.cra_name		= "cbc(des3_ede)",
-		.base.cra_driver_name	= "adi-cbc-des3",
-		.base.cra_priority	= 1000,
-		.base.cra_flags		= CRYPTO_ALG_ASYNC,
-		.base.cra_blocksize	= DES_BLOCK_SIZE,
-		.base.cra_ctxsize	= sizeof(struct adi_ctx),
-		.base.cra_alignmask	= 0,
-		.base.cra_module	= THIS_MODULE,
+		.base.base.cra_name		= "cbc(des3_ede)",
+		.base.base.cra_driver_name	= "adi-cbc-des3",
+		.base.base.cra_priority	= 1000,
+		.base.base.cra_flags		= CRYPTO_ALG_ASYNC,
+		.base.base.cra_blocksize	= DES_BLOCK_SIZE,
+		.base.base.cra_ctxsize	= sizeof(struct adi_ctx),
+		.base.base.cra_alignmask	= 0,
+		.base.base.cra_module	= THIS_MODULE,
 
-		.init			= adi_init_skcipher,
-		.min_keysize		= 3 * DES_BLOCK_SIZE,
-		.max_keysize		= 3 * DES_BLOCK_SIZE,
-		.ivsize			= DES_BLOCK_SIZE,
-		.setkey			= adi_crypt_tdes_setkey,
-		.encrypt		= adi_crypt_tdes_cbc_encrypt,
-		.decrypt		= adi_crypt_tdes_cbc_decrypt,
+		.base.init			= adi_init_skcipher,
+		.op.do_one_request	= adi_crypt_cipher_one_req,
+		.base.min_keysize		= 3 * DES_BLOCK_SIZE,
+		.base.max_keysize		= 3 * DES_BLOCK_SIZE,
+		.base.ivsize			= DES_BLOCK_SIZE,
+		.base.setkey			= adi_crypt_tdes_setkey,
+		.base.encrypt		= adi_crypt_tdes_cbc_encrypt,
+		.base.decrypt		= adi_crypt_tdes_cbc_decrypt,
 	},
 	{
-		.base.cra_name		= "ecb(aes)",
-		.base.cra_driver_name	= "adi-ecb-aes",
-		.base.cra_priority	= 1000,
-		.base.cra_flags		= CRYPTO_ALG_ASYNC,
-		.base.cra_blocksize	= AES_BLOCK_SIZE,
-		.base.cra_ctxsize	= sizeof(struct adi_ctx),
-		.base.cra_alignmask	= 0,
-		.base.cra_module	= THIS_MODULE,
+		.base.base.cra_name		= "ecb(aes)",
+		.base.base.cra_driver_name	= "adi-ecb-aes",
+		.base.base.cra_priority	= 1000,
+		.base.base.cra_flags		= CRYPTO_ALG_ASYNC,
+		.base.base.cra_blocksize	= AES_BLOCK_SIZE,
+		.base.base.cra_ctxsize	= sizeof(struct adi_ctx),
+		.base.base.cra_alignmask	= 0,
+		.base.base.cra_module	= THIS_MODULE,
 
-		.init			= adi_init_skcipher,
-		.min_keysize		= AES_MIN_KEY_SIZE,
-		.max_keysize		= AES_MAX_KEY_SIZE,
-		.setkey			= adi_crypt_aes_setkey,
-		.encrypt		= adi_crypt_aes_ecb_encrypt,
-		.decrypt		= adi_crypt_aes_ecb_decrypt,
+		.base.init			= adi_init_skcipher,
+		.op.do_one_request	= adi_crypt_cipher_one_req,
+		.base.min_keysize		= AES_MIN_KEY_SIZE,
+		.base.max_keysize		= AES_MAX_KEY_SIZE,
+		.base.setkey			= adi_crypt_aes_setkey,
+		.base.encrypt		= adi_crypt_aes_ecb_encrypt,
+		.base.decrypt		= adi_crypt_aes_ecb_decrypt,
 	},
 	{
-		.base.cra_name		= "ecb(des)",
-		.base.cra_driver_name	= "adi-ecb-des",
-		.base.cra_priority	= 1000,
-		.base.cra_flags		= CRYPTO_ALG_ASYNC,
-		.base.cra_blocksize	= DES_BLOCK_SIZE,
-		.base.cra_ctxsize	= sizeof(struct adi_ctx),
-		.base.cra_alignmask	= 0,
-		.base.cra_module	= THIS_MODULE,
+		.base.base.cra_name		= "ecb(des)",
+		.base.base.cra_driver_name	= "adi-ecb-des",
+		.base.base.cra_priority	= 1000,
+		.base.base.cra_flags		= CRYPTO_ALG_ASYNC,
+		.base.base.cra_blocksize	= DES_BLOCK_SIZE,
+		.base.base.cra_ctxsize	= sizeof(struct adi_ctx),
+		.base.base.cra_alignmask	= 0,
+		.base.base.cra_module	= THIS_MODULE,
 
-		.init			= adi_init_skcipher,
-		.min_keysize		= DES_BLOCK_SIZE,
-		.max_keysize		= DES_BLOCK_SIZE,
-		.setkey			= adi_crypt_des_setkey,
-		.encrypt		= adi_crypt_des_ecb_encrypt,
-		.decrypt		= adi_crypt_des_ecb_decrypt,
+		.base.init			= adi_init_skcipher,
+		.op.do_one_request	= adi_crypt_cipher_one_req,
+		.base.min_keysize		= DES_BLOCK_SIZE,
+		.base.max_keysize		= DES_BLOCK_SIZE,
+		.base.setkey			= adi_crypt_des_setkey,
+		.base.encrypt		= adi_crypt_des_ecb_encrypt,
+		.base.decrypt		= adi_crypt_des_ecb_decrypt,
 	},
 	{
-		.base.cra_name		= "ecb(des3_ede)",
-		.base.cra_driver_name	= "adi-ecb-des3",
-		.base.cra_priority	= 1000,
-		.base.cra_flags		= CRYPTO_ALG_ASYNC,
-		.base.cra_blocksize	= DES_BLOCK_SIZE,
-		.base.cra_ctxsize	= sizeof(struct adi_ctx),
-		.base.cra_alignmask	= 0,
-		.base.cra_module	= THIS_MODULE,
+		.base.base.cra_name		= "ecb(des3_ede)",
+		.base.base.cra_driver_name	= "adi-ecb-des3",
+		.base.base.cra_priority	= 1000,
+		.base.base.cra_flags		= CRYPTO_ALG_ASYNC,
+		.base.base.cra_blocksize	= DES_BLOCK_SIZE,
+		.base.base.cra_ctxsize	= sizeof(struct adi_ctx),
+		.base.base.cra_alignmask	= 0,
+		.base.base.cra_module	= THIS_MODULE,
 
-		.init			= adi_init_skcipher,
-		.min_keysize		= 3 * DES_BLOCK_SIZE,
-		.max_keysize		= 3 * DES_BLOCK_SIZE,
-		.setkey			= adi_crypt_tdes_setkey,
-		.encrypt		= adi_crypt_tdes_ecb_encrypt,
-		.decrypt		= adi_crypt_tdes_ecb_decrypt,
+		.base.init			= adi_init_skcipher,
+		.op.do_one_request	= adi_crypt_cipher_one_req,
+		.base.min_keysize		= 3 * DES_BLOCK_SIZE,
+		.base.max_keysize		= 3 * DES_BLOCK_SIZE,
+		.base.setkey			= adi_crypt_tdes_setkey,
+		.base.encrypt		= adi_crypt_tdes_ecb_encrypt,
+		.base.decrypt		= adi_crypt_tdes_ecb_decrypt,
 	},
 };

@@ -707,35 +707,10 @@ static void adi_finish_req(struct ahash_request *req, int err)
 	crypto_finalize_hash_request(pkte_dev->engine, req, err);
 }
 
-static int adi_one_request(struct crypto_engine *engine, void *areq);
-static int adi_prepare_req(struct crypto_engine *engine, void *areq);
-
 static int adi_handle_queue(struct adi_dev *pkte_dev,
 				   struct ahash_request *req)
 {
 	return crypto_transfer_hash_request_to_engine(pkte_dev->engine, req);
-}
-
-static int adi_prepare_req(struct crypto_engine *engine, void *areq)
-{
-	struct ahash_request *req = container_of(areq, struct ahash_request,
-						 base);
-	struct adi_ctx *ctx = crypto_ahash_ctx(crypto_ahash_reqtfm(req));
-	struct adi_dev *pkte_dev = adi_find_dev(ctx);
-	struct adi_request_ctx *rctx;
-
-
-	if (!pkte_dev)
-		return -ENODEV;
-
-	pkte_dev->req = req;
-
-	rctx = ahash_request_ctx(req);
-
-	dev_dbg(pkte_dev->dev, "processing new req, op: %lu, nbytes %d\n",
-		rctx->op, req->nbytes);
-
-	return adi_hw_init(pkte_dev);
 }
 
 static int adi_one_request(struct crypto_engine *engine, void *areq)
@@ -747,13 +722,17 @@ static int adi_one_request(struct crypto_engine *engine, void *areq)
 	struct adi_request_ctx *rctx;
 	int err = 0;
 
-
 	if (!pkte_dev)
 		return -ENODEV;
 
 	pkte_dev->req = req;
 
 	rctx = ahash_request_ctx(req);
+
+	dev_dbg(pkte_dev->dev, "processing new req, op: %lu, nbytes %d\n",
+		rctx->op, req->nbytes);
+
+	adi_hw_init(pkte_dev);
 
 	switch (rctx->op) {
 	case PKTE_OP_UPDATE:
@@ -868,10 +847,6 @@ static int adi_cra_init_algs(struct crypto_tfm *tfm,
 	if (algs_hmac_name)
 		pkte_dev->flags |= PKTE_FLAGS_HMAC;
 
-	ctx->enginectx.op.do_one_request = adi_one_request;
-	ctx->enginectx.op.prepare_request = adi_prepare_req;
-	ctx->enginectx.op.unprepare_request = NULL;
-
 	return 0;
 }
 
@@ -902,16 +877,17 @@ static int adi_cra_sha256_init(struct crypto_tfm *tfm)
 
 
 
-static struct ahash_alg algs_md5_sha1[] = {
+static struct ahash_engine_alg algs_md5_sha1[] = {
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.halg = {
+		.base.init = adi_init,
+		.op.do_one_request = adi_one_request,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.halg = {
 			.digestsize = MD5_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -929,15 +905,16 @@ static struct ahash_alg algs_md5_sha1[] = {
 		}
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.setkey = adi_setkey,
-		.halg = {
+		.base.init = adi_init,
+		.op.do_one_request = adi_one_request,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.setkey = adi_setkey,
+		.base.halg = {
 			.digestsize = MD5_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -955,14 +932,15 @@ static struct ahash_alg algs_md5_sha1[] = {
 		}
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.halg = {
+		.base.init = adi_init,
+		.op.do_one_request = adi_one_request,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.halg = {
 			.digestsize = SHA1_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -980,15 +958,16 @@ static struct ahash_alg algs_md5_sha1[] = {
 		}
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.setkey = adi_setkey,
-		.halg = {
+		.base.init = adi_init,
+		.op.do_one_request = adi_one_request,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.setkey = adi_setkey,
+		.base.halg = {
 			.digestsize = SHA1_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -1007,16 +986,17 @@ static struct ahash_alg algs_md5_sha1[] = {
 	},
 };
 
-static struct ahash_alg algs_sha224_sha256[] = {
+static struct ahash_engine_alg algs_sha224_sha256[] = {
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.halg = {
+		.base.init = adi_init,
+		.op.do_one_request = adi_one_request,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.halg = {
 			.digestsize = SHA224_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -1034,15 +1014,16 @@ static struct ahash_alg algs_sha224_sha256[] = {
 		}
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.setkey = adi_setkey,
-		.export = adi_export,
-		.import = adi_import,
-		.halg = {
+		.base.init = adi_init,
+		.op.do_one_request = adi_one_request,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.setkey = adi_setkey,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.halg = {
 			.digestsize = SHA224_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -1060,14 +1041,15 @@ static struct ahash_alg algs_sha224_sha256[] = {
 		}
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.halg = {
+		.base.init = adi_init,
+		.op.do_one_request = adi_one_request,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.halg = {
 			.digestsize = SHA256_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -1085,15 +1067,16 @@ static struct ahash_alg algs_sha224_sha256[] = {
 		}
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.setkey = adi_setkey,
-		.halg = {
+		.base.init = adi_init,
+		.op.do_one_request = adi_one_request,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.setkey = adi_setkey,
+		.base.halg = {
 			.digestsize = SHA256_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {

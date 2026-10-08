@@ -16,6 +16,6 @@
 
 #define NUM_CRYPTO_ALGS 6
 
-extern struct skcipher_alg adi_pkte_skcipher_algs[NUM_CRYPTO_ALGS];
+extern struct skcipher_engine_alg adi_pkte_skcipher_algs[NUM_CRYPTO_ALGS];
 
 #endif
