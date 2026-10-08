@@ -1263,7 +1263,7 @@ __alloc_init_deleg(struct nfs4_client *clp, struct nfs4_file *fp,
 	long n;
 
 	if (delegation_blocked(&fp->fi_fhandle))
-		return NULL;
+		return ERR_PTR(-EAGAIN);
 
 	n = atomic_long_inc_return(&num_delegations);
 	atomic_long_inc(&nn->nfsd_delegations);
@@ -1300,7 +1300,7 @@ __alloc_init_deleg(struct nfs4_client *clp, struct nfs4_file *fp,
 out_dec:
 	atomic_long_dec(&num_delegations);
 	atomic_long_dec(&nn->nfsd_delegations);
-	return NULL;
+	return ERR_PTR(-ENOMEM);
 }
 
 static struct nfs4_delegation *
@@ -1310,8 +1310,8 @@ alloc_init_deleg(struct nfs4_client *clp, struct nfs4_file *fp,
 	struct nfs4_delegation *dp;
 
 	dp = __alloc_init_deleg(clp, fp, odstate, dl_type, nfs4_free_deleg);
-	if (!dp)
-		return NULL;
+	if (IS_ERR(dp))
+		return dp;
 
 	nfsd4_init_cb(&dp->dl_cb_fattr.ncf_getattr, dp->dl_stid.sc_client,
 			&nfsd4_cb_getattr_ops, NFSPROC4_CLNT_CB_GETATTR);
@@ -1345,7 +1345,7 @@ alloc_init_dir_deleg(struct nfs4_client *clp, struct nfs4_file *fp)
 	int npages;
 
 	dp = __alloc_init_deleg(clp, fp, NULL, NFS4_OPEN_DELEGATE_READ, nfs4_free_dir_deleg);
-	if (!dp)
+	if (IS_ERR(dp))
 		return NULL;
 
 	ncn = &dp->dl_cb_notify;
@@ -7088,8 +7088,10 @@ nfs4_set_delegation(struct nfsd4_open *open,
 
 	status = -ENOMEM;
 	dp = alloc_init_deleg(clp, fp, odstate, dl_type);
-	if (!dp)
+	if (IS_ERR(dp)) {
+		status = PTR_ERR(dp);
 		goto out_delegees;
+	}
 
 	/*
 	 * Record the granting slot before kernel_setlease() makes @dp
