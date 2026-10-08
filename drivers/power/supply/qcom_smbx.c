@@ -607,12 +607,10 @@ static void smb_status_change_work(struct work_struct *work)
 static int smb_get_iio_chan(struct smb_chip *chip, struct iio_channel *chan,
 			     int *val)
 {
-	int rc;
-	union power_supply_propval status;
+	int rc, status;
 
-	rc = power_supply_get_property(chip->chg_psy, POWER_SUPPLY_PROP_STATUS,
-				       &status);
-	if (rc < 0 || status.intval != POWER_SUPPLY_STATUS_CHARGING) {
+	rc = smb_get_prop_status(chip, &status);
+	if (rc < 0 || status != POWER_SUPPLY_STATUS_CHARGING) {
 		*val = 0;
 		return 0;
 	}
