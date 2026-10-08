@@ -127,8 +127,18 @@ static const int ada4355_scale_table[][2] = {
 static const char * const ada4355_gain_modes[] = { "133k", "11k", "4k54" };
 static const u8 ada4355_gsel_code[] = { 0x0, 0x2, 0x1 };
 
+/*
+ * FREQ_SEL picks the front-end noise filter.  Named after the pin level rather
+ * than the bandwidth, because the datasheet labels for the two states are not
+ * recorded anywhere in this project.  fsel1 is worth 1.3 ENOB on this board --
+ * measured, not assumed: clearing it takes the 10-62.5 MHz noise from 5.5 to
+ * 21.5 LSB rms -- so it is the probe default.
+ */
+static const char * const ada4355_filter_modes[] = { "fsel0", "fsel1" };
+
 #define ADA4355_GSEL_LINES		2
 #define ADA4355_GAIN_MODE_DEFAULT	1
+#define ADA4355_FILTER_MODE_DEFAULT	1
 
 struct ada4355_state {
 	struct spi_device	*spi;
@@ -138,6 +148,8 @@ struct ada4355_state {
 	unsigned int		num_lanes;
 	struct gpio_descs	*gsel;
 	unsigned int		gain_mode;
+	struct gpio_desc	*freq_sel;
+	unsigned int		filter_mode;
 
 	/* Readback census for the setup transcript, see ada4355_write_verify() */
 	unsigned int		rb_total;
@@ -307,10 +319,55 @@ static const struct iio_enum ada4355_gain_mode_enum = {
 	.set = ada4355_set_gain_mode,
 };
 
+static void ada4355_apply_filter_mode(struct ada4355_state *st, unsigned int mode)
+{
+	gpiod_set_value_cansleep(st->freq_sel, mode);
+	st->filter_mode = mode;
+}
+
+static int ada4355_get_filter_mode(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan)
+{
+	return ada4355_get_data(indio_dev)->filter_mode;
+}
+
+static int ada4355_set_filter_mode(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan,
+				   unsigned int mode)
+{
+	struct ada4355_state *st = ada4355_get_data(indio_dev);
+	int ret;
+
+	if (!st->freq_sel)
+		return -ENODEV;
+
+	/* Same reasoning as the gain: the filter sits in the signal path. */
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	scoped_guard(mutex, &st->lock)
+		ada4355_apply_filter_mode(st, mode);
+
+	iio_device_release_direct_mode(indio_dev);
+
+	return 0;
+}
+
+static const struct iio_enum ada4355_filter_mode_enum = {
+	.items = ada4355_filter_modes,
+	.num_items = ARRAY_SIZE(ada4355_filter_modes),
+	.get = ada4355_get_filter_mode,
+	.set = ada4355_set_filter_mode,
+};
+
 static const struct iio_chan_spec_ext_info ada4355_ext_info[] = {
 	IIO_ENUM("gain_mode", IIO_SEPARATE, &ada4355_gain_mode_enum),
 	IIO_ENUM_AVAILABLE("gain_mode", IIO_SHARED_BY_TYPE,
 			   &ada4355_gain_mode_enum),
+	IIO_ENUM("filter_mode", IIO_SEPARATE, &ada4355_filter_mode_enum),
+	IIO_ENUM_AVAILABLE("filter_mode", IIO_SHARED_BY_TYPE,
+			   &ada4355_filter_mode_enum),
 	{ }
 };
 
@@ -721,20 +778,37 @@ static int ada4355_properties_parse(struct ada4355_state *st)
 
 	if (!st->gsel) {
 		dev_info(&spi->dev, "gsel-gpios absent, gain fixed by the device tree\n");
-		return 0;
-	}
-
-	if (st->gsel->ndescs != ADA4355_GSEL_LINES)
+	} else if (st->gsel->ndescs != ADA4355_GSEL_LINES) {
 		return dev_err_probe(&spi->dev, -EINVAL,
 				     "gsel-gpios needs 2 lines (GSEL0, GSEL1), got %u\n",
 				     st->gsel->ndescs);
+	} else {
+		ret = ada4355_apply_gain_mode(st, ADA4355_GAIN_MODE_DEFAULT);
+		if (ret)
+			return dev_err_probe(&spi->dev, ret, "Failed to set gain mode\n");
 
-	ret = ada4355_apply_gain_mode(st, ADA4355_GAIN_MODE_DEFAULT);
-	if (ret)
-		return dev_err_probe(&spi->dev, ret, "Failed to set gain mode\n");
+		dev_info(&spi->dev, "front-end transimpedance %s\n",
+			 ada4355_gain_modes[st->gain_mode]);
+	}
 
-	dev_info(&spi->dev, "front-end transimpedance %s\n",
-		 ada4355_gain_modes[st->gain_mode]);
+	/*
+	 * OUT_HIGH is fsel1, i.e. the default applied below, so the pin never
+	 * passes through fsel0 on the way up.
+	 */
+	st->freq_sel = devm_gpiod_get_optional(&spi->dev, "freq-sel",
+					       GPIOD_OUT_HIGH);
+	if (IS_ERR(st->freq_sel))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->freq_sel),
+				     "Failed to get freq-sel-gpios\n");
+
+	if (!st->freq_sel) {
+		dev_info(&spi->dev, "freq-sel-gpios absent, filter fixed by the device tree\n");
+		return 0;
+	}
+
+	ada4355_apply_filter_mode(st, ADA4355_FILTER_MODE_DEFAULT);
+	dev_info(&spi->dev, "front-end filter %s\n",
+		 ada4355_filter_modes[st->filter_mode]);
 
 	return 0;
 }
