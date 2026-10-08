@@ -2978,6 +2978,7 @@ static int adrv903x_probe(struct spi_device *spi)
 		return ret;
 
 	adrv903x_register_debugfs(indio_dev);
+	adrv903x_agc_debugfs_register(indio_dev);
 
 	return devm_jesd204_fsm_start(&spi->dev, phy->jdev, JESD204_LINKS_ALL);
 }

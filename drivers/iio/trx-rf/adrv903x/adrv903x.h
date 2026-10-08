@@ -213,6 +213,7 @@ struct adrv903x_rf_phy {
 	s32 orx_nco_freq_khz[2];
 	u32 orx_nco_phase[2];
 	u8 orx_nco_sel[2];
+	adi_adrv903x_AgcCfg_t rx_agc[ADI_ADRV903X_MAX_RX_ONLY];
 };
 
 int __adrv903x_dev_err(struct adrv903x_rf_phy *phy, const char *function, int line);
@@ -231,8 +232,10 @@ int adrv903x_spi_write(struct spi_device *spi, u32 reg, u32 val);
 /* DebugFS APIs */
 #ifdef CONFIG_DEBUG_FS
 void adrv903x_register_debugfs(struct iio_dev *indio_dev);
+void adrv903x_agc_debugfs_register(struct iio_dev *indio_dev);
 #else
 static inline void adrv903x_register_debugfs(struct iio_dev *indio_dev) { }
+static inline void adrv903x_agc_debugfs_register(struct iio_dev *indio_dev) { }
 #endif
 
 #endif
