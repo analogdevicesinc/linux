@@ -264,6 +264,7 @@ Hardware Monitoring Kernel Drivers
    sparx5-temp
    spd5118
    sq24860
+   starfive-pwm-fan
    stpddc60
    surface_fan
    sy7636a-hwmon
