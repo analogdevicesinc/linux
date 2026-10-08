@@ -341,7 +341,7 @@ static void __setup_APIC_LVTT(unsigned int clocks, int oneshot, int irqen)
  * necessarily a BIOS bug.
  */
 
-static atomic_t eilvt_offsets[APIC_EILVT_NR_MAX];
+static atomic_t *eilvt_offsets;
 
 static inline int eilvt_entry_is_changeable(unsigned int old, unsigned int new)
 {
@@ -354,7 +354,7 @@ static unsigned int reserve_eilvt_offset(int offset, unsigned int new)
 {
 	unsigned int rsvd, vector;
 
-	if (offset >= APIC_EILVT_NR_MAX)
+	if (!eilvt_offsets || offset >= apic->eilvt_regs_count)
 		return ~0;
 
 	rsvd = atomic_read(&eilvt_offsets[offset]);
@@ -409,6 +409,17 @@ int setup_APIC_eilvt(u8 offset, u8 vector, u8 msg_type, u8 mask)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(setup_APIC_eilvt);
+
+static __init void init_eilvt(void)
+{
+	if (cpu_feature_enabled(X86_FEATURE_EXTAPIC))
+		apic->eilvt_regs_count = APIC_EFEAT_XLC(apic_read(APIC_EFEAT));
+	else if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD)
+		apic->eilvt_regs_count = APIC_EILVT_NR_AMD_10H;
+
+	if (apic->eilvt_regs_count)
+		eilvt_offsets = kzalloc_objs(atomic_t, apic->eilvt_regs_count);
+}
 
 /*
  * Program the next event, relative to now
@@ -2364,6 +2375,7 @@ static void __init apic_bsp_setup(bool upmode)
 	if (upmode)
 		apic_bsp_up_setup();
 	setup_local_APIC();
+	init_eilvt();
 
 	enable_IO_APIC();
 	end_local_APIC_setup();
