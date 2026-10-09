@@ -129,6 +129,15 @@ properties:
     $ref: /schemas/types.yaml#/definitions/uint32
     description: JESD subclass setting.
 
+  adi,gpio-quick-config:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 8
+    description:
+      GPIO quick configuration profile to apply, indexed from 1 to 8. Explicit
+      GPIO mappings override the quick configuration mapped pins. Value 0 does
+      not set any preset, fully relying on the explicit GPIO mappings.
+
   adi,gpio-hop-profile:
     $ref: /schemas/types.yaml#/definitions/uint32-array
     minItems: 1
@@ -239,7 +248,7 @@ examples:
 
             /* GPIO frequency hopping configuration (optional) */
             adi,gpio-hop-profile = <19 20 21 22 23>;
-            adi,gpio-hop-block = <15 16 17 18>;
+            adi,gpio-hop-block = <24 25 26>;
 
             /* FFT sniffer GPIO exports (optional) */
             adi,gpio-sniffer-a-export = <17>;

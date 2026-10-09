@@ -665,7 +665,7 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 	static adi_apollo_gpio_func_e gpio_func;
 	struct ad9088_fft_sniffer_state *st;
 	struct device *dev = &phy->spi->dev;
-	const char *irq_name, *label;
+	const char *irq_name, *label, *gpio_prop;
 	struct iio_dev *indio_dev;
 	int ret;
 	u32 pin;
@@ -700,7 +700,8 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 		st->side_sel = ADI_APOLLO_SNIFFER_A;
 		st->regmap_base = RX_SPECTRUM_SNIFFER_RX_SLICE_0_RX_DIGITAL0;
 		/* Read GPIO pin from devicetree */
-		ret = device_property_read_u32(dev, "adi,gpio-sniffer-a-export", &pin);
+		gpio_prop = "adi,gpio-sniffer-a-export";
+		ret = device_property_read_u32(dev, gpio_prop, &pin);
 		if (ret)
 			pin = 17; /* Default fallback */
 		break;
@@ -712,7 +713,8 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 		st->side_sel = ADI_APOLLO_SNIFFER_B;
 		st->regmap_base = RX_SPECTRUM_SNIFFER_RX_SLICE_0_RX_DIGITAL1;
 		/* Read GPIO pin from devicetree */
-		ret = device_property_read_u32(dev, "adi,gpio-sniffer-b-export", &pin);
+		gpio_prop = "adi,gpio-sniffer-b-export";
+		ret = device_property_read_u32(dev, gpio_prop, &pin);
 		if (ret)
 			pin = 18; /* Default fallback */
 		break;
@@ -756,8 +758,14 @@ int ad9088_fft_sniffer_probe(struct ad9088_phy *phy, adi_apollo_side_select_e si
 			return dev_err_probe(st->dev, ret,
 					     "Failed to request irq\n");
 
-		adi_apollo_gpio_quick_config_mode_set(&phy->ad9088, 0);
-		adi_apollo_gpio_cmos_func_mode_set(&phy->ad9088, pin, gpio_func);
+		ret = ad9088_gpio_claim(phy, pin, gpio_prop);
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_gpio_cmos_func_mode_set(&phy->ad9088, pin, gpio_func);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_gpio_cmos_func_mode_set");
+		if (ret)
+			return ret;
 	}
 
 	ad9088_rx_sniffer_populate_default_params(ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE,
