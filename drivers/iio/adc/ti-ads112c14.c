@@ -653,7 +653,7 @@ static int ads112c14_get_settling_time_us(struct ads112c14_data *data,
 
 static int ads112c14_find_delay_for_settling_time_us(struct ads112c14_data *data,
 						     struct ads112c14_channel_state *channel_state,
-						     s64 settling_time_us, u8 *delay)
+						     u64 settling_time_us, u8 *delay)
 {
 	u64 delay_us, delay_tmod_needed;
 	u32 fixed_latency_us;
@@ -719,7 +719,7 @@ static ssize_t ads112c14_write_settling_time(struct iio_dev *indio_dev,
 {
 	struct ads112c14_data *data = iio_priv(indio_dev);
 	struct ads112c14_channel_state *channel_state;
-	s64 settling_time_us;
+	u64 settling_time_us;
 	int integer;
 	int fract;
 	u8 delay;
@@ -729,9 +729,10 @@ static ssize_t ads112c14_write_settling_time(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	settling_time_us = integer * MICRO + fract;
-	if (settling_time_us < 0)
+	if (integer < 0 || fract < 0)
 		return -EINVAL;
+
+	settling_time_us = (u64)integer * MICRO + fract;
 
 	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
 	if (IIO_DEV_ACQUIRE_FAILED(claim))
