@@ -655,29 +655,22 @@ static int ads112c14_find_delay_for_settling_time_us(struct ads112c14_data *data
 						     struct ads112c14_channel_state *channel_state,
 						     u64 settling_time_us, u8 *delay)
 {
-	u64 delay_us, delay_tmod_needed;
-	u32 fixed_latency_us;
-	int ret, fmod_Hz;
+	int latency_tmod, fmod_Hz;
+	u64 total_tmod_needed;
 	u8 i;
-
-	ret = ads112c14_get_settling_time_us(data, channel_state, 0, &fixed_latency_us);
-	if (ret)
-		return ret;
-
-	if (settling_time_us <= fixed_latency_us) {
-		*delay = 0;
-		return 0;
-	}
 
 	fmod_Hz = ads112c14_get_fmod_Hz(data, channel_state);
 	if (fmod_Hz <= 0)
 		return -EINVAL;
 
-	delay_us = settling_time_us - fixed_latency_us;
-	delay_tmod_needed = DIV_ROUND_UP_ULL(delay_us * fmod_Hz, USEC_PER_SEC);
+	latency_tmod = ads112c14_get_latency_tmod(channel_state);
+	if (latency_tmod < 0)
+		return latency_tmod;
 
-	for (i = 1; i < ADS112C14_DELAY_MAX; i++) {
-		if (ads112c14_delay_to_tmod(i) >= delay_tmod_needed)
+	total_tmod_needed = DIV_ROUND_UP_ULL(settling_time_us * fmod_Hz, USEC_PER_SEC);
+
+	for (i = 0; i < ADS112C14_DELAY_MAX; i++) {
+		if (latency_tmod + ads112c14_delay_to_tmod(i) >= total_tmod_needed)
 			break;
 	}
 
