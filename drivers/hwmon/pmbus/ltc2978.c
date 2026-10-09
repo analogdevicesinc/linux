@@ -23,11 +23,11 @@ enum chips {
 	/* Managers */
 	ltc2972, ltc2974, ltc2975, ltc2977, ltc2978, ltc2979, ltc2980,
 	/* Controllers */
-	lt7170, lt7171, ltc3880, ltc3882, ltc3883, ltc3884, ltc3886, ltc3887,
+	lt7170, lt7171, lt7175, lt7176p, ltc3880, ltc3882, ltc3883, ltc3884, ltc3886, ltc3887,
 	ltc3889, ltc7132, ltc7841, ltc7880,
 	/* Modules */
-	ltm2987, ltm4664, ltm4675, ltm4676, ltm4677, ltm4678, ltm4680, ltm4686,
-	ltm4700,
+	ltm2987, ltm4664, ltm4675, ltm4676, ltm4677, ltm4678, ltm4680, ltm4681,
+	ltm4682, ltm4686, ltm4700,
 };
 
 /* Common for all chips */
@@ -46,12 +46,12 @@ enum chips {
 #define LTC2974_MFR_IOUT_PEAK		0xd7
 #define LTC2974_MFR_IOUT_MIN		0xd8
 
-/* LTC3880, LTC3882, LTC3883, LTC3887, LTM4675, LTM4676, LTC7132 */
+/* LTC3880, LTC3882, LTC3883, LTC3887, LTM4675, LTM4676, LTC7132, LTM4681 and LTM4682 */
 #define LTC3880_MFR_IOUT_PEAK		0xd7
 #define LTC3880_MFR_CLEAR_PEAKS		0xe3
-#define LTC3880_MFR_TEMPERATURE2_PEAK	0xf4
+#define LTC3880_MFR_TEMPERATURE2_PEAK	0xf4 	/* Undocumented on LTM4682 */
 
-/* LTC3883, LTC3884, LTC3886, LTC3889, LTC7132, LTC7841 and LTC7880 */
+/* LTC3883, LTC3884, LTC3886, LTC3889, LTC7132, LTC7841, LTC7880, LTM4681, and LTM4682 */
 #define LTC3883_MFR_IIN_PEAK		0xe1
 
 /* LTC2975 only */
@@ -96,6 +96,8 @@ enum chips {
 #define LTM4678_ID_REV1			0x4100
 #define LTM4678_ID_REV2			0x4110
 #define LTM4680_ID			0x4140
+#define LTM4681_ID			0x4140
+#define LTM4682_ID			0x4180
 #define LTM4686_ID			0x4770
 #define LTM4700_ID			0x4130
 
@@ -538,6 +540,10 @@ static int ltc2978_write_word_data(struct i2c_client *client, int page,
 static const struct i2c_device_id ltc2978_id[] = {
 	{"lt7170", lt7170},
 	{"lt7171", lt7171},
+	{"lt7175", lt7175},
+	{"lt7175-1", lt7175},
+	{"lt7176p", lt7176p},
+	{"lt7176p-1", lt7176p},
 	{"ltc2972", ltc2972},
 	{"ltc2974", ltc2974},
 	{"ltc2975", ltc2975},
@@ -562,6 +568,8 @@ static const struct i2c_device_id ltc2978_id[] = {
 	{"ltm4677", ltm4677},
 	{"ltm4678", ltm4678},
 	{"ltm4680", ltm4680},
+	{"ltm4681", ltm4681},
+	{"ltm4682", ltm4682},
 	{"ltm4686", ltm4686},
 	{"ltm4700", ltm4700},
 	{}
@@ -645,6 +653,12 @@ static int ltc2978_get_id(struct i2c_client *client)
 		if (!strncmp(buf + 1, "LT7171", 6) ||
 		    !strncmp(buf + 1, "LT7171-1", 8))
 			return lt7171;
+		if (!strncmp(buf + 1, "LT7175", 6) ||
+		    !strncmp(buf + 1, "LT7175-1", 8))
+			return lt7175;
+		if (!strncmp(buf + 1, "LT7176P", 7) ||
+		    !strncmp(buf + 1, "LT7176P-1", 9))
+			return lt7176p;
 
 		return -ENODEV;
 	}
@@ -696,8 +710,10 @@ static int ltc2978_get_id(struct i2c_client *client)
 		return ltm4677;
 	else if (chip_id == LTM4678_ID_REV1 || chip_id == LTM4678_ID_REV2)
 		return ltm4678;
-	else if (chip_id == LTM4680_ID)
+	else if (chip_id == LTM4680_ID || chip_id == LTM4681_ID)
 		return ltm4680;
+	else if (chip_id == LTM4682_ID)
+		return ltm4682;
 	else if (chip_id == LTM4686_ID)
 		return ltm4686;
 	else if (chip_id == LTM4700_ID)
@@ -760,6 +776,20 @@ static int ltc2978_probe(struct i2c_client *client)
 	switch (data->id) {
 	case lt7170:
 	case lt7171:
+		data->features |= FEAT_CLEAR_PEAKS | FEAT_NEEDS_POLLING;
+		info->read_word_data = ltc3883_read_word_data;
+		info->pages = LTC3883_NUM_PAGES;
+		info->format[PSC_VOLTAGE_IN] = ieee754;
+		info->format[PSC_VOLTAGE_OUT] = ieee754;
+		info->format[PSC_CURRENT_OUT] = ieee754;
+		info->format[PSC_TEMPERATURE] = ieee754;
+		info->func[0] = PMBUS_HAVE_VIN | PMBUS_HAVE_STATUS_INPUT
+		  | PMBUS_HAVE_VOUT | PMBUS_HAVE_STATUS_VOUT
+		  | PMBUS_HAVE_IOUT | PMBUS_HAVE_STATUS_IOUT
+		  | PMBUS_HAVE_TEMP | PMBUS_HAVE_STATUS_TEMP;
+		break;
+	case lt7175:
+	case lt7176p:
 		data->features |= FEAT_CLEAR_PEAKS | FEAT_NEEDS_POLLING;
 		info->read_word_data = ltc3883_read_word_data;
 		info->pages = LTC3883_NUM_PAGES;
@@ -880,6 +910,7 @@ static int ltc2978_probe(struct i2c_client *client)
 	case ltm4664:
 	case ltm4678:
 	case ltm4680:
+	case ltm4682:
 	case ltm4700:
 		data->features |= FEAT_CLEAR_PEAKS | FEAT_NEEDS_POLLING;
 		info->read_word_data = ltc3883_read_word_data;
@@ -945,6 +976,10 @@ static int ltc2978_probe(struct i2c_client *client)
 static const struct of_device_id ltc2978_of_match[] = {
 	{ .compatible = "lltc,lt7170" },
 	{ .compatible = "lltc,lt7171" },
+	{ .compatible = "lltc,lt7175" },
+	{ .compatible = "lltc,lt7175-1" },
+	{ .compatible = "lltc,lt7176p" },
+	{ .compatible = "lltc,lt7176p-1" },
 	{ .compatible = "lltc,ltc2972" },
 	{ .compatible = "lltc,ltc2974" },
 	{ .compatible = "lltc,ltc2975" },
@@ -969,6 +1004,8 @@ static const struct of_device_id ltc2978_of_match[] = {
 	{ .compatible = "lltc,ltm4677" },
 	{ .compatible = "lltc,ltm4678" },
 	{ .compatible = "lltc,ltm4680" },
+	{ .compatible = "lltc,ltm4681" },
+	{ .compatible = "lltc,ltm4682" },
 	{ .compatible = "lltc,ltm4686" },
 	{ .compatible = "lltc,ltm4700" },
 	{ }
