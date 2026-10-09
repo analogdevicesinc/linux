@@ -655,7 +655,8 @@ void kfd_dbg_trap_deactivate(struct kfd_process *target, bool unwind, int unwind
 	kfd_dbg_set_workaround(target, false);
 }
 
-static void kfd_dbg_clean_exception_status(struct kfd_process *target)
+static void kfd_dbg_clean_exception_status(struct kfd_process *target,
+					   bool drain_irqs)
 {
 	struct process_queue_manager *pqm;
 	struct process_queue_node *pqn;
@@ -664,7 +665,8 @@ static void kfd_dbg_clean_exception_status(struct kfd_process *target)
 	for (i = 0; i < target->n_pdds; i++) {
 		struct kfd_process_device *pdd = target->pdds[i];
 
-		kfd_process_drain_interrupts(pdd);
+		if (drain_irqs)
+			kfd_process_drain_interrupts(pdd);
 
 		pdd->exception_status = 0;
 	}
@@ -680,7 +682,7 @@ static void kfd_dbg_clean_exception_status(struct kfd_process *target)
 	target->exception_status = 0;
 }
 
-int kfd_dbg_trap_disable(struct kfd_process *target)
+int kfd_dbg_trap_disable(struct kfd_process *target, bool drain_irqs)
 {
 	if (!target->debug_trap_enabled)
 		return 0;
@@ -704,7 +706,7 @@ int kfd_dbg_trap_disable(struct kfd_process *target)
 	}
 
 	target->debug_trap_enabled = false;
-	kfd_dbg_clean_exception_status(target);
+	kfd_dbg_clean_exception_status(target, drain_irqs);
 	kfd_unref_process(target);
 
 	return 0;

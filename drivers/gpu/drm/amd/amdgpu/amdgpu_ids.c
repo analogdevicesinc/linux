@@ -172,6 +172,68 @@ struct amdgpu_fpriv *amdgpu_pasid_get_fpriv_locked(u32 pasid)
 }
 
 /**
+ * amdgpu_pasid_drain_irq - wait for pending KFD interrupts of a PASID
+ * @adev: amdgpu device the drain fence is sent to
+ * @pasid: PASID whose interrupts should be drained
+ * @ih_fence: IH entry injected as the drain fence
+ * @timeout: maximum time to wait, in jiffies
+ *
+ * Injects @ih_fence behind the interrupts already queued for KFD and waits
+ * until amdgpu_pasid_drain_irq_done() is called for @pasid.
+ *
+ * The caller must hold a reference to the DRM file that owns @pasid, so
+ * that its amdgpu_fpriv stays valid after the PASID lock is dropped.
+ *
+ * Returns:
+ * 0 on success or when no fence could be sent, -ENOENT if @pasid has no
+ * owner, -ETIMEDOUT on timeout or -ERESTARTSYS if interrupted.
+ */
+int amdgpu_pasid_drain_irq(struct amdgpu_device *adev, u32 pasid,
+			   u32 *ih_fence, unsigned long timeout)
+{
+	struct amdgpu_fpriv *fpriv;
+	unsigned long flags;
+	long r;
+
+	amdgpu_pasid_lock(&flags);
+	fpriv = amdgpu_pasid_get_fpriv_locked(pasid);
+	if (fpriv)
+		reinit_completion(&fpriv->irq_drain_done);
+	amdgpu_pasid_unlock(flags);
+	if (!fpriv)
+		return -ENOENT;
+
+	if (amdgpu_amdkfd_send_close_event_drain_irq(adev, ih_fence))
+		return 0;
+
+	r = wait_for_completion_interruptible_timeout(&fpriv->irq_drain_done,
+						      timeout);
+	if (!r)
+		return -ETIMEDOUT;
+
+	return r < 0 ? r : 0;
+}
+
+/**
+ * amdgpu_pasid_drain_irq_done - signal that a KFD interrupt drain completed
+ * @pasid: PASID carried by the drain fence
+ *
+ * Called by KFD when it processes the drain fence injected by
+ * amdgpu_pasid_drain_irq().
+ */
+void amdgpu_pasid_drain_irq_done(u32 pasid)
+{
+	struct amdgpu_fpriv *fpriv;
+	unsigned long flags;
+
+	amdgpu_pasid_lock(&flags);
+	fpriv = amdgpu_pasid_get_fpriv_locked(pasid);
+	if (fpriv)
+		complete(&fpriv->irq_drain_done);
+	amdgpu_pasid_unlock(flags);
+}
+
+/**
  * amdgpu_pasid_free_delayed - free pasid when fences signal
  *
  * @resv: reservation object with the fences to wait for

@@ -114,6 +114,9 @@ int amdgpu_pasid_alloc(unsigned int bits, struct amdgpu_fpriv *fpriv);
 void amdgpu_pasid_lock(unsigned long *flags);
 void amdgpu_pasid_unlock(unsigned long flags);
 struct amdgpu_fpriv *amdgpu_pasid_get_fpriv_locked(u32 pasid);
+int amdgpu_pasid_drain_irq(struct amdgpu_device *adev, u32 pasid,
+			   u32 *ih_fence, unsigned long timeout);
+void amdgpu_pasid_drain_irq_done(u32 pasid);
 void amdgpu_pasid_free(u32 pasid);
 void amdgpu_pasid_free_delayed(struct dma_resv *resv,
 			       u32 pasid);

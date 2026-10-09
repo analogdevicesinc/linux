@@ -1534,6 +1534,8 @@ int amdgpu_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 	if (r)
 		goto error_pasid;
 
+	init_completion(&fpriv->irq_drain_done);
+
 	pasid = amdgpu_pasid_alloc(16, fpriv);
 	if (pasid < 0) {
 		dev_warn(adev->dev, "No more PASIDs available!");

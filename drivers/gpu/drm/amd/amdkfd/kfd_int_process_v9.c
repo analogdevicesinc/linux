@@ -596,7 +596,7 @@ static void event_interrupt_wq_v9(struct kfd_node *dev,
 						sizeof(exception_data));
 		kfd_smi_event_update_vmfault(dev, pasid);
 	} else if (KFD_IRQ_IS_FENCE(client_id, source_id)) {
-		kfd_process_close_interrupt_drain(pasid);
+		amdgpu_pasid_drain_irq_done(pasid);
 	}
 }
 

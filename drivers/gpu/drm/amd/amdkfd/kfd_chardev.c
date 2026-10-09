@@ -3223,7 +3223,7 @@ static int kfd_ioctl_set_debug_trap(struct file *filep, struct kfd_process *p, v
 
 		break;
 	case KFD_IOC_DBG_TRAP_DISABLE:
-		r = kfd_dbg_trap_disable(target);
+		r = kfd_dbg_trap_disable(target, true);
 		break;
 	case KFD_IOC_DBG_TRAP_SEND_RUNTIME_EVENT:
 		r = kfd_dbg_send_exception_to_runtime(target,
