@@ -353,6 +353,12 @@ static const struct aca_block_info aca_v1_0_mmhub = {
 	},
 };
 
+/* used to set feature mask without parse error info */
+static const struct aca_block_info aca_v1_0_pcie_bif = {
+	.name = "pcie_bif",
+	.ras_block_id = RAS_BLOCK_ID__PCIE_BIF,
+};
+
 static const struct aca_block_info aca_v1_0_xgmi = {
 	.name = "xgmi",
 	.ras_block_id = RAS_BLOCK_ID__XGMI_WAFL,
@@ -369,6 +375,7 @@ static const struct aca_block_info *aca_block_info_v1_0[] = {
 	&aca_v1_0_gfx,
 	&aca_v1_0_sdma,
 	&aca_v1_0_mmhub,
+	&aca_v1_0_pcie_bif,
 	&aca_v1_0_xgmi,
 };
 
