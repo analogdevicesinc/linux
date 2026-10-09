@@ -28271,6 +28271,21 @@ L:	platform-driver-x86@vger.kernel.org
 S:	Maintained
 F:	drivers/platform/x86/topstar-laptop.c
 
+TORADEX BOARD SUPPORT
+M:	Francesco Dolcini <francesco.dolcini@toradex.com>
+L:	linux-bsp@toradex.com
+S:	Supported
+F:	arch/arm/boot/dts/nxp/imx/imx*-apalis*
+F:	arch/arm/boot/dts/nxp/imx/imx*-colibri*
+F:	arch/arm64/boot/dts/freescale/imx*-apalis*
+F:	arch/arm64/boot/dts/freescale/imx*-aquila*
+F:	arch/arm64/boot/dts/freescale/imx*-colibri*
+F:	arch/arm64/boot/dts/freescale/imx*-lino*
+F:	arch/arm64/boot/dts/freescale/imx*-toradex-*
+F:	arch/arm64/boot/dts/freescale/imx*-verdin*
+F:	arch/arm64/boot/dts/ti/k3-*-aquila*
+F:	arch/arm64/boot/dts/ti/k3-*-verdin*
+
 TORADEX EMBEDDED CONTROLLER DRIVER
 M:	Emanuele Ghidoli <ghidoliemanuele@gmail.com>
 M:	Francesco Dolcini <francesco@dolcini.it>
