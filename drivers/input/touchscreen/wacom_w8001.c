@@ -91,7 +91,8 @@ struct w8001 {
 	unsigned char response_type;
 	unsigned char response[W8001_MAX_LENGTH];
 	unsigned char data[W8001_MAX_LENGTH];
-	char phys[W8001_MAX_PHYS];
+	char pen_phys[W8001_MAX_PHYS];
+	char touch_phys[W8001_MAX_PHYS];
 	int type;
 	unsigned int pktlen;
 	u16 max_touch_x;
@@ -495,7 +496,8 @@ static bool w8001_detect_touch(struct w8001 *w8001,
 }
 
 static struct input_dev *w8001_allocate_device(struct w8001 *w8001,
-					       const char *name)
+					       const char *name,
+					       const char *phys)
 {
 	struct input_dev *dev;
 
@@ -504,7 +506,7 @@ static struct input_dev *w8001_allocate_device(struct w8001 *w8001,
 		return NULL;
 
 	dev->name = name;
-	dev->phys = w8001->phys;
+	dev->phys = phys;
 	dev->id.bustype = BUS_RS232;
 	dev->id.product = w8001->id;
 	dev->id.vendor = 0x056a;
@@ -529,8 +531,10 @@ static int w8001_setup_pen(struct w8001 *w8001, const char *basename,
 	int error;
 
 	snprintf(w8001->pen_name, sizeof(w8001->pen_name), "%s Pen", basename);
+	snprintf(w8001->pen_phys, sizeof(w8001->pen_phys), "%s/input0",
+		 w8001->serio->phys);
 
-	dev = w8001_allocate_device(w8001, w8001->pen_name);
+	dev = w8001_allocate_device(w8001, w8001->pen_name, w8001->pen_phys);
 	if (!dev)
 		return -ENOMEM;
 
@@ -572,8 +576,10 @@ static int w8001_setup_touch(struct w8001 *w8001, const char *basename,
 	int error;
 
 	snprintf(w8001->touch_name, sizeof(w8001->touch_name), "%s Finger", basename);
+	snprintf(w8001->touch_phys, sizeof(w8001->touch_phys), "%s/input1",
+		 w8001->serio->phys);
 
-	dev = w8001_allocate_device(w8001, w8001->touch_name);
+	dev = w8001_allocate_device(w8001, w8001->touch_name, w8001->touch_phys);
 	if (!dev)
 		return -ENOMEM;
 
@@ -669,7 +675,6 @@ static int w8001_connect(struct serio *serio, struct serio_driver *drv)
 	w8001->serio = serio;
 	mutex_init(&w8001->mutex);
 	init_completion(&w8001->cmd_done);
-	snprintf(w8001->phys, sizeof(w8001->phys), "%s/input0", serio->phys);
 
 	serio_set_drvdata(serio, w8001);
 	err = serio_open(serio, drv);
