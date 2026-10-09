@@ -700,26 +700,45 @@ void amdgpu_vmid_reset_all(struct amdgpu_device *adev)
  * @vmid_kq_mask_gfxhub: kernel-queue VMID pool mask for GFXHUB
  * @vmid_kq_mask_mmhub: kernel-queue VMID pool mask for MMHUB
  *
- * Sets both hubs' kernel-queue VMID pools (tracked least-recently-used
- * via id_mgr[].ids_lru), and both hubs' KFD/MES user-queue masks.
- * vmid_uq_mask_gfxhub is set to the
- * complement of @vmid_kq_mask_gfxhub, since unlike MMHUB's it is always a
- * clean partition of the full VMID range; vmid_uq_mask_mmhub is the
- * fixed pool set here instead, since MMHUB's kq and uq pools are
- * allowed to overlap. A VMID dedicated to a single fixed purpose on
- * MMHUB (npa_vmid) is excluded from both MMHUB pools; it is the
- * caller's responsibility to have already set npa_vmid.
+ * Sets both GFXHUB and MMHUB kernel-queue VMID pools
+ * via id_mgr[].ids_lru, and KFD/MES user-queue masks too.
  */
 void amdgpu_vmid_mgr_set_vmid_mask(struct amdgpu_device *adev,
 				   unsigned long vmid_kq_mask_gfxhub,
 				   unsigned long vmid_kq_mask_mmhub)
 {
+	unsigned long uq_mask_gfxhub, uq_mask_mmhub;
 	unsigned int i;
 
 	BUILD_BUG_ON(AMDGPU_NUM_VMID > BITS_PER_LONG);
 
-	if (adev->vm_manager.npa_vmid)
+	/*
+	 * Derive the uq masks from the kq masks as given, then carve each
+	 * hub's dedicated out-of-pool VMID out of both of that hub's pools.
+	 */
+	uq_mask_gfxhub = GENMASK(AMDGPU_NUM_VMID - 1, 1) & ~vmid_kq_mask_gfxhub;
+	uq_mask_mmhub = 0xFF00;
+
+	/*
+	 * SPM uses a dedicated vmid that is reserved from gfxhub.
+	 * Unmask the reserved vmids from both user and kernel queues
+	 */
+	if (adev->vm_manager.spm_vmid) {
+		vmid_kq_mask_gfxhub &= ~BIT(adev->vm_manager.spm_vmid);
+		uq_mask_gfxhub &= ~BIT(adev->vm_manager.spm_vmid);
+	}
+
+	/*
+	 * NPA uses a dedicated vmid that is reserved from mmhub.
+	 * Unmask the reserved VMIDs from both user and kernel queues
+	 */
+	if (adev->vm_manager.npa_vmid) {
 		vmid_kq_mask_mmhub &= ~BIT(adev->vm_manager.npa_vmid);
+		uq_mask_mmhub &= ~BIT(adev->vm_manager.npa_vmid);
+	}
+
+	adev->vm_manager.vmid_uq_mask_gfxhub = uq_mask_gfxhub;
+	adev->vm_manager.vmid_uq_mask_mmhub = uq_mask_mmhub;
 
 	for (i = 0; i < AMDGPU_MAX_VMHUBS; i++) {
 		bool is_mmhub = AMDGPU_IS_MMHUB0(i) || AMDGPU_IS_MMHUB1(i);
@@ -728,13 +747,6 @@ void amdgpu_vmid_mgr_set_vmid_mask(struct amdgpu_device *adev,
 			    is_mmhub ? &vmid_kq_mask_mmhub : &vmid_kq_mask_gfxhub,
 			    AMDGPU_NUM_VMID);
 	}
-
-	adev->vm_manager.vmid_uq_mask_gfxhub =
-		GENMASK(AMDGPU_NUM_VMID - 1, 1) & ~vmid_kq_mask_gfxhub;
-
-	adev->vm_manager.vmid_uq_mask_mmhub = 0xFF00;
-	if (adev->vm_manager.npa_vmid)
-		adev->vm_manager.vmid_uq_mask_mmhub &= ~BIT(adev->vm_manager.npa_vmid);
 }
 
 /**

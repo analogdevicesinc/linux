@@ -411,7 +411,9 @@ struct amdgpu_vm_manager {
 
 	/* Global registration of recent page fault information */
 	struct amdgpu_vm_fault_info		fault_info;
+	/* VMIDs dedicated to a single fixed purpose, 0 if unused */
 	unsigned int				npa_vmid;
+	unsigned int				spm_vmid;
 
 	/* VMID masks for GFXHUB and MMHUB */
 	uint32_t				vmid_uq_mask_gfxhub;
