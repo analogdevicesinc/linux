@@ -641,6 +641,10 @@ static int mes_v12_1_misc_op(struct amdgpu_mes *mes,
 			input->change_config.option.limit_single_process;
 		break;
 	case MES_MISC_OP_SETUP_MES_DBGEXT:
+		/* The log buffer attaches to the pipe that receives this packet. */
+		if (input->setup_mes_dbgext.pipe >= AMDGPU_MAX_MES_PIPES)
+			return -EINVAL;
+		pipe = input->setup_mes_dbgext.pipe;
 		misc_pkt.opcode = MESAPI_MISC__SETUP_MES_DBGEXT;
 		misc_pkt.dbgext_init_data.dbg_ext_mc_addr =
 				input->setup_mes_dbgext.log_buffer_mc_addr;
@@ -982,10 +986,10 @@ static int mes_v12_1_inv_tlbs_pasid(struct amdgpu_mes *mes,
  * hardcodes the TIME_STAMP assertion bit (CP_INT_STAT_DEBUG bit 26).  So
  * TIME_STAMP_INT_ENABLE - not GENERIC1_INT_ENABLE - is the CPC_INT_CNTL bit
  * that lets the CP forward the assertion to the host IH.  CPC_INT_CNTL is
- * per-(me,pipe); the enable must be set on both me3 pipes (0 and 1), matching
- * the Windows/SR-IOV KMD path - setting it only on the scheduler pipe is not
- * sufficient.  Armed on every XCC, since each runs its own MES and logs into
- * its own per-XCC buffer region.
+ * per-(me,pipe); the enable must be set on both me3 pipes (0 and 1)
+ * - setting it only on the scheduler pipe is not sufficient.
+ * Armed on every XCC, since each runs its own MES and each (xcc, pipe) logs into
+ * its own buffer region.
  */
 static int mes_v12_1_enable_dbgext_irq(struct amdgpu_mes *mes, bool enable)
 {
