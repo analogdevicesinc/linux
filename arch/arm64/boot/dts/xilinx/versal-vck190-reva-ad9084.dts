@@ -16,7 +16,9 @@
 
 #define WITH_AION 1
 #define WITH_AXI_AION_TRIG 0
+#ifndef WITH_FSRC
 #define WITH_FSRC 0
+#endif /* WITH_FSRC */
 
 #define fmc_spi spi0
 
@@ -443,7 +445,6 @@
 			compatible = "adi,axi-fsrc-sequencer";
 			reg = <0xa4540000 0x10000>;
 
-			trig-gpios = <&axi_gpio 26 GPIO_ACTIVE_HIGH>; // 58-32 offset
 			fsrc-topology = <&axi_fsrc_tx &axi_fsrc_rx>;
 			#io-channel-cells = <1>;
 		};
@@ -723,16 +724,17 @@
 
 #if WITH_AION
 #if WITH_FSRC
-		io-channels = <&adf4030 5>, <&adf4382 0>, <&axi_fsrc_sequencer 0>;
-		io-channel-names = "bsync", "clk", "fsrc";
+		io-channels = <&adf4030 5>, <&adf4382 0>,
+			      <&axi_fsrc_sequencer 0>, <&axi_fsrc_sequencer 1>;
+		io-channel-names = "bsync", "clk", "fsrc_tx", "fsrc_rx";
 #else
 		io-channels = <&adf4030 5>, <&adf4382 0>;
 		io-channel-names = "bsync", "clk";
 #endif /* WITH_FSRC */
 #else
 #if WITH_FSRC
-		io-channels = <&axi_fsrc_sequencer 0>;
-		io-channel-names = "fsrc";
+		io-channels = <&axi_fsrc_sequencer 0>, <&axi_fsrc_sequencer 1>;
+		io-channel-names = "fsrc_tx", "fsrc_rx";
 #endif
 #endif /* WITH_AION */
 
