@@ -599,6 +599,22 @@
 				sound-dai = <&q6apm>;
 			};
 		};
+
+		dp2-dai-link {
+			link-name = "DP2 Playback";
+
+			codec {
+				sound-dai = <&mdss_dp2>;
+			};
+
+			cpu {
+				sound-dai = <&q6apmbedai DISPLAY_PORT_RX_2>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+		};
 	};
 
 	wifi-bt-connector {
