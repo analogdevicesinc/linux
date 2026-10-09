@@ -606,7 +606,7 @@ static void test_mmio_during_vectoring(void)
 	TEST_ASSERT_KVM_EXIT_REASON(vcpu, KVM_EXIT_INTERNAL_ERROR);
 	TEST_ASSERT(run->internal.suberror == KVM_INTERNAL_ERROR_DELIVERY_EV,
 		    "Unexpected suberror = %d", vcpu->run->internal.suberror);
-	TEST_ASSERT(run->internal.ndata != 4, "Unexpected internal error data array size = %d",
+	TEST_ASSERT(run->internal.ndata == 5, "Unexpected internal error data array size = %d",
 		    run->internal.ndata);
 
 	/* The reported GPA should be IDT base + offset of the GP vector */
