@@ -387,18 +387,20 @@ static int w8001_open(struct input_dev *dev)
 	struct w8001 *w8001 = input_get_drvdata(dev);
 	int err;
 
-	scoped_guard(mutex_intr, &w8001->mutex) {
-		if (w8001->open_count == 0) {
-			err = w8001_command(w8001, W8001_CMD_START, false);
-			if (err)
-				return err;
-		}
+	ACQUIRE(mutex_intr, lock)(&w8001->mutex);
+	err = ACQUIRE_ERR(mutex_intr, &lock);
+	if (err)
+		return err;
 
-		w8001->open_count++;
-		return 0;
+	if (w8001->open_count == 0) {
+		err = w8001_command(w8001, W8001_CMD_START, false);
+		if (err)
+			return err;
 	}
 
-	return -EINTR;
+	w8001->open_count++;
+
+	return 0;
 }
 
 static void w8001_close(struct input_dev *dev)
