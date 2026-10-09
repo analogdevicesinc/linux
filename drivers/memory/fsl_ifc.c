@@ -89,7 +89,8 @@ static void fsl_ifc_ctrl_remove(struct platform_device *dev)
 	struct fsl_ifc_ctrl *ctrl = dev_get_drvdata(&dev->dev);
 
 	of_platform_depopulate(&dev->dev);
-	free_irq(ctrl->nand_irq, ctrl);
+	if (ctrl->nand_irq)
+		free_irq(ctrl->nand_irq, ctrl);
 	free_irq(ctrl->irq, ctrl);
 
 	irq_dispose_mapping(ctrl->nand_irq);
@@ -292,7 +293,8 @@ static int fsl_ifc_ctrl_probe(struct platform_device *dev)
 	return 0;
 
 err_free_nandirq:
-	free_irq(fsl_ifc_ctrl_dev->nand_irq, fsl_ifc_ctrl_dev);
+	if (fsl_ifc_ctrl_dev->nand_irq)
+		free_irq(fsl_ifc_ctrl_dev->nand_irq, fsl_ifc_ctrl_dev);
 err_free_irq:
 	free_irq(fsl_ifc_ctrl_dev->irq, fsl_ifc_ctrl_dev);
 err_unmap_nandirq:
