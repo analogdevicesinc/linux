@@ -484,6 +484,7 @@ static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 	int npools;
 	int *nthreads;
 	struct net *net = netns(file);
+	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 
 	mutex_lock(&nfsd_mutex);
 	npools = nfsd_nrpools(net);
@@ -503,7 +504,8 @@ static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 	if (nthreads == NULL)
 		goto out_free;
 
-	if (size > 0) {
+	/* Threads started now would run without NFSv4 state. */
+	if (size > 0 && test_bit(NFSD_NET_UP, &nn->flags)) {
 		for (i = 0; i < npools; i++) {
 			rv = get_int(&mesg, &nthreads[i]);
 			if (rv == -ENOENT)
