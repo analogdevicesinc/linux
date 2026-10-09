@@ -207,7 +207,7 @@
 			power-role = "dual";
 			try-power-role = "sink";
 			self-powered;
-			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+			source-pdos = <PDO_FIXED(5000, 900, PDO_FIXED_USB_COMM)>;
 			sink-pdos = <PDO_FIXED(5000, 0, PDO_FIXED_USB_COMM)>;
 			op-sink-microwatt = <0>;
 
