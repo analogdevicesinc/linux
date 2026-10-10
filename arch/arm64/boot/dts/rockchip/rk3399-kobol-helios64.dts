@@ -58,6 +58,11 @@
 		vin-supply = <&vcc3v3_sys_s3>;
 	};
 
+	beeper {
+		compatible = "gpio-beeper";
+		gpios = <&gpio4 RK_PD3 GPIO_ACTIVE_HIGH>;
+	};
+
 	chosen {
 		stdout-path = "serial2:1500000n8";
 	};
