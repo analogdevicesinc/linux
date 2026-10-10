@@ -77,6 +77,12 @@ struct ddc *dal_gpio_create_ddc(
 void dal_gpio_destroy_ddc(
 	struct ddc **ddc);
 
+void dal_gpio_ddc_open_aux_once(
+	struct gpio_service *service,
+	uint32_t offset,
+	uint32_t mask,
+	const struct gpio_ddc_hw_info *info);
+
 void dal_gpio_service_destroy(
 	struct gpio_service **ptr);
 
