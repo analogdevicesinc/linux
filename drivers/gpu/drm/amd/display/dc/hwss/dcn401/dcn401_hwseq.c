@@ -169,15 +169,11 @@ void dcn401_init_hw(struct dc *dc)
 	//}
 
 	// Set default OPTC memory power states
-	if (dc->debug.enable_mem_low_power.bits.optc) {
-		// Shutdown when unassigned and light sleep in VBLANK
-		REG_SET_2(ODM_MEM_PWR_CTRL3, 0, ODM_MEM_UNASSIGNED_PWR_MODE, 3, ODM_MEM_VBLANK_PWR_MODE, 1);
-	}
+	if (dc->debug.enable_mem_low_power.bits.optc)
+		dcn401_init_odm_mem_power(hws);
 
-	if (dc->debug.enable_mem_low_power.bits.vga) {
-		// Power down VGA memory
-		REG_UPDATE(MMHUBBUB_MEM_PWR_CNTL, VGA_MEM_PWR_FORCE, 1);
-	}
+	if (dc->debug.enable_mem_low_power.bits.vga)
+		dcn401_power_down_vga_mem(hws);
 
 	if (dc->ctx->dc_bios->fw_info_valid) {
 		res_pool->ref_clocks.xtalin_clock_inKhz =
@@ -367,7 +363,7 @@ void dcn401_init_hw(struct dc *dc)
 		if (dc->res_pool->dccg && dc->res_pool->dccg->funcs && dc->res_pool->dccg->funcs->allow_clock_gating)
 			dc->res_pool->dccg->funcs->allow_clock_gating(dc->res_pool->dccg, true);
 
-		REG_UPDATE(DCFCLK_CNTL, DCFCLK_GATE_DIS, 0);
+		dcn401_dcfclk_gating_control(hws, true);
 	}
 
 	dcn401_setup_hpo_hw_control(hws, true);
@@ -979,6 +975,22 @@ void dcn401_enable_stream(struct pipe_ctx *pipe_ctx)
 void dcn401_setup_hpo_hw_control(const struct dce_hwseq *hws, bool enable)
 {
 	REG_UPDATE(HPO_TOP_HW_CONTROL, HPO_IO_EN, enable);
+}
+
+void dcn401_init_odm_mem_power(struct dce_hwseq *hws)
+{
+	// Shutdown when unassigned and light sleep in VBLANK
+	REG_SET_2(ODM_MEM_PWR_CTRL3, 0, ODM_MEM_UNASSIGNED_PWR_MODE, 3, ODM_MEM_VBLANK_PWR_MODE, 1);
+}
+
+void dcn401_power_down_vga_mem(struct dce_hwseq *hws)
+{
+	REG_UPDATE(MMHUBBUB_MEM_PWR_CNTL, VGA_MEM_PWR_FORCE, 1);
+}
+
+void dcn401_dcfclk_gating_control(struct dce_hwseq *hws, bool enable)
+{
+	REG_UPDATE(DCFCLK_CNTL, DCFCLK_GATE_DIS, !enable);
 }
 
 void adjust_hotspot_between_slices_for_2x_magnify(uint32_t cursor_width, struct dc_cursor_position *pos_cpy)

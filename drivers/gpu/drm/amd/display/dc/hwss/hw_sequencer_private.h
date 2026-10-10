@@ -203,6 +203,14 @@ struct hwseq_private_funcs {
 	void (*PLAT_58856_wa)(struct dc_state *context,
 			struct pipe_ctx *pipe_ctx);
 	void (*setup_hpo_hw_control)(const struct dce_hwseq *hws, bool enable);
+	/*
+	 * Init-time only. setup_hpo_hw_control also drives the HPO toggle
+	 * on every commit, so a DCN that leaves it unset keeps it unset.
+	 */
+	void (*init_hpo_hw_control)(const struct dce_hwseq *hws, bool enable);
+	void (*init_odm_mem_power)(struct dce_hwseq *hws);
+	void (*power_down_vga_mem)(struct dce_hwseq *hws);
+	void (*dcfclk_gating_control)(struct dce_hwseq *hws, bool enable);
 	void (*enable_plane)(struct dc *dc, struct pipe_ctx *pipe_ctx,
 			       struct dc_state *context);
 	void (*program_mall_pipe_config)(struct dc *dc, struct dc_state *context);

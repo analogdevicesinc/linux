@@ -50,6 +50,9 @@ enum dc_status dcn401_enable_stream_timing(
 				struct dc *dc);
 void dcn401_enable_stream(struct pipe_ctx *pipe_ctx);
 void dcn401_setup_hpo_hw_control(const struct dce_hwseq *hws, bool enable);
+void dcn401_init_odm_mem_power(struct dce_hwseq *hws);
+void dcn401_power_down_vga_mem(struct dce_hwseq *hws);
+void dcn401_dcfclk_gating_control(struct dce_hwseq *hws, bool enable);
 
 void dcn401_disable_link_output(struct dc_link *link,
 		const struct link_resource *link_res,
