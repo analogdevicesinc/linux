@@ -115,7 +115,7 @@ int optee_notif_init(struct optee *optee, u_int max_key)
 {
 	spin_lock_init(&optee->notif.lock);
 	INIT_LIST_HEAD(&optee->notif.db);
-	optee->notif.bitmap = bitmap_zalloc(max_key, GFP_KERNEL);
+	optee->notif.bitmap = bitmap_zalloc(max_key + 1, GFP_KERNEL);
 	if (!optee->notif.bitmap)
 		return -ENOMEM;
 
