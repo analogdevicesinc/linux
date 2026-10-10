@@ -241,6 +241,7 @@ struct ads1262 {
 	u32 rref_ohms[ADS1262_EXT_REF_COUNT][ADS1262_EXT_REF_COUNT];
 	int refp_uV[ADS1262_EXT_REF_COUNT];
 	int refn_uV[ADS1262_EXT_REF_COUNT];
+	int common_mode_uV[ADS1262_INPMUX_AINCOM + 1];
 	IIO_DECLARE_BUFFER_WITH_TS(__be32, scan_buffer,
 				   ADS1262_FW_CHANNEL_COUNT +
 				   ADS1262_MON_CHANNEL_COUNT);
@@ -691,6 +692,13 @@ static int ads1262_read_raw(struct iio_dev *indio_dev,
 			iio_val_s64_decompose(offset, val, val2);
 
 			return IIO_VAL_INT_64;
+
+		case IIO_VOLTAGE:
+			offset = mul_u64_u64_div_u64(st->common_mode_uV[chan->channel2],
+						     NANO, scale);
+			iio_val_s64_decompose(offset, val, val2);
+
+			return IIO_VAL_INT_64;
 		default:
 			return -EOPNOTSUPP;
 		}
@@ -1121,6 +1129,28 @@ static irqreturn_t ads1262_irq_handler(int irq, void *dev_id)
 	complete(&st->drdy);
 
 	return IRQ_HANDLED;
+}
+
+static int ads1262_parse_common_mode_supplies(struct ads1262 *st)
+{
+	struct device *dev = &st->spi->dev;
+	char name[sizeof("aincom")];
+	int ret;
+
+	for (unsigned int i = 0; i <= ADS1262_INPMUX_AINCOM; i++) {
+		if (i < ADS1262_INPMUX_AINCOM)
+			scnprintf(name, sizeof(name), "ain%u", i);
+		else
+			scnprintf(name, sizeof(name), "aincom");
+
+		ret = devm_regulator_get_enable_read_voltage(dev, name);
+		if (ret < 0 && ret != -ENODEV)
+			return dev_err_probe(dev, ret,
+					     "failed to get common mode supply: %s\n", name);
+		st->common_mode_uV[i] = ret != -ENODEV ? ret : 0;
+	}
+
+	return 0;
 }
 
 static int ads1262_vbias_enable(struct regulator_dev *rdev)
@@ -1876,6 +1906,9 @@ static int ads1262_parse_channels(struct iio_dev *indio_dev)
 		spec->info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ) |
 						     BIT(IIO_CHAN_INFO_SCALE);
 
+		if (!chan->is_resistance && !spec->differential)
+			spec->info_mask_separate |= BIT(IIO_CHAN_INFO_OFFSET);
+
 		i++;
 	}
 
@@ -2024,6 +2057,10 @@ static int ads1262_spi_probe(struct spi_device *spi)
 		return dev_err_probe(dev, ret, "failed to configure device\n");
 
 	ret = ads1262_register_regulators(st);
+	if (ret)
+		return ret;
+
+	ret = ads1262_parse_common_mode_supplies(st);
 	if (ret)
 		return ret;
 
