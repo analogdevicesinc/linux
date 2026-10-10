@@ -60,7 +60,7 @@ enum ras_gpu_health_status {
 };
 
 enum ras_core_fw_feature_flags {
-	RAS_CORE_FW_FEATURE_BIT__RAS_EEPROM = BIT_ULL(0),
+	RAS_CORE_FW_FEATURE_BIT__RAS_EEPROM = 0,
 };
 
 enum ras_block_id {
