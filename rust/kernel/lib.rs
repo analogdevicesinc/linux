@@ -96,6 +96,8 @@ pub mod iommu;
 pub mod iov;
 pub mod irq;
 pub mod jump_label;
+#[cfg(CONFIG_RUST_KCSAN_KUNIT_TEST)]
+mod kcsan_test;
 #[cfg(CONFIG_KUNIT)]
 pub mod kunit;
 pub mod list;

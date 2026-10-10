@@ -14407,6 +14407,7 @@ F:	Documentation/dev-tools/kcsan.rst
 F:	include/linux/kcsan*.h
 F:	kernel/kcsan/
 F:	lib/Kconfig.kcsan
+F:	rust/kernel/kcsan_test.rs
 F:	scripts/Makefile.kcsan
 
 KDUMP
