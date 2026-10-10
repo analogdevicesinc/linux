@@ -130,7 +130,7 @@ static struct rockchip_clk_branch rv1103b_clk_uart2_fracmux __initdata =
 
 static struct rockchip_clk_branch rv1103b_rcdiv_pmu_fracmux __initdata =
 	MUX(CLK_32K, "clk_32k", clk_32k_p, CLK_SET_RATE_PARENT | CLK_SET_RATE_NO_REPARENT,
-			RK3568_PMU_CLKSEL_CON(0), 0, 2, MFLAGS);
+			RV1103B_PMUCLKSEL_CON(0), 0, 2, MFLAGS);
 
 static struct rockchip_clk_branch rv1103b_clk_branches[] __initdata = {
 
@@ -373,7 +373,7 @@ static struct rockchip_clk_branch rv1103b_clk_branches[] __initdata = {
 	GATE(PCLK_PMU_GPIO0, "pclk_pmu_gpio0", "lsclk_pmu_root", 0,
 			RV1103B_PMUCLKGATE_CON(0), 4, GFLAGS),
 	COMPOSITE_NODIV(DBCLK_PMU_GPIO0, "dbclk_pmu_gpio0", dbclk_pmu_gpio0_p, 0,
-			RK3568_PMU_CLKSEL_CON(0), 3, 1, MFLAGS,
+			RV1103B_PMUCLKSEL_CON(0), 3, 1, MFLAGS,
 			RV1103B_PMUCLKGATE_CON(0), 5, GFLAGS),
 	GATE(PCLK_PWM0, "pclk_pwm0", "lsclk_pmu_root", 0,
 			RV1103B_PMUCLKGATE_CON(2), 0, GFLAGS),
