@@ -24,6 +24,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 #include <linux/types.h>
+#include <linux/units.h>
 
 #include <asm/byteorder.h>
 
@@ -98,6 +99,7 @@
 #define     ADS1262_DR_14400_SPS		  13
 #define     ADS1262_DR_19200_SPS		  14
 #define     ADS1262_DR_38400_SPS		  15
+#define     ADS1262_DR_COUNT			  (ADS1262_DR_38400_SPS + 1)
 
 #define ADS1262_INPMUX_REG			0x06
 #define   ADS1262_INPMUX_MUXP_MASK		GENMASK(7, 4)
@@ -165,6 +167,7 @@
 #define ADS1262_POWER_TRANS_US			65536
 
 #define ADS1262_NOMINAL_CLK_RATE_HZ		7372800
+#define ADS1262_MODULATOR_DIV			8
 
 #define ADS1262_FW_CHANNEL_COUNT		16
 #define ADS1262_MON_CHANNEL_COUNT		4
@@ -176,16 +179,25 @@ struct ads1262_chip_info {
 	const char *name;
 };
 
+struct ads1262_channel {
+	u8 data_rate;
+	u8 filter;
+};
+
 struct ads1262 {
 	struct spi_device *spi;
 	struct regmap *regmap;
 	struct gpio_desc *start_gpiod;
+	size_t num_channels;
+	struct ads1262_channel *channels __counted_by_ptr(num_channels);
 	/* protects concurrent SPI transfers */
 	struct mutex xfer_lock;
 	/* protects channel state */
 	struct mutex chan_lock;
 	struct completion drdy;
 	unsigned long clk_rate_hz;
+	int sampling_freq_table[ADS1262_DR_COUNT][2];
+	int sampling_freq_fir[ADS1262_DR_16_6_SPS + 1][2];
 };
 
 static const struct iio_chan_spec ads1262_monitor_chan_specs[] = {
@@ -199,7 +211,9 @@ static const struct iio_chan_spec ads1262_monitor_chan_specs[] = {
 			.storagebits = 32,
 			.endianness = IIO_BE,
 		},
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	},
 	{
 		.type = IIO_VOLTAGE,
@@ -212,7 +226,9 @@ static const struct iio_chan_spec ads1262_monitor_chan_specs[] = {
 			.storagebits = 32,
 			.endianness = IIO_BE,
 		},
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	},
 	{
 		.type = IIO_VOLTAGE,
@@ -225,7 +241,9 @@ static const struct iio_chan_spec ads1262_monitor_chan_specs[] = {
 			.storagebits = 32,
 			.endianness = IIO_BE,
 		},
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	},
 	{
 		.type = IIO_VOLTAGE,
@@ -239,9 +257,65 @@ static const struct iio_chan_spec ads1262_monitor_chan_specs[] = {
 			.storagebits = 32,
 			.endianness = IIO_BE,
 		},
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	},
 };
+
+#define ads1262_default_channel ((struct ads1262_channel) {	\
+	.data_rate = ADS1262_DR_20_SPS,				\
+	.filter = ADS1262_FILTER_FIR,				\
+})
+
+static const u32 ads1262_mod_decimator_a[] = {
+	[ADS1262_DR_2_5_SPS]	= 64,
+	[ADS1262_DR_5_SPS]	= 64,
+	[ADS1262_DR_10_SPS]	= 64,
+	[ADS1262_DR_16_6_SPS]	= 64,
+	[ADS1262_DR_20_SPS]	= 64,
+	[ADS1262_DR_50_SPS]	= 64,
+	[ADS1262_DR_60_SPS]	= 64,
+	[ADS1262_DR_100_SPS]	= 64,
+	[ADS1262_DR_400_SPS]	= 64,
+	[ADS1262_DR_1200_SPS]	= 64,
+	[ADS1262_DR_2400_SPS]	= 64,
+	[ADS1262_DR_4800_SPS]	= 64,
+	[ADS1262_DR_7200_SPS]	= 64,
+	[ADS1262_DR_14400_SPS]	= 64,
+	[ADS1262_DR_19200_SPS]	= 48,
+	[ADS1262_DR_38400_SPS]	= 24,
+};
+
+static const u32 ads1262_mod_decimator_b[] = {
+	[ADS1262_DR_2_5_SPS]	= 5760,
+	[ADS1262_DR_5_SPS]	= 2880,
+	[ADS1262_DR_10_SPS]	= 1440,
+	[ADS1262_DR_16_6_SPS]	= 864,
+	[ADS1262_DR_20_SPS]	= 720,
+	[ADS1262_DR_50_SPS]	= 288,
+	[ADS1262_DR_60_SPS]	= 240,
+	[ADS1262_DR_100_SPS]	= 144,
+	[ADS1262_DR_400_SPS]	= 36,
+	[ADS1262_DR_1200_SPS]	= 12,
+	[ADS1262_DR_2400_SPS]	= 6,
+	[ADS1262_DR_4800_SPS]	= 3,
+	[ADS1262_DR_7200_SPS]	= 2,
+	[ADS1262_DR_14400_SPS]	= 1,
+	[ADS1262_DR_19200_SPS]	= 1,
+	[ADS1262_DR_38400_SPS]	= 1,
+};
+
+static int ads1262_find_two(const int (*array)[2], size_t num_elements, int val,
+			    int val2)
+{
+	for (unsigned int i = 0; i < num_elements; i++) {
+		if (val == array[i][0] && val2 == array[i][1])
+			return i;
+	}
+
+	return -EINVAL;
+}
 
 static int ads1262_dev_send_cmd(struct ads1262 *st, u8 opcode)
 {
@@ -367,8 +441,17 @@ static int ads1262_wait_for_conversion(struct ads1262 *st)
 static int ads1262_channel_enable(struct ads1262 *st,
 				  const struct iio_chan_spec *spec)
 {
+	struct ads1262_channel *chan = &st->channels[spec->scan_index];
+	int ret;
+
 	guard(mutex)(&st->xfer_lock);
 	guard(mutex)(&st->chan_lock);
+
+	ret = regmap_update_bits(st->regmap, ADS1262_MODE2_REG,
+				 ADS1262_MODE2_DR_MASK,
+				 FIELD_PREP(ADS1262_MODE2_DR_MASK, chan->data_rate));
+	if (ret)
+		return ret;
 
 	return regmap_update_bits(st->regmap, ADS1262_INPMUX_REG,
 				  ADS1262_INPMUX_MUXN_MASK |
@@ -421,6 +504,8 @@ static int ads1262_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan, int *val,
 			    int *val2, long mask)
 {
+	struct ads1262 *st = iio_priv(indio_dev);
+	struct ads1262_channel *chan_data = &st->channels[chan->scan_index];
 	__be32 raw;
 	int ret;
 
@@ -432,6 +517,83 @@ static int ads1262_read_raw(struct iio_dev *indio_dev,
 		*val = be32_to_cpu(raw);
 
 		return IIO_VAL_INT;
+
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		guard(mutex)(&st->chan_lock);
+
+		*val = st->sampling_freq_table[chan_data->data_rate][0];
+		*val2 = st->sampling_freq_table[chan_data->data_rate][1];
+
+		return IIO_VAL_INT_PLUS_MICRO;
+	}
+
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static int ads1262_read_avail(struct iio_dev *indio_dev,
+			      struct iio_chan_spec const *chan, const int **vals,
+			      int *type, int *length, long mask)
+{
+	struct ads1262 *st = iio_priv(indio_dev);
+	struct ads1262_channel *chan_data = &st->channels[chan->scan_index];
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*type = IIO_VAL_INT_PLUS_MICRO;
+
+		switch (chan_data->filter) {
+		case ADS1262_FILTER_FIR:
+			*vals = (const int *)st->sampling_freq_fir;
+			*length = ARRAY_SIZE(st->sampling_freq_fir) * 2;
+			return IIO_AVAIL_LIST;
+		default:
+			return -EOPNOTSUPP;
+		}
+
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static int ads1262_write_raw(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan, int val,
+			     int val2, long mask)
+{
+	struct ads1262 *st = iio_priv(indio_dev);
+	struct ads1262_channel *chan_data = &st->channels[chan->scan_index];
+	int ret;
+
+	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+	if (IIO_DEV_ACQUIRE_FAILED(claim))
+		return -EBUSY;
+
+	guard(mutex)(&st->chan_lock);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		switch (chan_data->filter) {
+		case ADS1262_FILTER_FIR:
+			ret = ads1262_find_two(st->sampling_freq_fir,
+					       ARRAY_SIZE(st->sampling_freq_fir),
+					       val, val2);
+			if (ret < 0)
+				return ret;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		ret = ads1262_find_two(st->sampling_freq_table,
+				       ARRAY_SIZE(st->sampling_freq_table),
+				       val, val2);
+		if (ret < 0)
+			return ret;
+
+		chan_data->data_rate = ret;
+
+		return 0;
 
 	default:
 		return -EOPNOTSUPP;
@@ -472,6 +634,8 @@ static int ads1262_fwnode_xlate(struct iio_dev *indio_dev,
 
 static const struct iio_info ads1262_iio_info = {
 	.read_raw = ads1262_read_raw,
+	.read_avail = ads1262_read_avail,
+	.write_raw = ads1262_write_raw,
 	.debugfs_reg_access = ads1262_debugfs_reg_access,
 	.fwnode_xlate = ads1262_fwnode_xlate,
 };
@@ -678,6 +842,49 @@ static const struct regmap_bus ads1262_regmap_bus = {
 	.max_raw_write = ADS1262_REGMAP_WRITE_SZ,
 };
 
+static void ads1262_populate_samp_freqs(struct ads1262 *st)
+{
+	u64 freq_Hz, freq_uHz;
+	u32 freq_rem;
+
+	for (unsigned int i = 0; i < ARRAY_SIZE(st->sampling_freq_table); i++) {
+		freq_uHz = div_u64(mul_u32_u32(st->clk_rate_hz, MICRO),
+				   ADS1262_MODULATOR_DIV *
+				   ads1262_mod_decimator_a[i] *
+				   ads1262_mod_decimator_b[i]);
+		freq_Hz = div_u64_rem(freq_uHz, MICRO, &freq_rem);
+
+		st->sampling_freq_table[i][0] = (int)freq_Hz;
+		st->sampling_freq_table[i][1] = (int)freq_rem;
+	}
+
+	for (unsigned int i = 0; i < ARRAY_SIZE(st->sampling_freq_fir); i++) {
+		/*
+		 * The FIR filter does not support the 16.6 SPS data rate so it
+		 * gets mapped to 20 SPS instead.
+		 */
+		switch (i) {
+		case ADS1262_DR_2_5_SPS ... ADS1262_DR_10_SPS:
+			st->sampling_freq_fir[i][0] = st->sampling_freq_table[i][0];
+			st->sampling_freq_fir[i][1] = st->sampling_freq_table[i][1];
+			break;
+		case ADS1262_DR_16_6_SPS:
+			st->sampling_freq_fir[i][0] = st->sampling_freq_table[ADS1262_DR_20_SPS][0];
+			st->sampling_freq_fir[i][1] = st->sampling_freq_table[ADS1262_DR_20_SPS][1];
+			break;
+		}
+	}
+}
+
+static int ads1262_populate_tables(struct iio_dev *indio_dev)
+{
+	struct ads1262 *st = iio_priv(indio_dev);
+
+	ads1262_populate_samp_freqs(st);
+
+	return 0;
+}
+
 static int ads1262_parse_channel_node(struct ads1262 *st,
 				      struct iio_chan_spec *spec,
 				      struct fwnode_handle *node)
@@ -744,9 +951,18 @@ static int ads1262_parse_channels(struct iio_dev *indio_dev)
 	if (!chan_specs)
 		return -ENOMEM;
 
+	st->num_channels = num_fw_channels + ADS1262_MON_CHANNEL_COUNT;
+	st->channels = devm_kcalloc(dev, st->num_channels, sizeof(*st->channels),
+				    GFP_KERNEL);
+	if (!st->channels)
+		return -ENOMEM;
+
 	i = 0;
 	device_for_each_named_child_node_scoped(dev, node, "channel") {
 		struct iio_chan_spec *spec = &chan_specs[i];
+		struct ads1262_channel *chan = &st->channels[i];
+
+		*chan = ads1262_default_channel;
 
 		ret = ads1262_parse_channel_node(st, spec, node);
 		if (ret)
@@ -767,7 +983,9 @@ static int ads1262_parse_channels(struct iio_dev *indio_dev)
 			.storagebits = 32,
 			.endianness = IIO_BE,
 		};
-		spec->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
+		spec->info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+					   BIT(IIO_CHAN_INFO_SAMP_FREQ);
+		spec->info_mask_separate_available = BIT(IIO_CHAN_INFO_SAMP_FREQ);
 
 		i++;
 	}
@@ -776,6 +994,7 @@ static int ads1262_parse_channels(struct iio_dev *indio_dev)
 	       sizeof(ads1262_monitor_chan_specs));
 
 	for (unsigned int mon = 0; mon < ADS1262_MON_CHANNEL_COUNT; mon++) {
+		st->channels[i] = ads1262_default_channel;
 		chan_specs[i].scan_index = i;
 		i++;
 	}
@@ -874,6 +1093,10 @@ static int ads1262_spi_probe(struct spi_device *spi)
 	ret = ads1262_dev_configure(st);
 	if (ret)
 		return dev_err_probe(dev, ret, "failed to configure device\n");
+
+	ret = ads1262_populate_tables(indio_dev);
+	if (ret)
+		return ret;
 
 	/*
 	 * REVISIT: This chip has software polling capabilities, which could be
