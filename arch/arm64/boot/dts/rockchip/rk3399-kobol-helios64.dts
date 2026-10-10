@@ -331,6 +331,7 @@
 };
 
 &emmc_phy {
+	rockchip,enable-strobe-pulldown;
 	status = "okay";
 };
 
@@ -610,8 +611,11 @@
 };
 
 &sdhci {
+	assigned-clock-rates = <150000000>;
 	bus-width = <8>;
 	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
 	non-removable;
 	vqmmc-supply = <&vcc1v8_sys_s0>;
 	status = "okay";
