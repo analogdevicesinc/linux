@@ -16,7 +16,6 @@
 #include <linux/bitrev.h>
 #include <linux/clk-provider.h>
 #include <linux/i2c.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
@@ -365,9 +364,9 @@ static int __maybe_unused si521xx_resume(struct device *dev)
 }
 
 static const struct i2c_device_id si521xx_id[] = {
-	{ "si52144", .driver_data = SI521XX_OE_MAP(0x5, 0xc0) },
-	{ "si52146", .driver_data = SI521XX_OE_MAP(0x15, 0xe0) },
-	{ "si52147", .driver_data = SI521XX_OE_MAP(0x17, 0xf8) },
+	{ .name = "si52144", .driver_data = SI521XX_OE_MAP(0x5, 0xc0) },
+	{ .name = "si52146", .driver_data = SI521XX_OE_MAP(0x15, 0xe0) },
+	{ .name = "si52147", .driver_data = SI521XX_OE_MAP(0x17, 0xf8) },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, si521xx_id);

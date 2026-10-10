@@ -15,7 +15,6 @@
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/log2.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/pm.h>
 #include <linux/property.h>
@@ -453,11 +452,7 @@ static int mt9p031_set_params(struct mt9p031 *mt9p031)
 	ret = mt9p031_write(client, MT9P031_HORIZONTAL_BLANK, hblank - 1);
 	if (ret < 0)
 		return ret;
-	ret = mt9p031_write(client, MT9P031_VERTICAL_BLANK, vblank - 1);
-	if (ret < 0)
-		return ret;
-
-	return ret;
+	return mt9p031_write(client, MT9P031_VERTICAL_BLANK, vblank - 1);
 }
 
 static int mt9p031_s_stream(struct v4l2_subdev *subdev, int enable)

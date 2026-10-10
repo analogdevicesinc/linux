@@ -13,7 +13,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/err.h>
 #include <linux/delay.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
@@ -354,7 +353,7 @@ static const struct acpi_device_id ad7298_acpi_ids[] = {
 MODULE_DEVICE_TABLE(acpi, ad7298_acpi_ids);
 
 static const struct spi_device_id ad7298_id[] = {
-	{ "ad7298", 0 },
+	{ .name = "ad7298" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad7298_id);

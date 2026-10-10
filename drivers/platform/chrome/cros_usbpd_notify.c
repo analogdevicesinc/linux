@@ -7,7 +7,6 @@
 
 #include <linux/acpi.h>
 #include <linux/fwnode.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/platform_data/cros_ec_proto.h>
 #include <linux/platform_data/cros_usbpd_notify.h>
@@ -233,8 +232,8 @@ static void cros_usbpd_notify_remove_plat(struct platform_device *pdev)
 }
 
 static const struct platform_device_id cros_usbpd_notify_id[] = {
-	{ DRV_NAME, 0 },
-	{}
+	{ .name = DRV_NAME },
+	{ }
 };
 MODULE_DEVICE_TABLE(platform, cros_usbpd_notify_id);
 

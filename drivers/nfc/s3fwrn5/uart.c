@@ -10,7 +10,6 @@
 
 #include <linux/device.h>
 #include <linux/kernel.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/nfc.h>
 #include <linux/netdevice.h>
@@ -86,8 +85,8 @@ static const struct serdev_device_ops s3fwrn82_serdev_ops = {
 };
 
 static const struct of_device_id s3fwrn82_uart_of_match[] = {
-	{ .compatible = "samsung,s3fwrn82", },
-	{},
+	{ .compatible = "samsung,s3fwrn82" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, s3fwrn82_uart_of_match);
 

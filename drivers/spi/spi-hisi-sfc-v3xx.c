@@ -11,7 +11,6 @@
 #include <linux/interrupt.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
@@ -455,8 +454,8 @@ static int hisi_sfc_v3xx_probe(struct platform_device *pdev)
 		return PTR_ERR(host->regbase);
 
 	host->irq = platform_get_irq_optional(pdev, 0);
-	if (host->irq == -EPROBE_DEFER)
-		return -EPROBE_DEFER;
+	if (host->irq < 0 && host->irq != -ENXIO)
+		return host->irq;
 
 	hisi_sfc_v3xx_disable_int(host);
 

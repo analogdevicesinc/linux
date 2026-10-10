@@ -12,7 +12,6 @@
 #include <linux/err.h>
 #include <linux/gfp.h>
 #include <linux/mfd/syscon.h>
-#include <linux/mod_devicetable.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -20,9 +19,6 @@
 #include <linux/types.h>
 
 #include "pcie-designware.h"
-
-#define PCI_VENDOR_ID_SPACEMIT		0x201f
-#define PCI_DEVICE_ID_SPACEMIT_K1	0x0001
 
 /* Offsets and field definitions for link management registers */
 #define K1_PHY_AHB_IRQ_EN			0x0000
@@ -342,6 +338,7 @@ static const struct of_device_id k1_pcie_of_match_table[] = {
 	{ .compatible = "spacemit,k1-pcie", },
 	{ }
 };
+MODULE_DEVICE_TABLE(of, k1_pcie_of_match_table);
 
 static struct platform_driver k1_pcie_driver = {
 	.probe	= k1_pcie_probe,

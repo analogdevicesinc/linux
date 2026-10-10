@@ -5,7 +5,6 @@
  * Copyright (C) 2023, Jagath Jog J <jagathjog1996@gmail.com>
  */
 
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
@@ -65,7 +64,7 @@ static int bmi323_spi_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id bmi323_spi_ids[] = {
-	{ "bmi323" },
+	{ .name = "bmi323" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, bmi323_spi_ids);

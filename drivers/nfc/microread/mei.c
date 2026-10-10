@@ -8,7 +8,6 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/nfc.h>
 #include <net/nfc/llc.h>
 
@@ -49,10 +48,12 @@ static void microread_mei_remove(struct mei_cl_device *cldev)
 }
 
 static struct mei_cl_device_id microread_mei_tbl[] = {
-	{ MICROREAD_DRIVER_NAME, MEI_NFC_UUID, MEI_CL_VERSION_ANY},
-
-	/* required last entry */
-	{ }
+	{
+		.name = MICROREAD_DRIVER_NAME,
+		.uuid = MEI_NFC_UUID,
+		.version = MEI_CL_VERSION_ANY,
+	},
+	{ /* required last entry */ }
 };
 MODULE_DEVICE_TABLE(mei, microread_mei_tbl);
 

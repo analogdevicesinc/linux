@@ -6,6 +6,8 @@
 #include "../../../include/linux/filter.h"
 #include "bpf_misc.h"
 
+extern const int bpf_prog_active __ksym;
+
 #define BPF_SK_LOOKUP(func) \
 	/* struct bpf_sock_tuple tuple = {} */ \
 	"r2 = 0;"			\
@@ -75,6 +77,41 @@ __naked void dummy_prog_loop1_socket(void)
 	: __imm(bpf_tail_call),
 	  __imm_addr(map_prog1_socket)
 	: __clobber_all);
+}
+
+SEC("socket")
+__description("unpriv: pseudo btf id log masks address")
+__success_unpriv
+__msg_unpriv("0: (18) r1 = 0x0")
+__not_msg_unpriv("0: (18) r1 = 0x{{[1-9a-f][0-9a-f]*}}")
+__retval_unpriv(0)
+__log_level(2)
+__naked void pseudo_btf_id_log_masks_address(void)
+{
+	asm volatile ("r1 = %[bpf_prog_active] ll;"
+		      "r0 = 0;"
+		      "exit;"
+	:
+	: __imm_addr(bpf_prog_active)
+	: __clobber_all);
+}
+
+static int pseudo_func_callback(__u32 index, void *ctx)
+{
+	return 0;
+}
+
+SEC("socket")
+__description("unpriv: pseudo function policy diagnostic")
+__success __failure_unpriv
+__msg_unpriv("loading/calling other bpf or kernel functions")
+__not_msg_unpriv("BPF-to-BPF function call")
+__msg_unpriv("policy check failed for BPF function reference")
+__msg_unpriv("avoid BPF function references in unprivileged")
+int unpriv_pseudo_func_policy(void *ctx)
+{
+	bpf_loop(1, pseudo_func_callback, NULL, 0);
+	return 0;
 }
 
 SEC("socket")

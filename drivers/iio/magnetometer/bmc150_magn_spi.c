@@ -8,7 +8,6 @@
  * Copyright (c) 2016, Intel Corporation.
  */
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/spi/spi.h>
 #include <linux/regmap.h>
 
@@ -34,9 +33,9 @@ static void bmc150_magn_spi_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id bmc150_magn_spi_id[] = {
-	{"bmc150_magn", 0},
-	{"bmc156_magn", 0},
-	{"bmm150_magn", 0},
+	{ .name = "bmc150_magn" },
+	{ .name = "bmc156_magn" },
+	{ .name = "bmm150_magn" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, bmc150_magn_spi_id);

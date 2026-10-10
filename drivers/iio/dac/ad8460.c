@@ -14,7 +14,6 @@
 #include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
@@ -955,3 +954,4 @@ MODULE_AUTHOR("Mariel Tinaco <mariel.tinaco@analog.com");
 MODULE_DESCRIPTION("AD8460 DAC driver");
 MODULE_LICENSE("GPL");
 MODULE_IMPORT_NS("IIO_DMAENGINE_BUFFER");
+MODULE_IMPORT_NS("IIO_CONSUMER");

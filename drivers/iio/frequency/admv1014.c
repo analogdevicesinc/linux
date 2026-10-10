@@ -12,7 +12,6 @@
 #include <linux/device.h>
 #include <linux/iio/iio.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/notifier.h>
 #include <linux/property.h>
 #include <linux/regulator/consumer.h>
@@ -782,7 +781,7 @@ static int admv1014_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id admv1014_id[] = {
-	{ "admv1014", 0 },
+	{ .name = "admv1014" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, admv1014_id);

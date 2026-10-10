@@ -6,7 +6,6 @@
  */
 
 #include <linux/err.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
@@ -40,7 +39,7 @@ static void fxas21002c_spi_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id fxas21002c_spi_id[] = {
-	{ "fxas21002c", 0 },
+	{ .name = "fxas21002c" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, fxas21002c_spi_id);

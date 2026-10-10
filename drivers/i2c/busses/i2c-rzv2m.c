@@ -17,7 +17,6 @@
 #include <linux/kernel.h>
 #include <linux/math64.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
@@ -443,7 +442,7 @@ static int rzv2m_i2c_probe(struct platform_device *pdev)
 	ret = devm_request_irq(dev, irq, rzv2m_i2c_tia_irq_handler, 0,
 			       dev_name(dev), priv);
 	if (ret < 0)
-		return dev_err_probe(dev, ret, "Unable to request irq %d\n", irq);
+		return ret;
 
 	adap = &priv->adap;
 	adap->nr = pdev->id;

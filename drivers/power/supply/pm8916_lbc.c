@@ -13,7 +13,6 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/extcon-provider.h>
-#include <linux/mod_devicetable.h>
 
 /* Two bytes: type + subtype */
 #define PM8916_PERPH_TYPE 0x04
@@ -232,11 +231,7 @@ static int pm8916_lbc_charger_probe_dt(struct pm8916_lbc_charger *chg)
 		return ret;
 
 	/* Disable charger timeout. */
-	ret = regmap_write(chg->regmap, chg->reg[LBC_CHGR] + PM8916_LBC_CHGR_TCHG_MAX_EN, 0x00);
-	if (ret)
-		return ret;
-
-	return ret;
+	return regmap_write(chg->regmap, chg->reg[LBC_CHGR] + PM8916_LBC_CHGR_TCHG_MAX_EN, 0x00);
 }
 
 static const struct power_supply_desc pm8916_lbc_charger_psy_desc = {

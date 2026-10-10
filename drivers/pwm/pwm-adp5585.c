@@ -20,7 +20,6 @@
 #include <linux/mfd/adp5585.h>
 #include <linux/minmax.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
 #include <linux/regmap.h>
@@ -203,8 +202,8 @@ static const struct adp5585_pwm_chip adp5589_pwm_chip_info = {
 };
 
 static const struct platform_device_id adp5585_pwm_id_table[] = {
-	{ "adp5585-pwm", (kernel_ulong_t)&adp5585_pwm_chip_info },
-	{ "adp5589-pwm", (kernel_ulong_t)&adp5589_pwm_chip_info },
+	{ .name = "adp5585-pwm", .driver_data = (kernel_ulong_t)&adp5585_pwm_chip_info },
+	{ .name = "adp5589-pwm", .driver_data = (kernel_ulong_t)&adp5589_pwm_chip_info },
 	{ /* Sentinel */ }
 };
 MODULE_DEVICE_TABLE(platform, adp5585_pwm_id_table);

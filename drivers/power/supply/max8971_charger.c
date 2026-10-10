@@ -6,7 +6,6 @@
 #include <linux/err.h>
 #include <linux/extcon.h>
 #include <linux/i2c.h>
-#include <linux/mod_devicetable.h>
 #include <linux/of_graph.h>
 #include <linux/property.h>
 #include <linux/interrupt.h>
@@ -684,7 +683,7 @@ static int max8971_probe(struct i2c_client *client)
 	err = devm_request_threaded_irq(dev, client->irq, NULL, &max8971_interrupt,
 					IRQF_ONESHOT | IRQF_SHARED, client->name, priv);
 	if (err)
-		return dev_err_probe(dev, err, "failed to register IRQ %d\n", client->irq);
+		return err;
 
 	extcon = of_graph_get_remote_node(dev->of_node, -1, -1);
 	if (!extcon)

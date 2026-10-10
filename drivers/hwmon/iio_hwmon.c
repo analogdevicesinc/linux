@@ -6,7 +6,6 @@
 
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
@@ -222,3 +221,4 @@ module_platform_driver(iio_hwmon_driver);
 MODULE_AUTHOR("Jonathan Cameron <jic23@kernel.org>");
 MODULE_DESCRIPTION("IIO to hwmon driver");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS("IIO_CONSUMER");

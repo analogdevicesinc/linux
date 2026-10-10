@@ -122,10 +122,12 @@ static void drm_log_draw_line(struct drm_log_scanout *scanout, const char *s,
 	iosys_map_incr(&map, r.y1 * fb->pitches[0]);
 	for (i = 0; i < len && i < scanout->columns; i++) {
 		u32 color = (i < prefix_len) ? scanout->prefix_color : scanout->front_color;
-		src = drm_draw_get_char_bitmap(font, s[i], font_pitch);
-		drm_log_blit(&map, fb->pitches[0], src, font_pitch,
-			     scanout->scaled_font_h, scanout->scaled_font_w,
-			     px_width, color);
+		src = font_data_glyph_buf(font->data, font->width, font->height,
+					  (unsigned char)s[i]);
+		if (src)
+			drm_log_blit(&map, fb->pitches[0], src, font_pitch,
+				     scanout->scaled_font_h, scanout->scaled_font_w,
+				     px_width, color);
 		iosys_map_incr(&map, scanout->scaled_font_w * px_width);
 	}
 
@@ -159,6 +161,9 @@ static void drm_log_draw_kmsg_record(struct drm_log_scanout *scanout,
 				     const char *s, unsigned int len)
 {
 	u32 prefix_len = 0;
+
+	if (!len)
+		return;
 
 	if (len > TS_PREFIX_LEN && s[0] == '[' && s[6] == '.' && s[TS_PREFIX_LEN] == ']')
 		prefix_len = TS_PREFIX_LEN + 1;
@@ -215,6 +220,12 @@ static int drm_log_setup_modeset(struct drm_client_dev *client,
 	scanout->scaled_font_w = scanout->font->width * scale;
 	scanout->rows = height / scanout->scaled_font_h;
 	scanout->columns = width / scanout->scaled_font_w;
+	if (!scanout->rows || !scanout->columns) {
+		drm_client_buffer_delete(scanout->buffer);
+		scanout->buffer = NULL;
+		mode_set->fb = NULL;
+		return -EINVAL;
+	}
 	scanout->front_color = drm_draw_color_from_xrgb8888(0xffffff, format);
 	scanout->prefix_color = drm_draw_color_from_xrgb8888(0x4e9a06, format);
 	return 0;
@@ -418,6 +429,9 @@ static void drm_log_register_console(struct console *con)
 void drm_log_register(struct drm_device *dev)
 {
 	struct drm_log *new;
+
+	if (!scale)
+		scale = 1;
 
 	new = kzalloc_obj(*new);
 	if (!new)

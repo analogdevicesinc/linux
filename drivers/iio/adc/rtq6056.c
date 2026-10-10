@@ -9,7 +9,6 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/kernel.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/property.h>
@@ -872,8 +871,8 @@ static const struct richtek_dev_data rtq6059_devdata = {
 };
 
 static const struct i2c_device_id rtq6056_id[] = {
-	{ "rtq6056", (kernel_ulong_t)&rtq6056_devdata },
-	{ "rtq6059", (kernel_ulong_t)&rtq6059_devdata },
+	{ .name = "rtq6056", .driver_data = (kernel_ulong_t)&rtq6056_devdata },
+	{ .name = "rtq6059", .driver_data = (kernel_ulong_t)&rtq6059_devdata },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, rtq6056_id);

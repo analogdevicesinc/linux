@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 
 #include <linux/iio/iio.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/pm.h>
 #include <linux/regmap.h>
@@ -66,8 +65,8 @@ static int bmi270_spi_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id bmi270_spi_id[] = {
-	{ "bmi260", (kernel_ulong_t)&bmi260_chip_info },
-	{ "bmi270", (kernel_ulong_t)&bmi270_chip_info },
+	{ .name = "bmi260", .driver_data = (kernel_ulong_t)&bmi260_chip_info },
+	{ .name = "bmi270", .driver_data = (kernel_ulong_t)&bmi270_chip_info },
 	{ }
 };
 
@@ -76,6 +75,7 @@ static const struct of_device_id bmi270_of_match[] = {
 	{ .compatible = "bosch,bmi270", .data = &bmi270_chip_info },
 	{ }
 };
+MODULE_DEVICE_TABLE(of, bmi270_of_match);
 
 static struct spi_driver bmi270_spi_driver = {
 	.driver = {

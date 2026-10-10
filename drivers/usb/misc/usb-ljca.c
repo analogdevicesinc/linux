@@ -9,7 +9,6 @@
 #include <linux/auxiliary_bus.h>
 #include <linux/dev_printk.h>
 #include <linux/kernel.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
@@ -594,6 +593,9 @@ static int ljca_enumerate_gpio(struct ljca_adapter *adap)
 
 	gpio_num = desc->pins_per_bank * desc->bank_num;
 	if (gpio_num > LJCA_MAX_GPIO_NUM)
+		return -EINVAL;
+
+	if (desc->bank_num > ARRAY_SIZE(valid_pin))
 		return -EINVAL;
 
 	/* construct platform data */

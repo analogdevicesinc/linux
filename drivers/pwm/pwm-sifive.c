@@ -30,7 +30,6 @@
  */
 #include <linux/clk.h>
 #include <linux/io.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
@@ -356,7 +355,7 @@ static void pwm_sifive_remove(struct platform_device *dev)
 
 static const struct of_device_id pwm_sifive_of_match[] = {
 	{ .compatible = "sifive,pwm0" },
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, pwm_sifive_of_match);
 

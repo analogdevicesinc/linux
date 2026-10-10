@@ -9,7 +9,6 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/math64.h>
-#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
 #include <linux/err.h>
@@ -749,3 +748,4 @@ MODULE_DESCRIPTION("NTC Thermistor Driver");
 MODULE_AUTHOR("MyungJoo Ham <myungjoo.ham@samsung.com>");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:ntc-thermistor");
+MODULE_IMPORT_NS("IIO_CONSUMER");

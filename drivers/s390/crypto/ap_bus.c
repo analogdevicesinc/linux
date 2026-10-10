@@ -36,7 +36,7 @@
 #include <linux/ktime.h>
 #include <asm/facility.h>
 #include <linux/crypto.h>
-#include <linux/mod_devicetable.h>
+#include <linux/device-id/ap.h>
 #include <linux/debugfs.h>
 #include <linux/ctype.h>
 #include <linux/module.h>
@@ -1173,8 +1173,8 @@ bool ap_bus_force_rescan(void)
 	 * for the lock which means the other task has finished and
 	 * stored the result in ap_scan_bus_result.
 	 */
-	if (mutex_lock_interruptible(&ap_scan_bus_mutex)) {
-		/* some error occurred, ignore and go out */
+	if (mutex_lock_killable(&ap_scan_bus_mutex)) {
+		/* fatal signal received, go out */
 		goto out;
 	}
 	rc = ap_scan_bus_result;

@@ -16,7 +16,6 @@
 #include <linux/irq.h>
 #include <linux/math.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 #include <linux/string.h>
@@ -143,7 +142,6 @@ struct ad7779_state {
 	const struct ad7779_chip_info *chip_info;
 	struct clk *mclk;
 	struct iio_trigger *trig;
-	struct completion completion;
 	unsigned int sampling_freq;
 	enum ad7779_filter filter_enabled;
 	struct iio_backend *back;
@@ -843,16 +841,13 @@ static int ad7779_setup_without_backend(struct ad7779_state *st, struct iio_dev 
 			       IRQF_NO_THREAD | IRQF_NO_AUTOEN, indio_dev->name,
 			       st->trig);
 	if (ret)
-		return dev_err_probe(dev, ret, "request IRQ %d failed\n",
-				     st->spi->irq);
+		return ret;
 
 	ret = devm_iio_trigger_register(dev, st->trig);
 	if (ret)
 		return ret;
 
 	indio_dev->trig = iio_trigger_get(st->trig);
-
-	init_completion(&st->completion);
 
 	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
 					      &iio_pollfunc_store_time,

@@ -8,7 +8,6 @@
 #include <linux/bitfield.h>
 #include <linux/device.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/property.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
@@ -300,7 +299,7 @@ static int ad7292_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad7292_id_table[] = {
-	{ "ad7292", 0 },
+	{ .name = "ad7292" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad7292_id_table);

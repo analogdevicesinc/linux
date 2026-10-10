@@ -71,27 +71,44 @@ static inline void ntfs_rl_mc(struct runlist_element *dstbase, int dst,
  * On success, return a pointer to the newly allocated, or recycled, memory.
  * On error, return -errno.
  */
-struct runlist_element *ntfs_rl_realloc(struct runlist_element *rl,
-		int old_size, int new_size)
+static inline struct runlist_element *ntfs_rl_realloc_gfp(struct runlist_element *rl,
+		int old_size, int new_size, gfp_t gfp)
 {
 	struct runlist_element *new_rl;
+	size_t new_bytes;
 
-	old_size = old_size * sizeof(*rl);
-	new_size = new_size * sizeof(*rl);
+	if (old_size < 0 || new_size < 0)
+		return ERR_PTR(-EINVAL);
+
 	if (old_size == new_size)
 		return rl;
 
-	new_rl = kvzalloc(new_size, GFP_NOFS);
+	if (check_mul_overflow(new_size, sizeof(*rl), &new_bytes))
+		return ERR_PTR(-EINVAL);
+
+	new_rl = kvzalloc(new_bytes, gfp);
 	if (unlikely(!new_rl))
 		return ERR_PTR(-ENOMEM);
 
 	if (likely(rl != NULL)) {
-		if (unlikely(old_size > new_size))
-			old_size = new_size;
-		memcpy(new_rl, rl, old_size);
+		size_t old_bytes;
+
+		if (check_mul_overflow(old_size, sizeof(*rl), &old_bytes)) {
+			kvfree(new_rl);
+			return ERR_PTR(-EINVAL);
+		}
+		if (unlikely(old_bytes > new_bytes))
+			old_bytes = new_bytes;
+		memcpy(new_rl, rl, old_bytes);
 		kvfree(rl);
 	}
 	return new_rl;
+}
+
+struct runlist_element *ntfs_rl_realloc(struct runlist_element *rl,
+		int old_size, int new_size)
+{
+	return ntfs_rl_realloc_gfp(rl, old_size, new_size, GFP_NOFS);
 }
 
 /*
@@ -118,21 +135,8 @@ struct runlist_element *ntfs_rl_realloc(struct runlist_element *rl,
 static inline struct runlist_element *ntfs_rl_realloc_nofail(struct runlist_element *rl,
 		int old_size, int new_size)
 {
-	struct runlist_element *new_rl;
-
-	old_size = old_size * sizeof(*rl);
-	new_size = new_size * sizeof(*rl);
-	if (old_size == new_size)
-		return rl;
-
-	new_rl = kvmalloc(new_size, GFP_NOFS | __GFP_NOFAIL);
-	if (likely(rl != NULL)) {
-		if (unlikely(old_size > new_size))
-			old_size = new_size;
-		memcpy(new_rl, rl, old_size);
-		kvfree(rl);
-	}
-	return new_rl;
+	return ntfs_rl_realloc_gfp(rl, old_size, new_size,
+			GFP_NOFS | __GFP_NOFAIL);
 }
 
 /*
@@ -768,6 +772,25 @@ struct runlist_element *ntfs_mapping_pairs_decompress(const struct ntfs_volume *
 		return ERR_PTR(-EIO);
 	}
 
+	/*
+	 * An empty mapping-pairs array is valid only for a zero-length
+	 * attribute.
+	 */
+	if (!*buf &&
+	    (vcn ||
+	     le64_to_cpu(attr->data.non_resident.highest_vcn) !=
+		     (u64)(vcn - 1) ||
+	     le64_to_cpu(attr->data.non_resident.allocated_size) ||
+	     le64_to_cpu(attr->data.non_resident.data_size) ||
+	     le64_to_cpu(attr->data.non_resident.initialized_size))) {
+		ntfs_error(vol->sb, "Invalid empty mapping pairs array.");
+		return ERR_PTR(-EIO);
+	}
+	if (!vcn && !*buf && old_runlist && old_runlist->rl) {
+		*new_rl_count = old_runlist->count;
+		return old_runlist->rl;
+	}
+
 	/* Current position in runlist array. */
 	rlpos = 0;
 	/* Allocate first page and set current runlist size to one page. */
@@ -880,10 +903,39 @@ struct runlist_element *ntfs_mapping_pairs_decompress(const struct ntfs_volume *
 					ntfs_error(vol->sb, "lcn == -1");
 			}
 #endif
+			/* Check lcn is within the volume. */
+			if (unlikely(lcn >= (s64)vol->nr_clusters)) {
+				ntfs_error(vol->sb,
+						"LCN >= nr_clusters in mapping pairs array.");
+				goto err_out;
+			}
+
 			/* Check lcn is not below -1. */
 			if (unlikely(lcn < -1)) {
 				ntfs_error(vol->sb, "Invalid s64 < -1 in mapping pairs array.");
 				goto err_out;
+			}
+
+			if (lcn >= 0) {
+				s64 run_end;
+
+				/*
+				 * Ensure that the run stays within the volume.
+				 * A valid starting LCN is not sufficient because
+				 * the run length comes from disk.
+				 */
+				if (unlikely(check_add_overflow(lcn,
+						rl[rlpos].length,
+						&run_end))) {
+					ntfs_error(vol->sb,
+							"Run length overflow in mapping pairs array.");
+					goto err_out;
+				}
+				if (unlikely(run_end > (s64)vol->nr_clusters)) {
+					ntfs_error(vol->sb,
+							"Run extends beyond volume boundary.");
+					goto err_out;
+				}
 			}
 
 			/* chkdsk accepts zero-sized runs only for holes */

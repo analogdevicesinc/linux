@@ -5,7 +5,6 @@
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/export.h>
 #include <sound/hdaudio.h>
 
@@ -40,10 +39,7 @@ EXPORT_SYMBOL_GPL(hdac_get_device_id);
 
 static int hdac_codec_match(struct hdac_device *dev, const struct hdac_driver *drv)
 {
-	if (hdac_get_device_id(dev, drv))
-		return 1;
-	else
-		return 0;
+	return !!hdac_get_device_id(dev, drv);
 }
 
 static int hda_bus_match(struct device *dev, const struct device_driver *drv)
@@ -60,9 +56,7 @@ static int hda_bus_match(struct device *dev, const struct device_driver *drv)
 	 */
 	if (hdrv->match)
 		return hdrv->match(hdev, hdrv);
-	else
-		return hdac_codec_match(hdev, hdrv);
-	return 1;
+	return hdac_codec_match(hdev, hdrv);
 }
 
 static int hda_uevent(const struct device *dev, struct kobj_uevent_env *env)

@@ -6,7 +6,6 @@
 
 #include <linux/clk-provider.h>
 #include <linux/init.h>
-#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
 
@@ -1394,7 +1393,7 @@ static struct clk_regmap gxbb_32k_clk_sel = {
 		.name = "32k_clk_sel",
 		.ops = &clk_regmap_mux_ops,
 		.parent_data = gxbb_32k_clk_parents,
-		.num_parents = 4,
+		.num_parents = ARRAY_SIZE(gxbb_32k_clk_parents),
 		.flags = CLK_SET_RATE_PARENT,
 	},
 };

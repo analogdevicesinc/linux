@@ -15,6 +15,9 @@ LIBVFIO_C += drivers/ioat/ioat.c
 LIBVFIO_C += drivers/dsa/dsa.c
 endif
 
+LIBVFIO_C += drivers/nv_falcon/nv_falcon.c
+LIBVFIO_C += drivers/igb/igb.c
+
 LIBVFIO_OUTPUT := $(OUTPUT)/libvfio
 
 LIBVFIO_O := $(patsubst %.c, $(LIBVFIO_OUTPUT)/%.o, $(LIBVFIO_C))
@@ -25,6 +28,8 @@ $(LIBVFIO_O_DIRS):
 	mkdir -p $@
 
 CFLAGS += -I$(LIBVFIO_SRCDIR)/include
+
+LDLIBS += -luuid
 
 $(LIBVFIO_O): $(LIBVFIO_OUTPUT)/%.o : $(LIBVFIO_SRCDIR)/%.c | $(LIBVFIO_O_DIRS)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c $< -o $@

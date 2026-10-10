@@ -10,7 +10,6 @@
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
-#include <linux/mod_devicetable.h>
 #include "zpa2326.h"
 
 /*
@@ -61,7 +60,7 @@ static void zpa2326_remove_spi(struct spi_device *spi)
 }
 
 static const struct spi_device_id zpa2326_spi_ids[] = {
-	{ "zpa2326", 0 },
+	{ .name = "zpa2326" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, zpa2326_spi_ids);

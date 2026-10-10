@@ -9,7 +9,6 @@
 #include <linux/devm-helpers.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
@@ -69,8 +68,6 @@ static int pwr_mlxbf_probe(struct platform_device *pdev)
 		return err;
 
 	err = devm_request_irq(dev, irq, pwr_mlxbf_irq, 0, hid, priv);
-	if (err)
-		dev_err(dev, "Failed request of %s irq\n", priv->hid);
 
 	return err;
 }

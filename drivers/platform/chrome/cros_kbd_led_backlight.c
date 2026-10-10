@@ -10,7 +10,6 @@
 #include <linux/kernel.h>
 #include <linux/leds.h>
 #include <linux/mfd/core.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_data/cros_ec_commands.h>
@@ -221,8 +220,8 @@ MODULE_DEVICE_TABLE(acpi, keyboard_led_acpi_match);
 #endif
 
 static const struct platform_device_id keyboard_led_id[] = {
-	{ "cros-keyboard-leds", 0 },
-	{}
+	{ .name = "cros-keyboard-leds" },
+	{ }
 };
 MODULE_DEVICE_TABLE(platform, keyboard_led_id);
 

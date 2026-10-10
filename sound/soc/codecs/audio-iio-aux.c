@@ -9,7 +9,6 @@
 #include <linux/cleanup.h>
 #include <linux/iio/consumer.h>
 #include <linux/minmax.h>
-#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/string_helpers.h>
@@ -312,3 +311,4 @@ module_platform_driver(audio_iio_aux_driver);
 MODULE_AUTHOR("Herve Codina <herve.codina@bootlin.com>");
 MODULE_DESCRIPTION("IIO ALSA SoC aux driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS("IIO_CONSUMER");

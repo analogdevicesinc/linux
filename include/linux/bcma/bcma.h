@@ -3,7 +3,7 @@
 #define LINUX_BCMA_H_
 
 #include <linux/pci.h>
-#include <linux/mod_devicetable.h>
+#include <linux/device-id/bcma.h>
 
 #include <linux/bcma/bcma_driver_arm_c9.h>
 #include <linux/bcma/bcma_driver_chipcommon.h>
@@ -485,5 +485,7 @@ extern u32 bcma_chipco_pll_read(struct bcma_drv_cc *cc, u32 offset);
 extern u32 bcma_core_dma_translation(struct bcma_device *core);
 
 extern unsigned int bcma_core_irq(struct bcma_device *core, int num);
+
+extern const struct software_node bcma_gpio_swnode;
 
 #endif /* LINUX_BCMA_H_ */

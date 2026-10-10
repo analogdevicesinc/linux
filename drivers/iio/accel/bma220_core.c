@@ -11,7 +11,6 @@
 #include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/errno.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/pm.h>
@@ -545,8 +544,7 @@ int bma220_common_probe(struct device *dev, struct regmap *regmap, int irq)
 						&bma220_irq_handler, IRQF_ONESHOT,
 						indio_dev->name, indio_dev);
 		if (ret)
-			return dev_err_probe(dev, ret,
-					     "request irq %d failed\n", irq);
+			return ret;
 	}
 
 	ret = devm_add_action_or_reset(dev, bma220_deinit, data);

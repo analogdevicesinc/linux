@@ -15,7 +15,6 @@
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/regmap.h>
@@ -328,7 +327,7 @@ static const struct of_device_id mmc5983_of_match[] = {
 MODULE_DEVICE_TABLE(of, mmc5983_of_match);
 
 static const struct i2c_device_id mmc5983_id[] = {
-	{ "mmc5983" },
+	{ .name = "mmc5983" },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, mmc5983_id);

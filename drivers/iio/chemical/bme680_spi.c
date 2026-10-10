@@ -4,7 +4,6 @@
  *
  * Copyright (C) 2018 Himanshu Jha <himanshujha199640@gmail.com>
  */
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
@@ -122,16 +121,15 @@ static int bme680_spi_probe(struct spi_device *spi)
 
 	regmap = devm_regmap_init(&spi->dev, &bme680_regmap_bus,
 				  bus_context, &bme680_regmap_config);
-	if (IS_ERR(regmap)) {
-		dev_err(&spi->dev, "Failed to register spi regmap %ld\n", PTR_ERR(regmap));
-		return PTR_ERR(regmap);
-	}
+	if (IS_ERR(regmap))
+		return dev_err_probe(&spi->dev, PTR_ERR(regmap),
+				     "Failed to register spi regmap\n");
 
 	return bme680_core_probe(&spi->dev, regmap, id->name);
 }
 
 static const struct spi_device_id bme680_spi_id[] = {
-	{"bme680", 0},
+	{ .name = "bme680" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, bme680_spi_id);

@@ -10,7 +10,6 @@
 #include <linux/err.h>
 #include <linux/spi/spi.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/interrupt.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
@@ -229,10 +228,8 @@ static int adc084s021_probe(struct spi_device *spi)
 	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev, NULL,
 					    adc084s021_buffer_trigger_handler,
 					    &adc084s021_buffer_setup_ops);
-	if (ret) {
-		dev_err(&spi->dev, "Failed to setup triggered buffer\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(&spi->dev, ret, "Failed to setup triggered buffer\n");
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
@@ -244,7 +241,7 @@ static const struct of_device_id adc084s021_of_match[] = {
 MODULE_DEVICE_TABLE(of, adc084s021_of_match);
 
 static const struct spi_device_id adc084s021_id[] = {
-	{ ADC084S021_DRIVER_NAME, 0 },
+	{ .name = ADC084S021_DRIVER_NAME },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adc084s021_id);

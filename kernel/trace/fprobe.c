@@ -181,7 +181,7 @@ static inline void read_fprobe_header(unsigned long *stack,
 struct __fprobe_header {
 	struct fprobe *fp;
 	unsigned long size_words;
-} __packed;
+};
 
 #define FPROBE_HEADER_SIZE_IN_LONG	SIZE_IN_LONG(sizeof(struct __fprobe_header))
 
@@ -464,15 +464,8 @@ static bool fprobe_exists_on_hash(unsigned long ip, bool ftrace)
 #ifdef CONFIG_MODULES
 static void fprobe_remove_ips(unsigned long *ips, unsigned int cnt)
 {
-	if (!nr_fgraph_fprobes)
-		__fprobe_graph_unregister();
-	else if (cnt)
-		ftrace_set_filter_ips(&fprobe_graph_ops.ops, ips, cnt, 1, 0);
-
-	if (!nr_ftrace_fprobes)
-		__fprobe_ftrace_unregister();
-	else if (cnt)
-		ftrace_set_filter_ips(&fprobe_ftrace_ops, ips, cnt, 1, 0);
+	fprobe_graph_remove_ips(ips, cnt);
+	fprobe_ftrace_remove_ips(ips, cnt);
 }
 #endif
 #else
@@ -613,6 +606,16 @@ static int fprobe_fgraph_entry(struct ftrace_graph_ent *trace, struct fgraph_ops
 			continue;
 
 		data_size = fp->entry_data_size;
+		/*
+		 * The list may have grown since it was sized, so this node
+		 * may not fit. Skip it as missed rather than overrun the
+		 * reservation.
+		 */
+		if (fp->exit_handler &&
+		    used + FPROBE_HEADER_SIZE_IN_LONG + SIZE_IN_LONG(data_size) > reserved_words) {
+			fp->nmissed++;
+			continue;
+		}
 		if (data_size && fp->exit_handler)
 			data = fgraph_data + used + FPROBE_HEADER_SIZE_IN_LONG;
 		else
@@ -951,10 +954,8 @@ int register_fprobe(struct fprobe *fp, const char *filter, const char *notfilter
 		return -ENOMEM;
 
 	ret = get_ips_from_filter(filter, notfilter, addrs, mods, num);
-	if (ret < 0)
-		return ret;
-
-	ret = register_fprobe_ips(fp, addrs, ret);
+	if (ret >= 0)
+		ret = register_fprobe_ips(fp, addrs, ret);
 
 	for (int i = 0; i < num; i++) {
 		if (mods[i])

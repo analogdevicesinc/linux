@@ -31,7 +31,6 @@
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/mutex.h>
 #include <linux/iio/consumer.h>
 #include <linux/iio/iio.h>
@@ -406,3 +405,4 @@ module_platform_driver(envelope_detector_driver);
 MODULE_DESCRIPTION("Envelope detector using a DAC and a comparator");
 MODULE_AUTHOR("Peter Rosin <peda@axentia.se>");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS("IIO_CONSUMER");

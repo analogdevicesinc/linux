@@ -6,7 +6,6 @@
  * Copyright (C) 2010 Alexey Charkov <alchark@gmail.com>
  */
 
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
@@ -227,7 +226,7 @@ static const struct pwm_ops vt8500_pwm_ops = {
 };
 
 static const struct of_device_id vt8500_pwm_dt_ids[] = {
-	{ .compatible = "via,vt8500-pwm", },
+	{ .compatible = "via,vt8500-pwm" },
 	{ /* Sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, vt8500_pwm_dt_ids);

@@ -20,7 +20,6 @@
 #include <linux/module.h>
 #include <linux/pm.h>
 #include <linux/bitops.h>
-#include <linux/mod_devicetable.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 
@@ -528,10 +527,8 @@ static int tmp007_probe(struct i2c_client *client)
 				NULL, tmp007_interrupt_handler,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				tmp007_id->name, indio_dev);
-		if (ret) {
-			dev_err(&client->dev, "irq request error %d\n", -ret);
+		if (ret)
 			return ret;
-		}
 	}
 
 	return devm_iio_device_register(&client->dev, indio_dev);

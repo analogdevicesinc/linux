@@ -10,7 +10,6 @@
 
 #include <linux/delay.h>
 #include <linux/device.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 #include <linux/stddef.h>
@@ -40,7 +39,7 @@ static const struct of_device_id hsc_spi_match[] = {
 MODULE_DEVICE_TABLE(of, hsc_spi_match);
 
 static const struct spi_device_id hsc_spi_id[] = {
-	{ "hsc030pa" },
+	{ .name = "hsc030pa" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, hsc_spi_id);

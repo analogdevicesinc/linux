@@ -8,7 +8,7 @@
 #include <linux/spinlock.h>
 #include <linux/pci.h>
 #include <linux/gpio/driver.h>
-#include <linux/mod_devicetable.h>
+#include <linux/device-id/ssb.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 
@@ -670,5 +670,7 @@ extern u32 ssb_admatch_size(u32 adm);
 int ssb_pcibios_plat_dev_init(struct pci_dev *dev);
 int ssb_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
 #endif /* CONFIG_SSB_EMBEDDED */
+
+extern const struct software_node ssb_gpio_swnode;
 
 #endif /* LINUX_SSB_H_ */

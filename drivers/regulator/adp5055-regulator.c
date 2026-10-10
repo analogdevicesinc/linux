@@ -9,7 +9,6 @@
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/regmap.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
@@ -225,7 +224,7 @@ static int adp5055_of_parse_cb(struct device_node *np,
 		adp5055->dvs_limit_upper[id] = pval;
 
 	if (adp5055->dvs_limit_upper[id] > 192000 || adp5055->dvs_limit_upper[id] < 12000)
-		return dev_err_probe(config->dev, adp5055->dvs_limit_upper[id],
+		return dev_err_probe(config->dev, -EINVAL,
 			"Out of range - dvs-limit-upper-microvolt value.");
 
 	ret = of_property_read_u32(np, "adi,dvs-limit-lower-microvolt", &pval);
@@ -404,8 +403,8 @@ static const struct of_device_id adp5055_of_match[] = {
 MODULE_DEVICE_TABLE(of, adp5055_of_match);
 
 static const struct i2c_device_id adp5055_ids[] = {
-	{ .name = "adp5055"},
-	{ },
+	{ .name = "adp5055" },
+	{ }
 };
 MODULE_DEVICE_TABLE(i2c, adp5055_ids);
 

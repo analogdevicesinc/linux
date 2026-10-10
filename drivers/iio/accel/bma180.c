@@ -13,7 +13,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
@@ -989,10 +988,8 @@ static int bma180_probe(struct i2c_client *client)
 				       iio_trigger_generic_data_rdy_poll,
 				       IRQF_TRIGGER_RISING | IRQF_NO_THREAD,
 				       "bma180_event", data->trig);
-		if (ret) {
-			dev_err(dev, "unable to request IRQ\n");
+		if (ret)
 			goto err_trigger_free;
-		}
 
 		data->trig->ops = &bma180_trigger_ops;
 		iio_trigger_set_drvdata(data->trig, indio_dev);

@@ -15,7 +15,6 @@
 #include <linux/jiffies.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
-#include <linux/mod_devicetable.h>
 #include <linux/property.h>
 
 #define	DRIVER_NAME "tmp102"
@@ -397,6 +396,8 @@ static DEFINE_SIMPLE_DEV_PM_OPS(tmp102_dev_pm_ops, tmp102_suspend, tmp102_resume
 
 static const struct i2c_device_id tmp102_id[] = {
 	{ .name = "tmp102" },
+	{ .name = "tmp110" },
+	{ .name = "tmp113" },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, tmp102_id);

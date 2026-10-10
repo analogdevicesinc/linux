@@ -28,7 +28,6 @@
 #include <linux/irq.h>
 #include <linux/scatterlist.h>
 #include <linux/dma-mapping.h>
-#include <linux/mod_devicetable.h>
 #include <linux/delay.h>
 #include <linux/crypto.h>
 #include <crypto/scatterwalk.h>
@@ -2605,10 +2604,8 @@ static int atmel_sha_probe(struct platform_device *pdev)
 
 	err = devm_request_irq(&pdev->dev, sha_dd->irq, atmel_sha_irq,
 			       IRQF_SHARED, "atmel-sha", sha_dd);
-	if (err) {
-		dev_err(dev, "unable to request sha irq.\n");
+	if (err)
 		goto err_tasklet_kill;
-	}
 
 	/* Initializing the clock */
 	sha_dd->iclk = devm_clk_get_prepared(&pdev->dev, "sha_clk");

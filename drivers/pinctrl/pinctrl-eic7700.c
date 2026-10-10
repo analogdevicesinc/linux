@@ -11,7 +11,6 @@
 #include <linux/bitfield.h>
 #include <linux/device.h>
 #include <linux/io.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -423,6 +422,9 @@ static int eic7700_pin_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			else
 				value &= ~EIC7700_ST;
 			break;
+		/* All pins are persistent over suspend */
+		case PIN_CONFIG_PERSIST_STATE:
+			return 0;
 		default:
 			return -EOPNOTSUPP;
 		}

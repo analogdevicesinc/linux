@@ -13,7 +13,6 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/mfd/max77620.h>
 #include <linux/mfd/max77714.h>
 #include <linux/platform_device.h>
@@ -236,9 +235,9 @@ static int max77620_wdt_probe(struct platform_device *pdev)
 }
 
 static const struct platform_device_id max77620_wdt_devtype[] = {
-	{ "max77620-watchdog", (kernel_ulong_t)&max77620_wdt_data },
-	{ "max77714-watchdog", (kernel_ulong_t)&max77714_wdt_data },
-	{ },
+	{ .name = "max77620-watchdog", .driver_data = (kernel_ulong_t)&max77620_wdt_data },
+	{ .name = "max77714-watchdog", .driver_data = (kernel_ulong_t)&max77714_wdt_data },
+	{ }
 };
 MODULE_DEVICE_TABLE(platform, max77620_wdt_devtype);
 

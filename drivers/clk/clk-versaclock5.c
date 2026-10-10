@@ -16,7 +16,6 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/property.h>
@@ -1311,14 +1310,14 @@ static const struct vc5_chip_info idt_5p49v6975_info = {
 };
 
 static const struct i2c_device_id vc5_id[] = {
-	{ "5p49v5923", .driver_data = (kernel_ulong_t)&idt_5p49v5923_info },
-	{ "5p49v5925", .driver_data = (kernel_ulong_t)&idt_5p49v5925_info },
-	{ "5p49v5933", .driver_data = (kernel_ulong_t)&idt_5p49v5933_info },
-	{ "5p49v5935", .driver_data = (kernel_ulong_t)&idt_5p49v5935_info },
-	{ "5p49v60", .driver_data = (kernel_ulong_t)&idt_5p49v60_info },
-	{ "5p49v6901", .driver_data = (kernel_ulong_t)&idt_5p49v6901_info },
-	{ "5p49v6965", .driver_data = (kernel_ulong_t)&idt_5p49v6965_info },
-	{ "5p49v6975", .driver_data = (kernel_ulong_t)&idt_5p49v6975_info },
+	{ .name = "5p49v5923", .driver_data = (kernel_ulong_t)&idt_5p49v5923_info },
+	{ .name = "5p49v5925", .driver_data = (kernel_ulong_t)&idt_5p49v5925_info },
+	{ .name = "5p49v5933", .driver_data = (kernel_ulong_t)&idt_5p49v5933_info },
+	{ .name = "5p49v5935", .driver_data = (kernel_ulong_t)&idt_5p49v5935_info },
+	{ .name = "5p49v60", .driver_data = (kernel_ulong_t)&idt_5p49v60_info },
+	{ .name = "5p49v6901", .driver_data = (kernel_ulong_t)&idt_5p49v6901_info },
+	{ .name = "5p49v6965", .driver_data = (kernel_ulong_t)&idt_5p49v6965_info },
+	{ .name = "5p49v6975", .driver_data = (kernel_ulong_t)&idt_5p49v6975_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, vc5_id);

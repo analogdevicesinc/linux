@@ -93,20 +93,20 @@ scheduler has been loaded):
     # cat /sys/kernel/sched_ext/enable_seq
     1
 
-Each running scheduler also exposes a per-scheduler ``events`` file under
-``/sys/kernel/sched_ext/<scheduler-name>/events`` that tracks diagnostic
-counters. Each counter occupies one ``name value`` line:
+Each running scheduler exposes an ``events`` file under its sysfs kobject
+(``/sys/kernel/sched_ext/root/events`` for the root scheduler) that tracks
+diagnostic counters. Each counter occupies one ``name value`` line:
 
 .. code-block:: none
 
-    # cat /sys/kernel/sched_ext/simple/events
+    # cat /sys/kernel/sched_ext/root/events
     SCX_EV_SELECT_CPU_FALLBACK 0
     SCX_EV_DISPATCH_LOCAL_DSQ_OFFLINE 0
     SCX_EV_DISPATCH_KEEP_LAST 123
     SCX_EV_ENQ_SKIP_EXITING 0
     SCX_EV_ENQ_SKIP_MIGRATION_DISABLED 0
     SCX_EV_REENQ_IMMED 0
-    SCX_EV_REENQ_LOCAL_REPEAT 0
+    SCX_EV_REENQ_REPEAT 0
     SCX_EV_REFILL_SLICE_DFL 456789
     SCX_EV_BYPASS_DURATION 0
     SCX_EV_BYPASS_DISPATCH 0
@@ -129,9 +129,9 @@ The counters are described in ``kernel/sched/ext/internal.h``; briefly:
   ``SCX_OPS_ENQ_MIGRATION_DISABLED`` is not set).
 * ``SCX_EV_REENQ_IMMED``: a task dispatched with ``SCX_ENQ_IMMED`` was
   re-enqueued because the target CPU was not available for immediate execution.
-* ``SCX_EV_REENQ_LOCAL_REPEAT``: a reenqueue of the local DSQ triggered
-  another reenqueue; recurring counts indicate incorrect ``SCX_ENQ_REENQ``
-  handling in the BPF scheduler.
+* ``SCX_EV_REENQ_REPEAT``: a reenqueue led to another reenqueue without the
+  task running in between; recurring counts indicate that the BPF scheduler
+  keeps re-deciding placements it can't honor.
 * ``SCX_EV_REFILL_SLICE_DFL``: a task's time slice was refilled with the
   default value (``SCX_SLICE_DFL``).
 * ``SCX_EV_BYPASS_DURATION``: total nanoseconds spent in bypass mode.
@@ -153,6 +153,7 @@ detailed information:
     switching_all : 1
     switched_all  : 1
     enable_state  : enabled (2)
+    aborting      : False
     bypass_depth  : 0
     nr_rejected   : 0
     enable_seq    : 1
@@ -493,8 +494,9 @@ a freshly woken up task gets on a CPU.
 Where to Look
 =============
 
-* ``include/linux/sched/ext.h`` defines the core data structures, ops table
-  and constants.
+* ``include/linux/sched/ext.h`` defines the core data structures and
+  constants, while the ops table (``struct sched_ext_ops``) is defined in
+  ``kernel/sched/ext/internal.h``.
 
 * ``kernel/sched/ext/ext.c`` contains sched_ext core implementation and helpers.
   The functions prefixed with ``scx_bpf_`` can be called from the BPF
@@ -555,7 +557,8 @@ ABI Instability
 ===============
 
 The APIs provided by sched_ext to BPF schedulers programs have no stability
-guarantees. This includes the ops table callbacks and constants defined in
+guarantees. This includes the ops table callbacks defined in
+``kernel/sched/ext/internal.h`` and the constants defined in
 ``include/linux/sched/ext.h``, as well as the ``scx_bpf_`` kfuncs defined in
 ``kernel/sched/ext/ext.c`` and ``kernel/sched/ext/idle.c``.
 

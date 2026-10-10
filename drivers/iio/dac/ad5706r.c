@@ -10,7 +10,6 @@
 #include <linux/dev_printk.h>
 #include <linux/err.h>
 #include <linux/iio/iio.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
@@ -233,7 +232,7 @@ static const struct of_device_id ad5706r_of_match[] = {
 MODULE_DEVICE_TABLE(of, ad5706r_of_match);
 
 static const struct spi_device_id ad5706r_id[] = {
-	{ "ad5706r" },
+	{ .name = "ad5706r" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad5706r_id);

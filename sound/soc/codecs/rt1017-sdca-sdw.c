@@ -8,7 +8,6 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/pm_runtime.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <sound/core.h>
@@ -785,7 +784,12 @@ static int rt1017_sdca_dev_resume(struct device *dev)
 	}
 
 	regcache_cache_only(rt1017->regmap, false);
-	regcache_sync(rt1017->regmap);
+	ret = regcache_sync(rt1017->regmap);
+	if (ret) {
+		regcache_cache_only(rt1017->regmap, true);
+		regcache_mark_dirty(rt1017->regmap);
+		return ret;
+	}
 
 	return 0;
 }

@@ -13,7 +13,6 @@
 #include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
@@ -772,7 +771,7 @@ static int d3323aa_probe(struct platform_device *pdev)
 			       IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 			       dev_name(dev), indio_dev);
 	if (ret)
-		return dev_err_probe(dev, ret, "Could not request IRQ\n");
+		return ret;
 
 	ret = d3323aa_setup(indio_dev, D3323AA_LP_FILTER_FREQ_DEFAULT_IDX,
 			    D3323AA_FILTER_GAIN_DEFAULT_IDX,

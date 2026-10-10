@@ -14,7 +14,6 @@
 #include <linux/kernel.h>
 #include <linux/math64.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/mutex.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
@@ -709,8 +708,8 @@ static int ltc2664_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id ltc2664_id[] = {
-	{ "ltc2664", (kernel_ulong_t)&ltc2664_chip },
-	{ "ltc2672", (kernel_ulong_t)&ltc2672_chip },
+	{ .name = "ltc2664", .driver_data = (kernel_ulong_t)&ltc2664_chip },
+	{ .name = "ltc2672", .driver_data = (kernel_ulong_t)&ltc2672_chip },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ltc2664_id);

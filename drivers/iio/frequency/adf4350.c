@@ -7,7 +7,6 @@
 
 #include <linux/device.h>
 #include <linux/kernel.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/property.h>
 #include <linux/slab.h>
@@ -692,8 +691,8 @@ static const struct of_device_id adf4350_of_match[] = {
 MODULE_DEVICE_TABLE(of, adf4350_of_match);
 
 static const struct spi_device_id adf4350_id[] = {
-	{"adf4350", 4350},
-	{"adf4351", 4351},
+	{ .name = "adf4350", .driver_data = 4350 },
+	{ .name = "adf4351", .driver_data = 4351 },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adf4350_id);

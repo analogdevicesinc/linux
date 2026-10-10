@@ -23,6 +23,7 @@
 #include <linux/mutex.h>
 #include <linux/kref.h>
 #include <linux/videodev2.h>
+#include <linux/device-id/usb.h>
 
 #include <media/videobuf2-v4l2.h>
 #include <media/videobuf2-vmalloc.h>
@@ -149,6 +150,7 @@
 #define EM2828X_BOARD_HAUPPAUGE_955_V2            110
 #define EM2828X_BOARD_HAUPPAUGE_975_V2            111
 #define EM28178_BOARD_PCTV_461E_V3                112
+#define EM28281_BOARD_STARTECH_SVID2USB232        113
 
 /* Limits minimum and default number of buffers */
 #define EM28XX_MIN_BUF 4
@@ -557,7 +559,6 @@ struct em28xx_eeprom {
 #define EM28XX_RESOURCE_VBI   0x02
 
 struct em28xx_v4l2 {
-	struct kref ref;
 	struct em28xx *dev;
 
 	struct v4l2_device v4l2_dev;
@@ -581,7 +582,6 @@ struct em28xx_v4l2 {
 	int sensor_yres;
 	int sensor_xtal;
 
-	int users;		/* user count for exclusive use */
 	int streaming_users;    /* number of actively streaming users */
 
 	u32 frequency;		/* selected tuner frequency */

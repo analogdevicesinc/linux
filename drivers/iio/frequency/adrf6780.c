@@ -13,7 +13,6 @@
 #include <linux/device.h>
 #include <linux/iio/iio.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/spi/spi.h>
 
 #include <linux/unaligned.h>
@@ -487,7 +486,7 @@ static int adrf6780_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id adrf6780_id[] = {
-	{ "adrf6780", 0 },
+	{ .name = "adrf6780" },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adrf6780_id);

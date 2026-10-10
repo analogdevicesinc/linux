@@ -5,7 +5,6 @@
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/regmap.h>
 
 #include "inv_icm45600.h"
@@ -23,7 +22,7 @@ static int inv_icm45600_probe(struct i2c_client *client)
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_I2C_BLOCK))
 		return -ENODEV;
 
-	chip_info = device_get_match_data(&client->dev);
+	chip_info = i2c_get_match_data(client);
 	if (!chip_info)
 		return -ENODEV;
 

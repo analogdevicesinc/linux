@@ -141,12 +141,12 @@ static void *mmap_large_buffer(size_t need, size_t *allocated)
 	buffer = mmap(NULL, sz, PROT_READ | PROT_WRITE,
 		      MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
 
-	if (buffer == (void *)-1) {
+	if (buffer == MAP_FAILED) {
 		sz = need;
 		buffer = mmap(NULL, sz, PROT_READ | PROT_WRITE,
 			      MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE,
 			      -1, 0);
-		if (buffer != (void *)-1)
+		if (buffer != MAP_FAILED)
 			fprintf(stderr, "MAP_HUGETLB attempt failed, look at /sys/kernel/mm/hugepages for optimal performance\n");
 	}
 	*allocated = sz;
@@ -189,13 +189,13 @@ void *child_thread(void *arg)
 
 	fcntl(fd, F_SETFL, O_NDELAY);
 	buffer = mmap_large_buffer(chunk_size, &buffer_sz);
-	if (buffer == (void *)-1) {
+	if (buffer == MAP_FAILED) {
 		perror("mmap");
 		goto error;
 	}
 	if (zflg) {
 		raddr = mmap(NULL, chunk_size + map_align, PROT_READ, flags, fd, 0);
-		if (raddr == (void *)-1) {
+		if (raddr == MAP_FAILED) {
 			perror("mmap");
 			zflg = 0;
 		} else {
@@ -313,6 +313,8 @@ end:
 				tcp_info_get_rcv_mss(fd));
 	}
 error:
+	if (ctx)
+		EVP_MD_CTX_free(ctx);
 	munmap(buffer, buffer_sz);
 	close(fd);
 	if (zflg)
@@ -545,7 +547,7 @@ int main(int argc, char *argv[])
 	}
 
 	buffer = mmap_large_buffer(chunk_size, &buffer_sz);
-	if (buffer == (unsigned char *)-1) {
+	if (buffer == MAP_FAILED) {
 		perror("mmap");
 		exit(1);
 	}
@@ -606,6 +608,8 @@ int main(int argc, char *argv[])
 		EVP_DigestFinal_ex(ctx, digest, &digest_len);
 		send(fd, digest, (size_t)SHA256_DIGEST_LENGTH, 0);
 	}
+	if (ctx)
+		EVP_MD_CTX_free(ctx);
 	close(fd);
 	munmap(buffer, buffer_sz);
 	return 0;

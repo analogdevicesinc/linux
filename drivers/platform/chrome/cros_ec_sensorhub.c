@@ -9,7 +9,6 @@
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/delay.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/platform_data/cros_ec_commands.h>
 #include <linux/platform_data/cros_ec_proto.h>
@@ -268,8 +267,8 @@ static SIMPLE_DEV_PM_OPS(cros_ec_sensorhub_pm_ops,
 		cros_ec_sensorhub_resume);
 
 static const struct platform_device_id cros_ec_sensorhub_id[] = {
-	{ DRV_NAME, 0 },
-	{}
+	{ .name = DRV_NAME },
+	{ }
 };
 MODULE_DEVICE_TABLE(platform, cros_ec_sensorhub_id);
 

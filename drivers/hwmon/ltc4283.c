@@ -20,7 +20,6 @@
 #include <linux/minmax.h>
 #include <linux/module.h>
 
-#include <linux/mod_devicetable.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/unaligned.h>
@@ -1773,6 +1772,7 @@ static const struct of_device_id ltc4283_of_match[] = {
 	{ .compatible = "adi,ltc4283" },
 	{ }
 };
+MODULE_DEVICE_TABLE(of, ltc4283_of_match);
 
 static const struct i2c_device_id ltc4283_i2c_id[] = {
 	{ "ltc4283" },

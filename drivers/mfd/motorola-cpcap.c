@@ -11,7 +11,6 @@
 #include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/regmap.h>
 #include <linux/sysfs.h>
 
@@ -203,9 +202,9 @@ static const struct of_device_id cpcap_of_match[] = {
 MODULE_DEVICE_TABLE(of, cpcap_of_match);
 
 static const struct spi_device_id cpcap_spi_ids[] = {
-	{ .name = "cpcap", },
-	{ .name = "6556002", },
-	{},
+	{ .name = "cpcap" },
+	{ .name = "6556002" },
+	{ }
 };
 MODULE_DEVICE_TABLE(spi, cpcap_spi_ids);
 

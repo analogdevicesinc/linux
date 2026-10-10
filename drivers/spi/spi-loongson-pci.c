@@ -2,7 +2,6 @@
 // PCI interface driver for Loongson SPI Support
 // Copyright (C) 2023 Loongson Technology Corporation Limited
 
-#include <linux/mod_devicetable.h>
 #include <linux/pci.h>
 
 #include "spi-loongson.h"
@@ -44,7 +43,7 @@ static struct pci_driver loongson_spi_pci_driver = {
 	.probe      = loongson_spi_pci_register,
 	.driver	= {
 		.bus = &pci_bus_type,
-		.pm = &loongson_spi_dev_pm_ops,
+		.pm = pm_sleep_ptr(&loongson_spi_dev_pm_ops),
 	},
 };
 module_pci_driver(loongson_spi_pci_driver);

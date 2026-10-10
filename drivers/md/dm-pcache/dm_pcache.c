@@ -168,6 +168,10 @@ static int parse_cache_opts(struct dm_pcache *pcache, struct dm_arg_set *as,
 		argc--;
 
 		if (!strcmp(arg, "cache_mode")) {
+			if (!argc) {
+				*error = "Missing value for cache_mode";
+				return -EINVAL;
+			}
 			arg = dm_shift_arg(as);
 			if (!strcmp(arg, "writeback")) {
 				opts->cache_mode = PCACHE_CACHE_MODE_WRITEBACK;
@@ -177,6 +181,10 @@ static int parse_cache_opts(struct dm_pcache *pcache, struct dm_arg_set *as,
 			}
 			argc--;
 		} else if (!strcmp(arg, "data_crc")) {
+			if (!argc) {
+				*error = "Missing value for data_crc";
+				return -EINVAL;
+			}
 			arg = dm_shift_arg(as);
 			if (!strcmp(arg, "true")) {
 				opts->data_crc = true;
@@ -431,13 +439,13 @@ static int dm_pcache_message(struct dm_target *ti, unsigned int argc,
 			     char **argv, char *result, unsigned int maxlen)
 {
 	struct dm_pcache *pcache = ti->private;
-	unsigned long val;
+	u8 val;
 
 	if (argc != 2)
 		goto err;
 
 	if (!strcasecmp(argv[0], "gc_percent")) {
-		if (kstrtoul(argv[1], 10, &val))
+		if (kstrtou8(argv[1], 10, &val))
 			goto err;
 
 		return pcache_cache_set_gc_percent(&pcache->cache, val);

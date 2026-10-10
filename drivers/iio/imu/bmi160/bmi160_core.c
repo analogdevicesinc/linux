@@ -5,7 +5,7 @@
  * Copyright (c) 2016, Intel Corporation.
  * Copyright (c) 2019, Martin Kelly.
  *
- * IIO core driver for BMI160, with support for I2C/SPI busses
+ * IIO core driver for BMI160, with support for I2C/SPI buses
  *
  * TODO: magnetometer, hardware FIFO
  */
@@ -788,7 +788,8 @@ int bmi160_probe_trigger(struct iio_dev *indio_dev, int irq, u32 irq_type)
 
 	ret = devm_request_irq(&indio_dev->dev, irq,
 			       &iio_trigger_generic_data_rdy_poll,
-			       irq_type, "bmi160", data->trig);
+			       irq_type | IRQF_NO_THREAD,
+			       "bmi160", data->trig);
 	if (ret)
 		return ret;
 

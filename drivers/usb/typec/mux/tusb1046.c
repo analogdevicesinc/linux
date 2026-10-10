@@ -11,7 +11,6 @@
 #include <linux/usb/typec_dp.h>
 #include <linux/usb/typec_altmode.h>
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/err.h>
 #include <linux/of_device.h>
 #include <linux/device.h>
@@ -179,6 +178,7 @@ static const struct of_device_id tusb1046_match_table[] = {
 	{.compatible = "ti,tusb1046"},
 	{},
 };
+MODULE_DEVICE_TABLE(of, tusb1046_match_table);
 
 static struct i2c_driver tusb1046_driver = {
 	.driver = {

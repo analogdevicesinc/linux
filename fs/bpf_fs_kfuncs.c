@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (c) 2024 Google LLC. */
 
+#include <linux/binfmt_misc.h>
 #include <linux/bpf.h>
 #include <linux/bpf_lsm.h>
 #include <linux/btf.h>
@@ -11,6 +12,7 @@
 #include <linux/file.h>
 #include <linux/kernfs.h>
 #include <linux/mm.h>
+#include <linux/net.h>
 #include <linux/xattr.h>
 
 __bpf_kfunc_start_defs();
@@ -359,19 +361,57 @@ __bpf_kfunc int bpf_cgroup_read_xattr(struct cgroup *cgroup, const char *name__s
 }
 #endif /* CONFIG_CGROUPS */
 
+#ifdef CONFIG_NET
 /**
- * bpf_real_inode - get the real inode backing a dentry
- * @dentry: dentry to resolve
+ * bpf_sock_read_xattr - read xattr of a socket's inode in sockfs
+ * @sock: socket to get xattr from
+ * @name__str: name of the xattr
+ * @value_p: output buffer of the xattr value
  *
- * If the dentry is on a union/overlay filesystem, return the underlying, real
- * inode that hosts the data.  Otherwise return the inode attached to the
- * dentry itself.
+ * Get xattr *name__str* of *sock* and store the output in *value_p*.
  *
- * Return: The real inode backing the dentry, or NULL for a negative dentry.
+ * For security reasons, only *name__str* with prefix "user." is allowed.
+ *
+ * Return: length of the xattr value on success, a negative value on error.
  */
-__bpf_kfunc struct inode *bpf_real_inode(struct dentry *dentry)
+__bpf_kfunc int bpf_sock_read_xattr(struct socket *sock, const char *name__str,
+				    struct bpf_dynptr *value_p)
 {
-	return d_real_inode(dentry);
+	struct bpf_dynptr_kern *value_ptr = (struct bpf_dynptr_kern *)value_p;
+	u32 value_len;
+	void *value;
+
+	/* Only allow reading "user.*" xattrs */
+	if (strncmp(name__str, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN))
+		return -EPERM;
+
+	value_len = __bpf_dynptr_size(value_ptr);
+	value = __bpf_dynptr_data_rw(value_ptr, value_len);
+	if (!value)
+		return -EINVAL;
+
+	return sock_read_xattr(sock, name__str, value, value_len);
+}
+#endif /* CONFIG_NET */
+
+/**
+ * bpf_real_data_inode - get the real inode hosting a file's data
+ * @file: file to resolve
+ *
+ * Resolve @file to the inode that hosts its data. For a regular file on a
+ * union/overlay filesystem this is the underlying (upper or lower) inode that
+ * stores the data, not the overlay inode.
+ *
+ * Data resolution only applies to regular files. For a non-regular file (e.g.
+ * a device node, fifo or socket) on a union/overlay filesystem the overlay
+ * inode itself is returned; for any file on a non-union filesystem the inode
+ * attached to @file is returned.
+ *
+ * Return: The inode hosting @file's data, or NULL.
+ */
+__bpf_kfunc struct inode *bpf_real_data_inode(struct file *file)
+{
+	return d_real_inode(file_dentry(file));
 }
 
 __bpf_kfunc_end_defs();
@@ -384,13 +424,31 @@ BTF_ID_FLAGS(func, bpf_get_dentry_xattr, KF_SLEEPABLE)
 BTF_ID_FLAGS(func, bpf_get_file_xattr, KF_SLEEPABLE)
 BTF_ID_FLAGS(func, bpf_set_dentry_xattr, KF_SLEEPABLE)
 BTF_ID_FLAGS(func, bpf_remove_dentry_xattr, KF_SLEEPABLE)
-BTF_ID_FLAGS(func, bpf_real_inode, KF_SLEEPABLE | KF_RET_NULL)
+BTF_ID_FLAGS(func, bpf_real_data_inode, KF_SLEEPABLE | KF_RET_NULL)
+#ifdef CONFIG_NET
+BTF_ID_FLAGS(func, bpf_sock_read_xattr, KF_RCU)
+#endif
 BTF_KFUNCS_END(bpf_fs_kfunc_set_ids)
+
+/* Side-effecting kfuncs that stay exclusive to LSM programs. */
+BTF_SET_START(bpf_fs_kfunc_lsm_only_ids)
+BTF_ID(func, bpf_set_dentry_xattr)
+BTF_ID(func, bpf_remove_dentry_xattr)
+BTF_SET_END(bpf_fs_kfunc_lsm_only_ids)
 
 static int bpf_fs_kfuncs_filter(const struct bpf_prog *prog, u32 kfunc_id)
 {
-	if (!btf_id_set8_contains(&bpf_fs_kfunc_set_ids, kfunc_id) ||
-	    prog->type == BPF_PROG_TYPE_LSM)
+	if (!btf_id_set8_contains(&bpf_fs_kfunc_set_ids, kfunc_id))
+		return 0;
+	if (prog->type == BPF_PROG_TYPE_LSM)
+		return 0;
+	if (prog->type != BPF_PROG_TYPE_STRUCT_OPS)
+		return -EACCES;
+	/* ->st_ops is unset during the cfg pass; enforced once it is set. */
+	if (!prog->aux->st_ops)
+		return 0;
+	if (bpf_prog_is_binfmt_misc_ops(prog) &&
+	    !btf_id_set_contains(&bpf_fs_kfunc_lsm_only_ids, kfunc_id))
 		return 0;
 	return -EACCES;
 }
@@ -433,7 +491,13 @@ static const struct btf_kfunc_id_set bpf_fs_kfunc_set = {
 
 static int __init bpf_fs_kfuncs_init(void)
 {
-	return register_btf_kfunc_id_set(BPF_PROG_TYPE_LSM, &bpf_fs_kfunc_set);
+	int ret;
+
+	ret = register_btf_kfunc_id_set(BPF_PROG_TYPE_LSM, &bpf_fs_kfunc_set);
+	if (ret || !IS_ENABLED(CONFIG_BINFMT_MISC_BPF))
+		return ret;
+	return register_btf_kfunc_id_set(BPF_PROG_TYPE_STRUCT_OPS,
+					 &bpf_fs_kfunc_set);
 }
 
 late_initcall(bpf_fs_kfuncs_init);

@@ -16,7 +16,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/mod_devicetable.h>
 #include <linux/i2c.h>
 #include <linux/mutex.h>
 #include <linux/err.h>
@@ -722,7 +721,7 @@ static int vl6180_probe(struct i2c_client *client)
 						IRQF_ONESHOT,
 						indio_dev->name, indio_dev);
 		if (ret)
-			return dev_err_probe(&client->dev, ret, "devm_request_irq error\n");
+			return ret;
 
 		init_completion(&data->completion);
 

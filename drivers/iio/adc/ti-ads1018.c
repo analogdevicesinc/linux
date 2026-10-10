@@ -12,7 +12,6 @@
 #include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/math.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 #include <linux/types.h>
@@ -718,8 +717,8 @@ static const struct of_device_id ads1018_of_match[] = {
 MODULE_DEVICE_TABLE(of, ads1018_of_match);
 
 static const struct spi_device_id ads1018_spi_match[] = {
-	{ "ads1018", (kernel_ulong_t)&ads1018_chip_info },
-	{ "ads1118", (kernel_ulong_t)&ads1118_chip_info },
+	{ .name = "ads1018", .driver_data = (kernel_ulong_t)&ads1018_chip_info },
+	{ .name = "ads1118", .driver_data = (kernel_ulong_t)&ads1118_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ads1018_spi_match);

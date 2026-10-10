@@ -35,7 +35,6 @@
 
 #include <linux/bitfield.h>
 #include <linux/kernel.h>
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
@@ -245,7 +244,7 @@ static int sl28cpld_pwm_probe(struct platform_device *pdev)
 
 static const struct of_device_id sl28cpld_pwm_of_match[] = {
 	{ .compatible = "kontron,sl28cpld-pwm" },
-	{}
+	{ }
 };
 MODULE_DEVICE_TABLE(of, sl28cpld_pwm_of_match);
 
