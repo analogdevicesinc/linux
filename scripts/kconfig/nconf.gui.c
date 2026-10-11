@@ -523,7 +523,7 @@ int show_scroll_win_ext(WINDOW *main_window, const char *title, char *text,
 	int x, y, lines, columns;
 	int start_x = 0, start_y = 0;
 	int text_lines = 0, text_cols = 0;
-	int total_cols = 0;
+	int total_cols = get_line_length(title) + 4;
 	int win_cols = 0;
 	int win_lines = 0;
 	int i = 0;
