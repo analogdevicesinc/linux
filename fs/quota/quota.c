@@ -894,11 +894,15 @@ retry:
 			up_write(&sb->s_umount);
 		else
 			up_read(&sb->s_umount);
-		/* Wait for sb to unfreeze */
-		sb_start_write(sb);
-		sb_end_write(sb);
+		/*
+		 * Wait for sb to unfreeze. A read-only superblock is frozen
+		 * without taking s_writers so sb_start_write() won't wait.
+		 */
+		error = wait_var_event_killable(&sb->s_writers.frozen,
+				READ_ONCE(sb->s_writers.frozen) == SB_UNFROZEN);
 		put_super(sb);
-		cond_resched();
+		if (error)
+			return ERR_PTR(error);
 		goto retry;
 	}
 	return sb;
