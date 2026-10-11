@@ -14,8 +14,6 @@
 
 #include <linux/gpio/driver.h>
 
-/* Number of GPIOs per port instance */
-#define ADSP_PORT_NGPIO 16
 
 /* PORT memory layout */
 #define ADSP_PORT_REG_FER			0x00
