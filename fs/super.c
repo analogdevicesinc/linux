@@ -1046,6 +1046,14 @@ int reconfigure_super(struct fs_context *fc)
 	if (sb->s_writers.frozen != SB_UNFROZEN)
 		return -EBUSY;
 
+	/*
+	 * Filesystems take fc->sb_flags & SB_RDONLY as the read-only state the
+	 * superblock ends up in. If that isn't being changed, e.g., fspick()
+	 * without "ro" or "rw", it's the current one.
+	 */
+	if (!(fc->sb_flags_mask & SB_RDONLY))
+		fc->sb_flags = (fc->sb_flags & ~SB_RDONLY) | (sb->s_flags & SB_RDONLY);
+
 	retval = security_sb_remount(sb, fc->security);
 	if (retval)
 		return retval;
