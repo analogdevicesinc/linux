@@ -1,0 +1,31 @@
+What:		/sys/bus/iio/devices/deviceX/in_angl_harmonic_calibration
+KernelVersion:	6.6.0
+Contact:	linux-iio@vger.kernel.org
+Description:
+	Magnitude and phase correction coefficients for the 1st, 2nd, 3rd and
+	8th harmonics, written together as eight space-separated raw values:
+
+		mag1 phase1 mag2 phase2 mag3 phase3 mag8 phase8
+
+	Magnitude range is 0-2047 for the 1st and 2nd harmonics and 0-127 for
+	the 3rd and 8th. Phase range is 0-4095.
+
+What:		/sys/bus/iio/devices/deviceX/in_angl_h8_corr_src
+KernelVersion:	6.6.0
+Contact:	linux-iio@vger.kernel.org
+Description:
+	This attribute selects the source of the correction coefficients for the 8th
+	harmonic angular measurement.
+
+What:		/sys/bus/iio/devices/deviceX/in_angl_h8_corr_src_available
+KernelVersion:	6.6.0
+Contact:	linux-iio@vger.kernel.org
+Description:
+	Supported values are "factory" for built-in device calibration and "user"
+	for software-provided calibration data.
+
+What:		/sys/bus/iio/devices/deviceX/in_angl_filter_en
+KernelVersion:	6.6.0
+Contact:	linux-iio@vger.kernel.org
+Description:
+	Enable or disable the device's angle measurement filter.
