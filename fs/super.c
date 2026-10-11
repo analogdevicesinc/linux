@@ -1465,10 +1465,29 @@ static int fs_super_freeze(struct super_block *sb)
 
 static int fs_super_thaw(struct super_block *sb)
 {
-	if (sb->s_op->thaw_super)
-		return sb->s_op->thaw_super(sb,
+	int error;
+
+	if (sb->s_op->thaw_super) {
+		error = sb->s_op->thaw_super(sb,
 				FREEZE_MAY_NEST | FREEZE_HOLDER_USERSPACE, NULL);
-	return thaw_super(sb, FREEZE_MAY_NEST | FREEZE_HOLDER_USERSPACE, NULL);
+		/* -EINVAL means the freeze is gone already. */
+		if (error == -EINVAL)
+			return 0;
+		return error;
+	}
+
+	/* The caller holds an active reference. */
+	if (WARN_ON_ONCE(!super_lock_excl(sb)))
+		return 0;
+
+	/* FITHAW or an emergency thaw may have dropped the freeze already. */
+	if (sb->s_writers.frozen != SB_FREEZE_COMPLETE ||
+	    !sb->s_writers.freeze_ucount) {
+		super_unlock_excl(sb);
+		return 0;
+	}
+	return thaw_super_locked(sb, FREEZE_MAY_NEST | FREEZE_HOLDER_USERSPACE,
+				 NULL);
 }
 
 static void fs_bdev_mark_dead(struct block_device *bdev, bool surprise)
@@ -1577,7 +1596,8 @@ static int fs_bdev_freeze(struct block_device *bdev)
  * frozen more than once (by the kernel or via another device).
  *
  * Return: 0, or the first error on a single-fs device; a shared device swallows
- *         per-superblock errors, as fs_bdev_freeze() does.
+ *         per-superblock errors, as fs_bdev_freeze() does. A superblock that
+ *         lost the freeze already, e.g., to FITHAW, counts as thawed.
  */
 static int fs_bdev_thaw(struct block_device *bdev)
 {
