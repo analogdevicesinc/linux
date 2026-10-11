@@ -459,16 +459,16 @@ static int nt36672a_panel_probe(struct mipi_dsi_device *dsi)
 	return devm_mipi_dsi_attach(&dsi->dev, dsi);
 }
 
-static const struct of_device_id tianma_fhd_video_of_match[] = {
+static const struct of_device_id panel_nt36672a_match[] = {
 	{ .compatible = "tianma,fhd-video", .data = &tianma_fhd_video_panel_desc },
 	{ },
 };
-MODULE_DEVICE_TABLE(of, tianma_fhd_video_of_match);
+MODULE_DEVICE_TABLE(of, panel_nt36672a_match);
 
 static struct mipi_dsi_driver nt36672a_panel_driver = {
 	.driver = {
-		.name = "panel-tianma-nt36672a",
-		.of_match_table = tianma_fhd_video_of_match,
+		.name = "panel-novatek-nt36672a",
+		.of_match_table = panel_nt36672a_match,
 	},
 	.probe = nt36672a_panel_probe,
 };
