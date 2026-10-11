@@ -294,7 +294,7 @@ static int ad7746_select_channel(struct iio_dev *indio_dev,
 			FIELD_PREP(AD7746_VTSETUP_VTEN, 1);
 		cap_setup = chip->cap_setup & ~AD7746_CAPSETUP_CAPEN;
 		idx = FIELD_GET(AD7746_CONF_VTFS_MASK, chip->config);
-		delay = ad7746_cap_filter_rate_table[idx][1];
+		delay = ad7746_vt_filter_rate_table[idx][1];
 		break;
 	default:
 		return -EINVAL;
