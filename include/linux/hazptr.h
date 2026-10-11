@@ -25,12 +25,10 @@
 #include <linux/types.h>
 #include <linux/cleanup.h>
 #include <linux/sched.h>
+#include <linux/ptr_eq.h>
 
 /* 4 slots (each sizeof(hazptr_slot_item)) fit in a single 64-byte cache line. */
 #define NR_HAZPTR_PERCPU_SLOTS	4
-
-/* The current hazard pointer wildcard. */
-extern void *hazptr_wildcard;
 
 /*
  * Hazard pointer slot.
@@ -190,6 +188,31 @@ void hazptr_note_context_switch(void)
 	}
 }
 
+/* Try hazard pointer protection. */
+static inline
+void *__hazptr_try_acquire(struct hazptr_ctx *ctx, void * const *addr_p, struct hazptr_slot *slot)
+{
+	void *early_addr, *addr;
+
+	if (unlikely(slot->addr))
+		return NULL;
+	early_addr = READ_ONCE(*addr_p);	/* Early load. */
+	WRITE_ONCE(slot->addr, early_addr);	/* Store B */
+	/* Memory ordering: Store B before Load A. */
+	smp_mb();
+	addr = READ_ONCE(*addr_p);		/* Load A */
+	/*
+	 * Validate that address did not change between Early load and Load A.
+	 * Use ptr_eq() to make sure that result from Load A is returned to the
+	 * caller to preserve address dependency.
+	 */
+	if (unlikely(!ptr_eq(addr, early_addr))) {
+		WRITE_ONCE(slot->addr, NULL);
+		return NULL;
+	}
+	return addr;
+}
+
 /**
  * hazptr_acquire - Load pointer at address and protect with hazard pointer.
  *
@@ -245,24 +268,9 @@ void *hazptr_acquire(struct hazptr_ctx *ctx, void * const *addr_p)
 	ctx->acquire_cpu = smp_processor_id();
 	ctx->acquire_caller = _THIS_IP_;
 #endif
-	if (unlikely(slot->addr))
+	addr = __hazptr_try_acquire(ctx, addr_p, slot);
+	if (unlikely(!addr))
 		return __hazptr_acquire(ctx, addr_p);
-	WRITE_ONCE(slot->addr, READ_ONCE(hazptr_wildcard));	/* Store B */
-
-	/* Memory ordering: Store B before Load A. */
-	smp_mb();
-
-	/*
-	 * Load @addr_p after storing wildcard to the hazard pointer slot.
-	 */
-	addr = READ_ONCE(*addr_p);	/* Load A */
-
-	/*
-	 * We don't care about ordering of Store C. It will simply
-	 * replace the wildcard by a more specific address. If addr is
-	 * NULL, we simply store NULL into the slot.
-	 */
-	WRITE_ONCE(slot->addr, addr);	/* Store C */
 	slot_item->ctx.ctx = ctx;
 	ctx->slot = slot;
 	return addr;

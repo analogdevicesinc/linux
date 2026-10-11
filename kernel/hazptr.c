@@ -13,17 +13,9 @@
 #include <linux/list.h>
 #include <linux/export.h>
 
-static DEFINE_MUTEX(hazptr_phase_lock);	/* Protect the wildcard and list phase flip. */
+#define HAZPTR_WILDCARD	((void *) 1UL)
 
-/*
- * The current hazard pointer wildcard. Flips between 1UL and 2UL to guarantee
- * hazptr_synchronize forward progress even with a steady stream of readers.
- * This wildcard value is used by acquire to temporarily tag the per-CPU slots.
- * This also affects the overflow list selection: the current list used by
- * readers is array[(unsigned long) hazptr_wildcard - 1].
- */
-void *hazptr_wildcard = (void *) 1UL;
-EXPORT_SYMBOL_GPL(hazptr_wildcard);
+static DEFINE_MUTEX(hazptr_phase_lock);	/* Protect the list phase flip. */
 
 /* The current overflow list phase. */
 static unsigned int hazptr_overflow_list_phase;
@@ -41,6 +33,10 @@ struct hazptr_overflow_list {
  * successively iterates on both lists. Therefore, only list removals
  * can cause the iteration to retry, and the number of removals is
  * limited to the number of list elements.
+ *
+ * Due to the overflow list raw spin lock, the hazard pointer readers are
+ * blocking, starvation-free with bounded waiting, assuming bounded critical
+ * sections and no NMI or virtualization-induced holder preemption.
  */
 struct hazptr_overflow_list_flip {
 	struct hazptr_overflow_list array[2];
@@ -52,23 +48,9 @@ DEFINE_PER_CPU(struct hazptr_percpu_slots, hazptr_percpu_slots);
 EXPORT_PER_CPU_SYMBOL_GPL(hazptr_percpu_slots);
 
 static
-void *flip_wildcard(void *wildcard)
-{
-	return ((unsigned long) wildcard == 1UL) ? (void *) 2UL : (void *) 1UL;
-}
-
-static
 unsigned int flip_list_phase(unsigned int phase)
 {
 	return 1 - phase;
-}
-
-static
-bool is_wildcard(void *addr)
-{
-	if ((unsigned long) addr == 1UL || (unsigned long) addr == 2UL)
-		return true;
-	return false;
 }
 
 static
@@ -96,16 +78,36 @@ struct hazptr_slot *hazptr_get_free_percpu_slot(struct hazptr_ctx *ctx)
  */
 void *__hazptr_acquire(struct hazptr_ctx *ctx, void * const *addr_p)
 {
-	struct hazptr_slot *slot = hazptr_get_free_percpu_slot(ctx);
+	struct hazptr_slot *slot;
 	void *addr;
 
 	/*
-	 * If all the per-CPU slots are already in use, fallback
-	 * to the backup slot.
+	 * In case we are called due to nested use of hazard pointers,
+	 * try a slot protection with per-CPU slots.
 	 */
-	if (unlikely(!slot))
-		slot = hazptr_chain_backup_slot(ctx);
-	WRITE_ONCE(slot->addr, READ_ONCE(hazptr_wildcard));	/* Store B */
+	slot = hazptr_get_free_percpu_slot(ctx);
+	if (likely(slot)) {
+		addr = __hazptr_try_acquire(ctx, addr_p, slot);
+		if (addr) {
+			ctx->slot = slot;
+			return addr;
+		}
+	}
+
+	/*
+	 * The backup slot overflow list guarantees forward progress of both
+	 * hazard pointer readers and synchronize:
+	 *
+	 * - Readers set the wildcard, and then proceed to set the more
+	 *   specific address to replace the wildcard.
+	 *
+	 * - One synchronize alternates between two overflow list periods,
+	 *   scanning each one while readers are added to the other period,
+	 *   thus preventing a steady flow of readers from preventing
+	 *   synchronize forward progress.
+	 */
+	slot = hazptr_chain_backup_slot(ctx);
+	WRITE_ONCE(slot->addr, HAZPTR_WILDCARD);	/* Store B */
 
 	/* Memory ordering: Store B before Load A. */
 	smp_mb();
@@ -121,20 +123,21 @@ void *__hazptr_acquire(struct hazptr_ctx *ctx, void * const *addr_p)
 	 * NULL, we simply store NULL into the slot.
 	 */
 	WRITE_ONCE(slot->addr, addr);	/* Store C */
+
 	ctx->slot = slot;
-	if (!addr && hazptr_slot_is_backup(ctx, slot))
+	if (!addr)
 		hazptr_unchain_backup_slot(ctx);
 	return addr;
 }
 EXPORT_SYMBOL_GPL(__hazptr_acquire);
 
 /*
- * Perform piecewise iteration on overflow list waiting until "addr" is
- * not present. Raw spinlock is released and taken between each list
- * item and busy loop iteration. The overflow list generation is checked
- * each time the lock is taken to validate that the list has not changed
- * before resuming iteration or busy wait. If the generation has
- * changed, retry the entire list traversal.
+ * Perform piecewise iteration on overflow list waiting until "addr" and
+ * wildcard are not present. Raw spinlock is released and taken between each
+ * list item and busy loop iteration. The overflow list generation is checked
+ * each time the lock is taken to validate that the list has not changed before
+ * resuming iteration or busy wait. If the generation has changed, retry the
+ * entire list traversal.
  */
 static
 void hazptr_synchronize_overflow_list(struct hazptr_overflow_list *overflow_list, void *addr)
@@ -147,13 +150,11 @@ void hazptr_synchronize_overflow_list(struct hazptr_overflow_list *overflow_list
 retry:
 	snapshot_gen = overflow_list->gen;
 	hlist_for_each_entry(backup_slot, &overflow_list->head, overflow_node) {
-		/* Busy-wait if node is found. */
+		/* Busy-wait if addr or wildcard are found. */
 		for (;;) {
 			void *load_addr = smp_load_acquire(&backup_slot->slot.addr);	/* Load B */
 
-			/* We don't expect wildcards in overflow list. */
-			WARN_ON_ONCE(is_wildcard(load_addr));
-			if (load_addr != addr)
+			if (load_addr != addr && load_addr != HAZPTR_WILDCARD)
 				break;
 			raw_spin_unlock_irqrestore(&overflow_list->lock, flags);
 			cpu_relax();
@@ -174,7 +175,7 @@ retry:
 }
 
 static
-void hazptr_synchronize_cpu_slots(int cpu, void *addr, void *scan_wildcard)
+void hazptr_synchronize_cpu_slots(int cpu, void *addr)
 {
 	struct hazptr_percpu_slots *percpu_slots = per_cpu_ptr(&hazptr_percpu_slots, cpu);
 	unsigned int idx;
@@ -182,13 +183,13 @@ void hazptr_synchronize_cpu_slots(int cpu, void *addr, void *scan_wildcard)
 	for (idx = 0; idx < NR_HAZPTR_PERCPU_SLOTS; idx++) {
 		struct hazptr_slot_item *item = &percpu_slots->items[idx];
 
-		/* Busy-wait if node is found. */
-		smp_cond_load_acquire(&item->slot.addr, VAL != addr && VAL != scan_wildcard); /* Load B */
+		/* Busy-wait if addr is found. */
+		smp_cond_load_acquire(&item->slot.addr, VAL != addr); /* Load B */
 	}
 }
 
 static
-void hazptr_scan_cpu_slots_period(void *addr, void *scan_wildcard)
+void hazptr_scan_cpu_slots(void *addr)
 {
 	int cpu;
 
@@ -196,16 +197,13 @@ void hazptr_scan_cpu_slots_period(void *addr, void *scan_wildcard)
 	for_each_possible_cpu(cpu) {
 		/*
 		 * Scan CPU slots.
-		 * Forward progress against recurring wildcards is guaranteed
-		 * by scanning for one wildcard while new elements use the
-		 * other wildcard value (1UL vs 2UL).
 		 * Forward progress against recurring single hazard pointer
 		 * values is guaranteed by the fact that a hazard pointer
 		 * is not reclaimed nor reused until the scan for that hazard
 		 * pointer completes, which prevents a steady flow of readers
 		 * to acquire that same hazard pointer value.
 		 */
-		hazptr_synchronize_cpu_slots(cpu, addr, scan_wildcard);
+		hazptr_synchronize_cpu_slots(cpu, addr);
 	}
 }
 
@@ -237,7 +235,6 @@ void hazptr_scan_overflow_list_period(void *addr, unsigned int scan_idx)
 void hazptr_synchronize(void *addr)
 {
 	unsigned int scan_list_phase;
-	void *scan_wildcard;
 
 	/*
 	 * Busy-wait should only be done from preemptible context.
@@ -251,16 +248,14 @@ void hazptr_synchronize(void *addr)
 	 */
 	if (!addr)
 		return;
+
 	/* Memory ordering: Store A before Load B. */
 	smp_mb();
 
 	guard(mutex)(&hazptr_phase_lock);
 
 	/* Scan per-CPU slots. */
-	scan_wildcard = flip_wildcard(hazptr_wildcard);
-	hazptr_scan_cpu_slots_period(addr, scan_wildcard);
-	WRITE_ONCE(hazptr_wildcard, scan_wildcard);			/* Flip the current wildcard. */
-	hazptr_scan_cpu_slots_period(addr, flip_wildcard(scan_wildcard));
+	hazptr_scan_cpu_slots(addr);
 
 	/*
 	 * Scan overflow lists *after* scanning per-CPU slots. See
