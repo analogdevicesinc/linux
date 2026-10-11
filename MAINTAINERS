@@ -20561,6 +20561,7 @@ M:	Jinseob Kim <kimjinseob88@gmail.com>
 S:	Maintained
 F:	Documentation/devicetree/bindings/iio/opensensorfusion,osf.yaml
 F:	Documentation/iio/open-sensor-fusion.rst
+F:	drivers/iio/sensorhubs/osf/
 K:	opensensorfusion
 
 OPENCOMPUTE PTP CLOCK DRIVER
