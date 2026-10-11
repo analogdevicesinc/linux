@@ -223,12 +223,19 @@
 	hdmi-phandle = <&hdmi_tx>;
 };
 
+&eth_mac {
+	reg = <0x34 0x6>;
+};
+
 &ethmac {
 	status = "okay";
 	pinctrl-0 = <&eth_rgmii_pins>;
 	pinctrl-names = "default";
 	phy-handle = <&eth_phy0>;
 	phy-mode = "rgmii";
+
+	nvmem-cells = <&eth_mac>;
+	nvmem-cell-names = "mac-address";
 
 	amlogic,tx-delay-ns = <2>;
 
