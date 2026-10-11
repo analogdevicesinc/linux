@@ -286,7 +286,8 @@ jobs:
         adi_nios2_defconfig-*
         dtb-*
       exclude-artifacts: >
-        *-devel
+        adi_mb_defconfig-*-devel
+        adi_nios2_defconfig-*-devel
 
   trigger_harness_job:
     needs: [deploy_kuiper_binaries]
