@@ -831,7 +831,7 @@ int32_t adi_ad9083_rx_adc_vti_set(adi_ad9083_device_t *device, uint32_t fc,
   temp = 2 * 314 * 2 * temp;
   kcap_temp = (uint64_t)1000000000000000ul - temp * 700;
 #ifdef __KERNEL__
-  kcap_temp = div_u64(kcap_temp + (temp / 2) * 115, temp * 115);
+  kcap_temp = div64_u64(kcap_temp + (temp / 2) * 115, temp * 115);
 #else
   kcap_temp = (kcap_temp + (temp / 2) * 115) / (temp * 115);
 #endif
@@ -1110,6 +1110,7 @@ int32_t adi_ad9083_rx_datapath_config_set(adi_ad9083_device_t *device,
     break;
   case AD9083_DATAPATH_ADC_J:
     deci_adc_data = 1;
+    no_ddc_mode = 1;
     sample_order = 0;
     break;
   case AD9083_DATAPATH_ADC_CIC_NCO_G:
