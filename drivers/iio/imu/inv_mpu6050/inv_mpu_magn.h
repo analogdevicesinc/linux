@@ -18,8 +18,11 @@ int inv_mpu_magn_probe(struct inv_mpu6050_state *st);
 /**
  * inv_mpu_magn_get_scale() - get magnetometer scale value
  * @st: driver internal state
+ * @chan: magnetometer channel to get the scale for
+ * @val: integer part of the scale, always 0
+ * @val2: micro part of the scale, the raw to Gauss conversion coefficient
  *
- * Returns IIO data format.
+ * Return: IIO_VAL_INT_PLUS_MICRO, the IIO format of @val and @val2.
  */
 static inline int inv_mpu_magn_get_scale(const struct inv_mpu6050_state *st,
 					 const struct iio_chan_spec *chan,
