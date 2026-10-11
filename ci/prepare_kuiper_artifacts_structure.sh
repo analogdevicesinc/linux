@@ -182,6 +182,97 @@ print_summary() {
 }
 
 #######################################
+# Prepare one architecture's *-devel artifacts into the kernel-headers layout.
+# The arch/, include/ (minus generated+config) and Makefile are byte-identical
+# across same-arch defconfigs, so they are stored once in a shared dir; each
+# defconfig's build/ holds its real per-config files and symlinks the rest.
+# build/ is keyed by defconfig (not kernel.release) because carrier defconfigs
+# set no CONFIG_LOCALVERSION and thus share one release string.
+# Usage: create_carrier_headers <arch> <defconfig>...
+#######################################
+create_carrier_headers() {
+    local karch="$1"; shift
+    local defconfigs=( "$@" )
+
+    local stage="${OUTPUT_DIR}/headers-${karch}"
+    local root="${stage}/lib/modules"
+    local base_version="" shared_name=""
+
+    for dc in "${defconfigs[@]}"; do
+        local src="${SOURCE_DIRECTORY}/raw/${dc}-gcc-${karch}-devel"
+        if [[ ! -d "$src" ]]; then
+            log "  WARN: missing ${src}, skipping ${dc}"
+            continue
+        fi
+        if [[ ! -f "${src}/include/config/kernel.release" ]]; then
+            log "  WARN: ${src} has no include/config/kernel.release, skipping ${dc}"
+            continue
+        fi
+
+        local release
+        release=$(cat "${src}/include/config/kernel.release")
+        if [[ -z "$base_version" ]]; then
+            base_version=$(echo "$release" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+            shared_name="${karch}-shared-${base_version}"
+        fi
+
+        local shared_dir="${root}/${shared_name}"
+        local build_dir="${root}/${dc}/build"
+
+        # Populate the shared area once (first present defconfig wins).
+        if [[ ! -d "$shared_dir" ]]; then
+            mkdir -p "${shared_dir}/include" "${shared_dir}/arch"
+            cp -r "${src}/arch/${karch}" "${shared_dir}/arch/"
+            for sub in "${src}/include"/*/; do
+                local name=$(basename "$sub")
+                [[ "$name" == "generated" || "$name" == "config" ]] && continue
+                cp -r "$sub" "${shared_dir}/include/"
+            done
+            [[ -f "${src}/Makefile" ]] && cp "${src}/Makefile" "${shared_dir}/"
+        fi
+
+        log "  ${dc} -> lib/modules/${dc}/build"
+        mkdir -p "${build_dir}/include" "${build_dir}/arch"
+
+        # Real per-defconfig files.
+        cp -r "${src}/include/generated" "${build_dir}/include/"
+        cp -r "${src}/include/config"    "${build_dir}/include/"
+        cp -r "${src}/scripts"           "${build_dir}/"
+        [[ -f "${src}/Module.symvers" ]] && cp "${src}/Module.symvers" "${build_dir}/"
+        [[ -f "${src}/context.txt" ]]    && cp "${src}/context.txt"    "${build_dir}/"
+
+        # Relative symlinks into the shared dir (depths per layout).
+        ln -s "../../../${shared_name}/arch/${karch}" "${build_dir}/arch/${karch}"
+        ln -s "../../${shared_name}/Makefile"         "${build_dir}/Makefile"
+        for sub in "${shared_dir}/include"/*/; do
+            local name=$(basename "$sub")
+            ln -s "../../../${shared_name}/include/${name}" "${build_dir}/include/${name}"
+        done
+    done
+
+    if [[ -z "$base_version" ]]; then
+        log "  No ${karch} devel artifacts found; skipping ${karch} headers archive."
+        return 0
+    fi
+
+    mkdir -p "${OUTPUT_DIR}/headers"
+    log "Creating carrier_headers_${karch}.tar.gz..."
+    tar -C "${stage}" -czf "${OUTPUT_DIR}/headers/carrier_headers_${karch}.tar.gz" . >/dev/null
+    rm -r "${stage}"
+}
+
+#######################################
+# Arrange arm and arm64 carrier headers into the symlinked layout.
+#######################################
+headers_structure() {
+    echo ""
+    log "Arranging carrier kernel headers layout"
+    create_carrier_headers "arm"   zynq_xcomm_adv7511_defconfig socfpga_adi_defconfig zynq_pluto_defconfig zynq_m2k_defconfig
+    create_carrier_headers "arm64" adi_zynqmp_defconfig adi_versal_defconfig
+    log "Carrier headers ready at ${OUTPUT_DIR}/headers"
+}
+
+#######################################
 # Main function
 #######################################
 main() {
@@ -200,6 +291,7 @@ main() {
     create_structure
     generate_git_properties
     copy_artifacts
+    headers_structure
     print_summary
     
     log "Done!"
