@@ -38,7 +38,7 @@ FIXTURE_SETUP(legacy)
 		ASSERT_EQ(res, 0);
 	}
 
-	ASSERT_NE(signal(SIGUSR1, sigfn), SIG_ERR);
+	ASSERT_TRUE(signal(SIGUSR1, sigfn) != SIG_ERR);
 }
 
 FIXTURE_TEARDOWN(legacy)
