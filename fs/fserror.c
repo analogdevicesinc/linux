@@ -96,6 +96,13 @@ static inline struct fserror_event *fserror_alloc_event(struct super_block *sb,
 		return NULL;
 	if (!(sb->s_flags & SB_ACTIVE))
 		goto out_pending;
+	/*
+	 * xfs and f2fs set SB_ACTIVE while filling the superblock. Nobody can
+	 * listen before the superblock is born and if the mount fails nothing
+	 * waits for the event.
+	 */
+	if (!(sb->s_flags & SB_BORN))
+		goto out_pending;
 
 	event = mempool_alloc(&fserror_events_pool, gfp_flags);
 	if (!event)
