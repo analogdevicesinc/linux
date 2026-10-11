@@ -10,14 +10,14 @@
  * DOC: Xe Error Signatures (SIGID)
  *
  * What SIGID stands for
- * ---------------------
+ * =====================
  *
  * SIGID is short for *Signature Identifier*. It is a small, stable integer
  * that names one of the *recognised fault sites* -- nothing more. It is the
  * primary handle used for triage and maps directly to a specific report site.
  *
  * Numbering
- * ---------
+ * =========
  *
  * SIGIDs are a single flat list numbered sequentially within the assigned range,
  * in the order the fault sites were introduced. Values are stable: once assigned
@@ -25,7 +25,7 @@
  * SIGID value is deprecated in place, never re-purposed.
  *
  * Why this exists
- * ---------------
+ * ===============
  *
  * Today the driver reports faults with ad-hoc ``xe_err()`` / ``xe_gt_err()``
  * strings that have no stable shape. That is fine for a human reading dmesg,
@@ -37,7 +37,7 @@
  * firmware versions, and (eventually) across other Intel devices in a node.
  *
  * What a SIGID is not
- * -------------------
+ * ===================
  *
  * SIGID deliberately does not encode the detailed reason or the outcome. Those
  * are carried alongside it::
@@ -51,7 +51,7 @@
  * different severities depending on the instance and the recovery taken.
  *
  * When to use SIGID logging
- * -------------------------
+ * =========================
  *
  * The xe_log_*() helpers are for these recognised fault sites only --
  * important, operator-relevant faults and events. The driver's only job is to
@@ -63,7 +63,7 @@
  * those that correspond to a published fault site.
  *
  * SIGID log output (dmesg vs. the machine record)
- * -----------------------------------------------
+ * ===============================================
  *
  * The dmesg line stays close to a normal xe error message so it remains
  * readable for admins; the only stable, machine-matchable token on it is
@@ -74,7 +74,7 @@
  * carrying the same SIGID (generation is a planned follow-up).
  *
  * How to pick a SIGID (the uniqueness rule)
- * -----------------------------------------
+ * =========================================
  *
  * Pick per *report site*, not per incident. Each site emits the single most
  * specific recognised SIGID *for that site* -- so the question is never
@@ -95,7 +95,7 @@
  * after making significant changes to the site that emits this SIGID.
  *
  * Scope: software vs hardware emitted signatures
- * ----------------------------------------------
+ * ==============================================
  *
  * Some SIGID represents fault sites that the *driver itself* detects and
  * reports from the software POV: probe abort, wedged, survivability, driver-
