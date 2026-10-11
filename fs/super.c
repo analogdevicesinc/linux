@@ -1127,23 +1127,34 @@ cancel_readonly:
 
 static void do_emergency_remount_callback(struct super_block *sb, void *unused)
 {
-	if (sb->s_bdev && !sb_rdonly(sb)) {
-		struct fs_context *fc;
+	struct fs_context *fc = NULL;
 
+	if (!super_lock_excl(sb))
+		return;
+
+	/* Make sure no reference put under s_umount is the last one. */
+	atomic_inc(&sb->s_active);
+	if (sb->s_bdev && !sb_rdonly(sb)) {
 		fc = fs_context_for_reconfigure(sb->s_root,
 					SB_RDONLY | SB_FORCE, SB_RDONLY);
-		if (!IS_ERR(fc)) {
-			if (parse_monolithic_mount_data(fc, NULL) == 0)
-				(void)reconfigure_super(fc);
-			put_fs_context(fc);
-		}
+		if (!IS_ERR(fc) && parse_monolithic_mount_data(fc, NULL) == 0)
+			(void)reconfigure_super(fc);
 	}
+	super_unlock_excl(sb);
+
+	/*
+	 * Our active reference may be the last one by now, so only drop it
+	 * after s_umount has been released.
+	 */
+	if (!IS_ERR_OR_NULL(fc))
+		put_fs_context(fc);
+	deactivate_super(sb);
 }
 
 static void do_emergency_remount(struct work_struct *work)
 {
 	__iterate_supers(do_emergency_remount_callback, NULL,
-			 SUPER_ITER_EXCL | SUPER_ITER_REVERSE);
+			 SUPER_ITER_UNLOCKED | SUPER_ITER_REVERSE);
 	kfree(work);
 	printk("Emergency Remount complete\n");
 }
