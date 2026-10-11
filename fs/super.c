@@ -2114,13 +2114,14 @@ static inline bool may_unfreeze(struct super_block *sb, enum freeze_holder who,
 			return false;
 		if (WARN_ON_ONCE(!freeze_owner))
 			return false;
-		if (WARN_ON_ONCE(sb->s_writers.freeze_kcount == 0))
-			return false;
 		/* This isn't exclusively frozen. */
 		if (!sb->s_writers.freeze_owner)
 			return false;
 		/* This isn't exclusively frozen by us. */
 		if (sb->s_writers.freeze_owner != freeze_owner)
+			return false;
+		/* An exclusive freeze always holds a kernel reference. */
+		if (WARN_ON_ONCE(sb->s_writers.freeze_kcount == 0))
 			return false;
 		/*
 		 * This is still frozen multiple times so we're just
