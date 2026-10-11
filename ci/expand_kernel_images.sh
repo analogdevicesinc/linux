@@ -25,7 +25,9 @@ prepare_kernel_dist() {
 		name=$(basename "$dir")
 		if [[ "$name" == "dtb-gcc" ]]; then
 			_unpack_dtb "$name"
-		elif [[ "$name" != *-headers ]]; then
+		elif [[ "$name" != *-headers && "$name" != *-devel ]]; then
+			# -devel (extmod build tree) has no boot/ or lib/modules/ for
+			# _unpack_kernel; it is consumed by the headers layout instead.
 			_unpack_kernel "$name"
 		fi
 	done
