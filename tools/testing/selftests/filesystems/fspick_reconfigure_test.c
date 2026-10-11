@@ -8,6 +8,9 @@
  * superblock read-only. Check that writes through a read-write bind mount of
  * a read-only ext4 superblock are still refused after such a reconfiguration
  * and that an explicit "rw" still makes the superblock read-write.
+ *
+ * After fsmount() and after each reconfiguration the context can be used for
+ * the next reconfiguration. A "ro" set before must not carry over into it.
  */
 #define _GNU_SOURCE
 #include <errno.h>
@@ -181,6 +184,48 @@ TEST_F(fspick_ro, reconfigure_rw)
 {
 	ASSERT_EQ(reconfigure(self->mnt, "rw"), 0);
 	ASSERT_EQ(create_file(self->bind), 0);
+}
+
+TEST_F(fspick_ro, reconfigure_after_fsmount_keeps_ro)
+{
+	char dev[32];
+	int fd, mfd;
+
+	/* Make room for the new mount, the bind mount keeps the superblock. */
+	ASSERT_EQ(sys_umount2(self->mnt, 0), 0);
+	self->mounted = false;
+
+	snprintf(dev, sizeof(dev), "/dev/loop%d", self->loop);
+	fd = sys_fsopen("ext4", FSOPEN_CLOEXEC);
+	ASSERT_GE(fd, 0);
+	ASSERT_EQ(sys_fsconfig(fd, FSCONFIG_SET_STRING, "source", dev, 0), 0);
+	ASSERT_EQ(sys_fsconfig(fd, FSCONFIG_SET_FLAG, "ro", NULL, 0), 0);
+	ASSERT_EQ(sys_fsconfig(fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0), 0);
+	mfd = sys_fsmount(fd, FSMOUNT_CLOEXEC, 0);
+	ASSERT_GE(mfd, 0);
+	ASSERT_EQ(sys_move_mount(mfd, "", AT_FDCWD, self->mnt,
+				 MOVE_MOUNT_F_EMPTY_PATH), 0);
+	self->mounted = true;
+	close(mfd);
+
+	ASSERT_EQ(sys_fsconfig(fd, FSCONFIG_CMD_RECONFIGURE, NULL, NULL, 0), 0);
+	close(fd);
+	ASSERT_EQ(create_file(self->bind), -EROFS)
+		TH_LOG("reconfiguration after fsmount() made the superblock read-write");
+}
+
+TEST_F(fspick_ro, reconfigure_twice_keeps_ro)
+{
+	int fd;
+
+	fd = sys_fspick(AT_FDCWD, self->mnt, FSPICK_CLOEXEC);
+	ASSERT_GE(fd, 0);
+	ASSERT_EQ(sys_fsconfig(fd, FSCONFIG_SET_FLAG, "ro", NULL, 0), 0);
+	ASSERT_EQ(sys_fsconfig(fd, FSCONFIG_CMD_RECONFIGURE, NULL, NULL, 0), 0);
+	ASSERT_EQ(sys_fsconfig(fd, FSCONFIG_CMD_RECONFIGURE, NULL, NULL, 0), 0);
+	close(fd);
+	ASSERT_EQ(create_file(self->bind), -EROFS)
+		TH_LOG("second reconfiguration made the superblock read-write");
 }
 
 TEST_HARNESS_MAIN
