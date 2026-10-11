@@ -93,7 +93,7 @@ static int inv_mpu_i2c_aux_setup(struct iio_dev *indio_dev)
  *  inv_mpu_probe() - probe function.
  *  @client:          i2c client.
  *
- *  Returns 0 on success, a negative error code otherwise.
+ *  Return: 0 on success, a negative error code otherwise.
  */
 static int inv_mpu_probe(struct i2c_client *client)
 {

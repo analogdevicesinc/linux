@@ -159,6 +159,8 @@ int inv_mpu6050_prepare_fifo(struct inv_mpu6050_state *st, bool enable)
  *  inv_mpu6050_set_enable() - enable chip functions.
  *  @indio_dev:	Device driver instance.
  *  @enable: enable/disable
+ *
+ *  Return: 0 on success, a negative error code otherwise.
  */
 static int inv_mpu6050_set_enable(struct iio_dev *indio_dev, bool enable)
 {
@@ -208,6 +210,8 @@ error_power_off:
  * inv_mpu_data_rdy_trigger_set_state() - set data ready interrupt state
  * @trig: Trigger instance
  * @state: Desired trigger state
+ *
+ * Return: 0 on success, a negative error code otherwise.
  */
 static int inv_mpu_data_rdy_trigger_set_state(struct iio_trigger *trig,
 					      bool state)
