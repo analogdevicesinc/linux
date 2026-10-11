@@ -11,6 +11,8 @@
 #include "dc_dmub_srv.h"
 #include "dmub_cmd.h"
 #include "bls_builder/bls_builder_internal.h"
+#include "bls_builder/dcn401_init_builder.h"
+#include "bls_builder/dcn401_init_builder_legacy.h"
 
 static const enum block_sequence_func dcn401_dc2_init_sequence[] = {
 	LEGACY_CLK_MGR_INIT_CLOCKS,
@@ -22,24 +24,6 @@ static const enum block_sequence_func dcn401_dc2_init_sequence[] = {
 	DMUB_SEND_DMCUB_CMD,
 	DMUB_INITIALIZE_DCN,
 };
-
-static bool bls_append(struct block_sequence_state *sequence,
-		enum block_sequence_func func,
-		const union block_sequence_params *params)
-{
-	struct block_sequence *entry;
-
-	if (!sequence || !sequence->steps || !sequence->num_steps ||
-			!params || *sequence->num_steps >=
-			DC2_BLS_MAX_STEPS)
-		return false;
-
-	entry = &sequence->steps[*sequence->num_steps];
-	entry->params = *params;
-	entry->func = func;
-	(*sequence->num_steps)++;
-	return true;
-}
 
 static enum bls_builder_result dcn401_check_initialization_support(
 		const struct bls_builder_check_capability_params *params)
@@ -136,7 +120,7 @@ static enum bls_builder_result dcn401_validate_initialization_step(
 	}
 }
 
-static inline enum bls_builder_result dcn401_build_clk_mgr_init(
+enum bls_builder_result dcn401_build_clk_mgr_init(
 		struct clk_mgr *clk_mgr, struct block_sequence_state *sequence)
 {
 	union block_sequence_params bls_params = {0};
@@ -148,7 +132,7 @@ static inline enum bls_builder_result dcn401_build_clk_mgr_init(
 	return BLS_BUILD_SUCCESS;
 }
 
-static inline enum bls_builder_result dcn401_build_dc_mode_read(
+enum bls_builder_result dcn401_build_dc_mode_read(
 		struct clk_mgr *clk_mgr, bool *out_dcmode_power_limits_present,
 		struct block_sequence_state *sequence)
 {
@@ -165,7 +149,7 @@ static inline enum bls_builder_result dcn401_build_dc_mode_read(
 	return BLS_BUILD_SUCCESS;
 }
 
-static inline enum bls_builder_result dcn401_build_dccg_init(
+enum bls_builder_result dcn401_build_dccg_init(
 		struct dccg *dccg, struct block_sequence_state *sequence)
 {
 	union block_sequence_params bls_params = {0};
@@ -248,7 +232,7 @@ static inline enum bls_builder_result dcn401_build_dmub_fw_version(
 	return BLS_BUILD_SUCCESS;
 }
 
-static bool dcn401_add_dmub_cmd(struct block_sequence_state *sequence,
+bool dcn401_add_dmub_cmd(struct block_sequence_state *sequence,
 		struct dc_context *ctx, union dmub_rb_cmd *cmd,
 		enum dm_dmub_wait_type wait_type, bool continue_on_error)
 {
@@ -261,7 +245,7 @@ static bool dcn401_add_dmub_cmd(struct block_sequence_state *sequence,
 	return bls_append(sequence, DMUB_SEND_DMCUB_CMD, &bls_params);
 }
 
-static void dcn401_fill_query_feature_caps_cmd(union dmub_rb_cmd *cmd)
+void dcn401_fill_query_feature_caps_cmd(union dmub_rb_cmd *cmd)
 {
 	memset(cmd, 0, sizeof(*cmd));
 	cmd->query_feature_caps.header.type = DMUB_CMD__QUERY_FEATURE_CAPS;
@@ -411,9 +395,19 @@ const struct bls_builder *dcn401_bls_builder_create(
 		.check_capability = dcn401_initialization_check_capability,
 		.build.declarative = dcn401_build_initialization,
 	};
+	static const struct bls_builder legacy_initialization_builder = {
+		.name = DCN_DECL_INITIALIZATION_LEGACY,
+		.kind = BLS_BUILDER_DECLARATIVE,
+		.check_capability = dcn401_dc1_initialization_check_capability,
+		.build.declarative = dcn401_build_dc1_initialization,
+	};
 
-	if (name != DCN_DECL_INITIALIZATION)
+	switch (name) {
+	case DCN_DECL_INITIALIZATION:
+		return &initialization_builder;
+	case DCN_DECL_INITIALIZATION_LEGACY:
+		return &legacy_initialization_builder;
+	default:
 		return NULL;
-
-	return &initialization_builder;
+	}
 }

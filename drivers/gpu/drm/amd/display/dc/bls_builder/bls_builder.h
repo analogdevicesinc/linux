@@ -9,6 +9,8 @@
 #include "dmub_cmd.h"
 #include "dmub/dmub_srv.h"
 #include "hwss/hw_sequencer.h"
+#include "bls_builder/dmub_abi.h"
+#include "bls_builder/bls_builder_legacy_init.h"
 
 #define DC2_BLS_MAX_STEPS 64
 
@@ -21,17 +23,13 @@ enum bls_builder_result {
 
 enum bls_builder_name {
 	DCN_DECL_INITIALIZATION,
+	DCN_DECL_INITIALIZATION_LEGACY,
 	BLS_BUILDER_NAME_COUNT,
 };
 
 enum bls_builder_kind {
 	BLS_BUILDER_DECLARATIVE,
 	BLS_BUILDER_IMPERATIVE,
-};
-
-struct dmub_abi {
-	unsigned int fw_version;
-	struct dmub_feature_caps feature_caps;
 };
 
 struct bls_builder_output_init {
@@ -50,6 +48,7 @@ struct bls_builder_output_init {
 struct bls_builder_output_targets {
 	union {
 		struct bls_builder_output_init *DCN_DECL_INITIALIZATION;
+		struct bls_builder_legacy_hw_init_info *DCN_DECL_INITIALIZATION_LEGACY;
 	};
 };
 
