@@ -544,6 +544,7 @@ void vfs_clean_context(struct fs_context *fc)
 	fc->fs_private = NULL;
 	fc->s_fs_info = NULL;
 	fc->sb_flags = 0;
+	fc->sb_flags_mask = 0;
 	security_free_mnt_opts(&fc->security);
 	kfree(fc->source);
 	fc->source = NULL;
