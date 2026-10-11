@@ -466,7 +466,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0x31004400 0x400>;
-			adi,port-sizes = <16 16 16 16 16 12>;
+			adi,npins = <92>;
 			adi,no-drive-strength;
 			/*
 			 * @todo fix pinctrl driver:
