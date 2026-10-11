@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menu "Sensor hubs"
+
+source "drivers/iio/sensorhubs/osf/Kconfig"
+
+endmenu
