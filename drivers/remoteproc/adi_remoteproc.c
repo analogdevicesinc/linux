@@ -732,8 +732,10 @@ static void adi_rproc_kick(struct rproc *rproc, int vqid)
 		}
 	}
 
-	if (rproc_data->rpmsg_state == ADI_RP_RPMSG_SYNCED)
+	if (rproc_data->rpmsg_state == ADI_RP_RPMSG_SYNCED) {
 		mbox_send_message(rproc_data->kick_chan, NULL);
+		mbox_client_txdone(rproc_data->kick_chan, 0);
+	}
 }
 
 static int adi_rproc_sanity_check(struct rproc *rproc, const struct firmware *fw)
