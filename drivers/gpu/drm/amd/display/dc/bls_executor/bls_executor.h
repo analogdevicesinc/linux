@@ -11,6 +11,8 @@
 enum dc2_bls_exec_result {
 	DC2_BLS_EXEC_OK,
 	DC2_BLS_EXEC_ERROR,
+	/* Every step ran; at least one continue-on-error step failed. */
+	DC2_BLS_EXEC_CONTINUED_ON_ERROR,
 };
 
 enum dc2_bls_exec_result dc2_bls_execute(

@@ -255,28 +255,40 @@ static inline enum bls_builder_result dcn401_build_dmub_fw_version(
 	return BLS_BUILD_SUCCESS;
 }
 
-static inline enum bls_builder_result dcn401_build_dmub_feature_caps(
-		struct bls_builder_declarative_params *params,
-		struct block_sequence_state *sequence)
+static bool dcn401_add_dmub_cmd(struct block_sequence_state *sequence,
+		struct dc_context *ctx, union dmub_rb_cmd *cmd,
+		enum dm_dmub_wait_type wait_type, bool continue_on_error)
 {
 	union block_sequence_params bls_params = {0};
-	struct bls_builder_output_init *out_init =
-			params->out_targets->DCN_DECL_INITIALIZATION;
-	union dmub_rb_cmd *cmd = &out_init->dmub_query_feature_caps_cmd;
 
+	bls_params.send_dmcub_cmd_params.ctx = ctx;
+	bls_params.send_dmcub_cmd_params.cmd = cmd;
+	bls_params.send_dmcub_cmd_params.wait_type = wait_type;
+	bls_params.send_dmcub_cmd_params.continue_on_error = continue_on_error;
+	return bls_append(sequence, DMUB_SEND_DMCUB_CMD, &bls_params);
+}
+
+static void dcn401_fill_query_feature_caps_cmd(union dmub_rb_cmd *cmd)
+{
 	memset(cmd, 0, sizeof(*cmd));
 	cmd->query_feature_caps.header.type = DMUB_CMD__QUERY_FEATURE_CAPS;
 	cmd->query_feature_caps.header.sub_type = 0;
 	cmd->query_feature_caps.header.ret_status = 1;
 	cmd->query_feature_caps.header.payload_bytes =
 			sizeof(struct dmub_cmd_query_feature_caps_data);
-	bls_params.send_dmcub_cmd_params.ctx = params->dc->ctx;
-	bls_params.send_dmcub_cmd_params.cmd = cmd;
-	bls_params.send_dmcub_cmd_params.wait_type =
-			DM_DMUB_WAIT_TYPE_WAIT_WITH_REPLY;
-	bls_params.send_dmcub_cmd_params.feature_caps =
-			&out_init->dmub_abi.feature_caps;
-	if (!bls_append(sequence, DMUB_SEND_DMCUB_CMD, &bls_params))
+}
+
+static inline enum bls_builder_result dcn401_build_dmub_feature_caps(
+		struct bls_builder_declarative_params *params,
+		struct block_sequence_state *sequence)
+{
+	struct bls_builder_output_init *out_init =
+			params->out_targets->DCN_DECL_INITIALIZATION;
+	union dmub_rb_cmd *cmd = &out_init->dmub_query_feature_caps_cmd;
+
+	dcn401_fill_query_feature_caps_cmd(cmd);
+	if (!dcn401_add_dmub_cmd(sequence, params->dc->ctx, cmd,
+			DM_DMUB_WAIT_TYPE_WAIT_WITH_REPLY, false))
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 
 	return BLS_BUILD_SUCCESS;
