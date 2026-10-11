@@ -273,6 +273,7 @@ jobs:
       contents: read
       actions: read
     with:
+      scripts-ref: feature/prepare_carrier_headers   # TEST ONLY: pull headers scripts from the feature branch instead of ci
       pr-number: ${{ github.event.pull_request.number }}
       pr-target-branch: ${{ github.event.pull_request.base.ref }}
       artifacts: >
@@ -292,7 +293,7 @@ jobs:
   trigger_harness_job:
     needs: [deploy_kuiper_binaries]
     runs-on: ubuntu-slim
-    if: needs.deploy_kuiper_binaries.result == 'success'
+    if: false   # TEST ONLY: don't ping the Jenkins harness from the throwaway test PR
     steps:
       - name: Trigger Jenkins test harness
         run: |
