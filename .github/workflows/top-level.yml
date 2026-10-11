@@ -6,6 +6,7 @@ on:
       - 'main'
       - 'xlnx/release/*'
       - 'rpi/release/*'
+      - 'test/carrier-headers-ci'   # TEST ONLY: auto-trigger the pipeline on push to this branch
   pull_request:
 
 concurrency:
