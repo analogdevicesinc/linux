@@ -1522,7 +1522,8 @@ static void fs_bdev_sync(struct block_device *bdev)
  *
  * Return: 0, or the error from the one superblock on a single-fs device.  When
  *         several superblocks share @bdev a per-superblock failure is swallowed
- *         (see below), but a sync_blockdev() failure is always reported.
+ *         (see below).  A sync_blockdev() failure is only reported if no
+ *         live superblock uses @bdev.
  */
 static int fs_bdev_freeze(struct block_device *bdev)
 {
@@ -1553,8 +1554,17 @@ static int fs_bdev_freeze(struct block_device *bdev)
 	 */
 	if (error && count > 1)
 		error = 0;
-	if (!error)
-		error = sync_blockdev(bdev);
+	if (error)
+		return error;
+
+	/*
+	 * An error tells bdev_freeze() that nothing is frozen and nobody would
+	 * ever thaw a superblock frozen above. So only report a failed sync if
+	 * no superblock uses the device.
+	 */
+	error = sync_blockdev(bdev);
+	if (count)
+		error = 0;
 	return error;
 }
 
