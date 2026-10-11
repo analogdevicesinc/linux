@@ -85,7 +85,7 @@ struct ad5686_bus_ops {
  * struct ad5686_chip_info - chip specific information
  * @int_vref_mv:	the internal reference voltage
  * @num_channels:	number of channels
- * @channel:		channel specification
+ * @channels:		channel specification
  * @regmap_type:	register map layout variant
  */
 struct ad5686_chip_info {
