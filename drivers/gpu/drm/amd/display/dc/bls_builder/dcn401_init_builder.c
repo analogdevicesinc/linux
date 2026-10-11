@@ -12,7 +12,7 @@
 #include "dmub_cmd.h"
 #include "bls_builder/bls_builder_internal.h"
 
-static const enum block_sequence_func dcn401_dc1_init_sequence[] = {
+static const enum block_sequence_func dcn401_dc2_init_sequence[] = {
 	LEGACY_CLK_MGR_INIT_CLOCKS,
 	LEGACY_CLK_MGR_IS_DC_MODE_PRESENT,
 	DCCG_INITIALIZE_CLOCKS,
@@ -137,13 +137,11 @@ static enum bls_builder_result dcn401_validate_initialization_step(
 }
 
 static inline enum bls_builder_result dcn401_build_clk_mgr_init(
-		struct bls_builder_declarative_params *params,
-		struct block_sequence_state *sequence)
+		struct clk_mgr *clk_mgr, struct block_sequence_state *sequence)
 {
 	union block_sequence_params bls_params = {0};
 
-	bls_params.legacy_clk_mgr_init_clocks_params.clk_mgr =
-			params->dc->clk_mgr;
+	bls_params.legacy_clk_mgr_init_clocks_params.clk_mgr = clk_mgr;
 	if (!bls_append(sequence, LEGACY_CLK_MGR_INIT_CLOCKS, &bls_params))
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 
@@ -151,18 +149,15 @@ static inline enum bls_builder_result dcn401_build_clk_mgr_init(
 }
 
 static inline enum bls_builder_result dcn401_build_dc_mode_read(
-		struct bls_builder_declarative_params *params,
+		struct clk_mgr *clk_mgr, bool *out_dcmode_power_limits_present,
 		struct block_sequence_state *sequence)
 {
 	union block_sequence_params bls_params = {0};
-	struct bls_builder_output_init *out_init =
-			params->out_targets->DCN_DECL_INITIALIZATION;
 
-	bls_params.legacy_clk_mgr_is_dc_mode_present_params.clk_mgr =
-			params->dc->clk_mgr;
+	bls_params.legacy_clk_mgr_is_dc_mode_present_params.clk_mgr = clk_mgr;
 	bls_params.legacy_clk_mgr_is_dc_mode_present_params
 			.out_dcmode_power_limits_present =
-			&out_init->dcmode_power_limits_present;
+			out_dcmode_power_limits_present;
 	if (!bls_append(sequence, LEGACY_CLK_MGR_IS_DC_MODE_PRESENT,
 			&bls_params))
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
@@ -171,13 +166,11 @@ static inline enum bls_builder_result dcn401_build_dc_mode_read(
 }
 
 static inline enum bls_builder_result dcn401_build_dccg_init(
-		struct bls_builder_declarative_params *params,
-		struct block_sequence_state *sequence)
+		struct dccg *dccg, struct block_sequence_state *sequence)
 {
 	union block_sequence_params bls_params = {0};
 
-	bls_params.dccg_initialize_clocks_params.dccg =
-			params->dc->res_pool->dccg;
+	bls_params.dccg_initialize_clocks_params.dccg = dccg;
 	if (!bls_append(sequence, DCCG_INITIALIZE_CLOCKS, &bls_params))
 		return BLS_BUILD_ERROR_UNSUPPORTED_STATE_UPDATE;
 
@@ -327,11 +320,14 @@ static enum bls_builder_result dcn401_build_initialization_step(
 {
 	switch (func) {
 	case LEGACY_CLK_MGR_INIT_CLOCKS:
-		return dcn401_build_clk_mgr_init(params, sequence);
+		return dcn401_build_clk_mgr_init(params->dc->clk_mgr, sequence);
 	case LEGACY_CLK_MGR_IS_DC_MODE_PRESENT:
-		return dcn401_build_dc_mode_read(params, sequence);
+		return dcn401_build_dc_mode_read(params->dc->clk_mgr,
+				&params->out_targets->DCN_DECL_INITIALIZATION
+				->dcmode_power_limits_present, sequence);
 	case DCCG_INITIALIZE_CLOCKS:
-		return dcn401_build_dccg_init(params, sequence);
+		return dcn401_build_dccg_init(params->dc->res_pool->dccg,
+				sequence);
 	case DMUB_HALT_FW:
 		return dcn401_build_dmub_halt_fw(params, sequence);
 	case PSP_RELOAD_DMUB_FW:
@@ -369,9 +365,9 @@ static enum bls_builder_result dcn401_build_initialization(
 
 	params->head_num_steps = 0;
 	params->tail_num_steps = 0;
-	for (i = 0; i < ARRAY_SIZE(dcn401_dc1_init_sequence); i++) {
+	for (i = 0; i < ARRAY_SIZE(dcn401_dc2_init_sequence); i++) {
 		result = dcn401_validate_initialization_step(params,
-				dcn401_dc1_init_sequence[i]);
+				dcn401_dc2_init_sequence[i]);
 		if (result != BLS_BUILD_SUCCESS)
 			return result;
 	}
@@ -392,9 +388,9 @@ static enum bls_builder_result dcn401_build_initialization(
 	 * LEGACY/pmfw-msg: preserve the clock-manager entry points until
 	 * PMFW Messenger can express the same calls, order, and output.
 	 */
-	for (i = 0; i < ARRAY_SIZE(dcn401_dc1_init_sequence); i++) {
+	for (i = 0; i < ARRAY_SIZE(dcn401_dc2_init_sequence); i++) {
 		result = dcn401_build_initialization_step(params, &sequence,
-				dcn401_dc1_init_sequence[i]);
+				dcn401_dc2_init_sequence[i]);
 		if (result != BLS_BUILD_SUCCESS)
 			return result;
 	}
