@@ -908,9 +908,8 @@ void drop_super_exclusive(struct super_block *sb)
 }
 
 enum super_iter_flags_t {
-	SUPER_ITER_EXCL		= (1U << 0),
-	SUPER_ITER_UNLOCKED	= (1U << 1),
-	SUPER_ITER_REVERSE	= (1U << 2),
+	SUPER_ITER_UNLOCKED	= (1U << 0),
+	SUPER_ITER_REVERSE	= (1U << 1),
 };
 
 static inline struct super_block *first_super(enum super_iter_flags_t flags)
@@ -932,7 +931,6 @@ static void __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
 			     enum super_iter_flags_t flags)
 {
 	struct super_block *sb, *p = NULL;
-	bool excl = flags & SUPER_ITER_EXCL;
 
 	spin_lock(&sb_lock);
 
@@ -949,9 +947,9 @@ static void __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
 
 		if (flags & SUPER_ITER_UNLOCKED) {
 			f(sb, arg);
-		} else if (super_lock(sb, excl)) {
+		} else if (super_lock_shared(sb)) {
 			f(sb, arg);
-			super_unlock(sb, excl);
+			super_unlock_shared(sb);
 		}
 
 		if (p)
