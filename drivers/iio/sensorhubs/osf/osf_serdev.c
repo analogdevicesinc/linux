@@ -68,9 +68,10 @@ static void osf_serdev_release(void *data)
 {
 	struct osf_serdev *osf_uart = data;
 
-	/* The TTY controller drains RX work on close; hold no RX lock. */
+	/* The TTY controller drains RX work on close; hold no RX or IIO lock. */
 	serdev_device_close(osf_uart->serdev);
 	osf_stream_reset(&osf_uart->stream);
+	osf_core_unregister_iio(&osf_uart->osf);
 	if (osf_uart->vcc_enabled)
 		regulator_disable(osf_uart->vcc);
 }
@@ -123,6 +124,10 @@ static int osf_serdev_probe(struct serdev_device *serdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "failed to enable vcc regulator\n");
 	osf_uart->vcc_enabled = true;
+
+	/* No fallible probe steps remain when IIO children become visible. */
+	scoped_guard(mutex, &osf_uart->lock)
+		osf_core_start(&osf_uart->osf);
 
 	return 0;
 }
