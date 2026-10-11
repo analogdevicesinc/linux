@@ -35,8 +35,15 @@ void fserror_unmount(struct super_block *sb)
 
 static inline void fserror_pending_dec(struct super_block *sb)
 {
-	if (refcount_dec_and_test(&sb->s_pending_errors))
+	if (refcount_dec_and_test(&sb->s_pending_errors)) {
+		/*
+		 * refcount_dec_and_test() isn't fully ordered but wake_up_var()
+		 * needs a full barrier between the store and its waitqueue check.
+		 * Pairs with the barrier in prepare_to_wait_event().
+		 */
+		smp_mb();
 		wake_up_var(&sb->s_pending_errors);
+	}
 }
 
 static inline void fserror_free_event(struct fserror_event *event)
