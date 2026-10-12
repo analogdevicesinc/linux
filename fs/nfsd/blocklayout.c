@@ -31,10 +31,17 @@ nfsd4_block_map_extent(struct inode *inode, const struct svc_fh *fhp,
 	struct super_block *sb = inode->i_sb;
 	struct iomap iomap;
 	u32 device_generation = 0;
+	bool write;
 	int error;
 
+	/*
+	 * An RW layout with a minlength of zero only gets extents that can
+	 * be returned as READ_WRITE_DATA (RFC 5663, section 2.3.1), so do
+	 * not have the filesystem allocate blocks that would be refused.
+	 */
+	write = iomode != IOMODE_READ && minlength != 0;
 	error = sb->s_export_op->block_ops->map_blocks(inode, offset, length,
-			&iomap, iomode != IOMODE_READ, &device_generation);
+			&iomap, write, &device_generation);
 	if (error) {
 		if (error == -ENXIO)
 			return nfserr_layoutunavailable;
@@ -76,6 +83,9 @@ nfsd4_block_map_extent(struct inode *inode, const struct svc_fh *fhp,
 			bex->es = PNFS_BLOCK_NONE_DATA;
 			break;
 		}
+		/* Not allocated for a minlength of zero, see above. */
+		if (minlength == 0)
+			return nfserr_layoutunavailable;
 		fallthrough;
 	case IOMAP_DELALLOC:
 	default:
