@@ -29,6 +29,8 @@ struct irq_domain_ops;
 
 #ifdef	CONFIG_ACPI
 
+DEFINE_FREE(acpi_object_free, union acpi_object *, if (_T) ACPI_FREE(_T));
+
 #include <linux/list.h>
 #include <linux/dynamic_debug.h>
 #include <linux/module.h>
@@ -434,7 +436,7 @@ extern acpi_handle ec_get_handle(void);
 
 extern bool acpi_is_pnp_device(struct acpi_device *);
 
-#if defined(CONFIG_ACPI_WMI) || defined(CONFIG_ACPI_WMI_MODULE)
+#if IS_ENABLED(CONFIG_ACPI_WMI)
 
 typedef void (*wmi_notify_handler) (union acpi_object *data, void *context);
 
