@@ -197,8 +197,7 @@ jobs:
           --repo="${{ env.CLOUDSMITH_REPO }}" \
           --package_version="${VERSION_PATH}" \
           --local_path="${UPLOAD_PATH}" \
-          --token="${CLOUDSMITH_API_KEY}" \
-          --tags="commit_date-${TIMESTAMP},git_sha-${GIT_SHA},branch-${BRANCH_NAME}" \
+          --package_tags="commit_date-${TIMESTAMP},git_sha-${GIT_SHA},branch-${BRANCH_NAME}" \
           --max_workers=10
 
         echo "Upload complete: ${VERSION_PATH}."
