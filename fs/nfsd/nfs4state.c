@@ -4070,6 +4070,8 @@ find_client_in_id_table(struct list_head *tbl, clientid_t *clid, bool sessions)
 		if (same_clid(&clp->cl_clientid, clid)) {
 			if ((bool)clp->cl_minorversion != sessions)
 				return NULL;
+			if (is_client_expired(clp))
+				return NULL;
 			renew_client_locked(clp);
 			return clp;
 		}
@@ -8528,14 +8530,53 @@ unlock:
 	return 0;
 }
 
-static __be32 find_cpntf_state(struct nfsd_net *nn, stateid_t *st,
-			       struct nfs4_stid **stid)
+static __be32 nfs4_check_io_stateid(struct svc_fh *fhp, stateid_t *stateid,
+				    struct nfs4_stid *s, int flags, bool has_session)
 {
 	__be32 status;
+
+	status = nfsd4_stid_check_stateid_generation(stateid, s, has_session);
+	if (status)
+		return status;
+
+	switch (s->sc_type) {
+	case SC_TYPE_DELEG:
+		status = nfs4_check_delegmode(delegstateid(s), flags);
+		break;
+	case SC_TYPE_OPEN:
+	case SC_TYPE_LOCK:
+		status = nfs4_check_olstateid(openlockstateid(s), flags);
+		break;
+	}
+	if (status)
+		return status;
+	return nfs4_check_fh(fhp, s);
+}
+
+/**
+ * nfs4_preprocess_cpntf_stateid - prepare a COPY_NOTIFY stateid for read-side I/O
+ * @rqstp: incoming request from the destination server
+ * @cstate: current compound state
+ * @fhp: filehandle associated with the requested stateid
+ * @stateid: COPY_NOTIFY stateid provided by the destination server
+ * @nfp: returned nfsd_file reference
+ *
+ * Keep the source client's RPC reference until the stateid has been released.
+ * Only the file reference escapes to the caller, for READ, READ_PLUS or SEEK.
+ */
+__be32 nfs4_preprocess_cpntf_stateid(struct svc_rqst *rqstp,
+				     struct nfsd4_compound_state *cstate,
+				     struct svc_fh *fhp, stateid_t *stateid,
+				     struct nfsd_file **nfp)
+{
+	struct nfsd_net *nn = net_generic(SVC_NET(rqstp), nfsd_net_id);
 	struct nfs4_cpntf_state *cps = NULL;
 	struct nfs4_client *found;
+	struct nfs4_stid *stid;
+	__be32 status;
 
-	status = manage_cpntf_state(nn, st, NULL, &cps);
+	*nfp = NULL;
+	status = manage_cpntf_state(nn, stateid, NULL, &cps);
 	if (status)
 		return status;
 
@@ -8546,14 +8587,18 @@ static __be32 find_cpntf_state(struct nfsd_net *nn, stateid_t *st,
 	if (!found)
 		goto out;
 
-	*stid = find_stateid_by_type(found, &cps->cp_p_stateid,
-				     SC_TYPE_DELEG|SC_TYPE_OPEN|SC_TYPE_LOCK,
-				     0);
-	if (*stid)
-		status = nfs_ok;
-	else
-		status = nfserr_bad_stateid;
+	status = nfserr_bad_stateid;
+	stid = find_stateid_by_type(found, &cps->cp_p_stateid,
+				    SC_TYPE_DELEG | SC_TYPE_OPEN | SC_TYPE_LOCK, 0);
+	if (!stid)
+		goto out_put_client;
 
+	status = nfs4_check_io_stateid(fhp, stateid, stid, RD_STATE,
+				       nfsd4_has_session(cstate));
+	if (!status)
+		status = nfs4_check_file(rqstp, fhp, stid, nfp, RD_STATE);
+	nfs4_put_stid(stid);
+out_put_client:
 	put_client_renew(found);
 out:
 	nfs4_put_cpntf_state(nn, cps);
@@ -8603,32 +8648,14 @@ nfs4_preprocess_stateid_op(struct svc_rqst *rqstp,
 	status = nfsd4_lookup_stateid(cstate, stateid,
 				SC_TYPE_DELEG|SC_TYPE_OPEN|SC_TYPE_LOCK,
 				0, &s, nn);
-	if (status == nfserr_bad_stateid)
-		status = find_cpntf_state(nn, stateid, &s);
 	if (status)
 		return status;
-	status = nfsd4_stid_check_stateid_generation(stateid, s,
-			nfsd4_has_session(cstate));
-	if (status)
-		goto out;
-
-	switch (s->sc_type) {
-	case SC_TYPE_DELEG:
-		status = nfs4_check_delegmode(delegstateid(s), flags);
-		break;
-	case SC_TYPE_OPEN:
-	case SC_TYPE_LOCK:
-		status = nfs4_check_olstateid(openlockstateid(s), flags);
-		break;
-	}
-	if (status)
-		goto out;
-	status = nfs4_check_fh(fhp, s);
+	status = nfs4_check_io_stateid(fhp, stateid, s, flags,
+				       nfsd4_has_session(cstate));
 
 done:
 	if (status == nfs_ok && nfp)
 		status = nfs4_check_file(rqstp, fhp, s, nfp, flags);
-out:
 	if (s) {
 		if (!status && cstid)
 			*cstid = s;

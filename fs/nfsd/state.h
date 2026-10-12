@@ -914,6 +914,10 @@ extern __be32 nfs4_preprocess_stateid_op(struct svc_rqst *rqstp,
 		struct nfsd4_compound_state *cstate, struct svc_fh *fhp,
 		stateid_t *stateid, int flags, struct nfsd_file **filp,
 		struct nfs4_stid **cstid);
+__be32 nfs4_preprocess_cpntf_stateid(struct svc_rqst *rqstp,
+				     struct nfsd4_compound_state *cstate,
+				     struct svc_fh *fhp, stateid_t *stateid,
+				     struct nfsd_file **nfp);
 __be32 nfsd4_lookup_stateid(struct nfsd4_compound_state *cstate,
 			    stateid_t *stateid, unsigned short typemask,
 			    unsigned short statusmask,

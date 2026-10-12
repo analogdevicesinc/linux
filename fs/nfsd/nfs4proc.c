@@ -1148,6 +1148,11 @@ nfsd4_read(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 	status = nfs4_preprocess_stateid_op(rqstp, cstate, &cstate->current_fh,
 					&read->rd_stateid, RD_STATE,
 					&read->rd_nf, NULL);
+	if (status == nfserr_bad_stateid)
+		status = nfs4_preprocess_cpntf_stateid(rqstp, cstate,
+						       &cstate->current_fh,
+						       &read->rd_stateid,
+						       &read->rd_nf);
 
 	read->rd_rqstp = rqstp;
 	read->rd_fhp = &cstate->current_fh;
@@ -2621,6 +2626,10 @@ nfsd4_seek(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 	status = nfs4_preprocess_stateid_op(rqstp, cstate, &cstate->current_fh,
 					    &seek->seek_stateid,
 					    RD_STATE, &nf, NULL);
+	if (status == nfserr_bad_stateid)
+		status = nfs4_preprocess_cpntf_stateid(rqstp, cstate,
+						       &cstate->current_fh,
+						       &seek->seek_stateid, &nf);
 	if (status)
 		return status;
 
