@@ -1677,8 +1677,8 @@ static int read_event(int inotify_fd, int expected_event, int expected_wd)
 static int test_memcg_inotify_delete_file(const char *root)
 {
 	int ret = KSFT_FAIL;
-	char *memcg = NULL;
-	int fd, wd;
+	char *memcg = NULL, *events = NULL;
+	int fd = -1, wd;
 
 	memcg = cg_name(root, "memcg_test_0");
 
@@ -1692,7 +1692,11 @@ static int test_memcg_inotify_delete_file(const char *root)
 	if (fd == -1)
 		goto cleanup;
 
-	wd = inotify_add_watch(fd, cg_control(memcg, "memory.events"), IN_DELETE_SELF);
+	events = cg_control(memcg, "memory.events");
+	if (!events)
+		goto cleanup;
+
+	wd = inotify_add_watch(fd, events, IN_DELETE_SELF);
 	if (wd == -1)
 		goto cleanup;
 
@@ -1714,6 +1718,7 @@ cleanup:
 		close(fd);
 	if (memcg)
 		cg_destroy(memcg);
+	free(events);
 	free(memcg);
 
 	return ret;
@@ -1723,7 +1728,7 @@ static int test_memcg_inotify_delete_dir(const char *root)
 {
 	int ret = KSFT_FAIL;
 	char *memcg = NULL;
-	int fd, wd;
+	int fd = -1, wd;
 
 	memcg = cg_name(root, "memcg_test_0");
 
