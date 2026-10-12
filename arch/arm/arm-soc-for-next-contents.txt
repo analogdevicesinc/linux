@@ -1,0 +1,70 @@
+soc/arm
+	patch
+		ARM: remove sa1100 platform
+		ARM: remove footbridge
+		ARM: remove legacy pxa board files
+		ARM: orion/dove/mv78xx0: remove all board files
+		ARM: orion5x: fold plat-orion/pcie.c and hw_pci into pci.c
+		ARM: omap2: remove omap24xx support
+		ARM: imx: remove i.MX31 SoC support
+		ARM: versatile: remove Integrator/CM1136JF-S option
+		ARM: imx: remove nommu support
+		ARM: lpc18xx: remove entire platform
+		ARM: stm32: remove stm32f4/f7/h7 MCU support
+		ARM: versatile: remove mps2 support
+		ARM: at91: remove samv7 support
+		ARM: axxia: remove entire platform
+
+soc/dt
+	renesas/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.4-tag1
+		contains renesas/fixes-2
+		contains renesas/fixes
+	rockchip/dt64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.4-rockchip-dts64-1
+	qcom/dt64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.4
+	mediatek/dt64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts64-for-v7.4
+	mediatek/dt32
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts32-for-v7.4
+	arm-juno/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/juno-updates-7.4
+	ste/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-nomadik tags/ux500-dts-for-7.4
+	gemini/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/gemini-dts-for-7.4
+	omap/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.4/dt-signed
+
+soc/drivers
+	renesas/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.4-tag1
+	patch
+		platform: cznic: turris-omnia-mcu: Add missing MODULE_DEVICE_TABLE()
+	mediatek/drivers
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-soc-for-v7.4
+	scmi/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-7.4
+		contains scmi/fixes
+
+soc/defconfig
+	renesas/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v7.4-tag1
+	qcom/defconfig
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-7.4
+
+soc/late
+
+arm/fixes
+	<no branch> (c5c95dbdc9011a56359df4dc00be829bbcc0b036)
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-soc-fixes
+	<no branch> (0f70fd6f4c1d6c1f2ea298d8dd07c4a4d5dff9af)
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-fixes-for-v7.3-rc
+	<no branch> (2fabd2f406d0cf787be47b3bbeea99b30004033d)
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/fixes-signed
+	<no branch> (b86eaddf467a9ddb69dbaa46eea9dda7f93347a3)
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-arm64-dt-fixes
+	<no branch> (afb1ecfeda3fc31d6300a176f4854cc62e289bf3)
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-fixes-7.3
+
