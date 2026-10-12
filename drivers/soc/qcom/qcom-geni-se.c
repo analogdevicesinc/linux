@@ -370,6 +370,8 @@ void geni_se_init(struct geni_se *se, u32 rx_wm, u32 rx_rfr)
 {
 	u32 val;
 
+	se->prev_xfer_mode = GENI_SE_INVALID;
+
 	geni_se_irq_clear(se);
 	geni_se_io_init(se->base);
 	geni_se_io_set_mode(se->base);
@@ -462,6 +464,11 @@ void geni_se_select_mode(struct geni_se *se, enum geni_se_xfer_mode mode)
 {
 	WARN_ON(mode != GENI_SE_FIFO && mode != GENI_SE_DMA && mode != GENI_GPI_DMA);
 
+	if (likely(se->prev_xfer_mode == mode)) {
+		geni_se_clear_irq_status(se);
+		return;
+	}
+
 	switch (mode) {
 	case GENI_SE_FIFO:
 		geni_se_select_fifo_mode(se);
@@ -474,8 +481,10 @@ void geni_se_select_mode(struct geni_se *se, enum geni_se_xfer_mode mode)
 		break;
 	case GENI_SE_INVALID:
 	default:
-		break;
+		return;
 	}
+
+	se->prev_xfer_mode = mode;
 }
 EXPORT_SYMBOL_GPL(geni_se_select_mode);
 
