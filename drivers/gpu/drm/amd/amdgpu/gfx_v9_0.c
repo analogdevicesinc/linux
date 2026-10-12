@@ -3233,7 +3233,7 @@ static int gfx_v9_0_rlc_resume(struct amdgpu_device *adev)
 		break;
 	}
 
-	gfx_v9_0_update_spm_vmid_internal(adev, 0xf);
+	gfx_v9_0_update_spm_vmid_internal(adev, adev->vm_manager.spm_vmid);
 
 	adev->gfx.rlc.funcs->start(adev);
 

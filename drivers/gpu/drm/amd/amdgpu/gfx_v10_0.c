@@ -5575,7 +5575,7 @@ static int gfx_v10_0_rlc_resume(struct amdgpu_device *adev)
 
 		gfx_v10_0_init_csb(adev);
 
-		gfx_v10_0_update_spm_vmid_internal(adev, 0xf);
+		gfx_v10_0_update_spm_vmid_internal(adev, adev->vm_manager.spm_vmid);
 
 		if (!amdgpu_sriov_vf(adev)) /* enable RLC SRM */
 			gfx_v10_0_rlc_enable_srm(adev);
@@ -5607,7 +5607,7 @@ static int gfx_v10_0_rlc_resume(struct amdgpu_device *adev)
 
 		gfx_v10_0_init_csb(adev);
 
-		gfx_v10_0_update_spm_vmid_internal(adev, 0xf);
+		gfx_v10_0_update_spm_vmid_internal(adev, adev->vm_manager.spm_vmid);
 
 		adev->gfx.rlc.funcs->start(adev);
 
