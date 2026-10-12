@@ -140,7 +140,10 @@ jobs:
         command -v dnf && pkg=dnf || :
         command -v zypper && pkg=zypper || :
         [ -n "$pkg" ] || exit 0
-        command -v mkimage || sudo $pkg install u-boot-tools
+        if ! command -v mkimage; then
+          sudo $pkg update
+          sudo $pkg install -y u-boot-tools
+        fi
 
     - name: Make defconfig
       run: |

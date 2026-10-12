@@ -1258,7 +1258,10 @@ ensure_compiler () {
 		local llvm=${LLVM}
 		[ "$pkg"  == "apt-get" ] || llvm="${llvm#\-}"
 		[ -n "$pkg" ] || return 1
-		command -v "clang${LLVM}" || sudo $pkg install "clang${llvm}" "llvm${llvm}" "lld${llvm}"
+		if ! command -v "clang${LLVM}"; then
+			sudo $pkg update
+			sudo $pkg install -y "clang${llvm}" "llvm${llvm}" "lld${llvm}"
+		fi
 		return 0
 	fi
 
