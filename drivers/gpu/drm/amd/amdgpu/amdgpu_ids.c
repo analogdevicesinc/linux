@@ -697,13 +697,13 @@ void amdgpu_vmid_reset_all(struct amdgpu_device *adev)
  * pools for both hubs
  *
  * @adev: amdgpu device structure
- * @gfx_vmid_mask: kernel-queue VMID pool mask for GFXHUB
- * @mmhub_vmid_mask: kernel-queue VMID pool mask for MMHUB
+ * @vmid_kq_mask_gfxhub: kernel-queue VMID pool mask for GFXHUB
+ * @vmid_kq_mask_mmhub: kernel-queue VMID pool mask for MMHUB
  *
  * Sets both hubs' kernel-queue VMID pools (tracked least-recently-used
  * via id_mgr[].ids_lru), and both hubs' KFD/MES user-queue masks.
  * vmid_uq_mask_gfxhub is set to the
- * complement of @gfx_vmid_mask, since unlike MMHUB's it is always a
+ * complement of @vmid_kq_mask_gfxhub, since unlike MMHUB's it is always a
  * clean partition of the full VMID range; vmid_uq_mask_mmhub is the
  * fixed pool set here instead, since MMHUB's kq and uq pools are
  * allowed to overlap. A VMID dedicated to a single fixed purpose on
@@ -711,26 +711,26 @@ void amdgpu_vmid_reset_all(struct amdgpu_device *adev)
  * caller's responsibility to have already set npa_vmid.
  */
 void amdgpu_vmid_mgr_set_vmid_mask(struct amdgpu_device *adev,
-				   unsigned long gfx_vmid_mask,
-				   unsigned long mmhub_vmid_mask)
+				   unsigned long vmid_kq_mask_gfxhub,
+				   unsigned long vmid_kq_mask_mmhub)
 {
 	unsigned int i;
 
 	BUILD_BUG_ON(AMDGPU_NUM_VMID > BITS_PER_LONG);
 
 	if (adev->vm_manager.npa_vmid)
-		mmhub_vmid_mask &= ~BIT(adev->vm_manager.npa_vmid);
+		vmid_kq_mask_mmhub &= ~BIT(adev->vm_manager.npa_vmid);
 
 	for (i = 0; i < AMDGPU_MAX_VMHUBS; i++) {
 		bool is_mmhub = AMDGPU_IS_MMHUB0(i) || AMDGPU_IS_MMHUB1(i);
 
 		bitmap_copy(adev->vm_manager.id_mgr[i].vmid_mask,
-			    is_mmhub ? &mmhub_vmid_mask : &gfx_vmid_mask,
+			    is_mmhub ? &vmid_kq_mask_mmhub : &vmid_kq_mask_gfxhub,
 			    AMDGPU_NUM_VMID);
 	}
 
 	adev->vm_manager.vmid_uq_mask_gfxhub =
-		GENMASK(AMDGPU_NUM_VMID - 1, 1) & ~gfx_vmid_mask;
+		GENMASK(AMDGPU_NUM_VMID - 1, 1) & ~vmid_kq_mask_gfxhub;
 
 	adev->vm_manager.vmid_uq_mask_mmhub = 0xFF00;
 	if (adev->vm_manager.npa_vmid)
