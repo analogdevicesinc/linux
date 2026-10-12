@@ -1605,6 +1605,15 @@ config GPIO_MAX77759
 	  This driver can also be built as a module. If so, the module will be
 	  called gpio-max77759.
 
+config GPIO_MAX2035X
+	tristate "Analog Devices MAX20355/MAX20357 GPIO"
+	depends on MFD_MAX2035X
+	help
+	  GPIO driver for the Analog Devices MAX20355/MAX20357 PMICs.
+	  Provides access to 4 GPIOs with configurable input/output
+	  direction. The GPIOs are controlled via I2C through the
+	  parent MFD driver's regmap.
+
 config GPIO_NCT6694
 	tristate "Nuvoton NCT6694 GPIO controller support"
 	depends on MFD_NCT6694
