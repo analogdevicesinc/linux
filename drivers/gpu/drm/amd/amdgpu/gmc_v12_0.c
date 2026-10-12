@@ -1006,6 +1006,9 @@ static int gmc_v12_0_sw_init(struct amdgpu_ip_block *ip_block)
 	if (adev->gfx.disable_kq)
 		last_kq_vmid = 0;
 
+	/* Reserve the last VMID for SPM */
+	adev->vm_manager.spm_vmid = AMDGPU_NUM_VMID - 1;
+
 	amdgpu_vmid_mgr_set_vmid_mask(adev, GENMASK(last_kq_vmid, 1),
 				      GENMASK(AMDGPU_NUM_VMID - 1, 1));
 
