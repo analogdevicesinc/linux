@@ -67,6 +67,7 @@ jobs:
 
     - name: update-mirror
       run: |
+        [[ "${{ runner.debug }}" == "1" ]] && set -x
         source ./ci/maintenance.sh
         for branch in "${{ inputs.branch }}" ; do
           cherry_pick "$branch" "${{ inputs.filter }}"
