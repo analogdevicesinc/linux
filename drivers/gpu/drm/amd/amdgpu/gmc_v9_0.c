@@ -2042,6 +2042,10 @@ static int gmc_v9_0_sw_init(struct amdgpu_ip_block *ip_block)
 			7;
 
 	vmid_mask = GENMASK(last_kq_vmid, 1);
+
+	/* Reserve the last VMID for SPM */
+	adev->vm_manager.spm_vmid = AMDGPU_NUM_VMID - 1;
+
 	amdgpu_vmid_mgr_set_vmid_mask(adev, vmid_mask, vmid_mask);
 	amdgpu_vm_manager_init(adev);
 
