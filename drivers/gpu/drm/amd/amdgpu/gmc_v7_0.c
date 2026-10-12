@@ -1008,6 +1008,10 @@ static int gmc_v7_0_sw_init(struct amdgpu_ip_block *ip_block)
 	 * amdkfd/MES user queues will use VMIDs 8-15
 	 */
 	vmid_mask = GENMASK(7, 1);
+
+	/* Reserve the last VMID for SPM */
+	adev->vm_manager.spm_vmid = AMDGPU_NUM_VMID - 1;
+
 	amdgpu_vmid_mgr_set_vmid_mask(adev, vmid_mask, vmid_mask);
 	amdgpu_vm_manager_init(adev);
 
