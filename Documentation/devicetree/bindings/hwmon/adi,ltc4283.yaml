@@ -10,22 +10,39 @@ maintainers:
   - Nuno Sá <nuno.sa@analog.com>
 
 description: |
-  The LTC4283 negative voltage hot swap controller drives an external N-channel
-  MOSFET to allow a board to be safely inserted and removed from a live
-  backplane.
+  The LTC4283 and LTC4284 are negative voltage hot swap controllers that drive
+  external N-channel MOSFETs to allow a board to be safely inserted and removed
+  from a live backplane.
+
+  The LTC4284 features dual-gate drivers with four operating modes (single
+  driver, parallel, high stress staged start, and low stress staged start)
+  configured via the hardware MODE pin. The MODE pin must be connected to the
+  appropriate voltage level (VEE, VIN, INTVCC, or left open) and cannot be
+  controlled via software or GPIO.
 
   https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4283.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4284.pdf
 
 properties:
   compatible:
     enum:
       - adi,ltc4283
+      - adi,ltc4284
 
   reg:
     maxItems: 1
 
   adi,rsense-nano-ohms:
-    description: Value of the sense resistor.
+    description:
+      Value of the sense resistor. For LTC4283, this is the resistor connected
+      between ADC+/ADC- pins. For LTC4284, this is the resistor connected between
+      SENSE1+/SENSE1- pins and represents current channel 0.
+
+  adi,rsense2-nano-ohms:
+    description:
+      Value of the SENSE2 current sense resistor. This resistor is connected
+      between SENSE2+ and SENSE2- pins and is used for current channel 1
+      measurements.
 
   adi,current-limit-sense-microvolt:
     description:
@@ -197,6 +214,15 @@ required:
 allOf:
   - if:
       properties:
+        compatible:
+          contains:
+            const: adi,ltc4284
+    then:
+      required:
+        - adi,rsense2-nano-ohms
+
+  - if:
+      properties:
         adi,pgio1-func:
           const: gpio
       required:
@@ -267,6 +293,20 @@ examples:
             adi,pgio1-func = "gpio";
             gpio-controller;
             #gpio-cells = <2>;
+        };
+    };
+
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        swap-controller@20 {
+            compatible = "adi,ltc4284";
+            reg = <0x20>;
+
+            adi,rsense-nano-ohms = <1000>;
+            adi,rsense2-nano-ohms = <1000>;
         };
     };
 ...
