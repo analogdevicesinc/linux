@@ -231,7 +231,7 @@ jobs:
       id-token: write
       contents: read
       actions: read
-    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@ci
+    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@bia1708/ci-version
     secrets: inherit
     with:
       artifacts: >
