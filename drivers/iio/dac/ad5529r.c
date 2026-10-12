@@ -24,19 +24,19 @@
 
 #include <linux/iio/iio.h>
 
-#define AD5529R_REG_INTERFACE_CONFIG_A		0x00
+#define AD5529R_REG_INTERFACE_CONFIG_A		0x000
 #define   AD5529R_INTERFACE_CONFIG_A_SW_RESET	(BIT(7) | BIT(0))
 #define   AD5529R_INTERFACE_CONFIG_A_ADDR_ASCENSION	BIT(5)
 #define   AD5529R_INTERFACE_CONFIG_A_SDO_ENABLE	BIT(4)
-#define AD5529R_REG_DEVICE_CONFIG		0x02
-#define AD5529R_REG_CHIP_GRADE			0x06
-#define AD5529R_REG_SCRATCH_PAD			0x0A
-#define AD5529R_REG_SPI_REVISION		0x0B
-#define AD5529R_REG_VENDOR_H			0x0D
-#define AD5529R_REG_STREAM_MODE			0x0E
-#define AD5529R_REG_INTERFACE_STATUS_A		0x11
-#define AD5529R_REG_MULTI_DAC_CH_SEL		0x14
-#define AD5529R_REG_OUT_RANGE_BASE		0x3C
+#define AD5529R_REG_DEVICE_CONFIG		0x002
+#define AD5529R_REG_CHIP_GRADE			0x006
+#define AD5529R_REG_SCRATCH_PAD			0x00A
+#define AD5529R_REG_SPI_REVISION		0x00B
+#define AD5529R_REG_VENDOR_H			0x00D
+#define AD5529R_REG_STREAM_MODE			0x00E
+#define AD5529R_REG_INTERFACE_STATUS_A		0x011
+#define AD5529R_REG_MULTI_DAC_CH_SEL		0x014
+#define AD5529R_REG_OUT_RANGE_BASE		0x03C
 #define AD5529R_REG_OUT_RANGE(ch)		(AD5529R_REG_OUT_RANGE_BASE + (ch) * 2)
 #define AD5529R_REG_DAC_INPUT_A_BASE		0x148
 #define AD5529R_REG_DAC_INPUT_A(ch)		(AD5529R_REG_DAC_INPUT_A_BASE + (ch) * 2)
@@ -50,9 +50,8 @@
 #define AD5529R_REG_MULTI_DAC_HOTPATH_SW_LDAC	0x1A8
 
 #define AD5529R_MAX_REGISTER			0x232
-#define AD5529R_8BIT_REG_MAX			0x13
+#define AD5529R_8BIT_REG_MAX			0x013
 #define AD5529R_MAX_CHANNELS			16
-#define AD5529R_SPI_READ_FLAG			0x80
 #define AD5529R_ADDR_SHIFT			12
 
 struct ad5529r_model_data {
@@ -60,7 +59,7 @@ struct ad5529r_model_data {
 	unsigned int resolution;
 };
 
-#define AD5529R_DAC_CHANNEL(chan) ((struct iio_chan_spec) {		\
+#define AD5529R_DAC_CHANNEL(chan) (struct iio_chan_spec) {		\
 	.type = IIO_VOLTAGE,						\
 	.indexed = 1,							\
 	.output = 1,							\
@@ -68,7 +67,7 @@ struct ad5529r_model_data {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			      BIT(IIO_CHAN_INFO_SCALE) |		\
 			      BIT(IIO_CHAN_INFO_OFFSET),		\
-})
+	}
 
 static const char * const ad5529r_supply_names[] = {
 	"vdd-io",
@@ -433,7 +432,6 @@ static int ad5529r_probe(struct spi_device *spi)
 		.reg_bits = 16,
 		.val_bits = 8,
 		.max_register = AD5529R_8BIT_REG_MAX,
-		.read_flag_mask = AD5529R_SPI_READ_FLAG,
 		.rd_table = &ad5529r_8bit_readable_table,
 		.wr_table = &ad5529r_8bit_writeable_table,
 		.reg_base = dev_addr << AD5529R_ADDR_SHIFT,
@@ -443,7 +441,6 @@ static int ad5529r_probe(struct spi_device *spi)
 		.reg_bits = 16,
 		.val_bits = 16,
 		.max_register = AD5529R_MAX_REGISTER,
-		.read_flag_mask = AD5529R_SPI_READ_FLAG,
 		.val_format_endian = REGMAP_ENDIAN_LITTLE,
 		.rd_table = &ad5529r_16bit_readable_table,
 		.wr_table = &ad5529r_16bit_writeable_table,
