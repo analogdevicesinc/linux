@@ -17,6 +17,7 @@
 #include "xe_device.h"
 #include "xe_force_wake.h"
 #include "xe_gt_mcr.h"
+#include "xe_log.h"
 #include "xe_map.h"
 #include "xe_migrate.h"
 #include "xe_mmio.h"
@@ -46,7 +47,8 @@ static int determine_lmem_bar_size(struct xe_device *xe, struct xe_vram_region *
 	struct pci_dev *pdev = to_pci_dev(xe->drm.dev);
 
 	if (!resource_is_valid(pdev, LMEM_BAR)) {
-		drm_err(&xe->drm, "pci resource is not valid\n");
+		xe_log_err_fatal(xe, VRAM, -ENXIO,
+				 "PCI resource is not valid\n");
 		return -ENXIO;
 	}
 
@@ -227,17 +229,15 @@ struct xe_vram_region *xe_vram_region_alloc(struct xe_device *xe, u8 id, u32 pla
 
 static void print_vram_region_info(struct xe_device *xe, struct xe_vram_region *vram)
 {
-	struct drm_device *drm = &xe->drm;
-
 	if (vram->io_size < vram->usable_size)
-		drm_info(drm, "Small BAR device\n");
+		xe_log_info(xe, VRAM, "Small BAR device\n");
 
-	drm_info(drm,
-		 "VRAM[%u]: Actual physical size %pa, usable size exclude stolen %pa, CPU accessible size %pa\n",
-		 vram->id, &vram->actual_physical_size, &vram->usable_size, &vram->io_size);
-	drm_info(drm, "VRAM[%u]: DPA range: [%pa-%llx], io range: [%pa-%llx]\n",
-		 vram->id, &vram->dpa_base, vram->dpa_base + (u64)vram->actual_physical_size,
-		 &vram->io_start, vram->io_start + (u64)vram->io_size);
+	xe_log_info(xe, VRAM,
+		    "[%u]: Actual physical size %pa, usable size exclude stolen %pa, CPU accessible size %pa\n",
+		    vram->id, &vram->actual_physical_size, &vram->usable_size, &vram->io_size);
+	xe_log_info(xe, VRAM, "[%u]: DPA range: [%pa-%llx], io range: [%pa-%llx]\n",
+		    vram->id, &vram->dpa_base, vram->dpa_base + (u64)vram->actual_physical_size,
+		    &vram->io_start, vram->io_start + (u64)vram->io_size);
 }
 
 static int vram_region_init(struct xe_device *xe, struct xe_vram_region *vram,
@@ -255,8 +255,11 @@ static int vram_region_init(struct xe_device *xe, struct xe_vram_region *vram,
 	vram->io_size = min_t(u64, usable_size, remain_io_size);
 
 	if (!vram->io_size) {
-		drm_err(&xe->drm, "%s without any CPU visible VRAM. Aborting.\n",
-			tile ? "Tile" : "Device");
+		if (tile)
+			xe_log_err_fatal(tile, VRAM, -ENODEV, "No CPU visible VRAM. Aborting.\n");
+		else
+			xe_log_err_fatal(xe, VRAM, -ENODEV, "No CPU visible VRAM. Aborting.\n");
+
 		return -ENODEV;
 	}
 
@@ -321,7 +324,8 @@ int xe_vram_probe(struct xe_device *xe)
 	err = determine_lmem_bar_size(xe, &lmem_bar);
 	if (err)
 		return err;
-	drm_info(&xe->drm, "VISIBLE VRAM: %pa, %pa\n", &lmem_bar.io_start, &lmem_bar.io_size);
+	xe_log_info(xe, VRAM, "VISIBLE VRAM: start %pa, size %#llx\n",
+		    &lmem_bar.io_start, (u64)lmem_bar.io_size);
 
 	remain_io_size = lmem_bar.io_size;
 
@@ -343,8 +347,9 @@ int xe_vram_probe(struct xe_device *xe)
 			return err;
 
 		if (total_size > lmem_bar.io_size) {
-			drm_info(&xe->drm, "VRAM: %pa is larger than resource %pa\n",
-				 &total_size, &lmem_bar.io_size);
+			xe_log_info(xe, VRAM,
+				    "Total size %#llx is larger than resource %#llx\n",
+				    total_size, (u64)lmem_bar.io_size);
 		}
 
 		remain_io_size -= min_t(u64, tile->mem.vram->actual_physical_size, remain_io_size);
