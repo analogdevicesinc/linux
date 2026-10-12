@@ -475,6 +475,8 @@ static struct xfs_open_zone *
 xfs_try_open_zone(
 	struct xfs_mount	*mp,
 	enum rw_hint		write_hint)
+		__releases(&mp->m_zone_info->zi_open_zones_lock)
+		__acquires(&mp->m_zone_info->zi_open_zones_lock)
 {
 	struct xfs_zone_info	*zi = mp->m_zone_info;
 	struct xfs_open_zone	*oz;
@@ -818,7 +820,7 @@ xfs_get_cached_zone(
 		spin_unlock(&ip->i_flags_lock);
 	}
 
-	if (!atomic_inc_not_zero(&oz->oz_ref))
+	if (oz && !atomic_inc_not_zero(&oz->oz_ref))
 		oz = NULL;
 out_unlock:
 	rcu_read_unlock();
@@ -826,7 +828,7 @@ out_unlock:
 }
 
 /*
- * Stash our zone in the inode so that is is reused for future allocations.
+ * Stash our zone in the inode so that it is reused for future allocations.
  *
  * The open_zone structure will be pinned until either the inode is freed or
  * until the cached open zone is replaced with a different one because the
