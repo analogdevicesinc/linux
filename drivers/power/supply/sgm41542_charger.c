@@ -468,7 +468,7 @@ static int sgm4154x_set_watchdog_timer(struct sgm4154x_device *sgm, u8 time)
 		if (!sgm->watchdog_enable)
 			queue_delayed_work(sgm->sgm_monitor_wq,
 					   &sgm->sgm_delay_work,
-					   msecs_to_jiffies(1000 * 5));
+					   secs_to_jiffies(5));
 		sgm->watchdog_enable = true;
 	} else {
 		sgm->watchdog_enable = false;
@@ -970,7 +970,7 @@ static void sgm_charger_work(struct work_struct *work)
 	if (sgm->watchdog_enable)
 		queue_delayed_work(sgm->sgm_monitor_wq,
 				   &sgm->sgm_delay_work,
-				   msecs_to_jiffies(1000 * 5));
+				   secs_to_jiffies(5));
 }
 
 static void sgm4154x_disable_irq_wake(void *data)
