@@ -342,13 +342,18 @@ static void geni_se_io_init(void __iomem *base)
 	writel_relaxed(FORCE_DEFAULT, base + GENI_FORCE_DEFAULT_REG);
 }
 
-static void geni_se_irq_clear(struct geni_se *se)
+static void geni_se_clear_irq_status(struct geni_se *se)
 {
-	writel_relaxed(0, se->base + SE_GSI_EVENT_EN);
 	writel_relaxed(0xffffffff, se->base + SE_GENI_M_IRQ_CLEAR);
 	writel_relaxed(0xffffffff, se->base + SE_GENI_S_IRQ_CLEAR);
 	writel_relaxed(0xffffffff, se->base + SE_DMA_TX_IRQ_CLR);
 	writel_relaxed(0xffffffff, se->base + SE_DMA_RX_IRQ_CLR);
+}
+
+static void geni_se_irq_clear(struct geni_se *se)
+{
+	writel_relaxed(0, se->base + SE_GSI_EVENT_EN);
+	geni_se_clear_irq_status(se);
 	writel_relaxed(0xffffffff, se->base + SE_IRQ_EN);
 }
 
