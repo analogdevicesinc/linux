@@ -7,13 +7,11 @@
 /dts-v1/;
 
 #include "hamoa.dtsi"
-#include "hamoa-pmics.dtsi"
 #include "x1-hp-omnibook-x14.dtsi"
 
 / {
 	model = "HP Omnibook X 14-fe0";
 	compatible = "hp,omnibook-x14", "qcom,x1e80100";
-	chassis-type = "laptop";
 };
 
 &gpu_zap_shader {
