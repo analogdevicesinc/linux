@@ -1501,6 +1501,8 @@ static void mntput_no_expire(struct mount *mnt)
 	mntput_no_expire_slowpath(mnt);
 }
 
+DEFINE_FREE(mntput_no_expire, struct mount *, if (_T) mntput_no_expire(_T))
+
 void mntput(struct vfsmount *mnt)
 {
 	if (mnt) {
@@ -1934,8 +1936,10 @@ static int do_umount_root(struct super_block *sb)
 	return ret;
 }
 
+/* Unmount @mnt, dropping the reference the caller holds to it on every path. */
 static int do_umount(struct mount *mnt, int flags)
 {
+	struct mount *ref __free(mntput_no_expire) = mnt;
 	struct super_block *sb = mnt->mnt.mnt_sb;
 	int retval;
 
@@ -2002,36 +2006,35 @@ static int do_umount(struct mount *mnt, int flags)
 		return do_umount_root(sb);
 	}
 
-	namespace_lock();
-	lock_mount_hash();
+	guard(namespace_excl)();
+	guard(mount_writer)();
 
 	/* Repeat the earlier racy checks, now that we are holding the locks */
-	retval = -EINVAL;
 	if (!check_mnt(mnt))
-		goto out;
+		return -EINVAL;
 
 	if (mnt->mnt.mnt_flags & MNT_LOCKED)
-		goto out;
+		return -EINVAL;
 
 	if (!mnt_has_parent(mnt)) /* not the absolute root */
-		goto out;
+		return -EINVAL;
 
 	event++;
 	if (flags & MNT_DETACH) {
 		umount_tree(mnt, UMOUNT_PROPAGATE);
-		retval = 0;
 	} else {
 		shrink_submounts(mnt);
-		retval = -EBUSY;
-		if (!propagate_mount_busy(mnt, 2)) {
-			umount_tree(mnt, UMOUNT_PROPAGATE|UMOUNT_SYNC);
-			retval = 0;
-		}
+		if (propagate_mount_busy(mnt, 2))
+			return -EBUSY;
+		umount_tree(mnt, UMOUNT_PROPAGATE|UMOUNT_SYNC);
 	}
-out:
-	unlock_mount_hash();
-	namespace_unlock();
-	return retval;
+	/*
+	 * By definition the caller's reference isn't the last
+	 * one, so drop it.
+	 */
+	mnt_dec_count(mnt);
+	retain_and_null_ptr(ref);
+	return 0;
 }
 
 /*
@@ -2115,12 +2118,12 @@ int path_umount(const struct path *path, int flags)
 	int ret;
 
 	ret = can_umount(path, flags);
-	if (!ret)
-		ret = do_umount(mnt, flags);
-
 	/* we mustn't call path_put() as that would clear mnt_expiry_mark */
 	dput(path->dentry);
-	mntput_no_expire(mnt);
+	if (ret)
+		mntput_no_expire(mnt);
+	else
+		ret = do_umount(mnt, flags);
 	return ret;
 }
 
