@@ -164,7 +164,7 @@ static void free_ipc_ns(struct ipc_namespace *ns)
 	dec_ipc_namespaces(ns->ucounts);
 	put_user_ns(ns->user_ns);
 	ns_common_free(ns);
-	kfree(ns);
+	kfree_rcu(ns, ns.ns_rcu);
 }
 
 static LLIST_HEAD(free_ipc_list);
