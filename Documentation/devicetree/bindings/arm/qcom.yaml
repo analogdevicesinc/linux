@@ -930,6 +930,11 @@ properties:
 
       - items:
           - enum:
+              - samsung,galaxy-book2-go
+          - const: qcom,sc7280
+
+      - items:
+          - enum:
               - lenovo,flex-5g
               - microsoft,surface-prox
               - qcom,sc8180x-primus
