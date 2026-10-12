@@ -4,4 +4,6 @@ dtb-$(CONFIG_ARCH_INTEL_SOCFPGA) += socfpga_agilex_n6000.dtb \
 				socfpga_agilex_socdk_nand.dtb \
 				socfpga_agilex5_socdk.dtb \
 				socfpga_n5x_socdk.dtb
+dtb-$(CONFIG_ARCH_INTEL_SOCFPGA) += socfpga_agilex5_socdk_ad9084.dtb
+dtb-$(CONFIG_ARCH_INTEL_SOCFPGA) += socfpga_agilex5_socdk_ad9081_dual_link.dtb
 dtb-$(CONFIG_ARCH_KEEMBAY) += keembay-evm.dtb

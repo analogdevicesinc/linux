@@ -10,15 +10,151 @@
 
 	aliases {
 		serial0 = &uart0;
+		ethernet0 = &gmac0;
+		ethernet1 = &gmac1;
+		ethernet2 = &gmac2;
 	};
 
 	chosen {
 		stdout-path = "serial0:115200n8";
+		bootargs = "console=uart8250,mmio32,0x10c02000,115200n8 \
+			root=/dev/ram0 rw initrd=0x10000000 init=/sbin/init \
+			ramdisk_size=10000000 earlycon=uart8250,mmio32,0x10c02000,115200n8 \
+			panic=-1 nosmp rootfstype=ext3";
 	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		hps1 {
+			label = "hps_led1";
+			gpios = <&porta 11 GPIO_ACTIVE_HIGH>;
+		};
+
+	};
+
+	memory {
+		device_type = "memory";
+		/* We expect the bootloader to fill in the reg */
+		reg = <0x0 0x0 0x0 0x0>;
+	};
+};
+
+&gpio0 {
+	status = "okay";
 };
 
 &gpio1 {
 	status = "okay";
+};
+
+&gmac0 {
+	status = "disabled";
+	phy-mode = "rgmii";
+	phy-handle = <&emac0_phy0>;
+
+	max-frame-size = <9000>;
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		emac0_phy0: ethernet-phy@1 {
+			reg = <1>;
+		};
+	};
+};
+
+&gmac1 {
+	status = "disabled";
+	phy-mode = "rgmii";
+	mac-mode = "gmii";
+	phy-handle = <&emac1_phy0>;
+
+	max-frame-size = <9000>;
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		emac1_phy0: ethernet-phy@0 {
+			reg = <0>;
+		};
+	};
+};
+
+&gmac2 {
+	status = "okay";
+	phy-mode = "rgmii";
+	phy-handle = <&emac2_phy0>;
+
+	max-frame-size = <9000>;
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		emac2_phy0: ethernet-phy@1 {
+			reg = <1>;
+		};
+	};
+};
+
+&i3c0 {
+	status = "okay";
+};
+
+&i3c1 {
+	status = "okay";
+};
+
+&mmc {
+	status = "okay";
+	bus-width = <4>;
+	no-1-8-v;
+	cap-sd-highspeed;
+	cap-mmc-highspeed;
+	disable-wp;
+	sd-uhs-sdr50;
+	sdhci-caps = <0x00000000 0x0000c800>;
+	sdhci-caps-mask = <0x00002000 0x0000ff00>;
+	no-sdio;
+	cdns,phy-use-ext-lpbk-dqs = <1>;
+	cdns,phy-use-lpbk-dqs = <1>;
+	cdns,phy-use-phony-dqs = <1>;
+	cdns,phy-use-phony-dqs-cmd = <1>;
+	cdns,phy-io-mask-always-on = <0>;
+	cdns,phy-io-mask-end = <5>;
+	cdns,phy-io-mask-start = <0>;
+	cdns,phy-data-select-oe-end = <1>;
+	cdns,phy-sync-method = <1>;
+	cdns,phy-sw-half-cycle-shift = <0>;
+	cdns,phy-rd-del-sel = <52>;
+	cdns,phy-underrun-suppress = <1>;
+	cdns,phy-gate-cfg-always-on = <1>;
+	cdns,phy-param-dll-bypass-mode = <1>;
+	cdns,phy-param-phase-detect-sel = <2>;
+	cdns,phy-param-dll-start-point = <254>;
+	cdns,phy-read-dqs-cmd-delay = <0>;
+	cdns,phy-clk-wrdqs-delay = <0>;
+	cdns,phy-clk-wr-delay = <0>;
+	cdns,phy-read-dqs-delay = <0>;
+	cdns,phy-phony-dqs-timing = <0>;
+	cdns,hrs09-rddata-en = <1>;
+	cdns,hrs09-rdcmd-en = <1>;
+	cdns,hrs09-extended-wr-mode = <1>;
+	cdns,hrs09-extended-rd-mode = <1>;
+	cdns,hrs10-hcsdclkadj = <3>;
+	cdns,hrs16-wrdata1-sdclk-dly = <0>;
+	cdns,hrs16-wrdata0-sdclk-dly = <0>;
+	cdns,hrs16-wrcmd1-sdclk-dly = <0>;
+	cdns,hrs16-wrcmd0-sdclk-dly = <0>;
+	cdns,hrs16-wrdata1-dly = <0>;
+	cdns,hrs16-wrdata0-dly = <0>;
+	cdns,hrs16-wrcmd1-dly = <0>;
+	cdns,hrs16-wrcmd0-dly = <0>;
+	cdns,hrs07-rw-compensate = <10>;
+	cdns,hrs07-idelay-val = <0>;
 };
 
 &osc1 {
@@ -34,6 +170,126 @@
 	disable-over-current;
 };
 
+&usb31 {
+	status = "okay";
+	dr_mode = "host";
+};
+
+&smmu {
+	status = "okay";
+};
+
 &watchdog0 {
 	status = "okay";
+};
+&watchdog1 {
+	status = "okay";
+};
+&watchdog2 {
+	status = "okay";
+};
+&watchdog3 {
+	status = "okay";
+};
+&watchdog4 {
+	status = "okay";
+	disable-over-current;
+};
+
+&qspi {
+	status = "okay";
+	flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "micron,mt25qu02g", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <100000000>;
+
+		m25p,fast-read;
+		cdns,page-size = <256>;
+		cdns,block-size = <16>;
+		cdns,read-delay = <2>;
+		cdns,tshsl-ns = <50>;
+		cdns,tsd2d-ns = <50>;
+		cdns,tchsh-ns = <4>;
+		cdns,tslch-ns = <4>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			rsu-handle = <&qspi_boot>;
+
+			qspi_boot: partition@0 {
+				label = "u-boot";
+				reg = <0x0 0x04200000>;
+			};
+
+			root: partition@4200000 {
+				label = "root";
+				reg = <0x04200000 0x0BE00000>;
+			};
+		};
+	};
+};
+
+&temp_volt {
+	voltage {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		input@2 {
+			label = "0.8V VCC";
+			reg = <2>;
+		};
+
+		input@3 {
+			label = "1.8V VCCIO_SDM";
+			reg = <3>;
+		};
+
+		input@4 {
+			label = "1.8V VCCPT";
+			reg = <4>;
+		};
+
+		input@5 {
+			label = "1.2V VCCCRCORE";
+			reg = <5>;
+		};
+
+		input@6 {
+			label = "0.9V VCCH";
+			reg = <6>;
+		};
+
+		input@7 {
+			label = "0.8V VCCL";
+			reg = <7>;
+		};
+	};
+
+	temperature {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		input@0 {
+			label = "Main Die SDM";
+			reg = <0x0>;
+		};
+
+		input@10001 {
+			label = "Main Die corner bottom left max";
+			reg = <0x10000>;
+		};
+
+		input@30001 {
+			label = "Main Die corner bottom right max";
+			reg = <0x30000>;
+		};
+
+		input@40001 {
+			label = "Main Die corner top right max";
+			reg = <0x40000>;
+		};
+	};
 };
