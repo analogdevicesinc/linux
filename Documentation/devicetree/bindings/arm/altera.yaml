@@ -98,6 +98,7 @@ properties:
               - intel,socfpga-agilex-n6000
               - intel,socfpga-agilex-socdk
               - intel,socfpga-agilex-socdk-emmc
+              - intel,socfpga-agilex-socdk-multiqspi
           - const: intel,socfpga-agilex
 
       - description: Agilex3 boards
