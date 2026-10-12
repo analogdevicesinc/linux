@@ -6,9 +6,11 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/adi-axi-common.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -37,6 +39,10 @@
 
 #define ADXCVR_REG_STATUS2			0x0018
 #define ADXCVR_STATUS2_XCVR(x)			BIT(x)
+
+#define ADXCVR_FPGA_TECH_STRATIX10		104
+#define ADXCVR_FPGA_TECH_AGILEX7		105
+#define ADXCVR_FPGA_TECH_AGILEX5		106
 
 #define ADXCVR_REG_SYNTH_CONF			0x0024
 
@@ -85,21 +91,29 @@
 #define XCVR_RATE_SWITCH_FLAG_RATE_SWITCH	0x00
 #define XCVR_RATE_SWITCH_FLAG_NO_RATE_SWITCH	0x80
 
+/* GTS System PLL Registers */
+
+#define GTS_PLL_REG_REFCLK_BUFFER		0x0e
+#define GTS_PLL_REFCLK_BUFFER_REQ_BYTE		2	/* bits [23:16] */
+#define GTS_PLL_REFCLK_BUFFER_REQ_ALL		0xff
+
 static DEFINE_MUTEX(adxcfg_global_lock);
 
 struct adxcvr_state {
 	struct device		*dev;
 	void __iomem		*adxcvr_regs;
 	void __iomem		*atx_pll_regs;
+	void __iomem		*gts_pll_regs;
 	void __iomem		*adxcfg_regs[32];
 	struct jesd204_dev	*jdev;
 	unsigned int 		version;
 	bool			is_s10;
+	bool			is_agilex;
 	bool			is_transmit;
-	bool			skip_pll_reconfig;
 	u32			lanes_per_link;
 
 	unsigned int reset_counter;
+	struct gpio_desc	*refclk_ready_gpio;
 
 	struct clk *ref_clk;
 
@@ -185,6 +199,17 @@ static void atx_pll_release_arbitration(struct adxcvr_state *st,
 	bool calibrate)
 {
 	adxcvr_release_arbitration(st->atx_pll_regs, calibrate);
+}
+
+static void gts_pll_writeb(struct adxcvr_state *st, unsigned int reg,
+	unsigned int byte, u8 val)
+{
+	iowrite8(val, st->gts_pll_regs + reg * 4 + byte);
+}
+
+static unsigned int gts_pll_read(struct adxcvr_state *st, unsigned int reg)
+{
+	return ioread32(st->gts_pll_regs + reg * 4);
 }
 
 static void adxcfg_write(struct adxcvr_state *st, unsigned lane, unsigned reg,
@@ -418,12 +443,21 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 		mdelay(1);
 	} while (timeout--);
 
-	if (timeout < 0) {
+	/*
+	 * On Agilex the RX status also needs the CDR to lock to data, which
+	 * only happens once the converter transmits, so a timeout is expected.
+	 */
+	if (timeout < 0 && !st->is_agilex) {
 		status = adxcvr_read(st, ADXCVR_REG_STATUS2);
 		dev_err(st->dev, "Link activation error:\n");
-		dev_err(st->dev, "\tLink PLL %slocked\n",
+		dev_err(st->dev, "\tTransceiver PLL %slocked\n",
 			(status & ADXCVR_STATUS2_XCVR(st->lanes_per_link)) ?
 				"" : "not ");
+		/* Cores from 17.03.a on also report the link clock PLL. */
+		if (st->version >= VERSION(17, 3, 'a'))
+			dev_err(st->dev, "\tLink clock PLL %slocked\n",
+				(status & ADXCVR_STATUS2_XCVR(st->lanes_per_link + 1)) ?
+					"" : "not ");
 		for (i = 0; i < st->lanes_per_link; i++) {
 			dev_err(st->dev, "\tLane %d transceiver %sready\n", i,
 				(status & ADXCVR_STATUS2_XCVR(i)) ?
@@ -545,7 +579,9 @@ static int adxcvr_dummy_pll_set_rate(struct clk_hw *clk_hw,
 
 	adxcvr_pre_lane_rate_change(st);
 
-	if (st->is_transmit) {
+	if (st->is_agilex) {
+		/* No ATX PLL or PMA calibration on Agilex. */
+	} else if (st->is_transmit) {
 		atx_pll_acquire_arbitration(st);
 		atx_pll_update(st, XCVR_REG_CALIB_ATX_PLL_EN,
 			XCVR_CALIB_ATX_PLL_EN_MASK, XCVR_CALIB_ATX_PLL_EN);
@@ -557,9 +593,8 @@ static int adxcvr_dummy_pll_set_rate(struct clk_hw *clk_hw,
 			adxcfg_s10_calibration(st, true);
 		else
 			xcvr_calib_tx(st);
-	} else {
-		if (st->is_s10)
-			adxcfg_s10_calibration(st, false);
+	} else if (st->is_s10) {
+		adxcfg_s10_calibration(st, false);
 	}
 
 	adxcvr_post_lane_rate_change(st, rate);
@@ -596,7 +631,8 @@ static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 		init.ops = &adxcvr_atx_pll_ops;
 	else
 		init.ops = &adxcvr_cdr_pll_ops;
-	if (st->skip_pll_reconfig)
+	/* Stratix 10 and Agilex only support a fixed lane rate. */
+	if (st->is_s10 || st->is_agilex)
 		init.ops = &adxcvr_dummy_pll_ops;
 	init.flags = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE;
 	init.num_parents = 1;
@@ -611,13 +647,84 @@ static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 		clk);
 }
 
+static void adxcvr_get_fpga_family(struct adxcvr_state *st)
+{
+	unsigned int info = adxcvr_read(st, ADI_AXI_REG_FPGA_INFO);
+
+	switch (ADI_AXI_INFO_FPGA_TECH(info)) {
+	case ADXCVR_FPGA_TECH_STRATIX10:
+		st->is_s10 = true;
+		break;
+	case ADXCVR_FPGA_TECH_AGILEX7:
+	case ADXCVR_FPGA_TECH_AGILEX5:
+		st->is_agilex = true;
+		break;
+	case ADI_AXI_FPGA_TECH_UNKNOWN:
+		/* Cores that predate the FPGA_INFO register read back 0. */
+		st->is_s10 = of_property_read_bool(st->dev->of_node,
+			"adi,stratix10");
+		st->is_agilex = of_property_read_bool(st->dev->of_node,
+			"adi,agilex");
+		break;
+	default:
+		break;
+	}
+}
+
+static int adxcvr_jesd204_link_setup(struct jesd204_dev *jdev,
+	enum jesd204_state_op_reason reason, struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct adxcvr_state *st = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+		lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	switch (reason) {
+	case JESD204_STATE_OP_REASON_INIT:
+		if (st->refclk_ready_gpio) {
+			/* The reference clock is only stable once the clock chip is set up. */
+			gpiod_set_value_cansleep(st->refclk_ready_gpio, 1);
+			/* Wait for the GTS system PLL to lock. */
+			msleep(100);
+		}
+
+		if (st->gts_pll_regs) {
+			/* Write only the request byte, leave the rest untouched. */
+			gts_pll_writeb(st, GTS_PLL_REG_REFCLK_BUFFER,
+				       GTS_PLL_REFCLK_BUFFER_REQ_BYTE,
+				       GTS_PLL_REFCLK_BUFFER_REQ_ALL);
+			usleep_range(10000, 20000);
+			dev_dbg(dev, "GTS refclk buffer status: 0x%08x\n",
+				gts_pll_read(st, GTS_PLL_REG_REFCLK_BUFFER));
+		}
+		break;
+	case JESD204_STATE_OP_REASON_UNINIT:
+		if (st->refclk_ready_gpio) {
+			gpiod_set_value_cansleep(st->refclk_ready_gpio, 0);
+			msleep(100);
+		}
+		break;
+	default:
+		break;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
 static const struct jesd204_dev_data adxcvr_jesd204_data = {
+	.state_ops = {
+		[JESD204_OP_LINK_SETUP] = {
+			.per_link = adxcvr_jesd204_link_setup,
+		},
+	},
 };
 
 static int adxcvr_probe(struct platform_device *pdev)
 {
 	struct resource *mem_adxcvr;
 	struct resource *mem_atx_pll;
+	struct resource *mem_gts_pll;
 	struct resource *mem_adxcfg;
 	struct adxcvr_state *st;
 	unsigned int synth_conf;
@@ -628,6 +735,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
 	if (!st)
 		return -ENOMEM;
+
+	st->dev = &pdev->dev;
 
 	st->jdev = devm_jesd204_dev_register(&pdev->dev, &adxcvr_jesd204_data);
 	if (IS_ERR(st->jdev))
@@ -650,13 +759,16 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st->is_transmit = (bool)(synth_conf & 0x100);
 	st->lanes_per_link = synth_conf & 0xff;
 
+	adxcvr_get_fpga_family(st);
+
 	if (st->lanes_per_link > ARRAY_SIZE(st->adxcfg_regs)) {
-		dev_err(&pdev->dev, "Only up to %d lanes supported.\n",
+		dev_err(&pdev->dev, "Only up to %zu lanes supported.\n",
 			ARRAY_SIZE(st->adxcfg_regs));
 		return -EINVAL;
 	}
 
-	for (lane = 0; lane < st->lanes_per_link; lane++) {
+	/* Agilex needs no PHY reconfiguration, so it has no lane windows. */
+	for (lane = 0; !st->is_agilex && lane < st->lanes_per_link; lane++) {
 		sprintf(adxcfg_name, "adxcfg-%d", lane);
 		mem_adxcfg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, adxcfg_name);
@@ -670,7 +782,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (IS_ERR(st->link_clk) && PTR_ERR(st->link_clk) != -ENOENT)
 		return PTR_ERR(st->link_clk);
 
-	if (st->is_transmit) {
+	if (st->is_transmit && !st->is_agilex) {
 		mem_atx_pll = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "atx-pll");
 		st->atx_pll_regs = devm_ioremap_resource(&pdev->dev,
@@ -679,15 +791,22 @@ static int adxcvr_probe(struct platform_device *pdev)
 			return PTR_ERR(st->atx_pll_regs);
 	}
 
-	st->skip_pll_reconfig = of_property_read_bool(pdev->dev.of_node,
-		"adi,skip-pll-reconfiguration");
+	/* Optional, only Agilex 5 has a GTS system PLL. */
+	mem_gts_pll = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						   "gts-pll");
+	if (st->is_transmit && st->is_agilex && mem_gts_pll) {
+		st->gts_pll_regs = devm_ioremap_resource(&pdev->dev,
+							 mem_gts_pll);
+		if (IS_ERR(st->gts_pll_regs))
+			return PTR_ERR(st->gts_pll_regs);
+	}
 
-	st->is_s10 = of_property_read_bool(pdev->dev.of_node,
-		"adi,stratix10");
-	if (st->is_s10)
-		st->skip_pll_reconfig = true;
+	st->refclk_ready_gpio = devm_gpiod_get_optional(&pdev->dev,
+		"refclk-ready", GPIOD_OUT_LOW);
+	if (IS_ERR(st->refclk_ready_gpio))
+		return dev_err_probe(&pdev->dev, PTR_ERR(st->refclk_ready_gpio),
+				     "Failed to get refclk-ready GPIO\n");
 
-	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
 
 	INIT_WORK(&st->link_clk_work, adxcvr_link_clk_work);
@@ -731,6 +850,9 @@ static void adxcvr_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(st->link_clk);
 	clk_disable_unprepare(st->ref_clk);
+
+	if (st->refclk_ready_gpio)
+		gpiod_set_value_cansleep(st->refclk_ready_gpio, 0);
 }
 
 static const struct of_device_id adxcvr_of_match[] = {
