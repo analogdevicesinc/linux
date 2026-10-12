@@ -1488,10 +1488,12 @@ static void mntput_no_expire(struct mount *mnt)
 		 * Since we don't do lock_mount_hash() here,
 		 * ->mnt_ns can change under us.  However, if it's
 		 * non-NULL, then there's a reference that won't
-		 * be dropped until after an RCU delay done after
-		 * turning ->mnt_ns NULL.  So if we observe it
-		 * non-NULL under rcu_read_lock(), the reference
-		 * we are dropping is not the final one.
+		 * be dropped until after turning ->mnt_ns NULL and
+		 * either an RCU delay or a look under mount_lock
+		 * that found it to be the only one left, which it
+		 * isn't while ours is counted (mntput_unheld()).
+		 * So if we observe it non-NULL under rcu_read_lock(),
+		 * the reference we are dropping is not the final one.
 		 */
 		smp_wmb();	/* pairs with the smp_mb() in mnt_get_count() */
 		mnt_dec_count(mnt);
@@ -1502,6 +1504,75 @@ static void mntput_no_expire(struct mount *mnt)
 }
 
 DEFINE_FREE(mntput_no_expire, struct mount *, if (_T) mntput_no_expire(_T))
+
+/*
+ * Drop the own reference of a mount that has left its namespace without
+ * waiting for a grace period. mnt_get_count() is biased towards gets,
+ * i.e., it overcounts rather than undercounts. So if the count under
+ * mount_lock is one we know its ours and we're going to drop it.
+ *
+ * Called under mount_lock, the cleanup of the mount is left to the caller.
+ * Returns false if somebody else still references the mount.
+ */
+static bool mntput_unheld(struct mount *mnt, struct list_head *shrink)
+{
+	VFS_BUG_ON(mnt->mnt_ns);
+	if (mnt_get_count(mnt) != 1)
+		return false;
+	mnt_dec_count(mnt);
+	mntput_final_locked(mnt, shrink);
+	return true;
+}
+
+/* peeks per mount_lock hold, pathwalks spin while it is held */
+#define MNTPUT_UNMOUNTED_BATCH 16
+
+/*
+ * Put the mounts umount_tree() collected. Ideally, every mount just has a
+ * single reference count which means that we can elide the grace period.
+ * We batch mntput_unheld() as mnt_get_count() needs to sum over every cpu.
+ * On big machines it's not that fast. If there are mounts with held references
+ * we need the grace period.
+ */
+static void mntput_unmounted(struct hlist_head *head)
+{
+	struct hlist_node *p;
+	struct mount *m;
+	HLIST_HEAD(held);
+
+	while (!hlist_empty(head)) {
+		unsigned int n = 0;
+		HLIST_HEAD(unheld);
+		LIST_HEAD(shrink);
+
+		lock_mount_hash();
+		hlist_for_each_entry_safe(m, p, head, mnt_umount) {
+			hlist_del(&m->mnt_umount);
+			if (mntput_unheld(m, &shrink))
+				hlist_add_head(&m->mnt_umount, &unheld);
+			else
+				hlist_add_head(&m->mnt_umount, &held);
+			if (++n == MNTPUT_UNMOUNTED_BATCH)
+				break;
+		}
+		unlock_mount_hash();
+		shrink_dentry_list(&shrink);
+
+		hlist_for_each_entry_safe(m, p, &unheld, mnt_umount) {
+			hlist_del(&m->mnt_umount);
+			mntput_queue_cleanup(m);
+		}
+	}
+
+	if (hlist_empty(&held))
+		return;
+
+	synchronize_rcu_expedited();
+	hlist_for_each_entry_safe(m, p, &held, mnt_umount) {
+		hlist_del(&m->mnt_umount);
+		mntput(&m->mnt);
+	}
+}
 
 void mntput(struct vfsmount *mnt)
 {
@@ -1526,7 +1597,9 @@ EXPORT_SYMBOL(mntget);
 /*
  * Make a mount point inaccessible to new lookups.
  * Because there may still be current users, the caller MUST WAIT
- * for an RCU grace period before destroying the mount point.
+ * for an RCU grace period before destroying the mount point, unless
+ * it finds under mount_lock that it holds the only reference left,
+ * see mntput_unheld().
  */
 void mnt_make_shortterm(struct vfsmount *mnt)
 {
@@ -1781,8 +1854,6 @@ static void free_mnt_ns(struct mnt_namespace *);
 static void namespace_unlock(void)
 {
 	struct hlist_head head;
-	struct hlist_node *p;
-	struct mount *m;
 	struct mnt_namespace *ns = emptied_ns;
 	LIST_HEAD(list);
 
@@ -1813,12 +1884,7 @@ static void namespace_unlock(void)
 	if (likely(hlist_empty(&head)))
 		return;
 
-	synchronize_rcu_expedited();
-
-	hlist_for_each_entry_safe(m, p, &head, mnt_umount) {
-		hlist_del(&m->mnt_umount);
-		mntput(&m->mnt);
-	}
+	mntput_unmounted(&head);
 }
 
 static inline void namespace_lock(void)
