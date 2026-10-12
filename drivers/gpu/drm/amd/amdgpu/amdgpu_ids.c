@@ -613,9 +613,12 @@ int amdgpu_vmid_alloc_reserved(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 		r = -ENOENT;
 		goto unlock;
 	}
-	/* Remove from normal round robin handling */
-	id = list_first_entry(&id_mgr->ids_lru, struct amdgpu_vmid, list);
-	list_del_init(&id->list);
+	if (!adev->vm_manager.spm_vmid) {
+		r = -ENOENT;
+		goto unlock;
+	}
+
+	id = &id_mgr->ids[adev->vm_manager.spm_vmid];
 	vm->reserved_vmid[vmhub] = id;
 	id_mgr->reserved_vmid = true;
 	mutex_unlock(&id_mgr->lock);
@@ -639,8 +642,6 @@ void amdgpu_vmid_free_reserved(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 
 	mutex_lock(&id_mgr->lock);
 	if (vm->reserved_vmid[vmhub]) {
-		list_add(&vm->reserved_vmid[vmhub]->list,
-			&id_mgr->ids_lru);
 		vm->reserved_vmid[vmhub] = NULL;
 		id_mgr->reserved_vmid = false;
 	}
@@ -690,6 +691,14 @@ void amdgpu_vmid_reset_all(struct amdgpu_device *adev)
 		for_each_set_bit(j, id_mgr->vmid_mask, AMDGPU_NUM_VMID)
 			amdgpu_vmid_reset(adev, i, j);
 	}
+
+	/*
+	 * The SPM VMID is not part of the normal kernel pool, reset it
+	 * anyway in case it is used with kernel queues.
+	 */
+	if (adev->vm_manager.spm_vmid)
+		for (i = AMDGPU_GFXHUB_START; i < AMDGPU_MMHUB0_START; ++i)
+			amdgpu_vmid_reset(adev, i, adev->vm_manager.spm_vmid);
 }
 
 /**
@@ -773,6 +782,17 @@ void amdgpu_vmid_mgr_init(struct amdgpu_device *adev)
 			amdgpu_sync_create(&id_mgr->ids[j].active);
 			list_add_tail(&id_mgr->ids[j].list, &id_mgr->ids_lru);
 		}
+	}
+
+	/*
+	 * The SPM VMID is not part of the normal kernel pool, create its
+	 * sync anyway in case it is used with kernel queues.
+	 */
+	if (adev->vm_manager.spm_vmid) {
+		unsigned int spm_vmid = adev->vm_manager.spm_vmid;
+
+		for (i = AMDGPU_GFXHUB_START; i < AMDGPU_MMHUB0_START; ++i)
+			amdgpu_sync_create(&adev->vm_manager.id_mgr[i].ids[spm_vmid].active);
 	}
 }
 
