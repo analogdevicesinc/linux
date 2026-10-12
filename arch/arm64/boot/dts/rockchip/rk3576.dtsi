@@ -970,7 +970,7 @@
 
 		sdgmac_grf: syscon@26038000 {
 			compatible = "rockchip,rk3576-sdgmac-grf", "syscon";
-			reg = <0x0 0x26038000 0x0 0x1000>;
+			reg = <0x0 0x26038000 0x0 0x2000>;
 		};
 
 		ioc_grf: syscon@26040000 {
