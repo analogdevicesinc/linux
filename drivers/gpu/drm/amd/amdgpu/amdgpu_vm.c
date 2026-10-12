@@ -569,6 +569,41 @@ uint64_t amdgpu_vm_generation(struct amdgpu_device *adev, struct amdgpu_vm *vm)
 }
 
 /**
+ * amdgpu_vm_spm_update - bind the SPM VMID's page table base to @vm
+ *
+ * @adev: amdgpu device pointer
+ * @vm: vm to check against the SPM reservation
+ *
+ * The SPM VMID is fixed (adev->vm_manager.spm_vmid), so its page-table-base
+ * register must track whichever VM currently holds the reservation instead
+ * of being set per-job like a normal VMID. Bind it to @vm's real root PD
+ * address if @vm holds the reservation; otherwise do nothing, since @vm is
+ * not the one that could legitimately change the current binding.
+ *
+ * @vm's root PD must be locked by the caller.
+ */
+void amdgpu_vm_spm_update(struct amdgpu_device *adev, struct amdgpu_vm *vm)
+{
+	struct amdgpu_kq_vmid_mgr *id_mgr =
+		&adev->vm_manager.id_mgr[AMDGPU_GFXHUB(0)];
+	uint64_t pd_addr;
+
+	if (!adev->vm_manager.spm_vmid || !adev->gfxhub.funcs)
+		return;
+
+	mutex_lock(&id_mgr->lock);
+	if (vm->reserved_vmid[AMDGPU_GFXHUB(0)] !=
+	    &id_mgr->ids[adev->vm_manager.spm_vmid] || !amdgpu_vm_ready(vm)) {
+		mutex_unlock(&id_mgr->lock);
+		return;
+	}
+
+	pd_addr = amdgpu_gmc_pd_addr(vm->root.bo);
+	amdgpu_gmc_bind_vmid(adev, AMDGPU_GFXHUB(0), adev->vm_manager.spm_vmid, pd_addr);
+	mutex_unlock(&id_mgr->lock);
+}
+
+/**
  * amdgpu_vm_validate - validate evicted BOs tracked in the VM
  *
  * @adev: amdgpu device pointer
@@ -2957,9 +2992,17 @@ int amdgpu_vm_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 		return -EINVAL;
 
 	switch (args->in.op) {
-	case AMDGPU_VM_OP_RESERVE_VMID:
+	case AMDGPU_VM_OP_RESERVE_VMID: {
+		int r;
+
 		/* We only have requirement to reserve vmid from gfxhub */
-		return amdgpu_vmid_alloc_reserved(adev, vm, AMDGPU_GFXHUB(0));
+		r = amdgpu_vmid_alloc_reserved(adev, vm, AMDGPU_GFXHUB(0));
+		if (!r && !amdgpu_bo_reserve(vm->root.bo, true)) {
+			amdgpu_vm_spm_update(adev, vm);
+			amdgpu_bo_unreserve(vm->root.bo);
+		}
+		return r;
+	}
 	case AMDGPU_VM_OP_UNRESERVE_VMID:
 		amdgpu_vmid_free_reserved(adev, vm, AMDGPU_GFXHUB(0));
 		break;

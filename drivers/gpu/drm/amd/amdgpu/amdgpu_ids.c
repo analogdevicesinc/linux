@@ -633,16 +633,28 @@ unlock:
  * @adev: amdgpu device structure
  * @vm: the VM with the reserved ID
  * @vmhub: the VMHUB which should be used
+ *
+ * Waits for all work that used the reserved VMID to finish before unbinding
+ * its page table, so submissions still in flight don't suddenly fault.
  */
 void amdgpu_vmid_free_reserved(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 			       unsigned vmhub)
 {
 	struct amdgpu_kq_vmid_mgr *id_mgr = &adev->vm_manager.id_mgr[vmhub];
+	struct amdgpu_vmid *id;
 
 	mutex_lock(&id_mgr->lock);
-	if (vm->reserved_vmid[vmhub]) {
+	id = vm->reserved_vmid[vmhub];
+	if (id) {
 		vm->reserved_vmid[vmhub] = NULL;
 		id_mgr->reserved_vmid = false;
+
+		/* Only for kernel queues and kfd/userqueues by pass that */
+		amdgpu_sync_wait(&id->active, false);
+
+		if (adev->vm_manager.spm_vmid && adev->gfxhub.funcs)
+			amdgpu_gmc_bind_vmid(adev, AMDGPU_GFXHUB(0),
+					     adev->vm_manager.spm_vmid, 0);
 	}
 	mutex_unlock(&id_mgr->lock);
 }
