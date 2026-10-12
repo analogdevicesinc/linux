@@ -1051,8 +1051,7 @@ EXPORT_SYMBOL(of_drm_find_panel);
  * return either the associated struct drm_panel or drm_bridge device.
  *
  * This function is deprecated and should not be used in new drivers. Use
- * of_drm_get_bridge_by_endpoint() instead when not looking for a panel, or
- * devm_drm_of_get_bridge() otherwise.
+ * of_drm_get_bridge_by_endpoint() instead.
  *
  * Returns zero if successful, or one of the standard error codes if it fails.
  */
