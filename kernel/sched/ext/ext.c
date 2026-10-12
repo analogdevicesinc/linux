@@ -6560,15 +6560,12 @@ static void enable_bypass_dsp(struct scx_sched *sch)
 
 	/*
 	 * When a sub-sched bypasses, its tasks are queued on the bypass DSQs of
-	 * the nearest non-bypassing ancestor or root. As enable_bypass_dsp() is
-	 * called iff @sch is not already bypassed due to an ancestor bypassing,
-	 * we can assume that the parent is not bypassing and thus will be the
-	 * host of the bypass DSQs.
-	 *
-	 * While the situation may change in the future, the following
-	 * guarantees that the nearest non-bypassing ancestor or root has bypass
-	 * dispatch enabled while a descendant is bypassing, which is all that's
-	 * required.
+	 * the nearest non-bypassing ancestor or root. The parent hosts them
+	 * unless it is bypassing too. Then they sit further up and the parent
+	 * consumes only its own bypass DSQs, empty until it leaves bypass and
+	 * becomes the host. Either way the nearest non-bypassing ancestor or
+	 * root has bypass dispatch enabled while a descendant is bypassing,
+	 * which is all that's required.
 	 *
 	 * scx_bypass_dsp_enabled() test is used to determine whether to enter
 	 * the bypass dispatch handling path from both bypassing and hosting
@@ -6677,33 +6674,44 @@ void scx_bypass(struct scx_sched *sch, bool bypass)
 	struct scx_sched *pos;
 	unsigned long flags;
 	int cpu;
+	bool changed;
 
 	raw_spin_lock_irqsave(&scx_bypass_lock, flags);
 
 	if (bypass) {
-		if (!inc_bypass_depth(sch))
-			goto unlock;
-
-		enable_bypass_dsp(sch);
+		changed = inc_bypass_depth(sch);
+		if (changed)
+			enable_bypass_dsp(sch);
 	} else {
-		if (!dec_bypass_depth(sch))
-			goto unlock;
+		changed = dec_bypass_depth(sch);
 	}
 
 	/*
 	 * Bypass state is propagated to all descendants - an scx_sched bypasses
-	 * if itself or any of its ancestors are in bypass mode.
+	 * if itself or any of its ancestors are in bypass mode. A descendant's
+	 * depth is the sum of its own bypasses and its ancestors', so every
+	 * call propagates whether or not @sch changed state. The descendants'
+	 * claims are released below with @sch's, after their tasks have moved.
 	 */
 	raw_spin_lock(&scx_sched_lock);
 	scx_for_each_descendant_pre(pos, sch) {
 		if (pos == sch)
 			continue;
-		if (bypass)
-			inc_bypass_depth(pos);
-		else
+		if (bypass) {
+			if (inc_bypass_depth(pos))
+				enable_bypass_dsp(pos);
+		} else {
 			dec_bypass_depth(pos);
+		}
 	}
 	raw_spin_unlock(&scx_sched_lock);
+
+	/*
+	 * A descendant's depth is at least @sch's, so no bypass state changed
+	 * unless @sch's did.
+	 */
+	if (!changed)
+		goto unlock;
 
 	/*
 	 * No task property is changing. We just need to make sure all currently
@@ -6783,8 +6791,12 @@ void scx_bypass(struct scx_sched *sch, bool bypass)
 	}
 
 	/* disarming must come after moving all tasks out of the bypass DSQs */
-	if (!bypass)
-		scx_disable_bypass_dsp(sch);
+	if (!bypass) {
+		guard(raw_spinlock)(&scx_sched_lock);
+		scx_for_each_descendant_pre(pos, sch)
+			if (!pos->bypass_depth)
+				scx_disable_bypass_dsp(pos);
+	}
 unlock:
 	raw_spin_unlock_irqrestore(&scx_bypass_lock, flags);
 }
