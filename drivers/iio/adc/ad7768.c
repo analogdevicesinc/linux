@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/kstrtox.h>
 #include <linux/log2.h>
 #include <linux/math.h>
 #include <linux/minmax.h>
@@ -27,6 +28,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/reset.h>
 #include <linux/spi/spi.h>
+#include <linux/sysfs.h>
 #include <linux/time.h>
 #include <linux/types.h>
 #include <linux/unaligned.h>
@@ -51,6 +53,9 @@
 #define     AD7768_POWER_MODE_POWER_MODE_FAST		0x3
 #define   AD7768_POWER_MODE_LVDS_ENABLE			BIT(3)
 #define   AD7768_POWER_MODE_MCLK_DIV_MSK		GENMASK(1, 0)
+#define     AD7768_POWER_MODE_MCLK_DIV_32		0x0
+#define     AD7768_POWER_MODE_MCLK_DIV_8		0x2
+#define     AD7768_POWER_MODE_MCLK_DIV_4		0x3
 
 #define AD7768_REG_GENERAL_CONFIG			0x05
 #define   AD7768_GEN_CONFIG_VCM_SEL_MSK			GENMASK(1, 0)
@@ -107,7 +112,7 @@
 #define AD7768_MIN_MCLK_FREQ_HZ				(1150 * HZ_PER_KHZ)
 #define AD7768_MIN_XTAL_FREQ_HZ				(8 * HZ_PER_MHZ)
 #define AD7768_MAX_MCLK_FREQ_HZ				(34 * HZ_PER_MHZ)
-#define AD7768_MAX_FREQ_PER_MODE			6
+#define AD7768_MAX_FREQ_PER_DIV				6
 #define AD7768_MAX_CHANNEL				8
 #define AD7768_NUM_CHANNEL_MODES			2
 #define AD7768_CALIB_SIGN_BIT				23
@@ -128,17 +133,32 @@ enum ad7768_clock_source {
 
 struct ad7768_power_mode_info {
 	unsigned int mode;
-	unsigned int mclk_div;
+	unsigned int min_fmod_hz;
+	unsigned int max_fmod_hz;
 };
 
 static const struct ad7768_power_mode_info ad7768_power_modes[] = {
-	{ .mode = AD7768_POWER_MODE_POWER_MODE_LOW, .mclk_div = 32 },
-	{ .mode = AD7768_POWER_MODE_POWER_MODE_MEDIAN, .mclk_div = 8 },
-	{ .mode = AD7768_POWER_MODE_POWER_MODE_FAST, .mclk_div = 4 },
+	{ .mode = AD7768_POWER_MODE_POWER_MODE_LOW,
+	  .min_fmod_hz = 36 * HZ_PER_KHZ,
+	  .max_fmod_hz = 1024 * HZ_PER_KHZ },
+	{ .mode = AD7768_POWER_MODE_POWER_MODE_MEDIAN,
+	  .min_fmod_hz = 1024 * HZ_PER_KHZ,
+	  .max_fmod_hz = 4096 * HZ_PER_KHZ },
+	{ .mode = AD7768_POWER_MODE_POWER_MODE_FAST,
+	  .min_fmod_hz = 4096 * HZ_PER_KHZ,
+	  .max_fmod_hz = 8192 * HZ_PER_KHZ },
 };
 
-#define AD7768_MAX_FREQS \
-	(AD7768_MAX_FREQ_PER_MODE + ARRAY_SIZE(ad7768_power_modes))
+struct ad7768_mclk_div_info {
+	unsigned int reg_value;
+	unsigned int divisor;
+};
+
+static const struct ad7768_mclk_div_info ad7768_mclk_divs[] = {
+	{ .reg_value = AD7768_POWER_MODE_MCLK_DIV_32, .divisor = 32 },
+	{ .reg_value = AD7768_POWER_MODE_MCLK_DIV_8, .divisor = 8 },
+	{ .reg_value = AD7768_POWER_MODE_MCLK_DIV_4, .divisor = 4 },
+};
 
 struct ad7768_precharge_config {
 	bool prebufp_en;
@@ -160,7 +180,7 @@ struct ad7768_convdelay_params {
 
 struct ad7768_avail_freq {
 	unsigned int n_freqs;
-	struct ad7768_freq_config freq_cfg[AD7768_MAX_FREQ_PER_MODE];
+	struct ad7768_freq_config freq_cfg[AD7768_MAX_FREQ_PER_DIV];
 };
 
 struct ad7768_chip_info {
@@ -181,12 +201,13 @@ struct ad7768_state {
 	unsigned int datalines;
 	enum ad7768_clock_source clock_source;
 	const struct ad7768_chip_info *chip_info;
-	struct ad7768_avail_freq avail_freq[ARRAY_SIZE(ad7768_power_modes)];
-	unsigned int n_freqs;
-	int freqs[AD7768_MAX_FREQS];
+	struct ad7768_avail_freq avail_freq[ARRAY_SIZE(ad7768_mclk_divs)];
+	int freqs[ARRAY_SIZE(ad7768_mclk_divs)][AD7768_MAX_FREQ_PER_DIV];
+	unsigned int modulator_freqs[ARRAY_SIZE(ad7768_mclk_divs)];
+	unsigned int n_modulator_freqs;
 	u64 ch_convdelay_ps[AD7768_MAX_CHANNEL];
 	unsigned int ch_freq[AD7768_MAX_CHANNEL];
-	unsigned int power_mode_idx;
+	unsigned int mclk_div_idx;
 	enum ad7768_filter_type ch_filter[AD7768_MAX_CHANNEL];
 	struct iio_backend *back;
 	struct regulator_dev *vcm_rdev;
@@ -341,7 +362,7 @@ static int ad7768_register_vcm_regulator(struct device *dev,
 	return PTR_ERR_OR_ZERO(st->vcm_rdev);
 }
 
-static const unsigned int ad7768_dec_rate[AD7768_MAX_FREQ_PER_MODE] = {
+static const unsigned int ad7768_dec_rate[AD7768_MAX_FREQ_PER_DIV] = {
 	32, 64, 128, 256, 512, 1024,
 };
 
@@ -647,12 +668,54 @@ static int ad7768_sync(struct ad7768_state *st)
 			       AD7768_DATA_CONTROL_SPI_SYNC);
 }
 
-static int ad7768_set_power_mode(struct ad7768_state *st,
-				 unsigned int mode_idx)
+static unsigned int
+ad7768_get_modulator_freq(const struct ad7768_state *st,
+			  unsigned int mclk_div_idx)
 {
+	return clk_get_rate(st->mclk) /
+		ad7768_mclk_divs[mclk_div_idx].divisor;
+}
+
+static int ad7768_find_power_mode(unsigned int fmod_hz)
+{
+	for (unsigned int i = 0; i < ARRAY_SIZE(ad7768_power_modes); i++)
+		if (fmod_hz >= ad7768_power_modes[i].min_fmod_hz &&
+		    fmod_hz <= ad7768_power_modes[i].max_fmod_hz)
+			return i;
+
+	return -EINVAL;
+}
+
+static int ad7768_find_mclk_div(const struct ad7768_state *st,
+				unsigned int fmod_hz)
+{
+	for (unsigned int i = 0; i < ARRAY_SIZE(ad7768_mclk_divs); i++) {
+		unsigned int available_fmod;
+
+		available_fmod = ad7768_get_modulator_freq(st, i);
+		if (fmod_hz == available_fmod &&
+		    ad7768_find_power_mode(available_fmod) >= 0)
+			return i;
+	}
+
+	return -EINVAL;
+}
+
+static int ad7768_set_operating_point(struct ad7768_state *st,
+				      unsigned int mclk_div_idx)
+{
+	const struct ad7768_mclk_div_info *div_info;
 	const struct ad7768_power_mode_info *mode_info;
+	unsigned int fmod_hz;
+	int mode_idx;
 	int ret;
 
+	fmod_hz = ad7768_get_modulator_freq(st, mclk_div_idx);
+	mode_idx = ad7768_find_power_mode(fmod_hz);
+	if (mode_idx < 0)
+		return mode_idx;
+
+	div_info = &ad7768_mclk_divs[mclk_div_idx];
 	mode_info = &ad7768_power_modes[mode_idx];
 	ret = regmap_update_bits(st->regmap, AD7768_REG_POWER_MODE,
 				 AD7768_POWER_MODE_POWER_MODE_MSK |
@@ -660,7 +723,7 @@ static int ad7768_set_power_mode(struct ad7768_state *st,
 				 FIELD_PREP(AD7768_POWER_MODE_POWER_MODE_MSK,
 					    mode_info->mode) |
 				 FIELD_PREP(AD7768_POWER_MODE_MCLK_DIV_MSK,
-					    mode_info->mode));
+					    div_info->reg_value));
 	if (ret)
 		return ret;
 
@@ -668,19 +731,37 @@ static int ad7768_set_power_mode(struct ad7768_state *st,
 	if (ret)
 		return ret;
 
-	st->power_mode_idx = mode_idx;
+	st->mclk_div_idx = mclk_div_idx;
 
 	return 0;
 }
 
 static const struct ad7768_freq_config *
 ad7768_find_freq_config(const struct ad7768_state *st,
-			unsigned int mode_idx, unsigned int freq)
+			unsigned int mclk_div_idx, unsigned int freq)
 {
-	const struct ad7768_avail_freq *avail_freq = &st->avail_freq[mode_idx];
+	const struct ad7768_avail_freq *avail_freq;
+
+	avail_freq = &st->avail_freq[mclk_div_idx];
 
 	for (unsigned int i = 0; i < avail_freq->n_freqs; i++) {
 		if (freq == avail_freq->freq_cfg[i].freq_hz)
+			return &avail_freq->freq_cfg[i];
+	}
+
+	return NULL;
+}
+
+static const struct ad7768_freq_config *
+ad7768_find_dec_rate_config(const struct ad7768_state *st,
+			    unsigned int mclk_div_idx,
+			    unsigned int dec_rate)
+{
+	const struct ad7768_avail_freq *avail_freq;
+
+	avail_freq = &st->avail_freq[mclk_div_idx];
+	for (unsigned int i = 0; i < avail_freq->n_freqs; i++) {
+		if (dec_rate == avail_freq->freq_cfg[i].dec_rate)
 			return &avail_freq->freq_cfg[i];
 	}
 
@@ -694,7 +775,7 @@ static int ad7768_set_clk_divs(struct ad7768_state *st, unsigned int freq)
 	unsigned int chan_per_doutx;
 	unsigned int dclk_div_reg;
 
-	freq_cfg = ad7768_find_freq_config(st, st->power_mode_idx, freq);
+	freq_cfg = ad7768_find_freq_config(st, st->mclk_div_idx, freq);
 	if (!freq_cfg)
 		return -EINVAL;
 
@@ -736,57 +817,15 @@ static int ad7768_set_clk_divs(struct ad7768_state *st, unsigned int freq)
 }
 
 static int ad7768_set_mode_decimation(struct ad7768_state *st,
-				      unsigned int freq, unsigned int mode)
+				      unsigned int dec_rate, unsigned int mode)
 {
-	const struct ad7768_freq_config *freq_cfg;
-
-	freq_cfg = ad7768_find_freq_config(st, st->power_mode_idx, freq);
-	if (!freq_cfg)
+	if (dec_rate >= ARRAY_SIZE(ad7768_dec_rate))
 		return -EINVAL;
 
 	return regmap_update_bits(st->regmap, AD7768_REG_CH_MODE(mode),
 				  AD7768_CH_MODE_DEC_RATE_MSK,
 				  FIELD_PREP(AD7768_CH_MODE_DEC_RATE_MSK,
-					     freq_cfg->dec_rate));
-}
-
-static int ad7768_set_lowest_noise_mode(struct ad7768_state *st,
-					const unsigned long *scan_mask)
-{
-	unsigned int mode_idx = ARRAY_SIZE(ad7768_power_modes);
-
-	/*
-	 * The output data rate ranges overlap between the power modes. At a
-	 * common ODR, the faster mode has lower noise, so prefer the fastest
-	 * mode that supports every enabled channel.
-	 */
-	while (mode_idx--) {
-		unsigned int channel;
-
-		for_each_set_bit(channel, scan_mask, st->chip_info->num_channels) {
-			if (!ad7768_find_freq_config(st, mode_idx,
-						     st->ch_freq[channel]))
-				break;
-		}
-
-		/* All enabled channels support their requested frequency. */
-		if (channel == st->chip_info->num_channels)
-			return ad7768_set_power_mode(st, mode_idx);
-	}
-
-	return -EINVAL;
-}
-
-static bool ad7768_freq_supported_in_any_mode(const struct ad7768_state *st,
-					      unsigned int freq)
-{
-	for (unsigned int mode_idx = 0;
-	     mode_idx < ARRAY_SIZE(ad7768_power_modes); mode_idx++) {
-		if (ad7768_find_freq_config(st, mode_idx, freq))
-			return true;
-	}
-
-	return false;
+					     dec_rate));
 }
 
 static int ad7768_set_sampling_freq(struct iio_dev *indio_dev,
@@ -794,10 +833,10 @@ static int ad7768_set_sampling_freq(struct iio_dev *indio_dev,
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 
-	if (!freq || !ad7768_freq_supported_in_any_mode(st, freq))
+	guard(mutex)(&st->lock);
+	if (!freq || !ad7768_find_freq_config(st, st->mclk_div_idx, freq))
 		return -EINVAL;
 
-	guard(mutex)(&st->lock);
 	st->ch_freq[channel] = freq;
 
 	return 0;
@@ -841,21 +880,113 @@ static const struct iio_enum ad7768_filter_types_enum = {
 	.get = ad7768_get_filter_mode,
 };
 
+static ssize_t ad7768_read_modulator_frequency(struct iio_dev *indio_dev,
+					       uintptr_t private,
+					       const struct iio_chan_spec *chan,
+					       char *buf)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+	unsigned int fmod_hz;
+
+	guard(mutex)(&st->lock);
+	fmod_hz = ad7768_get_modulator_freq(st, st->mclk_div_idx);
+
+	return sysfs_emit(buf, "%u\n", fmod_hz);
+}
+
+static ssize_t ad7768_write_modulator_frequency(struct iio_dev *indio_dev,
+						uintptr_t private,
+						const struct iio_chan_spec *chan,
+						const char *buf, size_t len)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+	unsigned int ch_freq[AD7768_MAX_CHANNEL];
+	unsigned int fmod_hz;
+	int mclk_div_idx;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &fmod_hz);
+	if (ret)
+		return ret;
+
+	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+	if (IIO_DEV_ACQUIRE_FAILED(claim))
+		return -EBUSY;
+
+	guard(mutex)(&st->lock);
+	mclk_div_idx = ad7768_find_mclk_div(st, fmod_hz);
+	if (mclk_div_idx < 0)
+		return mclk_div_idx;
+
+	for (unsigned int channel = 0;
+	     channel < st->chip_info->num_channels; channel++) {
+		const struct ad7768_freq_config *new_cfg;
+		const struct ad7768_freq_config *old_cfg;
+
+		old_cfg = ad7768_find_freq_config(st, st->mclk_div_idx,
+						  st->ch_freq[channel]);
+		if (!old_cfg)
+			return -EINVAL;
+
+		new_cfg = ad7768_find_dec_rate_config(st, mclk_div_idx,
+						      old_cfg->dec_rate);
+		if (!new_cfg)
+			return -EINVAL;
+
+		ch_freq[channel] = new_cfg->freq_hz;
+	}
+
+	st->mclk_div_idx = mclk_div_idx;
+	for (unsigned int channel = 0;
+	     channel < st->chip_info->num_channels; channel++)
+		st->ch_freq[channel] = ch_freq[channel];
+
+	return len;
+}
+
+static ssize_t
+ad7768_read_modulator_frequency_available(struct iio_dev *indio_dev,
+					  uintptr_t private,
+					  const struct iio_chan_spec *chan,
+					  char *buf)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+	ssize_t len = 0;
+
+	for (unsigned int i = 0; i < st->n_modulator_freqs; i++)
+		len += sysfs_emit_at(buf, len, "%u%c", st->modulator_freqs[i],
+				     i == st->n_modulator_freqs - 1 ? '\n' : ' ');
+
+	return len;
+}
+
 static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
 	IIO_ENUM("filter_type", IIO_SEPARATE, &ad7768_filter_types_enum),
 	IIO_ENUM_AVAILABLE("filter_type", IIO_SEPARATE, &ad7768_filter_types_enum),
+	{
+		.name = "modulator_frequency",
+		.shared = IIO_SHARED_BY_ALL,
+		.read = ad7768_read_modulator_frequency,
+		.write = ad7768_write_modulator_frequency,
+	},
+	{
+		.name = "modulator_frequency_available",
+		.shared = IIO_SHARED_BY_ALL,
+		.read = ad7768_read_modulator_frequency_available,
+	},
 	{ }
 };
 
 static int ad7768_find_matching_mode(const bool *mode_used,
-				     const unsigned int *mode_freq,
+				     const unsigned int *mode_dec_rate,
 				     const enum ad7768_filter_type *mode_filter,
-				     unsigned int freq,
+				     unsigned int dec_rate,
 				     enum ad7768_filter_type filter)
 {
 	for (unsigned int mode = 0; mode < AD7768_NUM_CHANNEL_MODES; mode++) {
 		if (!mode_used[mode] ||
-		    (mode_freq[mode] == freq && mode_filter[mode] == filter))
+		    (mode_dec_rate[mode] == dec_rate &&
+		     mode_filter[mode] == filter))
 			return mode;
 	}
 
@@ -871,7 +1002,7 @@ static int ad7768_get_convdelay_params(struct ad7768_state *st, unsigned int ch,
 	unsigned long mclk;
 	u64 mult;
 
-	freq_cfg = ad7768_find_freq_config(st, st->power_mode_idx,
+	freq_cfg = ad7768_find_freq_config(st, st->mclk_div_idx,
 					   st->ch_freq[ch]);
 	if (!freq_cfg)
 		return -EINVAL;
@@ -916,7 +1047,7 @@ static int ad7768_get_convdelay_params(struct ad7768_state *st, unsigned int ch,
 	if (!mclk || mclk > U32_MAX)
 		return -EINVAL;
 
-	mclk_div = ad7768_power_modes[st->power_mode_idx].mclk_div;
+	mclk_div = ad7768_mclk_divs[st->mclk_div_idx].divisor;
 	params->step_ps =
 		DIV_ROUND_CLOSEST_ULL(mult * PSEC_PER_SEC * mclk_div, (u32)mclk);
 	if (params->step_ps > U32_MAX)
@@ -986,6 +1117,7 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 				      const unsigned long *scan_mask)
 {
 	enum ad7768_filter_type mode_filter[AD7768_NUM_CHANNEL_MODES] = { };
+	unsigned int mode_dec_rate[AD7768_NUM_CHANNEL_MODES] = { };
 	unsigned int mode_freq[AD7768_NUM_CHANNEL_MODES] = { };
 	bool mode_used[AD7768_NUM_CHANNEL_MODES] = { };
 	struct ad7768_state *st = iio_priv(indio_dev);
@@ -998,10 +1130,16 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 
 	guard(mutex)(&st->lock);
 
-	ret = ad7768_set_lowest_noise_mode(st, scan_mask);
-	if (ret == -EINVAL)
-		return dev_err_probe(dev, ret,
-				     "No power mode supports all ODRs\n");
+	for_each_set_bit(c, scan_mask, st->chip_info->num_channels) {
+		if (!ad7768_find_freq_config(st, st->mclk_div_idx,
+					     st->ch_freq[c]))
+			return dev_err_probe(dev, -EINVAL,
+					     "Channel %u ODR is incompatible with fMOD %u Hz\n",
+					     c, ad7768_get_modulator_freq(st,
+								st->mclk_div_idx));
+	}
+
+	ret = ad7768_set_operating_point(st, st->mclk_div_idx);
 	if (ret)
 		return ret;
 
@@ -1010,11 +1148,14 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 	ad7768_keep_xtal_channel_active(st, &standby_mask);
 
 	for_each_set_bit(c, scan_mask, st->chip_info->num_channels) {
+		const struct ad7768_freq_config *freq_cfg;
 		unsigned int mask;
 		int mode;
 
-		mode = ad7768_find_matching_mode(mode_used, mode_freq,
-						 mode_filter, st->ch_freq[c],
+		freq_cfg = ad7768_find_freq_config(st, st->mclk_div_idx,
+						   st->ch_freq[c]);
+		mode = ad7768_find_matching_mode(mode_used, mode_dec_rate,
+						 mode_filter, freq_cfg->dec_rate,
 						 st->ch_filter[c]);
 		if (mode < 0)
 			return dev_err_probe(dev, -EINVAL,
@@ -1022,6 +1163,7 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 					     AD7768_NUM_CHANNEL_MODES);
 
 		mode_freq[mode] = st->ch_freq[c];
+		mode_dec_rate[mode] = freq_cfg->dec_rate;
 		mode_filter[mode] = st->ch_filter[c];
 		mode_used[mode] = true;
 
@@ -1042,7 +1184,7 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 		if (!mode_used[mode])
 			continue;
 
-		ret = ad7768_set_mode_decimation(st, mode_freq[mode], mode);
+		ret = ad7768_set_mode_decimation(st, mode_dec_rate[mode], mode);
 		if (ret)
 			return ret;
 
@@ -1256,9 +1398,10 @@ static int ad7768_read_avail(struct iio_dev *indio_dev,
 	if (info != IIO_CHAN_INFO_SAMP_FREQ)
 		return -EINVAL;
 
-	*vals = st->freqs;
+	guard(mutex)(&st->lock);
+	*vals = st->freqs[st->mclk_div_idx];
 	*type = IIO_VAL_INT;
-	*length = st->n_freqs;
+	*length = st->avail_freq[st->mclk_div_idx].n_freqs;
 
 	return IIO_AVAIL_LIST;
 }
@@ -1342,56 +1485,60 @@ static int ad7768_configure_precharge_buffers(struct iio_dev *indio_dev,
 
 static void ad7768_set_available_sampling_freqs(struct ad7768_state *st)
 {
-	unsigned int n_power_modes = ARRAY_SIZE(ad7768_power_modes);
 	unsigned int mclk = clk_get_rate(st->mclk);
 
-	for (unsigned int mode_idx = 0; mode_idx < n_power_modes; mode_idx++) {
+	for (unsigned int div_idx = 0;
+	     div_idx < ARRAY_SIZE(ad7768_mclk_divs); div_idx++) {
 		unsigned int dec = ARRAY_SIZE(ad7768_dec_rate);
 		struct ad7768_avail_freq *avail_freq;
-		unsigned int div;
+		unsigned int fmod_hz;
 
-		avail_freq = &st->avail_freq[mode_idx];
-		div = ad7768_power_modes[mode_idx].mclk_div;
+		fmod_hz = mclk / ad7768_mclk_divs[div_idx].divisor;
+		if (ad7768_find_power_mode(fmod_hz) < 0)
+			continue;
+
+		st->modulator_freqs[st->n_modulator_freqs++] = fmod_hz;
+		avail_freq = &st->avail_freq[div_idx];
 		while (dec--) {
 			struct ad7768_freq_config *freq_cfg;
+			unsigned int freq_idx = avail_freq->n_freqs++;
 
-			freq_cfg = &avail_freq->freq_cfg[avail_freq->n_freqs++];
+			freq_cfg = &avail_freq->freq_cfg[freq_idx];
 			freq_cfg->dec_rate = dec;
-			freq_cfg->freq_hz = mclk / (ad7768_dec_rate[dec] * div);
+			freq_cfg->freq_hz =
+				mclk / (ad7768_mclk_divs[div_idx].divisor *
+					ad7768_dec_rate[dec]);
+			st->freqs[div_idx][freq_idx] = freq_cfg->freq_hz;
 		}
 	}
 
-	/* One DOUT line cannot carry the AD7768 fast-mode x32 output rate. */
+	/* One DOUT line cannot carry the AD7768 MCLK/4 x32 output rate. */
 	if (st->datalines == 1 &&
-	    st->chip_info->num_channels == AD7768_MAX_CHANNEL)
-		st->avail_freq[n_power_modes - 1].n_freqs--;
-
-	for (unsigned int mode_idx = 0; mode_idx < n_power_modes; mode_idx++) {
-		const struct ad7768_avail_freq *avail_freq;
-
-		avail_freq = &st->avail_freq[mode_idx];
-		for (unsigned int i = 0; i < avail_freq->n_freqs; i++) {
-			unsigned int freq = avail_freq->freq_cfg[i].freq_hz;
-
-			if (st->n_freqs && st->freqs[st->n_freqs - 1] >= freq)
-				continue;
-
-			st->freqs[st->n_freqs++] = freq;
-		}
-	}
+	    st->chip_info->num_channels == AD7768_MAX_CHANNEL &&
+	    st->avail_freq[ARRAY_SIZE(ad7768_mclk_divs) - 1].n_freqs)
+		st->avail_freq[ARRAY_SIZE(ad7768_mclk_divs) - 1].n_freqs--;
 }
 
 static int ad7768_init_sampling_freqs(struct ad7768_state *st)
 {
 	const struct ad7768_avail_freq *avail_freq;
 	unsigned int default_freq;
+	int div_idx;
 	int ret;
 
-	ret = ad7768_set_power_mode(st, ARRAY_SIZE(ad7768_power_modes) - 1);
+	for (div_idx = ARRAY_SIZE(ad7768_mclk_divs) - 1; div_idx >= 0;
+	     div_idx--)
+		if (st->avail_freq[div_idx].n_freqs)
+			break;
+
+	if (div_idx < 0)
+		return -EINVAL;
+
+	ret = ad7768_set_operating_point(st, div_idx);
 	if (ret)
 		return ret;
 
-	avail_freq = &st->avail_freq[st->power_mode_idx];
+	avail_freq = &st->avail_freq[st->mclk_div_idx];
 	default_freq = avail_freq->freq_cfg[avail_freq->n_freqs - 1].freq_hz;
 	for (unsigned int channel = 0;
 	     channel < st->chip_info->num_channels; channel++) {
