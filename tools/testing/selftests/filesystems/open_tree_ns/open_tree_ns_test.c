@@ -1087,15 +1087,20 @@ FIXTURE_SETUP(open_tree_ns_drop_mntns)
 	ASSERT_EQ(mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL), 0);
 
 	ASSERT_NE(mkdtemp(self->dir), NULL);
-	if (mount("tmpfs", self->dir, "tmpfs", 0, NULL))
+	if (mount("tmpfs", self->dir, "tmpfs", 0, NULL)) {
+		rmdir(self->dir);
 		SKIP(return, "Failed to mount tmpfs");
+	}
 	self->mounted = true;
 
 	fd = sys_open_tree(AT_FDCWD, self->dir,
 			   OPEN_TREE_CLONE | OPEN_TREE_DROP_MNTNS_MOUNTS |
 			   AT_RECURSIVE | OPEN_TREE_CLOEXEC);
-	if (fd < 0 && errno == EINVAL)
+	if (fd < 0 && errno == EINVAL) {
+		umount2(self->dir, MNT_DETACH);
+		rmdir(self->dir);
 		SKIP(return, "OPEN_TREE_DROP_MNTNS_MOUNTS not supported");
+	}
 	ASSERT_GE(fd, 0);
 	close(fd);
 
