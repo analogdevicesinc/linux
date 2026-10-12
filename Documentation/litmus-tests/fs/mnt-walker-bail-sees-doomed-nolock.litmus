@@ -1,0 +1,89 @@
+C mnt-walker-bail-sees-doomed-nolock
+
+(*
+ * Result: Sometimes
+ *
+ * mnt-walker-bail-sees-doomed.litmus with the walker reading
+ * ->mnt_flags outside mount_lock.  Nothing orders that read against
+ * the sum's critical section: the walker can read the flags before
+ * MNT_DOOMED is set and keep a reference to a mount the sum has
+ * finished off.  This is why __legitimize_mnt() looks under the lock.
+ *)
+
+{
+	mnt_ns=1;
+	gets_w=0;
+	puts_w=0;
+	gets_u=1;
+	puts_u=0;
+	flags=0;
+	seq=0;
+	freed=0;
+}
+
+P0(spinlock_t *mlock, int *seq, int *gets_w, int *puts_w, int *flags)
+{
+	int r0;
+	int r1;
+	int r2;
+	int r3;
+
+	r0 = READ_ONCE(*seq);
+	smp_rmb();
+	smp_rmb();
+	r1 = READ_ONCE(*seq);
+	if (r1 == 0) {
+		WRITE_ONCE(*gets_w, 1);
+		smp_mb();
+		smp_rmb();
+		r2 = READ_ONCE(*seq);
+		if (r2 != 0) {
+			r3 = READ_ONCE(*flags);
+			if (r3 != 0) {
+				WRITE_ONCE(*puts_w, 1);
+			}
+		}
+	}
+}
+
+P1(spinlock_t *mlock, int *seq, int *mnt_ns, int *flags, int *gets_w, int *puts_w, int *gets_u, int *puts_u, int *freed)
+{
+	int r1;
+	int r2;
+	int r3;
+	int r4;
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 1);
+	smp_wmb();
+	WRITE_ONCE(*mnt_ns, 0);
+	smp_wmb();
+	WRITE_ONCE(*seq, 2);
+	spin_unlock(mlock);
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 3);
+	smp_wmb();
+	smp_mb();
+	r1 = READ_ONCE(*puts_w);
+	r2 = READ_ONCE(*puts_u);
+	smp_mb();
+	r3 = READ_ONCE(*gets_w);
+	r4 = READ_ONCE(*gets_u);
+	if (r3 == 0) {
+		WRITE_ONCE(*flags, 3);
+		WRITE_ONCE(*freed, 1);
+	}
+	if (r3 == 1) {
+		if (r1 == 1) {
+			WRITE_ONCE(*flags, 3);
+			WRITE_ONCE(*freed, 1);
+		}
+	}
+	smp_wmb();
+	WRITE_ONCE(*seq, 4);
+	spin_unlock(mlock);
+}
+
+filter (0:r0=0)
+exists (0:r1=0 /\ ~(0:r2=0) /\ 0:r3=0 /\ freed=1)

@@ -38,6 +38,101 @@ cmpxchg-fail-unordered-2.litmus
     acquire operation.
 
 
+fs (/fs directory)
+------------------
+
+The reference count of a mount is split into per-CPU gets and puts.  A
+holder drops a reference on the fast path of mntput_no_expire() without
+mount_lock, a walker in __legitimize_mnt() takes one during an RCU path
+walk, and the unmounter sums the counters under mount_lock with
+mnt_get_count() to decide whether it can finish the mount off without
+waiting for a grace period.  The tests spell write_seqlock() out as a
+spinlock, a seqcount store and smp_wmb(), read_seqbegin() and
+read_seqretry() as READ_ONCE() and smp_rmb(), and the per-CPU counters
+as one variable per CPU.
+
+mnt-sum-misses-fastpath-put.litmus
+    Demonstrates that the sum under mount_lock can miss a put on the
+    fast path of mntput_no_expire(), which is why mntput_unmounted()
+    falls back to a grace period when the count is not one.
+
+mnt-holder-get-before-put.litmus
+    Demonstrates that a fast-path put the sum counts has its get counted
+    too: the smp_wmb() in mntput_no_expire() pairs with the smp_mb()
+    between the puts pass and the gets pass of mnt_get_count().
+
+mnt-holder-get-before-put-nowmb.litmus
+    The same without the holder's smp_wmb(); the sum can count the put
+    but not the get.
+
+mnt-holder-get-before-put-nomb.litmus
+    The same without the smp_mb() inside mnt_get_count(); an smp_mb()
+    ahead of the puts pass does not stand in for it.
+
+mnt-holder-get-before-put-getsfirst.litmus
+    The same with the gets summed before the puts; the order of the two
+    passes is part of the pairing.
+
+mnt-gp-sees-fastpath-put.litmus
+    Demonstrates that after the grace period of mntput_unmounted() the
+    plain mntput() sees the fast-path put the sum missed, because the
+    holder's read-side critical section ended before the grace period.
+
+mnt-gp-sees-fastpath-put-sync-rcu.litmus
+    The same with synchronize_rcu() in place of
+    synchronize_rcu_expedited().
+
+mnt-gp-sees-fastpath-put-nogp.litmus
+    The same with an smp_mb() in place of the grace period; the put can
+    still be missed.
+
+mnt-walker-get-vs-seqcount.litmus
+    Demonstrates the store buffering pairing between the increment and
+    smp_mb() of __legitimize_mnt() and the seqcount store and the
+    smp_mb() of mnt_get_count() under mount_lock: the walker cannot
+    keep a reference to a mount the sum finishes off.
+
+mnt-walker-get-vs-seqcount-no-outer-mb.litmus
+    The same with the sum as the tree has it, without an smp_mb()
+    between taking mount_lock and the sum; the smp_mb() inside
+    mnt_get_count() is the one that pairs.
+
+mnt-walker-get-vs-seqcount-nomb.litmus
+    The same without the walker's smp_mb(); the walker can keep a
+    reference to a freed mount.
+
+mnt-walker-bail-sees-doomed.litmus
+    Demonstrates that a walker which sees the seqcount change and reads
+    ->mnt_flags under mount_lock finds MNT_DOOMED on a mount the sum
+    finished off; mount_lock orders the two critical sections.
+
+mnt-walker-bail-sees-doomed-nolock.litmus
+    The same with ->mnt_flags read outside mount_lock; the walker can
+    miss MNT_DOOMED.
+
+mnt-walker-late-sees-new-pwd.litmus
+    Demonstrates that a walker which starts after the sum finished a
+    mount off cannot reach it through the old cwd of a holder whose put
+    the sum counted: the holder orders the new fs->pwd before the put
+    and the smp_mb() of mnt_get_count() orders the load of the put
+    before the seqcount store the walker samples.
+
+mnt-walker-late-sees-new-pwd-nowmb.litmus
+    The same without the smp_wmb()s that order the new fs->pwd before
+    the put; the walker can read the old cwd.
+
+mnt-walker-late-sees-new-pwd-nomb.litmus
+    The same without the smp_mb() inside mnt_get_count(); the walker can
+    read the old cwd.
+
+mnt-kern-unmount-holder-get-before-put.litmus
+    The holder test for kern_unmount_array(), where mnt_make_shortterm()
+    clears ->mnt_ns with a plain WRITE_ONCE() outside mount_lock.
+
+mnt-kern-unmount-gp-sees-fastpath-put.litmus
+    The grace period test for kern_unmount_array().
+
+
 locking (/locking directory)
 ----------------------------
 
