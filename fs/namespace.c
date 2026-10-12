@@ -1414,10 +1414,47 @@ static void delayed_mntput(struct work_struct *unused)
 }
 static DECLARE_DELAYED_WORK(delayed_mntput_work, delayed_mntput);
 
-static void noinline mntput_no_expire_slowpath(struct mount *mnt)
+/*
+ * The count reached zero under mount_lock so we doom the mount and
+ * cleanup everything.
+ */
+static void mntput_final_locked(struct mount *mnt, struct list_head *shrink)
 {
 	struct mnt_cover *cover;
 	struct hlist_node *n;
+
+	VFS_WARN_ON_ONCE(mnt->mnt.mnt_flags & MNT_DOOMED);
+	mnt->mnt.mnt_flags |= MNT_DOOMED;
+
+	mnt_del_instance(mnt);
+	if (unlikely(!list_empty(&mnt->mnt_expire)))
+		list_del(&mnt->mnt_expire);
+
+	/* nothing stays attached to an unmounted mount */
+	VFS_WARN_ON_ONCE(!list_empty(&mnt->mnt_mounts));
+	hlist_for_each_entry_safe(cover, n, &mnt->mnt_covers, node)
+		drop_cover(cover, shrink);
+}
+
+/* cleanup_mnt() sleeps: from task work, or the workqueue for kernel threads */
+static void mntput_queue_cleanup(struct mount *mnt)
+{
+	if (likely(!(mnt->mnt.mnt_flags & MNT_INTERNAL))) {
+		struct task_struct *task = current;
+		if (likely(!(task->flags & PF_KTHREAD))) {
+			init_task_work(&mnt->mnt_rcu, __cleanup_mnt);
+			if (!task_work_add(task, &mnt->mnt_rcu, TWA_RESUME))
+				return;
+		}
+		if (llist_add(&mnt->mnt_llist, &delayed_mntput_list))
+			schedule_delayed_work(&delayed_mntput_work, 1);
+		return;
+	}
+	cleanup_mnt(mnt);
+}
+
+static void noinline mntput_no_expire_slowpath(struct mount *mnt)
+{
 	LIST_HEAD(list);
 	int count;
 
@@ -1436,32 +1473,11 @@ static void noinline mntput_no_expire_slowpath(struct mount *mnt)
 		unlock_mount_hash();
 		return;
 	}
-	mnt->mnt.mnt_flags |= MNT_DOOMED;
+	mntput_final_locked(mnt, &list);
 	rcu_read_unlock();
-
-	mnt_del_instance(mnt);
-	if (unlikely(!list_empty(&mnt->mnt_expire)))
-		list_del(&mnt->mnt_expire);
-
-	/* nothing stays attached to an unmounted mount */
-	VFS_WARN_ON_ONCE(!list_empty(&mnt->mnt_mounts));
-	hlist_for_each_entry_safe(cover, n, &mnt->mnt_covers, node)
-		drop_cover(cover, &list);
 	unlock_mount_hash();
 	shrink_dentry_list(&list);
-
-	if (likely(!(mnt->mnt.mnt_flags & MNT_INTERNAL))) {
-		struct task_struct *task = current;
-		if (likely(!(task->flags & PF_KTHREAD))) {
-			init_task_work(&mnt->mnt_rcu, __cleanup_mnt);
-			if (!task_work_add(task, &mnt->mnt_rcu, TWA_RESUME))
-				return;
-		}
-		if (llist_add(&mnt->mnt_llist, &delayed_mntput_list))
-			schedule_delayed_work(&delayed_mntput_work, 1);
-		return;
-	}
-	cleanup_mnt(mnt);
+	mntput_queue_cleanup(mnt);
 }
 
 static void mntput_no_expire(struct mount *mnt)
