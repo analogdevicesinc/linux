@@ -37,6 +37,24 @@ asmlinkage void aria_aesni_avx2_gfni_ctr_crypt_32way(const void *ctx, u8 *dst,
 						     u8 *keystream, u8 *iv);
 EXPORT_SYMBOL_GPL(aria_aesni_avx2_gfni_ctr_crypt_32way);
 
+/*
+ * Set up function pointers for the AVX 32-way asm functions for both this
+ * module and the the higher-tier modules.
+ */
+void aria_avx2_setup_32way_ops(struct aria_avx_ops *ops, bool use_gfni)
+{
+	if (use_gfni) {
+		ops->aria_encrypt_32way = aria_aesni_avx2_gfni_encrypt_32way;
+		ops->aria_decrypt_32way = aria_aesni_avx2_gfni_decrypt_32way;
+		ops->aria_ctr_crypt_32way = aria_aesni_avx2_gfni_ctr_crypt_32way;
+	} else {
+		ops->aria_encrypt_32way = aria_aesni_avx2_encrypt_32way;
+		ops->aria_decrypt_32way = aria_aesni_avx2_decrypt_32way;
+		ops->aria_ctr_crypt_32way = aria_aesni_avx2_ctr_crypt_32way;
+	}
+}
+EXPORT_SYMBOL_GPL(aria_avx2_setup_32way_ops);
+
 static struct aria_avx_ops aria_ops;
 
 struct aria_avx2_request_ctx {
@@ -202,21 +220,8 @@ static int __init aria_avx2_init(void)
 		return -ENODEV;
 	}
 
-	if (boot_cpu_has(X86_FEATURE_GFNI)) {
-		aria_ops.aria_encrypt_16way = aria_aesni_avx_gfni_encrypt_16way;
-		aria_ops.aria_decrypt_16way = aria_aesni_avx_gfni_decrypt_16way;
-		aria_ops.aria_ctr_crypt_16way = aria_aesni_avx_gfni_ctr_crypt_16way;
-		aria_ops.aria_encrypt_32way = aria_aesni_avx2_gfni_encrypt_32way;
-		aria_ops.aria_decrypt_32way = aria_aesni_avx2_gfni_decrypt_32way;
-		aria_ops.aria_ctr_crypt_32way = aria_aesni_avx2_gfni_ctr_crypt_32way;
-	} else {
-		aria_ops.aria_encrypt_16way = aria_aesni_avx_encrypt_16way;
-		aria_ops.aria_decrypt_16way = aria_aesni_avx_decrypt_16way;
-		aria_ops.aria_ctr_crypt_16way = aria_aesni_avx_ctr_crypt_16way;
-		aria_ops.aria_encrypt_32way = aria_aesni_avx2_encrypt_32way;
-		aria_ops.aria_decrypt_32way = aria_aesni_avx2_decrypt_32way;
-		aria_ops.aria_ctr_crypt_32way = aria_aesni_avx2_ctr_crypt_32way;
-	}
+	aria_avx_setup_16way_ops(&aria_ops, boot_cpu_has(X86_FEATURE_GFNI));
+	aria_avx2_setup_32way_ops(&aria_ops, boot_cpu_has(X86_FEATURE_GFNI));
 
 	return crypto_register_skciphers(aria_algs, ARRAY_SIZE(aria_algs));
 }

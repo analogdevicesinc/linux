@@ -59,4 +59,7 @@ struct aria_avx_ops {
 
 
 };
+
+void aria_avx_setup_16way_ops(struct aria_avx_ops *ops, bool use_gfni);
+void aria_avx2_setup_32way_ops(struct aria_avx_ops *ops, bool use_gfni);
 #endif

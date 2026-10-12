@@ -39,6 +39,25 @@ EXPORT_SYMBOL_GPL(aria_aesni_avx_gfni_ctr_crypt_16way);
 
 static struct aria_avx_ops aria_ops;
 
+/*
+ * Set up function pointers for the AVX 16-way asm functions for both this
+ * module's own dispatch table and the higher-tier (AVX2, GFNI/AVX-512)
+ * modules.
+ */
+void aria_avx_setup_16way_ops(struct aria_avx_ops *ops, bool use_gfni)
+{
+	if (use_gfni) {
+		ops->aria_encrypt_16way = aria_aesni_avx_gfni_encrypt_16way;
+		ops->aria_decrypt_16way = aria_aesni_avx_gfni_decrypt_16way;
+		ops->aria_ctr_crypt_16way = aria_aesni_avx_gfni_ctr_crypt_16way;
+	} else {
+		ops->aria_encrypt_16way = aria_aesni_avx_encrypt_16way;
+		ops->aria_decrypt_16way = aria_aesni_avx_decrypt_16way;
+		ops->aria_ctr_crypt_16way = aria_aesni_avx_ctr_crypt_16way;
+	}
+}
+EXPORT_SYMBOL_GPL(aria_avx_setup_16way_ops);
+
 struct aria_avx_request_ctx {
 	u8 keystream[ARIA_AESNI_PARALLEL_BLOCK_SIZE];
 };
@@ -188,15 +207,7 @@ static int __init aria_avx_init(void)
 		return -ENODEV;
 	}
 
-	if (boot_cpu_has(X86_FEATURE_GFNI)) {
-		aria_ops.aria_encrypt_16way = aria_aesni_avx_gfni_encrypt_16way;
-		aria_ops.aria_decrypt_16way = aria_aesni_avx_gfni_decrypt_16way;
-		aria_ops.aria_ctr_crypt_16way = aria_aesni_avx_gfni_ctr_crypt_16way;
-	} else {
-		aria_ops.aria_encrypt_16way = aria_aesni_avx_encrypt_16way;
-		aria_ops.aria_decrypt_16way = aria_aesni_avx_decrypt_16way;
-		aria_ops.aria_ctr_crypt_16way = aria_aesni_avx_ctr_crypt_16way;
-	}
+	aria_avx_setup_16way_ops(&aria_ops, boot_cpu_has(X86_FEATURE_GFNI));
 
 	return crypto_register_skciphers(aria_algs, ARRAY_SIZE(aria_algs));
 }
