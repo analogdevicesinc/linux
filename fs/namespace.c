@@ -6623,23 +6623,23 @@ EXPORT_SYMBOL_GPL(kern_mount);
 void kern_unmount(struct vfsmount *mnt)
 {
 	/* release long term mount so mount point can be released */
-	if (!IS_ERR(mnt)) {
-		mnt_make_shortterm(mnt);
-		synchronize_rcu();	/* yecchhh... */
-		mntput(mnt);
-	}
+	if (!IS_ERR(mnt))
+		kern_unmount_array(&mnt, 1);
 }
 EXPORT_SYMBOL(kern_unmount);
 
 void kern_unmount_array(struct vfsmount *mnt[], unsigned int num)
 {
+	HLIST_HEAD(head);
 	unsigned int i;
 
-	for (i = 0; i < num; i++)
+	for (i = 0; i < num; i++) {
+		if (!mnt[i])
+			continue;
 		mnt_make_shortterm(mnt[i]);
-	synchronize_rcu_expedited();
-	for (i = 0; i < num; i++)
-		mntput(mnt[i]);
+		hlist_add_head(&real_mount(mnt[i])->mnt_umount, &head);
+	}
+	mntput_unmounted(&head);
 }
 EXPORT_SYMBOL(kern_unmount_array);
 
