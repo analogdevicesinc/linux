@@ -21,7 +21,8 @@
 #include "util.h"
 
 /*
- * The work queue is used to avoid the cost of synchronize_rcu in kern_unmount.
+ * The work queue keeps the teardown of a namespace out of the callers of
+ * put_ipc_ns(), the eviction of an mqueue inode among them.
  */
 static void free_ipc(struct work_struct *unused);
 static DECLARE_WORK(free_ipc_work, free_ipc);
@@ -149,11 +150,7 @@ void free_ipcs(struct ipc_namespace *ns, struct ipc_ids *ids,
 
 static void free_ipc_ns(struct ipc_namespace *ns)
 {
-	/*
-	 * Caller needs to wait for an RCU grace period to have passed
-	 * after making the mount point inaccessible to new accesses.
-	 */
-	mntput(ns->mq_mnt);
+	kern_unmount(ns->mq_mnt);
 	sem_exit_ns(ns);
 	msg_exit_ns(ns);
 	shm_exit_ns(ns);
@@ -172,12 +169,6 @@ static void free_ipc(struct work_struct *unused)
 {
 	struct llist_node *node = llist_del_all(&free_ipc_list);
 	struct ipc_namespace *n, *t;
-
-	llist_for_each_entry_safe(n, t, node, mnt_llist)
-		mnt_make_shortterm(n->mq_mnt);
-
-	/* Wait for any last users to have gone away. */
-	synchronize_rcu();
 
 	llist_for_each_entry_safe(n, t, node, mnt_llist)
 		free_ipc_ns(n);

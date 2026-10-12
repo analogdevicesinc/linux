@@ -1601,7 +1601,7 @@ EXPORT_SYMBOL(mntget);
  * it finds under mount_lock that it holds the only reference left,
  * see mntput_unheld().
  */
-void mnt_make_shortterm(struct vfsmount *mnt)
+static void mnt_make_shortterm(struct vfsmount *mnt)
 {
 	if (mnt)
 		WRITE_ONCE(real_mount(mnt)->mnt_ns, NULL);
