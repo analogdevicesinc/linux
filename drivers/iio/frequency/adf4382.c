@@ -2033,7 +2033,11 @@ static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
 	return rate;
 }
 
-static int adf4382_clock_enable(struct clk_hw *hw)
+/*
+ * Powering the outputs up and down needs SPI access, so these hook into
+ * prepare/unprepare: the clk core calls enable/disable with a spinlock held.
+ */
+static int adf4382_clock_prepare(struct clk_hw *hw)
 {
 	struct adf4382_state *st = to_adf4382_state(hw);
 
@@ -2042,7 +2046,7 @@ static int adf4382_clock_enable(struct clk_hw *hw)
 				  0x00);
 }
 
-static void adf4382_clock_disable(struct clk_hw *hw)
+static void adf4382_clock_unprepare(struct clk_hw *hw)
 {
 	struct adf4382_state *st = to_adf4382_state(hw);
 
@@ -2076,14 +2080,14 @@ static const struct clk_ops adf4382_clock_ops = {
 	.set_rate = adf4382_clock_set_rate,
 	.recalc_rate = adf4382_clock_recalc_rate,
 	.round_rate = adf4382_clock_round_rate,
-	.enable = adf4382_clock_enable,
-	.disable = adf4382_clock_disable,
+	.prepare = adf4382_clock_prepare,
+	.unprepare = adf4382_clock_unprepare,
 };
 
 static int adf4382_setup_clk(struct adf4382_state *st)
 {
 	struct device *dev = &st->spi->dev;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk *clk;
 	const char *parent_name;
 
