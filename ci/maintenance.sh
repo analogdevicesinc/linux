@@ -10,6 +10,7 @@ cherry_pick () {
 	local files=
 	local skip_=
 	local skip=
+	local fetch_depth=5
 
 	echo "cherry_pick branch $branch on range $base_sha..$head_sha"
 
@@ -23,9 +24,18 @@ cherry_pick () {
 	git fetch origin $branch:$branch --depth=1 -f || return # on missing ref
 	git switch $branch -f
 
-        while ! git rev-list --count $base_sha~..$head_sha ; do
-          git fetch origin --deepen=$_fetch_depth $head_sha
-        done
+	git_fetch_depth () {
+		echo "fetch $fetch_depth commits"
+		if [[ $fetch_depth -gt 0 ]]; then
+			git fetch origin --depth="$fetch_depth" "$1"
+		else
+			git fetch origin "$1"
+		fi
+		[[ $fetch_depth -gt 500 ]] && fetch_depth=500 || fetch_depth=$((fetch_depth * 2))
+	}
+	while ! git merge-base --is-ancestor "$base_sha~" "$head_sha" 2>/dev/null; do
+		git_fetch_depth "$head_sha" || return
+	done
 
 	range=$(($(git rev-list --count $base_sha..$head_sha) - 1 ))
 	for (( iter=$range; iter >= 0; iter-- )); do
