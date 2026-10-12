@@ -6,6 +6,7 @@ on:
       - 'rpi-*.y'
       - 'staging/rpi/*'
       - 'rpi/release/*'
+      - test-rpi-upload-to-cloudsmith
   pull_request:
 
 concurrency:
