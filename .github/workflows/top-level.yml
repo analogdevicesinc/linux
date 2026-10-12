@@ -231,7 +231,7 @@ jobs:
       id-token: write
       contents: read
       actions: read
-    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@ci
+    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@bia1708/ci-version
     secrets: inherit
     with:
       artifacts: >
@@ -239,3 +239,4 @@ jobs:
         dtb-*
       pr-number: ${{ github.event.pull_request.number }}
       pr-target-branch: ${{ github.event.pull_request.base.ref }}
+      scripts-ref: "bia1708/ci-version"
