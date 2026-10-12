@@ -2,7 +2,7 @@
 # Copyright 2022 Analog Devices Inc.
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/bindings/iio/adc/ltc2387.yaml#
+$id: http://devicetree.org/schemas/iio/adc/lltc,ltc2387.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Linear Technology / Analog Devices LTC2387 ADC
@@ -50,9 +50,24 @@ properties:
       - const: cnv
       - const: clk_en
 
+  vref-supply:
+    description:
+      External voltage reference. When absent the device's internal 4.096 V
+      reference is assumed.
+
   adi,use-two-lanes:
     description: The device uses two lanes for data transfer
     type: boolean
+
+  adi,gain-milli:
+    description:
+      Gain of the fully-differential amplifier that the ADAQ2387x modules
+      integrate ahead of the LTC2387 die, expressed as gain * 1000. It is
+      fixed on the ADAQ23875 and set by pin strapping on the ADAQ23876 and
+      ADAQ23878, so it must match the board. The bare ltc2387-* parts have
+      no amplifier.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [370, 730, 870, 1380, 2000, 2250]
 
 required:
   - compatible
@@ -62,16 +77,66 @@ required:
   - pwms
   - pwm-names
 
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - ltc2387-16
+              - ltc2387-16-x4
+              - ltc2387-18
+              - ltc2387-18-x4
+    then:
+      properties:
+        adi,gain-milli: false
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: adaq23875
+    then:
+      properties:
+        adi,gain-milli:
+          const: 2000
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - adaq23876
+              - adaq23878
+    then:
+      properties:
+        adi,gain-milli:
+          enum: [370, 730, 870, 1380, 2250]
+      required:
+        - adi,gain-milli
+
+additionalProperties: false
+
 examples:
   - |
-    ltc2387@0{
+    adc {
             compatible = "ltc2387-16";
             clocks = <&clk 0>;
             dmas = <&dma 0>;
             dma-names = "rx";
-            pwms = <&pwm 0 0
-                    &pwm 1 0>;
+            pwms = <&pwm 0 0>, <&pwm 1 0>;
             pwm-names = "cnv", "clk_en";
-
+            vref-supply = <&vref>;
+    };
+  - |
+    adc {
+            compatible = "adaq23878";
+            clocks = <&clk 0>;
+            dmas = <&dma 0>;
+            dma-names = "rx";
+            pwms = <&pwm 0 0>, <&pwm 1 0>;
+            pwm-names = "cnv", "clk_en";
+            vref-supply = <&vref>;
             adi,use-two-lanes;
+            adi,gain-milli = <870>;
     };
