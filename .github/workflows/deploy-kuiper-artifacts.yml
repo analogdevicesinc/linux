@@ -192,12 +192,15 @@ jobs:
         echo "Uploading from: ${UPLOAD_PATH}"
         ls -la "${UPLOAD_PATH}"
 
+        # Cloudsmith tags cannot contain "/"; sanitize the branch name
+        BRANCH_TAG="branch-${BRANCH_NAME//\//-}"
+
         python3 upload_to_cloudsmith.py \
           --repo="${{ env.CLOUDSMITH_REPO }}" \
           --version="${VERSION_PATH}" \
           --local_path="${UPLOAD_PATH}" \
           --token="${CLOUDSMITH_API_KEY}" \
-          --tags="commit_date-${TIMESTAMP},git_sha-${GIT_SHA}" \
+          --tags="commit_date-${TIMESTAMP},git_sha-${GIT_SHA},${BRANCH_TAG}" \
           --max_workers=10
 
         echo "Upload complete: ${VERSION_PATH}."

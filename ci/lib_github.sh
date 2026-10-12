@@ -170,12 +170,21 @@ get_version_path() {
     local pr_number="${5:-}"
 
     if [[ "${artifact_type}" == "rpi" ]]; then
+        # rpi's main develop branch follows the "rpi-<ver>.y" stable naming
+        # (e.g. rpi-6.12.y), not "main".
+        local rpi_develop_re='^rpi-[0-9]+\.[0-9]+\.y$'
         if [[ -n "${pr_target}" && -n "${pr_number}" ]]; then
             echo "linux_rpi/PRs/${pr_target}/pr_${pr_number}/${timestamp}"
-        elif [[ "${branch}" == "main" ]]; then
-            echo "linux_rpi/main/${timestamp}"
-        else
+        elif [[ "${branch}" =~ ${rpi_develop_re} ]]; then
+            # main develop branch, e.g. rpi-6.12.y
+            echo "linux_rpi/${branch}/${timestamp}"
+        elif [[ "${branch}" == rpi/release/* || "${branch}" == *release* ]]; then
+            # release branches: "rpi/release/..." prefix or any branch name
+            # containing "release"
             echo "linux_rpi/releases/${branch}/${timestamp}"
+        else
+            # feature/staging branches
+            echo "linux_rpi/${branch}/${timestamp}"
         fi
     else
         if [[ -n "${pr_target}" && -n "${pr_number}" ]]; then
