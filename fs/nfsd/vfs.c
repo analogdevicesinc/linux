@@ -2370,6 +2370,33 @@ static bool nfsd_buffered_filldir(struct dir_context *ctx, const char *name,
 	return true;
 }
 
+/*
+ * Read the next batch of entries.  Returns false at end of directory
+ * (@iter->eof set) or on a filesystem error (@iter->host_err set).
+ */
+static bool nfsd_readdir_fill(struct nfsd_readdir_iter *iter)
+{
+	/* Between batches the resume cookie advances past the last. */
+	if (iter->batched)
+		iter->offset = vfs_llseek(iter->file, 0, SEEK_CUR);
+
+	iter->used = 0;
+	iter->full = 0;
+	iter->host_err = iterate_dir(iter->file, &iter->ctx);
+	if (iter->full)
+		iter->host_err = 0;
+	if (iter->host_err < 0)
+		return false;
+	if (!iter->used) {
+		iter->eof = true;
+		return false;
+	}
+	iter->batched = true;
+	iter->pos = iter->page;
+	iter->remaining = iter->used;
+	return true;
+}
+
 /**
  * nfsd_readdir_open - open a directory for streaming readdir
  * @rqstp: RPC transaction context
@@ -2377,13 +2404,15 @@ static bool nfsd_buffered_filldir(struct dir_context *ctx, const char *name,
  * @offsetp: seek offset at which to resume reading
  * @iter: OUT: directory reader to initialize
  *
- * On success the directory is open and positioned at @offsetp, and
- * @iter is ready for nfsd_readdir_next().  The caller must release
- * @iter with nfsd_readdir_close() once done, including on error paths
- * that follow a successful open.
+ * On success the directory is open and positioned at @offsetp, the
+ * first batch of entries has been read, and @iter is ready for
+ * nfsd_readdir_next().  The caller must release @iter with
+ * nfsd_readdir_close() once done, including on error paths that
+ * follow a successful open.
  *
- * Return: nfs_ok on success, otherwise an nfsstat code.  On error @iter
- * is left safe to pass to nfsd_readdir_close().
+ * Return: nfs_ok on success, otherwise an nfsstat code, including the
+ * error from reading the first batch.  On error @iter is left safe to
+ * pass to nfsd_readdir_close().
  */
 __be32 nfsd_readdir_open(struct svc_rqst *rqstp, struct svc_fh *fhp,
 			 loff_t *offsetp, struct nfsd_readdir_iter *iter)
@@ -2419,6 +2448,17 @@ __be32 nfsd_readdir_open(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	iter->file = file;
 	iter->fhp = fhp;
 	iter->offset = offset;
+
+	/*
+	 * The first batch is read here so a filesystem error surfaces
+	 * in the reply status.  Once the encoder has committed nfs_ok,
+	 * an error can only be reported as a short list.
+	 */
+	if (!nfsd_readdir_fill(iter) && iter->host_err) {
+		err = nfserrno(iter->host_err);
+		nfsd_readdir_close(iter);
+		return err;
+	}
 	return nfs_ok;
 
 out_close:
@@ -2443,26 +2483,10 @@ struct buffered_dirent *nfsd_readdir_next(struct nfsd_readdir_iter *iter)
 	struct buffered_dirent *de;
 	unsigned int reclen;
 
-	while (iter->remaining <= 0) {
-		/* Between batches the resume cookie advances past the last. */
-		if (iter->batched)
-			iter->offset = vfs_llseek(iter->file, 0, SEEK_CUR);
-
-		iter->used = 0;
-		iter->full = 0;
-		iter->host_err = iterate_dir(iter->file, &iter->ctx);
-		if (iter->full)
-			iter->host_err = 0;
-		if (iter->host_err < 0)
-			return NULL;
-		if (!iter->used) {
-			iter->eof = true;
-			return NULL;
-		}
-		iter->batched = true;
-		iter->pos = iter->page;
-		iter->remaining = iter->used;
-	}
+	if (iter->eof || iter->host_err)
+		return NULL;
+	if (iter->remaining <= 0 && !nfsd_readdir_fill(iter))
+		return NULL;
 
 	de = (struct buffered_dirent *)iter->pos;
 	iter->offset = de->offset;
