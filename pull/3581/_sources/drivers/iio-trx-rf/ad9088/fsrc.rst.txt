@@ -3,17 +3,18 @@
 Fractional Sample Rate Converter
 """"""""""""""""""""""""""""""""
 
-This document describes the Fractional Sample Rate Converter (FSRC) support
-for AD9084/AD9088 Apollo devices, including the FPGA AXI FSRC sequencer,
-the device tree configuration, and the dynamic reconfiguration flows.
+This document describes the Fractional Sample Rate Converter (FSRC) support for
+AD9084 Apollo device, including the FPGA AXI FSRC sequencer, the device tree
+configuration, and the dynamic reconfiguration flows. AD9088 does not support
+FSRC.
 
 Overview
 ========
 
 The FSRC changes the ratio between the JESD204 link sample rate and the
-converter data path sample rate by a fractional factor N/M, without changing
-the clocks. The JESD204 link keeps running at the profile lane rate, and the
-rate change is carried by invalid samples (holes):
+converter data path sample rate by a fractional factor N/M. The JESD204 link
+keeps running at the profile lane rate, and the rate change is carried by
+invalid samples (holes):
 
 * **TX**: the FPGA inserts invalid samples in the stream it sends to Apollo,
   so only M of every N link samples are valid. The Apollo JRx rate match FIFO
@@ -169,12 +170,6 @@ before loading it:
 So the device boots at 1:1 with the FSRC in the path, ready for a runtime
 reconfiguration.
 
-On the VCK190 and VCU118 device trees, the FSRC nodes and the ``fsrc_tx``
-and ``fsrc_rx`` channels are guarded by the ``WITH_FSRC`` macro. Since the sequencer drives
-the trigger pins, the VCU118 device tree also leaves out the AION trigger
-with ``WITH_FSRC``, and the VCK190 device tree builds without it
-(``WITH_AXI_AION_TRIG`` at 0).
-
 AXI FSRC IIO Device
 ===================
 
@@ -287,12 +282,12 @@ The FSRC is configured through the Apollo device debugfs:
 - ``fsrc_tx_reconfig``: Write ``1`` to apply the TX configuration, see
   :ref:`ad9088 fsrc reconfig`.
 - ``fsrc_rx_reconfig``: Write ``1`` to apply the RX configuration.
-- ``fsrc_inspect``: Read the configuration of all RX and TX FSRC blocks.
+- ``fsrc_inspect``: Read-only, reads the configuration of all RX and TX FSRC
+  blocks.
 
-The configure attributes require two arguments, else -EINVAL. The TX
-configure and reconfig attributes require the ``fsrc_tx`` IIO channel, the
-RX ones the ``fsrc_rx`` IIO channel, else -ENODEV. The
-Apollo API rejects ratios outside 1 < N/M < 2.
+The configure attributes require two arguments. The TX configure and reconfig
+attributes require the ``fsrc_tx`` IIO channel, the RX ones the ``fsrc_rx`` IIO
+channel. Supported ratios are 1 < N/M < 2.
 
 The FSRC rate is ``fsrc_rate_int + fsrc_rate_frac_a / fsrc_rate_frac_b``
 = 2^48 M/N, and the gain reduction is floor(4096 M/N):
@@ -322,7 +317,7 @@ The FSRC rate is ``fsrc_rate_int + fsrc_rate_frac_a / fsrc_rate_frac_b``
     ...
       FSRC ratio (N/M) = 2^48 / (fsrc_rate_int + fsrc_rate_frac_a/fsrc_rate_frac_b)
 
-At 1:1, the blocks report ``mode_1x: 1`` and ``gain_reduction: 0xfff``.
+At 1:1, the blocks yields ``mode_1x: 1`` and ``gain_reduction: 0xfff``.
 
 .. _ad9088 fsrc reconfig:
 
@@ -350,21 +345,17 @@ between.
    $ echo 1 > fsrc_tx_reconfig
    $ echo 1 > fsrc_rx_reconfig
 
-The DMA sample rate follows the ratio: with the TX at N/M, a DMA tone of
-frequency f leaves the DAC at f M/N relative to the DAC NCO; with the RX at
-N/M, the captured tone scales by N/M.
-
 TX over SPI
 -----------
 
 Without ``adi,fsrc-gpio-trig``, ``fsrc_tx_reconfig``:
 
-#. Enables the FPGA TX FSRC and waits 10 ms.
+#. Enables the FPGA TX FSRC.
 #. Enables the Apollo DSP reset on trigger, and runs the manual dynamic
-   reconfiguration sync, which applies the new configuration.
+   reconfiguration sync, applying the new configuration.
 #. Disarms the trigger resets.
 #. Starts the FPGA TX data at the new ratio.
-#. After 100 us, resets the JRx rate match FIFOs of links A0 and B0.
+#. Resets the JRx rate match FIFOs of links A0 and B0.
 
 The new rate is applied at an SPI write, so the FPGA hole pattern and the
 Apollo FSRC start at an arbitrary time relative to each other and to SYSREF.
@@ -374,37 +365,31 @@ TX with the SYSREF Timed Trigger
 
 With ``adi,fsrc-gpio-trig``, ``fsrc_tx_reconfig``:
 
-#. Enables the FPGA TX FSRC and stops the TX data: the FPGA sends only
+#. Enables the FPGA TX FSRC and stops the TX data, the FPGA sends only
    invalid samples.
-#. Forces invalid samples on the Apollo JTx links, and waits 1 s for the
-   invalid samples to flow through the system.
-#. Resets the JRx rate match FIFOs of links A0 and B0, while only invalid
-   samples arrive.
+#. Forces invalid samples on the Apollo JTx links, and waits for the invalid
+   samples to flow through.
+#. Resets the JRx rate match FIFOs of links A0 and B0.
 #. Maps the trigger pin A0 to all RX and TX blocks, enables the DSP reset on
    trigger, and arms the trigger sync.
-#. Starts the FPGA sequencer: at the trigger count it triggers the Apollo
-   reconfiguration, and at the data start count the FPGA TX starts sending
-   valid samples.
+#. Starts the FPGA sequencer, at the trigger count it triggers the Apollo
+   reconfiguration, and at the data start count the FPGA FSRC TX starts sending
+   distributed valid and invalid samples.
 #. Clears the trigger sync and disarms the trigger resets.
 
-The JRx rate match FIFOs start empty, and the Apollo reconfiguration and
-the FPGA data start happen at fixed SYSREF counts from the sequencer start,
-so the timing repeats from one reconfiguration to the next. There is no
-rate match FIFO reset after the trigger, which would be at an arbitrary
-time. The JTx forced invalid samples clear when the reconfiguration
-completes. The sequence takes about 1.1 s.
+The JRx rate match FIFOs start empty, and the Apollo reconfiguration and the
+FPGA data start happen at fixed SYSREF counts from the sequencer start. There
+is no rate match FIFO reset after the trigger. The JTx forced invalid samples
+clear when the reconfiguration completes.
 
 RX
 --
 
-``fsrc_rx_reconfig`` always reconfigures over SPI:
+``fsrc_rx_reconfig`` reconfigures over SPI:
 
-#. Enables the FPGA RX FSRC, which removes the -FS invalid samples.
-#. Enables the Apollo DSP reset on trigger, and runs the manual dynamic
+#. Enables the FPGA RX FSRC, removing -FS invalid samples.
+#. Enables the Apollo DSP reset on trigger, and runs the dynamic
    reconfiguration sync.
 #. Disarms the trigger resets.
 
-The RX needs no alignment with the FPGA, which deletes the invalid samples
-wherever they are. Running the sequencer here would also restart the TX hole
-pattern. The JRx rate match FIFOs are on the TX path, so the RX
-reconfiguration does not reset them.
+The RX needs no alignment with the FPGA.
