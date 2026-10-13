@@ -349,6 +349,9 @@ int amdgpu_get_xgmi_link_status(struct amdgpu_device *adev, int global_link_num)
  * The XGMI memory space is built by contiguously adding the power of
  * two padded VRAM space from each node to each other.
  *
+ * Note that even if multiple GPUs have the same hive ID, sharing between their
+ * memory spaces via XGMI links can be disabled in firmware, i.e. hive
+ * membership does not guarantee connectivity.
  */
 
 static struct attribute amdgpu_xgmi_hive_id = {
@@ -1484,7 +1487,8 @@ bool amdgpu_xgmi_same_hive(struct amdgpu_device *adev,
 {
 	return (amdgpu_use_xgmi_p2p && adev != bo_adev &&
 		adev->gmc.xgmi.hive_id &&
-		adev->gmc.xgmi.hive_id == bo_adev->gmc.xgmi.hive_id);
+		adev->gmc.xgmi.hive_id == bo_adev->gmc.xgmi.hive_id &&
+		amdgpu_xgmi_get_is_sharing_enabled(adev, bo_adev));
 }
 
 void amdgpu_xgmi_early_init(struct amdgpu_device *adev)
