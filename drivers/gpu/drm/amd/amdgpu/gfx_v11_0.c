@@ -944,7 +944,7 @@ static int gfx_v11_0_rlc_init(struct amdgpu_device *adev)
 
 	/* init spm vmid with 0xf */
 	if (adev->gfx.rlc.funcs->update_spm_vmid)
-		adev->gfx.rlc.funcs->update_spm_vmid(adev, 0, NULL, adev->vm_manager.spm_vmid);
+		adev->gfx.rlc.funcs->update_spm_vmid(adev, 0, adev->vm_manager.spm_vmid);
 
 	return 0;
 }
@@ -5748,7 +5748,7 @@ static int gfx_v11_0_update_gfx_clock_gating(struct amdgpu_device *adev,
 }
 
 static void gfx_v11_0_update_spm_vmid(struct amdgpu_device *adev, int xcc_id,
-		struct amdgpu_ring *ring, unsigned vmid)
+		unsigned int vmid)
 {
 	u32 reg, pre_data, data;
 
@@ -5769,14 +5769,6 @@ static void gfx_v11_0_update_spm_vmid(struct amdgpu_device *adev, int xcc_id,
 			WREG32_SOC15(GC, 0, regRLC_SPM_MC_CNTL, data);
 	}
 	amdgpu_gfx_off_ctrl(adev, true);
-
-	if (ring
-		&& amdgpu_sriov_is_pp_one_vf(adev)
-		&& (pre_data != data)
-		&& ((ring->funcs->type == AMDGPU_RING_TYPE_GFX)
-			|| (ring->funcs->type == AMDGPU_RING_TYPE_COMPUTE))) {
-		amdgpu_ring_emit_wreg(ring, reg, data);
-	}
 }
 
 static const struct amdgpu_rlc_funcs gfx_v11_0_rlc_funcs = {

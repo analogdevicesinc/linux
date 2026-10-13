@@ -8320,7 +8320,7 @@ static void gfx_v10_0_update_spm_vmid_internal(struct amdgpu_device *adev,
 }
 
 static void gfx_v10_0_update_spm_vmid(struct amdgpu_device *adev, int xcc_id,
-		struct amdgpu_ring *ring, unsigned int vmid)
+		unsigned int vmid)
 {
 	amdgpu_gfx_off_ctrl(adev, false);
 
