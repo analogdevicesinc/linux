@@ -35,7 +35,6 @@
 #include <asm/cpu_mf.h>
 #include <asm/processor.h>
 #include <asm/ptrace.h>
-#include <asm/vtimer.h>
 #include <asm/exec.h>
 #include <asm/fpu.h>
 #include <asm/irq.h>
