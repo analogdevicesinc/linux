@@ -415,5 +415,7 @@ struct xe_ras_set_health_response {
 struct xe_ras_state {
 	/** @disable_vram_page_offline: cached configfs policy, immutable after init */
 	bool disable_vram_page_offline;
+	/** @max_pages: Total number of pages that can be stored by firmware */
+	u32 max_pages;
 };
 #endif

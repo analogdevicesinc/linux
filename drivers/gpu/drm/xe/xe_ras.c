@@ -353,6 +353,7 @@ static void process_offline_pages(struct xe_device *xe, u32 cmd, void *req, size
 {
 	struct xe_sysctrl_mailbox_command command = {0};
 	struct xe_ras_offline_list_request *list_req;
+	struct xe_ras_state *state = &xe->ras.state;
 	u32 total_pages = 0, count = 0;
 	size_t rlen;
 	int ret, i;
@@ -381,6 +382,11 @@ static void process_offline_pages(struct xe_device *xe, u32 cmd, void *req, size
 				   rlen, resp_size, cmd);
 			return;
 		}
+
+		/* Populate the maximum number of pages from offline list */
+		if (list_req && !state->max_pages)
+			state->max_pages =
+				((struct xe_ras_offline_list_response *)resp)->max_entries;
 
 		for (i = 0; i < common->pages_returned && i < XE_RAS_NUM_PAGES; i++)
 			handle_page_offline(xe, common->page_addresses[i], notify_fw);
@@ -1123,6 +1129,17 @@ static const struct attribute_group gpu_health_group = {
 bool xe_ras_get_disable_vram_page_offline(struct xe_device *xe)
 {
 	return xe->ras.state.disable_vram_page_offline;
+}
+
+/**
+ * xe_ras_get_max_pages - Get the maximum number of pages
+ * @xe: xe device instance
+ *
+ * Return: Maximum number of pages stored by the firmware in flash
+ */
+u32 xe_ras_get_max_pages(struct xe_device *xe)
+{
+	return xe->ras.state.max_pages;
 }
 
 /**
