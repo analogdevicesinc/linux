@@ -6819,8 +6819,6 @@ static const struct bpf_raw_tp_null_args raw_tp_null_args[] = {
 	/* amdgpu */
 	{ "amdgpu_vm_bo_map", 0x1 },
 	{ "amdgpu_vm_bo_unmap", 0x1 },
-	/* netfs */
-	{ "netfs_folioq", 0x1 },
 	/* xfs from xfs_defer_pending_class */
 	{ "xfs_defer_create_intent", 0x1 },
 	{ "xfs_defer_cancel_list", 0x1 },
