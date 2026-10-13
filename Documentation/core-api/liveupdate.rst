@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0
 
+.. _luo:
+
 ========================
 Live Update Orchestrator
 ========================
@@ -17,6 +19,8 @@ LUO Preserving File Descriptors
 ===============================
 .. kernel-doc:: kernel/liveupdate/luo_file.c
    :doc: LUO File Descriptors
+
+.. _flb:
 
 LUO File Lifecycle Bound Global Data
 ====================================
