@@ -221,7 +221,7 @@ static struct kvm_vcpu *save_restore_vm(struct kvm_vm *vm,
 	vcpu_regs_get(vcpu, &regs2);
 	TEST_ASSERT(!memcmp(&regs1, &regs2, sizeof(regs2)),
 		    "Unexpected register values after vcpu_load_state; rdi: %lx rsi: %lx",
-		    (ulong) regs2.rdi, (ulong) regs2.rsi);
+		    (unsigned long)regs2.rdi, (unsigned long)regs2.rsi);
 	return vcpu;
 }
 
@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
 		/* UCALL_SYNC is handled here.  */
 		TEST_ASSERT(!strcmp((const char *)uc.args[0], "hello") &&
 			    uc.args[1] == stage, "Stage %d: Unexpected register values vmexit, got %lx",
-			    stage, (ulong)uc.args[1]);
+			    stage, (unsigned long)uc.args[1]);
 
 		vcpu = save_restore_vm(vm, vcpu);
 

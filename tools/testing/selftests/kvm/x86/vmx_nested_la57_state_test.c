@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
 		}
 
 		TEST_ASSERT(uc.args[1] == stage,
-			    "Expected stage %d, got stage %lu", stage, (ulong)uc.args[1]);
+			    "Expected stage %d, got stage %lu", stage, (unsigned long)uc.args[1]);
 		if (stage == 1) {
 			pr_info("L2 is active; performing save/restore.\n");
 			state = vcpu_save_state(vcpu);
