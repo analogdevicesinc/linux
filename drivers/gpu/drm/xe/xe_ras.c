@@ -343,6 +343,89 @@ static bool ras_counter_is_valid(struct xe_device *xe, struct xe_ras_error_class
 	return true;
 }
 
+/*
+ * Fetch and process offline list and queue from firmware via mailbox. @notify_fw controls
+ * whether firmware is notified of the offline/remove action.
+ */
+static void process_offline_pages(struct xe_device *xe, u32 cmd, void *req, size_t req_size,
+				  void *resp, size_t resp_size,
+				  struct xe_ras_offline_common *common, bool notify_fw)
+{
+	struct xe_sysctrl_mailbox_command command = {0};
+	struct xe_ras_offline_list_request *list_req;
+	u32 total_pages = 0, count = 0;
+	size_t rlen;
+	int ret, i;
+
+	list_req = req;
+
+	xe_sysctrl_create_command(&command, XE_SYSCTRL_GROUP_GFSP, cmd, req, req_size, resp,
+				  resp_size);
+
+	do {
+		memset(resp, 0, resp_size);
+
+		if (list_req)
+			list_req->index = count;
+
+		ret = xe_sysctrl_send_command(&xe->sc, &command, &rlen);
+		if (ret) {
+			xe_log_err(xe, SYSCTRL, ret, "failed to get page offline data, cmd=%#x\n",
+				   cmd);
+			return;
+		}
+
+		if (rlen != resp_size) {
+			xe_log_err(xe, SYSCTRL, -EINVAL,
+				   "unexpected page offline response length %zu (expected %zu), cmd=%#x\n",
+				   rlen, resp_size, cmd);
+			return;
+		}
+
+		for (i = 0; i < common->pages_returned && i < XE_RAS_NUM_PAGES; i++)
+			handle_page_offline(xe, common->page_addresses[i], notify_fw);
+
+		count += common->pages_returned;
+		if (!common->pages_returned)
+			break;
+
+		if (!total_pages)
+			total_pages = common->total_pages;
+
+		if (count > total_pages) {
+			xe_log_err(xe, SYSCTRL, -EINVAL,
+				   "Pages returned exceed total pages %u, returned %u, cmd=%#x\n",
+				   total_pages, count, cmd);
+			return;
+		}
+	} while (common->additional_data);
+}
+
+/*
+ * Retrieve firmware queued pages from warm-retained SRAM during probe. Handle and soft-offline
+ * each page as required.
+ */
+static void get_offline_queue(struct xe_device *xe)
+{
+	struct xe_ras_offline_common response = {0};
+
+	process_offline_pages(xe, XE_SYSCTRL_CMD_GET_OFFLINE_QUEUE, NULL, 0, &response,
+			      sizeof(response), &response, true);
+}
+
+/*
+ * Retrieve permanently offlined pages from firmware's non-volatile storage during probe,
+ * allowing the driver to soft-offline them before kernel allocations begin.
+ */
+static void get_offline_list(struct xe_device *xe)
+{
+	struct xe_ras_offline_list_response response = {0};
+	struct xe_ras_offline_list_request request = {0};
+
+	process_offline_pages(xe, XE_SYSCTRL_CMD_GET_OFFLINE_LIST, &request, sizeof(request),
+			      &response, sizeof(response), &response.common, false);
+}
+
 static struct pci_dev *find_usp_dev(struct pci_dev *pdev)
 {
 	struct pci_dev *vsp;
@@ -1066,6 +1149,10 @@ void xe_ras_init(struct xe_device *xe)
 
 	if (IS_ENABLED(CONFIG_PCIEAER))
 		ras_usp_aer_init(xe);
+
+	/* Fetch the offline list before queue to avoid duplication */
+	get_offline_list(xe);
+	get_offline_queue(xe);
 
 	ret = devm_device_add_group(xe->drm.dev, &gpu_health_group);
 	if (ret)
