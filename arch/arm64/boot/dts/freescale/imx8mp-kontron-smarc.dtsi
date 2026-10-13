@@ -116,13 +116,13 @@
 
 /*
  * Rename SoM signals according to SMARC module usage:
- *   PCIE_CLKREQ -> PCIE_A_CKREQ
+ *   GPIO_A_7 -> TEST
  *   PCIE_A_PERST -> PCIE_A_RST
  *   SDIO_B_D5 -> n.a.
  *   SDIO_B_D6 -> n.a.
  *   SDIO_B_D7 -> n.a.
- *   SPI_A_WP -> n.a.
- *   SPI_A_HOLD -> n.a.
+ *   UART_B_RX -> SER2_RX
+ *   I2S_LRCLK -> I2S0_LRCK
  *   UART_B_RTS -> SER2_RTS
  *   UART_B_CTS -> SER2_CTS
  *   SDIO_B_D0 -> GPIO8
@@ -144,8 +144,8 @@
  */
 &gpio3 {
 	pinctrl-0 = <&pinctrl_gpio3>, <&pinctrl_gpio3_smarc>;
-	gpio-line-names = "PCIE_WAKE", "PCIE_A_CKREQ", "PCIE_A_RST", "",
-			  "", "", "", "",
+	gpio-line-names = "PCIE_WAKE", "TEST", "PCIE_A_RST", "",
+			  "", "", "SER2_RX", "I2S0_LRCK",
 			  "SER2_RTS", "SER2_CTS", "GPIO8", "GPIO9",
 			  "GPIO10", "GPIO11", "", "",
 			  "SMB_ALERT", "GPIO6", "GPIO7", "LCD0_BKLT_EN",
@@ -170,9 +170,9 @@
  *   CAN_A_RX -> CAN0_RX
  *   CAN_B_TX -> CAN1_TX
  *   CAN_B_RX -> CAN1_RX
- *   GPIO_A_7 -> TEST
+ *   I2S_B_DATA_IN -> n.a.
  *   I2S_A_DATA_IN -> I2S0_SDIN
- *   I2S_LRCLK -> I2S0_LRCK
+ *   I2S_B_DATA_OUT -> n.a.
  */
 &gpio4 {
 	gpio-line-names = "", "", "", "LED",
@@ -182,7 +182,7 @@
 			  "ETH_A_TX_EN", "ETH_A_TX_CLK", "ETH2_INT", "USB_HUB_RST",
 			  "ETH1_INT", "GPIO4", "CAN0_TX", "SER0_CTS",
 			  "SER0_RTS", "CAN0_RX", "CAN1_TX", "CAN1_RX",
-			  "TEST", "CARRIER_PWR_EN", "I2S0_SDIN", "I2S0_LRCK";
+			  "", "CARRIER_PWR_EN", "I2S0_SDIN", "";
 };
 
 /*
@@ -215,7 +215,7 @@
  *   UART_C_TX -> SER3_TX
  *   UART_CON_RX -> SER1_RX
  *   UART_CON_TX -> SER1_TX
- *   UART_B_RX -> SER2_RX
+ *   PCIe_CLKREQ -> PCIE_A_CKREQ
  *   UART_B_TX -> SER2_TX
  */
 &gpio5 {
@@ -228,7 +228,7 @@
 			  "I2C_GP_CK", "I2C_GP_DAT", "HDMI_CTRL_CK", "HDMI_CTRL_DAT",
 			  "I2C_CAM1_CK", "I2C_CAM1_DAT", "SER0_RX", "SER0_TX",
 			  "SER3_RX", "SER3_TX", "SER1_RX", "SER1_TX",
-			  "SER2_RX", "SER2_TX";
+			  "PCIE_A_CKREQ", "SER2_TX";
 };
 
 &usb_dwc3_1 {
