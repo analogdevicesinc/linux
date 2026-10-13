@@ -1055,6 +1055,9 @@ void w1_search(struct w1_master *dev, u8 search_type, w1_slave_found_callback cb
 				dev_dbg(&dev->dev, "Abort w1_search\n");
 				return;
 			}
+
+			/* Busy-waiting masters can hold the CPU for a whole pass */
+			cond_resched();
 		}
 		mutex_unlock(&dev->bus_mutex);
 
