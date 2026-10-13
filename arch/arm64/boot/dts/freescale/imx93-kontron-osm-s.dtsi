@@ -59,8 +59,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio2>;
 	gpio-line-names = "I2C_B_SDA", "I2C_B_SCL", "GPIO_B_1", "GPIO_A_2",
-			  "UART_B_TX", "UART_B_RX", "UART_B_RTS", "UART_B_CTS",
-			  "UART_A_TX", "UART_A_RX", "UART_A_RTS", "UART_A_CTS",
+			  "UART_B_TX", "UART_B_RX", "UART_B_CTS", "UART_B_RTS",
+			  "UART_A_TX", "UART_A_RX", "UART_A_CTS", "UART_A_RTS",
 			  "SPI_B_CS0", "SPI_B_SDI", "SPI_B_SDO", "SPI_B_SCK",
 			  "I2S_BITCLK", "I2S_MCLK", "GPIO_A_1", "I2S_A_DATA_OUT",
 			  "I2S_A_DATA_IN", "PWM_2", "GPIO_A_3", "PWM_1",
@@ -423,8 +423,8 @@
 		fsl,pins = <
 			MX93_PAD_GPIO_IO05__LPUART6_RX			0x31e /* UART_B_RX */
 			MX93_PAD_GPIO_IO04__LPUART6_TX			0x31e /* UART_B_TX */
-			MX93_PAD_GPIO_IO07__LPUART6_RTS_B		0x31e /* UART_B_CTS */
-			MX93_PAD_GPIO_IO06__LPUART6_CTS_B		0x31e /* UART_B_RTS */
+			MX93_PAD_GPIO_IO07__LPUART6_RTS_B		0x31e /* UART_B_RTS */
+			MX93_PAD_GPIO_IO06__LPUART6_CTS_B		0x31e /* UART_B_CTS */
 		>;
 	};
 
@@ -432,8 +432,8 @@
 		fsl,pins = <
 			MX93_PAD_GPIO_IO09__LPUART7_RX			0x31e /* UART_A_RX */
 			MX93_PAD_GPIO_IO08__LPUART7_TX			0x31e /* UART_A_TX */
-			MX93_PAD_GPIO_IO11__LPUART7_RTS_B		0x31e /* UART_A_CTS */
-			MX93_PAD_GPIO_IO10__LPUART7_CTS_B		0x31e /* UART_A_RTS */
+			MX93_PAD_GPIO_IO11__LPUART7_RTS_B		0x31e /* UART_A_RTS */
+			MX93_PAD_GPIO_IO10__LPUART7_CTS_B		0x31e /* UART_A_CTS */
 		>;
 	};
 
