@@ -907,6 +907,17 @@ static const struct attribute_group gpu_health_group = {
 };
 
 /**
+ * xe_ras_get_disable_vram_page_offline - Get the vram page offline user policy
+ * @xe: xe device instance
+ *
+ * Return: true if the vram page offline policy is disabled, false otherwise.
+ */
+bool xe_ras_get_disable_vram_page_offline(struct xe_device *xe)
+{
+	return xe->ras.state.disable_vram_page_offline;
+}
+
+/**
  * xe_ras_init - Initialize Xe RAS
  * @xe: xe device instance
  *
@@ -916,18 +927,17 @@ void xe_ras_init(struct xe_device *xe)
 {
 	int ret;
 
-	/*
-	 * TODO: Replace platform check with xe->info.has_disable_vram_page_offline
-	 * once the feature flag is plumbed through device info.
-	 */
-	if (xe->info.platform == XE_CRESCENTISLAND)
-		xe->ras.disable_vram_page_offline =
-			xe_configfs_get_disable_vram_page_offline(to_pci_dev(xe->drm.dev));
-
 	xe_drm_ras_init(xe);
 
 	if (!xe->info.has_sysctrl)
 		return;
+
+	/*
+	 * TODO: Replace with xe->info.has_disable_vram_page_offline once the feature flag is
+	 * plumbed through device info.
+	 */
+	xe->ras.state.disable_vram_page_offline =
+		xe_configfs_get_disable_vram_page_offline(to_pci_dev(xe->drm.dev));
 
 	if (IS_ENABLED(CONFIG_PCIEAER))
 		ras_usp_aer_init(xe);
