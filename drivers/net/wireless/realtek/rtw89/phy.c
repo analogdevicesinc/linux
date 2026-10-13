@@ -4499,7 +4499,7 @@ static void rtw89_phy_cfo_set_crystal_cap(struct rtw89_dev *rtwdev,
 {
 	struct rtw89_cfo_tracking_info *cfo = &rtwdev->cfo_tracking;
 	const struct rtw89_chip_info *chip = rtwdev->chip;
-	u8 sc_xi_val, sc_xo_val;
+	u8 sc_xi_val = 0, sc_xo_val = 0;
 
 	if (!force && cfo->crystal_cap == crystal_cap)
 		return;
@@ -5392,6 +5392,7 @@ static void rtw89_phy_stat_rssi_update(struct rtw89_dev *rtwdev)
 static void rtw89_phy_stat_init(struct rtw89_dev *rtwdev)
 {
 	struct rtw89_phy_stat *phystat = &rtwdev->phystat;
+	struct rtw89_bb_ctx *bb;
 	int i;
 
 	for (i = 0; i < rtwdev->chip->rf_path_num; i++)
@@ -5399,24 +5400,28 @@ static void rtw89_phy_stat_init(struct rtw89_dev *rtwdev)
 
 	rtw89_phy_stat_thermal_update(rtwdev);
 
-	memset(&phystat->cur_pkt_stat, 0, sizeof(phystat->cur_pkt_stat));
-	memset(&phystat->last_pkt_stat, 0, sizeof(phystat->last_pkt_stat));
+	rtw89_for_each_capab_bb(rtwdev, bb) {
+		memset(&bb->cur_pkt_stat, 0, sizeof(bb->cur_pkt_stat));
+		memset(&bb->last_pkt_stat, 0, sizeof(bb->last_pkt_stat));
 
-	ewma_rssi_init(&phystat->bcn_rssi);
+		ewma_rssi_init(&bb->bcn_rssi);
+	}
 
 	rtwdev->hal.thermal_prot_lv = 0;
 }
 
 void rtw89_phy_stat_track(struct rtw89_dev *rtwdev)
 {
-	struct rtw89_phy_stat *phystat = &rtwdev->phystat;
+	struct rtw89_bb_ctx *bb;
 
 	rtw89_phy_stat_thermal_update(rtwdev);
 	rtw89_phy_thermal_protect(rtwdev);
 	rtw89_phy_stat_rssi_update(rtwdev);
 
-	phystat->last_pkt_stat = phystat->cur_pkt_stat;
-	memset(&phystat->cur_pkt_stat, 0, sizeof(phystat->cur_pkt_stat));
+	rtw89_for_each_active_bb(rtwdev, bb) {
+		bb->last_pkt_stat = bb->cur_pkt_stat;
+		memset(&bb->cur_pkt_stat, 0, sizeof(bb->cur_pkt_stat));
+	}
 }
 
 static u16 rtw89_phy_ccx_us_to_idx(struct rtw89_dev *rtwdev,
