@@ -589,7 +589,7 @@ bool amdgpu_vmid_uses_reserved(struct amdgpu_vm *vm, unsigned int vmhub)
 }
 
 /*
- * amdgpu_vmid_alloc_reserved - reserve a specific VMID for this vm
+ * amdgpu_vmid_alloc_spm - reserve a specific VMID for this vm
  * @adev: amdgpu device structure
  * @vm: the VM to reserve an ID for
  * @vmhub: the VMHUB which should be used
@@ -598,7 +598,7 @@ bool amdgpu_vmid_uses_reserved(struct amdgpu_vm *vm, unsigned int vmhub)
  *
  * Returns: 0 for success, -ENOENT if an ID is already reserved.
  */
-int amdgpu_vmid_alloc_reserved(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+int amdgpu_vmid_alloc_spm(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 			       unsigned vmhub)
 {
 	struct amdgpu_kq_vmid_mgr *id_mgr = &adev->vm_manager.id_mgr[vmhub];
@@ -629,7 +629,7 @@ unlock:
 }
 
 /*
- * amdgpu_vmid_free_reserved - free up a reserved VMID again
+ * amdgpu_vmid_free_spm - free up a reserved VMID again
  * @adev: amdgpu device structure
  * @vm: the VM with the reserved ID
  * @vmhub: the VMHUB which should be used
@@ -637,7 +637,7 @@ unlock:
  * Waits for all work that used the reserved VMID to finish before unbinding
  * its page table, so submissions still in flight don't suddenly fault.
  */
-void amdgpu_vmid_free_reserved(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+void amdgpu_vmid_free_spm(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 			       unsigned vmhub)
 {
 	struct amdgpu_kq_vmid_mgr *id_mgr = &adev->vm_manager.id_mgr[vmhub];

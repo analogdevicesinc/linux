@@ -2893,7 +2893,7 @@ void amdgpu_vm_fini(struct amdgpu_device *adev, struct amdgpu_vm *vm)
 	dma_fence_put(vm->last_update);
 
 	for (i = 0; i < AMDGPU_MAX_VMHUBS; i++) {
-		amdgpu_vmid_free_reserved(adev, vm, i);
+		amdgpu_vmid_free_spm(adev, vm, i);
 	}
 
 	ttm_lru_bulk_move_fini(&adev->mman.bdev, &vm->lru_bulk_move);
@@ -2996,7 +2996,7 @@ int amdgpu_vm_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 		int r;
 
 		/* We only have requirement to reserve vmid from gfxhub */
-		r = amdgpu_vmid_alloc_reserved(adev, vm, AMDGPU_GFXHUB(0));
+		r = amdgpu_vmid_alloc_spm(adev, vm, AMDGPU_GFXHUB(0));
 		if (!r && !amdgpu_bo_reserve(vm->root.bo, true)) {
 			amdgpu_vm_spm_update(adev, vm);
 			amdgpu_bo_unreserve(vm->root.bo);
@@ -3004,7 +3004,7 @@ int amdgpu_vm_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 		return r;
 	}
 	case AMDGPU_VM_OP_UNRESERVE_VMID:
-		amdgpu_vmid_free_reserved(adev, vm, AMDGPU_GFXHUB(0));
+		amdgpu_vmid_free_spm(adev, vm, AMDGPU_GFXHUB(0));
 		break;
 	default:
 		return -EINVAL;
