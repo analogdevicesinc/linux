@@ -30,6 +30,7 @@ enum {
 
 struct gpio_wdt_priv {
 	struct gpio_desc	*gpiod;
+	struct gpio_desc	*reset_from_wdt;
 	bool			state;
 	bool			always_running;
 	unsigned int		hw_algo;
@@ -135,6 +136,20 @@ static int gpio_wdt_probe(struct platform_device *pdev)
 	priv->gpiod = devm_gpiod_get(dev, NULL, gflags);
 	if (IS_ERR(priv->gpiod))
 		return PTR_ERR(priv->gpiod);
+
+	priv->reset_from_wdt = devm_gpiod_get_optional(dev, "reset-from-wdt", GPIOD_IN);
+	if (IS_ERR(priv->reset_from_wdt))
+		return dev_err_probe(dev, PTR_ERR(priv->reset_from_wdt),
+				     "failed to get reset-from-wdt-gpios.");
+
+	if (priv->reset_from_wdt) {
+		int val = gpiod_get_value_cansleep(priv->reset_from_wdt);
+
+		if (val < 0)
+			return val;
+
+		priv->wdd.bootstatus = val ? WDIOF_CARDRESET : 0;
+	}
 
 	ret = device_property_read_u32(dev, "hw_margin_ms", &hw_margin);
 	if (ret)
