@@ -54,17 +54,13 @@ static inline struct innolux_panel *to_innolux_panel(struct drm_panel *panel)
 static int innolux_panel_unprepare(struct drm_panel *panel)
 {
 	struct innolux_panel *innolux = to_innolux_panel(panel);
-	int err;
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = innolux->link };
 
-	err = mipi_dsi_dcs_set_display_off(innolux->link);
-	if (err < 0)
-		dev_err(panel->dev, "failed to set display off: %d\n", err);
-
-	err = mipi_dsi_dcs_enter_sleep_mode(innolux->link);
-	if (err < 0) {
-		dev_err(panel->dev, "failed to enter sleep mode: %d\n", err);
-		return err;
-	}
+	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
+	/* Reset error to continue power-down sequence even if display off failed */
+	dsi_ctx.accum_err = 0;
+	/* Enter sleep mode; error does not prevent power-off */
+	mipi_dsi_dcs_enter_sleep_mode_multi(&dsi_ctx);
 
 	if (innolux->desc->sleep_mode_delay)
 		msleep(innolux->desc->sleep_mode_delay);
@@ -74,10 +70,8 @@ static int innolux_panel_unprepare(struct drm_panel *panel)
 	if (innolux->desc->power_down_delay)
 		msleep(innolux->desc->power_down_delay);
 
-	err = regulator_bulk_disable(innolux->desc->num_supplies,
-				     innolux->supplies);
-	if (err < 0)
-		return err;
+	regulator_bulk_disable(innolux->desc->num_supplies,
+			       innolux->supplies);
 
 	return 0;
 }
@@ -85,6 +79,7 @@ static int innolux_panel_unprepare(struct drm_panel *panel)
 static int innolux_panel_prepare(struct drm_panel *panel)
 {
 	struct innolux_panel *innolux = to_innolux_panel(panel);
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = innolux->link };
 	int err;
 
 	gpiod_set_value_cansleep(innolux->enable_gpio, 0);
@@ -108,23 +103,17 @@ static int innolux_panel_prepare(struct drm_panel *panel)
 			goto poweroff;
 	}
 
-	err = mipi_dsi_dcs_exit_sleep_mode(innolux->link);
-	if (err < 0) {
-		dev_err(panel->dev, "failed to exit sleep mode: %d\n", err);
-		goto poweroff;
-	}
-
+	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
 	/* T6: 120ms - 1000ms*/
-	msleep(120);
+	mipi_dsi_msleep(&dsi_ctx, 120);
+	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
+	/* T7: 5ms */
+	mipi_dsi_usleep_range(&dsi_ctx, 5000, 6000);
 
-	err = mipi_dsi_dcs_set_display_on(innolux->link);
-	if (err < 0) {
-		dev_err(panel->dev, "failed to set display on: %d\n", err);
+	if (dsi_ctx.accum_err) {
+		err = dsi_ctx.accum_err;
 		goto poweroff;
 	}
-
-	/* T7: 5ms */
-	usleep_range(5000, 6000);
 
 	return 0;
 
