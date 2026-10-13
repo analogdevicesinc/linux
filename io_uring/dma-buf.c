@@ -18,8 +18,6 @@ int io_register_dmabuf(struct io_ring_ctx *ctx,
 	struct dma_buf *dmabuf = NULL;
 	int ret;
 
-	if (!IS_ENABLED(CONFIG_DMA_SHARED_BUFFER))
-		return -EOPNOTSUPP;
 	if (ctx->flags & IORING_SETUP_IOPOLL)
 		return -EOPNOTSUPP;
 	if (desc->uaddr || desc->size)
