@@ -811,9 +811,6 @@ struct dc_clocks {
 	int idle_fclk_khz;
 	int subvp_prefetch_dramclk_khz;
 	int subvp_prefetch_fclk_khz;
-	/* deprecated: use _KBps variants — will be removed after DML update */
-	unsigned int utm_urgent_bandwidth_lb_Kbps;
-	unsigned int utm_nominal_bandwidth_lb_Kbps;
 	unsigned int utm_urgent_bandwidth_lb_KBps;
 	unsigned int utm_nominal_bandwidth_lb_KBps;
 	unsigned int utm_latency_ub_index;
