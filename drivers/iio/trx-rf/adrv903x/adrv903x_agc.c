@@ -101,6 +101,9 @@ static ssize_t adrv903x_agc_config_write(struct file *file,
 	adi_adrv903x_AgcCfg_t *agc = &phy->rx_agc[priv->idx];
 	int ret;
 
+	if (count > PAGE_SIZE)
+		agc = NULL;
+
 	agc->rxChannelMask = ADI_ADRV903X_RX0 << priv->idx;
 
 	/* Firmware returns defaults outside documented valid ranges — clamp before commit */
