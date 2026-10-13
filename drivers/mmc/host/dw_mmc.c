@@ -2945,6 +2945,8 @@ static int dw_mci_init_host_caps(struct dw_mci *host)
 	if (mmc->caps & MMC_CAP_SDIO_IRQ)
 		mmc->caps2 |= MMC_CAP2_SDIO_IRQ_NOTHREAD;
 
+	mmc->caps |= MMC_CAP_DONE_COMPLETE;
+
 	return 0;
 }
 
