@@ -32,6 +32,11 @@
 #define SENTINEL_VMA_END	-1
 #define SENTINEL_VMA_GATE	-2
 
+static bool addr_is_sentinel(loff_t addr)
+{
+	return addr == SENTINEL_VMA_END || addr == SENTINEL_VMA_GATE;
+}
+
 #define SEQ_PUT_DEC(str, val) \
 		seq_put_decimal_ull_width(m, str, (val) << (PAGE_SHIFT-10), 8)
 void task_mem(struct seq_file *m, struct mm_struct *mm)
@@ -263,7 +268,7 @@ static void *m_start(struct seq_file *m, loff_t *ppos)
 	 * Reset current position if last_addr was set before
 	 * and it's not a sentinel.
 	 */
-	if (last_addr > 0)
+	if (last_addr && !addr_is_sentinel(last_addr))
 		*ppos = last_addr = priv->last_pos;
 	vma_iter_init(&priv->iter, mm, (unsigned long)last_addr);
 	hold_task_mempolicy(priv);
