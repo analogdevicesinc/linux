@@ -907,6 +907,9 @@ static struct io_rsrc_node *io_register_dmabuf_desc(struct io_ring_ctx *ctx,
 	struct io_mapped_ubuf *imu = NULL;
 	int ret;
 
+	if (!IS_ENABLED(CONFIG_DMA_SHARED_BUFFER))
+		return ERR_PTR(-EOPNOTSUPP);
+
 	node = io_rsrc_node_alloc(ctx, IORING_RSRC_BUFFER);
 	if (!node)
 		return ERR_PTR(-ENOMEM);
