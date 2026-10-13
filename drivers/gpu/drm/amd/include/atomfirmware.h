@@ -1325,7 +1325,8 @@ struct atom_external_display_connection_info
   uint8_t                  remotedisplayconfig;
   uint8_t                  edptolvdsrxid;
   uint8_t                  fixdpvoltageswing;                         // usCaps[1]=1, this indicate DP_LANE_SET value
-  uint8_t                  reserved[3];                               // for potential expansion
+  uint8_t                  optc_underflow_enable;                     // enable OPTC underflow interrupt
+  uint8_t                  reserved[2];                               // for potential expansion
 };
 
 /* 
