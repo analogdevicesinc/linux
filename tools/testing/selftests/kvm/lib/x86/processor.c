@@ -26,6 +26,8 @@ bool host_cpu_is_amd;
 bool host_cpu_is_intel;
 bool host_cpu_is_hygon;
 bool host_cpu_is_amd_compatible;
+bool host_cpu_is_zhaoxin;
+bool host_cpu_is_intel_compatible;
 bool is_forced_emulation_enabled;
 u64 guest_tsc_khz;
 struct kvm_mmu guest_mmu;
@@ -158,7 +160,7 @@ static void sregs_dump(FILE *stream, struct kvm_sregs *sregs, u8 indent)
 
 bool kvm_is_tdp_enabled(void)
 {
-	if (host_cpu_is_intel)
+	if (host_cpu_is_intel_compatible)
 		return get_kvm_intel_param_bool("ept");
 	else
 		return get_kvm_amd_param_bool("npt");
@@ -822,6 +824,8 @@ void kvm_arch_vm_post_create(struct kvm_vm *vm, unsigned int nr_vcpus)
 	sync_global_to_guest(vm, host_cpu_is_amd);
 	sync_global_to_guest(vm, host_cpu_is_hygon);
 	sync_global_to_guest(vm, host_cpu_is_amd_compatible);
+	sync_global_to_guest(vm, host_cpu_is_zhaoxin);
+	sync_global_to_guest(vm, host_cpu_is_intel_compatible);
 	sync_global_to_guest(vm, is_forced_emulation_enabled);
 	sync_global_to_guest(vm, pmu_errata_mask);
 
@@ -1447,6 +1451,8 @@ void kvm_selftest_arch_init(void)
 	host_cpu_is_amd = this_cpu_is_amd();
 	host_cpu_is_hygon = this_cpu_is_hygon();
 	host_cpu_is_amd_compatible = host_cpu_is_amd || host_cpu_is_hygon;
+	host_cpu_is_zhaoxin = this_cpu_is_zhaoxin();
+	host_cpu_is_intel_compatible = host_cpu_is_intel || host_cpu_is_zhaoxin;
 	is_forced_emulation_enabled = kvm_is_forced_emulation_enabled();
 
 	kvm_init_pmu_errata();
