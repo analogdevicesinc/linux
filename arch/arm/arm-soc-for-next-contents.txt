@@ -1,19 +1,22 @@
 soc/arm
-	patch
-		ARM: remove sa1100 platform
-		ARM: remove footbridge
-		ARM: remove legacy pxa board files
-		ARM: orion/dove/mv78xx0: remove all board files
-		ARM: orion5x: fold plat-orion/pcie.c and hw_pci into pci.c
-		ARM: omap2: remove omap24xx support
-		ARM: imx: remove i.MX31 SoC support
-		ARM: versatile: remove Integrator/CM1136JF-S option
-		ARM: imx: remove nommu support
-		ARM: lpc18xx: remove entire platform
-		ARM: stm32: remove stm32f4/f7/h7 MCU support
-		ARM: versatile: remove mps2 support
-		ARM: at91: remove samv7 support
-		ARM: axxia: remove entire platform
+	khilman/omap
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.4/soc-signed
+	frank.li/imx-soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-soc-7.4
+	iwamatsu/visconti
+		https://git.kernel.org/pub/scm/linux/kernel/git/iwamatsu/linux-visconti tags/visconti-soc-7.4
+	tegra/arm-core
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-arm-core
+	gclement/mvebu
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-arm-7.4-1
+	krzk/samsung-soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-soc-7.4
+	sudeep.holla/vexpress-fixes
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/vexpress-fixes-7.4
+	dinguyen/socfpga-maintainer
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_maintainer_update_for_v7.4
+	at91/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-7.4
 
 soc/dt
 	renesas/dt
@@ -47,12 +50,56 @@ soc/drivers
 	scmi/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-7.4
 		contains scmi/fixes
+	qcom/drivers-fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-fixes-for-7.3
+	qcom/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.4-2
+	qcom/drivers-3
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.4-3
+	frank.li/imx-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-drivers-7.4
+	geert/renesas-drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.4-tag2
+	sven/apple-soc-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-drivers-7.4
+	krzk/samsung-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-7.4
+	krzk/mem-ctrl
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-mem-ctrl tags/memory-controller-drv-7.4
+	ti/driver
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-driver-soc-for-v7.4
+	amlogic/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-drivers-for-v7.4
+	patch
+		bus: arm-cci: Drop CPU node reference in cci_ace_init_ports()
+		bus: arm-cci: Drop cci-control-port node reference in __cci_ace_get_port()
+		arm64: enable HAVE_SHARED_GPIOS for all ARM64 platforms
+	tegra/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-soc
+	jenswi/tee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-for-v7.4
+	jenswi/qcomtee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/qcomtee-for-v7.4
+	at91/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-7.4
+	chleroy/soc-fsl
+		https://git.kernel.org/pub/scm/linux/kernel/git/chleroy/linux tags/soc_fsl-7.4-1
 
 soc/defconfig
 	renesas/defconfig
 		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v7.4-tag1
 	qcom/defconfig
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-7.4
+	patch
+		arm64: defconfig: Update coreboot firmware symbols
+	khilman/omap-defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.4/defconfig-signed
+	tegra/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-arm64-defconfig
+	ti/k3-config
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-config-for-v7.4
+	qcom/arm64-defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-7.4-2
 
 soc/late
 
