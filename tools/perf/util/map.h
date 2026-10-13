@@ -258,6 +258,8 @@ static inline int is_no_dso_memory(const char *filename)
 {
 	return !strncmp(filename, "[stack", 6) ||
 	       !strncmp(filename, "/SYSV", 5)  ||
+	       !strncmp(filename, "/dev/shm/no-dso.",
+	                sizeof("/dev/shm/no-dso.") - 1) ||
 	       !strcmp(filename, "[heap]");
 }
 
