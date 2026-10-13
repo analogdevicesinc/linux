@@ -7,6 +7,7 @@
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
 
 #include <linux/atomic.h>
+#include <linux/bitfield.h>
 #include <linux/cpu_pm.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -86,7 +87,7 @@ enum {
 #define TCS_AMC_MODE_TRIGGER		BIT(24)
 
 /* TCS CMD register bit mask */
-#define CMD_MSGID_LEN			8
+#define CMD_MSGID_LEN			GENMASK(3, 0)
 #define CMD_MSGID_RESP_REQ		BIT(8)
 #define CMD_MSGID_WRITE			BIT(16)
 #define CMD_STATUS_ISSUED		BIT(8)
@@ -499,13 +500,20 @@ static void __tcs_buffer_write(struct rsc_drv *drv, int tcs_id, int cmd_id,
 			       const struct tcs_request *msg)
 {
 	u32 msgid;
-	u32 cmd_msgid = CMD_MSGID_LEN;
+	u32 cmd_msgid;
 	u32 cmd_enable = 0;
 	struct tcs_cmd *cmd;
 	int i, j;
 
 	/* Convert all commands to RR when the request has wait_for_compl set */
-	cmd_msgid |= msg->wait_for_compl ? CMD_MSGID_RESP_REQ : 0;
+	cmd_msgid = msg->wait_for_compl ? CMD_MSGID_RESP_REQ : 0;
+
+	if (msg->is_read && (drv->ver.major > 4 ||
+			     (drv->ver.major == 4 && drv->ver.minor >= 5)))
+		cmd_msgid |= FIELD_PREP(CMD_MSGID_LEN, 4);
+	else
+		cmd_msgid |= FIELD_PREP(CMD_MSGID_LEN, 8);
+
 	if (!msg->is_read)
 		cmd_msgid |= CMD_MSGID_WRITE;
 
@@ -842,7 +850,7 @@ exit:
 }
 
 /**
- * rpmh_rsc_cpu_pm_callback() - Check if any of the AMCs are busy.
+ * rpmh_rsc_cpu_pm_callback() - CPU PM notifier to flush sleep/wake TCS data.
  * @nfb:    Pointer to the notifier block in struct rsc_drv.
  * @action: CPU_PM_ENTER, CPU_PM_ENTER_FAILED, or CPU_PM_EXIT.
  * @v:      Unused
@@ -923,7 +931,7 @@ static int rpmh_rsc_cpu_pm_callback(struct notifier_block *nfb,
 }
 
 /**
- * rpmh_rsc_pd_callback() - Check if any of the AMCs are busy.
+ * rpmh_rsc_pd_callback() - PM domain callback to flush sleep/wake TCS data.
  * @nfb:    Pointer to the genpd notifier block in struct rsc_drv.
  * @action: GENPD_NOTIFY_PRE_OFF, GENPD_NOTIFY_OFF, GENPD_NOTIFY_PRE_ON or GENPD_NOTIFY_ON.
  * @v:      Unused
