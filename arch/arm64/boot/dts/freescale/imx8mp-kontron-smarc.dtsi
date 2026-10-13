@@ -175,6 +175,7 @@
  *   CAN_B_TX -> CAN1_TX
  *   CAN_B_RX -> CAN1_RX
  *   I2S_B_DATA_IN -> n.a.
+ *   GPIO_C_1 -> n.a.
  *   I2S_A_DATA_IN -> I2S0_SDIN
  *   I2S_B_DATA_OUT -> n.a.
  */
@@ -190,7 +191,7 @@
 			  "ETH2_INT", "USB_HUB_RST",
 			  "ETH1_INT", "GPIO4", "CAN0_TX", "SER0_CTS",
 			  "SER0_RTS", "CAN0_RX", "CAN1_TX", "CAN1_RX",
-			  "", "CARRIER_PWR_EN", "I2S0_SDIN", "";
+			  "", "", "I2S0_SDIN", "";
 };
 
 /*
